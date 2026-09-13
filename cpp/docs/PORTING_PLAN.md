@@ -28,13 +28,13 @@ The C++ port lives in `cpp/` on the `C++` branch.
 | 1 | `commons`: logging, config, database, networking, utilities | Unit tests pass; network integration test passes | ✅ 2026-09-12: ported, adversarially reviewed (52 findings fixed/resolved), 394 tests |
 | 2 | `login-server` | A real 4.8 client logs in through the C++ login server | ✅ 2026-09-12: ported, reviewed (13 findings resolved), 147 tests; real 4.8 client logged in and got the server list |
 | 3 | `chat-server` | Chat works with the game server | |
-| 4 | game-server foundation: static data (JAXB replacement), geo, world, object model, DAOs, network packets | All static data loads and counts match the Java server | |
+| 4 | game-server foundation: static data (JAXB replacement), geo, world, object model, DAOs, network packets | All static data loads and counts match the Java server | in progress: design done (docs/design), next: prototypes P1-P4 |
 | 5 | game-server systems: skills, stats, quests engine, services, AI framework | Log in, walk around, fight a mob | |
 | 6 | Handlers: quests, AI, instances, admin/player commands | Mostly mechanical, done in parallel batches | |
 
 Tooling needed by later phases:
-- **XML loader generator (phase 4):** reads the JAXB annotations of `game-server/src/**/templates` and writes C++ structs plus pugixml loaders.
-  Writing about 760 JAXB classes by hand would be a months-long source of bugs.
+- **XML loader generator (phase 4):** reads the JAXB annotations of all ~787 JAXB files (templates, skillengine, dataholders, questEngine, ...)
+  and writes member blocks plus pugixml binders (see design/static-data.md).
 - **No Java reference runs:** the user decided against installing a JDK, so the Java server is a read-only reference. Protocol code is
   verified with standard test vectors, client-side inverse implementations, fake client/server end-to-end tests, adversarial review, and
   finally the real Aion 4.8 client.
@@ -57,8 +57,10 @@ Tooling needed by later phases:
 | XML (JAXB) | pugixml plus generated loaders (phase 4) |
 | Scheduling (Quartz cron) | a cron expression parser (phase 4/5) |
 | Strings | `std::string` holding UTF-8 everywhere; UTF-16LE only at the wire boundary |
-| Script handlers (runtime `javax.tools` compilation) | Compiled into the game server binary with explicit registration (see below) |
-| Game object lifetimes (GC) | To be decided at the start of phase 4 (shared_ptr/weak_ptr vs. handle/ID lookups) |
+| Script handlers (runtime `javax.tools` compilation) | Compiled into the game server binary with explicit registration (see below and the handler design) |
+| Game server runtime (GC, free threading) | Free-threaded like Java: atomic intrusive `Ref<T>` with task-scoped borrows and an epoch Reclaimer, `Field<T>`/`Monitor` derived from Java modifiers, eager packet serialization. See [design/runtime-architecture.md](design/runtime-architecture.md) |
+| Static data (JAXB) | Python generator from the Java annotations; generated member blocks included in hand-written classes; census-based verification. See [design/static-data.md](design/static-data.md) |
+| Handler registration | One-line marker macros + build-time registry scanner. See [design/handlers-and-porting-plan.md](design/handlers-and-porting-plan.md) |
 | Config introspection for `//configure` (Java: reflection on config fields by name) | To be decided with the handler registration design in phase 4/6: field names on `bind`, per-class field enumeration, value-to-string |
 
 ## Future notes (not planned now)
