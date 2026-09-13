@@ -1,0 +1,63 @@
+# Aion 4.8 server emulator: C++ port
+
+A C++23 port of this repository's Java server (Beyond Aion 4.8). The Java code in the parent directory stays the reference implementation.
+Status and roadmap: [docs/PORTING_PLAN.md](docs/PORTING_PLAN.md). Coding rules: [docs/CONVENTIONS.md](docs/CONVENTIONS.md).
+Intentional differences from Java: [docs/DEVIATIONS.md](docs/DEVIATIONS.md).
+
+| Module | Status |
+|---|---|
+| commons | done: ported, reviewed; 394 tests (incl. database integration tests) |
+| login-server | not started |
+| chat-server | not started |
+| game-server | not started |
+
+## Requirements (Windows)
+
+- Windows 10 1903 / Windows Server 2022 or newer (the `std::chrono` time zone database uses the system ICU)
+- Visual Studio 2026 with the "Desktop development with C++" workload. It includes MSVC, CMake and vcpkg.
+- Git, used by vcpkg to fetch the package registry.
+
+Dependencies (Asio, spdlog, fmt, MariaDB Connector/C, OpenSSL, cpr, nlohmann-json, magic_enum, GoogleTest) are declared in `vcpkg.json` and
+built automatically on the first configure. That first build takes a while; later ones come from vcpkg's binary cache.
+CMake finds vcpkg via `CMAKE_TOOLCHAIN_FILE`, then `$VCPKG_ROOT`, then the copy bundled with the latest Visual Studio installation.
+
+## Building
+
+Visual Studio: *File › Open › Folder...* and pick `cpp/`. The presets from `CMakePresets.json` appear in the toolbar.
+
+Command line (any shell; CMake from Visual Studio or a standalone CMake ≥ 3.28):
+
+```bash
+cmake --preset msvc
+```
+
+```bash
+cmake --build --preset msvc-debug
+```
+
+```bash
+ctest --preset msvc-debug
+```
+
+The build output goes to `build/msvc`, and dependencies are installed once into `vcpkg_installed/` (both are git-ignored).
+
+Sources are picked up by directory globs. With the Visual Studio generator, a newly added `.cpp` file is only compiled by the **second** build:
+the first build just regenerates the projects. Build twice after adding files.
+
+## Local database
+
+The servers use the same MySQL/MariaDB schemas as the Java server (`../login-server/sql/aion_ls.sql`, `../chat-server/sql/aion_cs.sql`,
+`../game-server/sql/aion_gs.sql`) and the same defaults in `config/network/database.properties`: `localhost:3306`, user `root`, empty password.
+
+On the development machine, a portable MariaDB 11.8 LTS lives in `D:\aion-dev` (outside the repository). It is not a Windows service and only
+listens on 127.0.0.1:
+
+- `D:\aion-dev\start-mariadb.bat` starts it in a minimized console window; `D:\aion-dev\stop-mariadb.bat` shuts it down cleanly.
+- The databases `aion_ls`, `aion_cs` and `aion_gs` are created from the schema files; `aion_cpp_test` is a scratch database for integration tests.
+- Config: `D:\aion-dev\mariadb-data\my.ini` (utf8mb4 with `utf8mb4_general_ci`, so the Java server works against it too). Log: `mariadb-data\mariadb.err`.
+
+Database integration tests are skipped unless these environment variables are set, e.g. in Git Bash:
+
+```bash
+AION_TEST_DATABASE_URL="jdbc:mysql://localhost:3306/aion_cpp_test" AION_TEST_DATABASE_USER=root AION_TEST_DATABASE_PASSWORD= ctest --preset msvc-debug
+```

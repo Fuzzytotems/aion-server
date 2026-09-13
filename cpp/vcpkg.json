@@ -1,0 +1,17 @@
+{
+  "$schema": "https://raw.githubusercontent.com/microsoft/vcpkg-tool/main/docs/vcpkg.schema.json",
+  "name": "aion-server-cpp",
+  "version-string": "4.8",
+  "description": "C++ port of the Beyond Aion 4.8 server emulator",
+  "dependencies": [
+    "asio",
+    "cpr",
+    "fmt",
+    "gtest",
+    "libmariadb",
+    "magic-enum",
+    "nlohmann-json",
+    "openssl",
+    "spdlog"
+  ]
+}
