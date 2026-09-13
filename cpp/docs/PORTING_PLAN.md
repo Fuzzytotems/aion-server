@@ -26,7 +26,7 @@ The C++ port lives in `cpp/` on the `C++` branch.
 |---|---|---|---|
 | 0 | Build skeleton: CMake + vcpkg manifest, presets, conventions docs | `cmake --preset msvc` configures and builds | ✅ 2026-09-12 |
 | 1 | `commons`: logging, config, database, networking, utilities | Unit tests pass; network integration test passes | ✅ 2026-09-12: ported, adversarially reviewed (52 findings fixed/resolved), 394 tests |
-| 2 | `login-server` | A real 4.8 client logs in through the C++ login server | |
+| 2 | `login-server` | A real 4.8 client logs in through the C++ login server | ✅ 2026-09-12: ported, reviewed (13 findings resolved), 147 tests; real 4.8 client logged in and got the server list |
 | 3 | `chat-server` | Chat works with the game server | |
 | 4 | game-server foundation: static data (JAXB replacement), geo, world, object model, DAOs, network packets | All static data loads and counts match the Java server | |
 | 5 | game-server systems: skills, stats, quests engine, services, AI framework | Log in, walk around, fight a mob | |
@@ -35,8 +35,9 @@ The C++ port lives in `cpp/` on the `C++` branch.
 Tooling needed by later phases:
 - **XML loader generator (phase 4):** reads the JAXB annotations of `game-server/src/**/templates` and writes C++ structs plus pugixml loaders.
   Writing about 760 JAXB classes by hand would be a months-long source of bugs.
-- **Packet capture/replay harness (phase 2+):** records traffic between the Java server and a client, then replays it against the C++ server
-  and diffs the responses. This requires a JDK 25 to run the Java reference server (not installed yet).
+- **No Java reference runs:** the user decided against installing a JDK, so the Java server is a read-only reference. Protocol code is
+  verified with standard test vectors, client-side inverse implementations, fake client/server end-to-end tests, adversarial review, and
+  finally the real Aion 4.8 client.
 - **A local MariaDB/MySQL server** to run the servers and the database integration tests: portable MariaDB 11.8 LTS in `D:\aion-dev`
   (see README › Local database).
 

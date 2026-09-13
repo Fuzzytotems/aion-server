@@ -27,12 +27,15 @@ target_compile_definitions(aion_compiler_options INTERFACE
 
 # Adds a static library whose sources are all .cpp/.h files below src/<subdir>. Headers are included as "aion/<module>/...".
 function(aion_add_library target)
-	cmake_parse_arguments(ARG "" "SOURCE_ROOT" "SOURCE_DIRS;DEPENDS" ${ARGN})
+	cmake_parse_arguments(ARG "" "SOURCE_ROOT;EXCLUDE_REGEX" "SOURCE_DIRS;DEPENDS" ${ARGN})
 	set(sources)
 	foreach(dir IN LISTS ARG_SOURCE_DIRS)
 		file(GLOB_RECURSE dir_sources CONFIGURE_DEPENDS "${ARG_SOURCE_ROOT}/${dir}/*.cpp" "${ARG_SOURCE_ROOT}/${dir}/*.h")
 		list(APPEND sources ${dir_sources})
 	endforeach()
+	if(ARG_EXCLUDE_REGEX AND sources)
+		list(FILTER sources EXCLUDE REGEX "${ARG_EXCLUDE_REGEX}")
+	endif()
 	if(sources)
 		source_group(TREE "${ARG_SOURCE_ROOT}" FILES ${sources})
 	else()

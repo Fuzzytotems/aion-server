@@ -102,3 +102,52 @@ Any other difference is a bug: code not listed here should behave like Java.
 | `ServerCfg.getIP` | Resolved address | Configured host string (resolved at bind/connect, IPv4 first) | Unresolved `InetSocketAddress` |
 | Accept errors | Retried on next select | Logged, retried after 100 ms | No busy loop on e.g. EMFILE |
 | Misc | `readB(-1)` → NegativeArraySizeException; `sendPacket(null)` → NPE later; `Object.toString()` | `IllegalArgumentException`; null packets ignored; `toString()` = "<SimpleClassName> <ip>" | No equivalents / better logs |
+
+## login-server / encryption (`network/ncrypt`)
+
+| Area | Java | C++ | Reason |
+|---|---|---|---|
+| `CryptEngine.decrypt` checksum | Loops `i < length - 4` instead of `offset + length - 4`: packets not at read offset 2 are only partly verified | Always verifies the whole packet (identical to Java at offset 2, the first packet of a read) | Java bug; spans have no offset |
+| `CryptEngine` threads | Cipher shared by read (decrypt) and write (encrypt/rekey) paths without synchronization | Internal mutex | Data race is UB |
+| Invalid encrypt input / empty keys | AIOOBE after partial writes; broken cipher state | `IndexOutOfBounds`/`IllegalState`/`IllegalArgumentException` before anything is modified | Exception safety; unreachable with valid packets |
+| `KeyGen` | NPE/null before `init()`; key pair array overwritten on re-init | `IllegalStateException` before `init()`; `shared_ptr<const EncryptedRSAKeyPair>` behind a mutex, handed-out pairs stay valid | No null; memory safety |
+| Blowfish session key | JCE `KeyGenerator("Blowfish")` (128 bit) | 16 bytes from OpenSSL `RAND_bytes` | No JCE; equivalent CSPRNG key |
+| RSA login data decryption | Inline `Cipher` per 128-byte block in `CM_LOGIN` | `EncryptedRSAKeyPair::decrypt(span)` → `optional` (nullopt where Java catches `GeneralSecurityException`) | Reusable API; same result |
+
+Kept on purpose because it is on the wire: `AionServerPacket` passes `payload size - 2` to `encrypt`, so for payload sizes with `size % 8 == 5`
+the checksum overwrites the last payload byte (first packet: `size % 8 == 1` loses it to the XOR key). The checksum check ignores the last
+word, so client packets carry the checksum in the last-but-one word; the "unknown/random" trailing fields of `CM_*` packets are that padding.
+
+## login-server / data layer
+
+| Area | Java | C++ | Reason |
+|---|---|---|---|
+| Unknown config property warnings | Removes the keys referenced by the logback.xml in use | Always removes `Logging::getPropertyKeys("loginserver")` | No logback.xml |
+| Logging settings | logback reads `logging.properties` and `myls.properties` itself | `Config::loadLoggingConfig()` reads the same files for `Logging::init` | Logging is configured in code |
+| `Account` / `AccountTime` | Unsynchronized fields; `AccountTime` shared and changed in place | One mutex per account; getters return copies; `modifyAccountTime`/`modifyAndStoreAccountTime` do atomic read-modify(-store) | Data races are UB; stored copies must not overwrite newer state (e.g. a ban penalty) |
+| `AccountDAO` name column | `static final` chosen at class init | Chosen from `Config::useExternalAuth()` per call | Config must be loaded first; same result |
+| `AccountDAO.getLastIp` | `null` for NULL (CM_BAN then throws an NPE: no ban, kick or response) | `""` (CM_BAN bans the given IP, kicks and answers) | Java bug |
+| `BannedHddDAO.load` | Zero date is stored as null, SM_HDDBAN_LIST later throws an NPE | Row skipped with a warning | No null timestamps |
+| Nullables | `null` accounts, bans, strings, timestamps | `shared_ptr` (nullptr), `optional`, empty strings where the column is `NOT NULL` | No null references |
+
+## login-server / protocols, controllers, startup
+
+| Area | Java | C++ | Reason |
+|---|---|---|---|
+| Game server packet execution | Cached thread pool: packets of one game server run concurrently and unordered | `PacketProcessor<GsConnection>(4, 8, 50, 3)`: per game server in receive order; `CM_GS_PONG` runs directly on the IO thread | Memory safety and ordering; a pong behind a slow packet must not trigger the ping timeout |
+| Executors and shutdown | Static executors, shut down in `onServerClose` | `NetConnector` owns packet processors, ping scheduler and 8 disconnect threads; joined on shutdown; restartable | C++ must join threads; in-process tests |
+| `LoginConnection` session id | `Object.hashCode()` | Random int in [1, INT_MAX] | No identity hash |
+| `LoginConnection.onDisconnect` | Removes the account id from `accountsOnLS` whichever connection is mapped | Only if it maps to this connection; logins that finish after a disconnect clean up after themselves (`AccountAttachScope`) | Java bugs: a kicked client could remove the new login; stale connections kept accounts "logged in" |
+| `GameServerInfo` accounts | Added unconditionally; connection and accounts cleared separately on disconnect | Added only while that connection is active; connection + accounts cleared atomically | A packet finishing after a disconnect left the account "already logged in" until restart |
+| `GameServerTable` | HashMap order; unsynchronized registration; NPE races on kick | Ordered by id; registration serialized; kick skipped if the game server just left | Determinism; data races |
+| `CM_BAN` | Penalty only in the DB unless the account is on a game server (a later logout of the LS/reconnecting copy lifts it) | Penalty also set on the in-memory account found on the LS or in the reconnect state; `kickAccount` also drops pending fast reconnects | Java bug |
+| `SM_ACCOUNT_AUTH_RESPONSE` | Looks the account up again while writing (NPE if it left) | Account time snapshot passed to the constructor | Race between packet processing and IO write |
+| `SM_SERVER_LIST` | NPE without character counts; endless byte loop at id 127 | Missing counts = empty; int loop counter | Java bugs |
+| `CM_PTRANSFER_CONTROL` | Service call in `readImpl` (IO thread) | In `runImpl` (packet processor) | No database work on IO threads |
+| `CM_ACCOUNT_LIST` | Negative/huge counts → exceptions or OOM | Invalid count throws, packet not executed | Memory safety |
+| Ban list packets | Iterate live unsynchronized maps while writing | Copy taken under the controller mutex | Data race |
+| `ExternalAuth` | No timeout; fastjson2 | cpr with 30 s timeout, no redirects; nlohmann-json mimicking fastjson's lenient parsing | A hanging auth server must not block packet threads |
+| Scheduled tasks / `PingPongTask` | Exceptions silently stop periodic tasks; NPE if the GS info is gone | Exceptions logged, task stops; "Gameserver #null connection died" | No exceptions escaping threads |
+| NPE cases | `NullPointerException` | `IllegalState`/`IllegalArgumentException` with the same observable result (logged, no response) | No NPE |
+| Startup failure | Main thread dies, started threads keep the JVM alive | Logged, started components shut down, exit code `ERROR_` | The process must not hang |
+| Command line / shutdown hook | No arguments; JVM shutdown hook | `-Dkey=value` overrides config properties (C++ addition); `SetConsoleCtrlHandler` (Ctrl+C, close, logoff, shutdown) or SIGINT/SIGTERM | Run against scratch databases; no JVM hooks |

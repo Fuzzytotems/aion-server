@@ -7,7 +7,7 @@ Intentional differences from Java: [docs/DEVIATIONS.md](docs/DEVIATIONS.md).
 | Module | Status |
 |---|---|
 | commons | done: ported, reviewed; 394 tests (incl. database integration tests) |
-| login-server | not started |
+| login-server | done: ported, reviewed; 147 tests; a real 4.8 client logs in |
 | chat-server | not started |
 | game-server | not started |
 
@@ -43,6 +43,22 @@ The build output goes to `build/msvc`, and dependencies are installed once into 
 
 Sources are picked up by directory globs. With the Visual Studio generator, a newly added `.cpp` file is only compiled by the **second** build:
 the first build just regenerates the projects. Build twice after adding files.
+
+## Running the login server
+
+Run it from the Java module directory, so it uses the same `./config` and `./log` as the Java server (Visual Studio's debugger is set up
+this way already):
+
+```bash
+cd ../login-server && ../cpp/build/msvc/login-server/Debug/aion_login_server.exe
+```
+
+Config properties can be overridden on the command line, e.g. `-Ddatabase.url=jdbc:mysql://localhost:3306/other_db`. Stop it with Ctrl+C.
+For a game server to show up in the client's server list, register it in `aion_ls.gameservers` (id, IP mask, password; the Java game server
+defaults to id 1 and password 1234).
+
+Game client: see the repository's main README (Aion 4.8 NA client, `version.dll` patch, `start.bat` with
+`bin64ion.bin -ip:127.0.0.1 -port:2106 -loginex`).
 
 ## Local database
 

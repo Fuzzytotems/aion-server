@@ -189,6 +189,15 @@ DB::insertUpdate("UPDATE account_data SET last_ip = ? WHERE id = ?", [&](Prepare
 - A `ConnectionFactory` may reject a client with `close(closePacket)` and still return the connection; returning `nullptr` closes the socket
   without a packet.
 
+## Servers: testing and running
+
+- Server executables accept `-Dkey=value` arguments that override config properties (login server: `LoginServer::main`).
+- Server state that is static in Java (controllers, tables, singletons) stays static. Tests therefore use unique account names and client IPs,
+  restart the network component after config changes, and take the cross-process database lock
+  (`tests/support/LoginServerTestDatabase.h`: `lockForProcess()`/`recreateSchema()`) before touching a shared test schema.
+- Client packets in tests: the "unknown/random" trailing fields of Java `CM_*` readImpls are padding, checksum and the ignored last word.
+  Test builders write only the leading fields and let the client crypto helper add the rest, so the sizes match the real client.
+
 ## Random numbers (`Rnd`)
 
 `utils::Rnd` mirrors the Java API (`Rnd::get(min, max)` inclusive, `nextInt(bound)` exclusive, `chance()`, `nextFloat()`...).

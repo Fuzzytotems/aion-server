@@ -42,3 +42,4 @@ if(AION_BUILD_TESTS)
 endif()
 
 add_subdirectory(commons)
+add_subdirectory(login-server)

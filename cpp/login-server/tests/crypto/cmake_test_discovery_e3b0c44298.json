@@ -1,0 +1,261 @@
+{
+  "tests": 45,
+  "name": "AllTests",
+  "testsuites": [
+    {
+      "name": "AionLoginClientCryptoTest",
+      "tests": 11,
+      "testsuite": [
+        {
+          "name": "DecryptsSmInit",
+          "file": "D:\\aion-server\\cpp\\login-server\\tests\\crypto\\AionLoginClientCryptoTest.cpp",
+          "line": 167
+        },
+        {
+          "name": "ServerPacketsAfterInit",
+          "file": "D:\\aion-server\\cpp\\login-server\\tests\\crypto\\AionLoginClientCryptoTest.cpp",
+          "line": 188
+        },
+        {
+          "name": "SmInitWithOverlappingXorKey",
+          "file": "D:\\aion-server\\cpp\\login-server\\tests\\crypto\\AionLoginClientCryptoTest.cpp",
+          "line": 213
+        },
+        {
+          "name": "ClientPacketsVerifyOnServer",
+          "file": "D:\\aion-server\\cpp\\login-server\\tests\\crypto\\AionLoginClientCryptoTest.cpp",
+          "line": 226
+        },
+        {
+          "name": "PadClientPacketLayout",
+          "file": "D:\\aion-server\\cpp\\login-server\\tests\\crypto\\AionLoginClientCryptoTest.cpp",
+          "line": 250
+        },
+        {
+          "name": "LoginDataLayoutMatchesJavaDocumentation",
+          "file": "D:\\aion-server\\cpp\\login-server\\tests\\crypto\\AionLoginClientCryptoTest.cpp",
+          "line": 268
+        },
+        {
+          "name": "CmLoginEndToEnd",
+          "file": "D:\\aion-server\\cpp\\login-server\\tests\\crypto\\AionLoginClientCryptoTest.cpp",
+          "line": 291
+        },
+        {
+          "name": "CmLoginWithWrongKeyPair",
+          "file": "D:\\aion-server\\cpp\\login-server\\tests\\crypto\\AionLoginClientCryptoTest.cpp",
+          "line": 333
+        },
+        {
+          "name": "MalformedInput",
+          "file": "D:\\aion-server\\cpp\\login-server\\tests\\crypto\\AionLoginClientCryptoTest.cpp",
+          "line": 349
+        },
+        {
+          "name": "MakeFrame",
+          "file": "D:\\aion-server\\cpp\\login-server\\tests\\crypto\\AionLoginClientCryptoTest.cpp",
+          "line": 370
+        },
+        {
+          "name": "DecXORPassInvertsFirstPacketObfuscationForAllSizes",
+          "file": "D:\\aion-server\\cpp\\login-server\\tests\\crypto\\AionLoginClientCryptoTest.cpp",
+          "line": 379
+        }
+      ]
+    },
+    {
+      "name": "BlowfishCipherTest",
+      "tests": 11,
+      "testsuite": [
+        {
+          "name": "EricYoungEcbVectorsWithAionByteOrder",
+          "file": "D:\\aion-server\\cpp\\login-server\\tests\\crypto\\BlowfishCipherTest.cpp",
+          "line": 110
+        },
+        {
+          "name": "EricYoungVectorsMatchOpenSsl",
+          "file": "D:\\aion-server\\cpp\\login-server\\tests\\crypto\\BlowfishCipherTest.cpp",
+          "line": 124
+        },
+        {
+          "name": "EricYoungVariableKeyLengthVectors",
+          "file": "D:\\aion-server\\cpp\\login-server\\tests\\crypto\\BlowfishCipherTest.cpp",
+          "line": 133
+        },
+        {
+          "name": "HandDerivedAionByteOrder",
+          "file": "D:\\aion-server\\cpp\\login-server\\tests\\crypto\\BlowfishCipherTest.cpp",
+          "line": 146
+        },
+        {
+          "name": "MatchesOpenSslForRandomKeysAndData",
+          "file": "D:\\aion-server\\cpp\\login-server\\tests\\crypto\\BlowfishCipherTest.cpp",
+          "line": 160
+        },
+        {
+          "name": "RoundTripKeepsTrailingBytes",
+          "file": "D:\\aion-server\\cpp\\login-server\\tests\\crypto\\BlowfishCipherTest.cpp",
+          "line": 176
+        },
+        {
+          "name": "EcbBlocksAreIndependent",
+          "file": "D:\\aion-server\\cpp\\login-server\\tests\\crypto\\BlowfishCipherTest.cpp",
+          "line": 192
+        },
+        {
+          "name": "SubspanActsLikeJavaOffset",
+          "file": "D:\\aion-server\\cpp\\login-server\\tests\\crypto\\BlowfishCipherTest.cpp",
+          "line": 203
+        },
+        {
+          "name": "UpdateKeyReinitializesState",
+          "file": "D:\\aion-server\\cpp\\login-server\\tests\\crypto\\BlowfishCipherTest.cpp",
+          "line": 215
+        },
+        {
+          "name": "EmptyKeyThrows",
+          "file": "D:\\aion-server\\cpp\\login-server\\tests\\crypto\\BlowfishCipherTest.cpp",
+          "line": 231
+        },
+        {
+          "name": "KeyIsCycled",
+          "file": "D:\\aion-server\\cpp\\login-server\\tests\\crypto\\BlowfishCipherTest.cpp",
+          "line": 243
+        }
+      ]
+    },
+    {
+      "name": "CryptEngineTest",
+      "tests": 11,
+      "testsuite": [
+        {
+          "name": "PaddingArithmetic",
+          "file": "D:\\aion-server\\cpp\\login-server\\tests\\crypto\\CryptEngineTest.cpp",
+          "line": 142
+        },
+        {
+          "name": "EncryptMatchesJavaReferenceAtBufferOffset2",
+          "file": "D:\\aion-server\\cpp\\login-server\\tests\\crypto\\CryptEngineTest.cpp",
+          "line": 166
+        },
+        {
+          "name": "FirstPacketFormat",
+          "file": "D:\\aion-server\\cpp\\login-server\\tests\\crypto\\CryptEngineTest.cpp",
+          "line": 194
+        },
+        {
+          "name": "HandDerivedChecksum",
+          "file": "D:\\aion-server\\cpp\\login-server\\tests\\crypto\\CryptEngineTest.cpp",
+          "line": 230
+        },
+        {
+          "name": "VerifyChecksumRules",
+          "file": "D:\\aion-server\\cpp\\login-server\\tests\\crypto\\CryptEngineTest.cpp",
+          "line": 252
+        },
+        {
+          "name": "DecryptMatchesJavaReferenceAtBufferOffset2",
+          "file": "D:\\aion-server\\cpp\\login-server\\tests\\crypto\\CryptEngineTest.cpp",
+          "line": 283
+        },
+        {
+          "name": "JavaChecksumBugAtOtherOffsetsIsNotReproduced",
+          "file": "D:\\aion-server\\cpp\\login-server\\tests\\crypto\\CryptEngineTest.cpp",
+          "line": 329
+        },
+        {
+          "name": "DecryptUsesInitialKeyUntilFirstPacketWasEncrypted",
+          "file": "D:\\aion-server\\cpp\\login-server\\tests\\crypto\\CryptEngineTest.cpp",
+          "line": 343
+        },
+        {
+          "name": "UpdateKeyAfterFirstPacketHasNoEffect",
+          "file": "D:\\aion-server\\cpp\\login-server\\tests\\crypto\\CryptEngineTest.cpp",
+          "line": 366
+        },
+        {
+          "name": "InvalidEncryptArguments",
+          "file": "D:\\aion-server\\cpp\\login-server\\tests\\crypto\\CryptEngineTest.cpp",
+          "line": 382
+        },
+        {
+          "name": "ConcurrentEncryptAndDecrypt",
+          "file": "D:\\aion-server\\cpp\\login-server\\tests\\crypto\\CryptEngineTest.cpp",
+          "line": 410
+        }
+      ]
+    },
+    {
+      "name": "EncryptedRSAKeyPairTest",
+      "tests": 8,
+      "testsuite": [
+        {
+          "name": "EncryptModulusHandDerived",
+          "file": "D:\\aion-server\\cpp\\login-server\\tests\\crypto\\EncryptedRSAKeyPairTest.cpp",
+          "line": 72
+        },
+        {
+          "name": "EncryptModulusByteArrayLengths",
+          "file": "D:\\aion-server\\cpp\\login-server\\tests\\crypto\\EncryptedRSAKeyPairTest.cpp",
+          "line": 114
+        },
+        {
+          "name": "EncryptModulusLongerThan128Bytes",
+          "file": "D:\\aion-server\\cpp\\login-server\\tests\\crypto\\EncryptedRSAKeyPairTest.cpp",
+          "line": 133
+        },
+        {
+          "name": "GeneratedKeyPair",
+          "file": "D:\\aion-server\\cpp\\login-server\\tests\\crypto\\EncryptedRSAKeyPairTest.cpp",
+          "line": 148
+        },
+        {
+          "name": "DecryptRoundTrip",
+          "file": "D:\\aion-server\\cpp\\login-server\\tests\\crypto\\EncryptedRSAKeyPairTest.cpp",
+          "line": 159
+        },
+        {
+          "name": "DecryptFailures",
+          "file": "D:\\aion-server\\cpp\\login-server\\tests\\crypto\\EncryptedRSAKeyPairTest.cpp",
+          "line": 184
+        },
+        {
+          "name": "OtherKeys",
+          "file": "D:\\aion-server\\cpp\\login-server\\tests\\crypto\\EncryptedRSAKeyPairTest.cpp",
+          "line": 213
+        },
+        {
+          "name": "ConcurrentDecrypt",
+          "file": "D:\\aion-server\\cpp\\login-server\\tests\\crypto\\EncryptedRSAKeyPairTest.cpp",
+          "line": 227
+        }
+      ]
+    },
+    {
+      "name": "KeyGenTest",
+      "tests": 4,
+      "testsuite": [
+        {
+          "name": "RsaKeyPairs",
+          "file": "D:\\aion-server\\cpp\\login-server\\tests\\crypto\\KeyGenTest.cpp",
+          "line": 42
+        },
+        {
+          "name": "ReinitReplacesPairsAndKeepsHandedOutOnesValid",
+          "file": "D:\\aion-server\\cpp\\login-server\\tests\\crypto\\KeyGenTest.cpp",
+          "line": 64
+        },
+        {
+          "name": "BlowfishKeys",
+          "file": "D:\\aion-server\\cpp\\login-server\\tests\\crypto\\KeyGenTest.cpp",
+          "line": 76
+        },
+        {
+          "name": "ConcurrentAccess",
+          "file": "D:\\aion-server\\cpp\\login-server\\tests\\crypto\\KeyGenTest.cpp",
+          "line": 94
+        }
+      ]
+    }
+  ]
+}

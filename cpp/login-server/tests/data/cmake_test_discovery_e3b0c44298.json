@@ -1,0 +1,367 @@
+{
+  "tests": 53,
+  "name": "AllTests",
+  "testsuites": [
+    {
+      "name": "ConfigTest",
+      "tests": 7,
+      "testsuite": [
+        {
+          "name": "LoadsShippedConfigDirectory",
+          "file": "D:\\aion-server\\cpp\\login-server\\tests\\data\\configs\\ConfigTest.cpp",
+          "line": 59
+        },
+        {
+          "name": "LoadsLoggingConfigOfShippedConfigDirectory",
+          "file": "D:\\aion-server\\cpp\\login-server\\tests\\data\\configs\\ConfigTest.cpp",
+          "line": 94
+        },
+        {
+          "name": "OverridesDefaultsAndWarnsAboutUnknownProperties",
+          "file": "D:\\aion-server\\cpp\\login-server\\tests\\data\\configs\\ConfigTest.cpp",
+          "line": 105
+        },
+        {
+          "name": "NoOverrideFileAndNoLoggingProperties",
+          "file": "D:\\aion-server\\cpp\\login-server\\tests\\data\\configs\\ConfigTest.cpp",
+          "line": 150
+        },
+        {
+          "name": "MissingConfigDirectoryThrows",
+          "file": "D:\\aion-server\\cpp\\login-server\\tests\\data\\configs\\ConfigTest.cpp",
+          "line": 168
+        },
+        {
+          "name": "InvalidValueThrows",
+          "file": "D:\\aion-server\\cpp\\login-server\\tests\\data\\configs\\ConfigTest.cpp",
+          "line": 182
+        },
+        {
+          "name": "UseExternalAuthIgnoresBlankUrl",
+          "file": "D:\\aion-server\\cpp\\login-server\\tests\\data\\configs\\ConfigTest.cpp",
+          "line": 191
+        }
+      ]
+    },
+    {
+      "name": "SqlScriptTest",
+      "tests": 1,
+      "testsuite": [
+        {
+          "name": "SplitsStatementsAndRemovesComments",
+          "file": "D:\\aion-server\\cpp\\login-server\\tests\\data\\dao\\AccountDAOTest.cpp",
+          "line": 35
+        }
+      ]
+    },
+    {
+      "name": "AccountDAOTest",
+      "tests": 9,
+      "testsuite": [
+        {
+          "name": "InsertAndGetAccount",
+          "file": "D:\\aion-server\\cpp\\login-server\\tests\\data\\dao\\AccountDAOTest.cpp",
+          "line": 46
+        },
+        {
+          "name": "InsertStoresNullColumns",
+          "file": "D:\\aion-server\\cpp\\login-server\\tests\\data\\dao\\AccountDAOTest.cpp",
+          "line": 81
+        },
+        {
+          "name": "InsertDuplicateNameFails",
+          "file": "D:\\aion-server\\cpp\\login-server\\tests\\data\\dao\\AccountDAOTest.cpp",
+          "line": 95
+        },
+        {
+          "name": "UpdateAccount",
+          "file": "D:\\aion-server\\cpp\\login-server\\tests\\data\\dao\\AccountDAOTest.cpp",
+          "line": 108
+        },
+        {
+          "name": "UpdateAccountErrorIsLogged",
+          "file": "D:\\aion-server\\cpp\\login-server\\tests\\data\\dao\\AccountDAOTest.cpp",
+          "line": 141
+        },
+        {
+          "name": "UpdateSingleColumns",
+          "file": "D:\\aion-server\\cpp\\login-server\\tests\\data\\dao\\AccountDAOTest.cpp",
+          "line": 150
+        },
+        {
+          "name": "UpdateMembershipRestoresOldMembershipWhenExpired",
+          "file": "D:\\aion-server\\cpp\\login-server\\tests\\data\\dao\\AccountDAOTest.cpp",
+          "line": 181
+        },
+        {
+          "name": "ExternalAuthUsesExtAuthNameColumn",
+          "file": "D:\\aion-server\\cpp\\login-server\\tests\\data\\dao\\AccountDAOTest.cpp",
+          "line": 197
+        },
+        {
+          "name": "SelectErrorsAreLogged",
+          "file": "D:\\aion-server\\cpp\\login-server\\tests\\data\\dao\\AccountDAOTest.cpp",
+          "line": 223
+        }
+      ]
+    },
+    {
+      "name": "AccountTimeDAOTest",
+      "tests": 4,
+      "testsuite": [
+        {
+          "name": "MissingRowGivesNewAccountTime",
+          "file": "D:\\aion-server\\cpp\\login-server\\tests\\data\\dao\\AccountTimeDAOTest.cpp",
+          "line": 22
+        },
+        {
+          "name": "UpdateAndGetWithNullColumns",
+          "file": "D:\\aion-server\\cpp\\login-server\\tests\\data\\dao\\AccountTimeDAOTest.cpp",
+          "line": 34
+        },
+        {
+          "name": "ReplaceWithExpirationAndPenalty",
+          "file": "D:\\aion-server\\cpp\\login-server\\tests\\data\\dao\\AccountTimeDAOTest.cpp",
+          "line": 50
+        },
+        {
+          "name": "ErrorsAreReported",
+          "file": "D:\\aion-server\\cpp\\login-server\\tests\\data\\dao\\AccountTimeDAOTest.cpp",
+          "line": 74
+        }
+      ]
+    },
+    {
+      "name": "AccountsLogDAOTest",
+      "tests": 1,
+      "testsuite": [
+        {
+          "name": "AddRecord",
+          "file": "D:\\aion-server\\cpp\\login-server\\tests\\data\\dao\\AccountTimeDAOTest.cpp",
+          "line": 84
+        }
+      ]
+    },
+    {
+      "name": "BannedHddDAOTest",
+      "tests": 4,
+      "testsuite": [
+        {
+          "name": "UpdateLoadRemove",
+          "file": "D:\\aion-server\\cpp\\login-server\\tests\\data\\dao\\BanDAOTest.cpp",
+          "line": 27
+        },
+        {
+          "name": "CleanExpiredBans",
+          "file": "D:\\aion-server\\cpp\\login-server\\tests\\data\\dao\\BanDAOTest.cpp",
+          "line": 44
+        },
+        {
+          "name": "ZeroDateReadAsNullIsSkipped",
+          "file": "D:\\aion-server\\cpp\\login-server\\tests\\data\\dao\\BanDAOTest.cpp",
+          "line": 53
+        },
+        {
+          "name": "ErrorsAreLogged",
+          "file": "D:\\aion-server\\cpp\\login-server\\tests\\data\\dao\\BanDAOTest.cpp",
+          "line": 78
+        }
+      ]
+    },
+    {
+      "name": "BannedIpDAOTest",
+      "tests": 3,
+      "testsuite": [
+        {
+          "name": "InsertAndGetAllBans",
+          "file": "D:\\aion-server\\cpp\\login-server\\tests\\data\\dao\\BanDAOTest.cpp",
+          "line": 89
+        },
+        {
+          "name": "UpdateAndRemove",
+          "file": "D:\\aion-server\\cpp\\login-server\\tests\\data\\dao\\BanDAOTest.cpp",
+          "line": 120
+        },
+        {
+          "name": "CleanExpiredBans",
+          "file": "D:\\aion-server\\cpp\\login-server\\tests\\data\\dao\\BanDAOTest.cpp",
+          "line": 152
+        }
+      ]
+    },
+    {
+      "name": "BannedMacDAOTest",
+      "tests": 2,
+      "testsuite": [
+        {
+          "name": "UpdateLoadRemove",
+          "file": "D:\\aion-server\\cpp\\login-server\\tests\\data\\dao\\BanDAOTest.cpp",
+          "line": 163
+        },
+        {
+          "name": "CleanExpiredBansAndErrors",
+          "file": "D:\\aion-server\\cpp\\login-server\\tests\\data\\dao\\BanDAOTest.cpp",
+          "line": 183
+        }
+      ]
+    },
+    {
+      "name": "GameServersDAOTest",
+      "tests": 2,
+      "testsuite": [
+        {
+          "name": "GetAllGameServers",
+          "file": "D:\\aion-server\\cpp\\login-server\\tests\\data\\dao\\GameServerAndTransferDAOTest.cpp",
+          "line": 42
+        },
+        {
+          "name": "ErrorIsLoggedAndServersReadBeforeAreKept",
+          "file": "D:\\aion-server\\cpp\\login-server\\tests\\data\\dao\\GameServerAndTransferDAOTest.cpp",
+          "line": 54
+        }
+      ]
+    },
+    {
+      "name": "PlayerTransferDAOTest",
+      "tests": 3,
+      "testsuite": [
+        {
+          "name": "GetNewReturnsWaitingTasks",
+          "file": "D:\\aion-server\\cpp\\login-server\\tests\\data\\dao\\GameServerAndTransferDAOTest.cpp",
+          "line": 62
+        },
+        {
+          "name": "UpdateSetsStatusCommentAndTimes",
+          "file": "D:\\aion-server\\cpp\\login-server\\tests\\data\\dao\\GameServerAndTransferDAOTest.cpp",
+          "line": 85
+        },
+        {
+          "name": "GetNewErrorIsLogged",
+          "file": "D:\\aion-server\\cpp\\login-server\\tests\\data\\dao\\GameServerAndTransferDAOTest.cpp",
+          "line": 121
+        }
+      ]
+    },
+    {
+      "name": "AccountTimeTest",
+      "tests": 2,
+      "testsuite": [
+        {
+          "name": "DefaultValues",
+          "file": "D:\\aion-server\\cpp\\login-server\\tests\\data\\model\\AccountTest.cpp",
+          "line": 19
+        },
+        {
+          "name": "SettersAndGetters",
+          "file": "D:\\aion-server\\cpp\\login-server\\tests\\data\\model\\AccountTest.cpp",
+          "line": 32
+        }
+      ]
+    },
+    {
+      "name": "AccountTest",
+      "tests": 6,
+      "testsuite": [
+        {
+          "name": "DefaultValues",
+          "file": "D:\\aion-server\\cpp\\login-server\\tests\\data\\model\\AccountTest.cpp",
+          "line": 51
+        },
+        {
+          "name": "SettersAndGetters",
+          "file": "D:\\aion-server\\cpp\\login-server\\tests\\data\\model\\AccountTest.cpp",
+          "line": 68
+        },
+        {
+          "name": "EqualsAndHashCodeUseNameAndPasswordHash",
+          "file": "D:\\aion-server\\cpp\\login-server\\tests\\data\\model\\AccountTest.cpp",
+          "line": 114
+        },
+        {
+          "name": "ModifyAccountTime",
+          "file": "D:\\aion-server\\cpp\\login-server\\tests\\data\\model\\AccountTest.cpp",
+          "line": 142
+        },
+        {
+          "name": "ModifyAndStoreAccountTimeStoresTheLatestState",
+          "file": "D:\\aion-server\\cpp\\login-server\\tests\\data\\model\\AccountTest.cpp",
+          "line": 152
+        },
+        {
+          "name": "ConcurrentAccessIsSafe",
+          "file": "D:\\aion-server\\cpp\\login-server\\tests\\data\\model\\AccountTest.cpp",
+          "line": 187
+        }
+      ]
+    },
+    {
+      "name": "ReconnectingAccountTest",
+      "tests": 1,
+      "testsuite": [
+        {
+          "name": "HoldsAccountAndKey",
+          "file": "D:\\aion-server\\cpp\\login-server\\tests\\data\\model\\AccountTest.cpp",
+          "line": 215
+        }
+      ]
+    },
+    {
+      "name": "BannedIPTest",
+      "tests": 3,
+      "testsuite": [
+        {
+          "name": "DefaultsAndAccessors",
+          "file": "D:\\aion-server\\cpp\\login-server\\tests\\data\\model\\BannedIPTest.cpp",
+          "line": 15
+        },
+        {
+          "name": "IsActive",
+          "file": "D:\\aion-server\\cpp\\login-server\\tests\\data\\model\\BannedIPTest.cpp",
+          "line": 28
+        },
+        {
+          "name": "EqualityAndHashAreBasedOnMask",
+          "file": "D:\\aion-server\\cpp\\login-server\\tests\\data\\model\\BannedIPTest.cpp",
+          "line": 38
+        }
+      ]
+    },
+    {
+      "name": "BannedMacEntryTest",
+      "tests": 2,
+      "testsuite": [
+        {
+          "name": "ConstructFromMillis",
+          "file": "D:\\aion-server\\cpp\\login-server\\tests\\data\\model\\BannedIPTest.cpp",
+          "line": 60
+        },
+        {
+          "name": "ConstructWithTimestampAndDetails",
+          "file": "D:\\aion-server\\cpp\\login-server\\tests\\data\\model\\BannedIPTest.cpp",
+          "line": 75
+        }
+      ]
+    },
+    {
+      "name": "AccountUtilsTest",
+      "tests": 3,
+      "testsuite": [
+        {
+          "name": "EncodePasswordKnownVectors",
+          "file": "D:\\aion-server\\cpp\\login-server\\tests\\data\\utils\\AccountUtilsTest.cpp",
+          "line": 11
+        },
+        {
+          "name": "EncodePasswordHandlesEmbeddedZeroAndLongInput",
+          "file": "D:\\aion-server\\cpp\\login-server\\tests\\data\\utils\\AccountUtilsTest.cpp",
+          "line": 20
+        },
+        {
+          "name": "EncodePasswordIsThreadSafe",
+          "file": "D:\\aion-server\\cpp\\login-server\\tests\\data\\utils\\AccountUtilsTest.cpp",
+          "line": 27
+        }
+      ]
+    }
+  ]
+}
