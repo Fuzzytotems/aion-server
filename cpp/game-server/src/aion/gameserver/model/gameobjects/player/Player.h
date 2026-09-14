@@ -94,13 +94,13 @@ private:
 	runtime::Field<runtime::Ref<team::legion::LegionMember>> legionMember{};
 	runtime::Field<runtime::Ref<Macros>> macros{};
 	runtime::Field<runtime::Ref<skill::PlayerSkillList>> skillList{};
-	runtime::PartSlot<FriendList> friendList{*this}; // fieldmap: part (build/s0b-cycles-work/setII.toml, cycles.toml `part`)
+	runtime::PartSlot<FriendList> friendList{*this};
 	runtime::Field<runtime::Ref<BlockList>> blockList{};
 	const std::unique_ptr<PetList> toyPetList;
 	runtime::PartSlot<Mailbox> mailbox{*this};
 	/** Replaced on every store opening and set to null on closing: retired to the Reclaimer, not kept with the player */
-	runtime::PartSlot<PrivateStore, runtime::RetireTo::RECLAIMER> store{*this}; // fieldmap: part (setII.toml; RECLAIMER: replaced repeatedly)
-	runtime::PartSlot<title::TitleList> titleList{*this}; // fieldmap: late-bound part (build/s0b-cycles-work/setII.toml, cycles.toml `part`)
+	runtime::PartSlot<PrivateStore, runtime::RetireTo::RECLAIMER> store{*this};
+	runtime::PartSlot<title::TitleList> titleList{*this};
 	runtime::Field<runtime::Ref<QuestStateList>> questStateList{};
 	runtime::Field<runtime::Ref<RecipeList>> recipeList{};
 	runtime::Field<runtime::Ref<runtime::RcArrayList<runtime::Ref<house::House>>>> houses{};
@@ -109,13 +109,13 @@ private:
 	const std::unique_ptr<Equipment> equipment;
 	const std::unique_ptr<items::storage::Storage> inventory;
 	const std::unique_ptr<items::storage::Storage> regularWarehouse;
-	const std::array<std::unique_ptr<items::storage::Storage>, PET_BAG_COUNT> petBags; // fieldmap: N = PET_BAG_MAX - PET_BAG_MIN + 1
-	const std::array<std::unique_ptr<items::storage::Storage>, HOUSE_WH_COUNT> cabinets; // fieldmap: N = HOUSE_WH_MAX - HOUSE_WH_MIN + 1
+	const std::array<std::unique_ptr<items::storage::Storage>, PET_BAG_COUNT> petBags;
+	const std::array<std::unique_ptr<items::storage::Storage>, HOUSE_WH_COUNT> cabinets;
 	runtime::Field<runtime::Ref<PlayerSettings>> playerSettings{};
 	runtime::Field<runtime::Ref<team::group::PlayerGroup>> playerGroup{};
 	runtime::Field<runtime::Ref<team::alliance::PlayerAllianceGroup>> playerAllianceGroup{};
 	runtime::Field<runtime::Ref<AbyssRank>> abyssRank{};
-	runtime::PartSlot<npcFaction::NpcFactions> npcFactions{*this}; // fieldmap: part (build/s0b-cycles-work/setII.toml, cycles.toml `part`)
+	runtime::PartSlot<npcFaction::NpcFactions> npcFactions{*this};
 	runtime::Field<int32_t> flyState{0};
 	runtime::PartSlot<controllers::FlyController> flyController{*this};
 	runtime::Field<runtime::Ref<skillengine::task::AbstractInteractionTask>> interactionTask{};
@@ -133,7 +133,7 @@ private:
 	runtime::Field<float> resPosZ{0};
 	runtime::Field<int32_t> abyssRankListUpdateMask{0};
 	runtime::Field<runtime::Ref<BindPointPosition>> bindPoint{};
-	runtime::ConcurrentHashMap<int32_t, runtime::Ref<items::ItemCooldown>> itemCoolDowns{};
+	runtime::ConcurrentHashMap<int32_t, runtime::Ref<items::ItemCooldown>> itemCoolDowns{AION_LOCK_CLASS(Player::itemCoolDowns#stripe)};
 	const std::unique_ptr<PortalCooldownList> portalCooldownList;
 	const runtime::Ref<Cooldowns> craftCooldowns;
 	const runtime::Ref<Cooldowns> houseObjectCooldowns;
@@ -142,7 +142,7 @@ private:
 	runtime::Field<int64_t> hitTimeBoostExpireTimeMillis{};
 	runtime::Field<float> hitTimeBoostCastSpeed{};
 	runtime::Field<runtime::Ref<skillengine::model::ChainSkills>> chainSkills{};
-	runtime::HashMap<controllers::attack::AttackStatus, int64_t> lastCounterSkill{};
+	runtime::HashMap<controllers::attack::AttackStatus, int64_t> lastCounterSkill{AION_LOCK_CLASS(Player::lastCounterSkill)};
 	runtime::Field<int64_t> prisonEndTimeMillis{0};
 	runtime::Field<int64_t> gatherRestrictionMillis{};
 	runtime::Field<std::string> captchaWord{};
@@ -151,8 +151,8 @@ private:
 	runtime::Field<std::shared_ptr<network::aion::AionConnection>> clientConnection{};
 	runtime::Field<const templates::flypath::FlyPathEntry*> flyLocationId{};
 	runtime::Field<int64_t> flyStartTime{};
-	runtime::PartSlot<emotion::EmotionList> emotions{*this}; // fieldmap: part (build/s0b-cycles-work/setII.toml, cycles.toml `part`)
-	runtime::PartSlot<motion::MotionList> motions{*this};    // fieldmap: part (build/s0b-cycles-work/setII.toml, cycles.toml `part`)
+	runtime::PartSlot<emotion::EmotionList> emotions{*this};
+	runtime::PartSlot<motion::MotionList> motions{*this};
 	runtime::Field<int64_t> flyReuseTime{};
 	runtime::Field<bool> isMentor_{};
 	runtime::Field<int64_t> lastMsgTime{0};
@@ -170,14 +170,13 @@ private:
 	runtime::Field<int32_t> robotId{};
 	runtime::Field<bool> isInFfaTeamMode_{};
 	runtime::Field<int32_t> customStates{};
-	// fieldmap: Java null = no faction (PlayerController.java:392)
 	runtime::Field<std::optional<services::panesterra::ahserion::PanesterraFaction>> panesterraFaction{};
 	/**
 	 * C++ only (Java: getStorage(LEGION_WAREHOUSE) returns `new LegionStorageProxy(legionWarehouse, this)` kept alive by the GC): the proxy of the
 	 * last getStorage(LEGION_WAREHOUSE) call. Each call stores a new proxy, the previous one is retired to the Reclaimer, so a proxy returned
 	 * to a task stays valid until the task ends (and while a Ref holds it).
 	 */
-	runtime::PartSlot<items::storage::LegionStorageProxy, runtime::RetireTo::RECLAIMER> legionStorageProxy{*this}; // fieldmap: C++-only proxy holder
+	runtime::PartSlot<items::storage::LegionStorageProxy, runtime::RetireTo::RECLAIMER> legionStorageProxy{*this};
 
 public:
 	runtime::Field<int32_t> speedHackCounter{};

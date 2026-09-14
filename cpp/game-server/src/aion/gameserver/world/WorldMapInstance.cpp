@@ -2,27 +2,15 @@
 
 #include "aion/commons/logging/LoggerFactory.h"
 #include "aion/gameserver/configs/main/WorldConfig.h"
-#include "aion/gameserver/model/team/GeneralTeam.h"
-#include "aion/gameserver/runtime/base/Unported.h"
-#include "aion/gameserver/world/MapRegion.h"
-#include "aion/gameserver/world/WorldPosition.h"
-#include "aion/gameserver/world/zone/ZoneInstance.h"
-
-// S0b transition (docs/design/hub-headers.md §3.3): the constructor and the destructor need the complete member types. Npc, Player and
-// InstanceHandler are hubs of other S0b groups; WorldMap and GeneralTeam are not hubs (their headers come with their chunks). Remove the guard
-// once they exist.
-#if __has_include("aion/gameserver/instance/handlers/InstanceHandler.h") && __has_include("aion/gameserver/model/gameobjects/Npc.h") && \
-	__has_include("aion/gameserver/model/gameobjects/player/Player.h") && __has_include("aion/gameserver/model/team/GeneralTeam.h") && \
-	__has_include("aion/gameserver/world/WorldMap.h")
-#define AION_S0B_WORLD_MAP_INSTANCE_MEMBERS 1
 #include "aion/gameserver/instance/handlers/InstanceHandler.h"
 #include "aion/gameserver/model/gameobjects/Npc.h"
 #include "aion/gameserver/model/gameobjects/player/Player.h"
 #include "aion/gameserver/model/team/GeneralTeam.h"
+#include "aion/gameserver/runtime/base/Unported.h"
+#include "aion/gameserver/world/MapRegion.h"
 #include "aion/gameserver/world/WorldMap.h"
-#else
-#define AION_S0B_WORLD_MAP_INSTANCE_MEMBERS 0
-#endif
+#include "aion/gameserver/world/WorldPosition.h"
+#include "aion/gameserver/world/zone/ZoneInstance.h"
 
 namespace aion::gameserver::world {
 
@@ -33,17 +21,15 @@ int32_t WorldMapInstance::regionSize() {
 	return value;
 }
 
-#if AION_S0B_WORLD_MAP_INSTANCE_MEMBERS
 WorldMapInstance::WorldMapInstance(WorldMap& parentValue, int32_t instanceIdValue, int32_t maxPlayersValue,
 	const std::function<runtime::Ref<instance::handlers::InstanceHandler>(WorldMapInstance&)>& instanceHandlerSupplier)
 	: parent(parentValue), instanceId(instanceIdValue), maxPlayers(maxPlayersValue) {
 	// Java: zones = ZoneService.getInstance().getZoneInstancesByWorldId(parent.getMapId()); instanceHandler = instanceHandlerSupplier.apply(this);
-	// initMapRegions();
+	// initMapRegions() moves to the create() of the subclasses (class comment: a base constructor cannot call the subclass override)
 	AION_UNPORTED();
 }
 
 WorldMapInstance::~WorldMapInstance() = default;
-#endif
 
 int32_t WorldMapInstance::getMapId() {
 	AION_UNPORTED();

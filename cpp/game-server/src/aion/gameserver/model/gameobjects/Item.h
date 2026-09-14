@@ -34,9 +34,10 @@ namespace aion::gameserver::model::gameobjects {
  * Hub header (docs/design/hub-headers.md). RefCounted (through AionObject): `Item::create(...)` replaces the three Java constructors. Expirable
  * and StatOwner are held by Ref (ExpireTimerTask, stat function owners), so Item forwards their retain()/release() to RefCounted (§9.2).
  * The mana stone and fusion stone sets are TreeSets ordered by slot, as in Java (the anonymous Comparator Item$1, created by
- * itemStonesCollection); fieldmap still guesses RcHashSet until fieldmap.toml overrides it. The idian stone is a part of the item
- * (cycles review: IdianStone.item only holds its owner), replaced through setIdianStone(std::unique_ptr). The charge info part is replaced and set to
- * null by updateChargeInfo, so getConditioningInfo() returns Ptr.
+ * itemStonesCollection). The idian stone is a part of the item (cycles review: IdianStone.item only holds its owner), replaced through
+ * setIdianStone(std::unique_ptr). The charge info is an ActionObserver that the ObserveController of the equipping player holds by Ref
+ * (ItemEquipmentListener.java:70), so it is a `Field<Ref<ChargeInfo>>`, not a part; updateChargeInfo replaces it or sets it to null, so
+ * getConditioningInfo() returns Ptr.
  *
  * @author ATracer, Wakizashi, xTz
  */
@@ -57,15 +58,13 @@ private:
 	runtime::Field<bool> isEquipped_{false};
 	runtime::Field<int64_t> equipmentSlot; // Java: = ItemStorage.FIRST_AVAILABLE_SLOT (constructors)
 	runtime::Field<Persistable::PersistentState> persistentState{};
-	// fieldmap: Java TreeSet ordered by slot (itemStonesCollection, comparator Item$1); fieldmap guessed HashSet (cycles change request)
 	runtime::Field<runtime::Ref<runtime::RcTreeSet<runtime::Ref<items::ManaStone>>>> manaStones{};
-	// fieldmap: Java TreeSet ordered by slot (itemStonesCollection, comparator Item$1); fieldmap guessed HashSet (cycles change request)
 	runtime::Field<runtime::Ref<runtime::RcTreeSet<runtime::Ref<items::ManaStone>>>> fusionStones{};
 	runtime::Field<int32_t> optionalSockets{};
 	runtime::Field<int32_t> fusionedItemOptionalSockets{};
 	runtime::Field<runtime::Ref<items::GodStone>> godStone{};
 	/** Replaced by PolishAction and removed by the stone itself (IdianStone.java:95): retired to the Reclaimer */
-	runtime::PartSlot<items::IdianStone, runtime::RetireTo::RECLAIMER> idianStone{*this}; // fieldmap: part (setII.toml; RECLAIMER: replaced repeatedly)
+	runtime::PartSlot<items::IdianStone, runtime::RetireTo::RECLAIMER> idianStone{*this};
 	runtime::Field<bool> isSoulBound_{false};
 	runtime::Field<int32_t> itemLocation{};
 	runtime::Field<int32_t> enchantLevel{};
@@ -74,8 +73,10 @@ private:
 	runtime::Field<int32_t> temporaryExchangeTime{0};
 	runtime::Field<int64_t> repurchasePrice{};
 	runtime::Field<int32_t> activationCount{0};
-	runtime::PartSlot<items::ChargeInfo> conditioningInfo{*this};
-	runtime::Field<runtime::Ref<runtime::RcArrayList<const stats::calc::functions::StatFunction*>>> currentModifiers{};
+	// fieldmap: ChargeInfo derives ActionObserver (RefCounted, Ref-held by ObserveController, ItemEquipmentListener.java:70); parts.json lists a part
+	runtime::Field<runtime::Ref<items::ChargeInfo>> conditioningInfo{};
+	// fieldmap: StatFunction is static data or a run-time RcStatFunction (ItemEquipmentListener.java:147 adds `new StatAddFunction`), StatFunction.h
+	runtime::Field<runtime::Ref<runtime::RcArrayList<runtime::Ref<stats::calc::functions::StatFunction>>>> currentModifiers{};
 	runtime::Field<int32_t> tuneCount{0};
 	runtime::Field<runtime::Ref<items::RandomBonusEffect>> bonusStatsEffect{};
 	runtime::Field<runtime::Ref<items::RandomBonusEffect>> fusionedItemBonusStatsEffect{};
@@ -356,10 +357,11 @@ public:
 
 	const templates::item::Improvement* getImprovement();
 
-	/** @return the live modifier list (created lazily) */
-	runtime::Ptr<runtime::RcArrayList<const stats::calc::functions::StatFunction*>> getCurrentModifiers();
+	/** @return the live modifier list (created lazily); static data modifiers enter it through StatFunction::ofTemplate */
+	runtime::Ptr<runtime::RcArrayList<runtime::Ref<stats::calc::functions::StatFunction>>> getCurrentModifiers();
 
-	void setCurrentModifiers(const std::vector<const stats::calc::functions::StatFunction*>& currentModifiers);
+	/** Java copies the elements into the live list (getCurrentModifiers().addAll) */
+	void setCurrentModifiers(const std::vector<runtime::Ptr<stats::calc::functions::StatFunction>>& currentModifiers);
 
 	/** @return the idian stone, null if there is none (Java checks it for null, PolishChargeCondition.java:24) */
 	runtime::Ptr<items::IdianStone> getIdianStone() const;

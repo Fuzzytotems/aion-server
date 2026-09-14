@@ -258,6 +258,9 @@ public abstract class AITemplate<T extends Creature> extends AbstractAI<T> {
                                  '\t@Override\n\tpublic String getLabel() {\n\t\treturn "x";\n\t}\n}\n',
     'model/items/Gear.java': 'public class Gear {\n}\n',
     'model/items/CountedGear.java': 'public class CountedGear {\n}\n',
+    'model/items/Trinket.java': 'public class Trinket extends CountedGear {\n}\n',
+    'model/items/Tagged.java': 'public interface Tagged {\n}\n',
+    'model/items/Charm.java': 'public class Charm extends Trinket implements Tagged {\n}\n',
     'utils/TimeUnit.java': 'public enum TimeUnit {\n\tSECONDS\n}\n',
     'network/aion/ServerPacketsOpcodes.java': 'public class ServerPacketsOpcodes {\n\tpublic static int getOpcode() {\n\t\treturn 1;\n\t}\n}\n',
     # enums xmlgen generates (xmlmodel.json): top-level, secondary top-level and nested (generated as Outer_Inner at namespace scope)
@@ -375,6 +378,24 @@ class Gear {
 namespace aion::gameserver::model::items {
 
 class CountedGear final : public runtime::RefCounted {
+};
+
+} // namespace aion::gameserver::model::items
+""",
+    'aion/gameserver/model/items/Trinket.h': """#pragma once
+
+namespace aion::gameserver::model::items {
+
+class Trinket : public CountedGear {
+};
+
+} // namespace aion::gameserver::model::items
+""",
+    'aion/gameserver/model/items/Tagged.h': """#pragma once
+
+namespace aion::gameserver::model::items {
+
+class Tagged {
 };
 
 } // namespace aion::gameserver::model::items
@@ -499,6 +520,8 @@ class GeneratorAwareTest(unittest.TestCase):
         t = self.project.index.types
         self.assertIsNone(self.project.base_kind(t[P + 'model.items.Gear']))                    # shell without the fieldmap base
         self.assertEqual(self.project.base_kind(t[P + 'model.items.CountedGear']), 'RefCounted')  # the C++ base clause wins
+        # the superclass chain decides before an implemented interface without a base clause (House -> VisibleObject -> AionObject, Persistable)
+        self.assertEqual(self.project.base_kind(t[P + 'model.items.Charm']), 'RefCounted')
         self.assertEqual(self.project.cpp.lookup(('aion', 'gameserver', 'model', 'items'), 'CountedGear').bases, 'public runtime::RefCounted')
         data = t[P + 'model.items.ItemData']
         methods = {m.name: m for m in data.methods}

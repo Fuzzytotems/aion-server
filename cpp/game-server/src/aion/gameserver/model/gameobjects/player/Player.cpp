@@ -1,58 +1,7 @@
 #include "aion/gameserver/model/gameobjects/player/Player.h"
 
-#include "aion/gameserver/runtime/base/Unported.h"
-
-// S0b transition (docs/design/hub-headers.md §3.3): the narrowing accessor of the controller needs PlayerController.h (controllers group).
-// Remove the guard once it exists (spine freeze).
-#if __has_include("aion/gameserver/controllers/PlayerController.h")
-#define AION_S0B_PLAYER_CONTROLLER 1
-#include "aion/gameserver/controllers/PlayerController.h"
-#else
-#define AION_S0B_PLAYER_CONTROLLER 0
-#endif
-
-// Member and part types (docs/design/hub-headers.md §3.3): constructor, destructor, postConstruct, part accessors, Field<Ref> setters and the
-// other narrowing accessors need complete types whose headers are mostly not S0b hubs (the player model of P4-12, storages of P4-13, team and
-// legion classes of P5-10/P5-11, controllers and stats of P4-11b/P5-01). Not an S0b transition guard: the chunk that adds the last of them
-// removes it.
-#if AION_S0B_PLAYER_CONTROLLER && __has_include("aion/gameserver/model/account/Account.h") && \
-	__has_include("aion/gameserver/model/account/PlayerAccountData.h") && __has_include("aion/gameserver/model/team/legion/LegionMember.h") && \
-	__has_include("aion/gameserver/model/gameobjects/player/Macros.h") && __has_include("aion/gameserver/model/skill/PlayerSkillList.h") && \
-	__has_include("aion/gameserver/model/gameobjects/player/FriendList.h") && \
-	__has_include("aion/gameserver/model/gameobjects/player/BlockList.h") && \
-	__has_include("aion/gameserver/model/gameobjects/player/PetList.h") && __has_include("aion/gameserver/model/gameobjects/player/Mailbox.h") && \
-	__has_include("aion/gameserver/model/gameobjects/player/PrivateStore.h") && \
-	__has_include("aion/gameserver/model/gameobjects/player/title/TitleList.h") && \
-	__has_include("aion/gameserver/model/gameobjects/player/QuestStateList.h") && \
-	__has_include("aion/gameserver/model/gameobjects/player/RecipeList.h") && \
-	__has_include("aion/gameserver/model/gameobjects/player/ResponseRequester.h") && \
-	__has_include("aion/gameserver/model/gameobjects/player/Equipment.h") && \
-	__has_include("aion/gameserver/model/items/storage/PlayerStorage.h") && \
-	__has_include("aion/gameserver/model/items/storage/LegionStorageProxy.h") && \
-	__has_include("aion/gameserver/model/gameobjects/player/PlayerSettings.h") && \
-	__has_include("aion/gameserver/model/team/group/PlayerGroup.h") && __has_include("aion/gameserver/model/team/alliance/PlayerAllianceGroup.h") && \
-	__has_include("aion/gameserver/model/gameobjects/player/AbyssRank.h") && \
-	__has_include("aion/gameserver/model/gameobjects/player/npcFaction/NpcFactions.h") && \
-	__has_include("aion/gameserver/controllers/FlyController.h") && \
-	__has_include("aion/gameserver/skillengine/task/AbstractInteractionTask.h") && \
-	__has_include("aion/gameserver/model/templates/flypath/FlightPath.h") && \
-	__has_include("aion/gameserver/model/gameobjects/Pet.h") && __has_include("aion/gameserver/model/gameobjects/Kisk.h") && \
-	__has_include("aion/gameserver/model/gameobjects/player/BindPointPosition.h") && __has_include("aion/gameserver/model/items/ItemCooldown.h") && \
-	__has_include("aion/gameserver/model/gameobjects/player/PortalCooldownList.h") && \
-	__has_include("aion/gameserver/model/gameobjects/player/Cooldowns.h") && \
-	__has_include("aion/gameserver/skillengine/model/ChainSkills.h") && \
-	__has_include("aion/gameserver/model/gameobjects/player/emotion/EmotionList.h") && \
-	__has_include("aion/gameserver/model/gameobjects/player/motion/MotionList.h") && \
-	__has_include("aion/gameserver/controllers/observer/ActionObserver.h") && \
-	__has_include("aion/gameserver/model/gameobjects/player/InRoll.h") && \
-	__has_include("aion/gameserver/controllers/movement/PlayerMoveController.h") && \
-	__has_include("aion/gameserver/model/stats/container/PlayerGameStats.h") && \
-	__has_include("aion/gameserver/model/stats/container/PlayerLifeStats.h") && \
-	__has_include("aion/gameserver/controllers/effect/PlayerEffectController.h") && \
-	__has_include("aion/gameserver/controllers/attack/PlayerAggroList.h") && \
-	__has_include("aion/gameserver/model/gameobjects/TransformModel.h") && __has_include("aion/gameserver/world/WorldPosition.h")
-#define AION_PLAYER_MEMBER_TYPES 1
 #include "aion/gameserver/controllers/FlyController.h"
+#include "aion/gameserver/controllers/PlayerController.h"
 #include "aion/gameserver/controllers/attack/PlayerAggroList.h"
 #include "aion/gameserver/controllers/effect/PlayerEffectController.h"
 #include "aion/gameserver/controllers/movement/PlayerMoveController.h"
@@ -96,15 +45,12 @@
 #include "aion/gameserver/model/team/legion/LegionMember.h"
 #include "aion/gameserver/model/templates/flypath/FlightPath.h"
 #include "aion/gameserver/runtime/base/Exceptions.h"
+#include "aion/gameserver/runtime/base/Unported.h"
 #include "aion/gameserver/skillengine/model/ChainSkills.h"
 #include "aion/gameserver/skillengine/task/AbstractInteractionTask.h"
-#else
-#define AION_PLAYER_MEMBER_TYPES 0
-#endif
 
 namespace aion::gameserver::model::gameobjects::player {
 
-#if AION_PLAYER_MEMBER_TYPES
 Player::Player(CreateKey key, account::PlayerAccountData& playerAccountDataValue, account::Account& account)
 	: Creature(key, playerAccountDataValue.getPlayerCommonData()->getPlayerObjId(), std::make_unique<controllers::PlayerController>(), nullptr,
 		  playerAccountDataValue.getPlayerCommonData().get(), nullptr, false),
@@ -346,13 +292,10 @@ void Player::setTitleList(std::unique_ptr<title::TitleList> value) {
 	value->setOwner(*this);
 	titleList.set(std::move(value));
 }
-#endif
 
-#if AION_S0B_PLAYER_CONTROLLER
 controllers::PlayerController& Player::getController() const {
 	return static_cast<controllers::PlayerController&>(Creature::getController());
 }
-#endif
 
 std::optional<std::string> Player::getCaptchaWord() {
 	const std::string& word = captchaWord.get();
@@ -801,7 +744,6 @@ void Player::setBattleReturnCoords(int32_t mapId, runtime::Ptr<runtime::Array<fl
 	AION_UNPORTED();
 }
 
-// lint: L7 unported stub; Java synchronizes it, the port adds SYNCHRONIZED
 void Player::addRideObserver(controllers::observer::ActionObserver& observer) {
 	AION_UNPORTED();
 }

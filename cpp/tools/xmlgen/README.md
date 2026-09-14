@@ -35,7 +35,7 @@ check of the committed tree and V1 (the IR against the XSDs, with the reviewed `
 | `aion/gameserver/<pkg>/<Enum>.h` | `enum class` in ordinal order (`uint8_t`, `uint16_t` above 256 constants) and `xml::EnumTraits` (names, @XmlEnumValue lookup table). Nested enums: `Outer_Inner.h`, aliased in the outer class when that class is generated (otherwise the hand-written outer class adds `using Inner = Outer_Inner;`, listed in the report). With `core_enums = true` every enum of `game-server/src` is emitted, not only the JAXB-reachable ones (S0a decision 3; `core: true` in `xmlmodel.json`, not in `staticdata-classes.json`) |
 | `aion/gameserver/<pkg>/<Class>.h` | data-only classes: complete structs (public members, trivial Java accessors, static constants). Nested data classes: `Outer_Inner.h`. A hierarchy root derives the K1 marker `runtime::StaticTemplate` (empty base, `runtime/lifetime/RefCounted.h`), so `const T*` template pointers satisfy `IsTemplatePtr`/`Pinnable` |
 | `aion/gameserver/<pkg>/<Class>.xml.h` | behaviour classes: includes and forward declarations of the member block (for a hierarchy root also `RefCounted.h`, the header of the shell's `StaticTemplate` base); the hand-written `<Class>.h` includes it before the class |
-| `aion/gameserver/<pkg>/<Class>.xml.inc` | behaviour classes: the first line of the hand-written class body (friend binder, aliases, virtual `javaClassName`, bound members, trivial accessors, hook and annotated setter declarations) |
+| `aion/gameserver/<pkg>/<Class>.xml.inc` | behaviour classes: the first line of the hand-written class body (friend binder, aliases, virtual `javaClassName`, bound members, trivial accessors, hook and annotated setter declarations). A trivial accessor that a Java subclass overrides (same name and arity) is `virtual` (hub-headers.md §9.1: `EffectTemplate::getValue`, `getDuration2`, `isNoResist`); the hand-written override in the subclass shell says `override` |
 | `aion/gameserver/<pkg>/<Class>.bind.h` / `.bind.ipp` | `xml::XmlBinding` specializations and definitions of the classes of one Java source file |
 | `aion/gameserver/<pkg>/<pkg>.bind.cpp` | the translation unit of a package (includes its `.bind.ipp` files) |
 | `aion/gameserver/dataholders/StaticDataHolders.xml.h` | `AION_STATIC_DATA_HOLDERS(X)`: `X(rootTag, HolderClass, javaFieldName)` for the 92 holders |
@@ -48,8 +48,10 @@ check of the committed tree and V1 (the IR against the XSDs, with the reviewed `
 Spine step S0a ran `scaffold --all` once: every top-level behaviour class has a hand-owned `X.h`/`X.cpp` shell in `game-server/src` with the
 class head (a hierarchy root derives `::aion::gameserver::runtime::StaticTemplate`, subclasses their Java superclass), the member block include, the Java no-argument constructor when it is protected or private, and `AION_UNPORTED()` definitions of
 the hook and annotated setters (`aion/gameserver/runtime/base/Unported.h`). The class adapter target `model/items/NpcEquippedGear` is a
-shell of the binder contract (`explicit NpcEquippedGear(std::unique_ptr<NpcEquipmentList>)`, `init(LoadContext&)`) with lint waivers until
-P4-13 ports it. `tests/test_real_tree.py` checks that every behaviour class has its files; rerun `scaffold --all` when a class is added.
+RefCounted class (S0c: `xmlgen.toml [adapters] cpp = "::aion::gameserver::runtime::Ref<...>"`, member `runtime::Ref<NpcEquippedGear>`,
+accessor `runtime::Ptr<NpcEquippedGear> getEquipment() const`, stored with the `Ref` overload of `BindContext::replaceSingle`) with the
+binder contract `static Ref<NpcEquippedGear> create(std::unique_ptr<NpcEquipmentList>)` and `init(LoadContext&)`; P4-13 ports the bodies.
+A `std::unique_ptr<X>` class adapter (plain class, `explicit X(std::unique_ptr<Value>)`) is still supported. `tests/test_real_tree.py` checks that every behaviour class has its files; rerun `scaffold --all` when a class is added.
 
 1. For a class without files, `python cpp/tools/xmlgen/xmlgen.py scaffold model.templates.walker.WalkerTemplate` creates
    `src/aion/gameserver/.../WalkerTemplate.h/.cpp` with the non-trivial Java methods as comments.

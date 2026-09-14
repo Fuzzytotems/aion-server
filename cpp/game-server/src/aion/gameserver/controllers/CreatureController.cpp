@@ -1,30 +1,15 @@
 #include "aion/gameserver/controllers/CreatureController.h"
 
-#include "aion/gameserver/runtime/base/Unported.h"
 #include "aion/commons/logging/LoggerFactory.h"
-
-// S0b transition (docs/design/hub-headers.md §3.3): the narrowing accessor and DelayedOnAttack need Creature and Effect (hub headers of other S0b
-// groups); the constructor and destructor need the member type TerrainZoneCollisionMaterialActor (S0c declaration header). Remove the guards
-// once the headers exist (spine freeze).
-#if __has_include("aion/gameserver/model/gameobjects/Creature.h") && __has_include("aion/gameserver/skillengine/model/Effect.h")
-#define AION_S0B_CREATURE_CONTROLLER_OWNER 1
-#include "aion/gameserver/model/gameobjects/Creature.h"
-#include "aion/gameserver/skillengine/model/Effect.h"
-#else
-#define AION_S0B_CREATURE_CONTROLLER_OWNER 0
-#endif
-#if __has_include("aion/gameserver/controllers/observer/TerrainZoneCollisionMaterialActor.h")
-#define AION_S0B_CREATURE_CONTROLLER_MEMBERS 1
 #include "aion/gameserver/controllers/observer/TerrainZoneCollisionMaterialActor.h"
-#else
-#define AION_S0B_CREATURE_CONTROLLER_MEMBERS 0
-#endif
+#include "aion/gameserver/model/gameobjects/Creature.h"
+#include "aion/gameserver/runtime/base/Unported.h"
+#include "aion/gameserver/skillengine/model/Effect.h"
 
 namespace aion::gameserver::controllers {
 
 static const auto log = commons::logging::LoggerFactory::getLogger("com.aionemu.gameserver.controllers.CreatureController");
 
-#if AION_S0B_CREATURE_CONTROLLER_OWNER
 /**
  * Java: private static final class DelayedOnAttack implements Runnable, scheduled by attackTarget. C++: the members are Refs because the task
  * outlives attackTarget (fieldmap.toml [kinds] K4); run() keeps Java's clearing of the references.
@@ -58,13 +43,10 @@ void CreatureController::DelayedOnAttack::run() {
 model::gameobjects::Creature& CreatureController::getOwner() const {
 	return static_cast<model::gameobjects::Creature&>(VisibleObjectController::getOwner());
 }
-#endif
 
-#if AION_S0B_CREATURE_CONTROLLER_MEMBERS
 CreatureController::CreatureController() = default;
 
 CreatureController::~CreatureController() = default;
-#endif
 
 void CreatureController::notSee(model::gameobjects::VisibleObject& object, model::animations::ObjectDeleteAnimation animation) {
 	AION_UNPORTED();

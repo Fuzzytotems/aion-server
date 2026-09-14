@@ -45,10 +45,9 @@ namespace aion::gameserver::questEngine {
  *
  * @author MrPoke, Hilgert, vlog, Neon
  */
-class QuestEngine : public runtime::Immortal, public gameserver::model::GameEngine { // fieldmap: no scriptManager (replaced by HandlerRegistry.h)
+class QuestEngine : public runtime::Immortal, public gameserver::model::GameEngine {
 private:
-	runtime::Field<runtime::Ref<services::cron::JobDetail>> messageTask{}; // fieldmap: Quartz JobDetail (hub-headers.md §6)
-	// fieldmap: Immortal quest handlers (amendment §2, RT-11)
+	runtime::Field<runtime::Ref<services::cron::JobDetail>> messageTask{};
 	runtime::HashMap<int32_t, handlers::AbstractQuestHandler*> questHandlers{AION_LOCK_CLASS(QuestEngine::questHandlers)};
 	runtime::HashMap<int32_t, runtime::Ref<gameserver::model::templates::quest::QuestNpc>> questNpcs{AION_LOCK_CLASS(QuestEngine::questNpcs)};
 	runtime::HashMap<int32_t, runtime::Ref<runtime::RcArrayList<int32_t>>> questItemRelated{AION_LOCK_CLASS(QuestEngine::questItemRelated)};
@@ -59,10 +58,8 @@ private:
 	runtime::ArrayList<int32_t> questOnDie{AION_LOCK_CLASS(QuestEngine::questOnDie)};
 	runtime::ArrayList<int32_t> questOnLogOut{AION_LOCK_CLASS(QuestEngine::questOnLogOut)};
 	runtime::ArrayList<int32_t> questOnEnterWorld{AION_LOCK_CLASS(QuestEngine::questOnEnterWorld)};
-	// fieldmap: ZoneName is an interned Immortal referenced as const ZoneName* (hub-headers.md §5; the lint counts Immortal classes as RefCounted)
 	runtime::HashMap<const world::zone::ZoneName*, runtime::Ref<runtime::RcArrayList<int32_t>>> questOnEnterZone{
 		AION_LOCK_CLASS(QuestEngine::questOnEnterZone)};
-	// fieldmap: ZoneName is an interned Immortal referenced as const ZoneName* (hub-headers.md §5; the lint counts Immortal classes as RefCounted)
 	runtime::HashMap<const world::zone::ZoneName*, runtime::Ref<runtime::RcArrayList<int32_t>>> questOnLeaveZone{
 		AION_LOCK_CLASS(QuestEngine::questOnLeaveZone)};
 	runtime::HashMap<std::string, runtime::Ref<runtime::RcArrayList<int32_t>>> questOnPassFlyingRings{

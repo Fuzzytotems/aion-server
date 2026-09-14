@@ -20,7 +20,7 @@ namespace aion::gameserver::skillengine::model {
 // fieldmap-class: com.aionemu.gameserver.skillengine.model.Effect.ForceType
 class Effect_ForceType : public runtime::Immortal {
 private:
-	static inline runtime::ConcurrentHashMap<std::string, const Effect_ForceType*> forceTypes{};
+	static inline runtime::ConcurrentHashMap<std::string, const Effect_ForceType*> forceTypes{AION_LOCK_CLASS(Effect::ForceType::forceTypes#stripe)};
 
 public:
 	static const Effect_ForceType* const DEFAULT;

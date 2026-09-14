@@ -1,28 +1,18 @@
 #include "aion/gameserver/ai/AbstractAI.h"
 
-#include "aion/gameserver/runtime/base/Unported.h"
 #include "aion/gameserver/ai/AIState.h"
 #include "aion/gameserver/ai/AISubState.h"
-#include "aion/gameserver/model/gameobjects/Creature.h"
-
-// Member types (docs/design/hub-headers.md §3.3): the destructor releases `eventLog` and needs the complete AIEventLog (not a hub; its declaration
-// header is an S0c item of chunk P5-05). Remove the guard in the change that adds the header (a freeze gate: skeleton.py --guards --freeze).
-#if __has_include("aion/gameserver/ai/event/AIEventLog.h")
-#define AION_S0B_ABSTRACT_AI_OWNER 1
 #include "aion/gameserver/ai/event/AIEventLog.h"
-#else
-#define AION_S0B_ABSTRACT_AI_OWNER 0
-#endif
+#include "aion/gameserver/model/gameobjects/Creature.h"
+#include "aion/gameserver/runtime/base/Unported.h"
 
 namespace aion::gameserver::ai {
 
-#if AION_S0B_ABSTRACT_AI_OWNER
 AbstractAI::AbstractAI(model::gameobjects::Creature& ownerValue)
 	: runtime::OwnedPart(ownerValue), owner(ownerValue), currentState(AIState::CREATED), currentSubState(AISubState::NONE) {
 }
 
 AbstractAI::~AbstractAI() = default;
-#endif
 
 std::string AbstractAI::getName() {
 	// Java: getClass().getAnnotation(AIName.class) == null ? "noname" : annotation.value(); C++: registryEntry->name
@@ -33,12 +23,10 @@ bool AbstractAI::canHandleEvent(event::AIEventType eventType) {
 	AION_UNPORTED();
 }
 
-// lint: L7 Java synchronized; the ported body is SYNCHRONIZED(*this) { ... } (hub-headers.md §11.4)
 bool AbstractAI::setStateIfNot(AIState newState) {
 	AION_UNPORTED();
 }
 
-// lint: L7 Java synchronized; the ported body is SYNCHRONIZED(*this) { ... } (hub-headers.md §11.4)
 bool AbstractAI::setSubStateIfNot(AISubState newSubState) {
 	AION_UNPORTED();
 }
@@ -71,12 +59,10 @@ bool AbstractAI::isDead() {
 	AION_UNPORTED();
 }
 
-// lint: L7 Java synchronized; the ported body is SYNCHRONIZED(*this) { ... } (hub-headers.md §11.4)
 bool AbstractAI::setThinking() {
 	AION_UNPORTED();
 }
 
-// lint: L7 Java synchronized; the ported body is SYNCHRONIZED(*this) { ... } (hub-headers.md §11.4)
 void AbstractAI::unsetThinking() {
 	AION_UNPORTED();
 }
@@ -85,7 +71,6 @@ void AbstractAI::handleGeneralEvent(event::AIEventType event) {
 	AION_UNPORTED();
 }
 
-// lint: L7 Java synchronized (this) block; the ported body keeps it as SYNCHRONIZED(*this) { ... } (hub-headers.md §11.4)
 void AbstractAI::logEvent(event::AIEventType event) {
 	AION_UNPORTED();
 }

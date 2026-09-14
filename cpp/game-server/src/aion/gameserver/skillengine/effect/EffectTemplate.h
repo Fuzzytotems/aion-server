@@ -23,6 +23,8 @@ namespace aion::gameserver::skillengine::effect {
  * - Nullable `StatEnum statEnum` and `SpellStatus spellStatus` parameters are `std::optional` (calculate(effect) passes null for both).
  * - The 111 subclasses override calculate(Effect&), applyEffect, startEffect, endEffect and friends; a subclass that overrides one calculate
  *   overload needs `using EffectTemplate::calculate;` to keep the others visible (C++ name hiding).
+ * - The generated getters that Java subclasses override are virtual in the member block (xmlgen: getValue, getDuration2 and isNoResist, for
+ *   AbstractOverTimeEffect and SkillAttackInstantEffect).
  *
  * @author ATracer
  */
@@ -77,13 +79,8 @@ private:
 	void addSuccessEffect(model::Effect& effect, std::optional<model::SpellStatus> spellStatus) const;
 
 public:
-	/**
-	 * Apply effect to effected
-	 * <p>
-	 * Java abstract. Not pure virtual yet: the static data binders construct the 111 effect shells, which do not declare their overrides until
-	 * P5-03/P5-04 port them (the base body is AION_UNPORTED). Becomes `= 0` once every concrete effect shell overrides it.
-	 */
-	virtual void applyEffect(model::Effect& effect) const;
+	/** Apply effect to effected (Java abstract: every concrete effect shell overrides it) */
+	virtual void applyEffect(model::Effect& effect) const = 0;
 
 	/** Start effect on effected */
 	virtual void startEffect(model::Effect& effect) const;

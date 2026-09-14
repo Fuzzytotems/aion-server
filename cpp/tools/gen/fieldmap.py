@@ -180,9 +180,32 @@ IMMUTABLE_EXTERNAL = frozenset(STRINGS | set(BOXED) | {
     'java.util.regex.Pattern', 'java.util.Locale', 'java.lang.Class', 'java.util.concurrent.TimeUnit', 'java.net.InetAddress',
     'java.nio.file.Path', 'java.io.File', 'java.time.format.DateTimeFormatter', 'java.time.temporal.ChronoUnit', 'java.lang.Enum',
     'java.lang.Record', 'java.util.Optional', 'java.util.OptionalInt', 'javax.xml.bind.JAXBContext'})
-# external types spelled differently in C++
+# external types spelled differently in C++ (hub-headers.md §6): C++ value types, stored by value (const T / Field<T>), no externalType flag
 EXTERNAL_SPELLING = {'java.util.concurrent.TimeUnit': 'TimeUnit', 'java.util.regex.Pattern': 'std::wregex', 'java.io.File': 'std::filesystem::path',
-                     'java.nio.file.Path': 'std::filesystem::path'}
+                     'java.nio.file.Path': 'std::filesystem::path',
+                     'java.sql.Timestamp': 'Timestamp', 'java.util.Date': 'Timestamp', 'java.time.Instant': 'Timestamp',
+                     'java.time.LocalDate': 'Date', 'java.time.LocalDateTime': 'std::chrono::local_time<std::chrono::milliseconds>',
+                     'java.time.ZonedDateTime': 'std::chrono::sys_time<std::chrono::milliseconds>', 'java.time.Duration': 'std::chrono::milliseconds',
+                     'org.quartz.CronExpression': 'CronExpression',
+                     # Polygon2D's java.awt.geom members: C++ value types of the geometry chunk (Rectangle2D, Path2D)
+                     'java.awt.geom.Rectangle2D': 'Rectangle2D', 'java.awt.geom.GeneralPath': 'Path2D', 'java.awt.geom.Path2D': 'Path2D'}
+# external classes ported as RefCounted handles (hub-headers.md §6): referenced like project K4 classes (const Ref<X> / Field<Ref<X>>)
+EXTERNAL_REF_HANDLES = {'org.quartz.JobDetail': 'JobDetail'}
+# external names javasrc cannot resolve from an on-demand import (Polygon2D implements the external java.awt.Shape, so javasrc does not
+# guess the package of `import java.awt.geom.*`)
+EXTERNAL_ON_DEMAND = {'java.awt.geom': ('Rectangle2D', 'GeneralPath', 'Path2D', 'Point2D', 'Line2D', 'AffineTransform', 'PathIterator')}
+# hub-headers.md §8.1 erasure rule: generics whose type parameters all have a project bound are one non-template C++ class, every type
+# variable spelled as its first bound. Kept equal to tools/gen/skeleton.py ERASURE_BOUNDS and TEMPLATE_GENERICS (test_fieldmap_fields).
+ERASURE_BOUNDS = {
+    'com.aionemu.gameserver.model.team.TeamMember': {'M': 'com.aionemu.gameserver.model.gameobjects.AionObject'},
+}
+TEMPLATE_GENERICS = frozenset(('com.aionemu.gameserver.ai.AITemplate', 'com.aionemu.gameserver.ai.AIEngine.DummyAI'))
+# RR-16 (runtime-architecture.md §3.4, hub-headers.md §4): members initialized with their static lock class
+LOCKABLE_RE = re.compile(r'^(?:(?:static|inline|mutable|const)\s+)*(Monitor|StampedLock|Semaphore|AtomicBoolean|AtomicInteger|AtomicLong|'
+                         r'AtomicNumber|AtomicReference|AtomicLongArray|AtomicIntegerArray|AtomicReferenceArray|ArrayList|LinkedList|ArrayDeque|'
+                         r'PriorityQueue|HashMap|LinkedHashMap|TreeMap|EnumMap|HashSet|LinkedHashSet|TreeSet|ConcurrentHashMap|ConcurrentKeySet|'
+                         r'CopyOnWriteArrayList|CopyOnWriteArraySet|ConcurrentLinkedQueue|ConcurrentLinkedDeque)(?:<|$)')
+STRIPED_SHIMS = frozenset(('ConcurrentHashMap', 'ConcurrentKeySet'))
 STORE_CALLS = frozenset(('add', 'put', 'putIfAbsent', 'offer', 'push', 'addFirst', 'addLast', 'set', 'addIfAbsent', 'offerFirst',
                          'offerLast', 'compareAndSet', 'getAndSet', 'lazySet'))
 SPAWN_CALLS = frozenset(('storeObject', 'spawn', 'spawnObject', 'bringIntoWorld', 'addObject'))
@@ -193,6 +216,9 @@ CONFIG_ANNOTATIONS = frozenset(('Property', 'Properties'))
 # field flags listed in escape_report.md (review items; 'guessedImpl', 'constantArray' and 'singleton' are informational)
 FLAGS_REPORTED = frozenset(('confinedInShared', 'untyped', 'unresolved', 'noShim', 'externalType', 'nonFinalAtomic', 'nonFinalLock',
                             'callbackField', 'mutableInImmutable', 'instanceThreadLocal'))
+
+# fieldmap.toml [bases]: 'none' = no runtime base of its own (an abstract Java base whose subclasses pick different bases, ItemStone)
+BASE_OVERRIDES = ('none', 'RefCounted', 'Immortal')
 
 DEFAULT_CONFIG = {
     'settings': {
@@ -205,7 +231,9 @@ DEFAULT_CONFIG = {
     'future_apis': {},
     'kinds': {},
     'immortal': {},
+    'bases': {},
     'fields': {},
+    'captures': {},
 }
 
 
@@ -328,12 +356,13 @@ class JType:
 
 
 class Capture:
-    __slots__ = ('name', 'kind', 'java', 'jt', 'ci', 'line', 'cpp', 'rule')
+    __slots__ = ('name', 'kind', 'java', 'jt', 'ci', 'line', 'cpp', 'rule', 'override_reason')
 
     def __init__(self, name, kind, java, jt, ci, line):
         self.name, self.kind, self.java, self.jt, self.ci, self.line = name, kind, java, jt, ci, line
         self.cpp = None
         self.rule = ''
+        self.override_reason = None
 
 
 class Callback:
@@ -403,15 +432,27 @@ def load_config(path):
         if not isinstance(entry, dict) or not entry.get('reason') or set(entry) - {'reason'}:
             raise FieldmapError(f'{path}: [immortal] {key!r} needs exactly a reason')
         cfg['immortal'][key] = entry
+    for key, entry in data.get('bases', {}).items():
+        if not isinstance(entry, dict) or entry.get('base') not in BASE_OVERRIDES or not entry.get('reason') or set(entry) - {'base', 'reason'}:
+            raise FieldmapError(f'{path}: [bases] {key!r} needs base = {" | ".join(BASE_OVERRIDES)} and a reason')
+        cfg['bases'][key] = entry
     for key, entry in data.get('fields', {}).items():
         if not entry.get('reason'):
             raise FieldmapError(f'{path}: [fields] {key!r} needs a reason')
-        extra = set(entry) - {'cpp', 'part', 'retire', 'reason', 'part_type'}
+        extra = set(entry) - {'cpp', 'part', 'retire', 'reason', 'part_type', 'drop'}
         if extra:
             raise FieldmapError(f'{path}: [fields] {key!r}: unknown keys {sorted(extra)}')
         if entry.get('retire') not in (None, 'OWNER', 'RECLAIMER'):
             raise FieldmapError(f'{path}: [fields] {key!r}: retire must be OWNER or RECLAIMER')
+        if entry.get('drop') not in (None, True) or (entry.get('drop') and set(entry) - {'drop', 'reason'}):
+            raise FieldmapError(f'{path}: [fields] {key!r}: drop = true takes only a reason')
         cfg['fields'][key] = entry
+    for key, entry in data.get('captures', {}).items():
+        if not isinstance(entry, dict) or not entry.get('reason') or not entry.get('cpp') or set(entry) - {'cpp', 'reason'}:
+            raise FieldmapError(f'{path}: [captures] {key!r} needs exactly cpp and a reason')
+        if '#' not in key:
+            raise FieldmapError(f'{path}: [captures] {key!r} must be "ClassId#capture"')
+        cfg['captures'][key] = entry
     return cfg
 
 
@@ -490,6 +531,11 @@ class FieldMap:
         self._storing_by_name = None
         self.rs_of_method = {}
         self._all_subtypes_cache = {}
+        self._erased_cache = {}
+        learned = getattr(idx, 'learned', None)
+        if learned is not None:
+            for pkg, names in EXTERNAL_ON_DEMAND.items():
+                learned.setdefault(pkg, set()).update(names)
 
     # -- driver
     def run(self):
@@ -501,6 +547,7 @@ class FieldMap:
         self._callbacks()
         self._inner_class_captures()
         self._kinds()
+        self._reject_shared_parts()
         self._map_all()
         self._sync()
         self._cycles()
@@ -709,6 +756,15 @@ class FieldMap:
         wildcard_args = bool(args) and any(a.wildcard for a in args)
         jargs = [self.classify(a, ctx, ci_ctx) for a in (args or [])]
         if kind == 'typevar':
+            param = self._tvar_param(value, ctx, ci_ctx)
+            if param is not None and isinstance(param[1], javasrc.TypeDecl) and self.erased_generic(param[1]):
+                # erasure rule (hub-headers.md §8.1): the variable is spelled as its first bound (ERASURE_BOUNDS for unbounded ones)
+                fqn = ERASURE_BOUNDS.get(param[1].fqn, {}).get(value)
+                if fqn is not None and fqn in self.idx.types and self.ci_of.get(id(self.idx.types[fqn])) is not None:
+                    bci = self.ci_of[id(self.idx.types[fqn])]
+                    return JType('class', fqn=bci.cid, ci=bci, name=self.idx.types[fqn].name)
+                if param[0].bounds:
+                    return self.classify(param[0].bounds[0], param[1], ci_ctx)
             bound = self._tvar_bound(value, ctx, ci_ctx)
             if bound is not None:
                 b = self.classify(bound[0], bound[1], ci_ctx)
@@ -745,21 +801,28 @@ class FieldMap:
                 return JType('logger', fqn=fqn, name=ref.name)
             if fqn == OBJECT:
                 return JType('object', fqn=fqn, name='Object')
+            if fqn in EXTERNAL_REF_HANDLES:
+                return JType('handle', fqn=fqn, name=ref.name)
             return JType('ext', fqn=fqn, args=jargs, name=ref.name)
         return JType('unknown', name=ref.name)
 
     def _tvar_bound(self, name, ctx, ci_ctx):
         """(bound TypeRef, resolution context) of type variable name visible from ctx, or None."""
-        md = None
+        param = self._tvar_param(name, ctx, ci_ctx)
+        if param is None or not param[0].bounds:
+            return None
+        return param[0].bounds[0], param[1]
+
+    def _tvar_param(self, name, ctx, ci_ctx):
+        """(TypeParam, declaring MethodDecl or TypeDecl) of type variable name visible from ctx, or None."""
         o = ctx
         if isinstance(o, javasrc.Span):
             o = o.owner
         if isinstance(o, javasrc.MethodDecl):
-            md = o
-            for p in md.type_params:
+            for p in o.type_params:
                 if p.name == name:
-                    return (p.bounds[0], md) if p.bounds else None
-            o = md.owner
+                    return p, o
+            o = o.owner
         elif isinstance(o, (javasrc.FieldDecl, javasrc.Initializer, javasrc.EnumConstant)):
             o = o.owner
         td = o if isinstance(o, javasrc.TypeDecl) else (ci_ctx.td if ci_ctx is not None else None)
@@ -767,13 +830,28 @@ class FieldMap:
         while ci is not None:
             for p in ci.td.type_params:
                 if p.name == name:
-                    return (p.bounds[0], ci.td) if p.bounds else None
+                    return p, ci.td
             ci = ci.lex_parent
         return None
 
+    def erased_generic(self, td):
+        """True for a Java generic class ported as one non-template C++ class (hub-headers.md §8.1): ERASURE_BOUNDS, or every type parameter
+        has a bound naming a project type; TEMPLATE_GENERICS stay templates. (skeleton.py also treats existing non-template C++ declarations
+        as erased; fieldmap.py reads only Java.) Only game server classes are erased."""
+        if not td.type_params or td.fqn in TEMPLATE_GENERICS:
+            return False
+        ci = self.ci_of.get(id(td))
+        if ci is None or ci.origin != 'output':
+            return False  # commons generics (PacketProcessor<T>) are ported as C++ templates
+        cached = self._erased_cache.get(id(td))
+        if cached is None:
+            cached = td.fqn in ERASURE_BOUNDS or all(p.bounds and self.idx.resolve_kind(p.bounds[0].name, td)[0] == 'project' for p in td.type_params)
+            self._erased_cache[id(td)] = cached
+        return cached
+
     def cpp_class_name(self, ci, jt=None):
         name = ci.cpp_name
-        if jt is not None and jt.args and not jt.wildcard_args and ci.td.type_params:
+        if jt is not None and jt.args and not jt.wildcard_args and ci.td.type_params and not self.erased_generic(ci.td):
             name += '<' + ', '.join(self.spell_plain(a) for a in jt.args) + '>'
         return name
 
@@ -1165,6 +1243,48 @@ class FieldMap:
                     if base is not None and base.cat == 'class' and base.ci.cid in part_class_owner and base.ci.cid != ci.cid:
                         if part_class_owner[base.ci.cid] & owners:
                             self.owner_field_rules.setdefault((c.cid, fi.name), ('sibling part', None))
+
+    def _inherited_base(self, ci):
+        """True if a K3/K4 superclass of ci gives the class tree its runtime base (one lifetime base per class tree); a superclass whose
+        fieldmap.toml [bases] entry is 'none' passes the decision on to its own superclass."""
+        for c in self.superclass_chain(ci)[1:]:
+            ov = self.cfg['bases'].get(c.cid)
+            if ov is not None:
+                if ov['base'] == 'none':
+                    continue
+                return True
+            if c.kind in (K3, K4):
+                return True
+        return False
+
+    def _reject_shared_parts(self):
+        """A part class derives OwnedPart, so its class tree has no other runtime base: a part type below a K3/K4 superclass that is not a
+        part type itself (a RefCounted or Immortal tree, e.g. ChargeInfo extends ActionObserver) cannot be a part. Such types are dropped from
+        their parts with a warning, parts without types are dropped, and the owner and sibling fields are recomputed."""
+        part_types = {pt for p in self.parts.values() for pt in p.part_types}
+        changed = False
+        for key in sorted(self.parts):
+            p = self.parts[key]
+            for pt in sorted(p.part_types):
+                bad = None
+                for c in self.superclass_chain(self.classes[pt])[1:]:
+                    if c.cid in part_types:
+                        bad = None  # an ancestor part type is the tree's OwnedPart root (PlayerMoveController -> CreatureMoveController)
+                        break
+                    ov = self.cfg['bases'].get(c.cid)
+                    if bad is None and ((ov is not None and ov['base'] != 'none') or (ov is None and c.kind in (K3, K4))):
+                        bad = c
+                if bad is None:
+                    continue
+                p.part_types.discard(pt)
+                changed = True
+                self.warnings.append(f'part {key[0]}.{key[1]}: {pt} is no part (superclass {bad.cid} gives the class tree a shared runtime base)')
+            if not p.part_types:
+                del self.parts[key]
+        if changed:
+            self.owner_field_rules = {}
+            self._owner_fields()
+            self._owner_field_writes()
 
     def _owner_family(self, p):
         out = set()
@@ -2107,9 +2227,14 @@ class FieldMap:
             ci.immortal = True
 
     def _singleton_fields(self, ci):
-        """Static fields of ci's own type declared in ci or in its nested SingletonHolder."""
-        holders = [ci] + [c for c in self.classes.values() if c.lex_parent is ci and c.td.name == 'SingletonHolder']
+        """Static fields of ci's own type declared in ci or in a nested holder class (SingletonHolder, NewSingletonHolder, RiftServiceHolder:
+        any nested class whose name ends in Holder)."""
+        holders = [ci] + [c for c in self.classes.values() if c.lex_parent is ci and self._is_holder(c)]
         return [fi for c in holders for fi in c.fields if fi.static and fi.jt is not None and fi.jt.cat == 'class' and fi.jt.ci is ci]
+
+    @staticmethod
+    def _is_holder(c):
+        return c.td.name.endswith('Holder') and not c.td.anonymous
 
     def _singletons(self):
         """ci.singleton: exactly one static field of the own type (in the class or its SingletonHolder), and every creation of the class
@@ -2281,6 +2406,8 @@ class FieldMap:
             return self.cpp_class_name(jt.ci, jt)
         if c == 'ext':
             return EXTERNAL_SPELLING.get(jt.fqn, jt.fqn.rpartition('.')[2])
+        if c == 'handle':
+            return EXTERNAL_REF_HANDLES[jt.fqn]
         if c == 'object':
             return jt.tvar or 'Object'
         return jt.name or '?'
@@ -2346,13 +2473,17 @@ class FieldMap:
                     return fqn
         return None
 
-    def spell_elem(self, jt, mode):
-        """Element spelling inside shims ('shared'), packets ('packet') or confined classes ('confined')."""
+    def spell_elem(self, jt, mode, elem=False):
+        """Element spelling inside shims ('shared'), packets ('packet') or confined classes ('confined'). elem: jt is a collection or array
+        element; confined (K5) classes are then held by value (CollisionResults.results, DamageList.damageByCreature), a direct member of a
+        confined class type stays a pointer."""
         c = jt.cat
         if c in ('prim', 'boxed', 'string', 'enum', 'ext'):
             if c == 'boxed':
                 return BOXED[jt.fqn]
             return self.spell_value(jt)
+        if c == 'handle':
+            return f'Ptr<{self.spell_value(jt)}>' if mode == 'confined' else f'Ref<{self.spell_value(jt)}>'
         if c == 'class':
             kind, name = self.ref_target(jt)
             if kind in ('template', 'immortal'):
@@ -2360,17 +2491,19 @@ class FieldMap:
             if kind == 'shared_ptr':
                 return f'std::shared_ptr<{name}>'
             if mode == 'confined':
-                return f'{name}*' if jt.ci.kind == K5 else f'Ptr<{name}>'
+                if jt.ci.kind == K5:
+                    return name if elem else f'{name}*'
+                return f'Ptr<{name}>'
             return f'Ref<{name}>'
         if c == 'coll':
-            args = [self.spell_elem(a, mode) for a in jt.args]
+            args = [self.spell_elem(a, mode, True) for a in jt.args]
             if mode in ('packet', 'confined'):
                 return self.std_collection(jt, args)
             shim, rc, _ = self.shim_for(jt)
             inner = f'{shim}<{", ".join(args)}>' if args else shim
             return f'Ref<{rc}<{", ".join(args)}>>' if rc and args else f'Ref<Rc<{inner}>>'
         if c == 'array':
-            e = self.spell_elem(jt.args[0], mode)
+            e = self.spell_elem(jt.args[0], mode, True)
             return f'std::vector<{e}>' if mode in ('packet', 'confined') else f'Ref<Array<{e}>>'
         if c == 'future':
             return 'FutureRef'
@@ -2479,6 +2612,9 @@ class FieldMap:
                 return (f'const Ref<{jt.tvar}>', 'final object reference', []) if final else (f'Field<Ref<{jt.tvar}>>', 'non-final object reference', [])
             return ('const Ref<RefCounted>', 'final untyped reference', ['untyped']) if final else (
                 'Field<Ref<RefCounted>>', 'non-final untyped reference', ['untyped'])
+        if c == 'handle':
+            t = self.spell_value(jt)
+            return (f'const Ref<{t}>', f'{fin} external handle', []) if final else (f'Field<Ref<{t}>>', f'{fin} external handle', [])
         if c == 'ext':
             t = self.spell_value(jt)
             flags = [] if jt.fqn in IMMUTABLE_EXTERNAL or jt.fqn in EXTERNAL_SPELLING else ['externalType']
@@ -2489,6 +2625,8 @@ class FieldMap:
         c = jt.cat
         if c in ('prim', 'enum', 'string', 'ext'):
             return self.spell_value(jt)
+        if c == 'handle':
+            return self.spell_elem(jt, mode)
         if c == 'boxed':
             return f'std::optional<{BOXED[jt.fqn]}>'
         if c == 'class':
@@ -2521,18 +2659,25 @@ class FieldMap:
                     seen_override.add(key)
                     if 'cpp' in ov:
                         fi.cpp = ov['cpp']
-                    fi.rule = 'fieldmap.toml override'
+                    if ov.get('drop'):
+                        fi.cpp = None  # no C++ member (lint L2 does not ask for it)
+                    fi.rule = 'fieldmap.toml override' + (': dropped' if ov.get('drop') else '')
                     fi.override_reason = ov['reason']
                 self._retains(fi)
             for cap in ci.captures:
                 self._map_capture(ci, cap, ci.storage)
+                self._capture_override(f'{ci.cid}#{cap.name}', cap, seen_override)
         for cb in self.callbacks.values():
             if cb.anon is None:
                 for cap in cb.captures:
                     self._map_capture(None, cap, cb)
+                    self._capture_override(f'{cb.id}#{cap.name}', cap, seen_override)
         unknown = set(overrides) - seen_override
         if unknown:
             raise FieldmapError(f'fieldmap.toml: [fields] entries for unknown fields: {sorted(unknown)}')
+        unknown = set(self.cfg['captures']) - seen_override
+        if unknown:
+            raise FieldmapError(f'fieldmap.toml: [captures] entries for unknown captures: {sorted(unknown)}')
         for p in self.parts.values():
             for pt in p.part_types:
                 self.classes[pt].part_of.append(f'{p.owner.cid}.{p.field.name}')
@@ -2647,7 +2792,7 @@ class FieldMap:
             return
         if final and c == 'class':
             kind, name = self.ref_target(jt)
-            if jt.ci.singleton and (jt.ci is ci or (ci.lex_parent is not None and jt.ci is ci.lex_parent and ci.td.name == 'SingletonHolder')):
+            if jt.ci.singleton and (jt.ci is ci or (ci.lex_parent is not None and jt.ci is ci.lex_parent and self._is_holder(ci))):
                 fi.cpp, fi.rule, fi.flags = f'static {name}& getInstance()', 'singleton instance (CONVENTIONS: function-local static)', ['singleton']
                 return
             if kind == 'immortal':
@@ -2660,9 +2805,12 @@ class FieldMap:
                 fi.cpp, fi.rule = f'static inline const Ref<{name}>', 'static reference'
             if jt.ci is ci:
                 fi.rule = 'named constant of the own type'  # not a singleton (several constants, or instances created elsewhere)
+                if kind in ('immortal', 'template'):
+                    fi.cpp = f'static const {name}* const'  # defined in the .cpp (hub-headers.md §11.1): the class is incomplete here
             return
         if final and c == 'functional':
-            fi.cpp, fi.rule = f'static inline const PinnedCallback<{self.functional_sig(jt)}>', 'static callback'
+            # a functional-interface constant (Persistable.NEW): declared `static const`, defined in the .cpp (hub-headers.md §7.3, §11.1)
+            fi.cpp, fi.rule = f'static const PinnedCallback<{self.functional_sig(jt)}>', 'static callback'
             return
         if final and c == 'array':
             e = self.spell_elem(jt.args[0], 'shared')
@@ -2698,6 +2846,20 @@ class FieldMap:
             rule = 'captured collection'
         cap.cpp = cpp
         cap.rule = 'captured ' + ('this' if cap.kind == 'this' else 'variable') + ': ' + rule
+
+    def _capture_override(self, key, cap, seen):
+        ov = self.cfg['captures'].get(key)
+        if ov is None:
+            return
+        seen.add(key)
+        cap.cpp = ov['cpp']
+        cap.rule = 'fieldmap.toml override'
+        cap.override_reason = ov['reason']
+
+    def _capture_retains(self, key, cap, c):
+        """False when a fieldmap.toml [captures] spelling names class c only in non-retaining positions."""
+        ov = self.cfg['captures'].get(key)
+        return ov is None or self._spelling_retains(ov['cpp'], c)
 
     def _retains(self, fi):
         fi.retains = []
@@ -2837,7 +2999,8 @@ class FieldMap:
                 if cap.cpp and cap.cpp.startswith('OwnerRef'):
                     continue
                 for c in self._type_classes(cap.jt, generic_args=False):
-                    if c.kind in (K3, K4) and not c.scalar_like and not (c.immortal or c.singleton):
+                    if c.kind in (K3, K4) and not c.scalar_like and not (c.immortal or c.singleton) and \
+                            self._capture_retains(f'{ci.cid}#{cap.name}', cap, c):
                         for s in retained(c):
                             add(ci.cid, s, f'{ci.cid}#{cap.name}', 'capture')
         for cb in sorted(self.callbacks.values(), key=lambda c: c.id):
@@ -2855,7 +3018,8 @@ class FieldMap:
                     if cap.cpp and cap.cpp.startswith('OwnerRef'):
                         continue
                     for c in self._type_classes(cap.jt, generic_args=False):
-                        if c.kind in (K3, K4) and not c.scalar_like and not (c.immortal or c.singleton):
+                        if c.kind in (K3, K4) and not c.scalar_like and not (c.immortal or c.singleton) and \
+                                self._capture_retains(f'{cb.id}#{cap.name}', cap, c):
                             for s in retained(c):
                                 add(target, s, f'{cb.id}#{cap.name}', 'capture')
         for u in edges:
@@ -3135,6 +3299,9 @@ class FieldMap:
         return ('-' if len(texts) == 2 else '') + lit
 
     def base_of(self, ci):
+        ov = self.cfg['bases'].get(ci.cid)
+        if ov is not None:
+            return None if ov['base'] == 'none' else ov['base']
         if ci.kind == K1:
             return 'StaticTemplate'
         if ci.kind == K2:
@@ -3145,7 +3312,7 @@ class FieldMap:
             return 'OwnedPart'
         if ci.immortal:
             return 'Immortal'
-        if ci.superclass is not None and ci.superclass.kind in (K3, K4):
+        if self._inherited_base(ci):
             return None  # the ancestor's base (a singleton subclass of a shared class keeps it: one lifetime base per class tree)
         if ci.singleton:
             return 'Immortal'
@@ -3153,8 +3320,11 @@ class FieldMap:
 
     @staticmethod
     def capture_json(c):
-        return {'name': c.name, 'kind': c.kind, 'java': c.java, 'line': c.line, 'cpp': c.cpp, 'rule': c.rule,
-                'type': c.jt.ci.cid if c.jt is not None and c.jt.ci is not None else (c.jt.fqn if c.jt is not None else None)}
+        d = {'name': c.name, 'kind': c.kind, 'java': c.java, 'line': c.line, 'cpp': c.cpp, 'rule': c.rule,
+             'type': c.jt.ci.cid if c.jt is not None and c.jt.ci is not None else (c.jt.fqn if c.jt is not None else None)}
+        if c.override_reason:
+            d['overrideReason'] = c.override_reason
+        return d
 
     def callback_json(self, cb):
         d = {'kind': cb.kind, 'file': _rel(cb.rs.span.cu.path), 'line': cb.line, 'enclosing': cb.ci.cid, 'context': cb.context,
@@ -3365,11 +3535,11 @@ class FieldMap:
             out.append('// confined: inferred')
         if ci.kind == K1:
             out.append('// K1: the bound member block is generated by xmlgen; non-bound members below')
-        width = max([len(fi.cpp or '') + len(fi.name) for fi in ci.fields] + [0]) + 3
+        width = max([len(fi.cpp or '') + len(fi.name) + len(self.lock_class_initializer(ci, fi.name, fi.cpp)) for fi in ci.fields] + [0]) + 3
         for fi in ci.fields:
             if fi.cpp is None:
                 continue
-            decl = self._decl(fi.cpp, fi.name)
+            decl = self._decl(fi.cpp, fi.name, self.lock_class_initializer(ci, fi.name, fi.cpp))
             mods = ' '.join(fi.decl.modifiers) + ' ' if hasattr(fi.decl, 'modifiers') and fi.decl.modifiers else ''
             note = f'// {mods}{fi.java} {fi.name} ({os.path.basename(ci.cu.path)}:{fi.line}) [{fi.rule}]'
             if fi.flags:
@@ -3414,12 +3584,29 @@ class FieldMap:
         return cap.name
 
     @staticmethod
-    def _decl(cpp, name):
+    def _decl(cpp, name, initializer=''):
         if cpp.startswith('static ') and cpp.endswith('getInstance()'):
             return cpp + ';'
         if cpp == 'static const Logger log':
             return cpp + ';'
-        return f'{cpp} {name};'
+        return f'{cpp} {name}{initializer};'
+
+    @staticmethod
+    def lock_class_initializer(ci, java_name, cpp):
+        """RR-16 (runtime-architecture.md §3.4, hub-headers.md §4): `{AION_LOCK_CLASS(JavaClass::field)}` for a Monitor, StampedLock, Semaphore,
+        collection shim or Atomic* member (`#stripe` for the stripe monitors of ConcurrentHashMap/ConcurrentKeySet; nested classes
+        Outer::Inner), '' otherwise. Java literal arguments (Semaphore permits) follow the tag in the header."""
+        m = LOCKABLE_RE.match(cpp or '')
+        if m is None:
+            return ''
+        names = []
+        t = ci.td
+        while t is not None and not t.anonymous and t.name:
+            names.append(t.name)
+            t = t.outer
+        owner = '::'.join(reversed(names)) if t is None else ci.cpp_name
+        stripe = '#stripe' if m.group(1) in STRIPED_SHIMS else ''
+        return '{AION_LOCK_CLASS(' + owner + '::' + java_name + stripe + ')}'
 
     def callback_struct(self, ci):
         cb = ci.storage
@@ -3444,7 +3631,7 @@ class FieldMap:
             lines.append(f'\t{self._decl(cap.cpp, self._cap_member(cap))} // captured {cap.kind} {cap.java} {cap.name} (line {cap.line})')
         for fi in ci.fields:
             if fi.cpp:
-                lines.append(f'\t{self._decl(fi.cpp, fi.name)} // {fi.java} {fi.name} (line {fi.line}) [{fi.rule}]')
+                lines.append(f'\t{self._decl(fi.cpp, fi.name, self.lock_class_initializer(ci, fi.name, fi.cpp))} // {fi.java} {fi.name} (line {fi.line}) [{fi.rule}]')
         if base != 'TaskStruct':
             params = ', '.join(f'{self._param(cap)} {self._cap_member(cap)}' for cap in ci.captures)
             lines.append(f'\tstatic Ref<{ci.cpp_name}> create({params});')

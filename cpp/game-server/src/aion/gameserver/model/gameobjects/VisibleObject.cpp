@@ -1,24 +1,14 @@
 #include "aion/gameserver/model/gameobjects/VisibleObject.h"
 
-#include "aion/gameserver/runtime/base/Unported.h"
-#include "aion/gameserver/model/gameobjects/player/LogoutBreakers.h"
-
-// S0b transition (docs/design/hub-headers.md "Complete types in the .cpp"): the constructor, the destructor and the part accessors need the
-// complete part and member types, whose hub headers are written by other S0b groups. Remove the guard once they exist (spine freeze).
-#if __has_include("aion/gameserver/controllers/VisibleObjectController.h") && __has_include("aion/gameserver/world/knownlist/KnownList.h") && \
-	__has_include("aion/gameserver/world/WorldPosition.h") && __has_include("aion/gameserver/model/templates/spawns/SpawnTemplate.h")
-#define AION_S0B_VISIBLE_OBJECT_PARTS 1
 #include "aion/gameserver/controllers/VisibleObjectController.h"
+#include "aion/gameserver/model/gameobjects/player/LogoutBreakers.h"
 #include "aion/gameserver/model/templates/spawns/SpawnTemplate.h"
+#include "aion/gameserver/runtime/base/Unported.h"
 #include "aion/gameserver/world/WorldPosition.h"
 #include "aion/gameserver/world/knownlist/KnownList.h"
-#else
-#define AION_S0B_VISIBLE_OBJECT_PARTS 0
-#endif
 
 namespace aion::gameserver::model::gameobjects {
 
-#if AION_S0B_VISIBLE_OBJECT_PARTS
 VisibleObject::VisibleObject(CreateKey, int32_t objId, std::unique_ptr<controllers::VisibleObjectController> controllerValue,
 	runtime::Ptr<templates::spawns::SpawnTemplate> spawnTemplateValue, const templates::VisibleObjectTemplate* objectTemplateValue,
 	runtime::Ptr<world::WorldPosition> positionValue, bool autoReleaseObjectId)
@@ -43,7 +33,6 @@ controllers::VisibleObjectController& VisibleObject::getController() const {
 void VisibleObject::setPosition(runtime::Ptr<world::WorldPosition> value) {
 	position.set(value);
 }
-#endif
 
 std::string VisibleObject::getName() {
 	AION_UNPORTED();

@@ -38,7 +38,7 @@ private:
 	const runtime::Ref<ItemStorage> itemStorage;
 	runtime::Field<runtime::Ref<gameobjects::Item>> kinahItem{};
 	const StorageType storageType;
-	runtime::ConcurrentLinkedQueue<runtime::Ref<gameobjects::Item>> deletedItems{};
+	runtime::ConcurrentLinkedQueue<runtime::Ref<gameobjects::Item>> deletedItems{AION_LOCK_CLASS(Storage::deletedItems)};
 	/** Can be of 2 types: UPDATED and UPDATE_REQUIRED */
 	runtime::Field<gameobjects::Persistable::PersistentState> persistentState{gameobjects::Persistable::PersistentState::UPDATED};
 

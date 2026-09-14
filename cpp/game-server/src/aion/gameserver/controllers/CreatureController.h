@@ -39,7 +39,7 @@ private:
 	class DelayedOnAttack;
 
 	runtime::Field<runtime::Ref<observer::TerrainZoneCollisionMaterialActor>> actor{};
-	runtime::ConcurrentHashMap<int32_t, runtime::FutureRef> tasks{};
+	runtime::ConcurrentHashMap<int32_t, runtime::FutureRef> tasks{AION_LOCK_CLASS(CreatureController::tasks#stripe)};
 
 protected:
 	/** Java: the implicit constructor of the abstract class. */

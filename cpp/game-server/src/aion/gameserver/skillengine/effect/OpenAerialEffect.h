@@ -1,6 +1,7 @@
 #pragma once
 
 #include "aion/gameserver/skillengine/effect/OpenAerialEffect.xml.h"
+#include "aion/gameserver/skillengine/model/fwd.h"
 
 namespace aion::gameserver::skillengine::effect {
 
@@ -8,6 +9,7 @@ namespace aion::gameserver::skillengine::effect {
 class OpenAerialEffect : public ::aion::gameserver::skillengine::effect::EffectTemplate {
 #include "aion/gameserver/skillengine/effect/OpenAerialEffect.xml.inc"
 public:
+	void applyEffect(model::Effect& effect) const override;
 };
 
 } // namespace aion::gameserver::skillengine::effect

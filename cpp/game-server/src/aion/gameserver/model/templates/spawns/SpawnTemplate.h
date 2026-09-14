@@ -46,7 +46,7 @@ private:
 	runtime::Field<std::string> walkerId{};
 	const std::optional<int32_t> walkerIdx;
 	const std::string anchor;
-	runtime::OwnerRef<SpawnGroup> spawnGroup; // fieldmap: part owner (build/s0b-cycles-work/setII.toml, cycles.toml `part`)
+	runtime::OwnerRef<SpawnGroup> spawnGroup;
 	const std::string aiName;
 	const int32_t state;
 	const bool aerialSpawn;

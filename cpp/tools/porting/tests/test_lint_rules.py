@@ -81,6 +81,16 @@ Model* model = nullptr;
         self.assertEqual([c.qualname for c in p.classes], ['Box', 'Box::Inner'])
         self.assertEqual([g.name for g in p.globals], ['model'])
 
+    def test_nested_class_defined_outside_its_class(self):
+        code = 'namespace aion::gameserver::services {\nclass LifeStatsRestoreService::HpRestoreTask {\n\truntime::Ptr<X> lifeStats{};\n};\n}'
+        p = lc.Parser(lc.Source('x.cpp', code)).parse()
+        self.assertEqual([(c.name, c.qualname) for c in p.classes], [('HpRestoreTask', 'LifeStatsRestoreService::HpRestoreTask')])
+        fm = {'format': 'aion-fieldmap', 'classes': {'com.aionemu.gameserver.services.LifeStatsRestoreService.HpRestoreTask': {
+            'kind': 'K4', 'cppName': 'LifeStatsRestoreService::HpRestoreTask', 'base': 'RefCounted', 'fields': [
+                {'name': 'lifeStats', 'cpp': 'Field<Ref<X>>', 'rule': 'non-final object reference'}]}}}
+        f = lint(code, path='game-server/src/aion/gameserver/services/LifeStatsRestoreService.cpp', fieldmap=fm, rules=['L2', 'L3'])
+        self.assertEqual(sorted(x.rule for x in f), ['L2', 'L3'])  # the fieldmap class is found through the class qualifier
+
     def test_constructor_init_list_and_lambdas(self):
         code = '''struct S { S(int a) : x(a), y{a} { auto f = [this, &a](int b) mutable -> int { return b; }; arr[0] = 1; } int x; int y; int arr[2]; };'''
         src = lc.Source('x.h', code)
@@ -117,7 +127,76 @@ class Sub : public Shared { bool flag; };
 class Value { int32_t plain; };
 }'''
         f = lint(code, rules=['L1'])
-        self.assertEqual([(x.line, x.rule) for x in f], [(3, 'L1'), (4, 'L1'), (5, 'L1'), (14, 'L1')])
+        self.assertEqual([(x.line, x.rule) for x in f if x.severity == 'error'], [(3, 'L1'), (4, 'L1'), (5, 'L1'), (14, 'L1')])
+        # the shim and the Monitor have no static lock class (RR-16 warning)
+        self.assertEqual([(x.line, x.severity) for x in f if x.severity != 'error'], [(8, 'warning'), (11, 'warning')])
+
+    def test_l1_lock_classes(self):
+        code = '''namespace aion::gameserver::model {
+class Shared final : public RefCounted {
+	ConcurrentHashMap<int32_t, Ref<Npc>> tagged{AION_LOCK_CLASS(Shared::tagged#stripe)};
+	mutable Monitor lock{AION_LOCK_CLASS(Shared::lock)};
+	Semaphore permits{AION_LOCK_CLASS(Shared::permits), 1};
+	AtomicBoolean flag = {AION_LOCK_CLASS(Shared::flag)};
+	ArrayList<int32_t> inConstructor;
+	static inline HashMap<int32_t, int32_t> cache;
+	ArrayDeque<int32_t> untagged{};
+	Field<Ref<RcArrayList<int32_t>>> created;
+	Shared() : inConstructor(AION_LOCK_CLASS(Shared::inConstructor)) {}
+};
+}'''
+        f = lint(code, rules=['L1'])
+        self.assertEqual([(x.line, x.severity) for x in f], [(8, 'warning'), (9, 'warning')])
+        self.assertIn('AION_LOCK_CLASS(JavaClass::untagged)', f[1].message)
+        runtime = lint(code, path='game-server/src/aion/gameserver/runtime/x/T.h', rules=['L1'])
+        self.assertEqual(runtime, [])
+
+    def test_l1_lock_classes_outside_the_declaration(self):
+        header = '''namespace aion::gameserver::model {
+class ProbeA final : public RefCounted {
+	runtime::Monitor lock;
+	static runtime::ConcurrentHashMap<int32_t, int32_t> perWorld;
+	static runtime::ArrayList<int32_t> untaggedStatic;
+	ProbeA();
+};
+class ProbeB final : public RefCounted {
+	runtime::Monitor lock;
+	runtime::Monitor waived; // fieldmap: a layout waiver does not waive RR-16
+};
+}'''
+        source = '''namespace aion::gameserver::model {
+runtime::ConcurrentHashMap<int32_t, int32_t> ProbeA::perWorld{
+	AION_LOCK_CLASS(ProbeA::perWorld#stripe)};
+runtime::ArrayList<int32_t> ProbeA::untaggedStatic{};
+ProbeA::ProbeA() : lock{AION_LOCK_CLASS(ProbeA::lock)} {}
+}'''
+        f = lint(header, rules=['L1'], extra=[('game-server/src/aion/gameserver/model/Probe.cpp', source)])
+        # the constructor tag of ProbeA::lock does not cover ProbeB::lock; the out-of-line definition tags ProbeA::perWorld only
+        self.assertEqual([(x.line, x.message.split(' ')[2]) for x in f], [(5, 'ProbeA::untaggedStatic'), (9, 'ProbeB::lock'), (10, 'ProbeB::waived')])
+        inline = header.replace('\tProbeA();', '\tProbeA() : lock(AION_LOCK_CLASS(ProbeA::lock)) {}')
+        self.assertEqual([x.line for x in lint(inline, rules=['L1'])], [4, 5, 9, 10])
+
+    def test_l1_l19_accept_fieldmap_decisions(self):
+        fm = {'format': 'aion-fieldmap', 'classes': {
+            'com.aionemu.gameserver.network.Conn': {'kind': 'K4', 'cppName': 'Conn', 'fields': [
+                {'name': 'queue', 'cpp': 'std::deque<SerializedBody>', 'rule': 'fieldmap.toml override'},
+                {'name': 'crypt', 'cpp': 'Crypt', 'rule': 'member of a class confined by fieldmap.toml'},
+                {'name': 'other', 'cpp': 'Field<int32_t>', 'rule': 'non-final scalar'}]},
+            'com.aionemu.gameserver.network.Crypt': {'kind': 'K5', 'cppName': 'Crypt', 'reason': 'fieldmap.toml [kinds]', 'fields': []},
+            'com.aionemu.gameserver.geo.Vector3f': {'kind': 'K5', 'cppName': 'Vector3f', 'reason': 'value type (fieldmap.toml settings.value_types)',
+                                                    'fields': []},
+            'com.aionemu.gameserver.network.Service': {'kind': 'K5', 'cppName': 'Service', 'fields': []}}}
+        code = '''namespace aion::gameserver::network {
+class Conn : public RefCounted {
+	std::deque<SerializedBody> queue;
+	Crypt crypt;
+	std::deque<int> other;
+	Field<Vector3f> position;
+	ArrayList<Ref<Service::Identifiers>> ids{AION_LOCK_CLASS(Conn::ids)};
+};
+}'''
+        f = lint(code, fieldmap=fm, rules=['L1', 'L19'])
+        self.assertEqual([(x.line, x.rule) for x in f], [(5, 'L1')])
 
     def test_l2_fieldmap_comparison(self):
         code = '''namespace aion::gameserver::model {
@@ -137,6 +216,33 @@ class Template { int32_t id; };
         self.assertEqual(len(f), 2)
         code2 = code.replace('Field<Ref<VisibleObject>> target;', 'Field<Ref<VisibleObject>> target; // fieldmap: widened for the port')
         self.assertEqual(len(lint(code2, rules=['L2'])), 1)
+
+    def test_l2_holders_nested_names_and_loggers(self):
+        fm = {'format': 'aion-fieldmap', 'classes': {
+            'com.aionemu.gameserver.dataholders.DataManager': {'kind': 'K4', 'cppName': 'DataManager', 'base': 'Immortal', 'fields': [
+                {'name': 'ITEM_DATA', 'cpp': 'static inline Field<const ItemData*>', 'modifiers': ['public', 'static'], 'rule': 'static non-final template reference'},
+                {'name': 'SPAWNS_DATA', 'cpp': 'static inline Field<const SpawnsData*>', 'modifiers': ['public', 'static'], 'rule': 'static non-final template reference'},
+                {'name': 'NPC_DATA', 'cpp': 'static inline Field<const NpcData*>', 'modifiers': ['public', 'static'], 'rule': 'static non-final template reference'}]},
+            'com.aionemu.gameserver.model.Passport': {'kind': 'K4', 'cppName': 'Passport', 'fields': [
+                {'name': 'state', 'cpp': 'Field<Persistable::PersistentState>', 'rule': 'non-final scalar'},
+                {'name': 'force', 'cpp': 'Field<const Effect_ForceType*>', 'rule': 'non-final immortal reference'},
+                {'name': 'log', 'cpp': 'const Logger', 'rule': 'logger'}]}}}
+        code = '''namespace aion::gameserver::dataholders {
+class DataManager final : public runtime::Immortal {
+public:
+	static inline xml::HolderRef<ItemData> ITEM_DATA;
+	static inline xml::MutableHolderRef<SpawnsData> SPAWNS_DATA;
+	static inline xml::HolderRef<ItemData> NPC_DATA;
+};
+}
+namespace aion::gameserver::model {
+class Passport : public RefCounted {
+	runtime::Field<PersistentState> state;
+	runtime::Field<const Effect::ForceType*> force;
+};
+}'''
+        f = lint(code, fieldmap=fm, rules=['L2', 'L4'])
+        self.assertEqual([(x.line, x.rule, x.message.split(' ')[0]) for x in f], [(6, 'L2', 'DataManager::NPC_DATA'), (12, 'L2', 'Passport::force')])
 
     def test_l2_explicit_mapping_comment(self):
         code = '''namespace other {
@@ -160,9 +266,64 @@ class S final : public RefCounted {
 	MapRegion* part;
 	OwnerRef<Player> owner;
 };
+class Part final : public OwnedPart { OwnerRef<Player> owner; };
 }'''
         f = lint(code, rules=['L3'])
-        self.assertEqual([x.line for x in f], [5, 6, 7, 8, 9])
+        # OwnerRef is a plain reference: only parts hold one (line 12 is in a RefCounted class)
+        self.assertEqual([x.line for x in f], [5, 6, 7, 8, 9, 12])
+        waived = code.replace('OwnerRef<Player> owner;\n};', 'OwnerRef<Player> owner; // fieldmap: not waivable\n};')
+        self.assertNotEqual(waived, code)
+        self.assertEqual([x.line for x in lint(waived, rules=['L3'])], [5, 6, 7, 8, 9, 12])
+        fm = {'format': 'aion-fieldmap', 'classes': {'com.aionemu.gameserver.x.S': {'kind': 'K4', 'cppName': 'S', 'base': 'RefCounted', 'fields': [
+            {'name': 'owner', 'cpp': 'OwnerRef<Player>', 'rule': 'fieldmap.toml override'}]}}}
+        self.assertEqual([x.line for x in lint(code, fieldmap=fm, rules=['L3'])], [5, 6, 7, 8, 9])
+
+    def test_l3_l10_immortal_names_by_identity(self):
+        fm = {'format': 'aion-fieldmap', 'classes': {
+            'com.aionemu.gameserver.model.templates.goods.GoodsList.Item': {'kind': 'K1', 'cppName': 'GoodsList::Item', 'base': 'StaticTemplate',
+                                                                             'fields': []},
+            'com.aionemu.gameserver.model.gameobjects.Item': {'kind': 'K4', 'cppName': 'Item', 'base': 'RefCounted', 'fields': []},
+            'com.aionemu.gameserver.world.zone.ZoneName': {'kind': 'K4', 'cppName': 'ZoneName', 'base': 'Immortal', 'immortal': True, 'fields': []},
+            'com.aionemu.gameserver.model.templates.QuestNpc': {'kind': 'K1', 'cppName': 'QuestNpc', 'base': 'StaticTemplate', 'fields': []},
+            'com.aionemu.gameserver.questEngine.model.QuestNpc': {'kind': 'K4', 'cppName': 'QuestNpc', 'base': 'RefCounted', 'fields': []}}}
+        code = '''namespace aion::gameserver::model {
+class CreatureTemplate : public runtime::StaticTemplate {};
+class PlayerCommonData final : public runtime::RefCounted, public CreatureTemplate {};
+class NpcTemplate final : public CreatureTemplate {};
+class Task final : public runtime::RefCounted {
+	Item& itemRef;
+	PlayerCommonData& pcdRef;
+	QuestNpc& qnpc;
+	const ZoneName* zone;
+	const NpcTemplate& npcTemplate;
+};
+class SM_PROBE final : public AionServerPacket {
+	Item* item;
+	PlayerCommonData* pcd;
+	const ZoneName* zone;
+};
+}'''
+        f = lint(code, fieldmap=fm, rules=['L3', 'L10'])
+        self.assertEqual([(x.line, x.rule) for x in f], [(6, 'L3'), (7, 'L3'), (8, 'L3'), (13, 'L10'), (14, 'L10')])
+
+    def test_l3_immortals_and_templates_are_no_borrows(self):
+        fm = {'format': 'aion-fieldmap', 'classes': {
+            'com.aionemu.gameserver.world.zone.ZoneName': {'kind': 'K4', 'cppName': 'ZoneName', 'base': 'Immortal', 'fields': []},
+            'com.aionemu.gameserver.questEngine.QuestEngine': {'kind': 'K4', 'cppName': 'QuestEngine', 'base': 'Immortal', 'singleton': True, 'fields': []},
+            'com.aionemu.gameserver.model.Player': {'kind': 'K4', 'cppName': 'Player', 'fields': []}}}
+        code = '''namespace aion::gameserver::x {
+class AbstractQuestHandler : public runtime::Immortal {};
+class S final : public RefCounted {
+	HashMap<const zone::ZoneName*, Ref<RcArrayList<int32_t>>> zones{AION_LOCK_CLASS(S::zones)};
+	HashMap<int32_t, handlers::AbstractQuestHandler*> handlers{AION_LOCK_CLASS(S::handlers)};
+	QuestEngine& qe;
+	const QuestEngine& constQe;
+	Player* player;
+	Player& playerRef;
+};
+}'''
+        f = lint(code, fieldmap=fm, rules=['L3'])
+        self.assertEqual([x.line for x in f], [8, 9])
 
     def test_l4_static_and_global_state(self):
         code = '''namespace aion::gameserver::x {
@@ -217,6 +378,13 @@ class ZoneName final : public Immortal {};
 class Other final : public Immortal {};
 }'''
         self.assertEqual([x.line for x in lint(code, fieldmap=interned, rules=['L13'])], [3])
+        # the handler and command root classes themselves (IMMORTAL_BASES)
+        code = '''namespace aion::gameserver::questEngine::handlers {
+class AbstractQuestHandler : public runtime::Immortal {};
+class ChatCommand : public runtime::Immortal {};
+class NotARoot : public runtime::Immortal {};
+}'''
+        self.assertEqual([x.line for x in lint(code, rules=['L13'])], [4])
 
     def test_l15_thread_local(self):
         code = '''namespace aion::gameserver::x {
@@ -236,6 +404,21 @@ class KnownList : public OwnedPart { Field<Ref<Npc>> owner; };
         f = lint(code, rules=['L16'], cycles=True)
         self.assertEqual(sorted((x.severity, x.message.split(' ')[0]) for x in f),
                          [('error', 'part'), ('error', 'unresolved'), ('warning', 'stale')])
+
+    def test_l16_core_scope_skips_handler_edges(self):
+        fm = json.loads(json.dumps(FIELDMAP))
+        fm['classes'][G + 'Npc']['file'] = 'game-server/src/com/aionemu/gameserver/model/Npc.java'
+        fm['classes']['ai.HandlerAI'] = {'kind': 'K4', 'cppName': 'HandlerAI', 'file': 'game-server/data/handlers/ai/HandlerAI.java', 'fields': []}
+        fm['callbacks'] = {'ai.HandlerAI@L3:4': {'file': 'game-server/data/handlers/ai/HandlerAI.java'}}
+        fm['cycleEdges'] = {G + 'Npc.target': {'from': G + 'Npc', 'scc': 1, 'resolution': None},
+                            'ai.HandlerAI.owner': {'from': 'ai.HandlerAI', 'scc': 1, 'resolution': None},
+                            'ai.HandlerAI@L3:4#this': {'from': 'cb:ai.HandlerAI@L3:4', 'scc': 1, 'resolution': None}}
+        edges = lambda scope: sorted(x.message.split(' ')[3] for x in lint('', fieldmap=fm, rules=['L16'], cycles=scope) if x.severity == 'error')
+        self.assertEqual(edges(True), ['ai.HandlerAI.owner', 'ai.HandlerAI@L3:4#this', G + 'Npc.target'])
+        self.assertEqual(edges('all'), edges(True))
+        self.assertEqual(edges('core'), [G + 'Npc.target'])
+        with self.assertRaises(lc.LintError):
+            lc.Linter(fm, None, 'handlers')
 
     def test_l19_confined_in_shared(self):
         code = '''namespace aion::gameserver::model {
@@ -266,6 +449,44 @@ void Npc::f(Player& player, Ptr<Npc> npc, int32_t count) {
 }'''
         f = lint(code, rules=['L5'])
         self.assertEqual([x.line for x in f], [6, 7, 9, 10, 13])
+
+    def test_l5_player_templates_are_not_captured(self):
+        code = '''namespace aion::gameserver::x {
+void Service::f(Player& player, Npc& npc, Creature& creature) {
+	auto playerTemplate = player.getObjectTemplate();
+	auto npcTemplate = npc.getObjectTemplate();
+	ThreadPoolManager::getInstance().schedule(&npc, [&npc, playerTemplate] { use(playerTemplate); }, 10);
+	ThreadPoolManager::getInstance().schedule(&npc, [&npc, npcTemplate] { use(npcTemplate); }, 10);
+	ThreadPoolManager::getInstance().schedule(&npc, [&npc, t = creature.getObjectTemplate()] { use(t); }, 10);
+	ThreadPoolManager::getInstance().schedule(bindTask(&use, player.getObjectTemplate()), 10);
+	ThreadPoolManager::getInstance().schedule({&npc, creature.getObjectTemplate()}, [&npc] { go(); }, 10);
+	ThreadPoolManager::getInstance().schedule(bindTask(&use, npc.getObjectTemplate()), 10);
+}
+void Player::g() {
+	auto own = this->getObjectTemplate();
+	ThreadPoolManager::getInstance().schedule(this, [this, own] { use(own); }, 10);
+}
+}'''
+        f = lint(code, rules=['L5'])
+        self.assertEqual([x.line for x in f], [3, 7, 8, 9, 13])
+        self.assertIn('capture `playerTemplate`: getObjectTemplate() of a Player', f[0].message)
+        # a template id derived from the template is fine; VisibleObject receivers and call chains are checked
+        code = '''namespace aion::gameserver::x {
+class PetCommonData final : public RefCounted { public: Player& getOwner() const; };
+class Spawn final : public RefCounted { public: const SpawnTemplate& getSpot() const; };
+void Service::f(Player& player, VisibleObject& vo, PetCommonData& pc, Spawn& spawn) {
+	ThreadPoolManager::getInstance().schedule(this, [this, id = player.getObjectTemplate()->getTemplateId()] { use(id); }, 10);
+	int32_t tid = player.getObjectTemplate()->getTemplateId();
+	ThreadPoolManager::getInstance().schedule(this, [this, tid] { use(tid); }, 10);
+	ThreadPoolManager::getInstance().schedule(this, [this, t = vo.getObjectTemplate()] { use(t); }, 10);
+	ThreadPoolManager::getInstance().schedule(this, [this, t = pc.getOwner().getObjectTemplate()] { use(t); }, 10);
+	ThreadPoolManager::getInstance().schedule(this, [this, t = spawn.getSpot().getObjectTemplate()] { use(t); }, 10);
+	ThreadPoolManager::getInstance().schedule(this, [this, t = unknown().getObjectTemplate()] { use(t); }, 10);
+}
+}'''
+        f = lint(code, rules=['L5'])
+        self.assertEqual([x.line for x in f], [8, 9, 11])
+        self.assertIn('getObjectTemplate() of a Player (getOwner())', f[1].message)
 
     def test_l5b_quiescent(self):
         code = '''namespace aion::gameserver::x {
@@ -299,6 +520,10 @@ void Npc::idle() { SYNCHRONIZED(*this) {} }
 }'''
         f = lint(code, rules=['L7'])
         self.assertEqual([(x.line, x.message.split(': ')[0]) for x in f], [(3, 'Npc::idle')])
+        # an unported stub is not compared (the port adds the lock); a stub with more code is
+        stub = code.replace('void Npc::idle() { SYNCHRONIZED(*this) {} }', 'void Npc::idle() {\n\tAION_UNPORTED();\n}\nvoid Npc::move() { AION_UNPORTED(); hp = 2; }')
+        stub = stub.replace('void move() { SYNCHRONIZED(*this) { hp = 1; } } void idle();', 'void idle();')
+        self.assertEqual([(x.line, x.message.split(': ')[0]) for x in lint(stub, rules=['L7'])], [(6, 'Npc::move')])
 
     def test_l8_banned_and_statics(self):
         code = '''void f() {
@@ -427,6 +652,17 @@ class CliTest(unittest.TestCase):
             with contextlib.redirect_stdout(out), contextlib.redirect_stderr(io.StringIO()):
                 lc.main(['--no-fieldmap', '--json', tmp])
             self.assertEqual(json.loads(out.getvalue())[0]['rule'], 'L1')
+            with open(os.path.join(tmp, 'model', 'A.h'), 'w', encoding='utf-8') as f:
+                f.write('namespace aion::gameserver::model { class A : public RefCounted { Field<int32_t> v; Monitor lock; }; }\n')
+            out = io.StringIO()
+            with contextlib.redirect_stdout(out), contextlib.redirect_stderr(io.StringIO()):
+                self.assertEqual(lc.main(['--no-fieldmap', tmp]), 0)  # a warning fails only with --werror
+                self.assertIn(': warning: L1: lockable member A::lock', out.getvalue())
+                self.assertEqual(lc.main(['--no-fieldmap', '--werror', tmp]), 1)
+                self.assertEqual(lc.main(['--no-fieldmap', '--werror', '--strict-lock-classes', tmp]), 1)
+                self.assertEqual(lc.main(['--no-fieldmap', '--cycles', tmp]), 0)
+                self.assertEqual(lc.main(['--no-fieldmap', '--cycles=core', tmp]), 0)
+            lc.LOCK_CLASS_SEVERITY = 'warning'
 
 
 if __name__ == '__main__':

@@ -55620,7 +55620,7 @@
 					"lenientEnum": false,
 					"cpp": {
 						"name": "equipment",
-						"type": "std::unique_ptr<::aion::gameserver::model::items::NpcEquippedGear>",
+						"type": "::aion::gameserver::runtime::Ref<::aion::gameserver::model::items::NpcEquippedGear>",
 						"init": null,
 						"access": "private",
 						"binding": "classAdapter"
@@ -56503,7 +56503,7 @@
 					"name": "getEquipment",
 					"kind": "getter",
 					"member": "equipment",
-					"cpp": "const ::aion::gameserver::model::items::NpcEquippedGear* getEquipment() const { return equipment.get(); }"
+					"cpp": "::aion::gameserver::runtime::Ptr<::aion::gameserver::model::items::NpcEquippedGear> getEquipment() const { return equipment; }"
 				},
 				{
 					"name": "getLevel",
@@ -100610,7 +100610,7 @@
 					"name": "getValue",
 					"kind": "getter",
 					"member": "value",
-					"cpp": "int32_t getValue() const { return value; }"
+					"cpp": "virtual int32_t getValue() const { return value; }"
 				},
 				{
 					"name": "getDelta",
@@ -100622,7 +100622,7 @@
 					"name": "getDuration2",
 					"kind": "getter",
 					"member": "duration2",
-					"cpp": "int32_t getDuration2() const { return duration2; }"
+					"cpp": "virtual int32_t getDuration2() const { return duration2; }"
 				},
 				{
 					"name": "getDuration1",
@@ -100688,7 +100688,7 @@
 					"name": "isNoResist",
 					"kind": "getter",
 					"member": "noResist",
-					"cpp": "bool isNoResist() const { return noResist; }"
+					"cpp": "virtual bool isNoResist() const { return noResist; }"
 				},
 				{
 					"name": "setNoResist",

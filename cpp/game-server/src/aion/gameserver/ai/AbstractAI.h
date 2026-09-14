@@ -50,7 +50,7 @@ private:
 	/** Java: ThreadLocal.withInitial(() -> 0) */
 	static inline thread_local std::optional<int32_t> DEPTH{0};
 
-	runtime::OwnerRef<model::gameobjects::Creature> owner; // fieldmap: OwnerRef<T> with T erased to its bound Creature (hub-headers.md §8.1)
+	runtime::OwnerRef<model::gameobjects::Creature> owner;
 	runtime::Field<AIState> currentState{};
 	runtime::Field<AISubState> currentSubState{};
 	runtime::Field<bool> thinking{};
@@ -60,7 +60,7 @@ private:
 	runtime::Field<runtime::Ref<event::AIEventLog>> eventLog{};
 
 	/** C++ only (replaces the @AIName annotation read by getName()): the registry entry AIEngine::newAI created this AI from, or null. */
-	runtime::Field<const handlers::AIHandlerEntry*> registryEntry{}; // fieldmap: C++-only replacement of getClass().getAnnotation(AIName.class)
+	runtime::Field<const handlers::AIHandlerEntry*> registryEntry{};
 
 protected:
 	explicit AbstractAI(model::gameobjects::Creature& owner);

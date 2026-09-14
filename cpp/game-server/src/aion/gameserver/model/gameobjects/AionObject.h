@@ -26,7 +26,7 @@ private:
 	/** Unique id, for all game objects such as: items, players, monsters. */
 	const int32_t objectId;
 	/** C++ only: Java registers objId with CLEANER when `objectId != 0 && autoReleaseObjectId` (AionObject.java:31-34) */
-	const bool autoReleaseObjectId; // fieldmap: C++-only replacement of Cleaner.register (runtime-architecture.md §6)
+	const bool autoReleaseObjectId;
 
 protected:
 	explicit AionObject(int32_t objId);

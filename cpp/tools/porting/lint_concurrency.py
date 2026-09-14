@@ -4,10 +4,12 @@ Python 3.12 stdlib only. A small C++ scanner (comments, strings, raw strings, pr
 functions, lambdas) feeds rules that compare the ported code with cpp/game-server/generated/concurrency/fieldmap.json.
 
 Usage
-    python lint_concurrency.py [--fieldmap FILE] [--no-fieldmap] [--rules L1,L5,...] [--cycles] [--json] [--werror] PATH...
+    python lint_concurrency.py [--fieldmap FILE] [--no-fieldmap] [--rules L1,L5,...] [--cycles[=all|core]] [--json] [--werror] PATH...
 PATH is a file or a directory (scanned recursively for .h .hpp .cpp .cc .cxx .inl .ipp). Output lines are
-    path:line:col: error|warning: Lnn: message
-sorted by path and line. Exit status: 0 clean, 1 errors (or warnings with --werror), 2 usage or input errors.
+    path:line:col: error|warning|advisory: Lnn: message
+sorted by path and line. Exit status: 0 clean, 1 errors (or warnings with --werror), 2 usage or input errors. Advisory findings are
+printed but never change the exit status (the RR-16 lock class check was advisory until the spine freeze and is a warning since;
+--strict-lock-classes forces warnings when LOCK_CLASS_SEVERITY is lowered again).
 
 Areas: kernel code is every file under runtime/ plus the P4-02b services built on leaf mutexes and their own threads (services/cron/,
 utils/idfactory/, utils/cron/, utils/ThreadPoolManager.*). The kernel implements the wrappers and re-architects its Java classes, so L1, L2,
@@ -16,24 +18,38 @@ L2 compares member types for K3/K4 classes only (K5 members are plain by definit
 
 Shared (K4-like) classes: C++ classes mapped to a K3/K4 Java class of fieldmap.json, and classes deriving (directly or through another
 scanned class) from RefCounted, OwnedPart or Immortal. Mapping C++ -> Java: namespace aion::gameserver::handlers::<pkg> -> <pkg>,
-aion::gameserver::<pkg> -> com.aionemu.gameserver.<pkg>, keyword segments with a trailing '_' lose it, nested classes Outer::Inner, generated
+aion::gameserver::<pkg> -> com.aionemu.gameserver.<pkg>, keyword segments with a trailing '_' lose it, nested classes Outer::Inner (also
+when defined outside their class as `class Outer::Inner {` in a .cpp), generated
 callback structs by their cppName; a '// fieldmap-class: <FQN>' comment on or above the class line overrides the mapping.
 Packet classes: fieldmap K2, or classes deriving AionServerPacket/AionClientPacket/Ls*/Cs* packet bases/BaseServerPacket/BaseClientPacket.
 
 Rules
     L1   members of shared classes are const, Final<>, Field<>, collection/Atomic shims, Array, parts (const unique_ptr, PartSlot, PartMap,
-         PartList), OwnerRef, SelfOrRef, Monitor/StampedLock/Semaphore, PinnedCallback, std::atomic (L14 warns), or waived
+         PartList), OwnerRef, SelfOrRef, Monitor/StampedLock/Semaphore, PinnedCallback, std::atomic (L14 warns), exactly the spelling of a
+         fieldmap.toml override (or of a class confined by fieldmap.toml [kinds]), or waived.
+         Warning (RR-16, runtime-architecture.md §3.4, hub-headers.md §4): a Monitor, StampedLock, Semaphore, collection shim or Atomic*
+         member (static members included) whose initializer does not start with AION_LOCK_CLASS( in its declaration, in a member initializer
+         list of a constructor of that class, or in the out-of-line definition `Type Class::member{AION_LOCK_CLASS(...)}` of a static
+         member; a `// fieldmap:` waiver does not waive it
     L2   member types of mapped classes equal fieldmap.json (declared fields and generated capture members; missing instance members
-         are reported); '// fieldmap: <reason>' waives
+         are reported; xml::HolderRef<X>/MutableHolderRef<X> equal a static Field<const X*>); '// fieldmap: <reason>' waives
     L3   no std::string_view, std::span, Ptr<, reference, raw pointer to a RefCounted class or const std::string& members in shared classes
+         (pointers and references to Immortal classes and static data templates are not borrows; a simple name that also names a RefCounted
+         class, such as Item or PlayerCommonData, is a borrow). OwnerRef<> members only in parts (OwnedPart, not RefCounted) or spelled
+         exactly as a fieldmap.toml override; a `// fieldmap:` waiver does not waive that
     L4   namespace-scope and static data members hold thread-safe types (const/constexpr, std::atomic, Field, shims, Atomic*, Monitor,
-         mutexes, ConfigValue, std::once_flag, loggers)
+         mutexes, ConfigValue, std::once_flag, loggers, published static data holders xml::HolderRef/MutableHolderRef)
     L5   lambdas passed to schedule*/execute*/submit*/deferred, PinnedCallback and the observer/request/cron/event APIs: no [&]/[=];
          unpinned lambdas are captureless; 'this'/'&x' captures are in the pin list; by-copy captures are not Ptr/raw pointers/references.
+         A getObjectTemplate() result of a Player, Playable, Creature or VisibleObject receiver (also through a call chain whose method returns
+         one, or returns an unknown type) is never captured, pinned or bound (bindTask) as the pointer itself: the Player's template is its
+         RefCounted PlayerCommonData, which a `const CreatureTemplate*` neither retains nor keeps valid; values derived from it
+         (`->getTemplateId()`) are fine.
          (b) QuiescentScope opened at the top level of the function body; no Ptr/T& locals declared before it; range-for variables inside
          it are Ref; functions with T& parameters need '// quiescent-safe: <why>'; quiescentPoint() outside a QuiescentScope warns
     L6   no std::thread/std::jthread/std::async/.detach() outside runtime/
-    L7   SYNCHRONIZED and lock() counts per method equal the Java synchronized/lock() counts of fieldmap.json
+    L7   SYNCHRONIZED and lock() counts per method equal the Java synchronized/lock() counts of fieldmap.json (bodies consisting only of
+         AION_UNPORTED(); are skipped: the port adds the locks)
     L8   banned C functions (strtok, localtime, gmtime, asctime, ctime, rand, srand, setlocale, getenv) and mutable function-local statics
          (getInstance()-style singletons of class type and const/atomic statics are allowed)
     L9   destructors of shared classes: no dereference (->), container or get() calls, SYNCHRONIZED, packets, getInstance()
@@ -45,7 +61,8 @@ Rules
     L13  Immortal only on singletons (getInstance), static data, quest handlers and commands; per-run services are never Immortal
     L14  warning: std::atomic< in game code (outside runtime/ and configs/)
     L15  no thread_local holding Ref/Ptr/pointers/references/views
-    L16  (--cycles) every cycle edge of fieldmap.json has a cycles.toml resolution; part classes hold no Ref to their owner
+    L16  (--cycles) every cycle edge of fieldmap.json has a cycles.toml resolution; part classes hold no Ref to their owner.
+         --cycles=core skips the edges whose class or callback lies under game-server/data/handlers (resolved by the phase-6 chunks)
     L17  KnownList add( only inside KnownList::addPair
     L18  RankedMutex/LeafMutex only in runtime/ and network/; while such a mutex is held (RAII guard scope): no callable parameter invoked,
          no blocking call (Future get, join, acquire, sleep, BlockingRegion, DAO) and no SYNCHRONIZED
@@ -310,6 +327,7 @@ class Parser:
         self.classes = []
         self.functions = []
         self.globals = []
+        self.returns = []  # (function name, return type text) of definitions and member declarations
 
     def parse(self):
         self._scope(0, len(self.src.tok), [], None)
@@ -510,11 +528,21 @@ class Parser:
             q -= 2
         return name, qual, dtor
 
+    def _return_type(self, start, paren, name):
+        t, k = self.src.tok, self.src.kind
+        q = paren - 1
+        while q >= 2 and t[q - 1] == '::' and k[q - 2] == IDENT:
+            q -= 2
+        if q < start:
+            return
+        self.returns.append((name, ' '.join(x for x in t[start:q] if x not in _SPECIFIERS and x not in _ACCESS and x != ':')))
+
     def _function(self, start, paren, body, ns, cls):
         src = self.src
         name, qual, dtor = self._name_before(paren)
         if name is None:
             return
+        self._return_type(start, paren, name)
         static = 'static' in src.tok[start:paren]
         fn = Function(name, qual, cls, src, (paren + 1, src.match[paren]), (body, src.match[body]), src.line[paren - 1], src.col[paren - 1],
                       dtor, static)
@@ -529,6 +557,7 @@ class Parser:
             return
         name, qual, dtor = self._name_before(paren)
         if name is not None and not qual:
+            self._return_type(s, paren, name)
             cls.declared.add(name)
             if 'static' in self.src.tok[s:paren]:
                 cls.static_declared.add(name)
@@ -545,6 +574,7 @@ class Parser:
             return j + 1
         j = kw + 1
         name = None
+        outer = []  # `class Outer::Nested {` (a nested class defined outside its class, in the .cpp)
         while j < brace:
             if t[j] == '[' and j + 1 < brace and t[j + 1] == '[' and m[j] > 0:
                 j = m[j] + 1
@@ -555,6 +585,7 @@ class Parser:
                 if j < brace and t[j] == '<':
                     j = self._skip_angle(j, brace)
                 while j < brace and t[j] == '::' and k[j + 1] == IDENT:
+                    outer.append(name)
                     name = t[j + 1]
                     j += 2
                 break
@@ -583,7 +614,7 @@ class Parser:
         close = m[brace] if m[brace] > 0 else end
         if name is None:
             name = f'<anonymous@{src.line[kw]}>'
-        qual = f'{parent.qualname}::{name}' if parent is not None else name
+        qual = '::'.join(([parent.qualname] if parent is not None else []) + outer + [name])
         cls = CppClass(name, qual, list(ns), bases, src, src.line[kw], src.col[kw], (brace, close), parent, key=key)
         self.classes.append(cls)
         self._scope(brace + 1, close, ns, cls)
@@ -818,6 +849,12 @@ def norm_type(s):
     return s.strip()
 
 
+def unqualify_nested(s):
+    """Drops class qualifiers of nested names (`Persistable::PersistentState` -> `PersistentState`, `Effect::ForceType` stays distinct from
+    the hoisted `Effect_ForceType`): inside a class and its subclasses a nested type or its using-alias is named without them (L2)."""
+    return re.sub(r'(?<![\w:])(?:[A-Z]\w*::)+(?=[A-Za-z_])', '', s)
+
+
 # ----------------------------------------------------------------------------------------------------------------------------------
 # Rules
 # ----------------------------------------------------------------------------------------------------------------------------------
@@ -843,7 +880,7 @@ L1_HEADS = frozenset(('Final', 'Field', 'PartSlot', 'PartMap', 'PartList', 'Owne
                       'PinnedCallback', 'Array')) | SHIMS
 SAFE_STATIC_HEADS = frozenset(('Field', 'Final', 'Monitor', 'StampedLock', 'Semaphore', 'ConfigValue', 'Logger', 'LeafMutex', 'RankedMutex',
                                'std::atomic', 'std::mutex', 'std::shared_mutex', 'std::recursive_mutex', 'std::once_flag', 'std::atomic_flag',
-                               'std::condition_variable', 'std::condition_variable_any')) | SHIMS
+                               'std::condition_variable', 'std::condition_variable_any', 'HolderRef', 'MutableHolderRef')) | SHIMS
 TASK_APIS = frozenset(('schedule', 'scheduleAtFixedRate', 'scheduleWithFixedDelay', 'execute', 'executeLongRunning', 'submit',
                        'submitLongRunning', 'deferred', 'PinnedCallback', 'addObserver', 'attach', 'addAttackCalcObserver', 'putRequest',
                        'addOnEventEndTask'))
@@ -858,21 +895,37 @@ PER_RECIPIENT = frozenset(('SM_ACCOUNT_PROPERTIES', 'SM_ALLIANCE_INFO', 'SM_BLOC
                            'SM_DIALOG_WINDOW', 'SM_FRIEND_LIST', 'SM_FRIEND_UPDATE', 'SM_GROUP_INFO', 'SM_HOUSE_BIDS', 'SM_HOUSE_EDIT',
                            'SM_HOUSE_OBJECT', 'SM_HOUSE_REGISTRY', 'SM_INSTANCE_INFO', 'SM_LOOT_ITEMLIST', 'SM_MAIL_SERVICE',
                            'SM_MARK_FRIENDLIST', 'SM_MESSAGE', 'SM_PLAYER_INFO', 'SM_PLAYER_SEARCH', 'SM_PLAY_MOVIE', 'SM_PRICES',
-                           'SM_SIEGE_LOCATION_INFO', 'SM_UNK_3_5_1', 'SM_GROUP_MEMBER_INFO', 'SM_ALLIANCE_MEMBER_INFO'))
+                           'SM_SIEGE_LOCATION_INFO', 'SM_UNK_3_5_1', 'SM_GROUP_MEMBER_INFO', 'SM_ALLIANCE_MEMBER_INFO',
+                           'SM_CREATE_CHARACTER'))
 NOT_CACHEABLE = frozenset(('SM_ATTACK', 'SM_CASTSPELL_RESULT', 'SM_PET', 'SM_PLAY_MOVIE', 'SM_GROUP_MEMBER_INFO', 'SM_ALLIANCE_MEMBER_INFO',
                            'SM_KEY'))
 IMMORTAL_BASES = frozenset(('QuestHandler', 'AbstractQuestHandler', 'AdminCommand', 'PlayerCommand', 'ConsoleCommand', 'ChatCommand',
                             'StaticTemplate'))
 PER_RUN_SERVICES = frozenset(('Siege', 'Base', 'WorldRaid', 'Event', 'Assault', 'AhserionRaid', 'Invasion', 'AgentFight'))
 WAIVER_RULES = {'confined': {'L1', 'L3', 'L19'}, 'fieldmap': {'L1', 'L2', 'L3'}, 'lockdep': {'L12'}, 'quiescent-safe': {'L5'}}
+# published static data holders (dataholders/loadingutils/HolderRef.h): lock-free reads, set once at load (static-data.md §3.3)
+HOLDER_HEADS = frozenset(('HolderRef', 'MutableHolderRef'))
+# RR-16: members that carry a static lock class
+LOCKABLE_HEADS = frozenset(('Monitor', 'StampedLock', 'Semaphore')) | (SHIMS - {'Chm'})
+IMMORTAL_BASE_CLASSES = frozenset(('Immortal', 'StaticTemplate'))
+# fieldmap.json rules whose spelling is a deliberate hand decision that L1/L19 accept as written
+FIELDMAP_DECISION_RULES = ('fieldmap.toml override', 'member of a class confined by fieldmap.toml')
+HANDLERS_PREFIX = 'game-server/data/handlers/'
+# RR-16 findings are warnings since the spine freeze (every hub member carries its lock class; --werror fails on them). They were 'advisory'
+# (printed, never failing) while the tags were applied; --strict-lock-classes is kept for scripts and forces 'warning'.
+LOCK_CLASS_SEVERITY = 'warning'
+UNPORTED_BODY = ['AION_UNPORTED', '(', ')', ';']
 _WAIVER_RE = re.compile(r'^(confined|fieldmap|lockdep|quiescent-safe|lint)\s*:\s*(.*)$')
 
 
 class Linter:
     def __init__(self, fieldmap=None, rules=None, cycles=False):
+        """cycles: False, True / 'all' (every cycle edge) or 'core' (edges outside game-server/data/handlers)."""
         self.fm = fieldmap
         self.rules = set(rules or ALL_RULES)
-        self.cycles = cycles
+        if cycles not in (False, True, 'all', 'core'):
+            raise LintError(f'unknown --cycles scope {cycles!r} (all, core)')
+        self.cycles = 'all' if cycles is True else cycles
         self.findings = []
         self.sources = []
         self.classes = []
@@ -883,12 +936,18 @@ class Linter:
         self._k5_names = set()
         self._k1_names = set()
         self._shared_names = set()
+        # RR-16 tags outside the member declaration: (qualifier parts, member) of constructor member initializers (the constructor's class) and
+        # of out-of-line static member definitions (`Type Class::member{AION_LOCK_CLASS(...)}`)
+        self._lock_class_inits = set()
+        self._returns = {}
         part_names = {c.get('cppName', '').split('::')[-1] for c in self._fm_classes.values() if c.get('partOf')}
         for cid, c in self._fm_classes.items():
             pkg = self._java_package(cid)
             self._by_pkg_cpp.setdefault((pkg, c.get('cppName')), []).append(cid)
         simple_kinds = {}
         for cid, c in self._fm_classes.items():
+            if c.get('kind') == 'K5' and str(c.get('reason', '')).startswith('value type'):
+                continue  # fieldmap.toml settings.value_types (Vector3f): stored by value in shared classes
             simple_kinds.setdefault(c.get('cppName', '').split('::')[-1], set()).add(c.get('kind'))
         for name, kinds in simple_kinds.items():
             if kinds == {'K5'}:
@@ -917,26 +976,64 @@ class Linter:
         src = Source(path or display, text, display)
         p = Parser(src).parse()
         self.sources.append(src)
+        self._collect_lock_class_tags(src, p)
+        for name, ret in p.returns:
+            self._returns.setdefault(name, []).append(ret)
         self.classes.extend(p.classes)
         self.functions.extend(p.functions)
         self.globals.extend(p.globals)
 
+    def _collect_lock_class_tags(self, src, parser):
+        t, k = src.tok, src.kind
+        inits = []  # (member initializer list range, qualifier parts of the constructor's class)
+        for fn in parser.functions:
+            if fn.dtor or fn.params[1] < 0:
+                continue
+            owner = fn.qual if fn.qual else ([fn.cls.name] if fn.cls is not None else [])
+            if owner and owner[-1] == fn.name:
+                cls_parts = (fn.cls.qualname.split('::') if fn.cls is not None and not fn.qual else fn.qual)
+                inits.append((fn.params[1], fn.body[0], cls_parts))
+        for i in range(2, len(t)):
+            if t[i] != 'AION_LOCK_CLASS' or t[i - 1] not in ('(', '{') or k[i - 2] != IDENT:
+                continue
+            member = t[i - 2]
+            q = i - 2
+            qual = []
+            while q >= 2 and t[q - 1] == '::' and k[q - 2] == IDENT:
+                qual.insert(0, t[q - 2])
+                q -= 2
+            if qual:
+                self._lock_class_inits.add((tuple(qual), member))  # out-of-line definition of a static member
+            elif t[q - 1] in (':', ','):
+                for a, b, cls_parts in inits:
+                    if a < i < b:
+                        self._lock_class_inits.add((tuple(cls_parts), member))
+                        break
+
+    def _lock_class_tagged_elsewhere(self, cls, member):
+        parts = list(cls.namespace) + cls.qualname.split('::')
+        for qual, name in self._lock_class_inits:
+            if name == member and len(qual) <= len(parts) and tuple(parts[len(parts) - len(qual):]) == qual:
+                return True
+        return False
+
     # -- helpers
-    def report(self, src, line, col, rule, message, severity='error'):
+    def report(self, src, line, col, rule, message, severity='error', unwaivable=()):
+        """unwaivable: waiver keys that do not waive this finding (RR-16 and OwnerRef placement are no layout decisions: `// fieldmap:`)."""
         if rule not in self.rules:
             return
-        waived, bad = self._waived(src, line, rule)
+        waived, bad = self._waived(src, line, rule, unwaivable)
         if bad:
             self.findings.append(Finding(src.display, line, col, 'error', 'W0', f'waiver without a reason: // {bad}'))
         if waived:
             return
         self.findings.append(Finding(src.display, line, col, severity, rule, message))
 
-    def _waived(self, src, line, rule):
+    def _waived(self, src, line, rule, unwaivable=()):
         bad = None
         for c in src.comment_near(line):
             m = _WAIVER_RE.match(c)
-            if not m:
+            if not m or m.group(1) in unwaivable:
                 continue
             key, rest = m.group(1), m.group(2).strip()
             if key == 'lint':
@@ -1036,14 +1133,72 @@ class Linter:
 
     def refcounted_names(self):
         """Names of RefCounted classes (raw pointers to them are borrows). Parts (OwnedPart, fieldmap partOf) are excluded: sibling part
-        pointers are the design's non-retaining form."""
+        pointers are the design's non-retaining form. Immortal classes and static data templates are excluded (immortal_names)."""
+        part_names = {c.get('cppName', '').split('::')[-1] for c in self._fm_classes.values() if c.get('partOf')}
         names = set(self._shared_names)
+        for cid, c in self._fm_classes.items():
+            name = c.get('cppName', '').split('::')[-1]
+            if c.get('kind') in ('K3', 'K4') and name not in part_names and self._fm_lifetime(cid) == 'shared':
+                names.add(name)  # also when a K1 or K5 class has the same simple name (GoodsList.Item)
         for c in self.classes:
             if self.is_shared(c) and not self._is_part_class(c):
                 names.add(c.name)
             elif c.name in names and self._is_part_class(c):
                 names.discard(c.name)
-        return names
+        return names - self.immortal_names()
+
+    def immortal_names(self):
+        """Simple names whose pointers and references live until shutdown: every class of that name is Immortal or static data (fieldmap
+        base Immortal/StaticTemplate, singleton, [immortal], K1, or a scanned class deriving Immortal/StaticTemplate but not RefCounted, the
+        kernel IsStaticTemplate rule). Classes are decided one by one: a name that also names a RefCounted class (GoodsList.Item and the model
+        Item, PlayerCommonData deriving CreatureTemplate) is no immortal name, so `Item&` stays a borrow."""
+        if getattr(self, '_immortal_cache', None) is None:
+            immortal, shared = set(), set()
+            for cid in self._fm_classes:
+                life = self._fm_lifetime(cid)
+                name = self._fm_classes[cid].get('cppName', '').split('::')[-1]
+                if life == 'immortal':
+                    immortal.add(name)
+                elif life == 'shared':
+                    shared.add(name)
+            for c in self.classes:
+                refcounted = self._derives(c, {'RefCounted'})
+                if self._derives(c, IMMORTAL_BASE_CLASSES) and not refcounted:
+                    immortal.add(c.name)
+                elif refcounted and not self._is_part_class(c):
+                    shared.add(c.name)
+            self._immortal_cache = immortal - shared
+        return self._immortal_cache
+
+    def _fm_lifetime(self, cid):
+        """'immortal', 'shared' (RefCounted), 'part' or None for a fieldmap class, walking its superclasses for the inherited base."""
+        seen = set()
+        c = self._fm_classes.get(cid)
+        kind = c.get('kind') if c else None
+        while c is not None and cid not in seen:
+            seen.add(cid)
+            if c.get('singleton') or c.get('immortal') or c.get('kind') == 'K1' or c.get('base') in IMMORTAL_BASE_CLASSES:
+                return 'immortal'
+            if c.get('partOf') or c.get('base') == 'OwnedPart':
+                return 'part'
+            if c.get('base') == 'RefCounted':
+                return 'shared'
+            cid = c.get('extends')
+            c = self._fm_classes.get(cid) if cid else None
+        return 'shared' if kind in ('K3', 'K4') else None
+
+    def _derives(self, cls, bases, _seen=None):
+        seen = _seen or set()
+        if id(cls) in seen:
+            return False
+        seen.add(id(cls))
+        for b in self._base_names(cls):
+            if b in bases:
+                return True
+            for other in self.class_by_name(b):
+                if other is not cls and self._derives(other, bases, seen):
+                    return True
+        return False
 
     def _is_part_class(self, cls, _seen=None):
         cid = self.java_cid(cls)
@@ -1063,6 +1218,7 @@ class Linter:
 
     # -- run
     def run(self):
+        self._immortal_cache = None
         self._refcounted = self.refcounted_names()
         for cls in self.classes:
             self._class_rules(cls)
@@ -1095,18 +1251,23 @@ class Linter:
                 if not self._static_safe(mb.type, mb.specifiers):
                     self.report(src, mb.line, mb.col, 'L4', f'static data member {cls.qualname}::{mb.name} of type `{raw}` is mutable shared state; '
                                                             'use const, Field<>, a shim, std::atomic or a Monitor-guarded holder')
+                if shared and self.area(src) != 'runtime':
+                    self._l1_lock_class(cls, mb, ty)
                 continue
             if shared and self.area(src) != 'runtime':
-                self._l1(cls, mb, ty)
+                if not self._fieldmap_decision(entry, mb):
+                    self._l1(cls, mb, ty)
                 self._l3(cls, mb, ty)
+                self._l3_owner_ref(cls, entry, mb, ty)
+                self._l1_lock_class(cls, mb, ty)
             if packet:
                 if 'Ptr<' in ty or ty.endswith('&') or self._raw_refcounted_ptr(ty):
                     self.report(src, mb.line, mb.col, 'L10', f'packet member {cls.qualname}::{mb.name} `{raw}` must be Ref<> or a value (packets outlive borrows)')
             if (shared or packet) and re.search(r'(?:iterator|Iterator)\b', ty) and not ty.startswith('JavaIterator'):
                 self.report(src, mb.line, mb.col, 'L11', f'stored iterator member {cls.qualname}::{mb.name} `{raw}`')
-            if shared or packet:
+            if (shared or packet) and not self._fieldmap_decision(entry, mb):
                 for name in self._k5_names:
-                    if re.search(rf'(?<![\w:]){re.escape(name)}\b', ty):
+                    if re.search(rf'(?<![\w:]){re.escape(name)}\b(?!::)', ty):
                         self.report(src, mb.line, mb.col, 'L19', f'confined (K5) class {name} stored in {"packet" if packet else "shared"} member '
                                                                  f'{cls.qualname}::{mb.name}')
                         break
@@ -1159,6 +1320,39 @@ class Linter:
         self.report(cls.src, mb.line, mb.col, 'L1', f'{kind} member {cls.qualname}::{mb.name} `{mb.type}` in a shared class: use const, Final<>, '
                                                     'Field<>, a shim, a part or a Monitor')
 
+    def _fieldmap_decision(self, entry, mb):
+        """True if the member is spelled exactly as a fieldmap.toml decision of fieldmap.json (override or [kinds] confined class): L1 and
+        L19 accept it, L2 has already compared it."""
+        if entry is None:
+            return False
+        name = mb.name
+        for f in entry.get('fields', []):
+            if f['name'] in (name, name.rstrip('_')) and f.get('cpp') and str(f.get('rule', '')).startswith(FIELDMAP_DECISION_RULES):
+                got = norm_type(('const ' if mb.specifiers & {'constexpr', 'constinit'} else '') + mb.type)
+                return got == norm_type(f['cpp'])
+        return False
+
+    def _l1_lock_class(self, cls, mb, ty):
+        """RR-16 warning: lockable members start their initializer with AION_LOCK_CLASS(."""
+        head = re.split(r'[<\s]', ty.removeprefix('const '))[0]
+        if head not in LOCKABLE_HEADS:
+            return
+        src = cls.src
+        t = src.tok
+        j = mb.tok + 1
+        if j < len(t) and t[j] in ('{', '(', '='):
+            k = j + 1
+            if t[j] == '=' and k < len(t) and t[k] in ('{', '('):
+                k += 1
+            if k < len(t) and t[k] == 'AION_LOCK_CLASS':
+                return
+        if self._lock_class_tagged_elsewhere(cls, mb.name):
+            return
+        self.report(src, mb.line, mb.col, 'L1', f'lockable member {cls.qualname}::{mb.name} `{mb.type}` has no static lock class: initialize it with '
+                                                f'{{AION_LOCK_CLASS(JavaClass::{mb.name.rstrip("_")})}} in its declaration, the constructor\'s member '
+                                                'initializer list or the out-of-line static definition (RR-16, hub-headers.md section 4)',
+                    LOCK_CLASS_SEVERITY, unwaivable=('fieldmap',))
+
     def _raw_refcounted_ptr(self, ty):
         for m in re.finditer(r'(?<![\w:])(?:const\s+)?([A-Z]\w*)\s*\*', ty):
             name = m.group(1)
@@ -1175,7 +1369,8 @@ class Linter:
             bad = 'std::span'
         elif re.search(r'(?<!\w)Ptr<', ty) and not re.search(r'Field<Ptr<', ty):
             bad = 'Ptr<>'
-        elif ty.endswith('&') and not ty.startswith('OwnerRef'):
+        elif ty.endswith('&') and not ty.startswith('OwnerRef') and \
+                re.sub(r'^const\s+', '', ty[:-1]).strip().split('::')[-1] not in self.immortal_names():
             bad = 'reference'
         else:
             name = self._raw_refcounted_ptr(ty)
@@ -1183,6 +1378,20 @@ class Linter:
                 bad = f'raw pointer to RefCounted {name}'
         if bad:
             self.report(cls.src, mb.line, mb.col, 'L3', f'{bad} member {cls.qualname}::{mb.name} `{mb.type}` in a shared class (borrows end with the task)')
+
+    def _l3_owner_ref(self, cls, entry, mb, ty):
+        """OwnerRef<O> is a plain O& (Parts.h): only a part, whose lifetime its owner bounds, may hold one. Other classes need a reviewed
+        fieldmap.toml override of exactly that spelling (ChargeInfo.item); a `// fieldmap:` comment does not waive it."""
+        if not re.match(r'^(?:const\s+)?OwnerRef<', ty):
+            return
+        if self._is_part_class(cls) and not self._derives(cls, {'RefCounted'}):
+            return
+        if self._fieldmap_decision(entry, mb):
+            return
+        self.report(cls.src, mb.line, mb.col, 'L3', f'OwnerRef member {cls.qualname}::{mb.name} `{mb.type}` in a class that is no part (OwnedPart): '
+                                                    'the reference dangles when the object outlives the referenced one; use const Ref<> '
+                                                    '(with a cycles.toml resolution) or a fieldmap.toml override with the lifetime argument',
+                    unwaivable=('fieldmap',))
 
     def _l2(self, cls, cid, entry):
         fields = {f['name']: f for f in entry.get('fields', [])}
@@ -1199,17 +1408,20 @@ class Linter:
             expected = f.get('cpp')
             if expected is None or str(f.get('rule', '')).startswith('config field'):
                 continue
-            exp = norm_type(re.sub(r'\s*getInstance\(\)$', '', expected))
+            exp = unqualify_nested(norm_type(re.sub(r'\s*getInstance\(\)$', '', expected)))
             if expected.endswith('getInstance()') or expected.startswith('static const Logger'):
                 continue
-            got = norm_type(('const ' if mb.specifiers & {'constexpr', 'constinit'} else '') + mb.type)
+            got = unqualify_nested(norm_type(('const ' if mb.specifiers & {'constexpr', 'constinit'} else '') + mb.type))
+            holder = re.fullmatch(r'(?:Mutable)?HolderRef<(.+)>', got)
+            if holder and exp == f'Field<const {holder.group(1)}*>':
+                continue  # a published holder is the C++ form of a static non-final template reference (static-data.md §3.3)
             if got != exp:
                 self.report(cls.src, mb.line, mb.col, 'L2', f'{cls.qualname}::{mb.name} is `{mb.type}`, fieldmap.json expects `{expected}` ({f.get("rule")}; '
                                                             f'Java {f.get("java")} line {f.get("line")})')
         for f in entry.get('fields', []):
             mods = f.get('modifiers', [])
-            if 'static' in mods or f.get('cpp') is None or f['name'] in seen or str(f.get('rule', '')).startswith('config field'):
-                continue
+            if 'static' in mods or f.get('cpp') is None or f['name'] in seen or str(f.get('rule', '')).startswith(('config field', 'logger')):
+                continue  # loggers live at namespace scope in the .cpp (hub-headers.md §11.3)
             present = any(mb.name in (f['name'], f['name'] + '_') for mb in cls.members)
             if not present:
                 self.report(cls.src, cls.line, cls.col, 'L2', f'{cls.qualname} lacks member {f["name"]} `{f["cpp"]}` (Java {f.get("java")} line {f.get("line")})')
@@ -1230,7 +1442,7 @@ class Linter:
             return
         if entry is not None and (entry.get('singleton') or entry.get('immortal') or entry.get('kind') == 'K1'):
             return
-        if any(b in IMMORTAL_BASES for b in bases):
+        if any(b in IMMORTAL_BASES for b in bases) or cls.name in IMMORTAL_BASES:
             return
         if any(f.name in ('getInstance', 'instance') and f.static_member for f in cls.functions) or cls.static_declared & {'getInstance', 'instance'} or \
                 any(fn.name in ('getInstance', 'instance') and fn.qual and fn.qual[-1] == cls.name for fn in self.functions):
@@ -1266,11 +1478,19 @@ class Linter:
                 if re.search(rf'(?<!\w)Ref<{re.escape(o)}>', ty):
                     self.report(cls.src, mb.line, mb.col, 'L16', f'part {cls.qualname} holds `{mb.type}` to its owner {o}: use OwnerRef<{o}> or SelfOrRef<{o}>')
 
+    def _edge_file(self, edge):
+        src = edge.get('from') or ''
+        src = src[3:] if src.startswith('cb:') else src
+        entry = self._fm_classes.get(src) or (self.fm or {}).get('callbacks', {}).get(src)
+        return (entry or {}).get('file') or ''
+
     def _cycle_rules(self):
         edges = self.fm.get('cycleEdges', {})
         path = os.path.join('game-server', 'generated', 'concurrency', 'cycles_report.md')
         for key in sorted(edges):
             e = edges[key]
+            if self.cycles == 'core' and self._edge_file(e).replace('\\', '/').startswith(HANDLERS_PREFIX):
+                continue
             if e.get('resolution') is None:
                 self.findings.append(Finding(path, 0, 0, 'error', 'L16', f'unresolved cycle edge {key} (component {e.get("scc")}); add a cycles.toml resolution'))
         for key in self.fm.get('staleResolutions', []):
@@ -1353,6 +1573,7 @@ class Linter:
             pins = set()
             if n > 0:
                 pa, pb = args[0]
+                self._l5_player_template(fn, decls, pa, pb, f'pin list of {t[i]}()')
                 for x in range(pa, pb):
                     if t[x] == 'this':
                         pins.add('this')
@@ -1382,6 +1603,9 @@ class Linter:
                         self.report(src, line, col, 'L5', f'{where}: `&{ct[1]}` is captured by reference but not pinned')
                     continue
                 if len(ct) == 1 and k[a] == IDENT:
+                    init = self._decl_initializer(src, decls, ct[0], lam.cap[0])
+                    if init is not None:
+                        self._l5_player_template(fn, decls, init[0], init[1], f'{where}: capture `{ct[0]}`')
                     ty = self._decl_type(decls, ct[0], lam.cap[0])
                     if ty is not None:
                         nty = norm_type(ty)
@@ -1396,6 +1620,78 @@ class Linter:
                     rhs = ct[ct.index('=') + 1:]
                     if rhs[:1] == ['&']:
                         self.report(src, line, col, 'L5', f'{where}: init capture `{text}` stores an address')
+                    self._l5_player_template(fn, decls, a + ct.index('=') + 1, b, f'{where}: init capture `{text}`')
+        for i in range(bs, be):
+            if t[i] == 'bindTask' and i + 1 < be and t[i + 1] == '(' and m[i + 1] > 0:
+                for a, b in split_top(src, i + 2, m[i + 1])[1:]:
+                    self._l5_player_template(fn, decls, a, b, 'bindTask() argument')
+
+    # classes whose getObjectTemplate() is a Player's RefCounted PlayerCommonData (Java VisibleObject.objectTemplate)
+    PLAYER_TEMPLATE_RECEIVERS = frozenset(('Player', 'Creature', 'Playable', 'VisibleObject'))
+    # a token after `getObjectTemplate()` that makes the expression something other than the template pointer (a member, a comparison)
+    NOT_TEMPLATE_VALUE = frozenset(('.', '->', '[', '==', '!=', '&&', '||', '?', '<=', '>=', '+', '-'))
+
+    def _l5_player_template(self, fn, decls, s, e, where):
+        """Reports getObjectTemplate() of a Player, Playable, Creature or VisibleObject receiver in tokens [s, e) whose result is kept as the
+        pointer itself: for players it points into a RefCounted PlayerCommonData, so it is no immortal template capture (S0B-111). A value
+        derived from it (`->getTemplateId()`) is fine. A call-chain receiver (`pc.getOwner().getObjectTemplate()`) is resolved through the
+        scanned return types of the called method; an unknown method is reported."""
+        src = fn.src
+        t, k, m = src.tok, src.kind, src.match
+        for g in range(s, e):
+            if t[g] != 'getObjectTemplate' or g + 1 >= len(t) or t[g + 1] != '(':
+                continue
+            after = m[g + 1] + 1 if m[g + 1] > 0 else g + 2
+            if after < e and t[after] in self.NOT_TEMPLATE_VALUE:
+                continue
+            receiver = None
+            if g == 0 or t[g - 1] not in ('.', '->'):
+                cls = fn.cls or self._owner_class(fn)
+                receiver = fn.qual[-1] if fn.qual else (cls.name if cls is not None else None)
+            elif t[g - 2] == 'this':
+                cls = fn.cls or self._owner_class(fn)
+                receiver = fn.qual[-1] if fn.qual else (cls.name if cls is not None else None)
+            elif k[g - 2] == IDENT:
+                ty = self._decl_type(decls, t[g - 2], g)
+                if ty is None:
+                    cls = fn.cls or self._owner_class(fn)
+                    ty = next((mb.type for mb in (cls.members if cls is not None else []) if mb.name == t[g - 2]), None)
+                if ty is not None:
+                    names = re.findall(r'[A-Za-z_]\w*', norm_type(ty))
+                    receiver = next((x for x in names if x in self.PLAYER_TEMPLATE_RECEIVERS), None)
+            elif t[g - 2] == ')' and m[g - 2] > 0 and k[m[g - 2] - 1] == IDENT:
+                method = t[m[g - 2] - 1]
+                returns = self._returns.get(method)
+                if not returns:
+                    receiver = f'{method}() result of unknown type'
+                else:
+                    names = {x for r in returns for x in re.findall(r'[A-Za-z_]\w*', norm_type(r))}
+                    receiver = next((x for x in sorted(names) if x in self.PLAYER_TEMPLATE_RECEIVERS), None)
+                    if receiver is not None:
+                        receiver = f'{receiver} ({method}())'
+            if receiver is not None and (receiver in self.PLAYER_TEMPLATE_RECEIVERS or '(' in receiver):
+                self.report(src, src.line[g], src.col[g], 'L5', f'{where}: getObjectTemplate() of a {receiver} is captured; a Player\'s template is its '
+                                                                 'RefCounted PlayerCommonData (capture the Ref<Player> or the template id)')
+
+    @staticmethod
+    def _decl_initializer(src, decls, name, before):
+        """Token range of the initializer of the latest local declaration of name before token `before`, or None."""
+        best = None
+        for n, _, idx in decls:
+            if n == name and idx < before and (best is None or idx > best):
+                best = idx
+        if best is None:
+            return None
+        t, m = src.tok, src.match
+        j = best + 1
+        if j >= len(t) or t[j] not in ('=', '{', '('):
+            return None
+        e = j
+        while e < len(t) and t[e] not in (';', ')', ','):
+            if t[e] in ('(', '[', '{') and m[e] > e:
+                e = m[e]
+            e += 1
+        return j, e
 
     @staticmethod
     def _decl_type(decls, name, before):
@@ -1745,6 +2041,8 @@ class Linter:
             src = fn.src
             t = src.tok
             bs, be = fn.body
+            if t[bs + 1:be] == UNPORTED_BODY:
+                continue  # unported stub: the port adds the locks Java takes (hub-headers.md §2)
             n_sync = sum(1 for i in range(bs, be) if t[i] == 'SYNCHRONIZED')
             n_lock = sum(1 for i in range(bs + 2, be) if t[i] in ('lock', 'tryLock', 'readLock', 'writeLock') and t[i - 1] in ('.', '->')
                          and i + 2 < be and t[i + 1] == '(' and t[i + 2] == ')')
@@ -1796,9 +2094,13 @@ def main(argv=None):
     ap.add_argument('--fieldmap', default=None, help=f'fieldmap.json (default: {display_path(DEFAULT_FIELDMAP)} when present)')
     ap.add_argument('--no-fieldmap', action='store_true')
     ap.add_argument('--rules', default=None, help='comma-separated rule ids (default: all)')
-    ap.add_argument('--cycles', action='store_true', help='L16: report unresolved cycle edges of fieldmap.json')
+    ap.add_argument('--cycles', default=False, choices=('all', 'core'),
+                    help='L16: report unresolved cycle edges of fieldmap.json; a bare --cycles means all (core: without the '
+                         'game-server/data/handlers edges)')
     ap.add_argument('--json', action='store_true')
+    ap.add_argument('--strict-lock-classes', action='store_true', help='report the RR-16 lock class findings as warnings instead of advisories')
     ap.add_argument('--werror', action='store_true')
+    argv = [('--cycles=all' if a == '--cycles' else a) for a in (sys.argv[1:] if argv is None else argv)]
     args = ap.parse_args(argv)
     try:
         fm = None
@@ -1812,6 +2114,9 @@ def main(argv=None):
             bad = [r for r in rules if r not in ALL_RULES]
             if bad:
                 raise LintError(f'unknown rules {bad}')
+        global LOCK_CLASS_SEVERITY
+        if args.strict_lock_classes:
+            LOCK_CLASS_SEVERITY = 'warning'
         lint = Linter(fm, rules, args.cycles)
         for f in collect(args.paths):
             lint.add_file(f, display_path(f))
@@ -1825,10 +2130,11 @@ def main(argv=None):
         for f in findings:
             print(f.format())
         errors = sum(1 for f in findings if f.severity == 'error')
-        warnings = len(findings) - errors
-        print(f'lint_concurrency: {len(lint.sources)} files, {errors} errors, {warnings} warnings', file=sys.stderr)
+        advisories = sum(1 for f in findings if f.severity == 'advisory')
+        warnings = len(findings) - errors - advisories
+        print(f'lint_concurrency: {len(lint.sources)} files, {errors} errors, {warnings} warnings, {advisories} advisories', file=sys.stderr)
     errors = sum(1 for f in findings if f.severity == 'error')
-    if errors or (args.werror and findings):
+    if errors or (args.werror and any(f.severity == 'warning' for f in findings)):
         return 1
     return 0
 

@@ -33,11 +33,10 @@ private:
 	/** Java: Comparator.comparing(zone type).thenComparingInt(priority).thenComparingInt(name id); callback struct in MapRegion.cpp */
 	static const runtime::PinnedCallback<int32_t(zone::ZoneInstance&, zone::ZoneInstance&)> zoneComparator;
 	const int32_t regionId;
-	runtime::OwnerRef<WorldMapInstance> parent; // fieldmap: part owner (build/s0b-cycles-work/setII.toml, cycles.toml `part`)
-	// fieldmap: sibling pointers to regions of the same instance (build/s0b-cycles-work/setII.toml, cycles.toml `part`)
+	runtime::OwnerRef<WorldMapInstance> parent;
 	runtime::Field<runtime::Ref<runtime::Array<MapRegion*>>> neighboursIncludingSelf;
 	const runtime::Ref<runtime::Array<runtime::Ref<zone::ZoneInstance>>> zonesSortedByTypeAndPriority;
-	runtime::ConcurrentHashMap<int32_t, runtime::Ref<model::gameobjects::VisibleObject>> objects{};
+	runtime::ConcurrentHashMap<int32_t, runtime::Ref<model::gameobjects::VisibleObject>> objects{AION_LOCK_CLASS(MapRegion::objects#stripe)};
 	runtime::Field<int32_t> playerCount{};
 	runtime::Field<bool> regionActive{false};
 	runtime::Field<bool> deactivationPending{false};

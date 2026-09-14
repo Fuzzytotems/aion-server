@@ -3,7 +3,10 @@
 #include <utility>
 
 #include "aion/gameserver/runtime/base/Unported.h"
+#include "aion/gameserver/model/templates/spawns/Spawn.h"
+#include "aion/gameserver/model/templates/spawns/SpawnSpotTemplate.h"
 #include "aion/gameserver/model/templates/spawns/SpawnTemplate.h"
+#include "aion/gameserver/model/templates/spawns/siegespawns/SiegeSpawnTemplate.h"
 
 namespace aion::gameserver::model::templates::spawns {
 
@@ -14,8 +17,8 @@ SpawnGroup::SpawnGroup(int32_t worldIdValue, int32_t npcIdValue, int32_t respawn
 
 SpawnGroup::SpawnGroup(int32_t worldIdValue, const Spawn* spawn)
 	: SpawnGroup(worldIdValue, spawn, std::vector<std::unique_ptr<SpawnTemplate>>()) {
-	// Java: for each SpawnSpotTemplate template of spawn.getSpawnSpotTemplates(): spots.add(new SpawnTemplate(this, template))
-	AION_UNPORTED();
+	for (const SpawnSpotTemplate& template_ : spawn->getSpawnSpotTemplates())
+		spots.add(std::make_unique<SpawnTemplate>(*this, &template_));
 }
 
 SpawnGroup::SpawnGroup(int32_t worldIdValue, const Spawn* spawn, int32_t id, model::base::BaseOccupier occupier)
@@ -43,11 +46,8 @@ SpawnGroup::SpawnGroup(int32_t worldIdValue, const Spawn* spawn, int32_t id, mod
 
 SpawnGroup::SpawnGroup(int32_t worldIdValue, const Spawn* spawn, int32_t siegeId, model::siege::SiegeRace race, model::siege::SiegeModType mod)
 	: SpawnGroup(worldIdValue, spawn, std::vector<std::unique_ptr<SpawnTemplate>>()) {
-	// Java: for each spot, new SiegeSpawnTemplate(siegeId, race, mod, this, template), added to spots
-	static_cast<void>(siegeId);
-	static_cast<void>(race);
-	static_cast<void>(mod);
-	AION_UNPORTED();
+	for (const SpawnSpotTemplate& template_ : spawn->getSpawnSpotTemplates())
+		spots.add(std::make_unique<siegespawns::SiegeSpawnTemplate>(siegeId, race, mod, *this, &template_));
 }
 
 SpawnGroup::SpawnGroup(int32_t worldIdValue, const Spawn* spawn, int32_t stage, services::panesterra::ahserion::PanesterraFaction faction)
@@ -59,12 +59,8 @@ SpawnGroup::SpawnGroup(int32_t worldIdValue, const Spawn* spawn, int32_t stage, 
 }
 
 SpawnGroup::SpawnGroup(int32_t worldIdValue, const Spawn* spawn, std::vector<std::unique_ptr<SpawnTemplate>> spotsValue)
-	: worldId(worldIdValue), npcId(0), pool(0), respawnTime(0), difficultId(0), handlerType(), temporarySpawn(nullptr), eventTemplate(nullptr) {
-	// Java: this(worldId, spawn.getNpcId(), spawn.getPool(), spawn.getRespawnTime(), spawn.getDifficultId(), spawn.getSpawnHandlerType(),
-	// spawn.getTemporarySpawn(), spots, spawn.getEventTemplate())
-	static_cast<void>(spawn);
-	static_cast<void>(spotsValue);
-	AION_UNPORTED();
+	: SpawnGroup(worldIdValue, spawn->getNpcId(), spawn->getPool(), spawn->getRespawnTime(), spawn->getDifficultId(), spawn->getSpawnHandlerType(),
+		  spawn->getTemporarySpawn(), std::move(spotsValue), spawn->getEventTemplate()) {
 }
 
 SpawnGroup::SpawnGroup(int32_t worldIdValue, int32_t npcIdValue, int32_t poolValue, int32_t respawnTimeValue, int8_t difficultIdValue,
@@ -127,17 +123,14 @@ bool SpawnGroup::isTemporarySpawn() {
 	AION_UNPORTED();
 }
 
-// lint: L7 unported stub; Java synchronizes it, the port adds SYNCHRONIZED
 runtime::Ptr<SpawnTemplate> SpawnGroup::reserveRandomFreePoolSpot(int32_t instanceId) {
 	AION_UNPORTED();
 }
 
-// lint: L7 unported stub; Java synchronizes it, the port adds SYNCHRONIZED
 void SpawnGroup::resetPoolSpot(int32_t instanceId, SpawnTemplate& template_) {
 	AION_UNPORTED();
 }
 
-// lint: L7 unported stub; Java synchronizes it, the port adds SYNCHRONIZED
 void SpawnGroup::resetPoolSpots(int32_t instanceId) {
 	AION_UNPORTED();
 }

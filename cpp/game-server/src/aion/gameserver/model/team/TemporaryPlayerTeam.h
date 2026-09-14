@@ -31,7 +31,7 @@ private:
 	runtime::Field<runtime::Ref<common::legacy::LootGroupRules>> lootGroupRules; // Java: = new LootGroupRules() (constructor)
 
 protected:
-	runtime::ConcurrentHashMap<int32_t, int32_t> targetIdsByBrandId{};
+	runtime::ConcurrentHashMap<int32_t, int32_t> targetIdsByBrandId{AION_LOCK_CLASS(TemporaryPlayerTeam::targetIdsByBrandId#stripe)};
 
 	TemporaryPlayerTeam(int32_t objId, bool autoReleaseObjectId);
 	~TemporaryPlayerTeam() override;
@@ -61,6 +61,9 @@ public:
 	runtime::Ptr<common::legacy::LootGroupRules> getLootGroupRules() override { return lootGroupRules.get(); }
 
 	void setLootGroupRules(runtime::Ptr<common::legacy::LootGroupRules> lootGroupRules);
+
+	/** Narrowing accessor (Java GeneralTeam<Player, TM>.getLeaderObject(), hub-headers.md §8.2) */
+	runtime::Ptr<gameobjects::player::Player> getLeaderObject();
 };
 
 } // namespace aion::gameserver::model::team

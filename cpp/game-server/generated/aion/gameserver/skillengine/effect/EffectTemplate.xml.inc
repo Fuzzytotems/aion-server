@@ -41,9 +41,9 @@ protected:
 	int32_t maxDamageDelta = 0; // @XmlAttribute(name = "max_damage_delta")
 
 public:
-	int32_t getValue() const { return value; }
+	virtual int32_t getValue() const { return value; }
 	int32_t getDelta() const { return delta; }
-	int32_t getDuration2() const { return duration2; }
+	virtual int32_t getDuration2() const { return duration2; }
 	int32_t getDuration1() const { return duration1; }
 	int32_t getRandomTime() const { return randomTime; }
 	const ::aion::gameserver::skillengine::effect::modifier::ActionModifiers* getModifiers() const { return modifiers.get(); }
@@ -58,7 +58,7 @@ private:
 	const std::optional<std::vector<int32_t>>& getPreEffects() const { return preEffects; }
 
 public:
-	bool isNoResist() const { return noResist; }
+	virtual bool isNoResist() const { return noResist; }
 	void setNoResist(bool newValue) { noResist = newValue; }
 	int32_t getCritAddDmg1() const { return critAddDmg1; }
 	int32_t getCritAddDmg2() const { return critAddDmg2; }

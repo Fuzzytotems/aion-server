@@ -140,11 +140,13 @@ private:
 /**
  * Marker base of immutable static data templates (K1, design §9): `const T*` template pointers are immortal, may be captured by tasks
  * (IsTemplatePtr) and pinned without retaining. Generated template classes derive it; alternatively specialize IsStaticTemplate<T>.
+ * A class deriving both RefCounted and StaticTemplate (PlayerCommonData through CreatureTemplate) is a mutable RefCounted object, not a
+ * template: IsStaticTemplate is false for it, so its pointer is no TaskArg and Pin retains it.
  */
 struct StaticTemplate {};
 
 template <class T>
-struct IsStaticTemplate : std::is_base_of<StaticTemplate, T> {};
+struct IsStaticTemplate : std::bool_constant<std::is_base_of_v<StaticTemplate, T> && !std::is_base_of_v<RefCounted, T>> {};
 
 /**
  * Base of objects the Reclaimer can destroy after an epoch without an object reference count: replaced parts (Reclaimer::retirePart; an

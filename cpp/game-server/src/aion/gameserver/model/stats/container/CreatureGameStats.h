@@ -48,7 +48,8 @@ protected:
 	runtime::OwnerRef<gameobjects::Creature> owner;
 
 private:
-	runtime::ConcurrentHashMap<StatEnum, runtime::Ref<runtime::RcArrayList<runtime::Ref<calc::functions::IStatFunction>>>> stats{};
+	runtime::ConcurrentHashMap<StatEnum, runtime::Ref<runtime::RcArrayList<runtime::Ref<calc::functions::IStatFunction>>>> stats{
+		AION_LOCK_CLASS(CreatureGameStats::stats#stripe)};
 	runtime::Field<int32_t> attackCounter{0};
 	runtime::Field<int32_t> cachedMaxHp{};
 	runtime::Field<int32_t> cachedMaxMp{};

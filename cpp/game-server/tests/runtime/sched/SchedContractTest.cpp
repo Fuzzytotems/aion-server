@@ -7,6 +7,7 @@
 #include <memory>
 #include <string>
 #include <string_view>
+#include <type_traits>
 #include <vector>
 
 #include "aion/gameserver/runtime/base/Exceptions.h"
@@ -45,6 +46,18 @@ struct SkillTemplate : StaticTemplate {
 };
 
 struct QuestHandler : Immortal {};
+
+/** PlayerCommonData shape (S0B-024/S0B-110): RefCounted and a template class (CreatureTemplate derives StaticTemplate) */
+class CommonData final : public RefCounted, public SkillTemplate {
+	AION_MAKE_REF_FRIEND
+
+public:
+	static Ref<CommonData> create() { return makeRef<CommonData>(); }
+
+protected:
+	CommonData() = default;
+	~CommonData() override = default;
+};
 
 /** an AI part (design §14.2a): schedule(this, &X::method, delay) pins the owning Npc */
 class YamenessPortalSummonedAI final : public OwnedPart {
@@ -85,6 +98,8 @@ static_assert(TaskArg<std::shared_ptr<const std::string>>);
 static_assert(!TaskArg<Ptr<Npc>>);
 static_assert(!TaskArg<Npc*>);
 static_assert(!TaskArg<std::string_view>);
+static_assert(!IsStaticTemplate<CommonData>::value && !TaskArg<const CommonData*> && Pinnable<CommonData>);
+static_assert(std::is_constructible_v<Pin, CommonData*> && std::is_constructible_v<Pin, const SkillTemplate*>);
 static_assert(AllFieldsAreTaskArgs<GeneralUpdateTask>);
 static_assert(AllFieldsAreTaskArgs<NamedTask>);
 static_assert(!AllFieldsAreTaskArgs<BadTask>);
@@ -141,6 +156,20 @@ TEST(SchedContractTest, PinRetainsOwnersAndPartsPinTheirOwner) {
 		EXPECT_EQ(npc->refCount(), 3u);
 	}
 	EXPECT_EQ(npc->refCount(), 1u);
+}
+
+TEST(SchedContractTest, PinRetainsRefCountedClassesDerivingStaticTemplate) {
+	Ref<CommonData> data = CommonData::create();
+	{
+		Pin pin(data.get()); // not ambiguous between the RefCounted and the template classification
+		EXPECT_EQ(pin.size(), 1u);
+		EXPECT_TRUE(pin.pins(*data));
+		EXPECT_EQ(data->refCount(), 2u);
+		const SkillTemplate* asTemplate = data.get();
+		Pin templatePin(asTemplate); // a base template pointer retains nothing (lint L5 rejects captured getObjectTemplate() of a Player)
+		EXPECT_EQ(templatePin.size(), 0u);
+	}
+	EXPECT_EQ(data->refCount(), 1u);
 }
 
 TEST(SchedContractTest, PinnedCallbackInvocationAndIdentity) {

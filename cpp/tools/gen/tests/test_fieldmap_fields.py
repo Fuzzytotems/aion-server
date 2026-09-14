@@ -201,7 +201,63 @@ class FieldTableTest(unittest.TestCase):
         self.assertEqual(self.cpp(h, 'lock'), 'Monitor')
         self.assertEqual(self.cpp(h, 'mutex'), 'Monitor')
         self.assertEqual(self.cpp(h, 'callback'), 'const PinnedCallback<void(Creature&)>')
-        self.assertIn('externalType', self.field(h, 'stamp').flags)
+        self.assertEqual((self.cpp(h, 'stamp'), self.field(h, 'stamp').flags), ('const Timestamp', []))  # EXTERNAL_SPELLING (hub-headers.md §6)
+
+    def test_external_spellings_and_handles(self):
+        fm = fieldmap.build_from_sources({**FILES, 'com/x/world/Clock.java': '''package com.x.world;
+import java.awt.geom.*;
+public class Clock implements java.awt.Shape {
+  private java.util.Date next; private final java.time.Instant start = null; private java.time.LocalDate day; private java.time.Duration period;
+  private org.quartz.JobDetail job; private final org.quartz.CronExpression cron = null; private java.util.zip.CRC32 crc;
+  private Rectangle2D bounds; private GeneralPath path;
+  public static Clock current;
+  public void reset() { next = null; day = null; period = null; job = null; crc = null; bounds = null; path = null; }
+}'''}, CONFIG)
+        clock = {f.name: f for f in fm.classes['com.x.world.Clock'].fields}
+        self.assertEqual({n: f.cpp for n, f in clock.items() if not f.static}, {
+            'next': 'Field<Timestamp>', 'start': 'const Timestamp', 'day': 'Field<Date>', 'period': 'Field<std::chrono::milliseconds>',
+            'job': 'Field<Ref<JobDetail>>', 'cron': 'const CronExpression', 'crc': 'Field<CRC32>', 'bounds': 'Field<Rectangle2D>',
+            'path': 'Field<Path2D>'})
+        self.assertEqual(clock['job'].rule, 'non-final external handle')
+        self.assertEqual([n for n, f in clock.items() if 'externalType' in f.flags], ['crc'])
+
+    def test_erasure_rule(self):
+        # hub-headers.md §8.1: every type parameter has a project bound -> one non-template class, variables spelled as the bound
+        fm = fieldmap.build_from_sources({**FILES, 'com/x/world/Box.java': '''package com.x.world;
+public class Box<T extends Creature> { private T item; public void set(T t) { item = t; } }''',
+                                          'com/x/world/Bag.java': '''package com.x.world;
+public class Bag<E> { private E element; public void set(E e) { element = e; } }''',
+                                          'com/x/world/Crate.java': '''package com.x.world;
+public class Crate { private Box<Player> box; private Bag<Player> bag; private final java.util.List<Box<Player>> boxes = new java.util.ArrayList<>();
+  public void set() { box = null; bag = null; } public static final java.util.List<Crate> ALL = new java.util.ArrayList<>(); }''',
+                                          'com/x/world/Player.java': '''package com.x.world;
+public class Player extends Creature {}'''}, CONFIG)
+        self.assertTrue(fm.erased_generic(fm.classes['com.x.world.Box'].td))
+        self.assertFalse(fm.erased_generic(fm.classes['com.x.world.Bag'].td))
+        self.assertEqual({f.name: f.cpp for f in fm.classes['com.x.world.Box'].fields}['item'], 'Field<Ref<Creature>>')
+        self.assertEqual({f.name: f.cpp for f in fm.classes['com.x.world.Bag'].fields}['element'], 'Field<Ref<E>>')
+        crate = {f.name: f.cpp for f in fm.classes['com.x.world.Crate'].fields if not f.static}
+        self.assertEqual(crate, {'box': 'Field<Ref<Box>>', 'bag': 'Field<Ref<Bag<Player>>>', 'boxes': 'ArrayList<Ref<Box>>'})
+
+    def test_erasure_tables_match_skeleton(self):
+        import skeleton
+        self.assertEqual(fieldmap.ERASURE_BOUNDS, skeleton.ERASURE_BOUNDS)
+        self.assertEqual(fieldmap.TEMPLATE_GENERICS, frozenset(skeleton.TEMPLATE_GENERICS))
+
+    def test_dropped_fields_and_lock_classes_in_member_blocks(self):
+        cfg = CONFIG + '"com.x.world.Holder.mutex" = { drop = true, reason = "no such member in the port" }\n'
+        fm = fieldmap.build_from_sources(FILES, cfg)
+        holder = {f.name: f for f in fm.classes['com.x.world.Holder'].fields}
+        self.assertIsNone(holder['mutex'].cpp)
+        self.assertEqual(holder['mutex'].rule, 'fieldmap.toml override: dropped')
+        text = fm.member_block('com.x.world.Holder')
+        self.assertNotIn(' mutex', text)
+        self.assertIn('ConcurrentHashMap<int32_t, Ref<Creature>> byId{AION_LOCK_CLASS(Holder::byId#stripe)};', text)
+        self.assertIn('AtomicInteger count{AION_LOCK_CLASS(Holder::count)};', text)
+        self.assertIn('Monitor lock{AION_LOCK_CLASS(Holder::lock)};', text)
+        self.assertIn('const FutureRef task;', text)
+        with self.assertRaises(fieldmap.FieldmapError):
+            fieldmap.build_from_sources(FILES, CONFIG + '"com.x.world.Holder.lock" = { drop = true, cpp = "Monitor", reason = "x" }\n')
 
     def test_non_final_collection(self):
         fm = fieldmap.build_from_sources({**FILES, 'com/x/world/Holder2.java': '''package com.x.world;
@@ -292,6 +348,20 @@ public class Mover { private static Mover last; private Vec position = new Vec()
         self.assertEqual(self.cpp('com.x.world.Confined', 'creature'), 'Ptr<Creature>')
         self.assertEqual(self.cpp('com.x.world.Confined', 'list'), 'std::vector<Ptr<Creature>>')
 
+    def test_confined_elements_are_values(self):
+        extra = {
+            'com/x/geo/Results.java': '''package com.x.geo;
+import java.util.*;
+public class Results { private final List<Result> results = new ArrayList<>(); private Result closest; private Result[] sorted;
+    void add(Result r) { results.add(r); closest = r; } }''',
+            'com/x/geo/Result.java': '''package com.x.geo;
+public class Result { private float distance; void set(float d) { distance = d; } }''',
+        }
+        fm = fieldmap.build_from_sources({**FILES, **extra}, CONFIG)
+        fields = {f.name: f.cpp for f in fm.classes['com.x.geo.Results'].fields}
+        # elements of a confined class are held by value (CollisionResults.results); a direct member stays a pointer
+        self.assertEqual((fields['results'], fields['closest'], fields['sorted']), ('std::vector<Result>', 'Result*', 'std::vector<Result>'))
+
 
 class PartsTest(unittest.TestCase):
     @classmethod
@@ -369,6 +439,48 @@ public class Walker extends Creature {
         self.assertEqual(next(f for f in self.fm.classes['com.x.world.KnownList'].fields if f.name == 'owner').retains, [])
         self.assertEqual(next(f for f in self.fm.classes['com.x.world.Storage'].fields if f.name == 'actor').retains,
                          ['com.x.world.Creature'])  # SelfOrRef may hold a foreign object
+
+    def test_shared_class_trees_are_no_parts(self):
+        extra = {
+            'com/x/world/Observer.java': '''package com.x.world;
+public abstract class Observer { private static final java.util.List<Observer> ALL = new java.util.ArrayList<>(); public void attacked() {} }''',
+            'com/x/world/Charge.java': '''package com.x.world;
+public class Charge extends Observer { private final Weapon weapon; public Charge(Weapon weapon) { this.weapon = weapon; } }''',
+            'com/x/world/Stone.java': '''package com.x.world;
+public abstract class Stone { private static final java.util.List<Stone> ALL = new java.util.ArrayList<>(); protected int slot; }''',
+            'com/x/world/ManaStone.java': '''package com.x.world;
+public class ManaStone extends Stone { public ManaStone(int slot) { this.slot = slot; } }''',
+            'com/x/world/IdianStone.java': '''package com.x.world;
+public class IdianStone extends Stone { private final Weapon weapon; public IdianStone(Weapon weapon) { this.weapon = weapon; } }''',
+            'com/x/world/Weapon.java': '''package com.x.world;
+public class Weapon {
+    private static final java.util.List<Weapon> ALL = new java.util.ArrayList<>();
+    private Charge charge;
+    private IdianStone idian;
+    public Weapon() { charge = new Charge(this); idian = new IdianStone(this); }
+}''',
+        }
+        fm = fieldmap.build_from_sources({**FILES, **extra}, CONFIG)
+        cls = fm.classes
+        # Charge derives the shared Observer (RefCounted): no part, a retaining owner reference, and a warning
+        self.assertIsNone(fm.parts.get(('com.x.world.Weapon', 'charge')))
+        self.assertEqual({f.name: f.cpp for f in cls['com.x.world.Weapon'].fields}['charge'], 'const Ref<Charge>')
+        self.assertEqual({f.name: f.cpp for f in cls['com.x.world.Charge'].fields}['weapon'], 'const Ref<Weapon>')
+        self.assertEqual(cls['com.x.world.Charge'].part_of, [])
+        self.assertIsNone(fm.base_of(cls['com.x.world.Charge']))
+        self.assertTrue(any('com.x.world.Charge is no part' in w for w in fm.warnings))
+        # without a [bases] entry the abstract Stone gives IdianStone a RefCounted tree too
+        self.assertIsNone(fm.parts.get(('com.x.world.Weapon', 'idian')))
+        # [bases] "none": each subclass picks its base, so IdianStone is a part and ManaStone RefCounted
+        cfg = CONFIG.replace('[fields]', '[bases]\n"com.x.world.Stone" = { base = "none", reason = "subclass bases differ" }\n[fields]')
+        fm = fieldmap.build_from_sources({**FILES, **extra}, cfg)
+        cls = fm.classes
+        self.assertEqual(fm.parts[('com.x.world.Weapon', 'idian')].part_types, {'com.x.world.IdianStone'})
+        self.assertEqual((fm.base_of(cls['com.x.world.Stone']), fm.base_of(cls['com.x.world.ManaStone']), fm.base_of(cls['com.x.world.IdianStone'])),
+                         (None, 'RefCounted', 'OwnedPart'))
+        self.assertEqual({f.name: f.cpp for f in cls['com.x.world.IdianStone'].fields}['weapon'], 'OwnerRef<Weapon>')
+        with self.assertRaises(fieldmap.FieldmapError):
+            fieldmap.build_from_sources(FILES, CONFIG.replace('[fields]', '[bases]\n"com.x.world.Stats" = { base = "Weird", reason = "x" }\n[fields]'))
 
     def test_parts_json(self):
         import json

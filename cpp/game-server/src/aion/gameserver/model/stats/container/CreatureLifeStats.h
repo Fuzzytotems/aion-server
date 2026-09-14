@@ -39,11 +39,13 @@ private:
 
 protected:
 	runtime::OwnerRef<gameobjects::Creature> owner;
-	runtime::Monitor restoreLock{};
+	runtime::Monitor restoreLock{AION_LOCK_CLASS(CreatureLifeStats::restoreLock)};
 	runtime::Field<runtime::FutureRef> lifeRestoreTask{};
 
-public:
+	/** Java abstract class: only the subclasses (NpcLifeStats, PlayerLifeStats, SummonLifeStats, ...) are constructed */
 	CreatureLifeStats(gameobjects::Creature& owner, int32_t currentHp, int32_t currentMp);
+
+public:
 	~CreatureLifeStats() override;
 
 	/** Subclasses narrow it (NpcLifeStats: Npc&). */

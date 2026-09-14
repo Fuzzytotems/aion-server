@@ -49,6 +49,24 @@ private:
 	std::function<void(CM_FAKE&)> reader;
 };
 
+/** A connection that is only forward declared where its packet base class is defined (the game server's AionClientPacket.h). */
+struct LateConnection;
+
+class CM_LATE : public BaseClientPacket<LateConnection> {
+public:
+	explicit CM_LATE(utils::ByteBuffer buffer) : BaseClientPacket(std::move(buffer), 3) {}
+
+	using BaseClientPacket::readD;
+
+protected:
+	void readImpl() override {}
+	void runImpl() override {}
+};
+
+struct LateConnection {
+	std::string toString() const { return "LateConnection 5.6.7.8"; }
+};
+
 utils::ByteBuffer bufferOf(std::vector<uint8_t> bytes) {
 	utils::ByteBuffer buf = utils::ByteBuffer::allocate(static_cast<int32_t>(bytes.size()));
 	buf.put(bytes);
@@ -108,6 +126,17 @@ TEST(BaseClientPacketTest, UnderflowWithoutConnectionPrintsNull) {
 	CM_FAKE packet(bufferOf({}), 12);
 	EXPECT_EQ(packet.readD(), 0);
 	EXPECT_TRUE(logs.contains("Missing D for: [012] CM_FAKE (sent from null)"));
+}
+
+TEST(BaseClientPacketTest, PacketBaseCompilesAgainstAForwardDeclaredConnection) {
+	LogCapture& logs = LogCapture::instance();
+	logs.clear();
+	CM_LATE packet(bufferOf({}));
+	EXPECT_EQ(packet.readD(), 0);
+	EXPECT_TRUE(logs.contains("Missing D for: [003] CM_LATE (sent from null)"));
+	packet.setConnection(std::make_shared<LateConnection>());
+	EXPECT_EQ(packet.readD(), 0);
+	EXPECT_TRUE(logs.contains("Missing D for: [003] CM_LATE (sent from LateConnection 5.6.7.8)"));
 }
 
 TEST(BaseClientPacketTest, ReadSReturnsPartialStringOnUnderflow) {

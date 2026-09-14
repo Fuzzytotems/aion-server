@@ -8,10 +8,10 @@ reason found by the fixpoint. K1 source: cpp/game-server/generated/staticdata-cl
 | K1 STATIC_DATA | 858 |
 | K2 PACKET | 468 |
 | K3 IMMUTABLE_VALUE | 623 |
-| K4 SHARED | 2205 |
-| K5 CONFINED | 593 |
+| K4 SHARED | 2206 |
+| K5 CONFINED | 592 |
 
-## K5 CONFINED (593)
+## K5 CONFINED (592)
 
 - `admincommands.Send.Packet` (game-server/data/handlers/admincommands/Send.java:118): confined: inferred (never stored in shared state)
 - `admincommands.Send.Packets` (game-server/data/handlers/admincommands/Send.java:93): confined: inferred (never stored in shared state)
@@ -93,7 +93,6 @@ reason found by the fixpoint. K1 source: cpp/game-server/generated/staticdata-cl
 - `com.aionemu.gameserver.configs.main.WorldConfig` (game-server/src/com/aionemu/gameserver/configs/main/WorldConfig.java:10): confined: inferred (never stored in shared state)
 - `com.aionemu.gameserver.configs.network.NetworkConfig` (game-server/src/com/aionemu/gameserver/configs/network/NetworkConfig.java:7): confined: inferred (never stored in shared state)
 - `com.aionemu.gameserver.configs.network.PffConfig` (game-server/src/com/aionemu/gameserver/configs/network/PffConfig.java:12): confined: inferred (never stored in shared state)
-- `com.aionemu.gameserver.controllers.PetController.PetUpdateTask` (game-server/src/com/aionemu/gameserver/controllers/PetController.java:38): confined: inferred (never stored in shared state)
 - `com.aionemu.gameserver.controllers.attack.AttackUtil` (game-server/src/com/aionemu/gameserver/controllers/attack/AttackUtil.java:32): confined: inferred (never stored in shared state)
 - `com.aionemu.gameserver.controllers.attack.DamageInfo` (game-server/src/com/aionemu/gameserver/controllers/attack/DamageInfo.java:5): confined: inferred (never stored in shared state)
 - `com.aionemu.gameserver.controllers.attack.DamageList` (game-server/src/com/aionemu/gameserver/controllers/attack/DamageList.java:13): confined: inferred (never stored in shared state)
@@ -607,7 +606,7 @@ reason found by the fixpoint. K1 source: cpp/game-server/generated/staticdata-cl
 - `playercommands.Faction$1` (game-server/data/handlers/playercommands/Faction.java:57): confined: inferred (never stored in shared state)
 - `playercommands.Preview.ItemParam` (game-server/data/handlers/playercommands/Preview.java:234): confined: inferred (never stored in shared state)
 
-## K4 SHARED (2205)
+## K4 SHARED (2206)
 
 - `admincommands.Access` (game-server/data/handlers/admincommands/Access.java:16): same class tree as admincommands.Speed: implements com.aionemu.gameserver.model.stats.calc.StatOwner (static field admincommands.Stat.CommandStatOwner.statOwnerByStat)
 - `admincommands.GoTo` (game-server/data/handlers/admincommands/GoTo.java:22): same class tree as admincommands.Speed: implements com.aionemu.gameserver.model.stats.calc.StatOwner (static field admincommands.Stat.CommandStatOwner.statOwnerByStat)
@@ -1110,6 +1109,7 @@ reason found by the fixpoint. K1 source: cpp/game-server/generated/staticdata-cl
 - `com.aionemu.gameserver.controllers.NpcController` (game-server/src/com/aionemu/gameserver/controllers/NpcController.java:57): same class tree as com.aionemu.gameserver.controllers.RVController: packet member com.aionemu.gameserver.network.aion.serverpackets.SM_RIFT_ANNOUNCE.rift
 - `com.aionemu.gameserver.controllers.ObserveController` (game-server/src/com/aionemu/gameserver/controllers/ObserveController.java:23): member of com.aionemu.gameserver.model.gameobjects.Creature.observeController
 - `com.aionemu.gameserver.controllers.PetController` (game-server/src/com/aionemu/gameserver/controllers/PetController.java:17): same class tree as com.aionemu.gameserver.controllers.RVController: packet member com.aionemu.gameserver.network.aion.serverpackets.SM_RIFT_ANNOUNCE.rift
+- `com.aionemu.gameserver.controllers.PetController.PetUpdateTask` (game-server/src/com/aionemu/gameserver/controllers/PetController.java:38): fieldmap.toml: the Runnable PetSpawnService schedules at a fixed rate; it keeps startTime between runs and reads its player on the pool thread, so it is RefCounted and retains the player (the escape inference misses it: nobody keeps the task object itself); matches PetController.h
 - `com.aionemu.gameserver.controllers.PlaceableObjectController` (game-server/src/com/aionemu/gameserver/controllers/PlaceableObjectController.java:15): same class tree as com.aionemu.gameserver.controllers.RVController: packet member com.aionemu.gameserver.network.aion.serverpackets.SM_RIFT_ANNOUNCE.rift
 - `com.aionemu.gameserver.controllers.PlayerController` (game-server/src/com/aionemu/gameserver/controllers/PlayerController.java:82): same class tree as com.aionemu.gameserver.controllers.RVController: packet member com.aionemu.gameserver.network.aion.serverpackets.SM_RIFT_ANNOUNCE.rift
 - `com.aionemu.gameserver.controllers.RVController` (game-server/src/com/aionemu/gameserver/controllers/RVController.java:28): packet member com.aionemu.gameserver.network.aion.serverpackets.SM_RIFT_ANNOUNCE.rift
@@ -4773,14 +4773,13 @@ reason found by the fixpoint. K1 source: cpp/game-server/generated/staticdata-cl
 - `com.aionemu.gameserver.world.WorldType`: staticdata-classes.json
 - `com.aionemu.gameserver.world.zone.ZoneAttributes`: staticdata-classes.json
 
-## Flagged fields (78)
+## Flagged fields (45)
 
 - `ai.instance.dragonLordsRefuge.TiamatWeakenedDragonAI.hasAggro` `AtomicBoolean` → `Field<Ref<Rc<AtomicBoolean>>>`: nonFinalAtomic
 - `com.aionemu.gameserver.ai.AIState.handledAiEvents` `EnumSet<AIEventType>` → `EnumSet<AIEventType>`: noShim
 - `com.aionemu.gameserver.ai.NpcAI.apRewardingRaces` `EnumSet<Race>` → `static const std::set<Race>`: noShim
 - `com.aionemu.gameserver.cache.HTMLCache.HTML_FILTER` `FileFilter` → `static inline const FileFilter`: externalType
 - `com.aionemu.gameserver.controllers.movement.CreatureMoveController.started` `AtomicBoolean` → `Field<Ref<Rc<AtomicBoolean>>>`: nonFinalAtomic
-- `com.aionemu.gameserver.custom.instance.neuralnetwork.PlayerModelEntry.timestamp` `Timestamp` → `const Timestamp`: externalType
 - `com.aionemu.gameserver.dataholders.loadingutils.XmlMerger.qNameFile` `QName` → `static inline const QName`: externalType
 - `com.aionemu.gameserver.dataholders.loadingutils.XmlMerger.qNameSingleRootTag` `QName` → `static inline const QName`: externalType
 - `com.aionemu.gameserver.dataholders.loadingutils.XmlMerger.qNameRecursiveImport` `QName` → `static inline const QName`: externalType
@@ -4793,58 +4792,26 @@ reason found by the fixpoint. K1 source: cpp/game-server/generated/staticdata-cl
 - `com.aionemu.gameserver.geoEngine.math.Matrix3f.logger` `Logger` → `static inline const Logger`: externalType
 - `com.aionemu.gameserver.geoEngine.math.Matrix4f.logger` `Logger` → `static inline const Logger`: externalType
 - `com.aionemu.gameserver.geoEngine.math.Vector2f.logger` `Logger` → `static inline const Logger`: externalType
-- `com.aionemu.gameserver.geoEngine.scene.DespawnableNode.instances` `BitSet` → `BitSet`: noShim
+- `com.aionemu.gameserver.geoEngine.scene.DespawnableNode.instances` `BitSet` → `HashSet<int32_t>`: noShim
 - `com.aionemu.gameserver.geoEngine.scene.Node.logger` `Logger` → `static inline const Logger`: externalType
-- `com.aionemu.gameserver.model.account.Account.lastStamp` `Timestamp` → `Field<Timestamp>`: externalType
-- `com.aionemu.gameserver.model.account.Passport.arriveDate` `Timestamp` → `Field<Timestamp>`: externalType
-- `com.aionemu.gameserver.model.account.PlayerAccountData.creationDate` `Timestamp` → `Field<Timestamp>`: externalType
-- `com.aionemu.gameserver.model.account.PlayerAccountData.deletionDate` `Timestamp` → `Field<Timestamp>`: externalType
-- `com.aionemu.gameserver.model.challenge.ChallengeTask.completeTime` `Timestamp` → `Field<Timestamp>`: externalType
 - `com.aionemu.gameserver.model.gameobjects.AionObject.CLEANER` `Cleaner` → `static inline const Cleaner`: externalType
-- `com.aionemu.gameserver.model.gameobjects.BrokerItem.expireTime` `Timestamp` → `const Timestamp`: externalType
-- `com.aionemu.gameserver.model.gameobjects.BrokerItem.settleTime` `Timestamp` → `Field<Timestamp>`: externalType
-- `com.aionemu.gameserver.model.gameobjects.BrokerItem.NAME_SORT_ASC` `Comparator<BrokerItem>` → `static inline Field<std::shared_ptr<const PinnedCallback<int32_t(BrokerItem&, BrokerItem&)>>>`: callbackField
-- `com.aionemu.gameserver.model.gameobjects.BrokerItem.NAME_SORT_DESC` `Comparator<BrokerItem>` → `static inline Field<std::shared_ptr<const PinnedCallback<int32_t(BrokerItem&, BrokerItem&)>>>`: callbackField
-- `com.aionemu.gameserver.model.gameobjects.BrokerItem.PRICE_SORT_ASC` `Comparator<BrokerItem>` → `static inline Field<std::shared_ptr<const PinnedCallback<int32_t(BrokerItem&, BrokerItem&)>>>`: callbackField
-- `com.aionemu.gameserver.model.gameobjects.BrokerItem.PRICE_SORT_DESC` `Comparator<BrokerItem>` → `static inline Field<std::shared_ptr<const PinnedCallback<int32_t(BrokerItem&, BrokerItem&)>>>`: callbackField
-- `com.aionemu.gameserver.model.gameobjects.BrokerItem.PIECE_PRICE_SORT_ASC` `Comparator<BrokerItem>` → `static inline Field<std::shared_ptr<const PinnedCallback<int32_t(BrokerItem&, BrokerItem&)>>>`: callbackField
-- `com.aionemu.gameserver.model.gameobjects.BrokerItem.PIECE_PRICE_SORT_DESC` `Comparator<BrokerItem>` → `static inline Field<std::shared_ptr<const PinnedCallback<int32_t(BrokerItem&, BrokerItem&)>>>`: callbackField
-- `com.aionemu.gameserver.model.gameobjects.BrokerItem.LEVEL_SORT_ASC` `Comparator<BrokerItem>` → `static inline Field<std::shared_ptr<const PinnedCallback<int32_t(BrokerItem&, BrokerItem&)>>>`: callbackField
-- `com.aionemu.gameserver.model.gameobjects.BrokerItem.LEVEL_SORT_DESC` `Comparator<BrokerItem>` → `static inline Field<std::shared_ptr<const PinnedCallback<int32_t(BrokerItem&, BrokerItem&)>>>`: callbackField
+- `com.aionemu.gameserver.model.gameobjects.BrokerItem.NAME_SORT_ASC` `Comparator<BrokerItem>` → `static const Comparator`: callbackField
+- `com.aionemu.gameserver.model.gameobjects.BrokerItem.NAME_SORT_DESC` `Comparator<BrokerItem>` → `static const Comparator`: callbackField
+- `com.aionemu.gameserver.model.gameobjects.BrokerItem.PRICE_SORT_ASC` `Comparator<BrokerItem>` → `static const Comparator`: callbackField
+- `com.aionemu.gameserver.model.gameobjects.BrokerItem.PRICE_SORT_DESC` `Comparator<BrokerItem>` → `static const Comparator`: callbackField
+- `com.aionemu.gameserver.model.gameobjects.BrokerItem.PIECE_PRICE_SORT_ASC` `Comparator<BrokerItem>` → `static const Comparator`: callbackField
+- `com.aionemu.gameserver.model.gameobjects.BrokerItem.PIECE_PRICE_SORT_DESC` `Comparator<BrokerItem>` → `static const Comparator`: callbackField
+- `com.aionemu.gameserver.model.gameobjects.BrokerItem.LEVEL_SORT_ASC` `Comparator<BrokerItem>` → `static const Comparator`: callbackField
+- `com.aionemu.gameserver.model.gameobjects.BrokerItem.LEVEL_SORT_DESC` `Comparator<BrokerItem>` → `static const Comparator`: callbackField
 - `com.aionemu.gameserver.model.gameobjects.DropNpc.lootingTeam` `WeakReference<TemporaryPlayerTeam<? extends TeamMember<Player>>>` → `Field<Ref<TemporaryPlayerTeam>>`: externalType
-- `com.aionemu.gameserver.model.gameobjects.Letter.timeStamp` `Timestamp` → `const Timestamp`: externalType
 - `com.aionemu.gameserver.model.gameobjects.StaticDoor.states` `EnumSet<StaticDoorState>` → `EnumSet<StaticDoorState>`: noShim
-- `com.aionemu.gameserver.model.gameobjects.player.PetCommonData.birthday` `Timestamp` → `Field<Timestamp>`: externalType
-- `com.aionemu.gameserver.model.gameobjects.player.PetCommonData.despawnTime` `Timestamp` → `Field<Timestamp>`: externalType
-- `com.aionemu.gameserver.model.gameobjects.player.PlayerCommonData.lastOnline` `Timestamp` → `Field<std::optional<Timestamp>>`: externalType
-- `com.aionemu.gameserver.model.geometry.Polygon2D.bounds` `Rectangle2D` → `/* Rectangle2D */`: unresolved
-- `com.aionemu.gameserver.model.geometry.Polygon2D.path` `GeneralPath` → `/* GeneralPath */`: unresolved
-- `com.aionemu.gameserver.model.geometry.Polygon2D.closedPath` `GeneralPath` → `/* GeneralPath */`: unresolved
-- `com.aionemu.gameserver.model.house.House.acquiredTime` `Timestamp` → `Field<std::optional<Timestamp>>`: externalType
-- `com.aionemu.gameserver.model.house.House.nextPay` `Timestamp` → `Field<std::optional<Timestamp>>`: externalType
-- `com.aionemu.gameserver.model.legionDominion.LegionDominionLocation.occupiedDate` `Timestamp` → `Field<Timestamp>`: externalType
-- `com.aionemu.gameserver.model.legionDominion.LegionDominionParticipantInfo.date` `Timestamp` → `Field<Timestamp>`: externalType
-- `com.aionemu.gameserver.model.team.legion.Legion.Announcement.time` `Timestamp` → `const Timestamp`: externalType
-- `com.aionemu.gameserver.model.town.Town.levelUpDate` `Timestamp` → `const Timestamp`: externalType
-- `com.aionemu.gameserver.network.BannedMacEntry.timeEnd` `Timestamp` → `Field<Timestamp>`: externalType
 - `com.aionemu.gameserver.network.aion.AionClientPacketFactory.PacketInfo.packetConstructor` `Constructor<T>` → `const Constructor`: externalType
 - `com.aionemu.gameserver.network.chatserver.CsClientPacketFactory.PacketInfo.packetConstructor` `Constructor<T>` → `const Constructor`: externalType
 - `com.aionemu.gameserver.network.loginserver.LsClientPacketFactory.PacketInfo.packetConstructor` `Constructor<T>` → `const Constructor`: externalType
 - `com.aionemu.gameserver.network.sequrity.NetFlusher._timer` `Timer` → `static inline const Timer`: externalType
-- `com.aionemu.gameserver.questEngine.QuestEngine.messageTask` `JobDetail` → `Field<Ref<JobDetail>>`: externalType
-- `com.aionemu.gameserver.questEngine.model.QuestState.completeTime` `Timestamp` → `Field<std::optional<Timestamp>>`: externalType
-- `com.aionemu.gameserver.questEngine.model.QuestState.nextRepeatTime` `Timestamp` → `Field<std::optional<Timestamp>>`: externalType
-- `com.aionemu.gameserver.services.AtreianPassportService.cronInfo` `JobDetail` → `Field<Ref<JobDetail>>`: externalType
-- `com.aionemu.gameserver.services.SiegeService.SIEGE_LOCATION_STATUS_BROADCAST_SCHEDULE` `CronExpression` → `static inline const CronExpression`: externalType
-- `com.aionemu.gameserver.services.SiegeService.nextStateUpdateTime` `Date` → `Field<Timestamp>`: externalType
 - `com.aionemu.gameserver.services.cron.CronService.timeZone` `TimeZone` → `const TimeZone`: externalType
 - `com.aionemu.gameserver.services.cron.CronService.scheduler` `Scheduler` → `const Scheduler`: externalType
-- `com.aionemu.gameserver.services.event.EventService.checkTask` `JobDetail` → `Field<Ref<JobDetail>>`: externalType
-- `com.aionemu.gameserver.services.instance.InstanceScaler.scalings` `Map<WorldMapInstance, Scaling>` → `static inline WeakHashMap<Ref<WorldMapInstance>, Ref<InstanceScaler::Scaling>>`: noShim
-- `com.aionemu.gameserver.taskmanager.AbstractCronTask.cronExpression` `CronExpression` → `const CronExpression`: externalType
-- `com.aionemu.gameserver.taskmanager.AbstractCronTask.lastPlannedRunBeforeServerStart` `Date` → `const Timestamp`: externalType
-- `com.aionemu.gameserver.taskmanager.AbstractCronTask.lastRun` `Date` → `Field<Timestamp>`: externalType
-- `com.aionemu.gameserver.taskmanager.AbstractCronTask.nextRun` `Date` → `Field<Timestamp>`: externalType
+- `com.aionemu.gameserver.services.instance.InstanceScaler.scalings` `Map<WorldMapInstance, Scaling>` → `static HashMap<Ref<WorldMapInstance>, Ref<InstanceScaler::Scaling>>`: noShim
 - `com.aionemu.gameserver.utils.ChatUtil.DF` `DecimalFormat` → `static inline const DecimalFormat`: externalType
 - `com.aionemu.gameserver.utils.ThreadPoolManager.scheduledPool` `ScheduledThreadPoolExecutor` → `const ScheduledThreadPoolExecutor`: externalType
 - `com.aionemu.gameserver.utils.ThreadPoolManager.instantPool` `ThreadPoolExecutor` → `const ThreadPoolExecutor`: externalType
@@ -4857,4 +4824,6 @@ reason found by the fixpoint. K1 source: cpp/game-server/generated/staticdata-cl
 ## Warnings
 
 - staticdata-classes.json: unknown class java.time.DayOfWeek
+- part com.aionemu.gameserver.model.gameobjects.Item.conditioningInfo: com.aionemu.gameserver.model.items.ChargeInfo is no part (superclass com.aionemu.gameserver.controllers.observer.ActionObserver gives the class tree a shared runtime base)
+- part com.aionemu.gameserver.model.gameobjects.UseableItemObject.entryWriter: com.aionemu.gameserver.model.gameobjects.UseableItemObject.UseDataWriter is no part (superclass com.aionemu.gameserver.network.PacketWriteHelper gives the class tree a shared runtime base)
 

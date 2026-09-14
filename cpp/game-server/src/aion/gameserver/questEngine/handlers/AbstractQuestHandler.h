@@ -49,10 +49,9 @@ namespace aion::gameserver::questEngine::handlers {
  *
  * @author MrPoke, vlog, Majka
  */
-// lint: L13 quest handlers are Immortal (amendment §2); L13 accepts their subclasses but not the root class
 class AbstractQuestHandler : public runtime::Immortal {
 protected:
-	QuestEngine& qe; // fieldmap: non-static reference member initialized in the constructor (handlers-and-porting-plan.md §1.2), not a static
+	QuestEngine& qe;
 	const int32_t questId;
 	runtime::Field<runtime::Ref<runtime::RcArrayList<const gameserver::model::templates::quest::QuestItems*>>> workItems{};
 	runtime::Field<runtime::Ref<runtime::RcHashSet<int32_t>>> actionItems{};

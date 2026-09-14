@@ -62,10 +62,6 @@ void EffectTemplate::addSuccessEffect(model::Effect& effect, std::optional<model
 	AION_UNPORTED();
 }
 
-void EffectTemplate::applyEffect(model::Effect& effect) const {
-	AION_UNPORTED();
-}
-
 void EffectTemplate::startEffect(model::Effect& effect) const {
 	AION_UNPORTED();
 }

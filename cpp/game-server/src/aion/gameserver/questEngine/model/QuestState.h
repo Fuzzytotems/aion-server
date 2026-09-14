@@ -28,8 +28,8 @@ private:
 	runtime::Field<int32_t> questFlags{};
 	runtime::Field<QuestStatus> status{};
 	runtime::Field<int32_t> completeCount{};
-	runtime::Field<std::optional<commons::database::Timestamp>> completeTime{}; // fieldmap: nullable Timestamp (hub-headers.md §6)
-	runtime::Field<std::optional<commons::database::Timestamp>> nextRepeatTime{}; // fieldmap: nullable Timestamp (hub-headers.md §6)
+	runtime::Field<std::optional<commons::database::Timestamp>> completeTime{};
+	runtime::Field<std::optional<commons::database::Timestamp>> nextRepeatTime{};
 	runtime::Field<std::optional<int32_t>> reward{};
 	runtime::Field<gameserver::model::gameobjects::Persistable::PersistentState> persistentState{};
 

@@ -100,7 +100,9 @@ private:
  * A packet is created and read in AConnection::processData and then usually handed to a PacketProcessor (as std::unique_ptr) or another
  * executor, which calls run(). The packet keeps its connection alive through a shared_ptr.
  * <p>
- * TConnection must provide {@code std::string toString() const} (every AConnection does).
+ * TConnection must provide {@code std::string toString() const} (every AConnection does). Only setConnection() needs the complete connection
+ * type: it stores a function that calls toString(), so the virtual connectionToString() (which MSVC instantiates together with the class)
+ * compiles against a forward declaration, and server packet base headers need not include their connection (Asio, windows.h).
  * <p>
  * Java: com.aionemu.commons.network.packet.BaseClientPacket
  *
@@ -111,8 +113,11 @@ class BaseClientPacket : public ClientPacketBase {
 public:
 	using Connection = TConnection;
 
-	/** Attaches the client connection to this packet. */
-	void setConnection(std::shared_ptr<TConnection> connection) noexcept { client = std::move(connection); }
+	/** Attaches the client connection to this packet. Needs the complete TConnection. */
+	void setConnection(std::shared_ptr<TConnection> connection) noexcept {
+		client = std::move(connection);
+		clientToString = [](const TConnection& c) { return c.toString(); };
+	}
 
 	/** @return connection that is the owner of this packet */
 	const std::shared_ptr<TConnection>& getConnection() const noexcept { return client; }
@@ -121,11 +126,13 @@ protected:
 	explicit BaseClientPacket(int32_t opcode) noexcept : ClientPacketBase(opcode) {}
 	BaseClientPacket(utils::ByteBuffer buffer, int32_t opcode) noexcept : ClientPacketBase(std::move(buffer), opcode) {}
 
-	std::string connectionToString() const override { return client ? client->toString() : std::string("null"); }
+	std::string connectionToString() const override { return client ? clientToString(*client) : std::string("null"); }
 
 private:
 	/** Owner of this packet. */
 	std::shared_ptr<TConnection> client;
+	/** TConnection::toString of client, bound by setConnection (the only member that needs the complete connection type) */
+	std::string (*clientToString)(const TConnection&) = nullptr;
 };
 
 } // namespace aion::commons::network::packet

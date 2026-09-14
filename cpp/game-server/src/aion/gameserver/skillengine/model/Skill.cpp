@@ -1,30 +1,18 @@
 #include "aion/gameserver/skillengine/model/Skill.h"
 
 #include "aion/commons/logging/LoggerFactory.h"
-#include "aion/gameserver/runtime/base/Unported.h"
-#include "aion/gameserver/skillengine/model/Effect.h"
-#include "aion/gameserver/skillengine/model/SkillTemplate.h"
-
-// S0b transition (docs/design/hub-headers.md §3.3): the constructors retain effector/firstTarget (complete Creature, Player to Creature
-// conversion), setFirstTarget releases the previous target, and the destructor releases the Ref members (Creature, StartMovingListener,
-// DeathObserver). Creature.h and Player.h are written by the objects group, the observer headers by a later stage. Remove the guard once they
-// exist (spine freeze).
-#if __has_include("aion/gameserver/model/gameobjects/Creature.h") && __has_include("aion/gameserver/model/gameobjects/player/Player.h") && \
-	__has_include("aion/gameserver/controllers/observer/StartMovingListener.h") && __has_include("aion/gameserver/controllers/observer/DeathObserver.h")
-#define AION_S0B_SKILL_MEMBERS 1
 #include "aion/gameserver/controllers/observer/DeathObserver.h"
 #include "aion/gameserver/controllers/observer/StartMovingListener.h"
 #include "aion/gameserver/model/gameobjects/Creature.h"
 #include "aion/gameserver/model/gameobjects/player/Player.h"
-#else
-#define AION_S0B_SKILL_MEMBERS 0
-#endif
+#include "aion/gameserver/runtime/base/Unported.h"
+#include "aion/gameserver/skillengine/model/Effect.h"
+#include "aion/gameserver/skillengine/model/SkillTemplate.h"
 
 namespace aion::gameserver::skillengine::model {
 
 static const auto log = commons::logging::LoggerFactory::getLogger("com.aionemu.gameserver.skillengine.model.Skill");
 
-#if AION_S0B_SKILL_MEMBERS
 Skill::Skill(const SkillTemplate* skillTemplateValue, gameserver::model::gameobjects::player::Player& effectorValue,
 	runtime::Ptr<gameserver::model::gameobjects::Creature> firstTargetValue)
 	: Skill(skillTemplateValue, effectorValue, 0, firstTargetValue, nullptr) {
@@ -50,7 +38,6 @@ Skill::~Skill() = default;
 void Skill::setFirstTarget(runtime::Ptr<gameserver::model::gameobjects::Creature> value) {
 	firstTarget.set(value);
 }
-#endif
 
 runtime::Ref<Skill> Skill::create(const SkillTemplate* skillTemplateValue, gameserver::model::gameobjects::player::Player& effectorValue,
 	runtime::Ptr<gameserver::model::gameobjects::Creature> firstTargetValue) {

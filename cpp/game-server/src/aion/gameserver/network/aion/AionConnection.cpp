@@ -1,19 +1,10 @@
 #include "aion/gameserver/network/aion/AionConnection.h"
 
 #include "aion/commons/logging/LoggerFactory.h"
-#include "aion/gameserver/network/aion/AionServerPacket.h"
-#include "aion/gameserver/runtime/base/Unported.h"
-
-// S0b transition (docs/design/hub-headers.md §3.3): the constructor and the destructor instantiate the account and activePlayer references,
-// which need the complete Account (not a hub; its header comes with P4-12) and Player (a hub of the objects group). Remove the guard once they
-// exist.
-#if __has_include("aion/gameserver/model/account/Account.h") && __has_include("aion/gameserver/model/gameobjects/player/Player.h")
-#define AION_S0B_AION_CONNECTION_MEMBERS 1
 #include "aion/gameserver/model/account/Account.h"
 #include "aion/gameserver/model/gameobjects/player/Player.h"
-#else
-#define AION_S0B_AION_CONNECTION_MEMBERS 0
-#endif
+#include "aion/gameserver/network/aion/AionServerPacket.h"
+#include "aion/gameserver/runtime/base/Unported.h"
 
 #include "aion/commons/utils/WindowsMacroGuard.h" // after all headers that may include windows.h
 
@@ -47,7 +38,6 @@ commons::network::PacketProcessor<AionConnection>& AionConnection::packetProcess
 	AION_UNPORTED();
 }
 
-#if AION_S0B_AION_CONNECTION_MEMBERS
 AionConnection::AionConnection(asio::ip::tcp::socket socket, commons::network::NioServer& server)
 	: AConnection(std::move(socket), server, 8192 * 4, 8192 * 4) {
 	// Java: state = State.CONNECTED; log.debug("connection from: " + ip); lastClientMessageTime = System.currentTimeMillis();
@@ -56,7 +46,6 @@ AionConnection::AionConnection(asio::ip::tcp::socket socket, commons::network::N
 }
 
 AionConnection::~AionConnection() = default;
-#endif
 
 void AionConnection::sendPacket(AionServerPacket& packet) {
 	AION_UNPORTED();
@@ -82,7 +71,6 @@ bool AionConnection::processData(commons::utils::ByteBuffer& data) {
 	AION_UNPORTED();
 }
 
-// lint: L7 Java synchronized (guard) block; AConnectionBase calls writeData with guard already held (commons AConnection)
 bool AionConnection::writeData(commons::utils::ByteBuffer& data) {
 	AION_UNPORTED();
 }
@@ -107,7 +95,6 @@ void AionConnection::onServerClose() {
 	AION_UNPORTED();
 }
 
-// lint: L7 Java synchronized (this) block; the ported body keeps it as SYNCHRONIZED(*this) { ... } (hub-headers.md §11.4)
 void AionConnection::safeLogout() {
 	AION_UNPORTED();
 }

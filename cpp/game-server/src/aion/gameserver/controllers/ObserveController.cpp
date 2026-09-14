@@ -1,20 +1,11 @@
 #include "aion/gameserver/controllers/ObserveController.h"
 
-#include "aion/gameserver/runtime/base/Unported.h"
 #include "aion/gameserver/controllers/observer/ActionObserver.h"
-
-// S0b transition (docs/design/hub-headers.md §3.3): the constructor, the destructor and create() need the member type AttackCalcObserver (S0c
-// declaration header). Remove the guard once it exists (spine freeze).
-#if __has_include("aion/gameserver/controllers/observer/AttackCalcObserver.h")
-#define AION_S0B_OBSERVE_CONTROLLER_MEMBERS 1
 #include "aion/gameserver/controllers/observer/AttackCalcObserver.h"
-#else
-#define AION_S0B_OBSERVE_CONTROLLER_MEMBERS 0
-#endif
+#include "aion/gameserver/runtime/base/Unported.h"
 
 namespace aion::gameserver::controllers {
 
-#if AION_S0B_OBSERVE_CONTROLLER_MEMBERS
 ObserveController::ObserveController() = default;
 
 ObserveController::~ObserveController() = default;
@@ -22,13 +13,11 @@ ObserveController::~ObserveController() = default;
 runtime::Ref<ObserveController> ObserveController::create() {
 	return runtime::makeRef<ObserveController>();
 }
-#endif
 
 void ObserveController::attach(observer::ActionObserver& observer) {
 	AION_UNPORTED();
 }
 
-// lint: L7 unported stub; Java synchronizes it, the port adds SYNCHRONIZED
 void ObserveController::addObserver(observer::ActionObserver& observer) {
 	AION_UNPORTED();
 }
@@ -37,7 +26,6 @@ void ObserveController::addAttackCalcObserver(observer::AttackCalcObserver& obse
 	AION_UNPORTED();
 }
 
-// lint: L7 unported stub; Java synchronizes it, the port adds SYNCHRONIZED
 void ObserveController::removeObserver(observer::ActionObserver& observer) {
 	AION_UNPORTED();
 }
@@ -46,7 +34,6 @@ void ObserveController::removeAttackCalcObserver(observer::AttackCalcObserver& o
 	AION_UNPORTED();
 }
 
-// lint: L7 unported stub; Java synchronizes it, the port adds SYNCHRONIZED
 void ObserveController::notifyObservers(observer::ObserverType type, std::initializer_list<std::any> object) {
 	AION_UNPORTED();
 }
@@ -99,7 +86,6 @@ void ObserveController::notifyItemUnEquip(model::gameobjects::Item& item, model:
 	AION_UNPORTED();
 }
 
-// lint: L7 unported stub; Java synchronizes it, the port adds SYNCHRONIZED
 void ObserveController::abortItemUseObservers() {
 	AION_UNPORTED();
 }
@@ -151,7 +137,6 @@ float ObserveController::getBaseMagicalDamageMultiplier() {
 	AION_UNPORTED();
 }
 
-// lint: L7 unported stub; Java synchronizes it, the port adds SYNCHRONIZED
 void ObserveController::clear() {
 	AION_UNPORTED();
 }

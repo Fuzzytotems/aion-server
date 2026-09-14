@@ -1,6 +1,7 @@
 #pragma once
 
 #include "aion/gameserver/skillengine/effect/SummonSkillAreaEffect.xml.h"
+#include "aion/gameserver/skillengine/model/fwd.h"
 
 namespace aion::gameserver::skillengine::effect {
 
@@ -8,6 +9,7 @@ namespace aion::gameserver::skillengine::effect {
 class SummonSkillAreaEffect : public ::aion::gameserver::skillengine::effect::SummonServantEffect {
 #include "aion/gameserver/skillengine/effect/SummonSkillAreaEffect.xml.inc"
 public:
+	void applyEffect(model::Effect& effect) const override;
 };
 
 } // namespace aion::gameserver::skillengine::effect

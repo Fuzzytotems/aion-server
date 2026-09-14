@@ -8,6 +8,8 @@ namespace aion::gameserver::model::templates::quest {
 class QuestWorkItems : public ::aion::gameserver::runtime::StaticTemplate {
 #include "aion/gameserver/model/templates/quest/QuestWorkItems.xml.inc"
 public:
+	/** Java creates the list on first use; the C++ list always exists */
+	const std::vector<QuestItems>& getQuestWorkItem() const { return questWorkItem; }
 };
 
 } // namespace aion::gameserver::model::templates::quest

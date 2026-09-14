@@ -286,7 +286,9 @@ TEST_F(BindContextTest, ObjectsReplacedByRepeatedElementsStayAliveForTheirIdsIdR
 	std::vector<ErasedHolder> retired = context.takeRetired();
 	ASSERT_EQ(retired.size(), 4u);
 	EXPECT_EQ(context.retiredCount(), 0u);
-	EXPECT_EQ(retired[0].take<Gear>()->getNames(), "Ring;") << "the after-IDREF task of a retired object ran on the live object";
+	std::unique_ptr<runtime::Ref<Gear>> firstGear = retired[0].take<runtime::Ref<Gear>>();
+	ASSERT_NE(*firstGear, nullptr) << "the retired reference keeps the replaced RefCounted gear";
+	EXPECT_EQ((*firstGear)->getNames(), "Ring;") << "the after-IDREF task of a retired object ran on the live object";
 	EXPECT_EQ(retired[1].take<ItemTemplate>()->getName(), "first");
 	std::unique_ptr<PlayerCreationData> firstPlayer = retired[2].take<PlayerCreationData>();
 	EXPECT_EQ(firstPlayer->weapon, items->getItemTemplate(100000001)) << "retired objects are patched like live ones";

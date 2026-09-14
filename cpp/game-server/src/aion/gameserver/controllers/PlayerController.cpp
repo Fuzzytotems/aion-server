@@ -1,38 +1,21 @@
 #include "aion/gameserver/controllers/PlayerController.h"
 
-#include "aion/gameserver/runtime/base/Unported.h"
 #include "aion/commons/logging/LoggerFactory.h"
-
-// S0b transition (docs/design/hub-headers.md §3.3): the narrowing accessor needs Player (hub header of another S0b group); the constructor and
-// destructor need the member type StanceObserver (S0c declaration header). Remove the guards once the headers exist (spine freeze).
-#if __has_include("aion/gameserver/model/gameobjects/player/Player.h")
-#define AION_S0B_PLAYER_CONTROLLER_OWNER 1
-#include "aion/gameserver/model/gameobjects/player/Player.h"
-#else
-#define AION_S0B_PLAYER_CONTROLLER_OWNER 0
-#endif
-#if __has_include("aion/gameserver/controllers/observer/StanceObserver.h")
-#define AION_S0B_PLAYER_CONTROLLER_MEMBERS 1
 #include "aion/gameserver/controllers/observer/StanceObserver.h"
-#else
-#define AION_S0B_PLAYER_CONTROLLER_MEMBERS 0
-#endif
+#include "aion/gameserver/model/gameobjects/player/Player.h"
+#include "aion/gameserver/runtime/base/Unported.h"
 
 namespace aion::gameserver::controllers {
 
 static const auto log = commons::logging::LoggerFactory::getLogger("com.aionemu.gameserver.controllers.PlayerController");
 
-#if AION_S0B_PLAYER_CONTROLLER_MEMBERS
 PlayerController::PlayerController() = default;
 
 PlayerController::~PlayerController() = default;
-#endif
 
-#if AION_S0B_PLAYER_CONTROLLER_OWNER
 model::gameobjects::player::Player& PlayerController::getOwner() const {
 	return static_cast<model::gameobjects::player::Player&>(CreatureController::getOwner());
 }
-#endif
 
 void PlayerController::see(model::gameobjects::VisibleObject& object) {
 	AION_UNPORTED();

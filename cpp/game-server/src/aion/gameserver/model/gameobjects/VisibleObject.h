@@ -61,7 +61,7 @@ private:
 	/** Controller of this VisibleObject (late-bound part: subclasses call setOwner in postConstruct) */
 	const std::unique_ptr<controllers::VisibleObjectController> controller;
 	/** Visible object's target: the object itself is held without a reference (RT-4 TargetField; cycles.toml cpp-breaker) */
-	runtime::SelfOrRef<VisibleObject> target{*this}; // fieldmap: SelfOrRef target (runtime-architecture.md §2.3 RT-4), not Field<Ref<VisibleObject>>
+	runtime::SelfOrRef<VisibleObject> target{*this};
 	/** Spawn template of this visibleObject. */
 	const runtime::Ref<templates::spawns::SpawnTemplate> spawnTemplate;
 

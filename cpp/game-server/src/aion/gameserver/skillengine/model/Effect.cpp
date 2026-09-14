@@ -2,23 +2,14 @@
 
 #include <utility>
 
+#include "aion/gameserver/model/gameobjects/Creature.h"
 #include "aion/gameserver/runtime/base/TaskInfo.h"
 #include "aion/gameserver/runtime/base/Unported.h"
 #include "aion/gameserver/runtime/lifetime/TaskScope.h"
 #include "aion/gameserver/skillengine/model/ActivationAttribute.h"
+#include "aion/gameserver/skillengine/model/EffectReserved.h"
 #include "aion/gameserver/skillengine/model/Skill.h"
 #include "aion/gameserver/skillengine/model/SkillTemplate.h"
-
-// S0b transition (docs/design/hub-headers.md §3.3): the constructors retain effector/effected (complete Creature) and the destructor releases
-// them and the Ref<EffectReserved> elements of reservedEffects. Creature.h is written by the objects group, EffectReserved.h by a later stage.
-// Remove the guard once both exist (spine freeze).
-#if __has_include("aion/gameserver/model/gameobjects/Creature.h") && __has_include("aion/gameserver/skillengine/model/EffectReserved.h")
-#define AION_S0B_EFFECT_MEMBERS 1
-#include "aion/gameserver/model/gameobjects/Creature.h"
-#include "aion/gameserver/skillengine/model/EffectReserved.h"
-#else
-#define AION_S0B_EFFECT_MEMBERS 0
-#endif
 
 namespace aion::gameserver::skillengine::model {
 
@@ -49,7 +40,6 @@ const Effect_ForceType* Effect_ForceType::getInstance(std::string_view value) {
 
 // ------------------------------------------------------------------------------------------------------------------------------ Effect
 
-#if AION_S0B_EFFECT_MEMBERS
 Effect::Effect(Skill& skillValue, runtime::Ptr<gameserver::model::gameobjects::Creature> effectedValue)
 	: effector(skillValue.getEffector()), effected(effectedValue), skillTemplate(skillValue.getSkillTemplate()), skill(skillValue),
 	  skillLevel(skillValue.getSkillLevel()), magicalCriticals(runtime::Array<bool>::make(4)), effectHate(skillValue.getHate()),
@@ -82,7 +72,6 @@ Effect::Effect(gameserver::model::gameobjects::Creature& effectorValue, runtime:
 }
 
 Effect::~Effect() = default;
-#endif
 
 runtime::Ref<Effect> Effect::create(Skill& skillValue, runtime::Ptr<gameserver::model::gameobjects::Creature> effectedValue) {
 	return runtime::makeRef<Effect>(skillValue, effectedValue);
@@ -205,17 +194,14 @@ int32_t Effect::getReqDispelLevel() {
 	AION_UNPORTED();
 }
 
-// lint: L7 unported body (AION_UNPORTED); the port restores Java's synchronized block
 runtime::Ref<EffectReserved> Effect::getReserveds(int32_t position) {
 	AION_UNPORTED();
 }
 
-// lint: L7 unported body (AION_UNPORTED); the port restores Java's synchronized block
 void Effect::setReserveds(EffectReserved& er, bool overTimeEffect) {
 	AION_UNPORTED();
 }
 
-// lint: L7 unported body (AION_UNPORTED); the port restores Java's synchronized block
 std::vector<runtime::Ref<EffectReserved>> Effect::getReservedEffectsToSend() {
 	AION_UNPORTED();
 }
@@ -265,7 +251,6 @@ bool Effect::shouldApplyFurtherEffects(runtime::Ptr<gameserver::model::gameobjec
 }
 
 // Stored lambda com.aionemu.gameserver.skillengine.model.Effect@L682:55 (end task in endTask, pin {this}): a TaskStruct here once ported
-// lint: L7 unported body (AION_UNPORTED); the port restores Java's synchronized block
 void Effect::startEffect() {
 	AION_UNPORTED();
 }
@@ -278,7 +263,6 @@ void Effect::deactivateToggleSkill() {
 	AION_UNPORTED();
 }
 
-// lint: L7 unported body (AION_UNPORTED); the port restores Java's synchronized block (L7 counts the overloads together)
 void Effect::endEffect() {
 	AION_UNPORTED();
 }

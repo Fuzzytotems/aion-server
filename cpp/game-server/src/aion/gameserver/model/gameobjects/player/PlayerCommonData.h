@@ -4,7 +4,6 @@
 #include <optional>
 #include <string>
 #include <string_view>
-#include <type_traits>
 
 #include "aion/gameserver/runtime/fields/Field.h"
 #include "aion/gameserver/runtime/lifetime/Ref.h"
@@ -22,10 +21,9 @@ namespace aion::gameserver::model::gameobjects::player {
  * <p>
  * Hub header (docs/design/hub-headers.md). A RefCounted K4 class (a packet member of SM_GM_SHOW_PLAYER_STATUS) that Java also passes as the
  * Player's CreatureTemplate: Player's constructor hands `const CreatureTemplate*` to Creature, kept alive by the PlayerAccountData holding it.
- * getName(), getTemplateId(), getL10nId() and getBoundRadius() override VisibleObjectTemplate/L10n in Java; the xmlgen shells of those
- * bases do not declare them yet, so they are plain declarations here, already const like the template bases, and only gain `override` when
- * P4-07 adds the virtual base declarations.
- * Not immortal: although it derives StaticTemplate through CreatureTemplate, IsStaticTemplate<PlayerCommonData> is false (below), so a
+ * getName(), getTemplateId(), getL10nId() and getBoundRadius() override the const virtuals of VisibleObjectTemplate and L10n.
+ * Not immortal: although it derives StaticTemplate through CreatureTemplate, IsStaticTemplate<PlayerCommonData> is false (RefCounted classes
+ * are never static templates, runtime/lifetime/RefCounted.h IsStaticTemplate), so a
  * `const PlayerCommonData*` is no TaskArg; tasks capture `Ref<PlayerCommonData>` or pin the Player. `player.getObjectTemplate()` returns this
  * object as `const VisibleObjectTemplate*`, which the type system cannot tell apart from static data: never capture it for a Player
  * (VisibleObject::getObjectTemplate).
@@ -45,7 +43,7 @@ private:
 	runtime::Field<int64_t> exp{0};
 	runtime::Field<int64_t> expRecoverable{0};
 	runtime::Field<Gender> gender{};
-	runtime::Field<std::optional<commons::database::Timestamp>> lastOnline{}; // fieldmap: Java null = never online (Mailbox.java:52)
+	runtime::Field<std::optional<commons::database::Timestamp>> lastOnline{};
 	runtime::Field<bool> online{};
 	runtime::Field<std::string> note{};
 	runtime::Field<int32_t> mapId{};
@@ -71,6 +69,7 @@ private:
 	runtime::Field<int32_t> worldOwnerId{};
 	runtime::Field<bool> isDaeva_{};
 	runtime::Field<bool> isInEditMode_{};
+	/** a static data template or a run-time radius interned by BoundRadius::intern (PlayerAccountData::updateBoundingRadius), immortal either way */
 	runtime::Field<const templates::BoundRadius*> boundRadius{};
 	runtime::Field<int64_t> lastTransferTime{};
 
@@ -154,8 +153,7 @@ public:
 
 	void setRace(Race value) { race.set(value); }
 
-	/** Java @Override of VisibleObjectTemplate.getName() (the shell does not declare it yet) */
-	std::string getName() const { return name.get(); }
+	std::string getName() const override { return name.get(); }
 
 	void setName(std::string_view value) { name.set(std::string(value)); }
 
@@ -235,11 +233,9 @@ public:
 
 	int32_t getDp() const { return dp.get(); }
 
-	/** Java @Override of VisibleObjectTemplate.getTemplateId() (const like the template getters; the shell does not declare it yet) */
-	int32_t getTemplateId() const;
+	int32_t getTemplateId() const override;
 
-	/** Java @Override of L10n.getL10nId() (const like templates::L10n; the shell does not declare it yet) */
-	int32_t getL10nId() const { return 0; }
+	int32_t getL10nId() const override { return 0; }
 
 	void setWhNpcExpands(int32_t value) { warehouseNpcExpands.set(value); }
 
@@ -255,8 +251,7 @@ public:
 
 	void setBoundingRadius(const templates::BoundRadius* value) { boundRadius.set(value); }
 
-	/** Java @Override of VisibleObjectTemplate.getBoundRadius() (the shell does not declare it yet) */
-	const templates::BoundRadius* getBoundRadius() const { return boundRadius.get(); }
+	const templates::BoundRadius* getBoundRadius() const override { return boundRadius.get(); }
 
 	void setDeathCount(int32_t value) { soulSickness.set(value); }
 
@@ -289,7 +284,3 @@ public:
 };
 
 } // namespace aion::gameserver::model::gameobjects::player
-
-/** A RefCounted, mutable object, not an immortal static data template (runtime/lifetime/RefCounted.h IsStaticTemplate, sched/TaskConcepts.h) */
-template <>
-struct aion::gameserver::runtime::IsStaticTemplate<aion::gameserver::model::gameobjects::player::PlayerCommonData> : std::false_type {};

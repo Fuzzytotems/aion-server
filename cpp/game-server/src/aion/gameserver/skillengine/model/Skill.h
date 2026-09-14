@@ -46,7 +46,7 @@ public:
 
 private:
 	// Java: private static final Logger log - namespace-scope logger in Skill.cpp (hub-headers.md §11.3)
-	runtime::ArrayList<runtime::Ref<gameserver::model::gameobjects::Creature>> effectedList{};
+	runtime::ArrayList<runtime::Ref<gameserver::model::gameobjects::Creature>> effectedList{AION_LOCK_CLASS(Skill::effectedList)};
 	runtime::Field<runtime::Ref<gameserver::model::gameobjects::Creature>> firstTarget{};
 
 protected:

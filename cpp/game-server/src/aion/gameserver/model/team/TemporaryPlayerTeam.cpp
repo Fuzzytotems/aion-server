@@ -1,25 +1,16 @@
 #include "aion/gameserver/model/team/TemporaryPlayerTeam.h"
 
-#include "aion/gameserver/runtime/base/Unported.h"
-
-// Member types (docs/design/hub-headers.md §3.3): the constructor, the destructor and the Field<Ref> setter need LootGroupRules.h, which is not an
-// S0b hub (P5-10). Not an S0b transition guard: P5-10 removes it when it adds the header.
-#if __has_include("aion/gameserver/model/team/common/legacy/LootGroupRules.h")
-#define AION_TEMPORARY_PLAYER_TEAM_MEMBER_TYPES 1
+#include "aion/gameserver/model/gameobjects/player/Player.h"
 #include "aion/gameserver/model/team/common/legacy/LootGroupRules.h"
-#else
-#define AION_TEMPORARY_PLAYER_TEAM_MEMBER_TYPES 0
-#endif
+#include "aion/gameserver/runtime/base/Unported.h"
 
 namespace aion::gameserver::model::team {
 
-#if AION_TEMPORARY_PLAYER_TEAM_MEMBER_TYPES
 TemporaryPlayerTeam::TemporaryPlayerTeam(int32_t objId, bool autoReleaseObjectId)
 	: GeneralTeam(objId, autoReleaseObjectId), lootGroupRules(common::legacy::LootGroupRules::create()) {
 }
 
 TemporaryPlayerTeam::~TemporaryPlayerTeam() = default;
-#endif
 
 void TemporaryPlayerTeam::updateBrand(int32_t brandId, int32_t targetObjectId) {
 	AION_UNPORTED();
@@ -48,6 +39,10 @@ std::vector<runtime::Ptr<gameobjects::player::Player>> TemporaryPlayerTeam::getO
 
 void TemporaryPlayerTeam::setLootGroupRules(runtime::Ptr<common::legacy::LootGroupRules> lootGroupRulesValue) {
 	AION_UNPORTED();
+}
+
+runtime::Ptr<gameobjects::player::Player> TemporaryPlayerTeam::getLeaderObject() {
+	return runtime::cast<gameobjects::player::Player>(GeneralTeam::getLeaderObject());
 }
 
 } // namespace aion::gameserver::model::team

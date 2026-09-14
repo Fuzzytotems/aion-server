@@ -30,7 +30,6 @@ namespace aion::gameserver::utils::chathandlers {
  *
  * @author KID, Neon
  */
-// lint: L13 commands are Immortal (amendment §2); L13 accepts their subclasses but not the root class
 class ChatCommand : public runtime::Immortal {
 private:
 	const std::string prefix;

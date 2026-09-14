@@ -4,15 +4,17 @@
 
 #include "aion/gameserver/runtime/base/Unported.h"
 #include "aion/gameserver/model/templates/spawns/SpawnGroup.h"
+#include "aion/gameserver/model/templates/spawns/SpawnSpotTemplate.h"
 
 namespace aion::gameserver::model::templates::spawns {
 
 SpawnTemplate::SpawnTemplate(SpawnGroup& spawnGroupValue, const SpawnSpotTemplate* spot)
-	: OwnedPart(spawnGroupValue), randomWalk(0), walkerIdx(), anchor(), spawnGroup(spawnGroupValue), aiName(), state(0), aerialSpawn(false),
-	  creatorId(0), temporarySpawn(nullptr) {
-	// Java: x, y, z, h, staticId, randomWalk, walkerId, anchor, walkerIdx, aiName, state, aerialSpawn, temporarySpawn from the spot
-	static_cast<void>(spot);
-	AION_UNPORTED();
+	: OwnedPart(spawnGroupValue), x(spot->getX()), y(spot->getY()), z(spot->getZ()), h(spot->getHeading()), staticId(spot->getStaticId()),
+	  randomWalk(spot->getRandomWalk()), walkerId(spot->getWalkerId()), walkerIdx(spot->getWalkerIndex()), anchor(spot->getAnchor()),
+	  spawnGroup(spawnGroupValue), aiName(spot->getAi()), state(spot->getState()), aerialSpawn(spot->isAerialSpawn()), creatorId(0),
+	  temporarySpawn(spot->getTemporarySpawn()) {
+	// Java order: x, y, z, h, staticId, randomWalk, walkerId, anchor, walkerIdx, aiName, state, aerialSpawn, temporarySpawn (the C++ member order
+	// differs only for the const members, which have no side effects); Java null strings are the empty strings of the spot
 }
 
 SpawnTemplate::SpawnTemplate(SpawnGroup& spawnGroupValue, float xValue, float yValue, float zValue, int8_t heading, int32_t randWalk,

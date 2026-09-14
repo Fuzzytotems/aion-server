@@ -1,17 +1,27 @@
-// Spine prototype against the real hub headers (handlers-and-porting-plan.md "Risks": create<T>/postConstruct plus one effect and one AI before
-// the freeze). Test doubles stand in for data (default-constructed static templates, SpawnGroup/SpawnTemplate) and for services that are not
-// ported yet (AIEngine::newAI: the AI is installed like `//ai set`).
+// Spine prototype against the real hub headers (handlers-and-porting-plan.md "Risks"; hub-headers.md §3.5 freeze gate 3): create<T>/postConstruct
+// with the AI created by AIEngine, one Effect, a part pinned by a scheduled task, destruction with an empty LeakCensus, and one handler of
+// every registry kind created by its registry factory.
 //
-// What is checked: VisibleObject::create<T> with the postConstruct chain (virtual createAggroList dispatch, late-bound controller owner), part
-// ownership (OwnedPart bound to the creature, Ref<Part> and Pin retain the owner), Ref/Ptr use (cast, Ptr from parts, Effect holding Refs),
-// an AI created through the HandlerRegistry AI factory shape, an Effect on a creature, a part pinned by a scheduled task (and an AI replaced
-// while that task is pending), destruction through the Reclaimer and an empty LeakCensus. One mock handler of each registry kind is compiled
-// against the real bases and HandlerRegistry.h markers; the command factories create their commands (ChatCommand's ported constructor).
+// What runs for real: VisibleObject::create<Npc> with Npc's constructor (IDFactory id, WorldPosition, NpcSkillList reading
+// DataManager.NPC_SKILL_DATA) and the postConstruct chain (Creature: AIEngine::newAI with the template/spawn AI name, the virtual
+// createAggroList; Npc: late-bound controller owner, NpcMoveController, the virtual setupStatContainers), part ownership (OwnedPart bound to
+// the creature, Ref<Part> and Pin retain the owner), Ref/Ptr use, an Effect holding Refs to its creatures, a task pinning the AI part while
+// `//ai set` replaces it, destruction through the Reclaimer. The handlers: an AI (AION_AI factory, installed like `//ai set`), a quest
+// handler and a quest zone handler reading DataManager.QUEST_DATA through QuestsData::getQuestById, a general zone handler held by
+// Ref<ZoneHandler>, and the admin, player and console commands. The instance handler is checked at the factory type only (see below).
 //
-// Guards: the scenario needs definitions that the hub .cpp files keep behind S0b transition / member-type guards until non-hub headers exist
-// (TransformModel, AIEventLog, AttackCalcObserver, TerrainZoneCollisionMaterialActor, AggroInfo, EffectReserved, KnownObject; for Npc also
-// NpcMoveController, NpcSkillList, NpcSkillEntry, NpcGameStats, NpcLifeStats, WalkerGroup). Without them only the compile-time checks and the
-// handler shapes that already link are built. A scenario that reaches AION_UNPORTED is skipped with the name of the blocking body.
+// Test doubles, each standing in for a body of a later chunk, never for spine code:
+// - static data: a default NpcTemplate/SkillTemplate, an empty NpcSkillData and a QuestsData bound from XML text, published into DataManager;
+// - stat containers: PrototypeNpc overrides the virtual setupStatContainers (Java protected) with the real NpcGameStats and a life stats part
+//   with fixed HP/MP, because NpcLifeStats reads CreatureGameStats::getMaxHp (the stat calculation of P5-01);
+// - the AI registry of this test executable is the empty table (aion_gs_registry_empty): AIEngine::newAI creates the DummyAI for an npc
+//   template without an AI name and rejects unknown names like Java; the handler AI is installed through its AION_AI factory.
+// Player: the account side runs for real (Account, PlayerCommonData, PlayerAppearance, the PlayerAccountData part with its interned run-time
+// BoundRadius); create<Player> itself is a freeze exception (spine-status.md): its constructor creates PetList, whose Java constructor loads
+// the pets through PlayerPetsDAO (P4-14), and postConstruct creates PlayerGameStats/PlayerLifeStats (static data and the stat calculation,
+// P5-01). None of them is a Java override point a test double could replace; the scenario checks that creation stops at the PetList body.
+// Not created here: an instance handler needs a WorldMapInstance, whose construction is P4-10 world code (WorldMap's constructor,
+// WorldMapInstanceFactory, WorldMap2DInstance/WorldMap3DInstance and world/zone/ZoneService).
 
 #include <gtest/gtest.h>
 
@@ -20,12 +30,14 @@
 #include <concepts>
 #include <cstdint>
 #include <memory>
+#include <optional>
 #include <span>
 #include <string>
 #include <string_view>
 #include <type_traits>
 #include <utility>
 
+#include "aion/gameserver/ai/AIEngine.h"
 #include "aion/gameserver/ai/AITemplate.h"
 #include "aion/gameserver/ai/NpcAI.h"
 #include "aion/gameserver/controllers/CreatureController.h"
@@ -33,13 +45,29 @@
 #include "aion/gameserver/controllers/ObserveController.h"
 #include "aion/gameserver/controllers/attack/AggroList.h"
 #include "aion/gameserver/controllers/effect/EffectController.h"
+#include "aion/gameserver/controllers/movement/NpcMoveController.h"
+#include "aion/gameserver/dataholders/DataManager.h"
+#include "aion/gameserver/dataholders/NpcSkillData.h"
+#include "aion/gameserver/dataholders/QuestsData.bind.h"
+#include "aion/gameserver/dataholders/QuestsData.h"
+#include "aion/gameserver/dataholders/loadingutils/LoadContext.h"
+#include "aion/gameserver/dataholders/loadingutils/StaticDataLoader.h"
 #include "aion/gameserver/handlers/HandlerRegistry.h"
 #include "aion/gameserver/instance/handlers/GeneralInstanceHandler.h"
+#include "aion/gameserver/model/account/Account.h"
+#include "aion/gameserver/model/account/PlayerAccountData.h"
 #include "aion/gameserver/model/gameobjects/Creature.h"
 #include "aion/gameserver/model/gameobjects/Npc.h"
 #include "aion/gameserver/model/gameobjects/player/Player.h"
+#include "aion/gameserver/model/gameobjects/player/PlayerAppearance.h"
+#include "aion/gameserver/model/gameobjects/player/PlayerCommonData.h"
+#include "aion/gameserver/model/skill/NpcSkillList.h"
 #include "aion/gameserver/model/stats/calc/StatOwner.h"
+#include "aion/gameserver/model/stats/container/CreatureLifeStats.h"
+#include "aion/gameserver/model/stats/container/NpcGameStats.h"
+#include "aion/gameserver/model/templates/BoundRadius.h"
 #include "aion/gameserver/model/templates/npc/NpcTemplate.h"
+#include "aion/gameserver/model/templates/quest/QuestItems.h"
 #include "aion/gameserver/model/templates/spawns/SpawnGroup.h"
 #include "aion/gameserver/model/templates/spawns/SpawnTemplate.h"
 #include "aion/gameserver/questEngine/handlers/AbstractQuestHandler.h"
@@ -67,38 +95,6 @@
 #include "aion/gameserver/world/zone/handler/GeneralZoneHandler.h"
 #include "aion/gameserver/world/zone/handler/QuestZoneHandler.h"
 
-// Definitions of Creature, its parts and Effect that exist only with these (non-hub) headers.
-#if __has_include("aion/gameserver/model/gameobjects/TransformModel.h") && __has_include("aion/gameserver/ai/event/AIEventLog.h") && \
-	__has_include("aion/gameserver/controllers/observer/AttackCalcObserver.h") && \
-	__has_include("aion/gameserver/controllers/observer/TerrainZoneCollisionMaterialActor.h") && \
-	__has_include("aion/gameserver/controllers/attack/AggroInfo.h") && __has_include("aion/gameserver/skillengine/model/EffectReserved.h") && \
-	__has_include("aion/gameserver/world/knownlist/KnownObject.h")
-#define AION_PROTOTYPE_CREATURE 1
-#else
-#define AION_PROTOTYPE_CREATURE 0
-#endif
-// Npc's constructor, destructor and postConstruct (Npc.cpp member-type guard).
-#if AION_PROTOTYPE_CREATURE && __has_include("aion/gameserver/controllers/movement/NpcMoveController.h") && \
-	__has_include("aion/gameserver/model/skill/NpcSkillList.h") && __has_include("aion/gameserver/model/skill/NpcSkillEntry.h") && \
-	__has_include("aion/gameserver/model/stats/container/NpcGameStats.h") && __has_include("aion/gameserver/model/stats/container/NpcLifeStats.h") && \
-	__has_include("aion/gameserver/spawnengine/WalkerGroup.h")
-#define AION_PROTOTYPE_NPC 1
-#include "aion/gameserver/controllers/movement/NpcMoveController.h"
-#else
-#define AION_PROTOTYPE_NPC 0
-#endif
-// QuestEngine::getInstance (AbstractQuestHandler's constructor) and QuestZoneHandler's constructor.
-#if __has_include("aion/gameserver/model/templates/quest/QuestNpc.h")
-#define AION_PROTOTYPE_QUEST_HANDLER 1
-#else
-#define AION_PROTOTYPE_QUEST_HANDLER 0
-#endif
-#if __has_include("aion/gameserver/controllers/observer/AbstractQuestZoneObserver.h")
-#define AION_PROTOTYPE_QUEST_ZONE_HANDLER 1
-#else
-#define AION_PROTOTYPE_QUEST_ZONE_HANDLER 0
-#endif
-
 namespace aion::gameserver::prototype {
 
 using model::gameobjects::Creature;
@@ -108,17 +104,19 @@ using runtime::Ptr;
 using runtime::Ref;
 
 // ---------------------------------------------------------------------------------------------------------------------------------------
-// Compile-time shape checks (always built)
+// Compile-time shape checks
 // ---------------------------------------------------------------------------------------------------------------------------------------
 
 // Construction goes only through VisibleObject::create<T>: no public constructor without the CreateKey passkey.
 static_assert(!std::is_constructible_v<Npc, std::unique_ptr<controllers::NpcController>, model::templates::spawns::SpawnTemplate&,
 	const model::templates::npc::NpcTemplate*>);
+static_assert(!std::is_constructible_v<model::gameobjects::player::Player, model::account::PlayerAccountData&, model::account::Account&>);
 // Late-bound controllers and AI are parts (OwnedPart): Ref<part> / Pin(part) retain the owning creature.
 static_assert(std::derived_from<controllers::VisibleObjectController, runtime::OwnedPart>);
 static_assert(std::derived_from<ai::AbstractAI, runtime::OwnedPart> && std::derived_from<controllers::attack::AggroList, runtime::OwnedPart>);
 static_assert(std::derived_from<controllers::effect::EffectController, runtime::OwnedPart>);
 static_assert(std::derived_from<world::knownlist::KnownList, runtime::OwnedPart>);
+static_assert(std::derived_from<model::skill::NpcSkillList, runtime::OwnedPart>);
 static_assert(runtime::Pinnable<ai::NpcAI> && runtime::Pinnable<Npc> && runtime::Pinnable<skillengine::model::Effect>);
 // Effect is RefCounted and Ref-held as StatOwner (retain/release forwarded).
 static_assert(runtime::Retainable<skillengine::model::Effect>);
@@ -130,6 +128,10 @@ static_assert(std::same_as<decltype(std::declval<const Creature&>().getEffectCon
 static_assert(std::same_as<decltype(std::declval<const controllers::NpcController&>().getOwner()), Npc&>);
 static_assert(std::same_as<decltype(std::declval<const ai::NpcAI&>().getOwner()), Npc&>);
 static_assert(std::same_as<ai::NpcAI::OwnerType, Npc>);
+// NpcAI is abstract in Java: its constructor is protected, so the registry cannot create it (AIHandlerClass needs a public constructor).
+static_assert(!handlers::detail::AIHandlerClass<ai::NpcAI>);
+// AIEngine::newAI returns the new part for Creature's ai slot.
+static_assert(std::same_as<decltype(ai::AIEngine::getInstance().newAI(std::nullopt, std::declval<Creature&>())), std::unique_ptr<ai::AbstractAI>>);
 
 // ---------------------------------------------------------------------------------------------------------------------------------------
 // Mock handlers of each registry kind, written as handler files will be (marker after the class, in the handler's package namespace)
@@ -148,9 +150,7 @@ public:
 	~PrototypeNpcAI() override { live.fetch_sub(1); }
 };
 static_assert(handlers::detail::AIHandlerClass<PrototypeNpcAI>);
-#if AION_PROTOTYPE_CREATURE
 AION_AI(PrototypeNpcAI, "prototype_npc");
-#endif
 
 } // namespace aion::gameserver::handlers::ai::prototype
 
@@ -168,6 +168,7 @@ protected:
 	~PrototypeInstance() override = default;
 };
 AION_INSTANCE_HANDLER(PrototypeInstance, 300110000);
+static_assert(std::is_same_v<decltype(PrototypeInstance_instanceFactory), handlers::InstanceFactory>);
 
 } // namespace aion::gameserver::handlers::instance::prototype
 
@@ -188,9 +189,7 @@ protected:
 	~PrototypeQuestArea() override = default;
 };
 static_assert(handlers::detail::ZoneHandlerClass<PrototypeQuestArea> && handlers::detail::QuestZoneHandlerClass<PrototypeQuestArea>);
-#if AION_PROTOTYPE_QUEST_ZONE_HANDLER
 AION_ZONE_HANDLER(PrototypeQuestArea, "PROTOTYPE_QUEST_AREA_210010000", 1012);
-#endif
 
 class PrototypePvPZone final : public world::zone::handler::GeneralZoneHandler {
 	AION_MAKE_REF_FRIEND
@@ -214,11 +213,24 @@ public:
 	_1500PrototypeQuest() : AbstractQuestHandler(1500) {}
 
 	void register_() override {}
+
+	/** test access to the protected members AbstractQuestHandler's constructor loads from the quest template */
+	runtime::Ptr<runtime::RcArrayList<const model::templates::quest::QuestItems*>> workItemList() const { return workItems.get(); }
+	runtime::Ptr<runtime::RcHashSet<int32_t>> actionItemSet() const { return actionItems.get(); }
 };
 static_assert(handlers::detail::QuestHandlerClass<_1500PrototypeQuest>);
-#if AION_PROTOTYPE_QUEST_HANDLER
 AION_QUEST_HANDLER(_1500PrototypeQuest, 1500);
-#endif
+
+/** A quest handler of an artificial quest id without a template (Java: "Some artificial quests have dummy questIds") */
+class _1501PrototypeQuest final : public questEngine::handlers::AbstractQuestHandler {
+public:
+	_1501PrototypeQuest() : AbstractQuestHandler(1501) {}
+
+	void register_() override {}
+
+	bool loadedNothing() const { return !workItems.get() && !actionItems.get(); }
+};
+AION_QUEST_HANDLER(_1501PrototypeQuest, 1501);
 
 } // namespace aion::gameserver::handlers::quest::prototype
 
@@ -269,6 +281,43 @@ AION_CONSOLE_COMMAND(PrototypeConsoleCommand);
 namespace aion::gameserver::prototype {
 namespace {
 
+// ---------------------------------------------------------------------------------------------------------------------------------------
+// Static data doubles
+// ---------------------------------------------------------------------------------------------------------------------------------------
+
+/** Quest templates for the quest handler (work items, one action item drop of a 7xxxxx object, one ordinary drop) and the quest zone */
+constexpr std::string_view QUEST_DATA_XML = R"(<quests>
+	<quest id="1500" name="Prototype Quest" nameId="1103000">
+		<quest_drop npc_id="700157" item_id="182201001" drop_each_member="1" collecting_step="3"/>
+		<quest_drop npc_id="210671" item_id="182200001" drop_each_member="1" collecting_step="7"/>
+		<quest_work_items>
+			<quest_work_item item_id="182206058"/>
+			<quest_work_item item_id="182206062"/>
+		</quest_work_items>
+	</quest>
+	<quest id="1012" name="Prototype Zone Quest" nameId="1102012"/>
+</quests>)";
+
+/** Publishes the static data holders the spine constructors read (DataManager.QUEST_DATA, NPC_SKILL_DATA) and forgets them again. */
+class StaticDataDoubles {
+public:
+	StaticDataDoubles() {
+		xml::LoadContext context;
+		dataholders::DataManager::QUEST_DATA.publish(xml::bindString<dataholders::QuestsData>(context, QUEST_DATA_XML, "prototype_quest_data.xml"));
+		dataholders::DataManager::NPC_SKILL_DATA.publish(std::make_unique<dataholders::NpcSkillData>());
+	}
+	~StaticDataDoubles() {
+		dataholders::DataManager::QUEST_DATA.resetForTests();
+		dataholders::DataManager::NPC_SKILL_DATA.resetForTests();
+	}
+	StaticDataDoubles(const StaticDataDoubles&) = delete;
+	StaticDataDoubles& operator=(const StaticDataDoubles&) = delete;
+};
+
+// ---------------------------------------------------------------------------------------------------------------------------------------
+// Handlers
+// ---------------------------------------------------------------------------------------------------------------------------------------
+
 TEST(SpinePrototypeHandlers, GeneralZoneHandlerIsHeldByRefThroughTheZoneHandlerInterface) {
 	{
 		runtime::TaskScope scope(AION_TASK_INFO(runtime::TaskKind::TEST));
@@ -281,6 +330,46 @@ TEST(SpinePrototypeHandlers, GeneralZoneHandlerIsHeldByRefThroughTheZoneHandlerI
 		EXPECT_EQ(zone->refCount(), 2u);
 	}
 	runtime::Reclaimer::getInstance().drain();
+}
+
+TEST(SpinePrototypeHandlers, QuestZoneHandlerChecksItsQuestInQuestsData) {
+	StaticDataDoubles data;
+	{
+		runtime::TaskScope scope(AION_TASK_INFO(runtime::TaskKind::TEST));
+		// the registry passes the marker's quest id (Java: @ZoneNameAnnotation(questId = 1012))
+		Ref<world::zone::handler::ZoneHandler> handler = handlers::zone::prototype::PrototypeQuestArea_zoneFactory(1012);
+		ASSERT_TRUE(handler);
+		EXPECT_NE(dynamic_cast<world::zone::handler::QuestZoneHandler*>(handler.get()), nullptr);
+		// Java: IncompleteAnnotationException for a missing quest id or a quest without a template
+		EXPECT_THROW(static_cast<void>(handlers::zone::prototype::PrototypeQuestArea_zoneFactory(0)), runtime::IllegalStateException);
+		EXPECT_THROW(static_cast<void>(handlers::zone::prototype::PrototypeQuestArea_zoneFactory(1013)), runtime::IllegalStateException);
+	}
+	runtime::Reclaimer::getInstance().drain();
+}
+
+TEST(SpinePrototypeHandlers, QuestHandlerFactoryLoadsWorkAndActionItemsThroughQuestsData) {
+	StaticDataDoubles data;
+	runtime::TaskScope scope(AION_TASK_INFO(runtime::TaskKind::TEST));
+	ASSERT_NE(dataholders::DataManager::QUEST_DATA->getQuestById(1500), nullptr);
+
+	std::unique_ptr<questEngine::handlers::AbstractQuestHandler> handler = handlers::quest::prototype::_1500PrototypeQuest_questFactory();
+	ASSERT_TRUE(handler);
+	EXPECT_EQ(handler->getQuestId(), 1500);
+	auto* quest = dynamic_cast<handlers::quest::prototype::_1500PrototypeQuest*>(handler.get());
+	ASSERT_NE(quest, nullptr);
+	Ptr<runtime::RcArrayList<const model::templates::quest::QuestItems*>> workItems = quest->workItemList();
+	ASSERT_TRUE(workItems);
+	ASSERT_EQ(workItems->size(), 2);
+	EXPECT_EQ(workItems->get(0)->getItemId(), 182206058);
+	EXPECT_EQ(workItems->get(1)->getItemId(), 182206062);
+	// only drops of 7xxxxx objects are action items (Java: drop.getNpcId() / 100000 == 7)
+	Ptr<runtime::RcHashSet<int32_t>> actionItems = quest->actionItemSet();
+	ASSERT_TRUE(actionItems);
+	EXPECT_EQ(actionItems->size(), 1);
+	EXPECT_TRUE(actionItems->contains(700157));
+
+	std::unique_ptr<questEngine::handlers::AbstractQuestHandler> dummy = handlers::quest::prototype::_1501PrototypeQuest_questFactory();
+	EXPECT_TRUE(dynamic_cast<handlers::quest::prototype::_1501PrototypeQuest&>(*dummy).loadedNothing());
 }
 
 /** A command with a multi-line syntax text (Java text block) */
@@ -313,10 +402,8 @@ TEST(SpinePrototypeHandlers, CommandFactoriesCreateCommandsWithTheJavaSyntaxInfo
 		"\nNote: Parameters enclosed in square brackets are optional.");
 }
 
-#if AION_PROTOTYPE_CREATURE
-
 // ---------------------------------------------------------------------------------------------------------------------------------------
-// Test doubles
+// Npc: test doubles
 // ---------------------------------------------------------------------------------------------------------------------------------------
 
 /** Counts destroyed parts to prove the owner's destructor frees them and that virtual createAggroList() dispatched to the subclass. */
@@ -324,11 +411,13 @@ struct Destroyed {
 	static inline std::atomic<int32_t> npcs{0};
 	static inline std::atomic<int32_t> aggroLists{0};
 	static inline std::atomic<int32_t> knownLists{0};
+	static inline std::atomic<int32_t> lifeStats{0};
 
 	static void reset() {
 		npcs = 0;
 		aggroLists = 0;
 		knownLists = 0;
+		lifeStats = 0;
 	}
 };
 
@@ -344,10 +433,16 @@ public:
 	~PrototypeKnownList() override { Destroyed::knownLists.fetch_add(1); }
 };
 
-#if AION_PROTOTYPE_NPC
+/** Life stats with the HP/MP a static data load would give (NpcLifeStats reads them from the P5-01 stat calculation). */
+class PrototypeLifeStats final : public model::stats::container::CreatureLifeStats {
+public:
+	PrototypeLifeStats(Creature& owner, int32_t currentHp, int32_t currentMp) : CreatureLifeStats(owner, currentHp, currentMp) {}
+	~PrototypeLifeStats() override { Destroyed::lifeStats.fetch_add(1); }
+};
+
 /**
- * An Npc whose AI is installed like `//ai set` (AIEngine::newAI is not ported): Npc::postConstruct runs the real chain (Creature: AI and aggro
- * list; Npc: controller owner, move controller, stat containers), then the registry's AI factory creates the handler AI.
+ * An Npc with the real constructor and postConstruct chain; the virtual hooks Java subclasses override are the only test doubles: the aggro
+ * list (destruction counter), the stat containers (static data) and the known list SpawnEngine would set before spawning.
  */
 class PrototypeNpc final : public Npc {
 	AION_MAKE_REF_FRIEND
@@ -356,29 +451,40 @@ public:
 		const model::templates::npc::NpcTemplate* objectTemplate)
 		: Npc(key, std::move(controller), spawnTemplate, objectTemplate) {}
 
-	int8_t getLevel() override { return 10; }
-
 protected:
 	~PrototypeNpc() override { Destroyed::npcs.fetch_add(1); }
 
 	std::unique_ptr<controllers::attack::AggroList> createAggroList() override { return std::make_unique<PrototypeAggroList>(*this); }
 
+	void setupStatContainers() override {
+		setGameStats(std::make_unique<model::stats::container::NpcGameStats>(*this));
+		setLifeStats(std::make_unique<PrototypeLifeStats>(*this, 1200, 300));
+	}
+
 	void postConstruct() override {
 		Npc::postConstruct();
-		replaceAi(handlers::ai::prototype::PrototypeNpcAI_aiFactory(*this)); // Java: AIEngine.newAI("prototype_npc", this)
-		setKnownlist(std::make_unique<PrototypeKnownList>(*this));          // Java: SpawnEngine sets the known list before spawning
+		setKnownlist(std::make_unique<PrototypeKnownList>(*this)); // Java: SpawnEngine sets the known list before spawning
 	}
 };
-#endif
 
 /** A spawn template part of its group (SpawnTemplate is an OwnedPart of SpawnGroup) */
 class TestSpawnTemplate final : public model::templates::spawns::SpawnTemplate {
 public:
-	explicit TestSpawnTemplate(model::templates::spawns::SpawnGroup& group)
-		: SpawnTemplate(group, 1.5f, 2.5f, 3.5f, int8_t{30}, 0, std::nullopt, 0, 0, std::nullopt) {}
+	TestSpawnTemplate(model::templates::spawns::SpawnGroup& group, std::optional<std::string_view> aiName)
+		: SpawnTemplate(group, 1.5f, 2.5f, 3.5f, int8_t{30}, 0, std::nullopt, 0, 0, aiName) {}
 };
 
-/** DeterministicExecutor, ManualClock, IDFactory and LeakCensus for each test; objects are reclaimed exactly by drain(). */
+/** A spawn group with its one spawn template (Java: the SpawnTemplate constructor adds itself to the group) */
+struct TestSpawn {
+	Ref<model::templates::spawns::SpawnGroup> group;
+	Ref<TestSpawnTemplate> spawnTemplate;
+
+	explicit TestSpawn(std::optional<std::string_view> aiName)
+		: group(model::templates::spawns::SpawnGroup::create(210010000, 700000, 0, nullptr)),
+		  spawnTemplate(static_cast<TestSpawnTemplate&>(group->addSpawnTemplate(std::make_unique<TestSpawnTemplate>(*group, aiName)))) {}
+};
+
+/** DeterministicExecutor, ManualClock, IDFactory, LeakCensus and the static data doubles for each test; objects are reclaimed by drain(). */
 class SpinePrototypeTest : public testing::Test {
 protected:
 	void SetUp() override {
@@ -389,6 +495,7 @@ protected:
 		utils::ThreadPoolManager::installBackend(std::move(backend));
 		utils::idfactory::IDFactory::getInstance().resetForTests();
 		runtime::LeakCensus::getInstance().install();
+		staticData = std::make_unique<StaticDataDoubles>();
 	}
 
 	void TearDown() override {
@@ -397,31 +504,28 @@ protected:
 		utils::ThreadPoolManager::installBackend(nullptr);
 		executor = nullptr;
 		runtime::Reclaimer::getInstance().drain();
+		staticData.reset();
 	}
 
 	runtime::ManualClock clock{0};
 	runtime::DeterministicExecutor* executor = nullptr;
-	/** static data double: a default NpcTemplate (no AI name, no stats) */
+	std::unique_ptr<StaticDataDoubles> staticData;
+	/** static data double: a default NpcTemplate (id 0, no AI name, no skills in the published NpcSkillData) */
 	static inline const model::templates::npc::NpcTemplate* npcTemplate = new model::templates::npc::NpcTemplate();
 	/** static data double: SkillTemplate for Effect */
 	static inline const skillengine::model::SkillTemplate* skillTemplate = new skillengine::model::SkillTemplate();
 };
 
-#if AION_PROTOTYPE_NPC
+// ---------------------------------------------------------------------------------------------------------------------------------------
+// Npc scenario
+// ---------------------------------------------------------------------------------------------------------------------------------------
+
 TEST_F(SpinePrototypeTest, NpcCreatePostConstructPartsAiEffectPinAndDestruction) {
 	Ref<PrototypeNpc> npc;
-	Ref<model::templates::spawns::SpawnGroup> group;
-	Ref<TestSpawnTemplate> spawnTemplate;
+	TestSpawn spawn(std::nullopt);
 	{
 		runtime::TaskScope scope(AION_TASK_INFO(runtime::TaskKind::TEST));
-		group = model::templates::spawns::SpawnGroup::create(210010000, 700000, 0, nullptr);
-		spawnTemplate = Ref<TestSpawnTemplate>(
-			static_cast<TestSpawnTemplate&>(group->addSpawnTemplate(std::make_unique<TestSpawnTemplate>(*group))));
-		try {
-			npc = VisibleObject::create<PrototypeNpc>(std::make_unique<controllers::NpcController>(), *spawnTemplate, npcTemplate);
-		} catch (const runtime::UnportedException& e) {
-			GTEST_SKIP() << "VisibleObject::create<Npc> is blocked by an unported body: " << e.what();
-		}
+		npc = VisibleObject::create<PrototypeNpc>(std::make_unique<controllers::NpcController>(), *spawn.spawnTemplate, npcTemplate);
 	}
 	int32_t objectId = 0;
 	{
@@ -429,21 +533,41 @@ TEST_F(SpinePrototypeTest, NpcCreatePostConstructPartsAiEffectPinAndDestruction)
 		objectId = npc->getObjectId();
 		EXPECT_GT(objectId, 0); // IDFactory::nextId
 		EXPECT_EQ(npc->refCount(), 1u) << "postConstruct must not publish the object";
+		EXPECT_EQ(npc->getNpcId(), 0);
+		EXPECT_TRUE(npc->getPosition()) << "a new WorldPosition of the spawn's world";
 
 		// late-bound controller: bound to its owner by Npc::postConstruct, narrowed accessors on both sides
 		controllers::NpcController& controller = npc->getController();
 		EXPECT_EQ(&controller.getOwner(), npc.get());
 		EXPECT_EQ(&controller.partOwner(), static_cast<const runtime::RefCounted*>(npc.get()));
 		EXPECT_EQ(npc->getObjectTemplate(), npcTemplate);
-		EXPECT_EQ(npc->getSpawn().get(), static_cast<model::templates::spawns::SpawnTemplate*>(spawnTemplate.get()));
+		EXPECT_EQ(npc->getSpawn().get(), static_cast<model::templates::spawns::SpawnTemplate*>(spawn.spawnTemplate.get()));
 
-		// virtual createAggroList() dispatched to the subclass during postConstruct (the reason for two-phase construction)
+		// parts created by the constructor and postConstruct: the skill list from NPC_SKILL_DATA (no entry: empty), the virtual
+		// createAggroList() dispatched to the subclass (the reason for two-phase construction), move controller and stat containers
+		Ptr<model::skill::NpcSkillList> skills = npc->getSkillList();
+		ASSERT_TRUE(skills);
+		ASSERT_TRUE(skills->getNpcSkills());
+		EXPECT_TRUE(skills->getNpcSkills()->isEmpty());
+		EXPECT_FALSE(skills->getPriorities());
+		EXPECT_EQ(&skills->partOwner(), static_cast<const runtime::RefCounted*>(npc.get()));
 		EXPECT_NE(dynamic_cast<PrototypeAggroList*>(&npc->getAggroList()), nullptr);
 		EXPECT_TRUE(npc->getMoveController());
 		EXPECT_TRUE(npc->getGameStats());
-		EXPECT_TRUE(npc->getLifeStats());
+		// the life stats double is a CreatureLifeStats (Npc::getLifeStats would throw ClassCastException like Java's cast)
+		ASSERT_TRUE(npc->Creature::getLifeStats());
+		EXPECT_EQ(npc->Creature::getLifeStats()->getCurrentHp(), 1200);
 
-		// the AI: created by the AION_AI factory for the Npc, a part of the creature, narrowed owner accessor
+		// the AI: created by AIEngine::newAI in Creature::postConstruct. The template has no AI name, so it is the DummyAI (no registry
+		// entry), a part of the creature bound to it
+		ai::AbstractAI& createdAi = npc->getAi();
+		EXPECT_EQ(createdAi.getRegistryEntry(), nullptr);
+		EXPECT_TRUE(createdAi.isOwnerBound());
+		EXPECT_EQ(&createdAi.partOwner(), static_cast<const runtime::RefCounted*>(npc.get()));
+		EXPECT_EQ(dynamic_cast<ai::NpcAI*>(&createdAi), nullptr);
+
+		// `//ai set prototype_npc`: the AION_AI factory creates the handler AI for the Npc, replaceAi keeps the previous AI with the creature
+		npc->replaceAi(handlers::ai::prototype::PrototypeNpcAI_aiFactory(*npc));
 		auto* ai = dynamic_cast<handlers::ai::prototype::PrototypeNpcAI*>(&npc->getAi());
 		ASSERT_NE(ai, nullptr);
 		EXPECT_EQ(&ai->getOwner(), npc.get());
@@ -513,16 +637,92 @@ TEST_F(SpinePrototypeTest, NpcCreatePostConstructPartsAiEffectPinAndDestruction)
 	EXPECT_EQ(Destroyed::npcs.load(), 1);
 	EXPECT_EQ(Destroyed::aggroLists.load(), 1);
 	EXPECT_EQ(Destroyed::knownLists.load(), 1);
-	EXPECT_EQ(handlers::ai::prototype::PrototypeNpcAI::live.load(), 0) << "the replaced AI is destroyed with its owner";
+	EXPECT_EQ(Destroyed::lifeStats.load(), 1);
+	EXPECT_EQ(handlers::ai::prototype::PrototypeNpcAI::live.load(), 0) << "the replaced AIs are destroyed with their owner";
 	EXPECT_EQ(runtime::LeakCensus::getInstance().trackedCount(), 0u);
 	EXPECT_TRUE(runtime::LeakCensus::getInstance().getLeaks().empty());
 	EXPECT_EQ(runtime::LeakCensus::getInstance().zombieCutCount(), 0u);
-	spawnTemplate.reset();
-	group.reset();
 }
-#endif
 
-#endif // AION_PROTOTYPE_CREATURE
+TEST_F(SpinePrototypeTest, NpcAiNameOfTheSpawnSelectsTheAiThroughAIEngine) {
+	// Java Creature constructor: the spawn's AI name overrides the template's; AIEngine.newAI throws for a name without an AI handler
+	{
+		TestSpawn spawn("prototype_npc");
+		runtime::TaskScope scope(AION_TASK_INFO(runtime::TaskKind::TEST));
+		try {
+			static_cast<void>(VisibleObject::create<PrototypeNpc>(std::make_unique<controllers::NpcController>(), *spawn.spawnTemplate, npcTemplate));
+			ADD_FAILURE() << "the empty AI registry of this test executable has no AI named prototype_npc";
+		} catch (const runtime::IllegalArgumentException& e) {
+			EXPECT_STREQ(e.what(), "No AI found for name prototype_npc");
+		}
+	}
+	runtime::Reclaimer::getInstance().drain();
+	// the Npc whose postConstruct threw (in Creature::postConstruct, before the aggro list) is released and destroyed with its parts
+	EXPECT_EQ(Destroyed::npcs.load(), 1);
+	EXPECT_EQ(Destroyed::aggroLists.load(), 0) << "the aggro list is created after the AI";
+
+	// SpawnTemplate.NO_AI disables the AI name: the DummyAI
+	{
+		TestSpawn spawn(model::templates::spawns::SpawnTemplate::NO_AI);
+		runtime::TaskScope scope(AION_TASK_INFO(runtime::TaskKind::TEST));
+		Ref<PrototypeNpc> npc = VisibleObject::create<PrototypeNpc>(std::make_unique<controllers::NpcController>(), *spawn.spawnTemplate, npcTemplate);
+		EXPECT_EQ(npc->getAi().getRegistryEntry(), nullptr);
+		EXPECT_EQ(&npc->getAi().partOwner(), static_cast<const runtime::RefCounted*>(npc.get()));
+	}
+	runtime::Reclaimer::getInstance().drain();
+	EXPECT_EQ(Destroyed::npcs.load(), 2);
+	EXPECT_EQ(Destroyed::aggroLists.load(), 1);
+	EXPECT_EQ(runtime::LeakCensus::getInstance().trackedCount(), 0u);
+}
+
+// ---------------------------------------------------------------------------------------------------------------------------------------
+// Player scenario (account side; create<Player> is a freeze exception, see the file comment)
+// ---------------------------------------------------------------------------------------------------------------------------------------
+
+TEST_F(SpinePrototypeTest, PlayerAccountDataIsAPartOfItsAccountAndInternsItsBoundRadius) {
+	using model::account::Account;
+	using model::account::PlayerAccountData;
+	using model::gameobjects::player::PlayerAppearance;
+	using model::gameobjects::player::PlayerCommonData;
+	{
+		runtime::TaskScope scope(AION_TASK_INFO(runtime::TaskKind::TEST));
+		Ref<Account> account = Account::create(7);
+		Ref<PlayerCommonData> commonData = PlayerCommonData::create(100);
+		Ref<PlayerAppearance> appearance = PlayerAppearance::create();
+		appearance->setHeight(1.0f);
+
+		// Java: new PlayerAccountData(playerCommonData, appearance); account.addPlayerAccountData(data)
+		account->addPlayerAccountData(std::make_unique<PlayerAccountData>(*account, *commonData, *appearance));
+		Ptr<PlayerAccountData> data = account->getPlayerAccountData(100);
+		ASSERT_TRUE(data);
+		EXPECT_FALSE(account->getPlayerAccountData(101));
+		EXPECT_EQ(&data->partOwner(), static_cast<const runtime::RefCounted*>(account.get()));
+		EXPECT_EQ(data->getPlayerCommonData().get(), commonData.get());
+
+		// updateBoundingRadius: Java new BoundRadius(0.25f, 0.25f, appearance.getBoundHeight()), interned as an immortal
+		const model::templates::BoundRadius* radius = commonData->getBoundRadius();
+		ASSERT_NE(radius, nullptr);
+		EXPECT_FLOAT_EQ(radius->getFront(), 0.25f);
+		EXPECT_FLOAT_EQ(radius->getSide(), 0.25f);
+		EXPECT_FLOAT_EQ(radius->getUpper(), 1.75f);
+		Ref<PlayerCommonData> otherData = PlayerCommonData::create(101);
+		account->addPlayerAccountData(std::make_unique<PlayerAccountData>(*account, *otherData, *appearance));
+		EXPECT_EQ(otherData->getBoundRadius(), radius) << "equal appearance heights share one interned radius";
+
+		// a Ref to the part retains the account
+		EXPECT_EQ(account->refCount(), 1u);
+		{
+			Ref<PlayerAccountData> dataRef(*data);
+			EXPECT_EQ(account->refCount(), 2u);
+		}
+		EXPECT_EQ(account->refCount(), 1u);
+
+		// create<Player> stops at the PetList constructor (PlayerPetsDAO, P4-14): the freeze exception of this scenario
+		EXPECT_THROW(static_cast<void>(VisibleObject::create<model::gameobjects::player::Player>(*data, *account)), runtime::UnportedException);
+	}
+	runtime::Reclaimer::getInstance().drain();
+	EXPECT_EQ(runtime::LeakCensus::getInstance().trackedCount(), 0u);
+}
 
 } // namespace
 } // namespace aion::gameserver::prototype

@@ -3,33 +3,21 @@
 #include "aion/commons/logging/LoggerFactory.h"
 #include "aion/gameserver/model/gameobjects/VisibleObject.h"
 #include "aion/gameserver/runtime/base/Unported.h"
-
-// S0b transition (docs/design/hub-headers.md §3.3): the constructor and the destructor instantiate the knownObjects map, whose Ref<KnownObject>
-// elements need the complete KnownObject (not a hub; its header comes with the world chunk P4-10). Remove the guard once it exists.
-#if __has_include("aion/gameserver/world/knownlist/KnownObject.h")
-#define AION_S0B_KNOWN_LIST_MEMBERS 1
 #include "aion/gameserver/world/knownlist/KnownObject.h"
-#else
-#define AION_S0B_KNOWN_LIST_MEMBERS 0
-#endif
 
 namespace aion::gameserver::world::knownlist {
 
 static const auto log = commons::logging::LoggerFactory::getLogger("com.aionemu.gameserver.world.knownlist.KnownList");
 
-#if AION_S0B_KNOWN_LIST_MEMBERS
 KnownList::KnownList(model::gameobjects::VisibleObject& ownerValue) : OwnedPart(ownerValue), owner(ownerValue) {
 }
 
 KnownList::~KnownList() = default;
-#endif
 
-// lint: L7 Java synchronized; the ported body is SYNCHRONIZED(*this) { ... } (hub-headers.md §11.4)
 void KnownList::update() {
 	AION_UNPORTED();
 }
 
-// lint: L7 Java synchronized; the ported body is SYNCHRONIZED(*this) { ... } (hub-headers.md §11.4)
 void KnownList::clear(model::animations::ObjectDeleteAnimation animation) {
 	AION_UNPORTED();
 }

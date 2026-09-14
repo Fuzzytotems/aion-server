@@ -209,10 +209,15 @@ struct GearList {
 	std::vector<const ItemTemplate*> items;
 };
 
-/** like NpcEquippedGear: hand-written, built from the adapter value type and initialized eagerly after IDREF resolution */
-class Gear {
+/**
+ * like NpcEquippedGear: hand-written, RefCounted (held by runtime::Ref, BindContext::replaceSingle's Ref overload), built from the adapter
+ * value type and initialized eagerly after IDREF resolution
+ */
+class Gear : public runtime::RefCounted {
+	AION_MAKE_REF_FRIEND
+
 public:
-	explicit Gear(std::unique_ptr<GearList> list) : list(std::move(list)) {}
+	static runtime::Ref<Gear> create(std::unique_ptr<GearList> list) { return runtime::makeRef<Gear>(std::move(list)); }
 	void init(LoadContext& ctx) {
 		ctx.runAfterIdRefResolution([this] {
 			for (const ItemTemplate* item : list->items)
@@ -220,6 +225,10 @@ public:
 		});
 	}
 	const std::string& getNames() const { return names; }
+
+protected:
+	explicit Gear(std::unique_ptr<GearList> gearList) : list(std::move(gearList)) {}
+	~Gear() override = default;
 
 private:
 	std::unique_ptr<GearList> list;
@@ -235,7 +244,7 @@ struct PlayerCreationData {
 	std::optional<std::vector<Race>> allies;
 	std::optional<std::vector<std::string>> properties;
 	std::optional<std::vector<Stat>> bonuses;
-	std::unique_ptr<Gear> gear;
+	runtime::Ref<Gear> gear;
 };
 
 /** holder with a declared dependency on ItemData and a required element */
@@ -682,7 +691,7 @@ struct XmlBinding<test::PlayerCreationData> {
 		if (n == "equipment") { // class-level adapter: bind the value type on the heap (IDREF slots must not move), then convert
 			auto list = std::make_unique<test::GearList>();
 			c.bindObject(*list, e, c.currentObject());
-			c.replaceSingle(o.gear, std::make_unique<test::Gear>(std::move(list)), e);
+			c.replaceSingle(o.gear, test::Gear::create(std::move(list)), e);
 			o.gear->init(c.load());
 			return true;
 		}

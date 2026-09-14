@@ -1,23 +1,50 @@
 #include "aion/gameserver/questEngine/handlers/AbstractQuestHandler.h"
 
 #include "aion/gameserver/runtime/base/Unported.h"
+#include "aion/gameserver/dataholders/DataManager.h"
+#include "aion/gameserver/dataholders/QuestsData.h"
+#include "aion/gameserver/model/templates/QuestTemplate.h"
+#include "aion/gameserver/model/templates/quest/QuestDrop.h"
+#include "aion/gameserver/model/templates/quest/QuestItems.h"
+#include "aion/gameserver/model/templates/quest/QuestWorkItems.h"
 #include "aion/gameserver/questEngine/QuestEngine.h"
+#include "aion/gameserver/runtime/base/Exceptions.h"
 
 namespace aion::gameserver::questEngine::handlers {
 
 AbstractQuestHandler::AbstractQuestHandler(int32_t questIdValue) : qe(QuestEngine::getInstance()), questId(questIdValue) {
-	// Java: template = DataManager.QUEST_DATA.getQuestById(questId); if (template != null) { loadWorkItems(template); loadActionItems(template); }
-	AION_UNPORTED();
+	const gameserver::model::templates::QuestTemplate* template_ = dataholders::DataManager::QUEST_DATA->getQuestById(questId);
+	if (template_ != nullptr) { // Some artificial quests have dummy questIds
+		loadWorkItems(template_);
+		loadActionItems(template_);
+	}
 }
 
 AbstractQuestHandler::~AbstractQuestHandler() = default;
 
 void AbstractQuestHandler::loadWorkItems(const gameserver::model::templates::QuestTemplate* template_) {
-	AION_UNPORTED();
+	const gameserver::model::templates::quest::QuestWorkItems* questWorkItems = template_->getQuestWorkItems();
+	if (questWorkItems != nullptr) {
+		// Java keeps the template's list; C++: the runtime list of pointers to the immortal template items
+		runtime::Ref<runtime::RcArrayList<const gameserver::model::templates::quest::QuestItems*>> items =
+			runtime::RcArrayList<const gameserver::model::templates::quest::QuestItems*>::create(AION_LOCK_CLASS(AbstractQuestHandler::workItems));
+		for (const gameserver::model::templates::quest::QuestItems& item : questWorkItems->getQuestWorkItem())
+			items->add(&item);
+		workItems.set(items);
+	}
 }
 
 void AbstractQuestHandler::loadActionItems(const gameserver::model::templates::QuestTemplate* template_) {
-	AION_UNPORTED();
+	for (const gameserver::model::templates::quest::QuestDrop& drop : template_->getQuestDrop()) {
+		if (!drop.getNpcId())
+			throw runtime::NullPointerException("QuestDrop.npcId"); // Java: unboxing of a null Integer
+		int32_t npcId = *drop.getNpcId();
+		if (npcId / 100000 != 7)
+			continue;
+		if (!actionItems.get())
+			actionItems.set(runtime::RcHashSet<int32_t>::create(AION_LOCK_CLASS(AbstractQuestHandler::actionItems)));
+		actionItems.get()->add(npcId);
+	}
 }
 
 std::unordered_set<int32_t> AbstractQuestHandler::getActionItems() {

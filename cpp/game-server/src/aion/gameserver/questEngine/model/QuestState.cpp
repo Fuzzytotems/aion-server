@@ -1,21 +1,12 @@
 #include "aion/gameserver/questEngine/model/QuestState.h"
 
-#include "aion/gameserver/runtime/base/Unported.h"
 #include "aion/commons/utils/TimeUtils.h"
 #include "aion/gameserver/questEngine/model/QuestStatus.h"
-
-// Member types (docs/design/hub-headers.md §3.3): the constructors and the destructor create and release `questVars` and need the complete
-// QuestVars (not a hub; S0c declaration header of chunk P5-06, §3.5). Remove the guard in the change that adds the header.
-#if __has_include("aion/gameserver/questEngine/model/QuestVars.h")
-#define AION_S0B_QUEST_STATE_VARS 1
 #include "aion/gameserver/questEngine/model/QuestVars.h"
-#else
-#define AION_S0B_QUEST_STATE_VARS 0
-#endif
+#include "aion/gameserver/runtime/base/Unported.h"
 
 namespace aion::gameserver::questEngine::model {
 
-#if AION_S0B_QUEST_STATE_VARS
 QuestState::QuestState(int32_t questIdValue, QuestStatus statusValue, int32_t questVarsValue, int32_t flags, int32_t completeCountValue,
 	std::optional<commons::database::Timestamp> nextRepeatTimeValue, std::optional<int32_t> rewardValue,
 	std::optional<commons::database::Timestamp> completeTimeValue)
@@ -42,7 +33,6 @@ runtime::Ref<QuestState> QuestState::create(int32_t questIdValue, QuestStatus st
 runtime::Ref<QuestState> QuestState::create(int32_t questIdValue, QuestStatus statusValue) {
 	return runtime::makeRef<QuestState>(questIdValue, statusValue);
 }
-#endif
 
 void QuestState::setQuestVarById(int32_t id, int32_t var) {
 	AION_UNPORTED();

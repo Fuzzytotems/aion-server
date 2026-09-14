@@ -1,24 +1,15 @@
 #include "aion/gameserver/questEngine/QuestEngine.h"
 
-#include "aion/gameserver/runtime/base/Unported.h"
 #include "aion/commons/logging/LoggerFactory.h"
-#include "aion/gameserver/questEngine/handlers/AbstractQuestHandler.h"
-#include "aion/gameserver/services/cron/CronService.h"
-
-// Member types (docs/design/hub-headers.md §3.3): the constructor, the destructor and getInstance() instantiate the destructors of the
-// Ref<QuestNpc> map (QuestNpc: model/templates/quest, not a hub; S0c declaration header, §3.5). Remove the guard in the change that adds it.
-#if __has_include("aion/gameserver/model/templates/quest/QuestNpc.h")
-#define AION_S0B_QUEST_ENGINE_MEMBERS 1
 #include "aion/gameserver/model/templates/quest/QuestNpc.h"
-#else
-#define AION_S0B_QUEST_ENGINE_MEMBERS 0
-#endif
+#include "aion/gameserver/questEngine/handlers/AbstractQuestHandler.h"
+#include "aion/gameserver/runtime/base/Unported.h"
+#include "aion/gameserver/services/cron/CronService.h"
 
 namespace aion::gameserver::questEngine {
 
 static const auto log = commons::logging::LoggerFactory::getLogger("com.aionemu.gameserver.questEngine.QuestEngine");
 
-#if AION_S0B_QUEST_ENGINE_MEMBERS
 QuestEngine::QuestEngine() = default;
 
 QuestEngine::~QuestEngine() = default;
@@ -27,7 +18,6 @@ QuestEngine& QuestEngine::getInstance() {
 	static QuestEngine instance; // Java SingletonHolder
 	return instance;
 }
-#endif
 
 // lambda at QuestEngine.java:108 (fieldmap key QuestEngine@L108:55): executeLongRunning task running QuestSpawnAnalyzer, pin {this}
 void QuestEngine::init() {

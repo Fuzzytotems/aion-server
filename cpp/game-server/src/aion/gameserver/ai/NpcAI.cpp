@@ -30,7 +30,7 @@ model::Race NpcAI::getRace() {
 	AION_UNPORTED();
 }
 
-model::TribeClass NpcAI::getTribe() {
+std::optional<model::TribeClass> NpcAI::getTribe() {
 	AION_UNPORTED();
 }
 
@@ -46,7 +46,7 @@ controllers::attack::AggroList& NpcAI::getAggroList() {
 	AION_UNPORTED();
 }
 
-model::skill::NpcSkillList& NpcAI::getSkillList() {
+runtime::Ptr<model::skill::NpcSkillList> NpcAI::getSkillList() {
 	AION_UNPORTED();
 }
 

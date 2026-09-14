@@ -32,11 +32,12 @@ private:
 	/** Container with all players that entered world. */
 	const runtime::Ref<container::PlayerContainer> allPlayers;
 	/** Container with all VisibleObjects in the world. */
-	runtime::ConcurrentHashMap<int32_t, runtime::Ref<model::gameobjects::VisibleObject>> allObjects{};
+	runtime::ConcurrentHashMap<int32_t, runtime::Ref<model::gameobjects::VisibleObject>> allObjects{AION_LOCK_CLASS(World::allObjects#stripe)};
 	/** Container of SiegeNpcs by siege location id */
-	runtime::ConcurrentHashMap<int32_t, runtime::Ref<runtime::RcArrayList<runtime::Ref<model::gameobjects::siege::SiegeNpc>>>> localSiegeNpcs{};
+	runtime::ConcurrentHashMap<int32_t, runtime::Ref<runtime::RcArrayList<runtime::Ref<model::gameobjects::siege::SiegeNpc>>>> localSiegeNpcs{
+		AION_LOCK_CLASS(World::localSiegeNpcs#stripe)};
 	/** World maps supported by server. */
-	runtime::HashMap<int32_t, runtime::Ref<WorldMap>> worldMaps{};
+	runtime::HashMap<int32_t, runtime::Ref<WorldMap>> worldMaps{AION_LOCK_CLASS(World::worldMaps)};
 
 	/** Constructor. Creates the world maps of WORLD_MAPS_DATA. */
 	World();

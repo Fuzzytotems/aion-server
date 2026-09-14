@@ -268,8 +268,11 @@ endif()
 # drift check of generated test data that lives outside cpp/tools (cpp/tools/CMakeLists.txt covers the tool suites)
 if(AION_BUILD_TESTS AND Python3_Interpreter_FOUND)
 	add_test(NAME gs.geomath.golden_drift COMMAND "${Python3_EXECUTABLE}" oracle/gen_golden.py --check WORKING_DIRECTORY "${GS_TESTS}/geomath")
-	# concurrency lint (runtime-architecture.md §12.2) over all game server sources; warnings fail too
-	add_test(NAME gs.lint.concurrency COMMAND "${Python3_EXECUTABLE}" tools/porting/lint_concurrency.py --werror game-server/src WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}")
+	# concurrency lint (runtime-architecture.md §12.2) over all game server sources; warnings fail too, the RR-16 lock class check included
+	# (a warning since the spine freeze). L16: every cycle edge outside game-server/data/handlers has a cycles.toml resolution (the handler edges belong to
+	# the phase-6 chunks; switch to --cycles once they are resolved)
+	add_test(NAME gs.lint.concurrency
+		COMMAND "${Python3_EXECUTABLE}" tools/porting/lint_concurrency.py --werror --cycles=core game-server/src WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}")
 	# tools/porting/chunks.py computes the same ownership as the configure step (its chunks.json)
 	add_test(NAME gs.chunks.consistency
 		COMMAND "${Python3_EXECUTABLE}" tools/porting/chunks.py verify-json "${CMAKE_CURRENT_BINARY_DIR}/chunks.json" WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}")

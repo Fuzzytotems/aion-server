@@ -33,7 +33,7 @@ private:
 	const int32_t mapId;
 
 protected:
-	runtime::HashMap<int32_t, runtime::Ref<model::gameobjects::Creature>> creatures{};
+	runtime::HashMap<int32_t, runtime::Ref<model::gameobjects::Creature>> creatures{AION_LOCK_CLASS(ZoneInstance::creatures)};
 	runtime::Field<runtime::Ref<runtime::RcArrayList<runtime::Ref<handler::ZoneHandler>>>> handlers{};
 
 	ZoneInstance(int32_t mapId, model::templates::zone::ZoneInfo& template_);

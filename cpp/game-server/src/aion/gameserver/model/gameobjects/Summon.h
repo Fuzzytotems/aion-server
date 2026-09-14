@@ -39,7 +39,7 @@ private:
 	const runtime::Ref<player::Player> master;
 	runtime::Field<summons::SummonMode> mode{summons::SummonMode::GUARD};
 	runtime::Field<summons::SummonMode> modeBeforeRelease{summons::SummonMode::GUARD}; // Java: = mode
-	runtime::ConcurrentLinkedQueue<runtime::Ref<summons::SkillOrder>> skillOrders{};
+	runtime::ConcurrentLinkedQueue<runtime::Ref<summons::SkillOrder>> skillOrders{AION_LOCK_CLASS(Summon::skillOrders)};
 	runtime::Field<runtime::Ref<summons::SummonRelease>> pendingRelease{};
 	runtime::Field<SkillElement> alwaysResistElement{SkillElement::NONE};
 	runtime::Field<int32_t> summonedBySkillId{};

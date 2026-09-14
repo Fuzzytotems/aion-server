@@ -1,23 +1,14 @@
 #include "aion/gameserver/model/items/storage/Storage.h"
 
 #include "aion/commons/logging/LoggerFactory.h"
-#include "aion/gameserver/runtime/base/Unported.h"
-
-// Member types (docs/design/hub-headers.md §3.3): the constructors and the destructor need the complete ItemStorage (not an S0b hub, P4-13) and
-// Item. Not an S0b transition guard: P4-13 removes it when it adds ItemStorage.h.
-#if __has_include("aion/gameserver/model/items/storage/ItemStorage.h") && __has_include("aion/gameserver/model/gameobjects/Item.h")
-#define AION_STORAGE_MEMBER_TYPES 1
 #include "aion/gameserver/model/gameobjects/Item.h"
 #include "aion/gameserver/model/items/storage/ItemStorage.h"
-#else
-#define AION_STORAGE_MEMBER_TYPES 0
-#endif
+#include "aion/gameserver/runtime/base/Unported.h"
 
 namespace aion::gameserver::model::items::storage {
 
 [[maybe_unused]] static const auto log = commons::logging::LoggerFactory::getLogger("ITEM_LOG");
 
-#if AION_STORAGE_MEMBER_TYPES
 Storage::Storage(StorageType storageTypeValue) : Storage(storageTypeValue, true) {
 }
 
@@ -27,7 +18,6 @@ Storage::Storage(StorageType storageTypeValue, bool withDeletedItems)
 }
 
 Storage::~Storage() = default;
-#endif
 
 int64_t Storage::getKinah() {
 	AION_UNPORTED();

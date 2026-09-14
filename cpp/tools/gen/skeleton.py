@@ -101,6 +101,11 @@ Modes
     python skeleton.py --list SELECTOR ...
         Prints the Java FQNs a selector expands to (one per line).
 
+    python skeleton.py --definitions
+        Lists the member functions the hub and spine headers declare without a body that no `Class::name(` definition in the header or a
+        .cpp under --cpp-src defines (S0B-120: every declared hub function must link). Class templates are skipped and overloads are not
+        told apart. Exit 1 if there is one.
+
     python skeleton.py --guards [--freeze]
         Lists every `#if`/`#elif __has_include(...)` guard in cpp/game-server/{src,tests,handlers} (outside runtime/) with the headers it
         still waits for (docs/design/hub-headers.md §3.3). Exit 1 on an open guard (every header exists) unless it is an S0b transition guard
@@ -680,8 +685,8 @@ def spine_guards(scan_roots, include_roots):
     return out
 
 
-# Set by the integrator at the spine freeze (handlers-and-porting-plan.md §2.5): from then on no `__has_include` guard may remain.
-SPINE_FROZEN = False
+# Set by the integrator at the spine freeze (handlers-and-porting-plan.md §2.5, S0c): from then on no `__has_include` guard may remain.
+SPINE_FROZEN = True
 
 
 def spine_header_set():
@@ -709,6 +714,168 @@ def guard_problems(guards, frozen=SPINE_FROZEN):
 
 def _norm(p):
     return str(p).replace('\\', '/')
+
+
+# ----------------------------------------------------------------------------------------------------------------------------------
+# Declared member functions without a definition (S0B-120: every hub constructor, destructor and stub must link)
+# ----------------------------------------------------------------------------------------------------------------------------------
+
+_NOT_FUNCTION_NAMES = frozenset(('if', 'for', 'while', 'switch', 'return', 'sizeof', 'alignof', 'decltype', 'static_assert', 'noexcept',
+                                 'requires', 'catch', 'throw', 'typeid'))
+
+
+def _strip_cpp(text):
+    """Comments, string and character literals and preprocessor lines blanked out (offsets and newlines kept)."""
+    out = []
+    i, n = 0, len(text)
+    line_start = True
+    while i < n:
+        c = text[i]
+        if text.startswith('//', i):
+            j = text.find('\n', i)
+            j = n if j < 0 else j
+            out.append(' ' * (j - i))
+            i = j
+            continue
+        if text.startswith('/*', i):
+            j = text.find('*/', i + 2)
+            j = n if j < 0 else j + 2
+            out.append(re.sub(r'[^\n]', ' ', text[i:j]))
+            i = j
+            continue
+        if text.startswith('R"', i) and (i == 0 or not (text[i - 1].isalnum() or text[i - 1] == '_')):
+            m = re.match(r'R"([^(\s]*)\(', text[i:])
+            if m:
+                end = text.find(')' + m.group(1) + '"', i)
+                j = n if end < 0 else end + len(m.group(1)) + 2
+                out.append(re.sub(r'[^\n]', ' ', text[i:j]))
+                i = j
+                continue
+        if c == '"' or (c == "'" and not (i > 0 and (text[i - 1].isalnum() or text[i - 1] == '_'))):
+            j = i + 1
+            while j < n and text[j] != c and text[j] != '\n':
+                j += 2 if text[j] == '\\' else 1
+            j = min(j + 1, n)
+            out.append(' ' * (j - i))
+            i = j
+            continue
+        if c == '#' and line_start:
+            j = i
+            while True:
+                e = text.find('\n', j)
+                e = n if e < 0 else e
+                if e > i and text[e - 1] == '\\' and e < n:
+                    j = e + 1
+                    continue
+                break
+            out.append(re.sub(r'[^\n]', ' ', text[i:e]))
+            i = e
+            continue
+        if c == '\n':
+            line_start = True
+        elif not c.isspace():
+            line_start = False
+        out.append(c)
+        i += 1
+    return ''.join(out)
+
+
+def _matching_brace(text, i):
+    depth, j, n = 1, i + 1, len(text)
+    while j < n and depth:
+        if text[j] == '{':
+            depth += 1
+        elif text[j] == '}':
+            depth -= 1
+        j += 1
+    return j
+
+
+def declared_member_functions(header_text):
+    """[(enclosing class names, name, line)] of the member functions a header declares without a body (`name(...) ...;` at class scope), outside
+    class templates and without `= 0`, `= default` or `= delete`."""
+    text = _strip_cpp(header_text)
+    decls = []
+    stack = []                  # ('class', name, templated) or ('scope', None, False)
+    stmt_start = 0
+    i, n = 0, len(text)
+    while i < n:
+        c = text[i]
+        if c == '{':
+            head = ' '.join(text[stmt_start:i].split())
+            head = re.sub(r'^(?:(?:public|protected|private)\s*:\s*)+', '', head)
+            m = re.match(r'^(template\s*<.*>\s*)?(?:class|struct|union)\s+(?:\[\[[^\]]*\]\]\s*)?(\w+)(?:\s+final)?\s*(?::[^;{}]*)?$', head)
+            if m:
+                templated = bool(m.group(1)) or any(s[2] for s in stack)
+                stack.append(('class', m.group(2), templated))
+                i += 1
+                stmt_start = i
+                continue
+            if re.match(r'^(?:inline\s+)?namespace\b[^;{}()]*$', head) or re.match(r'^extern\s+"', head):
+                stack.append(('scope', None, False))
+                i += 1
+                stmt_start = i
+                continue
+            # a function body, an initializer (`x{...}`), an enum body or a lambda: skip it
+            j = _matching_brace(text, i)
+            body_of_function = bool(re.search(r'\)\s*(?:const\s*)?(?:&{1,2}\s*)?(?:noexcept(?:\s*\([^)]*\))?\s*)?(?:override\s*|final\s*)*'
+                                              r'(?:->[^{]*)?$', head)) or head.endswith(')')
+            is_type = bool(re.match(r'^(?:enum|(?:typedef\s+)?(?:class|struct|union)\b)', head))
+            i = j
+            if body_of_function or is_type:
+                # the declaration ends with its body (an enum/struct definition still needs its `;`, which then ends an empty statement)
+                stmt_start = j
+            continue
+        if c == '}':
+            if stack:
+                stack.pop()
+            i += 1
+            stmt_start = i
+            continue
+        if c == ';':
+            stmt = ' '.join(text[stmt_start:i].split())
+            stmt_start = i + 1
+            i += 1
+            if not stack or stack[-1][0] != 'class' or stack[-1][2]:
+                continue
+            s = re.sub(r'^(?:(?:public|protected|private)\s*:\s*)+', '', stmt)
+            s = re.sub(r'^(?:AION_MAKE_REF_FRIEND\s*)+', '', s)
+            if not s or s.startswith(('using ', 'friend ', 'typedef ', 'template')) or 'static_assert' in s:
+                continue
+            if re.search(r'=\s*(?:0|default|delete)$', s):
+                continue
+            m = re.search(r'(~?\b\w+|\boperator\s*(?:\(\)|[^\s(]+))\s*\(([^()]*(?:\([^()]*\)[^()]*)*)\)\s*(?:const\s*)?(?:&{1,2}\s*)?'
+                          r'(?:noexcept(?:\s*\([^)]*\))?\s*)?(?:override\s*|final\s*)*$', s)
+            if not m:
+                continue
+            name = m.group(1).replace(' ', '')
+            prefix = s[:m.start()]
+            if name in _NOT_FUNCTION_NAMES or '=' in prefix or '(' in prefix or re.fullmatch(r'[A-Z][A-Z0-9]*_[A-Z0-9_]*', name):  # macro calls
+                continue
+            decls.append(([s_[1] for s_ in stack if s_[0] == 'class'], name, header_text.count('\n', 0, i) + 1))
+            continue
+        i += 1
+    return decls
+
+
+def undefined_member_functions(headers, include_root, source_roots):
+    """Member functions the given headers (include paths below include_root) declare without a body and that no `Class::name(` definition in
+    the header itself or a .cpp under source_roots defines: [(header, 'Outer::Inner::name', line)]. Overloads are not told apart."""
+    corpus = '\n'.join(_strip_cpp(path.read_text(encoding='utf-8-sig', errors='replace'))
+                       for root in source_roots for path in sorted(Path(root).rglob('*.cpp')))
+    missing = []
+    for header in sorted(headers):
+        path = Path(include_root) / header
+        if not path.is_file():
+            continue
+        text = path.read_text(encoding='utf-8-sig', errors='replace')
+        own = _strip_cpp(text)
+        for classes, name, line in declared_member_functions(text):
+            name_re = re.escape(name).replace(r'operator', r'operator\s*')
+            pattern = re.compile(r'\b' + re.escape(classes[-1]) + r'\s*::\s*' + name_re + r'\s*\(')
+            if not pattern.search(corpus) and not pattern.search(own):
+                missing.append((header, '::'.join(classes + [name]), line))
+    return missing
 
 
 def is_singleton(td):
@@ -951,8 +1118,16 @@ class Project:
     def base_kind(self, td):
         """'RefCounted' etc. when the class or a project ancestor has a fieldmap base. An ancestor that already has a hand-written C++
         definition (a header under --cpp-src, e.g. an xmlgen behaviour shell) counts with the runtime base its definition names: none if
-        it has no base clause, the fieldmap base of its Java superclasses if it only names other bases."""
-        for t in [td] + self.all_supertypes(td):
+        it has no base clause, the fieldmap base of its Java superclasses if it only names other bases. The superclass chain decides first:
+        an implemented interface without a base clause (Persistable) says nothing about the class's base (House -> VisibleObject ->
+        AionObject); an interface that names a runtime base counts only when the chain has none."""
+        chain = [td]
+        while True:
+            sup = self.superclass(chain[-1])
+            if sup is None or any(sup is c for c in chain):
+                break
+            chain.append(sup)
+        for t in chain:
             ported = self.ported_definition(t)
             if ported is not None:
                 named = [b for b in BASES if b != 'packet' and re.search(r'\b' + b + r'\b', ported.bases)]
@@ -960,6 +1135,18 @@ class Project:
                     return named[0]
                 if not ported.bases:
                     return None
+                continue
+            lay = self.layout(t)
+            if lay is not None and lay.base:
+                return lay.base
+        for t in self.all_supertypes(td):
+            if any(t is c for c in chain):
+                continue
+            ported = self.ported_definition(t)
+            if ported is not None:
+                named = [b for b in BASES if b != 'packet' and re.search(r'\b' + b + r'\b', ported.bases)]
+                if named:
+                    return named[0]
                 continue
             lay = self.layout(t)
             if lay is not None and lay.base:
@@ -3711,6 +3898,8 @@ def main(argv=None):
     mode.add_argument('--list', action='store_true', help='print the Java FQNs the selectors expand to')
     mode.add_argument('--guards', action='store_true',
                       help='list the __has_include guards under --cpp-src and the tests (hub-headers.md §3.3); exit 1 on an open guard')
+    mode.add_argument('--definitions', action='store_true',
+                      help='list the member functions the hub and spine headers declare without a definition; exit 1 if any')
     ap.add_argument('--freeze', action='store_true', help='--guards: every guard is an error (the spine freeze gate)')
     ap.add_argument('selectors', nargs='*', help='FQN, simple name, pkg.*, pkg.**, @hubs, @services, @daos, @serverpackets, @engines, @all')
     ap.add_argument('--classes', help='file with one selector per line (# comments)')
@@ -3732,6 +3921,15 @@ def main(argv=None):
     fm.add_argument('--no-fieldmap', action='store_true')
     ap.add_argument('--unported-header', default=DEFAULT_UNPORTED_HEADER)
     args = ap.parse_args(argv)
+
+    if args.definitions:
+        cpp_src = Path(args.cpp_src)
+        headers = spine_header_set()
+        missing = undefined_member_functions(headers, cpp_src, [cpp_src])
+        for header, qualified, line in missing:
+            print(f'{header}:{line}: {qualified} is declared but has no definition')
+        print(f'skeleton: {len(headers)} hub and spine headers, {len(missing)} declarations without a definition', file=sys.stderr)
+        return 1 if missing else 0
 
     if args.guards:
         cpp_src = Path(args.cpp_src)

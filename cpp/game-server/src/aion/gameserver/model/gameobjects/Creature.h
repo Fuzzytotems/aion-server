@@ -64,11 +64,10 @@ private:
 	runtime::Field<int32_t> visualState{}; // Java: = CreatureVisualState.VISIBLE.getId() (constructor)
 	runtime::Field<int32_t> seeState{};    // Java: = CreatureSeeState.NORMAL.getId() (constructor)
 	runtime::Field<runtime::Ref<skillengine::model::Skill>> castingSkill{};
-	// fieldmap: Java assigns a ConcurrentHashMap (setSkillCoolDown), fieldmap guessed HashMap (cycles change request, fieldmap.toml pending)
 	runtime::Field<runtime::Ref<runtime::RcConcurrentHashMap<int32_t, int64_t>>> skillCoolDowns{};
 	const runtime::Ref<controllers::ObserveController> observeController;
 	/** Created lazily for the owner by getTransformModel (Java: new TransformModel(this)) */
-	runtime::PartSlot<TransformModel> transformModel{*this}; // fieldmap: part (build/s0b-cycles-work/setII.toml, cycles.toml `part`)
+	runtime::PartSlot<TransformModel> transformModel{*this};
 	/** Created for the owner by the virtual createAggroList() in postConstruct (fieldmap.toml override) */
 	runtime::PartSlot<controllers::attack::AggroList> aggroList{*this};
 	const runtime::Ref<runtime::Array<int8_t>> zoneTypes; // Java: = new byte[ZoneType.values().length] (constructor)
@@ -304,8 +303,8 @@ public:
 
 	bool isWorldRaidMonster();
 
-	/** @return null (Npc overrides it); NpcEquippedGear is template-owned static data or an immutable override value (Npc.h) */
-	virtual std::shared_ptr<const items::NpcEquippedGear> getOverrideEquipment();
+	/** @return null (Npc overrides it) */
+	virtual runtime::Ptr<items::NpcEquippedGear> getOverrideEquipment();
 };
 
 } // namespace aion::gameserver::model::gameobjects

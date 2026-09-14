@@ -19,6 +19,8 @@ from dataclasses import dataclass, field
 import jaxb
 from jaxb import XmlGenError, short_fqn
 
+REF_PREFIX = '::aion::gameserver::runtime::Ref<'  # xmlgen.toml [adapters] cpp of a RefCounted class adapter target
+
 CPP_KEYWORDS = set('''alignas alignof and and_eq asm auto bitand bitor bool break case catch char char8_t char16_t char32_t class compl concept
 const constexpr constinit const_cast continue co_await co_return co_yield decltype default delete do double dynamic_cast else enum explicit
 export extern false float for friend goto if inline int long mutable namespace new noexcept not not_eq nullptr operator or or_eq private
@@ -127,7 +129,7 @@ class CMember:
     scalar_cpp: str = ''  # scalar value type (for runtime_mutable Field<T> and method setters)
     factory: str = ''  # factory name of choices
     adapter: dict | None = None
-    return_kind: str = ''  # value | cref | pointer | field
+    return_kind: str = ''  # value | cref | pointer | ref (runtime::Ref of a RefCounted class adapter target) | field
     java_field: str = ''  # Java field name (members that stand for a Java field)
 
 
@@ -191,6 +193,7 @@ class CClass:
     has_reserve: bool = False
     has_finish: bool = False
     container: bool = False  # unbound outer class of bound nested classes (no binding)
+    virtual_accessors: set = field(default_factory=set)  # (name, arity) of generated accessors emitted `virtual` (a subclass overrides them)
 
     @property
     def is_data(self):
@@ -691,7 +694,7 @@ class CppModel:
             m.type = table['cpp']
             m.elem_qualified = value_cc.qualified
             m.bind = 'classAdapter'
-            m.return_kind = 'pointer' if table['cpp'].startswith('std::unique_ptr<') else 'cref'
+            m.return_kind = 'pointer' if table['cpp'].startswith('std::unique_ptr<') else 'ref' if table['cpp'].startswith(REF_PREFIX) else 'cref'
             cc.includes.add(value_cc.header)
             self.no_initializer(p)
             return m
@@ -900,7 +903,39 @@ class CppModel:
             if acc.code is None:
                 cc.non_trivial_methods.append(meth)
                 continue
+            self.mark_virtual_accessor(cc, acc)
             cc.accessors.append(acc)
+
+    def subclasses(self, cc):
+        """direct subclasses of cc in the model"""
+        if not hasattr(self, '_subclasses'):
+            self._subclasses = {}
+            for c in self.classes.values():
+                if c.superclass is not None:
+                    self._subclasses.setdefault(id(c.superclass), []).append(c)
+        return self._subclasses.get(id(cc), [])
+
+    def mark_virtual_accessor(self, cc, acc):
+        """hub-headers.md §9.1: a generated accessor is `virtual` when a Java subclass overrides it (same name and arity, e.g.
+        AbstractOverTimeEffect.getDuration2 over EffectTemplate.getDuration2), and `override` when an ancestor emitted it virtual. The
+        overriding subclass method is hand-written (non-trivial) and declares `override` itself. Superclasses are mapped first."""
+        key = (acc.java.name, len(acc.java.params))
+        sup = cc.superclass
+        while sup is not None:
+            if key in sup.virtual_accessors:
+                acc.code = re.sub(r'\)( const)? \{', lambda m: f'){m.group(1) or ""} override {{', acc.code, count=1)
+                cc.virtual_accessors.add(key)
+                return
+            sup = sup.superclass
+        stack = list(self.subclasses(cc))
+        while stack:
+            sub = stack.pop()
+            if any(m.kind == 'method' and m.name == key[0] and len(m.params) == key[1] and 'static' not in m.modifiers
+                   for m in sub.model.td.methods):
+                acc.code = 'virtual ' + acc.code
+                cc.virtual_accessors.add(key)
+                return
+            stack.extend(self.subclasses(sub))
 
     # -- per class -----------------------------------------------------------------------------------------------------------------------
     def finish_class(self, cc):
@@ -1064,6 +1099,9 @@ def accessor_code(acc, member_names=()):
         if rk == 'pointer':
             inner = m.type[len('std::unique_ptr<'):-1]
             return f'const {inner}* {name}() const {{ return {m.name}.get(); }}'
+        if rk == 'ref':
+            inner = m.type[len(REF_PREFIX):-1]
+            return f'::aion::gameserver::runtime::Ptr<{inner}> {name}() const {{ return {m.name}; }}'
         if rk == 'field':
             return f'{m.scalar_cpp} {name}() const {{ return {m.name}.get(); }}'
         return None
@@ -1078,6 +1116,6 @@ def accessor_code(acc, member_names=()):
         return f'void {name}({m.scalar_cpp} {param}) const {{ {target}.set({param}); }}'
     if rk == 'value':
         return f'void {name}({m.type} {param}) {{ {target} = {param}; }}'
-    if rk in ('cref', 'pointer'):
+    if rk in ('cref', 'pointer', 'ref'):
         return f'void {name}({m.type} {param}) {{ {target} = std::move({param}); }}'
     return None

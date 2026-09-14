@@ -58,8 +58,28 @@ class RealTreeTest(unittest.TestCase):
         # element writes do not reassign an array (QuestVars.java:34,57)
         self.assertEqual(self.field(c + 'questEngine.model.QuestVars', 'questVars').cpp, 'const Ref<Array<int32_t>>')
         self.assertEqual(self.field(c + 'spawnengine.WalkerGroup', 'memberSteps').cpp, 'const Ref<Array<int32_t>>')
-        # a protected owner field assigned only in the constructor (CreatureMoveController.java:29)
-        self.assertEqual(self.field(c + 'controllers.movement.CreatureMoveController', 'owner').cpp, 'OwnerRef<T>')
+        # a protected owner field assigned only in the constructor (CreatureMoveController.java:29), no fieldmap.toml spelling: its type
+        # variable T extends VisibleObject is spelled as the bound (erasure rule, hub-headers.md §8.1)
+        owner = self.field(c + 'controllers.movement.CreatureMoveController', 'owner')
+        self.assertEqual((owner.cpp, owner.rule), ('OwnerRef<VisibleObject>', 'part owner (assigned only in constructors)'))
+        # erasure without overrides: bounds for type variables, no type arguments for erased generics
+        self.assertEqual((self.field(c + 'ai.AbstractAI', 'owner').cpp, self.field(c + 'ai.AbstractAI', 'owner').rule), ('OwnerRef<Creature>', 'part owner'))
+        self.assertEqual(self.field(c + 'model.team.GeneralTeam', 'leader').cpp, 'Field<Ref<TeamMember>>')
+        self.assertEqual(self.field(c + 'model.vortex.VortexLocation', 'activeVortex').cpp, 'Field<Ref<DimensionalVortex>>')
+        self.assertEqual(self.field('instance.pvp.BasicPvpInstance', 'instanceScore').cpp, 'Field<Ref<PvpInstanceScore>>')
+        self.assertEqual(self.field(c + 'network.aion.AionConnection', 'packetProcessor').cpp,
+                         'static inline const Ref<PacketProcessor<AionConnection>>')  # commons generics stay templates
+        # hub-headers.md §6 external spellings, dropped fields and capture overrides (fieldmap.toml)
+        self.assertEqual((self.field(c + 'questEngine.QuestEngine', 'messageTask').cpp, self.field(c + 'questEngine.QuestEngine', 'messageTask').rule),
+                         ('Field<Ref<JobDetail>>', 'non-final external handle'))
+        self.assertEqual(self.field(c + 'taskmanager.AbstractCronTask', 'nextRun').cpp, 'Field<Timestamp>')
+        self.assertEqual(self.field(c + 'model.geometry.Polygon2D', 'bounds').cpp, 'Field<Rectangle2D>')
+        self.assertIsNone(self.field(c + 'questEngine.QuestEngine', 'scriptManager').cpp)
+        checker = self.fm.classes[c + 'network.aion.AionConnection.ConnectionAliveChecker']
+        self.assertEqual([cap.cpp for cap in checker.captures], ['const std::weak_ptr<AionConnection>'])
+        self.assertNotIn(c + 'network.aion.AionConnection.ConnectionAliveChecker#this$0', self.fm.cycle_edges)
+        self.assertEqual(self.field(c + 'world.zone.ZoneName', 'NONE').cpp, 'static const ZoneName* const')
+        self.assertEqual(self.field(c + 'model.gameobjects.Persistable', 'NEW').cpp, 'static const PinnedCallback<bool(Persistable&)>')
         # self-typed static constants of multi-instance classes are not singletons
         for cid in ('geoEngine.collision.IgnoreProperties', 'model.house.PlayerScript', 'model.stats.calc.StatCapUtil.StatCapRule',
                     'network.aion.serverpackets.SM_FRIEND_RESPONSE'):
@@ -71,11 +91,33 @@ class RealTreeTest(unittest.TestCase):
         self.assertFalse(self.fm.classes[c + 'services.panesterra.ahserion.AhserionRaid'].singleton)  # fieldmap.toml per_run_services
         # interned classes ([immortal])
         self.assertEqual(self.fm.base_of(self.fm.classes[c + 'world.zone.ZoneName']), 'Immortal')
-        self.assertEqual(self.field(c + 'services.event.EventBuffHandler', 'effectForceType').cpp, 'const Effect::ForceType*')
+        self.assertEqual(self.field(c + 'services.event.EventBuffHandler', 'effectForceType').cpp, 'const Effect_ForceType*')  # fieldmap.toml
+        self.assertEqual(self.field(c + 'skillengine.model.Effect', 'forceType').cpp, 'Field<const Effect::ForceType*>')  # inferred
         # Effect's observers are held by the effected creature's ObserveController: the captured Effect is retained
         for anon in ('skillengine.model.Effect$1', 'skillengine.model.Effect$2'):
             self.assertEqual({cap.name: cap.cpp for cap in self.fm.classes[c + anon].captures}['this'], 'const Ref<Effect>')
             self.assertIn(c + anon + '#this', self.fm.cycle_edges)
+
+    def test_s0c_freeze_decisions(self):
+        c = 'com.aionemu.gameserver.'
+        cls = self.fm.classes
+        # RefCounted class trees are no parts (ChargeInfo extends ActionObserver, PlayerAllianceGroup extends TemporaryPlayerTeam)
+        for part_type, owner in (('model.items.ChargeInfo', 'model.gameobjects.Item.conditioningInfo'),
+                                 ('model.team.alliance.PlayerAllianceGroup', 'model.team.alliance.PlayerAlliance.groups')):
+            self.assertEqual(cls[c + part_type].part_of, [], part_type)
+            self.assertNotIn(tuple((c + owner).rsplit('.', 1)), self.fm.parts)
+        self.assertEqual(self.field(c + 'model.gameobjects.Item', 'conditioningInfo').cpp, 'Field<Ref<ChargeInfo>>')
+        self.assertEqual(self.field(c + 'model.team.alliance.PlayerAlliance', 'groups').cpp, 'HashMap<int32_t, Ref<PlayerAllianceGroup>>')
+        self.assertEqual(self.field(c + 'model.team.alliance.PlayerAllianceGroup', 'alliance').cpp, 'const Ref<PlayerAlliance>')
+        self.assertEqual(self.field(c + 'model.gameobjects.Npc', 'overriddenEquipment').cpp, 'Field<Ref<NpcEquippedGear>>')
+        # ItemStone has no base of its own ([bases]): ManaStone is RefCounted, IdianStone a part of Item.idianStone
+        self.assertEqual([self.fm.base_of(cls[c + 'model.items.' + n]) for n in ('ItemStone', 'ManaStone', 'IdianStone')], [None, 'RefCounted', 'OwnedPart'])
+        # singletons through a nested *Holder class
+        for svc in ('services.RiftService', 'services.VortexService', 'services.AutoGroupService'):
+            self.assertEqual(self.fm.base_of(cls[c + svc]), 'Immortal', svc)
+        # handler roots are Immortal; confined elements are values
+        self.assertEqual(self.fm.base_of(cls[c + 'questEngine.handlers.AbstractQuestHandler']), 'Immortal')
+        self.assertEqual(self.field(c + 'geoEngine.collision.CollisionResults', 'results').cpp, 'std::vector<CollisionResult>')
 
     def _edge_file(self, key):
         site = key.split('#')[0] if '#' in key else key.rsplit('.', 1)[0]

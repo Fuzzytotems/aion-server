@@ -44,10 +44,13 @@ private:
 	static Classified classify(const OwnedPart* part) noexcept { return {part != nullptr ? &part->partOwner() : nullptr, part}; }
 	/** checked builds (C10): throws IllegalStateException if the address is not a registered Immortal */
 	static Classified classify(const Immortal* immortal);
-	static Classified classify(const StaticTemplate*) noexcept { return {nullptr}; }
+	/**
+	 * Static data templates (StaticTemplate base or an IsStaticTemplate specialization). A RefCounted class deriving StaticTemplate
+	 * (PlayerCommonData) is no template (IsStaticTemplate is false) and takes the RefCounted overload: `Pin(pcd)` retains it.
+	 */
 	template <class T>
 		requires(!std::derived_from<std::remove_cv_t<T>, RefCounted> && !std::derived_from<std::remove_cv_t<T>, OwnedPart> &&
-			!std::derived_from<std::remove_cv_t<T>, Immortal> && !std::derived_from<std::remove_cv_t<T>, StaticTemplate> && IsStaticTemplate<std::remove_cv_t<T>>::value)
+			!std::derived_from<std::remove_cv_t<T>, Immortal> && IsStaticTemplate<std::remove_cv_t<T>>::value)
 	static Classified classify(T*) noexcept {
 		return {nullptr};
 	}

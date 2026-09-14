@@ -164,8 +164,8 @@
  * if (n == "equipment") {
  * 	auto list = std::make_unique<NpcEquipmentList>();
  * 	c.bindObject(*list, e, c.currentObject());
- * 	c.replaceSingle(o.equipment, std::make_unique<NpcEquippedGear>(std::move(list)), e);   // keeps the list
- * 	o.equipment->init(c.load());                                                          // runAfterIdRefResolution(...) inside
+ * 	c.replaceSingle(o.equipment, NpcEquippedGear::create(std::move(list)), e);   // Ref<NpcEquippedGear>, keeps the list
+ * 	o.equipment->init(c.load());                                            // runAfterIdRefResolution(...) inside
  * 	return true;
  * }
  * </pre>

@@ -70,7 +70,7 @@ private:
 	runtime::Field<runtime::Ref<runtime::Array<runtime::FutureRef>>> periodicTasks{};
 	runtime::Field<runtime::FutureRef> periodicActionsTask{};
 	runtime::Field<int32_t> effectedHp{-1};
-	runtime::HashSet<runtime::Ref<EffectReserved>> reservedEffects{};
+	runtime::HashSet<runtime::Ref<EffectReserved>> reservedEffects{AION_LOCK_CLASS(Effect::reservedEffects)};
 	runtime::Field<SpellStatus> spellStatus{SpellStatus::NONE};
 	runtime::Field<DashStatus> dashStatus{DashStatus::NONE};
 	runtime::Field<controllers::attack::AttackStatus> attackStatus{controllers::attack::AttackStatus::NORMALHIT};
@@ -87,17 +87,17 @@ private:
 	runtime::Field<int32_t> mpAbsorbed{0};
 	runtime::Field<int32_t> mpShieldSkillId{0};
 	runtime::Field<bool> addedToController{};
-	runtime::ArrayList<runtime::PinnedCallback<void()>> observerRemoveTasks{};
+	runtime::ArrayList<runtime::PinnedCallback<void()>> observerRemoveTasks{AION_LOCK_CLASS(Effect::observerRemoveTasks)};
 	runtime::Field<bool> launchSubEffect{true};
 	runtime::Field<runtime::Ref<Effect>> subEffect{};
-	runtime::AtomicBoolean hasEnded{};
+	runtime::AtomicBoolean hasEnded{AION_LOCK_CLASS(Effect::hasEnded)};
 	runtime::Field<bool> isCancelOnDmg_{};
 	runtime::Field<bool> subEffectAbortedBySubConditions{};
 	/** Hate that will be placed on effected list */
 	runtime::Field<int32_t> tauntHate{};
 	/** Total hate that will be broadcasted */
 	runtime::Field<int32_t> effectHate{};
-	runtime::ConcurrentHashMap<int32_t, const effect::EffectTemplate*> successEffects{};
+	runtime::ConcurrentHashMap<int32_t, const effect::EffectTemplate*> successEffects{AION_LOCK_CLASS(Effect::successEffects#stripe)};
 	runtime::Field<int32_t> carvedSignet{0};
 	runtime::Field<int32_t> signetBurstedCount{0};
 	runtime::Field<int32_t> abnormals{};
@@ -120,7 +120,7 @@ private:
 	/** Whether this effect is a sub effect of another effect */
 	const bool isSubEffect_;
 	runtime::Field<bool> applyCriticalProcEffect{false};
-	runtime::AtomicBoolean allowGodstoneActivation{};
+	runtime::AtomicBoolean allowGodstoneActivation{AION_LOCK_CLASS(Effect::allowGodstoneActivation)};
 
 protected:
 	Effect(Skill& skill, runtime::Ptr<gameserver::model::gameobjects::Creature> effected);

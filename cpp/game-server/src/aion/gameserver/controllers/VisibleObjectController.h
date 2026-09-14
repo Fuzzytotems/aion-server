@@ -85,8 +85,8 @@ public:
 	/**
 	 * Called before object gets removed from the world
 	 * <p>
-	 * Java: empty. Out of line because the C++ port adds `model::gameobjects::player::LogoutBreakers::onDelete(getOwner())` as its last statement
-	 * (the delete breakers, cycles.toml) together with the LogoutBreakers bodies (P5-00); every override reaches it through the base call.
+	 * Java: empty. C++: calls `model::gameobjects::player::LogoutBreakers::onDelete(getOwner())` (the delete breakers, cycles.toml; noexcept, the
+	 * steps are ported with P5-00); every override reaches it through the base call.
 	 */
 	virtual void onDelete();
 };

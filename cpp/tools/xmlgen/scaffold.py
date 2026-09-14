@@ -178,12 +178,16 @@ def scaffold_all(cm):
 
 
 def adapter_target_files(cm, key, table):
-    """The hand-written class a class-level adapter produces (NpcEquippedGear): `explicit X(std::unique_ptr<Value> v)` storing the bound
-    value, and a `void m(LoadContext& ctx)` AION_UNPORTED stub per `o.{member}->m(c.load())` call of the unmarshal statement."""
-    m = re.fullmatch(r'std::unique_ptr<::((?:\w+::)*)(\w+)>', table['cpp'])
+    """The hand-written class a class-level adapter produces (NpcEquippedGear). `cpp = std::unique_ptr<X>`: a plain class with
+    `explicit X(std::unique_ptr<Value> v)` storing the bound value. `cpp = ::aion::gameserver::runtime::Ref<X>`: a RefCounted class
+    (hub-headers.md §10.1) with `static Ref<X> create(std::unique_ptr<Value> v)`, a protected constructor and destructor. Both get a
+    `void m(LoadContext& ctx)` AION_UNPORTED stub per `o.{member}->m(c.load())` call of the unmarshal statement."""
+    m = re.fullmatch(r'(std::unique_ptr|::aion::gameserver::runtime::Ref)<::((?:\w+::)*)(\w+)>', table['cpp'])
     if m is None:
-        raise XmlGenError(f'xmlgen.toml [adapters] {short_fqn(key)}: cpp of a class adapter must be std::unique_ptr<::qualified::Name>')
-    namespace, name = m.group(1)[:-2], m.group(2)
+        raise XmlGenError(f'xmlgen.toml [adapters] {short_fqn(key)}: cpp of a class adapter must be std::unique_ptr<::qualified::Name> or '
+                          f'::aion::gameserver::runtime::Ref<::qualified::Name>')
+    counted = m.group(1) != 'std::unique_ptr'
+    namespace, name = m.group(2)[:-2], m.group(3)
     header = table['header']
     if any(c.header == header for c in cm.classes.values()):
         return []  # a generated or scaffolded static data class
@@ -198,17 +202,31 @@ def adapter_target_files(cm, key, table):
     if a:
         doc += f' @author {a}'
     value_ptr = f'std::unique_ptr<{value.qualified}>'
-    header_lines = ['#pragma once', '', '#include <memory>', '', f'#include "{FWD_HEADER}"', f'#include "{value.header}"', '',
-                    f'namespace {namespace} {{', '', doc + ' */',
-                    '// fieldmap: shell; the other Java members arrive with the port of the class (fieldmap.py --class)',
-                    f'class {name} {{', 'public:', f'\texplicit {name}({value_ptr} v);']
+    includes = [f'#include "{FWD_HEADER}"', f'#include "{value.header}"']
+    if counted:
+        includes += ['#include "aion/gameserver/runtime/lifetime/Ref.h"', '#include "aion/gameserver/runtime/lifetime/RefCounted.h"']
+    header_lines = ['#pragma once', '', '#include <memory>', ''] + includes + ['', f'namespace {namespace} {{', '', doc + ' */',
+                    '// fieldmap: shell; the other Java members arrive with the port of the class (fieldmap.py --class)']
+    if counted:
+        header_lines += [f'class {name} : public ::aion::gameserver::runtime::RefCounted {{', '\tAION_MAKE_REF_FRIEND', '', 'public:',
+                         f'\tstatic ::aion::gameserver::runtime::Ref<{name}> create({value_ptr} v);']
+    else:
+        header_lines += [f'class {name} {{', 'public:', f'\texplicit {name}({value_ptr} v);']
     header_lines += [f'\tvoid {c}({LOAD_CONTEXT}& ctx);' for c in calls]
+    if counted:
+        header_lines += ['', 'protected:', f'\texplicit {name}({value_ptr} v);', f'\t~{name}() override;']
     header_lines += ['', 'private:', '\t// fieldmap: owns the bound adapter value (Java: a reference kept by the GC) until the port decides its lifetime',
                      f'\t{value_ptr} v;', '};', '', f'}} // namespace {namespace}', '']
     source = [f'#include "{header}"', '']
     if calls:
         source += [f'#include "{UNPORTED_HEADER}"', '']
-    source += [f'namespace {namespace} {{', '', f'{name}::{name}({value_ptr} value) : v(std::move(value)) {{', '}']
+    source += [f'namespace {namespace} {{', '']
+    if counted:
+        source += [f'::aion::gameserver::runtime::Ref<{name}> {name}::create({value_ptr} value) {{',
+                   f'\treturn ::aion::gameserver::runtime::makeRef<{name}>(std::move(value));', '}', '']
+    source += [f'{name}::{name}({value_ptr} value) : v(std::move(value)) {{', '}']
+    if counted:
+        source += ['', f'{name}::~{name}() = default;']
     for c in calls:
         java = [jm for jm in (td.methods if td is not None else []) if jm.name == c]
         source.append('')

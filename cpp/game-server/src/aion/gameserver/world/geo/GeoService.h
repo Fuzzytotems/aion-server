@@ -27,7 +27,7 @@ namespace aion::gameserver::world::geo {
  */
 class GeoService : public runtime::Immortal, public model::GameEngine {
 private:
-	runtime::HashMap<int32_t, runtime::Ref<geoEngine::models::GeoMap>> geoMaps{};
+	runtime::HashMap<int32_t, runtime::Ref<geoEngine::models::GeoMap>> geoMaps{AION_LOCK_CLASS(GeoService::geoMaps)};
 
 	GeoService();
 	~GeoService() override;

@@ -24,7 +24,7 @@ public:
 	static constexpr float MOVE_CHECK_OFFSET = 0.1f;
 
 protected:
-	runtime::OwnerRef<model::gameobjects::VisibleObject> owner; // fieldmap: OwnerRef<T>, T erased to its bound (hub-headers.md §8.1)
+	runtime::OwnerRef<model::gameobjects::VisibleObject> owner;
 	runtime::Field<int8_t> heading{};
 	runtime::Field<int64_t> lastMoveUpdate;
 	runtime::Field<bool> isInMove_{false};

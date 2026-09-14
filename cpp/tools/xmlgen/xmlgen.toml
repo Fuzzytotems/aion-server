@@ -50,10 +50,10 @@ reason = "String.split(\" \") + Byte.parseByte in the binder runtime"
 
 [adapters."dataholders.loadingutils.adapters.NpcEquippedGearAdapter"]
 value_type = "dataholders.loadingutils.adapters.NpcEquipmentList"
-cpp = "std::unique_ptr<::aion::gameserver::model::items::NpcEquippedGear>"
+cpp = "::aion::gameserver::runtime::Ref<::aion::gameserver::model::items::NpcEquippedGear>"
 header = "aion/gameserver/model/items/NpcEquippedGear.h"
-unmarshal = "c.replaceSingle(o.{member}, std::make_unique<::aion::gameserver::model::items::NpcEquippedGear>(std::move(value)), e);\no.{member}->init(c.load());"
-reason = "hand-written NpcEquippedGear, initialized eagerly after IDREF resolution (design §3.6); replaceSingle retires a repeated <equipment> (strict mode: an error)"
+unmarshal = "c.replaceSingle(o.{member}, ::aion::gameserver::model::items::NpcEquippedGear::create(std::move(value)), e);\no.{member}->init(c.load());"
+reason = "hand-written RefCounted NpcEquippedGear (K4: Npc.overriddenEquipment shares the type, the immortal template retains its gear), initialized eagerly after IDREF resolution (design §3.6); replaceSingle retires a repeated <equipment> (strict mode: an error)"
 
 # Fields JAXB would bind implicitly (FIELD or PUBLIC_MEMBER access without annotations) that are not XML data. They get no member and no
 # binding; an element with their name in the data is an unknown element (strict error).

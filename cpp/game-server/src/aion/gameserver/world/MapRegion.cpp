@@ -58,17 +58,14 @@ int32_t MapRegion::getPlayerCount() {
 	}
 }
 
-// lint: L7 Java synchronized; the ported body is SYNCHRONIZED(*this) { ... } (hub-headers.md §11.4)
 int32_t MapRegion::incrementPlayerCount() {
 	AION_UNPORTED();
 }
 
-// lint: L7 Java synchronized; the ported body is SYNCHRONIZED(*this) { ... } (hub-headers.md §11.4)
 int32_t MapRegion::decrementPlayerCount() {
 	AION_UNPORTED();
 }
 
-// lint: L7 Java synchronized; the ported body is SYNCHRONIZED(*this) { ... } (hub-headers.md §11.4)
 bool MapRegion::setRegionState(bool active) {
 	AION_UNPORTED();
 }

@@ -46,14 +46,14 @@ class Npc : public Creature {
 	AION_MAKE_REF_FRIEND
 private:
 	const std::unique_ptr<skill::NpcSkillList> skillList;
-	runtime::LinkedList<runtime::Ref<skill::NpcSkillEntry>> queuedSkills{};
+	runtime::LinkedList<runtime::Ref<skill::NpcSkillEntry>> queuedSkills{AION_LOCK_CLASS(Npc::queuedSkills)};
 	runtime::Field<runtime::Ref<spawnengine::WalkerGroup>> walkerGroup{};
 	runtime::Field<std::string> masterName{};
 	runtime::Field<int32_t> creatorId{0};
-	runtime::Field<std::optional<CreatureType>> overriddenType{}; // fieldmap: Java null disables the override (overrideNpcType(null)), std::optional
-	// fieldmap: NpcEquippedGear is static data owned by NpcTemplate (unique_ptr in the xmlgen shell); an override is a shared immutable value
-	runtime::Field<std::shared_ptr<const items::NpcEquippedGear>> overriddenEquipment{};
-	runtime::Field<std::optional<skillengine::effect::SummonOwner>> summonOwner{}; // fieldmap: Java null = no summon owner (DialogService.java:299)
+	runtime::Field<std::optional<CreatureType>> overriddenType{};
+	// fieldmap: NpcEquippedGear is RefCounted (S0B-016, NpcTemplate holds Ref<NpcEquippedGear>); the fieldmap.toml shared_ptr override is stale
+	runtime::Field<runtime::Ref<items::NpcEquippedGear>> overriddenEquipment{};
+	runtime::Field<std::optional<skillengine::effect::SummonOwner>> summonOwner{};
 
 protected:
 	/** Java: Objects.requireNonNull(objectTemplate) (NullPointerException), then super(IDFactory.nextId(), ..., new WorldPosition(worldId), true) */
@@ -203,10 +203,11 @@ public:
 
 	templates::npc::GroupDropType getGroupDrop();
 
-	void overrideEquipmentList(const dataholders::loadingutils::adapters::NpcEquipmentList* v);
+	/** Java `overriddenEquipment = new NpcEquippedGear(v)`: the list is built at run time by the caller (CustomInstanceBossAI.java:249) */
+	void overrideEquipmentList(std::unique_ptr<dataholders::loadingutils::adapters::NpcEquipmentList> v);
 
-	/** @return the overridden gear or the template's gear (a non-owning shared_ptr to the immortal template data), null without both */
-	std::shared_ptr<const items::NpcEquippedGear> getOverrideEquipment() override;
+	/** @return the overridden gear or the template's gear (NpcTemplate holds it by Ref), null without both */
+	runtime::Ptr<items::NpcEquippedGear> getOverrideEquipment() override;
 
 	void setSummonOwner(std::optional<skillengine::effect::SummonOwner> value) { summonOwner.set(value); }
 

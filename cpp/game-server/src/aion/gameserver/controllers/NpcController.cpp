@@ -1,16 +1,8 @@
 #include "aion/gameserver/controllers/NpcController.h"
 
-#include "aion/gameserver/runtime/base/Unported.h"
 #include "aion/commons/logging/LoggerFactory.h"
-
-// S0b transition (docs/design/hub-headers.md §3.3): the narrowing accessor needs Npc (hub header of another S0b group). Remove the guard once it
-// exists (spine freeze).
-#if __has_include("aion/gameserver/model/gameobjects/Npc.h")
-#define AION_S0B_NPC_CONTROLLER_OWNER 1
 #include "aion/gameserver/model/gameobjects/Npc.h"
-#else
-#define AION_S0B_NPC_CONTROLLER_OWNER 0
-#endif
+#include "aion/gameserver/runtime/base/Unported.h"
 
 namespace aion::gameserver::controllers {
 
@@ -20,11 +12,9 @@ NpcController::NpcController() = default;
 
 NpcController::~NpcController() = default;
 
-#if AION_S0B_NPC_CONTROLLER_OWNER
 model::gameobjects::Npc& NpcController::getOwner() const {
 	return static_cast<model::gameobjects::Npc&>(CreatureController::getOwner());
 }
-#endif
 
 void NpcController::see(model::gameobjects::VisibleObject& object) {
 	AION_UNPORTED();

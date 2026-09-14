@@ -239,6 +239,19 @@ class CyclesTest(unittest.TestCase):
         self.assertEqual(example[-1][2], 'com.x.world.Player')
         self.assertEqual(self.fm.stale_resolutions, ['com.x.gone.Old.field'])
 
+    def test_capture_overrides(self):
+        cfg = CONFIG + '[captures]\n"com.x.world.Kisk$1#creator" = { cpp = "const std::weak_ptr<Player>", reason = "the observer does not keep its creator" }\n'
+        fm = fieldmap.build_from_sources(FILES, cfg, CYCLES)
+        cap = next(c for c in fm.classes['com.x.world.Kisk$1'].captures if c.name == 'creator')
+        self.assertEqual((cap.cpp, cap.rule, cap.override_reason), ('const std::weak_ptr<Player>', 'fieldmap.toml override',
+                                                                    'the observer does not keep its creator'))
+        self.assertEqual(fm.capture_json(cap)['overrideReason'], 'the observer does not keep its creator')
+        self.assertNotIn('com.x.world.Kisk$1#creator', fm.cycle_edges)  # weak_ptr is not retaining
+        with self.assertRaises(fieldmap.FieldmapError):
+            fieldmap.build_from_sources(FILES, CONFIG + '[captures]\n"com.x.world.Kisk$1#nobody" = { cpp = "int", reason = "x" }\n', CYCLES)
+        with self.assertRaises(fieldmap.FieldmapError):
+            fieldmap.build_from_sources(FILES, CONFIG + '[captures]\n"com.x.world.Kisk$1.creator" = { cpp = "int", reason = "x" }\n', CYCLES)
+
     def test_task_suggestion(self):
         key = next(k for k in self.fm.cycle_edges if k.startswith('com.x.world.Player@') and k.endswith('#this'))
         self.assertTrue(self.fm.cycle_edges[key].get('suggestion', '').startswith(('java-hook', 'accepted')))

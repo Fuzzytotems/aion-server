@@ -16,7 +16,6 @@ const commons::logging::Logger& log() {
 }
 
 /** head of the list of reached sites (push only, never unlinked: sites are statics) */
-// lint: L14 lock-free intrusive push list below the runtime (no Field<> in a constinit static)
 constinit std::atomic<UnportedSite*> sites{nullptr};
 
 void publish(UnportedSite& site, const std::source_location& location) noexcept {

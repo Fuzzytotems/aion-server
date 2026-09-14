@@ -2,6 +2,7 @@
 
 #include "aion/gameserver/runtime/base/Unported.h"
 #include "aion/gameserver/model/gameobjects/VisibleObject.h"
+#include "aion/gameserver/model/gameobjects/player/LogoutBreakers.h"
 
 namespace aion::gameserver::controllers {
 
@@ -35,8 +36,9 @@ void VisibleObjectController::onDespawn() {
 }
 
 void VisibleObjectController::onDelete() {
-	// Java: empty. The port of LogoutBreakers (P5-00) adds `model::gameobjects::player::LogoutBreakers::onDelete(getOwner());` here; until then
-	// no breaker runs (LogoutBreakers::onDelete is an unported noexcept stub and would terminate).
+	// Java: empty. C++ only: the delete breakers of the owner (LogoutBreakers.h class comment, runtime-architecture.md §5.3), the last statement
+	// of every controller's onDelete chain (noexcept: a failing step is logged, P5-00 ports the steps).
+	model::gameobjects::player::LogoutBreakers::onDelete(getOwner());
 }
 
 } // namespace aion::gameserver::controllers

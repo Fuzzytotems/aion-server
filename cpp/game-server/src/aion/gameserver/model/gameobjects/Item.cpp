@@ -1,17 +1,6 @@
 #include "aion/gameserver/model/gameobjects/Item.h"
 
 #include "aion/commons/logging/LoggerFactory.h"
-#include "aion/gameserver/runtime/base/Unported.h"
-
-// Member types (docs/design/hub-headers.md §3.3): the constructors, the destructor, the part accessor and the Field<Ref> setters need complete
-// types whose headers are not S0b hubs (ManaStone, GodStone, IdianStone, ChargeInfo, RandomBonusEffect, PendingTuneResult: P4-13; EnchantEffect,
-// TemperingEffect: P5-07; ItemStorage: P4-13). Not an S0b transition guard: the chunk that adds the last of them removes it.
-#if __has_include("aion/gameserver/model/items/ManaStone.h") && __has_include("aion/gameserver/model/items/GodStone.h") && \
-	__has_include("aion/gameserver/model/items/IdianStone.h") && __has_include("aion/gameserver/model/items/ChargeInfo.h") && \
-	__has_include("aion/gameserver/model/items/RandomBonusEffect.h") && __has_include("aion/gameserver/model/items/PendingTuneResult.h") && \
-	__has_include("aion/gameserver/model/enchants/EnchantEffect.h") && __has_include("aion/gameserver/model/enchants/TemperingEffect.h") && \
-	__has_include("aion/gameserver/model/items/storage/ItemStorage.h")
-#define AION_ITEM_MEMBER_TYPES 1
 #include "aion/gameserver/model/enchants/EnchantEffect.h"
 #include "aion/gameserver/model/enchants/TemperingEffect.h"
 #include "aion/gameserver/model/items/ChargeInfo.h"
@@ -21,15 +10,13 @@
 #include "aion/gameserver/model/items/PendingTuneResult.h"
 #include "aion/gameserver/model/items/RandomBonusEffect.h"
 #include "aion/gameserver/model/items/storage/ItemStorage.h"
-#else
-#define AION_ITEM_MEMBER_TYPES 0
-#endif
+#include "aion/gameserver/model/stats/calc/functions/StatFunction.h"
+#include "aion/gameserver/runtime/base/Unported.h"
 
 namespace aion::gameserver::model::gameobjects {
 
 [[maybe_unused]] static const auto log = commons::logging::LoggerFactory::getLogger("com.aionemu.gameserver.model.gameobjects.Item");
 
-#if AION_ITEM_MEMBER_TYPES
 Item::Item(int32_t objId, const templates::item::ItemTemplate* itemTemplateValue)
 	: AionObject(objId), itemTemplate(itemTemplateValue), equipmentSlot(items::storage::ItemStorage::FIRST_AVAILABLE_SLOT), expireTime(0) {
 	// Java: activationCount, expireTime (from the template), tuneCount, isAmplified, persistentState = NEW, updateChargeInfo(0)
@@ -115,7 +102,6 @@ void Item::setEnchantEffect(runtime::Ptr<enchants::EnchantEffect> value) {
 void Item::setPendingTuneResult(runtime::Ptr<items::PendingTuneResult> value) {
 	pendingTuneResult.set(value);
 }
-#endif
 
 void Item::setTempering(int32_t temperingValue) {
 	AION_UNPORTED();
@@ -373,11 +359,11 @@ const templates::item::Improvement* Item::getImprovement() {
 	AION_UNPORTED();
 }
 
-runtime::Ptr<runtime::RcArrayList<const stats::calc::functions::StatFunction*>> Item::getCurrentModifiers() {
+runtime::Ptr<runtime::RcArrayList<runtime::Ref<stats::calc::functions::StatFunction>>> Item::getCurrentModifiers() {
 	AION_UNPORTED();
 }
 
-void Item::setCurrentModifiers(const std::vector<const stats::calc::functions::StatFunction*>& currentModifiersValue) {
+void Item::setCurrentModifiers(const std::vector<runtime::Ptr<stats::calc::functions::StatFunction>>& currentModifiersValue) {
 	AION_UNPORTED();
 }
 

@@ -22,11 +22,11 @@ namespace aion::gameserver::world::zone {
  */
 class ZoneName final : public runtime::Immortal {
 private:
-	static inline runtime::ConcurrentHashMap<std::string, const ZoneName*> zoneNames{};
+	static inline runtime::ConcurrentHashMap<std::string, const ZoneName*> zoneNames{AION_LOCK_CLASS(ZoneName::zoneNames#stripe)};
 
 public:
 	/** Java: `NONE = new ZoneName("NONE")`, put into zoneNames by the static block (both ported, ZoneName.cpp) */
-	static const ZoneName* const NONE; // fieldmap: a const pointer, defined with the static block in ZoneName.cpp
+	static const ZoneName* const NONE;
 
 private:
 	const std::string _name;

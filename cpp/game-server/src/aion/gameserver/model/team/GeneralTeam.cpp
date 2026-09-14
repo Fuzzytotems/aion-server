@@ -101,7 +101,6 @@ void GeneralTeam::setLeader(TeamMember& member) {
 	AION_UNPORTED();
 }
 
-// lint: L7 unported stub; Java synchronizes it, the port adds SYNCHRONIZED
 void GeneralTeam::lock() {
 	AION_UNPORTED();
 }

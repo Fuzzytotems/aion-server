@@ -33,11 +33,11 @@ private:
 	// Java: private final static Logger log = LoggerFactory.getLogger(GeneralTeam.class) - namespace-scope logger in GeneralTeam.cpp
 
 protected:
-	runtime::ConcurrentHashMap<int32_t, runtime::Ref<TeamMember>> members{}; // fieldmap: TM erased to TeamMember (hub-headers.md §8.1)
-	runtime::Monitor teamLock{};
+	runtime::ConcurrentHashMap<int32_t, runtime::Ref<TeamMember>> members{AION_LOCK_CLASS(GeneralTeam::members#stripe)};
+	runtime::Monitor teamLock{AION_LOCK_CLASS(GeneralTeam::teamLock)};
 
 private:
-	runtime::Field<runtime::Ref<TeamMember>> leader{}; // fieldmap: TM erased to TeamMember (hub-headers.md §8.1)
+	runtime::Field<runtime::Ref<TeamMember>> leader{};
 
 protected:
 	GeneralTeam(int32_t objId, bool autoReleaseObjectId);

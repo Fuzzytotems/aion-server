@@ -34,7 +34,10 @@ namespace aion::gameserver::world {
  * WorldMapInstance -> InstanceHandler -> WorldMapInstance cycle is cut). The map regions are parts of their instance (PartMap, created by
  * createMapRegion in initMapRegions): a Ref to a MapRegion (WorldPosition.mapRegion) retains the instance. The C++-only
  * detachInstanceHandler() and releaseRegisteredTeam() are the cycle breakers InstanceService.destroyInstance calls together with
- * setStartPos(nullptr) (cycles.toml). Java `implements Iterable<VisibleObject>`: iterator() plus
+ * setStartPos(nullptr) (cycles.toml). Two-phase construction: Java's constructor calls the abstract initMapRegions(), which a C++ base
+ * constructor cannot dispatch to the subclass; the constructor stores the members and creates the instance handler, and the `create` of
+ * WorldMap2DInstance/WorldMap3DInstance calls initMapRegions() right after constructing the object (like VisibleObject::postConstruct, before
+ * the instance is published). Java `implements Iterable<VisibleObject>`: iterator() plus
  * begin()/end() for range-for over a snapshot (hub-headers.md §7.2).
  * <p>
  * Java `public static final int regionSize = WorldConfig.WORLD_REGION_SIZE` is read at class initialization, after the configs are loaded;
@@ -52,19 +55,21 @@ private:
 	const runtime::Ref<WorldMap> parent;
 
 protected:
-	runtime::PartMap<int32_t, MapRegion> regions{*this}; // fieldmap: part map (build/s0b-cycles-work/setII.toml, cycles.toml `part`)
+	runtime::PartMap<int32_t, MapRegion> regions{*this};
 
 private:
 	/** All objects spawned in this world map instance */
-	runtime::ConcurrentHashMap<int32_t, runtime::Ref<model::gameobjects::VisibleObject>> worldMapObjects{};
+	runtime::ConcurrentHashMap<int32_t, runtime::Ref<model::gameobjects::VisibleObject>> worldMapObjects{
+		AION_LOCK_CLASS(WorldMapInstance::worldMapObjects#stripe)};
 	/** All npcs spawned in this world map instance */
-	runtime::ConcurrentHashMap<int32_t, runtime::Ref<model::gameobjects::Npc>> worldMapNpcs{};
+	runtime::ConcurrentHashMap<int32_t, runtime::Ref<model::gameobjects::Npc>> worldMapNpcs{AION_LOCK_CLASS(WorldMapInstance::worldMapNpcs#stripe)};
 	/** All players spawned in this world map instance */
-	runtime::ConcurrentHashMap<int32_t, runtime::Ref<model::gameobjects::player::Player>> worldMapPlayers{};
-	runtime::ConcurrentKeySet<int32_t> registeredObjects{};
-	runtime::ConcurrentKeySet<int32_t> questIds{};
+	runtime::ConcurrentHashMap<int32_t, runtime::Ref<model::gameobjects::player::Player>> worldMapPlayers{
+		AION_LOCK_CLASS(WorldMapInstance::worldMapPlayers#stripe)};
+	runtime::ConcurrentKeySet<int32_t> registeredObjects{AION_LOCK_CLASS(WorldMapInstance::registeredObjects#stripe)};
+	runtime::ConcurrentKeySet<int32_t> questIds{AION_LOCK_CLASS(WorldMapInstance::questIds#stripe)};
 	// fieldmap: ZoneName is an interned immortal (fieldmap.toml [immortal]), not RefCounted
-	runtime::HashMap<const zone::ZoneName*, runtime::Ref<zone::ZoneInstance>> zones{};
+	runtime::HashMap<const zone::ZoneName*, runtime::Ref<zone::ZoneInstance>> zones{AION_LOCK_CLASS(WorldMapInstance::zones)};
 	/** fieldmap.toml: C++-only mutability: the handler is detached in destroyInstance (design §3.2.2, §5.1) */
 	runtime::Field<runtime::Ref<instance::handlers::InstanceHandler>> instanceHandler{};
 	/** Id of this instance (channel) */

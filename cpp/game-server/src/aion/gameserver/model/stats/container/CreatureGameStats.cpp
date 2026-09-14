@@ -1,27 +1,16 @@
 #include "aion/gameserver/model/stats/container/CreatureGameStats.h"
 
-#include "aion/gameserver/runtime/base/Unported.h"
-#include "aion/gameserver/model/stats/calc/Stat2.h"
-
-// S0b transition (docs/design/hub-headers.md §3.3): the constructor binds the OwnedPart owner (Creature must be complete to convert to
-// RefCounted&) and the destructor releases the Ref<IStatFunction> elements of `stats`. Creature.h is written by the objects group,
-// IStatFunction.h by a later stage. Remove the guard once both exist (spine freeze).
-#if __has_include("aion/gameserver/model/gameobjects/Creature.h") && __has_include("aion/gameserver/model/stats/calc/functions/IStatFunction.h")
-#define AION_S0B_CREATURE_GAME_STATS_PARTS 1
 #include "aion/gameserver/model/gameobjects/Creature.h"
+#include "aion/gameserver/model/stats/calc/Stat2.h"
 #include "aion/gameserver/model/stats/calc/functions/IStatFunction.h"
-#else
-#define AION_S0B_CREATURE_GAME_STATS_PARTS 0
-#endif
+#include "aion/gameserver/runtime/base/Unported.h"
 
 namespace aion::gameserver::model::stats::container {
 
-#if AION_S0B_CREATURE_GAME_STATS_PARTS
 CreatureGameStats::CreatureGameStats(gameobjects::Creature& value) : runtime::OwnedPart(value), owner(value) {
 }
 
 CreatureGameStats::~CreatureGameStats() = default;
-#endif
 
 void CreatureGameStats::setAttackCounter(int32_t value) {
 	AION_UNPORTED();
@@ -31,7 +20,6 @@ void CreatureGameStats::increaseAttackCounter() {
 	AION_UNPORTED();
 }
 
-// lint: L7 unported body (AION_UNPORTED); the port restores Java's synchronized block
 void CreatureGameStats::addEffectOnly(runtime::Ptr<calc::StatOwner> statOwner, const std::vector<runtime::Ptr<calc::functions::IStatFunction>>& functions) {
 	AION_UNPORTED();
 }
@@ -40,7 +28,6 @@ void CreatureGameStats::addEffect(runtime::Ptr<calc::StatOwner> statOwner, const
 	AION_UNPORTED();
 }
 
-// lint: L7 unported body (AION_UNPORTED); the port restores Java's synchronized block
 void CreatureGameStats::endEffect(calc::StatOwner& statOwner) {
 	AION_UNPORTED();
 }
@@ -223,7 +210,6 @@ bool CreatureGameStats::checkSpeedStats() {
 	AION_UNPORTED();
 }
 
-// lint: L7 unported body (AION_UNPORTED); the port restores Java's synchronized block
 std::vector<runtime::Ptr<calc::functions::IStatFunction>> CreatureGameStats::getStatsSorted(StatEnum stat) {
 	AION_UNPORTED();
 }
@@ -232,12 +218,10 @@ void CreatureGameStats::onStatsChange(runtime::Ptr<skillengine::model::Effect> e
 	AION_UNPORTED();
 }
 
-// lint: L7 unported body (AION_UNPORTED); the port restores Java's synchronized block
 void CreatureGameStats::checkMaxHPChanged(runtime::Ptr<skillengine::model::Effect> effect) {
 	AION_UNPORTED();
 }
 
-// lint: L7 unported body (AION_UNPORTED); the port restores Java's synchronized block
 void CreatureGameStats::checkMaxMPChanged(runtime::Ptr<skillengine::model::Effect> effect) {
 	AION_UNPORTED();
 }

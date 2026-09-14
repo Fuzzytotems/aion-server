@@ -5,10 +5,8 @@
 #include <string>
 
 #include "aion/commons/network/packet/BaseClientPacket.h"
-#include "aion/gameserver/network/aion/AionConnection.h"
 #include "aion/gameserver/network/aion/StateSet.h"
 #include "aion/gameserver/network/aion/fwd.h"
-#include "aion/commons/utils/WindowsMacroGuard.h" // after all headers that may include windows.h
 
 namespace aion::gameserver::network::aion {
 
@@ -17,14 +15,15 @@ namespace aion::gameserver::network::aion {
  * <p>
  * Hub header (docs/design/hub-headers.md §12). Created by AionClientPacketFactory through the AION_CLIENT_PACKET factories of HandlerRegistry.h
  * (`std::make_unique<CM_X>(opcode, validStates)`), read on the IO strand and executed on the PacketProcessor (runtime-architecture.md §1.1).
- * The connection is held as std::shared_ptr (BaseClientPacket). The header includes AionConnection.h (and so Asio): the direct base class
- * BaseClientPacket<AionConnection> instantiates connectionToString() with its template argument, which needs the complete connection.
+ * The connection is held as std::shared_ptr (BaseClientPacket) and only forward-declared here: commons BaseClientPacket binds
+ * TConnection::toString in setConnection(), the only member that needs the complete type (the packet factory / AionConnection::processData
+ * TU). A client packet body that uses the connection includes aion/gameserver/network/aion/AionConnection.h itself.
  *
  * @author -Nemesiss-
  */
 class AionClientPacket : public commons::network::packet::BaseClientPacket<AionConnection> {
 private:
-	const StateSet validStates; // fieldmap: Java Set<State> is the StateSet value type that HandlerRegistry.h's ClientPacketFactory passes
+	const StateSet validStates;
 
 protected:
 	/**

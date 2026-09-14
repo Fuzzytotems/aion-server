@@ -38,13 +38,13 @@ private:
 	const templates::housing::HouseAddress* address;
 	runtime::Field<const templates::housing::Building*> building{};
 	runtime::Field<int32_t> ownerId{};
-	runtime::Field<std::optional<commons::database::Timestamp>> acquiredTime{}; // fieldmap: Java null for houses without an owner
+	runtime::Field<std::optional<commons::database::Timestamp>> acquiredTime{};
 	runtime::Field<HouseDoorState> doorState{};
 	runtime::Field<bool> showOwnerName{true};
 	runtime::Field<bool> inactive{};
-	runtime::Field<std::optional<commons::database::Timestamp>> nextPay{}; // fieldmap: Java null = no fee due (HousingService.java:112)
+	runtime::Field<std::optional<commons::database::Timestamp>> nextPay{};
 	runtime::Field<runtime::Ref<HouseBids>> bids{};
-	runtime::EnumMap<templates::spawns::SpawnType, runtime::Ref<gameobjects::Npc>> spawns{};
+	runtime::EnumMap<templates::spawns::SpawnType, runtime::Ref<gameobjects::Npc>> spawns{AION_LOCK_CLASS(House::spawns)};
 	runtime::Field<runtime::Ref<HouseRegistry>> houseRegistry{};
 	runtime::Field<runtime::Ref<gameobjects::player::PlayerScripts>> playerScripts{};
 	runtime::Field<gameobjects::Persistable::PersistentState> persistentState{};

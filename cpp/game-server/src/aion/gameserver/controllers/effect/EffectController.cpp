@@ -1,33 +1,21 @@
 #include "aion/gameserver/controllers/effect/EffectController.h"
 
-#include "aion/gameserver/runtime/base/Unported.h"
-
-// S0b transition (docs/design/hub-headers.md §3.3): the constructor and destructor need the owner type Creature and the map element type Effect
-// (hub headers of other S0b groups). Remove the guard once they exist (spine freeze).
-#if __has_include("aion/gameserver/model/gameobjects/Creature.h") && __has_include("aion/gameserver/skillengine/model/Effect.h")
-#define AION_S0B_EFFECT_CONTROLLER_MEMBERS 1
 #include "aion/gameserver/model/gameobjects/Creature.h"
+#include "aion/gameserver/runtime/base/Unported.h"
 #include "aion/gameserver/skillengine/model/Effect.h"
-#else
-#define AION_S0B_EFFECT_CONTROLLER_MEMBERS 0
-#endif
 
 namespace aion::gameserver::controllers::effect {
 
-#if AION_S0B_EFFECT_CONTROLLER_MEMBERS
 // passiveEffectMap starts null: Java's Collections.emptyMap() (EffectController.h class comment)
 EffectController::EffectController(model::gameobjects::Creature& ownerValue) : OwnedPart(ownerValue), owner(ownerValue) {
 }
 
 EffectController::~EffectController() = default;
-#endif
 
-// lint: L7 unported stub; Java takes the StampedLock, the port adds lock()
 void EffectController::addEffect(skillengine::model::Effect& nextEffect) {
 	AION_UNPORTED();
 }
 
-// lint: L7 unported stub; the overload put(Map, Effect) takes the StampedLock in Java (L7 counts per name), the port adds lock()
 void EffectController::put(skillengine::model::Effect& nextEffect) {
 	AION_UNPORTED();
 }
@@ -42,13 +30,11 @@ void EffectController::endConflictedEffect(runtime::LinkedHashMap<std::string, r
 	AION_UNPORTED();
 }
 
-// lint: L7 unported stub; Java takes the StampedLock, the port adds lock()
 bool EffectController::searchConflict(runtime::LinkedHashMap<std::string, runtime::Ref<skillengine::model::Effect>>& mapToUpdate,
 	skillengine::model::Effect& nextEffect) {
 	AION_UNPORTED();
 }
 
-// lint: L7 unported stub; Java takes the StampedLock, the port adds lock()
 bool EffectController::isConflicting(skillengine::model::Effect& newEffect) {
 	AION_UNPORTED();
 }
@@ -84,12 +70,10 @@ runtime::LinkedHashMap<std::string,
 	AION_UNPORTED();
 }
 
-// lint: L7 unported stub; Java synchronizes it, the port adds SYNCHRONIZED
 runtime::Ptr<runtime::RcLinkedHashMap<std::string, runtime::Ref<skillengine::model::Effect>>> EffectController::getPassiveEffectMap(bool initialize) {
 	AION_UNPORTED();
 }
 
-// lint: L7 unported stub; Java takes the StampedLock, the port adds lock()
 runtime::Ptr<skillengine::model::Effect> EffectController::getAbnormalEffect(std::string_view stack) {
 	AION_UNPORTED();
 }
@@ -110,7 +94,6 @@ void EffectController::broadCastEffects(runtime::Ptr<skillengine::model::Effect>
 	AION_UNPORTED();
 }
 
-// lint: L7 unported stub; Java takes the StampedLock, the port adds lock()
 void EffectController::clearEffect(skillengine::model::Effect& effect, bool value) {
 	AION_UNPORTED();
 }
@@ -152,19 +135,16 @@ void EffectController::removeEffects(runtime::LinkedHashMap<std::string, runtime
 	AION_UNPORTED();
 }
 
-// lint: L7 unported stub; Java takes the StampedLock, the port adds lock()
 runtime::Ptr<skillengine::model::Effect> EffectController::findFirstEffect(
 	runtime::LinkedHashMap<std::string, runtime::Ref<skillengine::model::Effect>>& effectMap,
 	const std::function<bool(skillengine::model::Effect&)>& filter) {
 	AION_UNPORTED();
 }
 
-// lint: L7 unported stub; Java takes the StampedLock, the port adds lock()
 std::vector<runtime::Ptr<skillengine::model::Effect>> EffectController::getAllEffects() {
 	AION_UNPORTED();
 }
 
-// lint: L7 unported stub; Java takes the StampedLock, the port adds lock()
 std::vector<runtime::Ptr<skillengine::model::Effect>> EffectController::filterEffects(
 	runtime::LinkedHashMap<std::string, runtime::Ref<skillengine::model::Effect>>& effectMap,
 	const std::function<bool(skillengine::model::Effect&)>& filter) {
@@ -184,7 +164,6 @@ bool EffectController::removeByEffectId(runtime::LinkedHashMap<std::string, runt
 	AION_UNPORTED();
 }
 
-// lint: L7 unported stub; Java takes the StampedLock, the port adds lock()
 void EffectController::removeByDispelEffect(std::optional<skillengine::effect::EffectType> effectType,
 	std::optional<skillengine::model::DispelSlotType> dispelSlotType, int32_t count, int32_t dispelLevel, int32_t power) {
 	AION_UNPORTED();
@@ -196,13 +175,11 @@ int32_t EffectController::removeByDispelEffect(runtime::LinkedHashMap<std::strin
 	AION_UNPORTED();
 }
 
-// lint: L7 unported stub; Java takes the StampedLock, the port adds lock()
 int32_t EffectController::calculateBuffsOrEffectorDebuffsToRemove(skillengine::model::Effect& effect, int32_t count, int32_t dispelLevel,
 	int32_t power) {
 	AION_UNPORTED();
 }
 
-// lint: L7 unported stub; Java takes the StampedLock, the port adds lock()
 void EffectController::removeEffectByDispelCat(skillengine::model::DispelCategoryType dispelCat, skillengine::model::SkillTargetSlot targetSlot,
 	int32_t count, int32_t dispelLevel, int32_t power) {
 	AION_UNPORTED();
@@ -264,7 +241,6 @@ void EffectController::setAbnormal(skillengine::effect::AbnormalState state) {
 	AION_UNPORTED();
 }
 
-// lint: L7 unported stub; Java takes the StampedLock, the port adds lock()
 void EffectController::unsetAbnormal(skillengine::effect::AbnormalState state) {
 	AION_UNPORTED();
 }
@@ -281,7 +257,6 @@ bool EffectController::isEmpty() {
 	AION_UNPORTED();
 }
 
-// lint: L7 unported stub; Java takes the StampedLock, the port adds lock()
 void EffectController::resetDesignatedDispelEffect(skillengine::model::Effect& effect) {
 	AION_UNPORTED();
 }

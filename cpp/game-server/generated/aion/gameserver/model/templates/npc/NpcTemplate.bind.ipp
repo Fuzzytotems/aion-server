@@ -193,7 +193,7 @@ bool XmlBinding<::aion::gameserver::model::templates::npc::NpcTemplate>::element
 			if (name == "equipment") {
 				std::unique_ptr<::aion::gameserver::dataholders::loadingutils::adapters::NpcEquipmentList> value = constructBound<::aion::gameserver::dataholders::loadingutils::adapters::NpcEquipmentList>();
 				c.bindObject(*value, e, c.currentObject());
-				c.replaceSingle(o.equipment, std::make_unique<::aion::gameserver::model::items::NpcEquippedGear>(std::move(value)), e);
+				c.replaceSingle(o.equipment, ::aion::gameserver::model::items::NpcEquippedGear::create(std::move(value)), e);
 				o.equipment->init(c.load());
 				return true;
 			}

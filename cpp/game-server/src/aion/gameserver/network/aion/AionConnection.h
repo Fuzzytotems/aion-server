@@ -58,7 +58,7 @@ private:
 		AION_MAKE_REF_FRIEND
 	public:
 		const runtime::FutureRef task;
-		const std::weak_ptr<AionConnection> aionConnection; // fieldmap: the captured this$0 is a weak_ptr (runtime-architecture.md §11), not shared_ptr
+		const std::weak_ptr<AionConnection> aionConnection;
 
 		/** Java: new ConnectionAliveChecker() (schedules itself). @throws IllegalStateException if the connection already has one */
 		static runtime::Ref<ConnectionAliveChecker> create(std::weak_ptr<AionConnection> aionConnection);
@@ -77,15 +77,15 @@ private:
 	static commons::network::PacketProcessor<AionConnection>& packetProcessor();
 
 	/** Server Packet "to send" Queue, ordered by SerializedBody::seq, guarded by guard */
-	std::deque<SerializedBody> sendMsgQueue; // fieldmap: eager serialization queues SerializedBody under guard (runtime-architecture.md §8.2, §8.4)
+	std::deque<SerializedBody> sendMsgQueue;
 	/** Current state of this connection */
 	runtime::Field<AionConnection::State> state{};
 	/** AionClient is authenticating by passing to GameServer id of account. */
-	runtime::AtomicReference<runtime::Ref<model::account::Account>> account{};
+	runtime::AtomicReference<runtime::Ref<model::account::Account>> account{AION_LOCK_CLASS(AionConnection::account)};
 	/** Crypt that will encrypt/decrypt packets (IO strand only). */
-	Crypt crypt{}; // confined: IO strand only (fieldmap.toml [kinds] Crypt K5, runtime-architecture.md §22)
+	Crypt crypt{};
 	/** active Player that owner of this connection is playing [entered game] */
-	runtime::AtomicReference<runtime::Ref<model::gameobjects::player::Player>> activePlayer{};
+	runtime::AtomicReference<runtime::Ref<model::gameobjects::player::Player>> activePlayer{AION_LOCK_CLASS(AionConnection::activePlayer)};
 	runtime::Field<int64_t> lastClientMessageTime{};
 	runtime::Field<int64_t> lastPingTime{};
 	runtime::Field<int32_t> pingFailCount{};
@@ -93,11 +93,11 @@ private:
 	runtime::Field<int32_t> corruptPackets{0};
 	runtime::Field<std::string> macAddress{};
 	runtime::Field<std::string> hddSerial{};
-	runtime::Field<runtime::Ref<ConnectionAliveChecker>> connectionAliveChecker{}; // fieldmap: set once in initialized(), see the class comment
+	runtime::Field<runtime::Ref<ConnectionAliveChecker>> connectionAliveChecker{};
 	/** packet flood filter (C++: always created; Java creates it only if PffConfig.PFF_MODE > 0 and thresholds exist, and checks for null) */
-	runtime::ConcurrentHashMap<int32_t, int64_t> pffRequests{};
+	runtime::ConcurrentHashMap<int32_t, int64_t> pffRequests{AION_LOCK_CLASS(AionConnection::pffRequests#stripe)};
 	/** C++ only: the Java object monitor of the connection (`synchronized (this)` in safeLogout, runtime-architecture.md §3.4) */
-	mutable runtime::Monitor monitor_; // fieldmap: C++-only object monitor (AionConnection is not RefCounted)
+	mutable runtime::Monitor monitor_{AION_LOCK_CLASS(AionConnection::monitor)}; // fieldmap: C++-only object monitor (AionConnection is not RefCounted)
 
 public:
 	/**

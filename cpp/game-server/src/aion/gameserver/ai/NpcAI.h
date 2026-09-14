@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <optional>
 #include <set>
 
 #include "aion/gameserver/runtime/lifetime/Ref.h"
@@ -23,21 +24,21 @@ namespace aion::gameserver::ai {
  * Base of all NPC AIs: owner accessors and the default NPC event handling (spawn, shouts, walking, AP rewards).
  * <p>
  * Hub header (docs/design/hub-headers.md). A non-template class deriving AITemplate&lt;Npc&gt; (OwnerType = Npc): getOwner() returns Npc&.
- * The owner accessors return what the Npc/Creature accessors they delegate to return (getAggroList, getSkillList, getKnownList: references;
- * getLifeStats, getEffectController, getMoveController: Ptr, as Creature declares them), the templates as `const X*`. The constructor is
- * public: the AI registry creates leaf AIs with `std::make_unique<C>(npc)`.
+ * The owner accessors return what the Npc/Creature accessors they delegate to return (getAggroList, getKnownList: references; getSkillList,
+ * getLifeStats, getEffectController, getMoveController: Ptr, as Npc and Creature declare them; getTribe: std::optional like Npc::getTribe), the
+ * templates as `const X*`. The constructor is protected (Java abstract class): the AI registry creates leaf AIs with `std::make_unique<C>(npc)`,
+ * and `AION_AI(NpcAI, ...)` does not satisfy AIHandlerClass.
  *
  * @author ATracer
  */
 class NpcAI : public AITemplate<model::gameobjects::Npc> {
 private:
 	/** Java: EnumSet.of(Race.ASMODIANS, Race.DARK, ...) */
-	static const std::set<model::Race> apRewardingRaces; // fieldmap: static final EnumSet with a non-literal initializer (hub-headers.md §6, §11.1)
-
-public:
-	explicit NpcAI(model::gameobjects::Npc& owner);
+	static const std::set<model::Race> apRewardingRaces;
 
 protected:
+	explicit NpcAI(model::gameobjects::Npc& owner);
+
 	const model::templates::npc::NpcTemplate* getObjectTemplate();
 
 	runtime::Ptr<model::templates::spawns::SpawnTemplate> getSpawnTemplate();
@@ -46,7 +47,8 @@ protected:
 
 	model::Race getRace();
 
-	model::TribeClass getTribe();
+	/** @return Npc::getTribe(), std::nullopt for NPC templates without a tribe (Java null) */
+	std::optional<model::TribeClass> getTribe();
 
 	runtime::Ptr<controllers::effect::EffectController> getEffectController();
 
@@ -54,7 +56,7 @@ protected:
 
 	controllers::attack::AggroList& getAggroList();
 
-	model::skill::NpcSkillList& getSkillList();
+	runtime::Ptr<model::skill::NpcSkillList> getSkillList();
 
 	runtime::Ptr<model::gameobjects::VisibleObject> getCreator();
 

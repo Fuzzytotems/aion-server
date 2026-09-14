@@ -37,10 +37,11 @@ namespace aion::gameserver::controllers::effect {
 class EffectController : public runtime::OwnedPart {
 private:
 	runtime::OwnerRef<model::gameobjects::Creature> owner;
-	runtime::StampedLock lock{};
+	runtime::StampedLock lock{AION_LOCK_CLASS(EffectController::lock)};
 	/** null: Java's initial Collections.emptyMap() (see the class comment) */
 	runtime::Field<runtime::Ref<runtime::RcLinkedHashMap<std::string, runtime::Ref<skillengine::model::Effect>>>> passiveEffectMap{};
-	runtime::LinkedHashMap<std::string, runtime::Ref<skillengine::model::Effect>> abnormalEffectMap{};
+	runtime::LinkedHashMap<std::string, runtime::Ref<skillengine::model::Effect>> abnormalEffectMap{
+		AION_LOCK_CLASS(EffectController::abnormalEffectMap)};
 	runtime::Field<int32_t> abnormals{};
 
 public:

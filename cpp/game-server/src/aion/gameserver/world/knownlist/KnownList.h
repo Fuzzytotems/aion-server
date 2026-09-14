@@ -29,7 +29,7 @@ namespace aion::gameserver::world::knownlist {
 class KnownList : public runtime::OwnedPart {
 protected:
 	runtime::OwnerRef<model::gameobjects::VisibleObject> owner;
-	runtime::ConcurrentHashMap<int32_t, runtime::Ref<KnownObject>> knownObjects{};
+	runtime::ConcurrentHashMap<int32_t, runtime::Ref<KnownObject>> knownObjects{AION_LOCK_CLASS(KnownList::knownObjects#stripe)};
 
 public:
 	explicit KnownList(model::gameobjects::VisibleObject& owner);

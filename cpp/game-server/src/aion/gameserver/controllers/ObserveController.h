@@ -33,8 +33,9 @@ namespace aion::gameserver::controllers {
 class ObserveController : public runtime::RefCounted {
 	AION_MAKE_REF_FRIEND
 private:
-	runtime::ArrayList<runtime::Ref<observer::ActionObserver>> observers{};
-	runtime::CopyOnWriteArrayList<runtime::Ref<observer::AttackCalcObserver>> attackCalcObservers{};
+	runtime::ArrayList<runtime::Ref<observer::ActionObserver>> observers{AION_LOCK_CLASS(ObserveController::observers)};
+	runtime::CopyOnWriteArrayList<runtime::Ref<observer::AttackCalcObserver>> attackCalcObservers{
+		AION_LOCK_CLASS(ObserveController::attackCalcObservers)};
 
 protected:
 	ObserveController();

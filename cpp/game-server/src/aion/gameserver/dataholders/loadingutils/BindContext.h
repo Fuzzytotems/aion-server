@@ -23,6 +23,7 @@
 #include "aion/gameserver/dataholders/loadingutils/XmlDocument.h"
 #include "aion/gameserver/dataholders/loadingutils/XmlParent.h"
 #include "aion/gameserver/dataholders/loadingutils/XmlValues.h"
+#include "aion/gameserver/runtime/lifetime/Ref.h"
 
 namespace aion::gameserver::xml {
 
@@ -146,6 +147,17 @@ public:
 	void replaceSingle(std::unique_ptr<T>& slot, std::unique_ptr<T> object, pugi::xml_node element) {
 		checkRepeated(slot != nullptr, element);
 		loadContext.retire(std::move(slot));
+		slot = std::move(object);
+	}
+	/**
+	 * replaceSingle for a RefCounted target held by `runtime::Ref` (NpcEquippedGear, a K4 object that static data and live objects share), with
+	 * the same rules: error in strict mode, otherwise LoadContext::retire keeps a reference to the replaced object.
+	 */
+	template <class T>
+	void replaceSingle(runtime::Ref<T>& slot, runtime::Ref<T> object, pugi::xml_node element) {
+		checkRepeated(static_cast<bool>(slot), element);
+		if (slot)
+			loadContext.retire(std::make_unique<runtime::Ref<T>>(std::move(slot)));
 		slot = std::move(object);
 	}
 	/** List<T> of objects bound in place (the vector must have been reserved) or of scalars (text content) */
@@ -278,7 +290,6 @@ private:
 	const Frame* topOrNull() const noexcept;
 	/** counts an element as consumed (and bound) */
 	void countElementBound(pugi::xml_node element);
-	void countAttributeBound(pugi::xml_node element, pugi::xml_attribute attribute);
 	/** true for xmlns declarations and xsi attributes (counted as ignored by the caller) */
 	bool isIgnoredAttribute(pugi::xml_node element, std::string_view name) const;
 	void handleAttribute(pugi::xml_node element, pugi::xml_attribute attribute, bool bound);

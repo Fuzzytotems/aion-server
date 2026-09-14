@@ -222,6 +222,11 @@ public class Tag {
     private Tag(String name) { this.name = name; }
     public static Tag get(String n) { return tags.computeIfAbsent(n, Tag::new); }
 }''',
+            'com/x/world/Rift.java': '''package com.x.world;
+public class Rift {
+    public static Rift getInstance() { return RiftHolder.INSTANCE; }
+    private static class RiftHolder { private static final Rift INSTANCE = new Rift(); }
+}''',
             'com/x/world/Raid.java': '''package com.x.world;
 public class Raid {
     public static Raid getInstance() { return SingletonHolder.instance; }
@@ -249,6 +254,8 @@ public class Zones { private static final List<Zone> zones = new ArrayList<>(); 
         self.assertEqual(fm.base_of(cls['com.x.world.Engine']), 'Immortal')
         holder = next(f for f in cls['com.x.world.Engine.SingletonHolder'].fields if f.name == 'instance')
         self.assertEqual(holder.cpp, 'static Engine& getInstance()')
+        self.assertTrue(cls['com.x.world.Rift'].singleton)                          # any nested *Holder (RiftServiceHolder, NewSingletonHolder)
+        self.assertEqual(fm.base_of(cls['com.x.world.Rift']), 'Immortal')
         self.assertTrue(cls['com.x.world.Cron'].singleton)                          # assigned in initialize()
         self.assertFalse(cls['com.x.world.Filter'].singleton)                       # two constants, of() creates more
         self.assertFalse(cls['com.x.world.Script'].singleton)                       # created by Scripts
@@ -259,7 +266,7 @@ public class Zones { private static final List<Zone> zones = new ArrayList<>(); 
         self.assertEqual({f.name: f.cpp for f in cls['com.x.world.Script'].fields}['EMPTY'], 'static inline const Ref<Script>')
         self.assertFalse(cls['com.x.world.ZoneName'].singleton)
         self.assertEqual(fm.base_of(cls['com.x.world.ZoneName']), 'Immortal')
-        self.assertEqual({f.name: f.cpp for f in cls['com.x.world.ZoneName'].fields}['NONE'], 'static inline const ZoneName*')
+        self.assertEqual({f.name: f.cpp for f in cls['com.x.world.ZoneName'].fields}['NONE'], 'static const ZoneName* const')  # hub-headers.md §11.1
         zone = {f.name: f for f in cls['com.x.world.Zone'].fields}
         self.assertEqual((zone['name'].cpp, zone['last'].cpp), ('const ZoneName*', 'Field<const ZoneName*>'))
         self.assertEqual((zone['name'].retains, zone['script'].retains), ([], ['com.x.world.Script']))

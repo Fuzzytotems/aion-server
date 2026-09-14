@@ -30,7 +30,7 @@ protected:
 	runtime::OwnerRef<model::gameobjects::Creature> owner;
 
 private:
-	runtime::ConcurrentHashMap<int32_t, runtime::Ref<AggroInfo>> aggroList{};
+	runtime::ConcurrentHashMap<int32_t, runtime::Ref<AggroInfo>> aggroList{AION_LOCK_CLASS(AggroList::aggroList#stripe)};
 	runtime::Field<runtime::FutureRef> hateReductionTask{};
 
 public:

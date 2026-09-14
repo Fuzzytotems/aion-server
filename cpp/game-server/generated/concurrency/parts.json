@@ -38,7 +38,7 @@
   },
   {
    "class": "com.aionemu.gameserver.controllers.movement.CreatureMoveController",
-   "cpp": "OwnerRef<T>",
+   "cpp": "OwnerRef<VisibleObject>",
    "field": "owner",
    "part": "com.aionemu.gameserver.model.gameobjects.Creature.moveController",
    "rule": "owner"
@@ -48,13 +48,6 @@
    "cpp": "OwnerRef<Creature>",
    "field": "owner",
    "part": "com.aionemu.gameserver.model.gameobjects.Creature.transformModel",
-   "rule": "owner"
-  },
-  {
-   "class": "com.aionemu.gameserver.model.gameobjects.UseableItemObject.UseDataWriter",
-   "cpp": "OwnerRef<UseableItemObject>",
-   "field": "obj",
-   "part": "com.aionemu.gameserver.model.gameobjects.UseableItemObject.entryWriter",
    "rule": "owner"
   },
   {
@@ -121,13 +114,6 @@
    "rule": "owner"
   },
   {
-   "class": "com.aionemu.gameserver.model.items.ChargeInfo",
-   "cpp": "OwnerRef<Item>",
-   "field": "item",
-   "part": "com.aionemu.gameserver.model.gameobjects.Item.conditioningInfo",
-   "rule": "owner"
-  },
-  {
    "class": "com.aionemu.gameserver.model.items.IdianStone",
    "cpp": "OwnerRef<Item>",
    "field": "item",
@@ -153,13 +139,6 @@
    "cpp": "OwnerRef<Creature>",
    "field": "owner",
    "part": "com.aionemu.gameserver.model.gameobjects.Creature.lifeStats",
-   "rule": "owner"
-  },
-  {
-   "class": "com.aionemu.gameserver.model.team.alliance.PlayerAllianceGroup",
-   "cpp": "OwnerRef<PlayerAlliance>",
-   "field": "alliance",
-   "part": "com.aionemu.gameserver.model.team.alliance.PlayerAlliance.groups",
    "rule": "owner"
   },
   {
@@ -513,31 +492,6 @@
    "rule": "fieldmap.toml override"
   },
   {
-   "cpp": "PartSlot<ChargeInfo>",
-   "evidence": [
-    {
-     "file": "game-server/src/com/aionemu/gameserver/model/gameobjects/Item.java",
-     "line": 164,
-     "pattern": 1,
-     "text": "conditioningInfo = new ChargeInfo(charge, this);"
-    }
-   ],
-   "field": "conditioningInfo",
-   "java": "ChargeInfo",
-   "line": 61,
-   "owner": "com.aionemu.gameserver.model.gameobjects.Item",
-   "ownerClasses": [
-    "com.aionemu.gameserver.model.gameobjects.Item"
-   ],
-   "partTypes": [
-    "com.aionemu.gameserver.model.items.ChargeInfo"
-   ],
-   "patterns": [
-    1
-   ],
-   "rule": "replaceable part (pattern 1)"
-  },
-  {
    "cpp": "PartSlot<IdianStone, RetireTo::RECLAIMER>",
    "evidence": [
     {
@@ -611,31 +565,6 @@
     4
    ],
    "rule": "fieldmap.toml override"
-  },
-  {
-   "cpp": "const std::unique_ptr<UseableItemObject::UseDataWriter>",
-   "evidence": [
-    {
-     "file": "game-server/src/com/aionemu/gameserver/model/gameobjects/UseableItemObject.java",
-     "line": 37,
-     "pattern": 1,
-     "text": "entryWriter = new UseDataWriter(this);"
-    }
-   ],
-   "field": "entryWriter",
-   "java": "UseDataWriter",
-   "line": 30,
-   "owner": "com.aionemu.gameserver.model.gameobjects.UseableItemObject",
-   "ownerClasses": [
-    "com.aionemu.gameserver.model.gameobjects.UseableItemObject"
-   ],
-   "partTypes": [
-    "com.aionemu.gameserver.model.gameobjects.UseableItemObject.UseDataWriter"
-   ],
-   "patterns": [
-    1
-   ],
-   "rule": "part (pattern 1)"
   },
   {
    "cpp": "const std::unique_ptr<VisibleObjectController>",
@@ -1216,31 +1145,6 @@
     1
    ],
    "rule": "part (pattern 1)"
-  },
-  {
-   "cpp": "PartMap<int32_t, PlayerAllianceGroup>",
-   "evidence": [
-    {
-     "file": "fieldmap.toml",
-     "line": 0,
-     "pattern": 4,
-     "text": "groups created for the owner by new PlayerAllianceGroup(this, groupId) in the constructor (PlayerAlliance.java:32), never replaced (design §5.1: alliance groups are OwnedParts)"
-    }
-   ],
-   "field": "groups",
-   "java": "Map<Integer, PlayerAllianceGroup>",
-   "line": 21,
-   "owner": "com.aionemu.gameserver.model.team.alliance.PlayerAlliance",
-   "ownerClasses": [
-    "com.aionemu.gameserver.model.team.alliance.PlayerAlliance"
-   ],
-   "partTypes": [
-    "com.aionemu.gameserver.model.team.alliance.PlayerAllianceGroup"
-   ],
-   "patterns": [
-    4
-   ],
-   "rule": "fieldmap.toml override"
   },
   {
    "cpp": "const std::unique_ptr<PlayerGroupStats>",
