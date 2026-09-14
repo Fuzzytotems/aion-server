@@ -10,7 +10,7 @@ class DarkPoetaScoreWriter;
 class DredgionScoreWriter;
 class EternalBastionScoreWriter;
 class HarmonyScoreWriter;
-template <class T> class InstanceScoreWriter;
+class InstanceScoreWriter;
 class LegionDominionScoreWriter;
 class PvpInstanceScoreWriter;
 class TheShugoEmperorsVaultScoreWriter;

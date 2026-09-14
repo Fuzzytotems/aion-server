@@ -43,7 +43,7 @@ private:
 	//   Creature.java:20  private Race race;
 	//   Creature.java:21  private final List<ActionObserver> observers;
 public:
-	Creature(int32_t objectId, const std::vector<runtime::Ref<controllers::observer::ActionObserver>>& observers);
+	Creature(int32_t objectId, const std::vector<runtime::Ptr<controllers::observer::ActionObserver>>& observers);
 	std::string getName() override; // trivial accessor of name: inline once the member exists
 	int32_t getLevel() const; // trivial accessor of level: inline once the member exists
 	void setLevel(int32_t level); // trivial accessor of level: inline once the member exists
@@ -51,7 +51,7 @@ public:
 	Race getRace() const; // trivial accessor of race: inline once the member exists
 	/** Called when the creature spawns. Overridden by a handler. */
 	virtual void onSpawn();
-	virtual void onDie(runtime::Ptr<Creature> lastAttacker);
+	virtual void onDie(Creature& lastAttacker);
 	Creature::State getState();
 };
 

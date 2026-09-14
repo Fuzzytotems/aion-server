@@ -7,11 +7,11 @@
 
 namespace aion::gameserver::network::aion::serverpackets {
 
-SM_FOO_LIST::SM_FOO_LIST(const std::vector<runtime::Ref<model::gameobjects::Creature>>& creatures, bool last) : SM_FOO(int32_t{}) {
+SM_FOO_LIST::SM_FOO_LIST(const std::vector<runtime::Ptr<model::gameobjects::Creature>>& creatures, bool last) : SM_FOO(int32_t{}) {
 	AION_UNPORTED();
 }
 
-SM_FOO_LIST::SM_FOO_LIST(bool last, const std::vector<runtime::Ref<model::gameobjects::Creature>>& creatures) : SM_FOO(int32_t{}) {
+SM_FOO_LIST::SM_FOO_LIST(bool last, const std::vector<runtime::Ptr<model::gameobjects::Creature>>& creatures) : SM_FOO(int32_t{}) {
 	AION_UNPORTED();
 }
 

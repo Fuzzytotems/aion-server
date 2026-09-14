@@ -100,6 +100,7 @@ class HandlerPreludeTest(unittest.TestCase):
 
     @unittest.skipUnless(CAN_COMPILE, 'needs CMake and MSVC (AION_SKELETON_SKIP_COMPILE=1 skips)')
     def test_compile(self):
+        """The preludes include hub headers and generated enum headers (S0b), so the generated include root is needed too."""
         work = ss.short_temp_dir('skpre')
         try:
             includes = [f'aion/gameserver/handlers/{rel}' for rel in prelude_files() + [COMMAND_PCH]]
@@ -119,7 +120,7 @@ class HandlerPreludeTest(unittest.TestCase):
                            'inline constexpr int32_t SELECT = SELECT_QUEST_REWARD;\n'
                            '} // namespace aion::gameserver::handlers::quest::heiron\n', encoding='utf-8')
             sources.append(use)
-            ok, output = ss.compile_check(work, [HANDLERS_ROOT, ss.REAL_CPP_SRC, ss.REAL_COMMONS_SRC, ss.VCPKG_INCLUDE], sources)
+            ok, output = ss.compile_check(work, [HANDLERS_ROOT, ss.REAL_CPP_SRC, ss.REAL_GENERATED, ss.REAL_COMMONS_SRC, ss.VCPKG_INCLUDE], sources)
             problems = [line for line in ss.warnings_in(output) if 'MSB80' not in line]
             self.assertTrue(ok and not problems, '\n'.join(problems[:40]) or output[-4000:])
         finally:

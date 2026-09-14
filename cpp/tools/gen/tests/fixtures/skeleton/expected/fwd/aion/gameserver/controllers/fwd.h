@@ -4,7 +4,7 @@
 
 namespace aion::gameserver::controllers {
 
-template <class T> class CreatureController;
+class CreatureController;
 class PlayerController;
 
 } // namespace aion::gameserver::controllers

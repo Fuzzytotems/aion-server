@@ -4,7 +4,7 @@
 
 namespace aion::gameserver::services::vortex {
 
-template <class VL> class DimensionalVortex;
+class DimensionalVortex;
 class Invasion;
 
 } // namespace aion::gameserver::services::vortex

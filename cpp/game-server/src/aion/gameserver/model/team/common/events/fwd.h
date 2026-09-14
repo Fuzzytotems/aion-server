@@ -6,14 +6,14 @@
 
 namespace aion::gameserver::model::team::common::events {
 
-template <class T> class AbstractTeamPlayerEvent;
+class AbstractTeamPlayerEvent;
 class AlwaysTrueTeamEvent;
-template <class T> class ChangeLeaderEvent;
-template <class T> class PlayerEnteredEvent;
-template <class TM, class T> class PlayerLeavedEvent;
-template <class T> class PlayerStopMentoringEvent;
+class ChangeLeaderEvent;
+class PlayerEnteredEvent;
+class PlayerLeavedEvent;
+class PlayerStopMentoringEvent;
 enum class TeamCommand : std::uint8_t;
-template <class T> class TeamKinahDistributionEvent;
+class TeamKinahDistributionEvent;
 
 // Nested types (declared inside their outer class, include its header):
 //   PlayerLeavedEvent::LeaveReson

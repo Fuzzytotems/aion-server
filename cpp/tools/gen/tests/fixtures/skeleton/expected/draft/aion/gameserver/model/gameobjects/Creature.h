@@ -54,9 +54,9 @@ private:
 	//   Creature.java:20  private Race race;  [no fieldmap.json member]
 	//   Creature.java:21  private final List<ActionObserver> observers;  [no fieldmap.json member]
 protected:
-	Creature(int32_t objectId, const std::vector<runtime::Ref<controllers::observer::ActionObserver>>& observers);
+	Creature(int32_t objectId, const std::vector<runtime::Ptr<controllers::observer::ActionObserver>>& observers);
 public:
-	static runtime::Ref<Creature> create(int32_t value, const std::vector<runtime::Ref<controllers::observer::ActionObserver>>& observersValue);
+	static runtime::Ref<Creature> create(int32_t value, const std::vector<runtime::Ptr<controllers::observer::ActionObserver>>& observersValue);
 	std::string getName() override { return this->name.get(); }
 	int32_t getLevel() const { return this->level.get(); }
 	void setLevel(int32_t value) { this->level.set(value); }
@@ -64,7 +64,7 @@ public:
 	Race getRace() const; // trivial accessor of race: inline once the member exists
 	/** Called when the creature spawns. Overridden by a handler. */
 	virtual void onSpawn();
-	virtual void onDie(runtime::Ptr<Creature> lastAttacker);
+	virtual void onDie(Creature& lastAttacker);
 	Creature::State getState();
 protected:
 	~Creature() override;

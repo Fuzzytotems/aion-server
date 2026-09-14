@@ -6,11 +6,11 @@
 
 namespace aion::gameserver::model::team {
 
-template <class M, class TM> class GeneralTeam;
+class GeneralTeam;
 class PlayerTeamMember;
 class TeamEvent;
-template <class M> class TeamMember;
+class TeamMember;
 enum class TeamType : std::uint8_t;
-template <class TM> class TemporaryPlayerTeam;
+class TemporaryPlayerTeam;
 
 } // namespace aion::gameserver::model::team

@@ -7,13 +7,13 @@ namespace aion::gameserver::services::siege {
 class AgentSiege;
 class ArtifactAssault;
 class ArtifactSiege;
-template <class SiegeType> class Assault;
+class Assault;
 class BalaurAssaultService;
 class FortressAssault;
 class FortressSiege;
 class MercenaryLocation;
 class OutpostSiege;
-template <class SL> class Siege;
+class Siege;
 class SiegeCounter;
 class SiegeException;
 class SiegeRaceCounter;

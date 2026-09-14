@@ -8,10 +8,10 @@ reason found by the fixpoint. K1 source: cpp/game-server/generated/staticdata-cl
 | K1 STATIC_DATA | 858 |
 | K2 PACKET | 468 |
 | K3 IMMUTABLE_VALUE | 623 |
-| K4 SHARED | 2207 |
-| K5 CONFINED | 591 |
+| K4 SHARED | 2205 |
+| K5 CONFINED | 593 |
 
-## K5 CONFINED (591)
+## K5 CONFINED (593)
 
 - `admincommands.Send.Packet` (game-server/data/handlers/admincommands/Send.java:118): confined: inferred (never stored in shared state)
 - `admincommands.Send.Packets` (game-server/data/handlers/admincommands/Send.java:93): confined: inferred (never stored in shared state)
@@ -93,7 +93,6 @@ reason found by the fixpoint. K1 source: cpp/game-server/generated/staticdata-cl
 - `com.aionemu.gameserver.configs.main.WorldConfig` (game-server/src/com/aionemu/gameserver/configs/main/WorldConfig.java:10): confined: inferred (never stored in shared state)
 - `com.aionemu.gameserver.configs.network.NetworkConfig` (game-server/src/com/aionemu/gameserver/configs/network/NetworkConfig.java:7): confined: inferred (never stored in shared state)
 - `com.aionemu.gameserver.configs.network.PffConfig` (game-server/src/com/aionemu/gameserver/configs/network/PffConfig.java:12): confined: inferred (never stored in shared state)
-- `com.aionemu.gameserver.controllers.CreatureController.DelayedOnAttack` (game-server/src/com/aionemu/gameserver/controllers/CreatureController.java:559): confined: inferred (never stored in shared state)
 - `com.aionemu.gameserver.controllers.PetController.PetUpdateTask` (game-server/src/com/aionemu/gameserver/controllers/PetController.java:38): confined: inferred (never stored in shared state)
 - `com.aionemu.gameserver.controllers.attack.AttackUtil` (game-server/src/com/aionemu/gameserver/controllers/attack/AttackUtil.java:32): confined: inferred (never stored in shared state)
 - `com.aionemu.gameserver.controllers.attack.DamageInfo` (game-server/src/com/aionemu/gameserver/controllers/attack/DamageInfo.java:5): confined: inferred (never stored in shared state)
@@ -296,6 +295,7 @@ reason found by the fixpoint. K1 source: cpp/game-server/generated/staticdata-cl
 - `com.aionemu.gameserver.model.team.alliance.events.ChangeMemberGroupEvent` (game-server/src/com/aionemu/gameserver/model/team/alliance/events/ChangeMemberGroupEvent.java:13): confined: inferred (never stored in shared state)
 - `com.aionemu.gameserver.model.team.alliance.events.CheckAllianceReadyEvent` (game-server/src/com/aionemu/gameserver/model/team/alliance/events/CheckAllianceReadyEvent.java:13): confined: inferred (never stored in shared state)
 - `com.aionemu.gameserver.model.team.alliance.events.PlayerAllianceEnteredEvent` (game-server/src/com/aionemu/gameserver/model/team/alliance/events/PlayerAllianceEnteredEvent.java:18): confined: inferred (never stored in shared state)
+- `com.aionemu.gameserver.model.team.alliance.events.PlayerAllianceLeavedEvent` (game-server/src/com/aionemu/gameserver/model/team/alliance/events/PlayerAllianceLeavedEvent.java:18): fieldmap.toml: subclass of PlayerLeavedEvent (K5 override)
 - `com.aionemu.gameserver.model.team.alliance.events.PlayerAllianceUpdateEvent` (game-server/src/com/aionemu/gameserver/model/team/alliance/events/PlayerAllianceUpdateEvent.java:14): confined: inferred (never stored in shared state)
 - `com.aionemu.gameserver.model.team.alliance.events.PlayerConnectedEvent` (game-server/src/com/aionemu/gameserver/model/team/alliance/events/PlayerConnectedEvent.java:15): confined: inferred (never stored in shared state)
 - `com.aionemu.gameserver.model.team.alliance.events.PlayerDisconnectedEvent` (game-server/src/com/aionemu/gameserver/model/team/alliance/events/PlayerDisconnectedEvent.java:19): confined: inferred (never stored in shared state)
@@ -303,6 +303,7 @@ reason found by the fixpoint. K1 source: cpp/game-server/generated/staticdata-cl
 - `com.aionemu.gameserver.model.team.common.events.AlwaysTrueTeamEvent` (game-server/src/com/aionemu/gameserver/model/team/common/events/AlwaysTrueTeamEvent.java:8): confined: inferred (never stored in shared state)
 - `com.aionemu.gameserver.model.team.common.events.ChangeLeaderEvent` (game-server/src/com/aionemu/gameserver/model/team/common/events/ChangeLeaderEvent.java:9): confined: inferred (never stored in shared state)
 - `com.aionemu.gameserver.model.team.common.events.PlayerEnteredEvent` (game-server/src/com/aionemu/gameserver/model/team/common/events/PlayerEnteredEvent.java:12): confined: inferred (never stored in shared state)
+- `com.aionemu.gameserver.model.team.common.events.PlayerLeavedEvent` (game-server/src/com/aionemu/gameserver/model/team/common/events/PlayerLeavedEvent.java:18): fieldmap.toml: team events live on the stack like the other TeamEvents (design §14.2d); the INSTANCE_KICK task of handleEvent captures leavedPlayer and team as Refs, not this
 - `com.aionemu.gameserver.model.team.common.events.PlayerStopMentoringEvent` (game-server/src/com/aionemu/gameserver/model/team/common/events/PlayerStopMentoringEvent.java:13): confined: inferred (never stored in shared state)
 - `com.aionemu.gameserver.model.team.common.events.TeamKinahDistributionEvent` (game-server/src/com/aionemu/gameserver/model/team/common/events/TeamKinahDistributionEvent.java:14): confined: inferred (never stored in shared state)
 - `com.aionemu.gameserver.model.team.common.service.PlayerTeamCommandService` (game-server/src/com/aionemu/gameserver/model/team/common/service/PlayerTeamCommandService.java:20): confined: inferred (never stored in shared state)
@@ -316,6 +317,7 @@ reason found by the fixpoint. K1 source: cpp/game-server/generated/staticdata-cl
 - `com.aionemu.gameserver.model.team.group.events.PlayerConnectedEvent` (game-server/src/com/aionemu/gameserver/model/team/group/events/PlayerConnectedEvent.java:18): confined: inferred (never stored in shared state)
 - `com.aionemu.gameserver.model.team.group.events.PlayerDisconnectedEvent` (game-server/src/com/aionemu/gameserver/model/team/group/events/PlayerDisconnectedEvent.java:15): confined: inferred (never stored in shared state)
 - `com.aionemu.gameserver.model.team.group.events.PlayerGroupEnteredEvent` (game-server/src/com/aionemu/gameserver/model/team/group/events/PlayerGroupEnteredEvent.java:17): confined: inferred (never stored in shared state)
+- `com.aionemu.gameserver.model.team.group.events.PlayerGroupLeavedEvent` (game-server/src/com/aionemu/gameserver/model/team/group/events/PlayerGroupLeavedEvent.java:17): fieldmap.toml: subclass of PlayerLeavedEvent (K5 override)
 - `com.aionemu.gameserver.model.team.group.events.PlayerGroupStopMentoringEvent` (game-server/src/com/aionemu/gameserver/model/team/group/events/PlayerGroupStopMentoringEvent.java:13): confined: inferred (never stored in shared state)
 - `com.aionemu.gameserver.model.team.group.events.PlayerGroupUpdateEvent` (game-server/src/com/aionemu/gameserver/model/team/group/events/PlayerGroupUpdateEvent.java:13): confined: inferred (never stored in shared state)
 - `com.aionemu.gameserver.model.team.group.events.PlayerStartMentoringEvent` (game-server/src/com/aionemu/gameserver/model/team/group/events/PlayerStartMentoringEvent.java:19): confined: inferred (never stored in shared state)
@@ -605,7 +607,7 @@ reason found by the fixpoint. K1 source: cpp/game-server/generated/staticdata-cl
 - `playercommands.Faction$1` (game-server/data/handlers/playercommands/Faction.java:57): confined: inferred (never stored in shared state)
 - `playercommands.Preview.ItemParam` (game-server/data/handlers/playercommands/Preview.java:234): confined: inferred (never stored in shared state)
 
-## K4 SHARED (2207)
+## K4 SHARED (2205)
 
 - `admincommands.Access` (game-server/data/handlers/admincommands/Access.java:16): same class tree as admincommands.Speed: implements com.aionemu.gameserver.model.stats.calc.StatOwner (static field admincommands.Stat.CommandStatOwner.statOwnerByStat)
 - `admincommands.GoTo` (game-server/data/handlers/admincommands/GoTo.java:22): same class tree as admincommands.Speed: implements com.aionemu.gameserver.model.stats.calc.StatOwner (static field admincommands.Stat.CommandStatOwner.statOwnerByStat)
@@ -1100,6 +1102,7 @@ reason found by the fixpoint. K1 source: cpp/game-server/generated/staticdata-cl
 - `com.aionemu.gameserver.cache.HTMLCache` (game-server/src/com/aionemu/gameserver/cache/HTMLCache.java:18): static field com.aionemu.gameserver.cache.HTMLCache.SingletonHolder.INSTANCE
 - `com.aionemu.gameserver.cache.HTMLCache$1` (game-server/src/com/aionemu/gameserver/cache/HTMLCache.java:22): static anonymous class at game-server/src/com/aionemu/gameserver/cache/HTMLCache.java:22
 - `com.aionemu.gameserver.controllers.CreatureController` (game-server/src/com/aionemu/gameserver/controllers/CreatureController.java:63): same class tree as com.aionemu.gameserver.controllers.RVController: packet member com.aionemu.gameserver.network.aion.serverpackets.SM_RIFT_ANNOUNCE.rift
+- `com.aionemu.gameserver.controllers.CreatureController.DelayedOnAttack` (game-server/src/com/aionemu/gameserver/controllers/CreatureController.java:559): fieldmap.toml: a Runnable scheduled by attackTarget (ThreadPoolManager.schedule, CreatureController.java:359) that runs on another thread after attackTarget returned; the escape inference misses it because nobody keeps the Future. run() clears its references
 - `com.aionemu.gameserver.controllers.FlyController` (game-server/src/com/aionemu/gameserver/controllers/FlyController.java:19): member of com.aionemu.gameserver.model.gameobjects.player.Player.flyController
 - `com.aionemu.gameserver.controllers.FlyRingController` (game-server/src/com/aionemu/gameserver/controllers/FlyRingController.java:14): same class tree as com.aionemu.gameserver.controllers.RVController: packet member com.aionemu.gameserver.network.aion.serverpackets.SM_RIFT_ANNOUNCE.rift
 - `com.aionemu.gameserver.controllers.GatherableController` (game-server/src/com/aionemu/gameserver/controllers/GatherableController.java:29): same class tree as com.aionemu.gameserver.controllers.RVController: packet member com.aionemu.gameserver.network.aion.serverpackets.SM_RIFT_ANNOUNCE.rift
@@ -1375,14 +1378,11 @@ reason found by the fixpoint. K1 source: cpp/game-server/generated/staticdata-cl
 - `com.aionemu.gameserver.model.team.alliance.PlayerAllianceGroup` (game-server/src/com/aionemu/gameserver/model/team/alliance/PlayerAllianceGroup.java:9): same class tree as com.aionemu.gameserver.model.gameobjects.player.Player: static field admincommands.FixPath.runner
 - `com.aionemu.gameserver.model.team.alliance.PlayerAllianceMember` (game-server/src/com/aionemu/gameserver/model/team/alliance/PlayerAllianceMember.java:9): same class tree as com.aionemu.gameserver.model.team.PlayerTeamMember: implements com.aionemu.gameserver.model.team.TeamMember (member of com.aionemu.gameserver.model.team.GeneralTeam.members)
 - `com.aionemu.gameserver.model.team.alliance.events.PlayerAllianceInvite` (game-server/src/com/aionemu/gameserver/model/team/alliance/events/PlayerAllianceInvite.java:21): same class tree as ai.portals.PortalRequestAI$1: stored anonymous class at game-server/data/handlers/ai/portals/PortalRequestAI.java:30
-- `com.aionemu.gameserver.model.team.alliance.events.PlayerAllianceLeavedEvent` (game-server/src/com/aionemu/gameserver/model/team/alliance/events/PlayerAllianceLeavedEvent.java:18): same class tree as com.aionemu.gameserver.model.team.common.events.PlayerLeavedEvent: captured by lambda at game-server/src/com/aionemu/gameserver/model/team/common/events/PlayerLeavedEvent.java:61
-- `com.aionemu.gameserver.model.team.common.events.PlayerLeavedEvent` (game-server/src/com/aionemu/gameserver/model/team/common/events/PlayerLeavedEvent.java:18): captured by lambda at game-server/src/com/aionemu/gameserver/model/team/common/events/PlayerLeavedEvent.java:61
 - `com.aionemu.gameserver.model.team.common.legacy.LootGroupRules` (game-server/src/com/aionemu/gameserver/model/team/common/legacy/LootGroupRules.java:18): packet member com.aionemu.gameserver.network.aion.serverpackets.SM_ALLIANCE_INFO.lootRules
 - `com.aionemu.gameserver.model.team.group.PlayerGroup` (game-server/src/com/aionemu/gameserver/model/team/group/PlayerGroup.java:10): same class tree as com.aionemu.gameserver.model.gameobjects.player.Player: static field admincommands.FixPath.runner
 - `com.aionemu.gameserver.model.team.group.PlayerGroupMember` (game-server/src/com/aionemu/gameserver/model/team/group/PlayerGroupMember.java:9): same class tree as com.aionemu.gameserver.model.team.PlayerTeamMember: implements com.aionemu.gameserver.model.team.TeamMember (member of com.aionemu.gameserver.model.team.GeneralTeam.members)
 - `com.aionemu.gameserver.model.team.group.PlayerGroupStats` (game-server/src/com/aionemu/gameserver/model/team/group/PlayerGroupStats.java:8): member of com.aionemu.gameserver.model.team.group.PlayerGroup.playerGroupStats
 - `com.aionemu.gameserver.model.team.group.events.PlayerGroupInvite` (game-server/src/com/aionemu/gameserver/model/team/group/events/PlayerGroupInvite.java:15): same class tree as ai.portals.PortalRequestAI$1: stored anonymous class at game-server/data/handlers/ai/portals/PortalRequestAI.java:30
-- `com.aionemu.gameserver.model.team.group.events.PlayerGroupLeavedEvent` (game-server/src/com/aionemu/gameserver/model/team/group/events/PlayerGroupLeavedEvent.java:17): same class tree as com.aionemu.gameserver.model.team.common.events.PlayerLeavedEvent: captured by lambda at game-server/src/com/aionemu/gameserver/model/team/common/events/PlayerLeavedEvent.java:61
 - `com.aionemu.gameserver.model.team.league.League` (game-server/src/com/aionemu/gameserver/model/team/league/League.java:24): same class tree as com.aionemu.gameserver.model.gameobjects.player.Player: static field admincommands.FixPath.runner
 - `com.aionemu.gameserver.model.team.league.LeagueMember` (game-server/src/com/aionemu/gameserver/model/team/league/LeagueMember.java:9): implements com.aionemu.gameserver.model.team.TeamMember (member of com.aionemu.gameserver.model.team.GeneralTeam.members)
 - `com.aionemu.gameserver.model.team.league.events.LeagueInviteEvent` (game-server/src/com/aionemu/gameserver/model/team/league/events/LeagueInviteEvent.java:13): same class tree as ai.portals.PortalRequestAI$1: stored anonymous class at game-server/data/handlers/ai/portals/PortalRequestAI.java:30
@@ -4777,7 +4777,7 @@ reason found by the fixpoint. K1 source: cpp/game-server/generated/staticdata-cl
 
 - `ai.instance.dragonLordsRefuge.TiamatWeakenedDragonAI.hasAggro` `AtomicBoolean` → `Field<Ref<Rc<AtomicBoolean>>>`: nonFinalAtomic
 - `com.aionemu.gameserver.ai.AIState.handledAiEvents` `EnumSet<AIEventType>` → `EnumSet<AIEventType>`: noShim
-- `com.aionemu.gameserver.ai.NpcAI.apRewardingRaces` `EnumSet<Race>` → `static inline EnumSet<Race>`: noShim
+- `com.aionemu.gameserver.ai.NpcAI.apRewardingRaces` `EnumSet<Race>` → `static const std::set<Race>`: noShim
 - `com.aionemu.gameserver.cache.HTMLCache.HTML_FILTER` `FileFilter` → `static inline const FileFilter`: externalType
 - `com.aionemu.gameserver.controllers.movement.CreatureMoveController.started` `AtomicBoolean` → `Field<Ref<Rc<AtomicBoolean>>>`: nonFinalAtomic
 - `com.aionemu.gameserver.custom.instance.neuralnetwork.PlayerModelEntry.timestamp` `Timestamp` → `const Timestamp`: externalType
@@ -4811,17 +4811,17 @@ reason found by the fixpoint. K1 source: cpp/game-server/generated/staticdata-cl
 - `com.aionemu.gameserver.model.gameobjects.BrokerItem.PIECE_PRICE_SORT_DESC` `Comparator<BrokerItem>` → `static inline Field<std::shared_ptr<const PinnedCallback<int32_t(BrokerItem&, BrokerItem&)>>>`: callbackField
 - `com.aionemu.gameserver.model.gameobjects.BrokerItem.LEVEL_SORT_ASC` `Comparator<BrokerItem>` → `static inline Field<std::shared_ptr<const PinnedCallback<int32_t(BrokerItem&, BrokerItem&)>>>`: callbackField
 - `com.aionemu.gameserver.model.gameobjects.BrokerItem.LEVEL_SORT_DESC` `Comparator<BrokerItem>` → `static inline Field<std::shared_ptr<const PinnedCallback<int32_t(BrokerItem&, BrokerItem&)>>>`: callbackField
-- `com.aionemu.gameserver.model.gameobjects.DropNpc.lootingTeam` `WeakReference<TemporaryPlayerTeam<? extends TeamMember<Player>>>` → `Field<WeakReference>`: externalType
+- `com.aionemu.gameserver.model.gameobjects.DropNpc.lootingTeam` `WeakReference<TemporaryPlayerTeam<? extends TeamMember<Player>>>` → `Field<Ref<TemporaryPlayerTeam>>`: externalType
 - `com.aionemu.gameserver.model.gameobjects.Letter.timeStamp` `Timestamp` → `const Timestamp`: externalType
 - `com.aionemu.gameserver.model.gameobjects.StaticDoor.states` `EnumSet<StaticDoorState>` → `EnumSet<StaticDoorState>`: noShim
 - `com.aionemu.gameserver.model.gameobjects.player.PetCommonData.birthday` `Timestamp` → `Field<Timestamp>`: externalType
 - `com.aionemu.gameserver.model.gameobjects.player.PetCommonData.despawnTime` `Timestamp` → `Field<Timestamp>`: externalType
-- `com.aionemu.gameserver.model.gameobjects.player.PlayerCommonData.lastOnline` `Timestamp` → `Field<Timestamp>`: externalType
+- `com.aionemu.gameserver.model.gameobjects.player.PlayerCommonData.lastOnline` `Timestamp` → `Field<std::optional<Timestamp>>`: externalType
 - `com.aionemu.gameserver.model.geometry.Polygon2D.bounds` `Rectangle2D` → `/* Rectangle2D */`: unresolved
 - `com.aionemu.gameserver.model.geometry.Polygon2D.path` `GeneralPath` → `/* GeneralPath */`: unresolved
 - `com.aionemu.gameserver.model.geometry.Polygon2D.closedPath` `GeneralPath` → `/* GeneralPath */`: unresolved
-- `com.aionemu.gameserver.model.house.House.acquiredTime` `Timestamp` → `Field<Timestamp>`: externalType
-- `com.aionemu.gameserver.model.house.House.nextPay` `Timestamp` → `Field<Timestamp>`: externalType
+- `com.aionemu.gameserver.model.house.House.acquiredTime` `Timestamp` → `Field<std::optional<Timestamp>>`: externalType
+- `com.aionemu.gameserver.model.house.House.nextPay` `Timestamp` → `Field<std::optional<Timestamp>>`: externalType
 - `com.aionemu.gameserver.model.legionDominion.LegionDominionLocation.occupiedDate` `Timestamp` → `Field<Timestamp>`: externalType
 - `com.aionemu.gameserver.model.legionDominion.LegionDominionParticipantInfo.date` `Timestamp` → `Field<Timestamp>`: externalType
 - `com.aionemu.gameserver.model.team.legion.Legion.Announcement.time` `Timestamp` → `const Timestamp`: externalType
@@ -4831,20 +4831,20 @@ reason found by the fixpoint. K1 source: cpp/game-server/generated/staticdata-cl
 - `com.aionemu.gameserver.network.chatserver.CsClientPacketFactory.PacketInfo.packetConstructor` `Constructor<T>` → `const Constructor`: externalType
 - `com.aionemu.gameserver.network.loginserver.LsClientPacketFactory.PacketInfo.packetConstructor` `Constructor<T>` → `const Constructor`: externalType
 - `com.aionemu.gameserver.network.sequrity.NetFlusher._timer` `Timer` → `static inline const Timer`: externalType
-- `com.aionemu.gameserver.questEngine.QuestEngine.messageTask` `JobDetail` → `Field<JobDetail>`: externalType
-- `com.aionemu.gameserver.questEngine.model.QuestState.completeTime` `Timestamp` → `Field<Timestamp>`: externalType
-- `com.aionemu.gameserver.questEngine.model.QuestState.nextRepeatTime` `Timestamp` → `Field<Timestamp>`: externalType
-- `com.aionemu.gameserver.services.AtreianPassportService.cronInfo` `JobDetail` → `Field<JobDetail>`: externalType
+- `com.aionemu.gameserver.questEngine.QuestEngine.messageTask` `JobDetail` → `Field<Ref<JobDetail>>`: externalType
+- `com.aionemu.gameserver.questEngine.model.QuestState.completeTime` `Timestamp` → `Field<std::optional<Timestamp>>`: externalType
+- `com.aionemu.gameserver.questEngine.model.QuestState.nextRepeatTime` `Timestamp` → `Field<std::optional<Timestamp>>`: externalType
+- `com.aionemu.gameserver.services.AtreianPassportService.cronInfo` `JobDetail` → `Field<Ref<JobDetail>>`: externalType
 - `com.aionemu.gameserver.services.SiegeService.SIEGE_LOCATION_STATUS_BROADCAST_SCHEDULE` `CronExpression` → `static inline const CronExpression`: externalType
-- `com.aionemu.gameserver.services.SiegeService.nextStateUpdateTime` `Date` → `Field<Date>`: externalType
+- `com.aionemu.gameserver.services.SiegeService.nextStateUpdateTime` `Date` → `Field<Timestamp>`: externalType
 - `com.aionemu.gameserver.services.cron.CronService.timeZone` `TimeZone` → `const TimeZone`: externalType
 - `com.aionemu.gameserver.services.cron.CronService.scheduler` `Scheduler` → `const Scheduler`: externalType
-- `com.aionemu.gameserver.services.event.EventService.checkTask` `JobDetail` → `Field<JobDetail>`: externalType
+- `com.aionemu.gameserver.services.event.EventService.checkTask` `JobDetail` → `Field<Ref<JobDetail>>`: externalType
 - `com.aionemu.gameserver.services.instance.InstanceScaler.scalings` `Map<WorldMapInstance, Scaling>` → `static inline WeakHashMap<Ref<WorldMapInstance>, Ref<InstanceScaler::Scaling>>`: noShim
 - `com.aionemu.gameserver.taskmanager.AbstractCronTask.cronExpression` `CronExpression` → `const CronExpression`: externalType
-- `com.aionemu.gameserver.taskmanager.AbstractCronTask.lastPlannedRunBeforeServerStart` `Date` → `const Date`: externalType
-- `com.aionemu.gameserver.taskmanager.AbstractCronTask.lastRun` `Date` → `Field<Date>`: externalType
-- `com.aionemu.gameserver.taskmanager.AbstractCronTask.nextRun` `Date` → `Field<Date>`: externalType
+- `com.aionemu.gameserver.taskmanager.AbstractCronTask.lastPlannedRunBeforeServerStart` `Date` → `const Timestamp`: externalType
+- `com.aionemu.gameserver.taskmanager.AbstractCronTask.lastRun` `Date` → `Field<Timestamp>`: externalType
+- `com.aionemu.gameserver.taskmanager.AbstractCronTask.nextRun` `Date` → `Field<Timestamp>`: externalType
 - `com.aionemu.gameserver.utils.ChatUtil.DF` `DecimalFormat` → `static inline const DecimalFormat`: externalType
 - `com.aionemu.gameserver.utils.ThreadPoolManager.scheduledPool` `ScheduledThreadPoolExecutor` → `const ScheduledThreadPoolExecutor`: externalType
 - `com.aionemu.gameserver.utils.ThreadPoolManager.instantPool` `ThreadPoolExecutor` → `const ThreadPoolExecutor`: externalType

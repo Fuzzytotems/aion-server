@@ -37,7 +37,7 @@ private:
 	//   FooService.java:31  private volatile Future<?> task;
 	FooService();
 public:
-	void observe(runtime::Ptr<model::gameobjects::player::Player> player);
+	void observe(model::gameobjects::player::Player& player);
 	// TODO(signature): no C++ mapping for java.lang.Runnable: public void schedule(Runnable r)
 	runtime::FutureRef getTask() const; // trivial accessor of task: inline once the member exists
 	network::aion::serverpackets::SM_FOO packet(int32_t value);

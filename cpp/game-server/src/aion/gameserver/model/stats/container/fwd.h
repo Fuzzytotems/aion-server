@@ -7,8 +7,8 @@
 namespace aion::gameserver::model::stats::container {
 
 enum class CombatMode : std::uint8_t;
-template <class T> class CreatureGameStats;
-template <class T> class CreatureLifeStats;
+class CreatureGameStats;
+class CreatureLifeStats;
 class HomingGameStats;
 class NpcGameStats;
 class NpcLifeStats;

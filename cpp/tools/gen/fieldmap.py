@@ -43,6 +43,9 @@ What it computes
 6. Capture-aware retaining graph and cycles (§5.3): nodes are K3/K4 classes and stored lambda/method-reference sites; edges are retaining
    fields (targets expanded to all subtypes), part edges, captured variables, 'extends' (a subclass contains its superclass part) and
    'stored' (storage owner -> callback). Every field or capture edge inside a strongly connected component needs a cycles.toml resolution.
+   A retaining field or capture whose target is a part class also retains the part's owners (OwnedPart::retain forwards to the owner, §2.3).
+   Captured immortals and singletons are not retained (pinned pointers, like fields). A fieldmap.toml [fields] cpp spelling that names the
+   target only as X*, Final<X*>, OwnerRef<X> or weak_ptr<X> makes the field non-retaining.
 
 Outputs (cpp/game-server/generated/concurrency, override with --out)
     fieldmap.json      {format: aion-fieldmap, version, inputs, summary, classes{cid: {...}}, callbacks{id: {...}}, cycleEdges{key: {...}}}
@@ -2707,11 +2710,28 @@ class FieldMap:
             return
         if fi.cpp is None:
             return
+        override = self.cfg['fields'].get(f'{fi.ci.cid}.{fi.name}', {}).get('cpp')
         out = []
         for c in self._type_classes(fi.jt, generic_args=False):
             if c.kind in (K3, K4) and not c.scalar_like and not (c.immortal or c.singleton):
-                out.append(c.cid)
+                if override is None or self._spelling_retains(override, c):
+                    out.append(c.cid)
         fi.retains = sorted(set(out))
+
+    @staticmethod
+    def _spelling_retains(cpp, c):
+        """False when a fieldmap.toml C++ spelling names class c only in non-retaining positions (X*, OwnerRef<X>, Final<X*>, weak_ptr<X>).
+        A spelling that does not name c at all keeps the Java type's retaining edge (conservative)."""
+        name = c.cpp_name.split('::')[-1]
+        found = False
+        for m in re.finditer(rf'(?<![\w:])(?:\w+::)*{re.escape(name)}(?!\w)', cpp):
+            found = True
+            before = cpp[:m.start()]
+            after = cpp[m.end():]
+            if re.match(r'\s*\*', after) or re.search(r'(?:OwnerRef|weak_ptr)<\s*(?:const\s+)?$', before):
+                continue
+            return True
+        return not found
 
     # -- equals and synchronization
     def overrides_info(self, ci):
@@ -2778,6 +2798,23 @@ class FieldMap:
         def expand(ci):
             return [s for s in self.all_subtypes(ci) if s.kind in (K3, K4)]
 
+        # a retaining reference to a part retains the part's owner (OwnedPart::retain forwards to the owner, design §2.3)
+        owners_of_part = {}
+        for p in self.parts.values():
+            family = self._owner_family(p)
+            for pt in p.part_types:
+                for sub in self.all_subtypes(self.classes[pt]):
+                    owners_of_part.setdefault(sub.cid, set()).update(family)
+
+        def retained(ci):
+            out = []
+            for s in expand(ci):
+                out.append(s.cid)
+                for o in sorted(owners_of_part.get(s.cid, ())):
+                    if self.classes[o].kind in (K3, K4):
+                        out.append(o)
+            return out
+
         shared = [ci for ci in sorted(self.classes.values(), key=lambda c: c.cid) if ci.kind in (K3, K4) and ci.origin == 'output']
         for ci in shared:
             if ci.superclass is not None and ci.superclass.kind in (K3, K4):
@@ -2790,15 +2827,19 @@ class FieldMap:
                 if fi.part is not None:
                     targets |= set(fi.part.part_types)
                 for t in sorted(targets):
-                    for s in expand(self.classes[t]):
-                        add(ci.cid, s.cid, f'{ci.cid}.{fi.name}', kind)
+                    if kind == 'part':
+                        for s in expand(self.classes[t]):
+                            add(ci.cid, s.cid, f'{ci.cid}.{fi.name}', kind)
+                    else:
+                        for s in retained(self.classes[t]):
+                            add(ci.cid, s, f'{ci.cid}.{fi.name}', kind)
             for cap in ci.captures:
                 if cap.cpp and cap.cpp.startswith('OwnerRef'):
                     continue
                 for c in self._type_classes(cap.jt, generic_args=False):
-                    if c.kind in (K3, K4) and not c.scalar_like:
-                        for s in expand(c):
-                            add(ci.cid, s.cid, f'{ci.cid}#{cap.name}', 'capture')
+                    if c.kind in (K3, K4) and not c.scalar_like and not (c.immortal or c.singleton):
+                        for s in retained(c):
+                            add(ci.cid, s, f'{ci.cid}#{cap.name}', 'capture')
         for cb in sorted(self.callbacks.values(), key=lambda c: c.id):
             if cb.storage in ('sync', 'local') or not cb.owners:
                 continue
@@ -2814,9 +2855,9 @@ class FieldMap:
                     if cap.cpp and cap.cpp.startswith('OwnerRef'):
                         continue
                     for c in self._type_classes(cap.jt, generic_args=False):
-                        if c.kind in (K3, K4) and not c.scalar_like:
-                            for s in expand(c):
-                                add(target, s.cid, f'{cb.id}#{cap.name}', 'capture')
+                        if c.kind in (K3, K4) and not c.scalar_like and not (c.immortal or c.singleton):
+                            for s in retained(c):
+                                add(target, s, f'{cb.id}#{cap.name}', 'capture')
         for u in edges:
             edges[u] = sorted(set(edges[u]))
         order = sorted(nodes)

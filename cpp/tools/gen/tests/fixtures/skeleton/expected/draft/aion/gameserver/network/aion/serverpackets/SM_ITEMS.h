@@ -20,14 +20,14 @@ public:
 private:
 	std::vector<runtime::Ref<model::gameobjects::player::Player>> players{};
 public:
-	explicit SM_ITEMS(const std::vector<runtime::Ref<model::gameobjects::player::Player>>& players);
+	explicit SM_ITEMS(const std::vector<runtime::Ptr<model::gameobjects::player::Player>>& players);
 protected:
 	void writeImpl(AionConnection* con) override;
 };
 
 class SM_ITEMS::Page : public SM_ITEMS {
 public:
-	Page(const std::vector<runtime::Ref<model::gameobjects::player::Player>>& players, int32_t page);
+	Page(const std::vector<runtime::Ptr<model::gameobjects::player::Player>>& players, int32_t page);
 private:
 	/** Constructor stubs bind arguments and reference members to this: AION_UNPORTED() throws first. */
 	template <class U>

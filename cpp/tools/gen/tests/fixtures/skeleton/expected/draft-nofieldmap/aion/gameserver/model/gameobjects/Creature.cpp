@@ -13,7 +13,7 @@ int32_t Creature::Stats::getHp() const {
 	AION_UNPORTED();
 }
 
-Creature::Creature(int32_t value, const std::vector<runtime::Ref<controllers::observer::ActionObserver>>& observersValue) : AionObject(int32_t{}) {
+Creature::Creature(int32_t value, const std::vector<runtime::Ptr<controllers::observer::ActionObserver>>& observersValue) : AionObject(int32_t{}) {
 	AION_UNPORTED();
 }
 
@@ -41,7 +41,7 @@ void Creature::onSpawn() {
 	AION_UNPORTED();
 }
 
-void Creature::onDie(runtime::Ptr<Creature> lastAttacker) {
+void Creature::onDie(Creature& lastAttacker) {
 	AION_UNPORTED();
 }
 

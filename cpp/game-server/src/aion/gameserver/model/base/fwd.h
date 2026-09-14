@@ -6,7 +6,7 @@
 
 namespace aion::gameserver::model::base {
 
-template <class T> class Base;
+class Base;
 enum class BaseColorType : std::uint8_t;
 class BaseException;
 class BaseLocation;

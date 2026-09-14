@@ -108,8 +108,8 @@ set_target_properties(aion_game_server PROPERTIES VS_DEBUGGER_WORKING_DIRECTORY 
 aion_copy_asan_runtime(aion_game_server)
 
 # ---------------------------------------------------------------------------------------------------------------------------------------------
-# aion_gs_header_check (§2.5, §3.1 item 7): one translation unit per spine header, compiled with /W4 /WX. Part of ALL: the 519 TUs take about
-# 7 s wall in Debug and recompile only when the headers they include change.
+# aion_gs_header_check (§2.5, §3.1 item 7): one translation unit per spine header, compiled with /W4 /WX. Part of ALL: the 519 S0a TUs take
+# about 7 s wall in Debug and recompile only when the headers they include change; S0b adds up to 64 hub headers.
 # ---------------------------------------------------------------------------------------------------------------------------------------------
 file(GLOB_RECURSE gs_fwd_headers CONFIGURE_DEPENDS LIST_DIRECTORIES false RELATIVE "${GS_SRC}" "${GS_SRC}/*/fwd.h")
 file(GLOB_RECURSE gs_preludes CONFIGURE_DEPENDS LIST_DIRECTORIES false RELATIVE "${GS_HANDLERS}" "${GS_HANDLERS}/*Prelude.h")
@@ -125,8 +125,98 @@ endforeach()
 list(SORT gs_fwd_headers)
 list(SORT gs_preludes)
 list(SORT gs_enum_headers)
+# Spine step S0b hub headers (docs/design/hub-headers.md): skeleton.py HUBS without the enums xmlgen generates (checked above), plus the kernel
+# ports ThreadPoolManager and IDFactory. The list is explicit and tolerates headers that do not exist yet (S0b groups write them in parallel):
+# each entry is a CONFIGURE_DEPENDS glob matching exactly that file (`X.[h]`), so a header that appears later re-runs the configure step on
+# the next build and joins the check. tools/gen/tests/test_skeleton_tree.py keeps the list equal to HUBS.
+set(gs_hub_headers
+	aion/gameserver/ai/AI.h
+	aion/gameserver/ai/AITemplate.h
+	aion/gameserver/ai/AbstractAI.h
+	aion/gameserver/ai/NpcAI.h
+	aion/gameserver/controllers/CreatureController.h
+	aion/gameserver/controllers/NpcController.h
+	aion/gameserver/controllers/ObserveController.h
+	aion/gameserver/controllers/PlayerController.h
+	aion/gameserver/controllers/VisibleObjectController.h
+	aion/gameserver/controllers/attack/AggroList.h
+	aion/gameserver/controllers/effect/EffectController.h
+	aion/gameserver/controllers/movement/CreatureMoveController.h
+	aion/gameserver/controllers/observer/ActionObserver.h
+	aion/gameserver/dataholders/DataManager.h
+	aion/gameserver/instance/handlers/GeneralInstanceHandler.h
+	aion/gameserver/instance/handlers/InstanceHandler.h
+	aion/gameserver/model/gameobjects/AionObject.h
+	aion/gameserver/model/gameobjects/Creature.h
+	aion/gameserver/model/gameobjects/Item.h
+	aion/gameserver/model/gameobjects/Npc.h
+	aion/gameserver/model/gameobjects/Persistable.h
+	aion/gameserver/model/gameobjects/Summon.h
+	aion/gameserver/model/gameobjects/VisibleObject.h
+	aion/gameserver/model/gameobjects/player/Player.h
+	aion/gameserver/model/gameobjects/player/PlayerCommonData.h
+	aion/gameserver/model/house/House.h
+	aion/gameserver/model/items/storage/IStorage.h
+	aion/gameserver/model/items/storage/Storage.h
+	aion/gameserver/model/stats/calc/Stat2.h
+	aion/gameserver/model/stats/container/CreatureGameStats.h
+	aion/gameserver/model/stats/container/CreatureLifeStats.h
+	aion/gameserver/model/team/TemporaryPlayerTeam.h
+	aion/gameserver/model/templates/spawns/SpawnGroup.h
+	aion/gameserver/model/templates/spawns/SpawnTemplate.h
+	aion/gameserver/network/aion/AionClientPacket.h
+	aion/gameserver/network/aion/AionConnection.h
+	aion/gameserver/network/aion/AionServerPacket.h
+	aion/gameserver/questEngine/QuestEngine.h
+	aion/gameserver/questEngine/handlers/AbstractQuestHandler.h
+	aion/gameserver/questEngine/model/QuestEnv.h
+	aion/gameserver/questEngine/model/QuestState.h
+	aion/gameserver/skillengine/SkillEngine.h
+	aion/gameserver/skillengine/effect/EffectTemplate.h
+	aion/gameserver/skillengine/model/Effect.h
+	aion/gameserver/skillengine/model/Skill.h
+	aion/gameserver/skillengine/model/SkillTemplate.h
+	aion/gameserver/spawnengine/SpawnEngine.h
+	aion/gameserver/utils/PacketSendUtility.h
+	aion/gameserver/utils/ThreadPoolManager.h
+	aion/gameserver/utils/chathandlers/AdminCommand.h
+	aion/gameserver/utils/chathandlers/ChatCommand.h
+	aion/gameserver/utils/chathandlers/ConsoleCommand.h
+	aion/gameserver/utils/chathandlers/PlayerCommand.h
+	aion/gameserver/utils/idfactory/IDFactory.h
+	aion/gameserver/world/MapRegion.h
+	aion/gameserver/world/World.h
+	aion/gameserver/world/WorldMapInstance.h
+	aion/gameserver/world/WorldPosition.h
+	aion/gameserver/world/geo/GeoService.h
+	aion/gameserver/world/knownlist/KnownList.h
+	aion/gameserver/world/zone/ZoneInstance.h
+	aion/gameserver/world/zone/ZoneName.h
+	aion/gameserver/world/zone/handler/QuestZoneHandler.h
+	aion/gameserver/world/zone/handler/ZoneHandler.h
+)
+# C++-only spine headers the hubs and HandlerRegistry.h depend on (skeleton.py SPINE_HEADERS, hub-headers.md §3.4): frozen with the spine and
+# checked alone the same way.
+set(gs_spine_headers
+	aion/gameserver/model/Expirable.h
+	aion/gameserver/model/GameEngine.h
+	aion/gameserver/model/gameobjects/player/LogoutBreakers.h
+	aion/gameserver/model/stats/calc/StatOwner.h
+	aion/gameserver/model/team/GeneralTeam.h
+	aion/gameserver/model/team/TeamMember.h
+	aion/gameserver/model/templates/L10n.h
+	aion/gameserver/network/aion/SerializedBody.h
+	aion/gameserver/network/aion/StateSet.h
+	aion/gameserver/world/zone/handler/GeneralZoneHandler.h
+)
+set(gs_existing_hub_headers)
+foreach(header IN LISTS gs_hub_headers gs_spine_headers)
+	string(REGEX REPLACE "\\.h$" ".[h]" pattern "${header}")
+	file(GLOB found CONFIGURE_DEPENDS LIST_DIRECTORIES false RELATIVE "${GS_SRC}" "${GS_SRC}/${pattern}")
+	list(APPEND gs_existing_hub_headers ${found})
+endforeach()
 aion_gs_header_check(aion_gs_header_check
-	HEADERS ${gs_fwd_headers} ${gs_enum_headers} ${gs_preludes}
+	HEADERS ${gs_fwd_headers} ${gs_enum_headers} ${gs_preludes} ${gs_existing_hub_headers}
 		aion/gameserver/handlers/HandlerRegistry.h aion/gameserver/runtime/base/Unported.h aion/gameserver/runtime/services/RuntimeLifecycle.h
 	INCLUDE_DIRECTORIES "${GS_HANDLERS}"
 	LINK aion_gs_core_deps
@@ -134,7 +224,12 @@ aion_gs_header_check(aion_gs_header_check
 list(LENGTH gs_fwd_headers gs_fwd_count)
 list(LENGTH gs_enum_headers gs_enum_count)
 list(LENGTH gs_preludes gs_prelude_count)
-message(STATUS "aion_gs_header_check: ${gs_fwd_count} forward headers, ${gs_enum_count} generated enum headers, ${gs_prelude_count} preludes, 3 spine headers")
+list(LENGTH gs_hub_headers gs_hub_count)
+list(LENGTH gs_spine_headers gs_spine_count)
+math(EXPR gs_hub_count "${gs_hub_count} + ${gs_spine_count}")
+list(LENGTH gs_existing_hub_headers gs_existing_hub_count)
+message(STATUS "aion_gs_header_check: ${gs_fwd_count} forward headers, ${gs_enum_count} generated enum headers, ${gs_prelude_count} preludes, "
+	"3 runtime headers, ${gs_existing_hub_count} of ${gs_hub_count} hub and spine headers")
 
 # ---------------------------------------------------------------------------------------------------------------------------------------------
 # Tests that are not the unit tests of one chunk target

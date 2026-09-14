@@ -10,7 +10,7 @@ void ActionObserver::moved() {
 	AION_UNPORTED();
 }
 
-void ActionObserver::attacked(runtime::Ptr<model::gameobjects::Creature> creature) {
+void ActionObserver::attacked(model::gameobjects::Creature& creature) {
 	AION_UNPORTED();
 }
 

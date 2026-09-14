@@ -33,7 +33,7 @@ class PrivateStore;
 class QuestStateList;
 enum class Rates : std::uint8_t;
 class RecipeList;
-template <class T> class RequestResponseHandler;
+class RequestResponseHandler;
 class ResponseRequester;
 enum class ReviveType : std::uint8_t;
 

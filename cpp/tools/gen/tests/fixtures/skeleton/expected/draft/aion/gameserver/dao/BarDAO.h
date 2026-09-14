@@ -20,7 +20,7 @@ namespace aion::gameserver::dao {
 class BarDAO {
 public:
 	static bool isNameUsed(std::string_view name);
-	static void storePlayer(runtime::Ptr<model::gameobjects::player::Player> player, std::optional<commons::database::Timestamp> lastOnline);
+	static void storePlayer(model::gameobjects::player::Player& player, std::optional<commons::database::Timestamp> lastOnline);
 	static std::vector<int32_t> loadIds(std::span<const uint8_t> data);
 	static std::unordered_set<model::Race> races();
 };

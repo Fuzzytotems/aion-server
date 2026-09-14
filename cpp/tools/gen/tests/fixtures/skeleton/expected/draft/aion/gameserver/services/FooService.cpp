@@ -14,7 +14,7 @@ FooService::FooService() {
 	AION_UNPORTED();
 }
 
-void FooService::observe(runtime::Ptr<model::gameobjects::player::Player> player) {
+void FooService::observe(model::gameobjects::player::Player& player) {
 	AION_UNPORTED();
 }
 

@@ -4,11 +4,11 @@
 
 namespace aion::gameserver::controllers::movement {
 
-template <class T> class CreatureMoveController;
+class CreatureMoveController;
 class GlideFlag;
 class MovementMask;
 class NpcMoveController;
-template <class T> class PlayableMoveController;
+class PlayableMoveController;
 class PlayerMoveController;
 class SiegeWeaponMoveController;
 class SummonMoveController;

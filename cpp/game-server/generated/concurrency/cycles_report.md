@@ -6,7 +6,7 @@ expanded to every K3/K4 subtype), `capture` (captured variable of a stored lambd
 `field` and `capture` edge inside a strongly connected component needs a `cycles.toml` resolution:
 `part` | `java-hook: <method>` | `cpp-breaker: <method>` | `zombie-safe: <edge>` | `accepted: <why>`.
 
-Components with cycles: 97. Edges needing a resolution: 696, unresolved: 687. Stale cycles.toml keys: 0.
+Components with cycles: 11. Edges needing a resolution: 673, unresolved: 376. Stale cycles.toml keys: 0.
 
 Resolution skeleton for cycles.toml (copy the unresolved keys and fill in the value):
 
@@ -16,15 +16,20 @@ Resolution skeleton for cycles.toml (copy the unresolved keys and fill in the va
 # "ai.ActionItemNpcAI$1#this" = "cpp-breaker: LogoutBreakers::run / onDelete clear observers without notification (design §5.1)"
 # "ai.ActionItemNpcAI.observers" = ""
 # "ai.ArtifactAI$1#player" = "cpp-breaker: LogoutBreakers::run / onDelete clear observers without notification (design §5.1)"
+# "ai.ArtifactAI$1#this" = "cpp-breaker: LogoutBreakers::run / onDelete clear observers without notification (design §5.1)"
+# "ai.ArtifactAI$2#this" = "cpp-breaker: LogoutBreakers::run / onDelete clear observers without notification (design §5.1)"
 # "ai.ArtifactAI$4#loc" = "cpp-breaker: LogoutBreakers::run / onDelete clear observers without notification (design §5.1)"
 # "ai.ArtifactAI$4#player" = "cpp-breaker: LogoutBreakers::run / onDelete clear observers without notification (design §5.1)"
+# "ai.ArtifactAI$4#this" = "cpp-breaker: LogoutBreakers::run / onDelete clear observers without notification (design §5.1)"
 # "ai.BombAI@L33:52#this" = "accepted: one-shot task releases its captures when it runs or is cancelled"
 # "ai.BombAI@L77:52#this" = "accepted: one-shot task releases its captures when it runs or is cancelled"
 # "ai.ConquestOfferingAggressiveAI.spawner" = ""
 # "ai.ConquestOfferingBuffNpcAI@L31:58#this" = "accepted: one-shot task releases its captures when it runs or is cancelled"
 # "ai.ConquestOfferingSpawnerAI@L131:59#this" = "accepted: one-shot task releases its captures when it runs or is cancelled"
+# "ai.KiskAI$1#this" = "cpp-breaker: LogoutBreakers::run / onDelete clear observers without notification (design §5.1)"
 # "ai.ServantNpcAI@L70:67#target" = "java-hook: cancel of the periodic task held by field ServantNpcAI.skillTask"
 # "ai.ServantNpcAI@L70:67#this" = "java-hook: cancel of the periodic task held by field ServantNpcAI.skillTask"
+# "ai.SkillCooltimeResetAI$1#this" = "cpp-breaker: LogoutBreakers::run / onDelete clear observers without notification (design §5.1)"
 # "ai.TrapNpcAI@L80:59#this" = "accepted: one-shot task releases its captures when it runs or is cancelled"
 # "ai.events.WorldRaidAI.effectNpc" = ""
 # "ai.events.WorldRaidAI@L32:68#this" = "accepted: one-shot task releases its captures when it runs or is cancelled"
@@ -53,6 +58,7 @@ Resolution skeleton for cycles.toml (copy the unresolved keys and fill in the va
 # "ai.instance.danuarReliquary.EnragedQueenModorAI@L202:65#this" = "accepted: one-shot task releases its captures when it runs or is cancelled"
 # "ai.instance.danuarReliquary.VengefulOrbAI$1#this" = "accepted: one-shot task releases its captures when it runs or is cancelled"
 # "ai.instance.danuarSanctuary.SiegeDrill$1#player" = "cpp-breaker: LogoutBreakers::run / onDelete clear observers without notification (design §5.1)"
+# "ai.instance.danuarSanctuary.SiegeDrill$1#this" = "cpp-breaker: LogoutBreakers::run / onDelete clear observers without notification (design §5.1)"
 # "ai.instance.darkPoeta.CalindiFlamelordAI@L35:55#this" = "accepted: one-shot task releases its captures when it runs or is cancelled"
 # "ai.instance.darkPoeta.MarabataAI@L30:79#this" = "java-hook: cancel of the periodic task held by field MarabataAI.boosterLifeCheckTask"
 # "ai.instance.darkPoeta.TahabataPyrelordAI@L35:55#this" = "accepted: one-shot task releases its captures when it runs or is cancelled"
@@ -167,6 +173,7 @@ Resolution skeleton for cycles.toml (copy the unresolved keys and fill in the va
 # "ai.instance.theShugoEmperorsVault.IDSweep_HealTower@L27:66#this" = "java-hook: cancel of the periodic task held by field IDSweep_HealTower.schedule"
 # "ai.instance.theShugoEmperorsVault.RuthlessJabaraki.spawnedAdds" = ""
 # "ai.instance.theShugoEmperorsVault.ShugoMorpher$1#player" = "cpp-breaker: LogoutBreakers::run / onDelete clear observers without notification (design §5.1)"
+# "ai.instance.theShugoEmperorsVault.ShugoMorpher$1#this" = "cpp-breaker: LogoutBreakers::run / onDelete clear observers without notification (design §5.1)"
 # "ai.instance.tiamatStrongHold.BladeStormAI@L27:66#this" = "java-hook: cancel of the periodic task held by field BladeStormAI.spinTask"
 # "ai.instance.tiamatStrongHold.BrigadeGeneralChantraAI$1#this" = "java-hook: cancel of the periodic task held by field BrigadeGeneralChantraAI.trapTask"
 # "ai.instance.tiamatStrongHold.BrigadeGeneralLaksyakaAI$1#this" = "java-hook: cancel of the periodic task held by field BrigadeGeneralLaksyakaAI.skeletonTask"
@@ -174,6 +181,7 @@ Resolution skeleton for cycles.toml (copy the unresolved keys and fill in the va
 # "ai.instance.tiamatStrongHold.BrigadeGeneralTahabataAI@L53:71#this" = "java-hook: cancel of the periodic task held by field BrigadeGeneralTahabataAI.fireStormTask"
 # "ai.instance.tiamatStrongHold.BrigadeGeneralTerathAI.aethericField" = ""
 # "ai.instance.tiamatStrongHold.BrigadeGeneralTerathAI@L64:67#this" = "java-hook: cancel of the periodic task held by field BrigadeGeneralTerathAI.skillTask"
+# "ai.instance.tiamatStrongHold.CapturedDrakanScientistAI@L44:56#this" = ""
 # "ai.instance.tiamatStrongHold.DistortedSpaceAI@L31:62#this" = "java-hook: cancel of the periodic task held by field DistortedSpaceAI.task"
 # "ai.instance.tiamatStrongHold.ElectrocuteAI@L27:62#this" = "java-hook: cancel of the periodic task held by field ElectrocuteAI.task"
 # "ai.instance.tiamatStrongHold.FireStormAI@L28:62#this" = "java-hook: cancel of the periodic task held by field FireStormAI.task"
@@ -191,6 +199,7 @@ Resolution skeleton for cycles.toml (copy the unresolved keys and fill in the va
 # "ai.instance.unstableSplinterpath.UnstableYamennesAI@L44:57#this" = "accepted: one-shot task releases its captures when it runs or is cancelled"
 # "ai.instance.unstableSplinterpath.UnstableYamennesAI@L75:57#this" = "accepted: one-shot task releases its captures when it runs or is cancelled"
 # "ai.portals.DramataPortalAI.targetLocation" = ""
+# "ai.portals.GroupGateAI$1#this" = "cpp-breaker: LogoutBreakers::run / onDelete clear observers without notification (design §5.1)"
 # "ai.portals.HouseGateAI$1#house" = "cpp-breaker: LogoutBreakers::run / onDelete clear observers without notification (design §5.1)"
 # "ai.quests.GarnonQ20060AI$1#this" = "accepted: one-shot task releases its captures when it runs or is cancelled"
 # "ai.quests.NidalberBalaurAI.questNpc" = ""
@@ -199,351 +208,31 @@ Resolution skeleton for cycles.toml (copy the unresolved keys and fill in the va
 # "ai.siege.EmpoweredAgent@L124:62#this" = "accepted: one-shot task releases its captures when it runs or is cancelled"
 # "ai.siege.EmpoweredAgent@L145:72#this" = "java-hook: cancel of the periodic task held by field EmpoweredAgent.aggroResetTask"
 # "ai.siege.GateRepairAI$1#player" = ""
+# "ai.siege.GateRepairAI$1#this" = ""
+# "ai.siege.GateRepairAI$2#this" = ""
 # "ai.siege.SpringAI@L28:71#this" = "java-hook: cancel of the periodic task held by field SpringAI.healCheckTask"
+# "ai.worlds.brusthonin.UnfaithfulNtuamuAI@L35:64#this" = ""
+# "ai.worlds.eltnen.DracusBox@L38:58#this" = ""
+# "ai.worlds.eltnen.Kratia@L27:60#this" = ""
 # "ai.worlds.gelkmaros.PadmarashkaAI@L116:55#npc" = ""
+# "ai.worlds.gelkmaros.PadmarashkaAI@L116:55#this" = ""
 # "ai.worlds.heiron.BollvigAI@L75:57#this" = "accepted: one-shot task releases its captures when it runs or is cancelled"
 # "ai.worlds.heiron.BollvigAI@L82:57#this" = "accepted: one-shot task releases its captures when it runs or is cancelled"
 # "ai.worlds.heiron.BollvigAI@L87:56#this" = "accepted: one-shot task releases its captures when it runs or is cancelled"
 # "ai.worlds.heiron.BollvigAI@L97:57#this" = "accepted: one-shot task releases its captures when it runs or is cancelled"
 # "ai.worlds.inggison.SematariuxAI@L184:55#npc" = ""
+# "ai.worlds.inggison.SematariuxAI@L184:55#this" = ""
 # "ai.worlds.inggison.SematariuxEggAI@L27:56#this" = "accepted: one-shot task releases its captures when it runs or is cancelled"
 # "ai.worlds.levinshor.VocolithAI$1#player" = "cpp-breaker: LogoutBreakers::run / onDelete clear observers without notification (design §5.1)"
+# "ai.worlds.levinshor.VocolithAI$1#this" = "cpp-breaker: LogoutBreakers::run / onDelete clear observers without notification (design §5.1)"
 # "ai.worlds.panesterra.AdvanceCorridorAI$1#player" = "cpp-breaker: LogoutBreakers::run / onDelete clear observers without notification (design §5.1)"
 # "ai.worlds.panesterra.ahserionsflight.AhserionRegistrationCorridor$1#player" = "cpp-breaker: LogoutBreakers::run / onDelete clear observers without notification (design §5.1)"
+# "ai.worlds.panesterra.ahserionsflight.AhserionRegistrationCorridor$1#this" = "cpp-breaker: LogoutBreakers::run / onDelete clear observers without notification (design §5.1)"
 # "ai.worlds.panesterra.ahserionsflight.EreshkigalsVoiceAI@L27:55#this" = "accepted: one-shot task releases its captures when it runs or is cancelled"
 # "ai.worlds.pernon.GaleCycloneAI.GaleCycloneObserver#this$0" = ""
 # "ai.worlds.pernon.GaleCycloneAI.GaleCycloneObserver.creature" = ""
 # "ai.worlds.pernon.GaleCycloneAI.GaleCycloneObserver.player" = ""
 # "ai.worlds.pernon.GaleCycloneAI.observed" = ""
-# "com.aionemu.gameserver.ai.AIActions$1#request" = ""
-# "com.aionemu.gameserver.ai.AIActions$2#request" = "cpp-breaker: LogoutBreakers::run / onDelete clear observers without notification (design §5.1)"
-# "com.aionemu.gameserver.controllers.CreatureController.actor" = ""
-# "com.aionemu.gameserver.controllers.FlyRingController.observed" = ""
-# "com.aionemu.gameserver.controllers.GatherableController.gatheringTask" = ""
-# "com.aionemu.gameserver.controllers.ObserveController.attackCalcObservers" = ""
-# "com.aionemu.gameserver.controllers.PlayerController.stanceObserver" = ""
-# "com.aionemu.gameserver.controllers.RVController$1#this" = ""
-# "com.aionemu.gameserver.controllers.RVController$2#this" = ""
-# "com.aionemu.gameserver.controllers.RVController.passedPlayers" = ""
-# "com.aionemu.gameserver.controllers.RVController.slave" = ""
-# "com.aionemu.gameserver.controllers.RoadController.observed" = ""
-# "com.aionemu.gameserver.controllers.attack.AggroInfo.attacker" = ""
-# "com.aionemu.gameserver.controllers.attack.AggroList.aggroList" = ""
-# "com.aionemu.gameserver.controllers.attack.AggroList@L206:77#this" = "java-hook: cancel of the periodic task held by field AggroList.hateReductionTask"
-# "com.aionemu.gameserver.controllers.effect.EffectController.abnormalEffectMap" = ""
-# "com.aionemu.gameserver.controllers.effect.EffectController.passiveEffectMap" = ""
-# "com.aionemu.gameserver.controllers.movement.PlayerMoveController.lastPositionFromClient" = ""
-# "com.aionemu.gameserver.controllers.observer.AbstractCollisionObserver.creature" = ""
-# "com.aionemu.gameserver.controllers.observer.AbstractQuestZoneObserver.player" = ""
-# "com.aionemu.gameserver.controllers.observer.AttackShieldObserver.effect" = ""
-# "com.aionemu.gameserver.controllers.observer.CollisionDieActor.fortressLocation" = ""
-# "com.aionemu.gameserver.controllers.observer.DialogObserver.requester" = ""
-# "com.aionemu.gameserver.controllers.observer.DialogObserver.responder" = ""
-# "com.aionemu.gameserver.controllers.observer.FlyRingObserver.player" = ""
-# "com.aionemu.gameserver.controllers.observer.FlyRingObserver.ring" = ""
-# "com.aionemu.gameserver.controllers.observer.RoadObserver.player" = ""
-# "com.aionemu.gameserver.controllers.observer.RoadObserver.road" = ""
-# "com.aionemu.gameserver.controllers.observer.ShieldObserver.creature" = ""
-# "com.aionemu.gameserver.controllers.observer.ShieldObserver.location" = ""
-# "com.aionemu.gameserver.controllers.observer.StanceObserver.player" = ""
-# "com.aionemu.gameserver.custom.instance.RoahCustomInstanceHandler@L106:59#this" = "accepted: one-shot task releases its captures when it runs or is cancelled"
-# "com.aionemu.gameserver.custom.instance.RoahCustomInstanceHandler@L113:76#player" = "java-hook: cancel of the periodic task held by field RoahCustomInstanceHandler.bulkyMobSpawnTask"
-# "com.aionemu.gameserver.custom.instance.RoahCustomInstanceHandler@L113:76#this" = "java-hook: cancel of the periodic task held by field RoahCustomInstanceHandler.bulkyMobSpawnTask"
-# "com.aionemu.gameserver.custom.instance.RoahCustomInstanceHandler@L134:77#player" = "java-hook: cancel of the periodic task held by field RoahCustomInstanceHandler.trashMobSpawnTask"
-# "com.aionemu.gameserver.custom.instance.RoahCustomInstanceHandler@L134:77#this" = "java-hook: cancel of the periodic task held by field RoahCustomInstanceHandler.trashMobSpawnTask"
-# "com.aionemu.gameserver.custom.instance.RoahCustomInstanceHandler@L152:81#player" = "java-hook: cancel of the periodic task held by field RoahCustomInstanceHandler.dominatorMobSpawnTask"
-# "com.aionemu.gameserver.custom.instance.RoahCustomInstanceHandler@L152:81#this" = "java-hook: cancel of the periodic task held by field RoahCustomInstanceHandler.dominatorMobSpawnTask"
-# "com.aionemu.gameserver.custom.instance.neuralnetwork.Link.input" = ""
-# "com.aionemu.gameserver.custom.instance.neuralnetwork.Link.output" = ""
-# "com.aionemu.gameserver.custom.instance.neuralnetwork.PlayerModelLink.inputs" = ""
-# "com.aionemu.gameserver.custom.instance.neuralnetwork.PlayerModelLink.outputs" = ""
-# "com.aionemu.gameserver.custom.pvpmap.PvpMapHandler$1#p" = ""
-# "com.aionemu.gameserver.custom.pvpmap.PvpMapHandler.keymasterPositions" = ""
-# "com.aionemu.gameserver.custom.pvpmap.PvpMapHandler.origins" = ""
-# "com.aionemu.gameserver.custom.pvpmap.PvpMapHandler.respawnLocations" = ""
-# "com.aionemu.gameserver.custom.pvpmap.PvpMapHandler.supplyPositions" = ""
-# "com.aionemu.gameserver.custom.pvpmap.PvpMapHandler.treasurePositions" = ""
-# "com.aionemu.gameserver.custom.pvpmap.PvpMapHandler@L105:68#this" = "java-hook: cancel of the periodic task held by field PvpMapHandler.supplyTask"
-# "com.aionemu.gameserver.custom.pvpmap.PvpMapHandler@L145:54#this" = "accepted: one-shot task releases its captures when it runs or is cancelled"
-# "com.aionemu.gameserver.custom.pvpmap.PvpMapHandler@L179:54#this" = "accepted: one-shot task releases its captures when it runs or is cancelled"
-# "com.aionemu.gameserver.custom.pvpmap.PvpMapHandler@L189:58#this" = "accepted: one-shot task releases its captures when it runs or is cancelled"
-# "com.aionemu.gameserver.geoEngine.collision.bih.BIHNode.left" = ""
-# "com.aionemu.gameserver.geoEngine.collision.bih.BIHNode.right" = ""
-# "com.aionemu.gameserver.geoEngine.collision.bih.BIHTree.mesh" = ""
-# "com.aionemu.gameserver.geoEngine.models.GeoMap.chunkById" = ""
-# "com.aionemu.gameserver.geoEngine.models.GeoMap.despawnableDoors" = ""
-# "com.aionemu.gameserver.geoEngine.models.GeoMap.despawnableHouseDoors" = ""
-# "com.aionemu.gameserver.geoEngine.models.GeoMap.despawnableTownObjects" = ""
-# "com.aionemu.gameserver.geoEngine.models.GeoMap.despawnables" = ""
-# "com.aionemu.gameserver.geoEngine.scene.Mesh.collisionTree" = ""
-# "com.aionemu.gameserver.geoEngine.scene.Node.children" = ""
-# "com.aionemu.gameserver.geoEngine.scene.Spatial.parent" = ""
-# "com.aionemu.gameserver.instance.handlers.GeneralInstanceHandler.instance" = ""
-# "com.aionemu.gameserver.model.base.Base@L109:60#this" = "accepted: one-shot task releases its captures when it runs or is cancelled"
-# "com.aionemu.gameserver.model.base.Base@L124:58#this" = "accepted: one-shot task releases its captures when it runs or is cancelled"
-# "com.aionemu.gameserver.model.base.Base@L148:65#this" = "accepted: one-shot task releases its captures when it runs or is cancelled"
-# "com.aionemu.gameserver.model.base.Base@L98:64#this" = "accepted: one-shot task releases its captures when it runs or is cancelled"
-# "com.aionemu.gameserver.model.base.StainedBase@L27:64#this" = "accepted: one-shot task releases its captures when it runs or is cancelled"
-# "com.aionemu.gameserver.model.drop.DropItem.winningPlayer" = ""
-# "com.aionemu.gameserver.model.gameobjects.Creature.castingSkill" = ""
-# "com.aionemu.gameserver.model.gameobjects.Creature.observeController" = ""
-# "com.aionemu.gameserver.model.gameobjects.Creature.transformModel" = ""
-# "com.aionemu.gameserver.model.gameobjects.HouseObject.registry" = ""
-# "com.aionemu.gameserver.model.gameobjects.Item.idianStone" = ""
-# "com.aionemu.gameserver.model.gameobjects.Letter.attachedItem" = ""
-# "com.aionemu.gameserver.model.gameobjects.Npc.walkerGroup" = ""
-# "com.aionemu.gameserver.model.gameobjects.NpcObject.npc" = ""
-# "com.aionemu.gameserver.model.gameobjects.Pet.master" = ""
-# "com.aionemu.gameserver.model.gameobjects.Pet.moveController" = ""
-# "com.aionemu.gameserver.model.gameobjects.Summon.skillOrders" = ""
-# "com.aionemu.gameserver.model.gameobjects.SummonedObject.creator" = ""
-# "com.aionemu.gameserver.model.gameobjects.TransformModel.owner" = ""
-# "com.aionemu.gameserver.model.gameobjects.VisibleObject.position" = ""
-# "com.aionemu.gameserver.model.gameobjects.player.Equipment$1#item" = ""
-# "com.aionemu.gameserver.model.gameobjects.player.Equipment$1#this" = ""
-# "com.aionemu.gameserver.model.gameobjects.player.Equipment$2#item" = "cpp-breaker: LogoutBreakers::run / onDelete clear observers without notification (design §5.1)"
-# "com.aionemu.gameserver.model.gameobjects.player.Equipment$2#responder" = "cpp-breaker: LogoutBreakers::run / onDelete clear observers without notification (design §5.1)"
-# "com.aionemu.gameserver.model.gameobjects.player.Equipment.equipment" = ""
-# "com.aionemu.gameserver.model.gameobjects.player.FriendList.player" = ""
-# "com.aionemu.gameserver.model.gameobjects.player.Mailbox.mails" = ""
-# "com.aionemu.gameserver.model.gameobjects.player.Mailbox.reserveMail" = ""
-# "com.aionemu.gameserver.model.gameobjects.player.PetCommonData@L121:57#this" = "accepted: one-shot task releases its captures when it runs or is cancelled"
-# "com.aionemu.gameserver.model.gameobjects.player.Player.clientConnection" = ""
-# "com.aionemu.gameserver.model.gameobjects.player.Player.emotions" = ""
-# "com.aionemu.gameserver.model.gameobjects.player.Player.friendList" = ""
-# "com.aionemu.gameserver.model.gameobjects.player.Player.houses" = ""
-# "com.aionemu.gameserver.model.gameobjects.player.Player.interactionTask" = ""
-# "com.aionemu.gameserver.model.gameobjects.player.Player.legionMember" = ""
-# "com.aionemu.gameserver.model.gameobjects.player.Player.motions" = ""
-# "com.aionemu.gameserver.model.gameobjects.player.Player.npcFactions" = ""
-# "com.aionemu.gameserver.model.gameobjects.player.Player.pet" = ""
-# "com.aionemu.gameserver.model.gameobjects.player.Player.playerAccount" = ""
-# "com.aionemu.gameserver.model.gameobjects.player.Player.playerAllianceGroup" = ""
-# "com.aionemu.gameserver.model.gameobjects.player.Player.playerGroup" = ""
-# "com.aionemu.gameserver.model.gameobjects.player.Player.postman" = ""
-# "com.aionemu.gameserver.model.gameobjects.player.Player.rideObservers" = ""
-# "com.aionemu.gameserver.model.gameobjects.player.Player.store" = ""
-# "com.aionemu.gameserver.model.gameobjects.player.Player.summon" = ""
-# "com.aionemu.gameserver.model.gameobjects.player.Player.titleList" = ""
-# "com.aionemu.gameserver.model.gameobjects.player.PrivateStore.owner" = ""
-# "com.aionemu.gameserver.model.gameobjects.player.RequestResponseHandler.requester" = ""
-# "com.aionemu.gameserver.model.gameobjects.player.ResponseRequester.activeRequests" = ""
-# "com.aionemu.gameserver.model.gameobjects.player.emotion.EmotionList.owner" = ""
-# "com.aionemu.gameserver.model.gameobjects.player.motion.MotionList.owner" = ""
-# "com.aionemu.gameserver.model.gameobjects.player.npcFaction.NpcFactions$1#npc" = ""
-# "com.aionemu.gameserver.model.gameobjects.player.npcFaction.NpcFactions$1#this" = ""
-# "com.aionemu.gameserver.model.gameobjects.player.npcFaction.NpcFactions.owner" = ""
-# "com.aionemu.gameserver.model.gameobjects.player.title.TitleList.owner" = ""
-# "com.aionemu.gameserver.model.house.House.houseRegistry" = ""
-# "com.aionemu.gameserver.model.house.House.spawns" = ""
-# "com.aionemu.gameserver.model.house.HouseBids.Bid#this$0" = ""
-# "com.aionemu.gameserver.model.house.HouseBids.bids" = ""
-# "com.aionemu.gameserver.model.house.HouseRegistry.objects" = ""
-# "com.aionemu.gameserver.model.house.HouseRegistry.owner" = ""
-# "com.aionemu.gameserver.model.instance.InstanceBuff.functions" = ""
-# "com.aionemu.gameserver.model.instance.instancescore.HarmonyArenaScore.groups" = ""
-# "com.aionemu.gameserver.model.instance.instancescore.InstanceScore.playerRewards" = ""
-# "com.aionemu.gameserver.model.instance.instancescore.PvPArenaScore.instance" = ""
-# "com.aionemu.gameserver.model.instance.playerreward.PvPArenaPlayerReward.boostMorale" = ""
-# "com.aionemu.gameserver.model.items.IdianStone.actionListener" = ""
-# "com.aionemu.gameserver.model.items.IdianStone.item" = ""
-# "com.aionemu.gameserver.model.items.storage.ItemStorage.items" = ""
-# "com.aionemu.gameserver.model.items.storage.LegionStorageProxy.actor" = ""
-# "com.aionemu.gameserver.model.items.storage.LegionStorageProxy.storage" = ""
-# "com.aionemu.gameserver.model.items.storage.Storage.deletedItems" = ""
-# "com.aionemu.gameserver.model.items.storage.Storage.itemStorage" = ""
-# "com.aionemu.gameserver.model.items.storage.Storage.kinahItem" = ""
-# "com.aionemu.gameserver.model.siege.FortressLocation.shieldObservers" = ""
-# "com.aionemu.gameserver.model.siege.SiegeLocation.creatures" = ""
-# "com.aionemu.gameserver.model.siege.SiegeLocation.players" = ""
-# "com.aionemu.gameserver.model.siege.SiegeLocation.zones" = ""
-# "com.aionemu.gameserver.model.siege.SiegeShield.observed" = ""
-# "com.aionemu.gameserver.model.stats.calc.functions.StatFunctionProxy.owner" = ""
-# "com.aionemu.gameserver.model.stats.calc.functions.StatFunctionProxy.proxiedFunction" = ""
-# "com.aionemu.gameserver.model.stats.container.CreatureGameStats.stats" = ""
-# "com.aionemu.gameserver.model.summons.SkillOrder.target" = ""
-# "com.aionemu.gameserver.model.team.GeneralTeam.members" = ""
-# "com.aionemu.gameserver.model.team.PlayerTeamMember.player" = ""
-# "com.aionemu.gameserver.model.team.TemporaryPlayerTeam.lootGroupRules" = ""
-# "com.aionemu.gameserver.model.team.alliance.PlayerAlliance.groups" = ""
-# "com.aionemu.gameserver.model.team.alliance.PlayerAlliance.league" = ""
-# "com.aionemu.gameserver.model.team.alliance.PlayerAllianceGroup.alliance" = ""
-# "com.aionemu.gameserver.model.team.common.legacy.LootGroupRules.itemsToBeDistributed" = ""
-# "com.aionemu.gameserver.model.team.group.PlayerGroupStats.maxLevelPlayer" = ""
-# "com.aionemu.gameserver.model.team.group.PlayerGroupStats.minLevelPlayer" = ""
-# "com.aionemu.gameserver.model.team.league.League.lootGroupRules" = ""
-# "com.aionemu.gameserver.model.team.league.LeagueMember.alliance" = ""
-# "com.aionemu.gameserver.model.team.league.events.LeagueInviteEvent.invited" = ""
-# "com.aionemu.gameserver.model.team.legion.LegionMember.legion" = ""
-# "com.aionemu.gameserver.model.templates.item.actions.AnimationAddAction$1#parentItem" = "cpp-breaker: LogoutBreakers::run / onDelete clear observers without notification (design §5.1)"
-# "com.aionemu.gameserver.model.templates.item.actions.AnimationAddAction$1#player" = "cpp-breaker: LogoutBreakers::run / onDelete clear observers without notification (design §5.1)"
-# "com.aionemu.gameserver.model.templates.item.actions.ApExtractAction$1#parentItem" = "cpp-breaker: LogoutBreakers::run / onDelete clear observers without notification (design §5.1)"
-# "com.aionemu.gameserver.model.templates.item.actions.ApExtractAction$1#player" = "cpp-breaker: LogoutBreakers::run / onDelete clear observers without notification (design §5.1)"
-# "com.aionemu.gameserver.model.templates.item.actions.ApExtractAction$1#targetItem" = "cpp-breaker: LogoutBreakers::run / onDelete clear observers without notification (design §5.1)"
-# "com.aionemu.gameserver.model.templates.item.actions.AssemblyItemAction$1#parentItem" = "cpp-breaker: LogoutBreakers::run / onDelete clear observers without notification (design §5.1)"
-# "com.aionemu.gameserver.model.templates.item.actions.AssemblyItemAction$1#player" = "cpp-breaker: LogoutBreakers::run / onDelete clear observers without notification (design §5.1)"
-# "com.aionemu.gameserver.model.templates.item.actions.ChargeAction$1#parentItem" = "cpp-breaker: LogoutBreakers::run / onDelete clear observers without notification (design §5.1)"
-# "com.aionemu.gameserver.model.templates.item.actions.ChargeAction$1#player" = "cpp-breaker: LogoutBreakers::run / onDelete clear observers without notification (design §5.1)"
-# "com.aionemu.gameserver.model.templates.item.actions.DecomposeAction$1#parentItem" = "cpp-breaker: LogoutBreakers::run / onDelete clear observers without notification (design §5.1)"
-# "com.aionemu.gameserver.model.templates.item.actions.DecomposeAction$1#player" = "cpp-breaker: LogoutBreakers::run / onDelete clear observers without notification (design §5.1)"
-# "com.aionemu.gameserver.model.templates.item.actions.EnchantItemAction$1#parentItem" = "cpp-breaker: LogoutBreakers::run / onDelete clear observers without notification (design §5.1)"
-# "com.aionemu.gameserver.model.templates.item.actions.EnchantItemAction$1#player" = "cpp-breaker: LogoutBreakers::run / onDelete clear observers without notification (design §5.1)"
-# "com.aionemu.gameserver.model.templates.item.actions.EnchantItemAction$1#targetItem" = "cpp-breaker: LogoutBreakers::run / onDelete clear observers without notification (design §5.1)"
-# "com.aionemu.gameserver.model.templates.item.actions.ExpExtractAction$1#parentItem" = "cpp-breaker: LogoutBreakers::run / onDelete clear observers without notification (design §5.1)"
-# "com.aionemu.gameserver.model.templates.item.actions.ExpExtractAction$1#player" = "cpp-breaker: LogoutBreakers::run / onDelete clear observers without notification (design §5.1)"
-# "com.aionemu.gameserver.model.templates.item.actions.ExtractAction$1#parentItem" = "cpp-breaker: LogoutBreakers::run / onDelete clear observers without notification (design §5.1)"
-# "com.aionemu.gameserver.model.templates.item.actions.ExtractAction$1#player" = "cpp-breaker: LogoutBreakers::run / onDelete clear observers without notification (design §5.1)"
-# "com.aionemu.gameserver.model.templates.item.actions.ExtractAction$1#targetItem" = "cpp-breaker: LogoutBreakers::run / onDelete clear observers without notification (design §5.1)"
-# "com.aionemu.gameserver.model.templates.item.actions.InstanceTimeClear$1#parentItem" = "cpp-breaker: LogoutBreakers::run / onDelete clear observers without notification (design §5.1)"
-# "com.aionemu.gameserver.model.templates.item.actions.InstanceTimeClear$1#player" = "cpp-breaker: LogoutBreakers::run / onDelete clear observers without notification (design §5.1)"
-# "com.aionemu.gameserver.model.templates.item.actions.MultiReturnAction$1#item" = "cpp-breaker: LogoutBreakers::run / onDelete clear observers without notification (design §5.1)"
-# "com.aionemu.gameserver.model.templates.item.actions.MultiReturnAction$1#player" = "cpp-breaker: LogoutBreakers::run / onDelete clear observers without notification (design §5.1)"
-# "com.aionemu.gameserver.model.templates.item.actions.PolishAction$1#parentItem" = "cpp-breaker: LogoutBreakers::run / onDelete clear observers without notification (design §5.1)"
-# "com.aionemu.gameserver.model.templates.item.actions.PolishAction$1#player" = "cpp-breaker: LogoutBreakers::run / onDelete clear observers without notification (design §5.1)"
-# "com.aionemu.gameserver.model.templates.item.actions.PolishAction$1#targetItem" = "cpp-breaker: LogoutBreakers::run / onDelete clear observers without notification (design §5.1)"
-# "com.aionemu.gameserver.model.templates.item.actions.QuestStartAction$1#parentItem" = "cpp-breaker: LogoutBreakers::run / onDelete clear observers without notification (design §5.1)"
-# "com.aionemu.gameserver.model.templates.item.actions.QuestStartAction$1#player" = "cpp-breaker: LogoutBreakers::run / onDelete clear observers without notification (design §5.1)"
-# "com.aionemu.gameserver.model.templates.item.actions.ReadAction$1#parentItem" = "cpp-breaker: LogoutBreakers::run / onDelete clear observers without notification (design §5.1)"
-# "com.aionemu.gameserver.model.templates.item.actions.ReadAction$1#player" = "cpp-breaker: LogoutBreakers::run / onDelete clear observers without notification (design §5.1)"
-# "com.aionemu.gameserver.model.templates.item.actions.RideAction$1#parentItem" = "cpp-breaker: LogoutBreakers::run / onDelete clear observers without notification (design §5.1)"
-# "com.aionemu.gameserver.model.templates.item.actions.RideAction$1#player" = "cpp-breaker: LogoutBreakers::run / onDelete clear observers without notification (design §5.1)"
-# "com.aionemu.gameserver.model.templates.item.actions.RideAction$2#player" = "cpp-breaker: LogoutBreakers::run / onDelete clear observers without notification (design §5.1)"
-# "com.aionemu.gameserver.model.templates.item.actions.RideAction$3#player" = "cpp-breaker: LogoutBreakers::run / onDelete clear observers without notification (design §5.1)"
-# "com.aionemu.gameserver.model.templates.item.actions.RideAction$4#player" = "cpp-breaker: LogoutBreakers::run / onDelete clear observers without notification (design §5.1)"
-# "com.aionemu.gameserver.model.templates.item.actions.TamperingAction$1#player" = "cpp-breaker: LogoutBreakers::run / onDelete clear observers without notification (design §5.1)"
-# "com.aionemu.gameserver.model.templates.item.actions.TamperingAction$1#targetItem" = "cpp-breaker: LogoutBreakers::run / onDelete clear observers without notification (design §5.1)"
-# "com.aionemu.gameserver.model.templates.item.actions.ToyPetSpawnAction$1#parentItem" = "cpp-breaker: LogoutBreakers::run / onDelete clear observers without notification (design §5.1)"
-# "com.aionemu.gameserver.model.templates.item.actions.ToyPetSpawnAction$1#player" = "cpp-breaker: LogoutBreakers::run / onDelete clear observers without notification (design §5.1)"
-# "com.aionemu.gameserver.model.templates.item.actions.TuningAction$1#player" = "cpp-breaker: LogoutBreakers::run / onDelete clear observers without notification (design §5.1)"
-# "com.aionemu.gameserver.model.templates.item.actions.TuningAction$1#targetItem" = "cpp-breaker: LogoutBreakers::run / onDelete clear observers without notification (design §5.1)"
-# "com.aionemu.gameserver.model.templates.spawns.SpawnGroup.poolUsedTemplates" = ""
-# "com.aionemu.gameserver.model.templates.spawns.SpawnGroup.spots" = ""
-# "com.aionemu.gameserver.model.templates.spawns.SpawnTemplate.spawnGroup" = ""
-# "com.aionemu.gameserver.model.vortex.VortexLocation.activeVortex" = ""
-# "com.aionemu.gameserver.model.vortex.VortexLocation.kisks" = ""
-# "com.aionemu.gameserver.model.vortex.VortexLocation.players" = ""
-# "com.aionemu.gameserver.model.vortex.VortexLocation.spawned" = ""
-# "com.aionemu.gameserver.model.vortex.VortexLocation.vortexController" = ""
-# "com.aionemu.gameserver.model.vortex.VortexLocation.zones" = ""
-# "com.aionemu.gameserver.network.aion.AionConnection.ConnectionAliveChecker#this$0" = ""
-# "com.aionemu.gameserver.network.aion.AionConnection.account" = ""
-# "com.aionemu.gameserver.network.aion.AionConnection.activePlayer" = ""
-# "com.aionemu.gameserver.network.aion.AionConnection.connectionAliveChecker" = ""
-# "com.aionemu.gameserver.network.sequrity.FloodManager.LogEntry#this$0" = ""
-# "com.aionemu.gameserver.network.sequrity.FloodManager._entries" = ""
-# "com.aionemu.gameserver.services.DuelService$1#this" = ""
-# "com.aionemu.gameserver.services.DuelService$2#this" = ""
-# "com.aionemu.gameserver.services.DuelService@L219:61#requester" = "accepted: one-shot task releases its captures when it runs or is cancelled"
-# "com.aionemu.gameserver.services.DuelService@L219:61#responder" = "accepted: one-shot task releases its captures when it runs or is cancelled"
-# "com.aionemu.gameserver.services.DuelService@L219:61#this" = "accepted: one-shot task releases its captures when it runs or is cancelled"
-# "com.aionemu.gameserver.services.LegionService$1#this" = ""
-# "com.aionemu.gameserver.services.LegionService$2#legion" = ""
-# "com.aionemu.gameserver.services.LegionService$2#this" = ""
-# "com.aionemu.gameserver.services.LegionService$3#this" = ""
-# "com.aionemu.gameserver.services.LegionService$4#this" = ""
-# "com.aionemu.gameserver.services.LegionService$5#this" = ""
-# "com.aionemu.gameserver.services.LegionService.legionMemberById" = ""
-# "com.aionemu.gameserver.services.LegionService.legionsById" = ""
-# "com.aionemu.gameserver.services.StigmaService$1#chargeStone" = "cpp-breaker: LogoutBreakers::run / onDelete clear observers without notification (design §5.1)"
-# "com.aionemu.gameserver.services.StigmaService$1#player" = "cpp-breaker: LogoutBreakers::run / onDelete clear observers without notification (design §5.1)"
-# "com.aionemu.gameserver.services.instance.PeriodicInstanceManager@L71:87#this" = "accepted: one-shot task releases its captures when it runs or is cancelled"
-# "com.aionemu.gameserver.services.item.ItemActionService$1#item" = "cpp-breaker: LogoutBreakers::run / onDelete clear observers without notification (design §5.1)"
-# "com.aionemu.gameserver.services.item.ItemActionService$1#player" = "cpp-breaker: LogoutBreakers::run / onDelete clear observers without notification (design §5.1)"
-# "com.aionemu.gameserver.services.item.ItemChargeService$1#filteredItems" = ""
-# "com.aionemu.gameserver.services.item.ItemChargeService$1#player" = ""
-# "com.aionemu.gameserver.services.item.ItemSocketService$1#player" = "cpp-breaker: LogoutBreakers::run / onDelete clear observers without notification (design §5.1)"
-# "com.aionemu.gameserver.services.item.ItemSocketService$1#weapon" = "cpp-breaker: LogoutBreakers::run / onDelete clear observers without notification (design §5.1)"
-# "com.aionemu.gameserver.services.panesterra.ahserion.AhserionRaid$1#this" = "java-hook: cancel of the periodic task held by field AhserionRaid.progressTask"
-# "com.aionemu.gameserver.services.siege.Assault@L43:60#this" = "accepted: one-shot task releases its captures when it runs or is cancelled"
-# "com.aionemu.gameserver.services.siege.FortressAssault@L59:56#this" = "accepted: one-shot task releases its captures when it runs or is cancelled"
-# "com.aionemu.gameserver.services.vortex.DimensionalVortex.vortexLocation" = ""
-# "com.aionemu.gameserver.services.vortex.DimensionalVortex@L80:55#this" = ""
-# "com.aionemu.gameserver.services.vortex.Invasion$1#this" = ""
-# "com.aionemu.gameserver.services.vortex.Invasion.defAlliance" = ""
-# "com.aionemu.gameserver.services.vortex.Invasion.defenders" = ""
-# "com.aionemu.gameserver.services.vortex.Invasion.invAlliance" = ""
-# "com.aionemu.gameserver.services.vortex.Invasion.invaders" = ""
-# "com.aionemu.gameserver.services.worldraid.WorldRaid$1#this" = "java-hook: cancel of the periodic task held by field WorldRaid.preparationTask"
-# "com.aionemu.gameserver.services.worldraid.WorldRaid.boss" = ""
-# "com.aionemu.gameserver.services.worldraid.WorldRaid.flag" = ""
-# "com.aionemu.gameserver.services.worldraid.WorldRaid.locationMarkers" = ""
-# "com.aionemu.gameserver.services.worldraid.WorldRaid.vortex" = ""
-# "com.aionemu.gameserver.services.worldraid.WorldRaid@L110:59#this" = "accepted: one-shot task releases its captures when it runs or is cancelled"
-# "com.aionemu.gameserver.services.worldraid.WorldRaid@L144:55#this" = ""
-# "com.aionemu.gameserver.skillengine.effect.AbstractOverTimeEffect@L55:72#effect" = "java-hook: cancel of the periodic task held by setPeriodicTask()"
-# "com.aionemu.gameserver.skillengine.effect.AlwaysBlockEffect$1#effect" = "cpp-breaker: LogoutBreakers::run / onDelete clear observers without notification (design §5.1)"
-# "com.aionemu.gameserver.skillengine.effect.AlwaysDodgeEffect$1#effect" = "cpp-breaker: LogoutBreakers::run / onDelete clear observers without notification (design §5.1)"
-# "com.aionemu.gameserver.skillengine.effect.AlwaysParryEffect$1#effect" = "cpp-breaker: LogoutBreakers::run / onDelete clear observers without notification (design §5.1)"
-# "com.aionemu.gameserver.skillengine.effect.AlwaysResistEffect$1#effect" = "cpp-breaker: LogoutBreakers::run / onDelete clear observers without notification (design §5.1)"
-# "com.aionemu.gameserver.skillengine.effect.CaseHealEffect$1#effect" = "cpp-breaker: LogoutBreakers::run / onDelete clear observers without notification (design §5.1)"
-# "com.aionemu.gameserver.skillengine.effect.ChangeHateOnAttackedEffect$1#effect" = "cpp-breaker: LogoutBreakers::run / onDelete clear observers without notification (design §5.1)"
-# "com.aionemu.gameserver.skillengine.effect.CondSkillLauncherEffect$1#effect" = "cpp-breaker: LogoutBreakers::run / onDelete clear observers without notification (design §5.1)"
-# "com.aionemu.gameserver.skillengine.effect.CondSkillLauncherEffect$1.conditionalEffect" = ""
-# "com.aionemu.gameserver.skillengine.effect.FearEffect$1#effect" = "cpp-breaker: LogoutBreakers::run / onDelete clear observers without notification (design §5.1)"
-# "com.aionemu.gameserver.skillengine.effect.FearEffect$1#effected" = "cpp-breaker: LogoutBreakers::run / onDelete clear observers without notification (design §5.1)"
-# "com.aionemu.gameserver.skillengine.effect.HealCastorOnAttackedEffect$1#effect" = "cpp-breaker: LogoutBreakers::run / onDelete clear observers without notification (design §5.1)"
-# "com.aionemu.gameserver.skillengine.effect.HideEffect$1#effect" = "cpp-breaker: LogoutBreakers::run / onDelete clear observers without notification (design §5.1)"
-# "com.aionemu.gameserver.skillengine.effect.HideEffect$2#effect" = "cpp-breaker: LogoutBreakers::run / onDelete clear observers without notification (design §5.1)"
-# "com.aionemu.gameserver.skillengine.effect.HideEffect$3#effect" = "cpp-breaker: LogoutBreakers::run / onDelete clear observers without notification (design §5.1)"
-# "com.aionemu.gameserver.skillengine.effect.HideEffect$4#effect" = "cpp-breaker: LogoutBreakers::run / onDelete clear observers without notification (design §5.1)"
-# "com.aionemu.gameserver.skillengine.effect.HideEffect$5#effect" = "cpp-breaker: LogoutBreakers::run / onDelete clear observers without notification (design §5.1)"
-# "com.aionemu.gameserver.skillengine.effect.MagicCounterAtkEffect$1#effect" = "cpp-breaker: LogoutBreakers::run / onDelete clear observers without notification (design §5.1)"
-# "com.aionemu.gameserver.skillengine.effect.MagicCounterAtkEffect$1#effected" = "cpp-breaker: LogoutBreakers::run / onDelete clear observers without notification (design §5.1)"
-# "com.aionemu.gameserver.skillengine.effect.OneTimeBoostSkillAttackEffect$1#effect" = "cpp-breaker: LogoutBreakers::run / onDelete clear observers without notification (design §5.1)"
-# "com.aionemu.gameserver.skillengine.effect.OneTimeBoostSkillCriticalEffect$1#effect" = "cpp-breaker: LogoutBreakers::run / onDelete clear observers without notification (design §5.1)"
-# "com.aionemu.gameserver.skillengine.effect.ProtectEffect$1#effect" = "cpp-breaker: LogoutBreakers::run / onDelete clear observers without notification (design §5.1)"
-# "com.aionemu.gameserver.skillengine.effect.ProtectEffect@L38:63#effect" = ""
-# "com.aionemu.gameserver.skillengine.effect.ProvokerEffect$1#effector" = "cpp-breaker: LogoutBreakers::run / onDelete clear observers without notification (design §5.1)"
-# "com.aionemu.gameserver.skillengine.effect.RideRobotEffect$1#effect" = "cpp-breaker: LogoutBreakers::run / onDelete clear observers without notification (design §5.1)"
-# "com.aionemu.gameserver.skillengine.effect.RootEffect$1#effect" = "cpp-breaker: LogoutBreakers::run / onDelete clear observers without notification (design §5.1)"
-# "com.aionemu.gameserver.skillengine.effect.RootEffect$1#effected" = "cpp-breaker: LogoutBreakers::run / onDelete clear observers without notification (design §5.1)"
-# "com.aionemu.gameserver.skillengine.effect.SummonHomingEffect$1#homing" = "cpp-breaker: LogoutBreakers::run / onDelete clear observers without notification (design §5.1)"
-# "com.aionemu.gameserver.skillengine.model.Effect$1#this" = "cpp-breaker: LogoutBreakers::run / onDelete clear observers without notification (design §5.1)"
-# "com.aionemu.gameserver.skillengine.model.Effect$2#this" = "cpp-breaker: LogoutBreakers::run / onDelete clear observers without notification (design §5.1)"
-# "com.aionemu.gameserver.skillengine.model.Effect.designatedDispelEffect" = ""
-# "com.aionemu.gameserver.skillengine.model.Effect.skill" = ""
-# "com.aionemu.gameserver.skillengine.model.Effect.subEffect" = ""
-# "com.aionemu.gameserver.skillengine.model.Effect@L682:55#this" = "accepted: one-shot task releases its captures when it runs or is cancelled"
-# "com.aionemu.gameserver.skillengine.model.Effect@L828:27#observer" = ""
-# "com.aionemu.gameserver.skillengine.model.Effect@L828:27#target" = ""
-# "com.aionemu.gameserver.skillengine.model.Effect@L833:27#observer" = ""
-# "com.aionemu.gameserver.skillengine.model.Effect@L833:27#target" = ""
-# "com.aionemu.gameserver.skillengine.model.Effect@L871:77#this" = "java-hook: cancel of the periodic task held by field Effect.periodicActionsTask"
-# "com.aionemu.gameserver.skillengine.model.Skill.effectedList" = ""
-# "com.aionemu.gameserver.skillengine.model.Skill.effector" = ""
-# "com.aionemu.gameserver.skillengine.model.Skill.firstTarget" = ""
-# "com.aionemu.gameserver.skillengine.model.Skill.firstTargetDieObserver" = ""
-# "com.aionemu.gameserver.skillengine.model.Skill@L535:47#this" = ""
-# "com.aionemu.gameserver.skillengine.task.AbstractInteractionTask$1#this" = "java-hook: cancel of the periodic task held by field AbstractInteractionTask.task"
-# "com.aionemu.gameserver.skillengine.task.AbstractInteractionTask.requester" = ""
-# "com.aionemu.gameserver.skillengine.task.AbstractInteractionTask.responder" = ""
-# "com.aionemu.gameserver.skillengine.task.GatheringTask$1#this" = ""
-# "com.aionemu.gameserver.skillengine.task.GatheringTask.gathererObserver" = ""
-# "com.aionemu.gameserver.spawnengine.ClusteredNpc.npc" = ""
-# "com.aionemu.gameserver.spawnengine.WalkerGroup.members" = ""
-# "com.aionemu.gameserver.taskmanager.tasks.housing.AuctionEndTask.ProlongedAuction@L106:52#this" = "accepted: one-shot task releases its captures when it runs or is cancelled"
-# "com.aionemu.gameserver.world.MapRegion.neighboursIncludingSelf" = ""
-# "com.aionemu.gameserver.world.MapRegion.objects" = ""
-# "com.aionemu.gameserver.world.MapRegion.parent" = ""
-# "com.aionemu.gameserver.world.MapRegion.zonesSortedByTypeAndPriority" = ""
-# "com.aionemu.gameserver.world.WorldMap.instances" = ""
-# "com.aionemu.gameserver.world.WorldMapInstance.instanceHandler" = ""
-# "com.aionemu.gameserver.world.WorldMapInstance.parent" = ""
-# "com.aionemu.gameserver.world.WorldMapInstance.regions" = ""
-# "com.aionemu.gameserver.world.WorldMapInstance.registeredTeam" = ""
-# "com.aionemu.gameserver.world.WorldMapInstance.startPos" = ""
-# "com.aionemu.gameserver.world.WorldMapInstance.worldMapNpcs" = ""
-# "com.aionemu.gameserver.world.WorldMapInstance.worldMapObjects" = ""
-# "com.aionemu.gameserver.world.WorldMapInstance.worldMapPlayers" = ""
-# "com.aionemu.gameserver.world.WorldMapInstance.zones" = ""
-# "com.aionemu.gameserver.world.WorldMapInstance@L125:72#this" = "accepted: one-shot task releases its captures when it runs or is cancelled"
-# "com.aionemu.gameserver.world.WorldPosition.mapRegion" = ""
-# "com.aionemu.gameserver.world.knownlist.KnownList.knownObjects" = ""
-# "com.aionemu.gameserver.world.knownlist.KnownObject.object" = ""
-# "com.aionemu.gameserver.world.zone.ZoneInstance.creatures" = ""
-# "com.aionemu.gameserver.world.zone.ZoneInstance.handlers" = ""
-# "com.aionemu.gameserver.world.zone.handler.MaterialZoneHandler.observed" = ""
-# "com.aionemu.gameserver.world.zone.handler.QuestZoneHandler.observed" = ""
 # "instance.AnguishedDragonLordsRefugeInstance@L45:58#this" = "accepted: one-shot task releases its captures when it runs or is cancelled"
 # "instance.DanuarMysticariumInstance@L81:54#this" = "accepted: one-shot task releases its captures when it runs or is cancelled"
 # "instance.DanuarMysticariumInstance@L82:54#this" = "accepted: one-shot task releases its captures when it runs or is cancelled"
@@ -701,9 +390,9 @@ Resolution skeleton for cycles.toml (copy the unresolved keys and fill in the va
 # "zone._1012SensoryArea$1#this" = ""
 ```
 
-## Component 1: 606 nodes, 542 edges
+## Component 1: 812 nodes, 648 edges
 
-Nodes: `DummyHouseObject`, `ActionItemNpcAI`, `ActionItemNpcAI$1`, `ArtifactAI$1`, `ArtifactAI$4`, `ChestAI`, `ConquestOfferingAggressiveAI`, `ConquestOfferingBuffNpcAI`, `ConquestOfferingPortalAI`, `PlatinumFountainAI`, `ServantNpcAI`, `ShifterAI`, `AetherBlossomAI`, `FakeCakeAI`, `HiddenBirthdayCakeAI`, `WorldRaidAI`, `IceSculptureAI`, `ShulackGuidedBombAI`, `SteamTachysphereAI`, `BeshmundirsWalkAI`, `BeshmundirsWalkAI$1`, `Door1AI`, `Door2AI`, `Door3AI`, `SacrificialSoulAI`, `CrucibleRiftAI`, `SiegeDrill$1`, `DranaLumpAI`, `CalindiSummonsAI`, `BeritraPortalAI`, `TwinProtectorAI`, `TakunGojiraAI`, `ExplosionDeviceAI`, `GeneratorsAI`, `TeleportsAI`, `EternalBastionCommanderPashidAI`, `EternalBastionMountableAI`, `FlameVentAI`, `ShieldGeneratorAI`, `ShieldGeneratorAI$1` ...
+Nodes: `DummyHouseObject`, `ActionItemNpcAI`, `ActionItemNpcAI$1`, `ArtifactAI$1`, `ArtifactAI$2`, `ArtifactAI$4`, `BombAI`, `ChestAI`, `ConquestOfferingAggressiveAI`, `ConquestOfferingBuffNpcAI`, `ConquestOfferingPortalAI`, `ConquestOfferingSpawnerAI`, `KiskAI$1`, `PlatinumFountainAI`, `ServantNpcAI`, `ShifterAI`, `SkillCooltimeResetAI$1`, `TrapNpcAI`, `AetherBlossomAI`, `FakeCakeAI`, `HiddenBirthdayCakeAI`, `WorldRaidAI`, `IceSculptureAI`, `IllusionGateAI`, `EbonsoulAI`, `GatesSummonedAI`, `KaluvaSpawnAI`, `PazuzuAI`, `RukrilAI`, `YamennesAI`, `PopuchinAI`, `PopuchinAI$1`, `ShulackGuidedBombAI`, `SteamTachysphereAI`, `AethicFieldGeneratorAI`, `BeshmundirsWalkAI`, `BeshmundirsWalkAI$1`, `Door1AI`, `Door2AI`, `Door3AI` ...
 
 | Edge | Kind | Example cycle | Resolution |
 |---|---|---|---|
@@ -711,28 +400,99 @@ Nodes: `DummyHouseObject`, `ActionItemNpcAI`, `ActionItemNpcAI$1`, `ArtifactAI$1
 | `ai.ActionItemNpcAI$1#this` | capture | ActionItemNpcAI$1 → `ActionItemNpcAI$1#this` ActionItemNpcAI → `ActionItemNpcAI.observers` ActionItemNpcAI$1 | **UNRESOLVED** (suggested: cpp-breaker: LogoutBreakers::run / onDelete clear observers without notification (design §5.1)) |
 | `ai.ActionItemNpcAI.observers` | field | ActionItemNpcAI → `ActionItemNpcAI.observers` ActionItemNpcAI$1 → `ActionItemNpcAI$1#this` ActionItemNpcAI | **UNRESOLVED** |
 | `ai.ArtifactAI$1#player` | capture | ArtifactAI$1 → `ArtifactAI$1#player` Player → `Player.rideObservers` AIActions$2 → `AIActions$2#request` ArtifactAI$1 | **UNRESOLVED** (suggested: cpp-breaker: LogoutBreakers::run / onDelete clear observers without notification (design §5.1)) |
+| `ai.ArtifactAI$1#this` | capture | ArtifactAI$1 → `ArtifactAI$1#this` Creature → `Creature.observeController` ObserveController → `stored` ArtifactAI$1 | **UNRESOLVED** (suggested: cpp-breaker: LogoutBreakers::run / onDelete clear observers without notification (design §5.1)) |
+| `ai.ArtifactAI$2#this` | capture | ArtifactAI$2 → `ArtifactAI$2#this` Creature → `Creature.observeController` ObserveController → `stored` ArtifactAI$2 | **UNRESOLVED** (suggested: cpp-breaker: LogoutBreakers::run / onDelete clear observers without notification (design §5.1)) |
 | `ai.ArtifactAI$4#loc` | capture | ArtifactAI$4 → `ArtifactAI$4#loc` ArtifactLocation → `extends` SiegeLocation → `SiegeLocation.creatures` Player → `Player.rideObservers` ArtifactAI$4 | **UNRESOLVED** (suggested: cpp-breaker: LogoutBreakers::run / onDelete clear observers without notification (design §5.1)) |
 | `ai.ArtifactAI$4#player` | capture | ArtifactAI$4 → `ArtifactAI$4#player` Player → `Player.rideObservers` ArtifactAI$4 | **UNRESOLVED** (suggested: cpp-breaker: LogoutBreakers::run / onDelete clear observers without notification (design §5.1)) |
+| `ai.ArtifactAI$4#this` | capture | ArtifactAI$4 → `ArtifactAI$4#this` Player → `Player.rideObservers` ArtifactAI$4 | **UNRESOLVED** (suggested: cpp-breaker: LogoutBreakers::run / onDelete clear observers without notification (design §5.1)) |
+| `ai.BombAI@L33:52#this` | capture | λBombAI@L33:52 → `BombAI@L33:52#this` BombAI → `stored` λBombAI@L33:52 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
+| `ai.BombAI@L77:52#this` | capture | λBombAI@L77:52 → `BombAI@L77:52#this` BombAI → `stored` λBombAI@L77:52 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
 | `ai.ConquestOfferingAggressiveAI.spawner` | field | ConquestOfferingAggressiveAI → `ConquestOfferingAggressiveAI.spawner` Npc → `extends` Creature → `Creature.ai` ConquestOfferingAggressiveAI | **UNRESOLVED** |
 | `ai.ConquestOfferingBuffNpcAI@L31:58#this` | capture | λConquestOfferingBuffNpcAI@L31:58 → `ConquestOfferingBuffNpcAI@L31:58#this` ConquestOfferingBuffNpcAI → `stored` λConquestOfferingBuffNpcAI@L31:58 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
+| `ai.ConquestOfferingSpawnerAI@L131:59#this` | capture | λConquestOfferingSpawnerAI@L131:59 → `ConquestOfferingSpawnerAI@L131:59#this` ConquestOfferingSpawnerAI → `stored` λConquestOfferingSpawnerAI@L131:59 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
+| `ai.KiskAI$1#this` | capture | KiskAI$1 → `KiskAI$1#this` Creature → `Creature.observeController` ObserveController → `stored` KiskAI$1 | **UNRESOLVED** (suggested: cpp-breaker: LogoutBreakers::run / onDelete clear observers without notification (design §5.1)) |
 | `ai.ServantNpcAI@L70:67#target` | capture | λServantNpcAI@L70:67 → `ServantNpcAI@L70:67#target` Creature → `Creature.ai` ServantNpcAI → `stored` λServantNpcAI@L70:67 | **UNRESOLVED** (suggested: java-hook: cancel of the periodic task held by field ServantNpcAI.skillTask) |
 | `ai.ServantNpcAI@L70:67#this` | capture | λServantNpcAI@L70:67 → `ServantNpcAI@L70:67#this` ServantNpcAI → `stored` λServantNpcAI@L70:67 | **UNRESOLVED** (suggested: java-hook: cancel of the periodic task held by field ServantNpcAI.skillTask) |
+| `ai.SkillCooltimeResetAI$1#this` | capture | SkillCooltimeResetAI$1 → `SkillCooltimeResetAI$1#this` Creature → `Creature.observeController` ObserveController → `stored` SkillCooltimeResetAI$1 | **UNRESOLVED** (suggested: cpp-breaker: LogoutBreakers::run / onDelete clear observers without notification (design §5.1)) |
+| `ai.TrapNpcAI@L80:59#this` | capture | λTrapNpcAI@L80:59 → `TrapNpcAI@L80:59#this` TrapNpcAI → `stored` λTrapNpcAI@L80:59 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
 | `ai.events.WorldRaidAI.effectNpc` | field | WorldRaidAI → `WorldRaidAI.effectNpc` Npc → `extends` Creature → `Creature.ai` WorldRaidAI | **UNRESOLVED** |
 | `ai.events.WorldRaidAI@L32:68#this` | capture | λWorldRaidAI@L32:68 → `WorldRaidAI@L32:68#this` WorldRaidAI → `stored` λWorldRaidAI@L32:68 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
+| `ai.instance.abyss.IllusionGateAI@L29:67#this` | capture | λIllusionGateAI@L29:67 → `IllusionGateAI@L29:67#this` IllusionGateAI → `stored` λIllusionGateAI@L29:67 | **UNRESOLVED** (suggested: java-hook: cancel of the periodic task held by field IllusionGateAI.spawnTask) |
+| `ai.instance.abyssal_splinter.EbonsoulAI@L40:67#this` | capture | λEbonsoulAI@L40:67 → `EbonsoulAI@L40:67#this` EbonsoulAI → `stored` λEbonsoulAI@L40:67 | **UNRESOLVED** (suggested: java-hook: cancel of the periodic task held by field EbonsoulAI.skillTask) |
+| `ai.instance.abyssal_splinter.GatesSummonedAI@L75:67#this` | capture | λGatesSummonedAI@L75:67 → `GatesSummonedAI@L75:67#this` GatesSummonedAI → `stored` λGatesSummonedAI@L75:67 | **UNRESOLVED** (suggested: java-hook: cancel of the periodic task held by field GatesSummonedAI.eventTask) |
+| `ai.instance.abyssal_splinter.KaluvaSpawnAI@L46:51#this` | capture | λKaluvaSpawnAI@L46:51 → `KaluvaSpawnAI@L46:51#this` KaluvaSpawnAI → `stored` λKaluvaSpawnAI@L46:51 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
+| `ai.instance.abyssal_splinter.PazuzuAI@L53:62#this` | capture | λPazuzuAI@L53:62 → `PazuzuAI@L53:62#this` PazuzuAI → `stored` λPazuzuAI@L53:62 | **UNRESOLVED** (suggested: java-hook: cancel of the periodic task held by field PazuzuAI.task) |
+| `ai.instance.abyssal_splinter.RukrilAI@L40:67#this` | capture | λRukrilAI@L40:67 → `RukrilAI@L40:67#this` RukrilAI → `stored` λRukrilAI@L40:67 | **UNRESOLVED** (suggested: java-hook: cancel of the periodic task held by field RukrilAI.skillTask) |
+| `ai.instance.abyssal_splinter.YamennesAI@L43:57#this` | capture | λYamennesAI@L43:57 → `YamennesAI@L43:57#this` YamennesAI → `stored` λYamennesAI@L43:57 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
+| `ai.instance.abyssal_splinter.YamennesAI@L44:57#this` | capture | λYamennesAI@L44:57 → `YamennesAI@L44:57#this` YamennesAI → `stored` λYamennesAI@L44:57 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
+| `ai.instance.abyssal_splinter.YamennesAI@L75:57#this` | capture | λYamennesAI@L75:57 → `YamennesAI@L75:57#this` YamennesAI → `stored` λYamennesAI@L75:57 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
+| `ai.instance.aturamSkyFortress.PopuchinAI$1#this` | capture | PopuchinAI$1 → `PopuchinAI$1#this` PopuchinAI → `stored` PopuchinAI$1 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
 | `ai.instance.aturamSkyFortress.ShulackGuidedBombAI@L61:62#creature` | capture | λShulackGuidedBombAI@L61:62 → `ShulackGuidedBombAI@L61:62#creature` Creature → `Creature.ai` ShulackGuidedBombAI → `stored` λShulackGuidedBombAI@L61:62 | **UNRESOLVED** (suggested: java-hook: cancel of the periodic task held by field ShulackGuidedBombAI.task) |
 | `ai.instance.aturamSkyFortress.ShulackGuidedBombAI@L61:62#this` | capture | λShulackGuidedBombAI@L61:62 → `ShulackGuidedBombAI@L61:62#this` ShulackGuidedBombAI → `stored` λShulackGuidedBombAI@L61:62 | **UNRESOLVED** (suggested: java-hook: cancel of the periodic task held by field ShulackGuidedBombAI.task) |
-| `ai.instance.beshmundirTemple.BeshmundirsWalkAI$1#this` | capture | BeshmundirsWalkAI$1 → `BeshmundirsWalkAI$1#this` BeshmundirsWalkAI → `extends` ActionItemNpcAI → `ActionItemNpcAI.observers` ActionItemNpcAI$1 → `ActionItemNpcAI$1#player` Player → `Player.rideObservers` AIActions$2 → `AIActions$2#request` BeshmundirsWalkAI$1 | **UNRESOLVED** (suggested: cpp-breaker: LogoutBreakers::run / onDelete clear observers without notification (design §5.1)) |
+| `ai.instance.beshmundirTemple.AethicFieldGeneratorAI@L74:67#this` | capture | λAethicFieldGeneratorAI@L74:67 → `AethicFieldGeneratorAI@L74:67#this` AethicFieldGeneratorAI → `stored` λAethicFieldGeneratorAI@L74:67 | **UNRESOLVED** (suggested: java-hook: cancel of the periodic task held by field AethicFieldGeneratorAI.aggroTask) |
+| `ai.instance.beshmundirTemple.BeshmundirsWalkAI$1#this` | capture | BeshmundirsWalkAI$1 → `BeshmundirsWalkAI$1#this` Creature → `Creature.observeController` ObserveController → `stored` BeshmundirsWalkAI$1 | **UNRESOLVED** (suggested: cpp-breaker: LogoutBreakers::run / onDelete clear observers without notification (design §5.1)) |
+| `ai.instance.beshmundirTemple.IsbariyaTheResoluteAI@L151:56#this` | capture | λIsbariyaTheResoluteAI@L151:56 → `IsbariyaTheResoluteAI@L151:56#this` IsbariyaTheResoluteAI → `stored` λIsbariyaTheResoluteAI@L151:56 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
+| `ai.instance.beshmundirTemple.IsbariyaTheResoluteAI@L97:72#this` | capture | λIsbariyaTheResoluteAI@L97:72 → `IsbariyaTheResoluteAI@L97:72#this` IsbariyaTheResoluteAI → `stored` λIsbariyaTheResoluteAI@L97:72 | **UNRESOLVED** (suggested: java-hook: cancel of the periodic task held by field IsbariyaTheResoluteAI.basicSkillTask) |
 | `ai.instance.beshmundirTemple.SacrificialSoulAI.boss` | field | SacrificialSoulAI → `SacrificialSoulAI.boss` Npc → `extends` Creature → `Creature.ai` SacrificialSoulAI | **UNRESOLVED** |
+| `ai.instance.custom.eternalChallenge.CustomInstanceBossAI@L133:69#this` | capture | λCustomInstanceBossAI@L133:69 → `CustomInstanceBossAI@L133:69#this` CustomInstanceBossAI → `stored` λCustomInstanceBossAI@L133:69 | **UNRESOLVED** (suggested: java-hook: cancel of the periodic task held by field CustomInstanceBossAI.skillTask) |
+| `ai.instance.custom.eternalChallenge.CustomInstanceBossAI@L151:60#this` | capture | λCustomInstanceBossAI@L151:60 → `CustomInstanceBossAI@L151:60#this` CustomInstanceBossAI → `stored` λCustomInstanceBossAI@L151:60 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
+| `ai.instance.custom.eternalChallenge.CustomInstanceBossAI@L157:61#this` | capture | λCustomInstanceBossAI@L157:61 → `CustomInstanceBossAI@L157:61#this` CustomInstanceBossAI → `stored` λCustomInstanceBossAI@L157:61 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
+| `ai.instance.custom.eternalChallenge.CustomInstanceDominatorAI@L107:58#this` | capture | λCustomInstanceDominatorAI@L107:58 → `CustomInstanceDominatorAI@L107:58#this` CustomInstanceDominatorAI → `stored` λCustomInstanceDominatorAI@L107:58 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
+| `ai.instance.custom.eternalChallenge.CustomInstanceDominatorAI@L48:57#this` | capture | λCustomInstanceDominatorAI@L48:57 → `CustomInstanceDominatorAI@L48:57#this` CustomInstanceDominatorAI → `stored` λCustomInstanceDominatorAI@L48:57 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
+| `ai.instance.danuarReliquary.EnragedQueenModorAI@L202:65#this` | capture | λEnragedQueenModorAI@L202:65 → `EnragedQueenModorAI@L202:65#this` EnragedQueenModorAI → `stored` λEnragedQueenModorAI@L202:65 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
+| `ai.instance.danuarReliquary.VengefulOrbAI$1#this` | capture | VengefulOrbAI$1 → `VengefulOrbAI$1#this` VengefulOrbAI → `stored` VengefulOrbAI$1 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
 | `ai.instance.danuarSanctuary.SiegeDrill$1#player` | capture | SiegeDrill$1 → `SiegeDrill$1#player` Player → `Player.rideObservers` SiegeDrill$1 | **UNRESOLVED** (suggested: cpp-breaker: LogoutBreakers::run / onDelete clear observers without notification (design §5.1)) |
+| `ai.instance.danuarSanctuary.SiegeDrill$1#this` | capture | SiegeDrill$1 → `SiegeDrill$1#this` Player → `Player.rideObservers` SiegeDrill$1 | **UNRESOLVED** (suggested: cpp-breaker: LogoutBreakers::run / onDelete clear observers without notification (design §5.1)) |
+| `ai.instance.darkPoeta.CalindiFlamelordAI@L35:55#this` | capture | λCalindiFlamelordAI@L35:55 → `CalindiFlamelordAI@L35:55#this` CalindiFlamelordAI → `stored` λCalindiFlamelordAI@L35:55 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
+| `ai.instance.darkPoeta.MarabataAI@L30:79#this` | capture | λMarabataAI@L30:79 → `MarabataAI@L30:79#this` MarabataAI → `stored` λMarabataAI@L30:79 | **UNRESOLVED** (suggested: java-hook: cancel of the periodic task held by field MarabataAI.boosterLifeCheckTask) |
+| `ai.instance.darkPoeta.TahabataPyrelordAI@L35:55#this` | capture | λTahabataPyrelordAI@L35:55 → `TahabataPyrelordAI@L35:55#this` TahabataPyrelordAI → `stored` λTahabataPyrelordAI@L35:55 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
+| `ai.instance.darkPoeta.TelepathyControllerAI@L33:70#this` | capture | λTelepathyControllerAI@L33:70 → `TelepathyControllerAI@L33:70#this` TelepathyControllerAI → `stored` λTelepathyControllerAI@L33:70 | **UNRESOLVED** (suggested: java-hook: cancel of the periodic task held by field TelepathyControllerAI.spawnTask) |
+| `ai.instance.dragonLordsRefuge.CalculatedAtrocityAI@L54:62#this` | capture | λCalculatedAtrocityAI@L54:62 → `CalculatedAtrocityAI@L54:62#this` CalculatedAtrocityAI → `stored` λCalculatedAtrocityAI@L54:62 | **UNRESOLVED** (suggested: java-hook: cancel of the periodic task held by field CalculatedAtrocityAI.task) |
 | `ai.instance.dragonLordsRefuge.CalindiSummonsAI.textureObject` | field | CalindiSummonsAI → `CalindiSummonsAI.textureObject` Creature → `Creature.ai` CalindiSummonsAI | **UNRESOLVED** |
 | `ai.instance.dragonLordsRefuge.CalindiSummonsAI@L33:62#this` | capture | λCalindiSummonsAI@L33:62 → `CalindiSummonsAI@L33:62#this` CalindiSummonsAI → `stored` λCalindiSummonsAI@L33:62 | **UNRESOLVED** (suggested: java-hook: cancel of the periodic task held by field CalindiSummonsAI.task) |
+| `ai.instance.dragonLordsRefuge.CalindiSurkanaAI@L42:69#this` | capture | λCalindiSurkanaAI@L42:69 → `CalindiSurkanaAI@L42:69#this` CalindiSurkanaAI → `stored` λCalindiSurkanaAI@L42:69 | **UNRESOLVED** (suggested: java-hook: cancel of the periodic task held by field CalindiSurkanaAI.reflectTask) |
+| `ai.instance.dragonLordsRefuge.GravityTornadoAI@L27:62#this` | capture | λGravityTornadoAI@L27:62 → `GravityTornadoAI@L27:62#this` GravityTornadoAI → `stored` λGravityTornadoAI@L27:62 | **UNRESOLVED** (suggested: java-hook: cancel of the periodic task held by field GravityTornadoAI.task) |
+| `ai.instance.dragonLordsRefuge.HM_TiamatWeakenedDragonAI@L111:59#this` | capture | λHM_TiamatWeakenedDragonAI@L111:59 → `HM_TiamatWeakenedDragonAI@L111:59#this` HM_TiamatWeakenedDragonAI → `stored` λHM_TiamatWeakenedDragonAI@L111:59 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
+| `ai.instance.dragonLordsRefuge.HM_TiamatWeakenedDragonAI@L91:70#this` | capture | λHM_TiamatWeakenedDragonAI@L91:70 → `HM_TiamatWeakenedDragonAI@L91:70#this` HM_TiamatWeakenedDragonAI → `stored` λHM_TiamatWeakenedDragonAI@L91:70 | **UNRESOLVED** (suggested: java-hook: cancel of the periodic task held by add()) |
+| `ai.instance.dragonLordsRefuge.HM_TiamatWeakenedDragonAI@L98:60#this` | capture | λHM_TiamatWeakenedDragonAI@L98:60 → `HM_TiamatWeakenedDragonAI@L98:60#this` HM_TiamatWeakenedDragonAI → `stored` λHM_TiamatWeakenedDragonAI@L98:60 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
+| `ai.instance.dragonLordsRefuge.TiamatWeakenedDragonAI@L118:59#this` | capture | λTiamatWeakenedDragonAI@L118:59 → `TiamatWeakenedDragonAI@L118:59#this` HM_TiamatWeakenedDragonAI → `stored` λTiamatWeakenedDragonAI@L118:59 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
+| `ai.instance.dragonLordsRefuge.TiamatWeakenedDragonAI@L123:62#this` | capture | λTiamatWeakenedDragonAI@L123:62 → `TiamatWeakenedDragonAI@L123:62#this` HM_TiamatWeakenedDragonAI → `stored` λTiamatWeakenedDragonAI@L123:62 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
+| `ai.instance.dragonLordsRefuge.TiamatWeakenedDragonAI@L144:59#this` | capture | λTiamatWeakenedDragonAI@L144:59 → `TiamatWeakenedDragonAI@L144:59#this` HM_TiamatWeakenedDragonAI → `stored` λTiamatWeakenedDragonAI@L144:59 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
+| `ai.instance.dragonLordsRefuge.TiamatWeakenedDragonAI@L163:59#this` | capture | λTiamatWeakenedDragonAI@L163:59 → `TiamatWeakenedDragonAI@L163:59#this` HM_TiamatWeakenedDragonAI → `stored` λTiamatWeakenedDragonAI@L163:59 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
+| `ai.instance.dragonLordsRefuge.TiamatsIncarnationSpawnsAI@L27:67#this` | capture | λTiamatsIncarnationSpawnsAI@L27:67 → `TiamatsIncarnationSpawnsAI@L27:67#this` TiamatsIncarnationSpawnsAI → `stored` λTiamatsIncarnationSpawnsAI@L27:67 | **UNRESOLVED** (suggested: java-hook: cancel of the periodic task held by field TiamatsIncarnationSpawnsAI.skillTask) |
+| `ai.instance.dragonLordsRefuge.UltimateAtrocityAI@L51:62#this` | capture | λUltimateAtrocityAI@L51:62 → `UltimateAtrocityAI@L51:62#this` UltimateAtrocityAI → `stored` λUltimateAtrocityAI@L51:62 | **UNRESOLVED** (suggested: java-hook: cancel of the periodic task held by field UltimateAtrocityAI.task) |
+| `ai.instance.drakenspire.BeritraMinionAI@L34:56#this` | capture | λBeritraMinionAI@L34:56 → `BeritraMinionAI@L34:56#this` BeritraMinionAI → `stored` λBeritraMinionAI@L34:56 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
+| `ai.instance.drakenspire.Lv1HumanBeritraAI@L138:57#this` | capture | λLv1HumanBeritraAI@L138:57 → `Lv1HumanBeritraAI@L138:57#this` Lv1HumanBeritraAI → `stored` λLv1HumanBeritraAI@L138:57 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
+| `ai.instance.drakenspire.OrissanAI@L56:53#this` | capture | λOrissanAI@L56:53 → `OrissanAI@L56:53#this` OrissanAI → `stored` λOrissanAI@L56:53 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
+| `ai.instance.drakenspire.OrissanAI@L64:54#this` | capture | λOrissanAI@L64:54 → `OrissanAI@L64:54#this` OrissanAI → `stored` λOrissanAI@L64:54 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
+| `ai.instance.drakenspire.OrissanAI@L70:54#this` | capture | λOrissanAI@L70:54 → `OrissanAI@L70:54#this` OrissanAI → `stored` λOrissanAI@L70:54 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
+| `ai.instance.drakenspire.OrissanAI@L88:52#this` | capture | λOrissanAI@L88:52 → `OrissanAI@L88:52#this` OrissanAI → `stored` λOrissanAI@L88:52 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
+| `ai.instance.drakenspire.SealGuardianAI@L81:56#this` | capture | λSealGuardianAI@L81:56 → `SealGuardianAI@L81:56#this` SealGuardianAI → `stored` λSealGuardianAI@L81:56 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
 | `ai.instance.drakenspire.TwinProtectorAI.adds` | field | TwinProtectorAI → `TwinProtectorAI.adds` Npc → `extends` Creature → `Creature.ai` TwinProtectorAI | **UNRESOLVED** |
+| `ai.instance.drakenspire.WavePortalAI@L30:65#this` | capture | λWavePortalAI@L30:65 → `WavePortalAI@L30:65#this` WavePortalAI → `stored` λWavePortalAI@L30:65 | **UNRESOLVED** (suggested: java-hook: cancel of the periodic task held by add()) |
+| `ai.instance.drakenspire.WavePortalAI@L70:54#this` | capture | λWavePortalAI@L70:54 → `WavePortalAI@L70:54#this` WavePortalAI → `stored` λWavePortalAI@L70:54 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
+| `ai.instance.empyreanCrucible.KingConsierdAI$3#this` | capture | KingConsierdAI$3 → `KingConsierdAI$3#this` KingConsierdAI → `stored` KingConsierdAI$3 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
+| `ai.instance.empyreanCrucible.KingConsierdAI@L99:67#this` | capture | λKingConsierdAI@L99:67 → `KingConsierdAI@L99:67#this` KingConsierdAI → `stored` λKingConsierdAI@L99:67 | **UNRESOLVED** (suggested: java-hook: cancel of the periodic task held by field KingConsierdAI.skillTask) |
+| `ai.instance.empyreanCrucible.QueenAlukinaAI@L69:64#this` | capture | λQueenAlukinaAI@L69:64 → `QueenAlukinaAI@L69:64#this` QueenAlukinaAI → `stored` λQueenAlukinaAI@L69:64 | **UNRESOLVED** (suggested: java-hook: cancel of the periodic task held by field QueenAlukinaAI.task) |
+| `ai.instance.empyreanCrucible.RM1337AI$1#this` | capture | RM1337AI$1 → `RM1337AI$1#this` RM1337AI → `stored` RM1337AI$1 | **UNRESOLVED** (suggested: java-hook: cancel of the periodic task held by field RM1337AI.task1) |
+| `ai.instance.empyreanCrucible.RM1337AI$2#this` | capture | RM1337AI$2 → `RM1337AI$2#this` RM1337AI → `stored` RM1337AI$2 | **UNRESOLVED** (suggested: java-hook: cancel of the periodic task held by field RM1337AI.task2) |
 | `ai.instance.empyreanCrucible.TakunGojiraAI.counterpart` | field | TakunGojiraAI → `TakunGojiraAI.counterpart` Npc → `extends` Creature → `Creature.ai` TakunGojiraAI | **UNRESOLVED** |
+| `ai.instance.empyreanCrucible.WarriorPreceptorAI$1#this` | capture | WarriorPreceptorAI$1 → `WarriorPreceptorAI$1#this` WarriorPreceptorAI → `stored` WarriorPreceptorAI$1 | **UNRESOLVED** (suggested: java-hook: cancel of the periodic task held by field WarriorPreceptorAI.task) |
 | `ai.instance.engulfedOphidianBridgeInstance.ExplosionDeviceAI.bomb` | field | ExplosionDeviceAI → `ExplosionDeviceAI.bomb` Npc → `extends` Creature → `Creature.ai` ExplosionDeviceAI | **UNRESOLVED** |
 | `ai.instance.engulfedOphidianBridgeInstance.GeneratorsAI.flag` | field | GeneratorsAI → `GeneratorsAI.flag` Npc → `extends` Creature → `Creature.ai` GeneratorsAI | **UNRESOLVED** |
+| `ai.instance.esoterrace.CaptainMuruganAI$1#this` | capture | CaptainMuruganAI$1 → `CaptainMuruganAI$1#this` CaptainMuruganAI → `stored` CaptainMuruganAI$1 | **UNRESOLVED** (suggested: java-hook: cancel of the periodic task held by field CaptainMuruganAI.task) |
+| `ai.instance.esoterrace.CaptainMuruganAI$2#this` | capture | CaptainMuruganAI$2 → `CaptainMuruganAI$2#this` CaptainMuruganAI → `stored` CaptainMuruganAI$2 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
+| `ai.instance.esoterrace.CaptainMuruganAI$3#this` | capture | CaptainMuruganAI$3 → `CaptainMuruganAI$3#this` CaptainMuruganAI → `stored` CaptainMuruganAI$3 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
+| `ai.instance.eternalBastion.EternalBastionCommanderAI@L34:60#this` | capture | λEternalBastionCommanderAI@L34:60 → `EternalBastionCommanderAI@L34:60#this` EternalBastionCommanderAI → `stored` λEternalBastionCommanderAI@L34:60 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
 | `ai.instance.eternalBastion.EternalBastionCommanderPashidAI.commander` | field | EternalBastionCommanderPashidAI → `EternalBastionCommanderPashidAI.commander` Npc → `extends` Creature → `Creature.ai` EternalBastionCommanderPashidAI | **UNRESOLVED** |
+| `ai.instance.idgelDome.RepellingFlameCannonAI@L33:67#this` | capture | λRepellingFlameCannonAI@L33:67 → `RepellingFlameCannonAI@L33:67#this` RepellingFlameCannonAI → `stored` λRepellingFlameCannonAI@L33:67 | **UNRESOLVED** (suggested: java-hook: cancel of the periodic task held by field RepellingFlameCannonAI.skillTask) |
+| `ai.instance.idgelDome.UnstableIdeEnergyAI@L39:56#this` | capture | λUnstableIdeEnergyAI@L39:56 → `UnstableIdeEnergyAI@L39:56#this` UnstableIdeEnergyAI → `stored` λUnstableIdeEnergyAI@L39:56 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
+| `ai.instance.illuminaryObelisk.DynatoumAI@L45:58#this` | capture | λDynatoumAI@L45:58 → `DynatoumAI@L45:58#this` DynatoumAI → `stored` λDynatoumAI@L45:58 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
+| `ai.instance.illuminaryObelisk.DynatoumMaintenanceDeviceAI@L39:56#this` | capture | λDynatoumMaintenanceDeviceAI@L39:56 → `DynatoumMaintenanceDeviceAI@L39:56#this` DynatoumMaintenanceDeviceAI → `stored` λDynatoumMaintenanceDeviceAI@L39:56 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
+| `ai.instance.illuminaryObelisk.IDF5_U3_VortexAI@L41:66#this` | capture | λIDF5_U3_VortexAI@L41:66 → `IDF5_U3_VortexAI@L41:66#this` IDF5_U3_VortexAI → `stored` λIDF5_U3_VortexAI@L41:66 | **UNRESOLVED** (suggested: java-hook: cancel of the periodic task held by add()) |
+| `ai.instance.illuminaryObelisk.InfernalDynatoumAI@L22:58#this` | capture | λInfernalDynatoumAI@L22:58 → `InfernalDynatoumAI@L22:58#this` InfernalDynatoumAI → `stored` λInfernalDynatoumAI@L22:58 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
 | `ai.instance.illuminaryObelisk.ShieldGeneratorAI$1#player` | capture | ShieldGeneratorAI$1 → `ShieldGeneratorAI$1#player` Player → `Player.rideObservers` ShieldGeneratorAI$1 | **UNRESOLVED** (suggested: cpp-breaker: LogoutBreakers::run / onDelete clear observers without notification (design §5.1)) |
-| `ai.instance.illuminaryObelisk.ShieldGeneratorAI$1#this` | capture | ShieldGeneratorAI$1 → `ShieldGeneratorAI$1#this` ShieldGeneratorAI → `ShieldGeneratorAI.charges` SummonedObject → `SummonedObject.creator` Player → `Player.rideObservers` ShieldGeneratorAI$1 | **UNRESOLVED** (suggested: cpp-breaker: LogoutBreakers::run / onDelete clear observers without notification (design §5.1)) |
+| `ai.instance.illuminaryObelisk.ShieldGeneratorAI$1#this` | capture | ShieldGeneratorAI$1 → `ShieldGeneratorAI$1#this` Player → `Player.rideObservers` ShieldGeneratorAI$1 | **UNRESOLVED** (suggested: cpp-breaker: LogoutBreakers::run / onDelete clear observers without notification (design §5.1)) |
 | `ai.instance.illuminaryObelisk.ShieldGeneratorAI.charges` | field | ShieldGeneratorAI → `ShieldGeneratorAI.charges` Npc → `extends` Creature → `Creature.ai` ShieldGeneratorAI | **UNRESOLVED** |
 | `ai.instance.infinityShard.HyperionAI.northernSpawnPos` | field | HyperionAI → `HyperionAI.northernSpawnPos` WorldPosition → `WorldPosition.mapRegion` MapRegion → `MapRegion.objects` Creature → `Creature.ai` HyperionAI | **UNRESOLVED** |
 | `ai.instance.infinityShard.HyperionAI.southernSpawnPos` | field | HyperionAI → `HyperionAI.southernSpawnPos` WorldPosition → `WorldPosition.mapRegion` MapRegion → `MapRegion.objects` Creature → `Creature.ai` HyperionAI | **UNRESOLVED** |
@@ -742,10 +502,16 @@ Nodes: `DummyHouseObject`, `ActionItemNpcAI`, `ActionItemNpcAI$1`, `ArtifactAI$1
 | `ai.instance.kamarBf.KamarBossesAI.flag` | field | KamarBossesAI → `KamarBossesAI.flag` Npc → `extends` Creature → `Creature.ai` KamarBossesAI | **UNRESOLVED** |
 | `ai.instance.kamarBf.KamarCannonsAI.flag` | field | KamarCannonsAI → `KamarCannonsAI.flag` Npc → `extends` Creature → `Creature.ai` KamarCannonsAI | **UNRESOLVED** |
 | `ai.instance.kamarBf.ReianSupplyItemsAI.flag` | field | ReianSupplyItemsAI → `ReianSupplyItemsAI.flag` Npc → `extends` Creature → `Creature.ai` ReianSupplyItemsAI | **UNRESOLVED** |
+| `ai.instance.nightmareCircus.CircusBoxesAI@L51:62#this` | capture | λCircusBoxesAI@L51:62 → `CircusBoxesAI@L51:62#this` CircusBoxesAI → `stored` λCircusBoxesAI@L51:62 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
 | `ai.instance.nightmareCircus.EnragedNightmareAI.boss` | field | EnragedNightmareAI → `EnragedNightmareAI.boss` Npc → `extends` Creature → `Creature.ai` EnragedNightmareAI | **UNRESOLVED** |
 | `ai.instance.nightmareCircus.EnragedNightmareAI@L90:59#this` | capture | λEnragedNightmareAI@L90:59 → `EnragedNightmareAI@L90:59#this` EnragedNightmareAI → `stored` λEnragedNightmareAI@L90:59 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
+| `ai.instance.nightmareCircus.HarlequinLordReshkaAI@L100:64#this` | capture | λHarlequinLordReshkaAI@L100:64 → `HarlequinLordReshkaAI@L100:64#this` HarlequinLordReshkaAI → `stored` λHarlequinLordReshkaAI@L100:64 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
+| `ai.instance.nightmareCircus.HarlequinLordReshkaAI@L75:61#this` | capture | λHarlequinLordReshkaAI@L75:61 → `HarlequinLordReshkaAI@L75:61#this` HarlequinLordReshkaAI → `stored` λHarlequinLordReshkaAI@L75:61 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
+| `ai.instance.nightmareCircus.HarlequinLordReshkaAI@L94:64#this` | capture | λHarlequinLordReshkaAI@L94:64 → `HarlequinLordReshkaAI@L94:64#this` HarlequinLordReshkaAI → `stored` λHarlequinLordReshkaAI@L94:64 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
+| `ai.instance.nightmareCircus.NightmareLordHeiramuneAI@L45:67#this` | capture | λNightmareLordHeiramuneAI@L45:67 → `NightmareLordHeiramuneAI@L45:67#this` NightmareLordHeiramuneAI → `stored` λNightmareLordHeiramuneAI@L45:67 | **UNRESOLVED** (suggested: java-hook: cancel of the periodic task held by field NightmareLordHeiramuneAI.spawnTask) |
 | `ai.instance.nightmareCircus.YumeAI@L52:69#p` | capture | λYumeAI@L52:69 → `YumeAI@L52:69#p` Player → `extends` Creature → `Creature.ai` YumeAI → `stored` λYumeAI@L52:69 | **UNRESOLVED** (suggested: java-hook: cancel of the periodic task held by field YumeAI.skillTask) |
 | `ai.instance.nightmareCircus.YumeAI@L52:69#this` | capture | λYumeAI@L52:69 → `YumeAI@L52:69#this` YumeAI → `stored` λYumeAI@L52:69 | **UNRESOLVED** (suggested: java-hook: cancel of the periodic task held by field YumeAI.skillTask) |
+| `ai.instance.padmarashkasCave.PadmarashkaAI$1#this` | capture | PadmarashkaAI$1 → `PadmarashkaAI$1#this` PadmarashkaAI → `stored` PadmarashkaAI$1 | **UNRESOLVED** (suggested: java-hook: cancel of the periodic task held by field PadmarashkaAI.mainSkillTask) |
 | `ai.instance.padmarashkasCave.PadmarashkaEggAI.protector` | field | PadmarashkaEggAI → `PadmarashkaEggAI.protector` Npc → `extends` Creature → `Creature.ai` PadmarashkaEggAI | **UNRESOLVED** |
 | `ai.instance.rakes.EngineerLahulahuAI.npc` | field | EngineerLahulahuAI → `EngineerLahulahuAI.npc` Npc → `extends` Creature → `Creature.ai` EngineerLahulahuAI | **UNRESOLVED** |
 | `ai.instance.rakes.EngineerLahulahuAI.npc1` | field | EngineerLahulahuAI → `EngineerLahulahuAI.npc1` Npc → `extends` Creature → `Creature.ai` EngineerLahulahuAI | **UNRESOLVED** |
@@ -759,357 +525,386 @@ Nodes: `DummyHouseObject`, `ActionItemNpcAI`, `ActionItemNpcAI$1`, `ArtifactAI$1
 | `ai.instance.rakes.EngineerLahulahuAI.npc7` | field | EngineerLahulahuAI → `EngineerLahulahuAI.npc7` Npc → `extends` Creature → `Creature.ai` EngineerLahulahuAI | **UNRESOLVED** |
 | `ai.instance.rakes.EngineerLahulahuAI.npc8` | field | EngineerLahulahuAI → `EngineerLahulahuAI.npc8` Npc → `extends` Creature → `Creature.ai` EngineerLahulahuAI | **UNRESOLVED** |
 | `ai.instance.rakes.EngineerLahulahuAI.npc9` | field | EngineerLahulahuAI → `EngineerLahulahuAI.npc9` Npc → `extends` Creature → `Creature.ai` EngineerLahulahuAI | **UNRESOLVED** |
+| `ai.instance.rakes.GoldenEyeMantutuAI@L146:68#this` | capture | λGoldenEyeMantutuAI@L146:68 → `GoldenEyeMantutuAI@L146:68#this` GoldenEyeMantutuAI → `stored` λGoldenEyeMantutuAI@L146:68 | **UNRESOLVED** (suggested: java-hook: cancel of the periodic task held by field GoldenEyeMantutuAI.hungerTask) |
+| `ai.instance.raksang.IllusionMasterSharikAI$1#this` | capture | IllusionMasterSharikAI$1 → `IllusionMasterSharikAI$1#this` IllusionMasterSharikAI → `stored` IllusionMasterSharikAI$1 | **UNRESOLVED** (suggested: java-hook: cancel of the periodic task held by field IllusionMasterSharikAI.phaseTask) |
+| `ai.instance.raksang.RakshaAI$1#this` | capture | RakshaAI$1 → `RakshaAI$1#this` RakshaAI → `stored` RakshaAI$1 | **UNRESOLVED** (suggested: java-hook: cancel of the periodic task held by field RakshaAI.phaseTask) |
+| `ai.instance.raksang.TheFlamelordAI$3#this` | capture | TheFlamelordAI$3 → `TheFlamelordAI$3#this` TheFlamelordAI → `stored` TheFlamelordAI$3 | **UNRESOLVED** (suggested: java-hook: cancel of the periodic task held by field TheFlamelordAI.phaseTask) |
+| `ai.instance.rentusBase.BrigadeGeneralVashartiAI@L50:62#this` | capture | λBrigadeGeneralVashartiAI@L50:62 → `BrigadeGeneralVashartiAI@L50:62#this` BrigadeGeneralVashartiAI → `stored` λBrigadeGeneralVashartiAI@L50:62 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
+| `ai.instance.rentusBase.BrigadeGeneralVashartiAI@L65:70#this` | capture | λBrigadeGeneralVashartiAI@L65:70 → `BrigadeGeneralVashartiAI@L65:70#this` BrigadeGeneralVashartiAI → `stored` λBrigadeGeneralVashartiAI@L65:70 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
+| `ai.instance.rentusBase.BrigadeGeneralVashartiAI@L81:76#this` | capture | λBrigadeGeneralVashartiAI@L81:76 → `BrigadeGeneralVashartiAI@L81:76#this` BrigadeGeneralVashartiAI → `stored` λBrigadeGeneralVashartiAI@L81:76 | **UNRESOLVED** (suggested: java-hook: cancel of the periodic task held by field BrigadeGeneralVashartiAI.seaOfFireSpawnTask) |
 | `ai.instance.rentusBase.CaptainXastaAI$1#ai` | capture | CaptainXastaAI$1 → `CaptainXastaAI$1#ai` CaptainXastaAI → `stored` CaptainXastaAI$1 | **UNRESOLVED** (suggested: java-hook: cancel of the periodic task held by field CaptainXastaAI.phaseTask) |
 | `ai.instance.rentusBase.CaptainXastaAI$1#this` | capture | CaptainXastaAI$1 → `CaptainXastaAI$1#this` CaptainXastaAI → `stored` CaptainXastaAI$1 | **UNRESOLVED** (suggested: java-hook: cancel of the periodic task held by field CaptainXastaAI.phaseTask) |
 | `ai.instance.rentusBase.CaptainXastaAI$2#this` | capture | CaptainXastaAI$2 → `CaptainXastaAI$2#this` CaptainXastaAI → `stored` CaptainXastaAI$2 | **UNRESOLVED** (suggested: java-hook: cancel of the periodic task held by field CaptainXastaAI.phaseTask) |
+| `ai.instance.rentusBase.DancingFlameAI@L33:66#this` | capture | λDancingFlameAI@L33:66 → `DancingFlameAI@L33:66#this` DancingFlameAI → `stored` λDancingFlameAI@L33:66 | **UNRESOLVED** (suggested: java-hook: cancel of the periodic task held by field DancingFlameAI.buffTask) |
 | `ai.instance.rentusBase.ExplosiveDranaCrystalAI@L67:55#this` | capture | λExplosiveDranaCrystalAI@L67:55 → `ExplosiveDranaCrystalAI@L67:55#this` ExplosiveDranaCrystalAI → `stored` λExplosiveDranaCrystalAI@L67:55 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
 | `ai.instance.rentusBase.KuharaBombAI.boss` | field | KuharaBombAI → `KuharaBombAI.boss` Npc → `extends` Creature → `Creature.ai` KuharaBombAI | **UNRESOLVED** |
+| `ai.instance.rentusBase.KuharaTheVolatileAI@L149:73#this` | capture | λKuharaTheVolatileAI@L149:73 → `KuharaTheVolatileAI@L149:73#this` KuharaTheVolatileAI → `stored` λKuharaTheVolatileAI@L149:73 | **UNRESOLVED** (suggested: java-hook: cancel of the periodic task held by field KuharaTheVolatileAI.activeEventTask) |
+| `ai.instance.rentusBase.KuharaTheVolatileAI@L57:73#this` | capture | λKuharaTheVolatileAI@L57:73 → `KuharaTheVolatileAI@L57:73#this` KuharaTheVolatileAI → `stored` λKuharaTheVolatileAI@L57:73 | **UNRESOLVED** (suggested: java-hook: cancel of the periodic task held by field KuharaTheVolatileAI.barrelEventTask) |
+| `ai.instance.rentusBase.KuharaTheVolatileAI@L81:60#this` | capture | λKuharaTheVolatileAI@L81:60 → `KuharaTheVolatileAI@L81:60#this` KuharaTheVolatileAI → `stored` λKuharaTheVolatileAI@L81:60 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
+| `ai.instance.rentusBase.KuharaTheVolatileAI@L90:62#this` | capture | λKuharaTheVolatileAI@L90:62 → `KuharaTheVolatileAI@L90:62#this` KuharaTheVolatileAI → `stored` λKuharaTheVolatileAI@L90:62 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
+| `ai.instance.sauroBase.GuardCaptainAhuradim@L52:60#this` | capture | λGuardCaptainAhuradim@L52:60 → `GuardCaptainAhuradim@L52:60#this` GuardCaptainAhuradim → `stored` λGuardCaptainAhuradim@L52:60 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
+| `ai.instance.sauroBase.GuardCaptainAhuradim@L57:63#this` | capture | λGuardCaptainAhuradim@L57:63 → `GuardCaptainAhuradim@L57:63#this` GuardCaptainAhuradim → `stored` λGuardCaptainAhuradim@L57:63 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
+| `ai.instance.sauroBase.MoriataAI@L34:63#this` | capture | λMoriataAI@L34:63 → `MoriataAI@L34:63#this` MoriataAI → `stored` λMoriataAI@L34:63 | **UNRESOLVED** (suggested: java-hook: cancel of the periodic task held by field MoriataAI.task) |
+| `ai.instance.stonespearReach.KebbitAI@L28:58#this` | capture | λKebbitAI@L28:58 → `KebbitAI@L28:58#this` KebbitAI → `stored` λKebbitAI@L28:58 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
+| `ai.instance.stonespearReach.StonespearGuardianStoneAI@L32:51#this` | capture | λStonespearGuardianStoneAI@L32:51 → `StonespearGuardianStoneAI@L32:51#this` StonespearGuardianStoneAI → `stored` λStonespearGuardianStoneAI@L32:51 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
+| `ai.instance.tallocsHollow.CelestiusAI@L44:69#this` | capture | λCelestiusAI@L44:69 → `CelestiusAI@L44:69#this` CelestiusAI → `stored` λCelestiusAI@L44:69 | **UNRESOLVED** (suggested: java-hook: cancel of the periodic task held by field CelestiusAI.helpersTask) |
+| `ai.instance.tallocsHollow.KinquidAI@L35:68#this` | capture | λKinquidAI@L35:68 → `KinquidAI@L35:68#this` KinquidAI → `stored` λKinquidAI@L35:68 | **UNRESOLVED** (suggested: java-hook: cancel of the periodic task held by field KinquidAI.skillTask) |
+| `ai.instance.tallocsHollow.KinquidAI@L37:79#this` | capture | λKinquidAI@L37:79 → `KinquidAI@L37:79#this` KinquidAI → `stored` λKinquidAI@L37:79 | **UNRESOLVED** (suggested: java-hook: cancel of the periodic task held by field KinquidAI.destroyerRespawnTask) |
+| `ai.instance.tallocsHollow.MosquaEggAI@L27:65#this` | capture | λMosquaEggAI@L27:65 → `MosquaEggAI@L27:65#this` MosquaEggAI → `stored` λMosquaEggAI@L27:65 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
+| `ai.instance.theHexway.AdjutantGalamatAI@L54:71#this` | capture | λAdjutantGalamatAI@L54:71 → `AdjutantGalamatAI@L54:71#this` AdjutantGalamatAI → `stored` λAdjutantGalamatAI@L54:71 | **UNRESOLVED** (suggested: java-hook: cancel of the periodic task held by field AdjutantGalamatAI.addSpawnTask) |
+| `ai.instance.theHexway.AdjutantGalamatAI@L55:73#this` | capture | λAdjutantGalamatAI@L55:73 → `AdjutantGalamatAI@L55:73#this` AdjutantGalamatAI → `stored` λAdjutantGalamatAI@L55:73 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
+| `ai.instance.theHexway.CaptainLakharaAI@L31:58#this` | capture | λCaptainLakharaAI@L31:58 → `CaptainLakharaAI@L31:58#this` CaptainLakharaAI → `stored` λCaptainLakharaAI@L31:58 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
+| `ai.instance.theShugoEmperorsVault.IDSweep_HealTower@L27:66#this` | capture | λIDSweep_HealTower@L27:66 → `IDSweep_HealTower@L27:66#this` IDSweep_HealTower → `stored` λIDSweep_HealTower@L27:66 | **UNRESOLVED** (suggested: java-hook: cancel of the periodic task held by field IDSweep_HealTower.schedule) |
 | `ai.instance.theShugoEmperorsVault.RuthlessJabaraki.spawnedAdds` | field | RuthlessJabaraki → `RuthlessJabaraki.spawnedAdds` Npc → `extends` Creature → `Creature.ai` RuthlessJabaraki | **UNRESOLVED** |
 | `ai.instance.theShugoEmperorsVault.ShugoMorpher$1#player` | capture | ShugoMorpher$1 → `ShugoMorpher$1#player` Player → `Player.rideObservers` ShugoMorpher$1 | **UNRESOLVED** (suggested: cpp-breaker: LogoutBreakers::run / onDelete clear observers without notification (design §5.1)) |
+| `ai.instance.theShugoEmperorsVault.ShugoMorpher$1#this` | capture | ShugoMorpher$1 → `ShugoMorpher$1#this` Player → `Player.rideObservers` ShugoMorpher$1 | **UNRESOLVED** (suggested: cpp-breaker: LogoutBreakers::run / onDelete clear observers without notification (design §5.1)) |
+| `ai.instance.tiamatStrongHold.BladeStormAI@L27:66#this` | capture | λBladeStormAI@L27:66 → `BladeStormAI@L27:66#this` BladeStormAI → `stored` λBladeStormAI@L27:66 | **UNRESOLVED** (suggested: java-hook: cancel of the periodic task held by field BladeStormAI.spinTask) |
+| `ai.instance.tiamatStrongHold.BrigadeGeneralChantraAI$1#this` | capture | BrigadeGeneralChantraAI$1 → `BrigadeGeneralChantraAI$1#this` BrigadeGeneralChantraAI → `stored` BrigadeGeneralChantraAI$1 | **UNRESOLVED** (suggested: java-hook: cancel of the periodic task held by field BrigadeGeneralChantraAI.trapTask) |
+| `ai.instance.tiamatStrongHold.BrigadeGeneralLaksyakaAI$1#this` | capture | BrigadeGeneralLaksyakaAI$1 → `BrigadeGeneralLaksyakaAI$1#this` BrigadeGeneralLaksyakaAI → `stored` BrigadeGeneralLaksyakaAI$1 | **UNRESOLVED** (suggested: java-hook: cancel of the periodic task held by field BrigadeGeneralLaksyakaAI.skeletonTask) |
+| `ai.instance.tiamatStrongHold.BrigadeGeneralTahabataAI@L46:76#this` | capture | λBrigadeGeneralTahabataAI@L46:76 → `BrigadeGeneralTahabataAI@L46:76#this` BrigadeGeneralTahabataAI → `stored` λBrigadeGeneralTahabataAI@L46:76 | **UNRESOLVED** (suggested: java-hook: cancel of the periodic task held by field BrigadeGeneralTahabataAI.piercingStrikeTask) |
+| `ai.instance.tiamatStrongHold.BrigadeGeneralTahabataAI@L53:71#this` | capture | λBrigadeGeneralTahabataAI@L53:71 → `BrigadeGeneralTahabataAI@L53:71#this` BrigadeGeneralTahabataAI → `stored` λBrigadeGeneralTahabataAI@L53:71 | **UNRESOLVED** (suggested: java-hook: cancel of the periodic task held by field BrigadeGeneralTahabataAI.fireStormTask) |
 | `ai.instance.tiamatStrongHold.BrigadeGeneralTerathAI.aethericField` | field | BrigadeGeneralTerathAI → `BrigadeGeneralTerathAI.aethericField` Npc → `extends` Creature → `Creature.ai` BrigadeGeneralTerathAI | **UNRESOLVED** |
 | `ai.instance.tiamatStrongHold.BrigadeGeneralTerathAI@L64:67#this` | capture | λBrigadeGeneralTerathAI@L64:67 → `BrigadeGeneralTerathAI@L64:67#this` BrigadeGeneralTerathAI → `stored` λBrigadeGeneralTerathAI@L64:67 | **UNRESOLVED** (suggested: java-hook: cancel of the periodic task held by field BrigadeGeneralTerathAI.skillTask) |
+| `ai.instance.tiamatStrongHold.CapturedDrakanScientistAI@L44:56#this` | capture | λCapturedDrakanScientistAI@L44:56 → `CapturedDrakanScientistAI@L44:56#this` Player → `Player.rideObservers` DeathObserver → `stored` λCapturedDrakanScientistAI@L44:56 | **UNRESOLVED** |
+| `ai.instance.tiamatStrongHold.DistortedSpaceAI@L31:62#this` | capture | λDistortedSpaceAI@L31:62 → `DistortedSpaceAI@L31:62#this` DistortedSpaceAI → `stored` λDistortedSpaceAI@L31:62 | **UNRESOLVED** (suggested: java-hook: cancel of the periodic task held by field DistortedSpaceAI.task) |
+| `ai.instance.tiamatStrongHold.ElectrocuteAI@L27:62#this` | capture | λElectrocuteAI@L27:62 → `ElectrocuteAI@L27:62#this` ElectrocuteAI → `stored` λElectrocuteAI@L27:62 | **UNRESOLVED** (suggested: java-hook: cancel of the periodic task held by field ElectrocuteAI.task) |
+| `ai.instance.tiamatStrongHold.FireStormAI@L28:62#this` | capture | λFireStormAI@L28:62 → `FireStormAI@L28:62#this` FireStormAI → `stored` λFireStormAI@L28:62 | **UNRESOLVED** (suggested: java-hook: cancel of the periodic task held by field FireStormAI.task) |
+| `ai.instance.tiamatStrongHold.GravityAI@L27:62#this` | capture | λGravityAI@L27:62 → `GravityAI@L27:62#this` GravityAI → `stored` λGravityAI@L27:62 | **UNRESOLVED** (suggested: java-hook: cancel of the periodic task held by field GravityAI.task) |
+| `ai.instance.tiamatStrongHold.InvincibleShabokanAI$1#this` | capture | InvincibleShabokanAI$1 → `InvincibleShabokanAI$1#this` InvincibleShabokanAI → `stored` InvincibleShabokanAI$1 | **UNRESOLVED** (suggested: java-hook: cancel of the periodic task held by field InvincibleShabokanAI.skillTask) |
+| `ai.instance.tiamatStrongHold.TahabataAltarFinalAI@L27:62#this` | capture | λTahabataAltarFinalAI@L27:62 → `TahabataAltarFinalAI@L27:62#this` TahabataAltarFinalAI → `stored` λTahabataAltarFinalAI@L27:62 | **UNRESOLVED** (suggested: java-hook: cancel of the periodic task held by field TahabataAltarFinalAI.task) |
 | `ai.instance.unstableSplinterpath.UnstableEbonsoulAI@L44:67#rukril` | capture | λUnstableEbonsoulAI@L44:67 → `UnstableEbonsoulAI@L44:67#rukril` Npc → `extends` Creature → `Creature.ai` UnstableEbonsoulAI → `stored` λUnstableEbonsoulAI@L44:67 | **UNRESOLVED** (suggested: java-hook: cancel of the periodic task held by field UnstableEbonsoulAI.skillTask) |
 | `ai.instance.unstableSplinterpath.UnstableEbonsoulAI@L44:67#this` | capture | λUnstableEbonsoulAI@L44:67 → `UnstableEbonsoulAI@L44:67#this` UnstableEbonsoulAI → `stored` λUnstableEbonsoulAI@L44:67 | **UNRESOLVED** (suggested: java-hook: cancel of the periodic task held by field UnstableEbonsoulAI.skillTask) |
+| `ai.instance.unstableSplinterpath.UnstableGatesSummonedAI@L75:67#this` | capture | λUnstableGatesSummonedAI@L75:67 → `UnstableGatesSummonedAI@L75:67#this` UnstableGatesSummonedAI → `stored` λUnstableGatesSummonedAI@L75:67 | **UNRESOLVED** (suggested: java-hook: cancel of the periodic task held by field UnstableGatesSummonedAI.eventTask) |
+| `ai.instance.unstableSplinterpath.UnstableKaluvaSpawnAI@L68:51#this` | capture | λUnstableKaluvaSpawnAI@L68:51 → `UnstableKaluvaSpawnAI@L68:51#this` UnstableKaluvaSpawnAI → `stored` λUnstableKaluvaSpawnAI@L68:51 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
+| `ai.instance.unstableSplinterpath.UnstablePazuzuAI@L53:62#this` | capture | λUnstablePazuzuAI@L53:62 → `UnstablePazuzuAI@L53:62#this` UnstablePazuzuAI → `stored` λUnstablePazuzuAI@L53:62 | **UNRESOLVED** (suggested: java-hook: cancel of the periodic task held by field UnstablePazuzuAI.task) |
 | `ai.instance.unstableSplinterpath.UnstableRukrilAI@L44:67#ebonsoul` | capture | λUnstableRukrilAI@L44:67 → `UnstableRukrilAI@L44:67#ebonsoul` Npc → `extends` Creature → `Creature.ai` UnstableRukrilAI → `stored` λUnstableRukrilAI@L44:67 | **UNRESOLVED** (suggested: java-hook: cancel of the periodic task held by field UnstableRukrilAI.skillTask) |
 | `ai.instance.unstableSplinterpath.UnstableRukrilAI@L44:67#this` | capture | λUnstableRukrilAI@L44:67 → `UnstableRukrilAI@L44:67#this` UnstableRukrilAI → `stored` λUnstableRukrilAI@L44:67 | **UNRESOLVED** (suggested: java-hook: cancel of the periodic task held by field UnstableRukrilAI.skillTask) |
+| `ai.instance.unstableSplinterpath.UnstableYamennesAI@L43:57#this` | capture | λUnstableYamennesAI@L43:57 → `UnstableYamennesAI@L43:57#this` UnstableYamennesAI → `stored` λUnstableYamennesAI@L43:57 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
+| `ai.instance.unstableSplinterpath.UnstableYamennesAI@L44:57#this` | capture | λUnstableYamennesAI@L44:57 → `UnstableYamennesAI@L44:57#this` UnstableYamennesAI → `stored` λUnstableYamennesAI@L44:57 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
+| `ai.instance.unstableSplinterpath.UnstableYamennesAI@L75:57#this` | capture | λUnstableYamennesAI@L75:57 → `UnstableYamennesAI@L75:57#this` UnstableYamennesAI → `stored` λUnstableYamennesAI@L75:57 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
 | `ai.portals.DramataPortalAI.targetLocation` | field | DramataPortalAI → `DramataPortalAI.targetLocation` WorldPosition → `WorldPosition.mapRegion` MapRegion → `MapRegion.objects` Creature → `Creature.ai` DramataPortalAI | **UNRESOLVED** |
+| `ai.portals.GroupGateAI$1#this` | capture | GroupGateAI$1 → `GroupGateAI$1#this` Creature → `Creature.observeController` ObserveController → `stored` GroupGateAI$1 | **UNRESOLVED** (suggested: cpp-breaker: LogoutBreakers::run / onDelete clear observers without notification (design §5.1)) |
 | `ai.portals.HouseGateAI$1#house` | capture | HouseGateAI$1 → `HouseGateAI$1#house` House → `House.spawns` SummonedObject → `SummonedObject.creator` Player → `Player.rideObservers` AIActions$2 → `AIActions$2#request` HouseGateAI$1 | **UNRESOLVED** (suggested: cpp-breaker: LogoutBreakers::run / onDelete clear observers without notification (design §5.1)) |
+| `ai.quests.GarnonQ20060AI$1#this` | capture | GarnonQ20060AI$1 → `GarnonQ20060AI$1#this` GarnonQ20060AI → `stored` GarnonQ20060AI$1 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
 | `ai.quests.NidalberBalaurAI.questNpc` | field | NidalberBalaurAI → `NidalberBalaurAI.questNpc` Npc → `extends` Creature → `Creature.ai` NidalberBalaurAI | **UNRESOLVED** |
 | `ai.siege.DredgionCommanderAI.fortressBoss` | field | DredgionCommanderAI → `DredgionCommanderAI.fortressBoss` Npc → `extends` Creature → `Creature.ai` DredgionCommanderAI | **UNRESOLVED** |
 | `ai.siege.EmpoweredAgent.flagNpc` | field | EmpoweredAgent → `EmpoweredAgent.flagNpc` Npc → `extends` Creature → `Creature.ai` EmpoweredAgent | **UNRESOLVED** |
 | `ai.siege.EmpoweredAgent@L124:62#this` | capture | λEmpoweredAgent@L124:62 → `EmpoweredAgent@L124:62#this` EmpoweredAgent → `stored` λEmpoweredAgent@L124:62 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
 | `ai.siege.EmpoweredAgent@L145:72#this` | capture | λEmpoweredAgent@L145:72 → `EmpoweredAgent@L145:72#this` EmpoweredAgent → `stored` λEmpoweredAgent@L145:72 | **UNRESOLVED** (suggested: java-hook: cancel of the periodic task held by field EmpoweredAgent.aggroResetTask) |
 | `ai.siege.GateRepairAI$1#player` | capture | GateRepairAI$1 → `GateRepairAI$1#player` Player → `Player.requester` ResponseRequester → `ResponseRequester.activeRequests` GateRepairAI$1 | **UNRESOLVED** |
+| `ai.siege.GateRepairAI$1#this` | capture | GateRepairAI$1 → `GateRepairAI$1#this` Player → `Player.requester` ResponseRequester → `ResponseRequester.activeRequests` GateRepairAI$1 | **UNRESOLVED** |
+| `ai.siege.GateRepairAI$2#this` | capture | GateRepairAI$2 → `GateRepairAI$2#this` Player → `Player.requester` ResponseRequester → `ResponseRequester.activeRequests` GateRepairAI$2 | **UNRESOLVED** |
+| `ai.siege.SpringAI@L28:71#this` | capture | λSpringAI@L28:71 → `SpringAI@L28:71#this` SpringAI → `stored` λSpringAI@L28:71 | **UNRESOLVED** (suggested: java-hook: cancel of the periodic task held by field SpringAI.healCheckTask) |
+| `ai.worlds.brusthonin.UnfaithfulNtuamuAI@L35:64#this` | capture | λUnfaithfulNtuamuAI@L35:64 → `UnfaithfulNtuamuAI@L35:64#this` Player → `Player.rideObservers` DeathObserver → `stored` λUnfaithfulNtuamuAI@L35:64 | **UNRESOLVED** |
+| `ai.worlds.eltnen.DracusBox@L38:58#this` | capture | λDracusBox@L38:58 → `DracusBox@L38:58#this` Player → `Player.rideObservers` DeathObserver → `stored` λDracusBox@L38:58 | **UNRESOLVED** |
+| `ai.worlds.eltnen.Kratia@L27:60#this` | capture | λKratia@L27:60 → `Kratia@L27:60#this` Player → `Player.rideObservers` DeathObserver → `stored` λKratia@L27:60 | **UNRESOLVED** |
 | `ai.worlds.gelkmaros.PadmarashkaAI@L116:55#npc` | capture | λPadmarashkaAI@L116:55 → `PadmarashkaAI@L116:55#npc` SummonedObject → `SummonedObject.creator` Player → `Player.rideObservers` DeathObserver → `stored` λPadmarashkaAI@L116:55 | **UNRESOLVED** |
+| `ai.worlds.gelkmaros.PadmarashkaAI@L116:55#this` | capture | λPadmarashkaAI@L116:55 → `PadmarashkaAI@L116:55#this` Player → `Player.rideObservers` DeathObserver → `stored` λPadmarashkaAI@L116:55 | **UNRESOLVED** |
+| `ai.worlds.heiron.BollvigAI@L75:57#this` | capture | λBollvigAI@L75:57 → `BollvigAI@L75:57#this` BollvigAI → `stored` λBollvigAI@L75:57 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
+| `ai.worlds.heiron.BollvigAI@L82:57#this` | capture | λBollvigAI@L82:57 → `BollvigAI@L82:57#this` BollvigAI → `stored` λBollvigAI@L82:57 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
+| `ai.worlds.heiron.BollvigAI@L87:56#this` | capture | λBollvigAI@L87:56 → `BollvigAI@L87:56#this` BollvigAI → `stored` λBollvigAI@L87:56 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
+| `ai.worlds.heiron.BollvigAI@L97:57#this` | capture | λBollvigAI@L97:57 → `BollvigAI@L97:57#this` BollvigAI → `stored` λBollvigAI@L97:57 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
 | `ai.worlds.inggison.SematariuxAI@L184:55#npc` | capture | λSematariuxAI@L184:55 → `SematariuxAI@L184:55#npc` SummonedObject → `SummonedObject.creator` Player → `Player.rideObservers` DeathObserver → `stored` λSematariuxAI@L184:55 | **UNRESOLVED** |
+| `ai.worlds.inggison.SematariuxAI@L184:55#this` | capture | λSematariuxAI@L184:55 → `SematariuxAI@L184:55#this` Player → `Player.rideObservers` DeathObserver → `stored` λSematariuxAI@L184:55 | **UNRESOLVED** |
+| `ai.worlds.inggison.SematariuxEggAI@L27:56#this` | capture | λSematariuxEggAI@L27:56 → `SematariuxEggAI@L27:56#this` SematariuxEggAI → `stored` λSematariuxEggAI@L27:56 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
 | `ai.worlds.levinshor.VocolithAI$1#player` | capture | VocolithAI$1 → `VocolithAI$1#player` Player → `Player.rideObservers` VocolithAI$1 | **UNRESOLVED** (suggested: cpp-breaker: LogoutBreakers::run / onDelete clear observers without notification (design §5.1)) |
+| `ai.worlds.levinshor.VocolithAI$1#this` | capture | VocolithAI$1 → `VocolithAI$1#this` Player → `Player.rideObservers` VocolithAI$1 | **UNRESOLVED** (suggested: cpp-breaker: LogoutBreakers::run / onDelete clear observers without notification (design §5.1)) |
 | `ai.worlds.panesterra.AdvanceCorridorAI$1#player` | capture | AdvanceCorridorAI$1 → `AdvanceCorridorAI$1#player` Player → `Player.rideObservers` AIActions$2 → `AIActions$2#request` AdvanceCorridorAI$1 | **UNRESOLVED** (suggested: cpp-breaker: LogoutBreakers::run / onDelete clear observers without notification (design §5.1)) |
 | `ai.worlds.panesterra.ahserionsflight.AhserionRegistrationCorridor$1#player` | capture | AhserionRegistrationCorridor$1 → `AhserionRegistrationCorridor$1#player` Player → `Player.rideObservers` AIActions$2 → `AIActions$2#request` AhserionRegistrationCorridor$1 | **UNRESOLVED** (suggested: cpp-breaker: LogoutBreakers::run / onDelete clear observers without notification (design §5.1)) |
+| `ai.worlds.panesterra.ahserionsflight.AhserionRegistrationCorridor$1#this` | capture | AhserionRegistrationCorridor$1 → `AhserionRegistrationCorridor$1#this` Creature → `Creature.observeController` ObserveController → `stored` AhserionRegistrationCorridor$1 | **UNRESOLVED** (suggested: cpp-breaker: LogoutBreakers::run / onDelete clear observers without notification (design §5.1)) |
+| `ai.worlds.panesterra.ahserionsflight.EreshkigalsVoiceAI@L27:55#this` | capture | λEreshkigalsVoiceAI@L27:55 → `EreshkigalsVoiceAI@L27:55#this` EreshkigalsVoiceAI → `stored` λEreshkigalsVoiceAI@L27:55 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
 | `ai.worlds.pernon.GaleCycloneAI.GaleCycloneObserver#this$0` | capture | GaleCycloneObserver → `GaleCycloneObserver#this$0` GaleCycloneAI → `GaleCycloneAI.observed` GaleCycloneObserver | **UNRESOLVED** |
 | `ai.worlds.pernon.GaleCycloneAI.GaleCycloneObserver.creature` | field | GaleCycloneObserver → `GaleCycloneObserver.creature` Player → `Player.rideObservers` GaleCycloneObserver | **UNRESOLVED** |
 | `ai.worlds.pernon.GaleCycloneAI.GaleCycloneObserver.player` | field | GaleCycloneObserver → `GaleCycloneObserver.player` Player → `Player.rideObservers` GaleCycloneObserver | **UNRESOLVED** |
 | `ai.worlds.pernon.GaleCycloneAI.observed` | field | GaleCycloneAI → `GaleCycloneAI.observed` GaleCycloneObserver → `GaleCycloneObserver#this$0` GaleCycloneAI | **UNRESOLVED** |
-| `com.aionemu.gameserver.ai.AIActions$1#request` | capture | AIActions$1 → `AIActions$1#request` ArtifactAI$1 → `ArtifactAI$1#player` Player → `Player.requester` ResponseRequester → `ResponseRequester.activeRequests` AIActions$1 | **UNRESOLVED** |
-| `com.aionemu.gameserver.ai.AIActions$2#request` | capture | AIActions$2 → `AIActions$2#request` ArtifactAI$1 → `ArtifactAI$1#player` Player → `Player.rideObservers` AIActions$2 | **UNRESOLVED** (suggested: cpp-breaker: LogoutBreakers::run / onDelete clear observers without notification (design §5.1)) |
-| `com.aionemu.gameserver.controllers.CreatureController.actor` | field | CreatureController → `CreatureController.actor` TerrainZoneCollisionMaterialActor → `extends` AbstractMaterialSkillActor → `extends` AbstractCollisionObserver → `AbstractCollisionObserver.creature` Creature → `extends` VisibleObject → `VisibleObject.controller` CreatureController | **UNRESOLVED** |
-| `com.aionemu.gameserver.controllers.FlyRingController.observed` | field | FlyRingController → `FlyRingController.observed` FlyRingObserver → `FlyRingObserver.ring` FlyRing → `extends` VisibleObject → `VisibleObject.controller` FlyRingController | **UNRESOLVED** |
-| `com.aionemu.gameserver.controllers.GatherableController.gatheringTask` | field | GatherableController → `GatherableController.gatheringTask` GatheringTask → `GatheringTask.gathererObserver` FlyRingObserver → `FlyRingObserver.ring` FlyRing → `extends` VisibleObject → `VisibleObject.controller` GatherableController | **UNRESOLVED** |
-| `com.aionemu.gameserver.controllers.ObserveController.attackCalcObservers` | field | ObserveController → `ObserveController.attackCalcObservers` AttackShieldObserver → `AttackShieldObserver.effect` Effect → `Effect.effected` Creature → `Creature.observeController` ObserveController | **UNRESOLVED** |
-| `com.aionemu.gameserver.controllers.ObserveController.observers` | field | ObserveController → `ObserveController.observers` GaleCycloneObserver → `GaleCycloneObserver.creature` Creature → `Creature.observeController` ObserveController | cpp-breaker: LogoutBreakers::run / PlayerController::onDelete clear observers without notification (design §5.1 RR-2) |
-| `com.aionemu.gameserver.controllers.PlayerController.stanceObserver` | field | PlayerController → `PlayerController.stanceObserver` StanceObserver → `StanceObserver.player` Player → `extends` Creature → `extends` VisibleObject → `VisibleObject.controller` PlayerController | **UNRESOLVED** |
-| `com.aionemu.gameserver.controllers.RVController$1#this` | capture | RVController$1 → `RVController$1#this` RVController → `RVController.passedPlayers` Player → `Player.requester` ResponseRequester → `ResponseRequester.activeRequests` RVController$1 | **UNRESOLVED** |
-| `com.aionemu.gameserver.controllers.RVController$2#this` | capture | RVController$2 → `RVController$2#this` RVController → `RVController.passedPlayers` Player → `Player.requester` ResponseRequester → `ResponseRequester.activeRequests` RVController$2 | **UNRESOLVED** |
-| `com.aionemu.gameserver.controllers.RVController.passedPlayers` | field | RVController → `RVController.passedPlayers` Player → `Player.requester` ResponseRequester → `ResponseRequester.activeRequests` RVController$1 → `RVController$1#this` RVController | **UNRESOLVED** |
-| `com.aionemu.gameserver.controllers.RVController.slave` | field | RVController → `RVController.slave` SummonedObject → `SummonedObject.creator` VisibleObject → `VisibleObject.controller` RVController | **UNRESOLVED** |
-| `com.aionemu.gameserver.controllers.RoadController.observed` | field | RoadController → `RoadController.observed` RoadObserver → `RoadObserver.road` Road → `extends` VisibleObject → `VisibleObject.controller` RoadController | **UNRESOLVED** |
-| `com.aionemu.gameserver.controllers.attack.AggroInfo.attacker` | field | AggroInfo → `AggroInfo.attacker` Creature → `Creature.aggroList` AggroList → `AggroList.aggroList` AggroInfo | **UNRESOLVED** |
-| `com.aionemu.gameserver.controllers.attack.AggroList.aggroList` | field | AggroList → `AggroList.aggroList` AggroInfo → `AggroInfo.attacker` Creature → `Creature.aggroList` AggroList | **UNRESOLVED** |
-| `com.aionemu.gameserver.controllers.attack.AggroList@L206:77#this` | capture | λAggroList@L206:77 → `AggroList@L206:77#this` AggroList → `stored` λAggroList@L206:77 | **UNRESOLVED** (suggested: java-hook: cancel of the periodic task held by field AggroList.hateReductionTask) |
-| `com.aionemu.gameserver.controllers.effect.EffectController.abnormalEffectMap` | field | EffectController → `EffectController.abnormalEffectMap` Effect → `Effect.effected` Creature → `Creature.effectController` EffectController | **UNRESOLVED** |
-| `com.aionemu.gameserver.controllers.effect.EffectController.passiveEffectMap` | field | EffectController → `EffectController.passiveEffectMap` Effect → `Effect.effected` Creature → `Creature.effectController` EffectController | **UNRESOLVED** |
-| `com.aionemu.gameserver.controllers.movement.PlayerMoveController.lastPositionFromClient` | field | PlayerMoveController → `PlayerMoveController.lastPositionFromClient` WorldPosition → `WorldPosition.mapRegion` MapRegion → `MapRegion.objects` Creature → `Creature.moveController` PlayerMoveController | **UNRESOLVED** |
-| `com.aionemu.gameserver.controllers.observer.AbstractCollisionObserver.creature` | field | AbstractCollisionObserver → `AbstractCollisionObserver.creature` Player → `Player.rideObservers` AbstractCollisionObserver | **UNRESOLVED** |
-| `com.aionemu.gameserver.controllers.observer.AbstractQuestZoneObserver.player` | field | AbstractQuestZoneObserver → `AbstractQuestZoneObserver.player` Player → `Player.rideObservers` AbstractQuestZoneObserver | **UNRESOLVED** |
-| `com.aionemu.gameserver.controllers.observer.AttackShieldObserver.effect` | field | AttackShieldObserver → `AttackShieldObserver.effect` Effect → `stored` λEffect@L833:27 → `Effect@L833:27#observer` AttackShieldObserver | **UNRESOLVED** |
-| `com.aionemu.gameserver.controllers.observer.CollisionDieActor.fortressLocation` | field | CollisionDieActor → `CollisionDieActor.fortressLocation` FortressLocation → `FortressLocation.shieldObservers` ShieldObserver → `ShieldObserver.creature` Player → `Player.rideObservers` CollisionDieActor | **UNRESOLVED** |
-| `com.aionemu.gameserver.controllers.observer.DialogObserver.requester` | field | DialogObserver → `DialogObserver.requester` Player → `Player.rideObservers` DialogObserver | **UNRESOLVED** |
-| `com.aionemu.gameserver.controllers.observer.DialogObserver.responder` | field | DialogObserver → `DialogObserver.responder` Player → `Player.rideObservers` DialogObserver | **UNRESOLVED** |
-| `com.aionemu.gameserver.controllers.observer.FlyRingObserver.player` | field | FlyRingObserver → `FlyRingObserver.player` Player → `Player.rideObservers` FlyRingObserver | **UNRESOLVED** |
-| `com.aionemu.gameserver.controllers.observer.FlyRingObserver.ring` | field | FlyRingObserver → `FlyRingObserver.ring` FlyRing → `extends` VisibleObject → `VisibleObject.controller` FlyRingController → `FlyRingController.observed` FlyRingObserver | **UNRESOLVED** |
-| `com.aionemu.gameserver.controllers.observer.RoadObserver.player` | field | RoadObserver → `RoadObserver.player` Player → `Player.rideObservers` RoadObserver | **UNRESOLVED** |
-| `com.aionemu.gameserver.controllers.observer.RoadObserver.road` | field | RoadObserver → `RoadObserver.road` Road → `extends` VisibleObject → `VisibleObject.controller` RoadController → `RoadController.observed` RoadObserver | **UNRESOLVED** |
-| `com.aionemu.gameserver.controllers.observer.ShieldObserver.creature` | field | ShieldObserver → `ShieldObserver.creature` Player → `Player.rideObservers` ShieldObserver | **UNRESOLVED** |
-| `com.aionemu.gameserver.controllers.observer.ShieldObserver.location` | field | ShieldObserver → `ShieldObserver.location` FortressLocation → `FortressLocation.shieldObservers` ShieldObserver | **UNRESOLVED** |
-| `com.aionemu.gameserver.controllers.observer.StanceObserver.player` | field | StanceObserver → `StanceObserver.player` Player → `Player.rideObservers` StanceObserver | **UNRESOLVED** |
-| `com.aionemu.gameserver.custom.instance.RoahCustomInstanceHandler@L106:59#this` | capture | λRoahCustomInstanceHandler@L106:59 → `RoahCustomInstanceHandler@L106:59#this` RoahCustomInstanceHandler → `stored` λRoahCustomInstanceHandler@L106:59 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
-| `com.aionemu.gameserver.custom.instance.RoahCustomInstanceHandler@L113:76#player` | capture | λRoahCustomInstanceHandler@L113:76 → `RoahCustomInstanceHandler@L113:76#player` Player → `extends` Creature → `Creature.ai` HyperionAI → `HyperionAI.northernSpawnPos` WorldPosition → `WorldPosition.mapRegion` MapRegion → `MapRegion.parent` WorldMapInstance → `WorldMapInstance.instanceHandler` RoahCustomInstanceHandler → `stored` λRoahCustomInstanceHandler@L113:76 | **UNRESOLVED** (suggested: java-hook: cancel of the periodic task held by field RoahCustomInstanceHandler.bulkyMobSpawnTask) |
-| `com.aionemu.gameserver.custom.instance.RoahCustomInstanceHandler@L113:76#this` | capture | λRoahCustomInstanceHandler@L113:76 → `RoahCustomInstanceHandler@L113:76#this` RoahCustomInstanceHandler → `stored` λRoahCustomInstanceHandler@L113:76 | **UNRESOLVED** (suggested: java-hook: cancel of the periodic task held by field RoahCustomInstanceHandler.bulkyMobSpawnTask) |
-| `com.aionemu.gameserver.custom.instance.RoahCustomInstanceHandler@L134:77#player` | capture | λRoahCustomInstanceHandler@L134:77 → `RoahCustomInstanceHandler@L134:77#player` Player → `extends` Creature → `Creature.ai` HyperionAI → `HyperionAI.northernSpawnPos` WorldPosition → `WorldPosition.mapRegion` MapRegion → `MapRegion.parent` WorldMapInstance → `WorldMapInstance.instanceHandler` RoahCustomInstanceHandler → `stored` λRoahCustomInstanceHandler@L134:77 | **UNRESOLVED** (suggested: java-hook: cancel of the periodic task held by field RoahCustomInstanceHandler.trashMobSpawnTask) |
-| `com.aionemu.gameserver.custom.instance.RoahCustomInstanceHandler@L134:77#this` | capture | λRoahCustomInstanceHandler@L134:77 → `RoahCustomInstanceHandler@L134:77#this` RoahCustomInstanceHandler → `stored` λRoahCustomInstanceHandler@L134:77 | **UNRESOLVED** (suggested: java-hook: cancel of the periodic task held by field RoahCustomInstanceHandler.trashMobSpawnTask) |
-| `com.aionemu.gameserver.custom.instance.RoahCustomInstanceHandler@L152:81#player` | capture | λRoahCustomInstanceHandler@L152:81 → `RoahCustomInstanceHandler@L152:81#player` Player → `extends` Creature → `Creature.ai` HyperionAI → `HyperionAI.northernSpawnPos` WorldPosition → `WorldPosition.mapRegion` MapRegion → `MapRegion.parent` WorldMapInstance → `WorldMapInstance.instanceHandler` RoahCustomInstanceHandler → `stored` λRoahCustomInstanceHandler@L152:81 | **UNRESOLVED** (suggested: java-hook: cancel of the periodic task held by field RoahCustomInstanceHandler.dominatorMobSpawnTask) |
-| `com.aionemu.gameserver.custom.instance.RoahCustomInstanceHandler@L152:81#this` | capture | λRoahCustomInstanceHandler@L152:81 → `RoahCustomInstanceHandler@L152:81#this` RoahCustomInstanceHandler → `stored` λRoahCustomInstanceHandler@L152:81 | **UNRESOLVED** (suggested: java-hook: cancel of the periodic task held by field RoahCustomInstanceHandler.dominatorMobSpawnTask) |
-| `com.aionemu.gameserver.custom.pvpmap.PvpMapHandler$1#p` | capture | PvpMapHandler$1 → `PvpMapHandler$1#p` Player → `Player.rideObservers` PvpMapHandler$1 | **UNRESOLVED** |
-| `com.aionemu.gameserver.custom.pvpmap.PvpMapHandler.keymasterPositions` | field | PvpMapHandler → `PvpMapHandler.keymasterPositions` WorldPosition → `WorldPosition.mapRegion` MapRegion → `MapRegion.parent` WorldMapInstance → `WorldMapInstance.instanceHandler` PvpMapHandler | **UNRESOLVED** |
-| `com.aionemu.gameserver.custom.pvpmap.PvpMapHandler.origins` | field | PvpMapHandler → `PvpMapHandler.origins` WorldPosition → `WorldPosition.mapRegion` MapRegion → `MapRegion.parent` WorldMapInstance → `WorldMapInstance.instanceHandler` PvpMapHandler | **UNRESOLVED** |
-| `com.aionemu.gameserver.custom.pvpmap.PvpMapHandler.respawnLocations` | field | PvpMapHandler → `PvpMapHandler.respawnLocations` WorldPosition → `WorldPosition.mapRegion` MapRegion → `MapRegion.parent` WorldMapInstance → `WorldMapInstance.instanceHandler` PvpMapHandler | **UNRESOLVED** |
-| `com.aionemu.gameserver.custom.pvpmap.PvpMapHandler.supplyPositions` | field | PvpMapHandler → `PvpMapHandler.supplyPositions` WorldPosition → `WorldPosition.mapRegion` MapRegion → `MapRegion.parent` WorldMapInstance → `WorldMapInstance.instanceHandler` PvpMapHandler | **UNRESOLVED** |
-| `com.aionemu.gameserver.custom.pvpmap.PvpMapHandler.treasurePositions` | field | PvpMapHandler → `PvpMapHandler.treasurePositions` WorldPosition → `WorldPosition.mapRegion` MapRegion → `MapRegion.parent` WorldMapInstance → `WorldMapInstance.instanceHandler` PvpMapHandler | **UNRESOLVED** |
-| `com.aionemu.gameserver.custom.pvpmap.PvpMapHandler@L105:68#this` | capture | λPvpMapHandler@L105:68 → `PvpMapHandler@L105:68#this` PvpMapHandler → `stored` λPvpMapHandler@L105:68 | **UNRESOLVED** (suggested: java-hook: cancel of the periodic task held by field PvpMapHandler.supplyTask) |
-| `com.aionemu.gameserver.custom.pvpmap.PvpMapHandler@L145:54#this` | capture | λPvpMapHandler@L145:54 → `PvpMapHandler@L145:54#this` PvpMapHandler → `stored` λPvpMapHandler@L145:54 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
-| `com.aionemu.gameserver.custom.pvpmap.PvpMapHandler@L179:54#this` | capture | λPvpMapHandler@L179:54 → `PvpMapHandler@L179:54#this` PvpMapHandler → `stored` λPvpMapHandler@L179:54 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
-| `com.aionemu.gameserver.custom.pvpmap.PvpMapHandler@L189:58#this` | capture | λPvpMapHandler@L189:58 → `PvpMapHandler@L189:58#this` PvpMapHandler → `stored` λPvpMapHandler@L189:58 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
-| `com.aionemu.gameserver.instance.handlers.GeneralInstanceHandler.instance` | field | GeneralInstanceHandler → `GeneralInstanceHandler.instance` WorldMapInstance → `WorldMapInstance.instanceHandler` GeneralInstanceHandler | **UNRESOLVED** |
-| `com.aionemu.gameserver.model.drop.DropItem.winningPlayer` | field | DropItem → `DropItem.winningPlayer` Player → `Player.playerAllianceGroup` PlayerAllianceGroup → `extends` TemporaryPlayerTeam → `TemporaryPlayerTeam.lootGroupRules` LootGroupRules → `LootGroupRules.itemsToBeDistributed` DropItem | **UNRESOLVED** |
-| `com.aionemu.gameserver.model.gameobjects.Creature.castingSkill` | field | Creature → `Creature.castingSkill` Skill → `Skill.effectedList` Creature | **UNRESOLVED** |
-| `com.aionemu.gameserver.model.gameobjects.Creature.observeController` | field | Creature → `Creature.observeController` ObserveController → `ObserveController.observers` GaleCycloneObserver → `GaleCycloneObserver.creature` Creature | **UNRESOLVED** |
-| `com.aionemu.gameserver.model.gameobjects.Creature.transformModel` | field | Creature → `Creature.transformModel` TransformModel → `TransformModel.owner` Creature | **UNRESOLVED** |
-| `com.aionemu.gameserver.model.gameobjects.HouseObject.registry` | field | HouseObject → `HouseObject.registry` HouseRegistry → `HouseRegistry.objects` HouseObject | **UNRESOLVED** |
-| `com.aionemu.gameserver.model.gameobjects.Item.idianStone` | field | Item → `Item.idianStone` IdianStone → `IdianStone.item` Item | **UNRESOLVED** |
-| `com.aionemu.gameserver.model.gameobjects.Letter.attachedItem` | field | Letter → `Letter.attachedItem` Item → `Item.idianStone` IdianStone → `IdianStone.actionListener` ActionItemNpcAI$1 → `ActionItemNpcAI$1#player` Player → `Player.mailbox` Mailbox → `Mailbox.mails` Letter | **UNRESOLVED** |
-| `com.aionemu.gameserver.model.gameobjects.Npc.walkerGroup` | field | Npc → `Npc.walkerGroup` WalkerGroup → `WalkerGroup.members` ClusteredNpc → `ClusteredNpc.npc` Npc | **UNRESOLVED** |
-| `com.aionemu.gameserver.model.gameobjects.NpcObject.npc` | field | NpcObject → `NpcObject.npc` SummonedObject → `SummonedObject.creator` NpcObject | **UNRESOLVED** |
-| `com.aionemu.gameserver.model.gameobjects.Pet.master` | field | Pet → `Pet.master` Player → `Player.pet` Pet | **UNRESOLVED** |
-| `com.aionemu.gameserver.model.gameobjects.Pet.moveController` | field | Pet → `Pet.moveController` PlayerMoveController → `PlayerMoveController.lastPositionFromClient` WorldPosition → `WorldPosition.mapRegion` MapRegion → `MapRegion.objects` Pet | **UNRESOLVED** |
-| `com.aionemu.gameserver.model.gameobjects.Summon.master` | field | Summon → `Summon.master` Player → `Player.summon` Summon | java-hook: SummonsService.release (design §5.1) |
-| `com.aionemu.gameserver.model.gameobjects.Summon.skillOrders` | field | Summon → `Summon.skillOrders` SkillOrder → `SkillOrder.target` Summon | **UNRESOLVED** |
-| `com.aionemu.gameserver.model.gameobjects.SummonedObject.creator` | field | SummonedObject → `SummonedObject.creator` SummonedObject | **UNRESOLVED** |
-| `com.aionemu.gameserver.model.gameobjects.TransformModel.owner` | field | TransformModel → `TransformModel.owner` Creature → `Creature.transformModel` TransformModel | **UNRESOLVED** |
-| `com.aionemu.gameserver.model.gameobjects.VisibleObject.position` | field | VisibleObject → `VisibleObject.position` WorldPosition → `WorldPosition.mapRegion` MapRegion → `MapRegion.objects` VisibleObject | **UNRESOLVED** |
-| `com.aionemu.gameserver.model.gameobjects.VisibleObject.target` | field | VisibleObject → `VisibleObject.target` VisibleObject | cpp-breaker: LogoutBreakers::run and VisibleObjectController::onDelete call setTarget(nullptr) (design §5.1 RT-4) |
-| `com.aionemu.gameserver.model.gameobjects.player.Equipment$1#item` | capture | Equipment$1 → `Equipment$1#item` Item → `Item.idianStone` IdianStone → `IdianStone.actionListener` ActionItemNpcAI$1 → `ActionItemNpcAI$1#player` Player → `Player.requester` ResponseRequester → `ResponseRequester.activeRequests` Equipment$1 | **UNRESOLVED** |
-| `com.aionemu.gameserver.model.gameobjects.player.Equipment$1#this` | capture | Equipment$1 → `Equipment$1#this` Equipment → `Equipment.equipment` Item → `Item.idianStone` IdianStone → `IdianStone.actionListener` ActionItemNpcAI$1 → `ActionItemNpcAI$1#player` Player → `Player.requester` ResponseRequester → `ResponseRequester.activeRequests` Equipment$1 | **UNRESOLVED** |
-| `com.aionemu.gameserver.model.gameobjects.player.Equipment$2#item` | capture | Equipment$2 → `Equipment$2#item` Item → `Item.idianStone` IdianStone → `IdianStone.actionListener` Equipment$2 | **UNRESOLVED** (suggested: cpp-breaker: LogoutBreakers::run / onDelete clear observers without notification (design §5.1)) |
-| `com.aionemu.gameserver.model.gameobjects.player.Equipment$2#responder` | capture | Equipment$2 → `Equipment$2#responder` Player → `Player.rideObservers` Equipment$2 | **UNRESOLVED** (suggested: cpp-breaker: LogoutBreakers::run / onDelete clear observers without notification (design §5.1)) |
-| `com.aionemu.gameserver.model.gameobjects.player.Equipment.equipment` | field | Equipment → `Equipment.equipment` Item → `Item.idianStone` IdianStone → `IdianStone.actionListener` ActionItemNpcAI$1 → `ActionItemNpcAI$1#player` Player → `Player.equipment` Equipment | **UNRESOLVED** |
-| `com.aionemu.gameserver.model.gameobjects.player.FriendList.player` | field | FriendList → `FriendList.player` Player → `Player.friendList` FriendList | **UNRESOLVED** |
-| `com.aionemu.gameserver.model.gameobjects.player.Mailbox.mails` | field | Mailbox → `Mailbox.mails` Letter → `Letter.attachedItem` Item → `Item.idianStone` IdianStone → `IdianStone.actionListener` ActionItemNpcAI$1 → `ActionItemNpcAI$1#player` Player → `Player.mailbox` Mailbox | **UNRESOLVED** |
-| `com.aionemu.gameserver.model.gameobjects.player.Mailbox.reserveMail` | field | Mailbox → `Mailbox.reserveMail` Letter → `Letter.attachedItem` Item → `Item.idianStone` IdianStone → `IdianStone.actionListener` ActionItemNpcAI$1 → `ActionItemNpcAI$1#player` Player → `Player.mailbox` Mailbox | **UNRESOLVED** |
-| `com.aionemu.gameserver.model.gameobjects.player.Player.clientConnection` | field | Player → `Player.clientConnection` AionConnection → `AionConnection.activePlayer` Player | **UNRESOLVED** |
-| `com.aionemu.gameserver.model.gameobjects.player.Player.emotions` | field | Player → `Player.emotions` EmotionList → `EmotionList.owner` Player | **UNRESOLVED** |
-| `com.aionemu.gameserver.model.gameobjects.player.Player.friendList` | field | Player → `Player.friendList` FriendList → `FriendList.player` Player | **UNRESOLVED** |
-| `com.aionemu.gameserver.model.gameobjects.player.Player.houses` | field | Player → `Player.houses` House → `House.spawns` SummonedObject → `SummonedObject.creator` Player | **UNRESOLVED** |
-| `com.aionemu.gameserver.model.gameobjects.player.Player.interactionTask` | field | Player → `Player.interactionTask` AbstractInteractionTask → `AbstractInteractionTask.requester` Player | **UNRESOLVED** |
-| `com.aionemu.gameserver.model.gameobjects.player.Player.kisk` | field | Player → `Player.kisk` Kisk → `extends` SummonedObject → `SummonedObject.creator` Player | cpp-breaker: LogoutBreakers::run calls setKisk(nullptr) (design §5.1 RT-5) |
-| `com.aionemu.gameserver.model.gameobjects.player.Player.legionMember` | field | Player → `Player.legionMember` LegionMember → `LegionMember.legion` Legion → `Legion.legionWarehouse` LegionWarehouse → `extends` Storage → `Storage.deletedItems` Item → `Item.idianStone` IdianStone → `IdianStone.actionListener` ActionItemNpcAI$1 → `ActionItemNpcAI$1#player` Player | **UNRESOLVED** |
-| `com.aionemu.gameserver.model.gameobjects.player.Player.motions` | field | Player → `Player.motions` MotionList → `MotionList.owner` Player | **UNRESOLVED** |
-| `com.aionemu.gameserver.model.gameobjects.player.Player.npcFactions` | field | Player → `Player.npcFactions` NpcFactions → `NpcFactions.owner` Player | **UNRESOLVED** |
-| `com.aionemu.gameserver.model.gameobjects.player.Player.pet` | field | Player → `Player.pet` Pet → `Pet.master` Player | **UNRESOLVED** |
-| `com.aionemu.gameserver.model.gameobjects.player.Player.playerAccount` | field | Player → `Player.playerAccount` Account → `Account.accountWarehouse` LegionStorageProxy → `LegionStorageProxy.actor` Player | **UNRESOLVED** |
-| `com.aionemu.gameserver.model.gameobjects.player.Player.playerAllianceGroup` | field | Player → `Player.playerAllianceGroup` PlayerAllianceGroup → `extends` TemporaryPlayerTeam → `TemporaryPlayerTeam.lootGroupRules` LootGroupRules → `LootGroupRules.itemsToBeDistributed` DropItem → `DropItem.winningPlayer` Player | **UNRESOLVED** |
-| `com.aionemu.gameserver.model.gameobjects.player.Player.playerGroup` | field | Player → `Player.playerGroup` PlayerGroup → `PlayerGroup.playerGroupStats` PlayerGroupStats → `PlayerGroupStats.maxLevelPlayer` Player | **UNRESOLVED** |
-| `com.aionemu.gameserver.model.gameobjects.player.Player.postman` | field | Player → `Player.postman` SummonedObject → `SummonedObject.creator` Player | **UNRESOLVED** |
-| `com.aionemu.gameserver.model.gameobjects.player.Player.rideObservers` | field | Player → `Player.rideObservers` ActionItemNpcAI$1 → `ActionItemNpcAI$1#player` Player | **UNRESOLVED** |
-| `com.aionemu.gameserver.model.gameobjects.player.Player.store` | field | Player → `Player.store` PrivateStore → `PrivateStore.owner` Player | **UNRESOLVED** |
-| `com.aionemu.gameserver.model.gameobjects.player.Player.summon` | field | Player → `Player.summon` Summon → `Summon.master` Player | **UNRESOLVED** |
-| `com.aionemu.gameserver.model.gameobjects.player.Player.titleList` | field | Player → `Player.titleList` TitleList → `TitleList.owner` Player | **UNRESOLVED** |
-| `com.aionemu.gameserver.model.gameobjects.player.PrivateStore.owner` | field | PrivateStore → `PrivateStore.owner` Player → `Player.store` PrivateStore | **UNRESOLVED** |
-| `com.aionemu.gameserver.model.gameobjects.player.RequestResponseHandler.requester` | field | RequestResponseHandler → `RequestResponseHandler.requester` Player → `Player.requester` ResponseRequester → `ResponseRequester.activeRequests` RequestResponseHandler | **UNRESOLVED** |
-| `com.aionemu.gameserver.model.gameobjects.player.ResponseRequester.activeRequests` | field | ResponseRequester → `ResponseRequester.activeRequests` GateRepairAI$1 → `GateRepairAI$1#player` Player → `Player.requester` ResponseRequester | **UNRESOLVED** |
-| `com.aionemu.gameserver.model.gameobjects.player.emotion.EmotionList.owner` | field | EmotionList → `EmotionList.owner` Player → `Player.emotions` EmotionList | **UNRESOLVED** |
-| `com.aionemu.gameserver.model.gameobjects.player.motion.MotionList.owner` | field | MotionList → `MotionList.owner` Player → `Player.motions` MotionList | **UNRESOLVED** |
-| `com.aionemu.gameserver.model.gameobjects.player.npcFaction.NpcFactions$1#npc` | capture | NpcFactions$1 → `NpcFactions$1#npc` SummonedObject → `SummonedObject.creator` Player → `Player.requester` ResponseRequester → `ResponseRequester.activeRequests` NpcFactions$1 | **UNRESOLVED** |
-| `com.aionemu.gameserver.model.gameobjects.player.npcFaction.NpcFactions$1#this` | capture | NpcFactions$1 → `NpcFactions$1#this` NpcFactions → `NpcFactions.owner` Player → `Player.requester` ResponseRequester → `ResponseRequester.activeRequests` NpcFactions$1 | **UNRESOLVED** |
-| `com.aionemu.gameserver.model.gameobjects.player.npcFaction.NpcFactions.owner` | field | NpcFactions → `NpcFactions.owner` Player → `Player.npcFactions` NpcFactions | **UNRESOLVED** |
-| `com.aionemu.gameserver.model.gameobjects.player.title.TitleList.owner` | field | TitleList → `TitleList.owner` Player → `Player.titleList` TitleList | **UNRESOLVED** |
-| `com.aionemu.gameserver.model.house.House.houseRegistry` | field | House → `House.houseRegistry` HouseRegistry → `HouseRegistry.owner` House | **UNRESOLVED** |
-| `com.aionemu.gameserver.model.house.House.spawns` | field | House → `House.spawns` SummonedObject → `SummonedObject.creator` House | **UNRESOLVED** |
-| `com.aionemu.gameserver.model.house.HouseRegistry.objects` | field | HouseRegistry → `HouseRegistry.objects` HouseObject → `HouseObject.registry` HouseRegistry | **UNRESOLVED** |
-| `com.aionemu.gameserver.model.house.HouseRegistry.owner` | field | HouseRegistry → `HouseRegistry.owner` House → `House.houseRegistry` HouseRegistry | **UNRESOLVED** |
-| `com.aionemu.gameserver.model.instance.InstanceBuff.functions` | field | InstanceBuff → `InstanceBuff.functions` StatFunctionProxy → `StatFunctionProxy.owner` InstanceBuff | **UNRESOLVED** |
-| `com.aionemu.gameserver.model.instance.instancescore.HarmonyArenaScore.groups` | field | HarmonyArenaScore → `HarmonyArenaScore.groups` HarmonyGroupReward → `extends` PvPArenaPlayerReward → `PvPArenaPlayerReward.boostMorale` InstanceBuff → `InstanceBuff.functions` StatFunctionProxy → `StatFunctionProxy.owner` Effect → `Effect.effected` Creature → `Creature.ai` HyperionAI → `HyperionAI.northernSpawnPos` WorldPosition → `WorldPosition.mapRegion` MapRegion → `MapRegion.parent` WorldMapInstance → `WorldMapInstance.instanceHandler` CrucibleInstance → `CrucibleInstance.instanceScore` HarmonyArenaScore | **UNRESOLVED** |
-| `com.aionemu.gameserver.model.instance.instancescore.InstanceScore.playerRewards` | field | InstanceScore → `InstanceScore.playerRewards` PvPArenaPlayerReward → `PvPArenaPlayerReward.boostMorale` InstanceBuff → `InstanceBuff.functions` StatFunctionProxy → `StatFunctionProxy.owner` Effect → `Effect.effected` Creature → `Creature.ai` HyperionAI → `HyperionAI.northernSpawnPos` WorldPosition → `WorldPosition.mapRegion` MapRegion → `MapRegion.parent` WorldMapInstance → `WorldMapInstance.instanceHandler` CrucibleInstance → `CrucibleInstance.instanceScore` InstanceScore | **UNRESOLVED** |
-| `com.aionemu.gameserver.model.instance.instancescore.PvPArenaScore.instance` | field | PvPArenaScore → `PvPArenaScore.instance` WorldMapInstance → `WorldMapInstance.instanceHandler` CrucibleInstance → `CrucibleInstance.instanceScore` PvPArenaScore | **UNRESOLVED** |
-| `com.aionemu.gameserver.model.instance.playerreward.PvPArenaPlayerReward.boostMorale` | field | PvPArenaPlayerReward → `PvPArenaPlayerReward.boostMorale` InstanceBuff → `InstanceBuff.functions` StatFunctionProxy → `StatFunctionProxy.owner` Effect → `Effect.effected` Creature → `Creature.ai` HyperionAI → `HyperionAI.northernSpawnPos` WorldPosition → `WorldPosition.mapRegion` MapRegion → `MapRegion.parent` WorldMapInstance → `WorldMapInstance.instanceHandler` CrucibleInstance → `CrucibleInstance.instanceScore` InstanceScore → `InstanceScore.playerRewards` PvPArenaPlayerReward | **UNRESOLVED** |
-| `com.aionemu.gameserver.model.items.IdianStone$1#player` | capture | IdianStone$1 → `IdianStone$1#player` Player → `Player.rideObservers` IdianStone$1 | cpp-breaker: LogoutBreakers::run clears the ObserveController observers (design §14.2i) |
-| `com.aionemu.gameserver.model.items.IdianStone.actionListener` | field | IdianStone → `IdianStone.actionListener` Equipment$2 → `Equipment$2#item` Item → `Item.idianStone` IdianStone | **UNRESOLVED** |
-| `com.aionemu.gameserver.model.items.IdianStone.item` | field | IdianStone → `IdianStone.item` Item → `Item.idianStone` IdianStone | **UNRESOLVED** |
-| `com.aionemu.gameserver.model.items.storage.ItemStorage.items` | field | ItemStorage → `ItemStorage.items` Item → `Item.idianStone` IdianStone → `IdianStone.actionListener` ActionItemNpcAI$1 → `ActionItemNpcAI$1#player` Player → `Player.cabinets` Storage → `Storage.itemStorage` ItemStorage | **UNRESOLVED** |
-| `com.aionemu.gameserver.model.items.storage.LegionStorageProxy.actor` | field | LegionStorageProxy → `LegionStorageProxy.actor` Player → `Player.cabinets` LegionStorageProxy | **UNRESOLVED** |
-| `com.aionemu.gameserver.model.items.storage.LegionStorageProxy.storage` | field | LegionStorageProxy → `LegionStorageProxy.storage` LegionStorageProxy | **UNRESOLVED** |
-| `com.aionemu.gameserver.model.items.storage.PlayerStorage.actor` | field | PlayerStorage → `PlayerStorage.actor` Player → `Player.cabinets` PlayerStorage | cpp-breaker: LogoutBreakers::run resets the account warehouse actor (PlayerLeaveWorldService.java:146, design §5.1 RR-13) |
-| `com.aionemu.gameserver.model.items.storage.Storage.deletedItems` | field | Storage → `Storage.deletedItems` Item → `Item.idianStone` IdianStone → `IdianStone.actionListener` ActionItemNpcAI$1 → `ActionItemNpcAI$1#player` Player → `Player.cabinets` Storage | **UNRESOLVED** |
-| `com.aionemu.gameserver.model.items.storage.Storage.itemStorage` | field | Storage → `Storage.itemStorage` ItemStorage → `ItemStorage.items` Item → `Item.idianStone` IdianStone → `IdianStone.actionListener` ActionItemNpcAI$1 → `ActionItemNpcAI$1#player` Player → `Player.cabinets` Storage | **UNRESOLVED** |
-| `com.aionemu.gameserver.model.items.storage.Storage.kinahItem` | field | Storage → `Storage.kinahItem` Item → `Item.idianStone` IdianStone → `IdianStone.actionListener` ActionItemNpcAI$1 → `ActionItemNpcAI$1#player` Player → `Player.cabinets` Storage | **UNRESOLVED** |
-| `com.aionemu.gameserver.model.siege.FortressLocation.shieldObservers` | field | FortressLocation → `FortressLocation.shieldObservers` ShieldObserver → `ShieldObserver.location` FortressLocation | **UNRESOLVED** |
-| `com.aionemu.gameserver.model.siege.SiegeLocation.creatures` | field | SiegeLocation → `SiegeLocation.creatures` Player → `Player.rideObservers` ArtifactAI$4 → `ArtifactAI$4#loc` ArtifactLocation → `extends` SiegeLocation | **UNRESOLVED** |
-| `com.aionemu.gameserver.model.siege.SiegeLocation.players` | field | SiegeLocation → `SiegeLocation.players` Player → `Player.rideObservers` ArtifactAI$4 → `ArtifactAI$4#loc` ArtifactLocation → `extends` SiegeLocation | **UNRESOLVED** |
-| `com.aionemu.gameserver.model.siege.SiegeLocation.zones` | field | SiegeLocation → `SiegeLocation.zones` SiegeZoneInstance → `extends` ZoneInstance → `ZoneInstance.handlers` SiegeLocation | **UNRESOLVED** |
-| `com.aionemu.gameserver.model.siege.SiegeShield.observed` | field | SiegeShield → `SiegeShield.observed` ActionItemNpcAI$1 → `ActionItemNpcAI$1#this` DramataPortalAI → `DramataPortalAI.targetLocation` WorldPosition → `WorldPosition.mapRegion` MapRegion → `MapRegion.zonesSortedByTypeAndPriority` ZoneInstance → `ZoneInstance.handlers` SiegeShield | **UNRESOLVED** |
-| `com.aionemu.gameserver.model.stats.calc.functions.StatFunctionProxy.owner` | field | StatFunctionProxy → `StatFunctionProxy.owner` InstanceBuff → `InstanceBuff.functions` StatFunctionProxy | **UNRESOLVED** |
-| `com.aionemu.gameserver.model.stats.calc.functions.StatFunctionProxy.proxiedFunction` | field | StatFunctionProxy → `StatFunctionProxy.proxiedFunction` StatFunctionProxy | **UNRESOLVED** |
-| `com.aionemu.gameserver.model.stats.container.CreatureGameStats.stats` | field | CreatureGameStats → `CreatureGameStats.stats` StatFunctionProxy → `StatFunctionProxy.owner` Effect → `Effect.effected` Creature → `Creature.gameStats` CreatureGameStats | **UNRESOLVED** |
-| `com.aionemu.gameserver.model.summons.SkillOrder.target` | field | SkillOrder → `SkillOrder.target` Summon → `Summon.skillOrders` SkillOrder | **UNRESOLVED** |
+| `com.aionemu.gameserver.ai.AIActions$1#request` | capture | AIActions$1 → `AIActions$1#request` ArtifactAI$1 → `ArtifactAI$1#player` Player → `Player.requester` ResponseRequester → `ResponseRequester.activeRequests` AIActions$1 | java-hook: ResponseRequester.respond / denyAll drop the pending request (PlayerLeaveWorldService.leaveWorld calls denyAll before delete) |
+| `com.aionemu.gameserver.ai.AIActions$2#request` | capture | AIActions$2 → `AIActions$2#request` ArtifactAI$1 → `ArtifactAI$1#player` Player → `Player.rideObservers` AIActions$2 | cpp-breaker: stored only in the creature's ObserveController (removed by the Java code that added it); ObserveController::clearWithoutNotify in LogoutBreakers step L7 / onDelete D2 drops it |
+| `com.aionemu.gameserver.controllers.CreatureController.actor` | field | CreatureController → `CreatureController.actor` TerrainZoneCollisionMaterialActor → `extends` AbstractMaterialSkillActor → `extends` AbstractCollisionObserver → `AbstractCollisionObserver.creature` Creature → `extends` VisibleObject → `VisibleObject.controller` CreatureController | java-hook: CreatureController.onDespawn aborts the TerrainZoneCollisionMaterialActor, removes it and sets actor = null (CreatureController.java:547-553) |
+| `com.aionemu.gameserver.controllers.FlyRingController.observed` | field | FlyRingController → `FlyRingController.observed` FlyRingObserver → `FlyRingObserver.ring` FlyRing → `extends` VisibleObject → `VisibleObject.controller` FlyRingController | java-hook: FlyRingController.notSee removes the player's observer (KnownList clear at despawn of either side) |
+| `com.aionemu.gameserver.controllers.GatherableController.gatheringTask` | field | GatherableController → `GatherableController.gatheringTask` GatheringTask → `GatheringTask.gathererObserver` FlyRingObserver → `FlyRingObserver.ring` FlyRing → `extends` VisibleObject → `VisibleObject.controller` GatherableController | java-hook: GatherableController.completeInteraction / cancelGathering (onDespawn) set gatheringTask = null |
+| `com.aionemu.gameserver.controllers.ObserveController.attackCalcObservers` | field | ObserveController → `ObserveController.attackCalcObservers` AttackShieldObserver → `AttackShieldObserver.effect` Effect → `Effect.effected` Creature → `Creature.observeController` ObserveController | zombie-safe: ObserveController::clearWithoutNotify (LogoutBreakers L7, onDelete D2; Npcs also NpcController.onDespawn clear()); normally Effect.endEffect removes its attack-calc observer (design §5.1 RR-2) |
+| `com.aionemu.gameserver.controllers.ObserveController.observers` | field | ObserveController → `ObserveController.observers` ActionItemNpcAI$1 → `ActionItemNpcAI$1#this` Creature → `Creature.observeController` ObserveController | zombie-safe: ObserveController::clearWithoutNotify (LogoutBreakers L7, onDelete D2; Npcs also NpcController.onDespawn clear()), without onRemoved (design §5.1 RR-2) |
+| `com.aionemu.gameserver.controllers.PlayerController.stanceObserver` | field | PlayerController → `PlayerController.stanceObserver` StanceObserver → `StanceObserver.player` Player → `extends` Creature → `extends` VisibleObject → `VisibleObject.controller` PlayerController | zombie-safe: PlayerController.stopStance (stance effect end, Effect.java:724; logout removeAllEffects(true)); LogoutBreakers L4 PlayerController::breakStanceObserver clears it without packets |
+| `com.aionemu.gameserver.controllers.RVController$1#this` | capture | RVController$1 → `RVController$1#this` Player → `Player.requester` ResponseRequester → `ResponseRequester.activeRequests` RVController$1 | java-hook: ResponseRequester.respond / denyAll drop the pending request (PlayerLeaveWorldService.leaveWorld calls denyAll before delete) |
+| `com.aionemu.gameserver.controllers.RVController$2#this` | capture | RVController$2 → `RVController$2#this` Player → `Player.requester` ResponseRequester → `ResponseRequester.activeRequests` RVController$2 | java-hook: ResponseRequester.respond / denyAll drop the pending request (PlayerLeaveWorldService.leaveWorld calls denyAll before delete) |
+| `com.aionemu.gameserver.controllers.RVController.passedPlayers` | field | RVController → `RVController.passedPlayers` Player → `Player.requester` ResponseRequester → `ResponseRequester.activeRequests` RVController$1 → `RVController$1#this` RVController | accepted: no instance cycle: a Player reaches a rift's RVController only through a pending request (ResponseRequester.activeRequests, cut); the Player -> VisibleObject.controller -> RVController path is subtype expansion |
+| `com.aionemu.gameserver.controllers.RVController.slave` | field | RVController → `RVController.slave` SummonedObject → `SummonedObject.creator` VisibleObject → `VisibleObject.controller` RVController | accepted: no instance cycle: a master rift holds its slave rift Npc, whose RVController has slave == null (RVController.java:48-61) |
+| `com.aionemu.gameserver.controllers.RoadController.observed` | field | RoadController → `RoadController.observed` RoadObserver → `RoadObserver.road` Road → `extends` VisibleObject → `VisibleObject.controller` RoadController | java-hook: RoadController.notSee removes the player's observer (KnownList clear at despawn of either side) |
+| `com.aionemu.gameserver.controllers.attack.AggroInfo.attacker` | field | AggroInfo → `AggroInfo.attacker` Creature → `Creature.aggroList` AggroList → `AggroList.aggroList` AggroInfo | accepted: cut elsewhere: AggroInfo is held only by AggroList.aggroList |
+| `com.aionemu.gameserver.controllers.attack.AggroList.aggroList` | field | AggroList → `AggroList.aggroList` AggroInfo → `AggroInfo.attacker` Creature → `Creature.aggroList` AggroList | java-hook: AggroList.clear (CreatureController.onDespawn, CreatureController.java:556) and AggroList.remove |
+| `com.aionemu.gameserver.controllers.attack.AggroList@L206:77#this` | capture | λAggroList@L206:77 → `AggroList@L206:77#this` AggroList → `stored` λAggroList@L206:77 | java-hook: AggroList.clear cancels hateReductionTask (AggroList.java:129-137) |
+| `com.aionemu.gameserver.controllers.effect.EffectController.abnormalEffectMap` | field | EffectController → `EffectController.abnormalEffectMap` Effect → `Effect.effected` Creature → `Creature.effectController` EffectController | cpp-breaker: LogoutBreakers::onDelete D3 EffectController::clearEffectMapsWithoutNotify (an effect that cannot be removed on death stays after NpcController.onDespawn); normally Effect.endEffect -> clearEffect (death, despawn, logout removeAllEffects(true), end task) |
+| `com.aionemu.gameserver.controllers.effect.EffectController.passiveEffectMap` | field | EffectController → `EffectController.passiveEffectMap` Effect → `Effect.effected` Creature → `Creature.effectController` EffectController | cpp-breaker: LogoutBreakers::onDelete D3 EffectController::clearEffectMapsWithoutNotify (passive effects never end on Npcs); normally Effect.endEffect -> clearEffect (logout removeAllEffects(true)) |
+| `com.aionemu.gameserver.controllers.movement.PlayerMoveController.lastPositionFromClient` | field | PlayerMoveController → `PlayerMoveController.lastPositionFromClient` WorldPosition → `WorldPosition.mapRegion` MapRegion → `MapRegion.objects` Creature → `Creature.moveController` PlayerMoveController | accepted: cut elsewhere: MapRegion.objects, WorldMapInstance.worldMapObjects/Npcs/Players and ZoneInstance.creatures (World.despawn) |
+| `com.aionemu.gameserver.controllers.observer.AbstractCollisionObserver.creature` | field | AbstractCollisionObserver → `AbstractCollisionObserver.creature` Player → `Player.rideObservers` AbstractCollisionObserver | accepted: cut elsewhere: the observer is held by ObserveController.observers and by the map or field of the handler that added it (removed in its onLeaveZone / notSee / stop method) |
+| `com.aionemu.gameserver.controllers.observer.AbstractQuestZoneObserver.player` | field | AbstractQuestZoneObserver → `AbstractQuestZoneObserver.player` Player → `Player.rideObservers` AbstractQuestZoneObserver | accepted: cut elsewhere: the observer is held by ObserveController.observers and by the map or field of the handler that added it (removed in its onLeaveZone / notSee / stop method) |
+| `com.aionemu.gameserver.controllers.observer.AttackShieldObserver.effect` | field | AttackShieldObserver → `AttackShieldObserver.effect` Effect → `stored` λEffect@L833:27 → `Effect@L833:27#observer` AttackShieldObserver | accepted: cut elsewhere: the observer is held only through Effect.addObserver (Effect.endEffect) |
+| `com.aionemu.gameserver.controllers.observer.CollisionDieActor.fortressLocation` | field | CollisionDieActor → `CollisionDieActor.fortressLocation` FortressLocation → `FortressLocation.shieldObservers` ShieldObserver → `ShieldObserver.creature` Player → `Player.rideObservers` CollisionDieActor | accepted: cut elsewhere: the observer is held by ObserveController.observers and by the map or field of the handler that added it (removed in its onLeaveZone / notSee / stop method) |
+| `com.aionemu.gameserver.controllers.observer.DialogObserver.requester` | field | DialogObserver → `DialogObserver.requester` Player → `Player.rideObservers` DialogObserver | accepted: cut elsewhere: the observer is held by ObserveController.observers and by the map or field of the handler that added it (removed in its onLeaveZone / notSee / stop method) |
+| `com.aionemu.gameserver.controllers.observer.DialogObserver.responder` | field | DialogObserver → `DialogObserver.responder` Player → `Player.rideObservers` DialogObserver | accepted: cut elsewhere: the observer is held by ObserveController.observers and by the map or field of the handler that added it (removed in its onLeaveZone / notSee / stop method) |
+| `com.aionemu.gameserver.controllers.observer.FlyRingObserver.player` | field | FlyRingObserver → `FlyRingObserver.player` Player → `Player.rideObservers` FlyRingObserver | accepted: cut elsewhere: the observer is held by ObserveController.observers and by the map or field of the handler that added it (removed in its onLeaveZone / notSee / stop method) |
+| `com.aionemu.gameserver.controllers.observer.FlyRingObserver.ring` | field | FlyRingObserver → `FlyRingObserver.ring` FlyRing → `extends` VisibleObject → `VisibleObject.controller` FlyRingController → `FlyRingController.observed` FlyRingObserver | accepted: cut elsewhere: the observer is held by ObserveController.observers and by the map or field of the handler that added it (removed in its onLeaveZone / notSee / stop method) |
+| `com.aionemu.gameserver.controllers.observer.RoadObserver.player` | field | RoadObserver → `RoadObserver.player` Player → `Player.rideObservers` RoadObserver | accepted: cut elsewhere: the observer is held by ObserveController.observers and by the map or field of the handler that added it (removed in its onLeaveZone / notSee / stop method) |
+| `com.aionemu.gameserver.controllers.observer.RoadObserver.road` | field | RoadObserver → `RoadObserver.road` Road → `extends` VisibleObject → `VisibleObject.controller` RoadController → `RoadController.observed` RoadObserver | accepted: cut elsewhere: the observer is held by ObserveController.observers and by the map or field of the handler that added it (removed in its onLeaveZone / notSee / stop method) |
+| `com.aionemu.gameserver.controllers.observer.ShieldObserver.creature` | field | ShieldObserver → `ShieldObserver.creature` Player → `Player.rideObservers` ShieldObserver | accepted: cut elsewhere: the observer is held by ObserveController.observers and by the map or field of the handler that added it (removed in its onLeaveZone / notSee / stop method) |
+| `com.aionemu.gameserver.controllers.observer.ShieldObserver.location` | field | ShieldObserver → `ShieldObserver.location` FortressLocation → `FortressLocation.shieldObservers` ShieldObserver | accepted: cut elsewhere: the observer is held by ObserveController.observers and by the map or field of the handler that added it (removed in its onLeaveZone / notSee / stop method) |
+| `com.aionemu.gameserver.controllers.observer.StanceObserver.player` | field | StanceObserver → `StanceObserver.player` Player → `Player.rideObservers` StanceObserver | accepted: cut elsewhere: the observer is held by ObserveController.observers and by the map or field of the handler that added it (removed in its onLeaveZone / notSee / stop method) |
+| `com.aionemu.gameserver.custom.instance.RoahCustomInstanceHandler@L106:59#this` | capture | λRoahCustomInstanceHandler@L106:59 → `RoahCustomInstanceHandler@L106:59#this` RoahCustomInstanceHandler → `stored` λRoahCustomInstanceHandler@L106:59 | accepted: one-shot task: releases its captures when it runs or is cancelled |
+| `com.aionemu.gameserver.custom.instance.RoahCustomInstanceHandler@L113:76#player` | capture | λRoahCustomInstanceHandler@L113:76 → `RoahCustomInstanceHandler@L113:76#player` Player → `extends` Creature → `Creature.ai` HyperionAI → `HyperionAI.northernSpawnPos` WorldPosition → `WorldPosition.mapRegion` WorldMapInstance → `WorldMapInstance.instanceHandler` RoahCustomInstanceHandler → `stored` λRoahCustomInstanceHandler@L113:76 | java-hook: RoahCustomInstanceHandler.cancelAllTasks cancels bulkyMobSpawnTask (onInstanceDestroy and the end of the challenge) |
+| `com.aionemu.gameserver.custom.instance.RoahCustomInstanceHandler@L113:76#this` | capture | λRoahCustomInstanceHandler@L113:76 → `RoahCustomInstanceHandler@L113:76#this` RoahCustomInstanceHandler → `stored` λRoahCustomInstanceHandler@L113:76 | java-hook: RoahCustomInstanceHandler.cancelAllTasks cancels bulkyMobSpawnTask (onInstanceDestroy and the end of the challenge) |
+| `com.aionemu.gameserver.custom.instance.RoahCustomInstanceHandler@L134:77#player` | capture | λRoahCustomInstanceHandler@L134:77 → `RoahCustomInstanceHandler@L134:77#player` Player → `extends` Creature → `Creature.ai` HyperionAI → `HyperionAI.northernSpawnPos` WorldPosition → `WorldPosition.mapRegion` WorldMapInstance → `WorldMapInstance.instanceHandler` RoahCustomInstanceHandler → `stored` λRoahCustomInstanceHandler@L134:77 | java-hook: RoahCustomInstanceHandler.cancelAllTasks cancels trashMobSpawnTask (onInstanceDestroy and the end of the challenge) |
+| `com.aionemu.gameserver.custom.instance.RoahCustomInstanceHandler@L134:77#this` | capture | λRoahCustomInstanceHandler@L134:77 → `RoahCustomInstanceHandler@L134:77#this` RoahCustomInstanceHandler → `stored` λRoahCustomInstanceHandler@L134:77 | java-hook: RoahCustomInstanceHandler.cancelAllTasks cancels trashMobSpawnTask (onInstanceDestroy and the end of the challenge) |
+| `com.aionemu.gameserver.custom.instance.RoahCustomInstanceHandler@L152:81#player` | capture | λRoahCustomInstanceHandler@L152:81 → `RoahCustomInstanceHandler@L152:81#player` Player → `extends` Creature → `Creature.ai` HyperionAI → `HyperionAI.northernSpawnPos` WorldPosition → `WorldPosition.mapRegion` WorldMapInstance → `WorldMapInstance.instanceHandler` RoahCustomInstanceHandler → `stored` λRoahCustomInstanceHandler@L152:81 | java-hook: RoahCustomInstanceHandler.cancelAllTasks cancels dominatorMobSpawnTask (onInstanceDestroy and the end of the challenge) |
+| `com.aionemu.gameserver.custom.instance.RoahCustomInstanceHandler@L152:81#this` | capture | λRoahCustomInstanceHandler@L152:81 → `RoahCustomInstanceHandler@L152:81#this` RoahCustomInstanceHandler → `stored` λRoahCustomInstanceHandler@L152:81 | java-hook: RoahCustomInstanceHandler.cancelAllTasks cancels dominatorMobSpawnTask (onInstanceDestroy and the end of the challenge) |
+| `com.aionemu.gameserver.custom.pvpmap.PvpMapHandler$1#p` | capture | PvpMapHandler$1 → `PvpMapHandler$1#p` Player → `Player.rideObservers` PvpMapHandler$1 | cpp-breaker: stored only in the creature's ObserveController (removed by the Java code that added it); ObserveController::clearWithoutNotify in LogoutBreakers step L7 / onDelete D2 drops it |
+| `com.aionemu.gameserver.custom.pvpmap.PvpMapHandler.keymasterPositions` | field | PvpMapHandler → `PvpMapHandler.keymasterPositions` WorldPosition → `WorldPosition.mapRegion` WorldMapInstance → `WorldMapInstance.instanceHandler` PvpMapHandler | accepted: cut elsewhere: the handler is reached from its instance only through WorldMapInstance.instanceHandler (detached by destroyInstance) |
+| `com.aionemu.gameserver.custom.pvpmap.PvpMapHandler.origins` | field | PvpMapHandler → `PvpMapHandler.origins` WorldPosition → `WorldPosition.mapRegion` WorldMapInstance → `WorldMapInstance.instanceHandler` PvpMapHandler | accepted: cut elsewhere: the handler is reached from its instance only through WorldMapInstance.instanceHandler (detached by destroyInstance) |
+| `com.aionemu.gameserver.custom.pvpmap.PvpMapHandler.respawnLocations` | field | PvpMapHandler → `PvpMapHandler.respawnLocations` WorldPosition → `WorldPosition.mapRegion` WorldMapInstance → `WorldMapInstance.instanceHandler` PvpMapHandler | accepted: cut elsewhere: the handler is reached from its instance only through WorldMapInstance.instanceHandler (detached by destroyInstance) |
+| `com.aionemu.gameserver.custom.pvpmap.PvpMapHandler.supplyPositions` | field | PvpMapHandler → `PvpMapHandler.supplyPositions` WorldPosition → `WorldPosition.mapRegion` WorldMapInstance → `WorldMapInstance.instanceHandler` PvpMapHandler | accepted: cut elsewhere: the handler is reached from its instance only through WorldMapInstance.instanceHandler (detached by destroyInstance) |
+| `com.aionemu.gameserver.custom.pvpmap.PvpMapHandler.treasurePositions` | field | PvpMapHandler → `PvpMapHandler.treasurePositions` WorldPosition → `WorldPosition.mapRegion` WorldMapInstance → `WorldMapInstance.instanceHandler` PvpMapHandler | accepted: cut elsewhere: the handler is reached from its instance only through WorldMapInstance.instanceHandler (detached by destroyInstance) |
+| `com.aionemu.gameserver.custom.pvpmap.PvpMapHandler@L105:68#this` | capture | λPvpMapHandler@L105:68 → `PvpMapHandler@L105:68#this` PvpMapHandler → `stored` λPvpMapHandler@L105:68 | java-hook: PvpMapHandler.onInstanceDestroy -> cancelTasks cancels supplyTask (PvpMapHandler.java:391-398) |
+| `com.aionemu.gameserver.custom.pvpmap.PvpMapHandler@L145:54#this` | capture | λPvpMapHandler@L145:54 → `PvpMapHandler@L145:54#this` PvpMapHandler → `stored` λPvpMapHandler@L145:54 | accepted: one-shot task: releases its captures when it runs or is cancelled |
+| `com.aionemu.gameserver.custom.pvpmap.PvpMapHandler@L179:54#this` | capture | λPvpMapHandler@L179:54 → `PvpMapHandler@L179:54#this` PvpMapHandler → `stored` λPvpMapHandler@L179:54 | accepted: one-shot task: releases its captures when it runs or is cancelled |
+| `com.aionemu.gameserver.custom.pvpmap.PvpMapHandler@L189:58#this` | capture | λPvpMapHandler@L189:58 → `PvpMapHandler@L189:58#this` PvpMapHandler → `stored` λPvpMapHandler@L189:58 | accepted: one-shot task: releases its captures when it runs or is cancelled |
+| `com.aionemu.gameserver.instance.handlers.GeneralInstanceHandler.instance` | field | GeneralInstanceHandler → `GeneralInstanceHandler.instance` WorldMapInstance → `WorldMapInstance.instanceHandler` GeneralInstanceHandler | accepted: cut elsewhere: WorldMapInstance.instanceHandler (detached by InstanceService.destroyInstance) |
+| `com.aionemu.gameserver.model.drop.DropItem.winningPlayer` | field | DropItem → `DropItem.winningPlayer` Player → `Player.playerAllianceGroup` PlayerAlliance → `extends` TemporaryPlayerTeam → `TemporaryPlayerTeam.lootGroupRules` LootGroupRules → `LootGroupRules.itemsToBeDistributed` DropItem | accepted: cut elsewhere: LootGroupRules.itemsToBeDistributed and the Player team fields |
+| `com.aionemu.gameserver.model.gameobjects.Creature.castingSkill` | field | Creature → `Creature.castingSkill` Skill → `Skill.effectedList` Creature | java-hook: Creature.setCasting(null) in Skill.endCast and CreatureController.abortCast / cancelCurrentSkill, and CreatureController.onDie (the cast task always runs endCast) |
+| `com.aionemu.gameserver.model.gameobjects.Creature.observeController` | field | Creature → `Creature.observeController` ObserveController → `ObserveController.observers` ActionItemNpcAI$1 → `ActionItemNpcAI$1#this` Creature | accepted: cut elsewhere: created and held only by its Creature (Creature.java:37); every cycle continues through ObserveController.observers or attackCalcObservers |
+| `com.aionemu.gameserver.model.gameobjects.HouseObject.registry` | field | HouseObject → `HouseObject.registry` HouseRegistry → `HouseRegistry.objects` HouseObject | accepted: cut elsewhere: HouseRegistry.objects |
+| `com.aionemu.gameserver.model.gameobjects.Letter.attachedItem` | field | Letter → `Letter.attachedItem` Item → `Item.idianStone` IdianStone → `IdianStone.actionListener` ActionItemNpcAI$1 → `ActionItemNpcAI$1#player` Player → `Player.mailbox` Mailbox → `Mailbox.mails` Letter | accepted: cut elsewhere: an Item reaches its Player only through an equipped IdianStone listener (IdianStone.actionListener) or an item-use observer or request (ObserveController.observers, ResponseRequester.activeRequests) |
+| `com.aionemu.gameserver.model.gameobjects.Npc.walkerGroup` | field | Npc → `Npc.walkerGroup` WalkerGroup → `WalkerGroup.members` ClusteredNpc → `ClusteredNpc.npc` Npc | zombie-safe: Npc.setWalkerGroup(nullptr) in LogoutBreakers::onDelete D5 (C++ addition: WalkerFormationsCache.onInstanceDestroy forgets the group but the deleted Npcs and the group keep each other) |
+| `com.aionemu.gameserver.model.gameobjects.NpcObject.npc` | field | NpcObject → `NpcObject.npc` SummonedObject → `SummonedObject.creator` NpcObject | java-hook: NpcObject.onDespawn deletes the npc and sets npc = null |
+| `com.aionemu.gameserver.model.gameobjects.Pet.master` | field | Pet → `Pet.master` Player → `Player.pet` Pet | accepted: cut elsewhere: Player.pet (PetController.onDelete) |
+| `com.aionemu.gameserver.model.gameobjects.Summon.master` | field | Summon → `Summon.master` Player → `Player.summon` Summon | accepted: cut elsewhere: Player.summon (SummonsService.release, design §5.1) |
+| `com.aionemu.gameserver.model.gameobjects.Summon.skillOrders` | field | Summon → `Summon.skillOrders` SkillOrder → `SkillOrder.target` Summon | java-hook: Summon.setMode(RELEASE) and SummonController.onTargetChanged clear the orders (Summon.clearSkillOrders) |
+| `com.aionemu.gameserver.model.gameobjects.SummonedObject.creator` | field | SummonedObject → `SummonedObject.creator` SummonedObject | accepted: no instance cycle: creator is final and set at construction to an existing object, so creator chains cannot loop; a creator reaches its summoned object only through Player.kisk, House.spawns or its observers and requests (all cut) |
+| `com.aionemu.gameserver.model.gameobjects.VisibleObject.position` | field | VisibleObject → `VisibleObject.position` WorldPosition → `WorldPosition.mapRegion` MapRegion → `MapRegion.objects` VisibleObject | accepted: cut elsewhere: MapRegion.objects, WorldMapInstance.worldMapObjects/Npcs/Players and ZoneInstance.creatures (World.despawn) |
+| `com.aionemu.gameserver.model.gameobjects.VisibleObject.target` | field | VisibleObject → `VisibleObject.target` VisibleObject | zombie-safe: VisibleObject::breakTarget (LogoutBreakers L1, onDelete D1; no onTargetChanged) (design §5.1 RT-4) |
+| `com.aionemu.gameserver.model.gameobjects.player.Equipment$1#item` | capture | Equipment$1 → `Equipment$1#item` Item → `Item.idianStone` IdianStone → `IdianStone.actionListener` ActionItemNpcAI$1 → `ActionItemNpcAI$1#player` Player → `Player.requester` ResponseRequester → `ResponseRequester.activeRequests` Equipment$1 | java-hook: ResponseRequester.respond / denyAll drop the pending request (PlayerLeaveWorldService.leaveWorld calls denyAll before delete) |
+| `com.aionemu.gameserver.model.gameobjects.player.Equipment$1#this` | capture | Equipment$1 → `Equipment$1#this` Player → `Player.requester` ResponseRequester → `ResponseRequester.activeRequests` Equipment$1 | java-hook: ResponseRequester.respond / denyAll drop the pending request (PlayerLeaveWorldService.leaveWorld calls denyAll before delete) |
+| `com.aionemu.gameserver.model.gameobjects.player.Equipment$2#item` | capture | Equipment$2 → `Equipment$2#item` Item → `Item.idianStone` IdianStone → `IdianStone.actionListener` Equipment$2 | cpp-breaker: stored only in the creature's ObserveController (removed by the Java code that added it); ObserveController::clearWithoutNotify in LogoutBreakers step L7 / onDelete D2 drops it |
+| `com.aionemu.gameserver.model.gameobjects.player.Equipment$2#responder` | capture | Equipment$2 → `Equipment$2#responder` Player → `Player.rideObservers` Equipment$2 | cpp-breaker: stored only in the creature's ObserveController (removed by the Java code that added it); ObserveController::clearWithoutNotify in LogoutBreakers step L7 / onDelete D2 drops it |
+| `com.aionemu.gameserver.model.gameobjects.player.Equipment.equipment` | field | Equipment → `Equipment.equipment` Item → `Item.idianStone` IdianStone → `IdianStone.actionListener` ActionItemNpcAI$1 → `ActionItemNpcAI$1#player` Player → `Player.equipment` Equipment | accepted: cut elsewhere: an Item reaches its Player only through an equipped IdianStone listener (IdianStone.actionListener) or an item-use observer or request (ObserveController.observers, ResponseRequester.activeRequests) |
+| `com.aionemu.gameserver.model.gameobjects.player.Mailbox.mails` | field | Mailbox → `Mailbox.mails` Letter → `Letter.attachedItem` Item → `Item.idianStone` IdianStone → `IdianStone.actionListener` ActionItemNpcAI$1 → `ActionItemNpcAI$1#player` Player → `Player.mailbox` Mailbox | accepted: cut elsewhere: an Item reaches its Player only through an equipped IdianStone listener (IdianStone.actionListener) or an item-use observer or request (ObserveController.observers, ResponseRequester.activeRequests) |
+| `com.aionemu.gameserver.model.gameobjects.player.Mailbox.reserveMail` | field | Mailbox → `Mailbox.reserveMail` Letter → `Letter.attachedItem` Item → `Item.idianStone` IdianStone → `IdianStone.actionListener` ActionItemNpcAI$1 → `ActionItemNpcAI$1#player` Player → `Player.mailbox` Mailbox | accepted: cut elsewhere: an Item reaches its Player only through an equipped IdianStone listener (IdianStone.actionListener) or an item-use observer or request (ObserveController.observers, ResponseRequester.activeRequests) |
+| `com.aionemu.gameserver.model.gameobjects.player.Player.clientConnection` | field | Player → `Player.clientConnection` AionConnection → `AionConnection.activePlayer` Player | java-hook: PlayerLeaveWorldService.leaveWorld sets it to null as its first statement (before any DAO call) |
+| `com.aionemu.gameserver.model.gameobjects.player.Player.houses` | field | Player → `Player.houses` House → `House.spawns` SummonedObject → `SummonedObject.creator` Player | accepted: server lifetime: houses belong to HousingService and keep only the owner id, never a Player |
+| `com.aionemu.gameserver.model.gameobjects.player.Player.interactionTask` | field | Player → `Player.interactionTask` AbstractInteractionTask → `AbstractInteractionTask.requester` Player | java-hook: AbstractInteractionTask finish / abort call requester.setInteractionTask(null) (AbstractInteractionTask.java:85; leaveWorld aborts it) |
+| `com.aionemu.gameserver.model.gameobjects.player.Player.kisk` | field | Player → `Player.kisk` Kisk → `extends` SummonedObject → `SummonedObject.creator` Player | zombie-safe: Player.setKisk(nullptr) (LogoutBreakers L2) (design §5.1 RT-5) |
+| `com.aionemu.gameserver.model.gameobjects.player.Player.legionMember` | field | Player → `Player.legionMember` LegionMember → `LegionMember.legion` Legion → `Legion.legionWarehouse` LegionWarehouse → `extends` Storage → `Storage.deletedItems` Item → `Item.idianStone` IdianStone → `IdianStone.actionListener` ActionItemNpcAI$1 → `ActionItemNpcAI$1#player` Player | accepted: no instance cycle: LegionMember -> Legion (LegionService) holds no Player; legion warehouse items are never equipped, so they have no IdianStone listener |
+| `com.aionemu.gameserver.model.gameobjects.player.Player.pet` | field | Player → `Player.pet` Pet → `Pet.master` Player | zombie-safe: PetController.onDelete -> master.setPet(null) (PetController.java:35; logout deletes the pet); zombie cut setPet(nullptr) |
+| `com.aionemu.gameserver.model.gameobjects.player.Player.playerAccount` | field | Player → `Player.playerAccount` Account → `Account.accountWarehouse` LegionStorageProxy → `LegionStorageProxy.actor` Player | accepted: cut elsewhere: PlayerStorage.actor of the account warehouse (LogoutBreakers L3) |
+| `com.aionemu.gameserver.model.gameobjects.player.Player.playerAccountData` | field | Player → `Player.playerAccountData` Account → `Account.accountWarehouse` LegionStorageProxy → `LegionStorageProxy.actor` Player | accepted: cut elsewhere: PlayerAccountData is a part of Account (PartMap); the Account reaches the Player only through PlayerStorage.actor (LogoutBreakers L3) |
+| `com.aionemu.gameserver.model.gameobjects.player.Player.playerAllianceGroup` | field | Player → `Player.playerAllianceGroup` PlayerAlliance → `extends` TemporaryPlayerTeam → `TemporaryPlayerTeam.lootGroupRules` LootGroupRules → `LootGroupRules.itemsToBeDistributed` DropItem → `DropItem.winningPlayer` Player | java-hook: PlayerAllianceGroup.removeMember -> setPlayerAllianceGroup(null) (leave, kick, disband, offline timeout; PlayerAllianceGroup.java:27) |
+| `com.aionemu.gameserver.model.gameobjects.player.Player.playerGroup` | field | Player → `Player.playerGroup` PlayerGroup → `PlayerGroup.playerGroupStats` PlayerGroupStats → `PlayerGroupStats.maxLevelPlayer` Player | java-hook: PlayerGroup.removeMember -> setPlayerGroup(null) (leave, kick, disband, offline timeout; PlayerGroup.java:32) |
+| `com.aionemu.gameserver.model.gameobjects.player.Player.postman` | field | Player → `Player.postman` SummonedObject → `SummonedObject.creator` Player | java-hook: DeliveryManAI.handleDespawned and CM_READ_EXPRESS_MAIL set it to null; leaveWorld deletes the postman |
+| `com.aionemu.gameserver.model.gameobjects.player.Player.rideObservers` | field | Player → `Player.rideObservers` ActionItemNpcAI$1 → `ActionItemNpcAI$1#player` Player | zombie-safe: PlayerActions.unsetPlayerMode(RIDE) clears the list (PlayerActions.java:61-67); LogoutBreakers L5 clears it without notification |
+| `com.aionemu.gameserver.model.gameobjects.player.Player.summon` | field | Player → `Player.summon` Summon → `Summon.master` Player | zombie-safe: SummonsService.release -> master.setSummon(null) (SummonsService.java:80-81; logout releases the summon); zombie cut setSummon(nullptr) |
+| `com.aionemu.gameserver.model.gameobjects.player.RequestResponseHandler.requester` | field | RequestResponseHandler → `RequestResponseHandler.requester` Player → `Player.requester` ResponseRequester → `ResponseRequester.activeRequests` RequestResponseHandler | accepted: cut elsewhere: held only by a pending ResponseRequester request (ResponseRequester.activeRequests: respond / denyAll) |
+| `com.aionemu.gameserver.model.gameobjects.player.ResponseRequester.activeRequests` | field | ResponseRequester → `ResponseRequester.activeRequests` GateRepairAI$1 → `GateRepairAI$1#player` Player → `Player.requester` ResponseRequester | java-hook: ResponseRequester.respond / denyAll drop the pending request (PlayerLeaveWorldService.leaveWorld calls denyAll before delete) |
+| `com.aionemu.gameserver.model.gameobjects.player.npcFaction.NpcFactions$1#npc` | capture | NpcFactions$1 → `NpcFactions$1#npc` SummonedObject → `SummonedObject.creator` Player → `Player.requester` ResponseRequester → `ResponseRequester.activeRequests` NpcFactions$1 | java-hook: ResponseRequester.respond / denyAll drop the pending request (PlayerLeaveWorldService.leaveWorld calls denyAll before delete) |
+| `com.aionemu.gameserver.model.gameobjects.player.npcFaction.NpcFactions$1#this` | capture | NpcFactions$1 → `NpcFactions$1#this` Player → `Player.requester` ResponseRequester → `ResponseRequester.activeRequests` NpcFactions$1 | java-hook: ResponseRequester.respond / denyAll drop the pending request (PlayerLeaveWorldService.leaveWorld calls denyAll before delete) |
+| `com.aionemu.gameserver.model.house.House.houseRegistry` | field | House → `House.houseRegistry` HouseRegistry → `HouseRegistry.owner` House | java-hook: House.resetRegistry sets houseRegistry = null (HousingService ownership change, before a studio is removed); houses otherwise live until shutdown |
+| `com.aionemu.gameserver.model.house.House.spawns` | field | House → `House.spawns` SummonedObject → `SummonedObject.creator` House | java-hook: House.updateSpawn deletes the replaced npc; House.clearSpawns at studio instance destroy (House.java:227-243) |
+| `com.aionemu.gameserver.model.house.HouseRegistry.objects` | field | HouseRegistry → `HouseRegistry.objects` HouseObject → `HouseObject.registry` HouseRegistry | cpp-breaker: House.resetRegistry clears the objects and decorations of the dropped registry after HouseRegistry.reset (C++ addition: reset removes only spawned objects, and HouseObject.registry keeps the rest); normally HouseRegistry.discard |
+| `com.aionemu.gameserver.model.house.HouseRegistry.owner` | field | HouseRegistry → `HouseRegistry.owner` House → `House.houseRegistry` HouseRegistry | accepted: cut elsewhere: House.houseRegistry |
+| `com.aionemu.gameserver.model.instance.InstanceBuff.functions` | field | InstanceBuff → `InstanceBuff.functions` StatFunctionProxy → `StatFunctionProxy.owner` InstanceBuff | accepted: no instance cycle: holds the StatAddFunctions it creates (InstanceBuff.java:56), never proxies |
+| `com.aionemu.gameserver.model.instance.instancescore.HarmonyArenaScore.groups` | field | HarmonyArenaScore → `HarmonyArenaScore.groups` HarmonyGroupReward → `extends` PvPArenaPlayerReward → `PvPArenaPlayerReward.boostMorale` InstanceBuff → `InstanceBuff.functions` StatFunctionProxy → `StatFunctionProxy.owner` Effect → `Effect.effected` Creature → `Creature.ai` HyperionAI → `HyperionAI.northernSpawnPos` WorldPosition → `WorldPosition.mapRegion` WorldMapInstance → `WorldMapInstance.instanceHandler` CrucibleInstance → `CrucibleInstance.instanceScore` HarmonyArenaScore | accepted: no instance cycle: group rewards hold object ids and InstanceBuffs (plain StatAddFunctions) |
+| `com.aionemu.gameserver.model.instance.instancescore.InstanceScore.playerRewards` | field | InstanceScore → `InstanceScore.playerRewards` PvPArenaPlayerReward → `PvPArenaPlayerReward.boostMorale` InstanceBuff → `InstanceBuff.functions` StatFunctionProxy → `StatFunctionProxy.owner` Effect → `Effect.effected` Creature → `Creature.ai` HyperionAI → `HyperionAI.northernSpawnPos` WorldPosition → `WorldPosition.mapRegion` WorldMapInstance → `WorldMapInstance.instanceHandler` CrucibleInstance → `CrucibleInstance.instanceScore` InstanceScore | accepted: no instance cycle: player rewards hold object ids and InstanceBuffs (plain StatAddFunctions) |
+| `com.aionemu.gameserver.model.instance.instancescore.PvPArenaScore.instance` | field | PvPArenaScore → `PvPArenaScore.instance` WorldMapInstance → `WorldMapInstance.instanceHandler` CrucibleInstance → `CrucibleInstance.instanceScore` PvPArenaScore | accepted: cut elsewhere: the score is reached from the instance only through WorldMapInstance.instanceHandler (detached by destroyInstance) |
+| `com.aionemu.gameserver.model.instance.playerreward.PvPArenaPlayerReward.boostMorale` | field | PvPArenaPlayerReward → `PvPArenaPlayerReward.boostMorale` InstanceBuff → `InstanceBuff.functions` StatFunctionProxy → `StatFunctionProxy.owner` Effect → `Effect.effected` Creature → `Creature.ai` HyperionAI → `HyperionAI.northernSpawnPos` WorldPosition → `WorldPosition.mapRegion` WorldMapInstance → `WorldMapInstance.instanceHandler` CrucibleInstance → `CrucibleInstance.instanceScore` InstanceScore → `InstanceScore.playerRewards` PvPArenaPlayerReward | accepted: no instance cycle: an InstanceBuff holds only its own StatAddFunctions |
+| `com.aionemu.gameserver.model.items.IdianStone$1#player` | capture | IdianStone$1 → `IdianStone$1#player` Player → `Player.rideObservers` IdianStone$1 | cpp-breaker: LogoutBreakers L6-L7 drop the listener from IdianStone.actionListener and the player's ObserveController (design §14.2i; Java IdianStone.onUnEquip) |
+| `com.aionemu.gameserver.model.items.IdianStone.actionListener` | field | IdianStone → `IdianStone.actionListener` Item → `Item.idianStone` IdianStone | zombie-safe: IdianStone.onUnEquip; LogoutBreakers L6 IdianStone::breakActionListener for every equipped item (Java keeps it on logout) |
+| `com.aionemu.gameserver.model.items.storage.ItemStorage.items` | field | ItemStorage → `ItemStorage.items` Item → `Item.idianStone` IdianStone → `IdianStone.actionListener` ActionItemNpcAI$1 → `ActionItemNpcAI$1#player` Player → `Player.cabinets` Storage → `Storage.itemStorage` ItemStorage | accepted: cut elsewhere: an Item reaches its Player only through an equipped IdianStone listener (IdianStone.actionListener) or an item-use observer or request (ObserveController.observers, ResponseRequester.activeRequests) |
+| `com.aionemu.gameserver.model.items.storage.LegionStorageProxy.actor` | field | LegionStorageProxy → `LegionStorageProxy.actor` Player → `Player.cabinets` LegionStorageProxy | accepted: no instance cycle: a LegionStorageProxy is created per call (Player.getStorage, LegionService) and never stored in a Player or Legion field |
+| `com.aionemu.gameserver.model.items.storage.LegionStorageProxy.storage` | field | LegionStorageProxy → `LegionStorageProxy.storage` LegionStorageProxy | accepted: no instance cycle: a LegionStorageProxy is created per call and wraps the LegionWarehouse, never another proxy |
+| `com.aionemu.gameserver.model.items.storage.PlayerStorage.actor` | field | PlayerStorage → `PlayerStorage.actor` Player → `Player.cabinets` PlayerStorage | zombie-safe: PlayerStorage.setOwner(nullptr) for the inventory, regular warehouse and account warehouse (LogoutBreakers L3; Java does it at the end of PlayerLeaveWorldService.leaveWorld, skipped when a DAO throws) (design §5.1 RR-13) |
+| `com.aionemu.gameserver.model.items.storage.Storage.deletedItems` | field | Storage → `Storage.deletedItems` Item → `Item.idianStone` IdianStone → `IdianStone.actionListener` ActionItemNpcAI$1 → `ActionItemNpcAI$1#player` Player → `Player.cabinets` Storage | accepted: cut elsewhere: an Item reaches its Player only through an equipped IdianStone listener (IdianStone.actionListener) or an item-use observer or request (ObserveController.observers, ResponseRequester.activeRequests) |
+| `com.aionemu.gameserver.model.items.storage.Storage.itemStorage` | field | Storage → `Storage.itemStorage` ItemStorage → `ItemStorage.items` Item → `Item.idianStone` IdianStone → `IdianStone.actionListener` ActionItemNpcAI$1 → `ActionItemNpcAI$1#player` Player → `Player.cabinets` Storage | accepted: cut elsewhere: an Item reaches its Player only through an equipped IdianStone listener (IdianStone.actionListener) or an item-use observer or request (ObserveController.observers, ResponseRequester.activeRequests) |
+| `com.aionemu.gameserver.model.items.storage.Storage.kinahItem` | field | Storage → `Storage.kinahItem` Item → `Item.idianStone` IdianStone → `IdianStone.actionListener` ActionItemNpcAI$1 → `ActionItemNpcAI$1#player` Player → `Player.cabinets` Storage | accepted: cut elsewhere: an Item reaches its Player only through an equipped IdianStone listener (IdianStone.actionListener) or an item-use observer or request (ObserveController.observers, ResponseRequester.activeRequests) |
+| `com.aionemu.gameserver.model.siege.FortressLocation.shieldObservers` | field | FortressLocation → `FortressLocation.shieldObservers` ShieldObserver → `ShieldObserver.location` FortressLocation | java-hook: FortressLocation.onLeaveZone removes the observer (ZoneInstance.onLeave) |
+| `com.aionemu.gameserver.model.siege.SiegeLocation.creatures` | field | SiegeLocation → `SiegeLocation.creatures` Player → `Player.rideObservers` ArtifactAI$4 → `ArtifactAI$4#loc` ArtifactLocation → `extends` SiegeLocation | java-hook: SiegeLocation.onLeaveZone removes the creature once it left the location's last zone |
+| `com.aionemu.gameserver.model.siege.SiegeLocation.players` | field | SiegeLocation → `SiegeLocation.players` Player → `Player.rideObservers` ArtifactAI$4 → `ArtifactAI$4#loc` ArtifactLocation → `extends` SiegeLocation | java-hook: SiegeLocation.onLeaveZone removes the player once it left the location's last zone |
+| `com.aionemu.gameserver.model.siege.SiegeLocation.zones` | field | SiegeLocation → `SiegeLocation.zones` SiegeZoneInstance → `extends` ZoneInstance → `ZoneInstance.handlers` SiegeLocation | accepted: server lifetime: siege locations and their zone instances live until shutdown (SiegeService) |
+| `com.aionemu.gameserver.model.siege.SiegeShield.observed` | field | SiegeShield → `SiegeShield.observed` ActionItemNpcAI$1 → `ActionItemNpcAI$1#this` DramataPortalAI → `DramataPortalAI.targetLocation` WorldPosition → `WorldPosition.mapRegion` MapRegion → `MapRegion.zonesSortedByTypeAndPriority` ZoneInstance → `ZoneInstance.handlers` SiegeShield | java-hook: SiegeShield.onLeaveZone removes the observer (ZoneInstance.onLeave) |
+| `com.aionemu.gameserver.model.stats.calc.functions.StatFunctionProxy.owner` | field | StatFunctionProxy → `StatFunctionProxy.owner` InstanceBuff → `InstanceBuff.functions` StatFunctionProxy | accepted: cut elsewhere: CreatureGameStats.stats (Effect end, unequip, LogoutBreakers::onDelete D4) |
+| `com.aionemu.gameserver.model.stats.calc.functions.StatFunctionProxy.proxiedFunction` | field | StatFunctionProxy → `StatFunctionProxy.proxiedFunction` StatFunctionProxy | accepted: no instance cycle: a proxy wraps the owner's own function (CreatureGameStats.java:72), never another proxy |
+| `com.aionemu.gameserver.model.stats.container.CreatureGameStats.stats` | field | CreatureGameStats → `CreatureGameStats.stats` StatFunctionProxy → `StatFunctionProxy.owner` Effect → `Effect.effected` Creature → `Creature.gameStats` CreatureGameStats | cpp-breaker: LogoutBreakers::onDelete D4 CreatureGameStats::clearEffectFunctionsWithoutNotify removes the functions owned by Effects; normally Effect.endEffects -> CreatureGameStats.endEffect (Effect.java:1045) and Equipment/IdianStone unequip |
+| `com.aionemu.gameserver.model.summons.SkillOrder.target` | field | SkillOrder → `SkillOrder.target` Summon → `Summon.skillOrders` SkillOrder | accepted: cut elsewhere: Summon.skillOrders |
 | `com.aionemu.gameserver.model.team.GeneralTeam.leader` | field | GeneralTeam → `GeneralTeam.leader` LeagueMember → `LeagueMember.alliance` PlayerAlliance → `extends` TemporaryPlayerTeam → `extends` GeneralTeam | cpp-breaker: leader cleared on the last leave (design §5.1 RT-3, DEVIATION 10) |
-| `com.aionemu.gameserver.model.team.GeneralTeam.members` | field | GeneralTeam → `GeneralTeam.members` LeagueMember → `LeagueMember.alliance` PlayerAlliance → `extends` TemporaryPlayerTeam → `extends` GeneralTeam | **UNRESOLVED** |
-| `com.aionemu.gameserver.model.team.PlayerTeamMember.player` | field | PlayerTeamMember → `PlayerTeamMember.player` Player → `Player.playerAllianceGroup` PlayerAllianceGroup → `extends` TemporaryPlayerTeam → `extends` GeneralTeam → `GeneralTeam.leader` PlayerTeamMember | **UNRESOLVED** |
-| `com.aionemu.gameserver.model.team.TemporaryPlayerTeam.lootGroupRules` | field | TemporaryPlayerTeam → `TemporaryPlayerTeam.lootGroupRules` LootGroupRules → `LootGroupRules.itemsToBeDistributed` DropItem → `DropItem.winningPlayer` Player → `Player.playerAllianceGroup` PlayerAllianceGroup → `extends` TemporaryPlayerTeam | **UNRESOLVED** |
-| `com.aionemu.gameserver.model.team.alliance.PlayerAlliance.groups` | field | PlayerAlliance → `PlayerAlliance.groups` PlayerAllianceGroup → `PlayerAllianceGroup.alliance` PlayerAlliance | **UNRESOLVED** |
-| `com.aionemu.gameserver.model.team.alliance.PlayerAlliance.league` | field | PlayerAlliance → `PlayerAlliance.league` League → `extends` GeneralTeam → `GeneralTeam.leader` LeagueMember → `LeagueMember.alliance` PlayerAlliance | **UNRESOLVED** |
-| `com.aionemu.gameserver.model.team.alliance.PlayerAllianceGroup.alliance` | field | PlayerAllianceGroup → `PlayerAllianceGroup.alliance` PlayerAlliance → `PlayerAlliance.groups` PlayerAllianceGroup | **UNRESOLVED** |
-| `com.aionemu.gameserver.model.team.common.legacy.LootGroupRules.itemsToBeDistributed` | field | LootGroupRules → `LootGroupRules.itemsToBeDistributed` DropItem → `DropItem.winningPlayer` Player → `Player.playerAllianceGroup` PlayerAllianceGroup → `extends` TemporaryPlayerTeam → `TemporaryPlayerTeam.lootGroupRules` LootGroupRules | **UNRESOLVED** |
-| `com.aionemu.gameserver.model.team.group.PlayerGroupStats.maxLevelPlayer` | field | PlayerGroupStats → `PlayerGroupStats.maxLevelPlayer` Player → `Player.playerGroup` PlayerGroup → `PlayerGroup.playerGroupStats` PlayerGroupStats | **UNRESOLVED** |
-| `com.aionemu.gameserver.model.team.group.PlayerGroupStats.minLevelPlayer` | field | PlayerGroupStats → `PlayerGroupStats.minLevelPlayer` Player → `Player.playerGroup` PlayerGroup → `PlayerGroup.playerGroupStats` PlayerGroupStats | **UNRESOLVED** |
-| `com.aionemu.gameserver.model.team.league.League.lootGroupRules` | field | League → `League.lootGroupRules` LootGroupRules → `LootGroupRules.itemsToBeDistributed` DropItem → `DropItem.winningPlayer` Player → `Player.playerAllianceGroup` PlayerAllianceGroup → `PlayerAllianceGroup.alliance` PlayerAlliance → `PlayerAlliance.league` League | **UNRESOLVED** |
-| `com.aionemu.gameserver.model.team.league.LeagueMember.alliance` | field | LeagueMember → `LeagueMember.alliance` PlayerAlliance → `extends` TemporaryPlayerTeam → `extends` GeneralTeam → `GeneralTeam.leader` LeagueMember | **UNRESOLVED** |
-| `com.aionemu.gameserver.model.team.league.events.LeagueInviteEvent.invited` | field | LeagueInviteEvent → `LeagueInviteEvent.invited` Player → `Player.requester` ResponseRequester → `ResponseRequester.activeRequests` LeagueInviteEvent | **UNRESOLVED** |
-| `com.aionemu.gameserver.model.team.legion.LegionMember.legion` | field | LegionMember → `LegionMember.legion` Legion → `Legion.legionWarehouse` LegionWarehouse → `extends` Storage → `Storage.deletedItems` Item → `Item.idianStone` IdianStone → `IdianStone.actionListener` ActionItemNpcAI$1 → `ActionItemNpcAI$1#player` Player → `Player.legionMember` LegionMember | **UNRESOLVED** |
-| `com.aionemu.gameserver.model.templates.item.actions.AnimationAddAction$1#parentItem` | capture | AnimationAddAction$1 → `AnimationAddAction$1#parentItem` Item → `Item.idianStone` IdianStone → `IdianStone.actionListener` AnimationAddAction$1 | **UNRESOLVED** (suggested: cpp-breaker: LogoutBreakers::run / onDelete clear observers without notification (design §5.1)) |
-| `com.aionemu.gameserver.model.templates.item.actions.AnimationAddAction$1#player` | capture | AnimationAddAction$1 → `AnimationAddAction$1#player` Player → `Player.rideObservers` AnimationAddAction$1 | **UNRESOLVED** (suggested: cpp-breaker: LogoutBreakers::run / onDelete clear observers without notification (design §5.1)) |
-| `com.aionemu.gameserver.model.templates.item.actions.ApExtractAction$1#parentItem` | capture | ApExtractAction$1 → `ApExtractAction$1#parentItem` Item → `Item.idianStone` IdianStone → `IdianStone.actionListener` ApExtractAction$1 | **UNRESOLVED** (suggested: cpp-breaker: LogoutBreakers::run / onDelete clear observers without notification (design §5.1)) |
-| `com.aionemu.gameserver.model.templates.item.actions.ApExtractAction$1#player` | capture | ApExtractAction$1 → `ApExtractAction$1#player` Player → `Player.rideObservers` ApExtractAction$1 | **UNRESOLVED** (suggested: cpp-breaker: LogoutBreakers::run / onDelete clear observers without notification (design §5.1)) |
-| `com.aionemu.gameserver.model.templates.item.actions.ApExtractAction$1#targetItem` | capture | ApExtractAction$1 → `ApExtractAction$1#targetItem` Item → `Item.idianStone` IdianStone → `IdianStone.actionListener` ApExtractAction$1 | **UNRESOLVED** (suggested: cpp-breaker: LogoutBreakers::run / onDelete clear observers without notification (design §5.1)) |
-| `com.aionemu.gameserver.model.templates.item.actions.AssemblyItemAction$1#parentItem` | capture | AssemblyItemAction$1 → `AssemblyItemAction$1#parentItem` Item → `Item.idianStone` IdianStone → `IdianStone.actionListener` AssemblyItemAction$1 | **UNRESOLVED** (suggested: cpp-breaker: LogoutBreakers::run / onDelete clear observers without notification (design §5.1)) |
-| `com.aionemu.gameserver.model.templates.item.actions.AssemblyItemAction$1#player` | capture | AssemblyItemAction$1 → `AssemblyItemAction$1#player` Player → `Player.rideObservers` AssemblyItemAction$1 | **UNRESOLVED** (suggested: cpp-breaker: LogoutBreakers::run / onDelete clear observers without notification (design §5.1)) |
-| `com.aionemu.gameserver.model.templates.item.actions.ChargeAction$1#parentItem` | capture | ChargeAction$1 → `ChargeAction$1#parentItem` Item → `Item.idianStone` IdianStone → `IdianStone.actionListener` ChargeAction$1 | **UNRESOLVED** (suggested: cpp-breaker: LogoutBreakers::run / onDelete clear observers without notification (design §5.1)) |
-| `com.aionemu.gameserver.model.templates.item.actions.ChargeAction$1#player` | capture | ChargeAction$1 → `ChargeAction$1#player` Player → `Player.rideObservers` ChargeAction$1 | **UNRESOLVED** (suggested: cpp-breaker: LogoutBreakers::run / onDelete clear observers without notification (design §5.1)) |
-| `com.aionemu.gameserver.model.templates.item.actions.DecomposeAction$1#parentItem` | capture | DecomposeAction$1 → `DecomposeAction$1#parentItem` Item → `Item.idianStone` IdianStone → `IdianStone.actionListener` DecomposeAction$1 | **UNRESOLVED** (suggested: cpp-breaker: LogoutBreakers::run / onDelete clear observers without notification (design §5.1)) |
-| `com.aionemu.gameserver.model.templates.item.actions.DecomposeAction$1#player` | capture | DecomposeAction$1 → `DecomposeAction$1#player` Player → `Player.rideObservers` DecomposeAction$1 | **UNRESOLVED** (suggested: cpp-breaker: LogoutBreakers::run / onDelete clear observers without notification (design §5.1)) |
-| `com.aionemu.gameserver.model.templates.item.actions.EnchantItemAction$1#parentItem` | capture | EnchantItemAction$1 → `EnchantItemAction$1#parentItem` Item → `Item.idianStone` IdianStone → `IdianStone.actionListener` EnchantItemAction$1 | **UNRESOLVED** (suggested: cpp-breaker: LogoutBreakers::run / onDelete clear observers without notification (design §5.1)) |
-| `com.aionemu.gameserver.model.templates.item.actions.EnchantItemAction$1#player` | capture | EnchantItemAction$1 → `EnchantItemAction$1#player` Player → `Player.rideObservers` EnchantItemAction$1 | **UNRESOLVED** (suggested: cpp-breaker: LogoutBreakers::run / onDelete clear observers without notification (design §5.1)) |
-| `com.aionemu.gameserver.model.templates.item.actions.EnchantItemAction$1#targetItem` | capture | EnchantItemAction$1 → `EnchantItemAction$1#targetItem` Item → `Item.idianStone` IdianStone → `IdianStone.actionListener` EnchantItemAction$1 | **UNRESOLVED** (suggested: cpp-breaker: LogoutBreakers::run / onDelete clear observers without notification (design §5.1)) |
-| `com.aionemu.gameserver.model.templates.item.actions.ExpExtractAction$1#parentItem` | capture | ExpExtractAction$1 → `ExpExtractAction$1#parentItem` Item → `Item.idianStone` IdianStone → `IdianStone.actionListener` ExpExtractAction$1 | **UNRESOLVED** (suggested: cpp-breaker: LogoutBreakers::run / onDelete clear observers without notification (design §5.1)) |
-| `com.aionemu.gameserver.model.templates.item.actions.ExpExtractAction$1#player` | capture | ExpExtractAction$1 → `ExpExtractAction$1#player` Player → `Player.rideObservers` ExpExtractAction$1 | **UNRESOLVED** (suggested: cpp-breaker: LogoutBreakers::run / onDelete clear observers without notification (design §5.1)) |
-| `com.aionemu.gameserver.model.templates.item.actions.ExtractAction$1#parentItem` | capture | ExtractAction$1 → `ExtractAction$1#parentItem` Item → `Item.idianStone` IdianStone → `IdianStone.actionListener` ExtractAction$1 | **UNRESOLVED** (suggested: cpp-breaker: LogoutBreakers::run / onDelete clear observers without notification (design §5.1)) |
-| `com.aionemu.gameserver.model.templates.item.actions.ExtractAction$1#player` | capture | ExtractAction$1 → `ExtractAction$1#player` Player → `Player.rideObservers` ExtractAction$1 | **UNRESOLVED** (suggested: cpp-breaker: LogoutBreakers::run / onDelete clear observers without notification (design §5.1)) |
-| `com.aionemu.gameserver.model.templates.item.actions.ExtractAction$1#targetItem` | capture | ExtractAction$1 → `ExtractAction$1#targetItem` Item → `Item.idianStone` IdianStone → `IdianStone.actionListener` ExtractAction$1 | **UNRESOLVED** (suggested: cpp-breaker: LogoutBreakers::run / onDelete clear observers without notification (design §5.1)) |
-| `com.aionemu.gameserver.model.templates.item.actions.InstanceTimeClear$1#parentItem` | capture | InstanceTimeClear$1 → `InstanceTimeClear$1#parentItem` Item → `Item.idianStone` IdianStone → `IdianStone.actionListener` InstanceTimeClear$1 | **UNRESOLVED** (suggested: cpp-breaker: LogoutBreakers::run / onDelete clear observers without notification (design §5.1)) |
-| `com.aionemu.gameserver.model.templates.item.actions.InstanceTimeClear$1#player` | capture | InstanceTimeClear$1 → `InstanceTimeClear$1#player` Player → `Player.rideObservers` InstanceTimeClear$1 | **UNRESOLVED** (suggested: cpp-breaker: LogoutBreakers::run / onDelete clear observers without notification (design §5.1)) |
-| `com.aionemu.gameserver.model.templates.item.actions.MultiReturnAction$1#item` | capture | MultiReturnAction$1 → `MultiReturnAction$1#item` Item → `Item.idianStone` IdianStone → `IdianStone.actionListener` MultiReturnAction$1 | **UNRESOLVED** (suggested: cpp-breaker: LogoutBreakers::run / onDelete clear observers without notification (design §5.1)) |
-| `com.aionemu.gameserver.model.templates.item.actions.MultiReturnAction$1#player` | capture | MultiReturnAction$1 → `MultiReturnAction$1#player` Player → `Player.rideObservers` MultiReturnAction$1 | **UNRESOLVED** (suggested: cpp-breaker: LogoutBreakers::run / onDelete clear observers without notification (design §5.1)) |
-| `com.aionemu.gameserver.model.templates.item.actions.PolishAction$1#parentItem` | capture | PolishAction$1 → `PolishAction$1#parentItem` Item → `Item.idianStone` IdianStone → `IdianStone.actionListener` PolishAction$1 | **UNRESOLVED** (suggested: cpp-breaker: LogoutBreakers::run / onDelete clear observers without notification (design §5.1)) |
-| `com.aionemu.gameserver.model.templates.item.actions.PolishAction$1#player` | capture | PolishAction$1 → `PolishAction$1#player` Player → `Player.rideObservers` PolishAction$1 | **UNRESOLVED** (suggested: cpp-breaker: LogoutBreakers::run / onDelete clear observers without notification (design §5.1)) |
-| `com.aionemu.gameserver.model.templates.item.actions.PolishAction$1#targetItem` | capture | PolishAction$1 → `PolishAction$1#targetItem` Item → `Item.idianStone` IdianStone → `IdianStone.actionListener` PolishAction$1 | **UNRESOLVED** (suggested: cpp-breaker: LogoutBreakers::run / onDelete clear observers without notification (design §5.1)) |
-| `com.aionemu.gameserver.model.templates.item.actions.QuestStartAction$1#parentItem` | capture | QuestStartAction$1 → `QuestStartAction$1#parentItem` Item → `Item.idianStone` IdianStone → `IdianStone.actionListener` QuestStartAction$1 | **UNRESOLVED** (suggested: cpp-breaker: LogoutBreakers::run / onDelete clear observers without notification (design §5.1)) |
-| `com.aionemu.gameserver.model.templates.item.actions.QuestStartAction$1#player` | capture | QuestStartAction$1 → `QuestStartAction$1#player` Player → `Player.rideObservers` QuestStartAction$1 | **UNRESOLVED** (suggested: cpp-breaker: LogoutBreakers::run / onDelete clear observers without notification (design §5.1)) |
-| `com.aionemu.gameserver.model.templates.item.actions.ReadAction$1#parentItem` | capture | ReadAction$1 → `ReadAction$1#parentItem` Item → `Item.idianStone` IdianStone → `IdianStone.actionListener` ReadAction$1 | **UNRESOLVED** (suggested: cpp-breaker: LogoutBreakers::run / onDelete clear observers without notification (design §5.1)) |
-| `com.aionemu.gameserver.model.templates.item.actions.ReadAction$1#player` | capture | ReadAction$1 → `ReadAction$1#player` Player → `Player.rideObservers` ReadAction$1 | **UNRESOLVED** (suggested: cpp-breaker: LogoutBreakers::run / onDelete clear observers without notification (design §5.1)) |
-| `com.aionemu.gameserver.model.templates.item.actions.RideAction$1#parentItem` | capture | RideAction$1 → `RideAction$1#parentItem` Item → `Item.idianStone` IdianStone → `IdianStone.actionListener` RideAction$1 | **UNRESOLVED** (suggested: cpp-breaker: LogoutBreakers::run / onDelete clear observers without notification (design §5.1)) |
-| `com.aionemu.gameserver.model.templates.item.actions.RideAction$1#player` | capture | RideAction$1 → `RideAction$1#player` Player → `Player.rideObservers` RideAction$1 | **UNRESOLVED** (suggested: cpp-breaker: LogoutBreakers::run / onDelete clear observers without notification (design §5.1)) |
-| `com.aionemu.gameserver.model.templates.item.actions.RideAction$2#player` | capture | RideAction$2 → `RideAction$2#player` Player → `Player.rideObservers` RideAction$2 | **UNRESOLVED** (suggested: cpp-breaker: LogoutBreakers::run / onDelete clear observers without notification (design §5.1)) |
-| `com.aionemu.gameserver.model.templates.item.actions.RideAction$3#player` | capture | RideAction$3 → `RideAction$3#player` Player → `Player.rideObservers` RideAction$3 | **UNRESOLVED** (suggested: cpp-breaker: LogoutBreakers::run / onDelete clear observers without notification (design §5.1)) |
-| `com.aionemu.gameserver.model.templates.item.actions.RideAction$4#player` | capture | RideAction$4 → `RideAction$4#player` Player → `Player.rideObservers` RideAction$4 | **UNRESOLVED** (suggested: cpp-breaker: LogoutBreakers::run / onDelete clear observers without notification (design §5.1)) |
-| `com.aionemu.gameserver.model.templates.item.actions.TamperingAction$1#player` | capture | TamperingAction$1 → `TamperingAction$1#player` Player → `Player.rideObservers` TamperingAction$1 | **UNRESOLVED** (suggested: cpp-breaker: LogoutBreakers::run / onDelete clear observers without notification (design §5.1)) |
-| `com.aionemu.gameserver.model.templates.item.actions.TamperingAction$1#targetItem` | capture | TamperingAction$1 → `TamperingAction$1#targetItem` Item → `Item.idianStone` IdianStone → `IdianStone.actionListener` TamperingAction$1 | **UNRESOLVED** (suggested: cpp-breaker: LogoutBreakers::run / onDelete clear observers without notification (design §5.1)) |
-| `com.aionemu.gameserver.model.templates.item.actions.ToyPetSpawnAction$1#parentItem` | capture | ToyPetSpawnAction$1 → `ToyPetSpawnAction$1#parentItem` Item → `Item.idianStone` IdianStone → `IdianStone.actionListener` ToyPetSpawnAction$1 | **UNRESOLVED** (suggested: cpp-breaker: LogoutBreakers::run / onDelete clear observers without notification (design §5.1)) |
-| `com.aionemu.gameserver.model.templates.item.actions.ToyPetSpawnAction$1#player` | capture | ToyPetSpawnAction$1 → `ToyPetSpawnAction$1#player` Player → `Player.rideObservers` ToyPetSpawnAction$1 | **UNRESOLVED** (suggested: cpp-breaker: LogoutBreakers::run / onDelete clear observers without notification (design §5.1)) |
-| `com.aionemu.gameserver.model.templates.item.actions.TuningAction$1#player` | capture | TuningAction$1 → `TuningAction$1#player` Player → `Player.rideObservers` TuningAction$1 | **UNRESOLVED** (suggested: cpp-breaker: LogoutBreakers::run / onDelete clear observers without notification (design §5.1)) |
-| `com.aionemu.gameserver.model.templates.item.actions.TuningAction$1#targetItem` | capture | TuningAction$1 → `TuningAction$1#targetItem` Item → `Item.idianStone` IdianStone → `IdianStone.actionListener` TuningAction$1 | **UNRESOLVED** (suggested: cpp-breaker: LogoutBreakers::run / onDelete clear observers without notification (design §5.1)) |
-| `com.aionemu.gameserver.model.vortex.VortexLocation.activeVortex` | field | VortexLocation → `VortexLocation.activeVortex` DimensionalVortex → `DimensionalVortex.vortexLocation` VortexLocation | **UNRESOLVED** |
-| `com.aionemu.gameserver.model.vortex.VortexLocation.kisks` | field | VortexLocation → `VortexLocation.kisks` Kisk → `extends` SummonedObject → `SummonedObject.creator` Player → `Player.rideObservers` DeathObserver → `stored` λDimensionalVortex@L80:55 → `DimensionalVortex@L80:55#this` DimensionalVortex → `DimensionalVortex.vortexLocation` VortexLocation | **UNRESOLVED** |
-| `com.aionemu.gameserver.model.vortex.VortexLocation.players` | field | VortexLocation → `VortexLocation.players` Player → `Player.rideObservers` DeathObserver → `stored` λDimensionalVortex@L80:55 → `DimensionalVortex@L80:55#this` DimensionalVortex → `DimensionalVortex.vortexLocation` VortexLocation | **UNRESOLVED** |
-| `com.aionemu.gameserver.model.vortex.VortexLocation.spawned` | field | VortexLocation → `VortexLocation.spawned` VisibleObject → `VisibleObject.position` WorldPosition → `WorldPosition.mapRegion` MapRegion → `MapRegion.zonesSortedByTypeAndPriority` ZoneInstance → `ZoneInstance.handlers` VortexLocation | **UNRESOLVED** |
-| `com.aionemu.gameserver.model.vortex.VortexLocation.vortexController` | field | VortexLocation → `VortexLocation.vortexController` RVController → `RVController.passedPlayers` Player → `Player.rideObservers` DeathObserver → `stored` λDimensionalVortex@L80:55 → `DimensionalVortex@L80:55#this` DimensionalVortex → `DimensionalVortex.vortexLocation` VortexLocation | **UNRESOLVED** |
-| `com.aionemu.gameserver.model.vortex.VortexLocation.zones` | field | VortexLocation → `VortexLocation.zones` InvasionZoneInstance → `extends` ZoneInstance → `ZoneInstance.handlers` VortexLocation | **UNRESOLVED** |
-| `com.aionemu.gameserver.network.aion.AionConnection.ConnectionAliveChecker#this$0` | capture | ConnectionAliveChecker → `ConnectionAliveChecker#this$0` AionConnection → `AionConnection.connectionAliveChecker` ConnectionAliveChecker | **UNRESOLVED** |
-| `com.aionemu.gameserver.network.aion.AionConnection.account` | field | AionConnection → `AionConnection.account` Account → `Account.accountWarehouse` LegionStorageProxy → `LegionStorageProxy.actor` Player → `Player.clientConnection` AionConnection | **UNRESOLVED** |
-| `com.aionemu.gameserver.network.aion.AionConnection.activePlayer` | field | AionConnection → `AionConnection.activePlayer` Player → `Player.clientConnection` AionConnection | **UNRESOLVED** |
-| `com.aionemu.gameserver.network.aion.AionConnection.connectionAliveChecker` | field | AionConnection → `AionConnection.connectionAliveChecker` ConnectionAliveChecker → `ConnectionAliveChecker#this$0` AionConnection | **UNRESOLVED** |
-| `com.aionemu.gameserver.services.DuelService$1#this` | capture | DuelService$1 → `DuelService$1#this` DuelService → `stored` λDuelService@L219:61 → `DuelService@L219:61#requester` Player → `Player.requester` ResponseRequester → `ResponseRequester.activeRequests` DuelService$1 | **UNRESOLVED** |
-| `com.aionemu.gameserver.services.DuelService$2#this` | capture | DuelService$2 → `DuelService$2#this` DuelService → `stored` λDuelService@L219:61 → `DuelService@L219:61#requester` Player → `Player.requester` ResponseRequester → `ResponseRequester.activeRequests` DuelService$2 | **UNRESOLVED** |
-| `com.aionemu.gameserver.services.DuelService@L219:61#requester` | capture | λDuelService@L219:61 → `DuelService@L219:61#requester` Player → `Player.requester` ResponseRequester → `ResponseRequester.activeRequests` DuelService$1 → `DuelService$1#this` DuelService → `stored` λDuelService@L219:61 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
-| `com.aionemu.gameserver.services.DuelService@L219:61#responder` | capture | λDuelService@L219:61 → `DuelService@L219:61#responder` Player → `Player.requester` ResponseRequester → `ResponseRequester.activeRequests` DuelService$1 → `DuelService$1#this` DuelService → `stored` λDuelService@L219:61 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
-| `com.aionemu.gameserver.services.DuelService@L219:61#this` | capture | λDuelService@L219:61 → `DuelService@L219:61#this` DuelService → `stored` λDuelService@L219:61 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
-| `com.aionemu.gameserver.services.LegionService$1#this` | capture | LegionService$1 → `LegionService$1#this` LegionService → `LegionService.legionsById` Legion → `Legion.legionWarehouse` LegionWarehouse → `extends` Storage → `Storage.deletedItems` Item → `Item.idianStone` IdianStone → `IdianStone.actionListener` ActionItemNpcAI$1 → `ActionItemNpcAI$1#player` Player → `Player.requester` ResponseRequester → `ResponseRequester.activeRequests` LegionService$1 | **UNRESOLVED** |
-| `com.aionemu.gameserver.services.LegionService$2#legion` | capture | LegionService$2 → `LegionService$2#legion` Legion → `Legion.legionWarehouse` LegionWarehouse → `extends` Storage → `Storage.deletedItems` Item → `Item.idianStone` IdianStone → `IdianStone.actionListener` ActionItemNpcAI$1 → `ActionItemNpcAI$1#player` Player → `Player.requester` ResponseRequester → `ResponseRequester.activeRequests` LegionService$2 | **UNRESOLVED** |
-| `com.aionemu.gameserver.services.LegionService$2#this` | capture | LegionService$2 → `LegionService$2#this` LegionService → `LegionService.legionsById` Legion → `Legion.legionWarehouse` LegionWarehouse → `extends` Storage → `Storage.deletedItems` Item → `Item.idianStone` IdianStone → `IdianStone.actionListener` ActionItemNpcAI$1 → `ActionItemNpcAI$1#player` Player → `Player.requester` ResponseRequester → `ResponseRequester.activeRequests` LegionService$2 | **UNRESOLVED** |
-| `com.aionemu.gameserver.services.LegionService$3#this` | capture | LegionService$3 → `LegionService$3#this` LegionService → `LegionService.legionsById` Legion → `Legion.legionWarehouse` LegionWarehouse → `extends` Storage → `Storage.deletedItems` Item → `Item.idianStone` IdianStone → `IdianStone.actionListener` ActionItemNpcAI$1 → `ActionItemNpcAI$1#player` Player → `Player.requester` ResponseRequester → `ResponseRequester.activeRequests` LegionService$3 | **UNRESOLVED** |
-| `com.aionemu.gameserver.services.LegionService$4#this` | capture | LegionService$4 → `LegionService$4#this` LegionService → `LegionService.legionsById` Legion → `Legion.legionWarehouse` LegionWarehouse → `extends` Storage → `Storage.deletedItems` Item → `Item.idianStone` IdianStone → `IdianStone.actionListener` ActionItemNpcAI$1 → `ActionItemNpcAI$1#player` Player → `Player.requester` ResponseRequester → `ResponseRequester.activeRequests` LegionService$4 | **UNRESOLVED** |
-| `com.aionemu.gameserver.services.LegionService$5#this` | capture | LegionService$5 → `LegionService$5#this` LegionService → `LegionService.legionsById` Legion → `Legion.legionWarehouse` LegionWarehouse → `extends` Storage → `Storage.deletedItems` Item → `Item.idianStone` IdianStone → `IdianStone.actionListener` ActionItemNpcAI$1 → `ActionItemNpcAI$1#player` Player → `Player.requester` ResponseRequester → `ResponseRequester.activeRequests` LegionService$5 | **UNRESOLVED** |
-| `com.aionemu.gameserver.services.LegionService.legionMemberById` | field | LegionService → `LegionService.legionMemberById` LegionMember → `LegionMember.legion` Legion → `Legion.legionWarehouse` LegionWarehouse → `extends` Storage → `Storage.deletedItems` Item → `Item.idianStone` IdianStone → `IdianStone.actionListener` ActionItemNpcAI$1 → `ActionItemNpcAI$1#player` Player → `Player.requester` ResponseRequester → `ResponseRequester.activeRequests` LegionService$1 → `LegionService$1#this` LegionService | **UNRESOLVED** |
-| `com.aionemu.gameserver.services.LegionService.legionsById` | field | LegionService → `LegionService.legionsById` Legion → `Legion.legionWarehouse` LegionWarehouse → `extends` Storage → `Storage.deletedItems` Item → `Item.idianStone` IdianStone → `IdianStone.actionListener` ActionItemNpcAI$1 → `ActionItemNpcAI$1#player` Player → `Player.requester` ResponseRequester → `ResponseRequester.activeRequests` LegionService$1 → `LegionService$1#this` LegionService | **UNRESOLVED** |
-| `com.aionemu.gameserver.services.StigmaService$1#chargeStone` | capture | StigmaService$1 → `StigmaService$1#chargeStone` Item → `Item.idianStone` IdianStone → `IdianStone.actionListener` StigmaService$1 | **UNRESOLVED** (suggested: cpp-breaker: LogoutBreakers::run / onDelete clear observers without notification (design §5.1)) |
-| `com.aionemu.gameserver.services.StigmaService$1#player` | capture | StigmaService$1 → `StigmaService$1#player` Player → `Player.rideObservers` StigmaService$1 | **UNRESOLVED** (suggested: cpp-breaker: LogoutBreakers::run / onDelete clear observers without notification (design §5.1)) |
-| `com.aionemu.gameserver.services.item.ItemActionService$1#item` | capture | ItemActionService$1 → `ItemActionService$1#item` Item → `Item.idianStone` IdianStone → `IdianStone.actionListener` ItemActionService$1 | **UNRESOLVED** (suggested: cpp-breaker: LogoutBreakers::run / onDelete clear observers without notification (design §5.1)) |
-| `com.aionemu.gameserver.services.item.ItemActionService$1#player` | capture | ItemActionService$1 → `ItemActionService$1#player` Player → `Player.rideObservers` ItemActionService$1 | **UNRESOLVED** (suggested: cpp-breaker: LogoutBreakers::run / onDelete clear observers without notification (design §5.1)) |
-| `com.aionemu.gameserver.services.item.ItemChargeService$1#filteredItems` | capture | ItemChargeService$1 → `ItemChargeService$1#filteredItems` Item → `Item.idianStone` IdianStone → `IdianStone.actionListener` ActionItemNpcAI$1 → `ActionItemNpcAI$1#player` Player → `Player.requester` ResponseRequester → `ResponseRequester.activeRequests` ItemChargeService$1 | **UNRESOLVED** |
-| `com.aionemu.gameserver.services.item.ItemChargeService$1#player` | capture | ItemChargeService$1 → `ItemChargeService$1#player` Player → `Player.requester` ResponseRequester → `ResponseRequester.activeRequests` ItemChargeService$1 | **UNRESOLVED** |
-| `com.aionemu.gameserver.services.item.ItemSocketService$1#player` | capture | ItemSocketService$1 → `ItemSocketService$1#player` Player → `Player.rideObservers` ItemSocketService$1 | **UNRESOLVED** (suggested: cpp-breaker: LogoutBreakers::run / onDelete clear observers without notification (design §5.1)) |
-| `com.aionemu.gameserver.services.item.ItemSocketService$1#weapon` | capture | ItemSocketService$1 → `ItemSocketService$1#weapon` Item → `Item.idianStone` IdianStone → `IdianStone.actionListener` ItemSocketService$1 | **UNRESOLVED** (suggested: cpp-breaker: LogoutBreakers::run / onDelete clear observers without notification (design §5.1)) |
-| `com.aionemu.gameserver.services.vortex.DimensionalVortex.vortexLocation` | field | DimensionalVortex → `DimensionalVortex.vortexLocation` VortexLocation → `VortexLocation.activeVortex` DimensionalVortex | **UNRESOLVED** |
-| `com.aionemu.gameserver.services.vortex.DimensionalVortex@L80:55#this` | capture | λDimensionalVortex@L80:55 → `DimensionalVortex@L80:55#this` Invasion → `Invasion.defenders` Player → `Player.rideObservers` DeathObserver → `stored` λDimensionalVortex@L80:55 | **UNRESOLVED** |
-| `com.aionemu.gameserver.services.vortex.Invasion$1#this` | capture | Invasion$1 → `Invasion$1#this` Invasion → `Invasion.defenders` Player → `Player.requester` ResponseRequester → `ResponseRequester.activeRequests` Invasion$1 | **UNRESOLVED** |
-| `com.aionemu.gameserver.services.vortex.Invasion.defAlliance` | field | Invasion → `Invasion.defAlliance` PlayerAlliance → `extends` TemporaryPlayerTeam → `TemporaryPlayerTeam.lootGroupRules` LootGroupRules → `LootGroupRules.itemsToBeDistributed` DropItem → `DropItem.winningPlayer` Player → `Player.rideObservers` DeathObserver → `stored` λDimensionalVortex@L80:55 → `DimensionalVortex@L80:55#this` Invasion | **UNRESOLVED** |
-| `com.aionemu.gameserver.services.vortex.Invasion.defenders` | field | Invasion → `Invasion.defenders` Player → `Player.rideObservers` DeathObserver → `stored` λDimensionalVortex@L80:55 → `DimensionalVortex@L80:55#this` Invasion | **UNRESOLVED** |
-| `com.aionemu.gameserver.services.vortex.Invasion.invAlliance` | field | Invasion → `Invasion.invAlliance` PlayerAlliance → `extends` TemporaryPlayerTeam → `TemporaryPlayerTeam.lootGroupRules` LootGroupRules → `LootGroupRules.itemsToBeDistributed` DropItem → `DropItem.winningPlayer` Player → `Player.rideObservers` DeathObserver → `stored` λDimensionalVortex@L80:55 → `DimensionalVortex@L80:55#this` Invasion | **UNRESOLVED** |
-| `com.aionemu.gameserver.services.vortex.Invasion.invaders` | field | Invasion → `Invasion.invaders` Player → `Player.rideObservers` DeathObserver → `stored` λDimensionalVortex@L80:55 → `DimensionalVortex@L80:55#this` Invasion | **UNRESOLVED** |
-| `com.aionemu.gameserver.services.worldraid.WorldRaid$1#this` | capture | WorldRaid$1 → `WorldRaid$1#this` WorldRaid → `stored` WorldRaid$1 | **UNRESOLVED** (suggested: java-hook: cancel of the periodic task held by field WorldRaid.preparationTask) |
-| `com.aionemu.gameserver.services.worldraid.WorldRaid.boss` | field | WorldRaid → `WorldRaid.boss` SummonedObject → `SummonedObject.creator` Player → `Player.rideObservers` DeathObserver → `stored` λWorldRaid@L144:55 → `WorldRaid@L144:55#this` WorldRaid | **UNRESOLVED** |
-| `com.aionemu.gameserver.services.worldraid.WorldRaid.flag` | field | WorldRaid → `WorldRaid.flag` SummonedObject → `SummonedObject.creator` Player → `Player.rideObservers` DeathObserver → `stored` λWorldRaid@L144:55 → `WorldRaid@L144:55#this` WorldRaid | **UNRESOLVED** |
-| `com.aionemu.gameserver.services.worldraid.WorldRaid.locationMarkers` | field | WorldRaid → `WorldRaid.locationMarkers` SummonedObject → `SummonedObject.creator` Player → `Player.rideObservers` DeathObserver → `stored` λWorldRaid@L144:55 → `WorldRaid@L144:55#this` WorldRaid | **UNRESOLVED** |
-| `com.aionemu.gameserver.services.worldraid.WorldRaid.vortex` | field | WorldRaid → `WorldRaid.vortex` SummonedObject → `SummonedObject.creator` Player → `Player.rideObservers` DeathObserver → `stored` λWorldRaid@L144:55 → `WorldRaid@L144:55#this` WorldRaid | **UNRESOLVED** |
-| `com.aionemu.gameserver.services.worldraid.WorldRaid@L110:59#this` | capture | λWorldRaid@L110:59 → `WorldRaid@L110:59#this` WorldRaid → `stored` λWorldRaid@L110:59 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
-| `com.aionemu.gameserver.services.worldraid.WorldRaid@L144:55#this` | capture | λWorldRaid@L144:55 → `WorldRaid@L144:55#this` WorldRaid → `WorldRaid.boss` SummonedObject → `SummonedObject.creator` Player → `Player.rideObservers` DeathObserver → `stored` λWorldRaid@L144:55 | **UNRESOLVED** |
-| `com.aionemu.gameserver.skillengine.effect.AbstractOverTimeEffect@L55:72#effect` | capture | λAbstractOverTimeEffect@L55:72 → `AbstractOverTimeEffect@L55:72#effect` Effect → `stored` λAbstractOverTimeEffect@L55:72 | **UNRESOLVED** (suggested: java-hook: cancel of the periodic task held by setPeriodicTask()) |
-| `com.aionemu.gameserver.skillengine.effect.AlwaysBlockEffect$1#effect` | capture | AlwaysBlockEffect$1 → `AlwaysBlockEffect$1#effect` Effect → `stored` AlwaysBlockEffect$1 | **UNRESOLVED** (suggested: cpp-breaker: LogoutBreakers::run / onDelete clear observers without notification (design §5.1)) |
-| `com.aionemu.gameserver.skillengine.effect.AlwaysDodgeEffect$1#effect` | capture | AlwaysDodgeEffect$1 → `AlwaysDodgeEffect$1#effect` Effect → `stored` AlwaysDodgeEffect$1 | **UNRESOLVED** (suggested: cpp-breaker: LogoutBreakers::run / onDelete clear observers without notification (design §5.1)) |
-| `com.aionemu.gameserver.skillengine.effect.AlwaysParryEffect$1#effect` | capture | AlwaysParryEffect$1 → `AlwaysParryEffect$1#effect` Effect → `stored` AlwaysParryEffect$1 | **UNRESOLVED** (suggested: cpp-breaker: LogoutBreakers::run / onDelete clear observers without notification (design §5.1)) |
-| `com.aionemu.gameserver.skillengine.effect.AlwaysResistEffect$1#effect` | capture | AlwaysResistEffect$1 → `AlwaysResistEffect$1#effect` Effect → `stored` AlwaysResistEffect$1 | **UNRESOLVED** (suggested: cpp-breaker: LogoutBreakers::run / onDelete clear observers without notification (design §5.1)) |
-| `com.aionemu.gameserver.skillengine.effect.CaseHealEffect$1#effect` | capture | CaseHealEffect$1 → `CaseHealEffect$1#effect` Effect → `stored` CaseHealEffect$1 | **UNRESOLVED** (suggested: cpp-breaker: LogoutBreakers::run / onDelete clear observers without notification (design §5.1)) |
-| `com.aionemu.gameserver.skillengine.effect.ChangeHateOnAttackedEffect$1#effect` | capture | ChangeHateOnAttackedEffect$1 → `ChangeHateOnAttackedEffect$1#effect` Effect → `stored` ChangeHateOnAttackedEffect$1 | **UNRESOLVED** (suggested: cpp-breaker: LogoutBreakers::run / onDelete clear observers without notification (design §5.1)) |
-| `com.aionemu.gameserver.skillengine.effect.CondSkillLauncherEffect$1#effect` | capture | CondSkillLauncherEffect$1 → `CondSkillLauncherEffect$1#effect` Effect → `stored` CondSkillLauncherEffect$1 | **UNRESOLVED** (suggested: cpp-breaker: LogoutBreakers::run / onDelete clear observers without notification (design §5.1)) |
-| `com.aionemu.gameserver.skillengine.effect.CondSkillLauncherEffect$1.conditionalEffect` | field | CondSkillLauncherEffect$1 → `CondSkillLauncherEffect$1.conditionalEffect` Effect → `stored` CondSkillLauncherEffect$1 | **UNRESOLVED** |
-| `com.aionemu.gameserver.skillengine.effect.FearEffect$1#effect` | capture | FearEffect$1 → `FearEffect$1#effect` Effect → `stored` FearEffect$1 | **UNRESOLVED** (suggested: cpp-breaker: LogoutBreakers::run / onDelete clear observers without notification (design §5.1)) |
-| `com.aionemu.gameserver.skillengine.effect.FearEffect$1#effected` | capture | FearEffect$1 → `FearEffect$1#effected` Player → `Player.rideObservers` FearEffect$1 | **UNRESOLVED** (suggested: cpp-breaker: LogoutBreakers::run / onDelete clear observers without notification (design §5.1)) |
-| `com.aionemu.gameserver.skillengine.effect.HealCastorOnAttackedEffect$1#effect` | capture | HealCastorOnAttackedEffect$1 → `HealCastorOnAttackedEffect$1#effect` Effect → `stored` HealCastorOnAttackedEffect$1 | **UNRESOLVED** (suggested: cpp-breaker: LogoutBreakers::run / onDelete clear observers without notification (design §5.1)) |
-| `com.aionemu.gameserver.skillengine.effect.HideEffect$1#effect` | capture | HideEffect$1 → `HideEffect$1#effect` Effect → `stored` HideEffect$1 | **UNRESOLVED** (suggested: cpp-breaker: LogoutBreakers::run / onDelete clear observers without notification (design §5.1)) |
-| `com.aionemu.gameserver.skillengine.effect.HideEffect$2#effect` | capture | HideEffect$2 → `HideEffect$2#effect` Effect → `stored` HideEffect$2 | **UNRESOLVED** (suggested: cpp-breaker: LogoutBreakers::run / onDelete clear observers without notification (design §5.1)) |
-| `com.aionemu.gameserver.skillengine.effect.HideEffect$3#effect` | capture | HideEffect$3 → `HideEffect$3#effect` Effect → `stored` HideEffect$3 | **UNRESOLVED** (suggested: cpp-breaker: LogoutBreakers::run / onDelete clear observers without notification (design §5.1)) |
-| `com.aionemu.gameserver.skillengine.effect.HideEffect$4#effect` | capture | HideEffect$4 → `HideEffect$4#effect` Effect → `stored` HideEffect$4 | **UNRESOLVED** (suggested: cpp-breaker: LogoutBreakers::run / onDelete clear observers without notification (design §5.1)) |
-| `com.aionemu.gameserver.skillengine.effect.HideEffect$5#effect` | capture | HideEffect$5 → `HideEffect$5#effect` Effect → `stored` HideEffect$5 | **UNRESOLVED** (suggested: cpp-breaker: LogoutBreakers::run / onDelete clear observers without notification (design §5.1)) |
-| `com.aionemu.gameserver.skillengine.effect.MagicCounterAtkEffect$1#effect` | capture | MagicCounterAtkEffect$1 → `MagicCounterAtkEffect$1#effect` Effect → `stored` MagicCounterAtkEffect$1 | **UNRESOLVED** (suggested: cpp-breaker: LogoutBreakers::run / onDelete clear observers without notification (design §5.1)) |
-| `com.aionemu.gameserver.skillengine.effect.MagicCounterAtkEffect$1#effected` | capture | MagicCounterAtkEffect$1 → `MagicCounterAtkEffect$1#effected` Player → `Player.rideObservers` MagicCounterAtkEffect$1 | **UNRESOLVED** (suggested: cpp-breaker: LogoutBreakers::run / onDelete clear observers without notification (design §5.1)) |
-| `com.aionemu.gameserver.skillengine.effect.OneTimeBoostSkillAttackEffect$1#effect` | capture | OneTimeBoostSkillAttackEffect$1 → `OneTimeBoostSkillAttackEffect$1#effect` Effect → `stored` OneTimeBoostSkillAttackEffect$1 | **UNRESOLVED** (suggested: cpp-breaker: LogoutBreakers::run / onDelete clear observers without notification (design §5.1)) |
-| `com.aionemu.gameserver.skillengine.effect.OneTimeBoostSkillCriticalEffect$1#effect` | capture | OneTimeBoostSkillCriticalEffect$1 → `OneTimeBoostSkillCriticalEffect$1#effect` Effect → `stored` OneTimeBoostSkillCriticalEffect$1 | **UNRESOLVED** (suggested: cpp-breaker: LogoutBreakers::run / onDelete clear observers without notification (design §5.1)) |
-| `com.aionemu.gameserver.skillengine.effect.ProtectEffect$1#effect` | capture | ProtectEffect$1 → `ProtectEffect$1#effect` Effect → `stored` ProtectEffect$1 | **UNRESOLVED** (suggested: cpp-breaker: LogoutBreakers::run / onDelete clear observers without notification (design §5.1)) |
-| `com.aionemu.gameserver.skillengine.effect.ProtectEffect@L38:63#effect` | capture | λProtectEffect@L38:63 → `ProtectEffect@L38:63#effect` Effect → `stored` λEffect@L828:27 → `Effect@L828:27#observer` DeathObserver → `stored` λProtectEffect@L38:63 | **UNRESOLVED** |
-| `com.aionemu.gameserver.skillengine.effect.ProvokerEffect$1#effector` | capture | ProvokerEffect$1 → `ProvokerEffect$1#effector` Player → `Player.rideObservers` ProvokerEffect$1 | **UNRESOLVED** (suggested: cpp-breaker: LogoutBreakers::run / onDelete clear observers without notification (design §5.1)) |
-| `com.aionemu.gameserver.skillengine.effect.RideRobotEffect$1#effect` | capture | RideRobotEffect$1 → `RideRobotEffect$1#effect` Effect → `stored` RideRobotEffect$1 | **UNRESOLVED** (suggested: cpp-breaker: LogoutBreakers::run / onDelete clear observers without notification (design §5.1)) |
-| `com.aionemu.gameserver.skillengine.effect.RootEffect$1#effect` | capture | RootEffect$1 → `RootEffect$1#effect` Effect → `stored` RootEffect$1 | **UNRESOLVED** (suggested: cpp-breaker: LogoutBreakers::run / onDelete clear observers without notification (design §5.1)) |
-| `com.aionemu.gameserver.skillengine.effect.RootEffect$1#effected` | capture | RootEffect$1 → `RootEffect$1#effected` Player → `Player.rideObservers` RootEffect$1 | **UNRESOLVED** (suggested: cpp-breaker: LogoutBreakers::run / onDelete clear observers without notification (design §5.1)) |
-| `com.aionemu.gameserver.skillengine.effect.SummonHomingEffect$1#homing` | capture | SummonHomingEffect$1 → `SummonHomingEffect$1#homing` Homing → `extends` SummonedObject → `SummonedObject.creator` Player → `Player.rideObservers` SummonHomingEffect$1 | **UNRESOLVED** (suggested: cpp-breaker: LogoutBreakers::run / onDelete clear observers without notification (design §5.1)) |
-| `com.aionemu.gameserver.skillengine.model.Effect$1#this` | capture | Effect$1 → `Effect$1#this` Effect → `stored` Effect$1 | **UNRESOLVED** (suggested: cpp-breaker: LogoutBreakers::run / onDelete clear observers without notification (design §5.1)) |
-| `com.aionemu.gameserver.skillengine.model.Effect$2#this` | capture | Effect$2 → `Effect$2#this` Effect → `stored` Effect$2 | **UNRESOLVED** (suggested: cpp-breaker: LogoutBreakers::run / onDelete clear observers without notification (design §5.1)) |
-| `com.aionemu.gameserver.skillengine.model.Effect.designatedDispelEffect` | field | Effect → `Effect.designatedDispelEffect` Effect | **UNRESOLVED** |
-| `com.aionemu.gameserver.skillengine.model.Effect.effected` | field | Effect → `Effect.effected` Creature → `Creature.effectController` EffectController → `EffectController.abnormalEffectMap` Effect | java-hook: Effect.endEffect releases the effect (design §5.1, §14.2c) |
-| `com.aionemu.gameserver.skillengine.model.Effect.effector` | field | Effect → `Effect.effector` Creature → `Creature.effectController` EffectController → `EffectController.abnormalEffectMap` Effect | java-hook: Effect.endEffect releases the effect (design §5.1, §14.2c) |
-| `com.aionemu.gameserver.skillengine.model.Effect.skill` | field | Effect → `Effect.skill` Skill → `Skill.firstTargetDieObserver` DeathObserver → `stored` λProtectEffect@L38:63 → `ProtectEffect@L38:63#effect` Effect | **UNRESOLVED** |
-| `com.aionemu.gameserver.skillengine.model.Effect.subEffect` | field | Effect → `Effect.subEffect` Effect | **UNRESOLVED** |
-| `com.aionemu.gameserver.skillengine.model.Effect@L682:55#this` | capture | λEffect@L682:55 → `Effect@L682:55#this` Effect → `stored` λEffect@L682:55 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
-| `com.aionemu.gameserver.skillengine.model.Effect@L828:27#observer` | capture | λEffect@L828:27 → `Effect@L828:27#observer` CaseHealEffect$1 → `CaseHealEffect$1#effect` Effect → `stored` λEffect@L828:27 | **UNRESOLVED** |
-| `com.aionemu.gameserver.skillengine.model.Effect@L828:27#target` | capture | λEffect@L828:27 → `Effect@L828:27#target` Creature → `Creature.effectController` EffectController → `EffectController.abnormalEffectMap` Effect → `stored` λEffect@L828:27 | **UNRESOLVED** |
-| `com.aionemu.gameserver.skillengine.model.Effect@L833:27#observer` | capture | λEffect@L833:27 → `Effect@L833:27#observer` AttackShieldObserver → `AttackShieldObserver.effect` Effect → `stored` λEffect@L833:27 | **UNRESOLVED** |
-| `com.aionemu.gameserver.skillengine.model.Effect@L833:27#target` | capture | λEffect@L833:27 → `Effect@L833:27#target` Creature → `Creature.effectController` EffectController → `EffectController.abnormalEffectMap` Effect → `stored` λEffect@L833:27 | **UNRESOLVED** |
-| `com.aionemu.gameserver.skillengine.model.Effect@L871:77#this` | capture | λEffect@L871:77 → `Effect@L871:77#this` Effect → `stored` λEffect@L871:77 | **UNRESOLVED** (suggested: java-hook: cancel of the periodic task held by field Effect.periodicActionsTask) |
-| `com.aionemu.gameserver.skillengine.model.Skill.effectedList` | field | Skill → `Skill.effectedList` Creature → `Creature.castingSkill` Skill | **UNRESOLVED** |
-| `com.aionemu.gameserver.skillengine.model.Skill.effector` | field | Skill → `Skill.effector` Creature → `Creature.castingSkill` Skill | **UNRESOLVED** |
-| `com.aionemu.gameserver.skillengine.model.Skill.firstTarget` | field | Skill → `Skill.firstTarget` Creature → `Creature.castingSkill` Skill | **UNRESOLVED** |
-| `com.aionemu.gameserver.skillengine.model.Skill.firstTargetDieObserver` | field | Skill → `Skill.firstTargetDieObserver` DeathObserver → `stored` λSkill@L535:47 → `Skill@L535:47#this` Skill | **UNRESOLVED** |
-| `com.aionemu.gameserver.skillengine.model.Skill@L535:47#this` | capture | λSkill@L535:47 → `Skill@L535:47#this` Skill → `Skill.firstTargetDieObserver` DeathObserver → `stored` λSkill@L535:47 | **UNRESOLVED** |
-| `com.aionemu.gameserver.skillengine.task.AbstractInteractionTask$1#this` | capture | AbstractInteractionTask$1 → `AbstractInteractionTask$1#this` AbstractCraftTask → `stored` AbstractInteractionTask$1 | **UNRESOLVED** (suggested: java-hook: cancel of the periodic task held by field AbstractInteractionTask.task) |
-| `com.aionemu.gameserver.skillengine.task.AbstractInteractionTask.requester` | field | AbstractInteractionTask → `AbstractInteractionTask.requester` Player → `Player.interactionTask` AbstractInteractionTask | **UNRESOLVED** |
-| `com.aionemu.gameserver.skillengine.task.AbstractInteractionTask.responder` | field | AbstractInteractionTask → `AbstractInteractionTask.responder` Player → `Player.interactionTask` AbstractInteractionTask | **UNRESOLVED** |
-| `com.aionemu.gameserver.skillengine.task.GatheringTask$1#this` | capture | GatheringTask$1 → `GatheringTask$1#this` GatheringTask → `GatheringTask.gathererObserver` GatheringTask$1 | **UNRESOLVED** |
-| `com.aionemu.gameserver.skillengine.task.GatheringTask.gathererObserver` | field | GatheringTask → `GatheringTask.gathererObserver` GatheringTask$1 → `GatheringTask$1#this` GatheringTask | **UNRESOLVED** |
-| `com.aionemu.gameserver.spawnengine.ClusteredNpc.npc` | field | ClusteredNpc → `ClusteredNpc.npc` Npc → `Npc.walkerGroup` WalkerGroup → `WalkerGroup.members` ClusteredNpc | **UNRESOLVED** |
-| `com.aionemu.gameserver.spawnengine.WalkerGroup.members` | field | WalkerGroup → `WalkerGroup.members` ClusteredNpc → `ClusteredNpc.npc` Npc → `Npc.walkerGroup` WalkerGroup | **UNRESOLVED** |
-| `com.aionemu.gameserver.world.MapRegion.neighboursIncludingSelf` | field | MapRegion → `MapRegion.neighboursIncludingSelf` MapRegion | **UNRESOLVED** |
-| `com.aionemu.gameserver.world.MapRegion.objects` | field | MapRegion → `MapRegion.objects` VisibleObject → `VisibleObject.position` WorldPosition → `WorldPosition.mapRegion` MapRegion | **UNRESOLVED** |
-| `com.aionemu.gameserver.world.MapRegion.parent` | field | MapRegion → `MapRegion.parent` WorldMapInstance → `WorldMapInstance.regions` MapRegion | **UNRESOLVED** |
-| `com.aionemu.gameserver.world.MapRegion.zonesSortedByTypeAndPriority` | field | MapRegion → `MapRegion.zonesSortedByTypeAndPriority` ZoneInstance → `ZoneInstance.creatures` Creature → `Creature.ai` HyperionAI → `HyperionAI.northernSpawnPos` WorldPosition → `WorldPosition.mapRegion` MapRegion | **UNRESOLVED** |
-| `com.aionemu.gameserver.world.WorldMap.instances` | field | WorldMap → `WorldMap.instances` WorldMapInstance → `WorldMapInstance.parent` WorldMap | **UNRESOLVED** |
-| `com.aionemu.gameserver.world.WorldMapInstance.instanceHandler` | field | WorldMapInstance → `WorldMapInstance.instanceHandler` GeneralInstanceHandler → `GeneralInstanceHandler.instance` WorldMapInstance | **UNRESOLVED** |
-| `com.aionemu.gameserver.world.WorldMapInstance.parent` | field | WorldMapInstance → `WorldMapInstance.parent` WorldMap → `WorldMap.instances` WorldMapInstance | **UNRESOLVED** |
-| `com.aionemu.gameserver.world.WorldMapInstance.regions` | field | WorldMapInstance → `WorldMapInstance.regions` MapRegion → `MapRegion.parent` WorldMapInstance | **UNRESOLVED** |
-| `com.aionemu.gameserver.world.WorldMapInstance.registeredTeam` | field | WorldMapInstance → `WorldMapInstance.registeredTeam` GeneralTeam → `GeneralTeam.leader` PlayerTeamMember → `PlayerTeamMember.player` Player → `extends` Creature → `Creature.ai` HyperionAI → `HyperionAI.northernSpawnPos` WorldPosition → `WorldPosition.mapRegion` MapRegion → `MapRegion.parent` WorldMapInstance | **UNRESOLVED** |
-| `com.aionemu.gameserver.world.WorldMapInstance.startPos` | field | WorldMapInstance → `WorldMapInstance.startPos` WorldPosition → `WorldPosition.mapRegion` MapRegion → `MapRegion.parent` WorldMapInstance | **UNRESOLVED** |
-| `com.aionemu.gameserver.world.WorldMapInstance.worldMapNpcs` | field | WorldMapInstance → `WorldMapInstance.worldMapNpcs` SummonedObject → `SummonedObject.creator` VisibleObject → `VisibleObject.position` WorldPosition → `WorldPosition.mapRegion` MapRegion → `MapRegion.parent` WorldMapInstance | **UNRESOLVED** |
-| `com.aionemu.gameserver.world.WorldMapInstance.worldMapObjects` | field | WorldMapInstance → `WorldMapInstance.worldMapObjects` VisibleObject → `VisibleObject.position` WorldPosition → `WorldPosition.mapRegion` MapRegion → `MapRegion.parent` WorldMapInstance | **UNRESOLVED** |
-| `com.aionemu.gameserver.world.WorldMapInstance.worldMapPlayers` | field | WorldMapInstance → `WorldMapInstance.worldMapPlayers` Player → `extends` Creature → `Creature.ai` HyperionAI → `HyperionAI.northernSpawnPos` WorldPosition → `WorldPosition.mapRegion` MapRegion → `MapRegion.parent` WorldMapInstance | **UNRESOLVED** |
-| `com.aionemu.gameserver.world.WorldMapInstance.zones` | field | WorldMapInstance → `WorldMapInstance.zones` ZoneInstance → `ZoneInstance.creatures` Creature → `Creature.ai` HyperionAI → `HyperionAI.northernSpawnPos` WorldPosition → `WorldPosition.mapRegion` MapRegion → `MapRegion.parent` WorldMapInstance | **UNRESOLVED** |
-| `com.aionemu.gameserver.world.WorldMapInstance@L125:72#this` | capture | λWorldMapInstance@L125:72 → `WorldMapInstance@L125:72#this` WorldMap2DInstance → `stored` λWorldMapInstance@L125:72 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
-| `com.aionemu.gameserver.world.WorldPosition.mapRegion` | field | WorldPosition → `WorldPosition.mapRegion` MapRegion → `MapRegion.objects` VisibleObject → `VisibleObject.position` WorldPosition | **UNRESOLVED** |
-| `com.aionemu.gameserver.world.knownlist.KnownList.knownObjects` | field | KnownList → `KnownList.knownObjects` KnownObject → `KnownObject.object` VisibleObject → `VisibleObject.knownlist` KnownList | **UNRESOLVED** |
-| `com.aionemu.gameserver.world.knownlist.KnownObject.object` | field | KnownObject → `KnownObject.object` VisibleObject → `VisibleObject.knownlist` KnownList → `KnownList.knownObjects` KnownObject | **UNRESOLVED** |
-| `com.aionemu.gameserver.world.zone.ZoneInstance.creatures` | field | ZoneInstance → `ZoneInstance.creatures` Creature → `Creature.ai` HyperionAI → `HyperionAI.northernSpawnPos` WorldPosition → `WorldPosition.mapRegion` MapRegion → `MapRegion.zonesSortedByTypeAndPriority` ZoneInstance | **UNRESOLVED** |
-| `com.aionemu.gameserver.world.zone.ZoneInstance.handlers` | field | ZoneInstance → `ZoneInstance.handlers` SiegeLocation → `SiegeLocation.zones` SiegeZoneInstance → `extends` ZoneInstance | **UNRESOLVED** |
-| `com.aionemu.gameserver.world.zone.handler.MaterialZoneHandler.observed` | field | MaterialZoneHandler → `MaterialZoneHandler.observed` AbstractMaterialSkillActor → `extends` AbstractCollisionObserver → `AbstractCollisionObserver.creature` Creature → `Creature.ai` HyperionAI → `HyperionAI.northernSpawnPos` WorldPosition → `WorldPosition.mapRegion` MapRegion → `MapRegion.zonesSortedByTypeAndPriority` ZoneInstance → `ZoneInstance.handlers` MaterialZoneHandler | **UNRESOLVED** |
-| `com.aionemu.gameserver.world.zone.handler.QuestZoneHandler.observed` | field | QuestZoneHandler → `QuestZoneHandler.observed` _1012SensoryArea$1 → `_1012SensoryArea$1#this` _1012SensoryArea → `extends` QuestZoneHandler | **UNRESOLVED** |
+| `com.aionemu.gameserver.model.team.GeneralTeam.members` | field | GeneralTeam → `GeneralTeam.members` LeagueMember → `LeagueMember.alliance` PlayerAlliance → `extends` TemporaryPlayerTeam → `extends` GeneralTeam | java-hook: GeneralTeam.removeMember (leave, kick, offline timeout, disband) |
+| `com.aionemu.gameserver.model.team.PlayerTeamMember.player` | field | PlayerTeamMember → `PlayerTeamMember.player` Player → `Player.playerAllianceGroup` PlayerAlliance → `extends` TemporaryPlayerTeam → `extends` GeneralTeam → `GeneralTeam.leader` PlayerTeamMember | accepted: cut elsewhere: GeneralTeam.members and Player.playerGroup / playerAllianceGroup |
+| `com.aionemu.gameserver.model.team.TemporaryPlayerTeam.lootGroupRules` | field | TemporaryPlayerTeam → `TemporaryPlayerTeam.lootGroupRules` LootGroupRules → `LootGroupRules.itemsToBeDistributed` DropItem → `DropItem.winningPlayer` Player → `Player.playerAllianceGroup` PlayerAlliance → `extends` TemporaryPlayerTeam | accepted: cut elsewhere: LootGroupRules holds no team; cycles return through Player.playerGroup / playerAllianceGroup and LootGroupRules.itemsToBeDistributed |
+| `com.aionemu.gameserver.model.team.alliance.PlayerAlliance.league` | field | PlayerAlliance → `PlayerAlliance.league` League → `extends` GeneralTeam → `GeneralTeam.leader` LeagueMember → `LeagueMember.alliance` PlayerAlliance | java-hook: League.removeMember -> alliance.setLeague(null) (League.java:46) |
+| `com.aionemu.gameserver.model.team.common.legacy.LootGroupRules.itemsToBeDistributed` | field | LootGroupRules → `LootGroupRules.itemsToBeDistributed` DropItem → `DropItem.winningPlayer` Player → `Player.playerAllianceGroup` PlayerAlliance → `extends` TemporaryPlayerTeam → `TemporaryPlayerTeam.lootGroupRules` LootGroupRules | java-hook: DropDistributionService removes a distributed item (LootGroupRules.removeItemToBeDistributed) |
+| `com.aionemu.gameserver.model.team.group.PlayerGroupStats.maxLevelPlayer` | field | PlayerGroupStats → `PlayerGroupStats.maxLevelPlayer` Player → `Player.playerGroup` PlayerGroup → `PlayerGroup.playerGroupStats` PlayerGroupStats | accepted: cut elsewhere: Player.playerGroup (PlayerGroupStats is a part of PlayerGroup) |
+| `com.aionemu.gameserver.model.team.group.PlayerGroupStats.minLevelPlayer` | field | PlayerGroupStats → `PlayerGroupStats.minLevelPlayer` Player → `Player.playerGroup` PlayerGroup → `PlayerGroup.playerGroupStats` PlayerGroupStats | accepted: cut elsewhere: Player.playerGroup (PlayerGroupStats is a part of PlayerGroup) |
+| `com.aionemu.gameserver.model.team.league.League.lootGroupRules` | field | League → `League.lootGroupRules` LootGroupRules → `LootGroupRules.itemsToBeDistributed` DropItem → `DropItem.winningPlayer` Player → `Player.playerAllianceGroup` PlayerAlliance → `PlayerAlliance.league` League | accepted: cut elsewhere: LootGroupRules holds no team; cycles return through PlayerAlliance.league and the Player team fields |
+| `com.aionemu.gameserver.model.team.league.LeagueMember.alliance` | field | LeagueMember → `LeagueMember.alliance` PlayerAlliance → `extends` TemporaryPlayerTeam → `extends` GeneralTeam → `GeneralTeam.leader` LeagueMember | accepted: cut elsewhere: PlayerAlliance.league and GeneralTeam.members |
+| `com.aionemu.gameserver.model.team.league.events.LeagueInviteEvent.invited` | field | LeagueInviteEvent → `LeagueInviteEvent.invited` Player → `Player.requester` ResponseRequester → `ResponseRequester.activeRequests` LeagueInviteEvent | accepted: cut elsewhere: held only by a pending ResponseRequester request (ResponseRequester.activeRequests: respond / denyAll) |
+| `com.aionemu.gameserver.model.team.legion.LegionMember.legion` | field | LegionMember → `LegionMember.legion` Legion → `Legion.legionWarehouse` LegionWarehouse → `extends` Storage → `Storage.deletedItems` Item → `Item.idianStone` IdianStone → `IdianStone.actionListener` ActionItemNpcAI$1 → `ActionItemNpcAI$1#player` Player → `Player.legionMember` LegionMember | accepted: no instance cycle: a Legion holds no Player (see Player.legionMember) |
+| `com.aionemu.gameserver.model.templates.item.actions.AnimationAddAction$1#parentItem` | capture | AnimationAddAction$1 → `AnimationAddAction$1#parentItem` Item → `Item.idianStone` IdianStone → `IdianStone.actionListener` AnimationAddAction$1 | cpp-breaker: stored only in the creature's ObserveController (removed by the Java code that added it); ObserveController::clearWithoutNotify in LogoutBreakers step L7 / onDelete D2 drops it |
+| `com.aionemu.gameserver.model.templates.item.actions.AnimationAddAction$1#player` | capture | AnimationAddAction$1 → `AnimationAddAction$1#player` Player → `Player.rideObservers` AnimationAddAction$1 | cpp-breaker: stored only in the creature's ObserveController (removed by the Java code that added it); ObserveController::clearWithoutNotify in LogoutBreakers step L7 / onDelete D2 drops it |
+| `com.aionemu.gameserver.model.templates.item.actions.ApExtractAction$1#parentItem` | capture | ApExtractAction$1 → `ApExtractAction$1#parentItem` Item → `Item.idianStone` IdianStone → `IdianStone.actionListener` ApExtractAction$1 | cpp-breaker: stored only in the creature's ObserveController (removed by the Java code that added it); ObserveController::clearWithoutNotify in LogoutBreakers step L7 / onDelete D2 drops it |
+| `com.aionemu.gameserver.model.templates.item.actions.ApExtractAction$1#player` | capture | ApExtractAction$1 → `ApExtractAction$1#player` Player → `Player.rideObservers` ApExtractAction$1 | cpp-breaker: stored only in the creature's ObserveController (removed by the Java code that added it); ObserveController::clearWithoutNotify in LogoutBreakers step L7 / onDelete D2 drops it |
+| `com.aionemu.gameserver.model.templates.item.actions.ApExtractAction$1#targetItem` | capture | ApExtractAction$1 → `ApExtractAction$1#targetItem` Item → `Item.idianStone` IdianStone → `IdianStone.actionListener` ApExtractAction$1 | cpp-breaker: stored only in the creature's ObserveController (removed by the Java code that added it); ObserveController::clearWithoutNotify in LogoutBreakers step L7 / onDelete D2 drops it |
+| `com.aionemu.gameserver.model.templates.item.actions.AssemblyItemAction$1#parentItem` | capture | AssemblyItemAction$1 → `AssemblyItemAction$1#parentItem` Item → `Item.idianStone` IdianStone → `IdianStone.actionListener` AssemblyItemAction$1 | cpp-breaker: stored only in the creature's ObserveController (removed by the Java code that added it); ObserveController::clearWithoutNotify in LogoutBreakers step L7 / onDelete D2 drops it |
+| `com.aionemu.gameserver.model.templates.item.actions.AssemblyItemAction$1#player` | capture | AssemblyItemAction$1 → `AssemblyItemAction$1#player` Player → `Player.rideObservers` AssemblyItemAction$1 | cpp-breaker: stored only in the creature's ObserveController (removed by the Java code that added it); ObserveController::clearWithoutNotify in LogoutBreakers step L7 / onDelete D2 drops it |
+| `com.aionemu.gameserver.model.templates.item.actions.ChargeAction$1#parentItem` | capture | ChargeAction$1 → `ChargeAction$1#parentItem` Item → `Item.idianStone` IdianStone → `IdianStone.actionListener` ChargeAction$1 | cpp-breaker: stored only in the creature's ObserveController (removed by the Java code that added it); ObserveController::clearWithoutNotify in LogoutBreakers step L7 / onDelete D2 drops it |
+| `com.aionemu.gameserver.model.templates.item.actions.ChargeAction$1#player` | capture | ChargeAction$1 → `ChargeAction$1#player` Player → `Player.rideObservers` ChargeAction$1 | cpp-breaker: stored only in the creature's ObserveController (removed by the Java code that added it); ObserveController::clearWithoutNotify in LogoutBreakers step L7 / onDelete D2 drops it |
+| `com.aionemu.gameserver.model.templates.item.actions.DecomposeAction$1#parentItem` | capture | DecomposeAction$1 → `DecomposeAction$1#parentItem` Item → `Item.idianStone` IdianStone → `IdianStone.actionListener` DecomposeAction$1 | cpp-breaker: stored only in the creature's ObserveController (removed by the Java code that added it); ObserveController::clearWithoutNotify in LogoutBreakers step L7 / onDelete D2 drops it |
+| `com.aionemu.gameserver.model.templates.item.actions.DecomposeAction$1#player` | capture | DecomposeAction$1 → `DecomposeAction$1#player` Player → `Player.rideObservers` DecomposeAction$1 | cpp-breaker: stored only in the creature's ObserveController (removed by the Java code that added it); ObserveController::clearWithoutNotify in LogoutBreakers step L7 / onDelete D2 drops it |
+| `com.aionemu.gameserver.model.templates.item.actions.EnchantItemAction$1#parentItem` | capture | EnchantItemAction$1 → `EnchantItemAction$1#parentItem` Item → `Item.idianStone` IdianStone → `IdianStone.actionListener` EnchantItemAction$1 | cpp-breaker: stored only in the creature's ObserveController (removed by the Java code that added it); ObserveController::clearWithoutNotify in LogoutBreakers step L7 / onDelete D2 drops it |
+| `com.aionemu.gameserver.model.templates.item.actions.EnchantItemAction$1#player` | capture | EnchantItemAction$1 → `EnchantItemAction$1#player` Player → `Player.rideObservers` EnchantItemAction$1 | cpp-breaker: stored only in the creature's ObserveController (removed by the Java code that added it); ObserveController::clearWithoutNotify in LogoutBreakers step L7 / onDelete D2 drops it |
+| `com.aionemu.gameserver.model.templates.item.actions.EnchantItemAction$1#targetItem` | capture | EnchantItemAction$1 → `EnchantItemAction$1#targetItem` Item → `Item.idianStone` IdianStone → `IdianStone.actionListener` EnchantItemAction$1 | cpp-breaker: stored only in the creature's ObserveController (removed by the Java code that added it); ObserveController::clearWithoutNotify in LogoutBreakers step L7 / onDelete D2 drops it |
+| `com.aionemu.gameserver.model.templates.item.actions.ExpExtractAction$1#parentItem` | capture | ExpExtractAction$1 → `ExpExtractAction$1#parentItem` Item → `Item.idianStone` IdianStone → `IdianStone.actionListener` ExpExtractAction$1 | cpp-breaker: stored only in the creature's ObserveController (removed by the Java code that added it); ObserveController::clearWithoutNotify in LogoutBreakers step L7 / onDelete D2 drops it |
+| `com.aionemu.gameserver.model.templates.item.actions.ExpExtractAction$1#player` | capture | ExpExtractAction$1 → `ExpExtractAction$1#player` Player → `Player.rideObservers` ExpExtractAction$1 | cpp-breaker: stored only in the creature's ObserveController (removed by the Java code that added it); ObserveController::clearWithoutNotify in LogoutBreakers step L7 / onDelete D2 drops it |
+| `com.aionemu.gameserver.model.templates.item.actions.ExtractAction$1#parentItem` | capture | ExtractAction$1 → `ExtractAction$1#parentItem` Item → `Item.idianStone` IdianStone → `IdianStone.actionListener` ExtractAction$1 | cpp-breaker: stored only in the creature's ObserveController (removed by the Java code that added it); ObserveController::clearWithoutNotify in LogoutBreakers step L7 / onDelete D2 drops it |
+| `com.aionemu.gameserver.model.templates.item.actions.ExtractAction$1#player` | capture | ExtractAction$1 → `ExtractAction$1#player` Player → `Player.rideObservers` ExtractAction$1 | cpp-breaker: stored only in the creature's ObserveController (removed by the Java code that added it); ObserveController::clearWithoutNotify in LogoutBreakers step L7 / onDelete D2 drops it |
+| `com.aionemu.gameserver.model.templates.item.actions.ExtractAction$1#targetItem` | capture | ExtractAction$1 → `ExtractAction$1#targetItem` Item → `Item.idianStone` IdianStone → `IdianStone.actionListener` ExtractAction$1 | cpp-breaker: stored only in the creature's ObserveController (removed by the Java code that added it); ObserveController::clearWithoutNotify in LogoutBreakers step L7 / onDelete D2 drops it |
+| `com.aionemu.gameserver.model.templates.item.actions.InstanceTimeClear$1#parentItem` | capture | InstanceTimeClear$1 → `InstanceTimeClear$1#parentItem` Item → `Item.idianStone` IdianStone → `IdianStone.actionListener` InstanceTimeClear$1 | cpp-breaker: stored only in the creature's ObserveController (removed by the Java code that added it); ObserveController::clearWithoutNotify in LogoutBreakers step L7 / onDelete D2 drops it |
+| `com.aionemu.gameserver.model.templates.item.actions.InstanceTimeClear$1#player` | capture | InstanceTimeClear$1 → `InstanceTimeClear$1#player` Player → `Player.rideObservers` InstanceTimeClear$1 | cpp-breaker: stored only in the creature's ObserveController (removed by the Java code that added it); ObserveController::clearWithoutNotify in LogoutBreakers step L7 / onDelete D2 drops it |
+| `com.aionemu.gameserver.model.templates.item.actions.MultiReturnAction$1#item` | capture | MultiReturnAction$1 → `MultiReturnAction$1#item` Item → `Item.idianStone` IdianStone → `IdianStone.actionListener` MultiReturnAction$1 | cpp-breaker: stored only in the creature's ObserveController (removed by the Java code that added it); ObserveController::clearWithoutNotify in LogoutBreakers step L7 / onDelete D2 drops it |
+| `com.aionemu.gameserver.model.templates.item.actions.MultiReturnAction$1#player` | capture | MultiReturnAction$1 → `MultiReturnAction$1#player` Player → `Player.rideObservers` MultiReturnAction$1 | cpp-breaker: stored only in the creature's ObserveController (removed by the Java code that added it); ObserveController::clearWithoutNotify in LogoutBreakers step L7 / onDelete D2 drops it |
+| `com.aionemu.gameserver.model.templates.item.actions.PolishAction$1#parentItem` | capture | PolishAction$1 → `PolishAction$1#parentItem` Item → `Item.idianStone` IdianStone → `IdianStone.actionListener` PolishAction$1 | cpp-breaker: stored only in the creature's ObserveController (removed by the Java code that added it); ObserveController::clearWithoutNotify in LogoutBreakers step L7 / onDelete D2 drops it |
+| `com.aionemu.gameserver.model.templates.item.actions.PolishAction$1#player` | capture | PolishAction$1 → `PolishAction$1#player` Player → `Player.rideObservers` PolishAction$1 | cpp-breaker: stored only in the creature's ObserveController (removed by the Java code that added it); ObserveController::clearWithoutNotify in LogoutBreakers step L7 / onDelete D2 drops it |
+| `com.aionemu.gameserver.model.templates.item.actions.PolishAction$1#targetItem` | capture | PolishAction$1 → `PolishAction$1#targetItem` Item → `Item.idianStone` IdianStone → `IdianStone.actionListener` PolishAction$1 | cpp-breaker: stored only in the creature's ObserveController (removed by the Java code that added it); ObserveController::clearWithoutNotify in LogoutBreakers step L7 / onDelete D2 drops it |
+| `com.aionemu.gameserver.model.templates.item.actions.QuestStartAction$1#parentItem` | capture | QuestStartAction$1 → `QuestStartAction$1#parentItem` Item → `Item.idianStone` IdianStone → `IdianStone.actionListener` QuestStartAction$1 | cpp-breaker: stored only in the creature's ObserveController (removed by the Java code that added it); ObserveController::clearWithoutNotify in LogoutBreakers step L7 / onDelete D2 drops it |
+| `com.aionemu.gameserver.model.templates.item.actions.QuestStartAction$1#player` | capture | QuestStartAction$1 → `QuestStartAction$1#player` Player → `Player.rideObservers` QuestStartAction$1 | cpp-breaker: stored only in the creature's ObserveController (removed by the Java code that added it); ObserveController::clearWithoutNotify in LogoutBreakers step L7 / onDelete D2 drops it |
+| `com.aionemu.gameserver.model.templates.item.actions.ReadAction$1#parentItem` | capture | ReadAction$1 → `ReadAction$1#parentItem` Item → `Item.idianStone` IdianStone → `IdianStone.actionListener` ReadAction$1 | cpp-breaker: stored only in the creature's ObserveController (removed by the Java code that added it); ObserveController::clearWithoutNotify in LogoutBreakers step L7 / onDelete D2 drops it |
+| `com.aionemu.gameserver.model.templates.item.actions.ReadAction$1#player` | capture | ReadAction$1 → `ReadAction$1#player` Player → `Player.rideObservers` ReadAction$1 | cpp-breaker: stored only in the creature's ObserveController (removed by the Java code that added it); ObserveController::clearWithoutNotify in LogoutBreakers step L7 / onDelete D2 drops it |
+| `com.aionemu.gameserver.model.templates.item.actions.RideAction$1#parentItem` | capture | RideAction$1 → `RideAction$1#parentItem` Item → `Item.idianStone` IdianStone → `IdianStone.actionListener` RideAction$1 | cpp-breaker: stored only in the creature's ObserveController (removed by the Java code that added it); ObserveController::clearWithoutNotify in LogoutBreakers step L7 / onDelete D2 drops it |
+| `com.aionemu.gameserver.model.templates.item.actions.RideAction$1#player` | capture | RideAction$1 → `RideAction$1#player` Player → `Player.rideObservers` RideAction$1 | cpp-breaker: stored only in the creature's ObserveController (removed by the Java code that added it); ObserveController::clearWithoutNotify in LogoutBreakers step L7 / onDelete D2 drops it |
+| `com.aionemu.gameserver.model.templates.item.actions.RideAction$2#player` | capture | RideAction$2 → `RideAction$2#player` Player → `Player.rideObservers` RideAction$2 | cpp-breaker: stored only in the creature's ObserveController (removed by the Java code that added it); ObserveController::clearWithoutNotify in LogoutBreakers step L7 / onDelete D2 drops it |
+| `com.aionemu.gameserver.model.templates.item.actions.RideAction$3#player` | capture | RideAction$3 → `RideAction$3#player` Player → `Player.rideObservers` RideAction$3 | cpp-breaker: stored only in the creature's ObserveController (removed by the Java code that added it); ObserveController::clearWithoutNotify in LogoutBreakers step L7 / onDelete D2 drops it |
+| `com.aionemu.gameserver.model.templates.item.actions.RideAction$4#player` | capture | RideAction$4 → `RideAction$4#player` Player → `Player.rideObservers` RideAction$4 | cpp-breaker: stored only in the creature's ObserveController (removed by the Java code that added it); ObserveController::clearWithoutNotify in LogoutBreakers step L7 / onDelete D2 drops it |
+| `com.aionemu.gameserver.model.templates.item.actions.TamperingAction$1#player` | capture | TamperingAction$1 → `TamperingAction$1#player` Player → `Player.rideObservers` TamperingAction$1 | cpp-breaker: stored only in the creature's ObserveController (removed by the Java code that added it); ObserveController::clearWithoutNotify in LogoutBreakers step L7 / onDelete D2 drops it |
+| `com.aionemu.gameserver.model.templates.item.actions.TamperingAction$1#targetItem` | capture | TamperingAction$1 → `TamperingAction$1#targetItem` Item → `Item.idianStone` IdianStone → `IdianStone.actionListener` TamperingAction$1 | cpp-breaker: stored only in the creature's ObserveController (removed by the Java code that added it); ObserveController::clearWithoutNotify in LogoutBreakers step L7 / onDelete D2 drops it |
+| `com.aionemu.gameserver.model.templates.item.actions.ToyPetSpawnAction$1#parentItem` | capture | ToyPetSpawnAction$1 → `ToyPetSpawnAction$1#parentItem` Item → `Item.idianStone` IdianStone → `IdianStone.actionListener` ToyPetSpawnAction$1 | cpp-breaker: stored only in the creature's ObserveController (removed by the Java code that added it); ObserveController::clearWithoutNotify in LogoutBreakers step L7 / onDelete D2 drops it |
+| `com.aionemu.gameserver.model.templates.item.actions.ToyPetSpawnAction$1#player` | capture | ToyPetSpawnAction$1 → `ToyPetSpawnAction$1#player` Player → `Player.rideObservers` ToyPetSpawnAction$1 | cpp-breaker: stored only in the creature's ObserveController (removed by the Java code that added it); ObserveController::clearWithoutNotify in LogoutBreakers step L7 / onDelete D2 drops it |
+| `com.aionemu.gameserver.model.templates.item.actions.TuningAction$1#player` | capture | TuningAction$1 → `TuningAction$1#player` Player → `Player.rideObservers` TuningAction$1 | cpp-breaker: stored only in the creature's ObserveController (removed by the Java code that added it); ObserveController::clearWithoutNotify in LogoutBreakers step L7 / onDelete D2 drops it |
+| `com.aionemu.gameserver.model.templates.item.actions.TuningAction$1#targetItem` | capture | TuningAction$1 → `TuningAction$1#targetItem` Item → `Item.idianStone` IdianStone → `IdianStone.actionListener` TuningAction$1 | cpp-breaker: stored only in the creature's ObserveController (removed by the Java code that added it); ObserveController::clearWithoutNotify in LogoutBreakers step L7 / onDelete D2 drops it |
+| `com.aionemu.gameserver.model.vortex.VortexLocation.activeVortex` | field | VortexLocation → `VortexLocation.activeVortex` DimensionalVortex → `DimensionalVortex.vortexLocation` VortexLocation | java-hook: Invasion.stopInvasion -> setActiveVortex(null) (Invasion.java:48) |
+| `com.aionemu.gameserver.model.vortex.VortexLocation.kisks` | field | VortexLocation → `VortexLocation.kisks` Kisk → `extends` SummonedObject → `SummonedObject.creator` Player → `Player.rideObservers` DeathObserver → `stored` λDimensionalVortex@L80:55 → `DimensionalVortex@L80:55#this` DimensionalVortex → `DimensionalVortex.vortexLocation` VortexLocation | java-hook: VortexLocation.onLeaveZone removes the kisk |
+| `com.aionemu.gameserver.model.vortex.VortexLocation.players` | field | VortexLocation → `VortexLocation.players` Player → `Player.rideObservers` DeathObserver → `stored` λDimensionalVortex@L80:55 → `DimensionalVortex@L80:55#this` DimensionalVortex → `DimensionalVortex.vortexLocation` VortexLocation | java-hook: VortexLocation.onLeaveZone removes the player |
+| `com.aionemu.gameserver.model.vortex.VortexLocation.spawned` | field | VortexLocation → `VortexLocation.spawned` VisibleObject → `VisibleObject.position` WorldPosition → `WorldPosition.mapRegion` MapRegion → `MapRegion.zonesSortedByTypeAndPriority` ZoneInstance → `ZoneInstance.handlers` VortexLocation | java-hook: RiftService clears the spawned list when the vortex despawns (RiftService.java:201) |
+| `com.aionemu.gameserver.model.vortex.VortexLocation.vortexController` | field | VortexLocation → `VortexLocation.vortexController` VisibleObject → `VisibleObject.position` WorldPosition → `WorldPosition.mapRegion` MapRegion → `MapRegion.zonesSortedByTypeAndPriority` ZoneInstance → `ZoneInstance.handlers` VortexLocation | java-hook: VortexService despawn -> setVortexController(null) (VortexService.java:98) |
+| `com.aionemu.gameserver.model.vortex.VortexLocation.zones` | field | VortexLocation → `VortexLocation.zones` InvasionZoneInstance → `extends` ZoneInstance → `ZoneInstance.handlers` VortexLocation | accepted: server lifetime: vortex locations and their zone instances live until shutdown (VortexService) |
+| `com.aionemu.gameserver.network.aion.AionConnection.ConnectionAliveChecker#this$0` | capture | ConnectionAliveChecker → `ConnectionAliveChecker#this$0` AionConnection → `AionConnection.connectionAliveChecker` ConnectionAliveChecker | accepted: no instance cycle: the port holds std::weak_ptr<AionConnection> (network hub header, design §11); stop() cancels its task |
+| `com.aionemu.gameserver.network.aion.AionConnection.account` | field | AionConnection → `AionConnection.account` Account → `Account.accountWarehouse` LegionStorageProxy → `LegionStorageProxy.actor` Player → `Player.clientConnection` AionConnection | accepted: cut elsewhere: the Account reaches a Player only through the account warehouse actor (PlayerStorage.actor) and Player.clientConnection |
+| `com.aionemu.gameserver.network.aion.AionConnection.activePlayer` | field | AionConnection → `AionConnection.activePlayer` Player → `Player.clientConnection` AionConnection | java-hook: PlayerLeaveWorldService.leaveWorld -> con.setActivePlayer(null); Player.clientConnection is cleared first |
+| `com.aionemu.gameserver.network.aion.AionConnection.connectionAliveChecker` | field | AionConnection → `AionConnection.connectionAliveChecker` ConnectionAliveChecker → `ConnectionAliveChecker#this$0` AionConnection | accepted: cut elsewhere: the checker refers back through a std::weak_ptr (ConnectionAliveChecker#this$0) |
+| `com.aionemu.gameserver.services.LegionService$2#legion` | capture | LegionService$2 → `LegionService$2#legion` Legion → `Legion.legionWarehouse` LegionWarehouse → `extends` Storage → `Storage.deletedItems` Item → `Item.idianStone` IdianStone → `IdianStone.actionListener` ActionItemNpcAI$1 → `ActionItemNpcAI$1#player` Player → `Player.requester` ResponseRequester → `ResponseRequester.activeRequests` LegionService$2 | java-hook: ResponseRequester.respond / denyAll drop the pending request (PlayerLeaveWorldService.leaveWorld calls denyAll before delete) |
+| `com.aionemu.gameserver.services.StigmaService$1#chargeStone` | capture | StigmaService$1 → `StigmaService$1#chargeStone` Item → `Item.idianStone` IdianStone → `IdianStone.actionListener` StigmaService$1 | cpp-breaker: stored only in the creature's ObserveController (removed by the Java code that added it); ObserveController::clearWithoutNotify in LogoutBreakers step L7 / onDelete D2 drops it |
+| `com.aionemu.gameserver.services.StigmaService$1#player` | capture | StigmaService$1 → `StigmaService$1#player` Player → `Player.rideObservers` StigmaService$1 | cpp-breaker: stored only in the creature's ObserveController (removed by the Java code that added it); ObserveController::clearWithoutNotify in LogoutBreakers step L7 / onDelete D2 drops it |
+| `com.aionemu.gameserver.services.item.ItemActionService$1#item` | capture | ItemActionService$1 → `ItemActionService$1#item` Item → `Item.idianStone` IdianStone → `IdianStone.actionListener` ItemActionService$1 | cpp-breaker: stored only in the creature's ObserveController (removed by the Java code that added it); ObserveController::clearWithoutNotify in LogoutBreakers step L7 / onDelete D2 drops it |
+| `com.aionemu.gameserver.services.item.ItemActionService$1#player` | capture | ItemActionService$1 → `ItemActionService$1#player` Player → `Player.rideObservers` ItemActionService$1 | cpp-breaker: stored only in the creature's ObserveController (removed by the Java code that added it); ObserveController::clearWithoutNotify in LogoutBreakers step L7 / onDelete D2 drops it |
+| `com.aionemu.gameserver.services.item.ItemChargeService$1#filteredItems` | capture | ItemChargeService$1 → `ItemChargeService$1#filteredItems` Item → `Item.idianStone` IdianStone → `IdianStone.actionListener` ActionItemNpcAI$1 → `ActionItemNpcAI$1#player` Player → `Player.requester` ResponseRequester → `ResponseRequester.activeRequests` ItemChargeService$1 | java-hook: ResponseRequester.respond / denyAll drop the pending request (PlayerLeaveWorldService.leaveWorld calls denyAll before delete) |
+| `com.aionemu.gameserver.services.item.ItemChargeService$1#player` | capture | ItemChargeService$1 → `ItemChargeService$1#player` Player → `Player.requester` ResponseRequester → `ResponseRequester.activeRequests` ItemChargeService$1 | java-hook: ResponseRequester.respond / denyAll drop the pending request (PlayerLeaveWorldService.leaveWorld calls denyAll before delete) |
+| `com.aionemu.gameserver.services.item.ItemSocketService$1#player` | capture | ItemSocketService$1 → `ItemSocketService$1#player` Player → `Player.rideObservers` ItemSocketService$1 | cpp-breaker: stored only in the creature's ObserveController (removed by the Java code that added it); ObserveController::clearWithoutNotify in LogoutBreakers step L7 / onDelete D2 drops it |
+| `com.aionemu.gameserver.services.item.ItemSocketService$1#weapon` | capture | ItemSocketService$1 → `ItemSocketService$1#weapon` Item → `Item.idianStone` IdianStone → `IdianStone.actionListener` ItemSocketService$1 | cpp-breaker: stored only in the creature's ObserveController (removed by the Java code that added it); ObserveController::clearWithoutNotify in LogoutBreakers step L7 / onDelete D2 drops it |
+| `com.aionemu.gameserver.services.vortex.DimensionalVortex.vortexLocation` | field | DimensionalVortex → `DimensionalVortex.vortexLocation` VortexLocation → `VortexLocation.activeVortex` DimensionalVortex | accepted: cut elsewhere: VortexLocation.activeVortex |
+| `com.aionemu.gameserver.services.vortex.DimensionalVortex@L80:55#this` | capture | λDimensionalVortex@L80:55 → `DimensionalVortex@L80:55#this` Invasion → `Invasion.defenders` Player → `Player.rideObservers` DeathObserver → `stored` λDimensionalVortex@L80:55 | java-hook: the DeathObserver is attached to the rift generator Npc, whose ObserveController NpcController.onDespawn clears |
+| `com.aionemu.gameserver.services.vortex.Invasion$1#this` | capture | Invasion$1 → `Invasion$1#this` Invasion → `Invasion.defenders` Player → `Player.requester` ResponseRequester → `ResponseRequester.activeRequests` Invasion$1 | java-hook: ResponseRequester.respond / denyAll drop the pending request (PlayerLeaveWorldService.leaveWorld calls denyAll before delete) |
+| `com.aionemu.gameserver.services.vortex.Invasion.defAlliance` | field | Invasion → `Invasion.defAlliance` PlayerAlliance → `extends` TemporaryPlayerTeam → `TemporaryPlayerTeam.lootGroupRules` LootGroupRules → `LootGroupRules.itemsToBeDistributed` DropItem → `DropItem.winningPlayer` Player → `Player.rideObservers` DeathObserver → `stored` λDimensionalVortex@L80:55 → `DimensionalVortex@L80:55#this` Invasion | accepted: cut elsewhere: the Invasion is reached only through VortexLocation.activeVortex, the generator's DeathObserver and pending requests |
+| `com.aionemu.gameserver.services.vortex.Invasion.defenders` | field | Invasion → `Invasion.defenders` Player → `Player.rideObservers` DeathObserver → `stored` λDimensionalVortex@L80:55 → `DimensionalVortex@L80:55#this` Invasion | accepted: cut elsewhere: the Invasion is reached only through VortexLocation.activeVortex, the generator's DeathObserver and pending requests |
+| `com.aionemu.gameserver.services.vortex.Invasion.invAlliance` | field | Invasion → `Invasion.invAlliance` PlayerAlliance → `extends` TemporaryPlayerTeam → `TemporaryPlayerTeam.lootGroupRules` LootGroupRules → `LootGroupRules.itemsToBeDistributed` DropItem → `DropItem.winningPlayer` Player → `Player.rideObservers` DeathObserver → `stored` λDimensionalVortex@L80:55 → `DimensionalVortex@L80:55#this` Invasion | accepted: cut elsewhere: the Invasion is reached only through VortexLocation.activeVortex, the generator's DeathObserver and pending requests |
+| `com.aionemu.gameserver.services.vortex.Invasion.invaders` | field | Invasion → `Invasion.invaders` Player → `Player.rideObservers` DeathObserver → `stored` λDimensionalVortex@L80:55 → `DimensionalVortex@L80:55#this` Invasion | accepted: cut elsewhere: the Invasion is reached only through VortexLocation.activeVortex, the generator's DeathObserver and pending requests |
+| `com.aionemu.gameserver.services.worldraid.WorldRaid$1#this` | capture | WorldRaid$1 → `WorldRaid$1#this` WorldRaid → `stored` WorldRaid$1 | java-hook: WorldRaid cancels preparationTask (WorldRaid.java:61-62, 92-93) |
+| `com.aionemu.gameserver.services.worldraid.WorldRaid.boss` | field | WorldRaid → `WorldRaid.boss` SummonedObject → `SummonedObject.creator` Player → `Player.rideObservers` DeathObserver → `stored` λWorldRaid@L144:55 → `WorldRaid@L144:55#this` WorldRaid | accepted: cut elsewhere: the raid npcs reach WorldRaid only through DeathObservers in their ObserveControllers (NpcController.onDespawn) |
+| `com.aionemu.gameserver.services.worldraid.WorldRaid.flag` | field | WorldRaid → `WorldRaid.flag` SummonedObject → `SummonedObject.creator` Player → `Player.rideObservers` DeathObserver → `stored` λWorldRaid@L144:55 → `WorldRaid@L144:55#this` WorldRaid | accepted: cut elsewhere: the raid npcs reach WorldRaid only through DeathObservers in their ObserveControllers (NpcController.onDespawn) |
+| `com.aionemu.gameserver.services.worldraid.WorldRaid.locationMarkers` | field | WorldRaid → `WorldRaid.locationMarkers` SummonedObject → `SummonedObject.creator` Player → `Player.rideObservers` DeathObserver → `stored` λWorldRaid@L144:55 → `WorldRaid@L144:55#this` WorldRaid | accepted: cut elsewhere: the raid npcs reach WorldRaid only through DeathObservers in their ObserveControllers (NpcController.onDespawn) |
+| `com.aionemu.gameserver.services.worldraid.WorldRaid.vortex` | field | WorldRaid → `WorldRaid.vortex` SummonedObject → `SummonedObject.creator` Player → `Player.rideObservers` DeathObserver → `stored` λWorldRaid@L144:55 → `WorldRaid@L144:55#this` WorldRaid | accepted: cut elsewhere: the raid npcs reach WorldRaid only through DeathObservers in their ObserveControllers (NpcController.onDespawn) |
+| `com.aionemu.gameserver.services.worldraid.WorldRaid@L110:59#this` | capture | λWorldRaid@L110:59 → `WorldRaid@L110:59#this` WorldRaid → `stored` λWorldRaid@L110:59 | accepted: one-shot task: releases its captures when it runs or is cancelled |
+| `com.aionemu.gameserver.services.worldraid.WorldRaid@L144:55#this` | capture | λWorldRaid@L144:55 → `WorldRaid@L144:55#this` WorldRaid → `WorldRaid.boss` SummonedObject → `SummonedObject.creator` Player → `Player.rideObservers` DeathObserver → `stored` λWorldRaid@L144:55 | java-hook: the DeathObserver is attached to the raid boss Npc, whose ObserveController NpcController.onDespawn clears |
+| `com.aionemu.gameserver.skillengine.effect.AbstractOverTimeEffect@L55:72#effect` | capture | λAbstractOverTimeEffect@L55:72 → `AbstractOverTimeEffect@L55:72#effect` Effect → `stored` λAbstractOverTimeEffect@L55:72 | java-hook: Effect.stopTasks cancels the periodic task held in Effect.periodicTasks (Effect.endEffect) |
+| `com.aionemu.gameserver.skillengine.effect.AlwaysBlockEffect$1#effect` | capture | AlwaysBlockEffect$1 → `AlwaysBlockEffect$1#effect` Effect → `stored` AlwaysBlockEffect$1 | java-hook: Effect.endEffect -> removeObservers removes the observer from the target's ObserveController and clears observerRemoveTasks (Effect.java:826-839) |
+| `com.aionemu.gameserver.skillengine.effect.AlwaysDodgeEffect$1#effect` | capture | AlwaysDodgeEffect$1 → `AlwaysDodgeEffect$1#effect` Effect → `stored` AlwaysDodgeEffect$1 | java-hook: Effect.endEffect -> removeObservers removes the observer from the target's ObserveController and clears observerRemoveTasks (Effect.java:826-839) |
+| `com.aionemu.gameserver.skillengine.effect.AlwaysParryEffect$1#effect` | capture | AlwaysParryEffect$1 → `AlwaysParryEffect$1#effect` Effect → `stored` AlwaysParryEffect$1 | java-hook: Effect.endEffect -> removeObservers removes the observer from the target's ObserveController and clears observerRemoveTasks (Effect.java:826-839) |
+| `com.aionemu.gameserver.skillengine.effect.AlwaysResistEffect$1#effect` | capture | AlwaysResistEffect$1 → `AlwaysResistEffect$1#effect` Effect → `stored` AlwaysResistEffect$1 | java-hook: Effect.endEffect -> removeObservers removes the observer from the target's ObserveController and clears observerRemoveTasks (Effect.java:826-839) |
+| `com.aionemu.gameserver.skillengine.effect.CaseHealEffect$1#effect` | capture | CaseHealEffect$1 → `CaseHealEffect$1#effect` Effect → `stored` CaseHealEffect$1 | java-hook: Effect.endEffect -> removeObservers removes the observer from the target's ObserveController and clears observerRemoveTasks (Effect.java:826-839) |
+| `com.aionemu.gameserver.skillengine.effect.ChangeHateOnAttackedEffect$1#effect` | capture | ChangeHateOnAttackedEffect$1 → `ChangeHateOnAttackedEffect$1#effect` Effect → `stored` ChangeHateOnAttackedEffect$1 | java-hook: Effect.endEffect -> removeObservers removes the observer from the target's ObserveController and clears observerRemoveTasks (Effect.java:826-839) |
+| `com.aionemu.gameserver.skillengine.effect.CondSkillLauncherEffect$1#effect` | capture | CondSkillLauncherEffect$1 → `CondSkillLauncherEffect$1#effect` Effect → `stored` CondSkillLauncherEffect$1 | java-hook: Effect.endEffect -> removeObservers removes the observer from the target's ObserveController and clears observerRemoveTasks (Effect.java:826-839) |
+| `com.aionemu.gameserver.skillengine.effect.CondSkillLauncherEffect$1.conditionalEffect` | field | CondSkillLauncherEffect$1 → `CondSkillLauncherEffect$1.conditionalEffect` Effect → `stored` CondSkillLauncherEffect$1 | accepted: cut elsewhere: the observer is held only through Effect.addObserver (Effect.endEffect) |
+| `com.aionemu.gameserver.skillengine.effect.FearEffect$1#effect` | capture | FearEffect$1 → `FearEffect$1#effect` Effect → `stored` FearEffect$1 | java-hook: Effect.endEffect -> removeObservers removes the observer from the target's ObserveController and clears observerRemoveTasks (Effect.java:826-839) |
+| `com.aionemu.gameserver.skillengine.effect.FearEffect$1#effected` | capture | FearEffect$1 → `FearEffect$1#effected` Player → `Player.rideObservers` FearEffect$1 | java-hook: Effect.endEffect -> removeObservers removes the observer from the target's ObserveController and clears observerRemoveTasks (Effect.java:826-839) |
+| `com.aionemu.gameserver.skillengine.effect.HealCastorOnAttackedEffect$1#effect` | capture | HealCastorOnAttackedEffect$1 → `HealCastorOnAttackedEffect$1#effect` Effect → `stored` HealCastorOnAttackedEffect$1 | java-hook: Effect.endEffect -> removeObservers removes the observer from the target's ObserveController and clears observerRemoveTasks (Effect.java:826-839) |
+| `com.aionemu.gameserver.skillengine.effect.HideEffect$1#effect` | capture | HideEffect$1 → `HideEffect$1#effect` Effect → `stored` HideEffect$1 | java-hook: Effect.endEffect -> removeObservers removes the observer from the target's ObserveController and clears observerRemoveTasks (Effect.java:826-839) |
+| `com.aionemu.gameserver.skillengine.effect.HideEffect$2#effect` | capture | HideEffect$2 → `HideEffect$2#effect` Effect → `stored` HideEffect$2 | java-hook: Effect.endEffect -> removeObservers removes the observer from the target's ObserveController and clears observerRemoveTasks (Effect.java:826-839) |
+| `com.aionemu.gameserver.skillengine.effect.HideEffect$3#effect` | capture | HideEffect$3 → `HideEffect$3#effect` Effect → `stored` HideEffect$3 | java-hook: Effect.endEffect -> removeObservers removes the observer from the target's ObserveController and clears observerRemoveTasks (Effect.java:826-839) |
+| `com.aionemu.gameserver.skillengine.effect.HideEffect$4#effect` | capture | HideEffect$4 → `HideEffect$4#effect` Effect → `stored` HideEffect$4 | java-hook: Effect.endEffect -> removeObservers removes the observer from the target's ObserveController and clears observerRemoveTasks (Effect.java:826-839) |
+| `com.aionemu.gameserver.skillengine.effect.HideEffect$5#effect` | capture | HideEffect$5 → `HideEffect$5#effect` Effect → `stored` HideEffect$5 | java-hook: Effect.endEffect -> removeObservers removes the observer from the target's ObserveController and clears observerRemoveTasks (Effect.java:826-839) |
+| `com.aionemu.gameserver.skillengine.effect.MagicCounterAtkEffect$1#effect` | capture | MagicCounterAtkEffect$1 → `MagicCounterAtkEffect$1#effect` Effect → `stored` MagicCounterAtkEffect$1 | java-hook: Effect.endEffect -> removeObservers removes the observer from the target's ObserveController and clears observerRemoveTasks (Effect.java:826-839) |
+| `com.aionemu.gameserver.skillengine.effect.MagicCounterAtkEffect$1#effected` | capture | MagicCounterAtkEffect$1 → `MagicCounterAtkEffect$1#effected` Player → `Player.rideObservers` MagicCounterAtkEffect$1 | java-hook: Effect.endEffect -> removeObservers removes the observer from the target's ObserveController and clears observerRemoveTasks (Effect.java:826-839) |
+| `com.aionemu.gameserver.skillengine.effect.OneTimeBoostSkillAttackEffect$1#effect` | capture | OneTimeBoostSkillAttackEffect$1 → `OneTimeBoostSkillAttackEffect$1#effect` Effect → `stored` OneTimeBoostSkillAttackEffect$1 | java-hook: Effect.endEffect -> removeObservers removes the observer from the target's ObserveController and clears observerRemoveTasks (Effect.java:826-839) |
+| `com.aionemu.gameserver.skillengine.effect.OneTimeBoostSkillCriticalEffect$1#effect` | capture | OneTimeBoostSkillCriticalEffect$1 → `OneTimeBoostSkillCriticalEffect$1#effect` Effect → `stored` OneTimeBoostSkillCriticalEffect$1 | java-hook: Effect.endEffect -> removeObservers removes the observer from the target's ObserveController and clears observerRemoveTasks (Effect.java:826-839) |
+| `com.aionemu.gameserver.skillengine.effect.ProtectEffect$1#effect` | capture | ProtectEffect$1 → `ProtectEffect$1#effect` Effect → `stored` ProtectEffect$1 | java-hook: Effect.endEffect -> removeObservers removes the observer from the target's ObserveController and clears observerRemoveTasks (Effect.java:826-839) |
+| `com.aionemu.gameserver.skillengine.effect.ProtectEffect@L38:63#effect` | capture | λProtectEffect@L38:63 → `ProtectEffect@L38:63#effect` Effect → `stored` λEffect@L828:27 → `Effect@L828:27#observer` DeathObserver → `stored` λProtectEffect@L38:63 | java-hook: Effect.endEffect -> removeObservers removes the observer from the target's ObserveController and clears observerRemoveTasks (Effect.java:826-839) |
+| `com.aionemu.gameserver.skillengine.effect.ProvokerEffect$1#effector` | capture | ProvokerEffect$1 → `ProvokerEffect$1#effector` Player → `Player.rideObservers` ProvokerEffect$1 | java-hook: Effect.endEffect -> removeObservers removes the observer from the target's ObserveController and clears observerRemoveTasks (Effect.java:826-839) |
+| `com.aionemu.gameserver.skillengine.effect.RideRobotEffect$1#effect` | capture | RideRobotEffect$1 → `RideRobotEffect$1#effect` Effect → `stored` RideRobotEffect$1 | java-hook: Effect.endEffect -> removeObservers removes the observer from the target's ObserveController and clears observerRemoveTasks (Effect.java:826-839) |
+| `com.aionemu.gameserver.skillengine.effect.RootEffect$1#effect` | capture | RootEffect$1 → `RootEffect$1#effect` Effect → `stored` RootEffect$1 | java-hook: Effect.endEffect -> removeObservers removes the observer from the target's ObserveController and clears observerRemoveTasks (Effect.java:826-839) |
+| `com.aionemu.gameserver.skillengine.effect.RootEffect$1#effected` | capture | RootEffect$1 → `RootEffect$1#effected` Player → `Player.rideObservers` RootEffect$1 | java-hook: Effect.endEffect -> removeObservers removes the observer from the target's ObserveController and clears observerRemoveTasks (Effect.java:826-839) |
+| `com.aionemu.gameserver.skillengine.effect.SummonHomingEffect$1#homing` | capture | SummonHomingEffect$1 → `SummonHomingEffect$1#homing` Homing → `extends` SummonedObject → `SummonedObject.creator` Player → `Player.rideObservers` SummonHomingEffect$1 | java-hook: Effect.endEffect -> removeObservers removes the observer from the target's ObserveController and clears observerRemoveTasks (Effect.java:826-839) |
+| `com.aionemu.gameserver.skillengine.model.Effect$1#this` | capture | Effect$1 → `Effect$1#this` Effect → `stored` Effect$1 | java-hook: Effect.endEffect -> removeObservers removes the observer from the target's ObserveController and clears observerRemoveTasks (Effect.java:826-839) |
+| `com.aionemu.gameserver.skillengine.model.Effect$2#this` | capture | Effect$2 → `Effect$2#this` Effect → `stored` Effect$2 | java-hook: Effect.endEffect -> removeObservers removes the observer from the target's ObserveController and clears observerRemoveTasks (Effect.java:826-839) |
+| `com.aionemu.gameserver.skillengine.model.Effect.designatedDispelEffect` | field | Effect → `Effect.designatedDispelEffect` Effect | cpp-breaker: Effect.endEffect also resets designatedDispelEffect (C++ addition; only effects still in an EffectController map read it); normally EffectController.resetDesignatedDispelEffect (DispelBuffCounterAtkEffect.endEffect) |
+| `com.aionemu.gameserver.skillengine.model.Effect.effected` | field | Effect → `Effect.effected` Creature → `Creature.effectController` EffectController → `EffectController.abnormalEffectMap` Effect | accepted: cut elsewhere: EffectController maps, ObserveController observers and CreatureGameStats functions of the creatures (design §5.1, §14.2c) |
+| `com.aionemu.gameserver.skillengine.model.Effect.effector` | field | Effect → `Effect.effector` Creature → `Creature.effectController` EffectController → `EffectController.abnormalEffectMap` Effect | accepted: cut elsewhere: EffectController maps, ObserveController observers and CreatureGameStats functions of the creatures (design §5.1, §14.2c) |
+| `com.aionemu.gameserver.skillengine.model.Effect.skill` | field | Effect → `Effect.skill` Skill → `Skill.firstTargetDieObserver` DeathObserver → `stored` λProtectEffect@L38:63 → `ProtectEffect@L38:63#effect` Effect | accepted: cut elsewhere: every cycle continues through the Skill's creatures (see Skill.effector) or Skill.firstTargetDieObserver |
+| `com.aionemu.gameserver.skillengine.model.Effect.subEffect` | field | Effect → `Effect.subEffect` Effect | accepted: no instance cycle: always a newly created effect (EffectTemplate.java:431), never the effect itself or an ancestor |
+| `com.aionemu.gameserver.skillengine.model.Effect@L682:55#this` | capture | λEffect@L682:55 → `Effect@L682:55#this` Effect → `stored` λEffect@L682:55 | accepted: one-shot task: releases its captures when it runs or is cancelled |
+| `com.aionemu.gameserver.skillengine.model.Effect@L828:27#observer` | capture | λEffect@L828:27 → `Effect@L828:27#observer` CaseHealEffect$1 → `CaseHealEffect$1#effect` Effect → `stored` λEffect@L828:27 | java-hook: Effect.endEffect -> removeObservers runs and clears observerRemoveTasks (Effect.java:836-839) |
+| `com.aionemu.gameserver.skillengine.model.Effect@L828:27#target` | capture | λEffect@L828:27 → `Effect@L828:27#target` Creature → `Creature.effectController` EffectController → `EffectController.abnormalEffectMap` Effect → `stored` λEffect@L828:27 | java-hook: Effect.endEffect -> removeObservers runs and clears observerRemoveTasks (Effect.java:836-839) |
+| `com.aionemu.gameserver.skillengine.model.Effect@L833:27#observer` | capture | λEffect@L833:27 → `Effect@L833:27#observer` AttackShieldObserver → `AttackShieldObserver.effect` Effect → `stored` λEffect@L833:27 | java-hook: Effect.endEffect -> removeObservers runs and clears observerRemoveTasks (Effect.java:836-839) |
+| `com.aionemu.gameserver.skillengine.model.Effect@L833:27#target` | capture | λEffect@L833:27 → `Effect@L833:27#target` Creature → `Creature.effectController` EffectController → `EffectController.abnormalEffectMap` Effect → `stored` λEffect@L833:27 | java-hook: Effect.endEffect -> removeObservers runs and clears observerRemoveTasks (Effect.java:836-839) |
+| `com.aionemu.gameserver.skillengine.model.Effect@L871:77#this` | capture | λEffect@L871:77 → `Effect@L871:77#this` Effect → `stored` λEffect@L871:77 | java-hook: Effect.stopTasks -> stopPeriodicActions cancels periodicActionsTask (Effect.endEffect) |
+| `com.aionemu.gameserver.skillengine.model.Skill.effectedList` | field | Skill → `Skill.effectedList` Creature → `Creature.castingSkill` Skill | accepted: cut elsewhere: Creature.castingSkill, the EffectController maps and ObserveController observers of the creatures, Skill.firstTargetDieObserver |
+| `com.aionemu.gameserver.skillengine.model.Skill.effector` | field | Skill → `Skill.effector` Creature → `Creature.castingSkill` Skill | accepted: cut elsewhere: Creature.castingSkill, the EffectController maps and ObserveController observers of the creatures, Skill.firstTargetDieObserver |
+| `com.aionemu.gameserver.skillengine.model.Skill.firstTarget` | field | Skill → `Skill.firstTarget` Creature → `Creature.castingSkill` Skill | accepted: cut elsewhere: Creature.castingSkill, the EffectController maps and ObserveController observers of the creatures, Skill.firstTargetDieObserver |
+| `com.aionemu.gameserver.skillengine.model.Skill.firstTargetDieObserver` | field | Skill → `Skill.firstTargetDieObserver` DeathObserver → `stored` λSkill@L535:47 → `Skill@L535:47#this` Skill | cpp-breaker: Skill.removeObservers (endCast, cancelCast) detaches the DeathObserver and the port also clears firstTargetDieObserver (Java keeps the field, so Skill and its DeathObserver keep each other) |
+| `com.aionemu.gameserver.skillengine.model.Skill@L535:47#this` | capture | λSkill@L535:47 → `Skill@L535:47#this` Skill → `Skill.firstTargetDieObserver` DeathObserver → `stored` λSkill@L535:47 | accepted: cut elsewhere: Skill.firstTargetDieObserver (cleared by Skill.removeObservers) and the target's ObserveController |
+| `com.aionemu.gameserver.skillengine.task.AbstractInteractionTask$1#this` | capture | AbstractInteractionTask$1 → `AbstractInteractionTask$1#this` AbstractCraftTask → `stored` AbstractInteractionTask$1 | java-hook: AbstractInteractionTask finish / abort cancel the periodic task (AbstractInteractionTask.java:88-90) |
+| `com.aionemu.gameserver.skillengine.task.AbstractInteractionTask.requester` | field | AbstractInteractionTask → `AbstractInteractionTask.requester` Player → `Player.interactionTask` AbstractInteractionTask | accepted: cut elsewhere: Player.interactionTask and GatherableController.gatheringTask |
+| `com.aionemu.gameserver.skillengine.task.AbstractInteractionTask.responder` | field | AbstractInteractionTask → `AbstractInteractionTask.responder` Player → `Player.interactionTask` AbstractInteractionTask | accepted: cut elsewhere: Player.interactionTask and GatherableController.gatheringTask |
+| `com.aionemu.gameserver.skillengine.task.GatheringTask$1#this` | capture | GatheringTask$1 → `GatheringTask$1#this` GatheringTask → `GatheringTask.gathererObserver` GatheringTask$1 | accepted: cut elsewhere: GatheringTask.gathererObserver and the gatherer's ObserveController |
+| `com.aionemu.gameserver.skillengine.task.GatheringTask.gathererObserver` | field | GatheringTask → `GatheringTask.gathererObserver` GatheringTask$1 → `GatheringTask$1#this` GatheringTask | cpp-breaker: the port holds gathererObserver in a Field (fieldmap.toml) and resets it after removing the observer in onInteractionFinish / onInteractionAbort (Java keeps the final field, so the task and its observer keep each other) |
+| `com.aionemu.gameserver.spawnengine.ClusteredNpc.npc` | field | ClusteredNpc → `ClusteredNpc.npc` Npc → `Npc.walkerGroup` WalkerGroup → `WalkerGroup.members` ClusteredNpc | accepted: cut elsewhere: Npc.walkerGroup (LogoutBreakers::onDelete D5) |
+| `com.aionemu.gameserver.spawnengine.WalkerGroup.members` | field | WalkerGroup → `WalkerGroup.members` ClusteredNpc → `ClusteredNpc.npc` Npc → `Npc.walkerGroup` WalkerGroup | accepted: cut elsewhere: Npc.walkerGroup (LogoutBreakers::onDelete D5) |
+| `com.aionemu.gameserver.world.MapRegion.objects` | field | MapRegion → `MapRegion.objects` VisibleObject → `VisibleObject.position` WorldPosition → `WorldPosition.mapRegion` MapRegion | java-hook: World.despawn -> MapRegion.remove (World.java:321) |
+| `com.aionemu.gameserver.world.MapRegion.zonesSortedByTypeAndPriority` | field | MapRegion → `MapRegion.zonesSortedByTypeAndPriority` ZoneInstance → `ZoneInstance.creatures` Creature → `Creature.ai` HyperionAI → `HyperionAI.northernSpawnPos` WorldPosition → `WorldPosition.mapRegion` MapRegion | accepted: cut elsewhere: ZoneInstance holds no MapRegion; cycles continue through ZoneInstance.creatures and the zone handlers' per-creature maps |
+| `com.aionemu.gameserver.world.WorldMap.instances` | field | WorldMap → `WorldMap.instances` WorldMapInstance → `WorldMapInstance.parent` WorldMap | java-hook: WorldMap.removeWorldMapInstance (InstanceService.destroyInstance) |
+| `com.aionemu.gameserver.world.WorldMapInstance.instanceHandler` | field | WorldMapInstance → `WorldMapInstance.instanceHandler` GeneralInstanceHandler → `GeneralInstanceHandler.instance` WorldMapInstance | cpp-breaker: InstanceService.destroyInstance calls WorldMapInstance::detachInstanceHandler (a no-op handler replaces it; design §3.2.2, §5.1) |
+| `com.aionemu.gameserver.world.WorldMapInstance.parent` | field | WorldMapInstance → `WorldMapInstance.parent` WorldMap → `WorldMap.instances` WorldMapInstance | accepted: server lifetime: WorldMaps belong to World; instances leave WorldMap.instances in destroyInstance |
+| `com.aionemu.gameserver.world.WorldMapInstance.registeredTeam` | field | WorldMapInstance → `WorldMapInstance.registeredTeam` GeneralTeam → `GeneralTeam.leader` PlayerTeamMember → `PlayerTeamMember.player` Player → `extends` Creature → `Creature.ai` HyperionAI → `HyperionAI.northernSpawnPos` WorldPosition → `WorldPosition.mapRegion` WorldMapInstance | cpp-breaker: InstanceService.destroyInstance also calls WorldMapInstance::releaseRegisteredTeam (C++ addition: an offline or former member held by the team keeps a WorldPosition in the destroyed instance, whose MapRegion part retains the instance) |
+| `com.aionemu.gameserver.world.WorldMapInstance.startPos` | field | WorldMapInstance → `WorldMapInstance.startPos` WorldPosition → `WorldPosition.mapRegion` WorldMapInstance | cpp-breaker: InstanceService.destroyInstance also calls setStartPos(nullptr) (C++ addition: WorldPosition.mapRegion retains the MapRegion part and so the instance) |
+| `com.aionemu.gameserver.world.WorldMapInstance.worldMapNpcs` | field | WorldMapInstance → `WorldMapInstance.worldMapNpcs` SummonedObject → `SummonedObject.creator` VisibleObject → `VisibleObject.position` WorldPosition → `WorldPosition.mapRegion` WorldMapInstance | java-hook: World.despawn -> WorldMapInstance.removeObject (World.java:320) |
+| `com.aionemu.gameserver.world.WorldMapInstance.worldMapObjects` | field | WorldMapInstance → `WorldMapInstance.worldMapObjects` VisibleObject → `VisibleObject.position` WorldPosition → `WorldPosition.mapRegion` WorldMapInstance | java-hook: World.despawn -> WorldMapInstance.removeObject (World.java:320) |
+| `com.aionemu.gameserver.world.WorldMapInstance.worldMapPlayers` | field | WorldMapInstance → `WorldMapInstance.worldMapPlayers` Player → `extends` Creature → `Creature.ai` HyperionAI → `HyperionAI.northernSpawnPos` WorldPosition → `WorldPosition.mapRegion` WorldMapInstance | java-hook: World.despawn -> WorldMapInstance.removeObject (World.java:320) |
+| `com.aionemu.gameserver.world.WorldMapInstance.zones` | field | WorldMapInstance → `WorldMapInstance.zones` ZoneInstance → `ZoneInstance.creatures` Creature → `Creature.ai` HyperionAI → `HyperionAI.northernSpawnPos` WorldPosition → `WorldPosition.mapRegion` WorldMapInstance | accepted: cut elsewhere: ZoneInstance holds no WorldMapInstance; cycles continue through ZoneInstance.creatures and the zone handlers' per-creature maps |
+| `com.aionemu.gameserver.world.WorldMapInstance@L125:72#this` | capture | λWorldMapInstance@L125:72 → `WorldMapInstance@L125:72#this` WorldMap2DInstance → `stored` λWorldMapInstance@L125:72 | accepted: one-shot task: releases its captures when it runs or is cancelled |
+| `com.aionemu.gameserver.world.WorldPosition.mapRegion` | field | WorldPosition → `WorldPosition.mapRegion` WorldMapInstance → `WorldMapInstance.startPos` WorldPosition | accepted: cut elsewhere: MapRegion.objects, WorldMapInstance.worldMapObjects/Npcs/Players and ZoneInstance.creatures (World.despawn) |
+| `com.aionemu.gameserver.world.knownlist.KnownList.knownObjects` | field | KnownList → `KnownList.knownObjects` KnownObject → `KnownObject.object` VisibleObject → `VisibleObject.knownlist` KnownList | zombie-safe: World.despawn -> VisibleObject.clearKnownlist (World.java:325) and the KnownList::addPair handshake (design §5.3 RR-14); the zombie breaker clears it without notSee |
+| `com.aionemu.gameserver.world.knownlist.KnownObject.object` | field | KnownObject → `KnownObject.object` VisibleObject → `VisibleObject.knownlist` KnownList → `KnownList.knownObjects` KnownObject | accepted: cut elsewhere: KnownList.knownObjects (World.despawn clears both sides) |
+| `com.aionemu.gameserver.world.zone.ZoneInstance.creatures` | field | ZoneInstance → `ZoneInstance.creatures` Creature → `Creature.ai` HyperionAI → `HyperionAI.northernSpawnPos` WorldPosition → `WorldPosition.mapRegion` MapRegion → `MapRegion.zonesSortedByTypeAndPriority` ZoneInstance | java-hook: ZoneInstance.onLeave (MapRegion.revalidateZones at World.despawn and on position changes) |
+| `com.aionemu.gameserver.world.zone.ZoneInstance.handlers` | field | ZoneInstance → `ZoneInstance.handlers` SiegeLocation → `SiegeLocation.zones` SiegeZoneInstance → `extends` ZoneInstance | accepted: server lifetime: zone handlers are registered once per zone name (ZoneService, siege and vortex locations); their per-creature maps are cleared in onLeaveZone |
+| `com.aionemu.gameserver.world.zone.handler.MaterialZoneHandler.observed` | field | MaterialZoneHandler → `MaterialZoneHandler.observed` AbstractMaterialSkillActor → `extends` AbstractCollisionObserver → `AbstractCollisionObserver.creature` Creature → `Creature.ai` HyperionAI → `HyperionAI.northernSpawnPos` WorldPosition → `WorldPosition.mapRegion` MapRegion → `MapRegion.zonesSortedByTypeAndPriority` ZoneInstance → `ZoneInstance.handlers` MaterialZoneHandler | java-hook: MaterialZoneHandler.onLeaveZone removes and aborts the actor (ZoneInstance.onLeave) |
+| `com.aionemu.gameserver.world.zone.handler.QuestZoneHandler.observed` | field | QuestZoneHandler → `QuestZoneHandler.observed` _1012SensoryArea$1 → `_1012SensoryArea$1#this` _1012SensoryArea → `extends` QuestZoneHandler | java-hook: QuestZoneHandler.onLeaveZone removes the observer (ZoneInstance.onLeave) |
 | `instance.AnguishedDragonLordsRefugeInstance@L45:58#this` | capture | λAnguishedDragonLordsRefugeInstance@L45:58 → `AnguishedDragonLordsRefugeInstance@L45:58#this` AnguishedDragonLordsRefugeInstance → `stored` λAnguishedDragonLordsRefugeInstance@L45:58 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
 | `instance.DanuarMysticariumInstance@L81:54#this` | capture | λDanuarMysticariumInstance@L81:54 → `DanuarMysticariumInstance@L81:54#this` DanuarMysticariumInstance → `stored` λDanuarMysticariumInstance@L81:54 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
 | `instance.DanuarMysticariumInstance@L82:54#this` | capture | λDanuarMysticariumInstance@L82:54 → `DanuarMysticariumInstance@L82:54#this` DanuarMysticariumInstance → `stored` λDanuarMysticariumInstance@L82:54 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
 | `instance.DanuarMysticariumInstance@L83:54#this` | capture | λDanuarMysticariumInstance@L83:54 → `DanuarMysticariumInstance@L83:54#this` DanuarMysticariumInstance → `stored` λDanuarMysticariumInstance@L83:54 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
 | `instance.DanuarMysticariumInstance@L84:54#this` | capture | λDanuarMysticariumInstance@L84:54 → `DanuarMysticariumInstance@L84:54#this` DanuarMysticariumInstance → `stored` λDanuarMysticariumInstance@L84:54 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
 | `instance.DanuarReliquaryInstance@L142:55#this` | capture | λDanuarReliquaryInstance@L142:55 → `DanuarReliquaryInstance@L142:55#this` DanuarReliquaryInstance → `stored` λDanuarReliquaryInstance@L142:55 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
-| `instance.DarkPoetaInstance.instanceReward` | field | DarkPoetaInstance → `DarkPoetaInstance.instanceReward` DarkPoetaScore → `extends` InstanceScore → `InstanceScore.playerRewards` PvPArenaPlayerReward → `PvPArenaPlayerReward.boostMorale` InstanceBuff → `InstanceBuff.functions` StatFunctionProxy → `StatFunctionProxy.owner` Effect → `Effect.effected` Creature → `Creature.ai` HyperionAI → `HyperionAI.northernSpawnPos` WorldPosition → `WorldPosition.mapRegion` MapRegion → `MapRegion.parent` WorldMapInstance → `WorldMapInstance.instanceHandler` DarkPoetaInstance | **UNRESOLVED** |
+| `instance.DarkPoetaInstance.instanceReward` | field | DarkPoetaInstance → `DarkPoetaInstance.instanceReward` DarkPoetaScore → `extends` InstanceScore → `InstanceScore.playerRewards` PvPArenaPlayerReward → `PvPArenaPlayerReward.boostMorale` InstanceBuff → `InstanceBuff.functions` StatFunctionProxy → `StatFunctionProxy.owner` Effect → `Effect.effected` Creature → `Creature.ai` HyperionAI → `HyperionAI.northernSpawnPos` WorldPosition → `WorldPosition.mapRegion` WorldMapInstance → `WorldMapInstance.instanceHandler` DarkPoetaInstance | **UNRESOLVED** |
 | `instance.DarkPoetaInstance@L278:60#this` | capture | λDarkPoetaInstance@L278:60 → `DarkPoetaInstance@L278:60#this` DarkPoetaInstance → `stored` λDarkPoetaInstance@L278:60 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
-| `instance.DragonLordsRefugeInstance.respawnLocations` | field | DragonLordsRefugeInstance → `DragonLordsRefugeInstance.respawnLocations` WorldPosition → `WorldPosition.mapRegion` MapRegion → `MapRegion.parent` WorldMapInstance → `WorldMapInstance.instanceHandler` DragonLordsRefugeInstance | **UNRESOLVED** |
+| `instance.DragonLordsRefugeInstance.respawnLocations` | field | DragonLordsRefugeInstance → `DragonLordsRefugeInstance.respawnLocations` WorldPosition → `WorldPosition.mapRegion` WorldMapInstance → `WorldMapInstance.instanceHandler` DragonLordsRefugeInstance | **UNRESOLVED** |
 | `instance.DragonLordsRefugeInstance@L73:58#this` | capture | λDragonLordsRefugeInstance@L73:58 → `DragonLordsRefugeInstance@L73:58#this` AnguishedDragonLordsRefugeInstance → `stored` λDragonLordsRefugeInstance@L73:58 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
 | `instance.DrakenspireDepthsInstance$1#this` | capture | DrakenspireDepthsInstance$1 → `DrakenspireDepthsInstance$1#this` DrakenspireDepthsInstance → `stored` DrakenspireDepthsInstance$1 | **UNRESOLVED** (suggested: java-hook: cancel of the periodic task held by setCurrentEventTask()) |
 | `instance.DrakenspireDepthsInstance$2#this` | capture | DrakenspireDepthsInstance$2 → `DrakenspireDepthsInstance$2#this` DrakenspireDepthsInstance → `stored` DrakenspireDepthsInstance$2 | **UNRESOLVED** (suggested: java-hook: cancel of the periodic task held by setCurrentEventTask()) |
 | `instance.DrakenspireDepthsInstance@L160:70#this` | capture | λDrakenspireDepthsInstance@L160:70 → `DrakenspireDepthsInstance@L160:70#this` DrakenspireDepthsInstance → `stored` λDrakenspireDepthsInstance@L160:70 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
 | `instance.DrakenspireDepthsInstance@L330:64#this` | capture | λDrakenspireDepthsInstance@L330:64 → `DrakenspireDepthsInstance@L330:64#this` DrakenspireDepthsInstance → `stored` λDrakenspireDepthsInstance@L330:64 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
 | `instance.DrakenspireDepthsInstance@L422:67#this` | capture | λDrakenspireDepthsInstance@L422:67 → `DrakenspireDepthsInstance@L422:67#this` DrakenspireDepthsInstance → `stored` λDrakenspireDepthsInstance@L422:67 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
-| `instance.EternalBastionInstance.instanceReward` | field | EternalBastionInstance → `EternalBastionInstance.instanceReward` NormalScore → `extends` InstanceScore → `InstanceScore.playerRewards` PvPArenaPlayerReward → `PvPArenaPlayerReward.boostMorale` InstanceBuff → `InstanceBuff.functions` StatFunctionProxy → `StatFunctionProxy.owner` Effect → `Effect.effected` Creature → `Creature.ai` HyperionAI → `HyperionAI.northernSpawnPos` WorldPosition → `WorldPosition.mapRegion` MapRegion → `MapRegion.parent` WorldMapInstance → `WorldMapInstance.instanceHandler` EternalBastionInstance | **UNRESOLVED** |
+| `instance.EternalBastionInstance.instanceReward` | field | EternalBastionInstance → `EternalBastionInstance.instanceReward` NormalScore → `extends` InstanceScore → `InstanceScore.playerRewards` PvPArenaPlayerReward → `PvPArenaPlayerReward.boostMorale` InstanceBuff → `InstanceBuff.functions` StatFunctionProxy → `StatFunctionProxy.owner` Effect → `Effect.effected` Creature → `Creature.ai` HyperionAI → `HyperionAI.northernSpawnPos` WorldPosition → `WorldPosition.mapRegion` WorldMapInstance → `WorldMapInstance.instanceHandler` EternalBastionInstance | **UNRESOLVED** |
 | `instance.EternalBastionInstance@L222:61#this` | capture | λEternalBastionInstance@L222:61 → `EternalBastionInstance@L222:61#this` EternalBastionInstance → `stored` λEternalBastionInstance@L222:61 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
 | `instance.EternalBastionInstance@L236:70#this` | capture | λEternalBastionInstance@L236:70 → `EternalBastionInstance@L236:70#this` EternalBastionInstance → `stored` λEternalBastionInstance@L236:70 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
 | `instance.EternalBastionInstance@L259:70#this` | capture | λEternalBastionInstance@L259:70 → `EternalBastionInstance@L259:70#this` EternalBastionInstance → `stored` λEternalBastionInstance@L259:70 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
@@ -1120,20 +915,20 @@ Nodes: `DummyHouseObject`, `ActionItemNpcAI`, `ActionItemNpcAI$1`, `ArtifactAI$1
 | `instance.EternalBastionInstance@L785:62#this` | capture | λEternalBastionInstance@L785:62 → `EternalBastionInstance@L785:62#this` EternalBastionInstance → `stored` λEternalBastionInstance@L785:62 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
 | `instance.EternalBastionInstance@L819:59#this` | capture | λEternalBastionInstance@L819:59 → `EternalBastionInstance@L819:59#this` EternalBastionInstance → `stored` λEternalBastionInstance@L819:59 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
 | `instance.IlluminaryObeliskInstance@L316:54#this` | capture | λIlluminaryObeliskInstance@L316:54 → `IlluminaryObeliskInstance@L316:54#this` IlluminaryObeliskInstance → `stored` λIlluminaryObeliskInstance@L316:54 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
-| `instance.IlluminaryObeliskInstance@L320:56#npc` | capture | λIlluminaryObeliskInstance@L320:56 → `IlluminaryObeliskInstance@L320:56#npc` SummonedObject → `SummonedObject.creator` VisibleObject → `VisibleObject.position` WorldPosition → `WorldPosition.mapRegion` MapRegion → `MapRegion.parent` WorldMapInstance → `WorldMapInstance.instanceHandler` IlluminaryObeliskInstance → `stored` λIlluminaryObeliskInstance@L320:56 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
+| `instance.IlluminaryObeliskInstance@L320:56#npc` | capture | λIlluminaryObeliskInstance@L320:56 → `IlluminaryObeliskInstance@L320:56#npc` SummonedObject → `SummonedObject.creator` VisibleObject → `VisibleObject.position` WorldPosition → `WorldPosition.mapRegion` WorldMapInstance → `WorldMapInstance.instanceHandler` IlluminaryObeliskInstance → `stored` λIlluminaryObeliskInstance@L320:56 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
 | `instance.IlluminaryObeliskInstance@L55:54#this` | capture | λIlluminaryObeliskInstance@L55:54 → `IlluminaryObeliskInstance@L55:54#this` IlluminaryObeliskInstance → `stored` λIlluminaryObeliskInstance@L55:54 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
 | `instance.InfinityShardInstance@L143:54#this` | capture | λInfinityShardInstance@L143:54 → `InfinityShardInstance@L143:54#this` InfinityShardInstance → `stored` λInfinityShardInstance@L143:54 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
-| `instance.InfinityShardInstance@L65:47#npc` | capture | λInfinityShardInstance@L65:47 → `InfinityShardInstance@L65:47#npc` SummonedObject → `SummonedObject.creator` VisibleObject → `VisibleObject.position` WorldPosition → `WorldPosition.mapRegion` MapRegion → `MapRegion.parent` WorldMapInstance → `WorldMapInstance.instanceHandler` InfinityShardInstance → `stored` λInfinityShardInstance@L65:47 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
+| `instance.InfinityShardInstance@L65:47#npc` | capture | λInfinityShardInstance@L65:47 → `InfinityShardInstance@L65:47#npc` SummonedObject → `SummonedObject.creator` VisibleObject → `VisibleObject.position` WorldPosition → `WorldPosition.mapRegion` WorldMapInstance → `WorldMapInstance.instanceHandler` InfinityShardInstance → `stored` λInfinityShardInstance@L65:47 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
 | `instance.InfinityShardInstance@L65:47#this` | capture | λInfinityShardInstance@L65:47 → `InfinityShardInstance@L65:47#this` InfinityShardInstance → `stored` λInfinityShardInstance@L65:47 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
 | `instance.LinkgateFoundryInstance@L78:71#this` | capture | λLinkgateFoundryInstance@L78:71 → `LinkgateFoundryInstance@L78:71#this` LinkgateFoundryInstance → `stored` λLinkgateFoundryInstance@L78:71 | **UNRESOLVED** (suggested: java-hook: cancel of the periodic task held by field LinkgateFoundryInstance.timeCheckTask) |
-| `instance.LowerUdasTempleInstance.traps` | field | LowerUdasTempleInstance → `LowerUdasTempleInstance.traps` SummonedObject → `SummonedObject.creator` VisibleObject → `VisibleObject.position` WorldPosition → `WorldPosition.mapRegion` MapRegion → `MapRegion.parent` WorldMapInstance → `WorldMapInstance.instanceHandler` LowerUdasTempleInstance | **UNRESOLVED** |
+| `instance.LowerUdasTempleInstance.traps` | field | LowerUdasTempleInstance → `LowerUdasTempleInstance.traps` SummonedObject → `SummonedObject.creator` VisibleObject → `VisibleObject.position` WorldPosition → `WorldPosition.mapRegion` WorldMapInstance → `WorldMapInstance.instanceHandler` LowerUdasTempleInstance | **UNRESOLVED** |
 | `instance.NightmareCircus@L285:62#this` | capture | λNightmareCircus@L285:62 → `NightmareCircus@L285:62#this` NightmareCircus → `stored` λNightmareCircus@L285:62 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
 | `instance.NightmareCircus@L286:62#this` | capture | λNightmareCircus@L286:62 → `NightmareCircus@L286:62#this` NightmareCircus → `stored` λNightmareCircus@L286:62 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
 | `instance.OphidanBridgeInstance@L89:51#this` | capture | λOphidanBridgeInstance@L89:51 → `OphidanBridgeInstance@L89:51#this` OphidanBridgeInstance → `stored` λOphidanBridgeInstance@L89:51 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
 | `instance.RaksangRuinsInstance@L160:67#this` | capture | λRaksangRuinsInstance@L160:67 → `RaksangRuinsInstance@L160:67#this` RaksangRuinsInstance → `stored` λRaksangRuinsInstance@L160:67 | **UNRESOLVED** (suggested: java-hook: cancel of the periodic task held by field RaksangRuinsInstance.spawnTask) |
-| `instance.SauroSupplyBaseInstance@L174:69#ahuradim` | capture | λSauroSupplyBaseInstance@L174:69 → `SauroSupplyBaseInstance@L174:69#ahuradim` SummonedObject → `SummonedObject.creator` VisibleObject → `VisibleObject.position` WorldPosition → `WorldPosition.mapRegion` MapRegion → `MapRegion.parent` WorldMapInstance → `WorldMapInstance.instanceHandler` SauroSupplyBaseInstance → `stored` λSauroSupplyBaseInstance@L174:69 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
+| `instance.SauroSupplyBaseInstance@L174:69#ahuradim` | capture | λSauroSupplyBaseInstance@L174:69 → `SauroSupplyBaseInstance@L174:69#ahuradim` SummonedObject → `SummonedObject.creator` VisibleObject → `VisibleObject.position` WorldPosition → `WorldPosition.mapRegion` WorldMapInstance → `WorldMapInstance.instanceHandler` SauroSupplyBaseInstance → `stored` λSauroSupplyBaseInstance@L174:69 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
 | `instance.SauroSupplyBaseInstance@L174:69#this` | capture | λSauroSupplyBaseInstance@L174:69 → `SauroSupplyBaseInstance@L174:69#this` SauroSupplyBaseInstance → `stored` λSauroSupplyBaseInstance@L174:69 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
-| `instance.SauroSupplyBaseInstance@L182:70#generator` | capture | λSauroSupplyBaseInstance@L182:70 → `SauroSupplyBaseInstance@L182:70#generator` SummonedObject → `SummonedObject.creator` VisibleObject → `VisibleObject.position` WorldPosition → `WorldPosition.mapRegion` MapRegion → `MapRegion.parent` WorldMapInstance → `WorldMapInstance.instanceHandler` SauroSupplyBaseInstance → `stored` λSauroSupplyBaseInstance@L182:70 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
+| `instance.SauroSupplyBaseInstance@L182:70#generator` | capture | λSauroSupplyBaseInstance@L182:70 → `SauroSupplyBaseInstance@L182:70#generator` SummonedObject → `SummonedObject.creator` VisibleObject → `VisibleObject.position` WorldPosition → `WorldPosition.mapRegion` WorldMapInstance → `WorldMapInstance.instanceHandler` SauroSupplyBaseInstance → `stored` λSauroSupplyBaseInstance@L182:70 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
 | `instance.ShugoImperialTombInstance@L1007:61#this` | capture | λShugoImperialTombInstance@L1007:61 → `ShugoImperialTombInstance@L1007:61#this` ShugoImperialTombInstance → `stored` λShugoImperialTombInstance@L1007:61 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
 | `instance.ShugoImperialTombInstance@L152:61#this` | capture | λShugoImperialTombInstance@L152:61 → `ShugoImperialTombInstance@L152:61#this` ShugoImperialTombInstance → `stored` λShugoImperialTombInstance@L152:61 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
 | `instance.ShugoImperialTombInstance@L160:61#this` | capture | λShugoImperialTombInstance@L160:61 → `ShugoImperialTombInstance@L160:61#this` ShugoImperialTombInstance → `stored` λShugoImperialTombInstance@L160:61 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
@@ -1183,9 +978,9 @@ Nodes: `DummyHouseObject`, `ActionItemNpcAI`, `ActionItemNpcAI$1`, `ArtifactAI$1
 | `instance.ShugoImperialTombInstance@L951:61#this` | capture | λShugoImperialTombInstance@L951:61 → `ShugoImperialTombInstance@L951:61#this` ShugoImperialTombInstance → `stored` λShugoImperialTombInstance@L951:61 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
 | `instance.ShugoImperialTombInstance@L969:61#this` | capture | λShugoImperialTombInstance@L969:61 → `ShugoImperialTombInstance@L969:61#this` ShugoImperialTombInstance → `stored` λShugoImperialTombInstance@L969:61 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
 | `instance.ShugoImperialTombInstance@L987:61#this` | capture | λShugoImperialTombInstance@L987:61 → `ShugoImperialTombInstance@L987:61#this` ShugoImperialTombInstance → `stored` λShugoImperialTombInstance@L987:61 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
-| `instance.StonespearReachInstance.instanceLegion` | field | StonespearReachInstance → `StonespearReachInstance.instanceLegion` Legion → `Legion.legionWarehouse` LegionWarehouse → `extends` Storage → `Storage.deletedItems` Item → `Item.idianStone` IdianStone → `IdianStone.actionListener` ActionItemNpcAI$1 → `ActionItemNpcAI$1#this` DramataPortalAI → `DramataPortalAI.targetLocation` WorldPosition → `WorldPosition.mapRegion` MapRegion → `MapRegion.parent` WorldMapInstance → `WorldMapInstance.instanceHandler` StonespearReachInstance | **UNRESOLVED** |
-| `instance.StonespearReachInstance.points` | field | StonespearReachInstance → `StonespearReachInstance.points` WorldPosition → `WorldPosition.mapRegion` MapRegion → `MapRegion.parent` WorldMapInstance → `WorldMapInstance.instanceHandler` StonespearReachInstance | **UNRESOLVED** |
-| `instance.StonespearReachInstance.reward` | field | StonespearReachInstance → `StonespearReachInstance.reward` LegionDominionScore → `extends` InstanceScore → `InstanceScore.playerRewards` PvPArenaPlayerReward → `PvPArenaPlayerReward.boostMorale` InstanceBuff → `InstanceBuff.functions` StatFunctionProxy → `StatFunctionProxy.owner` Effect → `Effect.effected` Creature → `Creature.ai` HyperionAI → `HyperionAI.northernSpawnPos` WorldPosition → `WorldPosition.mapRegion` MapRegion → `MapRegion.parent` WorldMapInstance → `WorldMapInstance.instanceHandler` StonespearReachInstance | **UNRESOLVED** |
+| `instance.StonespearReachInstance.instanceLegion` | field | StonespearReachInstance → `StonespearReachInstance.instanceLegion` Legion → `Legion.legionWarehouse` LegionWarehouse → `extends` Storage → `Storage.deletedItems` Item → `Item.idianStone` IdianStone → `IdianStone.actionListener` ActionItemNpcAI$1 → `ActionItemNpcAI$1#this` DramataPortalAI → `DramataPortalAI.targetLocation` WorldPosition → `WorldPosition.mapRegion` WorldMapInstance → `WorldMapInstance.instanceHandler` StonespearReachInstance | **UNRESOLVED** |
+| `instance.StonespearReachInstance.points` | field | StonespearReachInstance → `StonespearReachInstance.points` WorldPosition → `WorldPosition.mapRegion` WorldMapInstance → `WorldMapInstance.instanceHandler` StonespearReachInstance | **UNRESOLVED** |
+| `instance.StonespearReachInstance.reward` | field | StonespearReachInstance → `StonespearReachInstance.reward` LegionDominionScore → `extends` InstanceScore → `InstanceScore.playerRewards` PvPArenaPlayerReward → `PvPArenaPlayerReward.boostMorale` InstanceBuff → `InstanceBuff.functions` StatFunctionProxy → `StatFunctionProxy.owner` Effect → `Effect.effected` Creature → `Creature.ai` HyperionAI → `HyperionAI.northernSpawnPos` WorldPosition → `WorldPosition.mapRegion` WorldMapInstance → `WorldMapInstance.instanceHandler` StonespearReachInstance | **UNRESOLVED** |
 | `instance.StonespearReachInstance@L305:54#this` | capture | λStonespearReachInstance@L305:54 → `StonespearReachInstance@L305:54#this` StonespearReachInstance → `stored` λStonespearReachInstance@L305:54 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
 | `instance.StonespearReachInstance@L321:54#this` | capture | λStonespearReachInstance@L321:54 → `StonespearReachInstance@L321:54#this` StonespearReachInstance → `stored` λStonespearReachInstance@L321:54 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
 | `instance.StonespearReachInstance@L343:54#this` | capture | λStonespearReachInstance@L343:54 → `StonespearReachInstance@L343:54#this` StonespearReachInstance → `stored` λStonespearReachInstance@L343:54 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
@@ -1208,10 +1003,10 @@ Nodes: `DummyHouseObject`, `ActionItemNpcAI`, `ActionItemNpcAI$1`, `ArtifactAI$1
 | `instance.StonespearReachInstance@L697:54#this` | capture | λStonespearReachInstance@L697:54 → `StonespearReachInstance@L697:54#this` StonespearReachInstance → `stored` λStonespearReachInstance@L697:54 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
 | `instance.StonespearReachInstance@L727:54#this` | capture | λStonespearReachInstance@L727:54 → `StonespearReachInstance@L727:54#this` StonespearReachInstance → `stored` λStonespearReachInstance@L727:54 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
 | `instance.StonespearReachInstance@L916:54#this` | capture | λStonespearReachInstance@L916:54 → `StonespearReachInstance@L916:54#this` StonespearReachInstance → `stored` λStonespearReachInstance@L916:54 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
-| `instance.TheShugoEmperorsVault.instanceReward` | field | TheShugoEmperorsVault → `TheShugoEmperorsVault.instanceReward` NormalScore → `extends` InstanceScore → `InstanceScore.playerRewards` PvPArenaPlayerReward → `PvPArenaPlayerReward.boostMorale` InstanceBuff → `InstanceBuff.functions` StatFunctionProxy → `StatFunctionProxy.owner` Effect → `Effect.effected` Creature → `Creature.ai` HyperionAI → `HyperionAI.northernSpawnPos` WorldPosition → `WorldPosition.mapRegion` MapRegion → `MapRegion.parent` WorldMapInstance → `WorldMapInstance.instanceHandler` TheShugoEmperorsVault | **UNRESOLVED** |
+| `instance.TheShugoEmperorsVault.instanceReward` | field | TheShugoEmperorsVault → `TheShugoEmperorsVault.instanceReward` NormalScore → `extends` InstanceScore → `InstanceScore.playerRewards` PvPArenaPlayerReward → `PvPArenaPlayerReward.boostMorale` InstanceBuff → `InstanceBuff.functions` StatFunctionProxy → `StatFunctionProxy.owner` Effect → `Effect.effected` Creature → `Creature.ai` HyperionAI → `HyperionAI.northernSpawnPos` WorldPosition → `WorldPosition.mapRegion` WorldMapInstance → `WorldMapInstance.instanceHandler` TheShugoEmperorsVault | **UNRESOLVED** |
 | `instance.TheShugoEmperorsVault@L61:53#this` | capture | λTheShugoEmperorsVault@L61:53 → `TheShugoEmperorsVault@L61:53#this` TheShugoEmperorsVault → `stored` λTheShugoEmperorsVault@L61:53 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
 | `instance.TheShugoEmperorsVault@L98:60#this` | capture | λTheShugoEmperorsVault@L98:60 → `TheShugoEmperorsVault@L98:60#this` TheShugoEmperorsVault → `stored` λTheShugoEmperorsVault@L98:60 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
-| `instance.abyss.AbstractInnerUpperAbyssInstance.chestLocations` | field | AbstractInnerUpperAbyssInstance → `AbstractInnerUpperAbyssInstance.chestLocations` WorldPosition → `WorldPosition.mapRegion` MapRegion → `MapRegion.parent` WorldMapInstance → `WorldMapInstance.instanceHandler` AbstractInnerUpperAbyssInstance | **UNRESOLVED** |
+| `instance.abyss.AbstractInnerUpperAbyssInstance.chestLocations` | field | AbstractInnerUpperAbyssInstance → `AbstractInnerUpperAbyssInstance.chestLocations` WorldPosition → `WorldPosition.mapRegion` WorldMapInstance → `WorldMapInstance.instanceHandler` AbstractInnerUpperAbyssInstance | **UNRESOLVED** |
 | `instance.abyss.AbstractInnerUpperAbyssInstance@L123:77#this` | capture | λAbstractInnerUpperAbyssInstance@L123:77 → `AbstractInnerUpperAbyssInstance@L123:77#this` AbstractInnerUpperAbyssInstance → `stored` λAbstractInnerUpperAbyssInstance@L123:77 | **UNRESOLVED** (suggested: java-hook: cancel of the periodic task held by field AbstractInnerUpperAbyssInstance.chestReductionTask) |
 | `instance.abyss.TheHexwayInstance@L236:77#this` | capture | λTheHexwayInstance@L236:77 → `TheHexwayInstance@L236:77#this` TheHexwayInstance → `stored` λTheHexwayInstance@L236:77 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
 | `instance.abyss.TheHexwayInstance@L78:75#this` | capture | λTheHexwayInstance@L78:75 → `TheHexwayInstance@L78:75#this` TheHexwayInstance → `stored` λTheHexwayInstance@L78:75 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
@@ -1219,19 +1014,19 @@ Nodes: `DummyHouseObject`, `ActionItemNpcAI`, `ActionItemNpcAI$1`, `ArtifactAI$1
 | `instance.crucible.CrucibleChallengeInstance@L383:68#this` | capture | λCrucibleChallengeInstance@L383:68 → `CrucibleChallengeInstance@L383:68#this` CrucibleChallengeInstance → `stored` λCrucibleChallengeInstance@L383:68 | **UNRESOLVED** (suggested: java-hook: cancel of the periodic task held by field CrucibleChallengeInstance.bonusTimer) |
 | `instance.crucible.CrucibleInstance.instanceScore` | field | CrucibleInstance → `CrucibleInstance.instanceScore` PvPArenaScore → `PvPArenaScore.instance` WorldMapInstance → `WorldMapInstance.instanceHandler` CrucibleInstance | **UNRESOLVED** |
 | `instance.crucible.EmpyreanCrucibleInstance.EmpyreanStage#this$0` | capture | EmpyreanStage → `EmpyreanStage#this$0` EmpyreanCrucibleInstance → `EmpyreanCrucibleInstance.empyreanStage` EmpyreanStage | **UNRESOLVED** |
-| `instance.crucible.EmpyreanCrucibleInstance.EmpyreanStage.stageNpcs` | field | EmpyreanStage → `EmpyreanStage.stageNpcs` SummonedObject → `SummonedObject.creator` VisibleObject → `VisibleObject.position` WorldPosition → `WorldPosition.mapRegion` MapRegion → `MapRegion.parent` WorldMapInstance → `WorldMapInstance.instanceHandler` EmpyreanCrucibleInstance → `EmpyreanCrucibleInstance.empyreanStage` EmpyreanStage | **UNRESOLVED** |
+| `instance.crucible.EmpyreanCrucibleInstance.EmpyreanStage.stageNpcs` | field | EmpyreanStage → `EmpyreanStage.stageNpcs` SummonedObject → `SummonedObject.creator` VisibleObject → `VisibleObject.position` WorldPosition → `WorldPosition.mapRegion` WorldMapInstance → `WorldMapInstance.instanceHandler` EmpyreanCrucibleInstance → `EmpyreanCrucibleInstance.empyreanStage` EmpyreanStage | **UNRESOLVED** |
 | `instance.crucible.EmpyreanCrucibleInstance.empyreanStage` | field | EmpyreanCrucibleInstance → `EmpyreanCrucibleInstance.empyreanStage` EmpyreanStage → `EmpyreanStage#this$0` EmpyreanCrucibleInstance | **UNRESOLVED** |
-| `instance.crucible.EmpyreanCrucibleInstance.npcs` | field | EmpyreanCrucibleInstance → `EmpyreanCrucibleInstance.npcs` SummonedObject → `SummonedObject.creator` VisibleObject → `VisibleObject.position` WorldPosition → `WorldPosition.mapRegion` MapRegion → `MapRegion.parent` WorldMapInstance → `WorldMapInstance.instanceHandler` EmpyreanCrucibleInstance | **UNRESOLVED** |
-| `instance.dredgion.DredgionInstance.instanceScore` | field | DredgionInstance → `DredgionInstance.instanceScore` PvpInstanceScore → `extends` InstanceScore → `InstanceScore.playerRewards` PvPArenaPlayerReward → `PvPArenaPlayerReward.boostMorale` InstanceBuff → `InstanceBuff.functions` StatFunctionProxy → `StatFunctionProxy.owner` Effect → `Effect.effected` Creature → `Creature.ai` HyperionAI → `HyperionAI.northernSpawnPos` WorldPosition → `WorldPosition.mapRegion` MapRegion → `MapRegion.parent` WorldMapInstance → `WorldMapInstance.instanceHandler` DredgionInstance | **UNRESOLVED** |
+| `instance.crucible.EmpyreanCrucibleInstance.npcs` | field | EmpyreanCrucibleInstance → `EmpyreanCrucibleInstance.npcs` SummonedObject → `SummonedObject.creator` VisibleObject → `VisibleObject.position` WorldPosition → `WorldPosition.mapRegion` WorldMapInstance → `WorldMapInstance.instanceHandler` EmpyreanCrucibleInstance | **UNRESOLVED** |
+| `instance.dredgion.DredgionInstance.instanceScore` | field | DredgionInstance → `DredgionInstance.instanceScore` PvpInstanceScore → `extends` InstanceScore → `InstanceScore.playerRewards` PvPArenaPlayerReward → `PvPArenaPlayerReward.boostMorale` InstanceBuff → `InstanceBuff.functions` StatFunctionProxy → `StatFunctionProxy.owner` Effect → `Effect.effected` Creature → `Creature.ai` HyperionAI → `HyperionAI.northernSpawnPos` WorldPosition → `WorldPosition.mapRegion` WorldMapInstance → `WorldMapInstance.instanceHandler` DredgionInstance | **UNRESOLVED** |
 | `instance.dredgion.DredgionInstance@L86:59#this` | capture | λDredgionInstance@L86:59 → `DredgionInstance@L86:59#this` BaranathDredgionInstance → `stored` λDredgionInstance@L86:59 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
-| `instance.pvp.BasicPvpInstance.instanceScore` | field | BasicPvpInstance → `BasicPvpInstance.instanceScore` PvpInstanceScore → `extends` InstanceScore → `InstanceScore.playerRewards` PvPArenaPlayerReward → `PvPArenaPlayerReward.boostMorale` InstanceBuff → `InstanceBuff.functions` StatFunctionProxy → `StatFunctionProxy.owner` Effect → `Effect.effected` Creature → `Creature.ai` HyperionAI → `HyperionAI.northernSpawnPos` WorldPosition → `WorldPosition.mapRegion` MapRegion → `MapRegion.parent` WorldMapInstance → `WorldMapInstance.instanceHandler` BasicPvpInstance | **UNRESOLVED** |
+| `instance.pvp.BasicPvpInstance.instanceScore` | field | BasicPvpInstance → `BasicPvpInstance.instanceScore` PvpInstanceScore → `extends` InstanceScore → `InstanceScore.playerRewards` PvPArenaPlayerReward → `PvPArenaPlayerReward.boostMorale` InstanceBuff → `InstanceBuff.functions` StatFunctionProxy → `StatFunctionProxy.owner` Effect → `Effect.effected` Creature → `Creature.ai` HyperionAI → `HyperionAI.northernSpawnPos` WorldPosition → `WorldPosition.mapRegion` WorldMapInstance → `WorldMapInstance.instanceHandler` BasicPvpInstance | **UNRESOLVED** |
 | `instance.pvp.BasicPvpInstance@L62:54#this` | capture | λBasicPvpInstance@L62:54 → `BasicPvpInstance@L62:54#this` BasicPvpInstance → `stored` λBasicPvpInstance@L62:54 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
 | `instance.pvp.BasicPvpInstance@L70:54#this` | capture | λBasicPvpInstance@L70:54 → `BasicPvpInstance@L70:54#this` BasicPvpInstance → `stored` λBasicPvpInstance@L70:54 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
 | `instance.pvp.BasicPvpInstance@L83:54#this` | capture | λBasicPvpInstance@L83:54 → `BasicPvpInstance@L83:54#this` BasicPvpInstance → `stored` λBasicPvpInstance@L83:54 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
 | `instance.pvp.BasicPvpInstance@L84:54#this` | capture | λBasicPvpInstance@L84:54 → `BasicPvpInstance@L84:54#this` BasicPvpInstance → `stored` λBasicPvpInstance@L84:54 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
 | `instance.pvp.EngulfedOphidanBridgeInstance@L61:54#this` | capture | λEngulfedOphidanBridgeInstance@L61:54 → `EngulfedOphidanBridgeInstance@L61:54#this` EngulfedOphidanBridgeInstance → `stored` λEngulfedOphidanBridgeInstance@L61:54 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
 | `instance.pvp.EngulfedOphidanBridgeInstance@L65:65#this` | capture | λEngulfedOphidanBridgeInstance@L65:65 → `EngulfedOphidanBridgeInstance@L65:65#this` EngulfedOphidanBridgeInstance → `stored` λEngulfedOphidanBridgeInstance@L65:65 | **UNRESOLVED** (suggested: java-hook: cancel of the periodic task held by add()) |
-| `instance.pvp.IdgelDomeInstance.chestPositions` | field | IdgelDomeInstance → `IdgelDomeInstance.chestPositions` WorldPosition → `WorldPosition.mapRegion` MapRegion → `MapRegion.parent` WorldMapInstance → `WorldMapInstance.instanceHandler` IdgelDomeInstance | **UNRESOLVED** |
+| `instance.pvp.IdgelDomeInstance.chestPositions` | field | IdgelDomeInstance → `IdgelDomeInstance.chestPositions` WorldPosition → `WorldPosition.mapRegion` WorldMapInstance → `WorldMapInstance.instanceHandler` IdgelDomeInstance | **UNRESOLVED** |
 | `instance.pvp.IdgelDomeInstance@L147:54#this` | capture | λIdgelDomeInstance@L147:54 → `IdgelDomeInstance@L147:54#this` IdgelDomeInstance → `stored` λIdgelDomeInstance@L147:54 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
 | `instance.pvp.IdgelDomeInstance@L63:54#this` | capture | λIdgelDomeInstance@L63:54 → `IdgelDomeInstance@L63:54#this` IdgelDomeInstance → `stored` λIdgelDomeInstance@L63:54 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
 | `instance.pvp.IdgelDomeInstance@L64:54#this` | capture | λIdgelDomeInstance@L64:54 → `IdgelDomeInstance@L64:54#this` IdgelDomeInstance → `stored` λIdgelDomeInstance@L64:54 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
@@ -1256,823 +1051,92 @@ Nodes: `λBase@L109:60`, `λBase@L124:58`, `λBase@L148:65`, `λBase@L98:64`, `�
 
 | Edge | Kind | Example cycle | Resolution |
 |---|---|---|---|
-| `com.aionemu.gameserver.model.base.Base@L109:60#this` | capture | λBase@L109:60 → `Base@L109:60#this` Base → `stored` λBase@L109:60 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
-| `com.aionemu.gameserver.model.base.Base@L124:58#this` | capture | λBase@L124:58 → `Base@L124:58#this` Base → `stored` λBase@L124:58 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
-| `com.aionemu.gameserver.model.base.Base@L148:65#this` | capture | λBase@L148:65 → `Base@L148:65#this` Base → `stored` λBase@L148:65 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
-| `com.aionemu.gameserver.model.base.Base@L98:64#this` | capture | λBase@L98:64 → `Base@L98:64#this` Base → `stored` λBase@L98:64 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
-| `com.aionemu.gameserver.model.base.StainedBase@L27:64#this` | capture | λStainedBase@L27:64 → `StainedBase@L27:64#this` StainedBase → `stored` λStainedBase@L27:64 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
+| `com.aionemu.gameserver.model.base.Base@L109:60#this` | capture | λBase@L109:60 → `Base@L109:60#this` Base → `stored` λBase@L109:60 | accepted: one-shot task: releases its captures when it runs or is cancelled |
+| `com.aionemu.gameserver.model.base.Base@L124:58#this` | capture | λBase@L124:58 → `Base@L124:58#this` Base → `stored` λBase@L124:58 | accepted: one-shot task: releases its captures when it runs or is cancelled |
+| `com.aionemu.gameserver.model.base.Base@L148:65#this` | capture | λBase@L148:65 → `Base@L148:65#this` Base → `stored` λBase@L148:65 | accepted: one-shot task: releases its captures when it runs or is cancelled |
+| `com.aionemu.gameserver.model.base.Base@L98:64#this` | capture | λBase@L98:64 → `Base@L98:64#this` Base → `stored` λBase@L98:64 | accepted: one-shot task: releases its captures when it runs or is cancelled |
+| `com.aionemu.gameserver.model.base.StainedBase@L27:64#this` | capture | λStainedBase@L27:64 → `StainedBase@L27:64#this` StainedBase → `stored` λStainedBase@L27:64 | accepted: one-shot task: releases its captures when it runs or is cancelled |
 
-## Component 3: 9 nodes, 7 edges
-
-Nodes: `HM_TiamatWeakenedDragonAI`, `TiamatWeakenedDragonAI`, `λHM_TiamatWeakenedDragonAI@L111:59`, `λHM_TiamatWeakenedDragonAI@L91:70`, `λHM_TiamatWeakenedDragonAI@L98:60`, `λTiamatWeakenedDragonAI@L118:59`, `λTiamatWeakenedDragonAI@L123:62`, `λTiamatWeakenedDragonAI@L144:59`, `λTiamatWeakenedDragonAI@L163:59`
-
-| Edge | Kind | Example cycle | Resolution |
-|---|---|---|---|
-| `ai.instance.dragonLordsRefuge.HM_TiamatWeakenedDragonAI@L111:59#this` | capture | λHM_TiamatWeakenedDragonAI@L111:59 → `HM_TiamatWeakenedDragonAI@L111:59#this` HM_TiamatWeakenedDragonAI → `stored` λHM_TiamatWeakenedDragonAI@L111:59 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
-| `ai.instance.dragonLordsRefuge.HM_TiamatWeakenedDragonAI@L91:70#this` | capture | λHM_TiamatWeakenedDragonAI@L91:70 → `HM_TiamatWeakenedDragonAI@L91:70#this` HM_TiamatWeakenedDragonAI → `stored` λHM_TiamatWeakenedDragonAI@L91:70 | **UNRESOLVED** (suggested: java-hook: cancel of the periodic task held by add()) |
-| `ai.instance.dragonLordsRefuge.HM_TiamatWeakenedDragonAI@L98:60#this` | capture | λHM_TiamatWeakenedDragonAI@L98:60 → `HM_TiamatWeakenedDragonAI@L98:60#this` HM_TiamatWeakenedDragonAI → `stored` λHM_TiamatWeakenedDragonAI@L98:60 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
-| `ai.instance.dragonLordsRefuge.TiamatWeakenedDragonAI@L118:59#this` | capture | λTiamatWeakenedDragonAI@L118:59 → `TiamatWeakenedDragonAI@L118:59#this` HM_TiamatWeakenedDragonAI → `stored` λTiamatWeakenedDragonAI@L118:59 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
-| `ai.instance.dragonLordsRefuge.TiamatWeakenedDragonAI@L123:62#this` | capture | λTiamatWeakenedDragonAI@L123:62 → `TiamatWeakenedDragonAI@L123:62#this` HM_TiamatWeakenedDragonAI → `stored` λTiamatWeakenedDragonAI@L123:62 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
-| `ai.instance.dragonLordsRefuge.TiamatWeakenedDragonAI@L144:59#this` | capture | λTiamatWeakenedDragonAI@L144:59 → `TiamatWeakenedDragonAI@L144:59#this` HM_TiamatWeakenedDragonAI → `stored` λTiamatWeakenedDragonAI@L144:59 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
-| `ai.instance.dragonLordsRefuge.TiamatWeakenedDragonAI@L163:59#this` | capture | λTiamatWeakenedDragonAI@L163:59 → `TiamatWeakenedDragonAI@L163:59#this` HM_TiamatWeakenedDragonAI → `stored` λTiamatWeakenedDragonAI@L163:59 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
-
-## Component 4: 8 nodes, 3 edges
-
-Nodes: `SpawnGroup`, `SpawnTemplate`, `BaseSpawnTemplate`, `TownSpawnTemplate`, `AhserionsFlightSpawnTemplate`, `RiftSpawnTemplate`, `SiegeSpawnTemplate`, `VortexSpawnTemplate`
-
-| Edge | Kind | Example cycle | Resolution |
-|---|---|---|---|
-| `com.aionemu.gameserver.model.templates.spawns.SpawnGroup.poolUsedTemplates` | field | SpawnGroup → `SpawnGroup.poolUsedTemplates` SpawnTemplate → `SpawnTemplate.spawnGroup` SpawnGroup | **UNRESOLVED** |
-| `com.aionemu.gameserver.model.templates.spawns.SpawnGroup.spots` | field | SpawnGroup → `SpawnGroup.spots` SpawnTemplate → `SpawnTemplate.spawnGroup` SpawnGroup | **UNRESOLVED** |
-| `com.aionemu.gameserver.model.templates.spawns.SpawnTemplate.spawnGroup` | field | SpawnTemplate → `SpawnTemplate.spawnGroup` SpawnGroup → `SpawnGroup.poolUsedTemplates` SpawnTemplate | **UNRESOLVED** |
-
-## Component 5: 5 nodes, 4 edges
-
-Nodes: `OrissanAI`, `λOrissanAI@L56:53`, `λOrissanAI@L64:54`, `λOrissanAI@L70:54`, `λOrissanAI@L88:52`
-
-| Edge | Kind | Example cycle | Resolution |
-|---|---|---|---|
-| `ai.instance.drakenspire.OrissanAI@L56:53#this` | capture | λOrissanAI@L56:53 → `OrissanAI@L56:53#this` OrissanAI → `stored` λOrissanAI@L56:53 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
-| `ai.instance.drakenspire.OrissanAI@L64:54#this` | capture | λOrissanAI@L64:54 → `OrissanAI@L64:54#this` OrissanAI → `stored` λOrissanAI@L64:54 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
-| `ai.instance.drakenspire.OrissanAI@L70:54#this` | capture | λOrissanAI@L70:54 → `OrissanAI@L70:54#this` OrissanAI → `stored` λOrissanAI@L70:54 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
-| `ai.instance.drakenspire.OrissanAI@L88:52#this` | capture | λOrissanAI@L88:52 → `OrissanAI@L88:52#this` OrissanAI → `stored` λOrissanAI@L88:52 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
-
-## Component 6: 5 nodes, 4 edges
-
-Nodes: `KuharaTheVolatileAI`, `λKuharaTheVolatileAI@L149:73`, `λKuharaTheVolatileAI@L57:73`, `λKuharaTheVolatileAI@L81:60`, `λKuharaTheVolatileAI@L90:62`
-
-| Edge | Kind | Example cycle | Resolution |
-|---|---|---|---|
-| `ai.instance.rentusBase.KuharaTheVolatileAI@L149:73#this` | capture | λKuharaTheVolatileAI@L149:73 → `KuharaTheVolatileAI@L149:73#this` KuharaTheVolatileAI → `stored` λKuharaTheVolatileAI@L149:73 | **UNRESOLVED** (suggested: java-hook: cancel of the periodic task held by field KuharaTheVolatileAI.activeEventTask) |
-| `ai.instance.rentusBase.KuharaTheVolatileAI@L57:73#this` | capture | λKuharaTheVolatileAI@L57:73 → `KuharaTheVolatileAI@L57:73#this` KuharaTheVolatileAI → `stored` λKuharaTheVolatileAI@L57:73 | **UNRESOLVED** (suggested: java-hook: cancel of the periodic task held by field KuharaTheVolatileAI.barrelEventTask) |
-| `ai.instance.rentusBase.KuharaTheVolatileAI@L81:60#this` | capture | λKuharaTheVolatileAI@L81:60 → `KuharaTheVolatileAI@L81:60#this` KuharaTheVolatileAI → `stored` λKuharaTheVolatileAI@L81:60 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
-| `ai.instance.rentusBase.KuharaTheVolatileAI@L90:62#this` | capture | λKuharaTheVolatileAI@L90:62 → `KuharaTheVolatileAI@L90:62#this` KuharaTheVolatileAI → `stored` λKuharaTheVolatileAI@L90:62 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
-
-## Component 7: 5 nodes, 4 edges
-
-Nodes: `BollvigAI`, `λBollvigAI@L75:57`, `λBollvigAI@L82:57`, `λBollvigAI@L87:56`, `λBollvigAI@L97:57`
-
-| Edge | Kind | Example cycle | Resolution |
-|---|---|---|---|
-| `ai.worlds.heiron.BollvigAI@L75:57#this` | capture | λBollvigAI@L75:57 → `BollvigAI@L75:57#this` BollvigAI → `stored` λBollvigAI@L75:57 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
-| `ai.worlds.heiron.BollvigAI@L82:57#this` | capture | λBollvigAI@L82:57 → `BollvigAI@L82:57#this` BollvigAI → `stored` λBollvigAI@L82:57 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
-| `ai.worlds.heiron.BollvigAI@L87:56#this` | capture | λBollvigAI@L87:56 → `BollvigAI@L87:56#this` BollvigAI → `stored` λBollvigAI@L87:56 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
-| `ai.worlds.heiron.BollvigAI@L97:57#this` | capture | λBollvigAI@L97:57 → `BollvigAI@L97:57#this` BollvigAI → `stored` λBollvigAI@L97:57 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
-
-## Component 8: 5 nodes, 2 edges
+## Component 3: 5 nodes, 2 edges
 
 Nodes: `λAssault@L43:60`, `λFortressAssault@L59:56`, `ArtifactAssault`, `Assault`, `FortressAssault`
 
 | Edge | Kind | Example cycle | Resolution |
 |---|---|---|---|
-| `com.aionemu.gameserver.services.siege.Assault@L43:60#this` | capture | λAssault@L43:60 → `Assault@L43:60#this` ArtifactAssault → `stored` λAssault@L43:60 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
-| `com.aionemu.gameserver.services.siege.FortressAssault@L59:56#this` | capture | λFortressAssault@L59:56 → `FortressAssault@L59:56#this` FortressAssault → `stored` λFortressAssault@L59:56 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
+| `com.aionemu.gameserver.services.siege.Assault@L43:60#this` | capture | λAssault@L43:60 → `Assault@L43:60#this` ArtifactAssault → `stored` λAssault@L43:60 | accepted: one-shot task: releases its captures when it runs or is cancelled |
+| `com.aionemu.gameserver.services.siege.FortressAssault@L59:56#this` | capture | λFortressAssault@L59:56 → `FortressAssault@L59:56#this` FortressAssault → `stored` λFortressAssault@L59:56 | accepted: one-shot task: releases its captures when it runs or is cancelled |
 
-## Component 9: 5 nodes, 7 edges
+## Component 4: 5 nodes, 7 edges
 
 Nodes: `GeoMap`, `DespawnableNode`, `Geometry`, `Node`, `Spatial`
 
 | Edge | Kind | Example cycle | Resolution |
 |---|---|---|---|
-| `com.aionemu.gameserver.geoEngine.models.GeoMap.chunkById` | field | GeoMap → `GeoMap.chunkById` GeoMap | **UNRESOLVED** |
-| `com.aionemu.gameserver.geoEngine.models.GeoMap.despawnableDoors` | field | GeoMap → `GeoMap.despawnableDoors` DespawnableNode → `extends` Node → `Node.children` GeoMap | **UNRESOLVED** |
-| `com.aionemu.gameserver.geoEngine.models.GeoMap.despawnableHouseDoors` | field | GeoMap → `GeoMap.despawnableHouseDoors` DespawnableNode → `extends` Node → `Node.children` GeoMap | **UNRESOLVED** |
-| `com.aionemu.gameserver.geoEngine.models.GeoMap.despawnableTownObjects` | field | GeoMap → `GeoMap.despawnableTownObjects` DespawnableNode → `extends` Node → `Node.children` GeoMap | **UNRESOLVED** |
-| `com.aionemu.gameserver.geoEngine.models.GeoMap.despawnables` | field | GeoMap → `GeoMap.despawnables` DespawnableNode → `extends` Node → `Node.children` GeoMap | **UNRESOLVED** |
-| `com.aionemu.gameserver.geoEngine.scene.Node.children` | field | Node → `Node.children` Node | **UNRESOLVED** |
-| `com.aionemu.gameserver.geoEngine.scene.Spatial.parent` | field | Spatial → `Spatial.parent` Node → `Node.children` Spatial | **UNRESOLVED** |
-
-## Component 10: 4 nodes, 3 edges
-
-Nodes: `YamennesAI`, `λYamennesAI@L43:57`, `λYamennesAI@L44:57`, `λYamennesAI@L75:57`
-
-| Edge | Kind | Example cycle | Resolution |
-|---|---|---|---|
-| `ai.instance.abyssal_splinter.YamennesAI@L43:57#this` | capture | λYamennesAI@L43:57 → `YamennesAI@L43:57#this` YamennesAI → `stored` λYamennesAI@L43:57 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
-| `ai.instance.abyssal_splinter.YamennesAI@L44:57#this` | capture | λYamennesAI@L44:57 → `YamennesAI@L44:57#this` YamennesAI → `stored` λYamennesAI@L44:57 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
-| `ai.instance.abyssal_splinter.YamennesAI@L75:57#this` | capture | λYamennesAI@L75:57 → `YamennesAI@L75:57#this` YamennesAI → `stored` λYamennesAI@L75:57 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
-
-## Component 11: 4 nodes, 3 edges
-
-Nodes: `CustomInstanceBossAI`, `λCustomInstanceBossAI@L133:69`, `λCustomInstanceBossAI@L151:60`, `λCustomInstanceBossAI@L157:61`
-
-| Edge | Kind | Example cycle | Resolution |
-|---|---|---|---|
-| `ai.instance.custom.eternalChallenge.CustomInstanceBossAI@L133:69#this` | capture | λCustomInstanceBossAI@L133:69 → `CustomInstanceBossAI@L133:69#this` CustomInstanceBossAI → `stored` λCustomInstanceBossAI@L133:69 | **UNRESOLVED** (suggested: java-hook: cancel of the periodic task held by field CustomInstanceBossAI.skillTask) |
-| `ai.instance.custom.eternalChallenge.CustomInstanceBossAI@L151:60#this` | capture | λCustomInstanceBossAI@L151:60 → `CustomInstanceBossAI@L151:60#this` CustomInstanceBossAI → `stored` λCustomInstanceBossAI@L151:60 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
-| `ai.instance.custom.eternalChallenge.CustomInstanceBossAI@L157:61#this` | capture | λCustomInstanceBossAI@L157:61 → `CustomInstanceBossAI@L157:61#this` CustomInstanceBossAI → `stored` λCustomInstanceBossAI@L157:61 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
-
-## Component 12: 4 nodes, 1 edges
-
-Nodes: `Lv1HumanBeritraAI`, `Lv2HumanBeritraAI`, `Lv3HumanBeritraAI`, `λLv1HumanBeritraAI@L138:57`
-
-| Edge | Kind | Example cycle | Resolution |
-|---|---|---|---|
-| `ai.instance.drakenspire.Lv1HumanBeritraAI@L138:57#this` | capture | λLv1HumanBeritraAI@L138:57 → `Lv1HumanBeritraAI@L138:57#this` Lv1HumanBeritraAI → `stored` λLv1HumanBeritraAI@L138:57 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
-
-## Component 13: 4 nodes, 3 edges
-
-Nodes: `CaptainMuruganAI`, `CaptainMuruganAI$1`, `CaptainMuruganAI$2`, `CaptainMuruganAI$3`
-
-| Edge | Kind | Example cycle | Resolution |
-|---|---|---|---|
-| `ai.instance.esoterrace.CaptainMuruganAI$1#this` | capture | CaptainMuruganAI$1 → `CaptainMuruganAI$1#this` CaptainMuruganAI → `stored` CaptainMuruganAI$1 | **UNRESOLVED** (suggested: java-hook: cancel of the periodic task held by field CaptainMuruganAI.task) |
-| `ai.instance.esoterrace.CaptainMuruganAI$2#this` | capture | CaptainMuruganAI$2 → `CaptainMuruganAI$2#this` CaptainMuruganAI → `stored` CaptainMuruganAI$2 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
-| `ai.instance.esoterrace.CaptainMuruganAI$3#this` | capture | CaptainMuruganAI$3 → `CaptainMuruganAI$3#this` CaptainMuruganAI → `stored` CaptainMuruganAI$3 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
-
-## Component 14: 4 nodes, 2 edges
-
-Nodes: `DynatoumAI`, `InfernalDynatoumAI`, `λDynatoumAI@L45:58`, `λInfernalDynatoumAI@L22:58`
-
-| Edge | Kind | Example cycle | Resolution |
-|---|---|---|---|
-| `ai.instance.illuminaryObelisk.DynatoumAI@L45:58#this` | capture | λDynatoumAI@L45:58 → `DynatoumAI@L45:58#this` DynatoumAI → `stored` λDynatoumAI@L45:58 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
-| `ai.instance.illuminaryObelisk.InfernalDynatoumAI@L22:58#this` | capture | λInfernalDynatoumAI@L22:58 → `InfernalDynatoumAI@L22:58#this` InfernalDynatoumAI → `stored` λInfernalDynatoumAI@L22:58 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
-
-## Component 15: 4 nodes, 3 edges
-
-Nodes: `HarlequinLordReshkaAI`, `λHarlequinLordReshkaAI@L100:64`, `λHarlequinLordReshkaAI@L75:61`, `λHarlequinLordReshkaAI@L94:64`
-
-| Edge | Kind | Example cycle | Resolution |
-|---|---|---|---|
-| `ai.instance.nightmareCircus.HarlequinLordReshkaAI@L100:64#this` | capture | λHarlequinLordReshkaAI@L100:64 → `HarlequinLordReshkaAI@L100:64#this` HarlequinLordReshkaAI → `stored` λHarlequinLordReshkaAI@L100:64 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
-| `ai.instance.nightmareCircus.HarlequinLordReshkaAI@L75:61#this` | capture | λHarlequinLordReshkaAI@L75:61 → `HarlequinLordReshkaAI@L75:61#this` HarlequinLordReshkaAI → `stored` λHarlequinLordReshkaAI@L75:61 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
-| `ai.instance.nightmareCircus.HarlequinLordReshkaAI@L94:64#this` | capture | λHarlequinLordReshkaAI@L94:64 → `HarlequinLordReshkaAI@L94:64#this` HarlequinLordReshkaAI → `stored` λHarlequinLordReshkaAI@L94:64 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
-
-## Component 16: 4 nodes, 3 edges
-
-Nodes: `BrigadeGeneralVashartiAI`, `λBrigadeGeneralVashartiAI@L50:62`, `λBrigadeGeneralVashartiAI@L65:70`, `λBrigadeGeneralVashartiAI@L81:76`
-
-| Edge | Kind | Example cycle | Resolution |
-|---|---|---|---|
-| `ai.instance.rentusBase.BrigadeGeneralVashartiAI@L50:62#this` | capture | λBrigadeGeneralVashartiAI@L50:62 → `BrigadeGeneralVashartiAI@L50:62#this` BrigadeGeneralVashartiAI → `stored` λBrigadeGeneralVashartiAI@L50:62 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
-| `ai.instance.rentusBase.BrigadeGeneralVashartiAI@L65:70#this` | capture | λBrigadeGeneralVashartiAI@L65:70 → `BrigadeGeneralVashartiAI@L65:70#this` BrigadeGeneralVashartiAI → `stored` λBrigadeGeneralVashartiAI@L65:70 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
-| `ai.instance.rentusBase.BrigadeGeneralVashartiAI@L81:76#this` | capture | λBrigadeGeneralVashartiAI@L81:76 → `BrigadeGeneralVashartiAI@L81:76#this` BrigadeGeneralVashartiAI → `stored` λBrigadeGeneralVashartiAI@L81:76 | **UNRESOLVED** (suggested: java-hook: cancel of the periodic task held by field BrigadeGeneralVashartiAI.seaOfFireSpawnTask) |
-
-## Component 17: 4 nodes, 3 edges
-
-Nodes: `UnstableYamennesAI`, `λUnstableYamennesAI@L43:57`, `λUnstableYamennesAI@L44:57`, `λUnstableYamennesAI@L75:57`
-
-| Edge | Kind | Example cycle | Resolution |
-|---|---|---|---|
-| `ai.instance.unstableSplinterpath.UnstableYamennesAI@L43:57#this` | capture | λUnstableYamennesAI@L43:57 → `UnstableYamennesAI@L43:57#this` UnstableYamennesAI → `stored` λUnstableYamennesAI@L43:57 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
-| `ai.instance.unstableSplinterpath.UnstableYamennesAI@L44:57#this` | capture | λUnstableYamennesAI@L44:57 → `UnstableYamennesAI@L44:57#this` UnstableYamennesAI → `stored` λUnstableYamennesAI@L44:57 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
-| `ai.instance.unstableSplinterpath.UnstableYamennesAI@L75:57#this` | capture | λUnstableYamennesAI@L75:57 → `UnstableYamennesAI@L75:57#this` UnstableYamennesAI → `stored` λUnstableYamennesAI@L75:57 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
-
-## Component 18: 3 nodes, 2 edges
-
-Nodes: `BombAI`, `λBombAI@L33:52`, `λBombAI@L77:52`
-
-| Edge | Kind | Example cycle | Resolution |
-|---|---|---|---|
-| `ai.BombAI@L33:52#this` | capture | λBombAI@L33:52 → `BombAI@L33:52#this` BombAI → `stored` λBombAI@L33:52 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
-| `ai.BombAI@L77:52#this` | capture | λBombAI@L77:52 → `BombAI@L77:52#this` BombAI → `stored` λBombAI@L77:52 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
-
-## Component 19: 3 nodes, 2 edges
-
-Nodes: `IsbariyaTheResoluteAI`, `λIsbariyaTheResoluteAI@L151:56`, `λIsbariyaTheResoluteAI@L97:72`
-
-| Edge | Kind | Example cycle | Resolution |
-|---|---|---|---|
-| `ai.instance.beshmundirTemple.IsbariyaTheResoluteAI@L151:56#this` | capture | λIsbariyaTheResoluteAI@L151:56 → `IsbariyaTheResoluteAI@L151:56#this` IsbariyaTheResoluteAI → `stored` λIsbariyaTheResoluteAI@L151:56 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
-| `ai.instance.beshmundirTemple.IsbariyaTheResoluteAI@L97:72#this` | capture | λIsbariyaTheResoluteAI@L97:72 → `IsbariyaTheResoluteAI@L97:72#this` IsbariyaTheResoluteAI → `stored` λIsbariyaTheResoluteAI@L97:72 | **UNRESOLVED** (suggested: java-hook: cancel of the periodic task held by field IsbariyaTheResoluteAI.basicSkillTask) |
-
-## Component 20: 3 nodes, 2 edges
-
-Nodes: `CustomInstanceDominatorAI`, `λCustomInstanceDominatorAI@L107:58`, `λCustomInstanceDominatorAI@L48:57`
-
-| Edge | Kind | Example cycle | Resolution |
-|---|---|---|---|
-| `ai.instance.custom.eternalChallenge.CustomInstanceDominatorAI@L107:58#this` | capture | λCustomInstanceDominatorAI@L107:58 → `CustomInstanceDominatorAI@L107:58#this` CustomInstanceDominatorAI → `stored` λCustomInstanceDominatorAI@L107:58 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
-| `ai.instance.custom.eternalChallenge.CustomInstanceDominatorAI@L48:57#this` | capture | λCustomInstanceDominatorAI@L48:57 → `CustomInstanceDominatorAI@L48:57#this` CustomInstanceDominatorAI → `stored` λCustomInstanceDominatorAI@L48:57 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
-
-## Component 21: 3 nodes, 2 edges
-
-Nodes: `WavePortalAI`, `λWavePortalAI@L30:65`, `λWavePortalAI@L70:54`
-
-| Edge | Kind | Example cycle | Resolution |
-|---|---|---|---|
-| `ai.instance.drakenspire.WavePortalAI@L30:65#this` | capture | λWavePortalAI@L30:65 → `WavePortalAI@L30:65#this` WavePortalAI → `stored` λWavePortalAI@L30:65 | **UNRESOLVED** (suggested: java-hook: cancel of the periodic task held by add()) |
-| `ai.instance.drakenspire.WavePortalAI@L70:54#this` | capture | λWavePortalAI@L70:54 → `WavePortalAI@L70:54#this` WavePortalAI → `stored` λWavePortalAI@L70:54 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
-
-## Component 22: 3 nodes, 2 edges
-
-Nodes: `KingConsierdAI`, `KingConsierdAI$3`, `λKingConsierdAI@L99:67`
-
-| Edge | Kind | Example cycle | Resolution |
-|---|---|---|---|
-| `ai.instance.empyreanCrucible.KingConsierdAI$3#this` | capture | KingConsierdAI$3 → `KingConsierdAI$3#this` KingConsierdAI → `stored` KingConsierdAI$3 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
-| `ai.instance.empyreanCrucible.KingConsierdAI@L99:67#this` | capture | λKingConsierdAI@L99:67 → `KingConsierdAI@L99:67#this` KingConsierdAI → `stored` λKingConsierdAI@L99:67 | **UNRESOLVED** (suggested: java-hook: cancel of the periodic task held by field KingConsierdAI.skillTask) |
-
-## Component 23: 3 nodes, 2 edges
-
-Nodes: `RM1337AI`, `RM1337AI$1`, `RM1337AI$2`
-
-| Edge | Kind | Example cycle | Resolution |
-|---|---|---|---|
-| `ai.instance.empyreanCrucible.RM1337AI$1#this` | capture | RM1337AI$1 → `RM1337AI$1#this` RM1337AI → `stored` RM1337AI$1 | **UNRESOLVED** (suggested: java-hook: cancel of the periodic task held by field RM1337AI.task1) |
-| `ai.instance.empyreanCrucible.RM1337AI$2#this` | capture | RM1337AI$2 → `RM1337AI$2#this` RM1337AI → `stored` RM1337AI$2 | **UNRESOLVED** (suggested: java-hook: cancel of the periodic task held by field RM1337AI.task2) |
-
-## Component 24: 3 nodes, 2 edges
-
-Nodes: `GuardCaptainAhuradim`, `λGuardCaptainAhuradim@L52:60`, `λGuardCaptainAhuradim@L57:63`
-
-| Edge | Kind | Example cycle | Resolution |
-|---|---|---|---|
-| `ai.instance.sauroBase.GuardCaptainAhuradim@L52:60#this` | capture | λGuardCaptainAhuradim@L52:60 → `GuardCaptainAhuradim@L52:60#this` GuardCaptainAhuradim → `stored` λGuardCaptainAhuradim@L52:60 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
-| `ai.instance.sauroBase.GuardCaptainAhuradim@L57:63#this` | capture | λGuardCaptainAhuradim@L57:63 → `GuardCaptainAhuradim@L57:63#this` GuardCaptainAhuradim → `stored` λGuardCaptainAhuradim@L57:63 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
-
-## Component 25: 3 nodes, 2 edges
-
-Nodes: `KinquidAI`, `λKinquidAI@L35:68`, `λKinquidAI@L37:79`
-
-| Edge | Kind | Example cycle | Resolution |
-|---|---|---|---|
-| `ai.instance.tallocsHollow.KinquidAI@L35:68#this` | capture | λKinquidAI@L35:68 → `KinquidAI@L35:68#this` KinquidAI → `stored` λKinquidAI@L35:68 | **UNRESOLVED** (suggested: java-hook: cancel of the periodic task held by field KinquidAI.skillTask) |
-| `ai.instance.tallocsHollow.KinquidAI@L37:79#this` | capture | λKinquidAI@L37:79 → `KinquidAI@L37:79#this` KinquidAI → `stored` λKinquidAI@L37:79 | **UNRESOLVED** (suggested: java-hook: cancel of the periodic task held by field KinquidAI.destroyerRespawnTask) |
-
-## Component 26: 3 nodes, 2 edges
-
-Nodes: `AdjutantGalamatAI`, `λAdjutantGalamatAI@L54:71`, `λAdjutantGalamatAI@L55:73`
-
-| Edge | Kind | Example cycle | Resolution |
-|---|---|---|---|
-| `ai.instance.theHexway.AdjutantGalamatAI@L54:71#this` | capture | λAdjutantGalamatAI@L54:71 → `AdjutantGalamatAI@L54:71#this` AdjutantGalamatAI → `stored` λAdjutantGalamatAI@L54:71 | **UNRESOLVED** (suggested: java-hook: cancel of the periodic task held by field AdjutantGalamatAI.addSpawnTask) |
-| `ai.instance.theHexway.AdjutantGalamatAI@L55:73#this` | capture | λAdjutantGalamatAI@L55:73 → `AdjutantGalamatAI@L55:73#this` AdjutantGalamatAI → `stored` λAdjutantGalamatAI@L55:73 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
-
-## Component 27: 3 nodes, 2 edges
-
-Nodes: `BrigadeGeneralTahabataAI`, `λBrigadeGeneralTahabataAI@L46:76`, `λBrigadeGeneralTahabataAI@L53:71`
-
-| Edge | Kind | Example cycle | Resolution |
-|---|---|---|---|
-| `ai.instance.tiamatStrongHold.BrigadeGeneralTahabataAI@L46:76#this` | capture | λBrigadeGeneralTahabataAI@L46:76 → `BrigadeGeneralTahabataAI@L46:76#this` BrigadeGeneralTahabataAI → `stored` λBrigadeGeneralTahabataAI@L46:76 | **UNRESOLVED** (suggested: java-hook: cancel of the periodic task held by field BrigadeGeneralTahabataAI.piercingStrikeTask) |
-| `ai.instance.tiamatStrongHold.BrigadeGeneralTahabataAI@L53:71#this` | capture | λBrigadeGeneralTahabataAI@L53:71 → `BrigadeGeneralTahabataAI@L53:71#this` BrigadeGeneralTahabataAI → `stored` λBrigadeGeneralTahabataAI@L53:71 | **UNRESOLVED** (suggested: java-hook: cancel of the periodic task held by field BrigadeGeneralTahabataAI.fireStormTask) |
-
-## Component 28: 2 nodes, 1 edges
-
-Nodes: `ConquestOfferingSpawnerAI`, `λConquestOfferingSpawnerAI@L131:59`
-
-| Edge | Kind | Example cycle | Resolution |
-|---|---|---|---|
-| `ai.ConquestOfferingSpawnerAI@L131:59#this` | capture | λConquestOfferingSpawnerAI@L131:59 → `ConquestOfferingSpawnerAI@L131:59#this` ConquestOfferingSpawnerAI → `stored` λConquestOfferingSpawnerAI@L131:59 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
-
-## Component 29: 2 nodes, 1 edges
-
-Nodes: `TrapNpcAI`, `λTrapNpcAI@L80:59`
-
-| Edge | Kind | Example cycle | Resolution |
-|---|---|---|---|
-| `ai.TrapNpcAI@L80:59#this` | capture | λTrapNpcAI@L80:59 → `TrapNpcAI@L80:59#this` TrapNpcAI → `stored` λTrapNpcAI@L80:59 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
-
-## Component 30: 2 nodes, 1 edges
-
-Nodes: `IllusionGateAI`, `λIllusionGateAI@L29:67`
-
-| Edge | Kind | Example cycle | Resolution |
-|---|---|---|---|
-| `ai.instance.abyss.IllusionGateAI@L29:67#this` | capture | λIllusionGateAI@L29:67 → `IllusionGateAI@L29:67#this` IllusionGateAI → `stored` λIllusionGateAI@L29:67 | **UNRESOLVED** (suggested: java-hook: cancel of the periodic task held by field IllusionGateAI.spawnTask) |
-
-## Component 31: 2 nodes, 1 edges
-
-Nodes: `EbonsoulAI`, `λEbonsoulAI@L40:67`
-
-| Edge | Kind | Example cycle | Resolution |
-|---|---|---|---|
-| `ai.instance.abyssal_splinter.EbonsoulAI@L40:67#this` | capture | λEbonsoulAI@L40:67 → `EbonsoulAI@L40:67#this` EbonsoulAI → `stored` λEbonsoulAI@L40:67 | **UNRESOLVED** (suggested: java-hook: cancel of the periodic task held by field EbonsoulAI.skillTask) |
-
-## Component 32: 2 nodes, 1 edges
-
-Nodes: `GatesSummonedAI`, `λGatesSummonedAI@L75:67`
-
-| Edge | Kind | Example cycle | Resolution |
-|---|---|---|---|
-| `ai.instance.abyssal_splinter.GatesSummonedAI@L75:67#this` | capture | λGatesSummonedAI@L75:67 → `GatesSummonedAI@L75:67#this` GatesSummonedAI → `stored` λGatesSummonedAI@L75:67 | **UNRESOLVED** (suggested: java-hook: cancel of the periodic task held by field GatesSummonedAI.eventTask) |
-
-## Component 33: 2 nodes, 1 edges
-
-Nodes: `KaluvaSpawnAI`, `λKaluvaSpawnAI@L46:51`
-
-| Edge | Kind | Example cycle | Resolution |
-|---|---|---|---|
-| `ai.instance.abyssal_splinter.KaluvaSpawnAI@L46:51#this` | capture | λKaluvaSpawnAI@L46:51 → `KaluvaSpawnAI@L46:51#this` KaluvaSpawnAI → `stored` λKaluvaSpawnAI@L46:51 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
-
-## Component 34: 2 nodes, 1 edges
-
-Nodes: `PazuzuAI`, `λPazuzuAI@L53:62`
-
-| Edge | Kind | Example cycle | Resolution |
-|---|---|---|---|
-| `ai.instance.abyssal_splinter.PazuzuAI@L53:62#this` | capture | λPazuzuAI@L53:62 → `PazuzuAI@L53:62#this` PazuzuAI → `stored` λPazuzuAI@L53:62 | **UNRESOLVED** (suggested: java-hook: cancel of the periodic task held by field PazuzuAI.task) |
-
-## Component 35: 2 nodes, 1 edges
-
-Nodes: `RukrilAI`, `λRukrilAI@L40:67`
-
-| Edge | Kind | Example cycle | Resolution |
-|---|---|---|---|
-| `ai.instance.abyssal_splinter.RukrilAI@L40:67#this` | capture | λRukrilAI@L40:67 → `RukrilAI@L40:67#this` RukrilAI → `stored` λRukrilAI@L40:67 | **UNRESOLVED** (suggested: java-hook: cancel of the periodic task held by field RukrilAI.skillTask) |
-
-## Component 36: 2 nodes, 1 edges
-
-Nodes: `PopuchinAI`, `PopuchinAI$1`
-
-| Edge | Kind | Example cycle | Resolution |
-|---|---|---|---|
-| `ai.instance.aturamSkyFortress.PopuchinAI$1#this` | capture | PopuchinAI$1 → `PopuchinAI$1#this` PopuchinAI → `stored` PopuchinAI$1 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
-
-## Component 37: 2 nodes, 1 edges
-
-Nodes: `AethicFieldGeneratorAI`, `λAethicFieldGeneratorAI@L74:67`
-
-| Edge | Kind | Example cycle | Resolution |
-|---|---|---|---|
-| `ai.instance.beshmundirTemple.AethicFieldGeneratorAI@L74:67#this` | capture | λAethicFieldGeneratorAI@L74:67 → `AethicFieldGeneratorAI@L74:67#this` AethicFieldGeneratorAI → `stored` λAethicFieldGeneratorAI@L74:67 | **UNRESOLVED** (suggested: java-hook: cancel of the periodic task held by field AethicFieldGeneratorAI.aggroTask) |
-
-## Component 38: 2 nodes, 1 edges
-
-Nodes: `EnragedQueenModorAI`, `λEnragedQueenModorAI@L202:65`
-
-| Edge | Kind | Example cycle | Resolution |
-|---|---|---|---|
-| `ai.instance.danuarReliquary.EnragedQueenModorAI@L202:65#this` | capture | λEnragedQueenModorAI@L202:65 → `EnragedQueenModorAI@L202:65#this` EnragedQueenModorAI → `stored` λEnragedQueenModorAI@L202:65 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
-
-## Component 39: 2 nodes, 1 edges
-
-Nodes: `VengefulOrbAI`, `VengefulOrbAI$1`
-
-| Edge | Kind | Example cycle | Resolution |
-|---|---|---|---|
-| `ai.instance.danuarReliquary.VengefulOrbAI$1#this` | capture | VengefulOrbAI$1 → `VengefulOrbAI$1#this` VengefulOrbAI → `stored` VengefulOrbAI$1 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
-
-## Component 40: 2 nodes, 1 edges
-
-Nodes: `CalindiFlamelordAI`, `λCalindiFlamelordAI@L35:55`
-
-| Edge | Kind | Example cycle | Resolution |
-|---|---|---|---|
-| `ai.instance.darkPoeta.CalindiFlamelordAI@L35:55#this` | capture | λCalindiFlamelordAI@L35:55 → `CalindiFlamelordAI@L35:55#this` CalindiFlamelordAI → `stored` λCalindiFlamelordAI@L35:55 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
-
-## Component 41: 2 nodes, 1 edges
-
-Nodes: `MarabataAI`, `λMarabataAI@L30:79`
-
-| Edge | Kind | Example cycle | Resolution |
-|---|---|---|---|
-| `ai.instance.darkPoeta.MarabataAI@L30:79#this` | capture | λMarabataAI@L30:79 → `MarabataAI@L30:79#this` MarabataAI → `stored` λMarabataAI@L30:79 | **UNRESOLVED** (suggested: java-hook: cancel of the periodic task held by field MarabataAI.boosterLifeCheckTask) |
-
-## Component 42: 2 nodes, 1 edges
-
-Nodes: `TahabataPyrelordAI`, `λTahabataPyrelordAI@L35:55`
-
-| Edge | Kind | Example cycle | Resolution |
-|---|---|---|---|
-| `ai.instance.darkPoeta.TahabataPyrelordAI@L35:55#this` | capture | λTahabataPyrelordAI@L35:55 → `TahabataPyrelordAI@L35:55#this` TahabataPyrelordAI → `stored` λTahabataPyrelordAI@L35:55 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
-
-## Component 43: 2 nodes, 1 edges
-
-Nodes: `TelepathyControllerAI`, `λTelepathyControllerAI@L33:70`
-
-| Edge | Kind | Example cycle | Resolution |
-|---|---|---|---|
-| `ai.instance.darkPoeta.TelepathyControllerAI@L33:70#this` | capture | λTelepathyControllerAI@L33:70 → `TelepathyControllerAI@L33:70#this` TelepathyControllerAI → `stored` λTelepathyControllerAI@L33:70 | **UNRESOLVED** (suggested: java-hook: cancel of the periodic task held by field TelepathyControllerAI.spawnTask) |
-
-## Component 44: 2 nodes, 1 edges
-
-Nodes: `CalculatedAtrocityAI`, `λCalculatedAtrocityAI@L54:62`
-
-| Edge | Kind | Example cycle | Resolution |
-|---|---|---|---|
-| `ai.instance.dragonLordsRefuge.CalculatedAtrocityAI@L54:62#this` | capture | λCalculatedAtrocityAI@L54:62 → `CalculatedAtrocityAI@L54:62#this` CalculatedAtrocityAI → `stored` λCalculatedAtrocityAI@L54:62 | **UNRESOLVED** (suggested: java-hook: cancel of the periodic task held by field CalculatedAtrocityAI.task) |
-
-## Component 45: 2 nodes, 1 edges
-
-Nodes: `CalindiSurkanaAI`, `λCalindiSurkanaAI@L42:69`
-
-| Edge | Kind | Example cycle | Resolution |
-|---|---|---|---|
-| `ai.instance.dragonLordsRefuge.CalindiSurkanaAI@L42:69#this` | capture | λCalindiSurkanaAI@L42:69 → `CalindiSurkanaAI@L42:69#this` CalindiSurkanaAI → `stored` λCalindiSurkanaAI@L42:69 | **UNRESOLVED** (suggested: java-hook: cancel of the periodic task held by field CalindiSurkanaAI.reflectTask) |
-
-## Component 46: 2 nodes, 1 edges
-
-Nodes: `GravityTornadoAI`, `λGravityTornadoAI@L27:62`
-
-| Edge | Kind | Example cycle | Resolution |
-|---|---|---|---|
-| `ai.instance.dragonLordsRefuge.GravityTornadoAI@L27:62#this` | capture | λGravityTornadoAI@L27:62 → `GravityTornadoAI@L27:62#this` GravityTornadoAI → `stored` λGravityTornadoAI@L27:62 | **UNRESOLVED** (suggested: java-hook: cancel of the periodic task held by field GravityTornadoAI.task) |
-
-## Component 47: 2 nodes, 1 edges
-
-Nodes: `TiamatsIncarnationSpawnsAI`, `λTiamatsIncarnationSpawnsAI@L27:67`
-
-| Edge | Kind | Example cycle | Resolution |
-|---|---|---|---|
-| `ai.instance.dragonLordsRefuge.TiamatsIncarnationSpawnsAI@L27:67#this` | capture | λTiamatsIncarnationSpawnsAI@L27:67 → `TiamatsIncarnationSpawnsAI@L27:67#this` TiamatsIncarnationSpawnsAI → `stored` λTiamatsIncarnationSpawnsAI@L27:67 | **UNRESOLVED** (suggested: java-hook: cancel of the periodic task held by field TiamatsIncarnationSpawnsAI.skillTask) |
-
-## Component 48: 2 nodes, 1 edges
-
-Nodes: `UltimateAtrocityAI`, `λUltimateAtrocityAI@L51:62`
-
-| Edge | Kind | Example cycle | Resolution |
-|---|---|---|---|
-| `ai.instance.dragonLordsRefuge.UltimateAtrocityAI@L51:62#this` | capture | λUltimateAtrocityAI@L51:62 → `UltimateAtrocityAI@L51:62#this` UltimateAtrocityAI → `stored` λUltimateAtrocityAI@L51:62 | **UNRESOLVED** (suggested: java-hook: cancel of the periodic task held by field UltimateAtrocityAI.task) |
-
-## Component 49: 2 nodes, 1 edges
-
-Nodes: `BeritraMinionAI`, `λBeritraMinionAI@L34:56`
-
-| Edge | Kind | Example cycle | Resolution |
-|---|---|---|---|
-| `ai.instance.drakenspire.BeritraMinionAI@L34:56#this` | capture | λBeritraMinionAI@L34:56 → `BeritraMinionAI@L34:56#this` BeritraMinionAI → `stored` λBeritraMinionAI@L34:56 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
-
-## Component 50: 2 nodes, 1 edges
-
-Nodes: `SealGuardianAI`, `λSealGuardianAI@L81:56`
-
-| Edge | Kind | Example cycle | Resolution |
-|---|---|---|---|
-| `ai.instance.drakenspire.SealGuardianAI@L81:56#this` | capture | λSealGuardianAI@L81:56 → `SealGuardianAI@L81:56#this` SealGuardianAI → `stored` λSealGuardianAI@L81:56 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
-
-## Component 51: 2 nodes, 1 edges
-
-Nodes: `QueenAlukinaAI`, `λQueenAlukinaAI@L69:64`
-
-| Edge | Kind | Example cycle | Resolution |
-|---|---|---|---|
-| `ai.instance.empyreanCrucible.QueenAlukinaAI@L69:64#this` | capture | λQueenAlukinaAI@L69:64 → `QueenAlukinaAI@L69:64#this` QueenAlukinaAI → `stored` λQueenAlukinaAI@L69:64 | **UNRESOLVED** (suggested: java-hook: cancel of the periodic task held by field QueenAlukinaAI.task) |
-
-## Component 52: 2 nodes, 1 edges
-
-Nodes: `WarriorPreceptorAI`, `WarriorPreceptorAI$1`
-
-| Edge | Kind | Example cycle | Resolution |
-|---|---|---|---|
-| `ai.instance.empyreanCrucible.WarriorPreceptorAI$1#this` | capture | WarriorPreceptorAI$1 → `WarriorPreceptorAI$1#this` WarriorPreceptorAI → `stored` WarriorPreceptorAI$1 | **UNRESOLVED** (suggested: java-hook: cancel of the periodic task held by field WarriorPreceptorAI.task) |
-
-## Component 53: 2 nodes, 1 edges
-
-Nodes: `EternalBastionCommanderAI`, `λEternalBastionCommanderAI@L34:60`
-
-| Edge | Kind | Example cycle | Resolution |
-|---|---|---|---|
-| `ai.instance.eternalBastion.EternalBastionCommanderAI@L34:60#this` | capture | λEternalBastionCommanderAI@L34:60 → `EternalBastionCommanderAI@L34:60#this` EternalBastionCommanderAI → `stored` λEternalBastionCommanderAI@L34:60 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
-
-## Component 54: 2 nodes, 1 edges
-
-Nodes: `RepellingFlameCannonAI`, `λRepellingFlameCannonAI@L33:67`
-
-| Edge | Kind | Example cycle | Resolution |
-|---|---|---|---|
-| `ai.instance.idgelDome.RepellingFlameCannonAI@L33:67#this` | capture | λRepellingFlameCannonAI@L33:67 → `RepellingFlameCannonAI@L33:67#this` RepellingFlameCannonAI → `stored` λRepellingFlameCannonAI@L33:67 | **UNRESOLVED** (suggested: java-hook: cancel of the periodic task held by field RepellingFlameCannonAI.skillTask) |
-
-## Component 55: 2 nodes, 1 edges
-
-Nodes: `UnstableIdeEnergyAI`, `λUnstableIdeEnergyAI@L39:56`
-
-| Edge | Kind | Example cycle | Resolution |
-|---|---|---|---|
-| `ai.instance.idgelDome.UnstableIdeEnergyAI@L39:56#this` | capture | λUnstableIdeEnergyAI@L39:56 → `UnstableIdeEnergyAI@L39:56#this` UnstableIdeEnergyAI → `stored` λUnstableIdeEnergyAI@L39:56 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
-
-## Component 56: 2 nodes, 1 edges
-
-Nodes: `DynatoumMaintenanceDeviceAI`, `λDynatoumMaintenanceDeviceAI@L39:56`
-
-| Edge | Kind | Example cycle | Resolution |
-|---|---|---|---|
-| `ai.instance.illuminaryObelisk.DynatoumMaintenanceDeviceAI@L39:56#this` | capture | λDynatoumMaintenanceDeviceAI@L39:56 → `DynatoumMaintenanceDeviceAI@L39:56#this` DynatoumMaintenanceDeviceAI → `stored` λDynatoumMaintenanceDeviceAI@L39:56 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
-
-## Component 57: 2 nodes, 1 edges
-
-Nodes: `IDF5_U3_VortexAI`, `λIDF5_U3_VortexAI@L41:66`
-
-| Edge | Kind | Example cycle | Resolution |
-|---|---|---|---|
-| `ai.instance.illuminaryObelisk.IDF5_U3_VortexAI@L41:66#this` | capture | λIDF5_U3_VortexAI@L41:66 → `IDF5_U3_VortexAI@L41:66#this` IDF5_U3_VortexAI → `stored` λIDF5_U3_VortexAI@L41:66 | **UNRESOLVED** (suggested: java-hook: cancel of the periodic task held by add()) |
-
-## Component 58: 2 nodes, 1 edges
-
-Nodes: `CircusBoxesAI`, `λCircusBoxesAI@L51:62`
-
-| Edge | Kind | Example cycle | Resolution |
-|---|---|---|---|
-| `ai.instance.nightmareCircus.CircusBoxesAI@L51:62#this` | capture | λCircusBoxesAI@L51:62 → `CircusBoxesAI@L51:62#this` CircusBoxesAI → `stored` λCircusBoxesAI@L51:62 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
-
-## Component 59: 2 nodes, 1 edges
-
-Nodes: `NightmareLordHeiramuneAI`, `λNightmareLordHeiramuneAI@L45:67`
-
-| Edge | Kind | Example cycle | Resolution |
-|---|---|---|---|
-| `ai.instance.nightmareCircus.NightmareLordHeiramuneAI@L45:67#this` | capture | λNightmareLordHeiramuneAI@L45:67 → `NightmareLordHeiramuneAI@L45:67#this` NightmareLordHeiramuneAI → `stored` λNightmareLordHeiramuneAI@L45:67 | **UNRESOLVED** (suggested: java-hook: cancel of the periodic task held by field NightmareLordHeiramuneAI.spawnTask) |
-
-## Component 60: 2 nodes, 1 edges
-
-Nodes: `PadmarashkaAI`, `PadmarashkaAI$1`
-
-| Edge | Kind | Example cycle | Resolution |
-|---|---|---|---|
-| `ai.instance.padmarashkasCave.PadmarashkaAI$1#this` | capture | PadmarashkaAI$1 → `PadmarashkaAI$1#this` PadmarashkaAI → `stored` PadmarashkaAI$1 | **UNRESOLVED** (suggested: java-hook: cancel of the periodic task held by field PadmarashkaAI.mainSkillTask) |
-
-## Component 61: 2 nodes, 1 edges
-
-Nodes: `GoldenEyeMantutuAI`, `λGoldenEyeMantutuAI@L146:68`
-
-| Edge | Kind | Example cycle | Resolution |
-|---|---|---|---|
-| `ai.instance.rakes.GoldenEyeMantutuAI@L146:68#this` | capture | λGoldenEyeMantutuAI@L146:68 → `GoldenEyeMantutuAI@L146:68#this` GoldenEyeMantutuAI → `stored` λGoldenEyeMantutuAI@L146:68 | **UNRESOLVED** (suggested: java-hook: cancel of the periodic task held by field GoldenEyeMantutuAI.hungerTask) |
-
-## Component 62: 2 nodes, 1 edges
-
-Nodes: `IllusionMasterSharikAI`, `IllusionMasterSharikAI$1`
-
-| Edge | Kind | Example cycle | Resolution |
-|---|---|---|---|
-| `ai.instance.raksang.IllusionMasterSharikAI$1#this` | capture | IllusionMasterSharikAI$1 → `IllusionMasterSharikAI$1#this` IllusionMasterSharikAI → `stored` IllusionMasterSharikAI$1 | **UNRESOLVED** (suggested: java-hook: cancel of the periodic task held by field IllusionMasterSharikAI.phaseTask) |
-
-## Component 63: 2 nodes, 1 edges
-
-Nodes: `RakshaAI`, `RakshaAI$1`
-
-| Edge | Kind | Example cycle | Resolution |
-|---|---|---|---|
-| `ai.instance.raksang.RakshaAI$1#this` | capture | RakshaAI$1 → `RakshaAI$1#this` RakshaAI → `stored` RakshaAI$1 | **UNRESOLVED** (suggested: java-hook: cancel of the periodic task held by field RakshaAI.phaseTask) |
-
-## Component 64: 2 nodes, 1 edges
-
-Nodes: `TheFlamelordAI`, `TheFlamelordAI$3`
-
-| Edge | Kind | Example cycle | Resolution |
-|---|---|---|---|
-| `ai.instance.raksang.TheFlamelordAI$3#this` | capture | TheFlamelordAI$3 → `TheFlamelordAI$3#this` TheFlamelordAI → `stored` TheFlamelordAI$3 | **UNRESOLVED** (suggested: java-hook: cancel of the periodic task held by field TheFlamelordAI.phaseTask) |
-
-## Component 65: 2 nodes, 1 edges
-
-Nodes: `DancingFlameAI`, `λDancingFlameAI@L33:66`
-
-| Edge | Kind | Example cycle | Resolution |
-|---|---|---|---|
-| `ai.instance.rentusBase.DancingFlameAI@L33:66#this` | capture | λDancingFlameAI@L33:66 → `DancingFlameAI@L33:66#this` DancingFlameAI → `stored` λDancingFlameAI@L33:66 | **UNRESOLVED** (suggested: java-hook: cancel of the periodic task held by field DancingFlameAI.buffTask) |
-
-## Component 66: 2 nodes, 1 edges
-
-Nodes: `MoriataAI`, `λMoriataAI@L34:63`
-
-| Edge | Kind | Example cycle | Resolution |
-|---|---|---|---|
-| `ai.instance.sauroBase.MoriataAI@L34:63#this` | capture | λMoriataAI@L34:63 → `MoriataAI@L34:63#this` MoriataAI → `stored` λMoriataAI@L34:63 | **UNRESOLVED** (suggested: java-hook: cancel of the periodic task held by field MoriataAI.task) |
-
-## Component 67: 2 nodes, 1 edges
-
-Nodes: `KebbitAI`, `λKebbitAI@L28:58`
-
-| Edge | Kind | Example cycle | Resolution |
-|---|---|---|---|
-| `ai.instance.stonespearReach.KebbitAI@L28:58#this` | capture | λKebbitAI@L28:58 → `KebbitAI@L28:58#this` KebbitAI → `stored` λKebbitAI@L28:58 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
-
-## Component 68: 2 nodes, 1 edges
-
-Nodes: `StonespearGuardianStoneAI`, `λStonespearGuardianStoneAI@L32:51`
-
-| Edge | Kind | Example cycle | Resolution |
-|---|---|---|---|
-| `ai.instance.stonespearReach.StonespearGuardianStoneAI@L32:51#this` | capture | λStonespearGuardianStoneAI@L32:51 → `StonespearGuardianStoneAI@L32:51#this` StonespearGuardianStoneAI → `stored` λStonespearGuardianStoneAI@L32:51 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
-
-## Component 69: 2 nodes, 1 edges
-
-Nodes: `CelestiusAI`, `λCelestiusAI@L44:69`
-
-| Edge | Kind | Example cycle | Resolution |
-|---|---|---|---|
-| `ai.instance.tallocsHollow.CelestiusAI@L44:69#this` | capture | λCelestiusAI@L44:69 → `CelestiusAI@L44:69#this` CelestiusAI → `stored` λCelestiusAI@L44:69 | **UNRESOLVED** (suggested: java-hook: cancel of the periodic task held by field CelestiusAI.helpersTask) |
-
-## Component 70: 2 nodes, 1 edges
-
-Nodes: `MosquaEggAI`, `λMosquaEggAI@L27:65`
-
-| Edge | Kind | Example cycle | Resolution |
-|---|---|---|---|
-| `ai.instance.tallocsHollow.MosquaEggAI@L27:65#this` | capture | λMosquaEggAI@L27:65 → `MosquaEggAI@L27:65#this` MosquaEggAI → `stored` λMosquaEggAI@L27:65 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
-
-## Component 71: 2 nodes, 1 edges
-
-Nodes: `CaptainLakharaAI`, `λCaptainLakharaAI@L31:58`
-
-| Edge | Kind | Example cycle | Resolution |
-|---|---|---|---|
-| `ai.instance.theHexway.CaptainLakharaAI@L31:58#this` | capture | λCaptainLakharaAI@L31:58 → `CaptainLakharaAI@L31:58#this` CaptainLakharaAI → `stored` λCaptainLakharaAI@L31:58 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
-
-## Component 72: 2 nodes, 1 edges
-
-Nodes: `IDSweep_HealTower`, `λIDSweep_HealTower@L27:66`
-
-| Edge | Kind | Example cycle | Resolution |
-|---|---|---|---|
-| `ai.instance.theShugoEmperorsVault.IDSweep_HealTower@L27:66#this` | capture | λIDSweep_HealTower@L27:66 → `IDSweep_HealTower@L27:66#this` IDSweep_HealTower → `stored` λIDSweep_HealTower@L27:66 | **UNRESOLVED** (suggested: java-hook: cancel of the periodic task held by field IDSweep_HealTower.schedule) |
-
-## Component 73: 2 nodes, 1 edges
-
-Nodes: `BladeStormAI`, `λBladeStormAI@L27:66`
-
-| Edge | Kind | Example cycle | Resolution |
-|---|---|---|---|
-| `ai.instance.tiamatStrongHold.BladeStormAI@L27:66#this` | capture | λBladeStormAI@L27:66 → `BladeStormAI@L27:66#this` BladeStormAI → `stored` λBladeStormAI@L27:66 | **UNRESOLVED** (suggested: java-hook: cancel of the periodic task held by field BladeStormAI.spinTask) |
-
-## Component 74: 2 nodes, 1 edges
-
-Nodes: `BrigadeGeneralChantraAI`, `BrigadeGeneralChantraAI$1`
-
-| Edge | Kind | Example cycle | Resolution |
-|---|---|---|---|
-| `ai.instance.tiamatStrongHold.BrigadeGeneralChantraAI$1#this` | capture | BrigadeGeneralChantraAI$1 → `BrigadeGeneralChantraAI$1#this` BrigadeGeneralChantraAI → `stored` BrigadeGeneralChantraAI$1 | **UNRESOLVED** (suggested: java-hook: cancel of the periodic task held by field BrigadeGeneralChantraAI.trapTask) |
-
-## Component 75: 2 nodes, 1 edges
-
-Nodes: `BrigadeGeneralLaksyakaAI`, `BrigadeGeneralLaksyakaAI$1`
-
-| Edge | Kind | Example cycle | Resolution |
-|---|---|---|---|
-| `ai.instance.tiamatStrongHold.BrigadeGeneralLaksyakaAI$1#this` | capture | BrigadeGeneralLaksyakaAI$1 → `BrigadeGeneralLaksyakaAI$1#this` BrigadeGeneralLaksyakaAI → `stored` BrigadeGeneralLaksyakaAI$1 | **UNRESOLVED** (suggested: java-hook: cancel of the periodic task held by field BrigadeGeneralLaksyakaAI.skeletonTask) |
-
-## Component 76: 2 nodes, 1 edges
-
-Nodes: `DistortedSpaceAI`, `λDistortedSpaceAI@L31:62`
-
-| Edge | Kind | Example cycle | Resolution |
-|---|---|---|---|
-| `ai.instance.tiamatStrongHold.DistortedSpaceAI@L31:62#this` | capture | λDistortedSpaceAI@L31:62 → `DistortedSpaceAI@L31:62#this` DistortedSpaceAI → `stored` λDistortedSpaceAI@L31:62 | **UNRESOLVED** (suggested: java-hook: cancel of the periodic task held by field DistortedSpaceAI.task) |
-
-## Component 77: 2 nodes, 1 edges
-
-Nodes: `ElectrocuteAI`, `λElectrocuteAI@L27:62`
-
-| Edge | Kind | Example cycle | Resolution |
-|---|---|---|---|
-| `ai.instance.tiamatStrongHold.ElectrocuteAI@L27:62#this` | capture | λElectrocuteAI@L27:62 → `ElectrocuteAI@L27:62#this` ElectrocuteAI → `stored` λElectrocuteAI@L27:62 | **UNRESOLVED** (suggested: java-hook: cancel of the periodic task held by field ElectrocuteAI.task) |
-
-## Component 78: 2 nodes, 1 edges
-
-Nodes: `FireStormAI`, `λFireStormAI@L28:62`
-
-| Edge | Kind | Example cycle | Resolution |
-|---|---|---|---|
-| `ai.instance.tiamatStrongHold.FireStormAI@L28:62#this` | capture | λFireStormAI@L28:62 → `FireStormAI@L28:62#this` FireStormAI → `stored` λFireStormAI@L28:62 | **UNRESOLVED** (suggested: java-hook: cancel of the periodic task held by field FireStormAI.task) |
-
-## Component 79: 2 nodes, 1 edges
-
-Nodes: `GravityAI`, `λGravityAI@L27:62`
-
-| Edge | Kind | Example cycle | Resolution |
-|---|---|---|---|
-| `ai.instance.tiamatStrongHold.GravityAI@L27:62#this` | capture | λGravityAI@L27:62 → `GravityAI@L27:62#this` GravityAI → `stored` λGravityAI@L27:62 | **UNRESOLVED** (suggested: java-hook: cancel of the periodic task held by field GravityAI.task) |
-
-## Component 80: 2 nodes, 1 edges
-
-Nodes: `InvincibleShabokanAI`, `InvincibleShabokanAI$1`
-
-| Edge | Kind | Example cycle | Resolution |
-|---|---|---|---|
-| `ai.instance.tiamatStrongHold.InvincibleShabokanAI$1#this` | capture | InvincibleShabokanAI$1 → `InvincibleShabokanAI$1#this` InvincibleShabokanAI → `stored` InvincibleShabokanAI$1 | **UNRESOLVED** (suggested: java-hook: cancel of the periodic task held by field InvincibleShabokanAI.skillTask) |
-
-## Component 81: 2 nodes, 1 edges
-
-Nodes: `TahabataAltarFinalAI`, `λTahabataAltarFinalAI@L27:62`
-
-| Edge | Kind | Example cycle | Resolution |
-|---|---|---|---|
-| `ai.instance.tiamatStrongHold.TahabataAltarFinalAI@L27:62#this` | capture | λTahabataAltarFinalAI@L27:62 → `TahabataAltarFinalAI@L27:62#this` TahabataAltarFinalAI → `stored` λTahabataAltarFinalAI@L27:62 | **UNRESOLVED** (suggested: java-hook: cancel of the periodic task held by field TahabataAltarFinalAI.task) |
-
-## Component 82: 2 nodes, 1 edges
-
-Nodes: `UnstableGatesSummonedAI`, `λUnstableGatesSummonedAI@L75:67`
-
-| Edge | Kind | Example cycle | Resolution |
-|---|---|---|---|
-| `ai.instance.unstableSplinterpath.UnstableGatesSummonedAI@L75:67#this` | capture | λUnstableGatesSummonedAI@L75:67 → `UnstableGatesSummonedAI@L75:67#this` UnstableGatesSummonedAI → `stored` λUnstableGatesSummonedAI@L75:67 | **UNRESOLVED** (suggested: java-hook: cancel of the periodic task held by field UnstableGatesSummonedAI.eventTask) |
-
-## Component 83: 2 nodes, 1 edges
-
-Nodes: `UnstableKaluvaSpawnAI`, `λUnstableKaluvaSpawnAI@L68:51`
-
-| Edge | Kind | Example cycle | Resolution |
-|---|---|---|---|
-| `ai.instance.unstableSplinterpath.UnstableKaluvaSpawnAI@L68:51#this` | capture | λUnstableKaluvaSpawnAI@L68:51 → `UnstableKaluvaSpawnAI@L68:51#this` UnstableKaluvaSpawnAI → `stored` λUnstableKaluvaSpawnAI@L68:51 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
-
-## Component 84: 2 nodes, 1 edges
-
-Nodes: `UnstablePazuzuAI`, `λUnstablePazuzuAI@L53:62`
-
-| Edge | Kind | Example cycle | Resolution |
-|---|---|---|---|
-| `ai.instance.unstableSplinterpath.UnstablePazuzuAI@L53:62#this` | capture | λUnstablePazuzuAI@L53:62 → `UnstablePazuzuAI@L53:62#this` UnstablePazuzuAI → `stored` λUnstablePazuzuAI@L53:62 | **UNRESOLVED** (suggested: java-hook: cancel of the periodic task held by field UnstablePazuzuAI.task) |
-
-## Component 85: 2 nodes, 1 edges
-
-Nodes: `GarnonQ20060AI`, `GarnonQ20060AI$1`
-
-| Edge | Kind | Example cycle | Resolution |
-|---|---|---|---|
-| `ai.quests.GarnonQ20060AI$1#this` | capture | GarnonQ20060AI$1 → `GarnonQ20060AI$1#this` GarnonQ20060AI → `stored` GarnonQ20060AI$1 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
-
-## Component 86: 2 nodes, 1 edges
-
-Nodes: `SpringAI`, `λSpringAI@L28:71`
-
-| Edge | Kind | Example cycle | Resolution |
-|---|---|---|---|
-| `ai.siege.SpringAI@L28:71#this` | capture | λSpringAI@L28:71 → `SpringAI@L28:71#this` SpringAI → `stored` λSpringAI@L28:71 | **UNRESOLVED** (suggested: java-hook: cancel of the periodic task held by field SpringAI.healCheckTask) |
-
-## Component 87: 2 nodes, 1 edges
-
-Nodes: `SematariuxEggAI`, `λSematariuxEggAI@L27:56`
-
-| Edge | Kind | Example cycle | Resolution |
-|---|---|---|---|
-| `ai.worlds.inggison.SematariuxEggAI@L27:56#this` | capture | λSematariuxEggAI@L27:56 → `SematariuxEggAI@L27:56#this` SematariuxEggAI → `stored` λSematariuxEggAI@L27:56 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
-
-## Component 88: 2 nodes, 1 edges
-
-Nodes: `EreshkigalsVoiceAI`, `λEreshkigalsVoiceAI@L27:55`
-
-| Edge | Kind | Example cycle | Resolution |
-|---|---|---|---|
-| `ai.worlds.panesterra.ahserionsflight.EreshkigalsVoiceAI@L27:55#this` | capture | λEreshkigalsVoiceAI@L27:55 → `EreshkigalsVoiceAI@L27:55#this` EreshkigalsVoiceAI → `stored` λEreshkigalsVoiceAI@L27:55 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
-
-## Component 89: 2 nodes, 1 edges
+| `com.aionemu.gameserver.geoEngine.models.GeoMap.chunkById` | field | GeoMap → `GeoMap.chunkById` GeoMap | accepted: server lifetime: geo maps are loaded once by GeoService and never freed |
+| `com.aionemu.gameserver.geoEngine.models.GeoMap.despawnableDoors` | field | GeoMap → `GeoMap.despawnableDoors` DespawnableNode → `extends` Node → `Node.children` GeoMap | accepted: server lifetime: geo maps are loaded once by GeoService and never freed |
+| `com.aionemu.gameserver.geoEngine.models.GeoMap.despawnableHouseDoors` | field | GeoMap → `GeoMap.despawnableHouseDoors` DespawnableNode → `extends` Node → `Node.children` GeoMap | accepted: server lifetime: geo maps are loaded once by GeoService and never freed |
+| `com.aionemu.gameserver.geoEngine.models.GeoMap.despawnableTownObjects` | field | GeoMap → `GeoMap.despawnableTownObjects` DespawnableNode → `extends` Node → `Node.children` GeoMap | accepted: server lifetime: geo maps are loaded once by GeoService and never freed |
+| `com.aionemu.gameserver.geoEngine.models.GeoMap.despawnables` | field | GeoMap → `GeoMap.despawnables` DespawnableNode → `extends` Node → `Node.children` GeoMap | accepted: server lifetime: geo maps are loaded once by GeoService and never freed |
+| `com.aionemu.gameserver.geoEngine.scene.Node.children` | field | Node → `Node.children` Node | accepted: server lifetime: geo scene graphs are loaded once by GeoService and never freed |
+| `com.aionemu.gameserver.geoEngine.scene.Spatial.parent` | field | Spatial → `Spatial.parent` Node → `Node.children` Spatial | accepted: server lifetime: geo scene graphs are loaded once by GeoService and never freed |
+
+## Component 5: 2 nodes, 1 edges
 
 Nodes: `λPetCommonData@L121:57`, `PetCommonData`
 
 | Edge | Kind | Example cycle | Resolution |
 |---|---|---|---|
-| `com.aionemu.gameserver.model.gameobjects.player.PetCommonData@L121:57#this` | capture | λPetCommonData@L121:57 → `PetCommonData@L121:57#this` PetCommonData → `stored` λPetCommonData@L121:57 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
+| `com.aionemu.gameserver.model.gameobjects.player.PetCommonData@L121:57#this` | capture | λPetCommonData@L121:57 → `PetCommonData@L121:57#this` PetCommonData → `stored` λPetCommonData@L121:57 | accepted: one-shot task: releases its captures when it runs or is cancelled |
 
-## Component 90: 2 nodes, 1 edges
-
-Nodes: `λPeriodicInstanceManager@L71:87`, `PeriodicInstanceManager`
-
-| Edge | Kind | Example cycle | Resolution |
-|---|---|---|---|
-| `com.aionemu.gameserver.services.instance.PeriodicInstanceManager@L71:87#this` | capture | λPeriodicInstanceManager@L71:87 → `PeriodicInstanceManager@L71:87#this` PeriodicInstanceManager → `stored` λPeriodicInstanceManager@L71:87 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
-
-## Component 91: 2 nodes, 1 edges
+## Component 6: 2 nodes, 1 edges
 
 Nodes: `λProlongedAuction@L106:52`, `ProlongedAuction`
 
 | Edge | Kind | Example cycle | Resolution |
 |---|---|---|---|
-| `com.aionemu.gameserver.taskmanager.tasks.housing.AuctionEndTask.ProlongedAuction@L106:52#this` | capture | λProlongedAuction@L106:52 → `ProlongedAuction@L106:52#this` ProlongedAuction → `stored` λProlongedAuction@L106:52 | **UNRESOLVED** (suggested: accepted: one-shot task releases its captures when it runs or is cancelled) |
+| `com.aionemu.gameserver.taskmanager.tasks.housing.AuctionEndTask.ProlongedAuction@L106:52#this` | capture | λProlongedAuction@L106:52 → `ProlongedAuction@L106:52#this` ProlongedAuction → `stored` λProlongedAuction@L106:52 | accepted: one-shot task: releases its captures when it runs or is cancelled |
 
-## Component 92: 2 nodes, 4 edges
-
-Nodes: `Link`, `PlayerModelLink`
-
-| Edge | Kind | Example cycle | Resolution |
-|---|---|---|---|
-| `com.aionemu.gameserver.custom.instance.neuralnetwork.Link.input` | field | Link → `Link.input` PlayerModelLink → `PlayerModelLink.inputs` Link | **UNRESOLVED** |
-| `com.aionemu.gameserver.custom.instance.neuralnetwork.Link.output` | field | Link → `Link.output` PlayerModelLink → `PlayerModelLink.inputs` Link | **UNRESOLVED** |
-| `com.aionemu.gameserver.custom.instance.neuralnetwork.PlayerModelLink.inputs` | field | PlayerModelLink → `PlayerModelLink.inputs` Link → `Link.input` PlayerModelLink | **UNRESOLVED** |
-| `com.aionemu.gameserver.custom.instance.neuralnetwork.PlayerModelLink.outputs` | field | PlayerModelLink → `PlayerModelLink.outputs` Link → `Link.input` PlayerModelLink | **UNRESOLVED** |
-
-## Component 93: 2 nodes, 2 edges
+## Component 7: 2 nodes, 2 edges
 
 Nodes: `BIHTree`, `Mesh`
 
 | Edge | Kind | Example cycle | Resolution |
 |---|---|---|---|
-| `com.aionemu.gameserver.geoEngine.collision.bih.BIHTree.mesh` | field | BIHTree → `BIHTree.mesh` Mesh → `Mesh.collisionTree` BIHTree | **UNRESOLVED** |
-| `com.aionemu.gameserver.geoEngine.scene.Mesh.collisionTree` | field | Mesh → `Mesh.collisionTree` BIHTree → `BIHTree.mesh` Mesh | **UNRESOLVED** |
+| `com.aionemu.gameserver.geoEngine.collision.bih.BIHTree.mesh` | field | BIHTree → `BIHTree.mesh` Mesh → `Mesh.collisionTree` BIHTree | accepted: server lifetime: geo meshes are loaded once by GeoService and never freed |
+| `com.aionemu.gameserver.geoEngine.scene.Mesh.collisionTree` | field | Mesh → `Mesh.collisionTree` BIHTree → `BIHTree.mesh` Mesh | accepted: server lifetime: geo meshes are loaded once by GeoService and never freed |
 
-## Component 94: 2 nodes, 2 edges
+## Component 8: 2 nodes, 2 edges
 
 Nodes: `HouseBids`, `Bid`
 
 | Edge | Kind | Example cycle | Resolution |
 |---|---|---|---|
-| `com.aionemu.gameserver.model.house.HouseBids.Bid#this$0` | capture | Bid → `Bid#this$0` HouseBids → `HouseBids.bids` Bid | **UNRESOLVED** |
-| `com.aionemu.gameserver.model.house.HouseBids.bids` | field | HouseBids → `HouseBids.bids` Bid → `Bid#this$0` HouseBids | **UNRESOLVED** |
+| `com.aionemu.gameserver.model.house.HouseBids.Bid#this$0` | capture | Bid → `Bid#this$0` HouseBids → `HouseBids.bids` Bid | accepted: no instance cycle: the port copies listIndex and houseObjectId into Bid instead of capturing this$0 (see HouseBids.bids) |
+| `com.aionemu.gameserver.model.house.HouseBids.bids` | field | HouseBids → `HouseBids.bids` Bid → `Bid#this$0` HouseBids | accepted: no instance cycle: Bid reads only the final scalars listIndex and houseObjectId of HouseBids; the port copies them into Bid and captures no this$0 (HousingBidService drops finished auctions) |
 
-## Component 95: 2 nodes, 2 edges
+## Component 9: 2 nodes, 2 edges
 
 Nodes: `FloodManager`, `LogEntry`
 
 | Edge | Kind | Example cycle | Resolution |
 |---|---|---|---|
-| `com.aionemu.gameserver.network.sequrity.FloodManager.LogEntry#this$0` | capture | LogEntry → `LogEntry#this$0` FloodManager → `FloodManager._entries` LogEntry | **UNRESOLVED** |
-| `com.aionemu.gameserver.network.sequrity.FloodManager._entries` | field | FloodManager → `FloodManager._entries` LogEntry → `LogEntry#this$0` FloodManager | **UNRESOLVED** |
+| `com.aionemu.gameserver.network.sequrity.FloodManager.LogEntry#this$0` | capture | LogEntry → `LogEntry#this$0` FloodManager → `FloodManager._entries` LogEntry | accepted: server lifetime: one FloodManager per connection factory (GameConnectionFactoryImpl) |
+| `com.aionemu.gameserver.network.sequrity.FloodManager._entries` | field | FloodManager → `FloodManager._entries` LogEntry → `LogEntry#this$0` FloodManager | accepted: server lifetime: one FloodManager per connection factory (GameConnectionFactoryImpl) |
 
-## Component 96: 2 nodes, 1 edges
+## Component 10: 2 nodes, 1 edges
 
 Nodes: `AhserionRaid`, `AhserionRaid$1`
 
 | Edge | Kind | Example cycle | Resolution |
 |---|---|---|---|
-| `com.aionemu.gameserver.services.panesterra.ahserion.AhserionRaid$1#this` | capture | AhserionRaid$1 → `AhserionRaid$1#this` AhserionRaid → `stored` AhserionRaid$1 | **UNRESOLVED** (suggested: java-hook: cancel of the periodic task held by field AhserionRaid.progressTask) |
+| `com.aionemu.gameserver.services.panesterra.ahserion.AhserionRaid$1#this` | capture | AhserionRaid$1 → `AhserionRaid$1#this` AhserionRaid → `stored` AhserionRaid$1 | java-hook: AhserionRaid cancels progressTask when the raid ends (AhserionRaid.java:296-297) |
 
-## Component 97: 1 nodes, 2 edges
+## Component 11: 1 nodes, 2 edges
 
 Nodes: `BIHNode`
 
 | Edge | Kind | Example cycle | Resolution |
 |---|---|---|---|
-| `com.aionemu.gameserver.geoEngine.collision.bih.BIHNode.left` | field | BIHNode → `BIHNode.left` BIHNode | **UNRESOLVED** |
-| `com.aionemu.gameserver.geoEngine.collision.bih.BIHNode.right` | field | BIHNode → `BIHNode.right` BIHNode | **UNRESOLVED** |
+| `com.aionemu.gameserver.geoEngine.collision.bih.BIHNode.left` | field | BIHNode → `BIHNode.left` BIHNode | accepted: no instance cycle: a BIH tree has no parent links |
+| `com.aionemu.gameserver.geoEngine.collision.bih.BIHNode.right` | field | BIHNode → `BIHNode.right` BIHNode | accepted: no instance cycle: a BIH tree has no parent links |
 

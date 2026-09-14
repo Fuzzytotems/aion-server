@@ -40,7 +40,7 @@ class RealTreeTest(unittest.TestCase):
         self.assertEqual(self.fm.classes[c + 'model.stats.calc.Stat2'].kind, 'K5')  # §3.1
         self.assertEqual(self.fm.classes[c + 'questEngine.model.QuestEnv'].kind, 'K4')  # §3.1
         self.assertEqual(self.field(c + 'model.gameobjects.player.Player', 'kisk').cpp, 'Field<Ref<Kisk>>')
-        self.assertEqual(self.field(c + 'model.gameobjects.VisibleObject', 'target').cpp, 'Field<Ref<VisibleObject>>')
+        self.assertEqual(self.field(c + 'model.gameobjects.VisibleObject', 'target').cpp, 'SelfOrRef<VisibleObject>')  # fieldmap.toml, RT-4
         self.assertEqual(self.fm.parts[(c + 'model.gameobjects.VisibleObject', 'controller')].patterns, {3})  # §3.2.1 pattern 3
         self.assertIn(2, self.fm.parts[(c + 'model.gameobjects.Creature', 'gameStats')].patterns)  # Npc.java:70-71
         self.assertEqual(self.field(c + 'model.items.storage.PlayerStorage', 'actor').cpp, 'SelfOrRef<Player>')  # §3.2 PlayerStorage.actor
@@ -76,6 +76,51 @@ class RealTreeTest(unittest.TestCase):
         for anon in ('skillengine.model.Effect$1', 'skillengine.model.Effect$2'):
             self.assertEqual({cap.name: cap.cpp for cap in self.fm.classes[c + anon].captures}['this'], 'const Ref<Effect>')
             self.assertIn(c + anon + '#this', self.fm.cycle_edges)
+
+    def _edge_file(self, key):
+        site = key.split('#')[0] if '#' in key else key.rsplit('.', 1)[0]
+        cb = self.fm.callbacks.get(site)
+        if cb is not None:
+            return fieldmap._rel(cb.rs.span.cu.path)
+        return fieldmap._rel(self.fm.classes[site].cu.path)
+
+    def test_cycle_edges_outside_the_handlers_are_resolved(self):
+        """S0b cycle review: every cycle edge of game-server/src has a cycles.toml resolution; the handler scripts resolve theirs in phase 6."""
+        unresolved = sorted(k for k, e in self.fm.cycle_edges.items() if e['resolution'] is None and '/data/handlers/' not in self._edge_file(k))
+        self.assertEqual(unresolved, [])
+
+    def test_cycle_review_reference_points(self):
+        c = 'com.aionemu.gameserver.'
+        edges = self.fm.cycle_edges
+        # a Ref to a part retains the part's owner: PlayerAccountData is a part of Account (fieldmap.toml PartMap)
+        self.assertIn(c + 'model.account.Account', edges[c + 'model.gameobjects.player.Player.playerAccountData']['targets'])
+        # captured singletons are pinned pointers, not retaining edges
+        self.assertNotIn(c + 'services.LegionService$1#this', edges)
+        # non-retaining fieldmap.toml spelling
+        self.assertEqual(self.field(c + 'custom.instance.neuralnetwork.Link', 'input').retains, [])
+        self.assertEqual(self.fm.classes[c + 'model.team.group.events.PlayerGroupLeavedEvent'].kind, 'K5')  # fieldmap.toml [kinds]
+
+    def test_logout_breakers_match_cycles_toml(self):
+        """model/gameobjects/player/LogoutBreakers.h lists exactly the zombie-safe edges of cycles.toml, and its steps cut resolved edges."""
+        import re
+        header = os.path.join(fieldmap.CPP_ROOT, 'game-server', 'src', 'aion', 'gameserver', 'model', 'gameobjects', 'player', 'LogoutBreakers.h')
+        with open(header, encoding='utf-8') as f:
+            text = f.read()
+
+        def table(name):
+            m = re.search(rf'{name}\{{\{{(.*?)\}}\}};', text, re.S)
+            self.assertIsNotNone(m, name)
+            return re.findall(r'"(com\.aionemu\.[^"]+)"', m.group(1))
+
+        resolutions = fieldmap.load_cycles(self.cycles)
+        zombie = {k for k, v in resolutions.items() if v.startswith('zombie-safe:')}
+        listed = table('ZOMBIE_SAFE_EDGES')
+        self.assertEqual(len(listed), len(set(listed)))
+        self.assertEqual(set(listed), zombie)
+        for name in ('LOGOUT_STEPS', 'DELETE_STEPS'):
+            for key in table(name):
+                self.assertIn(key, self.fm.cycle_edges, f'{name}: {key}')
+                self.assertTrue(resolutions[key].startswith(('zombie-safe:', 'cpp-breaker:')), f'{name}: {key} = {resolutions[key]}')
 
 
 if __name__ == '__main__':

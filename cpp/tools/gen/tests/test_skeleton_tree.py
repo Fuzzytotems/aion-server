@@ -51,7 +51,8 @@ class RealTreeForwardHeadersTest(unittest.TestCase):
         self.assertIn('struct GSConfig;', f['aion/gameserver/configs/main/fwd.h'])                               # existing C++ struct
         self.assertIn('class Vector3f;', f['aion/gameserver/geoEngine/math/fwd.h'])
         self.assertIn('struct FastMath;', f['aion/gameserver/geoEngine/math/fwd.h'])
-        self.assertIn('template <class T> class CreatureController;', f['aion/gameserver/controllers/fwd.h'])
+        self.assertIn('\nclass CreatureController;', f['aion/gameserver/controllers/fwd.h'])            # erased generic (hub-headers.md §8.1)
+        self.assertIn('template <class Type> class SplitList;', f['aion/gameserver/utils/collections/fwd.h'])   # unbounded: template
         self.assertIn('class Player;', f['aion/gameserver/model/gameobjects/player/fwd.h'])
         self.assertIn('namespace aion::gameserver::questEngine::handlers::template_ {', f['aion/gameserver/questEngine/handlers/template/fwd.h'])
         self.assertIn('//   SecurityConfig::MultiClientingRestrictionMode', f['aion/gameserver/configs/main/fwd.h'])
@@ -212,8 +213,12 @@ class RealTreeDraftsTest(unittest.TestCase):
         self.assertGreater(len(services), 120)
         packets = self.project.select(['@serverpackets'])
         self.assertGreater(len(packets), 230)
+        # @hubs skips hub files whose header exists: after S0b every hub is written, so the group is empty (explicit names still draft them)
         hubs = {td.fqn for td in self.project.select(['@hubs'])}
-        self.assertIn(P + 'model.gameobjects.player.Player', hubs)
+        self.assertLessEqual(hubs, {P + rel for rel in skeleton.HUBS})
+        self.assertNotIn(P + 'model.gameobjects.player.Player', hubs)
+        self.assertTrue((ss.REAL_CPP_SRC / 'aion/gameserver/model/gameobjects/player/Player.h').is_file())
+        self.assertEqual([td.fqn for td in self.project.select([P + 'model.gameobjects.player.Player'])], [P + 'model.gameobjects.player.Player'])
         self.assertNotIn(P + 'utils.ThreadPoolManager', hubs)
         self.assertNotIn(P + 'skillengine.model.SkillTemplate', hubs)                  # xmlgen behaviour class: xmlgen.py scaffold
         packets = {td.fqn for td in packets}
@@ -224,6 +229,39 @@ class RealTreeDraftsTest(unittest.TestCase):
         self.assertNotIn(P + 'model.DialogAction', everything)                        # dialogaction.py
         with self.assertRaisesRegex(skeleton.SkeletonError, 'static data class'):
             self.project.select([P + 'model.templates.walker.RouteVersion'])
+
+    def test_header_check_lists_every_hub(self):
+        """game-server/CMakeLists.txt gs_hub_headers (aion_gs_header_check, docs/design/hub-headers.md §3.4) equals skeleton.HUBS without the
+        enums xmlgen generates, plus the kernel ports ThreadPoolManager and IDFactory."""
+        text = (ss.CPP_ROOT / 'game-server' / 'CMakeLists.txt').read_text(encoding='utf-8')
+        block = re.search(r'set\(gs_hub_headers\n(.*?)\n\)', text, re.S)
+        self.assertIsNotNone(block, 'set(gs_hub_headers ...) not found')
+        listed = block.group(1).split()
+        self.assertEqual(listed, sorted(listed), 'keep gs_hub_headers sorted')
+        expected = {'aion/gameserver/utils/ThreadPoolManager.h', 'aion/gameserver/utils/idfactory/IDFactory.h'}
+        for rel in skeleton.HUBS:
+            td = self.project.core_type(P + rel)
+            if td is not None and self.project.generated_enum(td) is None:
+                expected.add(self.project.unit_header(td.cu))
+        self.assertEqual(set(listed), expected)
+        spine = re.search(r'set\(gs_spine_headers\n(.*?)\n\)', text, re.S)
+        self.assertIsNotNone(spine, 'set(gs_spine_headers ...) not found')
+        self.assertEqual(spine.group(1).split(), sorted(skeleton.SPINE_HEADERS), 'gs_spine_headers equals skeleton.SPINE_HEADERS, sorted')
+        for rel in skeleton.SPINE_HEADERS:
+            self.assertTrue((ss.REAL_CPP_SRC / rel).is_file(), rel)
+
+    def test_hub_rules_on_the_real_tree(self):
+        """The generics decisions of docs/design/hub-headers.md §8.1 hold for the real hub classes."""
+        erased = ['controllers.VisibleObjectController', 'controllers.CreatureController', 'controllers.movement.CreatureMoveController',
+                  'model.stats.container.CreatureGameStats', 'model.stats.container.CreatureLifeStats', 'model.team.GeneralTeam',
+                  'model.team.TemporaryPlayerTeam', 'model.team.TeamMember', 'ai.AbstractAI']
+        for rel in erased:
+            self.assertTrue(self.project.erased_generic(self.project.index.types[P + rel]), rel)
+        self.assertFalse(self.project.erased_generic(self.project.index.types[P + 'ai.AITemplate']))
+        self.assertIn(P + 'instance.handlers.InstanceHandler', self.project.retainable_interfaces())
+        self.assertIn(P + 'model.stats.calc.StatOwner', self.project.retainable_interfaces())
+        npc = self.project.index.types[P + 'model.gameobjects.Npc']
+        self.assertTrue(skeleton.Project.is_cast_override(next(m for m in npc.methods if m.name == 'getController')))
 
     def test_member_block_and_non_template_drafts(self):
         files = skeleton.generate_drafts(self.project, self.project.select([P + 'network.aion.serverpackets.SM_SYSTEM_MESSAGE',
@@ -254,6 +292,46 @@ class RealTreeDraftsTest(unittest.TestCase):
             self.assertTrue(ok and not problems, '\n'.join(problems[:40]) or output[-4000:])
         finally:
             shutil.rmtree(work, ignore_errors=True)
+
+
+class SpineGuardsTest(unittest.TestCase):
+    """`__has_include` guards (docs/design/hub-headers.md §3.3): an open guard is an error (MSBuild does not rebuild a guarded .cpp when the
+    header appears), S0b transition guards on hub and spine headers are tolerated until the freeze, every guard fails the freeze gate."""
+
+    def test_rules(self):
+        root = ss.short_temp_dir('skguards')
+        try:
+            src, tests = root / 'src', root / 'tests'
+            ss.write_tree(src, {
+                'aion/gameserver/model/X.h': '#pragma once\n',
+                'aion/gameserver/model/gameobjects/Creature.h': '#pragma once\n',
+                'aion/gameserver/model/Open.cpp': '#if __has_include("aion/gameserver/model/X.h")\n#endif\n',
+                'aion/gameserver/model/Hub.cpp': '// S0b transition\n#if __has_include("aion/gameserver/model/gameobjects/Creature.h")\n#endif\n',
+                'aion/gameserver/model/Waiting.cpp': ('#include <x>\n#if __has_include("aion/gameserver/model/X.h") && \\\n'
+                                                      '\t__has_include("aion/gameserver/model/Missing.h")\n#else\n#endif\n'),
+                'aion/gameserver/runtime/Kernel.cpp': '#if __has_include(<sanitizer/asan_interface.h>)\n#endif\n',
+            })
+            ss.write_tree(tests, {'objects/T.cpp': '#  elif __has_include(<aion/gameserver/model/Missing.h>)\n'})
+            guards = skeleton.spine_guards([src, tests], [src])
+            by_path = {g.path: g for g in guards}
+            self.assertEqual(sorted(by_path), ['src/aion/gameserver/model/Hub.cpp', 'src/aion/gameserver/model/Open.cpp',
+                                               'src/aion/gameserver/model/Waiting.cpp', 'tests/objects/T.cpp'])
+            waiting = by_path['src/aion/gameserver/model/Waiting.cpp']
+            self.assertEqual((waiting.line, waiting.missing), (2, ['aion/gameserver/model/Missing.h']))
+            self.assertEqual(len(waiting.headers), 2)
+            problems = skeleton.guard_problems(guards, frozen=False)
+            self.assertEqual(len(problems), 1)
+            self.assertIn('src/aion/gameserver/model/Open.cpp:1: open guard', problems[0])
+            self.assertEqual(len(skeleton.guard_problems(guards, frozen=True)), 4)
+        finally:
+            shutil.rmtree(root, ignore_errors=True)
+
+    @unittest.skipUnless(HAVE_TREE, 'game-server sources not found')
+    def test_real_tree(self):
+        """No open guard outside the tolerated S0b transition guards; SPINE_FROZEN (set at the freeze) turns every guard into a failure."""
+        guards = skeleton.spine_guards([ss.REAL_CPP_SRC, ss.REAL_CPP_SRC.parent / 'tests', ss.REAL_CPP_SRC.parent / 'handlers'],
+                                       [ss.REAL_CPP_SRC, ss.REAL_CPP_SRC.parent / 'handlers', ss.REAL_GENERATED, ss.REAL_COMMONS_SRC])
+        self.assertEqual(skeleton.guard_problems(guards), [])
 
 
 def _resolvable_generated_headers():

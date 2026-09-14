@@ -7,7 +7,7 @@
 
 namespace aion::gameserver::network::aion::serverpackets {
 
-SM_ITEMS::SM_ITEMS(const std::vector<runtime::Ref<model::gameobjects::player::Player>>& value) : AionServerPacket(int32_t{}) {
+SM_ITEMS::SM_ITEMS(const std::vector<runtime::Ptr<model::gameobjects::player::Player>>& value) : AionServerPacket(int32_t{}) {
 	AION_UNPORTED();
 }
 
@@ -19,7 +19,7 @@ void SM_ITEMS::writeImpl(AionConnection* con) {
 #pragma warning(push)
 #pragma warning(disable : 4702) // the base initializer never returns
 #endif
-SM_ITEMS::Page::Page(const std::vector<runtime::Ref<model::gameobjects::player::Player>>& value, int32_t page) : SM_ITEMS(unportedArgument<std::vector<runtime::Ref<model::gameobjects::player::Player>>>()) {
+SM_ITEMS::Page::Page(const std::vector<runtime::Ptr<model::gameobjects::player::Player>>& value, int32_t page) : SM_ITEMS(unportedArgument<std::vector<runtime::Ptr<model::gameobjects::player::Player>>>()) {
 	// unportedArgument() in the base initializer reports AION_UNPORTED (a body statement would be unreachable)
 }
 #ifdef _MSC_VER

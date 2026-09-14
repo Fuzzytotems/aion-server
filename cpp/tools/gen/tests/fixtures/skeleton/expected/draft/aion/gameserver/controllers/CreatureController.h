@@ -16,28 +16,21 @@ namespace aion::gameserver::controllers {
 /**
  * Controls a creature.
  */
-template <class T>
+// Java generic CreatureController<T>: a non-template C++ class (erasure rule: every type parameter has a project bound); type variables are spelled as their bounds
 class CreatureController : public runtime::OwnedPart {
 private:
-	runtime::OwnerRef<T> owner;
+	runtime::OwnerRef<model::gameobjects::Creature> owner;
 public:
-#ifdef _MSC_VER
-#pragma warning(push)
-#pragma warning(disable : 4702) // the initializer never returns
-#endif
-	explicit CreatureController(runtime::Ptr<T> value) : owner(unportedArgument<T>()) {}
-#ifdef _MSC_VER
-#pragma warning(pop)
-#endif
-	runtime::Ptr<T> getOwner() const { AION_UNPORTED(); } // trivial accessor of owner: inline once the member exists
-	virtual void onAttack(runtime::Ptr<model::gameobjects::Creature> attacker, int32_t damage) = 0;
-	std::vector<runtime::Ref<T>> owners() { AION_UNPORTED(); }
+	explicit CreatureController(model::gameobjects::Creature& owner);
+	model::gameobjects::Creature& getOwner() const { return this->owner; }
+	virtual void onAttack(model::gameobjects::Creature& attacker, int32_t damage) = 0;
+	std::vector<runtime::Ptr<model::gameobjects::Creature>> owners();
 private:
 	/** Constructor stubs bind arguments and reference members to this: AION_UNPORTED() throws first. */
 	template <class U>
 	[[noreturn]] static U& unportedArgument() { AION_UNPORTED(); }
 public:
-	virtual ~CreatureController() = default;
+	virtual ~CreatureController();
 };
 
 } // namespace aion::gameserver::controllers

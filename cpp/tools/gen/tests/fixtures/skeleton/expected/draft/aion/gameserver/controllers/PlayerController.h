@@ -4,19 +4,23 @@
 
 #include <cstdint>
 
+#include "aion/gameserver/runtime/base/Unported.h"
 #include "aion/gameserver/runtime/lifetime/Ref.h"
 #include "aion/gameserver/controllers/CreatureController.h"
 #include "aion/gameserver/controllers/fwd.h"
 #include "aion/gameserver/model/gameobjects/fwd.h"
-#include "aion/gameserver/model/gameobjects/player/Player.h"
 #include "aion/gameserver/model/gameobjects/player/fwd.h"
 
 namespace aion::gameserver::controllers {
 
-class PlayerController : public CreatureController<model::gameobjects::player::Player> {
+class PlayerController : public CreatureController {
 public:
-	explicit PlayerController(runtime::Ptr<model::gameobjects::player::Player> owner);
-	void onAttack(runtime::Ptr<model::gameobjects::Creature> attacker, int32_t damage) override;
+	explicit PlayerController(model::gameobjects::player::Player& owner);
+	void onAttack(model::gameobjects::Creature& attacker, int32_t damage) override;
+private:
+	/** Constructor stubs bind arguments and reference members to this: AION_UNPORTED() throws first. */
+	template <class U>
+	[[noreturn]] static U& unportedArgument() { AION_UNPORTED(); }
 };
 
 } // namespace aion::gameserver::controllers

@@ -4,12 +4,190 @@
 // A prelude holds the core names of its category as using-declarations in the category namespace, e.g. `using gameserver::ai::NpcAI;`
 // (handlers-and-porting-plan.md §1.2). It is identical for every file of the category, so unity batches may include it any number of times,
 // and it is the category's precompiled header. Handler files include it first; it also provides the registration markers and
-// AION_UNPORTED. S0b fills in the using-declarations of the handler-facing hub headers. The handler file rules apply (aion_gs_regscan):
-// declarations only inside the namespace of this directory, no namespace-scope `static`, no other namespaces.
+// AION_UNPORTED. The handler file rules apply (aion_gs_regscan): declarations only inside the namespace of this directory, no namespace-scope
+// `static`, no other namespaces.
+// Using-declarations (S0b): every core type that the Java files of the category import, when a forward header declares it, its simple
+// name comes from one package only and no Java type of the category has that name (nested types are spelled Outer::Inner or
+// Outer_Inner). The prelude includes the full headers of the category's handler base classes, the generated headers of the
+// re-exported enums, the full hub headers the category's handlers use most (Player, Npc, PacketSendUtility, ...; spine freeze) and the forward
+// headers of the rest.
 
-#include "aion/gameserver/handlers/HandlerRegistry.h"
 #include "aion/gameserver/runtime/base/Unported.h"
+#include "aion/gameserver/ai/AIState.h"
+#include "aion/gameserver/ai/event/AIEventType.h"
+#include "aion/gameserver/ai/event/fwd.h"
+#include "aion/gameserver/ai/fwd.h"
+#include "aion/gameserver/ai/manager/fwd.h"
+#include "aion/gameserver/configs/main/fwd.h"
+#include "aion/gameserver/controllers/attack/fwd.h"
+#include "aion/gameserver/dataholders/fwd.h"
+#include "aion/gameserver/geoEngine/math/fwd.h"
+#include "aion/gameserver/handlers/HandlerRegistry.h"
+#include "aion/gameserver/instance/handlers/GeneralInstanceHandler.h"
+#include "aion/gameserver/instance/handlers/fwd.h"
+#include "aion/gameserver/model/ChatType.h"
+#include "aion/gameserver/model/CreatureType.h"
+#include "aion/gameserver/model/EmotionType.h"
+#include "aion/gameserver/model/Race.h"
+#include "aion/gameserver/model/TaskId.h"
+#include "aion/gameserver/model/animations/TeleportAnimation.h"
+#include "aion/gameserver/model/animations/fwd.h"
+#include "aion/gameserver/model/autogroup/fwd.h"
+#include "aion/gameserver/model/drop/fwd.h"
+#include "aion/gameserver/model/flyring/fwd.h"
+#include "aion/gameserver/model/fwd.h"
+#include "aion/gameserver/model/gameobjects/Npc.h"
+#include "aion/gameserver/model/gameobjects/fwd.h"
+#include "aion/gameserver/model/gameobjects/player/Player.h"
+#include "aion/gameserver/model/gameobjects/player/Rates.h"
+#include "aion/gameserver/model/gameobjects/player/fwd.h"
+#include "aion/gameserver/model/gameobjects/state/CreatureState.h"
+#include "aion/gameserver/model/gameobjects/state/fwd.h"
+#include "aion/gameserver/model/geometry/fwd.h"
+#include "aion/gameserver/model/instance/InstanceProgressionType.h"
+#include "aion/gameserver/model/instance/InstanceScoreType.h"
+#include "aion/gameserver/model/instance/StageList.h"
+#include "aion/gameserver/model/instance/StageType.h"
+#include "aion/gameserver/model/instance/fwd.h"
+#include "aion/gameserver/model/instance/instancescore/fwd.h"
+#include "aion/gameserver/model/instance/playerreward/fwd.h"
+#include "aion/gameserver/model/summons/UnsummonType.h"
+#include "aion/gameserver/model/summons/fwd.h"
+#include "aion/gameserver/model/team/fwd.h"
+#include "aion/gameserver/model/team/legion/fwd.h"
+#include "aion/gameserver/model/templates/flyring/fwd.h"
+#include "aion/gameserver/model/templates/rewards/fwd.h"
+#include "aion/gameserver/model/templates/spawns/fwd.h"
+#include "aion/gameserver/network/aion/fwd.h"
+#include "aion/gameserver/network/aion/instanceinfo/fwd.h"
+#include "aion/gameserver/network/aion/serverpackets/fwd.h"
+#include "aion/gameserver/questEngine/fwd.h"
+#include "aion/gameserver/questEngine/model/QuestStatus.h"
+#include "aion/gameserver/questEngine/model/fwd.h"
+#include "aion/gameserver/services/abyss/fwd.h"
+#include "aion/gameserver/services/drop/fwd.h"
+#include "aion/gameserver/services/fwd.h"
+#include "aion/gameserver/services/instance/fwd.h"
+#include "aion/gameserver/services/item/fwd.h"
+#include "aion/gameserver/services/player/fwd.h"
+#include "aion/gameserver/services/summons/fwd.h"
+#include "aion/gameserver/services/teleport/fwd.h"
+#include "aion/gameserver/skillengine/effect/AbnormalState.h"
+#include "aion/gameserver/skillengine/effect/fwd.h"
+#include "aion/gameserver/skillengine/fwd.h"
+#include "aion/gameserver/skillengine/model/fwd.h"
+#include "aion/gameserver/spawnengine/fwd.h"
+#include "aion/gameserver/utils/PacketSendUtility.h"
+#include "aion/gameserver/utils/fwd.h"
+#include "aion/gameserver/utils/stats/AbyssRankEnum.h"
+#include "aion/gameserver/utils/stats/fwd.h"
+#include "aion/gameserver/world/WorldMapInstance.h"
+#include "aion/gameserver/world/fwd.h"
+#include "aion/gameserver/world/geo/fwd.h"
+#include "aion/gameserver/world/zone/fwd.h"
 
 namespace aion::gameserver::handlers::instance {
+
+using ::aion::gameserver::ai::AIActions;
+using ::aion::gameserver::ai::AIState;
+using ::aion::gameserver::ai::NpcAI;
+using ::aion::gameserver::ai::event::AIEventType;
+using ::aion::gameserver::ai::manager::WalkManager;
+using ::aion::gameserver::configs::main::GroupConfig;
+using ::aion::gameserver::configs::main::RatesConfig;
+using ::aion::gameserver::controllers::attack::DamageInfo;
+using ::aion::gameserver::controllers::attack::DamageList;
+using ::aion::gameserver::dataholders::DataManager;
+using ::aion::gameserver::geoEngine::math::Vector3f;
+using ::aion::gameserver::instance::handlers::GeneralInstanceHandler;
+using ::aion::gameserver::model::ChatType;
+using ::aion::gameserver::model::CreatureType;
+using ::aion::gameserver::model::EmotionType;
+using ::aion::gameserver::model::Race;
+using ::aion::gameserver::model::TaskId;
+using ::aion::gameserver::model::animations::TeleportAnimation;
+using ::aion::gameserver::model::autogroup::AGPlayer;
+using ::aion::gameserver::model::drop::DropItem;
+using ::aion::gameserver::model::flyring::FlyRing;
+using ::aion::gameserver::model::gameobjects::Creature;
+using ::aion::gameserver::model::gameobjects::Gatherable;
+using ::aion::gameserver::model::gameobjects::Item;
+using ::aion::gameserver::model::gameobjects::Npc;
+using ::aion::gameserver::model::gameobjects::Summon;
+using ::aion::gameserver::model::gameobjects::VisibleObject;
+using ::aion::gameserver::model::gameobjects::player::Player;
+using ::aion::gameserver::model::gameobjects::player::Rates;
+using ::aion::gameserver::model::gameobjects::state::CreatureState;
+using ::aion::gameserver::model::geometry::Point3D;
+using ::aion::gameserver::model::instance::DredgionRoom;
+using ::aion::gameserver::model::instance::InstanceProgressionType;
+using ::aion::gameserver::model::instance::InstanceScoreType;
+using ::aion::gameserver::model::instance::StageList;
+using ::aion::gameserver::model::instance::StageType;
+using ::aion::gameserver::model::instance::instancescore::DarkPoetaScore;
+using ::aion::gameserver::model::instance::instancescore::HarmonyArenaScore;
+using ::aion::gameserver::model::instance::instancescore::InstanceScore;
+using ::aion::gameserver::model::instance::instancescore::LegionDominionScore;
+using ::aion::gameserver::model::instance::instancescore::NormalScore;
+using ::aion::gameserver::model::instance::instancescore::PvPArenaScore;
+using ::aion::gameserver::model::instance::instancescore::PvpInstanceScore;
+using ::aion::gameserver::model::instance::playerreward::CruciblePlayerReward;
+using ::aion::gameserver::model::instance::playerreward::HarmonyGroupReward;
+using ::aion::gameserver::model::instance::playerreward::PvPArenaPlayerReward;
+using ::aion::gameserver::model::instance::playerreward::PvpInstancePlayerReward;
+using ::aion::gameserver::model::summons::UnsummonType;
+using ::aion::gameserver::model::team::TemporaryPlayerTeam;
+using ::aion::gameserver::model::team::legion::Legion;
+using ::aion::gameserver::model::templates::flyring::FlyRingTemplate;
+using ::aion::gameserver::model::templates::rewards::ArenaRewardItem;
+using ::aion::gameserver::model::templates::rewards::RewardItem;
+using ::aion::gameserver::model::templates::spawns::SpawnTemplate;
+using ::aion::gameserver::network::aion::AionServerPacket;
+using ::aion::gameserver::network::aion::instanceinfo::ArenaScoreWriter;
+using ::aion::gameserver::network::aion::instanceinfo::CrucibleScoreWriter;
+using ::aion::gameserver::network::aion::instanceinfo::DarkPoetaScoreWriter;
+using ::aion::gameserver::network::aion::instanceinfo::DredgionScoreWriter;
+using ::aion::gameserver::network::aion::instanceinfo::EternalBastionScoreWriter;
+using ::aion::gameserver::network::aion::instanceinfo::HarmonyScoreWriter;
+using ::aion::gameserver::network::aion::instanceinfo::LegionDominionScoreWriter;
+using ::aion::gameserver::network::aion::instanceinfo::PvpInstanceScoreWriter;
+using ::aion::gameserver::network::aion::instanceinfo::TheShugoEmperorsVaultScoreWriter;
+using ::aion::gameserver::network::aion::serverpackets::SM_ATTACK_STATUS;
+using ::aion::gameserver::network::aion::serverpackets::SM_CUSTOM_SETTINGS;
+using ::aion::gameserver::network::aion::serverpackets::SM_EMOTION;
+using ::aion::gameserver::network::aion::serverpackets::SM_INSTANCE_SCORE;
+using ::aion::gameserver::network::aion::serverpackets::SM_INSTANCE_STAGE_INFO;
+using ::aion::gameserver::network::aion::serverpackets::SM_MESSAGE;
+using ::aion::gameserver::network::aion::serverpackets::SM_PLAY_MOVIE;
+using ::aion::gameserver::network::aion::serverpackets::SM_QUEST_ACTION;
+using ::aion::gameserver::network::aion::serverpackets::SM_SYSTEM_MESSAGE;
+using ::aion::gameserver::questEngine::QuestEngine;
+using ::aion::gameserver::questEngine::model::QuestEnv;
+using ::aion::gameserver::questEngine::model::QuestState;
+using ::aion::gameserver::questEngine::model::QuestStatus;
+using ::aion::gameserver::services::LegionDominionService;
+using ::aion::gameserver::services::RespawnService;
+using ::aion::gameserver::services::abyss::AbyssPointsService;
+using ::aion::gameserver::services::abyss::GloryPointsService;
+using ::aion::gameserver::services::drop::DropRegistrationService;
+using ::aion::gameserver::services::instance::InstanceService;
+using ::aion::gameserver::services::item::ItemService;
+using ::aion::gameserver::services::player::PlayerReviveService;
+using ::aion::gameserver::services::summons::SummonsService;
+using ::aion::gameserver::services::teleport::TeleportService;
+using ::aion::gameserver::skillengine::SkillEngine;
+using ::aion::gameserver::skillengine::effect::AbnormalState;
+using ::aion::gameserver::skillengine::model::Effect;
+using ::aion::gameserver::skillengine::model::Skill;
+using ::aion::gameserver::spawnengine::SpawnEngine;
+using ::aion::gameserver::utils::PacketSendUtility;
+using ::aion::gameserver::utils::PositionUtil;
+using ::aion::gameserver::utils::ThreadPoolManager;
+using ::aion::gameserver::utils::stats::AbyssRankEnum;
+using ::aion::gameserver::world::WorldMapInstance;
+using ::aion::gameserver::world::WorldPosition;
+using ::aion::gameserver::world::geo::GeoService;
+using ::aion::gameserver::world::zone::ZoneInstance;
+using ::aion::gameserver::world::zone::ZoneName;
 
 } // namespace aion::gameserver::handlers::instance

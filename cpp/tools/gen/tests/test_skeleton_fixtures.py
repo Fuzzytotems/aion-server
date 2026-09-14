@@ -73,7 +73,8 @@ class ForwardHeaderTest(unittest.TestCase):
         self.assertIn('//   Race::Group  (Java type nested in an enum)', model)
         self.assertIn('#include <cstdint>', model)
         self.assertIn('struct GSConfig;', self.files['aion/gameserver/configs/main/fwd.h'])
-        self.assertIn('template <class T> class CreatureController;', self.files['aion/gameserver/controllers/fwd.h'])
+        self.assertIn('class CreatureController;', self.files['aion/gameserver/controllers/fwd.h'])      # erased generic (bounded T)
+        self.assertNotIn('template', self.files['aion/gameserver/controllers/fwd.h'])
         self.assertIn('namespace aion::gameserver::questEngine::handlers::template_ {',
                       self.files['aion/gameserver/questEngine/handlers/template/fwd.h'])
         stats = self.files['aion/gameserver/model/stats/fwd.h']
@@ -491,7 +492,7 @@ class GeneratorAwareTest(unittest.TestCase):
         self.assertIn('runtime::Ptr<model::gameobjects::Creature> getOwner()', abstract_ai)
         template = files['aion/gameserver/ai/AITemplate.h']
         self.assertIn('template <class T>\nclass AITemplate : public AbstractAI {', template)
-        self.assertIn('virtual void think(runtime::Ptr<T> target) = 0;', template)
+        self.assertIn('virtual void think(T& target) = 0;', template)          # TEMPLATE_GENERICS stays a template; non-null T&
 
     def test_hand_written_definitions_win(self):
         """Runtime bases and overrides follow an existing hand-written C++ definition, not the Java class or fieldmap.json."""
@@ -640,10 +641,10 @@ class DraftRulesTest(unittest.TestCase):
         self.assertIn('protected:\n\t~Creature() override;', creature)
         self.assertIn('class AionObject : public runtime::RefCounted {', self.h('model/gameobjects/AionObject'))
         self.assertNotIn('create(', self.h('model/gameobjects/AionObject'))            # abstract
-        self.assertIn('Creature::Creature(int32_t value, const std::vector<runtime::Ref<controllers::observer::ActionObserver>>& '
+        self.assertIn('Creature::Creature(int32_t value, const std::vector<runtime::Ptr<controllers::observer::ActionObserver>>& '
                       'observersValue) : AionObject(int32_t{}) {', self.cpp('model/gameobjects/Creature'))
-        self.assertIn('Creature(int32_t objectId, const std::vector<runtime::Ref<controllers::observer::ActionObserver>>& observers);',
-                      creature)                                                   # declarations keep the Java names
+        self.assertIn('Creature(int32_t objectId, const std::vector<runtime::Ptr<controllers::observer::ActionObserver>>& observers);',
+                      creature)                                                   # declarations keep the Java names; borrowed elements
 
     def test_members_and_accessors(self):
         creature = self.h('model/gameobjects/Creature')
@@ -680,28 +681,29 @@ class DraftRulesTest(unittest.TestCase):
     def test_signatures(self):
         player = self.h('model/gameobjects/player/Player')
         self.assertIn('void register_();', player)
-        self.assertIn('void delete_(std::span<const int32_t> ids);', player)
+        self.assertIn('void delete_(std::initializer_list<int32_t> ids = {});', player)                    # varargs (§7.4)
         self.assertIn('// TODO(signature): C++ signature collides with the declaration at line 68: public void send(Collection<ItemTemplate> '
                       'items)', player)
-        self.assertIn('// TODO(signature): no C++ mapping for java.lang.Object: public void register(Object listener)', player)
+        self.assertIn('void register_(const std::any& listener);', player)                                 # Object parameter
         self.assertIn('// TODO(signature): generic method:', player)
         self.assertIn('void send(const std::vector<const templates::item::ItemTemplate*>& items);', player)
         self.assertIn('std::unordered_set<int32_t> friendIds(std::span<const uint8_t> data, runtime::FutureRef task);', player)
         self.assertIn('runtime::Ptr<Player> findFriend(std::string_view name);', player)
-        self.assertIn('bool removeFriends(const std::function<bool(runtime::Ptr<Player>)>& filter);', player)
-        self.assertIn('void onDie(runtime::Ptr<Creature> lastAttacker) override;', player)
+        self.assertIn('bool removeFriends(const std::function<bool(Player&)>& filter);', player)             # callback arguments
+        self.assertIn('void onDie(Creature& lastAttacker) override;', player)                               # never null: X&
+        self.assertIn('runtime::ConcurrentHashMap<int32_t, runtime::Ref<Player>>& getFriends() { return this->friends; }', player)
         creature = self.h('model/gameobjects/Creature')
         self.assertIn('virtual void onSpawn();', creature)
         self.assertIn('Creature::State getState();', creature)
         observer = self.h('controllers/observer/ActionObserver')
         self.assertIn('virtual void moved();', observer)
-        self.assertIn('\tvoid attacked(runtime::Ptr<model::gameobjects::Creature> creature);', observer)
+        self.assertIn('\tvoid attacked(model::gameobjects::Creature& creature);', observer)
         self.assertIn('virtual ~ActionObserver();', observer)
         aion_object = self.h('model/gameobjects/AionObject')
         self.assertIn('bool equals(const AionObject& obj) const;', aion_object)
         self.assertIn('virtual std::string getName() = 0;', aion_object)
         dao = self.h('dao/BarDAO')
-        self.assertIn('static void storePlayer(runtime::Ptr<model::gameobjects::player::Player> player, '
+        self.assertIn('static void storePlayer(model::gameobjects::player::Player& player, '
                       'std::optional<commons::database::Timestamp> lastOnline);', dao)
         self.assertIn('static std::unordered_set<model::Race> races();', dao)
         self.assertIn('void afterUnmarshal(xml::LoadContext& ctx, const xml::XmlParent& parent); // JAXB hook (XmlBinding.h)',
@@ -730,14 +732,16 @@ class DraftRulesTest(unittest.TestCase):
         self.assertLess(outer.index('class Base {'), outer.index('class Derived : public Outer::Base {'))
         self.assertIn('Outer::Derived::Derived() : Outer::Base(int32_t{}) {', self.cpp('model/gameobjects/Outer'))
         self.assertIn('public:\n\t\texplicit Base(int32_t value);', outer)     # private constructor of a nested class
-        controller = self.h('controllers/CreatureController')
-        self.assertIn('template <class T>\nclass CreatureController : public runtime::OwnedPart {', controller)
-        self.assertIn('\truntime::OwnerRef<T> owner;', controller)
-        self.assertIn('#pragma warning(disable : 4702) // the initializer never returns\n#endif\n'
-                      '\texplicit CreatureController(runtime::Ptr<T> value) : owner(unportedArgument<T>()) {}', controller)
-        self.assertIn('#include "aion/gameserver/runtime/base/Unported.h"', controller)
-        self.assertIn('class PlayerController : public CreatureController<model::gameobjects::player::Player> {',
-                      self.h('controllers/PlayerController'))
+        controller = self.h('controllers/CreatureController')      # erased generic: T is spelled as its bound Creature
+        self.assertIn('// Java generic CreatureController<T>: a non-template C++ class (erasure rule', controller)
+        self.assertIn('\nclass CreatureController : public runtime::OwnedPart {', controller)
+        self.assertIn('\truntime::OwnerRef<model::gameobjects::Creature> owner;', controller)
+        self.assertIn('\texplicit CreatureController(model::gameobjects::Creature& owner);', controller)   # an owner is never null
+        self.assertIn('\tmodel::gameobjects::Creature& getOwner() const { return this->owner; }', controller)
+        self.assertIn('#pragma warning(disable : 4702) // the base initializer never returns\n#endif\n'
+                      'CreatureController::CreatureController(model::gameobjects::Creature& value) : '
+                      'owner(unportedArgument<model::gameobjects::Creature>()) {', self.cpp('controllers/CreatureController'))
+        self.assertIn('class PlayerController : public CreatureController {', self.h('controllers/PlayerController'))
         point = self.h('model/geometry/Point')
         self.assertIn('Point(float x, float y); // canonical record constructor', point)
         self.assertIn('int32_t compareTo(const Point& o) const;', point)
@@ -752,7 +756,7 @@ class DraftRulesTest(unittest.TestCase):
         self.assertIn('enum class Race : std::uint8_t {', race)
         self.assertIn('// TODO(enum): Race has methods isPlayerRace; nested types Group', race)
         items = self.cpp('network/aion/serverpackets/SM_ITEMS')
-        self.assertIn(': SM_ITEMS(unportedArgument<std::vector<runtime::Ref<model::gameobjects::player::Player>>>())', items)
+        self.assertIn(': SM_ITEMS(unportedArgument<std::vector<runtime::Ptr<model::gameobjects::player::Player>>>())', items)
 
     def test_todo_mode(self):
         project = fixture_project(fieldmap=False)

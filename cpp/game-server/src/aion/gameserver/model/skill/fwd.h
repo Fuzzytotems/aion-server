@@ -10,6 +10,6 @@ class NpcSkillTemplateEntry;
 class PlayerSkillEntry;
 class PlayerSkillList;
 class SkillEntry;
-template <class T> class SkillList;
+class SkillList;
 
 } // namespace aion::gameserver::model::skill

@@ -3,14 +3,22 @@
 #include "aion/gameserver/controllers/PlayerController.h"
 
 #include "aion/gameserver/runtime/base/Unported.h"
+#include "aion/gameserver/model/gameobjects/Creature.h"
 
 namespace aion::gameserver::controllers {
 
-PlayerController::PlayerController(runtime::Ptr<model::gameobjects::player::Player> value) : CreatureController<model::gameobjects::player::Player>(runtime::Ptr<model::gameobjects::player::Player>{}) {
-	AION_UNPORTED();
+#ifdef _MSC_VER
+#pragma warning(push)
+#pragma warning(disable : 4702) // the base initializer never returns
+#endif
+PlayerController::PlayerController(model::gameobjects::player::Player& value) : CreatureController(unportedArgument<model::gameobjects::Creature>()) {
+	// unportedArgument() in the base initializer reports AION_UNPORTED (a body statement would be unreachable)
 }
+#ifdef _MSC_VER
+#pragma warning(pop)
+#endif
 
-void PlayerController::onAttack(runtime::Ptr<model::gameobjects::Creature> attacker, int32_t damage) {
+void PlayerController::onAttack(model::gameobjects::Creature& attacker, int32_t damage) {
 	AION_UNPORTED();
 }
 

@@ -12,7 +12,7 @@ enum class AggroTarget : std::uint8_t;
 class AttackResult;
 enum class AttackStatus : std::uint8_t;
 class AttackUtil;
-template <class T> class DamageInfo;
+class DamageInfo;
 class DamageList;
 class KillCounter;
 class PlayerAggroList;

@@ -251,6 +251,123 @@ class CyclesTest(unittest.TestCase):
         self.assertIn('# "com.x.world.Kisk.creator" = ""', text)
 
 
+RETENTION_FILES = {
+    'com/y/Roots.java': '''package com.y;
+public class Roots {
+    public static Owner owner;
+    public static Node node;
+    public static Node2 node2;
+    public static Plain plain;
+}''',
+    'com/y/Owner.java': '''package com.y;
+public class Owner {
+    private final Part part = new Part(this);
+    private Other other;
+    public Part getPart() { return part; }
+    public void link() { other = new Other(part); }
+}''',
+    'com/y/Part.java': '''package com.y;
+public class Part {
+    private final Owner owner;
+    private int hits;
+    public Part(Owner owner) { this.owner = owner; }
+    public void hit() { hits++; }
+}''',
+    'com/y/Other.java': '''package com.y;
+public class Other {
+    private final Part part;
+    private int n;
+    public Other(Part part) { this.part = part; }
+    public void inc() { n++; }
+}''',
+    'com/y/Node.java': '''package com.y;
+public class Node {
+    private Node next;
+    public void setNext(Node n) { next = n; }
+}''',
+    'com/y/Node2.java': '''package com.y;
+public class Node2 {
+    private Node2 next;
+    public void setNext(Node2 n) { next = n; }
+}''',
+    'com/y/Req.java': '''package com.y;
+public abstract class Req { public abstract void run(); }''',
+    'com/y/Registry.java': '''package com.y;
+import java.util.*;
+public class Registry {
+    private final List<Req> reqs = new ArrayList<>();
+    public void add(Req r) { reqs.add(r); }
+}''',
+    'com/y/Service.java': '''package com.y;
+public class Service {
+    private static final Service instance = new Service();
+    private final Registry registry = new Registry();
+    private int count;
+    public static Service getInstance() { return instance; }
+    public void start() {
+        registry.add(new Req() { public void run() { helper(); } });
+    }
+    void helper() { count++; }
+}''',
+    'com/y/Plain.java': '''package com.y;
+public class Plain {
+    private final Registry registry = new Registry();
+    private int count;
+    public void start() {
+        registry.add(new Req() { public void run() { helper(); } });
+    }
+    void helper() { count++; }
+}''',
+}
+
+RETENTION_CONFIG = '''
+[fields]
+"com.y.Node.next" = { cpp = "Field<Node*>", reason = "test: non-retaining spelling" }
+'''
+
+
+class RetainingGraphTest(unittest.TestCase):
+    """Cycle graph corrections of the S0b cycle review: references to parts retain the owner, captured singletons do not retain,
+    non-retaining fieldmap.toml spellings are not edges."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.fm = fieldmap.build_from_sources(RETENTION_FILES, RETENTION_CONFIG, '')
+
+    def test_reference_to_a_part_retains_its_owner(self):
+        edges = self.fm.cycle_edges
+        self.assertEqual(self.fm.classes['com.y.Owner'].fields[0].cpp, 'const std::unique_ptr<Part>')
+        self.assertIn('com.y.Other.part', edges)  # Owner.other -> Other.part -> Part, and Part's owner is Owner
+        self.assertEqual(edges['com.y.Other.part']['targets'], ['com.y.Owner'])
+        self.assertIn('com.y.Owner.other', edges)
+
+    def test_captured_singleton_is_not_retained(self):
+        edges = self.fm.cycle_edges
+        self.assertNotIn('com.y.Service$1#this', edges)
+        self.assertNotIn('com.y.Service.registry', edges)
+        self.assertIn('com.y.Plain$1#this', edges)  # the same shape with a multi-instance class stays a cycle
+        self.assertEqual(edges['com.y.Registry.reqs']['targets'], ['com.y.Plain$1'])
+
+    def test_non_retaining_override_spelling(self):
+        node = next(f for f in self.fm.classes['com.y.Node'].fields if f.name == 'next')
+        self.assertEqual((node.cpp, node.retains), ('Field<Node*>', []))
+        self.assertNotIn('com.y.Node.next', self.fm.cycle_edges)
+        self.assertIn('com.y.Node2.next', self.fm.cycle_edges)
+
+    def test_spelling_retains(self):
+        class C:
+            cpp_name = 'MapRegion'
+        spelling = fieldmap.FieldMap._spelling_retains
+        self.assertFalse(spelling('Field<Ref<Array<MapRegion*>>>', C))
+        self.assertFalse(spelling('Final<world::MapRegion*>', C))
+        self.assertFalse(spelling('OwnerRef<MapRegion>', C))
+        self.assertFalse(spelling('std::weak_ptr<const MapRegion>', C))
+        self.assertTrue(spelling('Field<Ref<MapRegion>>', C))
+        self.assertTrue(spelling('PartMap<int32_t, MapRegion>', C))
+        self.assertTrue(spelling('Field<Ref<InstanceHandler>>', C))  # does not name the class: the Java type keeps the edge
+        self.assertTrue(spelling('HashMap<int32_t, Ref<MapRegionData>>', C))  # a longer name is not the class
+
+
 class OutputsTest(unittest.TestCase):
     def test_json_deterministic(self):
         a = fieldmap.build_from_sources(FILES, CONFIG, CYCLES)

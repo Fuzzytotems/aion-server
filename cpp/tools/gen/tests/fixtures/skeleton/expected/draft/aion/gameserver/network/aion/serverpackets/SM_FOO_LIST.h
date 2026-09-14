@@ -14,8 +14,8 @@ namespace aion::gameserver::network::aion::serverpackets {
 
 class SM_FOO_LIST : public SM_FOO {
 public:
-	SM_FOO_LIST(const std::vector<runtime::Ref<model::gameobjects::Creature>>& creatures, bool last);
-	SM_FOO_LIST(bool last, const std::vector<runtime::Ref<model::gameobjects::Creature>>& creatures);
+	SM_FOO_LIST(const std::vector<runtime::Ptr<model::gameobjects::Creature>>& creatures, bool last);
+	SM_FOO_LIST(bool last, const std::vector<runtime::Ptr<model::gameobjects::Creature>>& creatures);
 };
 
 } // namespace aion::gameserver::network::aion::serverpackets

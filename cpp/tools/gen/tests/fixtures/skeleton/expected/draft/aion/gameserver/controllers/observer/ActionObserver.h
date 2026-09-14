@@ -11,7 +11,7 @@ namespace aion::gameserver::controllers::observer {
 class ActionObserver {
 public:
 	virtual void moved();
-	void attacked(runtime::Ptr<model::gameobjects::Creature> creature);
+	void attacked(model::gameobjects::Creature& creature);
 	virtual ~ActionObserver();
 };
 

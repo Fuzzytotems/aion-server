@@ -10,7 +10,7 @@ bool BarDAO::isNameUsed(std::string_view name) {
 	AION_UNPORTED();
 }
 
-void BarDAO::storePlayer(runtime::Ptr<model::gameobjects::player::Player> player, std::optional<commons::database::Timestamp> lastOnline) {
+void BarDAO::storePlayer(model::gameobjects::player::Player& player, std::optional<commons::database::Timestamp> lastOnline) {
 	AION_UNPORTED();
 }
 

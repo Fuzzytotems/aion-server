@@ -12,7 +12,7 @@ namespace aion::gameserver::model::gameobjects::player {
 #pragma warning(push)
 #pragma warning(disable : 4702) // the base initializer never returns
 #endif
-Player::Player(int32_t value, std::string_view nameValue) : Creature(int32_t{}, unportedArgument<std::vector<runtime::Ref<controllers::observer::ActionObserver>>>()) {
+Player::Player(int32_t value, std::string_view nameValue) : Creature(int32_t{}, unportedArgument<std::vector<runtime::Ptr<controllers::observer::ActionObserver>>>()) {
 	// unportedArgument() in the base initializer reports AION_UNPORTED (a body statement would be unreachable)
 }
 #ifdef _MSC_VER
@@ -23,7 +23,7 @@ runtime::Ref<Player> Player::create(int32_t value, std::string_view nameValue) {
 	return runtime::makeRef<Player>(value, nameValue);
 }
 
-void Player::onDie(runtime::Ptr<Creature> lastAttacker) {
+void Player::onDie(Creature& lastAttacker) {
 	AION_UNPORTED();
 }
 
@@ -39,15 +39,15 @@ void Player::send(const std::vector<const templates::item::ItemTemplate*>& items
 	AION_UNPORTED();
 }
 
+void Player::register_(const std::any& listener) {
+	AION_UNPORTED();
+}
+
 void Player::register_() {
 	AION_UNPORTED();
 }
 
-void Player::delete_(std::span<const int32_t> ids) {
-	AION_UNPORTED();
-}
-
-std::unordered_map<int32_t, runtime::Ref<Player>> Player::getFriends() const {
+void Player::delete_(std::initializer_list<int32_t> ids) {
 	AION_UNPORTED();
 }
 
@@ -59,7 +59,7 @@ runtime::Ptr<Player> Player::findFriend(std::string_view value) {
 	AION_UNPORTED();
 }
 
-bool Player::removeFriends(const std::function<bool(runtime::Ptr<Player>)>& filter) {
+bool Player::removeFriends(const std::function<bool(Player&)>& filter) {
 	AION_UNPORTED();
 }
 

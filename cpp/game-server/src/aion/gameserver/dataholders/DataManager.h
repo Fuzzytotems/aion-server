@@ -1,25 +1,145 @@
 #pragma once
 
+#include "aion/gameserver/runtime/fields/Field.h"
+#include "aion/gameserver/runtime/lifetime/RefCounted.h"
+#include "aion/gameserver/runtime/sched/Future.h"
+#include "aion/gameserver/dataholders/fwd.h"
+#include "aion/gameserver/dataholders/loadingutils/HolderRef.h"
+#include "aion/gameserver/model/templates/mail/fwd.h"
+
 namespace aion::gameserver::dataholders {
 
 /**
- * Holds the loaded static data (the holders of data/static_data). Spine step S0a stub: only the entry point exists, so the server links and
- * main.cpp reaches AION_UNPORTED here. S0b replaces it with the holder accessors (docs/design/static-data.md §3.3: HolderRef members, init()).
+ * This class is centralized storage of all static data (holders of data/static_data). It is loaded by {@link #init()} when the singleton is
+ * created: every holder is bound, post-processed while unpublished and then published once.
  * <p>
- * Java: com.aionemu.gameserver.dataholders.DataManager
+ * Hub header (docs/design/hub-headers.md, docs/design/static-data.md §3.3 and amendments §5, §6). Java's `public static X X_DATA` fields are
+ * published holder references: call sites read `DataManager::ITEM_DATA->getItemTemplate(id)` (lock-free; NullPointerException before
+ * publication). Holders are immortal and const, except the explicitly mutable, internally synchronized families SpawnsData, WalkerData and
+ * EventData (MutableHolderRef). Holder types are only forward-declared. //reload is deferred (D3): the in-place reload setters stay unported.
+ * XML validation against the XSDs does not exist in C++ (static-data.md §3.4), so xmlValidationTask stays null.
  *
- * @author Luno, orz, Wakizashi, Neon
+ * @author Luno , orz, Wakizashi, Neon
  */
-class DataManager final {
+class DataManager final : public runtime::Immortal {
 public:
-	/** Java: getInstance() - the first call loads all static data (the private constructor). Not ported yet. */
-	static DataManager& getInstance();
-
-	DataManager(const DataManager&) = delete;
-	DataManager& operator=(const DataManager&) = delete;
+	static inline xml::HolderRef<AbsoluteStatsData> ABSOLUTE_STATS_DATA; // lint: L2,L4 published holder (static-data.md §3.3)
+	static inline xml::HolderRef<AIData> AI_DATA; // lint: L2,L4 published holder (static-data.md §3.3)
+	static inline xml::HolderRef<UpgradeArcadeData> UPGRADE_ARCADE_DATA; // lint: L2,L4 published holder (static-data.md §3.3)
+	static inline xml::HolderRef<AssembledNpcsData> ASSEMBLED_NPC_DATA; // lint: L2,L4 published holder (static-data.md §3.3)
+	static inline xml::HolderRef<AssemblyItemsData> ASSEMBLY_ITEM_DATA; // lint: L2,L4 published holder (static-data.md §3.3)
+	static inline xml::HolderRef<AtreianPassportData> ATREIAN_PASSPORT_DATA; // lint: L2,L4 published holder (static-data.md §3.3)
+	static inline xml::HolderRef<AutoGroupData> AUTO_GROUP; // lint: L2,L4 published holder (static-data.md §3.3)
+	static inline xml::HolderRef<BaseData> BASE_DATA; // lint: L2,L4 published holder (static-data.md §3.3)
+	static inline xml::HolderRef<BindPointData> BIND_POINT_DATA; // lint: L2,L4 published holder (static-data.md §3.3)
+	static inline xml::HolderRef<ChallengeData> CHALLENGE_DATA; // lint: L2,L4 published holder (static-data.md §3.3)
+	static inline xml::HolderRef<ChestData> CHEST_DATA; // lint: L2,L4 published holder (static-data.md §3.3)
+	static inline xml::HolderRef<CosmeticItemsData> COSMETIC_ITEMS_DATA; // lint: L2,L4 published holder (static-data.md §3.3)
+	static inline xml::HolderRef<CubeExpandData> CUBEEXPANDER_DATA; // lint: L2,L4 published holder (static-data.md §3.3)
+	static inline xml::HolderRef<CuringObjectsData> CURING_OBJECTS_DATA; // lint: L2,L4 published holder (static-data.md §3.3)
+	static inline xml::HolderRef<CustomDrop> CUSTOM_NPC_DROP; // lint: L2,L4 published holder (static-data.md §3.3)
+	static inline xml::HolderRef<DecomposableItemsData> DECOMPOSABLE_ITEMS_DATA; // lint: L2,L4 published holder (static-data.md §3.3)
+	static inline xml::HolderRef<EnchantData> ENCHANT_DATA; // lint: L2,L4 published holder (static-data.md §3.3)
+	static inline xml::MutableHolderRef<EventData> EVENT_DATA; // lint: L2,L4 published holder (static-data.md §3.3)
+	static inline xml::HolderRef<FlyPathData> FLY_PATH; // lint: L2,L4 published holder (static-data.md §3.3)
+	static inline xml::HolderRef<FlyRingData> FLY_RING_DATA; // lint: L2,L4 published holder (static-data.md §3.3)
+	static inline xml::HolderRef<GuideHtmlData> GUIDE_HTML_DATA; // lint: L2,L4 published holder (static-data.md §3.3)
+	static inline xml::HolderRef<ItemData> ITEM_DATA; // lint: L2,L4 published holder (static-data.md §3.3)
+	static inline xml::HolderRef<ItemRandomBonusData> ITEM_RANDOM_BONUSES; // lint: L2,L4 published holder (static-data.md §3.3)
+	static inline xml::HolderRef<ItemSetData> ITEM_SET_DATA; // lint: L2,L4 published holder (static-data.md §3.3)
+	static inline xml::HolderRef<NpcData> NPC_DATA; // lint: L2,L4 published holder (static-data.md §3.3)
+	static inline xml::HolderRef<GatherableData> GATHERABLE_DATA; // lint: L2,L4 published holder (static-data.md §3.3)
+	static inline xml::HolderRef<GlobalDropData> GLOBAL_DROP_DATA; // lint: L2,L4 published holder (static-data.md §3.3)
+	static inline xml::HolderRef<GlobalNpcExclusionData> GLOBAL_EXCLUSION_DATA; // lint: L2,L4 published holder (static-data.md §3.3)
+	static inline xml::HolderRef<GoodsListData> GOODSLIST_DATA; // lint: L2,L4 published holder (static-data.md §3.3)
+	static inline xml::HolderRef<HotspotData> HOTSPOT_DATA; // lint: L2,L4 published holder (static-data.md §3.3)
+	static inline xml::HolderRef<HouseData> HOUSE_DATA; // lint: L2,L4 published holder (static-data.md §3.3)
+	static inline xml::HolderRef<HouseBuildingData> HOUSE_BUILDING_DATA; // lint: L2,L4 published holder (static-data.md §3.3)
+	static inline xml::HolderRef<HouseNpcsData> HOUSE_NPCS_DATA; // lint: L2,L4 published holder (static-data.md §3.3)
+	static inline xml::HolderRef<HousePartsData> HOUSE_PARTS_DATA; // lint: L2,L4 published holder (static-data.md §3.3)
+	static inline xml::HolderRef<HousingObjectData> HOUSING_OBJECT_DATA; // lint: L2,L4 published holder (static-data.md §3.3)
+	static inline xml::HolderRef<KillBountyData> KILL_BOUNTY_DATA; // lint: L2,L4 published holder (static-data.md §3.3)
+	static inline xml::HolderRef<InstanceBuffData> INSTANCE_BUFF_DATA; // lint: L2,L4 published holder (static-data.md §3.3)
+	static inline xml::HolderRef<InstanceCooltimeData> INSTANCE_COOLTIME_DATA; // lint: L2,L4 published holder (static-data.md §3.3)
+	static inline xml::HolderRef<InstanceExitData> INSTANCE_EXIT_DATA; // lint: L2,L4 published holder (static-data.md §3.3)
+	static inline xml::HolderRef<ItemGroupsData> ITEM_GROUPS_DATA; // lint: L2,L4 published holder (static-data.md §3.3)
+	static inline xml::HolderRef<ItemPurificationData> ITEM_PURIFICATION_DATA; // lint: L2,L4 published holder (static-data.md §3.3)
+	static inline xml::HolderRef<ItemRestrictionCleanupData> ITEM_CLEAN_UP; // lint: L2,L4 published holder (static-data.md §3.3)
+	static inline xml::HolderRef<model::templates::mail::Mails> SYSTEM_MAIL_TEMPLATES; // lint: L2,L4 published holder (static-data.md §3.3)
+	static inline xml::HolderRef<MapWeatherData> MAP_WEATHER_DATA; // lint: L2,L4 published holder (static-data.md §3.3)
+	static inline xml::HolderRef<MaterialData> MATERIAL_DATA; // lint: L2,L4 published holder (static-data.md §3.3)
+	static inline xml::HolderRef<MotionData> MOTION_DATA; // lint: L2,L4 published holder (static-data.md §3.3)
+	static inline xml::HolderRef<MultiReturnItemData> MULTIRETURN_DATA; // lint: L2,L4 published holder (static-data.md §3.3)
+	static inline xml::HolderRef<NpcFactionsData> NPC_FACTIONS_DATA; // lint: L2,L4 published holder (static-data.md §3.3)
+	static inline xml::HolderRef<NpcShoutData> NPC_SHOUT_DATA; // lint: L2,L4 published holder (static-data.md §3.3)
+	static inline xml::HolderRef<NpcSkillData> NPC_SKILL_DATA; // lint: L2,L4 published holder (static-data.md §3.3)
+	static inline xml::HolderRef<PanelSkillsData> PANEL_SKILL_DATA; // lint: L2,L4 published holder (static-data.md §3.3)
+	static inline xml::HolderRef<PetData> PET_DATA; // lint: L2,L4 published holder (static-data.md §3.3)
+	static inline xml::HolderRef<PetBuffsData> PET_BUFFS_DATA; // lint: L2,L4 published holder (static-data.md §3.3)
+	static inline xml::HolderRef<PetDopingData> PET_DOPING_DATA; // lint: L2,L4 published holder (static-data.md §3.3)
+	static inline xml::HolderRef<PetFeedData> PET_FEED_DATA; // lint: L2,L4 published holder (static-data.md §3.3)
+	static inline xml::HolderRef<PetSkillData> PET_SKILL_DATA; // lint: L2,L4 published holder (static-data.md §3.3)
+	static inline xml::HolderRef<PlayerExperienceTable> PLAYER_EXPERIENCE_TABLE; // lint: L2,L4 published holder (static-data.md §3.3)
+	static inline xml::HolderRef<PlayerInitialData> PLAYER_INITIAL_DATA; // lint: L2,L4 published holder (static-data.md §3.3)
+	static inline xml::HolderRef<Portal2Data> PORTAL2_DATA; // lint: L2,L4 published holder (static-data.md §3.3)
+	static inline xml::HolderRef<PortalLocData> PORTAL_LOC_DATA; // lint: L2,L4 published holder (static-data.md §3.3)
+	static inline xml::HolderRef<QuestsData> QUEST_DATA; // lint: L2,L4 published holder (static-data.md §3.3)
+	static inline xml::HolderRef<RecipeData> RECIPE_DATA; // lint: L2,L4 published holder (static-data.md §3.3)
+	static inline xml::HolderRef<RideData> RIDE_DATA; // lint: L2,L4 published holder (static-data.md §3.3)
+	static inline xml::HolderRef<RiftData> RIFT_DATA; // lint: L2,L4 published holder (static-data.md §3.3)
+	static inline xml::HolderRef<RoadData> ROAD_DATA; // lint: L2,L4 published holder (static-data.md §3.3)
+	static inline xml::HolderRef<ConquerorAndProtectorData> CONQUEROR_AND_PROTECTOR_DATA; // lint: L2,L4 published holder (static-data.md §3.3)
+	static inline xml::HolderRef<ShieldData> SHIELD_DATA; // lint: L2,L4 published holder (static-data.md §3.3)
+	static inline xml::HolderRef<SiegeLocationData> SIEGE_LOCATION_DATA; // lint: L2,L4 published holder (static-data.md §3.3)
+	static inline xml::HolderRef<SkillChargeData> SKILL_CHARGE_DATA; // lint: L2,L4 published holder (static-data.md §3.3)
+	static inline xml::HolderRef<SkillData> SKILL_DATA; // lint: L2,L4 published holder (static-data.md §3.3)
+	static inline xml::HolderRef<SkillTreeData> SKILL_TREE_DATA; // lint: L2,L4 published holder (static-data.md §3.3)
+	static inline xml::MutableHolderRef<SpawnsData> SPAWNS_DATA; // lint: L2,L4 published holder (static-data.md §3.3)
+	static inline xml::HolderRef<StaticDoorData> STATICDOOR_DATA; // lint: L2,L4 published holder (static-data.md §3.3)
+	static inline xml::HolderRef<TeleLocationData> TELELOCATION_DATA; // lint: L2,L4 published holder (static-data.md §3.3)
+	static inline xml::HolderRef<TeleporterData> TELEPORTER_DATA; // lint: L2,L4 published holder (static-data.md §3.3)
+	static inline xml::HolderRef<TemperingData> TEMPERING_DATA; // lint: L2,L4 published holder (static-data.md §3.3)
+	static inline xml::HolderRef<TitleData> TITLE_DATA; // lint: L2,L4 published holder (static-data.md §3.3)
+	static inline xml::HolderRef<TownSpawnsData> TOWN_SPAWNS_DATA; // lint: L2,L4 published holder (static-data.md §3.3)
+	static inline xml::HolderRef<TradeListData> TRADE_LIST_DATA; // lint: L2,L4 published holder (static-data.md §3.3)
+	static inline xml::HolderRef<TribeRelationsData> TRIBE_RELATIONS_DATA; // lint: L2,L4 published holder (static-data.md §3.3)
+	static inline xml::HolderRef<VortexData> VORTEX_DATA; // lint: L2,L4 published holder (static-data.md §3.3)
+	static inline xml::MutableHolderRef<WalkerData> WALKER_DATA; // lint: L2,L4 published holder (static-data.md §3.3)
+	static inline xml::HolderRef<WalkerVersionsData> WALKER_VERSIONS_DATA; // lint: L2,L4 published holder (static-data.md §3.3)
+	static inline xml::HolderRef<WarehouseExpandData> WAREHOUSEEXPANDER_DATA; // lint: L2,L4 published holder (static-data.md §3.3)
+	static inline xml::HolderRef<WindstreamData> WINDSTREAM_DATA; // lint: L2,L4 published holder (static-data.md §3.3)
+	static inline xml::HolderRef<WorldMapsData> WORLD_MAPS_DATA; // lint: L2,L4 published holder (static-data.md §3.3)
+	static inline xml::HolderRef<WorldRaidData> WORLD_RAID_DATA; // lint: L2,L4 published holder (static-data.md §3.3)
+	static inline xml::HolderRef<XMLQuests> XML_QUESTS; // lint: L2,L4 published holder (static-data.md §3.3)
+	static inline xml::HolderRef<ZoneData> ZONE_DATA; // lint: L2,L4 published holder (static-data.md §3.3)
+	static inline xml::HolderRef<LegionDominionData> LEGION_DOMINION_DATA; // lint: L2,L4 published holder (static-data.md §3.3)
+	static inline xml::HolderRef<SkillAliasLocationData> SKILL_ALIAS_LOCATION_DATA; // lint: L2,L4 published holder (static-data.md §3.3)
+	static inline xml::HolderRef<SignetDataTemplates> SIGNET_DATA_TEMPLATES; // lint: L2,L4 published holder (static-data.md §3.3)
 
 private:
-	DataManager() = default;
+	static inline runtime::Field<runtime::FutureRef> xmlValidationTask{};
+
+public:
+	/**
+	 * Java: getInstance() - the first call loads all static data (the private constructor runs init()). Not ported yet: this function keeps the
+	 * AION_UNPORTED site that main.cpp and gs.smoke.startup expect; the port is `static DataManager instance; return instance;`.
+	 */
+	static DataManager& getInstance();
+
+private:
+	/** Constructor: runs init(). */
+	DataManager();
+
+	/**
+	 * C++: the Java constructor body (static-data.md §3.3): loads the static data, patches IDREFs and keeps the retired objects of the load forever,
+	 * post-processes the unpublished holders in Java order (items cleanup, global drop rules, buy list and motion validation, decompose random item
+	 * ids), publishes every holder and logs "##### [Static Data loaded in X seconds] #####".
+	 */
+	void init();
+
+public:
+	/** Java: waits for the asynchronous XSD validation and rethrows its failure. C++ has no XSD validation (xmlValidationTask is always null). */
+	static void waitForValidationToFinishAndShutdownOnFail();
 };
 
 } // namespace aion::gameserver::dataholders

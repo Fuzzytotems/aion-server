@@ -19,9 +19,10 @@ Modes
         The forward headers are committed under cpp/game-server/src (S0a, decision 5): `--fwd --out cpp/game-server/src` regenerates them,
         `--fwd --check --out cpp/game-server/src` is the drift check (CTest tools.gen, test_skeleton_tree). Rerun after adding a Java class,
         after xmlgen regenerates (enum bases and struct keys come from the generated tree) and after a hand-written header changes the key
-        of a declared class. Java generics that the design
-        maps to non-template classes (NON_TEMPLATE_CLASSES, or a non-template C++ declaration) are declared, drafted and referenced
-        without template parameters; their type variables are spelled as the first bound. Nested Java types cannot be forward declared outside their outer class; they stay nested (Outer::Inner, as CONVENTIONS
+        of a declared class. Java generics that C++ erases (docs/design/hub-headers.md §8.1: every type parameter has a project bound,
+        NON_TEMPLATE_CLASSES, ERASURE_BOUNDS, or a non-template C++ declaration; TEMPLATE_GENERICS stay templates) are declared, drafted
+        and referenced without template parameters; their type variables are spelled as the first bound (ERASURE_BOUNDS for unbounded ones),
+        and type arguments after them in fieldmap member types are dropped. Nested Java types cannot be forward declared outside their outer class; they stay nested (Outer::Inner, as CONVENTIONS
         keeps SecurityConfig::MultiClientingRestrictionMode) and are listed in a comment, as are annotation types.
 
     python skeleton.py --draft --out ROOT [--fieldmap FILE | --no-fieldmap] [--with-dependencies] [--classes FILE] [SELECTOR ...] [--check]
@@ -48,7 +49,9 @@ Modes
           by xmlgen, instance loggers, unresolved or raw generic names, Ref<X> of a class without a RefCounted/OwnedPart base, Field<> of or
           by-value non-enum C++ classes, `static constexpr` without a literal Java initializer, function declarations, Java-syntax
           initializers. Default initializers: `{}`; `{*this}` for PartSlot/PartMap/PartList/SelfOrRef; Semaphore permits from the Java
-          `new Semaphore(n)`; none for references (OwnerRef), which constructor stubs bind. A member named like a method of the class (records)
+          `new Semaphore(n)`; none for references (OwnerRef), which constructor stubs bind. Monitor, StampedLock, Semaphore, collection
+          shim and Atomic* members start with their static lock class `AION_LOCK_CLASS(JavaClass::field)` (`#stripe` for
+          ConcurrentHashMap/ConcurrentKeySet; RR-16, hub-headers.md §4). A member named like a method of the class (records)
           or of the runtime base (release, monitor) gets a trailing underscore. Generated callback structs are pasted as comments;
         - without fieldmap data, `static final` primitive/String fields with literal (or literal-only arithmetic) initializers become
           `static constexpr` / `static inline const std::string`; `LoggerFactory.getLogger(X.class)` becomes `static const auto log` in the
@@ -66,22 +69,43 @@ Modes
         - includes: <std> headers by use, runtime headers first, fwd.h of
           the packages used, full headers where a complete type is needed (bases, nested types of other files, by-value members, template
           base arguments, static members; by-value returns and member types in the .cpp).
-        Type mapping: primitives per CONVENTIONS; String -> std::string_view parameter / std::string otherwise; boxed -> std::optional<T>
-        (plain T in containers); static data templates (fieldmap K1, or JAXB-annotated) -> `const X*`; packets (K2) -> `X&` parameters and
+        Type mapping (docs/design/hub-headers.md §5-§8 is the reference): primitives per CONVENTIONS; String -> std::string_view parameter /
+        std::string otherwise; boxed -> std::optional<T> (plain T in containers); static data templates (fieldmap K1, or JAXB-annotated) and
+        interned immortals (fieldmap base Immortal without getInstance) -> `const X*`; singletons -> `X&`; packets (K2) -> `X&` parameters and
         by-value returns; confined K5 -> `X&` parameters, by-value returns (`std::unique_ptr<X>` for abstract ones); AionConnection ->
-        `AionConnection*` parameter / `std::shared_ptr` otherwise; enums by value; type variables and every other class `runtime::Ptr<X>`
-        (`runtime::Ref<X>` in containers); List/Collection/Queue/Deque -> std::vector, Set -> std::unordered_set, TreeSet -> std::set,
-        Map -> std::unordered_map, TreeMap -> std::map (container parameters by const reference); arrays -> std::span<const T> parameters /
-        std::vector<T>; byte[] -> std::span<const uint8_t> / std::vector<uint8_t>; Optional<X> -> Ptr<X> or std::optional<T> returns;
-        Future -> runtime::FutureRef; Predicate/Consumer/Function/Supplier (+Bi) parameters -> const std::function<...>&; Duration ->
-        std::chrono::milliseconds; File -> std::filesystem::path; ByteBuffer/Connection/PreparedStatement/ResultSet -> commons references;
-        Timestamp -> commons::database::Timestamp.
+        `AionConnection*` parameter / `std::shared_ptr` otherwise; enums by value; every other class (and type variables of templates):
+        parameters `X&`, or `runtime::Ptr<X>` when nullable (Project.nullable_parameter: a direct null argument - a literal, a cast or a
+        conditional branch, not a null nested in an inner call - at a call site of that name and arity, a null comparison in a body of the
+        method family, a one-statement setter storing it; never for an owner stored as OwnerRef/Final<O*>),
+        `std::unique_ptr<X>` when the constructor or setter stores it into a part (Project.part_parameter); returns `runtime::Ptr<X>`, `X&` for
+        getters of parts and owners (and cast-only overrides of them), a reference to the shim for getters of collection fields;
+        `runtime::Ref<X>` in containers of members; List/Collection/Queue/Deque -> std::vector, Set -> std::unordered_set, TreeSet ->
+        std::set, Map -> std::unordered_map, TreeMap -> std::map (container parameters by const reference, object elements of parameters and
+        returns `runtime::Ptr<X>`); arrays -> std::span<const T> parameters / std::vector<T>; varargs -> std::initializer_list<T>, declared
+        with `= {}` unless an overload with one parameter less exists (`Object...` -> std::initializer_list<std::any>, packets ->
+        std::initializer_list<std::reference_wrapper<P>>); Object -> const std::any& / std::any;
+        byte[] -> std::span<const uint8_t> / std::vector<uint8_t>; Optional<X> -> Ptr<X> or std::optional<T> returns; Future ->
+        runtime::FutureRef; Predicate/Consumer/Function/Supplier (+Bi) parameters -> const std::function<...>& with `X&` object arguments;
+        `? extends X` / `? super X` -> X; Duration -> std::chrono::milliseconds; File -> std::filesystem::path;
+        ByteBuffer/Connection/PreparedStatement/ResultSet -> commons references; Timestamp -> commons::database::Timestamp.
+        Hub header rules applied to declarations: a Java override whose body is only `return (X) super.m(...)` does not make the base method
+        virtual and becomes a non-virtual narrowing redeclaration with a ported cast (or nothing when the C++ types agree); overrides of methods
+        with a type-variable parameter of an erased generic take the erased parameter type; constructors of VisibleObject and its subclasses
+        take `CreateKey key` first and get no `create` (VisibleObject::create<T>; a VisibleObject draft itself declares CreateKey, create<T> and
+        postConstruct); `toString()` is non-const on RefCounted/OwnedPart/Immortal classes; interfaces held by `Ref<I>`
+        (Project.retainable_interfaces) declare pure virtual retain()/release(), forwarded by their first implementor with a runtime base.
         --with-dependencies also drafts, transitively, every Java file whose full header a draft needs, except files already ported under
         --cpp-src or --generated-root and generated replacements, so the set compiles on its own (an xmlgen behaviour class that is not
         scaffolded yet is drafted with a TODO(xmlgen) note).
 
     python skeleton.py --list SELECTOR ...
         Prints the Java FQNs a selector expands to (one per line).
+
+    python skeleton.py --guards [--freeze]
+        Lists every `#if`/`#elif __has_include(...)` guard in cpp/game-server/{src,tests,handlers} (outside runtime/) with the headers it
+        still waits for (docs/design/hub-headers.md §3.3). Exit 1 on an open guard (every header exists) unless it is an S0b transition guard
+        naming only hub and spine headers (HUBS, SPINE_HEADERS); with --freeze (or SPINE_FROZEN) every guard is an error. MSBuild tracks only
+        the headers a compile read, so a guarded .cpp is not rebuilt when its header appears: remove the guard in the same change.
 
 Selectors: a Java FQN (a nested FQN selects its file), a unique simple class name, `pkg.*` (top-level types of one package), `pkg.**`
 (recursive), or a group: @hubs (the S0b hub classes that are not ported yet), @services (services.** singletons and static-only classes),
@@ -530,10 +554,30 @@ _PACKET_BASE_RE = re.compile(r'(?:Aion|Ls|Cs|Base)(?:Server|Client)Packet\Z')
 # Java generic classes that the design maps to non-template C++ classes: forward declarations and drafts drop the type parameters,
 # references drop the type arguments and the type variables are spelled as their first bound. An existing non-template C++ declaration
 # (definition or forward declaration under --cpp-src) has the same effect.
+#
+# Erasure rule (docs/design/hub-headers.md "Generics"): a project generic class whose type parameters ALL have a bound naming a project
+# type (`VisibleObjectController<T extends VisibleObject>`, `GeneralTeam<M extends AionObject, TM extends TeamMember<M>>`) is erased like
+# javac erases it: one non-template C++ class, so wildcard and raw uses (`VisibleObjectController<? extends VisibleObject>`, `Siege<?>`)
+# and the subclasses that bind the parameter (`NpcController extends CreatureController<Npc>`) share one C++ base. Subclasses narrow the
+# accessors that return a type variable by redeclaring them. Unbounded generics (`SplitList<Type>`) and TEMPLATE_GENERICS stay templates.
 NON_TEMPLATE_CLASSES = {
     JAVA_PREFIX + '.ai.AbstractAI': 'handlers-and-porting-plan.md amendments: AbstractAI derives runtime::OwnedPart, Creature holds '
                                     'PartSlot<AbstractAI>, AIFactory returns std::unique_ptr<ai::AbstractAI> (HandlerRegistry.h)',
 }
+# erased generics with an unbounded type variable: the C++ spelling of each variable (a Java FQN)
+ERASURE_BOUNDS = {
+    JAVA_PREFIX + '.model.team.TeamMember': {'M': JAVA_PREFIX + '.model.gameobjects.AionObject'},   # GeneralTeam<M extends AionObject, TM extends TeamMember<M>>
+}
+# bounded generics that stay C++ templates
+TEMPLATE_GENERICS = {
+    JAVA_PREFIX + '.ai.AITemplate': 'handlers-and-porting-plan.md amendments: the typed AI base AITemplate<T> declares using OwnerType = T',
+    JAVA_PREFIX + '.ai.AIEngine.DummyAI': 'derives the template AITemplate<T>',
+}
+ERASURE_NOTE = 'erasure rule: every type parameter has a project bound'
+# Java interfaces held by Ref<I> besides the ones fieldmap.json names (HandlerRegistry.h factories, erased GeneralTeam members)
+RETAINABLE_INTERFACES = frozenset((
+    JAVA_PREFIX + '.instance.handlers.InstanceHandler', JAVA_PREFIX + '.world.zone.handler.ZoneHandler', JAVA_PREFIX + '.model.team.TeamMember',
+))
 
 # Java files whose C++ side other generators write under --cpp-src: '<File>.gen.h' next to the header. A member block is #included by the
 # hand-written class (sysmsg.py); any other generated header replaces the Java class completely (opcodes.py: namespace ServerPacketsOpcodes).
@@ -584,6 +628,85 @@ HUBS = [
 ]
 
 
+# C++-only (or out-of-assignment) spine headers the hubs and HandlerRegistry.h depend on: frozen with the spine and compiled alone by
+# aion_gs_header_check like the hubs (game-server/CMakeLists.txt gs_spine_headers, kept equal by test_skeleton_tree).
+SPINE_HEADERS = [
+    'aion/gameserver/model/Expirable.h', 'aion/gameserver/model/GameEngine.h', 'aion/gameserver/model/gameobjects/player/LogoutBreakers.h',
+    'aion/gameserver/model/stats/calc/StatOwner.h', 'aion/gameserver/model/team/GeneralTeam.h', 'aion/gameserver/model/team/TeamMember.h',
+    'aion/gameserver/model/templates/L10n.h', 'aion/gameserver/network/aion/SerializedBody.h', 'aion/gameserver/network/aion/StateSet.h',
+    'aion/gameserver/world/zone/handler/GeneralZoneHandler.h',
+]
+
+# `__has_include` guards (docs/design/hub-headers.md §3.3). MSBuild records only the headers a compile read, so a guarded .cpp is not
+# rebuilt when a header its guard waits for appears: a guard must be removed in the change that adds its last header (an open guard is an
+# error of --guards), and no guard may be left at the spine freeze (--guards --freeze). The runtime kernel's feature checks are exempt.
+GUARD_EXEMPT_PREFIXES = ('aion/gameserver/runtime/',)
+_GUARD_DIRECTIVE_RE = re.compile(r'^[ \t]*#[ \t]*(?:if|elif)\b((?:[^\n]*\\\r?\n)*[^\n]*)', re.M)
+_HAS_INCLUDE_RE = re.compile(r'__has_include\s*\(\s*[<"]([^">]+)[">]\s*\)')
+
+
+@dataclass
+class Guard:
+    path: str                        # relative to its scan root, '/' separators
+    line: int
+    headers: list                    # every header the directive names, in order
+    missing: list                    # the ones no include root has
+
+
+def spine_guards(scan_roots, include_roots):
+    """Every `#if`/`#elif` directive naming `__has_include` in the .h/.cpp files under scan_roots (outside GUARD_EXEMPT_PREFIXES), with
+    the headers it names that none of include_roots has."""
+    out = []
+    includes = [Path(r) for r in include_roots]
+    for root in scan_roots:
+        root = Path(root)
+        if not root.is_dir():
+            continue
+        for path in sorted(root.rglob('*')):
+            if path.suffix not in ('.h', '.cpp') or not path.is_file():
+                continue
+            rel = path.relative_to(root).as_posix()
+            if rel.startswith(GUARD_EXEMPT_PREFIXES):
+                continue
+            text = path.read_text(encoding='utf-8-sig', errors='replace')
+            if '__has_include' not in text:
+                continue
+            for m in _GUARD_DIRECTIVE_RE.finditer(text):
+                headers = _HAS_INCLUDE_RE.findall(m.group(1))
+                if not headers:
+                    continue
+                missing = [h for h in headers if not any((r / h).is_file() for r in includes)]
+                out.append(Guard(f'{root.name}/{rel}', text.count('\n', 0, m.start()) + 1, headers, missing))
+    return out
+
+
+# Set by the integrator at the spine freeze (handlers-and-porting-plan.md §2.5): from then on no `__has_include` guard may remain.
+SPINE_FROZEN = False
+
+
+def spine_header_set():
+    """Include paths of the hub headers (HUBS as top-level files, the kernel ports ThreadPoolManager and IDFactory) and SPINE_HEADERS."""
+    out = {'aion/gameserver/' + rel.replace('.', '/') + '.h' for rel in HUBS}
+    out |= {'aion/gameserver/utils/ThreadPoolManager.h', 'aion/gameserver/utils/idfactory/IDFactory.h'}
+    return out | set(SPINE_HEADERS)
+
+
+def guard_problems(guards, frozen=SPINE_FROZEN):
+    """hub-headers.md §3.3 rules for `__has_include` guards: an open guard (every header exists) is an error, except an `S0b transition`
+    guard that names only hub and spine headers before the freeze (the integrator removes those at the freeze); at the freeze every guard
+    is an error."""
+    spine = spine_header_set()
+    problems = []
+    for g in guards:
+        where = f'{g.path}:{g.line}'
+        if frozen:
+            problems.append(f'{where}: `__has_include` guard left at the spine freeze (waits for: {", ".join(g.missing) or "nothing"})')
+        elif not g.missing and not all(h in spine for h in g.headers):
+            problems.append(f'{where}: open guard (every header it names exists): remove it in the change that adds the header, MSBuild '
+                            f'does not rebuild the file when a header appears ({", ".join(g.headers)})')
+    return problems
+
+
 def _norm(p):
     return str(p).replace('\\', '/')
 
@@ -626,6 +749,11 @@ class Project:
             self.unit_kind[id(cu)] = 'core' if cu.root == self.java_root else 'handlers'
         self.core_units = [cu for cu in self.index.units if self.unit_kind[id(cu)] == 'core']
         self._ns_cache = {}
+        self._erasure_cache = {}
+        self._null_literals = None
+        self._nullable_cache = {}
+        self._part_param_cache = {}
+        self._retainable = None
         self.known_paths = set()
         for cu in self.index.units:
             ns = self.unit_ns(cu)
@@ -693,16 +821,28 @@ class Project:
 
     # -- generics
     def erased_generic(self, td):
-        """True for a Java generic class ported as a non-template C++ class (NON_TEMPLATE_CLASSES or an existing C++ declaration)."""
+        """True for a Java generic class ported as a non-template C++ class: NON_TEMPLATE_CLASSES, ERASURE_BOUNDS, an existing non-template
+        C++ declaration, or the erasure rule (every type parameter has a project bound; TEMPLATE_GENERICS and existing C++ templates
+        excepted)."""
         if not td.type_params:
             return False
-        if td.fqn in NON_TEMPLATE_CLASSES:
+        if td.fqn in NON_TEMPLATE_CLASSES or td.fqn in ERASURE_BOUNDS:
             return True
+        if td.fqn in TEMPLATE_GENERICS:
+            return False
         if td.outer is None:
             d = self.cpp.declaration(self.unit_ns(td.cu), cpp_ident(td.name))
-            if d is not None and d.key in ('class', 'struct') and not d.template:
-                return True
-        return False
+            if d is not None and d.key in ('class', 'struct'):
+                return not d.template
+        cached = self._erasure_cache.get(id(td))
+        if cached is None:
+            cached = all(p.bounds and self.index.resolve_kind(p.bounds[0].name, td)[0] == 'project' for p in td.type_params)
+            self._erasure_cache[id(td)] = cached
+        return cached
+
+    def erasure_note(self, td):
+        return NON_TEMPLATE_CLASSES.get(td.fqn) or (ERASURE_NOTE if td.fqn in ERASURE_BOUNDS or td.fqn not in TEMPLATE_GENERICS and not (
+            td.outer is None and self.cpp.declaration(self.unit_ns(td.cu), cpp_ident(td.name)) is not None) else 'existing C++ declaration')
 
     def cpp_type_params(self, td):
         """The type parameters of the C++ class (none for erased generics)."""
@@ -859,7 +999,9 @@ class Project:
 
         def add(td):
             key = id(td)
-            declared[key] = {(m.name, len(m.params)) for m in td.methods if m.kind == 'method' and 'static' not in m.modifiers}
+            # cast-only overrides (hub-headers.md §8.2) are narrowing redeclarations in C++: they do not make the base method virtual
+            declared[key] = {(m.name, len(m.params)) for m in td.methods if m.kind == 'method' and 'static' not in m.modifiers
+                             and not self.is_cast_override(m)}
             for sup in self.index.supertypes(td):
                 direct.setdefault(id(sup), []).append(td)
 
@@ -925,6 +1067,308 @@ class Project:
                     if all(a[1] == b[1] and (a[0] == '*' or b[0] == '*' or a[0] == b[0]) for a, b in zip(mine, theirs)):
                         return sm
         return None
+
+    # -- cast-only overrides and parameter nullability (docs/design/hub-headers.md §8.2, §5.1)
+    @staticmethod
+    def is_cast_override(m):
+        """True for a Java override whose body is only `return (X) super.m(params...);` (a covariant narrowing: the C++ subclass redeclares
+        the accessor non-virtually, and it does not make the base method virtual)."""
+        if m.kind != 'method' or m.body is None or 'static' in m.modifiers:
+            return False
+        t = m.body.texts()[1:-1]
+        if len(t) < 9 or t[0] != 'return' or t[1] != '(' or t[-1] != ';':
+            return False
+        try:
+            close = t.index(')', 2)
+        except ValueError:
+            return False
+        rest = t[close + 1:]
+        expected = ['super', '.', m.name, '(']
+        for i, p in enumerate(m.params):
+            if i:
+                expected.append(',')
+            expected.append(p.name)
+        expected += [')', ';']
+        return close > 2 and rest == expected
+
+    @staticmethod
+    def _null_argument(texts):
+        """hub-headers.md §5.1 rule 1: the argument itself is a null literal, a cast of one (`(X) null`), a parenthesized one, or a
+        conditional expression with such a branch (nested conditionals included). A null inside a nested call, instantiation or lambda
+        of the argument (`add(new Entry(a ? b : null))`) is an argument of that inner expression, not of this call."""
+        t = list(texts)
+        while len(t) >= 2 and t[0] == '(' and Project._closing_paren(t, 0) == len(t) - 1:
+            t = t[1:-1]
+        if t == ['null']:
+            return True
+        if len(t) >= 4 and t[0] == '(':
+            close = Project._closing_paren(t, 0)
+            if close is not None and t[close + 1:] == ['null']:
+                return True
+        depth, question = 0, None
+        for i, tok in enumerate(t):
+            if tok in ('(', '[', '{'):
+                depth += 1
+            elif tok in (')', ']', '}'):
+                depth -= 1
+            elif depth == 0 and tok == '->':
+                return False                    # a lambda: its null result is not an argument
+            elif depth == 0 and tok == '?' and question is None and i > 0 and t[i - 1] != '<':
+                question = i
+        if question is None:
+            return False
+        depth, nested = 0, 0
+        for i in range(question + 1, len(t)):
+            tok = t[i]
+            if tok in ('(', '[', '{'):
+                depth += 1
+            elif tok in (')', ']', '}'):
+                depth -= 1
+            elif depth == 0 and tok == '?':
+                nested += 1
+            elif depth == 0 and tok == ':':
+                if nested:
+                    nested -= 1
+                    continue
+                return Project._null_argument(t[question + 1:i]) or Project._null_argument(t[i + 1:])
+        return False
+
+    @staticmethod
+    def _closing_paren(t, start):
+        depth = 0
+        for i in range(start, len(t)):
+            if t[i] == '(':
+                depth += 1
+            elif t[i] == ')':
+                depth -= 1
+                if depth == 0:
+                    return i
+        return None
+
+    def _build_null_literals(self):
+        """{(callee simple name, arity, argument index)} of every call or instantiation passing a null literal (constructors by class name;
+        super(...)/this(...) by the called constructor's class)."""
+        literal = set()
+        for cu in self.index.units:
+            for top in cu.types:
+                if top.body is None:
+                    continue
+                for call in top.body.method_calls():
+                    if call.name in ('super', 'this'):
+                        continue
+                    for i, a in enumerate(call.args):
+                        if self._null_argument(a.texts()):
+                            literal.add((call.name, len(call.args), i))
+                for ne in top.body.new_expressions():
+                    if ne.args is None or ne.array:
+                        continue
+                    simple = ne.type.name.rsplit('.', 1)[-1]
+                    for i, a in enumerate(ne.args):
+                        if self._null_argument(a.texts()):
+                            literal.add((simple, len(ne.args), i))
+            for td in cu.all_types():
+                for m in td.methods:
+                    if m.kind != 'constructor' or m.body is None:
+                        continue
+                    for call in m.body.method_calls():
+                        if call.name not in ('super', 'this'):
+                            continue
+                        target = td if call.name == 'this' else self.superclass(td)
+                        if target is None:
+                            continue
+                        for i, a in enumerate(call.args):
+                            if self._null_argument(a.texts()):
+                                literal.add((target.name, len(call.args), i))
+        self._null_literals = literal
+
+    def _descendants(self, td):
+        if self._subtypes is None:
+            self._build_subtypes()
+        out, seen, todo = [], {id(td)}, list(self._subtypes.get(id(td), []))
+        while todo:
+            s = todo.pop()
+            if id(s) in seen:
+                continue
+            seen.add(id(s))
+            out.append(s)
+            todo.extend(self._subtypes.get(id(s), []))
+        return out
+
+    def method_family(self, td, m):
+        """Every method that must share m's C++ signature: the same name and arity in the topmost supertypes declaring it and in all their
+        subtypes (core, handlers, anonymous and local classes). Constructors: the constructors of td with the same arity."""
+        if m.kind == 'constructor':
+            return [c for c in td.methods if c.kind == 'constructor' and len(c.params) == len(m.params)]
+        sig = (m.name, len(m.params))
+
+        def declared(t):
+            return [x for x in t.methods if x.kind == 'method' and 'static' not in x.modifiers and (x.name, len(x.params)) == sig]
+
+        tops = [t for t in [td] + self.all_supertypes(td) if declared(t)] or [td]
+        family, seen = [], set()
+        for top in tops:
+            for t in [top] + self._descendants(top):
+                if id(t) in seen:
+                    continue
+                seen.add(id(t))
+                family += declared(t)
+        return family or [m]
+
+    def nullable_parameter(self, td, m, index):
+        """hub-headers.md §5.1: True if an object parameter must be a nullable Ptr<X>: a call site passes a null literal (by method name and
+        arity), a body of the method family compares the parameter with null, or a one-statement setter of the family stores it into a field
+        that is not an owner reference. False means X&."""
+        key = (id(td), id(m), index)
+        cached = self._nullable_cache.get(key)
+        if cached is not None:
+            return cached
+        if self._null_literals is None:
+            self._build_null_literals()
+        name = td.name if m.kind == 'constructor' else m.name
+        for fm in self.method_family(td, m):
+            # the owner of a part (OwnerRef, late-bound Final<O*>) is never null, whatever other methods of that name receive
+            lay = self.layout(fm.owner) if fm.owner is not None and fm.body is not None and index < len(fm.params) else None
+            if lay is None:
+                continue
+            for asg in fm.body.field_assignments():
+                member = lay.members.get(asg.name) if asg.op == '=' and asg.rhs is not None and asg.rhs.texts() == [fm.params[index].name] else None
+                if member is not None and re.search(r'\bOwnerRef<|\bFinal<[^<>]*\*>', member.cpp_type or member.declaration or ''):
+                    self._nullable_cache[key] = False
+                    return False
+        result = (name, len(m.params), index) in self._null_literals
+        if not result:
+            for fm in self.method_family(td, m):
+                if fm.body is None or index >= len(fm.params):
+                    continue
+                p = fm.params[index].name
+                t = fm.body.texts()
+                for i in range(len(t) - 2):
+                    a, op, b = t[i], t[i + 1], t[i + 2]
+                    if op in ('==', '!=') and ((a == p and b == 'null' and (i == 0 or t[i - 1] != '.')) or (a == 'null' and b == p)):
+                        result = True
+                        break
+                    if a in ('isNull', 'nonNull') and op == '(' and b == p:
+                        result = True
+                        break
+                if result:
+                    break
+                owner = fm.owner
+                lay = self.layout(owner) if owner is not None else None
+                setter = fm.kind == 'method' and len(fm.params) == 1 and fm.body.texts()[-2:] == [';', '}'] and fm.body.texts()[1:-1].count(';') == 1
+                for asg in (fm.body.field_assignments() if setter else []):
+                    if asg.op != '=' or asg.element or asg.rhs is None or asg.rhs.texts() != [p]:
+                        continue
+                    member = lay.members.get(asg.name) if lay is not None else None
+                    mtype = (member.cpp_type or member.declaration or '') if member is not None else ''
+                    if re.search(r'\bOwnerRef<|\bFinal<[^<>]*\*>', mtype):
+                        continue
+                    result = True
+                    break
+                if result:
+                    break
+        self._nullable_cache[key] = result
+        return result
+
+    def part_parameter(self, td, m, index):
+        """True if a constructor or setter parameter becomes a part of td (stored into a const std::unique_ptr / PartSlot member, directly or
+        through super(...)/this(...)): the parameter is std::unique_ptr<X> (hub-headers.md §10.2)."""
+        key = (id(td), id(m), index)
+        cached = self._part_param_cache.get(key)
+        if cached is not None:
+            return cached
+        self._part_param_cache[key] = False
+        result = False
+        if m.body is not None and index < len(m.params):
+            p = m.params[index].name
+            lay = self.layout(td)
+            for asg in m.body.field_assignments():
+                if asg.op == '=' and not asg.element and asg.rhs is not None and asg.rhs.texts() == [p] and lay is not None:
+                    member = lay.members.get(asg.name)
+                    if member is not None and re.search(r'\b(unique_ptr|PartSlot)<', member.cpp_type or member.declaration or ''):
+                        result = True
+                        break
+            if not result and m.kind == 'constructor':
+                for call in m.body.method_calls():
+                    if call.name not in ('super', 'this'):
+                        continue
+                    target = td if call.name == 'this' else self.superclass(td)
+                    if target is None:
+                        continue
+                    for j, a in enumerate(call.args):
+                        if a.texts() == [p] and any(c.kind == 'constructor' and len(c.params) == len(call.args) and self.part_parameter(target, c, j)
+                                                    for c in target.methods):
+                            result = True
+        self._part_param_cache[key] = result
+        return result
+
+    def retainable_interfaces(self):
+        """FQNs of Java interfaces held by Ref<I> (a fieldmap member type names `Ref<I>`, HandlerRegistry.h's Ref<InstanceHandler> and
+        Ref<ZoneHandler>, erased team members): they declare pure virtual retain()/release(), which implementors forward to their runtime base
+        (hub-headers.md §9.2)."""
+        if self._retainable is None:
+            names = set()
+            for lay in self.fieldmap.classes.values():
+                for ml in lay.members.values():
+                    names.update(re.findall(r'\bRef<(\w+)>', ml.cpp_type or ml.declaration or ''))
+            out = set(RETAINABLE_INTERFACES)
+            for fqn, td in self.index.types.items():
+                if td.kind == 'interface' and td.name in names and self.unit_kind[id(td.cu)] == 'core':
+                    out.add(fqn)
+            self._retainable = out
+        return self._retainable
+
+    def retainable_implemented(self, td):
+        """The retainable interfaces td implements itself that no superclass implements already (td forwards retain/release)."""
+        if td.kind == 'interface' or self.base_kind(td) not in ('RefCounted', 'OwnedPart'):
+            return []
+        mine = {t.fqn for t in self.all_supertypes(td) if t.kind == 'interface' and t.fqn in self.retainable_interfaces()}
+        sup = self.superclass(td)
+        if sup is not None and self.base_kind(sup) in ('RefCounted', 'OwnedPart'):
+            mine -= {t.fqn for t in self.all_supertypes(sup) if t.kind == 'interface'}
+        return sorted(mine)
+
+    def is_visible_object(self, td):
+        """True for VisibleObject and its subclasses (constructed by VisibleObject::create<T> with the CreateKey passkey, hub-headers.md §10.1)."""
+        return any(t.fqn == VISIBLE_OBJECT_FQN for t in [td] + self.all_supertypes(td))
+
+    def method_is_virtual(self, owner, m):
+        """The C++ virtual-ness drafts give m in its own class: abstract, declared by an interface, or overridden by a non-cast override."""
+        if 'static' in m.modifiers or 'private' in m.modifiers or m.kind != 'method':
+            return False
+        if 'abstract' in m.modifiers or owner.kind == 'interface':
+            return True
+        if self.overridden_method(owner, m, hand_written=False) is not None:
+            return self.method_is_virtual(self.overridden_method(owner, m, hand_written=False).owner,
+                                          self.overridden_method(owner, m, hand_written=False))
+        return self.overridden_in_subtypes(owner, m) and 'final' not in m.modifiers
+
+    def overridden_in_subtypes(self, td, m):
+        """True if a project subtype of td (core, handlers, anonymous, local and enum-constant classes) overrides m: a non-static, non-private
+        method with the same name, arity and compatible erased parameter types that is not a cast-only override (hub-headers.md §8.2). A
+        private same-named helper with other parameter types (NightmareCircus.sendMsg(int, int) against
+        GeneralInstanceHandler.sendMsg(SM_SYSTEM_MESSAGE, int)) is not an override."""
+        sig = (m.name, len(m.params))
+        if sig not in self.subtype_methods(td):
+            return False
+        key = ('overridden', id(td), id(m))
+        cached = self._nullable_cache.get(key)
+        if cached is not None:
+            return cached
+        mine = self._param_sig(m)
+        result = False
+        for s in self._descendants(td):
+            for sm in s.methods:
+                if (sm.kind != 'method' or 'static' in sm.modifiers or 'private' in sm.modifiers or (sm.name, len(sm.params)) != sig
+                        or self.is_cast_override(sm)):
+                    continue
+                theirs = self._param_sig(sm)
+                if all(a[1] == b[1] and (a[0] == '*' or b[0] == '*' or a[0] == b[0]) for a, b in zip(mine, theirs)):
+                    result = True
+                    break
+            if result:
+                break
+        self._nullable_cache[key] = result
+        return result
 
     def _param_sig(self, m):
         """Java erasure-like parameter signature: [(resolved type or '*' for type variables, dims)]."""
@@ -1194,6 +1638,7 @@ FUNCTIONS = {'java.util.function.Predicate': (1, 'bool'), 'java.util.function.Bi
              'java.util.function.Function': (1, None), 'java.util.function.BiFunction': (2, None),
              'java.util.function.Supplier': (0, None)}
 CONNECTION_FQN = JAVA_PREFIX + '.network.aion.AionConnection'
+VISIBLE_OBJECT_FQN = JAVA_PREFIX + '.model.gameobjects.VisibleObject'
 # Java library type -> (commons header, C++ path, 'ref' (parameters only, by reference) | 'value' (std::optional unless in containers))
 COMMONS_EQUIVALENTS = {
     'java.nio.ByteBuffer': ('aion/commons/utils/ByteBuffer.h', ('aion', 'commons', 'utils', 'ByteBuffer'), 'ref'),
@@ -1214,7 +1659,8 @@ STD_INCLUDES = [('std::filesystem', 'filesystem'), ('std::regex', 'regex'), ('st
                 ('std::atomic', 'atomic'), ('std::deque', 'deque'), ('std::list', 'list'), ('std::pair', 'utility'), ('std::variant', 'variant'),
                 ('std::mutex', 'mutex'), ('std::bitset', 'bitset'), ('std::tuple', 'tuple'), ('std::vector', 'vector'), ('std::optional', 'optional'), ('std::string_view', 'string_view'), ('std::span', 'span'),
                 ('std::unordered_map', 'unordered_map'), ('std::unordered_set', 'unordered_set'), ('std::map', 'map'), ('std::set', 'set'),
-                ('std::function', 'functional'), ('std::chrono', 'chrono'), ('std::shared_ptr', 'memory'), ('std::unique_ptr', 'memory')]
+                ('std::function', 'functional'), ('std::reference_wrapper', 'functional'), ('std::initializer_list', 'initializer_list'),
+                ('std::any', 'any'), ('std::chrono', 'chrono'), ('std::shared_ptr', 'memory'), ('std::unique_ptr', 'memory')]
 
 
 class Todo(Exception):
@@ -1301,10 +1747,18 @@ class HeaderContext:
     def map_type(self, ref, ctx, pos, varargs=False):
         """Java TypeRef -> C++ text. pos: param, return, element, key, typearg. Raises Todo."""
         if varargs:
+            if ref.dims == 0 and not ref.wildcard and ref.name not in PRIMITIVE_TYPES:
+                kind, value = self.project.index.resolve_kind(ref.name, ctx)
+                if kind == 'external' and value == 'java.lang.Object':
+                    return 'std::initializer_list<std::any>'                           # hub-headers.md §7.4
+                if kind == 'project' and self.project.kind(self.project.index.types[value]) == 'K2':
+                    return f'std::initializer_list<std::reference_wrapper<{self._project(self.project.index.types[value], ref, ctx, "typearg")}>>'
+            if ref.dims == 0 and pos == 'param':
+                return f'std::initializer_list<{_ref_to_ptr(self.map_type(ref, ctx, "element"))}>'
             ref = ref.with_dims(1)
         if ref.wildcard is not None:
-            if ref.wildcard == 'extends' and ref.bound is not None:
-                return self.map_type(ref.bound, ctx, pos)
+            if ref.wildcard in ('extends', 'super') and ref.bound is not None:
+                return self.map_type(ref.bound, ctx, pos)    # hub-headers.md §8.3
             raise Todo(f'wildcard {ref}')
         if ref.dims:
             if ref.dims > 1:
@@ -1313,6 +1767,8 @@ class HeaderContext:
             if elem.name == 'byte':
                 return 'std::span<const uint8_t>' if pos == 'param' else 'std::vector<uint8_t>'
             e = self.map_type(elem, ctx, 'element')
+            if pos in ('param', 'return'):
+                e = _ref_to_ptr(e)
             if pos == 'param':
                 return f'std::span<{e} const>' if e.startswith('const ') else f'std::span<const {e}>'
             return f'std::vector<{e}>'
@@ -1350,6 +1806,9 @@ class HeaderContext:
         if param is None:
             raise Todo(f'type variable {ref.name}')
         if self.project.erased_generic(declaring):
+            spelled = ERASURE_BOUNDS.get(declaring.fqn, {}).get(ref.name)
+            if spelled is not None:
+                return self.map_type(javasrc.TypeRef([(part, None) for part in spelled.split('.')]), declaring, pos)
             if not param.bounds:
                 raise Todo(f'unbounded type variable {ref.name} of the non-template {declaring.fqn}')
             return self.map_type(param.bounds[0], declaring, pos)
@@ -1398,6 +1857,10 @@ class HeaderContext:
                 return f'std::unique_ptr<{spelled}>'   # a confined value of an abstract type: owned, never sliced
             self._value_type(td)
             return spelled
+        if self.project.base_kind(td) == 'Immortal':
+            if not is_singleton(td):
+                return f'const {spelled}*'      # interned immortals (fieldmap.toml [immortal]): like templates (hub-headers.md §5)
+            return f'{spelled}&' if pos in ('param', 'return') else f'{spelled}*'
         if pos in ('element', 'key'):
             return self.runtime('Ref') + f'<{spelled}>'
         return self.runtime('Ptr') + f'<{spelled}>'
@@ -1410,21 +1873,22 @@ class HeaderContext:
         if fqn in BOXED:
             prim = BOXED[fqn]
             return prim if pos in ('element', 'key', 'typearg') else f'std::optional<{prim}>'
+        borrowed = _ref_to_ptr if pos in ('param', 'return') else (lambda text: text)
         if fqn in SEQUENCES:
             (a,) = self._args(ref, ctx, 1)
-            return self._container(f'std::vector<{self.map_type(a, ctx, "element")}>', pos)
+            return self._container(f'std::vector<{borrowed(self.map_type(a, ctx, "element"))}>', pos)
         if fqn in HASH_SETS or fqn in TREE_SETS:
             (a,) = self._args(ref, ctx, 1)
             e = self.map_type(a, ctx, 'key')
             if fqn in TREE_SETS and ('Ref<' in e or e.endswith('*')):
                 raise Todo(f'ordered set of objects {ref}')
-            return self._container(f'std::{"unordered_set" if fqn in HASH_SETS else "set"}<{e}>', pos)
+            return self._container(f'std::{"unordered_set" if fqn in HASH_SETS else "set"}<{borrowed(e)}>', pos)
         if fqn in HASH_MAPS or fqn in TREE_MAPS:
             k, v = self._args(ref, ctx, 2)
             kt, vt = self.map_type(k, ctx, 'key'), self.map_type(v, ctx, 'element')
             if fqn in TREE_MAPS and ('Ref<' in kt or kt.endswith('*')):
                 raise Todo(f'ordered map with object keys {ref}')
-            return self._container(f'std::{"unordered_map" if fqn in HASH_MAPS else "map"}<{kt}, {vt}>', pos)
+            return self._container(f'std::{"unordered_map" if fqn in HASH_MAPS else "map"}<{borrowed(kt)}, {borrowed(vt)}>', pos)
         if fqn == 'java.util.Optional':
             (a,) = self._args(ref, ctx, 1)
             inner = self.map_type(a, ctx, 'return')
@@ -1440,7 +1904,7 @@ class HeaderContext:
             if pos != 'param':
                 raise Todo(f'stored functional interface {ref} (PinnedCallback rules)')
             args = self._args(ref, ctx, arity + (0 if ret else 1))
-            params = [self.map_type(a, ctx, 'param') for a in args[:arity]]
+            params = [_ptr_to_reference(self.map_type(a, ctx, 'param')) for a in args[:arity]]   # hub-headers.md §7.3
             r = ret if ret else self.map_type(args[-1], ctx, 'return')
             return f'const std::function<{r}({", ".join(params)})>&'
         if fqn == 'java.time.Duration':
@@ -1456,6 +1920,8 @@ class HeaderContext:
                     return f'{spelled}&'
                 raise Todo(f'{fqn} outside a parameter')
             return spelled if pos in ('element', 'key', 'typearg') else f'std::optional<{spelled}>'
+        if fqn == 'java.lang.Object' and pos in ('param', 'return'):
+            return 'const std::any&' if pos == 'param' else 'std::any'     # hub-headers.md §6, §7.4
         if fqn.startswith('com.aionemu.commons.'):
             spelled = self.commons_type(fqn)
             if ref.args:
@@ -1534,6 +2000,22 @@ RUNTIME_BASE_METHODS = frozenset(('retain', 'release', 'monitor', 'refCount', 'i
 
 _POINTER_LIKE = frozenset(('Ref', 'Ptr', 'OwnerRef', 'SelfOrRef', 'unique_ptr', 'shared_ptr', 'weak_ptr', 'PartSlot', 'PartMap', 'PartList',
                            'PinnedCallback', 'function'))
+
+
+_PTR_TYPE_RE = re.compile(r'^((?:::)?(?:\w+::)*)Ptr<(.+)>$')
+_REF_TYPE_RE = re.compile(r'^((?:::)?(?:\w+::)*)Ref<(.+)>$')
+
+
+def _ptr_to_reference(text):
+    """`runtime::Ptr<X>` -> `X&` (non-null object parameters and callback arguments, hub-headers.md §5.1, §7.3); other types unchanged."""
+    m = _PTR_TYPE_RE.match(text)
+    return f'{m.group(2)}&' if m else text
+
+
+def _ref_to_ptr(text):
+    """`runtime::Ref<X>` -> `runtime::Ptr<X>` (borrowed elements of collections in parameters and returns, hub-headers.md §7.1)."""
+    m = _REF_TYPE_RE.match(text)
+    return f'{m.group(1)}Ptr<{m.group(2)}>' if m else text
 
 
 def _same_type(member_type, param_type):
@@ -1762,6 +2244,7 @@ class MethodPlan:
     def_params: list = field(default_factory=list)  # names used in definitions: a parameter never hides a data member (C4458)
     def_decl: str | None = None      # declaration text with def_params (inline definitions)
     mem_init: str = ''                            # ' : Base(...)' of constructor stubs
+    note: str | None = None                       # emitted as a plain comment instead of a declaration (cast-only override, inherited)
 
 
 class DraftEmitter:
@@ -1970,7 +2453,7 @@ class DraftEmitter:
             lines.append(f'{indent}{head}')
         elif td.type_params:
             lines.append(f'{indent}// Java generic {td.name}<{", ".join(tp.name for tp in td.type_params)}>: a non-template C++ class '
-                         f'({NON_TEMPLATE_CLASSES.get(td.fqn, "existing C++ declaration")}); type variables are spelled as their bounds')
+                         f'({p.erasure_note(td)}); type variables are spelled as their bounds')
         key = 'class'
         if td.outer is None:
             existing = p.cpp.declaration(self.ctx.ns, name)
@@ -2076,6 +2559,23 @@ class DraftEmitter:
             label(java_access(nt.modifiers, is_interface))
             section += self.emit_type(nt, inner, in_template)
 
+        # VisibleObject itself: the two-phase construction of every visible object (hub-headers.md §10.1)
+        if td.fqn == VISIBLE_OBJECT_FQN:
+            make_ref, ref = self.ctx.runtime('makeRef'), self.ctx.runtime('Ref')
+            self.extra_std.update(('concepts', 'utility'))
+            label('protected')
+            section += [f'{inner}/** Passkey of every VisibleObject constructor: only create<T> can make one, so postConstruct() can never be skipped. */',
+                        f'{inner}struct CreateKey {{', f'{inner}private:', f'{inner}\tCreateKey() = default;', f'{inner}\tfriend class {name};',
+                        f'{inner}}};',
+                        f'{inner}/** C++ only: the Java constructor-body work that needs the dynamic type; overrides call the base version first. */',
+                        f'{inner}virtual void postConstruct() {{}}']
+            label('public')
+            section += [f'{inner}/** Java `new T(args...)` of every visible object: constructs T and runs postConstruct(). */',
+                        f'{inner}template <std::derived_from<{name}> T, class... Args>',
+                        f'{inner}[[nodiscard]] static {ref}<T> create(Args&&... args) {{',
+                        f'{inner}\t{ref}<T> object = {make_ref}<T>(CreateKey(), std::forward<Args>(args)...);',
+                        f'{inner}\tstatic_cast<{name}&>(*object).postConstruct();', f'{inner}\treturn object;', f'{inner}}}']
+
         # members
         self.ctx.capture = []
         try:
@@ -2108,6 +2608,9 @@ class DraftEmitter:
             section += doc
             if plan.todo is not None:
                 section.append(f'{inner}// TODO(signature): {plan.todo}: {java_method_text(plan.m)}')
+                continue
+            if plan.note is not None:
+                section.append(f'{inner}// {plan.note}')
                 continue
             comment = f' // {plan.comment}' if plan.comment else ''
             if plan.pure:
@@ -2143,6 +2646,19 @@ class DraftEmitter:
             section.append(f'{inner}/** Constructor stubs bind arguments and reference members to this: AION_UNPORTED() throws first. */')
             section.append(f'{inner}template <class U>')
             section.append(f'{inner}[[noreturn]] static U& unportedArgument() {{ AION_UNPORTED(); }}')
+
+        # Ref<I> of an interface: pure virtual retain/release, forwarded by the first implementor with a runtime base (hub-headers.md §9.2)
+        if is_interface and td.fqn in p.retainable_interfaces():
+            label('public')
+            section.append(f'{inner}/** C++ only: Ref<{name}> retains the implementing object (hub-headers.md §9.2). */')
+            section.append(f'{inner}virtual void retain() const noexcept = 0;')
+            section.append(f'{inner}virtual void release() const noexcept = 0;')
+        elif p.retainable_implemented(td):
+            base = self.ctx.runtime(p.base_kind(td))
+            label('public')
+            section.append(f'{inner}/** C++ only: {", ".join(f.rsplit(".", 1)[-1] for f in p.retainable_implemented(td))} retain the object itself. */')
+            section.append(f'{inner}void retain() const noexcept override {{ {base}::retain(); }}')
+            section.append(f'{inner}void release() const noexcept override {{ {base}::release(); }}')
 
         # destructor
         dtor = self._destructor(td, plans, superclass, refcounted, lay)
@@ -2358,6 +2874,7 @@ class DraftEmitter:
                 init = '{' + sm.group(1) + (', ' + sm.group(2) if sm.group(2) else '') + '}'
             else:
                 init = '{}'
+        init = self._lock_class_initializer(td, ml, spelled, init)
         if is_reference:
             m = re.search(r'OwnerRef<(.*)>\s*$', spelled)
             target = m.group(1) if m else spelled.rstrip('&').strip()
@@ -2369,6 +2886,33 @@ class DraftEmitter:
         if f is not None and f.initializer is not None and ml.initializer is None and not t.startswith('static constexpr'):
             notes.append('Java: = ' + one_line(f.initializer.text, 60))
         return text + (f' // {"; ".join(notes)}' if notes else ''), None
+
+    _LOCKABLE_RE = re.compile(r'^(?:(?:static|inline|mutable|const)\s+)*(?:runtime::)?(Monitor|StampedLock|Semaphore|AtomicBoolean|AtomicInteger|'
+                              r'AtomicLong|AtomicNumber|AtomicReference|AtomicLongArray|ArrayList|LinkedList|ArrayDeque|PriorityQueue|HashMap|'
+                              r'LinkedHashMap|TreeMap|EnumMap|HashSet|LinkedHashSet|TreeSet|ConcurrentHashMap|ConcurrentKeySet|'
+                              r'CopyOnWriteArrayList|CopyOnWriteArraySet|ConcurrentLinkedQueue|ConcurrentLinkedDeque)(?:<|$)')
+    _VALUE_AFTER_LOCK_CLASS = frozenset(('Semaphore', 'AtomicBoolean', 'AtomicInteger', 'AtomicLong', 'AtomicNumber', 'AtomicReference',
+                                         'AtomicLongArray'))
+
+    @staticmethod
+    def _lock_class_initializer(td, ml, spelled, init):
+        """RR-16 (runtime-architecture.md §3.4, hub-headers.md §4): a member Monitor, StampedLock, Semaphore, collection shim or Atomic* is
+        initialized with its static lock class `AION_LOCK_CLASS(DeclaringClass::field)` (Java class and field names; `#stripe` for the
+        stripe monitors of ConcurrentHashMap/ConcurrentKeySet), followed by the Java literal arguments."""
+        m = DraftEmitter._LOCKABLE_RE.match(spelled)
+        if m is None or init is None:
+            return init
+        names, t = [], td
+        while t is not None:
+            names.append(t.name)
+            t = t.outer
+        stripe = '#stripe' if m.group(1) in ('ConcurrentHashMap', 'ConcurrentKeySet') else ''
+        tag = f'AION_LOCK_CLASS({"::".join(reversed(names))}::{ml.java_name}{stripe})'
+        if init == '{}':
+            return '{' + tag + '}'
+        if init.startswith('{') and init.endswith('}') and m.group(1) in DraftEmitter._VALUE_AFTER_LOCK_CLASS:
+            return '{' + tag + ', ' + init[1:]
+        return init
 
     def member_name(self, td, ml):
         """C++ name of a fieldmap member: Java allows a field and a method with the same name (records always have them), C++ does
@@ -2408,6 +2952,20 @@ class DraftEmitter:
                 self.ctx.includes.add(path)
                 return self.ctx.qualify(RUNTIME_NAMESPACE + tuple(parts))
             kind, value = p.index.resolve_kind(first, td)
+            if kind == 'typevar' and len(parts) == 1:
+                # a type variable of an erased generic (hub-headers.md §8.1): its bound (ERASURE_BOUNDS for unbounded ones)
+                for t in [td] + list(_outers(td)):
+                    tp = next((x for x in t.type_params if x.name == first), None)
+                    if tp is None:
+                        continue
+                    if p.erased_generic(t):
+                        fqn = ERASURE_BOUNDS.get(t.fqn, {}).get(first)
+                        if fqn is None and tp.bounds:
+                            bound_kind, bound = p.index.resolve_kind(tp.bounds[0].name, t)
+                            fqn = bound if bound_kind == 'project' else None
+                        if fqn is not None and fqn in p.index.types:
+                            return self.ctx.project_type(p.index.types[fqn])
+                    break
             if kind == 'project':
                 t = p.index.types[value]
                 rest = []
@@ -2431,7 +2989,8 @@ class DraftEmitter:
                 except Todo:
                     unresolved.append(chain)
                     return chain
-                if not rest and _template_argument_of(text, m.start()) == 'Ref' and p.base_kind(t) not in ('RefCounted', 'OwnedPart'):
+                if (not rest and _template_argument_of(text, m.start()) == 'Ref' and p.base_kind(t) not in ('RefCounted', 'OwnedPart')
+                        and t.fqn not in p.retainable_interfaces()):
                     unresolved.append(f'{chain} (Ref<> of a class without a RefCounted/OwnedPart base in fieldmap.json)')
                     return chain
                 if not rest and t.kind != 'enum' and _held_by_value(text, m.start(), m.end()):
@@ -2457,8 +3016,37 @@ class DraftEmitter:
             unresolved.append(chain)
             return chain
 
+        text = self._strip_erased_arguments(text, td)
         out = self._CPP_NAME.sub(repl, text)
         return out, unresolved
+
+    def _strip_erased_arguments(self, text, td):
+        """Drops the template argument list after a Java generic that C++ erases (`DamageInfo<Creature>*` -> `DamageInfo*`, hub-headers.md §8.1)."""
+        p = self.project
+        out, pos = [], 0
+        for m in self._CPP_NAME.finditer(text):
+            if m.start() < pos:
+                continue
+            chain = m.group(1)
+            rest = text[m.end():]
+            if not rest.startswith('<') or chain.startswith('::') or '::' in chain:
+                continue
+            kind, value = p.index.resolve_kind(chain, td)
+            if kind != 'project' or not p.erased_generic(p.index.types[value]):
+                continue
+            depth, end = 0, m.end()
+            while end < len(text):
+                if text[end] == '<':
+                    depth += 1
+                elif text[end] == '>':
+                    depth -= 1
+                    if depth == 0:
+                        break
+                end += 1
+            out.append(text[pos:m.end()])
+            pos = end + 1
+        out.append(text[pos:])
+        return ''.join(out)
 
     def _logger(self, f, lname):
         self.cpp_includes.add(LOGGER_HEADER)
@@ -2494,13 +3082,14 @@ class DraftEmitter:
             except Todo as e:
                 plan.todo = str(e)
                 plan.decl = None
-            if plan.todo is None:
+            if plan.todo is None and plan.note is None:
                 if plan.key in seen:
                     plan.todo = f'C++ signature collides with the declaration at line {seen[plan.key].line}'
                 else:
                     seen[plan.key] = m
             plans.append(plan)
-            if plan.todo is None and m.kind == 'constructor' and refcounted and 'abstract' not in td.modifiers and check_create:
+            if (plan.todo is None and m.kind == 'constructor' and refcounted and 'abstract' not in td.modifiers and check_create
+                    and not p.is_visible_object(td)):      # visible objects: VisibleObject::create<T> (hub-headers.md §10.1)
                 missing = self._cpp_pure_left(td)
                 if missing:
                     plans.append(MethodPlan(m, 'public', todo=f'create(): {missing} stays pure virtual in C++ (its override is a TODO signature)'))
@@ -2579,7 +3168,7 @@ class DraftEmitter:
             plan.stub_head = f'void {qual}::{plan.def_decl[len("void "):]}'
             plan.comment = 'JAXB hook (XmlBinding.h)'
             return
-        for prm in m.params:
+        for index, prm in enumerate(m.params):
             pname = cpp_ident(prm.name)
             if len(m.params) == 1 and m.name == 'equals' and prm.type.name in ('Object', 'java.lang.Object') and m.kind == 'method':
                 params.append((self_ref, pname))
@@ -2589,10 +3178,13 @@ class DraftEmitter:
                 if kind == 'project' and self.project.index.types[value] is td:
                     params.append((self_ref, pname))
                     continue
-            params.append((ctx.map_type(prm.type, m, 'param', varargs=prm.varargs), pname))
+            params.append((self.param_type(td, m, index, prm), pname))
+        visible_ctor = m.kind == 'constructor' and self.project.is_visible_object(td)
+        if visible_ctor:
+            params.insert(0, ('CreateKey', 'key'))        # hub-headers.md §10.1
         plan.params = params
         plan.def_params = self._definition_params(td, params)
-        param_text = ', '.join(f'{t} {n}' for t, n in params)
+        param_text = self._declaration_params(td, m, params)
         def_text = ', '.join(f'{t} {n}' for t, n in plan.def_params)
         static = 'static' in m.modifiers
         const = False
@@ -2605,7 +3197,8 @@ class DraftEmitter:
             plan.decl = f'{explicit}{cpp_ident(td.name)}({param_text})'
             plan.def_decl = f'{explicit}{cpp_ident(td.name)}({def_text})'
             plan.key = (name, tuple(t for t, _ in params), False)
-            plan.mem_init = self._base_init(td, superclass, in_template)
+            plan.mem_init = self._base_init(td, superclass, in_template,
+                                            key=visible_ctor and superclass is not None and self.project.is_visible_object(superclass))
             refs = self.reference_members.get(id(td), [])
             if refs:
                 binds = ', '.join(f'{member}(unportedArgument<{target}>())' for member, target in refs)
@@ -2619,9 +3212,11 @@ class DraftEmitter:
             return
         mname = cpp_ident(m.name)
         special = (m.name, len(m.params))
-        if not static and (special in (('hashCode', 0), ('toString', 0)) or (
+        if not static and (special == ('hashCode', 0) or (
                 m.name in ('equals', 'compareTo') and len(params) == 1 and params[0][0] == self_ref)):
             const = True
+        if not static and special == ('toString', 0) and self.project.base_kind(td) not in ('RefCounted', 'OwnedPart', 'Immortal'):
+            const = True        # toString() of runtime-based classes calls virtual getters: non-const (hub-headers.md §9.1)
         if special == ('hashCode', 0) and not static:
             ret = 'int32_t'
         elif special == ('toString', 0) and not static:
@@ -2631,24 +3226,65 @@ class DraftEmitter:
         elif static and m.name == 'getInstance' and not m.params and self._returns_self(td, m):
             ret = f'{qual}&'
         else:
-            ret = ctx.map_type(m.return_type, m, 'return')
+            ret = self.return_type(td, m)
         accessor = self._trivial_accessor(td, m, field_names)
         if accessor is not None and accessor[0] == 'get' and not static:
             const = True
+            shim = self._shim_member_type(td, accessor[1], members)
+            if shim is not None:
+                ret = f'{shim}&'      # the live Java collection (hub-headers.md §7.1)
+                plan.inline_body = f'return this->{self.member_name(td, members[accessor[1]])};'
+                const = False
         virtual = override = pure = False
         if not static and 'private' not in m.modifiers:
             overrides = self.project.overrides(td, m)
             abstract = 'abstract' in m.modifiers or (is_interface and m.body is None and 'default' not in m.modifiers)
-            overridden = (m.name, len(m.params)) in sub_methods
+            overridden = (m.name, len(m.params)) in sub_methods and self.project.overridden_in_subtypes(td, m)
             if overrides:
                 override = True
                 base_m = self.project.overridden_method(td, m)
                 try:
-                    base_ret = self._substitute(ctx.map_type(base_m.return_type, base_m, 'return'), self._type_arg_map(td, base_m.owner))
+                    base_ret = self._substitute(self.return_type(base_m.owner, base_m), self._type_arg_map(td, base_m.owner))
                 except Todo:
                     base_ret = None
+                bridged = self._bridge_parameters(td, m, base_m, params)
+                if bridged != params:
+                    # javac bridge methods: an override of a method with a type-variable parameter of an erased generic takes the erased
+                    # parameter type (hub-headers.md §8.2)
+                    params = bridged
+                    plan.params = params
+                    plan.def_params = self._definition_params(td, params)
+                    param_text = self._declaration_params(td, m, params)
+                    def_text = ', '.join(f'{t} {n}' for t, n in plan.def_params)
+                cast_only = self.project.is_cast_override(m) and not self.project.method_is_virtual(base_m.owner, base_m)
+                if cast_only and base_ret is not None and base_ret == ret:
+                    plan.note = f'{java_method_text(m)}: cast-only override, the C++ type of {base_m.owner.name}::{mname} already fits (inherited)'
+                    return
                 if base_ret is not None and base_ret != ret and not base_m.type_params and not m.return_type.name == 'void':
-                    raise Todo(f'covariant return type ({ret} overrides {base_ret} of {base_m.owner.name}; C++ smart pointers are not covariant)')
+                    if not cast_only:
+                        raise Todo(f'covariant return type ({ret} overrides {base_ret} of {base_m.owner.name}; C++ smart pointers are not covariant)')
+                    # hub-headers.md §8.2: a non-virtual redeclaration with the narrower type, defined as a cast of the base accessor
+                    override = False
+                    base_qual = '::'.join(ctx.project.type_path(base_m.owner))
+                    base_spelled = ctx.qualify(ctx.project.unit_ns(base_m.owner.cu) + ctx.project.type_path(base_m.owner))
+                    call = f'{base_spelled}::{mname}({", ".join(n for _, n in self._definition_params(td, params))})'
+                    if ret.endswith('&'):
+                        cast = f'static_cast<{ret}>({call})'
+                    elif ret.endswith('*'):
+                        cast = f'static_cast<{ret}>({call})'
+                    else:
+                        mt = _PTR_TYPE_RE.match(ret)
+                        cast = f'{mt.group(1)}cast<{mt.group(2)}>({call})' if mt else None
+                    if cast is not None:
+                        plan.stub_body = [f'return {cast};']
+                        kind, value = ctx.project.index.resolve_kind(m.return_type.name, m)
+                        if kind == 'project':
+                            ctx._value_type(ctx.project.index.types[value])     # the cast needs the complete narrower type
+                    plan.comment = f'narrows {base_qual}::{mname} (Java cast-only override)'
+                    root = base_m
+                    while self.project.is_cast_override(root) and self.project.overridden_method(root.owner, root, hand_written=False):
+                        root = self.project.overridden_method(root.owner, root, hand_written=False)
+                    const = self._trivial_accessor(root.owner, root, {f.name: f for f in root.owner.fields}) is not None
             elif abstract or is_interface or (overridden and 'final' not in m.modifiers):
                 virtual = True
             pure = abstract
@@ -2673,6 +3309,32 @@ class DraftEmitter:
             if self._default_constructible(td):
                 plan.stub_body = [f'static {name} instance; // Java SingletonHolder', 'return instance;']
             plan.comment = 'Java singleton'
+        part = self.part_member_of_accessor(td, m) if accessor is not None else None
+        if part is not None and members.get(part[1]) is not None:
+            how, fname, mtype = part
+            member_name = self.member_name(td, members[fname])
+            if how == 'get' and ret.endswith('&'):
+                if re.search(r'\bOwnerRef<', mtype):
+                    plan.inline_body, plan.stub_head = f'return this->{member_name};', None
+                elif re.search(r'\bFinal<', mtype):
+                    plan.inline_body, plan.stub_head = f'return *this->{member_name}.get();', None
+                else:   # PartSlot::operator* names typeid(X), unique_ptr needs nothing, but both stay out of line (hub-headers.md §3.3)
+                    plan.stub_body = [f'return *this->{member_name};']
+                    plan.comment = ((plan.comment + '; ') if plan.comment else '') + 'part accessor (hub-headers.md §3.3)'
+                return
+            if how == 'set' and plan.params and plan.params[0][0].endswith('&') and re.search(r'\bFinal<[^<>]*\*>', mtype):
+                # late-bound controller owner (pattern 3): store and bind, before the owner is published (hub-headers.md §10.3)
+                value = plan.def_params[0][1]
+                plan.stub_body = [f'this->{member_name}.set(&{value});', f'bindOwner({value});']
+                plan.comment = ((plan.comment + '; ') if plan.comment else '') + 'owner binding (hub-headers.md §10.3)'
+                return
+            if how == 'set' and plan.params and plan.params[0][0].startswith('std::unique_ptr<') and re.search(r'\bPartSlot<', mtype):
+                plan.stub_body = [f'this->{member_name}.set(std::move({plan.def_params[0][1]}));']
+                plan.comment = ((plan.comment + '; ') if plan.comment else '') + 'part accessor (hub-headers.md §3.3)'
+                return
+        if plan.inline_body is not None:
+            plan.stub_head = None
+            return
         if accessor is not None:
             how, fname = accessor
             member = members.get(fname)
@@ -2680,8 +3342,120 @@ class DraftEmitter:
             if body is not None:
                 plan.inline_body = body
                 plan.stub_head = None
+            elif member is not None and self._template_pointer_getter(how, member, ret):
+                plan.inline_body, plan.stub_head = f'return this->{self.member_name(td, member)};', None
+            elif member is not None and how == 'set' and not static and plan.params and re.match(
+                    r'(?:runtime::)?Field<(?:runtime::)?(?:Ref<|std::shared_ptr<)', member.cpp_type or '') and plan.params[0][0].startswith(
+                    ('runtime::Ptr<', 'Ptr<', 'std::shared_ptr<')):
+                # releases the previous value: out of line, ported (hub-headers.md §3.3)
+                plan.stub_body = [f'this->{self.member_name(td, member)}.set({plan.def_params[0][1]});']
+                plan.comment = ((plan.comment + '; ') if plan.comment else '') + 'trivial setter (out of line: it releases the previous value)'
             else:
                 plan.comment = ((plan.comment + '; ') if plan.comment else '') + f'trivial accessor of {fname}: inline once the member exists'
+
+    @staticmethod
+    def _template_pointer_getter(how, member, ret):
+        """A getter of a `const X*` member (templates, interned immortals) returning the same pointer type."""
+        core = re.sub(r'^(?:static\s+|inline\s+)+', '', (member.cpp_type or '').strip())
+        mt = re.fullmatch(r'const\s+([\w:]+)\s*\*', core)
+        rt = re.fullmatch(r'const\s+([\w:]+)\s*\*', ret.strip())
+        return how == 'get' and mt is not None and rt is not None and mt.group(1).rsplit('::', 1)[-1] == rt.group(1).rsplit('::', 1)[-1]
+
+    def _bridge_parameters(self, td, m, base_m, params):
+        """params with the positions whose Java type in base_m names a type variable of an erased generic replaced by base_m's C++ type."""
+        variables = set()
+        for t in [base_m.owner] + list(_outers(base_m.owner)):
+            if self.project.erased_generic(t):
+                variables.update(tp.name for tp in t.type_params)
+        if not variables:
+            return params
+        out = list(params)
+        for i, prm in enumerate(base_m.params):
+            if i >= len(out) or not variables.intersection(re.findall(r'\w+', str(prm.type))):
+                continue
+            try:
+                out[i] = (self.param_type(base_m.owner, base_m, i, prm), out[i][1])
+            except Todo:
+                pass
+        return out
+
+    @staticmethod
+    def _declaration_params(td, m, params):
+        """Declaration parameter list: a trailing varargs parameter gets `= {}` (Java calls it without varargs, hub-headers.md §7.4) unless
+        an overload of the class with one parameter less would make that call ambiguous (Java picks the fixed-arity overload)."""
+        texts = [f'{t} {n}' for t, n in params]
+        if m.params and m.params[-1].varargs and texts:
+            arity = len(m.params) - 1
+            if not any(o is not m and o.kind == m.kind and o.name == m.name and len(o.params) == arity for o in td.methods):
+                texts[-1] += ' = {}'
+        return ', '.join(texts)
+
+    def param_type(self, td, m, index, prm):
+        """C++ parameter type: the mapped type, with object parameters as X& unless nullable (Ptr<X>) or a part (std::unique_ptr<X>)
+        (hub-headers.md §5.1, §10.2)."""
+        text = self.ctx.map_type(prm.type, m, 'param', varargs=prm.varargs)
+        if prm.varargs or prm.type.dims:
+            return text
+        mt = _PTR_TYPE_RE.match(text)
+        if mt is None:
+            return text
+        if self.project.part_parameter(td, m, index):
+            kind, value = self.project.index.resolve_kind(prm.type.name, m)
+            if kind == 'project':
+                self.ctx._value_type(self.project.index.types[value])     # a by-value unique_ptr parameter is destroyed by the definition
+            return f'std::unique_ptr<{mt.group(2)}>'
+        if self.project.nullable_parameter(td, m, index):
+            return text
+        return f'{mt.group(2)}&'
+
+    _SHIM_RE = re.compile(r'(?:runtime::)?(?:ArrayList|LinkedList|HashMap|HashSet|ConcurrentHashMap|CopyOnWriteArrayList|ArrayDeque|'
+                          r'PriorityQueue|ConcurrentLinkedQueue|ConcurrentLinkedDeque|TreeMap|TreeSet|LinkedHashMap|LinkedHashSet|'
+                          r'ConcurrentKeySet)<')
+
+    def _shim_member_type(self, td, fname, members):
+        """The qualified C++ type of a non-static collection shim member (a getter returns a reference to it), else None."""
+        member = members.get(fname)
+        if member is None or member.static or member.declaration or not member.cpp_type:
+            return None
+        core = re.sub(r'^(?:mutable\s+|const\s+)+', '', member.cpp_type.strip())
+        if not self._SHIM_RE.match(core):
+            return None
+        spelled, unresolved = self.spell_cpp(core, td)
+        return None if unresolved else spelled
+
+    def part_member_of_accessor(self, owner, m):
+        """(how, member name, member type text) if m is a trivial accessor of a part or owner member of owner, else None."""
+        acc = self._trivial_accessor(owner, m, {f.name: f for f in owner.fields})
+        if acc is None:
+            return None
+        lay = self.project.layout(owner)
+        member = lay.members.get(acc[1]) if lay is not None else None
+        if member is None:
+            return None
+        t = member.cpp_type or member.declaration or ''
+        if re.search(r'\b(unique_ptr|PartSlot|OwnerRef)<|\bFinal<[^<>]*\*>', t):
+            return acc[0], acc[1], t
+        return None
+
+    def return_type(self, owner, m):
+        """C++ return type: parts, owners and late-bound controller owners are references (hub-headers.md §5, §10.2); a cast-only override
+        of such an accessor too."""
+        ret = self.ctx.map_type(m.return_type, m, 'return')
+        mt = _PTR_TYPE_RE.match(ret)
+        if mt is None or m.params:
+            return ret
+        target_owner, target = owner, m
+        if self.project.is_cast_override(m):
+            base = self.project.overridden_method(owner, m, hand_written=False)
+            while base is not None and self.project.is_cast_override(base):
+                base = self.project.overridden_method(base.owner, base, hand_written=False)
+            if base is None:
+                return ret
+            target_owner, target = base.owner, base
+        part = self.part_member_of_accessor(target_owner, target)
+        if part is not None and part[0] == 'get':
+            return f'{mt.group(2)}&'
+        return ret
 
     def _member_names(self, td):
         key = id(td)
@@ -2746,24 +3520,22 @@ class DraftEmitter:
         ctors = [m for m in td.methods if m.kind == 'constructor']
         return not ctors or any(not c.params for c in ctors)
 
-    def _base_init(self, td, superclass, in_template):
+    def _base_init(self, td, superclass, in_template, key=False):
         if superclass is None:
             return ''
         ctors = [m for m in superclass.methods if m.kind == 'constructor']
-        if not ctors or any(not c.params for c in ctors):
+        if not ctors or any(not c.params for c in ctors) and not key:
             return ''
         candidates = []
         for c in ctors:
             self.ctx.capture = []
             try:
                 subst = self._type_arg_map(td, superclass)
-                types = [self._substitute(self.ctx.map_type(prm.type, c, 'param', varargs=prm.varargs), subst) for prm in c.params]
+                types = [self._substitute(self.param_type(superclass, c, i, prm), subst) for i, prm in enumerate(c.params)]
             except Todo:
                 continue
             finally:
                 used, self.ctx.capture = self.ctx.capture, None
-            if any(t.endswith('&') and not t.startswith('const ') for t in types):
-                continue
             containers = sum(1 for t in types if t.startswith(('const std::vector', 'const std::unordered', 'const std::map', 'const std::set')))
             candidates.append((containers, len(candidates), c, types, used))
         for containers, _, c, types, used in sorted(candidates, key=lambda x: (x[0], x[1])):
@@ -2774,13 +3546,15 @@ class DraftEmitter:
                     base += '<' + ', '.join(self.ctx.map_type(a, td, 'typearg') for a in self.ctx._args(ref, td, len(superclass.type_params))) + '>'
                 except Todo:
                     return ''
-            args = []
+            args = ['key'] if key else []
             for t in types:
                 if t.endswith('*'):
                     args.append(f'static_cast<{t}>(nullptr)')
-                elif t.startswith('const ') and t.endswith('&'):
-                    # no temporary: a container of Ref<X> would need X complete (and RefCounted) for its destructor
-                    args.append(f'unportedArgument<{t[len("const "):-1]}>()')
+                elif t.startswith('std::unique_ptr<'):
+                    args.append('nullptr')
+                elif t.endswith('&'):
+                    # no temporary: a container of Ref<X> would need X complete (and RefCounted) for its destructor; X& has no value
+                    args.append(f'unportedArgument<{t[len("const "):-1] if t.startswith("const ") else t[:-1]}>()')
                     self.needs_helper.add(id(td))
                 else:
                     args.append(t + '{}')
@@ -2935,6 +3709,9 @@ def main(argv=None):
     mode.add_argument('--fwd', action='store_true', help='generate fwd.h for every Java package')
     mode.add_argument('--draft', action='store_true', help='generate header drafts and stub .cpp files for the selected classes')
     mode.add_argument('--list', action='store_true', help='print the Java FQNs the selectors expand to')
+    mode.add_argument('--guards', action='store_true',
+                      help='list the __has_include guards under --cpp-src and the tests (hub-headers.md §3.3); exit 1 on an open guard')
+    ap.add_argument('--freeze', action='store_true', help='--guards: every guard is an error (the spine freeze gate)')
     ap.add_argument('selectors', nargs='*', help='FQN, simple name, pkg.*, pkg.**, @hubs, @services, @daos, @serverpackets, @engines, @all')
     ap.add_argument('--classes', help='file with one selector per line (# comments)')
     ap.add_argument('--out', help='output include root (required for --fwd/--draft)')
@@ -2955,6 +3732,23 @@ def main(argv=None):
     fm.add_argument('--no-fieldmap', action='store_true')
     ap.add_argument('--unported-header', default=DEFAULT_UNPORTED_HEADER)
     args = ap.parse_args(argv)
+
+    if args.guards:
+        cpp_src = Path(args.cpp_src)
+        scan = [cpp_src, cpp_src.parent / 'tests', cpp_src.parent / 'handlers']
+        roots = [cpp_src, cpp_src.parent / 'handlers', Path(args.commons_src)]
+        if not args.no_generated_root:
+            roots.append(Path(args.generated_root))
+        guards = spine_guards(scan, roots)
+        for g in guards:
+            print(f'{g.path}:{g.line}: ' + (f'waits for {", ".join(g.missing)}' if g.missing else f'open ({", ".join(g.headers)})'))
+        problems = guard_problems(guards, frozen=args.freeze or SPINE_FROZEN)
+        for p in problems:
+            print(f'error: {p}', file=sys.stderr)
+        missing = sorted({h for g in guards for h in g.missing})
+        print(f'skeleton: {len(guards)} guards, {sum(1 for g in guards if not g.missing)} open, {len(missing)} missing headers, '
+              f'{len(problems)} problems', file=sys.stderr)
+        return 1 if problems else 0
 
     try:
         selectors = list(args.selectors)

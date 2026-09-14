@@ -4,7 +4,7 @@
 
 namespace aion::gameserver::controllers {
 
-template <class T> class CreatureController;
+class CreatureController;
 class FlyController;
 class FlyRingController;
 class GatherableController;
@@ -12,7 +12,7 @@ class HouseController;
 class NpcController;
 class ObserveController;
 class PetController;
-template <class T> class PlaceableObjectController;
+class PlaceableObjectController;
 class PlayerController;
 class RVController;
 class RoadController;
@@ -20,7 +20,7 @@ class SiegeWeaponController;
 class StaticObjectController;
 class SummonController;
 class TrapController;
-template <class T> class VisibleObjectController;
+class VisibleObjectController;
 
 // Nested types (declared inside their outer class, include its header):
 //   CreatureController::DelayedOnAttack

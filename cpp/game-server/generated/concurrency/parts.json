@@ -3,7 +3,7 @@
  "ownerFields": [
   {
    "class": "com.aionemu.gameserver.ai.AbstractAI",
-   "cpp": "OwnerRef<T>",
+   "cpp": "OwnerRef<Creature>",
    "field": "owner",
    "part": "com.aionemu.gameserver.model.gameobjects.Creature.ai",
    "rule": "owner"
@@ -17,7 +17,7 @@
   },
   {
    "class": "com.aionemu.gameserver.controllers.VisibleObjectController",
-   "cpp": "Final<T*>",
+   "cpp": "Final<VisibleObject*>",
    "field": "owner",
    "part": "com.aionemu.gameserver.model.gameobjects.VisibleObject.controller",
    "rule": "late-bound owner"
@@ -44,6 +44,13 @@
    "rule": "owner"
   },
   {
+   "class": "com.aionemu.gameserver.model.gameobjects.TransformModel",
+   "cpp": "OwnerRef<Creature>",
+   "field": "owner",
+   "part": "com.aionemu.gameserver.model.gameobjects.Creature.transformModel",
+   "rule": "owner"
+  },
+  {
    "class": "com.aionemu.gameserver.model.gameobjects.UseableItemObject.UseDataWriter",
    "cpp": "OwnerRef<UseableItemObject>",
    "field": "obj",
@@ -55,6 +62,13 @@
    "cpp": "OwnerRef<Player>",
    "field": "owner",
    "part": "com.aionemu.gameserver.model.gameobjects.player.Player.equipment",
+   "rule": "owner"
+  },
+  {
+   "class": "com.aionemu.gameserver.model.gameobjects.player.FriendList",
+   "cpp": "OwnerRef<Player>",
+   "field": "player",
+   "part": "com.aionemu.gameserver.model.gameobjects.player.Player.friendList",
    "rule": "owner"
   },
   {
@@ -72,6 +86,13 @@
    "rule": "owner"
   },
   {
+   "class": "com.aionemu.gameserver.model.gameobjects.player.PrivateStore",
+   "cpp": "OwnerRef<Player>",
+   "field": "owner",
+   "part": "com.aionemu.gameserver.model.gameobjects.player.Player.store",
+   "rule": "owner"
+  },
+  {
    "class": "com.aionemu.gameserver.model.gameobjects.player.ResponseRequester",
    "cpp": "OwnerRef<Player>",
    "field": "player",
@@ -79,10 +100,38 @@
    "rule": "owner"
   },
   {
+   "class": "com.aionemu.gameserver.model.gameobjects.player.emotion.EmotionList",
+   "cpp": "OwnerRef<Player>",
+   "field": "owner",
+   "part": "com.aionemu.gameserver.model.gameobjects.player.Player.emotions",
+   "rule": "owner"
+  },
+  {
+   "class": "com.aionemu.gameserver.model.gameobjects.player.motion.MotionList",
+   "cpp": "OwnerRef<Player>",
+   "field": "owner",
+   "part": "com.aionemu.gameserver.model.gameobjects.player.Player.motions",
+   "rule": "owner"
+  },
+  {
+   "class": "com.aionemu.gameserver.model.gameobjects.player.npcFaction.NpcFactions",
+   "cpp": "OwnerRef<Player>",
+   "field": "owner",
+   "part": "com.aionemu.gameserver.model.gameobjects.player.Player.npcFactions",
+   "rule": "owner"
+  },
+  {
    "class": "com.aionemu.gameserver.model.items.ChargeInfo",
    "cpp": "OwnerRef<Item>",
    "field": "item",
    "part": "com.aionemu.gameserver.model.gameobjects.Item.conditioningInfo",
+   "rule": "owner"
+  },
+  {
+   "class": "com.aionemu.gameserver.model.items.IdianStone",
+   "cpp": "OwnerRef<Item>",
+   "field": "item",
+   "part": "com.aionemu.gameserver.model.gameobjects.Item.idianStone",
    "rule": "owner"
   },
   {
@@ -94,16 +143,23 @@
   },
   {
    "class": "com.aionemu.gameserver.model.stats.container.CreatureGameStats",
-   "cpp": "OwnerRef<T>",
+   "cpp": "OwnerRef<Creature>",
    "field": "owner",
    "part": "com.aionemu.gameserver.model.gameobjects.Creature.gameStats",
    "rule": "owner"
   },
   {
    "class": "com.aionemu.gameserver.model.stats.container.CreatureLifeStats",
-   "cpp": "OwnerRef<T>",
+   "cpp": "OwnerRef<Creature>",
    "field": "owner",
    "part": "com.aionemu.gameserver.model.gameobjects.Creature.lifeStats",
+   "rule": "owner"
+  },
+  {
+   "class": "com.aionemu.gameserver.model.team.alliance.PlayerAllianceGroup",
+   "cpp": "OwnerRef<PlayerAlliance>",
+   "field": "alliance",
+   "part": "com.aionemu.gameserver.model.team.alliance.PlayerAlliance.groups",
    "rule": "owner"
   },
   {
@@ -111,6 +167,20 @@
    "cpp": "OwnerRef<PlayerGroup>",
    "field": "group",
    "part": "com.aionemu.gameserver.model.team.group.PlayerGroup.playerGroupStats",
+   "rule": "owner"
+  },
+  {
+   "class": "com.aionemu.gameserver.model.templates.spawns.SpawnTemplate",
+   "cpp": "OwnerRef<SpawnGroup>",
+   "field": "spawnGroup",
+   "part": "com.aionemu.gameserver.model.templates.spawns.SpawnGroup.spots",
+   "rule": "owner"
+  },
+  {
+   "class": "com.aionemu.gameserver.world.MapRegion",
+   "cpp": "OwnerRef<WorldMapInstance>",
+   "field": "parent",
+   "part": "com.aionemu.gameserver.world.WorldMapInstance.regions",
    "rule": "owner"
   },
   {
@@ -418,6 +488,31 @@
    "rule": "replaceable part (pattern 1)"
   },
   {
+   "cpp": "PartSlot<TransformModel>",
+   "evidence": [
+    {
+     "file": "fieldmap.toml",
+     "line": 0,
+     "pattern": 4,
+     "text": "created lazily for the owner by new TransformModel(this) in getTransformModel (Creature.java:286-290); TransformModel.owner only holds the owner (cycles.toml)"
+    }
+   ],
+   "field": "transformModel",
+   "java": "TransformModel",
+   "line": 54,
+   "owner": "com.aionemu.gameserver.model.gameobjects.Creature",
+   "ownerClasses": [
+    "com.aionemu.gameserver.model.gameobjects.Creature"
+   ],
+   "partTypes": [
+    "com.aionemu.gameserver.model.gameobjects.TransformModel"
+   ],
+   "patterns": [
+    4
+   ],
+   "rule": "fieldmap.toml override"
+  },
+  {
    "cpp": "PartSlot<ChargeInfo>",
    "evidence": [
     {
@@ -443,6 +538,31 @@
    "rule": "replaceable part (pattern 1)"
   },
   {
+   "cpp": "PartSlot<IdianStone, RetireTo::RECLAIMER>",
+   "evidence": [
+    {
+     "file": "fieldmap.toml",
+     "line": 0,
+     "pattern": 4,
+     "text": "built for the owner by new IdianStone(..., item, ...) (ItemStoneListDAO, PolishAction) and replaced by setIdianStone; IdianStone.item only holds the owner (cycles.toml); replaced repeatedly, so the old part retires to the Reclaimer (matches the header)"
+    }
+   ],
+   "field": "idianStone",
+   "java": "IdianStone",
+   "line": 52,
+   "owner": "com.aionemu.gameserver.model.gameobjects.Item",
+   "ownerClasses": [
+    "com.aionemu.gameserver.model.gameobjects.Item"
+   ],
+   "partTypes": [
+    "com.aionemu.gameserver.model.items.IdianStone"
+   ],
+   "patterns": [
+    4
+   ],
+   "rule": "fieldmap.toml override"
+  },
+  {
    "cpp": "const std::unique_ptr<NpcSkillList>",
    "evidence": [
     {
@@ -466,6 +586,31 @@
     1
    ],
    "rule": "part (pattern 1)"
+  },
+  {
+   "cpp": "const std::unique_ptr<CreatureMoveController>",
+   "evidence": [
+    {
+     "file": "fieldmap.toml",
+     "line": 0,
+     "pattern": 4,
+     "text": "created for the owner by new CreatureMoveController<Pet>(this) {} in the constructor (Pet.java:24); an anonymous class, which part pattern 1 skips"
+    }
+   ],
+   "field": "moveController",
+   "java": "CreatureMoveController<Pet>",
+   "line": 16,
+   "owner": "com.aionemu.gameserver.model.gameobjects.Pet",
+   "ownerClasses": [
+    "com.aionemu.gameserver.model.gameobjects.Pet"
+   ],
+   "partTypes": [
+    "com.aionemu.gameserver.controllers.movement.CreatureMoveController"
+   ],
+   "patterns": [
+    4
+   ],
+   "rule": "fieldmap.toml override"
   },
   {
    "cpp": "const std::unique_ptr<UseableItemObject::UseDataWriter>",
@@ -655,8 +800,14 @@
    "rule": "replaceable part (pattern 2)"
   },
   {
-   "cpp": "const std::array<std::unique_ptr<Storage>, StorageType::HOUSE_WH_MAX - StorageType::HOUSE_WH_MIN + 1>",
+   "cpp": "const std::array<std::unique_ptr<Storage>, HOUSE_WH_COUNT>",
    "evidence": [
+    {
+     "file": "fieldmap.toml",
+     "line": 0,
+     "pattern": 4,
+     "text": "part array (pattern 1); the bound StorageType.HOUSE_WH_MAX - HOUSE_WH_MIN + 1 is the static constexpr HOUSE_WH_COUNT of Player.h (generated enums carry no constructor data)"
+    },
     {
      "file": "game-server/src/com/aionemu/gameserver/model/gameobjects/player/Player.java",
      "line": 205,
@@ -676,9 +827,35 @@
     "com.aionemu.gameserver.model.items.storage.Storage"
    ],
    "patterns": [
-    1
+    1,
+    4
    ],
-   "rule": "part array (pattern 1)"
+   "rule": "fieldmap.toml override"
+  },
+  {
+   "cpp": "PartSlot<EmotionList>",
+   "evidence": [
+    {
+     "file": "fieldmap.toml",
+     "line": 0,
+     "pattern": 4,
+     "text": "built for the owner by new EmotionList(player) in PlayerEmotionListDAO.loadEmotions and CMT_CHARACTER_INFORMATION; EmotionList.owner only holds the owner (cycles.toml)"
+    }
+   ],
+   "field": "emotions",
+   "java": "EmotionList",
+   "line": 163,
+   "owner": "com.aionemu.gameserver.model.gameobjects.player.Player",
+   "ownerClasses": [
+    "com.aionemu.gameserver.model.gameobjects.player.Player"
+   ],
+   "partTypes": [
+    "com.aionemu.gameserver.model.gameobjects.player.emotion.EmotionList"
+   ],
+   "patterns": [
+    4
+   ],
+   "rule": "fieldmap.toml override"
   },
   {
    "cpp": "const std::unique_ptr<Equipment>",
@@ -729,6 +906,31 @@
     2
    ],
    "rule": "replaceable part (pattern 2)"
+  },
+  {
+   "cpp": "PartSlot<FriendList>",
+   "evidence": [
+    {
+     "file": "fieldmap.toml",
+     "line": 0,
+     "pattern": 4,
+     "text": "built for the owner by FriendListDAO.load(player) -> new FriendList(player, friends) and set by PlayerService.getPlayer; FriendList.player only holds the owner (cycles.toml)"
+    }
+   ],
+   "field": "friendList",
+   "java": "FriendList",
+   "line": 94,
+   "owner": "com.aionemu.gameserver.model.gameobjects.player.Player",
+   "ownerClasses": [
+    "com.aionemu.gameserver.model.gameobjects.player.Player"
+   ],
+   "partTypes": [
+    "com.aionemu.gameserver.model.gameobjects.player.FriendList"
+   ],
+   "patterns": [
+    4
+   ],
+   "rule": "fieldmap.toml override"
   },
   {
    "cpp": "const std::unique_ptr<Storage>",
@@ -782,8 +984,64 @@
    "rule": "replaceable part (pattern 2)"
   },
   {
-   "cpp": "const std::array<std::unique_ptr<Storage>, StorageType::PET_BAG_MAX - StorageType::PET_BAG_MIN + 1>",
+   "cpp": "PartSlot<MotionList>",
    "evidence": [
+    {
+     "file": "fieldmap.toml",
+     "line": 0,
+     "pattern": 4,
+     "text": "built for the owner by new MotionList(player) in MotionDAO.loadMotionList and CMT_CHARACTER_INFORMATION; MotionList.owner only holds the owner (cycles.toml)"
+    }
+   ],
+   "field": "motions",
+   "java": "MotionList",
+   "line": 164,
+   "owner": "com.aionemu.gameserver.model.gameobjects.player.Player",
+   "ownerClasses": [
+    "com.aionemu.gameserver.model.gameobjects.player.Player"
+   ],
+   "partTypes": [
+    "com.aionemu.gameserver.model.gameobjects.player.motion.MotionList"
+   ],
+   "patterns": [
+    4
+   ],
+   "rule": "fieldmap.toml override"
+  },
+  {
+   "cpp": "PartSlot<NpcFactions>",
+   "evidence": [
+    {
+     "file": "fieldmap.toml",
+     "line": 0,
+     "pattern": 4,
+     "text": "built for the owner by new NpcFactions(player) in PlayerNpcFactionsDAO.loadNpcFactions and CMT_CHARACTER_INFORMATION; NpcFactions.owner only holds the owner (cycles.toml)"
+    }
+   ],
+   "field": "npcFactions",
+   "java": "NpcFactions",
+   "line": 118,
+   "owner": "com.aionemu.gameserver.model.gameobjects.player.Player",
+   "ownerClasses": [
+    "com.aionemu.gameserver.model.gameobjects.player.Player"
+   ],
+   "partTypes": [
+    "com.aionemu.gameserver.model.gameobjects.player.npcFaction.NpcFactions"
+   ],
+   "patterns": [
+    4
+   ],
+   "rule": "fieldmap.toml override"
+  },
+  {
+   "cpp": "const std::array<std::unique_ptr<Storage>, PET_BAG_COUNT>",
+   "evidence": [
+    {
+     "file": "fieldmap.toml",
+     "line": 0,
+     "pattern": 4,
+     "text": "part array (pattern 1); the bound StorageType.PET_BAG_MAX - PET_BAG_MIN + 1 is the static constexpr PET_BAG_COUNT of Player.h (generated enums carry no constructor data)"
+    },
     {
      "file": "game-server/src/com/aionemu/gameserver/model/gameobjects/player/Player.java",
      "line": 203,
@@ -803,9 +1061,10 @@
     "com.aionemu.gameserver.model.items.storage.Storage"
    ],
    "patterns": [
-    1
+    1,
+    4
    ],
-   "rule": "part array (pattern 1)"
+   "rule": "fieldmap.toml override"
   },
   {
    "cpp": "const std::unique_ptr<PortalCooldownList>",
@@ -884,6 +1143,56 @@
    "rule": "part (pattern 1)"
   },
   {
+   "cpp": "PartSlot<PrivateStore, RetireTo::RECLAIMER>",
+   "evidence": [
+    {
+     "file": "fieldmap.toml",
+     "line": 0,
+     "pattern": 4,
+     "text": "built for the owner by new PrivateStore(player) in PrivateStoreService (PrivateStoreService.java:39-46) and replaced by setStore(null); PrivateStore.owner only holds the owner (cycles.toml); replaced repeatedly, so the old part retires to the Reclaimer (matches the header)"
+    }
+   ],
+   "field": "store",
+   "java": "PrivateStore",
+   "line": 98,
+   "owner": "com.aionemu.gameserver.model.gameobjects.player.Player",
+   "ownerClasses": [
+    "com.aionemu.gameserver.model.gameobjects.player.Player"
+   ],
+   "partTypes": [
+    "com.aionemu.gameserver.model.gameobjects.player.PrivateStore"
+   ],
+   "patterns": [
+    4
+   ],
+   "rule": "fieldmap.toml override"
+  },
+  {
+   "cpp": "PartSlot<TitleList>",
+   "evidence": [
+    {
+     "file": "fieldmap.toml",
+     "line": 0,
+     "pattern": 4,
+     "text": "late-bound part: Player.setTitleList calls titleList.setOwner(this) (Player.java:592-595), the only setOwner caller (cycles.toml)"
+    }
+   ],
+   "field": "titleList",
+   "java": "TitleList",
+   "line": 99,
+   "owner": "com.aionemu.gameserver.model.gameobjects.player.Player",
+   "ownerClasses": [
+    "com.aionemu.gameserver.model.gameobjects.player.Player"
+   ],
+   "partTypes": [
+    "com.aionemu.gameserver.model.gameobjects.player.title.TitleList"
+   ],
+   "patterns": [
+    4
+   ],
+   "rule": "fieldmap.toml override"
+  },
+  {
    "cpp": "const std::unique_ptr<PetList>",
    "evidence": [
     {
@@ -907,6 +1216,31 @@
     1
    ],
    "rule": "part (pattern 1)"
+  },
+  {
+   "cpp": "PartMap<int32_t, PlayerAllianceGroup>",
+   "evidence": [
+    {
+     "file": "fieldmap.toml",
+     "line": 0,
+     "pattern": 4,
+     "text": "groups created for the owner by new PlayerAllianceGroup(this, groupId) in the constructor (PlayerAlliance.java:32), never replaced (design §5.1: alliance groups are OwnedParts)"
+    }
+   ],
+   "field": "groups",
+   "java": "Map<Integer, PlayerAllianceGroup>",
+   "line": 21,
+   "owner": "com.aionemu.gameserver.model.team.alliance.PlayerAlliance",
+   "ownerClasses": [
+    "com.aionemu.gameserver.model.team.alliance.PlayerAlliance"
+   ],
+   "partTypes": [
+    "com.aionemu.gameserver.model.team.alliance.PlayerAllianceGroup"
+   ],
+   "patterns": [
+    4
+   ],
+   "rule": "fieldmap.toml override"
   },
   {
    "cpp": "const std::unique_ptr<PlayerGroupStats>",
@@ -957,6 +1291,56 @@
     1
    ],
    "rule": "part (pattern 1)"
+  },
+  {
+   "cpp": "PartList<SpawnTemplate>",
+   "evidence": [
+    {
+     "file": "fieldmap.toml",
+     "line": 0,
+     "pattern": 4,
+     "text": "spawn templates are created with their group (new SpawnTemplate(this, spot), SpawnTemplate.java:65 addSpawnTemplate) and never removed (design §2.3 PartList, §5.1)"
+    }
+   ],
+   "field": "spots",
+   "java": "List<SpawnTemplate>",
+   "line": 33,
+   "owner": "com.aionemu.gameserver.model.templates.spawns.SpawnGroup",
+   "ownerClasses": [
+    "com.aionemu.gameserver.model.templates.spawns.SpawnGroup"
+   ],
+   "partTypes": [
+    "com.aionemu.gameserver.model.templates.spawns.SpawnTemplate"
+   ],
+   "patterns": [
+    4
+   ],
+   "rule": "fieldmap.toml override"
+  },
+  {
+   "cpp": "PartMap<int32_t, MapRegion>",
+   "evidence": [
+    {
+     "file": "fieldmap.toml",
+     "line": 0,
+     "pattern": 4,
+     "text": "regions are created for the owner by createMapRegion -> new MapRegion(regionId, this, zones) in the constructor (WorldMap2DInstance.java:27,37) and never replaced"
+    }
+   ],
+   "field": "regions",
+   "java": "Map<Integer, MapRegion>",
+   "line": 44,
+   "owner": "com.aionemu.gameserver.world.WorldMapInstance",
+   "ownerClasses": [
+    "com.aionemu.gameserver.world.WorldMapInstance"
+   ],
+   "partTypes": [
+    "com.aionemu.gameserver.world.MapRegion"
+   ],
+   "patterns": [
+    4
+   ],
+   "rule": "fieldmap.toml override"
   }
  ],
  "version": 1

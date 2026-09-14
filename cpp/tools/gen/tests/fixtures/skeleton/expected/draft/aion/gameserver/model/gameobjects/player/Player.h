@@ -2,12 +2,13 @@
 // Hand-owned after review (handlers-and-porting-plan.md §2.5); regenerating overwrites hand edits.
 #pragma once
 
+#include <any>
 #include <cstdint>
 #include <functional>
+#include <initializer_list>
 #include <memory>
 #include <span>
 #include <string_view>
-#include <unordered_map>
 #include <unordered_set>
 #include <vector>
 
@@ -37,7 +38,7 @@ private:
 	static inline const runtime::Ref<Player> NOBODY{}; // Java: = null
 	runtime::Field<Persistable::PersistentState> state{}; // Java: = PersistentState.NEW
 	runtime::Field<std::shared_ptr<network::aion::AionConnection>> connection{};
-	runtime::ConcurrentHashMap<int32_t, runtime::Ref<Player>> friends{};
+	runtime::ConcurrentHashMap<int32_t, runtime::Ref<Player>> friends{AION_LOCK_CLASS(Player::friends#stripe)};
 	runtime::PartSlot<Creature::Stats> stats{*this};
 	runtime::Field<int32_t> count{};
 	runtime::Field<bool> release_{};
@@ -47,7 +48,7 @@ protected:
 	Player(int32_t objectId, std::string_view name);
 public:
 	static runtime::Ref<Player> create(int32_t value, std::string_view nameValue);
-	void onDie(runtime::Ptr<Creature> lastAttacker) override;
+	void onDie(Creature& lastAttacker) override;
 	Persistable::PersistentState getPersistentState() override { return this->state.get(); }
 	void setPersistentState(Persistable::PersistentState value) override { this->state.set(value); }
 	std::shared_ptr<network::aion::AionConnection> getClientConnection() const; // trivial accessor of connection: inline once the member exists
@@ -56,13 +57,13 @@ public:
 	bool isRelease() const { return this->release_.get(); }
 	void send(const std::vector<const templates::item::ItemTemplate*>& items);
 	// TODO(signature): C++ signature collides with the declaration at line 68: public void send(Collection<ItemTemplate> items)
-	// TODO(signature): no C++ mapping for java.lang.Object: public void register(Object listener)
+	void register_(const std::any& listener);
 	void register_();
-	void delete_(std::span<const int32_t> ids);
-	std::unordered_map<int32_t, runtime::Ref<Player>> getFriends() const; // trivial accessor of friends: inline once the member exists
+	void delete_(std::initializer_list<int32_t> ids = {});
+	runtime::ConcurrentHashMap<int32_t, runtime::Ref<Player>>& getFriends() { return this->friends; }
 	std::unordered_set<int32_t> friendIds(std::span<const uint8_t> data, runtime::FutureRef task);
 	runtime::Ptr<Player> findFriend(std::string_view name);
-	bool removeFriends(const std::function<bool(runtime::Ptr<Player>)>& filter);
+	bool removeFriends(const std::function<bool(Player&)>& filter);
 	// TODO(signature): generic method: public <T> T generic(Class<T> type)
 private:
 	/** Constructor stubs bind arguments and reference members to this: AION_UNPORTED() throws first. */

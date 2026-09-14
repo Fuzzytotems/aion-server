@@ -6,10 +6,10 @@ namespace aion::gameserver::model::instance::instancescore {
 
 class DarkPoetaScore;
 class HarmonyArenaScore;
-template <class T> class InstanceScore;
+class InstanceScore;
 class LegionDominionScore;
 class NormalScore;
 class PvPArenaScore;
-template <class T> class PvpInstanceScore;
+class PvpInstanceScore;
 
 } // namespace aion::gameserver::model::instance::instancescore
