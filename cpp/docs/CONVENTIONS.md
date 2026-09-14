@@ -11,6 +11,18 @@ These rules keep the port consistent across modules and sessions. When in doubt,
 - **Keep Java class and method names** (`PascalCase` types, `camelCase` methods and fields, `SCREAMING_CASE` config constants),
   so the same identifier can be grepped in both trees. Infrastructure that is re-architected (e.g. NIO → Asio) may be renamed,
   but the header comment must name the Java class it replaces.
+- **Keyword, reserved-name and macro rule.** One implementation, `cpp_identifier()` in `cpp/tools/gen/dialogaction.py` (it holds the keyword
+  and macro lists), is shared by the generators; porters apply the same rule by hand:
+  - A Java identifier that is a C++ keyword or a macro that `WindowsMacroGuard.h` cannot remove gets a trailing underscore: `register_()`,
+    `delete_()`, namespace segment `template_` (the directory keeps the Java spelling), `DialogAction::NULL_`. A porter who writes `NULL`
+    silently gets the C macro 0; the quest parity check should flag a bare `NULL` in handlers.
+  - A name reserved in C++ (leading `_` plus an upper-case letter, or `__` anywhere) loses its leading underscores, has each underscore run
+    collapsed and gets a trailing underscore: `_STR_MSG_Heal_TO_ME` → `STR_MSG_Heal_TO_ME_`, `STR_RESURRECT_DIALOG__SKILL` →
+    `STR_RESURRECT_DIALOG_SKILL_`.
+  - Java names that collide with C library macros are renamed: `FastMath.FLT_EPSILON` → `FLOAT_EPSILON`, `DBL_EPSILON` → `DOUBLE_EPSILON`,
+    `Vector3f.NAN` → `NOT_A_NUMBER`. Grep for the new names when porting code that uses them.
+  - A member named like a method of its class or of a runtime base method (`release`, `monitor`, `retain`, `refCount`) gets a trailing
+    underscore. In definitions, a parameter that would hide a data member (MSVC C4458) is renamed to `value`; declarations keep the Java name.
 - Unit tests: `cpp/X/tests/<package>/<Class>Test.cpp` (GoogleTest).
 - Formatting: `.clang-format` (tabs, 150 columns, attached braces, same as the Java code).
 - Keep a short header comment on each class saying what it is. Carry over Java authors in an `@author` line where a class is a direct port,
@@ -46,6 +58,13 @@ These rules keep the port consistent across modules and sessions. When in doubt,
   (names, chat messages), use `StringUtils::utf16Length()`. Case-insensitive comparisons: `StringUtils::equalsIgnoreCase()`.
 - **`Math.round`** rounds half up (`floor(x + 0.5)`), unlike `std::round`. **Float → int casts** saturate in Java; in C++ they are UB when out of range.
 - **`HashMap` iteration order** is unspecified in both languages, so never depend on it.
+- **Float sign of zero under MSVC `/O2 /fp:precise`.** `x < 0 ? -x : x` (Java `FastMath.abs` and similar hand-written abs code) is folded into
+  `fabs`, which loses `-0.0f` and the sign of negative NaNs. Debug builds do not show it, so float-sensitive ports need test runs in Release or
+  RelWithDebInfo. Write sign-of-zero code with bit operations or `std::signbit`. Float-heavy chunks (geo, `stats/AttackUtil`) should consider
+  `/fp:strict`.
+- **Float contraction.** Java never contracts `a * b + c` into a fused multiply-add. MSVC `/fp:precise` does not contract since VS 2022, but a
+  future GCC or clang build must pass `-ffp-contract=off` to every game server target: inline header code is compiled in the includer's
+  translation unit (GCC contracts by default). `aion_gs_geomath` also forces contraction off in its own `.cpp` files (`StrictFp.h`).
 - **Monitors are reentrant.** Use `std::recursive_mutex` when a `synchronized` method can re-enter the same object; otherwise `std::mutex`.
   `volatile` → `std::atomic`. `wait`/`notify` → `std::condition_variable`.
 
@@ -56,6 +75,7 @@ These rules keep the port consistent across modules and sessions. When in doubt,
 - Network connections are `std::shared_ptr` (`enable_shared_from_this`). Every async operation holds a reference.
 - Game object model ownership is decided at the start of phase 4 and documented here then.
 - Java singletons (`getInstance()`) → function-local static (`static T& getInstance()`), or namespace-scope functions for static utility classes.
+  In the game server, static-only classes (DAOs, static services) stay classes with static member functions (`skeleton.py` drafts them so).
 
 ## Errors and exceptions
 
@@ -103,7 +123,7 @@ if (log.isDebugEnabled()) ...
 | `System.currentTimeMillis()`/`nanoTime()` | `utils::currentTimeMillis()`/`nanoTime()` (`TimeUtils.h`) |
 | `Thread.setName` | `utils::concurrent::setCurrentThreadName()` (names appear in log lines) |
 | `addr.getAddress().getAddress()` / `isAnyLocalAddress()` | `InetSocketAddress::resolveAddressBytes()` / `isAnyLocalAddress()` |
-| `ExecuteWrapper`, `RunnableStatsManager` | same names in `utils::concurrent` |
+| `ExecuteWrapper`, `RunnableStatsManager` | same names in `utils::concurrent`. For type-erased tasks and lambdas: `RunnableStatsManager::handleStats(std::string_view key, method, nanos)`; entries are keyed by the displayed name |
 
 **`windows.h` macros.** `NOGDI`, `WIN32_LEAN_AND_MEAN` and `NOMINMAX` are defined globally. Every header or source that includes Asio or
 Windows headers must include `"aion/commons/utils/WindowsMacroGuard.h"` as its last include. It removes `DELETE`, `IGNORE`, `IN`/`OUT`/
@@ -138,7 +158,12 @@ while another thread reads it is undefined behaviour. Rules:
 - A non-scalar field rebound at runtime is a `configuration::ConfigValue<T>`. Read a snapshot with `auto v = X.get();` and keep `v` in a
   local while using it. Never write `for (auto& e : *X.get())`, which dangles.
 - A scalar field (bool, number, enum) rebound at runtime is a `std::atomic<T>`.
-- Plain fields are only for values bound before other threads read them (e.g. `DatabaseConfig`, only read at startup).
+- Plain fields are only for values bound before other threads read them (e.g. `DatabaseConfig`, only read at startup). A later runtime reader
+  of such a field needs `std::atomic`/`ConfigValue` first.
+
+**Game server config classes** bind with `AION_BIND(p, "gameserver.key", FIELD, "default")` and `AION_BIND_PATTERN(p, "pattern", FIELD)` from
+`configs/detail/Bind.h` (the macros are the hook for the later `//configure` introspection). Every field is `std::atomic<T>` or
+`ConfigValue<T>`, with no startup-only exceptions (rationale in `configs/detail/ConfigSupport.h`).
 
 Supported field types: all integer types, `float`, `double`, `bool`, `char16_t`, `std::string`, enums (magic_enum), `std::optional<T>`,
 `std::vector`/`std::set`/`std::unordered_set` (comma-separated), maps (for `bindPattern`), `std::filesystem::path`, `utils::InetSocketAddress`,
@@ -167,6 +192,8 @@ DB::insertUpdate("UPDATE account_data SET last_ip = ? WHERE id = ?", [&](Prepare
 
 - Java `Statement.addBatch(sql)` with plain SQL → `PreparedStatement::addBatch(std::string_view sql)`.
 - `rs->getString` on DATETIME/TIMESTAMP/TIME columns formats like Connector/J (`yyyy-MM-dd HH:mm:ss[.fff]`, `HH:mm:ss`).
+- Game server: `GameServer::main` calls `DatabaseFactory::init(DatabaseFactory::gameServerOptions())`, which requires a socket timeout > 0
+  (`database.socket_timeout`, 60 s by default). The login server keeps `init()`.
 - NULL: numeric getters return 0 and `wasNull()` is true. `getString`/`getBytes` return empty values. Use `getObject<std::string>()`
   (`std::optional`) where Java distinguishes `null`. `getTimestamp`/`getDate` return `std::optional`.
 
@@ -204,6 +231,65 @@ DB::insertUpdate("UPDATE account_data SET last_ip = ? WHERE id = ?", [&](Prepare
 `Rnd.get(list)` becomes `Rnd::get(vector)`. It returns a pointer to a random element, or `nullptr` if the vector is empty.
 `Rnd::get` on a range of `int32_t` has Java `int[]` semantics: it returns the value and throws when empty. For Java `Rnd.get(List<Integer>)`
 whose `null` result is checked, use `Rnd::getOptional(vector)`.
+Tests seed the calling thread's generator with `Rnd::seedCurrentThreadForTests(seed)`.
+
+## Game server: drafts, handlers and lint
+
+Details: [design/handlers-and-porting-plan.md](design/handlers-and-porting-plan.md) and
+[design/conventions-game-server.md](design/conventions-game-server.md).
+
+**Generated drafts** (`cpp/tools/gen/skeleton.py`):
+- Java enums are forward-declared as `enum class X : std::uint8_t` (up to 256 constants) or `std::uint16_t` (more). Enum definitions must use
+  the same underlying type.
+- Java nested types stay nested (`Outer::Inner`). Private members of Java nested classes become public, because Java lets the whole
+  top-level class use them. A nested class deriving from its outer class is defined after the outer class.
+- Draft marker comments that reviewers resolve: `TODO(fieldmap)`, `TODO(signature)`, `TODO(callbacks)`, `TODO(enum)`, `TODO(logger)`,
+  `TODO(xmlgen)`. Regenerating with `--draft` overwrites hand edits.
+
+**Handler files and registration** (checked by `aion_gs_regscan`, rules in `cpp/game-server/tools/regscan/README.md`):
+- Each handler `.cpp` registers its class with one marker line at namespace scope, in the package namespace of its directory:
+  `AION_AI(Class, "name");`, `AION_INSTANCE_HANDLER(Class, mapId);`, `AION_ZONE_HANDLER(Class, "names"[, questId]);`,
+  `AION_QUEST_HANDLER(Class, questId);`, `AION_ADMIN_COMMAND(Class);` / `AION_PLAYER_COMMAND` / `AION_CONSOLE_COMMAND`, and
+  `AION_CLIENT_PACKET(CM_X);` (only in `network/aion/clientpackets`).
+- Marker syntax: the whole marker on one line, starting the line and ending with `;`; literal arguments only (plain printable-ASCII string
+  without escapes, zone names separated by single spaces; decimal `int` without sign, suffix or leading zero); never in a header, inside a
+  class or function, in an `#if` block or a preprocessor directive.
+- File rules (unity-safe): every declaration inside the package namespace (a keyword directory maps to `keyword_`, e.g. `quest/template` →
+  `...::quest::template_`); no nested, other or anonymous namespaces; no namespace-scope `static`; no `using namespace` (the only exception is
+  the quest prelude's `using namespace aion::gameserver::model::DialogAction;`); a type name defined once per namespace; only `.cpp` and `.h`.
+- Unported bodies are `AION_UNPORTED();` (`aion/gameserver/handlers/Unported.h` until S0a decides the final place). It throws, so never put
+  it in a `noexcept` function.
+- Npc ids in `spawn(`/`sp(` calls stay literal, including ternaries: the QuestSpawnAnalyzer replacement scans the raw source text at build time.
+
+**Concurrency lint waivers** (`tools/porting/lint_concurrency.py`; on the finding's line or the line above, reason mandatory, W0 otherwise):
+`// confined: <reason>`, `// fieldmap: <reason>`, `// lockdep: <reason>`, `// quiescent-safe: <reason>`, `// lint: L5,L12 <reason>`.
+`// fieldmap-class: <Java FQN>` on or above a class maps it to a Java class explicitly.
+
+## Static data (game server)
+
+Design: [design/static-data.md](design/static-data.md); binder contract: `dataholders/loadingutils/XmlBinding.h`.
+- The XML runtime namespace is `aion::gameserver::xml` (adapters in `xml::adapters`). Game headers include only `XmlBindingFwd.h` (and
+  `EnumTraits.h` for enums); binder headers are included only by binder translation units. Generated enums use `xml::EnumTraits` for names
+  and lookups instead of magic_enum.
+- A behaviour class header includes the generated prelude `X.xml.h` before the class, and `#include "X.xml.inc"` is the first line of the
+  class body, followed by an explicit access specifier.
+- Nested behaviour classes are defined after the outer class. Nested enums and nested data-only classes are generated as `Outer_Inner`
+  and aliased in the outer class. Members that clash with a method name get a trailing `_`. Java package-private becomes public.
+- Bound objects must never move or be copied after binding: XmlIDs and IDREF slots record addresses. Class-level adapters bind their value
+  type on the heap and store the target with `c.replaceSingle(o.member, std::make_unique<Target>(std::move(value)), e)`, never a plain
+  assignment.
+- An `@XmlElements` base class has a virtual destructor (static_assert). A deliberately ignored attribute is
+  `static_cast<void>(value); c.ignoreAttribute(); return true;`.
+- Hooks report errors and warnings with `LoadContext::fail`/`warn`, which add the file location.
+
+## Python tools
+
+- Python 3.12, standard library only. Each tool lives in `cpp/tools/<tool>` with tests in `tests/test_<tool>*.py` and a `tests/__init__.py`,
+  so `python -m unittest discover -s tests -t .` works from the tool directory; `cpp/tools/CMakeLists.txt` registers that command as CTest
+  `tools.<tool>`. Drift checks of test data outside `cpp/tools` need their own CTest (e.g. `gs.geomath.golden_drift`).
+- Generators import the shared Java front end as `import javasrc` from `cpp/tools/gen` and pass declarations or `Span`s as resolution
+  context. The `javasrc.py` module docstring is the API reference.
+- Generated outputs are committed, deterministic (sorted, `\n` line ends) and have a `--check` (or `check`) mode that tests use as a drift check.
 
 ## Unported Java features
 

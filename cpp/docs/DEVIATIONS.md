@@ -177,3 +177,73 @@ kernel implemented so far:
 | `ConcurrentHashMap` | Per-bin locks; `snapshot`-free weakly consistent iteration | 16 stripes with reentrant stripe Monitors for callbacks; lock-free weakly consistent reads and iteration; nested writes to another key of the same map inside a compute callback can deadlock across stripes, so such Java sites are ported without the nesting (design §21, lint L20) | Java's CHM contract forbids them |
 | `ConcurrentLinkedQueue`/`Deque` | Lock-free | Monitor-guarded (`isEmpty`/`size` lock-free) | Interior `remove(Object)` with epoch reclamation |
 | `String` fields | Nullable | `Field<std::string>`: null equals empty | No null strings |
+
+## game-server / configs
+
+| Area | Java | C++ | Reason |
+|---|---|---|---|
+| `Config.load` concurrency | Unsynchronized: event start/stop and `//reload config` can overlap | Serialized by a `runtime::Monitor`; the event provider and file reading run outside the lock | D6 race fix: data race on commons' plain `DatabaseConfig` fields and the `CLIENT_CONNECT_ADDRESS` read-modify-write (`ConfigLoadTest.ReadersStayValidDuringConcurrentReloads`) |
+| Missing key without default | Field stays null (e.g. `DISABLE_RANGE_CHECK_MAPS.contains` throws an NPE) | Field keeps its initial value: empty collection, `nullptr` or `std::nullopt` | No null references; the shipped config has every such key |
+| `Config.load(allowedConfigs)` error | `IllegalArgumentException` naming the class | "Config bind function is not an allowed config" | Bind function pointers instead of `Class` objects |
+| Event config properties | Read from `EventService` | `Config::setEventConfigPropertiesProvider`; no event properties until `EventService` is ported and registers | Not ported yet |
+| Unknown property warnings | Removes the keys referenced by logback.xml | Always removes `Logging::getPropertyKeys("gameserver")` | No logback.xml (as in the login server) |
+| Logging settings | logback reads `gameserver.properties`, `logging.properties`, `mygs.properties` | `Config::loadLoggingConfig()` reads the same files for `Logging::init` | Logging is configured in code |
+| `RuntimeConfig` | – | C++-only config class after Java's `Config.CONFIGS` classes; keys in design/runtime-architecture.md §10, all optional | Runtime kernel settings |
+| `database.socket_timeout` | No such key (only the URL's `socketTimeout`) | C++-only optional key in milliseconds (commons `DatabaseConfig`). Precedence: key, then URL `socketTimeout`, then the server default; the game server uses a 60 s default and rejects 0 (`DatabaseFactory::gameServerOptions()`); the login server keeps Java behaviour | Database calls run inline on pool threads and must end (runtime-architecture.md §2.6) |
+
+## game-server / geo math (`geoEngine/math`)
+
+| Area | Java | C++ | Reason |
+|---|---|---|---|
+| `FastMath.sin/cos/tan/exp/log/pow` | HotSpot `Math` intrinsics | C runtime; may differ by up to 1 ulp. `asin/acos/atan/atan2` are bit-exact through the fdlibm port `geoEngine/math/StrictMath` | Intrinsics are not bit-reproducible in Java either; only rarely used paths depend on them (fromAngleAxis, angleRotation, rotateAroundOrigin, spherical conversions) |
+| Constant names | `FastMath.FLT_EPSILON`, `DBL_EPSILON`, `Vector3f.NAN` | `FLOAT_EPSILON`, `DOUBLE_EPSILON`, `NOT_A_NUMBER` | `<cfloat>`/`<cmath>` macros |
+| `Ray(Vector3f, Vector3f)` | Keeps the caller's vector objects | Copies them; in-place mutation through `getOrigin()`/`getDirection()` still works | Value types; GeoMap, AbstractCollisionObserver and BIHNode do not observe the difference |
+| Null arguments | Null store/result parameters allocate; `set(null)` gives identity; Vector2f warns | Overloads without the parameter; no null branches | References cannot be null |
+| Not ported | `FastMath.rand/nextRandomFloat/nextRandomInt`, FloatBuffer methods, `Vector2f` externalization, `getClassTag`, `Vector3f.create`, `Matrix4f.fromFrustum`/`set(float[][])`, `equalIdentity` | – | JVM-specific or unused |
+
+## game-server / static data runtime (`dataholders/loadingutils`)
+
+Design-level deviations of the static data design are listed in [design/static-data.md](design/static-data.md) (DEVIATIONS entries and
+amendments §8) and apply as they are implemented. Implemented in wave 1:
+
+| Area | Java | C++ | Reason |
+|---|---|---|---|
+| Merged cache | XmlMerger writes `./cache/static_data.xml` with CRC metadata | No merged file; imports are resolved and bound directly | The cache exists only for JAXB |
+| Directory import order | `Files.find` order of the file system (NTFS: uppercase ordinal; Linux: readdir) | Depth-first, uppercase-ordinal names on every platform | Deterministic; equals NTFS (checked for all 12 directories) |
+| Strict mode (tests, CI) | JAXB ignores unknown attributes and unexpected text; repeated single elements and duplicate XmlIDs: last wins; XmlMerger merges different root tags of a directory import | Errors: unknown attributes, non-whitespace text in object elements, repeated single elements and wrappers, duplicate XmlIDs, mixed root tags, unknown `<import>` attributes. Lenient mode (server runtime) warns once and keeps the JAXB/XmlMerger behaviour | XSD parity; finds data mistakes |
+| Required values | JAXB never enforces `required = true` (the startup XSD check catches most) | Enforced in both modes, except the 16 `xmlgen.toml [unenforced_required]` entries the data violates | No XSD validation at runtime |
+| Unknown enum constants | JAXB gives null | Error, except `[lenient_enums]` (`SkillTemplate.counterSkill`: `std::nullopt` and a warning) | Stricter parsing proven unreachable by the census |
+| Numbers | Float overflow gives Infinity/0; an empty number gives 0 (JAXB) | Errors | Malformed data fails loudly |
+| `LocalDateTime` | Signed or longer years, nanoseconds | 4-digit unsigned years, millisecond precision (sub-millisecond digits must be zero) | `local_time<milliseconds>`; the data uses neither |
+| File encoding and form | XmlMerger reads files with `FileReader` and copies inline holder elements of `static_data.xml` | UTF-8 only; inline holder elements, default-namespaced elements (`xmlns="uri"`) and directory imports without `.xml` files are rejected | Not used by the data |
+| XSD-only attributes | Ignored by JAXB | Consumed without a member (`[ignore_attributes]`, 5 attributes) | Same result |
+| Abstract `@XmlElements` choices | Cannot be instantiated | Left out of the factories (`<buf>` → `BufEffect`) | Same result, found at build time |
+| Bound private nested classes | Private | Public | `XmlBinding` is specialized at namespace scope |
+| `Loaded N npc templates` | `npcData.size()` logged while `NpcData.init` may still run asynchronously (can show a smaller number) | `NpcData::init` runs inline; always 63,287 (P4-09) | Deterministic |
+
+## game-server / network crypt and generated packet tables
+
+| Area | Java | C++ | Reason |
+|---|---|---|---|
+| `Crypt.encrypt/decrypt` without a key | NullPointerException | `IllegalStateException` | No NPE |
+| `EncryptionKeyPair.decrypt` of an empty packet | XORs the byte just past the packet | Returns false and touches nothing | Memory safety; the dispatcher never passes an empty packet |
+| `SM_SYSTEM_MESSAGE` parameters | Formatted with `toString` in `writeImpl`; null strings allowed | Formatted when the packet is constructed; string parameters are `std::string_view` (no null) | Generated factories; no null references |
+| `STR_MSG_MERCHANT_PET_GET_SELL_ITEM` | Returns `AionServerPacket` | Returns `SM_SYSTEM_MESSAGE` | Uniform generated factories |
+| Reserved factory names | `_STR_MSG_Heal_TO_ME`, `STR_RESURRECT_DIALOG__SKILL/ITEM/BIND/5MIN/30MIN`, `STR_RESURRECTOTHER_DIALOG__5MIN`, `STR_ERROR_CHANGE_WEAPON_SKIN__*` (3), `STR_SKILL_CAN_NOT_*__WHILE_IN_CURRENT_STANCE` (2) | Leading `_` stripped, `__` collapsed, trailing `_` (`STR_MSG_Heal_TO_ME_`); only `CM_EMOTION` calls two of them | Reserved identifiers in C++ (CONVENTIONS) |
+| `DialogAction` | Final class with `int` constants; `nameOf` returns null; constant `NULL` | Namespace of `inline constexpr int32_t`; `nameOf` returns `std::optional<std::string_view>`; `NULL_`; `entries()` added | `NULL` is a C macro |
+
+## game-server / handler registry
+
+| Area | Java | C++ | Reason |
+|---|---|---|---|
+| Handler discovery | Class listeners over the compiled `data/handlers` at startup | Marker macros; `aion_gs_regscan` writes the tables at build time | Handlers are compiled in |
+| Duplicate keys | AI names and map ids: `put`, last wins; zone names, quest ids: warning | Build errors | Deterministic registration; the Java tree has no duplicates |
+| QuestSpawnAnalyzer | Regex scan of `data/handlers/**/*.java` at startup | Same pattern over the compiled-in C++ handler sources at build time (`npcIdsSpawnedByHandlers()`) | No sources at runtime |
+| Unported code | – | `AION_UNPORTED()` throws `UnportedException` (an `UnsupportedOperationException`) and logs the site once | Partial port links from day one |
+
+## game-server / object model (planned member mapping, `fieldmap.toml`)
+
+| Area | Java | C++ | Reason |
+|---|---|---|---|
+| `Creature.ai` | `final` (replaced reflectively by `//ai set`) | `PartSlot<AbstractAI>` (RetireTo::OWNER); the retired AI stays alive with the creature | `//ai set` without reflection (runtime-architecture.md §18 item 9) |
+| `WorldMapInstance.instanceHandler` | `final` | `Field<Ref<InstanceHandler>>`, detached in `destroyInstance` | Breaks the instance/handler cycle (§18 item 8) |

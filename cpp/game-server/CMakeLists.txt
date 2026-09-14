@@ -1,4 +1,4 @@
-# Port of ../game-server (com.aionemu.gameserver). For now: the runtime kernel (docs/design/runtime-architecture.md) only.
+# Port of ../game-server (com.aionemu.gameserver): the runtime kernel (docs/design/runtime-architecture.md) and the wave 1 leaf libraries.
 #
 # Layout
 #   src/aion/gameserver/runtime/<area>/...   kernel code without a Java counterpart, namespace aion::gameserver::runtime (flat, for every area)
@@ -123,6 +123,42 @@ aion_add_tests(aion_gs_runtime_stress_tests "${GS_TESTS}/runtime/stress" DEPENDS
 if(TARGET aion_gs_runtime_stress_tests)
 	target_include_directories(aion_gs_runtime_stress_tests PRIVATE "${GS_TESTS}/runtime")
 endif()
+
+# ---------------------------------------------------------------------------------------------------------------------------------------
+# Wave 1 (tooling wave, docs/design/handlers-and-porting-plan.md §2.4): leaf libraries that need no spine. Each owns its source directory and
+# tests/<name>; the chunk manifest (chunks.cmake) replaces these hand-written entries in the spine step S0a.
+# ---------------------------------------------------------------------------------------------------------------------------------------
+find_package(pugixml CONFIG REQUIRED)
+# P4-01: the 33 config classes and game-server property transformers
+aion_gs_add_library(aion_gs_configs DIRS aion/gameserver/configs DEPENDS aion_gs_runtime aion_commons_configuration)
+# P4-03: the used jMonkeyEngine math subset under Java names
+aion_gs_add_library(aion_gs_geomath DIRS aion/gameserver/geoEngine/math DEPENDS aion_commons_core)
+# P4-15a: game client encryption
+aion_gs_add_library(aion_gs_network_crypt FILES aion/gameserver/network/Crypt.* aion/gameserver/network/EncryptionKeyPair.* DEPENDS aion_commons_core)
+# T2/WP4: static data XML binder runtime and import resolver (docs/design/static-data.md)
+aion_gs_add_library(aion_gs_xml DIRS aion/gameserver/dataholders/loadingutils DEPENDS aion_gs_runtime pugixml::pugixml)
+# P4-02b: handler registration markers and registry entry types (docs/design/handlers-and-porting-plan.md §1.4)
+aion_gs_add_library(aion_gs_handler_registry DIRS aion/gameserver/handlers DEPENDS aion_gs_runtime)
+
+foreach(lib configs geomath network_crypt xml handler_registry)
+	aion_add_tests(aion_gs_${lib}_tests "${GS_TESTS}/${lib}" DEPENDS aion_gs_${lib})
+endforeach()
+
+# drift check of generated test data that lives outside cpp/tools (cpp/tools/CMakeLists.txt covers the tool suites)
+find_package(Python3 3.12 COMPONENTS Interpreter)
+if(AION_BUILD_TESTS AND Python3_Interpreter_FOUND)
+	add_test(NAME gs.geomath.golden_drift COMMAND "${Python3_EXECUTABLE}" oracle/gen_golden.py --check WORKING_DIRECTORY "${GS_TESTS}/geomath")
+	# concurrency lint (runtime-architecture.md §12.2) over all game server sources; warnings fail too
+	add_test(NAME gs.lint.concurrency COMMAND "${Python3_EXECUTABLE}" tools/porting/lint_concurrency.py --werror game-server/src WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}")
+endif()
+
+# C++ build tools of the game server (e.g. tools/regscan, added in wave 1)
+file(GLOB gs_tool_dirs LIST_DIRECTORIES true "${CMAKE_CURRENT_SOURCE_DIR}/tools/*")
+foreach(dir IN LISTS gs_tool_dirs)
+	if(EXISTS "${dir}/CMakeLists.txt")
+		add_subdirectory("${dir}")
+	endif()
+endforeach()
 
 # Benchmarks (P4): not part of ctest.
 option(AION_BUILD_BENCH "Build the game server benchmarks (game-server/bench)" ON)

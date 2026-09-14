@@ -120,6 +120,10 @@ Xoshiro256PlusPlus& generator() noexcept {
 	return engine;
 }
 
+void seedCurrentThreadForTests(uint64_t seed) noexcept {
+	generator() = Xoshiro256PlusPlus(seed);
+}
+
 float chance() {
 	return nextFloat(100.0f);
 }

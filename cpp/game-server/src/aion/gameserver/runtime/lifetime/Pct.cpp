@@ -328,7 +328,8 @@ ScheduleResult explore(uint32_t schedules, uint64_t baseSeed, const ScenarioFact
 }
 
 uint32_t schedulesFromEnvironment(uint32_t defaultSchedules) {
-	const char* value = std::getenv("AION_PCT_SCHEDULES"); // test-only helper (the runtime getenv ban applies to game code)
+	// lint: L8 test-only helper, read once per test before any worker thread starts
+	const char* value = std::getenv("AION_PCT_SCHEDULES");
 	if (value == nullptr || *value == '\0')
 		return defaultSchedules;
 	return static_cast<uint32_t>(std::strtoul(value, nullptr, 10));

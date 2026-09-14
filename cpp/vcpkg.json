@@ -12,6 +12,7 @@
     "magic-enum",
     "nlohmann-json",
     "openssl",
+    "pugixml",
     "spdlog"
   ]
 }

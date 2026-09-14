@@ -82,7 +82,7 @@ Property kinds (structural parse, ~2,000): attr:scalar 1188, elem-collection:obj
 | **Total** | **750** | **245** | **~5,977** |
 
 ## 4. Data volume (data/static_data, region variants excluded)
-665 XML files, 155,962,551 bytes, ~2,108,164 elements, ~6,644,398 attributes; 96 XSDs (9,530 lines: 1,429 xs:attribute, 744 complexType, 984 xs:element, 149 simpleType, 557 extension, 25 abstract, 157 `default=`, 396 `use="required"`, 2 xs:key, 4 xs:unique).
+665 XML files, 155,962,551 bytes, ~2,108,164 elements, ~6,644,398 attributes (approximate; measured in wave 1: 664 imported files, 2,106,068 elements and 6,661,924 attributes, see static-data.md §4); 96 XSDs (9,530 lines: 1,429 xs:attribute, 744 complexType, 984 xs:element, 149 simpleType, 557 extension, 25 abstract, 157 `default=`, 396 `use="required"`, 2 xs:key, 4 xs:unique).
 | Data | Files | MB | Count |
 |---|---|---|---|
 | items/item_templates.xml | 1 | 57.1 | 102,009 item_template |

@@ -9,6 +9,8 @@ lazy packet writes, runtime-compiled handlers, JAXB). Before porting, a research
 | [conventions-game-server.md](conventions-game-server.md) | Porting rules that follow from the runtime design (proposed until the prototypes validate them) |
 | [static-data.md](static-data.md) | JAXB replacement: Python generator from the Java annotations, pugixml binders, loader, verification without a JDK |
 | [handlers-and-porting-plan.md](handlers-and-porting-plan.md) | Handler registration (marker macros + build-time registry scanner) and the phase 4–6 partition: spine, chunks, milestones |
+| [runtime-kernel-status.md](runtime-kernel-status.md) | Status of the implemented runtime kernel (prototypes P1-P4): gates, measurements, open items |
+| [wave1-status.md](wave1-status.md) | Status of wave 1 (generators, lint, oracles, XML runtime, configs, geo math, crypt, handler registry): delivered components, tests, open issues by next step |
 | [proposals/](proposals/) | The three competing runtime proposals, the judges' scores, the superseded single-thread synthesis and the second red team round |
 | [research/](research/) | Read-only research maps of the Java game server (startup, static data, object model, network, DAO/geo, handlers, services) and the critic's verified answers |
 

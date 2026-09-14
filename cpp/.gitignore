@@ -6,3 +6,6 @@ CMakeUserPresets.json
 
 # written into the test working directory by gtest_discover_tests (DISCOVERY_MODE PRE_TEST)
 cmake_test_discovery_*.json
+
+# created by the Python tool tests
+__pycache__/

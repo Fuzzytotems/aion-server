@@ -73,6 +73,15 @@ private:
 Xoshiro256PlusPlus& generator() noexcept;
 
 /**
+ * C++ addition for deterministic tests (not in Java): replaces the calling thread's generator with a new one seeded with the given value, so
+ * every following call on this thread produces the same sequence for the same seed. Other threads are not affected. Only for tests and debug
+ * reproduction tools, never for production code (the sequence would be predictable).
+ * <p>
+ * To restore the previous random state afterwards, save and reassign <tt>generator()</tt> (it is copyable).
+ */
+void seedCurrentThreadForTests(uint64_t seed) noexcept;
+
+/**
  * To compare this chance with a success rate, evaluate "<tt>if (chance() &lt; success rate)</tt>" to determine a success or, alternatively
  * "<tt>if (chance() &gt;= success rate)</tt>" to determine a fail. This ensures that a success rate of 0 (0%) will always fail, and a success rate
  * of 100.0 (100%) always succeeds.

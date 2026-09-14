@@ -1,0 +1,51 @@
+# Hand-owned overrides for cpp/tools/gen/fieldmap.py (design runtime-architecture.md §3.2.2). Every entry needs a reason.
+#
+# [settings]              packet_bases / connection_bases (FQNs), per_run_services (FQNs that must stay RefCounted, lint L13)
+# [future_apis]           "Receiver.method" or "method" = { receiver = "regex"?, reason }: calls whose Runnable argument is stored by
+#                         the scheduler; the storage owner of the callback is the class that keeps the returned Future
+# [stored_callback_apis]  "Receiver.method" = { owner = "FQN" | ["FQN", ...], receiver = "regex"?, reason }: storing APIs that the
+#                         parameter-store inference cannot see (external storage). Project methods that assign a parameter to a field
+#                         or add/put it into a field collection are found automatically.
+# [kinds."FQN"]           kind = "K1".."K5", reason
+# [immortal]              "FQN" = { reason }: interned classes whose instances live until shutdown (base Immortal, referenced as const X*)
+# [fields."FQN.field"]    cpp = "C++ member type", part = true?, part_type = "FQN"?, retire = "OWNER" | "RECLAIMER"?, reason
+
+[settings]
+packet_bases = ["com.aionemu.commons.network.packet.BasePacket"]
+connection_bases = ["com.aionemu.commons.network.AConnection"]
+# not singletons even when Java uses the SingletonHolder pattern (conventions-game-server.md: RefCounted and pinned, lint L13)
+per_run_services = ["com.aionemu.gameserver.services.panesterra.ahserion.AhserionRaid"]
+# classes ported as C++ value types (copied, stored by value inside Field<T>; P4-03 geomath): scalar-like in the field table, never escape
+value_types = [
+	"com.aionemu.gameserver.geoEngine.math.Vector2f",
+	"com.aionemu.gameserver.geoEngine.math.Vector3f",
+	"com.aionemu.gameserver.geoEngine.math.Matrix3f",
+	"com.aionemu.gameserver.geoEngine.math.Matrix4f",
+	"com.aionemu.gameserver.geoEngine.math.Ray",
+]
+
+[future_apis]
+"ThreadPoolManager.schedule" = { reason = "ScheduledPool task (design §7.1)" }
+"ThreadPoolManager.scheduleAtFixedRate" = { reason = "ScheduledPool periodic task" }
+"ThreadPoolManager.execute" = { reason = "InstantPool task" }
+"ThreadPoolManager.executeLongRunning" = { reason = "LongRunning pool task" }
+"ThreadPoolManager.submit" = { reason = "InstantPool task with Future" }
+"ThreadPoolManager.submitLongRunning" = { reason = "LongRunning pool task with Future" }
+
+[stored_callback_apis]
+"CronService.schedule" = { owner = "com.aionemu.gameserver.services.cron.CronService", reason = "Quartz job store (external); CronService is an immortal root" }
+
+[kinds]
+"com.aionemu.gameserver.network.Crypt" = { kind = "K5", reason = "crypt state is IO-strand only (design §8.6); P4-15a keeps plain members" }
+"com.aionemu.gameserver.network.EncryptionKeyPair" = { kind = "K5", reason = "owned by Crypt, IO-strand only (design §8.6)" }
+
+[immortal]
+"com.aionemu.gameserver.world.zone.ZoneName" = { reason = "interned by createOrGet in the static zoneNames map (ZoneName.java:16-39), never removed" }
+"com.aionemu.gameserver.skillengine.model.Effect.ForceType" = { reason = "interned by getInstance in the static forceTypes map (Effect.java:1171-1186), never removed" }
+
+[fields]
+"com.aionemu.gameserver.model.gameobjects.Creature.ai" = { cpp = "PartSlot<AbstractAI>", part = true, retire = "OWNER", reason = "created for the owner by AIEngine.newAI(aiName, this) in the constructor; //ai set replaces it (design §2.3, §5.1: PartSlot OWNER)" }
+"com.aionemu.gameserver.model.gameobjects.Creature.aggroList" = { part = true, reason = "created for the owner by the createAggroList() factory (new AggroList(this)) in the constructor" }
+"com.aionemu.gameserver.model.account.Account.players" = { cpp = "PartMap<int32_t, PlayerAccountData>", part = true, part_type = "com.aionemu.gameserver.model.account.PlayerAccountData", retire = "RECLAIMER", reason = "replaced on every stale-online re-entry (design §2.3 RR-19, §5.1)" }
+"com.aionemu.gameserver.model.account.Account.accountWarehouse" = { cpp = "PartSlot<Storage, RetireTo::RECLAIMER>", part = true, retire = "RECLAIMER", reason = "account warehouse built outside the owner and replaced on stale-online re-entry (design §2.3, §5.1)" }
+"com.aionemu.gameserver.world.WorldMapInstance.instanceHandler" = { cpp = "Field<Ref<InstanceHandler>>", reason = "C++-only mutability: the handler is detached in destroyInstance (design §3.2.2, §5.1)" }

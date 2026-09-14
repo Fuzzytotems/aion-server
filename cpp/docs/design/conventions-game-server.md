@@ -33,3 +33,14 @@
 - RefCounted classes with protected constructors declare `AION_MAKE_REF_FRIEND`; create objects only with `T::create`/`makeRef`.
 - A `Ptr`/`T&` borrow is valid only inside the task that obtained it; store `Ref`s. `T&` obtained from `*ref` is valid only while the Ref is held.
 - Future, Pin, PinnedCallback and TimeUnit live in `aion::gameserver::runtime` and are re-exported in `aion::gameserver::utils`.
+
+## Added after wave 1 (2026-09-14)
+
+- Value-type classes listed in `fieldmap.toml [settings] value_types` (geomath Vector2f, Vector3f, Matrix3f, Matrix4f, Ray) are copied:
+  `const Vector3f` or `Field<Vector3f>` members, passed by value or reference, never RefCounted and never `Ref`.
+- Interned classes listed in `fieldmap.toml [immortal]` (ZoneName, Effect.ForceType) derive `Immortal` and are referenced as `const X*` or
+  `Field<const X*>`, like templates. Singletons found by the `SingletonHolder` pattern are Immortal too.
+- Per-run service objects that use Java's singleton pattern must be listed in `fieldmap.toml [settings] per_run_services` (today:
+  AhserionRaid), otherwise the singleton detection makes them Immortal.
+- Lint waivers and mapping comments are listed in runtime-architecture.md §12.2 (`// lint: Lx <reason>`, `// fieldmap-class: <FQN>`); a
+  waiver without a reason is reported as W0.

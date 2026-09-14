@@ -9,15 +9,17 @@ Intentional differences from Java: [docs/DEVIATIONS.md](docs/DEVIATIONS.md).
 | commons | done: ported, reviewed; 394 tests (incl. database integration tests) |
 | login-server | done: ported, reviewed; 147 tests; a real 4.8 client logs in |
 | chat-server | not started |
-| game-server | in progress: design done ([docs/design](docs/design/README.md)); runtime kernel done (422 tests, 30-minute ASan and checked stress gates, benchmark passed) |
+| game-server | in progress: design done ([docs/design](docs/design/README.md)); runtime kernel done (422 tests, 30-minute ASan and checked stress gates, benchmark passed); wave 1 done: configs, geo math, client crypt, XML binder runtime, handler registry (279 tests) and the Python generators, lint and static data oracles in `tools/` (388 tests) |
 
 ## Requirements (Windows)
 
 - Windows 10 1903 / Windows Server 2022 or newer (the `std::chrono` time zone database uses the system ICU)
 - Visual Studio 2026 with the "Desktop development with C++" workload. It includes MSVC, CMake and vcpkg.
 - Git, used by vcpkg to fetch the package registry.
+- Python 3.12 or newer (standard library only) for the generators, lints and oracles in `tools/`. Without it, the build still works but the
+  tool tests and drift checks are not registered.
 
-Dependencies (Asio, spdlog, fmt, MariaDB Connector/C, OpenSSL, cpr, nlohmann-json, magic_enum, GoogleTest) are declared in `vcpkg.json` and
+Dependencies (Asio, spdlog, fmt, MariaDB Connector/C, OpenSSL, cpr, nlohmann-json, magic_enum, pugixml, GoogleTest) are declared in `vcpkg.json` and
 built automatically on the first configure. That first build takes a while; later ones come from vcpkg's binary cache.
 CMake finds vcpkg via `CMAKE_TOOLCHAIN_FILE`, then `$VCPKG_ROOT`, then the copy bundled with the latest Visual Studio installation.
 

@@ -298,6 +298,8 @@ Pointer-loading operations are `Field<Ref>::get/->/*`, `Field<std::string>::get`
 
 Examples: `Stat2`/`AdditionStat`/`ReverseStat` (created per `getStat`, CreatureGameStats.java:119-127) are K5, so there is no refcount traffic on the creature. `QuestEnv` is captured by tasks (_20506MuscleOverMind.java:135) and stored (FollowingNpcCheckTask.java:17), so it stays K4 and is created with `QuestEnv::create(...)`. The escape graph is written to `escape_report.md`. A class that flips kind because of new code fails L2 until the headers are regenerated.
 
+As built (wave 1): `fieldmap.toml [immortal]` lists interned classes (`ZoneName`, `Effect.ForceType`): base `Immortal`, referenced as `const X*` / `Field<const X*>`, non-retaining, `"immortal": true` in the class JSON, accepted by L13. Singletons are detected by the instance/`SingletonHolder` pattern plus a creation scan (every `new X` must initialize or assign that one static field), so 67 `SingletonHolder` services are singletons with base `Immortal`; other self-typed static constants of multi-instance classes are named constants. Classes in `[settings] per_run_services` (AhserionRaid) stay RefCounted. `[settings] value_types` lists the geomath value types (Vector2f/Vector3f/Matrix3f/Matrix4f/Ray), which map like scalars (`const Vector3f`, `Field<Vector3f>`), never `Ref`.
+
 ### 3.2 Field table (K4)
 
 | Java declaration | C++ member |
@@ -326,6 +328,11 @@ Examples: `Stat2`/`AdditionStat`/`ReverseStat` (created per `getStat`, CreatureG
 | `ThreadLocal<T>` | `thread_local T` |
 | **captured variable of a stored lambda / anonymous class** (javac `val$x`, `this$0`) | generated member of the ported callback struct: `const Ref<X>` (or `OwnerRef` if X is the owner of the list holding the callback), included in L1/L2/L16 (RR-3) |
 
+Implementation notes (`fieldmap.py`, wave 1):
+- `OwnerRef` vs `SelfOrRef` comes from a whole-tree write scan: an owner field is `SelfOrRef` only if something other than the constructors and instance initializers of the part class and its subclasses writes it (a qualified write to a non-private field matches by name, conservatively). Today only `PlayerStorage.actor` is `SelfOrRef`.
+- A captured `this` becomes `OwnerRef` only when every storage owner of the callback is the captured class or a subtype (Effect's anonymous observers are stored in the effected creature's ObserveController, so they capture `const Ref<Effect>`).
+- Element writes (`arr[i] = v`, `arr[i]++`) never make an array field non-effectively-final.
+
 #### 3.2.1 Part detection (RR-9)
 
 A field F of owner O holding type X is a part when the evidence matches any of these patterns, each recorded in `parts.json` with its source line:
@@ -338,7 +345,7 @@ S0b reviews the generated `parts.json` and does not hand-write these members.
 
 #### 3.2.2 Overrides
 
-`fieldmap.toml` holds parts built outside the owner, replaceable parts with their `RetireTo` (`Creature.ai` OWNER; `Account.accountWarehouse` and Player storages RECLAIMER; `Account.players` → `PartMap`), C++-only mutability (`WorldMapInstance.instanceHandler`), and confined overrides. Each entry has a reason.
+`fieldmap.toml` (hand-owned, next to the generated files in `cpp/game-server/generated/concurrency/`) holds parts built outside the owner, replaceable parts with their `RetireTo` (`Creature.ai` OWNER; `Account.accountWarehouse` and Player storages RECLAIMER; `Account.players` → `PartMap`), C++-only mutability (`WorldMapInstance.instanceHandler`), and confined overrides. Each entry has a reason.
 
 #### 3.2.3 Semantics
 
@@ -403,9 +410,9 @@ template <class T> class Array : public RefCounted { /* fixed length, Field<T> s
 ### 3.5 Pipeline
 
 1. **Wave 1 (T1):** `fieldmap.py` produces `fieldmap.json`, `parts.json`, `escape_report.md` and `cycles_report.md`.
-2. **S0b/S0c:** `skeleton.py` writes member layouts; hub headers are reviewed.
+2. **S0b/S0c:** `skeleton.py` writes member layouts; hub headers are reviewed. The `fieldmap.json` keys it reads are the interface between the two generators and are listed in the `skeleton.py` module docstring: per class `kind`/`kindName`, `base`, `members`/`fields` (`javaName`/`name`, `cppType`/`cpp`, `declaration`, `cppName`, `initializer`, `static`/`modifiers`, `access`, `comment`, `rule`), `extraDeclarations`/`callbackStructs`, `callbacks`, `includes`. Change both tools together.
 3. **Chunks:** agents copy the member blocks printed by `fieldmap.py --class X`, including generated callback structs for anonymous classes.
-4. **CI/pre-commit:** `lint_concurrency.py` L1-L19, parity check.
+4. **CI/pre-commit:** `lint_concurrency.py` L1-L20 (CTest `gs.lint.concurrency`), parity check.
 5. **Review:** checklist §12.3.
 
 ### 3.6 Census (class-level declarations, ±10%)
@@ -519,7 +526,7 @@ Java `==` → `Ref`/`Ptr` `==`. `equals` → generated Java `equals` (objectId f
 - **stored callbacks** (RR-2/RR-3): for each lambda or anonymous class passed to a storing API (`addObserver`, `attach`, `addAttackCalcObserver`, `putRequest`, `addOnEventEndTask`, `CronService.schedule`, `DeathObserver` construction, field assignment, `schedule*`), edges from the storing container's owner class to each captured variable's type, labelled with the source line;
 - the storing-API list in `fieldmap.toml` (`[stored_callback_apis]`).
 
-Every cycle in `cycles_report.md` needs one `cycles.toml` resolution: `part`, `java-hook: <method>`, `cpp-breaker: <method>`, `zombie-safe: <edge>` or `accepted: <why>`. New unresolved cycles fail L16.
+Every cycle in `cycles_report.md` needs one `cycles.toml` resolution: `part`, `java-hook: <method>`, `cpp-breaker: <method>`, `zombie-safe: <edge>` or `accepted: <why>`. New unresolved cycles fail L16. Both files live in `cpp/game-server/generated/concurrency/` (`cycles.toml` is hand-owned). As built, resolutions are keyed per resolvable edge (`Class.field`, or a capture site `...#name`), not per elementary cycle; structural edges (`extends`, `stored`, `part`) need no entry, and field targets expand to all K3/K4 subtypes.
 
 **Logout and delete breakers (RR-5).** All C++-only breakers and the Java storage-actor reset (PlayerLeaveWorldService.java:146) live in one `LogoutBreakers` scope guard created at the top of `leaveWorld`, running on exit even when a DAO throws:
 ```cpp
@@ -768,7 +775,7 @@ A SHARED packet dereferencing `con` throws NPE with the packet name. In checked 
 
 ## 9. Static data at runtime
 
-- Templates are immortal and `const`. `HolderRef<H>` is published once in `DataManager::init`; `//reload` is deferred (D3).
+- Templates are immortal and `const`. `HolderRef<H>` is published once in `DataManager::init`; `//reload` is deferred (D3). As built, `HolderRef::operator->` throws `NullPointerException` before publish, and a second `publish` throws `IllegalStateException` (publish-once is enforced).
 - `runtime_mutable` fields → `mutable runtime::Field<T>`: `GuideTemplate.activated`, `Spawn.eventTemplate`, walker `RouteStep.z`.
 - `HostileUpEffect.tempHate` per effect (DEVIATION).
 - Spawn family: `SpawnGroup` RefCounted owning `PartList<SpawnTemplate>` under its Monitor; `SpawnTemplate` an OwnedPart; `poolUsedTemplates` under the group Monitor and cleared in `destroyInstance`; SpawnsData indexes are `ConcurrentHashMap` + `CopyOnWriteArrayList` shims (nested compute is legal, §4.1); `saveSpawn` under `SYNCHRONIZED(*this)`.
@@ -778,9 +785,24 @@ A SHARED packet dereferencing `con` throws NPE with the packet name. In checked 
 
 ## 10. Configuration
 
-- All config classes: scalars `std::atomic<T>`, non-scalars `ConfigValue<T>`.
+- All config classes: scalars `std::atomic<T>`, non-scalars `ConfigValue<T>`. There are no startup-only exceptions (rationale in `configs/detail/ConfigSupport.h`), so lint L14 (direct `std::atomic` warning) exempts `game-server/src/aion/gameserver/configs/**`.
 - New required keys: `database.socket_timeout` > 0 for the game server, `gameserver.runtime.*` (reclaim period, backlog dump, zombie break), `gameserver.idfactory.wrap_at` and `release_delay`.
-- `AION_BIND` generation (P4-01) emits the field type from the Java type.
+- `AION_BIND` generation (P4-01) emits the field type from the Java type. As built, the classes bind with `AION_BIND` / `AION_BIND_PATTERN` (`configs/detail/Bind.h`), in Java's `Config.CONFIGS` order; `Config::load` calls are serialized by a `runtime::Monitor` (DEVIATIONS).
+- C++-only keys, bound by `configs/main/RuntimeConfig` (appended after the Java classes). All are optional; the Java `config/` has none of them, and the names follow the kernel header comments (to be confirmed before shipping a C++ `config/` directory):
+
+| Key | Default | Used by |
+|---|---|---|
+| `gameserver.runtime.reclaim_period_ms` | 20 | Reclaimer period |
+| `gameserver.runtime.backlog_dump_objects` | 1000000 | Reclaimer backlog dump (§2.6) |
+| `gameserver.runtime.zombie_break_minutes` | 30 | zombie breaker (§5.3) |
+| `gameserver.debug.leak_census_minutes` | 10 | LeakCensus (§5.4) |
+| `gameserver.idfactory.wrap_at` | 134217728 (2^27) | IDFactory cursor wrap (§6) |
+| `gameserver.idfactory.release_delay` | 300 (s) | IDFactory quarantine (§6) |
+| `gameserver.watchdog.stall_seconds` | 60 | watchdog STALL (§4.3) |
+| `gameserver.watchdog.restart_on_deadlock` | false | watchdog restart (D5) |
+| `gameserver.scheduler.coalesce_after` | 10 | fixed-rate coalescing (§7.2) |
+| `gameserver.debug.single_executor` | false | §1.6 |
+| `gameserver.debug.serial_movement` | false | §1.6 |
 
 ## 11. Connections, IO threads, LS/CS links, shutdown
 
@@ -839,12 +861,20 @@ A SHARED packet dereferencing `con` throws NPE with the packet name. In checked 
 | L11 | no stored `.begin()`; `auto it = x.iterator()` locals allowed |
 | L12 | warning: DAO calls and `Future::get` lexically inside `SYNCHRONIZED` or a `compute` callback |
 | L13 | `Immortal` only on allow-listed classes; per-run service objects RefCounted |
-| L14 | warning: direct `std::atomic<` in game code |
+| L14 | warning: direct `std::atomic<` in game code (outside `runtime/` and `configs/`) |
 | L15 | no `thread_local` holding Ref/Ptr/borrows |
 | L16 | capture-aware `cycles_report.md` fully resolved; no `Ref<P>` to the holder's own owner |
 | L17 | KnownList `add(` only inside `KnownList::addPair` |
-| L18 | no `RankedMutex` outside `runtime/` and `network/`; no user callback parameter in a function that holds one |
+| L18 | no `RankedMutex`/`LeafMutex` outside `runtime/` and `network/`; while such a mutex is held (RAII guard scope): no callable parameter invoked, no blocking call (Future get, join, acquire, sleep, BlockingRegion, DAO) and no `SYNCHRONIZED` |
 | L19 | K5 classes are not stored in K4 members, captures or packets (escape re-check against `escape_report.md`) |
+| L20 | compute/computeIfAbsent/computeIfPresent/merge callbacks do not write the same map (put/remove/compute*/merge/replace/clear) (§21) |
+| W0 | a waiver comment without a reason |
+
+As built (`tools/porting/lint_concurrency.py`, wave 1; its docstring is the reference):
+- **Kernel areas** are exempt from L1, L2, L3, L6, L7, L9, L11, L14 and the placement part of L18: `runtime/` plus the P4-02b services on leaf mutexes and own threads (`services/cron/`, `utils/idfactory/`, `utils/cron/`, `utils/ThreadPoolManager.*`). `network/` may hold `RankedMutex` too. L2 compares member types only for K3/K4 classes and skips config fields.
+- **Waivers** (on the finding's line or the line above; a trailing comment applies to its own line, a stand-alone comment to the next line): `// confined: <reason>` (L1 L3 L19), `// fieldmap: <reason>` (L1 L2 L3), `// lockdep: <reason>` (L12), `// quiescent-safe: <reason>` (L5), `// lint: Lx[,Ly] <reason>` (the listed rules). `// fieldmap-class: <FQN>` on or above a class line overrides the C++ → Java class mapping.
+- L7 compares Java `synchronized`/`lock()` counts with C++ `SYNCHRONIZED` and `.lock()` calls; RAII leaf-mutex guards are not counted. L12 keeps the Monitor/compute warnings.
+- CTest `gs.lint.concurrency` runs the lint with `--werror` over `game-server/src`; `--cycles` (L16) waits for a resolved `cycles.toml`.
 
 ### 12.3 Review checklist
 
@@ -1113,7 +1143,7 @@ struct OfflinePlayerChecker : TaskStruct {
 	}
 };
 ```
-`PlayerGroupLeavedEvent` is K5 (never stored), so it lives on the stack.
+The design assumed `PlayerGroupLeavedEvent` is K5 (never stored) and lives on the stack. Correction (wave 1): the mechanical analysis gives K4, because `PlayerLeavedEvent.handleEvent` (PlayerLeavedEvent.java:61) schedules a lambda that captures `this` implicitly through its fields. Either the event is created with `create()`, or the port captures the fields instead of `this` and the class is overridden to K5 in `fieldmap.toml` with that reason.
 
 #### (e) Broadcast
 
@@ -1249,6 +1279,7 @@ void IdianStone::onEquip(Player& player) {
 	player.getObserveController().addObserver(*actionListener);
 }
 ```
+As generated (wave 1): the `this$0` member is a non-const `OwnerRef<IdianStone> idianStone;` (const on a reference alias has no effect; the name is the lowerCamel class name), and Runnable/Callable anonymous classes derive `TaskStruct`.
 
 #### (j) Recipe for a long loop (FixPath)
 
@@ -1453,3 +1484,17 @@ Performance items found by P4, for the model port: `as<>`/`cast<>` use `dynamic_
 in broadcasts is ~70% of their cost) → add a cheap type tag for the hot object kinds. A written `ConcurrentHashMap` costs ~1.8 KB fixed
 (16 stripes) → per-creature maps (KnownList, AggroList, controller tasks) need fewer/lazy stripes via `fieldmap.toml`. Java's
 `KnownList.findVisibleObjects` flag scan walks all NPCs of an instance per player update (206 µs Release at 5,000 NPCs).
+
+## 22. Wave 1 tooling as built (2026-09-14)
+
+`fieldmap.py`, `lint_concurrency.py` and the configs were built against this design (status: [wave1-status.md](wave1-status.md)). Short
+as-built notes are placed in §3.1, §3.2, §3.5, §5.3, §9, §10, §12.2 and §14.2(d)/(i); the remaining departures:
+
+| § | As built |
+|---|---|
+| 3.1 | Escape analysis decides per class tree: everything below the topmost project superclass shares one K4/K5 decision, because a RefCounted base makes subclasses RefCounted. An escaping interface marks all implementors. K5 wins over K3 for immutable classes that never escape |
+| 3.1, 8.6 | `fieldmap.toml [kinds]` overrides `Crypt` and `EncryptionKeyPair` to K5: crypt state is IO-strand only |
+| 3.2 | A captured `this` is `OwnerRef` only for `stored` callbacks whose storage owners are all the captured class (or subtypes). Task captures stay `const Ref`/pins, so object → Future field → lambda → this cycles appear in `cycles_report.md` |
+| 3.2.1 | Part detection also scans the owner's own methods called from its constructor (depth 2). `fieldmap.toml` parts (pattern 4) are applied before owner-field detection |
+| 5.3 | Stored-callback APIs are mostly inferred: a project method or constructor that stores a parameter into a field or field collection, recursively, including parameters captured by stored anonymous classes. `[stored_callback_apis]` is needed only for external storage (`CronService.schedule`) |
+| 12.2 | L18 also reports blocking calls and `SYNCHRONIZED` inside a leaf-mutex guard scope (the design only restricted callbacks) |

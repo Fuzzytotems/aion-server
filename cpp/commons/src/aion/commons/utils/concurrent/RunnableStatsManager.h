@@ -32,6 +32,14 @@ void handleStats(const std::type_info& type, int64_t runTime);
 /** Adds one execution of the named method of the given class (e.g. "runImpl()"). */
 void handleStats(const std::type_info& type, std::string_view methodName, int64_t runTime);
 
+/**
+ * C++ addition: adds one execution of the named method of a class given by name instead of a type, for work whose C++ type says nothing
+ * (type-erased tasks, lambdas), e.g. <tt>handleStats("ai/instance/darkPoeta/CalindiFlamelordAI.cpp:88", "run()", nanos)</tt>. The key is
+ * shown verbatim as the class name. Statistics are kept per displayed class name, so a key equal to the displayed name of a std::type_info
+ * (the C++ name without the "aion::gameserver::" prefix) shares that type's entries.
+ */
+void handleStats(std::string_view key, std::string_view methodName, int64_t runTime);
+
 /** Writes the statistics of all methods executed at least once to ./log/stats/MethodStats.log, in unspecified order. */
 void dumpClassStats();
 

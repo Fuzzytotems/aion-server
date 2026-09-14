@@ -25,6 +25,7 @@ protected:
 		DatabaseConfig::DATABASE_PASSWORD.clear();
 		DatabaseConfig::DATABASE_CONNECTIONS_MAX = 0;
 		DatabaseConfig::DATABASE_TIMEOUT = 0;
+		DatabaseConfig::DATABASE_SOCKET_TIMEOUT.reset();
 	}
 };
 
@@ -38,6 +39,7 @@ TEST_F(DatabaseConfigTest, Defaults) {
 	EXPECT_EQ(DatabaseConfig::DATABASE_PASSWORD, "");
 	EXPECT_EQ(DatabaseConfig::DATABASE_CONNECTIONS_MAX, 5);
 	EXPECT_EQ(DatabaseConfig::DATABASE_TIMEOUT, 5000);
+	EXPECT_EQ(DatabaseConfig::DATABASE_SOCKET_TIMEOUT, std::nullopt); // no default value: unchanged
 }
 
 TEST_F(DatabaseConfigTest, Values) {
@@ -56,6 +58,21 @@ TEST_F(DatabaseConfigTest, Values) {
 	EXPECT_EQ(DatabaseConfig::DATABASE_PASSWORD, "");
 	EXPECT_EQ(DatabaseConfig::DATABASE_CONNECTIONS_MAX, 10);
 	EXPECT_EQ(DatabaseConfig::DATABASE_TIMEOUT, 16);
+	EXPECT_EQ(DatabaseConfig::DATABASE_SOCKET_TIMEOUT, std::nullopt);
+}
+
+TEST_F(DatabaseConfigTest, SocketTimeout) {
+	Properties p;
+	p.setProperty("database.socket_timeout", "60000");
+	ConfigurableProcessor::process(p, {&DatabaseConfig::bind});
+	EXPECT_EQ(DatabaseConfig::DATABASE_SOCKET_TIMEOUT, 60000);
+
+	p.setProperty("database.socket_timeout", "0");
+	ConfigurableProcessor::process(p, {&DatabaseConfig::bind});
+	EXPECT_EQ(DatabaseConfig::DATABASE_SOCKET_TIMEOUT, 0);
+
+	ConfigurableProcessor::process(Properties(), {&DatabaseConfig::bind}); // a missing key keeps the value, like every key without a default
+	EXPECT_EQ(DatabaseConfig::DATABASE_SOCKET_TIMEOUT, 0);
 }
 
 TEST_F(DatabaseConfigTest, InvalidValue) {

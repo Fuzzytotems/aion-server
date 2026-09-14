@@ -1,0 +1,1449 @@
+{
+	"format": "aion-staticdata-counts",
+	"version": 1,
+	"source": "StaticData.afterUnmarshal (StaticData.java:313-405)",
+	"countryCode": 99,
+	"imports": [
+		{
+			"file": "items/item_templates.xml",
+			"resolved": "items/item_templates.xml",
+			"files": 1
+		},
+		{
+			"file": "items/assembly_items.xml",
+			"resolved": "items/assembly_items.xml",
+			"files": 1
+		},
+		{
+			"file": "items/item_groups.xml",
+			"resolved": "items/item_groups.xml",
+			"files": 1
+		},
+		{
+			"file": "items/item_purifications.xml",
+			"resolved": "items/item_purifications.xml",
+			"files": 1
+		},
+		{
+			"file": "items/item_random_bonuses.xml",
+			"resolved": "items/item_random_bonuses.xml",
+			"files": 1
+		},
+		{
+			"file": "items/item_restriction_cleanups.xml",
+			"resolved": "items/item_restriction_cleanups.xml",
+			"files": 1
+		},
+		{
+			"file": "items/multi_return_item.xml",
+			"resolved": "items/multi_return_item.xml",
+			"files": 1
+		},
+		{
+			"file": "item_sets/item_sets.xml",
+			"resolved": "item_sets/item_sets.xml",
+			"files": 1
+		},
+		{
+			"file": "ai",
+			"resolved": "ai",
+			"files": 2
+		},
+		{
+			"file": "assembled_npcs/assembled_npcs.xml",
+			"resolved": "assembled_npcs/assembled_npcs.xml",
+			"files": 1
+		},
+		{
+			"file": "auto_group/auto_group.xml",
+			"resolved": "auto_group/auto_group.xml",
+			"files": 1
+		},
+		{
+			"file": "base/base_locations.xml",
+			"resolved": "base/base_locations.xml",
+			"files": 1
+		},
+		{
+			"file": "bind_points/bind_points.xml",
+			"resolved": "bind_points/bind_points.xml",
+			"files": 1
+		},
+		{
+			"file": "bounties/kill_bounties.xml",
+			"resolved": "bounties/kill_bounties.xml",
+			"files": 1
+		},
+		{
+			"file": "chests/chest_templates.xml",
+			"resolved": "chests/chest_templates.xml",
+			"files": 1
+		},
+		{
+			"file": "cosmetic_items/cosmetic_items.xml",
+			"resolved": "cosmetic_items/cosmetic_items.xml",
+			"files": 1
+		},
+		{
+			"file": "curing_objects/curing_objects.xml",
+			"resolved": "curing_objects/curing_objects.xml",
+			"files": 1
+		},
+		{
+			"file": "custom_drop/custom_drop.xml",
+			"resolved": "custom_drop/custom_drop.xml",
+			"files": 1
+		},
+		{
+			"file": "decomposable_items/decomposable_items.xml",
+			"resolved": "decomposable_items/decomposable_items.xml",
+			"files": 1
+		},
+		{
+			"file": "enchants/enchant_templates.xml",
+			"resolved": "enchants/enchant_templates.xml",
+			"files": 1
+		},
+		{
+			"file": "enchants/tempering_templates.xml",
+			"resolved": "enchants/tempering_templates.xml",
+			"files": 1
+		},
+		{
+			"file": "events/arcadelist.xml",
+			"resolved": "events/arcadelist.xml",
+			"files": 1
+		},
+		{
+			"file": "events/login_events.xml",
+			"resolved": "events/login_events.xml",
+			"files": 1
+		},
+		{
+			"file": "events/timed_events",
+			"resolved": "events/timed_events",
+			"files": 2
+		},
+		{
+			"file": "fly_rings/fly_rings.xml",
+			"resolved": "fly_rings/fly_rings.xml",
+			"files": 1
+		},
+		{
+			"file": "flypath_template.xml",
+			"resolved": "flypath_template.xml",
+			"files": 1
+		},
+		{
+			"file": "gatherables/gatherable_templates.xml",
+			"resolved": "gatherables/gatherable_templates.xml",
+			"files": 1
+		},
+		{
+			"file": "global_drops/global_npc_exclusions.xml",
+			"resolved": "global_drops/global_npc_exclusions.xml",
+			"files": 1
+		},
+		{
+			"file": "global_drops/rules",
+			"resolved": "global_drops/rules",
+			"files": 86
+		},
+		{
+			"file": "goodslists/goodslists.xml",
+			"resolved": "goodslists/goodslists.xml",
+			"files": 1
+		},
+		{
+			"file": "guides/guide.xml",
+			"resolved": "guides/guide.xml",
+			"files": 1
+		},
+		{
+			"file": "hotspot_template.xml",
+			"resolved": "hotspot_template.xml",
+			"files": 1
+		},
+		{
+			"file": "housing/house_buildings.xml",
+			"resolved": "housing/house_buildings.xml",
+			"files": 1
+		},
+		{
+			"file": "housing/house_npcs.xml",
+			"resolved": "housing/house_npcs.xml",
+			"files": 1
+		},
+		{
+			"file": "housing/house_parts.xml",
+			"resolved": "housing/house_parts.xml",
+			"files": 1
+		},
+		{
+			"file": "housing/houses.xml",
+			"resolved": "housing/houses.xml",
+			"files": 1
+		},
+		{
+			"file": "housing/housing_objects.xml",
+			"resolved": "housing/housing_objects.xml",
+			"files": 1
+		},
+		{
+			"file": "instance_bonusattr/instance_bonusattr.xml",
+			"resolved": "instance_bonusattr/instance_bonusattr.xml",
+			"files": 1
+		},
+		{
+			"file": "instance_cooltimes/instance_cooltimes.xml",
+			"resolved": "instance_cooltimes/instance_cooltimes.xml",
+			"files": 1
+		},
+		{
+			"file": "instance_exit/instance_exit.xml",
+			"resolved": "instance_exit/instance_exit.xml",
+			"files": 1
+		},
+		{
+			"file": "legion_dominion_template.xml",
+			"resolved": "legion_dominion_template.xml",
+			"files": 1
+		},
+		{
+			"file": "mail_templates.xml",
+			"resolved": "mail_templates.xml",
+			"files": 1
+		},
+		{
+			"file": "mesh_materials/material_templates.xml",
+			"resolved": "mesh_materials/material_templates.xml",
+			"files": 1
+		},
+		{
+			"file": "npc_factions/npc_factions.xml",
+			"resolved": "npc_factions/npc_factions.xml",
+			"files": 1
+		},
+		{
+			"file": "npc_shouts/npc_shouts.xml",
+			"resolved": "npc_shouts/npc_shouts.xml",
+			"files": 1
+		},
+		{
+			"file": "npc_skills",
+			"resolved": "npc_skills",
+			"files": 25
+		},
+		{
+			"file": "npc_teleporter.xml",
+			"resolved": "npc_teleporter.xml",
+			"files": 1
+		},
+		{
+			"file": "npc_trade_list.xml",
+			"resolved": "npc_trade_list.xml",
+			"files": 1
+		},
+		{
+			"file": "npc_walker",
+			"resolved": "npc_walker",
+			"files": 13
+		},
+		{
+			"file": "npcs",
+			"resolved": "npcs",
+			"files": 1
+		},
+		{
+			"file": "pet_skills",
+			"resolved": "pet_skills",
+			"files": 2
+		},
+		{
+			"file": "pets/pet_buffs.xml",
+			"resolved": "pets/pet_buffs.xml",
+			"files": 1
+		},
+		{
+			"file": "pets/pet_doping.xml",
+			"resolved": "pets/pet_doping.xml",
+			"files": 1
+		},
+		{
+			"file": "pets/pet_feed.xml",
+			"resolved": "pets/pet_feed.xml",
+			"files": 1
+		},
+		{
+			"file": "pets/pets.xml",
+			"resolved": "pets/pets.xml",
+			"files": 1
+		},
+		{
+			"file": "player_experience_table.xml",
+			"resolved": "player_experience_table.xml",
+			"files": 1
+		},
+		{
+			"file": "player_initial_data.xml",
+			"resolved": "player_initial_data.xml",
+			"files": 1
+		},
+		{
+			"file": "player_titles.xml",
+			"resolved": "player_titles.xml",
+			"files": 1
+		},
+		{
+			"file": "polymorph_panels/polymorph_panels.xml",
+			"resolved": "polymorph_panels/polymorph_panels.xml",
+			"files": 1
+		},
+		{
+			"file": "portals/portal_loc.xml",
+			"resolved": "portals/portal_loc.xml",
+			"files": 1
+		},
+		{
+			"file": "portals/portal_template2.xml",
+			"resolved": "portals/portal_template2.xml",
+			"files": 1
+		},
+		{
+			"file": "quest_data/challenge_tasks.xml",
+			"resolved": "quest_data/challenge_tasks.xml",
+			"files": 1
+		},
+		{
+			"file": "quest_data/quest_data.xml",
+			"resolved": "quest_data/quest_data.xml",
+			"files": 1
+		},
+		{
+			"file": "quest_script_data",
+			"resolved": "quest_script_data",
+			"files": 89
+		},
+		{
+			"file": "recipe/recipe_templates.xml",
+			"resolved": "recipe/recipe_templates.xml",
+			"files": 1
+		},
+		{
+			"file": "ride/ride.xml",
+			"resolved": "ride/ride.xml",
+			"files": 1
+		},
+		{
+			"file": "rift/rift_locations.xml",
+			"resolved": "rift/rift_locations.xml",
+			"files": 1
+		},
+		{
+			"file": "roads/roads.xml",
+			"resolved": "roads/roads.xml",
+			"files": 1
+		},
+		{
+			"file": "conqueror_protector_ranks/conqueror_protector_ranks.xml",
+			"resolved": "conqueror_protector_ranks/conqueror_protector_ranks.xml",
+			"files": 1
+		},
+		{
+			"file": "siege/siege_locations.xml",
+			"resolved": "siege/siege_locations.xml",
+			"files": 1
+		},
+		{
+			"file": "siege/siege_shields.xml",
+			"resolved": "siege/siege_shields.xml",
+			"files": 1
+		},
+		{
+			"file": "skills/motion_times.xml",
+			"resolved": "skills/motion_times.xml",
+			"files": 1
+		},
+		{
+			"file": "skills/skill_charge.xml",
+			"resolved": "skills/skill_charge.xml",
+			"files": 1
+		},
+		{
+			"file": "skills/skill_templates.xml",
+			"resolved": "skills/skill_templates.xml",
+			"files": 1
+		},
+		{
+			"file": "skill_tree",
+			"resolved": "skill_tree",
+			"files": 2
+		},
+		{
+			"file": "spawns",
+			"resolved": "spawns",
+			"files": 211
+		},
+		{
+			"file": "staticdoors/staticdoor_templates.xml",
+			"resolved": "staticdoors/staticdoor_templates.xml",
+			"files": 1
+		},
+		{
+			"file": "stats/absolute_stats.xml",
+			"resolved": "stats/absolute_stats.xml",
+			"files": 1
+		},
+		{
+			"file": "storage_expander/cube_expander.xml",
+			"resolved": "storage_expander/cube_expander.xml",
+			"files": 1
+		},
+		{
+			"file": "storage_expander/warehouse_expander.xml",
+			"resolved": "storage_expander/warehouse_expander.xml",
+			"files": 1
+		},
+		{
+			"file": "teleport_location.xml",
+			"resolved": "teleport_location.xml",
+			"files": 1
+		},
+		{
+			"file": "town_spawns",
+			"resolved": "town_spawns",
+			"files": 2
+		},
+		{
+			"file": "tribe/tribe_relations.xml",
+			"resolved": "tribe/tribe_relations.xml",
+			"files": 1
+		},
+		{
+			"file": "vortex/dimensional_vortex.xml",
+			"resolved": "vortex/dimensional_vortex.xml",
+			"files": 1
+		},
+		{
+			"file": "walker_versions.xml",
+			"resolved": "walker_versions.xml",
+			"files": 1
+		},
+		{
+			"file": "weather_table.xml",
+			"resolved": "weather_table.xml",
+			"files": 1
+		},
+		{
+			"file": "windstreams/windstreams.xml",
+			"resolved": "windstreams/windstreams.xml",
+			"files": 1
+		},
+		{
+			"file": "world_maps.xml",
+			"resolved": "world_maps.xml",
+			"files": 1
+		},
+		{
+			"file": "world_raid/world_raids.xml",
+			"resolved": "world_raid/world_raids.xml",
+			"files": 1
+		},
+		{
+			"file": "zones",
+			"resolved": "zones",
+			"files": 149
+		},
+		{
+			"file": "skills/alias_locations.xml",
+			"resolved": "skills/alias_locations.xml",
+			"files": 1
+		},
+		{
+			"file": "skills/signet_data_templates.xml",
+			"resolved": "skills/signet_data_templates.xml",
+			"files": 1
+		}
+	],
+	"replacedHolders": [],
+	"lines": [
+		{
+			"javaLine": 315,
+			"line": "Loaded 161 maps",
+			"values": [
+				161
+			],
+			"holders": [
+				"world_maps"
+			]
+		},
+		{
+			"javaLine": 316,
+			"line": "Loaded 35 material ids",
+			"values": [
+				35
+			],
+			"holders": [
+				"material_templates"
+			]
+		},
+		{
+			"javaLine": 317,
+			"line": "Loaded weather for 24 maps",
+			"values": [
+				24
+			],
+			"holders": [
+				"weather"
+			]
+		},
+		{
+			"javaLine": 318,
+			"line": "Loaded 66 player experience table entries",
+			"values": [
+				66
+			],
+			"holders": [
+				"player_experience_table"
+			]
+		},
+		{
+			"javaLine": 319,
+			"line": "Loaded 47 absolute stat templates",
+			"values": [
+				47
+			],
+			"holders": [
+				"absolute_stats"
+			]
+		},
+		{
+			"javaLine": 320,
+			"line": "Loaded 1 item cleanup entries",
+			"values": [
+				1
+			],
+			"holders": [
+				"item_restriction_cleanups"
+			]
+		},
+		{
+			"javaLine": 321,
+			"line": "Loaded 102009 item templates",
+			"values": [
+				102009
+			],
+			"holders": [
+				"item_templates"
+			]
+		},
+		{
+			"javaLine": 322,
+			"line": "Loaded 539 item bonus templates",
+			"values": [
+				539
+			],
+			"holders": [
+				"random_bonuses"
+			]
+		},
+		{
+			"javaLine": 323,
+			"line": "Loaded 5139 bonus item group templates and 787 pet food items",
+			"values": [
+				5139,
+				787
+			],
+			"holders": [
+				"item_groups"
+			]
+		},
+		{
+			"javaLine": 324,
+			"line": "Loaded 63287 npc templates",
+			"values": [
+				63287
+			],
+			"holders": [
+				"npc_templates"
+			]
+		},
+		{
+			"javaLine": 325,
+			"line": "Loaded 174 custom npc drops",
+			"values": [
+				174
+			],
+			"holders": [
+				"custom_drop"
+			]
+		},
+		{
+			"javaLine": 326,
+			"line": "Loaded 14 system mail templates",
+			"values": [
+				14
+			],
+			"holders": [
+				"mails"
+			]
+		},
+		{
+			"javaLine": 327,
+			"line": "Loaded 3789 npc shout templates",
+			"values": [
+				3789
+			],
+			"holders": [
+				"npc_shouts"
+			]
+		},
+		{
+			"javaLine": 328,
+			"line": "Loaded 218 pet templates and 33 food flavours",
+			"values": [
+				218,
+				33
+			],
+			"holders": [
+				"pet_feed",
+				"pets"
+			]
+		},
+		{
+			"javaLine": 329,
+			"line": "Loaded 31 pet doping templates",
+			"values": [
+				31
+			],
+			"holders": [
+				"dopings"
+			]
+		},
+		{
+			"javaLine": 330,
+			"line": "Loaded 9 pet buffs templates",
+			"values": [
+				9
+			],
+			"holders": [
+				"pet_buffs"
+			]
+		},
+		{
+			"javaLine": 331,
+			"line": "Loaded 6 initial player templates",
+			"values": [
+				6
+			],
+			"holders": [
+				"player_initial_data"
+			]
+		},
+		{
+			"javaLine": 332,
+			"line": "Loaded 1969 trade lists",
+			"values": [
+				1969
+			],
+			"holders": [
+				"npc_trade_list"
+			]
+		},
+		{
+			"javaLine": 333,
+			"line": "Loaded 249 npc teleporter templates",
+			"values": [
+				249
+			],
+			"holders": [
+				"npc_teleporter"
+			]
+		},
+		{
+			"javaLine": 334,
+			"line": "Loaded 284 teleport locations",
+			"values": [
+				284
+			],
+			"holders": [
+				"teleport_location"
+			]
+		},
+		{
+			"javaLine": 335,
+			"line": "Loaded 13570 skill templates",
+			"values": [
+				13570
+			],
+			"holders": [
+				"skill_data"
+			]
+		},
+		{
+			"javaLine": 336,
+			"line": "Loaded 163 skill charge entries",
+			"values": [
+				163
+			],
+			"holders": [
+				"skill_charge"
+			]
+		},
+		{
+			"javaLine": 337,
+			"line": "Loaded 304 motion times",
+			"values": [
+				304
+			],
+			"holders": [
+				"motion_times"
+			]
+		},
+		{
+			"javaLine": 338,
+			"line": "Loaded 4888 skill learn entries",
+			"values": [
+				4888
+			],
+			"holders": [
+				"skill_tree"
+			]
+		},
+		{
+			"javaLine": 339,
+			"line": "Loaded 7 cube expand entries",
+			"values": [
+				7
+			],
+			"holders": [
+				"cube_expander"
+			]
+		},
+		{
+			"javaLine": 340,
+			"line": "Loaded 254 warehouse expand entries",
+			"values": [
+				254
+			],
+			"holders": [
+				"warehouse_expander"
+			]
+		},
+		{
+			"javaLine": 341,
+			"line": "Loaded 129 bind point entries",
+			"values": [
+				129
+			],
+			"holders": [
+				"bind_points"
+			]
+		},
+		{
+			"javaLine": 342,
+			"line": "Loaded 8043 quest data entries",
+			"values": [
+				8043
+			],
+			"holders": [
+				"quests"
+			]
+		},
+		{
+			"javaLine": 343,
+			"line": "Loaded 756 gatherable entries",
+			"values": [
+				756
+			],
+			"holders": [
+				"gatherable_templates"
+			]
+		},
+		{
+			"javaLine": 344,
+			"line": "Loaded 300 title entries",
+			"values": [
+				300
+			],
+			"holders": [
+				"player_titles"
+			]
+		},
+		{
+			"javaLine": 345,
+			"line": "Loaded 6449 walker routes",
+			"values": [
+				6449
+			],
+			"holders": [
+				"npc_walker"
+			]
+		},
+		{
+			"javaLine": 346,
+			"line": "Loaded 12 walker group variants",
+			"values": [
+				12
+			],
+			"holders": [
+				"walker_versions"
+			]
+		},
+		{
+			"javaLine": 347,
+			"line": "Loaded 3978 zone entries",
+			"values": [
+				3978
+			],
+			"holders": [
+				"zones"
+			]
+		},
+		{
+			"javaLine": 348,
+			"line": "Loaded 3239 goodslist entries",
+			"values": [
+				3239
+			],
+			"holders": [
+				"goodslists"
+			]
+		},
+		{
+			"javaLine": 349,
+			"line": "Loaded 719 tribe relation entries",
+			"values": [
+				719
+			],
+			"holders": [
+				"tribe_relations"
+			]
+		},
+		{
+			"javaLine": 350,
+			"line": "Loaded 12494 recipe entries",
+			"values": [
+				12494
+			],
+			"holders": [
+				"recipe_templates"
+			]
+		},
+		{
+			"javaLine": 351,
+			"line": "Loaded 187 chest locations",
+			"values": [
+				187
+			],
+			"holders": [
+				"chest_templates"
+			]
+		},
+		{
+			"javaLine": 352,
+			"line": "Loaded 63 static door locations",
+			"values": [
+				63
+			],
+			"holders": [
+				"staticdoor_templates"
+			]
+		},
+		{
+			"javaLine": 353,
+			"line": "Loaded 558 item set entries",
+			"values": [
+				558
+			],
+			"holders": [
+				"item_sets"
+			]
+		},
+		{
+			"javaLine": 354,
+			"line": "Loaded 18 npc factions",
+			"values": [
+				18
+			],
+			"holders": [
+				"npc_factions"
+			]
+		},
+		{
+			"javaLine": 355,
+			"line": "Loaded 11931 npc skill list entries",
+			"values": [
+				11931
+			],
+			"holders": [
+				"npc_skill_templates"
+			]
+		},
+		{
+			"javaLine": 356,
+			"line": "Loaded 13 pet skill list entries",
+			"values": [
+				13
+			],
+			"holders": [
+				"pet_skill_templates"
+			]
+		},
+		{
+			"javaLine": 357,
+			"line": "Loaded 70 siege location entries",
+			"values": [
+				70
+			],
+			"holders": [
+				"siege_locations"
+			]
+		},
+		{
+			"javaLine": 358,
+			"line": "Loaded 2 vortex entries",
+			"values": [
+				2
+			],
+			"holders": [
+				"dimensional_vortex"
+			]
+		},
+		{
+			"javaLine": 359,
+			"line": "Loaded 60 rift entries",
+			"values": [
+				60
+			],
+			"holders": [
+				"rift_locations"
+			]
+		},
+		{
+			"javaLine": 360,
+			"line": "Loaded 42 base entries",
+			"values": [
+				42
+			],
+			"holders": [
+				"base_locations"
+			]
+		},
+		{
+			"javaLine": 361,
+			"line": "Loaded 74 fly ring entries",
+			"values": [
+				74
+			],
+			"holders": [
+				"fly_rings"
+			]
+		},
+		{
+			"javaLine": 362,
+			"line": "Loaded 8 shield entries",
+			"values": [
+				8
+			],
+			"holders": [
+				"shields"
+			]
+		},
+		{
+			"javaLine": 363,
+			"line": "Loaded 218 pet entries",
+			"values": [
+				218
+			],
+			"holders": [
+				"pets"
+			]
+		},
+		{
+			"javaLine": 364,
+			"line": "Loaded 80 guide entries",
+			"values": [
+				80
+			],
+			"holders": [
+				"guides"
+			]
+		},
+		{
+			"javaLine": 365,
+			"line": "Loaded 8 road entries",
+			"values": [
+				8
+			],
+			"holders": [
+				"roads"
+			]
+		},
+		{
+			"javaLine": 366,
+			"line": "Loaded 110 instance cooltime entries",
+			"values": [
+				110
+			],
+			"holders": [
+				"instance_cooltimes"
+			]
+		},
+		{
+			"javaLine": 367,
+			"line": "Loaded 2483 decomposable items entries",
+			"values": [
+				2483
+			],
+			"holders": [
+				"decomposable_items"
+			]
+		},
+		{
+			"javaLine": 368,
+			"line": "Loaded 75 ai templates",
+			"values": [
+				75
+			],
+			"holders": [
+				"ai_templates"
+			]
+		},
+		{
+			"javaLine": 369,
+			"line": "Loaded 208 flypath templates",
+			"values": [
+				208
+			],
+			"holders": [
+				"flypath_template"
+			]
+		},
+		{
+			"javaLine": 370,
+			"line": "Loaded 5 windstream entries",
+			"values": [
+				5
+			],
+			"holders": [
+				"windstreams"
+			]
+		},
+		{
+			"javaLine": 371,
+			"line": "Loaded 21 assembled npcs entries",
+			"values": [
+				21
+			],
+			"holders": [
+				"assembled_npcs"
+			]
+		},
+		{
+			"javaLine": 372,
+			"line": "Loaded 366 cosmetic items entries",
+			"values": [
+				366
+			],
+			"holders": [
+				"cosmetic_items"
+			]
+		},
+		{
+			"javaLine": 373,
+			"line": "Loaded 114 auto group entries",
+			"values": [
+				114
+			],
+			"holders": [
+				"auto_groups"
+			]
+		},
+		{
+			"javaLine": 374,
+			"line": "Loaded 140 spawn maps entries",
+			"values": [
+				140
+			],
+			"holders": [
+				"spawns"
+			]
+		},
+		{
+			"javaLine": 375,
+			"line": "Loaded 76 events",
+			"values": [
+				76
+			],
+			"holders": [
+				"timed_events"
+			]
+		},
+		{
+			"javaLine": 376,
+			"line": "Loaded 61 skill panel entries",
+			"values": [
+				61
+			],
+			"holders": [
+				"polymorph_panels"
+			]
+		},
+		{
+			"javaLine": 377,
+			"line": "Loaded 16 instance Buffs entries",
+			"values": [
+				16
+			],
+			"holders": [
+				"instance_bonusattrs"
+			]
+		},
+		{
+			"javaLine": 378,
+			"line": "Loaded 1511 housing object entries",
+			"values": [
+				1511
+			],
+			"holders": [
+				"housing_objects"
+			]
+		},
+		{
+			"javaLine": 379,
+			"line": "Loaded 65 ride info entries",
+			"values": [
+				65
+			],
+			"holders": [
+				"rides"
+			]
+		},
+		{
+			"javaLine": 380,
+			"line": "Loaded 137 instance exit entries",
+			"values": [
+				137
+			],
+			"holders": [
+				"instance_exits"
+			]
+		},
+		{
+			"javaLine": 381,
+			"line": "Loaded 405 portal loc entries",
+			"values": [
+				405
+			],
+			"holders": [
+				"portal_locs"
+			]
+		},
+		{
+			"javaLine": 382,
+			"line": "Loaded 466 portal templates2 entries",
+			"values": [
+				466
+			],
+			"holders": [
+				"portal_templates2"
+			]
+		},
+		{
+			"javaLine": 383,
+			"line": "Loaded 20 housing lands",
+			"values": [
+				20
+			],
+			"holders": [
+				"house_lands"
+			]
+		},
+		{
+			"javaLine": 384,
+			"line": "Loaded 9 house building styles",
+			"values": [
+				9
+			],
+			"holders": [
+				"buildings"
+			]
+		},
+		{
+			"javaLine": 385,
+			"line": "Loaded 276 house parts",
+			"values": [
+				276
+			],
+			"holders": [
+				"house_parts"
+			]
+		},
+		{
+			"javaLine": 386,
+			"line": "Loaded 3094 house spawns",
+			"values": [
+				3094
+			],
+			"holders": [
+				"house_npcs"
+			]
+		},
+		{
+			"javaLine": 387,
+			"line": "Loaded 10 curing object entries",
+			"values": [
+				10
+			],
+			"holders": [
+				"curing_objects"
+			]
+		},
+		{
+			"javaLine": 388,
+			"line": "Loaded 89 assembly items entries",
+			"values": [
+				89
+			],
+			"holders": [
+				"assembly_items"
+			]
+		},
+		{
+			"javaLine": 389,
+			"line": "Loaded 122 challenge tasks entries",
+			"values": [
+				122
+			],
+			"holders": [
+				"challenge_tasks"
+			]
+		},
+		{
+			"javaLine": 390,
+			"line": "Loaded 6 conqueror and protector entries",
+			"values": [
+				6
+			],
+			"holders": [
+				"conqueror_protector_ranks"
+			]
+		},
+		{
+			"javaLine": 391,
+			"line": "Loaded 2450 town spawns",
+			"values": [
+				2450
+			],
+			"holders": [
+				"town_spawns_data"
+			]
+		},
+		{
+			"javaLine": 392,
+			"line": "Loaded 57 temperings",
+			"values": [
+				57
+			],
+			"holders": [
+				"tempering_templates"
+			]
+		},
+		{
+			"javaLine": 393,
+			"line": "Loaded 44 enchants",
+			"values": [
+				44
+			],
+			"holders": [
+				"enchant_templates"
+			]
+		},
+		{
+			"javaLine": 394,
+			"line": "Loaded 2196 global drop rules with global drop npc exclusions",
+			"values": [
+				2196
+			],
+			"holders": [
+				"global_npc_exclusions",
+				"global_rules"
+			]
+		},
+		{
+			"javaLine": 395,
+			"line": "Loaded 7 multi return item entries",
+			"values": [
+				7
+			],
+			"holders": [
+				"multi_return_item"
+			]
+		},
+		{
+			"javaLine": 396,
+			"line": "Loaded 73 hotspot entries",
+			"values": [
+				73
+			],
+			"holders": [
+				"hotspot_template"
+			]
+		},
+		{
+			"javaLine": 397,
+			"line": "Loaded 1830 item purifications entries",
+			"values": [
+				1830
+			],
+			"holders": [
+				"item_purifications"
+			]
+		},
+		{
+			"javaLine": 398,
+			"line": "Loaded 4 upgrade arcade entries",
+			"values": [
+				4
+			],
+			"holders": [
+				"arcadelist"
+			]
+		},
+		{
+			"javaLine": 399,
+			"line": "Loaded 394 atreian passports",
+			"values": [
+				394
+			],
+			"holders": [
+				"login_events"
+			]
+		},
+		{
+			"javaLine": 400,
+			"line": "Loaded 48 world raid locations",
+			"values": [
+				48
+			],
+			"holders": [
+				"world_raid_locations"
+			]
+		},
+		{
+			"javaLine": 401,
+			"line": "Loaded 27 kill bounty templates",
+			"values": [
+				27
+			],
+			"holders": [
+				"kill_bounties"
+			]
+		},
+		{
+			"javaLine": 402,
+			"line": "Loaded 6 legion dominion locations",
+			"values": [
+				6
+			],
+			"holders": [
+				"legion_dominion_template"
+			]
+		},
+		{
+			"javaLine": 403,
+			"line": "Loaded 2 skill alias locations",
+			"values": [
+				2
+			],
+			"holders": [
+				"alias_locations"
+			]
+		},
+		{
+			"javaLine": 404,
+			"line": "Loaded 4 signet data templates",
+			"values": [
+				4
+			],
+			"holders": [
+				"signet_data_templates"
+			]
+		}
+	],
+	"extras": {
+		"xml_quests": {
+			"description": "XMLQuests distinct quest ids",
+			"value": 4184
+		}
+	},
+	"regionVariants": [
+		{
+			"countryCode": 1,
+			"region": "usa",
+			"imports": [
+				{
+					"file": "goodslists/goodslists.xml",
+					"resolved": "goodslists/goodslists_usa.xml"
+				}
+			],
+			"changedLines": []
+		},
+		{
+			"countryCode": 2,
+			"region": "europe",
+			"imports": [
+				{
+					"file": "goodslists/goodslists.xml",
+					"resolved": "goodslists/goodslists_europe.xml"
+				}
+			],
+			"changedLines": []
+		},
+		{
+			"countryCode": 4,
+			"region": "japan",
+			"imports": [
+				{
+					"file": "goodslists/goodslists.xml",
+					"resolved": "goodslists/goodslists_japan.xml"
+				}
+			],
+			"changedLines": []
+		},
+		{
+			"countryCode": 5,
+			"region": "china",
+			"imports": [
+				{
+					"file": "goodslists/goodslists.xml",
+					"resolved": "goodslists/goodslists_china.xml"
+				}
+			],
+			"changedLines": []
+		},
+		{
+			"countryCode": 6,
+			"region": "taiwan",
+			"imports": [
+				{
+					"file": "goodslists/goodslists.xml",
+					"resolved": "goodslists/goodslists_taiwan.xml"
+				}
+			],
+			"changedLines": []
+		},
+		{
+			"countryCode": 7,
+			"region": "russia",
+			"imports": [
+				{
+					"file": "goodslists/goodslists.xml",
+					"resolved": "goodslists/goodslists_russia.xml"
+				}
+			],
+			"changedLines": []
+		}
+	]
+}

@@ -1,0 +1,963 @@
+{
+ "format": "aion-parts",
+ "ownerFields": [
+  {
+   "class": "com.aionemu.gameserver.ai.AbstractAI",
+   "cpp": "OwnerRef<T>",
+   "field": "owner",
+   "part": "com.aionemu.gameserver.model.gameobjects.Creature.ai",
+   "rule": "owner"
+  },
+  {
+   "class": "com.aionemu.gameserver.controllers.FlyController",
+   "cpp": "OwnerRef<Player>",
+   "field": "player",
+   "part": "com.aionemu.gameserver.model.gameobjects.player.Player.flyController",
+   "rule": "owner"
+  },
+  {
+   "class": "com.aionemu.gameserver.controllers.VisibleObjectController",
+   "cpp": "Final<T*>",
+   "field": "owner",
+   "part": "com.aionemu.gameserver.model.gameobjects.VisibleObject.controller",
+   "rule": "late-bound owner"
+  },
+  {
+   "class": "com.aionemu.gameserver.controllers.attack.AggroList",
+   "cpp": "OwnerRef<Creature>",
+   "field": "owner",
+   "part": "com.aionemu.gameserver.model.gameobjects.Creature.aggroList",
+   "rule": "owner"
+  },
+  {
+   "class": "com.aionemu.gameserver.controllers.effect.EffectController",
+   "cpp": "OwnerRef<Creature>",
+   "field": "owner",
+   "part": "com.aionemu.gameserver.model.gameobjects.Creature.effectController",
+   "rule": "owner"
+  },
+  {
+   "class": "com.aionemu.gameserver.controllers.movement.CreatureMoveController",
+   "cpp": "OwnerRef<T>",
+   "field": "owner",
+   "part": "com.aionemu.gameserver.model.gameobjects.Creature.moveController",
+   "rule": "owner"
+  },
+  {
+   "class": "com.aionemu.gameserver.model.gameobjects.UseableItemObject.UseDataWriter",
+   "cpp": "OwnerRef<UseableItemObject>",
+   "field": "obj",
+   "part": "com.aionemu.gameserver.model.gameobjects.UseableItemObject.entryWriter",
+   "rule": "owner"
+  },
+  {
+   "class": "com.aionemu.gameserver.model.gameobjects.player.Equipment",
+   "cpp": "OwnerRef<Player>",
+   "field": "owner",
+   "part": "com.aionemu.gameserver.model.gameobjects.player.Player.equipment",
+   "rule": "owner"
+  },
+  {
+   "class": "com.aionemu.gameserver.model.gameobjects.player.Mailbox",
+   "cpp": "OwnerRef<Player>",
+   "field": "owner",
+   "part": "com.aionemu.gameserver.model.gameobjects.player.Player.mailbox",
+   "rule": "owner"
+  },
+  {
+   "class": "com.aionemu.gameserver.model.gameobjects.player.PortalCooldownList",
+   "cpp": "OwnerRef<Player>",
+   "field": "owner",
+   "part": "com.aionemu.gameserver.model.gameobjects.player.Player.portalCooldownList",
+   "rule": "owner"
+  },
+  {
+   "class": "com.aionemu.gameserver.model.gameobjects.player.ResponseRequester",
+   "cpp": "OwnerRef<Player>",
+   "field": "player",
+   "part": "com.aionemu.gameserver.model.gameobjects.player.Player.requester",
+   "rule": "owner"
+  },
+  {
+   "class": "com.aionemu.gameserver.model.items.ChargeInfo",
+   "cpp": "OwnerRef<Item>",
+   "field": "item",
+   "part": "com.aionemu.gameserver.model.gameobjects.Item.conditioningInfo",
+   "rule": "owner"
+  },
+  {
+   "class": "com.aionemu.gameserver.model.items.storage.PlayerStorage",
+   "cpp": "SelfOrRef<Player>",
+   "field": "actor",
+   "part": "com.aionemu.gameserver.model.gameobjects.player.Player.cabinets",
+   "rule": "owner"
+  },
+  {
+   "class": "com.aionemu.gameserver.model.stats.container.CreatureGameStats",
+   "cpp": "OwnerRef<T>",
+   "field": "owner",
+   "part": "com.aionemu.gameserver.model.gameobjects.Creature.gameStats",
+   "rule": "owner"
+  },
+  {
+   "class": "com.aionemu.gameserver.model.stats.container.CreatureLifeStats",
+   "cpp": "OwnerRef<T>",
+   "field": "owner",
+   "part": "com.aionemu.gameserver.model.gameobjects.Creature.lifeStats",
+   "rule": "owner"
+  },
+  {
+   "class": "com.aionemu.gameserver.model.team.group.PlayerGroupStats",
+   "cpp": "OwnerRef<PlayerGroup>",
+   "field": "group",
+   "part": "com.aionemu.gameserver.model.team.group.PlayerGroup.playerGroupStats",
+   "rule": "owner"
+  },
+  {
+   "class": "com.aionemu.gameserver.world.knownlist.KnownList",
+   "cpp": "OwnerRef<VisibleObject>",
+   "field": "owner",
+   "part": "com.aionemu.gameserver.model.gameobjects.VisibleObject.knownlist",
+   "rule": "owner"
+  }
+ ],
+ "parts": [
+  {
+   "cpp": "PartSlot<Storage, RetireTo::RECLAIMER>",
+   "evidence": [
+    {
+     "file": "fieldmap.toml",
+     "line": 0,
+     "pattern": 4,
+     "text": "account warehouse built outside the owner and replaced on stale-online re-entry (design §2.3, §5.1)"
+    }
+   ],
+   "field": "accountWarehouse",
+   "java": "Storage",
+   "line": 44,
+   "owner": "com.aionemu.gameserver.model.account.Account",
+   "ownerClasses": [
+    "com.aionemu.gameserver.model.account.Account"
+   ],
+   "partTypes": [
+    "com.aionemu.gameserver.model.items.storage.Storage"
+   ],
+   "patterns": [
+    4
+   ],
+   "rule": "fieldmap.toml override"
+  },
+  {
+   "cpp": "PartMap<int32_t, PlayerAccountData>",
+   "evidence": [
+    {
+     "file": "fieldmap.toml",
+     "line": 0,
+     "pattern": 4,
+     "text": "replaced on every stale-online re-entry (design §2.3 RR-19, §5.1)"
+    }
+   ],
+   "field": "players",
+   "java": "Map<Integer, PlayerAccountData>",
+   "line": 42,
+   "owner": "com.aionemu.gameserver.model.account.Account",
+   "ownerClasses": [
+    "com.aionemu.gameserver.model.account.Account"
+   ],
+   "partTypes": [
+    "com.aionemu.gameserver.model.account.PlayerAccountData"
+   ],
+   "patterns": [
+    4
+   ],
+   "rule": "fieldmap.toml override"
+  },
+  {
+   "cpp": "PartSlot<AggroList>",
+   "evidence": [
+    {
+     "file": "fieldmap.toml",
+     "line": 0,
+     "pattern": 4,
+     "text": "created for the owner by the createAggroList() factory (new AggroList(this)) in the constructor"
+    }
+   ],
+   "field": "aggroList",
+   "java": "AggroList",
+   "line": 55,
+   "owner": "com.aionemu.gameserver.model.gameobjects.Creature",
+   "ownerClasses": [
+    "com.aionemu.gameserver.model.gameobjects.Creature"
+   ],
+   "partTypes": [
+    "com.aionemu.gameserver.controllers.attack.AggroList"
+   ],
+   "patterns": [
+    4
+   ],
+   "rule": "fieldmap.toml override"
+  },
+  {
+   "cpp": "PartSlot<AbstractAI>",
+   "evidence": [
+    {
+     "file": "fieldmap.toml",
+     "line": 0,
+     "pattern": 4,
+     "text": "created for the owner by AIEngine.newAI(aiName, this) in the constructor; //ai set replaces it (design §2.3, §5.1: PartSlot OWNER)"
+    }
+   ],
+   "field": "ai",
+   "java": "AbstractAI<? extends Creature>",
+   "line": 43,
+   "owner": "com.aionemu.gameserver.model.gameobjects.Creature",
+   "ownerClasses": [
+    "com.aionemu.gameserver.model.gameobjects.Creature"
+   ],
+   "partTypes": [
+    "com.aionemu.gameserver.ai.AbstractAI"
+   ],
+   "patterns": [
+    4
+   ],
+   "rule": "fieldmap.toml override"
+  },
+  {
+   "cpp": "PartSlot<EffectController>",
+   "evidence": [
+    {
+     "file": "game-server/data/handlers/ai/events/HalloweenPumpkinAI.java",
+     "line": 126,
+     "pattern": 2,
+     "text": "largePumpkin.setEffectController(new EffectController(largePumpkin));"
+    },
+    {
+     "file": "game-server/src/com/aionemu/gameserver/custom/pvpmap/PvpMapHandler.java",
+     "line": 169,
+     "pattern": 2,
+     "text": "npc.setEffectController(new EffectController(npc));"
+    },
+    {
+     "file": "game-server/src/com/aionemu/gameserver/model/gameobjects/GroupGate.java",
+     "line": 16,
+     "pattern": 2,
+     "text": "setEffectController(new EffectController(this));"
+    },
+    {
+     "file": "game-server/src/com/aionemu/gameserver/model/gameobjects/Homing.java",
+     "line": 30,
+     "pattern": 2,
+     "text": "setEffectController(new EffectController(this));"
+    },
+    {
+     "file": "game-server/src/com/aionemu/gameserver/model/gameobjects/Kisk.java",
+     "line": 52,
+     "pattern": 2,
+     "text": "setEffectController(new EffectController(this));"
+    },
+    {
+     "file": "game-server/src/com/aionemu/gameserver/model/gameobjects/Servant.java",
+     "line": 21,
+     "pattern": 2,
+     "text": "setEffectController(new EffectController(this));"
+    },
+    {
+     "file": "game-server/src/com/aionemu/gameserver/model/gameobjects/SummonedHouseNpc.java",
+     "line": 22,
+     "pattern": 2,
+     "text": "setEffectController(new EffectController(this));"
+    },
+    {
+     "file": "game-server/src/com/aionemu/gameserver/model/gameobjects/Trap.java",
+     "line": 20,
+     "pattern": 2,
+     "text": "setEffectController(new EffectController(this));"
+    }
+   ],
+   "field": "effectController",
+   "java": "EffectController",
+   "line": 46,
+   "owner": "com.aionemu.gameserver.model.gameobjects.Creature",
+   "ownerClasses": [
+    "com.aionemu.gameserver.model.gameobjects.GroupGate",
+    "com.aionemu.gameserver.model.gameobjects.Homing",
+    "com.aionemu.gameserver.model.gameobjects.Kisk",
+    "com.aionemu.gameserver.model.gameobjects.Npc",
+    "com.aionemu.gameserver.model.gameobjects.Servant",
+    "com.aionemu.gameserver.model.gameobjects.Summon",
+    "com.aionemu.gameserver.model.gameobjects.SummonedHouseNpc",
+    "com.aionemu.gameserver.model.gameobjects.Trap",
+    "com.aionemu.gameserver.model.gameobjects.player.Player",
+    "com.aionemu.gameserver.model.gameobjects.siege.SiegeNpc"
+   ],
+   "partTypes": [
+    "com.aionemu.gameserver.controllers.effect.EffectController",
+    "com.aionemu.gameserver.controllers.effect.PlayerEffectController"
+   ],
+   "patterns": [
+    2
+   ],
+   "rule": "replaceable part (pattern 2)"
+  },
+  {
+   "cpp": "PartSlot<CreatureGameStats>",
+   "evidence": [
+    {
+     "file": "game-server/src/com/aionemu/gameserver/model/gameobjects/Npc.java",
+     "line": 70,
+     "pattern": 2,
+     "text": "setGameStats(new NpcGameStats(this));"
+    },
+    {
+     "file": "game-server/src/com/aionemu/gameserver/model/gameobjects/Summon.java",
+     "line": 46,
+     "pattern": 2,
+     "text": "setGameStats(new SummonGameStats(this));"
+    },
+    {
+     "file": "game-server/src/com/aionemu/gameserver/model/gameobjects/player/Player.java",
+     "line": 213,
+     "pattern": 2,
+     "text": "setGameStats(new PlayerGameStats(this));"
+    }
+   ],
+   "field": "gameStats",
+   "java": "CreatureGameStats<? extends Creature>",
+   "line": 44,
+   "owner": "com.aionemu.gameserver.model.gameobjects.Creature",
+   "ownerClasses": [
+    "com.aionemu.gameserver.model.gameobjects.Npc",
+    "com.aionemu.gameserver.model.gameobjects.Summon",
+    "com.aionemu.gameserver.model.gameobjects.player.Player"
+   ],
+   "partTypes": [
+    "com.aionemu.gameserver.model.stats.container.CreatureGameStats",
+    "com.aionemu.gameserver.model.stats.container.NpcGameStats",
+    "com.aionemu.gameserver.model.stats.container.PlayerGameStats",
+    "com.aionemu.gameserver.model.stats.container.SummonGameStats"
+   ],
+   "patterns": [
+    2
+   ],
+   "rule": "replaceable part (pattern 2)"
+  },
+  {
+   "cpp": "PartSlot<CreatureLifeStats>",
+   "evidence": [
+    {
+     "file": "game-server/src/com/aionemu/gameserver/model/gameobjects/Npc.java",
+     "line": 71,
+     "pattern": 2,
+     "text": "setLifeStats(new NpcLifeStats(this));"
+    },
+    {
+     "file": "game-server/src/com/aionemu/gameserver/model/gameobjects/Summon.java",
+     "line": 47,
+     "pattern": 2,
+     "text": "setLifeStats(new SummonLifeStats(this));"
+    },
+    {
+     "file": "game-server/src/com/aionemu/gameserver/model/gameobjects/player/Player.java",
+     "line": 214,
+     "pattern": 2,
+     "text": "setLifeStats(new PlayerLifeStats(this));"
+    }
+   ],
+   "field": "lifeStats",
+   "java": "CreatureLifeStats<? extends Creature>",
+   "line": 45,
+   "owner": "com.aionemu.gameserver.model.gameobjects.Creature",
+   "ownerClasses": [
+    "com.aionemu.gameserver.model.gameobjects.Npc",
+    "com.aionemu.gameserver.model.gameobjects.Summon",
+    "com.aionemu.gameserver.model.gameobjects.player.Player"
+   ],
+   "partTypes": [
+    "com.aionemu.gameserver.model.stats.container.CreatureLifeStats",
+    "com.aionemu.gameserver.model.stats.container.NpcLifeStats",
+    "com.aionemu.gameserver.model.stats.container.PlayerLifeStats",
+    "com.aionemu.gameserver.model.stats.container.SummonLifeStats"
+   ],
+   "patterns": [
+    2
+   ],
+   "rule": "replaceable part (pattern 2)"
+  },
+  {
+   "cpp": "PartSlot<CreatureMoveController>",
+   "evidence": [
+    {
+     "file": "game-server/src/com/aionemu/gameserver/model/gameobjects/Npc.java",
+     "line": 59,
+     "pattern": 1,
+     "text": "moveController = new NpcMoveController(this);"
+    },
+    {
+     "file": "game-server/src/com/aionemu/gameserver/model/gameobjects/player/Player.java",
+     "line": 211,
+     "pattern": 1,
+     "text": "moveController = new PlayerMoveController(this);"
+    }
+   ],
+   "field": "moveController",
+   "java": "CreatureMoveController<? extends Creature>",
+   "line": 47,
+   "owner": "com.aionemu.gameserver.model.gameobjects.Creature",
+   "ownerClasses": [
+    "com.aionemu.gameserver.model.gameobjects.Npc",
+    "com.aionemu.gameserver.model.gameobjects.player.Player"
+   ],
+   "partTypes": [
+    "com.aionemu.gameserver.controllers.movement.CreatureMoveController",
+    "com.aionemu.gameserver.controllers.movement.NpcMoveController",
+    "com.aionemu.gameserver.controllers.movement.PlayerMoveController"
+   ],
+   "patterns": [
+    1
+   ],
+   "rule": "replaceable part (pattern 1)"
+  },
+  {
+   "cpp": "PartSlot<ChargeInfo>",
+   "evidence": [
+    {
+     "file": "game-server/src/com/aionemu/gameserver/model/gameobjects/Item.java",
+     "line": 164,
+     "pattern": 1,
+     "text": "conditioningInfo = new ChargeInfo(charge, this);"
+    }
+   ],
+   "field": "conditioningInfo",
+   "java": "ChargeInfo",
+   "line": 61,
+   "owner": "com.aionemu.gameserver.model.gameobjects.Item",
+   "ownerClasses": [
+    "com.aionemu.gameserver.model.gameobjects.Item"
+   ],
+   "partTypes": [
+    "com.aionemu.gameserver.model.items.ChargeInfo"
+   ],
+   "patterns": [
+    1
+   ],
+   "rule": "replaceable part (pattern 1)"
+  },
+  {
+   "cpp": "const std::unique_ptr<NpcSkillList>",
+   "evidence": [
+    {
+     "file": "game-server/src/com/aionemu/gameserver/model/gameobjects/Npc.java",
+     "line": 60,
+     "pattern": 1,
+     "text": "skillList = new NpcSkillList(this);"
+    }
+   ],
+   "field": "skillList",
+   "java": "NpcSkillList",
+   "line": 46,
+   "owner": "com.aionemu.gameserver.model.gameobjects.Npc",
+   "ownerClasses": [
+    "com.aionemu.gameserver.model.gameobjects.Npc"
+   ],
+   "partTypes": [
+    "com.aionemu.gameserver.model.skill.NpcSkillList"
+   ],
+   "patterns": [
+    1
+   ],
+   "rule": "part (pattern 1)"
+  },
+  {
+   "cpp": "const std::unique_ptr<UseableItemObject::UseDataWriter>",
+   "evidence": [
+    {
+     "file": "game-server/src/com/aionemu/gameserver/model/gameobjects/UseableItemObject.java",
+     "line": 37,
+     "pattern": 1,
+     "text": "entryWriter = new UseDataWriter(this);"
+    }
+   ],
+   "field": "entryWriter",
+   "java": "UseDataWriter",
+   "line": 30,
+   "owner": "com.aionemu.gameserver.model.gameobjects.UseableItemObject",
+   "ownerClasses": [
+    "com.aionemu.gameserver.model.gameobjects.UseableItemObject"
+   ],
+   "partTypes": [
+    "com.aionemu.gameserver.model.gameobjects.UseableItemObject.UseDataWriter"
+   ],
+   "patterns": [
+    1
+   ],
+   "rule": "part (pattern 1)"
+  },
+  {
+   "cpp": "const std::unique_ptr<VisibleObjectController>",
+   "evidence": [
+    {
+     "file": "game-server/src/com/aionemu/gameserver/model/gameobjects/Gatherable.java",
+     "line": 18,
+     "pattern": 3,
+     "text": "controller.setOwner(this);"
+    },
+    {
+     "file": "game-server/src/com/aionemu/gameserver/model/gameobjects/HouseObject.java",
+     "line": 45,
+     "pattern": 3,
+     "text": "getController().setOwner(this);"
+    },
+    {
+     "file": "game-server/src/com/aionemu/gameserver/model/gameobjects/Npc.java",
+     "line": 58,
+     "pattern": 3,
+     "text": "controller.setOwner(this);"
+    },
+    {
+     "file": "game-server/src/com/aionemu/gameserver/model/gameobjects/Pet.java",
+     "line": 21,
+     "pattern": 3,
+     "text": "controller.setOwner(this);"
+    },
+    {
+     "file": "game-server/src/com/aionemu/gameserver/model/gameobjects/StaticObject.java",
+     "line": 16,
+     "pattern": 3,
+     "text": "controller.setOwner(this);"
+    },
+    {
+     "file": "game-server/src/com/aionemu/gameserver/model/gameobjects/Summon.java",
+     "line": 42,
+     "pattern": 3,
+     "text": "controller.setOwner(this);"
+    },
+    {
+     "file": "game-server/src/com/aionemu/gameserver/model/gameobjects/player/Player.java",
+     "line": 210,
+     "pattern": 3,
+     "text": "getController().setOwner(this);"
+    },
+    {
+     "file": "game-server/src/com/aionemu/gameserver/model/house/House.java",
+     "line": 62,
+     "pattern": 3,
+     "text": "getController().setOwner(this);"
+    }
+   ],
+   "field": "controller",
+   "java": "VisibleObjectController<? extends VisibleObject>",
+   "line": 36,
+   "owner": "com.aionemu.gameserver.model.gameobjects.VisibleObject",
+   "ownerClasses": [
+    "com.aionemu.gameserver.model.gameobjects.Gatherable",
+    "com.aionemu.gameserver.model.gameobjects.HouseObject",
+    "com.aionemu.gameserver.model.gameobjects.Npc",
+    "com.aionemu.gameserver.model.gameobjects.Pet",
+    "com.aionemu.gameserver.model.gameobjects.StaticObject",
+    "com.aionemu.gameserver.model.gameobjects.Summon",
+    "com.aionemu.gameserver.model.gameobjects.player.Player",
+    "com.aionemu.gameserver.model.house.House"
+   ],
+   "partTypes": [
+    "com.aionemu.gameserver.controllers.VisibleObjectController"
+   ],
+   "patterns": [
+    3
+   ],
+   "rule": "part (pattern 3)"
+  },
+  {
+   "cpp": "PartSlot<KnownList>",
+   "evidence": [
+    {
+     "file": "game-server/data/handlers/ai/events/HalloweenPumpkinAI.java",
+     "line": 125,
+     "pattern": 2,
+     "text": "largePumpkin.setKnownlist(new NpcKnownList(largePumpkin));"
+    },
+    {
+     "file": "game-server/src/com/aionemu/gameserver/custom/pvpmap/PvpMapHandler.java",
+     "line": 168,
+     "pattern": 2,
+     "text": "npc.setKnownlist(new NpcKnownList(npc));"
+    },
+    {
+     "file": "game-server/src/com/aionemu/gameserver/model/curingzone/CuringObject.java",
+     "line": 23,
+     "pattern": 2,
+     "text": "setKnownlist(new NpcKnownList(this));"
+    },
+    {
+     "file": "game-server/src/com/aionemu/gameserver/model/flyring/FlyRing.java",
+     "line": 31,
+     "pattern": 2,
+     "text": "setKnownlist(new PlayerAwareKnownList(this));"
+    },
+    {
+     "file": "game-server/src/com/aionemu/gameserver/model/gameobjects/Gatherable.java",
+     "line": 19,
+     "pattern": 2,
+     "text": "setKnownlist(new PlayerAwareKnownList(this));"
+    },
+    {
+     "file": "game-server/src/com/aionemu/gameserver/model/gameobjects/GroupGate.java",
+     "line": 15,
+     "pattern": 2,
+     "text": "setKnownlist(new PlayerAwareKnownList(this));"
+    },
+    {
+     "file": "game-server/src/com/aionemu/gameserver/model/gameobjects/Homing.java",
+     "line": 29,
+     "pattern": 2,
+     "text": "setKnownlist(new NpcKnownList(this));"
+    },
+    {
+     "file": "game-server/src/com/aionemu/gameserver/model/gameobjects/HouseObject.java",
+     "line": 46,
+     "pattern": 2,
+     "text": "setKnownlist(new PlayerAwareKnownList(this));"
+    }
+   ],
+   "field": "knownlist",
+   "java": "KnownList",
+   "line": 31,
+   "owner": "com.aionemu.gameserver.model.gameobjects.VisibleObject",
+   "ownerClasses": [
+    "com.aionemu.gameserver.model.curingzone.CuringObject",
+    "com.aionemu.gameserver.model.flyring.FlyRing",
+    "com.aionemu.gameserver.model.gameobjects.Gatherable",
+    "com.aionemu.gameserver.model.gameobjects.GroupGate",
+    "com.aionemu.gameserver.model.gameobjects.Homing",
+    "com.aionemu.gameserver.model.gameobjects.HouseObject",
+    "com.aionemu.gameserver.model.gameobjects.Kisk",
+    "com.aionemu.gameserver.model.gameobjects.Npc",
+    "com.aionemu.gameserver.model.gameobjects.Pet",
+    "com.aionemu.gameserver.model.gameobjects.Servant",
+    "com.aionemu.gameserver.model.gameobjects.StaticDoor",
+    "com.aionemu.gameserver.model.gameobjects.StaticObject",
+    "com.aionemu.gameserver.model.gameobjects.Summon",
+    "com.aionemu.gameserver.model.gameobjects.SummonedHouseNpc",
+    "com.aionemu.gameserver.model.gameobjects.Trap",
+    "com.aionemu.gameserver.model.gameobjects.player.Player",
+    "com.aionemu.gameserver.model.gameobjects.siege.SiegeNpc",
+    "com.aionemu.gameserver.model.house.House",
+    "com.aionemu.gameserver.model.road.Road"
+   ],
+   "partTypes": [
+    "com.aionemu.gameserver.world.knownlist.CreatureAwareKnownList",
+    "com.aionemu.gameserver.world.knownlist.KnownList",
+    "com.aionemu.gameserver.world.knownlist.NpcKnownList",
+    "com.aionemu.gameserver.world.knownlist.PlayerAwareKnownList"
+   ],
+   "patterns": [
+    2
+   ],
+   "rule": "replaceable part (pattern 2)"
+  },
+  {
+   "cpp": "const std::array<std::unique_ptr<Storage>, StorageType::HOUSE_WH_MAX - StorageType::HOUSE_WH_MIN + 1>",
+   "evidence": [
+    {
+     "file": "game-server/src/com/aionemu/gameserver/model/gameobjects/player/Player.java",
+     "line": 205,
+     "pattern": 1,
+     "text": "cabinets[i] = new PlayerStorage(this, StorageType.getStorageTypeById(StorageType.HOUSE_WH_MIN + i));"
+    }
+   ],
+   "field": "cabinets",
+   "java": "Storage[]",
+   "line": 110,
+   "owner": "com.aionemu.gameserver.model.gameobjects.player.Player",
+   "ownerClasses": [
+    "com.aionemu.gameserver.model.gameobjects.player.Player"
+   ],
+   "partTypes": [
+    "com.aionemu.gameserver.model.items.storage.PlayerStorage",
+    "com.aionemu.gameserver.model.items.storage.Storage"
+   ],
+   "patterns": [
+    1
+   ],
+   "rule": "part array (pattern 1)"
+  },
+  {
+   "cpp": "const std::unique_ptr<Equipment>",
+   "evidence": [
+    {
+     "file": "game-server/src/com/aionemu/gameserver/model/gameobjects/player/Player.java",
+     "line": 199,
+     "pattern": 1,
+     "text": "this.equipment = new Equipment(this);"
+    }
+   ],
+   "field": "equipment",
+   "java": "Equipment",
+   "line": 106,
+   "owner": "com.aionemu.gameserver.model.gameobjects.player.Player",
+   "ownerClasses": [
+    "com.aionemu.gameserver.model.gameobjects.player.Player"
+   ],
+   "partTypes": [
+    "com.aionemu.gameserver.model.gameobjects.player.Equipment"
+   ],
+   "patterns": [
+    1
+   ],
+   "rule": "part (pattern 1)"
+  },
+  {
+   "cpp": "PartSlot<FlyController>",
+   "evidence": [
+    {
+     "file": "game-server/src/com/aionemu/gameserver/services/player/PlayerService.java",
+     "line": 127,
+     "pattern": 2,
+     "text": "player.setFlyController(new FlyController(player));"
+    }
+   ],
+   "field": "flyController",
+   "java": "FlyController",
+   "line": 121,
+   "owner": "com.aionemu.gameserver.model.gameobjects.player.Player",
+   "ownerClasses": [
+    "com.aionemu.gameserver.model.gameobjects.player.Player"
+   ],
+   "partTypes": [
+    "com.aionemu.gameserver.controllers.FlyController"
+   ],
+   "patterns": [
+    2
+   ],
+   "rule": "replaceable part (pattern 2)"
+  },
+  {
+   "cpp": "const std::unique_ptr<Storage>",
+   "evidence": [
+    {
+     "file": "game-server/src/com/aionemu/gameserver/model/gameobjects/player/Player.java",
+     "line": 200,
+     "pattern": 1,
+     "text": "this.inventory = new PlayerStorage(this, StorageType.CUBE);"
+    }
+   ],
+   "field": "inventory",
+   "java": "Storage",
+   "line": 107,
+   "owner": "com.aionemu.gameserver.model.gameobjects.player.Player",
+   "ownerClasses": [
+    "com.aionemu.gameserver.model.gameobjects.player.Player"
+   ],
+   "partTypes": [
+    "com.aionemu.gameserver.model.items.storage.PlayerStorage",
+    "com.aionemu.gameserver.model.items.storage.Storage"
+   ],
+   "patterns": [
+    1
+   ],
+   "rule": "part (pattern 1)"
+  },
+  {
+   "cpp": "PartSlot<Mailbox>",
+   "evidence": [
+    {
+     "file": "game-server/src/com/aionemu/gameserver/services/player/PlayerService.java",
+     "line": 227,
+     "pattern": 2,
+     "text": "newPlayer.setMailbox(new Mailbox(newPlayer));"
+    }
+   ],
+   "field": "mailbox",
+   "java": "Mailbox",
+   "line": 97,
+   "owner": "com.aionemu.gameserver.model.gameobjects.player.Player",
+   "ownerClasses": [
+    "com.aionemu.gameserver.model.gameobjects.player.Player"
+   ],
+   "partTypes": [
+    "com.aionemu.gameserver.model.gameobjects.player.Mailbox"
+   ],
+   "patterns": [
+    2
+   ],
+   "rule": "replaceable part (pattern 2)"
+  },
+  {
+   "cpp": "const std::array<std::unique_ptr<Storage>, StorageType::PET_BAG_MAX - StorageType::PET_BAG_MIN + 1>",
+   "evidence": [
+    {
+     "file": "game-server/src/com/aionemu/gameserver/model/gameobjects/player/Player.java",
+     "line": 203,
+     "pattern": 1,
+     "text": "petBags[i] = new PlayerStorage(this, StorageType.getStorageTypeById(StorageType.PET_BAG_MIN + i));"
+    }
+   ],
+   "field": "petBags",
+   "java": "Storage[]",
+   "line": 109,
+   "owner": "com.aionemu.gameserver.model.gameobjects.player.Player",
+   "ownerClasses": [
+    "com.aionemu.gameserver.model.gameobjects.player.Player"
+   ],
+   "partTypes": [
+    "com.aionemu.gameserver.model.items.storage.PlayerStorage",
+    "com.aionemu.gameserver.model.items.storage.Storage"
+   ],
+   "patterns": [
+    1
+   ],
+   "rule": "part array (pattern 1)"
+  },
+  {
+   "cpp": "const std::unique_ptr<PortalCooldownList>",
+   "evidence": [
+    {
+     "file": "game-server/src/com/aionemu/gameserver/model/gameobjects/player/Player.java",
+     "line": 206,
+     "pattern": 1,
+     "text": "this.portalCooldownList = new PortalCooldownList(this);"
+    }
+   ],
+   "field": "portalCooldownList",
+   "java": "PortalCooldownList",
+   "line": 141,
+   "owner": "com.aionemu.gameserver.model.gameobjects.player.Player",
+   "ownerClasses": [
+    "com.aionemu.gameserver.model.gameobjects.player.Player"
+   ],
+   "partTypes": [
+    "com.aionemu.gameserver.model.gameobjects.player.PortalCooldownList"
+   ],
+   "patterns": [
+    1
+   ],
+   "rule": "part (pattern 1)"
+  },
+  {
+   "cpp": "const std::unique_ptr<Storage>",
+   "evidence": [
+    {
+     "file": "game-server/src/com/aionemu/gameserver/model/gameobjects/player/Player.java",
+     "line": 201,
+     "pattern": 1,
+     "text": "this.regularWarehouse = new PlayerStorage(this, StorageType.REGULAR_WAREHOUSE);"
+    }
+   ],
+   "field": "regularWarehouse",
+   "java": "Storage",
+   "line": 108,
+   "owner": "com.aionemu.gameserver.model.gameobjects.player.Player",
+   "ownerClasses": [
+    "com.aionemu.gameserver.model.gameobjects.player.Player"
+   ],
+   "partTypes": [
+    "com.aionemu.gameserver.model.items.storage.PlayerStorage",
+    "com.aionemu.gameserver.model.items.storage.Storage"
+   ],
+   "patterns": [
+    1
+   ],
+   "rule": "part (pattern 1)"
+  },
+  {
+   "cpp": "const std::unique_ptr<ResponseRequester>",
+   "evidence": [
+    {
+     "file": "game-server/src/com/aionemu/gameserver/model/gameobjects/player/Player.java",
+     "line": 196,
+     "pattern": 1,
+     "text": "this.requester = new ResponseRequester(this);"
+    }
+   ],
+   "field": "requester",
+   "java": "ResponseRequester",
+   "line": 104,
+   "owner": "com.aionemu.gameserver.model.gameobjects.player.Player",
+   "ownerClasses": [
+    "com.aionemu.gameserver.model.gameobjects.player.Player"
+   ],
+   "partTypes": [
+    "com.aionemu.gameserver.model.gameobjects.player.ResponseRequester"
+   ],
+   "patterns": [
+    1
+   ],
+   "rule": "part (pattern 1)"
+  },
+  {
+   "cpp": "const std::unique_ptr<PetList>",
+   "evidence": [
+    {
+     "file": "game-server/src/com/aionemu/gameserver/model/gameobjects/player/Player.java",
+     "line": 209,
+     "pattern": 1,
+     "text": "this.toyPetList = new PetList(this);"
+    }
+   ],
+   "field": "toyPetList",
+   "java": "PetList",
+   "line": 96,
+   "owner": "com.aionemu.gameserver.model.gameobjects.player.Player",
+   "ownerClasses": [
+    "com.aionemu.gameserver.model.gameobjects.player.Player"
+   ],
+   "partTypes": [
+    "com.aionemu.gameserver.model.gameobjects.player.PetList"
+   ],
+   "patterns": [
+    1
+   ],
+   "rule": "part (pattern 1)"
+  },
+  {
+   "cpp": "const std::unique_ptr<PlayerGroupStats>",
+   "evidence": [
+    {
+     "file": "game-server/src/com/aionemu/gameserver/model/team/group/PlayerGroup.java",
+     "line": 17,
+     "pattern": 1,
+     "text": "this.playerGroupStats = new PlayerGroupStats(this);"
+    }
+   ],
+   "field": "playerGroupStats",
+   "java": "PlayerGroupStats",
+   "line": 12,
+   "owner": "com.aionemu.gameserver.model.team.group.PlayerGroup",
+   "ownerClasses": [
+    "com.aionemu.gameserver.model.team.group.PlayerGroup"
+   ],
+   "partTypes": [
+    "com.aionemu.gameserver.model.team.group.PlayerGroupStats"
+   ],
+   "patterns": [
+    1
+   ],
+   "rule": "part (pattern 1)"
+  },
+  {
+   "cpp": "const std::unique_ptr<LegionWarehouse>",
+   "evidence": [
+    {
+     "file": "game-server/src/com/aionemu/gameserver/model/team/legion/Legion.java",
+     "line": 46,
+     "pattern": 1,
+     "text": "this.legionWarehouse = new LegionWarehouse(this);"
+    }
+   ],
+   "field": "legionWarehouse",
+   "java": "LegionWarehouse",
+   "line": 36,
+   "owner": "com.aionemu.gameserver.model.team.legion.Legion",
+   "ownerClasses": [
+    "com.aionemu.gameserver.model.team.legion.Legion"
+   ],
+   "partTypes": [
+    "com.aionemu.gameserver.model.team.legion.LegionWarehouse"
+   ],
+   "patterns": [
+    1
+   ],
+   "rule": "part (pattern 1)"
+  }
+ ],
+ "version": 1
+}

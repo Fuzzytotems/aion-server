@@ -1,7 +1,9 @@
 #pragma once
 
+#include <chrono>
 #include <cstdint>
 #include <memory>
+#include <optional>
 #include <string_view>
 
 #include "aion/commons/database/Connection.h"
@@ -33,6 +35,25 @@ public:
 	DatabaseFactory() = delete;
 
 	/**
+	 * C++ addition: server-specific connection requirements. The socket timeout of pooled connections is resolved in this order:
+	 * <ol>
+	 * <li>socketTimeout, if set (init() fills it from DatabaseConfig::DATABASE_SOCKET_TIMEOUT, the key database.socket_timeout)</li>
+	 * <li>the socketTimeout parameter of the URL, if present</li>
+	 * <li>defaultSocketTimeout</li>
+	 * </ol>
+	 * 0 means no timeout. With requireSocketTimeout, init throws utils::IllegalArgumentException before connecting if the result is 0: the game
+	 * server keeps database calls inline on pool threads and needs every call to end (runtime-architecture.md §2.6).
+	 */
+	struct Options {
+		std::optional<std::chrono::milliseconds> socketTimeout;
+		std::chrono::milliseconds defaultSocketTimeout{0};
+		bool requireSocketTimeout = false;
+	};
+
+	/** The game server's requirements: a socket timeout is mandatory, 60 seconds unless configured. */
+	static Options gameServerOptions() { return Options{.socketTimeout = std::nullopt, .defaultSocketTimeout = std::chrono::seconds(60), .requireSocketTimeout = true}; }
+
+	/**
 	 * Java: init() - creates the pool from DatabaseConfig (DATABASE_URL, DATABASE_USER, DATABASE_PASSWORD, DATABASE_CONNECTIONS_MAX,
 	 * DATABASE_TIMEOUT). Does nothing if the pool already exists.
 	 * @throws SQLException if the URL is invalid ("Cannot handle the connection string ...") or no connection could be opened
@@ -41,8 +62,28 @@ public:
 	 */
 	static void init();
 
+	/**
+	 * C++ addition: init() with requirements. If options.socketTimeout is empty, it is taken from DatabaseConfig::DATABASE_SOCKET_TIMEOUT.
+	 * @throws utils::IllegalArgumentException additionally for a negative or (with requireSocketTimeout) zero socket timeout
+	 */
+	static void init(Options options);
+
 	/** C++ addition: init() with explicit settings instead of DatabaseConfig (tests, tools). */
 	static void init(std::string_view url, std::string_view user, std::string_view password, int32_t maxConnections, int32_t timeoutMillis);
+
+	/** C++ addition: init() with explicit settings and requirements (DatabaseConfig is not read). */
+	static void init(std::string_view url, std::string_view user, std::string_view password, int32_t maxConnections, int32_t timeoutMillis,
+		const Options& options);
+
+	/**
+	 * C++ addition: the socket timeout the given URL gets with the given options (see Options), without connecting.
+	 * @throws SQLException if the URL is invalid
+	 * @throws utils::IllegalArgumentException for a negative timeout, or a zero timeout if options.requireSocketTimeout is set
+	 */
+	static std::chrono::milliseconds resolveSocketTimeout(std::string_view url, const Options& options);
+
+	/** C++ addition: the socket timeout of the pool's connections (0 = none), std::nullopt if not initialized. */
+	static std::optional<std::chrono::milliseconds> getSocketTimeout();
 
 	/**
 	 * Java: getConnection() - an active connection from the pool, in auto-commit mode.

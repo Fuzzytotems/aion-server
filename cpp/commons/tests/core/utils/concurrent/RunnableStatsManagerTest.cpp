@@ -32,6 +32,7 @@ std::vector<std::string> linesContaining(const std::vector<std::string>& lines, 
 
 namespace aion::gameserver::taskmanager {
 struct PrefixedTask {};
+struct SharedNameTask {};
 } // namespace aion::gameserver::taskmanager
 
 TEST(RunnableStatsManagerTest, XmlLayout) {
@@ -105,6 +106,36 @@ TEST(RunnableStatsManagerTest, GameServerPrefixIsRemoved) {
 	RunnableStatsManager::handleStats(typeid(aion::gameserver::taskmanager::PrefixedTask), 5);
 	auto lines = RunnableStatsManager::getClassStatsLines(std::nullopt);
 	EXPECT_EQ(linesContaining(lines, "class=\"taskmanager::PrefixedTask\"").size(), 1u);
+}
+
+TEST(RunnableStatsManagerTest, StringKeys) {
+	RunnableStatsManager::clear(); // statistics are global and survive --gtest_repeat
+	RunnableStatsManager::handleStats("ai/SomeAI.cpp:12", "run()", 100);
+	RunnableStatsManager::handleStats("ai/SomeAI.cpp:12", "run()", 300);
+	RunnableStatsManager::handleStats("ai/SomeAI.cpp:12", "think()", 7);
+	RunnableStatsManager::handleStats(std::string("ai/OtherAI.cpp:5"), std::string("run()"), 1);
+	auto lines = RunnableStatsManager::getClassStatsLines(RunnableStatsManager::SortBy::NAME);
+
+	auto some = linesContaining(lines, "class=\"ai/SomeAI.cpp:12\"");
+	ASSERT_EQ(some.size(), 2u);
+	auto run = linesContaining(some, "method=\"run()\"");
+	ASSERT_EQ(run.size(), 1u);
+	EXPECT_TRUE(std::regex_search(run[0], std::regex(R"re(count= *"2" total= *"400")re"))) << run[0];
+	EXPECT_TRUE(std::regex_search(run[0], std::regex(R"re(min= *"100" max= *"300")re"))) << run[0];
+	auto think = linesContaining(some, "method=\"think()\"");
+	ASSERT_EQ(think.size(), 1u);
+	EXPECT_TRUE(std::regex_search(think[0], std::regex(R"re(count= *"1" total= *"7")re"))) << think[0];
+	EXPECT_EQ(linesContaining(lines, "class=\"ai/OtherAI.cpp:5\"").size(), 1u);
+}
+
+TEST(RunnableStatsManagerTest, StringKeyEqualToTypeNameSharesEntries) {
+	RunnableStatsManager::clear(); // statistics are global and survive --gtest_repeat
+	RunnableStatsManager::handleStats(typeid(aion::gameserver::taskmanager::SharedNameTask), "runImpl()", 10);
+	RunnableStatsManager::handleStats("taskmanager::SharedNameTask", "runImpl()", 30);
+	auto lines = RunnableStatsManager::getClassStatsLines(RunnableStatsManager::SortBy::NAME);
+	auto shared = linesContaining(lines, "class=\"taskmanager::SharedNameTask\"");
+	ASSERT_EQ(shared.size(), 1u);
+	EXPECT_TRUE(std::regex_search(shared[0], std::regex(R"re(method="runImpl\(\)" +average= *"20" count= *"2")re"))) << shared[0];
 }
 
 TEST(RunnableStatsManagerTest, ConcurrentUpdates) {

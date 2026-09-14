@@ -78,8 +78,7 @@ private:
 
 class ClassStat {
 public:
-	explicit ClassStat(const std::type_info& type)
-		: className(StringUtils::replace(getClassName(type), "aion::gameserver::", "")), runnableStat(className, "run()") {}
+	explicit ClassStat(std::string name) : className(std::move(name)), runnableStat(className, "run()") {}
 
 	MethodStat& getRunnableStat() noexcept { return runnableStat; }
 
@@ -129,9 +128,19 @@ private:
 	std::vector<std::unique_ptr<MethodStat>> methodStats; // guarded by mutex, elements have stable addresses
 };
 
+struct TransparentStringHash {
+	using is_transparent = void;
+	size_t operator()(std::string_view s) const noexcept { return std::hash<std::string_view>{}(s); }
+};
+
+/**
+ * Class statistics are owned by byName (keyed by the displayed class name). byType caches the lookup of a std::type_info, so a type and a string
+ * key with the same displayed name share one ClassStat.
+ */
 struct Registry {
 	std::shared_mutex mutex;
-	std::unordered_map<std::type_index, std::unique_ptr<ClassStat>> classStats;
+	std::unordered_map<std::string, std::unique_ptr<ClassStat>, TransparentStringHash, std::equal_to<>> byName;
+	std::unordered_map<std::type_index, ClassStat*> byType;
 };
 
 Registry& registry() {
@@ -139,19 +148,42 @@ Registry& registry() {
 	return instance;
 }
 
+/** requires the unique lock */
+ClassStat& getOrCreateByName(Registry& r, std::string_view className) {
+	if (auto it = r.byName.find(className); it != r.byName.end())
+		return *it->second;
+	auto stat = std::make_unique<ClassStat>(std::string(className));
+	ClassStat& result = *stat;
+	r.byName.emplace(std::string(className), std::move(stat));
+	return result;
+}
+
 ClassStat& getClassStat(const std::type_info& type) {
 	Registry& r = registry();
 	std::type_index key(type);
 	{
 		std::shared_lock lock(r.mutex);
-		if (auto it = r.classStats.find(key); it != r.classStats.end())
+		if (auto it = r.byType.find(key); it != r.byType.end())
+			return *it->second;
+	}
+	std::string className = StringUtils::replace(getClassName(type), "aion::gameserver::", "");
+	std::unique_lock lock(r.mutex);
+	if (auto it = r.byType.find(key); it != r.byType.end())
+		return *it->second;
+	ClassStat& stat = getOrCreateByName(r, className);
+	r.byType.emplace(key, &stat);
+	return stat;
+}
+
+ClassStat& getClassStat(std::string_view className) {
+	Registry& r = registry();
+	{
+		std::shared_lock lock(r.mutex);
+		if (auto it = r.byName.find(className); it != r.byName.end())
 			return *it->second;
 	}
 	std::unique_lock lock(r.mutex);
-	auto [it, inserted] = r.classStats.try_emplace(key);
-	if (inserted)
-		it->second = std::make_unique<ClassStat>(type);
-	return *it->second;
+	return getOrCreateByName(r, className);
 }
 
 constexpr auto SORT_BY_VALUES = magic_enum::enum_values<SortBy>();
@@ -277,12 +309,16 @@ void handleStats(const std::type_info& type, std::string_view methodName, int64_
 	getClassStat(type).getMethodStat(methodName).handleStats(runTime);
 }
 
+void handleStats(std::string_view key, std::string_view methodName, int64_t runTime) {
+	getClassStat(key).getMethodStat(methodName).handleStats(runTime);
+}
+
 std::vector<std::string> getClassStatsLines(std::optional<SortBy> sortBy) {
 	std::vector<MethodStatSnapshot> methodStats;
 	{
 		Registry& r = registry();
 		std::shared_lock lock(r.mutex);
-		for (const auto& [type, classStat] : r.classStats)
+		for (const auto& [name, classStat] : r.byName)
 			classStat->collectExecuted(methodStats);
 	}
 
@@ -342,7 +378,7 @@ void clear() {
 	Registry& r = registry();
 	std::shared_lock lock(r.mutex);
 	// reset in place: concurrent handleStats calls may hold references to the stat objects
-	for (const auto& [type, classStat] : r.classStats)
+	for (const auto& [name, classStat] : r.byName)
 		classStat->reset();
 }
 

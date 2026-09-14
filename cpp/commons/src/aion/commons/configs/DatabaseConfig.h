@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <optional>
 #include <string>
 
 namespace aion::commons::configuration {
@@ -34,6 +35,13 @@ struct DatabaseConfig {
 	/** Maximum wait time in milliseconds when getting a DB connection, before throwing a timeout error (database.connectionpool.timeout, default 5000)
 	 */
 	static inline int32_t DATABASE_TIMEOUT = 0;
+
+	/**
+	 * C++ addition (not in Java): database.socket_timeout - socket read/write timeout of pooled connections in milliseconds, 0 = none. Without
+	 * the key (std::nullopt) the socketTimeout parameter of database.url applies, or the default the server passes to
+	 * DatabaseFactory::init(Options). The game server requires a timeout greater than 0 (runtime-architecture.md §2.6).
+	 */
+	static inline std::optional<int32_t> DATABASE_SOCKET_TIMEOUT;
 
 	/** Binds the fields above to their property keys (Java: the @Property annotations). Implemented in the configuration library. */
 	static void bind(configuration::ConfigurableProcessor& processor);

@@ -61,13 +61,14 @@ cpp/game-server/
 
 - Include root is `cpp/game-server/handlers`, so includes read `#include "aion/gameserver/handlers/ai/AggressiveNpcAI.h"`, like the rest of the port.
 - Namespaces mirror the Java packages under `aion::gameserver::handlers`, e.g. `aion::gameserver::handlers::ai::instance::darkPoeta`. This keeps the duplicate simple names apart (CalindiFlamelordAI, PadmarashkaAI), avoids the admin command names that clash with core classes (Event, Pet, Skill, SysMail, WorldRaid), and keeps handler `ai`/`instance` apart from core `aion::gameserver::ai`/`::instance`.
-- **Keyword rule** (add to CONVENTIONS): a Java identifier that is a C++ keyword gets a trailing underscore. This covers `register_()` (1,074 declarations), `delete_()` (401 calls), `and_()`/`or_()` in predicates, and the namespace segment `template_`. The same applies to Windows macro names that WindowsMacroGuard cannot remove.
+- **Keyword rule** (now in CONVENTIONS): a Java identifier that is a C++ keyword gets a trailing underscore. This covers `register_()` (1,074 declarations), `delete_()` (401 calls), `and_()`/`or_()` in predicates, and the namespace segment `template_`. The same applies to Windows macro names that WindowsMacroGuard cannot remove.
 - **Leaf handlers are a single `.cpp` with no header.** The class is defined in the `.cpp` and marked `final`. The 50 base classes, plus the 6 command classes used across commands (Quest, GoTo, RemoveCd, Stat with Stat::CommandStatFunction, Bookmark_add, Clearusercoolt), get a `.h` and a `.cpp`. If a base class is itself registered, its marker goes in its `.cpp`.
 - **Unity-safe by construction.** These rules are checked by regscan, which fails on violations:
   - Everything lives inside the package namespace block.
   - No anonymous namespaces, no namespace-scope `static` variables or functions, no `using namespace` in handler files.
   - Helpers become private member functions, constants become `static constexpr` members, and loggers become class-scope `static inline const auto log = LoggerFactory::getLogger("ai.ResurrectAI")`.
   - Core names come from the category prelude: `namespace aion::gameserver::handlers::ai { using gameserver::ai::NpcAI; ... }`. The prelude is identical for every file in the category, so it is harmless when unity batching concatenates files. It is also the category PCH.
+  - The quest prelude is the one place with a using-directive: `using namespace aion::gameserver::model::DialogAction;` reproduces Java's `import static DialogAction.*` (1,005 handler files).
 - **Handler API rule (no static-init side effects).** Java `protected static final QuestEngine qe = QuestEngine.getInstance()` becomes a non-static `QuestEngine& qe = QuestEngine::getInstance();` member initialised in the `AbstractQuestHandler` constructor. That constructor runs at engine init, and the ~7,000 `qe.registerX(...)` call sites keep their syntax.
 
 ### 1.3 Markers
@@ -86,64 +87,65 @@ Each marker sits at namespace scope right after the class, on one line, with lit
 
 Putting the quest id into the marker is deliberate. Duplicates are then caught while generating, the table is ordered, and the engine checks `handler->getQuestId() == entry.questId` (fatal on mismatch), which catches transcription errors. For the 5 `_questId` files, the marker carries the literal value.
 
+Java quest handlers and commands register through the whole superclass chain (`isAssignableFrom`), public static nested classes included. regscan resolves the chain the same way over the scanned Java files and a `CORE_CLASSES` table in `cpp/game-server/tools/regscan/src/JavaScanner.cpp`. When the core gains a new quest or command base class, add it there; otherwise regscan reports an unresolvable chain.
+
 ### 1.4 `HandlerRegistry.h` (core)
 
+The real header is `cpp/game-server/src/aion/gameserver/handlers/HandlerRegistry.h` (P4-02b, wave 1); its comments are authoritative. Condensed
+(namespaces shortened; the header qualifies every name fully, because the handler packages `ai`, `instance`, ... shadow the core namespaces):
+
 ```cpp
+// forward declarations: S0b must define these as non-template classes in exactly these namespaces
+namespace aion::gameserver::ai { class AbstractAI; }                          // typed AI bases expose `using OwnerType = T;`
+namespace aion::gameserver::model::gameobjects { class Creature; }
+namespace aion::gameserver::instance::handlers { class InstanceHandler; }
+namespace aion::gameserver::world { class WorldMapInstance; }
+namespace aion::gameserver::world::zone::handler { class ZoneHandler; class QuestZoneHandler; }
+namespace aion::gameserver::questEngine::handlers { class AbstractQuestHandler; }
+namespace aion::gameserver::utils::chathandlers { class ChatCommand; class AdminCommand; class PlayerCommand; class ConsoleCommand; }
+namespace aion::gameserver::network::aion { class AionClientPacket; class StateSet; }   // StateSet: Java Set<AionConnection.State>, P4-15
+
 namespace aion::gameserver::handlers {
-using AIFactory       = std::unique_ptr<ai::AbstractAI>(model::gameobjects::Creature& owner);        // borrowed owner, [A] decides what the AI stores
-using InstanceFactory = std::unique_ptr<instance::handlers::InstanceHandler>(world::WorldMapInstance& instance);
-using ZoneFactory     = std::unique_ptr<world::zone::handler::ZoneHandler>(int32_t questId);
+using AIFactory       = std::unique_ptr<ai::AbstractAI>(model::gameobjects::Creature& owner);   // nullptr if the owner is not the AI's OwnerType
+using InstanceFactory = runtime::Ref<instance::handlers::InstanceHandler>(world::WorldMapInstance& instance);
+using ZoneFactory     = runtime::Ref<world::zone::handler::ZoneHandler>(int32_t questId);
 using QuestFactory    = std::unique_ptr<questEngine::handlers::AbstractQuestHandler>();
 using CommandFactory  = std::unique_ptr<utils::chathandlers::ChatCommand>();
-using ClientPacketFactory = std::unique_ptr<network::aion::AionClientPacket>(int32_t opcode, network::aion::StateSet validStates);
+using ClientPacketFactory = std::unique_ptr<network::aion::AionClientPacket>(int32_t opcode, const network::aion::StateSet& validStates);
 
-struct AIHandlerEntry       { std::string_view name;      std::string_view javaClass; AIFactory* create;       std::string_view source; };
-struct InstanceHandlerEntry { int32_t mapId;              std::string_view javaClass; InstanceFactory* create; std::string_view source; };
+struct AIHandlerEntry       { std::string_view name; std::string_view javaClass; AIFactory* create; std::string_view source; };
+struct InstanceHandlerEntry { int32_t mapId; std::string_view javaClass; InstanceFactory* create; std::string_view source; };
 struct ZoneHandlerEntry     { std::string_view zoneNames; int32_t questId; std::string_view javaClass; ZoneFactory* create; std::string_view source; };
-struct QuestHandlerEntry    { int32_t questId;            std::string_view javaClass; QuestFactory* create;    std::string_view source; };
+struct QuestHandlerEntry    { int32_t questId; std::string_view javaClass; QuestFactory* create; std::string_view source; };
 enum class CommandKind { ADMIN, PLAYER, CONSOLE };
-struct CommandEntry         { CommandKind kind;           std::string_view javaClass; CommandFactory* create;  std::string_view source; };
+struct CommandEntry         { CommandKind kind; std::string_view javaClass; CommandFactory* create; std::string_view source; };
+struct ClientPacketEntry    { std::string_view name; ClientPacketFactory* create; std::string_view source; };
 
-// defined in the generated registry TUs (or in the *_empty variants used by tests)
+// defined in the generated registry TUs (Registry.<r>.gen.cpp) or with empty tables in the *_empty variants
 std::span<const AIHandlerEntry> aiHandlerEntries() noexcept;
 std::span<const InstanceHandlerEntry> instanceHandlerEntries() noexcept;
 std::span<const ZoneHandlerEntry> zoneHandlerEntries() noexcept;
 std::span<const QuestHandlerEntry> questHandlerEntries() noexcept;
 std::span<const CommandEntry> commandEntries() noexcept;
-std::span<const int32_t> npcIdsSpawnedByHandlers() noexcept;          // QuestSpawnAnalyzer replacement, sorted
+std::span<const ClientPacketEntry> clientPacketEntries() noexcept;
+std::span<const int32_t> npcIdsSpawnedByHandlers() noexcept;                  // QuestSpawnAnalyzer replacement (npcids registry), sorted
+
+// lookup helpers: findAIHandler, findInstanceHandler, findQuestHandler, findClientPacket (binary search), zoneNamesOf(entry),
+// aiOwnerMismatchMessage(entry, ownerSimpleName) = Java's "class ai.X cannot be instantiated with Summon as the owner"
 
 namespace detail {
 template <class C>
-concept AIHandlerClass = std::derived_from<C, ai::AbstractAI> && !std::is_abstract_v<C>
-	&& requires { typename C::OwnerType; }                                  // exposed by the AbstractAI<T>/AITemplate<T> base, [A]
-	&& std::derived_from<typename C::OwnerType, model::gameobjects::Creature>
-	&& std::constructible_from<C, typename C::OwnerType&>;                   // = AIEngine.validateScripts' constructor/generic check, now at compile time
-
-template <AIHandlerClass C>
-std::unique_ptr<ai::AbstractAI> createAI(model::gameobjects::Creature& owner) {
-	auto* typed = dynamic_cast<typename C::OwnerType*>(&owner);             // = findConstructor(aiClass, owner.getClass())
-	if (!typed)
-		throw utils::IllegalArgumentException(std::format("class {} cannot be instantiated with {} as the owner",
-			/*javaClass from the entry*/ "...", utils::simpleClassName(owner)));
-	return std::make_unique<C>(*typed);
-}
-template <class C> concept QuestZoneHandlerClass = std::derived_from<C, world::zone::handler::QuestZoneHandler> && std::constructible_from<C, int32_t>;
-template <class C> std::unique_ptr<world::zone::handler::ZoneHandler> createZoneHandler(int32_t questId) {
-	if (QuestZoneHandlerClass<C>) return std::make_unique<C>(questId);          // Java: QuestZoneHandler reads its own annotation
-	return std::make_unique<C>();
-}
+concept AIHandlerClass = std::derived_from<C, ai::AbstractAI> && !std::is_abstract_v<C> && requires { typename C::OwnerType; }
+	&& std::derived_from<typename C::OwnerType, model::gameobjects::Creature> && std::constructible_from<C, typename C::OwnerType&>;
+template <class C>                                                               // exactly Ref<C>: an inherited create of a base is rejected
+concept InstanceHandlerClass = std::derived_from<C, instance::handlers::InstanceHandler> && !std::is_abstract_v<C>
+	&& requires(world::WorldMapInstance& instance) { { C::create(instance) } -> std::same_as<runtime::Ref<C>>; };
+// QuestZoneHandlerClass: static Ref<C> create(int32_t questId); other zone handlers: static Ref<C> create()
 } // namespace detail
 } // namespace aion::gameserver::handlers
-
-#define AION_AI(Class, name)                                                                                              \
-	static_assert(sizeof("" name) > 1, "AION_AI name must be a non-empty string literal");                            \
-	::std::unique_ptr<::aion::gameserver::ai::AbstractAI> Class##_aiFactory(::aion::gameserver::model::gameobjects::Creature& owner) { \
-		return ::aion::gameserver::handlers::detail::createAI<Class>(owner);                                          \
-	}
-#define AION_QUEST_HANDLER(Class, questId)                                                                                \
-	static_assert(std::derived_from<Class, ::aion::gameserver::questEngine::handlers::AbstractQuestHandler> && (questId) > 0); \
-	::std::unique_ptr<::aion::gameserver::questEngine::handlers::AbstractQuestHandler> Class##_questFactory() { return ::std::make_unique<Class>(); }
-// AION_INSTANCE_HANDLER / AION_ZONE_HANDLER / AION_*_COMMAND / AION_CLIENT_PACKET follow the same pattern
+// AION_AI / AION_INSTANCE_HANDLER / AION_ZONE_HANDLER / AION_QUEST_HANDLER / AION_*_COMMAND / AION_CLIENT_PACKET expand to a static_assert
+// on the concept plus the external factory function Class##_aiFactory etc.; createAI does the dynamic_cast and returns nullptr on mismatch,
+// and AIEngine then throws IllegalArgumentException(aiOwnerMismatchMessage(entry, simpleClassName(owner))).
 ```
 
 - The factory name is `Class##_xxxFactory`, a suffix, because `aionFactory__1500...` would contain a reserved `__`.
@@ -155,14 +157,16 @@ template <class C> std::unique_ptr<world::zone::handler::ZoneHandler> createZone
 - **How it runs.** It is built before the game server:
   `add_custom_command(OUTPUT regscan.stamp BYPRODUCTS ${GEN}/Registry.*.gen.cpp COMMAND aion_gs_regscan --handlers <root> --clientpackets <dir> --java-handlers ../game-server/data/handlers --out ${GEN} DEPENDS aion_gs_regscan ${ALL_HANDLER_AND_CM_SOURCES})`.
   It rewrites an output only when the content changed, so editing a handler body never recompiles the tables. A full scan of about 1,900 files takes around a second.
-- **What it checks** (all failures are build errors with `file:line`):
-  - marker syntax: literals only, one line, namespace scope;
+  As built, the scan does not run on every build: `aion_gs_add_registries()` (`tools/regscan/AionRegscan.cmake`) reruns it only when the tool or a scanned file changed (stamp output), and notices added or removed files through `CONFIGURE_DEPENDS` globs.
+- **What it checks** (all failures are build errors in MSBuild's canonical form `file(line,col): error: message`; the exact rules are in `tools/regscan/README.md`):
+  - marker syntax: literals only, one line, namespace scope; never in headers, `#if` blocks or preprocessor directives; `AION_DETAIL_COMMAND` is internal;
   - the namespace matches the file path;
-  - no duplicate AI name, map id, zone name or quest id;
-  - no duplicate class in a namespace;
-  - the unity file rules from 1.2;
-  - every client packet exists in `ClientPacketInfo.gen.inc`.
-- **Outputs, one TU per registry.** Each lives in its own tiny library (`aion_gs_registry_ai`, `_instance`, `_zone`, `_quest`, `_commands`, `_clientpackets`) with a matching `*_empty` variant for tests that do not want handlers.
+  - no duplicate AI name, map id, zone name or quest id; a class is registered once;
+  - a type name is defined only once per namespace (enums included);
+  - the unity file rules from 1.2; only `.cpp`/`.h` files;
+  - every client packet exists in `ClientPacketInfo.gen.inc`;
+  - the Java cross-check (AI name, map id, zone names and quest id, quest id including `super(constant)`, command kind) against the Java class at the mirrored path, at build time rather than only in `tools/parity` (3.1). A C++ marker without a Java class at that path is allowed and reported as "unknown to Java".
+- **Outputs, one TU per registry.** Each lives in its own tiny library (`aion_gs_registry_ai`, `_instance`, `_zone`, `_quest`, `_commands`, `_clientpackets`, `_npcids`) with a matching `*_empty` variant for tests that do not want handlers.
 
 ```cpp
 // Registry.ai.gen.cpp - generated by aion_gs_regscan from 457 AION_AI markers in 461 files. Do not edit.
@@ -178,7 +182,7 @@ std::span<const AIHandlerEntry> aiHandlerEntries() noexcept { return AI_HANDLERS
 }
 ```
 
-- **Report.** It also writes `registry_report.txt`: counts per registry, plus the Java keys still missing (computed from the Java annotations and `super(id)` calls in `data/handlers`). This is the phase-6 progress bar, and at the end it must show 457 / 73 / 5 zone names / 1,035 / 152 / 186.
+- **Report.** It also writes `registry_report.txt`: counts per registry, plus the Java keys still missing (computed from the Java annotations and `super(id)` calls in `data/handlers`). This is the phase-6 progress bar, and at the end it must show 457 / 73 / 5 zone names / 1,035 / 152 / 186. As built, commands are reported per kind (101 / 16 / 35), and the report adds the npc-id registry (1,093 ids in the Java tree) and an unknown-to-Java column.
 - **Linking.** The tables are `constinit` data holding function pointers. There is no static-init code, no logging and no config access. Because each table references every factory, the MSVC linker pulls every handler `.obj` out of its STATIC library, and `/OPT:REF` keeps them.
 
 ### 1.6 Instantiation: factories vs singletons, engine init, reload
@@ -331,15 +335,15 @@ Estimates, to be measured in the first phase-6 week (see Open questions):
 
 | Artifact | Generator | Output (committed unless noted) | Produced | Consumed by |
 |---|---|---|---|---|
-| Java declaration parser (classes, fields, method signatures, annotations; bodies skipped) | `tools/gen/javasrc.py` (tokenizer, shared) | – | Wave 1 (T1) | all generators |
-| Forward headers for all 2,310 classes | `tools/gen/skeleton.py --fwd` | `src/aion/gameserver/<pkg>/fwd.h` | S0a (rerun when a class is added) | everyone |
+| Java parser (declarations, annotations, bodies as token spans with body helpers for lambdas, anonymous/local classes, scoped locals, identifier roles, assignments and calls; `ProjectIndex` import/nested-type resolver). API reference: the `javasrc.py` module docstring | `tools/gen/javasrc.py` (tokenizer, shared) | – | Wave 1 (T1) | all generators |
+| Forward headers for all 2,310 classes | `tools/gen/skeleton.py --fwd` (`--check`; existing definitions and forward declarations under `--cpp-src` and `--generated-root` win; `--no-generated-root`) | `src/aion/gameserver/<pkg>/fwd.h` | S0a (rerun when a class is added) | everyone |
 | Enums: the 87 JAXB ones plus non-JAXB enums used by hub headers | [B] enum emitter | `X.gen.h` (constants, name tables); a hand `X.h` adds methods | S0a | everyone |
-| Header drafts plus stub `.cpp` (hub, services, DAOs, SM packets) | `tools/gen/skeleton.py --draft` | owner directories; hand-owned from then on | S0b/S0c | chunks |
-| JAXB member blocks, `bindXml`, `@XmlElements` factories | [B] `tools/gen/jaxbgen` | per decision B (e.g. `X.gen.inc` beside the hand class, never hand-edited) | Wave 1 generator; outputs at S0a (shells) and P4-07/P4-08 | P4-07/08/09, P5-02..07 |
-| `SM_SYSTEM_MESSAGE`: 4,120 factories. The parameter types String/int/long/byte/float are formatted with Java `toString`. The 3 factories with a `Player` parameter and any body that is not a plain `new SM_SYSTEM_MESSAGE(id, args)` are reported and hand-ported | `tools/gen/sysmsg.py` | `network/aion/serverpackets/SM_SYSTEM_MESSAGE.gen.h` + `SM_SYSTEM_MESSAGE.gen0..7.cpp`; hand `SM_SYSTEM_MESSAGE.h/.cpp` (constructors, writeImpl) | Wave 1 (T3); compiles after the S0b `AionServerPacket` header | P4-06 target, everyone |
-| `DialogAction`: 6,205 `constexpr int32_t` constants plus a `nameOf` table (the generator checks duplicate ids as the Java static initialiser does) | `tools/gen/dialogaction.py` | `model/DialogAction.h` + `DialogAction.gen.cpp` | Wave 1 | quests (1,040 files) |
-| Server opcodes (237), as `template<> inline constexpr int32_t opcodeOf<SM_KEY> = 72;` that needs only forward declarations | `tools/gen/opcodes.py` from ServerPacketsOpcodes.java | `network/aion/ServerPacketsOpcodes.gen.h` | Wave 1 | P4-15/16/17 |
-| Client packet info (opcode, name, allowed states) | same script, from AionClientPacketFactory.java | `network/aion/ClientPacketInfo.gen.inc` | Wave 1 | regscan, P4-15 |
+| Header drafts plus stub `.cpp` (hub, services, DAOs, SM packets) | `tools/gen/skeleton.py --draft` (`--check`, `--with-dependencies`, selectors FQN, `pkg.*`, `pkg.**`, `@hubs @services @daos @serverpackets @engines @all`; `NON_TEMPLATE_CLASSES` such as `AbstractAI`; generator-owned files (`staticdata-classes.json` classes, `<File>.gen.h`) are skipped by group and package selectors and refused by explicit ones; SM_SYSTEM_MESSAGE drafts include the sysmsg member block; `--unported-header` default `aion/gameserver/handlers/Unported.h`). Fixtures: `tools/gen/tests/fixtures/skeleton/**` (owned by the skeleton tool) | owner directories; hand-owned from then on | S0b/S0c | chunks |
+| JAXB enums, data-only structs, member blocks (`X.xml.h` prelude + `X.xml.inc`), binders (`X.bind.h`/`.bind.ipp`, `<pkg>.bind.cpp`), `@XmlElements` factories, `xmlmodel.json`, `staticdata-classes.json`, `xmlgen-report.md`, behaviour-class scaffold | [B] `tools/xmlgen` (see its README) | `generated/aion/gameserver/**` (never hand-edited) | Wave 1 generator; outputs at S0a (shells) and P4-07/P4-08 | P4-07/08/09, P5-02..07 |
+| `SM_SYSTEM_MESSAGE`: 4,120 factories. The parameter types String/int/long/byte/float are formatted with Java `toString`. The 3 factories with a `Player` parameter and any body that is not a plain `new SM_SYSTEM_MESSAGE(id, args)` are reported and hand-ported | `tools/gen/sysmsg.py` | `network/aion/serverpackets/SM_SYSTEM_MESSAGE.gen.h`: a member block included in a public section of the class body; contract: constructor `(int32_t, std::vector<std::string>)` and four static `toJavaString` overloads (`int32_t`, `int64_t`, `int8_t`, `float`; the float one is Java `Float.toString`, geomath `JavaFloat::toString`). Definitions in `SM_SYSTEM_MESSAGE.gen0..7.cpp`; hand `SM_SYSTEM_MESSAGE.h/.cpp` (constructors, writeImpl) | Wave 1 (T3); compiles after the S0b `AionServerPacket` header | P4-06 target, everyone |
+| `DialogAction`: 6,205 `constexpr int32_t` constants plus a `nameOf` table (the generator checks duplicate ids as the Java static initialiser does). A namespace, not a class; `NULL` is `NULL_` | `tools/gen/dialogaction.py` | `model/DialogAction.h` + `DialogAction.gen.cpp` (self-contained) | Wave 1 | quests (1,040 files) |
+| Server opcodes (237), as `template<> inline constexpr int32_t opcodeOf<SM_KEY> = 72;` that needs only forward declarations, plus `ServerPacketsOpcodes::ENTRIES`/`findByOpcode` with wire opcodes and client names | `tools/gen/opcodes.py` from ServerPacketsOpcodes.java | `network/aion/ServerPacketsOpcodes.gen.h` | Wave 1 | P4-15/16/17 |
+| Client packet info (opcode, name, allowed states) as the X-macro `AION_CLIENT_PACKET_INFO(opcode, wireOpcode, Class, clientName, states...)` plus optional `AION_CLIENT_PACKET_TABLE_SIZE` | same script, from AionClientPacketFactory.java | `network/aion/ClientPacketInfo.gen.inc` | Wave 1 | regscan, P4-15 |
 | Handler, zone, quest, command and client packet registries; handler npc ids; registry report | `aion_gs_regscan` | build directory (not committed) | every build from S0a on | engines |
 | Count oracles, parity expectations | `tools/oracle`, `tools/parity` | test time | P4-09 on | ctest |
 
@@ -358,6 +362,14 @@ Wave 1 chunks, which can run in parallel (up to 6 agents):
 | P4-02 | `aion_gs_runtime` | [A] scheduler/`ThreadPoolManager`/Future API (including run-now of a pending task, `getDelay`, safe self-cancel, a **manual-clock test executor**), CronService, IDFactory core (bitset, the 6484 mask, lowest-release reuse; DAO `getUsedIDs` injected), periodic/FIFO task manager bases, ownership primitives [A], `AION_UNPORTED`, `HandlerRegistry.h`, `aion_gs_regscan` | 1.2k Java + new infrastructure |
 | P4-03 | `aion_gs_geomath` | the used jME subset under Java names (Vector3f, Matrix3f/4f, Ray, FastMath, TempVars); no FMA contraction | 5.9k Java → ~2k C++ |
 | P4-15a | `aion_gs_network` (crypt subdir) | Crypt/EncryptionKeyPair, opcode obfuscation, frames | ~0.3k |
+
+As delivered (2026-09-14, [wave1-status.md](wave1-status.md)):
+- **P4-01:** `CronExpression` was delivered by the runtime services lane (`services/cron`). Config introspection for `//configure` (named field
+  registry, `toJavaString`, commons `describe`) is still open for a later P4-01b/C2 task; the `AION_BIND` macro hook for it is in place.
+- **P4-03:** the Java subset is 6 classes (Vector2f, Vector3f, Matrix3f, Matrix4f, Ray, FastMath), plus the added `StrictMath` (fdlibm
+  asin/acos/atan/atan2) and `JavaFloat`. There is no Quaternion, Plane or Triangle. `TempVars` lives in `geoEngine/utils` and depends on
+  `BIHNode.BIHStackData`, so it belongs to P4-04 (or becomes locals, as in `Ray`).
+- **P4-15a** is the leaf target `aion_gs_network_crypt`.
 
 ### 2.5 The spine (serial, after wave 1 T1 + P4-02 headers + decisions A/B)
 
@@ -428,8 +440,8 @@ Parallel capacity is 8-10 agents. Wave 3a starts right after the spine freeze. W
 
 1. `Config.load()` binds all 35 classes (33 GS + Commons + Database). The unused-property warning set equals the one predicted by the config oracle.
 2. The DB connects, `setAllPlayersOffline` runs, and IDFactory initialises from an empty schema and from a fixture schema.
-3. DataManager loads all 92 imports (80 files, 12 directories, region override) with strict binding: unknown element or attribute, missing `required` attribute or unknown enum constant are errors [B]. All 113 afterUnmarshal hooks and the post-processing (`ItemData.cleanup`, `GlobalDropData.processRules`, `validateBuyLists`, `validateMotions`, `DecomposeAction` ids) run with 0 errors.
-4. The ~92 `Loaded N ...` lines are written to `static_data_counts.txt` in Java wording, and `ctest -L oracle` confirms every N against `tools/oracle/static_data.py`. That is an independent XML scan implementing each holder's dedupe rules. Anchors: 102,009 items, 63,287 npcs, 13,570 skills, 8,043 quests, 4,184 XML quests, 3,978 zones, 22,022 spawn groups / 131,896 spots, 6,449 walkers, 12,494 recipes, 161 world maps.
+3. DataManager loads all 92 imports (80 files, 12 directories, region override) with strict binding: unknown element or attribute, missing `required` attribute or unknown enum constant are errors [B] (except the reviewed `xmlgen.toml` `[unenforced_required]` and `[lenient_enums]` entries). All 113 afterUnmarshal hooks and the post-processing (`ItemData.cleanup`, `GlobalDropData.processRules`, `validateBuyLists`, `validateMotions`, `DecomposeAction` ids) run with 0 errors.
+4. The 90 `Loaded N ...` lines (92 numbers) are written to `static_data_counts.txt` in Java wording, and `ctest -L oracle` confirms every N with `oracle.py compare-counts --log static_data_counts.txt` (`tools/oracle`). That is an independent XML scan implementing each holder's dedupe rules. Anchors: 102,009 items, 63,287 npcs, 13,570 skills, 8,043 quests, 4,184 XML quests, 3,978 zones, 22,022 spawn groups / 131,896 spots, 6,449 walkers, 12,494 recipes, 161 world maps.
 5. GeoService loads with 18,583 mesh entries, 25,437 meshes, 151 `.geo` files, 419,707 placements, 484,111 geometries, and 7,961 material geometries turned into zones. 200 `getZ` probes and 50 material zone names match the Python oracle.
 6. `World` creates 161 WorldMaps, and ZoneService creates the zone instances of every map.
 7. Zero `AION_UNPORTED` hits on this path. Load time and peak working set are logged and recorded in PORTING_STATUS; they are informational, not pass/fail.
@@ -587,7 +599,7 @@ flowchart LR
 
 ## 4. Additions for CONVENTIONS and DEVIATIONS
 
-**CONVENTIONS:**
+**CONVENTIONS** (the keyword rule, handler file rules, markers, `AION_UNPORTED`, `AION_BIND` and literal npc ids are in CONVENTIONS.md since wave 1):
 - keyword identifiers get a trailing underscore;
 - handler file rules (1.2);
 - markers;
@@ -603,7 +615,7 @@ flowchart LR
 | Area | Deviation |
 |---|---|
 | Handler loading | handlers compiled in; `//reload ai` only re-validates; `//reload commands` rebuilds from factories |
-| Instance ids | duplicate instance ids are a build error (Java: last wins) |
+| Instance ids | duplicate instance ids are a build error (Java: last wins); likewise duplicate AI names, zone names and quest ids (Java: put or warn) |
 | AI creation | AI created in `postConstruct` (same observable order) |
 | `//ai set` | keeps the retired AI alive |
 | Dev property | `gameserver.dev.missing_ai_handlers` |
@@ -613,7 +625,7 @@ flowchart LR
 
 ## Open questions
 
-- Can you get a Java game server startup log (the ~92 'Loaded N ...' lines, 'Loaded N AI handlers/quest handlers/commands', load time) from any existing installation, without installing a JDK yourself? It would be a second oracle for M4 and M6 next to the Python scans.
+- Can you get a Java game server startup log (the 90 'Loaded N ...' lines, 'Loaded N AI handlers/quest handlers/commands', load time) from any existing installation, without installing a JDK yourself? It would be a second oracle for M4 and M6 next to the Python scans.
 - Partial-port policy: during porting, is it OK to run with the C++-only dev property gameserver.dev.missing_ai_handlers=warn (NPCs without a ported AI get DummyAI)? Java's hard error would come back at M6.
 - Reload semantics: acceptable that //reload ai only re-validates and //reload commands rebuilds command objects from the compiled-in factories, while //reload quests fully rebuilds? Or should //reload ai/commands simply be removed?
 - Quests: should a quest transliterator be prototyped on 20 quests before phase 6, and used for the 1,035 files if more than 70% compile after the automated pass? The alternative is porting them in agent batches with the parity check only.
@@ -672,10 +684,10 @@ These amendments take precedence over the text above.
 
 | Artifact | Tool | Output | When | Consumed by |
 |---|---|---|---|---|
-| Class kinds K1-K5 with escape analysis, field mapping, part detection (constructor, setter, late-bound controller patterns), effectively-final analysis, captured-variable members of stored lambdas/anonymous classes, `hasEquals`, capture-aware Ref cycles | `tools/gen/fieldmap.py` (shares `javasrc.py`; reads `staticdata-classes.json`) | `generated/concurrency/fieldmap.json`, `parts.json`, `escape_report.md`, `cycles_report.md` (committed); hand-owned `fieldmap.toml` (overrides, `[stored_callback_apis]`) and `cycles.toml` | Wave 1 (T1), rerun on Java changes | `skeleton.py`, `lint_concurrency.py`, agents |
-| Concurrency lint | `tools/porting/lint_concurrency.py` (L1-L19) | CI/pre-commit report | from S0a | every chunk |
+| Class kinds K1-K5 with escape analysis, field mapping, part detection (constructor, setter, late-bound controller patterns), effectively-final analysis, captured-variable members of stored lambdas/anonymous classes, `hasEquals`, capture-aware Ref cycles | `tools/gen/fieldmap.py` (shares `javasrc.py`; reads `staticdata-classes.json`) | `generated/concurrency/fieldmap.json`, `parts.json`, `escape_report.md`, `cycles_report.md` (committed); hand-owned `fieldmap.toml` (overrides, `[stored_callback_apis]`, `[immortal]`, `[settings]`) and `cycles.toml`, both also in `cpp/game-server/generated/concurrency/` | Wave 1 (T1), rerun on Java changes and whenever xmlgen regenerates | `skeleton.py`, `lint_concurrency.py`, agents |
+| Concurrency lint | `tools/porting/lint_concurrency.py` (L1-L20, W0) | CI/pre-commit report; CTest `gs.lint.concurrency` over `game-server/src` | from S0a | every chunk |
 | Schedule and stored-callback site classification | `tools/porting/classify_schedule_sites.py` | report per chunk | Wave 1 | batching, estimates |
-| Server packet recipients and non-cacheable lists | `tools/gen/opcodes.py` extension | `ServerPacketTraits.gen.h` | Wave 1 (T3) | P4-15/16/17, L10 |
+| Server packet recipients and non-cacheable lists | `tools/gen/opcodes.py` extension | `ServerPacketTraits.gen.h` | Wave 1 (T3); **not produced in wave 1**, deferred to the opcodes.py extension task | P4-15/16/17, L10 |
 
 ## 7. §2.4 Waves 0-1 at D4 capacity (6 agents; the integrator lane is not counted)
 - **T1:** `javasrc.py` + `skeleton.py` + `fieldmap.py` (larger than before: escape analysis, capture modelling, part patterns; budget 11-13 days, may take a second agent in wave 1b).
@@ -692,12 +704,25 @@ These amendments take precedence over the text above.
 - S0a: `runtime/` include wiring, `generated/concurrency`, `lint_concurrency` CTest.
 - S0b: member layouts of the 66 hub headers from `fieldmap.json`/`parts.json`. The adversarial reviewer checks the generated part classification of Creature/VisibleObject/controllers, resolves every hub cycle in `cycles_report.md` (including capture edges from observers), reviews `fieldmap.toml` overrides (Account `PartMap`, storages `PartSlot<RECLAIMER>`, `SelfOrRef` actor) and defines `LogoutBreakers` and the `zombie-safe` edge list. Hub headers include only lean runtime headers.
 - S0c: 2 agents.
+- S0a, from wave 1:
+  - `chunks.cmake` assigns the generated files: `model/DialogAction.h` and `DialogAction.gen.cpp` to the model chunk, `ServerPacketsOpcodes.gen.h` and `ClientPacketInfo.gen.inc` to P4-15, `SM_SYSTEM_MESSAGE.gen*.cpp` to P4-06 (the wave 1 `aion_gs_network_crypt` globs do not pick them up).
+  - Call `aion_gs_add_registries()` with `HANDLERS_ROOT` = `game-server/handlers`, never `game-server/src` (`HandlerRegistry.h` is core code). Include `tools/regscan/AionRegscan.cmake` first if the call comes before `add_subdirectory(tools)`. Set `CXX_SCAN_FOR_MODULES OFF` on handler libraries (equal file names such as `CalindiFlamelordAI.cpp` and `PadmarashkaAI.cpp` otherwise give MSBuild warning MSB8074). Unit-test executables link `<name>_empty`.
+  - Decide whether `Unported.h/.cpp` move from `aion_gs_handler_registry` to a core target (e.g. `aion/gameserver/utils`), so core code need not link the registry library. The macro name stays; then change `skeleton.DEFAULT_UNPORTED_HEADER`, xmlgen `scaffold.UNPORTED_HEADER` and the include in stubs. The `unported_trace.py` input format is documented in `Unported.h`.
+  - `gs.lint.concurrency` runs without `--cycles`; add `--cycles` once `cycles.toml` is resolved.
+- S0b, from wave 1:
+  - `ai::AbstractAI`, `model::gameobjects::Creature`, `instance::handlers::InstanceHandler`, `world::WorldMapInstance`, `world::zone::handler::{ZoneHandler, QuestZoneHandler}`, `questEngine::handlers::AbstractQuestHandler`, `utils::chathandlers::{ChatCommand, AdminCommand, PlayerCommand, ConsoleCommand}` and `network::aion::{AionClientPacket, StateSet}` must be non-template classes in exactly these namespaces (`HandlerRegistry.h` forward-declares them; a different shape needs a header change request).
+  - The typed AI base (`AITemplate<T>`) must declare `using OwnerType = T;`. `skeleton.py` drafts `AbstractAI` as a non-template class but does not generate this alias.
+  - The cycle review starts from `cycles_report.md`: 687 unresolved edges (400 with suggestions: one-shot tasks `accepted`, periodic tasks `java-hook: cancel`, observers `cpp-breaker: LogoutBreakers`), including `Effect$1#this` and `Effect$2#this`. Only the 9 resolutions stated in this design are in `cycles.toml`. Per-run services other than AhserionRaid, if any, go into `fieldmap.toml [settings] per_run_services`.
 
 ## 9. §2.6 Phase 4 waves (replace "8-10 agents")
 - 3a-1 (6): P4-05 base, P4-07a templates, P4-11a objects, P4-12 player, P4-15 network, P4-06 sysmsg.
 - 3a-2 (4): P4-04 geo, P4-07b, P4-08 shells, P4-13 items.
 - 3b (6): P4-09 holders, P4-10 world (`KnownList::addPair` at all three sites, handshake stress test), P4-11b controllers (ObserveController with generated callback structs), P4-14 DAO, P4-16 SM A-K, P4-17 SM L-Z.
 - Calendar stretches ~1.4× versus 8-10 agents (est.).
+- Notes from wave 1 for phase 4 chunks:
+  - P4-04: `Ray` copies its vectors; BIHNode's in-place ray transform works through the `getOrigin()`/`getDirection()` references. `BoundingVolume::collideWith(Ray)` replaces `Ray.collideWith(Collidable, CollisionResults)`. `TempVars` belongs here.
+  - P4-05: `runtime/base/Exceptions.h` lacks `java.lang.ArithmeticException` (Rates.java catches it); `geoEngine/math/Matrix4f.h` declares one, which becomes an alias when the runtime adds it. PositionUtil (`Math.atan2`) and other Java-exact `Math.asin/acos/atan/atan2` users can use `geoEngine/math/StrictMath` (or move it to commons utils). `JavaFloat::toString` (Float.toString, JDK 19+) may duplicate the configs `toJavaString`.
+  - P4-06: when the real `SM_SYSTEM_MESSAGE.h` lands, remove from `tests/network_crypt` the stub `aion/gameserver/network/aion/serverpackets/SM_SYSTEM_MESSAGE.h` (it shadows the real header in that test executable), `GeneratedSysMsgTest.cpp` and `GeneratedSysMsgDefinitions0..7.cpp`, or move them to P4-06's tests. Move `GeneratedDialogActionTest.cpp`/`GeneratedOpcodesTest.cpp` (which compile `DialogAction.gen.cpp` by `#include`) when the model and network chunks own those files. `toJavaString(float)` needs geomath's `JavaFloat::toString` (link geomath or move it to commons).
 
 ## 10. §2.8 Phase 5 waves (replace "8 agents")
 - 5a (5): P5-00 login slice (`LogoutBreakers` scope guard in `leaveWorld`), P5-01+P5-02 as one agent, P5-05 AI, P5-06 quest, P5-14 misc.
@@ -743,4 +768,27 @@ These amendments take precedence over the text above.
 - Generator heuristics (parts, escape, captures) can misclassify; loud failures, S0b review, L1/L19, C15, census and zombie-breaker warnings.
 - Concurrency discipline drift across 4-6 agents; generated member blocks, lint pre-commit, checklist R1-R12.
 - T1 grew (capture and escape analysis); if it slips, S0b starts with declared-field mapping and capture edges follow before phase 5.
+
+## Wave 1 implementation notes (2026-09-14)
+
+Where the wave 1 deliverables depart from the text above. Status and open issues: [wave1-status.md](wave1-status.md).
+
+| § | As built |
+|---|---|
+| 1.4 | `AIFactory` returns nullptr when the owner's dynamic type is not the AI's `OwnerType`, instead of throwing: the factory does not know the entry's `javaClass`, so `AIEngine` throws `IllegalArgumentException(aiOwnerMismatchMessage(entry, simpleClassName(owner)))` with Java's text |
+| 1.4 | Instance and zone handler classes provide `static create(...)` returning exactly `Ref<Class>` (checked with `same_as`, so an inherited `create` of a base class is rejected); the factories call it. The sketch used `make_unique` or constructors |
+| 1.4 | `ClientPacketFactory` takes `const network::aion::StateSet&` (a forward-declared class) instead of a `StateSet` value. A `ClientPacketEntry{name, create, source}` table and `clientPacketEntries()` were added |
+| 1.5 | An extra registry `npcids` (`Registry.npcids.gen.cpp`, `_npcids` library and `_npcids_empty` variant) holds `npcIdsSpawnedByHandlers()` |
+| 1.5, 2.1 | `AION_UNPORTED` lives in `aion_gs_handler_registry` (`aion/gameserver/handlers/Unported.h`, namespace `aion::gameserver::handlers`) for wave 1, not in the spine. `UnportedException` derives from `UnsupportedOperationException` |
+| 1.10, 2.4 | `Config::load(allowedConfigs)` takes bind function pointers instead of `Class` objects, so the `IllegalArgumentException` reads "Config bind function is not an allowed config". Java's `Config.CONFIGS` order is kept; the C++-only `RuntimeConfig` is appended last. Local IP discovery is replaceable through `Config::setLocalIPv4Finder` (test hook) and event properties come from `Config::setEventConfigPropertiesProvider` until EventService is ported. Pattern fields with a default are plain `std::wregex` (an empty value is a load error, the existing commons deviation); `FORBIDDEN_SEQUENCE_PATTERN` is `std::optional<std::wregex>` |
+| 2.3 (skeleton) | Java nested types stay nested (`Outer::Inner`); forward headers cannot declare them, so they are listed in a comment |
+| 2.3 (skeleton) | `skeleton.py` reads both the fieldmap.json interface documented in its module docstring (`members/javaName/cppType/declaration/...`) and fieldmap.py's field-table keys (`fields/name/cpp/modifiers/rule/callbacks`, `kindName`); unqualified C++ spellings are qualified by skeleton (runtime-architecture.md §3.5) |
+| 2.3 (skeleton) | Generated callback structs (`extraDeclarations`) are pasted into drafts as comments, not code: their bases and captured types do not exist until the bodies are ported |
+| 2.3 (skeleton) | Static-only Java classes (DAOs, static services) stay classes with static member functions rather than namespaces. Definitions rename a parameter that would hide a data member to `value` (C4458); declarations keep the Java names |
+| 2.3 (sysmsg) | Generated factories format their parameters when the packet is constructed (Java: `toString` in `writeImpl`); string parameters are `std::string_view` (no null). `STR_MSG_MERCHANT_PET_GET_SELL_ITEM` returns `SM_SYSTEM_MESSAGE`, not `AionServerPacket`. 12 factories with reserved names are renamed (CONVENTIONS keyword rule); only `CM_EMOTION` calls two of them |
+| 2.3 (DialogAction) | A namespace of `inline constexpr int32_t` constants instead of a final class; `nameOf` returns `std::optional<std::string_view>`; `entries()` is new |
+| 2.3 (generators) | sysmsg/opcodes reject what Java accepts silently (a class registered twice in ServerPacketsOpcodes, `packets[i]` assigned twice, a duplicate state); none occur in the sources |
+| 2.4 (P4-15a) | `Crypt::INTERNAL_VERSION` duplicates `SM_VERSION_CHECK.INTERNAL_VERSION`, so the leaf crypt library needs no packet header; a test checks it against `ServerPacketsOpcodes::INTERNAL_VERSION`. C++ additions: `enableKey(int32_t)`, key getters for tests |
+| 2.4 (P4-03) | Java null store/result parameters become overloads without the parameter; null-argument branches have no counterpart. Not ported (JVM-specific or unused): `FastMath.rand/nextRandomFloat/nextRandomInt`, FloatBuffer methods, `Vector2f` externalization, `getClassTag`, `Vector3f.create`, `Matrix4f.fromFrustum` and `set(float[][])`, the package-private `equalIdentity`. `Matrix3f` elements stay protected with `Matrix4f` as a friend (Java package access). `FastMath::abs` keeps Java's `abs(-0.0f) == -0.0f` with a sign-bit mask |
+| 2.4 (P4-01), 7 | Commons `DatabaseConfig` gains the C++-only key `database.socket_timeout` (optional, milliseconds, no default). The game-server requirement is enforced by `DatabaseFactory::init(DatabaseFactory::gameServerOptions())` (60 s default, 0 rejected), not by a hard-coded check; `GameServer::main` (P5-14) must call it |
 

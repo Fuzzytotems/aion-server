@@ -20,7 +20,7 @@ The runtime loader follows XmlMerger's rules but writes no merged file:
 Hand-ported hooks get a LoadContext (earlier holders, parent) and run inline. Post-processing (items cleanup, drop rules, validations) runs on the unpublished StaticData. Holders are then published as immortal const objects through atomic `HolderRef`s. //reload keeps old holders forever instead of freeing them. The spawn, walker and event families are explicitly mutable and locked.
 
 Verification without a JDK has these parts:
-- an independent Python count oracle reproducing the ~92 'Loaded N' lines;
+- an independent Python count oracle reproducing the 90 'Loaded N' lines;
 - per-tag element and attribute totals: bound plus ignored must equal what is in the files;
 - a lexical census proving that the data never reaches JAXB parsing edge cases;
 - a full value round-trip dump diff;
@@ -40,7 +40,7 @@ Checked against the Java sources in this pass (on top of the research maps):
 | Topic | Decision |
 |---|---|
 | Generator language | Python 3.12, stdlib only (tomllib, json, dataclasses, unittest). Needed only to regenerate; the CMake build never runs it |
-| Java parsing | Own tokenizer plus a declaration-level recursive-descent parser. Method bodies are skipped by token-balanced brace matching and kept as text |
+| Java parsing | Own tokenizer plus a declaration-level recursive-descent parser (`tools/gen/javasrc.py`). Method bodies are kept as bracket-matched token spans with on-demand body helpers |
 | Scope | Everything reachable from the unmarshal roots (not "files importing javax.xml.bind", not `model/templates`) |
 | Intermediate form | `xmlmodel.json` (classes, properties, enums, hooks, trivial accessors). It feeds C++ generation, the verification scripts and the reports |
 | Code shape | Enums fully generated. Data-only classes fully generated (`generated/` tree). Classes with behaviour are hand-written and `#include "X.xml.inc"` inside the class body. Binders live in generated `.bind.cpp` files |
@@ -77,14 +77,15 @@ Of 792 files importing javax.xml.bind (src plus handlers), a fair number are not
 - **Regex over lines** is too fragile:
   - `@XmlElements` spans 100 lines (Effects.java:31-130);
   - nested static classes need scope tracking (`SiegeSpawn.SiegeRaceTemplate.SiegeModTemplate`);
-  - there are 2 simple-name collisions (ItemType, PetStatsTemplate) that need import resolution;
+  - there are 2 simple-name collisions (ItemType, PetStatsTemplate) that need import resolution (resolved through `ProjectIndex.resolve` with the declaring field as context);
   - generic types contain commas;
   - initializers contain `new X[] {...}`.
 - **tree-sitter-java** would work, but needs native wheels installed. It also parses far more than needed and tolerates errors silently (ERROR nodes). It stays as the fallback front end; the IR JSON is the interface, so switching front ends does not change the rest.
-- **Custom parser (chosen).** About 700 lines of Python:
+- **Custom parser (chosen).** `cpp/tools/gen/javasrc.py` (about 2,900 lines as built, see the wave 1 notes at the end); its module docstring is the API reference:
   - The tokenizer knows comments, string, char and text-block literals.
   - The parser covers package, imports (single, wildcard, static), class/enum/record/interface headers, annotations with argument trees (`name=`, `required=`, `type=X.class`, nested annotation arrays), field declarations with their initializer token spans, method signatures, and enum constants with argument spans and `@XmlEnumValue`.
-  - Bodies are `{...}` spans kept as raw text.
+  - Bodies are `Span`s (bracket-matched token ranges); `Span.text` gives the source text. Body helpers list lambdas, anonymous and local classes, locals with scopes, identifier roles, assignments and calls.
+  - `ProjectIndex` indexes all source roots and implements the import and nested-type resolver.
   - Anything unexpected inside a class body raises an error with file:line. Nothing is silently skipped.
   - The annotation style is regular. A scan found no multi-variable annotated declarations, no constant expressions in annotation arguments, and no `@XmlElementRef`/`PROPERTY` access. Only the `@XmlElements` lists span lines.
 
@@ -151,16 +152,28 @@ fields = ["model.templates.spawns.Spawn.eventTemplate", "model.templates.guide.G
 [storage_by_pointer]  # element lists that need vector<unique_ptr<T>> (non-movable T)
 ```
 
+Tables added while building the generator (`cpp/tools/xmlgen/xmlgen.toml` is authoritative; every entry needs a reason):
+
+| Table | Purpose |
+|---|---|
+| `[unenforced_required]` | `required = true` flags the data violates (16 entries). JAXB never enforces them and the XSDs declare the nodes optional; every other required flag is enforced (§3.4) |
+| `[ignore_attributes]` | attributes the XSDs declare and the data uses but Java does not bind (5, e.g. `item_template@cName`); consumed without a member, as JAXB ignores them |
+| `[lenient_enums]` | optional scalar enum properties whose unknown data values become `std::nullopt` with a warn-once, like JAXB's enum leaf (`SkillTemplate.counterSkill`). IR flag `lenientEnum`, binding kinds `assignLenientEnum` / `bindTextLenientEnum` |
+| `[external_enums]` | JDK enums bound by JAXB, generated like project enums (`java.time.DayOfWeek` in `aion::gameserver::java::time`) |
+| `[before_unmarshal_allowed]` | classes whose `beforeUnmarshal` is dropped with a reason (`StaticData`: installs the listener that `LoadContext` replaces) |
+| `[ignore_public_members]` | public getter/setter pairs of PUBLIC_MEMBER classes that JAXB would bind as implicit elements but the data never uses |
+| `[optional_strings]`, `[xml_names]` | `String` properties stored as `std::optional<std::string>`; default XML names that differ from the Java name, confirmed |
+
 ### 1.5 How it runs
 
-- `py cpp/tools/xmlgen/xmlgen.py generate` writes the following. The generator owns the whole `generated/` tree and prunes stale files.
-  - `cpp/game-server/generated/aion/gameserver/**`: headers, `.xml.inc`, `.bind.cpp`, enum headers;
+- `py cpp/tools/xmlgen/xmlgen.py generate` writes the following. The generator owns the whole `generated/` tree (except `generated/concurrency`, which belongs to `fieldmap.py`) and prunes stale files.
+  - `cpp/game-server/generated/aion/gameserver/**`: enum headers, data-only headers, and for behaviour classes an `X.xml.h` prelude (includes, forward declarations, nested-class preludes) plus the `X.xml.inc` member block. Binders are split per Java source file: `X.bind.h` (specialization declarations) and `X.bind.ipp` (definitions), included by one `<pkg>.bind.cpp` per package;
   - `cpp/game-server/generated/xmlmodel.json`;
   - `cpp/game-server/generated/xmlgen-report.md`, containing: the implicit bindings, boxed fields that have initializers, the classification, and per class the non-trivial Java methods with no C++ definition yet (the port checklist).
 - `xmlgen.py check`: regenerates into a temp directory and diffs. Registered as a CTest only if `find_package(Python3 COMPONENTS Interpreter)` succeeds.
 - `xmlgen.py scaffold <JavaFQN>...`: creates the hand-written `src/.../X.h` and `X.cpp` only if they are missing. The header includes the `.inc`; each non-trivial Java method gets a declaration comment and its Java body as a block comment in the .cpp.
 - Refusal rule: if `src/` and `generated/` would both provide `aion/gameserver/.../X.h`, generation fails.
-- CMake: `aion_add_library(aion_gameserver_staticdata SOURCE_ROOT src ...)` plus a second SOURCE_ROOT `generated`. The existing `GLOB_RECURSE CONFIGURE_DEPENDS` picks the files up.
+- CMake: `aion_add_library(aion_gameserver_staticdata SOURCE_ROOT src ...)` plus a second SOURCE_ROOT `generated`. The existing `GLOB_RECURSE CONFIGURE_DEPENDS` picks the files up. The library compiles only `generated/**/*.bind.cpp` (never the `.ipp` files) and adds `generated/` as a second include root. Once it exists, the slice test's include bridge (`generated/xmlgen-include-root.inc`, which relies on MSVC searching the directories of open include files) can be removed.
 - Why commit generated files instead of generating at CMake time:
   - the Java reference is frozen, so regeneration happens only when mapping rules change;
   - builds, IntelliSense and code review see real files;
@@ -181,7 +194,7 @@ Chosen, (a):
 - The data members, trivial accessors and binder friendship come from a generated `.inc` included at the top of the class body.
 - Hand-written code owns everything else: logic, hooks, non-trivial getters, virtuals.
 - A data-only class has no hand-written file at all.
-- Rules: the `#include` is the first line of the body and must be followed by an explicit access specifier. Generated code always spells types fully qualified: `EffectTemplate` has a member named `change` and there is a namespace `skillengine::change`, so an unqualified `change::Change` would not compile.
+- Rules: the header includes the generated prelude `X.xml.h` before the class; the `X.xml.inc` `#include` is the first line of the body and must be followed by an explicit access specifier. Generated code always spells types fully qualified: `EffectTemplate` has a member named `change` and there is a namespace `skillengine::change`, so an unqualified `change::Change` would not compile.
 
 ### 2.2 Example: a skill effect (behaviour hierarchy)
 
@@ -298,28 +311,33 @@ public:
 	...
 ```
 
-The generated binder is in `model/templates/item/item.bind.cpp`, one TU per Java package, about 60 TUs. Binder headers are included only by binder TUs, never by game code.
+The generated binder is declared in `model/templates/item/ItemTemplate.bind.h`, defined in `ItemTemplate.bind.ipp` and compiled by the package TU `model/templates/item/item.bind.cpp`. Binder headers are included only by binder TUs, never by game code. The authoritative contract (member kinds, helper calls, failure rules) is the comment at the top of `dataholders/loadingutils/XmlBinding.h`; the sample follows it:
 
 ```cpp
-bool XmlBinding<ItemTemplate>::attribute(ItemTemplate& o, BindContext& c, std::string_view n, const char* v) {
-	switch (xml::nameHash(n)) {
-	case "mask"_xh:     if (n == "mask") { o.mask = c.parseInt32(v); return true; } break;
-	case "id"_xh:       if (n == "id") { c.seenRequired(0); o.setXmlUid(v); c.registerXmlId(v, o); return true; } break;
-	case "restrict"_xh: if (n == "restrict") { o.levelRestrictions = xml::adapters::parseSpaceSeparatedBytes(c, v); return true; } break;
+bool XmlBinding<ItemTemplate>::attribute(ItemTemplate& o, BindContext& c, std::string_view n, std::string_view v) {
+	switch (nameHash(n)) {
+	case "mask"_xh:     if (n == "mask") { c.assign(o.mask, v); return true; } break;
+	case "id"_xh:       if (n == "id") { o.setXmlUid(v); c.registerXmlId(v, o); return true; } break;
+	case "restrict"_xh: if (n == "restrict") { o.levelRestrictions = adapters::parseSpaceSeparatedBytes(c, v); return true; } break;
+	case "cName"_xh:    if (n == "cName") { static_cast<void>(v); c.ignoreAttribute(); return true; } break; // [ignore_attributes]
 	...
 	}
 	return XmlBinding<VisibleObjectTemplate>::attribute(o, c, n, v); // unbound base returns false
 }
 bool XmlBinding<ItemTemplate>::element(ItemTemplate& o, BindContext& c, pugi::xml_node e, std::string_view n) {
-	switch (xml::nameHash(n)) {
-	case "actions"_xh: if (n == "actions") { c.bindSingle(o.actions, e, o); return true; } break; // repeated element: last wins, as in JAXB
+	switch (nameHash(n)) {
+	case "actions"_xh: if (n == "actions") { c.bindSingle(o.actions, e); return true; } break; // repeated: strict error, lenient last wins
 	...
 	}
 	return XmlBinding<VisibleObjectTemplate>::element(o, c, e, n);
 }
+void XmlBinding<ItemTemplate>::reserve(ItemTemplate& o, const ChildCounts& counts) { // in-place vectors, summed over all files of a holder
+	XmlBinding<VisibleObjectTemplate>::reserve(o, counts);
+}
 void XmlBinding<ItemTemplate>::finish(ItemTemplate& o, BindContext& c, const XmlParent& p) {
-	c.checkRequired(o, REQUIRED /* {"id"} */);
-	o.afterUnmarshal(c.load(), p); // static call on the concrete type = JAXB's nearest-declared hook (no shadowing exists in the sources)
+	c.checkRequiredAttributes({"id"});      // by name, flattened over the class hierarchy
+	if (c.hooksEnabled())
+		o.afterUnmarshal(c.load(), p);      // static call on the concrete type = JAXB's nearest-declared hook
 }
 ```
 
@@ -332,7 +350,7 @@ void XmlBinding<ItemTemplate>::finish(ItemTemplate& o, BindContext& c, const Xml
 | Boxed type with non-null initializer (`Integer respawnTime = 0`) | plain `T`, listed in the report |
 | Enum attribute with initializer, or `required=true` | `E` (required is enforced by the binder) |
 | Enum attribute otherwise | `std::optional<E>` (`opt == E::X` keeps working) |
-| `String` attribute/element | `std::string`, absent == "". Becomes `std::optional<std::string>` when the census finds present-empty values used in a null check (e.g. `mail_templates.xml` has `name=""` 17×, plus `npc_shouts` `client_ai=""`, `panesterra.xml` `start_npc_ids=""`, `world_maps.xml` `flags=""`) or when config says so. The binder warns once per (class, attr) on an empty value into a non-optional string, which keeps the rule honest if data changes |
+| `String` attribute/element | `std::string`, absent == "". Becomes `std::optional<std::string>` when the census finds present-empty values used in a null check or when config says so. Present-empty values in the data (V4 census): `mails/mail/template@name` (17), `npc_shouts/shout_group@client_ai` (1), `world_maps/map@flags` (1), `quest_scripts/report_to@start_npc_ids` (2; `panesterra.xml` is not imported). `npc_template@name` is a single blank `" "` 1,532 times. The binder warns once per (class, attr) on an empty value into a non-optional string, which keeps the rule honest if data changes |
 | Nested object element | `std::unique_ptr<T>` (nullable, stable address) |
 | `List<T>` element, T concrete | `std::vector<T>`, reserved to the exact child count and bound in place, so element addresses never change. `vector<unique_ptr<T>>` if configured |
 | `@XmlElements List<Base>` | `std::vector<std::unique_ptr<Base>>` plus a factory |
@@ -347,9 +365,10 @@ void XmlBinding<ItemTemplate>::finish(ItemTemplate& o, BindContext& c, const Xml
 | C++ keywords, Windows macro names | field `template` → `template_`; enum constants go through `WindowsMacroGuard.h` |
 
 Scalar parsing (`xml::parseInt32` etc.) follows JAXB's `DatatypeConverterImpl` where cheap: trim XML whitespace, optional `+`, decimal only, range error.
-- Floats use `std::from_chars`. It is correctly rounded like `Float.parseFloat`, but rejects Java-only forms (`1f`, hex, `INF`).
+- Floats use `std::from_chars`. It is correctly rounded like `Float.parseFloat`, but rejects Java-only forms (`1f`, hex). The data has exponent forms in zones (`4.5e+02`, `-1.4E-5`), which `from_chars` accepts, and one `NaN` in `spawns spot@z`, which `Float.parseFloat` accepts, so the C++ parser accepts `NaN` and `INF` (`XmlValues.h`). Overflow, underflow and empty numbers are errors (Java: Infinity/0, JAXB: 0).
+- `player_experience_table` exp values exceed int32 (Java `long`).
 - Booleans accept `true/false/1/0`.
-- Unknown enum names are an error. As I recall the JAXB RI source (not runnable here), JAXB would silently produce null there.
+- Unknown enum names are an error. As I recall the JAXB RI source (not runnable here), JAXB would silently produce null there. The one case in the data (`SkillTemplate.counterSkill`, 30 comma lists) is listed in `[lenient_enums]` and becomes `std::nullopt` with a warning.
 - Every place where C++ is stricter than JAXB is proven unreachable by the lexical census (section 4). It is not assumed.
 
 ### 2.5 Enums
@@ -359,6 +378,8 @@ Enums are always generated (e.g. `generated/.../item/enums/ItemGroup.h`):
 - `template<> struct xml::EnumTraits<ItemGroup>` with a `names` array and `fromXml()` using a sorted table plus binary search, honouring `@XmlEnumValue` (ZoneAttributes).
 
 This replaces magic_enum for these types. TribeClass (724 constants) and GroupDropType (438) are far outside magic_enum's range. commons' `EnumTransformer` should prefer `EnumTraits<E>` when specialized, for config fields of these enums.
+- The underlying type is `uint8_t` for up to 256 constants and `uint16_t` above. `skeleton.py --fwd` forward-declares every Java enum with the same rule, so all enum generators must follow it.
+- Config fields of `ItemQuality`, `NpcRating`, `HouseType` and `AbyssRankEnum` use placeholder enums in `configs/detail/ConfigEnums.h` (P4-01). xmlgen now generates the first three with `EnumTraits`; `AbyssRankEnum` (utils.stats) is not a JAXB enum. Replace the placeholders once the real enums are in a build target, and teach `EnumTransformer` `EnumTraits` first.
 - Enum behaviour (constructor data such as `ItemSlot.MAIN_OR_SUB.getSlotIdMask()`, methods) lives in a hand-written companion header (`ItemGroupInfo.h`) as free functions found by ADL: `getItemSubType(group)`.
 - The generator lists enums that have methods or arguments so none is forgotten.
 
@@ -390,7 +411,7 @@ Rules:
 3. File import: the root element tag must be one of the 92 StaticData element names, otherwise error (JAXB: unexpected element). If the same tag is imported twice, the second one replaces the first (JAXB field assignment); a warning is logged.
 4. Directory import:
    - List `.xml` files depth-first pre-order. Directories are descended where they appear.
-   - Entries at each level sorted by ordinal comparison of the uppercased UTF-16 name. This is what Java's `Files.find` sees on NTFS. **I verified that `os.scandir` (FindFirstFile) order equals this comparator for all 12 imported directories, 584 files.**
+   - Entries at each level sorted by ordinal comparison of the uppercased UTF-16 name. This is what Java's `Files.find` sees on NTFS. **`os.scandir` (FindFirstFile) order equals this comparator for all 12 imported directories (584 files; 664 imported files and 92 imports in total).** This is re-checked on every run by `tools/oracle/tests/test_real_data.py` and by the C++ `StaticDataImportsTest` against native enumeration. All 6 goodslists region variants give identical count lines.
    - With `singleRootTag="true"`, the first file's root tag selects the holder and its root attributes are bound. Later files' root tags and attributes are skipped; their children are appended to the same holder instance.
    - `singleRootTag="false"` on a directory is rejected: XmlMerger.java:226 would write an unbalanced end tag. All 12 use `true`.
 5. Ignored as in the merge: comments, whitespace-only text (pugixml default drops ws-only PCDATA), `xmlns*`/`xsi:*` attributes.
@@ -409,16 +430,20 @@ Rules:
   - `data()` / `holder<H>()`: finished holders of the current load. When loading one holder for reload, it falls back to the published `DataManager` holder, mirroring `staticData != null ? staticData.itemData : DataManager.ITEM_DATA` in GlobalDropItem/ResultedItem/ItemRaceEntry.
   - `runAfterUnmarshalTask(fn)`: Java `registerForAsyncExecutionOrRun`. Runs inline, so `NpcData::init` is deterministic. Java logs `npcData.size()` in StaticData.afterUnmarshal while init may still be running on another thread.
   - `registerXmlId(string, obj)` / `addIdRef(slot, string)`: one document-wide string ID space for items and npcs, like JAXB. It is resolved after all holders; an unresolved or wrong-type target is an error.
-  - `options()`: strict, holder filter for tests, `runHooks=false` for the round-trip dump.
-- `XmlParent { std::type_index type; void* object; T* as<T>() }` covers the 2 parent-using hooks: `HouseAddress → HousingLand`, and `SpawnsData` checking `parent instanceof EventTemplate`.
+  - `options()`: `LoadOptions` with `strict` (default true), `holders` (root-tag filter for tests; other imports are skipped without parsing), `runHooks` (false for the round-trip dump), `collectStats` (V3), `countryCode` (region override) and `parallelParse`.
+  - `fail`/`warn`: messages with the current `file:line:col` and element path.
+- `XmlParent { std::type_index type; void* object; T* as<T>() }` covers the 2 parent-using hooks: `HouseAddress → HousingLand`, and `SpawnsData` checking `parent instanceof EventTemplate`. `as<T>()` matches the exact type only.
+- API as built (`StaticDataLoader.h`, `LoadContext.h`): holders are registered with `HolderRegistration::of<H>(rootTag, {typeid(Dep)...})`; `StaticDataLoader(registry).load(context, staticDataXml)`, then `context.resolveIdRefs()`, then `context.takeHolder<H>()`.
+- Failure: when a `BindContext` is left by an exception, the XmlIDs, IDREF slots and after-IDREF tasks it registered are rolled back, so the `LoadContext` never points into destroyed objects (also for a duplicate holder rejected in strict mode). `BindStats` keep their partial counts.
+- Lenient mode: objects replaced by a repeated single element, choice, wrapper or class adapter (`BindContext::replaceSingle`), and holders replaced by a second import, are kept by `LoadContext::retire`, because resolved IDREFs can point into them. Strict mode rejects all of these, repeated wrappers included.
 
 ### 3.3 Holders, DataManager, post-processing
 
 - A generated `StaticData` struct holds the 92 `std::unique_ptr<H>` (parsed from StaticData.java) and a registry `{rootTag, HolderId, bind functions}`. There is a small hand-written dependency table for hooks that read other holders: `item_groups`, `decomposable_items`, `global_drops/rules` and `timed_events` need `item_templates`. Sequential loading in import order satisfies it; a later parallel mode schedules by it. `holder<H>()` asserts that H is a declared dependency.
-- `StaticData::logCounts()`: hand port of StaticData.afterUnmarshal, the same ~92 "Loaded N ..." lines. These lines are what the oracle compares against.
+- `StaticData::logCounts()`: hand port of StaticData.afterUnmarshal: exactly 90 `log.info` statements (StaticData.java:315-404) carrying 92 numbers (the item groups and pets lines have two each), plus the conditional suffix " with global drop npc exclusions". These lines are what the oracle compares against. Java logs `npcData.size()` while `NpcData.init` may still run asynchronously, so a Java log can show a smaller number; the oracle and the C++ port give the deterministic 63,287 (DEVIATIONS).
 - `DataManager::init()` (port of the DataManager constructor):
   1. load;
-  2. patch IDREFs;
+  2. patch IDREFs; move `LoadContext::takeRetired()` (objects and holders replaced in lenient mode) into the never-freed static data retirement, like published holders;
   3. post-process on the unpublished `StaticData&`, in Java order: `itemData->cleanup(itemCleanup)`, `globalDropData->processRules(npcs)`, `tradeListData->validateBuyLists(npcs)`, `skillData->validateMotions()`, `DecomposeAction::validateRandomItemIds(data)`. Java reads `DataManager.X` there; C++ passes holders explicitly;
   4. publish;
   5. log `##### [Static Data loaded in X seconds] #####`.
@@ -445,6 +470,7 @@ struct DataManager {
 - Java's async XSD check effectively makes XSD errors fatal at startup (GameServer.java:177). The strict binder therefore keeps parity for what matters: unknown elements, unknown attributes, the 319 `required=true` attributes and 62 required elements, malformed numbers, unknown enum constants.
 - The 4 `xs:unique` and 2 `xs:key` constraints (spawns.xsd:11, arcadelist.xsd:19, house_npcs.xsd:17) become explicit checks in those holders' hooks.
 - XSD-vs-annotation differences (396 `use="required"` vs 319 `required=true`) are reported by V1 (section 4). They are not enforced.
+- As built, Java `required = true` is enforced except for the `xmlgen.toml [unenforced_required]` entries the data violates (16). Three of them (`GatherableTemplate.exmaterials`, `TargetFlyingCondition.restriction`, `CollectItemQuestOperation.removeItems`) were found by the real-data walk in `tools/xmlgen/tests/test_real_tree.py`, which checks every required attribute and element, wrappers included, over all imported files.
 
 ### 3.5 Expected load time and memory (estimates)
 
@@ -474,20 +500,28 @@ struct DataManager {
 
 ## 4. Verification (no Java runtime)
 
-Tools in `cpp/tools/staticdata-verify/` (Python, stdlib `xml.etree` only). C++ side: `aion_gameserver_staticdata_tests`, whose full-data tests are labeled `data`, plus `aion_game_server --dump-static-data=<dir>`.
+Tools in `cpp/tools/oracle/` (Python, stdlib only; `oracle.py generate|check|counts|compare-counts|compare-totals|xsd-check|xsd-inventory` over the `staticdata_oracle` package, see its README). C++ side: `aion_gameserver_staticdata_tests`, whose full-data tests are labeled `data`, plus `aion_game_server --dump-static-data=<dir>`.
 
 | # | Check | Independent of the generator? | What it catches |
 |---|---|---|---|
 | V0 | Generator unit tests on Java fixtures: multi-line `@XmlElements`, nested static classes, generics with commas, text blocks, records, `_` lambdas, inherited accessor type, implicit FIELD elements | n/a | parser bugs |
 | V1 | IR vs XSDs: for each `@XmlType(name)` matched to an `xs:complexType`, compare attribute and element name sets and required flags; allowlist the known differences (1,428 vs 1,429 attributes) | yes (XSDs) | missed or misnamed annotations, wrong inheritance flattening |
-| V2 | **Count oracle** `oracle_counts.py`: applies XmlMerger import rules independently and prints the same ~92 "Loaded N ..." lines from per-holder rules. Examples: item_template distinct `id` (last wins); WalkerData distinct `route_id` (**first** wins, putIfAbsent); SpawnsData = distinct `spawn_map@map_id`; TownSpawnsData = town spawns summed over levels; SkillTreeData = sum of list sizes; XML quests 4,184. The C++ `logCounts()` output must diff-equal | yes | holder semantics, import order and override bugs |
-| V3 | **Coverage totals:** the C++ loader counts per (element tag) bound and per (tag, attr) consumed/ignored; Python counts per (tag) and (tag, attr) in the imported files. Equal totals, 2.1 M elements and 6.6 M attributes. Nothing silently dropped | yes | unbound attributes, wrong import set |
-| V4 | **Lexical census** `census.py` using `xmlmodel.json` types: every occurring value of int/byte/float/bool/enum/list properties is classified; report must be empty or allowlisted. Flags: whitespace/`+`/leading zeros, byte out of [-128,127] (JAXB narrows; C++ errors), non-`true/false/1/0` booleans, Java-only float forms, unknown enum constants, present-empty String/list attributes (drives the optional rule), double spaces in SpaceSeparatedBytes, IDREF targets whose id string is also used by an npc_template (JAXB's shared ID space) | data is independent; types come from the IR | proves JAXB/C++ lexical parity on the actual data |
+| V2 | **Count oracle** `oracle.py counts` / `compare-counts`: applies XmlMerger import rules independently and prints the same 90 "Loaded N ..." lines from per-holder rules. Examples: item_template distinct `id` (last wins); WalkerData distinct `route_id` (**first** wins, putIfAbsent); SpawnsData = distinct `spawn_map@map_id`; TownSpawnsData = town spawns summed over levels; SkillTreeData = sum of list sizes; XML quests 4,184. The C++ `logCounts()` output must diff-equal | yes | holder semantics, import order and override bugs |
+| V3 | **Coverage totals:** the C++ loader counts per (element tag) bound and per (tag, attr) consumed/ignored; Python counts per (tag) and (tag, attr) in the imported files. Equal totals (rules below). Nothing silently dropped | yes | unbound attributes, wrong import set |
+| V4 | **Lexical census** `oracle.py generate` (`staticdata_oracle/census.py`), type-agnostic per element path; consumers join the paths with `xmlmodel.json` types: every occurring value of int/byte/float/bool/enum/list properties is classified; report must be empty or allowlisted. Flags: whitespace/`+`/leading zeros, byte out of [-128,127] (JAXB narrows; C++ errors), non-`true/false/1/0` booleans, Java-only float forms, unknown enum constants, present-empty String/list attributes (drives the optional rule), double spaces in SpaceSeparatedBytes, IDREF targets whose id string is also used by an npc_template (JAXB's shared ID space) | data is independent; types come from the IR | proves JAXB/C++ lexical parity on the actual data |
 | V5 | **Value round-trip:** C++ loads with `runHooks=false` and dumps canonical lines `holder/tag[i]/.../tag[j]@attr=value` for present values (ints decimal, floats as shortest float32 round-trip, enums by name, lists space-joined) via a generated dump visitor. Python emits the same from the XML. Diff must be empty. A generated test also compares default-constructed objects against the IR initializer table | mostly: a swapped attr→member binding shows up as a value mismatch | every one of 6.6 M values lands in the right member |
 | V6 | **Golden unit tests** with small fixture XMLs: region override (file only); DFS/uppercase order; singleRootTag root attributes from the first file only; `@XmlElementWrapper` absent vs empty; `@XmlList`; every one of the 287 choice element names constructs the class with the right `javaClassName()` (generated test); post-order hook order; IDREF resolve plus unresolved error; SpaceSeparatedBytes; LocalDateTime forms; NpcEquippedGear slot and mask assignment; ZoneName interning and `String.hashCode` ids; Effects noResist normalization; ItemTemplate maxTuneCount; ItemData manastone maps and cleanup masks; NpcData stat fill-in for 3 npcs (expected values computed by hand from NpcStatCalculation); custom spawn override (Season_Agrints.xml); ZoneData weather zone numbering; GlobalDropData.processRules | yes | hook semantics |
 | V7 | **Fingerprints:** ~50 hand-picked templates (item 100000001, a weapon, a stigma, an npc with equipment, skill with sub effects, a siege spawn) with expected values read from XML and Java | yes | end-to-end sanity |
 
 Acceptance criterion for phase 4 static data: V2 diff-equal, V3 totals equal, V4 empty, V5 empty diff, V1 allowlist reviewed, V6/V7 green, strict mode clean. A user-supplied Java startup log would be a bonus check, not a requirement.
+
+**V3 counting rules and formats (as built, `BindStats.h`).**
+- Every element of an imported file is counted once: holder roots of the first file and bound elements as bound, `ignoreElement` subtrees with all descendants as ignored. Roots of later files of a `singleRootTag` directory import (dropped by the merge) are listed only as skipped roots, with their attribute names.
+- Every attribute is counted once: bound when a binder accepted it, ignored after `c.ignoreAttribute()` or inside an ignored subtree, unknown otherwise. Namespace declarations (`xmlns`, `xmlns:*`) and prefixed attributes (`xsi:*`) have their own counters and never appear per tag (pugixml reports `xmlns:xsi` as an ordinary attribute, so the binder filters it).
+- C++ side: load with `LoadOptions::collectStats`, then `ctx.stats().writeTotals(out, "<data>/static_data")` and `oracle.py compare-totals --actual FILE`. The document is `aion-staticdata-totals` v1: `byTag{tag: {count, attributes}}` with bound + ignored counts (unknown attributes are left out, so a lenient load that dropped some shows a difference), `namespaceAttributes`, `skippedRoots` and an informational `unknown` section. `BindStats::write` keeps a tab-separated debug report: `element tag bound ignored unknownText` and `attribute tag attr bound ignored unknown`.
+- Current data (`tools/oracle/expected/totals.json`): `byTag` totals 2,105,496 elements and 6,660,945 attributes, plus 572 skipped roots and 63 `xsi:noNamespaceSchemaLocation` attributes. Counting everything in the files, including skipped roots and `xmlns` declarations, gives 2,106,068 elements and 6,661,924 attributes (the research map's 2,108,164 / 6,644,398 were approximations).
+
+**V1 input.** The IR subset V1 reads is documented in `cpp/tools/oracle/README.md` (format `aion-xmlmodel` v1: `classes[].fqn/superclass/xmlTypeName/xmlRootElement/xmlTransient/properties[].javaName/node/xmlName/required/typeFqn/wrapperName/choices`); xmlgen emits these fields in `xmlmodel.json`. `tools/xmlgen/v1_allowlist.json` has explicit entries only, except the `attributeRequiredMismatch`/`elementRequiredMismatch` wildcards, which stay because the binder enforces the Java flag, never the XSD flag (§3.4).
 
 ---
 
@@ -499,7 +533,7 @@ Sizes are focused work sessions. WP2 and WP3 can run in parallel.
 |---|---|---|---|
 | 1 | Prerequisites: `pugixml` in vcpkg.json; `cpp/game-server/CMakeLists.txt` with `aion_gameserver_staticdata` (+ `generated` root) and a test exe; `AION_GAMESERVER_JAVA_DIR` define; docs (PORTING_PLAN line 36 scope, CONVENTIONS "Static data" section, DEVIATIONS entries listed below) | 0.5 | builds |
 | 2 | Generator front end: tokenizer, declaration parser, import/nested-type resolver, JAXB rules (inherited accessor type, implicit FIELD, PUBLIC_MEMBER pairs, defaults), reachability from roots, `xmlmodel.json`, report, V0 | 3-4 | IR for all roots |
-| 3 | Independent Python: V2 import resolver plus count oracle rules, V3 tag/attribute totals, V4 census, V1 XSD cross-check | 2 | expected-counts file, census report |
+| 3 | Independent Python (`cpp/tools/oracle`): V2 import resolver plus count oracle rules, V3 tag/attribute totals, V4 census, V1 XSD cross-check | 2 | expected-counts file, census report |
 | 4 | C++ runtime: converters, `EnumTraits`, `BindContext`/`LoadContext`/`XmlParent`, `ElementFactory`, IDREF patcher, `StaticDataImports`, sequential loader, stats counters, error locations, `HolderRef`, strict mode; unit tests on fixture XML | 2-3 | runtime library |
 | 5 | Generator back end: enum headers; data-only headers; `.xml.inc`; per-package `.bind.cpp`; choice factories; dump visitor; `check`; `scaffold` | 3 | generated tree |
 | 6 | **Vertical slice** (below) | 2-3 | first holders, measurements |
@@ -636,4 +670,39 @@ These amendments take precedence over the text above.
 
 ## 10. Open question about decision A
 Delete it: spawn family ownership is decided (group-owned templates with forwarding refcount).
+
+## Wave 1 implementation notes (2026-09-14)
+
+Where the wave 1 tools and the XML runtime depart from the text above. Status and open issues: [wave1-status.md](wave1-status.md).
+
+| § | As built |
+|---|---|
+| 1.2 | `javasrc.py` is about 2,900 lines, not 700: the body helpers (lambdas, anonymous/local classes, scoped locals, identifier roles, assignments, calls) and the multi-root resolver that `fieldmap.py` needs were added. Bodies are token spans with precomputed bracket matches; the JSON IR includes body text only with `bodies=True` (initializers and enum arguments always carry it) |
+| 1.2 | tree-sitter was not used. The body helpers are token-pattern analyses, not an expression parser: expression extents come from bracket matching plus type skipping after `new`, `instanceof` and `.<`; pattern-variable scopes are approximated by the enclosing block |
+| 1.2 | The resolver adds an `external_guess` result (the only unknown third-party wildcard import, used only when no enclosing type has a supertype outside the project) and learns external package contents from explicit imports anywhere in the index |
+| 1.3 | Classification gives 195 data-only and 549 behaviour classes (estimate: ~330/420); getters with null handling or one-line logic count as non-trivial |
+| 1.5, 2.3 | Binders are split per Java source file (`X.bind.h` + `X.bind.ipp`) with one `<pkg>.bind.cpp` per package, not one `<pkg>.bind.h/.bind.cpp`: include fan-out stays bounded and tests can bind single holders. Behaviour classes also get the `X.xml.h` prelude |
+| 2.2, 2.3 | The member block declares `afterUnmarshal` and the annotated setters (`setXmlUid`/`setXmlName`). An inherited hook is called through the static trampoline `XmlBinding<HookOwner>::afterUnmarshal`, so private base-class hooks work |
+| 2.3 | Required checks go by name (`checkRequiredAttributes`/`checkRequiredElements`, flattened over the hierarchy) instead of `seenRequired(index)`, which would clash across inherited bindings. For holders, required elements are searched in every file of the import |
+| 2.3 | Attribute values are `std::string_view`. Child helpers take no parent argument: the parent is the concrete object being bound, so `XmlParent::as<Derived>()` works for children of `@XmlElements` entries |
+| 2.4 | Nested enums and nested data-only classes are generated at namespace scope as `Outer_Inner` and aliased in the outer class; nested behaviour classes are declared public in the outer member block and defined after the outer class. Bound nested classes are public (`XmlBinding` is specialized at namespace scope). Unbound outer classes that only enclose bound nested classes (FeedGroups) become generated container structs |
+| 2.4 | Members get a trailing `_` when a Java method or nested type in the class chain has the same name (11 cases); setter parameters that would hide a member are renamed (C4458). Trivial accessors of properties whose Java initializer maps to the empty C++ default (`WorldMapTemplate.aiInfo = AiInfo.DEFAULT`) are not generated |
+| 2.4 | `[runtime_mutable]` also applies to unbound fields (`GuideTemplate.isActivated` → `Field<bool>`, `Spawn.eventTemplate` → `Field<const EventTemplate*>`); other unbound scalar fields of data-only classes are plain members |
+| 2.4 | `[ignore_attributes]` (5 attributes) are consumed without a member. The runtime now has `BindContext::ignoreAttribute()`, but `emit.py` does not call it yet, so `BindStats` counts them as bound; `byTag` totals are equal either way |
+| 2.5 | `static_assert(verifyEnumTraits<E>())` is emitted only for enums with up to 256 constants (the quadratic check exceeds MSVC's constexpr step limit for TribeClass and GroupDropType); larger enums assert the sort order only. JDK enums come from `[external_enums]` |
+| 2.5 | Config placeholder enums live in `aion::gameserver::configs::detail`, not in their future model namespaces, so the generated enums cannot clash with them |
+| 2.4, V6 | `@XmlElements` entries of abstract classes (Effects `<buf>` → `BufEffect`) are left out of the factories; JAXB cannot instantiate them either. The `@XmlElements` base must have a virtual destructor (static_assert) |
+| 3.1 | Also always rejected: default-namespaced elements (`xmlns="uri"`), inline holder elements in `static_data.xml` (no data file uses them), directory imports without `.xml` files, files that are not UTF-8 |
+| 3.2 | Namespace `aion::gameserver::xml` for the whole `dataholders/loadingutils` runtime (adapters in `xml::adapters`), not the package path |
+| 3.2 | The children pre-pass is the optional `XmlBinding<T>::reserve(o, ChildCounts)`, summed over all files of a holder. `bindList` refuses to grow an in-place vector past its capacity (`IllegalStateException`) in every build, not only as a debug assertion |
+| 3.2 | Strict mode is stricter than JAXB: non-whitespace text in object elements, repeated single elements and wrappers, duplicate XmlIDs, a different root tag in a later file of a directory import, unknown attributes on `<import>`. Lenient mode warns once and keeps JAXB/XmlMerger behaviour |
+| 3.2 | `LoadContext::holder<H>()` throws `IllegalStateException` when H is not a declared dependency; `findHolder<H>()` does no check and returns nullptr. A holder that is not part of the load falls back to the published holder |
+| 3.2 | IDREF targets are checked by exact registered type (`typeid` passed to `registerXmlId`); all unresolved or wrong-typed references are listed with locations (up to 20) |
+| 3.3 | `HolderRef::operator->` throws `runtime::NullPointerException` before publish (sketched `noexcept`); a second `publish` throws; `resetForTests()` leaks the old holder |
+| 3.2, 3.3 | `LocalDateTime`: 4-digit unsigned years and millisecond precision only (sub-millisecond digits must be zero); Java accepts signed/longer years and keeps nanoseconds |
+| 4 | Tool names: `cpp/tools/oracle/oracle.py` with subcommands and the `staticdata_oracle` package, not `staticdata-verify/oracle_counts.py` and `census.py` |
+| 4 | The V4 census is type-agnostic (classifies literal shapes per element path without the IR); typed flags come from joining census paths with the IR. V1 needs the explicit `node` field and effective JAXB names |
+| 4 | The count oracle is stricter than JAXB: keys must be canonical ints and exact enum constants, and it raises where Java would crash at startup instead of printing a count |
+| 4 | V5 dump visitor, the holder dependency table and handler-private XML roots are not generated yet |
+| amend. 3 | `staticdata-classes.json` is `{format, version, classes: [{fqn, binaryName, kind, cppQualifiedName, header, runtimeMutable}]}`; `fieldmap.py` reads `fqn` and `runtimeMutable` and warns about the external enum `java.time.DayOfWeek` |
 

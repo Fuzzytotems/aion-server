@@ -340,6 +340,46 @@ TEST(RndTest, GeneratorWorksWithStandardAlgorithms) {
 	EXPECT_EQ(shuffled, values);
 }
 
+TEST(RndTest, SeedCurrentThreadForTestsRepeatsSequences) {
+	const Rnd::Xoshiro256PlusPlus saved = Rnd::generator();
+
+	Rnd::seedCurrentThreadForTests(42);
+	std::vector<int32_t> first;
+	for (int i = 0; i < 32; i++)
+		first.push_back(Rnd::get(1, 1000));
+	float firstFloat = Rnd::nextFloat();
+
+	Rnd::seedCurrentThreadForTests(42);
+	std::vector<int32_t> second;
+	for (int i = 0; i < 32; i++)
+		second.push_back(Rnd::get(1, 1000));
+	EXPECT_EQ(first, second);
+	EXPECT_EQ(Rnd::nextFloat(), firstFloat);
+
+	// the seeded generator is exactly Xoshiro256PlusPlus(seed)
+	Rnd::seedCurrentThreadForTests(7);
+	Rnd::Xoshiro256PlusPlus expected(7);
+	for (int i = 0; i < 8; i++)
+		EXPECT_EQ(Rnd::generator()(), expected());
+
+	// a different seed gives a different sequence
+	Rnd::seedCurrentThreadForTests(43);
+	std::vector<int32_t> other;
+	for (int i = 0; i < 32; i++)
+		other.push_back(Rnd::get(1, 1000));
+	EXPECT_NE(first, other);
+
+	// other threads keep their own generators
+	Rnd::seedCurrentThreadForTests(42);
+	uint64_t seededValue = Rnd::Xoshiro256PlusPlus(42)();
+	uint64_t otherThreadValue = 0;
+	std::thread([&] { otherThreadValue = Rnd::generator()(); }).join();
+	EXPECT_NE(otherThreadValue, seededValue);
+	EXPECT_EQ(Rnd::generator()(), seededValue);
+
+	Rnd::generator() = saved;
+}
+
 TEST(RndTest, JumpedGeneratorsDiverge) {
 	Rnd::Xoshiro256PlusPlus a(0);
 	Rnd::Xoshiro256PlusPlus b(0);

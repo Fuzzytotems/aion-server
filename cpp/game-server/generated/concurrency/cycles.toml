@@ -1,0 +1,18 @@
+# Hand-owned cycle resolutions for cpp/tools/gen/fieldmap.py (design runtime-architecture.md §5.3, lint L16).
+#
+# Every `field` and `capture` edge listed in cycles_report.md needs one entry:
+#   "Class.field" / "Class$1#capture" / "Outer@L123:45#capture" = "part" | "java-hook: <method>" | "cpp-breaker: <method>"
+#                                                                | "zombie-safe: <edge>" | "accepted: <why>"
+# cycles_report.md prints a skeleton with suggestions for every unresolved edge; the S0b reviewer resolves the hub cycles.
+# Only resolutions stated by the design are recorded here so far.
+
+[resolutions]
+"com.aionemu.gameserver.model.gameobjects.VisibleObject.target" = "cpp-breaker: LogoutBreakers::run and VisibleObjectController::onDelete call setTarget(nullptr) (design §5.1 RT-4)"
+"com.aionemu.gameserver.model.gameobjects.player.Player.kisk" = "cpp-breaker: LogoutBreakers::run calls setKisk(nullptr) (design §5.1 RT-5)"
+"com.aionemu.gameserver.model.items.storage.PlayerStorage.actor" = "cpp-breaker: LogoutBreakers::run resets the account warehouse actor (PlayerLeaveWorldService.java:146, design §5.1 RR-13)"
+"com.aionemu.gameserver.controllers.ObserveController.observers" = "cpp-breaker: LogoutBreakers::run / PlayerController::onDelete clear observers without notification (design §5.1 RR-2)"
+"com.aionemu.gameserver.model.items.IdianStone$1#player" = "cpp-breaker: LogoutBreakers::run clears the ObserveController observers (design §14.2i)"
+"com.aionemu.gameserver.model.team.GeneralTeam.leader" = "cpp-breaker: leader cleared on the last leave (design §5.1 RT-3, DEVIATION 10)"
+"com.aionemu.gameserver.model.gameobjects.Summon.master" = "java-hook: SummonsService.release (design §5.1)"
+"com.aionemu.gameserver.skillengine.model.Effect.effector" = "java-hook: Effect.endEffect releases the effect (design §5.1, §14.2c)"
+"com.aionemu.gameserver.skillengine.model.Effect.effected" = "java-hook: Effect.endEffect releases the effect (design §5.1, §14.2c)"

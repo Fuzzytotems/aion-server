@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <limits>
 #include <mutex>
+#include <string>
 
 #include "aion/commons/configs/DatabaseConfig.h"
 #include "aion/commons/database/MariaDbLibrary.h"
@@ -24,6 +25,22 @@ constexpr int32_t VALIDATION_TIMEOUT_SECONDS = 5;
 
 std::mutex factoryMutex;
 std::shared_ptr<ConnectionPool<Connection>> dataSource;
+std::chrono::milliseconds dataSourceSocketTimeout{0}; // guarded by factoryMutex, valid while dataSource is set
+
+/** Applies Options to parsed connection properties (see DatabaseFactory::Options). */
+void applySocketTimeout(ConnectionProperties& properties, const DatabaseFactory::Options& options) {
+	std::chrono::milliseconds timeout = options.defaultSocketTimeout;
+	if (options.socketTimeout)
+		timeout = *options.socketTimeout;
+	else if (properties.getParameter("socketTimeout"))
+		timeout = properties.socketTimeout;
+	if (timeout.count() < 0)
+		throw utils::IllegalArgumentException("database.socket_timeout cannot be negative: " + std::to_string(timeout.count()));
+	if (timeout.count() == 0 && options.requireSocketTimeout)
+		throw utils::IllegalArgumentException(
+			"This server requires a database socket timeout greater than 0 (set database.socket_timeout in milliseconds, or socketTimeout in database.url)");
+	properties.socketTimeout = timeout;
+}
 
 /** Prepares a connection returned to the pool for the next user (HikariCP: ProxyConnection.close + PoolBase.resetConnectionState). */
 bool resetConnection(Connection& connection) {
@@ -48,7 +65,33 @@ void DatabaseFactory::init() {
 		DatabaseConfig::DATABASE_TIMEOUT);
 }
 
+void DatabaseFactory::init(Options options) {
+	using configs::DatabaseConfig;
+	if (!options.socketTimeout && DatabaseConfig::DATABASE_SOCKET_TIMEOUT)
+		options.socketTimeout = std::chrono::milliseconds(*DatabaseConfig::DATABASE_SOCKET_TIMEOUT);
+	init(DatabaseConfig::DATABASE_URL, DatabaseConfig::DATABASE_USER, DatabaseConfig::DATABASE_PASSWORD, DatabaseConfig::DATABASE_CONNECTIONS_MAX,
+		DatabaseConfig::DATABASE_TIMEOUT, options);
+}
+
 void DatabaseFactory::init(std::string_view url, std::string_view user, std::string_view password, int32_t maxConnections, int32_t timeoutMillis) {
+	init(url, user, password, maxConnections, timeoutMillis, Options{});
+}
+
+std::chrono::milliseconds DatabaseFactory::resolveSocketTimeout(std::string_view url, const Options& options) {
+	ConnectionProperties properties = ConnectionProperties::parse(url);
+	applySocketTimeout(properties, options);
+	return properties.socketTimeout;
+}
+
+std::optional<std::chrono::milliseconds> DatabaseFactory::getSocketTimeout() {
+	std::scoped_lock lock(factoryMutex);
+	if (!dataSource)
+		return std::nullopt;
+	return dataSourceSocketTimeout;
+}
+
+void DatabaseFactory::init(std::string_view url, std::string_view user, std::string_view password, int32_t maxConnections, int32_t timeoutMillis,
+	const Options& options) {
 	std::scoped_lock lock(factoryMutex);
 	if (dataSource)
 		return;
@@ -60,6 +103,7 @@ void DatabaseFactory::init(std::string_view url, std::string_view user, std::str
 		throw utils::IllegalArgumentException("connectionTimeout cannot be less than 250ms");
 
 	ConnectionProperties properties = ConnectionProperties::parse(url, user, password);
+	applySocketTimeout(properties, options);
 	// HikariCP sets the login timeout to max(1, (500 + connectionTimeout) / 1000) seconds, which Connector/J uses if connectTimeout is not set
 	if (properties.connectTimeout.count() == 0) {
 		int64_t loginTimeoutSeconds = std::max<int64_t>(1, (500 + static_cast<int64_t>(timeoutMillis == 0 ? std::numeric_limits<int32_t>::max() : timeoutMillis)) / 1000);
@@ -87,6 +131,7 @@ void DatabaseFactory::init(std::string_view url, std::string_view user, std::str
 		throw SQLException("Failed to initialize pool: " + std::string(e.what()), e.getSQLState(), e.getErrorCode(), std::current_exception());
 	}
 	dataSource = std::move(pool);
+	dataSourceSocketTimeout = properties.socketTimeout;
 	dataSourceLog.info("{} - Start completed.", poolName);
 }
 
