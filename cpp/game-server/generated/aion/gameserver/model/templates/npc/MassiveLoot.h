@@ -3,10 +3,12 @@
 
 #include <cstdint>
 
+#include "aion/gameserver/runtime/lifetime/RefCounted.h"
+
 namespace aion::gameserver::model::templates::npc {
 
 /** Java com.aionemu.gameserver.model.templates.npc.MassiveLoot (data-only: generated completely). */
-struct MassiveLoot {
+struct MassiveLoot : public ::aion::gameserver::runtime::StaticTemplate {
 	int32_t massiveLootCount = 0; // @XmlAttribute(name = "m_loot_count")
 	int32_t massiveLootItem = 0; // @XmlAttribute(name = "m_loot_item")
 	int32_t massiveLootMinLevel = 0; // @XmlAttribute(name = "m_loot_min_level")

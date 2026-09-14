@@ -45,8 +45,8 @@ struct OwnedPartAccess;
  * RefCounted::release). The Reclaimer destroys a retired part only when no Ref holds it (partRefs == 0) and its stamp (the later of the
  * retirement epoch and the last release) is older than every published epoch. Parts that are never retired pay one extra atomic increment
  * and decrement per Ref; their count is only checked when they are destroyed (C5: no Ref may hold a destroyed part).
- * Pin(&part) in the scheduler retains only the owner: pinning a part that may be replaced in a RECLAIMER container does NOT keep that part
- * alive (capture a Ref<Part> instead, or pin the owner and re-read the part in the task).
+ * Pin(&part) in the scheduler retains the part through retain()/release() (and with it the owner), so a pinned part replaced in a RECLAIMER
+ * container stays alive until the task ends (sched/Pin.h).
  * Yield points: "OwnedPart::retain", "OwnedPart::release:stamp", "OwnedPart::release:decrement".
  *
  * Thread-safety: retain/release/partOwner are lock-free and thread-safe after binding; bindOwner must happen before the part is shared.

@@ -99,3 +99,4 @@
 #include "aion/gameserver/dataholders/ZoneData.h"
 #include "aion/gameserver/dataholders/loadingutils/XmlBindingFwd.h"
 #include "aion/gameserver/model/templates/mail/Mails.h"
+#include "aion/gameserver/runtime/lifetime/RefCounted.h"

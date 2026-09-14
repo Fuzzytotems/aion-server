@@ -7,11 +7,12 @@
 #include "aion/gameserver/model/Race.h"
 #include "aion/gameserver/model/templates/portal/ItemReq.h"
 #include "aion/gameserver/model/templates/portal/QuestReq.h"
+#include "aion/gameserver/runtime/lifetime/RefCounted.h"
 
 namespace aion::gameserver::model::templates::portal {
 
 /** Java com.aionemu.gameserver.model.templates.portal.PortalPath (data-only: generated completely). */
-struct PortalPath {
+struct PortalPath : public ::aion::gameserver::runtime::StaticTemplate {
 	int32_t dialog = 0; // @XmlAttribute(name = "dialog")
 	int32_t locId = 0; // @XmlAttribute(name = "loc_id")
 	int32_t siegeId = 0; // @XmlAttribute(name = "siege_id")

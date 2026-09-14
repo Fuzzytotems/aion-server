@@ -5,13 +5,14 @@
 #include <memory>
 
 #include "aion/gameserver/model/stats/container/StatEnum.h"
+#include "aion/gameserver/runtime/lifetime/RefCounted.h"
 #include "aion/gameserver/skillengine/change/Func.h"
 #include "aion/gameserver/skillengine/condition/Conditions.h"
 
 namespace aion::gameserver::skillengine::change {
 
 /** Java com.aionemu.gameserver.skillengine.change.Change (data-only: generated completely). */
-struct Change {
+struct Change : public ::aion::gameserver::runtime::StaticTemplate {
 	::aion::gameserver::model::stats::container::StatEnum stat = ::aion::gameserver::model::stats::container::StatEnum{}; // @XmlAttribute(name = "stat", required = true)
 	::aion::gameserver::skillengine::change::Func func = ::aion::gameserver::skillengine::change::Func{}; // @XmlAttribute(name = "func", required = true)
 	int32_t value = 0; // @XmlAttribute(name = "value", required = true)

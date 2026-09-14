@@ -13,3 +13,4 @@
 #include "aion/gameserver/model/templates/itemset/FullBonus.h"
 #include "aion/gameserver/model/templates/itemset/ItemPart.h"
 #include "aion/gameserver/model/templates/itemset/PartBonus.h"
+#include "aion/gameserver/runtime/lifetime/RefCounted.h"

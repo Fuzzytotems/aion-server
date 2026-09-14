@@ -5,12 +5,13 @@
 #include <vector>
 
 #include "aion/gameserver/model/templates/spawns/panesterra/AhserionsFlightSpawn_AhserionStageSpawnTemplate.h"
+#include "aion/gameserver/runtime/lifetime/RefCounted.h"
 #include "aion/gameserver/services/panesterra/ahserion/PanesterraFaction.h"
 
 namespace aion::gameserver::model::templates::spawns::panesterra {
 
 /** Java com.aionemu.gameserver.model.templates.spawns.panesterra.AhserionsFlightSpawn (data-only: generated completely). */
-struct AhserionsFlightSpawn {
+struct AhserionsFlightSpawn : public ::aion::gameserver::runtime::StaticTemplate {
 	using AhserionStageSpawnTemplate = ::aion::gameserver::model::templates::spawns::panesterra::AhserionsFlightSpawn_AhserionStageSpawnTemplate;
 	std::vector<::aion::gameserver::model::templates::spawns::panesterra::AhserionsFlightSpawn_AhserionStageSpawnTemplate> ahserionStageSpawnTemplate; // @XmlElement(name = "ahserion_stage_spawn")
 	std::optional<::aion::gameserver::services::panesterra::ahserion::PanesterraFaction> faction; // @XmlAttribute(name = "faction")

@@ -37,7 +37,7 @@ TEST(FixtureTreeTest, ValidFixtureTree) {
 	std::vector<Diagnostic> errors;
 	ScanInput input = readInput(fixtureOptions(), errors);
 	EXPECT_NO_ERRORS(errors);
-	EXPECT_EQ(input.handlerFiles.size(), 15u);
+	EXPECT_EQ(input.handlerFiles.size(), 16u);
 	EXPECT_EQ(input.clientPacketFiles.size(), 3u);
 	EXPECT_EQ(input.javaHandlerFiles.size(), 17u);
 	EXPECT_TRUE(std::ranges::is_sorted(input.handlerFiles, {}, &SourceFile::relPath));
@@ -76,6 +76,11 @@ TEST(FixtureTreeTest, InvalidFixtureTree) {
 	RegistryModel model = buildRegistry(input);
 	EXPECT_ERROR(model.errors, 10, "AION_AI must be in namespace aion::gameserver::handlers::ai");
 	EXPECT_ERROR(model.errors, 3, "does not match the file's directory");
+	// quest/QuestPrelude.h line 5 (another directive) and quest/_1000DialogActionDirective.cpp line 3 (the directive outside the prelude)
+	EXPECT_ERROR(model.errors, 5, "'using namespace' is not allowed");
+	EXPECT_ERROR(model.errors, 3, "'using namespace' is not allowed");
+	EXPECT_EQ(std::ranges::count_if(model.errors, [](const Diagnostic& d) { return d.message.find("'using namespace'") != std::string::npos; }), 2)
+		<< describe(model.errors);
 	EXPECT_TRUE(model.ai.empty());
 }
 

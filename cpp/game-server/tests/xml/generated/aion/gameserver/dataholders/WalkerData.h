@@ -13,7 +13,7 @@
 namespace aion::gameserver::dataholders {
 
 /** Java com.aionemu.gameserver.dataholders.WalkerData (test shell). @author KKnD, Rolandas */
-class WalkerData {
+class WalkerData : public ::aion::gameserver::runtime::StaticTemplate {
 #include "aion/gameserver/dataholders/WalkerData.xml.inc"
 public:
 	/** Java: size() */

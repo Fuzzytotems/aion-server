@@ -10,7 +10,7 @@
 namespace aion::gameserver::model::templates::walker {
 
 /** Java com.aionemu.gameserver.model.templates.walker.RouteStep (test shell). @author KKnD, Rolandas */
-class RouteStep {
+class RouteStep : public ::aion::gameserver::runtime::StaticTemplate {
 #include "aion/gameserver/model/templates/walker/RouteStep.xml.inc"
 public:
 	int32_t getStepIndex() const { return stepIndex; }

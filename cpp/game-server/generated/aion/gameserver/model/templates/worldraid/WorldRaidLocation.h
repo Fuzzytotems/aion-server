@@ -7,11 +7,12 @@
 
 #include "aion/gameserver/model/templates/worldraid/MarkerSpot.h"
 #include "aion/gameserver/model/templates/worldraid/WorldRaidNpc.h"
+#include "aion/gameserver/runtime/lifetime/RefCounted.h"
 
 namespace aion::gameserver::model::templates::worldraid {
 
 /** Java com.aionemu.gameserver.model.templates.worldraid.WorldRaidLocation (data-only: generated completely). */
-struct WorldRaidLocation {
+struct WorldRaidLocation : public ::aion::gameserver::runtime::StaticTemplate {
 	std::optional<std::vector<::aion::gameserver::model::templates::worldraid::WorldRaidNpc>> npcPool; // @XmlElementWrapper(name = "world_raid_npcs") @XmlElement(name = "world_raid_npc", required = true)
 	std::optional<std::vector<::aion::gameserver::model::templates::worldraid::MarkerSpot>> locationMarkers; // @XmlElementWrapper(name = "location_markers") @XmlElement(name = "spot", required = true)
 	int32_t locationId = 0; // @XmlAttribute(name = "location_id", required = true)

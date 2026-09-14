@@ -3,10 +3,12 @@
 
 #include <cstdint>
 
+#include "aion/gameserver/runtime/lifetime/RefCounted.h"
+
 namespace aion::gameserver::model::templates::assemblednpc {
 
 /** Java com.aionemu.gameserver.model.templates.assemblednpc.AssembledNpcTemplate.AssembledNpcPartTemplate (data-only: generated completely). */
-struct AssembledNpcTemplate_AssembledNpcPartTemplate {
+struct AssembledNpcTemplate_AssembledNpcPartTemplate : public ::aion::gameserver::runtime::StaticTemplate {
 	int32_t npcId = 0; // @XmlAttribute(name = "npcId")
 	int32_t staticId = 0; // @XmlAttribute(name = "staticId")
 	int32_t getNpcId() const { return npcId; }

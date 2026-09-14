@@ -9,9 +9,11 @@
 #include <vector>
 
 #include "aion/gameserver/dataholders/loadingutils/XmlBindingFwd.h"
+#include "aion/gameserver/runtime/lifetime/RefCounted.h"
 #include "aion/gameserver/skillengine/effect/AbnormalState.h"
 #include "aion/gameserver/skillengine/properties/AreaDirections.h"
 #include "aion/gameserver/skillengine/properties/FirstTargetAttribute.h"
+#include "aion/gameserver/skillengine/properties/Properties_CastState.h"
 #include "aion/gameserver/skillengine/properties/TargetRangeAttribute.h"
 #include "aion/gameserver/skillengine/properties/TargetRelationAttribute.h"
 #include "aion/gameserver/skillengine/properties/TargetSpeciesAttribute.h"

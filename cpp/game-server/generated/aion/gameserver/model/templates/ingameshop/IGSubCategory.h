@@ -4,10 +4,12 @@
 #include <cstdint>
 #include <string>
 
+#include "aion/gameserver/runtime/lifetime/RefCounted.h"
+
 namespace aion::gameserver::model::templates::ingameshop {
 
 /** Java com.aionemu.gameserver.model.templates.ingameshop.IGSubCategory (data-only: generated completely). */
-struct IGSubCategory {
+struct IGSubCategory : public ::aion::gameserver::runtime::StaticTemplate {
 	int32_t id = 0; // @XmlAttribute(name = "id", required = true)
 	std::string name; // @XmlAttribute(name = "name", required = true)
 	int32_t getId() const { return id; }

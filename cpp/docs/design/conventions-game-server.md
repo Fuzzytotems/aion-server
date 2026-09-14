@@ -44,3 +44,12 @@
   AhserionRaid), otherwise the singleton detection makes them Immortal.
 - Lint waivers and mapping comments are listed in runtime-architecture.md §12.2 (`// lint: Lx <reason>`, `// fieldmap-class: <FQN>`); a
   waiver without a reason is reported as W0.
+
+## Added after spine step S0a (2026-09-14)
+
+- Pinning a part (`{this, &part}`) keeps that part alive while the task is pending, even if it is replaced in a `PartSlot<RECLAIMER>` or
+  `PartMap`. An owner and its part share one of the 4 pin slots; two parts of one owner take two.
+- The kernel starts and stops through `runtime::RuntimeLifecycle` (runtime-architecture.md §23). `shutdown()` runs only outside any
+  `TaskScope`; pool tasks and cron jobs post the shutdown to the ShutdownHook thread.
+- Static data hierarchy roots (generated structs and xmlgen shells) derive `runtime::StaticTemplate`, so `const T*` templates can be pinned
+  and captured without trait specializations.

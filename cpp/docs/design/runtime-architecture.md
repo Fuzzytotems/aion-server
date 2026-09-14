@@ -1469,7 +1469,7 @@ The runtime kernel was implemented and tested against this design (`cpp/game-ser
 | 2.4 | The lazy-publication re-check loop and "`E.fetch_add` before computing `m`" are liveness steps, not safety steps (kept) | `PublicationRecheckIsNotASafetyStep` |
 | 2.4 | "A Ptr can only exist after publication" now holds by construction: every `Ptr` made from a `Ref`, `T&` or `T*` publishes (TaskScope-internal borrow stamp). `T&` from `*ref` is valid only while the Ref is held. Creating a Ptr from a Ref costs an out-of-line TLS check | mutation `BORROW_NO_PUBLISH` |
 | 2.2 | `makeRef` constructs with count 1 (the constructor's reference is adopted) | |
-| 2.3 | A replaced `OwnedPart` (PartSlot RECLAIMER, PartMap) keeps its own reference count and stamp; `retirePart` destroys it only when `partRefs == 0` and `max(retire stamp, last-release stamp) < m`. `Pin(part)` still pins only the owner (open item) | mutations `PART_REFS_IGNORED`, `PART_RELEASE_NO_STAMP` |
+| 2.3 | A replaced `OwnedPart` (PartSlot RECLAIMER, PartMap) keeps its own reference count and stamp; `retirePart` destroys it only when `partRefs == 0` and `max(retire stamp, last-release stamp) < m`. `Pin(part)` still pins only the owner (open item; **fixed in S0a**, §23) | mutations `PART_REFS_IGNORED`, `PART_RELEASE_NO_STAMP` |
 | 2.4 (scan) | **Epoch-bucketed limbo and bounded scans** (liveness). The first implementation re-walked and copied the whole retired queue every scan and destroyed everything eligible in one burst, advancing the epoch once per scan; a publisher pinned by a 10 s blocking wait sent the 30-minute ASan stress run into a spiral (0.1 scans/s, 7M backlog, 15.9 GB). Now: retired entries are filed under a lower bound of their stamp (stamps only grow, so skipping buckets with key ≥ m is sound); a scan visits only buckets below m, oldest first, in chunks of 64, and re-files kept entries under the stamp just read; Reclaimer-thread scans have a work budget (`Config::scanTimeBudget` 10 ms) and continue immediately when they made progress, otherwise run on a fixed-rate period; `reclaimNow`/`drain` stay unbounded; retired OwnedParts still held by Refs live in a separate held queue so they cannot starve bounded scans; continued scans hand the scan lock to waiters; checked builds detect duplicate retires with a per-scan destroyed set. Protocol steps and yield points are unchanged; mutation scenario D4 was adjusted (its original interleaving is now safe by construction) | `ReclaimerLivenessTest` (pinned publisher, whole-limbo-walk mutation, held-part starvation, scan-lock hand-off, split scans); ASan stress 10 min: 85 scans/s, lag p99 63 ms, backlog max 6k, 843 MB |
 | 1.2, 2.5 | `TaskScope` enter/exit measured 25 ns (estimate 3 ns): `std::atomic<TaskInfo>` is a spinlock on MSVC and entry reads the clock. Optimization possible later | lifetime bench |
 | 3.3 | `ConcurrentLinkedQueue`/`Deque` are Monitor-guarded, not lock-free (interior `remove(Object)` is used by the Java code) | collections |
@@ -1498,3 +1498,78 @@ as-built notes are placed in §3.1, §3.2, §3.5, §5.3, §9, §10, §12.2 and �
 | 3.2.1 | Part detection also scans the owner's own methods called from its constructor (depth 2). `fieldmap.toml` parts (pattern 4) are applied before owner-field detection |
 | 5.3 | Stored-callback APIs are mostly inferred: a project method or constructor that stores a parameter into a field or field collection, recursively, including parameters captured by stored anonymous classes. `[stored_callback_apis]` is needed only for external storage (`CronService.schedule`) |
 | 12.2 | L18 also reports blocking calls and `SYNCHRONIZED` inside a leaf-mutex guard scope (the design only restricted callbacks) |
+
+## 23. Spine step S0a: kernel lifecycle and fixes (2026-09-14)
+
+Spine step S0a wired the kernel services into one start/shutdown sequence and closed kernel open items (status:
+[spine-status.md](spine-status.md), [runtime-kernel-status.md](runtime-kernel-status.md)). The header comment of
+`runtime/services/RuntimeLifecycle.h` is authoritative.
+
+### 23.1 `RuntimeLifecycle` (`aion_gs_runtime_services`, namespace `aion::gameserver::runtime`)
+
+Static `start(Options)`, `shutdown()` returning a `ShutdownReport {performed, tasksLeft, cleanerIdsDrained, reclaimerBacklog, censusTracked}`,
+`getState()`/`isRunning()` (`NEW, STARTING, RUNNING, STOPPING, SHUT_DOWN`) and `resetForTests()`. No Java counterpart: it bundles the kernel
+part of `GameServer.initUtilityServicesAndConfig` and `IDFactory.getInstance()`, the tail of `ShutdownHook.run`, and the C++-only services.
+
+**Start order** (called after `Config.load`, `DatabaseFactory.init` and `PlayerDAO.setAllPlayersOffline`, Java order):
+1. Reclaimer: configure, start its thread.
+2. LeakCensus configure and install; CleanerQueue cleaner action and install (their Reclaimer hooks exist before the first game object).
+3. Watchdog start (Java starts `DeadLockDetector` in the ThreadPoolManager constructor, before the pools).
+4. ThreadPoolManager: configure, then install `Options::backend` or create the default pools ("ThreadPoolManager: Initialized with ...").
+   A backend installed before `start()` (or pools created lazily by earlier code) is retired first, with a warning unless it was already
+   shut down. ForkJoin serial mode is set.
+5. `CronService.initSingleton(ThreadPoolManagerRunnableRunner, time zone)`.
+6. IDFactory: configure, `lockIds(0)`, then each `UsedIdsSource` in Java `initializeUsedIds` order (PlayerDAO, InventoryDAO,
+   PlayerRegisteredItemsDAO, LegionDAO, MailDAO, GuideDAO, HousesDAO, PlayerPetsDAO), then "IDFactory: N IDs used.".
+
+If a step throws, the finished steps are undone as in `shutdown()`, the state becomes `SHUT_DOWN` and the exception propagates.
+
+**Shutdown order** (called by the ShutdownHook after its game steps, §11):
+1. `CronService.shutdown()` (pending jobs dropped, their pins released).
+2. `ThreadPoolManager.shutdown()` (delayed tasks cancelled, running and queued tasks get 5 s).
+3. Final CleanerDrain (§11 step 6): the CleanerQueue hook is removed, then `Reclaimer::drain()` and `CleanerQueue::drainNow()` alternate until
+   no id is left.
+4. LeakCensus check: objects removed from the world that are still alive are counted and reported.
+5. Watchdog and Reclaimer threads are stopped if `start()` started them; LeakCensus is uninstalled.
+
+Each step logs and swallows its own exception, so the later steps still run. `Logging::shutdown` and `quick_exit` stay with the caller.
+
+**Rules.**
+- One run per process: `start()` only in state `NEW` (`IllegalStateException` otherwise, also after `shutdown()`); only `resetForTests()`
+  returns to `NEW`. `CronService.initSingleton` and IDFactory seeding cannot run twice without their test resets.
+- `shutdown()` acts only in state `RUNNING`; otherwise it returns `performed == false` (second call, call before start, concurrent shutdown).
+  `start`, `shutdown` and `resetForTests` are serialized by one mutex; `getState` is lock-free.
+- `shutdown()` must run outside any `TaskScope`, otherwise it throws `IllegalStateException`: the final drain cannot free objects the calling
+  task borrowed. Pool tasks and cron jobs run inside scopes, so they post the shutdown to the ShutdownHook thread (§1.4). `start()` may run
+  inside a STARTUP/MAIN scope; the used-ids sources run on the calling thread.
+- After shutdown the shut-down backend stays installed, so late submissions are cancelled instead of creating new pools. The ForkJoinPool
+  helpers are not shut down (Java's `commonPool` is never shut down).
+
+**Options from the configs** (the runtime does not depend on `aion_gs_configs`; `main.cpp` and later `GameServer::main` build them):
+
+| `Options` member | Source | Keys |
+|---|---|---|
+| `reclaimer` | `RuntimeConfig::reclaimerConfig()` | `gameserver.runtime.reclaim_period_ms`, `backlog_dump_objects` |
+| `leakCensus` | `RuntimeConfig::leakCensusConfig()` | `gameserver.debug.leak_census_minutes`, `gameserver.runtime.zombie_break_minutes` |
+| `watchdog` | `RuntimeConfig::watchdogConfig()` | `ThreadConfig.MAXIMUM_RUNTIME_IN_MILLISEC_WITHOUT_WARNING`, `gameserver.watchdog.stall_seconds`, `restart_on_deadlock` |
+| `threadPool` | `RuntimeConfig::threadPoolManagerConfig()` | `ThreadConfig.*`, `gameserver.scheduler.coalesce_after`, `gameserver.debug.single_executor`, `serial_movement` |
+| `idFactory` | `RuntimeConfig::idFactoryConfig()` | `gameserver.idfactory.wrap_at`, `release_delay` |
+| `cronTimeZone` | `GSConfig::TIME_ZONE_ID` | `gameserver.timezone` (nullptr: system zone) |
+| `usedIds` | DAO `getUsedIDs` in Java order | none (P4-14; empty in S0a) |
+| `cleanerAction` | the AionObject Cleaner body | none (RespawnService; default `IDFactory::releaseId`) |
+| `backend`, `startReclaimerThread`, `startWatchdog`, `serialForkJoin`, `cronDriver` | tests and debug modes | none |
+
+Deterministic harness: `backend = std::make_unique<DeterministicExecutor>(clock, seed)`, `startReclaimerThread = false`,
+`startWatchdog = false`; call `resetForTests()` between runs.
+
+### 23.2 Departures and fixes
+
+| § | As built |
+|---|---|
+| 1.6, 7.6 | ForkJoin serial mode defaults to on when `threadPool.serialMovement` is set, so startup parallel phases also run serially in that debug mode. It is also on for `single_executor` and for any explicitly installed backend (deterministic harness). `Options::serialForkJoin` overrides the default |
+| 7.5 | The cron driver `AUTO` resolves to `EXECUTOR` when an explicit backend is passed in the options (so a ManualClock fires cron jobs) or `singleExecutor` is set. The lifecycle resolves it; `CronService` itself is unchanged |
+| 2.3, 7.1 | `Pin` counts the part it pins: a pinned `OwnedPart` is held through `OwnedPart::retain/release`, so a part replaced in a `PartSlot<RECLAIMER>` or `PartMap` cannot be freed while a pending task pins it. An owner and its part share one of the 4 slots (the part's retain holds the owner); two parts of one owner take two slots. New accessor `Pin::part(i)`. Not visible to Java code |
+| 7.3 | Static data hierarchy roots (generated structs and shells) derive `runtime::StaticTemplate`, so template pointers are `IsTemplatePtr`/`Pinnable` without trait specializations (static-data.md S0a notes) |
+| 7.7 | `DeterministicExecutor` seeds the calling thread with `Rnd::seedCurrentThreadForTests(seed)`; `retire()` or the destructor restores the previous generator state (same thread, no later executor seeded it) |
+| 1.2 | The task kind `CALLBACK` (PinnedCallback runs) is `TaskKind::CALLBACK_`: `<windows.h>` defines a `CALLBACK` macro. `WindowsHeadersFirstTest` includes `<windows.h>` before every public kernel header |
+| – | `AION_UNPORTED` lives in `aion_gs_runtime_base` (`runtime/base/Unported.h`, namespace `aion::gameserver::runtime`); the wave-1 names stay available in `aion::gameserver::handlers` through using-declarations. `java.lang.ArithmeticException` is `commons::utils::ArithmeticException`, re-exported by `runtime/base/Exceptions.h` and aliased in `geoEngine/math/Matrix4f.h` |

@@ -5,11 +5,12 @@
 
 #include "aion/gameserver/model/siege/SiegeRace.h"
 #include "aion/gameserver/model/templates/spawns/siegespawns/SiegeSpawn_SiegeRaceTemplate_SiegeModTemplate.h"
+#include "aion/gameserver/runtime/lifetime/RefCounted.h"
 
 namespace aion::gameserver::model::templates::spawns::siegespawns {
 
 /** Java com.aionemu.gameserver.model.templates.spawns.siegespawns.SiegeSpawn.SiegeRaceTemplate (data-only: generated completely). */
-struct SiegeSpawn_SiegeRaceTemplate {
+struct SiegeSpawn_SiegeRaceTemplate : public ::aion::gameserver::runtime::StaticTemplate {
 	using SiegeModTemplate = ::aion::gameserver::model::templates::spawns::siegespawns::SiegeSpawn_SiegeRaceTemplate_SiegeModTemplate;
 	std::vector<::aion::gameserver::model::templates::spawns::siegespawns::SiegeSpawn_SiegeRaceTemplate_SiegeModTemplate> SiegeModTemplates; // @XmlElement(name = "siege_mod")
 	::aion::gameserver::model::siege::SiegeRace race = ::aion::gameserver::model::siege::SiegeRace{}; // @XmlAttribute(name = "race", required = true)

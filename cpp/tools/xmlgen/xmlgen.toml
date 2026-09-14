@@ -14,6 +14,15 @@ roots = [
 	"configs.schedule.WorldRaidSchedules",
 ]
 
+# S0a decision 3: every other enum of game-server/src is emitted too, with the same shape and location rules (constants and EnumTraits name
+# tables; constructor data, methods and constant-specific bodies are hand-written companions listed in xmlgen-report.md). Handler-private
+# enums (data/handlers) stay with the handlers.
+core_enums = true
+
+# Core enums whose C++ definition is already hand-written (nested in a ported class); they are not generated.
+[hand_written_enums]
+"configs.main.SecurityConfig.MultiClientingRestrictionMode" = "defined in configs/main/SecurityConfig.h (P4-01, a std::atomic config field)"
+
 [before_unmarshal_allowed]
 "dataholders.StaticData" = "installs the StaticDataListener, which LoadContext replaces (XmlBinding.h, Hooks)"
 
@@ -43,8 +52,8 @@ reason = "String.split(\" \") + Byte.parseByte in the binder runtime"
 value_type = "dataholders.loadingutils.adapters.NpcEquipmentList"
 cpp = "std::unique_ptr<::aion::gameserver::model::items::NpcEquippedGear>"
 header = "aion/gameserver/model/items/NpcEquippedGear.h"
-unmarshal = "o.{member} = std::make_unique<::aion::gameserver::model::items::NpcEquippedGear>(std::move(value));\no.{member}->init(c.load());"
-reason = "hand-written NpcEquippedGear, initialized eagerly after IDREF resolution (design §3.6)"
+unmarshal = "c.replaceSingle(o.{member}, std::make_unique<::aion::gameserver::model::items::NpcEquippedGear>(std::move(value)), e);\no.{member}->init(c.load());"
+reason = "hand-written NpcEquippedGear, initialized eagerly after IDREF resolution (design §3.6); replaceSingle retires a repeated <equipment> (strict mode: an error)"
 
 # Fields JAXB would bind implicitly (FIELD or PUBLIC_MEMBER access without annotations) that are not XML data. They get no member and no
 # binding; an element with their name in the data is an unknown element (strict error).

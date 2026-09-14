@@ -3,10 +3,12 @@
 
 #include <cstdint>
 
+#include "aion/gameserver/runtime/lifetime/RefCounted.h"
+
 namespace aion::gameserver::model::templates::item {
 
 /** Java com.aionemu.gameserver.model.templates.item.Idian (data-only: generated completely). */
-struct Idian {
+struct Idian : public ::aion::gameserver::runtime::StaticTemplate {
 	int32_t burnDefend = 0; // @XmlAttribute(name = "burn_defend")
 	int32_t burnAttack = 0; // @XmlAttribute(name = "burn_attack")
 	int32_t getBurnAttack() const { return burnAttack; }

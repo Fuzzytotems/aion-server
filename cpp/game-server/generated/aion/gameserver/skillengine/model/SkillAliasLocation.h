@@ -5,12 +5,13 @@
 #include <string>
 #include <vector>
 
+#include "aion/gameserver/runtime/lifetime/RefCounted.h"
 #include "aion/gameserver/skillengine/model/SkillAliasPosition.h"
 
 namespace aion::gameserver::skillengine::model {
 
 /** Java com.aionemu.gameserver.skillengine.model.SkillAliasLocation (data-only: generated completely). */
-struct SkillAliasLocation {
+struct SkillAliasLocation : public ::aion::gameserver::runtime::StaticTemplate {
 	std::vector<::aion::gameserver::skillengine::model::SkillAliasPosition> skillAliasPositionList; // @XmlElement(name = "alias_pos")
 	std::string aliasName; // @XmlAttribute(name = "name", required = true)
 	int32_t worldId = 0; // @XmlAttribute(name = "world_id", required = true)

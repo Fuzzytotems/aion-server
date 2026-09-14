@@ -14,8 +14,9 @@ These rules keep the port consistent across modules and sessions. When in doubt,
 - **Keyword, reserved-name and macro rule.** One implementation, `cpp_identifier()` in `cpp/tools/gen/dialogaction.py` (it holds the keyword
   and macro lists), is shared by the generators; porters apply the same rule by hand:
   - A Java identifier that is a C++ keyword or a macro that `WindowsMacroGuard.h` cannot remove gets a trailing underscore: `register_()`,
-    `delete_()`, namespace segment `template_` (the directory keeps the Java spelling), `DialogAction::NULL_`. A porter who writes `NULL`
-    silently gets the C macro 0; the quest parity check should flag a bare `NULL` in handlers.
+    `delete_()`, namespace segment `template_` (the directory keeps the Java spelling), `DialogAction::NULL_`, `TaskKind::CALLBACK_` (the
+    `<windows.h>` `CALLBACK` macro). A porter who writes `NULL` silently gets the C macro 0; the quest parity check should flag a bare `NULL`
+    in handlers.
   - A name reserved in C++ (leading `_` plus an upper-case letter, or `__` anywhere) loses its leading underscores, has each underscore run
     collapsed and gets a trailing underscore: `_STR_MSG_Heal_TO_ME` → `STR_MSG_Heal_TO_ME_`, `STR_RESURRECT_DIALOG__SKILL` →
     `STR_RESURRECT_DIALOG_SKILL_`.
@@ -81,7 +82,8 @@ These rules keep the port consistent across modules and sessions. When in doubt,
 
 - Exceptions stay exceptions. Base class: `aion::commons::utils::Exception` (`aion/commons/utils/Exception.h`; derives from
   `std::runtime_error`, captures a `std::stacktrace` and an optional cause). Common Java types exist there too
-  (`IllegalArgumentException`, `IllegalStateException`, `UnsupportedOperationException`, `IndexOutOfBoundsException`, `IOException`).
+  (`IllegalArgumentException`, `IllegalStateException`, `UnsupportedOperationException`, `IndexOutOfBoundsException`, `IOException`,
+  `ArithmeticException`).
   Subsystems derive their own (`SQLException`, `TransformationException`, ...).
 - Java `new XException(msg, cause)` inside a catch block → `throw XException(msg, std::current_exception())`.
 - Java `throw new Error(...)` (fatal startup errors) → throw an `Exception` and let `main` log it and exit.
@@ -219,6 +221,16 @@ DB::insertUpdate("UPDATE account_data SET last_ip = ? WHERE id = ?", [&](Prepare
 ## Servers: testing and running
 
 - Server executables accept `-Dkey=value` arguments that override config properties (login server: `LoginServer::main`).
+- `aion_game_server` runs with the Java module directory `game-server/` as working directory (`./config`, `./log`). Its `-Dkey=value`
+  overrides are layered over `mygs.properties` through the event-properties layer of `Config::load`, so they survive reloads.
+- Database tests are opt-in through environment variables and skipped without them: commons DB integration tests need
+  `AION_TEST_DATABASE_URL=jdbc:mysql://127.0.0.1:3306/aion_cpp_test` and `AION_TEST_DATABASE_USER=root`; login server DB tests
+  `AION_TEST_LS_DATABASE_URL`; `gs.smoke.startup` `AION_TEST_GS_DATABASE_URL` (e.g.
+  `jdbc:mysql://127.0.0.1:3306/aion_cpp_test?characterEncoding=UTF-8`, optional `AION_TEST_GS_DATABASE_USER`/`_PASSWORD`, default root without
+  password).
+- CTest labels: `realdata` marks tests that read the Java tree (real-data GoogleTest cases, `gs.chunks.consistency`, `gs.smoke.startup` and
+  the whole `tools.gen`, `tools.oracle`, `tools.porting` and `tools.xmlgen` suites), so `ctest -C Debug -LE realdata` is the fast run without
+  the Java checkout. `smoke` marks `gs.smoke.startup` (starts `aion_game_server` against the test database).
 - Server state that is static in Java (controllers, tables, singletons) stays static. Tests therefore use unique account names and client IPs,
   restart the network component after config changes, and take the cross-process database lock
   (`tests/support/LoginServerTestDatabase.h`: `lockForProcess()`/`recreateSchema()`) before touching a shared test schema.
@@ -238,11 +250,26 @@ Tests seed the calling thread's generator with `Rnd::seedCurrentThreadForTests(s
 Details: [design/handlers-and-porting-plan.md](design/handlers-and-porting-plan.md) and
 [design/conventions-game-server.md](design/conventions-game-server.md).
 
-**Generated drafts** (`cpp/tools/gen/skeleton.py`):
-- Java enums are forward-declared as `enum class X : std::uint8_t` (up to 256 constants) or `std::uint16_t` (more). Enum definitions must use
-  the same underlying type.
+**Chunk ownership** (design §2.2; syntax in `cpp/game-server/cmake/AionChunks.cmake`):
+- `cpp/game-server/chunks.cmake` assigns every file to a chunk and is owned by the integrator; nobody else edits it.
+- `python tools/porting/chunks.py owner <path>` (from `cpp/`, C++ or Java path) names the owner; `chunks.py check-ownership <chunk>
+  <base>..<head>` checks a branch (it replaces the planned `check_ownership.py`). A chunk may change its own files, files leased to it
+  (`LEASE`), its test directories (`TESTS`, `TEST_SUPPORT`, leased `TEST_SUPPORT`) and `docs/deviations/<chunk>.md`.
+- Every `.cpp`/`.h`/`.ipp`/`.inc` below `src/`, `handlers/`, `generated/` and `tests/` needs exactly one owner: a new file fails configure
+  until the manifest assigns it (ask the integrator).
+
+**Generated drafts and forward headers** (`cpp/tools/gen/skeleton.py`):
+- Forward headers are committed: `#include "aion/gameserver/<pkg>/fwd.h"`. Regenerate with `python tools/gen/skeleton.py --fwd --out
+  game-server/src` after adding a Java class, after xmlgen regenerates or when a hand-written header changes a class key; the drift test in
+  `tools.gen` fails otherwise.
+- Every enum of `game-server/src` is generated by xmlgen (`generated/aion/gameserver/<pkg>/<Enum>.h`, nested `Outer_Inner.h`) and
+  forward-declared with the underlying type of that definition (`std::uint8_t` up to 256 constants, else `std::uint16_t`). Drafts never define
+  such an enum: a nested one becomes `using Inner = ::ns::Outer_Inner;`, a secondary top-level one an include of its generated header, and
+  other files spell a nested generated enum `Outer_Inner` with its generated header. Explicit draft selectors of generated enums are refused.
 - Java nested types stay nested (`Outer::Inner`). Private members of Java nested classes become public, because Java lets the whole
   top-level class use them. A nested class deriving from its outer class is defined after the outer class.
+- Drafts follow hand-written C++ definitions (xmlgen shells, kernel ports): the runtime base comes from their base clause, and `override` is
+  emitted only for methods their header or member blocks declare.
 - Draft marker comments that reviewers resolve: `TODO(fieldmap)`, `TODO(signature)`, `TODO(callbacks)`, `TODO(enum)`, `TODO(logger)`,
   `TODO(xmlgen)`. Regenerating with `--draft` overwrites hand edits.
 
@@ -257,7 +284,13 @@ Details: [design/handlers-and-porting-plan.md](design/handlers-and-porting-plan.
 - File rules (unity-safe): every declaration inside the package namespace (a keyword directory maps to `keyword_`, e.g. `quest/template` →
   `...::quest::template_`); no nested, other or anonymous namespaces; no namespace-scope `static`; no `using namespace` (the only exception is
   the quest prelude's `using namespace aion::gameserver::model::DialogAction;`); a type name defined once per namespace; only `.cpp` and `.h`.
-- Unported bodies are `AION_UNPORTED();` (`aion/gameserver/handlers/Unported.h` until S0a decides the final place). It throws, so never put
+- Handler files include the prelude of their category first: `ai/AiPrelude.h`, `instance/InstancePrelude.h`, `quest/QuestPrelude.h`,
+  `zone/ZonePrelude.h`, `admincommands/AdminCommandsPrelude.h`, `playercommands/PlayerCommandsPrelude.h`,
+  `consolecommands/ConsoleCommandsPrelude.h` (all under `aion/gameserver/handlers/`; `CommandPrelude.h` is only the PCH of the command
+  library). Preludes provide the markers and `AION_UNPORTED`. A prelude never re-exports a name that a Java type of its category declares
+  (checked by `tools/gen/tests/test_handler_preludes.py`).
+- Unported bodies are `AION_UNPORTED();` (`aion/gameserver/runtime/base/Unported.h`, library `aion_gs_runtime_base`, namespace
+  `aion::gameserver::runtime`; the wave-1 names in `aion::gameserver::handlers` stay available as using-declarations). It throws, so never put
   it in a `noexcept` function.
 - Npc ids in `spawn(`/`sp(` calls stay literal, including ternaries: the QuestSpawnAnalyzer replacement scans the raw source text at build time.
 
@@ -273,8 +306,14 @@ Design: [design/static-data.md](design/static-data.md); binder contract: `dataho
   and lookups instead of magic_enum.
 - A behaviour class header includes the generated prelude `X.xml.h` before the class, and `#include "X.xml.inc"` is the first line of the
   class body, followed by an explicit access specifier.
+- Every top-level behaviour class has a hand-owned shell in `game-server/src`, written once by `xmlgen.py scaffold --all` (S0a): the header
+  always, the `.cpp` only where there are hooks or annotated setters (`AION_UNPORTED` stubs including `runtime/base/Unported.h`). A porter adds
+  the `.cpp` with the first ported method. A hierarchy root derives `::aion::gameserver::runtime::StaticTemplate`. Rerun `scaffold --all`
+  when a behaviour class is added; `tools/xmlgen/tests/test_real_tree.py` fails when one is missing.
 - Nested behaviour classes are defined after the outer class. Nested enums and nested data-only classes are generated as `Outer_Inner`
-  and aliased in the outer class. Members that clash with a method name get a trailing `_`. Java package-private becomes public.
+  and aliased in the outer class; when the outer class is not generated, its hand-written header declares `using Inner = Outer_Inner;`
+  (listed in `xmlgen-report.md`; `LegionHistoryAction.Type` is nested in an enum and stays `LegionHistoryAction_Type`). Members that clash
+  with a method name get a trailing `_`. Java package-private becomes public.
 - Bound objects must never move or be copied after binding: XmlIDs and IDREF slots record addresses. Class-level adapters bind their value
   type on the heap and store the target with `c.replaceSingle(o.member, std::make_unique<Target>(std::move(value)), e)`, never a plain
   assignment.

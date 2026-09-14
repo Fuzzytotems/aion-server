@@ -5,11 +5,12 @@
 #include <vector>
 
 #include "aion/gameserver/model/templates/assemblednpc/AssembledNpcTemplate_AssembledNpcPartTemplate.h"
+#include "aion/gameserver/runtime/lifetime/RefCounted.h"
 
 namespace aion::gameserver::model::templates::assemblednpc {
 
 /** Java com.aionemu.gameserver.model.templates.assemblednpc.AssembledNpcTemplate (data-only: generated completely). */
-struct AssembledNpcTemplate {
+struct AssembledNpcTemplate : public ::aion::gameserver::runtime::StaticTemplate {
 	using AssembledNpcPartTemplate = ::aion::gameserver::model::templates::assemblednpc::AssembledNpcTemplate_AssembledNpcPartTemplate;
 	int32_t nr = 0; // @XmlAttribute(name = "nr")
 	int32_t routeId = 0; // @XmlAttribute(name = "routeId")

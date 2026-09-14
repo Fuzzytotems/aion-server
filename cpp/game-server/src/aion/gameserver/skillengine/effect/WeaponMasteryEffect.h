@@ -1,0 +1,13 @@
+#pragma once
+
+#include "aion/gameserver/skillengine/effect/WeaponMasteryEffect.xml.h"
+
+namespace aion::gameserver::skillengine::effect {
+
+/** Java com.aionemu.gameserver.skillengine.effect.WeaponMasteryEffect. @author ATracer */
+class WeaponMasteryEffect : public ::aion::gameserver::skillengine::effect::BufEffect {
+#include "aion/gameserver/skillengine/effect/WeaponMasteryEffect.xml.inc"
+public:
+};
+
+} // namespace aion::gameserver::skillengine::effect

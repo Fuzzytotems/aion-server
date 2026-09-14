@@ -3,10 +3,12 @@
 
 #include <cstdint>
 
+#include "aion/gameserver/runtime/lifetime/RefCounted.h"
+
 namespace aion::gameserver::model::templates::item::purification {
 
 /** Java com.aionemu.gameserver.model.templates.item.purification.RequiredMaterial (data-only: generated completely). */
-struct RequiredMaterial {
+struct RequiredMaterial : public ::aion::gameserver::runtime::StaticTemplate {
 	int32_t itemId = 0; // @XmlAttribute(name = "item_id")
 	int32_t itemCount = 0; // @XmlAttribute(name = "item_count")
 	int32_t getItemId() const { return itemId; }

@@ -7,11 +7,12 @@
 
 #include "aion/gameserver/model/base/BaseOccupier.h"
 #include "aion/gameserver/model/templates/spawns/Spawn.h"
+#include "aion/gameserver/runtime/lifetime/RefCounted.h"
 
 namespace aion::gameserver::model::templates::spawns::basespawns {
 
 /** Java com.aionemu.gameserver.model.templates.spawns.basespawns.BaseSpawn.BaseOccupierTemplate (data-only: generated completely). */
-struct BaseSpawn_BaseOccupierTemplate {
+struct BaseSpawn_BaseOccupierTemplate : public ::aion::gameserver::runtime::StaticTemplate {
 	std::optional<::aion::gameserver::model::base::BaseOccupier> occupier; // @XmlAttribute(name = "occupier")
 	std::vector<std::unique_ptr<::aion::gameserver::model::templates::spawns::Spawn>> spawns; // @XmlElement(name = "spawn")
 	std::optional<::aion::gameserver::model::base::BaseOccupier> getOccupier() const { return occupier; }

@@ -3,10 +3,12 @@
 
 #include <cstdint>
 
+#include "aion/gameserver/runtime/lifetime/RefCounted.h"
+
 namespace aion::gameserver::model::templates::siegelocation {
 
 /** Java com.aionemu.gameserver.model.templates.siegelocation.SiegeLegionReward (data-only: generated completely). */
-struct SiegeLegionReward {
+struct SiegeLegionReward : public ::aion::gameserver::runtime::StaticTemplate {
 	int32_t itemId = 0; // @XmlAttribute(name = "item_id")
 	int64_t itemCount = 0; // @XmlAttribute(name = "item_count")
 	int32_t getItemId() const { return itemId; }

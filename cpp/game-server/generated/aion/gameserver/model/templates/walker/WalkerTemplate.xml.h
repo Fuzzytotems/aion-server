@@ -13,4 +13,5 @@
 #include "aion/gameserver/dataholders/loadingutils/XmlBindingFwd.h"
 #include "aion/gameserver/model/templates/walker/RouteStep.h"
 #include "aion/gameserver/model/templates/walker/WalkerTemplate_LoopType.h"
+#include "aion/gameserver/runtime/lifetime/RefCounted.h"
 #include "aion/gameserver/spawnengine/WalkerGroupType.h"

@@ -5,10 +5,12 @@
 #include <optional>
 #include <vector>
 
+#include "aion/gameserver/runtime/lifetime/RefCounted.h"
+
 namespace aion::gameserver::questEngine::handlers::models {
 
 /** Java com.aionemu.gameserver.questEngine.handlers.models.QuestSkillData (data-only: generated completely). */
-struct QuestSkillData {
+struct QuestSkillData : public ::aion::gameserver::runtime::StaticTemplate {
 	std::optional<std::vector<int32_t>> skillIds; // @XmlAttribute(name = "ids", required = true)
 	int32_t startVar = 0; // @XmlAttribute(name = "start_var")
 	int32_t endVar = 0; // @XmlAttribute(name = "end_var")

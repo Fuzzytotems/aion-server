@@ -15,3 +15,4 @@
 #include "aion/gameserver/model/templates/event/Buff_BuffMapType.h"
 #include "aion/gameserver/model/templates/event/Buff_Trigger.h"
 #include "aion/gameserver/model/templates/event/Buff_TriggerCondition.h"
+#include "aion/gameserver/runtime/lifetime/RefCounted.h"

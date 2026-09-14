@@ -10,3 +10,4 @@
 #include "aion/gameserver/dataholders/loadingutils/XmlBindingFwd.h"
 #include "aion/gameserver/model/templates/event/upgradearcade/ArcadeLevels.h"
 #include "aion/gameserver/model/templates/event/upgradearcade/ArcadeRewards.h"
+#include "aion/gameserver/runtime/lifetime/RefCounted.h"

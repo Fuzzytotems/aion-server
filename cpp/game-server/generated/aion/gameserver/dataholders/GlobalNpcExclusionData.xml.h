@@ -13,3 +13,4 @@
 #include "aion/gameserver/model/TribeClass.h"
 #include "aion/gameserver/model/templates/npc/AbyssNpcType.h"
 #include "aion/gameserver/model/templates/npc/NpcTemplateType.h"
+#include "aion/gameserver/runtime/lifetime/RefCounted.h"

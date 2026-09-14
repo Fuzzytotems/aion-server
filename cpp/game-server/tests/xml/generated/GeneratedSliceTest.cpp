@@ -7,8 +7,9 @@
 //   global per-tag totals (totals.json byTag) for tags that occur in no other holder.
 // The hand-written classes are test shells (tests/xml/generated/aion/...), created with `xmlgen.py scaffold`.
 //
-// Include bridge: the aion_gs_xml_tests target has no include directory for cpp/game-server/generated yet, so generated files are included
-// through generated/xmlgen-include-root.inc (see there). The shells are found relative to this file's directory.
+// Includes: aion_gs_xml_tests has cpp/game-server/generated as include directory. The test shells next to this file win over the shells of
+// the same classes in game-server/src, because MSVC searches the directories of the open files before the /I directories; for the same reason
+// this executable must not link the static data library (aion_gs_staticdata), whose shells define the same classes.
 
 #include <algorithm>
 #include <chrono>
@@ -27,31 +28,17 @@
 #include <nlohmann/json.hpp>
 
 #include "aion/gameserver/dataholders/loadingutils/StaticDataLoader.h"
+#include "aion/gameserver/runtime/sched/Pin.h"
+#include "aion/gameserver/runtime/sched/TaskConcepts.h"
 
-#define AION_XMLGEN_INCLUDE "aion/gameserver/dataholders/WorldMapsData.bind.ipp"
-#include "../../../generated/xmlgen-include-root.inc"
-#undef AION_XMLGEN_INCLUDE
-#define AION_XMLGEN_INCLUDE "aion/gameserver/model/templates/world/WorldMapTemplate.bind.ipp"
-#include "../../../generated/xmlgen-include-root.inc"
-#undef AION_XMLGEN_INCLUDE
-#define AION_XMLGEN_INCLUDE "aion/gameserver/model/templates/world/AiInfo.bind.ipp"
-#include "../../../generated/xmlgen-include-root.inc"
-#undef AION_XMLGEN_INCLUDE
-#define AION_XMLGEN_INCLUDE "aion/gameserver/dataholders/TribeRelationsData.bind.ipp"
-#include "../../../generated/xmlgen-include-root.inc"
-#undef AION_XMLGEN_INCLUDE
-#define AION_XMLGEN_INCLUDE "aion/gameserver/model/templates/tribe/Tribe.bind.ipp"
-#include "../../../generated/xmlgen-include-root.inc"
-#undef AION_XMLGEN_INCLUDE
-#define AION_XMLGEN_INCLUDE "aion/gameserver/dataholders/WalkerData.bind.ipp"
-#include "../../../generated/xmlgen-include-root.inc"
-#undef AION_XMLGEN_INCLUDE
-#define AION_XMLGEN_INCLUDE "aion/gameserver/model/templates/walker/WalkerTemplate.bind.ipp"
-#include "../../../generated/xmlgen-include-root.inc"
-#undef AION_XMLGEN_INCLUDE
-#define AION_XMLGEN_INCLUDE "aion/gameserver/model/templates/walker/RouteStep.bind.ipp"
-#include "../../../generated/xmlgen-include-root.inc"
-#undef AION_XMLGEN_INCLUDE
+#include "aion/gameserver/dataholders/WorldMapsData.bind.ipp"
+#include "aion/gameserver/model/templates/world/WorldMapTemplate.bind.ipp"
+#include "aion/gameserver/model/templates/world/AiInfo.bind.ipp"
+#include "aion/gameserver/dataholders/TribeRelationsData.bind.ipp"
+#include "aion/gameserver/model/templates/tribe/Tribe.bind.ipp"
+#include "aion/gameserver/dataholders/WalkerData.bind.ipp"
+#include "aion/gameserver/model/templates/walker/WalkerTemplate.bind.ipp"
+#include "aion/gameserver/model/templates/walker/RouteStep.bind.ipp"
 
 namespace aion::gameserver::xml::generated_slice {
 namespace {
@@ -330,6 +317,15 @@ TEST(GeneratedSliceStrictTest, UnknownAttributesAndMissingRequiredOnesFail) {
 	ASSERT_TRUE(map->getFlagValues().has_value());
 	EXPECT_TRUE(map->getFlagValues()->empty()) << "present-empty list attribute";
 }
+
+// K1 marker: generated data structs and behaviour shells of hierarchy roots derive runtime::StaticTemplate, so template pointers pass the
+// task capture and pin rules (runtime-architecture.md §7.3) without waivers
+static_assert(runtime::IsTemplatePtr<const WorldMapTemplate*>);
+static_assert(runtime::IsTemplatePtr<const model::templates::world::AiInfo*>);
+static_assert(runtime::IsTemplatePtr<const model::templates::walker::RouteStep*>);
+static_assert(runtime::IsTemplatePtr<const TribeRelationsData*>);
+static_assert(runtime::Pinnable<WalkerTemplate>);
+static_assert(sizeof(model::templates::world::AiInfo) == 2 * sizeof(int32_t), "empty base optimization: the marker adds no storage");
 
 } // namespace
 } // namespace aion::gameserver::xml::generated_slice

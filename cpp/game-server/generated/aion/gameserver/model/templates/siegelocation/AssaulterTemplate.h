@@ -6,11 +6,12 @@
 #include <vector>
 
 #include "aion/gameserver/model/siege/AssaulterType.h"
+#include "aion/gameserver/runtime/lifetime/RefCounted.h"
 
 namespace aion::gameserver::model::templates::siegelocation {
 
 /** Java com.aionemu.gameserver.model.templates.siegelocation.AssaulterTemplate (data-only: generated completely). */
-struct AssaulterTemplate {
+struct AssaulterTemplate : public ::aion::gameserver::runtime::StaticTemplate {
 	std::optional<::aion::gameserver::model::siege::AssaulterType> assaulterType; // @XmlAttribute(name = "type")
 	int32_t headingOffset = 60; // @XmlAttribute(name = "heading_offset") Java: = 60
 	int32_t distanceOffset = 0; // @XmlAttribute(name = "distance_offset")

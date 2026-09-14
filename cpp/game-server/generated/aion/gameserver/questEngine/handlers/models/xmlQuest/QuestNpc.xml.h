@@ -9,3 +9,4 @@
 
 #include "aion/gameserver/dataholders/loadingutils/XmlBindingFwd.h"
 #include "aion/gameserver/questEngine/handlers/models/xmlQuest/QuestDialog.h"
+#include "aion/gameserver/runtime/lifetime/RefCounted.h"

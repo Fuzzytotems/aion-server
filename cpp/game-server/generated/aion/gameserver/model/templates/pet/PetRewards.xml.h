@@ -9,3 +9,4 @@
 #include "aion/gameserver/dataholders/loadingutils/XmlBindingFwd.h"
 #include "aion/gameserver/model/templates/pet/FoodType.h"
 #include "aion/gameserver/model/templates/pet/PetFeedResult.h"
+#include "aion/gameserver/runtime/lifetime/RefCounted.h"

@@ -36,3 +36,4 @@
 #include "aion/gameserver/model/templates/itemgroups/MedalGroup.h"
 #include "aion/gameserver/model/templates/itemgroups/MedicineGroup.h"
 #include "aion/gameserver/model/templates/itemgroups/OreGroup.h"
+#include "aion/gameserver/runtime/lifetime/RefCounted.h"

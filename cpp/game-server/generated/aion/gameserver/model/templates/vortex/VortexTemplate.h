@@ -9,11 +9,12 @@
 #include "aion/gameserver/model/templates/vortex/HomePoint.h"
 #include "aion/gameserver/model/templates/vortex/ResurrectionPoint.h"
 #include "aion/gameserver/model/templates/vortex/StartPoint.h"
+#include "aion/gameserver/runtime/lifetime/RefCounted.h"
 
 namespace aion::gameserver::model::templates::vortex {
 
 /** Java com.aionemu.gameserver.model.templates.vortex.VortexTemplate (data-only: generated completely). */
-struct VortexTemplate {
+struct VortexTemplate : public ::aion::gameserver::runtime::StaticTemplate {
 	int32_t id = 0; // @XmlAttribute(name = "id")
 	std::optional<::aion::gameserver::model::Race> dRace; // @XmlAttribute(name = "defends_race")
 	std::optional<::aion::gameserver::model::Race> oRace; // @XmlAttribute(name = "offence_race")

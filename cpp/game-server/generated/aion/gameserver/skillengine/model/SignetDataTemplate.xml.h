@@ -7,5 +7,6 @@
 #include <vector>
 
 #include "aion/gameserver/dataholders/loadingutils/XmlBindingFwd.h"
+#include "aion/gameserver/runtime/lifetime/RefCounted.h"
 #include "aion/gameserver/skillengine/model/SignetData.h"
 #include "aion/gameserver/skillengine/model/SignetEnum.h"

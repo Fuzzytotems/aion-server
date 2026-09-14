@@ -9,3 +9,4 @@
 #include "aion/gameserver/dataholders/loadingutils/XmlBindingFwd.h"
 #include "aion/gameserver/model/templates/item/RandomItem.h"
 #include "aion/gameserver/model/templates/item/ResultedItem.h"
+#include "aion/gameserver/runtime/lifetime/RefCounted.h"

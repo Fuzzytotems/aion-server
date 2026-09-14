@@ -3,10 +3,12 @@
 
 #include <cstdint>
 
+#include "aion/gameserver/runtime/lifetime/RefCounted.h"
+
 namespace aion::gameserver::skillengine::model {
 
 /** Java com.aionemu.gameserver.skillengine.model.ChargedSkill (data-only: generated completely). */
-struct ChargedSkill {
+struct ChargedSkill : public ::aion::gameserver::runtime::StaticTemplate {
 	int32_t id = 0; // @XmlAttribute(name = "id", required = true)
 	int32_t time = 0; // @XmlAttribute(name = "time", required = true)
 	int32_t getTime() const { return time; }

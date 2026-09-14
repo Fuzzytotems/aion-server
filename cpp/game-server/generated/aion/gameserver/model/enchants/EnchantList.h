@@ -5,11 +5,12 @@
 #include <vector>
 
 #include "aion/gameserver/model/enchants/EnchantTemplateData.h"
+#include "aion/gameserver/runtime/lifetime/RefCounted.h"
 
 namespace aion::gameserver::model::enchants {
 
 /** Java com.aionemu.gameserver.model.enchants.EnchantList (data-only: generated completely). */
-struct EnchantList {
+struct EnchantList : public ::aion::gameserver::runtime::StaticTemplate {
 	std::vector<::aion::gameserver::model::enchants::EnchantTemplateData> enchantDatas; // @XmlElement(name = "enchant_data", required = true)
 	std::string itemGroup; // @XmlAttribute(name = "item_group", required = true)
 	const std::vector<::aion::gameserver::model::enchants::EnchantTemplateData>& getEnchantDatas() const { return enchantDatas; }

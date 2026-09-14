@@ -4,13 +4,14 @@
 #include <cstdint>
 #include <vector>
 
+#include "aion/gameserver/runtime/lifetime/RefCounted.h"
 #include "aion/gameserver/skillengine/model/ChargedSkill.h"
 #include "aion/gameserver/skillengine/model/SkillType.h"
 
 namespace aion::gameserver::skillengine::model {
 
 /** Java com.aionemu.gameserver.skillengine.model.ChargeSkillEntry (data-only: generated completely). */
-struct ChargeSkillEntry {
+struct ChargeSkillEntry : public ::aion::gameserver::runtime::StaticTemplate {
 	std::vector<::aion::gameserver::skillengine::model::ChargedSkill> skills; // @XmlElement(name = "skill", required = true)
 	int32_t id = 0; // @XmlAttribute(name = "id", required = true)
 	int32_t minTime = 0; // @XmlAttribute(name = "min_time", required = true)

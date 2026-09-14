@@ -18,3 +18,4 @@
 #include "aion/gameserver/model/templates/zone/Semisphere.h"
 #include "aion/gameserver/model/templates/zone/Sphere.h"
 #include "aion/gameserver/model/templates/zone/ZoneClassName.h"
+#include "aion/gameserver/runtime/lifetime/RefCounted.h"

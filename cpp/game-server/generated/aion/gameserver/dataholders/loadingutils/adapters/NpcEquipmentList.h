@@ -3,6 +3,8 @@
 
 #include <vector>
 
+#include "aion/gameserver/runtime/lifetime/RefCounted.h"
+
 namespace aion::gameserver::model::templates::item {
 class ItemTemplate;
 } // namespace aion::gameserver::model::templates::item
@@ -10,7 +12,7 @@ class ItemTemplate;
 namespace aion::gameserver::dataholders::loadingutils::adapters {
 
 /** Java com.aionemu.gameserver.dataholders.loadingutils.adapters.NpcEquipmentList (data-only: generated completely). */
-struct NpcEquipmentList {
+struct NpcEquipmentList : public ::aion::gameserver::runtime::StaticTemplate {
 	std::vector<const ::aion::gameserver::model::templates::item::ItemTemplate*> items; // @XmlElement(name = "item") @XmlIDREF
 };
 

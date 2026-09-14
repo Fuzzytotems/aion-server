@@ -5,11 +5,12 @@
 #include <vector>
 
 #include "aion/gameserver/model/templates/item/purification/PurificationResult.h"
+#include "aion/gameserver/runtime/lifetime/RefCounted.h"
 
 namespace aion::gameserver::model::templates::item::purification {
 
 /** Java com.aionemu.gameserver.model.templates.item.purification.ItemPurificationTemplate (data-only: generated completely). */
-struct ItemPurificationTemplate {
+struct ItemPurificationTemplate : public ::aion::gameserver::runtime::StaticTemplate {
 	std::vector<::aion::gameserver::model::templates::item::purification::PurificationResult> purificationResults; // @XmlElement(name = "purification_result", required = true)
 	int32_t baseItemId = 0; // @XmlAttribute(name = "base_item_id")
 	const std::vector<::aion::gameserver::model::templates::item::purification::PurificationResult>& getPurificationResults() const { return purificationResults; }

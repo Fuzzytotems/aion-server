@@ -6,11 +6,12 @@
 #include <vector>
 
 #include "aion/gameserver/model/templates/spawns/Spawn.h"
+#include "aion/gameserver/runtime/lifetime/RefCounted.h"
 
 namespace aion::gameserver::model::templates::spawns::mercenaries {
 
 /** Java com.aionemu.gameserver.model.templates.spawns.mercenaries.MercenaryZone (data-only: generated completely). */
-struct MercenaryZone {
+struct MercenaryZone : public ::aion::gameserver::runtime::StaticTemplate {
 	int32_t zone = 0; // @XmlAttribute(name = "zone")
 	int32_t costs = 0; // @XmlAttribute(name = "costs")
 	int32_t cooldown = 0; // @XmlAttribute(name = "cooldown")

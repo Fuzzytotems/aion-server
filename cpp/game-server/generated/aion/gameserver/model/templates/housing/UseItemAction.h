@@ -4,10 +4,12 @@
 #include <cstdint>
 #include <optional>
 
+#include "aion/gameserver/runtime/lifetime/RefCounted.h"
+
 namespace aion::gameserver::model::templates::housing {
 
 /** Java com.aionemu.gameserver.model.templates.housing.UseItemAction (data-only: generated completely). */
-struct UseItemAction {
+struct UseItemAction : public ::aion::gameserver::runtime::StaticTemplate {
 	std::optional<int32_t> finalRewardId; // @XmlAttribute(name = "final_reward_id")
 	std::optional<int32_t> rewardId; // @XmlAttribute(name = "reward_id")
 	std::optional<int32_t> removeCount; // @XmlAttribute(name = "remove_count")

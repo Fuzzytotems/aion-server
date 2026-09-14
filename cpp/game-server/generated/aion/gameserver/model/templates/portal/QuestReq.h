@@ -3,10 +3,12 @@
 
 #include <cstdint>
 
+#include "aion/gameserver/runtime/lifetime/RefCounted.h"
+
 namespace aion::gameserver::model::templates::portal {
 
 /** Java com.aionemu.gameserver.model.templates.portal.QuestReq (data-only: generated completely). */
-struct QuestReq {
+struct QuestReq : public ::aion::gameserver::runtime::StaticTemplate {
 	int32_t questId = 0; // @XmlAttribute(name = "quest_id")
 	int32_t questStep = 0; // @XmlAttribute(name = "quest_step")
 	int32_t getQuestId() const { return questId; }

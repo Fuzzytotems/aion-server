@@ -6,11 +6,12 @@
 #include <string>
 
 #include "aion/gameserver/model/templates/shield/ShieldPoint.h"
+#include "aion/gameserver/runtime/lifetime/RefCounted.h"
 
 namespace aion::gameserver::model::templates::shield {
 
 /** Java com.aionemu.gameserver.model.templates.shield.ShieldTemplate (data-only: generated completely). */
-struct ShieldTemplate {
+struct ShieldTemplate : public ::aion::gameserver::runtime::StaticTemplate {
 	std::string name; // @XmlAttribute(name = "name")
 	int32_t map = 0; // @XmlAttribute(name = "map")
 	int32_t id = 0; // @XmlAttribute(name = "id")

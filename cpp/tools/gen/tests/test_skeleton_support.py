@@ -26,11 +26,6 @@ VCPKG_INCLUDE = CPP_ROOT / 'vcpkg_installed' / 'x64-windows' / 'include'
 UPDATE = os.environ.get('AION_SKELETON_UPDATE') == '1'
 VS_CMAKE = Path('C:/Program Files/Microsoft Visual Studio/18/Community/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/bin/cmake.exe')
 
-# The runtime kernel's TaskKind::CALLBACK (runtime/base/TaskInfo.h) collides with the <windows.h> CALLBACK macro when a TU includes
-# windows.h (through spdlog or Asio) before the kernel headers. Whole-tree draft compile checks parse the kernel headers first (reported
-# as an open issue of the kernel, not a generator problem).
-KERNEL_FIRST = ('aion/gameserver/runtime/base/TaskInfo.h', 'aion/gameserver/runtime/sched/PinnedCallback.h')
-
 
 def short_temp_dir(prefix):
     """A temp directory with a short path (MSBuild and Windows MAX_PATH limits)."""

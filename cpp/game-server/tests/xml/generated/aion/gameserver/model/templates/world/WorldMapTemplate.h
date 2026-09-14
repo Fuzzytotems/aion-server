@@ -12,7 +12,7 @@
 namespace aion::gameserver::model::templates::world {
 
 /** Java com.aionemu.gameserver.model.templates.world.WorldMapTemplate (test shell). @author Luno */
-class WorldMapTemplate {
+class WorldMapTemplate : public ::aion::gameserver::runtime::StaticTemplate {
 #include "aion/gameserver/model/templates/world/WorldMapTemplate.xml.inc"
 public:
 	/** Java: getName() */

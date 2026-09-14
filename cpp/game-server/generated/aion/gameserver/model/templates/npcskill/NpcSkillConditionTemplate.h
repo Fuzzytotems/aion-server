@@ -4,11 +4,12 @@
 #include <cstdint>
 
 #include "aion/gameserver/model/templates/npcskill/NpcSkillCondition.h"
+#include "aion/gameserver/runtime/lifetime/RefCounted.h"
 
 namespace aion::gameserver::model::templates::npcskill {
 
 /** Java com.aionemu.gameserver.model.templates.npcskill.NpcSkillConditionTemplate (data-only: generated completely). */
-struct NpcSkillConditionTemplate {
+struct NpcSkillConditionTemplate : public ::aion::gameserver::runtime::StaticTemplate {
 	::aion::gameserver::model::templates::npcskill::NpcSkillCondition condType = ::aion::gameserver::model::templates::npcskill::NpcSkillCondition::NONE; // @XmlAttribute(name = "cond_type") Java: = NpcSkillCondition.NONE
 	int32_t hpBelow = 50; // @XmlAttribute(name = "hp_below") Java: = 50
 	int32_t range = 10; // @XmlAttribute(name = "range") Java: = 10

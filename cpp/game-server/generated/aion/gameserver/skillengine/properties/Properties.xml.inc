@@ -3,6 +3,9 @@
 // followed by an explicit access specifier.
 	friend struct ::aion::gameserver::xml::XmlBinding<::aion::gameserver::skillengine::properties::Properties>;
 
+public:
+	using CastState = ::aion::gameserver::skillengine::properties::Properties_CastState;
+
 protected:
 	::aion::gameserver::skillengine::properties::FirstTargetAttribute firstTarget = ::aion::gameserver::skillengine::properties::FirstTargetAttribute{}; // @XmlAttribute(name = "first_target", required = true)
 	int32_t firstTargetRange = 0; // @XmlAttribute(name = "first_target_range")

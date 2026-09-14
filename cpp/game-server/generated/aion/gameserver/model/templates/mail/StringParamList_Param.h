@@ -3,10 +3,12 @@
 
 #include <string>
 
+#include "aion/gameserver/runtime/lifetime/RefCounted.h"
+
 namespace aion::gameserver::model::templates::mail {
 
 /** Java com.aionemu.gameserver.model.templates.mail.StringParamList.Param (data-only: generated completely). */
-struct StringParamList_Param {
+struct StringParamList_Param : public ::aion::gameserver::runtime::StaticTemplate {
 	std::string id; // @XmlAttribute(name = "id", required = true)
 	const std::string& getId() const { return id; }
 };

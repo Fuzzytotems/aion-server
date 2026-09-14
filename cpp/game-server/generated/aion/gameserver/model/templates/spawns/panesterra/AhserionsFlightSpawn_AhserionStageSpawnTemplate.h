@@ -6,11 +6,12 @@
 #include <vector>
 
 #include "aion/gameserver/model/templates/spawns/Spawn.h"
+#include "aion/gameserver/runtime/lifetime/RefCounted.h"
 
 namespace aion::gameserver::model::templates::spawns::panesterra {
 
 /** Java com.aionemu.gameserver.model.templates.spawns.panesterra.AhserionsFlightSpawn.AhserionStageSpawnTemplate (data-only: generated completely). */
-struct AhserionsFlightSpawn_AhserionStageSpawnTemplate {
+struct AhserionsFlightSpawn_AhserionStageSpawnTemplate : public ::aion::gameserver::runtime::StaticTemplate {
 	std::vector<std::unique_ptr<::aion::gameserver::model::templates::spawns::Spawn>> spawns; // @XmlElement(name = "spawn")
 	int32_t stage = 0; // @XmlAttribute(name = "stage") Java: = 0
 	int32_t getStage() const { return stage; }

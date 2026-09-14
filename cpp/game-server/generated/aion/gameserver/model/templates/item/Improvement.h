@@ -3,10 +3,12 @@
 
 #include <cstdint>
 
+#include "aion/gameserver/runtime/lifetime/RefCounted.h"
+
 namespace aion::gameserver::model::templates::item {
 
 /** Java com.aionemu.gameserver.model.templates.item.Improvement (data-only: generated completely). */
-struct Improvement {
+struct Improvement : public ::aion::gameserver::runtime::StaticTemplate {
 	int32_t way = 0; // @XmlAttribute(name = "way", required = true)
 	int32_t price2 = 0; // @XmlAttribute(name = "price2")
 	int32_t price1 = 0; // @XmlAttribute(name = "price1")

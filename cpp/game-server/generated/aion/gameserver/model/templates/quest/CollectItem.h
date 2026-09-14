@@ -4,10 +4,12 @@
 #include <cstdint>
 #include <optional>
 
+#include "aion/gameserver/runtime/lifetime/RefCounted.h"
+
 namespace aion::gameserver::model::templates::quest {
 
 /** Java com.aionemu.gameserver.model.templates.quest.CollectItem (data-only: generated completely). */
-struct CollectItem {
+struct CollectItem : public ::aion::gameserver::runtime::StaticTemplate {
 	std::optional<int32_t> itemId; // @XmlAttribute(name = "item_id")
 	std::optional<int32_t> count; // @XmlAttribute(name = "count")
 	const std::optional<int32_t>& getItemId() const { return itemId; }

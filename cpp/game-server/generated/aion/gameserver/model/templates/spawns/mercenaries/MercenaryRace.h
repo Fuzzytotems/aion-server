@@ -6,11 +6,12 @@
 
 #include "aion/gameserver/model/Race.h"
 #include "aion/gameserver/model/templates/spawns/mercenaries/MercenaryZone.h"
+#include "aion/gameserver/runtime/lifetime/RefCounted.h"
 
 namespace aion::gameserver::model::templates::spawns::mercenaries {
 
 /** Java com.aionemu.gameserver.model.templates.spawns.mercenaries.MercenaryRace (data-only: generated completely). */
-struct MercenaryRace {
+struct MercenaryRace : public ::aion::gameserver::runtime::StaticTemplate {
 	std::optional<::aion::gameserver::model::Race> race; // @XmlAttribute(name = "race")
 	std::vector<::aion::gameserver::model::templates::spawns::mercenaries::MercenaryZone> mercenaryZones; // @XmlElement(name = "mercenary_zone")
 	std::optional<::aion::gameserver::model::Race> getRace() const { return race; }

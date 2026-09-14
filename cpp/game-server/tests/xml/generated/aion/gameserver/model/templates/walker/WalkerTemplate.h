@@ -8,7 +8,7 @@
 namespace aion::gameserver::model::templates::walker {
 
 /** Java com.aionemu.gameserver.model.templates.walker.WalkerTemplate (test shell). @author KKnD */
-class WalkerTemplate {
+class WalkerTemplate : public ::aion::gameserver::runtime::StaticTemplate {
 #include "aion/gameserver/model/templates/walker/WalkerTemplate.xml.inc"
 public:
 	const std::string& getRowValues() const { return rowValues; }

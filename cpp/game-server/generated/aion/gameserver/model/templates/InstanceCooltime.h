@@ -7,11 +7,12 @@
 
 #include "aion/gameserver/model/Race.h"
 #include "aion/gameserver/model/instance/InstanceCoolTimeType.h"
+#include "aion/gameserver/runtime/lifetime/RefCounted.h"
 
 namespace aion::gameserver::model::templates {
 
 /** Java com.aionemu.gameserver.model.templates.InstanceCooltime (data-only: generated completely). */
-struct InstanceCooltime {
+struct InstanceCooltime : public ::aion::gameserver::runtime::StaticTemplate {
 	std::optional<::aion::gameserver::model::instance::InstanceCoolTimeType> coolTimeType; // @XmlElement(name = "type")
 	std::string typevalue; // @XmlElement(name = "typevalue")
 	int32_t entCoolTime = 0; // @XmlElement(name = "ent_cool_time")

@@ -11,7 +11,7 @@
 namespace aion::gameserver::model::templates::tribe {
 
 /** Java com.aionemu.gameserver.model.templates.tribe.Tribe (test shell). @author ATracer */
-class Tribe {
+class Tribe : public ::aion::gameserver::runtime::StaticTemplate {
 #include "aion/gameserver/model/templates/tribe/Tribe.xml.inc"
 public:
 	/** Java: getBase() */

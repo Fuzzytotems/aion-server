@@ -10,3 +10,4 @@
 #include "aion/gameserver/dataholders/loadingutils/XmlBindingFwd.h"
 #include "aion/gameserver/questEngine/handlers/models/xmlQuest/conditions/QuestCondition.h"
 #include "aion/gameserver/questEngine/model/ConditionUnionType.h"
+#include "aion/gameserver/runtime/lifetime/RefCounted.h"

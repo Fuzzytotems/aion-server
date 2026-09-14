@@ -3,10 +3,12 @@
 
 #include <cstdint>
 
+#include "aion/gameserver/runtime/lifetime/RefCounted.h"
+
 namespace aion::gameserver::model::templates::item {
 
 /** Java com.aionemu.gameserver.model.templates.item.Disposition (data-only: generated completely). */
-struct Disposition {
+struct Disposition : public ::aion::gameserver::runtime::StaticTemplate {
 	int32_t count = 0; // @XmlAttribute(name = "count")
 	int32_t id = 0; // @XmlAttribute(name = "id")
 	int32_t getCount() const { return count; }

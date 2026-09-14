@@ -11,3 +11,4 @@
 #include "aion/gameserver/dataholders/loadingutils/XmlBindingFwd.h"
 #include "aion/gameserver/model/PlayerClass.h"
 #include "aion/gameserver/model/Race.h"
+#include "aion/gameserver/runtime/lifetime/RefCounted.h"

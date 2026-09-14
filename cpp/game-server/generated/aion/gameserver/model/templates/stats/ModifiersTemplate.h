@@ -5,11 +5,12 @@
 #include <vector>
 
 #include "aion/gameserver/model/stats/calc/functions/StatFunction.h"
+#include "aion/gameserver/runtime/lifetime/RefCounted.h"
 
 namespace aion::gameserver::model::templates::stats {
 
 /** Java com.aionemu.gameserver.model.templates.stats.ModifiersTemplate (data-only: generated completely). */
-struct ModifiersTemplate {
+struct ModifiersTemplate : public ::aion::gameserver::runtime::StaticTemplate {
 	std::vector<std::unique_ptr<::aion::gameserver::model::stats::calc::functions::StatFunction>> modifiers; // @XmlElements (5 choices)
 	float chance = 100.0f; // @XmlAttribute(name = "chance") Java: = 100f
 	const std::vector<std::unique_ptr<::aion::gameserver::model::stats::calc::functions::StatFunction>>& getModifiers() const { return modifiers; }

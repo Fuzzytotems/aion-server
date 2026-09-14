@@ -1,15 +1,20 @@
-# Port of ../game-server (com.aionemu.gameserver): the runtime kernel (docs/design/runtime-architecture.md) and the wave 1 leaf libraries.
+# Port of ../game-server (com.aionemu.gameserver): every library comes from the chunk manifest (chunks.cmake, docs/design/handlers-and-porting-plan.md
+# §2.2), plus the handler registries, the aion_game_server executable, the header check and the game server tests.
 #
 # Layout
-#   src/aion/gameserver/runtime/<area>/...   kernel code without a Java counterpart, namespace aion::gameserver::runtime (flat, for every area)
-#   src/aion/gameserver/<java package>/...   ported Java classes at their Java package paths (utils/ThreadPoolManager.h, utils/idfactory/...)
-#   tests/runtime/<area>/                     one GoogleTest executable per kernel library
+#   chunks.cmake                              ownership manifest: chunk parts -> globs -> library targets (owned by the integrator)
+#   cmake/AionChunks.cmake                    aion_gs_chunk(), the configure-time ownership checks, library and test creation, chunks.json
+#   src/aion/gameserver/runtime/<area>/...    kernel code without a Java counterpart, namespace aion::gameserver::runtime (flat, for every area)
+#   src/aion/gameserver/<java package>/...    ported Java classes at their Java package paths; src/main.cpp is the executable's entry point
+#   generated/aion/gameserver/...             tools/xmlgen output (enums, data structs, member blocks, binders): library aion_gs_staticdata
+#   handlers/aion/gameserver/handlers/...     ported data/handlers (include root handlers/; category preludes are the PCH)
+#   tests/<dir>/                              one GoogleTest executable per chunk target that has a test directory (aion_gs_chunk TESTS)
 #   bench/                                    benchmarks (P4), built only with AION_BUILD_BENCH
 #
-# Kernel libraries and their dependency direction (arrows point at the dependency; no cycles):
+# Kernel libraries (chunks P4-02a/b) and their dependency direction (arrows point at the dependency; no cycles):
 #
 #   aion_gs_runtime_base         checked-build macros (AION_CHECKED), Java exception types, TaskInfo, PCT yield points, per-thread context
-#        ^                       registry. Depends on commons core only.
+#        ^                       registry, AION_UNPORTED. Depends on commons core only.
 #   aion_gs_runtime_sync         Monitor, SYNCHRONIZED/monitorOf, RankedMutex + LockRank, LockClass, lock-order validator, BlockingRegion,
 #        ^                       StampedLock, Semaphore, Watchdog core. Knows nothing about Ref/epochs: RefCounted contains a Monitor, so
 #        |                       locks sit BELOW the lifetime core. The watchdog reads per-thread state from base's ThreadContext and gets
@@ -24,25 +29,24 @@
 #   so above lifetime)       (the three are siblings: they only depend on lifetime and below, so they build independently)
 #        ^                        ^                          ^
 #        +------------------------+--------------------------+
-#   aion_gs_runtime_services     CleanerQueue/CleanerDrain, LeakCensus, ZombieBreaker, introspection, services/cron (CronExpression,
-#                                CronService), utils/cron, utils/idfactory (IDFactory)
+#   aion_gs_runtime_services     CleanerQueue/CleanerDrain, LeakCensus, ZombieBreaker, introspection, RuntimeLifecycle, services/cron
+#                                (CronExpression, CronService), utils/cron, utils/idfactory (IDFactory)
 #
-# Ownership during the parallel implementation stage (each area owns its source directories AND its test directory):
-#   lifetime agent:    runtime/base, runtime/lifetime, tests/runtime/base, tests/runtime/lifetime
-#   sync agent:        runtime/sync, runtime/fields, tests/runtime/sync, tests/runtime/fields
-#   collections agent: runtime/collections, tests/runtime/collections
-#   sched agent:       runtime/sched, utils/ThreadPoolManager.*, tests/runtime/sched
-#   services (later):  runtime/services, services/cron, utils/cron, utils/idfactory, tests/runtime/services
-#   stress (later):    tests/runtime/stress;  bench (later): bench/
-# This file and the presets belong to the integrator (headers stage / fixers).
+# Linking (§2.2): leaf chunk libraries (DEPENDS in chunks.cmake: runtime, configs, geomath, network crypt, xml, handler registry) link only their
+# dependencies and their tests link only them. Geo is not a leaf (see P4-04 in chunks.cmake). Every other core library links aion_gs_core_deps;
+# the INTERFACE aion_gs_core links all core libraries, and a non-leaf chunk's tests link aion_gs_core plus aion_gs_registry_empty (a handler
+# library's tests also link that library). MSVC resolves symbols across all static libraries of a link, so the (cyclic) references between
+# chunk libraries need no link order.
 
 set(GS_SRC "${CMAKE_CURRENT_SOURCE_DIR}/src")
+set(GS_GENERATED "${CMAKE_CURRENT_SOURCE_DIR}/generated")
+set(GS_HANDLERS "${CMAKE_CURRENT_SOURCE_DIR}/handlers")
 set(GS_TESTS "${CMAKE_CURRENT_SOURCE_DIR}/tests")
-set(GS_JAVA_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../../game-server")
+get_filename_component(GS_JAVA_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../../game-server" ABSOLUTE)
 
-# ---------------------------------------------------------------------------------------------------------------------------------------
+# ---------------------------------------------------------------------------------------------------------------------------------------------
 # Build options shared by all game server targets
-# ---------------------------------------------------------------------------------------------------------------------------------------
+# ---------------------------------------------------------------------------------------------------------------------------------------------
 # AION_CHECKED (design §12.5): checked-build runtime checks C1-C16. AUTO = on for Debug and RelWithDebInfo, off for Release/MinSizeRel.
 set(AION_CHECKED_MODE "AUTO" CACHE STRING "Game server checked build: AUTO (Debug and RelWithDebInfo), ON or OFF")
 set_property(CACHE AION_CHECKED_MODE PROPERTY STRINGS AUTO ON OFF)
@@ -56,109 +60,142 @@ else()
 	target_compile_definitions(aion_gs_build_options INTERFACE $<IF:$<CONFIG:Debug,RelWithDebInfo>,AION_CHECKED=1,AION_CHECKED=0>)
 endif()
 if(MSVC)
-	# /bigobj: header-heavy template code (collection shims, schedulers) exceeds the default section limit in Debug
+	# /bigobj: header-heavy template code (collection shims, schedulers) and the static data binders (dataholders.bind.obj has about 79,000
+	# sections in Debug) exceed the default section limit
 	target_compile_options(aion_gs_build_options INTERFACE /bigobj)
 endif()
 target_compile_definitions(aion_gs_build_options INTERFACE AION_GAMESERVER_JAVA_DIR="${GS_JAVA_DIR}")
+# include roots of every game server target: hand-written sources and the committed generator output (shell headers include X.xml.h/X.xml.inc)
+target_include_directories(aion_gs_build_options INTERFACE "${GS_SRC}" "${GS_GENERATED}")
 
-# Adds a kernel static library from source directories (recursive) and single files (globs), relative to src/.
-function(aion_gs_add_library target)
-	cmake_parse_arguments(ARG "" "" "DIRS;FILES;DEPENDS" ${ARGN})
-	set(sources)
-	foreach(dir IN LISTS ARG_DIRS)
-		file(GLOB_RECURSE dir_sources CONFIGURE_DEPENDS "${GS_SRC}/${dir}/*.cpp" "${GS_SRC}/${dir}/*.h")
-		list(APPEND sources ${dir_sources})
-	endforeach()
-	foreach(pattern IN LISTS ARG_FILES)
-		file(GLOB file_sources CONFIGURE_DEPENDS "${GS_SRC}/${pattern}")
-		list(APPEND sources ${file_sources})
-	endforeach()
-	if(sources)
-		source_group(TREE "${GS_SRC}" FILES ${sources})
-	else()
-		set(placeholder "${CMAKE_CURRENT_BINARY_DIR}/${target}_placeholder.cpp")
-		file(WRITE "${placeholder}" "// placeholder for ${target}, which has no sources yet\n")
-		list(APPEND sources "${placeholder}")
-	endif()
-	add_library(${target} STATIC ${sources})
-	target_include_directories(${target} PUBLIC "${GS_SRC}")
-	target_link_libraries(${target} PUBLIC ${ARG_DEPENDS} aion_gs_build_options aion::compiler_options)
-endfunction()
+find_package(pugixml CONFIG REQUIRED)
+find_package(Python3 3.12 COMPONENTS Interpreter)
 
-# ---------------------------------------------------------------------------------------------------------------------------------------
-# Runtime kernel
-# ---------------------------------------------------------------------------------------------------------------------------------------
-aion_gs_add_library(aion_gs_runtime_base DIRS aion/gameserver/runtime/base DEPENDS aion_commons_core)
-aion_gs_add_library(aion_gs_runtime_sync DIRS aion/gameserver/runtime/sync DEPENDS aion_gs_runtime_base)
-aion_gs_add_library(aion_gs_runtime_lifetime DIRS aion/gameserver/runtime/lifetime DEPENDS aion_gs_runtime_sync)
-aion_gs_add_library(aion_gs_runtime_fields DIRS aion/gameserver/runtime/fields DEPENDS aion_gs_runtime_lifetime)
-aion_gs_add_library(aion_gs_runtime_collections DIRS aion/gameserver/runtime/collections DEPENDS aion_gs_runtime_lifetime)
-aion_gs_add_library(aion_gs_runtime_sched
-	DIRS aion/gameserver/runtime/sched
-	FILES aion/gameserver/utils/ThreadPoolManager.h aion/gameserver/utils/ThreadPoolManager.cpp
-	DEPENDS aion_gs_runtime_lifetime
-)
-aion_gs_add_library(aion_gs_runtime_services
-	DIRS aion/gameserver/runtime/services aion/gameserver/services/cron aion/gameserver/utils/cron aion/gameserver/utils/idfactory
-	DEPENDS aion_gs_runtime_sched aion_gs_runtime_collections aion_gs_runtime_fields aion_commons_configuration
+# ---------------------------------------------------------------------------------------------------------------------------------------------
+# Chunk libraries (chunks.cmake) and the handler registries
+# ---------------------------------------------------------------------------------------------------------------------------------------------
+include("${CMAKE_CURRENT_SOURCE_DIR}/cmake/AionChunks.cmake")
+include("${CMAKE_CURRENT_SOURCE_DIR}/tools/regscan/AionRegscan.cmake") # aion_gs_add_registries(); the tool itself is added below
+include("${CMAKE_CURRENT_SOURCE_DIR}/chunks.cmake")
+aion_gs_finalize_chunks(
+	SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}"
+	JAVA_DIR "${GS_JAVA_DIR}"
+	JSON "${CMAKE_CURRENT_BINARY_DIR}/chunks.json"
+	REGISTRY_EMPTY aion_gs_registry_empty
 )
 
+# all kernel libraries (the bench and kernel-level tests use it)
 add_library(aion_gs_runtime INTERFACE)
 target_link_libraries(aion_gs_runtime INTERFACE aion_gs_runtime_services aion_gs_runtime_sched aion_gs_runtime_collections aion_gs_runtime_fields
 	aion_gs_runtime_lifetime aion_gs_runtime_sync aion_gs_runtime_base)
 add_library(aion::gs_runtime ALIAS aion_gs_runtime)
 
-# ---------------------------------------------------------------------------------------------------------------------------------------
-# Tests: one executable per kernel library. Tests see tests/runtime (for shared helpers in tests/runtime/support) and their own directory.
-# ---------------------------------------------------------------------------------------------------------------------------------------
-foreach(area base sync lifetime fields collections sched services)
-	aion_add_tests(aion_gs_runtime_${area}_tests "${GS_TESTS}/runtime/${area}" DEPENDS aion_gs_runtime_${area})
-	if(TARGET aion_gs_runtime_${area}_tests)
-		target_include_directories(aion_gs_runtime_${area}_tests PRIVATE "${GS_TESTS}/runtime")
+# Registry tables of HandlerRegistry.h (§1.5), scanned from the handler tree and the client packet directory. The client packets live in the core
+# libraries of P5-00 and P5-15/16, whose factories the clientpackets table references.
+aion_gs_add_registries(aion_gs_registry
+	HANDLERS_ROOT "${GS_HANDLERS}"
+	CLIENTPACKETS_ROOT "${GS_SRC}"
+	JAVA_HANDLERS "${GS_JAVA_DIR}/data/handlers"
+	JAVA_CLIENT_PACKET_FACTORY "${GS_JAVA_DIR}/src/com/aionemu/gameserver/network/aion/AionClientPacketFactory.java"
+	HANDLER_LIBRARIES ${AION_GS_HANDLER_TARGETS} aion_gs_login_slice aion_gs_cm_ak aion_gs_cm_lz
+)
+
+# The server: every core library, every handler library (through the registries) and main.cpp (MAIN of chunk P5-14).
+add_executable(aion_game_server ${AION_GS_MAIN_SOURCES})
+source_group(TREE "${GS_SRC}" FILES ${AION_GS_MAIN_SOURCES})
+target_link_libraries(aion_game_server PRIVATE aion_gs_core aion_gs_handlers aion_gs_registry aion::compiler_options)
+set_target_properties(aion_game_server PROPERTIES VS_DEBUGGER_WORKING_DIRECTORY "${GS_JAVA_DIR}" CXX_SCAN_FOR_MODULES OFF)
+aion_copy_asan_runtime(aion_game_server)
+
+# ---------------------------------------------------------------------------------------------------------------------------------------------
+# aion_gs_header_check (§2.5, §3.1 item 7): one translation unit per spine header, compiled with /W4 /WX. Part of ALL: the 519 TUs take about
+# 7 s wall in Debug and recompile only when the headers they include change.
+# ---------------------------------------------------------------------------------------------------------------------------------------------
+file(GLOB_RECURSE gs_fwd_headers CONFIGURE_DEPENDS LIST_DIRECTORIES false RELATIVE "${GS_SRC}" "${GS_SRC}/*/fwd.h")
+file(GLOB_RECURSE gs_preludes CONFIGURE_DEPENDS LIST_DIRECTORIES false RELATIVE "${GS_HANDLERS}" "${GS_HANDLERS}/*Prelude.h")
+file(GLOB_RECURSE gs_generated_headers CONFIGURE_DEPENDS LIST_DIRECTORIES false RELATIVE "${GS_GENERATED}" "${GS_GENERATED}/aion/*.h")
+list(FILTER gs_generated_headers EXCLUDE REGEX "\\.(xml|bind)\\.h$")
+set(gs_enum_headers)
+foreach(header IN LISTS gs_generated_headers)
+	file(STRINGS "${GS_GENERATED}/${header}" enum_line REGEX "^enum class " LIMIT_COUNT 1)
+	if(enum_line)
+		list(APPEND gs_enum_headers "${header}")
 	endif()
 endforeach()
+list(SORT gs_fwd_headers)
+list(SORT gs_preludes)
+list(SORT gs_enum_headers)
+aion_gs_header_check(aion_gs_header_check
+	HEADERS ${gs_fwd_headers} ${gs_enum_headers} ${gs_preludes}
+		aion/gameserver/handlers/HandlerRegistry.h aion/gameserver/runtime/base/Unported.h aion/gameserver/runtime/services/RuntimeLifecycle.h
+	INCLUDE_DIRECTORIES "${GS_HANDLERS}"
+	LINK aion_gs_core_deps
+)
+list(LENGTH gs_fwd_headers gs_fwd_count)
+list(LENGTH gs_enum_headers gs_enum_count)
+list(LENGTH gs_preludes gs_prelude_count)
+message(STATUS "aion_gs_header_check: ${gs_fwd_count} forward headers, ${gs_enum_count} generated enum headers, ${gs_prelude_count} preludes, 3 spine headers")
 
+# ---------------------------------------------------------------------------------------------------------------------------------------------
+# Tests that are not the unit tests of one chunk target
+# ---------------------------------------------------------------------------------------------------------------------------------------------
 # Kernel stress harness (P2). Long runs are opt-in (see tests/runtime/stress); the default test run only executes short smoke variants.
-aion_add_tests(aion_gs_runtime_stress_tests "${GS_TESTS}/runtime/stress" DEPENDS aion_gs_runtime)
+aion_add_tests(aion_gs_runtime_stress_tests "${GS_TESTS}/runtime/stress" DEPENDS aion_gs_runtime aion_gs_build_options)
 if(TARGET aion_gs_runtime_stress_tests)
 	target_include_directories(aion_gs_runtime_stress_tests PRIVATE "${GS_TESTS}/runtime")
 endif()
 
-# ---------------------------------------------------------------------------------------------------------------------------------------
-# Wave 1 (tooling wave, docs/design/handlers-and-porting-plan.md §2.4): leaf libraries that need no spine. Each owns its source directory and
-# tests/<name>; the chunk manifest (chunks.cmake) replaces these hand-written entries in the spine step S0a.
-# ---------------------------------------------------------------------------------------------------------------------------------------
-find_package(pugixml CONFIG REQUIRED)
-# P4-01: the 33 config classes and game-server property transformers
-aion_gs_add_library(aion_gs_configs DIRS aion/gameserver/configs DEPENDS aion_gs_runtime aion_commons_configuration)
-# P4-03: the used jMonkeyEngine math subset under Java names
-aion_gs_add_library(aion_gs_geomath DIRS aion/gameserver/geoEngine/math DEPENDS aion_commons_core)
-# P4-15a: game client encryption
-aion_gs_add_library(aion_gs_network_crypt FILES aion/gameserver/network/Crypt.* aion/gameserver/network/EncryptionKeyPair.* DEPENDS aion_commons_core)
-# T2/WP4: static data XML binder runtime and import resolver (docs/design/static-data.md)
-aion_gs_add_library(aion_gs_xml DIRS aion/gameserver/dataholders/loadingutils DEPENDS aion_gs_runtime pugixml::pugixml)
-# P4-02b: handler registration markers and registry entry types (docs/design/handlers-and-porting-plan.md §1.4)
-aion_gs_add_library(aion_gs_handler_registry DIRS aion/gameserver/handlers DEPENDS aion_gs_runtime)
+if(AION_BUILD_TESTS)
+	# Tests that read the Java tree (config/, src/, data/): label realdata, and pass the tree's location in the environment as well
+	set(gs_realdata PROPERTIES LABELS realdata ENVIRONMENT "AION_GAMESERVER_JAVA_DIR=${GS_JAVA_DIR}")
+	aion_set_discovered_test_properties(aion_gs_configs_tests REGEX "^(ConfigLoadTest|JavaAnnotationsTest)\\." ${gs_realdata})
+	aion_set_discovered_test_properties(aion_gs_runtime_services_tests REGEX "^CronExpressionTest\\.EveryJavaServerCronStringParsesAndMatchesTheOracle$"
+		${gs_realdata})
+	aion_set_discovered_test_properties(aion_gs_xml_tests
+		REGEX "^(StaticDataImportsTest\\.RealStaticDataTreeResolvesLikeXmlMerger|StaticDataRealFilesTest\\..*|GeneratedSliceTest\\..*)$" ${gs_realdata})
 
-foreach(lib configs geomath network_crypt xml handler_registry)
-	aion_add_tests(aion_gs_${lib}_tests "${GS_TESTS}/${lib}" DEPENDS aion_gs_${lib})
-endforeach()
+	# S0a link proof: the server starts against a database and stops at the unported DataManager (cmake/RunStartupSmoke.cmake). Like the other
+	# database tests it is skipped unless the environment names the database: AION_TEST_GS_DATABASE_URL, e.g.
+	# jdbc:mysql://127.0.0.1:3306/aion_cpp_test?characterEncoding=UTF-8 (the database must exist; user root without password unless
+	# AION_TEST_GS_DATABASE_USER / AION_TEST_GS_DATABASE_PASSWORD are set).
+	add_test(NAME gs.smoke.startup
+		COMMAND "${CMAKE_COMMAND}" "-DEXECUTABLE=$<TARGET_FILE:aion_game_server>" "-DWORKING_DIRECTORY=${GS_JAVA_DIR}"
+			-P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/RunStartupSmoke.cmake")
+	set_tests_properties(gs.smoke.startup PROPERTIES LABELS "smoke;realdata" TIMEOUT 180 SKIP_REGULAR_EXPRESSION "gs\\.smoke\\.startup: skipped")
+
+	# the configure-time empty registry tables (linked by the unit tests) equal the tool's
+	list(JOIN AION_GS_REGISTRY_NAMES "," gs_registry_names)
+	add_test(NAME gs.registry.empty_tables
+		COMMAND "${CMAKE_COMMAND}" "-DOUT_DIR=${CMAKE_CURRENT_BINARY_DIR}/aion_gs_registry" "-DNAMES=${gs_registry_names}"
+			-P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/CompareEmptyRegistries.cmake")
+endif()
 
 # drift check of generated test data that lives outside cpp/tools (cpp/tools/CMakeLists.txt covers the tool suites)
-find_package(Python3 3.12 COMPONENTS Interpreter)
 if(AION_BUILD_TESTS AND Python3_Interpreter_FOUND)
 	add_test(NAME gs.geomath.golden_drift COMMAND "${Python3_EXECUTABLE}" oracle/gen_golden.py --check WORKING_DIRECTORY "${GS_TESTS}/geomath")
 	# concurrency lint (runtime-architecture.md §12.2) over all game server sources; warnings fail too
 	add_test(NAME gs.lint.concurrency COMMAND "${Python3_EXECUTABLE}" tools/porting/lint_concurrency.py --werror game-server/src WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}")
+	# tools/porting/chunks.py computes the same ownership as the configure step (its chunks.json)
+	add_test(NAME gs.chunks.consistency
+		COMMAND "${Python3_EXECUTABLE}" tools/porting/chunks.py verify-json "${CMAKE_CURRENT_BINARY_DIR}/chunks.json" WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}")
+	set_tests_properties(gs.chunks.consistency ${gs_realdata}) # it scans the Java tree
 endif()
 
-# C++ build tools of the game server (e.g. tools/regscan, added in wave 1)
+# C++ build tools of the game server (tools/regscan)
 file(GLOB gs_tool_dirs LIST_DIRECTORIES true "${CMAKE_CURRENT_SOURCE_DIR}/tools/*")
 foreach(dir IN LISTS gs_tool_dirs)
 	if(EXISTS "${dir}/CMakeLists.txt")
 		add_subdirectory("${dir}")
 	endif()
 endforeach()
+
+if(AION_BUILD_TESTS AND TARGET aion_gs_regscan_tests)
+	set(gs_regscan_dir "${CMAKE_CURRENT_SOURCE_DIR}/tools/regscan")
+	aion_set_discovered_test_properties(aion_gs_regscan_tests DIRECTORY "${gs_regscan_dir}" REGEX "^RealJavaTreeTest\\." ${gs_realdata})
+	if(IS_DIRECTORY "${GS_JAVA_DIR}/data/handlers")
+		set_tests_properties(aion_gs_regscan.cli.java_tree DIRECTORY "${gs_regscan_dir}" ${gs_realdata})
+	endif()
+endif()
 
 # Benchmarks (P4): not part of ctest.
 option(AION_BUILD_BENCH "Build the game server benchmarks (game-server/bench)" ON)

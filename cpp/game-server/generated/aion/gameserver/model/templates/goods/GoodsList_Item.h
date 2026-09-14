@@ -4,10 +4,12 @@
 #include <cstdint>
 #include <optional>
 
+#include "aion/gameserver/runtime/lifetime/RefCounted.h"
+
 namespace aion::gameserver::model::templates::goods {
 
 /** Java com.aionemu.gameserver.model.templates.goods.GoodsList.Item (data-only: generated completely). */
-struct GoodsList_Item {
+struct GoodsList_Item : public ::aion::gameserver::runtime::StaticTemplate {
 	int32_t id = 0; // @XmlAttribute(name = "id")
 	std::optional<int32_t> sellLimit; // @XmlAttribute(name = "sell_limit")
 	std::optional<int32_t> buyLimit; // @XmlAttribute(name = "buy_limit")

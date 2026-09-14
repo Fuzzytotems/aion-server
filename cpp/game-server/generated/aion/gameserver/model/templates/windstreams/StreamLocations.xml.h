@@ -8,3 +8,4 @@
 
 #include "aion/gameserver/dataholders/loadingutils/XmlBindingFwd.h"
 #include "aion/gameserver/model/templates/windstreams/Location2D.h"
+#include "aion/gameserver/runtime/lifetime/RefCounted.h"

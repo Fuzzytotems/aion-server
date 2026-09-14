@@ -3,10 +3,12 @@
 
 #include <cstdint>
 
+#include "aion/gameserver/runtime/lifetime/RefCounted.h"
+
 namespace aion::gameserver::model::templates::world {
 
 /** Java com.aionemu.gameserver.model.templates.world.AiInfo (data-only: generated completely). */
-struct AiInfo {
+struct AiInfo : public ::aion::gameserver::runtime::StaticTemplate {
 	int32_t chaseTarget = 50; // @XmlAttribute(name = "chase_target") Java: = 50
 	int32_t chaseHome = 200; // @XmlAttribute(name = "chase_home") Java: = 200
 	static const AiInfo DEFAULT;

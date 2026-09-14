@@ -14,3 +14,4 @@
 #include "aion/gameserver/model/templates/housing/BuildingCapabilities.h"
 #include "aion/gameserver/model/templates/housing/HouseAddress.h"
 #include "aion/gameserver/model/templates/housing/Sale.h"
+#include "aion/gameserver/runtime/lifetime/RefCounted.h"

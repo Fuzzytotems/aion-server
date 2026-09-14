@@ -29,6 +29,8 @@ constexpr std::array<MarkerInfo, 8> MARKERS{{
 constexpr std::string_view DETAIL_COMMAND_MACRO = "AION_DETAIL_COMMAND";
 constexpr std::string_view HANDLERS_PREFIX = "aion/gameserver/handlers/";
 constexpr std::string_view CLIENT_PACKETS_DIR = "aion/gameserver/network/aion/clientpackets";
+constexpr std::string_view QUEST_PRELUDE = "aion/gameserver/handlers/quest/QuestPrelude.h";
+constexpr std::array<std::string_view, 4> DIALOG_ACTION_NAMESPACE{"aion", "gameserver", "model", "DialogAction"};
 
 const MarkerInfo* findMarker(std::string_view name) noexcept {
 	auto it = std::ranges::find(MARKERS, name, &MarkerInfo::name);
@@ -132,6 +134,8 @@ private:
 	size_t handleIdentifier(size_t i) {
 		const Token& tok = t[i];
 		if (tok.text == "using" && i + 1 < t.size() && t[i + 1].isIdentifier("namespace")) {
+			if (role == FileRole::HANDLER && isQuestPreludeDialogActionDirective(i))
+				return i + 2; // the one allowed directive: Java's import static DialogAction.* for every quest handler
 			if (role == FileRole::HANDLER)
 				error(tok, "'using namespace' is not allowed in handler files (unity builds): use the category prelude or qualified names");
 			else if (otherDepth == 0)
@@ -153,6 +157,29 @@ private:
 				detectTypeDefinition(i);
 		}
 		return i + 1;
+	}
+
+	/**
+	 * True for exactly `using namespace [::]aion::gameserver::model::DialogAction;` at namespace scope in the quest prelude, inside its package
+	 * namespace aion::gameserver::handlers::quest.
+	 */
+	bool isQuestPreludeDialogActionDirective(size_t i) const {
+		if (relPath != QUEST_PRELUDE || otherDepth != 0 || namespaceSegments != expected)
+			return false;
+		size_t j = i + 2;
+		if (j < t.size() && t[j].isPunct("::"))
+			j++;
+		for (size_t s = 0; s < DIALOG_ACTION_NAMESPACE.size(); s++) {
+			if (s > 0) {
+				if (j >= t.size() || !t[j].isPunct("::"))
+					return false;
+				j++;
+			}
+			if (j >= t.size() || !t[j].isIdentifier(DIALOG_ACTION_NAMESPACE[s]))
+				return false;
+			j++;
+		}
+		return j < t.size() && t[j].isPunct(";");
 	}
 
 	void handlePunct(const Token& tok) {

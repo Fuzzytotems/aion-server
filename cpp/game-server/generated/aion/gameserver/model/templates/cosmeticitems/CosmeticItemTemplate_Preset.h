@@ -3,10 +3,12 @@
 
 #include <cstdint>
 
+#include "aion/gameserver/runtime/lifetime/RefCounted.h"
+
 namespace aion::gameserver::model::templates::cosmeticitems {
 
 /** Java com.aionemu.gameserver.model.templates.cosmeticitems.CosmeticItemTemplate.Preset (data-only: generated completely). */
-struct CosmeticItemTemplate_Preset {
+struct CosmeticItemTemplate_Preset : public ::aion::gameserver::runtime::StaticTemplate {
 	float scale = 0.0f; // @XmlElement(name = "scale")
 	int32_t hairType = 0; // @XmlElement(name = "hair_type")
 	int32_t faceType = 0; // @XmlElement(name = "face_type")

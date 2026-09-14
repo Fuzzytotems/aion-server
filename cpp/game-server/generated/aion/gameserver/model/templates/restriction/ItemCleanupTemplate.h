@@ -3,10 +3,12 @@
 
 #include <cstdint>
 
+#include "aion/gameserver/runtime/lifetime/RefCounted.h"
+
 namespace aion::gameserver::model::templates::restriction {
 
 /** Java com.aionemu.gameserver.model.templates.restriction.ItemCleanupTemplate (data-only: generated completely). */
-struct ItemCleanupTemplate {
+struct ItemCleanupTemplate : public ::aion::gameserver::runtime::StaticTemplate {
 	int32_t id = 0; // @XmlAttribute(name = "id", required = true)
 	int8_t trade = -1; // @XmlAttribute(name = "trade") Java: = -1
 	int8_t sell = -1; // @XmlAttribute(name = "sell") Java: = -1

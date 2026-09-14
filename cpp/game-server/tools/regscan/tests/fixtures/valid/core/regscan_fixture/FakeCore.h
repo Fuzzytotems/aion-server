@@ -144,3 +144,7 @@ private:
 	const uint8_t states;
 };
 } // namespace aion::gameserver::network::aion
+
+namespace aion::gameserver::model::DialogAction {
+inline constexpr int32_t QUEST_SELECT = 10;
+} // namespace aion::gameserver::model::DialogAction

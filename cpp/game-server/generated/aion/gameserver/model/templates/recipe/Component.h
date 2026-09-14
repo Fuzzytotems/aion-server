@@ -3,10 +3,12 @@
 
 #include <cstdint>
 
+#include "aion/gameserver/runtime/lifetime/RefCounted.h"
+
 namespace aion::gameserver::model::templates::recipe {
 
 /** Java com.aionemu.gameserver.model.templates.recipe.Component (data-only: generated completely). */
-struct Component {
+struct Component : public ::aion::gameserver::runtime::StaticTemplate {
 	int32_t itemid = 0; // @XmlAttribute(name = "itemid")
 	int32_t quantity = 0; // @XmlAttribute(name = "quantity")
 	int32_t getItemId() const { return itemid; }

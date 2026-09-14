@@ -10,3 +10,4 @@
 
 #include "aion/gameserver/dataholders/loadingutils/XmlBindingFwd.h"
 #include "aion/gameserver/model/templates/npcshout/ShoutEventType.h"
+#include "aion/gameserver/runtime/lifetime/RefCounted.h"

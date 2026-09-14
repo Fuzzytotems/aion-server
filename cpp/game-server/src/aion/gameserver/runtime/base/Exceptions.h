@@ -6,11 +6,12 @@
  * Java exception types used by the runtime kernel and by ported game server code (design §2.1, §3.3, §7.1).
  *
  * All derive from aion::commons::utils::Exception (captured std::stacktrace, optional cause). The commons types (IllegalArgumentException,
- * IllegalStateException, UnsupportedOperationException, IndexOutOfBoundsException) are re-exported into this namespace so kernel and game
- * code can name every Java exception from one place.
+ * IllegalStateException, UnsupportedOperationException, IndexOutOfBoundsException, ArithmeticException) are re-exported into this namespace
+ * so kernel and game code can name every Java exception from one place.
  */
 namespace aion::gameserver::runtime {
 
+using commons::utils::ArithmeticException;
 using commons::utils::Exception;
 using commons::utils::IllegalArgumentException;
 using commons::utils::IllegalStateException;

@@ -9,3 +9,4 @@
 #include "aion/gameserver/dataholders/SpawnsData_UnprocessedSpawns.xml.h"
 #include "aion/gameserver/dataholders/loadingutils/XmlBindingFwd.h"
 #include "aion/gameserver/model/templates/spawns/SpawnMap.h"
+#include "aion/gameserver/runtime/lifetime/RefCounted.h"

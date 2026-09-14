@@ -6,11 +6,12 @@
 #include <vector>
 
 #include "aion/gameserver/model/templates/spawns/Spawn.h"
+#include "aion/gameserver/runtime/lifetime/RefCounted.h"
 
 namespace aion::gameserver::model::templates::towns {
 
 /** Java com.aionemu.gameserver.model.templates.towns.TownLevel (data-only: generated completely). */
-struct TownLevel {
+struct TownLevel : public ::aion::gameserver::runtime::StaticTemplate {
 	int32_t level = 0; // @XmlAttribute(name = "level")
 	std::vector<std::unique_ptr<::aion::gameserver::model::templates::spawns::Spawn>> spawns; // @XmlElement(name = "spawn")
 	int32_t getLevel() const { return level; }

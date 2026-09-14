@@ -3,10 +3,12 @@
 
 #include <cstdint>
 
+#include "aion/gameserver/runtime/lifetime/RefCounted.h"
+
 namespace aion::gameserver::model::templates::road {
 
 /** Java com.aionemu.gameserver.model.templates.road.RoadExit (data-only: generated completely). */
-struct RoadExit {
+struct RoadExit : public ::aion::gameserver::runtime::StaticTemplate {
 	int32_t mapId = 0; // @XmlAttribute(name = "mapid")
 	float x = 0.0f; // @XmlAttribute(name = "x")
 	float y = 0.0f; // @XmlAttribute(name = "y")

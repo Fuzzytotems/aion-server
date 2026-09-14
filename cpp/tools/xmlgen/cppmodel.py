@@ -36,6 +36,10 @@ PRIMITIVE_CPP = {'boolean': 'bool', 'byte': 'int8_t', 'short': 'int16_t', 'int':
 RUNTIME_FIELD = '::aion::gameserver::runtime::Field'
 FWD_HEADER = 'aion/gameserver/dataholders/loadingutils/XmlBindingFwd.h'
 FIELD_HEADER = 'aion/gameserver/runtime/fields/Field.h'
+# Marker base of the K1 static data classes (runtime/lifetime/RefCounted.h): every hierarchy root derives it (data structs and hand-written
+# behaviour shells), so `const T*` template pointers are IsTemplatePtr/Pinnable for the task capture rules (runtime-architecture.md §7.3)
+STATIC_TEMPLATE = '::aion::gameserver::runtime::StaticTemplate'
+STATIC_TEMPLATE_HEADER = 'aion/gameserver/runtime/lifetime/RefCounted.h'
 
 
 def cpp_ident(name):
@@ -936,6 +940,8 @@ class CppModel:
         cc.has_finish = bool(attrs or elems or cc.hook_owner is not None)
         if base is not None:
             cc.includes.add(base.header)
+        elif not cc.container:
+            cc.includes.add(STATIC_TEMPLATE_HEADER)  # the root derives STATIC_TEMPLATE (the prelude of a behaviour class provides it)
         # aliases for nested enums and nested data classes
         for e in self.enums.values():
             if e.outer_alias and e.outer_alias[0] == cc.fqn:

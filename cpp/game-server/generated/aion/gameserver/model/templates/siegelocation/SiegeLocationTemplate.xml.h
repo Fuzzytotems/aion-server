@@ -18,3 +18,4 @@
 #include "aion/gameserver/model/templates/siegelocation/SiegeMercenaryZone.h"
 #include "aion/gameserver/model/templates/siegelocation/SiegeRelatedBases.h"
 #include "aion/gameserver/model/templates/siegelocation/SiegeReward.h"
+#include "aion/gameserver/runtime/lifetime/RefCounted.h"

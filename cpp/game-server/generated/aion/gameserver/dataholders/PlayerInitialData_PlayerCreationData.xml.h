@@ -10,6 +10,7 @@
 #include "aion/gameserver/dataholders/PlayerInitialData_PlayerCreationData_ItemType.xml.h"
 #include "aion/gameserver/dataholders/loadingutils/XmlBindingFwd.h"
 #include "aion/gameserver/model/PlayerClass.h"
+#include "aion/gameserver/runtime/lifetime/RefCounted.h"
 
 namespace aion::gameserver::dataholders {
 struct PlayerInitialData_PlayerCreationData_ItemsType;

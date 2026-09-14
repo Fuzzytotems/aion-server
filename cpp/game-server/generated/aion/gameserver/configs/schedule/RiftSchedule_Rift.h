@@ -5,11 +5,12 @@
 #include <vector>
 
 #include "aion/gameserver/model/templates/rift/OpenRift.h"
+#include "aion/gameserver/runtime/lifetime/RefCounted.h"
 
 namespace aion::gameserver::configs::schedule {
 
 /** Java com.aionemu.gameserver.configs.schedule.RiftSchedule.Rift (data-only: generated completely). */
-struct RiftSchedule_Rift {
+struct RiftSchedule_Rift : public ::aion::gameserver::runtime::StaticTemplate {
 	int32_t id = 0; // @XmlAttribute(name = "id", required = true)
 	std::vector<::aion::gameserver::model::templates::rift::OpenRift> openRift; // @XmlElement(name = "open")
 	int32_t getWorldId() const { return id; }

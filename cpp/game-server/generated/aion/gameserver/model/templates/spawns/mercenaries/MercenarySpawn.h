@@ -5,11 +5,12 @@
 #include <vector>
 
 #include "aion/gameserver/model/templates/spawns/mercenaries/MercenaryRace.h"
+#include "aion/gameserver/runtime/lifetime/RefCounted.h"
 
 namespace aion::gameserver::model::templates::spawns::mercenaries {
 
 /** Java com.aionemu.gameserver.model.templates.spawns.mercenaries.MercenarySpawn (data-only: generated completely). */
-struct MercenarySpawn {
+struct MercenarySpawn : public ::aion::gameserver::runtime::StaticTemplate {
 	int32_t siegeId = 0; // @XmlAttribute(name = "siege_id")
 	std::vector<::aion::gameserver::model::templates::spawns::mercenaries::MercenaryRace> mercenaryRaces; // @XmlElement(name = "mercenary_race")
 	int32_t getSiegeId() const { return siegeId; }

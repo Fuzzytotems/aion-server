@@ -4,11 +4,12 @@
 #include <vector>
 
 #include "aion/gameserver/model/templates/item/TradeinItem.h"
+#include "aion/gameserver/runtime/lifetime/RefCounted.h"
 
 namespace aion::gameserver::model::templates::item {
 
 /** Java com.aionemu.gameserver.model.templates.item.TradeinList (data-only: generated completely). */
-struct TradeinList {
+struct TradeinList : public ::aion::gameserver::runtime::StaticTemplate {
 	std::vector<::aion::gameserver::model::templates::item::TradeinItem> tradeinItem; // @XmlElement(name = "tradein_item")
 	const std::vector<::aion::gameserver::model::templates::item::TradeinItem>& getTradeinItem() const { return tradeinItem; }
 };

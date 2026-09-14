@@ -177,6 +177,17 @@ class C { static inline std::vector<int> cache; static inline Field<int32_t> ok{
         f = lint(code, path='game-server/src/aion/gameserver/runtime/x/T.cpp', rules=['L4'])
         self.assertEqual([x.line for x in f], [2, 7, 8])
 
+    def test_l4_opaque_enum_declarations_are_not_variables(self):
+        code = '''namespace aion::gameserver::x {
+enum class WorldMapType : std::uint8_t;
+enum class Race : uint16_t;
+enum Plain : int;
+class Forward;
+int counter = 0;
+}'''
+        f = lint(code, path='game-server/src/aion/gameserver/x/fwd.h', rules=['L4'])
+        self.assertEqual([x.line for x in f], [6])
+
     def test_l10_packets(self):
         code = '''namespace aion::gameserver::network::aion::serverpackets {
 class SM_PLAYER_INFO final : public AionServerPacket { Ref<Player> player; };

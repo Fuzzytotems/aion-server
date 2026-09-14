@@ -17,6 +17,7 @@ bool XmlBinding<::aion::gameserver::skillengine::effect::PetOrderUseUltraSkillEf
 	}
 	if (name == "ultra_skill") {
 		static_cast<void>(value); // not bound by Java, ignored like JAXB (xmlgen.toml [ignore_attributes]: 13 petorderuseultraskill)
+		c.ignoreAttribute(); // BindStats counts it as ignored
 		return true;
 	}
 	return XmlBinding<::aion::gameserver::skillengine::effect::EffectTemplate>::attribute(o, c, name, value);

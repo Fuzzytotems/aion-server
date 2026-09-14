@@ -20,11 +20,12 @@
 #include "aion/gameserver/model/templates/globaldrops/GlobalDropWorlds.h"
 #include "aion/gameserver/model/templates/globaldrops/GlobalDropZones.h"
 #include "aion/gameserver/model/templates/globaldrops/GlobalRule_RestrictionRace.h"
+#include "aion/gameserver/runtime/lifetime/RefCounted.h"
 
 namespace aion::gameserver::model::templates::globaldrops {
 
 /** Java com.aionemu.gameserver.model.templates.globaldrops.GlobalRule (data-only: generated completely). */
-struct GlobalRule {
+struct GlobalRule : public ::aion::gameserver::runtime::StaticTemplate {
 	using RestrictionRace = ::aion::gameserver::model::templates::globaldrops::GlobalRule_RestrictionRace;
 	std::optional<std::vector<::aion::gameserver::model::templates::globaldrops::GlobalDropItem>> gdItems; // @XmlElementWrapper(name = "gd_items") @XmlElement(name = "gd_item", required = true)
 	std::unique_ptr<::aion::gameserver::model::templates::globaldrops::GlobalDropMaps> gdMaps; // @XmlElement(name = "gd_maps")

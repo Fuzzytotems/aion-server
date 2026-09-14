@@ -190,6 +190,42 @@ TEST(SourceScannerTest, UnityFileRules) {
 	FileScan usingNamespace = scanHandler(AI_FILE, "namespace aion::gameserver::handlers::ai {\nvoid f() {\n\tusing namespace std;\n}\n}\n");
 	EXPECT_ERROR(usingNamespace.errors, 3, "'using namespace' is not allowed");
 
+	// the one exception: the DialogAction directive at namespace scope of the quest prelude (optionally with a leading ::)
+	constexpr std::string_view QUEST_PRELUDE = "aion/gameserver/handlers/quest/QuestPrelude.h";
+	FileScan preludeDirective = scanHandler(QUEST_PRELUDE, R"cpp(namespace aion::gameserver::handlers::quest {
+using namespace aion::gameserver::model::DialogAction;
+using namespace ::aion::gameserver::model::DialogAction;
+}
+)cpp");
+	EXPECT_NO_ERRORS(preludeDirective.errors);
+	FileScan otherPreludeDirective = scanHandler(QUEST_PRELUDE, R"cpp(namespace aion::gameserver::handlers::quest {
+using namespace std;
+}
+)cpp");
+	EXPECT_ERROR(otherPreludeDirective.errors, 2, "'using namespace' is not allowed");
+	FileScan longerDirective = scanHandler(QUEST_PRELUDE, R"cpp(namespace aion::gameserver::handlers::quest {
+using namespace aion::gameserver::model::DialogAction::detail;
+}
+)cpp");
+	EXPECT_ERROR(longerDirective.errors, 2, "'using namespace' is not allowed");
+	FileScan directiveInQuestFile = scanHandler("aion/gameserver/handlers/quest/_1000Test.cpp", R"cpp(namespace aion::gameserver::handlers::quest {
+using namespace aion::gameserver::model::DialogAction;
+}
+)cpp");
+	EXPECT_ERROR(directiveInQuestFile.errors, 2, "'using namespace' is not allowed");
+	FileScan directiveInFunction = scanHandler(QUEST_PRELUDE, R"cpp(namespace aion::gameserver::handlers::quest {
+inline void f() {
+	using namespace aion::gameserver::model::DialogAction;
+}
+}
+)cpp");
+	EXPECT_ERROR(directiveInFunction.errors, 3, "'using namespace' is not allowed");
+	FileScan directiveOutsidePackage = scanHandler(QUEST_PRELUDE, R"cpp(using namespace aion::gameserver::model::DialogAction;
+namespace aion::gameserver::handlers::quest {
+}
+)cpp");
+	EXPECT_ERROR(directiveOutsidePackage.errors, 1, "'using namespace' is not allowed");
+
 	FileScan usingDeclaration = scanHandler(AI_FILE, "namespace aion::gameserver::handlers::ai {\nusing gameserver::ai::NpcAI;\nusing Alias = int;\n}\n");
 	EXPECT_NO_ERRORS(usingDeclaration.errors);
 

@@ -7,6 +7,7 @@
 #include <cstdint>
 
 #include "aion/gameserver/dataholders/loadingutils/XmlBindingFwd.h"
+#include "aion/gameserver/runtime/lifetime/RefCounted.h"
 
 namespace aion::gameserver::model::templates::item {
 class ItemTemplate;

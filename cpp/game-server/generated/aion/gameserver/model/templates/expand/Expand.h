@@ -3,10 +3,12 @@
 
 #include <cstdint>
 
+#include "aion/gameserver/runtime/lifetime/RefCounted.h"
+
 namespace aion::gameserver::model::templates::expand {
 
 /** Java com.aionemu.gameserver.model.templates.expand.Expand (data-only: generated completely). */
-struct Expand {
+struct Expand : public ::aion::gameserver::runtime::StaticTemplate {
 	int32_t level = 0; // @XmlAttribute(name = "level", required = true)
 	int32_t price = 0; // @XmlAttribute(name = "price", required = true)
 	int32_t getLevel() const { return level; }

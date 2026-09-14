@@ -28,3 +28,4 @@
 #include "aion/gameserver/model/templates/quest/QuestWorkItems.h"
 #include "aion/gameserver/model/templates/quest/Rewards.h"
 #include "aion/gameserver/model/templates/quest/XMLStartCondition.h"
+#include "aion/gameserver/runtime/lifetime/RefCounted.h"

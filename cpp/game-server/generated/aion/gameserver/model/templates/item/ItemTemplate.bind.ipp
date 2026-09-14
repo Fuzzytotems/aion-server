@@ -262,6 +262,7 @@ bool XmlBinding<::aion::gameserver::model::templates::item::ItemTemplate>::attri
 		case "cName"_xh:
 			if (name == "cName") {
 				static_cast<void>(value); // not bound by Java, ignored like JAXB (xmlgen.toml [ignore_attributes]: client name, 102009 item_template)
+				c.ignoreAttribute(); // BindStats counts it as ignored
 				return true;
 			}
 			break;

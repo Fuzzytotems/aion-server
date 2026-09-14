@@ -13,6 +13,7 @@
 #include "aion/gameserver/model/templates/spawns/SpawnSpotTemplate.h"
 #include "aion/gameserver/model/templates/spawns/TemporarySpawn.h"
 #include "aion/gameserver/runtime/fields/Field.h"
+#include "aion/gameserver/runtime/lifetime/RefCounted.h"
 #include "aion/gameserver/spawnengine/SpawnHandlerType.h"
 
 namespace aion::gameserver::model::templates::event {

@@ -5,11 +5,12 @@
 #include <vector>
 
 #include "aion/gameserver/model/templates/spawns/vortexspawns/VortexSpawn_VortexStateTemplate.h"
+#include "aion/gameserver/runtime/lifetime/RefCounted.h"
 
 namespace aion::gameserver::model::templates::spawns::vortexspawns {
 
 /** Java com.aionemu.gameserver.model.templates.spawns.vortexspawns.VortexSpawn (data-only: generated completely). */
-struct VortexSpawn {
+struct VortexSpawn : public ::aion::gameserver::runtime::StaticTemplate {
 	using VortexStateTemplate = ::aion::gameserver::model::templates::spawns::vortexspawns::VortexSpawn_VortexStateTemplate;
 	int32_t id = 0; // @XmlAttribute(name = "id")
 	std::vector<::aion::gameserver::model::templates::spawns::vortexspawns::VortexSpawn_VortexStateTemplate> stateTemplates; // @XmlElement(name = "state_type")

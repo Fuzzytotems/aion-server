@@ -6,11 +6,12 @@
 
 #include "aion/gameserver/model/templates/ai/Bombs.h"
 #include "aion/gameserver/model/templates/ai/Summons.h"
+#include "aion/gameserver/runtime/lifetime/RefCounted.h"
 
 namespace aion::gameserver::model::templates::ai {
 
 /** Java com.aionemu.gameserver.model.templates.ai.AITemplate (data-only: generated completely). */
-struct AITemplate {
+struct AITemplate : public ::aion::gameserver::runtime::StaticTemplate {
 	std::unique_ptr<::aion::gameserver::model::templates::ai::Summons> summons; // @XmlElement(name = "summons")
 	std::unique_ptr<::aion::gameserver::model::templates::ai::Bombs> bombs; // @XmlElement(name = "bombs")
 	int32_t npcId = 0; // @XmlAttribute(name = "npcId")

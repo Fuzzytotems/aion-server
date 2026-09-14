@@ -3,10 +3,12 @@
 
 #include <cstdint>
 
+#include "aion/gameserver/runtime/lifetime/RefCounted.h"
+
 namespace aion::gameserver::model::templates::Guides {
 
 /** Java com.aionemu.gameserver.model.templates.Guides.SurveyTemplate (data-only: generated completely). */
-struct SurveyTemplate {
+struct SurveyTemplate : public ::aion::gameserver::runtime::StaticTemplate {
 	int32_t itemId = 0; // @XmlAttribute(name = "itemId")
 	int64_t count = 0; // @XmlAttribute(name = "count")
 	int64_t getCount() const { return count; }

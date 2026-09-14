@@ -4,11 +4,12 @@
 #include <cstdint>
 
 #include "aion/gameserver/model/templates/spawns/SpawnType.h"
+#include "aion/gameserver/runtime/lifetime/RefCounted.h"
 
 namespace aion::gameserver::model::templates::spawns {
 
 /** Java com.aionemu.gameserver.model.templates.spawns.HouseSpawn (data-only: generated completely). */
-struct HouseSpawn {
+struct HouseSpawn : public ::aion::gameserver::runtime::StaticTemplate {
 	float x = 0.0f; // @XmlAttribute(name = "x", required = true)
 	float y = 0.0f; // @XmlAttribute(name = "y", required = true)
 	float z = 0.0f; // @XmlAttribute(name = "z", required = true)

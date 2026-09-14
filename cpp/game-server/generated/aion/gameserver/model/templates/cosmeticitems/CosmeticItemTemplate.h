@@ -8,11 +8,12 @@
 
 #include "aion/gameserver/model/Race.h"
 #include "aion/gameserver/model/templates/cosmeticitems/CosmeticItemTemplate_Preset.h"
+#include "aion/gameserver/runtime/lifetime/RefCounted.h"
 
 namespace aion::gameserver::model::templates::cosmeticitems {
 
 /** Java com.aionemu.gameserver.model.templates.cosmeticitems.CosmeticItemTemplate (data-only: generated completely). */
-struct CosmeticItemTemplate {
+struct CosmeticItemTemplate : public ::aion::gameserver::runtime::StaticTemplate {
 	using Preset = ::aion::gameserver::model::templates::cosmeticitems::CosmeticItemTemplate_Preset;
 	std::string type; // @XmlAttribute(name = "type")
 	std::string cosmeticName; // @XmlAttribute(name = "cosmetic_name")

@@ -11,6 +11,7 @@
 
 #include "aion/gameserver/controllers/attack/AttackStatus.h"
 #include "aion/gameserver/dataholders/loadingutils/XmlBindingFwd.h"
+#include "aion/gameserver/runtime/lifetime/RefCounted.h"
 #include "aion/gameserver/skillengine/action/Actions.h"
 #include "aion/gameserver/skillengine/condition/Conditions.h"
 #include "aion/gameserver/skillengine/effect/Effects.h"

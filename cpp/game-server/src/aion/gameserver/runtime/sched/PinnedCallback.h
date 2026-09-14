@@ -42,12 +42,12 @@ public:
 	template <class F>
 		requires std::is_invocable_r_v<R, const std::decay_t<F>&, Args...>
 	PinnedCallback(Pin pin, F&& callable, std::source_location where = std::source_location::current())
-		: impl(std::make_shared<Model<std::decay_t<F>>>(std::move(pin), std::forward<F>(callable), TaskInfo{where, TaskKind::CALLBACK})) {}
+		: impl(std::make_shared<Model<std::decay_t<F>>>(std::move(pin), std::forward<F>(callable), TaskInfo{where, TaskKind::CALLBACK_})) {}
 
 	template <class F>
 		requires UnpinnedCallback<F, R, Args...> && (!std::same_as<std::remove_cvref_t<F>, PinnedCallback>)
 	PinnedCallback(F&& callable, std::source_location where = std::source_location::current())
-		: impl(std::make_shared<Model<std::decay_t<F>>>(Pin(), std::forward<F>(callable), TaskInfo{where, TaskKind::CALLBACK})) {}
+		: impl(std::make_shared<Model<std::decay_t<F>>>(Pin(), std::forward<F>(callable), TaskInfo{where, TaskKind::CALLBACK_})) {}
 
 	/** @throws NullPointerException if empty; exceptions of the callable propagate */
 	R operator()(Args... args) const {

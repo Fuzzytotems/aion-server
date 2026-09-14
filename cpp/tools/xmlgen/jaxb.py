@@ -265,6 +265,7 @@ class EnumModel:
     has_fields: bool
     xml_type_name: str | None
     referenced_by: set = field(default_factory=set)
+    core: bool = False  # not reached by JAXB: emitted for the core tree (policy core_enums)
 
     @property
     def location(self):
@@ -327,11 +328,13 @@ class Policy:
     ignore_attributes: dict = field(default_factory=dict)  # class fqn + '.' + XML attribute name -> reason
     unenforced_required: dict = field(default_factory=dict)  # property key -> reason (required = true violated by the data)
     lenient_enums: dict = field(default_factory=dict)  # property key -> reason (unknown constants in the data become null like JAXB)
+    hand_written_enums: dict = field(default_factory=dict)  # enum fqn -> reason (core enums with an existing hand-written C++ definition)
+    core_enums: bool = False  # also emit every enum of the Java tree that JAXB does not reach (S0a decision 3)
     used: set = field(default_factory=set)
 
     TABLES = ('xml_names', 'deny_implicit', 'initializers', 'adapters', 'runtime_mutable', 'force_behaviour', 'storage_by_pointer',
               'optional_strings', 'ignore_public_members', 'before_unmarshal_allowed', 'external_enums', 'ignore_attributes',
-              'unenforced_required', 'lenient_enums')
+              'unenforced_required', 'lenient_enums', 'hand_written_enums')
 
     @staticmethod
     def _keyed(table, name):
@@ -349,10 +352,13 @@ class Policy:
         roots = [long_fqn(r) for r in doc.get('roots', [])]
         if not roots:
             raise XmlGenError('xmlgen.toml: roots is empty')
-        unknown = set(doc) - {'roots', 'java_src'} - set(cls.TABLES)
+        unknown = set(doc) - {'roots', 'java_src', 'core_enums'} - set(cls.TABLES)
         if unknown:
             raise XmlGenError(f'xmlgen.toml: unknown keys {sorted(unknown)}')
         p = cls(roots)
+        p.core_enums = doc.get('core_enums', False)
+        if not isinstance(p.core_enums, bool):
+            raise XmlGenError('xmlgen.toml: core_enums must be true or false')
         for name in cls.TABLES:
             setattr(p, name, cls._keyed(doc.get(name), name))
         for key, value in p.xml_names.items():
@@ -393,7 +399,8 @@ class Model:
         self.index = index
         self.policy = policy
         self.classes = {}  # fqn -> ClassModel
-        self.enums = {}  # fqn -> EnumModel
+        self.enums = {}  # fqn -> EnumModel (reachable JAXB enums, then the core enums)
+        self.hand_written_enums = []  # [fqn] core enums skipped by [hand_written_enums]
         self.unreachable = []  # [fqn] JAXB-annotated types that are not reachable
         self.external_types = {}  # fqn -> [property keys] (adapter value types, LocalDateTime, ...)
         self.errors = []
@@ -555,7 +562,30 @@ class Model:
                         if not self.is_subclass(target, base):
                             raise self.error(p.decl, f'choice {name} -> {short_fqn(target)} is not a subclass of {short_fqn(base)}')
         self.find_unreachable()
+        if self.policy.core_enums:
+            self.add_core_enums()
         return self
+
+    def add_core_enums(self):
+        """S0a decision 3: every enum of the Java tree that the JAXB graph does not reach is emitted the same way (constants and name
+        tables; constructor data, methods and constant-specific bodies are hand-written companions). [hand_written_enums] lists enums
+        whose C++ definition already exists in hand-written code."""
+        for fqn, td in sorted(self.index.types.items()):
+            if td.kind != 'enum' or fqn in self.enums or not fqn.startswith(PROJECT_PREFIX):
+                continue
+            if self.policy.lookup('hand_written_enums', fqn) is not None:
+                self.hand_written_enums.append(fqn)
+                continue
+            e = self.build_enum(td)
+            e.core = True
+            e.referenced_by.add('core enum')
+            self.enums[fqn] = e
+        for key in self.policy.hand_written_enums:
+            td = self.index.lookup(key)
+            if td is None or td.kind != 'enum':
+                raise XmlGenError(f'xmlgen.toml [hand_written_enums] {short_fqn(key)} is not an enum of the Java tree')
+            if key in self.enums and not self.enums[key].core:
+                raise XmlGenError(f'xmlgen.toml [hand_written_enums] {short_fqn(key)} is bound by JAXB: the binders need the generated enum')
 
     def enqueue(self, fqn, why):
         if fqn in self.classes:

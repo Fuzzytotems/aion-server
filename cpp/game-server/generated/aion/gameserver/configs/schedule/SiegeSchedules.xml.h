@@ -10,3 +10,4 @@
 #include "aion/gameserver/configs/schedule/SiegeSchedules_Fortress.xml.h"
 #include "aion/gameserver/configs/schedule/SiegeSchedules_SiegeSchedule.xml.h"
 #include "aion/gameserver/dataholders/loadingutils/XmlBindingFwd.h"
+#include "aion/gameserver/runtime/lifetime/RefCounted.h"

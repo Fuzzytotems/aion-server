@@ -173,6 +173,7 @@ bool XmlBinding<::aion::gameserver::model::templates::npc::NpcTemplate>::attribu
 		case "item_upgrade"_xh:
 			if (name == "item_upgrade") {
 				static_cast<void>(value); // not bound by Java, ignored like JAXB (xmlgen.toml [ignore_attributes]: 2 npc_template)
+				c.ignoreAttribute(); // BindStats counts it as ignored
 				return true;
 			}
 			break;
@@ -192,7 +193,7 @@ bool XmlBinding<::aion::gameserver::model::templates::npc::NpcTemplate>::element
 			if (name == "equipment") {
 				std::unique_ptr<::aion::gameserver::dataholders::loadingutils::adapters::NpcEquipmentList> value = constructBound<::aion::gameserver::dataholders::loadingutils::adapters::NpcEquipmentList>();
 				c.bindObject(*value, e, c.currentObject());
-				o.equipment = std::make_unique<::aion::gameserver::model::items::NpcEquippedGear>(std::move(value));
+				c.replaceSingle(o.equipment, std::make_unique<::aion::gameserver::model::items::NpcEquippedGear>(std::move(value)), e);
 				o.equipment->init(c.load());
 				return true;
 			}

@@ -6,3 +6,4 @@
 
 #include "aion/gameserver/dataholders/loadingutils/XmlBindingFwd.h"
 #include "aion/gameserver/model/templates/rewards/BonusType.h"
+#include "aion/gameserver/runtime/lifetime/RefCounted.h"

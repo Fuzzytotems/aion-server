@@ -3,10 +3,12 @@
 
 #include <cstdint>
 
+#include "aion/gameserver/runtime/lifetime/RefCounted.h"
+
 namespace aion::gameserver::model::templates::portal {
 
 /** Java com.aionemu.gameserver.model.templates.portal.PortalLoc (data-only: generated completely). */
-struct PortalLoc {
+struct PortalLoc : public ::aion::gameserver::runtime::StaticTemplate {
 	int32_t worldId = 0; // @XmlAttribute(name = "world_id")
 	int32_t locId = 0; // @XmlAttribute(name = "loc_id")
 	float x = 0.0f; // @XmlAttribute(name = "x")

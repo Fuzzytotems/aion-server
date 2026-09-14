@@ -13,6 +13,7 @@
 
 #include "aion/gameserver/dataholders/loadingutils/XmlBindingFwd.h"
 #include "aion/gameserver/model/SkillElement.h"
+#include "aion/gameserver/runtime/lifetime/RefCounted.h"
 #include "aion/gameserver/skillengine/change/Change.h"
 #include "aion/gameserver/skillengine/condition/Conditions.h"
 #include "aion/gameserver/skillengine/effect/SubEffect.h"

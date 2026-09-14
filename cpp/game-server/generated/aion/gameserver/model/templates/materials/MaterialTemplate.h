@@ -6,11 +6,12 @@
 #include <vector>
 
 #include "aion/gameserver/model/templates/materials/MaterialSkill.h"
+#include "aion/gameserver/runtime/lifetime/RefCounted.h"
 
 namespace aion::gameserver::model::templates::materials {
 
 /** Java com.aionemu.gameserver.model.templates.materials.MaterialTemplate (data-only: generated completely). */
-struct MaterialTemplate {
+struct MaterialTemplate : public ::aion::gameserver::runtime::StaticTemplate {
 	std::vector<::aion::gameserver::model::templates::materials::MaterialSkill> skills; // @XmlElement(name = "skill", required = true)
 	std::optional<int32_t> skillObstacle; // @XmlAttribute(name = "skill_obstacle")
 	int32_t id = 0; // @XmlAttribute(name = "id", required = true)

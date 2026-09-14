@@ -36,7 +36,8 @@ Markers:
 Handler files (the unity file rules; not applied to client packet sources):
 - Every declaration is inside the package namespace: the namespace of the file's directory, where a directory that is a C++ keyword maps to
   the keyword plus `_` (`quest/template` → `...::quest::template_`). Nested, other, and anonymous namespaces are errors.
-- No namespace-scope `static`, no `using namespace` anywhere.
+- No namespace-scope `static`, no `using namespace` anywhere. The one exception is `using namespace aion::gameserver::model::DialogAction;`
+  (optionally `::aion::...`) at namespace scope of `aion/gameserver/handlers/quest/QuestPrelude.h` (Java: `import static DialogAction.*`).
 - A type name is defined only once per namespace across all scanned files.
 - Only `.cpp` and `.h` (`.hpp`, `.cc`, `.cxx`, `.inl`, `.ipp`, `.hh` are rejected); other files (data, notes) are ignored.
 

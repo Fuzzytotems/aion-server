@@ -10,3 +10,4 @@
 
 #include "aion/gameserver/dataholders/loadingutils/XmlBindingFwd.h"
 #include "aion/gameserver/model/templates/flyring/FlyRingPoint.h"
+#include "aion/gameserver/runtime/lifetime/RefCounted.h"

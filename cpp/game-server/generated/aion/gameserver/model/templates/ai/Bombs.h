@@ -4,11 +4,12 @@
 #include <memory>
 
 #include "aion/gameserver/model/templates/ai/BombTemplate.h"
+#include "aion/gameserver/runtime/lifetime/RefCounted.h"
 
 namespace aion::gameserver::model::templates::ai {
 
 /** Java com.aionemu.gameserver.model.templates.ai.Bombs (data-only: generated completely). */
-struct Bombs {
+struct Bombs : public ::aion::gameserver::runtime::StaticTemplate {
 	std::unique_ptr<::aion::gameserver::model::templates::ai::BombTemplate> bombTemplate; // @XmlElement(name = "bomb")
 	const ::aion::gameserver::model::templates::ai::BombTemplate* getBombTemplate() const { return bombTemplate.get(); }
 };

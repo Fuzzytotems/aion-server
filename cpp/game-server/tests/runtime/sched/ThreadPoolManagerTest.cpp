@@ -210,7 +210,7 @@ TEST_F(ThreadPoolManagerTest, PinnedCallbackKeepsItsOwnersAliveUntilTheLastCopyI
 	uint_least32_t line = std::source_location::current().line() + 1;
 	PinnedCallback<void(int32_t)> callback(Pin(raw), [raw](int32_t value) { raw->runs.fetch_add(value); });
 	EXPECT_EQ(callback.getTaskInfo().where.line(), line);
-	EXPECT_STREQ(callback.getTaskInfo().kind, TaskKind::CALLBACK);
+	EXPECT_STREQ(callback.getTaskInfo().kind, TaskKind::CALLBACK_);
 	EXPECT_EQ(npc->refCount(), 2u);
 	{
 		PinnedCallback<void(int32_t)> copy = callback;

@@ -5,11 +5,12 @@
 #include <vector>
 
 #include "aion/gameserver/model/templates/portal/PortalPath.h"
+#include "aion/gameserver/runtime/lifetime/RefCounted.h"
 
 namespace aion::gameserver::model::templates::portal {
 
 /** Java com.aionemu.gameserver.model.templates.portal.PortalDialog (data-only: generated completely). */
-struct PortalDialog {
+struct PortalDialog : public ::aion::gameserver::runtime::StaticTemplate {
 	std::vector<::aion::gameserver::model::templates::portal::PortalPath> portalPaths; // @XmlElement(name = "portal_path")
 	int32_t npcId = 0; // @XmlAttribute(name = "npc_id")
 	int32_t teleportDialogId = 1011; // @XmlAttribute(name = "teleport_dialog_id") Java: = 1011

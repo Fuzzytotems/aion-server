@@ -5,11 +5,12 @@
 #include <optional>
 
 #include "aion/gameserver/model/templates/challenge/RewardType.h"
+#include "aion/gameserver/runtime/lifetime/RefCounted.h"
 
 namespace aion::gameserver::model::templates::challenge {
 
 /** Java com.aionemu.gameserver.model.templates.challenge.ChallengeReward (data-only: generated completely). */
-struct ChallengeReward {
+struct ChallengeReward : public ::aion::gameserver::runtime::StaticTemplate {
 	std::optional<int32_t> msgId; // @XmlAttribute(name = "msg_id")
 	std::optional<int32_t> value; // @XmlAttribute(name = "value")
 	::aion::gameserver::model::templates::challenge::RewardType type = ::aion::gameserver::model::templates::challenge::RewardType{}; // @XmlAttribute(name = "type", required = true)

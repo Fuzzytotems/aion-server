@@ -5,11 +5,12 @@
 #include <vector>
 
 #include "aion/gameserver/model/enchants/TemperingTemplateData.h"
+#include "aion/gameserver/runtime/lifetime/RefCounted.h"
 
 namespace aion::gameserver::model::enchants {
 
 /** Java com.aionemu.gameserver.model.enchants.TemperingList (data-only: generated completely). */
-struct TemperingList {
+struct TemperingList : public ::aion::gameserver::runtime::StaticTemplate {
 	std::vector<::aion::gameserver::model::enchants::TemperingTemplateData> temperingDatas; // @XmlElement(name = "tempering_data", required = true)
 	std::string itemGroup; // @XmlAttribute(name = "item_group", required = true)
 	const std::string& getItemGroup() const { return itemGroup; }

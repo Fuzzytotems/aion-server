@@ -8,11 +8,12 @@
 #include "aion/gameserver/model/Race.h"
 #include "aion/gameserver/model/templates/bounty/BountyTemplate.h"
 #include "aion/gameserver/model/templates/bounty/BountyType.h"
+#include "aion/gameserver/runtime/lifetime/RefCounted.h"
 
 namespace aion::gameserver::model::templates::bounty {
 
 /** Java com.aionemu.gameserver.model.templates.bounty.KillBountyTemplate (data-only: generated completely). */
-struct KillBountyTemplate {
+struct KillBountyTemplate : public ::aion::gameserver::runtime::StaticTemplate {
 	std::optional<::aion::gameserver::model::templates::bounty::BountyType> type; // @XmlAttribute(name = "type")
 	int32_t killCount = 0; // @XmlAttribute(name = "kill_count")
 	bool isRandomReward_ = false; // @XmlAttribute(name = "is_random_reward")

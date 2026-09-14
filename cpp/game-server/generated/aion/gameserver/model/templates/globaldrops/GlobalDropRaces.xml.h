@@ -8,3 +8,4 @@
 
 #include "aion/gameserver/dataholders/loadingutils/XmlBindingFwd.h"
 #include "aion/gameserver/model/templates/globaldrops/GlobalDropRace.h"
+#include "aion/gameserver/runtime/lifetime/RefCounted.h"

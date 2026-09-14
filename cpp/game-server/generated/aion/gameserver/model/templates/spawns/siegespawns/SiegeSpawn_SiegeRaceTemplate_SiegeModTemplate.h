@@ -7,11 +7,12 @@
 
 #include "aion/gameserver/model/siege/SiegeModType.h"
 #include "aion/gameserver/model/templates/spawns/Spawn.h"
+#include "aion/gameserver/runtime/lifetime/RefCounted.h"
 
 namespace aion::gameserver::model::templates::spawns::siegespawns {
 
 /** Java com.aionemu.gameserver.model.templates.spawns.siegespawns.SiegeSpawn.SiegeRaceTemplate.SiegeModTemplate (data-only: generated completely). */
-struct SiegeSpawn_SiegeRaceTemplate_SiegeModTemplate {
+struct SiegeSpawn_SiegeRaceTemplate_SiegeModTemplate : public ::aion::gameserver::runtime::StaticTemplate {
 	std::vector<std::unique_ptr<::aion::gameserver::model::templates::spawns::Spawn>> spawns; // @XmlElement(name = "spawn")
 	std::optional<::aion::gameserver::model::siege::SiegeModType> siegeMod; // @XmlAttribute(name = "mod")
 	const std::vector<std::unique_ptr<::aion::gameserver::model::templates::spawns::Spawn>>& getSpawns() const { return spawns; }

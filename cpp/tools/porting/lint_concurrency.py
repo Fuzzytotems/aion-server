@@ -601,8 +601,9 @@ class Parser:
         toks = list(range(i, j))
         if not toks:
             return
-        if t[i] in ('class', 'struct', 'union', 'enum') and all(k[q] == IDENT or t[q] in ('::',) for q in toks[1:]):
-            return  # forward declaration
+        if t[i] in ('class', 'struct', 'union', 'enum') and all(
+                k[q] == IDENT or t[q] == '::' or (t[i] == 'enum' and t[q] == ':') for q in toks[1:]):
+            return  # forward declaration (an opaque enum declaration may name its underlying type)
         specs = set()
         q = i
         while q < j and t[q] in _SPECIFIERS | {'const'} and not (t[q] == 'const' and False):

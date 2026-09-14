@@ -1,11 +1,14 @@
-"""skeleton.py over the real game server tree: forward headers for every package (and a compile check of all of them together with the
-existing C++ headers), drafts for every Java file, and a compile check of a draft set (the DAOs with their dependencies)."""
+"""skeleton.py over the real game server tree: forward headers for every package (the drift check of the committed fwd.h files under
+cpp/game-server/src, a compile check of each of them alone and with the generated definitions of its types, and of all of them together with
+the existing C++ headers), drafts for every Java file, and a compile check of a draft set (the DAOs with their dependencies)."""
 from __future__ import annotations
 
+import io
 import os
 import re
 import shutil
 import unittest
+from contextlib import redirect_stderr, redirect_stdout
 
 from tests import test_skeleton_support as ss
 
@@ -36,7 +39,9 @@ class RealTreeForwardHeadersTest(unittest.TestCase):
             declared += sum(1 for line in text.splitlines() if line.endswith(';') and not line.startswith('//'))
         tops = [td for cu in self.project.core_units for td in cu.types if td.kind != 'annotation']
         namespaces = [td for td in tops if self.project.unit_ns(td.cu) + (td.name,) in self.project.cpp.namespaces]   # model::DialogAction
-        self.assertEqual(declared, len(tops) - len(namespaces))
+        aliases = [td for td in tops if (self.project.unit_ns(td.cu), td.name) in self.project.cpp.aliases
+                   and self.project.cpp.declaration(self.project.unit_ns(td.cu), td.name) is None and td not in namespaces]
+        self.assertEqual(declared, len(tops) - len(namespaces) - len(aliases))
         self.assertGreater(len(tops), 2300)
 
     def test_known_declarations(self):
@@ -87,6 +92,55 @@ class RealTreeForwardHeadersTest(unittest.TestCase):
         finally:
             shutil.rmtree(root, ignore_errors=True)
 
+    def test_committed_forward_headers_are_current(self):
+        """Drift check of the committed forward headers (S0a decision 5): `skeleton.py --fwd --check --out cpp/game-server/src`."""
+        out, err = io.StringIO(), io.StringIO()
+        with redirect_stdout(out), redirect_stderr(err):
+            code = skeleton.main(['--fwd', '--check', '--out', str(ss.REAL_CPP_SRC), '--java-root', str(ss.REAL_JAVA_ROOT),
+                                  '--cpp-src', str(ss.REAL_CPP_SRC), '--commons-src', str(ss.REAL_COMMONS_SRC),
+                                  '--generated-root', str(ss.REAL_GENERATED)])
+        self.assertEqual(code, 0, 'the committed fwd.h files are out of date; regenerate with: python cpp/tools/gen/skeleton.py --fwd --out '
+                                  'cpp/game-server/src\n' + out.getvalue()[:4000] + err.getvalue()[-2000:])
+        self.assertEqual(skeleton.check_files(ss.REAL_CPP_SRC, self.files, skeleton.FWD_MARK), [])
+
+    @unittest.skipUnless(CAN_COMPILE, 'needs CMake and MSVC (AION_SKELETON_SKIP_COMPILE=1 skips)')
+    def test_compile_each_forward_header(self):
+        """Every fwd.h alone in a TU, and every fwd.h followed by the generated headers that define the types it declares (xmlgen enums
+        with their underlying type, data structs with their class key), with /W4 /WX: a differing enum base is an error, a differing class
+        key is C4099."""
+        namespace = re.compile(r'^namespace ([\w:]+) \{', re.M)
+        declared = re.compile(r'^(?:template <[^>]*> )?(?:struct|class|enum class) (\w+)\b[^\n]*;$', re.M)
+        resolvable = set(_resolvable_generated_headers())
+        work = ss.short_temp_dir('skfwd1')
+        try:
+            ss.write_tree(work / 'inc', self.files)
+            sources = []
+            with_definitions = 0
+            for i, rel in enumerate(sorted(self.files)):
+                text = self.files[rel]
+                alone = work / f'alone_{i}.cpp'
+                alone.write_text(f'#include "{rel}"\n', encoding='utf-8')
+                sources.append(alone)
+                ns = tuple(namespace.search(text).group(1).split('::'))
+                definitions = set()
+                for name in declared.findall(text):
+                    d = self.project.cpp.lookup(ns, name)
+                    if (d is not None and d.key in ('enum', 'struct', 'class') and d.path in resolvable and not d.path.endswith(('.xml.h', '.bind.h'))
+                            and (ss.REAL_GENERATED / d.path).is_file() and not (ss.REAL_CPP_SRC / d.path).is_file()):
+                        definitions.add(d.path)
+                if definitions:
+                    with_definitions += 1
+                    tu = work / f'defs_{i}.cpp'
+                    tu.write_text(f'#include "{rel}"\n' + ''.join(f'#include "{h}"\n' for h in sorted(definitions)), encoding='utf-8')
+                    sources.append(tu)
+            self.assertGreater(with_definitions, 40)
+            ok, output = ss.compile_check(work, [work / 'inc', ss.REAL_CPP_SRC, ss.REAL_GENERATED, ss.REAL_COMMONS_SRC, ss.VCPKG_INCLUDE],
+                                          sources)
+            problems = [line for line in ss.warnings_in(output) if 'MSB80' not in line]
+            self.assertTrue(ok and not problems, '\n'.join(problems[:40]) or output[-4000:])
+        finally:
+            shutil.rmtree(work, ignore_errors=True)
+
     @unittest.skipUnless(CAN_COMPILE, 'needs CMake and MSVC (AION_SKELETON_SKIP_COMPILE=1 skips)')
     def test_compile_with_existing_headers(self):
         """All forward headers in one TU, plus one TU per existing C++ header of a Java class (class-key and enum consistency)."""
@@ -112,7 +166,7 @@ class RealTreeForwardHeadersTest(unittest.TestCase):
                                 + '#include "aion/gameserver/handlers/HandlerRegistry.h"\n', encoding='utf-8')
             sources.append(together)
             ok, output = ss.compile_check(work, [work / 'inc', ss.REAL_CPP_SRC, ss.REAL_GENERATED, ss.REAL_COMMONS_SRC, ss.VCPKG_INCLUDE],
-                                          sources, ss.KERNEL_FIRST)
+                                          sources)
             problems = [line for line in ss.warnings_in(output) if 'MSB80' not in line]
             self.assertTrue(ok and not problems, '\n'.join(problems[:40]) or output[-4000:])
         finally:
@@ -132,9 +186,18 @@ class RealTreeDraftsTest(unittest.TestCase):
         files = skeleton.generate_drafts(self.project, selected)
         units = {id(td.cu) for td in selected}
         self.assertEqual(len(files), 2 * len(units))
-        self.assertGreater(len(units), 1400)
+        self.assertGreater(len(units), 1200)          # S0a: all core enums are generated by xmlgen, behaviour classes scaffolded
         skipped_units = {id(td.cu) for cu in self.project.core_units for td in cu.types if td.fqn in self.project.skipped_existing}
         self.assertGreater(len(units) + len(skipped_units), 2200, 'every Java file is drafted or skipped as ported/generator-owned')
+        # no draft defines an enum xmlgen generates (nested ones become aliases, secondary top-level ones includes): 141 core + JAXB enums
+        self.assertGreater(len(self.project.xmlgen_enums), 250)
+        redefined = []
+        for fqn in self.project.xmlgen_enums:
+            td = self.project.index.types.get(fqn)
+            text = files.get(self.project.unit_header(td.cu), '') if td is not None else ''
+            if re.search(r'(?m)^\s*enum class ' + re.escape(skeleton.cpp_ident(td.name)) + r'\b', text):
+                redefined.append(fqn)
+        self.assertEqual(redefined, [])
         for rel, text in files.items():
             self.assertTrue(text.startswith(skeleton.DRAFT_MARK), rel)
             if rel.endswith('.h'):
@@ -186,7 +249,7 @@ class RealTreeDraftsTest(unittest.TestCase):
             ss.write_tree(work / 'inc', {**fwd, **drafts})
             sources = [work / 'inc' / f for f in sorted(drafts) if f.endswith('.cpp')]
             ok, output = ss.compile_check(work, [work / 'inc', ss.REAL_CPP_SRC, ss.REAL_GENERATED, ss.REAL_COMMONS_SRC, ss.VCPKG_INCLUDE],
-                                          sources, ss.KERNEL_FIRST)
+                                          sources)
             problems = [line for line in ss.warnings_in(output) if 'MSB80' not in line]
             self.assertTrue(ok and not problems, '\n'.join(problems[:40]) or output[-4000:])
         finally:

@@ -3,10 +3,12 @@
 
 #include <cstdint>
 
+#include "aion/gameserver/runtime/lifetime/RefCounted.h"
+
 namespace aion::gameserver::model::templates::quest {
 
 /** Java com.aionemu.gameserver.model.templates.quest.FinishedQuestCond (data-only: generated completely). */
-struct FinishedQuestCond {
+struct FinishedQuestCond : public ::aion::gameserver::runtime::StaticTemplate {
 	int32_t questId = 0; // @XmlAttribute(name = "quest_id", required = true)
 	int32_t reward = -1; // @XmlAttribute(name = "reward") Java: = -1
 	int32_t getQuestId() const { return questId; }

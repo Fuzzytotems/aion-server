@@ -3,10 +3,12 @@
 
 #include <cstdint>
 
+#include "aion/gameserver/runtime/lifetime/RefCounted.h"
+
 namespace aion::gameserver::model::templates::petskill {
 
 /** Java com.aionemu.gameserver.model.templates.petskill.PetSkillTemplate (data-only: generated completely). */
-struct PetSkillTemplate {
+struct PetSkillTemplate : public ::aion::gameserver::runtime::StaticTemplate {
 	int32_t skillId = 0; // @XmlAttribute(name = "skill_id")
 	int32_t petId = 0; // @XmlAttribute(name = "pet_id")
 	int32_t orderSkill = 0; // @XmlAttribute(name = "order_skill")

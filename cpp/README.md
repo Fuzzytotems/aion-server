@@ -6,10 +6,10 @@ Intentional differences from Java: [docs/DEVIATIONS.md](docs/DEVIATIONS.md).
 
 | Module | Status |
 |---|---|
-| commons | done: ported, reviewed; 394 tests (incl. database integration tests) |
-| login-server | done: ported, reviewed; 147 tests; a real 4.8 client logs in |
+| commons | done: ported, reviewed; 402 tests (incl. database integration tests) |
+| login-server | done: ported, reviewed; 149 tests; a real 4.8 client logs in |
 | chat-server | not started |
-| game-server | in progress: design done ([docs/design](docs/design/README.md)); runtime kernel done (422 tests, 30-minute ASan and checked stress gates, benchmark passed); wave 1 done: configs, geo math, client crypt, XML binder runtime, handler registry (279 tests) and the Python generators, lint and static data oracles in `tools/` (388 tests) |
+| game-server | in progress: design done ([docs/design](docs/design/README.md)); runtime kernel done (422 tests, 30-minute ASan and checked stress gates, benchmark passed); wave 1 done: configs, geo math, client crypt, XML binder runtime, handler registry (279 tests) and the Python generators, lint and static data oracles in `tools/` (388 tests); spine S0a done: chunk manifest (65 chunks, 70 libraries), all core enums, XML class shells, forward headers, `aion_game_server` links and starts up to the first unported function |
 
 ## Requirements (Windows)
 
@@ -72,6 +72,15 @@ Config properties can be overridden on the command line, e.g. `-Ddatabase.url=jd
 For a game server to show up in the client's server list, register it in `aion_ls.gameservers` (id, IP mask, password; the Java game server
 defaults to id 1 and password 1234).
 
+## Running the game server
+
+Not playable yet. `aion_game_server` links every library and runs the ported part of the startup (config, database, runtime kernel), then stops at
+the first function that is not ported yet, logs where that is, shuts down in order and exits with code 1. Run it from the Java module directory:
+
+```bash
+cd ../game-server && ../cpp/build/msvc/game-server/Debug/aion_game_server.exe
+```
+
 Game client: see the repository's main README (Aion 4.8 NA client, `version.dll` patch, `start.bat` with
 `bin64ion.bin -ip:127.0.0.1 -port:2106 -loginex`).
 
@@ -92,3 +101,7 @@ Database integration tests are skipped unless these environment variables are se
 ```bash
 AION_TEST_DATABASE_URL="jdbc:mysql://localhost:3306/aion_cpp_test" AION_TEST_DATABASE_USER=root AION_TEST_DATABASE_PASSWORD= ctest --preset msvc-debug
 ```
+
+The login server tests additionally need `AION_TEST_LS_DATABASE_URL` (e.g. `jdbc:mysql://127.0.0.1:3306/aion_ls_test`), and the game server startup
+smoke test `gs.smoke.startup` needs `AION_TEST_GS_DATABASE_URL` (e.g. `jdbc:mysql://127.0.0.1:3306/aion_cpp_test?characterEncoding=UTF-8`).
+Tests that read the Java checkout carry the CTest label `realdata`; `ctest --preset msvc-debug -LE realdata` skips them.

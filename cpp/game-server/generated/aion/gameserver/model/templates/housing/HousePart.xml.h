@@ -12,3 +12,4 @@
 #include "aion/gameserver/dataholders/loadingutils/XmlBindingFwd.h"
 #include "aion/gameserver/model/templates/housing/PartType.h"
 #include "aion/gameserver/model/templates/item/ItemQuality.h"
+#include "aion/gameserver/runtime/lifetime/RefCounted.h"

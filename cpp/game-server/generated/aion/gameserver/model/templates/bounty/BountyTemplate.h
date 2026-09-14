@@ -3,10 +3,12 @@
 
 #include <cstdint>
 
+#include "aion/gameserver/runtime/lifetime/RefCounted.h"
+
 namespace aion::gameserver::model::templates::bounty {
 
 /** Java com.aionemu.gameserver.model.templates.bounty.BountyTemplate (data-only: generated completely). */
-struct BountyTemplate {
+struct BountyTemplate : public ::aion::gameserver::runtime::StaticTemplate {
 	int32_t itemId = 0; // @XmlAttribute(name = "item_id", required = true)
 	int32_t count = 0; // @XmlAttribute(name = "count")
 	int32_t getItemId() const { return itemId; }

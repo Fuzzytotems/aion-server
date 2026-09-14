@@ -6,11 +6,12 @@
 
 #include "aion/gameserver/dataholders/loadingutils/adapters/LocalDateTimeAdapter.h"
 #include "aion/gameserver/model/AttendType.h"
+#include "aion/gameserver/runtime/lifetime/RefCounted.h"
 
 namespace aion::gameserver::model::templates::event {
 
 /** Java com.aionemu.gameserver.model.templates.event.AtreianPassport (data-only: generated completely). */
-struct AtreianPassport {
+struct AtreianPassport : public ::aion::gameserver::runtime::StaticTemplate {
 	int32_t id = 0; // @XmlAttribute(name = "id", required = true)
 	bool active = false; // @XmlAttribute(name = "active", required = true)
 	std::optional<::aion::gameserver::xml::adapters::LocalDateTime> pStart; // @XmlAttribute(name = "period_start", required = true) @XmlJavaTypeAdapter(LocalDateTimeAdapter)

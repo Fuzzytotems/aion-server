@@ -6,11 +6,12 @@
 #include <vector>
 
 #include "aion/gameserver/model/templates/npc/SubDialogType.h"
+#include "aion/gameserver/runtime/lifetime/RefCounted.h"
 
 namespace aion::gameserver::model::templates::npc {
 
 /** Java com.aionemu.gameserver.model.templates.npc.TalkInfo (data-only: generated completely). */
-struct TalkInfo {
+struct TalkInfo : public ::aion::gameserver::runtime::StaticTemplate {
 	int32_t talkDistance = 2; // @XmlAttribute(name = "distance") Java: = 2
 	int32_t talkDelay = 0; // @XmlAttribute(name = "delay")
 	bool hasDialog = false; // @XmlAttribute(name = "is_dialog")

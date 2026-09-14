@@ -3,10 +3,12 @@
 
 #include <cstdint>
 
+#include "aion/gameserver/runtime/lifetime/RefCounted.h"
+
 namespace aion::gameserver::model::templates::siegelocation {
 
 /** Java com.aionemu.gameserver.model.templates.siegelocation.DoorRepairStone (data-only: generated completely). */
-struct DoorRepairStone {
+struct DoorRepairStone : public ::aion::gameserver::runtime::StaticTemplate {
 	int32_t staticId = 0; // @XmlAttribute(name = "static_id")
 	int32_t doorId = 0; // @XmlAttribute(name = "door_id")
 	int32_t getStaticId() const { return staticId; }

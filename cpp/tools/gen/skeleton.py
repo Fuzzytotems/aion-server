@@ -14,7 +14,12 @@ Modes
         Existing C++ declarations win: definitions under --cpp-src and --generated-root (xmlgen's data structs and enums), else forward
         declarations there (HandlerRegistry.h `class AbstractAI;`; skeleton's own fwd.h files are not read). Their class key
         (`struct GSConfig;`), template head, enum base (`enum class X;` when the C++ enum has none) are copied, and a Java class ported as
-        a C++ namespace (model::DialogAction, ServerPacketsOpcodes) gets a comment instead of a declaration. Java generics that the design
+        a C++ namespace (model::DialogAction, ServerPacketsOpcodes) or as a namespace-scope alias or using-declaration (`using X = ...;`,
+        `using runtime::X;`) gets a comment instead of a declaration.
+        The forward headers are committed under cpp/game-server/src (S0a, decision 5): `--fwd --out cpp/game-server/src` regenerates them,
+        `--fwd --check --out cpp/game-server/src` is the drift check (CTest tools.gen, test_skeleton_tree). Rerun after adding a Java class,
+        after xmlgen regenerates (enum bases and struct keys come from the generated tree) and after a hand-written header changes the key
+        of a declared class. Java generics that the design
         maps to non-template classes (NON_TEMPLATE_CLASSES, or a non-template C++ declaration) are declared, drafted and referenced
         without template parameters; their type variables are spelled as the first bound. Nested Java types cannot be forward declared outside their outer class; they stay nested (Outer::Inner, as CONVENTIONS
         keeps SecurityConfig::MultiClientingRestrictionMode) and are listed in a comment, as are annotation types.
@@ -29,7 +34,9 @@ Modes
         - methods under Java names (keyword rule: register_(), delete_()), Java access (package-private -> public; private members of
           nested types -> public, since Java lets the whole top-level class use them), `static`, `virtual` only if abstract, declared in an
           interface or overridden by a project subtype (core, data/handlers, anonymous, local and enum-constant classes), `override` when it
-          overrides a project supertype method with the same erased parameter types, `const` for trivial getters that are not virtual and
+          overrides a project supertype method with the same erased parameter types (a supertype with a hand-written C++ definition under
+          --cpp-src, e.g. an xmlgen behaviour shell, counts only if its header or member blocks declare the method; likewise the runtime
+          base of such a class is the one its C++ base clause names, not the fieldmap base), `const` for trivial getters that are not virtual and
           for equals/hashCode/toString/compareTo; declarations keep the Java parameter names, definitions rename a parameter that would hide
           a data member (MSVC C4458) to `value`;
         - special signatures: equals(Object) -> `bool equals(const X&) const`, hashCode -> `int32_t hashCode() const`, toString ->
@@ -56,7 +63,7 @@ Modes
         - Java signatures without a mechanical C++ mapping (Object, Class, Runnable, raw generics, wildcards other than `? extends`, generic
           methods, types nested in enums, covariant smart-pointer returns, colliding overloads, ...) stay `// TODO(signature): <reason>:
           <Java signature>` comments, so the draft compiles;
-        - includes: <std> headers by use, runtime headers first (the kernel's TaskKind::CALLBACK must be parsed before <windows.h>), fwd.h of
+        - includes: <std> headers by use, runtime headers first, fwd.h of
           the packages used, full headers where a complete type is needed (bases, nested types of other files, by-value members, template
           base arguments, static members; by-value returns and member types in the .cpp).
         Type mapping: primitives per CONVENTIONS; String -> std::string_view parameter / std::string otherwise; boxed -> std::optional<T>
@@ -81,15 +88,18 @@ Selectors: a Java FQN (a nested FQN selects its file), a unique simple class nam
 @daos (dao.*), @serverpackets (network.aion.serverpackets.**), @engines (singletons named *Engine outside services), @all. Group and
 package selectors (pkg.*, pkg.**) skip Java files whose header already exists under --cpp-src or --generated-root and files another
 generator owns (reported on stderr): the static data classes of generated/staticdata-classes.json (xmlgen; behaviour classes are
-scaffolded with xmlgen.py scaffold) and Java files with a `<File>.gen.h` under --cpp-src. Explicit names draft already ported files, but
-refuse xmlgen classes and fully generated replacements (opcodes.py's ServerPacketsOpcodes). A file with a generated member block
-(sysmsg.py's SM_SYSTEM_MESSAGE.gen.h, MEMBER_BLOCKS) is drafted with `#include "<File>.gen.h"` in a public section and without the
-methods the block declares.
+scaffolded with xmlgen.py scaffold), the enums of generated/xmlmodel.json and Java files with a `<File>.gen.h` under --cpp-src. Explicit
+names draft already ported files, but refuse xmlgen classes and enums and fully generated replacements (opcodes.py's ServerPacketsOpcodes).
+A file with a generated member block (sysmsg.py's SM_SYSTEM_MESSAGE.gen.h, MEMBER_BLOCKS) is drafted with `#include "<File>.gen.h"` in a
+public section and without the methods the block declares. Enums xmlgen generates (xmlmodel.json) are never defined by a draft: a
+secondary top-level enum of the drafted file becomes a comment and an include of its generated header, a nested one
+`using Inner = ::ns::Outer_Inner;` (xmlgen generates nested enums at namespace scope), and other files spell a nested one Outer_Inner
+with its generated header.
 
 Common options: --java-root (default game-server/src), --handlers-root (default game-server/data/handlers, override analysis only;
 --no-handlers), --cpp-src (default cpp/game-server/src: existing definitions, namespaces and runtime symbols), --generated-root (default
 cpp/game-server/generated: xmlgen headers and staticdata-classes.json; --no-generated-root), --commons-src (default cpp/commons/src),
---unported-header (default aion/gameserver/handlers/Unported.h, where P4-02b defines AION_UNPORTED), --fieldmap (default
+--unported-header (default aion/gameserver/runtime/base/Unported.h, where the runtime defines AION_UNPORTED), --fieldmap (default
 cpp/game-server/generated/concurrency/fieldmap.json when it exists; a missing default only warns).
 
 --check compares with --out instead of writing and exits 1 listing `missing:`, `different:` and (--fwd) `stale:` generated files (exit 2
@@ -137,8 +147,8 @@ DEFAULT_CPP_SRC = CPP_ROOT / 'game-server' / 'src'
 DEFAULT_COMMONS_SRC = CPP_ROOT / 'commons' / 'src'
 DEFAULT_GENERATED_ROOT = CPP_ROOT / 'game-server' / 'generated'
 DEFAULT_FIELDMAP = DEFAULT_GENERATED_ROOT / 'concurrency' / 'fieldmap.json'
-# AION_UNPORTED (P4-02b) lives in the handler registry library for wave 1; S0a may move it to a core target (then change this default).
-DEFAULT_UNPORTED_HEADER = 'aion/gameserver/handlers/Unported.h'
+# AION_UNPORTED (P4-02b) moved from the handler registry library to the runtime base library aion_gs_runtime_base in S0a.
+DEFAULT_UNPORTED_HEADER = 'aion/gameserver/runtime/base/Unported.h'
 LOGGER_HEADER = 'aion/commons/logging/LoggerFactory.h'
 
 JAVA_PREFIX = 'com.aionemu.gameserver'
@@ -221,6 +231,7 @@ class CppDecl:
     path: str                 # include path relative to the scanned root
     template: str | None = None   # 'template <...>' text of a class template
     underlying: str | None = None  # enum underlying type ('' = none written)
+    bases: str = ''           # base clause of a class definition head (`public runtime::RefCounted`), '' without bases or unknown
 
 
 class CppTree:
@@ -236,6 +247,7 @@ class CppTree:
     _ENUM = re.compile(r'^enum\s+class\s+(\w+)\s*(?::\s*([\w:]+))?\s*(?:\{.*)?$')
     _TEMPLATE = re.compile(r'^template\s*<.*>\s*$')
     _USING = re.compile(r'^using\s+(\w+)\s*=')
+    _USING_DECL = re.compile(r'^using\s+(?!namespace\b)(?:typename\s+)?[\w:]*::(\w+)\s*;$')
     _DEFINE = re.compile(r'^#define\s+(\w+)')
 
     def __init__(self, root=None, extra_roots=()):
@@ -243,6 +255,7 @@ class CppTree:
         self.roots = [r for r in [self.root] + [Path(x) for x in extra_roots if x] if r is not None]
         self.decls = {}      # (ns tuple, name) -> CppDecl (definitions)
         self.forwards = {}   # (ns tuple, name) -> CppDecl (forward declarations)
+        self.aliases = {}    # (ns tuple, name) -> include path of a namespace-scope alias or using-declaration (`using X = ...;`, `using a::X;`)
         self.symbols = {}    # runtime symbol -> include path
         self.namespaces = set()
         self.headers = set()  # include paths of every scanned header (all roots)
@@ -269,7 +282,8 @@ class CppTree:
         in_comment = False
         pending_template = None
         text = path.read_text(encoding='utf-8-sig')
-        own_fwd = text.startswith(FWD_MARK)
+        if text.startswith(FWD_MARK):
+            return           # skeleton's own output (committed fwd.h files under --cpp-src): reading it back would keep outdated declarations
         for line in text.splitlines():
             code = line
             if in_comment:
@@ -313,12 +327,19 @@ class CppTree:
                     um = self._USING.match(stripped)
                     forward = stripped.endswith(';') and '{' not in stripped
                     if cm and not forward:
-                        self._add(ns, CppDecl(cm.group(2), cm.group(3), rel, template=cm.group(1) or pending_template), in_runtime)
+                        tail = stripped[cm.end(3):].lstrip()
+                        tail = tail[len('final'):].lstrip() if re.match(r'final\b', tail) else tail
+                        bases = tail[1:].split('{', 1)[0].strip() if tail.startswith(':') else ''
+                        self._add(ns, CppDecl(cm.group(2), cm.group(3), rel, template=cm.group(1) or pending_template, bases=bases),
+                                  in_runtime)
                     elif em and not forward:
                         self._add(ns, CppDecl('enum', em.group(1), rel, underlying=em.group(2) or ''), in_runtime)
-                    elif um and in_runtime and ns == RUNTIME_NAMESPACE:
-                        self.symbols.setdefault(um.group(1), rel)
-                    elif forward and not own_fwd:
+                    elif um or self._USING_DECL.match(stripped):
+                        name = um.group(1) if um else self._USING_DECL.match(stripped).group(1)
+                        self.aliases.setdefault((ns, name), rel)
+                        if um and in_runtime and ns == RUNTIME_NAMESPACE:
+                            self.symbols.setdefault(um.group(1), rel)
+                    elif forward:
                         fm = self._CLASS_FWD.match(stripped)
                         fe = self._ENUM_FWD.match(stripped)
                         if fm:
@@ -597,6 +618,7 @@ class Project:
         self.generated_root = Path(generated_root) if generated_root else None
         self.cpp = CppTree(cpp_src, [self.generated_root] if self.generated_root else [])
         self.xmlgen_classes = self._load_xmlgen_classes()
+        self.xmlgen_enums = self._load_xmlgen_enums()
         self.commons_src = Path(commons_src) if commons_src else None
         self.fieldmap = fieldmap or Fieldmap()
         self.unit_kind = {}
@@ -611,6 +633,8 @@ class Project:
                 self.known_paths.add(ns[:i])
             for td in cu.all_types():
                 self.known_paths.add(ns + self.type_path(td))
+        for path, _ in self.xmlgen_enums.values():
+            self.known_paths.add(path)
         for i in range(1, len(RUNTIME_NAMESPACE) + 1):
             self.known_paths.add(RUNTIME_NAMESPACE[:i])
         self.known_paths.add(CORE_NAMESPACE + ('xml',))
@@ -627,6 +651,7 @@ class Project:
         self._cpp_names = None
         self._member_headers = {}
         self._todo_signatures = {}
+        self._ported_declares = {}
 
     def _load_xmlgen_classes(self):
         """{fqn: kind} of generated/staticdata-classes.json (the K1 classes xmlgen generates or scaffolds), {} without the file."""
@@ -642,6 +667,29 @@ class Project:
             return {c['fqn']: c['kind'] for c in data['classes']}
         except (ValueError, KeyError, TypeError) as e:
             raise SkeletonError(f'{path}: {e}') from e
+
+    def _load_xmlgen_enums(self):
+        """{fqn: (C++ path tuple, header)} of the project enums xmlgen generates (generated/xmlmodel.json: JAXB and core enums, top-level,
+        secondary top-level and nested ones, the latter at namespace scope as Outer_Inner), {} without the file."""
+        if self.generated_root is None:
+            return {}
+        path = self.generated_root / 'xmlmodel.json'
+        if not path.is_file():
+            return {}
+        try:
+            data = json.loads(path.read_text(encoding='utf-8'))
+            if data.get('format') != 'aion-xmlmodel':
+                raise ValueError('unexpected format')
+            return {e['fqn']: (tuple(e['cpp']['qualifiedName'].lstrip(':').split('::')), e['cpp']['header'])
+                    for e in data['enums'] if not e.get('external')}
+        except (ValueError, KeyError, TypeError, AttributeError) as e:
+            raise SkeletonError(f'{path}: {e}') from e
+
+    def generated_enum(self, td):
+        """(C++ path tuple, header) of a Java enum whose C++ enum xmlgen generates, else None."""
+        if td.kind != 'enum' or not td.fqn:
+            return None
+        return self.xmlgen_enums.get(td.fqn)
 
     # -- generics
     def erased_generic(self, td):
@@ -662,10 +710,13 @@ class Project:
 
     # -- generator-owned files
     def generator_owner(self, td):
-        """None, or (generator, how) for a top-level type whose C++ side another generator owns: ('xmlgen', kind) for the static data
-        classes of staticdata-classes.json, ('member block', gen.h path) for a sysmsg-style member block, ('generated', gen.h path) for a
-        generated header replacing the class (opcodes.py)."""
+        """None, or (generator, how) for a top-level type whose C++ side another generator owns: ('xmlgen', 'enum') for the enums of
+        xmlmodel.json (also secondary top-level types of another Java file), ('xmlgen', kind) for the static data classes of
+        staticdata-classes.json, ('member block', gen.h path) for a sysmsg-style member block, ('generated', gen.h path) for a generated
+        header replacing the class (opcodes.py). Nested generated enums do not make their outer class generator-owned (generated_enum)."""
         top = self.top_level(td)
+        if self.generated_enum(top) is not None:
+            return 'xmlgen', 'enum'
         kind = self.xmlgen_classes.get(top.fqn)
         if kind is not None:
             return 'xmlgen', kind
@@ -758,12 +809,48 @@ class Project:
         return None
 
     def base_kind(self, td):
-        """'RefCounted' etc. when the class or a project ancestor has a fieldmap base."""
+        """'RefCounted' etc. when the class or a project ancestor has a fieldmap base. An ancestor that already has a hand-written C++
+        definition (a header under --cpp-src, e.g. an xmlgen behaviour shell) counts with the runtime base its definition names: none if
+        it has no base clause, the fieldmap base of its Java superclasses if it only names other bases."""
         for t in [td] + self.all_supertypes(td):
+            ported = self.ported_definition(t)
+            if ported is not None:
+                named = [b for b in BASES if b != 'packet' and re.search(r'\b' + b + r'\b', ported.bases)]
+                if named:
+                    return named[0]
+                if not ported.bases:
+                    return None
+                continue
             lay = self.layout(t)
             if lay is not None and lay.base:
                 return lay.base
         return None
+
+    def ported_definition(self, td):
+        """The C++ class definition of a top-level Java type whose header exists under --cpp-src (hand-written), else None."""
+        if td.outer is not None or self.cpp.root is None:
+            return None
+        d = self.cpp.lookup(self.unit_ns(td.cu), cpp_ident(td.name))
+        if d is None or d.key not in ('class', 'struct') or d.path != self.unit_header(td.cu) or not (self.cpp.root / d.path).is_file():
+            return None
+        return d
+
+    def ported_declares(self, td, name):
+        """False if td has a hand-written C++ definition (ported_definition) whose header, and the member blocks it includes, do not
+        mention a function `name(`: the Java method is not declared in C++ (yet), so drafts must not mark an `override` of it."""
+        d = self.ported_definition(td)
+        if d is None:
+            return True
+        key = (d.path, name)
+        if key not in self._ported_declares:
+            texts = []
+            for rel in [d.path] + _INCLUDE_RE.findall((self.cpp.root / d.path).read_text(encoding='utf-8-sig')):
+                if rel == d.path or rel.endswith(('.inc', '.gen.h')) or rel == d.path[:-2] + '.xml.h':
+                    path = next((r / rel for r in self.cpp.roots if (r / rel).is_file()), None)
+                    if path is not None:
+                        texts.append(path.read_text(encoding='utf-8-sig'))
+            self._ported_declares[key] = re.search(r'\b' + re.escape(cpp_ident(name)) + r'\s*\(', '\n'.join(texts)) is not None
+        return self._ported_declares[key]
 
     # -- override analysis
     def _build_subtypes(self):
@@ -815,11 +902,23 @@ class Project:
     def overrides(self, td, m):
         return self.overridden_method(td, m) is not None
 
-    def overridden_method(self, td, m):
-        """The nearest project supertype method (same name and arity) that m overrides, or None."""
+    def overridden_method(self, td, m, hand_written=True):
+        """The nearest project supertype method (same name and arity) that m overrides, or None (hand_written=False: in Java, ignoring
+        hand-written C++ definitions that do not declare the method)."""
         sig = (m.name, len(m.params))
         mine = self._param_sig(m)
-        for sup in self.all_supertypes(td):
+        # breadth-first like all_supertypes, but a supertype with a hand-written C++ definition that does not declare the method hides it
+        # and everything above it (its C++ bases need not be the Java ones, e.g. an xmlgen shell without the Java interfaces)
+        seen, todo, chain = {id(td)}, list(self.index.supertypes(td)), []
+        while todo:
+            s = todo.pop(0)
+            if id(s) in seen:
+                continue
+            seen.add(id(s))
+            if not hand_written or self.ported_declares(s, m.name):
+                chain.append(s)
+                todo.extend(self.index.supertypes(s))
+        for sup in chain:
             for sm in sup.methods:
                 if sm.kind == 'method' and 'static' not in sm.modifiers and 'private' not in sm.modifiers and (sm.name, len(sm.params)) == sig:
                     theirs = self._param_sig(sm)
@@ -886,8 +985,12 @@ class Project:
         owner = self.generator_owner(td)
         if owner is None or owner[0] == 'member block':
             return
+        if owner[0] == 'xmlgen' and owner[1] == 'enum':
+            header = (self.generated_enum(td) or ((), 'staticdata-classes.json'))[1]
+            raise SkeletonError(f'selector {sel}: {td.fqn} is an enum xmlgen generates ({header}); draft the Java file of the classes '
+                                'that use it instead')
         if owner[0] == 'xmlgen':
-            how = ('write the class with `python cpp/tools/xmlgen/xmlgen.py scaffold`' if owner[1] == 'behaviour'
+            how =('write the class with `python cpp/tools/xmlgen/xmlgen.py scaffold`' if owner[1] == 'behaviour'
                    else 'xmlgen generates its header')
             raise SkeletonError(f'selector {sel}: {td.fqn} is a static data class ({owner[1]}) of staticdata-classes.json: {how}')
         raise SkeletonError(f'selector {sel}: {td.fqn} is replaced by the generated {owner[1]}')
@@ -1007,7 +1110,7 @@ def generate_fwd(project):
         if dup:
             raise SkeletonError(f'package {package}: duplicate type names {sorted(dup)}')
         lines = [f'{FWD_MARK} from the Java package {package} - do not edit.',
-                 '// Regenerate after adding a Java class: python cpp/tools/gen/skeleton.py --fwd --out <include root>.',
+                 '// Regenerate after adding a Java class or regenerating xmlgen: python cpp/tools/gen/skeleton.py --fwd --out cpp/game-server/src',
                  '#pragma once', '']
         if need_cstdint:
             lines += ['#include <cstdint>', '']
@@ -1059,6 +1162,9 @@ def _fwd_decl(project, ns, td):
                 return f'// {existing.template} {existing.key} {name}: see {existing.path} (default template arguments)', False
             return f'{existing.template} {existing.key} {name};', False
         return f'{existing.key} {name};', False
+    alias = project.cpp.aliases.get((tuple(ns), name))
+    if alias is not None:
+        return f'// {name}: a C++ alias or using-declaration in {alias} (no forward declaration)', False
     if td.kind == 'enum':
         return f'enum class {name} : {enum_underlying(td)};', True
     if project.cpp_type_params(td):
@@ -1156,9 +1262,15 @@ class HeaderContext:
         return self.qualify(RUNTIME_NAMESPACE + (symbol,))
 
     def project_type(self, td, as_base=False):
-        """Spelling of a project type; records the include (fwd.h, or the outer's/base's full header)."""
+        """Spelling of a project type; records the include (fwd.h, or the outer's/base's full header; the generated header of a nested
+        enum xmlgen generates, spelled Outer_Inner)."""
         cu = td.cu
-        if self.capture is not None:
+        generated = self.project.generated_enum(td)
+        if generated is not None and td.outer is not None and id(td) not in self.unit_types:
+            self.includes.add(generated[1])
+            return self.qualify(generated[0])
+        if self.capture is not None and generated is None:
+            # a generated enum is complete with its opaque declaration (fwd.h) or its alias: no full header where it is held by value
             self.capture.append(td)
         path = self.project.unit_ns(cu) + self.project.type_path(td)
         if id(td) not in self.unit_types:
@@ -1703,7 +1815,7 @@ class DraftEmitter:
                         '// Hand-owned after review (handlers-and-porting-plan.md §2.5); regenerating overwrites hand edits.']
         for td in self.cu.types:
             owner = self.project.generator_owner(td)
-            if owner is not None and owner[0] == 'xmlgen':
+            if owner is not None and owner[0] == 'xmlgen' and owner[1] != 'enum':
                 header_lines.append(f'// TODO(xmlgen): {td.name} is a static data {owner[1]} class (staticdata-classes.json): this dependency '
                                     f'draft stands in until `python cpp/tools/xmlgen/xmlgen.py scaffold {td.fqn}` writes the real header.')
         header_lines += ['#pragma once', '']
@@ -1798,8 +1910,21 @@ class DraftEmitter:
         if td.kind == 'annotation':
             return [f'{indent}// Java annotation type @{td.name}: no C++ type (markers and registries replace it)']
         if td.kind == 'enum':
+            generated = self.project.generated_enum(td)
+            if generated is not None:
+                return self.emit_generated_enum(td, indent, generated)
             return self.emit_enum(td, indent)
         return self.emit_class(td, indent, template_ctx)
+
+    def emit_generated_enum(self, td, indent, generated):
+        """An enum xmlgen generates: its header is included; a nested one becomes an alias of the namespace-scope Outer_Inner enum (a
+        second definition would be a distinct type, and `xmlgen.py generate` refuses it)."""
+        path, header = generated
+        self.ctx.includes.add(header)
+        name = cpp_ident(td.name)
+        if td.outer is None:
+            return [f'{indent}// {name}: an enum generated by xmlgen ({header})']
+        return [f'{indent}using {name} = ::{"::".join(path)}; // generated by xmlgen']
 
     def emit_enum(self, td, indent):
         lines = doc_block(td.doc, indent)
@@ -1923,10 +2048,14 @@ class DraftEmitter:
         singleton = is_singleton(td)
         # nested types: forward declarations (same access as the definition), then definitions with bases first
         nested = [nt for nt in td.types if not (singleton and nt.name == 'SingletonHolder') and nt.kind != 'annotation']
+        aliased = set()     # generated nested enums: the alias replaces the forward declaration and the definition
         if len(nested) > 1:
             for nt in nested:
                 label(java_access(nt.modifiers, is_interface))
-                if nt.kind == 'enum':
+                if p.generated_enum(nt) is not None:
+                    section += self.emit_type(nt, inner, in_template)
+                    aliased.add(id(nt))
+                elif nt.kind == 'enum':
                     section.append(f'{inner}enum class {cpp_ident(nt.name)} : {enum_underlying(nt)};')
                 elif p.cpp_type_params(nt):
                     tps = ', '.join(f'class {cpp_ident(tp.name)}' for tp in nt.type_params)
@@ -1935,7 +2064,7 @@ class DraftEmitter:
                     section.append(f'{inner}class {cpp_ident(nt.name)};')
         deferred = []
         for nt in self._ordered(list(td.types)):
-            if singleton and nt.name == 'SingletonHolder':
+            if (singleton and nt.name == 'SingletonHolder') or id(nt) in aliased:
                 continue
             if nt.kind == 'class' and not in_template and self._extends_enclosing(nt):
                 # a nested class deriving from its outer class can only be defined after the outer class is complete
@@ -2525,7 +2654,8 @@ class DraftEmitter:
             pure = abstract
             if not overrides and special not in (('equals', 1), ('hashCode', 0), ('toString', 0), ('compareTo', 1)) and any(
                     a.simple_name == 'Override' for a in m.annotations):
-                plan.comment = '@Override of a Java library type'
+                plan.comment = ('@Override: the hand-written C++ base does not declare it (yet)'
+                                if self.project.overridden_method(td, m, hand_written=False) else '@Override of a Java library type')
         if const and (virtual or override) and special not in (('equals', 1), ('hashCode', 0), ('toString', 0), ('compareTo', 1)):
             const = False    # const must agree across the hierarchy: only the Object/Comparable methods are const everywhere
         if 'synchronized' in m.modifiers:

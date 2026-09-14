@@ -3,10 +3,12 @@
 
 #include <cstdint>
 
+#include "aion/gameserver/runtime/lifetime/RefCounted.h"
+
 namespace aion::gameserver::model::templates::housing {
 
 /** Java com.aionemu.gameserver.model.templates.housing.Sale (data-only: generated completely). */
-struct Sale {
+struct Sale : public ::aion::gameserver::runtime::StaticTemplate {
 	int32_t pointPrice = 0; // @XmlAttribute(name = "point_price", required = true)
 	int64_t goldPrice = 0; // @XmlAttribute(name = "gold_price", required = true)
 	int32_t level = 0; // @XmlAttribute(name = "level", required = true)

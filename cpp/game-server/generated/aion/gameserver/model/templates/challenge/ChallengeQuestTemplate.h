@@ -3,10 +3,12 @@
 
 #include <cstdint>
 
+#include "aion/gameserver/runtime/lifetime/RefCounted.h"
+
 namespace aion::gameserver::model::templates::challenge {
 
 /** Java com.aionemu.gameserver.model.templates.challenge.ChallengeQuestTemplate (data-only: generated completely). */
-struct ChallengeQuestTemplate {
+struct ChallengeQuestTemplate : public ::aion::gameserver::runtime::StaticTemplate {
 	int32_t score = 0; // @XmlAttribute(name = "score", required = true)
 	int32_t repeatCount = 0; // @XmlAttribute(name = "repeat_count", required = true)
 	int32_t id = 0; // @XmlAttribute(name = "id", required = true)

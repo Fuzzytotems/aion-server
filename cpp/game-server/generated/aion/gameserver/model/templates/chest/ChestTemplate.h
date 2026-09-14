@@ -5,11 +5,12 @@
 #include <vector>
 
 #include "aion/gameserver/model/templates/chest/KeyItem.h"
+#include "aion/gameserver/runtime/lifetime/RefCounted.h"
 
 namespace aion::gameserver::model::templates::chest {
 
 /** Java com.aionemu.gameserver.model.templates.chest.ChestTemplate (data-only: generated completely). */
-struct ChestTemplate {
+struct ChestTemplate : public ::aion::gameserver::runtime::StaticTemplate {
 	int32_t npcId = 0; // @XmlAttribute(name = "npc_id")
 	std::vector<::aion::gameserver::model::templates::chest::KeyItem> keyItems; // @XmlElement(name = "key_item")
 	int32_t getNpcId() const { return npcId; }

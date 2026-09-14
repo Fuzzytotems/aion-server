@@ -3,10 +3,12 @@
 
 #include <cstdint>
 
+#include "aion/gameserver/runtime/lifetime/RefCounted.h"
+
 namespace aion::gameserver::model::templates::tradelist {
 
 /** Java com.aionemu.gameserver.model.templates.tradelist.TradeListTemplate.TradeTab (data-only: generated completely). */
-struct TradeListTemplate_TradeTab {
+struct TradeListTemplate_TradeTab : public ::aion::gameserver::runtime::StaticTemplate {
 	int32_t id = 0; // @XmlAttribute(name = "id")
 	int32_t getId() const { return id; }
 };

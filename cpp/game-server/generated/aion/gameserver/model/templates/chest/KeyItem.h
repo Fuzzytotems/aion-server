@@ -5,10 +5,12 @@
 #include <optional>
 #include <vector>
 
+#include "aion/gameserver/runtime/lifetime/RefCounted.h"
+
 namespace aion::gameserver::model::templates::chest {
 
 /** Java com.aionemu.gameserver.model.templates.chest.KeyItem (data-only: generated completely). */
-struct KeyItem {
+struct KeyItem : public ::aion::gameserver::runtime::StaticTemplate {
 	std::optional<std::vector<int32_t>> itemIds; // @XmlAttribute(name = "item_ids")
 	int32_t count = 0; // @XmlAttribute(name = "count")
 	const std::optional<std::vector<int32_t>>& getItemIds() const { return itemIds; }

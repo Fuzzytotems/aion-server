@@ -8,3 +8,4 @@
 
 #include "aion/gameserver/dataholders/loadingutils/XmlBindingFwd.h"
 #include "aion/gameserver/runtime/fields/Field.h"
+#include "aion/gameserver/runtime/lifetime/RefCounted.h"

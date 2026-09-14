@@ -4,11 +4,12 @@
 #include <vector>
 
 #include "aion/gameserver/dataholders/PlayerInitialData.h"
+#include "aion/gameserver/runtime/lifetime/RefCounted.h"
 
 namespace aion::gameserver::dataholders {
 
 /** Java com.aionemu.gameserver.dataholders.PlayerInitialData.PlayerCreationData.ItemsType (data-only: generated completely). */
-struct PlayerInitialData_PlayerCreationData_ItemsType {
+struct PlayerInitialData_PlayerCreationData_ItemsType : public ::aion::gameserver::runtime::StaticTemplate {
 	std::vector<::aion::gameserver::dataholders::PlayerInitialData::PlayerCreationData::ItemType> items; // @XmlElement(name = "item") Java: = new ArrayList<>()
 };
 

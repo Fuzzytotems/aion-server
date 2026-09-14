@@ -15,3 +15,4 @@
 #include "aion/gameserver/model/templates/challenge/ChallengeReward.h"
 #include "aion/gameserver/model/templates/challenge/ChallengeType.h"
 #include "aion/gameserver/model/templates/challenge/ContributionReward.h"
+#include "aion/gameserver/runtime/lifetime/RefCounted.h"

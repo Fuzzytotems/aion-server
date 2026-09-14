@@ -4,11 +4,12 @@
 #include <vector>
 
 #include "aion/gameserver/model/templates/recipe/Component.h"
+#include "aion/gameserver/runtime/lifetime/RefCounted.h"
 
 namespace aion::gameserver::model::templates::recipe {
 
 /** Java com.aionemu.gameserver.model.templates.recipe.ComponentsData (data-only: generated completely). */
-struct ComponentsData {
+struct ComponentsData : public ::aion::gameserver::runtime::StaticTemplate {
 	std::vector<::aion::gameserver::model::templates::recipe::Component> component; // @XmlElement(name = "component")
 	const std::vector<::aion::gameserver::model::templates::recipe::Component>& getComponent() const { return component; }
 };

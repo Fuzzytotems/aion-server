@@ -32,7 +32,7 @@ thread_local uint64_t rndSeedToken = 0;
 
 struct DeterministicExecutor::State {
 	explicit State(uint64_t seed) : savedGenerator(commons::utils::Rnd::generator()), creator(std::this_thread::get_id()), seedToken(++rndSeedToken) {
-		commons::utils::Rnd::generator() = commons::utils::Rnd::Xoshiro256PlusPlus(seed);
+		commons::utils::Rnd::seedCurrentThreadForTests(seed);
 	}
 
 	mutable RankedMutex<LockRank::SCHEDULER> mutex;

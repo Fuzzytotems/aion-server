@@ -5,11 +5,12 @@
 #include <vector>
 
 #include "aion/gameserver/model/templates/event/upgradearcade/ArcadeRewardItem.h"
+#include "aion/gameserver/runtime/lifetime/RefCounted.h"
 
 namespace aion::gameserver::model::templates::event::upgradearcade {
 
 /** Java com.aionemu.gameserver.model.templates.event.upgradearcade.ArcadeRewards (data-only: generated completely). */
-struct ArcadeRewards {
+struct ArcadeRewards : public ::aion::gameserver::runtime::StaticTemplate {
 	int32_t minLevel = 0; // @XmlAttribute(name = "min_level")
 	std::vector<::aion::gameserver::model::templates::event::upgradearcade::ArcadeRewardItem> arcadeRewardItems; // @XmlElement(name = "item")
 	int32_t getMinLevel() const { return minLevel; }

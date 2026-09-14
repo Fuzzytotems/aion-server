@@ -69,6 +69,12 @@ public:
 	using Exception::Exception;
 };
 
+/** Java: ArithmeticException (e.g. Matrix4f.invert of a singular matrix; Rates.java catches it) */
+class ArithmeticException : public Exception {
+public:
+	using Exception::Exception;
+};
+
 /** Java: IOException */
 class IOException : public Exception {
 public:

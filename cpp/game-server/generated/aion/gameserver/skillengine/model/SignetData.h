@@ -3,10 +3,12 @@
 
 #include <cstdint>
 
+#include "aion/gameserver/runtime/lifetime/RefCounted.h"
+
 namespace aion::gameserver::skillengine::model {
 
 /** Java com.aionemu.gameserver.skillengine.model.SignetData (data-only: generated completely). */
-struct SignetData {
+struct SignetData : public ::aion::gameserver::runtime::StaticTemplate {
 	int32_t level = 0; // @XmlAttribute(name = "lvl", required = true)
 	int32_t addEffectProb = 1; // @XmlAttribute(name = "add_effect_prob", required = true) Java: = 1
 	float damageMultiplier = 0.0f; // @XmlAttribute(name = "dmg_multi", required = true)

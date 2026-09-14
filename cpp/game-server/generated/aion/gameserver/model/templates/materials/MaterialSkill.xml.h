@@ -11,3 +11,4 @@
 #include "aion/gameserver/dataholders/loadingutils/XmlBindingFwd.h"
 #include "aion/gameserver/model/templates/materials/MaterialActCondition.h"
 #include "aion/gameserver/model/templates/materials/MaterialTarget.h"
+#include "aion/gameserver/runtime/lifetime/RefCounted.h"

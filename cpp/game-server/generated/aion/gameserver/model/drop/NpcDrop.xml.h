@@ -9,3 +9,4 @@
 
 #include "aion/gameserver/dataholders/loadingutils/XmlBindingFwd.h"
 #include "aion/gameserver/model/drop/DropGroup.h"
+#include "aion/gameserver/runtime/lifetime/RefCounted.h"

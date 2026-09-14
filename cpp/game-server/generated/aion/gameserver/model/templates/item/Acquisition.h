@@ -4,11 +4,12 @@
 #include <cstdint>
 
 #include "aion/gameserver/model/templates/item/AcquisitionType.h"
+#include "aion/gameserver/runtime/lifetime/RefCounted.h"
 
 namespace aion::gameserver::model::templates::item {
 
 /** Java com.aionemu.gameserver.model.templates.item.Acquisition (data-only: generated completely). */
-struct Acquisition {
+struct Acquisition : public ::aion::gameserver::runtime::StaticTemplate {
 	int32_t ap = 0; // @XmlAttribute(name = "ap") Java: = 0
 	int32_t itemCount = 0; // @XmlAttribute(name = "count")
 	int32_t itemId = 0; // @XmlAttribute(name = "item")

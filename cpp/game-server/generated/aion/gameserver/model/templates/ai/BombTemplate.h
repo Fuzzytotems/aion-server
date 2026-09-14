@@ -3,10 +3,12 @@
 
 #include <cstdint>
 
+#include "aion/gameserver/runtime/lifetime/RefCounted.h"
+
 namespace aion::gameserver::model::templates::ai {
 
 /** Java com.aionemu.gameserver.model.templates.ai.BombTemplate (data-only: generated completely). */
-struct BombTemplate {
+struct BombTemplate : public ::aion::gameserver::runtime::StaticTemplate {
 	int32_t skillId = 0; // @XmlAttribute(name = "skillId") Java: = 0
 	int32_t cd = 0; // @XmlAttribute(name = "cd") Java: = 0
 	int32_t getCd() const { return cd; }

@@ -3,10 +3,12 @@
 
 #include <cstdint>
 
+#include "aion/gameserver/runtime/lifetime/RefCounted.h"
+
 namespace aion::gameserver::model::templates::challenge {
 
 /** Java com.aionemu.gameserver.model.templates.challenge.ContributionReward (data-only: generated completely). */
-struct ContributionReward {
+struct ContributionReward : public ::aion::gameserver::runtime::StaticTemplate {
 	int32_t itemCount = 0; // @XmlAttribute(name = "item_count", required = true)
 	int32_t rewardId = 0; // @XmlAttribute(name = "reward_id", required = true)
 	int32_t number = 0; // @XmlAttribute(name = "number", required = true)

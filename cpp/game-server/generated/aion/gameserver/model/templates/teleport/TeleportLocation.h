@@ -4,11 +4,12 @@
 #include <cstdint>
 
 #include "aion/gameserver/model/templates/teleport/TeleportType.h"
+#include "aion/gameserver/runtime/lifetime/RefCounted.h"
 
 namespace aion::gameserver::model::templates::teleport {
 
 /** Java com.aionemu.gameserver.model.templates.teleport.TeleportLocation (data-only: generated completely). */
-struct TeleportLocation {
+struct TeleportLocation : public ::aion::gameserver::runtime::StaticTemplate {
 	int32_t locId = 0; // @XmlAttribute(name = "loc_id", required = true)
 	int32_t teleportid = 0; // @XmlAttribute(name = "teleportid") Java: = 0
 	int32_t price = 0; // @XmlAttribute(name = "price", required = true) Java: = 0

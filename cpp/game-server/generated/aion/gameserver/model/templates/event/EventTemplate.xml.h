@@ -17,3 +17,4 @@
 #include "aion/gameserver/model/templates/event/EventQuestList.h"
 #include "aion/gameserver/model/templates/event/InventoryDrop.h"
 #include "aion/gameserver/model/templates/globaldrops/GlobalRule.h"
+#include "aion/gameserver/runtime/lifetime/RefCounted.h"

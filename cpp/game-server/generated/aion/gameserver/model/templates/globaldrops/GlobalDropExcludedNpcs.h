@@ -5,10 +5,12 @@
 #include <optional>
 #include <unordered_set>
 
+#include "aion/gameserver/runtime/lifetime/RefCounted.h"
+
 namespace aion::gameserver::model::templates::globaldrops {
 
 /** Java com.aionemu.gameserver.model.templates.globaldrops.GlobalDropExcludedNpcs (data-only: generated completely). */
-struct GlobalDropExcludedNpcs {
+struct GlobalDropExcludedNpcs : public ::aion::gameserver::runtime::StaticTemplate {
 	std::optional<std::unordered_set<int32_t>> npcIds; // @XmlAttribute(name = "npc_ids", required = true) @XmlList
 	const std::optional<std::unordered_set<int32_t>>& getNpcIds() const { return npcIds; }
 };

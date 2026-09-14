@@ -5,11 +5,12 @@
 #include <vector>
 
 #include "aion/gameserver/model/templates/item/purification/RequiredMaterial.h"
+#include "aion/gameserver/runtime/lifetime/RefCounted.h"
 
 namespace aion::gameserver::model::templates::item::purification {
 
 /** Java com.aionemu.gameserver.model.templates.item.purification.PurificationResult (data-only: generated completely). */
-struct PurificationResult {
+struct PurificationResult : public ::aion::gameserver::runtime::StaticTemplate {
 	int32_t resultItemId = 0; // @XmlAttribute(name = "result_item_id")
 	int32_t minEnchantCount = 0; // @XmlAttribute(name = "min_enchant_count")
 	int32_t necessaryAbyssPoints = 0; // @XmlAttribute(name = "necessary_abyss_points")

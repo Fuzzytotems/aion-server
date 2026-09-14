@@ -3,10 +3,12 @@
 
 #include <cstdint>
 
+#include "aion/gameserver/runtime/lifetime/RefCounted.h"
+
 namespace aion::gameserver::model::templates::stats {
 
 /** Java com.aionemu.gameserver.model.templates.stats.KiskStatsTemplate (data-only: generated completely). */
-struct KiskStatsTemplate {
+struct KiskStatsTemplate : public ::aion::gameserver::runtime::StaticTemplate {
 	int32_t useMask = 4; // @XmlAttribute(name = "usemask") Java: = 4
 	int32_t maxMembers = 6; // @XmlAttribute(name = "members") Java: = 6
 	int32_t maxResurrects = 18; // @XmlAttribute(name = "resurrects") Java: = 18

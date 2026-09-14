@@ -25,7 +25,7 @@ namespace aion::gameserver::runtime {
  * - advance(dt) moves the ManualClock forward to each intermediate due time (in order), running runReady() at each, then to now + dt. A periodic
  *   task therefore runs at every period in between; to test coalescing, jump the clock with ManualClock::advance and call runReady().
  * - Periodic tasks, exceptions, slow-task thresholds and coalescing follow ThreadPoolManager's configuration exactly like the real pools.
- * - The rndSeed seeds the calling thread's commons Rnd generator (Rnd::generator() = Xoshiro256PlusPlus(seed)); the previous generator state is
+ * - The rndSeed seeds the calling thread's commons Rnd generator (Rnd::seedCurrentThreadForTests(seed)); the previous generator state is
  *   restored by retire() (installBackend) or the destructor when it runs on the same thread and no later executor seeded that thread since
  *   (the new executor is created before installBackend retires the old one).
  * - isExecutorThread() is true on the thread that created the executor. Future::get() there helps (design §1.5): it runs ready tasks, and when

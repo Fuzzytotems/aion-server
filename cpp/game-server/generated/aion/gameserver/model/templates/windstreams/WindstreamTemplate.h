@@ -5,11 +5,12 @@
 #include <memory>
 
 #include "aion/gameserver/model/templates/windstreams/StreamLocations.h"
+#include "aion/gameserver/runtime/lifetime/RefCounted.h"
 
 namespace aion::gameserver::model::templates::windstreams {
 
 /** Java com.aionemu.gameserver.model.templates.windstreams.WindstreamTemplate (data-only: generated completely). */
-struct WindstreamTemplate {
+struct WindstreamTemplate : public ::aion::gameserver::runtime::StaticTemplate {
 	std::unique_ptr<::aion::gameserver::model::templates::windstreams::StreamLocations> locations; // @XmlElement(name = "locations", required = true)
 	int32_t mapid = 0; // @XmlAttribute(name = "mapid")
 	const ::aion::gameserver::model::templates::windstreams::StreamLocations* getLocations() const { return locations.get(); }

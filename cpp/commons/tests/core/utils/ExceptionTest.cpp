@@ -2,6 +2,7 @@
 
 #include <stacktrace>
 #include <stdexcept>
+#include <type_traits>
 
 #include "aion/commons/utils/Exception.h"
 
@@ -58,4 +59,17 @@ TEST(ExceptionTest, StackTraceStringLikeJava) {
 		EXPECT_NE(text.find("\nCaused by: std::runtime_error: cause"), std::string::npos) << text;
 	}
 	EXPECT_EQ(toStackTraceString(std::out_of_range("x")), "std::out_of_range: x");
+}
+
+TEST(ExceptionTest, JavaTypeHierarchy) {
+	// Java: ArithmeticException extends RuntimeException, so catch (RuntimeException e) catches it
+	try {
+		throw ArithmeticException("/ by zero");
+	} catch (const Exception& e) {
+		EXPECT_STREQ(e.what(), "/ by zero");
+		EXPECT_EQ(exceptionTypeName(e), "aion::commons::utils::ArithmeticException");
+	}
+	EXPECT_FALSE((std::is_base_of_v<IllegalArgumentException, ArithmeticException>));
+	EXPECT_TRUE((std::is_base_of_v<IllegalArgumentException, NumberFormatException>));
+	EXPECT_TRUE((std::is_base_of_v<std::runtime_error, ArithmeticException>));
 }

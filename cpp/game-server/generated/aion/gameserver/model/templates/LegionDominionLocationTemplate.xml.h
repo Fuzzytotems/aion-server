@@ -14,3 +14,4 @@
 #include "aion/gameserver/model/Race.h"
 #include "aion/gameserver/model/templates/LegionDominionInvasionRift.h"
 #include "aion/gameserver/model/templates/LegionDominionReward.h"
+#include "aion/gameserver/runtime/lifetime/RefCounted.h"

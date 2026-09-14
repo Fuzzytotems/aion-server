@@ -6,10 +6,12 @@
 #include <string>
 #include <vector>
 
+#include "aion/gameserver/runtime/lifetime/RefCounted.h"
+
 namespace aion::gameserver::configs::schedule {
 
 /** Java com.aionemu.gameserver.configs.schedule.WorldRaidSchedules.WorldRaidSchedule (data-only: generated completely). */
-struct WorldRaidSchedules_WorldRaidSchedule {
+struct WorldRaidSchedules_WorldRaidSchedule : public ::aion::gameserver::runtime::StaticTemplate {
 	std::string id = ""; // @XmlAttribute(name = "id", required = true) Java: = ""
 	int32_t minCount = 0; // @XmlAttribute(name = "min_count") Java: = 0
 	int32_t maxCount = 0; // @XmlAttribute(name = "max_count") Java: = 0

@@ -5,10 +5,12 @@
 #include <optional>
 #include <vector>
 
+#include "aion/gameserver/runtime/lifetime/RefCounted.h"
+
 namespace aion::gameserver::questEngine::handlers::models {
 
 /** Java com.aionemu.gameserver.questEngine.handlers.models.NpcInfos (data-only: generated completely). */
-struct NpcInfos {
+struct NpcInfos : public ::aion::gameserver::runtime::StaticTemplate {
 	std::optional<std::vector<int32_t>> npcIds; // @XmlAttribute(name = "npc_ids", required = true)
 	int32_t movie = 0; // @XmlAttribute(name = "movie")
 	const std::optional<std::vector<int32_t>>& getNpcIds() const { return npcIds; }

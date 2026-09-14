@@ -8,11 +8,12 @@
 #include "aion/gameserver/model/templates/npcskill/NpcSkillConditionTemplate.h"
 #include "aion/gameserver/model/templates/npcskill/NpcSkillSpawn.h"
 #include "aion/gameserver/model/templates/npcskill/NpcSkillTargetAttribute.h"
+#include "aion/gameserver/runtime/lifetime/RefCounted.h"
 
 namespace aion::gameserver::model::templates::npcskill {
 
 /** Java com.aionemu.gameserver.model.templates.npcskill.NpcSkillTemplate (data-only: generated completely). */
-struct NpcSkillTemplate {
+struct NpcSkillTemplate : public ::aion::gameserver::runtime::StaticTemplate {
 	int32_t id = 0; // @XmlAttribute(name = "id")
 	int32_t lv = 0; // @XmlAttribute(name = "lv")
 	int32_t prob = 0; // @XmlAttribute(name = "prob")

@@ -9,3 +9,4 @@
 
 #include "aion/gameserver/configs/schedule/RiftSchedule_Rift.h"
 #include "aion/gameserver/dataholders/loadingutils/XmlBindingFwd.h"
+#include "aion/gameserver/runtime/lifetime/RefCounted.h"

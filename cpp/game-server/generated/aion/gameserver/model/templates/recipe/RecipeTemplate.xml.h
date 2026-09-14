@@ -12,3 +12,4 @@
 #include "aion/gameserver/model/Race.h"
 #include "aion/gameserver/model/templates/recipe/ComboProduct.h"
 #include "aion/gameserver/model/templates/recipe/ComponentsData.h"
+#include "aion/gameserver/runtime/lifetime/RefCounted.h"

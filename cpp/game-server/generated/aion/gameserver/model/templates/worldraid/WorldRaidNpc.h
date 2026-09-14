@@ -3,10 +3,12 @@
 
 #include <cstdint>
 
+#include "aion/gameserver/runtime/lifetime/RefCounted.h"
+
 namespace aion::gameserver::model::templates::worldraid {
 
 /** Java com.aionemu.gameserver.model.templates.worldraid.WorldRaidNpc (data-only: generated completely). */
-struct WorldRaidNpc {
+struct WorldRaidNpc : public ::aion::gameserver::runtime::StaticTemplate {
 	int32_t npcId = 0; // @XmlAttribute(name = "npc_id", required = true) Java: = 0
 	int32_t deathMsgId = 0; // @XmlAttribute(name = "death_msg_id") Java: = 0
 	int32_t getNpcId() const { return npcId; }

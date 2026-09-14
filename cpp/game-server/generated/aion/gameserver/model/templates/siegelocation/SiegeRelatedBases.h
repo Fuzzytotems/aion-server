@@ -5,10 +5,12 @@
 #include <optional>
 #include <vector>
 
+#include "aion/gameserver/runtime/lifetime/RefCounted.h"
+
 namespace aion::gameserver::model::templates::siegelocation {
 
 /** Java com.aionemu.gameserver.model.templates.siegelocation.SiegeRelatedBases (data-only: generated completely). */
-struct SiegeRelatedBases {
+struct SiegeRelatedBases : public ::aion::gameserver::runtime::StaticTemplate {
 	std::optional<std::vector<int32_t>> baseIds; // @XmlAttribute(name = "ids") @XmlList
 	const std::optional<std::vector<int32_t>>& getBaseIds() const { return baseIds; }
 };

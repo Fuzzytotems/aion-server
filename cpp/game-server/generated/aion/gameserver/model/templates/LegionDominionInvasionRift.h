@@ -3,10 +3,12 @@
 
 #include <cstdint>
 
+#include "aion/gameserver/runtime/lifetime/RefCounted.h"
+
 namespace aion::gameserver::model::templates {
 
 /** Java com.aionemu.gameserver.model.templates.LegionDominionInvasionRift (data-only: generated completely). */
-struct LegionDominionInvasionRift {
+struct LegionDominionInvasionRift : public ::aion::gameserver::runtime::StaticTemplate {
 	int32_t keyItemId = 0; // @XmlAttribute(name = "key_item_id", required = true)
 	int32_t riftId = 0; // @XmlAttribute(name = "rift_id", required = true)
 	int32_t getRiftId() const { return riftId; }

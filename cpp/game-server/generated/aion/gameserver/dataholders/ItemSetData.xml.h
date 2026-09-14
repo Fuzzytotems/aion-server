@@ -8,3 +8,4 @@
 
 #include "aion/gameserver/dataholders/loadingutils/XmlBindingFwd.h"
 #include "aion/gameserver/model/templates/itemset/ItemSetTemplate.h"
+#include "aion/gameserver/runtime/lifetime/RefCounted.h"

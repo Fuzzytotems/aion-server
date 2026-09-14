@@ -9,6 +9,8 @@
 `base` ← `sync` ← `lifetime` ← {`fields`, `collections`, `sched`} ← `services`. Ported Java facades keep their Java paths
 (`utils/ThreadPoolManager.h`, `utils/idfactory/IDFactory.h`, `services/cron/CronService.h`, `utils/cron/ThreadPoolManagerRunnableRunner.h`).
 Tests: `cpp/game-server/tests/runtime/<area>`, stress harness in `tests/runtime/stress`, P4 benchmark in `cpp/game-server/bench`.
+Spine step S0a added `base/Unported.h/.cpp` (`AION_UNPORTED`, moved from the handler registry) and `services/RuntimeLifecycle.h/.cpp` (kernel
+start/shutdown, runtime-architecture.md §23); the libraries are chunks P4-02a/P4-02b of `game-server/chunks.cmake`.
 Build presets: `msvc` and `msvc-asan` (AddressSanitizer; ASan DLLs are copied next to test executables). `AION_CHECKED` is on in Debug and
 RelWithDebInfo; PCT yield points and protocol mutation switches exist in checked test builds.
 
@@ -399,11 +401,11 @@ Machine: 32 logical CPUs, Windows 11, MSVC. ForkJoin parallelism 31. Defaults: 8
 
 ### fixer core
 
-- [sched, Pin.h] PinTarget::classify(const OwnedPart*) retains only the part's owner. After the lifetime fix, Ref<Part> and Field<Ref<Part>> keep a part replaced in a PartSlot<RECLAIMER> or PartMap alive, but Pin(&part) and Pin(Ref<Part>) still do not: the replaced part can be freed while the pinned task runs (the review's `Pin(&storage)` scenario). Fix in sched: pin a part through OwnedPart::retain()/release(), which count the part and retain the owner. For example, store the OwnedPart* and release it through the part, while pins(owner) keeps reporting partOwner(). Until then OwnedPart's header documents: capture a Ref<Part> or pin the owner and re-read the part.
+- **Resolved in S0a:** Pin retains a pinned part through OwnedPart::retain/release (an owner and its part share a slot, two parts of one owner take two slots; `Pin::part(i)`); tests in `tests/runtime/sched/PinPartTest.cpp`. The outdated workaround comment in `runtime/lifetime/Parts.h` is still there. Was: [sched, Pin.h] PinTarget::classify(const OwnedPart*) retains only the part's owner. After the lifetime fix, Ref<Part> and Field<Ref<Part>> keep a part replaced in a PartSlot<RECLAIMER> or PartMap alive, but Pin(&part) and Pin(Ref<Part>) still do not: the replaced part can be freed while the pinned task runs (the review's `Pin(&storage)` scenario). Fix in sched: pin a part through OwnedPart::retain()/release(), which count the part and retain the owner. For example, store the OwnedPart* and release it through the part, while pins(owner) keeps reporting partOwner(). Until then OwnedPart's header documents: capture a Ref<Part> or pin the owner and re-read the part.
 - [integrator, design doc runtime-architecture.md] Record these design corrections. (a) §2.3: a replaced OwnedPart keeps its own reference count and a stamp; retirePart destroys it only when partRefs == 0 and max(retire stamp, last-release stamp) < m. (b) §2.4: 'A Ptr can only exist after publication' now holds by construction: every Ptr made from a Ref, T& or T* publishes (TaskScope-internal borrowStamp), and T& from *ref is valid only while the Ref is held. (c) §2.2/§2.5: makeRef constructs with count 1 (the constructor's reference is adopted). This is in addition to the lifetime agent's earlier release-stamp correction. §2.5 cost table: creating a Ptr from a Ref now costs an out-of-line TLS check (publication once per scope). None of these is visible to Java code, so no DEVIATIONS.md entries are needed.
 - [integrator, DEVIATIONS.md] Watchdog behaviour: STALL is measured since the task's last quiescentPoint and reported once per progress interval. SLOW_TASK fires once per run. Kinds long-running, main, startup, shutdown and fork-join get no SLOW_TASK warnings; kinds long-running, main and startup get no STALL dumps (both lists are configurable via Watchdog::Config slowTaskExemptKinds/stallExemptKinds, to be bound to config in the services wiring). The sync agent's earlier DEVIATIONS items still apply.
 - [stress owner] StressReproducerTest.DISABLED_ReclaimerBacklogCountersSurviveConcurrentFlushAndScan can be enabled, or left opt-in since it runs about 7 s: the pushBatch fix makes it pass. The harness workaround at StressHarness.cpp:2230 (a reclaimNow barrier because removePostScanHook did not wait) is no longer needed.
-- [services] LeakCensus/CleanerQueue hooks still call ThreadPoolManager::getInstance() and can create the default pools if a scan runs after teardown but before uninstall. removePostScanHook now waits for a running hook, so uninstall is a proper barrier, but hooks should still read the clock and backend without creating pools (stress open issue 3, services part).
+- **Resolved (confirmed in S0a):** the hooks use `ThreadPoolManager::installedBackend()` and never create pools. Was: [services] LeakCensus/CleanerQueue hooks still call ThreadPoolManager::getInstance() and can create the default pools if a scan runs after teardown but before uninstall. removePostScanHook now waits for a running hook, so uninstall is a proper barrier, but hooks should still read the clock and backend without creating pools (stress open issue 3, services part).
 - [services/stress] Reclaimer::drain() now returns false while a Ref still holds a retired part; such parts stay in Stats::backlog. Teardown code that expects drain() == true must release those Refs first.
 - [base, perf] Ptr creation from a Ref now calls detail::borrowStamp() out of line (one TLS lookup plus two compares when already published). If P4 shows it in profiles, an inline thread_local fast path in base/ThreadContext would remove the call; base is frozen except for additive changes.
 - [fields owner] SyncCostsBenchTest (tests/runtime/fields) still measures only Monitors with a static class. Add a SYNCHRONIZED(*object) case to confirm the lock-free LockClass::ofType path under P4.
@@ -422,12 +424,42 @@ Deferred or rejected findings:
 - Collections memory for per-creature maps (bench): a written ConcurrentHashMap costs 16 stripe Monitors plus tables, about 1.8 KB fixed, now +24 B for the per-map resize mutex. Fewer or lazily allocated stripes for KnownList/AggroList/CreatureController.tasks need a fieldmap.toml or template-parameter decision.
 - Checked-build cost: CHM and COW iterator dereference and advance now make one TaskScope::currentScopeId() call (TLS) per element. Re-measure the P4 checked tick if KnownList iteration is hot.
 - StressReproducerTest.DISABLED_ReclaimerBacklogCountersSurviveConcurrentFlushAndScan passes now (the lifetime fixer fixed pushBatch) but stays opt-in: about 7 s and probabilistic. Run it in nightly jobs with --gtest_also_run_disabled_tests.
-- Not in my areas, unchanged: ExecuteWrapper exception logs have no stack trace (commons Logger::errorCurrentException); dynamic_cast cost of as<>/cast<> (lifetime); DEVIATIONS.md entries listed by the services/sched/collections agents; GameServer startup/shutdown wiring (CronService init, IDFactory seeding, CleanerQueue/LeakCensus install, Watchdog::start, final CleanerQueue::drainNow after ThreadPoolManager::shutdown, ForkJoinPool::setSerial from serialMovement, PacketProcessor/cron on the single executor); gtest_discover_tests writes cmake_test_discovery_*.json into the source tree.
+- Not in my areas, unchanged: ExecuteWrapper exception logs have no stack trace (commons Logger::errorCurrentException); dynamic_cast cost of as<>/cast<> (lifetime); DEVIATIONS.md entries listed by the services/sched/collections agents; GameServer startup/shutdown wiring (CronService init, IDFactory seeding, CleanerQueue/LeakCensus install, Watchdog::start, final CleanerQueue::drainNow after ThreadPoolManager::shutdown, ForkJoinPool::setSerial from serialMovement, PacketProcessor/cron on the single executor); gtest_discover_tests writes cmake_test_discovery_*.json into the source tree. **S0a:** the startup/shutdown wiring is `RuntimeLifecycle` (CronService init, IDFactory seeding through `Options::usedIds`, CleanerQueue/LeakCensus install, Reclaimer thread, Watchdog start, ForkJoin `setSerial`, pools, final `drainNow`; cron on the single executor through the EXECUTOR driver). Still for P5-14: the PacketProcessor on the single executor, the RESTART_SCHEDULE cron in the ShutdownHook constructor, `Logging::shutdown`/`quick_exit`, Ctrl+C posting. The discovery JSON is now written to `<build>/test_work/<target>` (resolved).
 
 Deferred or rejected findings:
 
 - **deferred**: Nested writes across two stripes of one map can deadlock; lockdep cannot see it; design §4.4 is wrong — The finding is correct: with 16 stripes, two compute callbacks that write each other's stripes of the same map deadlock at about 1/256 per concurrent pair. There is no mechanical fix inside the shim: the outer stripe is held by a running callback, so neither lock ordering nor try-and-release can be applied. The fix needs a design decision (accept, add stripes via fieldmap, or give PlayerContainer an explicit lock) plus a design/DEVIATIONS edit. I documented the risk, the affected Java sites and the required caller pattern in the ConcurrentHashMap header and reported the design correction in openIssues.
 - **deferred**: [bench/collections open issue] CHM memory per per-creature map (16 stripes) — Lazy or fewer stripes would change the design's 16-stripe structure and need a fieldmap.toml or template-parameter decision, and it is a performance item, not a correctness bug. Reported in openIssues.
-- **deferred**: [stress/sched/services open issues] DEVIATIONS.md entries, startup/shutdown wiring, single_executor for PacketProcessor/cron, serial_movement wiring, Watchdog start, final CleanerDrain — These are integrator or later-stage items outside the kernel code (a shared document and GameServer wiring). They are still valid and listed in openIssues.
+- **deferred**: [stress/sched/services open issues] DEVIATIONS.md entries, startup/shutdown wiring, single_executor for PacketProcessor/cron, serial_movement wiring, Watchdog start, final CleanerDrain — These are integrator or later-stage items outside the kernel code (a shared document and GameServer wiring). They are still valid and listed in openIssues. **S0a:** resolved by `RuntimeLifecycle` except the PacketProcessor on the single executor (P5-14).
 - **deferred**: [stress open issue 6] ExecuteWrapper exceptions logged without stack trace — The formatting is done by commons Logger::errorCurrentException, and cpp/commons must not be modified.
+
+### Spine step S0a (2026-09-14)
+
+Details: [spine-status.md](spine-status.md) and runtime-architecture.md §23.
+
+Resolved:
+- `TaskKind::CALLBACK` clashed with the `<windows.h>` `CALLBACK` macro (found in wave 1): renamed to `TaskKind::CALLBACK_`;
+  `tests/runtime/services/WindowsHeadersFirstTest.cpp` includes `<windows.h>` before every public kernel header. The skeleton tests'
+  `KERNEL_FIRST` workaround is removed.
+- Startup/shutdown wiring: `runtime/services/RuntimeLifecycle.h/.cpp` (10 tests; see "fixer upper" above for what stays with P5-14).
+- Pin counts pinned parts (see "fixer core" above; `PinPartTest`, 3 tests).
+- `DeterministicExecutor` seeds with `Rnd::seedCurrentThreadForTests` instead of assigning `Rnd::generator()`.
+- `java.lang.ArithmeticException` is in commons `aion/commons/utils/Exception.h`, re-exported by `runtime/base/Exceptions.h`.
+- `AION_UNPORTED` moved to `runtime/base/Unported.h/.cpp`. The first version changed the public namespace to `aion::gameserver::runtime`;
+  the fixer added using-declarations of the wave-1 names in `aion::gameserver::handlers` (`UnportedTest.WaveOneHandlerNamesStayAvailable`),
+  so the move is no longer an API break.
+- `gs.smoke.startup` (starts `aion_game_server` with `RuntimeLifecycle`) is opt-in like the other DB tests: it runs only with
+  `AION_TEST_GS_DATABASE_URL` (optional `AION_TEST_GS_DATABASE_USER`/`_PASSWORD`) and is reported as skipped otherwise.
+
+Still open:
+- Out of S0a scope, unchanged above: in-process minidump vs DbgHelp, other-thread stacks in text dumps, the LOGGING leaf rank, CHM same-map
+  cross-stripe nesting (lint L20, per-stripe lock classes) and per-creature CHM memory, the StressHarness `reclaimNow` workaround with its
+  DISABLED reproducer, the SyncCosts/TaskScope fast-path benches, Watchdog `slowTaskExemptKinds`/`stallExemptKinds` config keys
+  (`RuntimeConfig::watchdogConfig` belongs to `aion_gs_configs`).
+- `RuntimeLifecycle` ran only in Debug, not under msvc-asan or RelWithDebInfo.
+- If `start()` fails while the caller holds a STARTUP `TaskScope`, the rollback's final drain cannot free objects that scope published
+  (harmless: the process exits).
+- `UnportedTest` hard-codes the source lines of its `AION_UNPORTED` sites (20/24); an include added above them must update the expectations.
+- The Pin workaround comment in `runtime/lifetime/Parts.h` ("capture a Ref<Part> instead, or pin the owner and re-read the part") is outdated.
+- `MonitorTest.EventualFairnessAgainstABargingThread` failed once under `ctest --parallel 8` and passed alone: timing-sensitive under load.
 

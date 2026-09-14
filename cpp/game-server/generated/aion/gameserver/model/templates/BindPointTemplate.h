@@ -4,10 +4,12 @@
 #include <cstdint>
 #include <string>
 
+#include "aion/gameserver/runtime/lifetime/RefCounted.h"
+
 namespace aion::gameserver::model::templates {
 
 /** Java com.aionemu.gameserver.model.templates.BindPointTemplate (data-only: generated completely). */
-struct BindPointTemplate {
+struct BindPointTemplate : public ::aion::gameserver::runtime::StaticTemplate {
 	std::string name; // @XmlAttribute(name = "name", required = true)
 	int32_t npcId = 0; // @XmlAttribute(name = "npcid")
 	int32_t price = 0; // @XmlAttribute(name = "price") Java: = 0

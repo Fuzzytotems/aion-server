@@ -3,10 +3,12 @@
 
 #include <cstdint>
 
+#include "aion/gameserver/runtime/lifetime/RefCounted.h"
+
 namespace aion::gameserver::model::templates::globaldrops {
 
 /** Java com.aionemu.gameserver.model.templates.globaldrops.GlobalDropMap (data-only: generated completely). */
-struct GlobalDropMap {
+struct GlobalDropMap : public ::aion::gameserver::runtime::StaticTemplate {
 	int32_t mapId = 0; // @XmlAttribute(name = "map_id", required = true)
 	int32_t getMapId() const { return mapId; }
 };

@@ -12,6 +12,7 @@
 
 #include "aion/gameserver/dataholders/loadingutils/XmlBindingFwd.h"
 #include "aion/gameserver/model/templates/world/AiInfo.h"
+#include "aion/gameserver/runtime/lifetime/RefCounted.h"
 #include "aion/gameserver/world/WorldDropType.h"
 #include "aion/gameserver/world/WorldType.h"
 #include "aion/gameserver/world/zone/ZoneAttributes.h"

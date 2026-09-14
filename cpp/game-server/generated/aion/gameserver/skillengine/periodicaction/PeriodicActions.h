@@ -5,12 +5,13 @@
 #include <memory>
 #include <vector>
 
+#include "aion/gameserver/runtime/lifetime/RefCounted.h"
 #include "aion/gameserver/skillengine/periodicaction/PeriodicAction.h"
 
 namespace aion::gameserver::skillengine::periodicaction {
 
 /** Java com.aionemu.gameserver.skillengine.periodicaction.PeriodicActions (data-only: generated completely). */
-struct PeriodicActions {
+struct PeriodicActions : public ::aion::gameserver::runtime::StaticTemplate {
 	std::vector<std::unique_ptr<::aion::gameserver::skillengine::periodicaction::PeriodicAction>> periodicActions; // @XmlElements (2 choices)
 	int32_t checktime = 0; // @XmlAttribute(name = "checktime")
 	const std::vector<std::unique_ptr<::aion::gameserver::skillengine::periodicaction::PeriodicAction>>& getPeriodicActions() const { return periodicActions; }

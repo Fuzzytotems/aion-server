@@ -3,10 +3,12 @@
 
 #include <string>
 
+#include "aion/gameserver/runtime/lifetime/RefCounted.h"
+
 namespace aion::gameserver::model::templates::rift {
 
 /** Java com.aionemu.gameserver.model.templates.rift.OpenRift (data-only: generated completely). */
-struct OpenRift {
+struct OpenRift : public ::aion::gameserver::runtime::StaticTemplate {
 	std::string schedule; // @XmlAttribute(name = "schedule")
 	bool guards = false; // @XmlAttribute(name = "spawn")
 	const std::string& getSchedule() const { return schedule; }

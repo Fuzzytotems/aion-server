@@ -5,11 +5,12 @@
 #include <vector>
 
 #include "aion/gameserver/model/templates/ai/SummonGroup.h"
+#include "aion/gameserver/runtime/lifetime/RefCounted.h"
 
 namespace aion::gameserver::model::templates::ai {
 
 /** Java com.aionemu.gameserver.model.templates.ai.Percentage (data-only: generated completely). */
-struct Percentage {
+struct Percentage : public ::aion::gameserver::runtime::StaticTemplate {
 	int32_t percent = 0; // @XmlAttribute(name = "percent")
 	int32_t skillId = 0; // @XmlAttribute(name = "skillId") Java: = 0
 	bool isIndividual_ = false; // @XmlAttribute(name = "isIndividual") Java: = false

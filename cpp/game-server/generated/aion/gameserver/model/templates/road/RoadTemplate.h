@@ -7,11 +7,12 @@
 
 #include "aion/gameserver/model/templates/road/RoadExit.h"
 #include "aion/gameserver/model/templates/road/RoadPoint.h"
+#include "aion/gameserver/runtime/lifetime/RefCounted.h"
 
 namespace aion::gameserver::model::templates::road {
 
 /** Java com.aionemu.gameserver.model.templates.road.RoadTemplate (data-only: generated completely). */
-struct RoadTemplate {
+struct RoadTemplate : public ::aion::gameserver::runtime::StaticTemplate {
 	std::string name; // @XmlAttribute(name = "name")
 	int32_t map = 0; // @XmlAttribute(name = "map")
 	float radius = 0.0f; // @XmlAttribute(name = "radius")

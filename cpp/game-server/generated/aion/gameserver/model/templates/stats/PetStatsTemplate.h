@@ -3,10 +3,12 @@
 
 #include <string>
 
+#include "aion/gameserver/runtime/lifetime/RefCounted.h"
+
 namespace aion::gameserver::model::templates::stats {
 
 /** Java com.aionemu.gameserver.model.templates.stats.PetStatsTemplate (data-only: generated completely). */
-struct PetStatsTemplate {
+struct PetStatsTemplate : public ::aion::gameserver::runtime::StaticTemplate {
 	std::string reaction; // @XmlAttribute(name = "reaction")
 	float runSpeed = 0.0f; // @XmlAttribute(name = "run_speed")
 	float walkSpeed = 0.0f; // @XmlAttribute(name = "walk_speed")

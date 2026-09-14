@@ -4,11 +4,12 @@
 #include <vector>
 
 #include "aion/gameserver/model/templates/ai/Percentage.h"
+#include "aion/gameserver/runtime/lifetime/RefCounted.h"
 
 namespace aion::gameserver::model::templates::ai {
 
 /** Java com.aionemu.gameserver.model.templates.ai.Summons (data-only: generated completely). */
-struct Summons {
+struct Summons : public ::aion::gameserver::runtime::StaticTemplate {
 	std::vector<::aion::gameserver::model::templates::ai::Percentage> percentage; // @XmlElement(name = "percentage")
 	const std::vector<::aion::gameserver::model::templates::ai::Percentage>& getPercentage() const { return percentage; }
 };

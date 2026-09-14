@@ -167,6 +167,7 @@ bool XmlBinding<::aion::gameserver::model::templates::QuestTemplate>::attribute(
 		case "quest_zone"_xh:
 			if (name == "quest_zone") {
 				static_cast<void>(value); // not bound by Java, ignored like JAXB (xmlgen.toml [ignore_attributes]: 7469 quest)
+				c.ignoreAttribute(); // BindStats counts it as ignored
 				return true;
 			}
 			break;

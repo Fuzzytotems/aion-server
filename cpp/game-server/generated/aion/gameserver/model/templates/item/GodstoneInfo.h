@@ -3,10 +3,12 @@
 
 #include <cstdint>
 
+#include "aion/gameserver/runtime/lifetime/RefCounted.h"
+
 namespace aion::gameserver::model::templates::item {
 
 /** Java com.aionemu.gameserver.model.templates.item.GodstoneInfo (data-only: generated completely). */
-struct GodstoneInfo {
+struct GodstoneInfo : public ::aion::gameserver::runtime::StaticTemplate {
 	int32_t skillid = 0; // @XmlAttribute(name = "skillid")
 	int32_t skilllvl = 0; // @XmlAttribute(name = "skilllvl")
 	int32_t probability = 0; // @XmlAttribute(name = "probability")

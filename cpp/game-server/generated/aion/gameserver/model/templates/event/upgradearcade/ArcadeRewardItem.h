@@ -3,10 +3,12 @@
 
 #include <cstdint>
 
+#include "aion/gameserver/runtime/lifetime/RefCounted.h"
+
 namespace aion::gameserver::model::templates::event::upgradearcade {
 
 /** Java com.aionemu.gameserver.model.templates.event.upgradearcade.ArcadeRewardItem (data-only: generated completely). */
-struct ArcadeRewardItem {
+struct ArcadeRewardItem : public ::aion::gameserver::runtime::StaticTemplate {
 	int32_t itemId = 0; // @XmlAttribute(name = "item_id")
 	int64_t normalCount = 0; // @XmlAttribute(name = "normal_count")
 	int64_t frenzyCount = 0; // @XmlAttribute(name = "frenzy_count")

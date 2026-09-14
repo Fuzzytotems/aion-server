@@ -6,11 +6,12 @@
 #include <vector>
 
 #include "aion/gameserver/model/templates/npcskill/NpcSkillTemplate.h"
+#include "aion/gameserver/runtime/lifetime/RefCounted.h"
 
 namespace aion::gameserver::model::templates::npcskill {
 
 /** Java com.aionemu.gameserver.model.templates.npcskill.NpcSkillTemplates (data-only: generated completely). */
-struct NpcSkillTemplates {
+struct NpcSkillTemplates : public ::aion::gameserver::runtime::StaticTemplate {
 	std::optional<std::vector<int32_t>> npcIds; // @XmlAttribute(name = "npc_ids") @XmlList
 	std::vector<::aion::gameserver::model::templates::npcskill::NpcSkillTemplate> npcSkills; // @XmlElement(name = "npc_skill")
 	const std::optional<std::vector<int32_t>>& getNpcIds() const { return npcIds; }

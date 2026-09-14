@@ -6,11 +6,12 @@
 
 #include "aion/gameserver/model/templates/item/bonuses/StatBonusType.h"
 #include "aion/gameserver/model/templates/stats/ModifiersTemplate.h"
+#include "aion/gameserver/runtime/lifetime/RefCounted.h"
 
 namespace aion::gameserver::model::templates::item::bonuses {
 
 /** Java com.aionemu.gameserver.model.templates.item.bonuses.RandomBonusSet (data-only: generated completely). */
-struct RandomBonusSet {
+struct RandomBonusSet : public ::aion::gameserver::runtime::StaticTemplate {
 	std::vector<::aion::gameserver::model::templates::stats::ModifiersTemplate> modifiers; // @XmlElement(name = "modifiers", required = true)
 	int32_t id = 0; // @XmlAttribute(name = "id", required = true)
 	::aion::gameserver::model::templates::item::bonuses::StatBonusType bonusType = ::aion::gameserver::model::templates::item::bonuses::StatBonusType{}; // @XmlAttribute(name = "type", required = true)

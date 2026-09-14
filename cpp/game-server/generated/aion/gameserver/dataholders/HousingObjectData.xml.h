@@ -9,3 +9,4 @@
 
 #include "aion/gameserver/dataholders/loadingutils/XmlBindingFwd.h"
 #include "aion/gameserver/model/templates/housing/PlaceableHouseObject.h"
+#include "aion/gameserver/runtime/lifetime/RefCounted.h"

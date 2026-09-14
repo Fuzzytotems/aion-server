@@ -5,11 +5,12 @@
 #include <vector>
 
 #include "aion/gameserver/model/templates/spawns/siegespawns/SiegeSpawn_SiegeRaceTemplate.h"
+#include "aion/gameserver/runtime/lifetime/RefCounted.h"
 
 namespace aion::gameserver::model::templates::spawns::siegespawns {
 
 /** Java com.aionemu.gameserver.model.templates.spawns.siegespawns.SiegeSpawn (data-only: generated completely). */
-struct SiegeSpawn {
+struct SiegeSpawn : public ::aion::gameserver::runtime::StaticTemplate {
 	using SiegeRaceTemplate = ::aion::gameserver::model::templates::spawns::siegespawns::SiegeSpawn_SiegeRaceTemplate;
 	std::vector<::aion::gameserver::model::templates::spawns::siegespawns::SiegeSpawn_SiegeRaceTemplate> siegeRaceTemplates; // @XmlElement(name = "siege_race")
 	int32_t siegeId = 0; // @XmlAttribute(name = "siege_id")

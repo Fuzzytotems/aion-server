@@ -5,11 +5,12 @@
 #include <optional>
 
 #include "aion/gameserver/model/flypath/FlyPathType.h"
+#include "aion/gameserver/runtime/lifetime/RefCounted.h"
 
 namespace aion::gameserver::model::templates::windstreams {
 
 /** Java com.aionemu.gameserver.model.templates.windstreams.Location2D (data-only: generated completely). */
-struct Location2D {
+struct Location2D : public ::aion::gameserver::runtime::StaticTemplate {
 	int32_t id = 0; // @XmlAttribute(name = "id")
 	int32_t state = 0; // @XmlAttribute(name = "state")
 	std::optional<::aion::gameserver::model::flypath::FlyPathType> flyPath; // @XmlAttribute(name = "fly_path")

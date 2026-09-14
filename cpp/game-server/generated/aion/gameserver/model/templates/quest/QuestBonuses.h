@@ -4,11 +4,12 @@
 #include <cstdint>
 
 #include "aion/gameserver/model/templates/rewards/BonusType.h"
+#include "aion/gameserver/runtime/lifetime/RefCounted.h"
 
 namespace aion::gameserver::model::templates::quest {
 
 /** Java com.aionemu.gameserver.model.templates.quest.QuestBonuses (data-only: generated completely). */
-struct QuestBonuses {
+struct QuestBonuses : public ::aion::gameserver::runtime::StaticTemplate {
 	::aion::gameserver::model::templates::rewards::BonusType type = ::aion::gameserver::model::templates::rewards::BonusType{}; // @XmlAttribute(name = "type", required = true)
 	int32_t level = 0; // @XmlAttribute(name = "level")
 	::aion::gameserver::model::templates::rewards::BonusType getType() const { return type; }

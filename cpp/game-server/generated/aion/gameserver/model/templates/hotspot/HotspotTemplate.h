@@ -5,11 +5,12 @@
 #include <optional>
 
 #include "aion/gameserver/model/Race.h"
+#include "aion/gameserver/runtime/lifetime/RefCounted.h"
 
 namespace aion::gameserver::model::templates::hotspot {
 
 /** Java com.aionemu.gameserver.model.templates.hotspot.HotspotTemplate (data-only: generated completely). */
-struct HotspotTemplate {
+struct HotspotTemplate : public ::aion::gameserver::runtime::StaticTemplate {
 	int32_t id = 0; // @XmlAttribute(name = "id")
 	int32_t worldId = 0; // @XmlAttribute(name = "worldId")
 	float x = 0.0f; // @XmlAttribute(name = "x")

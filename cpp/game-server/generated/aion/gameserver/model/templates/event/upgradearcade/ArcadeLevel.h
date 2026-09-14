@@ -4,10 +4,12 @@
 #include <cstdint>
 #include <string>
 
+#include "aion/gameserver/runtime/lifetime/RefCounted.h"
+
 namespace aion::gameserver::model::templates::event::upgradearcade {
 
 /** Java com.aionemu.gameserver.model.templates.event.upgradearcade.ArcadeLevel (data-only: generated completely). */
-struct ArcadeLevel {
+struct ArcadeLevel : public ::aion::gameserver::runtime::StaticTemplate {
 	int32_t level = 0; // @XmlAttribute(name = "level")
 	std::string icon; // @XmlAttribute(name = "icon")
 	float upgradeChance = 0.0f; // @XmlAttribute(name = "upgrade_chance")

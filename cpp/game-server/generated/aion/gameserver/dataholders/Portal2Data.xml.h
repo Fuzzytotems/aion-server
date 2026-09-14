@@ -10,3 +10,4 @@
 #include "aion/gameserver/model/templates/portal/PortalDialog.h"
 #include "aion/gameserver/model/templates/portal/PortalScroll.h"
 #include "aion/gameserver/model/templates/portal/PortalUse.h"
+#include "aion/gameserver/runtime/lifetime/RefCounted.h"

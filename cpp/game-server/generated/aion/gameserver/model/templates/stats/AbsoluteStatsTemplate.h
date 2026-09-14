@@ -5,11 +5,12 @@
 #include <memory>
 
 #include "aion/gameserver/model/templates/stats/ModifiersTemplate.h"
+#include "aion/gameserver/runtime/lifetime/RefCounted.h"
 
 namespace aion::gameserver::model::templates::stats {
 
 /** Java com.aionemu.gameserver.model.templates.stats.AbsoluteStatsTemplate (data-only: generated completely). */
-struct AbsoluteStatsTemplate {
+struct AbsoluteStatsTemplate : public ::aion::gameserver::runtime::StaticTemplate {
 	std::unique_ptr<::aion::gameserver::model::templates::stats::ModifiersTemplate> modifiers; // @XmlElement(name = "modifiers", required = true)
 	int32_t id = 0; // @XmlAttribute(name = "id", required = true)
 	const ::aion::gameserver::model::templates::stats::ModifiersTemplate* getModifiers() const { return modifiers.get(); }

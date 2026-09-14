@@ -11,7 +11,7 @@
 namespace aion::gameserver::dataholders {
 
 /** Java com.aionemu.gameserver.dataholders.TribeRelationsData (test shell). @author ATracer */
-class TribeRelationsData {
+class TribeRelationsData : public ::aion::gameserver::runtime::StaticTemplate {
 #include "aion/gameserver/dataholders/TribeRelationsData.xml.inc"
 public:
 	/** Java: size() */

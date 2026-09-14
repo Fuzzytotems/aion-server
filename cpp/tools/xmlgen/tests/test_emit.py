@@ -78,7 +78,8 @@ class EmitTest(unittest.TestCase):
 
     def test_data_struct(self):
         text = self.file('aion/gameserver/model/Thing.h')
-        self.assertIn('struct Thing {', text)
+        self.assertIn('struct Thing : public ::aion::gameserver::runtime::StaticTemplate {', text)     # K1 marker of a hierarchy root
+        self.assertIn('#include "aion/gameserver/runtime/lifetime/RefCounted.h"', text)
         expected = [
             f'std::vector<std::unique_ptr<{NS}::Action>> actions;',
             f'std::optional<std::vector<{NS}::Stat>> stats;',
@@ -184,7 +185,10 @@ class EmitTest(unittest.TestCase):
         out = dict(scaffold.scaffold(self.cm, ['dataholders.ThingData']))
         header = out['aion/gameserver/dataholders/ThingData.h']
         self.assertIn('#include "aion/gameserver/dataholders/ThingData.xml.h"', header)
-        self.assertIn('class ThingData {\n#include "aion/gameserver/dataholders/ThingData.xml.inc"\npublic:', header)
+        self.assertIn('class ThingData : public ::aion::gameserver::runtime::StaticTemplate {\n'
+                      '#include "aion/gameserver/dataholders/ThingData.xml.inc"\npublic:', header)
+        self.assertIn('#include "aion/gameserver/runtime/lifetime/RefCounted.h"', self.file('aion/gameserver/dataholders/ThingData.xml.h'),
+                      'the prelude provides the marker base of the shell')
         self.assertIn('// TODO port: public int size()', header)
         source = out['aion/gameserver/dataholders/ThingData.cpp']
         self.assertIn('void ThingData::afterUnmarshal(xml::LoadContext& /*ctx*/, const xml::XmlParent& /*parent*/) {\n\tAION_UNPORTED();', source)
@@ -238,7 +242,7 @@ class NestedClassesTest(unittest.TestCase):
         enum = files['aion/gameserver/dataholders/ThingData_Mode.h']
         self.assertIn('enum class ThingData_Mode : uint8_t {', enum)
         self.assertIn('static constexpr std::string_view javaName = "Mode";', enum)
-        self.assertIn('struct ThingData_Entry {', files['aion/gameserver/dataholders/ThingData_Entry.h'])
+        self.assertIn('struct ThingData_Entry : public ::aion::gameserver::runtime::StaticTemplate {', files['aion/gameserver/dataholders/ThingData_Entry.h'])
         inc = files['aion/gameserver/dataholders/ThingData.xml.inc']
         self.assertIn('class Base; // hand-written nested class, defined after ThingData', inc)
         self.assertIn('class Special; // hand-written nested class, defined after ThingData', inc)
@@ -251,8 +255,9 @@ class NestedClassesTest(unittest.TestCase):
         self.assertIn('XmlBinding<::aion::gameserver::dataholders::ThingData::Base>::afterUnmarshal(o, c.load(), parent);', binder,
                       'a subclass without its own hook calls the nearest declared hook')
         header = dict(scaffold.scaffold(cm, ['dataholders.ThingData']))['aion/gameserver/dataholders/ThingData.h']
-        self.assertLess(header.index('class ThingData {'), header.index('class ThingData::Base {'))
-        self.assertLess(header.index('class ThingData::Base {'),
+        marker = ' : public ::aion::gameserver::runtime::StaticTemplate {'
+        self.assertLess(header.index('class ThingData' + marker), header.index('class ThingData::Base' + marker))
+        self.assertLess(header.index('class ThingData::Base' + marker),
                         header.index('class ThingData::Special : public ::aion::gameserver::dataholders::ThingData::Base {'))
 
 

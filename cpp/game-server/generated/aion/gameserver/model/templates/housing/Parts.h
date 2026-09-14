@@ -4,10 +4,12 @@
 #include <cstdint>
 #include <optional>
 
+#include "aion/gameserver/runtime/lifetime/RefCounted.h"
+
 namespace aion::gameserver::model::templates::housing {
 
 /** Java com.aionemu.gameserver.model.templates.housing.Parts (data-only: generated completely). */
-struct Parts {
+struct Parts : public ::aion::gameserver::runtime::StaticTemplate {
 	std::optional<int32_t> fence; // implicit element <fence>
 	std::optional<int32_t> garden; // implicit element <garden>
 	std::optional<int32_t> frame; // implicit element <frame>

@@ -3,10 +3,12 @@
 
 #include <cstdint>
 
+#include "aion/gameserver/runtime/lifetime/RefCounted.h"
+
 namespace aion::gameserver::model::templates::housing {
 
 /** Java com.aionemu.gameserver.model.templates.housing.BuildingCapabilities (data-only: generated completely). */
-struct BuildingCapabilities {
+struct BuildingCapabilities : public ::aion::gameserver::runtime::StaticTemplate {
 	bool addon = false; // @XmlAttribute(name = "addon", required = true)
 	int32_t emblemId = 0; // @XmlAttribute(name = "emblemId", required = true)
 	bool floor = false; // @XmlAttribute(name = "floor", required = true)

@@ -19,7 +19,8 @@ struct TaskKind {
 	static constexpr const char* FORK_JOIN = "fork-join";
 	static constexpr const char* SERIAL = "serial";
 	static constexpr const char* CLEANER = "cleaner";
-	static constexpr const char* CALLBACK = "callback";
+	/** PinnedCallback runs. Trailing underscore: <windows.h> defines a CALLBACK macro (CONVENTIONS.md keyword and macro rule). */
+	static constexpr const char* CALLBACK_ = "callback";
 	static constexpr const char* RECLAIMER = "reclaimer";
 	static constexpr const char* WATCHDOG = "watchdog";
 	static constexpr const char* TEST = "test";

@@ -5,11 +5,12 @@
 #include <vector>
 
 #include "aion/gameserver/model/templates/portal/PortalPath.h"
+#include "aion/gameserver/runtime/lifetime/RefCounted.h"
 
 namespace aion::gameserver::model::templates::portal {
 
 /** Java com.aionemu.gameserver.model.templates.portal.PortalUse (data-only: generated completely). */
-struct PortalUse {
+struct PortalUse : public ::aion::gameserver::runtime::StaticTemplate {
 	std::vector<::aion::gameserver::model::templates::portal::PortalPath> portalPaths; // @XmlElement(name = "portal_path")
 	int32_t npcId = 0; // @XmlAttribute(name = "npc_id")
 	const std::vector<::aion::gameserver::model::templates::portal::PortalPath>& getPortalPaths() const { return portalPaths; }

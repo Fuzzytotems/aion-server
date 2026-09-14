@@ -7,11 +7,12 @@
 
 #include "aion/gameserver/model/templates/spawns/Spawn.h"
 #include "aion/gameserver/model/vortex/VortexStateType.h"
+#include "aion/gameserver/runtime/lifetime/RefCounted.h"
 
 namespace aion::gameserver::model::templates::spawns::vortexspawns {
 
 /** Java com.aionemu.gameserver.model.templates.spawns.vortexspawns.VortexSpawn.VortexStateTemplate (data-only: generated completely). */
-struct VortexSpawn_VortexStateTemplate {
+struct VortexSpawn_VortexStateTemplate : public ::aion::gameserver::runtime::StaticTemplate {
 	std::vector<std::unique_ptr<::aion::gameserver::model::templates::spawns::Spawn>> spawns; // @XmlElement(name = "spawn")
 	std::optional<::aion::gameserver::model::vortex::VortexStateType> stateType; // @XmlAttribute(name = "state")
 	const std::vector<std::unique_ptr<::aion::gameserver::model::templates::spawns::Spawn>>& getSpawns() const { return spawns; }

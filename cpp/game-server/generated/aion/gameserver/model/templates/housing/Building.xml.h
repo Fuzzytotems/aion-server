@@ -13,3 +13,4 @@
 #include "aion/gameserver/model/templates/housing/BuildingType.h"
 #include "aion/gameserver/model/templates/housing/HouseType.h"
 #include "aion/gameserver/model/templates/housing/Parts.h"
+#include "aion/gameserver/runtime/lifetime/RefCounted.h"

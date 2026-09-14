@@ -12,14 +12,8 @@
 
 namespace aion::gameserver::geoEngine::math {
 
-/**
- * Java: java.lang.ArithmeticException, thrown by Matrix4f.invert for a singular matrix. Declared here because the runtime's Java exception
- * types (runtime/base/Exceptions.h) do not have it and this leaf library does not depend on the runtime.
- */
-class ArithmeticException : public commons::utils::Exception {
-public:
-	using Exception::Exception;
-};
+/** Java: java.lang.ArithmeticException, thrown by Matrix4f.invert for a singular matrix (the commons type; this leaf library needs no runtime). */
+using commons::utils::ArithmeticException;
 
 /**
  * Java: com.aionemu.gameserver.geoEngine.math.Matrix4f (jMonkeyEngine) - a 4x4 matrix, m[row][col], column vectors on the right, translation

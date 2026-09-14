@@ -4,11 +4,12 @@
 #include <optional>
 
 #include "aion/gameserver/model/templates/event/Buff_TriggerCondition.h"
+#include "aion/gameserver/runtime/lifetime/RefCounted.h"
 
 namespace aion::gameserver::model::templates::event {
 
 /** Java com.aionemu.gameserver.model.templates.event.Buff.Trigger (data-only: generated completely). */
-struct Buff_Trigger {
+struct Buff_Trigger : public ::aion::gameserver::runtime::StaticTemplate {
 	std::optional<::aion::gameserver::model::templates::event::Buff_TriggerCondition> condition; // @XmlAttribute(name = "condition")
 	float chance = 100.0f; // @XmlAttribute(name = "chance") Java: = 100
 	std::optional<::aion::gameserver::model::templates::event::Buff_TriggerCondition> getCondition() const { return condition; }

@@ -3,10 +3,12 @@
 
 #include <cstdint>
 
+#include "aion/gameserver/runtime/lifetime/RefCounted.h"
+
 namespace aion::gameserver::model::templates::pet {
 
 /** Java com.aionemu.gameserver.model.templates.pet.PetFeedResult (data-only: generated completely). */
-struct PetFeedResult {
+struct PetFeedResult : public ::aion::gameserver::runtime::StaticTemplate {
 	int32_t item = 0; // @XmlAttribute(name = "item", required = true)
 	int32_t getItem() const { return item; }
 };

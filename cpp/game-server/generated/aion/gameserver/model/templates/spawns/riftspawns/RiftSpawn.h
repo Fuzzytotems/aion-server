@@ -6,11 +6,12 @@
 #include <vector>
 
 #include "aion/gameserver/model/templates/spawns/Spawn.h"
+#include "aion/gameserver/runtime/lifetime/RefCounted.h"
 
 namespace aion::gameserver::model::templates::spawns::riftspawns {
 
 /** Java com.aionemu.gameserver.model.templates.spawns.riftspawns.RiftSpawn (data-only: generated completely). */
-struct RiftSpawn {
+struct RiftSpawn : public ::aion::gameserver::runtime::StaticTemplate {
 	int32_t id = 0; // @XmlAttribute(name = "id")
 	int32_t world = 0; // @XmlAttribute(name = "world")
 	std::vector<std::unique_ptr<::aion::gameserver::model::templates::spawns::Spawn>> spawns; // @XmlElement(name = "spawn") Java: = new ArrayList<>()

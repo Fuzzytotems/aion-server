@@ -10,3 +10,4 @@
 #include "aion/gameserver/dataholders/PlayerInitialData_LocationData.xml.h"
 #include "aion/gameserver/dataholders/PlayerInitialData_PlayerCreationData.xml.h"
 #include "aion/gameserver/dataholders/loadingutils/XmlBindingFwd.h"
+#include "aion/gameserver/runtime/lifetime/RefCounted.h"

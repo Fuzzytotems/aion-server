@@ -45,3 +45,14 @@ add_subdirectory(commons)
 add_subdirectory(login-server)
 add_subdirectory(game-server)
 add_subdirectory(tools)
+
+# The Python tool suites that also read the Java tree (their real-tree cases skip without it) carry the label realdata, like the game server's
+# real-tree tests, so `ctest -LE realdata` is a fast run without the Java checkout. The label applies to the whole suite.
+if(AION_BUILD_TESTS)
+	get_property(tool_tests DIRECTORY tools PROPERTY TESTS)
+	foreach(tool_test IN ITEMS tools.gen tools.oracle tools.porting tools.xmlgen)
+		if(tool_test IN_LIST tool_tests)
+			set_tests_properties(${tool_test} DIRECTORY tools PROPERTIES LABELS realdata)
+		endif()
+	endforeach()
+endif()

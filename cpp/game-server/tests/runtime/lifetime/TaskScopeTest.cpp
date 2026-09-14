@@ -26,7 +26,7 @@ TEST(TaskScopeTest, OutermostScopeGetsUniqueIdAndNestedScopesShareIt) {
 		uint64_t id = TaskScope::currentScopeId();
 		ids.insert(id);
 		{
-			TaskScope nested(AION_TASK_INFO(TaskKind::CALLBACK));
+			TaskScope nested(AION_TASK_INFO(TaskKind::CALLBACK_));
 			EXPECT_EQ(TaskScope::depth(), 2u);
 			EXPECT_EQ(TaskScope::currentScopeId(), id);
 			EXPECT_STREQ(TaskScope::currentTaskInfo().kind, TaskKind::TEST) << "nested TaskInfo is ignored";

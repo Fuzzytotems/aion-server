@@ -3,10 +3,12 @@
 
 #include <cstdint>
 
+#include "aion/gameserver/runtime/lifetime/RefCounted.h"
+
 namespace aion::gameserver::model::templates::npcskill {
 
 /** Java com.aionemu.gameserver.model.templates.npcskill.NpcSkillSpawn (data-only: generated completely). */
-struct NpcSkillSpawn {
+struct NpcSkillSpawn : public ::aion::gameserver::runtime::StaticTemplate {
 	int32_t npcId = 0; // @XmlAttribute(name = "npc_id")
 	int32_t delay = 0; // @XmlAttribute(name = "delay")
 	int32_t minDistance = 0; // @XmlAttribute(name = "min_distance")

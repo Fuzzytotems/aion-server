@@ -56,6 +56,7 @@ bool XmlBinding<::aion::gameserver::model::templates::teleport::TelelocationTemp
 		case "name"_xh:
 			if (name == "name") {
 				static_cast<void>(value); // not bound by Java, ignored like JAXB (xmlgen.toml [ignore_attributes]: 284 teleloc_template)
+				c.ignoreAttribute(); // BindStats counts it as ignored
 				return true;
 			}
 			break;

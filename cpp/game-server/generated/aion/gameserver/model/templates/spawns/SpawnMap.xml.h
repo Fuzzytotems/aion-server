@@ -16,3 +16,4 @@
 #include "aion/gameserver/model/templates/spawns/riftspawns/RiftSpawn.h"
 #include "aion/gameserver/model/templates/spawns/siegespawns/SiegeSpawn.h"
 #include "aion/gameserver/model/templates/spawns/vortexspawns/VortexSpawn.h"
+#include "aion/gameserver/runtime/lifetime/RefCounted.h"

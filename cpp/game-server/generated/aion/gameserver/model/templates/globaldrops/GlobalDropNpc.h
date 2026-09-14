@@ -3,10 +3,12 @@
 
 #include <cstdint>
 
+#include "aion/gameserver/runtime/lifetime/RefCounted.h"
+
 namespace aion::gameserver::model::templates::globaldrops {
 
 /** Java com.aionemu.gameserver.model.templates.globaldrops.GlobalDropNpc (data-only: generated completely). */
-struct GlobalDropNpc {
+struct GlobalDropNpc : public ::aion::gameserver::runtime::StaticTemplate {
 	int32_t npcId = 0; // @XmlAttribute(name = "npc_id", required = true)
 	int32_t getNpcId() const { return npcId; }
 	void setNpcId(int32_t value) { npcId = value; }

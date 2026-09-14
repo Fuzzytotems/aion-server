@@ -10,11 +10,12 @@
 #include "aion/gameserver/model/Race.h"
 #include "aion/gameserver/model/templates/Guides/SurveyTemplate.h"
 #include "aion/gameserver/runtime/fields/Field.h"
+#include "aion/gameserver/runtime/lifetime/RefCounted.h"
 
 namespace aion::gameserver::model::templates::Guides {
 
 /** Java com.aionemu.gameserver.model.templates.Guides.GuideTemplate (data-only: generated completely). */
-struct GuideTemplate {
+struct GuideTemplate : public ::aion::gameserver::runtime::StaticTemplate {
 	int32_t level = 0; // @XmlAttribute(name = "level")
 	std::optional<::aion::gameserver::model::PlayerClass> classType; // @XmlAttribute(name = "classType")
 	std::string title; // @XmlAttribute(name = "title")

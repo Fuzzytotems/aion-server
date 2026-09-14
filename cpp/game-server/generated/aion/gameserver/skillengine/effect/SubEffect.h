@@ -3,10 +3,12 @@
 
 #include <cstdint>
 
+#include "aion/gameserver/runtime/lifetime/RefCounted.h"
+
 namespace aion::gameserver::skillengine::effect {
 
 /** Java com.aionemu.gameserver.skillengine.effect.SubEffect (data-only: generated completely). */
-struct SubEffect {
+struct SubEffect : public ::aion::gameserver::runtime::StaticTemplate {
 	int32_t skillId = 0; // @XmlAttribute(name = "skill_id", required = true)
 	int32_t chance = 100; // @XmlAttribute(name = "chance") Java: = 100
 	bool addEffect = false; // @XmlAttribute(name = "addeffect") Java: = false

@@ -3,10 +3,12 @@
 
 #include <cstdint>
 
+#include "aion/gameserver/runtime/lifetime/RefCounted.h"
+
 namespace aion::gameserver::model::templates::rift {
 
 /** Java com.aionemu.gameserver.model.templates.rift.RiftTemplate (data-only: generated completely). */
-struct RiftTemplate {
+struct RiftTemplate : public ::aion::gameserver::runtime::StaticTemplate {
 	int32_t id = 0; // @XmlAttribute(name = "id")
 	int32_t world = 0; // @XmlAttribute(name = "world")
 	bool hasSpawns_ = false; // @XmlAttribute(name = "has_spawns")

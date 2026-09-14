@@ -4,11 +4,12 @@
 #include <cstdint>
 
 #include "aion/gameserver/model/stats/container/StatEnum.h"
+#include "aion/gameserver/runtime/lifetime/RefCounted.h"
 
 namespace aion::gameserver::model::enchants {
 
 /** Java com.aionemu.gameserver.model.enchants.TemperingStat (data-only: generated completely). */
-struct TemperingStat {
+struct TemperingStat : public ::aion::gameserver::runtime::StaticTemplate {
 	::aion::gameserver::model::stats::container::StatEnum stat = ::aion::gameserver::model::stats::container::StatEnum{}; // @XmlAttribute(name = "stat", required = true)
 	int32_t value = 0; // @XmlAttribute(name = "value", required = true)
 	::aion::gameserver::model::stats::container::StatEnum getStat() const { return stat; }

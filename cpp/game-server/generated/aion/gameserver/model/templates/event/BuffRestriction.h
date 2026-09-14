@@ -6,11 +6,12 @@
 #include <unordered_set>
 
 #include "aion/gameserver/model/templates/event/Buff_BuffMapType.h"
+#include "aion/gameserver/runtime/lifetime/RefCounted.h"
 
 namespace aion::gameserver::model::templates::event {
 
 /** Java com.aionemu.gameserver.model.templates.event.BuffRestriction (data-only: generated completely). */
-struct BuffRestriction {
+struct BuffRestriction : public ::aion::gameserver::runtime::StaticTemplate {
 	std::optional<std::unordered_set<::aion::gameserver::model::templates::event::Buff_BuffMapType>> maps; // @XmlAttribute(name = "maps") @XmlList
 	float teamSizeMaxPercent = 0.0f; // @XmlAttribute(name = "team_size_max_percent")
 	int32_t randomDaysPerMonth = 0; // @XmlAttribute(name = "random_days_per_month")

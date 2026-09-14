@@ -3,10 +3,12 @@
 
 #include <cstdint>
 
+#include "aion/gameserver/runtime/lifetime/RefCounted.h"
+
 namespace aion::gameserver::model::templates {
 
 /** Java com.aionemu.gameserver.model.templates.LegionDominionReward (data-only: generated completely). */
-struct LegionDominionReward {
+struct LegionDominionReward : public ::aion::gameserver::runtime::StaticTemplate {
 	int32_t rank = 0; // @XmlAttribute(name = "rank")
 	int32_t itemId = 0; // @XmlAttribute(name = "item_id")
 	int32_t count = 0; // @XmlAttribute(name = "count")

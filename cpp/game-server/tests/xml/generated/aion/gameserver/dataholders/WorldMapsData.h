@@ -12,7 +12,7 @@
 namespace aion::gameserver::dataholders {
 
 /** Java com.aionemu.gameserver.dataholders.WorldMapsData (test shell). @author Luno */
-class WorldMapsData {
+class WorldMapsData : public ::aion::gameserver::runtime::StaticTemplate {
 #include "aion/gameserver/dataholders/WorldMapsData.xml.inc"
 public:
 	/** Java: size() */

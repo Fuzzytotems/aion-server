@@ -6,11 +6,12 @@
 #include <utility>
 
 #include "aion/gameserver/model/templates/portal/PortalPath.h"
+#include "aion/gameserver/runtime/lifetime/RefCounted.h"
 
 namespace aion::gameserver::model::templates::portal {
 
 /** Java com.aionemu.gameserver.model.templates.portal.PortalScroll (data-only: generated completely). */
-struct PortalScroll {
+struct PortalScroll : public ::aion::gameserver::runtime::StaticTemplate {
 	std::unique_ptr<::aion::gameserver::model::templates::portal::PortalPath> portalPath; // @XmlElement(name = "portal_path")
 	std::string name; // @XmlAttribute(name = "name")
 	const ::aion::gameserver::model::templates::portal::PortalPath* getPortalPath() const { return portalPath.get(); }

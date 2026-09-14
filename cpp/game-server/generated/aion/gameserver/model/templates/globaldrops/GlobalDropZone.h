@@ -3,10 +3,12 @@
 
 #include <string>
 
+#include "aion/gameserver/runtime/lifetime/RefCounted.h"
+
 namespace aion::gameserver::model::templates::globaldrops {
 
 /** Java com.aionemu.gameserver.model.templates.globaldrops.GlobalDropZone (data-only: generated completely). */
-struct GlobalDropZone {
+struct GlobalDropZone : public ::aion::gameserver::runtime::StaticTemplate {
 	std::string zone; // @XmlAttribute(name = "zone", required = true)
 	const std::string& getZone() const { return zone; }
 };

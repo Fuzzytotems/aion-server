@@ -7,11 +7,12 @@
 #include "aion/gameserver/model/base/BaseColorType.h"
 #include "aion/gameserver/model/base/BaseOccupier.h"
 #include "aion/gameserver/model/base/BaseType.h"
+#include "aion/gameserver/runtime/lifetime/RefCounted.h"
 
 namespace aion::gameserver::model::templates::base {
 
 /** Java com.aionemu.gameserver.model.templates.base.BaseTemplate (data-only: generated completely). */
-struct BaseTemplate {
+struct BaseTemplate : public ::aion::gameserver::runtime::StaticTemplate {
 	int32_t id = 0; // @XmlAttribute(name = "id")
 	int32_t world = 0; // @XmlAttribute(name = "world")
 	std::optional<::aion::gameserver::model::base::BaseType> type; // @XmlAttribute(name = "type")

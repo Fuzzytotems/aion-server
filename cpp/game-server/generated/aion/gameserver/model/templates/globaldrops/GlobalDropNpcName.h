@@ -4,11 +4,12 @@
 #include <string>
 
 #include "aion/gameserver/model/templates/globaldrops/StringFunction.h"
+#include "aion/gameserver/runtime/lifetime/RefCounted.h"
 
 namespace aion::gameserver::model::templates::globaldrops {
 
 /** Java com.aionemu.gameserver.model.templates.globaldrops.GlobalDropNpcName (data-only: generated completely). */
-struct GlobalDropNpcName {
+struct GlobalDropNpcName : public ::aion::gameserver::runtime::StaticTemplate {
 	std::string name; // @XmlAttribute(name = "value", required = true)
 	::aion::gameserver::model::templates::globaldrops::StringFunction function = ::aion::gameserver::model::templates::globaldrops::StringFunction{}; // @XmlAttribute(name = "function", required = true)
 	const std::string& getValue() const { return name; }

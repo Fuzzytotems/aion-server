@@ -5,11 +5,12 @@
 #include <vector>
 
 #include "aion/gameserver/model/templates/spawns/basespawns/BaseSpawn_BaseOccupierTemplate.h"
+#include "aion/gameserver/runtime/lifetime/RefCounted.h"
 
 namespace aion::gameserver::model::templates::spawns::basespawns {
 
 /** Java com.aionemu.gameserver.model.templates.spawns.basespawns.BaseSpawn (data-only: generated completely). */
-struct BaseSpawn {
+struct BaseSpawn : public ::aion::gameserver::runtime::StaticTemplate {
 	using BaseOccupierTemplate = ::aion::gameserver::model::templates::spawns::basespawns::BaseSpawn_BaseOccupierTemplate;
 	int32_t id = 0; // @XmlAttribute(name = "id")
 	int32_t world = 0; // @XmlAttribute(name = "world")

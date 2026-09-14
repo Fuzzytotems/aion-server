@@ -3,10 +3,12 @@
 
 #include <cstdint>
 
+#include "aion/gameserver/runtime/lifetime/RefCounted.h"
+
 namespace aion::gameserver::model::templates::event {
 
 /** Java com.aionemu.gameserver.model.templates.event.InventoryDrop (data-only: generated completely). */
-struct InventoryDrop {
+struct InventoryDrop : public ::aion::gameserver::runtime::StaticTemplate {
 	int32_t itemId = 0; // @XmlAttribute(name = "item_id", required = true)
 	int32_t startLevel = 0; // @XmlAttribute(name = "startlevel")
 	int32_t interval = 0; // @XmlAttribute(name = "interval", required = true)

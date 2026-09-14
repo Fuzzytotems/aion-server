@@ -5,11 +5,12 @@
 #include <vector>
 
 #include "aion/gameserver/model/templates/item/ExtractedItemsCollection.h"
+#include "aion/gameserver/runtime/lifetime/RefCounted.h"
 
 namespace aion::gameserver::model::templates::item {
 
 /** Java com.aionemu.gameserver.model.templates.item.DecomposableItemInfo (data-only: generated completely). */
-struct DecomposableItemInfo {
+struct DecomposableItemInfo : public ::aion::gameserver::runtime::StaticTemplate {
 	int32_t itemId = 0; // @XmlAttribute(name = "item_id")
 	bool isSelectable = false; // @XmlAttribute(name = "selectable") Java: = false
 	std::vector<::aion::gameserver::model::templates::item::ExtractedItemsCollection> itemsCollections; // @XmlElement(name = "items")
