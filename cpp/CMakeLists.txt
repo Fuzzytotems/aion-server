@@ -43,3 +43,4 @@ endif()
 
 add_subdirectory(commons)
 add_subdirectory(login-server)
+add_subdirectory(game-server)

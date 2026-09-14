@@ -10,11 +10,20 @@
       "architecture": "x64",
       "binaryDir": "${sourceDir}/build/msvc",
       "condition": { "type": "equals", "lhs": "${hostSystemName}", "rhs": "Windows" }
+    },
+    {
+      "name": "msvc-asan",
+      "displayName": "Visual Studio 2026 (x64), AddressSanitizer",
+      "description": "Like msvc, but every project target is built with /fsanitize=address (use the Debug configuration). The ASan runtime DLLs are copied next to the test executables.",
+      "inherits": "msvc",
+      "binaryDir": "${sourceDir}/build/msvc-asan",
+      "cacheVariables": { "AION_ASAN": "ON" }
     }
   ],
   "buildPresets": [
     { "name": "msvc-debug", "displayName": "Debug", "configurePreset": "msvc", "configuration": "Debug" },
-    { "name": "msvc-release", "displayName": "Release", "configurePreset": "msvc", "configuration": "RelWithDebInfo" }
+    { "name": "msvc-release", "displayName": "Release", "configurePreset": "msvc", "configuration": "RelWithDebInfo" },
+    { "name": "msvc-asan-debug", "displayName": "Debug + ASan", "configurePreset": "msvc-asan", "configuration": "Debug" }
   ],
   "testPresets": [
     {
@@ -30,6 +39,13 @@
       "configuration": "RelWithDebInfo",
       "output": { "outputOnFailure": true },
       "execution": { "timeout": 300 }
+    },
+    {
+      "name": "msvc-asan-debug",
+      "configurePreset": "msvc-asan",
+      "configuration": "Debug",
+      "output": { "outputOnFailure": true },
+      "execution": { "timeout": 600 }
     }
   ]
 }

@@ -151,3 +151,29 @@ word, so client packets carry the checksum in the last-but-one word; the "unknow
 | NPE cases | `NullPointerException` | `IllegalState`/`IllegalArgumentException` with the same observable result (logged, no response) | No NPE |
 | Startup failure | Main thread dies, started threads keep the JVM alive | Logged, started components shut down, exit code `ERROR_` | The process must not hang |
 | Command line / shutdown hook | No arguments; JVM shutdown hook | `-Dkey=value` overrides config properties (C++ addition); `SetConsoleCtrlHandler` (Ctrl+C, close, logoff, shutdown) or SIGINT/SIGTERM | Run against scratch databases; no JVM hooks |
+
+## game-server / runtime kernel
+
+The free-threaded runtime (design D1) replaces JVM guarantees; its design-level deviations are listed in
+[design/runtime-architecture.md](design/runtime-architecture.md) §18 and apply as they are implemented. Behaviour-visible deviations of the
+kernel implemented so far:
+
+| Area | Java | C++ | Reason |
+|---|---|---|---|
+| Object lifetime | Garbage collector | Atomic intrusive `Ref<T>`, borrows valid until the task ends, epoch Reclaimer frees later; C++-only cycle breakers; zombie breaker cuts edges of objects out of the world > 30 min with a warning (D7) | No GC |
+| Executors after shutdown | `AionRejectedExecutionHandler` drops tasks silently | Submissions are cancelled and dropped (a `get()` on them does not block forever) | Deterministic shutdown |
+| Periodic tasks | `RunnableWrapper` logs exceptions, the task keeps running | Same; runs more than 10 periods (and ≥ 2 s) behind are coalesced into one and realigned | Avoid catch-up storms (e.g. after a debugger pause) |
+| Cancelled tasks | Captured objects stay referenced until the queue drops the task | Captures are released immediately on cancel | Earlier reclamation |
+| `getDelay()` | Only on scheduled futures | Returns 0 for tasks that are not scheduled | `Future` is one type |
+| Rejection policy (instant pool) | Caller thread priority (Java) | Recorded Java-style thread priority of kernel threads | Portable |
+| LS/CS link packets | Unordered on the general pool | In order per link (`SerialExecutor`) | Ordering |
+| Object IDs | Lowest free ID reused immediately (after GC for auto-release objects) | Monotone cursor wrapping at 2^27, released IDs quarantined ≥ 300 s (also across a wrap); a double release while quarantined warns | ABA safety for handlers holding IDs |
+| Cron (Quartz subset) | Quartz: L/W/# supported; misfires within 60 s catch up one by one; searches up to +100 years | L/W/# rejected (unused); missed fire times always collapse into one run; nonexistent local times skipped, ambiguous ones fire once (earlier instant); stricter parser; searches stop after 2299; `findJobs` by exact type | Only the used subset; deterministic |
+| Deadlock detection | `DeadLockDetector`: dump and exit RESTART | Watchdog: lock wait-graph cycle confirmed in two consecutive checks, dump (Windows minidump with all stacks) and keep running (D5); STALL measured since the task's last `quiescentPoint`; long-running/startup/main kinds exempt | D5; avoid false positives |
+| `synchronized` | JVM monitor, not fair; `wait`/`notify` | Reentrant `Monitor` with eventual fairness (starvation mode after 1 ms); no `wait`/`notify` (unused by the server) | Prevent starvation |
+| `StampedLock` / fair `Semaphore` | Queue-based, writer preference / strict FIFO | No writer preference (avoids EffectController's nested read-lock deadlock); fair semaphore approximate | Simpler; unused features omitted |
+| Plain collections in shared objects | Unsynchronized, `ConcurrentModificationException`, may corrupt | Internally synchronized shims, snapshot iteration, no CME; `HashMap` iteration in insertion order; modifying a collection from its own element's equals/hashCode/comparator throws `IllegalStateException`; `ArrayList.sort` with a throwing comparator leaves the list unchanged | Memory safety |
+| `HashMap`/`TreeMap` compute callbacks | Any structural change → CME | Same-key recursive update throws `IllegalStateException("Recursive update")` (like CHM); other keys may change | Consistent with CHM |
+| `ConcurrentHashMap` | Per-bin locks; `snapshot`-free weakly consistent iteration | 16 stripes with reentrant stripe Monitors for callbacks; lock-free weakly consistent reads and iteration; nested writes to another key of the same map inside a compute callback can deadlock across stripes, so such Java sites are ported without the nesting (design §21, lint L20) | Java's CHM contract forbids them |
+| `ConcurrentLinkedQueue`/`Deque` | Lock-free | Monitor-guarded (`isEmpty`/`size` lock-free) | Interior `remove(Object)` with epoch reclamation |
+| `String` fields | Nullable | `Field<std::string>`: null equals empty | No null strings |

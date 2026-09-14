@@ -9,7 +9,7 @@ Intentional differences from Java: [docs/DEVIATIONS.md](docs/DEVIATIONS.md).
 | commons | done: ported, reviewed; 394 tests (incl. database integration tests) |
 | login-server | done: ported, reviewed; 147 tests; a real 4.8 client logs in |
 | chat-server | not started |
-| game-server | not started |
+| game-server | in progress: design done ([docs/design](docs/design/README.md)); runtime kernel implemented and tested (414 tests, stress and benchmark passed) |
 
 ## Requirements (Windows)
 
@@ -40,6 +40,19 @@ ctest --preset msvc-debug
 ```
 
 The build output goes to `build/msvc`, and dependencies are installed once into `vcpkg_installed/` (both are git-ignored).
+
+AddressSanitizer build (MSVC `/fsanitize=address`, Debug configuration; the game server kernel tests must pass here too):
+
+```bash
+cmake --preset msvc-asan
+cmake --build --preset msvc-asan-debug --target aion_gs_runtime_lifetime_tests
+build/msvc-asan/game-server/Debug/aion_gs_runtime_lifetime_tests.exe   # or ctest --preset msvc-asan-debug after building everything
+```
+
+The ASan runtime DLLs (`clang_rt.asan_dynamic-x86_64.dll`, `clang_rt.asan_dbg_dynamic-x86_64.dll`) are copied next to every test executable
+after linking, so tests run from any shell. vcpkg dependencies are not instrumented. Any other build directory can use ASan with
+`-DAION_ASAN=ON`. Game server checked builds (`AION_CHECKED`, design §12.5) are on for Debug and RelWithDebInfo (`-DAION_CHECKED_MODE=ON|OFF`
+overrides).
 
 Sources are picked up by directory globs. With the Visual Studio generator, a newly added `.cpp` file is only compiled by the **second** build:
 the first build just regenerates the projects. Build twice after adding files.

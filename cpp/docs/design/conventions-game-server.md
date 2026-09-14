@@ -21,3 +21,15 @@
 - Config fields rebound at runtime follow the existing rule: scalars std::atomic<T>, non-scalars ConfigValue<T> read through a local snapshot. The game server requires database.socket_timeout > 0.
 - Builds and tests: the dev server runs the checked RelWithDebInfo build (AION_CHECKED). Handler, AI and instance tests use GameServerHarness on DeterministicExecutor with ManualClock and seeded Rnd under the msvc-asan preset. Lock-order validator reports fail tests.
 - When porting a known Java race intentionally, keep it and mark it `// java-race: <what>`. Fixing it requires a DEVIATIONS entry.
+
+## Added after the kernel prototypes (2026-09-13)
+
+- Compute-family callbacks (`compute`, `computeIfAbsent`, `merge`, ...) must not write other keys of the same `ConcurrentHashMap`
+  (Java's CHM contract). Move the second write out of the callback or guard the whole operation with an explicit map-level Monitor
+  (design §21, lint L20).
+- Collection fields are never `const` (views and iterators write through).
+- `synchronized` blocks become `SYNCHRONIZED(x) { ... }`; a synchronized method wraps its body in `SYNCHRONIZED(*this) { ... }`.
+- Java `list.remove(int)` becomes `removeAt(int)`; map reads return `Nullable<V>` (`Ptr` for references, `std::optional` for values).
+- RefCounted classes with protected constructors declare `AION_MAKE_REF_FRIEND`; create objects only with `T::create`/`makeRef`.
+- A `Ptr`/`T&` borrow is valid only inside the task that obtained it; store `Ref`s. `T&` obtained from `*ref` is valid only while the Ref is held.
+- Future, Pin, PinnedCallback and TimeUnit live in `aion::gameserver::runtime` and are re-exported in `aion::gameserver::utils`.

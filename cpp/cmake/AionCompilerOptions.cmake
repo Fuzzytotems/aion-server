@@ -25,6 +25,42 @@ target_compile_definitions(aion_compiler_options INTERFACE
 	SPDLOG_FMT_EXTERNAL
 )
 
+# AddressSanitizer build (preset msvc-asan). Every project target is instrumented; vcpkg dependencies are not (MSVC supports mixing).
+# The ASan runtime DLLs are copied next to each test executable (aion_copy_asan_runtime), so tests run from any shell without PATH changes.
+option(AION_ASAN "Build with AddressSanitizer (MSVC: /fsanitize=address)" OFF)
+if(AION_ASAN)
+	if(MSVC)
+		# /RTC (runtime checks) and /ZI (edit and continue) are incompatible with /fsanitize=address
+		foreach(flags_var CMAKE_CXX_FLAGS_DEBUG CMAKE_CXX_FLAGS_RELWITHDEBINFO CMAKE_CXX_FLAGS)
+			string(REGEX REPLACE "/RTC[1csu]+" "" ${flags_var} "${${flags_var}}")
+			string(REPLACE "/ZI" "/Zi" ${flags_var} "${${flags_var}}")
+			set(${flags_var} "${${flags_var}}") # included from the top-level CMakeLists, so this is the top directory scope
+		endforeach()
+		target_compile_options(aion_compiler_options INTERFACE /fsanitize=address)
+		target_link_options(aion_compiler_options INTERFACE /INCREMENTAL:NO)
+		target_compile_definitions(aion_compiler_options INTERFACE AION_ASAN=1)
+		get_filename_component(AION_ASAN_RUNTIME_DIR "${CMAKE_CXX_COMPILER}" DIRECTORY)
+		set(AION_ASAN_RUNTIME_DIR "${AION_ASAN_RUNTIME_DIR}" CACHE INTERNAL "directory of clang_rt.asan_*dynamic-x86_64.dll")
+	else()
+		target_compile_options(aion_compiler_options INTERFACE -fsanitize=address -fno-omit-frame-pointer)
+		target_link_options(aion_compiler_options INTERFACE -fsanitize=address)
+		target_compile_definitions(aion_compiler_options INTERFACE AION_ASAN=1)
+	endif()
+endif()
+
+# Copies the MSVC ASan runtime DLLs next to an executable (no-op unless AION_ASAN).
+function(aion_copy_asan_runtime target)
+	if(AION_ASAN AND MSVC)
+		foreach(dll clang_rt.asan_dynamic-x86_64.dll clang_rt.asan_dbg_dynamic-x86_64.dll)
+			if(EXISTS "${AION_ASAN_RUNTIME_DIR}/${dll}")
+				add_custom_command(TARGET ${target} POST_BUILD
+					COMMAND "${CMAKE_COMMAND}" -E copy_if_different "${AION_ASAN_RUNTIME_DIR}/${dll}" "$<TARGET_FILE_DIR:${target}>"
+					VERBATIM)
+			endif()
+		endforeach()
+	endif()
+endfunction()
+
 # Adds a static library whose sources are all .cpp/.h files below src/<subdir>. Headers are included as "aion/<module>/...".
 function(aion_add_library target)
 	cmake_parse_arguments(ARG "" "SOURCE_ROOT;EXCLUDE_REGEX" "SOURCE_DIRS;DEPENDS" ${ARGN})
@@ -63,5 +99,6 @@ function(aion_add_tests target test_dir)
 	add_executable(${target} ${test_sources})
 	target_link_libraries(${target} PRIVATE ${ARG_DEPENDS} GTest::gtest GTest::gtest_main aion::compiler_options)
 	target_include_directories(${target} PRIVATE "${test_dir}")
+	aion_copy_asan_runtime(${target})
 	gtest_discover_tests(${target} DISCOVERY_MODE PRE_TEST WORKING_DIRECTORY "${test_dir}")
 endfunction()

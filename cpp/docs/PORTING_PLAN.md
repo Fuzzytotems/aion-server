@@ -28,7 +28,7 @@ The C++ port lives in `cpp/` on the `C++` branch.
 | 1 | `commons`: logging, config, database, networking, utilities | Unit tests pass; network integration test passes | ✅ 2026-09-12: ported, adversarially reviewed (52 findings fixed/resolved), 394 tests |
 | 2 | `login-server` | A real 4.8 client logs in through the C++ login server | ✅ 2026-09-12: ported, reviewed (13 findings resolved), 147 tests; real 4.8 client logged in and got the server list |
 | 3 | `chat-server` | Chat works with the game server | |
-| 4 | game-server foundation: static data (JAXB replacement), geo, world, object model, DAOs, network packets | All static data loads and counts match the Java server | in progress: design done (docs/design), next: prototypes P1-P4 |
+| 4 | game-server foundation: static data (JAXB replacement), geo, world, object model, DAOs, network packets | All static data loads and counts match the Java server | in progress: design done; runtime kernel (P1-P4) implemented and tested ([status](design/runtime-kernel-status.md)); next: tooling wave (generators, lint), spine |
 | 5 | game-server systems: skills, stats, quests engine, services, AI framework | Log in, walk around, fight a mob | |
 | 6 | Handlers: quests, AI, instances, admin/player commands | Mostly mechanical, done in parallel batches | |
 

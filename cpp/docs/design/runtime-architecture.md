@@ -1424,3 +1424,31 @@ The lifetimes lens found no flaw in the core protocol (stamp before the last dec
 - P9 Porting calibration: 20 AI and 10 instance handlers plus ObserveController and 5 item actions with fieldmap.py member blocks, generated callback structs and lint active. Measure minutes per file, edits per 100 lines, false positives of lint, escape analysis and part detection, and MSVC compile time per unity batch.
 - P10 (optional, after M5a) linux-clang-tsan preset for P1, P2 and P4 with annotated Monitors. Pass: no kernel TSan reports; any member race found becomes a lint rule.
 
+
+---
+
+## 21. Corrections from the kernel prototypes (P1-P4, 2026-09-13)
+
+The runtime kernel was implemented and tested against this design (`cpp/game-server/src/aion/gameserver/runtime`, see
+[runtime-kernel-status.md](runtime-kernel-status.md)). These corrections **supersede** the corresponding text above.
+
+| § | Correction | Evidence |
+|---|---|---|
+| 2.2, 2.4, 2.5 | **Every `release()` stamps `retireEpoch = max(retireEpoch, E)` before its CAS**, not only the last one. The stampless fast path for `count > 1` is unsafe under count ABA (1→2→1): the final 1→0 transition can then carry a stamp older than a borrower's publication. Cost: Ref copy + release 3 ns; in the P4 workload 84% of releases run the extra stamp CAS | `ProtocolMutationTest.DesignStamplessFastPathIsUnsafeUnderCountAba` (use-after-free with the literal protocol) |
+| 2.4 | The lazy-publication re-check loop and "`E.fetch_add` before computing `m`" are liveness steps, not safety steps (kept) | `PublicationRecheckIsNotASafetyStep` |
+| 2.4 | "A Ptr can only exist after publication" now holds by construction: every `Ptr` made from a `Ref`, `T&` or `T*` publishes (TaskScope-internal borrow stamp). `T&` from `*ref` is valid only while the Ref is held. Creating a Ptr from a Ref costs an out-of-line TLS check | mutation `BORROW_NO_PUBLISH` |
+| 2.2 | `makeRef` constructs with count 1 (the constructor's reference is adopted) | |
+| 2.3 | A replaced `OwnedPart` (PartSlot RECLAIMER, PartMap) keeps its own reference count and stamp; `retirePart` destroys it only when `partRefs == 0` and `max(retire stamp, last-release stamp) < m`. `Pin(part)` still pins only the owner (open item) | mutations `PART_REFS_IGNORED`, `PART_RELEASE_NO_STAMP` |
+| 1.2, 2.5 | `TaskScope` enter/exit measured 25 ns (estimate 3 ns): `std::atomic<TaskInfo>` is a spinlock on MSVC and entry reads the clock. Optimization possible later | lifetime bench |
+| 3.3 | `ConcurrentLinkedQueue`/`Deque` are Monitor-guarded, not lock-free (interior `remove(Object)` is used by the Java code) | collections |
+| 4.1 | The LOGGING leaf rank cannot be enforced (spdlog has its own mutexes): runtime code logs only after releasing leaf mutexes | sync |
+| **4.4** | **Wrong: a single ConcurrentHashMap can deadlock.** A compute-family callback that writes *another key of the same map* holds one stripe Monitor while taking a second; two such callbacks crossing stripes deadlock (≈1/256 per concurrent pair with 16 stripes; Java's per-bin locks make it practically impossible). **Decision:** Java's own `ConcurrentHashMap` contract forbids updating other mappings from inside a compute callback, so such sites are Java race bugs (D6): they are ported with the second write moved out of the callback or under an explicit map-level Monitor, with a DEVIATIONS entry. Known sites: `PlayerContainer.updateCachedPlayerName` (compute(oldName) → put(newName)), `SpawnsData` nested compute. Lint rule **L20** flags writes to the same map inside its compute callbacks; checked builds give nested same-map stripe acquisitions per-stripe-index lock classes so tests report a CYCLE (to implement with the lint) | collections fixer |
+| 7.x | Submitting to a shut-down executor cancels and drops the task (instead of throwing). `installBackend` retires the previous backend before publishing the replacement | sched fixer |
+| 8.4 | Eager broadcast serialization then per-recipient enqueue lands 29-32% of inserts out of arrival order with parallel senders: the real `AionConnection` queue needs cheap out-of-order insertion (heap or per-thread batches) | P4 bench |
+| 12.4 | The P2 memory criterion is heap-in-use (HeapSummary), not RSS: the Windows heap does not return committed pages | stress |
+| 15.1 | Movement CPU is higher than estimated when every step broadcasts (summed mover time 52-71 ms per tick; 7-12 ms with Java's mask rule), but tick latency stays low because movement runs in parallel (p99 4-6 ms checked). Worst cases: all walkers arriving in one tick p99 36-43 ms; `serial_movement` p99 46 ms | P4 bench |
+
+Performance items found by P4, for the model port: `as<>`/`cast<>` use `dynamic_cast` (~220 ns per failed check on MSVC; `instanceof Player`
+in broadcasts is ~70% of their cost) → add a cheap type tag for the hot object kinds. A written `ConcurrentHashMap` costs ~1.8 KB fixed
+(16 stripes) → per-creature maps (KnownList, AggroList, controller tasks) need fewer/lazy stripes via `fieldmap.toml`. Java's
+`KnownList.findVisibleObjects` flag scan walks all NPCs of an instance per player update (206 µs Release at 5,000 NPCs).
