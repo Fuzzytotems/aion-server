@@ -45,9 +45,26 @@ struct Scenario {
 	std::function<void()> after;
 };
 
+/** Scan shape of a run (detail::ScanShapeScope): entries per chunk and reclaimNow's entry budget, 0 = default. */
+struct ScanShape {
+	uint32_t chunk = 0;
+	uint64_t reclaimNowEntries = 0;
+};
+
+/** Diagnostics: AION_SCAN_SHAPE=chunk1 or budget1 runs every directed scenario (clean and mutated) with split scans. */
+ScanShape shapeFromEnvironment() {
+	const char* shape = std::getenv("AION_SCAN_SHAPE");
+	if (shape != nullptr && std::string(shape) == "chunk1")
+		return {1, 0};
+	if (shape != nullptr && std::string(shape) == "budget1")
+		return {1, 1};
+	return {};
+}
+
 /** Runs a scenario under `mutation`; returns the schedule result with `after` failures folded in. */
-pct::ScheduleResult runScenario(const std::function<Scenario()>& build, Mutation mutation) {
+pct::ScheduleResult runScenario(const std::function<Scenario()>& build, Mutation mutation, ScanShape shape = shapeFromEnvironment()) {
 	Reclaimer::getInstance().drain(128); // objects of earlier tests
+	detail::ScanShapeScope shapeScope(shape.chunk, shape.reclaimNowEntries);
 	Scenario scenario = build();
 	pct::ScheduleResult result;
 	{
@@ -245,7 +262,12 @@ TEST(ProtocolMutationTest, StampIsMonotoneMaximum) {
 // D4-D7: the queued handshake between the scan and releases of resurrected objects.
 // ------------------------------------------------------------------------------------------------------------------------------------------
 
-/** D4: a resurrected object is dropped from the queue only after clearing `queued`, so its next last release pushes it again. */
+/**
+ * D4: a resurrected object is dropped from the queue only after clearing `queued`, so its next last release pushes it again. The resurrector
+ * ends its task while it holds the Ref: a scan examines only entries whose limbo key is below its m (Reclaimer.h), so the scan must not be held
+ * back by the resurrector's own publication to reach the resurrected entry (with the task still published, the scan skips the entry and a
+ * later scan finds it released again, which is safe whether or not `queued` was cleared).
+ */
 Scenario resurrectedObjectIsRequeued() {
 	struct State {
 		std::shared_ptr<Tracker> tracker = std::make_shared<Tracker>();
@@ -257,10 +279,13 @@ Scenario resurrectedObjectIsRequeued() {
 	Scenario scenario;
 	scenario.bodies = {
 		[state] {
-			TaskScope scope(testTask());
-			Ptr<Tracked> borrowed = state->location.load();
-			pct::yieldPoint("test:r:loaded");
-			Ref<Tracked> keep(borrowed); // 0 -> 1
+			Ref<Tracked> keep;
+			{
+				TaskScope scope(testTask());
+				Ptr<Tracked> borrowed = state->location.load();
+				pct::yieldPoint("test:r:loaded");
+				keep = Ref<Tracked>(borrowed); // 0 -> 1
+			}
 			pct::yieldPoint("test:r:resurrected");
 			keep.reset(); // 1 -> 0 again
 		},
@@ -734,6 +759,40 @@ TEST(ProtocolMutationTest, ReleaseOfARefToARetiredPartStampsThePart) {
 TEST(ProtocolMutationTest, BorrowFromARefToARetiredPartPublishes) {
 	AION_SKIP_WITHOUT_PCT();
 	expectSafeAndMutationDetected([] { return refToReplacedPartKeepsItAlive(true); }, Mutation::BORROW_NO_PUBLISH);
+}
+
+// Review finding (2026-09-13): every directed interleaving stays safe when scans destroy after each classified entry and reclaimNow examines one
+// entry per scan (destructors, cascades and budget cuts interleave with the classification of later entries of the same or the next scan).
+TEST(ProtocolMutationTest, DirectedScenariosStaySafeUnderSplitScans) {
+	AION_SKIP_WITHOUT_PCT();
+	const std::vector<std::pair<const char*, std::function<Scenario()>>> scenarios = {
+		{"borrowSurvivesUnlinkAndScan", borrowSurvivesUnlinkAndScan},
+		{"stampBeforeCas", stampBeforeCas},
+		{"countAba(cas)", [] { return countAba("RefCounted::release:cas"); }},
+		{"countAba(stamp)", [] { return countAba("RefCounted::release:stamp"); }},
+		{"resurrectedObjectIsRequeued", resurrectedObjectIsRequeued},
+		{"queuedHandshake(clearQueued)", [] { return queuedHandshake("Reclaimer::scan:clearQueued"); }},
+		{"queuedHandshake(recheck)", [] { return queuedHandshake("Reclaimer::scan:recheck"); }},
+		{"queuedHandshake(none)", [] { return queuedHandshake(nullptr); }},
+		{"concurrentDecrements", concurrentDecrements},
+		{"minBeforeObjects", minBeforeObjects},
+		{"retiredPartSurvivesBorrow", retiredPartSurvivesBorrow},
+		{"retiredNodeSurvivesLoad", retiredNodeSurvivesLoad},
+		{"nestedQuiescentPointKeepsBorrows", nestedQuiescentPointKeepsBorrows},
+		{"releasedObjectIsReclaimed", releasedObjectIsReclaimed},
+		{"stalePublication", stalePublication},
+		{"ptrFromOwnedRefSurvivesMoveUnlinkAndScan", ptrFromOwnedRefSurvivesMoveUnlinkAndScan},
+		{"ptrFromTemporaryRefSurvivesCrossThreadLastRelease", ptrFromTemporaryRefSurvivesCrossThreadLastRelease},
+		{"refToReplacedPartKeepsItAlive(false)", [] { return refToReplacedPartKeepsItAlive(false); }},
+		{"refToReplacedPartKeepsItAlive(true)", [] { return refToReplacedPartKeepsItAlive(true); }},
+	};
+	for (const ScanShape shape : {ScanShape{1, 0}, ScanShape{1, 1}}) {
+		for (const auto& [name, build] : scenarios) {
+			pct::ScheduleResult result = runScenario(build, Mutation::NONE, shape);
+			EXPECT_TRUE(result.completed) << name << " (chunk " << shape.chunk << ", reclaimNow budget " << shape.reclaimNowEntries
+										  << "): " << testsupport::describeSchedule(result);
+		}
+	}
 }
 
 } // namespace

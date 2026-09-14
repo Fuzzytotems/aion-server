@@ -73,6 +73,12 @@ enum class Mutation : uint32_t {
 	SCOPE_EXIT_NO_UNPUBLISH,
 	/** creating a Ptr from a Ref, T& or T* does not publish (the design's literal §2.4: only pointer loads publish) */
 	BORROW_NO_PUBLISH,
+	// ------------------------------------------------------------------------------------------------------------------- Reclaimer liveness
+	/**
+	 * NOT a safety step: the scan examines every limbo bucket instead of only the keys below m, like the scan before the limbo (every scan
+	 * re-walks the whole backlog, also the part a pinned epoch keeps alive). ReclaimerLivenessTest detects it by the examined-entry counts.
+	 */
+	SCAN_EXAMINE_WHOLE_LIMBO,
 };
 
 #if AION_LIFETIME_MUTATIONS
@@ -109,6 +115,43 @@ public:
 
 private:
 	[[maybe_unused]] Mutation previous = Mutation::NONE;
+};
+
+#if AION_LIFETIME_MUTATIONS
+namespace testing {
+/** entries classified per scan chunk (0 = the default, 64; values above 64 are clamped) */
+extern std::atomic<uint32_t> scanChunkOverride;
+/** entry budget of reclaimNow() and therefore drain() (0 = unbounded, the default) */
+extern std::atomic<uint64_t> reclaimNowEntryBudget;
+} // namespace testing
+#endif
+
+/**
+ * RAII, tests only (review fix: the PCT and mutation scenarios retire far fewer than one chunk and scan without a budget, so they never produced
+ * multi-chunk or budget-split scans): scans classify `chunk` entries before destroying them and reclaimNow() examines at most `reclaimNowEntries`
+ * entries per scan (0 = unbounded), so destructors, cascades and budget cuts interleave with the classification of later entries. A no-op
+ * without AION_LIFETIME_MUTATIONS. Not thread-safe against concurrent ScanShapeScopes.
+ */
+class ScanShapeScope {
+public:
+	ScanShapeScope([[maybe_unused]] uint32_t chunk, [[maybe_unused]] uint64_t reclaimNowEntries) noexcept {
+#if AION_LIFETIME_MUTATIONS
+		previousChunk = testing::scanChunkOverride.exchange(chunk);
+		previousEntries = testing::reclaimNowEntryBudget.exchange(reclaimNowEntries);
+#endif
+	}
+	~ScanShapeScope() {
+#if AION_LIFETIME_MUTATIONS
+		testing::scanChunkOverride.store(previousChunk);
+		testing::reclaimNowEntryBudget.store(previousEntries);
+#endif
+	}
+	ScanShapeScope(const ScanShapeScope&) = delete;
+	ScanShapeScope& operator=(const ScanShapeScope&) = delete;
+
+private:
+	[[maybe_unused]] uint32_t previousChunk = 0;
+	[[maybe_unused]] uint64_t previousEntries = 0;
 };
 
 } // namespace aion::gameserver::runtime::detail

@@ -6,9 +6,11 @@
 
 #include <gtest/gtest.h>
 
+#include <array>
 #include <cstdio>
 #include <cstdlib>
 #include <memory>
+#include <string>
 #include <vector>
 
 #include "LifetimeTestSupport.h"
@@ -31,6 +33,28 @@ pct::ScheduleResult exploreScenario(uint32_t schedules, const pct::ScenarioFacto
 	options.depth = 3;
 	options.timeout = std::chrono::milliseconds(20000);
 	return pct::explore(schedules, 1, factory, check, options);
+}
+
+/**
+ * Explores the scenario with the default scan shape and with split scans (review finding 2026-09-13): one entry per chunk (destruction after
+ * every classified entry), and additionally one entry per reclaimNow scan (budget cuts between entries, the next scan computes a new m).
+ */
+pct::ScheduleResult exploreScenarioInAllScanShapes(uint32_t schedules, const pct::ScenarioFactory& factory, const std::function<void()>& check) {
+	struct Shape {
+		const char* name;
+		uint32_t chunk;
+		uint64_t reclaimNowEntries;
+	};
+	pct::ScheduleResult result;
+	for (const Shape& shape : {Shape{"default", 0, 0}, Shape{"chunk 1", 1, 0}, Shape{"chunk 1, reclaimNow budget 1 entry", 1, 1}}) {
+		detail::ScanShapeScope scope(shape.chunk, shape.reclaimNowEntries);
+		result = exploreScenario(schedules, factory, check);
+		if (!result.completed) {
+			result.failure = std::string("[scan shape ") + shape.name + "] " + result.failure;
+			return result;
+		}
+	}
+	return result;
 }
 
 // ------------------------------------------------------------------------------------------------------------------------------------------
@@ -84,7 +108,7 @@ void checkResurrection(const std::shared_ptr<ResurrectionState>& state) {
 TEST(ProtocolPctTest, ReleaseResurrectionAndScan) {
 	AION_SKIP_WITHOUT_PCT();
 	std::shared_ptr<ResurrectionState> state;
-	pct::ScheduleResult result = exploreScenario(testsupport::pctSchedules(DEFAULT_SCHEDULES), resurrectionScenario(state), [&] { checkResurrection(state); });
+	pct::ScheduleResult result = exploreScenarioInAllScanShapes(testsupport::pctSchedules(DEFAULT_SCHEDULES), resurrectionScenario(state), [&] { checkResurrection(state); });
 	AION_EXPECT_SCHEDULE_OK(result);
 }
 
@@ -121,7 +145,7 @@ TEST(ProtocolPctTest, CountAbaAcrossTwoLocations) {
 			},
 		};
 	};
-	pct::ScheduleResult result = exploreScenario(testsupport::pctSchedules(DEFAULT_SCHEDULES), factory, [&] { checkResurrection(current); });
+	pct::ScheduleResult result = exploreScenarioInAllScanShapes(testsupport::pctSchedules(DEFAULT_SCHEDULES), factory, [&] { checkResurrection(current); });
 	AION_EXPECT_SCHEDULE_OK(result);
 }
 
@@ -155,7 +179,7 @@ TEST(ProtocolPctTest, LazyPublicationVersusExchange) {
 			},
 		};
 	};
-	pct::ScheduleResult result = exploreScenario(testsupport::pctSchedules(DEFAULT_SCHEDULES), factory, [&] { checkResurrection(current); });
+	pct::ScheduleResult result = exploreScenarioInAllScanShapes(testsupport::pctSchedules(DEFAULT_SCHEDULES), factory, [&] { checkResurrection(current); });
 	AION_EXPECT_SCHEDULE_OK(result);
 }
 
@@ -187,7 +211,7 @@ TEST(ProtocolPctTest, CascadingReleaseVersusBorrow) {
 			},
 		};
 	};
-	pct::ScheduleResult result = exploreScenario(testsupport::pctSchedules(DEFAULT_SCHEDULES), factory, [&] { checkResurrection(current); });
+	pct::ScheduleResult result = exploreScenarioInAllScanShapes(testsupport::pctSchedules(DEFAULT_SCHEDULES), factory, [&] { checkResurrection(current); });
 	AION_EXPECT_SCHEDULE_OK(result);
 }
 
@@ -234,7 +258,7 @@ TEST(ProtocolPctTest, RetiredPartsAndNodesVersusBorrow) {
 		if (current->owner->refCount() != 1)
 			throw LifetimeViolation("retired parts still retain the owner");
 	};
-	pct::ScheduleResult result = exploreScenario(testsupport::pctSchedules(DEFAULT_SCHEDULES), factory, check);
+	pct::ScheduleResult result = exploreScenarioInAllScanShapes(testsupport::pctSchedules(DEFAULT_SCHEDULES), factory, check);
 	AION_EXPECT_SCHEDULE_OK(result);
 }
 
@@ -288,7 +312,7 @@ TEST(ProtocolPctTest, SelfOrRefStoresVersusBorrow) {
 		Reclaimer::getInstance().drain(128);
 		current->tracker->expectAllDestroyedOnce("SelfOrRef");
 	};
-	pct::ScheduleResult result = exploreScenario(testsupport::pctSchedules(DEFAULT_SCHEDULES), factory, check);
+	pct::ScheduleResult result = exploreScenarioInAllScanShapes(testsupport::pctSchedules(DEFAULT_SCHEDULES), factory, check);
 	AION_EXPECT_SCHEDULE_OK(result);
 }
 
@@ -325,7 +349,7 @@ TEST(ProtocolPctTest, QuiescentLoopVersusWriters) {
 			},
 		};
 	};
-	pct::ScheduleResult result = exploreScenario(testsupport::pctSchedules(DEFAULT_SCHEDULES), factory, [&] { checkResurrection(current); });
+	pct::ScheduleResult result = exploreScenarioInAllScanShapes(testsupport::pctSchedules(DEFAULT_SCHEDULES), factory, [&] { checkResurrection(current); });
 	AION_EXPECT_SCHEDULE_OK(result);
 }
 
@@ -363,29 +387,109 @@ TEST(ProtocolPctTest, PartMapReplacementVersusReaders) {
 		if (current->owner->refCount() != 1)
 			throw LifetimeViolation("retired map parts still retain the owner");
 	};
-	pct::ScheduleResult result = exploreScenario(testsupport::pctSchedules(DEFAULT_SCHEDULES), factory, check);
+	pct::ScheduleResult result = exploreScenarioInAllScanShapes(testsupport::pctSchedules(DEFAULT_SCHEDULES), factory, check);
+	AION_EXPECT_SCHEDULE_OK(result);
+}
+
+// ------------------------------------------------------------------------------------------------------------------------------------------
+// many entries per scan (review finding 2026-09-13): parents with children (cascades released by destructors of earlier chunks), a resurrected
+// child, a replaced part held by a Ref and retired nodes, so split scans destroy and classify interleaved within and across scans
+// ------------------------------------------------------------------------------------------------------------------------------------------
+struct ManyEntriesState {
+	std::shared_ptr<Tracker> tracker = std::make_shared<Tracker>();
+	std::array<SharedLocation<Tracked>, 3> parents;
+	std::array<SharedLocation<Tracked>, 3> children;
+	SharedLocation<Tracked> resurrected;
+	Ref<PartOwner> owner = PartOwner::create();
+	NodeLocation nodes;
+};
+
+TEST(ProtocolPctTest, ManyEntriesVersusBorrowsUnderSplitScans) {
+	AION_SKIP_WITHOUT_PCT();
+	std::shared_ptr<ManyEntriesState> current;
+	pct::ScenarioFactory factory = [&current](uint64_t) {
+		auto state = current = std::make_shared<ManyEntriesState>();
+		for (size_t i = 0; i < state->parents.size(); ++i) {
+			Ref<Tracked> child = Tracked::create(state->tracker);
+			state->children[i].store(child);
+			state->parents[i].store(Tracked::create(state->tracker, std::move(child)));
+		}
+		state->owner->map.put(1, std::make_unique<TrackedPart>(*state->owner, state->tracker));
+		state->nodes.replace(std::make_unique<TrackedNode>(state->tracker));
+		return Bodies{
+			[state] { // reader: children, the part and the node
+				TaskScope scope(testTask());
+				Ptr<Tracked> first = state->children[0].load();
+				Ptr<TrackedPart> part = state->owner->map.get(1);
+				pct::yieldPoint("test:borrowed");
+				useTracked(*state->tracker, first);
+				useTrackedPart(*state->tracker, part.rawPointer());
+				useTracked(*state->tracker, state->children[1].load());
+				useTrackedNode(*state->tracker, state->nodes.load());
+			},
+			[state] { // resurrector: a child into another location, and a Ref to the part that outlives its replacement
+				Ref<TrackedPart> held;
+				{
+					TaskScope scope(testTask());
+					Ptr<Tracked> child = state->children[2].load();
+					if (child)
+						state->resurrected.store(Ref<Tracked>(child));
+					held = Ref<TrackedPart>(state->owner->map.get(1));
+				}
+				pct::yieldPoint("test:holding");
+				state->resurrected.store(nullptr);
+				{
+					TaskScope scope(testTask());
+					useTrackedPart(*state->tracker, Ptr<TrackedPart>(held).rawPointer());
+				}
+			},
+			[state] { // writer: unlinks everything, replaces the part and the node
+				for (size_t i = 0; i < state->parents.size(); ++i) {
+					state->parents[i].store(nullptr);
+					state->children[i].store(nullptr);
+				}
+				state->owner->map.put(1, std::make_unique<TrackedPart>(*state->owner, state->tracker));
+				state->nodes.replace(std::make_unique<TrackedNode>(state->tracker));
+			},
+			[] {
+				for (int i = 0; i < 4; ++i)
+					Reclaimer::getInstance().reclaimNow();
+			},
+		};
+	};
+	auto check = [&current] {
+		current->resurrected.store(nullptr);
+		current->nodes.replace(nullptr);
+		(void)current->owner->map.remove(1);
+		Reclaimer::getInstance().drain(128);
+		current->tracker->expectAllDestroyedOnce("many entries");
+		if (current->owner->refCount() != 1)
+			throw LifetimeViolation("retired parts still retain the owner");
+	};
+	pct::ScheduleResult result = exploreScenarioInAllScanShapes(testsupport::pctSchedules(DEFAULT_SCHEDULES), factory, check);
 	AION_EXPECT_SCHEDULE_OK(result);
 }
 
 // ------------------------------------------------------------------------------------------------------------------------------------------
 // random exploration also finds removed steps
 // ------------------------------------------------------------------------------------------------------------------------------------------
-pct::ScheduleResult exploreMutatedResurrection(detail::Mutation mutation) {
+pct::ScheduleResult exploreMutatedResurrection(detail::Mutation mutation, bool splitScans) {
 	std::shared_ptr<ResurrectionState> state;
+	detail::ScanShapeScope shape(splitScans ? 1 : 0, splitScans ? 1 : 0);
 	detail::MutationScope scope(mutation);
 	return exploreScenario(2000, resurrectionScenario(state), [&] { checkResurrection(state); });
 }
 
 /** Death test; with AION_MUTATION_IN_PROCESS=1 the exploration runs in the test process and prints the detecting schedule (diagnostics). */
-void expectRandomExplorationFinds(detail::Mutation mutation) {
+void expectRandomExplorationFinds(detail::Mutation mutation, bool splitScans = false) {
 	if (const char* inProcess = std::getenv("AION_MUTATION_IN_PROCESS"); inProcess != nullptr && *inProcess == '1') {
-		pct::ScheduleResult result = exploreMutatedResurrection(mutation);
+		pct::ScheduleResult result = exploreMutatedResurrection(mutation, splitScans);
 		EXPECT_FALSE(result.completed);
 		std::printf("mutation %u found by random exploration: %s\n", static_cast<unsigned>(mutation), testsupport::describeSchedule(result).c_str());
 		return;
 	}
 	GTEST_FLAG_SET(death_test_style, "threadsafe");
-	EXPECT_DEATH(testsupport::dieIfFailed(exploreMutatedResurrection(mutation)), "");
+	EXPECT_DEATH(testsupport::dieIfFailed(exploreMutatedResurrection(mutation, splitScans)), "");
 }
 
 TEST(ProtocolPctTest, RandomExplorationFindsMissingReleaseStamp) {
@@ -396,6 +500,17 @@ TEST(ProtocolPctTest, RandomExplorationFindsMissingReleaseStamp) {
 TEST(ProtocolPctTest, RandomExplorationFindsIgnoredPublications) {
 	AION_SKIP_WITHOUT_PCT();
 	expectRandomExplorationFinds(detail::Mutation::SCAN_IGNORE_PUBLISHED);
+}
+
+// the split scan shapes do not hide a removed step from random exploration
+TEST(ProtocolPctTest, RandomExplorationFindsMissingReleaseStampUnderSplitScans) {
+	AION_SKIP_WITHOUT_PCT();
+	expectRandomExplorationFinds(detail::Mutation::SKIP_RELEASE_STAMP, true);
+}
+
+TEST(ProtocolPctTest, RandomExplorationFindsIgnoredPublicationsUnderSplitScans) {
+	AION_SKIP_WITHOUT_PCT();
+	expectRandomExplorationFinds(detail::Mutation::SCAN_IGNORE_PUBLISHED, true);
 }
 
 } // namespace

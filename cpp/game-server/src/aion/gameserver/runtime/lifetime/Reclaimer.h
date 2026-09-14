@@ -13,33 +13,73 @@
 namespace aion::gameserver::runtime {
 
 /**
- * The epoch Reclaimer, replacing Java's GC (design §1.1, §2.4-§2.7). One thread ("Reclaimer") runs a scan every `period` or when the
- * backlog exceeds `wakeBacklog`.
+ * The epoch Reclaimer, replacing Java's GC (design §1.1, §2.4-§2.7). One thread ("Reclaimer") starts a scan every `period`, when the backlog
+ * exceeds `wakeBacklog`, and at once after a scan that ended at its work budget with eligible entries left.
  *
- * Protocol (design §2.4)
+ * Protocol (design §2.4 as corrected in §21)
  * - State: global epoch E; per thread the published epoch or IDLE (ThreadContext::publishedEpoch); per object count, queued, retireEpoch.
  * - Retire: RefCounted::release pushes an object after its 1 → 0 transition and `!queued.exchange(true)`; retirePart/retireNode stamp E at the
  *   call (the caller has already unlinked the part/node). Entries go to the calling thread's retire list, which is pushed to a lock-free
  *   incoming stack at outermost TaskScope exit, at quiescentPoint(), when it holds 256 entries, immediately when the thread is outside any
  *   TaskScope, and at thread exit (design §2.4 "flush the thread-local retire list"). Entries not flushed yet are invisible to scans and to
  *   Stats::backlog.
+ * - Limbo: every flushed entry waits in a bucket keyed by a lower bound of the stamp its destruction rule compares with m (its "key"): an
+ *   object's retireEpoch as read by retire() (or by the scan that kept it), a part's or node's retire stamp, a retired OwnedPart's
+ *   max(retire stamp, part stamp read by the scan that kept it).
  * - Scan: (1) E.fetch_add(1); (2) m = min(E, every published epoch), computed before reading any object; (3) the incoming stack is taken and
- *   for each queued object: if count == 0 && retireEpoch < m, destroy; else if count > 0, clear `queued`, then if count == 0 &&
- *   !queued.exchange(true) keep it (else drop it: a concurrent last release pushed it again or it is alive); else keep; (4) nodes and parts
- *   without a count are destroyed when their stamp < m; a retired OwnedPart additionally needs partRefs == 0 and uses the later of its
- *   retirement and last-release stamps (review correction of design §2.3, see OwnedPart).
- * - An allocation failure inside a scan terminates (C5): a half-classified queue could destroy an object twice.
+ *   its entries are filed under their keys (no object is read); (4) the buckets with a key below m are visited oldest first, entry by entry:
+ *   for an object, if count == 0 && retireEpoch < m, destroy; else if count > 0, clear `queued`, then if count == 0 && !queued.exchange(true)
+ *   keep it (else drop it: a concurrent last release pushed it again or it is alive); else keep; nodes and parts without a count are
+ *   destroyed (their key is their stamp); a retired OwnedPart additionally needs partRefs == 0 and uses the later of its retirement and
+ *   last-release stamps (review correction of design §2.3, see OwnedPart). Kept entries are filed again under the stamp just read (re-bucketed),
+ *   after the visit, so one scan examines an entry at most once. Destruction runs after every 64 classified entries.
+ * - Held parts: a retired OwnedPart found held by a Ref with a key below m cannot make progress until the Ref is released, so it is not filed
+ *   back into the limbo (where it would be taken first by every scan and starve bounded scans) but appended to a held-part queue. The queue is
+ *   visited round robin after the limbo, and every second scan starts with a share of min(64, max(1, budget entries / 2)) of it; an unbounded
+ *   scan visits all of it. Entries found released, or with a key >= the scan's m, go back to the limbo. Stats::retiredPartsHeld reports its
+ *   size.
+ * - Work: a scan examines only entries with a key below its m, so entries kept alive by a pinned epoch (a task blocked while holding borrows)
+ *   are not walked again by every scan, and nothing is copied per scan. Scans of the Reclaimer thread stop after `scanTimeBudget` /
+ *   `scanEntryBudget` (checked after each chunk) and the next scan follows without waiting while it made progress on the limbo, so a large
+ *   eligible backlog is destroyed in slices. Threads waiting for the scan lock (reclaimNow, removePostScanHook, setDestroyObserver) are let in
+ *   before a continued scan (for at most one period). reclaimNow() and drain() run unbounded scans.
+ * - Epoch progress: E advances once per scan. The gap between two advances is the waiting time (period, or none for a continued scan) plus the
+ *   scan: filing the incoming entries (O(incoming), not budgeted), the classification and destruction of the chunks until the budget check
+ *   fails (so at most the budget plus one chunk of 64 entries, whose destructors and destroy observer calls are not divisible), re-filing the
+ *   kept entries (O(kept)), the post-scan hooks, and the wait for scan lock waiters. Heavy destructors (large node tables) and slow hooks
+ *   lengthen it beyond the budget.
+ * - Every atomic step has an AION_YIELD_POINT for PCT tests ("Reclaimer::scan:advance", ":readPublished", ":take", ":readCount",
+ *   ":readStamp", ":clearQueued", ":recheck", ":requeue", ":destroy", "Reclaimer::flush", "Reclaimer::flush:published", ":readPublishedTask",
+ *   ":readPartRefs", ":readPartStamp", "Reclaimer::retirePart:stamp", "Reclaimer::retireNode:stamp").
+ *
+ * Safety argument of the limbo (extends the §2.4 sketch, which shows that an entry satisfying the destruction rule with an m computed before
+ * its reads is unreachable)
+ * - Every stamp only grows (release, OwnedPart::release and retirePart store max(stamp, E)), so an entry's key stays a lower bound of its
+ *   stamp. A scan that skips a bucket with key >= m skips only entries whose stamp is >= m: the rule would not destroy them either.
+ * - Skipping a resurrected object (count > 0) postpones its drop. That is safe because its `queued` stays set, so its next last release does
+ *   not push a second entry, and the entry that stays in the limbo is visited once m exceeds its key (the release that brings the count back
+ *   to 0 stamps >= the key).
+ * - The held-part queue changes only when an entry is examined, never what is destroyed: a queued part is classified by the same rule (refs,
+ *   then max(retire stamp, part stamp) < m, read after m). Postponing its examination is safe for the same reason as skipping a bucket.
+ * - Destroy decisions are unchanged: count and stamp are read after this scan's m, entry by entry. A decision stays valid until the entry is
+ *   destroyed later in the same scan (after its chunk): an unreachable object cannot become reachable, and releases by destructors of earlier
+ *   chunks stamp the current E >= m. A budget splits the visit between entries, never inside one entry's classification; the next scan
+ *   computes a new m before it reads anything.
+ * - Classification does not allocate (chunk buffers are preallocated, the re-bucket list is reserved per chunk); an allocation failure
+ *   elsewhere in a scan terminates (C5).
  * - Destruction happens only on the scanning thread (the Reclaimer thread or the caller of reclaimNow) inside a destructor context:
  *   dereferencing a Ref, Ptr or loading a pointer there terminates in checked builds (C8). Cascading releases in destructors are stamped with
  *   the current epoch and wait one scan per level.
- * - Every atomic step has an AION_YIELD_POINT for PCT tests ("Reclaimer::scan:advance", ":readPublished", ":take", ":readCount",
- *   ":readStamp", ":clearQueued", ":recheck", ":requeue", ":destroy", "Reclaimer::flush", "Reclaimer::flush:published", ":readPublishedTask", ":readPartRefs", ":readPartStamp", "Reclaimer::retirePart:stamp",
- *   "Reclaimer::retireNode:stamp").
  *
- * Invariants (C5, all builds): an object is destroyed only with count == 0. Checked builds additionally verify the cookie of every queued
- * object (a destroyed object queued twice terminates) and the allocation header. Checked builds poison destroyed objects and keep them in a
- * delayed-free FIFO of `delayedFreeBytes` (C3; disabled in ASan builds, whose quarantine does the same). Retired parts are never freed while a
- * task that could borrow them is active (C12, by the stamp rule).
+ * Invariants (C5, all builds): an object is destroyed only with count == 0. Checked builds additionally verify that no examined object was
+ * destroyed earlier in the same scan (a per-scan set of destroyed objects, checked before the entry's memory is read) and the cookie of every
+ * examined object (a destroyed object queued twice in different scans terminates thanks to the poisoned delayed-free memory or ASan's
+ * quarantine), and the allocation header. Checked builds poison destroyed objects and keep them in a delayed-free FIFO of `delayedFreeBytes`
+ * (C3; disabled in ASan builds, whose quarantine does the same). Retired parts are never freed while a task that could borrow them is active
+ * (C12, by the stamp rule).
+ * Costs: filing is O(1) per entry (one map lookup per run of equal keys); a scan costs O(published threads + incoming entries + examined
+ * entries + buckets with a key below m). Retired OwnedParts that Refs hold cost an unbounded scan O(held parts) and a bounded scan at most its
+ * budget; checked builds add O(objects destroyed by the scan) for the destroyed set.
  * start() registers a watchdog probe: lag > lagWarning → warning (once per oldest epoch); backlog > backlogDumpObjects or > backlogDumpBytes →
  * Watchdog dump naming the oldest publishing thread (once, re-armed when the backlog falls below half), design §2.6.
  *
@@ -63,6 +103,13 @@ public:
 		std::chrono::seconds lagWarning{10};
 		/** checked builds (C3): delayed-free FIFO size in bytes (0 disables; ignored in ASan builds) */
 		size_t delayedFreeBytes = size_t{64} * 1024 * 1024;
+		/**
+		 * Reclaimer thread: a scan stops examining entries once it has run this long (checked after every 64 entries, so a scan examines at
+		 * least one chunk) and the next scan starts at once; 0 = unlimited. reclaimNow() ignores it.
+		 */
+		std::chrono::microseconds scanTimeBudget{10'000};
+		/** Reclaimer thread: at most this many entries examined per scan (0 = unlimited). reclaimNow() ignores it. */
+		size_t scanEntryBudget = 0;
 	};
 
 	struct Stats {
@@ -76,12 +123,27 @@ public:
 		uint64_t backlogBytes = 0;
 		uint64_t destroyedTotal = 0;
 		uint64_t scans = 0;
+		/** entries examined (classified) by all scans; a scan examines only entries whose limbo key is below its m */
+		uint64_t examinedTotal = 0;
+		/**
+		 * scans that ended at their budget with limbo entries below their m left (the Reclaimer thread continues without waiting while such scans
+		 * make progress; held retired parts are not counted)
+		 */
+		uint64_t budgetExhaustedScans = 0;
+		/** retired OwnedParts that the last scan found held by a Ref (part of the backlog; a leaked Ref<Part> keeps its part and owner here) */
+		uint64_t retiredPartsHeld = 0;
+		/** entries examined by the last scan */
+		uint64_t lastScanExamined = 0;
+		/** objects, parts and nodes destroyed by the last scan */
+		uint64_t lastScanDestroyed = 0;
+		/** duration of the last scan (from the epoch advance to the end of destruction; hooks excluded) */
+		std::chrono::microseconds lastScanDuration{0};
 		/** at the last scan: time since E became the oldest published epoch m (0 if no thread published an epoch older than E) */
 		std::chrono::milliseconds lag{0};
 		/**
-	 * at the last scan: TaskInfo of the task that published the oldest epoch, read together with the epoch (default if none, or if that task
-	 * ended while the scan read it)
-	 */
+		 * at the last scan: TaskInfo of the task that published the oldest epoch, read together with the epoch (default if none, or if that
+		 * task ended while the scan read it)
+		 */
 		TaskInfo oldestPublishedTask{};
 		/** at the last scan: ThreadContext::threadId() of that thread, 0 if none */
 		uint64_t oldestPublishedThreadId = 0;
@@ -125,8 +187,8 @@ public:
 
 	/**
 	 * Runs one full scan synchronously on the calling thread (DeterministicExecutor, tests, shutdown), after flushing the calling thread's retire
-	 * list. The calling thread's own published epoch is respected like any other. Runs post-scan hooks. Serialized with the Reclaimer thread's
-	 * scans.
+	 * list: every entry eligible at this scan is examined, whatever the budget. The calling thread's own published epoch is respected like any
+	 * other. Runs post-scan hooks. Serialized with the Reclaimer thread's scans.
 	 */
 	void reclaimNow();
 

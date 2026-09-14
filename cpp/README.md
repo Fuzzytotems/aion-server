@@ -9,7 +9,7 @@ Intentional differences from Java: [docs/DEVIATIONS.md](docs/DEVIATIONS.md).
 | commons | done: ported, reviewed; 394 tests (incl. database integration tests) |
 | login-server | done: ported, reviewed; 147 tests; a real 4.8 client logs in |
 | chat-server | not started |
-| game-server | in progress: design done ([docs/design](docs/design/README.md)); runtime kernel implemented and tested (414 tests, stress and benchmark passed) |
+| game-server | in progress: design done ([docs/design](docs/design/README.md)); runtime kernel done (422 tests, 30-minute ASan and checked stress gates, benchmark passed) |
 
 ## Requirements (Windows)
 
