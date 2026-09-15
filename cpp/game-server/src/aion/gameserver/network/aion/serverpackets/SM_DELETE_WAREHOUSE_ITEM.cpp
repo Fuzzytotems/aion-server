@@ -1,7 +1,7 @@
 #include "aion/gameserver/network/aion/serverpackets/SM_DELETE_WAREHOUSE_ITEM.h"
 
-#include "aion/gameserver/runtime/base/Unported.h"
 #include "aion/gameserver/network/aion/ServerPacketsOpcodes.gen.h"
+#include "aion/gameserver/network/aion/serverpackets/detail/PacketSupport.h"
 
 namespace aion::gameserver::network::aion::serverpackets {
 
@@ -12,7 +12,9 @@ SM_DELETE_WAREHOUSE_ITEM::SM_DELETE_WAREHOUSE_ITEM(int32_t warehouseTypeValue, i
 }
 
 void SM_DELETE_WAREHOUSE_ITEM::writeImpl(AionConnection* con) {
-	AION_UNPORTED();
+	writeC(warehouseType);
+	writeD(itemObjId);
+	writeC(detail::itemDeleteTypeMask(deleteType));
 }
 
 } // namespace aion::gameserver::network::aion::serverpackets

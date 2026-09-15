@@ -1,6 +1,6 @@
 #include "aion/gameserver/network/aion/serverpackets/SM_QUESTIONNAIRE.h"
 
-#include "aion/gameserver/runtime/base/Unported.h"
+#include "aion/commons/utils/StringUtils.h"
 #include "aion/gameserver/network/aion/ServerPacketsOpcodes.gen.h"
 
 namespace aion::gameserver::network::aion::serverpackets {
@@ -10,7 +10,11 @@ SM_QUESTIONNAIRE::SM_QUESTIONNAIRE(int32_t messageIdValue, int8_t chunkValue, in
 }
 
 void SM_QUESTIONNAIRE::writeImpl(AionConnection* con) {
-	AION_UNPORTED();
+	writeD(messageId);
+	writeC(chunk);
+	writeC(count);
+	writeH(commons::utils::StringUtils::utf16Length(html) * 2); // Java String.length(): UTF-16 code units
+	writeS(html);
 }
 
 } // namespace aion::gameserver::network::aion::serverpackets

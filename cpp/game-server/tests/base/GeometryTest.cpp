@@ -22,6 +22,7 @@
 #include "aion/gameserver/model/templates/zone/Point2D.h"
 #include "aion/gameserver/runtime/base/Exceptions.h"
 #include "aion/gameserver/runtime/lifetime/TaskScope.h"
+#include "aion/gameserver/utils/PositionUtil.h"
 
 namespace aion::gameserver::model::geometry {
 namespace {
@@ -125,6 +126,11 @@ TEST(AreaTest, RectangleArea) {
 	runtime::Ref<Point3D> closest3d = rect->getClosestPoint(20.0f, 5.0f, -4.0f);
 	EXPECT_EQ(closest3d->getX(), 10.0f);
 	EXPECT_EQ(closest3d->getZ(), 0.0f);
+	// Java getDistance3D outside the z range: the distance to getClosestPoint(x, y, z) (C++ computes that point as values): below and above
+	EXPECT_EQ(rect->getDistance3D(20.0f, 5.0f, -4.0f), std::sqrt(116.0));
+	runtime::Ref<Point3D> above = rect->getClosestPoint(-3.5f, 12.25f, 17.75f);
+	EXPECT_EQ(rect->getDistance3D(-3.5f, 12.25f, 17.75f),
+		utils::PositionUtil::getDistance(-3.5f, 12.25f, 17.75f, above->getX(), above->getY(), above->getZ()));
 	std::optional<Point2D> closestRight = rect->getClosestPoint(20.0f, 5.0f);
 	ASSERT_TRUE(closestRight.has_value());
 	EXPECT_EQ(closestRight->getX(), 10.0f);
@@ -180,6 +186,11 @@ TEST(AreaTest, PolyArea) {
 	EXPECT_EQ(area->getDistance3D(15.0f, 5.0f, 5.0f), 5.0);
 	// Java: the closest point of an inside point is on the first nearest edge, (5, 0), at the top z: sqrt(5 * 5 + 3 * 3)
 	EXPECT_EQ(area->getDistance3D(5.0f, 5.0f, 13.0f), std::sqrt(34.0));
+	// below the z range, outside in x and y: the closest corner (10, 10) at the bottom z: sqrt(2 * 2 + 3 * 3 + 4 * 4)
+	EXPECT_EQ(area->getDistance3D(12.0f, 13.0f, -4.0f), std::sqrt(29.0));
+	runtime::Ref<Point3D> polyClosest = area->getClosestPoint(-1.5f, 4.25f, 11.5f);
+	EXPECT_EQ(area->getDistance3D(-1.5f, 4.25f, 11.5f),
+		utils::PositionUtil::getDistance(polyClosest->getX(), polyClosest->getY(), polyClosest->getZ(), -1.5f, 4.25f, 11.5f));
 	Point2D closest = area->getClosestPoint2D(-2.0f, 12.0f);
 	EXPECT_EQ(closest.getX(), 0.0f);
 	EXPECT_EQ(closest.getY(), 10.0f);

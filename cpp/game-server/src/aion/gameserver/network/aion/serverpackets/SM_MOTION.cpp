@@ -1,6 +1,5 @@
 #include "aion/gameserver/network/aion/serverpackets/SM_MOTION.h"
 
-#include "aion/gameserver/runtime/base/Unported.h"
 #include "aion/gameserver/model/gameobjects/player/motion/Motion.h"
 #include "aion/gameserver/network/aion/ServerPacketsOpcodes.gen.h"
 
@@ -30,7 +29,37 @@ SM_MOTION::SM_MOTION(int32_t playerIdValue,
 SM_MOTION::~SM_MOTION() = default;
 
 void SM_MOTION::writeImpl(AionConnection* con) {
-	AION_UNPORTED();
+	writeC(action);
+	switch (action) {
+		case 1:
+			writeH(static_cast<int32_t>(motions.size()));
+			for (const runtime::Ref<model::gameobjects::player::motion::Motion>& motion : motions) {
+				writeH(motion->getId());
+				writeD(motion->secondsUntilExpiration());
+				writeC(motion->isActive() ? 1 : 0);
+			}
+			break;
+		case 2: // Add motion
+			writeH(motionId);
+			writeD(remainingTime);
+			break;
+		case 5: // Set motion
+			writeH(motionId);
+			writeC(type);
+			break;
+		case 6: // remove
+			writeH(motionId);
+			break;
+		case 7: // Player motions
+			writeD(playerId);
+			for (int32_t i = 1; i < 6; i++) {
+				auto motion = activeMotions.find(i);
+				if (motion == activeMotions.end() || motion->second == nullptr)
+					writeH(0);
+				else
+					writeH(motion->second->getId());
+			}
+	}
 }
 
 } // namespace aion::gameserver::network::aion::serverpackets

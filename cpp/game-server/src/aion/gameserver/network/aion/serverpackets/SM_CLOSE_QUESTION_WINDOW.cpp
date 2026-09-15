@@ -2,7 +2,6 @@
 
 #include <utility>
 
-#include "aion/gameserver/runtime/base/Unported.h"
 #include "aion/gameserver/network/aion/ServerPacketsOpcodes.gen.h"
 
 namespace aion::gameserver::network::aion::serverpackets {
@@ -24,7 +23,11 @@ SM_CLOSE_QUESTION_WINDOW::SM_CLOSE_QUESTION_WINDOW(int32_t msgIdValue, std::vect
 }
 
 void SM_CLOSE_QUESTION_WINDOW::writeImpl(AionConnection* con) {
-	AION_UNPORTED();
+	writeD(0); // maybe a target object id?
+	writeD(msgId); // reason
+	for (int32_t i = 0; i < MAX_PARAM_COUNT; i++) // client only supports three parameters in this package (fourth will not be rendered)
+		writeS(i < static_cast<int32_t>(params.size()) ? std::string_view(params[static_cast<size_t>(i)]) : std::string_view()); // Java null: ""
+	// unknown what follows here
 }
 
 } // namespace aion::gameserver::network::aion::serverpackets

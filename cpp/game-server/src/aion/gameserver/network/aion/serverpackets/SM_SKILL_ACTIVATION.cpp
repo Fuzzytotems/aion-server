@@ -1,6 +1,5 @@
 #include "aion/gameserver/network/aion/serverpackets/SM_SKILL_ACTIVATION.h"
 
-#include "aion/gameserver/runtime/base/Unported.h"
 #include "aion/gameserver/network/aion/ServerPacketsOpcodes.gen.h"
 
 namespace aion::gameserver::network::aion::serverpackets {
@@ -14,7 +13,9 @@ SM_SKILL_ACTIVATION::SM_SKILL_ACTIVATION(int32_t skillIdValue)
 }
 
 void SM_SKILL_ACTIVATION::writeImpl(AionConnection* con) {
-	AION_UNPORTED();
+	writeH(skillId);
+	writeD(unk);
+	writeC(isActive ? 1 : 0);
 }
 
 } // namespace aion::gameserver::network::aion::serverpackets

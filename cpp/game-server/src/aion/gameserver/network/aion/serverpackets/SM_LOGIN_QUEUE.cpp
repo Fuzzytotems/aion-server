@@ -1,6 +1,5 @@
 #include "aion/gameserver/network/aion/serverpackets/SM_LOGIN_QUEUE.h"
 
-#include "aion/gameserver/runtime/base/Unported.h"
 #include "aion/gameserver/network/aion/ServerPacketsOpcodes.gen.h"
 
 namespace aion::gameserver::network::aion::serverpackets {
@@ -10,7 +9,9 @@ SM_LOGIN_QUEUE::SM_LOGIN_QUEUE()
 }
 
 void SM_LOGIN_QUEUE::writeImpl(AionConnection* con) {
-	AION_UNPORTED();
+	writeD(waitingPosition);
+	writeD(waitingTime);
+	writeD(waitingCount);
 }
 
 } // namespace aion::gameserver::network::aion::serverpackets

@@ -5,6 +5,7 @@
 #include <atomic>
 #include <memory>
 #include <set>
+#include <string>
 #include <thread>
 
 #include "LifetimeTestSupport.h"
@@ -199,6 +200,87 @@ TEST(TaskScopeTest, QuiescentPointOutsideValidScopesIsAWarnedNoOp) {
 #else
 	(void)warningsBefore;
 #endif
+}
+
+// QuiescentScope::active() (World creation chooses its quiescent loop variants with it): true exactly where quiescentPoint() takes effect
+TEST(TaskScopeTest, QuiescentScopeActiveMatchesWhereQuiescentPointsTakeEffect) {
+	EXPECT_FALSE(QuiescentScope::active()) << "outside scopes";
+	{
+		TaskScope scope(testTask());
+		EXPECT_FALSE(QuiescentScope::active()) << "no QuiescentScope";
+		{
+			QuiescentScope quiescent;
+			EXPECT_TRUE(QuiescentScope::active());
+			{
+				QuiescentScope inner;
+				EXPECT_TRUE(QuiescentScope::active()) << "nested QuiescentScopes";
+			}
+			EXPECT_TRUE(QuiescentScope::active());
+			{
+				TaskScope nested(testTask());
+				EXPECT_FALSE(QuiescentScope::active()) << "depth 2: quiescentPoint would be a no-op";
+			}
+			TaskScope::ensurePublished();
+			quiescentPoint();
+			EXPECT_FALSE(TaskScope::isPublished()) << "active() was true and the quiescent point took effect";
+		}
+		EXPECT_FALSE(QuiescentScope::active()) << "the QuiescentScope ended";
+	}
+	std::thread([] {
+		TaskScope helper(testTask(), 12345);
+		QuiescentScope quiescent;
+		EXPECT_FALSE(QuiescentScope::active()) << "JOIN helper";
+	}).join();
+	std::thread([] { EXPECT_FALSE(QuiescentScope::active()) << "unregistered thread"; }).join();
+}
+
+// Review finding (wave 3b-2): deep code (WorldMap) placed quiescent points under whatever QuiescentScope a caller opened. QuiescentOptIn makes
+// the opt-in explicit: its purpose must match, and a TaskScope or QuiescentScope opened after it (by frames it does not vouch for) disables it.
+TEST(TaskScopeTest, QuiescentOptInIsActiveOnlyWhereItsOpenerVouches) {
+	constexpr const char* PURPOSE = "test purpose";
+	{
+		QuiescentOptIn withoutScope(PURPOSE);
+		EXPECT_FALSE(QuiescentOptIn::active(PURPOSE)) << "outside scopes";
+	}
+	TaskScope scope(testTask());
+	{
+		QuiescentScope quiescent;
+		EXPECT_FALSE(QuiescentOptIn::active(PURPOSE)) << "a QuiescentScope alone is no opt-in";
+		QuiescentOptIn optIn(PURPOSE);
+		EXPECT_TRUE(QuiescentOptIn::active(PURPOSE));
+		EXPECT_TRUE(QuiescentOptIn::active(std::string("test ") + "purpose")) << "purposes compare by text";
+		EXPECT_FALSE(QuiescentOptIn::active("another purpose"));
+		{
+			QuiescentOptIn other("another purpose");
+			EXPECT_TRUE(QuiescentOptIn::active("another purpose"));
+			EXPECT_TRUE(QuiescentOptIn::active(PURPOSE)) << "outer opt-ins stay active";
+		}
+		EXPECT_FALSE(QuiescentOptIn::active("another purpose"));
+		{
+			QuiescentScope later; // opened after the opt-in
+			EXPECT_TRUE(QuiescentScope::active());
+			EXPECT_FALSE(QuiescentOptIn::active(PURPOSE)) << "a QuiescentScope opened below the opt-in is not vouched for";
+			QuiescentOptIn again(PURPOSE);
+			EXPECT_TRUE(QuiescentOptIn::active(PURPOSE)) << "an opt-in inside the later scope";
+		}
+		{
+			TaskScope nested(testTask());
+			EXPECT_FALSE(QuiescentOptIn::active(PURPOSE)) << "depth 2";
+		}
+		EXPECT_TRUE(QuiescentOptIn::active(PURPOSE));
+		TaskScope::ensurePublished();
+		if (QuiescentOptIn::active(PURPOSE))
+			quiescentPoint();
+		EXPECT_FALSE(TaskScope::isPublished()) << "active(purpose) implies that quiescent points take effect";
+	}
+	std::thread([PURPOSE] {
+		TaskScope helper(testTask(), 12345);
+		QuiescentScope quiescent;
+		QuiescentOptIn optIn(PURPOSE);
+		EXPECT_FALSE(QuiescentOptIn::active(PURPOSE)) << "JOIN helper";
+	}).join();
+	QuiescentScope quiescent;
+	std::thread([PURPOSE] { EXPECT_FALSE(QuiescentOptIn::active(PURPOSE)) << "opt-ins are per thread"; }).join();
 }
 
 TEST(TaskScopeTest, JoinHelperScopeAdoptsSubmitterId) {

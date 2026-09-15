@@ -4,6 +4,7 @@
 #include <atomic>
 #include <condition_variable>
 #include <cstdlib>
+#include <exception>
 #include <filesystem>
 #include <format>
 #include <map>
@@ -22,9 +23,6 @@
 #define NOMINMAX
 #endif
 #include <windows.h>
-// dbghelp.h must follow windows.h
-#include <dbghelp.h>
-#pragma comment(lib, "Dbghelp.lib")
 
 #include "aion/commons/utils/WindowsMacroGuard.h"
 #endif
@@ -33,6 +31,7 @@
 #include "aion/commons/utils/ExitCode.h"
 #include "aion/commons/utils/TimeUtils.h"
 #include "aion/commons/utils/concurrent/ThreadName.h"
+#include "aion/gameserver/runtime/sync/MinidumpWriter.h"
 #include "aion/gameserver/runtime/sync/RankedMutex.h"
 
 // Implementation notes
@@ -44,6 +43,16 @@
 // - Task keys: (thread id, start nanos) identify one task run; they are forgotten when the task is no longer observed. quiescentPoint() gives
 //   the running task a new scope id but keeps its start time, so a changed scope id of the same key is observed progress: it restarts the
 //   stall clock (and re-arms the STALL report) but not the slow-task clock, which measures the whole run like Java's post-hoc warning.
+// - Dump rate limit: every check has a generation number, recorded thread-locally on the checking thread while the check runs. dump() writes a
+//   minidump only if no minidump was attempted in the same check, the previous attempt is older than minidumpMinInterval and maxMinidumps is
+//   not reached; the minidump state has its own std::mutex (never held while other runtime locks are taken), which also serializes the
+//   minidump writes of concurrent manual dumps. Stalled tasks of one check are reported in one STALL dump.
+//   DEADLOCK is exempt from minidumpMinInterval and from the STALL budget: each cycle is dumped only once and may be followed by quick_exit, so
+//   its minidump is the only record of the other threads' stacks. It still obeys one per check and has its own budget of maxMinidumps.
+// - Dump order (DEADLOCK/STALL with minidumps): the text is logged before the minidump is written (a helper may take minidumpTimeout + 5 s, and
+//   an operator may kill a hung server meanwhile), then one line with the minidump result; listeners see the report with both afterwards.
+//   Paths in messages are UTF-8 (path::string() throws for characters outside the ANSI code page), the configured directory is read as UTF-8,
+//   and a throwing minidump write becomes the minidump line.
 
 namespace aion::gameserver::runtime {
 
@@ -85,7 +94,20 @@ struct WatchdogState {
 	std::thread thread;
 	std::atomic<bool> running{false};
 	std::atomic<uint64_t> minidumpCounter{0};
+
+	std::atomic<uint64_t> checkGeneration{0};
+	std::mutex minidumpMutex;
+	uint64_t lastMinidumpCheck = 0;
+	int64_t lastMinidumpNanos = 0;
+	bool minidumpAttempted = false;
+	int32_t minidumpCount = 0;
+	/** DEADLOCK minidumps attempted (their own budget of maxMinidumps) */
+	int32_t deadlockMinidumpCount = 0;
+	std::string lastMinidumpPath;
 };
+
+/** the generation of the check running on this thread (0 outside checkNow) */
+thread_local uint64_t currentCheckGeneration = 0;
 
 WatchdogState& state() {
 	static auto* instance = new WatchdogState(); // leaked: usable during static destruction
@@ -142,24 +164,66 @@ std::string describeThread(const Watchdog::ThreadSnapshot& thread, int64_t now, 
 }
 
 #if defined(_WIN32)
-std::string writeMinidump(const std::string& directory, Watchdog::Reason reason) {
-	std::error_code error;
-	std::filesystem::create_directories(directory, error);
-	auto now = std::chrono::floor<std::chrono::seconds>(std::chrono::system_clock::now());
-	std::filesystem::path path = std::filesystem::path(directory) /
-		std::format("watchdog-{}-{:%Y%m%d-%H%M%S}-{}-{}.dmp", Watchdog::reasonName(reason), now, GetCurrentProcessId(),
-			state().minidumpCounter.fetch_add(1, std::memory_order_relaxed));
-	HANDLE file = CreateFileW(path.c_str(), GENERIC_WRITE, 0, nullptr, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
-	if (file == INVALID_HANDLE_VALUE)
-		return {};
-	auto type = static_cast<MINIDUMP_TYPE>(MiniDumpWithThreadInfo | MiniDumpWithUnloadedModules);
-	BOOL written = MiniDumpWriteDump(GetCurrentProcess(), GetCurrentProcessId(), file, type, nullptr, nullptr, nullptr);
-	CloseHandle(file);
-	if (!written) {
-		std::filesystem::remove(path, error);
-		return {};
+/** a configured path (UTF-8, like every configuration string) */
+std::filesystem::path utf8Path(std::string_view text) {
+	return std::filesystem::path(std::u8string_view(reinterpret_cast<const char8_t*>(text.data()), text.size()));
+}
+
+/** a path as UTF-8 text (path::string() throws for characters outside the ANSI code page) */
+std::string utf8Text(const std::filesystem::path& path) {
+	std::u8string text = path.u8string();
+	return std::string(text.begin(), text.end());
+}
+
+/** Writes a minidump subject to the rate limit (implementation notes); returns the path written (empty if none) and the line for the text. */
+std::pair<std::string, std::string> writeRateLimitedMinidump(const Watchdog::Config& config, Watchdog::Reason reason) {
+	WatchdogState& s = state();
+	std::scoped_lock lock(s.minidumpMutex);
+	int64_t now = commons::utils::nanoTime();
+	bool deadlock = reason == Watchdog::Reason::DEADLOCK;
+	if (currentCheckGeneration != 0 && s.lastMinidumpCheck == currentCheckGeneration)
+		return {{}, "Minidump: one per watchdog check, see " + (s.lastMinidumpPath.empty() ? std::string("the first dump of this check") : s.lastMinidumpPath)};
+	if (!deadlock && s.minidumpAttempted && config.minidumpMinInterval.count() > 0 &&
+		millisSince(s.lastMinidumpNanos, now) < config.minidumpMinInterval.count())
+		return {{}, std::format("Minidump: skipped (rate limit: one per {} ms; the previous one {} ms ago: {})", config.minidumpMinInterval.count(),
+						millisSince(s.lastMinidumpNanos, now), s.lastMinidumpPath.empty() ? std::string("not written") : s.lastMinidumpPath)};
+	int32_t& count = deadlock ? s.deadlockMinidumpCount : s.minidumpCount;
+	if (config.maxMinidumps > 0 && count >= config.maxMinidumps)
+		return {{}, deadlock ? std::format("Minidump: skipped (limit of {} DEADLOCK minidumps per run reached)", config.maxMinidumps)
+							 : std::format("Minidump: skipped (limit of {} minidumps per run reached)", config.maxMinidumps)};
+
+	// counted before writing: a failing or hanging writer is not retried on every check
+	s.lastMinidumpCheck = currentCheckGeneration;
+	s.lastMinidumpNanos = now;
+	s.minidumpAttempted = true;
+	count++;
+	s.lastMinidumpPath.clear();
+
+	auto wallClock = std::chrono::floor<std::chrono::seconds>(std::chrono::system_clock::now());
+	std::filesystem::path path = utf8Path(config.minidumpDirectory) /
+		std::format("watchdog-{}-{:%Y%m%d-%H%M%S}-{}-{}.dmp", Watchdog::reasonName(reason), wallClock, GetCurrentProcessId(),
+			s.minidumpCounter.fetch_add(1, std::memory_order_relaxed));
+	std::filesystem::path helper = utf8Path(config.minidumpHelperExecutable);
+	if (helper.empty() && MinidumpWriter::isSelfHelperRegistered())
+		helper = MinidumpWriter::currentExecutable();
+	MinidumpWriter::Result result = helper.empty() ? MinidumpWriter::writeInProcess(path, config.minidumpTimeout)
+												   : MinidumpWriter::writeWithHelper(helper, GetCurrentProcessId(), path, config.minidumpTimeout);
+	if (!result.written())
+		return {{}, "Minidump: could not be written (" + result.message + ")"};
+	std::string written = utf8Text(path);
+	s.lastMinidumpPath = written;
+	return {written, "Minidump (all thread stacks, " + result.message + "): " + written};
+}
+
+/** the message of the exception being handled */
+std::string currentExceptionMessage() {
+	try {
+		throw;
+	} catch (const std::exception& e) {
+		return e.what();
+	} catch (...) {
+		return "unknown exception";
 	}
-	return path.string();
 }
 #endif
 
@@ -229,15 +293,18 @@ std::vector<Watchdog::DumpListener> copyListeners() {
 	return listeners;
 }
 
-void publish(const Watchdog::DumpReport& report) {
+void logText(Watchdog::Reason reason, const std::string& text) noexcept {
 	try {
-		if (report.reason == Watchdog::Reason::DEADLOCK || report.reason == Watchdog::Reason::STALL)
-			logger().error(report.text);
+		if (reason == Watchdog::Reason::DEADLOCK || reason == Watchdog::Reason::STALL)
+			logger().error(text);
 		else
-			logger().warn(report.text);
+			logger().warn(text);
 	} catch (...) {
 		// logging is best effort
 	}
+}
+
+void notifyListeners(const Watchdog::DumpReport& report) {
 	for (Watchdog::DumpListener& listener : copyListeners()) {
 		try {
 			listener(report);
@@ -245,6 +312,11 @@ void publish(const Watchdog::DumpReport& report) {
 			logger().warnCurrentException("Watchdog dump listener threw");
 		}
 	}
+}
+
+void publish(const Watchdog::DumpReport& report) {
+	logText(report.reason, report.text);
+	notifyListeners(report);
 }
 
 } // namespace
@@ -339,6 +411,12 @@ Watchdog::Config Watchdog::getConfig() const {
 void Watchdog::checkNow() {
 	WatchdogState& s = state();
 	std::scoped_lock checkLock(s.checkMutex);
+	struct CheckGeneration {
+		explicit CheckGeneration(uint64_t generation) noexcept { currentCheckGeneration = generation; }
+		~CheckGeneration() { currentCheckGeneration = 0; }
+		CheckGeneration(const CheckGeneration&) = delete;
+		CheckGeneration& operator=(const CheckGeneration&) = delete;
+	} generation(s.checkGeneration.fetch_add(1, std::memory_order_relaxed) + 1);
 	Config config = getConfig();
 	std::vector<ThreadSnapshot> threads = snapshotThreads();
 	int64_t now = commons::utils::nanoTime();
@@ -407,6 +485,8 @@ void Watchdog::checkNow() {
 
 	// ------------------------------------------------------------------------------------------------------------------- stalls, slow tasks
 	std::set<TaskKey> activeTasks;
+	std::vector<uint64_t> stalledIds;
+	std::vector<std::string> stalledDescriptions;
 	for (const ThreadSnapshot& thread : threads) {
 		if (!thread.task.active)
 			continue;
@@ -433,7 +513,8 @@ void Watchdog::checkNow() {
 		if (sinceProgressMillis >= config.stall.count() && !progress.stallReported && !kindIn(kind, config.stallExemptKinds)) {
 			progress.stallReported = true;
 			progress.slowReported = true; // a stall dump supersedes the slow-task warning
-			dump(Reason::STALL, "stalled " + describe(), {thread.threadId});
+			stalledIds.push_back(thread.threadId);
+			stalledDescriptions.push_back(describe());
 		} else if (runningMillis >= config.slowTaskWarning.count() && !progress.slowReported && !kindIn(kind, config.slowTaskExemptKinds)) {
 			progress.slowReported = true;
 			DumpReport report;
@@ -446,6 +527,15 @@ void Watchdog::checkNow() {
 		}
 	}
 	std::erase_if(s.tasks, [&](const auto& entry) { return !activeTasks.contains(entry.first); });
+	if (stalledIds.size() == 1) {
+		dump(Reason::STALL, "stalled " + stalledDescriptions[0], stalledIds);
+	} else if (!stalledIds.empty()) {
+		// one dump for all stalls of this check (a burst of parallel stalls used to write one dump and minidump per thread)
+		std::string summary = std::to_string(stalledIds.size()) + " stalled tasks:";
+		for (const std::string& description : stalledDescriptions)
+			summary += "\n  stalled " + description;
+		dump(Reason::STALL, summary, stalledIds);
+	}
 
 	// ------------------------------------------------------------------------------------------------------------------- probes
 	std::vector<std::pair<std::string, Probe>> probes;
@@ -506,8 +596,20 @@ Watchdog::DumpReport Watchdog::dump(Reason reason, std::string_view summary, std
 #if defined(_WIN32)
 	Config config = getConfig();
 	if ((reason == Reason::DEADLOCK || reason == Reason::STALL) && config.writeMinidump) {
-		report.minidumpPath = writeMinidump(config.minidumpDirectory, reason);
-		report.text += report.minidumpPath.empty() ? "\nMinidump: could not be written" : "\nMinidump (all thread stacks): " + report.minidumpPath;
+		// the text first (implementation notes): it survives a writer that takes long or a process killed meanwhile
+		logText(reason, report.text);
+		std::string line;
+		try {
+			auto [path, written] = writeRateLimitedMinidump(config, reason);
+			report.minidumpPath = std::move(path);
+			line = std::move(written);
+		} catch (...) {
+			line = "Minidump: could not be written (" + currentExceptionMessage() + ")";
+		}
+		logText(reason, std::format("Watchdog {}: {}", reasonName(reason), line));
+		report.text += "\n" + line;
+		notifyListeners(report);
+		return report;
 	}
 #else
 	report.text += "\nThread stacks: not available on this platform (TODO)";

@@ -1,6 +1,5 @@
 #include "aion/gameserver/network/aion/serverpackets/SM_AFTER_TIME_CHECK_4_7_5.h"
 
-#include "aion/gameserver/runtime/base/Unported.h"
 #include "aion/gameserver/network/aion/ServerPacketsOpcodes.gen.h"
 
 namespace aion::gameserver::network::aion::serverpackets {
@@ -9,7 +8,8 @@ SM_AFTER_TIME_CHECK_4_7_5::SM_AFTER_TIME_CHECK_4_7_5() : AionServerPacket(opcode
 }
 
 void SM_AFTER_TIME_CHECK_4_7_5::writeImpl(AionConnection* con) {
-	AION_UNPORTED();
+	writeH(1);
+	writeD(0);
 }
 
 } // namespace aion::gameserver::network::aion::serverpackets

@@ -1,6 +1,5 @@
 #include "aion/gameserver/network/aion/serverpackets/SM_EXCHANGE_ADD_KINAH.h"
 
-#include "aion/gameserver/runtime/base/Unported.h"
 #include "aion/gameserver/network/aion/ServerPacketsOpcodes.gen.h"
 
 namespace aion::gameserver::network::aion::serverpackets {
@@ -10,7 +9,8 @@ SM_EXCHANGE_ADD_KINAH::SM_EXCHANGE_ADD_KINAH(int64_t kinahCountValue, int32_t ac
 }
 
 void SM_EXCHANGE_ADD_KINAH::writeImpl(AionConnection* con) {
-	AION_UNPORTED();
+	writeC(action); // 0 -self 1-other
+	writeQ(kinahCount);
 }
 
 } // namespace aion::gameserver::network::aion::serverpackets

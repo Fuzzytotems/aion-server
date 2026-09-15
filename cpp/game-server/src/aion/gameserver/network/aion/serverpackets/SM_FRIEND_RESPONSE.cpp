@@ -1,6 +1,5 @@
 #include "aion/gameserver/network/aion/serverpackets/SM_FRIEND_RESPONSE.h"
 
-#include "aion/gameserver/runtime/base/Unported.h"
 #include "aion/gameserver/network/aion/ServerPacketsOpcodes.gen.h"
 
 namespace aion::gameserver::network::aion::serverpackets {
@@ -58,7 +57,8 @@ SM_FRIEND_RESPONSE::SM_FRIEND_RESPONSE(std::string_view playerNameValue, int32_t
 }
 
 void SM_FRIEND_RESPONSE::writeImpl(AionConnection* con) {
-	AION_UNPORTED();
+	writeS(playerName);
+	writeC(code);
 }
 
 } // namespace aion::gameserver::network::aion::serverpackets

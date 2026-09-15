@@ -290,6 +290,63 @@ TEST(ReclaimerTest, ConcurrentScansAndReleasesDestroyEveryObjectOnce) {
 	EXPECT_NO_THROW(tracker->expectAllDestroyedOnce("concurrent"));
 }
 
+// Backpressure of bulk producers (World creation's parallel region loop): waits while the backlog is above the limit, never for itself.
+TEST(ReclaimerTest, AwaitBacklogBelowWaitsForTheReclaimerThreadAndNeverForItself) {
+	drainReclaimer();
+	Reclaimer& reclaimer = Reclaimer::getInstance();
+	Reclaimer::Config original = reclaimer.getConfig();
+	Reclaimer::Config config = original;
+	config.period = std::chrono::milliseconds(5);
+	auto tracker = std::make_shared<Tracker>();
+	EXPECT_TRUE(reclaimer.awaitBacklogBelow(0, std::chrono::milliseconds(10))) << "empty backlog";
+
+	// a published thread pins the retired objects: the backlog stays above the limit
+	std::atomic<bool> published{false};
+	std::atomic<bool> release{false};
+	std::thread pinning([&] {
+		TaskScope scope(testTask());
+		TaskScope::ensurePublished();
+		published = true;
+		while (!release.load())
+			std::this_thread::sleep_for(std::chrono::milliseconds(1));
+	});
+	ASSERT_TRUE(waitFor([&] { return published.load(); }));
+	for (int i = 0; i < 3; ++i)
+		Tracked::create(tracker).reset(); // outside scopes: pushed at once
+	EXPECT_FALSE(reclaimer.awaitBacklogBelow(1, std::chrono::milliseconds(50))) << "the Reclaimer thread is not running: no waiting";
+
+	reclaimer.start(config);
+	auto started = std::chrono::steady_clock::now();
+	EXPECT_FALSE(reclaimer.awaitBacklogBelow(1, std::chrono::milliseconds(100))) << "pinned: times out";
+	EXPECT_GE(std::chrono::steady_clock::now() - started, std::chrono::milliseconds(100));
+	{
+		TaskScope scope(testTask());
+		TaskScope::ensurePublished();
+		auto publishedCaller = std::chrono::steady_clock::now();
+		EXPECT_FALSE(reclaimer.awaitBacklogBelow(1, std::chrono::seconds(30))) << "a published caller could pin the backlog itself";
+		EXPECT_LT(std::chrono::steady_clock::now() - publishedCaller, std::chrono::seconds(5)) << "returns at once";
+	}
+
+	// the pin ends while a borrow-free task waits: the Reclaimer thread frees the objects and the wait ends
+	std::thread unpin([&] {
+		std::this_thread::sleep_for(std::chrono::milliseconds(50));
+		release = true;
+	});
+	bool below = false;
+	{
+		TaskScope scope(testTask());
+		below = reclaimer.awaitBacklogBelow(1, std::chrono::seconds(30));
+		EXPECT_FALSE(TaskScope::isPublished()) << "waiting does not publish";
+	}
+	EXPECT_TRUE(below);
+	unpin.join();
+	pinning.join();
+	EXPECT_TRUE(waitFor([&] { return tracker->destroyedCount(0) == 1 && tracker->destroyedCount(2) == 1; }));
+	reclaimer.stop();
+	reclaimer.configure(original);
+	drainReclaimer();
+}
+
 TEST(ReclaimerTest, WatchdogProbeDumpsOnBacklogHighWaterMark) {
 	drainReclaimer();
 	Reclaimer& reclaimer = Reclaimer::getInstance();

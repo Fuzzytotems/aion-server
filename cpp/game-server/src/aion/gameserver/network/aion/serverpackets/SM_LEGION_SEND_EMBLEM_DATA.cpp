@@ -1,6 +1,5 @@
 #include "aion/gameserver/network/aion/serverpackets/SM_LEGION_SEND_EMBLEM_DATA.h"
 
-#include "aion/gameserver/runtime/base/Unported.h"
 #include "aion/gameserver/network/aion/ServerPacketsOpcodes.gen.h"
 
 namespace aion::gameserver::network::aion::serverpackets {
@@ -10,7 +9,8 @@ SM_LEGION_SEND_EMBLEM_DATA::SM_LEGION_SEND_EMBLEM_DATA(int32_t sizeValue, std::s
 }
 
 void SM_LEGION_SEND_EMBLEM_DATA::writeImpl(AionConnection* con) {
-	AION_UNPORTED();
+	writeD(size);
+	writeB(data);
 }
 
 } // namespace aion::gameserver::network::aion::serverpackets

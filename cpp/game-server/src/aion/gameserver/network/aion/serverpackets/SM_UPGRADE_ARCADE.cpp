@@ -1,9 +1,13 @@
 #include "aion/gameserver/network/aion/serverpackets/SM_UPGRADE_ARCADE.h"
 
+#include "aion/gameserver/configs/main/EventsConfig.h"
+#include "aion/gameserver/dataholders/DataManager.h"
+#include "aion/gameserver/dataholders/UpgradeArcadeData.h"
 #include "aion/gameserver/model/event/ArcadeProgress.h"
+#include "aion/gameserver/model/templates/event/upgradearcade/ArcadeLevel.h"
+#include "aion/gameserver/model/templates/event/upgradearcade/ArcadeRewardItem.h"
 #include "aion/gameserver/model/templates/event/upgradearcade/ArcadeRewards.h"
 #include "aion/gameserver/network/aion/ServerPacketsOpcodes.gen.h"
-#include "aion/gameserver/runtime/base/Unported.h"
 
 namespace aion::gameserver::network::aion::serverpackets {
 
@@ -50,7 +54,61 @@ SM_UPGRADE_ARCADE::SM_UPGRADE_ARCADE(const std::vector<const model::templates::e
 SM_UPGRADE_ARCADE::~SM_UPGRADE_ARCADE() = default;
 
 void SM_UPGRADE_ARCADE::writeImpl(AionConnection* con) {
-	AION_UNPORTED();
+	writeC(action);
+	switch (action) {
+		case 0: // show icon
+			writeD(showIcon ? 1 : 0);
+			break;
+		case 1: { // show start upgrade arcade info
+			const dataholders::UpgradeArcadeData& upgradeArcadeData = *dataholders::DataManager::UPGRADE_ARCADE_DATA;
+			writeD(sessionId); // SessionId
+			writeD(progress->getFrenzyPoints()); // frenzy meter
+			for (const model::templates::event::upgradearcade::ArcadeRewards& arcadeReward : upgradeArcadeData.getRewards())
+				writeD(arcadeReward.getMinLevel());
+			writeD(upgradeArcadeData.getMaxUpgradeLevel()->getLevel());
+			writeC(1);
+			writeC(static_cast<int32_t>(upgradeArcadeData.getUpgradeLevels().size()) * 2);
+			for (const model::templates::event::upgradearcade::ArcadeLevel& arcadeLevel : upgradeArcadeData.getUpgradeLevels())
+				writeS(arcadeLevel.getIcon());
+			break;
+		}
+		case 2: // open upgrade arcade
+			writeC(1); // unk
+			break;
+		case 3: // upgrade start
+			writeC(success ? 1 : 0); // 1 success - 0 fail
+			writeD(progress->getFrenzyPoints());
+			break;
+		case 4: // update success
+			writeD(progress->getCurrentLevel()); // upgradeLevel
+			break;
+		case 5: // upgrade fail
+			writeD(progress->getCurrentLevel()); // upgradeLevel
+			writeC(progress->getResumeLevel() > 0 ? 1 : 0); // canResume? 1 yes - 0 no
+			writeQ(configs::main::EventsConfig::ARCADE_RESUME_TOKEN.load()); // needed Arcade Token
+			break;
+		case 6: // show reward item
+			writeD(rewardItemId);
+			writeQ(rewardItemCount);
+			break;
+		case 7: // frenzy time
+			writeD(frenzyDurationSeconds);
+			break;
+		case 8: // disable window
+			writeC(disableWindow ? 1 : 0); // msg when true: you don't have enough tokens
+			break;
+		case 10: // show reward list
+			for (const model::templates::event::upgradearcade::ArcadeRewards* arcadetab : arcadeRewards)
+				writeC(static_cast<int32_t>(arcadetab->getArcadeRewardItems().size()));
+			for (const model::templates::event::upgradearcade::ArcadeRewards* arcadetab : arcadeRewards) {
+				for (const model::templates::event::upgradearcade::ArcadeRewardItem& arcadetabitem : arcadetab->getArcadeRewardItems()) {
+					writeD(arcadetabitem.getItemId());
+					writeQ(arcadetabitem.getNormalCount());
+					writeQ(arcadetabitem.getFrenzyCount());
+				}
+			}
+			break;
+	}
 }
 
 } // namespace aion::gameserver::network::aion::serverpackets

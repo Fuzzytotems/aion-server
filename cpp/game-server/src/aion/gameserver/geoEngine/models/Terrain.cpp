@@ -55,8 +55,9 @@ void Terrain::setHeightmap(std::span<const int16_t> value, int32_t heightmapXSiz
 		}
 	}
 	runtime::Ref<runtime::Array<int16_t>> array = runtime::Array<int16_t>::make(allSameZValues ? 1 : static_cast<int32_t>(value.size()));
-	for (int32_t i = 0; i < array->length(); ++i)
-		(*array)[i].set(value[static_cast<size_t>(i)]);
+	runtime::Array<int16_t>& elements = *array; // one checked dereference, not one per element (performance)
+	for (int32_t i = 0; i < elements.length(); ++i)
+		elements[i].set(value[static_cast<size_t>(i)]);
 	heightmap.set(std::move(array));
 	heightmapXSize.set(heightmapXSizeValue);
 	heightmapYSize.set(heightmapYSizeValue);
@@ -70,8 +71,9 @@ void Terrain::setMaterials(std::span<const int8_t> value, int32_t materialsXSize
 	if (lengthDiff != 0)
 		throw runtime::IllegalArgumentException("Expected terrain materials length differs by " + std::to_string(lengthDiff) + " bytes");
 	runtime::Ref<runtime::Array<int8_t>> array = runtime::Array<int8_t>::make(static_cast<int32_t>(value.size()));
+	runtime::Array<int8_t>& elements = *array; // one checked dereference, not one per element (performance)
 	for (size_t i = 0; i < value.size(); ++i)
-		(*array)[static_cast<int32_t>(i)].set(value[i]);
+		elements[static_cast<int32_t>(i)].set(value[i]);
 	materials.set(std::move(array));
 	materialsXSize.set(materialsXSizeValue);
 	materialsYSize.set(materialsYSizeValue);

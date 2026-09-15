@@ -1,6 +1,5 @@
 #include "aion/gameserver/network/aion/serverpackets/SM_CRAFT_ANIMATION.h"
 
-#include "aion/gameserver/runtime/base/Unported.h"
 #include "aion/gameserver/network/aion/ServerPacketsOpcodes.gen.h"
 
 namespace aion::gameserver::network::aion::serverpackets {
@@ -11,7 +10,10 @@ SM_CRAFT_ANIMATION::SM_CRAFT_ANIMATION(int32_t playerObjIdValue, int32_t targetO
 }
 
 void SM_CRAFT_ANIMATION::writeImpl(AionConnection* con) {
-	AION_UNPORTED();
+	writeD(playerObjId);
+	writeD(targetObjectId);
+	writeH(skillId);
+	writeC(action);
 }
 
 } // namespace aion::gameserver::network::aion::serverpackets

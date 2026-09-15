@@ -79,6 +79,12 @@ public:
 	/** serial mode for `gameserver.debug.serial_movement` / single_executor */
 	void setSerial(bool serial) noexcept;
 	bool isSerial() const noexcept;
+	/**
+	 * true if parallelForEach called on this thread now would hand elements to helper threads: the pool is not serial or shut down and the
+	 * calling thread is no helper of this pool (the rules above). A startup loop uses it to choose between a PER_ELEMENT job, which runs each
+	 * element in its own task scope, and a serial variant with quiescent points.
+	 */
+	bool isParallelFromCurrentThread() const noexcept;
 	/** stops the helper threads (shutdown); later calls run serially */
 	void shutdown();
 

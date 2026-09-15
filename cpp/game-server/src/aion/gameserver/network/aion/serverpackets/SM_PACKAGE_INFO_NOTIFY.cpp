@@ -1,6 +1,5 @@
 #include "aion/gameserver/network/aion/serverpackets/SM_PACKAGE_INFO_NOTIFY.h"
 
-#include "aion/gameserver/runtime/base/Unported.h"
 #include "aion/gameserver/network/aion/ServerPacketsOpcodes.gen.h"
 
 namespace aion::gameserver::network::aion::serverpackets {
@@ -10,7 +9,9 @@ SM_PACKAGE_INFO_NOTIFY::SM_PACKAGE_INFO_NOTIFY()
 }
 
 void SM_PACKAGE_INFO_NOTIFY::writeImpl(AionConnection* con) {
-	AION_UNPORTED();
+	writeH(1);
+	writeC(3);
+	writeD(0); // time until pack expiration
 }
 
 } // namespace aion::gameserver::network::aion::serverpackets

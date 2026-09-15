@@ -170,6 +170,37 @@ QuiescentScope::~QuiescentScope() {
 	--context.quiescentScopeDepth;
 }
 
+bool QuiescentScope::active() noexcept {
+	ThreadContext* context = ThreadContext::currentIfRegistered();
+	return context != nullptr && context->quiescentScopeDepth > 0 && context->scopeDepth == 1 && !context->joinedHelper;
+}
+
+namespace {
+/** the calling thread's innermost open QuiescentOptIn (a guard on this thread's stack, never shared) */
+thread_local const QuiescentOptIn* innermostOptIn = nullptr;
+} // namespace
+
+QuiescentOptIn::QuiescentOptIn(const char* purposeValue) noexcept
+	: purpose(purposeValue), scopeDepth(ThreadContext::current().scopeDepth), quiescentScopeDepth(ThreadContext::current().quiescentScopeDepth),
+	  previous(innermostOptIn) {
+	innermostOptIn = this;
+}
+
+QuiescentOptIn::~QuiescentOptIn() {
+	AION_CHECK("C2", innermostOptIn == this, "QuiescentOptIn destroyed out of LIFO order or on another thread");
+	innermostOptIn = previous;
+}
+
+bool QuiescentOptIn::active(std::string_view purposeValue) noexcept {
+	if (!QuiescentScope::active())
+		return false;
+	const ThreadContext& context = ThreadContext::current();
+	for (const QuiescentOptIn* optIn = innermostOptIn; optIn != nullptr; optIn = optIn->previous)
+		if (optIn->scopeDepth == context.scopeDepth && optIn->quiescentScopeDepth == context.quiescentScopeDepth && purposeValue == optIn->purpose)
+			return true;
+	return false;
+}
+
 void quiescentPoint(std::source_location where) noexcept {
 	ThreadContext& context = ThreadContext::current();
 	if (!isMutated(Mutation::QUIESCENT_IGNORE_RULES)) {

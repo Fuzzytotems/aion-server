@@ -1,6 +1,5 @@
 #include "aion/gameserver/network/aion/serverpackets/SM_SUMMON_USESKILL.h"
 
-#include "aion/gameserver/runtime/base/Unported.h"
 #include "aion/gameserver/network/aion/ServerPacketsOpcodes.gen.h"
 
 namespace aion::gameserver::network::aion::serverpackets {
@@ -11,7 +10,10 @@ SM_SUMMON_USESKILL::SM_SUMMON_USESKILL(int32_t summonIdValue, int32_t skillIdVal
 }
 
 void SM_SUMMON_USESKILL::writeImpl(AionConnection* con) {
-	AION_UNPORTED();
+	writeD(summonId);
+	writeH(skillId);
+	writeC(skillLvl);
+	writeD(targetId);
 }
 
 } // namespace aion::gameserver::network::aion::serverpackets

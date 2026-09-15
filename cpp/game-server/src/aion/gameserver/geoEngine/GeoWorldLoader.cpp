@@ -50,10 +50,16 @@ using NodeMap = std::unordered_map<std::string, runtime::Ref<scene::Node>>;
 namespace {
 
 std::vector<uint8_t> readFile(const std::filesystem::path& file) {
-	std::ifstream in(file, std::ios::binary);
+	std::ifstream in(file, std::ios::binary | std::ios::ate);
 	if (!in)
 		throw IOException(file.string());
-	return std::vector<uint8_t>((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+	// one read of the whole file (models.mesh has 70 MB; a stream iterator reads byte by byte)
+	std::streamoff size = in.tellg();
+	std::vector<uint8_t> bytes(size > 0 ? static_cast<size_t>(size) : 0);
+	in.seekg(0);
+	if (!bytes.empty() && !in.read(reinterpret_cast<char*>(bytes.data()), static_cast<std::streamsize>(bytes.size())))
+		throw IOException(file.string());
+	return bytes;
 }
 
 /** Java: String.split(regexOfOneLiteralCharacter) - trailing empty strings are removed */

@@ -2,22 +2,32 @@
 #   cmake -DEXECUTABLE=<aion_game_server> -DDATABASE_TOOL=<aion_gs_m4_database> -DWORKING_DIRECTORY=<game-server> -DPYTHON=<python 3.12>
 #         -DORACLE_DIR=<cpp/tools/oracle> -DOUTPUT_DIR=<dir> -P RunM4Check.cmake
 # Steps (each failure names the item):
-#  1. aion_gs_m4_database create aion_gs_test_m4: a fresh schema from game-server/sql/aion_gs.sql.
+#  1. aion_gs_m4_database create aion_gs_test_m4_<hash>: a fresh schema from game-server/sql/aion_gs.sql.
 #  2. aion_game_server --check-id-factory on the empty schema: Config.load, DatabaseFactory, setAllPlayersOffline, runtime start; IDFactory
 #     locks only id 0 ("IDFactory: 1 IDs used.").
 #  3. aion_gs_m4_database fixture: 2 online players and 9 more rows with object ids (11 distinct ids).
 #  4. aion_game_server --check-static-data (with the 200 getZ probes of python -m geo m4-probes): the whole M4 path (Config, database,
 #     setAllPlayersOffline, runtime, IDFactory "12 IDs used.", DataManager strict load with hooks and post-processing, ZoneService, GeoService,
 #     World) and an orderly shutdown with exit code 0, no ERROR line, no unknown config property, 0 AION_UNPORTED hits (unported_trace.txt
-#     lists no site), LeakCensus 0 objects still tracked.
+#     lists no site), LeakCensus 0 objects still tracked (trivially true for M4, which never removes an object from the world; the check is a
+#     guard for M5a).
 #  5. aion_gs_m4_database online: setAllPlayersOffline left no online player.
 #  6. python oracle.py compare-counts --log static_data_counts.txt (the 90 "Loaded N ..." lines vs the independent XML count oracle).
 #  7. python -m geo m4-compare: geo counts, material zone names, getZ probes (geo oracle) and the zone names of every map instance of World.
-# Database: AION_TEST_GS_DATABASE_URL names the server (its database must exist; aion_gs_test_m4 is created next to it), optional
+# Python: PYTHON is the interpreter for the oracles; PYTHON=NOTFOUND (CMake found no Python 3) reports the test as skipped with that reason
+# instead of leaving it unregistered.
+# Database: AION_TEST_GS_DATABASE_URL names the server (its database must exist; the schema is created next to it), optional
 # AION_TEST_GS_DATABASE_USER / AION_TEST_GS_DATABASE_PASSWORD (default root without password). Without the URL the test is skipped
-# ("gs.m4.check_static_data: skipped", SKIP_REGULAR_EXPRESSION). The server logs are OUTPUT_DIR/id_factory.log and OUTPUT_DIR/check.log, the
-# report files OUTPUT_DIR/empty and OUTPUT_DIR/full; the database is dropped after a successful run.
+# ("gs.m4.check_static_data: skipped", SKIP_REGULAR_EXPRESSION). The schema is aion_gs_test_m4_<first 12 hex digits of the MD5 of OUTPUT_DIR>,
+# so M4 runs of different build directories or configurations on one MariaDB never share (and drop) each other's schema; RESOURCE_LOCK only
+# serializes the tests of one ctest invocation. It is dropped at the end of the run, after a failure too (the output of every database step
+# and both server logs stay in OUTPUT_DIR). The server logs are OUTPUT_DIR/id_factory.log and OUTPUT_DIR/check.log, the report files
+# OUTPUT_DIR/empty and OUTPUT_DIR/full.
 
+if(NOT PYTHON OR NOT EXISTS "${PYTHON}")
+	message("gs.m4.check_static_data: skipped (no Python 3 interpreter for the oracles: PYTHON='${PYTHON}'; install Python 3.12 and reconfigure)")
+	return()
+endif()
 if(NOT DEFINED ENV{AION_TEST_GS_DATABASE_URL} OR "$ENV{AION_TEST_GS_DATABASE_URL}" STREQUAL "")
 	message("gs.m4.check_static_data: skipped (set AION_TEST_GS_DATABASE_URL, e.g. jdbc:mysql://127.0.0.1:3306/aion_cpp_test?characterEncoding=UTF-8)")
 	return()
@@ -28,7 +38,9 @@ foreach(file IN ITEMS "${EXECUTABLE}" "${DATABASE_TOOL}")
 	endif()
 endforeach()
 
-set(database aion_gs_test_m4)
+string(MD5 output_hash "${OUTPUT_DIR}")
+string(SUBSTRING "${output_hash}" 0 12 output_hash)
+set(database "aion_gs_test_m4_${output_hash}")
 set(url "$ENV{AION_TEST_GS_DATABASE_URL}")
 if(NOT url MATCHES "^(jdbc:[A-Za-z]+://[^/?]+)(/[^?]*)?(\\?.*)?$")
 	message(FATAL_ERROR "gs.m4.check_static_data: cannot parse AION_TEST_GS_DATABASE_URL '${url}'")
@@ -44,10 +56,19 @@ file(REMOVE_RECURSE "${OUTPUT_DIR}")
 file(MAKE_DIRECTORY "${OUTPUT_DIR}")
 
 function(m4_fail item text)
+	get_property(created GLOBAL PROPERTY m4_database_created)
+	if(created)
+		# best effort, without checks (m4_database fails through this function)
+		execute_process(COMMAND "${DATABASE_TOOL}" drop ${database} OUTPUT_VARIABLE output ERROR_VARIABLE errors RESULT_VARIABLE result TIMEOUT 300)
+		message("aion_gs_m4_database drop after the failure (${result}): ${output}${errors}")
+	endif()
 	message(FATAL_ERROR "gs.m4.check_static_data: ${item}: ${text}")
 endfunction()
 
 function(m4_database command expected_output)
+	if(command STREQUAL "create")
+		set_property(GLOBAL PROPERTY m4_database_created TRUE) # a failed create may have left a partial schema
+	endif()
 	execute_process(COMMAND "${DATABASE_TOOL}" ${command} ${database} OUTPUT_VARIABLE output ERROR_VARIABLE errors RESULT_VARIABLE result TIMEOUT 300)
 	message("aion_gs_m4_database ${command}: ${output}${errors}")
 	if(NOT result STREQUAL "0")
@@ -88,7 +109,9 @@ function(m4_server name out_log)
 	if(log MATCHES "is unknown and therefore ignored")
 		m4_fail("item 1" "Config.load warned about unknown properties (the predicted set is empty)")
 	endif()
-	if(log MATCHES "\n[0-9:]+ ERROR ([^\n]*)")
+	# a newline in front, so an ERROR on the very first log line is found as well
+	set(scan "\n${log}")
+	if(scan MATCHES "\n[0-9:]+ ERROR ([^\n]*)")
 		m4_fail("${name}" "the log has an ERROR line: ${CMAKE_MATCH_1}")
 	endif()
 	if(NOT log MATCHES "Runtime shut down: 0 tasks left, [0-9]+ cleaner ids drained, reclaimer backlog 0, 0 objects still tracked")
@@ -156,5 +179,6 @@ m4_database(online "online players 0")
 m4_python("item 4" oracle.py compare-counts --log "${full}/static_data_counts.txt")
 m4_python("items 5 and 6" -m geo m4-compare --dir "${full}")
 
+set_property(GLOBAL PROPERTY m4_database_created FALSE)
 m4_database(drop "dropped ${database}")
 message(STATUS "gs.m4.check_static_data: passed (load time ${load_time_ms} ms, peak working set ${peak_mb} MB, 0 AION_UNPORTED hits)")

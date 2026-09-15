@@ -1,6 +1,5 @@
 #include "aion/gameserver/network/aion/serverpackets/SM_POSITION_SELF.h"
 
-#include "aion/gameserver/runtime/base/Unported.h"
 #include "aion/gameserver/network/aion/ServerPacketsOpcodes.gen.h"
 
 namespace aion::gameserver::network::aion::serverpackets {
@@ -10,7 +9,10 @@ SM_POSITION_SELF::SM_POSITION_SELF(float xValue, float yValue, float zValue, int
 }
 
 void SM_POSITION_SELF::writeImpl(AionConnection* con) {
-	AION_UNPORTED();
+	writeF(x);
+	writeF(y);
+	writeF(z);
+	writeC(heading);
 }
 
 } // namespace aion::gameserver::network::aion::serverpackets

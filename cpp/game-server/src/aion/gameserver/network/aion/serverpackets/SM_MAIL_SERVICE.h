@@ -67,6 +67,9 @@ private:
 	void writeLetterState(int32_t letterId, int8_t attachmentType);
 	void writeLetterDelete(int32_t totalCount, int32_t unreadCount, int32_t expressCount, int32_t blackCloudCount,
 		std::initializer_list<int32_t> letterIds = {});
+	/** C++ only: writeLetterDelete with the stored letter ids (Java passes the int[] field as the varargs array) */
+	void writeLetterDelete(int32_t totalCount, int32_t unreadCount, int32_t expressCount, int32_t blackCloudCount,
+		std::span<const int32_t> letterIds);
 };
 
 } // namespace aion::gameserver::network::aion::serverpackets

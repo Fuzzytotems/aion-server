@@ -1,10 +1,12 @@
 #include "aion/gameserver/network/aion/serverpackets/SM_INVENTORY_UPDATE_ITEM.h"
 
-#include "aion/gameserver/runtime/base/Unported.h"
-#include "aion/gameserver/network/aion/ServerPacketsOpcodes.gen.h"
-#include "aion/gameserver/services/item/ItemPacketService_ItemUpdateType.h"
 #include "aion/gameserver/model/gameobjects/Item.h"
 #include "aion/gameserver/model/gameobjects/player/Player.h"
+#include "aion/gameserver/model/templates/item/ItemTemplate.h"
+#include "aion/gameserver/network/aion/ServerPacketsOpcodes.gen.h"
+#include "aion/gameserver/network/aion/iteminfo/ItemInfoBlob.h"
+#include "aion/gameserver/network/aion/serverpackets/detail/PacketSupport.h"
+#include "aion/gameserver/services/item/ItemPacketService_ItemUpdateType.h"
 
 namespace aion::gameserver::network::aion::serverpackets {
 
@@ -20,7 +22,32 @@ SM_INVENTORY_UPDATE_ITEM::SM_INVENTORY_UPDATE_ITEM(model::gameobjects::player::P
 SM_INVENTORY_UPDATE_ITEM::~SM_INVENTORY_UPDATE_ITEM() = default;
 
 void SM_INVENTORY_UPDATE_ITEM::writeImpl(AionConnection* con) {
-	AION_UNPORTED();
+	using services::item::ItemPacketService_ItemUpdateType;
+	using ItemBlobType = iteminfo::ItemInfoBlob::ItemBlobType;
+	const model::templates::item::ItemTemplate* itemTemplate = item->getItemTemplate();
+	writeD(item->getObjectId());
+	writeS(itemTemplate->getL10n());
+	runtime::Ref<iteminfo::ItemInfoBlob> itemInfoBlob;
+	switch (updateType) {
+		case ItemPacketService_ItemUpdateType::EQUIP_UNEQUIP:
+			itemInfoBlob = iteminfo::ItemInfoBlob::create(player, *item);
+			itemInfoBlob->addBlobEntry(ItemBlobType::EQUIPPED_SLOT);
+			break;
+		case ItemPacketService_ItemUpdateType::CHARGE:
+			itemInfoBlob = iteminfo::ItemInfoBlob::create(player, *item);
+			itemInfoBlob->addBlobEntry(ItemBlobType::CONDITIONING_INFO);
+			break;
+		case ItemPacketService_ItemUpdateType::POLISH_CHARGE:
+			itemInfoBlob = iteminfo::ItemInfoBlob::create(player, *item);
+			itemInfoBlob->addBlobEntry(ItemBlobType::POLISH_INFO);
+			break;
+		default:
+			itemInfoBlob = iteminfo::ItemInfoBlob::getFullBlob(player, *item);
+			break;
+	}
+	itemInfoBlob->writeMe(getBuf());
+	if (detail::itemUpdateTypeData(updateType).sendable)
+		writeH(detail::itemUpdateTypeData(updateType).mask);
 }
 
 } // namespace aion::gameserver::network::aion::serverpackets

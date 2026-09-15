@@ -5,13 +5,19 @@
 
 #include <gtest/gtest.h>
 
+#include <algorithm>
 #include <cstdint>
+#include <functional>
 #include <memory>
 #include <string>
 #include <typeinfo>
 #include <unordered_map>
+#include <vector>
 
 #include "WorldTestSupport.h"
+
+#include "aion/gameserver/dataholders/DataManager.h"
+#include "aion/gameserver/dataholders/WorldMapsData.h"
 
 #include "aion/gameserver/instance/handlers/GeneralInstanceHandler.h"
 #include "aion/gameserver/instance/handlers/InstanceHandler.h"
@@ -27,6 +33,7 @@
 #include "aion/gameserver/world/WorldMap2DInstance.h"
 #include "aion/gameserver/world/WorldMap3DInstance.h"
 #include "aion/gameserver/world/WorldMapInstance.h"
+#include "aion/gameserver/world/WorldMapInstanceFactory.h"
 #include "aion/gameserver/world/WorldMapType.h"
 #include "aion/gameserver/world/WorldPosition.h"
 #include "aion/gameserver/world/zone/FlyZoneInstance.h"
@@ -117,6 +124,13 @@ TEST_F(WorldZonesTest, WorldCreatesTheMapsAndTheirInstances) {
 	EXPECT_EQ(typeid(*poetaMap->getMainWorldMapInstance()), typeid(WorldMap2DInstance));
 	EXPECT_THROW(poetaMap->getWorldMapInstance(2), runtime::IllegalArgumentException) << "not an instance map: more than the twin count";
 	EXPECT_EQ(poetaMap->getWorldMapInstance(0), poetaMap->getMainWorldMapInstance()) << "instance id 0 is the default instance";
+	// C++ only (M4 check mode): the names of the instance's zones, the whole map zone plus the four zones of the map
+	std::vector<std::string> zoneNames;
+	for (const zone::ZoneName* zoneName : poetaMap->getMainWorldMapInstance()->getZoneNames())
+		zoneNames.push_back(zoneName->name());
+	std::ranges::sort(zoneNames);
+	EXPECT_EQ(zoneNames, (std::vector<std::string>{"210010000", "FLY_AREA_210010000", "PVP_AREA_210010000", "SUB_PLAIN_210010000",
+							 "SUB_PRIORITY_210010000"}));
 
 	runtime::Ptr<WorldMap> ishalgen = world.getWorldMap(ISHALGEN);
 	EXPECT_EQ(ishalgen->getInstanceCount(), 3) << "two twins plus one beginner twin";
@@ -210,6 +224,39 @@ TEST_F(WorldZonesTest, ThreeDimensionalRegionsAndNeighbours) {
 	EXPECT_FALSE(instance->getRegion(5, 5, 520)) << "above the last z cell";
 	EXPECT_FALSE(instance->isPersonal());
 	EXPECT_EQ(instance->getOwnerId(), 0);
+}
+
+// Review finding (wave 3b-2): WorldMap and WorldMap3DInstance placed quiescent points under any QuiescentScope a caller had opened. They now
+// require World creation's explicit QuiescentOptIn (main's world step, World::World's elements); a quiescent point shows as a new scope id.
+TEST_F(WorldZonesTest, WorldMapsTakeQuiescentPointsOnlyUnderTheWorldCreationOptIn) {
+	const auto* ishalgen = dataholders::DataManager::WORLD_MAPS_DATA->getTemplate(ISHALGEN);
+	const auto* reshanta = dataholders::DataManager::WORLD_MAPS_DATA->getTemplate(RESHANTA);
+	ASSERT_NE(ishalgen, nullptr);
+	ASSERT_NE(reshanta, nullptr);
+	auto takesQuiescentPoints = [](const std::function<void()>& create) {
+		uint64_t before = runtime::TaskScope::currentScopeId();
+		create();
+		return runtime::TaskScope::currentScopeId() != before;
+	};
+	runtime::QuiescentScope quiescent; // quiescent-safe: this body holds Refs and template pointers only
+	runtime::Ref<WorldMap> reshantaMap = WorldMap::create(reshanta);
+	EXPECT_FALSE(takesQuiescentPoints([&] { WorldMap::create(ishalgen); })) << "a QuiescentScope alone: 3 instances without quiescent points";
+	EXPECT_FALSE(takesQuiescentPoints([&] { WorldMapInstanceFactory::createWorldMapInstance(*reshantaMap, 0); })) << "3D regions";
+	{
+		runtime::QuiescentOptIn worldCreation(runtime::QuiescentOptIn::WORLD_CREATION);
+		EXPECT_TRUE(takesQuiescentPoints([&] { WorldMap::create(ishalgen); }));
+		runtime::Ref<WorldMapInstance> instance;
+		EXPECT_TRUE(takesQuiescentPoints([&] { instance = WorldMapInstanceFactory::createWorldMapInstance(*reshantaMap, 0); })) << "3D regions";
+		{
+			runtime::Ptr<MapRegion> region = instance->getRegion(5, 5, 5);
+			ASSERT_TRUE(region) << "the same regions";
+			EXPECT_EQ(region->getNeighbours()->length(), 4) << "and neighbours (x 0, y 0, z 0: 2 * 2 * 1)";
+		}
+		{
+			runtime::QuiescentScope later; // opened below the opt-in by a frame it does not vouch for
+			EXPECT_FALSE(takesQuiescentPoints([&] { WorldMap::create(ishalgen); }));
+		}
+	}
 }
 
 TEST_F(WorldZonesTest, CreatePositionAndSetPosition) {

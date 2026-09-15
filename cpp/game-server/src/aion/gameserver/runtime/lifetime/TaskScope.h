@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <source_location>
+#include <string_view>
 
 #include "aion/gameserver/runtime/base/TaskInfo.h"
 
@@ -73,6 +74,44 @@ public:
 	~QuiescentScope();
 	QuiescentScope(const QuiescentScope&) = delete;
 	QuiescentScope& operator=(const QuiescentScope&) = delete;
+
+	/**
+	 * true if a QuiescentScope is open on the calling thread and quiescentPoint() would take effect (TaskScope::depth() == 1, not a JOIN
+	 * helper). Code that is only reached from such a block (for example an element of a PER_ELEMENT startup loop that opened one) may use it to
+	 * choose a quiescent variant of a long loop without the C16 warning elsewhere; the rule of the scope still applies to every frame between
+	 * the scope and the quiescentPoint() call. Code that other callers can reach as well (a constructor) uses QuiescentOptIn::active(purpose).
+	 */
+	static bool active() noexcept;
+};
+
+/**
+ * Explicit opt-in to quiescent points in code far below a QuiescentScope (review finding, wave 3b-2). QuiescentScope::active() only tells that
+ * some frame above opened a scope; a constructor that places quiescent points "inside World creation" must not rely on a QuiescentScope that a
+ * caller ported later opened while holding borrows between the scope and the constructor. The frame that vouches for every frame between
+ * itself and those quiescent points (main's world step, each PER_ELEMENT element of World::World) opens a QuiescentOptIn with a purpose right
+ * after its QuiescentScope, and the deep code asks active(purpose).
+ *
+ * active(purpose) is true only if QuiescentScope::active() is true and a QuiescentOptIn with an equal purpose is open on the calling thread that
+ * was opened at the current TaskScope depth and QuiescentScope depth (a QuiescentScope or TaskScope opened after the opt-in, by frames it does
+ * not vouch for, disables it). Must be destroyed on the creating thread in LIFO order; `purpose` must outlive the guard (a string literal).
+ */
+class QuiescentOptIn {
+public:
+	/** purpose of World creation (main's world step, World::World's elements; WorldMap and WorldMap3DInstance place quiescent points) */
+	static constexpr const char* WORLD_CREATION = "World creation";
+
+	explicit QuiescentOptIn(const char* purpose) noexcept;
+	~QuiescentOptIn();
+	QuiescentOptIn(const QuiescentOptIn&) = delete;
+	QuiescentOptIn& operator=(const QuiescentOptIn&) = delete;
+
+	static bool active(std::string_view purpose) noexcept;
+
+private:
+	const char* purpose;
+	uint32_t scopeDepth;
+	uint32_t quiescentScopeDepth;
+	const QuiescentOptIn* previous;
 };
 
 /**

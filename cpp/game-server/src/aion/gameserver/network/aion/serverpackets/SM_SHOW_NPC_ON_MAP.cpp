@@ -1,8 +1,8 @@
 #include "aion/gameserver/network/aion/serverpackets/SM_SHOW_NPC_ON_MAP.h"
 
-#include "aion/gameserver/runtime/base/Unported.h"
 #include "aion/gameserver/model/gameobjects/player/Player.h"
 #include "aion/gameserver/network/aion/ServerPacketsOpcodes.gen.h"
+#include "aion/gameserver/world/WorldPosition.h"
 
 namespace aion::gameserver::network::aion::serverpackets {
 
@@ -14,7 +14,20 @@ SM_SHOW_NPC_ON_MAP::SM_SHOW_NPC_ON_MAP(model::gameobjects::player::Player& playe
 SM_SHOW_NPC_ON_MAP::~SM_SHOW_NPC_ON_MAP() = default;
 
 void SM_SHOW_NPC_ON_MAP::writeImpl(AionConnection* con) {
-	AION_UNPORTED();
+	writeD(npcid);
+	writeD(worldid);
+	// default value: mapid + channelId(0)
+	int32_t instanceId = worldid;
+	if (player->getPosition()->getMapId() == worldid) {
+		if (player->isInInstance())
+			instanceId = player->getInstanceId();
+		else
+			instanceId = worldid + player->getInstanceId() - 1; // mapid + channelId (instanceId-1)
+	}
+	writeD(instanceId);
+	writeF(x);
+	writeF(y);
+	writeF(z);
 }
 
 } // namespace aion::gameserver::network::aion::serverpackets

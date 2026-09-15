@@ -161,6 +161,28 @@ TEST_F(ForkJoinPoolTest, SerialModeRunsInOrderOnTheCaller) {
 	EXPECT_EQ(threads, std::set<std::thread::id>{std::this_thread::get_id()});
 }
 
+TEST_F(ForkJoinPoolTest, IsParallelFromCurrentThreadFollowsTheSerialRules) {
+	EXPECT_TRUE(pool().isParallelFromCurrentThread()) << "a thread that is no helper, pool not serial";
+	std::vector<int32_t> items(16);
+	std::atomic<int32_t> helperAnswers{0};
+	std::atomic<int32_t> helperElements{0};
+	{
+		TaskScope scope(AION_TASK_INFO(TaskKind::TEST));
+		pool().parallelForEach(items, [&](int32_t) {
+			if (TaskScope::isJoinedHelper()) {
+				helperElements.fetch_add(1);
+				if (pool().isParallelFromCurrentThread())
+					helperAnswers.fetch_add(1);
+			}
+		});
+	}
+	EXPECT_EQ(helperAnswers.load(), 0) << "nested calls on helpers run serially";
+	pool().setSerial(true);
+	EXPECT_FALSE(pool().isParallelFromCurrentThread());
+	pool().setSerial(false);
+	EXPECT_TRUE(pool().isParallelFromCurrentThread());
+}
+
 TEST_F(ForkJoinPoolTest, NestedCallsOnHelpersRunSerially) {
 	TaskScope scope(AION_TASK_INFO(TaskKind::TEST));
 	std::vector<int32_t> outer(8);

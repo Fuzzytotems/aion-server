@@ -1,6 +1,5 @@
 #include "aion/gameserver/network/aion/serverpackets/SM_GROUP_LOOT.h"
 
-#include "aion/gameserver/runtime/base/Unported.h"
 #include "aion/gameserver/network/aion/ServerPacketsOpcodes.gen.h"
 
 namespace aion::gameserver::network::aion::serverpackets {
@@ -12,7 +11,17 @@ SM_GROUP_LOOT::SM_GROUP_LOOT(int32_t groupIdValue, int32_t playerIdValue, int32_
 }
 
 void SM_GROUP_LOOT::writeImpl(AionConnection* con) {
-	AION_UNPORTED();
+	writeD(groupId);
+	writeD(index);
+	writeD(itemCount);
+	writeD(itemId);
+	writeC(unk3);
+	writeC(0); // 3.0
+	writeC(0); // 3.5
+	writeD(lootCorpseId);
+	writeC(distributionId);
+	writeD(playerId); // 0 starts the roll option
+	writeD(static_cast<int32_t>(luck));
 }
 
 } // namespace aion::gameserver::network::aion::serverpackets

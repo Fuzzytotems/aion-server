@@ -179,8 +179,11 @@ void inflateCodes(BitReader& reader, std::vector<uint8_t>& out, const Huffman& l
 			if (distance > out.size())
 				throw IOException("Invalid distance (before the start of the data)");
 			size_t from = out.size() - distance;
+			size_t to = out.size();
+			out.resize(to + length);
+			uint8_t* bytes = out.data();
 			for (size_t i = 0; i < length; ++i)
-				out.push_back(out[from + i]);
+				bytes[to + i] = bytes[from + i];
 		}
 	}
 }
@@ -193,6 +196,7 @@ void inflateStored(BitReader& reader, std::vector<uint8_t>& out) {
 	nlen |= static_cast<uint32_t>(reader.byte()) << 8;
 	if ((len ^ 0xFFFFu) != nlen)
 		throw IOException("Invalid stored block length");
+	out.reserve(out.size() + len);
 	for (uint32_t i = 0; i < len; ++i)
 		out.push_back(reader.byte());
 }
@@ -323,37 +327,60 @@ std::vector<uint8_t> unfilter(std::span<const uint8_t> data, size_t rows, size_t
 		const uint8_t* in = data.data() + row * (rowBytes + 1) + 1;
 		uint8_t* out = result.data() + row * rowBytes;
 		const uint8_t* previous = row == 0 ? zeroRow.data() : out - rowBytes;
-		for (size_t i = 0; i < rowBytes; ++i) {
-			uint8_t left = i >= bytesPerPixel ? out[i - bytesPerPixel] : 0;
-			uint8_t up = previous[i];
-			uint8_t upLeft = i >= bytesPerPixel ? previous[i - bytesPerPixel] : 0;
-			switch (filter) {
-				case 0:
-					out[i] = in[i];
-					break;
-				case 1:
-					out[i] = static_cast<uint8_t>(in[i] + left);
-					break;
-				case 2:
-					out[i] = static_cast<uint8_t>(in[i] + up);
-					break;
-				case 3:
-					out[i] = static_cast<uint8_t>(in[i] + ((static_cast<uint32_t>(left) + up) >> 1));
-					break;
-				case 4:
-					out[i] = static_cast<uint8_t>(in[i] + paeth(left, up, upLeft));
-					break;
-				default:
-					throw IOException("Unknown PNG row filter type " + std::to_string(filter));
-			}
+		const size_t leftBytes = std::min(bytesPerPixel, rowBytes); // bytes without a left neighbour (left and upLeft are 0)
+		switch (filter) {
+			case 0:
+				std::copy_n(in, rowBytes, out);
+				break;
+			case 1:
+				std::copy_n(in, leftBytes, out);
+				for (size_t i = leftBytes; i < rowBytes; ++i)
+					out[i] = static_cast<uint8_t>(in[i] + out[i - bytesPerPixel]);
+				break;
+			case 2:
+				for (size_t i = 0; i < rowBytes; ++i)
+					out[i] = static_cast<uint8_t>(in[i] + previous[i]);
+				break;
+			case 3:
+				for (size_t i = 0; i < leftBytes; ++i)
+					out[i] = static_cast<uint8_t>(in[i] + (static_cast<uint32_t>(previous[i]) >> 1));
+				for (size_t i = leftBytes; i < rowBytes; ++i)
+					out[i] = static_cast<uint8_t>(in[i] + ((static_cast<uint32_t>(out[i - bytesPerPixel]) + previous[i]) >> 1));
+				break;
+			case 4:
+				for (size_t i = 0; i < leftBytes; ++i)
+					out[i] = static_cast<uint8_t>(in[i] + paeth(0, previous[i], 0));
+				for (size_t i = leftBytes; i < rowBytes; ++i)
+					out[i] = static_cast<uint8_t>(in[i] + paeth(out[i - bytesPerPixel], previous[i], previous[i - bytesPerPixel]));
+				break;
+			default:
+				throw IOException("Unknown PNG row filter type " + std::to_string(filter));
 		}
 	}
 	return result;
 }
 
-} // namespace
+/** Adler-32 of `data` (RFC 1950), summed in blocks of at most 5552 bytes between the modulo reductions like zlib */
+uint32_t adler32(std::span<const uint8_t> data) {
+	constexpr uint32_t BASE = 65521u;
+	constexpr size_t NMAX = 5552; // the largest n with 255 n (n + 1) / 2 + (n + 1) (BASE - 1) < 2^32
+	uint32_t a = 1;
+	uint32_t b = 0;
+	for (size_t offset = 0; offset < data.size();) {
+		size_t block = std::min(NMAX, data.size() - offset);
+		for (size_t i = 0; i < block; ++i) {
+			a += data[offset + i];
+			b += a;
+		}
+		a %= BASE;
+		b %= BASE;
+		offset += block;
+	}
+	return (b << 16) | a;
+}
 
-std::vector<uint8_t> PngImage::inflateZlib(std::span<const uint8_t> data) {
+/** The inflate of PngImage::inflateZlib, reserving `expectedSize` output bytes (the decoded size PNG images know in advance) */
+std::vector<uint8_t> inflateZlibData(std::span<const uint8_t> data, size_t expectedSize) {
 	if (data.size() < 2)
 		throw IOException("zlib data too short");
 	uint8_t cmf = data[0];
@@ -364,6 +391,7 @@ std::vector<uint8_t> PngImage::inflateZlib(std::span<const uint8_t> data) {
 		throw IOException("zlib preset dictionaries are not supported");
 	BitReader reader(data.subspan(2));
 	std::vector<uint8_t> out;
+	out.reserve(expectedSize);
 	bool last;
 	do {
 		last = reader.bits(1) != 0;
@@ -386,14 +414,15 @@ std::vector<uint8_t> PngImage::inflateZlib(std::span<const uint8_t> data) {
 	size_t trailer = 2 + reader.bytePosition();
 	if (trailer + 4 > data.size())
 		throw IOException("Missing zlib Adler-32 checksum");
-	uint32_t a = 1, b = 0;
-	for (uint8_t value : out) {
-		a = (a + value) % 65521u;
-		b = (b + a) % 65521u;
-	}
-	if (((b << 16) | a) != readUInt32BigEndian(data, trailer))
+	if (adler32(out) != readUInt32BigEndian(data, trailer))
 		throw IOException("zlib Adler-32 checksum mismatch");
 	return out;
+}
+
+} // namespace
+
+std::vector<uint8_t> PngImage::inflateZlib(std::span<const uint8_t> data) {
+	return inflateZlibData(data, 0);
 }
 
 PngImage PngImage::decode(std::span<const uint8_t> data) {
@@ -448,10 +477,12 @@ PngImage PngImage::decode(std::span<const uint8_t> data) {
 	int32_t channels = channelCount(image.colorType);
 	size_t samplesPerPixel = static_cast<size_t>(channels);
 	bool addAlpha = !transparency.empty() && (image.colorType == 0 || image.colorType == 2) && image.bitDepth >= 8;
-	std::vector<uint8_t> raw = inflateZlib(compressed);
 	const size_t width = static_cast<size_t>(image.width);
 	const size_t height = static_cast<size_t>(image.height);
 	const size_t bitsPerPixel = samplesPerPixel * static_cast<size_t>(image.bitDepth);
+	// the output size of a non-interlaced image (a hint only, capped so a corrupt header cannot reserve gigabytes)
+	const size_t expectedRawSize = interlace == 0 ? std::min<size_t>(height * ((width * bitsPerPixel + 7) / 8 + 1), size_t{1} << 30) : 0;
+	std::vector<uint8_t> raw = inflateZlibData(compressed, expectedRawSize);
 	const size_t bytesPerPixel = std::max<size_t>(1, bitsPerPixel / 8);
 
 	std::vector<uint8_t> pixels; // rows of the full image without filter bytes
@@ -536,10 +567,14 @@ PngImage PngImage::decode(std::span<const uint8_t> data) {
 }
 
 PngImage PngImage::read(const std::filesystem::path& file) {
-	std::ifstream in(file, std::ios::binary);
+	std::ifstream in(file, std::ios::binary | std::ios::ate);
 	if (!in)
 		throw IOException("Can't read input file!");
-	std::vector<uint8_t> data((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+	std::streamoff size = in.tellg();
+	std::vector<uint8_t> data(size > 0 ? static_cast<size_t>(size) : 0);
+	in.seekg(0);
+	if (!data.empty() && !in.read(reinterpret_cast<char*>(data.data()), static_cast<std::streamsize>(data.size())))
+		throw IOException("Can't read input file!");
 	return decode(data);
 }
 

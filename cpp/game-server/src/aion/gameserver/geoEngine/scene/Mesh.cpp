@@ -73,8 +73,9 @@ int32_t Mesh::collideWith(math::Ray& other, const math::Matrix4f& worldMatrix, b
 void Mesh::setVertices(std::span<const float> value) {
 	collisionTree.set(nullptr);
 	runtime::Ref<runtime::Array<float>> array = runtime::Array<float>::make(static_cast<int32_t>(value.size()));
+	runtime::Array<float>& elements = *array; // one checked dereference, not one per element (performance)
 	for (size_t i = 0; i < value.size(); ++i)
-		(*array)[static_cast<int32_t>(i)].set(value[i]);
+		elements[static_cast<int32_t>(i)].set(value[i]);
 	vertices.set(std::move(array));
 }
 

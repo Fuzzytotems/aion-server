@@ -1,6 +1,6 @@
 #include "aion/gameserver/network/aion/serverpackets/SM_ACTION_ANIMATION.h"
 
-#include "aion/gameserver/runtime/base/Unported.h"
+#include "aion/gameserver/model/animations/ActionAnimationInfo.h"
 #include "aion/gameserver/network/aion/ServerPacketsOpcodes.gen.h"
 
 namespace aion::gameserver::network::aion::serverpackets {
@@ -16,7 +16,9 @@ SM_ACTION_ANIMATION::SM_ACTION_ANIMATION(int32_t targetObjectIdValue, model::ani
 }
 
 void SM_ACTION_ANIMATION::writeImpl(AionConnection* con) {
-	AION_UNPORTED();
+	writeD(targetObjectId);
+	writeH(model::animations::getId(actionAnimation));
+	writeD(levelOrObjectId);
 }
 
 } // namespace aion::gameserver::network::aion::serverpackets

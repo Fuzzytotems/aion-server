@@ -1,6 +1,5 @@
 #include "aion/gameserver/network/aion/serverpackets/SM_INSTANCE_STAGE_INFO.h"
 
-#include "aion/gameserver/runtime/base/Unported.h"
 #include "aion/gameserver/network/aion/ServerPacketsOpcodes.gen.h"
 
 namespace aion::gameserver::network::aion::serverpackets {
@@ -10,7 +9,10 @@ SM_INSTANCE_STAGE_INFO::SM_INSTANCE_STAGE_INFO(int32_t typeValue, int32_t eventV
 }
 
 void SM_INSTANCE_STAGE_INFO::writeImpl(AionConnection* con) {
-	AION_UNPORTED();
+	writeC(type);
+	writeD(0);
+	writeH(event);
+	writeH(unk);
 }
 
 } // namespace aion::gameserver::network::aion::serverpackets

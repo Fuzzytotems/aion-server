@@ -1,6 +1,7 @@
 #include "aion/gameserver/network/aion/serverpackets/SM_UI_SETTINGS.h"
 
-#include "aion/gameserver/runtime/base/Unported.h"
+#include <vector>
+
 #include "aion/gameserver/network/aion/ServerPacketsOpcodes.gen.h"
 
 namespace aion::gameserver::network::aion::serverpackets {
@@ -10,7 +11,11 @@ SM_UI_SETTINGS::SM_UI_SETTINGS(std::span<const uint8_t> dataValue, int32_t typeV
 }
 
 void SM_UI_SETTINGS::writeImpl(AionConnection* con) {
-	AION_UNPORTED();
+	writeC(type);
+	writeH(0x1C00);
+	writeB(data);
+	if (0x1C00 > data.size())
+		writeB(std::vector<uint8_t>(0x1C00 - data.size()));
 }
 
 } // namespace aion::gameserver::network::aion::serverpackets

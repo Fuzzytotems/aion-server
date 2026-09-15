@@ -7,6 +7,7 @@
 #include "aion/gameserver/instance/handlers/InstanceHandler.h"
 #include "aion/gameserver/model/templates/world/WorldMapTemplate.h"
 #include "aion/gameserver/runtime/base/Exceptions.h"
+#include "aion/gameserver/runtime/lifetime/TaskScope.h"
 #include "aion/gameserver/world/WorldMapInstance.h"
 #include "aion/gameserver/world/WorldMapInstanceFactory.h"
 #include "aion/gameserver/world/zone/ZoneAttributes.h"
@@ -18,6 +19,10 @@ WorldMap::WorldMap(const model::templates::world::WorldMapTemplate* worldMapTemp
 	worldOptions.set(worldMapTemplate->getFlags());
 
 	for (int32_t i = 1; i <= getInstanceCount(); i++) {
+		// Performance (World creation, see World::World): only inside World creation's explicit opt-in (not under any QuiescentScope a caller
+		// opened); this frame holds no borrow between instances
+		if (runtime::QuiescentOptIn::active(runtime::QuiescentOptIn::WORLD_CREATION))
+			runtime::quiescentPoint(); // quiescent-safe: the instances are held by this map under construction, kept by makeRef's frame
 		if (isInstanceType()) // default instances are inaccessible but its handler methods are sometimes called via MainWorldMapInstance, e.g. on relog
 			WorldMapInstanceFactory::createWorldMapInstance(*this, 0,
 				[](WorldMapInstance& mapInstance) -> runtime::Ref<gameserver::instance::handlers::InstanceHandler> {

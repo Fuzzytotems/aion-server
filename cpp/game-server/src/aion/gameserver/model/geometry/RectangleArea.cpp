@@ -1,7 +1,6 @@
 #include "aion/gameserver/model/geometry/RectangleArea.h"
 
 #include "aion/gameserver/model/geometry/Point2DFactory.h"
-#include "aion/gameserver/model/geometry/Point3D.h"
 #include "aion/gameserver/model/templates/zone/Point2D.h"
 #include "aion/gameserver/utils/PositionUtil.h"
 
@@ -37,8 +36,12 @@ double RectangleArea::getDistance3D(float x, float y, float z) {
 		return 0;
 	if (isInsideZ(z))
 		return getDistance2D(x, y);
-	runtime::Ref<Point3D> cp = getClosestPoint(x, y, z);
-	return utils::PositionUtil::getDistance(x, y, z, cp->getX(), cp->getY(), cp->getZ());
+	// Java: Point3D cp = getClosestPoint(x, y, z). C++: the coordinates AbstractArea::getClosestPoint(x, y, z) would store, as values (z is
+	// outside [minZ, maxZ] here, so it is clamped to the nearer bound): the same floats without a RefCounted Point3D per call (World creation
+	// tests Reshanta's 3D regions and zones about 11 million times)
+	templates::zone::Point2D cp = getClosestPoint2D(x, y);
+	float cpZ = z < getMinZ() ? getMinZ() : getMaxZ();
+	return utils::PositionUtil::getDistance(x, y, z, cp.getX(), cp.getY(), cpZ);
 }
 
 std::optional<templates::zone::Point2D> RectangleArea::getClosestPoint(float x, float y) {

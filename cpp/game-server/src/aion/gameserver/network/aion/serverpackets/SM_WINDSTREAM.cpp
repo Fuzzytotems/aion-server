@@ -1,6 +1,5 @@
 #include "aion/gameserver/network/aion/serverpackets/SM_WINDSTREAM.h"
 
-#include "aion/gameserver/runtime/base/Unported.h"
 #include "aion/gameserver/network/aion/ServerPacketsOpcodes.gen.h"
 
 namespace aion::gameserver::network::aion::serverpackets {
@@ -10,7 +9,8 @@ SM_WINDSTREAM::SM_WINDSTREAM(int32_t unk1Value, int32_t unk2Value)
 }
 
 void SM_WINDSTREAM::writeImpl(AionConnection* con) {
-	AION_UNPORTED();
+	writeD(unk1);
+	writeC(unk2);
 }
 
 } // namespace aion::gameserver::network::aion::serverpackets

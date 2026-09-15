@@ -1,6 +1,5 @@
 #include "aion/gameserver/network/aion/serverpackets/SM_GATHER_ANIMATION.h"
 
-#include "aion/gameserver/runtime/base/Unported.h"
 #include "aion/gameserver/network/aion/ServerPacketsOpcodes.gen.h"
 
 namespace aion::gameserver::network::aion::serverpackets {
@@ -11,7 +10,10 @@ SM_GATHER_ANIMATION::SM_GATHER_ANIMATION(int32_t playerObjIdValue, int32_t gathe
 }
 
 void SM_GATHER_ANIMATION::writeImpl(AionConnection* con) {
-	AION_UNPORTED();
+	writeD(playerObjId);
+	writeD(gatherableObjId);
+	writeH(skillId);
+	writeC(action);
 }
 
 } // namespace aion::gameserver::network::aion::serverpackets

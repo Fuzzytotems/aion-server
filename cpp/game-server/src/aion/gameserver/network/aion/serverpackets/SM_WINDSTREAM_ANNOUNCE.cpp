@@ -1,6 +1,5 @@
 #include "aion/gameserver/network/aion/serverpackets/SM_WINDSTREAM_ANNOUNCE.h"
 
-#include "aion/gameserver/runtime/base/Unported.h"
 #include "aion/gameserver/network/aion/ServerPacketsOpcodes.gen.h"
 
 namespace aion::gameserver::network::aion::serverpackets {
@@ -11,7 +10,10 @@ SM_WINDSTREAM_ANNOUNCE::SM_WINDSTREAM_ANNOUNCE(int32_t bidirectionalValue, int32
 }
 
 void SM_WINDSTREAM_ANNOUNCE::writeImpl(AionConnection* con) {
-	AION_UNPORTED();
+	writeD(bidirectional);
+	writeD(mapId);
+	writeD(streamId);
+	writeC(state);
 }
 
 } // namespace aion::gameserver::network::aion::serverpackets

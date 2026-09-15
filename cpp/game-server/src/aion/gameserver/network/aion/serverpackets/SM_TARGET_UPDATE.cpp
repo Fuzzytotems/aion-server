@@ -1,6 +1,5 @@
 #include "aion/gameserver/network/aion/serverpackets/SM_TARGET_UPDATE.h"
 
-#include "aion/gameserver/runtime/base/Unported.h"
 #include "aion/gameserver/model/gameobjects/player/Player.h"
 #include "aion/gameserver/network/aion/ServerPacketsOpcodes.gen.h"
 
@@ -13,7 +12,9 @@ SM_TARGET_UPDATE::SM_TARGET_UPDATE(model::gameobjects::player::Player& playerVal
 SM_TARGET_UPDATE::~SM_TARGET_UPDATE() = default;
 
 void SM_TARGET_UPDATE::writeImpl(AionConnection* con) {
-	AION_UNPORTED();
+	writeD(player->getObjectId());
+	runtime::Ptr<model::gameobjects::VisibleObject> target = player->getTarget();
+	writeD(target == nullptr ? 0 : target->getObjectId());
 }
 
 } // namespace aion::gameserver::network::aion::serverpackets

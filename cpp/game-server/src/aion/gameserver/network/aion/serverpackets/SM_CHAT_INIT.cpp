@@ -1,6 +1,5 @@
 #include "aion/gameserver/network/aion/serverpackets/SM_CHAT_INIT.h"
 
-#include "aion/gameserver/runtime/base/Unported.h"
 #include "aion/gameserver/network/aion/ServerPacketsOpcodes.gen.h"
 
 namespace aion::gameserver::network::aion::serverpackets {
@@ -11,7 +10,8 @@ SM_CHAT_INIT::SM_CHAT_INIT(std::span<const uint8_t> tokenValue)
 }
 
 void SM_CHAT_INIT::writeImpl(AionConnection* con) {
-	AION_UNPORTED();
+	writeD(static_cast<int32_t>(token.size()));
+	writeB(std::span<const uint8_t>(reinterpret_cast<const uint8_t*>(token.data()), token.size()));
 }
 
 } // namespace aion::gameserver::network::aion::serverpackets

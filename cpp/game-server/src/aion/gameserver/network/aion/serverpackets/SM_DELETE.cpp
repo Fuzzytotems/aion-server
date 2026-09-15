@@ -1,8 +1,9 @@
 #include "aion/gameserver/network/aion/serverpackets/SM_DELETE.h"
 
-#include "aion/gameserver/runtime/base/Unported.h"
-#include "aion/gameserver/network/aion/ServerPacketsOpcodes.gen.h"
 #include "aion/gameserver/model/animations/ObjectDeleteAnimation.h"
+#include "aion/gameserver/model/animations/ObjectDeleteAnimationInfo.h"
+#include "aion/gameserver/model/gameobjects/VisibleObject.h"
+#include "aion/gameserver/network/aion/ServerPacketsOpcodes.gen.h"
 
 namespace aion::gameserver::network::aion::serverpackets {
 
@@ -18,12 +19,13 @@ SM_DELETE::SM_DELETE(model::gameobjects::VisibleObject& object, model::animation
 }
 
 SM_DELETE::SM_DELETE(model::gameobjects::VisibleObject& object, model::animations::ObjectDeleteAnimation animation, bool inRange)
-	: AionServerPacket(opcodeOf<SM_DELETE>) {
-	AION_UNPORTED();
+	: AionServerPacket(opcodeOf<SM_DELETE>), objectId(object.getObjectId()),
+	  animationId(inRange ? model::animations::getId(animation) : model::animations::getId(model::animations::ObjectDeleteAnimation::NONE)) {
 }
 
 void SM_DELETE::writeImpl(AionConnection* con) {
-	AION_UNPORTED();
+	writeD(objectId);
+	writeC(animationId);
 }
 
 } // namespace aion::gameserver::network::aion::serverpackets

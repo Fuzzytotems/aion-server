@@ -9,7 +9,7 @@ Intentional differences from Java: [docs/DEVIATIONS.md](docs/DEVIATIONS.md).
 | commons | done: ported, reviewed; 402 tests (incl. database integration tests) |
 | login-server | done: ported, reviewed; 149 tests; a real 4.8 client logs in |
 | chat-server | not started |
-| game-server | in progress: design done ([docs/design](docs/design/README.md)); runtime kernel done (422 tests, 30-minute ASan and checked stress gates, benchmark passed); wave 1 done: configs, geo math, client crypt, XML binder runtime, handler registry (279 tests) and the Python generators, lint and static data oracles in `tools/` (388 tests); spine done and frozen (tag `spine-v1`): chunk manifest (65 chunks, 70 libraries), all core enums and XML class shells, forward headers, 59 hub headers, declaration headers for 139 model classes, 128 services, 56 DAOs and 239 server packets; `aion_game_server` links and starts up to the first unported function ([spine status](docs/design/spine-status.md)) |
+| game-server | foundation (phase 4) done: milestone M4 passed (tag `milestone-m4`): config, database, IDFactory, all static data, geo and the world load with counts equal to the independent oracles (`gs.m4.check_static_data`). Runtime kernel, generators/lint/oracles in `tools/`, spine frozen (tag `spine-v1`), then the ported configs, geo, base utilities, templates and holders, world, game objects, controllers, player and item models, 56 DAOs, network and the 239 server packets (6 sites wait for phase 5 headers; the full CTest run of the repository: 1,937 tests). Next: phase 5 systems (stats, skills, AI, quests, services). Status: [phase 4](docs/design/phase4-status.md), [design](docs/design/README.md) |
 
 ## Requirements (Windows)
 
@@ -74,15 +74,16 @@ defaults to id 1 and password 1234).
 
 ## Running the game server
 
-Not playable yet. `aion_game_server` links every library and runs the ported part of the startup (config, database, runtime kernel), then stops at
-the first function that is not ported yet, logs where that is, shuts down in order and exits with code 1. Run it from the Java module directory:
+Not playable yet. `aion_game_server` runs the ported part of Java's startup (config, database, IDFactory, static data, zones, geo and the world),
+logs "M4 startup sequence complete", shuts down in order and exits with code 0; a function that is not ported yet stops it with a log line
+naming the site and exit code 1. Run it from the Java module directory:
 
 ```bash
 cd ../game-server && ../cpp/build/msvc/game-server/Debug/aion_game_server.exe
 ```
 
 Game client: see the repository's main README (Aion 4.8 NA client, `version.dll` patch, `start.bat` with
-`bin64ion.bin -ip:127.0.0.1 -port:2106 -loginex`).
+`bin64\aion.bin -ip:127.0.0.1 -port:2106 -loginex`).
 
 ## Local database
 

@@ -1,6 +1,5 @@
 #include "aion/gameserver/network/aion/serverpackets/SM_POSITION.h"
 
-#include "aion/gameserver/runtime/base/Unported.h"
 #include "aion/gameserver/model/gameobjects/VisibleObject.h"
 #include "aion/gameserver/network/aion/ServerPacketsOpcodes.gen.h"
 
@@ -13,7 +12,11 @@ SM_POSITION::SM_POSITION(model::gameobjects::VisibleObject& objectValue)
 SM_POSITION::~SM_POSITION() = default;
 
 void SM_POSITION::writeImpl(AionConnection* con) {
-	AION_UNPORTED();
+	writeD(object->getObjectId());
+	writeF(object->getX());
+	writeF(object->getY());
+	writeF(object->getZ());
+	writeC(object->getHeading());
 }
 
 } // namespace aion::gameserver::network::aion::serverpackets

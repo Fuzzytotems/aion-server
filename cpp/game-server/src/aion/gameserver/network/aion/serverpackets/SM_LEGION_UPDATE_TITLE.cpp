@@ -1,7 +1,7 @@
 #include "aion/gameserver/network/aion/serverpackets/SM_LEGION_UPDATE_TITLE.h"
 
-#include "aion/gameserver/runtime/base/Unported.h"
 #include "aion/gameserver/network/aion/ServerPacketsOpcodes.gen.h"
+#include "aion/gameserver/network/aion/serverpackets/detail/PacketSupport.h"
 
 namespace aion::gameserver::network::aion::serverpackets {
 
@@ -12,7 +12,10 @@ SM_LEGION_UPDATE_TITLE::SM_LEGION_UPDATE_TITLE(int32_t playerObjectIdValue, int3
 }
 
 void SM_LEGION_UPDATE_TITLE::writeImpl(AionConnection* con) {
-	AION_UNPORTED();
+	writeD(playerObjectId);
+	writeD(legionId);
+	writeS(legionName);
+	writeC(detail::legionRankId(rank));
 }
 
 } // namespace aion::gameserver::network::aion::serverpackets

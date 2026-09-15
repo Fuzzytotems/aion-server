@@ -1,8 +1,7 @@
 #include "aion/gameserver/network/aion/serverpackets/SM_FIRST_SHOW_DECOMPOSABLE.h"
 
-#include "aion/gameserver/runtime/base/Unported.h"
-#include "aion/gameserver/network/aion/ServerPacketsOpcodes.gen.h"
 #include "aion/gameserver/model/templates/item/ResultedItem.h"
+#include "aion/gameserver/network/aion/ServerPacketsOpcodes.gen.h"
 
 namespace aion::gameserver::network::aion::serverpackets {
 
@@ -12,7 +11,20 @@ SM_FIRST_SHOW_DECOMPOSABLE::SM_FIRST_SHOW_DECOMPOSABLE(int32_t objectIdValue,
 }
 
 void SM_FIRST_SHOW_DECOMPOSABLE::writeImpl(AionConnection* con) {
-	AION_UNPORTED();
+	writeD(objectId);
+	writeD(0);
+	writeC(static_cast<int32_t>(itemsCollections.size()));
+	int32_t index = 0;
+	for (const model::templates::item::ResultedItem* item : itemsCollections) {
+		writeC(index);
+		writeD(item->getItemId());
+		writeD(item->getMinCount());
+		writeC(0);
+		writeC(0); // rnd stat bonus
+		writeC(0); // rnd enchant bonus
+		writeC(1);
+		index++;
+	}
 }
 
 } // namespace aion::gameserver::network::aion::serverpackets

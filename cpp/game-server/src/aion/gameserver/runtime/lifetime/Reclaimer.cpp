@@ -27,6 +27,7 @@
 #include "aion/gameserver/runtime/lifetime/detail/Epoch.h"
 #include "aion/gameserver/runtime/lifetime/detail/Mutations.h"
 #include "aion/gameserver/runtime/lifetime/detail/RefCountedAccess.h"
+#include "aion/gameserver/runtime/sync/BlockingRegion.h"
 #include "aion/gameserver/runtime/sync/Watchdog.h"
 
 #if !defined(AION_ASAN)
@@ -1243,6 +1244,23 @@ Reclaimer::Stats Reclaimer::stats() const {
 	stats.lastScanDestroyed = s.lastScanDestroyed;
 	stats.lastScanDuration = s.lastScanDuration;
 	return stats;
+}
+
+bool Reclaimer::awaitBacklogBelow(uint64_t objects, std::chrono::milliseconds timeout) {
+	ReclaimerState& s = state();
+	auto backlog = [&s] { return s.incomingCount.load(std::memory_order_acquire) + s.scannerBacklog.load(std::memory_order_relaxed); };
+	if (backlog() <= objects)
+		return true;
+	if (!s.running.load(std::memory_order_acquire) || TaskScope::isPublished())
+		return false;
+	const auto deadline = std::chrono::steady_clock::now() + timeout;
+	BlockingRegion region("Reclaimer.awaitBacklogBelow");
+	while (backlog() > objects) {
+		if (std::chrono::steady_clock::now() >= deadline || !s.running.load(std::memory_order_acquire))
+			return false;
+		std::this_thread::sleep_for(std::chrono::milliseconds(1));
+	}
+	return true;
 }
 
 uint64_t Reclaimer::currentEpoch() noexcept {

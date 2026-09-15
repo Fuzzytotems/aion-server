@@ -1,6 +1,5 @@
 #include "aion/gameserver/network/aion/serverpackets/SM_FRIEND_STATUS.h"
 
-#include "aion/gameserver/runtime/base/Unported.h"
 #include "aion/gameserver/network/aion/ServerPacketsOpcodes.gen.h"
 
 namespace aion::gameserver::network::aion::serverpackets {
@@ -9,7 +8,7 @@ SM_FRIEND_STATUS::SM_FRIEND_STATUS(int32_t statusValue) : AionServerPacket(opcod
 }
 
 void SM_FRIEND_STATUS::writeImpl(AionConnection* con) {
-	AION_UNPORTED();
+	writeC(status);
 }
 
 } // namespace aion::gameserver::network::aion::serverpackets

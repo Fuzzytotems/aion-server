@@ -409,7 +409,7 @@ Machine: 32 logical CPUs, Windows 11, MSVC. ForkJoin parallelism 31. Defaults: 8
 - [services/stress] Reclaimer::drain() now returns false while a Ref still holds a retired part; such parts stay in Stats::backlog. Teardown code that expects drain() == true must release those Refs first.
 - [base, perf] Ptr creation from a Ref now calls detail::borrowStamp() out of line (one TLS lookup plus two compares when already published). If P4 shows it in profiles, an inline thread_local fast path in base/ThreadContext would remove the call; base is frozen except for additive changes.
 - [fields owner] SyncCostsBenchTest (tests/runtime/fields) still measures only Monitors with a static class. Add a SYNCHRONIZED(*object) case to confirm the lock-free LockClass::ofType path under P4.
-- [sync, deferred] The in-process MiniDumpWriteDump can deadlock on the heap lock and races DbgHelp use by std::stacktrace; a helper-process dump writer is still TODO. Stacks of other threads in text dumps need an additive native-handle field in base ThreadContext. The LOGGING leaf rank cannot be enforced without a commons change.
+- [sync, deferred] The in-process MiniDumpWriteDump can deadlock on the heap lock and races DbgHelp use by std::stacktrace; a helper-process dump writer is still TODO. **Resolved in wave 3b-2** (section below): snapshot minidumps written by a helper process. Stacks of other threads in text dumps need an additive native-handle field in base ThreadContext. The LOGGING leaf rank cannot be enforced without a commons change.
 
 Deferred or rejected findings:
 
@@ -484,3 +484,37 @@ Still open:
   released; checked-build behaviour at static initialization was not exercised, and LeakCensus scenario tests that count by type must exempt
   them.
 
+### Phase 4 wave 3b-2: runtime hardening (2026-09-15)
+
+Details and measurements: [phase4-status.md](phase4-status.md) "Wave 3b-2, runtime lane"; deviations: [../deviations/P4-02.md](../deviations/P4-02.md).
+
+Resolved:
+- The watchdog hang of the M4 gate (the 45th in-process `MiniDumpWriteDump` of one check never returned): stalls of one check are reported
+  in one STALL dump; minidumps are written from a process snapshot (`PssCaptureSnapshot` with a virtual address clone) by a helper process
+  (`runtime/sync/MinidumpWriter.h`: `--write-minidump <pid> <file>`, the executable itself when its `main` calls `runIfRequested`) with a
+  timeout, or by an in-process writer thread for executables without the helper mode; at most one minidump per check, one per
+  `minidumpMinInterval` and `maxMinidumps` per run. DbgHelp no longer runs in the server process when the helper is used.
+- The startup Reclaimer backlog (12 million objects / 867 MB at the end of World creation in RelWithDebInfo): temporary `BoundingBox`es of
+  the BIH build removed, World creation runs its maps and Reshanta's regions in `PER_ELEMENT` jobs with quiescent points; high-water mark
+  about 500,000 objects.
+
+Added (additive declarations): `Watchdog::Config::minidumpHelperExecutable`, `minidumpTimeout`, `minidumpMinInterval`, `maxMinidumps`;
+`MinidumpWriter` (new header); `Reclaimer::awaitBacklogBelow` (backpressure for bulk producers, never waits for a published caller or without
+the Reclaimer thread); `QuiescentScope::active()`; `ForkJoinPool::isParallelFromCurrentThread()`. Tests: `WatchdogTest` (burst of 40 stalls,
+rate limit, limit per run), `MinidumpWriterTest` (helper on a real child process, hanging helper, failures, in-process writer, arguments),
+`ReclaimerTest.AwaitBacklogBelowWaitsForTheReclaimerThreadAndNeverForItself`, `TaskScopeTest.QuiescentScopeActiveMatchesWhereQuiescentPointsTakeEffect`,
+`ForkJoinPoolTest.IsParallelFromCurrentThreadFollowsTheSerialRules` (`tests/runtime` 440 → 450).
+
+Review fixes of the same wave: DEADLOCK minidumps skip `minidumpMinInterval` and the STALL budget (their own budget of `maxMinidumps`); the
+text dump is logged before the minidump is written and a failed write becomes a log line; UTF-8 paths; `QuiescentOptIn(purpose)` /
+`QuiescentOptIn::active(purpose)` (additive, `TaskScope.h`) so that only World creation takes quiescent points below `main.cpp`'s scope;
+helper crash exit codes reported as exceptions (`tests/runtime` 454). With the value-based `RectangleArea`/`PolyArea::getDistance3D` (P4-05)
+the RelWithDebInfo M4 startup is 3.9 s, World 804 ms, backlog high-water mark 231,615 objects ([phase4-status.md](phase4-status.md) "Phase 4
+close-out").
+
+Still open:
+- Text dumps still have no stacks of other threads (the minidump has them); the watchdog's minidump settings are not bound to config keys
+  (`RuntimeConfig::watchdogConfig`, P4-01). Other platforms write no minidump. The check thread waits while the helper writes (up to
+  `minidumpTimeout` + 5 s).
+- The Reclaimer destroys on one thread (about 5 million objects per second in RelWithDebInfo), which limits bulk producers that
+  `awaitBacklogBelow` throttles; World creation no longer produces the 11 million `Point3D`.

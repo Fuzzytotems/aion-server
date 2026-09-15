@@ -153,6 +153,10 @@ void ForkJoinPool::setSerial(bool serial) noexcept {
 	poolState().serial.store(serial, std::memory_order_release);
 }
 
+bool ForkJoinPool::isParallelFromCurrentThread() const noexcept {
+	return !isSerial() && !isHelperThread && !poolState().shutdown.load(std::memory_order_acquire);
+}
+
 bool ForkJoinPool::isSerial() const noexcept {
 	return poolState().serial.load(std::memory_order_acquire);
 }

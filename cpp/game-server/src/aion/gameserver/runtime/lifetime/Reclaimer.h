@@ -200,6 +200,15 @@ public:
 
 	Stats stats() const;
 
+	/**
+	 * Backpressure for bulk producers of short-lived objects (C++ only; used by the parallel startup loops of World creation): waits while
+	 * Stats::backlog exceeds `objects`, sleeping in 1 ms steps inside a BlockingRegion, for at most `timeout`. Returns at once when the Reclaimer
+	 * thread is not running (nobody would reclaim) or when the calling thread has published an epoch in its task scope (it could hold up the
+	 * very reclamation it waits for); call it before the task borrows anything. Lock-free reads only; legal on any thread outside Monitors.
+	 * @return true if the backlog was at most `objects` when it returned
+	 */
+	bool awaitBacklogBelow(uint64_t objects, std::chrono::milliseconds timeout = std::chrono::seconds(10));
+
 	/** the current global epoch E (lock-free) */
 	static uint64_t currentEpoch() noexcept;
 

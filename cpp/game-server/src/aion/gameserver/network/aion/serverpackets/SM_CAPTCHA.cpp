@@ -1,6 +1,5 @@
 #include "aion/gameserver/network/aion/serverpackets/SM_CAPTCHA.h"
 
-#include "aion/gameserver/runtime/base/Unported.h"
 #include "aion/gameserver/network/aion/ServerPacketsOpcodes.gen.h"
 
 namespace aion::gameserver::network::aion::serverpackets {
@@ -15,7 +14,19 @@ SM_CAPTCHA::SM_CAPTCHA(bool isCorrectValue, int32_t banTimeValue)
 }
 
 void SM_CAPTCHA::writeImpl(AionConnection* con) {
-	AION_UNPORTED();
+	writeC(type);
+	switch (type) {
+		case 0x01:
+			writeC(count);
+			writeD(size);
+			writeB(std::span<const uint8_t>(reinterpret_cast<const uint8_t*>(data.data()), data.size()));
+			break;
+		case 0x03:
+			writeH(isCorrect ? 1 : 0);
+			// time setting can't be extracted (retail server default value:3000 sec)
+			writeD(banTime);
+			break;
+	}
 }
 
 } // namespace aion::gameserver::network::aion::serverpackets

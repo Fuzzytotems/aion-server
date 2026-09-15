@@ -1,6 +1,5 @@
 #include "aion/gameserver/network/aion/serverpackets/SM_RECALLED_BY_OTHER.h"
 
-#include "aion/gameserver/runtime/base/Unported.h"
 #include "aion/gameserver/network/aion/ServerPacketsOpcodes.gen.h"
 
 namespace aion::gameserver::network::aion::serverpackets {
@@ -14,7 +13,10 @@ SM_RECALLED_BY_OTHER::SM_RECALLED_BY_OTHER(std::optional<std::string_view> caste
 }
 
 void SM_RECALLED_BY_OTHER::writeImpl(AionConnection* con) {
-	AION_UNPORTED();
+	writeC(casterName ? 0 : 1); // 0 = open the window, 1 = close it
+	writeS(casterName.value_or(std::string())); // Java null: writeS writes only the terminator
+	writeH(skillId);
+	writeH(seconds);
 }
 
 } // namespace aion::gameserver::network::aion::serverpackets

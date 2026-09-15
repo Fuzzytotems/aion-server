@@ -52,18 +52,6 @@ bool isGameServerShuttingDownSoon() {
 	return false;
 }
 
-/**
- * SM_KEY with Java's writeImpl `writeD(con.enableCryptKey())`. TODO(P4-16): send serverpackets::SM_KEY directly once SM_KEY::writeImpl is ported
- * (same bytes); this subclass only lets the connection hand out keys before that.
- */
-class ConnectionKeyPacket final : public serverpackets::SM_KEY {
-public:
-	std::string getPacketName() const override { return "SM_KEY"; }
-
-protected:
-	void writeImpl(AionConnection* con) override { writeD(con->enableCryptKey()); }
-};
-
 /** Java: the AionServerPacket.toString() of a queued packet (the queue holds serialized bodies) */
 std::string packetNameOf(int32_t opCode) {
 	const ServerPacketsOpcodes::Entry* entry = ServerPacketsOpcodes::findByOpcode(opCode);
@@ -188,7 +176,7 @@ void AionConnection::initialized() {
 	runtime::TaskScope scope(runtime::TaskInfo{std::source_location::current(), runtime::TaskKind::IO});
 	// SM_KEY is serialized for this connection before any other packet can be queued (runtime-architecture.md §8.5): enableCryptKey runs here,
 	// before IO starts, and the first encrypt on the IO strand enables the crypt after the key packet was written unencrypted
-	ConnectionKeyPacket keyPacket;
+	serverpackets::SM_KEY keyPacket;
 	SerializedBody key = keyPacket.serialize(this);
 	key.enablesCrypt = true;
 	enqueue(std::move(key));

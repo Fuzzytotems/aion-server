@@ -29,11 +29,15 @@ namespace aion::gameserver::runtime {
  * - runs the registered probes (the Reclaimer registers one for reclamation lag > 10 s and backlog high-water marks, design §2.6).
  *
  * A dump contains every thread's name, id, TaskInfo and running time, held lock classes, BlockingRegion, wait record and published epoch.
- * Stack traces of other threads are not portable; on Windows DEADLOCK and STALL dumps additionally write a minidump (DbgHelp
- * MiniDumpWriteDump with thread information, into `minidumpDirectory`) that contains every thread's stack. The minidump is written in-process
- * from the watchdog thread (documented DbgHelp caveat: DbgHelp is single-threaded, so a concurrent std::stacktrace symbolization on another
- * thread may be disturbed); set writeMinidump = false to disable. On other platforms no minidump is written (TODO: write a core file with
- * gcore or a signal-based backtrace collector).
+ * All tasks that stall in one check are reported together in one STALL dump (a parallel load used to produce one dump per thread).
+ * Stack traces of other threads are not portable; on Windows DEADLOCK and STALL dumps additionally write a minidump (thread information and
+ * every thread's stack, into `minidumpDirectory`) through MinidumpWriter: from a process snapshot, preferably by a helper process with a
+ * timeout, so no live thread is suspended while DbgHelp works. Rate limit: at most one minidump per check (later dumps of the same check name
+ * it), none within `minidumpMinInterval` after the previous one and at most `maxMinidumps` per run; DEADLOCK dumps are exempt from the
+ * interval and have their own budget of `maxMinidumps` (a cycle is dumped once and may be followed by the restart). The text dump is always
+ * logged, before the minidump is written, followed by a line naming the minidump or why none was written. Set writeMinidump = false to
+ * disable. On other platforms no minidump is written (TODO: write a core file with gcore or a signal-based
+ * backtrace collector).
  * After a dump the server keeps running (D5); only if `restartOnDeadlock` is set does a DEADLOCK exit with ExitCode::RESTART
  * (std::quick_exit, so at_quick_exit handlers flush the logs). The watchdog thread skips its checks while a debugger is attached
  * (IsDebuggerPresent on Windows), unless `evenUnderDebugger`; checkNow() always runs.
@@ -63,9 +67,23 @@ public:
 		bool restartOnDeadlock = false;
 		/** write a minidump with DEADLOCK/STALL dumps (Windows) */
 		bool writeMinidump = true;
-		/** directory for minidump files (created on demand) */
+		/** directory for minidump files (created on demand; UTF-8) */
 		std::string minidumpDirectory = "log/dumps";
 		bool evenUnderDebugger = false;
+		/**
+		 * The process that writes minidumps (MinidumpWriter): empty = the running executable if its main registered the helper mode
+		 * (MinidumpWriter::runIfRequested), otherwise the in-process snapshot writer; a path (UTF-8) = that executable with `--write-minidump`.
+		 */
+		std::string minidumpHelperExecutable;
+		/** longest time a minidump may take; a helper process is terminated afterwards, an in-process writer abandoned */
+		std::chrono::milliseconds minidumpTimeout{30'000};
+		/**
+		 * rate limit: at most one minidump per check, and none within this interval after the previous one (0 = only one per check); DEADLOCK
+		 * minidumps are not delayed by it
+		 */
+		std::chrono::milliseconds minidumpMinInterval{60'000};
+		/** at most this many STALL minidumps per process run, and separately this many DEADLOCK minidumps (0 = unlimited) */
+		int32_t maxMinidumps = 20;
 	};
 
 	/** One thread in a dump; copied from its ThreadContext. */

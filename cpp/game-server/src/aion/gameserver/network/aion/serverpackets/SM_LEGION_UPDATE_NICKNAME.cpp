@@ -1,6 +1,5 @@
 #include "aion/gameserver/network/aion/serverpackets/SM_LEGION_UPDATE_NICKNAME.h"
 
-#include "aion/gameserver/runtime/base/Unported.h"
 #include "aion/gameserver/network/aion/ServerPacketsOpcodes.gen.h"
 
 namespace aion::gameserver::network::aion::serverpackets {
@@ -10,7 +9,8 @@ SM_LEGION_UPDATE_NICKNAME::SM_LEGION_UPDATE_NICKNAME(int32_t playerObjIdValue, s
 }
 
 void SM_LEGION_UPDATE_NICKNAME::writeImpl(AionConnection* con) {
-	AION_UNPORTED();
+	writeD(playerObjId);
+	writeS(newNickname);
 }
 
 } // namespace aion::gameserver::network::aion::serverpackets

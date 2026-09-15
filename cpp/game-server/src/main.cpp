@@ -22,12 +22,19 @@
 //                              geo_probes_actual.txt   GeoService.getZ of every probe of --check-geo-probes (float bits)
 //                              world_zones.txt         per world map: its instances and the zone names of every instance
 //                              unported_trace.txt      the AION_UNPORTED trace (runtime/base/Unported.h)
-//                              m4_summary.txt          IDs used, load time, peak working set, unported hits
+//                              m4_summary.txt          IDs used, load time, peak working set, unported hits, the duration of each startup
+//                                                      step and the Reclaimer backlog high-water mark (informational)
+//                              startup_timeline.txt    the log lines of the startup steps with millisecond timestamps (informational)
 //   --check-id-factory         stops after the runtime start (IDFactory initialized from the database), writes m4_summary.txt
 //   --check-output=<dir>       the check output directory (default ./log/m4)
 //   --check-geo-probes=<file>  getZ probes, one per line: "mapId instanceId xBits yBits zMaxBits zMinBits" (python -m geo m4-probes)
+//
+// Helper mode: --write-minidump <pid> <file> as the only arguments writes a snapshot minidump of process <pid> and exits (the watchdog starts
+// its own executable this way, runtime/sync/MinidumpWriter.h).
 
 #include <algorithm>
+#include <array>
+#include <atomic>
 #include <bit>
 #include <chrono>
 #include <cstdint>
@@ -75,8 +82,11 @@
 #include "aion/gameserver/questEngine/handlers/models/XMLQuest.h"
 #include "aion/gameserver/runtime/base/TaskInfo.h"
 #include "aion/gameserver/runtime/base/Unported.h"
+#include "aion/gameserver/runtime/lifetime/Reclaimer.h"
 #include "aion/gameserver/runtime/lifetime/TaskScope.h"
 #include "aion/gameserver/runtime/services/RuntimeLifecycle.h"
+#include "aion/gameserver/runtime/sync/MinidumpWriter.h"
+#include "aion/gameserver/runtime/sync/Watchdog.h"
 #include "aion/gameserver/services/DatabaseCleaningService.h"
 #include "aion/gameserver/utils/idfactory/IDFactory.h"
 #include "aion/gameserver/world/World.h"
@@ -196,6 +206,62 @@ float parseFloatBits(std::string_view text) {
 	return std::bit_cast<float>(static_cast<uint32_t>(std::stoul(std::string(text))));
 }
 
+/**
+ * Check mode measurements: the duration of each startup step and the Reclaimer backlog high-water mark, sampled by a watchdog probe (every
+ * watchdog period) and at the end of each step inside its scope (the main thread's own unflushed retire list is not part of the backlog).
+ */
+struct StartupMeasurements {
+	std::atomic<const char*> step{"runtime start"};
+	std::atomic<uint64_t> maxBacklogObjects{0};
+	std::atomic<uint64_t> maxBacklogBytes{0};
+	std::atomic<const char*> maxBacklogStep{"none"};
+	std::mutex mutex; // confined: main.cpp check mode only
+	std::vector<std::pair<std::string, int64_t>> stepMillis;
+	std::vector<std::string> stepBacklogs;
+};
+
+StartupMeasurements& measurements() {
+	static auto* state = new StartupMeasurements(); // lint: L5 check mode state of main, read by the watchdog probe and never destroyed
+	return *state;
+}
+
+void sampleBacklog() {
+	aion::gameserver::runtime::Reclaimer::Stats stats = aion::gameserver::runtime::Reclaimer::getInstance().stats();
+	StartupMeasurements& m = measurements();
+	uint64_t previous = m.maxBacklogObjects.load(std::memory_order_acquire);
+	while (stats.backlog > previous && !m.maxBacklogObjects.compare_exchange_weak(previous, stats.backlog, std::memory_order_acq_rel))
+		;
+	if (stats.backlog >= previous)
+		m.maxBacklogStep.store(m.step.load(std::memory_order_acquire), std::memory_order_release);
+	uint64_t previousBytes = m.maxBacklogBytes.load(std::memory_order_acquire);
+	while (stats.backlogBytes > previousBytes && !m.maxBacklogBytes.compare_exchange_weak(previousBytes, stats.backlogBytes, std::memory_order_acq_rel))
+		;
+}
+
+/** Runs one startup step in its own STARTUP task scope (see startup()); in check mode it records the step's duration and backlog. */
+template <class Body>
+void runStartupStep(const Arguments& arguments, const aion::gameserver::runtime::TaskInfo& info, const char* name, Body&& body) {
+	const auto start = std::chrono::steady_clock::now();
+	measurements().step.store(name, std::memory_order_release);
+	uint64_t backlogAtEnd = 0;
+	{
+		aion::gameserver::runtime::TaskScope scope(info);
+		body();
+		if (arguments.checkMode()) {
+			sampleBacklog();
+			backlogAtEnd = aion::gameserver::runtime::Reclaimer::getInstance().stats().backlog;
+		}
+	}
+	if (!arguments.checkMode())
+		return;
+	int64_t millis = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start).count();
+	log().info("M4 check: startup step '{}' took {} ms (Reclaimer backlog {} objects at its end)", name, millis, backlogAtEnd);
+	StartupMeasurements& m = measurements();
+	std::scoped_lock lock(m.mutex);
+	m.stepMillis.emplace_back(name, millis);
+	m.stepBacklogs.push_back(std::to_string(backlogAtEnd));
+}
+
 size_t peakWorkingSetBytes() {
 	PROCESS_MEMORY_COUNTERS counters{};
 	counters.cb = sizeof(counters);
@@ -300,7 +366,22 @@ void writeSummary(const Arguments& arguments, int64_t startupMillis) {
 	out << "startupMillis " << startupMillis << '\n';
 	out << "peakWorkingSetBytes " << peakWorkingSetBytes() << '\n';
 	out << "unportedHits " << aion::gameserver::runtime::unportedHitCount() << '\n';
+	StartupMeasurements& m = measurements();
+	std::scoped_lock lock(m.mutex);
+	for (size_t i = 0; i < m.stepMillis.size(); ++i) {
+		std::string key = m.stepMillis[i].first;
+		std::replace(key.begin(), key.end(), ' ', '_');
+		out << "stepMillis." << key << ' ' << m.stepMillis[i].second << '\n';
+		out << "stepEndBacklogObjects." << key << ' ' << m.stepBacklogs[i] << '\n';
+	}
+	out << "reclaimerBacklogMaxObjects " << m.maxBacklogObjects.load(std::memory_order_acquire) << '\n';
+	out << "reclaimerBacklogMaxBytes " << m.maxBacklogBytes.load(std::memory_order_acquire) << '\n';
+	out << "reclaimerBacklogMaxStep " << std::string(m.maxBacklogStep.load(std::memory_order_acquire)) << '\n';
 }
+
+/** loggers whose lines go to startup_timeline.txt in check mode */
+constexpr std::array<const char*, 5> TIMELINE_LOGGERS{"com.aionemu.gameserver.GameServer", "com.aionemu.gameserver.dataholders.DataManager",
+	"com.aionemu.gameserver.world.zone.ZoneService", "com.aionemu.gameserver.geoEngine.GeoWorldLoader", "com.aionemu.gameserver.world.World"};
 
 void startup(const Arguments& arguments, std::chrono::steady_clock::time_point processStart) {
 	using aion::gameserver::configs::Config;
@@ -313,6 +394,13 @@ void startup(const Arguments& arguments, std::chrono::steady_clock::time_point p
 		std::filesystem::remove(counts);
 		auto sink = std::make_shared<aion::commons::logging::FileAppender>(counts, std::make_unique<aion::commons::logging::PatternLayout>("%msg%n"));
 		LoggerFactory::configure("com.aionemu.gameserver.dataholders.StaticData", {.sinks = {sink}, .additive = true});
+		// informational: the step log lines with millisecond timestamps (the console pattern has seconds only)
+		const std::filesystem::path timelineFile = arguments.checkOutput / "startup_timeline.txt";
+		std::filesystem::remove(timelineFile);
+		auto timeline = std::make_shared<aion::commons::logging::FileAppender>(timelineFile,
+			std::make_unique<aion::commons::logging::PatternLayout>("%d{HH:mm:ss.SSS} [%thread] %logger{0} - %msg%n"));
+		for (const char* name : TIMELINE_LOGGERS)
+			LoggerFactory::configure(name, {.sinks = {timeline}, .additive = true});
 	}
 
 	// C++ addition: command line overrides are layered where Java layers the active events' properties (over mygs.properties), so they also
@@ -349,33 +437,33 @@ void startup(const Arguments& arguments, std::chrono::steady_clock::time_point p
 	// One STARTUP task scope per step, so the Reclaimer frees what a step unlinked before the next one starts (the geo load alone retires more
 	// than a million objects); nothing borrowed in one step is used in the next.
 	using aion::gameserver::runtime::TaskKind;
-	using aion::gameserver::runtime::TaskScope;
-	{
-		TaskScope scope(AION_TASK_INFO(TaskKind::STARTUP));
-		aion::gameserver::dataholders::DataManager::getInstance();
-	}
+	uint64_t backlogProbe = 0;
+	if (arguments.checkMode())
+		backlogProbe = aion::gameserver::runtime::Watchdog::getInstance().addProbe("M4 check: Reclaimer backlog high-water mark",
+			[](aion::gameserver::runtime::Watchdog&, const std::vector<aion::gameserver::runtime::Watchdog::ThreadSnapshot>&) { sampleBacklog(); });
+	runStartupStep(arguments, AION_TASK_INFO(TaskKind::STARTUP), "static data", [] { aion::gameserver::dataholders::DataManager::getInstance(); });
 	// Java: Stream.of(QuestEngine, AIEngine, InstanceEngine, ChatProcessor, ZoneService, GeoService).parallel().forEach(GameEngine::init)
 	// M4: the handler engines are not part of the milestone (their registries are empty); ZoneService and GeoService in the stream's order
-	{
-		TaskScope scope(AION_TASK_INFO(TaskKind::STARTUP));
-		aion::gameserver::world::zone::ZoneService::getInstance().init();
-	}
-	{
-		TaskScope scope(AION_TASK_INFO(TaskKind::STARTUP));
+	runStartupStep(arguments, AION_TASK_INFO(TaskKind::STARTUP), "zones", [] { aion::gameserver::world::zone::ZoneService::getInstance().init(); });
+	runStartupStep(arguments, AION_TASK_INFO(TaskKind::STARTUP), "geo", [&arguments] {
 		if (arguments.checkStaticData)
 			aion::gameserver::geoEngine::GeoCallbacks::setMaterialZoneListener(&recordMaterialZone);
 		aion::gameserver::world::geo::GeoService::getInstance().init();
 		aion::gameserver::geoEngine::GeoCallbacks::setMaterialZoneListener(nullptr);
-	}
-	{
-		TaskScope scope(AION_TASK_INFO(TaskKind::STARTUP));
+	});
+	runStartupStep(arguments, AION_TASK_INFO(TaskKind::STARTUP), "world", [] {
+		// World may unpublish the step while its maps are created in their own task scopes (World::World)
+		aion::gameserver::runtime::QuiescentScope quiescent; // quiescent-safe: this frame and runStartupStep hold no borrow (values only)
+		aion::gameserver::runtime::QuiescentOptIn worldCreation(aion::gameserver::runtime::QuiescentOptIn::WORLD_CREATION);
 		aion::gameserver::world::World::getInstance();
-	}
+	});
+	if (backlogProbe != 0)
+		aion::gameserver::runtime::Watchdog::getInstance().removeProbe(backlogProbe);
 	int64_t startupMillis = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - processStart).count();
 	log().info("M4 startup path (Config, database, runtime, static data, zones, geo, world) completed in {} ms, peak working set {} MB", startupMillis,
 		peakWorkingSetBytes() / (1024 * 1024));
 	if (arguments.checkStaticData) {
-		TaskScope scope(AION_TASK_INFO(TaskKind::STARTUP));
+		aion::gameserver::runtime::TaskScope scope(AION_TASK_INFO(TaskKind::STARTUP));
 		writeGeoAndWorldReports(arguments);
 		writeSummary(arguments, startupMillis);
 	}
@@ -401,6 +489,8 @@ void shutdown(const Arguments& arguments) noexcept {
 		UncaughtExceptionHandler::uncaughtException("main", std::current_exception());
 	}
 	LoggerFactory::removeConfig("com.aionemu.gameserver.dataholders.StaticData");
+	for (const char* name : TIMELINE_LOGGERS)
+		LoggerFactory::removeConfig(name);
 	LoggerFactory::flushAll();
 	Logging::shutdown();
 }
@@ -408,6 +498,9 @@ void shutdown(const Arguments& arguments) noexcept {
 } // namespace
 
 int main(int argc, char* argv[]) {
+	// C++ addition: the watchdog's minidump helper (runtime/sync/MinidumpWriter.h) is this executable started with --write-minidump <pid> <file>
+	if (std::optional<int> helperExitCode = aion::gameserver::runtime::MinidumpWriter::runIfRequested(argc, argv))
+		return *helperExitCode;
 	const auto processStart = std::chrono::steady_clock::now();
 	aion::commons::utils::concurrent::setCurrentThreadName("main"); // Java: the main thread's name in log lines
 	UncaughtExceptionHandler::install();

@@ -1,6 +1,5 @@
 #include "aion/gameserver/network/aion/serverpackets/SM_USE_OBJECT.h"
 
-#include "aion/gameserver/runtime/base/Unported.h"
 #include "aion/gameserver/network/aion/ServerPacketsOpcodes.gen.h"
 
 namespace aion::gameserver::network::aion::serverpackets {
@@ -11,7 +10,10 @@ SM_USE_OBJECT::SM_USE_OBJECT(int32_t playerObjIdValue, int32_t targetObjIdValue,
 }
 
 void SM_USE_OBJECT::writeImpl(AionConnection* con) {
-	AION_UNPORTED();
+	writeD(playerObjId);
+	writeD(targetObjId);
+	writeD(time);
+	writeC(actionType);
 }
 
 } // namespace aion::gameserver::network::aion::serverpackets

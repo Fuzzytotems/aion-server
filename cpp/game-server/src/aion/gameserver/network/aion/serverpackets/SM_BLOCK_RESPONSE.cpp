@@ -1,6 +1,5 @@
 #include "aion/gameserver/network/aion/serverpackets/SM_BLOCK_RESPONSE.h"
 
-#include "aion/gameserver/runtime/base/Unported.h"
 #include "aion/gameserver/network/aion/ServerPacketsOpcodes.gen.h"
 
 namespace aion::gameserver::network::aion::serverpackets {
@@ -10,7 +9,8 @@ SM_BLOCK_RESPONSE::SM_BLOCK_RESPONSE(int32_t codeValue, std::string_view playerN
 }
 
 void SM_BLOCK_RESPONSE::writeImpl(AionConnection* con) {
-	AION_UNPORTED();
+	writeS(playerName);
+	writeC(code);
 }
 
 } // namespace aion::gameserver::network::aion::serverpackets

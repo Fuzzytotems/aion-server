@@ -156,6 +156,14 @@ void collectZone(scene::Spatial& geometry, int32_t worldId, std::string_view zon
 	zoneNames.push_back(std::string(zoneName) + "|" + geometry.getName() + "|" + std::to_string(worldId));
 }
 
+/** C++ only: GeoCallbacks::setMaterialZoneListener (the M4 check mode records the zones while another sink creates them) */
+std::vector<std::string> listenedZoneNames;
+
+void listenZone(scene::Spatial& geometry, int32_t worldId, std::string_view zoneName) {
+	std::lock_guard lock(zoneMutex);
+	listenedZoneNames.push_back(std::string(zoneName) + "|" + geometry.getName() + "|" + std::to_string(worldId));
+}
+
 class GeoWorldLoaderFilesTest : public ::testing::Test {
 protected:
 	runtime::TaskScope scope{AION_TASK_INFO(runtime::TaskKind::TEST)};
@@ -182,6 +190,7 @@ protected:
 		dataholders::DataManager::WORLD_MAPS_DATA.resetForTests();
 		dataholders::DataManager::MATERIAL_DATA.resetForTests();
 		GeoCallbacks::setMaterialZoneSink(nullptr);
+		GeoCallbacks::setMaterialZoneListener(nullptr);
 		std::error_code ignored;
 		std::filesystem::remove_all(dir, ignored);
 	}
@@ -219,7 +228,10 @@ TEST_F(GeoWorldLoaderFilesTest, LoadsTerrainsMeshesAndPlacements) {
 	writeFile(dir / "999999999.png", storedPng(1, 1, 16, {0}));
 
 	LogCapture log("com.aionemu.gameserver.geoEngine.GeoWorldLoader");
+	listenedZoneNames.clear();
+	GeoCallbacks::setMaterialZoneListener(&listenZone);
 	GeoWorldLoader::Statistics statistics = GeoWorldLoader::load(mapPtrs(), dir);
+	GeoCallbacks::setMaterialZoneListener(nullptr);
 
 	EXPECT_EQ(statistics.meshEntries, 5);
 	EXPECT_EQ(statistics.meshes, 6);
@@ -233,6 +245,14 @@ TEST_F(GeoWorldLoaderFilesTest, LoadsTerrainsMeshesAndPlacements) {
 	EXPECT_EQ(statistics.materialGeometries, 2);
 	EXPECT_EQ(statistics.terrainMaps, 3);
 	EXPECT_EQ(statistics.collisionTrees, 6);
+	// C++ only (M4 check mode): the statistics of the last load, and the listener next to the sink
+	GeoWorldLoader::Statistics last = GeoWorldLoader::getLastLoadStatistics();
+	EXPECT_EQ(last.meshes, statistics.meshes);
+	EXPECT_EQ(last.placements, statistics.placements);
+	EXPECT_EQ(last.materialGeometries, statistics.materialGeometries);
+	EXPECT_EQ(last.collisionTrees, statistics.collisionTrees);
+	std::vector<std::string> listened = listenedZoneNames;
+	std::sort(listened.begin(), listened.end());
 
 	EXPECT_TRUE(log.contains("info|Loaded terrains for 3 maps"));
 	EXPECT_TRUE(log.contains("info|Loaded 6 meshes"));
@@ -248,6 +268,7 @@ TEST_F(GeoWorldLoaderFilesTest, LoadsTerrainsMeshesAndPlacements) {
 	std::sort(names.begin(), names.end());
 	EXPECT_EQ(names, (std::vector<std::string>{"FIRE_B_CHILD1_260974_110010000|FIRE_B_CHILD1_260974|110010000",
 						 "FIRE_B_CHILD2_418423_110010000|FIRE_B_CHILD2_418423|110010000"}));
+	EXPECT_EQ(listened, names) << "the listener sees every material zone the sink creates";
 
 	models::GeoMap& a = *maps[0];
 	EXPECT_EQ(a.getEntityCount(), 6);

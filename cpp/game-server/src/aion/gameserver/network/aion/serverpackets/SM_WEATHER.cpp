@@ -1,6 +1,5 @@
 #include "aion/gameserver/network/aion/serverpackets/SM_WEATHER.h"
 
-#include "aion/gameserver/runtime/base/Unported.h"
 #include "aion/gameserver/model/templates/world/WeatherEntry.h"
 #include "aion/gameserver/network/aion/ServerPacketsOpcodes.gen.h"
 
@@ -11,7 +10,10 @@ SM_WEATHER::SM_WEATHER(std::span<const model::templates::world::WeatherEntry* co
 }
 
 void SM_WEATHER::writeImpl(AionConnection* con) {
-	AION_UNPORTED();
+	writeC(0x00); // unk
+	writeC(static_cast<int32_t>(weatherEntries.size()));
+	for (const model::templates::world::WeatherEntry* entry : weatherEntries)
+		writeC(entry->getCode());
 }
 
 } // namespace aion::gameserver::network::aion::serverpackets

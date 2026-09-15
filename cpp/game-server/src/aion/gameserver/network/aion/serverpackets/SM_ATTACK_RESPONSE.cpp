@@ -1,6 +1,5 @@
 #include "aion/gameserver/network/aion/serverpackets/SM_ATTACK_RESPONSE.h"
 
-#include "aion/gameserver/runtime/base/Unported.h"
 #include "aion/gameserver/network/aion/ServerPacketsOpcodes.gen.h"
 
 namespace aion::gameserver::network::aion::serverpackets {
@@ -34,7 +33,8 @@ SM_ATTACK_RESPONSE::SM_ATTACK_RESPONSE(int32_t messageValue, int32_t attackCount
 }
 
 void SM_ATTACK_RESPONSE::writeImpl(AionConnection* con) {
-	AION_UNPORTED();
+	writeC(message);
+	writeC(attackCount);
 }
 
 } // namespace aion::gameserver::network::aion::serverpackets

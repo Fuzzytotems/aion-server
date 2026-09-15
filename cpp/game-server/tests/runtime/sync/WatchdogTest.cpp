@@ -7,18 +7,35 @@
 #include <chrono>
 #include <filesystem>
 #include <future>
+#include <memory>
 #include <mutex>
 #include <string>
 #include <thread>
 #include <vector>
 
+#include <spdlog/sinks/base_sink.h>
+
 #include "SyncTestSupport.h"
+#include "aion/commons/logging/LoggerFactory.h"
 #include "aion/commons/utils/TimeUtils.h"
 #include "aion/gameserver/runtime/base/TaskInfo.h"
 #include "aion/gameserver/runtime/base/ThreadContext.h"
 #include "aion/gameserver/runtime/sync/LockOrderValidator.h"
+#include "aion/gameserver/runtime/sync/MinidumpWriter.h"
 #include "aion/gameserver/runtime/sync/Monitor.h"
 #include "aion/gameserver/runtime/sync/Watchdog.h"
+
+#if defined(_WIN32)
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include <windows.h>
+
+#include "aion/commons/utils/WindowsMacroGuard.h"
+#endif
 
 using namespace aion::gameserver::runtime;
 using namespace aion::gameserver::runtime::testsupport;
@@ -119,6 +136,56 @@ private:
 	const char* kind = TaskKind::TEST;
 	std::atomic<uint64_t> id{0};
 };
+
+/** Captures the messages of the watchdog's logger while alive (they still reach the root sink). */
+class WatchdogLogCapture {
+public:
+	WatchdogLogCapture() : sink(std::make_shared<Sink>()) {
+		sink->set_pattern("%v");
+		aion::commons::logging::LoggerFactory::configure(LOGGER, {.level = spdlog::level::debug, .sinks = {sink}, .additive = true});
+	}
+	~WatchdogLogCapture() { aion::commons::logging::LoggerFactory::removeConfig(LOGGER); }
+	WatchdogLogCapture(const WatchdogLogCapture&) = delete;
+	WatchdogLogCapture& operator=(const WatchdogLogCapture&) = delete;
+
+	/** index of the first message containing the text, or -1 */
+	int64_t find(std::string_view text) const {
+		std::scoped_lock lock(sink->linesMutex);
+		for (size_t i = 0; i < sink->lines.size(); ++i)
+			if (sink->lines[i].find(text) != std::string::npos)
+				return static_cast<int64_t>(i);
+		return -1;
+	}
+
+private:
+	static constexpr std::string_view LOGGER = "com.aionemu.gameserver.runtime.Watchdog";
+
+	struct Sink : spdlog::sinks::base_sink<std::mutex> {
+		mutable std::mutex linesMutex;
+		std::vector<std::string> lines;
+
+	protected:
+		void sink_it_(const spdlog::details::log_msg& msg) override {
+			spdlog::memory_buf_t formatted;
+			formatter_->format(msg, formatted);
+			std::scoped_lock lock(linesMutex);
+			lines.emplace_back(formatted.data(), formatted.size());
+		}
+		void flush_() override {}
+	};
+
+	std::shared_ptr<Sink> sink;
+};
+
+/** UTF-8 text of a path (configuration strings and DumpReport::minidumpPath are UTF-8) */
+std::string utf8(const std::filesystem::path& path) {
+	std::u8string text = path.u8string();
+	return std::string(text.begin(), text.end());
+}
+
+std::filesystem::path fromUtf8(std::string_view text) {
+	return std::filesystem::path(std::u8string_view(reinterpret_cast<const char8_t*>(text.data()), text.size()));
+}
 
 } // namespace
 
@@ -393,6 +460,8 @@ TEST(WatchdogTest, DeadlockAndStallDumpsWriteAMinidump) {
 	Watchdog& watchdog = Watchdog::getInstance();
 	Watchdog::Config config = testConfig();
 	config.writeMinidump = true;
+	config.minidumpMinInterval = 0ms;
+	config.maxMinidumps = 0;
 	std::filesystem::path directory = std::filesystem::temp_directory_path() / ("aion-watchdog-test-" + std::to_string(ThreadContext::current().threadId()));
 	config.minidumpDirectory = directory.string();
 	watchdog.configure(config);
@@ -402,6 +471,231 @@ TEST(WatchdogTest, DeadlockAndStallDumpsWriteAMinidump) {
 	EXPECT_TRUE(std::filesystem::exists(report.minidumpPath));
 	EXPECT_GT(std::filesystem::file_size(report.minidumpPath), 0u);
 	EXPECT_NE(report.text.find(report.minidumpPath), std::string::npos);
+	EXPECT_NE(report.text.find("helper process"), std::string::npos) << "this test executable registered its helper mode: " << report.text;
+	std::error_code error;
+	std::filesystem::remove_all(directory, error);
+}
+
+// Open item of M4: a parallel load reported every stalled ForkJoin element in the same check, one dump and one in-process MiniDumpWriteDump per
+// thread, and the server hung inside the 45th. Now a burst gives one STALL dump and at most one minidump (by the helper process) per check, the
+// rate limit covers later checks, and the process keeps running.
+TEST(WatchdogTest, BurstOfSimultaneousStallsGivesOneDumpAndOneMinidumpPerCheck) {
+	HangGuard guard(180s);
+	Watchdog& watchdog = Watchdog::getInstance();
+	Watchdog::Config config = testConfig();
+	config.stall = 500ms;
+	config.writeMinidump = true;
+	config.minidumpMinInterval = 0ms;
+	config.maxMinidumps = 0;
+	std::filesystem::path directory =
+		std::filesystem::temp_directory_path() / ("aion-watchdog-burst-" + std::to_string(ThreadContext::current().threadId()) + "-" +
+													 std::to_string(aion::commons::utils::nanoTime()));
+	config.minidumpDirectory = directory.string();
+	watchdog.configure(config);
+	RecordingListener listener;
+	auto minidumpFiles = [&] {
+		size_t files = 0;
+		std::error_code error;
+		for (const auto& entry : std::filesystem::directory_iterator(directory, error))
+			files += entry.path().extension() == ".dmp" ? 1 : 0;
+		return files;
+	};
+
+	constexpr size_t THREADS = 40;
+	std::vector<std::unique_ptr<FakeTaskThread>> tasks;
+	for (size_t i = 0; i < THREADS; ++i)
+		tasks.push_back(std::make_unique<FakeTaskThread>());
+	auto stallAll = [&](uint64_t firstScope) {
+		int64_t start = aion::commons::utils::nanoTime() - int64_t{2'000'000'000};
+		for (size_t i = 0; i < THREADS; ++i)
+			tasks[i]->setTask(firstScope + i, start - static_cast<int64_t>(i));
+	};
+
+	// check 1: 40 stalls at once -> one STALL dump naming all of them, one minidump written by the helper process
+	stallAll(9000);
+	watchdog.checkNow();
+	std::vector<Watchdog::DumpReport> stalls = listener.of(Watchdog::Reason::STALL);
+	ASSERT_EQ(stalls.size(), 1u);
+	EXPECT_EQ(stalls[0].threadIds.size(), THREADS);
+	EXPECT_NE(stalls[0].summary.find(std::to_string(THREADS) + " stalled tasks:"), std::string::npos) << stalls[0].summary;
+	ASSERT_FALSE(stalls[0].minidumpPath.empty()) << stalls[0].text;
+	EXPECT_NE(stalls[0].text.find("helper process"), std::string::npos) << stalls[0].text;
+	EXPECT_EQ(minidumpFiles(), 1u);
+
+	// a second dump in the same check (a probe) names the check's minidump instead of writing another one
+	uint64_t probe = watchdog.addProbe("burst", [](Watchdog& w, const std::vector<Watchdog::ThreadSnapshot>&) {
+		w.dump(Watchdog::Reason::DEADLOCK, "probe dump in the same check");
+		w.dump(Watchdog::Reason::STALL, "another dump in the same check");
+	});
+	stallAll(9100); // new task runs: stalled again
+	watchdog.checkNow();
+	watchdog.removeProbe(probe);
+	stalls = listener.of(Watchdog::Reason::STALL);
+	ASSERT_EQ(stalls.size(), 3u) << "check 2: one burst dump and the probe's second dump";
+	EXPECT_FALSE(stalls[1].minidumpPath.empty());
+	EXPECT_TRUE(stalls[2].minidumpPath.empty());
+	EXPECT_NE(stalls[2].text.find("Minidump: one per watchdog check, see " + stalls[1].minidumpPath), std::string::npos) << stalls[2].text;
+	std::vector<Watchdog::DumpReport> probeDeadlocks = listener.of(Watchdog::Reason::DEADLOCK);
+	ASSERT_EQ(probeDeadlocks.size(), 1u);
+	EXPECT_TRUE(probeDeadlocks[0].minidumpPath.empty());
+	EXPECT_EQ(minidumpFiles(), 2u);
+
+	// check 3 within the minimum interval: the text dump only
+	config.minidumpMinInterval = 600'000ms;
+	watchdog.configure(config);
+	stallAll(9200);
+	watchdog.checkNow();
+	stalls = listener.of(Watchdog::Reason::STALL);
+	ASSERT_EQ(stalls.size(), 4u);
+	EXPECT_TRUE(stalls[3].minidumpPath.empty());
+	EXPECT_NE(stalls[3].text.find("Minidump: skipped (rate limit"), std::string::npos) << stalls[3].text;
+	EXPECT_EQ(minidumpFiles(), 2u);
+
+	// the process keeps running: the stalled threads finish and the watchdog keeps checking
+	for (auto& task : tasks)
+		task->setTask(0, 0);
+	tasks.clear();
+	watchdog.checkNow();
+	EXPECT_EQ(listener.of(Watchdog::Reason::STALL).size(), 4u);
+	watchdog.configure(testConfig());
+	std::error_code error;
+	std::filesystem::remove_all(directory, error);
+}
+
+TEST(WatchdogTest, MinidumpLimitPerRun) {
+	Watchdog& watchdog = Watchdog::getInstance();
+	Watchdog::Config config = testConfig();
+	config.writeMinidump = true;
+	config.minidumpMinInterval = 0ms;
+	std::filesystem::path directory = std::filesystem::temp_directory_path() / ("aion-watchdog-limit-" + std::to_string(aion::commons::utils::nanoTime()));
+	config.minidumpDirectory = directory.string();
+	// a limit at or below the number already attempted in this run: no further minidump
+	config.maxMinidumps = 1;
+	Watchdog::DumpReport first = [&] {
+		Watchdog::Config unlimited = config;
+		unlimited.maxMinidumps = 0;
+		watchdog.configure(unlimited);
+		return watchdog.dump(Watchdog::Reason::STALL, "limit test, unlimited");
+	}();
+	EXPECT_FALSE(first.minidumpPath.empty()) << first.text;
+	watchdog.configure(config);
+	Watchdog::DumpReport limited = watchdog.dump(Watchdog::Reason::STALL, "limit test, limited");
+	watchdog.configure(testConfig());
+	EXPECT_TRUE(limited.minidumpPath.empty());
+	EXPECT_NE(limited.text.find("limit of 1 minidumps per run reached"), std::string::npos) << limited.text;
+	std::error_code error;
+	std::filesystem::remove_all(directory, error);
+}
+
+// Review finding (wave 3b-2): the STALL rate limit also suppressed the minidump of a confirmed deadlock, which is reported only once and may be
+// followed by quick_exit. DEADLOCK ignores minidumpMinInterval and the STALL budget, keeps one per check, and has its own budget.
+// (CTest runs every test in its own process: no DEADLOCK minidump was attempted before this test.)
+TEST(WatchdogTest, DeadlockMinidumpIsNotSuppressedByTheStallRateLimit) {
+	HangGuard guard(180s);
+	Watchdog& watchdog = Watchdog::getInstance();
+	Watchdog::Config config = testConfig();
+	config.writeMinidump = true;
+	config.minidumpMinInterval = 0ms;
+	config.maxMinidumps = 0;
+	std::filesystem::path directory = std::filesystem::temp_directory_path() / ("aion-watchdog-deadlock-" + std::to_string(aion::commons::utils::nanoTime()));
+	config.minidumpDirectory = directory.string();
+	watchdog.configure(config);
+	Watchdog::DumpReport stall = watchdog.dump(Watchdog::Reason::STALL, "an unrelated stall just before");
+	ASSERT_FALSE(stall.minidumpPath.empty()) << stall.text;
+
+	// within the interval, and the STALL budget of 1 is used up
+	config.minidumpMinInterval = 600'000ms;
+	config.maxMinidumps = 1;
+	watchdog.configure(config);
+	RecordingListener listener;
+	auto checkWithDump = [&](Watchdog::Reason reason, std::string summary) {
+		uint64_t probe = watchdog.addProbe("finding", [reason, summary](Watchdog& w, const std::vector<Watchdog::ThreadSnapshot>&) { w.dump(reason, summary); });
+		watchdog.checkNow();
+		watchdog.removeProbe(probe);
+		std::vector<Watchdog::DumpReport> reports = listener.of(reason);
+		return reports.empty() ? Watchdog::DumpReport{} : reports.back();
+	};
+	Watchdog::DumpReport deadlock = checkWithDump(Watchdog::Reason::DEADLOCK, "a confirmed deadlock in a later check");
+	ASSERT_EQ(listener.of(Watchdog::Reason::DEADLOCK).size(), 1u);
+	ASSERT_FALSE(deadlock.minidumpPath.empty()) << deadlock.text;
+	EXPECT_TRUE(std::filesystem::exists(deadlock.minidumpPath));
+
+	// a STALL in the next check is still rate limited
+	Watchdog::DumpReport laterStall = checkWithDump(Watchdog::Reason::STALL, "a stall in the next check");
+	EXPECT_TRUE(laterStall.minidumpPath.empty());
+	EXPECT_NE(laterStall.text.find("Minidump: skipped"), std::string::npos) << laterStall.text;
+
+	// the DEADLOCK budget of maxMinidumps = 1 is used up now
+	Watchdog::DumpReport secondDeadlock = checkWithDump(Watchdog::Reason::DEADLOCK, "another deadlock");
+	ASSERT_EQ(listener.of(Watchdog::Reason::DEADLOCK).size(), 2u);
+	EXPECT_TRUE(secondDeadlock.minidumpPath.empty());
+	EXPECT_NE(secondDeadlock.text.find("limit of 1 DEADLOCK minidumps per run reached"), std::string::npos) << secondDeadlock.text;
+	watchdog.configure(testConfig());
+	std::error_code error;
+	std::filesystem::remove_all(directory, error);
+}
+
+// Review finding (wave 3b-2): the text dump was logged only after the minidump writer returned (up to minidumpTimeout + 5 s), so a server killed
+// meanwhile lost it. The text is logged first, the minidump result in a second message.
+TEST(WatchdogTest, TextDumpIsLoggedBeforeTheMinidumpIsWritten) {
+	HangGuard guard(120s);
+	Watchdog& watchdog = Watchdog::getInstance();
+	Watchdog::Config config = testConfig();
+	config.writeMinidump = true;
+	config.minidumpMinInterval = 0ms;
+	config.maxMinidumps = 0;
+	config.minidumpTimeout = 4000ms;
+	config.minidumpHelperExecutable = utf8(MinidumpWriter::currentExecutable());
+	std::filesystem::path directory = std::filesystem::temp_directory_path() / ("aion-watchdog-order-" + std::to_string(aion::commons::utils::nanoTime()));
+	config.minidumpDirectory = directory.string();
+	watchdog.configure(config);
+	WatchdogLogCapture log;
+	SetEnvironmentVariableW(L"AION_MINIDUMP_TEST_HELPER_HANG", L"1"); // MinidumpWriterTest.cpp: the helper hangs until it is terminated
+	auto dumped = std::async(std::launch::async, [&watchdog] { return watchdog.dump(Watchdog::Reason::STALL, "order test"); });
+	bool loggedWhileWriting = false;
+	for (auto deadline = std::chrono::steady_clock::now() + 3500ms; std::chrono::steady_clock::now() < deadline;) {
+		if (log.find("Watchdog STALL: order test") >= 0) {
+			loggedWhileWriting = dumped.wait_for(0ms) != std::future_status::ready;
+			break;
+		}
+		std::this_thread::sleep_for(5ms);
+	}
+	Watchdog::DumpReport report = dumped.get();
+	SetEnvironmentVariableW(L"AION_MINIDUMP_TEST_HELPER_HANG", nullptr);
+	watchdog.configure(testConfig());
+	EXPECT_TRUE(loggedWhileWriting) << "the text dump is logged while the helper still runs";
+	EXPECT_TRUE(report.minidumpPath.empty());
+	int64_t text = log.find("Watchdog STALL: order test");
+	int64_t result = log.find("Watchdog STALL: Minidump: could not be written (helper process");
+	EXPECT_GE(text, 0);
+	EXPECT_GT(result, text) << "the minidump result follows in its own message";
+	EXPECT_NE(report.text.find("terminated"), std::string::npos) << "listeners see the text and the minidump line: " << report.text;
+	std::error_code error;
+	std::filesystem::remove_all(directory, error);
+}
+
+// Review finding (wave 3b-2): paths were converted with path::string(), which throws for characters outside the ANSI code page (and a UTF-8
+// directory was read in the ANSI code page), so the dump failed before its text was logged. The directory is UTF-8 and the path is reported as
+// UTF-8.
+TEST(WatchdogTest, MinidumpDirectoryOutsideTheAnsiCodePage) {
+	HangGuard guard(120s);
+	Watchdog& watchdog = Watchdog::getInstance();
+	Watchdog::Config config = testConfig();
+	config.writeMinidump = true;
+	config.minidumpMinInterval = 0ms;
+	config.maxMinidumps = 0;
+	std::filesystem::path directory = std::filesystem::temp_directory_path() /
+		(u8"aion-watchdog-\u65e5\u672c-\u0436-" + fromUtf8(std::to_string(aion::commons::utils::nanoTime())).u8string());
+	config.minidumpDirectory = utf8(directory);
+	watchdog.configure(config);
+	RecordingListener listener;
+	Watchdog::DumpReport report = watchdog.dump(Watchdog::Reason::STALL, "non-ANSI directory");
+	watchdog.configure(testConfig());
+	ASSERT_FALSE(report.minidumpPath.empty()) << report.text;
+	EXPECT_TRUE(std::filesystem::exists(fromUtf8(report.minidumpPath))) << report.minidumpPath;
+	EXPECT_EQ(fromUtf8(report.minidumpPath).parent_path(), directory);
+	EXPECT_NE(report.text.find(report.minidumpPath), std::string::npos);
+	EXPECT_EQ(listener.of(Watchdog::Reason::STALL).size(), 1u);
 	std::error_code error;
 	std::filesystem::remove_all(directory, error);
 }

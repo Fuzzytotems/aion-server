@@ -1,6 +1,5 @@
 #include "aion/gameserver/network/aion/serverpackets/SM_AFTER_SIEGE_LOCINFO_475.h"
 
-#include "aion/gameserver/runtime/base/Unported.h"
 #include "aion/gameserver/network/aion/ServerPacketsOpcodes.gen.h"
 
 namespace aion::gameserver::network::aion::serverpackets {
@@ -9,7 +8,8 @@ SM_AFTER_SIEGE_LOCINFO_475::SM_AFTER_SIEGE_LOCINFO_475() : AionServerPacket(opco
 }
 
 void SM_AFTER_SIEGE_LOCINFO_475::writeImpl(AionConnection* con) {
-	AION_UNPORTED();
+	writeH(0);
+	writeC(0);
 }
 
 } // namespace aion::gameserver::network::aion::serverpackets

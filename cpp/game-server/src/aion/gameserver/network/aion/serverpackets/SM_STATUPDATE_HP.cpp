@@ -1,6 +1,5 @@
 #include "aion/gameserver/network/aion/serverpackets/SM_STATUPDATE_HP.h"
 
-#include "aion/gameserver/runtime/base/Unported.h"
 #include "aion/gameserver/network/aion/ServerPacketsOpcodes.gen.h"
 
 namespace aion::gameserver::network::aion::serverpackets {
@@ -10,7 +9,8 @@ SM_STATUPDATE_HP::SM_STATUPDATE_HP(int32_t currentHpValue, int32_t maxHpValue)
 }
 
 void SM_STATUPDATE_HP::writeImpl(AionConnection* con) {
-	AION_UNPORTED();
+	writeD(currentHp);
+	writeD(maxHp);
 }
 
 } // namespace aion::gameserver::network::aion::serverpackets

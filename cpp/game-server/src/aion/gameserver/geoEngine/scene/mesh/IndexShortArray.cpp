@@ -22,8 +22,9 @@ runtime::Ref<IndexShortArray> IndexShortArray::create(runtime::Ref<runtime::Arra
 
 runtime::Ref<IndexShortArray> IndexShortArray::create(std::span<const int16_t> bufValue) {
 	runtime::Ref<runtime::Array<int16_t>> array = runtime::Array<int16_t>::make(static_cast<int32_t>(bufValue.size()));
+	runtime::Array<int16_t>& elements = *array; // one checked dereference, not one per element (performance)
 	for (size_t i = 0; i < bufValue.size(); ++i)
-		(*array)[static_cast<int32_t>(i)].set(bufValue[i]);
+		elements[static_cast<int32_t>(i)].set(bufValue[i]);
 	return create(std::move(array));
 }
 

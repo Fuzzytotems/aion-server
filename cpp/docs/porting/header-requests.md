@@ -116,3 +116,50 @@ elements of a STARTUP or SHUTDOWN caller keep that task kind, so the watchdog's 
 (its own `aion_gs_test_smoke` schema, geo data off, expects "World: 161 world maps created." and "M4 startup sequence complete"), and
 `tools/oracle/geo/m4.py` (`python -m geo m4-probes|m4-compare`, tests in `tests/test_geo_oracle.py`; `loader.py` records the material id of each
 material zone).
+
+## Wave 3b-2 (2026-09-15)
+
+The two requests of the packet lanes (sm-a P4-16 filed none, sm-b P4-17 two), the independent review of the M4 gate's accessors m4-1..m4-3
+(approved by the gate itself in wave 3b-1), and the integrator-owned change requests of the three lanes (listed after the table). No frozen
+declaration changed in this wave.
+
+| Id | File | Change | Decision | Reason |
+|---|---|---|---|---|
+| sm-b-1 | `network/aion/serverpackets/SM_SIEGE_LOCATION_INFO.h` (P4-17) | `locations` becomes `std::vector<std::pair<int32_t, runtime::Ref<model::siege::SiegeLocation>>>` (Java `LinkedHashMap`/`HashMap` order) | rejected | Not needed. Java's no-argument constructor stores a reference to the service's live map (`SiegeService.getSiegeLocations()`, SM_SIEGE_LOCATION_INFO.java:27-30), and `writeImpl` iterates that map when the packet is written; the C++ constructor leaves `locations` empty and `writeImpl` reads the service's map (`detail::getSiegeLocations()`) when the packet is serialized, which is what the stored reference observes. The one-location constructor has a single entry, so no order exists. A vector member gains nothing. The order of the type-0 packet is decided by the service's container, not by this header: `SiegeService.locations` (Java `Map`, assigned from `DataManager.SIEGE_LOCATION_DATA.getSiegeLocations()`, SiegeService.java:83) is a `runtime::HashMap`, whose shim happens to iterate in insertion order without guaranteeing it (`MapOrder::HASH`); if the holder's XML order has to be kept, the SiegeService owner (P5-12a) requests `runtime::LinkedHashMap` for that member. The lane's workaround and its P4-17 deviation row stay |
+| sm-b-2 | `serverpackets/SM_NEARBY_QUESTS.h`, `SM_RECIPE_LIST.h`, `SM_RECIPE_COOLDOWN.h`, `SM_TOWNS_LIST.h` (P4-17) | keep the `std::unordered_map`/`unordered_set` members and constructor parameters, or take the caller's insertion order (a vector of pairs) so Java's `HashMap` bucket order is reproduced for colliding keys | rejected (keep the declarations) | A vector member alone would not reproduce Java's order: the callers would also have to hand over Java's bucket order, which depends on the table capacity after removals (`RecipeList.removeRecipe`) and on the per-bucket insertion history, and the C++ caller containers (`runtime::HashMap`, `std::unordered_set`) do not keep it. The order of recipe ids, nearby quest markers, craft cooldowns and towns changes nothing in the client. Four frozen headers stay unchanged; `writeImpl` keeps `JavaHashMapOrder` over ascending keys (Java's order whenever no two keys share a bucket), and the P4-17 deviation row states it as an approximation (the reviewer's deviation-text finding goes to the packets fixer). hub-headers.md §14 still lists these packets as layout candidates, should a client-visible order ever turn up |
+| m4-1 | `geoEngine/GeoWorldLoader.h` (P4-04) | review of `static Statistics getLastLoadStatistics() noexcept;` and `static inline runtime::Field<Statistics> lastLoadStatistics{};` | approved (kept) | Needed: `GeoService.init` calls the Java overload `load(maps)`, which discards the statistics, and the M4 check reports the counts of that real path (M4 item 5). Additive, C++-only and documented in the class comment; `GeoWorldLoader` is a K5 static utility class, so the static member needs no `fieldmap.toml` decision (lint clean). `Field<Statistics>` is valid (`Statistics` is 12 `int32_t`, trivially copyable; `Field::get` is `noexcept`, so the `noexcept` accessor cannot throw), and the one write at the end of the load and later reads cannot tear. An out parameter or a second `GeoService` entry point would change the Java path instead. Added a test: `GeoWorldLoaderFilesTest.LoadsTerrainsMeshesAndPlacements` checks `getLastLoadStatistics()` against the returned statistics |
+| m4-2 | `geoEngine/GeoCallbacks.h` (P4-04) | review of `static void setMaterialZoneListener(MaterialZoneSink listener) noexcept;`, the private `materialZoneListener` field, and `createMaterialZone` notifying it before the sink | approved (kept) | Needed: the check mode must record the material zone names while `GeoService.init` installs its own sink (`GeoService.cpp:90`); replacing that sink in `main.cpp` would change the zones the server creates. A listener next to the sink keeps the Java path unchanged, reuses the `MaterialZoneSink` function-pointer type, and follows the class's thread-safety rule (captureless pointers in `Field`s, set before the load). `nullptr` removes it; `main.cpp` sets it only with `--check-static-data`. Added a test: the same geo test installs a listener and checks that it sees exactly the zones the sink creates (`TearDown` also resets it) |
+| m4-3 | `world/WorldMapInstance.h` (P4-10 hub) | review of `std::vector<const zone::ZoneName*> getZoneNames();` | approved (kept) | Needed: `zones` is private and Java has no accessor, and the M4 check compares the zone names of every map instance with the oracle's prediction (M4 item 6). Additive and hub-headers.md-conform: non-const like the other methods of a runtime-based class (§9.1), a newly built collection returned as `std::vector` (§7.1), interned names as `const ZoneName*` (§5), body a snapshot of `zones.keySet()` taken under the map's Monitor. Added a test: `WorldZonesTest.WorldCreatesTheMapsAndTheirInstances` checks the five zone names of Poeta's main instance |
+
+Change requests applied by the integrator:
+- `network/aion/AionConnection.cpp` (P4-15, from sm-a): `initialized()` serializes `serverpackets::SM_KEY` itself now that P4-16 ported its
+  `writeImpl` (`writeD(con->enableCryptKey())`, the same bytes); the private `ConnectionKeyPacket` stand-in and its `TODO(P4-16)` are gone (the
+  default packet name is also "SM_KEY"). The P4-15 deviation row `SM_KEY` is updated. `AionConnectionTest` (key exchange bytes) passes.
+- `tests/controllers/CreatureControllerTest.cpp` `OnDespawnCancelsTheDecayTaskAndStopsMovement` (P4-11b, from sm-a and sm-b): the stale
+  expectation. With `SM_MOVE` ported (P4-17), `abortMove` → `setAndSendStopMove` broadcasts to the sighted players and threw
+  `NullPointerException` on the test npc's empty known list part slot. The test now gives the npc a `NpcKnownList`, as Java's `SpawnEngine` does,
+  so `onDespawn` again ends with the `UnportedException` of `AggroList.clear` (P5-01) after the controller's own steps; all other assertions are
+  unchanged.
+- `model/geometry/RectangleArea.cpp`, `PolyArea.cpp` `getDistance3D(x, y, z)` (P4-05, from the runtime lane): outside the z range the closest
+  point is computed as values (`getClosestPoint2D(x, y)` and the nearer z bound, exactly the floats `AbstractArea::getClosestPoint(x, y, z)`
+  stores) instead of creating a `Ref<Point3D>` per call, which World creation did about 11.1 million times for Reshanta's 3D region and zone
+  tests. `getClosestPoint(x, y, z)` itself still returns the new `Point3D` (Java API). Tests: `AreaTest.RectangleArea` and `AreaTest.PolyArea`
+  compare `getDistance3D` below and above the z range with the distance to `getClosestPoint(x, y, z)`; `gs.m4.check_static_data` checks the
+  world zones against the oracle. No timing was measured here (the runtime fixer measures RelWithDebInfo).
+- `docs/design/runtime-architecture.md` §4.3 and the DEVIATIONS.md row "Deadlock detection" (from the runtime lane): the watchdog's snapshot
+  minidumps from a helper process with a timeout, the one-dump-per-check STALL report and the rate limit.
+- `gs.chunks.consistency` and the L14 warning in `world/WorldMap3DInstance.cpp` (from sm-a): the fresh configure of this stage records every test
+  file the lanes added (75 parts, 6,455 C++ files, 194 test files); `lint_concurrency.py --werror --cycles=core game-server/src` reports 3,394
+  files, 0 errors, 0 warnings (the runtime lane's own fix had already removed the warning).
+
+Not applied:
+- Merging `docs/deviations/P4-17.md` and `P4-02.md` into DEVIATIONS.md: the wave's close-out documentation stage merges all fragments
+  (as in wave 3b-1); only the "Deadlock detection" row the runtime lane named is updated here.
+- `RuntimeConfig::watchdogConfig` keys for `minidumpHelperExecutable`, `minidumpTimeout`, `minidumpMinInterval`, `maxMinidumps` (P4-01,
+  optional): the defaults are the design values (D5), the helper path is only a test seam, and a string key needs a `ConfigValue` plus the
+  runtime-architecture.md §10 table; left to P4-01 when an operator needs them.
+- The 61 C4702 (unreachable code after `AION_UNPORTED`) warnings of the RelWithDebInfo build in stub files of other chunks (`BaseService.cpp`,
+  `PeriodicInstanceManager.cpp`, `SM_LEGION_HISTORY.cpp`, `SM_MESSAGE.cpp`, `SM_PET.cpp`, ...): Debug, the gate configuration, is warning-free,
+  and the stubs disappear as their owners port the bodies (the packet stubs with the packets fixer, the rest in phase 5).
+- The local enum tables of the P4-16/P4-17 packets: replaced by the companion owners (P5-01, P5-02, P5-07, P5-10, P5-11, P5-12a, P5-13) when
+  the companion headers exist; nothing to apply before.

@@ -499,7 +499,15 @@ enum class LockRank : uint8_t { CONTAINER_SLOT = 10, CONNECTION_QUEUE = 20, SCHE
 
 - Each Monitor/RankedMutex wait records `{thread id, lock class name (copied), owner thread id (copied), waitStart}`. The watchdog never dereferences the lock object (RR-15).
 - A cycle in the wait graph → dump of threads, TaskInfo, held lock classes, `BlockingRegion`, stacks, minidump.
-- Slow-task warning past `ThreadConfig::MAXIMUM_RUNTIME_IN_MILLISEC_WITHOUT_WARNING`; dump past `gameserver.watchdog.stall_seconds` (60).
+- Slow-task warning past `ThreadConfig::MAXIMUM_RUNTIME_IN_MILLISEC_WITHOUT_WARNING`; dump past `gameserver.watchdog.stall_seconds` (60). All
+  tasks that stall in one check are reported in one STALL dump ("N stalled tasks:").
+- Minidumps (as built, wave 3b-2; docs/deviations/P4-02.md): written from a process snapshot (`PssCaptureSnapshot`, virtual address clone), so
+  the server's threads are suspended only while the kernel clones the address space, never while DbgHelp works. The writer is a helper process
+  (`aion_game_server --write-minidump <pid> <file>`, `runtime/sync/MinidumpWriter.h`) terminated after `Watchdog::Config::minidumpTimeout`
+  (30 s); an executable without the helper mode uses an in-process writer thread that is abandoned after the timeout. Rate limit: at most one
+  minidump per check, none within `minidumpMinInterval` (60 s) of the previous attempt, at most `maxMinidumps` (20) per run; the text dump of
+  all threads is always logged and names the minidump or why none was written. (An in-process `MiniDumpWriteDump` of the live process hung the
+  first M4 run after about 45 dumps.)
 - Exit with RESTART only if `gameserver.watchdog.restart_on_deadlock=true`. Disabled while `IsDebuggerPresent()`.
 
 ### 4.4 Relation to Java's graph

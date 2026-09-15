@@ -1,6 +1,5 @@
 #include "aion/gameserver/network/aion/serverpackets/SM_FORTRESS_INFO.h"
 
-#include "aion/gameserver/runtime/base/Unported.h"
 #include "aion/gameserver/network/aion/ServerPacketsOpcodes.gen.h"
 
 namespace aion::gameserver::network::aion::serverpackets {
@@ -10,7 +9,8 @@ SM_FORTRESS_INFO::SM_FORTRESS_INFO(int32_t locationIdValue, bool teleportStatusV
 }
 
 void SM_FORTRESS_INFO::writeImpl(AionConnection* con) {
-	AION_UNPORTED();
+	writeD(locationId);
+	writeC(teleportStatus ? 1 : 0);
 }
 
 } // namespace aion::gameserver::network::aion::serverpackets

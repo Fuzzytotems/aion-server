@@ -1,7 +1,9 @@
 #include "aion/gameserver/world/World.h"
 
+#include <algorithm>
 #include <exception>
 #include <string>
+#include <vector>
 
 #include "aion/commons/logging/LoggerFactory.h"
 #include "aion/gameserver/controllers/VisibleObjectController.h"
@@ -18,6 +20,8 @@
 #include "aion/gameserver/network/aion/AionConnection.h"
 #include "aion/gameserver/network/aion/serverpackets/SM_SYSTEM_MESSAGE.h"
 #include "aion/gameserver/runtime/base/Exceptions.h"
+#include "aion/gameserver/runtime/lifetime/TaskScope.h"
+#include "aion/gameserver/runtime/sched/ForkJoinPool.h"
 #include "aion/gameserver/runtime/sync/Monitor.h"
 #include "aion/gameserver/services/ShieldService.h"
 #include "aion/gameserver/utils/audit/AuditLogger.h"
@@ -25,6 +29,8 @@
 #include "aion/gameserver/world/MapRegion.h"
 #include "aion/gameserver/world/WorldMap.h"
 #include "aion/gameserver/world/WorldMapInstance.h"
+#include "aion/gameserver/world/WorldMapType.h"
+#include "aion/gameserver/world/WorldMapTypeInfo.h"
 #include "aion/gameserver/world/WorldPosition.h"
 #include "aion/gameserver/world/container/PlayerContainer.h"
 #include "aion/gameserver/dataholders/PlayerInitialData.h"
@@ -55,12 +61,43 @@ runtime::Exception stackTrace(const char* javaClass) {
 } // namespace
 
 World::World() : allPlayers(container::PlayerContainer::create()) {
-	dataholders::DataManager::WORLD_MAPS_DATA->forEachParalllel([this](const model::templates::world::WorldMapTemplate& worldMapTemplate) {
-		runtime::Ref<WorldMap> worldMap = WorldMap::create(&worldMapTemplate);
+	// Java: DataManager.WORLD_MAPS_DATA.forEachParalllel(...). Performance (M4, the same maps and puts): every map is created in its own task
+	// scope (PER_ELEMENT), so the Reclaimer frees what one map's creation retired (the Point3D of the 3D region/zone tests, replaced neighbour
+	// arrays) while the others are created. Each element opens a QuiescentScope (its frames hold no borrow) and the World creation opt-in, under
+	// which the long loops of WorldMap/WorldMap3DInstance place quiescent points. A caller that opened a QuiescentScope and the opt-in (main's
+	// world step) is unpublished before it waits; any other caller gets the same maps without quiescent points on its own thread.
+	auto createMap = [this](const model::templates::world::WorldMapTemplate* worldMapTemplate) {
+		runtime::Ref<WorldMap> worldMap = WorldMap::create(worldMapTemplate);
 		SYNCHRONIZED(worldMaps.monitor()) {
-			worldMaps.put(worldMapTemplate.getMapId(), worldMap);
+			worldMaps.put(worldMapTemplate->getMapId(), worldMap);
 		}
-	});
+	};
+	std::vector<const model::templates::world::WorldMapTemplate*> templates(dataholders::DataManager::WORLD_MAPS_DATA->begin(),
+		dataholders::DataManager::WORLD_MAPS_DATA->end());
+	bool quiescentCaller = runtime::QuiescentOptIn::active(runtime::QuiescentOptIn::WORLD_CREATION);
+	if (quiescentCaller && runtime::ForkJoinPool::commonPool().isParallelFromCurrentThread()) {
+		// the 3D map first, on this thread (WorldMapInstanceFactory: RESHANTA gets a WorldMap3DInstance): its region loop forks by itself, which
+		// an element on a ForkJoin helper could not
+		int32_t reshanta = getId(WorldMapType::RESHANTA);
+		auto first = std::find_if(templates.begin(), templates.end(), [reshanta](const auto* t) { return t->getMapId() == reshanta; });
+		if (first != templates.end()) {
+			// quiescent-safe: this frame holds template pointers only, the caller's QuiescentScope and opt-in vouch for the frames above
+			runtime::quiescentPoint();
+			createMap(*first);
+			templates.erase(first);
+		}
+	}
+	if (quiescentCaller)
+		runtime::quiescentPoint(); // quiescent-safe: as above; this thread only waits for the elements below
+	runtime::ForkJoinPool::commonPool().parallelForEach(
+		templates,
+		[&createMap](const model::templates::world::WorldMapTemplate* worldMapTemplate) {
+			// the element's own task scope on a helper (nested and serial elements run at depth 2, where the scope is inactive)
+			runtime::QuiescentScope quiescent; // quiescent-safe: the element's frames hold only the template pointer
+			runtime::QuiescentOptIn worldCreation(runtime::QuiescentOptIn::WORLD_CREATION); // vouches for WorldMap::create and below
+			createMap(worldMapTemplate);
+		},
+		runtime::Isolation::PER_ELEMENT);
 	services::ShieldService::getInstance().logDetachedShields();
 	log.info("World: " + std::to_string(worldMaps.size()) + " world maps created.");
 }

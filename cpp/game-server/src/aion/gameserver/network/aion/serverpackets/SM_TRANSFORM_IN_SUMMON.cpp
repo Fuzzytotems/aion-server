@@ -1,14 +1,13 @@
 #include "aion/gameserver/network/aion/serverpackets/SM_TRANSFORM_IN_SUMMON.h"
 
-#include "aion/gameserver/runtime/base/Unported.h"
+#include "aion/gameserver/model/gameobjects/Creature.h"
 #include "aion/gameserver/model/gameobjects/player/Player.h"
 #include "aion/gameserver/network/aion/ServerPacketsOpcodes.gen.h"
 
 namespace aion::gameserver::network::aion::serverpackets {
 
 SM_TRANSFORM_IN_SUMMON::SM_TRANSFORM_IN_SUMMON(model::gameobjects::player::Player& playerValue, model::gameobjects::Creature& creature)
-	: AionServerPacket(opcodeOf<SM_TRANSFORM_IN_SUMMON>) {
-	AION_UNPORTED();
+	: SM_TRANSFORM_IN_SUMMON(playerValue, creature.getObjectId()) {
 }
 
 SM_TRANSFORM_IN_SUMMON::SM_TRANSFORM_IN_SUMMON(model::gameobjects::player::Player& playerValue, int32_t creatureObjectId)
@@ -18,7 +17,9 @@ SM_TRANSFORM_IN_SUMMON::SM_TRANSFORM_IN_SUMMON(model::gameobjects::player::Playe
 SM_TRANSFORM_IN_SUMMON::~SM_TRANSFORM_IN_SUMMON() = default;
 
 void SM_TRANSFORM_IN_SUMMON::writeImpl(AionConnection* con) {
-	AION_UNPORTED();
+	writeD(summonObject);
+	writeS(player->getName());
+	writeD(player->getObjectId());
 }
 
 } // namespace aion::gameserver::network::aion::serverpackets

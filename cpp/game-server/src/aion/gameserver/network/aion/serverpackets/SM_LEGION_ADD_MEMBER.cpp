@@ -1,8 +1,13 @@
 #include "aion/gameserver/network/aion/serverpackets/SM_LEGION_ADD_MEMBER.h"
 
-#include "aion/gameserver/runtime/base/Unported.h"
+#include "aion/gameserver/configs/network/NetworkConfig.h"
+#include "aion/gameserver/model/PlayerClassInfo.h"
 #include "aion/gameserver/model/gameobjects/player/Player.h"
+#include "aion/gameserver/model/gameobjects/player/PlayerCommonData.h"
+#include "aion/gameserver/model/team/legion/LegionMember.h"
 #include "aion/gameserver/network/aion/ServerPacketsOpcodes.gen.h"
+#include "aion/gameserver/network/aion/serverpackets/detail/PacketSupport.h"
+#include "aion/gameserver/world/WorldPosition.h"
 
 namespace aion::gameserver::network::aion::serverpackets {
 
@@ -14,7 +19,16 @@ SM_LEGION_ADD_MEMBER::SM_LEGION_ADD_MEMBER(model::gameobjects::player::Player& p
 SM_LEGION_ADD_MEMBER::~SM_LEGION_ADD_MEMBER() = default;
 
 void SM_LEGION_ADD_MEMBER::writeImpl(AionConnection* con) {
-	AION_UNPORTED();
+	writeD(player->getObjectId());
+	writeS(player->getName());
+	writeC(detail::legionRankId(player->getLegionMember()->getRank()));
+	writeC(isMember ? 0x01 : 0x00); // is New Member?
+	writeC(model::getClassId(player->getCommonData()->getPlayerClass()));
+	writeC(player->getLevel());
+	writeD(player->getPosition()->getMapId());
+	writeD(configs::network::NetworkConfig::GAMESERVER_ID.load()); // TODO: add to account model?
+	writeD(msgId);
+	writeS(text);
 }
 
 } // namespace aion::gameserver::network::aion::serverpackets

@@ -1,6 +1,5 @@
 #include "aion/gameserver/network/aion/serverpackets/SM_RESTORE_CHARACTER.h"
 
-#include "aion/gameserver/runtime/base/Unported.h"
 #include "aion/gameserver/network/aion/ServerPacketsOpcodes.gen.h"
 
 namespace aion::gameserver::network::aion::serverpackets {
@@ -10,7 +9,8 @@ SM_RESTORE_CHARACTER::SM_RESTORE_CHARACTER(int32_t chaOidValue, bool successValu
 }
 
 void SM_RESTORE_CHARACTER::writeImpl(AionConnection* con) {
-	AION_UNPORTED();
+	writeD(success ? 0x00 : 0x10); // unk
+	writeD(chaOid);
 }
 
 } // namespace aion::gameserver::network::aion::serverpackets

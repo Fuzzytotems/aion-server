@@ -276,21 +276,25 @@ if(AION_BUILD_TESTS)
 	set_tests_properties(gs.smoke.startup PROPERTIES LABELS "smoke;realdata" TIMEOUT 240 SKIP_REGULAR_EXPRESSION "gs\\.smoke\\.startup: skipped"
 		RESOURCE_LOCK aion_game_server_log)
 
-	# M4 gate (handlers-and-porting-plan.md §2.7, cmake/RunM4Check.cmake): aion_game_server --check-static-data against a fresh aion_gs_test_m4
+	# M4 gate (handlers-and-porting-plan.md §2.7, cmake/RunM4Check.cmake): aion_game_server --check-static-data against a fresh aion_gs_test_m4_<hash>
 	# schema (IDFactory from the empty schema, then from fixture rows), then tools/oracle compare-counts and the geo/world comparison. Skipped
-	# without AION_TEST_GS_DATABASE_URL like gs.smoke.startup; needs Python for the oracles.
+	# without AION_TEST_GS_DATABASE_URL like gs.smoke.startup, and without Python (needed by the oracles).
 	add_executable(aion_gs_m4_database "${GS_TESTS}/m4/M4Database.cpp")
 	target_include_directories(aion_gs_m4_database PRIVATE "${GS_TESTS}/dao")
 	target_link_libraries(aion_gs_m4_database PRIVATE aion_commons_database aion_gs_build_options aion::compiler_options)
 	set_target_properties(aion_gs_m4_database PROPERTIES FOLDER "tests" CXX_SCAN_FOR_MODULES OFF)
+	# registered without Python too: RunM4Check.cmake then reports "skipped (no Python 3 ...)" instead of the test silently missing
 	if(Python3_Interpreter_FOUND)
-		add_test(NAME gs.m4.check_static_data
-			COMMAND "${CMAKE_COMMAND}" "-DEXECUTABLE=$<TARGET_FILE:aion_game_server>" "-DDATABASE_TOOL=$<TARGET_FILE:aion_gs_m4_database>"
-				"-DWORKING_DIRECTORY=${GS_JAVA_DIR}" "-DPYTHON=${Python3_EXECUTABLE}" "-DORACLE_DIR=${CMAKE_SOURCE_DIR}/tools/oracle"
-				"-DOUTPUT_DIR=${CMAKE_CURRENT_BINARY_DIR}/m4/$<CONFIG>" -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/RunM4Check.cmake")
-		set_tests_properties(gs.m4.check_static_data PROPERTIES LABELS "m4;oracle;realdata" TIMEOUT 1500
-			SKIP_REGULAR_EXPRESSION "gs\\.m4\\.check_static_data: skipped" RESOURCE_LOCK aion_game_server_log)
+		set(gs_m4_python "${Python3_EXECUTABLE}")
+	else()
+		set(gs_m4_python NOTFOUND)
 	endif()
+	add_test(NAME gs.m4.check_static_data
+		COMMAND "${CMAKE_COMMAND}" "-DEXECUTABLE=$<TARGET_FILE:aion_game_server>" "-DDATABASE_TOOL=$<TARGET_FILE:aion_gs_m4_database>"
+			"-DWORKING_DIRECTORY=${GS_JAVA_DIR}" "-DPYTHON=${gs_m4_python}" "-DORACLE_DIR=${CMAKE_SOURCE_DIR}/tools/oracle"
+			"-DOUTPUT_DIR=${CMAKE_CURRENT_BINARY_DIR}/m4/$<CONFIG>" -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/RunM4Check.cmake")
+	set_tests_properties(gs.m4.check_static_data PROPERTIES LABELS "m4;oracle;realdata" TIMEOUT 1500
+		SKIP_REGULAR_EXPRESSION "gs\\.m4\\.check_static_data: skipped" RESOURCE_LOCK aion_game_server_log)
 
 	# the configure-time empty registry tables (linked by the unit tests) equal the tool's
 	list(JOIN AION_GS_REGISTRY_NAMES "," gs_registry_names)

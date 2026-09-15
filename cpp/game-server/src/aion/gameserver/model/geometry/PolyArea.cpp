@@ -5,7 +5,6 @@
 #include <vector>
 
 #include "aion/gameserver/configs/main/WorldConfig.h"
-#include "aion/gameserver/model/geometry/Point3D.h"
 #include "aion/gameserver/model/geometry/Polygon2D.h"
 #include "aion/gameserver/model/geometry/RectangleArea.h"
 #include "aion/gameserver/model/templates/zone/Point2D.h"
@@ -53,8 +52,11 @@ double PolyArea::getDistance3D(float x, float y, float z) {
 		return 0;
 	if (isInsideZ(z))
 		return getDistance2D(x, y);
-	runtime::Ref<Point3D> cp = getClosestPoint(x, y, z);
-	return utils::PositionUtil::getDistance(cp->getX(), cp->getY(), cp->getZ(), x, y, z);
+	// Java: Point3D cp = getClosestPoint(x, y, z). C++: its coordinates as values (z is outside [minZ, maxZ] here, so it is clamped to the
+	// nearer bound), without a RefCounted Point3D per call (as RectangleArea::getDistance3D)
+	templates::zone::Point2D cp = getClosestPoint2D(x, y);
+	float cpZ = z < getMinZ() ? getMinZ() : getMaxZ();
+	return utils::PositionUtil::getDistance(cp.getX(), cp.getY(), cpZ, x, y, z);
 }
 
 std::optional<templates::zone::Point2D> PolyArea::getClosestPoint(float x, float y) {

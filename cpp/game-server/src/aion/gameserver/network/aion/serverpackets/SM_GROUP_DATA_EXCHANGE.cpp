@@ -1,6 +1,5 @@
 #include "aion/gameserver/network/aion/serverpackets/SM_GROUP_DATA_EXCHANGE.h"
 
-#include "aion/gameserver/runtime/base/Unported.h"
 #include "aion/gameserver/network/aion/ServerPacketsOpcodes.gen.h"
 
 namespace aion::gameserver::network::aion::serverpackets {
@@ -18,7 +17,11 @@ SM_GROUP_DATA_EXCHANGE::SM_GROUP_DATA_EXCHANGE(std::span<const uint8_t> byteData
 }
 
 void SM_GROUP_DATA_EXCHANGE::writeImpl(AionConnection* con) {
-	AION_UNPORTED();
+	writeC(action); // action
+	if (action != 1)
+		writeC(unk2); // unk
+	writeD(static_cast<int32_t>(byteData.size()));
+	writeB(std::span<const uint8_t>(reinterpret_cast<const uint8_t*>(byteData.data()), byteData.size()));
 }
 
 } // namespace aion::gameserver::network::aion::serverpackets

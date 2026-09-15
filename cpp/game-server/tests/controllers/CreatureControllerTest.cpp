@@ -22,6 +22,7 @@
 #include "aion/gameserver/model/TaskId.h"
 #include "aion/gameserver/model/templates/materials/MaterialSkill.bind.h"
 #include "aion/gameserver/runtime/sched/Future.h"
+#include "aion/gameserver/world/knownlist/NpcKnownList.h"
 
 namespace aion::gameserver::controllers::testing {
 namespace {
@@ -206,14 +207,17 @@ TEST_F(CreatureControllerTest, OnDeleteCancelsTasksAndBreaksObserverAndTargetEdg
 TEST_F(CreatureControllerTest, OnDespawnCancelsTheDecayTaskAndStopsMovement) {
 	CONTROLLERS_TEST_SCOPE;
 	Ref<ControllersTestNpc> npc = createNpc();
+	// Java: SpawnEngine gives every spawned npc a NpcKnownList; abortMove broadcasts SM_MOVE to the (here empty) sighted players
+	npc->setKnownlist(std::make_unique<world::knownlist::NpcKnownList>(*npc));
 	FutureRef decay = scheduleCountingTask(1000);
 	FutureRef other = scheduleCountingTask(1000);
 	npc->getController().addTask(TaskId::DECAY, decay);
 	npc->getController().addTask(TaskId::SHOUT, other);
 	ASSERT_TRUE(npc->getMoveController()->moveToPoint(1.0f, 2.0f, 3.0f));
 
-	// CreatureController.onDespawn: actor, cancelTask(DECAY), moveController.abortMove(), aggroList.clear(). The last step is AggroList.clear
-	// of P5-01, still unported, so the call ends with its UnportedException after the controller's own steps.
+	// CreatureController.onDespawn: actor, cancelTask(DECAY), moveController.abortMove() (resetMove, then SM_MOVE through
+	// setAndSendStopMove), aggroList.clear(). The last step is AggroList.clear of P5-01, still unported, so the call ends with its
+	// UnportedException after the controller's own steps.
 	EXPECT_THROW(npc->recordingController().despawnAsCreature(), runtime::UnportedException);
 	EXPECT_TRUE(decay->isCancelled());
 	EXPECT_FALSE(npc->getController().hasTask(TaskId::DECAY));

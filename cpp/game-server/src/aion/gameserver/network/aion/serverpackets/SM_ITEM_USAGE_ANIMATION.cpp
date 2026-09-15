@@ -1,6 +1,5 @@
 #include "aion/gameserver/network/aion/serverpackets/SM_ITEM_USAGE_ANIMATION.h"
 
-#include "aion/gameserver/runtime/base/Unported.h"
 #include "aion/gameserver/network/aion/ServerPacketsOpcodes.gen.h"
 
 namespace aion::gameserver::network::aion::serverpackets {
@@ -35,7 +34,16 @@ SM_ITEM_USAGE_ANIMATION::SM_ITEM_USAGE_ANIMATION(int32_t playerObjIdValue, int32
 }
 
 void SM_ITEM_USAGE_ANIMATION::writeImpl(AionConnection* con) {
-	AION_UNPORTED();
+	writeD(playerObjId); // player obj id
+	writeD(targetObjId); // target obj id
+	writeD(itemObjId); // itemObjId
+	writeD(itemId); // item id
+	writeD(time); // unk
+	writeC(end); // unk
+	writeC(unk); // unk
+	writeC(unk1);
+	writeC(unk2); // unk
+	writeD(unk3); // mb cd?
 }
 
 } // namespace aion::gameserver::network::aion::serverpackets

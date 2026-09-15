@@ -55,6 +55,7 @@
 #include "aion/gameserver/runtime/sync/LockClass.h"
 #include "aion/gameserver/runtime/sync/LockOrderValidator.h"
 #include "aion/gameserver/runtime/sync/LockRank.h"
+#include "aion/gameserver/runtime/sync/MinidumpWriter.h"
 #include "aion/gameserver/runtime/sync/Monitor.h"
 #include "aion/gameserver/runtime/sync/RankedMutex.h"
 #include "aion/gameserver/runtime/sync/Semaphore.h"

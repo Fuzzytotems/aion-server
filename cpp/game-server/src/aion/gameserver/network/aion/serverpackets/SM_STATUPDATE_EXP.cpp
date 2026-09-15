@@ -1,6 +1,5 @@
 #include "aion/gameserver/network/aion/serverpackets/SM_STATUPDATE_EXP.h"
 
-#include "aion/gameserver/runtime/base/Unported.h"
 #include "aion/gameserver/network/aion/ServerPacketsOpcodes.gen.h"
 
 namespace aion::gameserver::network::aion::serverpackets {
@@ -11,7 +10,11 @@ SM_STATUPDATE_EXP::SM_STATUPDATE_EXP(int64_t currentExpValue, int64_t recoverabl
 }
 
 void SM_STATUPDATE_EXP::writeImpl(AionConnection* con) {
-	AION_UNPORTED();
+	writeQ(currentExp);
+	writeQ(recoverableExp);
+	writeQ(maxExp);
+	writeQ(curBoostExp);
+	writeQ(maxBoostExp);
 }
 
 } // namespace aion::gameserver::network::aion::serverpackets

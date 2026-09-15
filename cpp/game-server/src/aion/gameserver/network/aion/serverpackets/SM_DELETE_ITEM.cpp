@@ -1,7 +1,7 @@
 #include "aion/gameserver/network/aion/serverpackets/SM_DELETE_ITEM.h"
 
-#include "aion/gameserver/runtime/base/Unported.h"
 #include "aion/gameserver/network/aion/ServerPacketsOpcodes.gen.h"
+#include "aion/gameserver/network/aion/serverpackets/detail/PacketSupport.h"
 #include "aion/gameserver/services/item/ItemPacketService_ItemDeleteType.h"
 
 namespace aion::gameserver::network::aion::serverpackets {
@@ -15,7 +15,8 @@ SM_DELETE_ITEM::SM_DELETE_ITEM(int32_t itemObjectIdValue, services::item::ItemPa
 }
 
 void SM_DELETE_ITEM::writeImpl(AionConnection* con) {
-	AION_UNPORTED();
+	writeD(itemObjectId);
+	writeC(detail::itemDeleteTypeMask(deleteType));
 }
 
 } // namespace aion::gameserver::network::aion::serverpackets

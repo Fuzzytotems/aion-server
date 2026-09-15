@@ -1,6 +1,5 @@
 #include "aion/gameserver/network/aion/serverpackets/SM_SKILL_CANCEL.h"
 
-#include "aion/gameserver/runtime/base/Unported.h"
 #include "aion/gameserver/model/gameobjects/Creature.h"
 #include "aion/gameserver/network/aion/ServerPacketsOpcodes.gen.h"
 
@@ -13,7 +12,8 @@ SM_SKILL_CANCEL::SM_SKILL_CANCEL(model::gameobjects::Creature& creatureValue, in
 SM_SKILL_CANCEL::~SM_SKILL_CANCEL() = default;
 
 void SM_SKILL_CANCEL::writeImpl(AionConnection* con) {
-	AION_UNPORTED();
+	writeD(creature->getObjectId());
+	writeH(skillId);
 }
 
 } // namespace aion::gameserver::network::aion::serverpackets
