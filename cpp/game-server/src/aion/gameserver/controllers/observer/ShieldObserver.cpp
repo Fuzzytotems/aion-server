@@ -1,21 +1,44 @@
 #include "aion/gameserver/controllers/observer/ShieldObserver.h"
 
-#include "aion/gameserver/runtime/base/Unported.h"
+#include "aion/gameserver/controllers/movement/PlayerMoveController.h"
+#include "aion/gameserver/controllers/observer/CollisionDieActor.h"
+#include "aion/gameserver/controllers/observer/ObserverType.h"
 #include "aion/gameserver/model/gameobjects/Creature.h"
+#include "aion/gameserver/model/gameobjects/player/Player.h"
 #include "aion/gameserver/model/geometry/Point3D.h"
 #include "aion/gameserver/model/siege/FortressLocation.h"
+#include "aion/gameserver/model/templates/shield/ShieldPoint.h"
 #include "aion/gameserver/model/templates/shield/ShieldTemplate.h"
+#include "aion/gameserver/runtime/sync/Monitor.h"
+#include "aion/gameserver/utils/PositionUtil.h"
+#include "aion/gameserver/world/WorldPosition.h"
 
 namespace aion::gameserver::controllers::observer {
 
+using model::gameobjects::Creature;
+using model::gameobjects::player::Player;
+using runtime::Ptr;
+using runtime::Ref;
+using utils::PositionUtil;
+
+namespace {
+
+/** Java constructor: oldPosition = the player's last position from the client if known, else the creature's position */
+Ref<model::geometry::Point3D> initialPosition(Creature& creature) {
+	Ptr<world::WorldPosition> lastPos;
+	if (Ptr<Player> player = runtime::as<Player>(creature); player && (lastPos = player->getMoveController()->getLastPositionFromClient())) {
+		return model::geometry::Point3D::create(lastPos->getX(), lastPos->getY(), lastPos->getZ());
+	} else {
+		return model::geometry::Point3D::create(creature.getX(), creature.getY(), creature.getZ());
+	}
+}
+
+} // namespace
+
 ShieldObserver::ShieldObserver(model::siege::FortressLocation& value, const model::templates::shield::ShieldTemplate* shieldValue,
 	model::gameobjects::Creature& creatureValue)
-	: ActionObserver(ObserverType{}), location(runtime::Ref<model::siege::FortressLocation>(value)),
-	  creature(runtime::Ref<model::gameobjects::Creature>(creatureValue)), shield(shieldValue), oldPosition() {
-	// Java: super(ObserverType.MOVE); WorldPosition lastPos; if (creature instanceof Player player && (lastPos =
-	// player.getMoveController().getLastPositionFromClient()) != null) { this.oldPosition = new Point3D(lastPos.getX(), lastPos.getY(),
-	// lastPos.getZ()); } else { this.oldPosition = new Point3D(creature.getX(), creature.getY(), creature.getZ()); }; super(...) arguments
-	AION_UNPORTED();
+	: ActionObserver(ObserverType::MOVE), location(Ref<model::siege::FortressLocation>(value)), creature(Ref<Creature>(creatureValue)),
+	  shield(shieldValue), oldPosition(initialPosition(creatureValue)) {
 }
 
 runtime::Ref<ShieldObserver> ShieldObserver::create(model::siege::FortressLocation& value,
@@ -25,7 +48,25 @@ runtime::Ref<ShieldObserver> ShieldObserver::create(model::siege::FortressLocati
 }
 
 void ShieldObserver::moved() {
-	AION_UNPORTED();
+	const model::templates::shield::ShieldPoint* shieldCenter = shield->getCenter();
+	bool passedThrough = false;
+	// only collide with upper half of sphere
+	if (location->isUnderShield() && !(creature->getZ() < shieldCenter->getZ() && oldPosition->getZ() < shieldCenter->getZ())) {
+		bool wasInside = PositionUtil::isInRange(oldPosition->getX(), oldPosition->getY(), oldPosition->getZ(), shieldCenter->getX(), shieldCenter->getY(),
+			shieldCenter->getZ(), shield->getRadius());
+		bool isInside = PositionUtil::isInRange(*creature, shieldCenter->getX(), shieldCenter->getY(), shieldCenter->getZ(), shield->getRadius());
+		passedThrough = wasInside != isInside;
+	}
+
+	if (passedThrough) {
+		CollisionDieActor::kill(*creature);
+	} else {
+		SYNCHRONIZED(*oldPosition) {
+			oldPosition->setX(creature->getX());
+			oldPosition->setY(creature->getY());
+			oldPosition->setZ(creature->getZ());
+		}
+	}
 }
 
 ShieldObserver::~ShieldObserver() = default;

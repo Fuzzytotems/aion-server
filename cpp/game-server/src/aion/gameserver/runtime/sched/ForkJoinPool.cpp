@@ -7,6 +7,7 @@
 #include <list>
 #include <mutex>
 #include <optional>
+#include <string_view>
 #include <thread>
 #include <vector>
 
@@ -169,9 +170,18 @@ void ForkJoinPool::shutdown() {
 	helpers.clear(); // joins; helpers finish the jobs they joined, callers finish the rest themselves
 }
 
-void ForkJoinPool::runIndexed(size_t count, void (*body)(void* context, size_t index), void* context, bool perElement, const TaskInfo& info) {
+void ForkJoinPool::runIndexed(size_t count, void (*body)(void* context, size_t index), void* context, bool perElement, const TaskInfo& requested) {
 	if (count == 0)
 		return;
+	// The elements of a startup or shutdown phase keep the phase's task kind (M4 gate): the watchdog exempts those phases from STALL dumps
+	// (Watchdog::Config::stallExemptKinds, "DataManager/Geo startup phases"), and one element of a startup load can run longer than the 60 s
+	// stall limit (a terrain PNG decoded by GeoWorldLoader in a Debug build). Other callers' elements run as TaskKind::FORK_JOIN.
+	TaskInfo info = requested;
+	if (TaskScope::active()) {
+		std::string_view callerKind = TaskScope::currentTaskInfo().kind;
+		if (callerKind == TaskKind::STARTUP || callerKind == TaskKind::SHUTDOWN)
+			info.kind = callerKind == TaskKind::STARTUP ? TaskKind::STARTUP : TaskKind::SHUTDOWN;
+	}
 	PoolState& state = poolState();
 	auto runSerially = [&](Job& job) {
 		for (size_t index = job.next.fetch_add(1, std::memory_order_acq_rel); index < count; index = job.next.fetch_add(1, std::memory_order_acq_rel)) {

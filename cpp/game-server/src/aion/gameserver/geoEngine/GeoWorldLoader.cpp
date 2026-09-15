@@ -130,6 +130,7 @@ GeoWorldLoader::Statistics GeoWorldLoader::load(const std::vector<runtime::Ptr<m
 	}
 	runtime::ForkJoinPool::commonPool().parallelForEach(meshes, [](runtime::Ref<scene::Mesh>& mesh) { mesh->createCollisionData(); });
 	statistics.collisionTrees = static_cast<int32_t>(meshes.size());
+	lastLoadStatistics.set(statistics);
 	return statistics;
 }
 

@@ -16,8 +16,7 @@ namespace aion::gameserver::controllers::observer {
  * Applies the skills of the terrain material the creature stands on.
  * <p>
  * S0c declaration header (docs/design/hub-headers.md §3.5): the member type of `CreatureController::actor`. RefCounted ActionObserver
- * (fieldmap K4), created with create(creature). The constructor passes CollisionIntention.MATERIAL.getId() (the enum companion does not exist
- * yet) and its base constructor reads the creature's position, so it stays unported.
+ * (fieldmap K4), created with create(creature).
  */
 class TerrainZoneCollisionMaterialActor : public AbstractMaterialSkillActor {
 	AION_MAKE_REF_FRIEND

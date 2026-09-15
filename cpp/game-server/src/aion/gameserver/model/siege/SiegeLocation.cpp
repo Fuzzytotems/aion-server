@@ -1,5 +1,8 @@
 #include "aion/gameserver/model/siege/SiegeLocation.h"
 
+#include <string>
+
+#include "aion/gameserver/runtime/base/Exceptions.h"
 #include "aion/gameserver/runtime/base/Unported.h"
 #include "aion/gameserver/model/gameobjects/Creature.h"
 #include "aion/gameserver/model/gameobjects/player/Player.h"
@@ -17,15 +20,18 @@ runtime::Ref<SiegeLocation> SiegeLocation::create(const templates::siegelocation
 }
 
 int32_t SiegeLocation::getLocationId() {
-	AION_UNPORTED();
+	return template_->getId();
 }
 
 int32_t SiegeLocation::getWorldId() {
-	AION_UNPORTED();
+	return template_->getWorldId();
 }
 
 SiegeType SiegeLocation::getType() {
-	AION_UNPORTED();
+	// Java returns the template's nullable type; every siege_location of the data has one (a null would be a C++ NullPointerException here)
+	if (!template_->getType())
+		throw runtime::NullPointerException("SiegeLocationTemplate.getType() is null for location " + std::to_string(template_->getId()));
+	return *template_->getType();
 }
 
 int32_t SiegeLocation::getSiegeDuration() {
@@ -57,15 +63,26 @@ int32_t SiegeLocation::getInfluenceValue() {
 }
 
 void SiegeLocation::addZone(world::zone::SiegeZoneInstance& zone) {
-	AION_UNPORTED();
+	zones.add(runtime::Ref<world::zone::SiegeZoneInstance>(zone));
+	zone.addHandler(*this);
 }
 
 bool SiegeLocation::isInsideLocation(gameobjects::Creature& creature) {
-	AION_UNPORTED();
+	if (zones.isEmpty())
+		return false;
+	for (runtime::Ptr<world::zone::SiegeZoneInstance> zone : zones)
+		if (zone->isInsideCreature(creature))
+			return true;
+	return false;
 }
 
 bool SiegeLocation::isInsideLocation(float x, float y, float z) {
-	AION_UNPORTED();
+	if (zones.isEmpty())
+		return false;
+	for (runtime::Ptr<world::zone::SiegeZoneInstance> zone : zones)
+		if (zone->isInsideCordinate(x, y, z))
+			return true;
+	return false;
 }
 
 void SiegeLocation::clearLocation() {

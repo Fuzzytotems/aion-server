@@ -370,6 +370,11 @@ TEST_F(GameObjectsModelTest, BrokerItemCopiesTheItemAndTruncatesTheExpireTime) {
 	EXPECT_FALSE(loaded->isSettled());
 	loaded->setSettled();
 	EXPECT_TRUE(loaded->isSettled());
+	// BrokerDAO.loadBroker passes a null item for sold entries (header request dao-3)
+	Ref<BrokerItem> soldEntry = BrokerItem::create(nullptr, 152000001, 6002, 1, "", 4000, 77, broker::BrokerRace::ELYOS, true, false,
+		commons::database::Timestamp(std::chrono::milliseconds(1000)), commons::database::Timestamp(std::chrono::milliseconds(5)), false);
+	EXPECT_FALSE(soldEntry->getItem());
+	EXPECT_EQ(soldEntry->getItemUniqueId(), 6002);
 	EXPECT_THROW(static_cast<void>(BrokerItem::create(*item, 1, 1, 1, "", 1, 1, broker::BrokerRace::ELYOS, false, false, std::nullopt, std::nullopt,
 					 false)),
 		runtime::NullPointerException)

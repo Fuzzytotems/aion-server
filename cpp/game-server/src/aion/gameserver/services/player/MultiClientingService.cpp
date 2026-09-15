@@ -2,6 +2,7 @@
 
 #include "aion/gameserver/runtime/base/Unported.h"
 #include "aion/commons/logging/LoggerFactory.h"
+#include "aion/commons/utils/StringUtils.h"
 
 namespace aion::gameserver::services::player {
 
@@ -58,8 +59,16 @@ bool MultiClientingService::Identifiers::equals(const Identifiers& obj) const {
 }
 
 int32_t MultiClientingService::Identifiers::hashCode() const {
-	// Java: String.hashCode/Enum identity hash of the components; ported with the first hash collection that holds the record
-	AION_UNPORTED();
+	// Java record hashCode (java.lang.runtime.ObjectMethods): 31 * h + hash(component); String.hashCode over the UTF-16 code units
+	const auto stringHash = [](const std::string& value) {
+		uint32_t hash = 0;
+		for (char16_t c : commons::utils::StringUtils::toUtf16(value))
+			hash = 31 * hash + c;
+		return hash;
+	};
+	uint32_t h = stringHash(ip_);
+	h = 31 * h + stringHash(mac_);
+	return static_cast<int32_t>(h);
 }
 
 MultiClientingService::Identifiers::~Identifiers() = default;

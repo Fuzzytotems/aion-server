@@ -36,7 +36,7 @@ private:
 public:
 	std::string name() const { return _name; }
 
-	int32_t id();
+	int32_t id() const;
 
 	static const ZoneName* createOrGet(std::string_view name);
 
@@ -44,7 +44,7 @@ public:
 
 	static const ZoneName* get(std::string_view name);
 
-	std::string toString() { return _name; }
+	std::string toString() const { return _name; }
 };
 
 } // namespace aion::gameserver::world::zone

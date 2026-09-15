@@ -20,9 +20,8 @@ namespace aion::gameserver::controllers::observer {
  * Checks on every move of the creature whether it touches or passes a geometry and reports the collisions to onMoved.
  * <p>
  * S0c declaration header (docs/design/hub-headers.md §3.5): the base of the material and collision actors. RefCounted ActionObserver
- * (fieldmap K4). The move check task (Java anonymous Runnable, fieldmap `AbstractCollisionObserver_Runnable`) is a callback struct in the .cpp
- * once moved() is ported. geometry is null for TerrainZoneCollisionMaterialActor. The constructor reads the creature's (last client) position,
- * so it stays unported.
+ * (fieldmap K4). The move check task (Java anonymous Runnable, fieldmap `AbstractCollisionObserver_Runnable`, capturing only `this`) is a
+ * lambda pinned to the observer. geometry is null for TerrainZoneCollisionMaterialActor, which overrides moved().
  *
  * @author MrPoke
  * @author Rolandas (moved)

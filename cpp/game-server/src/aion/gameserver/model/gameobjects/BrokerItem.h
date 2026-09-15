@@ -84,12 +84,13 @@ public:
 		broker::BrokerRace itemBrokerRaceValue);
 
 protected:
-	BrokerItem(Item& item, int32_t itemId, int32_t itemUniqueId, int64_t itemCount, std::string_view itemCreator, int64_t price, int32_t sellerId,
+	/** Loading constructor (BrokerDAO.loadBroker): item is null for sold entries and for entries whose item row is missing */
+	BrokerItem(runtime::Ptr<Item> item, int32_t itemId, int32_t itemUniqueId, int64_t itemCount, std::string_view itemCreator, int64_t price, int32_t sellerId,
 		broker::BrokerRace itemBrokerRace, bool isSold, bool isSettled, std::optional<commons::database::Timestamp> expireTime,
 		std::optional<commons::database::Timestamp> settleTime, bool splittingAvailable);
 
 public:
-	static runtime::Ref<BrokerItem> create(Item& value, int32_t itemIdValue, int32_t itemUniqueIdValue, int64_t itemCountValue,
+	static runtime::Ref<BrokerItem> create(runtime::Ptr<Item> value, int32_t itemIdValue, int32_t itemUniqueIdValue, int64_t itemCountValue,
 		std::string_view itemCreatorValue, int64_t priceValue, int32_t sellerIdValue, broker::BrokerRace itemBrokerRaceValue, bool isSoldValue,
 		bool isSettledValue, std::optional<commons::database::Timestamp> expireTimeValue, std::optional<commons::database::Timestamp> settleTimeValue,
 		bool splittingAvailableValue);

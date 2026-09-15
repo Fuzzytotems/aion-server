@@ -20,9 +20,11 @@ namespace aion::gameserver::world::knownlist {
  * Knowing is always a two-way relation, so if A knows B, then B also knows A. If just one is not aware of the other, both can't know each other.
  * <p>
  * Hub header (docs/design/hub-headers.md). A part of its VisibleObject (fieldmap base OwnedPart, `VisibleObject::knownlist` is a PartSlot):
- * created with `std::make_unique<X>(owner)` and handed to `VisibleObject::setKnownlist`. C++ additions (runtime-architecture.md §5.3 RR-14):
- * every pair add goes through the static addPair handshake (lint L17 rejects other `add(` calls), and del is protected instead of private,
- * because FlagKnownList's one-sided removeIf is ported as a two-sided del (DEVIATION).
+ * created with `std::make_unique<X>(owner)` and handed to `VisibleObject::setKnownlist`. C++ additions (runtime-architecture.md §5.3, RR-17):
+ * every pair add goes through the static addPair handshake (lint L17 rejects other `add(` calls), and every membership change of a pair (addPair,
+ * the two-sided removals of clear, forgetObjectsOrUpdateVisibility and FlagKnownList.update) holds the pair's striped lock, so a pair is known on
+ * both sides or on neither. The notifications are sent after that lock is released. FlagKnownList's one-sided removeIf is ported as a
+ * two-sided removal (DEVIATION).
  *
  * @author -Nemesiss-, kosyachok, Neon
  */
@@ -59,15 +61,38 @@ public:
 
 protected:
 	/**
-	 * C++ only (runtime-architecture.md §5.3 RR-14): the pair handshake of KnownList.java:175-178, :192-193 and FlagKnownList.java:18-21.
-	 * `b.getKnownList().add(a) && a.getKnownList().add(b)`, then, if either object is no longer spawned (World.despawn raced), both edges are
-	 * deleted again with ObjectDeleteAnimation::NONE and false is returned.
+	 * C++ only (runtime-architecture.md §5.3, RR-17): the pair handshake of KnownList.java:175-178, :192-193 and FlagKnownList.java:18-21.
+	 * Under the pair lock: a is inserted into b's list and b into a's list; if the second insert fails or either object is no longer spawned
+	 * (World.despawn raced), both inserts are undone and false is returned (with the notifications of del). Otherwise b's controller is told that
+	 * it sees a and a's that it sees b, after the lock is released.
 	 *
 	 * @return true if both objects know each other now
 	 */
 	static bool addPair(model::gameobjects::VisibleObject& a, model::gameobjects::VisibleObject& b);
 
-	/** Only called by addPair (lint L17). */
+	/**
+	 * C++ only: removes b from a's list and a from b's list under the pair lock, without notifications like Java's removeIf (the two-sided
+	 * removal of FlagKnownList.update; a static member, because a subclass may not change another object's list).
+	 */
+	static void delPair(model::gameobjects::VisibleObject& a, model::gameobjects::VisibleObject& b);
+
+private:
+	/**
+	 * C++ only: `a.del(b, aAnimation); b.getKnownList().del(a, bAnimation);` as one step: both removals under the pair lock, then the
+	 * notifications of each removed edge (a's controller first).
+	 */
+	static void removePair(model::gameobjects::VisibleObject& a, model::gameobjects::VisibleObject& b, model::animations::ObjectDeleteAnimation aAnimation,
+		model::animations::ObjectDeleteAnimation bAnimation);
+
+	/** C++ only: add without the visibility update; null if the owner is not aware of the object or already knows it. */
+	runtime::Ptr<KnownObject> insert(model::gameobjects::VisibleObject& object);
+
+	/** C++ only: the notifications of del for an already removed entry (notSee if it was visible, then notKnow). */
+	void notifyRemoved(KnownObject& knownObject, model::animations::ObjectDeleteAnimation animation);
+
+protected:
+
+	/** Java body (insert, then the visibility update); the C++ pair sites use addPair instead (lint L17). */
 	bool add(model::gameobjects::VisibleObject& object);
 
 public:
@@ -81,7 +106,7 @@ private:
 
 protected:
 	/**
-	 * Removes VisibleObject from this KnownList and deletes it. Java private; protected in C++ for addPair's rollback and FlagKnownList.
+	 * Removes VisibleObject from this KnownList and deletes it. Java private; protected since S0b. The C++ pair removals use removePair.
 	 *
 	 * @param animation
 	 *          - the disappear animation others will see

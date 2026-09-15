@@ -28,14 +28,15 @@ public:
 		int32_t playerId_{};
 		std::string name_{};
 		int32_t legionId_{};
-		model::team::legion::LegionRank legionRank_{};
+		/** null (std::nullopt) for a player without a legion (the LEFT JOIN of getPlayersOnInactiveAccounts) */
+		std::optional<model::team::legion::LegionRank> legionRank_{};
 	public:
 		// canonical record constructor
-		PlayerAndLegionInfo(int32_t playerId, std::string_view name, int32_t legionId, model::team::legion::LegionRank legionRank);
+		PlayerAndLegionInfo(int32_t playerId, std::string_view name, int32_t legionId, std::optional<model::team::legion::LegionRank> legionRank);
 		int32_t playerId() const { return this->playerId_; }
 		std::string name() const { return this->name_; }
 		int32_t legionId() const { return this->legionId_; }
-		model::team::legion::LegionRank legionRank() const { return this->legionRank_; }
+		std::optional<model::team::legion::LegionRank> legionRank() const { return this->legionRank_; }
 		/** Java record equals: all components */
 		bool equals(const PlayerAndLegionInfo& obj) const;
 		int32_t hashCode() const;

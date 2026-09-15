@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <memory>
 #include <string_view>
 
 #include "aion/gameserver/runtime/lifetime/Ref.h"
@@ -15,7 +16,8 @@ namespace aion::gameserver::dao {
  */
 class PlayerTitleListDAO {
 public:
-	static runtime::Ref<model::gameobjects::player::title::TitleList> loadTitleList(int32_t playerId);
+	/** @return the loaded title list, a part the caller hands to Player::setTitleList (hub-headers.md §5: a newly created part) */
+	static std::unique_ptr<model::gameobjects::player::title::TitleList> loadTitleList(int32_t playerId);
 	static bool storeTitles(model::gameobjects::player::Player& player, model::gameobjects::player::title::Title& entry);
 	static bool removeTitle(int32_t playerId, int32_t titleId);
 };

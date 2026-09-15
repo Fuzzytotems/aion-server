@@ -1,6 +1,7 @@
 // P4-09 holder lookups ported with header requests pre-1 and pre-2 (docs/porting/header-requests.md): SkillData's indexes and Java's HashMap
 // iteration order of getSkillTemplates, ItemSetData and WorldMapsData over their bound lists, and NpcData::getNpcTemplate and
-// ItemGroupsData::isFood, whose index-building hooks are not ported yet (the lookups over the empty indexes behave like Java's over empty maps).
+// ItemGroupsData::isFood on empty holders (the lookups over the empty indexes behave like Java's over empty maps; the hooks are tested in
+// HolderHooksTest.cpp).
 // Wave 3a-2 header requests (shells-1, geo-1, templates-b-1..3, items-1, items-2, items-4, items-5): SkillData::getSkillTemplate,
 // getSkillTemplatesByStack and size, and the index hooks and lookups of MaterialData, ItemData, HouseBuildingData, WalkerVersionsData,
 // ItemRandomBonusData, TemperingData and RecipeData.
@@ -8,13 +9,13 @@
 // MaterialData.java, ItemData.java, HouseBuildingData.java, WalkerVersionsData.java, ItemRandomBonusData.java, TemperingData.java,
 // RecipeData.java and java.util.HashMap (putVal, resize, treeifyBin).
 
-#include <gtest/gtest.h>
-
 #include <cstdint>
 #include <memory>
 #include <optional>
 #include <string>
 #include <vector>
+
+#include <gtest/gtest.h>
 
 #include "aion/gameserver/dataholders/HouseBuildingData.bind.h"
 #include "aion/gameserver/dataholders/HouseBuildingData.h"
@@ -60,8 +61,8 @@ std::unique_ptr<T> bindXml(const std::string& text) {
 
 std::string skillXml(int32_t skillId, const std::string& stack, const std::string& group = {}) {
 	return "<skill_template skill_id=\"" + std::to_string(skillId) + "\" name=\"s" + std::to_string(skillId) +
-		R"(" nameId="1" skilltype="MAGICAL" skillsubtype="BUFF" activation="ACTIVE" duration="0" stack=")" + stack + "\"" +
-		(group.empty() ? std::string() : " group=\"" + group + "\"") + "/>";
+	       R"(" nameId="1" skilltype="MAGICAL" skillsubtype="BUFF" activation="ACTIVE" duration="0" stack=")" + stack + "\"" +
+	       (group.empty() ? std::string() : " group=\"" + group + "\"") + "/>";
 }
 
 std::vector<int32_t> idsOf(const std::vector<const SkillTemplate*>& templates) {
@@ -73,7 +74,7 @@ std::vector<int32_t> idsOf(const std::vector<const SkillTemplate*>& templates) {
 
 TEST(SkillDataTest, GroupIndex) {
 	std::unique_ptr<SkillData> data = bindXml<SkillData>("<skill_data>" + skillXml(1, "GM_A", "GM_GROUP") + skillXml(2, "B", "GM_GROUP") +
-		skillXml(3, "C") + skillXml(4, "D", "OTHER") + "</skill_data>");
+	                                                     skillXml(3, "C") + skillXml(4, "D", "OTHER") + "</skill_data>");
 	const std::vector<const SkillTemplate*>* gmGroup = data->getSkillTemplatesByGroup("GM_GROUP");
 	ASSERT_NE(gmGroup, nullptr);
 	EXPECT_EQ(idsOf(*gmGroup), (std::vector<int32_t>{1, 2})) << "the group list keeps the data order";
@@ -90,8 +91,7 @@ TEST(SkillDataTest, SkillTemplatesInJavaHashMapOrder) {
 	// put order 17, 1, 33, 2, 65537, 3..10, then 33 again (replaces the value, keeps the position and the size of 13).
 	// Table of 16: bucket 1 holds 17, 1, 33 (in put order); 65537 spreads to 0x10001 ^ 0x1 = 0x10000, bucket 0. The 13th key exceeds the
 	// threshold 12: the table doubles to 32 and bucket 1 splits into bucket 1 (1, 33, still in order) and bucket 17 (17).
-	std::string xml =
-		"<skill_data>" + skillXml(17, "S17") + skillXml(1, "S1") + skillXml(33, "FIRST") + skillXml(2, "S2") + skillXml(65537, "S65537");
+	std::string xml = "<skill_data>" + skillXml(17, "S17") + skillXml(1, "S1") + skillXml(33, "FIRST") + skillXml(2, "S2") + skillXml(65537, "S65537");
 	for (int32_t id = 3; id <= 10; ++id)
 		xml += skillXml(id, "S" + std::to_string(id));
 	xml += skillXml(33, "SECOND") + "</skill_data>";
@@ -123,9 +123,9 @@ TEST(ItemSetDataTest, SetsByItemId) {
 	std::unique_ptr<ItemSetData> data;
 	try {
 		data = bindXml<ItemSetData>(R"(<item_sets>)"
-			R"(<itemset id="1" name="first"><itempart itemid="100"/><itempart itemid="101"/><partbonus count="2"/></itemset>)"
-			R"(<itemset id="2" name="second"><itempart itemid="101"/><itempart itemid="102"/><partbonus count="2"/></itemset>)"
-			R"(</item_sets>)");
+		                            R"(<itemset id="1" name="first"><itempart itemid="100"/><itempart itemid="101"/><partbonus count="2"/></itemset>)"
+		                            R"(<itemset id="2" name="second"><itempart itemid="101"/><itempart itemid="102"/><partbonus count="2"/></itemset>)"
+		                            R"(</item_sets>)");
 	} catch (const runtime::UnportedException&) {
 		GTEST_SKIP() << "ItemSetTemplate::afterUnmarshal (P4-07b) is not ported yet";
 	}
@@ -141,11 +141,12 @@ TEST(ItemSetDataTest, EmptyHolder) {
 }
 
 TEST(WorldMapsDataTest, TemplatesById) {
-	std::unique_ptr<WorldMapsData> data = bindXml<WorldMapsData>(R"(<world_maps>)"
-		R"(<map id="110010000" cName="Sanctum" death_level="0" water_level="0" flags="BIND FLY"/>)"
-		R"(<map id="210010000" cName="Poeta" death_level="0" water_level="0" flags="RECALL"/>)"
-		R"(<map id="110010000" cName="SanctumAgain" death_level="0" water_level="0" flags="GLIDE"/>)"
-		R"(</world_maps>)");
+	std::unique_ptr<WorldMapsData> data =
+	  bindXml<WorldMapsData>(R"(<world_maps>)"
+	                         R"(<map id="110010000" cName="Sanctum" death_level="0" water_level="0" flags="BIND FLY"/>)"
+	                         R"(<map id="210010000" cName="Poeta" death_level="0" water_level="0" flags="RECALL"/>)"
+	                         R"(<map id="110010000" cName="SanctumAgain" death_level="0" water_level="0" flags="GLIDE"/>)"
+	                         R"(</world_maps>)");
 	ASSERT_NE(data->getTemplate(210010000), nullptr);
 	EXPECT_EQ(data->getTemplate(210010000)->getCName(), "Poeta");
 	EXPECT_EQ(data->getTemplate(210010000)->getFlags(), 2) << "RECALL = 1 << 1";
@@ -156,7 +157,7 @@ TEST(WorldMapsDataTest, TemplatesById) {
 }
 
 TEST(NpcDataTest, UnknownNpcIsNull) {
-	// NpcData.init (afterUnmarshal) is not ported yet, so no index exists: every lookup of the empty holder returns null, like Java's empty map
+	// an empty holder (no afterUnmarshal): every lookup returns null, like Java's empty map
 	EXPECT_EQ(NpcData().getNpcTemplate(210671), nullptr);
 }
 
@@ -170,7 +171,7 @@ TEST(ItemGroupsDataTest, IsFoodOnAnEmptyHolderThrowsLikeJava) {
 
 TEST(SkillDataTest, SkillTemplateStackAndSize) {
 	std::unique_ptr<SkillData> data = bindXml<SkillData>("<skill_data>" + skillXml(1, "STACK_A") + skillXml(2, "STACK_B") + skillXml(3, "STACK_A") +
-		skillXml(1, "STACK_C") + "</skill_data>");
+	                                                     skillXml(1, "STACK_C") + "</skill_data>");
 	ASSERT_NE(data->getSkillTemplate(2), nullptr);
 	EXPECT_EQ(data->getSkillTemplate(2)->getStack(), "STACK_B");
 	ASSERT_NE(data->getSkillTemplate(1), nullptr);
@@ -186,10 +187,11 @@ TEST(SkillDataTest, SkillTemplateStackAndSize) {
 }
 
 TEST(MaterialDataTest, TemplatesById) {
-	std::unique_ptr<MaterialData> data = bindXml<MaterialData>(R"(<material_templates>)"
-		R"(<material id="12"><skill id="8269" level="1" target="PLAYER" frequency="3"/></material>)"
-		R"(<material id="13"><skill id="8341" level="1" target="PLAYER" frequency="3"/></material>)"
-		R"(</material_templates>)");
+	std::unique_ptr<MaterialData> data =
+	  bindXml<MaterialData>(R"(<material_templates>)"
+	                        R"(<material id="12"><skill id="8269" level="1" target="PLAYER" frequency="3"/></material>)"
+	                        R"(<material id="13"><skill id="8341" level="1" target="PLAYER" frequency="3"/></material>)"
+	                        R"(</material_templates>)");
 	ASSERT_NE(data->getTemplate(13), nullptr);
 	EXPECT_EQ(data->getTemplate(13)->getId(), 13);
 	EXPECT_EQ(data->getTemplate(13)->getSkills().size(), 1u);
@@ -199,7 +201,7 @@ TEST(MaterialDataTest, TemplatesById) {
 
 TEST(ItemDataTest, TemplatesById) {
 	std::unique_ptr<ItemData> data =
-		bindXml<ItemData>(R"(<item_templates><item_template id="100000001" level="10"/><item_template id="100000002" level="20"/></item_templates>)");
+	  bindXml<ItemData>(R"(<item_templates><item_template id="100000001" level="10"/><item_template id="100000002" level="20"/></item_templates>)");
 	ASSERT_NE(data->getItemTemplate(100000002), nullptr);
 	EXPECT_EQ(data->getItemTemplate(100000002)->getTemplateId(), 100000002);
 	EXPECT_EQ(data->getItemTemplate(100000002)->getLevel(), 20);
@@ -209,7 +211,7 @@ TEST(ItemDataTest, TemplatesById) {
 
 TEST(HouseBuildingDataTest, BuildingsByIdAndDuplicates) {
 	std::unique_ptr<HouseBuildingData> data =
-		bindXml<HouseBuildingData>(R"(<buildings><building id="1" parts_match="CP_A"/><building id="2" parts_match="CP_B"/></buildings>)");
+	  bindXml<HouseBuildingData>(R"(<buildings><building id="1" parts_match="CP_A"/><building id="2" parts_match="CP_B"/></buildings>)");
 	ASSERT_NE(data->getBuilding(2), nullptr);
 	EXPECT_EQ(data->getBuilding(2)->getId(), 2);
 	EXPECT_EQ(data->getBuilding(3), nullptr) << "Java: null";
@@ -222,10 +224,11 @@ TEST(HouseBuildingDataTest, BuildingsByIdAndDuplicates) {
 }
 
 TEST(WalkerVersionsDataTest, RouteVersionIds) {
-	std::unique_ptr<WalkerVersionsData> data = bindXml<WalkerVersionsData>(R"(<walker_versions>)"
-		R"(<walk_parent id="PARENT_A"><version id="ROUTE_1"/><version id="ROUTE_2"/></walk_parent>)"
-		R"(<walk_parent id="PARENT_B"><version id="ROUTE_2"/></walk_parent>)"
-		R"(</walker_versions>)");
+	std::unique_ptr<WalkerVersionsData> data =
+	  bindXml<WalkerVersionsData>(R"(<walker_versions>)"
+	                              R"(<walk_parent id="PARENT_A"><version id="ROUTE_1"/><version id="ROUTE_2"/></walk_parent>)"
+	                              R"(<walk_parent id="PARENT_B"><version id="ROUTE_2"/></walk_parent>)"
+	                              R"(</walker_versions>)");
 	EXPECT_EQ(data->getRouteVersionId("ROUTE_1"), std::optional<std::string>("PARENT_A"));
 	EXPECT_EQ(data->getRouteVersionId("ROUTE_2"), std::optional<std::string>("PARENT_B")) << "HashMap.put: the later group wins";
 	EXPECT_EQ(data->getRouteVersionId("PARENT_A"), std::nullopt) << "group ids are no route ids";
@@ -234,11 +237,12 @@ TEST(WalkerVersionsDataTest, RouteVersionIds) {
 
 TEST(ItemRandomBonusDataTest, TemplatesByTypeSetAndNumber) {
 	using model::templates::item::bonuses::StatBonusType;
-	std::unique_ptr<ItemRandomBonusData> data = bindXml<ItemRandomBonusData>(R"(<random_bonuses>)"
-		R"(<random_bonus type="INVENTORY" id="1"><modifiers chance="50.0"><add name="MAXHP" value="100" bonus="true"/></modifiers>)"
-		R"(<modifiers chance="25.0"><add name="MAXMP" value="100" bonus="true"/></modifiers></random_bonus>)"
-		R"(<random_bonus type="POLISH" id="1"><modifiers chance="10.0"><add name="MAXHP" value="5" bonus="true"/></modifiers></random_bonus>)"
-		R"(</random_bonuses>)");
+	std::unique_ptr<ItemRandomBonusData> data = bindXml<ItemRandomBonusData>(
+	  R"(<random_bonuses>)"
+	  R"(<random_bonus type="INVENTORY" id="1"><modifiers chance="50.0"><add name="MAXHP" value="100" bonus="true"/></modifiers>)"
+	  R"(<modifiers chance="25.0"><add name="MAXMP" value="100" bonus="true"/></modifiers></random_bonus>)"
+	  R"(<random_bonus type="POLISH" id="1"><modifiers chance="10.0"><add name="MAXHP" value="5" bonus="true"/></modifiers></random_bonus>)"
+	  R"(</random_bonuses>)");
 	const model::templates::stats::ModifiersTemplate* second = data->getTemplate(StatBonusType::INVENTORY, 1, 2);
 	ASSERT_NE(second, nullptr);
 	EXPECT_FLOAT_EQ(second->getChance(), 25.0f) << "statBonusId is 1-based (Java getModifiers().get(statBonusId - 1))";
@@ -252,12 +256,13 @@ TEST(ItemRandomBonusDataTest, TemplatesByTypeSetAndNumber) {
 
 TEST(TemperingDataTest, TemplatesByTemperingNameOrItemGroup) {
 	using model::templates::item::ItemTemplate;
-	std::unique_ptr<TemperingData> data = bindXml<TemperingData>(R"(<tempering_templates>)"
-		R"(<tempering_list item_group="TEST_1"><tempering_data level="1"><tempering_stat stat="PHYSICAL_ATTACK" value="10"/></tempering_data>)"
-		R"(<tempering_data level="2"><tempering_stat stat="PHYSICAL_ATTACK" value="20"/><tempering_stat stat="MAXHP" value="5"/></tempering_data>)"
-		R"(</tempering_list>)"
-		R"(<tempering_list item_group="SWORD"><tempering_data level="1"><tempering_stat stat="MAXHP" value="1"/></tempering_data></tempering_list>)"
-		R"(</tempering_templates>)");
+	std::unique_ptr<TemperingData> data = bindXml<TemperingData>(
+	  R"(<tempering_templates>)"
+	  R"(<tempering_list item_group="TEST_1"><tempering_data level="1"><tempering_stat stat="PHYSICAL_ATTACK" value="10"/></tempering_data>)"
+	  R"(<tempering_data level="2"><tempering_stat stat="PHYSICAL_ATTACK" value="20"/><tempering_stat stat="MAXHP" value="5"/></tempering_data>)"
+	  R"(</tempering_list>)"
+	  R"(<tempering_list item_group="SWORD"><tempering_data level="1"><tempering_stat stat="MAXHP" value="1"/></tempering_data></tempering_list>)"
+	  R"(</tempering_templates>)");
 	std::unique_ptr<ItemTemplate> named = bindXml<ItemTemplate>(R"(<item_template id="100000001" item_group="SWORD" tempering_name="TEST_1"/>)");
 	std::unique_ptr<ItemTemplate> sword = bindXml<ItemTemplate>(R"(<item_template id="100000002" item_group="SWORD"/>)");
 	std::unique_ptr<ItemTemplate> bow = bindXml<ItemTemplate>(R"(<item_template id="100000003" item_group="BOW"/>)");
@@ -274,7 +279,7 @@ TEST(TemperingDataTest, TemplatesByTemperingNameOrItemGroup) {
 
 TEST(RecipeDataTest, RecipesById) {
 	std::unique_ptr<RecipeData> data = bindXml<RecipeData>(
-		R"(<recipe_templates><recipe_template id="155000001" skillid="40009"/><recipe_template id="155000002" skillid="40001"/></recipe_templates>)");
+	  R"(<recipe_templates><recipe_template id="155000001" skillid="40009"/><recipe_template id="155000002" skillid="40001"/></recipe_templates>)");
 	ASSERT_NE(data->getRecipeTemplateById(155000002), nullptr);
 	EXPECT_EQ(data->getRecipeTemplateById(155000002)->getSkillId(), 40001);
 	EXPECT_EQ(data->getRecipeTemplateById(155000003), nullptr) << "Java: null";

@@ -2,6 +2,7 @@
 
 #include "aion/gameserver/model/templates/item/actions/CraftLearnAction.h"
 #include "aion/gameserver/model/templates/item/actions/PolishAction.h"
+#include "aion/gameserver/model/templates/item/actions/SkillUseAction.h"
 
 namespace aion::gameserver::model::templates::item::actions {
 
@@ -23,6 +24,10 @@ const CraftLearnAction* ItemActions::getCraftLearnAction() const {
 
 const PolishAction* ItemActions::getPolishAction() const {
 	return firstActionOf<PolishAction>(itemActions);
+}
+
+const SkillUseAction* ItemActions::getSkillUseAction() const {
+	return firstActionOf<SkillUseAction>(itemActions);
 }
 
 } // namespace aion::gameserver::model::templates::item::actions

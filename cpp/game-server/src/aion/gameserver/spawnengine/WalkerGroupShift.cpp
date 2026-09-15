@@ -1,7 +1,5 @@
 #include "aion/gameserver/spawnengine/WalkerGroupShift.h"
 
-#include "aion/gameserver/runtime/base/Unported.h"
-
 namespace aion::gameserver::spawnengine {
 
 WalkerGroupShift::WalkerGroupShift(float leftRight, float backFront) : sagittalShift(leftRight), coronalShift(backFront) {
@@ -14,7 +12,8 @@ runtime::Ref<WalkerGroupShift> WalkerGroupShift::create(float leftRight, float b
 }
 
 void WalkerGroupShift::set(WalkerGroupShift& shift) {
-	AION_UNPORTED();
+	sagittalShift.set(shift.sagittalShift.get());
+	coronalShift.set(shift.coronalShift.get());
 }
 
 } // namespace aion::gameserver::spawnengine

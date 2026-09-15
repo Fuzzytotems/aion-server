@@ -21,6 +21,7 @@
 
 #include "ItemsTestSupport.h"
 #include "aion/gameserver/configs/main/CustomConfig.h"
+#include "aion/gameserver/controllers/ObserveController.h"
 #include "aion/gameserver/controllers/observer/ActionObserver.h"
 #include "aion/gameserver/model/Race.h"
 #include "aion/gameserver/model/account/Account.h"
@@ -358,10 +359,12 @@ TEST_F(ItemStonesTest, IdianStoneReadsItsTemplatesAndBurnsPolishCharge) {
 		// onEquip registers the observer only for the main hand
 		stone->onEquip(*player, getSlotIdMask(ItemSlot::SUB_HAND));
 		EXPECT_FALSE(stone->getActionListener());
-		// the observer is stored before ObserveController.addObserver, which is P4-11b (unported here)
-		EXPECT_THROW(stone->onEquip(*player, getSlotIdMask(ItemSlot::MAIN_HAND)), runtime::UnportedException);
+		// the observer is stored and added to the ObserveController (P4-11b); RandomBonusEffect.applyEffect then casts the stats to
+		// PlayerGameStats, which the test double is not
+		EXPECT_THROW(stone->onEquip(*player, getSlotIdMask(ItemSlot::MAIN_HAND)), runtime::ClassCastException);
 		Ptr<controllers::observer::ActionObserver> listener = stone->getActionListener();
 		ASSERT_TRUE(listener);
+		player->getObserveController()->removeObserver(*listener); // the calls below drive the listener directly
 		listener->attack(*player, 1234);
 		EXPECT_EQ(stone->getPolishCharge(), 230000) << "attack with a skill burns nothing";
 		listener->attack(*player, 0);
@@ -382,11 +385,13 @@ TEST_F(ItemStonesTest, IdianStoneReadsItsTemplatesAndBurnsPolishCharge) {
 			<< "no polish action";
 
 		// polish charge 0: onUnEquip (no listener left), item update, item.setIdianStone(null), DELETED, then ItemStoneListDAO.storeIdianStones
-		// (P4-14, unported here). Removing the part retires the stone: the borrow stays valid until the task ends.
-		EXPECT_THROW(stone->decreasePolishCharge(*player, 500000), runtime::UnportedException);
+		// (P4-14): without a DatabaseFactory it logs "Can't save stones" and still marks the stones UPDATED, as Java does. Removing the part
+		// retires the stone: the borrow stays valid until the task ends.
+		stone->decreasePolishCharge(*player, 500000);
 		EXPECT_EQ(stone->getPolishCharge(), 0) << "at least 0";
 		EXPECT_FALSE(weapon->getIdianStone());
-		EXPECT_EQ(stone->getPersistentState(), PersistentState::NOACTION) << "a NEW stone is never stored: nothing to delete";
+		EXPECT_EQ(stone->getPersistentState(), PersistentState::UPDATED)
+			<< "DELETED turned the NEW stone into NOACTION, and ItemStoneListDAO.store sets UPDATED on every stone it was given";
 		stone->decreasePolishCharge(*player, 1);
 		EXPECT_EQ(stone->getPolishCharge(), 0) << "no charge left: nothing happens";
 	}

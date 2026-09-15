@@ -19,14 +19,18 @@ void TemperingData::afterUnmarshal(xml::LoadContext& /*ctx*/, const xml::XmlPare
 	// Java: temperingList = null (the C++ maps point into the storage, which stays)
 }
 
-const std::unordered_map<int32_t, const std::vector<model::enchants::TemperingStat>*>* TemperingData::getTemplates(
-	const model::templates::item::ItemTemplate* itemTemplate) const {
+const std::unordered_map<int32_t, const std::vector<model::enchants::TemperingStat>*>*
+TemperingData::getTemplates(const model::templates::item::ItemTemplate* itemTemplate) const {
 	if (itemTemplate == nullptr)
 		throw runtime::NullPointerException("itemTemplate");
 	// Java: getTemperingName() != null; an absent attribute binds as an empty string (static-data.md §2.4)
 	auto it = !itemTemplate->getTemperingName().empty() ? templates.find(itemTemplate->getTemperingName())
 	                                                    : templates.find(xml::enumName(itemTemplate->getItemGroup()));
 	return it != templates.end() ? &it->second : nullptr;
+}
+
+int32_t TemperingData::size() const {
+	return static_cast<int32_t>(templates.size());
 }
 
 } // namespace aion::gameserver::dataholders

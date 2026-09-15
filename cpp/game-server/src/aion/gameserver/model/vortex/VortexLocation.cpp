@@ -5,7 +5,10 @@
 #include "aion/gameserver/model/gameobjects/Kisk.h"
 #include "aion/gameserver/model/gameobjects/VisibleObject.h"
 #include "aion/gameserver/model/gameobjects/player/Player.h"
+#include "aion/gameserver/model/templates/vortex/HomePoint.h"
+#include "aion/gameserver/model/templates/vortex/StartPoint.h"
 #include "aion/gameserver/model/templates/vortex/VortexTemplate.h"
+#include "aion/gameserver/runtime/base/Exceptions.h"
 #include "aion/gameserver/services/vortex/DimensionalVortex.h"
 #include "aion/gameserver/world/zone/InvasionZoneInstance.h"
 
@@ -40,7 +43,7 @@ runtime::Ptr<world::WorldPosition> VortexLocation::getStartPoint() {
 }
 
 int32_t VortexLocation::getId() {
-	AION_UNPORTED();
+	return template_->getId();
 }
 
 Race VortexLocation::getDefendersRace() {
@@ -52,11 +55,17 @@ Race VortexLocation::getInvadersRace() {
 }
 
 int32_t VortexLocation::getHomeWorldId() {
-	AION_UNPORTED();
+	const auto* home = template_->getHomePoint();
+	if (home == nullptr) // Java: NullPointerException
+		throw runtime::NullPointerException("VortexTemplate.getHomePoint() is null");
+	return home->getWorldId();
 }
 
 int32_t VortexLocation::getInvasionWorldId() {
-	AION_UNPORTED();
+	const auto* start = template_->getStartPoint();
+	if (start == nullptr) // Java: NullPointerException
+		throw runtime::NullPointerException("VortexTemplate.getStartPoint() is null");
+	return start->getWorldId();
 }
 
 bool VortexLocation::isInvaderInside(int32_t objId) {
@@ -68,7 +77,8 @@ bool VortexLocation::isInsideActiveVotrex(gameobjects::player::Player& player) {
 }
 
 void VortexLocation::addZone(world::zone::InvasionZoneInstance& zone) {
-	AION_UNPORTED();
+	zones.add(runtime::Ref<world::zone::InvasionZoneInstance>(zone));
+	zone.addHandler(*this);
 }
 
 bool VortexLocation::isInsideLocation(gameobjects::Creature& creature) {

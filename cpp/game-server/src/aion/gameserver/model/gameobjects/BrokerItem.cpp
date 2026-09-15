@@ -128,11 +128,11 @@ runtime::Ref<BrokerItem> BrokerItem::create(Item& value, int64_t priceValue, int
 	return runtime::makeRef<BrokerItem>(value, priceValue, sellerIdValue, splittingAvailableValue, itemBrokerRaceValue);
 }
 
-BrokerItem::BrokerItem(Item& value, int32_t itemIdValue, int32_t itemUniqueIdValue, int64_t itemCountValue, std::string_view itemCreatorValue,
+BrokerItem::BrokerItem(runtime::Ptr<Item> value, int32_t itemIdValue, int32_t itemUniqueIdValue, int64_t itemCountValue, std::string_view itemCreatorValue,
 	int64_t priceValue, int32_t sellerIdValue, broker::BrokerRace itemBrokerRaceValue, bool isSoldValue, bool isSettledValue,
 	std::optional<commons::database::Timestamp> expireTimeValue, std::optional<commons::database::Timestamp> settleTimeValue,
 	bool splittingAvailableValue)
-	: item(runtime::Ref<Item>(value)), itemId(itemIdValue), itemUniqueId(itemUniqueIdValue), itemCount(itemCountValue),
+	: item(value), itemId(itemIdValue), itemUniqueId(itemUniqueIdValue), itemCount(itemCountValue),
 	  itemCreator(std::string(itemCreatorValue)), price(priceValue), sellerId(sellerIdValue), itemBrokerRace(itemBrokerRaceValue), isSold_(isSoldValue),
 	  isSettled_(isSettledValue), expireTime(withoutFractionalSeconds(requireTimestamp(expireTimeValue))),
 	  // the NOT NULL settle_time column always has a value (BrokerDAO); Java would keep a null
@@ -140,7 +140,7 @@ BrokerItem::BrokerItem(Item& value, int32_t itemIdValue, int32_t itemUniqueIdVal
 	  state(PersistentState::NOACTION) {
 }
 
-runtime::Ref<BrokerItem> BrokerItem::create(Item& value, int32_t itemIdValue, int32_t itemUniqueIdValue, int64_t itemCountValue,
+runtime::Ref<BrokerItem> BrokerItem::create(runtime::Ptr<Item> value, int32_t itemIdValue, int32_t itemUniqueIdValue, int64_t itemCountValue,
 	std::string_view itemCreatorValue, int64_t priceValue, int32_t sellerIdValue, broker::BrokerRace itemBrokerRaceValue, bool isSoldValue,
 	bool isSettledValue, std::optional<commons::database::Timestamp> expireTimeValue, std::optional<commons::database::Timestamp> settleTimeValue,
 	bool splittingAvailableValue) {

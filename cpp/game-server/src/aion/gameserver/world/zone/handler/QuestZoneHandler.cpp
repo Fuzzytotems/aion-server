@@ -4,7 +4,10 @@
 #include "aion/gameserver/dataholders/DataManager.h"
 #include "aion/gameserver/dataholders/QuestsData.h"
 #include "aion/gameserver/runtime/base/Exceptions.h"
-#include "aion/gameserver/runtime/base/Unported.h"
+#include "aion/gameserver/controllers/ObserveController.h"
+#include "aion/gameserver/model/gameobjects/Creature.h"
+#include "aion/gameserver/model/gameobjects/player/Player.h"
+#include "aion/gameserver/world/zone/ZoneInstance.h"
 
 namespace aion::gameserver::world::zone::handler {
 
@@ -18,11 +21,22 @@ QuestZoneHandler::QuestZoneHandler(int32_t questIdValue) : questId(questIdValue)
 QuestZoneHandler::~QuestZoneHandler() = default;
 
 void QuestZoneHandler::onEnterZone(model::gameobjects::Creature& creature, ZoneInstance& zone) {
-	AION_UNPORTED();
+	auto* player = dynamic_cast<model::gameobjects::player::Player*>(&creature);
+	if (player == nullptr)
+		return;
+	runtime::Ref<controllers::observer::AbstractQuestZoneObserver> observer = createObserver(*player, zone.getZoneTemplate());
+	creature.getObserveController()->addObserver(*observer);
+	observed.put(creature.getObjectId(), observer);
 }
 
 void QuestZoneHandler::onLeaveZone(model::gameobjects::Creature& creature, ZoneInstance& zone) {
-	AION_UNPORTED();
+	if (dynamic_cast<model::gameobjects::player::Player*>(&creature) == nullptr)
+		return;
+	runtime::Ptr<controllers::observer::AbstractQuestZoneObserver> observer = observed.get(creature.getObjectId());
+	if (observer) {
+		creature.getObserveController()->removeObserver(*observer);
+		observed.remove(creature.getObjectId());
+	}
 }
 
 } // namespace aion::gameserver::world::zone::handler

@@ -1,8 +1,12 @@
 #include "aion/gameserver/controllers/VisibleObjectController.h"
 
-#include "aion/gameserver/runtime/base/Unported.h"
+#include "aion/gameserver/model/gameobjects/Creature.h"
 #include "aion/gameserver/model/gameobjects/VisibleObject.h"
 #include "aion/gameserver/model/gameobjects/player/LogoutBreakers.h"
+#include "aion/gameserver/model/templates/spawns/SpawnTemplate.h"
+#include "aion/gameserver/services/RespawnService.h"
+#include "aion/gameserver/world/World.h"
+#include "aion/gameserver/world/geo/GeoService.h"
 
 namespace aion::gameserver::controllers {
 
@@ -16,28 +20,35 @@ void VisibleObjectController::setOwner(model::gameobjects::VisibleObject& value)
 }
 
 bool VisibleObjectController::delete_() {
-	AION_UNPORTED();
+	return world::World::getInstance().removeObject(getOwner());
 }
 
 void VisibleObjectController::deleteAndScheduleRespawn() {
-	AION_UNPORTED();
+	if (delete_() && !services::RespawnService::hasRespawnTask(getOwner()))
+		services::RespawnService::scheduleRespawn(getOwner());
 }
 
 void VisibleObjectController::deleteIfAliveOrCancelRespawn() {
-	AION_UNPORTED();
+	runtime::Ptr<model::gameobjects::Creature> creature = runtime::as<model::gameobjects::Creature>(getOwner());
+	bool isDead = creature && creature->isDead();
+	if (isDead || !delete_())
+		services::RespawnService::cancelRespawn(getOwner());
 }
 
 void VisibleObjectController::onBeforeSpawn() {
-	AION_UNPORTED();
+	if (getOwner().getSpawn() && getOwner().getSpawn()->getStaticId() > 0)
+		world::geo::GeoService::getInstance().spawnPlaceableObject(getOwner().getWorldId(), getOwner().getInstanceId(), getOwner().getSpawn()->getStaticId());
 }
 
 void VisibleObjectController::onDespawn() {
-	AION_UNPORTED();
+	if (getOwner().getSpawn() && getOwner().getSpawn()->getStaticId() > 0)
+		world::geo::GeoService::getInstance().despawnPlaceableObject(getOwner().getWorldId(), getOwner().getInstanceId(),
+			getOwner().getSpawn()->getStaticId());
 }
 
 void VisibleObjectController::onDelete() {
 	// Java: empty. C++ only: the delete breakers of the owner (LogoutBreakers.h class comment, runtime-architecture.md §5.3), the last statement
-	// of every controller's onDelete chain (noexcept: a failing step is logged, P5-00 ports the steps).
+	// of every controller's onDelete chain (noexcept: a failing step is logged).
 	model::gameobjects::player::LogoutBreakers::onDelete(getOwner());
 }
 

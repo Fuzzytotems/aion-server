@@ -1,9 +1,10 @@
 #include "aion/gameserver/world/knownlist/KnownObject.h"
 
+#include <string>
 #include <typeinfo>
 
-#include "aion/gameserver/runtime/base/Unported.h"
 #include "aion/gameserver/model/gameobjects/VisibleObject.h"
+#include "aion/gameserver/runtime/sync/Monitor.h"
 
 namespace aion::gameserver::world::knownlist {
 
@@ -17,7 +18,13 @@ runtime::Ref<KnownObject> KnownObject::create(model::gameobjects::VisibleObject&
 }
 
 bool KnownObject::updateVisible(bool value) {
-	AION_UNPORTED();
+	SYNCHRONIZED(*this) {
+		if (visible.get() != value) {
+			visible.set(value);
+			return true;
+		}
+	}
+	return false;
 }
 
 bool KnownObject::equals(const KnownObject& o) const {
@@ -30,7 +37,7 @@ int32_t KnownObject::hashCode() const {
 }
 
 std::string KnownObject::toString() {
-	AION_UNPORTED();
+	return object->getName() + " (objectId: " + std::to_string(object->getObjectId()) + ", visible: " + (visible.get() ? "true" : "false") + ")";
 }
 
 } // namespace aion::gameserver::world::knownlist

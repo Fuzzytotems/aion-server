@@ -64,7 +64,8 @@ void BrokerService::BrokerOpSaveTask::run() {
 BrokerService::BrokerOpSaveTask::~BrokerOpSaveTask() = default;
 
 BrokerService::BrokerPeriodicTaskManager::BrokerPeriodicTaskManager(int32_t period)
-	: taskmanager::AbstractFIFOPeriodicTaskManager<BrokerService::BrokerOpSaveTask>(period) {
+	// Java logs getClass().getSimpleName() (header requests world-4/world-5: the subclass passes it)
+	: taskmanager::AbstractFIFOPeriodicTaskManager<BrokerService::BrokerOpSaveTask>(period, "BrokerPeriodicTaskManager") {
 }
 
 runtime::Ref<BrokerService::BrokerPeriodicTaskManager> BrokerService::BrokerPeriodicTaskManager::create(int32_t period) {

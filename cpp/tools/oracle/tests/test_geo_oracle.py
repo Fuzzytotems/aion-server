@@ -11,7 +11,7 @@ import unittest
 import zlib
 from pathlib import Path
 
-from geo import GeoOracleError, loader, run
+from geo import GeoOracleError, loader, m4, run
 from geo.geofiles import read_meshes, read_placements, read_world_map_ids
 from geo.javamath import (add, div, f32, float_compare, float_to_int, float_to_int_bits, float_to_raw_uint_bits, java_long_rem, java_max,
 	java_min, mul, sqrt, sub)
@@ -190,6 +190,8 @@ class LoaderTest(unittest.TestCase):
 		self.assertEqual(result.material_geometries, 2)
 		self.assertEqual(result.terrain_maps, 1)
 		self.assertEqual(sorted(result.zone_names), ["FIRE_B_CHILD1_260974_110010000", "FIRE_B_CHILD2_418423_110010000"])
+		self.assertEqual(result.material_zones, [("FIRE_B_CHILD1_260974_110010000", 110010000, "FIRE_B_CHILD1_260974", 11),
+			("FIRE_B_CHILD2_418423_110010000", 110010000, "FIRE_B_CHILD2_418423", 11)])
 		self.assertEqual([g.name for g in placed[110010000] if g.mesh.material_id == 11],
 			["levels/common/fire_b.cgf", "levels/common/fire_a.cgf|levels/common/fire_b.cgf"])
 		self.assertEqual(result.despawnable_nodes, {"TOWN_OBJECT": 2})
@@ -221,6 +223,53 @@ class ZoneNamesDigestTest(unittest.TestCase):
 		self.assertEqual(run.zone_names_digest(["foobar"]), "85944171f73967e8")
 		self.assertEqual(run.zone_names_digest(["foo", "bar"]), format(run.fnv1a64(b"foo\nbar"), "016x"))
 		self.assertNotEqual(run.zone_names_digest(["foo", "bar"]), run.zone_names_digest(["foobar"]))
+
+
+class M4CompareTest(unittest.TestCase):
+	"""geo/m4.py helpers, expectations from WorldMap.getInstanceCount, WorldMapTemplate twin counts, ZoneData.afterUnmarshal and Float bits"""
+
+	def setUp(self):
+		self.tmp = tempfile.TemporaryDirectory()
+		self.dir = Path(self.tmp.name)
+
+	def tearDown(self):
+		self.tmp.cleanup()
+
+	def test_instance_count(self):
+		# twinCount 0 counts as 1; WORLD_MAX_TWINS_USUAL 0 = unlimited, else min; beginner -1 = disabled, 0 = unlimited, else min
+		self.assertEqual(m4.instance_count({}, 1, -1), 1)
+		self.assertEqual(m4.instance_count({"twin_count": "5", "beginner_twin_count": "3"}, 1, -1), 1)
+		self.assertEqual(m4.instance_count({"twin_count": "5", "beginner_twin_count": "3"}, 0, 0), 8)
+		self.assertEqual(m4.instance_count({"twin_count": "5", "beginner_twin_count": "3"}, 2, 2), 4)
+		self.assertEqual(m4.instance_count({"twin_count": "0", "beginner_twin_count": "3"}, 2, 1), 2)
+
+	def test_float_bits_equal(self):
+		self.assertTrue(m4.float_bits_equal(0x41200000, 0x41200000))
+		self.assertFalse(m4.float_bits_equal(0x00000000, 0x80000000), "0.0 and -0.0 differ bitwise")
+		self.assertTrue(m4.float_bits_equal(0x7FC00000, 0x7FC00001), "any NaN equals any NaN")
+		self.assertTrue(m4.float_bits_equal(0xFFC00000, 0x7FC00000))
+		self.assertFalse(m4.float_bits_equal(0x7F800000, 0x7FC00000), "infinity is no NaN")
+		self.assertTrue(math.isnan(m4.struct_float(0x7FC00000)))
+
+	def test_properties_and_probe_file(self):
+		(self.dir / "main").mkdir()
+		(self.dir / "main" / "world.properties").write_text("# comment\ngameserver.world.max.twincount.usual = 3\n! other\nkey:value\n")
+		(self.dir / "mygs.properties").write_text("gameserver.world.max.twincount.usual=0\n")
+		self.assertEqual(m4.read_properties(self.dir), {"gameserver.world.max.twincount.usual": "0", "key": "value"})
+		probes = {"probes": [{"map": 210010000, "instanceId": 1, "x": {"bits": 1}, "y": {"bits": 2}, "zMax": {"bits": 3}, "zMin": {"bits": 4}}]}
+		self.assertEqual(m4.write_probes(probes, self.dir / "probes.txt"), 1)
+		self.assertEqual((self.dir / "probes.txt").read_text().splitlines()[1], "210010000 1 1 2 3 4")
+
+	def test_world_zones_and_xml_zone_names(self):
+		(self.dir / "world_zones.txt").write_text("map 1 instances 1\ninstance 1 zones 2\nzone 1\nzone A_1\nmap 2 missing\n")
+		self.assertEqual(m4.read_world_zones(self.dir / "world_zones.txt"), {1: [(1, ["1", "A_1"])], 2: None})
+		static_data = self.dir / "static_data"
+		(static_data / "zones").mkdir(parents=True)
+		(static_data / "static_data.xml").write_text('<static_data>\n	<import file="zones" singleRootTag="true"/>\n</static_data>\n')
+		(static_data / "zones" / "zones.xml").write_text('<zones>\n	<zone name="a_1" mapid="1"><points/></zone>\n'
+			'	<zone name="Sphere_1" mapid="1" area_type="SPHERE"><sphere r="0"/></zone>\n'
+			'	<zone name="b_2" mapid="2" area_type="CYLINDER"><cylinder r="5"/></zone>\n</zones>\n')
+		self.assertEqual(m4.xml_zone_names_by_map(static_data, 99), {1: {"A_1"}, 2: {"B_2"}})
 
 
 class RealDataTest(unittest.TestCase):

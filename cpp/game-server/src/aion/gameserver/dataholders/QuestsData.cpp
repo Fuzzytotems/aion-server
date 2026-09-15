@@ -1,39 +1,59 @@
 #include "aion/gameserver/dataholders/QuestsData.h"
 
-#include "aion/gameserver/runtime/base/Unported.h"
+#include <string>
+
+#include "aion/gameserver/dataholders/detail/JavaHashMapOrder.h"
+#include "aion/gameserver/model/templates/QuestTemplate.h"
+#include "aion/gameserver/questEngine/QuestEngine.h"
+#include "aion/gameserver/runtime/base/Exceptions.h"
+#include "aion/gameserver/services/QuestService.h"
 
 namespace aion::gameserver::dataholders {
+
+using model::templates::QuestTemplate;
 
 void QuestsData::afterUnmarshal(xml::LoadContext& /*ctx*/, const xml::XmlParent& /*parent*/) {
 	questTemplates.clear();
 	sortedByFactionId.clear();
-	for (const model::templates::QuestTemplate& quest : questsData) {
+	detail::JavaHashMapOrder<int32_t, const QuestTemplate*> order;
+	for (const QuestTemplate& quest : questsData) {
 		questTemplates.insert_or_assign(quest.getId(), &quest);
+		order.put(quest.getId(), &quest, detail::javaHashCode(quest.getId()));
 		int32_t npcFactionId = quest.getNpcFactionId();
 		if (npcFactionId == 0 || quest.isTimeBased())
 			continue;
 		sortedByFactionId[npcFactionId].push_back(&quest);
 	}
+	questsInHashOrder = order.values();
 	// Java: questsData = null (the C++ index points into the storage, which stays)
 }
 
-const model::templates::QuestTemplate* QuestsData::getQuestById(int32_t id) const {
+const QuestTemplate* QuestsData::getQuestById(int32_t id) const {
 	auto it = questTemplates.find(id);
 	return it != questTemplates.end() ? it->second : nullptr;
 }
 
-std::vector<const model::templates::QuestTemplate*> QuestsData::getQuestsByNpcFaction(int32_t /*npcFactionId*/,
-	model::gameobjects::player::Player& /*player*/) const {
-	AION_UNPORTED();
+std::vector<const QuestTemplate*> QuestsData::getQuestsByNpcFaction(int32_t npcFactionId, model::gameobjects::player::Player& player) const {
+	auto factionQuests = sortedByFactionId.find(npcFactionId);
+	if (factionQuests == sortedByFactionId.end())
+		throw runtime::NullPointerException("Cannot invoke \"java.util.List.iterator()\" because \"factionQuests\" is null (npc faction " +
+		                                    std::to_string(npcFactionId) + ")");
+	std::vector<const QuestTemplate*> quests;
+	for (const QuestTemplate* questTemplate : factionQuests->second) {
+		if (!questEngine::QuestEngine::getInstance().isHaveHandler(questTemplate->getId()))
+			continue;
+		if (services::QuestService::checkStartConditions(player, questTemplate->getId(), false))
+			quests.push_back(questTemplate);
+	}
+	return quests;
 }
 
 int32_t QuestsData::size() const {
 	return static_cast<int32_t>(questTemplates.size());
 }
 
-std::vector<const model::templates::QuestTemplate*> QuestsData::getQuestTemplates() const {
-	// the port reproduces Java's HashMap<Integer, ...> iteration order
-	AION_UNPORTED();
+std::vector<const QuestTemplate*> QuestsData::getQuestTemplates() const {
+	return questsInHashOrder;
 }
 
 } // namespace aion::gameserver::dataholders

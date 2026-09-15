@@ -1,13 +1,32 @@
 #include "aion/gameserver/world/WorldMap.h"
 
-#include "aion/gameserver/runtime/base/Unported.h"
+#include <memory>
+#include <string>
+
+#include "aion/gameserver/instance/handlers/GeneralInstanceHandler.h"
+#include "aion/gameserver/instance/handlers/InstanceHandler.h"
+#include "aion/gameserver/model/templates/world/WorldMapTemplate.h"
+#include "aion/gameserver/runtime/base/Exceptions.h"
 #include "aion/gameserver/world/WorldMapInstance.h"
+#include "aion/gameserver/world/WorldMapInstanceFactory.h"
+#include "aion/gameserver/world/zone/ZoneAttributes.h"
+#include "aion/gameserver/world/zone/ZoneAttributesInfo.h"
 
 namespace aion::gameserver::world {
 
 WorldMap::WorldMap(const model::templates::world::WorldMapTemplate* worldMapTemplateValue) : worldMapTemplate(worldMapTemplateValue) {
-	// Java: worldOptions = worldMapTemplate.getFlags(); then one WorldMapInstanceFactory.createWorldMapInstance per getInstanceCount()
-	AION_UNPORTED();
+	worldOptions.set(worldMapTemplate->getFlags());
+
+	for (int32_t i = 1; i <= getInstanceCount(); i++) {
+		if (isInstanceType()) // default instances are inaccessible but its handler methods are sometimes called via MainWorldMapInstance, e.g. on relog
+			WorldMapInstanceFactory::createWorldMapInstance(*this, 0,
+				[](WorldMapInstance& mapInstance) -> runtime::Ref<gameserver::instance::handlers::InstanceHandler> {
+					return gameserver::instance::handlers::GeneralInstanceHandler::create(mapInstance); // Java: GeneralInstanceHandler::new
+				},
+				0);
+		else
+			WorldMapInstanceFactory::createWorldMapInstance(*this, 0);
+	}
 }
 
 WorldMap::~WorldMap() = default;
@@ -17,131 +36,161 @@ runtime::Ref<WorldMap> WorldMap::create(const model::templates::world::WorldMapT
 }
 
 std::string WorldMap::getName() {
-	AION_UNPORTED();
+	return worldMapTemplate->getName();
 }
 
 int32_t WorldMap::getWaterLevel() {
-	AION_UNPORTED();
+	return worldMapTemplate->getWaterLevel();
 }
 
 int32_t WorldMap::getDeathLevel() {
-	AION_UNPORTED();
+	return worldMapTemplate->getDeathLevel();
 }
 
 WorldType WorldMap::getWorldType() {
-	AION_UNPORTED();
+	return worldMapTemplate->getWorldType();
 }
 
 int32_t WorldMap::getWorldSize() {
-	AION_UNPORTED();
+	return worldMapTemplate->getWorldSize();
 }
 
 WorldDropType WorldMap::getWorldDropType() {
-	AION_UNPORTED();
+	return worldMapTemplate->getWorldDropType();
 }
 
 int32_t WorldMap::getMapId() {
-	AION_UNPORTED();
+	return worldMapTemplate->getMapId();
 }
 
 bool WorldMap::isFlightAllowed() {
-	AION_UNPORTED();
+	return (worldOptions.get() & getId(zone::ZoneAttributes::FLY)) != 0;
 }
 
 bool WorldMap::isExceptBuff() {
-	AION_UNPORTED();
+	return worldMapTemplate->isExceptBuff();
 }
 
 bool WorldMap::canGlide() {
-	AION_UNPORTED();
+	return (worldOptions.get() & getId(zone::ZoneAttributes::GLIDE)) != 0;
 }
 
 bool WorldMap::canPutKisk() {
-	AION_UNPORTED();
+	return (worldOptions.get() & getId(zone::ZoneAttributes::BIND)) != 0;
 }
 
 bool WorldMap::canRecall() {
-	AION_UNPORTED();
+	return (worldOptions.get() & getId(zone::ZoneAttributes::RECALL)) != 0;
 }
 
 bool WorldMap::canRide() {
-	AION_UNPORTED();
+	return (worldOptions.get() & getId(zone::ZoneAttributes::RIDE)) != 0;
 }
 
 bool WorldMap::canFlyRide() {
-	AION_UNPORTED();
+	return (worldOptions.get() & getId(zone::ZoneAttributes::FLY_RIDE)) != 0;
 }
 
 bool WorldMap::isPvpAllowed() {
-	AION_UNPORTED();
+	return (worldOptions.get() & getId(zone::ZoneAttributes::PVP_ENABLED)) != 0;
 }
 
 bool WorldMap::isSameRaceDuelsAllowed() {
-	AION_UNPORTED();
+	return (worldOptions.get() & getId(zone::ZoneAttributes::DUEL_SAME_RACE_ENABLED)) != 0;
 }
 
 bool WorldMap::isOtherRaceDuelsAllowed() {
-	AION_UNPORTED();
+	return (worldOptions.get() & getId(zone::ZoneAttributes::DUEL_OTHER_RACE_ENABLED)) != 0;
 }
 
 bool WorldMap::canReturnToBattle() {
-	AION_UNPORTED();
+	return (worldOptions.get() & getId(zone::ZoneAttributes::NO_RETURN_BATTLE)) == 0;
 }
 
 void WorldMap::setWorldOption(zone::ZoneAttributes option) {
-	AION_UNPORTED();
+	// Deviation (D6): Java's unsynchronized `worldOptions |= id` loses a concurrent update of another bit; a compare-and-set loop does not
+	int32_t current = worldOptions.get();
+	while (!worldOptions.compareAndSet(current, current | getId(option)))
+		current = worldOptions.get();
 }
 
 void WorldMap::removeWorldOption(zone::ZoneAttributes option) {
-	AION_UNPORTED();
+	// Deviation (D6): Java's unsynchronized `worldOptions &= ~id` loses a concurrent update of another bit; a compare-and-set loop does not
+	int32_t current = worldOptions.get();
+	while (!worldOptions.compareAndSet(current, current & ~getId(option)))
+		current = worldOptions.get();
 }
 
 bool WorldMap::hasOverridenOption(zone::ZoneAttributes option) {
-	AION_UNPORTED();
+	if ((worldMapTemplate->getFlags() & getId(option)) == 0)
+		return (worldOptions.get() & getId(option)) != 0;
+	return (worldOptions.get() & getId(option)) == 0;
 }
 
 int32_t WorldMap::getInstanceCount() {
-	AION_UNPORTED();
+	int32_t twinCount = worldMapTemplate->getTwinCount();
+	if (twinCount == 0)
+		twinCount = 1;
+	twinCount += worldMapTemplate->getBeginnerTwinCount();
+	return twinCount;
 }
 
 runtime::Ptr<WorldMapInstance> WorldMap::getMainWorldMapInstance() {
-	AION_UNPORTED();
+	// TODO Balance players into instances.
+	return instances.get(1);
 }
 
 runtime::Ptr<WorldMapInstance> WorldMap::getWorldMapInstance(int32_t instanceId) {
-	AION_UNPORTED();
+	// instanceId is a count, some code still uses 0 for the default instance
+	if (instanceId == 0)
+		instanceId = 1;
+	if (!isInstanceType()) {
+		if (instanceId > getInstanceCount()) {
+			throw runtime::IllegalArgumentException("WorldMapInstance " + std::to_string(getMapId()) + " has lower instances count than " +
+				std::to_string(instanceId));
+		}
+	}
+	return instances.get(instanceId);
 }
 
 void WorldMap::removeWorldMapInstance(int32_t instanceId) {
-	AION_UNPORTED();
+	// instanceId is a count, some code still uses 0 for the default instance
+	if (instanceId == 0)
+		instanceId = 1;
+	instances.remove(instanceId);
 }
 
 void WorldMap::addInstance(int32_t instanceId, WorldMapInstance& instance) {
-	AION_UNPORTED();
+	// instanceId is a count, some code still uses 0 for the default instance
+	if (instanceId == 0)
+		instanceId = 1;
+	instances.put(instanceId, runtime::Ref<WorldMapInstance>(instance));
 }
 
 int32_t WorldMap::getNextInstanceId() {
-	AION_UNPORTED();
+	return nextInstanceId.incrementAndGet();
 }
 
 bool WorldMap::isInstanceType() {
-	AION_UNPORTED();
+	return worldMapTemplate->isInstance();
 }
 
 runtime::JavaIterator<runtime::Ptr<WorldMapInstance>> WorldMap::iterator() {
-	AION_UNPORTED();
+	return instances.values().iterator();
 }
 
 runtime::SnapshotIterator<runtime::Ptr<WorldMapInstance>> WorldMap::begin() {
-	AION_UNPORTED();
+	return runtime::SnapshotIterator<runtime::Ptr<WorldMapInstance>>(
+		std::make_shared<const std::vector<runtime::Ptr<WorldMapInstance>>>(instances.values().toVector()));
 }
 
 std::vector<int32_t> WorldMap::getAvailableInstanceIds() {
-	AION_UNPORTED();
+	return instances.keySet().toVector();
 }
 
 void WorldMap::forEachObject(const std::function<void(model::gameobjects::VisibleObject&)>& consumer) {
-	AION_UNPORTED();
+	for (runtime::Ptr<WorldMapInstance> instance : instances.values())
+		instance->forEachObject(consumer);
 }
 
 } // namespace aion::gameserver::world

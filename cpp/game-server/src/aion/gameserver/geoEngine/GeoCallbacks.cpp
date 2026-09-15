@@ -1,11 +1,11 @@
 #include "aion/gameserver/geoEngine/GeoCallbacks.h"
 
-#include "aion/gameserver/runtime/base/Unported.h"
 #include "aion/gameserver/model/EventThemeInfo.h"
 #include "aion/gameserver/model/siege/SiegeLocation.h"
 #include "aion/gameserver/services/SiegeService.h"
 #include "aion/gameserver/services/event/EventService.h"
 #include "aion/gameserver/world/zone/ZoneName.h"
+#include "aion/gameserver/world/zone/ZoneService.h"
 
 namespace aion::gameserver::geoEngine {
 
@@ -25,13 +25,14 @@ std::optional<GeoCallbacks::SiegeShieldState> GeoCallbacks::getSiegeShieldState(
 }
 
 void GeoCallbacks::createMaterialZone(scene::Spatial& geometry, int32_t worldId, std::string_view zoneName) {
+	if (MaterialZoneSink listener = materialZoneListener.get())
+		listener(geometry, worldId, zoneName);
 	if (MaterialZoneSink sink = materialZoneSink.get()) {
 		sink(geometry, worldId, zoneName);
 		return;
 	}
-	[[maybe_unused]] const world::zone::ZoneName* name = world::zone::ZoneName::createOrGet(zoneName);
-	// Java: ZoneService.getInstance().createMaterialZoneTemplate(geometry, worldId, zoneName) - world/zone/ZoneService.h (P4-10) does not exist yet
-	AION_UNPORTED();
+	// Java: ZoneService.getInstance().createMaterialZoneTemplate(geometry, worldId, ZoneName.createOrGet(name))
+	world::zone::ZoneService::getInstance().createMaterialZoneTemplate(geometry, worldId, world::zone::ZoneName::createOrGet(zoneName));
 }
 
 } // namespace aion::gameserver::geoEngine

@@ -357,7 +357,8 @@ aion_gs_chunk(P5-13 TARGET aion_gs_instance PHASE 5
 	JAVA_EXCLUDE "src/com/aionemu/gameserver/instance/InstanceHandlerClassListener.java")
 
 # P5-14: remaining services, taskmanager, chathandlers framework (ChatProcessor, ChatUtil), CommandsAccessService, AdminService; aion_gs_app:
-# GameServer (main complete), ShutdownHook coordinator, and the executable's main.cpp (MAIN: compiled into aion_game_server, not the library)
+# GameServer (main complete), ShutdownHook coordinator, and the executable's main.cpp (MAIN: compiled into aion_game_server, not the library);
+# tests/m4: the database helper of CTest gs.m4.check_static_data (aion_gs_m4_database, built by CMakeLists.txt; M4 gate)
 aion_gs_chunk(P5-14 TARGET aion_gs_misc PHASE 5
 	GLOBS "aion/gameserver/services/fwd.h"
 		"aion/gameserver/services/{AdminService,AnnouncementService,CommandsAccessService,CronJobService,CuringZoneService}.*"
@@ -383,7 +384,8 @@ aion_gs_chunk(P5-14 TARGET aion_gs_misc PHASE 5
 aion_gs_chunk(P5-14 TARGET aion_gs_app PHASE 5
 	GLOBS "aion/gameserver/*"
 	MAIN "main.cpp"
-	JAVA "src/com/aionemu/gameserver/*")
+	JAVA "src/com/aionemu/gameserver/*"
+	TEST_SUPPORT m4)
 
 # P5-15/16: client packets A-K / L-Z minus the login slice files (Abstract* bases go with A-K, the directory's fwd.h with L-Z)
 aion_gs_chunk(P5-15 TARGET aion_gs_cm_ak PHASE 5

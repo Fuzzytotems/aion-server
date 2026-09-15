@@ -15,10 +15,9 @@ namespace aion::gameserver::geoEngine {
  * <p>
  * Java's geo classes call the services directly: DespawnableNode.collideWith asks EventService for the event theme and SiegeService for the
  * shield state of a siege location, and GeoWorldLoader.createZone hands each material geometry to ZoneService.createMaterialZoneTemplate. Here
- * those calls go through this class. Without a registered callback the default implementation calls the Java service (EventService and
- * SiegeService; the material zone default reaches ZoneName::createOrGet and the ZoneService port, both P4-10, and is AION_UNPORTED until they
- * exist). The owning chunks register a callback when the service port needs a different binding (P4-10 GeoService/ZoneService,
- * P5-12a siege), and tests register test doubles; `nullptr` restores the default.
+ * those calls go through this class. Without a registered callback the default implementation calls the Java service (EventService,
+ * SiegeService, and ZoneName::createOrGet with ZoneService::createMaterialZoneTemplate). The owning chunks register a callback when the service
+ * port needs a different binding (P4-10 GeoService/ZoneService, P5-12a siege), and tests register test doubles; `nullptr` restores the default.
  * <p>
  * Thread-safety: the callbacks are captureless function pointers in Fields, read on every call. Register them before the geo data is loaded or
  * queried (GameServer startup); a callback may be called concurrently from any thread.
@@ -46,6 +45,12 @@ public:
 
 	static void setMaterialZoneSink(MaterialZoneSink sink) noexcept { materialZoneSink.set(sink); }
 
+	/**
+	 * C++ only: a listener notified of every material zone before the sink creates it, independent of the sink (aion_game_server
+	 * --check-static-data records the zone names while GeoService.init loads the geo data with its own sink, M4 item 5); `nullptr` removes it.
+	 */
+	static void setMaterialZoneListener(MaterialZoneSink listener) noexcept { materialZoneListener.set(listener); }
+
 	/** The id of the active event theme (the callback, otherwise EventService). */
 	static int32_t getEventThemeId();
 
@@ -59,6 +64,7 @@ private:
 	static inline runtime::Field<EventThemeIdSupplier> eventThemeIdSupplier{};
 	static inline runtime::Field<SiegeShieldLookup> siegeShieldLookup{};
 	static inline runtime::Field<MaterialZoneSink> materialZoneSink{};
+	static inline runtime::Field<MaterialZoneSink> materialZoneListener{};
 };
 
 } // namespace aion::gameserver::geoEngine

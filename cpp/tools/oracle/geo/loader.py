@@ -79,6 +79,8 @@ class LoadResult:
 	material_geometries: int = 0
 	terrain_maps: int = 0
 	zone_names: list[str] = field(default_factory=list)
+	# per zone name: (map id, geometry name without the map id, Mesh.getMaterialId) - the inputs of ZoneService.createMaterialZoneTemplate
+	material_zones: list[tuple[str, int, str, int]] = field(default_factory=list)
 	despawnable_nodes: dict[str, int] = field(default_factory=dict)
 	map_ids: list[int] = field(default_factory=list)
 	maps_with_entities: list[int] = field(default_factory=list)
@@ -210,7 +212,9 @@ def load(geo_dir: Path, world_maps_xml: Path, probe_maps: set[int] | None = None
 					base = zone_base_name(name)
 					if count > 1:
 						base += f"_CHILD{child_index + 1}"
-					result.zone_names.append(f"{base}_{vector_hash(world_center)}_{map_id}")
+					geometry_name = f"{base}_{vector_hash(world_center)}"
+					result.zone_names.append(f"{geometry_name}_{map_id}")
+					result.material_zones.append((f"{geometry_name}_{map_id}", map_id, geometry_name, mesh.material_id))
 					result.material_geometries += 1
 				if keep:
 					placed[map_id].append(PlacedGeometry(order, child_index, name, mesh, matrix, node_type, node_id, model.intentions))

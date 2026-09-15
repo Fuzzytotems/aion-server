@@ -253,15 +253,44 @@ if(AION_BUILD_TESTS)
 	aion_set_discovered_test_properties(aion_gs_templates_tests REGEX "^(TemplatesRealDataTest|TemplatesBRealDataTest)\\." ${gs_realdata})
 	aion_set_discovered_test_properties(aion_gs_skills_tests REGEX "^SkillShellsRealDataTest\\." ${gs_realdata})
 	aion_set_discovered_test_properties(aion_gs_quest_tests REGEX "^QuestModelsRealDataTest\\." ${gs_realdata})
+	# the whole static data load (M4); with AION_TEST_PYTHON the test also runs tools/oracle/oracle.py compare-counts/compare-totals
+	if(Python3_Interpreter_FOUND)
+		aion_set_discovered_test_properties(aion_gs_dataholders_tests REGEX "^(StaticDataRealDataTest|ConfigRootsRealDataTest)\\." ${gs_realdata}
+			ENVIRONMENT_MODIFICATION "AION_TEST_PYTHON=set:${Python3_EXECUTABLE}")
+	else()
+		aion_set_discovered_test_properties(aion_gs_dataholders_tests REGEX "^(StaticDataRealDataTest|ConfigRootsRealDataTest)\\." ${gs_realdata})
+	endif()
+	aion_set_discovered_test_properties(aion_gs_world_tests REGEX "^WorldRealDataTest\\." ${gs_realdata})
+	# DAO tests that read game-server/sql/aion_gs.sql (DaoSqlParityTest also reads the Java and C++ DAO sources)
+	aion_set_discovered_test_properties(aion_gs_dao_tests REGEX "^(ServerDataDaoTest|PlayerDaoTest|LegionHouseItemDaoTest|DaoSqlParityTest)\\." ${gs_realdata})
 
-	# S0a link proof: the server starts against a database and stops at the unported DataManager (cmake/RunStartupSmoke.cmake). Like the other
+	# S0a link proof and M4 startup path: the server starts against a database, loads all static data, creates the zones and the world (geo data
+	# switched off) and shuts down (cmake/RunStartupSmoke.cmake). Like the other
 	# database tests it is skipped unless the environment names the database: AION_TEST_GS_DATABASE_URL, e.g.
 	# jdbc:mysql://127.0.0.1:3306/aion_cpp_test?characterEncoding=UTF-8 (the database must exist; user root without password unless
 	# AION_TEST_GS_DATABASE_USER / AION_TEST_GS_DATABASE_PASSWORD are set).
 	add_test(NAME gs.smoke.startup
-		COMMAND "${CMAKE_COMMAND}" "-DEXECUTABLE=$<TARGET_FILE:aion_game_server>" "-DWORKING_DIRECTORY=${GS_JAVA_DIR}"
-			-P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/RunStartupSmoke.cmake")
-	set_tests_properties(gs.smoke.startup PROPERTIES LABELS "smoke;realdata" TIMEOUT 180 SKIP_REGULAR_EXPRESSION "gs\\.smoke\\.startup: skipped")
+		COMMAND "${CMAKE_COMMAND}" "-DEXECUTABLE=$<TARGET_FILE:aion_game_server>" "-DDATABASE_TOOL=$<TARGET_FILE:aion_gs_m4_database>"
+			"-DWORKING_DIRECTORY=${GS_JAVA_DIR}" -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/RunStartupSmoke.cmake")
+	# both server tests write game-server/log: never at the same time
+	set_tests_properties(gs.smoke.startup PROPERTIES LABELS "smoke;realdata" TIMEOUT 240 SKIP_REGULAR_EXPRESSION "gs\\.smoke\\.startup: skipped"
+		RESOURCE_LOCK aion_game_server_log)
+
+	# M4 gate (handlers-and-porting-plan.md §2.7, cmake/RunM4Check.cmake): aion_game_server --check-static-data against a fresh aion_gs_test_m4
+	# schema (IDFactory from the empty schema, then from fixture rows), then tools/oracle compare-counts and the geo/world comparison. Skipped
+	# without AION_TEST_GS_DATABASE_URL like gs.smoke.startup; needs Python for the oracles.
+	add_executable(aion_gs_m4_database "${GS_TESTS}/m4/M4Database.cpp")
+	target_include_directories(aion_gs_m4_database PRIVATE "${GS_TESTS}/dao")
+	target_link_libraries(aion_gs_m4_database PRIVATE aion_commons_database aion_gs_build_options aion::compiler_options)
+	set_target_properties(aion_gs_m4_database PROPERTIES FOLDER "tests" CXX_SCAN_FOR_MODULES OFF)
+	if(Python3_Interpreter_FOUND)
+		add_test(NAME gs.m4.check_static_data
+			COMMAND "${CMAKE_COMMAND}" "-DEXECUTABLE=$<TARGET_FILE:aion_game_server>" "-DDATABASE_TOOL=$<TARGET_FILE:aion_gs_m4_database>"
+				"-DWORKING_DIRECTORY=${GS_JAVA_DIR}" "-DPYTHON=${Python3_EXECUTABLE}" "-DORACLE_DIR=${CMAKE_SOURCE_DIR}/tools/oracle"
+				"-DOUTPUT_DIR=${CMAKE_CURRENT_BINARY_DIR}/m4/$<CONFIG>" -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/RunM4Check.cmake")
+		set_tests_properties(gs.m4.check_static_data PROPERTIES LABELS "m4;oracle;realdata" TIMEOUT 1500
+			SKIP_REGULAR_EXPRESSION "gs\\.m4\\.check_static_data: skipped" RESOURCE_LOCK aion_game_server_log)
+	endif()
 
 	# the configure-time empty registry tables (linked by the unit tests) equal the tool's
 	list(JOIN AION_GS_REGISTRY_NAMES "," gs_registry_names)

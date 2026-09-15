@@ -1,15 +1,20 @@
 #include "aion/gameserver/dataholders/TitleData.h"
 
-#include "aion/gameserver/runtime/base/Unported.h"
-
 namespace aion::gameserver::dataholders {
 
 void TitleData::afterUnmarshal(xml::LoadContext& /*ctx*/, const xml::XmlParent& /*parent*/) {
-	AION_UNPORTED();
+	for (const model::templates::TitleTemplate& tt : tts)
+		titles.insert_or_assign(tt.getTitleId(), &tt);
+	// Java: tts = null (the C++ index points into the storage, which stays)
 }
 
 const model::templates::TitleTemplate* TitleData::getTitleTemplate(int32_t titleId) const {
-	AION_UNPORTED();
+	auto it = titles.find(titleId);
+	return it != titles.end() ? it->second : nullptr;
+}
+
+int32_t TitleData::size() const {
+	return static_cast<int32_t>(titles.size());
 }
 
 } // namespace aion::gameserver::dataholders

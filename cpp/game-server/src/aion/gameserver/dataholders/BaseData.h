@@ -1,5 +1,7 @@
 #pragma once
 
+#include <cstdint>
+
 #include "aion/gameserver/dataholders/BaseData.xml.h"
 
 namespace aion::gameserver::dataholders {
@@ -8,6 +10,7 @@ namespace aion::gameserver::dataholders {
 class BaseData : public ::aion::gameserver::runtime::StaticTemplate {
 #include "aion/gameserver/dataholders/BaseData.xml.inc"
 public:
+	int32_t size() const;
 };
 
 } // namespace aion::gameserver::dataholders

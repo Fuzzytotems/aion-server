@@ -9,8 +9,8 @@ namespace aion::gameserver::model::templates::item::actions {
 /**
  * Java com.aionemu.gameserver.model.templates.item.actions.ItemActions.
  * <p>
- * C++ notes: the typed lookups return the first action of that type, nullptr for Java null (header request items-3 added getCraftLearnAction and
- * getPolishAction; the other typed lookups come with P5-07).
+ * C++ notes: the typed lookups return the first action of that type, nullptr for Java null (header requests items-3: getCraftLearnAction and
+ * getPolishAction, controllers-1: getSkillUseAction; the other typed lookups come with P5-07).
  *
  * @author ATracer
  */
@@ -22,6 +22,9 @@ public:
 
 	/** @return the first polish action, nullptr (Java null) if there is none */
 	const PolishAction* getPolishAction() const;
+
+	/** @return the first skill use action, nullptr (Java null) if there is none */
+	const SkillUseAction* getSkillUseAction() const;
 };
 
 } // namespace aion::gameserver::model::templates::item::actions

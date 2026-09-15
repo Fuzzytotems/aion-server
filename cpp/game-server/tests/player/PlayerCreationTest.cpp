@@ -258,15 +258,15 @@ protected:
 	runtime::ManualClock clock{0};
 };
 
-TEST_F(PlayerCreationTest, WithoutThePetLoaderTheDaoStopsCreation) {
+TEST_F(PlayerCreationTest, WithoutThePetLoaderTheDaoLogsAndCreationContinues) {
 	PetList::setPlayerPetsLoaderForTests(nullptr);
 	runtime::TaskScope scope(AION_TASK_INFO(runtime::TaskKind::TEST));
 	Fixture f = makeAccount(1);
-	// PlayerPetsDAO.getPlayerPets is P4-14: Player::postConstruct stops at loadPets, before the controller owner is bound (TestPlayer catches the
-	// UnportedException that create<Player> throws)
+	// PlayerPetsDAO.getPlayerPets (P4-14) without an initialized DatabaseFactory logs the SQLException and returns no pets, as Java does, so
+	// Player::postConstruct binds the controller owner and stops only at the unported PlayerGameStats constructor (TestPlayer catches it)
 	Ref<TestPlayer> player = VisibleObject::create<TestPlayer>(*f.accountData, *f.account);
 	EXPECT_TRUE(player->postConstructReachedStats);
-	EXPECT_FALSE(player->getController().isOwnerBound());
+	EXPECT_TRUE(player->getController().isOwnerBound());
 	EXPECT_EQ(petLoaderCalls.load(), 0);
 }
 

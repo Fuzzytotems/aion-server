@@ -9,6 +9,8 @@
 #include <numeric>
 #include <optional>
 #include <set>
+#include <source_location>
+#include <string>
 #include <thread>
 #include <vector>
 
@@ -67,6 +69,28 @@ TEST_F(ForkJoinPoolTest, JoinHelpersShareTheCallersScopeId) {
 	if (pool().getParallelism() >= 1)
 		EXPECT_GT(threads.size(), 1u) << "helpers took part";
 	EXPECT_TRUE(threads.contains(std::this_thread::get_id())) << "the caller works too";
+}
+
+TEST_F(ForkJoinPoolTest, ElementsOfStartupAndShutdownPhasesKeepThePhaseKind) {
+	// M4 gate: the watchdog exempts startup and shutdown phases from STALL dumps, and a startup load element (a terrain PNG in a Debug build)
+	// can run longer than the stall limit, so the helpers run the elements of such a phase with the phase's kind instead of fork-join (the
+	// caller's own elements run in a nested scope, whose task info is the caller's)
+	for (const char* phase : {TaskKind::STARTUP, TaskKind::SHUTDOWN, TaskKind::TEST}) {
+		TaskScope scope(TaskInfo{std::source_location::current(), phase});
+		std::vector<int32_t> items(64);
+		std::iota(items.begin(), items.end(), 0);
+		std::mutex mutex;
+		std::set<std::string> helperKinds;
+		pool().parallelForEach(items, [&](int32_t) {
+			std::this_thread::sleep_for(1ms);
+			if (TaskScope::isJoinedHelper()) {
+				std::scoped_lock lock(mutex);
+				helperKinds.insert(TaskScope::currentTaskInfo().kind);
+			}
+		});
+		if (pool().getParallelism() >= 1)
+			EXPECT_EQ(helperKinds, std::set<std::string>{phase == TaskKind::TEST ? TaskKind::FORK_JOIN : phase}) << phase;
+	}
 }
 
 TEST_F(ForkJoinPoolTest, PerElementRunsEachElementInItsOwnScopeOnHelpers) {

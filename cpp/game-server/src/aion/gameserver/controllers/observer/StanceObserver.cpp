@@ -1,8 +1,16 @@
 #include "aion/gameserver/controllers/observer/StanceObserver.h"
 
-#include "aion/gameserver/runtime/base/Unported.h"
+#include <string>
+
+#include "aion/gameserver/controllers/ControllerSupport.h"
+#include "aion/gameserver/controllers/PlayerController.h"
 #include "aion/gameserver/controllers/observer/ObserverType.h"
+#include "aion/gameserver/model/gameobjects/Item.h"
 #include "aion/gameserver/model/gameobjects/player/Player.h"
+#include "aion/gameserver/model/templates/item/ItemTemplate.h"
+#include "aion/gameserver/model/templates/item/actions/ItemActions.h"
+#include "aion/gameserver/skillengine/model/Skill.h"
+#include "aion/gameserver/skillengine/model/SkillTemplate.h"
 
 namespace aion::gameserver::controllers::observer {
 
@@ -17,15 +25,20 @@ runtime::Ref<StanceObserver> StanceObserver::create(model::gameobjects::player::
 }
 
 void StanceObserver::startSkillCast(skillengine::model::Skill& skill) {
-	AION_UNPORTED();
+	const std::string& stack = skill.getSkillTemplate()->getStack();
+	if (!stack.starts_with("ITEM_") && !stack.starts_with("REMEDY_") && !stack.starts_with("POTION_")) // pots and scrolls don't stop stance
+		player->getController().stopStance();
 }
 
 void StanceObserver::itemused(model::gameobjects::Item& item) {
-	AION_UNPORTED();
+	const model::templates::item::actions::ItemActions* actions = item.getItemTemplate()->getActions();
+	if (actions != nullptr && actions->getSkillUseAction() == nullptr) // skill actions are checked in startSkillCast, here we stop on RideAction etc.
+		player->getController().stopStance();
 }
 
 void StanceObserver::abnormalsetted(skillengine::effect::AbnormalState state) {
-	AION_UNPORTED();
+	if ((controllers::detail::getAbnormalStateId(state) & controllers::detail::getAbnormalStateId(skillengine::effect::AbnormalState::STANCE_OFF)) != 0)
+		player->getController().stopStance();
 }
 
 } // namespace aion::gameserver::controllers::observer

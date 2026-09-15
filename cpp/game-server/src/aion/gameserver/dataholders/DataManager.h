@@ -1,11 +1,16 @@
 #pragma once
 
+#include <filesystem>
+#include <memory>
+#include <string>
+
+#include "aion/gameserver/dataholders/fwd.h"
+#include "aion/gameserver/dataholders/loadingutils/HolderRef.h"
+#include "aion/gameserver/dataholders/loadingutils/XmlBindingFwd.h"
+#include "aion/gameserver/model/templates/mail/fwd.h"
 #include "aion/gameserver/runtime/fields/Field.h"
 #include "aion/gameserver/runtime/lifetime/RefCounted.h"
 #include "aion/gameserver/runtime/sched/Future.h"
-#include "aion/gameserver/dataholders/fwd.h"
-#include "aion/gameserver/dataholders/loadingutils/HolderRef.h"
-#include "aion/gameserver/model/templates/mail/fwd.h"
 
 namespace aion::gameserver::dataholders {
 
@@ -121,8 +126,8 @@ private:
 
 public:
 	/**
-	 * Java: getInstance() - the first call loads all static data (the private constructor runs init()). Not ported yet: this function keeps the
-	 * AION_UNPORTED site that main.cpp and gs.smoke.startup expect; the port is `static DataManager instance; return instance;`.
+	 * Java: getInstance() - the first call loads all static data (the private constructor runs init()). Runs inside a TaskScope (the hooks create
+	 * RefCounted objects and use collection shims).
 	 */
 	static DataManager& getInstance();
 
@@ -140,6 +145,32 @@ private:
 public:
 	/** Java: waits for the asynchronous XSD validation and rethrows its failure. C++ has no XSD validation (xmlValidationTask is always null). */
 	static void waitForValidationToFinishAndShutdownOnFail();
+
+	/** C++ only: Java XmlDataLoader's MAIN_XML_FILE, relative to the game server's working directory */
+	static constexpr const char* MAIN_XML_FILE = "./data/static_data/static_data.xml";
+
+	/**
+	 * C++ only, the first part of init() (Java XmlDataLoader.loadStaticData plus the JAXB unmarshal of StaticData): loads the imports of
+	 * `staticDataXml` into `context` with the holder registry of the StaticData fields, resolves the IDREFs, moves every loaded holder into a new
+	 * StaticData, keeps the objects the context retired (LoadContext::takeRetired, lenient mode) alive for the life of the process like published
+	 * holders, and logs the 90 "Loaded N ..." lines (StaticData.afterUnmarshal). Nothing is published. Needs a TaskScope.
+	 *
+	 * @throws xml::StaticDataException for binding errors
+	 */
+	static std::unique_ptr<StaticData> loadStaticData(xml::LoadContext& context, const std::filesystem::path& staticDataXml);
+
+	/**
+	 * C++ only, the second part of init(): the post-processing Java runs on the published fields, in Java order, on the unpublished `data`
+	 * (static-data.md §3.3): ItemData.cleanup, GlobalDropData.processRules and TradeListData.validateBuyLists with the npc templates,
+	 * SkillData.validateMotions and DecomposeAction.validateRandomItemIds.
+	 */
+	static void postProcess(StaticData& data);
+
+	/** C++ only, the last part of init(): publishes every holder of `data` (absent holders stay unpublished, like Java's null fields) */
+	static void publish(StaticData& data);
+
+	/** C++ only: Java String.format("%.1f", seconds) (HALF_UP of the shortest decimal form, as java.util.Formatter rounds) */
+	static std::string formatSeconds(float seconds);
 };
 
 } // namespace aion::gameserver::dataholders

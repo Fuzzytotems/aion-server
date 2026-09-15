@@ -1,71 +1,17 @@
 #include "aion/gameserver/dataholders/SkillData.h"
 
-#include <cstddef>
+#include <string>
+#include <unordered_set>
 #include <utility>
+
+#include "aion/commons/logging/LoggerFactory.h"
+#include "aion/gameserver/dataholders/MotionData.h"
+#include "aion/gameserver/dataholders/detail/JavaHashMapOrder.h"
+#include "aion/gameserver/skillengine/model/Motion.h"
 
 namespace aion::gameserver::dataholders {
 
-namespace {
-
 using skillengine::model::SkillTemplate;
-
-/** Java HashMap.hash(Integer): the key's hashCode with its high bits spread into the low bits */
-uint32_t spread(int32_t key) noexcept {
-	const uint32_t h = static_cast<uint32_t>(key);
-	return h ^ (h >> 16);
-}
-
-/**
- * Java: new HashMap<Integer, V>() filled with put(key, value) in the given order, then values(): the buckets in index order, each bucket in the
- * order of its linked list. Models putVal (a new key is appended to its bucket, a present key keeps its position and gets the new value),
- * resize (the table doubles when size exceeds 0.75 of the capacity; splitting a bucket keeps the relative order) and treeifyBin's resize of
- * tables below 64 buckets. Not modelled: a bucket that would become a red-black tree (8 keys in one bucket of a table of 64 or more buckets
- * reorders its list); the skill data never has more than 2 keys in a bucket.
- */
-std::vector<const SkillTemplate*> javaHashMapValues(const std::vector<std::pair<int32_t, const SkillTemplate*>>& puts) {
-	using Bucket = std::vector<std::pair<int32_t, const SkillTemplate*>>;
-	std::vector<Bucket> table;
-	size_t size = 0;
-	auto resize = [&table] {
-		const size_t newCapacity = table.empty() ? 16 : table.size() * 2;
-		std::vector<Bucket> newTable(newCapacity);
-		for (const Bucket& bucket : table) {
-			for (const auto& entry : bucket)
-				newTable[spread(entry.first) & (newCapacity - 1)].push_back(entry);
-		}
-		table = std::move(newTable);
-	};
-	for (const auto& [key, value] : puts) {
-		if (table.empty())
-			resize();
-		Bucket& bucket = table[spread(key) & (table.size() - 1)];
-		bool present = false;
-		for (auto& entry : bucket) {
-			if (entry.first == key) {
-				entry.second = value;
-				present = true;
-				break;
-			}
-		}
-		if (present)
-			continue;
-		const size_t previousLength = bucket.size();
-		bucket.emplace_back(key, value);
-		if (previousLength >= 8 && table.size() < 64) // TREEIFY_THRESHOLD, MIN_TREEIFY_CAPACITY: treeifyBin resizes instead
-			resize();
-		if (++size > table.size() / 4 * 3)
-			resize();
-	}
-	std::vector<const SkillTemplate*> values;
-	values.reserve(size);
-	for (const Bucket& bucket : table) {
-		for (const auto& entry : bucket)
-			values.push_back(entry.second);
-	}
-	return values;
-}
-
-} // namespace
 
 void SkillData::afterUnmarshal(xml::LoadContext& /*ctx*/, const xml::XmlParent& /*parent*/) {
 	skillTemplateById.clear();
@@ -81,7 +27,7 @@ void SkillData::afterUnmarshal(xml::LoadContext& /*ctx*/, const xml::XmlParent& 
 			skillTemplatesByGroup[skillTemplate.getGroup()].push_back(&skillTemplate);
 		skillTemplatesByStack[skillTemplate.getStack()].push_back(&skillTemplate); // Java: getStack() != null, always (a required attribute)
 	}
-	skillTemplatesInHashOrder = javaHashMapValues(puts);
+	skillTemplatesInHashOrder = detail::javaHashMapValues(puts);
 	// Java: skillTemplates = null (the C++ indexes point into the storage, which stays)
 }
 
@@ -106,6 +52,23 @@ const std::vector<const SkillTemplate*>* SkillData::getSkillTemplatesByGroup(std
 
 std::vector<const SkillTemplate*> SkillData::getSkillTemplates() const {
 	return skillTemplatesInHashOrder;
+}
+
+void SkillData::validateMotions(const MotionData& motionData) const {
+	std::string missing;
+	std::unordered_set<std::string> motionNames;
+	for (const SkillTemplate* t : getSkillTemplates()) {
+		const skillengine::model::Motion* m = t->getMotion();
+		if (m == nullptr || m->getName().empty()) // Java: m == null || m.getName() == null
+			continue;
+		if (motionNames.insert(m->getName()).second) {
+			if (motionData.getMotionTime(m->getName()) == nullptr)
+				missing.append("\"").append(m->getName()).append("\" (skill id ").append(std::to_string(t->getSkillId())).append("), ");
+		}
+	}
+	if (!missing.empty())
+		commons::logging::LoggerFactory::getLogger("com.aionemu.gameserver.dataholders.SkillData")
+		  .warn("Missing motion times for these motion names: {}", missing.substr(0, missing.size() - 2));
 }
 
 } // namespace aion::gameserver::dataholders

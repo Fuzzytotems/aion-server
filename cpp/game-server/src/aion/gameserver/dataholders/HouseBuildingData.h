@@ -11,8 +11,8 @@ namespace aion::gameserver::dataholders {
  * Java com.aionemu.gameserver.dataholders.HouseBuildingData.
  * <p>
  * C++: the @XmlTransient index points into the bound `buildings` storage, which stays after afterUnmarshal (static-data.md §2.6; Java sets the
- * list to null). A duplicate building id fails the load through LoadContext::fail with Java's IllegalArgumentException message. size comes with
- * the P4-09 port (header request templates-b-2 added getBuilding).
+ * list to null). A duplicate building id fails the load through LoadContext::fail with Java's IllegalArgumentException message. Header request
+ * templates-b-2 added getBuilding.
  *
  * @author Rolandas
  */
@@ -24,6 +24,8 @@ private:
 public:
 	/** @return the building, nullptr (Java null) if there is none */
 	const model::templates::housing::Building* getBuilding(int32_t buildingId) const;
+
+	int32_t size() const;
 };
 
 } // namespace aion::gameserver::dataholders

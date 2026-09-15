@@ -7,6 +7,7 @@
 #include <unordered_map>
 #include <vector>
 
+#include "aion/gameserver/runtime/fields/Field.h"
 #include "aion/gameserver/runtime/lifetime/Ref.h"
 #include "aion/gameserver/geoEngine/fwd.h"
 #include "aion/gameserver/geoEngine/math/fwd.h"
@@ -100,6 +101,16 @@ public:
 	 * value, the more precision (works most efficiently if it's a prime number). Public in C++ for the tests.
 	 */
 	static int32_t getVectorHash(const math::Vector3f& location);
+
+	/**
+	 * C++ only: the statistics of the last completed load (all zero before the first one). aion_game_server --check-static-data reports them after
+	 * GeoService.init, which calls the Java overload (M4 item 5).
+	 */
+	static Statistics getLastLoadStatistics() noexcept { return lastLoadStatistics.get(); }
+
+private:
+	/** C++ only: written once by load before it returns (GameServer startup), read afterwards */
+	static inline runtime::Field<Statistics> lastLoadStatistics{};
 };
 
 } // namespace aion::gameserver::geoEngine

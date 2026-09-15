@@ -192,6 +192,9 @@ public:
 
 	bool isInsideZone(WorldPosition& pos, const zone::ZoneName* zoneName);
 
+	/** C++ only: the names of this instance's zones (a snapshot; aion_game_server --check-static-data reports the zones of every map, M4 item 6) */
+	std::vector<const zone::ZoneName*> getZoneNames();
+
 	int32_t getMaxPlayers() const { return maxPlayers; }
 
 	bool isFull();

@@ -8,6 +8,7 @@
 #include <vector>
 
 #include "aion/gameserver/dataholders/SkillData.xml.h"
+#include "aion/gameserver/dataholders/fwd.h"
 
 namespace aion::gameserver::dataholders {
 
@@ -47,6 +48,12 @@ public:
 
 	/** Java `skillTemplateById.values()`: a snapshot in Java's HashMap<Integer, SkillTemplate> iteration order */
 	std::vector<const skillengine::model::SkillTemplate*> getSkillTemplates() const;
+
+	/**
+	 * Logs the motion names of the skills that have no motion time (post-processing, DataManager::init). Java reads DataManager.MOTION_DATA; C++
+	 * gets the holder.
+	 */
+	void validateMotions(const MotionData& motionData) const;
 };
 
 } // namespace aion::gameserver::dataholders

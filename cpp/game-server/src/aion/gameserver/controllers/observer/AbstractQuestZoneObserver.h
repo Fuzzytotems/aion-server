@@ -19,8 +19,8 @@ namespace aion::gameserver::controllers::observer {
  * <p>
  * S0c declaration header (docs/design/hub-headers.md §3.5). Abstract RefCounted ActionObserver (fieldmap K4), held by
  * `QuestZoneHandler::observed`; zone handlers create their subclasses. The constructor reads the player's position and the clock (member
- * stores only) and is ported; the move task (Java anonymous Runnable, fieldmap `AbstractQuestZoneObserver_Runnable`) is a callback struct in
- * the .cpp once moved() is ported.
+ * stores only); the move task (Java anonymous Runnable, fieldmap `AbstractQuestZoneObserver_Runnable`, capturing only `this`) is a lambda
+ * pinned to the observer.
  *
  * @author Rolandas
  */

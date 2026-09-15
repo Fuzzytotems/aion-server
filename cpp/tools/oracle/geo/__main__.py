@@ -1,7 +1,9 @@
 """python -m geo generate|check [--geo-dir DIR] [--world-maps FILE] [--expected FILE] (from cpp/tools/oracle)
 
-	generate   writes expected/geo_expected.json
-	check      regenerates and compares with the committed document (exit 1 on drift)
+	generate     writes expected/geo_expected.json
+	check        regenerates and compares with the committed document (exit 1 on drift)
+	m4-probes    the probes as input of aion_game_server --check-static-data (geo/m4.py)
+	m4-compare   compares the M4 report files of aion_game_server --check-static-data (geo/m4.py)
 """
 
 from __future__ import annotations
@@ -15,6 +17,13 @@ from . import run
 
 
 def main(argv: list[str]) -> int:
+	if argv and argv[0] in ("m4-probes", "m4-compare"):
+		from . import m4
+		try:
+			return m4.main(argv)
+		except GeoOracleError as error:
+			print(f"geo oracle: {error}", file=sys.stderr)
+			return 2
 	parser = argparse.ArgumentParser(prog="python -m geo")
 	parser.add_argument("command", choices=["generate", "check"])
 	parser.add_argument("--geo-dir", type=Path, default=run.DEFAULT_GEO_DIR)

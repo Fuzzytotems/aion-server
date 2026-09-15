@@ -1,18 +1,22 @@
 #include "aion/gameserver/dao/HeadhuntingDAO.h"
 
-#include "aion/gameserver/runtime/base/Unported.h"
+#include <string_view>
+
+#include "aion/commons/database/DB.h"
+#include "aion/gameserver/dao/detail/DaoSupport.h"
+#include "aion/gameserver/model/event/Headhunter.h"
+#include "aion/gameserver/model/gameobjects/Persistable.h"
+#include "aion/gameserver/services/PvpService.h"
 
 namespace aion::gameserver::dao {
 
-// Anonymous classes and stored lambdas of the Java class (hub-headers.md §7.3): the bodies that create them define the structs that
-// `python tools/gen/fieldmap.py --class <key>` prints.
-//   anonymous ParamReadStH at HeadhuntingDAO.java:28 (com.aionemu.gameserver.dao.HeadhuntingDAO$1); argument 2 of select(); storage: sync
-//   anonymous IUStH at HeadhuntingDAO.java:51 (com.aionemu.gameserver.dao.HeadhuntingDAO$2); argument 2 of insertUpdate(); storage: sync
-//   anonymous IUStH at HeadhuntingDAO.java:65 (com.aionemu.gameserver.dao.HeadhuntingDAO$3); argument 2 of insertUpdate(); storage: sync
+using commons::database::DB;
+using commons::database::PreparedStatement;
+using commons::database::ResultSet;
+using model::gameobjects::Persistable;
 
 namespace {
 
-// Java SQL constants of the class, used only by the bodies (P4-14 ports them with the DAO methods).
 constexpr std::string_view SELECT_QUERY = "SELECT * FROM `headhunting`";
 constexpr std::string_view UPDATE_QUERY = "REPLACE INTO `headhunting` (`hunter_id`, `accumulated_kills`, `last_update`) VALUES (?,?,?)";
 constexpr std::string_view DELETE_QUERY = "DELETE FROM `headhunting`";
@@ -20,15 +24,39 @@ constexpr std::string_view DELETE_QUERY = "DELETE FROM `headhunting`";
 } // namespace
 
 std::map<int32_t, runtime::Ref<model::event::Headhunter>> HeadhuntingDAO::loadHeadhunters() {
-	AION_UNPORTED();
+	std::map<int32_t, runtime::Ref<model::event::Headhunter>> loadedHunters;
+	DB::select(
+		SELECT_QUERY, [](PreparedStatement&) {},
+		[&](ResultSet& rset) {
+			while (rset.next()) {
+				int32_t playerId = rset.getInt("hunter_id");
+				if (!loadedHunters.contains(playerId)) {
+					int32_t accumulatedKills = rset.getInt("accumulated_kills");
+					int64_t lastUpdate = detail::getTime(rset.getTimestamp("last_update"));
+					loadedHunters.insert_or_assign(playerId,
+						model::event::Headhunter::create(playerId, accumulatedKills, lastUpdate, Persistable::PersistentState::UPDATED));
+				}
+			}
+		});
+	return loadedHunters;
 }
 
 bool HeadhuntingDAO::clearTables() {
-	AION_UNPORTED();
+	return DB::insertUpdate(DELETE_QUERY, [](PreparedStatement& stmt) { stmt.execute(); });
 }
 
 void HeadhuntingDAO::storeHeadhunter(int32_t hunterId) {
-	AION_UNPORTED();
+	runtime::Ptr<model::event::Headhunter> hunter = services::PvpService::getInstance().getHeadhunter(hunterId);
+	if (!hunter || hunter->getPersistentState() != Persistable::PersistentState::UPDATE_REQUIRED)
+		return;
+	bool success = DB::insertUpdate(UPDATE_QUERY, [&](PreparedStatement& stmt) {
+		stmt.setInt(1, hunter->getHunterId());
+		stmt.setInt(2, hunter->getKills());
+		stmt.setTimestamp(3, detail::toTimestamp(hunter->getLastUpdate()));
+		stmt.execute();
+	});
+	if (success)
+		hunter->setPersistentState(Persistable::PersistentState::UPDATED);
 }
 
 } // namespace aion::gameserver::dao

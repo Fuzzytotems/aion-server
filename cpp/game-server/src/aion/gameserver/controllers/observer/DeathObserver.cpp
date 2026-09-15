@@ -2,8 +2,8 @@
 
 #include <utility>
 
-#include "aion/gameserver/runtime/base/Unported.h"
 #include "aion/gameserver/controllers/observer/ObserverType.h"
+#include "aion/gameserver/model/gameobjects/Creature.h"
 
 namespace aion::gameserver::controllers::observer {
 
@@ -18,7 +18,7 @@ runtime::Ref<DeathObserver> DeathObserver::create(runtime::PinnedCallback<void(m
 }
 
 void DeathObserver::died(model::gameobjects::Creature& lastAttacker) {
-	AION_UNPORTED();
+	actionOnDeath(lastAttacker);
 }
 
 } // namespace aion::gameserver::controllers::observer

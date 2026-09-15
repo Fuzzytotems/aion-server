@@ -16,7 +16,7 @@ namespace aion::gameserver::dataholders {
  * Java com.aionemu.gameserver.dataholders.TemperingData.
  * <p>
  * C++: the @XmlTransient maps point into the bound `temperingList` storage, which stays after afterUnmarshal (static-data.md §2.6; Java sets the
- * list to null). size comes with the P4-09 port (header request items-4 added getTemplates).
+ * list to null). Header request items-4 added getTemplates.
  *
  * @author xTz
  */
@@ -32,8 +32,10 @@ public:
 	 *         none
 	 * @throws NullPointerException if itemTemplate is null
 	 */
-	const std::unordered_map<int32_t, const std::vector<model::enchants::TemperingStat>*>* getTemplates(
-		const model::templates::item::ItemTemplate* itemTemplate) const;
+	const std::unordered_map<int32_t, const std::vector<model::enchants::TemperingStat>*>*
+	getTemplates(const model::templates::item::ItemTemplate* itemTemplate) const;
+
+	int32_t size() const;
 };
 
 } // namespace aion::gameserver::dataholders

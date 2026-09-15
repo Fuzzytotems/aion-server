@@ -22,6 +22,10 @@ namespace aion::gameserver::controllers {
  * @author ATracer, Source, Sykra
  */
 class RVController : public NpcController {
+	/** C++ only: the callback structs of Java's anonymous RequestResponseHandlers (RVController$1, $2) read the private members like Java's inner classes */
+	friend class RVController_RequestResponseHandler;
+	friend class RVController_RequestResponseHandler_2;
+
 private:
 	const bool isMaster_; // Java: = false
 	const bool isVortex_; // Java: = false

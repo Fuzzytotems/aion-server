@@ -21,4 +21,8 @@ const model::templates::housing::Building* HouseBuildingData::getBuilding(int32_
 	return it != buildingById.end() ? it->second : nullptr;
 }
 
+int32_t HouseBuildingData::size() const {
+	return static_cast<int32_t>(buildingById.size());
+}
+
 } // namespace aion::gameserver::dataholders

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <memory>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -17,7 +18,8 @@ namespace aion::gameserver::dao {
  */
 class MailDAO {
 public:
-	static runtime::Ref<model::gameobjects::player::Mailbox> loadPlayerMailbox(model::gameobjects::player::Player& player);
+	/** @return the loaded mailbox, a part the caller hands to Player::setMailbox (hub-headers.md §5: a newly created part) */
+	static std::unique_ptr<model::gameobjects::player::Mailbox> loadPlayerMailbox(model::gameobjects::player::Player& player);
 	static bool haveUnread(int32_t playerId);
 	static void storeMailbox(model::gameobjects::player::Player& player);
 	static bool storeLetter(model::gameobjects::Letter& letter);

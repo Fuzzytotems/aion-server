@@ -13,7 +13,7 @@ namespace aion::gameserver::controllers {
 
 /**
  * S0c declaration header (docs/design/hub-headers.md §3.5). The controller part of siege weapon summons. The constructor reads the npc skill
- * templates (DataManager), so it stays unported.
+ * templates (DataManager.NPC_SKILL_DATA must be published).
  *
  * @author xTz
  */

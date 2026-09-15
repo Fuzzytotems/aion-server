@@ -1,6 +1,6 @@
 #include "aion/gameserver/controllers/observer/AttackCalcObserver.h"
 
-#include "aion/gameserver/runtime/base/Unported.h"
+#include "aion/gameserver/controllers/observer/AttackerCriticalStatus.h"
 
 namespace aion::gameserver::controllers::observer {
 
@@ -13,7 +13,7 @@ runtime::Ref<AttackCalcObserver> AttackCalcObserver::create() {
 }
 
 runtime::Ref<AttackerCriticalStatus> AttackCalcObserver::checkAttackerCriticalStatus(attack::AttackStatus status, bool isSkill) {
-	AION_UNPORTED();
+	return AttackerCriticalStatus::create(false);
 }
 
 } // namespace aion::gameserver::controllers::observer
