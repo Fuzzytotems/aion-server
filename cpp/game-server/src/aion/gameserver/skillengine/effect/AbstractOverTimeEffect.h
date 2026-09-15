@@ -1,6 +1,10 @@
 #pragma once
 
 #include "aion/gameserver/skillengine/effect/AbstractOverTimeEffect.xml.h"
+
+#include <optional>
+
+#include "aion/gameserver/skillengine/effect/fwd.h"
 #include "aion/gameserver/skillengine/model/fwd.h"
 
 namespace aion::gameserver::skillengine::effect {
@@ -15,6 +19,15 @@ public:
 
 	/** on retail these effects last one sec more than their template value of duration2 */
 	int32_t getDuration2() const override { return duration2 + 1000; }
+
+	void startEffect(model::Effect& effect) const override;
+
+	/** Java startEffect(Effect, AbnormalState): `abnormal` is null (std::nullopt) for effects without an abnormal state */
+	void startEffect(model::Effect& effect, std::optional<AbnormalState> abnormal) const;
+
+	using EffectTemplate::endEffect; // C++ name hiding by the overload below
+
+	void endEffect(model::Effect& effect, std::optional<AbnormalState> abnormal) const;
 };
 
 } // namespace aion::gameserver::skillengine::effect

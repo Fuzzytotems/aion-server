@@ -22,8 +22,9 @@ namespace aion::gameserver::utils {
  * <ul>
  * <li>DF (`DecimalFormat(".##")`, Locale.US) is the private helper formatDecimal: at most two fraction digits rounded HALF_EVEN from the exact
  * binary value, no integer zero before a fraction (".5"), "0" for zero, a kept minus sign ("-0" for -0.001).</li>
- * <li>l10n returns "" where Java returns null (id 0), the convention of L10n::getL10n. The client string id is two UTF-16 code units; one that
- * is a lone surrogate cannot be encoded in UTF-8 and becomes U+FFFD (commons StringUtils::toUtf8, DEVIATIONS).</li>
+ * <li>l10n returns "" where Java returns null (id 0), the convention of L10n::getL10n. The client string id is two UTF-16 code units, kept as
+ * WTF-8 (commons StringUtils::toWtf8) so that a lone surrogate unit reaches the wire unchanged through writeS; split decodes and encodes
+ * WTF-8 as well.</li>
  * <li>Nullable String parameters are `std::optional<std::string_view>`; getPosition and parsedCoordsToWorldPosition return the new
  * WorldPosition as a Ref, null for invalid input.</li>
  * </ul>

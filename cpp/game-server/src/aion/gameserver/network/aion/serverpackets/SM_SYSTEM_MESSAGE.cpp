@@ -61,7 +61,7 @@ std::string SM_SYSTEM_MESSAGE::toJavaString(int16_t value) {
 }
 
 std::string SM_SYSTEM_MESSAGE::toJavaString(char16_t value) {
-	return commons::utils::StringUtils::toUtf8(std::u16string_view(&value, 1));
+	return commons::utils::StringUtils::toWtf8(std::u16string_view(&value, 1)); // Java: String.valueOf(char), a lone surrogate included
 }
 
 SM_SYSTEM_MESSAGE SM_SYSTEM_MESSAGE::STR_SKILL_ABYSS_SKILL_IS_FIRED(model::gameobjects::player::Player& player, std::string_view skill) {

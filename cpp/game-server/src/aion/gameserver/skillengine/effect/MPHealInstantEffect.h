@@ -1,6 +1,7 @@
 #pragma once
 
 #include "aion/gameserver/skillengine/effect/MPHealInstantEffect.xml.h"
+
 #include "aion/gameserver/skillengine/model/fwd.h"
 
 namespace aion::gameserver::skillengine::effect {
@@ -10,6 +11,10 @@ class MPHealInstantEffect : public ::aion::gameserver::skillengine::effect::Abst
 #include "aion/gameserver/skillengine/effect/MPHealInstantEffect.xml.inc"
 public:
 	void applyEffect(model::Effect& effect) const override;
+
+	int32_t getCurrentStatValue(model::Effect& effect) const override;
+
+	int32_t getMaxStatValue(model::Effect& effect) const override;
 };
 
 } // namespace aion::gameserver::skillengine::effect

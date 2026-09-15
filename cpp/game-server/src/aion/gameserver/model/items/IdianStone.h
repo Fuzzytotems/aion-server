@@ -18,14 +18,17 @@ namespace aion::gameserver::model::items {
  * S0c declaration header (docs/design/hub-headers.md §3.5). A part of Item (`PartSlot<IdianStone, RetireTo::RECLAIMER>`, cycles review), bound to
  * the item in the constructor: `item` is the owner. retain()/release() of the ItemStone interfaces forward to OwnedPart (a Ref to the stone
  * retains the item, §9.2). The anonymous ActionObserver of onEquip is the fieldmap callback struct IdianStone_ActionObserver, defined in
- * IdianStone.cpp when onEquip is ported (§7.3). The constructor reads the item templates and creates the RandomBonusEffect (DataManager), so it
- * stays `AION_UNPORTED` (the ItemStone constructor already is).
+ * IdianStone.cpp (§7.3). The constructor reads the burn values from the item's idian template and creates the RandomBonusEffect of the stone's
+ * polish set.
  * C++ only: breakActionListener() cuts the stone -> observer -> player edge at logout without touching the effect or the observe controller
  * (LogoutBreakers, cycles review S0B-097).
  *
  * @author xTz
  */
 class IdianStone : public runtime::OwnedPart, public ItemStone {
+	/** C++ only: the anonymous ActionObserver of onEquip (defined in IdianStone.cpp) calls the private decreasePolishCharge like Java's inner class */
+	friend struct IdianStone_ActionObserver;
+
 private:
 	runtime::Field<runtime::Ref<controllers::observer::ActionObserver>> actionListener{};
 	runtime::Field<int32_t> polishCharge;
@@ -65,6 +68,9 @@ public:
 
 	/** C++ only (LogoutBreakers): actionListener = null without rndBonusEffect.endEffect or removeObserver */
 	void breakActionListener() noexcept;
+
+	/** C++ only (tests): the observer onEquip registered, nullptr if there is none */
+	runtime::Ptr<controllers::observer::ActionObserver> getActionListener() const;
 };
 
 } // namespace aion::gameserver::model::items

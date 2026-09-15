@@ -1,6 +1,6 @@
 #include "aion/gameserver/geoEngine/bounding/BoundingVolume.h"
 
-#include "aion/gameserver/runtime/base/Unported.h"
+#include "aion/gameserver/geoEngine/math/StrictFp.h"
 
 namespace aion::gameserver::geoEngine::bounding {
 
@@ -12,15 +12,16 @@ BoundingVolume::BoundingVolume(const math::Vector3f& centerValue) : center(cente
 BoundingVolume::~BoundingVolume() = default;
 
 math::Vector3f BoundingVolume::getCenter(math::Vector3f& store) {
-	AION_UNPORTED();
+	store.set(center.get());
+	return store;
 }
 
 float BoundingVolume::distanceTo(const math::Vector3f& point) {
-	AION_UNPORTED();
+	return center.get().distance(point);
 }
 
 float BoundingVolume::distanceSquaredTo(const math::Vector3f& point) {
-	AION_UNPORTED();
+	return center.get().distanceSquared(point);
 }
 
 } // namespace aion::gameserver::geoEngine::bounding

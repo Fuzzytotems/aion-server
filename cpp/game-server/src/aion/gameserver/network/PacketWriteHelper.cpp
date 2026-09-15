@@ -34,7 +34,7 @@ void PacketWriteHelper::writeQ(commons::utils::ByteBuffer& buf, int64_t value) {
 
 void PacketWriteHelper::writeS(commons::utils::ByteBuffer& buf, std::string_view text) {
 	if (!text.empty()) {
-		const std::u16string utf16 = commons::utils::StringUtils::toUtf16(text);
+		const std::u16string utf16 = commons::utils::StringUtils::wtf8ToUtf16(text); // Java writes each char unchanged: lone surrogates stay (WTF-8)
 		for (char16_t c : utf16)
 			buf.putChar(c);
 	}
@@ -45,7 +45,7 @@ void PacketWriteHelper::writeS(commons::utils::ByteBuffer& buf, std::string_view
 	if (text.empty()) { // Java: null writes size zero bytes, "" writes its (zero) characters and size zero bytes: the same bytes
 		skip(buf, size);
 	} else {
-		const std::u16string utf16 = commons::utils::StringUtils::toUtf16(text);
+		const std::u16string utf16 = commons::utils::StringUtils::wtf8ToUtf16(text); // WTF-8, see writeS(buf, text)
 		for (char16_t c : utf16)
 			buf.putChar(c);
 		skip(buf, size - static_cast<int32_t>(utf16.size() * 2)); // Java: new byte[negative] throws NegativeArraySizeException

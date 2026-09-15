@@ -8,6 +8,8 @@
 #include "aion/commons/utils/Numbers.h"
 #include "aion/gameserver/model/PlayerClassInfo.h"
 #include "aion/gameserver/configs/main/CustomConfig.h"
+#include "aion/gameserver/dataholders/DataManager.h"
+#include "aion/gameserver/dataholders/ItemSetData.h"
 #include "aion/gameserver/runtime/base/Exceptions.h"
 #include "aion/gameserver/runtime/base/Unported.h"
 #include "aion/gameserver/model/templates/item/ItemActivationTargetInfo.h"
@@ -139,8 +141,7 @@ bool ItemTemplate::isKinah() const {
 }
 
 const itemset::ItemSetTemplate* ItemTemplate::getItemSet() const {
-	// Java: DataManager.ITEM_SET_DATA.getItemSetTemplateByItemId(itemId); ItemSetData (P4-09) declares no such method yet
-	AION_UNPORTED();
+	return dataholders::DataManager::ITEM_SET_DATA->getItemSetTemplateByItemId(itemId);
 }
 
 bool ItemTemplate::isItemSet() const {

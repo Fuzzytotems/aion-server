@@ -11,6 +11,10 @@
 #include <vector>
 
 #include "aion/gameserver/configs/main/CustomConfig.h"
+#include "aion/gameserver/dataholders/DataManager.h"
+#include "aion/gameserver/dataholders/ItemSetData.h"
+#include "aion/gameserver/dataholders/SkillData.bind.h"
+#include "aion/gameserver/dataholders/SkillData.h"
 #include "aion/gameserver/dataholders/loadingutils/StaticDataException.h"
 #include "aion/gameserver/dataholders/loadingutils/StaticDataLoader.h"
 #include "aion/gameserver/model/templates/item/AcquisitionTypeInfo.h"
@@ -357,6 +361,40 @@ TEST(ItemTemplatePartsTest, StigmaHookBuildsTheSkillGroups) {
 	std::unique_ptr<Stigma> two = bindXml<Stigma>(R"(<stigma gain_skill_group1="G1" gain_skill_group2="G2" chargeable="true"/>)");
 	EXPECT_EQ(two->getGainSkillGroups(), (std::vector<std::string>{"G1", "G2"}));
 	EXPECT_TRUE(two->isChargeable());
+}
+
+TEST(ItemTemplatePartsTest, StigmaSkillsOfAGroupComeFromTheSkillData) {
+	// Java Stigma.getGainSkillsByGroup: DataManager.SKILL_DATA.getSkillTemplatesByGroup(gainSkillGroups[groupNo - 1]) (header request pre-1)
+	std::unique_ptr<Stigma> stigma = bindXml<Stigma>(R"(<stigma gain_skill_group1="G1" gain_skill_group2="G2"/>)");
+	EXPECT_THROW(stigma->getGainSkillsByGroup(1), runtime::NullPointerException) << "SKILL_DATA is not published";
+	EXPECT_EQ(stigma->getGainSkillsByGroup(3), nullptr) << "an invalid group number does not read the skill data";
+	xml::LoadContext context;
+	dataholders::DataManager::SKILL_DATA.publish(bindXml<dataholders::SkillData>(context, R"(<skill_data>)"
+		R"(<skill_template skill_id="11" name="a" nameId="1" skilltype="MAGICAL" skillsubtype="BUFF" activation="ACTIVE" duration="0")"
+		R"( stack="A1" group="G1"/>)"
+		R"(<skill_template skill_id="12" name="b" nameId="1" skilltype="MAGICAL" skillsubtype="BUFF" activation="ACTIVE" duration="0")"
+		R"( stack="B1" group="OTHER"/>)"
+		R"(<skill_template skill_id="13" name="c" nameId="1" skilltype="MAGICAL" skillsubtype="BUFF" activation="ACTIVE" duration="0")"
+		R"( stack="A2" group="G1"/>)"
+		R"(</skill_data>)"));
+	const std::vector<const skillengine::model::SkillTemplate*>* group1 = stigma->getGainSkillsByGroup(1);
+	ASSERT_NE(group1, nullptr);
+	ASSERT_EQ(group1->size(), 2u);
+	EXPECT_EQ((*group1)[0]->getSkillId(), 11);
+	EXPECT_EQ((*group1)[1]->getSkillId(), 13);
+	EXPECT_EQ(stigma->getGainSkillsByGroup(2), nullptr) << "no skill of group G2: Java null";
+	dataholders::DataManager::SKILL_DATA.resetForTests();
+}
+
+TEST(ItemTemplateTest, ItemSetComesFromTheItemSetData) {
+	// Java ItemTemplate.getItemSet: DataManager.ITEM_SET_DATA.getItemSetTemplateByItemId(itemId) (header request pre-2); the holder with sets is
+	// tested in tests/dataholders (its binding needs ItemSetTemplate's hook, P4-07b)
+	std::unique_ptr<ItemTemplate> item = bindXml<ItemTemplate>(R"(<item_template id="100000001" name="Sword"/>)");
+	EXPECT_THROW(item->isItemSet(), runtime::NullPointerException) << "ITEM_SET_DATA is not published";
+	dataholders::DataManager::ITEM_SET_DATA.publish(std::make_unique<dataholders::ItemSetData>());
+	EXPECT_EQ(item->getItemSet(), nullptr);
+	EXPECT_FALSE(item->isItemSet());
+	dataholders::DataManager::ITEM_SET_DATA.resetForTests();
 }
 
 TEST(ItemTemplatePartsTest, SmallAccessors) {

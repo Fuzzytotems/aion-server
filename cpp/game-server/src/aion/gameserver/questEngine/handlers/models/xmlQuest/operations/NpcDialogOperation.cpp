@@ -1,0 +1,11 @@
+#include "aion/gameserver/questEngine/handlers/models/xmlQuest/operations/NpcDialogOperation.h"
+
+#include "aion/gameserver/runtime/base/Unported.h"
+
+namespace aion::gameserver::questEngine::handlers::models::xmlQuest::operations {
+
+void NpcDialogOperation::doOperate(model::QuestEnv& /*env*/) const {
+	AION_UNPORTED();
+}
+
+} // namespace aion::gameserver::questEngine::handlers::models::xmlQuest::operations

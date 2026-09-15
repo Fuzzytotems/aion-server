@@ -11,6 +11,9 @@
 #include <vector>
 
 #include "aion/gameserver/configs/main/WorldConfig.h"
+#include "aion/gameserver/dataholders/DataManager.h"
+#include "aion/gameserver/dataholders/WorldMapsData.bind.h"
+#include "aion/gameserver/dataholders/WorldMapsData.h"
 #include "aion/gameserver/dataholders/loadingutils/StaticDataException.h"
 #include "aion/gameserver/dataholders/loadingutils/StaticDataLoader.h"
 #include "aion/gameserver/model/templates/stats/StatsTemplate.bind.h"
@@ -198,6 +201,27 @@ TEST(ZoneTemplateTest, WorldZonePointsFollowJavaArithmetic) {
 	EXPECT_EQ(zone::WorldZoneTemplate::createMapPoints(2147483647, 3)->getTop(), -2147483648.0f);
 	// size + 1 wraps to Integer.MIN_VALUE before the widening
 	EXPECT_EQ(zone::WorldZoneTemplate::createMapPoints(2147483647, 3)->getPoint()[2].getX(), -2147483648.0f);
+}
+
+TEST(ZoneTemplateTest, WorldZoneTemplateReadsTheMapFlags) {
+	// Java WorldZoneTemplate(size, mapId): flags = DataManager.WORLD_MAPS_DATA.getTemplate(mapId).getFlags() (header request pre-2)
+	const bool zoneNames = zoneNamesArePorted();
+	ConfigValue regionSize(configs::main::WorldConfig::WORLD_REGION_SIZE);
+	configs::main::WorldConfig::WORLD_REGION_SIZE.store(128);
+	runtime::TaskScope scope(AION_TASK_INFO(runtime::TaskKind::TEST));
+	EXPECT_THROW(zone::WorldZoneTemplate(1000, 210010000), runtime::NullPointerException) << "WORLD_MAPS_DATA is not published";
+	dataholders::DataManager::WORLD_MAPS_DATA.publish(bindXml<dataholders::WorldMapsData>(
+		R"(<world_maps><map id="210010000" cName="Poeta" death_level="0" water_level="0" flags="BIND FLY PVP"/></world_maps>)"));
+	EXPECT_THROW(zone::WorldZoneTemplate(1000, 220010000), runtime::NullPointerException) << "Java: getTemplate(mapId) is null";
+	if (zoneNames) {
+		zone::WorldZoneTemplate zone(1000, 210010000);
+		EXPECT_EQ(zone.getFlags(), 1 | 8 | 64) << "BIND, FLY, PVP_ENABLED: 1 << ordinal";
+		EXPECT_EQ(zone.getMapid(), 210010000);
+		EXPECT_EQ(zone.getPoints()->getTop(), 1025.0f);
+	}
+	dataholders::DataManager::WORLD_MAPS_DATA.resetForTests();
+	if (!zoneNames)
+		GTEST_SKIP() << "ZoneName::createOrGet (P4-10) is not ported yet: the map zone of a known map is not created";
 }
 
 TEST(ZoneTemplateTest, WorldZoneTemplateCoversTheMap) {

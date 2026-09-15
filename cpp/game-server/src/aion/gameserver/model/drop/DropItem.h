@@ -35,7 +35,14 @@ protected:
 	explicit DropItem(const Drop* dropTemplate);
 
 public:
+	/** Java `new DropItem(drop)` for a drop of the static data (DropGroup): the template outlives the drop item */
 	static runtime::Ref<DropItem> create(const Drop* value);
+
+	/**
+	 * C++ only: Java `new DropItem(new Drop(...))` for a drop created at run time (DropRegistrationService, QuestService), which only the drop
+	 * item references in Java. The drop item owns a copy of the drop, and getDropTemplate() points at that copy for the drop item's lifetime.
+	 */
+	static runtime::Ref<DropItem> create(Drop&& runtimeDrop);
 
 	/** Regenerates item count upon each call */
 	void calculateCount();

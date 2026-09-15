@@ -11,6 +11,8 @@
 #include "aion/commons/logging/LoggerFactory.h"
 #include "aion/commons/utils/TimeUtils.h"
 #include "aion/gameserver/dao/ItemStoneListDAO.h"
+#include "aion/gameserver/dataholders/DataManager.h"
+#include "aion/gameserver/dataholders/ItemData.h"
 #include "aion/gameserver/model/enchants/EnchantEffect.h"
 #include "aion/gameserver/model/enchants/TemperingEffect.h"
 #include "aion/gameserver/model/gameobjects/detail/ObjectsData.h"
@@ -47,13 +49,9 @@ static const auto log = commons::logging::LoggerFactory::getLogger("com.aionemu.
 
 namespace {
 
-/**
- * Java `DataManager.ITEM_DATA.getItemTemplate(itemId)`: ItemData declares no getItemTemplate yet (P4-09), so the DAO constructor and addGodStone
- * reach AION_UNPORTED here.
- */
+/** Java `DataManager.ITEM_DATA.getItemTemplate(itemId)` (NullPointerException while the item data is not published) */
 const templates::item::ItemTemplate* findItemTemplate(int32_t itemId) {
-	static_cast<void>(itemId);
-	AION_UNPORTED();
+	return dataholders::DataManager::ITEM_DATA->getItemTemplate(itemId);
 }
 
 /** Java: Objects.requireNonNull(DataManager.ITEM_DATA.getItemTemplate(itemId), () -> "Missing template for item " + itemId) */
@@ -133,10 +131,6 @@ Item::Item(int32_t objId, const templates::item::ItemTemplate* itemTemplateValue
 	equipmentSlot.set(equipmentSlotValue);
 }
 
-#ifdef _MSC_VER
-#pragma warning(push)
-#pragma warning(disable : 4702) // the template lookup never returns until ItemData is ported
-#endif
 Item::Item(int32_t objId, int32_t itemId, int64_t itemCountValue, std::optional<int32_t> itemColorValue, int32_t colorExpires,
 	std::string_view itemCreatorValue, int32_t expireTimeValue, int32_t activationCountValue, bool isEquippedValue, bool isSoulBoundValue,
 	int64_t equipmentSlotValue, int32_t itemLocationValue, int32_t enchant, int32_t enchantBonusValue, int32_t itemSkin, int32_t fusionedItem,
@@ -170,9 +164,6 @@ Item::Item(int32_t objId, int32_t itemId, int64_t itemCountValue, std::optional<
 	persistentState.set(PersistentState::NOACTION); // Java leaves the state null; the C++ Field has no null (DAO items need no store)
 	updateChargeInfo(charge);
 }
-#ifdef _MSC_VER
-#pragma warning(pop)
-#endif
 
 Item::~Item() = default;
 

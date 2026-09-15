@@ -39,6 +39,11 @@ namespace aion::gameserver::geoEngine::scene {
  */
 class Spatial : public runtime::RefCounted, public collision::Collidable {
 	AION_MAKE_REF_FRIEND
+	// C++ only: Java package access of the scene classes to protected members of other scene objects (Node.attachChild calls
+	// child.setParent, DespawnableNode.copyFrom reads node.name)
+	friend class Node;
+	friend class DespawnableNode;
+
 public:
 	using CullHint = Spatial_CullHint;
 

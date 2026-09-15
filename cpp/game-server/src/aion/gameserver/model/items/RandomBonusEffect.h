@@ -16,7 +16,7 @@ namespace aion::gameserver::model::items {
 /**
  * S0c declaration header (docs/design/hub-headers.md §3.5). RefCounted (fieldmap K4, `Item.bonusStatsEffect`, `IdianStone.rndBonusEffect`),
  * created with create(). StatOwner is held by Ref, so retain()/release() forward to RefCounted (§9.2). The constructor copies the modifiers of
- * the random bonus template (DataManager), so it stays `AION_UNPORTED` after the member initializers.
+ * the random bonus template.
  *
  * @author xTz
  */

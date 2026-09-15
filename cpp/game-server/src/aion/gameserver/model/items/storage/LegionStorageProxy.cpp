@@ -1,11 +1,15 @@
 #include "aion/gameserver/model/items/storage/LegionStorageProxy.h"
 
-#include "aion/gameserver/runtime/base/Unported.h"
 #include "aion/gameserver/model/gameobjects/Item.h"
 #include "aion/gameserver/model/gameobjects/player/Player.h"
 #include "aion/gameserver/model/team/legion/LegionWarehouse.h"
+#include "aion/gameserver/runtime/base/Exceptions.h"
 
 namespace aion::gameserver::model::items::storage {
+
+using ItemAddType = services::item::ItemPacketService_ItemAddType;
+using ItemDeleteType = services::item::ItemPacketService_ItemDeleteType;
+using ItemUpdateType = services::item::ItemPacketService_ItemUpdateType;
 
 LegionStorageProxy::LegionStorageProxy(team::legion::LegionWarehouse& storageValue, gameobjects::player::Player& actorValue)
 	: Storage(storageValue.getStorageType(), false), actor(actorValue), storage(static_cast<Storage&>(storageValue)) {
@@ -15,158 +19,156 @@ LegionStorageProxy::LegionStorageProxy(team::legion::LegionWarehouse& storageVal
 LegionStorageProxy::~LegionStorageProxy() = default;
 
 void LegionStorageProxy::increaseKinah(int64_t amount) {
-	AION_UNPORTED();
+	storage->increaseKinah(amount, runtime::Ptr<gameobjects::player::Player>(actor));
 }
 
-void LegionStorageProxy::increaseKinah(int64_t amount, services::item::ItemPacketService_ItemUpdateType updateType) {
-	AION_UNPORTED();
+void LegionStorageProxy::increaseKinah(int64_t amount, ItemUpdateType updateType) {
+	storage->increaseKinah(amount, updateType, runtime::Ptr<gameobjects::player::Player>(actor));
 }
 
 bool LegionStorageProxy::tryDecreaseKinah(int64_t amount) {
-	AION_UNPORTED();
+	return storage->tryDecreaseKinah(amount, runtime::Ptr<gameobjects::player::Player>(actor));
 }
 
-bool LegionStorageProxy::tryDecreaseKinah(int64_t amount, services::item::ItemPacketService_ItemUpdateType updateType) {
-	AION_UNPORTED();
+bool LegionStorageProxy::tryDecreaseKinah(int64_t amount, ItemUpdateType updateType) {
+	return storage->tryDecreaseKinah(amount, updateType, runtime::Ptr<gameobjects::player::Player>(actor));
 }
 
 void LegionStorageProxy::decreaseKinah(int64_t amount) {
-	AION_UNPORTED();
+	storage->decreaseKinah(amount, runtime::Ptr<gameobjects::player::Player>(actor));
 }
 
-void LegionStorageProxy::decreaseKinah(int64_t amount, services::item::ItemPacketService_ItemUpdateType updateType) {
-	AION_UNPORTED();
+void LegionStorageProxy::decreaseKinah(int64_t amount, ItemUpdateType updateType) {
+	storage->decreaseKinah(amount, updateType, runtime::Ptr<gameobjects::player::Player>(actor));
 }
 
 int64_t LegionStorageProxy::increaseItemCount(gameobjects::Item& item, int64_t countValue) {
-	AION_UNPORTED();
+	return storage->increaseItemCount(item, countValue, runtime::Ptr<gameobjects::player::Player>(actor));
 }
 
-int64_t LegionStorageProxy::increaseItemCount(gameobjects::Item& item, int64_t countValue,
-	services::item::ItemPacketService_ItemUpdateType updateType) {
-	AION_UNPORTED();
+int64_t LegionStorageProxy::increaseItemCount(gameobjects::Item& item, int64_t countValue, ItemUpdateType updateType) {
+	return storage->increaseItemCount(item, countValue, updateType, runtime::Ptr<gameobjects::player::Player>(actor));
 }
 
 int64_t LegionStorageProxy::decreaseItemCount(gameobjects::Item& item, int64_t countValue) {
-	AION_UNPORTED();
+	return storage->decreaseItemCount(runtime::Ptr<gameobjects::Item>(item), countValue, runtime::Ptr<gameobjects::player::Player>(actor));
 }
 
-int64_t LegionStorageProxy::decreaseItemCount(gameobjects::Item& item, int64_t countValue,
-	services::item::ItemPacketService_ItemUpdateType updateType) {
-	AION_UNPORTED();
+int64_t LegionStorageProxy::decreaseItemCount(gameobjects::Item& item, int64_t countValue, ItemUpdateType updateType) {
+	return storage->decreaseItemCount(runtime::Ptr<gameobjects::Item>(item), countValue, updateType, runtime::Ptr<gameobjects::player::Player>(actor));
 }
 
-int64_t LegionStorageProxy::decreaseItemCount(gameobjects::Item& item, int64_t countValue,
-	services::item::ItemPacketService_ItemUpdateType updateType, questEngine::model::QuestStatus questStatus) {
-	AION_UNPORTED();
+int64_t LegionStorageProxy::decreaseItemCount(gameobjects::Item& /*item*/, int64_t /*countValue*/, ItemUpdateType /*updateType*/,
+	questEngine::model::QuestStatus /*questStatus*/) {
+	throw runtime::UnsupportedOperationException("Quests should not update LWH!");
 }
 
 runtime::Ptr<gameobjects::Item> LegionStorageProxy::add(gameobjects::Item& item) {
-	AION_UNPORTED();
+	return storage->add(item, runtime::Ptr<gameobjects::player::Player>(actor));
 }
 
-runtime::Ptr<gameobjects::Item> LegionStorageProxy::add(gameobjects::Item& item, services::item::ItemPacketService_ItemAddType addType) {
-	AION_UNPORTED();
+runtime::Ptr<gameobjects::Item> LegionStorageProxy::add(gameobjects::Item& item, ItemAddType addType) {
+	return storage->add(item, addType, runtime::Ptr<gameobjects::player::Player>(actor));
 }
 
 runtime::Ptr<gameobjects::Item> LegionStorageProxy::put(gameobjects::Item& item) {
-	AION_UNPORTED();
+	return storage->put(item, runtime::Ptr<gameobjects::player::Player>(actor));
 }
 
 runtime::Ptr<gameobjects::Item> LegionStorageProxy::delete_(gameobjects::Item& item) {
-	AION_UNPORTED();
+	return storage->delete_(item, runtime::Ptr<gameobjects::player::Player>(actor));
 }
 
-runtime::Ptr<gameobjects::Item> LegionStorageProxy::delete_(gameobjects::Item& item, services::item::ItemPacketService_ItemDeleteType deleteType) {
-	AION_UNPORTED();
+runtime::Ptr<gameobjects::Item> LegionStorageProxy::delete_(gameobjects::Item& item, ItemDeleteType deleteType) {
+	return storage->delete_(item, deleteType, runtime::Ptr<gameobjects::player::Player>(actor));
 }
 
 bool LegionStorageProxy::decreaseByItemId(int32_t itemId, int64_t countValue) {
-	AION_UNPORTED();
+	return storage->decreaseByItemId(itemId, countValue, runtime::Ptr<gameobjects::player::Player>(actor));
 }
 
-bool LegionStorageProxy::decreaseByItemId(int32_t itemId, int64_t countValue, questEngine::model::QuestStatus questStatus) {
-	AION_UNPORTED();
+bool LegionStorageProxy::decreaseByItemId(int32_t /*itemId*/, int64_t /*countValue*/, questEngine::model::QuestStatus /*questStatus*/) {
+	throw runtime::UnsupportedOperationException("Quests should not update LWH!");
 }
 
 bool LegionStorageProxy::decreaseByObjectId(int32_t itemObjId, int64_t countValue) {
-	AION_UNPORTED();
+	return storage->decreaseByObjectId(itemObjId, countValue, runtime::Ptr<gameobjects::player::Player>(actor));
 }
 
-bool LegionStorageProxy::decreaseByObjectId(int32_t itemObjId, int64_t countValue, questEngine::model::QuestStatus questStatus) {
-	AION_UNPORTED();
+bool LegionStorageProxy::decreaseByObjectId(int32_t itemObjId, int64_t countValue, ItemUpdateType updateType) {
+	return storage->decreaseByObjectId(itemObjId, countValue, updateType, runtime::Ptr<gameobjects::player::Player>(actor));
 }
 
-bool LegionStorageProxy::decreaseByObjectId(int32_t itemObjId, int64_t countValue, services::item::ItemPacketService_ItemUpdateType updateType) {
-	AION_UNPORTED();
+bool LegionStorageProxy::decreaseByObjectId(int32_t /*itemObjId*/, int64_t /*countValue*/, questEngine::model::QuestStatus /*questStatus*/) {
+	throw runtime::UnsupportedOperationException("Quests should not update LWH!");
 }
 
 int64_t LegionStorageProxy::getKinah() {
-	AION_UNPORTED();
+	return storage->getKinah();
 }
 
 runtime::Ptr<gameobjects::Item> LegionStorageProxy::getKinahItem() {
-	AION_UNPORTED();
+	return storage->getKinahItem();
 }
 
 StorageType LegionStorageProxy::getStorageType() {
-	AION_UNPORTED();
+	return storage->getStorageType();
 }
 
 void LegionStorageProxy::onLoadHandler(gameobjects::Item& item) {
-	AION_UNPORTED();
+	storage->onLoadHandler(item);
 }
 
 runtime::Ptr<gameobjects::Item> LegionStorageProxy::remove(gameobjects::Item& item) {
-	AION_UNPORTED();
+	return storage->remove(item);
 }
 
 runtime::Ptr<gameobjects::Item> LegionStorageProxy::getFirstItemByItemId(int32_t itemId) {
-	AION_UNPORTED();
+	return storage->getFirstItemByItemId(itemId);
 }
 
 std::vector<runtime::Ptr<gameobjects::Item>> LegionStorageProxy::getItemsWithKinah() {
-	AION_UNPORTED();
+	return storage->getItemsWithKinah();
 }
 
 std::vector<runtime::Ptr<gameobjects::Item>> LegionStorageProxy::getItems() {
-	AION_UNPORTED();
+	return storage->getItems();
 }
 
 std::vector<runtime::Ptr<gameobjects::Item>> LegionStorageProxy::getItemsByItemId(int32_t itemId) {
-	AION_UNPORTED();
+	return storage->getItemsByItemId(itemId);
 }
 
 runtime::ConcurrentLinkedQueue<runtime::Ref<gameobjects::Item>>& LegionStorageProxy::getDeletedItems() {
-	AION_UNPORTED();
+	return storage->getDeletedItems();
 }
 
 runtime::Ptr<gameobjects::Item> LegionStorageProxy::getItemByObjId(int32_t itemObjId) {
-	AION_UNPORTED();
+	return storage->getItemByObjId(itemObjId);
 }
 
 bool LegionStorageProxy::isFull() {
-	AION_UNPORTED();
+	return storage->isFull();
 }
 
 int32_t LegionStorageProxy::getFreeSlots() {
-	AION_UNPORTED();
+	return storage->getFreeSlots();
 }
 
-void LegionStorageProxy::setLimit(int32_t limit) {
-	AION_UNPORTED();
+void LegionStorageProxy::setLimit(int32_t value) {
+	storage->setLimit(value);
 }
 
 int32_t LegionStorageProxy::getLimit() {
-	AION_UNPORTED();
+	return storage->getLimit();
 }
 
 int32_t LegionStorageProxy::size() {
-	AION_UNPORTED();
+	return storage->size();
 }
 
-void LegionStorageProxy::setOwner(runtime::Ptr<gameobjects::player::Player> player) {
-	AION_UNPORTED();
+void LegionStorageProxy::setOwner(runtime::Ptr<gameobjects::player::Player> /*player*/) {
+	throw runtime::UnsupportedOperationException("LWH doesnt have owner");
 }
 
 } // namespace aion::gameserver::model::items::storage

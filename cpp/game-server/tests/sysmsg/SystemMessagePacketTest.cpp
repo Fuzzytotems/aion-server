@@ -112,8 +112,8 @@ TEST(SystemMessageL10nTest, L10nStrings) {
 	EXPECT_EQ(commons::utils::StringUtils::toUtf16(network::detail::l10n(901250)), (std::u16string{u'$', char16_t(0x8105), char16_t(0x001B)})); // 1802501
 	// the shift keeps the low 32 bits: 0x7FFFFFFF << 1 | 1 = 0xFFFFFFFF
 	EXPECT_EQ(commons::utils::StringUtils::toUtf16(network::detail::l10n(0x7FFFFFFF)), (std::u16string{u'$', char16_t(0xFFFF), char16_t(0xFFFF)}));
-	// C++ only (docs/deviations/P4-06.md): a lone surrogate (27648 * 2 + 1 = 0xD801) becomes U+FFFD
-	EXPECT_EQ(network::detail::l10n(27648), std::string("$\xEF\xBF\xBD") + std::string(1, '\0'));
+	// a lone surrogate (27648 * 2 + 1 = 0xD801) is kept as WTF-8, which writeS sends unchanged (header request pre-4)
+	EXPECT_EQ(network::detail::l10n(27648), std::string("$\xED\xA0\x81") + std::string(1, '\0'));
 
 	// Race.java: ELYOS(0, 900240), ASMODIANS(1, 900241); AbyssRankEnum.getRankL10n: (ELYOS ? 901215 : 901233) + ordinal
 	EXPECT_EQ(network::detail::raceL10nIdOf(model::Race::ELYOS), 900240);

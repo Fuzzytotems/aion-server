@@ -156,6 +156,10 @@ aion_gs_chunk(P4-07b TARGET aion_gs_templates PHASE 4
 # generated/<same path>/X.xml.inc exists.
 aion_gs_chunk(P4-08 LEASE PHASE 4 XMLGEN_SHELLS
 	GLOBS "aion/gameserver/skillengine/**" "aion/gameserver/questEngine/**")
+# The shell tests link the libraries the shells compile into, so they live in the test directories of P5-02 (tests/skills) and P5-06
+# (tests/quest); P4-08 leases both during phase 4 (header request shells-5).
+aion_gs_chunk(P4-08 LEASE PHASE 4
+	TEST_SUPPORT skills quest)
 
 # P4-09: the 97 holders, StaticData, DataManager, and the JAXB roots of config/ingameshop and config/schedule (they need the static data runtime)
 aion_gs_chunk(P4-09 TARGET aion_gs_dataholders PHASE 4

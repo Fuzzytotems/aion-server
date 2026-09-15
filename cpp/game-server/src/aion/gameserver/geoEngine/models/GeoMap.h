@@ -27,7 +27,8 @@ namespace aion::gameserver::geoEngine::models {
  * S0c declaration header (docs/design/hub-headers.md §3.5): the element type of GeoService's maps. RefCounted (fieldmap K4), created with
  * create(mapId). C++ notes: collision queries return CollisionResults by value; the Vector3f position arguments that Java modifies in place
  * (applyCollisionCheckOffsets' pos, findMovementCollision's origin) are references; the nullable direction is std::optional; Stream<Geometry>
- * is a snapshot vector (§7.2). The constructor reaches Node(String), which stays unported until the CollisionIntention companion exists.
+ * is a snapshot vector (§7.2). The constructor reaches Node(String), which sets the CollisionIntention.ALL intentions
+ * (collision/CollisionIntentionInfo.h).
  *
  * @author Mr. Poke
  */

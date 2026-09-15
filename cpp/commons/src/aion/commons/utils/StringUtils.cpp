@@ -39,9 +39,10 @@ bool isMalformed4_2(uint8_t b1, uint8_t b2) noexcept {
 /**
  * Java: String.decodeUTF8_UTF16 - calls emit for each decoded code point, U+FFFD for each malformed subsequence. Surrogate code points and
  * overlong forms are malformed. A truncated sequence at the end of the input produces one U+FFFD and ends decoding (like Java).
+ * With allowSurrogates (WTF-8), a well-formed 3-byte encoding of a surrogate code point emits that code point instead of U+FFFD.
  */
 template <typename Emit>
-void decodeUtf8(std::string_view s, Emit&& emit) {
+void decodeUtf8(std::string_view s, Emit&& emit, bool allowSurrogates = false) {
 	auto byteAt = [&](size_t index) { return static_cast<uint8_t>(s[index]); };
 	size_t sp = 0;
 	const size_t sl = s.size();
@@ -71,7 +72,7 @@ void decodeUtf8(std::string_view s, Emit&& emit) {
 					sp = sp - 3 + malformed3(b1, b2);
 				} else {
 					char32_t c = ((b1 & 0x0Fu) << 12) | ((b2 & 0x3Fu) << 6) | (b3 & 0x3Fu);
-					emit(c >= 0xD800 && c <= 0xDFFF ? REPLACEMENT_CHAR : c);
+					emit(c >= 0xD800 && c <= 0xDFFF && !allowSurrogates ? REPLACEMENT_CHAR : c);
 				}
 				continue;
 			}
@@ -172,6 +173,27 @@ std::string toUtf8(std::u16string_view utf16) {
 		}
 		encodeUtf8(out, c);
 	}
+	return out;
+}
+
+std::string toWtf8(std::u16string_view utf16) {
+	std::string out;
+	out.reserve(utf16.size());
+	for (size_t i = 0; i < utf16.size(); i++) {
+		char32_t c = utf16[i];
+		if (c >= 0xD800 && c <= 0xDBFF && i + 1 < utf16.size() && utf16[i + 1] >= 0xDC00 && utf16[i + 1] <= 0xDFFF) {
+			c = 0x10000 + ((c - 0xD800) << 10) + (utf16[i + 1] - 0xDC00);
+			++i;
+		}
+		encodeUtf8(out, c); // an unpaired surrogate stays a 3-byte sequence
+	}
+	return out;
+}
+
+std::u16string wtf8ToUtf16(std::string_view wtf8) {
+	std::u16string out;
+	out.reserve(wtf8.size());
+	decodeUtf8(wtf8, [&](char32_t cp) { appendUtf16(out, cp); }, true);
 	return out;
 }
 

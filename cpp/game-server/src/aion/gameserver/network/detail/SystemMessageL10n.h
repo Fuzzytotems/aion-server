@@ -28,14 +28,15 @@ constexpr int8_t chatTypeIdOf(model::ChatType chatType) noexcept {
 
 /**
  * Java: ChatUtil.l10n(l10nId) - "$" followed by the id * 2 + 1 as two UTF-16 chars (low and high word); null for 0 (C++: "", which writeS
- * writes with the same bytes). Lone surrogates in the two chars become U+FFFD in the UTF-8 string (commons StringUtils::toUtf8).
+ * writes with the same bytes). The string is WTF-8 (commons StringUtils::toWtf8), so a lone surrogate in the two chars reaches the wire
+ * unchanged through writeS (header request pre-4).
  */
 inline std::string l10n(int32_t l10nId) {
 	if (l10nId == 0)
 		return std::string(); // Java: null (written as a null string)
 	const uint32_t id = static_cast<uint32_t>(l10nId) << 1 | 1u; // client wants the rightmost bit = 1, followed by the id (effectively = l10nId * 2 + 1)
 	const std::u16string idAsFourBytesString{static_cast<char16_t>(id & 0xFFFF), static_cast<char16_t>((id >> 16) & 0xFFFF)};
-	return "$" + commons::utils::StringUtils::toUtf8(idAsFourBytesString);
+	return "$" + commons::utils::StringUtils::toWtf8(idAsFourBytesString);
 }
 
 /** Java: Race.getL10nId() (Race.java: ELYOS 900240, ASMODIANS 900241, 0 for the races without an l10n id) */

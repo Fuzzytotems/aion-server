@@ -3,7 +3,11 @@
 #include <algorithm>
 #include <string>
 
+#include "aion/commons/logging/Logger.h"
+#include "aion/commons/logging/LoggerFactory.h"
 #include "aion/gameserver/configs/administration/AdminConfig.h"
+#include "aion/gameserver/dataholders/DataManager.h"
+#include "aion/gameserver/dataholders/SkillData.h"
 #include "aion/gameserver/model/Race.h"
 #include "aion/gameserver/model/account/Account.h"
 #include "aion/gameserver/model/gameobjects/player/CustomPlayerState.h"
@@ -20,6 +24,8 @@
 
 namespace aion::gameserver::utils::audit {
 
+static const auto log = commons::logging::LoggerFactory::getLogger("com.aionemu.gameserver.utils.audit.GMService");
+
 using model::gameobjects::player::Player;
 
 GMService& GMService::getInstance() {
@@ -28,10 +34,13 @@ GMService& GMService::getInstance() {
 }
 
 GMService::GMService() {
-	// Java: gmSkills = DataManager.SKILL_DATA.getSkillTemplates().stream().filter(t -> t.getGroup() != null && t.getGroup().startsWith("GM_") ||
-	// t.getStack().startsWith("GM_")).toList(); if (gmSkills.isEmpty()) LoggerFactory.getLogger(GMService.class).warn("No GM skills found,
-	// possibly because of changed or missing skill templates."); - SkillData::getSkillTemplates (P4-09) is not declared yet
-	AION_UNPORTED();
+	for (const skillengine::model::SkillTemplate* t : dataholders::DataManager::SKILL_DATA->getSkillTemplates()) {
+		// Java: t.getGroup() != null && t.getGroup().startsWith("GM_") || t.getStack().startsWith("GM_") (an absent group is empty)
+		if (t->getGroup().starts_with("GM_") || t->getStack().starts_with("GM_"))
+			gmSkills.add(t);
+	}
+	if (gmSkills.isEmpty())
+		log.warn("No GM skills found, possibly because of changed or missing skill templates.");
 }
 
 std::vector<runtime::Ptr<Player>> GMService::getOnlineStaffMembers() {

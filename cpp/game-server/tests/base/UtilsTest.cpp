@@ -241,10 +241,12 @@ TEST(ChatUtilTest, LinksAndIds) {
 	EXPECT_EQ(ChatUtil::l10n(1400053), "$" + commons::utils::StringUtils::toUtf8(std::u16string{u'\xB9EB', u'\x002A'}));
 	// 27647 * 2 + 1 = 0xD7FF: the last low word below the surrogate range
 	EXPECT_EQ(ChatUtil::l10n(27647), std::string("$\xED\x9F\xBF\0", 5));
-	// Known loss (open issue, docs/deviations/P4-05.md): 27648 * 2 + 1 = 0xD801 is a lone surrogate. Java writes the unit unchanged, the UTF-8
-	// string holds U+FFFD, so the client would read 0xFFFD. Ids with id % 32768 in 27648..28671 are affected until strings can carry WTF-8.
-	EXPECT_EQ(ChatUtil::l10n(27648), std::string("$\xEF\xBF\xBD\0", 5));
-	EXPECT_EQ(ChatUtil::l10n(28671), std::string("$\xEF\xBF\xBD\0", 5)); // 0xDFFF
+	// 27648 * 2 + 1 = 0xD801 is a lone surrogate: the string is WTF-8, so writeS sends the unit unchanged like Java (header request pre-4)
+	EXPECT_EQ(ChatUtil::l10n(27648), std::string("$\xED\xA0\x81\0", 5));
+	EXPECT_EQ(commons::utils::StringUtils::wtf8ToUtf16(ChatUtil::l10n(27648)), (std::u16string{u'$', char16_t(0xD801), char16_t(0)}));
+	EXPECT_EQ(ChatUtil::l10n(28671), std::string("$\xED\xBF\xBF\0", 5)); // 0xDFFF
+	// 93184 * 2 + 1 = 0x2D801: the low word 0xD801 (a lone high surrogate) followed by the high word 2
+	EXPECT_EQ(commons::utils::StringUtils::wtf8ToUtf16(ChatUtil::l10n(93184)), (std::u16string{u'$', char16_t(0xD801), char16_t(2)}));
 	EXPECT_EQ(ChatUtil::l10n(28672), std::string("$\xEE\x80\x81\0", 5)); // 0xE001
 	EXPECT_EQ(ChatUtil::getPosition("no link"), nullptr);
 	EXPECT_EQ(ChatUtil::getPosition(std::nullopt), nullptr);
@@ -289,6 +291,18 @@ TEST(ChatUtilTest, SplitLongMessages) {
 	ASSERT_EQ(linkParts.size(), 2u);
 	EXPECT_EQ(linkParts[0].size(), 526u);
 	EXPECT_EQ(linkParts[1].size(), 9u * 17u);
+	// split keeps the WTF-8 l10n ids of a long message: 128 ids of 4 chars, where "$" and its two chars count as 16 and the space as 1, so the
+	// 61st id of each part reaches 1022 and the part ends before the space in front of it
+	std::string l10ns;
+	for (int i = 0; i < 128; ++i)
+		l10ns += ChatUtil::l10n(27648) + " ";
+	std::vector<std::string> l10nParts = ChatUtil::split(l10ns);
+	ASSERT_EQ(l10nParts.size(), 3u);
+	EXPECT_EQ(l10nParts[0].size(), 60u * 6u - 1u); // 5 WTF-8 bytes per id plus the spaces between them
+	EXPECT_EQ(l10nParts[1], l10nParts[0]);
+	EXPECT_EQ(l10nParts[2].size(), 8u * 6u);
+	EXPECT_EQ(l10nParts[0] + " " + l10nParts[1] + " " + l10nParts[2], l10ns);
+	EXPECT_EQ(l10nParts[0].substr(0, 5), ChatUtil::l10n(27648));
 }
 
 // ----------------------------------------------------------------------------------------------------------------------------- ServerTime

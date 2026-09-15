@@ -11,7 +11,7 @@ namespace aion::gameserver::model::templates::item {
 
 void ResultedItem::afterUnmarshal(xml::LoadContext& ctx, const xml::XmlParent& /*parent*/) {
 	// Java: ItemData itemData = staticData != null ? staticData.itemData : DataManager.ITEM_DATA; itemData.getItemTemplate(itemId) == null.
-	// Deviation: ItemData (P4-09) has no getItemTemplate yet: the item templates of this load are found through their XmlIDs (the `id`
+	// Deviation: the item templates of this load are found through their XmlIDs instead of ItemData::getItemTemplate (the `id`
 	// attribute, which setXmlUid parses into the template id; the census finds only canonical decimal ids), so there is no fallback to the
 	// published ITEM_DATA (only a reload of decomposable items alone would need it, and //reload is deferred, D3). docs/deviations/P4-07a.md
 	if (ctx.findXmlId<ItemTemplate>(std::to_string(itemId)) == nullptr)

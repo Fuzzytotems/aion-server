@@ -9,6 +9,7 @@
 #include "aion/gameserver/runtime/lifetime/Ref.h"
 #include "aion/gameserver/geoEngine/collision/CollisionResult.h"
 #include "aion/gameserver/geoEngine/collision/fwd.h"
+#include "aion/gameserver/geoEngine/scene/fwd.h"
 
 namespace aion::gameserver::geoEngine::collision {
 
@@ -66,6 +67,14 @@ public:
 
 	CollisionResult getCollisionDirect(int32_t index);
 
+	/**
+	 * C++ only: Java's `getCollisionDirect(index).setGeometry(geometry)` (Geometry.collideWith). getCollisionDirect returns a copy, so the geometry
+	 * is set on the stored result here.
+	 *
+	 * @throws IndexOutOfBoundsException
+	 */
+	void setGeometryDirect(int32_t index, runtime::Ptr<scene::Geometry> geometry);
+
 	std::string toString() const;
 
 	bool isOnlyFirst() const { return onlyFirst; }
@@ -81,6 +90,10 @@ public:
 	double getSlopingSurfaceAngleRad() const { return SLOPING_SURFACE_ANGLE_RAD; }
 
 	void setInvalidateSlopingSurface(bool value) { invalidateSlopingSurface = value; }
+
+private:
+	/** C++ only: Java's repeated `if (!sorted) { results.sort(null); sorted = true; }` */
+	void sortIfNeeded();
 };
 
 } // namespace aion::gameserver::geoEngine::collision

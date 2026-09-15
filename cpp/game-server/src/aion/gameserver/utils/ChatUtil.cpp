@@ -10,6 +10,8 @@
 #include "aion/commons/utils/Numbers.h"
 #include "aion/commons/utils/StringUtils.h"
 #include "aion/gameserver/configs/administration/AdminConfig.h"
+#include "aion/gameserver/dataholders/DataManager.h"
+#include "aion/gameserver/dataholders/NpcData.h"
 #include "aion/gameserver/geoEngine/math/JavaFloat.h"
 #include "aion/gameserver/model/Race.h"
 #include "aion/gameserver/model/gameobjects/VisibleObject.h"
@@ -190,7 +192,7 @@ std::string ChatUtil::l10n(int32_t l10nId) {
 	// client wants the rightmost bit = 1, followed by the id (effectively = l10nId * 2 + 1)
 	uint32_t id = (static_cast<uint32_t>(l10nId) << 1) | 1u;
 	std::u16string idAsFourBytesString{static_cast<char16_t>(id & 0xFFFF), static_cast<char16_t>((id >> 16) & 0xFFFF)};
-	return "$" + StringUtils::toUtf8(idAsFourBytesString);
+	return "$" + StringUtils::toWtf8(idAsFourBytesString); // WTF-8: a lone surrogate unit reaches the wire unchanged (writeS, header request pre-4)
 }
 
 std::string ChatUtil::path(model::gameobjects::VisibleObject& object, bool withIdInName) {
@@ -198,9 +200,11 @@ std::string ChatUtil::path(model::gameobjects::VisibleObject& object, bool withI
 }
 
 std::string ChatUtil::path(int32_t npcId, bool withIdInName) {
-	// Java: VisibleObjectTemplate template = DataManager.NPC_DATA.getNpcTemplate(npcId); path(template, withIdInName) if found, else
-	// path(withIdInName ? "Unknown ID " + npcId : "Unknown ID", npcId). NpcData::getNpcTemplate (P4-09) is not declared yet.
-	AION_UNPORTED();
+	const model::templates::VisibleObjectTemplate* template_ = dataholders::DataManager::NPC_DATA->getNpcTemplate(npcId);
+	if (template_ != nullptr)
+		return path(template_, withIdInName);
+	else
+		return path(withIdInName ? "Unknown ID " + std::to_string(npcId) : "Unknown ID", npcId);
 }
 
 std::string ChatUtil::path(const model::templates::VisibleObjectTemplate* template_, bool withIdInName) {
@@ -409,14 +413,15 @@ std::string ChatUtil::leftPad(int64_t number, int32_t width) {
 }
 
 std::vector<std::string> ChatUtil::split(std::string_view chatMessageValue) {
-	std::u16string chatMessage = StringUtils::toUtf16(chatMessageValue);
+	// WTF-8 in and out, so the l10n ids of the message keep their code units (header request pre-4)
+	std::u16string chatMessage = StringUtils::wtf8ToUtf16(chatMessageValue);
 	if (static_cast<int32_t>(chatMessage.size()) <= network::aion::serverpackets::SM_MESSAGE::MESSAGE_SIZE_LIMIT / 2)
 		return {std::string(chatMessageValue)};
 	std::vector<std::string> parts;
 	for (int32_t start = 0, length = static_cast<int32_t>(chatMessage.size()); start < length;) {
 		int32_t splitIndex = findSplitIndex(chatMessage, start, length);
 		std::u16string_view part = std::u16string_view(chatMessage).substr(static_cast<size_t>(start), static_cast<size_t>(splitIndex - start));
-		parts.push_back(StringUtils::toUtf8(part));
+		parts.push_back(StringUtils::toWtf8(part));
 		start = splitIndex;
 		if (start < length) {
 			char16_t splitChar = chatMessage[static_cast<size_t>(start)];

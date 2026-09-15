@@ -1,6 +1,6 @@
 #include "aion/gameserver/model/trade/TradeItem.h"
 
-#include "aion/gameserver/runtime/base/Unported.h"
+#include "aion/gameserver/model/items/detail/StaticDataLookups.h"
 
 namespace aion::gameserver::model::trade {
 
@@ -13,7 +13,7 @@ runtime::Ref<TradeItem> TradeItem::create(int32_t value, int64_t countValue) {
 }
 
 const templates::item::ItemTemplate* TradeItem::getItemTemplate() {
-	AION_UNPORTED();
+	return items::detail::getItemTemplate(itemId);
 }
 
 TradeItem::~TradeItem() = default;

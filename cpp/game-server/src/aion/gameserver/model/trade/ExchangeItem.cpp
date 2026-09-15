@@ -1,6 +1,5 @@
 #include "aion/gameserver/model/trade/ExchangeItem.h"
 
-#include "aion/gameserver/runtime/base/Unported.h"
 #include "aion/gameserver/model/gameobjects/Item.h"
 
 namespace aion::gameserver::model::trade {
@@ -18,7 +17,8 @@ void ExchangeItem::setItem(runtime::Ptr<gameobjects::Item> value) {
 }
 
 void ExchangeItem::addCount(int64_t countToAdd) {
-	AION_UNPORTED();
+	this->itemCount += countToAdd;
+	this->item->setItemCount(itemCount.get());
 }
 
 ExchangeItem::~ExchangeItem() = default;

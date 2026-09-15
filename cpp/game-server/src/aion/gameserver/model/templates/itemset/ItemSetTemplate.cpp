@@ -1,11 +1,12 @@
 #include "aion/gameserver/model/templates/itemset/ItemSetTemplate.h"
 
-#include "aion/gameserver/runtime/base/Unported.h"
-
 namespace aion::gameserver::model::templates::itemset {
 
 void ItemSetTemplate::afterUnmarshal(xml::LoadContext& /*ctx*/, const xml::XmlParent& /*parent*/) {
-	AION_UNPORTED();
+	if (fullbonus != nullptr) {
+		// Set number of items to apply the full bonus
+		fullbonus->setNumberOfItems(static_cast<int32_t>(itempart.size()));
+	}
 }
 
 } // namespace aion::gameserver::model::templates::itemset

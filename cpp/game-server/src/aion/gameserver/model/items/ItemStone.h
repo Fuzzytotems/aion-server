@@ -19,7 +19,7 @@ namespace aion::gameserver::model::items {
  * Item) and of IdianStone (a part of Item, cycles review). One C++ object cannot be both, so ItemStone has no runtime base (fieldmap says
  * RefCounted): it is an abstract base with data members, and each subclass picks its runtime base and forwards the retain()/release() of the
  * retainable interface StatOwner (§9.2), so `Ref<ItemStone>`/`Ptr<ItemStone>` work through the interface. The constructor checks the item
- * template through DataManager, so it stays `AION_UNPORTED` after the member initializers.
+ * template (Java DataManager.ITEM_DATA, through model/items/detail/StaticDataLookups.h).
  *
  * @author ATracer, Wakizashi
  */

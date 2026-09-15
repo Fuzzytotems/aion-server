@@ -29,7 +29,7 @@ using aion::SerializedBody;
 /** Exposes the protected Java write helpers through writeImpl steps */
 class HelperPacket : public AionServerPacket {
 public:
-	enum class Step { FIXED_STRING, EMPTY_FIXED_STRING, DYE, NO_DYE, NESTED };
+	enum class Step { STRING, FIXED_STRING, EMPTY_FIXED_STRING, DYE, NO_DYE, NESTED };
 
 	HelperPacket(Step step, std::string text = {}, int32_t fixedLength = 0, std::optional<int32_t> rgb = std::nullopt)
 		: AionServerPacket(25), step(step), text(std::move(text)), fixedLength(fixedLength), rgb(rgb) {}
@@ -37,6 +37,9 @@ public:
 protected:
 	void writeImpl(aion::AionConnection*) override {
 		switch (step) {
+			case Step::STRING:
+				writeS(text);
+				break;
 			case Step::FIXED_STRING:
 			case Step::EMPTY_FIXED_STRING:
 				writeS(text, fixedLength);
@@ -135,6 +138,19 @@ TEST(AionServerPacketTest, FixedLengthStrings) {
 	EXPECT_EQ(AionServerPacket::byteLengthForString("\xF0\x9F\x98\x80"), 6); // a surrogate pair counts as two chars
 }
 
+TEST(AionServerPacketTest, LoneSurrogatesAreWrittenUnchanged) {
+	// Java writeS writes each char of the String; ChatUtil.l10n(27648) is "$" + (char) 0xD801 + (char) 0, kept as WTF-8 (header request pre-4)
+	const std::string l10n("$\xED\xA0\x81\0", 5);
+	HelperPacket string(HelperPacket::Step::STRING, "a" + l10n + "\xED\xBF\xBF");
+	EXPECT_EQ(dataOf(string.serialize(nullptr)), (PacketWriter().H('a').H('$').H(0xD801).H(0).H(0xDFFF).H(0).data));
+	HelperPacket fixed(HelperPacket::Step::FIXED_STRING, l10n, 4);
+	EXPECT_EQ(dataOf(fixed.serialize(nullptr)), (PacketWriter().H('$').H(0xD801).H(0).H(0).H(0).data));
+	EXPECT_EQ(AionServerPacket::byteLengthForString(l10n), 8);
+	// other malformed UTF-8 is still replaced like Java's String decoding
+	HelperPacket malformed(HelperPacket::Step::STRING, "\xFF");
+	EXPECT_EQ(dataOf(malformed.serialize(nullptr)), (PacketWriter().H(0xFFFD).H(0).data));
+}
+
 TEST(AionServerPacketTest, DyeInfo) {
 	HelperPacket dyed(HelperPacket::Step::DYE, {}, 0, 0x123456);
 	EXPECT_EQ(dataOf(dyed.serialize(nullptr)), (std::vector<uint8_t>{1, 0x12, 0x34, 0x56}));
@@ -198,6 +214,13 @@ TEST(PacketWriteHelperTest, WritesLikeJava) {
 													 .C(0xBB)
 													 .C(0xCC)
 													 .data));
+	// WTF-8: a lone surrogate unit is written unchanged (header request pre-4)
+	commons::utils::ByteBuffer surrogates = commons::utils::ByteBuffer::allocate(32);
+	WriteHelper::writeS(surrogates, "\xED\xA0\x81");
+	WriteHelper::writeS(surrogates, "\xED\xB0\x80", 4);
+	surrogates.flip();
+	std::vector<uint8_t> surrogateBytes(surrogates.remainingSpan().begin(), surrogates.remainingSpan().end());
+	EXPECT_EQ(surrogateBytes, (PacketWriter().H(0xD801).H(0).H(0xDC00).zeros(2).data));
 	commons::utils::ByteBuffer longer = commons::utils::ByteBuffer::allocate(32);
 	EXPECT_THROW(WriteHelper::writeS(longer, "abcdef", 4), commons::utils::IllegalArgumentException); // Java: NegativeArraySizeException
 }

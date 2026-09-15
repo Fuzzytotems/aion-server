@@ -6,8 +6,8 @@ namespace aion::gameserver::model::templates::zone {
 
 MaterialZoneTemplate::MaterialZoneTemplate(geoEngine::scene::Spatial& geometry, int32_t mapId) {
 	// Java: mapid, flags = DataManager.WORLD_MAPS_DATA.getTemplate(mapId).getFlags(), setXmlName(geometry.getName() + "_" + mapId), then a
-	// cylinder, semisphere or sphere from the BoundingBox world bound. Needs WorldMapsData.getTemplate (P4-09) and BoundingBox (P4-04), which
-	// have no declarations yet.
+	// cylinder, semisphere or sphere from the BoundingBox world bound. WorldMapsData::getTemplate exists (header request pre-2); BoundingBox
+	// (P4-04) has no declaration header yet.
 	static_cast<void>(geometry);
 	static_cast<void>(mapId);
 	AION_UNPORTED();

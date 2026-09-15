@@ -20,7 +20,7 @@ namespace aion::gameserver::model::templates::spawns {
  */
 class SpawnSearchResult final {
 private:
-	// fieldmap: owned value, not the proposed `const SpawnSpotTemplate*`: Java's `new SpawnSpotTemplate(...)` is held only by the result
+	// fieldmap.toml: owned value, not the proposed `const SpawnSpotTemplate*`: Java's `new SpawnSpotTemplate(...)` is held only by the result
 	SpawnSpotTemplate spot;
 	int32_t worldId;
 

@@ -3,6 +3,7 @@
 #include <cstdint>
 
 #include "aion/gameserver/model/templates/TitleTemplate.xml.h"
+
 #include "aion/gameserver/model/stats/calc/StatOwner.h"
 #include "aion/gameserver/model/templates/L10n.h"
 
@@ -18,6 +19,11 @@ public:
 	void release() const noexcept override {}
 
 	int32_t getL10nId() const override { return nameId; }
+
+	/** @return the stat functions of the modifiers element, nullptr (Java null) without one */
+	const std::vector<std::unique_ptr<::aion::gameserver::model::stats::calc::functions::StatFunction>>* getModifiers() const {
+		return modifiers != nullptr ? &modifiers->getModifiers() : nullptr;
+	}
 };
 
 } // namespace aion::gameserver::model::templates

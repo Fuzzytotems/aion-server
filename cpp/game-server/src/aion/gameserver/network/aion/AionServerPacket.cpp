@@ -43,6 +43,7 @@ std::atomic<uint64_t> serializationSequence{0};
 int32_t AionServerPacket::byteLengthForString(std::string_view text) {
 	if (text.empty())
 		return 2;
+	// equals wtf8ToUtf16(text).size() (writeS): an encoded surrogate is one code unit either way
 	return (commons::utils::StringUtils::utf16Length(text) + 1) * 2;
 }
 
@@ -120,7 +121,14 @@ void AionServerPacket::writeQ(int64_t value) {
 }
 
 void AionServerPacket::writeS(std::string_view text) {
-	BaseServerPacket::writeS(getBuf(), text);
+	// Java writes every char of the String unchanged: the text is WTF-8, so lone surrogates (ChatUtil.l10n ids) keep their code unit
+	commons::utils::ByteBuffer& buf = getBuf();
+	if (!text.empty()) {
+		const std::u16string utf16 = commons::utils::StringUtils::wtf8ToUtf16(text);
+		for (char16_t c : utf16)
+			buf.putChar(c);
+	}
+	buf.putChar(u'\0');
 }
 
 void AionServerPacket::writeB(std::span<const uint8_t> data) {
@@ -133,7 +141,7 @@ void AionServerPacket::writeS(std::string_view text, int32_t fixedLength) {
 		const std::vector<uint8_t> zeros(static_cast<size_t>(byteLengthForFixedString(fixedLength)));
 		buf.put(zeros);
 	} else {
-		const std::u16string utf16 = commons::utils::StringUtils::toUtf16(text);
+		const std::u16string utf16 = commons::utils::StringUtils::wtf8ToUtf16(text); // WTF-8, see writeS(text)
 		for (int32_t i = 0; i < fixedLength; i++)
 			buf.putChar(static_cast<size_t>(i) < utf16.size() ? utf16[static_cast<size_t>(i)] : u'\0');
 		buf.putChar(u'\0');

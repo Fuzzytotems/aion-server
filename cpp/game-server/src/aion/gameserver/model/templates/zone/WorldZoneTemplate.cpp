@@ -5,19 +5,33 @@
 #include <string>
 
 #include "aion/gameserver/configs/main/WorldConfig.h"
-#include "aion/gameserver/runtime/base/Unported.h"
+#include "aion/gameserver/dataholders/DataManager.h"
+#include "aion/gameserver/dataholders/WorldMapsData.h"
+#include "aion/gameserver/model/templates/world/WorldMapTemplate.h"
+#include "aion/gameserver/runtime/base/Exceptions.h"
 #include "aion/gameserver/model/templates/zone/Point2D.h"
 #include "aion/gameserver/model/templates/zone/Points.h"
 #include "aion/gameserver/utils/JavaMath.h"
 
 namespace aion::gameserver::model::templates::zone {
 
-WorldZoneTemplate::WorldZoneTemplate(int32_t size, int32_t mapId) {
-	// Java: this(size, mapId) body with flags = DataManager.WORLD_MAPS_DATA.getTemplate(mapId).getFlags(); WorldMapsData (P4-09) declares no
-	// getTemplate yet. The rest of the body is the C++-only three-argument constructor.
-	static_cast<void>(size);
-	static_cast<void>(mapId);
-	AION_UNPORTED();
+namespace {
+
+/** Java: DataManager.WORLD_MAPS_DATA.getTemplate(mapId).getFlags(), NullPointerException for an unknown map */
+int32_t mapFlagsOf(int32_t mapId) {
+	const model::templates::world::WorldMapTemplate* map = dataholders::DataManager::WORLD_MAPS_DATA->getTemplate(mapId);
+	if (map == nullptr) {
+		throw runtime::NullPointerException("Cannot invoke \"com.aionemu.gameserver.model.templates.world.WorldMapTemplate.getFlags()\" because the "
+			"return value of \"com.aionemu.gameserver.dataholders.WorldMapsData.getTemplate(int)\" is null");
+	}
+	return map->getFlags();
+}
+
+} // namespace
+
+// The Java body is the three-argument constructor; the flags are read before the points are built, which only changes which work an unknown
+// map skips before the NullPointerException
+WorldZoneTemplate::WorldZoneTemplate(int32_t size, int32_t mapId) : WorldZoneTemplate(size, mapId, mapFlagsOf(mapId)) {
 }
 
 WorldZoneTemplate::WorldZoneTemplate(int32_t size, int32_t mapId, int32_t mapFlags) {

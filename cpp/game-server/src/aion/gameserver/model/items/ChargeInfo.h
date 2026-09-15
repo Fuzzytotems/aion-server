@@ -27,7 +27,7 @@ namespace aion::gameserver::model::items {
  * registered. Two checks keep the argument true for later ports (freeze review): lint L3 rejects a member or stored-lambda capture that names
  * ChargeInfo outside its holders (fieldmap.toml `holders`: Item.conditioningInfo; the ObserveController holds it as `Ref<ActionObserver>`),
  * and every body reads the item through getItem(), which terminates in checked builds when the Item was already destroyed (lint L3 rejects
- * other reads of `item`). The constructor reads the item's improvement template, so it stays `AION_UNPORTED` after the member initializers.
+ * other reads of `item`). The constructor reads the burn values from the item's improvement template.
  *
  * @author ATracer
  */

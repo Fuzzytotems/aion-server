@@ -8,10 +8,10 @@ reason found by the fixpoint. K1 source: cpp/game-server/generated/staticdata-cl
 | K1 STATIC_DATA | 858 |
 | K2 PACKET | 468 |
 | K3 IMMUTABLE_VALUE | 631 |
-| K4 SHARED | 2226 |
-| K5 CONFINED | 564 |
+| K4 SHARED | 2223 |
+| K5 CONFINED | 567 |
 
-## K5 CONFINED (564)
+## K5 CONFINED (567)
 
 - `admincommands.Send.Packet` (game-server/data/handlers/admincommands/Send.java:118): confined: inferred (never stored in shared state)
 - `admincommands.Send.Packets` (game-server/data/handlers/admincommands/Send.java:93): confined: inferred (never stored in shared state)
@@ -244,12 +244,15 @@ reason found by the fixpoint. K1 source: cpp/game-server/generated/staticdata-cl
 - `com.aionemu.gameserver.geoEngine.collision.CollisionResult` (game-server/src/com/aionemu/gameserver/geoEngine/collision/CollisionResult.java:43): confined: inferred (never stored in shared state)
 - `com.aionemu.gameserver.geoEngine.collision.CollisionResults` (game-server/src/com/aionemu/gameserver/geoEngine/collision/CollisionResults.java:38): confined: inferred (never stored in shared state)
 - `com.aionemu.gameserver.geoEngine.collision.UnsupportedCollisionException` (game-server/src/com/aionemu/gameserver/geoEngine/collision/UnsupportedCollisionException.java:40): confined: inferred (never stored in shared state)
+- `com.aionemu.gameserver.geoEngine.collision.bih.BIHNode.BIHStackData` (game-server/src/com/aionemu/gameserver/geoEngine/collision/bih/BIHNode.java:106): fieldmap.toml: an entry of the thread-local BIH traversal stack TempVars.bihStack, held by value for one ray query: a RefCounted object per push would put every ray query on the Reclaimer (header request geo-3); matches BIHNode.h
 - `com.aionemu.gameserver.geoEngine.math.FastMath` (game-server/src/com/aionemu/gameserver/geoEngine/math/FastMath.java:43): confined: inferred (never stored in shared state)
 - `com.aionemu.gameserver.geoEngine.math.Matrix3f` (game-server/src/com/aionemu/gameserver/geoEngine/math/Matrix3f.java:47): value type (fieldmap.toml settings.value_types): copied by value, members plain
 - `com.aionemu.gameserver.geoEngine.math.Matrix4f` (game-server/src/com/aionemu/gameserver/geoEngine/math/Matrix4f.java:53): value type (fieldmap.toml settings.value_types): copied by value, members plain
 - `com.aionemu.gameserver.geoEngine.math.Ray` (game-server/src/com/aionemu/gameserver/geoEngine/math/Ray.java:48): value type (fieldmap.toml settings.value_types): copied by value, members plain
 - `com.aionemu.gameserver.geoEngine.math.Vector2f` (game-server/src/com/aionemu/gameserver/geoEngine/math/Vector2f.java:46): value type (fieldmap.toml settings.value_types): copied by value, members plain
 - `com.aionemu.gameserver.geoEngine.math.Vector3f` (game-server/src/com/aionemu/gameserver/geoEngine/math/Vector3f.java:48): value type (fieldmap.toml settings.value_types): copied by value, members plain
+- `com.aionemu.gameserver.geoEngine.utils.TempVars` (game-server/src/com/aionemu/gameserver/geoEngine/utils/TempVars.java:47): fieldmap.toml: thread-local scratch pool (Java ThreadLocal<TempVarsStack>, runtime-architecture.md §3.2 ThreadLocal<T> -> thread_local T): the per-thread stack is the only holder and an instance is used only between get() and release() on that thread, which the escape analysis does not treat as confinement (header request geo-3); matches TempVars.h
+- `com.aionemu.gameserver.geoEngine.utils.TempVars.TempVarsStack` (game-server/src/com/aionemu/gameserver/geoEngine/utils/TempVars.java:61): fieldmap.toml: the thread_local stack of TempVars itself, never shared (header request geo-3); matches TempVars.h
 - `com.aionemu.gameserver.instance.InstanceEngine.SingletonHolder` (game-server/src/com/aionemu/gameserver/instance/InstanceEngine.java:63): confined: inferred (never stored in shared state)
 - `com.aionemu.gameserver.instance.handlers.InstanceID` (game-server/src/com/aionemu/gameserver/instance/handlers/InstanceID.java:13): confined: inferred (never stored in shared state)
 - `com.aionemu.gameserver.model.Chance` (game-server/src/com/aionemu/gameserver/model/Chance.java:12): confined: inferred (never stored in shared state)
@@ -578,7 +581,7 @@ reason found by the fixpoint. K1 source: cpp/game-server/generated/staticdata-cl
 - `playercommands.Faction$1` (game-server/data/handlers/playercommands/Faction.java:57): confined: inferred (never stored in shared state)
 - `playercommands.Preview.ItemParam` (game-server/data/handlers/playercommands/Preview.java:234): confined: inferred (never stored in shared state)
 
-## K4 SHARED (2226)
+## K4 SHARED (2223)
 
 - `admincommands.Access` (game-server/data/handlers/admincommands/Access.java:16): same class tree as admincommands.Speed: implements com.aionemu.gameserver.model.stats.calc.StatOwner (static field admincommands.Stat.CommandStatOwner.statOwnerByStat)
 - `admincommands.GoTo` (game-server/data/handlers/admincommands/GoTo.java:22): same class tree as admincommands.Speed: implements com.aionemu.gameserver.model.stats.calc.StatOwner (static field admincommands.Stat.CommandStatOwner.statOwnerByStat)
@@ -1145,8 +1148,7 @@ reason found by the fixpoint. K1 source: cpp/game-server/generated/staticdata-cl
 - `com.aionemu.gameserver.dataholders.loadingutils.XmlMerger.Metadata` (game-server/src/com/aionemu/gameserver/dataholders/loadingutils/XmlMerger.java:402): captured by lambda at game-server/src/com/aionemu/gameserver/dataholders/loadingutils/XmlMerger.java:187
 - `com.aionemu.gameserver.geoEngine.bounding.BoundingBox` (game-server/src/com/aionemu/gameserver/geoEngine/bounding/BoundingBox.java:54): same class tree as com.aionemu.gameserver.geoEngine.bounding.BoundingVolume: member of com.aionemu.gameserver.geoEngine.scene.Spatial.worldBound
 - `com.aionemu.gameserver.geoEngine.bounding.BoundingVolume` (game-server/src/com/aionemu/gameserver/geoEngine/bounding/BoundingVolume.java:48): member of com.aionemu.gameserver.geoEngine.scene.Spatial.worldBound
-- `com.aionemu.gameserver.geoEngine.collision.bih.BIHNode` (game-server/src/com/aionemu/gameserver/geoEngine/collision/bih/BIHNode.java:51): member of com.aionemu.gameserver.geoEngine.collision.bih.BIHNode.BIHStackData.node
-- `com.aionemu.gameserver.geoEngine.collision.bih.BIHNode.BIHStackData` (game-server/src/com/aionemu/gameserver/geoEngine/collision/bih/BIHNode.java:106): member of com.aionemu.gameserver.geoEngine.utils.TempVars.bihStack
+- `com.aionemu.gameserver.geoEngine.collision.bih.BIHNode` (game-server/src/com/aionemu/gameserver/geoEngine/collision/bih/BIHNode.java:51): member of com.aionemu.gameserver.geoEngine.collision.bih.BIHTree.root
 - `com.aionemu.gameserver.geoEngine.collision.bih.BIHTree` (game-server/src/com/aionemu/gameserver/geoEngine/collision/bih/BIHTree.java:50): implements com.aionemu.gameserver.geoEngine.scene.CollisionData (member of com.aionemu.gameserver.geoEngine.scene.Mesh.collisionTree)
 - `com.aionemu.gameserver.geoEngine.models.GeoMap` (game-server/src/com/aionemu/gameserver/geoEngine/models/GeoMap.java:29): captured by lambda at game-server/src/com/aionemu/gameserver/geoEngine/GeoWorldLoader.java:47
 - `com.aionemu.gameserver.geoEngine.models.Terrain` (game-server/src/com/aionemu/gameserver/geoEngine/models/Terrain.java:9): member of com.aionemu.gameserver.geoEngine.models.GeoMap.terrain
@@ -1157,8 +1159,6 @@ reason found by the fixpoint. K1 source: cpp/game-server/generated/staticdata-cl
 - `com.aionemu.gameserver.geoEngine.scene.Spatial` (game-server/src/com/aionemu/gameserver/geoEngine/scene/Spatial.java:51): same class tree as com.aionemu.gameserver.geoEngine.models.GeoMap: captured by lambda at game-server/src/com/aionemu/gameserver/geoEngine/GeoWorldLoader.java:47
 - `com.aionemu.gameserver.geoEngine.scene.mesh.IndexByteArray` (game-server/src/com/aionemu/gameserver/geoEngine/scene/mesh/IndexByteArray.java:7): implements com.aionemu.gameserver.geoEngine.scene.mesh.IndexArray (member of com.aionemu.gameserver.geoEngine.scene.Mesh.indices)
 - `com.aionemu.gameserver.geoEngine.scene.mesh.IndexShortArray` (game-server/src/com/aionemu/gameserver/geoEngine/scene/mesh/IndexShortArray.java:7): implements com.aionemu.gameserver.geoEngine.scene.mesh.IndexArray (member of com.aionemu.gameserver.geoEngine.scene.Mesh.indices)
-- `com.aionemu.gameserver.geoEngine.utils.TempVars` (game-server/src/com/aionemu/gameserver/geoEngine/utils/TempVars.java:47): member of com.aionemu.gameserver.geoEngine.utils.TempVars.TempVarsStack.tempVars
-- `com.aionemu.gameserver.geoEngine.utils.TempVars.TempVarsStack` (game-server/src/com/aionemu/gameserver/geoEngine/utils/TempVars.java:61): static field com.aionemu.gameserver.geoEngine.utils.TempVars.varsLocal
 - `com.aionemu.gameserver.instance.InstanceEngine` (game-server/src/com/aionemu/gameserver/instance/InstanceEngine.java:22): static field com.aionemu.gameserver.instance.InstanceEngine.SingletonHolder.instance
 - `com.aionemu.gameserver.instance.handlers.GeneralInstanceHandler` (game-server/src/com/aionemu/gameserver/instance/handlers/GeneralInstanceHandler.java:29): same class tree as com.aionemu.gameserver.custom.instance.RoahCustomInstanceHandler: captured by lambda at game-server/src/com/aionemu/gameserver/custom/instance/RoahCustomInstanceHandler.java:106
 - `com.aionemu.gameserver.model.account.Account` (game-server/src/com/aionemu/gameserver/model/account/Account.java:21): member of com.aionemu.gameserver.model.gameobjects.player.Player.playerAccount

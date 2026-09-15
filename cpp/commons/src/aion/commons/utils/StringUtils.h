@@ -20,6 +20,20 @@ std::u16string toUtf16(std::string_view utf8);
 std::string toUtf8(std::u16string_view utf16);
 
 /**
+ * Converts UTF-16 to WTF-8: like toUtf8, but an unpaired surrogate is encoded as its own 3-byte sequence (ED A0..BF 80..BF) instead of U+FFFD,
+ * so a Java String holding lone surrogates (ChatUtil.l10n ids) survives the conversion. Use it only for text that wtf8ToUtf16 decodes again
+ * (the server packet string writers); databases, logs and files expect valid UTF-8.
+ */
+std::string toWtf8(std::u16string_view utf16);
+
+/**
+ * Converts WTF-8 to UTF-16: like toUtf16 (the same U+FFFD replacement of malformed input), except that an encoded surrogate (ED A0..BF 80..BF)
+ * decodes to that UTF-16 code unit. Adjacent encoded high and low surrogates give the two units, which form a pair again, as concatenating the
+ * Java Strings would. The length in code units equals utf16Length (an encoded surrogate is one unit either way).
+ */
+std::u16string wtf8ToUtf16(std::string_view wtf8);
+
+/**
  * @return the length of the string in UTF-16 code units, i.e. what Java's String.length() would return for the same text.
  */
 int32_t utf16Length(std::string_view utf8);

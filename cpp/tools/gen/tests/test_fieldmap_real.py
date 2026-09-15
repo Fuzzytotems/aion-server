@@ -45,8 +45,8 @@ class RealTreeTest(unittest.TestCase):
         self.assertIn(2, self.fm.parts[(c + 'model.gameobjects.Creature', 'gameStats')].patterns)  # Npc.java:70-71
         self.assertEqual(self.field(c + 'model.items.storage.PlayerStorage', 'actor').cpp, 'SelfOrRef<Player>')  # §3.2 PlayerStorage.actor
         self.assertEqual(self.field(c + 'model.account.Account', 'players').cpp, 'PartMap<int32_t, PlayerAccountData>')
-        idian = self.fm.classes[c + 'model.items.IdianStone$1']  # §14.2i
-        self.assertEqual({cap.name: cap.cpp for cap in idian.captures}, {'this': 'OwnerRef<IdianStone>', 'player': 'const Ref<Player>'})
+        idian = self.fm.classes[c + 'model.items.IdianStone$1']  # §14.2i; the stone capture is a fieldmap.toml decision (header request items-7)
+        self.assertEqual({cap.name: cap.cpp for cap in idian.captures}, {'this': 'IdianStone* const', 'player': 'const Ref<Player>'})
         self.assertEqual(self.field(c + 'skillengine.model.Effect', 'periodicTasks').cpp, 'Field<Ref<Array<FutureRef>>>')  # §14.2c
         self.assertTrue(self.fm.class_json(self.fm.classes[c + 'model.gameobjects.Npc'])['hasEquals'])  # AionObject equals
         self.assertIn(c + 'model.gameobjects.player.Player.kisk', self.fm.cycle_edges)  # RT-5
@@ -85,7 +85,8 @@ class RealTreeTest(unittest.TestCase):
                     'network.aion.serverpackets.SM_FRIEND_RESPONSE'):
             self.assertFalse(self.fm.classes[c + cid].singleton, cid)
             self.assertNotEqual(self.fm.base_of(self.fm.classes[c + cid]), 'Immortal', cid)
-        self.assertEqual(self.field(c + 'geoEngine.collision.IgnoreProperties', 'ELYOS').cpp, 'static inline const Ref<IgnoreProperties>')
+        # the named constants are spelled by fieldmap.toml (header request geo-2, hub-headers.md §11.1)
+        self.assertEqual(self.field(c + 'geoEngine.collision.IgnoreProperties', 'ELYOS').cpp, 'static const Ref<IgnoreProperties>&')
         self.assertEqual(self.field(c + 'model.gameobjects.player.PlayerScripts', 'scripts').cpp.count('Ref<PlayerScript>'), 1)
         self.assertTrue(self.fm.classes[c + 'services.LegionService'].singleton)  # SingletonHolder
         self.assertFalse(self.fm.classes[c + 'services.panesterra.ahserion.AhserionRaid'].singleton)  # fieldmap.toml per_run_services

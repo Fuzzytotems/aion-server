@@ -20,6 +20,24 @@ TEST(StringUtilsTest, InvalidSequencesAreReplaced) {
 	EXPECT_EQ(StringUtils::toUtf8(loneSurrogate), "x\xEF\xBF\xBD");
 }
 
+TEST(StringUtilsTest, Wtf8KeepsLoneSurrogates) {
+	// every unit of a Java String survives toWtf8 + wtf8ToUtf16, lone surrogates included
+	const std::u16string units{u'$', char16_t(0xD801), char16_t(0x0000), u'a', char16_t(0xDFFF), char16_t(0xD83D), char16_t(0xDE00), char16_t(0xDBFF)};
+	const std::string wtf8 = StringUtils::toWtf8(units);
+	EXPECT_EQ(wtf8, std::string("$\xED\xA0\x81\0a\xED\xBF\xBF\xF0\x9F\x98\x80\xED\xAF\xBF", 16)); // the pair D83D DE00 is U+1F600
+	EXPECT_EQ(StringUtils::wtf8ToUtf16(wtf8), units);
+	EXPECT_EQ(StringUtils::utf16Length(wtf8), static_cast<int32_t>(units.size()));
+	// valid UTF-8 decodes like toUtf16, malformed input is replaced the same way
+	EXPECT_EQ(StringUtils::toWtf8(u"Grüße 😀"), "Grüße 😀");
+	for (std::string_view text : {std::string_view("Grüße 😀 abc"), std::string_view("a\xFF"), std::string_view("\xE0\x80\x80"),
+			 std::string_view("\xED\xA0"), std::string_view("ab\xE2\x82"), std::string_view("\xF0\x80\x80\x80"), std::string_view("\xED\xC0\x80")})
+		EXPECT_EQ(StringUtils::wtf8ToUtf16(text), StringUtils::toUtf16(text)) << text;
+	// an encoded high surrogate followed by an encoded low surrogate gives the two units (a pair, as Java's string concatenation would)
+	EXPECT_EQ(StringUtils::wtf8ToUtf16("\xED\xA0\xBD\xED\xB8\x80"), (std::u16string{char16_t(0xD83D), char16_t(0xDE00)}));
+	// toUtf16 stays Java-strict
+	EXPECT_EQ(StringUtils::toUtf16("\xED\xA0\x81"), u"�");
+}
+
 TEST(StringUtilsTest, TrimLikeJava) {
 	EXPECT_EQ(StringUtils::trim("\t  hi \x01\n"), "hi");
 	EXPECT_EQ(StringUtils::trim("   "), "");

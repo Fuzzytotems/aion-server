@@ -8,4 +8,12 @@ void ProcDPHealInstantEffect::applyEffect(model::Effect& /*effect*/) const {
 	AION_UNPORTED();
 }
 
+int32_t ProcDPHealInstantEffect::getCurrentStatValue(model::Effect& /*effect*/) const {
+	AION_UNPORTED();
+}
+
+int32_t ProcDPHealInstantEffect::getMaxStatValue(model::Effect& /*effect*/) const {
+	AION_UNPORTED();
+}
+
 } // namespace aion::gameserver::skillengine::effect

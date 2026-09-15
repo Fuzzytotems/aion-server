@@ -16,7 +16,7 @@ namespace aion::gameserver::model::enchants {
 /**
  * S0c declaration header (docs/design/hub-headers.md §3.5). RefCounted (fieldmap K3, `Item.enchantEffect`), created with create(). StatOwner is
  * held by Ref, so retain()/release() forward to RefCounted (§9.2). The constructor builds the stat functions and adds them to the player's
- * game stats, so it stays `AION_UNPORTED`. The enchant stats are static data read during the call (`const EnchantStat*` elements).
+ * game stats; itemSlot is MAIN_HAND for an effect without attack stats (Java null, docs/deviations/P4-13.md). The enchant stats are static data read during the call (`const EnchantStat*` elements).
  *
  * @author xTz
  */

@@ -165,7 +165,7 @@ bool Creature::canUseSkillInMove() {
 	runtime::Ptr<skillengine::model::Skill> skill = castingSkill.get();
 	if (skill) {
 		// Java: DataManager.SKILL_DATA.getSkillTemplate(castingSkill.getSkillId()), the template the skill was created from (SkillEngine and every
-		// Skill constructor take it from SKILL_DATA). SkillData declares no getSkillTemplate before P4-09, so the skill's own template is read.
+		// Skill constructor take it from SKILL_DATA), so the skill's own template, the same object, is read (docs/deviations/P4-11a.md).
 		const skillengine::model::SkillTemplate* st = skill->getSkillTemplate();
 		if (st->getStartconditions() != nullptr && st->getMovedCondition() != nullptr) {
 			if (!st->getMovedCondition()->isAllow())

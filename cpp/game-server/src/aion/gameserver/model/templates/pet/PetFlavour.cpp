@@ -1,5 +1,7 @@
 #include "aion/gameserver/model/templates/pet/PetFlavour.h"
 
+#include "aion/gameserver/dataholders/DataManager.h"
+#include "aion/gameserver/dataholders/ItemGroupsData.h"
 #include "aion/gameserver/runtime/base/Unported.h"
 #include "aion/gameserver/services/toypet/PetFeedCalculator.h"
 #include "aion/gameserver/services/toypet/PetFeedProgress.h"
@@ -7,10 +9,11 @@
 namespace aion::gameserver::model::templates::pet {
 
 std::optional<FoodType> PetFlavour::getFoodType(int32_t itemId) const {
-	// Java: for (PetRewards rewards : getFood()) if (DataManager.ITEM_GROUPS_DATA.isFood(itemId, rewards.getType())) return rewards.getType();
-	// return null; ItemGroupsData (P4-09) declares no isFood yet
-	static_cast<void>(itemId);
-	AION_UNPORTED();
+	for (const PetRewards& rewards : getFood()) {
+		if (dataholders::DataManager::ITEM_GROUPS_DATA->isFood(itemId, rewards.getType()))
+			return rewards.getType();
+	}
+	return std::nullopt;
 }
 
 const PetRewards* PetFlavour::findRewardGroup(FoodType foodType) const {

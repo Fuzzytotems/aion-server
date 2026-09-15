@@ -15,7 +15,7 @@ namespace aion::gameserver::model::items {
 /**
  * S0c declaration header (docs/design/hub-headers.md §3.5). RefCounted (fieldmap K4, `Item.manaStones`/`fusionStones`), created with create();
  * retain()/release() of the ItemStone interfaces forward to RefCounted (§9.2). The constructor copies the modifiers of the stone's item
- * template (DataManager), so it stays `AION_UNPORTED` (the ItemStone constructor already is).
+ * template into `modifiers` (empty without modifiers, docs/deviations/P4-13.md).
  *
  * @author ATracer
  */

@@ -8,4 +8,9 @@ void NpcData::afterUnmarshal(xml::LoadContext& /*ctx*/, const xml::XmlParent& /*
 	AION_UNPORTED();
 }
 
+const model::templates::npc::NpcTemplate* NpcData::getNpcTemplate(int32_t id) const {
+	auto it = npcData.find(id);
+	return it != npcData.end() ? it->second : nullptr;
+}
+
 } // namespace aion::gameserver::dataholders

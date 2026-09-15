@@ -1,6 +1,5 @@
 #include "aion/gameserver/model/trade/Exchange.h"
 
-#include "aion/gameserver/runtime/base/Unported.h"
 #include "aion/gameserver/model/gameobjects/player/Player.h"
 #include "aion/gameserver/model/trade/ExchangeItem.h"
 
@@ -23,15 +22,15 @@ void Exchange::lock() {
 }
 
 void Exchange::addItem(int32_t parentItemObjId, ExchangeItem& exchangeItem) {
-	AION_UNPORTED();
+	this->items.put(parentItemObjId, runtime::Ref<ExchangeItem>(exchangeItem));
 }
 
 void Exchange::addKinah(int64_t countToAdd) {
-	AION_UNPORTED();
+	this->kinahCount += countToAdd;
 }
 
 bool Exchange::isExchangeListFull() {
-	AION_UNPORTED();
+	return items.size() >= 18;
 }
 
 Exchange::~Exchange() = default;

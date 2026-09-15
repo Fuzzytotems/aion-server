@@ -155,7 +155,9 @@ hand-written header changes a class key; `--check` is the drift check); `python 
   hand-written outer classes (`LegionHistoryAction.Type` stays `LegionHistoryAction_Type`).
 - All 111 afterUnmarshal hooks, the annotated setters (`ItemTemplate`/`NpcTemplate::setXmlUid`, `ZoneTemplate::setXmlName`) and
   `NpcEquippedGear::init` are `AION_UNPORTED`. The setters and `init` run during binding even with `runHooks=false`, so no real static data
-  load passes until P4-07/08/09/13 port them. Still open, except the `QuestsData` and `NpcSkillData` hooks (ported in S0c).
+  load passes until P4-07/08/09/13 port them. Still open, except the `QuestsData` and `NpcSkillData` hooks (ported in S0c), the P4-07a
+  hooks and setters (item, npc, spawns, world, zone, stats, pet; wave 3a-1) and the `SkillData`, `ItemSetData`, `WorldMapsData` hooks (3a-2
+  pre-stage).
 - `NpcEquippedGear` lifetime: the proposed decision (RefCounted, `Ref<NpcEquippedGear>` in `NpcTemplate`, static-data.md S0a notes) needs
   `template <class T> void BindContext::replaceSingle(runtime::Ref<T>&, runtime::Ref<T>, pugi::xml_node)` in
   `dataholders/loadingutils/BindContext.h` (same rules as the `unique_ptr` overload). Then `xmlgen.toml [adapters]`, the cppmodel return kind
@@ -170,7 +172,8 @@ hand-written header changes a class key; `--check` is the drift check); `python 
   and definition copies are removed and `GeneratedSysMsgTest` is in `tests/sysmsg`.
 - P4-04 geo is not a leaf; it may add `DEPENDS` once its uses of DataManager, ZoneService, SiegeService and others are callbacks.
 - `main.cpp` passes no `usedIds` sources (P4-14 DAOs) and no cleaner action (RespawnService) to `RuntimeLifecycle`.
-- `tests/support/` (FakeGameClient, P4-15) needs an owner through `TEST_SUPPORT` when it is created.
+- `tests/support/` (FakeGameClient, P4-15) needs an owner through `TEST_SUPPORT` when it is created. **Resolved (wave 3a-1):** P4-15 owns
+  it (`TEST_SUPPORT support`, `TEST_INCLUDES support`; header request network-4).
 
 #### Kernel
 
@@ -424,13 +427,13 @@ What the frozen spine knowingly does not do yet:
 
 | Exception | Owner |
 |---|---|
-| `create<Player>` stops in the Player constructor at `PetList`, whose Java constructor loads pets through `PlayerPetsDAO`; after it, `postConstruct` creates `PlayerGameStats`/`PlayerLifeStats`, which need static data and the stat calculation. `SpinePrototypeTest` covers Account, PlayerCommonData, PlayerAppearance and the PlayerAccountData part with its interned BoundRadius, and asserts `UnportedException` at PetList | PetList P4-12, PlayerPetsDAO P4-14, stats P5-01 |
+| `create<Player>` stops in the Player constructor at `PetList`, whose Java constructor loads pets through `PlayerPetsDAO`; after it, `postConstruct` creates `PlayerGameStats`/`PlayerLifeStats`, which need static data and the stat calculation. `SpinePrototypeTest` covers Account, PlayerCommonData, PlayerAppearance and the PlayerAccountData part with its interned BoundRadius, and asserts `UnportedException` at PetList. **Wave 3a-1:** PetList is ported and pets load in `Player::postConstruct` (Java order); `create<Player>` works in tests with the C++-only `PetList::setPlayerPetsLoaderForTests` seam and stat doubles, and stops without them at `PlayerPetsDAO` and the `PlayerGameStats` constructor ([phase4-status.md](phase4-status.md)) | PlayerPetsDAO P4-14, stats P5-01 |
 | No World, WorldMap or WorldMapInstance object can be built: their constructors are `AION_UNPORTED`, and `world/WorldMapInstanceFactory.h` and `world/zone/ZoneService.h` have no declaration header. So no instance handler object is created (only the factory type is checked) | world P4-10; InstanceEngine/InstanceService P5-13 |
-| 177 core constructors have `AION_UNPORTED` bodies because they read static data, configs, DAOs or services; their objects cannot be created and the Immortal singletons among them throw from `getInstance()`. By owner: P4-04 Node; P4-05 Announcement, GameTime; P4-07a SpawnGroup (4); P4-10 GameTimeService, WeatherService, AbstractPeriodicTaskManager, World, WorldMap, WorldMapInstance; P4-11a AssembledNpc, BrokerItem (2), Item (2), Kisk, Letter, ServerWideGroup; P4-11b RVController (2), SiegeWeaponController, AbstractCollisionObserver; P4-12 AbyssRank, PetCommonData, PetList, NpcFaction; P4-13 DropItem, EnchantEffect, TemperingEffect, ChargeInfo, IdianStone, ItemStone, ManaStone, RandomBonusEffect; P4-15 AionConnection, ConnectionAliveChecker; P4-16 29 and P4-17 59 packet constructors; P5-01 DamageList, TeamDamageList, PlayerGameStats; P5-02 PlayerSkillEntry, Skill (2); P5-08 PvpService, AbyssRankingCache; P5-09 AtreianPassportService, BonusPackService, BrokerService, FactionPackService, CraftSkillUpdateService, AdventService, StarterKitService; P5-10 AGPlayer, LookingForParty, ChallengeTask (2), PlayerGroup, Legion, LegionWarehouse; P5-11 House, HouseBids, LegionDominionLocation, Town (2), HousingBidService, HousingService, TownService; P5-12a SiegeShield, ShieldService, SiegeService, Assault; P5-12b Base, BaseLocation, BaseService, EventBuffHandler; P5-13 PeriodicInstanceManager, PlayerTransferService; P5-14 AdminService, AnnouncementService, CronJobService, CuringZoneService, DebugService, FlyRingService, PeriodicSaveTask, PeriodicSaveService, RoadService, SurveyService. File and line list: `build/spine-finalize-work/unported_ctors.txt` | the listed chunks |
+| 177 core constructors had `AION_UNPORTED` bodies at the freeze because they read static data, configs, DAOs or services; their objects cannot be created and the Immortal singletons among them throw from `getInstance()`. **Ported in wave 3a-1** (removed from the list below): P4-05 Announcement, GameTime; P4-07a SpawnGroup (4); P4-11a AssembledNpc, BrokerItem (2), Letter, ServerWideGroup and the two template-pointer Item constructors; P4-12 AbyssRank, PetCommonData, PetList, NpcFaction; P4-15 AionConnection, ConnectionAliveChecker. `Kisk` and the Item DAO constructor are ported but still reach `AION_UNPORTED` through the `NPC_DATA`/`ITEM_DATA` lookups (P4-09; `NpcData::getNpcTemplate` exists since the 3a-2 pre-stage). Still unported by owner: P4-04 Node; P4-10 GameTimeService, WeatherService, AbstractPeriodicTaskManager, World, WorldMap, WorldMapInstance; P4-11b RVController (2), SiegeWeaponController, AbstractCollisionObserver; P4-13 DropItem, EnchantEffect, TemperingEffect, ChargeInfo, IdianStone, ItemStone, ManaStone, RandomBonusEffect; P4-16 29 and P4-17 59 packet constructors; P5-01 DamageList, TeamDamageList, PlayerGameStats; P5-02 PlayerSkillEntry, Skill (2); P5-08 PvpService, AbyssRankingCache; P5-09 AtreianPassportService, BonusPackService, BrokerService, FactionPackService, CraftSkillUpdateService, AdventService, StarterKitService; P5-10 AGPlayer, LookingForParty, ChallengeTask (2), PlayerGroup, Legion, LegionWarehouse; P5-11 House, HouseBids, LegionDominionLocation, Town (2), HousingBidService, HousingService, TownService; P5-12a SiegeShield, ShieldService, SiegeService, Assault; P5-12b Base, BaseLocation, BaseService, EventBuffHandler; P5-13 PeriodicInstanceManager, PlayerTransferService; P5-14 AdminService, AnnouncementService, CronJobService, CuringZoneService, DebugService, FlyRingService, PeriodicSaveTask, PeriodicSaveService, RoadService, SurveyService. File and line list: `build/spine-finalize-work/unported_ctors.txt` | the listed chunks |
 | The cycle graph does not see a task held by a `CreatureController.addTask` call it cannot attribute (the Npc SHOUT and player TELEPORT controller tasks), a task object kept only in a local or `FutureTask` wrapper, or captures inside the `PinnedCallback` of a C++-only class. They rely on "Tasks: run/cancel; `onDelete` → `cancelAllTasks`" (runtime-architecture.md §5.1); the class comments state the cancel points. (The `LifeStatsRestoreService` Futures returned to the caller are followed since the freeze verification) | NpcShoutsService P5-14, TeleportService P5-08, CreatureController P4-11b |
-| C++-only breakers named in `cycles.toml` exist only as declarations: the `PlayerAlliance.groups` clearing in the `PlayerAllianceService.disband` port, the `LogoutBreakers` `run`/`onDelete` bodies, `WorldMapInstance::detachInstanceHandler` in `destroyInstance` | P5-10, P4-12, P5-13 |
+| C++-only breakers named in `cycles.toml` exist only as declarations: the `PlayerAlliance.groups` clearing in the `PlayerAllianceService.disband` port, `WorldMapInstance::detachInstanceHandler` in `destroyInstance` (the `LogoutBreakers` `run`/`onDelete` bodies and the zombie breaker are ported since wave 3a-1; steps L4 and L7 are skipped until `ObserveController::clearWithoutNotify` and `PlayerController::breakStanceObserver`, P4-11b, are ported) | P5-10, P5-13, P4-11b |
 | Handler scripts: `--cycles=core` skips cycle edges under `game-server/data/handlers` (376 unresolved, including new handler task objects such as `ArtifactAI.ArtifactUseSkill`); `gs.lint.concurrency` covers only `game-server/src` | phase-6 handler chunks (e.g. P5-05 `aion_gs_handlers_ai_core` for `ai/ArtifactAI`) |
-| More creation limits (freeze verification, measured by running the constructors): a plain `create<Npc>` stops in `NpcLifeStats` at the unported stat calculation (the prototype uses a `CreatureLifeStats` double); `Summon` needs a Player master and then stops at `SummonLifeStats` and `Summon::setAlwaysResistElement`; `House(objectId, building, address, instanceId)` constructs but its `postConstruct` stops at `resetDoorState`/`setPersistentState`; `ZoneInstance` tests need an `Area` double because no concrete area header (`PolyArea`, `CylinderArea`, `SphereArea`, `RectangleArea`) exists | stats P5-01; Summon P4-11a; House P5-11; areas P4-05 |
+| More creation limits (freeze verification, measured by running the constructors): a plain `create<Npc>` stops in `NpcLifeStats` at the unported stat calculation (the prototype uses a `CreatureLifeStats` double); `Summon` needs a Player master and then stops at `SummonLifeStats` and `Summon::setAlwaysResistElement`; `House(objectId, building, address, instanceId)` constructs but its `postConstruct` stops at `resetDoorState`/`setPersistentState`; `ZoneInstance` tests needed an `Area` double because no concrete area header existed (**resolved in wave 3a-1:** P4-05 ported `PolyArea`, `CylinderArea`, `SphereArea`, `RectangleArea`, `SemisphereArea`) | stats P5-01; Summon P4-11a; House P5-11 |
 | Handler bases without a declaration header: `world/zone/handler/AdvancedZoneHandler.h` (implemented by the PvPZone handler) and `ai/HpPhases.h` (`HpPhases.PhaseHandler`, implemented by 49 handler AIs). Both are new additive headers, not changes to frozen classes | AdvancedZoneHandler P4-10; HpPhases P5-05 |
 | Effect shells owned by P5-03 declare no behaviour virtuals yet that P5-04 effects override (`DamageEffect` 7 methods, `BufEffect.startEffect`, `AbstractOverTimeEffect.startEffect`, `AbstractHealEffect`); P4-08 (the lease that declares behaviour stubs in phase 4) must declare them, or P5-04 needs cross-chunk requests | P4-08 |
 | K3 task objects (`DecayTask`, `GeneralUpdateTask`, `ItemUpdateTask`, `SurveyService.TaskUpdate`, `SiegeStartRunnable`, `WorldRaidRunnable`, `RiftOpenRunnable`, the `Offline*Checker`s) are printed by `fieldmap.json` with base RefCounted but stay immutable `TaskStruct` values; the lint does not check the base | RespawnService P4-10, PlayerEnterWorldService P5-00, SurveyService P5-14, siege P5-12a, worldraid and rift P5-12b |
@@ -453,19 +456,26 @@ Phase 4:
 - **P4-04 geo:** `Node(String)` and so `GeoMap(mapId)` need the `CollisionIntention` companion; geo is not a leaf until its DataManager,
   ZoneService and SiegeService uses are callbacks (S0a item). `Spatial.parent` is non-retaining: `attachChild`/`detachChildAt` set and clear
   it, and nothing may keep a child of a node the loader drops.
-- **P4-05 base:** the `ChatType` companion (SM_SYSTEM_MESSAGE uses a local id table) and `utils::simpleClassName` (AIEngine.cpp has a local
-  helper); 152 enum companions remain across the P4 chunks (pattern `StorageTypeInfo.h`).
-- **P4-06 sysmsg:** `SM_SYSTEM_MESSAGE::writeImpl` and the 3 hand factories are unported; `toJavaString` has no overloads for object
-  parameters (S0B-035 note); the separate `toJavaString` sets of SM_SYSTEM_MESSAGE, SM_QUESTION_WINDOW and SM_CLOSE_QUESTION_WINDOW would
-  format a `bool` as "1" (no caller passes one).
-- **P4-07a/b templates:** `setXmlUid`/`setXmlName` and `SpawnSpotTemplate::afterUnmarshal` block a real static data load;
-  `ExtractedItemsCollection.getChance` stays non-virtual until a `Chance` interface exists.
+Wave 3a-1 ported P4-05, P4-06, P4-07a, P4-11a, P4-12 and P4-15; their current state and remaining needs are in
+[phase4-status.md](phase4-status.md). The entries below are corrected for it.
+
+- **P4-05 base:** ~~the `ChatType` companion and `utils::simpleClassName`~~ exist since wave 3a-1 (`ChatTypeInfo.h`, `utils::simpleClassName`
+  and 20 more companions); the local copies in `network/detail/SystemMessageL10n.h` (`chatTypeIdOf`) and `AIEngine.cpp`
+  (`simpleClassNameOf`, P5-05) still have to switch. Remaining enum companions belong to their chunks (pattern `StorageTypeInfo.h`).
+- **P4-06 sysmsg:** ~~`writeImpl`, the 3 hand factories and object `toJavaString` overloads~~ ported in wave 3a-1 (S0B-035 closed); the
+  separate `toJavaString` sets of SM_QUESTION_WINDOW and SM_CLOSE_QUESTION_WINDOW would still format a `bool` as "1" (no caller passes one).
+- **P4-07a/b templates:** ~~`setXmlUid`/`setXmlName` and `SpawnSpotTemplate::afterUnmarshal`~~ ported (P4-07a, wave 3a-1); the real zones
+  import still needs `ZoneName::createOrGet` (P4-10); `ExtractedItemsCollection.getChance` (P4-07b) stays non-virtual until a `Chance`
+  interface exists.
 - **P4-09 dataholders:** `QuestsData::getQuestTemplates` (Java HashMap order) and `getQuestsByNpcFaction` are unported.
 - **P4-10 world:** S0B-042/118; the World/WorldMap/WorldMapInstance constructors and the missing `WorldMapInstanceFactory.h`/`ZoneService.h`
   (freeze exception).
-- **P4-11a objects:** S0B-052; `Kisk` stores `const KiskStatsTemplate*` although Java creates the template at run time (same lifetime
-  question as BoundRadius); `ArtifactAssault`/`FortressAssault` (P5-12a) and `Trap` constructors always reach `AION_UNPORTED` in their base
-  initializer.
+- **P4-11a objects:** S0B-052 (kept in wave 3a-1); ~~`Kisk` template lifetime~~ resolved (one immortal default `KiskStatsTemplate`,
+  docs/deviations/P4-11a.md); `ArtifactAssault`/`FortressAssault` (P5-12a) and the `SummonedObject`, `Trap`, `Kisk`, `SummonedHouseNpc`
+  constructors still reach `AION_UNPORTED` in their base initializer (`NPC_DATA` lookup; `NpcData::getNpcTemplate` exists since the 3a-2
+  pre-stage, `NpcKnownList.h` P4-10 is still missing for Trap).
+- **P4-12 player:** 9 `AION_UNPORTED` left (ExpireTimerTask P5-14, stat listeners P5-01, ItemUseObserver P4-11b); `create<Player>` needs the
+  pet loader seam and stat doubles in tests (freeze exception above).
 - **P4-11b controllers:** `MaterialSkillTask` is K4 and must be written as a RefCounted class (the forward declaration in
   `AbstractMaterialSkillActor.h` is compatible); the `cycles.toml` java-hook reasons cite Java lines (AbstractMaterialSkillActor.java:49-53)
   to keep in sync.
@@ -474,8 +484,9 @@ Phase 4:
 - **P4-14 DAO:** record `hashCode` with String or enum components (`RankingListPlayer`, `RankingListLegion`, `Bookmark`,
   `PlayerAndLegionInfo`, `MultiClientingService.Identifiers`) needs a Java-compatible `String.hashCode` helper; `main.cpp` passes no `usedIds`
   sources yet.
-- **P4-15 network:** S0B-039; `SM_KEY` must be serialized with its connection in `AionConnection::initialized` (it cannot override
-  `recipients()`); `tests/support/` (FakeGameClient) needs an owner.
+- **P4-15 network:** S0B-039 (unchanged; measure first); ~~`SM_KEY` serialized in `AionConnection::initialized`~~ done in wave 3a-1 (a
+  private `SM_KEY` subclass until P4-16 ports `writeImpl`); ~~`tests/support/` owner~~ P4-15 (`TEST_SUPPORT support`, header request
+  network-4).
 - **P4-16/P4-17 packets:** overloads that differ only in integer width or `bool` need exactly typed arguments (`SM_BROKER_SERVICE`,
   `SM_UPGRADE_ARCADE`, `SM_MOTION`, `SM_TITLE_INFO`), and `SM_FIND_GROUP` takes `std::vector<Ptr<FindGroupEntry>>`; `SM_MACRO_RESULT`'s
   shared static packets stay valid only while `serialize` is read-only.

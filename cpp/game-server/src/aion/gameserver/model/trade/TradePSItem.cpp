@@ -1,6 +1,6 @@
 #include "aion/gameserver/model/trade/TradePSItem.h"
 
-#include "aion/gameserver/runtime/base/Unported.h"
+#include <algorithm>
 
 namespace aion::gameserver::model::trade {
 
@@ -15,7 +15,8 @@ runtime::Ref<TradePSItem> TradePSItem::create(int32_t value, int32_t itemIdValue
 }
 
 void TradePSItem::decreaseCount(int64_t decreaseCount) {
-	AION_UNPORTED();
+	if (decreaseCount > 0)
+		this->count -= std::min(decreaseCount, count.get());
 }
 
 TradePSItem::~TradePSItem() = default;

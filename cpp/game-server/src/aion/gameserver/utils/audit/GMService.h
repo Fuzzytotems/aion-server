@@ -15,9 +15,8 @@ namespace aion::gameserver::utils::audit {
 
 /**
  * C++: a singleton (fieldmap K4, base Immortal; hub-headers.md §11.2). The constructor collects the GM skill templates from
- * DataManager.SKILL_DATA, whose getSkillTemplates (P4-09) is not declared yet, so it stays unported and getInstance() throws until then; the
- * other bodies are ported. Deviation: collection results are snapshots of borrowed players (hub-headers.md §7.1), not Java's live
- * values() view.
+ * DataManager.SKILL_DATA, so getInstance() throws NullPointerException until the skill data is published (Java: the holder is loaded before).
+ * Deviation: collection results are snapshots of borrowed players (hub-headers.md §7.1), not Java's live values() view.
  *
  * @author MrPoke, Neon
  */

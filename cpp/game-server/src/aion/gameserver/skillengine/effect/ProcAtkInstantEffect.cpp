@@ -8,4 +8,16 @@ void ProcAtkInstantEffect::applyEffect(model::Effect& /*effect*/) const {
 	AION_UNPORTED();
 }
 
+bool ProcAtkInstantEffect::shouldApplyAttackerMovementModifier() const {
+	return false;
+}
+
+bool ProcAtkInstantEffect::shouldUseBoostSpellAttackEffects() const {
+	return false;
+}
+
+bool ProcAtkInstantEffect::shouldUseOneTimeBoostSkillAttack() const {
+	return false;
+}
+
 } // namespace aion::gameserver::skillengine::effect

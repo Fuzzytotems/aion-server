@@ -1,6 +1,7 @@
 #include "aion/gameserver/model/broker/BrokerPlayerCache.h"
 
-#include "aion/gameserver/runtime/base/Unported.h"
+#include <utility>
+
 #include "aion/gameserver/model/gameobjects/BrokerItem.h"
 
 namespace aion::gameserver::model::broker {
@@ -19,7 +20,14 @@ void BrokerPlayerCache::setBrokerListCache(runtime::Ptr<runtime::RcArrayList<run
 }
 
 void BrokerPlayerCache::removeFromCache(gameobjects::BrokerItem& item) {
-	AION_UNPORTED();
+	// Java: brokerListCache = brokerListCache.stream().filter(i -> !i.equals(item)).toList() (BrokerItem keeps Object.equals: identity)
+	runtime::Ref<runtime::RcArrayList<runtime::Ref<gameobjects::BrokerItem>>> filtered =
+		runtime::RcArrayList<runtime::Ref<gameobjects::BrokerItem>>::create(AION_LOCK_CLASS(BrokerPlayerCache::brokerListCache));
+	for (runtime::Ptr<gameobjects::BrokerItem> i : *brokerListCache.get()) {
+		if (i.rawPointer() != &item)
+			filtered->add(runtime::Ref<gameobjects::BrokerItem>(i));
+	}
+	brokerListCache.set(std::move(filtered));
 }
 
 void BrokerPlayerCache::setSearchItemsList(runtime::Ptr<runtime::RcArrayList<int32_t>> value) {

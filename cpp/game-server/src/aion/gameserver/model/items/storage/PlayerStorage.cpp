@@ -1,11 +1,15 @@
 #include "aion/gameserver/model/items/storage/PlayerStorage.h"
 
-#include "aion/gameserver/runtime/base/Unported.h"
 #include "aion/gameserver/model/account/Account.h"
 #include "aion/gameserver/model/gameobjects/Item.h"
+#include "aion/gameserver/model/gameobjects/player/Equipment.h"
 #include "aion/gameserver/model/gameobjects/player/Player.h"
 
 namespace aion::gameserver::model::items::storage {
+
+using ItemAddType = services::item::ItemPacketService_ItemAddType;
+using ItemDeleteType = services::item::ItemPacketService_ItemDeleteType;
+using ItemUpdateType = services::item::ItemPacketService_ItemUpdateType;
 
 PlayerStorage::PlayerStorage(gameobjects::player::Player& owner, StorageType storageTypeValue) : Storage(storageTypeValue) {
 	bindOwner(owner);
@@ -23,92 +27,96 @@ void PlayerStorage::setOwner(runtime::Ptr<gameobjects::player::Player> value) {
 }
 
 void PlayerStorage::onLoadHandler(gameobjects::Item& item) {
-	AION_UNPORTED();
+	if (item.isEquipped())
+		actor->getEquipment().onLoadHandler(item);
+	else {
+		Storage::onLoadHandler(item);
+	}
 }
 
 void PlayerStorage::increaseKinah(int64_t amount) {
-	AION_UNPORTED();
+	increaseKinah(amount, actor.get());
 }
 
-void PlayerStorage::increaseKinah(int64_t amount, services::item::ItemPacketService_ItemUpdateType updateType) {
-	AION_UNPORTED();
+void PlayerStorage::increaseKinah(int64_t amount, ItemUpdateType updateType) {
+	increaseKinah(amount, updateType, actor.get());
 }
 
 bool PlayerStorage::tryDecreaseKinah(int64_t amount) {
-	AION_UNPORTED();
+	return tryDecreaseKinah(amount, actor.get());
 }
 
-bool PlayerStorage::tryDecreaseKinah(int64_t amount, services::item::ItemPacketService_ItemUpdateType updateType) {
-	AION_UNPORTED();
+bool PlayerStorage::tryDecreaseKinah(int64_t amount, ItemUpdateType updateType) {
+	return tryDecreaseKinah(amount, updateType, actor.get());
 }
 
 void PlayerStorage::decreaseKinah(int64_t amount) {
-	AION_UNPORTED();
+	decreaseKinah(amount, actor.get());
 }
 
-void PlayerStorage::decreaseKinah(int64_t amount, services::item::ItemPacketService_ItemUpdateType updateType) {
-	AION_UNPORTED();
+void PlayerStorage::decreaseKinah(int64_t amount, ItemUpdateType updateType) {
+	decreaseKinah(amount, updateType, actor.get());
 }
 
 int64_t PlayerStorage::increaseItemCount(gameobjects::Item& item, int64_t countValue) {
-	AION_UNPORTED();
+	return increaseItemCount(item, countValue, actor.get());
 }
 
-int64_t PlayerStorage::increaseItemCount(gameobjects::Item& item, int64_t countValue, services::item::ItemPacketService_ItemUpdateType updateType) {
-	AION_UNPORTED();
+int64_t PlayerStorage::increaseItemCount(gameobjects::Item& item, int64_t countValue, ItemUpdateType updateType) {
+	return increaseItemCount(item, countValue, updateType, actor.get());
 }
 
 int64_t PlayerStorage::decreaseItemCount(gameobjects::Item& item, int64_t countValue) {
-	AION_UNPORTED();
+	return decreaseItemCount(runtime::Ptr<gameobjects::Item>(item), countValue, actor.get());
 }
 
-int64_t PlayerStorage::decreaseItemCount(gameobjects::Item& item, int64_t countValue, services::item::ItemPacketService_ItemUpdateType updateType) {
-	AION_UNPORTED();
+int64_t PlayerStorage::decreaseItemCount(gameobjects::Item& item, int64_t countValue, ItemUpdateType updateType) {
+	return decreaseItemCount(runtime::Ptr<gameobjects::Item>(item), countValue, updateType, actor.get());
 }
 
-int64_t PlayerStorage::decreaseItemCount(gameobjects::Item& item, int64_t countValue, services::item::ItemPacketService_ItemUpdateType updateType,
+int64_t PlayerStorage::decreaseItemCount(gameobjects::Item& item, int64_t countValue, ItemUpdateType updateType,
 	questEngine::model::QuestStatus questStatus) {
-	AION_UNPORTED();
+	return decreaseItemCount(runtime::Ptr<gameobjects::Item>(item), countValue, updateType, std::optional(questStatus), actor.get());
 }
 
 runtime::Ptr<gameobjects::Item> PlayerStorage::add(gameobjects::Item& item) {
-	AION_UNPORTED();
+	return add(item, actor.get());
 }
 
-runtime::Ptr<gameobjects::Item> PlayerStorage::add(gameobjects::Item& item, services::item::ItemPacketService_ItemAddType addType) {
-	AION_UNPORTED();
+runtime::Ptr<gameobjects::Item> PlayerStorage::add(gameobjects::Item& item, ItemAddType addType) {
+	return add(item, addType, actor.get());
 }
 
 runtime::Ptr<gameobjects::Item> PlayerStorage::put(gameobjects::Item& item) {
-	AION_UNPORTED();
+	return put(item, actor.get());
 }
 
 runtime::Ptr<gameobjects::Item> PlayerStorage::delete_(gameobjects::Item& item) {
-	AION_UNPORTED();
+	return delete_(item, actor.get());
 }
 
-runtime::Ptr<gameobjects::Item> PlayerStorage::delete_(gameobjects::Item& item, services::item::ItemPacketService_ItemDeleteType deleteType) {
-	AION_UNPORTED();
+runtime::Ptr<gameobjects::Item> PlayerStorage::delete_(gameobjects::Item& item, ItemDeleteType deleteType) {
+	return delete_(item, deleteType, actor.get());
 }
 
 bool PlayerStorage::decreaseByItemId(int32_t itemId, int64_t countValue) {
-	AION_UNPORTED();
+	return decreaseByItemId(itemId, countValue, actor.get());
 }
 
 bool PlayerStorage::decreaseByItemId(int32_t itemId, int64_t countValue, questEngine::model::QuestStatus questStatus) {
-	AION_UNPORTED();
+	return decreaseByItemId(itemId, countValue, std::optional(questStatus), actor.get());
 }
 
 bool PlayerStorage::decreaseByObjectId(int32_t itemObjId, int64_t countValue) {
-	AION_UNPORTED();
+	return decreaseByObjectId(itemObjId, countValue, actor.get());
 }
 
 bool PlayerStorage::decreaseByObjectId(int32_t itemObjId, int64_t countValue, questEngine::model::QuestStatus questStatus) {
-	AION_UNPORTED();
+	return decreaseByObjectId(itemObjId, countValue, questStatus, actor.get());
 }
 
-bool PlayerStorage::decreaseByObjectId(int32_t itemObjId, int64_t countValue, services::item::ItemPacketService_ItemUpdateType updateType) {
-	AION_UNPORTED();
+bool PlayerStorage::decreaseByObjectId(int32_t itemObjId, int64_t countValue, ItemUpdateType updateType) {
+	return decreaseByObjectId(itemObjId, countValue, updateType, actor.get());
 }
 
 } // namespace aion::gameserver::model::items::storage

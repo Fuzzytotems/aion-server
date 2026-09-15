@@ -248,6 +248,11 @@ if(AION_BUILD_TESTS)
 		${gs_realdata})
 	aion_set_discovered_test_properties(aion_gs_xml_tests
 		REGEX "^(StaticDataImportsTest\\.RealStaticDataTreeResolvesLikeXmlMerger|StaticDataRealFilesTest\\..*|GeneratedSliceTest\\..*)$" ${gs_realdata})
+	# phase 4 real-data suites (static data and geo files); GeoRealDataTest alone takes several minutes in Debug
+	aion_set_discovered_test_properties(aion_gs_geo_tests REGEX "^GeoRealDataTest\\." ${gs_realdata})
+	aion_set_discovered_test_properties(aion_gs_templates_tests REGEX "^(TemplatesRealDataTest|TemplatesBRealDataTest)\\." ${gs_realdata})
+	aion_set_discovered_test_properties(aion_gs_skills_tests REGEX "^SkillShellsRealDataTest\\." ${gs_realdata})
+	aion_set_discovered_test_properties(aion_gs_quest_tests REGEX "^QuestModelsRealDataTest\\." ${gs_realdata})
 
 	# S0a link proof: the server starts against a database and stops at the unported DataManager (cmake/RunStartupSmoke.cmake). Like the other
 	# database tests it is skipped unless the environment names the database: AION_TEST_GS_DATABASE_URL, e.g.

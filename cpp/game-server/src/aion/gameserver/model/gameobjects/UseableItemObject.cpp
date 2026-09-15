@@ -8,6 +8,8 @@
 #include "aion/commons/utils/TimeUtils.h"
 #include "aion/gameserver/configs/main/GSConfig.h"
 #include "aion/gameserver/controllers/PlayerController.h"
+#include "aion/gameserver/dataholders/DataManager.h"
+#include "aion/gameserver/dataholders/ItemData.h"
 #include "aion/gameserver/model/TaskId.h"
 #include "aion/gameserver/model/gameobjects/detail/ObjectsData.h"
 #include "aion/gameserver/model/gameobjects/player/Cooldowns.h"
@@ -39,10 +41,9 @@ namespace {
 using network::aion::serverpackets::SM_SYSTEM_MESSAGE;
 using utils::PacketSendUtility;
 
-/** Java `DataManager.ITEM_DATA.getItemTemplate(itemId)`: ItemData declares no getItemTemplate yet (P4-09) */
+/** Java `DataManager.ITEM_DATA.getItemTemplate(itemId)` (NullPointerException while the item data is not published) */
 const templates::item::ItemTemplate* findItemTemplate(int32_t itemId) {
-	static_cast<void>(itemId);
-	AION_UNPORTED();
+	return dataholders::DataManager::ITEM_DATA->getItemTemplate(itemId);
 }
 
 /** Java `PlaceableHouseObject.getPlacementLimit()`: the shell declares no accessor for the `limit` attribute yet (P4-07b) */

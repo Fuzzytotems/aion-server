@@ -24,8 +24,8 @@ namespace aion::gameserver::geoEngine::scene {
  * <p>
  * S0c declaration header (docs/design/hub-headers.md §3.5): the base of GeoMap and DespawnableNode. RefCounted (fieldmap K4), created with
  * create(). C++ notes: the generic descendantMatches methods are member templates (§8.3; `Class<T>` is the template argument, the overload
- * without a class filter is the non-template one); getChildren() returns the live children list; `Node(String)` stays unported until the
- * CollisionIntention companion (ALL.getId()) exists. The java.util.logging logger is the .cpp logger.
+ * without a class filter is the non-template one); getChildren() returns the live children list; `Node(String)` uses the CollisionIntention
+ * companion (collision/CollisionIntentionInfo.h). The java.util.logging logger is the .cpp logger (same name, commons logging).
  *
  * @author Mark Powell
  * @author Gregg Patton
@@ -33,6 +33,9 @@ namespace aion::gameserver::geoEngine::scene {
  */
 class Node : public Spatial {
 	AION_MAKE_REF_FRIEND
+	// C++ only: Java package access (DespawnableNode.copyFrom reads the protected fields of another Node)
+	friend class DespawnableNode;
+
 protected:
 	runtime::Field<runtime::Ref<runtime::RcArrayList<runtime::Ref<Spatial>>>> children{};
 	runtime::Field<int8_t> collisionIntentions{};
@@ -145,13 +148,28 @@ public:
 	 * List<T> descendantMatches(Class<T> spatialSubclass, String nameRegex)).
 	 */
 	template <class T>
-	std::vector<runtime::Ptr<T>> descendantMatches(std::optional<std::string_view> nameRegex) { AION_UNPORTED(); }
+	std::vector<runtime::Ptr<T>> descendantMatches(std::optional<std::string_view> nameRegex) {
+		std::vector<runtime::Ptr<T>> newList;
+		if (getQuantity() < 1)
+			return newList;
+		for (runtime::Ptr<Spatial> child : *children.get()) {
+			// Java: child.matches(spatialSubclass, nameRegex) with the class test done by the template argument
+			runtime::Ptr<T> match = runtime::as<T>(child);
+			if (match != nullptr && child->matches(nullptr, nameRegex))
+				newList.push_back(match);
+			if (runtime::Ptr<Node> node = runtime::as<Node>(child)) {
+				std::vector<runtime::Ptr<T>> descendants = node->template descendantMatches<T>(nameRegex);
+				newList.insert(newList.end(), descendants.begin(), descendants.end());
+			}
+		}
+		return newList;
+	}
 
 	/**
 	 * Convenience wrapper (Java: descendantMatches(Class<T> spatialSubclass)).
 	 */
 	template <class T>
-	std::vector<runtime::Ptr<T>> descendantMatches() { AION_UNPORTED(); }
+	std::vector<runtime::Ptr<T>> descendantMatches() { return descendantMatches<T>(std::nullopt); }
 
 	/**
 	 * Convenience wrapper (Java: descendantMatches(String nameRegex), T = Spatial).

@@ -16,7 +16,7 @@ namespace aion::gameserver::model::items {
 
 /**
  * S0c declaration header (docs/design/hub-headers.md §3.5). RefCounted (fieldmap K4, `Item.godStone`), created with create(); retain()/release()
- * of the ItemStone interfaces forward to RefCounted (§9.2). The ItemStone constructor is unported (template check).
+ * of the ItemStone interfaces forward to RefCounted (§9.2). The ItemStone constructor checks the stone's item template.
  *
  * @author ATracer
  */

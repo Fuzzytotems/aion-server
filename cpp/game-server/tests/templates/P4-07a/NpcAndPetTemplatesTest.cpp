@@ -11,6 +11,8 @@
 #include <thread>
 #include <vector>
 
+#include "aion/gameserver/dataholders/DataManager.h"
+#include "aion/gameserver/dataholders/ItemGroupsData.h"
 #include "aion/gameserver/dataholders/loadingutils/StaticDataLoader.h"
 #include "aion/gameserver/model/templates/npc/NpcRatingInfo.h"
 #include "aion/gameserver/model/templates/npc/NpcTemplate.bind.h"
@@ -182,6 +184,19 @@ TEST(PetTemplateTest, FlavourRewardGroupsAndBuffModifiers) {
 	std::unique_ptr<pet::PetBuff> buff = bindXml<pet::PetBuff>(R"(<buff id="1" feed_count="3"><modifiers/><modifiers/></buff>)");
 	EXPECT_EQ(buff->getModifiers().size(), 2u);
 	EXPECT_EQ(pet::PetStatsTemplate().getRunSpeed(), 0.0f);
+}
+
+TEST(PetTemplateTest, FlavourFoodTypeAsksTheItemGroups) {
+	// Java PetFlavour.getFoodType: the first reward group whose type DataManager.ITEM_GROUPS_DATA.isFood accepts, else null (header request
+	// pre-2). ItemGroupsData's afterUnmarshal (which fills the pet food sets) is not ported yet: isFood on the empty holder throws like Java's
+	// null set until then
+	EXPECT_EQ(pet::PetFlavour().getFoodType(182006999), std::nullopt) << "no reward group (the data always has one): the item groups are not read";
+	std::unique_ptr<pet::PetFlavour> flavour =
+		bindXml<pet::PetFlavour>(R"(<flavour id="3" full_count="5" cd="10"><food group="BONES"/></flavour>)");
+	EXPECT_THROW(flavour->getFoodType(182006999), runtime::NullPointerException) << "ITEM_GROUPS_DATA is not published";
+	dataholders::DataManager::ITEM_GROUPS_DATA.publish(std::make_unique<dataholders::ItemGroupsData>());
+	EXPECT_THROW(flavour->getFoodType(182006999), runtime::NullPointerException) << "Java: the EnumMap has no EXCLUDES set before afterUnmarshal";
+	dataholders::DataManager::ITEM_GROUPS_DATA.resetForTests();
 }
 
 TEST(PetDopingBagTest, SlotsGrowOnDemandAndMarkTheBagDirty) {
