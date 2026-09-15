@@ -1,7 +1,5 @@
 #include "aion/gameserver/model/gameobjects/player/PortalCooldown.h"
 
-#include "aion/gameserver/runtime/base/Unported.h"
-
 namespace aion::gameserver::model::gameobjects::player {
 
 PortalCooldown::PortalCooldown(int32_t worldIdValue, int64_t reuseTimeValue, int32_t enterCountValue)
@@ -15,11 +13,11 @@ runtime::Ref<PortalCooldown> PortalCooldown::create(int32_t worldIdValue, int64_
 }
 
 void PortalCooldown::increaseEnterCount() {
-	AION_UNPORTED();
+	enterCount++; // java-race: unsynchronized increment (lost updates as in Java)
 }
 
 void PortalCooldown::decreaseEnterCount(int32_t countValue) {
-	AION_UNPORTED();
+	enterCount -= countValue;
 }
 
 } // namespace aion::gameserver::model::gameobjects::player

@@ -13,6 +13,7 @@
 #include "aion/gameserver/model/gameobjects/AionObject.h"
 #include "aion/gameserver/model/gameobjects/Creature.h"
 #include "aion/gameserver/model/gameobjects/Npc.h"
+#include "aion/gameserver/model/gameobjects/NpcObjectType.h"
 #include "aion/gameserver/model/gameobjects/TransformModel.h"
 #include "aion/gameserver/model/gameobjects/VisibleObject.h"
 #include "aion/gameserver/model/items/NpcEquippedGear.h"
@@ -44,22 +45,32 @@ namespace {
 Trap::Trap(CreateKey key, std::unique_ptr<controllers::NpcController> controller, templates::spawns::SpawnTemplate& spawnTemplate,
 	Creature& creator)
 	: SummonedObject(key, std::move(controller), spawnTemplate, levelOf(spawnTemplate), runtime::Ptr<VisibleObject>(creator)) {
-	// Java: setMasterName(""); setKnownlist(new NpcKnownList(this)); setEffectController(new EffectController(this))
+	setMasterName(""); // read back as "" by Trap::getMasterName (Npc's Field<std::string> cannot tell "" from null)
+	// Java: setKnownlist(new NpcKnownList(this)): world/knownlist/NpcKnownList.h has no declaration header yet (P4-10)
+	AION_UNPORTED();
+	setEffectController(std::make_unique<controllers::effect::EffectController>(*this));
 }
 #ifdef _MSC_VER
 #pragma warning(pop)
 #endif
 
 void Trap::setupStatContainers() {
+	// Java: setGameStats(new TrapGameStats(this)); setLifeStats(new NpcLifeStats(this)): stats/container/TrapGameStats.h has no declaration header
+	// yet (P5-01)
 	AION_UNPORTED();
 }
 
 int8_t Trap::getLevel() {
-	AION_UNPORTED();
+	runtime::Ptr<Creature> creatorCreature = runtime::cast<Creature>(getCreator()); // Java: SummonedObject<Creature>.getCreator()
+	return !creatorCreature ? int8_t{1} : creatorCreature->getLevel();
 }
 
 NpcObjectType Trap::getNpcObjectType() {
-	AION_UNPORTED();
+	return NpcObjectType::TRAP;
+}
+
+std::optional<std::string> Trap::getMasterName() {
+	return Npc::getMasterName().value_or(std::string()); // Npc's field: SummonedObject would substitute the creator's name
 }
 
 Trap::~Trap() = default;

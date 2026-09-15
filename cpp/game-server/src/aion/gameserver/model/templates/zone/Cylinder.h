@@ -8,6 +8,9 @@ namespace aion::gameserver::model::templates::zone {
 class Cylinder : public ::aion::gameserver::runtime::StaticTemplate {
 #include "aion/gameserver/model/templates/zone/Cylinder.xml.inc"
 public:
+	Cylinder() = default;
+
+	Cylinder(float x, float y, float radius, float top, float bottom);
 };
 
 } // namespace aion::gameserver::model::templates::zone

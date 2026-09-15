@@ -181,7 +181,8 @@ ProbeA::ProbeA() : lock{AION_LOCK_CLASS(ProbeA::lock)} {}
             'com.aionemu.gameserver.network.Conn': {'kind': 'K4', 'cppName': 'Conn', 'fields': [
                 {'name': 'queue', 'cpp': 'std::deque<SerializedBody>', 'rule': 'fieldmap.toml override'},
                 {'name': 'crypt', 'cpp': 'Crypt', 'rule': 'member of a class confined by fieldmap.toml'},
-                {'name': 'other', 'cpp': 'Field<int32_t>', 'rule': 'non-final scalar'}]},
+                {'name': 'other', 'cpp': 'Field<int32_t>', 'rule': 'non-final scalar'}], 'cppMembers': [
+                {'name': 'executor', 'cpp': 'SerialExecutor', 'reason': 'x'}, {'name': 'misspelled', 'cpp': 'SerialExecutor', 'reason': 'x'}]},
             'com.aionemu.gameserver.network.Crypt': {'kind': 'K5', 'cppName': 'Crypt', 'reason': 'fieldmap.toml [kinds]', 'fields': []},
             'com.aionemu.gameserver.geo.Vector3f': {'kind': 'K5', 'cppName': 'Vector3f', 'reason': 'value type (fieldmap.toml settings.value_types)',
                                                     'fields': []},
@@ -193,10 +194,14 @@ class Conn : public RefCounted {
 	std::deque<int> other;
 	Field<Vector3f> position;
 	ArrayList<Ref<Service::Identifiers>> ids{AION_LOCK_CLASS(Conn::ids)};
+	runtime::SerialExecutor executor;
+	std::deque<int> misspelled;
+	SerialExecutor undeclared;
 };
 }'''
         f = lint(code, fieldmap=fm, rules=['L1', 'L19'])
-        self.assertEqual([(x.line, x.rule) for x in f], [(5, 'L1')])
+        # [cpp_members] spelled as declared are accepted like overrides; a different spelling or an undeclared member is not
+        self.assertEqual([(x.line, x.rule) for x in f], [(5, 'L1'), (9, 'L1'), (10, 'L1')])
 
     def test_l2_fieldmap_comparison(self):
         code = '''namespace aion::gameserver::model {

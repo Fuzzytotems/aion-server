@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <optional>
 
 #include "aion/gameserver/runtime/lifetime/Ref.h"
 #include "aion/gameserver/model/geometry/fwd.h"
@@ -62,28 +63,36 @@ public:
 	/**
 	 * Returns closest point of area to given point.<br>
 	 * Returns point with coords = point arg if is inside
+	 * <p>
+	 * C++: Java returns a new point, or null (SphereArea): the point by value, std::nullopt for null.
 	 */
-	virtual const templates::zone::Point2D* getClosestPoint(const templates::zone::Point2D* point) = 0;
+	virtual std::optional<templates::zone::Point2D> getClosestPoint(const templates::zone::Point2D* point) = 0;
 
 	/**
 	 * Returns closest point of area to given coords.<br>
 	 * Returns point with coords x and y if coords are inside
+	 * <p>
+	 * C++: Java returns a new point, or null (SphereArea): the point by value, std::nullopt for null.
 	 */
-	virtual const templates::zone::Point2D* getClosestPoint(float x, float y) = 0;
+	virtual std::optional<templates::zone::Point2D> getClosestPoint(float x, float y) = 0;
 
 	/**
 	 * Returns closest point of area to given point.<br>
 	 * Works exactly like {@link #getClosestPoint(int, int)} if {@link #isInsideZ(int)} returns true.<br>
 	 * In other case closest z edge is set as z coord.
+	 * <p>
+	 * C++: Java returns a new point (hub-headers.md §5: factories return Ref), null for SphereArea.
 	 */
-	virtual runtime::Ptr<Point3D> getClosestPoint(Point3D& point) = 0;
+	virtual runtime::Ref<Point3D> getClosestPoint(Point3D& point) = 0;
 
 	/**
 	 * Returns closest point of area to given coords.<br>
 	 * Works exactly like {@link #getClosestPoint(int, int)} if {@link #isInsideZ(int)} returns true.<br>
 	 * In other case closest z edge is set as z coord.
+	 * <p>
+	 * C++: Java returns a new point (hub-headers.md §5: factories return Ref), null for SphereArea.
 	 */
-	virtual runtime::Ptr<Point3D> getClosestPoint(float x, float y, float z) = 0;
+	virtual runtime::Ref<Point3D> getClosestPoint(float x, float y, float z) = 0;
 
 	/** Return minimal z of this area */
 	virtual float getMinZ() = 0;

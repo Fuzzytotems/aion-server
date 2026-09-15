@@ -1,7 +1,9 @@
 #include "aion/gameserver/model/gameobjects/player/Friend.h"
 
-#include "aion/gameserver/runtime/base/Unported.h"
+#include "aion/gameserver/model/gameobjects/player/FriendList.h"
+#include "aion/gameserver/model/gameobjects/player/Player.h"
 #include "aion/gameserver/model/gameobjects/player/PlayerCommonData.h"
+#include "aion/gameserver/world/World.h"
 
 namespace aion::gameserver::model::gameobjects::player {
 
@@ -16,7 +18,12 @@ runtime::Ref<Friend> Friend::create(PlayerCommonData& pcdValue, std::string_view
 }
 
 FriendList_Status Friend::getStatus() {
-	AION_UNPORTED();
+	if (!pcd->isOnline())
+		return FriendList::Status::OFFLINE;
+	runtime::Ptr<Player> player = world::World::getInstance().getPlayer(getObjectId());
+	if (!player)
+		return FriendList::Status::OFFLINE;
+	return player->getFriendList().getStatus();
 }
 
 void Friend::setPCD(runtime::Ptr<PlayerCommonData> value) {
@@ -24,35 +31,35 @@ void Friend::setPCD(runtime::Ptr<PlayerCommonData> value) {
 }
 
 std::string Friend::getName() {
-	AION_UNPORTED();
+	return pcd->getName();
 }
 
 int32_t Friend::getLevel() {
-	AION_UNPORTED();
+	return pcd->getLevel();
 }
 
 std::string Friend::getNote() {
-	AION_UNPORTED();
+	return pcd->getNote();
 }
 
 PlayerClass Friend::getPlayerClass() {
-	AION_UNPORTED();
+	return pcd->getPlayerClass();
 }
 
 Gender Friend::getGender() {
-	AION_UNPORTED();
+	return pcd->getGender();
 }
 
 int32_t Friend::getMapId() {
-	AION_UNPORTED();
+	return pcd->getMapId();
 }
 
 int32_t Friend::getLastOnlineEpochSeconds() {
-	AION_UNPORTED();
+	return pcd->getLastOnlineEpochSeconds();
 }
 
 int32_t Friend::getObjectId() {
-	AION_UNPORTED();
+	return pcd->getPlayerObjId();
 }
 
 std::string Friend::getFriendMemo() {

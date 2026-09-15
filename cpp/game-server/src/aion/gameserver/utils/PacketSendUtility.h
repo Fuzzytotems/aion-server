@@ -299,6 +299,13 @@ public:
 private:
 	/** Runs r now if delay <= 0, otherwise schedules it on the scheduled pool. */
 	static void scheduleOrRun(runtime::PinnedCallback<void()> r, int32_t delay);
+
+	/**
+	 * C++ only: the body of broadcastToMap(WorldMapInstance, AionServerPacket, int delay, Predicate) that scheduleOrRun runs inline for a delay of
+	 * 0, so the delay-free overloads can pass their borrowed packet and synchronous filter without a copy.
+	 */
+	static void sendToMapPlayers(world::WorldMapInstance& mapInstance, network::aion::AionServerPacket& packet,
+		const std::function<bool(model::gameobjects::player::Player&)>& filter);
 };
 
 } // namespace aion::gameserver::utils

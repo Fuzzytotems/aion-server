@@ -2,8 +2,8 @@
 
 #include <utility>
 
-#include "aion/gameserver/runtime/base/Unported.h"
 #include "aion/gameserver/controllers/NpcController.h"
+#include "aion/gameserver/model/siege/SiegeRace.h"
 #include "aion/gameserver/model/templates/spawns/siegespawns/SiegeSpawnTemplate.h"
 
 namespace aion::gameserver::model::gameobjects::siege {
@@ -16,11 +16,11 @@ SiegeNpc::SiegeNpc(CreateKey key, std::unique_ptr<controllers::NpcController> co
 SiegeNpc::~SiegeNpc() = default;
 
 model::siege::SiegeRace SiegeNpc::getSiegeRace() {
-	AION_UNPORTED();
+	return getSpawn()->getSiegeRace();
 }
 
 int32_t SiegeNpc::getSiegeId() {
-	AION_UNPORTED();
+	return getSpawn()->getSiegeId();
 }
 
 runtime::Ptr<templates::spawns::siegespawns::SiegeSpawnTemplate> SiegeNpc::getSpawn() const {
@@ -28,7 +28,9 @@ runtime::Ptr<templates::spawns::siegespawns::SiegeSpawnTemplate> SiegeNpc::getSp
 }
 
 bool SiegeNpc::isEnemyFrom(Creature& creature) {
-	AION_UNPORTED();
+	if (SiegeNpc* siegeNpc = dynamic_cast<SiegeNpc*>(&creature); siegeNpc != nullptr && siegeNpc->getSiegeRace() != getSiegeRace())
+		return true;
+	return Npc::isEnemyFrom(creature);
 }
 
 } // namespace aion::gameserver::model::gameobjects::siege

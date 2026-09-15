@@ -3,7 +3,7 @@
 #include <string>
 
 #include "aion/commons/utils/StringUtils.h"
-#include "aion/gameserver/runtime/base/Unported.h"
+#include "aion/gameserver/runtime/base/Exceptions.h"
 
 namespace aion::gameserver::model::gameobjects::player {
 
@@ -39,15 +39,23 @@ runtime::Ref<Macros> Macros::create() {
 }
 
 std::vector<runtime::Ptr<Macros::Macro>> Macros::getAll() {
-	AION_UNPORTED();
+	SYNCHRONIZED(*this) {
+		return macrosById.values();
+	}
 }
 
 bool Macros::add(int32_t macroId, std::string_view macroXML) {
-	AION_UNPORTED();
+	SYNCHRONIZED(*this) {
+		if (macroId < 1 || macroId > 12)
+			throw runtime::IllegalArgumentException("Invalid macro ID: " + std::to_string(macroId));
+		return !macrosById.put(macroId, Macro::create(macroId, macroXML));
+	}
 }
 
 bool Macros::remove(int32_t macroId) {
-	AION_UNPORTED();
+	SYNCHRONIZED(*this) {
+		return static_cast<bool>(macrosById.remove(macroId));
+	}
 }
 
 } // namespace aion::gameserver::model::gameobjects::player

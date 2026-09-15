@@ -1,14 +1,29 @@
 #include "aion/gameserver/model/gameobjects/player/npcFaction/NpcFaction.h"
 
-#include "aion/gameserver/runtime/base/Unported.h"
+#include <string>
+
+#include "aion/gameserver/dataholders/DataManager.h"
+#include "aion/gameserver/dataholders/NpcFactionsData.h"
+#include "aion/gameserver/model/templates/factions/NpcFactionTemplate.h"
+#include "aion/gameserver/runtime/base/Exceptions.h"
 
 namespace aion::gameserver::model::gameobjects::player::npcFaction {
 
+namespace {
+
+/** Java: DataManager.NPC_FACTIONS_DATA.getNpcFactionById(id).isMentor() (NullPointerException for a faction without a template) */
+bool isMentorFaction(int32_t id) {
+	const templates::factions::NpcFactionTemplate* factionTemplate = dataholders::DataManager::NPC_FACTIONS_DATA->getNpcFactionById(id);
+	if (factionTemplate == nullptr)
+		throw runtime::NullPointerException("NpcFactionTemplate of faction " + std::to_string(id) + " is null");
+	return factionTemplate->isMentor();
+}
+
+} // namespace
+
 NpcFaction::NpcFaction(int32_t idValue, int32_t timeValue, bool activeValue, ENpcFactionQuestState stateValue, int32_t questIdValue)
-	: id(idValue), time(timeValue), active(activeValue), mentor(false), state(stateValue), questId(questIdValue),
+	: id(idValue), time(timeValue), active(activeValue), mentor(isMentorFaction(idValue)), state(stateValue), questId(questIdValue),
 	  persistentState(PersistentState::NEW) {
-	// Java: this.mentor = DataManager.NPC_FACTIONS_DATA.getNpcFactionById(id).isMentor()
-	AION_UNPORTED();
 }
 
 NpcFaction::~NpcFaction() = default;
@@ -19,23 +34,42 @@ runtime::Ref<NpcFaction> NpcFaction::create(int32_t idValue, int32_t timeValue, 
 }
 
 void NpcFaction::setTime(int32_t value) {
-	AION_UNPORTED();
+	time.set(value);
+	setPersistentState(PersistentState::UPDATE_REQUIRED);
 }
 
 void NpcFaction::setActive(bool value) {
-	AION_UNPORTED();
+	active.set(value);
+	setPersistentState(PersistentState::UPDATE_REQUIRED);
 }
 
 void NpcFaction::setState(ENpcFactionQuestState value) {
-	AION_UNPORTED();
+	setPersistentState(PersistentState::UPDATE_REQUIRED);
+	state.set(value);
 }
 
 void NpcFaction::setQuestId(int32_t value) {
-	AION_UNPORTED();
+	questId.set(value);
+	setPersistentState(PersistentState::UPDATE_REQUIRED);
 }
 
 void NpcFaction::setPersistentState(PersistentState value) {
-	AION_UNPORTED();
+	switch (value) {
+		case PersistentState::DELETED:
+			if (persistentState.get() == PersistentState::NEW)
+				persistentState.set(PersistentState::NOACTION);
+			else
+				persistentState.set(PersistentState::DELETED);
+			break;
+		case PersistentState::UPDATE_REQUIRED:
+			if (persistentState.get() != PersistentState::NEW)
+				persistentState.set(PersistentState::UPDATE_REQUIRED);
+			break;
+		case PersistentState::NOACTION:
+			break;
+		default:
+			persistentState.set(value);
+	}
 }
 
 } // namespace aion::gameserver::model::gameobjects::player::npcFaction

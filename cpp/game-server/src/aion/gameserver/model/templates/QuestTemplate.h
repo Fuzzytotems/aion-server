@@ -14,6 +14,9 @@ public:
 	int32_t getL10nId() const override { return nameId; }
 
 	bool isTimeBased() const { return repeatCycle.has_value(); }
+
+	bool isMentor() const { return mentorType != quest::QuestMentorType::NONE; }
+
 	/** Java returns Collections.emptyList() for a quest without drops; the C++ list always exists */
 	const std::vector<quest::QuestDrop>& getQuestDrop() const { return questDrop; }
 };

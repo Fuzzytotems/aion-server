@@ -1,6 +1,5 @@
 #include "aion/gameserver/model/assemblednpc/AssembledNpcPart.h"
 
-#include "aion/gameserver/runtime/base/Unported.h"
 
 namespace aion::gameserver::model::assemblednpc {
 
@@ -15,11 +14,11 @@ runtime::Ref<AssembledNpcPart> AssembledNpcPart::create(std::optional<int32_t> v
 }
 
 int32_t AssembledNpcPart::getNpcId() {
-	AION_UNPORTED();
+	return template_->getNpcId();
 }
 
 int32_t AssembledNpcPart::getStaticId() {
-	AION_UNPORTED();
+	return template_->getStaticId();
 }
 
 AssembledNpcPart::~AssembledNpcPart() = default;

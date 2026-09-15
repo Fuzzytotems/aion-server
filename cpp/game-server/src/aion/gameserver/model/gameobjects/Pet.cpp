@@ -7,7 +7,6 @@
 #include "aion/gameserver/model/gameobjects/player/PetCommonData.h"
 #include "aion/gameserver/model/gameobjects/player/Player.h"
 #include "aion/gameserver/model/templates/pet/PetTemplate.h"
-#include "aion/gameserver/runtime/base/Unported.h"
 #include "aion/gameserver/world/WorldPosition.h"
 
 namespace aion::gameserver::model::gameobjects {
@@ -34,7 +33,7 @@ void Pet::postConstruct() {
 }
 
 std::string Pet::getName() {
-	AION_UNPORTED();
+	return commonData->getName();
 }
 
 controllers::movement::CreatureMoveController& Pet::getMoveController() const {

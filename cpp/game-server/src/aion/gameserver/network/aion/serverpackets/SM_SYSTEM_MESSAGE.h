@@ -10,6 +10,7 @@
 #include <vector>
 
 #include "aion/gameserver/runtime/lifetime/Ref.h"
+#include "aion/gameserver/dataholders/loadingutils/EnumTraits.h"
 #include "aion/gameserver/model/fwd.h"
 #include "aion/gameserver/model/gameobjects/fwd.h"
 #include "aion/gameserver/model/gameobjects/player/fwd.h"
@@ -46,6 +47,39 @@ public:
 	static std::string toJavaString(int8_t value);
 	/** Java String.valueOf(float) (Float.toString, geomath JavaFloat::toString) */
 	static std::string toJavaString(float value);
+	/** C++ only (P4-06): Java String.valueOf(boolean) - "true"/"false" (without it a bool would convert to "1") */
+	static std::string toJavaString(bool value);
+	/** C++ only (P4-06): Java String.valueOf(short) */
+	static std::string toJavaString(int16_t value);
+	/** C++ only (P4-06): Java String.valueOf(char) - the character (UTF-16 code unit) as a string */
+	static std::string toJavaString(char16_t value);
+
+	/** C++ only (P4-06): Java Enum.toString() of a generated enum - its constant name */
+	template <xml::XmlEnum E>
+	static std::string toJavaString(E value) {
+		return std::string(xml::enumName(value));
+	}
+
+	/** C++ only (P4-06): Java Object.toString() of an object parameter */
+	template <class T>
+		requires(std::is_class_v<T> && requires(T& object) {
+			{ object.toString() } -> std::convertible_to<std::string>;
+		})
+	static std::string toJavaString(T& object) {
+		return object.toString();
+	}
+
+	/** C++ only (P4-06): Java param.toString() of a nullable object parameter; null writes a null string (the same bytes as "") */
+	template <class T>
+	static std::string toJavaString(const runtime::Ptr<T>& object) {
+		return object ? std::string(object->toString()) : std::string();
+	}
+
+	/** C++ only (P4-06): see toJavaString(const Ptr<T>&) */
+	template <class T>
+	static std::string toJavaString(const runtime::Ref<T>& object) {
+		return object ? std::string(object->toString()) : std::string();
+	}
 
 #include "aion/gameserver/network/aion/serverpackets/SM_SYSTEM_MESSAGE.gen.h"
 

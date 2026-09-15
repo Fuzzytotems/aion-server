@@ -1,6 +1,6 @@
 #include "aion/gameserver/model/gameobjects/player/PlayerSettings.h"
 
-#include "aion/gameserver/runtime/base/Unported.h"
+#include "aion/gameserver/model/gameobjects/player/DeniedStatusInfo.h"
 
 namespace aion::gameserver::model::gameobjects::player {
 
@@ -28,27 +28,34 @@ runtime::Ref<PlayerSettings> PlayerSettings::create(runtime::Ptr<runtime::Array<
 }
 
 void PlayerSettings::setUiSettings(runtime::Ptr<runtime::Array<int8_t>> value) {
-	AION_UNPORTED();
+	uiSettings.set(value);
+	persistentState.set(PersistentState::UPDATE_REQUIRED);
 }
 
 void PlayerSettings::setShortcuts(runtime::Ptr<runtime::Array<int8_t>> value) {
-	AION_UNPORTED();
+	shortcuts.set(value);
+	persistentState.set(PersistentState::UPDATE_REQUIRED);
 }
 
 void PlayerSettings::setHouseBuddies(runtime::Ptr<runtime::Array<int8_t>> value) {
-	AION_UNPORTED();
+	houseBuddies.set(value);
+	persistentState.set(PersistentState::UPDATE_REQUIRED);
 }
 
 void PlayerSettings::setDisplay(int32_t value) {
-	AION_UNPORTED();
+	display.set(value);
+	persistentState.set(PersistentState::UPDATE_REQUIRED);
 }
 
 void PlayerSettings::setDeny(int32_t value) {
-	AION_UNPORTED();
+	deny.set(value);
+	persistentState.set(PersistentState::UPDATE_REQUIRED);
 }
 
 bool PlayerSettings::isInDeniedStatus(DeniedStatus value) {
-	AION_UNPORTED();
+	const int32_t id = getId(value);
+	int32_t isDeniedStatus = deny.get() & id;
+	return isDeniedStatus == id;
 }
 
 } // namespace aion::gameserver::model::gameobjects::player

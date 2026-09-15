@@ -8,4 +8,8 @@ void TribeRelationsData::afterUnmarshal(xml::LoadContext& /*ctx*/, const xml::Xm
 	AION_UNPORTED();
 }
 
+model::TribeClass TribeRelationsData::getBaseTribe(model::TribeClass tribeName) const {
+	AION_UNPORTED();
+}
+
 } // namespace aion::gameserver::dataholders

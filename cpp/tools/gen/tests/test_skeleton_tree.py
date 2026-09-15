@@ -187,7 +187,8 @@ class RealTreeDraftsTest(unittest.TestCase):
         files = skeleton.generate_drafts(self.project, selected)
         units = {id(td.cu) for td in selected}
         self.assertEqual(len(files), 2 * len(units))
-        self.assertGreater(len(units), 500)           # S0a: enums generated, behaviour classes scaffolded; S0c: declaration headers exist
+        # the drafted units shrink as the porting waves write headers (496 after wave 3a-1); the combined count below is the invariant
+        self.assertGreater(len(units), 0)
         skipped_units = {id(td.cu) for cu in self.project.core_units for td in cu.types if td.fqn in self.project.skipped_existing}
         self.assertGreater(len(units) + len(skipped_units), 2200, 'every Java file is drafted or skipped as ported/generator-owned')
         # no draft defines an enum xmlgen generates (nested ones become aliases, secondary top-level ones includes): 141 core + JAXB enums

@@ -128,6 +128,12 @@ public:
 	 * Not noexcept: taking the monitor may throw (lock order); LogoutBreakers logs a throwing step.
 	 */
 	void clearWithoutNotify();
+
+	/**
+	 * C++ only (zombie breaker reporting, LogoutBreakers::breakZombieEdges): true if the observer or the attack-calc observer list is not empty
+	 * (header request player-2).
+	 */
+	bool hasObservers();
 };
 
 } // namespace aion::gameserver::controllers

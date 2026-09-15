@@ -22,6 +22,10 @@ void KnownList::clear(model::animations::ObjectDeleteAnimation animation) {
 	AION_UNPORTED();
 }
 
+bool KnownList::clearWithoutNotify() {
+	AION_UNPORTED();
+}
+
 bool KnownList::knows(model::gameobjects::VisibleObject& object) {
 	AION_UNPORTED();
 }

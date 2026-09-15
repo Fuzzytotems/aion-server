@@ -38,6 +38,12 @@ public:
 	/** Java final */
 	void setOwner(runtime::Ptr<gameobjects::player::Player> actor) override final;
 
+	/**
+	 * C++ only (zombie breaker, LogoutBreakers::breakZombieEdges; header request player-3): the current actor, null for an account warehouse
+	 * without an entering player. The inventory and the warehouse return their owning player itself, so callers compare identities.
+	 */
+	runtime::Ptr<gameobjects::player::Player> getActor() const { return actor.get(); }
+
 	void onLoadHandler(gameobjects::Item& item) override;
 
 	using Storage::increaseKinah;

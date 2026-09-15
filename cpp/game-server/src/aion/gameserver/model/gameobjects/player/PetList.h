@@ -28,6 +28,25 @@ public:
 	/** Java package-private */
 	explicit PetList(Player& player);
 
+	/** C++ only: tag of the constructor that does not load the pets yet */
+	struct DeferredLoad {};
+
+	/**
+	 * C++ only: binds the list to the player without loading the pets. The Player constructor uses it and Player::postConstruct calls
+	 * loadPets(*this) after Creature::postConstruct and before binding the controller owner, which is Java's order (the Creature constructor
+	 * creates the AI before the Player constructor creates toyPetList; loading publishes the player to ExpireTimerTask, hub-headers.md §10.1).
+	 */
+	PetList(Player& player, DeferredLoad);
+
+	/** C++ only: signature of Java PlayerPetsDAO.getPlayerPets(player) */
+	using PlayerPetsLoader = std::vector<runtime::Ref<PetCommonData>> (*)(Player& player);
+
+	/**
+	 * C++ only test seam: while set, loadPets reads the pets through `loader` instead of PlayerPetsDAO.getPlayerPets (the DAO body belongs to
+	 * P4-14), so tests can create a Player; nullptr restores the DAO. Never set by server code.
+	 */
+	static void setPlayerPetsLoaderForTests(PlayerPetsLoader loader) noexcept;
+
 	~PetList() override;
 
 	void loadPets(Player& player);

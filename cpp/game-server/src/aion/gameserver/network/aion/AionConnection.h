@@ -38,8 +38,8 @@ namespace aion::gameserver::network::aion {
  * <p>
  * Eager packets (runtime-architecture.md §8): the send queue holds SerializedBody elements ordered by their serialization sequence number
  * (§8.4). sendPacket serializes on the calling thread (per recipient or once) and enqueues; writeData runs on the IO strand with `guard` held,
- * prepends the length, encrypts and applies SM_KEY's enablesCrypt. The base class' `sendPacket(std::shared_ptr<SerializedBody>)` and
- * `close(std::shared_ptr<SerializedBody>)` are hidden by the packet overloads below.
+ * prepends the length and encrypts (Crypt's first encrypt, of SM_KEY, only enables the crypt, like Java). The base class'
+ * `sendPacket(std::shared_ptr<SerializedBody>)` and `close(std::shared_ptr<SerializedBody>)` are hidden by the packet overloads below.
  * <p>
  * Threads (§11): the constructor, initialized(), processData and writeData run on IO threads, each inside a TaskScope, and contain no game logic;
  * onDisconnect runs on the instant pool. Tasks scheduled for a connection capture std::weak_ptr<AionConnection>, so the ConnectionAliveChecker
@@ -67,6 +67,13 @@ private:
 
 		/** Java Runnable.run */
 		void run();
+
+	private:
+		/**
+		 * C++ only: the body of run() for the given connection. The scheduled task calls it with its own copy of the weak_ptr: `task` is
+		 * initialized (and the task scheduled) before the `aionConnection` member, so the task must not read that member.
+		 */
+		static void checkAlive(const std::weak_ptr<AionConnection>& aionConnection);
 
 	protected:
 		explicit ConnectionAliveChecker(std::weak_ptr<AionConnection> aionConnection);

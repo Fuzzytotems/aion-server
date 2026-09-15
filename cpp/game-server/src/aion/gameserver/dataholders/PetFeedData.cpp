@@ -8,4 +8,8 @@ void PetFeedData::afterUnmarshal(xml::LoadContext& /*ctx*/, const xml::XmlParent
 	AION_UNPORTED();
 }
 
+const model::templates::pet::PetFlavour* PetFeedData::getFlavourById(int32_t flavourId) const {
+	AION_UNPORTED();
+}
+
 } // namespace aion::gameserver::dataholders

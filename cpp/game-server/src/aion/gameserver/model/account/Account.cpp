@@ -1,8 +1,9 @@
 #include "aion/gameserver/model/account/Account.h"
 
+#include <memory>
 #include <utility>
 
-#include "aion/gameserver/runtime/base/Unported.h"
+#include "aion/gameserver/model/Race.h"
 #include "aion/gameserver/model/account/AccountTime.h"
 #include "aion/gameserver/model/account/CharacterPasskey.h"
 #include "aion/gameserver/model/account/PassportsList.h"
@@ -35,7 +36,22 @@ runtime::Ptr<PlayerAccountData> Account::getPlayerAccountData(int32_t chaOid) {
 
 void Account::addPlayerAccountData(std::unique_ptr<PlayerAccountData> accPlData) {
 	const int32_t playerObjId = accPlData->getPlayerCommonData()->getPlayerObjId();
+	const Race race = accPlData->getPlayerCommonData()->getRace();
+	// Java: PlayerAccountData oldData = players.put(...). The replaced part is retired to the Reclaimer, so the borrow stays valid in this task.
+	runtime::Ptr<PlayerAccountData> oldData = players.get(playerObjId);
 	players.put(playerObjId, std::move(accPlData));
+	if (oldData)
+		decrementCountOf(oldData->getPlayerCommonData()->getRace());
+	switch (race) {
+		case Race::ASMODIANS:
+			numberOfAsmos++;
+			break;
+		case Race::ELYOS:
+			numberOfElyos++;
+			break;
+		default:
+			break;
+	}
 }
 
 items::storage::Storage& Account::getAccountWarehouse() const {
@@ -47,31 +63,68 @@ void Account::setAccountWarehouse(std::unique_ptr<items::storage::Storage> value
 }
 
 runtime::Ptr<CharacterPasskey> Account::getCharacterPasskey() {
-	AION_UNPORTED();
+	// java-race: unsynchronized lazy creation, two threads may create (and one may use) different passkeys
+	if (!characterPasskey)
+		characterPasskey.set(CharacterPasskey::create());
+	return characterPasskey.get();
 }
 
 int32_t Account::size() {
-	AION_UNPORTED();
+	return players.size();
 }
 
 std::vector<runtime::Ptr<PlayerAccountData>> Account::getPlayerAccDataList() {
-	AION_UNPORTED();
+	return players.values();
 }
 
 runtime::JavaIterator<runtime::Ptr<PlayerAccountData>> Account::iterator() {
-	AION_UNPORTED();
+	// Java: players.values().iterator(); remove() removes the entry of the last returned value
+	std::vector<std::pair<int32_t, runtime::Ptr<PlayerAccountData>>> entries = players.snapshot();
+	auto keys = std::make_shared<std::vector<int32_t>>();
+	std::vector<runtime::Ptr<PlayerAccountData>> values;
+	keys->reserve(entries.size());
+	values.reserve(entries.size());
+	for (const auto& [key, value] : entries) {
+		keys->push_back(key);
+		values.push_back(value);
+	}
+	return runtime::JavaIterator<runtime::Ptr<PlayerAccountData>>(std::move(values),
+		runtime::JavaIterator<runtime::Ptr<PlayerAccountData>>::IndexedRemover(
+			[this, keys](const runtime::Ptr<PlayerAccountData>& value, size_t index) {
+				if (players.get((*keys)[index]) != value)
+					return false;
+				return players.remove((*keys)[index]);
+			}));
 }
 
 runtime::SnapshotIterator<runtime::Ptr<PlayerAccountData>> Account::begin() {
-	AION_UNPORTED();
+	return runtime::SnapshotIterator<runtime::Ptr<PlayerAccountData>>(
+		std::make_shared<const std::vector<runtime::Ptr<PlayerAccountData>>>(players.values()));
 }
 
 int32_t Account::getNumberOf(Race race) {
-	AION_UNPORTED();
+	switch (race) {
+		case Race::ASMODIANS:
+			return numberOfAsmos.get();
+		case Race::ELYOS:
+			return numberOfElyos.get();
+		default:
+			break;
+	}
+	return 0;
 }
 
 void Account::decrementCountOf(Race race) {
-	AION_UNPORTED();
+	switch (race) {
+		case Race::ASMODIANS:
+			numberOfAsmos--;
+			break;
+		case Race::ELYOS:
+			numberOfElyos--;
+			break;
+		default:
+			break;
+	}
 }
 
 std::optional<std::string> Account::getAllowedHddSerial() const {
@@ -86,19 +139,24 @@ void Account::setAllowedHddSerial(std::optional<std::string_view> value) {
 }
 
 bool Account::isEmpty() {
-	AION_UNPORTED();
+	return numberOfAsmos.get() == 0 && numberOfElyos.get() == 0;
 }
 
 int32_t Account::getMaxPlayerLevel() {
-	AION_UNPORTED();
+	int32_t maxLevel = 1;
+	for (const runtime::Ptr<PlayerAccountData>& pad : players.values()) {
+		if (pad->getPlayerCommonData()->getLevel() > maxLevel)
+			maxLevel = pad->getPlayerCommonData()->getLevel();
+	}
+	return maxLevel;
 }
 
 std::string Account::toString() {
-	AION_UNPORTED();
+	return "Account [id=" + std::to_string(id) + ", name=" + name.get() + "]";
 }
 
 void Account::increasePassportStamps() {
-	AION_UNPORTED();
+	stamps++;
 }
 
 void Account::setPassportsList(runtime::Ptr<PassportsList> pp) {

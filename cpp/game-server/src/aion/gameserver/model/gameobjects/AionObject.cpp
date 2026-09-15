@@ -1,7 +1,10 @@
 #include "aion/gameserver/model/gameobjects/AionObject.h"
 
-#include "aion/gameserver/runtime/base/Unported.h"
+#include <string>
+#include <typeinfo>
+
 #include "aion/gameserver/runtime/services/CleanerQueue.h"
+#include "aion/gameserver/utils/SimpleClassName.h"
 
 namespace aion::gameserver::model::gameobjects {
 
@@ -17,7 +20,7 @@ AionObject::~AionObject() {
 }
 
 std::string AionObject::toString() {
-	AION_UNPORTED();
+	return utils::simpleClassName(typeid(*this)) + " [name=" + getName() + ", objectId=" + std::to_string(objectId) + "]";
 }
 
 } // namespace aion::gameserver::model::gameobjects

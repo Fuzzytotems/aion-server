@@ -1,6 +1,5 @@
 #include "aion/gameserver/model/gameobjects/player/RequestResponseHandler.h"
 
-#include "aion/gameserver/runtime/base/Unported.h"
 #include "aion/gameserver/model/gameobjects/Creature.h"
 
 namespace aion::gameserver::model::gameobjects::player {
@@ -11,7 +10,10 @@ RequestResponseHandler::RequestResponseHandler(runtime::Ptr<Creature> requesterV
 RequestResponseHandler::~RequestResponseHandler() = default;
 
 void RequestResponseHandler::handle(Player& responder, int32_t response) {
-	AION_UNPORTED();
+	if (response == 0)
+		denyRequest(runtime::Ptr<Creature>(requester), responder);
+	else
+		acceptRequest(runtime::Ptr<Creature>(requester), responder);
 }
 
 void RequestResponseHandler::denyRequest(runtime::Ptr<Creature> value, Player& responder) {

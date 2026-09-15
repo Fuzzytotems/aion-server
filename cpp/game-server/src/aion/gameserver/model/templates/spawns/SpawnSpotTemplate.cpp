@@ -1,6 +1,5 @@
 #include "aion/gameserver/model/templates/spawns/SpawnSpotTemplate.h"
 
-#include "aion/gameserver/runtime/base/Unported.h"
 
 namespace aion::gameserver::model::templates::spawns {
 
@@ -11,7 +10,7 @@ SpawnSpotTemplate::SpawnSpotTemplate(float xValue, float yValue, float zValue, i
 }
 
 void SpawnSpotTemplate::afterUnmarshal(xml::LoadContext& /*ctx*/, const xml::XmlParent& /*parent*/) {
-	AION_UNPORTED();
+	// Java: if (ai != null) ai = ai.intern(); interning only shares the String objects, C++ strings are values
 }
 
 } // namespace aion::gameserver::model::templates::spawns

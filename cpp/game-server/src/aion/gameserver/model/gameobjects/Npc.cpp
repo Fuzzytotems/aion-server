@@ -1,21 +1,67 @@
 #include "aion/gameserver/model/gameobjects/Npc.h"
 
+#include <algorithm>
+#include <cmath>
+#include <optional>
+#include <string>
+#include <string_view>
+
+#include "aion/gameserver/ai/AbstractAI.h"
 #include "aion/gameserver/controllers/NpcController.h"
 #include "aion/gameserver/controllers/movement/NpcMoveController.h"
+#include "aion/gameserver/dataholders/DataManager.h"
+#include "aion/gameserver/dataholders/TribeRelationsData.h"
+#include "aion/gameserver/dataholders/loadingutils/adapters/NpcEquipmentList.h"
+#include "aion/gameserver/model/CreatureType.h"
+#include "aion/gameserver/model/CreatureTypeInfo.h"
+#include "aion/gameserver/model/DialogAction.h"
+#include "aion/gameserver/model/Race.h"
+#include "aion/gameserver/model/TribeClass.h"
+#include "aion/gameserver/model/gameobjects/TransformModel.h"
+#include "aion/gameserver/model/gameobjects/player/CustomPlayerState.h"
+#include "aion/gameserver/model/gameobjects/player/Player.h"
+#include "aion/gameserver/model/gameobjects/state/CreatureSeeState.h"
+#include "aion/gameserver/model/gameobjects/state/CreatureSeeStateInfo.h"
 #include "aion/gameserver/model/items/NpcEquippedGear.h"
 #include "aion/gameserver/model/skill/NpcSkillEntry.h"
 #include "aion/gameserver/model/skill/NpcSkillList.h"
 #include "aion/gameserver/model/stats/container/NpcGameStats.h"
 #include "aion/gameserver/model/stats/container/NpcLifeStats.h"
+#include "aion/gameserver/model/templates/item/ItemAttackType.h"
+#include "aion/gameserver/model/templates/npc/GroupDropType.h"
+#include "aion/gameserver/model/templates/npc/NpcRank.h"
+#include "aion/gameserver/model/templates/npc/AbyssNpcType.h"
+#include "aion/gameserver/model/templates/npc/NpcRating.h"
+#include "aion/gameserver/model/templates/npc/NpcRatingInfo.h"
 #include "aion/gameserver/model/templates/npc/NpcTemplate.h"
+#include "aion/gameserver/model/templates/npc/NpcTemplateType.h"
 #include "aion/gameserver/model/templates/spawns/SpawnTemplate.h"
 #include "aion/gameserver/runtime/base/Exceptions.h"
 #include "aion/gameserver/runtime/base/Unported.h"
+#include "aion/gameserver/network/aion/serverpackets/SM_CUSTOM_SETTINGS.h"
+#include "aion/gameserver/runtime/sync/Monitor.h"
+#include "aion/gameserver/services/TribeRelationService.h"
 #include "aion/gameserver/spawnengine/WalkerGroup.h"
+#include "aion/gameserver/utils/PacketSendUtility.h"
+#include "aion/gameserver/utils/PositionUtil.h"
 #include "aion/gameserver/utils/idfactory/IDFactory.h"
+#include "aion/gameserver/world/World.h"
 #include "aion/gameserver/world/WorldPosition.h"
+#include "aion/gameserver/world/knownlist/KnownList.h"
 
 namespace aion::gameserver::model::gameobjects {
+
+namespace {
+
+/** Java reads the nullable template attribute directly; every npc_template of the static data has it, a missing one is Java's NullPointerException */
+template <class T>
+T requireTemplateValue(const std::optional<T>& value, std::string_view attribute) {
+	if (!value)
+		throw runtime::NullPointerException("NpcTemplate." + std::string(attribute));
+	return *value;
+}
+
+} // namespace
 
 Npc::Npc(CreateKey key, std::unique_ptr<controllers::NpcController> controller, templates::spawns::SpawnTemplate& spawnTemplate,
 	const templates::npc::NpcTemplate* objectTemplate)
@@ -88,51 +134,67 @@ int32_t Npc::getNpcId() {
 }
 
 int8_t Npc::getLevel() {
-	AION_UNPORTED();
+	return getObjectTemplate()->getLevel();
 }
 
 templates::npc::AbyssNpcType Npc::getAbyssNpcType() {
-	AION_UNPORTED();
+	return getObjectTemplate()->getAbyssNpcType();
 }
 
 templates::npc::NpcRating Npc::getRating() {
-	AION_UNPORTED();
+	return requireTemplateValue(getObjectTemplate()->getRating(), "rating");
 }
 
 templates::npc::NpcRank Npc::getRank() {
-	AION_UNPORTED();
+	return requireTemplateValue(getObjectTemplate()->getRank(), "rank");
 }
 
 templates::npc::NpcTemplateType Npc::getNpcTemplateType() {
-	AION_UNPORTED();
+	return getObjectTemplate()->getNpcTemplateType();
 }
 
 int32_t Npc::getHpGauge() {
-	AION_UNPORTED();
+	return getObjectTemplate()->getHpGauge();
 }
 
 templates::item::ItemAttackType Npc::getAttackType() {
-	AION_UNPORTED();
+	return getAi().modifyAttackType(templates::item::ItemAttackType::PHYSICAL);
 }
 
 runtime::Ptr<skill::NpcSkillEntry> Npc::getNextQueuedSkill() {
-	AION_UNPORTED();
+	SYNCHRONIZED(queuedSkills) {
+		return queuedSkills.peek();
+	}
 }
 
 bool Npc::hasQueuedSkill(const std::function<bool(skill::NpcSkillEntry&)>& filter) {
-	AION_UNPORTED();
+	SYNCHRONIZED(queuedSkills) {
+		for (runtime::Ptr<skill::NpcSkillEntry> entry : queuedSkills) {
+			if (filter(*entry))
+				return true;
+		}
+		return false;
+	}
 }
 
 void Npc::removeNextQueuedSkill(skill::NpcSkillEntry& skill) {
-	AION_UNPORTED();
+	SYNCHRONIZED(queuedSkills) {
+		if (queuedSkills.peek() == &skill) {
+			queuedSkills.poll();
+		}
+	}
 }
 
 void Npc::clearQueuedSkills() {
-	AION_UNPORTED();
+	SYNCHRONIZED(queuedSkills) {
+		queuedSkills.clear();
+	}
 }
 
 void Npc::queueSkill(skill::NpcSkillEntry& skill) {
-	AION_UNPORTED();
+	SYNCHRONIZED(queuedSkills) {
+		queuedSkills.offer(runtime::Ref<skill::NpcSkillEntry>(skill));
+	}
 }
 
 void Npc::queueSkill(int32_t skillId, int32_t level) {
@@ -148,103 +210,145 @@ void Npc::queueSkill(int32_t skillId, int32_t level, int32_t nextSkillTime, temp
 }
 
 bool Npc::isWalker() {
-	AION_UNPORTED();
+	return isRandomWalker() || isPathWalker();
 }
 
 bool Npc::isRandomWalker() {
-	AION_UNPORTED();
+	return getSpawn()->getRandomWalkRange() > 0;
 }
 
 bool Npc::isPathWalker() {
-	AION_UNPORTED();
+	return getSpawn()->getWalkerId().has_value();
 }
 
 std::optional<TribeClass> Npc::getTribe() {
-	AION_UNPORTED();
+	if (runtime::Ptr<player::Player> player = runtime::as<player::Player>(getCreator()))
+		return player->getTribe();
+	std::optional<TribeClass> transformTribe = isTransformed() ? getTransformModel().getTribe() : std::nullopt;
+	if (transformTribe) {
+		return transformTribe;
+	}
+	return getObjectTemplate()->getTribe();
 }
 
 TribeClass Npc::getBaseTribe() {
-	AION_UNPORTED();
+	std::optional<TribeClass> tribe = getTribe();
+	if (!tribe) // Java: tribeNameMap.get(null) is null, then tribe.getBase() throws
+		throw runtime::NullPointerException("Tribe of npc " + std::to_string(getNpcId()) + " is null");
+	return dataholders::DataManager::TRIBE_RELATIONS_DATA->getBaseTribe(*tribe);
 }
 
 int32_t Npc::getAggroRange() {
-	AION_UNPORTED();
+	return getAi().modifyAggroRange(getObjectTemplate()->getAggroRange());
 }
 
 int32_t Npc::getShortAggroRange() {
-	AION_UNPORTED();
+	int32_t aggroRange = getAggroRange();
+	return aggroRange < 8 ? aggroRange / 2 : 4;
 }
 
 int32_t Npc::getAggroAngle() {
-	AION_UNPORTED();
+	return getAi().modifyAggroAngle(getObjectTemplate()->getAggroAngle());
 }
 
 bool Npc::isAtSpawnLocation() {
-	AION_UNPORTED();
+	runtime::Ptr<templates::spawns::SpawnTemplate> spawn = getSpawn();
+	return utils::PositionUtil::isInRange(*this, spawn->getX(), spawn->getY(), spawn->getZ(), 1);
 }
 
 bool Npc::isEnemy(Creature& creature) {
-	AION_UNPORTED();
+	return creature.isEnemyFrom(*this) || this->isEnemyFrom(creature);
 }
 
 bool Npc::isEnemyFrom(Creature& creature) {
-	AION_UNPORTED();
+	return services::TribeRelationService::isAggressive(creature, *this) || services::TribeRelationService::isHostile(creature, *this);
 }
 
 bool Npc::isEnemyFrom(Npc& npc) {
-	AION_UNPORTED();
+	return services::TribeRelationService::isAggressive(*this, npc) || services::TribeRelationService::isHostile(*this, npc);
 }
 
 bool Npc::isEnemyFrom(player::Player& player) {
-	AION_UNPORTED();
+	return player.isEnemyFrom(*this);
 }
 
 CreatureType Npc::getType(Creature& creature) {
-	AION_UNPORTED();
+	std::optional<CreatureType> overridden = overriddenType.get();
+	CreatureType type = overridden ? *overridden : getRelationBasedType(creature);
+	if (player::Player* player = dynamic_cast<player::Player*>(&creature)) {
+		if (player->isInCustomState(player::CustomPlayerState::ENEMY_OF_ALL_NPCS) && type != CreatureType::ATTACKABLE && type != CreatureType::AGGRESSIVE)
+			return CreatureType::ATTACKABLE;
+		if (player->isInCustomState(player::CustomPlayerState::NEUTRAL_TO_ALL_NPCS) && (type == CreatureType::ATTACKABLE || type == CreatureType::AGGRESSIVE))
+			return CreatureType::PEACE;
+	}
+	return type;
 }
 
 CreatureType Npc::getRelationBasedType(Creature& creature) {
-	AION_UNPORTED();
+	if (services::TribeRelationService::isNone(*this, creature))
+		return CreatureType::PEACE;
+	else if (services::TribeRelationService::isAggressive(*this, creature))
+		return CreatureType::AGGRESSIVE;
+	else if (services::TribeRelationService::isHostile(*this, creature))
+		return CreatureType::ATTACKABLE;
+	else if (services::TribeRelationService::isFriend(*this, creature) || services::TribeRelationService::isNeutral(*this, creature))
+		return CreatureType::FRIEND;
+	else if (services::TribeRelationService::isSupport(*this, creature))
+		return CreatureType::SUPPORT;
+	return CreatureType::ATTACKABLE;
 }
 
 void Npc::overrideNpcType(std::optional<CreatureType> newType) {
-	AION_UNPORTED();
+	overriddenType.set(newType);
+	if (isSpawned()) {
+		std::optional<CreatureType> current = overriddenType.get();
+		if (current)
+			utils::PacketSendUtility::broadcastPacket(*this, network::aion::serverpackets::SM_CUSTOM_SETTINGS(getObjectId(), 0, getId(*current), 0));
+		else
+			getKnownList().forEachPlayer([this](player::Player& p) {
+				utils::PacketSendUtility::sendPacket(p, network::aion::serverpackets::SM_CUSTOM_SETTINGS(getObjectId(), 0, getId(getType(p)), 0));
+			});
+	}
 }
 
 double Npc::getDistanceToSpawnLocation() {
-	AION_UNPORTED();
+	runtime::Ptr<templates::spawns::SpawnTemplate> spawn = getSpawn();
+	return utils::PositionUtil::getDistance(spawn->getX(), spawn->getY(), spawn->getZ(), getX(), getY(), getZ());
 }
 
 int32_t Npc::getSeeState() {
-	AION_UNPORTED();
+	int32_t skillSeeState = Creature::getSeeState();
+	int32_t congenitalSeeState = state::getId(templates::npc::getCongenitalSeeState(requireTemplateValue(getObjectTemplate()->getRating(), "rating")));
+	return std::max(skillSeeState, congenitalSeeState);
 }
 
 runtime::Ptr<VisibleObject> Npc::getCreator() {
-	AION_UNPORTED();
+	int32_t id = creatorId.get();
+	return id == 0 ? nullptr : world::World::getInstance().findVisibleObject(id);
 }
 
 bool Npc::isFlag() {
-	AION_UNPORTED();
+	return getObjectTemplate()->getNpcTemplateType() == templates::npc::NpcTemplateType::FLAG;
 }
 
 bool Npc::isRaidMonster() {
-	AION_UNPORTED();
+	return getObjectTemplate()->getNpcTemplateType() == templates::npc::NpcTemplateType::RAID_MONSTER;
 }
 
 int32_t Npc::getCancelLevel() {
-	AION_UNPORTED();
+	return getObjectTemplate()->getCancelLevel();
 }
 
 bool Npc::isBoss() {
-	AION_UNPORTED();
+	return getObjectTemplate()->getRating() == templates::npc::NpcRating::HERO || getObjectTemplate()->getRating() == templates::npc::NpcRating::LEGENDARY;
 }
 
 bool Npc::hasStatic() {
-	AION_UNPORTED();
+	return getSpawn()->getStaticId() != 0;
 }
 
 Race Npc::getRace() {
-	AION_UNPORTED();
+	return getObjectTemplate()->getRace();
 }
 
 bool Npc::canSell() {
@@ -252,7 +356,7 @@ bool Npc::canSell() {
 }
 
 bool Npc::canBuy() {
-	AION_UNPORTED();
+	return getObjectTemplate()->supportsAction(DialogAction::SELL) || canSell();
 }
 
 bool Npc::canTradeIn() {
@@ -264,16 +368,18 @@ bool Npc::canPurchase() {
 }
 
 templates::npc::GroupDropType Npc::getGroupDrop() {
-	AION_UNPORTED();
+	return requireTemplateValue(getObjectTemplate()->getGroupDrop(), "groupDrop");
 }
 
 void Npc::overrideEquipmentList(std::unique_ptr<dataholders::loadingutils::adapters::NpcEquipmentList> v) {
-	AION_UNPORTED();
+	overriddenEquipment.set(items::NpcEquippedGear::create(std::move(v)));
 }
 
 runtime::Ptr<items::NpcEquippedGear> Npc::getOverrideEquipment() {
-	// Java: overriddenEquipment != null ? overriddenEquipment : getObjectTemplate().getEquipment()
-	AION_UNPORTED();
+	runtime::Ptr<items::NpcEquippedGear> overridden = overriddenEquipment.get();
+	if (overridden)
+		return overridden;
+	return getObjectTemplate()->getEquipment();
 }
 
 } // namespace aion::gameserver::model::gameobjects

@@ -1,7 +1,7 @@
 #include "aion/gameserver/model/gameobjects/Letter.h"
 
-#include "aion/gameserver/runtime/base/Unported.h"
 #include "aion/gameserver/model/gameobjects/Item.h"
+#include "aion/gameserver/model/gameobjects/LetterType.h"
 
 namespace aion::gameserver::model::gameobjects {
 
@@ -10,10 +10,9 @@ Letter::Letter(int32_t objId, int32_t value, runtime::Ptr<Item> attachedItemValu
 	LetterType letterTypeValue)
 	: AionObject(objId), recipientId(value), attachedItem(attachedItemValue), attachedKinahCount(attachedKinahCountValue),
 	  senderName(std::string(senderNameValue)), title(std::string(titleValue)), message(std::string(messageValue)), unread(unreadValue),
-	  letterType(letterTypeValue) {
-	// Java: this.express = letterType == LetterType.EXPRESS || letterType == LetterType.BLACKCLOUD; this.timeStamp = timeStamp; this.persistentState =
-	// PersistentState.NEW
-	AION_UNPORTED();
+	  express(letterTypeValue == LetterType::EXPRESS || letterTypeValue == LetterType::BLACKCLOUD),
+	  // Java stores the Timestamp as given; every caller passes one (MailService/SystemMailService: now, MailDAO: the NOT NULL recieved_time column)
+	  timeStamp(timeStampValue.value_or(commons::database::Timestamp{})), persistentState(PersistentState::NEW), letterType(letterTypeValue) {
 }
 
 runtime::Ref<Letter> Letter::create(int32_t objId, int32_t value, runtime::Ptr<Item> attachedItemValue, int64_t attachedKinahCountValue,
@@ -24,23 +23,31 @@ runtime::Ref<Letter> Letter::create(int32_t objId, int32_t value, runtime::Ptr<I
 }
 
 void Letter::setAttachedItem(runtime::Ptr<Item> value) {
-	AION_UNPORTED();
+	attachedItem.set(value);
+	persistentState.set(PersistentState::UPDATE_REQUIRED);
 }
 
 void Letter::setReadLetter() {
-	AION_UNPORTED();
+	unread.set(false);
+	persistentState.set(PersistentState::UPDATE_REQUIRED);
 }
 
 void Letter::setExpress(bool value) {
-	AION_UNPORTED();
+	express.set(value);
+	persistentState.set(PersistentState::UPDATE_REQUIRED);
 }
 
 void Letter::setLetterType(LetterType value) {
-	AION_UNPORTED();
+	letterType.set(value);
+	if (value == LetterType::EXPRESS || value == LetterType::BLACKCLOUD)
+		express.set(true);
+	else
+		express.set(false);
 }
 
 void Letter::removeAttachedKinah() {
-	AION_UNPORTED();
+	attachedKinahCount.set(0);
+	persistentState.set(PersistentState::UPDATE_REQUIRED);
 }
 
 void Letter::setPersistentState(Persistable::PersistentState state) {

@@ -1275,7 +1275,7 @@ class Linter:
                     self._l1_lock_class(cls, mb, ty)
                 continue
             if shared and self.area(src) != 'runtime':
-                if not self._fieldmap_decision(entry, mb):
+                if not self._fieldmap_decision(entry, mb) and not self._cpp_member_decision(entry, mb):
                     self._l1(cls, mb, ty)
                 self._l3(cls, mb, ty)
                 self._l3_owner_ref(cls, entry, mb, ty)
@@ -1350,6 +1350,17 @@ class Linter:
             if f['name'] in (name, name.rstrip('_')) and f.get('cpp') and str(f.get('rule', '')).startswith(FIELDMAP_DECISION_RULES):
                 got = norm_type(('const ' if mb.specifiers & {'constexpr', 'constinit'} else '') + mb.type)
                 return got == norm_type(f['cpp'])
+        return False
+
+    def _cpp_member_decision(self, entry, mb):
+        """True if the member is a fieldmap.toml [cpp_members] decision spelled exactly as declared (hub-headers.md section 4: L1 accepts a member
+        spelled like a decision, e.g. a thread-safe SerialExecutor); L2 has already compared the spelling."""
+        if entry is None:
+            return False
+        for m in entry.get('cppMembers', []):
+            if m['name'] in (mb.name, mb.name.rstrip('_')):
+                got = unqualify_nested(norm_type(('const ' if mb.specifiers & {'constexpr', 'constinit'} else '') + mb.type))
+                return got == unqualify_nested(norm_type(m['cpp']))
         return False
 
     def _l1_lock_class(self, cls, mb, ty):

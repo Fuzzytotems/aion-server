@@ -2,6 +2,8 @@
 
 #include <cstdint>
 #include <memory>
+#include <optional>
+#include <string>
 
 #include "aion/gameserver/runtime/base/Unported.h"
 #include "aion/gameserver/runtime/lifetime/Ref.h"
@@ -15,6 +17,9 @@ namespace aion::gameserver::model::gameobjects {
 
 /**
  * S0c declaration header (docs/design/hub-headers.md §3.5), written for the member-type guards waiting for it at the spine freeze.
+ * <p>
+ * C++ only: getMasterName() keeps Java's "" (the constructor sets an empty master name, which Npc's `Field<std::string>` cannot tell from null),
+ * like Homing, Servant and SummonedHouseNpc (header request objects-1).
  *
  * @author ATracer
  */
@@ -29,6 +34,9 @@ public:
 	int8_t getLevel() override;
 
 	NpcObjectType getNpcObjectType() override;
+
+	/** C++ only: Java's master name "" set by the constructor (see the class comment) */
+	std::optional<std::string> getMasterName() override;
 
 protected:
 	~Trap() override;

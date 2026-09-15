@@ -8,10 +8,10 @@ reason found by the fixpoint. K1 source: cpp/game-server/generated/staticdata-cl
 | K1 STATIC_DATA | 858 |
 | K2 PACKET | 468 |
 | K3 IMMUTABLE_VALUE | 631 |
-| K4 SHARED | 2229 |
-| K5 CONFINED | 561 |
+| K4 SHARED | 2226 |
+| K5 CONFINED | 564 |
 
-## K5 CONFINED (561)
+## K5 CONFINED (564)
 
 - `admincommands.Send.Packet` (game-server/data/handlers/admincommands/Send.java:118): confined: inferred (never stored in shared state)
 - `admincommands.Send.Packets` (game-server/data/handlers/admincommands/Send.java:93): confined: inferred (never stored in shared state)
@@ -357,11 +357,14 @@ reason found by the fixpoint. K1 source: cpp/game-server/generated/staticdata-cl
 - `com.aionemu.gameserver.network.Crypt` (game-server/src/com/aionemu/gameserver/network/Crypt.java:16): fieldmap.toml: crypt state is IO-strand only (design §8.6); P4-15a keeps plain members
 - `com.aionemu.gameserver.network.EncryptionKeyPair` (game-server/src/com/aionemu/gameserver/network/EncryptionKeyPair.java:8): fieldmap.toml: owned by Crypt, IO-strand only (design §8.6)
 - `com.aionemu.gameserver.network.aion.AionClientPacketFactory` (game-server/src/com/aionemu/gameserver/network/aion/AionClientPacketFactory.java:21): confined: inferred (never stored in shared state)
+- `com.aionemu.gameserver.network.aion.AionClientPacketFactory.PacketInfo` (game-server/src/com/aionemu/gameserver/network/aion/AionClientPacketFactory.java:303): fieldmap.toml: an entry of the opcode table, held by value: written by the static initializer (setEntries: startup and tests) before the table is published and only read afterwards (IO threads); never stored in a shared member (header request network-6); matches AionClientPacketFactory.h
 - `com.aionemu.gameserver.network.aion.ServerPacketsOpcodes` (game-server/src/com/aionemu/gameserver/network/aion/ServerPacketsOpcodes.java:13): confined: inferred (never stored in shared state)
 - `com.aionemu.gameserver.network.chatserver.ChatServer.SingletonHolder` (game-server/src/com/aionemu/gameserver/network/chatserver/ChatServer.java:117): confined: inferred (never stored in shared state)
 - `com.aionemu.gameserver.network.chatserver.CsClientPacketFactory` (game-server/src/com/aionemu/gameserver/network/chatserver/CsClientPacketFactory.java:22): confined: inferred (never stored in shared state)
+- `com.aionemu.gameserver.network.chatserver.CsClientPacketFactory.PacketInfo` (game-server/src/com/aionemu/gameserver/network/chatserver/CsClientPacketFactory.java:52): fieldmap.toml: an entry of the constant packet table in CsClientPacketFactory.cpp, held by value and only read; never stored in a shared member (header request network-6); matches CsClientPacketFactory.h
 - `com.aionemu.gameserver.network.loginserver.LoginServer.SingletonHolder` (game-server/src/com/aionemu/gameserver/network/loginserver/LoginServer.java:269): confined: inferred (never stored in shared state)
 - `com.aionemu.gameserver.network.loginserver.LsClientPacketFactory` (game-server/src/com/aionemu/gameserver/network/loginserver/LsClientPacketFactory.java:21): confined: inferred (never stored in shared state)
+- `com.aionemu.gameserver.network.loginserver.LsClientPacketFactory.PacketInfo` (game-server/src/com/aionemu/gameserver/network/loginserver/LsClientPacketFactory.java:60): fieldmap.toml: an entry of the constant packet table in LsClientPacketFactory.cpp, held by value and only read; never stored in a shared member (header request network-6); matches LsClientPacketFactory.h
 - `com.aionemu.gameserver.network.sequrity.FloodManager$1` (game-server/src/com/aionemu/gameserver/network/sequrity/FloodManager.java:137): confined: inferred (never stored in shared state)
 - `com.aionemu.gameserver.network.sequrity.NetFlusher` (game-server/src/com/aionemu/gameserver/network/sequrity/NetFlusher.java:9): confined: inferred (never stored in shared state)
 - `com.aionemu.gameserver.network.sequrity.NetFlusher$1` (game-server/src/com/aionemu/gameserver/network/sequrity/NetFlusher.java:14): confined: inferred (never stored in shared state)
@@ -575,7 +578,7 @@ reason found by the fixpoint. K1 source: cpp/game-server/generated/staticdata-cl
 - `playercommands.Faction$1` (game-server/data/handlers/playercommands/Faction.java:57): confined: inferred (never stored in shared state)
 - `playercommands.Preview.ItemParam` (game-server/data/handlers/playercommands/Preview.java:234): confined: inferred (never stored in shared state)
 
-## K4 SHARED (2229)
+## K4 SHARED (2226)
 
 - `admincommands.Access` (game-server/data/handlers/admincommands/Access.java:16): same class tree as admincommands.Speed: implements com.aionemu.gameserver.model.stats.calc.StatOwner (static field admincommands.Stat.CommandStatOwner.statOwnerByStat)
 - `admincommands.GoTo` (game-server/data/handlers/admincommands/GoTo.java:22): same class tree as admincommands.Speed: implements com.aionemu.gameserver.model.stats.calc.StatOwner (static field admincommands.Stat.CommandStatOwner.statOwnerByStat)
@@ -1409,7 +1412,6 @@ reason found by the fixpoint. K1 source: cpp/game-server/generated/staticdata-cl
 - `com.aionemu.gameserver.model.vortex.VortexLocation` (game-server/src/com/aionemu/gameserver/model/vortex/VortexLocation.java:27): static data member com.aionemu.gameserver.dataholders.VortexData.vortex
 - `com.aionemu.gameserver.network.BannedMacEntry` (game-server/src/com/aionemu/gameserver/network/BannedMacEntry.java:8): member of com.aionemu.gameserver.network.BannedMacManager.bannedList
 - `com.aionemu.gameserver.network.BannedMacManager` (game-server/src/com/aionemu/gameserver/network/BannedMacManager.java:16): static field com.aionemu.gameserver.network.BannedMacManager.manager
-- `com.aionemu.gameserver.network.aion.AionClientPacketFactory.PacketInfo` (game-server/src/com/aionemu/gameserver/network/aion/AionClientPacketFactory.java:303): static field com.aionemu.gameserver.network.aion.AionClientPacketFactory.packets
 - `com.aionemu.gameserver.network.aion.AionConnection` (game-server/src/com/aionemu/gameserver/network/aion/AionConnection.java:42): same class tree as com.aionemu.commons.network.AConnection: packet member com.aionemu.commons.network.packet.BaseClientPacket.client
 - `com.aionemu.gameserver.network.aion.AionConnection.ConnectionAliveChecker` (game-server/src/com/aionemu/gameserver/network/aion/AionConnection.java:398): task object (this) passed to scheduleAtFixedRate() at game-server/src/com/aionemu/gameserver/network/aion/AionConnection.java:405
 - `com.aionemu.gameserver.network.aion.GameConnectionFactoryImpl` (game-server/src/com/aionemu/gameserver/network/aion/GameConnectionFactoryImpl.java:20): implements com.aionemu.commons.network.ConnectionFactory (member of com.aionemu.commons.network.ServerCfg.connectionFactory)
@@ -1450,11 +1452,9 @@ reason found by the fixpoint. K1 source: cpp/game-server/generated/staticdata-cl
 - `com.aionemu.gameserver.network.aion.skillinfo.SkillEntryWriter` (game-server/src/com/aionemu/gameserver/network/aion/skillinfo/SkillEntryWriter.java:9): same class tree as com.aionemu.gameserver.network.aion.instanceinfo.InstanceScoreWriter: packet member com.aionemu.gameserver.network.aion.serverpackets.SM_INSTANCE_SCORE.instanceScoreWriter
 - `com.aionemu.gameserver.network.chatserver.ChatServer` (game-server/src/com/aionemu/gameserver/network/chatserver/ChatServer.java:24): static field com.aionemu.gameserver.network.chatserver.ChatServer.SingletonHolder.instance
 - `com.aionemu.gameserver.network.chatserver.ChatServerConnection` (game-server/src/com/aionemu/gameserver/network/chatserver/ChatServerConnection.java:22): same class tree as com.aionemu.commons.network.AConnection: packet member com.aionemu.commons.network.packet.BaseClientPacket.client
-- `com.aionemu.gameserver.network.chatserver.CsClientPacketFactory.PacketInfo` (game-server/src/com/aionemu/gameserver/network/chatserver/CsClientPacketFactory.java:52): static field com.aionemu.gameserver.network.chatserver.CsClientPacketFactory.packets
 - `com.aionemu.gameserver.network.loginserver.LoginServer` (game-server/src/com/aionemu/gameserver/network/loginserver/LoginServer.java:40): static field com.aionemu.gameserver.network.loginserver.LoginServer.SingletonHolder.instance
 - `com.aionemu.gameserver.network.loginserver.LoginServer.LoginRequest` (game-server/src/com/aionemu/gameserver/network/loginserver/LoginServer.java:274): member of com.aionemu.gameserver.network.loginserver.LoginServer.loginRequests
 - `com.aionemu.gameserver.network.loginserver.LoginServerConnection` (game-server/src/com/aionemu/gameserver/network/loginserver/LoginServerConnection.java:24): same class tree as com.aionemu.commons.network.AConnection: packet member com.aionemu.commons.network.packet.BaseClientPacket.client
-- `com.aionemu.gameserver.network.loginserver.LsClientPacketFactory.PacketInfo` (game-server/src/com/aionemu/gameserver/network/loginserver/LsClientPacketFactory.java:60): static field com.aionemu.gameserver.network.loginserver.LsClientPacketFactory.packets
 - `com.aionemu.gameserver.network.sequrity.FloodManager` (game-server/src/com/aionemu/gameserver/network/sequrity/FloodManager.java:16): member of com.aionemu.gameserver.network.aion.GameConnectionFactoryImpl.floodAcceptor
 - `com.aionemu.gameserver.network.sequrity.FloodManager.LogEntry` (game-server/src/com/aionemu/gameserver/network/sequrity/FloodManager.java:43): member of com.aionemu.gameserver.network.sequrity.FloodManager._entries
 - `com.aionemu.gameserver.questEngine.QuestEngine` (game-server/src/com/aionemu/gameserver/questEngine/QuestEngine.java:47): static field com.aionemu.gameserver.questEngine.QuestEngine.SingletonHolder.instance
@@ -4773,7 +4773,7 @@ reason found by the fixpoint. K1 source: cpp/game-server/generated/staticdata-cl
 - `com.aionemu.gameserver.world.WorldType`: staticdata-classes.json
 - `com.aionemu.gameserver.world.zone.ZoneAttributes`: staticdata-classes.json
 
-## Flagged fields (45)
+## Flagged fields (42)
 
 - `ai.instance.dragonLordsRefuge.TiamatWeakenedDragonAI.hasAggro` `AtomicBoolean` → `Field<Ref<Rc<AtomicBoolean>>>`: nonFinalAtomic
 - `com.aionemu.gameserver.ai.AIState.handledAiEvents` `EnumSet<AIEventType>` → `EnumSet<AIEventType>`: noShim
@@ -4805,9 +4805,6 @@ reason found by the fixpoint. K1 source: cpp/game-server/generated/staticdata-cl
 - `com.aionemu.gameserver.model.gameobjects.BrokerItem.LEVEL_SORT_DESC` `Comparator<BrokerItem>` → `static const Comparator`: callbackField
 - `com.aionemu.gameserver.model.gameobjects.DropNpc.lootingTeam` `WeakReference<TemporaryPlayerTeam<? extends TeamMember<Player>>>` → `Field<Ref<TemporaryPlayerTeam>>`: externalType
 - `com.aionemu.gameserver.model.gameobjects.StaticDoor.states` `EnumSet<StaticDoorState>` → `EnumSet<StaticDoorState>`: noShim
-- `com.aionemu.gameserver.network.aion.AionClientPacketFactory.PacketInfo.packetConstructor` `Constructor<T>` → `const Constructor`: externalType
-- `com.aionemu.gameserver.network.chatserver.CsClientPacketFactory.PacketInfo.packetConstructor` `Constructor<T>` → `const Constructor`: externalType
-- `com.aionemu.gameserver.network.loginserver.LsClientPacketFactory.PacketInfo.packetConstructor` `Constructor<T>` → `const Constructor`: externalType
 - `com.aionemu.gameserver.network.sequrity.NetFlusher._timer` `Timer` → `static inline const Timer`: externalType
 - `com.aionemu.gameserver.services.cron.CronService.timeZone` `TimeZone` → `const TimeZone`: externalType
 - `com.aionemu.gameserver.services.cron.CronService.scheduler` `Scheduler` → `const Scheduler`: externalType

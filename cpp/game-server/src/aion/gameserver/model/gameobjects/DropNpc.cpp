@@ -1,6 +1,6 @@
 #include "aion/gameserver/model/gameobjects/DropNpc.h"
 
-#include "aion/gameserver/runtime/base/Unported.h"
+#include "aion/gameserver/model/team/alliance/PlayerAlliance.h"
 #include "aion/gameserver/model/gameobjects/player/Player.h"
 #include "aion/gameserver/model/team/TemporaryPlayerTeam.h"
 #include "aion/gameserver/model/team/common/legacy/LootGroupRules.h"
@@ -21,11 +21,11 @@ void DropNpc::setAllowedLooters(runtime::Ptr<runtime::RcHashSet<int32_t>> value)
 }
 
 void DropNpc::setAllowedLooter(player::Player& player) {
-	AION_UNPORTED();
+	allowedLooters->add(player.getObjectId());
 }
 
 bool DropNpc::isAllowedToLoot(player::Player& player) {
-	AION_UNPORTED();
+	return isFreeForAll_.get() || allowedLooters->contains(player.getObjectId());
 }
 
 void DropNpc::setLootingPlayer(runtime::Ptr<player::Player> player) {
@@ -33,15 +33,22 @@ void DropNpc::setLootingPlayer(runtime::Ptr<player::Player> player) {
 }
 
 bool DropNpc::isBeingLooted() {
-	AION_UNPORTED();
+	return static_cast<bool>(lootingPlayer.get());
 }
 
 runtime::Ptr<team::common::legacy::LootGroupRules> DropNpc::getLootGroupRules() {
-	AION_UNPORTED();
+	runtime::Ptr<team::TemporaryPlayerTeam> team = lootingTeam.get(); // Java: lootingTeam.get() of a WeakReference (fieldmap.toml: a Ref)
+	if (team)
+		lastLootGroupRules.set(team->getLootGroupRules());
+	return lastLootGroupRules.get();
 }
 
 void DropNpc::setLootingTeam(team::TemporaryPlayerTeam& team) {
-	AION_UNPORTED();
+	lootingTeam.set(runtime::Ptr<team::TemporaryPlayerTeam>(team));
+	lootingTeamId.set(team.getTeamId());
+	team::alliance::PlayerAlliance* alli = dynamic_cast<team::alliance::PlayerAlliance*>(&team);
+	maxRoll.set(alli != nullptr ? alli->isInLeague() ? 10000 : 1000 : 100);
+	lastLootGroupRules.set(team.getLootGroupRules());
 }
 
 void DropNpc::setInRangePlayers(runtime::Ptr<runtime::RcArrayList<runtime::Ref<player::Player>>> value) {
@@ -49,19 +56,21 @@ void DropNpc::setInRangePlayers(runtime::Ptr<runtime::RcArrayList<runtime::Ref<p
 }
 
 void DropNpc::addPlayerStatus(player::Player& player) {
-	AION_UNPORTED();
+	playerStatus.add(runtime::Ref<player::Player>(player));
 }
 
 void DropNpc::delPlayerStatus(player::Player& player) {
-	AION_UNPORTED();
+	playerStatus.remove(player);
 }
 
 bool DropNpc::containsPlayerStatus(player::Player& player) {
-	AION_UNPORTED();
+	return playerStatus.contains(player);
 }
 
 void DropNpc::startFreeForAll() {
-	AION_UNPORTED();
+	isFreeForAll_.set(true);
+	distributionId.set(0);
+	allowedLooters->clear();
 }
 
 DropNpc::~DropNpc() = default;

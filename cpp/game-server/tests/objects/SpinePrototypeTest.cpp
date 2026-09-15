@@ -17,9 +17,9 @@
 // - the AI registry of this test executable is the empty table (aion_gs_registry_empty): AIEngine::newAI creates the DummyAI for an npc
 //   template without an AI name and rejects unknown names like Java; the handler AI is installed through its AION_AI factory.
 // Player: the account side runs for real (Account, PlayerCommonData, PlayerAppearance, the PlayerAccountData part with its interned run-time
-// BoundRadius); create<Player> itself is a freeze exception (spine-status.md): its constructor creates PetList, whose Java constructor loads
-// the pets through PlayerPetsDAO (P4-14), and postConstruct creates PlayerGameStats/PlayerLifeStats (static data and the stat calculation,
-// P5-01). None of them is a Java override point a test double could replace; the scenario checks that creation stops at the PetList body.
+// BoundRadius); create<Player> itself is a freeze exception (spine-status.md): postConstruct loads the pets through PlayerPetsDAO (P4-14, Java:
+// the PetList constructor) and then creates PlayerGameStats/PlayerLifeStats (static data and the stat calculation, P5-01). This scenario uses
+// the real server path, so creation stops at the DAO body; tests/player/PlayerCreationTest replaces the DAO read and the stat containers.
 // Not created here: an instance handler needs a WorldMapInstance, whose construction is P4-10 world code (WorldMap's constructor,
 // WorldMapInstanceFactory, WorldMap2DInstance/WorldMap3DInstance and world/zone/ZoneService).
 
@@ -717,7 +717,7 @@ TEST_F(SpinePrototypeTest, PlayerAccountDataIsAPartOfItsAccountAndInternsItsBoun
 		}
 		EXPECT_EQ(account->refCount(), 1u);
 
-		// create<Player> stops at the PetList constructor (PlayerPetsDAO, P4-14): the freeze exception of this scenario
+		// create<Player> stops in postConstruct at PetList::loadPets (PlayerPetsDAO, P4-14): the freeze exception of this scenario
 		EXPECT_THROW(static_cast<void>(VisibleObject::create<model::gameobjects::player::Player>(*data, *account)), runtime::UnportedException);
 	}
 	runtime::Reclaimer::getInstance().drain();

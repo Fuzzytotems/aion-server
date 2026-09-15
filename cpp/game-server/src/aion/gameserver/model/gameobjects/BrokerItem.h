@@ -151,7 +151,15 @@ public:
 
 private:
 	template <class T>
-	static int32_t comparePossiblyNull(T aThis, T aThat) { AION_UNPORTED(); }
+	static int32_t comparePossiblyNull(T aThis, T aThat) {
+		int32_t result = 0;
+		if (aThis == nullptr && aThat != nullptr) {
+			result = -1;
+		} else if (aThis != nullptr && aThat == nullptr) {
+			result = 1;
+		}
+		return result;
+	}
 
 public:
 	/**

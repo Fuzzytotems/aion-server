@@ -1,15 +1,18 @@
 #include "aion/gameserver/model/Expirable.h"
 
-#include "aion/gameserver/runtime/base/Unported.h"
+#include "aion/commons/utils/TimeUtils.h"
 
 namespace aion::gameserver::model {
 
 int32_t Expirable::secondsUntilExpiration() {
-	AION_UNPORTED();
+	// Java: getExpireTime() - (int) (System.currentTimeMillis() / 1000) with int wrap-around
+	return getExpireTime() == 0 ? 0
+								: static_cast<int32_t>(static_cast<uint32_t>(getExpireTime()) -
+									  static_cast<uint32_t>(static_cast<int32_t>(commons::utils::currentTimeMillis() / 1000)));
 }
 
 bool Expirable::isExpired() {
-	AION_UNPORTED();
+	return secondsUntilExpiration() < 0;
 }
 
 void Expirable::onBeforeExpire(gameobjects::player::Player&, int32_t) {

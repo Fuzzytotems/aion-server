@@ -1,6 +1,9 @@
 #include "aion/gameserver/model/gameobjects/player/motion/Motion.h"
 
-#include "aion/gameserver/runtime/base/Unported.h"
+#include "aion/gameserver/model/gameobjects/player/Player.h"
+#include "aion/gameserver/model/gameobjects/player/motion/MotionList.h"
+#include "aion/gameserver/network/aion/serverpackets/SM_SYSTEM_MESSAGE.h"
+#include "aion/gameserver/utils/PacketSendUtility.h"
 
 namespace aion::gameserver::model::gameobjects::player::motion {
 
@@ -14,7 +17,10 @@ runtime::Ref<Motion> Motion::create(int32_t idValue, int32_t deletionTimeValue, 
 }
 
 void Motion::onExpire(Player& player) {
-	AION_UNPORTED();
+	player.getMotions().remove(id);
+	// TODO motion templates -> parse nameIds for system message, like 600533 for STR_CMOTION_CASH_NINJA_IDLE (Ninja Idle) etc.
+	utils::PacketSendUtility::sendPacket(player,
+		network::aion::serverpackets::SM_SYSTEM_MESSAGE::STR_MSG_DELETE_CASH_CUSTOMANIMATION_BY_TIMEOUT(/* nameId */));
 }
 
 } // namespace aion::gameserver::model::gameobjects::player::motion

@@ -1,14 +1,20 @@
 #include "aion/gameserver/model/gameobjects/findGroup/ServerWideGroup.h"
 
-#include "aion/gameserver/runtime/base/Unported.h"
+#include <algorithm>
+#include <vector>
+
+#include "aion/commons/utils/TimeUtils.h"
+#include "aion/gameserver/model/Race.h"
 #include "aion/gameserver/model/gameobjects/player/Player.h"
+#include "aion/gameserver/model/team/TemporaryPlayerTeam.h"
+#include "aion/gameserver/runtime/base/Exceptions.h"
 
 namespace aion::gameserver::model::gameobjects::findGroup {
 
 ServerWideGroup::ServerWideGroup(player::Player& recruiter, int32_t value, int32_t minMembersValue, std::string_view messageValue)
 	: instanceMaskId(value), minMembers(minMembersValue), message(std::string(messageValue)) {
-	// Java: this.members.add(recruiter); setLastUpdate()
-	AION_UNPORTED();
+	members.add(runtime::Ref<player::Player>(recruiter));
+	setLastUpdate();
 }
 
 runtime::Ref<ServerWideGroup> ServerWideGroup::create(player::Player& recruiter, int32_t value, int32_t minMembersValue,
@@ -17,31 +23,52 @@ runtime::Ref<ServerWideGroup> ServerWideGroup::create(player::Player& recruiter,
 }
 
 std::vector<runtime::Ptr<player::Player>> ServerWideGroup::getMembers() {
-	AION_UNPORTED();
+	// custom: use regular teams for server-wide instance group recruitment (on official servers the recruiter must not be in a team)
+	runtime::Ptr<team::TemporaryPlayerTeam> team = getRecruiter()->getCurrentTeam();
+	if (!team)
+		return members.snapshot();
+	std::vector<runtime::Ptr<player::Player>> teamMembers;
+	for (runtime::Ptr<AionObject> member : team->getMembers())
+		teamMembers.push_back(runtime::cast<player::Player>(member));
+	return teamMembers;
 }
 
 void ServerWideGroup::setLastUpdate() {
-	AION_UNPORTED();
+	lastUpdate.set(static_cast<int32_t>(commons::utils::currentTimeMillis() / 1000));
 }
 
 runtime::Ptr<player::Player> ServerWideGroup::getRecruiter() {
-	AION_UNPORTED();
+	return members.get(0);
 }
 
 int32_t ServerWideGroup::getId() {
-	AION_UNPORTED();
+	return getRecruiter()->getObjectId();
 }
 
 Race ServerWideGroup::getRace() {
-	AION_UNPORTED();
+	return getRecruiter()->getRace();
 }
 
 int32_t ServerWideGroup::getMinLevel() {
-	AION_UNPORTED();
+	// Java: members.stream().max(Comparator.comparing(Player::getLevel)).map(Player::getLevel).get(): the highest level despite the name
+	std::vector<runtime::Ptr<player::Player>> current = members.snapshot();
+	if (current.empty())
+		throw runtime::NoSuchElementException("No value present");
+	int32_t result = current.front()->getLevel();
+	for (runtime::Ptr<player::Player> member : current)
+		result = std::max<int32_t>(result, member->getLevel());
+	return result;
 }
 
 int32_t ServerWideGroup::getMaxLevel() {
-	AION_UNPORTED();
+	// Java: max with the reversed level comparator: the lowest level despite the name
+	std::vector<runtime::Ptr<player::Player>> current = members.snapshot();
+	if (current.empty())
+		throw runtime::NoSuchElementException("No value present");
+	int32_t result = current.front()->getLevel();
+	for (runtime::Ptr<player::Player> member : current)
+		result = std::min<int32_t>(result, member->getLevel());
+	return result;
 }
 
 ServerWideGroup::~ServerWideGroup() = default;

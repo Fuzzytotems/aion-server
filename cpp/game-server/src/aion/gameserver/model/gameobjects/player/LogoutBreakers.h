@@ -111,7 +111,8 @@ public:
 
 	/**
 	 * Cuts the ZOMBIE_SAFE_EDGES of the object's kind that are still set and returns their names (static strings) for the LeakCensus warning.
-	 * Runs on the instant pool in a normal TaskScope while the zombie is pinned (runtime::ZombieBreakable contract); exceptions propagate to
+	 * Edges without an emptiness query (the stance observer, the IdianStone action listeners) and the storage actors that are the player itself
+	 * are reset without being reported (docs/deviations/P4-12.md). Runs on the instant pool in a normal TaskScope while the zombie is pinned (runtime::ZombieBreakable contract); exceptions propagate to
 	 * LeakCensus, which logs them.
 	 */
 	static std::vector<const char*> breakZombieEdges(VisibleObject& object);

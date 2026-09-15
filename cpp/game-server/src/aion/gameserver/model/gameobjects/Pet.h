@@ -17,8 +17,8 @@ namespace aion::gameserver::model::gameobjects {
  * S0c declaration header (docs/design/hub-headers.md §3.5). A visible object: `VisibleObject::create<Pet>(petTemplate, controller, commonData,
  * master)` (§10.1); postConstruct() runs `controller.setOwner(this)`. The move controller is Java's anonymous `new CreatureMoveController<Pet>(this)
  * {}` (fieldmap.toml: a part created by the constructor), the struct Pet_CreatureMoveController in Pet.cpp; the erased type is
- * CreatureMoveController (§8.1). getObjectTemplate() is Java's cast-only override: a narrowing redeclaration (§8.2). The base initializer needs
- * the master's world id (VisibleObject::getWorldId, unported), so the constructor reaches `AION_UNPORTED`.
+ * CreatureMoveController (§8.1). getObjectTemplate() is Java's cast-only override: a narrowing redeclaration (§8.2). The base initializer reads
+ * the master's world id (VisibleObject::getWorldId).
  *
  * @author ATracer
  */

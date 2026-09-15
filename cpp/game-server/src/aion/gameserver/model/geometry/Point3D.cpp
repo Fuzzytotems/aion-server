@@ -1,7 +1,7 @@
 #include "aion/gameserver/model/geometry/Point3D.h"
 
 #include "aion/gameserver/model/templates/zone/Point2D.h"
-#include "aion/gameserver/runtime/base/Unported.h"
+#include "aion/gameserver/geoEngine/math/JavaFloat.h"
 
 namespace aion::gameserver::model::geometry {
 
@@ -42,19 +42,30 @@ runtime::Ref<Point3D> Point3D::create(double xValue, double yValue, double zValu
 }
 
 bool Point3D::equals(const Point3D& o) const {
-	AION_UNPORTED();
+	if (this == &o)
+		return true;
+	return x.get() == o.x.get() && y.get() == o.y.get() && z.get() == o.z.get();
 }
 
 int32_t Point3D::hashCode() const {
-	AION_UNPORTED();
+	float result = x.get();
+	result = 31 * result + y.get();
+	result = 31 * result + z.get();
+	return geoEngine::math::JavaFloat::doubleToInt(static_cast<double>(result * 100)); // Java (int) cast of a float
 }
 
 runtime::Ref<Point3D> Point3D::clone() {
-	AION_UNPORTED();
+	return create(*this);
 }
 
 std::string Point3D::toString() {
-	AION_UNPORTED();
+	std::string sb;
+	sb += "Point3D";
+	sb += "{x=" + geoEngine::math::JavaFloat::toString(x.get());
+	sb += ", y=" + geoEngine::math::JavaFloat::toString(y.get());
+	sb += ", z=" + geoEngine::math::JavaFloat::toString(z.get());
+	sb += '}';
+	return sb;
 }
 
 Point3D::~Point3D() = default;

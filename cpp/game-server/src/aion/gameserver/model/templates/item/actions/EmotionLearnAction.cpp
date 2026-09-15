@@ -8,4 +8,8 @@ void EmotionLearnAction::afterUnmarshal(xml::LoadContext& /*ctx*/, const xml::Xm
 	AION_UNPORTED();
 }
 
+bool EmotionLearnAction::isLearnable(int32_t emotionId) {
+	AION_UNPORTED();
+}
+
 } // namespace aion::gameserver::model::templates::item::actions

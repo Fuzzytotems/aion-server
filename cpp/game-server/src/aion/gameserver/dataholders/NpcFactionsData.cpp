@@ -8,4 +8,12 @@ void NpcFactionsData::afterUnmarshal(xml::LoadContext& /*ctx*/, const xml::XmlPa
 	AION_UNPORTED();
 }
 
+const model::templates::factions::NpcFactionTemplate* NpcFactionsData::getNpcFactionById(int32_t id) const {
+	AION_UNPORTED();
+}
+
+const model::templates::factions::NpcFactionTemplate* NpcFactionsData::getNpcFactionByNpcId(int32_t id) const {
+	AION_UNPORTED();
+}
+
 } // namespace aion::gameserver::dataholders

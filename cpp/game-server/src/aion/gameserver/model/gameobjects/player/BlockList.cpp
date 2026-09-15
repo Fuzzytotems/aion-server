@@ -1,6 +1,8 @@
 #include "aion/gameserver/model/gameobjects/player/BlockList.h"
 
-#include "aion/gameserver/runtime/base/Unported.h"
+#include <memory>
+
+#include "aion/commons/utils/StringUtils.h"
 #include "aion/gameserver/model/gameobjects/player/BlockedPlayer.h"
 
 namespace aion::gameserver::model::gameobjects::player {
@@ -24,39 +26,44 @@ runtime::Ref<BlockList> BlockList::create(const std::unordered_map<int32_t, runt
 }
 
 void BlockList::add(BlockedPlayer& plr) {
-	AION_UNPORTED();
+	blockedList.put(plr.getObjId(), runtime::Ref<BlockedPlayer>(plr));
 }
 
 void BlockList::remove(int32_t objIdOfPlayer) {
-	AION_UNPORTED();
+	blockedList.remove(objIdOfPlayer);
 }
 
 runtime::Ptr<BlockedPlayer> BlockList::getBlockedPlayer(std::string_view name) {
-	AION_UNPORTED();
+	for (const runtime::Ptr<BlockedPlayer>& entry : blockedList.values()) {
+		if (commons::utils::StringUtils::equalsIgnoreCase(entry->getName(), name))
+			return entry;
+	}
+	return nullptr;
 }
 
 runtime::Ptr<BlockedPlayer> BlockList::getBlockedPlayer(int32_t playerObjId) {
-	AION_UNPORTED();
+	return blockedList.get(playerObjId);
 }
 
 bool BlockList::contains(int32_t playerObjectId) {
-	AION_UNPORTED();
+	return blockedList.containsKey(playerObjectId);
 }
 
 int32_t BlockList::getSize() {
-	AION_UNPORTED();
+	return blockedList.size();
 }
 
 bool BlockList::isFull() {
-	AION_UNPORTED();
+	return getSize() >= MAX_BLOCKS;
 }
 
 runtime::JavaIterator<runtime::Ptr<BlockedPlayer>> BlockList::iterator() {
-	AION_UNPORTED();
+	return blockedList.values().iterator();
 }
 
 runtime::SnapshotIterator<runtime::Ptr<BlockedPlayer>> BlockList::begin() {
-	AION_UNPORTED();
+	return runtime::SnapshotIterator<runtime::Ptr<BlockedPlayer>>(
+		std::make_shared<const std::vector<runtime::Ptr<BlockedPlayer>>>(blockedList.values().toVector()));
 }
 
 } // namespace aion::gameserver::model::gameobjects::player

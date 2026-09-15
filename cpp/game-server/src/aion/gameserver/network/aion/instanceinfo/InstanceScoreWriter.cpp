@@ -10,7 +10,6 @@ InstanceScoreWriter::InstanceScoreWriter(model::instance::instancescore::Instanc
 }
 
 void InstanceScoreWriter::writeMe(commons::utils::ByteBuffer& buf) {
-	AION_UNPORTED();
 }
 
 InstanceScoreWriter::~InstanceScoreWriter() = default;

@@ -43,6 +43,14 @@ public:
 	/** Removes all objects from this list and sends a despawn animation for the owner to all removed players. */
 	void clear(model::animations::ObjectDeleteAnimation animation); // synchronized
 
+	/**
+	 * C++ only (zombie breaker: LogoutBreakers::breakZombieEdges, cycles.toml KnownList.knownObjects zombie-safe, runtime-architecture.md §5.3):
+	 * removes every known object without packets and without notSee/notKnow notifications. Idempotent (header request player-1).
+	 *
+	 * @return true if the list was not empty
+	 */
+	bool clearWithoutNotify();
+
 	/** Checks if owner knows the object. */
 	bool knows(model::gameobjects::VisibleObject& object);
 

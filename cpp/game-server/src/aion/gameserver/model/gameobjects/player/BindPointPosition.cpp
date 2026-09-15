@@ -1,7 +1,5 @@
 #include "aion/gameserver/model/gameobjects/player/BindPointPosition.h"
 
-#include "aion/gameserver/runtime/base/Unported.h"
-
 namespace aion::gameserver::model::gameobjects::player {
 
 BindPointPosition::BindPointPosition(int32_t mapIdValue, float xValue, float yValue, float zValue, int8_t headingValue)
@@ -15,7 +13,10 @@ runtime::Ref<BindPointPosition> BindPointPosition::create(int32_t mapIdValue, fl
 }
 
 void BindPointPosition::setPersistentState(PersistentState persistentStateValue) {
-	AION_UNPORTED();
+	// Java: switch with fallthrough, UPDATE_REQUIRED keeps a NEW state
+	if (persistentStateValue == PersistentState::UPDATE_REQUIRED && persistentState.get() == PersistentState::NEW)
+		return;
+	persistentState.set(persistentStateValue);
 }
 
 } // namespace aion::gameserver::model::gameobjects::player

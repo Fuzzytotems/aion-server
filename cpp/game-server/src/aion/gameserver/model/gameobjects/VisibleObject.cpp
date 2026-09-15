@@ -1,9 +1,16 @@
 #include "aion/gameserver/model/gameobjects/VisibleObject.h"
 
+#include <string>
+#include <typeinfo>
+
 #include "aion/gameserver/controllers/VisibleObjectController.h"
+#include "aion/gameserver/model/animations/ObjectDeleteAnimation.h"
 #include "aion/gameserver/model/gameobjects/player/LogoutBreakers.h"
+#include "aion/gameserver/model/templates/VisibleObjectTemplate.h"
 #include "aion/gameserver/model/templates/spawns/SpawnTemplate.h"
-#include "aion/gameserver/runtime/base/Unported.h"
+#include "aion/gameserver/utils/SimpleClassName.h"
+#include "aion/gameserver/world/World.h"
+#include "aion/gameserver/world/WorldMap.h"
 #include "aion/gameserver/world/WorldPosition.h"
 #include "aion/gameserver/world/knownlist/KnownList.h"
 
@@ -35,75 +42,80 @@ void VisibleObject::setPosition(runtime::Ptr<world::WorldPosition> value) {
 }
 
 std::string VisibleObject::getName() {
-	AION_UNPORTED();
+	return objectTemplate->getName(); // Java NullPointerException for an object without template; subclasses without one override getName
 }
 
 int32_t VisibleObject::getInstanceId() {
-	AION_UNPORTED();
+	return getPosition()->getInstanceId();
 }
 
 int32_t VisibleObject::getWorldId() {
-	AION_UNPORTED();
+	return getPosition()->getMapId();
 }
 
 world::WorldType VisibleObject::getWorldType() {
-	AION_UNPORTED();
+	return world::World::getInstance().getWorldMap(getWorldId())->getWorldType();
 }
 
 world::WorldDropType VisibleObject::getWorldDropType() {
-	AION_UNPORTED();
+	return world::World::getInstance().getWorldMap(getWorldId())->getWorldDropType();
 }
 
 float VisibleObject::getX() {
-	AION_UNPORTED();
+	return getPosition()->getX();
 }
 
 float VisibleObject::getY() {
-	AION_UNPORTED();
+	return getPosition()->getY();
 }
 
 float VisibleObject::getZ() {
-	AION_UNPORTED();
+	return getPosition()->getZ();
 }
 
 int8_t VisibleObject::getHeading() {
-	AION_UNPORTED();
+	return getPosition()->getHeading();
 }
 
 runtime::Ptr<world::WorldMapInstance> VisibleObject::getWorldMapInstance() {
-	AION_UNPORTED();
+	return getPosition()->getWorldMapInstance();
 }
 
 bool VisibleObject::isSpawned() {
-	AION_UNPORTED();
+	return getPosition()->isSpawned();
 }
 
 bool VisibleObject::isInWorld() {
-	AION_UNPORTED();
+	return world::World::getInstance().isInWorld(getObjectId());
 }
 
 bool VisibleObject::isInInstance() {
-	AION_UNPORTED();
+	return getPosition()->isInstanceMap();
 }
 
 void VisibleObject::clearKnownlist() {
-	AION_UNPORTED();
+	clearKnownlist(animations::ObjectDeleteAnimation::FADE_OUT);
 }
 
 void VisibleObject::clearKnownlist(animations::ObjectDeleteAnimation animation) {
-	AION_UNPORTED();
+	getKnownList().clear(animation);
 }
 
 void VisibleObject::updateKnownlist() {
-	AION_UNPORTED();
+	getKnownList().update();
 }
 
 bool VisibleObject::canSee(runtime::Ptr<VisibleObject> object) {
-	AION_UNPORTED();
+	return static_cast<bool>(object);
 }
 
 void VisibleObject::setTarget(runtime::Ptr<VisibleObject> creature) {
-	AION_UNPORTED();
+	if (target.get() != creature) {
+		target.set(creature);
+		// Java bug kept (S0B-052, D6): the field is assigned before the call, so Java passes the new target as the old one too
+		// (VisibleObject.java:206-209)
+		getController().onTargetChanged(creature, creature);
+	}
 }
 
 void VisibleObject::breakTarget() noexcept {
@@ -111,11 +123,18 @@ void VisibleObject::breakTarget() noexcept {
 }
 
 bool VisibleObject::isTargeting(int32_t value) {
-	AION_UNPORTED();
+	runtime::Ptr<VisibleObject> current = target.get();
+	return current && current->getObjectId() == value;
 }
 
 std::string VisibleObject::toString() {
-	AION_UNPORTED();
+	std::string result = utils::simpleClassName(typeid(*this)) + " [";
+	if (objectTemplate != nullptr)
+		result += "templateId=" + std::to_string(objectTemplate->getTemplateId()) + ", ";
+	runtime::Ptr<world::WorldPosition> currentPosition = position.get();
+	result += "objectId=" + std::to_string(getObjectId()) + ", name=" + getName() +
+		", position=" + (currentPosition ? currentPosition->toString() : std::string("null")) + "]";
+	return result;
 }
 
 std::vector<const char*> VisibleObject::breakKnownEdges() {

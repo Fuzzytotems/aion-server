@@ -8,4 +8,8 @@ void AtreianPassportData::afterUnmarshal(xml::LoadContext& /*ctx*/, const xml::X
 	AION_UNPORTED();
 }
 
+const model::templates::event::AtreianPassport* AtreianPassportData::getAtreianPassportId(int32_t id) const {
+	AION_UNPORTED();
+}
+
 } // namespace aion::gameserver::dataholders

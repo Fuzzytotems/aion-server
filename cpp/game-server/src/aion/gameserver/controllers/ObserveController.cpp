@@ -145,4 +145,8 @@ void ObserveController::clearWithoutNotify() {
 	AION_UNPORTED();
 }
 
+bool ObserveController::hasObservers() {
+	AION_UNPORTED();
+}
+
 } // namespace aion::gameserver::controllers

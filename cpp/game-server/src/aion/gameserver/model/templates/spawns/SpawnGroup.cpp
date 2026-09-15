@@ -1,14 +1,26 @@
 #include "aion/gameserver/model/templates/spawns/SpawnGroup.h"
 
+#include <string>
 #include <utility>
+#include <vector>
 
-#include "aion/gameserver/runtime/base/Unported.h"
+#include "aion/commons/logging/LoggerFactory.h"
+#include "aion/commons/utils/Rnd.h"
+#include "aion/gameserver/runtime/base/Exceptions.h"
+#include "aion/gameserver/runtime/sync/Monitor.h"
 #include "aion/gameserver/model/templates/spawns/Spawn.h"
 #include "aion/gameserver/model/templates/spawns/SpawnSpotTemplate.h"
 #include "aion/gameserver/model/templates/spawns/SpawnTemplate.h"
+#include "aion/gameserver/model/templates/spawns/basespawns/BaseSpawnTemplate.h"
+#include "aion/gameserver/model/templates/spawns/panesterra/AhserionsFlightSpawnTemplate.h"
+#include "aion/gameserver/model/templates/spawns/riftspawns/RiftSpawnTemplate.h"
 #include "aion/gameserver/model/templates/spawns/siegespawns/SiegeSpawnTemplate.h"
+#include "aion/gameserver/model/templates/spawns/vortexspawns/VortexSpawnTemplate.h"
 
 namespace aion::gameserver::model::templates::spawns {
+
+// Java: LoggerFactory.getLogger(SpawnGroup.class) inline in reserveRandomFreePoolSpot
+static const auto log = commons::logging::LoggerFactory::getLogger("com.aionemu.gameserver.model.templates.spawns.SpawnGroup");
 
 SpawnGroup::SpawnGroup(int32_t worldIdValue, int32_t npcIdValue, int32_t respawnTimeValue, const event::EventTemplate* eventTemplateValue)
 	: SpawnGroup(worldIdValue, npcIdValue, 0, respawnTimeValue, 0, std::nullopt, nullptr, std::vector<std::unique_ptr<SpawnTemplate>>(),
@@ -23,25 +35,31 @@ SpawnGroup::SpawnGroup(int32_t worldIdValue, const Spawn* spawn)
 
 SpawnGroup::SpawnGroup(int32_t worldIdValue, const Spawn* spawn, int32_t id, model::base::BaseOccupier occupier)
 	: SpawnGroup(worldIdValue, spawn, std::vector<std::unique_ptr<SpawnTemplate>>()) {
-	// Java: for each spot, a BaseSpawnTemplate(this, template) with setId(id) and setOccupier(occupier), added to spots
-	static_cast<void>(id);
-	static_cast<void>(occupier);
-	AION_UNPORTED();
+	for (const SpawnSpotTemplate& template_ : spawn->getSpawnSpotTemplates()) {
+		auto spawnTemplate = std::make_unique<basespawns::BaseSpawnTemplate>(*this, &template_);
+		spawnTemplate->setId(id);
+		spawnTemplate->setOccupier(occupier);
+		spots.add(std::move(spawnTemplate));
+	}
 }
 
 SpawnGroup::SpawnGroup(int32_t worldIdValue, const Spawn* spawn, int32_t id)
 	: SpawnGroup(worldIdValue, spawn, std::vector<std::unique_ptr<SpawnTemplate>>()) {
-	// Java: for each spot, a RiftSpawnTemplate(this, template) with setId(id), added to spots
-	static_cast<void>(id);
-	AION_UNPORTED();
+	for (const SpawnSpotTemplate& template_ : spawn->getSpawnSpotTemplates()) {
+		auto spawnTemplate = std::make_unique<riftspawns::RiftSpawnTemplate>(*this, &template_);
+		spawnTemplate->setId(id);
+		spots.add(std::move(spawnTemplate));
+	}
 }
 
 SpawnGroup::SpawnGroup(int32_t worldIdValue, const Spawn* spawn, int32_t id, model::vortex::VortexStateType type)
 	: SpawnGroup(worldIdValue, spawn, std::vector<std::unique_ptr<SpawnTemplate>>()) {
-	// Java: for each spot, a VortexSpawnTemplate(this, template) with setId(id) and setStateType(type), added to spots
-	static_cast<void>(id);
-	static_cast<void>(type);
-	AION_UNPORTED();
+	for (const SpawnSpotTemplate& template_ : spawn->getSpawnSpotTemplates()) {
+		auto spawnTemplate = std::make_unique<vortexspawns::VortexSpawnTemplate>(*this, &template_);
+		spawnTemplate->setId(id);
+		spawnTemplate->setStateType(type);
+		spots.add(std::move(spawnTemplate));
+	}
 }
 
 SpawnGroup::SpawnGroup(int32_t worldIdValue, const Spawn* spawn, int32_t siegeId, model::siege::SiegeRace race, model::siege::SiegeModType mod)
@@ -52,10 +70,12 @@ SpawnGroup::SpawnGroup(int32_t worldIdValue, const Spawn* spawn, int32_t siegeId
 
 SpawnGroup::SpawnGroup(int32_t worldIdValue, const Spawn* spawn, int32_t stage, services::panesterra::ahserion::PanesterraFaction faction)
 	: SpawnGroup(worldIdValue, spawn, std::vector<std::unique_ptr<SpawnTemplate>>()) {
-	// Java: for each spot, an AhserionsFlightSpawnTemplate(this, template) with setStage(stage) and setPanesterraTeam(faction), added to spots
-	static_cast<void>(stage);
-	static_cast<void>(faction);
-	AION_UNPORTED();
+	for (const SpawnSpotTemplate& template_ : spawn->getSpawnSpotTemplates()) {
+		auto ahserionTemplate = std::make_unique<panesterra::AhserionsFlightSpawnTemplate>(*this, &template_);
+		ahserionTemplate->setStage(stage);
+		ahserionTemplate->setPanesterraTeam(faction);
+		spots.add(std::move(ahserionTemplate));
+	}
 }
 
 SpawnGroup::SpawnGroup(int32_t worldIdValue, const Spawn* spawn, std::vector<std::unique_ptr<SpawnTemplate>> spotsValue)
@@ -116,23 +136,48 @@ SpawnTemplate& SpawnGroup::adoptDetachedTemplate(std::unique_ptr<SpawnTemplate> 
 }
 
 bool SpawnGroup::hasPool() {
-	AION_UNPORTED();
+	return pool > 0;
 }
 
 bool SpawnGroup::isTemporarySpawn() {
-	AION_UNPORTED();
+	return temporarySpawn != nullptr;
 }
 
 runtime::Ptr<SpawnTemplate> SpawnGroup::reserveRandomFreePoolSpot(int32_t instanceId) {
-	AION_UNPORTED();
+	SYNCHRONIZED(poolUsedTemplates) {
+		if (!hasPool()) // Java: poolUsedTemplates is Collections.emptyMap() without a pool, whose computeIfAbsent throws
+			throw runtime::UnsupportedOperationException("SpawnGroup of npc " + std::to_string(npcId) + " has no pool");
+		runtime::Ptr<runtime::RcHashSet<SpawnTemplate*>> occupiedSpots = poolUsedTemplates.computeIfAbsent(
+			instanceId, [this]() { return runtime::RcHashSet<SpawnTemplate*>::create(pool); });
+		std::vector<runtime::Ptr<SpawnTemplate>> freeSpots;
+		for (const runtime::Ptr<SpawnTemplate>& spot : spots.snapshot()) {
+			if (!occupiedSpots->contains(spot.get()))
+				freeSpots.push_back(spot);
+		}
+		runtime::Ptr<SpawnTemplate>* freeSpot = commons::utils::Rnd::get(freeSpots);
+		if (freeSpot == nullptr) {
+			log.warn("All spots are used, could not get random spot for npcId: " + std::to_string(npcId) + ", worldId: " + std::to_string(worldId));
+			return nullptr;
+		}
+		occupiedSpots->add(freeSpot->get());
+		return *freeSpot;
+	}
 }
 
 void SpawnGroup::resetPoolSpot(int32_t instanceId, SpawnTemplate& template_) {
-	AION_UNPORTED();
+	SYNCHRONIZED(poolUsedTemplates) {
+		runtime::Ptr<runtime::RcHashSet<SpawnTemplate*>> occupiedSpots = poolUsedTemplates.get(instanceId); // Java: getOrDefault(emptySet)
+		if (occupiedSpots != nullptr)
+			occupiedSpots->remove(&template_);
+	}
 }
 
 void SpawnGroup::resetPoolSpots(int32_t instanceId) {
-	AION_UNPORTED();
+	SYNCHRONIZED(poolUsedTemplates) {
+		runtime::Ptr<runtime::RcHashSet<SpawnTemplate*>> occupiedSpots = poolUsedTemplates.get(instanceId); // Java: getOrDefault(emptySet)
+		if (occupiedSpots != nullptr)
+			occupiedSpots->clear();
+	}
 }
 
 } // namespace aion::gameserver::model::templates::spawns

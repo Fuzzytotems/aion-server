@@ -1,6 +1,10 @@
 #include "aion/gameserver/model/gameobjects/player/RecipeList.h"
 
-#include "aion/gameserver/runtime/base/Unported.h"
+#include "aion/gameserver/dao/PlayerRecipesDAO.h"
+#include "aion/gameserver/model/gameobjects/player/Player.h"
+#include "aion/gameserver/network/aion/serverpackets/SM_LEARN_RECIPE.h"
+#include "aion/gameserver/network/aion/serverpackets/SM_RECIPE_DELETE.h"
+#include "aion/gameserver/utils/PacketSendUtility.h"
 
 namespace aion::gameserver::model::gameobjects::player {
 
@@ -23,19 +27,29 @@ runtime::Ref<RecipeList> RecipeList::create() {
 }
 
 bool RecipeList::addRecipe(Player& player, int32_t recipeId) {
-	AION_UNPORTED();
+	if (!isRecipePresent(recipeId) && dao::PlayerRecipesDAO::addRecipe(player.getObjectId(), recipeId)) {
+		recipeList.add(recipeId);
+		utils::PacketSendUtility::sendPacket(player, network::aion::serverpackets::SM_LEARN_RECIPE(recipeId));
+		return true;
+	}
+	return false;
 }
 
 bool RecipeList::deleteRecipe(Player& player, int32_t recipeId) {
-	AION_UNPORTED();
+	if (recipeList.contains(recipeId) && dao::PlayerRecipesDAO::delRecipe(player.getObjectId(), recipeId)) {
+		recipeList.remove(recipeId);
+		utils::PacketSendUtility::sendPacket(player, network::aion::serverpackets::SM_RECIPE_DELETE(recipeId));
+		return true;
+	}
+	return false;
 }
 
 bool RecipeList::isRecipePresent(int32_t recipeId) {
-	AION_UNPORTED();
+	return recipeList.contains(recipeId);
 }
 
 int32_t RecipeList::size() {
-	AION_UNPORTED();
+	return recipeList.size();
 }
 
 } // namespace aion::gameserver::model::gameobjects::player

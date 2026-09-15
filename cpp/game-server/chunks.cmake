@@ -203,12 +203,14 @@ aion_gs_chunk(P4-14 TARGET aion_gs_dao PHASE 4
 	JAVA "src/com/aionemu/gameserver/dao/**")
 
 # P4-15: AionConnection, packet bases, client factory and opcode tables (the generated ServerPacketsOpcodes.gen.h and ClientPacketInfo.gen.inc),
-# iteminfo/instanceinfo/skillinfo, flood filter, LS/CS links
+# iteminfo/instanceinfo/skillinfo, flood filter, LS/CS links; tests/support holds the shared network test support (FakeGameClient,
+# NetworkTestSupport; handlers-and-porting-plan.md §3.1 item 4), included by name through TEST_INCLUDES (header request network-4)
 aion_gs_chunk(P4-15 TARGET aion_gs_network PHASE 4
 	GLOBS "aion/gameserver/network/**"
 	EXCLUDE "aion/gameserver/network/{Crypt,EncryptionKeyPair}.*" "aion/gameserver/network/aion/{serverpackets,clientpackets}/**"
 	JAVA "src/com/aionemu/gameserver/network/**"
-	JAVA_EXCLUDE "src/com/aionemu/gameserver/network/{Crypt,EncryptionKeyPair}.java" "src/com/aionemu/gameserver/network/aion/{serverpackets,clientpackets}/**")
+	JAVA_EXCLUDE "src/com/aionemu/gameserver/network/{Crypt,EncryptionKeyPair}.java" "src/com/aionemu/gameserver/network/aion/{serverpackets,clientpackets}/**"
+	TEST_INCLUDES support TEST_SUPPORT support)
 
 # P4-16/17: server packets A-K / L-Z plus the Abstract* bases and the directory's fwd.h
 aion_gs_chunk(P4-16 TARGET aion_gs_sm_ak PHASE 4

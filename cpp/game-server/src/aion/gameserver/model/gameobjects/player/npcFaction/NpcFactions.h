@@ -17,11 +17,14 @@ namespace aion::gameserver::model::gameobjects::player::npcFaction {
 /**
  * S0c declaration header (docs/design/hub-headers.md §3.5). A part of Player (`PartSlot<NpcFactions>`, cycles review), bound to the player in
  * the constructor. The anonymous RequestResponseHandler of askLeaveNpcFaction is the fieldmap callback struct NpcFactions_RequestResponseHandler,
- * defined in NpcFactions.cpp when the method is ported (§7.3).
+ * defined in NpcFactions.cpp (§7.3).
  *
  * @author MrPoke, synchro2, Sykra
  */
 class NpcFactions : public runtime::OwnedPart {
+	/** C++ only: the callback struct of askLeaveNpcFaction (Java anonymous inner class) calls the private leaveNpcFaction(NpcFaction&) */
+	friend class NpcFactions_RequestResponseHandler;
+
 private:
 	runtime::OwnerRef<Player> owner;
 	runtime::HashMap<int32_t, runtime::Ref<NpcFaction>> factions{AION_LOCK_CLASS(NpcFactions::factions)};

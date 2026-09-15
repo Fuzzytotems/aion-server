@@ -2,7 +2,6 @@
 
 #include <utility>
 
-#include "aion/gameserver/runtime/base/Unported.h"
 #include "aion/gameserver/model/templates/spawns/SpawnGroup.h"
 #include "aion/gameserver/model/templates/spawns/SpawnSpotTemplate.h"
 
@@ -69,7 +68,7 @@ SpawnTemplate& SpawnTemplate::addTemplate(std::unique_ptr<SpawnTemplate> spawnTe
 }
 
 int32_t SpawnTemplate::getNpcId() {
-	AION_UNPORTED();
+	return spawnGroup.getNpcId();
 }
 
 int32_t SpawnTemplate::getWorldId() {
@@ -77,43 +76,43 @@ int32_t SpawnTemplate::getWorldId() {
 }
 
 runtime::Ptr<SpawnTemplate> SpawnTemplate::changeTemplate(int32_t instanceId) {
-	AION_UNPORTED();
+	return spawnGroup.reserveRandomFreePoolSpot(instanceId);
 }
 
 int32_t SpawnTemplate::getRespawnTime() {
-	AION_UNPORTED();
+	return spawnGroup.getRespawnTime();
 }
 
 void SpawnTemplate::resetPoolSpot(int32_t instanceId) {
-	AION_UNPORTED();
+	spawnGroup.resetPoolSpot(instanceId, *this);
 }
 
 const TemporarySpawn* SpawnTemplate::getTemporarySpawn() {
-	AION_UNPORTED();
+	return temporarySpawn != nullptr ? temporarySpawn : spawnGroup.getTemporarySpawn();
 }
 
 std::optional<spawnengine::SpawnHandlerType> SpawnTemplate::getHandlerType() {
-	AION_UNPORTED();
+	return spawnGroup.getHandlerType();
 }
 
 bool SpawnTemplate::isNoRespawn() {
-	AION_UNPORTED();
+	return spawnGroup.getRespawnTime() == 0;
 }
 
 bool SpawnTemplate::hasPool() {
-	AION_UNPORTED();
+	return spawnGroup.hasPool();
 }
 
 bool SpawnTemplate::isTemporarySpawn() {
-	AION_UNPORTED();
+	return spawnGroup.isTemporarySpawn();
 }
 
 bool SpawnTemplate::isEventSpawn() {
-	AION_UNPORTED();
+	return getEventTemplate() != nullptr;
 }
 
 const event::EventTemplate* SpawnTemplate::getEventTemplate() {
-	AION_UNPORTED();
+	return spawnGroup.getEventTemplate();
 }
 
 } // namespace aion::gameserver::model::templates::spawns

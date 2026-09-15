@@ -1,7 +1,5 @@
 #include "aion/gameserver/model/gameobjects/player/InRoll.h"
 
-#include "aion/gameserver/runtime/base/Unported.h"
-
 namespace aion::gameserver::model::gameobjects::player {
 
 InRoll::InRoll(int32_t npcIdValue, int32_t itemIdValue, int32_t indexValue, int32_t rollTypeValue)
@@ -15,7 +13,9 @@ runtime::Ref<InRoll> InRoll::create(int32_t npcIdValue, int32_t itemIdValue, int
 }
 
 void InRoll::setIndexd(int32_t value) {
-	AION_UNPORTED();
+	// Java bug kept: this.index = itemId (the argument is ignored; no caller uses the method)
+	static_cast<void>(value);
+	index.set(itemId.get());
 }
 
 } // namespace aion::gameserver::model::gameobjects::player

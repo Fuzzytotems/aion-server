@@ -8,6 +8,8 @@ namespace aion::gameserver::model::templates::item {
 class ReturnLocList : public ::aion::gameserver::model::templates::item::ResultedItemsCollection {
 #include "aion/gameserver/model/templates/item/ReturnLocList.xml.inc"
 public:
+	/** Java returns the int index as float */
+	float getIndex() const { return static_cast<float>(index); }
 };
 
 } // namespace aion::gameserver::model::templates::item
