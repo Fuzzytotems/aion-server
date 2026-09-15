@@ -62,7 +62,7 @@ private:
 	runtime::Field<std::string> allowedHddSerial{};
 	runtime::Field<int32_t> stamps{0};
 	runtime::Field<runtime::Ref<PassportsList>> playerPassports{};
-	// fieldmap: Java stores null (AtreianPassportService.java:60), hub-headers.md §6 nullable Timestamp field
+	// fieldmap.toml: Java stores null (AtreianPassportService.java:60), hub-headers.md §6 nullable Timestamp field
 	runtime::Field<std::optional<commons::database::Timestamp>> lastStamp{};
 
 protected:

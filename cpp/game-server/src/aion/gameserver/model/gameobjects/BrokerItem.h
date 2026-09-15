@@ -52,28 +52,28 @@ public:
 	 */
 	using Comparator = std::function<int32_t(runtime::Ptr<BrokerItem> o1, runtime::Ptr<BrokerItem> o2)>;
 
-	// fieldmap: static comparator constant, never reassigned (anonymous Comparator, defined in BrokerItem.cpp)
+	// fieldmap.toml: static comparator constant, never reassigned (anonymous Comparator, defined in BrokerItem.cpp)
 	static const Comparator NAME_SORT_ASC;
 
-	// fieldmap: static comparator constant, never reassigned (anonymous Comparator, defined in BrokerItem.cpp)
+	// fieldmap.toml: static comparator constant, never reassigned (anonymous Comparator, defined in BrokerItem.cpp)
 	static const Comparator NAME_SORT_DESC;
 
-	// fieldmap: static comparator constant, never reassigned (anonymous Comparator, defined in BrokerItem.cpp)
+	// fieldmap.toml: static comparator constant, never reassigned (anonymous Comparator, defined in BrokerItem.cpp)
 	static const Comparator PRICE_SORT_ASC;
 
-	// fieldmap: static comparator constant, never reassigned (anonymous Comparator, defined in BrokerItem.cpp)
+	// fieldmap.toml: static comparator constant, never reassigned (anonymous Comparator, defined in BrokerItem.cpp)
 	static const Comparator PRICE_SORT_DESC;
 
-	// fieldmap: static comparator constant, never reassigned (anonymous Comparator, defined in BrokerItem.cpp)
+	// fieldmap.toml: static comparator constant, never reassigned (anonymous Comparator, defined in BrokerItem.cpp)
 	static const Comparator PIECE_PRICE_SORT_ASC;
 
-	// fieldmap: static comparator constant, never reassigned (anonymous Comparator, defined in BrokerItem.cpp)
+	// fieldmap.toml: static comparator constant, never reassigned (anonymous Comparator, defined in BrokerItem.cpp)
 	static const Comparator PIECE_PRICE_SORT_DESC;
 
-	// fieldmap: static comparator constant, never reassigned (anonymous Comparator, defined in BrokerItem.cpp)
+	// fieldmap.toml: static comparator constant, never reassigned (anonymous Comparator, defined in BrokerItem.cpp)
 	static const Comparator LEVEL_SORT_ASC;
 
-	// fieldmap: static comparator constant, never reassigned (anonymous Comparator, defined in BrokerItem.cpp)
+	// fieldmap.toml: static comparator constant, never reassigned (anonymous Comparator, defined in BrokerItem.cpp)
 	static const Comparator LEVEL_SORT_DESC;
 
 protected:

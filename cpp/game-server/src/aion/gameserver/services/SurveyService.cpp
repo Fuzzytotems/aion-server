@@ -8,10 +8,11 @@ namespace aion::gameserver::services {
 
 static const auto log = commons::logging::LoggerFactory::getLogger("com.aionemu.gameserver.services.SurveyService");
 
-// Java implements Runnable (inner class: calls taskUpdate() of the enclosing instance)
+// Java implements Runnable (inner class: calls taskUpdate() of the enclosing instance). A task object of scheduleAtFixedRate with only
+// immutable members (fieldmap K3): ported as a TaskStruct value (runtime-architecture.md §7.3, §14.2(f)).
 class SurveyService::TaskUpdate {
 public:
-	SurveyService* surveyService; // Java: the enclosing instance
+	const SurveyService* surveyService; // Java: the enclosing instance (this$0, the Immortal singleton)
 
 	void run();
 };

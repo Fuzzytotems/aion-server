@@ -22,7 +22,7 @@ public:
 
 private:
 	/** values seem to not matter, but length does */
-	// fieldmap: Java byte[] constant; a constexpr table instead of a RefCounted Array created at static initialization
+	// fieldmap.toml: Java byte[] constant; a constexpr table instead of a RefCounted Array created at static initialization
 	static constexpr std::array<int8_t, 8> SCRIPT_PADDING{-51, -51, -51, -51, -51, -51, -51, -51};
 
 public:

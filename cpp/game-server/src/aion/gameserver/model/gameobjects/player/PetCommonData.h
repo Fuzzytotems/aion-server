@@ -32,7 +32,7 @@ private:
 	const int32_t masterObjectId;
 	runtime::Field<int32_t> decoration{};
 	runtime::Field<std::string> name{};
-	// fieldmap: Java compares it with null (PetCommonData.java getBirthday), hub-headers.md §6 nullable Timestamp field
+	// fieldmap.toml: Java compares it with null (PetCommonData.java getBirthday), hub-headers.md §6 nullable Timestamp field
 	runtime::Field<std::optional<commons::database::Timestamp>> birthday{};
 
 public:
@@ -48,7 +48,7 @@ private:
 	runtime::Field<int64_t> moodCdStarted{};
 	runtime::Field<int64_t> giftCdStarted{};
 	const int32_t expireTime;
-	// fieldmap: null until the DAO sets it (Timestamp column), hub-headers.md §6 nullable Timestamp field
+	// fieldmap.toml: null until the DAO sets it (Timestamp column), hub-headers.md §6 nullable Timestamp field
 	runtime::Field<std::optional<commons::database::Timestamp>> despawnTime{};
 	runtime::Field<bool> isLooting_{false};
 	runtime::Field<bool> isSelling_{false};

@@ -32,7 +32,8 @@ class AtreianPassportService : public runtime::Immortal {
 private:
 	static constexpr std::string_view DAILY_CRON_AT_09_00 = "0 0 9 ? * *";
 	static constexpr int32_t ATTEND_RESET_HOUR = 9;
-	const std::optional<std::chrono::local_time<std::chrono::milliseconds>> expireDate; // fieldmap: java.time.LocalDateTime (hub-headers.md §6), null when no passport has a period end
+	// fieldmap.toml: java.time.LocalDateTime (hub-headers.md §6), null when no passport has a period end
+	const std::optional<std::chrono::local_time<std::chrono::milliseconds>> expireDate;
 	runtime::Field<runtime::Ref<cron::JobDetail>> cronInfo{}; // fieldmap.toml: Quartz JobDetail is services::cron::JobDetail, a RefCounted handle (hub-headers.md §6)
 	AtreianPassportService();
 	~AtreianPassportService();

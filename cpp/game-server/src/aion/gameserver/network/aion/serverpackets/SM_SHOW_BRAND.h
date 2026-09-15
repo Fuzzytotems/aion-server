@@ -15,7 +15,7 @@ namespace aion::gameserver::network::aion::serverpackets {
  */
 class SM_SHOW_BRAND : public AionServerPacket {
 private:
-	std::map<int32_t, int32_t> targetIdsByIconId{}; // fieldmap: Java HashMap of the brand ids 0..15, which Java iterates in key order
+	std::map<int32_t, int32_t> targetIdsByIconId{}; // fieldmap.toml: Java HashMap of the brand ids 0..15, which Java iterates in key order
 public:
 	SM_SHOW_BRAND(int32_t iconId, int32_t targetObjectId);
 	explicit SM_SHOW_BRAND(const std::unordered_map<int32_t, int32_t>& targetIdsByIconId);

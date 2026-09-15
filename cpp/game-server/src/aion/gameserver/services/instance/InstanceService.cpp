@@ -2,28 +2,45 @@
 
 #include "aion/gameserver/runtime/base/Unported.h"
 #include "aion/commons/logging/LoggerFactory.h"
+#include "aion/commons/utils/TimeUtils.h"
 #include "aion/gameserver/world/WorldMapInstance.h"
 
 namespace aion::gameserver::services::instance {
 
 static const auto log = commons::logging::LoggerFactory::getLogger("com.aionemu.gameserver.services.instance.InstanceService");
 
-// Defined here (hub-headers.md §9.3): only InstanceService bodies use it. The members are what fieldmap.py prints (K5); the
-// port schedules the task, so it becomes a pinned TaskStruct with a Ref member (fieldmap change request).
+// Defined here (hub-headers.md §9.3): only InstanceService bodies use it. Scheduled at a fixed rate and kept in
+// WorldMapInstance.emptyInstanceTask, it reads its instance on the pool thread in every run, so it is K4 (fieldmap.toml [kinds]):
+// RefCounted, created with create(), retaining the instance. The cycle WorldMapInstance.emptyInstanceTask -> Future -> task -> instance is
+// cut when destroyInstance cancels the task (InstanceService.java destroyInstance).
 // Java implements Runnable
-class InstanceService::EmptyInstanceCheckerTask {
-public:
-	runtime::Ptr<world::WorldMapInstance> worldMapInstance{};
-	int64_t taskStartTime{};
+class InstanceService::EmptyInstanceCheckerTask final : public runtime::RefCounted {
+	AION_MAKE_REF_FRIEND
+private:
+	const runtime::Ref<world::WorldMapInstance> worldMapInstance;
+	const int64_t taskStartTime;
+
+protected:
 	explicit EmptyInstanceCheckerTask(world::WorldMapInstance& worldMapInstance);
+	~EmptyInstanceCheckerTask() override;
+
+public:
+	/** Java: new EmptyInstanceCheckerTask(worldMapInstance) */
+	static runtime::Ref<EmptyInstanceCheckerTask> create(world::WorldMapInstance& worldMapInstance);
 	bool canDestroyInstance();
 	bool isRegisteredTeamDisbanded();
 	int64_t calculateDestroyTime();
 	void run(); // @Override of a Java library type
 };
 
-InstanceService::EmptyInstanceCheckerTask::EmptyInstanceCheckerTask(world::WorldMapInstance& value) {
-	AION_UNPORTED();
+InstanceService::EmptyInstanceCheckerTask::EmptyInstanceCheckerTask(world::WorldMapInstance& value)
+	: worldMapInstance(value), taskStartTime(commons::utils::currentTimeMillis()) {
+}
+
+InstanceService::EmptyInstanceCheckerTask::~EmptyInstanceCheckerTask() = default;
+
+runtime::Ref<InstanceService::EmptyInstanceCheckerTask> InstanceService::EmptyInstanceCheckerTask::create(world::WorldMapInstance& value) {
+	return runtime::makeRef<EmptyInstanceCheckerTask>(value);
 }
 
 bool InstanceService::EmptyInstanceCheckerTask::canDestroyInstance() {

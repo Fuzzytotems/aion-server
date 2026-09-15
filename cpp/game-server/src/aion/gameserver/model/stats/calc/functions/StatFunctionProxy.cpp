@@ -19,11 +19,11 @@ container::StatEnum StatFunctionProxy::getName() {
 	AION_UNPORTED();
 }
 
-bool StatFunctionProxy::isBonus() {
+bool StatFunctionProxy::isBonus() const {
 	AION_UNPORTED();
 }
 
-int32_t StatFunctionProxy::getPriority() {
+int32_t StatFunctionProxy::getPriority() const {
 	AION_UNPORTED();
 }
 

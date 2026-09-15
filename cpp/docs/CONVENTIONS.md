@@ -204,7 +204,9 @@ DB::insertUpdate("UPDATE account_data SET last_ip = ? WHERE id = ?", [&](Prepare
 - Connections derive from `network::AConnection<TServerPacket>` and are always created with `std::make_shared` (in the `ConnectionFactory`).
   Java's `getSendMsgQueue()` is the protected `sendMsgQueue`, and `writeData` already runs with `guard` held.
 - Client packets derive from `packet::BaseClientPacket<TConnection>` and are handed to `PacketProcessor::executePacket` as `std::unique_ptr`.
-  `readD/readH/readC/readS/readB/...` keep their Java names and underflow semantics.
+  `readD/readH/readC/readS/readB/...` keep their Java names and underflow semantics. `BaseClientPacket` needs the complete connection type
+  only where `setConnection()` is called (it binds the connection's `toString` there), so a server-specific packet base header may
+  forward-declare its connection (`AionClientPacket.h`).
 - Server packets derive from `packet::BaseServerPacket`. Their write methods take the target buffer: `writeD(buf, value)`, `writeS(buf, text)`.
   A packet has no buffer member, so one instance (`std::shared_ptr`) can be broadcast to many connections at once.
 - `readS`/`writeS` convert between UTF-16LE on the wire and UTF-8 `std::string`.
@@ -248,7 +250,18 @@ Tests seed the calling thread's generator with `Rnd::seedCurrentThreadForTests(s
 ## Game server: drafts, handlers and lint
 
 Details: [design/handlers-and-porting-plan.md](design/handlers-and-porting-plan.md) and
-[design/conventions-game-server.md](design/conventions-game-server.md).
+[design/conventions-game-server.md](design/conventions-game-server.md). Header declarations (members, signatures, construction, statics,
+packets) follow [design/hub-headers.md](design/hub-headers.md), the rules the frozen spine headers were written by.
+
+**Spine headers** (frozen after S0c; changes go through header requests, hub-headers.md §14):
+- Generic erasure: a Java generic whose type parameters all have a project bound is one non-template C++ class, and `fwd.h` declares it as a
+  class (`CreatureController`, `GeneralTeam`); `AITemplate<T>` and unbounded utility generics stay templates.
+- Object parameters are `X&`, or `runtime::Ptr<X>` only on evidence that Java passes or checks `null` (hub-headers.md §5.1); returns are
+  `Ptr<X>`, part/owner/singleton accessors `X&`, factories `Ref<X>`.
+- Visible objects are created with `VisibleObject::create<T>(...)` (a `CreateKey` passkey constructor plus `postConstruct()`), never `new`.
+- A Java override whose body only casts `super.m()` is a non-virtual narrowing redeclaration with the narrower type; it does not make the
+  base method virtual.
+- No `__has_include` guards in game-server code (`skeleton.py --guards --freeze` in tools.gen).
 
 **Chunk ownership** (design §2.2; syntax in `cpp/game-server/cmake/AionChunks.cmake`):
 - `cpp/game-server/chunks.cmake` assigns every file to a chunk and is owned by the integrator; nobody else edits it.
@@ -296,7 +309,10 @@ Details: [design/handlers-and-porting-plan.md](design/handlers-and-porting-plan.
 
 **Concurrency lint waivers** (`tools/porting/lint_concurrency.py`; on the finding's line or the line above, reason mandatory, W0 otherwise):
 `// confined: <reason>`, `// fieldmap: <reason>`, `// lockdep: <reason>`, `// quiescent-safe: <reason>`, `// lint: L5,L12 <reason>`.
-`// fieldmap-class: <Java FQN>` on or above a class maps it to a Java class explicitly.
+`// fieldmap-class: <Java FQN>` on or above a class maps it to a Java class explicitly. A member spelled exactly like a `fieldmap.toml`
+decision needs no waiver (write `// fieldmap.toml: <reason>` as a plain note). Not waivable: missing lock classes (`AION_LOCK_CLASS`),
+`OwnerRef` members outside `OwnedPart` classes, and C++-only retaining members missing from `fieldmap.toml [cpp_members]`. CTest runs
+`lint_concurrency.py --werror --cycles=core game-server/src`.
 
 ## Static data (game server)
 

@@ -24,7 +24,7 @@ namespace aion::gameserver::model::gameobjects::player::title {
 class TitleList : public runtime::OwnedPart {
 private:
 	runtime::LinkedHashMap<int32_t, runtime::Ref<Title>> titles{AION_LOCK_CLASS(TitleList::titles)};
-	// fieldmap: late-bound part owner that Java reads as null before setOwner (fieldmap.toml says Final<Player*>, S0B-115)
+	// fieldmap.toml: late-bound part owner that Java reads as null before setOwner (S0B-115)
 	runtime::Field<Player*> owner{nullptr};
 
 public:

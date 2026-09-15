@@ -4,8 +4,8 @@
 > [handlers-and-porting-plan.md](handlers-and-porting-plan.md) §2.4, [static-data.md](static-data.md) and
 > [runtime-architecture.md](runtime-architecture.md). Where the result departs from the designs, each design has a "Wave 1 implementation
 > notes" section (runtime-architecture.md §22); Java-visible differences are in [DEVIATIONS.md](../DEVIATIONS.md) under game-server.
-> Spine step S0a (2026-09-14) resolved several open issues below; they are marked "Resolved (S0a)" and described in
-> [spine-status.md](spine-status.md).
+> Spine steps S0a, S0b and S0c (2026-09-14) resolved several open issues below; they are marked "Resolved (S0a)", "Resolved (S0b)" or
+> "Resolved (S0c)" and described in [spine-status.md](spine-status.md).
 
 The reviewers found 15 issues (3 high: `counter_skill` values broke the generated skill binder, `skeleton --fwd` declared 164 xmlgen structs
 as `class`, `AbstractAI` was forward-declared as a template). All were fixed with tests, together with two open issues (unchecked required
@@ -69,19 +69,25 @@ Test counts are the last reported runs (after the fixes where the suite was re-r
 
 - `HandlerRegistry.h` forward-declares the hub classes: `AbstractAI`, `Creature`, `InstanceHandler`, `WorldMapInstance`, `ZoneHandler`,
   `QuestZoneHandler`, `AbstractQuestHandler`, the four command classes, `AionClientPacket` and `StateSet` must be non-template classes in
-  those namespaces, or the header needs a change request.
+  those namespaces, or the header needs a change request. **Resolved (S0b):** they are, and `HandlerRegistry.h` compiles unchanged.
 - `AITemplate<T>` must declare `using OwnerType = T;` by hand; `skeleton.py` drafts `AbstractAI` as a non-template class but does not
-  generate the alias.
+  generate the alias. **Resolved (S0b):** `AbstractAI` is a non-template OwnedPart and `AITemplate<T>` declares the alias.
 - Cycle review: `cycles_report.md` has 687 unresolved edges (400 with suggestions), including the capture edges `Effect$1#this` and
   `Effect$2#this`; `cycles.toml` has only the 9 resolutions stated in the design. Enable `lint_concurrency.py --cycles` in CTest afterwards.
+  **Resolved (S0b/S0c):** every edge outside the handler scripts is resolved (310 resolutions at the freeze); CTest runs
+  `--werror --cycles=core`, and the 376 handler edges are left to the phase-6 chunks.
 - Check for per-run singleton services besides AhserionRaid and add them to `fieldmap.toml [settings] per_run_services` (67
-  `SingletonHolder` services are now Immortal).
+  `SingletonHolder` services are now Immortal). **Resolved (S0b):** there are none; the other services with start/stop are long-lived managers.
 - `PlayerGroupLeavedEvent` is K4 by analysis (runtime-architecture.md §14.2(d)): change the port (capture fields, K5 override) or keep K4.
+  **Resolved (S0b):** K5 together with `PlayerLeavedEvent` and `PlayerAllianceLeavedEvent`; the INSTANCE_KICK task captures values (P5-10).
 - fieldmap heuristics to review: 89 guessed collection implementations, 58 external value types (Timestamp, JobDetail, Date, ...) without
-  a C++ decision, 3 unresolved field types (`java.awt.geom` in Polygon2D).
+  a C++ decision, 3 unresolved field types (`java.awt.geom` in Polygon2D). **Resolved (S0b/S0c):** decided in the cycle review
+  (spine-status.md S0b decision 9); since S0c `fieldmap.py` spells the external types itself (28 `externalType` flags left) and resolves
+  Polygon2D to `Rectangle2D`/`Path2D`.
 - Drafts still carry TODO lines from the member data: `Field<JobDetail>`, a by-value `CronExpression`, `bool(?)` callback signatures, Java
   literal initializers such as `2f`, function declarations given as members. Reference members of template classes are bound through
-  `unportedArgument<T>()` stub constructors, which S0b replaces.
+  `unportedArgument<T>()` stub constructors, which S0b replaces. **Resolved (S0b/S0c):** no `TODO(` marker is left in `game-server/src`; the
+  remaining draft markers are resolved by hand per hub-headers.md §13.
 
 ### P4 static data (P4-07/08/09)
 
@@ -93,7 +99,8 @@ Test counts are the last reported runs (after the fixes where the suite was re-r
   a repeat a strict-mode error). **Resolved (S0a):** the template uses `c.replaceSingle`, with tests in `tools/xmlgen/tests/test_s0a.py`.
 - The class adapter calls `o.equipment->init(c.load())` during binding even with `runHooks=false`, and the `NpcEquippedGear` shell's `init`
   is `AION_UNPORTED`. Until P4-13 ports it, `npc_templates` cannot be loaded (the hooks and `setXmlUid`/`setXmlName` are unported too, so no
-  real load passes before P4-07/08/09/13).
+  real load passes before P4-07/08/09/13). (S0c: `NpcEquippedGear` is RefCounted and created by the binder; `init(LoadContext&)` is still
+  unported.)
 - `DataManager::init` must keep `LoadContext::takeRetired()` alive for the life of the process (resolved IDREFs can point into it).
 - The test shells in `tests/xml/generated` port only part of the hooks; replace them with the real `src/` classes and drop the include
   bridge. `GeneratedSliceTest` was adapted to the new counting rules (first root only, skipped roots compared with the oracle). S0a dropped the
@@ -126,11 +133,16 @@ Test counts are the last reported runs (after the fixes where the suite was re-r
 - `SM_SYSTEM_MESSAGE.gen0..7.cpp` need the hand-written `SM_SYSTEM_MESSAGE.h` (after the S0b `AionServerPacket`) and a Java-exact
   `toJavaString(float)`: use geomath's `JavaFloat::toString` (link geomath or move it to commons). The test stub is exact only for fixed
   notation; `STR_CMD_LOCATION_DESC` is the only float factory. Since S0a the manifest keeps `SM_SYSTEM_MESSAGE.gen0..7.cpp` header-only
-  (`COMPILE_WHEN_EXISTS`) until `SM_SYSTEM_MESSAGE.h` exists.
+  (`COMPILE_WHEN_EXISTS`) until `SM_SYSTEM_MESSAGE.h` exists. **Resolved (S0c):** the hand-written header exists (with
+  `JavaFloat::toString`) and the generated definitions compile in `aion_gs_sysmsg`.
 - When the real header lands, remove or move the `tests/network_crypt` stub `SM_SYSTEM_MESSAGE.h` (it shadows the real header),
   `GeneratedSysMsgTest.cpp` and `GeneratedSysMsgDefinitions0..7.cpp`; move the DialogAction and opcode tests to their chunks.
+  **Resolved (S0c) for sysmsg:** the stub and definition copies are removed, `GeneratedSysMsgTest` is in `tests/sysmsg`; the DialogAction and
+  opcode tests stay in `network_crypt`.
 - `ServerPacketTraits.gen.h` (PER_RECIPIENT and non-cacheable packet lists, planned opcodes.py extension) is not implemented: it needs
   `writeImpl` analysis for `con` use including helpers and abstract bases, the hand-decided SM_GROUP/ALLIANCE_MEMBER_INFO and the §8.5 list.
+  **Superseded (S0c):** packets override `recipients()` by hand and lint L10 checks them against its `PER_RECIPIENT` set (which now includes
+  SM_CREATE_CHARACTER).
 - `ClientPacketInfo.gen.inc` needs its consumer macro in `AionClientPacketFactory` (P4-15).
 - `SM_SYSTEM_MESSAGE.gen.h` (600 KB, half javadoc) and `DialogAction.h` (304 KB) are included by about 240 and 1,040 files; use a PCH or
   drop the javadoc from the generated header (one line in `sysmsg.render_header`) if compile time suffers.

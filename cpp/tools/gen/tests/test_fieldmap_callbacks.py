@@ -426,5 +426,290 @@ class OutputsTest(unittest.TestCase):
                 self.assertEqual(fieldmap.main(args + ['--class', 'com.x.Nope']), 2)
 
 
+class CppMembersTest(unittest.TestCase):
+    """fieldmap.toml [cpp_members] (C++-only members with their cycle edges) and [captures] drop = true."""
+
+    def test_cpp_members_json_block_and_edges(self):
+        cfg = CONFIG + '''[cpp_members]
+"com.x.world.Player.kiskSlot" = { cpp = "PartSlot<Kisk>", part_type = "com.x.world.Kisk", reason = "C++-only slot" }
+"com.x.world.Kisk.creatorCopy" = { cpp = "Field<Ref<Player>>", retains = ["com.x.world.Player"], reason = "C++-only retaining copy" }
+"com.x.world.Kisk.usesCopy" = { cpp = "const int32_t", reason = "C++-only scalar" }
+'''
+        fm = fieldmap.build_from_sources(FILES, cfg, CYCLES)
+        d = fm.class_json(fm.classes['com.x.world.Kisk'])
+        self.assertEqual([m['name'] for m in d['cppMembers']], ['creatorCopy', 'usesCopy'])
+        self.assertEqual(d['cppMembers'][0]['retains'], ['com.x.world.Player'])
+        block = fm.member_block('com.x.world.Player')
+        self.assertIn('PartSlot<Kisk> kiskSlot;', block)
+        self.assertIn('part of type com.x.world.Kisk: C++-only slot', block)
+        self.assertIn('com.x.world.Kisk.creatorCopy', fm.cycle_edges)  # a field edge needing a resolution
+        self.assertEqual(fm.cycle_edges['com.x.world.Kisk.creatorCopy']['kind'], 'field')
+        self.assertNotIn('com.x.world.Kisk.usesCopy', fm.cycle_edges)
+        self.assertNotIn('com.x.world.Player.kiskSlot', fm.cycle_edges)  # part edges are structural
+
+    def test_cpp_members_validation(self):
+        for extra in ('"com.x.world.Nope.m" = { cpp = "int", reason = "x" }',
+                      '"com.x.world.Kisk.creator" = { cpp = "int", reason = "x" }',  # a Java field: use [fields]
+                      '"com.x.world.Kisk.m" = { cpp = "int", reason = "x", retains = ["com.x.Nope"] }',
+                      '"com.x.world.Kisk.m" = { cpp = "int" }',
+                      '"com.x.world.Kisk.m" = { cpp = "int", reason = "x", part_type = "com.x.world.Player", retains = ["com.x.world.Player"] }'):
+            with self.assertRaises(fieldmap.FieldmapError, msg=extra):
+                fieldmap.build_from_sources(FILES, CONFIG + '[cpp_members]\n' + extra + '\n', CYCLES)
+
+    def test_dropped_capture(self):
+        cfg = CONFIG + '[captures]\n"com.x.world.Kisk$1#creator" = { drop = true, reason = "the port copies what it reads" }\n'
+        fm = fieldmap.build_from_sources(FILES, cfg, CYCLES)
+        cap = next(c for c in fm.classes['com.x.world.Kisk$1'].captures if c.name == 'creator')
+        self.assertIsNone(cap.cpp)
+        self.assertEqual(cap.rule, 'fieldmap.toml override: dropped')
+        self.assertNotIn('com.x.world.Kisk$1#creator', fm.cycle_edges)
+        self.assertNotIn('creator', fm.callback_struct(fm.classes['com.x.world.Kisk$1']).split('create(')[1])
+        self.assertIn('(no member) ', fm.member_block('com.x.world.Kisk$1'))
+        self.assertNotIn('Player creator; // captured', fm.member_block('com.x.world.Kisk'))  # no struct member either
+        with self.assertRaises(fieldmap.FieldmapError):
+            fieldmap.build_from_sources(FILES, CONFIG + '[captures]\n"com.x.world.Kisk$1#creator" = { drop = true, cpp = "int", reason = "x" }\n', CYCLES)
+
+
+TASK_OBJECT_FILES = {
+    'com/x/util/ThreadPoolManager.java': FILES['com/x/util/ThreadPoolManager.java'],
+    'com/x/util/Cron.java': FILES['com/x/util/Cron.java'],
+    'com/x/world/Instance.java': '''package com.x.world;
+import java.util.concurrent.Future;
+import com.x.util.ThreadPoolManager;
+public class Instance {
+    private Future<?> emptyTask;
+    public void setEmptyTask(Future<?> task) { emptyTask = task; }
+    public void register() {
+        emptyTask = ThreadPoolManager.getInstance().scheduleAtFixedRate(new EmptyChecker(this), 1000, 1000);
+        ThreadPoolManager.getInstance().schedule(new Decay(7), 10);
+    }
+    private static class EmptyChecker implements Runnable {
+        private final Instance instance;
+        private EmptyChecker(Instance instance) { this.instance = instance; }
+        public void run() { instance.register(); }
+    }
+    private static class Decay implements Runnable {
+        private final int objectId;
+        Decay(int objectId) { this.objectId = objectId; }
+        public void run() {}
+    }
+}''',
+    'com/x/world/Spawner.java': '''package com.x.world;
+import java.util.concurrent.Future;
+import com.x.util.*;
+public class Spawner implements Runnable {
+    private Instance last;
+    private Future<?> own;
+    public void run() { last = new Instance(); own = ThreadPoolManager.getInstance().schedule(this, 100); }
+    public static void start() { Cron.getInstance().schedule(new Spawner(), "0 0 * * * ?"); }
+}''',
+    'com/x/world/Confined.java': '''package com.x.world;
+public class Confined implements Runnable {
+    private Instance instance;
+    public void run() {}
+    public static void direct(Instance i) { Confined c = new Confined(); c.instance = i; c.run(); }
+}''',
+}
+
+
+class TaskObjectsTest(unittest.TestCase):
+    """Named Runnable objects handed to a task or stored-callback API escape and get a stored edge from the class keeping the Future."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.fm = fieldmap.build_from_sources(TASK_OBJECT_FILES, CONFIG)
+
+    def test_task_objects_escape(self):
+        checker = self.fm.classes['com.x.world.Instance.EmptyChecker']
+        self.assertEqual(checker.kind, 'K4')  # no longer confined (K4: its Instance is mutable)
+        self.assertIn('task object (new) passed to scheduleAtFixedRate()', checker.kind_reason)
+        self.assertEqual(next(f for f in checker.fields if f.name == 'instance').cpp, 'const Ref<Instance>')
+        self.assertEqual(self.fm.classes['com.x.world.Instance.Decay'].kind, 'K3')  # immutable task object
+        spawner = self.fm.classes['com.x.world.Spawner']
+        self.assertEqual(spawner.kind, 'K4')
+        self.assertEqual(next(f for f in spawner.fields if f.name == 'last').cpp, 'Field<Ref<Instance>>')
+        self.assertEqual(self.fm.classes['com.x.world.Confined'].kind, 'K5')  # run synchronously, never handed to a pool
+
+    def test_task_object_storage(self):
+        by = {(t.ci.cid, t.how, t.api): t for t in self.fm.task_objects}
+        checker = by[('com.x.world.Instance.EmptyChecker', 'new', 'scheduleAtFixedRate')]
+        self.assertEqual((checker.storage, [o.cid for o in checker.owners]), ('task', ['com.x.world.Instance']))
+        self.assertEqual([o.cid for o in by[('com.x.world.Spawner', 'new', 'schedule')].owners], ['com.x.util.Cron'])
+        self.assertEqual([o.cid for o in by[('com.x.world.Spawner', 'this', 'schedule')].owners], ['com.x.world.Spawner'])
+        self.assertEqual(by[('com.x.world.Instance.Decay', 'new', 'schedule')].owners, [])
+
+    def test_holder_cycle_through_a_task_object(self):
+        edge = self.fm.cycle_edges['com.x.world.Instance.EmptyChecker.instance']
+        self.assertIsNone(edge['resolution'])
+        self.assertIn(('com.x.world.Instance', 'stored', 'com.x.world.Instance.EmptyChecker'), [tuple(x) for x in edge['example']])
+        # a task that keeps its own Future is no holder cycle (cancel releases it)
+        self.assertFalse(any(k.startswith('com.x.world.Spawner') for k in self.fm.cycle_edges))
+
+
+HOLDER_FILES = {
+    'com/x/util/ThreadPoolManager.java': FILES['com/x/util/ThreadPoolManager.java'],
+    'com/x/util/Job.java': '''package com.x.util;
+public class Job {}''',
+    'com/x/util/Jobs.java': '''package com.x.util;
+public class Jobs {
+    private static final Jobs instance = new Jobs();
+    public static Jobs getInstance() { return instance; }
+    public Job schedule(Runnable r, String expr) { return null; }
+}''',
+    'com/x/world/Roots.java': '''package com.x.world;
+public class Roots {
+    public static Stats stats;
+    public static Raid raid;
+    public static Recall recall;
+}''',
+    'com/x/world/Stats.java': '''package com.x.world;
+import java.util.concurrent.Future;
+public class Stats {
+    private Future<?> restoreTask;
+    private int hp;
+    public void trigger() { restoreTask = RestoreService.getInstance().scheduleRestore(this); }
+    public void restore() { hp++; }
+}''',
+    'com/x/world/RestoreService.java': '''package com.x.world;
+import java.util.concurrent.Future;
+import com.x.util.ThreadPoolManager;
+public class RestoreService {
+    private static final RestoreService instance = new RestoreService();
+    public static RestoreService getInstance() { return instance; }
+    public Future<?> scheduleRestore(Stats stats) {
+        return ThreadPoolManager.getInstance().scheduleAtFixedRate(new RestoreTask(stats), 1000, 1000);
+    }
+    private static class RestoreTask implements Runnable {
+        private Stats stats;
+        private RestoreTask(Stats stats) { this.stats = stats; }
+        public void run() { stats.restore(); stats = null; }
+    }
+}''',
+    'com/x/world/Recall.java': '''package com.x.world;
+import java.util.concurrent.Future;
+import com.x.util.ThreadPoolManager;
+public class Recall {
+    private int count;
+    public void request() {
+        Request request = new Request();
+        request.timeout = ThreadPoolManager.getInstance().schedule(() -> { if (request.timeout != null) count++; }, 10);
+    }
+    public static class Request {
+        private Future<?> timeout;
+    }
+}''',
+    'com/x/world/Raid.java': '''package com.x.world;
+import com.x.util.*;
+public class Raid {
+    private Job job;
+    private int ticks;
+    public void start() { job = Jobs.getInstance().schedule(() -> ticks++, "0 0 * * * ?"); }
+}''',
+}
+
+HOLDER_CONFIG = '''
+[future_apis]
+"ThreadPoolManager.schedule" = { reason = "test" }
+"ThreadPoolManager.scheduleAtFixedRate" = { reason = "test" }
+[stored_callback_apis]
+"Jobs.schedule" = { owner = "com.x.util.Jobs", handle = true, reason = "the returned Job keeps the callback" }
+'''
+
+
+class ResultHoldersTest(unittest.TestCase):
+    """Future and handle holders the freeze review found missing: a Future returned to the caller, a Future written to a field of another
+    object, and the handle of a [stored_callback_apis] entry with handle = true."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.fm = fieldmap.build_from_sources(HOLDER_FILES, HOLDER_CONFIG, '')
+
+    def callback(self, prefix):
+        return next(cb for cid, cb in self.fm.callbacks.items() if cid.startswith(prefix))
+
+    def test_future_returned_to_the_caller(self):
+        task = next(t for t in self.fm.task_objects if t.ci.cid == 'com.x.world.RestoreService.RestoreTask')
+        self.assertEqual([o.cid for o in task.owners], ['com.x.world.Stats'])
+        self.assertEqual(task.future_holder, 'field Stats.restoreTask via scheduleRestore()')
+        edge = self.fm.cycle_edges['com.x.world.RestoreService.RestoreTask.stats']
+        self.assertIn(('com.x.world.Stats', 'stored', 'com.x.world.RestoreService.RestoreTask'), [tuple(x) for x in edge['example']])
+
+    def test_future_written_to_a_field_of_another_object(self):
+        cb = self.callback('com.x.world.Recall@L')
+        self.assertEqual(([o.cid for o in cb.owners], cb.future_holder), (['com.x.world.Recall.Request'], 'field Request.timeout'))
+        self.assertTrue(any(k.startswith('com.x.world.Recall@L') and k.endswith('#request') for k in self.fm.cycle_edges))
+
+    def test_stored_callback_handle(self):
+        cb = self.callback('com.x.world.Raid@L')
+        self.assertEqual([o.cid for o in cb.owners], ['com.x.util.Jobs', 'com.x.world.Raid'])
+        self.assertTrue(any(k.startswith('com.x.world.Raid@L') and k.endswith('#this') for k in self.fm.cycle_edges))
+        plain = fieldmap.build_from_sources(HOLDER_FILES, HOLDER_CONFIG.replace('handle = true, ', ''), '')
+        cb = next(cb for cid, cb in plain.callbacks.items() if cid.startswith('com.x.world.Raid@L'))
+        self.assertEqual([o.cid for o in cb.owners], ['com.x.util.Jobs'])
+        self.assertFalse(any(k.startswith('com.x.world.Raid@L') for k in plain.cycle_edges))
+        with self.assertRaises(fieldmap.FieldmapError):
+            fieldmap.build_from_sources(HOLDER_FILES, HOLDER_CONFIG.replace('handle = true', 'handle = false'), '')
+
+
+WEAK_FILES = {
+    'com/y/Roots.java': '''package com.y;
+public class Roots {
+    public static Drop drop;
+    public static Team team;
+}''',
+    'com/y/Drop.java': '''package com.y;
+import java.lang.ref.WeakReference;
+public class Drop {
+    private WeakReference<Team> team;
+    public void setTeam(Team t) { team = new WeakReference<>(t); }
+}''',
+    'com/y/Team.java': '''package com.y;
+public class Team {
+    private Drop drop;
+    private Charge charge;
+    public void setDrop(Drop d) { drop = d; }
+    public void setCharge(Charge c) { charge = c; }
+}''',
+    'com/y/Charge.java': '''package com.y;
+public class Charge {
+    private final Team team;
+    private int points;
+    public Charge(Team team) { this.team = team; }
+    public void add() { points++; }
+}''',
+}
+
+
+class FieldOverrideEdgesTest(unittest.TestCase):
+    """[fields] retains (edges a WeakReference hides) and holders/accessor (checked non-retaining back references for lint L3)."""
+
+    CFG = '''[fields]
+"com.y.Drop.team" = { cpp = "Field<Ref<Team>>", retains = ["com.y.Team"], reason = "test: WeakReference as Ref" }
+"com.y.Charge.team" = { cpp = "OwnerRef<Team>", holders = ["com.y.Team.charge"], accessor = "getTeam", reason = "test: checked back reference" }
+'''
+
+    def test_retains_adds_the_hidden_edge(self):
+        fm = fieldmap.build_from_sources(WEAK_FILES, self.CFG, '')
+        drop = next(f for f in fm.classes['com.y.Drop'].fields if f.name == 'team')
+        self.assertEqual(drop.retains, ['com.y.Team'])
+        self.assertIn('com.y.Drop.team', fm.cycle_edges)
+        without = fieldmap.build_from_sources(WEAK_FILES, self.CFG.replace('retains = ["com.y.Team"], ', ''), '')
+        self.assertNotIn('com.y.Drop.team', without.cycle_edges)
+
+    def test_holders_and_accessor(self):
+        fm = fieldmap.build_from_sources(WEAK_FILES, self.CFG, '')
+        f = next(x for x in fm.class_json(fm.classes['com.y.Charge'])['fields'] if x['name'] == 'team')
+        self.assertEqual((f['cpp'], f['holders'], f['accessor']), ('OwnerRef<Team>', ['com.y.Team.charge'], 'getTeam'))
+        self.assertNotIn('com.y.Charge.team', fm.cycle_edges)  # non-retaining
+        bad = ('"com.y.Charge.team" = { cpp = "OwnerRef<Team>", holders = ["com.y.Team.nope"], accessor = "getTeam", reason = "x" }',
+               '"com.y.Charge.team" = { cpp = "OwnerRef<Team>", holders = ["com.y.Team.charge"], reason = "x" }',
+               '"com.y.Charge.team" = { cpp = "const Ref<Team>", holders = ["com.y.Team.charge"], accessor = "getTeam", reason = "x" }',
+               '"com.y.Drop.team" = { cpp = "Field<Ref<Team>>", retains = ["com.y.Nope"], reason = "x" }',
+               '"com.y.Drop.team" = { cpp = "Field<Ref<Team>>", retains = [], reason = "x" }')
+        for line in bad:
+            with self.assertRaises(fieldmap.FieldmapError, msg=line):
+                fieldmap.build_from_sources(WEAK_FILES, '[fields]\n' + line + '\n', '')
+
+
 if __name__ == '__main__':
     unittest.main()

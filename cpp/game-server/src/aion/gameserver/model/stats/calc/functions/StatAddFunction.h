@@ -30,7 +30,7 @@ public:
 
 	void apply(Stat2& stat, const std::unordered_set<utils::stats::CalculationType>& calculationTypes) override;
 
-	int32_t getPriority() override;
+	int32_t getPriority() const override;
 
 	std::string toString() override;
 };

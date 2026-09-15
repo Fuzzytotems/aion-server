@@ -53,3 +53,35 @@
   `TaskScope`; pool tasks and cron jobs post the shutdown to the ShutdownHook thread.
 - Static data hierarchy roots (generated structs and xmlgen shells) derive `runtime::StaticTemplate`, so `const T*` templates can be pinned
   and captured without trait specializations.
+
+## Added after spine steps S0b and S0c (2026-09-14)
+
+The frozen headers follow [hub-headers.md](hub-headers.md); these are the rules every porter meets first.
+- A RefCounted class that derives a static data root through xmlgen (`PlayerCommonData`) is not a template: `IsStaticTemplate` is false for
+  it, so its pointer is no `TaskArg` and `Pin` retains it. No trait specialization is needed.
+- Object parameters are `X&` unless Java passes `null` directly at a call site, compares the parameter with `null` in the method family, or
+  stores it in a one-statement setter; then `Ptr<X>` (hub-headers.md §5.1). Enums, boxed numbers and Timestamps with the same evidence are
+  `std::optional`. Returns are `Ptr<X>`; part, owner and singleton accessors return `X&`; factories of new objects return `Ref<X>`, of new
+  parts `std::unique_ptr<X>`.
+- A Java generic whose type parameters all have a project bound is one non-template class (erasure rule, hub-headers.md §8.1); `fwd.h`
+  declares it as a class. A Java override that only casts `super.m()` is a non-virtual narrowing redeclaration, not a virtual override.
+- Visible objects are created only with `VisibleObject::create<T>(...)`; constructors take `CreateKey` first and only store members, the
+  constructor-body work that needs the dynamic type runs in `postConstruct()`.
+- Interfaces held by `Ref<I>` declare pure virtual `retain()`/`release()`; the first implementor with a runtime base forwards them, Immortal
+  and static data implementors define no-ops. `toString()` is non-const on RefCounted, OwnedPart and Immortal classes; methods of static data
+  classes are `const`.
+- A deviation from `fieldmap.py --class` is a `fieldmap.toml` decision with a reason (`[fields]`, `[kinds]`, `[bases]`, `[captures]`,
+  `[cpp_members]`); the header carries a `// fieldmap.toml: <reason>` note. `// fieldmap:` waivers are only an interim form. Copy the
+  `--class` block, which also prints lock classes and C++-only members.
+- Every lockable member carries `{AION_LOCK_CLASS(JavaClass::field)}`; a missing tag fails `gs.lint.concurrency`.
+- `OwnerRef<O>` members exist only in `OwnedPart` classes; any other non-retaining back reference needs a reviewed `fieldmap.toml` override
+  with the lifetime argument.
+- A Runnable class handed to `schedule*` or a stored-callback API is never K5: with object members it is K4, RefCounted with a protected
+  constructor, `create()` and `AION_MAKE_REF_FRIEND`; with only immutable members it may be a K3 `TaskStruct`.
+- C++-only cycle breakers are named `<verb>WithoutNotify` or `break<Member>`, are `noexcept` once ported, and are listed next to their
+  `cycles.toml` edge. A porter who adds a retaining reference reruns `fieldmap.py` and adds `cycles.toml` entries for the new edges.
+- Static comparator constants are `static const std::function<...>` defined in the `.cpp`. Java generic methods are inline member templates
+  with `AION_UNPORTED();` bodies. `LinkedHashMap` results ordered by value are `std::vector<std::pair<K, V>>`. A `static final` RefCounted
+  object is `static const Ref<X>&` bound in the `.cpp` to a never-destroyed `Ref` (`ItemService::DEFAULT_UPDATE_PREDICATE`, `PanesterraTeam`).
+- The spine is frozen: no `__has_include` guards (tools.gen fails on any), and changes to frozen headers go through header requests
+  (hub-headers.md §14). Bodies and new files of the owning chunk need no request.

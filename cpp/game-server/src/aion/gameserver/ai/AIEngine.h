@@ -29,7 +29,8 @@ namespace aion::gameserver::ai {
  *
  * @author ATracer
  */
-class AIEngine : public runtime::Immortal, public model::GameEngine { // fieldmap: no scriptManager, aiHandlers (replaced by HandlerRegistry.h)
+class AIEngine : public runtime::Immortal, public model::GameEngine {
+	// fieldmap.toml drops scriptManager and aiHandlers (replaced by HandlerRegistry.h)
 private:
 	/** Java: private static class DummyAI<T extends Creature> extends AITemplate<T> (defined in AIEngine.cpp, §9.3) */
 	template <class T>

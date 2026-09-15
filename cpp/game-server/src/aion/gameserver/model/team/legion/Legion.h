@@ -72,7 +72,7 @@ private:
 	runtime::Field<runtime::Ref<Legion::Announcement>> announcement{};
 	runtime::Field<runtime::Ref<LegionEmblem>> legionEmblem; // Java: = new LegionEmblem() (constructor)
 	const std::unique_ptr<LegionWarehouse> legionWarehouse;
-	// fieldmap: LegionHistoryAction.Type is nested in an enum, spelled LegionHistoryAction_Type (hub-headers.md §13)
+	// fieldmap.toml: LegionHistoryAction.Type is nested in an enum, spelled LegionHistoryAction_Type (hub-headers.md §13)
 	runtime::EnumMap<LegionHistoryAction_Type, runtime::Ref<runtime::RcArrayList<runtime::Ref<LegionHistoryEntry>>>> legionHistoryByType{
 		AION_LOCK_CLASS(Legion::legionHistoryByType)};
 	runtime::AtomicBoolean hasBonus_{AION_LOCK_CLASS(Legion::hasBonus), false};

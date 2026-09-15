@@ -9,7 +9,8 @@ namespace aion::gameserver::services {
 
 static const auto log = commons::logging::LoggerFactory::getLogger("com.aionemu.gameserver.services.RespawnService");
 
-// Java implements Runnable
+// Java implements Runnable. A task object of schedule with only immutable members (fieldmap K3): ported as a TaskStruct value
+// (runtime-architecture.md §7.3, §14.2(f)).
 class RespawnService::DecayTask {
 public:
 	const int32_t objectId;

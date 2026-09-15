@@ -21,7 +21,7 @@ namespace aion::gameserver::model::siege {
 class ArtifactLocation : public SiegeLocation {
 	AION_MAKE_REF_FRIEND
 private:
-	// fieldmap: null until the first setStatus (getStatus maps null to IDLE, ArtifactLocation.java:71)
+	// fieldmap.toml: null until the first setStatus (getStatus maps null to IDLE, ArtifactLocation.java:71)
 	runtime::Field<std::optional<ArtifactStatus>> status{};
 	runtime::Field<int64_t> lastArtifactActivation{};
 

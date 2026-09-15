@@ -26,7 +26,7 @@ namespace aion::gameserver::model::team::alliance {
 class PlayerAlliance : public TemporaryPlayerTeam {
 	AION_MAKE_REF_FRIEND
 private:
-	// fieldmap: PlayerAllianceGroup is RefCounted through TemporaryPlayerTeam (players hold it by Ref), so not the PartMap of fieldmap.toml
+	// PlayerAllianceGroup is RefCounted through TemporaryPlayerTeam (players hold it by Ref): Ref values, no PartMap (cycles.toml cpp-breaker)
 	runtime::HashMap<int32_t, runtime::Ref<PlayerAllianceGroup>> groups{AION_LOCK_CLASS(PlayerAlliance::groups)};
 	runtime::CopyOnWriteArrayList<int32_t> viceCaptainIds{AION_LOCK_CLASS(PlayerAlliance::viceCaptainIds)}; // Java: = new CopyOnWriteArrayList<>()
 	runtime::Field<int32_t> allianceReadyStatus{};

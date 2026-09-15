@@ -25,7 +25,7 @@ class SM_CLOSE_QUESTION_WINDOW : public AionServerPacket {
 private:
 	static constexpr int32_t MAX_PARAM_COUNT = 3;
 	int32_t msgId{};
-	std::vector<std::string> params; // fieldmap: Java Object[], formatted into Java strings at construction
+	std::vector<std::string> params; // fieldmap.toml: Java Object[], formatted into Java strings at construction
 
 	/** Java String.valueOf of one `Object...` parameter (strings as they are, integers and booleans) */
 	template <class Param>

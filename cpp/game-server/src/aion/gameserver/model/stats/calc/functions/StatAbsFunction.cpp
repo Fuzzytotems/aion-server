@@ -12,7 +12,7 @@ void StatAbsFunction::apply(Stat2& statValue, const std::unordered_set<utils::st
 	AION_UNPORTED();
 }
 
-int32_t StatAbsFunction::getPriority() {
+int32_t StatAbsFunction::getPriority() const {
 	if (debuff)
 		return isBonus() ? 110 : 90;
 

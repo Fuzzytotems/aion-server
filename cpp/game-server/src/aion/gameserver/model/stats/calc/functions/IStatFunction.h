@@ -16,7 +16,9 @@ namespace aion::gameserver::model::stats::calc::functions {
  * <p>
  * S0c declaration header (docs/design/hub-headers.md §3.5). An interface held by `Ref<IStatFunction>` (fieldmap: CreatureGameStats.stats), so
  * it declares the reference count operations (§9.2): StatFunctionProxy and the run-time StatFunctions (RcStatFunction<T>, subclasses deriving
- * RefCounted) forward them to RefCounted; StatFunction itself implements them as no-ops for its immortal static data (StatFunction.h). Java `Comparable<IStatFunction>` with a default compareTo (priority difference): `compareTo(...) const` for the collection shims.
+ * RefCounted) forward them to RefCounted; StatFunction itself implements them as no-ops for its immortal static data (StatFunction.h).
+ * Java `Comparable<IStatFunction>` with a default compareTo (priority difference): `compareTo(...) const` for the collection shims, so
+ * getPriority() and isBonus(), which the Stat*Function priorities read, are const too (hub-headers.md §9.1).
  *
  * @author ATracer, Rolandas
  */
@@ -28,9 +30,9 @@ public:
 
 	virtual container::StatEnum getName() = 0;
 
-	virtual bool isBonus() = 0;
+	virtual bool isBonus() const = 0;
 
-	virtual int32_t getPriority() = 0;
+	virtual int32_t getPriority() const = 0;
 
 	virtual int32_t getValue() = 0;
 

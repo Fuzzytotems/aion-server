@@ -18,7 +18,7 @@ namespace aion::gameserver::dataholders {
 class NpcSkillData : public ::aion::gameserver::runtime::StaticTemplate {
 #include "aion/gameserver/dataholders/NpcSkillData.xml.inc"
 private:
-	// fieldmap: K1 non-bound member (hand-written, const after load); Java HashMap<Integer, NpcSkillTemplates>
+	// K1 non-bound member (fieldmap.json: hand-written, const after load); Java HashMap<Integer, NpcSkillTemplates>
 	std::unordered_map<int32_t, const model::templates::npcskill::NpcSkillTemplates*> npcSkillData;
 
 public:

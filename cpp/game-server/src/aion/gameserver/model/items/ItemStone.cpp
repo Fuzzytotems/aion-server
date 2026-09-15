@@ -12,7 +12,7 @@ ItemStone::ItemStone(int32_t itemObjIdValue, int32_t itemIdValue, int32_t slotVa
 
 ItemStone::~ItemStone() = default;
 
-const templates::item::ItemTemplate* ItemStone::getItemTemplate() {
+const templates::item::ItemTemplate* ItemStone::getItemTemplate() const {
 	AION_UNPORTED();
 }
 

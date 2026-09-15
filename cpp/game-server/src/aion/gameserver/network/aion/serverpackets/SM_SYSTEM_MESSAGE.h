@@ -63,7 +63,7 @@ private:
 	int32_t msgId;
 	int8_t chatType;
 	int32_t senderObjId;
-	std::vector<std::string> params;        // fieldmap: Java Object[], formatted into Java strings at construction (sysmsg.py contract)
+	std::vector<std::string> params;        // fieldmap.toml: Java Object[], formatted into Java strings at construction (sysmsg.py contract)
 	std::vector<std::string> specialParams; // Java String[]
 
 	/** Java String.valueOf / toString() of one `Object...` parameter (strings as they are, numbers through toJavaString) */

@@ -31,7 +31,8 @@ public:
 	runtime::Field<int8_t> levelBitMask{0};
 
 private:
-	runtime::HashSet<int32_t> instances{AION_LOCK_CLASS(DespawnableNode::instances)}; // fieldmap: java.util.BitSet (noShim) as the set bit indexes
+	// fieldmap.toml: java.util.BitSet (no shim) as the set bit indexes
+	runtime::HashSet<int32_t> instances{AION_LOCK_CLASS(DespawnableNode::instances)};
 
 protected:
 	DespawnableNode();

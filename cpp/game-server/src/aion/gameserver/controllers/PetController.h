@@ -17,7 +17,7 @@ namespace aion::gameserver::controllers {
  * setOwner in Pet::postConstruct). Binds VisibleObjectController's type variable to Pet: getOwner() returns `Pet&` (§8.2).
  * <p>
  * PetUpdateTask is the Runnable PetSpawnService schedules at a fixed rate: it keeps startTime between runs, so it is RefCounted and holds its
- * player by Ref (fieldmap classifies it K5 confined; change request like CreatureController.DelayedOnAttack).
+ * player by Ref (fieldmap.toml [kinds] K4, like CreatureController.DelayedOnAttack).
  *
  * @author ATracer
  */
@@ -27,8 +27,8 @@ public:
 	class PetUpdateTask final : public runtime::RefCounted {
 		AION_MAKE_REF_FRIEND
 	private:
-		const runtime::Ref<model::gameobjects::player::Player> player; // fieldmap: a scheduled Runnable's member, retained (not K5)
-		runtime::Field<int64_t> startTime{0};                         // fieldmap: a scheduled Runnable's member, read by later runs (not K5)
+		const runtime::Ref<model::gameobjects::player::Player> player; // Java: private final Player player
+		runtime::Field<int64_t> startTime{0};                         // Java: private long startTime
 
 	protected:
 		explicit PetUpdateTask(model::gameobjects::player::Player& player);

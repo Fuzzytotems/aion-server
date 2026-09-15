@@ -43,7 +43,7 @@ private:
 	runtime::Field<runtime::Ref<runtime::RcHashSet<runtime::Ref<Event>>>> activeEvents{}; // Java: = Collections.emptySet(); null until the first check (the port creates the empty set)
 	runtime::Field<runtime::Ref<runtime::RcArrayList<const model::templates::globaldrops::GlobalRule*>>> activeEventDropRules{}; // Java: = Collections.emptyList()
 	runtime::Field<runtime::Ref<runtime::RcHashSet<int32_t>>> activeEventQuests{}; // Java: = Collections.emptySet()
-	// fieldmap: Effect.ForceType is the interned Effect_ForceType (Effect.h: using ForceType = Effect_ForceType); Java: = Collections.emptySet()
+	// fieldmap.toml: Effect.ForceType is the interned Effect_ForceType (Effect.h: using ForceType = Effect_ForceType); Java: = Collections.emptySet()
 	runtime::Field<runtime::Ref<runtime::RcHashSet<const skillengine::model::Effect_ForceType*>>> effectForceTypes{};
 	runtime::Field<model::EventTheme> eventTheme{model::EventTheme::NONE};
 	EventService();

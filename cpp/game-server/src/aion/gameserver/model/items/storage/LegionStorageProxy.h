@@ -25,7 +25,7 @@ namespace aion::gameserver::model::items::storage {
  */
 class LegionStorageProxy : public Storage {
 private:
-	// fieldmap: the acting player is the part owner (Player.legionStorageProxy slot), fieldmap.toml still says const Ref<Player> (change request)
+	// fieldmap.toml: the acting player is the part owner (C++-only Player.legionStorageProxy slot, [cpp_members])
 	runtime::OwnerRef<gameobjects::player::Player> actor;
 	const runtime::Ref<Storage> storage;
 

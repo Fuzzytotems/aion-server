@@ -32,7 +32,6 @@ void IdianStone::decreasePolishCharge(gameobjects::player::Player& player, int32
 	AION_UNPORTED();
 }
 
-// lint: L7 unported stub; Java synchronizes it, the port adds SYNCHRONIZED(*this)
 void IdianStone::decreasePolishCharge(gameobjects::player::Player& player, bool isAttacked, int32_t skillValue) {
 	AION_UNPORTED();
 }

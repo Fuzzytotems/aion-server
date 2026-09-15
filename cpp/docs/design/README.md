@@ -11,7 +11,8 @@ lazy packet writes, runtime-compiled handlers, JAXB). Before porting, a research
 | [handlers-and-porting-plan.md](handlers-and-porting-plan.md) | Handler registration (marker macros + build-time registry scanner) and the phase 4–6 partition: spine, chunks, milestones |
 | [runtime-kernel-status.md](runtime-kernel-status.md) | Status of the implemented runtime kernel (prototypes P1-P4): gates, measurements, open items |
 | [wave1-status.md](wave1-status.md) | Status of wave 1 (generators, lint, oracles, XML runtime, configs, geo math, crypt, handler registry): delivered components, tests, open issues by next step |
-| [spine-status.md](spine-status.md) | Status of the spine steps S0a-S0c (S0a: kernel lifecycle and fixes, core enums, shells, forward headers, preludes, chunk manifest, static data library, header check, `main.cpp` link proof): delivered components, key numbers, tool usage, open issues by next step |
+| [spine-status.md](spine-status.md) | Status of the spine steps S0a-S0c and the freeze (S0a: kernel lifecycle, core enums, shells, forward headers, preludes, chunk manifest, static data library, header check, `main.cpp` link proof; S0b: 59 hub headers and the cycle review; S0c: declaration headers of member types, services, DAOs and server packets): delivered components, mapping decisions, key numbers, freeze gates, ledger, freeze exceptions, open issues by chunk |
+| [hub-headers.md](hub-headers.md) | Rules the frozen spine headers were written by (members, signatures, generics, construction, statics, packets) and how header requests work after the freeze |
 | [proposals/](proposals/) | The three competing runtime proposals, the judges' scores, the superseded single-thread synthesis and the second red team round |
 | [research/](research/) | Read-only research maps of the Java game server (startup, static data, object model, network, DAO/geo, handlers, services) and the critic's verified answers |
 

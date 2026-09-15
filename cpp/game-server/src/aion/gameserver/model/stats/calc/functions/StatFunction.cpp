@@ -23,11 +23,11 @@ container::StatEnum StatFunction::getName() {
 	return stat.value();
 }
 
-bool StatFunction::isBonus() {
+bool StatFunction::isBonus() const {
 	return bonus;
 }
 
-int32_t StatFunction::getPriority() {
+int32_t StatFunction::getPriority() const {
 	return 0x10;
 }
 

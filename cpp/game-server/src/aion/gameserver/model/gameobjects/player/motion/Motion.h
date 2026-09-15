@@ -22,7 +22,7 @@ namespace aion::gameserver::model::gameobjects::player::motion {
 class Motion : public runtime::RefCounted, public Expirable {
 	AION_MAKE_REF_FRIEND
 public:
-	// fieldmap: Java static final LinkedHashMap written only by the static initializer: a constant table (no shim Monitor at static init)
+	// fieldmap.toml: Java static final LinkedHashMap written only by the static initializer: a constant table (no shim Monitor at static init)
 	static inline const std::map<int32_t, int32_t> motionType{{1, 1}, {2, 2}, {3, 3}, {4, 4}, {5, 1}, {6, 2}, {7, 3}, {8, 4}, {9, 5}, {10, 5},
 		{11, 1}, {12, 2}, {13, 3}, {14, 4}, {15, 1}, {16, 2}, {17, 3}, {18, 4}, {19, 5}, {20, 1}, {21, 1}, {22, 1}, {23, 1}, {24, 2}, {25, 4},
 		{26, 3}};

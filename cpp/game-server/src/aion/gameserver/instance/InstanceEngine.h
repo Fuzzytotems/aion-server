@@ -23,7 +23,8 @@ namespace aion::gameserver::instance {
  *
  * @author ATracer
  */
-class InstanceEngine : public runtime::Immortal, public model::GameEngine { // fieldmap: no instanceHandlers (replaced by HandlerRegistry.h)
+class InstanceEngine : public runtime::Immortal, public model::GameEngine {
+	// fieldmap.toml drops instanceHandlers (replaced by HandlerRegistry.h)
 private:
 	InstanceEngine();
 	~InstanceEngine();

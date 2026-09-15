@@ -46,7 +46,7 @@ private:
 	runtime::ConcurrentHashMap<const model::templates::event::Buff*, runtime::Ref<runtime::RcHashSet<int32_t>>> allowedBuffDays{
 		AION_LOCK_CLASS(EventBuffHandler::allowedBuffDays#stripe)};
 	runtime::Field<int32_t> dayOfMonth{}; // Java: = ServerTime.now().getDayOfMonth()
-	// fieldmap: Effect.ForceType is the interned Effect_ForceType (Effect.h: using ForceType = Effect_ForceType)
+	// fieldmap.toml: Effect.ForceType is the interned Effect_ForceType (Effect.h: using ForceType = Effect_ForceType)
 	const skillengine::model::Effect_ForceType* effectForceType;
 
 protected:

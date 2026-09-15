@@ -22,9 +22,12 @@ namespace aion::gameserver::model::items {
  * at many places). The plain reference is sound because the ChargeInfo is reachable only from its Item and, while the item is equipped, from
  * the owner's ObserveController: ItemEquipmentListener.onItemUnequipment removes the observer before an equipped item can leave Equipment
  * (delete, expiry, trade all unequip first), and LogoutBreakers step L7 clears the ObserveController at logout. A notification that took
- * the observer from the controller runs in a task scope that also keeps the Item from reclamation (design §2.4). A body port must not store
- * `Ref<ChargeInfo>` anywhere else. The constructor reads the item's improvement template, so it stays `AION_UNPORTED` after the member
- * initializers.
+ * the observer from the controller runs in a task scope that also keeps the Item from reclamation (design §2.4). Java nulls
+ * Item.conditioningInfo (fusion break, Item.java:161-167) only for inventory items (ArmsfusionService.breakWeapons), never while the observer is
+ * registered. Two checks keep the argument true for later ports (freeze review): lint L3 rejects a member or stored-lambda capture that names
+ * ChargeInfo outside its holders (fieldmap.toml `holders`: Item.conditioningInfo; the ObserveController holds it as `Ref<ActionObserver>`),
+ * and every body reads the item through getItem(), which terminates in checked builds when the Item was already destroyed (lint L3 rejects
+ * other reads of `item`). The constructor reads the item's improvement template, so it stays `AION_UNPORTED` after the member initializers.
  *
  * @author ATracer
  */
@@ -53,6 +56,12 @@ public:
 	int32_t getChargePoints() const { return chargePoints.get(); }
 
 private:
+	/**
+	 * C++ only: the item this object belongs to. Bodies read `item` only through this accessor (lint L3). Checked builds terminate (C4) when
+	 * the Item was destroyed while this ChargeInfo is still referenced, instead of a use after free (class comment).
+	 */
+	gameobjects::Item& getItem() const;
+
 	/** @return the player, null if none is set or the player is offline */
 	runtime::Ptr<gameobjects::player::Player> getPlayer();
 

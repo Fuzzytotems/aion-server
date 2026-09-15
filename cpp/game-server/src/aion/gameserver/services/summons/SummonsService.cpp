@@ -3,6 +3,8 @@
 #include "aion/gameserver/model/gameobjects/Summon.h"
 #include "aion/gameserver/model/summons/SummonRelease.h"
 #include "aion/gameserver/runtime/base/Unported.h"
+#include "aion/gameserver/runtime/fields/Field.h"
+#include "aion/gameserver/runtime/lifetime/RefCounted.h"
 
 namespace aion::gameserver::services::summons {
 
@@ -10,15 +12,24 @@ namespace aion::gameserver::services::summons {
 // `python tools/gen/fieldmap.py --class <key>` prints.
 //   com.aionemu.gameserver.services.summons.SummonsService.ReleaseSummonTask@L115:47
 
-// Java implements Runnable (scheduled by release(); the port turns it into a pinned task)
-class SummonsService::ReleaseSummonTask {
-public:
+// Java implements Runnable. It schedules itself (schedule(this, ...), kept in SummonRelease.task) and keeps addedMasterHate for its run, so it
+// is K4 (fieldmap.toml [kinds]): RefCounted, created with create(), retaining summon and release (a one-shot task: the pending Future is its
+// only holder and releases it when it runs or is cancelled).
+class SummonsService::ReleaseSummonTask final : public runtime::RefCounted {
+	AION_MAKE_REF_FRIEND
+private:
 	const runtime::Ref<model::gameobjects::Summon> summon;
-	const runtime::Ref<model::summons::SummonRelease> release;
+	const runtime::Ref<model::summons::SummonRelease> release_; // Java: release (renamed: RefCounted::release)
 	const model::summons::UnsummonType unsummonType;
-	bool addedMasterHate{};
+	runtime::Field<bool> addedMasterHate{false};
 
+protected:
 	ReleaseSummonTask(model::gameobjects::Summon& owner, model::summons::SummonRelease& release);
+	~ReleaseSummonTask() override;
+
+public:
+	/** Java: new ReleaseSummonTask(owner, release) */
+	static runtime::Ref<ReleaseSummonTask> create(model::gameobjects::Summon& owner, model::summons::SummonRelease& release);
 	void run();
 	void scheduleOrRun();
 	void scheduleAddMasterHate(model::gameobjects::Summon& summon);
@@ -26,7 +37,14 @@ public:
 };
 
 SummonsService::ReleaseSummonTask::ReleaseSummonTask(model::gameobjects::Summon& owner, model::summons::SummonRelease& value)
-	: summon(owner), release(value), unsummonType(value.getUnsummonType()) {
+	: summon(owner), release_(value), unsummonType(value.getUnsummonType()) {
+}
+
+SummonsService::ReleaseSummonTask::~ReleaseSummonTask() = default;
+
+runtime::Ref<SummonsService::ReleaseSummonTask> SummonsService::ReleaseSummonTask::create(model::gameobjects::Summon& owner,
+	model::summons::SummonRelease& value) {
+	return runtime::makeRef<ReleaseSummonTask>(owner, value);
 }
 
 void SummonsService::ReleaseSummonTask::run() {

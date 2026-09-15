@@ -43,7 +43,7 @@ public:
 
 	int32_t getItemId() const { return itemId; }
 
-	const templates::item::ItemTemplate* getItemTemplate();
+	const templates::item::ItemTemplate* getItemTemplate() const;
 
 	int32_t getSlot() const { return slot.get(); }
 

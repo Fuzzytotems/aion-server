@@ -97,7 +97,8 @@ private:
 	/** packet flood filter (C++: always created; Java creates it only if PffConfig.PFF_MODE > 0 and thresholds exist, and checks for null) */
 	runtime::ConcurrentHashMap<int32_t, int64_t> pffRequests{AION_LOCK_CLASS(AionConnection::pffRequests#stripe)};
 	/** C++ only: the Java object monitor of the connection (`synchronized (this)` in safeLogout, runtime-architecture.md §3.4) */
-	mutable runtime::Monitor monitor_{AION_LOCK_CLASS(AionConnection::monitor)}; // fieldmap: C++-only object monitor (AionConnection is not RefCounted)
+	// fieldmap.toml [cpp_members]: C++-only object monitor (AionConnection is not RefCounted)
+	mutable runtime::Monitor monitor_{AION_LOCK_CLASS(AionConnection::monitor)};
 
 public:
 	/**

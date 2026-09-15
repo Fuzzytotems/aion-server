@@ -22,9 +22,9 @@ class PanesterraTeam : public runtime::RefCounted {
 	AION_MAKE_REF_FRIEND
 private:
 	/** Java static final WorldPosition (defined in PanesterraTeam.cpp: a never destroyed Ref, like ItemService::DEFAULT_UPDATE_PREDICATE) */
-	// fieldmap: static final object (hub-headers.md §11.1) defined in the .cpp as a reference to a never destroyed Ref
+	// fieldmap.toml: static final object (hub-headers.md §11.1) defined in the .cpp as a reference to a never destroyed Ref
 	static const runtime::Ref<world::WorldPosition>& ELYOS_ORIGIN_POS;
-	// fieldmap: static final object (hub-headers.md §11.1) defined in the .cpp as a reference to a never destroyed Ref
+	// fieldmap.toml: static final object (hub-headers.md §11.1) defined in the .cpp as a reference to a never destroyed Ref
 	static const runtime::Ref<world::WorldPosition>& ASMO_ORIGIN_POS;
 	runtime::ArrayList<int32_t> teamMembers{AION_LOCK_CLASS(PanesterraTeam::teamMembers)};
 	const PanesterraFaction faction;

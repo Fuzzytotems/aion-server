@@ -73,9 +73,9 @@ private:
 	runtime::Field<int32_t> temporaryExchangeTime{0};
 	runtime::Field<int64_t> repurchasePrice{};
 	runtime::Field<int32_t> activationCount{0};
-	// fieldmap: ChargeInfo derives ActionObserver (RefCounted, Ref-held by ObserveController, ItemEquipmentListener.java:70); parts.json lists a part
+	// ChargeInfo derives ActionObserver (RefCounted, Ref-held by ObserveController, ItemEquipmentListener.java:70), no part (ChargeInfo.h)
 	runtime::Field<runtime::Ref<items::ChargeInfo>> conditioningInfo{};
-	// fieldmap: StatFunction is static data or a run-time RcStatFunction (ItemEquipmentListener.java:147 adds `new StatAddFunction`), StatFunction.h
+	// fieldmap.toml: StatFunction is static data or a run-time RcStatFunction (ItemEquipmentListener.java:147 adds `new StatAddFunction`)
 	runtime::Field<runtime::Ref<runtime::RcArrayList<runtime::Ref<stats::calc::functions::StatFunction>>>> currentModifiers{};
 	runtime::Field<int32_t> tuneCount{0};
 	runtime::Field<runtime::Ref<items::RandomBonusEffect>> bonusStatsEffect{};

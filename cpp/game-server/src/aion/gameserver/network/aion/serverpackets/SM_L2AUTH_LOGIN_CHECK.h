@@ -26,7 +26,7 @@ private:
 			table[static_cast<size_t>(i)] = i;
 		table[66] = 61;
 		return table;
-	}(); // fieldmap: constexpr table of the Java static initializer block
+	}(); // fieldmap.toml: constexpr table of the Java static initializer block
 	/** Java: static byte[64] filled by the static initializer */
 	static constexpr std::array<int8_t, 64> serverIndexById = [] {
 		std::array<int8_t, 64> table{};
@@ -34,7 +34,7 @@ private:
 			table[static_cast<size_t>(i)] = i;
 		table[61] = 66;
 		return table;
-	}(); // fieldmap: constexpr table of the Java static initializer block
+	}(); // fieldmap.toml: constexpr table of the Java static initializer block
 	/** True if client is authed. */
 	bool ok{};
 	std::string accountName{};

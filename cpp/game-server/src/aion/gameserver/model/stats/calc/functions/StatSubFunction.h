@@ -24,7 +24,7 @@ class StatSubFunction : public ::aion::gameserver::model::stats::calc::functions
 public:
 	void apply(Stat2& stat, const std::unordered_set<utils::stats::CalculationType>& calculationTypes) override;
 
-	int32_t getPriority() override final;
+	int32_t getPriority() const override final;
 };
 
 } // namespace aion::gameserver::model::stats::calc::functions

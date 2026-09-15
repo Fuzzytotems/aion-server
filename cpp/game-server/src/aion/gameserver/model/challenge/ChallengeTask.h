@@ -25,7 +25,7 @@ private:
 	const int32_t taskId;
 	const int32_t ownerId;
 	runtime::HashMap<int32_t, runtime::Ref<ChallengeQuest>> quests{AION_LOCK_CLASS(ChallengeTask::quests)};
-	// fieldmap: null until the task is completed (getCompleteTimeEpochSeconds tests it, ChallengeTask.java:82)
+	// fieldmap.toml: null until the task is completed (getCompleteTimeEpochSeconds tests it, ChallengeTask.java:82)
 	runtime::Field<std::optional<commons::database::Timestamp>> completeTime{};
 	const templates::challenge::ChallengeTaskTemplate* template_;
 

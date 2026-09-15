@@ -5,7 +5,10 @@
 
 namespace aion::gameserver::skillengine::effect {
 
-/** Java com.aionemu.gameserver.skillengine.effect.HostileUpEffect. @author ATracer, Yeats */
+/**
+ * Java com.aionemu.gameserver.skillengine.effect.HostileUpEffect. The Java template field tempHate is per-cast state: xmlgen does not bind it
+ * and the port keeps it in Effect::hostileUpTempHate (DEVIATIONS, static-data.md §3.6). @author ATracer, Yeats
+ */
 class HostileUpEffect : public ::aion::gameserver::skillengine::effect::EffectTemplate {
 #include "aion/gameserver/skillengine/effect/HostileUpEffect.xml.inc"
 public:

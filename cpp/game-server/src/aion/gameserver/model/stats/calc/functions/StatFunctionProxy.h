@@ -46,9 +46,9 @@ public:
 
 	container::StatEnum getName() override;
 
-	bool isBonus() override;
+	bool isBonus() const override;
 
-	int32_t getPriority() override;
+	int32_t getPriority() const override;
 
 	int32_t getValue() override;
 

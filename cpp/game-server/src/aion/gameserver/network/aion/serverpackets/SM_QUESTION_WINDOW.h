@@ -82,7 +82,7 @@ private:
 	int32_t code{};
 	int32_t senderId{};
 	int32_t rangeOrCooldownSeconds{};
-	std::vector<std::string> params{}; // fieldmap: Java Object[], formatted into Java strings at construction (hub-headers.md §7.4)
+	std::vector<std::string> params{}; // fieldmap.toml: Java Object[], formatted into Java strings at construction (hub-headers.md §7.4)
 
 	/** Java String.valueOf of one `Object...` parameter (strings as they are, numbers through toJavaString) */
 	template <class Param>

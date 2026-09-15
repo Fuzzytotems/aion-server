@@ -45,15 +45,14 @@ void SiegeService::startPreparations(int32_t locationId) {
 	AION_UNPORTED();
 }
 
-void SiegeService::startSiege(int32_t siegeLocationId) { // lint: L7 unported stub; the port adds the Java synchronized block
+void SiegeService::startSiege(int32_t siegeLocationId) {
 	AION_UNPORTED();
 }
 
-void SiegeService::stopSiege(int32_t siegeLocationId) { // lint: L7 unported stub; the port adds the Java synchronized block
+void SiegeService::stopSiege(int32_t siegeLocationId) {
 	AION_UNPORTED();
 }
 
-// lint: L7 unported stub; the port adds the Java synchronized block
 void SiegeService::captureSiege(model::siege::SiegeRace sr, int32_t legionId, int32_t locId) {
 	AION_UNPORTED();
 }

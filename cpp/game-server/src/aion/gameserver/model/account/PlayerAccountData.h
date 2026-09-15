@@ -71,9 +71,9 @@ private:
 	runtime::Field<runtime::Ref<gameobjects::player::PlayerAppearance>> appearance{};
 	runtime::Field<runtime::Ref<CharacterBanInfo>> cbi{};
 	runtime::Field<runtime::Ref<runtime::RcArrayList<runtime::Ref<PlayerAccountData::VisibleItem>>>> visibleItems{};
-	// fieldmap: null until setCreationDate (CM_CREATE_CHARACTER.java:71), Player::getCreationDate returns std::optional (hub-headers.md §6)
+	// fieldmap.toml: null until setCreationDate (CM_CREATE_CHARACTER.java:71), Player::getCreationDate returns std::optional (hub-headers.md §6)
 	runtime::Field<std::optional<commons::database::Timestamp>> creationDate{};
-	// fieldmap: Java compares it with null (AccountService.java:56), hub-headers.md §6
+	// fieldmap.toml: Java compares it with null (AccountService.java:56), hub-headers.md §6
 	runtime::Field<std::optional<commons::database::Timestamp>> deletionDate{};
 
 public:

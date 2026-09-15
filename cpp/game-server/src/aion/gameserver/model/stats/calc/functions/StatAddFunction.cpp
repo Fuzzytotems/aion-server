@@ -11,7 +11,7 @@ void StatAddFunction::apply(Stat2& statValue, const std::unordered_set<utils::st
 	AION_UNPORTED();
 }
 
-int32_t StatAddFunction::getPriority() {
+int32_t StatAddFunction::getPriority() const {
 	return isBonus() ? 60 : 30;
 }
 

@@ -68,7 +68,7 @@ private:
 		AION_LOCK_CLASS(WorldMapInstance::worldMapPlayers#stripe)};
 	runtime::ConcurrentKeySet<int32_t> registeredObjects{AION_LOCK_CLASS(WorldMapInstance::registeredObjects#stripe)};
 	runtime::ConcurrentKeySet<int32_t> questIds{AION_LOCK_CLASS(WorldMapInstance::questIds#stripe)};
-	// fieldmap: ZoneName is an interned immortal (fieldmap.toml [immortal]), not RefCounted
+	// ZoneName is an interned immortal (fieldmap.toml [immortal]), not RefCounted
 	runtime::HashMap<const zone::ZoneName*, runtime::Ref<zone::ZoneInstance>> zones{AION_LOCK_CLASS(WorldMapInstance::zones)};
 	/** fieldmap.toml: C++-only mutability: the handler is detached in destroyInstance (design §3.2.2, §5.1) */
 	runtime::Field<runtime::Ref<instance::handlers::InstanceHandler>> instanceHandler{};

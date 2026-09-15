@@ -31,7 +31,7 @@ class NpcEquippedGear : public runtime::RefCounted {
 	AION_MAKE_REF_FRIEND
 
 private:
-	// fieldmap: Java creates a TreeMap (NpcEquippedGear.java:39, iteration in ItemSlot order for SM_NPC_INFO); fieldmap.json guesses HashMap
+	// fieldmap.toml: Java creates a TreeMap (NpcEquippedGear.java:39, iteration in ItemSlot order for SM_NPC_INFO); fieldmap.json guesses HashMap
 	runtime::Field<runtime::Ref<runtime::RcTreeMap<ItemSlot, const templates::item::ItemTemplate*>>> items;
 	runtime::Field<int32_t> mask;
 	runtime::Field<const dataholders::loadingutils::adapters::NpcEquipmentList*> v;

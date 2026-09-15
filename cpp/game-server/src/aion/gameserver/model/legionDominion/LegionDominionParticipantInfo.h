@@ -22,7 +22,7 @@ private:
 	runtime::Field<int32_t> legionId{};
 	runtime::Field<int32_t> points{};
 	runtime::Field<int32_t> time{};
-	// fieldmap: nullable Timestamp (hub-headers.md §6): null until the legion took part
+	// fieldmap.toml: nullable Timestamp (hub-headers.md §6): null until the legion took part
 	runtime::Field<std::optional<commons::database::Timestamp>> date{};
 
 protected:

@@ -7,7 +7,11 @@ namespace aion::gameserver::services::player {
 
 static const auto log = commons::logging::LoggerFactory::getLogger("GAMECONNECTION_LOG");
 
-/** Java: package-private top-level class GeneralUpdateTask implements Runnable (PlayerEnterWorldService.java; used only by enterWorld) */
+/**
+ * Java: package-private top-level class GeneralUpdateTask implements Runnable (PlayerEnterWorldService.java; used only by enterWorld). Task
+ * objects of scheduleAtFixedRate with only immutable members (fieldmap K3), like ItemUpdateTask: ported as TaskStruct values
+ * (runtime-architecture.md §7.3, §14.2(f) GeneralUpdateTask).
+ */
 class GeneralUpdateTask {
 private:
 	const int32_t playerId;

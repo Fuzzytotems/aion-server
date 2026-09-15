@@ -19,7 +19,7 @@ namespace aion::gameserver::network::aion::serverpackets {
  */
 class SM_RECALLED_BY_OTHER : public AionServerPacket {
 private:
-	std::optional<std::string> casterName{}; // fieldmap: writeImpl compares the Java String with null (hub-headers.md §6)
+	std::optional<std::string> casterName{}; // fieldmap.toml: writeImpl compares the Java String with null (hub-headers.md §6)
 	int32_t skillId{};
 	int32_t seconds{};
 public:

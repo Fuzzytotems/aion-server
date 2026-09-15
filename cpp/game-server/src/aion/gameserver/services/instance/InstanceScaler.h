@@ -61,14 +61,14 @@ public:
 		void retain() const noexcept override { runtime::RefCounted::retain(); }
 		void release() const noexcept override { runtime::RefCounted::release(); }
 		void apply(model::stats::calc::Stat2& stat, const std::unordered_set<utils::stats::CalculationType>& calculationTypes) override;
-		int32_t getPriority() override;
+		int32_t getPriority() const override;
 	protected:
 		~InstanceScalerStatFunction() override;
 	};
 private:
 	// Collections.synchronizedMap: the port locks the map; destroyInstance must remove the instance (strong keys)
 	// defined in InstanceScaler.cpp (the map's destructor needs the complete WorldMapInstance)
-	// fieldmap: java.util.WeakHashMap has no shim; weak references are Ref (design §5.1)
+	// fieldmap.toml: java.util.WeakHashMap has no shim; weak references are Ref (design §5.1)
 	static runtime::HashMap<runtime::Ref<world::WorldMapInstance>, runtime::Ref<InstanceScaler::Scaling>> scalings;
 	InstanceScaler();
 	~InstanceScaler();

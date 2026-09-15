@@ -51,7 +51,7 @@ private:
 	runtime::Field<std::string> masterName{};
 	runtime::Field<int32_t> creatorId{0};
 	runtime::Field<std::optional<CreatureType>> overriddenType{};
-	// fieldmap: NpcEquippedGear is RefCounted (S0B-016, NpcTemplate holds Ref<NpcEquippedGear>); the fieldmap.toml shared_ptr override is stale
+	// NpcEquippedGear is RefCounted (S0B-016, NpcTemplate holds Ref<NpcEquippedGear>)
 	runtime::Field<runtime::Ref<items::NpcEquippedGear>> overriddenEquipment{};
 	runtime::Field<std::optional<skillengine::effect::SummonOwner>> summonOwner{};
 

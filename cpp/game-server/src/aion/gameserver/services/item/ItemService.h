@@ -24,9 +24,9 @@ public:
 	class ItemUpdatePredicate : public runtime::RefCounted {
 		AION_MAKE_REF_FRIEND
 	public:
-		// fieldmap: ItemPacketService::ItemUpdateType is the generated ItemPacketService_ItemUpdateType (ItemPacketService.h not included)
+		// fieldmap.toml: ItemPacketService::ItemUpdateType is the generated ItemPacketService_ItemUpdateType (ItemPacketService.h not included)
 		const ItemPacketService_ItemUpdateType itemUpdateType;
-		// fieldmap: ItemPacketService::ItemAddType is the generated ItemPacketService_ItemAddType (ItemPacketService.h not included)
+		// fieldmap.toml: ItemPacketService::ItemAddType is the generated ItemPacketService_ItemAddType (ItemPacketService.h not included)
 		const ItemPacketService_ItemAddType itemAddType;
 	protected:
 		ItemUpdatePredicate(ItemPacketService_ItemAddType itemAddType, ItemPacketService_ItemUpdateType itemUpdateType);

@@ -8,7 +8,7 @@ void StatSubFunction::apply(Stat2& statValue, const std::unordered_set<utils::st
 	AION_UNPORTED();
 }
 
-int32_t StatSubFunction::getPriority() {
+int32_t StatSubFunction::getPriority() const {
 	return isBonus() ? 60 : 30;
 }
 

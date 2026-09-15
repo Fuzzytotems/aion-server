@@ -40,7 +40,8 @@ namespace aion::gameserver::model::stats::calc::functions {
 class StatFunction : public ::aion::gameserver::runtime::StaticTemplate, public IStatFunction {
 #include "aion/gameserver/model/stats/calc/functions/StatFunction.xml.inc"
 private:
-	// fieldmap: C++ only, the effect template's Conditions given to withConditions (Java stores it into `conditions`, static data owns that one)
+	// C++ only (K1 class, non-retaining template pointer): the effect template's Conditions given to withConditions (Java stores it into
+	// `conditions`, which static data owns)
 	const skillengine::condition::Conditions* sharedConditions = nullptr;
 
 public:
@@ -64,13 +65,13 @@ public:
 
 	container::StatEnum getName() override final;
 
-	bool isBonus() override final;
+	bool isBonus() const override final;
 
 	/**
 	 * priorities RATE 20 ADD 30 SUB 30 SET 40 RATE bonus 50 ADD bonus 60 SUB bonus 60 SET bonus 70 ABS 80 ABS debuff 90 ABS bonus 100 ABS debuff bonus
 	 * 110
 	 */
-	int32_t getPriority() override;
+	int32_t getPriority() const override;
 
 	int32_t getValue() override;
 

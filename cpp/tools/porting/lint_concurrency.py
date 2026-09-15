@@ -31,12 +31,18 @@ Rules
          member (static members included) whose initializer does not start with AION_LOCK_CLASS( in its declaration, in a member initializer
          list of a constructor of that class, or in the out-of-line definition `Type Class::member{AION_LOCK_CLASS(...)}` of a static
          member; a `// fieldmap:` waiver does not waive it
-    L2   member types of mapped classes equal fieldmap.json (declared fields and generated capture members; missing instance members
-         are reported; xml::HolderRef<X>/MutableHolderRef<X> equal a static Field<const X*>); '// fieldmap: <reason>' waives
+    L2   member types of mapped classes equal fieldmap.json (declared fields, generated capture members and the C++-only cppMembers of
+         fieldmap.toml [cpp_members]; missing instance members are reported; xml::HolderRef<X>/MutableHolderRef<X> equal a static
+         Field<const X*>); '// fieldmap: <reason>' waives. A C++-only instance member that fieldmap.json does not list and whose type retains
+         (Ref, FutureRef, PartSlot, PartMap, PartList, SelfOrRef, std::unique_ptr, std::shared_ptr, containers of those) is reported and
+         cannot be waived: declare it in fieldmap.toml [cpp_members] so the cycle graph sees its edge
     L3   no std::string_view, std::span, Ptr<, reference, raw pointer to a RefCounted class or const std::string& members in shared classes
          (pointers and references to Immortal classes and static data templates are not borrows; a simple name that also names a RefCounted
          class, such as Item or PlayerCommonData, is a borrow). OwnerRef<> members only in parts (OwnedPart, not RefCounted) or spelled
-         exactly as a fieldmap.toml override; a `// fieldmap:` waiver does not waive that
+         exactly as a fieldmap.toml override; a `// fieldmap:` waiver does not waive that. An override that also names holders and an
+         accessor (ChargeInfo.item: holders Item.conditioningInfo, accessor getItem) restricts the class that holds the back reference: no
+         member outside the holders and no stored-lambda capture or pin names that class, and its member functions other than constructors
+         and the accessor do not read the back reference member (neither waivable)
     L4   namespace-scope and static data members hold thread-safe types (const/constexpr, std::atomic, Field, shims, Atomic*, Monitor,
          mutexes, ConfigValue, std::once_flag, loggers, published static data holders xml::HolderRef/MutableHolderRef)
     L5   lambdas passed to schedule*/execute*/submit*/deferred, PinnedCallback and the observer/request/cron/event APIs: no [&]/[=];
@@ -910,6 +916,8 @@ LOCKABLE_HEADS = frozenset(('Monitor', 'StampedLock', 'Semaphore')) | (SHIMS - {
 IMMORTAL_BASE_CLASSES = frozenset(('Immortal', 'StaticTemplate'))
 # fieldmap.json rules whose spelling is a deliberate hand decision that L1/L19 accept as written
 FIELDMAP_DECISION_RULES = ('fieldmap.toml override', 'member of a class confined by fieldmap.toml')
+# L2: member types that retain (or own) another object; a C++-only member of such a type must be a fieldmap.toml [cpp_members] entry
+RETAINING_TYPE_RE = re.compile(r'(?<![\w:])(?:Ref|FutureRef|PartSlot|PartMap|PartList|SelfOrRef|std::unique_ptr|std::shared_ptr)(?!\w)')
 HANDLERS_PREFIX = 'game-server/data/handlers/'
 # RR-16 findings are warnings since the spine freeze (every hub member carries its lock class; --werror fails on them). They were 'advisory'
 # (printed, never failing) while the tags were applied; --strict-lock-classes is kept for scripts and forces 'warning'.
@@ -941,6 +949,16 @@ class Linter:
         self._lock_class_inits = set()
         self._returns = {}
         part_names = {c.get('cppName', '').split('::')[-1] for c in self._fm_classes.values() if c.get('partOf')}
+        # fieldmap.toml OwnerRef overrides with holders/accessor (ChargeInfo.item): {simple class name: (member, accessor, {(class, member)})}
+        self._back_refs = {}
+        for cid, c in self._fm_classes.items():
+            for f in c.get('fields', []):
+                if f.get('holders') and f.get('accessor'):
+                    holders = set()
+                    for h in f['holders']:
+                        hcid, _, hname = h.rpartition('.')
+                        holders.add(((self._fm_classes.get(hcid) or {}).get('cppName', hcid.rsplit('.', 1)[-1]).split('::')[-1], hname))
+                    self._back_refs[c.get('cppName', '').split('::')[-1]] = (f['name'], f['accessor'], holders)
         for cid, c in self._fm_classes.items():
             pkg = self._java_package(cid)
             self._by_pkg_cpp.setdefault((pkg, c.get('cppName')), []).append(cid)
@@ -1245,6 +1263,8 @@ class Linter:
             ty = norm_type(mb.type)
             raw = mb.type
             static = 'static' in mb.specifiers
+            if self._back_refs and self.area(src) != 'runtime':
+                self._l3_back_ref_holder(cls, mb, ty)
             if 'thread_local' in mb.specifiers:
                 self._l15(src, mb.line, mb.col, raw, mb.name)
             if static:
@@ -1393,16 +1413,62 @@ class Linter:
                                                     '(with a cycles.toml resolution) or a fieldmap.toml override with the lifetime argument',
                     unwaivable=('fieldmap',))
 
+    def _back_ref_names_in(self, ty):
+        return [name for name in sorted(self._back_refs) if re.search(rf'(?<![\w]){re.escape(name)}\b(?!::)', ty)]
+
+    def _l3_back_ref_holder(self, cls, mb, ty):
+        """A class holding a non-retaining back reference (fieldmap.toml holders/accessor) may be named only by its holder members: any other
+        Ref, pointer or container of it could outlive the referenced object (ChargeInfo.item dangles once its Item is gone)."""
+        for name in self._back_ref_names_in(ty):
+            member, _, holders = self._back_refs[name]
+            if (cls.name, mb.name) in holders or (cls.name, mb.name.rstrip('_')) in holders:
+                continue
+            allowed = ', '.join(f'{c}::{m}' for c, m in sorted(holders))
+            self.report(cls.src, mb.line, mb.col, 'L3', f'member {cls.qualname}::{mb.name} `{mb.type}` names {name}, whose {member} is a non-retaining '
+                                                        f'back reference: only {allowed} may hold it (fieldmap.toml holders)',
+                        unwaivable=('fieldmap', 'lint'))
+
+    def _l3_back_ref_reads(self, fn, cls, decls):
+        """Member functions of a back-reference class read the member only through the checked accessor (constructors initialize it)."""
+        if cls is None or cls.name not in self._back_refs or fn.dtor:
+            return
+        member, accessor, _ = self._back_refs[cls.name]
+        if fn.name in (accessor, cls.name):
+            return
+        if any(n in (member, member + '_') for n, _, _ in decls):
+            return  # a parameter or local of that name shadows the member
+        src = fn.src
+        t, k = src.tok, src.kind
+        bs, be = fn.body
+        for i in range(bs, be):
+            if k[i] == IDENT and t[i] in (member, member + '_') and t[i - 1] not in ('.', '->', '::'):
+                self.report(src, src.line[i], src.col[i], 'L3', f'{fn.display} reads the back reference {cls.name}::{t[i]} directly: use {accessor}(), '
+                                                                 'which checks that the referenced object is alive (fieldmap.toml accessor)',
+                            unwaivable=('fieldmap', 'lint'))
+                return
+
     def _l2(self, cls, cid, entry):
         fields = {f['name']: f for f in entry.get('fields', [])}
         caps = {}
         for c in entry.get('captures', []):
             caps[self._capture_member_name(c)] = c
         seen = set()
+        cpp_members = {m['name']: m for m in entry.get('cppMembers', [])}
         for mb in cls.members:
             name = mb.name
             f = fields.get(name) or fields.get(name.rstrip('_')) or caps.get(name) or caps.get(name.rstrip('_'))
             if f is None:
+                m = cpp_members.get(name) or cpp_members.get(name.rstrip('_'))
+                got = unqualify_nested(norm_type(('const ' if mb.specifiers & {'constexpr', 'constinit'} else '') + mb.type))
+                if m is not None:
+                    seen.add(('cpp', m['name']))
+                    if got != unqualify_nested(norm_type(m['cpp'])):
+                        self.report(cls.src, mb.line, mb.col, 'L2', f'{cls.qualname}::{mb.name} is `{mb.type}`, fieldmap.json expects `{m["cpp"]}` '
+                                                                    '(fieldmap.toml [cpp_members])')
+                elif 'static' not in mb.specifiers and RETAINING_TYPE_RE.search(got):
+                    self.report(cls.src, mb.line, mb.col, 'L2', f'C++-only retaining member {cls.qualname}::{mb.name} `{mb.type}` is absent from '
+                                                                'fieldmap.json: declare it in fieldmap.toml [cpp_members] (part_type or retains) '
+                                                                'so the cycle graph sees its edge', unwaivable=('fieldmap', 'lint'))
                 continue
             seen.add(f['name'] if 'rule' in f and f in fields.values() else f.get('name'))
             expected = f.get('cpp')
@@ -1425,6 +1491,10 @@ class Linter:
             present = any(mb.name in (f['name'], f['name'] + '_') for mb in cls.members)
             if not present:
                 self.report(cls.src, cls.line, cls.col, 'L2', f'{cls.qualname} lacks member {f["name"]} `{f["cpp"]}` (Java {f.get("java")} line {f.get("line")})')
+        for m in entry.get('cppMembers', []):
+            if ('cpp', m['name']) not in seen:
+                self.report(cls.src, cls.line, cls.col, 'L2',
+                            f'{cls.qualname} lacks the C++-only member {m["name"]} `{m["cpp"]}` of fieldmap.toml [cpp_members]')
 
     @staticmethod
     def _capture_member_name(cap):
@@ -1515,6 +1585,8 @@ class Linter:
         cls = fn.cls or self._owner_class(fn)
         decls = local_declarations(src, fn.params[0], fn.params[1]) + local_declarations(src, bs + 1, be)
         lambdas = find_lambdas(src, bs + 1, be)
+        if self._back_refs and self.area(src) != 'runtime':
+            self._l3_back_ref_reads(fn, cls, decls)
         self._l5(fn, decls, lambdas)
         self._l5b(fn, decls)
         self._l8_statics(fn)
@@ -1581,6 +1653,8 @@ class Linter:
                         pins.add(t[x])
             caps = split_top(src, lam.cap[0], lam.cap[1])
             where = f'lambda passed to {t[i]}()'
+            if self._back_refs and self.area(src) != 'runtime':
+                self._l3_back_ref_captures(fn, decls, lam, caps, pins, where)
             for a, b in caps:
                 ct = [t[x] for x in range(a, b)]
                 text = src.text_of(a, b)
@@ -1625,6 +1699,27 @@ class Linter:
             if t[i] == 'bindTask' and i + 1 < be and t[i + 1] == '(' and m[i + 1] > 0:
                 for a, b in split_top(src, i + 2, m[i + 1])[1:]:
                     self._l5_player_template(fn, decls, a, b, 'bindTask() argument')
+
+    def _l3_back_ref_captures(self, fn, decls, lam, caps, pins, where):
+        """A stored lambda does not capture or pin an object of a back-reference class: the pending task could outlive the referenced object."""
+        src = fn.src
+        t, k = src.tok, src.kind
+        names = set(pins - {'this'})
+        for a, b in caps:
+            ct = [t[x] for x in range(a, b)]
+            if ct and k[a] == IDENT and (len(ct) == 1 or ct[1] in ('=', '{', '(')):
+                names.add(ct[0])
+            elif len(ct) == 2 and ct[0] == '&' and k[a + 1] == IDENT:
+                names.add(ct[1])
+        for name in sorted(names):
+            ty = self._decl_type(decls, name, lam.cap[0])
+            if ty is None:
+                continue
+            for rname in self._back_ref_names_in(norm_type(ty)):
+                member = self._back_refs[rname][0]
+                self.report(src, src.line[lam.cap[0]], src.col[lam.cap[0]], 'L3',
+                            f'{where}: `{name}` of type `{ty}` is captured or pinned, but {rname}::{member} is a non-retaining back reference: '
+                            'a pending task could outlive the referenced object (fieldmap.toml holders)', unwaivable=('fieldmap', 'lint'))
 
     # classes whose getObjectTemplate() is a Player's RefCounted PlayerCommonData (Java VisibleObject.objectTemplate)
     PLAYER_TEMPLATE_RECEIVERS = frozenset(('Player', 'Creature', 'Playable', 'VisibleObject'))

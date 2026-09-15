@@ -461,5 +461,26 @@ Still open:
   (harmless: the process exits).
 - `UnportedTest` hard-codes the source lines of its `AION_UNPORTED` sites (20/24); an include added above them must update the expectations.
 - The Pin workaround comment in `runtime/lifetime/Parts.h` ("capture a Ref<Part> instead, or pin the owner and re-read the part") is outdated.
+  **Resolved:** the comment now states that `Pin(&part)` retains the part and with it the owner.
 - `MonitorTest.EventualFairnessAgainstABargingThread` failed once under `ctest --parallel 8` and passed alone: timing-sensitive under load.
+
+### Spine steps S0b and S0c (2026-09-14)
+
+Details: [spine-status.md](spine-status.md) and runtime-architecture.md §24.
+
+Resolved:
+- `Pin(PlayerCommonData*)` was ambiguous (C2668) because `PlayerCommonData` is both RefCounted and a static template (it derives
+  `CreatureTemplate` through xmlgen). `IsStaticTemplate<T>` is now false for every class that derives `RefCounted`, and `PinTarget` classifies
+  templates through one constrained overload, so such a pointer is no `TaskArg` and `Pin` retains the object. The S0b specialization in
+  `PlayerCommonData.h` is removed; conventions-game-server.md records the rule.
+- Commons `BaseClientPacket<TConnection>` stores the connection's `toString` function in `setConnection()`, so only that call needs the
+  complete connection type; `AionClientPacket.h` no longer includes `AionConnection.h`, Asio or `<windows.h>` (one pointer per packet).
+- `RefCounted.h`, `BaseClientPacketTest.cpp` and `SchedContractTest.cpp` were rewritten with CRLF by a lane and converted back to LF.
+
+Still open:
+- Per-creature `ConcurrentHashMap` memory (`CreatureGameStats.stats` and the other per-creature maps: 16 stripe Monitors each) stays a kernel
+  design item (ledger S0B-064/S0B-139); the S0b headers keep Java's CHM layout as `fieldmap.json` prints it.
+- `ItemService::DEFAULT_UPDATE_PREDICATE` and similar `static final` RefCounted constants are created at static initialization and never
+  released; checked-build behaviour at static initialization was not exercised, and LeakCensus scenario tests that count by type must exempt
+  them.
 

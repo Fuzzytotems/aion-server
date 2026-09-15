@@ -71,6 +71,12 @@ cpp/game-server/
   - Core names come from the category prelude: `namespace aion::gameserver::handlers::ai { using gameserver::ai::NpcAI; ... }`. The prelude is identical for every file in the category, so it is harmless when unity batching concatenates files. It is also the category PCH.
   - The quest prelude is the one place with a using-directive: `using namespace aion::gameserver::model::DialogAction;` reproduces Java's `import static DialogAction.*` (1,005 handler files).
   - As built (S0a): one prelude per category directory and per command package, each in its own package namespace; every prelude includes `HandlerRegistry.h` and `runtime/base/Unported.h`, the quest prelude also `model/DialogAction.h`. They hold no using-declarations yet (S0b adds them). A prelude never re-exports a name that a Java type of its category declares, including subpackages (`tools/gen/tests/test_handler_preludes.py`): a handler class with that simple name would otherwise shadow the core name or not, depending on which files share its unity batch. The same risk applies in subpackages of other categories (`ai/instance/<map>`, `quest/<region>`).
+  - As built (S0b): the preludes re-export the core names their category's Java files import, generated from those imports (ai 243, instance
+    101, quest 65, zone 18, admincommands 229, playercommands 52, consolecommands 59 using-declarations). A name is re-exported when `fwd.h`
+    declares it, it is imported from a single package and no Java type of the category has that name; nested types and annotations are
+    skipped. Each prelude includes the `fwd.h` of those packages, the generated headers of re-exported enums (`AIState::IDLE`), its category's
+    base hub headers and the full hub headers the category uses most (`Npc.h`, `Player.h`, `PacketSendUtility.h`, ...), so the prelude is also
+    the category PCH content. The rule is repeated in each prelude's comment.
 - **Handler API rule (no static-init side effects).** Java `protected static final QuestEngine qe = QuestEngine.getInstance()` becomes a non-static `QuestEngine& qe = QuestEngine::getInstance();` member initialised in the `AbstractQuestHandler` constructor. That constructor runs at engine init, and the ~7,000 `qe.registerX(...)` call sites keep their syntax.
 
 ### 1.3 Markers
@@ -254,6 +260,21 @@ void Npc::postConstruct() {                               // = Npc constructor b
 
 **`//ai set`** (`Ai.java:86-89` replaced the final field reflectively): `World::despawn(npc)`, then `npc.replaceAi(AIEngine::newAI(name, npc))`, then `World::spawn(npc)`. `replaceAi` moves the previous AI into `Creature::retiredAis` (destroyed with the creature), because tasks scheduled by the old AI may still capture it [A]. The message `"Npc now has AI " + simple class name` uses the entry's `javaClass`.
 
+As built (S0b/S0c; `SpinePrototypeTest` runs it with the real classes):
+- `Creature::postConstruct` is ported in Java order: the AI name comes from the object template (`CreatureTemplate::getAiName()`, `nullopt`
+  by default), overridden by the spawn template (`NO_AI` means no AI), then `AIEngine::newAI`, then `aggroList` from the virtual
+  `createAggroList()` (returns `std::unique_ptr<AggroList>`). `observeController` is not created here: it does not depend on the dynamic type,
+  `fieldmap.json` makes it a `const Ref<ObserveController>`, and the constructor creates it with `ObserveController::create()`.
+- `AIEngine::newAI(std::optional<std::string_view>, Creature&) -> std::unique_ptr<AbstractAI>` is ported: a null name creates
+  `DummyAI<Creature>`, an unknown name throws `IllegalArgumentException("No AI found for name X")`, an owner mismatch throws Java's text, other
+  constructor exceptions are wrapped with the cause, the entry is stored with `AbstractAI::setRegistryEntry`, and `AIConfig::ONCREATE_DEBUG`
+  turns on logging.
+- `Npc`'s constructor creates the skill list (a `const std::unique_ptr` part) after the bases (Java after the move controller; its constructor
+  only reads the template), takes its object id from `IDFactory::nextId` and throws `NullPointerException` for a null template; `postConstruct`
+  then does `setOwner`, the move controller and `setupStatContainers()`. `Summon`'s master and live time are set by the constructor, before the
+  AI is created (no AI constructor reads them).
+- `Creature::replaceAi(std::unique_ptr<AbstractAI>)` is the C++-only `//ai set` entry.
+
 ### 1.8 Partial-port policy
 
 Java `AIEngine.validateScripts` throws if any of the 432 `npc_template` AI names has no handler. That would block server start until all 457 AIs are ported.
@@ -424,7 +445,24 @@ Generated rather than hand-written: Race, PlayerClass, TaskId, Gender, CreatureS
 - Engine singletons.
 - Stubs as above. With these in place, phase-4 and phase-5 chunks do not wait on each other for service or packet headers.
 
-**Freeze.** The integrator tags `spine-v1`. From then on, spine changes are header requests (2.2).
+As built (S0b and S0c, 2026-09-14; details, numbers and open issues in [spine-status.md](spine-status.md), rules in
+[hub-headers.md](hub-headers.md)):
+- **S0b** ran as a pattern stage (style guide hub-headers.md, `AionObject`/`Persistable`/`VisibleObject`, skeleton.py rule fixes), 5
+  parallel groups for the 59 hub classes (objects, world, controllers, stats, handler-facing APIs, with infrastructure split between world and
+  objects), a cycle and part review, 3 reviewers and 3 fixers. Hub headers include lean runtime headers, `fwd.h`, enums, value types and the
+  full headers of direct bases only; parts are the kinds `parts.json` prints (`const std::unique_ptr`, `PartSlot`, `PartMap`, `PartList`);
+  WorldPosition is K4 `Field<Ref<WorldPosition>>`, not a value.
+- **S0c** needed a work item the plan did not list: **declaration headers for the member types** the hub constructors and destructors name
+  (about 90 non-hub headers at the end of S0b: `AIEventLog`, `TransformModel`, `NpcSkillList`, `KnownObject`, `WorldMap`, `Account`, ...).
+  Two model lanes wrote 139 such classes, and the integrator 83 more headers nobody had scheduled. The rest ran as planned with more lanes
+  than 2-3: infra (kernel, commons, lint, fieldmap.py), xmlgen, services A-L, services M-Z plus the 56 DAOs, server packets A-K and L-Z (128
+  services, 239 packets), then hub integration, 3 freeze reviewers and 2 fixers, and a finalize stage.
+- **Freeze gates** (hub-headers.md §3.5): no `__has_include` guard (`skeleton.py --guards --freeze`, `SPINE_FROZEN = True`), every member-type
+  header written, `SpinePrototypeTest`'s Npc scenario unskipped, two zero-warning builds, header check, lint `--werror --cycles=core`,
+  tools.gen and the full CTest. All hold on the working tree; the `spine-v1` tag is not created yet. Freeze exceptions are listed in
+  spine-status.md.
+
+**Freeze.** The integrator tags `spine-v1`. From then on, spine changes are header requests (2.2; procedure in hub-headers.md §14).
 
 ### 2.6 Phase 4 chunks (goal: M4, plus the model, network and DAO bodies the login slice needs)
 
@@ -705,7 +743,7 @@ These amendments take precedence over the text above.
 | Class kinds K1-K5 with escape analysis, field mapping, part detection (constructor, setter, late-bound controller patterns), effectively-final analysis, captured-variable members of stored lambdas/anonymous classes, `hasEquals`, capture-aware Ref cycles | `tools/gen/fieldmap.py` (shares `javasrc.py`; reads `staticdata-classes.json`) | `generated/concurrency/fieldmap.json`, `parts.json`, `escape_report.md`, `cycles_report.md` (committed); hand-owned `fieldmap.toml` (overrides, `[stored_callback_apis]`, `[immortal]`, `[settings]`) and `cycles.toml`, both also in `cpp/game-server/generated/concurrency/` | Wave 1 (T1), rerun on Java changes and whenever xmlgen regenerates | `skeleton.py`, `lint_concurrency.py`, agents |
 | Concurrency lint | `tools/porting/lint_concurrency.py` (L1-L20, W0) | CI/pre-commit report; CTest `gs.lint.concurrency` over `game-server/src` | from S0a | every chunk |
 | Schedule and stored-callback site classification | `tools/porting/classify_schedule_sites.py` | report per chunk | Wave 1 | batching, estimates |
-| Server packet recipients and non-cacheable lists | `tools/gen/opcodes.py` extension | `ServerPacketTraits.gen.h` | Wave 1 (T3); **not produced in wave 1**, deferred to the opcodes.py extension task | P4-15/16/17, L10 |
+| Server packet recipients and non-cacheable lists | `tools/gen/opcodes.py` extension | `ServerPacketTraits.gen.h` | Wave 1 (T3); **not produced in wave 1**, deferred to the opcodes.py extension task. **Superseded (S0c):** packets override `recipients()` by hand, and lint L10 checks the overrides against the `PER_RECIPIENT` set in `lint_concurrency.py` | P4-15/16/17, L10 |
 
 ## 7. §2.4 Waves 0-1 at D4 capacity (6 agents; the integrator lane is not counted)
 - **T1:** `javasrc.py` + `skeleton.py` + `fieldmap.py` (larger than before: escape analysis, capture modelling, part patterns; budget 11-13 days, may take a second agent in wave 1b).
@@ -726,11 +764,19 @@ These amendments take precedence over the text above.
   - `chunks.cmake` assigns the generated files: `model/DialogAction.h` and `DialogAction.gen.cpp` to the model chunk, `ServerPacketsOpcodes.gen.h` and `ClientPacketInfo.gen.inc` to P4-15, `SM_SYSTEM_MESSAGE.gen*.cpp` to P4-06 (the wave 1 `aion_gs_network_crypt` globs do not pick them up). **Done in S0a:** the model chunk is P4-05; the `SM_SYSTEM_MESSAGE.gen*.cpp` files are `COMPILE_WHEN_EXISTS` (header-only until the hand-written `SM_SYSTEM_MESSAGE.h` exists); all of `generated/` goes to T2-gen (`aion_gs_staticdata`).
   - Call `aion_gs_add_registries()` with `HANDLERS_ROOT` = `game-server/handlers`, never `game-server/src` (`HandlerRegistry.h` is core code). Include `tools/regscan/AionRegscan.cmake` first if the call comes before `add_subdirectory(tools)`. Set `CXX_SCAN_FOR_MODULES OFF` on handler libraries (equal file names such as `CalindiFlamelordAI.cpp` and `PadmarashkaAI.cpp` otherwise give MSBuild warning MSB8074). Unit-test executables link `<name>_empty`. **Done in S0a:** `CXX_SCAN_FOR_MODULES OFF` is set on every chunk library. The `<name>_<r>_empty` libraries compile tables that `aion_gs_add_registries` writes at configure time (`<out>/empty/Registry.<r>.empty.gen.cpp`) and do not depend on `<name>_scan`; CTest `gs.registry.empty_tables` compares them with the tool's `.empty.gen.cpp` output.
   - Decide whether `Unported.h/.cpp` move from `aion_gs_handler_registry` to a core target (e.g. `aion/gameserver/utils`), so core code need not link the registry library. The macro name stays; then change `skeleton.DEFAULT_UNPORTED_HEADER`, xmlgen `scaffold.UNPORTED_HEADER` and the include in stubs. The `unported_trace.py` input format is documented in `Unported.h`. **Decided and done in S0a (decision 1):** `aion/gameserver/runtime/base/Unported.h/.cpp` in `aion_gs_runtime_base`, namespace `aion::gameserver::runtime`; both generator defaults and the stubs use the new path.
-  - `gs.lint.concurrency` runs without `--cycles`; add `--cycles` once `cycles.toml` is resolved.
+  - `gs.lint.concurrency` runs without `--cycles`; add `--cycles` once `cycles.toml` is resolved. **Done in S0c:** it runs
+    `--werror --cycles=core` (handler-script edges skipped; see amendment §12).
 - S0b, from wave 1:
   - `ai::AbstractAI`, `model::gameobjects::Creature`, `instance::handlers::InstanceHandler`, `world::WorldMapInstance`, `world::zone::handler::{ZoneHandler, QuestZoneHandler}`, `questEngine::handlers::AbstractQuestHandler`, `utils::chathandlers::{ChatCommand, AdminCommand, PlayerCommand, ConsoleCommand}` and `network::aion::{AionClientPacket, StateSet}` must be non-template classes in exactly these namespaces (`HandlerRegistry.h` forward-declares them; a different shape needs a header change request).
   - The typed AI base (`AITemplate<T>`) must declare `using OwnerType = T;`. `skeleton.py` drafts `AbstractAI` as a non-template class but does not generate this alias.
   - The cycle review starts from `cycles_report.md`: 687 unresolved edges (400 with suggestions: one-shot tasks `accepted`, periodic tasks `java-hook: cancel`, observers `cpp-breaker: LogoutBreakers`), including `Effect$1#this` and `Effect$2#this`. Only the 9 resolutions stated in this design are in `cycles.toml`. Per-run services other than AhserionRaid, if any, go into `fieldmap.toml [settings] per_run_services`.
+  - **Done in S0b/S0c:** all four items above. The hub classes have exactly the `HandlerRegistry.h` shapes (`HandlerRegistry.h` compiles
+    unchanged), `AITemplate<T>` declares `using OwnerType = T;`. The cycle review resolved every edge outside the handler scripts
+    (runtime-architecture.md §5.3; at the freeze 310 resolutions, 376 handler edges left to the phase-6 chunks) and defined `LogoutBreakers`
+    and the 12 zombie-safe edges. No per-run service besides AhserionRaid uses Java's singleton pattern (AutoGroupService, DuelService,
+    EventService, PanesterraService, SiegeService and WorldRaidService are long-lived managers). `PlayerGroupLeavedEvent` is K5 with
+    `PlayerLeavedEvent` and `PlayerAllianceLeavedEvent`. The guessed collection types (89), external value types (58) and the 3 unresolved
+    `java.awt.geom` types are decided (spine-status.md S0b).
 
 ## 9. §2.6 Phase 4 waves (replace "8-10 agents")
 - 3a-1 (6): P4-05 base, P4-07a templates, P4-11a objects, P4-12 player, P4-15 network, P4-06 sysmsg.
@@ -740,7 +786,8 @@ These amendments take precedence over the text above.
 - Notes from wave 1 for phase 4 chunks:
   - P4-04: `Ray` copies its vectors; BIHNode's in-place ray transform works through the `getOrigin()`/`getDirection()` references. `BoundingVolume::collideWith(Ray)` replaces `Ray.collideWith(Collidable, CollisionResults)`. `TempVars` belongs here.
   - P4-05: `runtime/base/Exceptions.h` lacks `java.lang.ArithmeticException` (Rates.java catches it); `geoEngine/math/Matrix4f.h` declares one, which becomes an alias when the runtime adds it. **Resolved in S0a:** `commons::utils::ArithmeticException` (`aion/commons/utils/Exception.h`), re-exported by `runtime/base/Exceptions.h`; `Matrix4f.h` has `using commons::utils::ArithmeticException;`. PositionUtil (`Math.atan2`) and other Java-exact `Math.asin/acos/atan/atan2` users can use `geoEngine/math/StrictMath` (or move it to commons utils). `JavaFloat::toString` (Float.toString, JDK 19+) may duplicate the configs `toJavaString`.
-  - P4-06: when the real `SM_SYSTEM_MESSAGE.h` lands, remove from `tests/network_crypt` the stub `aion/gameserver/network/aion/serverpackets/SM_SYSTEM_MESSAGE.h` (it shadows the real header in that test executable), `GeneratedSysMsgTest.cpp` and `GeneratedSysMsgDefinitions0..7.cpp`, or move them to P4-06's tests. Move `GeneratedDialogActionTest.cpp`/`GeneratedOpcodesTest.cpp` (which compile `DialogAction.gen.cpp` by `#include`) when the model and network chunks own those files. `toJavaString(float)` needs geomath's `JavaFloat::toString` (link geomath or move it to commons).
+  - P4-06: when the real `SM_SYSTEM_MESSAGE.h` lands, remove from `tests/network_crypt` the stub `aion/gameserver/network/aion/serverpackets/SM_SYSTEM_MESSAGE.h` (it shadows the real header in that test executable), `GeneratedSysMsgTest.cpp` and `GeneratedSysMsgDefinitions0..7.cpp`, or move them to P4-06's tests. Move `GeneratedDialogActionTest.cpp`/`GeneratedOpcodesTest.cpp` (which compile `DialogAction.gen.cpp` by `#include`) when the model and network chunks own those files. `toJavaString(float)` needs geomath's `JavaFloat::toString` (link geomath or move it to commons). **Done in S0c:** the real `SM_SYSTEM_MESSAGE.h` exists (constructors, the four `toJavaString` overloads with `JavaFloat::toString`, a variadic `Object...` constructor), `SM_SYSTEM_MESSAGE.gen0..7.cpp` compile in `aion_gs_sysmsg`, the `tests/network_crypt` stub and `GeneratedSysMsgDefinitions0..7.cpp` are removed (not moved: the definitions are in the library), and `GeneratedSysMsgTest.cpp` is in `tests/sysmsg` (`aion_gs_sysmsg_tests`). `GeneratedDialogActionTest` and `GeneratedOpcodesTest` stay in `network_crypt`.
+  - P4-04 (S0c): `Collidable::collideWith` takes `math::Ray&` instead of a `Collidable` (every Java caller passes a Ray, a value type), so the implementations drop the `instanceof Ray` and `UnsupportedCollisionException` branches (Ray.h). `Node(String)` and therefore `GeoMap(mapId)` need the `CollisionIntention` companion (`getId`) before they can be ported.
 
 ## 10. §2.8 Phase 5 waves (replace "8 agents")
 - 5a (5): P5-00 login slice (`LogoutBreakers` scope guard in `leaveWorld`), P5-01+P5-02 as one agent, P5-05 AI, P5-06 quest, P5-14 misc.
@@ -757,6 +804,7 @@ These amendments take precedence over the text above.
 - "up to 10 agents" → "at most 6".
 - Quests Q01-Q14 in three waves (6/6/2); A1 and I1-I6 after P5-13 in two waves; C1/C2 last, C2 Reload stubbed.
 - Porting rule for every handler chunk: copy the member block and generated callback structs printed by `fieldmap.py --class <Java FQN>`, create K4 objects with `create()`, pin every schedule and callback, use `QuiescentScope` for long loops, add `cycles.toml` entries for back-references and captured variables.
+- As built (S0c): `gs.lint.concurrency` runs `lint_concurrency.py --werror --cycles=core`, which skips cycle edges under `game-server/data/handlers` (376 unresolved at the freeze, including edges of handler task objects such as `ArtifactAI.ArtifactUseSkill`). Switch CTest to plain `--cycles` when the phase-6 chunks have resolved them; the CTest lint covers only `game-server/src`, not `handlers/` (open item; M6 expects lint-clean handler chunks).
 
 ## 13. §3.1 Cross-cutting verification
 - Item 3: deterministic harness = `DeterministicExecutor` (all pools, PacketProcessor, cron, ForkJoin sequential, CleanerDrain), ManualClock, seeded Rnd, `Reclaimer::reclaimNow` after each task.
@@ -828,3 +876,19 @@ Status, numbers and open issues: [spine-status.md](spine-status.md).
 | 2.5 | `main.cpp` passes `-D` overrides through `Config::setEventConfigPropertiesProvider` (DEVIATIONS); PlayerDAO.setAllPlayersOffline, DatabaseCleaningService and the IDFactory used-ids sources are skipped (DAOs are unported); runtime shutdown runs outside the STARTUP scope; a completed startup would exit with 0 (no wait loop yet, P5-14 adds it). The `DataManager` stub is a class with only a static `getInstance()` and a private constructor; S0b replaces it with the `HolderRef` layout and `init()` |
 | 3.1 | `aion_add_tests` (every test executable, commons and login server included) runs and discovers tests in `<build>/test_work/<target>`, so no `cmake_test_discovery_*.json` is written into source directories. Label `realdata` (tests that read the Java tree) covers the real-data GoogleTest cases, `gs.chunks.consistency`, `gs.smoke.startup` and the whole `tools.gen`/`tools.oracle`/`tools.porting`/`tools.xmlgen` suites. `gs.smoke.startup` (labels `smoke;realdata`) is skipped unless `AION_TEST_GS_DATABASE_URL` is set and then passes the database as `-Ddatabase.*` overrides |
 
+
+## S0b and S0c implementation notes (2026-09-14)
+
+Where spine steps S0b and S0c depart from the text above, beyond the "As built" notes in §1.2, §1.7, §2.5 and amendments §6, §8, §9, §12.
+Status, numbers, freeze exceptions and open issues: [spine-status.md](spine-status.md); header rules: [hub-headers.md](hub-headers.md).
+
+| § | As built |
+|---|---|
+| 1.2, 1.6 | Quest handlers and commands derive `runtime::Immortal` with public virtual destructors (`HandlerRegistry` creates them as `std::unique_ptr`); `QuestEngine::addQuestHandler(std::unique_ptr<AbstractQuestHandler>)` keeps them in `HashMap<int32_t, AbstractQuestHandler*>` and has no `scriptManager` member (replaced by the registry). `AbstractQuestHandler(questId)`, `QuestZoneHandler(questId)` and the `ChatCommand` constructor (`parseSyntaxInfo`, `getAliasWithPrefix`) are ported, so every registry factory creates its object |
+| 1.4 | `QuestZoneHandler`'s constructor takes the marker's `int32_t questId` (Java reads `@ZoneNameAnnotation` reflectively) and keeps Java's validity check. `AIEngine::registerAI` and `InstanceEngine::addInstanceHandlerClass` take registry entries instead of `Class`; `findConstructor`/`findDefaultOwnerType` are not declared (compile-time `AIHandlerClass`). `InstanceEngine::getNewInstanceHandler` returns `Ref<InstanceHandler>`. `AIEngine`, `InstanceEngine` and `QuestEngine` derive `model::GameEngine` |
+| 2.2 | Stages wrote files that other chunks own when a hub could not compile without them; each resolves to exactly one chunk: `model/GameEngine.h` (P4-05), `world/zone/handler/GeneralZoneHandler.h/.cpp` (P4-10), `model/Expirable.h`, `model/templates/L10n.h` (P4-07b), `model/team/GeneralTeam.h`, `TeamMember.h` (P5-10), `model/stats/calc/StatOwner.h` (P5-01), `model/gameobjects/SummonedObject.h` (P4-11a), `model/items/storage/StorageTypeInfo.h` (P4-13, the first enum companion). `AbstractPlayerInfoPacket` is owned by P4-17 although the A-K lane wrote it |
+| 2.3 (skeleton) | Drafts apply the hub-headers.md rules: erasure, direct-argument null evidence, `unique_ptr` parts and `X&` part getters, cast-only narrowing redeclarations, `CreateKey` constructors, `retain`/`release` of `Ref`-held interfaces, lock classes, `= {}` on varargs, override detection by erased parameter types (private helpers excluded), `base_kind` along the superclass chain before interfaces. New modes: `--guards [--freeze]` (`SPINE_HEADERS`, `SPINE_FROZEN = True` since the freeze) and `--definitions` (tools.gen `HubDefinitionsTest`). The S0b pattern stage regenerated the 14 `fwd.h` files whose generics became non-template classes |
+| 2.3 (xmlgen) | A generated trivial getter is `virtual` when a Java subclass declares the same name and arity (`EffectTemplate` `getValue`, `getDuration2`, `isNoResist`). `[adapters]` accepts a `runtime::Ref<X>` target (return kind `ref`; the scaffold emits a RefCounted class with `create` and protected constructor and destructor), used by `NpcEquippedGear`. All 110 effect shells whose Java class declares `applyEffect` declare `void applyEffect(model::Effect&) const override;` (109 new `.cpp` files, P5-03/P5-04), so `EffectTemplate::applyEffect` is pure virtual |
+| 2.3 (header check) | `aion_gs_header_check` also compiles an explicit list of 64 hub headers and 10 C++-only spine headers (`gs_hub_headers`, `gs_spine_headers`), each a `CONFIGURE_DEPENDS` glob matching exactly that file (hub-headers.md §3.4) |
+| 2.6 (P4-14) | The SQL constants are verbatim, but live as `constexpr std::string_view` in an anonymous namespace of each DAO `.cpp`, with Java's concatenations resolved, not as class members of the frozen headers (no Java code outside the DAOs uses them). DAO loaders return `Ref`, `std::vector<Ref>` or maps of `Ref`. `getUsedIDs()` of PlayerDAO, InventoryDAO, PlayerRegisteredItemsDAO, LegionDAO, MailDAO, GuideDAO, HousesDAO and PlayerPetsDAO return `std::vector<int32_t>` for `RuntimeLifecycle::UsedIdsSource` |
+| 2.6 (P4-16/17) | Every packet constructor passes `opcodeOf<SM_X>`; `AbstractPlayerInfoPacket`, `AbstractHouseInfoPacket`, `SM_LEGION_INFO` and `SM_LEGION_MEMBERLIST` take the subclass opcode as a C++-only first constructor parameter. The packet lanes ported 279 of 371 constructors (those that only store parameters, literals or enum constants, or delegate); at the freeze 88 packet constructors (29 A-K, 59 L-Z) still keep their initializer list and reach `AION_UNPORTED` |

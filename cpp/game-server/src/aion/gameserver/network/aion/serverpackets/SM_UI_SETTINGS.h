@@ -15,7 +15,7 @@ namespace aion::gameserver::network::aion::serverpackets {
  */
 class SM_UI_SETTINGS : public AionServerPacket {
 private:
-	std::vector<uint8_t> data{}; // fieldmap: Java byte[] as bytes (hub-headers.md §6, writeB)
+	std::vector<uint8_t> data{}; // fieldmap.toml: Java byte[] as bytes (hub-headers.md §6, writeB)
 	int32_t type{};
 public:
 	/** Constructs new <tt>SM_CHARACTER_UI </tt> packet */

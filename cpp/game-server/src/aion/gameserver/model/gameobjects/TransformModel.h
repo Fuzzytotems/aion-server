@@ -27,7 +27,7 @@ private:
 	const skillengine::model::TransformType originalType;
 	runtime::Field<skillengine::model::TransformType> transformType;
 	runtime::Field<int32_t> panelId{};
-	runtime::Field<std::optional<TribeClass>> transformTribe{}; // fieldmap: Java stores null (PolymorphEffect.java:33), hub-headers.md §6
+	runtime::Field<std::optional<TribeClass>> transformTribe{}; // fieldmap.toml: Java stores null (PolymorphEffect.java:33), hub-headers.md §6
 
 protected:
 	// restrictions

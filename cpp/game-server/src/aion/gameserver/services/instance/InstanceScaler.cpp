@@ -51,7 +51,7 @@ void InstanceScaler::InstanceScalerStatFunction::apply(model::stats::calc::Stat2
 	AION_UNPORTED();
 }
 
-int32_t InstanceScaler::InstanceScalerStatFunction::getPriority() {
+int32_t InstanceScaler::InstanceScalerStatFunction::getPriority() const {
 	AION_UNPORTED();
 }
 

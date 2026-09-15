@@ -391,6 +391,10 @@ As built (S0a):
 - Companion headers are needed for 153 enums (54 JAXB + 99 core). 4 have constant-specific bodies: `model.autogroup.AutoGroupType`, `model.gameobjects.player.Rates`, `network.aion.iteminfo.ItemInfoBlob.ItemBlobType`, `network.aion.serverpackets.SM_CUSTOM_PACKET.PacketElementType`. The enum header comment names constant-specific bodies; the report lists core enum counts, nested enums without a generated alias and hand-written enums.
 - 40 nested core enums live in outer classes that are not generated. The outer class declares `using Inner = Outer_Inner;`: `skeleton.py --draft` writes it, a hand-written outer class adds it by hand (`xmlgen-report.md`, "Nested enums without a generated alias"). `model.team.legion.LegionHistoryAction.Type` is nested in an enum and cannot be aliased: spell it `LegionHistoryAction_Type`.
 
+As built (S0c): the first companion exists, `model/items/storage/StorageTypeInfo.h` (P4-13; `ItemStorage`'s constructor reads the limits). It
+is the pattern for the other 152: a constexpr data table with one entry per constant, checked by a `static_assert` against the enum's
+constant count, and constexpr free functions found by ADL (`getLimit(type)`).
+
 ### 2.6 Memory layout (estimates, to be measured in the slice)
 
 Real counts (Python iterparse, this pass):
@@ -404,7 +408,7 @@ Estimated sizes:
 - **All static data: roughly 300-500 MB resident**, unmeasured.
 
 Rules:
-- Index maps are `std::unordered_map<int32_t, const T*>` pointing into holder-owned storage. Hooks do not "null the list" (83 Java hooks do); the storage stays.
+- Index maps are `std::unordered_map<int32_t, const T*>` pointing into holder-owned storage. Hooks do not "null the list" (83 Java hooks do); the storage stays. As built (S0c): the `QuestsData` hook is the first ported example (index maps into the bound `questsData` vector, `getQuestById`, `size`; the pointers are stable because the hook runs after binding and holders are `unique_ptr`), followed by `NpcSkillData` (index, `getNpcSkillList`, `size`).
 - No arena or pmr until measurements ask for it: pmr types would leak into every getter signature.
 - Strings stay `std::string`. Most repeated values (`ai="aggressive"`, 39k) fit MSVC SSO.
 
@@ -471,6 +475,12 @@ struct DataManager {
 	...
 };
 ```
+
+As built (S0b, `dataholders/DataManager.h`, P4-09): 92 `static inline xml::HolderRef<X>` members in Java order, `MutableHolderRef` for
+`SPAWNS_DATA`, `WALKER_DATA` and `EVENT_DATA` (amendment §6); holder types are forward-declared; `xmlValidationTask` is
+`static inline runtime::Field<runtime::FutureRef>` and stays null (no XSD validation). The private constructor calls the private `init()`
+(the Java constructor body), which is `AION_UNPORTED`. `getInstance()` keeps an `AION_UNPORTED` body instead of the singleton definition,
+because `gs.smoke.startup` matches that site. Lint L2/L4 accept `HolderRef` members, so they carry no waivers.
 
 ### 3.4 Validation
 
@@ -725,6 +735,22 @@ Where spine step S0a departs from the text above, beyond the "As built (S0a)" no
 | 2.1, amend. 3 | Every generated data struct and behaviour shell that is a hierarchy root derives `::aion::gameserver::runtime::StaticTemplate` (empty base, `runtime/lifetime/RefCounted.h`, included by the data header or the `X.xml.h` prelude); subclasses inherit it. Template pointers therefore satisfy `IsTemplatePtr`/`Pinnable` (runtime-architecture.md §7.3) without `IsStaticTemplate` specializations, and `skeleton.py` reads the marker from the base clause. The empty base keeps the layout (`sizeof(AiInfo) == 2 * sizeof(int32_t)`, static_asserts in `GeneratedSliceTest.cpp`). 240 unedited shells were rewritten once for the base; later root classes get it from the scaffold |
 | 2.1, 2.2 | Shell headers declare the Java no-argument constructor only when it is protected or private (`protected: X() = default;`); otherwise the class body is the member block include followed by `public:`. No virtual destructors beyond the generated ones of `@XmlElements` roots: a user-declared destructor would delete the implicit move constructor and break in-place vector binding |
 | 2.4 | `NpcEquippedGearAdapter` binds with `c.replaceSingle(o.{member}, std::make_unique<...>(std::move(value)), e);` (a lenient repeat keeps the old gear alive; a strict repeat is an error). The adapter target shell `model/items/NpcEquippedGear.h/.cpp` has `explicit NpcEquippedGear(std::unique_ptr<NpcEquipmentList> v)` (member `v`) and `init(LoadContext&)` as `AION_UNPORTED`, with lint waivers (`// fieldmap:` for L1/L2, `// lint: L7`), because a shell does not follow `fieldmap.json`. Without it the NpcTemplate binder does not compile. The binder calls `init` during binding even with `runHooks=false`, like the annotated setters |
-| 2.4, 3.6 | **Proposed decision (open, blocked):** `NpcEquippedGear` stays K4 RefCounted as `fieldmap.json` says. `NpcTemplate` holds `runtime::Ref<NpcEquippedGear>` created by `NpcEquippedGear::create(value)` and initialized eagerly; the immortal template retains it for the process lifetime (Java GC semantics); `Npc.overriddenEquipment` is `Field<Ref<NpcEquippedGear>>`. It needs a `BindContext::replaceSingle` overload for `Ref<T>` with the rules of the `unique_ptr` one; until then the generated member is `std::unique_ptr<NpcEquippedGear>` and a skeleton draft of Npc keeps `overriddenEquipment` as a TODO member |
+| 2.4, 3.6 | **Decided and implemented in S0c** (see the S0b/S0c notes below; the S0b interim `std::shared_ptr<const NpcEquippedGear>` in `Npc.h` is gone). Original proposal: `NpcEquippedGear` stays K4 RefCounted as `fieldmap.json` says. `NpcTemplate` holds `runtime::Ref<NpcEquippedGear>` created by `NpcEquippedGear::create(value)` and initialized eagerly; the immortal template retains it for the process lifetime (Java GC semantics); `Npc.overriddenEquipment` is `Field<Ref<NpcEquippedGear>>`. It needs a `BindContext::replaceSingle` overload for `Ref<T>` with the rules of the `unique_ptr` one; until then the generated member is `std::unique_ptr<NpcEquippedGear>` and a skeleton draft of Npc keeps `overriddenEquipment` as a TODO member |
 | 4 | The whole generated tree compiled with `/W4 /WX` and no warnings against the real `src/` shells (89 binder TUs, 112 shell TUs, one TU per generated header and per shell header, all enum headers after `<windows.h>`). A strict load of all 92 imports with `runHooks=false` and a no-op `AION_UNPORTED` took 11.4 s (Debug) and gave V3 totals equal to `tools/oracle/expected/totals.json`. Without the no-op, no real load passes until P4-07/08/09/13 port the hooks, setters and `NpcEquippedGear::init` |
 
+
+## S0b and S0c implementation notes (2026-09-14)
+
+Where spine steps S0b and S0c depart from the text above, beyond the "As built" notes in §2.5, §2.6 and §3.3. Status and open issues:
+[spine-status.md](spine-status.md); header rules for shells: [hub-headers.md](hub-headers.md) §9.
+
+| § | As built |
+|---|---|
+| 2.1, 2.4 | xmlgen emits a generated trivial getter `virtual` when a Java subclass declares the same name and arity (`cppmodel.mark_virtual_accessor`); the real tree has three: `EffectTemplate::getValue`, `getDuration2` and `isNoResist`, overridden by the hand-written `AbstractOverTimeEffect` and `SkillAttackInstantEffect` shells. Overrides of hand-written virtuals stay hand-written, because the generator skips `@Override` methods as non-trivial. Shell methods, virtual ones included, are `const` |
+| 2.1 | Shells list the Java interfaces they implement as bases: `VisibleObjectTemplate` derives `L10n` and declares pure virtual `getTemplateId() const` and `getName() const` (by value; `AbstractHouseObject` returns `""` for null) plus `getBoundRadius() const` (default `BoundRadius::DEFAULT`), `CreatureTemplate::getAiName() const` returns `nullopt` unless `NpcTemplate` has a non-empty `ai`; 11 more templates derive `L10n`. Java enums that implement `L10n` cannot. `TitleTemplate` and `ItemSetTemplate` derive `StatOwner` with no-op `retain`/`release`. `ExtractedItemsCollection.getChance` stays a non-virtual generated getter: the C++ `Chance` interface does not exist yet |
+| 2.1, 3.6 | `EffectTemplate::applyEffect` is `= 0` (S0b had an `AION_UNPORTED` base body while the shells lacked overrides): all 110 effect shells whose Java class declares it declare `void applyEffect(model::Effect&) const override;` with stubs |
+| 2.4, 3.6 | `NpcEquippedGear` is RefCounted (K4, `fieldmap.json`): `NpcTemplate` holds `runtime::Ref<NpcEquippedGear>` created by `NpcEquippedGear::create`, `getEquipment() const` returns `Ptr`, and `Npc.overriddenEquipment` is `Field<Ref<NpcEquippedGear>>`. `BindContext::replaceSingle(runtime::Ref<T>&, runtime::Ref<T>, node)` has the rules of the `unique_ptr` overload; in lenient mode `LoadContext::retire` keeps the replaced reference as a `unique_ptr<Ref<T>>`. `xmlgen.toml [adapters]` accepts `cpp = runtime::Ref<X>`. Layout: `items` is `Field<Ref<RcTreeMap<ItemSlot, const ItemTemplate*>>>` (Java creates a TreeMap and `SM_NPC_INFO` iterates it in slot order), a C++-only `const std::unique_ptr<const NpcEquipmentList> ownedList` stands for the GC reference to the adapter value, and a C++-only `init(LoadContext&)` overload next to Java's `init()` is the binder contract (eager initialization after IDREF resolution). RefCounted gear of templates destroyed without a running Reclaimer (tests) is queued and never freed, which is harmless |
+| 2.4 | `SpawnSpotTemplate` gained the Java 7-argument constructor and its accessors (`getStaticId`, `setStaticId`, `getRandomWalk`, `getState`, `isAerialSpawn`); `Spawn` gained `Spawn(npcId, respawnTime, handler)`, its accessors and a C++-only `const` overload of `getSpawnSpotTemplates` for `const Spawn*` callers. The `SpawnTemplate(spot)` and `SpawnGroup(Spawn)` constructors are ported on top of them |
+| 2.6, 3.6 | Run-time objects of template classes need a lifetime: `BoundRadius::intern(front, side, upper)` interns the radii `PlayerAccountData::updateBoundingRadius` computes (one immortal per distinct appearance height; Java creates a new object per call), so `PlayerCommonData` keeps `Field<const BoundRadius*>`. `StatFunction` modifiers of static data have no-op `retain`/`release`; run-time stat functions are `RcStatFunction<T>::create(...)` or RefCounted subclasses, `StatFunction::ofTemplate` adapts a template for the stat containers, and `IsStaticTemplate` is false for the family (hub-headers.md §9.2). `StatFunction` has a C++-only `sharedConditions` pointer, because the generated member block owns its conditions through a `unique_ptr`. `Kisk` still stores `const KiskStatsTemplate*` although Java creates `new KiskStatsTemplate()` at run time (open, P4-11a) |
+| 3.2 | `BindContext::countAttributeBound` was declared but never defined; it is removed |
+| 3.6 | `HostileUpEffect.tempHate` is the C++-only `Effect` member `hostileUpTempHate` (`Field<int32_t>`, `getHostileUpTempHate`/`setHostileUpTempHate`, `fieldmap.toml [cpp_members]`, DEVIATIONS): `HostileUpEffect::calculate` stores the value computed for the cast and `applyEffect` and its delayed task read it from the effect. Chosen at the freeze review over recomputing it in `applyEffect`, which would read the effected's `BOOST_HATE` later than Java |

@@ -16,7 +16,7 @@ namespace aion::gameserver::network::aion::serverpackets {
 class SM_LEGION_SEND_EMBLEM_DATA : public AionServerPacket {
 private:
 	int32_t size{};
-	std::vector<uint8_t> data{}; // fieldmap: Java byte[] as bytes (hub-headers.md §6, writeB)
+	std::vector<uint8_t> data{}; // fieldmap.toml: Java byte[] as bytes (hub-headers.md §6, writeB)
 public:
 	SM_LEGION_SEND_EMBLEM_DATA(int32_t size, std::span<const uint8_t> data);
 protected:

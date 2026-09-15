@@ -29,7 +29,7 @@ public:
 private:
 	runtime::Field<int32_t> id{};
 	runtime::Field<bool> rewarded{};
-	// fieldmap: Java normTs keeps null (Passport.java normTs), hub-headers.md §6 nullable Timestamp field
+	// fieldmap.toml: Java normTs keeps null (Passport.java normTs), hub-headers.md §6 nullable Timestamp field
 	runtime::Field<std::optional<commons::database::Timestamp>> arriveDate{};
 	runtime::Field<PersistentState> state{PersistentState::NOACTION};
 	runtime::Field<bool> fakeStamp{false};

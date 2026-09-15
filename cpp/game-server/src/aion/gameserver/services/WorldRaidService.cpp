@@ -31,7 +31,7 @@ bool WorldRaidService::isWorldRaidInProgress(int32_t locationId) {
 	AION_UNPORTED();
 }
 
-void WorldRaidService::startRaid(int32_t locationId, bool useSpecialSpawnMsg) { // lint: L7 unported stub; the port adds the Java synchronized block
+void WorldRaidService::startRaid(int32_t locationId, bool useSpecialSpawnMsg) {
 	AION_UNPORTED();
 }
 

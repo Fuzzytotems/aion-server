@@ -15,7 +15,7 @@ void VortexService::initVortexLocations() {
 	AION_UNPORTED();
 }
 
-void VortexService::startInvasion(int32_t id) { // lint: L7 unported stub; the port adds the Java synchronized block
+void VortexService::startInvasion(int32_t id) {
 	AION_UNPORTED();
 }
 

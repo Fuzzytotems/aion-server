@@ -43,7 +43,7 @@ private:
 	const std::optional<spawnengine::SpawnHandlerType> handlerType;
 	const TemporarySpawn* temporarySpawn;
 	runtime::PartList<SpawnTemplate> spots{*this};
-	// fieldmap: sibling pointers to the group's own template parts (build/s0b-cycles-work/setII.toml, cycles.toml `part`)
+	// fieldmap.toml: sibling pointers to the group's own template parts
 	runtime::HashMap<int32_t, runtime::Ref<runtime::RcHashSet<SpawnTemplate*>>> poolUsedTemplates{AION_LOCK_CLASS(SpawnGroup::poolUsedTemplates)};
 	const event::EventTemplate* eventTemplate;
 	/** C++ only: templates of this group that are not spawn spots (adoptDetachedTemplate) */

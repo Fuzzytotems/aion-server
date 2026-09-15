@@ -35,17 +35,24 @@ What it computes
    for non-private fields), SelfOrRef<O> (also assigned elsewhere) or Final<O*> (late-bound, set by setOwner);
    fields typed as another part class of the same owner are sibling pointers Field<Sib*>.
 4. Callbacks: every lambda, method reference and anonymous class with its syntactic context and storage: a [stored_callback_apis] call,
-   a [future_apis] task (owner = the class whose field or storing call receives the Future), a project method or constructor inferred to
+   a [future_apis] task (owner = the class whose field or storing call receives the Future: `f = schedule(..)`, `obj.f = schedule(..)` with
+   a resolvable `obj`, through a local, or at the call sites of a method that returns the Future, `lifeRestoreTask =
+   service.scheduleRestoreTask(this)`), a [stored_callback_apis] entry with handle = true (its owner plus the holders of the returned
+   handle, CronService.schedule -> JobDetail), a project method or constructor inferred to
    store the parameter into a field (assignment or add/put/offer/push on a field), a field assignment, or 'sync' (not stored). Captured
    variables (javac val$x / this$0) of lambdas, anonymous, local and non-static inner classes, with their C++ members. A captured `this`
    is OwnerRef<X> only when every storage owner of the callback is X (or a subtype); otherwise it retains (const Ref<X>) and is a cycle edge.
+   Task objects: a named project class handed to a [future_apis] or [stored_callback_apis] call as `new X(..)` or as `this` inside X
+   (`schedule(new HpRestoreTask(stats))`, `schedule(this, delay)`) escapes like an anonymous task, and its storage owner gets a 'stored' edge.
 5. Java equals/hashCode/compareTo overrides (hasEquals, §3.3 RR-13) and synchronized / lock() counts per method (lint L7).
 6. Capture-aware retaining graph and cycles (§5.3): nodes are K3/K4 classes and stored lambda/method-reference sites; edges are retaining
    fields (targets expanded to all subtypes), part edges, captured variables, 'extends' (a subclass contains its superclass part) and
-   'stored' (storage owner -> callback). Every field or capture edge inside a strongly connected component needs a cycles.toml resolution.
+   'stored' (storage owner -> callback or task object). Every field or capture edge inside a strongly connected component needs a
+   cycles.toml resolution. fieldmap.toml [cpp_members] adds the part or field edges of C++-only members.
    A retaining field or capture whose target is a part class also retains the part's owners (OwnedPart::retain forwards to the owner, §2.3).
    Captured immortals and singletons are not retained (pinned pointers, like fields). A fieldmap.toml [fields] cpp spelling that names the
-   target only as X*, Final<X*>, OwnerRef<X> or weak_ptr<X> makes the field non-retaining.
+   target only as X*, Final<X*>, OwnerRef<X> or weak_ptr<X> makes the field non-retaining; its retains = [...] adds targets the Java type does
+   not give (WeakReference<X>, a K1 base with run-time subclasses).
 
 Outputs (cpp/game-server/generated/concurrency, override with --out)
     fieldmap.json      {format: aion-fieldmap, version, inputs, summary, classes{cid: {...}}, callbacks{id: {...}}, cycleEdges{key: {...}}}
@@ -54,7 +61,8 @@ Outputs (cpp/game-server/generated/concurrency, override with --out)
                        Class entry keys: kind, kindName, reason, file, line, javaKind, cppName, extends, implements, externalSuper, base
                        (RefCounted | OwnedPart | Immortal | StaticTemplate), hasEquals, equalsFrom, hashCodeFrom, compareToFrom, partOf,
                        singleton, typeParams, fields [{name, java, line, cpp, rule, modifiers, effectivelyFinal, flags, retains, part,
-                       overrideReason, xmlBound}], captures, storage, storageOwners, sync {method: {synchronized, lock}}, callbacks, and
+                       overrideReason, holders, accessor, xmlBound}], cppMembers [{name, cpp, reason, partType, retains}], captures, storage,
+                       storageOwners, sync {method: {synchronized, lock}}, callbacks, and
                        the skeleton.py interface: members [{javaName, cppType | declaration, static, initializer, cppName, comment}] and
                        extraDeclarations (generated callback structs of the anonymous/local classes declared inside).
     parts.json         {format: aion-parts, version, parts: [{owner, field, partType, patterns, cpp, ownerField, evidence[...]}]}
@@ -62,8 +70,8 @@ Outputs (cpp/game-server/generated/concurrency, override with --out)
                        cycles.toml status; stale cycles.toml keys.
     escape_report.md   per class kind with the first escape reason (the escape graph), K5 classes, flagged fields.
 Hand-owned inputs next to the outputs: fieldmap.toml ([settings] packet_bases/connection_bases/per_run_services/value_types (classes ported
-as C++ value types: scalar-like, never referenced), [stored_callback_apis], [future_apis], [kinds], [immortal], [fields]; format in its
-header) and
+as C++ value types: scalar-like, never referenced), [stored_callback_apis], [future_apis], [kinds], [immortal], [fields], [captures],
+[cpp_members] (C++-only members of a Java class: spelling for lint L2, part_type/retains edges for the cycle graph); format in its header) and
 cycles.toml ([resolutions] "Class.field" / "Class$1#capture" / "Outer@L123#capture" = "part" | "java-hook: m" | "cpp-breaker: m" |
 "zombie-safe: edge" | "accepted: why").
 
@@ -234,6 +242,7 @@ DEFAULT_CONFIG = {
     'bases': {},
     'fields': {},
     'captures': {},
+    'cpp_members': {},
 }
 
 
@@ -381,6 +390,21 @@ class Callback:
         self.escape_args = []
 
 
+class TaskObject:
+    """A named task object handed to a task or stored-callback API (`schedule(new X(..))`, `schedule(this, ..)` inside X)."""
+    __slots__ = ('ci', 'rs', 'line', 'api', 'storage', 'owners', 'future_holder', 'how')
+
+    def __init__(self, ci, rs, line, how):
+        self.ci, self.rs, self.line, self.how = ci, rs, line, how
+        self.api = ''
+        self.storage = 'task'
+        self.owners = []
+        self.future_holder = ''
+
+    def where(self):
+        return f'{self.rs.span.cu.path and _rel(self.rs.span.cu.path)}:{self.line}'
+
+
 class PartInfo:
     __slots__ = ('owner', 'field', 'patterns', 'evidence', 'part_types', 'element', 'owner_classes', 'dims')
 
@@ -415,11 +439,13 @@ def load_config(path):
         for name, entry in data.get(sec, {}).items():
             if not isinstance(entry, dict):
                 raise FieldmapError(f'{path}: [{sec}] {name} must be a table')
-            extra = set(entry) - {'owner', 'receiver', 'reason'}
+            extra = set(entry) - {'owner', 'receiver', 'reason'} - ({'handle'} if sec == 'stored_callback_apis' else set())
             if extra:
                 raise FieldmapError(f'{path}: [{sec}] {name}: unknown keys {sorted(extra)}')
             if sec == 'stored_callback_apis' and 'owner' not in entry:
                 raise FieldmapError(f'{path}: [{sec}] {name}: owner is required')
+            if entry.get('handle') not in (None, True):
+                raise FieldmapError(f'{path}: [{sec}] {name}: handle must be true')
             cfg[sec][name] = entry
     for key, entry in data.get('kinds', {}).items():
         if entry.get('kind') not in (K1, K2, K3, K4, K5) or not entry.get('reason'):
@@ -439,20 +465,39 @@ def load_config(path):
     for key, entry in data.get('fields', {}).items():
         if not entry.get('reason'):
             raise FieldmapError(f'{path}: [fields] {key!r} needs a reason')
-        extra = set(entry) - {'cpp', 'part', 'retire', 'reason', 'part_type', 'drop'}
+        extra = set(entry) - {'cpp', 'part', 'retire', 'reason', 'part_type', 'drop', 'retains', 'holders', 'accessor'}
         if extra:
             raise FieldmapError(f'{path}: [fields] {key!r}: unknown keys {sorted(extra)}')
+        for k in ('retains', 'holders'):
+            if k in entry and (not isinstance(entry[k], list) or not entry[k] or not all(isinstance(x, str) for x in entry[k])):
+                raise FieldmapError(f'{path}: [fields] {key!r}: {k} must be a non-empty list of strings')
+        if ('holders' in entry or 'accessor' in entry) and not (
+                'holders' in entry and isinstance(entry.get('accessor'), str) and re.match(r'^(?:const\s+)?OwnerRef<', entry.get('cpp', ''))):
+            raise FieldmapError(f'{path}: [fields] {key!r}: holders and accessor go together, on an OwnerRef<> spelling')
+        if 'retains' in entry and (entry.get('drop') or entry.get('part')):
+            raise FieldmapError(f'{path}: [fields] {key!r}: retains excludes drop and part')
         if entry.get('retire') not in (None, 'OWNER', 'RECLAIMER'):
             raise FieldmapError(f'{path}: [fields] {key!r}: retire must be OWNER or RECLAIMER')
         if entry.get('drop') not in (None, True) or (entry.get('drop') and set(entry) - {'drop', 'reason'}):
             raise FieldmapError(f'{path}: [fields] {key!r}: drop = true takes only a reason')
         cfg['fields'][key] = entry
     for key, entry in data.get('captures', {}).items():
-        if not isinstance(entry, dict) or not entry.get('reason') or not entry.get('cpp') or set(entry) - {'cpp', 'reason'}:
-            raise FieldmapError(f'{path}: [captures] {key!r} needs exactly cpp and a reason')
+        dropped = isinstance(entry, dict) and entry.get('drop') is True and set(entry) == {'drop', 'reason'} and entry.get('reason')
+        if not dropped and (not isinstance(entry, dict) or not entry.get('reason') or not entry.get('cpp') or set(entry) - {'cpp', 'reason'}):
+            raise FieldmapError(f'{path}: [captures] {key!r} needs exactly cpp and a reason, or drop = true and a reason')
         if '#' not in key:
             raise FieldmapError(f'{path}: [captures] {key!r} must be "ClassId#capture"')
         cfg['captures'][key] = entry
+    for key, entry in data.get('cpp_members', {}).items():
+        if not isinstance(entry, dict) or not entry.get('reason') or not entry.get('cpp') or set(entry) - {'cpp', 'reason', 'part_type', 'retains'}:
+            raise FieldmapError(f'{path}: [cpp_members] {key!r} needs cpp and a reason (optional part_type or retains)')
+        if '.' not in key:
+            raise FieldmapError(f'{path}: [cpp_members] {key!r} must be "FQN.member"')
+        if 'part_type' in entry and 'retains' in entry:
+            raise FieldmapError(f'{path}: [cpp_members] {key!r}: part_type and retains exclude each other')
+        if 'retains' in entry and (not isinstance(entry['retains'], list) or not all(isinstance(x, str) for x in entry['retains'])):
+            raise FieldmapError(f'{path}: [cpp_members] {key!r}: retains must be a list of class FQNs')
+        cfg['cpp_members'][key] = entry
     return cfg
 
 
@@ -545,6 +590,7 @@ class FieldMap:
         self._effectively_final()
         self._detect_parts()
         self._callbacks()
+        self._task_objects()
         self._inner_class_captures()
         self._kinds()
         self._reject_shared_parts()
@@ -1598,6 +1644,45 @@ class FieldMap:
                 self.callbacks[cbid] = cb
                 ci_here.callbacks.append(cbid)
 
+    def _task_objects(self):
+        """Named task objects: `new X(..)` (X not anonymous: those are callbacks) or `this` (inside X, outside anonymous classes) passed to a
+        [future_apis] or [stored_callback_apis] call. The escape analysis treats them like anonymous tasks (the pending Future or the job
+        store keeps the object and a pool thread runs it later), and _cycles adds the structural edge storage owner -> X, so a cycle through
+        a pending task (holder.field -> Future -> task -> holder) is reported. A task object reached only through a local variable or a
+        wrapper (`new FutureTask<>(task, null)`) is not followed; fieldmap.toml [kinds] covers those."""
+        self.task_objects = []
+        for rs in self.root_spans:
+            if rs.ci.origin != 'output':
+                continue
+            sp = rs.span
+            tk = sp.cu.tokens
+            for c in sp.method_calls():
+                recv = c.receiver.text if c.receiver is not None else ''
+                future = self._config_api(self.cfg['future_apis'], c.name, recv) is not None
+                if not future and self._config_api(self.cfg['stored_callback_apis'], c.name, recv) is None:
+                    continue
+                for pos, a in enumerate(c.args):
+                    if a.texts() == ['this']:
+                        if rs.static:
+                            continue
+                        x, how = self.class_at(rs, a.start), 'this'
+                    else:
+                        ne = self.new_exact(rs, a.start, a.end)
+                        if ne is None or ne.anonymous is not None or ne.array:
+                            continue
+                        x, how = self._new_class(ne, rs), 'new'
+                    if x is None or x.origin != 'output' or x.td.anonymous or x.is_interface:
+                        continue
+                    to = TaskObject(x, rs, tk.loc(a.start)[0], how)
+                    to.api = c.name
+                    if future:
+                        self._future_storage(to, rs, c)
+                    else:
+                        api = self._api_for_call(rs, c, pos)
+                        to.storage = 'stored'
+                        to.owners = self._handle_owners(rs, c, api[1]) if api is not None and api[0] == 'owner' else []
+                    self.task_objects.append(to)
+
     def _declared_within(self, c, a):
         x = c
         while x is not None:
@@ -1627,7 +1712,7 @@ class FieldMap:
                 cb.storage = 'static'
                 return
             cb.storage = 'stored'
-            cb.owners = api[1]
+            cb.owners = self._handle_owners(rs, c, api[1])
             self._task_args(cb, rs, c)
             return
         if kind == 'new':
@@ -1702,7 +1787,16 @@ class FieldMap:
 
     def _field_for_assignment(self, rs, a):
         if a.qualifier not in (None, 'this'):
-            return None
+            # `obj.f = ...` with a simple qualifier whose type resolves (a local, parameter or field: RecallService `request.timeout = ...`)
+            t = rs.span.cu.tokens.text
+            if a.element or not re.fullmatch(r'[A-Za-z_$][\w$]*', a.qualifier) or a.index < 2 or t[a.index - 1] != '.' or \
+                    t[a.index - 2] != a.qualifier:
+                return None
+            jt, _, static_ref = self.expr_type(rs, a.index - 2, a.index - 1)
+            if jt is None or jt.cat != 'class' or jt.ci is None:
+                return None
+            fi = self._field_in_chain(jt.ci, a.name)
+            return fi if fi is not None and fi.static == static_ref else None
         chain = self._lexical_chain(rs, a.index)
         for c in chain:
             fi = self._field_in_chain(c, a.name)
@@ -1728,7 +1822,7 @@ class FieldMap:
                         cb.storage = 'static'
                     else:
                         cb.storage = 'stored'
-                        cb.owners = api[1]
+                        cb.owners = self._handle_owners(rs, c, api[1])
                     return
         for a in sp.field_assignments():
             if a.index > decl_index and a.rhs is not None and a.rhs.texts() == [name]:
@@ -1742,50 +1836,110 @@ class FieldMap:
 
     def _future_storage(self, cb, rs, call):
         cb.storage = 'task'
+        cb.owners, holder = self._result_holders(rs, call)
+        cb.future_holder = holder or ''
+
+    def _result_holders(self, rs, call, depth=0):
+        """(owners, holder text) of the value a call returns (a Future, or the handle of a [stored_callback_apis] entry with handle = true):
+        the class of the field it is assigned to (`this.f = ...`, `obj.f = ...` with a resolvable `obj`), the owners of a storing call it is
+        passed to, the same through a local variable, and for `return <call>` the holders at the call sites of the enclosing method
+        (`lifeRestoreTask = LifeStatsRestoreService.getInstance().scheduleRestoreTask(this)`, followed two levels deep)."""
         ctx = self._expr_context(rs, call.span.start, call.span.end)
-        holder = None
+        owners, holder = [], None
         if ctx[0] == 'call':
             api = self._api_for_call(rs, ctx[1], ctx[2])
             if api is not None and api[0] == 'owner':
-                cb.owners = api[1]
+                owners = api[1]
                 holder = f'{ctx[1].name}()'
         elif ctx[0] == 'assign':
             a = ctx[1]
             if a.local:
-                sp = rs.span
-                for c in sp.method_calls():
-                    if c.index > a.index:
-                        for pos, arg in enumerate(c.args):
-                            if arg.texts() == [a.name]:
-                                api = self._api_for_call(rs, c, pos)
-                                if api is not None and api[0] == 'owner':
-                                    cb.owners = api[1]
-                                    holder = f'{c.name}()'
+                owners, holder = self._local_holders(rs, a.name, a.index)
             else:
                 fi = self._field_for_assignment(rs, a)
                 if fi is not None and not fi.static:
-                    cb.owners = [fi.ci]
+                    owners = [fi.ci]
                     holder = f'field {fi.ci.simple}.{fi.name}'
                 elif fi is not None:
                     holder = f'static field {fi.ci.simple}.{fi.name}'
         elif ctx[0] == 'local':
             v = ctx[1]
-            sp = rs.span
-            for c in sp.method_calls():
-                if c.index > v.index:
-                    for pos, arg in enumerate(c.args):
-                        if arg.texts() == [v.name]:
-                            api = self._api_for_call(rs, c, pos)
-                            if api is not None and api[0] == 'owner':
-                                cb.owners = api[1]
-                                holder = f'{c.name}()'
-            for a in sp.field_assignments():
-                if a.index > v.index and a.rhs is not None and a.rhs.texts() == [v.name]:
-                    fi = self._field_for_assignment(rs, a)
-                    if fi is not None and not fi.static:
-                        cb.owners = [fi.ci]
-                        holder = f'field {fi.ci.simple}.{fi.name}'
-        cb.future_holder = holder or ''
+            owners, holder = self._local_holders(rs, v.name, v.index)
+        elif ctx[0] == 'return' and depth < 2 and not any(lam.span.start <= call.span.start < lam.span.end for lam in rs.span.lambdas()):
+            owners, holder = self._returned_value_holders(rs, depth)
+        return owners, holder
+
+    def _handle_owners(self, rs, call, owners):
+        """owners plus the holders of the returned handle when the call is a [stored_callback_apis] entry with handle = true (CronService.schedule
+        returns the JobDetail that keeps the callback: a class keeping it retains the callback like a Future holder)."""
+        recv = call.receiver.text if call.receiver is not None else ''
+        entry = self._config_api(self.cfg['stored_callback_apis'], call.name, recv)
+        if entry is None or not entry.get('handle'):
+            return owners
+        extra, _ = self._result_holders(rs, call)
+        return list(owners) + [o for o in extra if o not in owners]
+
+    def _local_holders(self, rs, name, index):
+        """Holders of a value kept in a local variable: a storing call it is passed to, or a field it is assigned to (the last one wins)."""
+        sp = rs.span
+        owners, holder = [], None
+        for c in sp.method_calls():
+            if c.index > index:
+                for pos, arg in enumerate(c.args):
+                    if arg.texts() == [name]:
+                        api = self._api_for_call(rs, c, pos)
+                        if api is not None and api[0] == 'owner':
+                            owners = api[1]
+                            holder = f'{c.name}()'
+        for a in sp.field_assignments():
+            if a.index > index and a.rhs is not None and a.rhs.texts() == [name]:
+                fi = self._field_for_assignment(rs, a)
+                if fi is not None and not fi.static:
+                    owners = [fi.ci]
+                    holder = f'field {fi.ci.simple}.{fi.name}'
+        return owners, holder
+
+    def _returned_value_holders(self, rs, depth):
+        """Holders of a value that method rs.member returns, at its call sites: calls of that name and arity whose receiver resolves to the
+        declaring class tree (or unqualified calls inside it)."""
+        m = rs.member
+        if not isinstance(m, javasrc.MethodDecl) or m.kind != 'method':
+            return [], None
+        decl = rs.ci
+        family = {decl.cid} | {c.cid for c in self._supers_closure(decl)} | {c.cid for c in self.all_subtypes(decl)}
+        owners, holders = [], []
+        for rs2, c in self._calls_by_name().get(m.name, ()):
+            if len(c.args) != len(m.params):
+                continue
+            if c.receiver is not None:
+                if c.receiver.texts() in (['this'], ['super']):
+                    here = self.class_at(rs2, c.index)
+                else:
+                    jt, _, _ = self.expr_type(rs2, c.receiver.start, c.receiver.end)
+                    here = jt.ci if jt is not None and jt.cat == 'class' else None
+                if here is None or not ({here.cid} | {x.cid for x in self._supers_closure(here)}) & family:
+                    continue
+            elif not any(x.cid in family or {y.cid for y in self._supers_closure(x)} & family for x in self._lexical_chain(rs2, c.index)):
+                continue
+            o, h = self._result_holders(rs2, c, depth + 1)
+            if h is not None:
+                for x in o:
+                    if x not in owners:
+                        owners.append(x)
+                holders.append(h)
+        holders = sorted(set(holders))
+        return owners, (f'{", ".join(holders)} via {m.name}()' if holders else None)
+
+    def _calls_by_name(self):
+        if getattr(self, '_calls_index', None) is None:
+            index = {}
+            for rs in self.root_spans:
+                if rs.ci.origin != 'output':
+                    continue
+                for c in rs.span.method_calls():
+                    index.setdefault(c.name, []).append((rs, c))
+            self._calls_index = index
+        return self._calls_index
 
     def _task_args(self, cb, rs, call):
         for a in call.args:
@@ -2162,6 +2316,8 @@ class FieldMap:
                 mark_type(cap.jt, f'captured by {cb.kind} at {where}')
             for a in cb.escape_args:
                 mark(a, f'task argument at {where}')
+        for to in self.task_objects:
+            mark(to.ci, f'task object ({to.how}) passed to {to.api}() at {to.where()}')
         while queue:
             g = queue.popleft()
             for m in sorted(members[g], key=lambda c: c.cid):
@@ -2663,6 +2819,11 @@ class FieldMap:
                         fi.cpp = None  # no C++ member (lint L2 does not ask for it)
                     fi.rule = 'fieldmap.toml override' + (': dropped' if ov.get('drop') else '')
                     fi.override_reason = ov['reason']
+                    for holder in ov.get('holders', ()):
+                        hcid, _, hname = holder.rpartition('.')
+                        hci = self.classes.get(hcid)
+                        if hci is None or self._field_in_chain(hci, hname) is None:
+                            raise FieldmapError(f'fieldmap.toml: [fields] {key}: unknown holder field {holder}')
                 self._retains(fi)
             for cap in ci.captures:
                 self._map_capture(ci, cap, ci.storage)
@@ -2678,11 +2839,33 @@ class FieldMap:
         unknown = set(self.cfg['captures']) - seen_override
         if unknown:
             raise FieldmapError(f'fieldmap.toml: [captures] entries for unknown captures: {sorted(unknown)}')
+        self._cpp_members()
         for p in self.parts.values():
             for pt in p.part_types:
                 self.classes[pt].part_of.append(f'{p.owner.cid}.{p.field.name}')
         for ci in self.classes.values():
             ci.part_of = sorted(set(ci.part_of))
+
+    def _cpp_members(self):
+        """fieldmap.toml [cpp_members]: members the C++ class has and the Java class has not (Player.legionStorageProxy). Recorded per class
+        (cppMembers) for lint L2; part_type adds a part edge and retains field edges to the cycle graph; without either the member is
+        non-retaining."""
+        self.cpp_members = {}
+        for key, entry in sorted(self.cfg['cpp_members'].items()):
+            cid, _, name = key.rpartition('.')
+            ci = self.classes.get(cid)
+            if ci is None:
+                raise FieldmapError(f'fieldmap.toml: [cpp_members] unknown class {cid}')
+            if self.find_field(ci, name) is not None:
+                raise FieldmapError(f'fieldmap.toml: [cpp_members] {key}: the Java class has a field {name} (use [fields])')
+            m = {'name': name, 'cpp': entry['cpp'], 'reason': entry['reason']}
+            for k, out in (('part_type', 'partType'), ('retains', 'retains')):
+                if k in entry:
+                    for fqn in ([entry[k]] if isinstance(entry[k], str) else entry[k]):
+                        if fqn not in self.classes:
+                            raise FieldmapError(f'fieldmap.toml: [cpp_members] {key}: unknown class {fqn}')
+                    m[out] = entry[k]
+            self.cpp_members.setdefault(cid, []).append(m)
 
     def _map_field(self, ci, fi):
         jt = fi.jt
@@ -2852,14 +3035,14 @@ class FieldMap:
         if ov is None:
             return
         seen.add(key)
-        cap.cpp = ov['cpp']
-        cap.rule = 'fieldmap.toml override'
+        cap.cpp = None if ov.get('drop') else ov['cpp']  # dropped: the port has no such member (copies the values it reads)
+        cap.rule = 'fieldmap.toml override' + (': dropped' if ov.get('drop') else '')
         cap.override_reason = ov['reason']
 
     def _capture_retains(self, key, cap, c):
         """False when a fieldmap.toml [captures] spelling names class c only in non-retaining positions."""
         ov = self.cfg['captures'].get(key)
-        return ov is None or self._spelling_retains(ov['cpp'], c)
+        return ov is None or (not ov.get('drop') and self._spelling_retains(ov['cpp'], c))
 
     def _retains(self, fi):
         fi.retains = []
@@ -2872,12 +3055,19 @@ class FieldMap:
             return
         if fi.cpp is None:
             return
-        override = self.cfg['fields'].get(f'{fi.ci.cid}.{fi.name}', {}).get('cpp')
+        entry = self.cfg['fields'].get(f'{fi.ci.cid}.{fi.name}', {})
+        override = entry.get('cpp')
         out = []
         for c in self._type_classes(fi.jt, generic_args=False):
             if c.kind in (K3, K4) and not c.scalar_like and not (c.immortal or c.singleton):
                 if override is None or self._spelling_retains(override, c):
                     out.append(c.cid)
+        # explicit retains of an override: classes the C++ spelling retains that the Java type does not name (WeakReference<X>) or that the
+        # model classifies as immutable static data although run-time subclasses exist (StatFunction); _cycles expands them to K3/K4 subtypes
+        for fqn in entry.get('retains', ()):
+            if fqn not in self.classes:
+                raise FieldmapError(f'fieldmap.toml: [fields] {fi.ci.cid}.{fi.name}: unknown retains class {fqn}')
+            out.append(fqn)
         fi.retains = sorted(set(out))
 
     @staticmethod
@@ -2995,6 +3185,13 @@ class FieldMap:
                     else:
                         for s in retained(self.classes[t]):
                             add(ci.cid, s, f'{ci.cid}.{fi.name}', kind)
+            for m in self.cpp_members.get(ci.cid, ()):
+                if 'partType' in m:
+                    for s in expand(self.classes[m['partType']]):
+                        add(ci.cid, s.cid, f'{ci.cid}.{m["name"]}', 'part')
+                for t in m.get('retains', ()):
+                    for s in retained(self.classes[t]):
+                        add(ci.cid, s, f'{ci.cid}.{m["name"]}', 'field')
             for cap in ci.captures:
                 if cap.cpp and cap.cpp.startswith('OwnerRef'):
                     continue
@@ -3022,6 +3219,15 @@ class FieldMap:
                                 self._capture_retains(f'{cb.id}#{cap.name}', cap, c):
                             for s in retained(c):
                                 add(target, s, f'{cb.id}#{cap.name}', 'capture')
+        for to in self.task_objects:
+            targets = expand(to.ci)
+            tree = {t.cid for t in targets}
+            for o in to.owners:
+                # a task of the class tree that keeps its own Future (PeriodicSaveTask.future) is no holder cycle: cancel releases it (§1.4)
+                if o.kind in (K3, K4) and o.cid not in tree:
+                    for s in expand(o):
+                        for t in targets:
+                            add(s.cid, t.cid, 'stored', 'stored', f'{to.api}() task object')
         for u in edges:
             edges[u] = sorted(set(edges[u]))
         order = sorted(nodes)
@@ -3210,10 +3416,16 @@ class FieldMap:
                 f['part'] = sorted(fi.part.patterns)
             if fi.override_reason:
                 f['overrideReason'] = fi.override_reason
+                ov = self.cfg['fields'].get(f'{ci.cid}.{fi.name}', {})
+                if 'holders' in ov:
+                    f['holders'] = ov['holders']
+                    f['accessor'] = ov['accessor']
             if fi.bound:
                 f['xmlBound'] = True
             fields.append(f)
         d['fields'] = fields
+        if self.cpp_members.get(ci.cid):
+            d['cppMembers'] = self.cpp_members[ci.cid]
         if ci.captures:
             d['captures'] = [self.capture_json(c) for c in ci.captures]
         if ci.td.anonymous and ci.new_expr is not None and ci.storage is not None:
@@ -3545,9 +3757,20 @@ class FieldMap:
             if fi.flags:
                 note += f' flags: {", ".join(sorted(set(fi.flags)))}'
             out.append(f'\t{decl.ljust(width)}{note}')
+        if self.cpp_members.get(cid):
+            out.append('\t// C++-only members (fieldmap.toml [cpp_members]):')
+            for m in self.cpp_members[cid]:
+                if 'partType' in m:
+                    edge = f'part of type {m["partType"]}'
+                else:
+                    edge = f'retains {", ".join(m["retains"])}' if 'retains' in m else 'non-retaining'
+                out.append(f'\t{self._decl(m["cpp"], m["name"]).ljust(width)}// {edge}: {m["reason"]}')
         if ci.captures:
             out.append('\t// captured variables:')
             for cap in ci.captures:
+                if cap.cpp is None:
+                    out.append(f'\t// (no member) {cap.kind} {cap.java} {cap.name} (line {cap.line}) [{cap.rule}: {cap.override_reason}]')
+                    continue
                 out.append(f'\t{self._decl(cap.cpp, self._cap_member(cap)).ljust(width)}// {cap.kind} {cap.java} {cap.name} (line {cap.line}) [{cap.rule}]')
         if ci.cid in self.sync_counts:
             out.append('// synchronized/lock per method: ' + ', '.join(f'{m}: {v["synchronized"]}/{v["lock"]}' for m, v in sorted(self.sync_counts[ci.cid].items())))
@@ -3628,12 +3851,14 @@ class FieldMap:
             head += f'; {cb.context}; storage: {cb.storage}' + (f' in {", ".join(o.simple for o in cb.owners)}' if cb.owners else '')
         lines = [head, f'struct {ci.cpp_name} final : {base} {{']
         for cap in ci.captures:
+            if cap.cpp is None:
+                continue
             lines.append(f'\t{self._decl(cap.cpp, self._cap_member(cap))} // captured {cap.kind} {cap.java} {cap.name} (line {cap.line})')
         for fi in ci.fields:
             if fi.cpp:
                 lines.append(f'\t{self._decl(fi.cpp, fi.name, self.lock_class_initializer(ci, fi.name, fi.cpp))} // {fi.java} {fi.name} (line {fi.line}) [{fi.rule}]')
         if base != 'TaskStruct':
-            params = ', '.join(f'{self._param(cap)} {self._cap_member(cap)}' for cap in ci.captures)
+            params = ', '.join(f'{self._param(cap)} {self._cap_member(cap)}' for cap in ci.captures if cap.cpp is not None)
             lines.append(f'\tstatic Ref<{ci.cpp_name}> create({params});')
         lines.append('};')
         return '\n'.join(lines)

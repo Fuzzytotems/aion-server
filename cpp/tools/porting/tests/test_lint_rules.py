@@ -217,6 +217,29 @@ class Template { int32_t id; };
         code2 = code.replace('Field<Ref<VisibleObject>> target;', 'Field<Ref<VisibleObject>> target; // fieldmap: widened for the port')
         self.assertEqual(len(lint(code2, rules=['L2'])), 1)
 
+    def test_l2_cpp_only_members(self):
+        fm = {'format': 'aion-fieldmap', 'classes': {G + 'Player': {'kind': 'K4', 'cppName': 'Player', 'fields': [
+            {'name': 'hp', 'cpp': 'Field<int32_t>', 'rule': 'non-final scalar'}], 'cppMembers': [
+            {'name': 'proxySlot', 'cpp': 'PartSlot<Proxy, RetireTo::RECLAIMER>', 'reason': 'x', 'partType': G + 'Proxy'},
+            {'name': 'monitor', 'cpp': 'Monitor', 'reason': 'x'},
+            {'name': 'declaredOnly', 'cpp': 'const int32_t', 'reason': 'x'}]}}}
+        code = '''namespace aion::gameserver::model {
+class Player final : public RefCounted {
+	runtime::Field<int32_t> hp;
+	runtime::PartSlot<Proxy, runtime::RetireTo::RECLAIMER> proxySlot{*this};
+	mutable runtime::Monitor monitor_{AION_LOCK_CLASS(Player::monitor)};
+	const int32_t copiedScalar;
+	runtime::Field<runtime::Ref<Kisk>> undeclared; // fieldmap: a waiver cannot hide a retaining member
+	static runtime::Field<runtime::Ref<Kisk>> staticOne;
+	const std::unique_ptr<Part> ownedPart; // lint: L2 not waivable either
+};
+}'''
+        f = lint(code, fieldmap=fm, rules=['L2'])
+        self.assertEqual([(x.line, x.message.split(' ')[0] if x.line != 2 else x.message) for x in f],
+                         [(2, 'Player lacks the C++-only member declaredOnly `const int32_t` of fieldmap.toml [cpp_members]'), (7, 'C++-only'), (9, 'C++-only')])
+        wrong = code.replace('runtime::PartSlot<Proxy, runtime::RetireTo::RECLAIMER> proxySlot', 'runtime::PartSlot<Proxy> proxySlot')
+        self.assertIn((4, 'L2'), [(x.line, x.rule) for x in lint(wrong, fieldmap=fm, rules=['L2'])])
+
     def test_l2_holders_nested_names_and_loggers(self):
         fm = {'format': 'aion-fieldmap', 'classes': {
             'com.aionemu.gameserver.dataholders.DataManager': {'kind': 'K4', 'cppName': 'DataManager', 'base': 'Immortal', 'fields': [
@@ -277,6 +300,39 @@ class Part final : public OwnedPart { OwnerRef<Player> owner; };
         fm = {'format': 'aion-fieldmap', 'classes': {'com.aionemu.gameserver.x.S': {'kind': 'K4', 'cppName': 'S', 'base': 'RefCounted', 'fields': [
             {'name': 'owner', 'cpp': 'OwnerRef<Player>', 'rule': 'fieldmap.toml override'}]}}}
         self.assertEqual([x.line for x in lint(code, fieldmap=fm, rules=['L3'])], [5, 6, 7, 8, 9])
+
+    def test_l3_back_reference_holders_and_accessor(self):
+        fm = {'format': 'aion-fieldmap', 'classes': {
+            'com.aionemu.gameserver.x.Item': {'kind': 'K4', 'cppName': 'Item', 'base': 'RefCounted', 'fields': [
+                {'name': 'conditioningInfo', 'cpp': 'Field<Ref<ChargeInfo>>', 'rule': 'non-final object reference'}]},
+            'com.aionemu.gameserver.x.ChargeInfo': {'kind': 'K4', 'cppName': 'ChargeInfo', 'fields': [
+                {'name': 'item', 'cpp': 'OwnerRef<Item>', 'rule': 'fieldmap.toml override', 'holders': ['com.aionemu.gameserver.x.Item.conditioningInfo'],
+                 'accessor': 'getItem'}]}}}
+        code = '''namespace aion::gameserver::x {
+class Item final : public RefCounted { Field<Ref<ChargeInfo>> conditioningInfo{}; };
+class ChargeInfo final : public ActionObserver { OwnerRef<Item> item; Item& getItem() const; };
+class Holder final : public RefCounted {
+	Field<Ref<ChargeInfo>> copy{}; // lint: L3 not waivable
+	ArrayList<Ref<model::items::ChargeInfo>> list{AION_LOCK_CLASS(Holder::list)};
+	Field<Ref<ChargeInfoTemplate>> other{};
+};
+ChargeInfo::ChargeInfo(Item& itemValue) : item(itemValue) {}
+Item& ChargeInfo::getItem() const { AION_CHECK("C4", item.isManaged(), "gone"); return item; }
+bool ChargeInfo::update(int32_t points) {
+	return item.isEquipped() && getItem().isEquipped();
+}
+void ChargeInfo::shadowed(Item& item) { item.touch(); }
+void Other::f(Ref<ChargeInfo> info, Player& player) {
+	ThreadPoolManager::getInstance().schedule({info}, [info] { info->attack(); }, 10);
+	ThreadPoolManager::getInstance().schedule(&player, [&player] { go(player); }, 10);
+}
+}'''
+        f = lint(code, fieldmap=fm, rules=['L3'])
+        self.assertEqual([x.line for x in f], [5, 6, 12, 16])
+        self.assertIn('only Item::conditioningInfo may hold it', f[0].message)
+        self.assertIn('use getItem()', f[2].message)
+        self.assertIn('is captured or pinned', f[3].message)
+        self.assertEqual(lint(code, rules=['L3']), [])  # without the fieldmap decision nothing is restricted
 
     def test_l3_l10_immortal_names_by_identity(self):
         fm = {'format': 'aion-fieldmap', 'classes': {

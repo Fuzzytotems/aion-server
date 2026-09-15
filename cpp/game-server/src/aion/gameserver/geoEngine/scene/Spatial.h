@@ -26,6 +26,12 @@ namespace aion::gameserver::geoEngine::scene {
  *   ignores null).
  * - Cloneable: clone() returns `Ref<Spatial>` (Node/DespawnableNode override it; Java's covariant return types are named in comments, §8.2).
  * - matches(Class, String): the class filter is a `const std::type_info*` (null = any class), the regex an optional string.
+ * - `parent` is non-retaining (`Field<Node*>`, fieldmap.toml): a Node owns its children through `Node.children`, and a child's parent link
+ *   never outlives the parent in the Java scene graph (Node.attachChild/detachChildAt set and clear it). A retaining link would make every
+ *   Node <-> child pair a cycle, and the nodes GeoWorldLoader builds and drops (the mesh prototypes of loadMeshes, the originals of
+ *   `a|b` names, the DespawnableNode copies it clones into a map) would never be freed. Only children of nodes attached to a GeoMap (server
+ *   lifetime) are held elsewhere (AbstractCollisionObserver/SiegeShield geometry, material zone templates), so the parent is alive whenever
+ *   a holder reads it.
  *
  * @author Mark Powell
  * @author Joshua Slack
@@ -39,7 +45,8 @@ public:
 protected:
 	runtime::Field<runtime::Ref<bounding::BoundingVolume>> worldBound{};
 	runtime::Field<std::string> name{};
-	runtime::Field<runtime::Ref<Node>> parent{};
+	// fieldmap.toml: non-retaining; the parent owns this child through Node.children (class comment)
+	runtime::Field<Node*> parent{};
 
 	/**
 	 * Do not use this constructor. Serialization purposes only.
@@ -70,7 +77,7 @@ public:
 	/**
 	 * <code>getParent</code> retrieve's this node's parent. If the parent is null this is the root node.
 	 */
-	runtime::Ptr<Node> getParent() const { return parent.get(); }
+	runtime::Ptr<Node> getParent() const { return runtime::Ptr<Node>(parent.get()); }
 
 protected:
 	/**

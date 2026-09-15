@@ -18,7 +18,7 @@ void Spatial::setName(std::optional<std::string_view> value) {
 }
 
 void Spatial::setParent(runtime::Ptr<Node> value) {
-	parent.set(value);
+	parent.set(value.get());
 }
 
 bool Spatial::removeFromParent() {

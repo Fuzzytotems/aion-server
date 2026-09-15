@@ -28,7 +28,7 @@ private:
 	const templates::LegionDominionLocationTemplate* template_;
 	const std::string zoneName;
 	runtime::Field<int32_t> legionId{};
-	// fieldmap: nullable Timestamp (hub-headers.md §6): null while no legion occupies the territory
+	// fieldmap.toml: nullable Timestamp (hub-headers.md §6): null while no legion occupies the territory
 	runtime::Field<std::optional<commons::database::Timestamp>> occupiedDate{};
 	runtime::Field<runtime::Ref<runtime::RcTreeMap<int32_t, runtime::Ref<LegionDominionParticipantInfo>>>> participantInfo{};
 

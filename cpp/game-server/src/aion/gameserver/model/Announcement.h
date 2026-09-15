@@ -22,7 +22,7 @@ class Announcement : public runtime::RefCounted {
 	AION_MAKE_REF_FRIEND
 private:
 	const int32_t id;
-	// fieldmap: null for an unrestricted announcement (getFactionEnum returns null for "ALL", AnnouncementService.java:59 tests it)
+	// fieldmap.toml: null for an unrestricted announcement (getFactionEnum returns null for "ALL", AnnouncementService.java:59 tests it)
 	const std::optional<Race> faction;
 	const std::string announce;
 	const std::string chatType;

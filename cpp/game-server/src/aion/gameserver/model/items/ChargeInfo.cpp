@@ -1,5 +1,6 @@
 #include "aion/gameserver/model/items/ChargeInfo.h"
 
+#include "aion/gameserver/runtime/base/Checked.h"
 #include "aion/gameserver/runtime/base/Unported.h"
 #include "aion/gameserver/controllers/observer/ObserverType.h"
 #include "aion/gameserver/model/gameobjects/Item.h"
@@ -19,6 +20,11 @@ runtime::Ref<ChargeInfo> ChargeInfo::create(int32_t chargePointsValue, gameobjec
 	return runtime::makeRef<ChargeInfo>(chargePointsValue, itemValue);
 }
 
+gameobjects::Item& ChargeInfo::getItem() const {
+	AION_CHECK("C4", item.isManaged(), "ChargeInfo.item: the Item was destroyed while its ChargeInfo is still referenced (ChargeInfo.h)");
+	return item;
+}
+
 runtime::Ptr<gameobjects::player::Player> ChargeInfo::getPlayer() {
 	AION_UNPORTED();
 }
@@ -27,7 +33,6 @@ void ChargeInfo::setPlayer(runtime::Ptr<gameobjects::player::Player> player) {
 	AION_UNPORTED();
 }
 
-// lint: L7 unported stub; Java synchronizes it, the port adds SYNCHRONIZED(*this)
 bool ChargeInfo::updateChargePoints(int32_t pointsToAdd) {
 	AION_UNPORTED();
 }

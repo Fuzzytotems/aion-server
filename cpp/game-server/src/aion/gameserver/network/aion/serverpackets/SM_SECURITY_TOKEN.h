@@ -15,7 +15,7 @@ namespace aion::gameserver::network::aion::serverpackets {
  */
 class SM_SECURITY_TOKEN : public AionServerPacket {
 private:
-	std::vector<uint8_t> token{}; // fieldmap: Java byte[] as bytes (hub-headers.md §6, writeB)
+	std::vector<uint8_t> token{}; // fieldmap.toml: Java byte[] as bytes (hub-headers.md §6, writeB)
 public:
 	explicit SM_SECURITY_TOKEN(std::span<const uint8_t> token);
 protected:

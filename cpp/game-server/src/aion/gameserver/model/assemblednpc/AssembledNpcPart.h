@@ -19,7 +19,7 @@ class AssembledNpcPart : public runtime::RefCounted {
 	AION_MAKE_REF_FRIEND
 private:
 	const std::optional<int32_t> object;
-	// fieldmap: Java field `template` (a C++ keyword: template_)
+	// Java field `template` (a C++ keyword: template_)
 	const templates::assemblednpc::AssembledNpcTemplate::AssembledNpcPartTemplate* template_;
 protected:
 	AssembledNpcPart(std::optional<int32_t> object, const templates::assemblednpc::AssembledNpcTemplate::AssembledNpcPartTemplate* template_);

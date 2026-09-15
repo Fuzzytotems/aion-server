@@ -11,18 +11,27 @@ namespace aion::gameserver::controllers {
 static const auto log = commons::logging::LoggerFactory::getLogger("com.aionemu.gameserver.controllers.CreatureController");
 
 /**
- * Java: private static final class DelayedOnAttack implements Runnable, scheduled by attackTarget. C++: the members are Refs because the task
- * outlives attackTarget (fieldmap.toml [kinds] K4); run() keeps Java's clearing of the references.
+ * Java: private static final class DelayedOnAttack implements Runnable, scheduled by attackTarget. C++: K4 (fieldmap.toml [kinds]) because the
+ * task outlives attackTarget: RefCounted, created with create(), the members Refs; run() keeps Java's clearing of the references (a one-shot
+ * task: the pending Future is its only holder).
  */
-class CreatureController::DelayedOnAttack final {
-public:
+class CreatureController::DelayedOnAttack final : public runtime::RefCounted {
+	AION_MAKE_REF_FRIEND
+private:
 	runtime::Field<runtime::Ref<model::gameobjects::Creature>> target;
 	runtime::Field<runtime::Ref<model::gameobjects::Creature>> creature;
 	const int32_t finalDamage;
 	const attack::AttackStatus attackStatus;
 	runtime::Field<runtime::Ref<skillengine::model::Effect>> criticalProcEffect;
 
+protected:
 	DelayedOnAttack(model::gameobjects::Creature& target, model::gameobjects::Creature& creature, int32_t finalDamage,
+		attack::AttackStatus attackStatus, runtime::Ptr<skillengine::model::Effect> criticalProcEffect);
+	~DelayedOnAttack() override;
+
+public:
+	/** Java: new DelayedOnAttack(target, creature, finalDamage, attackStatus, criticalProcEffect) */
+	static runtime::Ref<DelayedOnAttack> create(model::gameobjects::Creature& target, model::gameobjects::Creature& creature, int32_t finalDamage,
 		attack::AttackStatus attackStatus, runtime::Ptr<skillengine::model::Effect> criticalProcEffect);
 
 	void run();
@@ -34,6 +43,14 @@ CreatureController::DelayedOnAttack::DelayedOnAttack(model::gameobjects::Creatur
 	: target(runtime::Ref<model::gameobjects::Creature>(targetValue)), creature(runtime::Ref<model::gameobjects::Creature>(creatureValue)),
 	  finalDamage(finalDamageValue), attackStatus(attackStatusValue),
 	  criticalProcEffect(runtime::Ref<skillengine::model::Effect>(criticalProcEffectValue)) {
+}
+
+CreatureController::DelayedOnAttack::~DelayedOnAttack() = default;
+
+runtime::Ref<CreatureController::DelayedOnAttack> CreatureController::DelayedOnAttack::create(model::gameobjects::Creature& targetValue,
+	model::gameobjects::Creature& creatureValue, int32_t finalDamageValue, attack::AttackStatus attackStatusValue,
+	runtime::Ptr<skillengine::model::Effect> criticalProcEffectValue) {
+	return runtime::makeRef<DelayedOnAttack>(targetValue, creatureValue, finalDamageValue, attackStatusValue, criticalProcEffectValue);
 }
 
 void CreatureController::DelayedOnAttack::run() {

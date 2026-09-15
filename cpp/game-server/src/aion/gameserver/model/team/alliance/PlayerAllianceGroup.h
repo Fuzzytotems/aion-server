@@ -15,8 +15,9 @@ namespace aion::gameserver::model::team::alliance {
  * member parameters are TeamMember (bridge methods; the bodies cast to PlayerAllianceMember). The runtime base comes from TemporaryPlayerTeam
  * (RefCounted through AionObject). The group is held by Ref in PlayerAlliance.groups and Player.playerAllianceGroup, so it is no part of the
  * alliance: a player, task or packet may keep it after the alliance is disbanded. The alliance is therefore a retaining
- * `const Ref<PlayerAlliance>` (S0c freeze decision). The cycle PlayerAlliance.groups <-> PlayerAllianceGroup.alliance is cut by a java-hook
- * (cycles.toml): the port of PlayerAllianceService.disband clears the alliance's groups after the AllianceDisbandEvent removed every member.
+ * `const Ref<PlayerAlliance>` (S0c freeze decision). The cycle PlayerAlliance.groups <-> PlayerAllianceGroup.alliance is cut by a cpp-breaker
+ * (cycles.toml PlayerAlliance.groups; PlayerAllianceGroup.alliance is `accepted: cut elsewhere`): the port of PlayerAllianceService.disband
+ * clears the alliance's groups after the AllianceDisbandEvent removed every member (C++ addition: Java leaves them to the garbage collector).
  * RefCounted: created with create() (PlayerAlliance's constructor: `groups.put(groupId, PlayerAllianceGroup::create(*this, groupId))`).
  *
  * @author ATracer
@@ -24,7 +25,7 @@ namespace aion::gameserver::model::team::alliance {
 class PlayerAllianceGroup : public TemporaryPlayerTeam {
 	AION_MAKE_REF_FRIEND
 private:
-	// fieldmap: RefCounted through TemporaryPlayerTeam and held by players, so a retaining reference, not the part owner of parts.json
+	// retaining: the group is held by players and PlayerAlliance.groups, so it is no part of the alliance (class comment)
 	const runtime::Ref<PlayerAlliance> alliance;
 
 protected:

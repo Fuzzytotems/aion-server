@@ -18,7 +18,7 @@ class SM_RIFT_ANNOUNCE : public AionServerPacket {
 private:
 	int32_t actionId{};
 	runtime::Ref<controllers::RVController> rift{};
-	std::map<int32_t, int32_t> rifts{}; // fieldmap: Java passes a TreeMap (RiftInformer.getAnnounceData), written in key order
+	std::map<int32_t, int32_t> rifts{}; // fieldmap.toml: Java passes a TreeMap (RiftInformer.getAnnounceData), written in key order
 	int32_t objectId{};
 	int32_t gelkmaros{};
 	int32_t inggison{};

@@ -50,7 +50,6 @@ runtime::Ptr<HouseBids::Bid> HouseBids::bid(gameobjects::player::Player& player,
 	AION_UNPORTED();
 }
 
-// lint: L7 unported stub; Java synchronizes it, the port adds SYNCHRONIZED(*this)
 runtime::Ptr<HouseBids::Bid> HouseBids::bid(int32_t playerObjectId, int64_t bidKinah, int64_t timeValue) {
 	AION_UNPORTED();
 }
@@ -59,27 +58,22 @@ bool HouseBids::isHighestBidder(gameobjects::player::Player& player) {
 	AION_UNPORTED();
 }
 
-// lint: L7 unported stub; Java synchronizes it, the port adds SYNCHRONIZED(*this)
 runtime::Ptr<HouseBids::Bid> HouseBids::getHighestBid() {
 	AION_UNPORTED();
 }
 
-// lint: L7 unported stub; Java synchronizes it, the port adds SYNCHRONIZED(*this)
 runtime::Ptr<HouseBids::Bid> HouseBids::getLatestBid(gameobjects::player::Player& player) {
 	AION_UNPORTED();
 }
 
-// lint: L7 unported stub; Java synchronizes it, the port adds SYNCHRONIZED(*this)
 runtime::Ptr<HouseBids::Bid> HouseBids::getInitialOffer() {
 	AION_UNPORTED();
 }
 
-// lint: L7 unported stub; Java synchronizes it, the port adds SYNCHRONIZED(*this)
 int32_t HouseBids::getBidCount() {
 	AION_UNPORTED();
 }
 
-// lint: L7 unported stub; Java synchronizes it, the port adds SYNCHRONIZED(*this)
 std::vector<runtime::Ref<HouseBids::Bid>> HouseBids::deleteOrDisableBids(int32_t playerObjectId) {
 	AION_UNPORTED();
 }

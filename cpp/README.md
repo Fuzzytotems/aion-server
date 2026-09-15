@@ -9,7 +9,7 @@ Intentional differences from Java: [docs/DEVIATIONS.md](docs/DEVIATIONS.md).
 | commons | done: ported, reviewed; 402 tests (incl. database integration tests) |
 | login-server | done: ported, reviewed; 149 tests; a real 4.8 client logs in |
 | chat-server | not started |
-| game-server | in progress: design done ([docs/design](docs/design/README.md)); runtime kernel done (422 tests, 30-minute ASan and checked stress gates, benchmark passed); wave 1 done: configs, geo math, client crypt, XML binder runtime, handler registry (279 tests) and the Python generators, lint and static data oracles in `tools/` (388 tests); spine S0a done: chunk manifest (65 chunks, 70 libraries), all core enums, XML class shells, forward headers, `aion_game_server` links and starts up to the first unported function |
+| game-server | in progress: design done ([docs/design](docs/design/README.md)); runtime kernel done (422 tests, 30-minute ASan and checked stress gates, benchmark passed); wave 1 done: configs, geo math, client crypt, XML binder runtime, handler registry (279 tests) and the Python generators, lint and static data oracles in `tools/` (388 tests); spine done and frozen (tag `spine-v1`): chunk manifest (65 chunks, 70 libraries), all core enums and XML class shells, forward headers, 59 hub headers, declaration headers for 139 model classes, 128 services, 56 DAOs and 239 server packets; `aion_game_server` links and starts up to the first unported function ([spine status](docs/design/spine-status.md)) |
 
 ## Requirements (Windows)
 

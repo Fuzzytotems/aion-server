@@ -220,7 +220,9 @@ template <class P> class PartList;
 template <class O> class SelfOrRef { public: Ptr<O> get() const; void set(Ptr<O> value); /* same API as Field<Ref<O>> */ };
 ```
 
-`TargetField` (RT-4) is `SelfOrRef<VisibleObject>` on VisibleObject.
+`TargetField` (RT-4) is `SelfOrRef<VisibleObject>` on VisibleObject. As built (S0b): used as designed; a `fieldmap.toml` override makes
+`fieldmap.json` print it too. The logout, delete and zombie breakers cut it without `onTargetChanged` through `VisibleObject::breakTarget()`
+(§5.3).
 
 ### 2.4 Reclaimer protocol
 
@@ -347,6 +349,23 @@ S0b reviews the generated `parts.json` and does not hand-write these members.
 
 `fieldmap.toml` (hand-owned, next to the generated files in `cpp/game-server/generated/concurrency/`) holds parts built outside the owner, replaceable parts with their `RetireTo` (`Creature.ai` OWNER; `Account.accountWarehouse` and Player storages RECLAIMER; `Account.players` → `PartMap`), C++-only mutability (`WorldMapInstance.instanceHandler`), and confined overrides. Each entry has a reason.
 
+As built (S0c and the freeze; the `fieldmap.toml` header comment is the reference):
+
+| Section | Form | Use |
+|---|---|---|
+| `[fields]` | `"FQN.field" = { cpp, reason }`, optionally `part`/`part_type`/`retire`; `{ drop = true, reason }` | the member spelling the frozen header has (about 110 entries: nullable Timestamps and enums, TreeMap, constexpr tables, packet members); `drop` for a Java field the port does not declare (`QuestEngine.scriptManager`) |
+| `[kinds]` | `"FQN" = { kind, reason }` | K5 team events, K4 scheduled Runnables (`PetController.PetUpdateTask`, the `LifeStatsRestoreService` tasks) |
+| `[bases]` | `"FQN" = { base = "none" \| "RefCounted" \| "Immortal", reason }` | `ItemStone` none (subclasses choose), `AbstractQuestHandler`/`ChatCommand` Immortal |
+| `[captures]` | `"ClassId#capture" = { cpp, reason }` or `{ drop = true, reason }` | a `weak_ptr<X>`, `X*` or `OwnerRef<X>` spelling makes the capture non-retaining (`ConnectionAliveChecker` captures a `weak_ptr<AionConnection>`); `drop` when the port copies values instead (`HouseBids.Bid#this$0`) |
+| `[cpp_members]` | `"FQN.member" = { cpp, part_type? \| retains?, reason }` | members only the C++ class has (`Player.legionStorageProxy`, `SpawnGroup.detachedTemplates`, `AionConnection.monitor`, `AbstractAI.registryEntry`, `AionObject.autoReleaseObjectId`); `part_type` adds a part edge, `retains` field edges that need `cycles.toml` entries. The class JSON lists them as `cppMembers` |
+
+Rules `fieldmap.py` applies since S0c: the erasure rule of hub-headers.md §8.1 for game-server generics (commons generics such as
+`PacketProcessor<T>` stay templates); fixed spellings for external types (Timestamp, Date, chrono types, `Rectangle2D`/`Path2D`,
+`Ref<JobDetail>`); `static const X* const` for named constants of the class's own type; lock-class initializers in `--class` output; a part
+type below a shared K3/K4 superclass is dropped with a warning and its owner fields are recomputed (one lifetime base per class tree:
+`ChargeInfo`, `UseDataWriter` and `PlayerAllianceGroup` are no parts); any nested `*Holder` class is a singleton holder; elements of K5
+classes in collections and arrays are values.
+
 #### 3.2.3 Semantics
 
 - `Field<T>` scalars: `get/set`, conversion, `=`, relaxed `+=`/`++` (lost updates as in Java, no torn values).
@@ -406,6 +425,12 @@ template <class T> class Array : public RefCounted { /* fixed length, Field<T> s
 | `Semaphore` | `Semaphore` shim (acquire inside `BlockingRegion`) |
 
 **Lock classes (RR-16).** Member monitors, shims and Atomic* members carry a static class tag `DeclaringClass::field` generated with the member. `SYNCHRONIZED(*this)` uses the dynamic type. Stripe monitors use `Owner::field#stripe`. `synchronized (isAggred)` on an AtomicBoolean (CaptainMuruganAI.java:23) therefore has class `CaptainMuruganAI::isAggred`, and SummonerAI's `spawnedNpc` list is distinct from `ObserveController::observers`.
+
+As built (S0b/S0c): the member spelling is `{AION_LOCK_CLASS(JavaClass::field)}` (hub-headers.md §4), printed by `skeleton.py` drafts and
+`fieldmap.py --class`. The tag may sit in the member declaration, in a member initializer list of a constructor of the same class, or in the
+out-of-line definition of a static member. Collections created in bodies (`Field<Ref<RcX>>`) are tagged at the `create` call site by the
+first chunk that ports the body. Since the freeze a missing tag is a lint warning (`LOCK_CLASS_SEVERITY = 'warning'`), enforced by CTest's
+`--werror`; `// fieldmap:` waivers do not cover it.
 
 ### 3.5 Pipeline
 
@@ -493,20 +518,21 @@ The Monitor graph is Java's, including CHM bin locks (a stripe covers more keys 
 | KnownList | CHM (KnownList.java:34-81) | `ConcurrentHashMap<int32_t, Ref<KnownObject>>` | despawn clear + `addPair` (§5.3) |
 | Target | VisibleObject.java:41 | `SelfOrRef<VisibleObject>` | `notSee`; C++ `LogoutBreakers`/`onDelete` |
 | Creature parts | setters (Creature.java:44-53, VisibleObject.java:31) | `PartSlot` from §3.2.1 pattern 2; controllers late-bound (pattern 3) | part |
-| Observers | `ObserveController` lists (CopyOnWrite/ArrayList) | shims of generated callback structs holding `const Ref<X>` / `OwnerRef` | C++: observers and attack-calc observers cleared in `PlayerController::onDelete`, without `onRemoved` side effects (RR-2) |
+| Observers | `ObserveController` lists (CopyOnWrite/ArrayList) | shims of generated callback structs holding `const Ref<X>` / `OwnerRef` | C++: observers and attack-calc observers cleared without `onRemoved` side effects (RR-2) by `LogoutBreakers` L7 and `onDelete` D2 of every Creature; also cut: `IdianStone.actionListener` (L6), `Player.rideObservers` (L5), `PlayerController.stanceObserver` (L4) |
 | AggroList | CHM | `ConcurrentHashMap<int32_t, Ref<AggroInfo>>` | onDespawn/revive |
-| Effect effector/effected | final | `const Ref<Creature>` | effect end |
-| Summon/master | final | `const Ref<Player>` | `SummonsService.release` |
+| Effect effector/effected | final | `const Ref<Creature>` | accepted, cut elsewhere: effect end removes the effect from the effected's maps; `onDelete` D3/D4 empty the effect maps and effect stat functions of a deleted creature |
+| Summon/master | final | `const Ref<Player>` | accepted, cut elsewhere: `SummonsService.release`; `Player.summon` is zombie-safe |
 | Kisk ↔ creator | Kisk.java:174 | `Player.kisk: Field<Ref<Kisk>>` | `LogoutBreakers` |
 | Team members | CHM | `ConcurrentHashMap<int32_t, Ref<TM>>` | leave/timeout/relogin |
-| Alliance ↔ groups ↔ leader | PlayerAlliance.java:32 | groups `OwnedPart`; `leader: Field<Ref<TM>>` | leader cleared on last leave |
+| Alliance ↔ groups ↔ leader | PlayerAlliance.java:32 | groups `HashMap<int32_t, Ref<PlayerAllianceGroup>>` (S0c: players hold their group by Ref, so no part); `PlayerAllianceGroup.alliance: const Ref<PlayerAlliance>`; `leader: Field<Ref<TM>>` | cpp-breaker: the PlayerAllianceService.disband port clears the groups; leader cleared on last leave |
 | Account data | Player.java:88-89; Account.java:143-146 | `Account` RefCounted; `players: PartMap<int32_t, PlayerAccountData>`; `accountWarehouse: PartSlot<Storage, RECLAIMER>` | none |
 | Player storages | PlayerStorage.actor | `SelfOrRef<Player> actor` | inventory/warehouse: self tag; account warehouse: `LogoutBreakers` resets actor |
-| Instance handler | final | `Field<Ref<InstanceHandler>>` | detach in `destroyInstance` |
-| WorldPosition | replaced on teleport | `Field<Ref<WorldPosition>>`, `Field<Ref<MapRegion>>` | despawn |
-| MapRegion neighbours | MapRegion.java:29 | `Field<Ref<Array<MapRegion*>>>` sibling pointers | n/a |
+| Instance handler | final | `Field<Ref<InstanceHandler>>` | `InstanceService.destroyInstance` (C++ additions after `onInstanceDestroy`): `detachInstanceHandler()`, `setStartPos(nullptr)`, `releaseRegisteredTeam()` (a WorldPosition in the instance retains its MapRegion part and so the instance) |
+| WorldPosition | replaced on teleport | `Field<Ref<WorldPosition>>` (K4, not a value), `Field<Ref<MapRegion>>` | despawn |
+| MapRegion | WorldMap2DInstance.java:27,37 | part of WorldMapInstance: `PartMap<int32_t, MapRegion> regions`, `OwnerRef` parent; neighbours `Field<Ref<Array<MapRegion*>>>` sibling pointers | part |
 | AI | Ai.java:86-90 | `PartSlot<AbstractAI>` | owner |
-| Spawn template | final | `const Ref<SpawnTemplate>` (part of group) | n/a |
+| Spawn template | final | OwnedPart of its group: `PartList<SpawnTemplate> spots`, plus a C++-only `PartList detachedTemplates` for templates Java creates without adding them (Town.java:138); `poolUsedTemplates` holds sibling pointers | part |
+| Walker groups | Npc.walkerGroup | `Field<Ref<WalkerGroup>>` | `onDelete` D5; zombie-safe |
 | Handler fields | SacrificialSoulAI.java:18 | `Field<Ref<Npc>>` | `cycles.toml` |
 | Handler ID lists | SummonerAI.java:73-90 | `ArrayList<int32_t>` | none; ID reuse policy §6 |
 | Per-run service objects | BaseService.java:103-106 | RefCounted, pinned | cycle end |
@@ -528,6 +554,33 @@ Java `==` → `Ref`/`Ptr` `==`. `equals` → generated Java `equals` (objectId f
 
 Every cycle in `cycles_report.md` needs one `cycles.toml` resolution: `part`, `java-hook: <method>`, `cpp-breaker: <method>`, `zombie-safe: <edge>` or `accepted: <why>`. New unresolved cycles fail L16. Both files live in `cpp/game-server/generated/concurrency/` (`cycles.toml` is hand-owned). As built, resolutions are keyed per resolvable edge (`Class.field`, or a capture site `...#name`), not per elementary cycle; structural edges (`extends`, `stored`, `part`) need no entry, and field targets expand to all K3/K4 subtypes.
 
+As built (S0b cycle review, S0c, freeze; the `cycles.toml` header comment is the reference):
+- **Graph rules.** A `Ref` or capture of a part class retains the part's owners (OwnedPart forwards `retain`); captured Immortal and singleton
+  classes are no edges (pinned pointers); a `fieldmap.toml` spelling `X*`, `Final<X*>`, `OwnerRef<X>` or `weak_ptr<X>` is non-retaining; a
+  named Runnable handed to a `[future_apis]`/`[stored_callback_apis]` call is a task object with a `stored` edge from the class keeping the
+  Future (§22); `[cpp_members]` with `retains` add edges. The Future holder is also found through a field of another object
+  (`request.timeout = schedule(...)`) and at the call sites of a method that returns the Future (`lifeRestoreTask =
+  LifeStatsRestoreService.getInstance().scheduleRestoreTask(this)`); a `[stored_callback_apis]` entry with `handle = true` makes the class
+  keeping the returned handle an owner too (`CronService.schedule` returns the `JobDetail` that keeps the job); a `[fields]` override with
+  `retains` adds targets the Java type hides (`DropNpc.lootingTeam`, `Item.currentModifiers`). Freeze review.
+- **Kind conventions.** `java-hook`, `cpp-breaker` and `zombie-safe` are used only when that exact reference is removed. `accepted` always
+  starts with `cut elsewhere: <edges>`, `no instance cycle:`, `server lifetime:` or `one-shot task:`. Observer captures that live only in the
+  ObserveController are `cpp-breaker` (clearing the list destroys the observer). The design's java-hook labels on `const` edges
+  (`Effect.effector`/`effected`, `Summon.master`) became `accepted: cut elsewhere`, since those Refs are never cleared. The `part` kind is no
+  longer used by any key (the 22 interim S0b keys were replaced by `fieldmap.toml` part overrides).
+- **State at the freeze:** 686 edges needing a resolution in 12 components; 310 resolutions (125 accepted, 109 java-hook, 64 cpp-breaker,
+  12 zombie-safe), 0 stale keys. An `accepted: cut elsewhere` reason names every edge its type-level cycles pass, `no instance cycle` edges
+  included (`RVController.slave`/`passedPlayers`, `LegionStorageProxy.storage`); the freeze review's independent header graph confirmed that
+  only `server lifetime` cycles remain once all of them are removed. 376 edges are unresolved, all under `game-server/data/handlers` (phase-6 chunks), so CTest runs
+  `lint_concurrency.py --werror --cycles=core`, which skips handler-script edges. A `tools.gen` real-tree test fails if a core edge loses its
+  resolution. The resolutions trust Java lifecycle hooks read by hand; the S0b checker proved only that no cycle survives through the
+  `accepted: cut elsewhere` edges given those cuts, so the P7 LeakCensus scenarios must confirm each hook runs on every path.
+- **Not seen by the graph:** a task held through a `CreatureController.addTask` call the name resolution cannot attribute (Npc SHOUT, player
+  TELEPORT), a task object kept only in a local or a `FutureTask` wrapper, and captures inside a `PinnedCallback` of a C++-only class. They
+  rely on the global resolution "Tasks: run/cancel; `onDelete` → `cancelAllTasks`" (§5.1); the C++ class comments state the cancel points.
+  The `LifeStatsRestoreService` tasks (`lifeRestoreTask`, `flyReduceTask`, `flyRestoreTask`) are followed since the freeze review and resolved
+  as java-hooks.
+
 **Logout and delete breakers (RR-5).** All C++-only breakers and the Java storage-actor reset (PlayerLeaveWorldService.java:146) live in one `LogoutBreakers` scope guard created at the top of `leaveWorld`, running on exit even when a DAO throws:
 ```cpp
 void PlayerLeaveWorldService::leaveWorld(Player& player) {
@@ -538,6 +591,22 @@ void PlayerLeaveWorldService::leaveWorld(Player& player) {
 // observeController: clearWithoutNotify(); attack-calc observers cleared. Idempotent.
 ```
 `PlayerController::onDelete` and `VisibleObjectController::onDelete` call the same idempotent breakers for their object kind. An enter-world that throws after `PlayerService.getPlayer` runs `LogoutBreakers` in its catch path.
+
+As built (S0b; `model/gameobjects/player/LogoutBreakers.h`, chunk P4-12, replaces the sketch above; bodies are `AION_UNPORTED` stubs wrapped so
+the `noexcept` functions do not terminate). The constexpr step tables are checked against `cycles.toml` by a tools.gen test. Every step is
+`noexcept`, idempotent and notification-free: no `onTargetChanged` (`breakTarget` instead of `setTarget(nullptr)`, because the controllers'
+`onTargetChanged` send packets and schedule tasks), no `onRemoved`, no packets, no DAO calls.
+
+| Function | Steps, in order |
+|---|---|
+| `run(Player&)` | L1 `VisibleObject::breakTarget`; L2 `Player.setKisk(nullptr)`; L3 storage actors of inventory, regular and account warehouse; L4 `PlayerController::breakStanceObserver`; L5 clear `Player.rideObservers`; L6 `IdianStone::breakActionListener` of every equipped item (Java never unequips on logout); L7 `ObserveController::clearWithoutNotify` (observers and attack-calc observers; last, because the stance, ride and IdianStone observers are also registered there) |
+| `onDelete(VisibleObject&)`, the last statement of `VisibleObjectController::onDelete` (every controller reaches it through `super`) | D1 target; D2 Creature observers and attack-calc observers; D3 Creature effect maps emptied without ending the effects (timed effects still end through their end task; passive and permanent effects of a despawned Npc would otherwise keep it); D4 stat functions owned by effects; D5 `Npc.walkerGroup`; D6 `run()` for players |
+| `breakZombieEdges(VisibleObject&)` through `VisibleObject::breakKnownEdges()` (`runtime::ZombieBreakable`) | the 12 zombie-safe edges: target, `KnownList.knownObjects`, observers, attack-calc observers, `Npc.walkerGroup`, `Player.kisk`, `PlayerStorage.actor`, `PlayerController.stanceObserver`, `Player.rideObservers`, `IdianStone.actionListener`, `Player.summon`, `Player.pet` |
+
+C++-only breakers outside `LogoutBreakers`, each written when its chunk ports the body: `Skill.removeObservers` also clears
+`firstTargetDieObserver`; `Effect.endEffect` also resets `designatedDispelEffect`; `GatheringTask.gathererObserver` is a `Field` that is
+reset; `House.resetRegistry` clears the dropped registry's objects; `InstanceService.destroyInstance` detaches the handler, clears `startPos`
+and releases the registered team; the `PlayerAllianceService.disband` port clears `PlayerAlliance.groups` (Java leaves them to the GC).
 
 **Zombie breaker (RR-5, last resort).** An object removed from World longer than `gameserver.runtime.zombie_break_minutes` (30; longer than `GROUP_REMOVE_TIME` of 600 s) and still alive gets `breakKnownEdges()` on the instant pool in a normal TaskScope. It clears only edges listed `zombie-safe` in `cycles.toml` (target, kisk, storage actors, observers, KnownList entries, summon links) and logs a warning naming every cut edge. Each warning is a bug to fix with a proper breaker.
 
@@ -555,7 +624,7 @@ bool KnownList::addPair(VisibleObject& a, VisibleObject& b) {
 	return false;
 }
 ```
-KnownList.java:175-178, :192-193 and FlagKnownList.java:18-21 use it; lint L17 rejects direct `add(` calls on a KnownList elsewhere. FlagKnownList's one-sided `removeIf` (FlagKnownList.java:17) is ported as a two-sided `del` (DEVIATION).
+KnownList.java:175-178, :192-193 and FlagKnownList.java:18-21 use it; lint L17 rejects direct `add(` calls on a KnownList elsewhere. FlagKnownList's one-sided `removeIf` (FlagKnownList.java:17) is ported as a two-sided `del` (DEVIATION). As built (S0b): `KnownList::addPair` is a C++-only `protected static bool addPair(VisibleObject&, VisibleObject&)`, and `del` is `protected` (Java private) for its rollback and FlagKnownList's two-sided deletion.
 
 ### 5.4 Leak census and stale pins
 
@@ -739,9 +808,21 @@ namespace PacketSendUtility {
 
 Packets are stack temporaries (K2, not RefCounted). Object members are `Ref`.
 
+As built (S0b/S0c; hub-headers.md §12):
+- `AionServerPacket::serialize(AionConnection*)` returns `SerializedBody` (its own C++-only header `network/aion/SerializedBody.h`, because
+  `AConnection<SerializedBody>` needs the complete type); length prefix and encryption are in `AionConnection::writeData` on the IO strand.
+  Java's `write(con, buffer)` and the opcode-by-`getClass()` constructor are not declared: constructors pass `opcodeOf<SM_X>`.
+- `AionConnection`: `std::deque<SerializedBody> sendMsgQueue` under commons `guard` (the insertion-order issue of §21 row 8.4 is P4-15 body
+  work; a different queue type is a header request), a C++-only `mutable runtime::Monitor monitor_` behind `monitor()`, `static
+  PacketProcessor<AionConnection>& packetProcessor()` created on first use (it reads configs), `pffRequests` always created, and
+  `using AConnectionBase::close` next to the `AionServerPacket&` overloads. `AionClientPacket::validStates` is a `const StateSet`
+  (C++-only constexpr bit set, `network/aion/StateSet.h`) instead of `std::unordered_set<State>`.
+- Delayed `PacketSendUtility` overloads take `std::shared_ptr<AionServerPacket>` and `PinnedCallback<bool(Player&)>` filters; delay-free
+  overloads take `AionServerPacket&` plus forwarding templates.
+
 ### 8.3 Per-recipient packets and dedup
 
-- PER_RECIPIENT: the 25 classes that read `con` in `writeImpl` (SM_ACCOUNT_PROPERTIES, SM_ALLIANCE_INFO, SM_BLOCK_LIST, SM_CHALLENGE_LIST, SM_CHARACTER_LIST, SM_DIALOG_WINDOW, SM_FRIEND_LIST, SM_FRIEND_UPDATE, SM_GROUP_INFO, SM_HOUSE_BIDS, SM_HOUSE_EDIT, SM_HOUSE_OBJECT, SM_HOUSE_REGISTRY, SM_INSTANCE_INFO, SM_LOOT_ITEMLIST, SM_MAIL_SERVICE, SM_MARK_FRIENDLIST, SM_MESSAGE, SM_PLAYER_INFO, SM_PLAYER_SEARCH, SM_PLAY_MOVIE, SM_PRICES, SM_SIEGE_LOCATION_INFO, SM_UNK_3_5_1; SM_KEY special) plus SM_GROUP_MEMBER_INFO and SM_ALLIANCE_MEMBER_INFO.
+- PER_RECIPIENT: the 25 classes that read `con` in `writeImpl` (SM_ACCOUNT_PROPERTIES, SM_ALLIANCE_INFO, SM_BLOCK_LIST, SM_CHALLENGE_LIST, SM_CHARACTER_LIST, SM_DIALOG_WINDOW, SM_FRIEND_LIST, SM_FRIEND_UPDATE, SM_GROUP_INFO, SM_HOUSE_BIDS, SM_HOUSE_EDIT, SM_HOUSE_OBJECT, SM_HOUSE_REGISTRY, SM_INSTANCE_INFO, SM_LOOT_ITEMLIST, SM_MAIL_SERVICE, SM_MARK_FRIENDLIST, SM_MESSAGE, SM_PLAYER_INFO, SM_PLAYER_SEARCH, SM_PLAY_MOVIE, SM_PRICES, SM_SIEGE_LOCATION_INFO, SM_UNK_3_5_1; SM_KEY special) plus SM_GROUP_MEMBER_INFO and SM_ALLIANCE_MEMBER_INFO. As built (S0c): the list missed SM_CREATE_CHARACTER, which reads the connection through `AbstractPlayerInfoPacket.writePlayerInfo` → `getCharBanInfo` → `MultiClientingService.checkForFactionSwitchCooldownTime(race, con)`, like SM_CHARACTER_LIST; it is PER_RECIPIENT now. The overrides of `recipients()` are hand-written (no `ServerPacketTraits.gen.h`); lint L10 checks them against the `PER_RECIPIENT` set in `lint_concurrency.py`. SM_KEY has no override: P4-15 serializes it with its connection.
 - A broadcast serializes a SHARED packet once, on the first eligible recipient (`SerializedPacket once`).
 - `sendPacket(Player&)` loads the connection once.
 
@@ -779,6 +860,11 @@ A SHARED packet dereferencing `con` throws NPE with the packet name. In checked 
 - `runtime_mutable` fields → `mutable runtime::Field<T>`: `GuideTemplate.activated`, `Spawn.eventTemplate`, walker `RouteStep.z`.
 - `HostileUpEffect.tempHate` per effect (DEVIATION).
 - Spawn family: `SpawnGroup` RefCounted owning `PartList<SpawnTemplate>` under its Monitor; `SpawnTemplate` an OwnedPart; `poolUsedTemplates` under the group Monitor and cleared in `destroyInstance`; SpawnsData indexes are `ConcurrentHashMap` + `CopyOnWriteArrayList` shims (nested compute is legal, §4.1); `saveSpawn` under `SYNCHRONIZED(*this)`.
+  As built (S0b): `SpawnTemplate::create` → `addTemplate(std::unique_ptr)` → `SpawnGroup::addSpawnTemplate` (`PartList::add` under its own
+  Monitor); `SpawnTemplate` holds `OwnerRef<SpawnGroup> spawnGroup`, so a `Ref` to a template retains the group and single-time spawns no
+  longer leak. `poolUsedTemplates` is `HashMap<int32_t, Ref<RcHashSet<SpawnTemplate*>>>` (sibling pointers). Town.java:138 creates a template
+  without adding it to the spots: `SpawnGroup::adoptDetachedTemplate` keeps it in the C++-only `PartList detachedTemplates`. Taking a `Ref`
+  inside a constructor is legal (`makeRef` pre-counts).
 - WalkerData: `ConcurrentHashMap` + Monitor. ZoneName intern table: `CONTAINER_SLOT` leaf mutex (no callbacks).
 - Loading: ForkJoin startup workers with scopes; SpawnsData binds in import order.
 - Geo: immutable after eager parallel BIH build; the build runs without pointer loads and so never pins reclamation.
@@ -806,7 +892,7 @@ A SHARED packet dereferencing `con` throws NPE with the packet name. In checked 
 
 ## 11. Connections, IO threads, LS/CS links, shutdown
 
-- AionConnection runs on IO threads in its constructor, `initialized()`, `processData`, `writeData`, each in a `TaskScope`. `ConnectionAliveChecker` captures `std::weak_ptr<AionConnection>` via `bindTask`.
+- AionConnection runs on IO threads in its constructor, `initialized()`, `processData`, `writeData`, each in a `TaskScope`. `ConnectionAliveChecker` captures `std::weak_ptr<AionConnection>` via `bindTask`. As built (S0b): the connection's member is `Field<Ref<ConnectionAliveChecker>>`, set in `initialized()` because `weak_from_this()` is empty inside the constructor (Java creates the checker in the constructor); `fieldmap.toml [captures]` spells the captured `this$0` as `weak_ptr`, so it is no cycle edge.
 - `onDisconnect` runs on the instant pool and keeps `isShuttingDownSoon() → safeLogout()` under `SYNCHRONIZED(*this)` (AionConnection.java:240-280), serialized against `onServerClose`.
 - LS/CS links: reconnects are scheduled tasks; `NioServer::openSocket` blocks on the instant pool inside a `BlockingRegion`; packets run on a per-link `SerialExecutor`.
 - **Shutdown** on the registered ShutdownHook thread:
@@ -875,6 +961,21 @@ As built (`tools/porting/lint_concurrency.py`, wave 1; its docstring is the refe
 - **Waivers** (on the finding's line or the line above; a trailing comment applies to its own line, a stand-alone comment to the next line): `// confined: <reason>` (L1 L3 L19), `// fieldmap: <reason>` (L1 L2 L3), `// lockdep: <reason>` (L12), `// quiescent-safe: <reason>` (L5), `// lint: Lx[,Ly] <reason>` (the listed rules). `// fieldmap-class: <FQN>` on or above a class line overrides the C++ → Java class mapping.
 - L7 compares Java `synchronized`/`lock()` counts with C++ `SYNCHRONIZED` and `.lock()` calls; RAII leaf-mutex guards are not counted. L12 keeps the Monitor/compute warnings.
 - CTest `gs.lint.concurrency` runs the lint with `--werror` over `game-server/src`; `--cycles` (L16) waits for a resolved `cycles.toml`.
+  **Since S0c** it runs `--werror --cycles=core`: `--cycles=core` skips edges whose class or callback lies under `game-server/data/handlers`
+  (plain `--cycles` is rewritten to `--cycles=all`); switch to `--cycles` once the phase-6 chunks resolve the 376 handler edges.
+
+As built (S0c and the freeze; the `lint_concurrency.py` docstring is the reference):
+
+| Rule | Change |
+|---|---|
+| L1 | RR-16: a lockable member without `AION_LOCK_CLASS` is a warning (was an advisory until the freeze); tags in the declaration, a same-class constructor initializer list or an out-of-line static definition count; not waivable. A member spelled exactly like a `fieldmap.toml` decision (override, or a class confined by `[kinds]`) needs no waiver (also L19) |
+| L2 | `xml::HolderRef`/`MutableHolderRef` equal a static `Field<const X*>`; nested class qualifiers are normalized (`Persistable::PersistentState`); loggers are never missing members; `cppMembers` spellings are compared and a declared member that is missing is reported; a C++-only non-static member of a retaining type (Ref, FutureRef, PartSlot/PartMap/PartList, SelfOrRef, unique_ptr/shared_ptr) that `fieldmap.json` does not list is an error no waiver hides |
+| L3 | pointers and references to Immortal classes and templates are no borrows; Immortal names are decided per class, so a simple name shared with a RefCounted class (`Item`, `PlayerCommonData`, `QuestNpc`, `Title`, `Motion`) is still reported; an `OwnerRef` member outside an `OwnedPart` class is an error unless spelled exactly as a `fieldmap.toml` override (not waivable) |
+| L5 | the `getObjectTemplate()` result of a Player, Playable, Creature or VisibleObject receiver (also through call chains resolved by return type) is never captured, pinned or passed to `bindTask`; values derived from it (`->getTemplateId()`) are fine |
+| L7 | bodies consisting only of `AION_UNPORTED();` are skipped |
+| L10 | `PER_RECIPIENT` includes `SM_CREATE_CHARACTER`; `Item*`/`PlayerCommonData*` packet members are reported |
+| L13 | the handler and command root classes in `IMMORTAL_BASES` are accepted |
+| all | `class Outer::Inner {` defined in a `.cpp` is mapped to its fieldmap class, so L1/L2/L3 check task structs defined in service `.cpp` files; `settings.value_types` classes (Vector3f) are not K5 names |
 
 ### 12.3 Review checklist
 
@@ -1498,6 +1599,8 @@ as-built notes are placed in §3.1, §3.2, §3.5, §5.3, §9, §10, §12.2 and �
 | 3.2.1 | Part detection also scans the owner's own methods called from its constructor (depth 2). `fieldmap.toml` parts (pattern 4) are applied before owner-field detection |
 | 5.3 | Stored-callback APIs are mostly inferred: a project method or constructor that stores a parameter into a field or field collection, recursively, including parameters captured by stored anonymous classes. `[stored_callback_apis]` is needed only for external storage (`CronService.schedule`) |
 | 12.2 | L18 also reports blocking calls and `SYNCHRONIZED` inside a leaf-mutex guard scope (the design only restricted callbacks) |
+| 3.1, 5.3 | Spine finalize: a named Runnable handed to a `[future_apis]`/`[stored_callback_apis]` call as `new X(..)` or as `this` inside X is a task object. It escapes (never K5 with `Ptr` members): K4 task objects are RefCounted with `create()` (LifeStatsRestoreService.HpRestoreTask), K3 ones with only immutable members may stay TaskStruct values (§14.2(f) GeneralUpdateTask), and the class keeping the returned Future gets a `stored` edge to X, so holder → Future → task → holder cycles reach `cycles_report.md`. Not followed: task objects in locals or wrappers (`new FutureTask<>(task, null)`, TeleportService.SpawnTask); `fieldmap.toml [kinds]` covers those. Futures returned to the caller are followed to the fields their callers assign since the freeze review (§5.3) |
+| 3.2.2 | Spine finalize: `fieldmap.toml [cpp_members]` declares members the C++ class has and the Java class has not (`Player.legionStorageProxy`, `AionConnection.monitor`), with `part_type` or `retains` edges for the cycle graph; `[captures]` accepts `drop = true` for a capture the port replaces by copied values (`HouseBids.Bid#this$0`). Lint L2 compares both and reports, unwaivably, a C++-only member of a retaining type (Ref, FutureRef, parts, SelfOrRef, unique_ptr/shared_ptr) that fieldmap.json does not list |
 
 ## 23. Spine step S0a: kernel lifecycle and fixes (2026-09-14)
 
@@ -1573,3 +1676,25 @@ Deterministic harness: `backend = std::make_unique<DeterministicExecutor>(clock,
 | 7.7 | `DeterministicExecutor` seeds the calling thread with `Rnd::seedCurrentThreadForTests(seed)`; `retire()` or the destructor restores the previous generator state (same thread, no later executor seeded it) |
 | 1.2 | The task kind `CALLBACK` (PinnedCallback runs) is `TaskKind::CALLBACK_`: `<windows.h>` defines a `CALLBACK` macro. `WindowsHeadersFirstTest` includes `<windows.h>` before every public kernel header |
 | – | `AION_UNPORTED` lives in `aion_gs_runtime_base` (`runtime/base/Unported.h`, namespace `aion::gameserver::runtime`); the wave-1 names stay available in `aion::gameserver::handlers` through using-declarations. `java.lang.ArithmeticException` is `commons::utils::ArithmeticException`, re-exported by `runtime/base/Exceptions.h` and aliased in `geoEngine/math/Matrix4f.h` |
+
+## 24. Spine steps S0b and S0c as built (2026-09-14)
+
+S0b wrote the 59 hub headers, S0c the declaration headers of every other core class; the spine is frozen (status and freeze exceptions:
+[spine-status.md](spine-status.md); header rules: [hub-headers.md](hub-headers.md)). Short as-built notes are placed in §2.3, §3.2.2, §3.4,
+§5.1, §5.3, §8.2, §8.3, §9, §11 and §12.2; the remaining departures:
+
+| § | As built |
+|---|---|
+| 2.1 | Interfaces held by `Ref<I>` (`InstanceHandler`, `ZoneHandler`, `StatOwner`, `IStatFunction`, `TeamMember`) declare pure virtual `retain()`/`release()`; the first implementor with a runtime base forwards them, Immortal and static data implementors define no-ops. Rejected: a virtual `RefCounted` base in interfaces (does not work for OwnedPart implementors) |
+| 2.3, 3.2 | `WorldPosition` is K4 `Field<Ref<WorldPosition>>`, replaced on teleport, not a value type held by value |
+| 2.3, 5.1 | `PlayerAlliance.groups` holds `Ref<PlayerAllianceGroup>` and the group holds `const Ref<PlayerAlliance>`: the group is RefCounted through `TemporaryPlayerTeam` and players hold it, so it cannot be a part. The cycle is cut by a C++-only breaker in the `PlayerAllianceService.disband` port (P5-10) |
+| 2.3, 3.2 | Non-retaining `OwnerRef` in classes that are no parts only through a reviewed `fieldmap.toml` override: `ChargeInfo.item` (a `Ref<Item>` would close Item ↔ ChargeInfo for every conditioned item with no lifecycle point to cut it; checked since the freeze review by `holders`/`accessor`: lint L3 allows the class only in `Item.conditioningInfo` and bodies read the item through `getItem()`, which terminates in checked builds when the Item is gone), `UseableItemObject.UseDataWriter.obj`. `Spatial.parent` is a non-retaining `Field<Node*>` (the parent owns its children; a `Ref` leaked every node the geo loader drops). `LegionStorageProxy.actor` is the `OwnerRef<Player>` of the C++-only part `Player.legionStorageProxy` (`PartSlot<LegionStorageProxy, RECLAIMER>`), replaced on every `getStorage(LEGION_WAREHOUSE)` call like Java's per-call proxy |
+| 2.3 | Parts whose Java constructor gets no owner, or a null one, take it in C++-only constructors: `PlayerAccountData` takes the owning `Account` first, `PlayerStorage(Account&, StorageType)` replaces Java's null owner, `TitleList(Player& partOwner)` (its `owner` stays `Field<Player*>` because Java reads it as null before `setOwner`) |
+| 3.1, 3.3 | K5 confined classes hold their K5 elements by value (`CollisionResults` holds `std::vector<CollisionResult>`, `DamageList` maps to `DamageInfo` values); nullable results are `std::optional` |
+| 3.1, 7.3 | A named Runnable handed to a scheduler is never K5 (§22 task objects). K4 task classes are RefCounted with `create()` (`PetUpdateTask`, `DelayedOnAttack`, `NpcShoutTask`, `ReleaseSummonTask`, `SpawnTask`, the `LifeStatsRestoreService` tasks, `EmptyInstanceCheckerTask`, `IdianDepthPortalSpawner`); `ReleaseSummonTask`'s member `release` is `release_`, because a data member named `release` hides `RefCounted::release()` inside `Ref<T>`. K3 task objects with only immutable members (`DecayTask`, `GeneralUpdateTask`, `ItemUpdateTask`, `SurveyService.TaskUpdate`, `SiegeStartRunnable`, `WorldRaidRunnable`, `RiftOpenRunnable`, the `Offline*Checker`s) stay `TaskStruct` values, although `fieldmap.json` prints base RefCounted for them (open tool issue) |
+| 3.3 | `EffectController.passiveEffectMap` starts null for Java's `Collections.emptyMap()` (one shared empty map would make every creature lock the same Monitor); `getMapForEffect(template, initialize)` returns a pointer, `getPassiveEffectMap` creates the map once. `Cooldowns` derives `RefCounted` and the `ConcurrentHashMap<int32_t, int64_t>` shim (Java extends `ConcurrentHashMap`). `AIEventLog` holds an `ArrayDeque<AIEventType>` and a capacity instead of deriving a deque. `DespawnableNode.instances` (`BitSet`) is a `HashSet<int32_t>` of set bit indexes. `WalkerGroup::getLinePoint` takes and returns `zone::Point2D` by value (K1 values; Java creates new objects), and `WalkerGroup`'s unported constructor initializes its `const` members with neutral values until the port rewrites the initializer list |
+| 7.3 | `IsStaticTemplate<T>` is false for every class that also derives `RefCounted` (`PlayerCommonData` derives a template root through xmlgen): its pointer is no `TaskArg`, `Pin` retains it, and lint L5 rejects capturing a Player's `getObjectTemplate()`. The S0b specialization in `PlayerCommonData.h` is removed |
+| 7.3 | Static initializers that intern objects into a runtime shim (`ZoneName::NONE`, `Effect_ForceType::DEFAULT`/`MATERIAL_SKILL`) open a STARTUP `TaskScope`; checked-build executables confirmed they run before `main` and pin nothing. `static final` RefCounted constants are never-released `Ref`s created at static initialization (`ItemService::DEFAULT_UPDATE_PREDICATE`); LeakCensus scenario tests that count objects by type must exempt them |
+| 8.2 | `SM_MACRO_RESULT.SM_MACRO_CREATED/DELETED` are shared static packet objects (L4 waiver), safe only while `serialize`/`writeImpl` stay read-only; cached `SM_FRIEND_RESPONSE` packets are `static const std::shared_ptr` |
+| 14.2(d) | `GeneralTeam` is one non-template class (erasure rule, hub-headers.md §8.1); `TeamMember<M>` is erased with `M` = `AionObject`, and team members are `Ref<TeamMember>`. `PlayerLeavedEvent`, `PlayerGroupLeavedEvent` and `PlayerAllianceLeavedEvent` are K5 like the other 30 team events: the port creates them on the stack and its INSTANCE_KICK task captures `Ref<Player>` and the team instead of `this` (P5-10) |
+| 13 (RT-11) | Quest handlers and commands derive `Immortal` (never freed, RT-11) although Java-side analysis named RefCounted (`fieldmap.toml [bases]`); `QuestEngine.questHandlers` is `HashMap<int32_t, AbstractQuestHandler*>` and `AbstractQuestHandler.qe` a non-static `QuestEngine&`. `AbstractAI` has a C++-only `registryEntry` (`setRegistryEntry`, called by the ported `AIEngine::newAI`) in place of the `@AIName` annotation |

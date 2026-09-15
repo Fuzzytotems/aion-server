@@ -97,6 +97,12 @@ private:
 	runtime::Field<int32_t> tauntHate{};
 	/** Total hate that will be broadcasted */
 	runtime::Field<int32_t> effectHate{};
+	/**
+	 * C++ only (fieldmap.toml [cpp_members], DEVIATIONS): the temporary hate HostileUpEffect.calculate computes for this cast. Java writes it
+	 * into the shared template field HostileUpEffect.tempHate (HostileUpEffect.java:32,61-63), which applyEffect and its delayed task read
+	 * later; static data is immutable, so the value lives in the effect (static-data.md §3.6).
+	 */
+	runtime::Field<int32_t> hostileUpTempHate{};
 	runtime::ConcurrentHashMap<int32_t, const effect::EffectTemplate*> successEffects{AION_LOCK_CLASS(Effect::successEffects#stripe)};
 	runtime::Field<int32_t> carvedSignet{0};
 	runtime::Field<int32_t> signetBurstedCount{0};
@@ -382,6 +388,12 @@ public:
 	int32_t getTauntHate() const { return tauntHate.get(); }
 
 	void setTauntHate(int32_t value) { tauntHate.set(value); }
+
+	/** C++ only: Java HostileUpEffect.tempHate of this cast (member comment). */
+	int32_t getHostileUpTempHate() const { return hostileUpTempHate.get(); }
+
+	/** C++ only: set by HostileUpEffect::calculate (Java `tempHate = ...`). */
+	void setHostileUpTempHate(int32_t value) { hostileUpTempHate.set(value); }
 
 	/** The removal task stored in observerRemoveTasks captures `target` and `observer` as Refs. */
 	void addObserver(gameserver::model::gameobjects::Creature& target, controllers::observer::ActionObserver& observer);

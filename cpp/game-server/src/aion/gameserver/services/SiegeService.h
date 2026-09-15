@@ -43,7 +43,7 @@ private:
 	runtime::HashMap<int32_t, runtime::Ref<model::siege::OutpostLocation>> outposts{AION_LOCK_CLASS(SiegeService::outposts)};
 	runtime::HashMap<int32_t, runtime::Ref<model::siege::SiegeLocation>> locations{AION_LOCK_CLASS(SiegeService::locations)};
 	const runtime::Ref<model::siege::AgentLocation> agent{};
-	// fieldmap: java.util.Date, null while the siege service is disabled (SiegeService.java:340), hub-headers.md §6
+	// fieldmap.toml: java.util.Date, null while the siege service is disabled (SiegeService.java:340), hub-headers.md §6
 	runtime::Field<std::optional<commons::database::Timestamp>> nextStateUpdateTime{};
 	runtime::Field<runtime::Ref<runtime::RcHashSet<runtime::Ref<model::gameobjects::player::Player>>>> rvrEventPlayers{}; // Java: = new HashSet<>()
 	/**

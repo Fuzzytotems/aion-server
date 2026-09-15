@@ -33,11 +33,11 @@ public:
 		runtime::Field<int32_t> playerObjectId;
 		const int64_t kinah;
 		const int64_t time;
-		// fieldmap: C++-only copies of the outer HouseBids fields the inner class reads (Java this$0, cycles review S0B-098)
+		// fieldmap.toml [cpp_members]: copies of the outer HouseBids fields the inner class reads (the Java this$0 capture is dropped, S0B-098)
 		const int32_t listIndex;
-		// fieldmap: C++-only copy of HouseBids.houseObjectId (Java this$0)
+		// fieldmap.toml [cpp_members]: copy of HouseBids.houseObjectId
 		const int32_t houseObjectId;
-		// fieldmap: C++-only copy of HouseBids.registrationFee (Java this$0)
+		// fieldmap.toml [cpp_members]: copy of HouseBids.registrationFee
 		const int64_t registrationFee;
 
 		/** Java private Bid(playerObjectId, kinah, time) of the outer bid list */
