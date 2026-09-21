@@ -217,7 +217,10 @@ void checkStalePins(CensusState& s, const std::vector<Candidate>& old, TimePoint
 		}
 		if (!allOld)
 			continue;
-		log().warn("Periodic task {} still pins {} (the task is not cancelled)", services_detail::describeTask(task->getTaskInfo()), pinned);
+		// The message must contain the literal "stale pin": the M5a scenario gate (§5.7 Q8) greps the game server log for it, and a warning that
+		// only said "Periodic task ... still pins ..." could never match that grep - an assertion that cannot fail.
+		log().warn("Leak census: stale pin: periodic task {} still pins {} (the task is not cancelled)",
+			services_detail::describeTask(task->getTaskInfo()), pinned);
 		s.warnedStalePins.insert(task.get());
 	}
 	std::erase_if(s.warnedStalePins, [&](const Future* task) { return !periodic.contains(task); });

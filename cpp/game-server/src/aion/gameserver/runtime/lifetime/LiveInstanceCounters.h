@@ -50,6 +50,20 @@ std::vector<LiveCount> liveCounts();
 int64_t liveCountOf(const std::type_info& type);
 
 /**
+ * The counted types that match one of `classNames` and still have live instances (m5a-plan.md D8: the check-output leak check of the classes
+ * that must be gone once the runtime shut down). A name matches a counter when it equals its class name or when the class name ends with
+ * "::" + name, so an entry may be a fully qualified name, a trailing part of one ("model::gameobjects::player::Player") or a bare class name
+ * ("GatheringTask_ActionObserver", whose qualified name contains MSVC's "`anonymous namespace'" component). A name that matches no counter at
+ * all contributes nothing: a class that was never created has no live instance either.
+ *
+ * @return the matching counters with live != 0, sorted by class name (always empty in release builds, where nothing is counted)
+ */
+std::vector<LiveCount> liveInstancesOf(const std::vector<std::string>& classNames);
+
+/** The pure form of liveInstancesOf over a given snapshot (for tests and for a report that was read from a file). */
+std::vector<LiveCount> liveInstancesOf(const std::vector<LiveCount>& counts, const std::vector<std::string>& classNames);
+
+/**
  * Writes the counts: a header line "# live instance counts v1" followed by one line per type of liveCounts(), tab separated:
  * <tt>live created className</tt>.
  */

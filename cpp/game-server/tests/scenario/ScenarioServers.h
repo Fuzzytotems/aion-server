@@ -5,6 +5,14 @@
 // picks free ports, starts aion_login_server in its own process group and aion_game_server with the M5a profile, a stop file and a check
 // output directory, waits for both to be ready, and stops them in order: the stop file ends the game server (its ShutdownHook), CTRL_BREAK the
 // login server; both exits are awaited before their logs and the game server's report files are read.
+//
+// Three things make a run survivable for everything around it:
+//   - Neither child writes a shared log directory: the game server gets --log-folder, and the login server - which has no such argument - gets
+//     a working directory of its own with a copy of its config (Logging::init archives and DELETES the log files it finds).
+//   - Both schemas carry an in-use marker (SchemaLease) for the whole run, and createSchemas() drops the schemas of runs that were killed
+//     before they could drop their own. A CTest TIMEOUT runs no destructor; the marker is a session lock, so it dies with the process.
+//   - stopProblems() collects what went wrong while stopping, and the destructor reports an unread list as a test failure, so no run passes
+//     with a hung game server or a killed login server.
 
 #include <chrono>
 #include <cstdint>
@@ -60,8 +68,16 @@ public:
 	ScenarioServers(const ScenarioServers&) = delete;
 	ScenarioServers& operator=(const ScenarioServers&) = delete;
 
-	/** Recreates both schemas and inserts gameservers(id 1, mask 127.0.0.1, password 1234) */
+	/**
+	 * Takes the in-use markers of both schemas, drops the schemas of earlier runs that were killed before they could drop their own, recreates
+	 * both schemas and inserts gameservers(id 1, mask 127.0.0.1, password 1234).
+	 *
+	 * @throws std::runtime_error if another scenario run holds the in-use marker of one of the two schemas (same output directory)
+	 */
 	void createSchemas();
+
+	/** How long a scenario schema must have been untouched before dropAbandonedSchemas() may drop it (see there; a gate run has TIMEOUT 900) */
+	static constexpr std::chrono::minutes ABANDONED_SCHEMA_AGE{60};
 
 	/** Starts the login server and waits until it listens for clients and game servers */
 	void startLoginServer();
@@ -78,6 +94,17 @@ public:
 	/** CTRL_BREAK to the login server (terminated if Windows refuses the event) and waits for its exit. @return its exit code */
 	std::optional<int32_t> stopLoginServer();
 
+	/**
+	 * What went wrong while the servers were stopped, in words: a server that did not exit within `stopTimeout`, a non-zero exit code, a login
+	 * server that had to be **killed** because Windows refused CTRL_BREAK (exit code 98), and a server that was still running when the harness
+	 * was destroyed and had to be terminated. Empty when both children shut down in order.
+	 * <p>
+	 * A caller that reads this list owns the reporting; a list that nobody reads is reported by the destructor as a GoogleTest failure, so a
+	 * run that never checks the exit codes still cannot pass with a killed or hung server (stage 2 review: "nothing checks the game server's
+	 * exit code when case 7 does not run, and a forced login-server kill counts as success").
+	 */
+	std::vector<std::string> stopProblems();
+
 	uint16_t loginClientPort() const noexcept { return loginPort; }
 	uint16_t loginGameServerPort() const noexcept { return gameServerLinkPort; }
 	uint16_t gameClientPort() const noexcept { return gamePort; }
@@ -89,6 +116,14 @@ public:
 	std::filesystem::path checkOutputDir() const { return config.outputDir / "check"; }
 	/** the game server's own log directory (main.cpp --log-folder), so the gate never writes the shared game-server/log */
 	std::filesystem::path logFolder() const { return config.outputDir / "gs_log"; }
+	/**
+	 * The login server's working directory: a copy of its `config` directory, made by startLoginServer(). The login server has no
+	 * `--log-folder` of its own and resolves `./config` and `./log` against its working directory, so running it in the Java module directory
+	 * would write the shared `login-server/log` - which `Logging::init` archives and DELETES at startup.
+	 */
+	std::filesystem::path loginServerWorkingDirectory() const { return config.outputDir / "ls_run"; }
+	/** the login server's own log directory (Logging::Config::logFolder is "log", relative to its working directory) */
+	std::filesystem::path loginLogFolder() const { return loginServerWorkingDirectory() / "log"; }
 	ChildProcess* loginServer() noexcept { return ls.get(); }
 	ChildProcess* gameServer() noexcept { return gs.get(); }
 
@@ -105,17 +140,32 @@ public:
 	std::vector<std::string> readReportLines(std::string_view fileName) const;
 
 private:
+	/** Copies the login server's `config` directory into loginServerWorkingDirectory(), so its `./log` is the run's own */
+	void prepareLoginServerDirectory() const;
+
 	Config config;
 	ScenarioEnvironment environment;
 	ScenarioDatabase lsDatabase;
 	ScenarioDatabase gsDatabase;
 	std::string lsSchema;
 	std::string gsSchema;
+	/** the in-use markers of the two schemas, held for the whole run (SchemaLease) */
+	SchemaLease lsLease;
+	SchemaLease gsLease;
 	uint16_t loginPort = 0;
 	uint16_t gameServerLinkPort = 0;
 	uint16_t gamePort = 0;
 	std::unique_ptr<ChildProcess> ls;
 	std::unique_ptr<ChildProcess> gs;
+	/** the stop sequence, for stopProblems() */
+	bool gameServerReady = false;
+	bool loginServerReady = false;
+	bool gameServerStopped = false;
+	bool loginServerStopped = false;
+	bool loginServerKilled = false;
+	std::optional<int32_t> gameServerExit;
+	std::optional<int32_t> loginServerExit;
+	bool stopProblemsRead = false;
 };
 
 } // namespace aion::gameserver::scenario

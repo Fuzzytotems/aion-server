@@ -20,6 +20,47 @@ std::wstring widen(std::string_view utf8) {
 	return std::wstring(utf16.begin(), utf16.end());
 }
 
+/**
+ * A Windows handle owned by a scope. The child process constructor has several failure paths - an unwritable log file, an error file that
+ * cannot be created, a create_directories that throws because a path component is a file, CreateProcess itself - and every one of them has to
+ * close the handles opened before it. Doing that by hand is how the stdin NUL handle came to leak on the error-file path (stage 2 review).
+ * CreateProcess inherits the handle VALUES into the child, so releasing ownership here after the call is right: the child has its own copies.
+ */
+class Handle {
+public:
+	Handle() noexcept = default;
+	explicit Handle(HANDLE value) noexcept : handle(value) {}
+	~Handle() {
+		reset();
+	}
+
+	Handle(const Handle&) = delete;
+	Handle& operator=(const Handle&) = delete;
+
+	HANDLE get() const noexcept {
+		return handle;
+	}
+
+	bool valid() const noexcept {
+		return handle != nullptr && handle != INVALID_HANDLE_VALUE;
+	}
+
+	HANDLE release() noexcept {
+		HANDLE value = handle;
+		handle = nullptr;
+		return value;
+	}
+
+	void reset(HANDLE value = nullptr) noexcept {
+		if (valid())
+			CloseHandle(handle);
+		handle = value;
+	}
+
+private:
+	HANDLE handle = nullptr;
+};
+
 /** One argument quoted like the MSVC runtime parses it (CommandLineToArgvW rules) */
 std::wstring quote(const std::wstring& argument) {
 	if (!argument.empty() && argument.find_first_of(L" \t\n\v\"") == std::wstring::npos)
@@ -57,77 +98,67 @@ std::wstring ChildProcess::commandLine(const std::filesystem::path& executable, 
 }
 
 ChildProcess::ChildProcess(Options options) : options_(std::move(options)) {
+	// every handle below belongs to a Handle guard, so each of the throwing paths closes what was opened before it (see Handle)
 	std::filesystem::create_directories(options_.logFile.parent_path());
 	SECURITY_ATTRIBUTES inherit{sizeof(SECURITY_ATTRIBUTES), nullptr, TRUE};
-	HANDLE log = CreateFileW(options_.logFile.wstring().c_str(), FILE_APPEND_DATA, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, &inherit,
-		CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
-	if (log == INVALID_HANDLE_VALUE)
-		throw std::runtime_error("cannot create " + options_.logFile.string() + " (error " + std::to_string(GetLastError()) + ")");
-	HANDLE input = CreateFileW(L"NUL", GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE, &inherit, OPEN_EXISTING, 0, nullptr);
-	HANDLE errors = log;
+	Handle log(CreateFileW(options_.logFile.wstring().c_str(), FILE_APPEND_DATA, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, &inherit,
+		CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr));
+	if (!log.valid()) {
+		DWORD errorCode = GetLastError();
+		throw std::runtime_error("cannot create " + options_.logFile.string() + " (error " + std::to_string(errorCode) + ")");
+	}
+	Handle input(CreateFileW(L"NUL", GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE, &inherit, OPEN_EXISTING, 0, nullptr));
+	Handle errorFile;
 	if (!options_.errorFile.empty()) {
-		std::filesystem::create_directories(options_.errorFile.parent_path());
-		errors = CreateFileW(options_.errorFile.wstring().c_str(), FILE_APPEND_DATA, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
-			&inherit, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
-		if (errors == INVALID_HANDLE_VALUE) {
+		std::filesystem::create_directories(options_.errorFile.parent_path()); // throws if a path component is a file: the guards above close
+		errorFile.reset(CreateFileW(options_.errorFile.wstring().c_str(), FILE_APPEND_DATA,
+			FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, &inherit, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr));
+		if (!errorFile.valid()) {
 			DWORD errorCode = GetLastError();
-			CloseHandle(log);
-			if (input != INVALID_HANDLE_VALUE)
-				CloseHandle(input); // the success path below closes it; this path must not leak the NUL handle
 			throw std::runtime_error("cannot create " + options_.errorFile.string() + " (error " + std::to_string(errorCode) + ")");
 		}
 	}
+	HANDLE errors = errorFile.valid() ? errorFile.get() : log.get();
 
 	// A job object with JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE, so Windows reaps the child whenever THIS process goes away - not only through the
 	// destructor. Without it, a CTest TIMEOUT (900 s, while ScenarioServers alone budgets a 10 min startup and Oracle::run waits up to 20 min)
 	// or a crash of the gate leaves aion_game_server and aion_login_server running, holding their test schemas and the log directory. Measured:
 	// killing only the test process left both servers alive. The process is created suspended and resumed after the assignment so it cannot
 	// spawn anything outside the job.
-	HANDLE jobObject = CreateJobObjectW(nullptr, nullptr);
-	if (jobObject != nullptr) {
+	Handle jobObject(CreateJobObjectW(nullptr, nullptr));
+	if (jobObject.valid()) {
 		JOBOBJECT_EXTENDED_LIMIT_INFORMATION limits{};
 		limits.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
-		if (!SetInformationJobObject(jobObject, JobObjectExtendedLimitInformation, &limits, sizeof(limits))) {
-			CloseHandle(jobObject);
-			jobObject = nullptr;
-		}
+		if (!SetInformationJobObject(jobObject.get(), JobObjectExtendedLimitInformation, &limits, sizeof(limits)))
+			jobObject.reset();
 	}
 
 	STARTUPINFOW startup{};
 	startup.cb = sizeof(startup);
 	startup.dwFlags = STARTF_USESTDHANDLES;
-	startup.hStdInput = input;
-	startup.hStdOutput = log;
+	startup.hStdInput = input.get();
+	startup.hStdOutput = log.get();
 	startup.hStdError = errors;
 	PROCESS_INFORMATION info{};
 	std::wstring line = commandLine(options_.executable, options_.arguments);
 	DWORD flags = options_.newProcessGroup ? CREATE_NEW_PROCESS_GROUP : 0;
-	if (jobObject != nullptr)
+	if (jobObject.valid())
 		flags |= CREATE_SUSPENDED;
 	std::wstring directory = options_.workingDirectory.wstring();
 	BOOL created = CreateProcessW(options_.executable.wstring().c_str(), line.data(), nullptr, nullptr, TRUE, flags, nullptr,
 		directory.empty() ? nullptr : directory.c_str(), &startup, &info);
 	DWORD error = GetLastError();
-	if (errors != log)
-		CloseHandle(errors);
-	CloseHandle(log);
-	if (input != INVALID_HANDLE_VALUE)
-		CloseHandle(input);
-	if (!created) {
-		if (jobObject != nullptr)
-			CloseHandle(jobObject);
+	if (!created)
 		throw std::runtime_error("cannot start " + options_.executable.string() + " (error " + std::to_string(error) + ")");
+	Handle processHandle(info.hProcess);
+	Handle threadHandle(info.hThread);
+	if (jobObject.valid()) {
+		if (!AssignProcessToJobObject(jobObject.get(), processHandle.get()))
+			jobObject.reset(); // no job: the destructor is the only reaper again, as before
+		ResumeThread(threadHandle.get()); // always resumed, assigned or not, or the child would never run
 	}
-	if (jobObject != nullptr) {
-		if (!AssignProcessToJobObject(jobObject, info.hProcess)) {
-			CloseHandle(jobObject); // no job: the destructor is the only reaper again, as before
-			jobObject = nullptr;
-		}
-		ResumeThread(info.hThread); // always resumed, assigned or not, or the child would never run
-	}
-	job = jobObject;
-	CloseHandle(info.hThread);
-	process = info.hProcess;
+	job = jobObject.release();
+	process = processHandle.release();
 	pid = info.dwProcessId;
 }
 

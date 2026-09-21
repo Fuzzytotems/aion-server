@@ -41,7 +41,9 @@ A geo-enabled start after the fix logs 0 spawn errors, 0 ERROR lines and 0 unpor
 
 The class of bug matters more than the bug: `gs.scenario.m5a` and `gs.smoke.startup` both run with `gameserver.geodata.enable=false`, so **no zone
 handler ever fires in an automated run**. m5a-plan.md §"Geodata" predicted exactly this ("A geo-only crash, hang or wrong spawn z leaves
-gs.scenario.m5a green and hits the user on his first walk"). Stage 3 owes a geo-enabled startup gate.
+gs.scenario.m5a green and hits the user on his first walk"). it in writing ("A geo-only crash, hang or wrong spawn z leaves gs.scenario.m5a green and hits the user on his first walk").
+`gs.smoke.startup_geo` (stage 3 wave A) now covers the startup half. The enter-world half is still uncovered: `gs.scenario.m5a` runs with
+geo disabled, so no automated run walks a player through geo. That is the first item of wave B.
 
 **F-2. Nine client packets are not ported yet**, each logged once by `AionClientPacketFactory` while playing: `CM_TARGET_SELECT`, `CM_EMOTION`,
 `CM_USE_ITEM`, `CM_MOVE_ITEM`, `CM_FRIEND_STATUS`, `CM_SHOW_BLOCKLIST`, `CM_PLAYER_LISTENER`, `CM_INSTANCE_INFO`, `CM_CHECK_PAK`. Tab targeting and

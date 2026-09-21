@@ -241,6 +241,16 @@ if(TARGET aion_gs_runtime_stress_tests)
 endif()
 
 if(AION_BUILD_TESTS)
+	# NO SILENT GREEN (wave 5a stage 3, docs/design/m5a-client-session.md): the milestone tests gs.scenario.m5a, gs.m4.check_static_data,
+	# gs.smoke.startup and gs.smoke.startup_geo FAIL when a prerequisite is missing (the AION_TEST_* database URLs, a Python 3 interpreter for the
+	# oracles, the Java checkout with its data/geo), instead of reporting themselves skipped. CTest counts a skipped test as passed, so a default
+	# `ctest` used to declare the milestone green by not running it. Every failure message names the variable and the value to set.
+	# The opt-out is explicit (cpp/README.md): this cache option, or - for the cmake -P driven tests, which read it at test time - the environment
+	# variable AION_GS_ALLOW_MILESTONE_SKIP=1 of a single ctest run.
+	option(AION_GS_ALLOW_MILESTONE_SKIP
+		"Let the milestone tests (gs.scenario.m5a, gs.m4.check_static_data, gs.smoke.startup*) skip themselves when a prerequisite is missing"
+		OFF)
+
 	# Tests that read the Java tree (config/, src/, data/): label realdata, and pass the tree's location in the environment as well
 	set(gs_realdata PROPERTIES LABELS realdata ENVIRONMENT "AION_GAMESERVER_JAVA_DIR=${GS_JAVA_DIR}")
 	aion_set_discovered_test_properties(aion_gs_configs_tests REGEX "^(ConfigLoadTest|JavaAnnotationsTest)\\." ${gs_realdata})

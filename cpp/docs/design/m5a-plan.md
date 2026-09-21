@@ -167,6 +167,7 @@ Effort: S < 1 agent-day, M 1-2, L 2-4, XL > 4. Need: **R** required, **W** stub-
 | O-10 | Spawn oracle cross-check against the "Loaded N npc spawns" counts | O |
 | O-11 | Events on (M5b): Event, EventBuffHandler (ctor, buff data DAO, onEnterMap, tryBuff, onTimeChanged), login_message events, and the date-dependent pattern entries | O |
 | O-12 | Generated wire schemas from Java write sequences via `tools/gen/javasrc.py` (replaces the hand decoders later) | O |
+| O-13 | **M5b: the derived half of `SM_STATS_INFO` (V9).** The gate compares base max HP/MP against `m5a-creation` and asserts everything else that is checkable without a stat oracle (identity fields, the oracle values in *every* `SM_STATS_INFO` of the burst, full HP/MP and 0 DP for a character that never fought, level 1 exp, the packet's game time against the `SM_GAME_TIME` of the same burst, the attack speed against `SM_PLAYER_INFO`, and "a class stats template was applied at all" for the six base attributes and the base attack values). What stays unchecked is every **value** of a derived stat: attack, accuracy, evasion, parry, block, crit, magic boost, resistances, the current maxima and the equipment contribution. It cannot be closed at M5a for two reasons, and O-13 is the item that closes both: `tools/oracle` needs an `m5a-stats` command that computes the full stat set from the Java stat functions and the starting equipment, and **O-09** must land first, because passive skill effects are the allow-listed `AION_PARTIAL` (`SkillEngine::applyEffectDirectly`, 8 hits per enter world) and a real client's stat window shows them. Until then a derived stat may be wrong by any amount and `gs.scenario.m5a` stays green. | O |
 
 ## 4. Lanes
 
@@ -210,7 +211,7 @@ adds the 0-hit startup check (F-01b).
 | Readiness | GS log "Game server started" and the authed LS link line, then p3 accepts connections. |
 | Run model | One GS per run. Cases run in fixed order. Case 7 writes the stop file with account B online. Both children live in a Windows job object with `JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE`, so a CTest TIMEOUT or a crash of the gate cannot orphan a server holding its schemas. |
 | GS log directory | The GS child gets `--log-folder=<outputDir>/gs_log`. It must never write the shared `game-server/log`: `Logging::init` archives and **deletes** what it finds there, so two trees running the gate — or a gate run next to the user's own play server — destroy each other's logs. Q8 reads `gs_log/server_errors.log` as well as the captured console stream. |
-| Geodata | **Out of M5a scope.** The gate runs with `gameserver.geodata.enable=false`, while the real-client checklist (§8 step 2) keeps geo on, so no `GeoService` path is covered by the milestone: `canSee` (the gather obstacle check), `getClosestCollision` (postman and functional NPC spawns), the terrain-z correction of the spawn and move paths, and the `if (!GeoDataConfig.GEO_MATERIALS_ENABLE) CuringZoneService` startup branch, which takes the opposite arm in the two configurations. A geo-only crash, hang or wrong spawn z leaves `gs.scenario.m5a` green and hits the user on his first walk. Stage 3 owes one smoke run with geo enabled that reaches "Game server started" and one enter world. |
+| Geodata | **Out of M5a scope.** The gate runs with `gameserver.geodata.enable=false`, while the real-client checklist (§8 step 2) keeps geo on, so no `GeoService` path is covered by the milestone: `canSee` (the gather obstacle check), `getClosestCollision` (postman and functional NPC spawns), the terrain-z correction of the spawn and move paths, and the `if (!GeoDataConfig.GEO_MATERIALS_ENABLE) CuringZoneService` startup branch, which takes the opposite arm in the two configurations. A geo-only crash, hang or wrong spawn z leaves `gs.scenario.m5a` green and hits the user on his first walk. Stage 3 owes one smoke run with geo enabled that reaches "Game server started" and one enter world. **Half paid (2026-09-21):** `gs.smoke.startup_geo` covers the startup half, which is where the real-client session lost 13 npc spawns (m5a-client-session.md F-1). The enter-world half is still open - `gs.scenario.m5a` keeps `gameserver.geodata.enable=false`, so `canSee`, `getClosestCollision`, the terrain-z correction of the move path and the player-side zone handlers remain uncovered. It is the first item of stage 3 wave B. |
 
 ### 5.2 Case 1: login (account A; B repeats it before case 2b)
 
@@ -247,7 +248,7 @@ adds the 0-hit startup check (F-01b).
 | V6 | `SM_PLAYER_SPAWN` world and position equal the spawn point. |
 | V7 | `SM_INVENTORY_INFO` item ids, counts and equip slots equal the `inventory` rows. |
 | V8 | `SM_SKILL_LIST` ids and levels equal the `m5a-creation` autolearn set. |
-| V9 | `SM_STATS_INFO`: base max HP/MP equal the oracle's base — the PlayerStatCalculator value **plus** the health/will dependent addition of `PlayerStatFunctions.MaxHpFunction`/`MaxMpFunction`, which is what `getMaxHp().getBase()` returns; current max ≥ base. `SM_PLAYER_INFO` (§5.8 #33, its own 230-line `writeImpl`, not the shared `writePlayerInfo` block) is decoded in case 4 and case 7: object id, name, class id, level, HP%, x/y/z and an equipment list that is a subset of the equipped inventory rows; decoding it consumes the body exactly, so its framing is checked too. **Scope:** this proves only the base half of the stats. Passive skill effects are the allow-listed `AION_PARTIAL` O-09 (`SkillEngine::applyEffectDirectly`, 8 hits per enter world), so every derived stat a real client shows — attack, accuracy, evasion, crit, magic boost and current max HP/MP — is unchecked at M5a. A stage-3 item must compare a full `SM_STATS_INFO` against an oracle once O-09 lands. |
+| V9 | `SM_STATS_INFO`: base max HP/MP equal the oracle's base — the PlayerStatCalculator value **plus** the health/will dependent addition of `PlayerStatFunctions.MaxHpFunction`/`MaxMpFunction`, which is what `getMaxHp().getBase()` returns; current max ≥ base. `SM_PLAYER_INFO` (§5.8 #33, its own 230-line `writeImpl`, not the shared `writePlayerInfo` block) is decoded in case 4 and case 7: object id, name, class id, level, HP%, x/y/z and the **exact** equipment block — count, item ids in ascending slot order and the full slot mask, all derived from the same `m5a-creation` rows through `ItemSlot.isVisible` (ItemSlot.java:41-56, mask 589055) and the `mask \|= slot` loop of AbstractPlayerInfoPacket.java:148-160, because a subset check plus "not empty" is satisfied by a server that announces one of the three starter pieces or ORs one slot bit instead of three; decoding it consumes the body exactly, so its framing is checked too. **Scope:** this proves only the base half of the stats. Passive skill effects are the allow-listed `AION_PARTIAL` O-09 (`SkillEngine::applyEffectDirectly`, 8 hits per enter world), so every derived stat a real client shows — attack, accuracy, evasion, crit, magic boost and current max HP/MP — is unchecked at M5a. A stage-3 item must compare a full `SM_STATS_INFO` against an oracle once O-09 lands. |
 | V10 | `SM_QUEST_LIST` and `SM_QUEST_COMPLETED_LIST` are empty; `SM_WAREHOUSE_INFO` x43 and `SM_MACRO_LIST` decode as empty. |
 
 ### 5.5 Case 4: level ready and NPC visibility
@@ -284,7 +285,7 @@ the enter-world `SM_GAME_TIME` and runs `oracle.py m5a-spawns --map 210010000 --
 | Q4 | CM_QUIT(0): `SM_QUIT_RESPONSE` is the last frame and the socket closes. |
 | Q5 | New LS and GS login without a kick. SM_CHARACTER_LIST: 1 entry, level 1, map 210010000, position T, appearance bytes equal those of creation, visible equipment = the equipped items. After waiting out `gameserver.character.reentry.time` (as Q3 does — `PlayerEnterWorldService.java:152-156` answers `SM_ENTER_WORLD_CHECK(REENTRY_TIME)` and returns while `now - lastOnline` is below it, and Q4 logged the character out seconds earlier), the enter gives `SM_ENTER_WORLD_CHECK` 0 and SM_PLAYER_SPAWN at T. CM_QUIT(0). |
 | Q7 | Account B enters (V5), sends 3 CM_MOVE to P, and stays online. The harness writes the stop file (shutdown delay 2). B receives `SM_SYSTEM_MESSAGE` STR_SERVER_SHUTDOWN, then the socket closes. GS exit 0. **Before any restart:** `players` for B has online=0, position = P, last_online set. |
-| Q8 | Reports (the LS is stopped with CTRL_BREAK and has exited): `unported_trace.txt` empty; `partial_trace.txt` ⊆ the allow-list (an entry with a line number matches the whole site, so a 3-digit row cannot cover 4-digit lines; rows the run did not hit are printed); `census.txt` empty; lockdep empty; no watchdog dump; no ERROR line in either server log **and** an empty `server_errors.log` in the gate's own `--log-folder` (logback's `additivity="false"` loggers never reach the console the harness captures); `m5a_summary.txt` has `started true`, `exitCode 0`, `knownListNotifyFailures 0` (W-07) and no "not ported yet" CM from the scripted path. <br>`live_counts.txt`: **0** for Player, Item, AbyssRank and the interaction tasks, and **≤ the number of client connections still open when the stop file was written** for Account, AccountTime, PlayerAccountData, PlayerCommonData, PlayerAppearance, ConnectionAliveChecker and every `*Storage`. The bound is Java's own behaviour, not a relaxation: `AionConnection.java:239-243` returns from `onDisconnect` right after `safeLogout()` while `GameServer.isShuttingDownSoon()`, i.e. before `LoginServer.onDisconnect`, and `LoginServer.java:119` is the only place that removes the connection from `loggedInAccounts`; the still-registered connection therefore holds its Account, its PlayerAccountData/PlayerCommonData and the account warehouse until the process exits — which is exactly what Q7 arranges. It still catches a leak: account A quits normally in case 6, so if its account-level objects survived, the count would exceed the one open connection. Run-length caveat: the "zombie-cut" and "stale pin" rows **cannot** fire in a gate run. `gameserver.runtime.zombie_break_minutes` is 30 and `LeakCensus::stalePinAfter` 10 minutes against a one-to-three-minute run, and `CheckOutput::runFinalCensus` disables the zombie breaker before the final scan; they are kept as cheap threshold-regression guards, and D7's periodic machinery is **not** proven at M5a. `census.txt` is not in that category: `runFinalCensus` sets `censusAfter` to 0. `LeakCensus` is fed only by `World::removeObject`, so it covers VisibleObjects alone; the gate additionally prints the whole `live_counts_baseline.txt` → `live_counts.txt` difference as diagnostics, so the classes it does not assert are at least visible in a run. |
+| Q8 | Reports (the LS is stopped with CTRL_BREAK and has exited): `unported_trace.txt` empty; `partial_trace.txt` ⊆ the allow-list (an entry with a line number matches the whole site, so a 3-digit row cannot cover 4-digit lines; rows the run did not hit are printed); `census.txt` empty; lockdep empty; no watchdog dump; no ERROR line in either server log **and** an empty `server_errors.log` in the gate's own `--log-folder` (logback's `additivity="false"` loggers never reach the console the harness captures); `m5a_summary.txt` has `started true`, `exitCode 0`, `knownListNotifyFailures 0` (W-07) and no "not ported yet" CM from the scripted path. <br>`live_counts.txt`: **0** for Player, Item, AbyssRank and the interaction tasks, and **≤ the number of client connections still open when the stop file was written** for Account, AccountTime, PlayerAccountData, PlayerCommonData, PlayerAppearance, ConnectionAliveChecker and every `*Storage`. The bound is Java's own behaviour, not a relaxation: `AionConnection.java:239-243` returns from `onDisconnect` right after `safeLogout()` while `GameServer.isShuttingDownSoon()`, i.e. before `LoginServer.onDisconnect`, and `LoginServer.java:119` is the only place that removes the connection from `loggedInAccounts`; the still-registered connection therefore holds its Account, its PlayerAccountData/PlayerCommonData and the account warehouse until the process exits — which is exactly what Q7 arranges. It still catches a leak: account A quits normally in case 6, so if its account-level objects survived, the count would exceed the one open connection. Beyond those six classes the **server itself** checks the live counts: `CheckOutput::zeroLiveClasses()` lists the classes that must be 0 once the runtime shut down (§10.2), `checkLiveCounts()` logs one ERROR per offending class and `m5a_summary.txt` gets `liveLeaks <n>` plus a `liveLeak <class> <live>` row each, so a leak of one of them fails Q8's "no ERROR line" assertion whatever the gate itself reads. <br>Run length (revised in stage 3, §10.3): the "zombie-cut" and "stale pin" rows used to be unreachable — `gameserver.runtime.zombie_break_minutes` is 30 and `LeakCensus::stalePinAfter` 10 minutes against a one-to-three-minute run, `CheckOutput::runFinalCensus` switched the breaker off before the final scan, and no log message contained the string "stale pin" that the gate greps for. `runFinalCensus` now ends with `runBreakerPass()`: after `census.txt` is written it scans once more with `zombieBreakAfter`, `stalePinAfter` and `stalePinCheckInterval` at 0 and the breaker on, waits for the posted breakers and reclaims again, and the warning reads "Leak census: stale pin: periodic task …". Both rows therefore describe what is left at the end of the run. Neither can fire on a clean run: both only look at objects that left the world and are still referenced, i.e. exactly what `census.txt` reports, so they are attribution (which task pins it, which edge was cyclic) on top of the census rather than independent checks. The **timed** machinery (a cut after 30 minutes, a stale pin after 10) is still not proven by the gate; it is proven by `LeakCensusTest` and by the G-01 nightly. `census.txt` was never in that category: `runFinalCensus` sets `censusAfter` to 0. `LeakCensus` is fed only by `World::removeObject`, so it covers VisibleObjects alone; the gate additionally prints the whole `live_counts_baseline.txt` → `live_counts.txt` difference as diagnostics, so the classes it does not assert are at least visible in a run. |
 
 ### 5.8 Expected enter-world SM sequence (Java order under D1; new level-1 non-staff character, no legion, friends or house)
 
@@ -414,3 +415,145 @@ Case 5 expects `SM_PLAYER_STATE` explicitly (M0).
 | Harness details | Valid (database.properties; env var names; LS CTRL_BREAK handler) | F-04, §5.1. An LS `--stop-file` is **rejected**: CTRL_BREAK needs no LS change. |
 | Smoke and M4 tests break | Valid (RunStartupSmoke.cmake:62) | F-02 |
 | PvpMapService.onLogin, ChatProcessor init | Valid (PlayerEnterWorldService.java:384; GameServer.java:99) | W-03, F-03, F-01a stream |
+
+## 10. Stage 3: the leak evidence of the gate
+
+Five findings of the stage-3 review of what `gs.scenario.m5a` actually proves about lifetimes, with the measurement each was settled by. The
+numbers below come from a checked RelWithDebInfo gate run of this tree (`live_counts.txt`, columns live / created / class); the same rows of the
+stage-2 runs of the app-gate, packets, svc-a, svc-b, world and final-gate lanes agree.
+
+### 10.1 Q8's live-instance assertion is kept, not weakened
+
+Two reviews disagreed: one held that Player "can never be 0 while case 7 shuts the server down with a character online", so that a faithful port
+must fail the assertion; the other, that the live-count check is the gate's only leak check for anything outside `World`, and that weakening it on
+a hypothesis would remove the check. **The measurement settles it for the second.**
+
+Java's shutdown does log the character out. `ShutdownHook.run` (ShutdownHook.java:45-72) counts down, leaves the loop as soon as
+`World.getAllPlayers().isEmpty()` (line 50) and then calls `GameServer.shutdownNioServer()` (line 72), which "disconnects cs/ls/all players and
+saves them". Per connection that ends in `AionConnection.onServerClose` → `close()` + `safeLogout()` (AionConnection.java:264-267), and
+`safeLogout` calls `PlayerLeaveWorldService.leaveWorld(player)`, whose **last statement** is `con.setActivePlayer(null)`
+(PlayerLeaveWorldService.java:152; the port does the same at PlayerLeaveWorldService.cpp:178). A connection therefore holds no Player after the
+shutdown logout, online at the stop file or not. What it does keep is the account level, because `onDisconnect` returns right after `safeLogout()`
+while `isShuttingDownSoon()` (AionConnection.java:240-243, ported at AionConnection.cpp:273-274), i.e. before `LoginServer.onDisconnect`, and
+LoginServer.java:119 is the only place that unregisters the connection — which is exactly why Q8 bounds those classes by the number of open
+connections instead of demanding 0.
+
+Case 7 shuts the server down with account B in the world, and one client connection was open when the stop file was written:
+
+```
+live created class                                 live created class
+0      6   model::gameobjects::player::Player          1     3   model::account::Account
+0     78   model::gameobjects::Item                    1     3   model::account::AccountTime
+0      4   model::gameobjects::player::AbyssRank       1     3   model::gameobjects::player::PlayerCommonData
+0    330   world::knownlist::KnownObject               1     6   model::gameobjects::player::PlayerAppearance
+0      2   services::…::HpMpRestoreTask                1     4   network::aion::…::ConnectionAliveChecker
+0    179   questEngine::model::QuestEnv                1   207   model::items::storage::ItemStorage
+                                                   82127 82131   model::gameobjects::Npc
+```
+
+Six Players were created and none is alive; `PlayerAccountData` is even at 0 where the per-connection bound would allow 1. **No lane may relax the
+strict 0 for Player, AbyssRank or the interaction tasks**: the port passes it as written, and a run in which it failed would be a real leak.
+
+**Item is the one row of that sentence that had to move** (found by the stage-3 review of wave A, which read the login path instead of the table).
+`0 78 model::gameobjects::Item` looks as strict as the rest, but the 0 is a property of the scenario's data, not of the port. A login loads the
+**account** warehouse — `AccountService::loadAccountWarehouse` → `InventoryDAO::loadStorage` + `ItemStoneListDAO::load`, AccountService.cpp:98-104
+(Java AccountService.java:95-100) — and the logout only detaches its owner: `player.getAccount()->getAccountWarehouse().setOwner(nullptr)`,
+PlayerLeaveWorldService.cpp:170 (Java PlayerLeaveWorldService.java:146). The `Storage` stays on the `Account`, and an Account whose connection
+never reached `LoginServer::onDisconnect` survives the shutdown — the early return above, the same one that bounds the account-level classes. That
+is precisely the `1 207 model::items::storage::ItemStorage` row of the table: the account warehouse of the one connection that was still
+registered. **Its items are alive for the same faithful reason.** The two scenario accounts have an *empty* account warehouse, so the strict 0
+passed by accident; the first real-client run, or an M5b scenario that leaves one item in an account warehouse, would have failed the gate for
+correct behaviour, and §10.1 as first written forbade fixing it.
+
+`Item` therefore moved to `CheckOutput::accountBoundedLiveClasses()`, the connection-bounded rule the storages already use, in the only form the
+server process itself can apply: it is checked for **0 while no `model::account::Account` survived the shutdown** (no Account means no surviving
+warehouse, so every item of the run must be gone) and is otherwise reported as a WARN naming the count and left to the reader of
+`live_counts.txt`. The bound itself belongs to whoever knows the warehouses — the gate counts the connections it left open and fills the
+warehouses it uses (§5.7 Q8). **Follow-up, not this lane's file:** `M5aScenarioTest.cpp` still lists `Item` in `strictlyZeroLiveClasses()`, where
+it has the same accidental pass; it belongs in the `perConnectionLiveClasses()` branch (bounded by the items the harness put into the warehouses
+of the accounts still connected, i.e. 0 for today's scenario). The Q8 row of §5.7 still spells the old rule ("**0** for Player, Item, AbyssRank
+and the interaction tasks") and needs the same correction.
+
+### 10.2 The classes the leak check covers
+
+The gate asserted 6 classes out of the 148 in `live_counts.txt`, and none of the objects wave 5a added. The strict-zero list now lives in the
+server, in `CheckOutput::zeroLiveClasses()`, so a leak fails the run through its own ERROR line and through `m5a_summary.txt` (`liveLeaks`,
+`liveLeak <class> <live>`) even where the gate reads nothing: Player, AbyssRank, BlockList, Cooldowns, Macros, PlayerSettings,
+QuestStateList, RecipeList, PlayerSkillList, PlayerSkillEntry, StatFunctionProxy, **KnownObject** and **HpMpRestoreTask** (this wave's visibility
+entries and the restore task that pins a Player in Q3), ItemInfoBlob, SkillEntryWriter, LoginServer::LoginRequest and QuestEnv — every one of them
+created and back at 0 in each gate run kept so far — plus `Item` under the account-bounded rule of §10.1
+(`CheckOutput::accountBoundedLiveClasses()`: strict while no Account survived the shutdown, a WARN with the count when one did).
+
+Seven further entries — Summon, Pet, Kisk, AbstractInteractionTask, GatheringTask, GatheringTask_ActionObserver, StanceObserver — are **guards,
+not assertions**: the scripted path has no summon, pet, kisk or gathering, so none of them is ever created and **no gate run can fail on those
+rows today**. They start to mean something in G-01, with the real client and in M5b, and they are written down here so nobody reads the length of
+the list as coverage. The rows that the M5a gate does exercise are the ones above them, and the check itself (both the class list and the ERROR
+line) is pinned by `CheckOutputTest.TheLiveCountCheckReadsTheProcessCountersOfAZeroClass` and
+`…BoundsAccountWarehouseItemsByTheSurvivingAccounts`.
+
+**The check only exists in a checked build.** `runtime::LIVE_COUNTS_ENABLED` is `AION_CHECKED != 0`: in a release build `makeRef` and the
+Reclaimer count nothing, `live_counts.txt` has no rows and `checkLiveCounts()` returns an empty vector whatever the run leaked — a green
+`liveLeaks 0` that means "not measured". The check says so itself (one WARN: "nothing is counted in this build"), and `m5a_summary.txt` carries
+the row **`liveCountsEnabled true|false`**. A gate that relies on this check must assert that row is `true`; the M5a gate builds the server from
+the same checked build tree as its tests, so it is `true` there today (*follow-up for the P5-SC owner: assert it in `M5aScenarioTest.cpp` next to
+the `live_counts.txt` rows, so a release build cannot report a vacuous pass*).
+
+Two groups stay out, and neither is an oversight. **Npcs and the rest of the world** (Gatherable, StaticObject, House, …) are still alive at
+shutdown — 82,127 of 82,131 Npcs in the run above — because the shutdown does not despawn the world; Java keeps them too, and a leak check that
+demanded 0 would be wrong rather than strict. **The account-level classes** (Account, AccountTime, PlayerAccountData, PlayerCommonData,
+PlayerAppearance, ConnectionAliveChecker, `*Storage`) are bounded by the number of connections still open, which the process cannot know while it
+writes its report; the gate checks them, because it knows how many clients it left open (§5.7 Q8). Creature-attached observers
+(AttackCalcObserver, ShieldObserver) are out for the same reason as npcs: their creature stays in the world.
+
+### 10.3 Zombie cuts and stale pins now describe the run
+
+Both rows were decoration, for three reasons: `zombie_break_minutes` is 30 and `LeakCensus::stalePinAfter` 10 minutes against a run of one to three
+minutes, `runFinalCensus` switched the zombie breaker **off** before the final scan, and — fatally — no log message in the tree contained the string
+`"stale pin"` that the gate greps for, so that assertion could not have failed even with a stale pin in front of it.
+
+`CheckOutput::runFinalCensus` now ends with `runBreakerPass()`: after `census.txt` is written it scans once more with `zombieBreakAfter`,
+`stalePinAfter` and `stalePinCheckInterval` at 0 and the breaker on, drains the instant pool so the posted breakers have run, and reclaims again;
+`LeakCensus` logs "Leak census: stale pin: periodic task … still pins …". Both rows therefore report what is left at the end of the run. They
+remain **attribution rather than independent checks**: only an object that left the world and is still referenced can be in the table, which is
+what `census.txt` already reports — the cut names the cyclic edge and the stale pin names the task that holds the leak. The timed behaviour (a cut
+after 30 minutes, a stale pin after 10, the periodic machinery of D7) is still not exercised by the gate; `LeakCensusTest` proves it on a
+ManualClock, and G-01 keeps the second-granularity keys for a 30-minute run.
+
+The pass itself is now pinned where it is *called*, not only where its effect is reproduced: `LeakCensusTest` configures the zero thresholds by
+hand, so deleting the `runBreakerPass()` call from `runFinalCensus` used to keep every test and the whole gate green (the gate's two rows assert
+absence). `CheckOutputTest.FinalCensusEndsWithTheZeroThresholdBreakerPass` runs the real `runFinalCensus` over a two-object cycle that only a
+breaker can cut, and fails with "cuts 0, expected 2" when the call is gone.
+
+### 10.4 W-07's notify-failure counter
+
+`KnownList::notifyFailureCount()` is wired: each of the three catches counts it (`notifySee`, `notifyNotSee`, `notifyNotKnow`,
+KnownList.cpp:224-250), `CheckOutput::writeSummary` writes the `knownListNotifyFailures` row, §5.7 Q8 asserts it is `0` and
+`KnownListTest` checks that a throwing controller increments it. The finding that the counter has no caller predates commit 7ce0f3b3f; a gate run
+of this tree reports `knownListNotifyFailures 0`.
+
+### 10.5 A throwing periodic body leaves the cycle that `stop()` would have cut
+
+`cycles.toml` resolves `AbstractInteractionTask$1#this` with "finish / abort cancel the periodic task". The cycle is task → Future → body → task,
+and `stop()` is its only cut, so a body that throws before reaching `stop()` leaves it: `runInteraction` throws, the exception is logged inside the
+body and the task is re-armed with its captures (Future.h:89), which is what Java does as well —
+`ThreadPoolManager.scheduleAtFixedRate` wraps the Runnable in `RunnableWrapper(catchAndLogThrowables = true)` (ThreadPoolManager.java:60-62), and
+`AbstractInteractionTask.stop()` is likewise only reached from a body that returned (AbstractInteractionTask.java:68-75). The port is faithful, so
+no deviation is added and the `stop()` call sites stay as Java has them. It is reproduced in
+`LeakCensusTest.AThrowingPeriodicBodyLeavesTheSelfRetainingCycleThatStopWouldHaveCut`: after three throwing runs the Player is still alive, the
+census reports it with its pinning task, the stale-pin warning names that task, the zombie breaker cuts nothing (a Pin is not an edge a breaker can
+cut), and a run that does reach `stop()` releases both objects. Two consequences for the reader of a run: such a body also writes
+"Exception in a Runnable execution: …" as ERROR, which Q8 fails on anyway, and the cycles.toml wording should say that `stop()` is the only cut and
+that a body which throws leaves the cycle for the stale-pin report to name.
+
+## 11. Stage 3 wave B (open after wave A)
+
+Wave A closed the startup half of the geo debt, the silent-skip hole, the assertions that could not fail, the leak surface and the vacuous tests
+(commit of 2026-09-21). What its five reviewers left open, in the order it should be taken:
+
+| Item | Why it is open |
+|---|---|
+| **Geo enter-world** | `gs.scenario.m5a` still sets `gameserver.geodata.enable=false`, so `canSee` (the gather obstacle check), `getClosestCollision`, the terrain-z correction of the move path and every player-side zone handler are still uncovered. `gs.smoke.startup_geo` covers only what a spawn touches. This is the other half of the §5.1 Geodata row. |
+| **G-01 stress nightly** | `gs.scenario.m5a_stress`: 20 FakeGameClients for 30 minutes, ASan and checked, injected DAO exceptions during logout, logouts below full HP, census and zombie-breaker thresholds in seconds. Asserts no reused-id warnings, zombie cut count 0, an empty final census. |
+| **Unported client packets** | The real-client session logged nine: `CM_TARGET_SELECT`, `CM_EMOTION`, `CM_USE_ITEM`, `CM_MOVE_ITEM`, `CM_FRIEND_STATUS`, `CM_SHOW_BLOCKLIST`, `CM_PLAYER_LISTENER`, `CM_INSTANCE_INFO`, `CM_CHECK_PAK` (m5a-client-session.md F-2). Targeting first: it is the one a player notices. |
+| **Low findings of wave A** | A failing geo run leaves its schema behind; `stopProblems()` latches on read and its destructor report has no permanent test; V2's rule for pool-only and randomWalk-only npc ids, and a genuine level-0 npc; the `cycles.toml` wording for `GatheringTask`; `MaterialZoneHandlerTest` sits in P4-10 while its subject is P5-12a; §5.1's rows for the login server child's log directory and the run model are stale. |
+| **Second race and gliding** | The real-client checklist steps 12 and 13 were not exercised: no Asmodian character, no gliding or jumping, no shutdown with a character online from a real client. |

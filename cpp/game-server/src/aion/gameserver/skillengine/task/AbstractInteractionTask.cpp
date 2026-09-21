@@ -19,6 +19,9 @@ AbstractInteractionTask::~AbstractInteractionTask() = default;
 // periodic task and release it). The task is pinned to the requester so the leak census and the zombie breaker can attribute it to its owner
 // (runtime-architecture.md §5.4); the pin adds no retention Java does not have.
 void AbstractInteractionTask::start() {
+	// java-race: check-then-act on Player.interactionTask (AbstractInteractionTask.java:61-64), as in Java. Two concurrent starts for one
+	// player read the same old task, both abort it, and the loser's setInteractionTask is overwritten by the winner's; the loser's own periodic
+	// task keeps running until one of its runs stops it. See docs/deviations/P5-02.md.
 	runtime::Ptr<AbstractInteractionTask> oldTask = requester->getInteractionTask();
 	if (oldTask)
 		oldTask->abort();
@@ -41,6 +44,15 @@ void AbstractInteractionTask::runInteraction() {
 }
 
 void AbstractInteractionTask::stop() {
+	// java-race: check-then-act on Player.interactionTask (AbstractInteractionTask.java:84-85), as in Java. A start() that replaced the field
+	// between this read and its write makes this task skip the clearing, so the field keeps naming the task that replaced it. This write is the
+	// java-hook cycles.toml names for Player.interactionTask, and in C++ it is the only cut of the Player -> interactionTask -> requester cycle.
+	// What the code says about that, and no more (docs/deviations/P5-02.md): every write that stores a task is a start()'s, which schedules the
+	// periodic run right after it, and every run begins with `!requester->isOnline()` - leaveWorld nulls the client connection
+	// (PlayerLeaveWorldService.java:65, .cpp:87) before it aborts the interaction task (:125-126) - so whichever task the field names after a
+	// logout stops itself on its next run, and that stop() then does find itself in the field and clears it. No interleaving of the two guards
+	// that leaves a task nothing can stop has been constructed. A throwing onInteractionStart() does leave one (start() writes the field before
+	// it and schedules after it), as it does in Java: test InteractionTaskTest.AThrowingOnInteractionStartLeavesTheTaskInTheField.
 	if (requester->getInteractionTask().rawPointer() == this)
 		requester->setInteractionTask(nullptr);
 	onInteractionFinish();

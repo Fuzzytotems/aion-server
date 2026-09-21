@@ -20,6 +20,16 @@ std::string env(const char* name) {
 	return value ? value : "";
 }
 
+/** @return true if `name` is `prefix` plus exactly 8 hex digits, the shape schemaSuffix() produces */
+bool isScenarioSchemaName(std::string_view name, std::string_view prefix) {
+	if (!name.starts_with(prefix) || name.size() != prefix.size() + 8)
+		return false;
+	for (char c : name.substr(prefix.size()))
+		if (!((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f')))
+			return false;
+	return true;
+}
+
 std::string readFile(const std::filesystem::path& file) {
 	std::ifstream in(file, std::ios::binary);
 	if (!in)
@@ -136,6 +146,44 @@ std::string schemaSuffix(std::string_view seed) {
 	return text;
 }
 
+SchemaLease::SchemaLease() noexcept = default;
+
+SchemaLease::SchemaLease(std::unique_ptr<commons::database::Connection> connectionValue, std::string lockValue)
+	: connection(std::move(connectionValue)), lock(std::move(lockValue)) {
+}
+
+SchemaLease::~SchemaLease() {
+	release();
+}
+
+SchemaLease::SchemaLease(SchemaLease&& other) noexcept : connection(std::move(other.connection)), lock(std::move(other.lock)) {
+	other.lock.clear();
+}
+
+SchemaLease& SchemaLease::operator=(SchemaLease&& other) noexcept {
+	if (this != &other) {
+		release();
+		connection = std::move(other.connection);
+		lock = std::move(other.lock);
+		other.lock.clear();
+	}
+	return *this;
+}
+
+void SchemaLease::release() noexcept {
+	if (connection) {
+		try {
+			auto statement = connection->prepareStatement("SELECT RELEASE_LOCK(?)");
+			statement->setString(1, lock);
+			statement->executeQuery();
+		} catch (const std::exception&) {
+			// closing the connection below releases the lock as well; nothing here may throw out of a destructor
+		}
+		connection.reset();
+	}
+	lock.clear();
+}
+
 ScenarioDatabase::ScenarioDatabase(std::string urlValue, std::string userValue, std::string passwordValue)
 	: url(JdbcUrl::parse(urlValue)), user(std::move(userValue)), password(std::move(passwordValue)) {
 }
@@ -171,6 +219,63 @@ int32_t ScenarioDatabase::recreate(std::string_view database, const std::filesys
 void ScenarioDatabase::drop(std::string_view database) const {
 	checkTestName(database);
 	open(url.database)->executeSimple("DROP DATABASE IF EXISTS `" + std::string(database) + "`");
+}
+
+std::string ScenarioDatabase::leaseLockName(std::string_view database) {
+	return std::string(database) + ":in_use";
+}
+
+SchemaLease ScenarioDatabase::lease(std::string_view database) const {
+	checkTestName(database);
+	std::unique_ptr<commons::database::Connection> connection = open(url.database);
+	const std::string lockName = leaseLockName(database);
+	auto statement = connection->prepareStatement("SELECT GET_LOCK(?, 0)"); // 0: never wait, a held marker means a run is using the schema
+	statement->setString(1, lockName);
+	auto result = statement->executeQuery();
+	if (!result->next() || result->getObject<int32_t>(1).value_or(0) != 1)
+		return {};
+	return SchemaLease(std::move(connection), lockName);
+}
+
+bool ScenarioDatabase::isLeaseFree(std::string_view database) const {
+	std::unique_ptr<commons::database::Connection> connection = open(url.database);
+	auto statement = connection->prepareStatement("SELECT IS_FREE_LOCK(?)");
+	statement->setString(1, leaseLockName(database));
+	auto result = statement->executeQuery();
+	return result->next() && result->getObject<int32_t>(1).value_or(0) == 1;
+}
+
+std::vector<std::string> ScenarioDatabase::dropAbandonedSchemas(std::string_view prefix, std::chrono::minutes minimumAge) const {
+	std::unique_ptr<commons::database::Connection> admin = open(url.database);
+	std::vector<std::string> candidates;
+	{
+		auto statement = admin->prepareStatement("SELECT SCHEMA_NAME FROM information_schema.SCHEMATA WHERE SCHEMA_NAME LIKE ?");
+		statement->setString(1, std::string(prefix) + "%");
+		auto result = statement->executeQuery();
+		while (result->next()) {
+			std::optional<std::string> name = result->getObject<std::string>(1);
+			if (name && isScenarioSchemaName(*name, prefix)) // LIKE treats '_' as a wildcard; the shape check is what decides
+				candidates.push_back(*name);
+		}
+	}
+	std::vector<std::string> dropped;
+	for (const std::string& candidate : candidates) {
+		auto age = admin->prepareStatement(
+			"SELECT IFNULL(MIN(TIMESTAMPDIFF(MINUTE, CREATE_TIME, NOW())), ?) FROM information_schema.TABLES WHERE TABLE_SCHEMA = ?");
+		age->setLong(1, minimumAge.count()); // no tables at all: the leftover of a run that died inside recreate(), old enough by definition
+		age->setString(2, candidate);
+		auto ageResult = age->executeQuery();
+		if (!ageResult->next())
+			continue;
+		const std::optional<int64_t> minutes = ageResult->getObject<int64_t>(1);
+		if (!minutes || *minutes < minimumAge.count())
+			continue;
+		if (!isLeaseFree(candidate)) // a run is using it right now: never touch it, whatever its age says
+			continue;
+		drop(candidate);
+		dropped.push_back(candidate);
+	}
+	return dropped;
 }
 
 std::unique_ptr<commons::database::Connection> ScenarioDatabase::open(std::string_view database) const {

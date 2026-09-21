@@ -1,6 +1,9 @@
 #include "ScenarioServers.h"
 
+#include <gtest/gtest.h>
+
 #include <fstream>
+#include <iostream>
 #include <sstream>
 #include <stdexcept>
 #include <thread>
@@ -65,12 +68,37 @@ ScenarioServers::ScenarioServers(Config configValue, ScenarioEnvironment environ
 }
 
 ScenarioServers::~ScenarioServers() {
+	// A run that never looked at how its servers stopped must not pass with a killed or hung server: the gate's own case 7 asserts the game
+	// server's exit code, but case 7 does not run when an earlier case failed (stage 2 review). Reported before the children are terminated,
+	// because "was still running at the end" is one of the problems.
+	if (!stopProblemsRead) {
+		const std::vector<std::string> problems = stopProblems();
+		if (!problems.empty()) {
+			std::string text;
+			for (const std::string& problem : problems)
+				text += "\n  " + problem;
+			ADD_FAILURE() << "the scenario servers did not stop cleanly:" << text;
+		}
+	}
 	// a failed test: never leave servers behind (ChildProcess terminates on destruction)
 	gs.reset();
 	ls.reset();
 }
 
 void ScenarioServers::createSchemas() {
+	// The in-use markers come first: they tell a sweep in another build tree - and the one below - that these two schemas belong to a running
+	// gate. MariaDB drops a session lock when the connection dies, so they disappear by themselves if this process is killed (CTest TIMEOUT).
+	lsLease = lsDatabase.lease(lsSchema);
+	gsLease = gsDatabase.lease(gsSchema);
+	if (!lsLease.held() || !gsLease.held())
+		throw std::runtime_error("another scenario run is using " + (lsLease.held() ? gsSchema : lsSchema) +
+		                         " (its in-use marker is held); run one gate per build tree");
+	// Schemas of runs that were killed before they could drop their own: with the gate's TIMEOUT 900 and a crash, nothing runs a destructor,
+	// so this is the only place that ever reclaims them. Nothing a live run uses can be dropped here (marker held, or younger than an hour).
+	for (const std::string& schema : lsDatabase.dropAbandonedSchemas("aion_ls_test_m5a_", ABANDONED_SCHEMA_AGE))
+		std::cout << "the scenario harness dropped the abandoned schema " << schema << " of an earlier run" << std::endl;
+	for (const std::string& schema : gsDatabase.dropAbandonedSchemas("aion_gs_test_m5a_", ABANDONED_SCHEMA_AGE))
+		std::cout << "the scenario harness dropped the abandoned schema " << schema << " of an earlier run" << std::endl;
 	lsDatabase.recreate(lsSchema, config.loginServerJavaDir / "sql" / "aion_ls.sql");
 	gsDatabase.recreate(gsSchema, config.gameServerJavaDir / "sql" / "aion_gs.sql");
 	lsDatabase.execute(lsSchema, "INSERT INTO gameservers (id, mask, password) VALUES (1, '127.0.0.1', '1234')");
@@ -111,11 +139,28 @@ std::vector<std::string> ScenarioServers::gameServerArguments() const {
 	return arguments;
 }
 
+void ScenarioServers::prepareLoginServerDirectory() const {
+	// The login server reads ./config/main, ./config/network and ./config/myls.properties and writes ./log, all relative to its working
+	// directory (Config.cpp:63-67, Logging::Config::logFolder "log"), and unlike the game server it has no --log-folder argument. Started in
+	// the Java module directory it therefore writes the shared login-server/log, which Logging::init archives and DELETES at startup: two build
+	// trees running the gate, or a gate run next to the user's own login server, destroy each other's logs (the game server's half of this was
+	// fixed with --log-folder in stage 2). The child gets a working directory of its own with a copy of config/ instead - four small files.
+	const std::filesystem::path directory = loginServerWorkingDirectory();
+	const std::filesystem::path source = config.loginServerJavaDir / "config";
+	if (!std::filesystem::is_directory(source))
+		throw std::runtime_error("the login server has no configuration directory " + source.string());
+	std::filesystem::create_directories(directory);
+	std::filesystem::remove_all(directory / "config");
+	std::filesystem::copy(source, directory / "config",
+		std::filesystem::copy_options::recursive | std::filesystem::copy_options::overwrite_existing);
+}
+
 void ScenarioServers::startLoginServer() {
+	prepareLoginServerDirectory();
 	ChildProcess::Options options;
 	options.executable = config.loginServerExecutable;
 	options.arguments = loginServerArguments();
-	options.workingDirectory = config.loginServerJavaDir;
+	options.workingDirectory = loginServerWorkingDirectory();
 	options.logFile = config.outputDir / "login_server.log";
 	options.newProcessGroup = true;
 	ls = std::make_unique<ChildProcess>(std::move(options));
@@ -125,6 +170,7 @@ void ScenarioServers::startLoginServer() {
 	const std::string gameServers = "Listening on 127.0.0.1:" + std::to_string(gameServerLinkPort);
 	if (!ls->waitForLog(gameServers, config.startupTimeout))
 		throw std::runtime_error("the login server did not log '" + gameServers + "' (see " + ls->options().logFile.string() + ")");
+	loginServerReady = true;
 }
 
 void ScenarioServers::startGameServer() {
@@ -145,6 +191,7 @@ void ScenarioServers::startGameServer() {
 		throw std::runtime_error("the login server did not authenticate game server 1 (see " + ls->options().logFile.string() + ")");
 	if (config.checkClientPort && !waitForClientPort(std::chrono::seconds(30)))
 		throw std::runtime_error("the game server does not accept client connections on port " + std::to_string(gamePort));
+	gameServerReady = true;
 }
 
 bool ScenarioServers::waitForClientPort(std::chrono::milliseconds timeout) const {
@@ -171,15 +218,44 @@ std::optional<int32_t> ScenarioServers::stopGameServer() {
 		std::ofstream stop(stopFile(), std::ios::binary | std::ios::trunc);
 		stop << "stop\n";
 	}
-	return gs->waitForExit(config.stopTimeout);
+	gameServerStopped = true;
+	gameServerExit = gs->waitForExit(config.stopTimeout);
+	return gameServerExit;
 }
 
 std::optional<int32_t> ScenarioServers::stopLoginServer() {
 	if (!ls)
 		return std::nullopt;
-	if (!ls->sendCtrlBreak())
+	loginServerStopped = true;
+	if (!ls->sendCtrlBreak() && ls->isRunning()) {
+		// Windows refused the event (no shared console) and the login server is still up: it is killed, which is NOT an orderly shutdown - it
+		// is reported as a problem instead of passing as exit code 98. A refusal after the server has already exited is not a kill.
+		loginServerKilled = true;
 		ls->terminate(98);
-	return ls->waitForExit(config.stopTimeout);
+	}
+	loginServerExit = ls->waitForExit(config.stopTimeout);
+	return loginServerExit;
+}
+
+std::vector<std::string> ScenarioServers::stopProblems() {
+	stopProblemsRead = true;
+	std::vector<std::string> problems;
+	const auto seconds = [this] { return std::to_string(std::chrono::duration_cast<std::chrono::seconds>(config.stopTimeout).count()); };
+	if (gameServerStopped && !gameServerExit)
+		problems.push_back("the game server did not exit within " + seconds() + " s after the stop file was written");
+	if (gameServerExit && *gameServerExit != 0)
+		problems.push_back("the game server exited with code " + std::to_string(*gameServerExit) + " (expected 0)");
+	if (loginServerKilled)
+		problems.push_back("the login server was killed: Windows refused CTRL_BREAK, so it never shut down in order");
+	if (loginServerStopped && !loginServerExit)
+		problems.push_back("the login server did not exit within " + seconds() + " s after CTRL_BREAK");
+	if (loginServerExit && !loginServerKilled && *loginServerExit != 0)
+		problems.push_back("the login server exited with code " + std::to_string(*loginServerExit) + " (expected 0)");
+	if (gameServerReady && gs && gs->isRunning())
+		problems.push_back("the game server was still running at the end of the run and had to be terminated");
+	if (loginServerReady && ls && ls->isRunning())
+		problems.push_back("the login server was still running at the end of the run and had to be terminated");
+	return problems;
 }
 
 std::map<std::string, std::vector<std::string>> ScenarioServers::readSummary() const {

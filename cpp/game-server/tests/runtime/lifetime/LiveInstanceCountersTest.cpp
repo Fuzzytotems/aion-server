@@ -135,6 +135,62 @@ TEST(LiveInstanceCountersTest, ConcurrentCreationRegistersOnceAndCountsEveryInst
 	EXPECT_EQ(liveCountOf(typeid(CountedConcurrent)), 0);
 }
 
+// m5a-plan.md D8: the check-output leak check (CheckOutput::checkLiveCounts) names the classes that must be gone once the runtime shut down.
+// The matcher behind it: a name matches a whole class name or a trailing part of one at a "::" boundary, a class at 0 is never a leak, and a
+// name nothing was created for contributes nothing (so a guard for a class the run never reaches passes instead of failing).
+TEST(LiveInstanceCountersTest, LiveInstancesOfMatchesQualifiedNamesAndTheirTrailingParts) {
+	const std::vector<LiveCount> counts = {
+		{.className = "aion::gameserver::model::gameobjects::Item", .live = 0, .created = 78},
+		{.className = "aion::gameserver::model::gameobjects::Npc", .live = 82127, .created = 82133},
+		{.className = "aion::gameserver::model::gameobjects::player::Player", .live = 2, .created = 6},
+		{.className = "aion::gameserver::skillengine::task::`anonymous namespace'::GatheringTask_ActionObserver", .live = 1, .created = 1},
+		{.className = "aion::gameserver::world::knownlist::KnownObject", .live = 3, .created = 330},
+	};
+	const std::vector<std::string> classes = {"model::gameobjects::player::Player", "model::gameobjects::Item", "world::knownlist::KnownObject",
+		"GatheringTask_ActionObserver", "model::gameobjects::Summon"};
+
+	const std::vector<LiveCount> leaks = liveInstancesOf(counts, classes);
+	ASSERT_EQ(leaks.size(), 3u);
+	EXPECT_EQ(leaks[0].className, "aion::gameserver::model::gameobjects::player::Player") << "sorted by class name";
+	EXPECT_EQ(leaks[0].live, 2);
+	EXPECT_EQ(leaks[1].className, "aion::gameserver::skillengine::task::`anonymous namespace'::GatheringTask_ActionObserver")
+	  << "a bare class name matches past MSVC's anonymous namespace component";
+	EXPECT_EQ(leaks[2].className, "aion::gameserver::world::knownlist::KnownObject");
+	for (const LiveCount& leak : leaks)
+		EXPECT_NE(leak.className, "aion::gameserver::model::gameobjects::Npc") << "the world keeps its npcs at shutdown: Npc is not in the list";
+}
+
+TEST(LiveInstanceCountersTest, LiveInstancesOfDoesNotMatchAcrossANameBoundary) {
+	const std::vector<LiveCount> counts = {
+		{.className = "aion::gameserver::model::gameobjects::player::NotAPlayer", .live = 1, .created = 1},
+		{.className = "aion::gameserver::model::gameobjects::PlayerLike::Player", .live = 1, .created = 1},
+		{.className = "Player", .live = 1, .created = 1},
+	};
+	const std::vector<LiveCount> leaks = liveInstancesOf(counts, {"gameobjects::player::Player", "Player"});
+	ASSERT_EQ(leaks.size(), 2u);
+	EXPECT_EQ(leaks[0].className, "Player") << "an entry equal to the whole class name matches";
+	EXPECT_EQ(leaks[1].className, "aion::gameserver::model::gameobjects::PlayerLike::Player");
+	for (const LiveCount& leak : leaks)
+		EXPECT_NE(leak.className, "aion::gameserver::model::gameobjects::player::NotAPlayer") << "\"Player\" must not match \"NotAPlayer\"";
+}
+
+TEST(LiveInstanceCountersTest, LiveInstancesOfReadsTheRealCounters) {
+	if (!LIVE_COUNTS_ENABLED)
+		GTEST_SKIP() << "live-instance counters count in checked builds only";
+	drainReclaimer();
+	const std::string name = aion::commons::utils::getClassName(typeid(CountedDerived));
+	{
+		Ref<CountedDerived> object = CountedDerived::create();
+		const std::vector<LiveCount> leaks = liveInstancesOf({name});
+		ASSERT_FALSE(leaks.empty());
+		EXPECT_EQ(leaks[0].className, name);
+		EXPECT_GE(leaks[0].live, 1);
+	}
+	drainReclaimer();
+	EXPECT_TRUE(liveInstancesOf({name}).empty()) << "a class at 0 is not a leak";
+	EXPECT_TRUE(liveInstancesOf({"a::class::NobodyEverCreated"}).empty());
+}
+
 TEST(LiveInstanceCountersTest, WriteFormat) {
 	Ref<CountedDerived> object = CountedDerived::create();
 	std::ostringstream out;

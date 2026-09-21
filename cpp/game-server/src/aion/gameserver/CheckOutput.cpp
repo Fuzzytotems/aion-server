@@ -4,6 +4,7 @@
 #include <fstream>
 #include <thread>
 
+#include "aion/commons/logging/LoggerFactory.h"
 #include "aion/commons/utils/Exception.h"
 #include "aion/gameserver/runtime/base/Unported.h"
 #include "aion/gameserver/runtime/lifetime/LiveInstanceCounters.h"
@@ -16,6 +17,11 @@
 namespace aion::gameserver {
 
 namespace {
+
+const commons::logging::Logger& log() {
+	static const auto* instance = new commons::logging::Logger(commons::logging::LoggerFactory::getLogger("com.aionemu.gameserver.CheckOutput"));
+	return *instance;
+}
 
 std::ofstream openOutput(const std::filesystem::path& file) {
 	std::filesystem::create_directories(file.parent_path());
@@ -79,9 +85,33 @@ std::vector<runtime::LeakCensus::LeakReport> CheckOutput::runFinalCensus(const s
 		runtime::Reclaimer::getInstance().reclaimNow();
 	}
 	std::erase_if(leaks, [](const runtime::LeakCensus::LeakReport& leak) { return leak.refCount == 0; });
-	std::ofstream out = openOutput(dir / "census.txt");
-	writeCensus(out, leaks);
+	{
+		std::ofstream out = openOutput(dir / "census.txt");
+		writeCensus(out, leaks);
+	}
+	runBreakerPass();
 	return leaks;
+}
+
+void CheckOutput::runBreakerPass() {
+	runtime::LeakCensus& census = runtime::LeakCensus::getInstance();
+	const runtime::LeakCensus::Config previous = census.getConfig();
+	runtime::LeakCensus::Config config = previous;
+	config.censusAfter = std::chrono::milliseconds(0);
+	config.checkInterval = std::chrono::milliseconds(0);
+	config.zombieBreakerEnabled = true;
+	config.zombieBreakAfter = std::chrono::milliseconds(0);
+	config.stalePinAfter = std::chrono::milliseconds(0);
+	config.stalePinCheckInterval = std::chrono::milliseconds(0);
+	census.configure(config); // resets the "next check" times, so the following scan runs both checks whatever the run did before
+	runtime::Reclaimer::getInstance().reclaimNow();
+	// the breaker bodies are posted to the instant pool: wait for them, so zombieCutCount() is final when this returns
+	drainPools(std::chrono::steady_clock::now() + std::chrono::seconds(5));
+	runtime::Reclaimer::getInstance().reclaimNow(); // frees what the cuts released
+	// Restore the run's own thresholds. Without this the census stays armed at age 0 for the rest of the shutdown (RuntimeLifecycle::shutdown runs
+	// after this step), so an object removed from the world during that shutdown could be cut and logged after main.cpp sampled zombieCutCount():
+	// the summary and the log would then disagree. What this pass itself cut stays visible through zombieCuts, which §5.7 Q8 asserts is 0.
+	census.configure(previous);
 }
 
 void CheckOutput::drainPools(std::chrono::steady_clock::time_point deadline) {
@@ -130,9 +160,86 @@ void CheckOutput::writeWatchdogDumps(const std::filesystem::path& dir, const std
 		out << dump << '\n';
 }
 
+const std::vector<std::string>& CheckOutput::zeroLiveClasses() {
+	// built once and never destroyed: the check runs from the ShutdownHook thread, after the runtime shut down
+	static const auto* classes = new std::vector<std::string>{
+		// the character and what hangs off it (every one of these was created and reached 0 in the M5a gate runs of stage 2). Item is NOT here:
+		// it is bounded by the surviving accounts instead (accountBoundedLiveClasses)
+		"model::gameobjects::player::Player",
+		"model::gameobjects::player::AbyssRank",
+		"model::gameobjects::player::BlockList",
+		"model::gameobjects::player::Cooldowns",
+		"model::gameobjects::player::Macros",
+		"model::gameobjects::player::PlayerSettings",
+		"model::gameobjects::player::QuestStateList",
+		"model::gameobjects::player::RecipeList",
+		"model::skill::PlayerSkillList",
+		"model::skill::PlayerSkillEntry",
+		"model::stats::calc::functions::StatFunctionProxy",
+		// what this wave added: the knownlist entries of the visibility work and the restore task that pins a Player in Q3
+		"world::knownlist::KnownObject",
+		"services::LifeStatsRestoreService::HpMpRestoreTask",
+		// per-session helpers: the packet blobs an enter world builds and the pending login-server request of a login
+		"network::aion::iteminfo::ItemInfoBlob",
+		"network::aion::skillinfo::SkillEntryWriter",
+		"network::loginserver::LoginServer::LoginRequest",
+		"questEngine::model::QuestEnv",
+		// creatures and tasks a character owns. None of them is created by the M5a scenario (no summon, pet, kisk or gathering on the scripted
+		// path), so these rows are guards for the stress run, the real client and M5b rather than assertions the gate exercises today.
+		"model::gameobjects::Summon",
+		"model::gameobjects::Pet",
+		"model::gameobjects::Kisk",
+		"skillengine::task::AbstractInteractionTask",
+		"skillengine::task::GatheringTask",
+		"GatheringTask_ActionObserver",
+		"controllers::observer::StanceObserver",
+	};
+	return *classes;
+}
+
+const std::vector<std::string>& CheckOutput::accountBoundedLiveClasses() {
+	// see the header: the account warehouse of an Account that survives the shutdown keeps its Items, which is Java's own behaviour
+	static const auto* classes = new std::vector<std::string>{
+		"model::gameobjects::Item",
+	};
+	return *classes;
+}
+
+std::vector<runtime::LiveCount> CheckOutput::checkLiveCounts() {
+	if constexpr (!runtime::LIVE_COUNTS_ENABLED)
+		log().warn("Live instance leak check: nothing is counted in this build (AION_CHECKED is off), so the check reports nothing whatever the run "
+				   "leaked; m5a_summary.txt says liveCountsEnabled false (m5a-plan.md §10.2)");
+	return checkLiveCounts(runtime::liveCounts());
+}
+
+std::vector<runtime::LiveCount> CheckOutput::checkLiveCounts(const std::vector<runtime::LiveCount>& counts) {
+	std::vector<std::string> checked = zeroLiveClasses();
+	// The account-bounded classes are checked only while no Account survived: one that did keeps its account warehouse with its items, and how
+	// many items that warehouse holds is not something this process can know while it writes its report (header, m5a-plan.md §10.1).
+	const std::vector<runtime::LiveCount> accounts = runtime::liveInstancesOf(counts, {std::string("model::account::Account")});
+	if (accounts.empty())
+		checked.insert(checked.end(), accountBoundedLiveClasses().begin(), accountBoundedLiveClasses().end());
+	else
+		for (const runtime::LiveCount& unchecked : runtime::liveInstancesOf(counts, accountBoundedLiveClasses()))
+			log().warn("Live instance leak check: {} of the {} {} instances are still alive, and an Account survived the shutdown (its connection "
+					   "never reached LoginServer::onDisconnect), so its account warehouse may legitimately hold them: not checked here. The bound "
+					   "is the scenario gate's, which knows the warehouses it filled (m5a-plan.md §10.1)",
+				unchecked.live, unchecked.created, unchecked.className);
+
+	std::vector<runtime::LiveCount> leaks = runtime::liveInstancesOf(counts, checked);
+	for (const runtime::LiveCount& leak : leaks)
+		log().error("Live instance leak: {} of the {} {} instances created since start are still alive after the runtime shut down (a class that "
+					"belongs to a character must be at 0 once it logged out; m5a-plan.md D8)",
+			leak.live, leak.created, leak.className);
+	return leaks;
+}
+
 void CheckOutput::writeSummary(const std::filesystem::path& dir, const Summary& summary) {
+	Summary checked = summary;
+	if (summary.started)
+		checked.liveLeaks = checkLiveCounts();
 	std::ofstream out = openOutput(dir / "m5a_summary.txt");
-	writeSummary(out, summary);
+	writeSummary(out, checked);
 }
 
 void CheckOutput::writeSummary(std::ostream& out, const Summary& summary) {
@@ -153,6 +260,15 @@ void CheckOutput::writeSummary(std::ostream& out, const Summary& summary) {
 	std::ranges::sort(packets);
 	for (const std::string& packet : packets)
 		out << "notPortedClientPacket " << packet << '\n';
+	// m5a-plan.md D8: the classes of zeroLiveClasses() that are still alive. Every one of them is also an ERROR line in the server log
+	// (checkLiveCounts), so a gate that only reads the log still fails; these rows say which class and how many.
+	// liveCountsEnabled says whether the check could see anything at all: the live-instance counters are compiled out in a release build
+	// (runtime::LIVE_COUNTS_ENABLED, AION_CHECKED), where "liveLeaks 0" means "not measured", not "nothing leaked". A gate that relies on the
+	// check must assert this row is true (m5a-plan.md §10.2).
+	out << "liveCountsEnabled " << (runtime::LIVE_COUNTS_ENABLED ? "true" : "false") << '\n';
+	out << "liveLeaks " << summary.liveLeaks.size() << '\n';
+	for (const runtime::LiveCount& leak : summary.liveLeaks)
+		out << "liveLeak " << leak.className << ' ' << leak.live << '\n';
 }
 
 } // namespace aion::gameserver

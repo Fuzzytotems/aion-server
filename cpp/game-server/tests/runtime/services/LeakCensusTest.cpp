@@ -1,6 +1,9 @@
 // LeakCensus and the zombie breaker (design §5.3, §5.4, D7) on synthetic object graphs: tracking until destruction (also when the object dies
 // before the census saw its event), leak reports with pinning tasks, re-adds, the zombie breaker cutting a reference cycle, objects without a
 // breaker, stale periodic pins, concurrent producers against the Reclaimer thread (ASan), and the //debug reports.
+// Stage 3 (m5a-plan.md §10): the self-retaining cycle a throwing periodic body leaves behind (AbstractInteractionTask's shape), and the
+// zero-threshold shutdown pass of CheckOutput::runBreakerPass, which makes the gate's "zombieCuts 0" and "no stale pin" rows reachable in a
+// run of a few minutes.
 
 #include <gtest/gtest.h>
 
@@ -8,6 +11,7 @@
 #include <chrono>
 #include <cstdint>
 #include <format>
+#include <stdexcept>
 #include <string>
 #include <thread>
 #include <vector>
@@ -41,6 +45,59 @@ public:
 protected:
 	explicit Node(int32_t objectId) : objectId(objectId) { live.fetch_add(1); }
 	~Node() override { live.fetch_sub(1); }
+};
+
+/**
+ * The shape of every "stop() cancels the periodic task" resolution in cycles.toml, AbstractInteractionTask (AbstractInteractionTask.java:68-90)
+ * being the one the M5a gate can reach: the object holds the Future, the scheduled body holds a Ref back to the object (Java: the anonymous
+ * Runnable's outer instance) and the task pins the world object it works on. The body ends the task by calling stop(); a body that throws
+ * before that never gets there. Java behaves exactly like this port: ThreadPoolManager.scheduleAtFixedRate wraps the Runnable in
+ * RunnableWrapper(catchAndLogThrowables = true) (ThreadPoolManager.java:60-62), so the exception is logged inside the body and the task is
+ * re-armed with its captures - Future does the same (logExceptions, Future.h:89).
+ */
+class InteractionTask final : public RefCounted {
+	AION_MAKE_REF_FRIEND
+
+public:
+	static Ref<InteractionTask> create(Node& owner) { return makeRef<InteractionTask>(owner); }
+	static inline std::atomic<int32_t> live{0};
+	std::atomic<int32_t> runs{0};
+	std::atomic<bool> throwing{true};
+
+	/** AbstractInteractionTask.start() */
+	void start() {
+		Ref<InteractionTask> self(*this);
+		task = ThreadPoolManager::getInstance().scheduleAtFixedRate(
+			Pin(owner.get()), [self] { self->runInteraction(); }, 60'000, 60'000);
+	}
+
+	/** AbstractInteractionTask$1.run() -> runInteraction(): onInteraction() throws before the stop() that would cut the cycle */
+	void runInteraction() {
+		runs.fetch_add(1);
+		if (throwing.load())
+			throw std::runtime_error("onInteraction failed");
+		stop();
+	}
+
+	/** AbstractInteractionTask.stop() */
+	void stop() {
+		FutureRef current = task;
+		if (current && !current->isCancelled()) {
+			current->cancel(false);
+			task = nullptr;
+		}
+	}
+
+	bool isInProgress() const { return task && !task->isCancelled(); }
+
+protected:
+	explicit InteractionTask(Node& ownerValue) : owner(ownerValue) { live.fetch_add(1); }
+	~InteractionTask() override { live.fetch_sub(1); }
+
+private:
+	const Ref<Node> owner;
+	/** Java `private Future<?> task` (a Field in the ported class; the deterministic executor runs this test on one thread) */
+	FutureRef task;
 };
 
 class LeakCensusTest : public DeterministicServicesTest {
@@ -256,7 +313,8 @@ TEST_F(LeakCensusTest, PeriodicTasksPinningRemovedObjectsAreLoggedOnce) {
 	pass(minutes(9)); // every run is followed by a scan
 	EXPECT_EQ(capture.count("still pins"), 0u);
 	pass(minutes(2));
-	EXPECT_EQ(capture.count("Periodic task scheduled task LeakCensusTest.cpp:"), 1u);
+	// the literal "stale pin" is what the M5a gate greps for (m5a-plan.md §5.7 Q8)
+	EXPECT_EQ(capture.count("stale pin: periodic task scheduled task LeakCensusTest.cpp:"), 1u);
 	EXPECT_TRUE(capture.contains("still pins Npc (object id 77), removed from the world 1")); // 10 or 11 minutes, depending on the scan
 	EXPECT_TRUE(capture.contains("minutes ago (the task is not cancelled)"));
 	pass(minutes(5));
@@ -295,6 +353,147 @@ TEST_F(LeakCensusTest, PeriodicTasksAreStaleOnlyWhenAllTheirPinnedOwnersWereRemo
 	effected.reset();
 	reclaim();
 	EXPECT_EQ(census.trackedCount(), 0u);
+}
+
+// Review finding (stage 3): "stop() leaves a self-retaining Future cycle when the periodic body throws, and the cycles.toml resolution assumes
+// stop() always runs". It does, and so does Java: the cycle AbstractInteractionTask -> Future -> body -> AbstractInteractionTask is cut by
+// stop() alone, and a throwing onInteraction() never reaches it. The port is faithful (see InteractionTask above), so the answer is not a
+// deviation but detection: the task holds its Pin, so the object it pins never leaves the census, and the stale-pin warning names the task.
+TEST_F(LeakCensusTest, AThrowingPeriodicBodyLeavesTheSelfRetainingCycleThatStopWouldHaveCut) {
+	LogCapture capture("com.aionemu.gameserver.runtime.LeakCensus");
+	const int32_t nodesBefore = Node::live.load();
+	const int32_t tasksBefore = InteractionTask::live.load();
+	InteractionTask* leaked = nullptr;
+	{
+		Ref<Node> player = Node::create(11);
+		Ref<InteractionTask> interaction = InteractionTask::create(*player);
+		leaked = interaction.get();
+		interaction->start();
+		census.onRemovedFromWorld(*player, "Player", 11); // the character logs out while the interaction runs
+	}
+	reclaim();
+	// nothing outside the task holds either object: only the periodic Future does
+	ASSERT_EQ(Node::live.load(), nodesBefore + 1);
+	ASSERT_EQ(InteractionTask::live.load(), tasksBefore + 1);
+
+	pass(minutes(3)); // three runs, each throwing where Java's RunnableWrapper would log and re-arm too
+	EXPECT_EQ(leaked->runs.load(), 3);
+	EXPECT_TRUE(leaked->isInProgress()) << "a throwing body does not end a periodic task (Future.h:89, ThreadPoolManager.java:60-62)";
+	EXPECT_EQ(Node::live.load(), nodesBefore + 1) << "the Player is still pinned by the task it started";
+
+	// the shutdown pass of CheckOutput::runBreakerPass: at zero thresholds the leak is visible immediately instead of after 10/30 minutes
+	LeakCensus::Config shutdown = census.getConfig();
+	shutdown.censusAfter = milliseconds(0);
+	shutdown.checkInterval = milliseconds(0);
+	shutdown.zombieBreakerEnabled = true;
+	shutdown.zombieBreakAfter = milliseconds(0);
+	shutdown.stalePinAfter = milliseconds(0);
+	shutdown.stalePinCheckInterval = milliseconds(0);
+	census.configure(shutdown);
+	Reclaimer::getInstance().reclaimNow();
+	executor->runReady();
+	std::vector<LeakCensus::LeakReport> leaks = census.getLeaks();
+	ASSERT_EQ(leaks.size(), 1u);
+	EXPECT_EQ(leaks[0].className, "Player");
+	EXPECT_EQ(leaks[0].objectId, 11);
+	ASSERT_EQ(leaks[0].pinningTasks.size(), 1u) << "the report names the pending task that holds it";
+	EXPECT_TRUE(capture.contains("stale pin: periodic task")) << capture.str();
+	EXPECT_TRUE(capture.contains("still pins Player (object id 11)")) << capture.str();
+	EXPECT_TRUE(capture.contains("and no known edge was cut")) << "no cycle breaker can cut a Pin: only a cancel can";
+
+	// the cycles.toml resolution, once stop() does run: the next run cancels the task, which releases the body (and with it the Ref back to the
+	// InteractionTask) and the Pin. Nothing may dereference `leaked` afterwards - that is the point of the test.
+	leaked->throwing.store(false);
+	leaked = nullptr;
+	pass(minutes(1));
+	reclaim();
+	EXPECT_EQ(Node::live.load(), nodesBefore);
+	EXPECT_EQ(InteractionTask::live.load(), tasksBefore);
+	EXPECT_EQ(census.trackedCount(), 0u);
+}
+
+// m5a-plan.md §5.7 Q8 and CheckOutput::runBreakerPass: with the configured thresholds (30 minutes for the zombie breaker, 10 for stale pins)
+// neither row can fire in a one-to-three minute gate run, so both were decoration. The shutdown pass sets them to 0 and scans once, which
+// reports what is left at the end of the run; on a clean run there is nothing in the table and neither fires.
+TEST_F(LeakCensusTest, TheShutdownPassCutsZombiesAndNamesStalePinsWithoutWaitingOutTheThresholds) {
+	LogCapture capture("com.aionemu.gameserver.runtime.LeakCensus");
+	const uint64_t cutsBefore = census.zombieCutCount();
+	const int32_t nodesBefore = Node::live.load();
+	Ref<Node> player = Node::create(31);
+	Ref<Node> kisk = Node::create(32);
+	{
+		TaskScope scope(AION_TASK_INFO(TaskKind::TEST));
+		player->peer = kisk;
+		kisk->peer = player;
+	}
+	Ref<Node> pinned = Node::create(33);
+	FutureRef periodic = ThreadPoolManager::getInstance().scheduleAtFixedRate(Pin(pinned.get()), [] {}, 60'000, 60'000);
+	census.onRemovedFromWorld(*player, "Player", 31);
+	census.onRemovedFromWorld(*kisk, "Kisk", 32);
+	census.onRemovedFromWorld(*pinned, "Npc", 33);
+	player.reset();
+	kisk.reset();
+	pinned.reset();
+	reclaim();
+
+	pass(seconds(90)); // the length of a gate run
+	EXPECT_EQ(census.zombieCutCount(), cutsBefore) << "30 minutes are not reached in a run this short";
+	EXPECT_EQ(capture.count("stale pin"), 0u) << "10 minutes are not reached either";
+	EXPECT_TRUE(census.getLeaks().empty()) << "and the 10 minute census threshold is not reached";
+
+	LeakCensus::Config shutdown = census.getConfig();
+	shutdown.censusAfter = milliseconds(0);
+	shutdown.checkInterval = milliseconds(0);
+	shutdown.zombieBreakerEnabled = true;
+	shutdown.zombieBreakAfter = milliseconds(0);
+	shutdown.stalePinAfter = milliseconds(0);
+	shutdown.stalePinCheckInterval = milliseconds(0);
+	census.configure(shutdown);
+	Reclaimer::getInstance().reclaimNow();
+	executor->runReady(); // the breakers are posted to the instant pool
+	Reclaimer::getInstance().reclaimNow();
+
+	EXPECT_EQ(census.zombieCutCount(), cutsBefore + 2) << "the Player/Kisk cycle is cut in the same second it was found";
+	EXPECT_TRUE(capture.contains("Zombie breaker: cut peer of Player (object id 31)")) << capture.str();
+	EXPECT_TRUE(capture.contains("stale pin: periodic task")) << capture.str();
+	EXPECT_TRUE(capture.contains("still pins Npc (object id 33)")) << capture.str();
+	EXPECT_EQ(Node::live.load(), nodesBefore + 1) << "the cycle is gone; the pinned npc is still held by its task";
+
+	periodic->cancel();
+	periodic.reset();
+	reclaim();
+	EXPECT_EQ(Node::live.load(), nodesBefore);
+	EXPECT_EQ(census.trackedCount(), 0u);
+}
+
+// A clean shutdown trips neither row: both only look at objects that left the world and are still referenced, which is what census.txt reports.
+TEST_F(LeakCensusTest, TheShutdownPassIsSilentWhenNothingLeaked) {
+	LogCapture capture("com.aionemu.gameserver.runtime.LeakCensus");
+	const uint64_t cutsBefore = census.zombieCutCount();
+	{
+		Ref<Node> npc = Node::create(41);
+		census.onRemovedFromWorld(*npc, "Npc", 41);
+	}
+	FutureRef periodic = ThreadPoolManager::getInstance().scheduleAtFixedRate([] {}, 60'000, 60'000); // a service task pinning nothing
+	reclaim();
+
+	LeakCensus::Config shutdown = census.getConfig();
+	shutdown.censusAfter = milliseconds(0);
+	shutdown.checkInterval = milliseconds(0);
+	shutdown.zombieBreakerEnabled = true;
+	shutdown.zombieBreakAfter = milliseconds(0);
+	shutdown.stalePinAfter = milliseconds(0);
+	shutdown.stalePinCheckInterval = milliseconds(0);
+	census.configure(shutdown);
+	Reclaimer::getInstance().reclaimNow();
+	executor->runReady();
+	Reclaimer::getInstance().reclaimNow();
+
+	EXPECT_EQ(census.zombieCutCount(), cutsBefore);
+	EXPECT_EQ(capture.count("stale pin"), 0u);
+	EXPECT_TRUE(census.getLeaks().empty());
+	EXPECT_EQ(census.trackedCount(), 0u);
+	periodic->cancel();
 }
 
 // m5a-plan.md I-03/F-07: the final census of the check-output mode needs no LeakCensus::censusNow(). Configuring zero thresholds and running

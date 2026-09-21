@@ -51,10 +51,19 @@ TEST(LoginServerHarnessTest, FakeLoginClientLogsInAndTheLoginServerStopsOnCtrlBr
 	}
 	EXPECT_EQ(servers.loginDatabase().queryLong(servers.loginSchema(), "SELECT COUNT(*) FROM account_data WHERE name = 'm5aselftest'"), 1);
 
+	// The login server writes its own log directory, not the shared login-server/log that Logging::init archives and deletes (it has no
+	// --log-folder, so ScenarioServers gives it a working directory with a copy of its config).
+	EXPECT_TRUE(std::filesystem::is_regular_file(servers.loginLogFolder() / "server_console.log"))
+	  << "the login server wrote no " << (servers.loginLogFolder() / "server_console.log");
+	EXPECT_TRUE(std::filesystem::is_directory(servers.loginServerWorkingDirectory() / "config" / "network"));
+
 	std::optional<int32_t> exitCode = servers.stopLoginServer();
 	ASSERT_TRUE(exitCode) << servers.loginServer()->readLog();
 	std::string log = servers.loginServer()->readLog();
-	EXPECT_TRUE(*exitCode == 0 || *exitCode == 98) << "exit code " << *exitCode << "\n" << log; // 98: Windows refused CTRL_BREAK (no console)
+	// 98 means Windows refused CTRL_BREAK and the harness KILLED the login server, which is a stop problem, not a second kind of success
+	EXPECT_EQ(*exitCode, 0) << "exit code " << *exitCode << "\n" << log;
+	EXPECT_TRUE(servers.stopProblems().empty()) << "the login server did not shut down in order\n" << log;
+	EXPECT_NE(log.find("ServerChannels closed."), std::string::npos) << log;
 	EXPECT_EQ(log.find(" ERROR "), std::string::npos) << log;
 	servers.loginDatabase().drop(servers.loginSchema());
 	servers.gameDatabase().drop(servers.gameSchema());

@@ -106,3 +106,26 @@ AION_TEST_DATABASE_URL="jdbc:mysql://localhost:3306/aion_cpp_test" AION_TEST_DAT
 The login server tests additionally need `AION_TEST_LS_DATABASE_URL` (e.g. `jdbc:mysql://127.0.0.1:3306/aion_ls_test`), and the game server startup
 smoke test `gs.smoke.startup` needs `AION_TEST_GS_DATABASE_URL` (e.g. `jdbc:mysql://127.0.0.1:3306/aion_cpp_test?characterEncoding=UTF-8`).
 Tests that read the Java checkout carry the CTest label `realdata`; `ctest --preset msvc-debug -LE realdata` skips them.
+
+## Milestone tests fail when their prerequisites are missing
+
+The milestone tests — `gs.scenario.m5a` (the M5a gate), `gs.m4.check_static_data`, `gs.smoke.startup` and `gs.smoke.startup_geo` — **fail** when a
+prerequisite is missing instead of reporting themselves skipped. CTest counts a skipped test as passed, so a plain `ctest` without the
+`AION_TEST_*` database URLs used to report the milestone green without ever running it. The prerequisites are the database URLs above, a Python
+3.12 interpreter (the `tools/oracle` oracles), and the Java checkout with its `game-server/data/geo`; each failure message names the variable and
+the value to set.
+
+To run the suite without them anyway, opt out explicitly — either for one run (the `cmake -P` driven tests read it at test time):
+
+```bash
+AION_GS_ALLOW_MILESTONE_SKIP=1 ctest --preset msvc-debug
+```
+
+or for a whole build directory, which is also the only opt-out the scenario gate honours (its requirement is fixed at configure time):
+
+```bash
+cmake --preset msvc -DAION_GS_ALLOW_MILESTONE_SKIP=ON
+```
+
+The tests are then reported as `Skipped` again, with the same reason in their output. `gs.smoke.startup_geo` is the geo-enabled startup
+(label `geo`, about 5 GB and a few minutes in a Debug build): `ctest -L geo` runs only it, `ctest -LE geo` leaves it out.

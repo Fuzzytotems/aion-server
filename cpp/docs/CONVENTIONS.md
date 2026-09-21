@@ -230,9 +230,15 @@ DB::insertUpdate("UPDATE account_data SET last_ip = ? WHERE id = ?", [&](Prepare
   `AION_TEST_LS_DATABASE_URL`; `gs.smoke.startup` `AION_TEST_GS_DATABASE_URL` (e.g.
   `jdbc:mysql://127.0.0.1:3306/aion_cpp_test?characterEncoding=UTF-8`, optional `AION_TEST_GS_DATABASE_USER`/`_PASSWORD`, default root without
   password).
-- CTest labels: `realdata` marks tests that read the Java tree (real-data GoogleTest cases, `gs.chunks.consistency`, `gs.smoke.startup` and
+- CTest labels: `realdata` marks tests that read the Java tree (real-data GoogleTest cases, `gs.chunks.consistency`, the `gs.smoke.*` tests and
   the whole `tools.gen`, `tools.oracle`, `tools.porting` and `tools.xmlgen` suites), so `ctest -C Debug -LE realdata` is the fast run without
-  the Java checkout. `smoke` marks `gs.smoke.startup` (starts `aion_game_server` against the test database).
+  the Java checkout. `smoke` marks the tests that start `aion_game_server` against the test database. `geo` marks `gs.smoke.startup_geo`
+  alone - the one run with `gameserver.geodata.enable=true`, about 3 minutes and 5 GB, which is the only automated coverage of any zone
+  handler; `ctest -L geo` runs it on its own and `-LE geo` drops it.
+- Milestone tests do not skip silently any more (stage 3): `gs.smoke.startup`, `gs.smoke.startup_geo`, `gs.m4.check_static_data` and
+  `gs.scenario.m5a` FAIL when a prerequisite (database URL, Python, the Java checkout) is missing, and the message names what to set. A run
+  without those prerequisites is opted out explicitly with `-DAION_GS_ALLOW_MILESTONE_SKIP=ON` or `AION_GS_ALLOW_MILESTONE_SKIP=1`, which
+  turns the failure back into a skip. Before that a default `ctest` reported the milestone green without having run it.
 - Server state that is static in Java (controllers, tables, singletons) stays static. Tests therefore use unique account names and client IPs,
   restart the network component after config changes, and take the cross-process database lock
   (`tests/support/LoginServerTestDatabase.h`: `lockForProcess()`/`recreateSchema()`) before touching a shared test schema.

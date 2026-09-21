@@ -3,9 +3,12 @@
 
 #include <gtest/gtest.h>
 
+#include <algorithm>
+#include <chrono>
 #include <filesystem>
 #include <stdexcept>
 #include <string>
+#include <vector>
 
 #include "ScenarioDatabase.h"
 
@@ -77,6 +80,61 @@ TEST(ScenarioDatabaseTest, CreatesAGameServerSchemaFromTheJavaScript) {
 	EXPECT_EQ(rows[0][0], "scenario");
 	EXPECT_FALSE(database.queryString(schema, "SELECT `value` FROM server_variables WHERE `key` = 'none'"));
 	database.drop(schema);
+}
+
+TEST(ScenarioDatabaseTest, AbandonedSchemasAreDroppedWhileLeasedOrYoungOnesAreKept) {
+	// The schemas of a run that is killed (CTest TIMEOUT, a crash: no destructor runs) are dropped by the next run, and nothing else is: a
+	// schema whose in-use marker is held belongs to a running gate, and one whose tables were created minutes ago belongs to a run of an older
+	// binary that takes no marker at all. The prefix here is the harness's own, never the gate's aion_{gs,ls}_test_m5a_: another build tree may
+	// be running the gate against this very database server while this test runs.
+	std::optional<ScenarioEnvironment> environment = ScenarioEnvironment::fromEnvironment();
+	if (!environment)
+		GTEST_SKIP() << "set AION_TEST_GS_DATABASE_URL and AION_TEST_LS_DATABASE_URL";
+	using namespace std::chrono_literals;
+	ScenarioDatabase database(environment->gsUrl, environment->gsUser, environment->gsPassword);
+	const std::string admin = JdbcUrl::parse(environment->gsUrl).database;
+	// Per build tree, like every other schema of this harness: two trees running this test at the same time must not drop or lease each
+	// other's fixtures. The sweep matches <prefix><8 hex digits>, which the names below still are.
+	const std::string prefix = "aion_gs_test_m5x_" + schemaSuffix(AION_SCENARIO_OUTPUT_DIR) + "_";
+	const std::string abandoned = prefix + "0000dead"; // killed run: the marker is gone and no table was ever created
+	const std::string leased = prefix + "0000beef"; // a run that is using it right now
+	const std::string young = prefix + "00005eed"; // created minutes ago, without a marker
+	const std::string otherShape = prefix + "not_hex1"; // not <prefix><8 hex digits>: never a candidate
+	const auto exists = [&](const std::string& schema) {
+		return database.queryLong(admin, "SELECT COUNT(*) FROM information_schema.SCHEMATA WHERE SCHEMA_NAME = '" + schema + "'") == 1;
+	};
+	// Drop first: an aborted earlier run leaves schemas behind, and a reused `young` would keep its old CREATE_TIME and stop being young
+	for (const std::string& schema : {abandoned, leased, young, otherShape})
+		database.execute(admin, "DROP DATABASE IF EXISTS `" + schema + "`");
+	for (const std::string& schema : {abandoned, leased, young, otherShape})
+		database.execute(admin, "CREATE DATABASE `" + schema + "`");
+	database.execute(young, "CREATE TABLE IF NOT EXISTS scenario_age (id int)");
+
+	{
+		SchemaLease lease = database.lease(leased);
+		ASSERT_TRUE(lease.held());
+		EXPECT_EQ(lease.name(), ScenarioDatabase::leaseLockName(leased));
+		EXPECT_FALSE(database.isLeaseFree(leased));
+		EXPECT_FALSE(database.lease(leased).held()) << "a second lease on the same schema must get nothing instead of waiting";
+		EXPECT_TRUE(database.isLeaseFree(abandoned));
+
+		const std::vector<std::string> dropped = database.dropAbandonedSchemas(prefix, 60min);
+		EXPECT_EQ(dropped, std::vector<std::string>{abandoned});
+		EXPECT_FALSE(exists(abandoned));
+		EXPECT_TRUE(exists(leased)) << "a schema whose in-use marker is held must survive";
+		EXPECT_TRUE(exists(young)) << "a schema younger than the grace period must survive";
+		EXPECT_TRUE(exists(otherShape));
+	}
+
+	EXPECT_TRUE(database.isLeaseFree(leased)) << "the marker is released with the lease";
+	const std::vector<std::string> dropped = database.dropAbandonedSchemas(prefix, 0min);
+	EXPECT_EQ(std::ranges::count(dropped, leased), 1);
+	EXPECT_EQ(std::ranges::count(dropped, young), 1);
+	EXPECT_EQ(std::ranges::count(dropped, otherShape), 0);
+	EXPECT_FALSE(exists(leased));
+	EXPECT_FALSE(exists(young));
+	EXPECT_TRUE(exists(otherShape));
+	database.drop(otherShape);
 }
 
 } // namespace

@@ -111,6 +111,26 @@ int64_t liveCountOf(const std::type_info& type) {
 	return 0;
 }
 
+std::vector<LiveCount> liveInstancesOf(const std::vector<std::string>& classNames) {
+	return liveInstancesOf(liveCounts(), classNames);
+}
+
+std::vector<LiveCount> liveInstancesOf(const std::vector<LiveCount>& counts, const std::vector<std::string>& classNames) {
+	std::vector<LiveCount> leaks;
+	for (const LiveCount& count : counts) {
+		if (count.live == 0)
+			continue;
+		const bool matches = std::ranges::any_of(classNames, [&](const std::string& name) {
+			return count.className == name || (count.className.size() > name.size() + 2 && count.className.ends_with(name) &&
+												  count.className.compare(count.className.size() - name.size() - 2, 2, "::") == 0);
+		});
+		if (matches)
+			leaks.push_back(count);
+	}
+	std::ranges::sort(leaks, {}, &LiveCount::className);
+	return leaks;
+}
+
 void writeLiveCounts(std::ostream& out) {
 	out << "# live instance counts v1\n";
 	for (const LiveCount& count : liveCounts())

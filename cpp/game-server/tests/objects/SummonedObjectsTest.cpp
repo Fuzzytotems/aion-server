@@ -4,9 +4,15 @@
 // NullPointerException, and setupStatContainers gives the object its game and life stats. Expectations are derived by hand from
 // SummonedObject.java, SummonedHouseNpc.java, Npc.java and HouseDecoration.java.
 //
-// Test doubles (standing in for bodies of later chunks): NPC_DATA and HOUSE_PARTS_DATA are holders bound from XML text, NPC_SKILL_DATA is empty,
-// and the creator of the delegation test is an Npc with a CreatureLifeStats part of fixed HP (as CreatureBodiesTest does). SummonedObject itself
-// keeps its real stat containers, so the test covers what the startup run runs.
+// Test doubles (standing in for bodies of later chunks): NPC_DATA, HOUSE_PARTS_DATA and HOUSE_DATA are holders bound from XML text,
+// NPC_SKILL_DATA is empty, and the creator of the delegation test is an Npc with a CreatureLifeStats part of fixed HP (as CreatureBodiesTest
+// does). SummonedObject itself keeps its real stat containers, so the test covers what the startup run runs.
+//
+// Stage 3, fixer run: TheFourSubclassOverridesKeepJavasEmptyMasterName pins the four real getMasterName() overrides
+// (SummonedHouseNpc.cpp:64-66, Homing.cpp:41-43, Servant.cpp:39-41, Trap.cpp:72-74). Before it, this file only exercised a TestSummonedObject
+// without an override and stated in its own expectation what the overrides would do, so rewriting any of them to call the base changed nothing
+// here. SummonedHouseNpc is now built for real (from a House of a bound HOUSE_DATA); Homing, Servant and Trap are built through subclasses that
+// replace only their AION_UNPORTED setupStatContainers (P5-01 owes the three stat containers, docs/deviations/P4-11a.md).
 
 #include <gtest/gtest.h>
 
@@ -17,14 +23,22 @@
 
 #include "aion/gameserver/controllers/NpcController.h"
 #include "aion/gameserver/dataholders/DataManager.h"
+#include "aion/gameserver/dataholders/HouseData.bind.h"
+#include "aion/gameserver/dataholders/HouseData.h"
 #include "aion/gameserver/dataholders/HousePartsData.bind.h"
 #include "aion/gameserver/dataholders/NpcData.bind.h"
 #include "aion/gameserver/dataholders/NpcSkillData.h"
 #include "aion/gameserver/dataholders/loadingutils/StaticDataLoader.h"
 #include "aion/gameserver/model/CreatureType.h"
+#include "aion/gameserver/model/gameobjects/Homing.h"
 #include "aion/gameserver/model/gameobjects/HouseDecoration.h"
 #include "aion/gameserver/model/gameobjects/Npc.h"
+#include "aion/gameserver/model/gameobjects/NpcObjectType.h"
+#include "aion/gameserver/model/gameobjects/Servant.h"
+#include "aion/gameserver/model/gameobjects/SummonedHouseNpc.h"
 #include "aion/gameserver/model/gameobjects/SummonedObject.h"
+#include "aion/gameserver/model/gameobjects/Trap.h"
+#include "aion/gameserver/model/house/House.h"
 #include "aion/gameserver/model/stats/container/CreatureGameStats.h"
 #include "aion/gameserver/model/stats/container/CreatureLifeStats.h"
 #include "aion/gameserver/model/stats/calc/Stat2.h"
@@ -32,6 +46,7 @@
 #include "aion/gameserver/model/stats/container/NpcLifeStats.h"
 #include "aion/gameserver/model/stats/container/StatEnum.h"
 #include "aion/gameserver/model/stats/container/SummonedObjectGameStats.h"
+#include "aion/gameserver/model/templates/housing/HouseAddress.h"
 #include "aion/gameserver/model/templates/housing/HousePart.h"
 #include "aion/gameserver/model/templates/housing/PartType.h"
 #include "aion/gameserver/model/templates/npc/NpcTemplate.h"
@@ -72,6 +87,18 @@ const char* const HOUSE_PARTS = R"(<house_parts>)"
 								R"(<house_part id="1001" name="basic_roof" quality="COMMON" type="ROOF" building_tags="basic"/>)"
 								R"(</house_parts>)";
 
+/** one land with one address and a default building: enough for `new House(address, 0)`, the creator of a SummonedHouseNpc */
+const char* const HOUSE_LANDS = R"(<house_lands>)"
+								R"(<land id="325001" teleport_npc="810003" manager_npc="810017" sign_home="810007")"
+								R"( sign_waiting="810006" sign_sale="810005" sign_nosale="810004">)"
+								R"(<addresses><address id="10001" map="700010000" town="1001" x="696.159973" y="1999.969971" z="174.42577"/></addresses>)"
+								R"(<buildings><building id="350000" default="true" type="PERSONAL_FIELD" size="HOUSE"/></buildings>)"
+								R"(<sale level="50" gold_price="1000000000" point_price="0"/>)"
+								R"(<fee>20000000</fee>)"
+								R"(<caps room="false" floor="false" emblemId="2" addon="true"/>)"
+								R"(</land>)"
+								R"(</house_lands>)";
+
 /** Life stats with fixed HP for the creator npc (CreatureBodiesTest uses the same double) */
 class FixedLifeStats final : public stats::container::CreatureLifeStats {
 public:
@@ -97,8 +124,9 @@ protected:
 
 /**
  * SummonedObject has a protected constructor like every visible object; the test subclass adds nothing, so the real base initializer (template
- * lookup) and the real setupStatContainers run. It stands for SummonedHouseNpc, whose own constructor only adds the master name, the known list
- * and the effect controller (SummonedHouseNpc.java:18-23) and needs a House the object tests cannot build.
+ * lookup) and the real setupStatContainers run. It is SummonedObject itself under test, without the master name, known list and effect
+ * controller a SummonedHouseNpc adds (SummonedHouseNpc.java:17-23) - the real class is built by
+ * TheFourSubclassOverridesKeepJavasEmptyMasterName below.
  */
 class TestSummonedObject final : public SummonedObject {
 	AION_MAKE_REF_FRIEND
@@ -109,6 +137,59 @@ public:
 
 protected:
 	~TestSummonedObject() override = default;
+};
+
+/**
+ * Homing, Servant and Trap install HomingGameStats, ServantGameStats and TrapGameStats, none of which has a C++ header yet (P5-01), so their
+ * real setupStatContainers is AION_UNPORTED and throws out of postConstruct (docs/deviations/P4-11a.md). Each test subclass replaces exactly
+ * that one body - with the closest base Java derives the missing class from - and inherits everything else, in particular the constructor that
+ * sets the empty master name and the getMasterName() override the class declares.
+ */
+class TestHoming final : public Homing {
+	AION_MAKE_REF_FRIEND
+public:
+	TestHoming(CreateKey key, std::unique_ptr<controllers::NpcController> controller, templates::spawns::SpawnTemplate& spawnTemplate, int8_t level,
+		Creature& creator, int32_t skillId)
+		: Homing(key, std::move(controller), spawnTemplate, level, creator, skillId) {}
+
+protected:
+	~TestHoming() override = default;
+
+	void setupStatContainers() override { // Java: HomingGameStats, which derives SummonedObjectGameStats
+		setGameStats(std::make_unique<stats::container::SummonedObjectGameStats>(*this));
+		setLifeStats(std::make_unique<stats::container::NpcLifeStats>(*this));
+	}
+};
+
+class TestServant final : public Servant {
+	AION_MAKE_REF_FRIEND
+public:
+	TestServant(CreateKey key, std::unique_ptr<controllers::NpcController> controller, templates::spawns::SpawnTemplate& spawnTemplate, int8_t level,
+		Creature& creator)
+		: Servant(key, std::move(controller), spawnTemplate, level, creator) {}
+
+protected:
+	~TestServant() override = default;
+
+	void setupStatContainers() override { // Java: ServantGameStats, which derives SummonedObjectGameStats
+		setGameStats(std::make_unique<stats::container::SummonedObjectGameStats>(*this));
+		setLifeStats(std::make_unique<stats::container::NpcLifeStats>(*this));
+	}
+};
+
+class TestTrap final : public Trap {
+	AION_MAKE_REF_FRIEND
+public:
+	TestTrap(CreateKey key, std::unique_ptr<controllers::NpcController> controller, templates::spawns::SpawnTemplate& spawnTemplate, Creature& creator)
+		: Trap(key, std::move(controller), spawnTemplate, creator) {}
+
+protected:
+	~TestTrap() override = default;
+
+	void setupStatContainers() override { // Java: TrapGameStats, which derives NpcGameStats (TrapGameStats.java:14)
+		setGameStats(std::make_unique<stats::container::NpcGameStats>(*this));
+		setLifeStats(std::make_unique<stats::container::NpcLifeStats>(*this));
+	}
 };
 
 class SummonedObjectsTest : public ::testing::Test {
@@ -122,6 +203,7 @@ protected:
 		xml::LoadContext context;
 		dataholders::DataManager::NPC_DATA.publish(xml::bindString<dataholders::NpcData>(context, NPC_TEMPLATES));
 		dataholders::DataManager::HOUSE_PARTS_DATA.publish(xml::bindString<dataholders::HousePartsData>(context, HOUSE_PARTS));
+		dataholders::DataManager::HOUSE_DATA.publish(xml::bindString<dataholders::HouseData>(context, HOUSE_LANDS));
 		butlerGroup = templates::spawns::SpawnGroup::create(210010000, BUTLER_NPC_ID, 0, nullptr);
 		butlerSpawn = templates::spawns::SpawnTemplate::create(*butlerGroup, 10.0f, 20.0f, 30.0f, int8_t{0}, 0, std::nullopt, 0);
 		creatorGroup = templates::spawns::SpawnGroup::create(210010000, CREATOR_NPC_ID, 0, nullptr);
@@ -141,6 +223,7 @@ protected:
 		runtime::LeakCensus::getInstance().uninstall();
 		utils::ThreadPoolManager::installBackend(nullptr);
 		runtime::Reclaimer::getInstance().drain();
+		dataholders::DataManager::HOUSE_DATA.resetForTests();
 		dataholders::DataManager::HOUSE_PARTS_DATA.resetForTests();
 		dataholders::DataManager::NPC_DATA.resetForTests();
 		dataholders::DataManager::NPC_SKILL_DATA.resetForTests();
@@ -148,6 +231,12 @@ protected:
 
 	Ref<TestSummonedObject> createSummoned(templates::spawns::SpawnTemplate& spawn, int8_t level, Ptr<VisibleObject> creator) {
 		return VisibleObject::create<TestSummonedObject>(std::make_unique<controllers::NpcController>(), spawn, level, creator);
+	}
+
+	/** an Npc creator with the real constructor chain and doubled stat containers */
+	Ref<CreatorNpc> createCreator() {
+		return VisibleObject::create<CreatorNpc>(std::make_unique<controllers::NpcController>(), *creatorSpawn,
+			dataholders::DataManager::NPC_DATA->getNpcTemplate(CREATOR_NPC_ID));
 	}
 
 	runtime::ManualClock clock{0};
@@ -209,6 +298,77 @@ TEST_F(SummonedObjectsTest, ACreatureCreatorSuppliesMasterNameCreatorIdAndMaster
 	EXPECT_EQ(*summoned->getMasterName(), creator->getName()) << "SummonedObject.getMasterName falls back to the creator's name";
 	EXPECT_EQ(summoned->getCreatorId(), creator->getObjectId());
 	EXPECT_EQ(summoned->getRace(), creator->getRace()) << "SummonedObject.getRace delegates to a Creature creator";
+}
+
+TEST_F(SummonedObjectsTest, AnEmptyMasterNameReadsAsNullWhichIsWhyTheSubclassesOverrideIt) {
+	SUMMONED_TEST_SCOPE;
+	Ref<CreatorNpc> creator = VisibleObject::create<CreatorNpc>(std::make_unique<controllers::NpcController>(), *creatorSpawn,
+		dataholders::DataManager::NPC_DATA->getNpcTemplate(CREATOR_NPC_ID));
+	Ref<TestSummonedObject> summoned = createSummoned(*butlerSpawn, int8_t{7}, Ptr<VisibleObject>(*creator));
+
+	// What Homing.java:28, Servant.java:19, Trap.java:18 and SummonedHouseNpc.java:19-20 do in their constructors. Java's masterName field is
+	// then "" and not null, so SummonedObject.getMasterName's `super.getMasterName() == null && creator != null` fallback does not fire and
+	// Java returns "". The four real classes are pinned by TheFourSubclassOverridesKeepJavasEmptyMasterName below.
+	summoned->setMasterName("");
+	EXPECT_FALSE(summoned->Npc::getMasterName()) << "Npc::getMasterName maps the Field<std::string> value \"\" to std::nullopt (Java null)";
+	ASSERT_TRUE(summoned->getMasterName());
+	EXPECT_EQ(*summoned->getMasterName(), creator->getName())
+		<< "so SummonedObject substitutes the creator's name where Java returns \"\": this is exactly what the C++-only getMasterName overrides "
+		   "of SummonedHouseNpc, Trap, Homing and Servant prevent (header request objects-1). Deleting them changes behaviour";
+	EXPECT_EQ(summoned->Npc::getMasterName().value_or(std::string()), "") << "what those overrides return: Java's \"\"";
+
+	// a real master name is returned unchanged by the base and by the overrides alike (SummonedHouseNpc of a house with an owner)
+	summoned->setMasterName("Rolandas");
+	ASSERT_TRUE(summoned->getMasterName());
+	EXPECT_EQ(*summoned->getMasterName(), "Rolandas");
+	EXPECT_EQ(summoned->Npc::getMasterName().value_or(std::string()), "Rolandas");
+}
+
+TEST_F(SummonedObjectsTest, TheFourSubclassOverridesKeepJavasEmptyMasterName) {
+	SUMMONED_TEST_SCOPE;
+	Ref<CreatorNpc> creator = createCreator();
+
+	// SummonedHouseNpc, the real class: HousingService.spawnHouses builds 2,060 of these at startup, and for a house without an owner
+	// SummonedHouseNpc.java:19-20 sets the master name to "" (getOwnerName() is null there)
+	Ref<house::House> theHouse = VisibleObject::create<house::House>(dataholders::DataManager::HOUSE_DATA->getAddress(10001), 0);
+	ASSERT_TRUE(theHouse) << "the bound HOUSE_DATA has address 10001";
+	ASSERT_FALSE(theHouse->getOwnerName()) << "a house without an owner";
+	Ref<SummonedHouseNpc> butler = VisibleObject::create<SummonedHouseNpc>(std::make_unique<controllers::NpcController>(), *butlerSpawn, *theHouse);
+	ASSERT_TRUE(butler->getMasterName());
+	EXPECT_EQ(*butler->getMasterName(), "") << "SummonedHouseNpc::getMasterName answers Java's \"\" (SummonedHouseNpc.cpp:64-66)";
+	EXPECT_EQ(butler->SummonedObject::getMasterName().value_or(std::string()), theHouse->getName())
+		<< "what the base answers, and what a subclass without the override would send to every client in range";
+	EXPECT_EQ(butler->getCreatorId(), 10001) << "SummonedHouseNpc::getCreatorId: the house address id";
+
+	// Homing, Servant and Trap set the same "" in their constructors (Homing.java:28, Servant.java:19, Trap.java:18)
+	Ref<TestHoming> homing = VisibleObject::create<TestHoming>(std::make_unique<controllers::NpcController>(), *butlerSpawn, int8_t{7}, *creator, 1101);
+	ASSERT_TRUE(homing->getMasterName());
+	EXPECT_EQ(*homing->getMasterName(), "") << "Homing::getMasterName (Homing.cpp:41-43)";
+	EXPECT_EQ(homing->SummonedObject::getMasterName().value_or(std::string()), creator->getName()) << "what the base answers";
+	EXPECT_EQ(homing->getNpcObjectType(), NpcObjectType::HOMING);
+	EXPECT_EQ(homing->getSkillId(), 1101);
+
+	Ref<TestServant> servant = VisibleObject::create<TestServant>(std::make_unique<controllers::NpcController>(), *butlerSpawn, int8_t{7}, *creator);
+	ASSERT_TRUE(servant->getMasterName());
+	EXPECT_EQ(*servant->getMasterName(), "") << "Servant::getMasterName (Servant.cpp:39-41)";
+	EXPECT_EQ(servant->SummonedObject::getMasterName().value_or(std::string()), creator->getName()) << "what the base answers";
+
+	Ref<TestTrap> trap = VisibleObject::create<TestTrap>(std::make_unique<controllers::NpcController>(), *butlerSpawn, *creator);
+	ASSERT_TRUE(trap->getMasterName());
+	EXPECT_EQ(*trap->getMasterName(), "") << "Trap::getMasterName (Trap.cpp:72-74)";
+	EXPECT_EQ(trap->SummonedObject::getMasterName().value_or(std::string()), creator->getName()) << "what the base answers";
+	EXPECT_EQ(trap->getNpcObjectType(), NpcObjectType::TRAP);
+	EXPECT_EQ(trap->getLevel(), creator->getLevel()) << "Trap.getLevel: the creator's level (Trap.java:29-32)";
+
+	// an owner name that is not empty passes through all four, so the overrides only cover Java's "" (a house with an owner sends that name)
+	butler->setMasterName("Rolandas");
+	homing->setMasterName("Rolandas");
+	servant->setMasterName("Rolandas");
+	trap->setMasterName("Rolandas");
+	EXPECT_EQ(butler->getMasterName().value_or(std::string()), "Rolandas");
+	EXPECT_EQ(homing->getMasterName().value_or(std::string()), "Rolandas");
+	EXPECT_EQ(servant->getMasterName().value_or(std::string()), "Rolandas");
+	EXPECT_EQ(trap->getMasterName().value_or(std::string()), "Rolandas");
 }
 
 TEST_F(SummonedObjectsTest, HouseDecorationReadsItsPartTemplate) {

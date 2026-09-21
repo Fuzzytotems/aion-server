@@ -64,6 +64,12 @@ constexpr int32_t RESPONSE_OPEN_CREATION_WINDOW = 22;
 constexpr int32_t CLASS_WARRIOR = 0;
 constexpr int32_t CLASS_MAGE = 6;
 
+/** Race and Gender ids (Race.java, Gender.java); PlayerCommonData.java:482-484 builds the template id as 100000 + race * 2 + gender */
+constexpr int32_t RACE_ELYOS = 0;
+constexpr int32_t RACE_ASMODIAN = 1;
+constexpr int32_t GENDER_MALE = 0;
+constexpr int32_t GENDER_FEMALE = 1;
+
 /** the spawn maps of the two starting areas */
 constexpr int32_t ELYOS_START_MAP = 210010000;
 constexpr int32_t ASMODIAN_START_MAP = 220010000;
@@ -136,39 +142,6 @@ std::vector<const OracleSpot*> deterministicSpotsWithin90m(const OracleSpawns& s
 	return spots;
 }
 
-/**
- * V9, the SM_PLAYER_INFO half of §5.4: decodes §5.8 #33 and pins the fields a real 4.8 client needs to render the character. SM_PLAYER_INFO is
- * its own writeImpl (SM_PLAYER_INFO.java), not the writePlayerInfo block that SM_CHARACTER_LIST and SM_CREATE_CHARACTER share, so nothing else
- * in the gate covers its bytes. decodePlayerInfo ends in expectFullyConsumed, i.e. calling it at all checks the whole framing.
- */
-void expectPlayerInfo(const std::vector<Packet>& burst, int32_t playerId, const std::string& name, const OracleCreation& creation,
-	int32_t classId, std::string_view label) {
-	const Packet* packet = firstOfName(burst, "SM_PLAYER_INFO");
-	ASSERT_NE(packet, nullptr) << label << ": no SM_PLAYER_INFO after CM_LEVEL_READY";
-	const decoders::PlayerInfo info = decoders::decodePlayerInfo(packet->data);
-	EXPECT_EQ(info.objectId, playerId) << label << ": SM_PLAYER_INFO object id";
-	EXPECT_EQ(info.name, name) << label << ": SM_PLAYER_INFO name";
-	EXPECT_EQ(static_cast<int32_t>(info.classId), classId) << label << ": SM_PLAYER_INFO class id";
-	EXPECT_EQ(static_cast<int32_t>(info.level), 1) << label << ": SM_PLAYER_INFO level";
-	EXPECT_EQ(static_cast<int32_t>(info.hpPercentage), 100) << label << ": SM_PLAYER_INFO HP%";
-	EXPECT_NEAR(info.x, creation.x, 0.01) << label << ": SM_PLAYER_INFO x";
-	EXPECT_NEAR(info.y, creation.y, 0.01) << label << ": SM_PLAYER_INFO y";
-	EXPECT_NEAR(info.z, creation.z, 0.01) << label << ": SM_PLAYER_INFO z";
-	EXPECT_FALSE(info.legionMember) << label << ": a fresh character is in no legion";
-
-	// writeEquippedItems writes item.getItemSkinTemplate().getTemplateId() per entry, and a starter item has no skin, so each entry is the
-	// item's own template id. getEquippedForAppearance() is the visible subset of the equipment, hence a subset assertion plus "not empty".
-	std::set<int32_t> equipped;
-	for (const OracleItem& item : creation.items)
-		if (item.equipped)
-			equipped.insert(item.itemId);
-	EXPECT_FALSE(info.equipment.items.empty()) << label << ": SM_PLAYER_INFO announces no equipped item";
-	EXPECT_NE(info.equipment.mask, 0) << label << ": SM_PLAYER_INFO equipment slot mask is empty";
-	for (const decoders::EquippedItem& item : info.equipment.items)
-		EXPECT_TRUE(equipped.contains(item.skinTemplateId))
-		  << label << ": SM_PLAYER_INFO shows item " << item.skinTemplateId << ", which the inventory does not have equipped";
-}
-
 /** V4: the same for the gather spots, which V3 excludes (the completeness half of V4) */
 std::vector<const OracleSpot*> deterministicGatherSpotsWithin90m(const OracleSpawns& spawns) {
 	std::vector<const OracleSpot*> spots;
@@ -176,6 +149,378 @@ std::vector<const OracleSpot*> deterministicGatherSpotsWithin90m(const OracleSpa
 		if (spot.spawned && spot.deterministic && !spot.pool && spot.gatherable && spot.distance <= 90.0)
 			spots.push_back(&spot);
 	return spots;
+}
+
+/** the 0.01 m tolerance V2 / V3 / V4 compare a decoded position with */
+bool onSpot(float x, float y, float z, const OracleSpot& spot) {
+	return std::abs(x - spot.x) <= 0.01 && std::abs(y - spot.y) <= 0.01 && std::abs(z - spot.z) <= 0.01;
+}
+
+std::string positionOf(const OracleSpot& spot) {
+	return "(" + std::to_string(spot.x) + ", " + std::to_string(spot.y) + ", " + std::to_string(spot.z) + ")";
+}
+
+/**
+ * The appearance a decoded packet carries against the appearance CM_CREATE_CHARACTER sent. scenarioAppearance() gives every field a distinct
+ * value, so this pins the whole block: a swapped pair of bytes in the port's writeImpl changes two named fields instead of passing as "some
+ * 51 bytes of appearance".
+ */
+void expectAppearance(const decoders::Appearance& got, const CharacterAppearance& sent, std::string_view label) {
+	const auto check = [&](std::string_view field, int64_t expected, int64_t actual) {
+		EXPECT_EQ(actual, expected) << label << ": SM_PLAYER_INFO appearance." << field;
+	};
+	check("voice", sent.voice, got.voice);
+	check("skinRGB", sent.skinRGB, got.skinRGB);
+	check("hairRGB", sent.hairRGB, got.hairRGB);
+	check("eyeRGB", sent.eyeRGB, got.eyeRGB);
+	check("lipRGB", sent.lipRGB, got.lipRGB);
+	check("face", sent.face, got.face);
+	check("hair", sent.hair, got.hair);
+	check("deco", sent.deco, got.deco);
+	check("tattoo", sent.tattoo, got.tattoo);
+	check("faceContour", sent.faceContour, got.faceContour);
+	check("expression", sent.expression, got.expression);
+	check("jawLine", sent.jawLine, got.jawLine);
+	check("forehead", sent.forehead, got.forehead);
+	check("eyeHeight", sent.eyeHeight, got.eyeHeight);
+	check("eyeSpace", sent.eyeSpace, got.eyeSpace);
+	check("eyeWidth", sent.eyeWidth, got.eyeWidth);
+	check("eyeSize", sent.eyeSize, got.eyeSize);
+	check("eyeShape", sent.eyeShape, got.eyeShape);
+	check("eyeAngle", sent.eyeAngle, got.eyeAngle);
+	check("browHeight", sent.browHeight, got.browHeight);
+	check("browAngle", sent.browAngle, got.browAngle);
+	check("browShape", sent.browShape, got.browShape);
+	check("nose", sent.nose, got.nose);
+	check("noseBridge", sent.noseBridge, got.noseBridge);
+	check("noseWidth", sent.noseWidth, got.noseWidth);
+	check("noseTip", sent.noseTip, got.noseTip);
+	check("cheek", sent.cheek, got.cheek);
+	check("lipHeight", sent.lipHeight, got.lipHeight);
+	check("mouthSize", sent.mouthSize, got.mouthSize);
+	check("lipSize", sent.lipSize, got.lipSize);
+	check("smile", sent.smile, got.smile);
+	check("lipShape", sent.lipShape, got.lipShape);
+	check("jawHeight", sent.jawHeight, got.jawHeight);
+	check("chinJut", sent.chinJut, got.chinJut);
+	check("earShape", sent.earShape, got.earShape);
+	check("headSize", sent.headSize, got.headSize);
+	check("neck", sent.neck, got.neck);
+	check("neckLength", sent.neckLength, got.neckLength);
+	check("shoulderSize", sent.shoulderSize, got.shoulderSize);
+	check("torso", sent.torso, got.torso);
+	check("chest", sent.chest, got.chest);
+	check("waist", sent.waist, got.waist);
+	check("hips", sent.hips, got.hips);
+	check("armThickness", sent.armThickness, got.armThickness);
+	check("handSize", sent.handSize, got.handSize);
+	check("legThickness", sent.legThickness, got.legThickness);
+	check("footSize", sent.footSize, got.footSize);
+	check("facialRate", sent.facialRate, got.facialRate);
+	check("armLength", sent.armLength, got.armLength);
+	check("legLength", sent.legLength, got.legLength);
+	check("shoulders", sent.shoulders, got.shoulders);
+	check("faceShape", sent.faceShape, got.faceShape);
+	EXPECT_FLOAT_EQ(got.height, sent.height) << label << ": SM_PLAYER_INFO appearance.height";
+}
+
+// ---- V9: the exact equipment SM_PLAYER_INFO has to announce -----------------------------------------------------------------------------
+
+/** ItemSlot.java:12-31, the single-bit constants the expectation below needs by name */
+constexpr int64_t SLOT_MAIN_HAND = 1LL << 0;
+constexpr int64_t SLOT_SUB_HAND = 1LL << 1;
+constexpr int64_t SLOT_MAIN_OFF_HAND = 1LL << 17;
+constexpr int64_t SLOT_SUB_OFF_HAND = 1LL << 18;
+/** ItemSlot.MAIN_OR_SUB and ItemSlot.MAIN_OFF_OR_SUB_OFF (ItemSlot.java:34-35), the two masks isTwoHandedWeapon tests */
+constexpr int64_t SLOT_MAIN_OR_SUB = SLOT_MAIN_HAND | SLOT_SUB_HAND;
+constexpr int64_t SLOT_MAIN_OFF_OR_SUB_OFF = SLOT_MAIN_OFF_HAND | SLOT_SUB_OFF_HAND;
+
+/**
+ * ItemSlot.VISIBLE (ItemSlot.java:41-56), spelled out as the same OR the Java enum constant is built from rather than as the literal 589055,
+ * so that a reader can check it against the enum. Rings are deliberately absent: the comment there says they were designed to be visible but
+ * have no skins.
+ */
+constexpr int64_t SLOT_VISIBLE =
+  // MAIN_HAND, SUB_HAND, HELMET, TORSO, GLOVES, BOOTS, EARRINGS_LEFT, EARRINGS_RIGHT
+  SLOT_MAIN_HAND | SLOT_SUB_HAND | (1LL << 2) | (1LL << 3) | (1LL << 4) | (1LL << 5) | (1LL << 6) | (1LL << 7)
+  // NECKLACE, SHOULDER, PANTS, POWER_SHARD_RIGHT, POWER_SHARD_LEFT, WINGS, PLUME (RING_LEFT/RIGHT, bits 8 and 9, are NOT in it)
+  | (1LL << 10) | (1LL << 11) | (1LL << 12) | (1LL << 13) | (1LL << 14) | (1LL << 15) | (1LL << 19);
+static_assert(SLOT_VISIBLE == 589055, "ItemSlot.VISIBLE");
+
+/** ItemSlot.isVisible (ItemSlot.java:109-111): the whole slot mask has to be inside VISIBLE, not merely overlap it */
+bool slotIsVisible(int64_t slot) {
+	return (SLOT_VISIBLE & slot) == slot;
+}
+
+/** ItemSlot.isTwoHandedWeapon (ItemSlot.java:113-115) */
+bool slotIsTwoHandedWeapon(int64_t slot) {
+	return (slot & SLOT_MAIN_OR_SUB) == SLOT_MAIN_OR_SUB || (slot & SLOT_MAIN_OFF_OR_SUB_OFF) == SLOT_MAIN_OFF_OR_SUB_OFF;
+}
+
+/** what writeEquippedItems has to put on the wire for a freshly created character */
+struct ExpectedEquipment {
+	/** the item template ids in the order the entries follow the mask */
+	std::vector<int32_t> itemIds;
+	/** the slot mask written before the entries */
+	int32_t mask = 0;
+	/** the slot of each entry, for the failure message */
+	std::vector<int64_t> slots;
+};
+
+/**
+ * V9: the exact equipment block of SM_PLAYER_INFO, derived from the creation oracle - not from the C++ server.
+ *
+ * SM_PLAYER_INFO.java:94 writes `writeEquippedItems(player.getEquipment().getEquippedForAppearance())`. Equipment.java:364-373 returns every
+ * item of the equipment map whose slot passes ItemSlot.isVisible (a two-handed weapon, which sits in the map twice, is added once), and the
+ * map is a `SortedMap<Long, Item>` keyed by the slot bit (Equipment.java:48, onLoadHandler at :445-447), so the list is in ascending slot
+ * order. AbstractPlayerInfoPacket.java:148-164 then writes `mask |= item.getEquipmentSlot()` over that list - clearing the SUB_HAND bit again
+ * for a two-handed weapon - followed by one entry per item, with no count of its own.
+ *
+ * The oracle's rows are exactly the `inventory` rows the gate already checked in case 2: PlayerService.java:219-222 equips every armour or
+ * weapon of the class's `player_data` block with `ItemSlot.getSlotFor(...)`, i.e. ONE non-combo bit, which is what the `slot` column stores and
+ * what the equipment map is later keyed by. Ascending slot therefore is ascending map key here.
+ *
+ * Why equality and not containment: a server that announced only one of the three visible items, or that ORed one slot bit into the mask
+ * instead of three, satisfies "not empty", "mask != 0" and a per-entry subset check - the very shape V4's comment above condemns.
+ */
+ExpectedEquipment expectedEquipmentOf(const OracleCreation& creation) {
+	std::vector<std::pair<int64_t, int32_t>> visible; // slot -> item id
+	for (const OracleItem& item : creation.items)
+		if (item.equipped && slotIsVisible(item.slot))
+			visible.emplace_back(item.slot, item.itemId);
+	std::sort(visible.begin(), visible.end());
+
+	ExpectedEquipment expected;
+	for (const auto& [slot, itemId] : visible) {
+		expected.itemIds.push_back(itemId);
+		expected.slots.push_back(slot);
+		expected.mask = static_cast<int32_t>(expected.mask | slot);
+		if (slotIsTwoHandedWeapon(slot))
+			expected.mask = static_cast<int32_t>(expected.mask & ~SLOT_SUB_HAND);
+	}
+	return expected;
+}
+
+/**
+ * V9, the SM_PLAYER_INFO half of §5.4: decodes §5.8 #33 and pins the fields a real 4.8 client needs to render the character. SM_PLAYER_INFO is
+ * its own writeImpl (SM_PLAYER_INFO.java:36-228), not the writePlayerInfo block that SM_CHARACTER_LIST and SM_CREATE_CHARACTER share, so
+ * nothing else in the gate covers its bytes. decodePlayerInfo ends in expectFullyConsumed, i.e. calling it at all checks the whole framing.
+ *
+ * @return the decoded packet, so that the caller can cross-check it against the SM_STATS_INFO of the same character (std::nullopt if the burst
+ *         carried none, which is a failure of its own)
+ */
+std::optional<decoders::PlayerInfo> expectPlayerInfo(const std::vector<Packet>& burst, int32_t playerId, const std::string& name,
+	const OracleCreation& creation, int32_t classId, int32_t raceId, int32_t genderId, const CharacterAppearance& sentAppearance,
+	std::string_view label) {
+	const Packet* packet = firstOfName(burst, "SM_PLAYER_INFO");
+	if (packet == nullptr) {
+		ADD_FAILURE() << label << ": no SM_PLAYER_INFO after CM_LEVEL_READY; got: " << join(namesOf(burst));
+		return std::nullopt;
+	}
+	const decoders::PlayerInfo info = decoders::decodePlayerInfo(packet->data);
+	EXPECT_EQ(info.objectId, playerId) << label << ": SM_PLAYER_INFO object id";
+	EXPECT_EQ(info.name, name) << label << ": SM_PLAYER_INFO name";
+	EXPECT_EQ(static_cast<int32_t>(info.classId), classId) << label << ": SM_PLAYER_INFO class id";
+	EXPECT_EQ(static_cast<int32_t>(info.raceId), raceId) << label << ": SM_PLAYER_INFO race id";
+	EXPECT_EQ(static_cast<int32_t>(info.genderId), genderId) << label << ": SM_PLAYER_INFO gender id";
+	EXPECT_EQ(static_cast<int32_t>(info.level), 1) << label << ": SM_PLAYER_INFO level";
+	EXPECT_EQ(static_cast<int32_t>(info.hpPercentage), 100) << label << ": SM_PLAYER_INFO HP%";
+	EXPECT_NEAR(info.x, creation.x, 0.01) << label << ": SM_PLAYER_INFO x";
+	EXPECT_NEAR(info.y, creation.y, 0.01) << label << ": SM_PLAYER_INFO y";
+	EXPECT_NEAR(info.z, creation.z, 0.01) << label << ": SM_PLAYER_INFO z";
+	// the second position block of the packet (SM_PLAYER_INFO.java:193-195 writes x/y/z again after the movement vector)
+	EXPECT_FLOAT_EQ(info.moveX, info.x) << label << ": the two x of SM_PLAYER_INFO differ";
+	EXPECT_FLOAT_EQ(info.moveY, info.y) << label << ": the two y of SM_PLAYER_INFO differ";
+	EXPECT_FLOAT_EQ(info.moveZ, info.z) << label << ": the two z of SM_PLAYER_INFO differ";
+	EXPECT_FALSE(info.legionMember) << label << ": a fresh character is in no legion";
+
+	// PlayerCommonData.java:482-484 is the template id (100000 + race * 2 + gender), and a player who is not transformed answers the same value
+	// through TransformModel.getModelId() (TransformModel.java:98-107: no active transform and no event model, so the object template's id)
+	const int32_t templateId = 100000 + raceId * 2 + genderId;
+	EXPECT_EQ(info.templateId, templateId) << label << ": SM_PLAYER_INFO template id";
+	EXPECT_EQ(info.transformModelId, templateId) << label << ": SM_PLAYER_INFO transform model id of an untransformed character";
+	EXPECT_EQ(info.robotId, 0) << label << ": SM_PLAYER_INFO robot id";
+	EXPECT_EQ(static_cast<int32_t>(info.enemyFlag), 0x26) << label << ": SM_PLAYER_INFO enemy flag of the own character (SM_PLAYER_INFO.java:56)";
+	// SM_PLAYER_INFO.java:73 writes pcd.getTitleId() as a short, and a character without a title carries -1, not 0
+	// (PlayerCommonData.java:50 `private int titleId = -1`, aion_gs.sql:930 `title_id int NOT NULL DEFAULT '-1'`), so the wire value is 0xFFFF
+	EXPECT_EQ(static_cast<int32_t>(info.titleId), 0xFFFF) << label << ": the title of a character that has none is -1";
+	EXPECT_EQ(static_cast<int32_t>(info.dp), 0) << label << ": a fresh character has no DP";
+	EXPECT_EQ(static_cast<int32_t>(info.visualState), 0) << label << ": SM_PLAYER_INFO visual state";
+	EXPECT_EQ(info.targetObjectId, 0) << label << ": a character that entered the world has no target";
+	EXPECT_EQ(info.currentTeamId, 0) << label << ": a fresh character is in no group";
+	EXPECT_EQ(info.houseAddressId, 0) << label << ": a fresh character owns no house";
+	// SM_PLAYER_INFO.java:216-219: membership 0 (a normal account) writes 1, everything else 3 + membership
+	EXPECT_EQ(info.membership, 1) << label << ": SM_PLAYER_INFO membership of a normal account";
+	EXPECT_TRUE(info.note.empty()) << label << ": SM_PLAYER_INFO note";
+	EXPECT_TRUE(info.storeMessage.empty()) << label << ": a character without a store sends an empty store message";
+	EXPECT_GT(info.movementSpeed, 0.0f) << label << ": SM_PLAYER_INFO movement speed";
+	EXPECT_GT(info.attackSpeedBase, 0) << label << ": SM_PLAYER_INFO base attack speed";
+	EXPECT_GT(info.attackSpeedCurrent, 0) << label << ": SM_PLAYER_INFO current attack speed";
+	expectAppearance(info.appearance, sentAppearance, label);
+
+	// The equipment block, against the exact expectation expectedEquipmentOf derives from the creation oracle (count, ids, order and the full
+	// slot mask), not against a subset of it: SM_PLAYER_INFO is what a real client renders the character's gear from, and announcing two of the
+	// three starter pieces - or ORing one slot bit instead of three - leaves the character half naked while "not empty" and "mask != 0" pass.
+	const ExpectedEquipment expectedEquipment = expectedEquipmentOf(creation);
+	// the same non-vacuity guard V3 and V4 carry: both M5a starter sets equip a weapon (MAIN_HAND), a torso and a pair of pants, so an empty
+	// expectation means the oracle or the `player_data` block changed - never that there is nothing to check
+	EXPECT_FALSE(expectedEquipment.itemIds.empty())
+	  << label << ": the creation oracle predicts no visible equipped item, so the equipment half of V9 would assert nothing";
+
+	std::vector<int32_t> announced;
+	for (const decoders::EquippedItem& item : info.equipment.items)
+		announced.push_back(item.skinTemplateId);
+	// writeEquippedItems writes item.getItemSkinTemplate().getTemplateId() per entry, and a starter item has no skin (Item.java:240-244 falls
+	// back to the item template), so each entry is the item's own template id
+	std::vector<std::string> expectedWithSlots;
+	for (size_t i = 0; i < expectedEquipment.itemIds.size(); i++)
+		expectedWithSlots.push_back(std::to_string(expectedEquipment.itemIds[i]) + "@slot " + std::to_string(expectedEquipment.slots[i]));
+	EXPECT_EQ(announced, expectedEquipment.itemIds)
+	  << label << ": SM_PLAYER_INFO announced " << announced.size() << " equipped items where the creation oracle predicts "
+	  << expectedEquipment.itemIds.size() << " (" << join(expectedWithSlots) << "), in ascending slot order (Equipment's SortedMap)";
+	EXPECT_EQ(info.equipment.mask, expectedEquipment.mask)
+	  << label << ": SM_PLAYER_INFO equipment slot mask; expected the OR of " << join(expectedWithSlots);
+	// a starter item is unenchanted, undyed and carries no god stone, so every remaining field of an entry is 0 as well
+	for (size_t i = 0; i < info.equipment.items.size(); i++) {
+		const decoders::EquippedItem& item = info.equipment.items[i];
+		const std::string which = std::string(label) + ": SM_PLAYER_INFO equipped item " + std::to_string(i + 1) + " (" +
+		                          std::to_string(item.skinTemplateId) + ")";
+		EXPECT_EQ(item.godStoneId, 0) << which << " god stone";
+		EXPECT_FALSE(item.color.dyed()) << which << " dye";
+		EXPECT_EQ(static_cast<int32_t>(item.enchantParam), 0) << which << " enchant parameter";
+	}
+	return info;
+}
+
+/**
+ * V1 to V4 of §5.5 for one level-ready burst; V5 is the same set for the Mage on the Asmodian map, which is why this is a function and not
+ * inline code of case 4.
+ *
+ * V2 checks EVERY decoded npc, not only the ones whose position already matches: level and HP% do not depend on where an npc stands, so they
+ * are compared for all of them, and the position is compared against every spot of the id. The only npcs of these two maps that may legitimately
+ * stand off their spot are the ones whose id has walker spots (V1 gives them 10 m of slack, and a walker group's formation moves its members);
+ * everything else that matches no spot fails here instead of falling through to V1, which matches by id and oracle distance alone and never
+ * looks at the coordinates the server sent. Each npc is counted into exactly one bucket and the buckets are printed, so a run can be read
+ * afterwards: an assertion that silently covers nothing shows up as a bucket of zero.
+ */
+void checkVisibility(const std::vector<Packet>& burst, const OracleSpawns& spawns, std::string_view label) {
+	std::vector<decoders::NpcInfo> npcs;
+	for (const Packet& packet : ofName(burst, "SM_NPC_INFO"))
+		npcs.push_back(decoders::decodeNpcInfo(packet.data)); // a body that does not decode exactly throws (V2 "decodes exactly")
+	EXPECT_FALSE(npcs.empty()) << label << " V1: not a single SM_NPC_INFO arrived";
+
+	// V1: every npc id is a spot within 95 m (+5 m slack, +10 m for walkers) or a flag npc of the map
+	for (const decoders::NpcInfo& npc : npcs)
+		EXPECT_TRUE(visibilityAcceptsNpc(spawns, npc.templateId))
+		  << label << " V1: SM_NPC_INFO for npc " << npc.templateId << " at (" << npc.x << ", " << npc.y << ", " << npc.z
+		  << ") has no spot within the visibility radius";
+
+	// V2: an npc stands on a spot of its id; heading, level and HP% match
+	size_t onFixedSpot = 0, onMovingSpot = 0, offSpotWalker = 0, flagOnly = 0, unknownToTheOracle = 0;
+	for (const decoders::NpcInfo& npc : npcs) {
+		const OracleSpot* match = nullptr;
+		bool matchIsFixed = false;
+		bool hasWalkerSpot = false;
+		bool isFlagNpc = false;
+		int32_t templateLevel = -1;
+		std::vector<std::string> spotsOfId;
+		for (const OracleSpot& spot : spawns.spots) {
+			if (spot.npcId != npc.templateId)
+				continue;
+			// every spot of an id carries the npc_template level of that id (oracle m5a/spawns.py:254), so any spot answers it
+			if (spot.level > 0)
+				templateLevel = spot.level;
+			hasWalkerSpot = hasWalkerSpot || spot.walker;
+			spotsOfId.push_back(positionOf(spot));
+			// a fixed spot wins over a pool or walker spot at the same coordinates: only its heading is worth comparing
+			const bool fixed = !spot.pool && !spot.walker && !spot.randomWalk;
+			if (onSpot(npc.x, npc.y, npc.z, spot) && (match == nullptr || (fixed && !matchIsFixed))) {
+				match = &spot;
+				matchIsFixed = fixed;
+			}
+		}
+		for (const OracleSpot& spot : spawns.flagNpcs)
+			if (spot.npcId == npc.templateId) {
+				isFlagNpc = true;
+				if (templateLevel < 0 && spot.level > 0)
+					templateLevel = spot.level;
+			}
+
+		// level and HP% are template properties: they are checked for every npc, matched or not, so that they no longer depend on V3 having
+		// matched the position first
+		if (templateLevel >= 0)
+			EXPECT_EQ(static_cast<int32_t>(npc.level), templateLevel) << label << " V2: level of npc " << npc.templateId;
+		else
+			EXPECT_GT(static_cast<int32_t>(npc.level), 0) << label << " V2: level of npc " << npc.templateId << ", which the oracle has no level for";
+		EXPECT_EQ(npc.hpPercentage, 100) << label << " V2: HP% of npc " << npc.templateId;
+
+		if (match != nullptr) {
+			// a walker's heading comes from its formation, not from the spot, so only a spot the oracle calls fixed pins it
+			if (matchIsFixed)
+				EXPECT_EQ(npc.heading, match->heading) << label << " V2: heading of npc " << npc.templateId << " at " << positionOf(*match);
+			matchIsFixed ? onFixedSpot++ : onMovingSpot++;
+		} else if (hasWalkerSpot) {
+			offSpotWalker++; // a walker group member: V1 covered it within its 10 m of slack
+		} else if (spotsOfId.empty() && isFlagNpc) {
+			flagOnly++; // a flag npc has no spawn spot of its own
+		} else if (spotsOfId.empty()) {
+			unknownToTheOracle++; // V1 already failed for this one
+		} else {
+			ADD_FAILURE() << label << " V2: SM_NPC_INFO for npc " << npc.templateId << " at (" << npc.x << ", " << npc.y << ", " << npc.z
+			              << "), which is none of its " << spotsOfId.size() << " oracle spots " << join(spotsOfId);
+		}
+	}
+	std::cout << label << ": " << npcs.size() << " SM_NPC_INFO - " << onFixedSpot << " on a fixed spot, " << onMovingSpot
+	          << " on a pool or walker spot, " << offSpotWalker << " off-spot members of a walker group, " << flagOnly << " flag npcs, "
+	          << unknownToTheOracle << " unknown to the oracle" << std::endl;
+
+	// V3: every deterministic spot within 90 m is among the npcs, matched by id and position
+	const std::vector<const OracleSpot*> expected = deterministicSpotsWithin90m(spawns);
+	// without this the whole of V3 is satisfied by an empty expectation, exactly as V4 was
+	EXPECT_FALSE(expected.empty()) << label << " V3: the spawn oracle predicts no deterministic spawn spot within 90 m of the spawn point, so "
+	                                           "V3 would assert nothing";
+	EXPECT_GE(npcs.size(), expected.size()) << label << " V3: fewer SM_NPC_INFO than deterministic spots within 90 m";
+	for (const OracleSpot* spot : expected) {
+		bool found = false;
+		for (const decoders::NpcInfo& npc : npcs)
+			if (npc.templateId == spot->npcId && onSpot(npc.x, npc.y, npc.z, *spot))
+				found = true;
+		EXPECT_TRUE(found) << label << " V3: no SM_NPC_INFO for the deterministic spot of npc " << spot->npcId << " at " << positionOf(*spot) << ", "
+		                   << spot->distance << " m away";
+	}
+
+	// V4: the gatherable ids are a subset of the gather spots within 100 m, AND every deterministic gather spot within 90 m is among them.
+	// The completeness half mirrors V3 and is what makes V4 fail on a world without gatherables: a subset assertion alone is satisfied by
+	// zero SM_GATHERABLE_INFO, and levelReadyPattern's `(SM_NPC_INFO | SM_GATHERABLE_INFO)+` is satisfied by the npcs on their own, so the
+	// 18,432 skipped gatherable spawns this wave started with would have passed the gate unnoticed.
+	std::set<int32_t> gatherSpots;
+	for (const OracleSpot& spot : spawns.spots)
+		if (spot.gatherable && spot.distance <= 100.0)
+			gatherSpots.insert(spot.npcId);
+	std::vector<decoders::GatherableInfo> gatherables;
+	for (const Packet& packet : ofName(burst, "SM_GATHERABLE_INFO"))
+		gatherables.push_back(decoders::decodeGatherableInfo(packet.data));
+	for (const decoders::GatherableInfo& gatherable : gatherables)
+		EXPECT_TRUE(gatherSpots.contains(gatherable.templateId))
+		  << label << " V4: SM_GATHERABLE_INFO for " << gatherable.templateId << ", which is no gather spot within 100 m";
+	const std::vector<const OracleSpot*> expectedGatherables = deterministicGatherSpotsWithin90m(spawns);
+	// The completeness half only asserts something if the oracle predicts something: on a start point without gather nodes the loop below runs
+	// zero times and "no gather node anywhere" stays invisible. Both M5a start points have four deterministic gather spots within 90 m (npc
+	// 400601 on 210010000, 400651 on 220010000), so an empty expectation means the oracle, the spawn data or the radius changed - never that
+	// there is nothing to check.
+	EXPECT_FALSE(expectedGatherables.empty())
+	  << label << " V4: the spawn oracle predicts no deterministic gather spot within 90 m of the spawn point, so the completeness half of V4 "
+	              "would assert nothing";
+	std::cout << label << ": " << gatherables.size() << " SM_GATHERABLE_INFO against " << expectedGatherables.size()
+	          << " deterministic gather spots within 90 m" << std::endl;
+	for (const OracleSpot* spot : expectedGatherables) {
+		bool found = false;
+		for (const decoders::GatherableInfo& gatherable : gatherables)
+			if (gatherable.templateId == spot->npcId && onSpot(gatherable.x, gatherable.y, gatherable.z, *spot))
+				found = true;
+		EXPECT_TRUE(found) << label << " V4: no SM_GATHERABLE_INFO for the deterministic gather spot of " << spot->npcId << " at "
+		                   << positionOf(*spot) << ", " << spot->distance << " m away";
+	}
 }
 
 // ---- the case-by-case report of §5.7 Q8 --------------------------------------------------------------------------------------------------
@@ -506,9 +851,11 @@ std::string levelReadyPattern() {
  */
 const std::set<std::string>& strictlyZeroLiveClasses() {
 	static const std::set<std::string> classes = {
-	  "Player", "Item", "AbyssRank", // the character and what hangs off it
+	  "Player", "AbyssRank", // the character and what hangs off it
 	  "GatheringTask", "AbstractInteractionTask", "GatheringTask_ActionObserver", // the wave's periodic-task subsystem
 	};
+	// Item is NOT here (m5a-plan.md §10.1): a connection that is still registered at the shutdown keeps its Account, and with it the account
+	// warehouse Storage and every Item in it, exactly as Java does. It is bounded below by what this scenario puts into an account warehouse.
 	return classes;
 }
 
@@ -848,6 +1195,8 @@ TEST(M5aScenario, Run) {
 	// ---- case 3: enter world (§5.4) ----
 	int32_t gameHour = 0;
 	std::vector<Packet> enterBurst;
+	/** the last SM_STATS_INFO of the enter-world burst, cross-checked against the SM_PLAYER_INFO of case 4 (V9) */
+	std::optional<decoders::StatsInfo> enterStats;
 	runCase("case 3", "enter world (A, first enter)", [&] {
 		async.selfPlayerState(a.playerId);
 		a.game->send(GameSession::CM_MAY_LOGIN_INTO_GAME, GameSession::buildCM_MAY_LOGIN_INTO_GAME());
@@ -901,6 +1250,23 @@ TEST(M5aScenario, Run) {
 			const uint16_t expectedSlot = item.equipped ? static_cast<uint16_t>(item.slot & 0xFFFF) : uint16_t{0xFFFF};
 			EXPECT_EQ(found->second.equipmentSlot, expectedSlot)
 			  << "equipment slot of item " << item.itemId << (item.equipped ? " (equipped)" : " (not equipped)");
+
+			// The second, independent statement about the same fact: ItemInfoBlob.getFullBlob adds the EQUIPPED_SLOT entry (0x06) for every item
+			// whose ItemGroup has valid equipment slots (ItemInfoBlob.java:67-69), and EquippedSlotBlobEntry.java:20 writes
+			// `isEquipped() ? getEquipmentSlot() : 0` into it - a long, while the short above is the low half of the same value written 60 lines
+			// later in SM_INVENTORY_INFO.java. An item the server wrongly believes to be equipped therefore has to lie twice to pass, and the
+			// not-equipped expectation is asserted instead of being computed and dropped. Measured on the starter inventory: the three equipped
+			// items carry the entry and are compared; the ten other rows are kinah, potions and food, whose ItemGroup has no valid equipment
+			// slot, so they carry no 0x06 entry at all and the `else if` below is the branch that would catch a wrongly equipped consumable.
+			if (item.equipped) {
+				if (!found->second.equippedSlotBlob)
+					ADD_FAILURE() << "the equipped item " << item.itemId << " has no EQUIPPED_SLOT blob entry (0x06)";
+				else
+					EXPECT_EQ(*found->second.equippedSlotBlob, item.slot) << "EQUIPPED_SLOT blob entry of the equipped item " << item.itemId;
+			} else if (found->second.equippedSlotBlob) {
+				EXPECT_EQ(*found->second.equippedSlotBlob, 0)
+				  << "item " << item.itemId << " is not equipped, so its EQUIPPED_SLOT blob entry must be 0";
+			}
 		}
 		EXPECT_EQ(sentItems.size(), elyos.items.size()) << "SM_INVENTORY_INFO announced " << sentItems.size() << " entries for "
 		                                                << elyos.items.size() << " inventory rows";
@@ -918,16 +1284,59 @@ TEST(M5aScenario, Run) {
 		std::sort(expectedSkills.begin(), expectedSkills.end());
 		EXPECT_EQ(sentSkills, expectedSkills);
 
-		// V9: base max HP/MP of SM_STATS_INFO equal the oracle's PlayerStatCalculator values, current max >= base
+		const Packet* time = firstOfName(enterBurst, "SM_GAME_TIME");
+		ASSERT_NE(time, nullptr);
+		ASSERT_EQ(time->data.size(), 4u) << "SM_GAME_TIME is one int (SM_GAME_TIME.java)";
+		const int32_t minutes =
+		  static_cast<int32_t>(time->data[0] | time->data[1] << 8 | time->data[2] << 16 | static_cast<uint32_t>(time->data[3]) << 24);
+		gameHour = gameHourOf(minutes);
+
+		// V9: base max HP/MP of SM_STATS_INFO equal the oracle's PlayerStatCalculator values, current max >= base.
+		// SCOPE (m5a-plan.md §5.4 V9 and the M5b item O-13): passive skill effects are not applied at M5a (O-09, the allow-listed
+		// AION_PARTIAL in SkillEngine::applyEffectDirectly), and the creation oracle answers base max HP and MP only, so no oracle exists for
+		// attack, accuracy, evasion, crit, magic boost or the current maxima. Everything that IS checkable without that oracle is asserted
+		// here: the identity fields, the two oracle values in EVERY SM_STATS_INFO of the burst (the first-enter one of §5.8 #0 as well as #26,
+		// not only the last), the life stats of a character that has never fought, the exp of a level 1 character, the game time the packet
+		// carries against the SM_GAME_TIME of the same burst, and "a class stats template was applied at all" for the six base attributes and
+		// the base attack values, which a stat container that silently returned zeros would fail.
 		const std::vector<Packet> stats = ofName(enterBurst, "SM_STATS_INFO");
 		ASSERT_FALSE(stats.empty());
+		for (size_t i = 0; i < stats.size(); i++) {
+			const decoders::StatsInfo info = decoders::decodeStatsInfo(stats[i].data);
+			const std::string which = "SM_STATS_INFO " + std::to_string(i + 1) + " of " + std::to_string(stats.size());
+			EXPECT_EQ(info.objectId, a.playerId) << which;
+			EXPECT_EQ(info.level, 1) << which;
+			EXPECT_EQ(info.classId, CLASS_WARRIOR) << which;
+			EXPECT_EQ(info.baseMaxHp, elyos.baseMaxHp) << which;
+			EXPECT_EQ(info.baseMaxMp, elyos.baseMaxMp) << which;
+			EXPECT_GE(info.maxHp, info.baseMaxHp) << which;
+			EXPECT_GE(info.maxMp, info.baseMaxMp) << which;
+		}
 		const decoders::StatsInfo statsInfo = decoders::decodeStatsInfo(stats.back().data);
-		EXPECT_EQ(statsInfo.objectId, a.playerId);
-		EXPECT_EQ(statsInfo.level, 1);
-		EXPECT_EQ(statsInfo.baseMaxHp, elyos.baseMaxHp);
-		EXPECT_EQ(statsInfo.baseMaxMp, elyos.baseMaxMp);
-		EXPECT_GE(statsInfo.maxHp, statsInfo.baseMaxHp);
-		EXPECT_GE(statsInfo.maxMp, statsInfo.baseMaxMp);
+		enterStats = statsInfo;
+		// a character that was created seconds ago has full HP and MP, no DP and no experience (Q3 proves the opposite case, where the harness
+		// seeds player_life_stat.hp with half and the relogin has to show it)
+		EXPECT_EQ(statsInfo.currentHp, statsInfo.maxHp) << "V9: a character that never fought enters the world with full HP";
+		EXPECT_EQ(statsInfo.currentMp, statsInfo.maxMp) << "V9: a character that never fought enters the world with full MP";
+		EXPECT_EQ(statsInfo.currentDp, 0) << "V9: a fresh character has no DP";
+		EXPECT_EQ(statsInfo.expShown, 0) << "V9: level 1 is exp 0";
+		EXPECT_EQ(statsInfo.expRecoverable, 0) << "V9: a character that never died has no recoverable exp";
+		EXPECT_GT(statsInfo.expNeed, 0) << "V9: the exp needed for level 2";
+		EXPECT_GT(statsInfo.inventoryLimit, 0) << "V9: the cube size";
+		// SM_STATS_INFO.java:35 and SM_GAME_TIME both write GameTimeService.getGameTime().getTime(); the two packets are milliseconds apart in
+		// the same burst, so they may differ by at most the game minutes of that burst
+		EXPECT_NEAR(statsInfo.gameTime, minutes, 2) << "V9: the game time of SM_STATS_INFO against the SM_GAME_TIME of the same burst";
+		// the class stats template of a level 1 Warrior: every base attribute and the base attack values are positive for every class
+		EXPECT_GT(statsInfo.basePower, 0) << "V9: base power";
+		EXPECT_GT(statsInfo.baseHealth, 0) << "V9: base health";
+		EXPECT_GT(statsInfo.baseAccuracy, 0) << "V9: base accuracy";
+		EXPECT_GT(statsInfo.baseAgility, 0) << "V9: base agility";
+		EXPECT_GT(statsInfo.baseKnowledge, 0) << "V9: base knowledge";
+		EXPECT_GT(statsInfo.baseWill, 0) << "V9: base will";
+		EXPECT_GT(statsInfo.baseMainHandPAttack, 0) << "V9: base main hand attack";
+		EXPECT_GT(statsInfo.baseAttackRange, 0.0f) << "V9: base attack range";
+		EXPECT_GT(statsInfo.attackSpeed, 0) << "V9: attack speed";
+		EXPECT_GT(statsInfo.castingSpeed, 0.0f) << "V9: casting speed";
 
 		// V10: the quest lists are empty, the warehouses and macros decode as empty
 		const Packet* questList = firstOfName(enterBurst, "SM_QUEST_LIST");
@@ -941,13 +1350,6 @@ TEST(M5aScenario, Run) {
 			EXPECT_TRUE(decoders::decodeWarehouseInfo(packet.data).items.empty());
 		for (const Packet& packet : ofName(enterBurst, "SM_MACRO_LIST"))
 			EXPECT_TRUE(decoders::decodeMacroList(packet.data).macros.empty());
-
-		const Packet* time = firstOfName(enterBurst, "SM_GAME_TIME");
-		ASSERT_NE(time, nullptr);
-		ASSERT_EQ(time->data.size(), 4u) << "SM_GAME_TIME is one int (SM_GAME_TIME.java)";
-		const int32_t minutes =
-		  static_cast<int32_t>(time->data[0] | time->data[1] << 8 | time->data[2] << 16 | static_cast<uint32_t>(time->data[3]) << 24);
-		gameHour = gameHourOf(minutes);
 	});
 
 	// ---- case 4: level ready and NPC visibility (§5.5) ----
@@ -962,91 +1364,23 @@ TEST(M5aScenario, Run) {
 		// V9 (the SM_PLAYER_INFO half): §5.8 #33 is the packet the client renders the own character and its equipment from, and it is its own
 		// 230-line writeImpl (SM_PLAYER_INFO.java), not the writePlayerInfo block of SM_CHARACTER_LIST. decodePlayerInfo ends in
 		// expectFullyConsumed, so decoding it here also proves its framing; without this call a shifted field in it would not fail the gate.
-		expectPlayerInfo(levelReadyBurst, a.playerId, a.characterName, elyos, CLASS_WARRIOR, "V9");
+		const std::optional<decoders::PlayerInfo> playerInfo =
+		  expectPlayerInfo(levelReadyBurst, a.playerId, a.characterName, elyos, CLASS_WARRIOR, RACE_ELYOS, GENDER_MALE, appearance, "V9");
+		// the one derived stat two different writeImpl methods answer: SM_PLAYER_INFO.java:171-173 writes getAttackSpeed().getBase() and
+		// .getCurrent(), SM_STATS_INFO.java:91 the same Stat2's current value. A stat container that recomputes per packet fails here.
+		if (playerInfo && enterStats) {
+			EXPECT_EQ(playerInfo->attackSpeedCurrent, enterStats->attackSpeed)
+			  << "V9: the attack speed of SM_PLAYER_INFO and of SM_STATS_INFO differ";
+			EXPECT_EQ(static_cast<int32_t>(playerInfo->level), static_cast<int32_t>(enterStats->level)) << "V9: the level of the two packets differs";
+			EXPECT_EQ(playerInfo->objectId, enterStats->objectId) << "V9: the object id of the two packets differs";
+			EXPECT_EQ(static_cast<int32_t>(playerInfo->classId), enterStats->classId) << "V9: the class id of the two packets differs";
+			// SM_PLAYER_INFO.java:90 writes getHpPercentage(), which is 100 exactly when current HP equals max HP (SM_STATS_INFO.java:64-65)
+			EXPECT_EQ(playerInfo->hpPercentage == 100, enterStats->currentHp == enterStats->maxHp)
+			  << "V9: the HP% of SM_PLAYER_INFO does not match the current and max HP of SM_STATS_INFO";
+		}
 
 		spawns = oracle->spawns(elyos.mapId, elyos.x, elyos.y, elyos.z, gameHour);
-
-		std::vector<decoders::NpcInfo> npcs;
-		for (const Packet& packet : ofName(levelReadyBurst, "SM_NPC_INFO"))
-			npcs.push_back(decoders::decodeNpcInfo(packet.data)); // a body that does not decode exactly throws (V2 "decodes exactly")
-
-		// V1: every npc id is a spot within 95 m (+5 m slack, +10 m for walkers) or a flag npc of the map
-		for (const decoders::NpcInfo& npc : npcs)
-			EXPECT_TRUE(visibilityAcceptsNpc(spawns, npc.templateId))
-			  << "V1: SM_NPC_INFO for npc " << npc.templateId << " at (" << npc.x << ", " << npc.y << ", " << npc.z
-			  << ") has no spot within the visibility radius";
-
-		// V2: a non-walker, non-pool npc stands on a spot of its id; heading, level and HP% match
-		for (const decoders::NpcInfo& npc : npcs) {
-			const OracleSpot* match = nullptr;
-			std::vector<std::string> fixedSpots;
-			// An id may have fixed spots AND pool, walker or randomWalk spots at the same time (210115 on the Elyos start map has 4 fixed, 3
-			// walker and 1 randomWalk). Such an npc may legitimately stand anywhere, so only an id whose every spot is fixed can be pinned.
-			bool mayMove = false;
-			for (const OracleSpot& spot : spawns.spots) {
-				if (spot.npcId != npc.templateId)
-					continue;
-				if (spot.pool || spot.walker || spot.randomWalk) {
-					mayMove = true;
-					continue;
-				}
-				if (std::abs(spot.x - npc.x) <= 0.01 && std::abs(spot.y - npc.y) <= 0.01 && std::abs(spot.z - npc.z) <= 0.01)
-					match = &spot;
-				else
-					fixedSpots.push_back("(" + std::to_string(spot.x) + ", " + std::to_string(spot.y) + ", " + std::to_string(spot.z) + ")");
-			}
-			if (match == nullptr) {
-				// The oracle knows this id ONLY as fixed spots and the npc stands on none of them: that is exactly the wrong-position case V2
-				// exists for, so it fails here instead of falling through to V1, which matches by id and oracle distance and never looks at the
-				// coordinates the server sent.
-				if (!mayMove && !fixedSpots.empty())
-					ADD_FAILURE() << "V2: SM_NPC_INFO for npc " << npc.templateId << " at (" << npc.x << ", " << npc.y << ", " << npc.z
-					              << "), which is none of its fixed spots " << join(fixedSpots);
-				// otherwise a walker, a pool spot or an id the oracle only knows as moving: V1 already covered it
-				continue;
-			}
-			EXPECT_EQ(npc.heading, match->heading) << "V2: heading of npc " << npc.templateId;
-			EXPECT_EQ(static_cast<int32_t>(npc.level), match->level) << "V2: level of npc " << npc.templateId;
-			EXPECT_EQ(npc.hpPercentage, 100) << "V2: HP% of npc " << npc.templateId;
-		}
-
-		// V3: every deterministic spot within 90 m is among the npcs, matched by id and position
-		const std::vector<const OracleSpot*> expected = deterministicSpotsWithin90m(spawns);
-		EXPECT_GE(npcs.size(), expected.size()) << "V3: fewer SM_NPC_INFO than deterministic spots within 90 m";
-		for (const OracleSpot* spot : expected) {
-			bool found = false;
-			for (const decoders::NpcInfo& npc : npcs)
-				if (npc.templateId == spot->npcId && std::abs(npc.x - spot->x) <= 0.01 && std::abs(npc.y - spot->y) <= 0.01 &&
-				    std::abs(npc.z - spot->z) <= 0.01)
-					found = true;
-			EXPECT_TRUE(found) << "V3: no SM_NPC_INFO for the deterministic spot of npc " << spot->npcId << " at (" << spot->x << ", " << spot->y << ", "
-			                   << spot->z << "), " << spot->distance << " m away";
-		}
-
-		// V4: the gatherable ids are a subset of the gather spots within 100 m, AND every deterministic gather spot within 90 m is among them.
-		// The completeness half mirrors V3 and is what makes V4 fail on a world without gatherables: a subset assertion alone is satisfied by
-		// zero SM_GATHERABLE_INFO, and levelReadyPattern's `(SM_NPC_INFO | SM_GATHERABLE_INFO)+` is satisfied by the npcs on their own, so the
-		// 18,432 skipped gatherable spawns this wave started with would have passed the gate unnoticed.
-		std::set<int32_t> gatherSpots;
-		for (const OracleSpot& spot : spawns.spots)
-			if (spot.gatherable && spot.distance <= 100.0)
-				gatherSpots.insert(spot.npcId);
-		std::vector<decoders::GatherableInfo> gatherables;
-		for (const Packet& packet : ofName(levelReadyBurst, "SM_GATHERABLE_INFO"))
-			gatherables.push_back(decoders::decodeGatherableInfo(packet.data));
-		for (const decoders::GatherableInfo& gatherable : gatherables)
-			EXPECT_TRUE(gatherSpots.contains(gatherable.templateId))
-			  << "V4: SM_GATHERABLE_INFO for " << gatherable.templateId << ", which is no gather spot within 100 m";
-		const std::vector<const OracleSpot*> expectedGatherables = deterministicGatherSpotsWithin90m(spawns);
-		for (const OracleSpot* spot : expectedGatherables) {
-			bool found = false;
-			for (const decoders::GatherableInfo& gatherable : gatherables)
-				if (gatherable.templateId == spot->npcId && std::abs(gatherable.x - spot->x) <= 0.01 && std::abs(gatherable.y - spot->y) <= 0.01 &&
-				    std::abs(gatherable.z - spot->z) <= 0.01)
-					found = true;
-			EXPECT_TRUE(found) << "V4: no SM_GATHERABLE_INFO for the deterministic gather spot of " << spot->npcId << " at (" << spot->x << ", "
-			                   << spot->y << ", " << spot->z << "), " << spot->distance << " m away";
-		}
+		checkVisibility(levelReadyBurst, spawns, "V1-V4 (Warrior on 210010000)");
 	});
 
 	// ---- case 4b: the in-world client packets a real client sends by itself (item C-01) ----
@@ -1274,6 +1608,12 @@ TEST(M5aScenario, Run) {
 	 * account-level objects per such connection (see perConnectionLiveClasses()), so this is the bound the live-count check uses.
 	 */
 	int64_t connectionsAtShutdown = 0;
+	/**
+	 * §5.7 Q8 / §10.1: how many Items the still-open connections keep alive through their account warehouse. This scenario never stores an item
+	 * there (the two accounts are created empty and no case opens the warehouse), so a surviving warehouse holds nothing and the bound is 0.
+	 * A case that does store one raises this number instead of the check demanding a 0 that Java does not deliver.
+	 */
+	const int64_t itemsInOpenAccountWarehouses = 0;
 	const auto openSessions = [&]() -> int64_t {
 		int64_t open = 0;
 		for (const ScenarioClient* client : {&a, &b})
@@ -1295,32 +1635,16 @@ TEST(M5aScenario, Run) {
 		b.game->send(GameSession::CM_LEVEL_READY, GameSession::buildCM_LEVEL_READY());
 		const std::vector<Packet> ready = b.game->collectUntilQuiet(QUIET, BURST_LIMIT);
 		expectSequence(ready, levelReadyPattern(), shutdownAsync);
-		expectPlayerInfo(ready, b.playerId, b.characterName, asmodian, CLASS_MAGE, "V5");
+		expectPlayerInfo(ready, b.playerId, b.characterName, asmodian, CLASS_MAGE, RACE_ASMODIAN, GENDER_FEMALE, appearance, "V5");
 
-		// V5: the same visibility assertions for the Mage on the Asmodian start map
+		// V5: the same visibility assertions for the Mage on the Asmodian start map - literally the same code as case 4, which is what §5.5 V5
+		// asks for ("the same for the Mage"); before this the Mage's burst was only checked for V1 and V3
 		const Packet* time = firstOfName(burst, "SM_GAME_TIME");
 		ASSERT_NE(time, nullptr);
 		const int32_t minutes =
 		  static_cast<int32_t>(time->data[0] | time->data[1] << 8 | time->data[2] << 16 | static_cast<uint32_t>(time->data[3]) << 24);
 		const OracleSpawns mageSpawns = oracle->spawns(asmodian.mapId, asmodian.x, asmodian.y, asmodian.z, gameHourOf(minutes));
-		std::vector<decoders::NpcInfo> npcs;
-		for (const Packet& packet : ofName(ready, "SM_NPC_INFO"))
-			npcs.push_back(decoders::decodeNpcInfo(packet.data));
-		for (const decoders::NpcInfo& npc : npcs)
-			EXPECT_TRUE(visibilityAcceptsNpc(mageSpawns, npc.templateId))
-			  << "V5: SM_NPC_INFO for npc " << npc.templateId << " at (" << npc.x << ", " << npc.y << ", " << npc.z
-			  << ") has no spot within the visibility radius";
-		const std::vector<const OracleSpot*> expected = deterministicSpotsWithin90m(mageSpawns);
-		EXPECT_GE(npcs.size(), expected.size()) << "V5: fewer SM_NPC_INFO than deterministic spots within 90 m";
-		for (const OracleSpot* spot : expected) {
-			bool found = false;
-			for (const decoders::NpcInfo& npc : npcs)
-				if (npc.templateId == spot->npcId && std::abs(npc.x - spot->x) <= 0.01 && std::abs(npc.y - spot->y) <= 0.01 &&
-				    std::abs(npc.z - spot->z) <= 0.01)
-					found = true;
-			EXPECT_TRUE(found) << "V5: no SM_NPC_INFO for the deterministic spot of npc " << spot->npcId << " at (" << spot->x << ", " << spot->y
-			                   << ", " << spot->z << ")";
-		}
+		checkVisibility(ready, mageSpawns, "V5 (Mage on 220010000)");
 
 		// three moves to P, then the shutdown with B online
 		shutdownX = asmodian.x;
@@ -1412,6 +1736,12 @@ TEST(M5aScenario, Run) {
 		for (const auto& [name, count] : finalCounts) {
 			if (strictlyZeroLiveClasses().contains(name))
 				EXPECT_EQ(count.live, 0) << "Q8: live instances left: " << count.line;
+			else if (name == "Item")
+				// The scenario never stores anything in an account warehouse, so the warehouses that survive with their connection hold nothing
+				// and every Item of the run must be gone. The day a case puts an item there, this number changes with it - unlike a strict 0,
+				// which would then fail on correct behaviour (m5a-plan.md §10.1).
+				EXPECT_EQ(count.live, itemsInOpenAccountWarehouses)
+				  << "Q8: live instances left: " << count.line << "\n  the scenario's account warehouses are empty, so no Item may survive";
 			else if (perConnectionLiveClasses().contains(name) || name.ends_with("Storage"))
 				EXPECT_LE(count.live, connectionsAtShutdown)
 				  << "Q8: live instances left: " << count.line << "\n  Java keeps at most one of these per client that is still connected when the "
@@ -1455,6 +1785,11 @@ TEST(M5aScenario, Run) {
 		const std::map<std::string, std::vector<std::string>> summary = servers.readSummary();
 		const auto started = summary.find("started");
 		EXPECT_TRUE(started != summary.end() && !started->second.empty() && started->second[0] == "true") << "Q8: the game server never started";
+		// §10.2: the live-instance counters are compiled out of a release build, where "liveLeaks 0" means "not measured". Without this row the
+		// whole live-count half of Q8 could pass vacuously in a build the gate was never meant to run against.
+		const auto liveCountsEnabled = summary.find("liveCountsEnabled");
+		EXPECT_TRUE(liveCountsEnabled != summary.end() && !liveCountsEnabled->second.empty() && liveCountsEnabled->second[0] == "true")
+		  << "Q8: the game server reports liveCountsEnabled false, so its live-count rows measured nothing: build it checked";
 		// the game server's own view of its exit: case 7 asserts the process exit code, but case 8 runs even when case 7 did not
 		const auto exitCode = summary.find("exitCode");
 		EXPECT_TRUE(exitCode != summary.end() && !exitCode->second.empty() && exitCode->second[0] == "0")

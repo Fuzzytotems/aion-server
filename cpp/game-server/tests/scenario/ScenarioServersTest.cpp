@@ -13,10 +13,15 @@
 #include <set>
 #include <sstream>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "ChildProcess.h"
 #include "ScenarioServers.h"
+
+#include <Windows.h>
+
+#include "aion/commons/utils/WindowsMacroGuard.h" // after all headers that may include windows.h
 
 namespace aion::gameserver::scenario {
 namespace {
@@ -130,6 +135,52 @@ TEST(ChildProcessTest, KeepsTheStandardErrorOfAToolOutOfItsOutput) {
 	EXPECT_FALSE(content.str().empty()) << "cmake -E cat of a missing file writes to stderr";
 }
 
+TEST(ChildProcessTest, ClosesEveryHandleWhenTheChildCannotBeStarted) {
+	// Stage 2 review: "the new errorFile path leaks the NUL stdin handle when the error file cannot be created". The log file and the NUL stdin
+	// handle are opened before the error file, so every failure after them has to close both - including the create_directories of the error
+	// file's parent, which throws when a path component is a file and closed nothing at all. The handle count is what proves it: a leak of one
+	// handle per attempt is invisible in a single run and exhausts nothing in a short test, so only counting catches it.
+	const std::filesystem::path directory = outputDir("handles");
+	std::filesystem::create_directories(directory / "err_is_a_directory");
+	{
+		std::ofstream file(directory / "not_a_directory.txt", std::ios::binary | std::ios::trunc);
+		file << "x";
+	}
+
+	ChildProcess::Options options;
+	options.executable = AION_SCENARIO_CMAKE_COMMAND;
+	options.arguments = {"-E", "true"};
+	options.logFile = directory / "child.log";
+
+	const std::vector<std::pair<std::string, ChildProcess::Options>> failures = [&] {
+		std::vector<std::pair<std::string, ChildProcess::Options>> cases;
+		ChildProcess::Options errorIsADirectory = options;
+		errorIsADirectory.errorFile = directory / "err_is_a_directory"; // CreateFileW fails: the path is a directory
+		cases.emplace_back("the error file is a directory", errorIsADirectory);
+		ChildProcess::Options errorUnderAFile = options;
+		errorUnderAFile.errorFile = directory / "not_a_directory.txt" / "err.txt"; // create_directories throws
+		cases.emplace_back("the error file's parent is a file", errorUnderAFile);
+		ChildProcess::Options noExecutable = options;
+		noExecutable.executable = "C:/no/such/executable/for/the/scenario/harness.exe"; // CreateProcess fails, after the job object was created
+		cases.emplace_back("the executable does not exist", noExecutable);
+		return cases;
+	}();
+
+	const auto handleCount = [] {
+		DWORD count = 0;
+		GetProcessHandleCount(GetCurrentProcess(), &count);
+		return static_cast<int64_t>(count);
+	};
+	for (const auto& [name, failing] : failures) // the first attempt of each kind may make the runtime cache a handle of its own
+		EXPECT_THROW(ChildProcess{failing}, std::exception) << name;
+	const int64_t before = handleCount();
+	for (int32_t round = 0; round < 20; round++)
+		for (const auto& [name, failing] : failures)
+			EXPECT_THROW(ChildProcess{failing}, std::exception) << name;
+	const int64_t after = handleCount();
+	EXPECT_LE(after - before, 4) << "60 failed starts leaked " << (after - before) << " handles (the log file, the NUL stdin handle or the job)";
+}
+
 TEST(ScenarioServersTest, ReservedPortsAreDistinctAndTheThreeScenarioPortsDoNotCollide) {
 	// reservePorts holds every acceptor open until all ports are known, so the OS cannot hand out one port twice
 	std::vector<uint16_t> ports = ScenarioServers::reservePorts(8);
@@ -175,6 +226,39 @@ TEST(ScenarioServersTest, TheGameServerGetsTheM5aProfileAndTheScenarioArguments)
 	EXPECT_TRUE(lsHas("-Dloginserver.network.gameserver.socket_address=127.0.0.1:" + std::to_string(servers.loginGameServerPort())));
 	EXPECT_TRUE(lsHas("-Dloginserver.accounts.autocreate=true"));
 	EXPECT_TRUE(lsHas("-Ddatabase.url=jdbc:mysql://127.0.0.1:1/" + servers.loginSchema() + "?serverTimezone=&characterEncoding=UTF-8"));
+	// The login server has no --log-folder: it writes ./log in its working directory, so the gate gives it one of its own. Without this the
+	// child archives and DELETES the shared login-server/log of the other build trees and of the user's own login server.
+	EXPECT_EQ(servers.loginServerWorkingDirectory(), config.outputDir / "ls_run");
+	EXPECT_EQ(servers.loginLogFolder(), config.outputDir / "ls_run" / "log");
+	EXPECT_NE(servers.loginLogFolder(), std::filesystem::path(AION_LOGINSERVER_JAVA_DIR) / "log");
+}
+
+TEST(ScenarioServersTest, AStubGameServerThatStopsInOrderReportsNoStopProblem) {
+	ScenarioServers servers(stubConfig("stopproblems-clean"), offlineEnvironment());
+	servers.startGameServer();
+	EXPECT_EQ(servers.stopGameServer(), 0);
+	EXPECT_TRUE(servers.stopProblems().empty());
+}
+
+TEST(ScenarioServersTest, StopProblemsNameAGameServerThatDidNotExitWithZero) {
+	// Stage 2 review: "nothing checks the game server's exit code when case 7 does not run". The gate's case 7 asserts it, but case 7 is skipped
+	// when an earlier case failed, so the harness itself collects what went wrong - and the destructor reports a list nobody read.
+	ScenarioServers servers(stubConfig("stopproblems-exitcode"), offlineEnvironment());
+	servers.startGameServer();
+	ASSERT_NE(servers.gameServer(), nullptr);
+	servers.gameServer()->terminate(3); // as if the game server had died instead of shutting down on the stop file
+	EXPECT_EQ(servers.stopGameServer(), 3);
+	const std::vector<std::string> problems = servers.stopProblems();
+	ASSERT_EQ(problems.size(), 1u) << (problems.empty() ? "" : problems[0]);
+	EXPECT_EQ(problems[0], "the game server exited with code 3 (expected 0)");
+}
+
+TEST(ScenarioServersTest, StopProblemsNameAServerThatWasStillRunningAtTheEnd) {
+	ScenarioServers servers(stubConfig("stopproblems-running"), offlineEnvironment());
+	servers.startGameServer();
+	const std::vector<std::string> problems = servers.stopProblems(); // read here, so the destructor does not report it as a failure
+	ASSERT_EQ(problems.size(), 1u) << (problems.empty() ? "" : problems[0]);
+	EXPECT_EQ(problems[0], "the game server was still running at the end of the run and had to be terminated");
 }
 
 TEST(ScenarioServersTest, StubGameServerStartsStopsAndWritesItsReports) {

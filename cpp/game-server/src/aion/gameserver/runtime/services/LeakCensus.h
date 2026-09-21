@@ -48,7 +48,10 @@ protected:
  *   warning saying so.
  * - Stale pins (design §5.4 last bullet, C13): every `stalePinCheckInterval` (1 min), a pending periodic task whose pinned owners
  *   (Future::pinnedOwners; immortals and templates are not owners) have ALL been removed from the world longer than `stalePinAfter` (10 min)
- *   is logged once (not cancelled).
+ *   is logged once (not cancelled). The warning starts with "Leak census: stale pin:" - the M5a scenario gate greps the log for "stale pin"
+ *   (m5a-plan.md §5.7 Q8), so the literal is part of the contract. A stale pin is always a subset of the census leaks: only an object that was
+ *   removed from the world and is still referenced can be in the table, and the pinning task is one of the references. It names the task that
+ *   holds a leak, which the leak report cannot do for a task whose site is unknown.
  * - An object re-added to the world (onAddedToWorld) is removed from the census.
  * Times use the steady clock of ThreadPoolManager's backend (ManualClock in tests). The hooks never create the default pools
  * (ThreadPoolManager::clock/installedBackend) and do nothing once uninstall() has cleared the installed flag.

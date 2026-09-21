@@ -14,24 +14,66 @@
 #  5. aion_gs_m4_database online: setAllPlayersOffline left no online player.
 #  6. python oracle.py compare-counts --log static_data_counts.txt (the 90 "Loaded N ..." lines vs the independent XML count oracle).
 #  7. python -m geo m4-compare: geo counts, material zone names, getZ probes (geo oracle) and the zone names of every map instance of World.
-# Python: PYTHON is the interpreter for the oracles; PYTHON=NOTFOUND (CMake found no Python 3) reports the test as skipped with that reason
-# instead of leaving it unregistered.
+# Python: PYTHON is the interpreter for the oracles; PYTHON=NOTFOUND (CMake found no Python 3) names that reason instead of leaving the test
+# unregistered.
 # Database: AION_TEST_GS_DATABASE_URL names the server (its database must exist; the schema is created next to it), optional
-# AION_TEST_GS_DATABASE_USER / AION_TEST_GS_DATABASE_PASSWORD (default root without password). Without the URL the test is skipped
-# ("gs.m4.check_static_data: skipped", SKIP_REGULAR_EXPRESSION). The schema is aion_gs_test_m4_<first 12 hex digits of the MD5 of OUTPUT_DIR>,
+# AION_TEST_GS_DATABASE_USER / AION_TEST_GS_DATABASE_PASSWORD (default root without password). The schema is
+# aion_gs_test_m4_<first 12 hex digits of the MD5 of OUTPUT_DIR>,
 # so M4 runs of different build directories or configurations on one MariaDB never share (and drop) each other's schema; RESOURCE_LOCK only
 # serializes the tests of one ctest invocation. It is dropped at the end of the run, after a failure too (the output of every database step
 # and both server logs stay in OUTPUT_DIR). The server logs are OUTPUT_DIR/id_factory.log and OUTPUT_DIR/check.log, the report files
 # OUTPUT_DIR/empty and OUTPUT_DIR/full. Each server run gets its own log directory (--log-folder=OUTPUT_DIR/<name>_log) instead of the shared
 # <WORKING_DIRECTORY>/log, so a game server of another build directory cannot make the log archiving of this run fail.
 
+set(test_name gs.m4.check_static_data)
+
+# NO SILENT GREEN (m5a-client-session.md; m5a-plan.md §5.10 "A skipped gate is not a passed gate"): a milestone test whose prerequisite is
+# missing FAILS, because CTest counts a skipped test as passed, so a default `ctest` without the interpreter or the database URL reported the
+# gate green while it never ran. The opt-out is explicit and documented in cpp/README.md: the cache option AION_GS_ALLOW_MILESTONE_SKIP=ON
+# (cmake/AppTests.cmake passes its value as -DALLOW_SKIP) or the environment variable AION_GS_ALLOW_MILESTONE_SKIP=1 of a single ctest run.
+if(NOT DEFINED ALLOW_SKIP)
+	set(ALLOW_SKIP OFF)
+endif()
+set(allow_skip ${ALLOW_SKIP})
+if(DEFINED ENV{AION_GS_ALLOW_MILESTONE_SKIP} AND NOT "$ENV{AION_GS_ALLOW_MILESTONE_SKIP}" STREQUAL ""
+		AND NOT "$ENV{AION_GS_ALLOW_MILESTONE_SKIP}" STREQUAL "0")
+	set(allow_skip ON)
+endif()
+
+# A missing prerequisite: skipped with the opt-out (SKIP_REGULAR_EXPRESSION matches "<test>: skipped"), a failure without it. Both messages name
+# the variable and the value to set. This is a macro, not a function, so that its return() ends the script.
+macro(milestone_prerequisite missing fix)
+	if(allow_skip)
+		message("${test_name}: skipped (${missing}; ${fix})")
+		return()
+	endif()
+	message(FATAL_ERROR "${test_name}: ${missing}.\n"
+		"  Fix: ${fix}\n"
+		"  Or opt out of the milestone tests explicitly: configure with -DAION_GS_ALLOW_MILESTONE_SKIP=ON, or run ctest with "
+		"AION_GS_ALLOW_MILESTONE_SKIP=1 in the environment. Missing prerequisites fail by default because CTest reports a skipped test as "
+		"passed, so a run without them would declare the milestone green without executing it.")
+endmacro()
+
 if(NOT PYTHON OR NOT EXISTS "${PYTHON}")
-	message("gs.m4.check_static_data: skipped (no Python 3 interpreter for the oracles: PYTHON='${PYTHON}'; install Python 3.12 and reconfigure)")
-	return()
+	milestone_prerequisite("no Python 3 interpreter for the oracles (PYTHON='${PYTHON}')"
+		"install Python 3.12 and reconfigure the build directory, so that CMake's Python3_EXECUTABLE points at it")
 endif()
 if(NOT DEFINED ENV{AION_TEST_GS_DATABASE_URL} OR "$ENV{AION_TEST_GS_DATABASE_URL}" STREQUAL "")
-	message("gs.m4.check_static_data: skipped (set AION_TEST_GS_DATABASE_URL, e.g. jdbc:mysql://127.0.0.1:3306/aion_cpp_test?characterEncoding=UTF-8)")
-	return()
+	string(CONCAT database_fix "set AION_TEST_GS_DATABASE_URL=jdbc:mysql://127.0.0.1:3306/aion_cpp_test?characterEncoding=UTF-8 (that database "
+		"must exist and MariaDB must be running), optionally AION_TEST_GS_DATABASE_USER / AION_TEST_GS_DATABASE_PASSWORD (default: root without "
+		"password)")
+	milestone_prerequisite("the environment variable AION_TEST_GS_DATABASE_URL is not set, so the server has no test schema to run against"
+		"${database_fix}")
+endif()
+foreach(java_file IN ITEMS config/logback.xml config/main data/static_data data/geo)
+	if(NOT EXISTS "${WORKING_DIRECTORY}/${java_file}")
+		milestone_prerequisite("the Java game server checkout has no ${java_file} (working directory '${WORKING_DIRECTORY}')"
+			"check out the Java server tree (the cpp/ directory lives inside it) so that game-server/${java_file} exists")
+	endif()
+endforeach()
+if(NOT EXISTS "${ORACLE_DIR}/oracle.py")
+	milestone_prerequisite("the oracle script ${ORACLE_DIR}/oracle.py does not exist"
+		"run the test from a build directory configured against a complete cpp/ checkout (cpp/tools/oracle)")
 endif()
 foreach(file IN ITEMS "${EXECUTABLE}" "${DATABASE_TOOL}")
 	if(NOT EXISTS "${file}")

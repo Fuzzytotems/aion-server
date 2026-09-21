@@ -25,7 +25,8 @@ if(TARGET aion_gs_scenario_tests)
 	# cases that read the Java module directories
 	aion_set_discovered_test_properties(aion_gs_scenario_tests REGEX "^(ScenarioDatabaseTest|ScenarioServersTest|ScenarioWiringTest)\\."
 		PROPERTIES LABELS "scenario;realdata")
-	# the real login server writes login-server/log (like the login server's own server tests)
+	# starts the real login server; since stage 3 it writes its own log directory (ScenarioServers::loginLogFolder), and the lock is kept only
+	# so that two real login servers never start at the same time as the gate's
 	aion_set_discovered_test_properties(aion_gs_scenario_tests REGEX "^LoginServerHarnessTest\\."
 		PROPERTIES LABELS "scenario;realdata" RESOURCE_LOCK "aion_login_server_log" TIMEOUT 300)
 	# the gate runs as gs.scenario.m5a below, never as a discovered case
@@ -42,11 +43,16 @@ if(TARGET aion_gs_scenario_tests)
 	if(Python3_Interpreter_FOUND)
 		set_property(TEST gs.scenario.m5a APPEND PROPERTY ENVIRONMENT_MODIFICATION "AION_TEST_PYTHON=set:${Python3_EXECUTABLE}")
 	endif()
-	# A SKIPPED GATE IS NOT A PASSED GATE. The database URLs come from the environment at test time, not from this configure, so without them
-	# the test skips itself, SKIP_REGULAR_EXPRESSION turns that into CTest's "***Skipped" and CTest counts it as passed - a full ctest without
-	# AION_TEST_GS_DATABASE_URL / AION_TEST_LS_DATABASE_URL then reports 100% green with M5a never executed. Configure the milestone and CI
-	# trees with -DAION_SCENARIO_REQUIRE=ON: the gate then FAILS instead of skipping when its inputs are missing (M5aScenarioTest.cpp).
-	if(AION_SCENARIO_REQUIRE)
+	# A SKIPPED GATE IS NOT A PASSED GATE. The database URLs come from the environment at test time, not from this configure, so without them the
+	# test would skip itself, SKIP_REGULAR_EXPRESSION would turn that into CTest's "***Skipped" and CTest counts a skip as passed - a full ctest
+	# without AION_TEST_GS_DATABASE_URL / AION_TEST_LS_DATABASE_URL then reported 100% green with M5a never executed.
+	# Since stage 3 the requirement is the DEFAULT (m5a-plan.md §5.10 asked for it as an option; the first real client session showed what an
+	# unrun gate is worth): AION_SCENARIO_REQUIRE=1 is passed to the gate unless the user opts out with -DAION_GS_ALLOW_MILESTONE_SKIP=ON, and
+	# M5aScenarioTest.cpp then turns every skip reason - missing URLs, missing Python interpreter - into a failure that names the variable.
+	# Unlike the cmake -P driven milestone tests (RunStartupSmoke.cmake, RunM4Check.cmake), this one cannot honour the environment variable
+	# AION_GS_ALLOW_MILESTONE_SKIP: ENVIRONMENT_MODIFICATION is fixed at configure time, and the gate is a GoogleTest binary, not a script. The
+	# cache option is the opt-out here. -DAION_SCENARIO_REQUIRE=ON still forces the requirement, even with the opt-out on.
+	if(AION_SCENARIO_REQUIRE OR NOT AION_GS_ALLOW_MILESTONE_SKIP)
 		set_property(TEST gs.scenario.m5a APPEND PROPERTY ENVIRONMENT_MODIFICATION "AION_SCENARIO_REQUIRE=set:1")
 	endif()
 endif()
