@@ -22,10 +22,11 @@
 namespace aion::gameserver::controllers::standins {
 
 /**
- * C++ only, included only by .cpp files of P4-11b: stand-ins for Java methods whose classes have no C++ declaration header yet, so the
- * controller bodies can be ported line by line against them. Each function names the Java method it stands for and the chunk that writes the
- * header; its body is the unported-stub macro (defined out of line in ControllerStandIns.cpp, so callers never see a no-return call). When the
- * header lands, the call sites switch to the real API and the stand-in is deleted.
+ * C++ only, included by .cpp files of P4-11b (and, until the change request below is done, by AccountService.cpp of P5-00): stand-ins for Java
+ * methods whose classes have no C++ declaration header yet, so the controller bodies can be ported line by line against them. Each function
+ * names the Java method it stands for and the chunk that writes the header; its body is the unported-stub macro (defined out of line in
+ * ControllerStandIns.cpp, so callers never see a no-return call). When the header lands, the call sites switch to the real API and the stand-in
+ * is deleted, as the AttackUtil, StatFunctions and GameServer stand-ins were in wave 5a stage 2 (m5a-plan.md W-06).
  */
 
 // ------------------------------------------------------------------------------------------------------------------- P5-05 (aion_gs_ai)
@@ -59,15 +60,6 @@ bool chargeSkillGetAndUse(model::gameobjects::Creature& creature, int32_t skillI
 
 // ---------------------------------------------------------------------------------------------------------------- P5-01 (aion_gs_stats)
 
-/** Java: StatFunctions.adjustStatByMovementModifier(creature, StatEnum.SPEED, value) */
-float statFunctionsAdjustSpeedByMovementModifier(model::gameobjects::Creature& creature, float value);
-
-/** Java: AttackUtil.cancelCastOn(target) */
-void attackUtilCancelCastOn(model::gameobjects::Creature& target);
-
-/** Java: AttackUtil.removeTargetFrom(object) */
-void attackUtilRemoveTargetFrom(model::gameobjects::Creature& object);
-
 /** Java: AttackUtil.calculatePhysAttackResult(attacker, attacked, calculationTypes) */
 std::vector<runtime::Ref<attack::AttackResult>> attackUtilCalculatePhysAttackResult(model::gameobjects::Creature& attacker,
 	model::gameobjects::Creature& attacked, const std::unordered_set<utils::stats::CalculationType>& calculationTypes);
@@ -85,9 +77,6 @@ int32_t statFunctionsCalculateDPReward(model::gameobjects::player::Player& playe
 
 /** Java: StatFunctions.calculatePvEApGained(player, target) */
 int32_t statFunctionsCalculatePvEApGained(model::gameobjects::player::Player& player, model::gameobjects::Creature& target);
-
-/** Java: StatFunctions.calculateFallDamage(player, distance) */
-int32_t statFunctionsCalculateFallDamage(model::gameobjects::player::Player& player, float distance);
 
 // --------------------------------------------------------------------------------------------------------------- P5-10 (aion_gs_team)
 
@@ -109,7 +98,11 @@ void teamStatUpdaterAdd(model::gameobjects::player::Player& player);
 
 // ---------------------------------------------------------------------------------------------------------------- P5-14 (aion_gs_app)
 
-/** Java: GameServer.updateRatio(race, i) */
+/**
+ * Java: GameServer.updateRatio(race, i). No longer a stand-in: GameServer.h exists and this forwards to it. It stays only for its one caller
+ * outside P4-11b, AccountService.cpp:66 (P5-00).
+ * TODO(change-request): the P5-00 owner calls `GameServer::updateRatio` directly, then this declaration and its body go.
+ */
 void gameServerUpdateRatio(model::Race race, int32_t i);
 
 // ---------------------------------------------------------------------------------------------------------- P5-12b (aion_gs_worldevents)

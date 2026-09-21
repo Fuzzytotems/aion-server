@@ -8,6 +8,8 @@
 #include "aion/commons/logging/LoggerFactory.h"
 #include "aion/gameserver/controllers/NpcController.h"
 #include "aion/gameserver/controllers/effect/EffectController.h"
+#include "aion/gameserver/dataholders/DataManager.h"
+#include "aion/gameserver/dataholders/NpcData.h"
 #include "aion/gameserver/model/CreatureType.h"
 #include "aion/gameserver/model/Race.h"
 #include "aion/gameserver/model/gameobjects/NpcObjectType.h"
@@ -19,7 +21,7 @@
 #include "aion/gameserver/model/templates/stats/KiskStatsTemplate.h"
 #include "aion/gameserver/network/aion/serverpackets/SM_KISK_UPDATE.h"
 #include "aion/gameserver/network/aion/serverpackets/SM_SYSTEM_MESSAGE.h"
-#include "aion/gameserver/runtime/base/Unported.h"
+#include "aion/gameserver/runtime/base/Exceptions.h"
 #include "aion/gameserver/services/LegionService.h"
 #include "aion/gameserver/utils/PacketSendUtility.h"
 #include "aion/gameserver/world/World.h"
@@ -32,13 +34,12 @@ static const auto log = commons::logging::LoggerFactory::getLogger("com.aionemu.
 
 namespace {
 
-/**
- * Java `DataManager.NPC_DATA.getNpcTemplate(spawnTemplate.getNpcId()).getLevel()` in the super(...) call: NpcData declares no getNpcTemplate yet
- * (P4-09), so the constructor reaches AION_UNPORTED here (the SummonedObject base initializer does the same lookup).
- */
-[[noreturn]] int8_t levelOf(templates::spawns::SpawnTemplate& spawnTemplate) {
-	static_cast<void>(spawnTemplate);
-	AION_UNPORTED();
+/** Java `DataManager.NPC_DATA.getNpcTemplate(spawnTemplate.getNpcId()).getLevel()` in the super(...) call (NullPointerException without a template) */
+int8_t levelOf(templates::spawns::SpawnTemplate& spawnTemplate) {
+	const templates::npc::NpcTemplate* npcTemplate = dataholders::DataManager::NPC_DATA->getNpcTemplate(spawnTemplate.getNpcId());
+	if (npcTemplate == nullptr) // Java: NullPointerException on getLevel()
+		throw runtime::NullPointerException("No npc template for kisk " + std::to_string(spawnTemplate.getNpcId()));
+	return npcTemplate->getLevel();
 }
 
 /**
@@ -53,10 +54,6 @@ const templates::stats::KiskStatsTemplate* defaultKiskStatsTemplate() {
 
 } // namespace
 
-#ifdef _MSC_VER
-#pragma warning(push)
-#pragma warning(disable : 4702) // the base initializer never returns until the template lookup is ported
-#endif
 Kisk::Kisk(CreateKey key, std::unique_ptr<controllers::NpcController> controller, templates::spawns::SpawnTemplate& spawnTemplate,
 	player::Player& owner)
 	: SummonedObject(key, std::move(controller), spawnTemplate, levelOf(spawnTemplate), nullptr),
@@ -70,9 +67,6 @@ Kisk::Kisk(CreateKey key, std::unique_ptr<controllers::NpcController> controller
 	setKnownlist(std::make_unique<world::knownlist::PlayerAwareKnownList>(*this));
 	setEffectController(std::make_unique<controllers::effect::EffectController>(*this));
 }
-#ifdef _MSC_VER
-#pragma warning(pop)
-#endif
 
 Kisk::~Kisk() = default;
 

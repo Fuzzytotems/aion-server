@@ -1,7 +1,8 @@
 #include "aion/gameserver/model/gameobjects/HouseDecoration.h"
 
+#include "aion/gameserver/dataholders/DataManager.h"
+#include "aion/gameserver/dataholders/HousePartsData.h"
 #include "aion/gameserver/model/templates/housing/HousePart.h"
-#include "aion/gameserver/runtime/base/Unported.h"
 
 namespace aion::gameserver::model::gameobjects {
 
@@ -22,8 +23,7 @@ runtime::Ref<HouseDecoration> HouseDecoration::create(int32_t value, int32_t tem
 }
 
 const templates::housing::HousePart* HouseDecoration::getTemplate() {
-	// Java: DataManager.HOUSE_PARTS_DATA.getPartById(templateId); HousePartsData declares no getPartById yet (P4-09)
-	AION_UNPORTED();
+	return dataholders::DataManager::HOUSE_PARTS_DATA->getPartById(templateId);
 }
 
 void HouseDecoration::setPersistentState(Persistable::PersistentState value) {

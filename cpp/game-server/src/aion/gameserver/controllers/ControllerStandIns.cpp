@@ -2,6 +2,7 @@
 
 #include <typeinfo>
 
+#include "aion/gameserver/GameServer.h"
 #include "aion/gameserver/runtime/base/Unported.h"
 #include "aion/gameserver/instance/handlers/InstanceHandler.h"
 #include "aion/gameserver/utils/SimpleClassName.h"
@@ -37,10 +38,6 @@ int32_t statFunctionsCalculatePvEApGained(model::gameobjects::player::Player& pl
 	AION_UNPORTED();
 }
 
-float statFunctionsAdjustSpeedByMovementModifier(model::gameobjects::Creature& creature, float value) {
-	AION_UNPORTED();
-}
-
 bool chargeSkillGetAndUse(model::gameobjects::Creature& creature, int32_t skillId, int32_t skillLevel, int32_t chargeLevel,
 	skillengine::model::Skill& startSkill) {
 	AION_UNPORTED();
@@ -57,10 +54,6 @@ std::vector<runtime::Ref<attack::AttackResult>> attackUtilCalculateMagAttackResu
 	AION_UNPORTED();
 }
 
-int32_t statFunctionsCalculateFallDamage(model::gameobjects::player::Player& player, float distance) {
-	AION_UNPORTED();
-}
-
 void playerTeamDistributionServiceDoReward(model::team::TemporaryPlayerTeam& team, float damagePercent, model::gameobjects::Npc& owner,
 	model::gameobjects::AionObject& winner, attack::TeamDamageList& damageList) {
 	AION_UNPORTED();
@@ -71,14 +64,6 @@ runtime::FutureRef followStartServiceNewFollowingToTargetCheckTask(model::gameob
 }
 
 void shoutEventHandlerOnAttack(ai::NpcAI& npcAI, model::gameobjects::Creature& attacked) {
-	AION_UNPORTED();
-}
-
-void attackUtilCancelCastOn(model::gameobjects::Creature& target) {
-	AION_UNPORTED();
-}
-
-void attackUtilRemoveTargetFrom(model::gameobjects::Creature& object) {
 	AION_UNPORTED();
 }
 
@@ -103,7 +88,7 @@ void teamStatUpdaterAdd(model::gameobjects::player::Player& player) {
 }
 
 void gameServerUpdateRatio(model::Race race, int32_t i) {
-	AION_UNPORTED();
+	GameServer::updateRatio(race, i);
 }
 
 bool playerRestrictionsCanAttack(model::gameobjects::player::Player& player, model::gameobjects::VisibleObject& target) {

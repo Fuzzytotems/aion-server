@@ -4,6 +4,17 @@
 // of the scripted path (layouts written from the Java readImpl methods, the leading fields only: the frame adds nothing, the server ignores
 // what it does not read), a fixed MAC address and HDD serial, and a recorder of every server packet with its Java class name
 // (ServerPacketsOpcodes). The bodies are decoded by the independent decoders of F-08 (stage 2), never with the server's packet classes.
+//
+// ONE DEPENDENCY ON THE SERVER, worth knowing before a §5.8 sequence failure is blamed on a chunk: the CM opcodes this class sends are written
+// out from the Java AionClientPacketFactory (below), but nameOf() maps a RECEIVED opcode to a packet name through the server's own generated
+// table (ServerPacketsOpcodes.gen.h). A packet class given the wrong opcode relative to Java's AionServerPacketsOpcodes would therefore be
+// mislabelled identically on both sides and the §5.8 match would still succeed. What restores the independence is separate opcode-parity
+// coverage that the gate does not depend on: tests/network_crypt/GeneratedOpcodesTest.cpp, tests/sm_ak/ServerPacketsAKOpcodeTest.cpp and
+// tests/sm_lz/OpcodesAndSupportTest.cpp. A full ctest runs them; a bare `ctest -R ^gs.scenario.m5a$` does not.
+//
+// Second thing to know before blaming a chunk: collectUntilQuiet ends a burst at the first 1 s gap. A measured enter-world burst takes about
+// 70 ms, so the headroom is large, but a 1 s stall on a loaded machine truncates the burst, and the gate then fails with a sequence error that
+// looks like a port defect.
 
 #include <chrono>
 #include <cstdint>
@@ -76,6 +87,9 @@ public:
 	static constexpr int32_t CM_CHECK_NICKNAME = 177;
 	static constexpr int32_t CM_MAY_LOGIN_INTO_GAME = 186;
 	static constexpr int32_t CM_MAC_ADDRESS = 189;
+	/** the two in-world packets of item C-01 a real client sends without any user action (AionClientPacketFactory packets[12] and packets[163]) */
+	static constexpr int32_t CM_CUSTOM_SETTINGS = 12;
+	static constexpr int32_t CM_SUBZONE_CHANGE = 163;
 
 	/** the MAC address (LoginServer.java MAC pattern) and HDD serial every scenario client sends */
 	static constexpr std::string_view MAC_ADDRESS = "0A-1B-2C-3D-4E-5F";
@@ -136,6 +150,10 @@ public:
 	/** CM_MOVE without POSITION|MANUAL, GLIDE and VEHICLE data (e.g. a stop move with type 0) */
 	static std::vector<uint8_t> buildCM_MOVE(float x, float y, float z, int8_t heading, int8_t type);
 	static std::vector<uint8_t> buildCM_QUIT(bool stayConnected);
+	/** CM_CUSTOM_SETTINGS.readImpl: display, deny (both readUH) */
+	static std::vector<uint8_t> buildCM_CUSTOM_SETTINGS(uint16_t display, uint16_t deny);
+	/** CM_SUBZONE_CHANGE.readImpl: one readC ("always 1") */
+	static std::vector<uint8_t> buildCM_SUBZONE_CHANGE(uint8_t unk);
 
 	network::test::FakeGameClient client;
 

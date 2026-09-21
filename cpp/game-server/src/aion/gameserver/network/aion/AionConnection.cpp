@@ -11,6 +11,7 @@
 #include "aion/commons/utils/TimeUtils.h"
 #include "aion/commons/utils/concurrent/ExecuteWrapper.h"
 #include "aion/commons/utils/concurrent/RunnableStatsManager.h"
+#include "aion/gameserver/GameServer.h"
 #include "aion/gameserver/configs/main/ThreadConfig.h"
 #include "aion/gameserver/configs/network/NetworkConfig.h"
 #include "aion/gameserver/configs/network/PffConfig.h"
@@ -42,14 +43,6 @@ namespace {
 using clientpackets::CM_PING;
 using configs::network::PffConfig;
 using model::gameobjects::player::Player;
-
-/**
- * Java: GameServer.isShuttingDownSoon() (ShutdownHook running with at most 30 seconds left). TODO(P5-14): call
- * GameServer::isShuttingDownSoon() once GameServer.h exists; until then no shutdown countdown exists in the C++ server.
- */
-bool isGameServerShuttingDownSoon() {
-	return false;
-}
 
 /** Java: the AionServerPacket.toString() of a queued packet (the queue holds serialized bodies) */
 std::string packetNameOf(int32_t opCode) {
@@ -277,7 +270,7 @@ void AionConnection::onDisconnect() {
 	runtime::TaskScope scope(runtime::TaskInfo{std::source_location::current(), runtime::TaskKind::INSTANT});
 	if (runtime::Ptr<ConnectionAliveChecker> checker = connectionAliveChecker.get())
 		checker->stop(); // C++: null if initialized() failed before creating it
-	if (isGameServerShuttingDownSoon()) { // client crashing during last seconds of countdown
+	if (GameServer::isShuttingDownSoon()) { // client crashing during last seconds of countdown
 		safeLogout(); // instant synchronized leaveWorld to ensure completion before onServerClose
 		return;
 	}

@@ -2,7 +2,6 @@
 
 #include "aion/commons/utils/TimeUtils.h"
 #include "aion/gameserver/configs/main/FallDamageConfig.h"
-#include "aion/gameserver/controllers/ControllerStandIns.h"
 #include "aion/gameserver/controllers/ObserveController.h"
 #include "aion/gameserver/controllers/PlayerController.h"
 #include "aion/gameserver/model/gameobjects/player/Player.h"
@@ -11,6 +10,7 @@
 #include "aion/gameserver/network/aion/serverpackets/SM_ATTACK_STATUS_TYPE.h"
 #include "aion/gameserver/services/player/PlayerReviveService.h"
 #include "aion/gameserver/skillengine/model/Skill.h"
+#include "aion/gameserver/utils/stats/StatFunctions.h"
 #include "aion/gameserver/world/WorldPosition.h"
 
 namespace aion::gameserver::controllers::movement {
@@ -74,7 +74,7 @@ void PlayerMoveController::stopFalling(float newZ) {
 
 	if (!player.isFlying() && !player.isDead()) {
 		fallDistance = fallDistance.get() + (lastFallZ.get() - newZ);
-		int32_t damage = standins::statFunctionsCalculateFallDamage(player, fallDistance.get());
+		int32_t damage = utils::stats::StatFunctions::calculateFallDamage(player, fallDistance.get());
 		if (damage > 0) {
 			player.getLifeStats()->reduceHp(SM_ATTACK_STATUS_TYPE::FALL_DAMAGE, damage, 0, SM_ATTACK_STATUS_LOG::REGULAR, player);
 			player.getObserveController()->notifyAttackedObservers(player, 0);

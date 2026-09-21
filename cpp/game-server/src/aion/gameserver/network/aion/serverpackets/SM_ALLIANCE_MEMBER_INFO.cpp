@@ -39,10 +39,17 @@ SM_ALLIANCE_MEMBER_INFO::SM_ALLIANCE_MEMBER_INFO(model::team::alliance::PlayerAl
 	AION_UNPORTED();
 }
 
+#ifdef _MSC_VER
+#pragma warning(push)
+#pragma warning(disable : 4702) // the delegated-to constructor never returns until PlayerAllianceMember.h (P5-10) exists
+#endif
 SM_ALLIANCE_MEMBER_INFO::SM_ALLIANCE_MEMBER_INFO(model::team::alliance::PlayerAllianceMember& member,
 	model::team::common::legacy::PlayerAllianceEvent eventValue)
 	: SM_ALLIANCE_MEMBER_INFO(member, eventValue, 0) {
 }
+#ifdef _MSC_VER
+#pragma warning(pop)
+#endif
 
 SM_ALLIANCE_MEMBER_INFO::~SM_ALLIANCE_MEMBER_INFO() = default;
 

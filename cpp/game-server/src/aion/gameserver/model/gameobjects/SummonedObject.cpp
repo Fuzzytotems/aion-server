@@ -4,41 +4,36 @@
 #include <string>
 #include <utility>
 
-#include "aion/gameserver/runtime/base/Unported.h"
 #include "aion/gameserver/controllers/NpcController.h"
+#include "aion/gameserver/dataholders/DataManager.h"
+#include "aion/gameserver/dataholders/NpcData.h"
 #include "aion/gameserver/model/CreatureType.h"
 #include "aion/gameserver/model/Race.h"
 #include "aion/gameserver/model/gameobjects/player/Player.h"
+#include "aion/gameserver/model/stats/container/NpcLifeStats.h"
+#include "aion/gameserver/model/stats/container/SummonedObjectGameStats.h"
 #include "aion/gameserver/model/templates/spawns/SpawnTemplate.h"
 
 namespace aion::gameserver::model::gameobjects {
 
 namespace {
-/** Java `DataManager.NPC_DATA.getNpcTemplate(spawnTemplate.getNpcId())` in the super(...) call (DataManager holder, not ported yet) */
-[[noreturn]] const templates::npc::NpcTemplate* npcTemplateOf(templates::spawns::SpawnTemplate& spawnTemplate) {
-	static_cast<void>(spawnTemplate);
-	AION_UNPORTED();
+/** Java `DataManager.NPC_DATA.getNpcTemplate(spawnTemplate.getNpcId())` in the super(...) call (a null result is Java's null template) */
+const templates::npc::NpcTemplate* npcTemplateOf(templates::spawns::SpawnTemplate& spawnTemplate) {
+	return dataholders::DataManager::NPC_DATA->getNpcTemplate(spawnTemplate.getNpcId());
 }
 } // namespace
 
-#ifdef _MSC_VER
-#pragma warning(push)
-#pragma warning(disable : 4702) // the base initializer never returns until the template lookup is ported
-#endif
 SummonedObject::SummonedObject(CreateKey key, std::unique_ptr<controllers::NpcController> controller, templates::spawns::SpawnTemplate& spawnTemplate,
 	int8_t levelValue, runtime::Ptr<VisibleObject> creatorValue)
 	: Npc(key, std::move(controller), spawnTemplate, npcTemplateOf(spawnTemplate)), level(levelValue), creator(creatorValue) {
 }
-#ifdef _MSC_VER
-#pragma warning(pop)
-#endif
 
 SummonedObject::~SummonedObject() = default;
 
 void SummonedObject::setupStatContainers() {
-	// Java: setGameStats(new SummonedObjectGameStats(this)); setLifeStats(new NpcLifeStats(this)): stats/container/SummonedObjectGameStats.h has no
-	// declaration header yet (P5-01)
-	AION_UNPORTED();
+	// Java: setGameStats(new SummonedObjectGameStats(this)); setLifeStats(new NpcLifeStats(this))
+	setGameStats(std::make_unique<stats::container::SummonedObjectGameStats>(*this));
+	setLifeStats(std::make_unique<stats::container::NpcLifeStats>(*this));
 }
 
 int8_t SummonedObject::getLevel() {

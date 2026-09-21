@@ -113,6 +113,17 @@ protected:
 	 */
 	void del(model::gameobjects::VisibleObject& object, model::animations::ObjectDeleteAnimation animation);
 
+public:
+	/**
+	 * C++ addition (m5a-plan.md W-07): how many exceptions the notifySee / notifyNotSee / notifyNotKnow catch blocks below swallowed since
+	 * process start. Java only logs them (`log.error("", ex)`), so a controller that throws on every notification stays invisible in a
+	 * passing run apart from its log lines; the M5a scenario gate counts each one as a failure. Thread-safe, never reset by the server.
+	 */
+	static uint64_t notifyFailureCount() noexcept;
+
+	/** Sets notifyFailureCount() back to 0. For tests only. */
+	static void resetNotifyFailureCountForTests() noexcept;
+
 private:
 	void notifySee(model::gameobjects::VisibleObject& object);
 

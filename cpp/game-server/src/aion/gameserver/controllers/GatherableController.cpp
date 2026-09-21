@@ -33,13 +33,14 @@
 #include "aion/gameserver/model/templates/gather/GatherableTemplate.h"
 #include "aion/gameserver/model/templates/gather/Material.h"
 #include "aion/gameserver/model/templates/gather/Materials.h"
+#include "aion/gameserver/network/aion/serverpackets/SM_GATHER_UPDATE.h"
 #include "aion/gameserver/network/aion/serverpackets/SM_SYSTEM_MESSAGE.h"
 #include "aion/gameserver/runtime/base/Exceptions.h"
-#include "aion/gameserver/runtime/base/Unported.h"
 #include "aion/gameserver/runtime/fields/Array.h"
 #include "aion/gameserver/runtime/sync/Monitor.h"
 #include "aion/gameserver/services/PunishmentService.h"
 #include "aion/gameserver/skillengine/model/SkillTemplate.h"
+#include "aion/gameserver/skillengine/task/GatheringTask.h"
 #include "aion/gameserver/utils/ChatUtil.h"
 #include "aion/gameserver/utils/PacketSendUtility.h"
 #include "aion/gameserver/utils/PositionUtil.h"
@@ -48,16 +49,16 @@
 
 namespace aion::gameserver::controllers {
 
-// C++: the constructor, the destructor and every statement that stores, reads or aborts `gatheringTask` need the complete GatheringTask (P5-02,
-// no declaration header yet): the constructor and destructor stay undefined (nothing may create a GatherableController yet, see the class
-// comment), the task-touching bodies are unported. Every other body is ported.
-
 using configs::main::SecurityConfig;
 using model::gameobjects::player::Player;
 using model::templates::gather::GatherableTemplate;
 using model::templates::gather::Material;
 using network::aion::serverpackets::SM_SYSTEM_MESSAGE;
 using utils::PacketSendUtility;
+
+GatherableController::GatherableController() = default;
+
+GatherableController::~GatherableController() = default;
 
 model::gameobjects::Gatherable& GatherableController::getOwner() const {
 	return static_cast<model::gameobjects::Gatherable&>(VisibleObjectController::getOwner());
@@ -137,20 +138,18 @@ void GatherableController::startGathering(model::gameobjects::player::Player& pl
 		}
 	}
 
-	// Java:
-	// synchronized (this) {
-	//   if (gatheringTask != null) {
-	//     // sends STR_EXTRACT_GATHER_OCCUPIED_BY_OTHER and makes the client deselect the targeted gatherable
-	//     PacketSendUtility.sendPacket(player, new SM_GATHER_UPDATE(template, curMaterial, 0, 0, 8, 0, 0));
-	//     return;
-	//   }
-	//   int skillLvlDiff = player.getSkillList().getSkillLevel(template.getHarvestSkill()) - template.getSkillLevel();
-	//   gatheringTask = new GatheringTask(player, getOwner(), curMaterial, skillLvlDiff);
-	//   gatheringTask.start();
-	// }
 	SYNCHRONIZED(*this) {
-		static_cast<void>(curMaterial);
-		AION_UNPORTED(); // the gatheringTask member needs the complete GatheringTask (P5-02 has no skillengine/task/GatheringTask.h)
+		// lockdep: gatheringTask.get() reads the Field<Ref<GatheringTask>>, it is not a Future wait
+		if (gatheringTask.get()) {
+			// sends STR_EXTRACT_GATHER_OCCUPIED_BY_OTHER and makes the client deselect the targeted gatherable
+			PacketSendUtility::sendPacket(player, network::aion::serverpackets::SM_GATHER_UPDATE(template_, curMaterial, 0, 0, 8, 0, 0));
+			return;
+		}
+		int32_t skillLvlDiff = detail::sub(player.getSkillList()->getSkillLevel(template_->getHarvestSkill()), template_->getSkillLevel());
+		runtime::Ref<skillengine::task::GatheringTask> task =
+			skillengine::task::GatheringTask::create(player, getOwner(), curMaterial, skillLvlDiff);
+		gatheringTask = task;
+		task->start();
 	}
 }
 
@@ -196,17 +195,15 @@ const std::vector<model::templates::gather::Material>* GatherableController::get
 }
 
 void GatherableController::completeInteraction() {
-	// Java:
-	// synchronized (this) {
-	//   gatheringTask = null;
-	//   if (++gatherCount == getOwner().getObjectTemplate().getHarvestCount()) {
-	//     if (getOwner().isInInstance())
-	//       getOwner().getController().delete();
-	//     else
-	//       getOwner().getController().deleteAndScheduleRespawn();
-	//   }
-	// }
-	AION_UNPORTED(); // releasing the gatheringTask Ref needs the complete GatheringTask (P5-02)
+	SYNCHRONIZED(*this) {
+		gatheringTask = nullptr;
+		if (++gatherCount == getOwner().getObjectTemplate()->getHarvestCount()) {
+			if (getOwner().isInInstance())
+				getOwner().getController().delete_();
+			else
+				getOwner().getController().deleteAndScheduleRespawn();
+		}
+	}
 }
 
 void GatherableController::rewardPlayer(runtime::Ptr<model::gameobjects::player::Player> player) {
@@ -237,19 +234,25 @@ void GatherableController::onDespawn() {
 }
 
 void GatherableController::cancelGathering() {
-	// Java:
-	// synchronized (this) {
-	//   if (gatheringTask == null)
-	//     return;
-	//   gatheringTask.abort();
-	//   gatheringTask = null;
-	// }
-	AION_UNPORTED(); // the gatheringTask member needs the complete GatheringTask (P5-02)
+	SYNCHRONIZED(*this) {
+		// lockdep: gatheringTask.get() reads the Field<Ref<GatheringTask>>, it is not a Future wait
+		runtime::Ptr<skillengine::task::GatheringTask> task = gatheringTask.get();
+		if (!task)
+			return;
+		task->abort();
+		gatheringTask = nullptr;
+	}
 }
 
 int32_t GatherableController::getGatheringPlayerId() {
 	// Java: synchronized (this) { return gatheringTask == null ? 0 : gatheringTask.getGathererId(); }
-	AION_UNPORTED(); // the gatheringTask member needs the complete GatheringTask (P5-02)
+	int32_t gathererId = 0;
+	SYNCHRONIZED(*this) {
+		// lockdep: gatheringTask.get() reads the Field<Ref<GatheringTask>>, it is not a Future wait
+		if (runtime::Ptr<skillengine::task::GatheringTask> task = gatheringTask.get())
+			gathererId = task->getGathererId();
+	}
+	return gathererId;
 }
 
 } // namespace aion::gameserver::controllers

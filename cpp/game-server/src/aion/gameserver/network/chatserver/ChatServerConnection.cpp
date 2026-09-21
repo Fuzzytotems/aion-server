@@ -3,6 +3,7 @@
 #include <source_location>
 
 #include "aion/commons/logging/LoggerFactory.h"
+#include "aion/gameserver/GameServer.h"
 #include "aion/gameserver/network/chatserver/ChatServer.h"
 #include "aion/gameserver/network/chatserver/CsClientPacket.h"
 #include "aion/gameserver/network/chatserver/CsClientPacketFactory.h"
@@ -15,18 +16,6 @@
 namespace aion::gameserver::network::chatserver {
 
 static const auto log = commons::logging::LoggerFactory::getLogger("com.aionemu.gameserver.network.chatserver.ChatServerConnection");
-
-namespace {
-
-/**
- * Java: GameServer.isShutdownScheduled(). TODO(P5-14): call GameServer::isShutdownScheduled() once GameServer.h exists; until then no
- * shutdown countdown exists in the C++ server.
- */
-bool isGameServerShutdownScheduled() {
-	return false;
-}
-
-} // namespace
 
 ChatServerConnection::ChatServerConnection(asio::ip::tcp::socket socket, commons::network::NioServer& server)
 	: AConnection(std::move(socket), server, 8192 * 2, 8192 * 2), packetExecutor("ChatServerConnection") {
@@ -66,7 +55,7 @@ bool ChatServerConnection::writeData(commons::utils::ByteBuffer& data) {
 
 void ChatServerConnection::onDisconnect() {
 	runtime::TaskScope scope(runtime::TaskInfo{std::source_location::current(), runtime::TaskKind::INSTANT});
-	if (isGameServerShutdownScheduled())
+	if (GameServer::isShutdownScheduled())
 		return;
 	log.warn("Lost connection with chat server");
 	ChatServer::getInstance().reconnect();

@@ -16,7 +16,10 @@
 //                              census.txt (final census after the players logged out), live_counts.txt, lockdep.txt, watchdog.txt and
 //                              m5a_summary.txt (CheckOutput.h; m5a-plan.md F-02, F-07). A startup that never reaches the run mode writes the
 //                              same seven files, with "started false" in m5a_summary.txt, no baseline and an empty census, so a reader of the
-//                              reports fails with the real cause instead of a missing file. Check modes: the M4 files below (default ./log/m4)
+//                              reports fails with the real cause instead of a missing file. Check modes: the M4 files below (default <log>/m4)
+//   --log-folder=<dir>         the log directory (logback.xml property "logFolder", Logging::Config::logFolder), default ./log. Logging::init
+//                              archives and deletes the *.log files of the previous run in it, so two server processes must never share one:
+//                              every test that starts a game server passes its own directory (cmake/RunStartupSmoke.cmake, RunM4Check.cmake)
 // M4 check modes (M4 gate, CTest gs.m4.check_static_data, cmake/RunM4Check.cmake): the startup without the handler engines up to World, then an
 // orderly runtime shutdown and exit code 0:
 //   --check-static-data        the M4 report files in the check output directory:
@@ -124,12 +127,16 @@ struct Arguments {
 	std::optional<std::filesystem::path> checkOutput;
 	std::optional<std::filesystem::path> geoProbes;
 	std::optional<std::filesystem::path> stopFile;
+	std::optional<std::filesystem::path> logFolder;
 
 	/** the M4 check modes: the startup ends after the runtime or World */
 	bool checkMode() const { return checkStaticData || checkIdFactory; }
 
-	/** the report directory of the check modes (default ./log/m4) */
-	std::filesystem::path checkModeOutput() const { return checkOutput.value_or("./log/m4"); }
+	/** the log directory (default ./log, like logback.xml) */
+	std::filesystem::path logDirectory() const { return logFolder.value_or("./log"); }
+
+	/** the report directory of the check modes (default <log>/m4) */
+	std::filesystem::path checkModeOutput() const { return checkOutput.value_or(logDirectory() / "m4"); }
 };
 
 Arguments parseArguments(int argc, char* argv[]) {
@@ -149,6 +156,8 @@ Arguments parseArguments(int argc, char* argv[]) {
 			arguments.geoProbes = std::filesystem::path(std::string(arg.substr(std::string_view("--check-geo-probes=").size())));
 		else if (arg.starts_with("--stop-file="))
 			arguments.stopFile = std::filesystem::path(std::string(arg.substr(std::string_view("--stop-file=").size())));
+		else if (arg.starts_with("--log-folder="))
+			arguments.logFolder = std::filesystem::path(std::string(arg.substr(std::string_view("--log-folder=").size())));
 		else
 			arguments.unknown.emplace_back(arg);
 	}
@@ -531,7 +540,9 @@ void installRunReports(const std::filesystem::path& dir) {
 			reports.summary.watchdogDumps = dumps.count.load(std::memory_order_acquire);
 		}
 		reports.summary.notPortedClientPackets = aion::gameserver::network::aion::AionClientPacketFactory::unportedPacketClassesSeen();
-		reports.summary.exitCode = aion::commons::utils::ExitCode::NORMAL;
+		// the code the hook thread ends the process with (the stop file and Ctrl+C request NORMAL, the restart cron job RESTART), so the summary
+		// cannot claim exit code 0 for a run that exits with another one
+		reports.summary.exitCode = ShutdownHook::getInstance().getExitCode();
 		CheckOutput::writeSummary(dir, reports.summary);
 		log().info("Check output written to {}: {} AION_UNPORTED hits, {} AION_PARTIAL hits", dir.string(), aion::gameserver::runtime::unportedHitCount(),
 			aion::gameserver::runtime::partialHitCount());
@@ -624,7 +635,10 @@ int main(int argc, char* argv[]) {
 	bool started = false;
 	try {
 		// Java: GameServer's static initializer
-		Logging::init(aion::gameserver::configs::Config::loadLoggingConfig()); // must run before anything logs to the files
+		Logging::Config loggingConfig = aion::gameserver::configs::Config::loadLoggingConfig();
+		if (arguments.logFolder) // C++ only: --log-folder, so two test servers never archive each other's log files (file comment)
+			loggingConfig.logFolder = *arguments.logFolder;
+		Logging::init(loggingConfig); // must run before anything logs to the files
 		configureCheckModeLogging(arguments);
 		// C++ addition: command line overrides are layered where Java layers the active events' properties (over mygs.properties), so they also
 		// survive later Config::load calls. EventService (P5-12b) must keep them when it registers its provider.

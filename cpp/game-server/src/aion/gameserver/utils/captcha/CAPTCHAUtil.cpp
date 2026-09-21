@@ -6,10 +6,16 @@
 
 namespace aion::gameserver::utils::captcha {
 
+// C++ only: createImage below is AION_UNPORTED (no text rasterizer, see the class comment), so the optimizer proves the conversion statement of
+// createCAPTCHA unreachable and RelWithDebInfo reports C4702 there (the scenario gate builds checked RelWithDebInfo, m5a-plan.md §5.10). The
+// pragma goes when createImage is ported.
+#pragma warning(push)
+#pragma warning(disable : 4702)
 std::optional<commons::utils::ByteBuffer> CAPTCHAUtil::createCAPTCHA(std::string_view word) {
 	std::optional<DDSConverter::Image> bImg = createImage(word);
 	return DDSConverter::convertToDxt1NoTransparency(bImg ? &*bImg : nullptr);
 }
+#pragma warning(pop)
 
 std::optional<DDSConverter::Image> CAPTCHAUtil::createImage(std::string_view word) {
 	// Java: a TYPE_INT_ARGB_PRE image of IMAGE_WIDTH x IMAGE_HEIGHT filled black, each char of the word drawn in white with

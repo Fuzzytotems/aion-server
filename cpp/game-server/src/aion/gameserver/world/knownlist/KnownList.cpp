@@ -1,6 +1,7 @@
 #include "aion/gameserver/world/knownlist/KnownList.h"
 
 #include <algorithm>
+#include <atomic>
 #include <cstddef>
 #include <cstdint>
 #include <exception>
@@ -38,6 +39,17 @@ constexpr size_t PAIR_LOCK_STRIPES = 64;
  * knownObjects stripes). Immortal and thread-safe.
  */
 constinit runtime::Monitor pairLocks[PAIR_LOCK_STRIPES];
+
+/**
+ * C++ only (m5a-plan.md W-07): the counter behind KnownList::notifyFailureCount(). A constant-initialized function-local static, so it is
+ * ready before the first notification of any thread and needs no task scope; the atomic increment cannot lose a concurrent failure.
+ */
+// lint: L14 a diagnostic counter of the M5a gate, not game state; it is read outside a task scope, where a Field<> may not be read
+constinit std::atomic<uint64_t> notifyFailures{0};
+
+void countNotifyFailure() noexcept {
+	notifyFailures.fetch_add(1, std::memory_order_acq_rel);
+}
 
 runtime::MonitorHandle pairLock(const VisibleObject& a, const VisibleObject& b) {
 	auto low = static_cast<uint32_t>(std::min(a.getObjectId(), b.getObjectId()));
@@ -201,10 +213,19 @@ void KnownList::del(VisibleObject& object, ObjectDeleteAnimation animation) {
 		notifyRemoved(*knownObject, animation);
 }
 
+uint64_t KnownList::notifyFailureCount() noexcept {
+	return notifyFailures.load(std::memory_order_acquire);
+}
+
+void KnownList::resetNotifyFailureCountForTests() noexcept {
+	notifyFailures.store(0, std::memory_order_release);
+}
+
 void KnownList::notifySee(VisibleObject& object) {
 	try {
 		owner.getController().see(object);
 	} catch (const std::exception& e) {
+		countNotifyFailure();
 		log.error("", e);
 	}
 }
@@ -213,6 +234,7 @@ void KnownList::notifyNotSee(VisibleObject& object, ObjectDeleteAnimation animat
 	try {
 		owner.getController().notSee(object, animation);
 	} catch (const std::exception& e) {
+		countNotifyFailure();
 		log.error("", e);
 	}
 }
@@ -221,6 +243,7 @@ void KnownList::notifyNotKnow(VisibleObject& object) {
 	try {
 		owner.getController().notKnow(object);
 	} catch (const std::exception& e) {
+		countNotifyFailure();
 		log.error("", e);
 	}
 }

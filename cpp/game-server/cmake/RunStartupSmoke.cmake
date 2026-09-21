@@ -16,9 +16,10 @@
 #   cmake -DEXECUTABLE=<aion_game_server> -DDATABASE_TOOL=<aion_gs_m4_database> -DWORKING_DIRECTORY=<game-server> -DMODE=smoke|progress
 #         [-DREQUIRE_STARTED=ON|OFF] [-DOUTPUT_DIR=<dir>] -P RunStartupSmoke.cmake
 #
-# MODE smoke (gs.smoke.startup): passes when the whole startup ran ("Game server started"), the stop file shut the server down in order
-# ("Runtime shut down: ...") and the exit code is 0. With REQUIRE_STARTED OFF (stage 1 of wave 5a, until F-01b wires the last steps), a startup
-# that loaded all static data and created the world but then stopped at an unported function is reported as skipped (it names the function).
+# MODE smoke (gs.smoke.startup): passes when the whole startup ran ("Game server started") with zero AION_UNPORTED hits (m5a-plan.md F-01b; the
+# AION_PARTIAL sites it reached are printed), the stop file shut the server down in order ("Runtime shut down: ...") and the exit code is 0. With
+# REQUIRE_STARTED OFF (stage 1 of wave 5a, before F-01b), a startup that loaded all static data and created the world but then stopped at an
+# unported function was reported as skipped (it names the function); stage 2 sets REQUIRE_STARTED ON (cmake/AppTests.cmake).
 # MODE progress (gs.smoke.startup_progress): prints the last startup step reached ("startup step N: name", m5a-plan.md F-01a) and passes when
 # the steps are numbered without gaps from 1 and the run ended in order: either started and stopped by the stop file with exit code 0, or
 # stopped at a step (an unported function or an exception) with exit code 1 and an orderly runtime shutdown. A crash, a hang, a missing step
@@ -27,26 +28,40 @@
 # Database (like the commons and login server database tests, the tests are skipped without it): the environment variable
 # AION_TEST_GS_DATABASE_URL names the MariaDB server (e.g. jdbc:mysql://127.0.0.1:3306/aion_cpp_test?characterEncoding=UTF-8; that database must
 # exist), optionally AION_TEST_GS_DATABASE_USER / AION_TEST_GS_DATABASE_PASSWORD (default: root without password). The test creates its own game
-# server schema (aion_gs_test_smoke, aion_gs_test_smoke_progress) from game-server/sql/aion_gs.sql with aion_gs_m4_database, passes it as
-# -Ddatabase.* overrides (never the database of config/network/database.properties) and drops it after a successful run. Output
-# "gs.smoke.startup: skipped" / "gs.smoke.startup_progress: skipped" marks a test skipped (SKIP_REGULAR_EXPRESSION). The server writes its log
-# files to <WORKING_DIRECTORY>/log (gitignored), like a normal start.
+# server schema (aion_gs_test_smoke_<hash>, aion_gs_test_smoke_progress_<hash>, the first 12 hex digits of the MD5 of OUTPUT_DIR like
+# RunM4Check.cmake) from game-server/sql/aion_gs.sql with aion_gs_m4_database, passes it as -Ddatabase.* overrides (never the database of
+# config/network/database.properties) and drops it after a successful run. Output "gs.smoke.startup: skipped" /
+# "gs.smoke.startup_progress: skipped" marks a test skipped (SKIP_REGULAR_EXPRESSION).
+#
+# The server writes its log files to <OUTPUT_DIR>/log (--log-folder), not to the shared <WORKING_DIRECTORY>/log of a normal start: Logging::init
+# archives and deletes the *.log files of the previous run, so a second server process in the same directory - another build directory's test
+# run, or a game server the user started - makes both runs fail with "Error gathering and archiving old logs". Together with the hashed schema
+# name this makes the test independent of what else runs on the machine (CTest's RESOURCE_LOCK only serializes one ctest run).
 
 if(NOT DEFINED MODE)
 	set(MODE smoke)
 endif()
 if(MODE STREQUAL "smoke")
 	set(test_name gs.smoke.startup)
-	set(database aion_gs_test_smoke)
+	set(database_prefix aion_gs_test_smoke)
 elseif(MODE STREQUAL "progress")
 	set(test_name gs.smoke.startup_progress)
-	set(database aion_gs_test_smoke_progress)
+	set(database_prefix aion_gs_test_smoke_progress)
 else()
 	message(FATAL_ERROR "RunStartupSmoke.cmake: unknown MODE '${MODE}' (smoke or progress)")
 endif()
 if(NOT DEFINED REQUIRE_STARTED)
 	set(REQUIRE_STARTED ON)
 endif()
+
+if(NOT DEFINED OUTPUT_DIR)
+	set(OUTPUT_DIR "${CMAKE_CURRENT_BINARY_DIR}/${test_name}")
+endif()
+# The schema name carries the hash of OUTPUT_DIR (like RunM4Check.cmake) and the log directory is OUTPUT_DIR/log, so two build directories
+# running this test at the same time neither drop each other's schema nor archive each other's log files (Logging::init deletes what it archives).
+string(MD5 output_hash "${OUTPUT_DIR}")
+string(SUBSTRING "${output_hash}" 0 12 output_hash)
+set(database "${database_prefix}_${output_hash}")
 
 if(NOT DEFINED ENV{AION_TEST_GS_DATABASE_URL} OR "$ENV{AION_TEST_GS_DATABASE_URL}" STREQUAL "")
 	message("${test_name}: skipped (set AION_TEST_GS_DATABASE_URL, e.g. jdbc:mysql://127.0.0.1:3306/aion_cpp_test?characterEncoding=UTF-8)")
@@ -71,9 +86,6 @@ if(NOT create_result STREQUAL "0")
 endif()
 message("${created}")
 
-if(NOT DEFINED OUTPUT_DIR)
-	set(OUTPUT_DIR "${CMAKE_CURRENT_BINARY_DIR}/${test_name}")
-endif()
 file(MAKE_DIRECTORY "${OUTPUT_DIR}")
 set(stop_file "${OUTPUT_DIR}/stop")
 file(WRITE "${stop_file}" "stop\n")
@@ -91,7 +103,7 @@ list(APPEND arguments "-Dgameserver.dev.missing_ai_handlers=warn" "-Dgameserver.
 	"-Dgameserver.limits.enable=false" "-Dgameserver.event.service.disabled_events=*" "-Dgameserver.geodata.enable=false"
 	"-Dgameserver.shutdown.delay=2")
 list(APPEND arguments "-Dgameserver.network.client.socket_address=127.0.0.1:0" "-Dgameserver.network.login.address=127.0.0.1:1")
-list(APPEND arguments "--stop-file=${stop_file}" "--check-output=${OUTPUT_DIR}/check")
+list(APPEND arguments "--stop-file=${stop_file}" "--check-output=${OUTPUT_DIR}/check" "--log-folder=${OUTPUT_DIR}/log")
 
 execute_process(
 	COMMAND "${EXECUTABLE}" ${arguments}
@@ -138,6 +150,10 @@ foreach(line IN LISTS step_lines)
 endforeach()
 if(step_count EQUAL 0)
 	message(FATAL_ERROR "${test_name}: no startup step was logged (exit code '${result}')")
+endif()
+# --log-folder: the run's log files are its own, so no other server process archives or deletes them (and this one archives none of theirs)
+if(NOT EXISTS "${OUTPUT_DIR}/log/server_console.log")
+	message(FATAL_ERROR "${test_name}: the server wrote no ${OUTPUT_DIR}/log/server_console.log (--log-folder was not honoured)")
 endif()
 
 set(started FALSE)
@@ -186,6 +202,24 @@ if(started)
 	if(live_counts_length EQUAL 0)
 		message(FATAL_ERROR "${test_name}: live_counts.txt is empty")
 	endif()
+	# F-01b: the whole startup path must reach no AION_UNPORTED body at all. The counter covers every thread (the spawn and zone paths swallow
+	# the UnportedException, so a body reached there would otherwise only show up as an ERROR line).
+	if(NOT summary MATCHES "unportedHits ([0-9]+)")
+		message(FATAL_ERROR "${test_name}: m5a_summary.txt has no \"unportedHits\" line:\n${summary}")
+	endif()
+	set(unported_hits "${CMAKE_MATCH_1}")
+	if(NOT unported_hits STREQUAL "0")
+		file(READ "${check_dir}/unported_trace.txt" unported_trace)
+		if(MODE STREQUAL "smoke")
+			message(FATAL_ERROR "${test_name}: the startup reached ${unported_hits} AION_UNPORTED hits; m5a-plan.md F-01b requires none:\n"
+				"${unported_trace}")
+		endif()
+		# progress mode stays the diagnostic of F-01a: it names what the startup still reaches instead of failing
+		message("${test_name}: the startup reached ${unported_hits} AION_UNPORTED hits (gs.smoke.startup fails on them, F-01b):\n${unported_trace}")
+	endif()
+	# The AION_PARTIAL sites of the startup are allowed (D3), but the gate (F-06) has to know them: print them with their hit counts.
+	file(READ "${check_dir}/partial_trace.txt" partial_trace)
+	message("${test_name}: AION_PARTIAL sites reached by the startup (m5a-plan.md D3):\n${partial_trace}")
 elseif(NOT summary MATCHES "started false")
 	message(FATAL_ERROR "${test_name}: m5a_summary.txt does not say \"started false\" although the server did not start:\n${summary}")
 endif()

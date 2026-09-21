@@ -5,11 +5,14 @@
 //
 // The login server is started in its own process group (CREATE_NEW_PROCESS_GROUP) and stopped with CTRL_BREAK_EVENT, which its console
 // handler turns into an orderly shutdown (LoginServer.cpp); the harness then waits for the exit before it scans the log. The destructor
-// terminates a process that is still running, so a failing test never leaves a server behind.
+// terminates a process that is still running, so a failing test never leaves a server behind, and every child additionally lives in a job
+// object with JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE, so Windows reaps it even when no destructor runs (a CTest TIMEOUT or a crash of the test).
 
 #include <chrono>
 #include <cstdint>
 #include <filesystem>
+#include <functional>
+#include <map>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -27,6 +30,8 @@ public:
 		std::filesystem::path logFile;
 		/** CREATE_NEW_PROCESS_GROUP, required for sendCtrlBreak() */
 		bool newProcessGroup = false;
+		/** if set, stderr goes here instead of into the log file (a tool whose stdout the harness parses, e.g. tools/oracle) */
+		std::filesystem::path errorFile;
 	};
 
 	/** Starts the process. @throws std::runtime_error if it cannot be started */
@@ -51,10 +56,24 @@ public:
 
 	uint32_t processId() const noexcept { return pid; }
 
-	/** the current content of the log file */
+	/**
+	 * The current content of the log file. A server that hits an unported body inside a spawn loop writes hundreds of megabytes of stack
+	 * traces, so a caller that only needs the end or single lines uses readLogTail() or findLogLines() instead.
+	 */
 	std::string readLog() const;
 
-	/** Waits until the log contains the text, the process exited or the timeout passed. @return true if the text was found */
+	/** the last `maxBytes` bytes of the log, from the start of the first whole line in them */
+	std::string readLogTail(size_t maxBytes) const;
+
+	/** @return up to `maxMatches` log lines that contain `text`, read line by line (the whole log is never held in memory) */
+	std::vector<std::string> findLogLines(std::string_view text, size_t maxMatches = 20) const;
+
+	/**
+	 * Waits until the log contains the text, the process exited or the timeout passed. Only the bytes that appeared since the last call are
+	 * scanned, so waiting on a log that grows to hundreds of megabytes stays linear.
+	 *
+	 * @return true if the text was found
+	 */
 	bool waitForLog(std::string_view text, std::chrono::milliseconds timeout);
 
 	const Options& options() const noexcept { return options_; }
@@ -63,9 +82,20 @@ public:
 	static std::wstring commandLine(const std::filesystem::path& executable, const std::vector<std::string>& arguments);
 
 private:
+	/** @return true if the text is in the log, scanning only the bytes a previous call for the same text has not seen yet */
+	bool scanLogFor(std::string_view text);
+
 	Options options_;
 	void* process = nullptr;
+	/**
+	 * A job object with JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE holding the child (null if Windows refused to create one). Closing it kills the
+	 * child, so a CTest TIMEOUT or a crash of the test process cannot orphan a server the way it could while the destructor was the only
+	 * reaper.
+	 */
+	void* job = nullptr;
 	uint32_t pid = 0;
+	/** how many bytes of the log waitForLog already scanned, per searched text */
+	std::map<std::string, uint64_t, std::less<>> scanned;
 };
 
 } // namespace aion::gameserver::scenario

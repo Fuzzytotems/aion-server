@@ -19,8 +19,8 @@ namespace aion::gameserver::model::gameobjects {
  * S0c declaration header (docs/design/hub-headers.md §3.5; the base of Kisk, written by the model-a lane because Kisk.h needs it). Java
  * `SummonedObject<T extends VisibleObject>` is one non-template class (§8.1): T is spelled VisibleObject, so getCreator() keeps Npc's
  * `Ptr<VisibleObject>` and subclasses cast. A visible object: `VisibleObject::create<SummonedObject>(...)` (§10.1). The creator may be null
- * (Kisk passes null). The Java constructor passes `DataManager.NPC_DATA.getNpcTemplate(spawnTemplate.getNpcId())` to Npc, so the base
- * initializer reaches `AION_UNPORTED` (a local helper in the .cpp).
+ * (Kisk passes null). The Java constructor passes `DataManager.NPC_DATA.getNpcTemplate(spawnTemplate.getNpcId())` to Npc (a local helper in
+ * the .cpp).
  *
  * @author ATracer
  */

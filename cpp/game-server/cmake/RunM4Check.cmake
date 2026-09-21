@@ -22,7 +22,8 @@
 # so M4 runs of different build directories or configurations on one MariaDB never share (and drop) each other's schema; RESOURCE_LOCK only
 # serializes the tests of one ctest invocation. It is dropped at the end of the run, after a failure too (the output of every database step
 # and both server logs stay in OUTPUT_DIR). The server logs are OUTPUT_DIR/id_factory.log and OUTPUT_DIR/check.log, the report files
-# OUTPUT_DIR/empty and OUTPUT_DIR/full.
+# OUTPUT_DIR/empty and OUTPUT_DIR/full. Each server run gets its own log directory (--log-folder=OUTPUT_DIR/<name>_log) instead of the shared
+# <WORKING_DIRECTORY>/log, so a game server of another build directory cannot make the log archiving of this run fail.
 
 if(NOT PYTHON OR NOT EXISTS "${PYTHON}")
 	message("gs.m4.check_static_data: skipped (no Python 3 interpreter for the oracles: PYTHON='${PYTHON}'; install Python 3.12 and reconfigure)")
@@ -82,7 +83,9 @@ endfunction()
 # the server run: exit code 0, the log in OUTPUT_DIR/<name>.log, common checks; the log text is returned in <out_log>
 function(m4_server name out_log)
 	execute_process(
-		COMMAND "${EXECUTABLE}" ${ARGN} ${database_arguments}
+		# --log-folder: the run's own log directory, never the shared <WORKING_DIRECTORY>/log (Logging::init archives and deletes the *.log
+		# files it finds there, so two server processes in one log directory fail each other's archiving; RunStartupSmoke.cmake does the same)
+		COMMAND "${EXECUTABLE}" ${ARGN} ${database_arguments} "--log-folder=${OUTPUT_DIR}/${name}_log"
 		WORKING_DIRECTORY "${WORKING_DIRECTORY}"
 		OUTPUT_FILE "${OUTPUT_DIR}/${name}.log"
 		ERROR_FILE "${OUTPUT_DIR}/${name}.stderr.log"

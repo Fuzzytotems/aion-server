@@ -74,6 +74,12 @@ public:
 	/** true once exit() started the hook thread */
 	bool isExitRequested() const noexcept;
 
+	/**
+	 * The exit code the process will end with: the one the first exit() was called with, ExitCode::NORMAL while no shutdown was requested.
+	 * Java has no equivalent (System.exit takes the code to the JVM); the run mode's m5a_summary.txt reports it (main.cpp).
+	 */
+	int32_t getExitCode() const noexcept;
+
 	/** Waits until the hook thread finished run() and the added steps (before its exit function). @return false on timeout */
 	bool awaitCompletion(std::chrono::milliseconds timeout);
 

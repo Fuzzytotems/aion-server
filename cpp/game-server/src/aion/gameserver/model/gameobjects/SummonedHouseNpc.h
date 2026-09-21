@@ -18,7 +18,7 @@ namespace aion::gameserver::model::gameobjects {
 /**
  * A house npc (butler, relationship crystal, ...) created by its house (Java `SummonedObject<House>`, erased: hub-headers.md §8.1: getCreator()
  * returns the house as `Ptr<VisibleObject>`). A visible object: `VisibleObject::create<SummonedHouseNpc>(controller, spawnTemplate, house)`
- * (§10.1). The base initializer reads the NPC template (DataManager, not ported yet), so the constructor reaches `AION_UNPORTED`.
+ * (§10.1).
  * C++ only: getMasterName() keeps Java's "" for a house without owner name (Npc's `Field<std::string>` cannot tell "" from null).
  *
  * @author Rolandas

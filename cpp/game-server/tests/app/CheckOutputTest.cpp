@@ -83,7 +83,10 @@ TEST(CheckOutputTest, SummaryListsTheCountsAndTheUnportedClientPackets) {
 	EXPECT_TRUE(text.starts_with("started true\nexitCode 0\nunportedHits ")) << text;
 	EXPECT_NE(text.find("\npartialHits "), std::string::npos) << text;
 	EXPECT_NE(text.find("\npartialSites "), std::string::npos) << text;
-	EXPECT_NE(text.find("\ncensusLeaks 1\nzombieCuts 2\nlockdepReports 3\nwatchdogDumps 4\natreianPassportDisabled false\n"), std::string::npos) << text;
+	// knownListNotifyFailures is the W-07 counter: every KnownList notifySee/notifyNotSee/notifyNotKnow catch counts as a failure, and §5.7 Q8
+	// asserts it is 0. Java logs those with an empty message (`log.error("", ex)`), so without this key the gate has no attributable signal.
+	EXPECT_NE(text.find("\ncensusLeaks 1\nzombieCuts 2\nlockdepReports 3\nwatchdogDumps 4\nknownListNotifyFailures "), std::string::npos) << text;
+	EXPECT_NE(text.find("\natreianPassportDisabled false\n"), std::string::npos) << text;
 	EXPECT_TRUE(text.ends_with("notPortedClientPacket CM_CHAT_AUTH\nnotPortedClientPacket CM_SUBZONE_CHANGE\n")) << text; // sorted
 
 	CheckOutput::Summary unknown;

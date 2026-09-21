@@ -10,7 +10,7 @@
 #include "aion/gameserver/model/gameobjects/fwd.h"
 #include "aion/gameserver/model/gameobjects/player/fwd.h"
 #include "aion/gameserver/model/templates/gather/fwd.h"
-#include "aion/gameserver/skillengine/task/fwd.h"
+#include "aion/gameserver/skillengine/task/GatheringTask.h"
 
 namespace aion::gameserver::controllers {
 
@@ -20,15 +20,10 @@ namespace aion::gameserver::controllers {
  * The controller part of Gatherable (late-bound by setOwner). Binds VisibleObjectController's type variable to Gatherable: getOwner() returns
  * `Gatherable&` (hub-headers.md §8.2). The Java synchronized (this) blocks are SYNCHRONIZED(*this) on the part (the owner's monitor).
  * <p>
- * Partly defined: the constructor, the destructor and the bodies that store, read or abort `gatheringTask` need the complete GatheringTask
- * (P5-02), which has no declaration header yet (skillengine/task/GatheringTask.h). The constructor and destructor stay undefined, so nothing may
- * create a GatherableController yet (the Gatherable constructor of P4-11a is not defined either); the task bodies are unported. The other bodies
- * are ported in GatherableController.cpp.
- * <p>
- * TODO(header-request): request world-engines-1 asks P5-02 for `skillengine/task/GatheringTask.h`. A declaration header suffices: the member
- * below is a `Field<Ref<GatheringTask>>`, and `~Ref` calls `release()`, which needs the complete type. Callers blocked meanwhile:
- * `GatherableController::GatherableController()`/`~GatherableController()`, `Gatherable::Gatherable(CreateKey, SpawnTemplate&,
- * unique_ptr<GatherableController>)` and `VisibleObjectSpawner::spawnGatherable` (m5a-plan.md W-04).
+ * Fully defined since wave 5a stage 2: `skillengine/task/GatheringTask.h` (P5-02) is the declaration header header request world-engines-1
+ * asked for, and `~Ref<GatheringTask>` needs it. Before it existed the constructor and the destructor could not be defined, so nothing could
+ * create a GatherableController, the Gatherable constructor was undefined too and `VisibleObjectSpawner::spawnGatherable` was an AION_PARTIAL
+ * that left the world without a single gatherable (m5a-plan.md W-04).
  *
  * @author ATracer, sphinx, Cura
  */

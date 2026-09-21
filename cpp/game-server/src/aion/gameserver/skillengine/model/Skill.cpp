@@ -5,7 +5,9 @@
 #include "aion/gameserver/controllers/observer/StartMovingListener.h"
 #include "aion/gameserver/model/gameobjects/Creature.h"
 #include "aion/gameserver/model/gameobjects/player/Player.h"
+#include "aion/gameserver/model/skill/PlayerSkillList.h"
 #include "aion/gameserver/runtime/base/Unported.h"
+#include "aion/gameserver/skillengine/model/ActivationAttribute.h"
 #include "aion/gameserver/skillengine/model/Effect.h"
 #include "aion/gameserver/skillengine/model/SkillTemplate.h"
 
@@ -15,9 +17,9 @@ static const auto log = commons::logging::LoggerFactory::getLogger("com.aionemu.
 
 Skill::Skill(const SkillTemplate* skillTemplateValue, gameserver::model::gameobjects::player::Player& effectorValue,
 	runtime::Ptr<gameserver::model::gameobjects::Creature> firstTargetValue)
-	: Skill(skillTemplateValue, effectorValue, 0, firstTargetValue, nullptr) {
 	// Java: this(skillTemplate, effector, effector.getSkillList().getSkillLevel(skillTemplate.getSkillId()), firstTarget, null)
-	AION_UNPORTED();
+	: Skill(skillTemplateValue, effectorValue, effectorValue.getSkillList()->getSkillLevel(skillTemplateValue->getSkillId()), firstTargetValue,
+		  nullptr) {
 }
 
 Skill::Skill(const SkillTemplate* skillTemplateValue, gameserver::model::gameobjects::player::Player& effectorValue,
@@ -27,10 +29,13 @@ Skill::Skill(const SkillTemplate* skillTemplateValue, gameserver::model::gameobj
 
 Skill::Skill(const SkillTemplate* skillTemplateValue, gameserver::model::gameobjects::Creature& effectorValue, int32_t skillLvl,
 	runtime::Ptr<gameserver::model::gameobjects::Creature> firstTargetValue, const gameserver::model::templates::item::ItemTemplate* itemTemplateValue)
-	: firstTarget(firstTargetValue), effector(effectorValue), skillLevel(skillLvl), moveListener(nullptr), skillTemplate(skillTemplateValue),
-	  itemTemplate(itemTemplateValue), baseCastDuration(skillTemplateValue->getDuration()), castDuration(skillTemplateValue->getDuration()) {
-	// Java: this.moveListener = new StartMovingListener(); then initializeSkillMethod() (the subclass override in Java, see Skill.h)
-	AION_UNPORTED();
+	// Java: this.effectedList = new ArrayList<>() (the member's default state)
+	: firstTarget(firstTargetValue), effector(effectorValue), skillLevel(skillLvl),
+	  moveListener(controllers::observer::StartMovingListener::create()), skillTemplate(skillTemplateValue), itemTemplate(itemTemplateValue),
+	  baseCastDuration(skillTemplateValue->getDuration()), castDuration(skillTemplateValue->getDuration()) {
+	// Java calls the overridable initializeSkillMethod() here. A C++ constructor cannot dispatch to the subclass override, so this runs
+	// Skill::initializeSkillMethod and PenaltySkill's constructor calls its own again after this one (Skill.h, docs/deviations/P5-02.md).
+	Skill::initializeSkillMethod();
 }
 
 Skill::~Skill() = default;
@@ -55,7 +60,14 @@ runtime::Ref<Skill> Skill::create(const SkillTemplate* skillTemplateValue, games
 }
 
 void Skill::initializeSkillMethod() {
-	AION_UNPORTED();
+	if (itemTemplate != nullptr)
+		skillMethod.set(SkillMethod::ITEM);
+	else if (skillTemplate->isPassive())
+		skillMethod.set(SkillMethod::PASSIVE);
+	else if (skillTemplate->isProvoked())
+		skillMethod.set(SkillMethod::PROVOKED);
+	else
+		skillMethod.set(SkillMethod::CAST);
 }
 
 bool Skill::canUseSkill(properties::Properties_CastState castState) {
@@ -208,11 +220,11 @@ bool Skill::endCondCheck() {
 }
 
 int32_t Skill::getSkillId() {
-	AION_UNPORTED();
+	return skillTemplate->getSkillId();
 }
 
 bool Skill::isPassive() {
-	AION_UNPORTED();
+	return skillTemplate->getActivationAttribute() == ActivationAttribute::PASSIVE;
 }
 
 std::optional<properties::FirstTargetAttribute> Skill::getFirstTargetAttribute() {

@@ -16,8 +16,9 @@ namespace aion::gameserver::skillengine::task {
  * A timed interaction of a player with an object (crafting, gathering).
  * <p>
  * S0c declaration header (docs/design/hub-headers.md §3.5). Abstract RefCounted (fieldmap K4, `Player::interactionTask`); subclasses provide
- * create. The constructor only stores the members (responder defaults to the requester) and is ported. The interaction task (Java anonymous
- * Runnable, fieldmap `AbstractInteractionTask_Runnable`, stored in `task`) is a callback struct in the .cpp once start() is ported.
+ * create. The constructor only stores the members (responder defaults to the requester). The Java anonymous Runnable that start() schedules
+ * (stored in `task`) is the private runInteraction(), which the scheduled body calls through a Ref to this task, the same retention Java's
+ * inner class has (cycles.toml: stop / abort cancel the task and release it).
  *
  * @author ATracer
  */
@@ -59,6 +60,10 @@ protected:
 	 * Called when interaction is not complete and need to be aborted
 	 */
 	virtual void onInteractionAbort() = 0;
+
+private:
+	/** Java: the run() of the anonymous Runnable start() schedules (AbstractInteractionTask.java:68) */
+	void runInteraction();
 
 public:
 	/**

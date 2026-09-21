@@ -104,6 +104,10 @@ std::vector<std::string> ScenarioServers::gameServerArguments() const {
 		arguments.push_back("-D" + key + "=" + value);
 	arguments.push_back("--stop-file=" + stopFile().string());
 	arguments.push_back("--check-output=" + checkOutputDir().string());
+	// The gate's game server gets its own log directory (main.cpp --log-folder). Without it the child writes the shared game-server/log, which
+	// Logging::init archives and DELETES at startup: two build trees running the gate, or a gate run next to the user's own play server, then
+	// destroy each other's logs. It also puts the server's own server_errors.log where Q8 can read it (RunStartupSmoke.cmake does the same).
+	arguments.push_back("--log-folder=" + logFolder().string());
 	return arguments;
 }
 

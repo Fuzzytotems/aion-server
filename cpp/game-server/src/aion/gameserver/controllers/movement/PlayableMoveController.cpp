@@ -3,15 +3,16 @@
 #include <algorithm>
 
 #include "aion/commons/utils/TimeUtils.h"
-#include "aion/gameserver/controllers/ControllerStandIns.h"
 #include "aion/gameserver/controllers/effect/EffectController.h"
 #include "aion/gameserver/controllers/movement/MovementMask.h"
 #include "aion/gameserver/model/gameobjects/Creature.h"
 #include "aion/gameserver/model/stats/container/CreatureGameStats.h"
+#include "aion/gameserver/model/stats/container/StatEnum.h"
 #include "aion/gameserver/network/aion/serverpackets/SM_MOVE.h"
 #include "aion/gameserver/taskmanager/tasks/PlayerMoveTaskManager.h"
 #include "aion/gameserver/utils/PacketSendUtility.h"
 #include "aion/gameserver/utils/PositionUtil.h"
+#include "aion/gameserver/utils/stats/StatFunctions.h"
 #include "aion/gameserver/world/World.h"
 
 namespace aion::gameserver::controllers::movement {
@@ -69,7 +70,8 @@ void PlayableMoveController::moveToDestination() {
 	if (dist < 0.01f)
 		return;
 
-	float currentSpeed = standins::statFunctionsAdjustSpeedByMovementModifier(creature, creature.getGameStats()->getMovementSpeedFloat());
+	float currentSpeed = utils::stats::StatFunctions::adjustStatByMovementModifier(creature, model::stats::container::StatEnum::SPEED,
+		creature.getGameStats()->getMovementSpeedFloat());
 	int64_t msElapsed = commons::utils::currentTimeMillis() - lastMoveUpdate.get();
 	float futureXYDistPassed = std::min(currentSpeed * static_cast<float>(msElapsed) / 1000.0f, dist);
 	float futureZDistPassed = isJumping() ? std::min(2 * static_cast<float>(msElapsed) / 1000.0f, dist) : futureXYDistPassed;

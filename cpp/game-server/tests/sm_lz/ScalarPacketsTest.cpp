@@ -288,6 +288,11 @@ TEST(ScalarPacketsTest, TitleInfoWithoutPlayer) {
 	EXPECT_EQ(bytesOf(SM_TITLE_INFO(false)), Bytes().header(176).C(4).H(0).data);
 	EXPECT_EQ(bytesOf(SM_TITLE_INFO(6, 88)), Bytes().header(176).C(6).H(88).data);
 	EXPECT_EQ(bytesOf(SM_TITLE_INFO(2, 88)), Bytes().header(176).C(2).data);
+	// every enter world of a character without a bonus title sends this packet: PlayerEnterWorldService.java:240 calls
+	// TitleList.setBonusTitle(pcd.getBonusTitleId()) for every id but 0, and players.bonus_title_id defaults to -1 (aion_gs.sql:931), so
+	// TitleList.java:88 writes action 6 with the short -1 (0xFFFF), not 0
+	EXPECT_EQ(bytesOf(SM_TITLE_INFO(6, -1)), Bytes().header(176).C(6).H(-1).data);
+	EXPECT_EQ(bytesOf(SM_TITLE_INFO(int32_t{-1})), Bytes().header(176).C(1).H(-1).data) << "the display title of a new character";
 }
 
 TEST(ScalarPacketsTest, UpgradeArcadeWithoutProgress) {

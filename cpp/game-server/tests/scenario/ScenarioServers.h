@@ -87,6 +87,8 @@ public:
 	const ScenarioDatabase& gameDatabase() const noexcept { return gsDatabase; }
 	std::filesystem::path stopFile() const { return config.outputDir / "stop"; }
 	std::filesystem::path checkOutputDir() const { return config.outputDir / "check"; }
+	/** the game server's own log directory (main.cpp --log-folder), so the gate never writes the shared game-server/log */
+	std::filesystem::path logFolder() const { return config.outputDir / "gs_log"; }
 	ChildProcess* loginServer() noexcept { return ls.get(); }
 	ChildProcess* gameServer() noexcept { return gs.get(); }
 

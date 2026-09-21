@@ -6,12 +6,12 @@
 # switched off. Like the other database tests they are skipped unless the environment names the database: AION_TEST_GS_DATABASE_URL, e.g.
 # jdbc:mysql://127.0.0.1:3306/aion_cpp_test?characterEncoding=UTF-8 (the database must exist; user root without password unless
 # AION_TEST_GS_DATABASE_USER / AION_TEST_GS_DATABASE_PASSWORD are set).
-# - gs.smoke.startup: the whole startup, the stop file and an orderly shutdown with exit code 0. GS_SMOKE_REQUIRE_STARTED is OFF in stage 1 of
-#   wave 5a: a startup that passed the M4 path (static data, 161 world maps) and then stopped at an unported function is reported as skipped.
-#   F-01b (stage 2) turns it ON.
+# - gs.smoke.startup: the whole startup, the stop file and an orderly shutdown with exit code 0, and (m5a-plan.md F-01b) a startup that reached
+#   "Game server started" without a single AION_UNPORTED hit. GS_SMOKE_REQUIRE_STARTED was OFF in stage 1 of wave 5a (a startup that passed the
+#   M4 path and then stopped at an unported function was reported as skipped); stage 2 (F-01b) turns it ON, so the startup path is now a gate.
 # - gs.smoke.startup_progress (m5a-plan.md F-01a): the "startup step N: name" log lines are complete and the run ends in order, whether the startup
 #   reached "Game server started" or stopped at a step whose owner has not merged yet; it prints the last step reached.
-set(GS_SMOKE_REQUIRE_STARTED OFF)
+set(GS_SMOKE_REQUIRE_STARTED ON)
 foreach(gs_smoke_mode IN ITEMS smoke progress)
 	if(gs_smoke_mode STREQUAL "smoke")
 		set(gs_smoke_name gs.smoke.startup)
@@ -22,7 +22,8 @@ foreach(gs_smoke_mode IN ITEMS smoke progress)
 		COMMAND "${CMAKE_COMMAND}" "-DEXECUTABLE=$<TARGET_FILE:aion_game_server>" "-DDATABASE_TOOL=$<TARGET_FILE:aion_gs_m4_database>"
 			"-DWORKING_DIRECTORY=${GS_JAVA_DIR}" "-DMODE=${gs_smoke_mode}" "-DREQUIRE_STARTED=${GS_SMOKE_REQUIRE_STARTED}"
 			"-DOUTPUT_DIR=${CMAKE_CURRENT_BINARY_DIR}/${gs_smoke_name}/$<CONFIG>" -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/RunStartupSmoke.cmake")
-	# every server test writes game-server/log: never at the same time
+	# Each run has its own log directory and schema now (RunStartupSmoke.cmake), so a run of another build directory no longer breaks this one.
+	# The lock stays: two game servers loading the whole static data at once make both runs much slower and can exhaust the machine's memory.
 	set_tests_properties(${gs_smoke_name} PROPERTIES LABELS "smoke;realdata" TIMEOUT 600
 		SKIP_REGULAR_EXPRESSION "${gs_smoke_name}: skipped" RESOURCE_LOCK aion_game_server_log)
 endforeach()

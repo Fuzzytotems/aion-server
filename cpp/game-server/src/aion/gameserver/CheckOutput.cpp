@@ -11,6 +11,7 @@
 #include "aion/gameserver/runtime/sched/Future.h"
 #include "aion/gameserver/runtime/sync/LockOrderValidator.h"
 #include "aion/gameserver/utils/ThreadPoolManager.h"
+#include "aion/gameserver/world/knownlist/KnownList.h"
 
 namespace aion::gameserver {
 
@@ -63,7 +64,21 @@ std::vector<runtime::LeakCensus::LeakReport> CheckOutput::runFinalCensus(const s
 	runtime::Reclaimer::getInstance().reclaimNow();
 	runtime::Reclaimer::getInstance().reclaimNow();
 
-	std::vector<runtime::LeakCensus::LeakReport> leaks = census.getLeaks();
+	// An entry whose object has refcount 0 is NOT a leak: LeakCensus only ever reports an object that was still referenced when a census check
+	// ran (`if (count == 0) continue; // waiting for reclamation`), so a 0 here means the last reference went away after that check and the
+	// object is only waiting for the reclaimer to sweep it - which also removes its entry from the table. Under a loaded machine that window is
+	// wide enough to put a Player into census.txt with refcount 0 while live_counts.txt already reports 0 live Players (measured in a full
+	// `ctest -j 6`). Reclaim until no such entry is left, then report what is really still referenced.
+	std::vector<runtime::LeakCensus::LeakReport> leaks;
+	for (;;) {
+		leaks = census.getLeaks();
+		const bool pending = std::ranges::any_of(leaks, [](const runtime::LeakCensus::LeakReport& leak) { return leak.refCount == 0; });
+		if (!pending || std::chrono::steady_clock::now() >= deadline)
+			break;
+		std::this_thread::sleep_for(std::chrono::milliseconds(25));
+		runtime::Reclaimer::getInstance().reclaimNow();
+	}
+	std::erase_if(leaks, [](const runtime::LeakCensus::LeakReport& leak) { return leak.refCount == 0; });
 	std::ofstream out = openOutput(dir / "census.txt");
 	writeCensus(out, leaks);
 	return leaks;
@@ -130,6 +145,9 @@ void CheckOutput::writeSummary(std::ostream& out, const Summary& summary) {
 	out << "zombieCuts " << summary.zombieCuts << '\n';
 	out << "lockdepReports " << summary.lockdepReports << '\n';
 	out << "watchdogDumps " << summary.watchdogDumps << '\n';
+	// m5a-plan.md W-07: every notifySee/notifyNotSee/notifyNotKnow catch counts as a failure. Java logs it as log.error("", ex), i.e. with an
+	// empty message, so without this counter a controller that throws on every notification is only an unattributable ERROR line.
+	out << "knownListNotifyFailures " << world::knownlist::KnownList::notifyFailureCount() << '\n';
 	out << "atreianPassportDisabled " << (!summary.atreianPassportDisabled ? "unknown" : *summary.atreianPassportDisabled ? "true" : "false") << '\n';
 	std::vector<std::string> packets = summary.notPortedClientPackets;
 	std::ranges::sort(packets);

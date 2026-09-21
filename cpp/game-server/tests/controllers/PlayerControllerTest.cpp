@@ -9,11 +9,17 @@
 
 #include "ControllersTestSupport.h"
 
+#include <atomic>
 #include <memory>
 #include <string_view>
 
+#include "aion/gameserver/configs/main/FallDamageConfig.h"
+#include "aion/gameserver/controllers/ObserveController.h"
 #include "aion/gameserver/controllers/PlayerController.h"
 #include "aion/gameserver/controllers/movement/PlayableMoveController.h"
+#include "aion/gameserver/controllers/movement/PlayerMoveController.h"
+#include "aion/gameserver/controllers/observer/ActionObserver.h"
+#include "aion/gameserver/controllers/observer/ObserverType.h"
 #include "aion/gameserver/dataholders/QuestsData.bind.h"
 #include "aion/gameserver/model/DialogAction.h"
 #include "aion/gameserver/model/Race.h"
@@ -160,6 +166,61 @@ TEST_F(PlayableMoveDirectionTest, MovementDirectionBuckets) {
 
 	move->setInMove(false);
 	move.reset();
+}
+
+/** Records the MOVE notifications of ObserveController.notifyMoveObservers (Java: an anonymous ActionObserver) */
+class MoveRecordingObserver final : public observer::ActionObserver {
+	AION_MAKE_REF_FRIEND
+public:
+	std::atomic<int32_t> moves{0};
+
+	static Ref<MoveRecordingObserver> create() { return runtime::makeRef<MoveRecordingObserver>(); }
+
+	void moved() override { moves.fetch_add(1); }
+
+protected:
+	MoveRecordingObserver() : ActionObserver(observer::ObserverType::MOVE) {}
+	~MoveRecordingObserver() override = default;
+};
+
+/**
+ * m5a-plan.md W-06: PlayerMoveController.stopFalling reaches the real StatFunctions.calculateFallDamage (P5-01) instead of the P4-11b
+ * stand-in. A fall below FallDamageConfig.MINIMUM_DISTANCE_DAMAGE costs no HP, and the fall state is reset, which the second stopFalling
+ * shows: it returns before notifyMoveObservers because lastFallZ is 0 again (PlayerMoveController.java:82-83).
+ */
+TEST_F(PlayerControllerTest, StopFallingBelowTheDamageThresholdCostsNoHpAndResetsTheFall) {
+	CONTROLLERS_TEST_SCOPE;
+	using configs::main::FallDamageConfig;
+	const float percentage = FallDamageConfig::FALL_DAMAGE_PERCENTAGE.load();
+	const int32_t minimum = FallDamageConfig::MINIMUM_DISTANCE_DAMAGE.load();
+	const int32_t maximum = FallDamageConfig::MAXIMUM_DISTANCE_DAMAGE.load();
+	const int32_t midair = FallDamageConfig::MAXIMUM_DISTANCE_MIDAIR.load();
+	FallDamageConfig::FALL_DAMAGE_PERCENTAGE.store(1.0f); // game-server/config/main/falldamage.properties
+	FallDamageConfig::MINIMUM_DISTANCE_DAMAGE.store(10);
+	FallDamageConfig::MAXIMUM_DISTANCE_DAMAGE.store(50);
+	FallDamageConfig::MAXIMUM_DISTANCE_MIDAIR.store(200);
+
+	PlayerFixture faller = makePlayer(100003, 9003, "Faller");
+	faller.player->setPosition(world::WorldPosition::create(210010000, 100.0f, 100.0f, 200.0f, int8_t{0}));
+	Ref<MoveRecordingObserver> observer = MoveRecordingObserver::create();
+	faller.player->getObserveController()->addObserver(*observer);
+	const int32_t hpBefore = faller.player->model::gameobjects::Creature::getLifeStats()->getCurrentHp();
+
+	movement::PlayerMoveController move(*faller.player);
+	move.updateFalling(200.0f); // the first mid-air update only stores lastFallZ
+	EXPECT_EQ(observer->moves.load(), 1);
+	move.stopFalling(198.0f); // 2 m, below MINIMUM_DISTANCE_DAMAGE: calculateFallDamage returns 0
+	EXPECT_EQ(observer->moves.load(), 2);
+	EXPECT_EQ(faller.player->model::gameobjects::Creature::getLifeStats()->getCurrentHp(), hpBefore) << "no fall damage below the threshold";
+
+	move.stopFalling(196.0f);
+	EXPECT_EQ(observer->moves.load(), 2) << "lastFallZ is 0 after stopFalling, so the second call returns at once";
+
+	faller.player->getObserveController()->removeObserver(*observer);
+	FallDamageConfig::FALL_DAMAGE_PERCENTAGE.store(percentage);
+	FallDamageConfig::MINIMUM_DISTANCE_DAMAGE.store(minimum);
+	FallDamageConfig::MAXIMUM_DISTANCE_DAMAGE.store(maximum);
+	FallDamageConfig::MAXIMUM_DISTANCE_MIDAIR.store(midair);
 }
 
 } // namespace

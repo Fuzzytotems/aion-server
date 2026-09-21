@@ -111,12 +111,15 @@ class JavaEnums:
 			else:
 				raise OracleError(f"ItemGroup.{name}: unexpected argument {second!r}")
 			self.item_groups[name] = (slots, equip)
-		self.classes: dict[str, tuple[bool, int, int]] = {}  # name -> (starting class, health multiplier, will multiplier)
+		# name -> (starting class, health, will, health multiplier, will multiplier); the constructor is
+		# PlayerClass(classId, nameId, isStartingClass|startingClass, power, health, agility, accuracy, knowledge, will, healthMultiplier,
+		# willMultiplier, magicalCriticalResist)
+		self.classes: dict[str, tuple[bool, int, int, int, int]] = {}
 		for name, args in _enum_constants(base / "model" / "PlayerClass.java", "PlayerClass"):
 			parts = [p.strip() for p in (args or "").split(",")]
 			if len(parts) != 12:
 				raise OracleError(f"PlayerClass.{name}: expected 12 constructor arguments")
-			self.classes[name] = (parts[2] == "true", int(parts[9]), int(parts[10]))
+			self.classes[name] = (parts[2] == "true", int(parts[4]), int(parts[8]), int(parts[9]), int(parts[10]))
 
 	def slot_for(self, slot_mask: int) -> int:
 		"""ItemSlot.getSlotFor(mask).getSlotIdMask(): the first non-combo slot fully contained in the mask."""
@@ -142,6 +145,26 @@ def max_mp(will_multiplier: int, level: int) -> int:
 	mod1 = f32(f32(level * base) / f32(2.0))
 	mod2 = f32(f32(f32(level * level * will_multiplier) * f32(0.125)) / 10000)
 	return to_int(f32(f32(base + mod1) + mod2))
+
+
+def base_stat_dependent_additional_value(base_stat: int, multiplier: int) -> int:
+	"""PlayerGameStats.calculateBaseStatDependentAdditionalValue: (int) ((baseStat.getCurrent() - 100) / 100f * multiplier)"""
+	return to_int(f32(f32(f32(base_stat - 100) / f32(100.0)) * multiplier))
+
+
+def stats_info_base_max_hp(health: int, health_multiplier: int, level: int) -> int:
+	"""
+	The value SM_STATS_INFO writes as [base hp]: pgs.getMaxHp().getBase(), i.e. the stats template's maxHp
+	(PlayerStatCalculator.calculateMaxHp through PlayerClass.createStatsTemplate) plus what MaxHpFunction adds to the BASE - not the bonus -
+	in PlayerStatFunctions (getHealthDependentAdditionalHp). A fresh character has no other MAXHP stat function: the starting gear carries no
+	MAXHP modifier, passive skill effects are not applied, and the HEALTH stat is the class value, so its Stat2 current is the class health.
+	"""
+	return max_hp(health_multiplier, level) + base_stat_dependent_additional_value(health, health_multiplier)
+
+
+def stats_info_base_max_mp(will: int, will_multiplier: int, level: int) -> int:
+	"""The value SM_STATS_INFO writes as [base mana]: calculateMaxMp plus MaxMpFunction's getWillDependentAdditionalMp (see above)."""
+	return max_mp(will_multiplier, level) + base_stat_dependent_additional_value(will, will_multiplier)
 
 
 @dataclass(frozen=True)
@@ -174,7 +197,7 @@ def creation_report(data: StaticData, java_src: Path, race: str, player_class: s
 	enums = JavaEnums(java_src)
 	if player_class not in enums.classes:
 		raise OracleError(f"unknown player class {player_class}")
-	starting, health_multiplier, will_multiplier = enums.classes[player_class]
+	starting, health, will, health_multiplier, will_multiplier = enums.classes[player_class]
 
 	location = None
 	class_items: list[tuple[int, int]] | None = None
@@ -233,5 +256,8 @@ def creation_report(data: StaticData, java_src: Path, race: str, player_class: s
 		"spawn": location,
 		"items": items_out,
 		"skills": [{"skillId": skill_id, "level": level} for skill_id, level in sorted(skills.items())],
-		"baseStats": {"maxHp": max_hp(health_multiplier, 1), "maxMp": max_mp(will_multiplier, 1)},
+		# What SM_STATS_INFO writes as [base hp] / [base mana] for a fresh level 1 character, which is what scenario check V9 compares.
+		# statsTemplate is the PlayerStatCalculator half alone (PlayerClass.createStatsTemplate), kept separate because the two differ.
+		"baseStats": {"maxHp": stats_info_base_max_hp(health, health_multiplier, 1), "maxMp": stats_info_base_max_mp(will, will_multiplier, 1)},
+		"statsTemplate": {"maxHp": max_hp(health_multiplier, 1), "maxMp": max_mp(will_multiplier, 1)},
 	}

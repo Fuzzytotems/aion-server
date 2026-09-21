@@ -5,6 +5,8 @@
 
 #include "aion/gameserver/controllers/PlaceableObjectController.h"
 #include "aion/gameserver/controllers/VisibleObjectController.h"
+#include "aion/gameserver/dataholders/DataManager.h"
+#include "aion/gameserver/dataholders/HousingObjectData.h"
 #include "aion/gameserver/model/gameobjects/player/Player.h"
 #include "aion/gameserver/model/house/House.h"
 #include "aion/gameserver/model/house/HouseRegistry.h"
@@ -27,13 +29,9 @@ namespace aion::gameserver::model::gameobjects {
 
 namespace {
 
-/**
- * Java `DataManager.HOUSING_OBJECT_DATA.getTemplateById(templateId)` in the super(...) call: HousingObjectData declares no getTemplateById yet
- * (P4-09), so the constructor reaches AION_UNPORTED here.
- */
-[[noreturn]] const templates::VisibleObjectTemplate* housingObjectTemplateOf(int32_t templateId) {
-	static_cast<void>(templateId);
-	AION_UNPORTED();
+/** Java `DataManager.HOUSING_OBJECT_DATA.getTemplateById(templateId)` in the super(...) call (a null result is Java's null template) */
+const templates::VisibleObjectTemplate* housingObjectTemplateOf(int32_t templateId) {
+	return dataholders::DataManager::HOUSING_OBJECT_DATA->getTemplateById(templateId);
 }
 
 /** Java reads the nullable template attribute directly; a missing one is Java's NullPointerException at the caller */
@@ -50,10 +48,6 @@ HouseObject::HouseObject(CreateKey key, house::HouseRegistry& value, int32_t obj
 	: HouseObject(key, value, objId, templateId, false) {
 }
 
-#ifdef _MSC_VER
-#pragma warning(push)
-#pragma warning(disable : 4702) // the base initializer never returns until the template lookup is ported
-#endif
 HouseObject::HouseObject(CreateKey key, runtime::Ptr<house::HouseRegistry> value, int32_t objId, int32_t templateId, bool autoReleaseObjectId)
 	: VisibleObject(key, objId, std::make_unique<controllers::PlaceableObjectController>(), nullptr, housingObjectTemplateOf(templateId), nullptr,
 		  autoReleaseObjectId),
@@ -61,9 +55,6 @@ HouseObject::HouseObject(CreateKey key, runtime::Ptr<house::HouseRegistry> value
 	getController().setOwner(*this); // binds the late-bound part before publication (no virtual call on the owner)
 	setKnownlist(std::make_unique<world::knownlist::PlayerAwareKnownList>(*this));
 }
-#ifdef _MSC_VER
-#pragma warning(pop)
-#endif
 
 void HouseObject::setPersistentState(Persistable::PersistentState value) {
 	// java-race: check-then-act with the DAO save thread (PlayerRegisteredItemsDAO stores the object and then sets UPDATED), so a change made in between

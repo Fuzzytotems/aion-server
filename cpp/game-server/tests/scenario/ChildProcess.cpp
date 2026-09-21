@@ -64,25 +64,68 @@ ChildProcess::ChildProcess(Options options) : options_(std::move(options)) {
 	if (log == INVALID_HANDLE_VALUE)
 		throw std::runtime_error("cannot create " + options_.logFile.string() + " (error " + std::to_string(GetLastError()) + ")");
 	HANDLE input = CreateFileW(L"NUL", GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE, &inherit, OPEN_EXISTING, 0, nullptr);
+	HANDLE errors = log;
+	if (!options_.errorFile.empty()) {
+		std::filesystem::create_directories(options_.errorFile.parent_path());
+		errors = CreateFileW(options_.errorFile.wstring().c_str(), FILE_APPEND_DATA, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+			&inherit, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
+		if (errors == INVALID_HANDLE_VALUE) {
+			DWORD errorCode = GetLastError();
+			CloseHandle(log);
+			if (input != INVALID_HANDLE_VALUE)
+				CloseHandle(input); // the success path below closes it; this path must not leak the NUL handle
+			throw std::runtime_error("cannot create " + options_.errorFile.string() + " (error " + std::to_string(errorCode) + ")");
+		}
+	}
+
+	// A job object with JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE, so Windows reaps the child whenever THIS process goes away - not only through the
+	// destructor. Without it, a CTest TIMEOUT (900 s, while ScenarioServers alone budgets a 10 min startup and Oracle::run waits up to 20 min)
+	// or a crash of the gate leaves aion_game_server and aion_login_server running, holding their test schemas and the log directory. Measured:
+	// killing only the test process left both servers alive. The process is created suspended and resumed after the assignment so it cannot
+	// spawn anything outside the job.
+	HANDLE jobObject = CreateJobObjectW(nullptr, nullptr);
+	if (jobObject != nullptr) {
+		JOBOBJECT_EXTENDED_LIMIT_INFORMATION limits{};
+		limits.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
+		if (!SetInformationJobObject(jobObject, JobObjectExtendedLimitInformation, &limits, sizeof(limits))) {
+			CloseHandle(jobObject);
+			jobObject = nullptr;
+		}
+	}
 
 	STARTUPINFOW startup{};
 	startup.cb = sizeof(startup);
 	startup.dwFlags = STARTF_USESTDHANDLES;
 	startup.hStdInput = input;
 	startup.hStdOutput = log;
-	startup.hStdError = log;
+	startup.hStdError = errors;
 	PROCESS_INFORMATION info{};
 	std::wstring line = commandLine(options_.executable, options_.arguments);
 	DWORD flags = options_.newProcessGroup ? CREATE_NEW_PROCESS_GROUP : 0;
+	if (jobObject != nullptr)
+		flags |= CREATE_SUSPENDED;
 	std::wstring directory = options_.workingDirectory.wstring();
 	BOOL created = CreateProcessW(options_.executable.wstring().c_str(), line.data(), nullptr, nullptr, TRUE, flags, nullptr,
 		directory.empty() ? nullptr : directory.c_str(), &startup, &info);
 	DWORD error = GetLastError();
+	if (errors != log)
+		CloseHandle(errors);
 	CloseHandle(log);
 	if (input != INVALID_HANDLE_VALUE)
 		CloseHandle(input);
-	if (!created)
+	if (!created) {
+		if (jobObject != nullptr)
+			CloseHandle(jobObject);
 		throw std::runtime_error("cannot start " + options_.executable.string() + " (error " + std::to_string(error) + ")");
+	}
+	if (jobObject != nullptr) {
+		if (!AssignProcessToJobObject(jobObject, info.hProcess)) {
+			CloseHandle(jobObject); // no job: the destructor is the only reaper again, as before
+			jobObject = nullptr;
+		}
+		ResumeThread(info.hThread); // always resumed, assigned or not, or the child would never run
+	}
+	job = jobObject;
 	CloseHandle(info.hThread);
 	process = info.hProcess;
 	pid = info.dwProcessId;
@@ -96,6 +139,8 @@ ChildProcess::~ChildProcess() {
 		}
 		CloseHandle(static_cast<HANDLE>(process));
 	}
+	if (job != nullptr)
+		CloseHandle(static_cast<HANDLE>(job)); // KILL_ON_JOB_CLOSE: anything the child left behind dies with this handle
 }
 
 std::optional<int32_t> ChildProcess::waitForExit(std::chrono::milliseconds timeout) {
@@ -129,11 +174,68 @@ std::string ChildProcess::readLog() const {
 	return content.str();
 }
 
+std::string ChildProcess::readLogTail(size_t maxBytes) const {
+	std::ifstream in(options_.logFile, std::ios::binary);
+	if (!in)
+		return {};
+	in.seekg(0, std::ios::end);
+	uint64_t size = static_cast<uint64_t>(in.tellg());
+	uint64_t from = size > maxBytes ? size - maxBytes : 0;
+	in.seekg(static_cast<std::streamoff>(from), std::ios::beg);
+	std::stringstream content;
+	content << in.rdbuf();
+	std::string tail = content.str();
+	if (from > 0) {
+		size_t newline = tail.find('\n');
+		if (newline != std::string::npos)
+			tail.erase(0, newline + 1);
+	}
+	return tail;
+}
+
+std::vector<std::string> ChildProcess::findLogLines(std::string_view text, size_t maxMatches) const {
+	std::vector<std::string> matches;
+	std::ifstream in(options_.logFile, std::ios::binary);
+	std::string line;
+	while (matches.size() < maxMatches && std::getline(in, line)) {
+		if (!line.empty() && line.back() == '\r')
+			line.pop_back();
+		if (line.find(text) != std::string::npos)
+			matches.push_back(line);
+	}
+	return matches;
+}
+
+bool ChildProcess::scanLogFor(std::string_view text) {
+	// only the bytes that appeared since the last call are read: a game server that hits an unported body inside spawnAll writes a stack trace
+	// per object and grows its log to hundreds of megabytes, and re-reading it on every 100 ms poll takes longer than the startup itself
+	uint64_t& offset = scanned[std::string(text)];
+	std::ifstream in(options_.logFile, std::ios::binary);
+	if (!in)
+		return false;
+	// the text may straddle the end of what the last call read, so the last text.size() - 1 bytes are read again
+	uint64_t overlap = text.empty() ? 0 : text.size() - 1;
+	uint64_t from = offset > overlap ? offset - overlap : 0;
+	in.seekg(static_cast<std::streamoff>(from), std::ios::beg);
+	if (!in)
+		return false;
+	std::stringstream content;
+	content << in.rdbuf();
+	std::string chunk = content.str();
+	size_t found = chunk.find(text);
+	if (found != std::string::npos) {
+		offset = from + found; // stays at the match, so asking for the same text again finds it again
+		return true;
+	}
+	offset = from + chunk.size();
+	return false;
+}
+
 bool ChildProcess::waitForLog(std::string_view text, std::chrono::milliseconds timeout) {
 	const auto deadline = std::chrono::steady_clock::now() + timeout;
 	for (;;) {
 		bool running = isRunning();
-		if (readLog().find(text) != std::string::npos)
+		if (scanLogFor(text))
 			return true;
 		if (!running || std::chrono::steady_clock::now() >= deadline)
 			return false;

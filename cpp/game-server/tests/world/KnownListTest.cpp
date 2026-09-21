@@ -22,6 +22,7 @@
 
 #include "aion/commons/logging/LoggerFactory.h"
 #include "aion/gameserver/model/animations/ObjectDeleteAnimation.h"
+#include "aion/gameserver/runtime/base/Exceptions.h"
 #include "aion/gameserver/runtime/base/TaskInfo.h"
 #include "aion/gameserver/runtime/lifetime/Reclaimer.h"
 #include "aion/gameserver/runtime/lifetime/TaskScope.h"
@@ -118,6 +119,49 @@ TEST_F(KnownListTest, ObjectsInRangeKnowAndSeeEachOther) {
 	EXPECT_TRUE(world.removeObject(*a));
 	EXPECT_TRUE(world.removeObject(*far));
 	EXPECT_EQ(poetaObjectCount(), 0);
+}
+
+/**
+ * m5a-plan.md W-07: a controller that throws out of see() / notSee() / notKnow() must not break the known list (Java swallows the exception and
+ * logs it), but every swallowed exception is counted, so the scenario gate can fail a run in which a notification threw. The counter is the
+ * only signal besides the log line: Java's `log.error("", ex)` writes an empty message.
+ */
+TEST_F(KnownListTest, ThrowingNotificationsAreSwallowedLoggedAndCounted) {
+	runtime::TaskScope scope(AION_TASK_INFO(runtime::TaskKind::TEST));
+	World& world = World::getInstance();
+	knownlist::KnownList::resetNotifyFailureCountForTests();
+
+	std::ostringstream captured;
+	auto sink = std::make_shared<spdlog::sinks::ostream_sink_mt>(captured);
+	sink->set_pattern("%v");
+	commons::logging::LoggerFactory::configure("com.aionemu.gameserver.world.knownlist.KnownList", {.sinks = {sink}, .additive = false});
+
+	runtime::Ref<TestObject> a = place(2101, 300, 900);
+	runtime::Ref<TestObject> b = place(2102, 310, 900); // 10 m: in range
+	a->recorder().hook = [](RecordingController::Event, VisibleObject&) { throw runtime::IllegalStateException("notification failed"); };
+
+	world.spawn(runtime::Ptr<VisibleObject>(*a));
+	world.spawn(runtime::Ptr<VisibleObject>(*b)); // b's update adds the pair: a.see(b) throws
+
+	EXPECT_EQ(knownlist::KnownList::notifyFailureCount(), 1u) << "see() threw once";
+	EXPECT_TRUE(a->getKnownList().knows(*b)) << "the entry stays, as in Java";
+	EXPECT_TRUE(b->getKnownList().knows(*a)) << "the throwing side does not break the other side";
+	EXPECT_EQ(b->recorder().seen.load(), 1) << "b's own notification is unaffected";
+
+	// b moves out of range: a.notSee(b) and a.notKnow(b) throw as well
+	world.updatePosition(*b, 700, 900, 10, int8_t{0});
+	EXPECT_EQ(knownlist::KnownList::notifyFailureCount(), 3u) << "notSee() and notKnow() threw";
+	EXPECT_FALSE(a->getKnownList().knows(*b)) << "the removal happened before the notification";
+	EXPECT_FALSE(b->getKnownList().knows(*a));
+
+	commons::logging::LoggerFactory::removeConfig("com.aionemu.gameserver.world.knownlist.KnownList");
+	EXPECT_NE(captured.str().find("notification failed"), std::string::npos)
+		<< "Java logs the exception with an empty message: " << captured.str();
+
+	a->recorder().hook = nullptr;
+	world.removeObject(*a);
+	world.removeObject(*b);
+	knownlist::KnownList::resetNotifyFailureCountForTests();
 }
 
 TEST_F(KnownListTest, ClearWithoutNotifyDropsTheEntriesSilently) {

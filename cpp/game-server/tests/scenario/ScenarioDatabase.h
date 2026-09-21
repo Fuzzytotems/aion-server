@@ -4,6 +4,11 @@
 // server processes get (the server of the environment URL, a test schema and the query of the server's own config/network/database.properties,
 // so serverTimezone and characterEncoding stay as configured), schema creation from the Java SQL scripts and direct queries for the DB
 // assertions (commons::database::Connection::open, never the DatabaseFactory: the servers run as child processes, plan D4).
+//
+// Scope of "independent": the queries do not go through the game server's DAOs, but they DO go through the same C++ MariaDB connector the DAOs
+// used to write the rows, so a layer-wide encoding or type defect in that connector would cancel out between the writer and this reader. The
+// risk is small because the helpers read every column as a raw string, and the rows the gate compares are ids, numbers and positions; it is
+// recorded here because §5 calls these assertions "direct MariaDB queries", which is true of the SQL and not of the client.
 
 #include <cstdint>
 #include <filesystem>

@@ -1,6 +1,12 @@
 #include "aion/gameserver/services/PvpService.h"
 
+#include <map>
+#include <utility>
+
 #include "aion/commons/logging/LoggerFactory.h"
+#include "aion/gameserver/dao/HeadhuntingDAO.h"
+#include "aion/gameserver/dataholders/DataManager.h"
+#include "aion/gameserver/dataholders/KillBountyData.h"
 #include "aion/gameserver/model/event/Headhunter.h"
 #include "aion/gameserver/model/templates/bounty/KillBountyTemplate.h"
 #include "aion/gameserver/runtime/base/Unported.h"
@@ -10,7 +16,13 @@ namespace aion::gameserver::services {
 static const auto log = commons::logging::LoggerFactory::getLogger("KILL_LOG");
 
 PvpService::PvpService() {
-	AION_UNPORTED();
+	// Java: killBounties = DataManager.KILL_BOUNTY_DATA.getKillBounties(). The holder owns the templates for the life of the process, so the
+	// C++ list holds pointers into it instead of copying them (hub-headers.md §8.3, static template pointers).
+	for (const model::templates::bounty::KillBountyTemplate& template_ : dataholders::DataManager::KILL_BOUNTY_DATA->getKillBounties())
+		killBounties.add(&template_);
+	// Java: headhunters = HeadhuntingDAO.loadHeadhunters()
+	for (auto& [hunterId, hunter] : dao::HeadhuntingDAO::loadHeadhunters())
+		headhunters.put(hunterId, std::move(hunter));
 }
 
 PvpService& PvpService::getInstance() {

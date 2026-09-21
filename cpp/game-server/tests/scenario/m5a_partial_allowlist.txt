@@ -1,8 +1,31 @@
 # The AION_PARTIAL sites the M5a scenario gate accepts (m5a-plan.md D3: "partial sites subset of tests/scenario/m5a_partial_allowlist.txt").
-# One site per line: "<file>:<line>" or just "<file>", matched as a prefix of the site of partial_trace.txt, whose file paths are relative to
-# game-server/src (e.g. "aion/gameserver/GameServer.cpp:129"). Lines starting with '#' and empty lines are ignored.
-# Stage 2 (F-06, S-11) reads this file in the gate and fills it with the sites the scripted path reaches (plan D3, O-09 and the AION_PARTIAL
-# rows of the lanes' deviation files).
+# One site per line, whose file paths are relative to game-server/src (e.g. "aion/gameserver/GameServer.cpp:129"). An entry WITH a line number
+# ("<file>:<line>") must match the whole site: a prefix match would let ":133" also cover ":1330" to ":1339". An entry without one ("<file>")
+# is an explicit whole-file wildcard. Lines starting with '#' and empty lines are ignored. Case 8 prints every row a run did not hit, so a row
+# left behind after the site it describes was ported becomes visible instead of staying green forever.
 #
-# Stage 1 (app-harness) leaves it empty: the startup steps of F-01a that had no C++ header are wired now, so the app chunk reaches no
-# AION_PARTIAL site of its own.
+# Filled by stage 2 (F-06, S-11) from the sites the startup and the scripted path reach.
+#
+# HISTORY: aion/gameserver/spawnengine/VisibleObjectSpawner.cpp (spawnGatherable) was deliberately kept off this list while it was partial,
+# because no gatherable existed anywhere in the world and scenario assertion V4 plus real-client checklist step 7 would have passed vacuously.
+# The site is ported now (the world holds 18,432 Gatherables), so that guard is gone - which is why V4 itself gained the completeness half in
+# stage 2 phase 4: every deterministic gather spot within 90 m must be announced, so a world without gatherables fails V4 on its own.
+
+# --- startup (measured in the stage-2 phase-1 startup runs of the app-gate and world-visibility lanes) ---
+# M5a runs without quests (plan W-02 "QuestEngine init (empty registry)")
+aion/gameserver/questEngine/QuestEngine.cpp:111
+aion/gameserver/questEngine/QuestEngine.cpp:115
+# base locations are M5b (plan E1-06)
+aion/gameserver/services/BaseService.cpp:18
+# the PvP map instance needs InstanceService.getNextAvailableInstance (plan W-03, explicitly AION_PARTIAL there)
+aion/gameserver/custom/pvpmap/PvpMapService.cpp:32
+
+# --- enter world (plan §5.4 V9 "the passive-skill delta of AION_PARTIAL O-09 is on the allow-list") ---
+aion/gameserver/skillengine/SkillEngine.cpp:74
+# a fresh level 1 character has no saved effect, so this one should not be hit; it is listed because a relogin after Q3 walks the same code
+aion/gameserver/controllers/effect/PlayerEffectController.cpp:120
+# EMOTIONS_ALL is off by default, so this is only reached with the config the real-client checklist uses
+aion/gameserver/services/player/PlayerService.cpp:268
+# personal instances and the instance exit teleport are M5a AION_PARTIAL by plan W-03
+aion/gameserver/services/instance/InstanceService.cpp:133
+aion/gameserver/services/instance/InstanceService.cpp:153

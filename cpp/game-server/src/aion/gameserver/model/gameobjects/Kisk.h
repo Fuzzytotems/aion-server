@@ -21,8 +21,7 @@ namespace aion::gameserver::model::gameobjects {
 /**
  * S0c declaration header (docs/design/hub-headers.md §3.5). A visible object: `VisibleObject::create<Kisk>(controller, spawnTemplate, owner)`
  * (§10.1). Java `SummonedObject<Player>`: the erased base returns the creator as `Ptr<VisibleObject>` (§8.1); Kisk passes null as creator and
- * keeps the owner's id and name instead. The constructor reads the NPC template (DataManager) and creates the known list and effect controller,
- * so it stays `AION_UNPORTED` (the SummonedObject base initializer already is).
+ * keeps the owner's id and name instead. The constructor reads the NPC template (DataManager) and creates the known list and effect controller.
  *
  * @author Sarynth, nrg
  */

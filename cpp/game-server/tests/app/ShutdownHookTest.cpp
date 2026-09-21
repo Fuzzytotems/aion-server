@@ -151,6 +151,23 @@ TEST_F(ShutdownHookTest, CountdownAnnouncesAtJavasIntervalsWhilePlayersAreOnline
 	EXPECT_EQ(recorder().events, (std::vector<std::string>{"network", "stats", "save", "runtime", "exit"}));
 }
 
+TEST_F(ShutdownHookTest, TheScenariosTwoSecondCountdownAnnouncesOnce) {
+	// The gate's case 7 (m5a-plan.md §5.7 Q7) stops the server with gameserver.shutdown.delay=2 while a player is online and expects exactly
+	// one SM_SYSTEM_MESSAGE STR_SERVER_SHUTDOWN before the socket closes: second 2 is announced (interval 1), nextInterval(2, 5, 60) is 2, so
+	// second 1 is not a multiple of it and the loop ends at 0 without a second announcement.
+	EXPECT_EQ(ShutdownHook::nextInterval(2, 5, 60), 2);
+	configs::main::ShutdownConfig::DELAY.store(2);
+	ShutdownHook::setOperationsForTests(recordingOperations([] { return true; }));
+	ShutdownHook& hook = ShutdownHook::getInstance();
+	hook.exit(commons::utils::ExitCode::NORMAL);
+	ASSERT_TRUE(awaitExitFunction(hook));
+	std::scoped_lock lock(recorder().mutex);
+	EXPECT_EQ(recorder().announcements, (std::vector<int32_t>{2}));
+	EXPECT_EQ(recorder().sleeps, 2);
+	// the network (and with it the player's connection and the logout that saves the row of Q7) goes down after the countdown, not before
+	EXPECT_EQ(recorder().events, (std::vector<std::string>{"network", "stats", "save", "runtime", "exit"}));
+}
+
 TEST_F(ShutdownHookTest, WithoutPlayersTheHookTakesTheFastExit) {
 	configs::main::ShutdownConfig::DELAY.store(120);
 	ShutdownHook::setOperationsForTests(recordingOperations([] { return false; }));
@@ -178,6 +195,24 @@ TEST_F(ShutdownHookTest, ExitStartsTheHookOnce) {
 	ASSERT_TRUE(awaitExitFunction(hook));
 	EXPECT_EQ(networkShutdowns.load(), 1);
 	EXPECT_EQ(exitFunctionCode.load(), commons::utils::ExitCode::ERROR_);
+}
+
+TEST_F(ShutdownHookTest, TheReportedExitCodeIsTheOneTheProcessEndsWith) {
+	// m5a_summary.txt reports getExitCode() (main.cpp), so a run that ends with RESTART must not be summarized as exit code 0
+	ShutdownHook& hook = ShutdownHook::getInstance();
+	EXPECT_EQ(hook.getExitCode(), commons::utils::ExitCode::NORMAL); // no shutdown requested yet
+	std::atomic<int32_t> codeSeenByTheStep{-1};
+	ShutdownHook::setOperationsForTests(recordingOperations([] { return false; }));
+	hook.setAfterRuntimeShutdown([&codeSeenByTheStep] {
+		recorder().add("after runtime");
+		codeSeenByTheStep.store(ShutdownHook::getInstance().getExitCode());
+	});
+	hook.exit(commons::utils::ExitCode::RESTART);
+	hook.exit(commons::utils::ExitCode::NORMAL); // the first exit code wins (Java: the first System.exit ends the process)
+	ASSERT_TRUE(awaitExitFunction(hook));
+	EXPECT_EQ(codeSeenByTheStep.load(), commons::utils::ExitCode::RESTART);
+	EXPECT_EQ(hook.getExitCode(), commons::utils::ExitCode::RESTART);
+	EXPECT_EQ(exitFunctionCode.load(), commons::utils::ExitCode::RESTART);
 }
 
 TEST_F(ShutdownHookTest, ExceptionsOfACountdownSecondAreLoggedAndTheCountdownGoesOn) {

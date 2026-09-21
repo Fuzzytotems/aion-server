@@ -10,6 +10,7 @@
 
 #include "aion/commons/logging/LoggerFactory.h"
 #include "aion/commons/utils/TimeUtils.h"
+#include "aion/gameserver/GameServer.h"
 #include "aion/gameserver/ai/AbstractAI.h"
 #include "aion/gameserver/ai/NpcAI.h"
 #include "aion/gameserver/configs/administration/AdminConfig.h"
@@ -23,6 +24,7 @@
 #include "aion/gameserver/controllers/FlyController.h"
 #include "aion/gameserver/controllers/ObserveController.h"
 #include "aion/gameserver/controllers/attack/AggroList.h"
+#include "aion/gameserver/controllers/attack/AttackUtil.h"
 #include "aion/gameserver/controllers/effect/EffectController.h"
 #include "aion/gameserver/controllers/effect/PlayerEffectController.h"
 #include "aion/gameserver/instance/handlers/InstanceHandler.h"
@@ -671,9 +673,9 @@ void PlayerController::onLevelChange(int32_t oldLevel, int32_t newLevel) {
 	if (configs::main::GSConfig::ENABLE_RATIO_LIMITATION &&
 		(player.getAccount()->getNumberOf(player.getRace()) == 1 || player.getAccount()->getMaxPlayerLevel() == newLevel)) {
 		if (oldLevel < configs::main::GSConfig::RATIO_MIN_REQUIRED_LEVEL && newLevel >= configs::main::GSConfig::RATIO_MIN_REQUIRED_LEVEL)
-			standins::gameServerUpdateRatio(player.getRace(), 1);
+			GameServer::updateRatio(player.getRace(), 1);
 		else if (oldLevel >= configs::main::GSConfig::RATIO_MIN_REQUIRED_LEVEL && newLevel < configs::main::GSConfig::RATIO_MIN_REQUIRED_LEVEL)
-			standins::gameServerUpdateRatio(player.getRace(), -1);
+			GameServer::updateRatio(player.getRace(), -1);
 	}
 
 	player.getGameStats()->updateStatsTemplate();
@@ -721,8 +723,8 @@ void PlayerController::startProtectionActiveTask() {
 	Player& player = getOwner();
 	if (!player.isProtectionActive()) {
 		player.setVisualState(model::gameobjects::state::CreatureVisualState::BLINKING);
-		standins::attackUtilCancelCastOn(player);
-		standins::attackUtilRemoveTargetFrom(player);
+		attack::AttackUtil::cancelCastOn(player);
+		attack::AttackUtil::removeTargetFrom(player);
 		PacketSendUtility::broadcastToSightedPlayers(player, network::aion::serverpackets::SM_PLAYER_STATE(player), true);
 		addTask(model::TaskId::PROTECTION_ACTIVE,
 			utils::ThreadPoolManager::getInstance().schedule(this, &PlayerController::stopProtectionActiveTask, 60000));

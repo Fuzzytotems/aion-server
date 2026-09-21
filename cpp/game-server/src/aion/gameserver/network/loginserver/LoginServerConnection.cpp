@@ -3,6 +3,7 @@
 #include <source_location>
 
 #include "aion/commons/logging/LoggerFactory.h"
+#include "aion/gameserver/GameServer.h"
 #include "aion/gameserver/network/loginserver/LoginServer.h"
 #include "aion/gameserver/network/loginserver/LsClientPacket.h"
 #include "aion/gameserver/network/loginserver/LsClientPacketFactory.h"
@@ -15,18 +16,6 @@
 namespace aion::gameserver::network::loginserver {
 
 static const auto log = commons::logging::LoggerFactory::getLogger("com.aionemu.gameserver.network.loginserver.LoginServerConnection");
-
-namespace {
-
-/**
- * Java: GameServer.isShutdownScheduled(). TODO(P5-14): call GameServer::isShutdownScheduled() once GameServer.h exists; until then no
- * shutdown countdown exists in the C++ server.
- */
-bool isGameServerShutdownScheduled() {
-	return false;
-}
-
-} // namespace
 
 LoginServerConnection::LoginServerConnection(asio::ip::tcp::socket socket, commons::network::NioServer& server)
 	: AConnection(std::move(socket), server, 8192 * 8, 8192 * 8), packetExecutor("LoginServerConnection") {
@@ -66,7 +55,7 @@ bool LoginServerConnection::writeData(commons::utils::ByteBuffer& data) {
 
 void LoginServerConnection::onDisconnect() {
 	runtime::TaskScope scope(runtime::TaskInfo{std::source_location::current(), runtime::TaskKind::INSTANT});
-	if (isGameServerShutdownScheduled())
+	if (GameServer::isShutdownScheduled())
 		return;
 	log.warn("Lost connection with login server");
 	LoginServer::getInstance().reconnect();

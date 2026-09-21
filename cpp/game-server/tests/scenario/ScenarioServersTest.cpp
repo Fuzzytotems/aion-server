@@ -7,9 +7,11 @@
 #include <chrono>
 #include <filesystem>
 #include <cstdint>
+#include <fstream>
 #include <map>
 #include <optional>
 #include <set>
+#include <sstream>
 #include <string>
 #include <vector>
 
@@ -87,6 +89,47 @@ TEST(ChildProcessTest, TerminatesARunningProcess) {
 	EXPECT_THROW(ChildProcess({"C:/no/such/executable.exe", {}, {}, outputDir("sleep") / "none.log", false}), std::runtime_error);
 }
 
+TEST(ChildProcessTest, ReadsTheLogWithoutHoldingItInMemory) {
+	// stage 2: the game server's log can grow to hundreds of megabytes while the harness waits for "Game server started", so waitForLog scans
+	// only what it has not seen yet, and the report cases read single lines or the tail instead of the whole file
+	ChildProcess::Options options;
+	options.executable = AION_SCENARIO_CMAKE_COMMAND;
+	options.arguments = {"-E", "echo", "first line", ";", "wanted marker", ";", "last line"};
+	options.logFile = outputDir("logreading") / "child.log";
+	ChildProcess child(options);
+	ASSERT_EQ(child.waitForExit(30s), 0);
+
+	EXPECT_TRUE(child.waitForLog("wanted marker", 5s));
+	// the same text again: the scan offset stays at the match instead of running past it
+	EXPECT_TRUE(child.waitForLog("wanted marker", 5s));
+	EXPECT_FALSE(child.waitForLog("never logged", 300ms));
+
+	std::vector<std::string> lines = child.findLogLines("marker");
+	ASSERT_EQ(lines.size(), 1u) << child.readLog();
+	EXPECT_NE(lines[0].find("wanted marker"), std::string::npos);
+	EXPECT_TRUE(child.findLogLines("never logged").empty());
+	EXPECT_EQ(child.findLogLines("line", 1).size(), 1u) << "maxMatches stops the scan";
+
+	EXPECT_NE(child.readLogTail(4096).find("last line"), std::string::npos);
+	EXPECT_EQ(child.readLogTail(5).find("first line"), std::string::npos) << "a short tail must not reach the first line";
+}
+
+TEST(ChildProcessTest, KeepsTheStandardErrorOfAToolOutOfItsOutput) {
+	// Oracle.cpp parses the tool's stdout as JSON, so its stderr must not be mixed into the same file
+	ChildProcess::Options options;
+	options.executable = AION_SCENARIO_CMAKE_COMMAND;
+	options.arguments = {"-E", "cat", "C:/no/such/file/for/the/scenario/harness"};
+	options.logFile = outputDir("stderr") / "out.txt";
+	options.errorFile = outputDir("stderr") / "err.txt";
+	ChildProcess child(options);
+	EXPECT_NE(child.waitForExit(30s), 0);
+	EXPECT_EQ(child.readLog(), "") << "the failure message belongs in the error file";
+	std::ifstream errors(options.errorFile, std::ios::binary);
+	std::stringstream content;
+	content << errors.rdbuf();
+	EXPECT_FALSE(content.str().empty()) << "cmake -E cat of a missing file writes to stderr";
+}
+
 TEST(ScenarioServersTest, ReservedPortsAreDistinctAndTheThreeScenarioPortsDoNotCollide) {
 	// reservePorts holds every acceptor open until all ports are known, so the OS cannot hand out one port twice
 	std::vector<uint16_t> ports = ScenarioServers::reservePorts(8);
@@ -122,6 +165,9 @@ TEST(ScenarioServersTest, TheGameServerGetsTheM5aProfileAndTheScenarioArguments)
 	EXPECT_TRUE(has("-Ddatabase.user=root"));
 	EXPECT_TRUE(has("--stop-file=" + servers.stopFile().string()));
 	EXPECT_TRUE(has("--check-output=" + servers.checkOutputDir().string()));
+	// the gate's game server must never write the shared game-server/log: Logging::init archives and DELETES the *.log files it finds there
+	EXPECT_TRUE(has("--log-folder=" + servers.logFolder().string()));
+	EXPECT_NE(servers.logFolder(), std::filesystem::path("log"));
 
 	std::vector<std::string> ls = servers.loginServerArguments();
 	auto lsHas = [&ls](std::string_view argument) { return std::ranges::find(ls, argument) != ls.end(); };

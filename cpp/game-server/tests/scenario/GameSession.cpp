@@ -182,4 +182,12 @@ std::vector<uint8_t> GameSession::buildCM_QUIT(bool stayConnected) {
 	return PacketWriter().C(stayConnected ? 1 : 0).data;
 }
 
+std::vector<uint8_t> GameSession::buildCM_CUSTOM_SETTINGS(uint16_t display, uint16_t deny) {
+	return PacketWriter().H(display).H(deny).data;
+}
+
+std::vector<uint8_t> GameSession::buildCM_SUBZONE_CHANGE(uint8_t unk) {
+	return PacketWriter().C(unk).data;
+}
+
 } // namespace aion::gameserver::scenario

@@ -67,6 +67,12 @@ public:
 
 	Race getInvadersRace();
 
+	/**
+	 * C++ only: Java writes `creature.getRace().equals(getInvadersRace())`, which is false (and never throws) when the template has no
+	 * offence_race (VortexLocation.java:140, :164). getInvadersRace() throws for a missing attribute, so every comparison goes through this.
+	 */
+	bool isInvadersRace(Race race);
+
 	int32_t getHomeWorldId();
 
 	int32_t getInvasionWorldId();

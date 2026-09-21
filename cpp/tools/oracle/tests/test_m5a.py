@@ -6,7 +6,8 @@ m5a/spawns.py and m5a/creation.py. The real data cases are skipped without the J
 import unittest
 import xml.etree.ElementTree as ET
 
-from m5a.creation import JavaEnums, creation_report, max_hp, max_mp
+from m5a.creation import (JavaEnums, base_stat_dependent_additional_value, creation_report, max_hp, max_mp, stats_info_base_max_hp,
+                          stats_info_base_max_mp)
 from m5a.data import StaticData
 from m5a.javafloat import f32, in_range
 from m5a.spawns import GameClock, TemporarySpawn, border_target, evaluate, load_groups, load_npc_templates, spots_report
@@ -181,6 +182,19 @@ class M5aStatFormulaTest(unittest.TestCase):
 		# GLADIATOR 440 at level 10: 220 + 473 + 126.5 = 819.5; will 600 at level 10: 210 + 1050 + 0.75 = 1260.75
 		self.assertEqual((max_hp(440, 10), max_mp(600, 10)), (819, 1260))
 
+	def test_stats_info_base_adds_the_health_and_will_dependent_value(self):
+		# PlayerStatFunctions.MaxHpFunction / MaxMpFunction add getHealthDependentAdditionalHp / getWillDependentAdditionalMp to the BASE,
+		# so SM_STATS_INFO's [base hp] / [base mana] are not the stats template values (PlayerGameStats.java:340-346, :368-370).
+		self.assertEqual(base_stat_dependent_additional_value(110, 400), 40, "WARRIOR health 110: (110-100)/100f * 400")
+		self.assertEqual(base_stat_dependent_additional_value(90, 400), -40, "WARRIOR will 90: a negative addition")
+		self.assertEqual(base_stat_dependent_additional_value(100, 999), 0, "a base stat of 100 adds nothing")
+		self.assertEqual(base_stat_dependent_additional_value(90, 260), -26, "MAGE health 90")
+		self.assertEqual(base_stat_dependent_additional_value(115, 600), 90, "MAGE will 115")
+		# WARRIOR(power 110, health 110, ..., will 90, healthMultiplier 400, willMultiplier 400)
+		self.assertEqual((stats_info_base_max_hp(110, 400, 1), stats_info_base_max_mp(90, 400, 1)), (284, 170))
+		# MAGE(power 90, health 90, ..., will 115, healthMultiplier 260, willMultiplier 600)
+		self.assertEqual((stats_info_base_max_hp(90, 260, 1), stats_info_base_max_mp(115, 600, 1)), (132, 405))
+
 
 @unittest.skipUnless(HAVE_JAVA_TREE, "Java tree not present")
 class M5aRealDataTest(unittest.TestCase):
@@ -190,9 +204,9 @@ class M5aRealDataTest(unittest.TestCase):
 
 	def test_java_enum_data(self):
 		enums = JavaEnums(JAVA_SRC)
-		self.assertEqual(enums.classes["WARRIOR"], (True, 400, 400))
-		self.assertEqual(enums.classes["GLADIATOR"], (False, 440, 400))
-		self.assertEqual(enums.classes["BARD"], (False, 320, 520))
+		self.assertEqual(enums.classes["WARRIOR"], (True, 110, 90, 400, 400))
+		self.assertEqual(enums.classes["GLADIATOR"], (False, 115, 90, 440, 400))
+		self.assertEqual(enums.classes["BARD"], (False, 100, 110, 320, 520))
 		self.assertEqual(enums.item_groups["SWORD"], (3, "WEAPON"))
 		self.assertEqual(enums.item_groups["EARRING"], (192, "ARMOR"))
 		self.assertEqual(enums.item_groups["NONE"], (0, "NONE"))
@@ -204,7 +218,8 @@ class M5aRealDataTest(unittest.TestCase):
 	def test_elyos_warrior(self):
 		report = creation_report(self.data, JAVA_SRC, "ELYOS", "WARRIOR")
 		self.assertEqual(report["spawn"], {"mapId": 210010000, "x": f32(1212.9423), "y": f32(1044.8516), "z": f32(140.75568), "heading": 32})
-		self.assertEqual(report["baseStats"], {"maxHp": 244, "maxMp": 210})
+		self.assertEqual(report["baseStats"], {"maxHp": 284, "maxMp": 170}, "SM_STATS_INFO base: 244 + 40 health bonus, 210 - 40 will malus")
+		self.assertEqual(report["statsTemplate"], {"maxHp": 244, "maxMp": 210}, "PlayerClass.createStatsTemplate alone")
 		items = {i["itemId"]: i for i in report["items"]}
 		self.assertEqual(items[182400001], {"itemId": 182400001, "count": 1000, "kinah": True, "equipped": False, "slot": 0})
 		self.assertTrue(items[100000094]["equipped"])
@@ -217,7 +232,8 @@ class M5aRealDataTest(unittest.TestCase):
 	def test_asmodian_mage(self):
 		report = creation_report(self.data, JAVA_SRC, "ASMODIANS", "MAGE")
 		self.assertEqual(report["spawn"]["mapId"], 220010000)
-		self.assertEqual(report["baseStats"], {"maxHp": 158, "maxMp": 315})
+		self.assertEqual(report["baseStats"], {"maxHp": 132, "maxMp": 405}, "SM_STATS_INFO base: 158 - 26, 315 + 90")
+		self.assertEqual(report["statsTemplate"], {"maxHp": 158, "maxMp": 315})
 		self.assertTrue(report["skills"])
 
 	def test_poeta_start_spots(self):

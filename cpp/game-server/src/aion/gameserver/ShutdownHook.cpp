@@ -247,6 +247,12 @@ bool ShutdownHook::isExitRequested() const noexcept {
 	return state().hasExitRequest.load(std::memory_order_acquire);
 }
 
+int32_t ShutdownHook::getExitCode() const noexcept {
+	HookState& s = state();
+	std::scoped_lock lock(s.mutex); // not held while the added steps run, so a step may read the code (main.cpp's summary)
+	return s.exitCode;
+}
+
 bool ShutdownHook::awaitCompletion(std::chrono::milliseconds timeout) {
 	HookState& s = state();
 	std::unique_lock lock(s.mutex);
