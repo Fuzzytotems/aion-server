@@ -4,6 +4,7 @@
 #include <string>
 
 #include "aion/commons/logging/LoggerFactory.h"
+#include "aion/gameserver/GameServerError.h"
 #include "aion/gameserver/dao/ServerVariablesDAO.h"
 #include "aion/gameserver/network/aion/serverpackets/SM_GAME_TIME.h"
 #include "aion/gameserver/runtime/base/Exceptions.h"
@@ -32,7 +33,7 @@ bool GameTimeService::saveGameTime() {
 
 void GameTimeService::startClock() {
 	if (!isStarted.compareAndSet(false, true))
-		throw runtime::Exception("Tried to start game time twice."); // Java: GameServerError (P5-14 has no C++ class; CONVENTIONS: fatal errors)
+		throw GameServerError("Tried to start game time twice."); // Java: GameServerError
 
 	int32_t updateInterval = 3 * 60000; // every 3 minutes
 

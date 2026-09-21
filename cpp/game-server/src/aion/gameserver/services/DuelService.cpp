@@ -2,6 +2,8 @@
 
 #include "aion/gameserver/runtime/base/Unported.h"
 #include "aion/commons/logging/LoggerFactory.h"
+#include "aion/gameserver/model/gameobjects/player/Player.h"
+#include "aion/gameserver/runtime/sched/Future.h"
 
 namespace aion::gameserver::services {
 
@@ -65,27 +67,37 @@ void DuelService::onDuelEnd(model::DuelResult duelResult, model::gameobjects::pl
 }
 
 std::optional<int32_t> DuelService::getOpponentId(model::gameobjects::player::Player& player) {
-	AION_UNPORTED();
+	return duels.get(player.getObjectId());
 }
 
 bool DuelService::isDueling(model::gameobjects::player::Player& player) {
-	AION_UNPORTED();
+	std::optional<int32_t> opponentId = getOpponentId(player);
+	return opponentId && duels.get(*opponentId);
 }
 
 bool DuelService::isDueling(model::gameobjects::player::Player& player, model::gameobjects::player::Player& opponent) {
-	AION_UNPORTED();
+	std::optional<int32_t> opponentId = getOpponentId(player);
+	return opponentId && *opponentId == opponent.getObjectId();
 }
 
 void DuelService::registerDuel(int32_t requesterObjId, int32_t responderObjId) {
-	AION_UNPORTED();
+	duels.put(requesterObjId, responderObjId);
+	duels.put(responderObjId, requesterObjId);
 }
 
 void DuelService::removeDuel(model::gameobjects::player::Player& player) {
-	AION_UNPORTED();
+	std::optional<int32_t> opponentId = duels.remove(player.getObjectId());
+	if (opponentId) {
+		duels.remove(*opponentId);
+		removeAndEndTask(player.getObjectId());
+		removeAndEndTask(*opponentId);
+	}
 }
 
 void DuelService::removeAndEndTask(int32_t playerId) {
-	AION_UNPORTED();
+	runtime::Ptr<runtime::Future> task = drawTasks.remove(playerId);
+	if (task)
+		task->cancel(false);
 }
 
 } // namespace aion::gameserver::services

@@ -5,9 +5,10 @@ cpp/game-server/cmake/AionChunks.cmake; this module implements the same rules, a
 <build>/game-server/chunks.json that the configure step writes.
 
 Usage (paths may be absolute, relative to the current directory, to the repository, to cpp/ or to cpp/game-server)
-    python chunks.py owner PATH...                   owning chunk part of a C++ file (src/, handlers/, generated/) or of a file below tests/
-                                                     (its test directory), or claiming part of a Java file (game-server/src,
-                                                     game-server/data/handlers); leases are listed too. Files need not exist.
+    python chunks.py owner PATH...                   owning chunk part of a C++ file (src/, handlers/, generated/), of a file below tests/
+                                                     (its test directory) or of another file below cpp/game-server (OTHER_FILES, e.g. cmake/),
+                                                     or claiming part of a Java file (game-server/src, game-server/data/handlers); leases are
+                                                     listed too. Files need not exist.
     python chunks.py files CHUNK                     C++ files of a chunk on disk (all parts; a LEASE part lists the files it leases)
     python chunks.py java CHUNK                      Java files claimed by a chunk
     python chunks.py list                            chunk parts: name, target, phase, roots, file and Java counts, test directory
@@ -16,7 +17,8 @@ Usage (paths may be absolute, relative to the current directory, to the reposito
                                                      every Java file has exactly one claim
     python chunks.py check-ownership CHUNK RANGE     files changed in the git range (e.g. main..port/P4-05) that the chunk may not change:
                                                      allowed are its own files and leases, its test directories below cpp/game-server/tests
-                                                     (TESTS, TEST_SUPPORT, leased TEST_SUPPORT) and cpp/docs/deviations/<chunk>.md
+                                                     (TESTS, TEST_SUPPORT, leased TEST_SUPPORT), its OTHER_FILES (own and leased) and
+                                                     cpp/docs/deviations/<chunk>.md
     python chunks.py verify-json CHUNKS_JSON         compares the ownership with the chunks.json written by CMake
 Options: --manifest FILE (default cpp/game-server/chunks.cmake), --game-server DIR (C++ tree), --java-dir DIR (Java game-server tree).
 Exit status: 0 ok, 1 problems found (check, check-ownership, verify-json) or unknown chunk/path, 2 usage or manifest errors.
@@ -46,7 +48,7 @@ JAVA_GAME_SERVER = REPO_ROOT / 'game-server'
 CHUNK_KEYWORDS = {
     'options': ('LEASE', 'XMLGEN_SHELLS'),
     'single': ('TARGET', 'PHASE', 'TESTS', 'MAIN', 'COMPILE_WHEN_EXISTS'),
-    'multi': ('ROOT', 'GLOBS', 'EXCLUDE', 'JAVA', 'JAVA_EXCLUDE', 'DEPENDS', 'PCH', 'TEST_INCLUDES', 'TEST_SUPPORT'),
+    'multi': ('ROOT', 'GLOBS', 'EXCLUDE', 'JAVA', 'JAVA_EXCLUDE', 'DEPENDS', 'PCH', 'TEST_INCLUDES', 'TEST_SUPPORT', 'OTHER_FILES'),
 }
 SETTINGS_KEYWORDS = {'options': (), 'single': (), 'multi': ('EXTENSIONS', 'ROOTS', 'JAVA_ROOTS')}
 GLOB_CHARS = re.compile(r'^[A-Za-z0-9_./*?{},\[\]-]+$')
@@ -237,16 +239,18 @@ class Part:
     test_support: list = field(default_factory=list)
     main: str | None = None
     compile_when_exists: str | None = None
+    other_files: list = field(default_factory=list)
     tests_dir: str = ''  # resolved by Manifest: TESTS, or the target without aion_gs_ (+ /<chunk> for a shared target); '' for a lease
 
     def __post_init__(self):
-        self._include = self._exclude = self._java = self._java_exclude = None
+        self._include = self._exclude = self._java = self._java_exclude = self._other = None
 
     def compile(self):
         self._include = anchored(self.roots, self.globs)
         self._exclude = anchored(self.roots, self.exclude)
         self._java = anchored([], self.java)
         self._java_exclude = anchored([], self.java_exclude)
+        self._other = anchored([], self.other_files)
         self._main = f'{self.roots[0]}/{self.main}' if self.main else None
 
     def matches(self, path):
@@ -262,6 +266,10 @@ class Part:
         if self._java is None or not self._java.match(path):
             return False
         return self._java_exclude is None or not self._java_exclude.match(path)
+
+    def matches_other(self, path):
+        """path relative to cpp/game-server, outside the roots and tests/ (OTHER_FILES)"""
+        return self._other is not None and self._other.match(path) is not None
 
     def describe(self):
         return f'{self.name} ({self.target})' if self.target else f'{self.name} (lease)'
@@ -297,7 +305,7 @@ class Manifest:
                          exclude=kw.get('EXCLUDE', []), java=kw.get('JAVA', []), java_exclude=kw.get('JAVA_EXCLUDE', []),
                          depends=kw.get('DEPENDS', []), pch=kw.get('PCH', []), tests=kw.get('TESTS'),
                          test_includes=kw.get('TEST_INCLUDES', []), test_support=kw.get('TEST_SUPPORT', []), main=kw.get('MAIN'),
-                         compile_when_exists=kw.get('COMPILE_WHEN_EXISTS'))
+                         compile_when_exists=kw.get('COMPILE_WHEN_EXISTS'), other_files=kw.get('OTHER_FILES', []))
                 parts.append(p)
             else:
                 raise ManifestError(f'{where}: only aion_gs_chunks_settings() and aion_gs_chunk() are allowed, found {name}()')
@@ -321,12 +329,12 @@ class Manifest:
                 raise ManifestError(f'{where}: invalid chunk name')
             if p.lease:
                 if p.target or p.java or p.java_exclude or p.depends or p.pch or p.main or p.tests or p.test_includes or p.compile_when_exists:
-                    raise ManifestError(f'{where}: a LEASE has only PHASE, ROOT, GLOBS, EXCLUDE, TEST_SUPPORT and XMLGEN_SHELLS')
+                    raise ManifestError(f'{where}: a LEASE has only PHASE, ROOT, GLOBS, EXCLUDE, TEST_SUPPORT, OTHER_FILES and XMLGEN_SHELLS')
             elif not p.target:
                 raise ManifestError(f'{where}: TARGET is required (or LEASE)')
             if not p.phase:
                 raise ManifestError(f'{where}: PHASE is required')
-            if not p.globs and not p.main and not (p.lease and p.test_support):
+            if not p.globs and not p.main and not (p.lease and (p.test_support or p.other_files)):
                 raise ManifestError(f'{where}: GLOBS is required')
             for d in ([p.tests] if p.tests else []) + p.test_includes + p.test_support:
                 if not TEST_DIR.match(d):
@@ -338,8 +346,12 @@ class Manifest:
                 raise ManifestError(f'{where}: XMLGEN_SHELLS needs ROOT src')
             if p.main and len(p.roots) != 1:
                 raise ManifestError(f'{where}: MAIN needs exactly one ROOT')
-            for g in p.globs + p.exclude + p.java + p.java_exclude:
+            for g in p.globs + p.exclude + p.java + p.java_exclude + p.other_files:
                 glob_to_regex(g)
+            for g in p.other_files:
+                segments = g.split('/')
+                if segments[0] in self.roots + [TESTS] or any(s in ('', '.', '..') for s in segments):
+                    raise ManifestError(f"{where}: OTHER_FILES glob '{g}': a path below cpp/game-server outside the ROOTS and tests/")
         self._validate_targets_and_test_dirs()
 
     def _validate_targets_and_test_dirs(self):
@@ -378,6 +390,11 @@ class Manifest:
                     overlaps.append(f'test directory tests/{dir_a} of {part_a.describe()} overlaps tests/{dir_b} of {part_b.describe()}')
         if overlaps:
             raise ManifestError('chunks.cmake: the test directories of different chunks or targets must not overlap:\n  ' + '\n  '.join(overlaps))
+
+    def other_file_parts(self, rel):
+        """(owner parts, lease parts) of a path relative to cpp/game-server outside the roots and tests/, by OTHER_FILES"""
+        matching = [p for p in self.parts if p.matches_other(rel)]
+        return [p for p in matching if not p.lease], [p for p in matching if p.lease]
 
     def chunk_parts(self, chunk):
         return [p for p in self.parts if p.name == chunk]
@@ -549,9 +566,11 @@ def normalize(path_arg, manifest, game_server=GAME_SERVER, java_dir=JAVA_GAME_SE
                 return kind, rel
             if kind == 'cpp' and top == TESTS and '/' in rel:
                 return 'test', rel
+            if kind == 'cpp' and top not in (TESTS, '..') and not rel.startswith('../'):
+                return 'other', rel
             if kind == 'java' and rel.endswith('.java'):
                 return kind, rel
-    return None, f'{path_arg}: not below cpp/game-server/{{{",".join(manifest.roots + [TESTS])}}} nor a Java file below game-server'
+    return None, f'{path_arg}: not below cpp/game-server nor a Java file below game-server'
 
 
 # -- commands ---------------------------------------------------------------------------------------------------------------------------------
@@ -562,8 +581,13 @@ def cmd_owner(args, manifest):
         if kind is None:
             print(rel)
             status = 1
-        elif kind in ('cpp', 'test'):
-            owners, leases = owners_of(manifest, rel, args.game_server) if kind == 'cpp' else manifest.test_dir_parts(rel)
+        elif kind in ('cpp', 'test', 'other'):
+            if kind == 'cpp':
+                owners, leases = owners_of(manifest, rel, args.game_server)
+            elif kind == 'test':
+                owners, leases = manifest.test_dir_parts(rel)
+            else:
+                owners, leases = manifest.other_file_parts(rel)
             text = ', '.join(p.describe() for p in owners) or 'no owner'
             if leases:
                 text += '; leased to ' + ', '.join(p.name for p in leases)
@@ -649,6 +673,12 @@ def ownership_violations(manifest, chunk, changed, game_server=GAME_SERVER):
                     continue
                 violations.append((path, 'owned by ' + (', '.join(p.describe() for p in owners) or 'no chunk')))
                 continue
+            owners, leases = manifest.other_file_parts(rel)
+            if any(p.name == chunk for p in owners + leases):
+                continue
+            if owners:
+                violations.append((path, 'owned by ' + ', '.join(p.describe() for p in owners)))
+                continue
         if path == f'{cpp_prefix}docs/deviations/{chunk}.md':
             continue
         violations.append((path, 'outside the chunk'))
@@ -680,6 +710,8 @@ def cmd_verify_json(args, manifest):
         if entry.get('name') != p.name or (entry.get('target') or None) != p.target:
             problems.append(f'{label}: chunks.json has {entry.get("name")} ({entry.get("target")})')
             continue
+        if entry.get('otherFiles', []) != p.other_files:
+            problems.append(f'{label}: OTHER_FILES differ (CMake: {entry.get("otherFiles")}, chunks.py: {p.other_files})')
         if entry.get('tests') != p.tests_dir or entry.get('testSupport') != p.test_support:
             problems.append(f'{label}: test directories differ (CMake: {entry.get("tests")!r} {entry.get("testSupport")}, '
                             f'chunks.py: {p.tests_dir!r} {p.test_support})')

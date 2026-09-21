@@ -1,8 +1,19 @@
 #include "aion/gameserver/instance/handlers/GeneralInstanceHandler.h"
 
+#include <string>
+#include <vector>
+
 #include "aion/gameserver/runtime/base/Unported.h"
 #include "aion/commons/logging/LoggerFactory.h"
+#include "aion/gameserver/dataholders/DataManager.h"
+#include "aion/gameserver/dataholders/WorldMapsData.h"
+#include "aion/gameserver/model/gameobjects/Npc.h"
+#include "aion/gameserver/model/gameobjects/player/Player.h"
+#include "aion/gameserver/model/templates/npc/NpcRating.h"
+#include "aion/gameserver/model/templates/world/WorldMapTemplate.h"
+#include "aion/gameserver/runtime/base/Exceptions.h"
 #include "aion/gameserver/world/WorldMapInstance.h"
+#include "aion/gameserver/world/WorldPosition.h"
 
 namespace aion::gameserver::instance::handlers {
 
@@ -53,19 +64,31 @@ void GeneralInstanceHandler::sendMsg(network::aion::serverpackets::SM_SYSTEM_MES
 }
 
 void GeneralInstanceHandler::onDespawn(model::gameobjects::Npc& npc) {
-	AION_UNPORTED();
+	if (npc.getPosition()->isInstanceMap() && isBoss(npc) && !npc.isDead())
+		logNpcWithReason(npc, "despawned without dying.");
 }
 
 void GeneralInstanceHandler::onDie(model::gameobjects::Npc& npc) {
-	AION_UNPORTED();
+	if (npc.getPosition()->isInstanceMap() && isBoss(npc))
+		logNpcWithReason(npc, "was killed.");
 }
 
 void GeneralInstanceHandler::logNpcWithReason(model::gameobjects::Npc& npc, std::string_view reason) {
-	AION_UNPORTED();
+	std::vector<runtime::Ptr<model::gameobjects::player::Player>> playersInside = instance->getPlayersInside();
+	if (!playersInside.empty()) {
+		const model::templates::world::WorldMapTemplate* worldMapTemplate = dataholders::DataManager::WORLD_MAPS_DATA->getTemplate(mapId);
+		if (worldMapTemplate == nullptr)
+			throw runtime::NullPointerException("WORLD_MAPS_DATA.getTemplate(" + std::to_string(mapId) + ")");
+		std::string players;
+		for (const runtime::Ptr<model::gameobjects::player::Player>& p : playersInside)
+			players.append(players.empty() ? "" : ", ").append(p->getName() + " (ID:" + std::to_string(p->getObjectId()) + ")");
+		log.info("[{}] {} (ID:{}) {} Player(s) in instance: {}", worldMapTemplate->getName(), npc.getName(), npc.getNpcId(), reason, players);
+	}
 }
 
 bool GeneralInstanceHandler::isBoss(model::gameobjects::Npc& npc) {
-	AION_UNPORTED();
+	using model::templates::npc::NpcRating;
+	return npc.getLevel() >= 60 && (npc.getRating() == NpcRating::HERO || npc.getRating() == NpcRating::LEGENDARY);
 }
 
 void GeneralInstanceHandler::portToStartPosition(model::gameobjects::player::Player& player) {

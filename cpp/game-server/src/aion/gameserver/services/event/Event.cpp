@@ -23,7 +23,7 @@ const skillengine::model::Effect_ForceType* Event::getOrCreateEffectForceType(st
 }
 
 bool Event::isEventEffectForceType(const skillengine::model::Effect_ForceType* forceType) {
-	AION_UNPORTED();
+	return forceType != nullptr && forceType->getName().starts_with(EFFECT_FORCE_TYPE_PREFIX);
 }
 
 // lambda at Event.java:102 (fieldmap key event.Event@L102:76)

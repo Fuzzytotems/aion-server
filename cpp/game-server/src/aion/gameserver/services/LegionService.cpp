@@ -1,9 +1,25 @@
 #include "aion/gameserver/services/LegionService.h"
 
-#include "aion/gameserver/runtime/base/Unported.h"
+#include <string>
+
 #include "aion/commons/logging/LoggerFactory.h"
-#include "aion/gameserver/model/team/legion/LegionMember.h"
+#include "aion/commons/utils/StringUtils.h"
+#include "aion/commons/utils/TimeUtils.h"
+#include "aion/gameserver/dao/InventoryDAO.h"
+#include "aion/gameserver/dao/ItemStoneListDAO.h"
+#include "aion/gameserver/dao/LegionDAO.h"
+#include "aion/gameserver/dao/LegionMemberDAO.h"
+#include "aion/gameserver/model/account/Account.h"
+#include "aion/gameserver/model/gameobjects/Item.h"
+#include "aion/gameserver/model/gameobjects/player/Player.h"
+#include "aion/gameserver/model/gameobjects/player/PlayerCommonData.h"
 #include "aion/gameserver/model/team/legion/Legion.h"
+#include "aion/gameserver/model/team/legion/LegionEmblem.h"
+#include "aion/gameserver/model/team/legion/LegionMember.h"
+#include "aion/gameserver/model/team/legion/LegionWarehouse.h"
+#include "aion/gameserver/runtime/base/Exceptions.h"
+#include "aion/gameserver/runtime/base/Unported.h"
+#include "aion/gameserver/services/player/PlayerService.h"
 
 namespace aion::gameserver::services {
 
@@ -98,27 +114,37 @@ bool LegionService::LegionRestrictions::isValidNickname(std::string_view name) {
 LegionService::LegionRestrictions::~LegionRestrictions() = default;
 
 void LegionService::storeLegion(model::team::legion::Legion& legion, bool newLegion) {
-	AION_UNPORTED();
+	if (newLegion) {
+		addCachedLegion(legion);
+		dao::LegionDAO::saveNewLegion(legion);
+	} else {
+		dao::LegionDAO::storeLegion(legion);
+		runtime::Ptr<model::team::legion::LegionEmblem> emblem = legion.getLegionEmblem();
+		if (!emblem) // Java: NullPointerException inside LegionDAO.storeLegionEmblem
+			throw runtime::NullPointerException("Legion " + std::to_string(legion.getLegionId()) + " has no emblem");
+		dao::LegionDAO::storeLegionEmblem(legion.getLegionId(), *emblem);
+	}
 }
 
 void LegionService::storeLegion(model::team::legion::Legion& legion) {
-	AION_UNPORTED();
+	storeLegion(legion, false);
 }
 
 void LegionService::storeLegionMember(model::team::legion::LegionMember& legionMember) {
-	AION_UNPORTED();
+	dao::LegionMemberDAO::storeLegionMember(legionMember);
 }
 
 std::vector<runtime::Ptr<model::team::legion::Legion>> LegionService::getCachedLegions() {
-	AION_UNPORTED();
+	return legionsById.values();
 }
 
 void LegionService::addCachedLegion(model::team::legion::Legion& legion) {
-	AION_UNPORTED();
+	legionsById.put(legion.getLegionId(), runtime::Ref<model::team::legion::Legion>(legion));
 }
 
 void LegionService::deleteLegionFromDB(int32_t legionId) {
-	AION_UNPORTED();
+	dao::LegionDAO::deleteLegion(legionId);
+	dao::InventoryDAO::deletePlayerOrLegionItems(legionId);
 }
 
 void LegionService::deleteLegionMemberFromDB(model::team::legion::LegionMember& legionMember) {
@@ -126,35 +152,91 @@ void LegionService::deleteLegionMemberFromDB(model::team::legion::LegionMember& 
 }
 
 runtime::Ptr<model::team::legion::Legion> LegionService::getLegion(std::string_view legionName) {
-	AION_UNPORTED();
+	runtime::Ptr<model::team::legion::Legion> legion;
+	for (const runtime::Ptr<model::team::legion::Legion>& cached : legionsById.values()) {
+		if (commons::utils::StringUtils::equalsIgnoreCase(cached->getName(), legionName)) {
+			legion = cached;
+			break;
+		}
+	}
+	if (!legion) {
+		runtime::Ref<model::team::legion::Legion> loaded = dao::LegionDAO::loadLegion(legionName);
+		if (!loaded || checkDisband(*loaded))
+			return nullptr;
+		loadLegionInfo(*loaded);
+		addCachedLegion(*loaded);
+		legion = loaded; // retained by the cache
+	} else if (checkDisband(*legion)) {
+		return nullptr;
+	}
+	return legion;
 }
 
 runtime::Ptr<model::team::legion::Legion> LegionService::getLegion(int32_t legionId) {
-	AION_UNPORTED();
+	runtime::Ptr<model::team::legion::Legion> legion = legionsById.get(legionId);
+	if (!legion) {
+		runtime::Ref<model::team::legion::Legion> loaded = dao::LegionDAO::loadLegion(legionId);
+		if (!loaded || checkDisband(*loaded))
+			return nullptr;
+		loadLegionInfo(*loaded);
+		addCachedLegion(*loaded);
+		legion = loaded; // retained by the cache
+	} else if (checkDisband(*legion)) {
+		return nullptr;
+	}
+	return legion;
 }
 
 void LegionService::loadLegionInfo(model::team::legion::Legion& legion) {
-	AION_UNPORTED();
+	legion.setMemberIds(dao::LegionMemberDAO::loadLegionMembers(legion.getLegionId()));
+	legion.setAnnouncement(dao::LegionDAO::loadAnnouncement(legion.getLegionId()));
+	legion.setLegionEmblem(dao::LegionDAO::loadLegionEmblem(legion.getLegionId()));
+	dao::InventoryDAO::loadStorage(legion.getLegionId(), legion.getLegionWarehouse());
+	dao::ItemStoneListDAO::load(legion.getLegionWarehouse().getItems());
+	dao::LegionDAO::loadHistory(legion);
 }
 
 runtime::Ptr<model::team::legion::LegionMember> LegionService::getLegionMember(std::string_view name) {
-	AION_UNPORTED();
+	runtime::Ref<model::gameobjects::player::PlayerCommonData> playerCommonData = services::player::PlayerService::getOrLoadPlayerCommonData(name);
+	return !playerCommonData ? nullptr : getLegionMember(*playerCommonData);
 }
 
 runtime::Ptr<model::team::legion::LegionMember> LegionService::getLegionMember(int32_t playerObjId) {
-	AION_UNPORTED();
+	return getLegionMember(playerObjId, nullptr);
 }
 
 runtime::Ptr<model::team::legion::LegionMember> LegionService::getLegionMember(model::gameobjects::player::PlayerCommonData& playerCommonData) {
-	AION_UNPORTED();
+	return getLegionMember(playerCommonData.getPlayerObjId(), runtime::Ptr<model::gameobjects::player::PlayerCommonData>(playerCommonData));
 }
 
 runtime::Ptr<model::team::legion::LegionMember> LegionService::getLegionMember(int32_t playerObjectId, runtime::Ptr<model::gameobjects::player::PlayerCommonData> playerCommonData) {
-	AION_UNPORTED();
+	// the callback runs under the key's stripe Monitor, like Java's bin lock (ConcurrentHashMap.h conformance site LegionService.java:154-159)
+	runtime::Ptr<model::team::legion::LegionMember> legionMember = legionMemberById.computeIfAbsent(playerObjectId, [playerObjectId, &playerCommonData] {
+		// lockdep: Java loads the member inside ConcurrentHashMap.computeIfAbsent (LegionService.java:154-159, a ConcurrentHashMap.h conformance site)
+		runtime::Ref<model::team::legion::LegionMember> lm = dao::LegionMemberDAO::loadLegionMember(playerObjectId);
+		if (lm) {
+			if (!playerCommonData) {
+				runtime::Ref<model::gameobjects::player::PlayerCommonData> loaded = services::player::PlayerService::getOrLoadPlayerCommonData(playerObjectId);
+				if (!loaded) // Java: NullPointerException in LegionMember.setPlayerData
+					throw runtime::NullPointerException("No player common data for legion member " + std::to_string(playerObjectId));
+				lm->setPlayerData(*loaded);
+			} else {
+				lm->setPlayerData(*playerCommonData);
+			}
+		}
+		return lm;
+	});
+	return !legionMember || checkDisband(*legionMember->getLegion()) ? nullptr : legionMember;
 }
 
 bool LegionService::checkDisband(model::team::legion::Legion& legion) {
-	AION_UNPORTED();
+	if (legion.isDisbanding()) {
+		if ((commons::utils::currentTimeMillis() / 1000) > legion.getDisbandTime()) {
+			disbandLegion(legion);
+			return true;
+		}
+	}
+	return false;
 }
 
 void LegionService::disbandLegion(model::team::legion::Legion& legion) {
@@ -251,7 +333,20 @@ void LegionService::recreateLegion(model::gameobjects::Npc& npc, model::gameobje
 }
 
 void LegionService::LegionWhUpdate(model::gameobjects::player::Player& player) {
-	AION_UNPORTED();
+	runtime::Ptr<model::team::legion::Legion> legion = player.getLegion();
+
+	if (!legion)
+		return;
+
+	std::vector<runtime::Ptr<model::gameobjects::Item>> allItems = legion->getLegionWarehouse().getItemsWithKinah();
+	for (const runtime::Ptr<model::gameobjects::Item>& item : legion->getLegionWarehouse().getDeletedItems().snapshot())
+		allItems.push_back(item);
+	try {
+		dao::InventoryDAO::store(allItems, player.getObjectId(), player.getAccount()->getId(), legion->getLegionId());
+		dao::ItemStoneListDAO::save(allItems);
+	} catch (const std::exception& ex) {
+		log.error("Exception during periodic saving of legion WH", ex);
+	}
 }
 
 void LegionService::updateMemberInfo(model::gameobjects::player::Player& player) {

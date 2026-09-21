@@ -2,6 +2,7 @@
 
 #include "aion/commons/logging/LoggerFactory.h"
 #include "aion/gameserver/runtime/base/Unported.h"
+#include "aion/gameserver/skillengine/model/Effect.h"
 #include "aion/gameserver/skillengine/model/Skill.h"
 
 namespace aion::gameserver::skillengine {
@@ -67,7 +68,11 @@ runtime::Ref<model::Effect> SkillEngine::applyEffectDirectly(int32_t skillId, in
 
 runtime::Ref<model::Effect> SkillEngine::applyEffectDirectly(const model::SkillTemplate* skillTemplate, int32_t skillLevel,
 	gameserver::model::gameobjects::Creature& effector, gameserver::model::gameobjects::Creature& effected) {
-	AION_UNPORTED();
+	// Java: return applyEffect(effector, effected, skillTemplate, skillLevel, null, ForceType.DEFAULT) - new Effect(...), initialize(),
+	// applyEffect(). Effect application is M5b work (m5a-plan.md O-09); the enter-world passive skills (PlayerEnterWorldService
+	// .activatePassiveSkillEffects) ignore the returned effect.
+	AION_PARTIAL("passive skill effects are not applied yet (M5a O-09)");
+	return {};
 }
 
 std::vector<runtime::Ptr<gameserver::model::gameobjects::Creature>> SkillEngine::applyEffectsDirectly(int32_t skillId,

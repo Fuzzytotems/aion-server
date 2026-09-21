@@ -13,7 +13,11 @@ runtime::Ref<LimitedTradeNpc> LimitedTradeNpc::create() {
 }
 
 void LimitedTradeNpc::addLimitedItems(const std::vector<runtime::Ptr<LimitedItem>>& value) {
-	AION_UNPORTED();
+	std::vector<runtime::Ref<LimitedItem>> items;
+	items.reserve(value.size());
+	for (const runtime::Ptr<LimitedItem>& item : value)
+		items.emplace_back(item);
+	this->limitedItems.addAll(items);
 }
 
 LimitedTradeNpc::~LimitedTradeNpc() = default;

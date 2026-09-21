@@ -4,6 +4,12 @@
 #include "aion/gameserver/runtime/lifetime/RefCounted.h"
 #include "aion/commons/logging/LoggerFactory.h"
 #include "aion/gameserver/model/gameobjects/player/Player.h"
+#include "aion/gameserver/dataholders/DataManager.h"
+#include "aion/gameserver/dataholders/PlayerInitialData.h"
+#include "aion/gameserver/model/gameobjects/Kisk.h"
+#include "aion/gameserver/model/gameobjects/player/BindPointPosition.h"
+#include "aion/gameserver/network/aion/serverpackets/SM_BIND_POINT_INFO.h"
+#include "aion/gameserver/utils/PacketSendUtility.h"
 
 namespace aion::gameserver::services::teleport {
 
@@ -152,11 +158,26 @@ void TeleportService::teleportToNpc(model::gameobjects::player::Player& player, 
 }
 
 void TeleportService::sendObeliskBindPoint(model::gameobjects::player::Player& player) {
-	AION_UNPORTED();
+	int32_t worldId;
+	float x, y, z;
+	if (runtime::Ptr<model::gameobjects::player::BindPointPosition> bplist = player.getBindPoint()) {
+		worldId = bplist->getMapId();
+		x = bplist->getX();
+		y = bplist->getY();
+		z = bplist->getZ();
+	} else {
+		const dataholders::PlayerInitialData::LocationData& locationData = dataholders::DataManager::PLAYER_INITIAL_DATA->getSpawnLocation(player.getRace());
+		worldId = locationData.getMapId();
+		x = locationData.getX();
+		y = locationData.getY();
+		z = locationData.getZ();
+	}
+	utils::PacketSendUtility::sendPacket(player, network::aion::serverpackets::SM_BIND_POINT_INFO(worldId, x, y, z));
 }
 
 void TeleportService::sendKiskBindPoint(model::gameobjects::player::Player& player) {
-	AION_UNPORTED();
+	if (player.getKisk())
+		utils::PacketSendUtility::sendPacket(player, network::aion::serverpackets::SM_BIND_POINT_INFO(player.getKisk()));
 }
 
 void TeleportService::moveToBindLocation(model::gameobjects::player::Player& player) {

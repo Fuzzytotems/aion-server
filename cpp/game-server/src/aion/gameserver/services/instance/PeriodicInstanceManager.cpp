@@ -1,7 +1,12 @@
 #include "aion/gameserver/services/instance/PeriodicInstanceManager.h"
 
+#include <memory>
+#include <vector>
+
 #include "aion/gameserver/runtime/base/Unported.h"
 #include "aion/commons/logging/LoggerFactory.h"
+#include "aion/gameserver/configs/main/AutoGroupConfig.h"
+#include "aion/gameserver/network/aion/serverpackets/SM_SYSTEM_MESSAGE.h"
 
 namespace aion::gameserver::services::instance {
 
@@ -18,7 +23,30 @@ PeriodicInstanceManager& PeriodicInstanceManager::getInstance() {
 }
 
 PeriodicInstanceManager::PeriodicInstanceManager() {
-	AION_UNPORTED();
+	using configs::main::AutoGroupConfig;
+	using network::aion::serverpackets::SM_SYSTEM_MESSAGE;
+	if (AutoGroupConfig::AUTO_GROUP_ENABLE.load()) {
+		// the ConfigValue snapshot is kept in a local while its expressions are used (CONVENTIONS "Fields that can change while the server runs")
+		auto schedule = [this](const commons::configuration::ConfigValue<std::vector<const cron::CronExpression*>>& times, SM_SYSTEM_MESSAGE openingMsg, int32_t maskId,
+							int64_t registrationPeriod) {
+			std::shared_ptr<const std::vector<const cron::CronExpression*>> startExpressions = times.get();
+			scheduleRegistration(*startExpressions, openingMsg, maskId, registrationPeriod);
+		};
+		schedule(AutoGroupConfig::DREDGION_TIMES, SM_SYSTEM_MESSAGE::STR_MSG_INSTANCE_OPEN_IDAB1_DREADGION(), 1,
+			AutoGroupConfig::DREDGION_REGISTRATION_PERIOD.load());
+		schedule(AutoGroupConfig::DREDGION_TIMES, SM_SYSTEM_MESSAGE::STR_MSG_INSTANCE_OPEN_IDDREADGION_02(), 2,
+			AutoGroupConfig::DREDGION_REGISTRATION_PERIOD.load());
+		schedule(AutoGroupConfig::DREDGION_TIMES, SM_SYSTEM_MESSAGE::STR_MSG_INSTANCE_OPEN_IDDREADGION_03(), 3,
+			AutoGroupConfig::DREDGION_REGISTRATION_PERIOD.load());
+		schedule(AutoGroupConfig::KAMAR_BATTLEFIELD_TIMES, SM_SYSTEM_MESSAGE::STR_MSG_INSTANCE_OPEN_IDKamar(), 107,
+			AutoGroupConfig::KAMAR_BATTLEFIELD_REGISTRATION_PERIOD.load());
+		schedule(AutoGroupConfig::ENGULFED_OPHIDAN_BRIDGE_TIMES, SM_SYSTEM_MESSAGE::STR_MSG_INSTANCE_OPEN_IDLDF5_Under_01_War(), 108,
+			AutoGroupConfig::ENGULFED_OPHIDAN_BRIDGE_REGISTRATION_PERIOD.load());
+		schedule(AutoGroupConfig::IRON_WALL_WARFRONT_TIMES, SM_SYSTEM_MESSAGE::STR_MSG_INSTANCE_OPEN_IDF5_TD_war(), 109,
+			AutoGroupConfig::IRON_WALL_WARFRONT_REGISTRATION_PERIOD.load());
+		schedule(AutoGroupConfig::IDGEL_DOME_TIMES, SM_SYSTEM_MESSAGE::STR_MSG_INSTANCE_OPEN_IDLDF5_Fortress_Re(), 111,
+			AutoGroupConfig::IDGEL_DOME_REGISTRATION_PERIOD.load());
+	}
 }
 
 void PeriodicInstanceManager::scheduleRegistration(std::span<const cron::CronExpression* const> startExpressions,

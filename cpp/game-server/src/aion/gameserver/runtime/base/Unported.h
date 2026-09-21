@@ -75,6 +75,57 @@ void writeUnportedTrace(std::ostream& out);
 /** Sets all hit counts to 0 (sites stay listed with 0 hits and do not log again). For tests. */
 void resetUnportedHitsForTests() noexcept;
 
+/**
+ * AION_PARTIAL("reason"): a stub with a warning (docs/design/m5a-plan.md D3). Marks a place where a body is deliberately left incomplete
+ * for the current milestone (a warn stub, a skipped branch) and execution must go on:
+ * <pre>
+ * void SkillEngine::applyEffectDirectly(...) {
+ *     AION_PARTIAL("passive skill effects are not applied yet (M5a O-09)");
+ * }
+ * </pre>
+ * Unlike AION_UNPORTED it returns normally. Every site
+ * - logs one warning the first time it is reached (no stack trace): "AION_PARTIAL reached: <function> at <file>:<line>: <reason>";
+ * - counts its hits; partialHits() / writePartialTrace() list all sites reached so far (partial_trace.txt of the check-output mode, compared with
+ *   tests/scenario/m5a_partial_allowlist.txt by the scenario gate).
+ * The reason must be a constant expression (a string literal): it is stored in the site at compile time. File names are shortened like the
+ * unported trace. Thread-safe, allocation-free until a site is first reached, and noexcept (usable in noexcept functions and destructors; a
+ * failure to log is swallowed).
+ */
+struct PartialSite {
+	std::string_view reason{}; // the macro argument, a constant expression (constinit)
+	std::atomic<uint64_t> hits{0};
+	std::atomic<bool> registered{false};
+	std::source_location location{}; // written once by the registering thread before the site is published
+	PartialSite* next = nullptr;      // published list, written before publication
+};
+
+/** One site of partialHits() */
+struct PartialHit {
+	std::string function; // compiler spelling of the function (std::source_location::function_name)
+	std::string file;     // shortened like UnportedHit::file
+	uint32_t line = 0;
+	std::string reason;
+	uint64_t hits = 0;
+};
+
+/** Counts the hit and logs the first one. Called by AION_PARTIAL; the location defaults to the macro's call site. */
+void partialReached(PartialSite& site, std::source_location location = std::source_location::current()) noexcept;
+
+/** @return every AION_PARTIAL site reached since startup (or the last reset) with its hit count, sorted by file, line and function */
+std::vector<PartialHit> partialHits();
+
+/** @return the sum of all AION_PARTIAL hits */
+uint64_t partialHitCount() noexcept;
+
+/**
+ * Writes the partial trace: a header line "# AION_PARTIAL trace v1" followed by one line per site from partialHits(), tab separated:
+ * <tt>hits file:line function reason</tt>.
+ */
+void writePartialTrace(std::ostream& out);
+
+/** Sets all AION_PARTIAL hit counts to 0 (sites stay listed with 0 hits and do not log again). For tests. */
+void resetPartialHitsForTests() noexcept;
+
 namespace detail {
 /** "D:\\x\\cpp\\game-server\\src\\aion\\gameserver\\world\\World.cpp" -> "aion/gameserver/world/World.cpp". Exposed for tests. */
 std::string shortenUnportedFileName(std::string_view fileName);
@@ -104,4 +155,15 @@ using runtime::writeUnportedTrace;
 	::aion::gameserver::runtime::unportedReached([]() noexcept -> ::aion::gameserver::runtime::UnportedSite& {                                        \
 		static constinit ::aion::gameserver::runtime::UnportedSite aionUnportedSite; /* lint: the site counter of the unported trace */               \
 		return aionUnportedSite;                                                                                                                      \
+	}())
+
+/**
+ * A stub with a warning (see PartialSite above): counts the hit, logs the first one and returns. `reason` must be a string literal. The lambda
+ * gives every expansion its own site object; the source location is taken at the expansion.
+ */
+#define AION_PARTIAL(aionPartialReason)                                                                                                               \
+	::aion::gameserver::runtime::partialReached([]() noexcept -> ::aion::gameserver::runtime::PartialSite& {                                          \
+		/* lint: the site counter of the partial trace */                                                                                             \
+		static constinit ::aion::gameserver::runtime::PartialSite aionPartialSite{.reason = (aionPartialReason)};                                      \
+		return aionPartialSite;                                                                                                                       \
 	}())

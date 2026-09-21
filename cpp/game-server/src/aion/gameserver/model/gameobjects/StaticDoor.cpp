@@ -1,11 +1,15 @@
 #include "aion/gameserver/model/gameobjects/StaticDoor.h"
 
+#include <utility>
+
+#include "aion/gameserver/controllers/StaticObjectController.h"
 #include "aion/gameserver/model/EmotionType.h"
 #include "aion/gameserver/model/gameobjects/detail/ObjectsData.h"
 #include "aion/gameserver/model/templates/spawns/SpawnTemplate.h"
 #include "aion/gameserver/model/templates/staticdoor/StaticDoorState.h"
 #include "aion/gameserver/model/templates/staticdoor/StaticDoorTemplate.h"
 #include "aion/gameserver/network/aion/serverpackets/SM_EMOTION.h"
+#include "aion/gameserver/runtime/base/Exceptions.h"
 #include "aion/gameserver/utils/PacketSendUtility.h"
 #include "aion/gameserver/world/geo/GeoService.h"
 
@@ -17,10 +21,18 @@ using templates::staticdoor::StaticDoorState;
 
 } // namespace
 
-// StaticDoor(CreateKey, std::unique_ptr<controllers::StaticObjectController>, SpawnTemplate&, const StaticDoorTemplate*, int32_t) is defined with
-// StaticObject's constructor (controllers/StaticObjectController.h, P4-11b). Java body after super(...):
-//   states = EnumSet.noneOf(StaticDoorState.class); StaticDoorState.setStates(getObjectTemplate().getState(), states);
-//   if (objectTemplate.getKeyId() < 2) isLocked = false;
+StaticDoor::StaticDoor(CreateKey key, std::unique_ptr<controllers::StaticObjectController> controller,
+	templates::spawns::SpawnTemplate& spawnTemplate, const templates::staticdoor::StaticDoorTemplate* objectTemplate, int32_t instanceId)
+	: StaticObject(key, std::move(controller), spawnTemplate, objectTemplate) {
+	// Java: states = EnumSet.noneOf(StaticDoorState.class) is the member initializer
+	if (objectTemplate == nullptr)
+		throw runtime::NullPointerException("getObjectTemplate()"); // Java: getObjectTemplate().getState() on a null template
+	detail::setStates(objectTemplate->getState(), states);
+	if (objectTemplate->getKeyId() < 2) {
+		isLocked_.set(false);
+	}
+	static_cast<void>(instanceId); // Java stores nothing: the instance id reaches the object through SpawnEngine.bringIntoWorld
+}
 
 StaticDoor::~StaticDoor() = default;
 

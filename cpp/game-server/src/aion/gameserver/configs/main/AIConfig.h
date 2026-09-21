@@ -3,6 +3,7 @@
 #include <atomic>
 #include <cstdint>
 #include <filesystem>
+#include <string>
 
 #include "aion/gameserver/configs/detail/ConfigSupport.h"
 
@@ -37,6 +38,14 @@ struct AIConfig {
 
 	/** Location of AI *.java handlers */
 	static inline ConfigValue<std::filesystem::path> HANDLER_DIRECTORY;
+
+	/**
+	 * C++ only (gameserver.dev.missing_ai_handlers, docs/deviations/P4-01.md): what AIEngine does with an AI name that has no compiled handler.
+	 * "fail" (default, Java behaviour): AIEngine.validateScripts fails the startup and newAI throws "No AI found for name". "warn" (development
+	 * while the AI handlers are not ported, m5a-plan.md D1/D2): validateScripts logs the missing names once and newAI creates a DummyAI with one
+	 * warning per name. Other values count as "fail"; the value is compared ignoring case.
+	 */
+	static inline ConfigValue<std::string> MISSING_AI_HANDLERS;
 
 	/** Binds the fields above to their property keys (Java: the @Property/@Properties annotations). */
 	static void bind(commons::configuration::ConfigurableProcessor& processor);

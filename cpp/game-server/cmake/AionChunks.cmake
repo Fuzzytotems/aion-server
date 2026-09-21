@@ -19,12 +19,16 @@
 #                                                     the test executable (below game-server/tests)
 #       [TEST_SUPPORT <dir>...]                       further test directories the chunk owns that are not compiled into the part's test
 #                                                     executable (shared support headers, a harness that CMakeLists.txt builds itself)
+#       [OTHER_FILES <glob>...]                       other files the chunk owns (or, in a LEASE, may change) below cpp/game-server outside the
+#                                                     ROOTS and tests/, e.g. CMake scripts in cmake/ (relative to cpp/game-server). Only
+#                                                     chunks.py owner and check-ownership use them; the configure step validates the globs and
+#                                                     writes them to chunks.json, and the manifest review keeps the owners of such files disjoint
 #       [MAIN <file>]                                 a file of the part (relative to its ROOT) compiled into aion_game_server, not the library
 #       [COMPILE_WHEN_EXISTS <file>]                  the part's .cpp files are compiled only once <ROOT>/<file> exists (header-only until then)
 #       [XMLGEN_SHELLS])                              restricts the matches to xmlgen behaviour class shells: src X.h/X.cpp whose
 #                                                     generated/<same path>/X.xml.inc exists
 #   A chunk is identified by <name> and may have several parts (calls) with different targets; several chunks may share a target. A LEASE part
-#   owns nothing: it lets chunk <name> change files (GLOBS) or test directories (TEST_SUPPORT) that other parts own (checked by chunks.py
+#   owns nothing: it lets chunk <name> change files (GLOBS, OTHER_FILES) or test directories (TEST_SUPPORT) that other parts own (checked by chunks.py
 #   check-ownership only) and creates no target. A keyword may appear only once per call.
 #
 # Glob language: `**/` any number of directories (also none), a trailing `/**` everything below, `*` any characters except `/`, `?` one character
@@ -127,7 +131,7 @@ endfunction()
 function(aion_gs_chunk name)
 	set(options LEASE XMLGEN_SHELLS)
 	set(single TARGET PHASE TESTS MAIN COMPILE_WHEN_EXISTS)
-	set(multi ROOT GLOBS EXCLUDE JAVA JAVA_EXCLUDE DEPENDS PCH TEST_INCLUDES TEST_SUPPORT)
+	set(multi ROOT GLOBS EXCLUDE JAVA JAVA_EXCLUDE DEPENDS PCH TEST_INCLUDES TEST_SUPPORT OTHER_FILES)
 	set(where "chunks.cmake: aion_gs_chunk(${name})")
 	set(seen)
 	foreach(arg IN LISTS ARGN)
@@ -147,7 +151,7 @@ function(aion_gs_chunk name)
 	endif()
 	if(ARG_LEASE)
 		if(ARG_TARGET OR ARG_JAVA OR ARG_JAVA_EXCLUDE OR ARG_DEPENDS OR ARG_PCH OR ARG_MAIN OR ARG_TESTS OR ARG_TEST_INCLUDES OR ARG_COMPILE_WHEN_EXISTS)
-			message(FATAL_ERROR "${where}: a LEASE has only PHASE, ROOT, GLOBS, EXCLUDE, TEST_SUPPORT and XMLGEN_SHELLS")
+			message(FATAL_ERROR "${where}: a LEASE has only PHASE, ROOT, GLOBS, EXCLUDE, TEST_SUPPORT, OTHER_FILES and XMLGEN_SHELLS")
 		endif()
 	elseif(NOT ARG_TARGET)
 		message(FATAL_ERROR "${where}: TARGET is required (or LEASE)")
@@ -155,7 +159,7 @@ function(aion_gs_chunk name)
 	if(NOT ARG_PHASE)
 		message(FATAL_ERROR "${where}: PHASE is required")
 	endif()
-	if(NOT ARG_GLOBS AND NOT ARG_MAIN AND NOT (ARG_LEASE AND ARG_TEST_SUPPORT))
+	if(NOT ARG_GLOBS AND NOT ARG_MAIN AND NOT (ARG_LEASE AND (ARG_TEST_SUPPORT OR ARG_OTHER_FILES)))
 		message(FATAL_ERROR "${where}: GLOBS is required")
 	endif()
 	foreach(dir IN LISTS ARG_TESTS ARG_TEST_INCLUDES ARG_TEST_SUPPORT)
@@ -170,6 +174,13 @@ function(aion_gs_chunk name)
 	foreach(root IN LISTS ARG_ROOT)
 		if(NOT root IN_LIST roots)
 			message(FATAL_ERROR "${where}: unknown ROOT ${root} (aion_gs_chunks_settings must come first)")
+		endif()
+	endforeach()
+	foreach(glob IN LISTS ARG_OTHER_FILES)
+		aion_gs_glob_to_regex(ignored "${glob}")
+		string(REGEX REPLACE "/.*$" "" first "${glob}")
+		if(first IN_LIST roots OR first STREQUAL "tests" OR glob MATCHES "(^|/)\\.\\.?(/|$)" OR glob MATCHES "(^/|//|/$)")
+			message(FATAL_ERROR "${where}: OTHER_FILES glob '${glob}': a path below cpp/game-server outside the ROOTS and tests/")
 		endif()
 	endforeach()
 	if(ARG_XMLGEN_SHELLS AND NOT ARG_ROOT STREQUAL "src")
@@ -556,10 +567,10 @@ function(aion_gs_check_chunks)
 		"\"parts\": [\n")
 	foreach(i RANGE ${last})
 		foreach(key IN ITEMS NAME TARGET PHASE LEASE XMLGEN_SHELLS ROOT GLOBS EXCLUDE JAVA JAVA_EXCLUDE DEPENDS PCH TESTS_DIR TEST_SUPPORT MAIN
-				COMPILE_WHEN_EXISTS FILES JAVA_FILES)
+				COMPILE_WHEN_EXISTS FILES JAVA_FILES OTHER_FILES)
 			get_property(p_${key} GLOBAL PROPERTY AION_GS_CHUNK_${i}_${key})
 		endforeach()
-		foreach(key IN ITEMS ROOT GLOBS EXCLUDE JAVA JAVA_EXCLUDE DEPENDS PCH TEST_SUPPORT FILES JAVA_FILES)
+		foreach(key IN ITEMS ROOT GLOBS EXCLUDE JAVA JAVA_EXCLUDE DEPENDS PCH TEST_SUPPORT FILES JAVA_FILES OTHER_FILES)
 			aion_gs_json_list(j_${key} ${p_${key}})
 		endforeach()
 		set(lease false)
@@ -573,7 +584,7 @@ function(aion_gs_check_chunks)
 		string(APPEND json "{\"name\": \"${p_NAME}\", \"target\": \"${p_TARGET}\", \"phase\": \"${p_PHASE}\", \"lease\": ${lease}, "
 			"\"xmlgenShells\": ${shells}, \"roots\": ${j_ROOT}, \"globs\": ${j_GLOBS}, \"exclude\": ${j_EXCLUDE}, \"java\": ${j_JAVA}, "
 			"\"javaExclude\": ${j_JAVA_EXCLUDE}, \"depends\": ${j_DEPENDS}, \"pch\": ${j_PCH}, \"tests\": \"${p_TESTS_DIR}\", "
-			"\"testSupport\": ${j_TEST_SUPPORT}, \"main\": \"${p_MAIN}\", \"compileWhenExists\": \"${p_COMPILE_WHEN_EXISTS}\",\n \"files\": ${j_FILES},\n "
+			"\"testSupport\": ${j_TEST_SUPPORT}, \"otherFiles\": ${j_OTHER_FILES}, \"main\": \"${p_MAIN}\", \"compileWhenExists\": \"${p_COMPILE_WHEN_EXISTS}\",\n \"files\": ${j_FILES},\n "
 			"\"javaFiles\": ${j_JAVA_FILES}}")
 		if(i LESS last)
 			string(APPEND json ",")

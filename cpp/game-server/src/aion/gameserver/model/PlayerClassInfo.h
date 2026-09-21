@@ -15,9 +15,8 @@ namespace aion::gameserver::model {
  * Companion of the generated enum PlayerClass (docs/design/static-data.md §2.5): Java's constructor data and methods as free functions found by
  * ADL (`getClassId(playerClass)` for Java `playerClass.getClassId()`). Java's PlayerClass implements L10n (`getL10nId(playerClass)`).
  * <p>
- * createStatsTemplate (with the nested Java class PlayerStatsTemplate) is declared here and stays unported: it needs PlayerStatCalculator
- * (P5-01), virtual StatsTemplate getters for the overriding PlayerStatsTemplate (the xmlgen member block emits them non-virtual) and a lifetime for
- * the per-call template behind PlayerGameStats' `const StatsTemplate*` field.
+ * createStatsTemplate (with the nested Java class PlayerStatsTemplate, defined in the .cpp) interns one immutable template per class and level
+ * (see its comment), so the `const StatsTemplate*` PlayerGameStats keeps is immortal like every template.
  */
 
 namespace detail {
@@ -55,7 +54,7 @@ constexpr const PlayerClassData& playerClassData(PlayerClass playerClass) noexce
 }
 } // namespace detail
 
-/** Java: PlayerClass.createStatsTemplate(int level). Unported (see the header comment). */
+/** Java: PlayerClass.createStatsTemplate(int level). C++: the template is interned per class and level (never destroyed). */
 const templates::stats::StatsTemplate* createStatsTemplate(PlayerClass playerClass, int32_t level);
 
 /** Java: PlayerClass.getClassId() - the id used on client side */

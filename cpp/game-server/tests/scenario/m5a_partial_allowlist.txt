@@ -1,0 +1,8 @@
+# The AION_PARTIAL sites the M5a scenario gate accepts (m5a-plan.md D3: "partial sites subset of tests/scenario/m5a_partial_allowlist.txt").
+# One site per line: "<file>:<line>" or just "<file>", matched as a prefix of the site of partial_trace.txt, whose file paths are relative to
+# game-server/src (e.g. "aion/gameserver/GameServer.cpp:129"). Lines starting with '#' and empty lines are ignored.
+# Stage 2 (F-06, S-11) reads this file in the gate and fills it with the sites the scripted path reaches (plan D3, O-09 and the AION_PARTIAL
+# rows of the lanes' deviation files).
+#
+# Stage 1 (app-harness) leaves it empty: the startup steps of F-01a that had no C++ header are wired now, so the app chunk reaches no
+# AION_PARTIAL site of its own.

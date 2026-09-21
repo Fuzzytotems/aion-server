@@ -16,7 +16,7 @@ namespace aion::gameserver::model::gameobjects {
 
 /**
  * A door of a map or instance. A visible object: `VisibleObject::create<StaticDoor>(controller, spawnTemplate, objectTemplate, instanceId)`
- * (§10.1); the constructor is declared but, like StaticObject's, not defined before controllers/StaticObjectController.h exists (P4-11b).
+ * (§10.1).
  * <p>
  * Java's `EnumSet<StaticDoorState> states` (fieldmap: no shim for EnumSet) is a TreeSet shim, which iterates in ordinal order like an EnumSet and
  * guards each operation with its Monitor; getStates() returns a snapshot (hub-headers.md §6: EnumSet in signatures is std::set).

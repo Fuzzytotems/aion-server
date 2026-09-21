@@ -2,6 +2,8 @@
 
 #include "aion/gameserver/runtime/base/Unported.h"
 #include "aion/gameserver/model/gameobjects/Kisk.h"
+#include "aion/gameserver/model/gameobjects/player/Player.h"
+#include "aion/gameserver/runtime/base/Exceptions.h"
 
 namespace aion::gameserver::services {
 
@@ -23,19 +25,31 @@ void KiskService::onBind(model::gameobjects::Kisk& kisk, model::gameobjects::pla
 }
 
 void KiskService::onLogin(model::gameobjects::player::Player& player) {
-	AION_UNPORTED();
+	runtime::Ptr<model::gameobjects::Kisk> kisk = this->boundButOfflinePlayer.get(player.getObjectId());
+	if (kisk) {
+		kisk->addPlayer(player);
+		this->boundButOfflinePlayer.remove(player.getObjectId());
+	}
 }
 
 void KiskService::onLogout(model::gameobjects::player::Player& player) {
-	AION_UNPORTED();
+	runtime::Ptr<model::gameobjects::Kisk> kisk = player.getKisk();
+	// store binding if existent
+	if (kisk) {
+		this->boundButOfflinePlayer.put(player.getObjectId(), runtime::Ref<model::gameobjects::Kisk>(kisk));
+	}
 }
 
 void KiskService::regKisk(model::gameobjects::Kisk& kisk, std::optional<int32_t> objOwnerId) {
-	AION_UNPORTED();
+	if (!objOwnerId)
+		throw runtime::NullPointerException("objOwnerId"); // Java: ConcurrentHashMap.put(null, ...)
+	ownerPlayer.put(*objOwnerId, runtime::Ref<model::gameobjects::Kisk>(kisk));
 }
 
 bool KiskService::haveKisk(std::optional<int32_t> objOwnerId) {
-	AION_UNPORTED();
+	if (!objOwnerId)
+		throw runtime::NullPointerException("objOwnerId"); // Java: ConcurrentHashMap.containsKey(null)
+	return ownerPlayer.containsKey(*objOwnerId);
 }
 
 } // namespace aion::gameserver::services

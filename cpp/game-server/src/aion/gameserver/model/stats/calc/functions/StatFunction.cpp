@@ -1,8 +1,24 @@
 #include "aion/gameserver/model/stats/calc/functions/StatFunction.h"
 
 #include "aion/gameserver/runtime/base/Unported.h"
+#include "aion/gameserver/skillengine/condition/Condition.h"
+#include "aion/gameserver/skillengine/condition/Conditions.h"
 
 namespace aion::gameserver::model::stats::calc::functions {
+
+namespace {
+
+/** Java: Conditions.validate(Stat2 stat, IStatFunction statFunction) (skillengine.condition, P5-02): every condition must hold */
+bool validateConditions(const skillengine::condition::Conditions& conditions, Stat2& stat, IStatFunction& statFunction) {
+	for (const std::unique_ptr<skillengine::condition::Condition>& condition : conditions.getConditions()) {
+		if (!condition->validate(stat, statFunction)) {
+			return false;
+		}
+	}
+	return true;
+}
+
+} // namespace
 
 StatFunction::StatFunction(container::StatEnum statValue, int32_t valueValue, bool bonusValue) {
 	this->stat = statValue;
@@ -36,11 +52,13 @@ int32_t StatFunction::getValue() {
 }
 
 bool StatFunction::validate(Stat2& statValue) {
-	AION_UNPORTED();
+	return validate(statValue, *this);
 }
 
 bool StatFunction::validate(Stat2& statValue, IStatFunction& statFunction) {
-	AION_UNPORTED();
+	// Java: conditions == null || conditions.validate(stat, statFunction); C++ reads the owned or the shared Conditions (class comment)
+	const skillengine::condition::Conditions* activeConditions = sharedConditions ? sharedConditions : conditions.get();
+	return activeConditions == nullptr || validateConditions(*activeConditions, statValue, statFunction);
 }
 
 void StatFunction::apply(Stat2& /*stat*/, const std::unordered_set<utils::stats::CalculationType>& /*calculationTypes*/) {

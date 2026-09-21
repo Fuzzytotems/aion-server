@@ -27,6 +27,7 @@
 #include "aion/gameserver/model/stats/container/PlayerGameStats.h"
 #include "aion/gameserver/model/stats/container/PlayerLifeStats.h"
 #include "aion/gameserver/model/stats/container/SummonGameStats.h"
+#include "aion/gameserver/model/stats/listeners/ItemEquipmentListener.h"
 #include "aion/gameserver/model/templates/item/ItemTemplate.h"
 #include "aion/gameserver/skillengine/effect/WeaponDualEffect.h"
 #include "aion/gameserver/model/templates/item/ItemUseLimits.h"
@@ -78,18 +79,14 @@ void auditLog(Player& player, const std::string& message) {
 	utils::audit::AuditLogger::log(player, message);
 }
 
-/** Java ItemEquipmentListener.onItemEquipment(item, player); the stat listeners (P5-01) have no C++ header yet */
+/** Java ItemEquipmentListener.onItemEquipment(item, player) */
 void onItemEquipment(Item& item, Player& player) {
-	static_cast<void>(item);
-	static_cast<void>(player);
-	AION_UNPORTED();
+	stats::listeners::ItemEquipmentListener::onItemEquipment(item, player);
 }
 
-/** Java ItemEquipmentListener.onItemUnequipment(item, player); the stat listeners (P5-01) have no C++ header yet */
+/** Java ItemEquipmentListener.onItemUnequipment(item, player) */
 void onItemUnequipment(Item& item, Player& player) {
-	static_cast<void>(item);
-	static_cast<void>(player);
-	AION_UNPORTED();
+	stats::listeners::ItemEquipmentListener::onItemUnequipment(item, player);
 }
 
 /**

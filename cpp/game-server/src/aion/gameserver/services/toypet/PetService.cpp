@@ -2,6 +2,11 @@
 
 #include "aion/gameserver/runtime/base/Unported.h"
 #include "aion/commons/logging/LoggerFactory.h"
+#include "aion/gameserver/model/gameobjects/player/PetCommonData.h"
+#include "aion/gameserver/model/gameobjects/player/PetList.h"
+#include "aion/gameserver/model/gameobjects/player/Player.h"
+#include "aion/gameserver/network/aion/serverpackets/SM_PET.h"
+#include "aion/gameserver/utils/PacketSendUtility.h"
 
 namespace aion::gameserver::services::toypet {
 
@@ -26,7 +31,9 @@ void PetService::renamePet(model::gameobjects::player::Player& player, std::stri
 }
 
 void PetService::onPlayerLogin(model::gameobjects::player::Player& player) {
-	AION_UNPORTED();
+	std::vector<runtime::Ptr<model::gameobjects::player::PetCommonData>> playerPets = player.getPetList().getPets();
+	if (!playerPets.empty())
+		utils::PacketSendUtility::sendPacket(player, network::aion::serverpackets::SM_PET(playerPets));
 }
 
 void PetService::removeObject(int32_t objectId, int32_t value, model::gameobjects::player::Player& player) {

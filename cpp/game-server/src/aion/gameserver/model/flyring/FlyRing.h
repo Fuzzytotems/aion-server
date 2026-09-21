@@ -16,9 +16,8 @@ namespace aion::gameserver::model::flyring {
 /**
  * A fly ring of a map: crossing its plane within the radius counts as flying through it.
  * <p>
- * A visible object: `VisibleObject::create<FlyRing>(template, instanceId)` (§10.1). The constructor is declared but not defined yet: it creates the
- * FlyRingController (the VisibleObject controller part) and binds it, and controllers/FlyRingController.h has no declaration header yet (P4-11b).
- * The id is never released (runtime-architecture.md §6 group (c)).
+ * A visible object: `VisibleObject::create<FlyRing>(template, instanceId)` (§10.1). The constructor creates the FlyRingController (the
+ * VisibleObject controller part), binds it and sets a PlayerAwareKnownList. The id is never released (runtime-architecture.md §6 group (c)).
  *
  * @author xavier
  */

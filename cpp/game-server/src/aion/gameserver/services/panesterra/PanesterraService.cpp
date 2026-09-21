@@ -3,6 +3,9 @@
 #include "aion/commons/logging/LoggerFactory.h"
 #include "aion/gameserver/runtime/base/Unported.h"
 #include "aion/gameserver/services/panesterra/ahserion/PanesterraTeam.h"
+#include "aion/gameserver/model/gameobjects/player/Player.h"
+#include "aion/gameserver/world/WorldMapType.h"
+#include "aion/gameserver/world/WorldMapTypeInfo.h"
 
 namespace aion::gameserver::services::panesterra {
 
@@ -57,11 +60,33 @@ void PanesterraService::spawnAhserionCorridors(int32_t fortressId) {
 }
 
 void PanesterraService::onEnterPanesterra(model::gameobjects::player::Player& player) {
+	int32_t siegeId = getSiegeId(player.getWorldId());
+	if (siegeId == 0)
+		return;
+	// M5a (plan E1-07) ports the path of maps outside Panesterra. Java continues with the team check (Transidium Annex or an active siege: bind
+	// location, origin position or the team's faction) or the owning faction of the fortresses 10111/10211/10311/10411 (PanesterraFaction and
+	// SiegeRace companions), ported with the Panesterra work
 	AION_UNPORTED();
 }
 
 int32_t PanesterraService::getSiegeId(int32_t worldId) {
-	AION_UNPORTED();
+	std::optional<world::WorldMapType> world = world::getWorldMapType(worldId);
+	if (!world)
+		return 0; // Java: case null
+	switch (*world) {
+		case world::WorldMapType::BELUS:
+			return 10111; // Belus
+		case world::WorldMapType::TRANSIDIUM_ANNEX:
+			return -1; // Transidium Annex
+		case world::WorldMapType::ASPIDA:
+			return 10211; // Aspida
+		case world::WorldMapType::ATANATOS:
+			return 10311; // Atanatos
+		case world::WorldMapType::DISILLON:
+			return 10411; // Disillon
+		default:
+			return 0;
+	}
 }
 
 bool PanesterraService::isAhserionRaidStarted() {

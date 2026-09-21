@@ -8,6 +8,9 @@
 	oracle.py compare-totals --actual FILE [--expected F]                  V3 totals document of the C++ loader vs expected totals
 	oracle.py xsd-check --ir FILE [--xsd-root DIR] [--allowlist F] [--out F]   V1: IR vs the XSDs (exit 1 on unallowed differences)
 	oracle.py xsd-inventory [--xsd-root DIR]                                XSD construct counts (sanity check of the XSD reader)
+	oracle.py m5a-spawns --map ID --x X --y Y --z Z [--radius R] [--game-minutes M | --game-hour H ...] [--weekday DAY]
+	oracle.py m5a-border-target --map ID --x X --y Y --z Z [--game-minutes M | --game-hour H ...]
+	oracle.py m5a-creation --race ELYOS|ASMODIANS --class CLASS [--java-src DIR]   (m5a/ package, m5a-plan.md F-05)
 """
 
 from __future__ import annotations
@@ -96,6 +99,37 @@ def cmd_xsd_inventory(args):
 	return 0
 
 
+def _m5a_clock(args):
+	from m5a.spawns import GameClock
+	if args.game_minutes is not None:
+		return GameClock.from_minutes(args.game_minutes, args.weekday)
+	return GameClock(args.game_hour, args.game_day, args.game_month, args.weekday)
+
+
+def cmd_m5a_spawns(args):
+	from m5a.data import StaticData
+	from m5a.spawns import spots_report
+	report = spots_report(StaticData(_data_dir(args)), args.map, (args.x, args.y, args.z), args.radius, _m5a_clock(args))
+	sys.stdout.write(runner.dump_json(report))
+	return 0
+
+
+def cmd_m5a_border_target(args):
+	from m5a.data import StaticData
+	from m5a.spawns import border_target
+	sys.stdout.write(runner.dump_json(border_target(StaticData(_data_dir(args)), args.map, (args.x, args.y, args.z), _m5a_clock(args))))
+	return 0
+
+
+def cmd_m5a_creation(args):
+	from m5a.creation import creation_report
+	from m5a.data import StaticData
+	data_dir = _data_dir(args)
+	java_src = Path(args.java_src) if args.java_src else data_dir.parent.parent / "src"
+	sys.stdout.write(runner.dump_json(creation_report(StaticData(data_dir), java_src, args.race, args.player_class)))
+	return 0
+
+
 def main(argv=None):
 	parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
 	sub = parser.add_subparsers(dest="command", required=True)
@@ -141,6 +175,39 @@ def main(argv=None):
 	p = sub.add_parser("xsd-inventory")
 	p.add_argument("--xsd-root")
 	p.set_defaults(fn=cmd_xsd_inventory)
+
+	def clock_args(p):
+		p.add_argument("--game-minutes", type=int, help="SM_GAME_TIME minutes since 01.01.0000 (sets hour, day and month)")
+		p.add_argument("--game-hour", type=int)
+		p.add_argument("--game-day", type=int)
+		p.add_argument("--game-month", type=int)
+		p.add_argument("--weekday", choices=("MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY", "SUNDAY"))
+
+	p = sub.add_parser("m5a-spawns", help="npc and gatherable spots around a point after spawnAll (m5a-plan.md 5.5)")
+	data_args(p, country=False)
+	p.add_argument("--map", type=int, required=True)
+	p.add_argument("--x", type=float, required=True)
+	p.add_argument("--y", type=float, required=True)
+	p.add_argument("--z", type=float, required=True)
+	p.add_argument("--radius", type=float, default=100.0)
+	clock_args(p)
+	p.set_defaults(fn=cmd_m5a_spawns)
+
+	p = sub.add_parser("m5a-border-target", help="region move target with appearing and disappearing npcs (m5a-plan.md 5.6)")
+	data_args(p, country=False)
+	p.add_argument("--map", type=int, required=True)
+	p.add_argument("--x", type=float, required=True)
+	p.add_argument("--y", type=float, required=True)
+	p.add_argument("--z", type=float, required=True)
+	clock_args(p)
+	p.set_defaults(fn=cmd_m5a_border_target)
+
+	p = sub.add_parser("m5a-creation", help="spawn point, items, skills and base HP/MP of a new character (m5a-plan.md 5.3)")
+	data_args(p, country=False)
+	p.add_argument("--java-src", help="game-server/src (default: two levels above the static data directory, then src)")
+	p.add_argument("--race", required=True, choices=("ELYOS", "ASMODIANS"))
+	p.add_argument("--class", dest="player_class", required=True)
+	p.set_defaults(fn=cmd_m5a_creation)
 
 	args = parser.parse_args(argv)
 	try:

@@ -21,7 +21,7 @@ runtime::Ref<PlayerScript> PlayerScript::create(int32_t id, runtime::Ptr<runtime
 }
 
 bool PlayerScript::hasData() {
-	AION_UNPORTED();
+	return compressedBytes_ && compressedBytes_->length() > 0;
 }
 
 bool PlayerScript::equals(const PlayerScript& obj) const {

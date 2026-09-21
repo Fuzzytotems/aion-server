@@ -3,7 +3,9 @@
 #include <cstdint>
 #include <memory>
 #include <span>
+#include <string>
 #include <string_view>
+#include <vector>
 
 #include "aion/commons/utils/ByteBuffer.h"
 #include "aion/gameserver/network/aion/StateSet.h"
@@ -65,6 +67,12 @@ public:
 	 * Startup and tests only: the previous table stays allocated, so concurrent readers remain valid.
 	 */
 	static void setEntries(std::span<const handlers::ClientPacketEntry> entries);
+
+	/**
+	 * C++ only (header request 5a-pre-7): the packet classes a client sent that had no registry entry yet (the "which is not ported yet" warning of
+	 * tryCreatePacket), sorted by name, since process start. For the m5a_summary.txt of the check-output mode (docs/design/m5a-plan.md D7).
+	 */
+	static std::vector<std::string> unportedPacketClassesSeen();
 };
 
 } // namespace aion::gameserver::network::aion

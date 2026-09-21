@@ -717,8 +717,12 @@ TEST_F(SpinePrototypeTest, PlayerAccountDataIsAPartOfItsAccountAndInternsItsBoun
 		}
 		EXPECT_EQ(account->refCount(), 1u);
 
-		// create<Player> stops in postConstruct at PetList::loadPets (PlayerPetsDAO, P4-14): the freeze exception of this scenario
-		EXPECT_THROW(static_cast<void>(VisibleObject::create<model::gameobjects::player::Player>(*data, *account)), runtime::UnportedException);
+		// create<Player> runs the whole postConstruct chain since wave 5a (the freeze exception of this scenario is gone): PetList::loadPets
+		// logs the missing DatabaseFactory of this test executable, the stat containers come from the ported PlayerGameStats/PlayerLifeStats
+		Ref<model::gameobjects::player::Player> player = VisibleObject::create<model::gameobjects::player::Player>(*data, *account);
+		EXPECT_EQ(player->getObjectId(), 100);
+		EXPECT_TRUE(player->getGameStats());
+		EXPECT_EQ(player->getCommonData().get(), commonData.get());
 	}
 	runtime::Reclaimer::getInstance().drain();
 	EXPECT_EQ(runtime::LeakCensus::getInstance().trackedCount(), 0u);

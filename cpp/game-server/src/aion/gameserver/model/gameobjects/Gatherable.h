@@ -13,8 +13,9 @@ namespace aion::gameserver::model::gameobjects {
 /**
  * A gatherable resource (ore, plant, ...). A visible object: `VisibleObject::create<Gatherable>(spawnTemplate, controller)` (§10.1).
  * <p>
- * The constructor (its base initializer also reads DataManager.GATHERABLE_DATA) and the getController() narrowing are declared but not defined
- * yet: both need the complete GatherableController, and controllers/GatherableController.h has no declaration header yet (P4-11b).
+ * The constructor (its base initializer also reads DataManager.GATHERABLE_DATA) is declared but not defined yet: it destroys its
+ * `std::unique_ptr<GatherableController>` parameter, and the GatherableController destructor cannot be defined before P5-02 writes
+ * skillengine/task/GatheringTask.h (VisibleObjectSpawner::spawnGatherable is an AION_PARTIAL until then). getController() is ported.
  *
  * @author ATracer
  */

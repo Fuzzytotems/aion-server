@@ -13,6 +13,7 @@
 #include <utility>
 
 #include "aion/gameserver/runtime/base/Checked.h"
+#include "aion/gameserver/runtime/lifetime/LiveInstanceCounters.h"
 #include "aion/gameserver/runtime/lifetime/RefCounted.h"
 
 namespace aion::gameserver::runtime {
@@ -363,6 +364,9 @@ Ref<T> makeRef(A&&... args) {
 		throw;
 	}
 	detail::checkConstructedByMakeRef(*object);
+#if AION_CHECKED
+	detail::countLiveInstanceCreated<T>(); // debug live-instance counters (LiveInstanceCounters.h)
+#endif
 	return Ref<T>::adopt(object);
 }
 

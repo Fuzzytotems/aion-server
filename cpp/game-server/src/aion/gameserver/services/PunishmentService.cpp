@@ -1,6 +1,17 @@
 #include "aion/gameserver/services/PunishmentService.h"
 
+#include <string>
+
+#include "aion/gameserver/controllers/PlayerController.h"
+#include "aion/gameserver/model/TaskId.h"
+#include "aion/gameserver/model/gameobjects/player/Player.h"
 #include "aion/gameserver/runtime/base/Unported.h"
+#include "aion/gameserver/services/ban/ChatBanService.h"
+#include "aion/gameserver/services/teleport/TeleportService.h"
+#include "aion/gameserver/utils/PacketSendUtility.h"
+#include "aion/gameserver/utils/ThreadPoolManager.h"
+#include "aion/gameserver/world/WorldMapType.h"
+#include "aion/gameserver/world/WorldMapTypeInfo.h"
 
 namespace aion::gameserver::services {
 
@@ -26,11 +37,27 @@ void PunishmentService::setIsInPrison(model::gameobjects::player::Player& player
 }
 
 void PunishmentService::updatePrisonStatus(model::gameobjects::player::Player& player) {
-	AION_UNPORTED();
+	int32_t prisonDurationSeconds = player.getPrisonDurationSeconds();
+	if (prisonDurationSeconds > 0) {
+		schedulePrisonTask(player, static_cast<int64_t>(prisonDurationSeconds) * 1000);
+		int32_t remainingMinutes = prisonDurationSeconds / 60;
+		if (remainingMinutes <= 0)
+			remainingMinutes = 1;
+
+		ban::ChatBanService::banPlayer(player, remainingMinutes); // Java passes the minutes as durationMillis
+		utils::PacketSendUtility::sendMessage(player,
+			"You are still in prison for " + std::to_string(remainingMinutes) + " minute" + (remainingMinutes > 1 ? "s" : "") + ".");
+
+		if (player.getWorldId() != world::getId(world::WorldMapType::DF_PRISON) && player.getWorldId() != world::getId(world::WorldMapType::LF_PRISON)) {
+			utils::PacketSendUtility::sendMessage(player, "You will be teleported to prison in a moment!");
+			utils::ThreadPoolManager::getInstance().schedule({&player}, [&player] { teleport::TeleportService::teleportToPrison(player); }, 10000);
+		}
+	}
 }
 
 void PunishmentService::schedulePrisonTask(model::gameobjects::player::Player& player, int64_t prisonTimer) {
-	AION_UNPORTED();
+	player.getController().addTask(model::TaskId::PRISON,
+		utils::ThreadPoolManager::getInstance().schedule({&player}, [&player] { setIsInPrison(player, false, 0, ""); }, prisonTimer));
 }
 
 void PunishmentService::setIsNotGatherable(model::gameobjects::player::Player& player, int32_t captchaCount, bool state, int64_t delay) {

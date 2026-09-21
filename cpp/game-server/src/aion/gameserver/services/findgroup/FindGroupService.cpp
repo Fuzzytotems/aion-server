@@ -3,6 +3,7 @@
 #include "aion/gameserver/model/gameobjects/findGroup/GroupApplication.h"
 #include "aion/gameserver/model/gameobjects/findGroup/GroupRecruitment.h"
 #include "aion/gameserver/model/gameobjects/findGroup/ServerWideGroup.h"
+#include "aion/gameserver/model/gameobjects/player/Player.h"
 #include "aion/gameserver/runtime/base/Unported.h"
 
 namespace aion::gameserver::services::findgroup {
@@ -93,7 +94,9 @@ void FindGroupService::onJoinedTeam(model::gameobjects::player::Player& player) 
 }
 
 void FindGroupService::onLogout(model::gameobjects::player::Player& player) {
-	AION_UNPORTED();
+	recruitments.remove(player.getObjectId());
+	applications.remove(player.getObjectId());
+	instanceGroups.remove(player.getObjectId());
 }
 
 } // namespace aion::gameserver::services::findgroup

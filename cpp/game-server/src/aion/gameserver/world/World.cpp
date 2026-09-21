@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <exception>
 #include <string>
+#include <typeinfo>
 #include <vector>
 
 #include "aion/commons/logging/LoggerFactory.h"
@@ -22,6 +23,7 @@
 #include "aion/gameserver/runtime/base/Exceptions.h"
 #include "aion/gameserver/runtime/lifetime/TaskScope.h"
 #include "aion/gameserver/runtime/sched/ForkJoinPool.h"
+#include "aion/gameserver/runtime/services/LeakCensus.h"
 #include "aion/gameserver/runtime/sync/Monitor.h"
 #include "aion/gameserver/services/ShieldService.h"
 #include "aion/gameserver/utils/audit/AuditLogger.h"
@@ -117,6 +119,9 @@ void World::storeObject(VisibleObject& object) {
 	runtime::Ptr<VisibleObject> oldObject = allObjects.putIfAbsent(object.getObjectId(), runtime::Ref<VisibleObject>(object));
 	if (oldObject)
 		throw exceptions::DuplicateAionObjectException(object, oldObject);
+	// C++ only (design §5.4, m5a-plan.md W-05): an object stored again after a removal (a respawned Npc, a re-entering Player) leaves the leak
+	// census; the event is ignored for objects the census does not track
+	runtime::LeakCensus::getInstance().onAddedToWorld(object);
 
 	if (auto* siegeNpc = dynamic_cast<SiegeNpc*>(&object)) {
 		localSiegeNpcs.computeIfAbsent(siegeNpc->getSiegeId(), [] { return runtime::RcArrayList<runtime::Ref<SiegeNpc>>::create(); })
@@ -145,6 +150,9 @@ bool World::removeObject(VisibleObject& object) {
 		}
 	}
 	if (removed) {
+		// C++ only (design §5.4, m5a-plan.md W-05): the census reports the object if it is still referenced after the census threshold; the
+		// dynamic type's name has static storage (std::type_info)
+		runtime::LeakCensus::getInstance().onRemovedFromWorld(object, typeid(object).name(), object.getObjectId());
 		if (auto* siegeNpc = dynamic_cast<SiegeNpc*>(&object)) {
 			localSiegeNpcs.get(siegeNpc->getSiegeId())->remove(runtime::Ref<SiegeNpc>(*siegeNpc));
 		} else if (auto* player = dynamic_cast<Player*>(&object)) {

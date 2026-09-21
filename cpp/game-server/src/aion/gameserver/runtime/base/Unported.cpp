@@ -90,4 +90,67 @@ void resetUnportedHitsForTests() noexcept {
 		site->hits.store(0, std::memory_order_relaxed);
 }
 
+// ------------------------------------------------------------------------------------------------------------------------------ AION_PARTIAL
+
+namespace {
+
+/** head of the list of reached AION_PARTIAL sites (push only, never unlinked: sites are statics) */
+constinit std::atomic<PartialSite*> partialSites{nullptr};
+
+void publishPartial(PartialSite& site, const std::source_location& location) noexcept {
+	site.location = location;
+	PartialSite* head = partialSites.load(std::memory_order_relaxed);
+	do {
+		site.next = head;
+	} while (!partialSites.compare_exchange_weak(head, &site));
+}
+
+} // namespace
+
+void partialReached(PartialSite& site, std::source_location location) noexcept {
+	site.hits.fetch_add(1, std::memory_order_relaxed);
+	if (site.registered.exchange(true))
+		return;
+	publishPartial(site, location);
+	try {
+		log().warn("AION_PARTIAL reached: " + std::string(location.function_name()) + " at " + detail::shortenUnportedFileName(location.file_name()) +
+			":" + std::to_string(location.line()) + ": " + std::string(site.reason));
+	} catch (...) {
+		// a stub with a warning never throws (bad_alloc while formatting or logging)
+	}
+}
+
+std::vector<PartialHit> partialHits() {
+	std::vector<PartialHit> result;
+	for (PartialSite* site = partialSites.load(); site != nullptr; site = site->next) {
+		result.push_back(PartialHit{.function = site->location.function_name(),
+			.file = detail::shortenUnportedFileName(site->location.file_name()),
+			.line = site->location.line(),
+			.reason = std::string(site->reason),
+			.hits = site->hits.load(std::memory_order_relaxed)});
+	}
+	std::ranges::sort(result, [](const PartialHit& a, const PartialHit& b) {
+		return std::tie(a.file, a.line, a.function) < std::tie(b.file, b.line, b.function);
+	});
+	return result;
+}
+
+uint64_t partialHitCount() noexcept {
+	uint64_t total = 0;
+	for (PartialSite* site = partialSites.load(); site != nullptr; site = site->next)
+		total += site->hits.load(std::memory_order_relaxed);
+	return total;
+}
+
+void writePartialTrace(std::ostream& out) {
+	out << "# AION_PARTIAL trace v1\n";
+	for (const PartialHit& hit : partialHits())
+		out << hit.hits << '\t' << hit.file << ':' << hit.line << '\t' << hit.function << '\t' << hit.reason << '\n';
+}
+
+void resetPartialHitsForTests() noexcept {
+	for (PartialSite* site = partialSites.load(); site != nullptr; site = site->next)
+		site->hits.store(0, std::memory_order_relaxed);
+}
+
 } // namespace aion::gameserver::runtime

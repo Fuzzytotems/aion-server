@@ -44,6 +44,9 @@ private:
 	// `conditions`, which static data owns)
 	const skillengine::condition::Conditions* sharedConditions = nullptr;
 
+	/** C++ only: Java's package access of StatFunctionProxy.validate to the protected validate(Stat2, IStatFunction) */
+	friend class StatFunctionProxy;
+
 public:
 	/** Java `public StatFunction()` (the binder's default construction) */
 	StatFunction() = default;

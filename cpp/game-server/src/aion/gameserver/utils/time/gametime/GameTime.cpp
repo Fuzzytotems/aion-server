@@ -4,7 +4,8 @@
 #include <cstddef>
 
 #include "aion/gameserver/runtime/base/Exceptions.h"
-#include "aion/gameserver/runtime/base/Unported.h"
+#include "aion/gameserver/services/WeatherService.h"
+#include "aion/gameserver/spawnengine/TemporarySpawnEngine.h"
 #include "aion/gameserver/utils/time/gametime/DayTime.h"
 
 namespace aion::gameserver::utils::time::gametime {
@@ -103,9 +104,9 @@ int32_t GameTime::getMinute() {
 }
 
 void GameTime::onHourChange(bool changedByClock) {
-	// Java: TemporarySpawnEngine.onHourChange(); if (setDayTime(calculateDayTime()) && changedByClock) (don't change weather if time was changed by
-	// admin) WeatherService.getInstance().checkWeathersTime(); - spawnengine/TemporarySpawnEngine.h (P4-10) does not exist yet
-	AION_UNPORTED();
+	spawnengine::TemporarySpawnEngine::onHourChange();
+	if (setDayTime(calculateDayTime()) && changedByClock) // don't change weather if time was changed by admin
+		services::WeatherService::getInstance().checkWeathersTime();
 }
 
 DayTime GameTime::calculateDayTime() {

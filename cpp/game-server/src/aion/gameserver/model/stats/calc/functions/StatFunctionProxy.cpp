@@ -1,6 +1,8 @@
 #include "aion/gameserver/model/stats/calc/functions/StatFunctionProxy.h"
 
 #include "aion/gameserver/model/stats/calc/StatOwner.h"
+#include "aion/gameserver/model/stats/calc/functions/StatFunction.h"
+#include "aion/gameserver/runtime/base/Exceptions.h"
 #include "aion/gameserver/runtime/base/Unported.h"
 
 namespace aion::gameserver::model::stats::calc::functions {
@@ -16,31 +18,35 @@ runtime::Ref<StatFunctionProxy> StatFunctionProxy::create(runtime::Ptr<StatOwner
 }
 
 container::StatEnum StatFunctionProxy::getName() {
-	AION_UNPORTED();
+	return proxiedFunction->getName();
 }
 
 bool StatFunctionProxy::isBonus() const {
-	AION_UNPORTED();
+	return proxiedFunction->isBonus();
 }
 
 int32_t StatFunctionProxy::getPriority() const {
-	AION_UNPORTED();
+	return proxiedFunction->getPriority();
 }
 
 int32_t StatFunctionProxy::getValue() {
-	AION_UNPORTED();
+	return proxiedFunction->getValue();
 }
 
 bool StatFunctionProxy::validate(Stat2& stat) {
-	AION_UNPORTED();
+	// Java: ((StatFunction) proxiedFunction).validate(stat, this) - a ClassCastException for any other function type
+	StatFunction* function = dynamic_cast<StatFunction*>(&*proxiedFunction);
+	if (!function)
+		throw runtime::ClassCastException("StatFunctionProxy: the proxied function is no StatFunction");
+	return function->validate(stat, *this);
 }
 
 void StatFunctionProxy::apply(Stat2& stat, const std::unordered_set<utils::stats::CalculationType>& calculationTypes) {
-	AION_UNPORTED();
+	proxiedFunction->apply(stat, calculationTypes);
 }
 
 bool StatFunctionProxy::hasConditions() {
-	AION_UNPORTED();
+	return proxiedFunction->hasConditions();
 }
 
 std::string StatFunctionProxy::toString() {

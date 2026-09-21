@@ -13,6 +13,7 @@ void AIConfig::bind(commons::configuration::ConfigurableProcessor& p) {
 	AION_BIND(p, "gameserver.npcmovement.delay.maximum", MAXIMUM_DELAY, "15");
 	AION_BIND(p, "gameserver.npcshouts.enable", SHOUTS_ENABLE, "false");
 	AION_BIND(p, "gameserver.ai.handler_directory", HANDLER_DIRECTORY, "./data/handlers/ai");
+	AION_BIND(p, "gameserver.dev.missing_ai_handlers", MISSING_AI_HANDLERS, "fail"); // C++ only (docs/deviations/P4-01.md)
 }
 
 } // namespace aion::gameserver::configs::main

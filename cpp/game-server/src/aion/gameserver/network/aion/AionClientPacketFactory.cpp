@@ -1,5 +1,6 @@
 #include "aion/gameserver/network/aion/AionClientPacketFactory.h"
 
+#include <algorithm>
 #include <array>
 #include <atomic>
 #include <cstdint>
@@ -70,12 +71,22 @@ const PacketTable& packetTable() {
 	return *table;
 }
 
+/** the packet classes of the "not ported yet" warnings (string literals of the generated tables) */
+struct UnportedClasses {
+	std::mutex mutex;
+	std::unordered_set<std::string_view> reported;
+};
+
+UnportedClasses& unportedClasses() {
+	static auto* instance = new UnportedClasses(); // leaked immortal
+	return *instance;
+}
+
 /** @return true the first time a class name is passed (the "not ported yet" warning is logged once per class) */
 bool firstUnportedUse(std::string_view packetClassName) {
-	static std::mutex mutex;
-	static auto* reported = new std::unordered_set<std::string_view>(); // leaked immortal
-	std::lock_guard lock(mutex);
-	return reported->insert(packetClassName).second;
+	UnportedClasses& classes = unportedClasses();
+	std::lock_guard lock(classes.mutex);
+	return classes.reported.insert(packetClassName).second;
 }
 
 } // namespace
@@ -124,6 +135,17 @@ const AionClientPacketFactory::PacketInfo* AionClientPacketFactory::getPacketInf
 void AionClientPacketFactory::setEntries(std::span<const handlers::ClientPacketEntry> entries) {
 	std::lock_guard lock(tableMutex);
 	publishedTable.store(buildTable(entries), std::memory_order_release);
+}
+
+std::vector<std::string> AionClientPacketFactory::unportedPacketClassesSeen() {
+	std::vector<std::string> names;
+	{
+		UnportedClasses& classes = unportedClasses();
+		std::lock_guard lock(classes.mutex);
+		names.assign(classes.reported.begin(), classes.reported.end());
+	}
+	std::ranges::sort(names);
+	return names;
 }
 
 } // namespace aion::gameserver::network::aion

@@ -264,37 +264,26 @@ if(AION_BUILD_TESTS)
 	# DAO tests that read game-server/sql/aion_gs.sql (DaoSqlParityTest also reads the Java and C++ DAO sources)
 	aion_set_discovered_test_properties(aion_gs_dao_tests REGEX "^(ServerDataDaoTest|PlayerDaoTest|LegionHouseItemDaoTest|DaoSqlParityTest)\\." ${gs_realdata})
 
-	# S0a link proof and M4 startup path: the server starts against a database, loads all static data, creates the zones and the world (geo data
-	# switched off) and shuts down (cmake/RunStartupSmoke.cmake). Like the other
-	# database tests it is skipped unless the environment names the database: AION_TEST_GS_DATABASE_URL, e.g.
-	# jdbc:mysql://127.0.0.1:3306/aion_cpp_test?characterEncoding=UTF-8 (the database must exist; user root without password unless
-	# AION_TEST_GS_DATABASE_USER / AION_TEST_GS_DATABASE_PASSWORD are set).
-	add_test(NAME gs.smoke.startup
-		COMMAND "${CMAKE_COMMAND}" "-DEXECUTABLE=$<TARGET_FILE:aion_game_server>" "-DDATABASE_TOOL=$<TARGET_FILE:aion_gs_m4_database>"
-			"-DWORKING_DIRECTORY=${GS_JAVA_DIR}" -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/RunStartupSmoke.cmake")
-	# both server tests write game-server/log: never at the same time
-	set_tests_properties(gs.smoke.startup PROPERTIES LABELS "smoke;realdata" TIMEOUT 240 SKIP_REGULAR_EXPRESSION "gs\\.smoke\\.startup: skipped"
-		RESOURCE_LOCK aion_game_server_log)
+	# the application's server process tests (gs.smoke.startup, gs.m4.check_static_data and their database helper aion_gs_m4_database): chunk
+	# P5-14 owns cmake/AppTests.cmake (chunks.cmake OTHER_FILES)
+	include("${CMAKE_CURRENT_SOURCE_DIR}/cmake/AppTests.cmake")
 
-	# M4 gate (handlers-and-porting-plan.md §2.7, cmake/RunM4Check.cmake): aion_game_server --check-static-data against a fresh aion_gs_test_m4_<hash>
-	# schema (IDFactory from the empty schema, then from fixture rows), then tools/oracle compare-counts and the geo/world comparison. Skipped
-	# without AION_TEST_GS_DATABASE_URL like gs.smoke.startup, and without Python (needed by the oracles).
-	add_executable(aion_gs_m4_database "${GS_TESTS}/m4/M4Database.cpp")
-	target_include_directories(aion_gs_m4_database PRIVATE "${GS_TESTS}/dao")
-	target_link_libraries(aion_gs_m4_database PRIVATE aion_commons_database aion_gs_build_options aion::compiler_options)
-	set_target_properties(aion_gs_m4_database PROPERTIES FOLDER "tests" CXX_SCAN_FOR_MODULES OFF)
-	# registered without Python too: RunM4Check.cmake then reports "skipped (no Python 3 ...)" instead of the test silently missing
-	if(Python3_Interpreter_FOUND)
-		set(gs_m4_python "${Python3_EXECUTABLE}")
-	else()
-		set(gs_m4_python NOTFOUND)
+	# M5a scenario harness (chunk P5-SC, m5a-plan.md §5.1, §5.10): aion_gs_scenario_tests (created by the chunk manifest from tests/scenario) runs
+	# aion_login_server and aion_game_server as child processes. The login client side of the protocol is login-server/tests/support
+	# (AionLoginClientCrypto.h, included by name) over aion_loginserver_crypto. The tests find the executables and the Java module directories
+	# (working directories, config and sql) through compile definitions. CTest registrations: tests/scenario/ScenarioTests.cmake (P5-SC).
+	if(TARGET aion_gs_scenario_tests)
+		target_include_directories(aion_gs_scenario_tests PRIVATE "${CMAKE_SOURCE_DIR}/login-server/tests/support")
+		target_link_libraries(aion_gs_scenario_tests PRIVATE aion_loginserver_crypto)
+		get_filename_component(gs_ls_java_dir "${CMAKE_CURRENT_SOURCE_DIR}/../../login-server" ABSOLUTE)
+		target_compile_definitions(aion_gs_scenario_tests PRIVATE AION_GAME_SERVER_EXECUTABLE="$<TARGET_FILE:aion_game_server>"
+			AION_LOGIN_SERVER_EXECUTABLE="$<TARGET_FILE:aion_login_server>" AION_LOGINSERVER_JAVA_DIR="${gs_ls_java_dir}"
+			AION_SCENARIO_OUTPUT_DIR="${CMAKE_CURRENT_BINARY_DIR}/scenario/$<CONFIG>")
+		add_dependencies(aion_gs_scenario_tests aion_game_server aion_login_server)
 	endif()
-	add_test(NAME gs.m4.check_static_data
-		COMMAND "${CMAKE_COMMAND}" "-DEXECUTABLE=$<TARGET_FILE:aion_game_server>" "-DDATABASE_TOOL=$<TARGET_FILE:aion_gs_m4_database>"
-			"-DWORKING_DIRECTORY=${GS_JAVA_DIR}" "-DPYTHON=${gs_m4_python}" "-DORACLE_DIR=${CMAKE_SOURCE_DIR}/tools/oracle"
-			"-DOUTPUT_DIR=${CMAKE_CURRENT_BINARY_DIR}/m4/$<CONFIG>" -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/RunM4Check.cmake")
-	set_tests_properties(gs.m4.check_static_data PROPERTIES LABELS "m4;oracle;realdata" TIMEOUT 1500
-		SKIP_REGULAR_EXPRESSION "gs\\.m4\\.check_static_data: skipped" RESOURCE_LOCK aion_game_server_log)
+	if(EXISTS "${GS_TESTS}/scenario/ScenarioTests.cmake")
+		include("${GS_TESTS}/scenario/ScenarioTests.cmake")
+	endif()
 
 	# the configure-time empty registry tables (linked by the unit tests) equal the tool's
 	list(JOIN AION_GS_REGISTRY_NAMES "," gs_registry_names)

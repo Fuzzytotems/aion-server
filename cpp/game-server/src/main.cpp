@@ -1,20 +1,25 @@
 // Entry point of the game server (Java: com.aionemu.gameserver.GameServer.main).
 //
-// Milestone M4 (docs/design/handlers-and-porting-plan.md §2.7): the executable links every chunk library and the handler registries and runs the
-// ported part of Java's startup in Java order: Logging, Config.load, DatabaseFactory.init, PlayerDAO.setAllPlayersOffline (and
-// DatabaseCleaningService if enabled), the runtime kernel (ThreadPoolManager, CronService, IDFactory with the used ids of the eight DAOs, and the
-// C++-only Reclaimer, LeakCensus, CleanerQueue and Watchdog; RuntimeLifecycle), DataManager (all static data), ZoneService.init and
-// GeoService.init (Java initializes them in a parallel stream together with the handler engines QuestEngine, AIEngine, InstanceEngine and
-// ChatProcessor, which are not part of M4 and not called; C++ runs the two in the stream's source order) and World (all world maps with their
-// instances and zone instances). The startup then ends: the kernel shuts down in order and the process exits with ExitCode::NORMAL; an
-// AION_UNPORTED on the way is logged and ends it with ExitCode::ERROR_. P5-14 (aion_gs_app) replaces this file's body with GameServer::main and
-// the ShutdownHook.
+// main() does what Java's static initializer and the JVM do around GameServer.main: Logging::init, the command line, GameServer::main (the
+// startup in Java order, logged as "startup step N: name"), then the run mode: the process waits until the ShutdownHook runs (Ctrl+C, closing
+// the console, GameServer.initShutdown or the stop file) and ends in the hook thread (std::quick_exit). A startup that stops at an unported
+// function or an exception is logged ("Game server startup stopped at an unported function: ..."), the kernel shuts down in order and the
+// process exits with ExitCode::ERROR_.
 //
 // Run it with ../game-server (the Java module directory) as working directory, so ./config, ./data and ./log resolve like for the Java server.
 // Configuration properties can be overridden with -D<key>=<value> arguments; they are applied over config/mygs.properties.
 //
-// C++-only check modes (M4 gate, CTest gs.m4.check_static_data, cmake/RunM4Check.cmake):
-//   --check-static-data        the same startup path, plus the M4 report files in the check output directory:
+// C++-only options:
+//   --stop-file=<path>         run mode: the server polls the file every 200 ms; when it exists, the file is deleted and the server shuts down
+//                              like on Ctrl+C (ShutdownHook countdown of gameserver.shutdown.delay seconds while players are online)
+//   --check-output=<dir>       the report directory. Run mode: unported_trace.txt, partial_trace.txt, live_counts_baseline.txt (after startup),
+//                              census.txt (final census after the players logged out), live_counts.txt, lockdep.txt, watchdog.txt and
+//                              m5a_summary.txt (CheckOutput.h; m5a-plan.md F-02, F-07). A startup that never reaches the run mode writes the
+//                              same seven files, with "started false" in m5a_summary.txt, no baseline and an empty census, so a reader of the
+//                              reports fails with the real cause instead of a missing file. Check modes: the M4 files below (default ./log/m4)
+// M4 check modes (M4 gate, CTest gs.m4.check_static_data, cmake/RunM4Check.cmake): the startup without the handler engines up to World, then an
+// orderly runtime shutdown and exit code 0:
+//   --check-static-data        the M4 report files in the check output directory:
 //                              static_data_counts.txt  the "Loaded N ..." lines of StaticData (a file sink on its logger, message only)
 //                              static_data_extras.txt  counts Java does not log (XMLQuests distinct quest ids)
 //                              geo_statistics.txt      GeoWorldLoader statistics of GeoService.init ("key value" lines)
@@ -26,7 +31,6 @@
 //                                                      step and the Reclaimer backlog high-water mark (informational)
 //                              startup_timeline.txt    the log lines of the startup steps with millisecond timestamps (informational)
 //   --check-id-factory         stops after the runtime start (IDFactory initialized from the database), writes m4_summary.txt
-//   --check-output=<dir>       the check output directory (default ./log/m4)
 //   --check-geo-probes=<file>  getZ probes, one per line: "mapId instanceId xBits yBits zMaxBits zMinBits" (python -m geo m4-probes)
 //
 // Helper mode: --write-minidump <pid> <file> as the only arguments writes a snapshot minidump of process <pid> and exits (the watchdog starts
@@ -48,6 +52,7 @@
 #include <sstream>
 #include <string>
 #include <string_view>
+#include <thread>
 #include <vector>
 
 #include "aion/commons/configuration/Properties.h"
@@ -61,40 +66,33 @@
 #include "aion/commons/utils/StringUtils.h"
 #include "aion/commons/utils/concurrent/ThreadName.h"
 #include "aion/commons/utils/concurrent/UncaughtExceptionHandler.h"
+#include "aion/gameserver/CheckOutput.h"
+#include "aion/gameserver/GameServer.h"
+#include "aion/gameserver/ShutdownHook.h"
 #include "aion/gameserver/configs/Config.h"
-#include "aion/gameserver/configs/main/CleaningConfig.h"
-#include "aion/gameserver/configs/main/GSConfig.h"
-#include "aion/gameserver/configs/main/RuntimeConfig.h"
-#include "aion/gameserver/dao/GuideDAO.h"
-#include "aion/gameserver/dao/HousesDAO.h"
-#include "aion/gameserver/dao/InventoryDAO.h"
-#include "aion/gameserver/dao/LegionDAO.h"
-#include "aion/gameserver/dao/MailDAO.h"
-#include "aion/gameserver/dao/PlayerDAO.h"
-#include "aion/gameserver/dao/PlayerPetsDAO.h"
-#include "aion/gameserver/dao/PlayerRegisteredItemsDAO.h"
 #include "aion/gameserver/dataholders/DataManager.h"
 #include "aion/gameserver/dataholders/WorldMapsData.h"
 #include "aion/gameserver/dataholders/XMLQuests.h"
 #include "aion/gameserver/geoEngine/GeoCallbacks.h"
 #include "aion/gameserver/geoEngine/GeoWorldLoader.h"
 #include "aion/gameserver/model/templates/world/WorldMapTemplate.h"
+#include "aion/gameserver/network/aion/AionClientPacketFactory.h"
 #include "aion/gameserver/questEngine/handlers/models/XMLQuest.h"
 #include "aion/gameserver/runtime/base/TaskInfo.h"
 #include "aion/gameserver/runtime/base/Unported.h"
 #include "aion/gameserver/runtime/lifetime/Reclaimer.h"
 #include "aion/gameserver/runtime/lifetime/TaskScope.h"
+#include "aion/gameserver/runtime/services/LeakCensus.h"
 #include "aion/gameserver/runtime/services/RuntimeLifecycle.h"
 #include "aion/gameserver/runtime/sync/MinidumpWriter.h"
 #include "aion/gameserver/runtime/sync/Watchdog.h"
-#include "aion/gameserver/services/DatabaseCleaningService.h"
+#include "aion/gameserver/services/AtreianPassportService.h"
 #include "aion/gameserver/utils/idfactory/IDFactory.h"
 #include "aion/gameserver/world/World.h"
 #include "aion/gameserver/world/WorldMap.h"
 #include "aion/gameserver/world/WorldMapInstance.h"
 #include "aion/gameserver/world/geo/GeoService.h"
 #include "aion/gameserver/world/zone/ZoneName.h"
-#include "aion/gameserver/world/zone/ZoneService.h"
 
 #include <Windows.h>
 #include <psapi.h>
@@ -104,6 +102,9 @@
 namespace {
 
 using aion::commons::configuration::Properties;
+using aion::gameserver::CheckOutput;
+using aion::gameserver::GameServer;
+using aion::gameserver::ShutdownHook;
 using aion::gameserver::runtime::RuntimeLifecycle;
 namespace Logging = aion::commons::logging::Logging;
 namespace LoggerFactory = aion::commons::logging::LoggerFactory;
@@ -114,16 +115,21 @@ const aion::commons::logging::Logger& log() {
 	return *logger;
 }
 
-/** The command line: -Dkey=value overrides (like the login server) and the C++-only check options (see the file comment). */
+/** The command line: -Dkey=value overrides (like the login server) and the C++-only options (see the file comment). */
 struct Arguments {
 	Properties overrides;
 	std::vector<std::string> unknown;
 	bool checkStaticData = false;
 	bool checkIdFactory = false;
-	std::filesystem::path checkOutput = "./log/m4";
+	std::optional<std::filesystem::path> checkOutput;
 	std::optional<std::filesystem::path> geoProbes;
+	std::optional<std::filesystem::path> stopFile;
 
+	/** the M4 check modes: the startup ends after the runtime or World */
 	bool checkMode() const { return checkStaticData || checkIdFactory; }
+
+	/** the report directory of the check modes (default ./log/m4) */
+	std::filesystem::path checkModeOutput() const { return checkOutput.value_or("./log/m4"); }
 };
 
 Arguments parseArguments(int argc, char* argv[]) {
@@ -141,36 +147,12 @@ Arguments parseArguments(int argc, char* argv[]) {
 			arguments.checkOutput = std::filesystem::path(std::string(arg.substr(std::string_view("--check-output=").size())));
 		else if (arg.starts_with("--check-geo-probes="))
 			arguments.geoProbes = std::filesystem::path(std::string(arg.substr(std::string_view("--check-geo-probes=").size())));
+		else if (arg.starts_with("--stop-file="))
+			arguments.stopFile = std::filesystem::path(std::string(arg.substr(std::string_view("--stop-file=").size())));
 		else
 			arguments.unknown.emplace_back(arg);
 	}
 	return arguments;
-}
-
-/** The kernel configuration from the loaded configs (RuntimeLifecycle::Options documents the keys). */
-RuntimeLifecycle::Options runtimeOptions() {
-	using aion::gameserver::configs::main::GSConfig;
-	using aion::gameserver::configs::main::RuntimeConfig;
-	namespace dao = aion::gameserver::dao;
-	RuntimeLifecycle::Options options;
-	options.reclaimer = RuntimeConfig::reclaimerConfig();
-	options.leakCensus = RuntimeConfig::leakCensusConfig();
-	options.watchdog = RuntimeConfig::watchdogConfig();
-	options.threadPool = RuntimeConfig::threadPoolManagerConfig();
-	options.idFactory = RuntimeConfig::idFactoryConfig();
-	options.cronTimeZone = GSConfig::TIME_ZONE_ID.load();
-	// Java IDFactory.initializeUsedIds order
-	options.usedIds = {
-		{"PlayerDAO", [] { return dao::PlayerDAO::getUsedIDs(); }},
-		{"InventoryDAO", [] { return dao::InventoryDAO::getUsedIDs(); }},
-		{"PlayerRegisteredItemsDAO", [] { return dao::PlayerRegisteredItemsDAO::getUsedIDs(); }},
-		{"LegionDAO", [] { return dao::LegionDAO::getUsedIDs(); }},
-		{"MailDAO", [] { return dao::MailDAO::getUsedIDs(); }},
-		{"GuideDAO", [] { return dao::GuideDAO::getUsedIDs(); }},
-		{"HousesDAO", [] { return dao::HousesDAO::getUsedIDs(); }},
-		{"PlayerPetsDAO", [] { return dao::PlayerPetsDAO::getUsedIDs(); }},
-	};
-	return options;
 }
 
 /** The material zone names GeoWorldLoader hands to ZoneService while GeoService.init loads the geo data (check mode only). */
@@ -238,28 +220,17 @@ void sampleBacklog() {
 		;
 }
 
-/** Runs one startup step in its own STARTUP task scope (see startup()); in check mode it records the step's duration and backlog. */
-template <class Body>
-void runStartupStep(const Arguments& arguments, const aion::gameserver::runtime::TaskInfo& info, const char* name, Body&& body) {
-	const auto start = std::chrono::steady_clock::now();
-	measurements().step.store(name, std::memory_order_release);
-	uint64_t backlogAtEnd = 0;
-	{
-		aion::gameserver::runtime::TaskScope scope(info);
-		body();
-		if (arguments.checkMode()) {
-			sampleBacklog();
-			backlogAtEnd = aion::gameserver::runtime::Reclaimer::getInstance().stats().backlog;
-		}
-	}
-	if (!arguments.checkMode())
-		return;
-	int64_t millis = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start).count();
-	log().info("M4 check: startup step '{}' took {} ms (Reclaimer backlog {} objects at its end)", name, millis, backlogAtEnd);
-	StartupMeasurements& m = measurements();
-	std::scoped_lock lock(m.mutex);
-	m.stepMillis.emplace_back(name, millis);
-	m.stepBacklogs.push_back(std::to_string(backlogAtEnd));
+/** The M4 measurement name of a startup step (m4_summary.txt keys stay those of the M4 startup), nullptr for the others */
+const char* measuredStepName(std::string_view step) {
+	if (step == "DataManager.getInstance()")
+		return "static data";
+	if (step == "ZoneService.init()")
+		return "zones";
+	if (step == "GeoService.init()")
+		return "geo";
+	if (step == "World.getInstance()")
+		return "world";
+	return nullptr;
 }
 
 size_t peakWorkingSetBytes() {
@@ -274,7 +245,7 @@ size_t peakWorkingSetBytes() {
 void writeGeoAndWorldReports(const Arguments& arguments) {
 	using aion::gameserver::dataholders::DataManager;
 	namespace world = aion::gameserver::world;
-	const std::filesystem::path& dir = arguments.checkOutput;
+	const std::filesystem::path dir = arguments.checkModeOutput();
 
 	{
 		// the count Java does not log (tools/oracle static_data_counts.json "extras"): XMLQuests distinct quest ids
@@ -360,8 +331,9 @@ void writeGeoAndWorldReports(const Arguments& arguments) {
 	}
 }
 
-void writeSummary(const Arguments& arguments, int64_t startupMillis) {
-	std::ofstream out = openOutput(arguments.checkOutput / "m4_summary.txt");
+void writeM4Summary(const Arguments& arguments, int64_t startupMillis) {
+	std::filesystem::create_directories(arguments.checkModeOutput());
+	std::ofstream out = openOutput(arguments.checkModeOutput() / "m4_summary.txt");
 	out << "idsUsed " << aion::gameserver::utils::idfactory::IDFactory::getInstance().getUsedCount() << '\n';
 	out << "startupMillis " << startupMillis << '\n';
 	out << "peakWorkingSetBytes " << peakWorkingSetBytes() << '\n';
@@ -383,95 +355,193 @@ void writeSummary(const Arguments& arguments, int64_t startupMillis) {
 constexpr std::array<const char*, 5> TIMELINE_LOGGERS{"com.aionemu.gameserver.GameServer", "com.aionemu.gameserver.dataholders.DataManager",
 	"com.aionemu.gameserver.world.zone.ZoneService", "com.aionemu.gameserver.geoEngine.GeoWorldLoader", "com.aionemu.gameserver.world.World"};
 
-void startup(const Arguments& arguments, std::chrono::steady_clock::time_point processStart) {
-	using aion::gameserver::configs::Config;
-	Logging::init(Config::loadLoggingConfig()); // must run before anything logs to the files
+/** The watchdog dumps of the run (check output: watchdog.txt) */
+struct WatchdogDumps {
+	std::mutex mutex; // confined: main.cpp check output only; the listener runs on the watchdog thread
+	std::vector<std::string> dumps;
+	std::atomic<uint64_t> count{0};
+};
 
-	if (arguments.checkMode()) {
-		std::filesystem::create_directories(arguments.checkOutput);
-		// the "Loaded N ..." lines of StaticData.afterUnmarshal, as the holders logged them (M4 item 4); additive: they stay in the console log
-		const std::filesystem::path counts = arguments.checkOutput / "static_data_counts.txt";
-		std::filesystem::remove(counts);
-		auto sink = std::make_shared<aion::commons::logging::FileAppender>(counts, std::make_unique<aion::commons::logging::PatternLayout>("%msg%n"));
-		LoggerFactory::configure("com.aionemu.gameserver.dataholders.StaticData", {.sinks = {sink}, .additive = true});
-		// informational: the step log lines with millisecond timestamps (the console pattern has seconds only)
-		const std::filesystem::path timelineFile = arguments.checkOutput / "startup_timeline.txt";
-		std::filesystem::remove(timelineFile);
-		auto timeline = std::make_shared<aion::commons::logging::FileAppender>(timelineFile,
-			std::make_unique<aion::commons::logging::PatternLayout>("%d{HH:mm:ss.SSS} [%thread] %logger{0} - %msg%n"));
-		for (const char* name : TIMELINE_LOGGERS)
-			LoggerFactory::configure(name, {.sinks = {timeline}, .additive = true});
-	}
-
-	// C++ addition: command line overrides are layered where Java layers the active events' properties (over mygs.properties), so they also
-	// survive later Config::load calls. EventService (P5-12b) must keep them when it registers its provider.
-	if (!arguments.overrides.isEmpty()) {
-		Properties overrides = arguments.overrides;
-		Config::setEventConfigPropertiesProvider([overrides] { return overrides; });
-	}
-	Config::load();
-	if (!arguments.overrides.isEmpty()) {
-		std::set<std::string> keys = arguments.overrides.stringPropertyNames();
-		log().info("Override properties from the command line (unknown keys are warned above): " +
-			aion::commons::utils::StringUtils::join({keys.begin(), keys.end()}, ", "));
-	}
-	for (const std::string& argument : arguments.unknown)
-		log().warn("Unknown command line argument ignored: " + argument);
-
-	// Java: DatabaseFactory.init(); PlayerDAO.setAllPlayersOffline(); if (CleaningConfig.CLEANING_ENABLE) DatabaseCleaningService.deletePlayers...
-	aion::commons::database::DatabaseFactory::init(aion::commons::database::DatabaseFactory::gameServerOptions());
-	aion::gameserver::dao::PlayerDAO::setAllPlayersOffline();
-	if (aion::gameserver::configs::main::CleaningConfig::CLEANING_ENABLE.load()) {
-		aion::gameserver::runtime::TaskScope scope(AION_TASK_INFO(aion::gameserver::runtime::TaskKind::STARTUP));
-		aion::gameserver::services::DatabaseCleaningService::deletePlayersOnInactiveAccounts();
-	}
-
-	// Java: ThreadPoolManager.getInstance(); CronService.initSingleton(...); IDFactory.getInstance()
-	RuntimeLifecycle::start(runtimeOptions());
-	if (arguments.checkIdFactory && !arguments.checkStaticData) {
-		writeSummary(arguments, std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - processStart).count());
-		log().info("M4 check: IDFactory initialized, --check-id-factory ends the startup here");
-		return;
-	}
-
-	// One STARTUP task scope per step, so the Reclaimer frees what a step unlinked before the next one starts (the geo load alone retires more
-	// than a million objects); nothing borrowed in one step is used in the next.
-	using aion::gameserver::runtime::TaskKind;
-	uint64_t backlogProbe = 0;
-	if (arguments.checkMode())
-		backlogProbe = aion::gameserver::runtime::Watchdog::getInstance().addProbe("M4 check: Reclaimer backlog high-water mark",
-			[](aion::gameserver::runtime::Watchdog&, const std::vector<aion::gameserver::runtime::Watchdog::ThreadSnapshot>&) { sampleBacklog(); });
-	runStartupStep(arguments, AION_TASK_INFO(TaskKind::STARTUP), "static data", [] { aion::gameserver::dataholders::DataManager::getInstance(); });
-	// Java: Stream.of(QuestEngine, AIEngine, InstanceEngine, ChatProcessor, ZoneService, GeoService).parallel().forEach(GameEngine::init)
-	// M4: the handler engines are not part of the milestone (their registries are empty); ZoneService and GeoService in the stream's order
-	runStartupStep(arguments, AION_TASK_INFO(TaskKind::STARTUP), "zones", [] { aion::gameserver::world::zone::ZoneService::getInstance().init(); });
-	runStartupStep(arguments, AION_TASK_INFO(TaskKind::STARTUP), "geo", [&arguments] {
-		if (arguments.checkStaticData)
-			aion::gameserver::geoEngine::GeoCallbacks::setMaterialZoneListener(&recordMaterialZone);
-		aion::gameserver::world::geo::GeoService::getInstance().init();
-		aion::gameserver::geoEngine::GeoCallbacks::setMaterialZoneListener(nullptr);
-	});
-	runStartupStep(arguments, AION_TASK_INFO(TaskKind::STARTUP), "world", [] {
-		// World may unpublish the step while its maps are created in their own task scopes (World::World)
-		aion::gameserver::runtime::QuiescentScope quiescent; // quiescent-safe: this frame and runStartupStep hold no borrow (values only)
-		aion::gameserver::runtime::QuiescentOptIn worldCreation(aion::gameserver::runtime::QuiescentOptIn::WORLD_CREATION);
-		aion::gameserver::world::World::getInstance();
-	});
-	if (backlogProbe != 0)
-		aion::gameserver::runtime::Watchdog::getInstance().removeProbe(backlogProbe);
-	int64_t startupMillis = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - processStart).count();
-	log().info("M4 startup path (Config, database, runtime, static data, zones, geo, world) completed in {} ms, peak working set {} MB", startupMillis,
-		peakWorkingSetBytes() / (1024 * 1024));
-	if (arguments.checkStaticData) {
-		aion::gameserver::runtime::TaskScope scope(AION_TASK_INFO(TaskKind::STARTUP));
-		writeGeoAndWorldReports(arguments);
-		writeSummary(arguments, startupMillis);
-	}
-	log().info("M4 startup sequence complete (the rest of GameServer.main is not ported yet)");
+WatchdogDumps& watchdogDumps() {
+	static auto* dumps = new WatchdogDumps(); // lint: L5 check output state of main, filled by the watchdog listener and never destroyed
+	return *dumps;
 }
 
-void shutdown(const Arguments& arguments) noexcept {
+/** main.cpp's hooks into GameServer::main: the M4 check modes, their measurements and the command line log lines */
+class MainStartupObserver final : public GameServer::StartupObserver {
+public:
+	MainStartupObserver(const Arguments& arguments, std::chrono::steady_clock::time_point processStart)
+		: arguments(arguments), processStart(processStart) {}
+
+	void runStep(int32_t, std::string_view name, const std::function<void()>& body) override {
+		const char* measured = measuredStepName(name);
+		if (!arguments.checkMode() || measured == nullptr) {
+			body();
+			return;
+		}
+		const auto start = std::chrono::steady_clock::now();
+		measurements().step.store(measured, std::memory_order_release);
+		if (arguments.checkStaticData && name == "GeoService.init()")
+			aion::gameserver::geoEngine::GeoCallbacks::setMaterialZoneListener(&recordMaterialZone);
+		body();
+		aion::gameserver::geoEngine::GeoCallbacks::setMaterialZoneListener(nullptr);
+		sampleBacklog();
+		uint64_t backlogAtEnd = aion::gameserver::runtime::Reclaimer::getInstance().stats().backlog;
+		int64_t millis = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start).count();
+		log().info("M4 check: startup step '{}' took {} ms (Reclaimer backlog {} objects at its end)", measured, millis, backlogAtEnd);
+		StartupMeasurements& m = measurements();
+		std::scoped_lock lock(m.mutex);
+		m.stepMillis.emplace_back(measured, millis);
+		m.stepBacklogs.push_back(std::to_string(backlogAtEnd));
+	}
+
+	void afterConfigLoad() override {
+		if (!arguments.overrides.isEmpty()) {
+			std::set<std::string> keys = arguments.overrides.stringPropertyNames();
+			log().info("Override properties from the command line (unknown keys are warned above): " +
+				aion::commons::utils::StringUtils::join({keys.begin(), keys.end()}, ", "));
+		}
+		for (const std::string& argument : arguments.unknown)
+			log().warn("Unknown command line argument ignored: " + argument);
+	}
+
+	bool initHandlerEngines() override {
+		// M4: the handler engines are not part of the milestone; the check modes keep its startup path
+		return !arguments.checkMode();
+	}
+
+	bool continueAfterRuntime() override {
+		if (arguments.checkOutput && !arguments.checkMode())
+			watchdogListener = aion::gameserver::runtime::Watchdog::getInstance().addDumpListener([](const aion::gameserver::runtime::Watchdog::DumpReport& report) {
+				WatchdogDumps& dumps = watchdogDumps();
+				dumps.count.fetch_add(1, std::memory_order_acq_rel);
+				std::scoped_lock lock(dumps.mutex);
+				dumps.dumps.push_back(std::string(aion::gameserver::runtime::Watchdog::reasonName(report.reason)) + " " + report.summary);
+			});
+		if (arguments.checkIdFactory && !arguments.checkStaticData) {
+			writeM4Summary(arguments, elapsedMillis());
+			log().info("M4 check: IDFactory initialized, --check-id-factory ends the startup here");
+			return false;
+		}
+		if (arguments.checkMode())
+			backlogProbe = aion::gameserver::runtime::Watchdog::getInstance().addProbe("M4 check: Reclaimer backlog high-water mark",
+				[](aion::gameserver::runtime::Watchdog&, const std::vector<aion::gameserver::runtime::Watchdog::ThreadSnapshot>&) { sampleBacklog(); });
+		return true;
+	}
+
+	bool continueAfterWorld() override {
+		if (!arguments.checkMode())
+			return true;
+		if (backlogProbe != 0)
+			aion::gameserver::runtime::Watchdog::getInstance().removeProbe(backlogProbe);
+		int64_t startupMillis = elapsedMillis();
+		log().info("M4 startup path (Config, database, runtime, static data, zones, geo, world) completed in {} ms, peak working set {} MB", startupMillis,
+			peakWorkingSetBytes() / (1024 * 1024));
+		if (arguments.checkStaticData) {
+			aion::gameserver::runtime::TaskScope scope(AION_TASK_INFO(aion::gameserver::runtime::TaskKind::STARTUP));
+			writeGeoAndWorldReports(arguments);
+			writeM4Summary(arguments, startupMillis);
+		}
+		log().info("M4 check: the startup ends after World");
+		return false;
+	}
+
+private:
+	int64_t elapsedMillis() const {
+		return std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - processStart).count();
+	}
+
+	const Arguments& arguments;
+	const std::chrono::steady_clock::time_point processStart;
+	uint64_t backlogProbe = 0;
+	uint64_t watchdogListener = 0;
+};
+
+/** Configures the logging of the check modes before anything logs (the M4 report sinks) */
+void configureCheckModeLogging(const Arguments& arguments) {
+	if (!arguments.checkMode())
+		return;
+	const std::filesystem::path dir = arguments.checkModeOutput();
+	std::filesystem::create_directories(dir);
+	// the "Loaded N ..." lines of StaticData.afterUnmarshal, as the holders logged them (M4 item 4); additive: they stay in the console log
+	const std::filesystem::path counts = dir / "static_data_counts.txt";
+	std::filesystem::remove(counts);
+	auto sink = std::make_shared<aion::commons::logging::FileAppender>(counts, std::make_unique<aion::commons::logging::PatternLayout>("%msg%n"));
+	LoggerFactory::configure("com.aionemu.gameserver.dataholders.StaticData", {.sinks = {sink}, .additive = true});
+	// informational: the step log lines with millisecond timestamps (the console pattern has seconds only)
+	const std::filesystem::path timelineFile = dir / "startup_timeline.txt";
+	std::filesystem::remove(timelineFile);
+	auto timeline = std::make_shared<aion::commons::logging::FileAppender>(timelineFile,
+		std::make_unique<aion::commons::logging::PatternLayout>("%d{HH:mm:ss.SSS} [%thread] %logger{0} - %msg%n"));
+	for (const char* name : TIMELINE_LOGGERS)
+		LoggerFactory::configure(name, {.sinks = {timeline}, .additive = true});
+}
+
+/** The reports of --check-output in the run mode, before the runtime shuts down (the final census) and after it (CheckOutput.h) */
+struct RunReports {
+	std::mutex mutex; // confined: written by the ShutdownHook thread only
+	CheckOutput::Summary summary;
+};
+
+RunReports& runReports() {
+	static auto* reports = new RunReports(); // lint: L5 check output state of main, filled on the ShutdownHook thread and never destroyed
+	return *reports;
+}
+
+/** Java AtreianPassportService.isAtreianPassportDisabled() for m5a_summary.txt (unknown while its body is not ported) */
+std::optional<bool> atreianPassportDisabled() {
 	try {
+		aion::gameserver::runtime::TaskScope scope(AION_TASK_INFO(aion::gameserver::runtime::TaskKind::SHUTDOWN));
+		return aion::gameserver::services::AtreianPassportService::getInstance().isAtreianPassportDisabled();
+	} catch (...) {
+		return std::nullopt;
+	}
+}
+
+void installRunReports(const std::filesystem::path& dir) {
+	std::filesystem::create_directories(dir);
+	CheckOutput::writeLiveCounts(dir / "live_counts_baseline.txt");
+	ShutdownHook::getInstance().setBeforeRuntimeShutdown([dir] {
+		RunReports& reports = runReports();
+		std::scoped_lock lock(reports.mutex);
+		reports.summary.started = true;
+		reports.summary.atreianPassportDisabled = atreianPassportDisabled();
+		std::vector<aion::gameserver::runtime::LeakCensus::LeakReport> leaks = CheckOutput::runFinalCensus(
+			dir,
+			[] {
+				aion::gameserver::runtime::TaskScope scope(AION_TASK_INFO(aion::gameserver::runtime::TaskKind::SHUTDOWN));
+				return !aion::gameserver::world::World::getInstance().getAllPlayers().empty();
+			},
+			std::chrono::seconds(10));
+		reports.summary.censusLeaks = leaks.size();
+		reports.summary.zombieCuts = aion::gameserver::runtime::LeakCensus::getInstance().zombieCutCount();
+		log().info("Final census: {} leaks written to {}", leaks.size(), (dir / "census.txt").string());
+	});
+	ShutdownHook::getInstance().setAfterRuntimeShutdown([dir] {
+		RunReports& reports = runReports();
+		std::scoped_lock lock(reports.mutex);
+		CheckOutput::writeLiveCounts(dir / "live_counts.txt");
+		CheckOutput::writeUnportedTrace(dir);
+		CheckOutput::writePartialTrace(dir);
+		reports.summary.lockdepReports = CheckOutput::writeLockdepReports(dir);
+		{
+			WatchdogDumps& dumps = watchdogDumps();
+			std::scoped_lock dumpsLock(dumps.mutex);
+			CheckOutput::writeWatchdogDumps(dir, dumps.dumps);
+			reports.summary.watchdogDumps = dumps.count.load(std::memory_order_acquire);
+		}
+		reports.summary.notPortedClientPackets = aion::gameserver::network::aion::AionClientPacketFactory::unportedPacketClassesSeen();
+		reports.summary.exitCode = aion::commons::utils::ExitCode::NORMAL;
+		CheckOutput::writeSummary(dir, reports.summary);
+		log().info("Check output written to {}: {} AION_UNPORTED hits, {} AION_PARTIAL hits", dir.string(), aion::gameserver::runtime::unportedHitCount(),
+			aion::gameserver::runtime::partialHitCount());
+	});
+}
+
+/** The end of a startup that did not reach the run mode (check modes, a failed startup): the kernel shuts down in order, reports are written */
+int finishWithoutRunMode(const Arguments& arguments, int exitCode) noexcept {
+	try {
+		GameServer::shutdownNioServer();
 		RuntimeLifecycle::ShutdownReport report = RuntimeLifecycle::shutdown(); // outside any TaskScope
 		if (report.performed)
 			log().info("Runtime shut down: {} tasks left, {} cleaner ids drained, reclaimer backlog {}, {} objects still tracked", report.tasksLeft,
@@ -479,11 +549,36 @@ void shutdown(const Arguments& arguments) noexcept {
 		if (aion::commons::database::DatabaseFactory::isInitialized())
 			aion::commons::database::DatabaseFactory::shutdown();
 		if (arguments.checkMode()) {
-			std::filesystem::create_directories(arguments.checkOutput);
-			std::ofstream out = openOutput(arguments.checkOutput / "unported_trace.txt");
-			aion::gameserver::runtime::writeUnportedTrace(out);
+			std::filesystem::create_directories(arguments.checkModeOutput());
+			CheckOutput::writeUnportedTrace(arguments.checkModeOutput());
 			log().info("M4 check: {} AION_UNPORTED hits, trace written to {}", aion::gameserver::runtime::unportedHitCount(),
-				(arguments.checkOutput / "unported_trace.txt").string());
+				(arguments.checkModeOutput() / "unported_trace.txt").string());
+		} else if (arguments.checkOutput) {
+			const std::filesystem::path& dir = *arguments.checkOutput;
+			std::filesystem::create_directories(dir);
+			CheckOutput::writeUnportedTrace(dir);
+			CheckOutput::writePartialTrace(dir);
+			CheckOutput::writeLiveCounts(dir / "live_counts.txt");
+			CheckOutput::Summary summary;
+			summary.exitCode = exitCode;
+			// the startup never reached the run mode, so no census ran: census.txt gets its header line and no rows, the way a clean run writes
+			// it. All seven report files exist on this path too, so the gate's readers fail with the real cause (m5a_summary.txt "started false")
+			// instead of "cannot read <path>".
+			{
+				std::ofstream census(dir / "census.txt", std::ios::binary | std::ios::trunc);
+				if (!census)
+					throw aion::commons::utils::IOException("Cannot write " + (dir / "census.txt").string());
+				CheckOutput::writeCensus(census, {});
+			}
+			summary.lockdepReports = CheckOutput::writeLockdepReports(dir);
+			{
+				WatchdogDumps& dumps = watchdogDumps();
+				std::scoped_lock dumpsLock(dumps.mutex);
+				CheckOutput::writeWatchdogDumps(dir, dumps.dumps);
+				summary.watchdogDumps = dumps.count.load(std::memory_order_acquire);
+			}
+			summary.notPortedClientPackets = aion::gameserver::network::aion::AionClientPacketFactory::unportedPacketClassesSeen();
+			CheckOutput::writeSummary(dir, summary);
 		}
 	} catch (...) {
 		UncaughtExceptionHandler::uncaughtException("main", std::current_exception());
@@ -493,6 +588,25 @@ void shutdown(const Arguments& arguments) noexcept {
 		LoggerFactory::removeConfig(name);
 	LoggerFactory::flushAll();
 	Logging::shutdown();
+	return exitCode;
+}
+
+/** The run mode: waits for the shutdown (stop file, console events, GameServer.initShutdown); the process ends in the ShutdownHook thread */
+[[noreturn]] void runUntilShutdown(const Arguments& arguments) {
+	using namespace std::chrono_literals;
+	ShutdownHook& hook = ShutdownHook::getInstance();
+	while (!hook.isExitRequested()) {
+		std::error_code error;
+		if (arguments.stopFile && std::filesystem::exists(*arguments.stopFile, error)) {
+			std::filesystem::remove(*arguments.stopFile, error);
+			log().info("Stop file " + arguments.stopFile->string() + " found, shutting down");
+			hook.exit(aion::commons::utils::ExitCode::NORMAL); // Java: System.exit(0)
+			break;
+		}
+		std::this_thread::sleep_for(200ms);
+	}
+	for (;;) // the ShutdownHook thread ends the process (std::quick_exit); main must not return and run static destructors meanwhile
+		std::this_thread::sleep_for(1h);
 }
 
 } // namespace
@@ -505,16 +619,35 @@ int main(int argc, char* argv[]) {
 	aion::commons::utils::concurrent::setCurrentThreadName("main"); // Java: the main thread's name in log lines
 	UncaughtExceptionHandler::install();
 	Arguments arguments = parseArguments(argc, argv);
+
 	int exitCode = aion::commons::utils::ExitCode::ERROR_;
+	bool started = false;
 	try {
-		startup(arguments, processStart);
+		// Java: GameServer's static initializer
+		Logging::init(aion::gameserver::configs::Config::loadLoggingConfig()); // must run before anything logs to the files
+		configureCheckModeLogging(arguments);
+		// C++ addition: command line overrides are layered where Java layers the active events' properties (over mygs.properties), so they also
+		// survive later Config::load calls. EventService (P5-12b) must keep them when it registers its provider.
+		if (!arguments.overrides.isEmpty()) {
+			Properties overrides = arguments.overrides;
+			aion::gameserver::configs::Config::setEventConfigPropertiesProvider([overrides] { return overrides; });
+		}
+		MainStartupObserver observer(arguments, processStart);
+		started = GameServer::main(observer);
 		exitCode = aion::commons::utils::ExitCode::NORMAL;
+		if (started && arguments.checkOutput)
+			installRunReports(*arguments.checkOutput);
 	} catch (const aion::gameserver::runtime::UnportedException& e) {
 		// the site was already logged with its stack trace by AION_UNPORTED
 		log().error("Game server startup stopped at an unported function: " + std::string(e.what()));
+		started = false;
+		exitCode = aion::commons::utils::ExitCode::ERROR_;
 	} catch (...) {
 		UncaughtExceptionHandler::uncaughtException("main", std::current_exception());
+		started = false;
+		exitCode = aion::commons::utils::ExitCode::ERROR_;
 	}
-	shutdown(arguments);
-	return exitCode;
+	if (!started)
+		return finishWithoutRunMode(arguments, exitCode);
+	runUntilShutdown(arguments);
 }

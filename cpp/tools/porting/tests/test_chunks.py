@@ -58,9 +58,11 @@ aion_gs_chunk(SHARED_B TARGET aion_gs_shared PHASE 5 GLOBS "aion/gameserver/shar
 	JAVA "src/com/aionemu/gameserver/shared/**" JAVA_EXCLUDE "src/com/aionemu/gameserver/shared/A*.java")
 aion_gs_chunk(SHELLS LEASE PHASE 4 XMLGEN_SHELLS GLOBS "aion/gameserver/model/**")
 aion_gs_chunk(GEN TARGET aion_gs_gen PHASE 4 ROOT generated GLOBS "aion/gameserver/**")
-aion_gs_chunk(APP TARGET aion_gs_app PHASE 5 GLOBS "aion/gameserver/*" MAIN "main.cpp" JAVA "src/com/aionemu/gameserver/*")
+aion_gs_chunk(APP TARGET aion_gs_app PHASE 5 GLOBS "aion/gameserver/*" MAIN "main.cpp" JAVA "src/com/aionemu/gameserver/*"
+	OTHER_FILES "cmake/Run{Smoke,Check}.cmake")
 aion_gs_chunk(H1 TARGET aion_gs_handlers_a PHASE 6 ROOT handlers GLOBS "aion/gameserver/handlers/quest/**/*.cpp" "aion/gameserver/handlers/quest/Prelude.h"
 	JAVA "data/handlers/quest/**" PCH "aion/gameserver/handlers/quest/Prelude.h")
+aion_gs_chunk(LZ LEASE PHASE 5 OTHER_FILES "cmake/RunCheck.cmake")
 '''
 
 FIXTURE_CPP = [
@@ -80,7 +82,7 @@ FIXTURE_TESTS = [
     'tests/leaf_tests/LeafTest.cpp', 'tests/support/SupportHelpers.h', 'tests/model/RaceTest.cpp', 'tests/model_skip/SkipTest.cpp',
     'tests/shared/SHARED_A/AlphaTest.cpp', 'tests/shared/SHARED_B/BetaTest.cpp', 'tests/handlers_a/QuestTest.cpp',
 ]
-NOT_SOURCES = ['generated/xmlmodel.json', 'src/aion/gameserver/model/notes.md', 'tests/leaf_tests/oracle/gen.py']
+NOT_SOURCES = ['generated/xmlmodel.json', 'src/aion/gameserver/model/notes.md', 'tests/leaf_tests/oracle/gen.py', 'cmake/RunSmoke.cmake']
 FIXTURE_JAVA = [
     'src/com/aionemu/gameserver/GameServer.java', 'src/com/aionemu/gameserver/leaf/Leaf.java', 'src/com/aionemu/gameserver/model/Race.java',
     'src/com/aionemu/gameserver/model/a/Item.java', 'src/com/aionemu/gameserver/model/a/Skip.java', 'src/com/aionemu/gameserver/model/b/Data.java',
@@ -169,6 +171,11 @@ MANIFEST_ERRORS = {
     'aion_gs_chunk(A PHASE 4 GLOBS "x")': 'TARGET is required',
     'aion_gs_chunk(A LEASE TARGET t PHASE 4 GLOBS "x")': 'a LEASE has only',
     'aion_gs_chunk(A LEASE PHASE 4 GLOBS "x" TEST_INCLUDES y)': 'a LEASE has only',
+    'aion_gs_chunk(A TARGET t PHASE 4 GLOBS "x" OTHER_FILES "src/x.h")': "OTHER_FILES glob 'src/x.h'",
+    'aion_gs_chunk(A TARGET t PHASE 4 GLOBS "x" OTHER_FILES "tests/x/y.cmake")': "OTHER_FILES glob 'tests/x/y.cmake'",
+    'aion_gs_chunk(A TARGET t PHASE 4 GLOBS "x" OTHER_FILES "../CMakeLists.txt")': "OTHER_FILES glob '../CMakeLists.txt'",
+    'aion_gs_chunk(A TARGET t PHASE 4 GLOBS "x" OTHER_FILES "cmake/a,b")': 'comma outside braces',
+    'aion_gs_chunk(A LEASE PHASE 4 ROOT src)': 'GLOBS is required',
     'aion_gs_chunk(A TARGET t GLOBS "x")': 'PHASE is required',
     'aion_gs_chunk(A TARGET t PHASE 4)': 'GLOBS is required',
     'aion_gs_chunk(A TARGET t PHASE 4 TEST_SUPPORT s)': 'GLOBS is required',
@@ -198,7 +205,13 @@ class ManifestTest(unittest.TestCase):
 
     def test_parts_and_defaults(self):
         m = self.load(FIXTURE_MANIFEST)
-        self.assertEqual([p.name for p in m.parts], ['LEAF', 'MODEL', 'MODEL', 'MODEL', 'AK', 'LZ', 'SHARED_A', 'SHARED_B', 'SHELLS', 'GEN', 'APP', 'H1'])
+        self.assertEqual([p.name for p in m.parts],
+                         ['LEAF', 'MODEL', 'MODEL', 'MODEL', 'AK', 'LZ', 'SHARED_A', 'SHARED_B', 'SHELLS', 'GEN', 'APP', 'H1', 'LZ'])
+        self.assertEqual(m.parts[10].other_files, ['cmake/Run{Smoke,Check}.cmake'])
+        self.assertTrue(m.parts[12].lease and m.parts[12].other_files == ['cmake/RunCheck.cmake'])
+        self.assertEqual(m.other_file_parts('cmake/RunCheck.cmake'), ([m.parts[10]], [m.parts[12]]))
+        self.assertEqual(m.other_file_parts('cmake/RunSmoke.cmake'), ([m.parts[10]], []))
+        self.assertEqual(m.other_file_parts('cmake/Other.cmake'), ([], []))
         leaf, model = m.parts[0], m.parts[1]
         self.assertEqual((leaf.roots, leaf.depends, leaf.tests_dir, leaf.test_support), (['src'], ['aion_commons_core'], 'leaf_tests', ['support']))
         self.assertEqual((model.tests_dir, model.exclude), ('model', ['aion/gameserver/model/a/Skip.*']))
@@ -321,11 +334,16 @@ class OwnershipTest(unittest.TestCase):
         args = ['--manifest', str(self.gs / 'chunks.cmake'), '--game-server', str(self.gs), '--java-dir', str(self.jd)]
         with contextlib.redirect_stdout(out):
             status = chunks.main(args + ['owner', str(self.gs / 'src/aion/gameserver/model/a/Item.h'), str(self.gs / 'src/aion/gameserver/New.h'),
-                                         str(self.gs / 'tests/support/New.h')])
+                                         str(self.gs / 'tests/support/New.h'), str(self.gs / 'cmake/RunCheck.cmake')])
         self.assertEqual(status, 0)
         self.assertEqual(out.getvalue().splitlines(),
                          ['src/aion/gameserver/model/a/Item.h: MODEL (aion_gs_model); leased to SHELLS', 'src/aion/gameserver/New.h: APP (aion_gs_app)',
-                          'tests/support/New.h: LEAF (aion_gs_leaf); leased to MODEL'])
+                          'tests/support/New.h: LEAF (aion_gs_leaf); leased to MODEL', 'cmake/RunCheck.cmake: APP (aion_gs_app); leased to LZ'])
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            status = chunks.main(args + ['owner', str(self.gs / 'cmake/Unowned.cmake')])
+        self.assertEqual(status, 1)
+        self.assertEqual(out.getvalue().splitlines(), ['cmake/Unowned.cmake: no owner'])
 
     def test_check_ownership_rules(self):
         m = chunks.Manifest.load(self.gs / 'chunks.cmake')
@@ -352,6 +370,11 @@ class OwnershipTest(unittest.TestCase):
         violations = chunks.ownership_violations(m, 'SHELLS', [f'{gs}/src/aion/gameserver/model/a/Item.h', f'{gs}/src/aion/gameserver/model/Race.h'],
                                                  self.gs)
         self.assertEqual(violations, [(f'{gs}/src/aion/gameserver/model/Race.h', 'owned by MODEL (aion_gs_model)')])
+        # OTHER_FILES: the owner and a lease may change them, another chunk may not; a file outside every OTHER_FILES glob stays outside
+        other = [f'{gs}/cmake/RunSmoke.cmake', f'{gs}/cmake/RunCheck.cmake', f'{gs}/cmake/AionChunks.cmake']
+        self.assertEqual(chunks.ownership_violations(m, 'APP', other, self.gs), [(f'{gs}/cmake/AionChunks.cmake', 'outside the chunk')])
+        self.assertEqual(chunks.ownership_violations(m, 'LZ', other, self.gs),
+                         [(f'{gs}/cmake/RunSmoke.cmake', 'owned by APP (aion_gs_app)'), (f'{gs}/cmake/AionChunks.cmake', 'outside the chunk')])
         # chunks sharing a target have disjoint test directories
         violations = chunks.ownership_violations(m, 'SHARED_A', [f'{gs}/tests/shared/SHARED_A/AlphaTest.cpp', f'{gs}/tests/shared/SHARED_B/BetaTest.cpp'],
                                                  self.gs)
@@ -371,6 +394,7 @@ class OwnershipTest(unittest.TestCase):
             self.assertEqual(sorted(entry['files']), sorted(own.part_files[p.index]), p.describe())
             self.assertEqual(sorted(entry['javaFiles']), sorted(own.part_java[p.index]), p.describe())
             self.assertEqual((entry['tests'], entry['testSupport']), (p.tests_dir, p.test_support), p.describe())
+            self.assertEqual(entry['otherFiles'], p.other_files, p.describe())
         out = io.StringIO()
         with contextlib.redirect_stdout(out):
             result = chunks.main(['--manifest', str(self.gs / 'chunks.cmake'), '--game-server', str(self.gs), '--java-dir', str(self.jd),
@@ -523,7 +547,7 @@ class RealTreeTest(unittest.TestCase):
         names = {p.name for p in self.manifest.parts}
         design = {f'P4-{n:02d}' for n in range(1, 18)} - {'P4-02', 'P4-07', 'P4-11'} | {'P4-02a', 'P4-02b', 'P4-07a', 'P4-07b', 'P4-11a', 'P4-11b',
                                                                                         'P4-15a'}
-        design |= {f'P5-{n:02d}' for n in range(0, 17)} - {'P5-12'} | {'P5-12a', 'P5-12b'}
+        design |= {f'P5-{n:02d}' for n in range(0, 17)} - {'P5-12'} | {'P5-12a', 'P5-12b', 'P5-SC'}
         design |= {f'Q{n:02d}' for n in range(1, 15)} | {'A1', 'Z1', 'C1', 'C2'} | {f'I{n}' for n in range(1, 7)} | {'T2', 'T2-gen'}
         self.assertEqual(names, design)
 
@@ -554,6 +578,25 @@ class RealTreeTest(unittest.TestCase):
         self.assertEqual(by_name[('P4-07b', 'aion_gs_templates')], 'templates/P4-07b')
         self.assertEqual(by_name[('C1', 'aion_gs_handlers_commands')], 'handlers_commands/C1')
         self.assertEqual(by_name[('C2', 'aion_gs_handlers_commands')], 'handlers_commands/C2')
+        # wave 5a pre-stage (m5a-plan.md I-01): the scenario harness chunk, the app's CMake scripts, the C-01 leases of stage 2
+        self.assertEqual(by_name[('P5-SC', 'aion_gs_scenario')], 'scenario')
+        self.assertEqual(test_owner('tests/scenario/ScenarioTests.cmake'), (['P5-SC'], []))
+        owners, leases = self.manifest.other_file_parts('cmake/RunStartupSmoke.cmake')
+        self.assertEqual(([p.name for p in owners], leases), (['P5-14'], []))
+        self.assertEqual(self.manifest.other_file_parts('cmake/AionChunks.cmake'), ([], []))
+        self.assertEqual(test_owner('tests/cm_ak/CM_CHAT_AUTHTest.cpp'), (['P5-15'], ['P4-16']))
+        self.assertEqual(test_owner('tests/cm_lz/CM_MAY_QUITTest.cpp'), (['P5-16'], ['P4-17']))
+
+    def test_c01_leases(self):
+        cm = 'src/aion/gameserver/network/aion/clientpackets/'
+        for cls, owner, lessee in (('CM_CHECK_MAIL_UNK', 'P5-15', 'P4-16'), ('CM_CUSTOM_SETTINGS', 'P5-15', 'P4-16'), ('CM_CHAT_AUTH', 'P5-15', 'P4-16'),
+                                   ('CM_MAY_QUIT', 'P5-16', 'P4-17'), ('CM_PING_REQUEST', 'P5-16', 'P4-17'), ('CM_SHOW_FRIENDLIST', 'P5-16', 'P4-17'),
+                                   ('CM_SUBZONE_CHANGE', 'P5-16', 'P4-17')):
+            for ext in ('h', 'cpp'):
+                owners, leases = chunks.owners_of(self.manifest, f'{cm}{cls}.{ext}')
+                self.assertEqual(([p.name for p in owners], [p.name for p in leases]), ([owner], [lessee]), cls)
+        owners, leases = chunks.owners_of(self.manifest, f'{cm}CM_MOVE.h')
+        self.assertEqual(([p.name for p in owners], leases), (['P5-00'], []))
 
     @unittest.skipUnless(find_cmake() and CHECK_SCRIPT.is_file(), 'CMake not found')
     def test_cmake_agrees_on_the_real_tree(self):

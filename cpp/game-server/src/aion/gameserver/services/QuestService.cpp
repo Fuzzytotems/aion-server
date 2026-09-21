@@ -1,10 +1,73 @@
 #include "aion/gameserver/services/QuestService.h"
 
+#include <algorithm>
+#include <exception>
+#include <optional>
+#include <string>
+#include <vector>
+
 #include "aion/gameserver/runtime/base/Unported.h"
 #include "aion/commons/logging/LoggerFactory.h"
+#include "aion/gameserver/dataholders/DataManager.h"
+#include "aion/gameserver/dataholders/ItemData.h"
+#include "aion/gameserver/dataholders/QuestsData.h"
+#include "aion/gameserver/dataholders/loadingutils/EnumTraits.h"
+#include "aion/gameserver/model/Gender.h"
+#include "aion/gameserver/model/PlayerClass.h"
+#include "aion/gameserver/model/Race.h"
+#include "aion/gameserver/model/gameobjects/player/AbyssRank.h"
+#include "aion/gameserver/model/gameobjects/player/Player.h"
+#include "aion/gameserver/model/gameobjects/player/QuestStateList.h"
+#include "aion/gameserver/model/gameobjects/player/npcFaction/NpcFaction.h"
+#include "aion/gameserver/model/gameobjects/player/npcFaction/NpcFactions.h"
+#include "aion/gameserver/model/items/storage/Storage.h"
+#include "aion/gameserver/model/skill/PlayerSkillEntry.h"
+#include "aion/gameserver/model/skill/PlayerSkillList.h"
+#include "aion/gameserver/model/templates/QuestTemplate.h"
+#include "aion/gameserver/model/templates/item/ItemTemplate.h"
+#include "aion/gameserver/model/templates/quest/InventoryItem.h"
+#include "aion/gameserver/model/templates/quest/InventoryItems.h"
+#include "aion/gameserver/model/templates/quest/QuestCategory.h"
 #include "aion/gameserver/model/templates/quest/QuestDrop.h"
+#include "aion/gameserver/model/templates/quest/XMLStartCondition.h"
+#include "aion/gameserver/network/aion/serverpackets/SM_SYSTEM_MESSAGE.h"
+#include "aion/gameserver/questEngine/model/QuestEnv.h"
+#include "aion/gameserver/questEngine/model/QuestState.h"
+#include "aion/gameserver/questEngine/model/QuestStatus.h"
+#include "aion/gameserver/runtime/base/Exceptions.h"
+#include "aion/gameserver/utils/ChatUtil.h"
+#include "aion/gameserver/utils/PacketSendUtility.h"
+#include "aion/gameserver/utils/stats/AbyssRankEnum.h"
 
 namespace aion::gameserver::services {
+
+namespace {
+
+/** Java: DataManager.QUEST_DATA.getQuestById(questId) dereferenced right away (NullPointerException for an unknown quest) */
+const model::templates::QuestTemplate* questTemplateOf(int32_t questId) {
+	const model::templates::QuestTemplate* template_ = dataholders::DataManager::QUEST_DATA->getQuestById(questId);
+	if (template_ == nullptr)
+		throw runtime::NullPointerException("QUEST_DATA.getQuestById(" + std::to_string(questId) + ")");
+	return template_;
+}
+
+/** Java: an Integer unboxed to int (NullPointerException for null) */
+int32_t unboxed(const std::optional<int32_t>& value, const char* what) {
+	if (!value)
+		throw runtime::NullPointerException(what);
+	return *value;
+}
+
+/** Java: AbyssRankEnum.getRankL10n(race, rankId): getRankById(rankId).getRankL10n(race) */
+std::string rankL10nOf(model::Race race, int32_t rankId) {
+	const auto& ranks = xml::EnumTraits<utils::stats::AbyssRankEnum>::names;
+	if (rankId < 1 || rankId > static_cast<int32_t>(ranks.size())) // Java getRankById: getId() is ordinal + 1
+		throw runtime::IllegalArgumentException("Invalid abyss rank provided " + std::to_string(rankId));
+	int32_t rank9L10nId = race == model::Race::ELYOS ? 901215 : 901233;
+	return utils::ChatUtil::l10n(rank9L10nId + (rankId - 1));
+}
+
+} // namespace
 
 // Anonymous classes and stored lambdas of the Java class (hub-headers.md §7.3): the bodies that create them define the structs that
 // `python tools/gen/fieldmap.py --class <key>` prints.
@@ -48,12 +111,109 @@ model::templates::quest::QuestRepeatCycle QuestService::findNextRepeatDay(
 }
 
 bool QuestService::checkStartConditions(model::gameobjects::player::Player& player, int32_t questId, bool warn) {
-	AION_UNPORTED();
+	return checkStartConditions(player, questId, warn, 0, false, false, false);
 }
 
 bool QuestService::checkStartConditions(model::gameobjects::player::Player& player, int32_t questId, bool warn, int32_t allowedDiffToMinLevel,
 	bool skipStartedCheck, bool skipRepeatCountCheck, bool skipXmlPreconditionCheck) {
-	AION_UNPORTED();
+	using network::aion::serverpackets::SM_SYSTEM_MESSAGE;
+	using questEngine::model::QuestStatus;
+	try {
+		runtime::Ptr<questEngine::model::QuestState> qs = player.getQuestStateList()->getQuestState(questId);
+		if (qs) {
+			if (!skipStartedCheck && (qs->getStatus() == QuestStatus::START || qs->getStatus() == QuestStatus::REWARD)) {
+				if (warn)
+					utils::PacketSendUtility::sendPacket(player, SM_SYSTEM_MESSAGE::STR_QUEST_ACQUIRE_ERROR_WORKING_QUEST());
+				return false;
+			} else if (!skipRepeatCountCheck && qs->getStatus() == QuestStatus::COMPLETE && !qs->canRepeat()) {
+				const model::templates::QuestTemplate* template_ = questTemplateOf(questId);
+				if (template_->getMaxRepeatCount() > 1 && template_->getMaxRepeatCount() != 255 && qs->getCompleteCount() >= template_->getMaxRepeatCount()) {
+					if (warn)
+						utils::PacketSendUtility::sendPacket(player,
+							SM_SYSTEM_MESSAGE::STR_QUEST_ACQUIRE_ERROR_MAX_REPEAT_COUNT(utils::ChatUtil::quest(questId), template_->getMaxRepeatCount()));
+				} else {
+					if (warn)
+						utils::PacketSendUtility::sendPacket(player, SM_SYSTEM_MESSAGE::STR_QUEST_ACQUIRE_ERROR_NONE_REPEATABLE(utils::ChatUtil::quest(questId)));
+				}
+				return false;
+			}
+		}
+
+		const model::templates::QuestTemplate* template_ = questTemplateOf(questId);
+		if (template_->getRacePermitted() && *template_->getRacePermitted() != model::Race::PC_ALL && *template_->getRacePermitted() != player.getRace()) {
+			if (warn)
+				utils::PacketSendUtility::sendPacket(player, SM_SYSTEM_MESSAGE::STR_QUEST_ACQUIRE_ERROR_RACE());
+			return false;
+		}
+
+		// min level - 2 so that the gray quest arrow shows when quest is almost available
+		int32_t levelDiff = template_->getMinlevelPermitted() - allowedDiffToMinLevel - player.getLevel();
+		if (levelDiff > 0) {
+			if (warn)
+				utils::PacketSendUtility::sendPacket(player, SM_SYSTEM_MESSAGE::STR_QUEST_ACQUIRE_ERROR_MIN_LEVEL(template_->getMinlevelPermitted()));
+			return false;
+		}
+
+		if (template_->getMaxlevelPermitted() != 0 && player.getLevel() > template_->getMaxlevelPermitted()) {
+			if (warn)
+				utils::PacketSendUtility::sendPacket(player, SM_SYSTEM_MESSAGE::STR_QUEST_ACQUIRE_ERROR_MAX_LEVEL(template_->getMaxlevelPermitted()));
+			return false;
+		}
+
+		const std::vector<model::PlayerClass>& classPermitted = template_->getClassPermitted();
+		if (!classPermitted.empty() && std::ranges::find(classPermitted, player.getPlayerClass()) == classPermitted.end()) {
+			if (warn)
+				utils::PacketSendUtility::sendPacket(player, SM_SYSTEM_MESSAGE::STR_QUEST_ACQUIRE_ERROR_CLASS());
+			return false;
+		}
+
+		if (template_->getGenderPermitted() && *template_->getGenderPermitted() != player.getGender()) {
+			if (warn)
+				utils::PacketSendUtility::sendPacket(player, SM_SYSTEM_MESSAGE::STR_QUEST_ACQUIRE_ERROR_GENDER());
+			return false;
+		}
+
+		// Java: player.getAbyssRank().getRank().getId() (ordinal + 1)
+		if (template_->getRequiredRank() != 0 && static_cast<int32_t>(player.getAbyssRank()->getRank()) + 1 < template_->getRequiredRank()) {
+			if (warn)
+				utils::PacketSendUtility::sendPacket(player,
+					SM_SYSTEM_MESSAGE::STR_QUEST_ACQUIRE_ERROR_MIN_RANK(rankL10nOf(player.getRace(), template_->getRequiredRank())));
+			return false;
+		}
+
+		if (!skipXmlPreconditionCheck) {
+			int32_t fulfilledStartConditions = 0;
+			for (const model::templates::quest::XMLStartCondition& startCondition : template_->getXMLStartConditions()) {
+				if (startCondition.check(player, warn))
+					fulfilledStartConditions++;
+			}
+			if (fulfilledStartConditions < template_->getRequiredConditionCount())
+				return false;
+		}
+
+		runtime::Ref<questEngine::model::QuestEnv> env = questEngine::model::QuestEnv::create(nullptr, player, questId);
+		if (!inventoryItemCheck(*env, warn))
+			return false;
+
+		if (!checkCombineSkill(*env, warn))
+			return false;
+
+		// check if NpcFaction daily quest
+		if (template_->getNpcFactionId() != 0) {
+			// check if the NpcFaction daily time limit has passed
+			if (!template_->isTimeBased() && !player.getNpcFactions().canStartQuest(template_))
+				return false;
+
+			runtime::Ptr<model::gameobjects::player::npcFaction::NpcFaction> faction = player.getNpcFactions().getFactionById(template_->getNpcFactionId());
+			if (!faction || !faction->isActive())
+				return false;
+		}
+
+		return true;
+	} catch (const std::exception& ex) {
+		log.error("QE: exception in checkStartCondition (" + player.toString() + ", questId " + std::to_string(questId) + ")", ex);
+	}
+	return false;
 }
 
 bool QuestService::startQuest(questEngine::model::QuestEnv& env) {
@@ -69,7 +229,48 @@ void QuestService::addOrUpdateQuest(model::gameobjects::player::Player& player, 
 }
 
 bool QuestService::checkCombineSkill(questEngine::model::QuestEnv& env, bool warn) {
-	AION_UNPORTED();
+	runtime::Ptr<model::gameobjects::player::Player> player = env.getPlayer();
+	const model::templates::QuestTemplate* template_ = dataholders::DataManager::QUEST_DATA->getQuestById(env.getQuestId());
+
+	if (template_ == nullptr)
+		return false;
+
+	if (template_->getCombineSkill() != 0) {
+		std::vector<int32_t> skills; // skills to check
+		if (template_->getCombineSkill() == -1) { // any skill
+			if (template_->getNpcFactionId() != 12 && template_->getNpcFactionId() != 13) { // exclude essence/aether tapping for crafting dailies
+				skills.push_back(30002);
+				skills.push_back(30003);
+			}
+			skills.push_back(40001);
+			skills.push_back(40002);
+			skills.push_back(40003);
+			skills.push_back(40004);
+			skills.push_back(40007);
+			skills.push_back(40008);
+			skills.push_back(40010);
+		} else {
+			skills.push_back(template_->getCombineSkill());
+		}
+		bool result = false;
+		for (int32_t skillId : skills) {
+			runtime::Ptr<model::skill::PlayerSkillEntry> skill = player->getSkillList()->getSkillEntry(skillId);
+			if (skill && skill->getSkillLevel() >= template_->getCombineSkillPoint()) {
+				if (template_->getCategory() == model::templates::quest::QuestCategory::TASK && skill->getSkillLevel() - 40 > template_->getCombineSkillPoint())
+					continue;
+				result = true;
+				break;
+			}
+		}
+		if (!result) {
+			if (warn)
+				utils::PacketSendUtility::sendPacket(*player, network::aion::serverpackets::SM_SYSTEM_MESSAGE::STR_QUEST_ACQUIRE_ERROR_TS_RANK(
+					std::to_string(template_->getCombineSkillPoint())));
+			return false;
+		}
+	}
+
+	return true;
 }
 
 bool QuestService::startEventQuest(questEngine::model::QuestEnv& env, questEngine::model::QuestStatus questStatus) {
@@ -85,7 +286,28 @@ bool QuestService::collectItemCheck(questEngine::model::QuestEnv& env, bool remo
 }
 
 bool QuestService::inventoryItemCheck(questEngine::model::QuestEnv& env, bool showWarning) {
-	AION_UNPORTED();
+	runtime::Ptr<model::gameobjects::player::Player> player = env.getPlayer();
+	const model::templates::QuestTemplate* template_ = questTemplateOf(env.getQuestId());
+	const model::templates::quest::InventoryItems* inventoryItems = template_->getInventoryItems();
+	if (inventoryItems != nullptr) {
+		// Usually counts are 1, and if more, then collect item checks exist
+		// Other quests having no collect item checks and counts greater than 1 are unused (old coin exchange quests)
+		for (const model::templates::quest::InventoryItem& inventoryItem : inventoryItems->getInventoryItems()) {
+			int32_t itemId = unboxed(inventoryItem.getItemId(), "inventoryItem.getItemId()");
+			if (!player->getInventory().getFirstItemByItemId(itemId)) {
+				if (showWarning) {
+					const model::templates::item::ItemTemplate* itemTemplate = dataholders::DataManager::ITEM_DATA->getItemTemplate(itemId);
+					if (itemTemplate == nullptr)
+						throw runtime::NullPointerException("ITEM_DATA.getItemTemplate(" + std::to_string(itemId) + ")");
+					std::string requiredItemL10n = itemTemplate->getL10n();
+					utils::PacketSendUtility::sendPacket(*player,
+						network::aion::serverpackets::SM_SYSTEM_MESSAGE::STR_QUEST_ACQUIRE_ERROR_INVENTORY_ITEM(requiredItemL10n));
+				}
+				return false;
+			}
+		}
+	}
+	return true;
 }
 
 int32_t QuestService::checkAndGetCollectItemQuestRewardCategory(questEngine::model::QuestEnv& env) {
@@ -117,15 +339,18 @@ bool QuestService::isQuestDrop(model::gameobjects::player::Player& player, const
 }
 
 bool QuestService::checkLevelRequirement(int32_t questId, int32_t playerLevel) {
-	AION_UNPORTED();
+	return checkLevelRequirement(dataholders::DataManager::QUEST_DATA->getQuestById(questId), playerLevel);
 }
 
 bool QuestService::checkLevelRequirement(const model::templates::QuestTemplate* qt, int32_t playerLevel) {
-	AION_UNPORTED();
+	if (qt == nullptr)
+		throw runtime::NullPointerException("qt");
+	return playerLevel >= qt->getMinlevelPermitted() && (qt->getMaxlevelPermitted() == 0 || playerLevel <= qt->getMaxlevelPermitted());
 }
 
 int32_t QuestService::getLevelRequirementDiff(int32_t questId, int32_t playerLevel) {
-	AION_UNPORTED();
+	const model::templates::QuestTemplate* template_ = dataholders::DataManager::QUEST_DATA->getQuestById(questId);
+	return template_ == nullptr ? 99 : template_->getMinlevelPermitted() - playerLevel;
 }
 
 bool QuestService::questTimerStart(questEngine::model::QuestEnv& env, int32_t timeInSeconds) {
@@ -145,15 +370,19 @@ bool QuestService::abandonQuest(model::gameobjects::player::Player& player, int3
 }
 
 std::vector<const model::templates::quest::QuestDrop*> QuestService::getQuestDrop(int32_t npcId) {
-	AION_UNPORTED();
+	// Java: questDrop.getOrDefault(npcId, Collections.emptyList()) (the live list; C++: a snapshot)
+	runtime::Ptr<runtime::RcArrayList<const model::templates::quest::QuestDrop*>> drops = questDrop.get(npcId);
+	return drops ? drops->snapshot() : std::vector<const model::templates::quest::QuestDrop*>();
 }
 
 void QuestService::addQuestDrop(int32_t npcId, const model::templates::quest::QuestDrop* drop) {
-	AION_UNPORTED();
+	runtime::Ptr<runtime::RcArrayList<const model::templates::quest::QuestDrop*>> drops =
+		questDrop.computeIfAbsent(npcId, [] { return runtime::RcArrayList<const model::templates::quest::QuestDrop*>::create(); });
+	drops->add(drop);
 }
 
 void QuestService::clearQuestDrops() {
-	AION_UNPORTED();
+	questDrop.clear();
 }
 
 std::vector<runtime::Ptr<model::gameobjects::player::Player>> QuestService::getEachDropMembersGroup(model::team::group::PlayerGroup& group,

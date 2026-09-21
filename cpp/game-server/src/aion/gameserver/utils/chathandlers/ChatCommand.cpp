@@ -5,6 +5,7 @@
 
 #include "aion/gameserver/runtime/base/Unported.h"
 #include "aion/commons/logging/LoggerFactory.h"
+#include "aion/gameserver/configs/administration/CommandsConfig.h"
 
 namespace aion::gameserver::utils::chathandlers {
 
@@ -97,7 +98,11 @@ std::string ChatCommand::parseSyntaxInfo(std::string_view value) {
 }
 
 int8_t ChatCommand::getLevel() {
-	AION_UNPORTED();
+	auto accessLevels = configs::administration::CommandsConfig::ACCESS_LEVELS.get();
+	auto level = accessLevels->find(getAliasForLevel());
+	if (level == accessLevels->end())
+		throw runtime::NullPointerException("Missing access level for " + prefix + getAliasForLevel());
+	return level->second;
 }
 
 std::optional<std::string> ChatCommand::toErrorMessage(const runtime::IllegalArgumentException& e) {

@@ -358,7 +358,9 @@ aion_gs_chunk(P5-13 TARGET aion_gs_instance PHASE 5
 
 # P5-14: remaining services, taskmanager, chathandlers framework (ChatProcessor, ChatUtil), CommandsAccessService, AdminService; aion_gs_app:
 # GameServer (main complete), ShutdownHook coordinator, and the executable's main.cpp (MAIN: compiled into aion_game_server, not the library);
-# tests/m4: the database helper of CTest gs.m4.check_static_data (aion_gs_m4_database, built by CMakeLists.txt; M4 gate)
+# tests/m4: the database helper of CTest gs.m4.check_static_data (aion_gs_m4_database; M4 gate); OTHER_FILES: the server process tests
+# (cmake/AppTests.cmake, included by CMakeLists.txt: aion_gs_m4_database, gs.smoke.startup, gs.m4.check_static_data) and their scripts
+# (m5a-plan.md I-01: game-server/cmake -> P5-14; the other scripts of cmake/ stay with the integrator)
 aion_gs_chunk(P5-14 TARGET aion_gs_misc PHASE 5
 	GLOBS "aion/gameserver/services/fwd.h"
 		"aion/gameserver/services/{AdminService,AnnouncementService,CommandsAccessService,CronJobService,CuringZoneService}.*"
@@ -385,7 +387,18 @@ aion_gs_chunk(P5-14 TARGET aion_gs_app PHASE 5
 	GLOBS "aion/gameserver/*"
 	MAIN "main.cpp"
 	JAVA "src/com/aionemu/gameserver/*"
-	TEST_SUPPORT m4)
+	TEST_SUPPORT m4
+	OTHER_FILES "cmake/{AppTests,RunStartupSmoke,RunM4Check}.cmake")
+
+# P5-SC: the M5a scenario harness and gate (m5a-plan.md §5, F-04/F-06/F-08, G-01): tests/scenario builds aion_gs_scenario_tests, which starts
+# aion_login_server and aion_game_server as child processes. A test-only chunk: its library aion_gs_scenario has no sources (GLOBS names a
+# directory that must stay empty; the placeholder translation unit keeps the target valid). The executable links aion_gs_core (like other core
+# chunk tests), aion_loginserver_crypto and the include directory login-server/tests/support (AionLoginClientCrypto.h); CMakeLists.txt adds
+# them, the build dependencies on both servers and the executable paths, and includes tests/scenario/ScenarioTests.cmake (owned by P5-SC through
+# its test directory) for the CTest registrations. TEST_INCLUDES support: FakeGameClient.h of P4-15.
+aion_gs_chunk(P5-SC TARGET aion_gs_scenario PHASE 5
+	GLOBS "aion/gameserver/scenario/**"
+	TESTS scenario TEST_INCLUDES support)
 
 # P5-15/16: client packets A-K / L-Z minus the login slice files (Abstract* bases go with A-K, the directory's fwd.h with L-Z)
 aion_gs_chunk(P5-15 TARGET aion_gs_cm_ak PHASE 5
@@ -408,6 +421,16 @@ aion_gs_chunk(P5-16 TARGET aion_gs_cm_lz PHASE 5
 		"src/com/aionemu/gameserver/network/aion/clientpackets/{CM_VERSION_CHECK,CM_L2AUTH_LOGIN_CHECK,CM_MAC_ADDRESS,CM_RESTORE_CHARACTER}.java"
 		"src/com/aionemu/gameserver/network/aion/clientpackets/{CM_MAY_LOGIN_INTO_GAME,CM_LEVEL_READY,CM_TIME_CHECK,CM_PING,CM_MOVE,CM_QUIT}.java"
 		"src/com/aionemu/gameserver/network/aion/clientpackets/{CM_UI_SETTINGS,CM_SECURITY_TOKEN,CM_RECONNECT_AUTH}.java")
+
+# Wave 5a stage 2 leases (m5a-plan.md D7, C-01, lane packets-dao): the seven in-world client packets that need no service, with their byte-vector
+# tests. P4-16 (server packets A-K) leases the three P5-15 classes and tests/cm_ak, P4-17 (L-Z) the four P5-16 classes and tests/cm_lz.
+# Released (these calls removed) when stage 2 is merged.
+aion_gs_chunk(P4-16 LEASE PHASE 5
+	GLOBS "aion/gameserver/network/aion/clientpackets/{CM_CHECK_MAIL_UNK,CM_CUSTOM_SETTINGS,CM_CHAT_AUTH}.*"
+	TEST_SUPPORT cm_ak)
+aion_gs_chunk(P4-17 LEASE PHASE 5
+	GLOBS "aion/gameserver/network/aion/clientpackets/{CM_MAY_QUIT,CM_PING_REQUEST,CM_SHOW_FRIENDLIST,CM_SUBZONE_CHANGE}.*"
+	TEST_SUPPORT cm_lz)
 
 # ---------------------------------------------------------------------------------------------------------------------------------------------
 # Phase 6 (§2.10): handler libraries (ROOT handlers). Category preludes are the PCH; a prelude shared by several chunks is owned by one of them.

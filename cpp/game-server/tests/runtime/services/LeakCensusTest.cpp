@@ -297,6 +297,39 @@ TEST_F(LeakCensusTest, PeriodicTasksAreStaleOnlyWhenAllTheirPinnedOwnersWereRemo
 	EXPECT_EQ(census.trackedCount(), 0u);
 }
 
+// m5a-plan.md I-03/F-07: the final census of the check-output mode needs no LeakCensus::censusNow(). Configuring zero thresholds and running
+// Reclaimer::reclaimNow() reports every removed object that is still referenced at once, without simulated time passing; objects already at
+// count 0 are destroyed by the same scans and never reported.
+TEST_F(LeakCensusTest, ZeroThresholdsAndReclaimNowReportOnDemand) {
+	Ref<TestObject> kept = TestObject::create(21);
+	Ref<TestObject> released = TestObject::create(22);
+	census.onRemovedFromWorld(*kept, "Player", 21);
+	census.onRemovedFromWorld(*released, "Item", 22);
+	reclaim();
+	EXPECT_TRUE(census.getLeaks().empty()); // the configured 10 minutes have not passed
+
+	released.reset();
+	LeakCensus::Config finalCensus = census.getConfig();
+	finalCensus.censusAfter = milliseconds(0);
+	finalCensus.checkInterval = milliseconds(0);
+	finalCensus.zombieBreakerEnabled = false;
+	census.configure(finalCensus);
+	Reclaimer::getInstance().reclaimNow();
+	Reclaimer::getInstance().reclaimNow();
+
+	std::vector<LeakCensus::LeakReport> leaks = census.getLeaks();
+	ASSERT_EQ(leaks.size(), 1u);
+	EXPECT_EQ(leaks[0].className, "Player");
+	EXPECT_EQ(leaks[0].objectId, 21);
+	EXPECT_EQ(leaks[0].refCount, 1u);
+	EXPECT_EQ(census.trackedCount(), 1u);
+
+	kept.reset();
+	reclaim();
+	EXPECT_TRUE(census.getLeaks().empty());
+	EXPECT_EQ(census.trackedCount(), 0u);
+}
+
 TEST_F(LeakCensusTest, UninstallForgetsEverything) {
 	Ref<TestObject> npc = TestObject::create(8);
 	census.onRemovedFromWorld(*npc, "Npc", 8);

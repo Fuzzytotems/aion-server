@@ -13,9 +13,6 @@ namespace aion::gameserver::model::gameobjects {
 /**
  * A static world object (doors, ...). A visible object: `VisibleObject::create<StaticObject>(controller, spawnTemplate, objectTemplate)`
  * (§10.1): the constructor takes its object id from IDFactory, a new WorldPosition of the spawn's world and binds the controller.
- * <p>
- * The constructor is declared but not defined yet: it converts the `std::unique_ptr<StaticObjectController>` to the VisibleObject controller
- * part, which needs the complete controller class, and controllers/StaticObjectController.h has no declaration header yet (P4-11b).
  *
  * @author ATracer
  */

@@ -21,6 +21,14 @@ private:
 	static inline runtime::ConcurrentLinkedQueue<int32_t> enteringWorld{AION_LOCK_CLASS(PlayerEnterWorldService::enteringWorld)};
 public:
 	static void enterWorld(network::aion::AionConnection* client, int32_t objectId);
+
+	/**
+	 * C++ only (tests, m5a-plan.md S-10 destroy case b): puts an object id into `enteringWorld` / takes it out again, so a test can drive the
+	 * duplicate-enter branch (PlayerEnterWorldService.java:159) that falls through without sending a packet.
+	 * @return whether the id was added / removed
+	 */
+	static bool addEnteringWorldForTests(int32_t objectId);
+	static bool removeEnteringWorldForTests(int32_t objectId);
 private:
 	static void enterWorld(network::aion::AionConnection* client, model::gameobjects::player::Player& player);
 	static void updateEnergyOfRepose(model::gameobjects::player::Player& player, int64_t secondsOffline);

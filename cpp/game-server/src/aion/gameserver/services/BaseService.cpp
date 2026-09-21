@@ -3,6 +3,7 @@
 #include "aion/commons/logging/LoggerFactory.h"
 #include "aion/gameserver/model/base/Base.h"
 #include "aion/gameserver/model/base/BaseLocation.h"
+#include "aion/gameserver/model/base/BaseType.h"
 #include "aion/gameserver/runtime/base/Unported.h"
 
 namespace aion::gameserver::services {
@@ -10,7 +11,11 @@ namespace aion::gameserver::services {
 static const auto log = commons::logging::LoggerFactory::getLogger("com.aionemu.gameserver.services.BaseService");
 
 BaseService::BaseService() {
-	AION_UNPORTED();
+	log.info("Initializing bases...");
+
+	// Java: one BaseLocation per BaseTemplate (CASUAL: BaseLocation, SIEGE: SiegeBaseLocation, STAINED: StainedBaseLocation, PANESTERRA*:
+	// PanesterraBaseLocation) in allBaseLocations. The location classes are ported with the base work (M5b); until then no base exists
+	AION_PARTIAL("base locations are not created yet (M5b), BaseService starts no bases");
 }
 
 BaseService::~BaseService() = default;
@@ -21,7 +26,18 @@ BaseService& BaseService::getInstance() {
 }
 
 void BaseService::initBases() {
-	AION_UNPORTED();
+	for (const runtime::Ptr<model::base::BaseLocation>& loc : allBaseLocations.values()) {
+		switch (loc->getType()) {
+			case model::base::BaseType::CASUAL:
+			case model::base::BaseType::STAINED:
+			case model::base::BaseType::PANESTERRA:
+			case model::base::BaseType::PANESTERRA_FACTION_CAMP:
+				start(loc->getId());
+				break;
+			default:
+				break;
+		}
+	}
 }
 
 void BaseService::start(int32_t id) {

@@ -59,6 +59,8 @@ private:
 	static constexpr int32_t DELAY_BROKER_SAVE = 6000;
 	static constexpr int32_t DELAY_BROKER_CHECK = 60000;
 	const runtime::Ref<BrokerService::BrokerPeriodicTaskManager> saveManager;
+	// Declared after saveManager, whose initializer runs initBrokerService() (docs/deviations/P5-09.md), so this map is not constructed yet while
+	// initBrokerService() runs: that method must not touch it. In Java every field initializer runs before the constructor body.
 	runtime::ConcurrentHashMap<int32_t, runtime::Ref<model::broker::BrokerPlayerCache>> playerBrokerCache{AION_LOCK_CLASS(BrokerService::playerBrokerCache#stripe)}; // Java: = new ConcurrentHashMap<>()
 public:
 	static BrokerService& getInstance(); // Java singleton

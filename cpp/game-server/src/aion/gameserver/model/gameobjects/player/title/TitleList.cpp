@@ -9,6 +9,7 @@
 #include "aion/gameserver/model/gameobjects/player/PlayerCommonData.h"
 #include "aion/gameserver/model/gameobjects/player/title/Title.h"
 #include "aion/gameserver/model/stats/container/PlayerGameStats.h"
+#include "aion/gameserver/model/stats/listeners/TitleChangeListener.h"
 #include "aion/gameserver/model/templates/TitleTemplate.h"
 #include "aion/gameserver/network/aion/serverpackets/SM_SYSTEM_MESSAGE.h"
 #include "aion/gameserver/network/aion/serverpackets/SM_TITLE_INFO.h"
@@ -99,15 +100,12 @@ void TitleList::setBonusTitle(int32_t bonusTitleId) {
 	utils::PacketSendUtility::sendPacket(player, network::aion::serverpackets::SM_TITLE_INFO(6, bonusTitleId));
 	if (player.getCommonData()->getBonusTitleId() > 0) {
 		if (player.getGameStats()) {
-			// Java: TitleChangeListener.onBonusTitleChange(owner.getGameStats(), owner.getCommonData().getBonusTitleId(), false); the listener
-			// (P5-01) has no C++ header yet
-			AION_UNPORTED();
+			stats::listeners::TitleChangeListener::onBonusTitleChange(*player.getGameStats(), player.getCommonData()->getBonusTitleId(), false);
 		}
 	}
 	player.getCommonData()->setBonusTitleId(bonusTitleId);
 	if (bonusTitleId > 0 && player.getGameStats()) {
-		// Java: TitleChangeListener.onBonusTitleChange(owner.getGameStats(), bonusTitleId, true) (P5-01, no C++ header yet)
-		AION_UNPORTED();
+		stats::listeners::TitleChangeListener::onBonusTitleChange(*player.getGameStats(), bonusTitleId, true);
 	}
 }
 

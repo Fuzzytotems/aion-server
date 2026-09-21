@@ -2,7 +2,9 @@
 
 #include <memory>
 #include <optional>
+#include <string>
 #include <string_view>
+#include <vector>
 
 #include "aion/gameserver/runtime/lifetime/RefCounted.h"
 #include "aion/gameserver/ai/fwd.h"
@@ -26,6 +28,7 @@ namespace aion::gameserver::ai {
  *   (HandlerRegistry.h AIHandlerClass), and the factory returns nullptr when the owner's dynamic type does not fit.
  * - newAI is ported (Creature::postConstruct needs it): a null name creates DummyAI (an AITemplate over Creature, defined in AIEngine.cpp),
  *   otherwise the registry factory creates the AI and newAI stores the entry for AbstractAI::getName().
+ * - The C++-only setting gameserver.dev.missing_ai_handlers=warn turns a missing handler into a DummyAI and a warning (isMissingAiHandlersWarn).
  *
  * @author ATracer
  */
@@ -60,6 +63,16 @@ private:
 	void validateScripts();
 
 public:
+	/**
+	 * C++ only: true if AIConfig::MISSING_AI_HANDLERS is "warn" (gameserver.dev.missing_ai_handlers, docs/deviations/P4-01.md). Then
+	 * validateScripts logs NPC template AI names without a handler instead of failing, and newAI creates a DummyAI for such a name (one warning
+	 * per name) instead of throwing.
+	 */
+	static bool isMissingAiHandlersWarn();
+
+	/** C++ only: the AI names newAI replaced by a DummyAI so far, sorted (startup summary and tests) */
+	static std::vector<std::string> missingAiNamesSeen();
+
 	static AIEngine& getInstance();
 };
 

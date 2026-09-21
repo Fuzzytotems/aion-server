@@ -1,9 +1,20 @@
 #include "aion/gameserver/services/LifeStatsRestoreService.h"
 
-#include "aion/gameserver/runtime/base/Unported.h"
+#include <optional>
+
+#include "aion/commons/utils/Exception.h"
+#include "aion/gameserver/ai/AIState.h"
+#include "aion/gameserver/ai/AbstractAI.h"
+#include "aion/gameserver/controllers/FlyController.h"
 #include "aion/gameserver/runtime/fields/Field.h"
+#include "aion/gameserver/model/gameobjects/Creature.h"
+#include "aion/gameserver/model/gameobjects/player/Player.h"
 #include "aion/gameserver/model/stats/container/CreatureLifeStats.h"
 #include "aion/gameserver/model/stats/container/PlayerLifeStats.h"
+#include "aion/gameserver/network/aion/serverpackets/SM_ATTACK_STATUS_LOG.h"
+#include "aion/gameserver/network/aion/serverpackets/SM_ATTACK_STATUS_TYPE.h"
+#include "aion/gameserver/runtime/sched/TaskConcepts.h"
+#include "aion/gameserver/utils/ThreadPoolManager.h"
 
 namespace aion::gameserver::services {
 
@@ -98,7 +109,13 @@ runtime::Ref<LifeStatsRestoreService::HpRestoreTask> LifeStatsRestoreService::Hp
 }
 
 void LifeStatsRestoreService::HpRestoreTask::run() {
-	AION_UNPORTED();
+	runtime::Ptr<model::stats::container::CreatureLifeStats> stats = lifeStats.get(); // Java: NullPointerException once lifeStats is null
+	if (stats->isDead() || stats->isFullyRestoredHp() || !stats->getOwner().isInWorld() || stats->getOwner().getAi().getState() == ai::AIState::FIGHT) {
+		stats->cancelRestoreTask();
+		lifeStats.set(nullptr);
+	} else {
+		stats->restoreHp();
+	}
 }
 
 LifeStatsRestoreService::HpMpRestoreTask::HpMpRestoreTask(model::stats::container::CreatureLifeStats& value)
@@ -113,7 +130,14 @@ runtime::Ref<LifeStatsRestoreService::HpMpRestoreTask> LifeStatsRestoreService::
 }
 
 void LifeStatsRestoreService::HpMpRestoreTask::run() {
-	AION_UNPORTED();
+	runtime::Ptr<model::stats::container::CreatureLifeStats> stats = lifeStats.get(); // Java: NullPointerException once lifeStats is null
+	if (stats->isDead() || stats->isFullyRestoredHpMp() || !stats->getOwner().isInWorld()) {
+		stats->cancelRestoreTask();
+		lifeStats.set(nullptr);
+	} else {
+		stats->restoreHp();
+		stats->restoreMp();
+	}
 }
 
 LifeStatsRestoreService::FpReduceTask::FpReduceTask(model::stats::container::PlayerLifeStats& value)
@@ -128,7 +152,27 @@ runtime::Ref<LifeStatsRestoreService::FpReduceTask> LifeStatsRestoreService::FpR
 }
 
 void LifeStatsRestoreService::FpReduceTask::run() {
-	AION_UNPORTED();
+	runtime::Ptr<model::stats::container::PlayerLifeStats> stats = lifeStats.get(); // Java: NullPointerException once lifeStats is null
+	if (stats->isDead() || !stats->getOwner().isSpawned()) {
+		stats->cancelFpReduce();
+		lifeStats.set(nullptr);
+		return;
+	}
+	const int32_t flightReducePeriod = stats->getFlightReducePeriod();
+	if (flightReducePeriod == 0)
+		throw commons::utils::ArithmeticException("/ by zero"); // Java: secondsElapsed % 0
+	if (secondsElapsed.get() % flightReducePeriod == 0) {
+		stats->reduceFp(std::nullopt, stats->getFlightReduceValue(), 0, std::nullopt);
+		stats->specialrestoreFp();
+		if (stats->getCurrentFp() <= 0) {
+			if (stats->getOwner().isFlying()) {
+				stats->getOwner().getFlyController().endFly(true);
+			} else {
+				stats->triggerFpRestore();
+			}
+		}
+	}
+	secondsElapsed.set(secondsElapsed.get() + 1);
 }
 
 LifeStatsRestoreService::FpRestoreTask::FpRestoreTask(model::stats::container::PlayerLifeStats& value)
@@ -143,23 +187,36 @@ runtime::Ref<LifeStatsRestoreService::FpRestoreTask> LifeStatsRestoreService::Fp
 }
 
 void LifeStatsRestoreService::FpRestoreTask::run() {
-	AION_UNPORTED();
+	runtime::Ptr<model::stats::container::PlayerLifeStats> stats = lifeStats.get(); // Java: NullPointerException once lifeStats is null
+	if (stats->isDead() || stats->isFlyTimeFullyRestored()) {
+		stats->cancelFpRestore();
+		lifeStats.set(nullptr);
+	} else {
+		stats->restoreFp();
+	}
 }
 
+// Java schedules the Runnable itself; the Ref inside the task closure retains the task and, through its lifeStats, the creature (as Java's
+// scheduled Runnable does). The tasks are pinned to the creature as well, so the leak census and the zombie breaker can attribute them to their
+// owner (runtime-architecture.md §5.4, plan Q3/Q8); the pin adds no retention Java does not have.
 runtime::FutureRef LifeStatsRestoreService::scheduleRestoreTask(model::stats::container::CreatureLifeStats& lifeStats) {
-	AION_UNPORTED();
+	runtime::Ref<HpMpRestoreTask> task = HpMpRestoreTask::create(lifeStats);
+	return utils::ThreadPoolManager::getInstance().scheduleAtFixedRate({&lifeStats.getOwner()}, [task] { task->run(); }, 1700, DEFAULT_DELAY);
 }
 
 runtime::FutureRef LifeStatsRestoreService::scheduleHpRestoreTask(model::stats::container::CreatureLifeStats& lifeStats) {
-	AION_UNPORTED();
+	runtime::Ref<HpRestoreTask> task = HpRestoreTask::create(lifeStats);
+	return utils::ThreadPoolManager::getInstance().scheduleAtFixedRate({&lifeStats.getOwner()}, [task] { task->run(); }, 1700, DEFAULT_DELAY);
 }
 
 runtime::FutureRef LifeStatsRestoreService::scheduleFpReduceTask(model::stats::container::PlayerLifeStats& lifeStats) {
-	AION_UNPORTED();
+	runtime::Ref<FpReduceTask> task = FpReduceTask::create(lifeStats);
+	return utils::ThreadPoolManager::getInstance().scheduleAtFixedRate({&lifeStats.getOwner()}, [task] { task->run(); }, 1000, 1000);
 }
 
 runtime::FutureRef LifeStatsRestoreService::scheduleFpRestoreTask(model::stats::container::PlayerLifeStats& lifeStats) {
-	AION_UNPORTED();
+	runtime::Ref<FpRestoreTask> task = FpRestoreTask::create(lifeStats);
+	return utils::ThreadPoolManager::getInstance().scheduleAtFixedRate({&lifeStats.getOwner()}, [task] { task->run(); }, 3000, DEFAULT_DELAY);
 }
 
 } // namespace aion::gameserver::services

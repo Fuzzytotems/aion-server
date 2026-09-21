@@ -1,6 +1,7 @@
 #include "aion/gameserver/model/skill/SkillEntry.h"
 
-#include "aion/gameserver/runtime/base/Unported.h"
+#include "aion/gameserver/dataholders/DataManager.h"
+#include "aion/gameserver/dataholders/SkillData.h"
 
 namespace aion::gameserver::model::skill {
 
@@ -10,7 +11,7 @@ SkillEntry::SkillEntry(int32_t skillIdValue, int32_t skillLevelValue) : skillId(
 SkillEntry::~SkillEntry() = default;
 
 const skillengine::model::SkillTemplate* SkillEntry::getSkillTemplate() {
-	AION_UNPORTED();
+	return dataholders::DataManager::SKILL_DATA->getSkillTemplate(skillId);
 }
 
 } // namespace aion::gameserver::model::skill

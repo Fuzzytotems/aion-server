@@ -17,9 +17,8 @@ namespace aion::gameserver::model::road {
  * This class handles roads (teleport ways) between maps (e.g. road from Verteron to Eltnen)
  * Each road is a one-way portal, so for a map-connection in both directions you need two roads.
  * <p>
- * A visible object: `VisibleObject::create<Road>(template, instanceId)` (§10.1). The constructor is declared but not defined yet: it creates the
- * RoadController (the VisibleObject controller part) and binds it, and controllers/RoadController.h has no declaration header yet (P4-11b).
- * The id is never released (runtime-architecture.md §6 group (c)).
+ * A visible object: `VisibleObject::create<Road>(template, instanceId)` (§10.1). The constructor creates the RoadController (the VisibleObject
+ * controller part), binds it and sets a PlayerAwareKnownList; a null instanceId throws NullPointerException (Java unboxing). The id is never released (runtime-architecture.md §6 group (c)).
  *
  * @author SheppeR
  */

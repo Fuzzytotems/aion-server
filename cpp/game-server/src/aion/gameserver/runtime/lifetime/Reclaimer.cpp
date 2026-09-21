@@ -22,6 +22,7 @@
 #include "aion/gameserver/runtime/base/Checked.h"
 #include "aion/gameserver/runtime/base/ThreadContext.h"
 #include "aion/gameserver/runtime/base/YieldPoint.h"
+#include "aion/gameserver/runtime/lifetime/LiveInstanceCounters.h"
 #include "aion/gameserver/runtime/lifetime/Parts.h"
 #include "aion/gameserver/runtime/lifetime/TaskScope.h"
 #include "aion/gameserver/runtime/lifetime/detail/Epoch.h"
@@ -624,6 +625,9 @@ void destroyChunk(ReclaimerState& s) {
 				"Reclaimer invariant: an object selected for destruction was resurrected (count != 0)");
 			if (observer != nullptr)
 				observer(*object);
+#if AION_CHECKED
+			detail::countLiveInstanceDestroyed(*object); // debug live-instance counters (LiveInstanceCounters.h)
+#endif
 			void* memory = const_cast<void*>(dynamic_cast<const void*>(object));
 			const char* cookieAddress = nullptr;
 #if AION_CHECKED

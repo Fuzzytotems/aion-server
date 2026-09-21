@@ -167,6 +167,101 @@ TEST(UnportedTest, ShortenFileName) {
 	EXPECT_EQ(detail::shortenUnportedFileName("other/File.cpp"), "other/File.cpp");
 }
 
+// ----------------------------------------------------------------------------------------------------------------------------- AION_PARTIAL
+
+namespace {
+
+int32_t partialValue(int32_t value) {
+	AION_PARTIAL("the bonus is not applied yet");
+	return value + 1;
+}
+
+void partialNoexcept() noexcept {
+	AION_PARTIAL("called from a noexcept function");
+}
+
+const PartialHit* findPartialHit(const std::vector<PartialHit>& hits, std::string_view functionPart) {
+	auto it = std::ranges::find_if(hits, [&](const PartialHit& hit) { return hit.function.find(functionPart) != std::string::npos; });
+	return it == hits.end() ? nullptr : &*it;
+}
+
+} // namespace
+
+static_assert(noexcept(partialReached(*static_cast<PartialSite*>(nullptr)))); // unevaluated: usable in noexcept functions
+
+TEST(PartialTest, ReturnsNormallyCountsHitsAndLogsOncePerSite) {
+	std::ostringstream logged;
+	auto sink = std::make_shared<spdlog::sinks::ostream_sink_mt>(logged);
+	aion::commons::logging::LoggerFactory::configure("com.aionemu.gameserver.Unported", {.sinks = {sink}, .additive = false});
+	resetPartialHitsForTests();
+	uint64_t unportedBefore = unportedHitCount();
+
+	EXPECT_EQ(partialValue(1), 2);
+	EXPECT_EQ(partialValue(5), 6);
+	EXPECT_NO_THROW(partialNoexcept());
+	aion::commons::logging::LoggerFactory::removeConfig("com.aionemu.gameserver.Unported");
+
+	auto hits = partialHits();
+	const PartialHit* valueHit = findPartialHit(hits, "partialValue");
+	const PartialHit* noexceptHit = findPartialHit(hits, "partialNoexcept");
+	ASSERT_NE(valueHit, nullptr);
+	ASSERT_NE(noexceptHit, nullptr);
+	EXPECT_EQ(valueHit->hits, 2u);
+	EXPECT_EQ(valueHit->file, thisFile());
+	EXPECT_EQ(valueHit->reason, "the bonus is not applied yet");
+	EXPECT_EQ(noexceptHit->hits, 1u);
+	EXPECT_EQ(noexceptHit->reason, "called from a noexcept function");
+	EXPECT_GE(partialHitCount(), 3u);
+	EXPECT_EQ(unportedHitCount(), unportedBefore) << "AION_PARTIAL is not counted as unported";
+
+	std::string log = logged.str();
+	const std::string expected = " at " + thisFile() + ":" + std::to_string(valueHit->line) + ": the bonus is not applied yet";
+	size_t first = log.find("AION_PARTIAL reached: ");
+	ASSERT_NE(first, std::string::npos) << log;
+	EXPECT_NE(log.find(expected), std::string::npos) << log;
+	EXPECT_EQ(log.find(expected, log.find(expected) + 1), std::string::npos) << "logged once per site: " << log;
+
+	resetPartialHitsForTests();
+	hits = partialHits();
+	valueHit = findPartialHit(hits, "partialValue");
+	ASSERT_NE(valueHit, nullptr); // stays listed
+	EXPECT_EQ(valueHit->hits, 0u);
+}
+
+TEST(PartialTest, ConcurrentHitsAreCounted) {
+	resetPartialHitsForTests();
+	std::vector<std::thread> threads;
+	for (int t = 0; t < 8; t++) {
+		threads.emplace_back([] {
+			for (int i = 0; i < 500; i++)
+				partialValue(i);
+		});
+	}
+	for (auto& thread : threads)
+		thread.join();
+	const std::vector<PartialHit> hits = partialHits();
+	const PartialHit* hit = findPartialHit(hits, "partialValue");
+	ASSERT_NE(hit, nullptr);
+	EXPECT_EQ(hit->hits, 4000u);
+}
+
+TEST(PartialTest, TraceFormat) {
+	resetPartialHitsForTests();
+	partialValue(0);
+	std::ostringstream out;
+	writePartialTrace(out);
+	std::istringstream in(out.str());
+	std::vector<std::string> lines;
+	for (std::string line; std::getline(in, line);)
+		lines.push_back(line);
+	ASSERT_FALSE(lines.empty());
+	EXPECT_EQ(lines[0], "# AION_PARTIAL trace v1");
+	const std::string expectedPrefix = "1\t" + thisFile() + ":";
+	auto it = std::ranges::find_if(lines, [&](const std::string& line) { return line.starts_with(expectedPrefix) && line.find("partialValue") != std::string::npos; });
+	ASSERT_NE(it, lines.end()) << out.str();
+	EXPECT_TRUE(it->ends_with("\tthe bonus is not applied yet")) << *it;
+}
+
 namespace aion::gameserver::handlers::quest {
 namespace {
 // handler code: unported bodies and the wave-1 names of the API (S0a decision 1) without naming runtime

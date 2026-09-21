@@ -59,7 +59,9 @@ int32_t SiegeLocation::getLegionGp() {
 }
 
 int32_t SiegeLocation::getInfluenceValue() {
-	AION_UNPORTED();
+	if (template_ == nullptr)
+		throw runtime::NullPointerException("template"); // Java: NullPointerException
+	return template_->getInfluenceValue();
 }
 
 void SiegeLocation::addZone(world::zone::SiegeZoneInstance& zone) {

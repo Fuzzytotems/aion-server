@@ -1,6 +1,8 @@
 #include "aion/gameserver/model/legionDominion/LegionDominionParticipantInfo.h"
 
+#include "aion/gameserver/model/team/legion/Legion.h"
 #include "aion/gameserver/runtime/base/Unported.h"
+#include "aion/gameserver/services/LegionService.h"
 
 namespace aion::gameserver::model::legionDominion {
 
@@ -12,11 +14,15 @@ runtime::Ref<LegionDominionParticipantInfo> LegionDominionParticipantInfo::creat
 }
 
 int64_t LegionDominionParticipantInfo::getDate() {
-	AION_UNPORTED();
+	std::optional<commons::database::Timestamp> value = date.get();
+	return value ? value->time_since_epoch().count() / 1000 : 0;
 }
 
 std::string LegionDominionParticipantInfo::getLegionName() {
-	AION_UNPORTED();
+	runtime::Ptr<team::legion::Legion> legion = services::LegionService::getInstance().getLegion(legionId.get());
+	if (legion)
+		return legion->getName();
+	return "NOT AVAILABLE";
 }
 
 LegionDominionParticipantInfo::~LegionDominionParticipantInfo() = default;

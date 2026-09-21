@@ -1,7 +1,12 @@
 #include "aion/gameserver/services/mail/MailService.h"
 
-#include "aion/gameserver/runtime/base/Unported.h"
 #include "aion/commons/logging/LoggerFactory.h"
+#include "aion/gameserver/dao/MailDAO.h"
+#include "aion/gameserver/model/gameobjects/player/Mailbox.h"
+#include "aion/gameserver/model/gameobjects/player/Player.h"
+#include "aion/gameserver/network/aion/serverpackets/SM_MAIL_SERVICE.h"
+#include "aion/gameserver/runtime/base/Unported.h"
+#include "aion/gameserver/utils/PacketSendUtility.h"
 
 namespace aion::gameserver::services::mail {
 
@@ -34,7 +39,8 @@ void MailService::deleteMail(model::gameobjects::player::Player& player, std::sp
 }
 
 void MailService::onPlayerLogin(model::gameobjects::player::Player& player) {
-	AION_UNPORTED();
+	player.setMailbox(dao::MailDAO::loadPlayerMailbox(player));
+	utils::PacketSendUtility::sendPacket(player, network::aion::serverpackets::SM_MAIL_SERVICE());
 }
 
 void MailService::sendMailList(model::gameobjects::player::Player& player, bool isExpress, bool sendRefreshPacket) {

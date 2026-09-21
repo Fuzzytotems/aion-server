@@ -188,11 +188,24 @@ runtime::Ref<VisibleObject> VisibleObjectSpawner::spawnInvasionNpc(model::templa
 
 runtime::Ref<model::gameobjects::Gatherable> VisibleObjectSpawner::spawnGatherable(model::templates::spawns::SpawnTemplate& spawn,
 	int32_t instanceIndex) {
-	// Java: Gatherable gatherable = new Gatherable(spawn, new GatherableController()); SpawnEngine.bringIntoWorld(gatherable, spawn, instanceIndex);
-	// The Gatherable constructor (P4-11a) and the GatherableController constructor (P4-11b) are declared but not defined yet.
+	// Java:
+	//   Gatherable gatherable = new Gatherable(spawn, new GatherableController());
+	//   SpawnEngine.bringIntoWorld(gatherable, spawn, instanceIndex);
+	//   return gatherable;
+	// The GatherableController constructor and destructor (P4-11b) destroy its Field<Ref<GatheringTask>> member, which needs the complete
+	// GatheringTask; P5-02 has no skillengine/task/GatheringTask.h (and AbstractCraftTask.h) declaration header yet, so neither the controller
+	// nor the Gatherable constructor that consumes it can be defined. Until then gatherables are not spawned: spawnObject treats the null result
+	// like a missing template (m5a-plan.md W-04).
+	// TODO(header-request): request world-engines-1 asks P5-02 for skillengine/task/GatheringTask.h (a declaration header is enough:
+	// ~Ref<GatheringTask> calls release(), which needs the complete type). Once it exists, delete this AION_PARTIAL and port the three lines of
+	// the Java body below; without it the world has no Gatherable at all, "Loaded 0 gatherable spawns" is logged instead of the Java count, no
+	// SM_GATHERABLE_INFO is ever sent, and the plan's real-client checklist item 7 ("Gather nodes are visible") cannot pass. The M5a gate still
+	// catches the gap, because D3 requires every AION_PARTIAL site hit to be in tests/scenario/m5a_partial_allowlist.txt and this one is not
+	// listed; scenario check V4 on its own would accept the empty set.
 	static_cast<void>(spawn);
 	static_cast<void>(instanceIndex);
-	AION_UNPORTED();
+	AION_PARTIAL("gatherables are not spawned until skillengine/task/GatheringTask.h exists (GatherableController constructor, P5-02)");
+	return nullptr;
 }
 
 runtime::Ref<model::gameobjects::Trap> VisibleObjectSpawner::spawnTrap(model::templates::spawns::SpawnTemplate& spawn, int32_t instanceIndex,

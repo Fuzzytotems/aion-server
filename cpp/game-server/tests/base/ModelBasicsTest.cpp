@@ -90,8 +90,13 @@ TEST(GameTimeTest, ArithmeticAndIdentity) {
 	EXPECT_EQ(a->getTime(), 100);
 	a->addMinutes(5); // 01:45, no hour change
 	EXPECT_EQ(a->getTime(), 105);
-	// reaching a full hour calls onHourChange, which needs TemporarySpawnEngine (P4-10)
-	EXPECT_THROW(a->addMinutes(15), runtime::UnportedException);
+	// reaching a full hour calls onHourChange: TemporarySpawnEngine.onHourChange (nothing registered here) and the day time of 02:00; the weather is
+	// only checked when the clock advanced by one minute (15 minutes stand for an admin change)
+	EXPECT_NO_THROW(a->addMinutes(15));
+	EXPECT_EQ(a->getTime(), 120);
+	EXPECT_EQ(a->getDayTime(), DayTime::NIGHT) << "02:00 is night: setDayTime(calculateDayTime()) replaced EVENING";
+	a->addMinutes(60 * 3); // 05:00, not by the clock
+	EXPECT_EQ(a->getDayTime(), DayTime::MORNING);
 }
 
 TEST(AnnouncementTest, FactionAndChatType) {

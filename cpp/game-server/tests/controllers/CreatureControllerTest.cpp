@@ -216,9 +216,8 @@ TEST_F(CreatureControllerTest, OnDespawnCancelsTheDecayTaskAndStopsMovement) {
 	ASSERT_TRUE(npc->getMoveController()->moveToPoint(1.0f, 2.0f, 3.0f));
 
 	// CreatureController.onDespawn: actor, cancelTask(DECAY), moveController.abortMove() (resetMove, then SM_MOVE through
-	// setAndSendStopMove), aggroList.clear(). The last step is AggroList.clear of P5-01, still unported, so the call ends with its
-	// UnportedException after the controller's own steps.
-	EXPECT_THROW(npc->recordingController().despawnAsCreature(), runtime::UnportedException);
+	// setAndSendStopMove), aggroList.clear() (ported with the stat lane's AggroList, wave 5a).
+	EXPECT_NO_THROW(npc->recordingController().despawnAsCreature());
 	EXPECT_TRUE(decay->isCancelled());
 	EXPECT_FALSE(npc->getController().hasTask(TaskId::DECAY));
 	EXPECT_FALSE(other->isCancelled()) << "only the decay task belongs to the despawn";

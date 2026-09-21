@@ -4,7 +4,7 @@
 #include <vector>
 
 #include "aion/commons/utils/TimeUtils.h"
-#include "aion/commons/utils/info/SystemInfo.h"
+#include "aion/gameserver/GameServer.h"
 #include "aion/gameserver/configs/main/GSConfig.h"
 #include "aion/gameserver/configs/main/MembershipConfig.h"
 #include "aion/gameserver/configs/network/NetworkConfig.h"
@@ -18,30 +18,6 @@
 #include "aion/gameserver/utils/time/ServerTime.h"
 
 namespace aion::gameserver::network::aion::serverpackets {
-
-namespace {
-
-/**
- * Java: GameServer.getRatiosFor(race). GameServer.h is a file of P5-14 that does not exist yet (header request network-1 was rejected for the same
- * reason); the ratios are only changed by GameServer.updateRatio, whose callers (PlayerController) reach the unported stand-in, so they are 0 like
- * Java's initial values. TODO(P5-14): call GameServer::getRatiosFor.
- */
-float gameServerRatiosFor(model::Race) {
-	return 0.0f;
-}
-
-/** Java: GameServer.getCountFor(race), 0 until P5-14 (see gameServerRatiosFor). TODO(P5-14): call GameServer::getCountFor. */
-int32_t gameServerCountFor(model::Race) {
-	return 0;
-}
-
-/** Java: GameServer.START_TIME_SECONDS = (int) (ManagementFactory.getRuntimeMXBean().getStartTime() / 1000). TODO(P5-14): GameServer's constant */
-int32_t startTimeSeconds() {
-	const auto startTime = commons::utils::info::SystemInfo::getProcessStartTime();
-	return static_cast<int32_t>(std::chrono::duration_cast<std::chrono::milliseconds>(startTime.time_since_epoch()).count() / 1000);
-}
-
-} // namespace
 
 SM_VERSION_CHECK::SM_VERSION_CHECK(model::EventTheme cityDecorationValue)
 	: SM_VERSION_CHECK(INTERNAL_VERSION, cityDecorationValue) {
@@ -59,11 +35,11 @@ void SM_VERSION_CHECK::writeImpl(AionConnection* con) {
 	if (MembershipConfig::CHARACTER_ADDITIONAL_COUNT.load() > characterLimitCount && MembershipConfig::CHARACTER_ADDITIONAL_ENABLE.load() != 10)
 		characterLimitCount = MembershipConfig::CHARACTER_ADDITIONAL_COUNT.load();
 	if (GSConfig::ENABLE_RATIO_LIMITATION.load()) {
-		if (gameServerRatiosFor(model::Race::ELYOS) > static_cast<float>(GSConfig::RATIO_MIN_VALUE.load()))
+		if (GameServer::getRatiosFor(model::Race::ELYOS) > static_cast<float>(GSConfig::RATIO_MIN_VALUE.load()))
 			limitFactionMode = 1;
-		else if (gameServerRatiosFor(model::Race::ASMODIANS) > static_cast<float>(GSConfig::RATIO_MIN_VALUE.load()))
+		else if (GameServer::getRatiosFor(model::Race::ASMODIANS) > static_cast<float>(GSConfig::RATIO_MIN_VALUE.load()))
 			limitFactionMode = 2;
-		else if (gameServerCountFor(model::Race::ELYOS) + gameServerCountFor(model::Race::ASMODIANS) > GSConfig::RATIO_HIGH_PLAYER_COUNT_DISABLING.load())
+		else if (GameServer::getCountFor(model::Race::ELYOS) + GameServer::getCountFor(model::Race::ASMODIANS) > GSConfig::RATIO_HIGH_PLAYER_COUNT_DISABLING.load())
 			limitFactionMode = 3;
 	}
 	if (version != INTERNAL_VERSION) {
@@ -80,7 +56,7 @@ void SM_VERSION_CHECK::writeImpl(AionConnection* con) {
 	writeD(150326); // DBServBuildDate (year month day)
 	writeD(0x00); // 0
 	writeD(150317); // NPCServBuildDate (year month day)
-	writeD(startTimeSeconds()); // start server time in seconds
+	writeD(GameServer::START_TIME_SECONDS); // start server time in seconds
 	writeC(0x00); // 0
 	writeC(GSConfig::SERVER_COUNTRY_CODE.load()); // country code
 	writeC(0x00); // 0

@@ -3,6 +3,7 @@
 #include "aion/gameserver/runtime/base/Unported.h"
 #include "aion/commons/logging/LoggerFactory.h"
 #include "aion/gameserver/model/gameobjects/Npc.h"
+#include "aion/gameserver/model/templates/spawns/SpawnGroup.h"
 #include "aion/gameserver/model/templates/spawns/SpawnTemplate.h"
 
 namespace aion::gameserver::services::rift {
@@ -15,7 +16,14 @@ runtime::ConcurrentHashMap<std::string, runtime::Ref<model::templates::spawns::S
 static const auto log = commons::logging::LoggerFactory::getLogger("com.aionemu.gameserver.services.rift.RiftManager");
 
 void RiftManager::addRiftSpawnTemplate(model::templates::spawns::SpawnGroup& spawn) {
-	AION_UNPORTED();
+	if (spawn.hasPool()) {
+		runtime::Ptr<model::templates::spawns::SpawnTemplate> spawnTemplate = spawn.getSpawnTemplates().get(0);
+		riftGroups.put(spawnTemplate->getAnchor(), runtime::Ref<model::templates::spawns::SpawnTemplate>(spawnTemplate));
+	} else {
+		for (const runtime::Ptr<model::templates::spawns::SpawnTemplate>& spawnTemplate : spawn.getSpawnTemplates().snapshot()) {
+			riftGroups.put(spawnTemplate->getAnchor(), runtime::Ref<model::templates::spawns::SpawnTemplate>(spawnTemplate));
+		}
+	}
 }
 
 void RiftManager::spawnRift(model::rift::RiftLocation& loc, bool isWithGuards) {
@@ -37,15 +45,24 @@ runtime::Ptr<model::gameobjects::Npc> RiftManager::spawnInstance(int32_t instanc
 }
 
 void RiftManager::addSpawnedRift(model::gameobjects::Npc& rift) {
-	AION_UNPORTED();
+	runtime::Ptr<runtime::RcArrayList<runtime::Ref<model::gameobjects::Npc>>> rifts = riftsPerWorld.computeIfAbsent(rift.getWorldId(),
+		[] { return runtime::RcArrayList<runtime::Ref<model::gameobjects::Npc>>::create(AION_LOCK_CLASS(RiftManager::riftsPerWorld#value)); });
+	rifts->add(runtime::Ref<model::gameobjects::Npc>(rift));
 }
 
 std::vector<runtime::Ptr<model::gameobjects::Npc>> RiftManager::getSpawnedRifts(int32_t worldId) {
-	AION_UNPORTED();
+	// Java returns the live CopyOnWriteArrayList (or Collections.emptyList()); its iterators are snapshots, so a snapshot is equivalent
+	std::vector<runtime::Ptr<model::gameobjects::Npc>> spawnedRifts;
+	if (runtime::Ptr<runtime::RcArrayList<runtime::Ref<model::gameobjects::Npc>>> rifts = riftsPerWorld.get(worldId)) {
+		for (const auto& rift : rifts->snapshot())
+			spawnedRifts.emplace_back(rift);
+	}
+	return spawnedRifts;
 }
 
 bool RiftManager::removeSpawnedRift(model::gameobjects::Npc& rift) {
-	AION_UNPORTED();
+	runtime::Ptr<runtime::RcArrayList<runtime::Ref<model::gameobjects::Npc>>> rifts = riftsPerWorld.get(rift.getWorldId());
+	return rifts && rifts->remove(runtime::Ptr<model::gameobjects::Npc>(rift));
 }
 
 RiftManager& RiftManager::getInstance() {

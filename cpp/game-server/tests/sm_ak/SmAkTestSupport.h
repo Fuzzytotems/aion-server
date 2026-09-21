@@ -32,6 +32,7 @@
 #include "aion/gameserver/model/items/storage/PlayerStorage.h"
 #include "aion/gameserver/model/items/storage/StorageType.h"
 #include "aion/gameserver/model/stats/calc/Stat2.h"
+#include "aion/gameserver/model/PlayerClassInfo.h"
 #include "aion/gameserver/model/stats/container/CreatureGameStats.h"
 #include "aion/gameserver/model/stats/container/CreatureLifeStats.h"
 #include "aion/gameserver/network/Crypt.h"
@@ -130,7 +131,8 @@ std::vector<uint8_t> dataOf(P&& packet, AionConnection* con = nullptr) {
 class TestGameStats final : public model::stats::container::CreatureGameStats {
 public:
 	explicit TestGameStats(model::gameobjects::Creature& owner) : CreatureGameStats(owner) {}
-	const model::templates::stats::StatsTemplate* getStatsTemplate() override { return nullptr; }
+	// a real interned template (P4-05 createStatsTemplate), so the ported getMaxHp/getHpPercentage of CreatureLifeStats work
+	const model::templates::stats::StatsTemplate* getStatsTemplate() override { return model::createStatsTemplate(model::PlayerClass::WARRIOR, 1); }
 	int32_t getBaseAttackSpeed() override { return 0; }
 	std::unique_ptr<model::stats::calc::Stat2> getMovementSpeed() override { return nullptr; }
 	std::unique_ptr<model::stats::calc::Stat2> getAttackRange() override { return nullptr; }

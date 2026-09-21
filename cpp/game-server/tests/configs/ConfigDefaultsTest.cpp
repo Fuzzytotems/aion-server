@@ -137,6 +137,19 @@ TEST_F(ConfigDefaultsTest, AIConfig) {
 	EXPECT_EQ(main::AIConfig::MAXIMUM_DELAY.load(), 15);
 	EXPECT_FALSE(main::AIConfig::SHOUTS_ENABLE.load());
 	EXPECT_EQ(*main::AIConfig::HANDLER_DIRECTORY.get(), fs::path("./data/handlers/ai"));
+	EXPECT_EQ(*main::AIConfig::MISSING_AI_HANDLERS.get(), "fail") << "C++-only key gameserver.dev.missing_ai_handlers (docs/deviations/P4-01.md)";
+}
+
+TEST(AIConfigDevKeyTest, MissingAiHandlersBindsTheCppOnlyKey) {
+	aion::commons::configuration::Properties properties;
+	properties.setProperty("gameserver.dev.missing_ai_handlers", "warn");
+	std::set<std::string> unused = aion::commons::configuration::ConfigurableProcessor::process(properties, {&main::AIConfig::bind});
+	EXPECT_TRUE(unused.empty()) << "the key is bound by AIConfig";
+	EXPECT_EQ(*main::AIConfig::MISSING_AI_HANDLERS.get(), "warn");
+
+	aion::commons::configuration::Properties empty;
+	aion::commons::configuration::ConfigurableProcessor::process(empty, {&main::AIConfig::bind});
+	EXPECT_EQ(*main::AIConfig::MISSING_AI_HANDLERS.get(), "fail");
 }
 
 TEST_F(ConfigDefaultsTest, AutoGroupConfig) {

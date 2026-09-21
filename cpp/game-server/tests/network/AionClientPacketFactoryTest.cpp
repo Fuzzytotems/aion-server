@@ -3,8 +3,10 @@
 
 #include <gtest/gtest.h>
 
+#include <algorithm>
 #include <cstdint>
 #include <span>
+#include <string>
 #include <string_view>
 #include <vector>
 
@@ -131,6 +133,19 @@ TEST(AionClientPacketFactoryTest, UnknownOpcodesAndUnportedClasses) {
 		EXPECT_FALSE(AionClientPacketFactory::tryCreatePacket(versionBuffer, connection.get()));
 	}
 	EXPECT_EQ(logs.count("sent CM_VERSION_CHECK, which is not ported yet."), 1) << logs.dump();
+	// the classes of those warnings, once each (header request 5a-pre-7)
+	for (int i = 0; i < 2; i++) {
+		std::vector<uint8_t> ping = clientBody(FakeGameClientCrypto::clientWireOpcode(44)); // CM_PING, valid in AUTHED and IN_GAME
+		commons::utils::ByteBuffer pingBuffer = commons::utils::ByteBuffer::wrap(ping);
+		connection->setState(State::AUTHED);
+		EXPECT_FALSE(AionClientPacketFactory::tryCreatePacket(pingBuffer, connection.get()));
+		connection->setState(State::CONNECTED);
+	}
+	std::vector<std::string> seen = AionClientPacketFactory::unportedPacketClassesSeen();
+	EXPECT_EQ(std::ranges::count(seen, "CM_VERSION_CHECK"), 1);
+	EXPECT_EQ(std::ranges::count(seen, "CM_PING"), 1);
+	EXPECT_TRUE(std::ranges::is_sorted(seen));
+	EXPECT_EQ(std::ranges::count(seen, "CM_QUIT"), 0) << "a class no client sent is not listed";
 	AionClientPacketFactory::setEntries(recordingPacketEntries());
 }
 

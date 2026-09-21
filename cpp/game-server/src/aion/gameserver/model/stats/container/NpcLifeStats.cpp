@@ -1,6 +1,6 @@
 #include "aion/gameserver/model/stats/container/NpcLifeStats.h"
 
-#include "aion/gameserver/runtime/base/Unported.h"
+#include "aion/gameserver/services/LifeStatsRestoreService.h"
 #include "aion/gameserver/model/gameobjects/Npc.h"
 #include "aion/gameserver/model/stats/calc/Stat2.h"
 #include "aion/gameserver/model/stats/container/NpcGameStats.h"
@@ -14,7 +14,12 @@ NpcLifeStats::NpcLifeStats(gameobjects::Npc& ownerValue)
 NpcLifeStats::~NpcLifeStats() = default;
 
 void NpcLifeStats::triggerRestoreTask() {
-	AION_UNPORTED();
+	SYNCHRONIZED(restoreLock) {
+		// lockdep: lifeRestoreTask.get() reads the Field<FutureRef>; nothing waits for the task
+		if (!lifeRestoreTask.get() && !isDead()) {
+			this->lifeRestoreTask = services::LifeStatsRestoreService::getInstance().scheduleHpRestoreTask(*this);
+		}
+	}
 }
 
 gameobjects::Npc& NpcLifeStats::getOwner() const {

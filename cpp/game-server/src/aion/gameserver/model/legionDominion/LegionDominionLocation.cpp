@@ -1,17 +1,30 @@
 #include "aion/gameserver/model/legionDominion/LegionDominionLocation.h"
 
-#include "aion/gameserver/runtime/base/Unported.h"
+#include <string>
+
+#include "aion/gameserver/model/Race.h"
 #include "aion/gameserver/model/legionDominion/LegionDominionParticipantInfo.h"
 #include "aion/gameserver/model/templates/LegionDominionLocationTemplate.h"
+#include "aion/gameserver/runtime/base/Exceptions.h"
+#include "aion/gameserver/runtime/base/Unported.h"
 
 namespace aion::gameserver::model::legionDominion {
 
+namespace {
+
+/** Java: template.getZone() + "_" + template.getWorldId() (NullPointerException for a null template) */
+std::string zoneNameOf(const templates::LegionDominionLocationTemplate* template_) {
+	if (template_ == nullptr)
+		throw runtime::NullPointerException("Cannot invoke \"LegionDominionLocationTemplate.getZone()\" because \"template\" is null");
+	return template_->getZone() + "_" + std::to_string(template_->getWorldId());
+}
+
+} // namespace
+
 LegionDominionLocation::LegionDominionLocation(const templates::LegionDominionLocationTemplate* value)
-	: template_(value), zoneName(),
+	: template_(value), zoneName(zoneNameOf(value)),
 	  participantInfo(runtime::RcTreeMap<int32_t, runtime::Ref<LegionDominionParticipantInfo>>::create(
 		  AION_LOCK_CLASS(LegionDominionLocation::participantInfo))) {
-	// Java: this.zoneName = template.getZone() + "_" + template.getWorldId()
-	AION_UNPORTED();
 }
 
 runtime::Ref<LegionDominionLocation> LegionDominionLocation::create(const templates::LegionDominionLocationTemplate* value) {
@@ -19,23 +32,26 @@ runtime::Ref<LegionDominionLocation> LegionDominionLocation::create(const templa
 }
 
 int32_t LegionDominionLocation::getLocationId() {
-	AION_UNPORTED();
+	return template_->getId();
 }
 
 int32_t LegionDominionLocation::getWorldId() {
-	AION_UNPORTED();
+	return template_->getWorldId();
 }
 
 Race LegionDominionLocation::getRace() {
-	AION_UNPORTED();
+	std::optional<Race> race = template_->getRace();
+	if (!race) // Java returns null; every legion_dominion_location of the static data has a race
+		throw runtime::NullPointerException("Legion dominion location " + std::to_string(template_->getId()) + " has no race");
+	return *race;
 }
 
 std::string LegionDominionLocation::getL10n() {
-	AION_UNPORTED();
+	return template_->getL10n();
 }
 
 const templates::LegionDominionInvasionRift* LegionDominionLocation::getInvasionRift() {
-	AION_UNPORTED();
+	return template_->getInvasionRift();
 }
 
 void LegionDominionLocation::setParticipantInfo(runtime::Ptr<runtime::RcTreeMap<int32_t, runtime::Ref<LegionDominionParticipantInfo>>> info) {
@@ -59,7 +75,7 @@ void LegionDominionLocation::store(LegionDominionParticipantInfo& info, bool isN
 }
 
 runtime::Ptr<LegionDominionParticipantInfo> LegionDominionLocation::getParticipantInfo(int32_t value) {
-	AION_UNPORTED();
+	return participantInfo.get()->get(value);
 }
 
 void LegionDominionLocation::updateRanking() {

@@ -24,6 +24,11 @@ namespace aion::gameserver::controllers {
  * (P5-02), which has no declaration header yet (skillengine/task/GatheringTask.h). The constructor and destructor stay undefined, so nothing may
  * create a GatherableController yet (the Gatherable constructor of P4-11a is not defined either); the task bodies are unported. The other bodies
  * are ported in GatherableController.cpp.
+ * <p>
+ * TODO(header-request): request world-engines-1 asks P5-02 for `skillengine/task/GatheringTask.h`. A declaration header suffices: the member
+ * below is a `Field<Ref<GatheringTask>>`, and `~Ref` calls `release()`, which needs the complete type. Callers blocked meanwhile:
+ * `GatherableController::GatherableController()`/`~GatherableController()`, `Gatherable::Gatherable(CreateKey, SpawnTemplate&,
+ * unique_ptr<GatherableController>)` and `VisibleObjectSpawner::spawnGatherable` (m5a-plan.md W-04).
  *
  * @author ATracer, sphinx, Cura
  */

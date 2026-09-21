@@ -1,6 +1,12 @@
 #include "aion/gameserver/services/transfers/PlayerTransferService.h"
 
+#include <memory>
+#include <string>
+
 #include "aion/commons/logging/LoggerFactory.h"
+#include "aion/commons/utils/Numbers.h"
+#include "aion/commons/utils/StringUtils.h"
+#include "aion/gameserver/configs/main/PlayerTransferConfig.h"
 #include "aion/gameserver/runtime/base/Unported.h"
 #include "aion/gameserver/services/transfers/PlayerTransfer.h"
 #include "aion/gameserver/services/transfers/TransferablePlayer.h"
@@ -16,7 +22,12 @@ PlayerTransferService& PlayerTransferService::getInstance() {
 }
 
 PlayerTransferService::PlayerTransferService() {
-	AION_UNPORTED();
+	std::shared_ptr<const std::string> removeSkillList = configs::main::PlayerTransferConfig::REMOVE_SKILL_LIST.get();
+	if (*removeSkillList != "*") {
+		for (const std::string& skillId : commons::utils::StringUtils::splitJava(*removeSkillList, ","))
+			rsList.add(commons::utils::parseInt(skillId)); // Java: Integer.parseInt (NumberFormatException for a malformed id)
+	}
+	log.info("PlayerTransferService loaded. With " + std::to_string(rsList.size()) + " restricted skills.");
 }
 
 PlayerTransferService::~PlayerTransferService() = default;

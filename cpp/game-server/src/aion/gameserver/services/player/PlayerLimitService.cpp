@@ -1,6 +1,10 @@
 #include "aion/gameserver/services/player/PlayerLimitService.h"
 
+#include "aion/gameserver/configs/main/CustomConfig.h"
+#include "aion/gameserver/runtime/base/Exceptions.h"
 #include "aion/gameserver/runtime/base/Unported.h"
+#include "aion/gameserver/services/cron/CronExpression.h"
+#include "aion/gameserver/services/cron/CronService.h"
 
 namespace aion::gameserver::services::player {
 
@@ -13,7 +17,10 @@ int64_t PlayerLimitService::updateSellLimit(model::gameobjects::player::Player& 
 }
 
 void PlayerLimitService::scheduleUpdate() {
-	AION_UNPORTED();
+	const cron::CronExpression* limitsUpdate = configs::main::CustomConfig::LIMITS_UPDATE.load();
+	if (limitsUpdate == nullptr)
+		throw runtime::NullPointerException("CustomConfig.LIMITS_UPDATE"); // Java: CronService.schedule with a null expression
+	cron::CronService::getInstance().schedule([] { sellLimit.clear(); }, *limitsUpdate, true);
 }
 
 PlayerLimitService& PlayerLimitService::getInstance() {

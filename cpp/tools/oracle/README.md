@@ -138,3 +138,27 @@ reason; unused entries are reported under `staleAllowlist`.
 The reviewed allowlist is `tools/xmlgen/v1_allowlist.json`. It has explicit per-class/per-name entries only (a wildcard can never go stale),
 except the `attributeRequiredMismatch`/`elementRequiredMismatch` wildcards, which stay by design: the binder enforces the Java `required`
 flag, never the XSD flag (`static-data.md` §3.4).
+
+## M5a scenario oracles (`m5a/`, `docs/design/m5a-plan.md` F-05)
+
+Expected values for the M5a scenario gate, written from the Java sources named in each module docstring; they read the static data through
+the V2 import resolution and, for enum constructor data (ItemGroup, ItemSubType, ItemSlot, PlayerClass), the Java source tree.
+
+```
+python oracle.py m5a-spawns --map 210010000 --x 1212.94 --y 1044.85 --z 140.76 [--radius 100] [--game-minutes M | --game-hour H [--game-day D] [--game-month M]] [--weekday DAY]
+python oracle.py m5a-border-target --map 210010000 --x 1212.94 --y 1044.85 --z 140.76 --game-hour H
+python oracle.py m5a-creation --race ELYOS --class WARRIOR [--java-src game-server/src]
+```
+
+- `m5a-spawns`: every regular spawn spot within the radius (PositionUtil.isInRange: float squared 3D distance strictly below the radius) with
+  npc id, x/y/z/h, template level, `spawned` (true, false, or null when a pool or an unknown part of the game clock decides), `deterministic`
+  (spawned and not a walker) and the flags `pool`, `temporary`, `walker`, `randomWalk`, `handler`, `gatherable`, `flag`, `difficultId`;
+  `flagNpcs` lists the FLAG npcs of the whole map (visible map-wide). Temporary spawns are evaluated for the given game time
+  (TemporarySpawn.isInSpawnTime; `--game-minutes` is the SM_GAME_TIME value).
+- `m5a-border-target`: the first target T (150 to 300 m in 10 m steps, 8 directions from east counter-clockwise, same z) inside the map where
+  deterministic npcs appear (within 90 m of T, not within 100 m of the start) and disappear (within 90 m of the start, not within 100 m of T).
+- `m5a-creation`: spawn point, starting items with count caps, the equipped flag and the equipment slot mask, the level 1 autolearn skills
+  with their levels, and the base max HP/MP of PlayerStatCalculator in float arithmetic.
+
+Tests: `tests/test_m5a.py` (rules on small trees, the game clock, temporary spawn times, the stat formulas, and the two scenario characters on
+the real data).

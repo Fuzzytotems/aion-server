@@ -1,6 +1,5 @@
 #include "aion/gameserver/model/limiteditems/LimitedItem.h"
 
-#include "aion/gameserver/runtime/base/Unported.h"
 
 namespace aion::gameserver::model::limiteditems {
 
@@ -13,15 +12,16 @@ runtime::Ref<LimitedItem> LimitedItem::create(int32_t value, int32_t sellLimitVa
 }
 
 void LimitedItem::setBuyCount(int32_t playerObjectId, int32_t value) {
-	AION_UNPORTED();
+	buyCounts.put(playerObjectId, value);
 }
 
 int32_t LimitedItem::getBuyCount(int32_t playerObjectId) {
-	AION_UNPORTED();
+	return buyCounts.getOrDefault(playerObjectId, 0);
 }
 
 void LimitedItem::setToDefault() {
-	AION_UNPORTED();
+	sellLimit.set(defaultSellLimit);
+	buyCounts.clear();
 }
 
 LimitedItem::~LimitedItem() = default;

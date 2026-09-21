@@ -1,34 +1,50 @@
 #include "aion/gameserver/model/curingzone/CuringObject.h"
 
-#include "aion/gameserver/runtime/base/Unported.h"
+#include <memory>
+
 #include "aion/gameserver/controllers/VisibleObjectController.h"
-#include "aion/gameserver/model/gameobjects/AionObject.h"
 #include "aion/gameserver/model/templates/VisibleObjectTemplate.h"
 #include "aion/gameserver/model/templates/curingzones/CuringTemplate.h"
 #include "aion/gameserver/model/templates/spawns/SpawnTemplate.h"
+#include "aion/gameserver/runtime/base/Exceptions.h"
+#include "aion/gameserver/utils/idfactory/IDFactory.h"
+#include "aion/gameserver/world/World.h"
 #include "aion/gameserver/world/WorldPosition.h"
-#include "aion/gameserver/world/knownlist/KnownList.h"
+#include "aion/gameserver/world/knownlist/NpcKnownList.h"
 
 namespace aion::gameserver::model::curingzone {
+
+namespace {
+
 // anonymous VisibleObjectController at CuringObject.java:19 (model.curingzone.CuringObject$1); argument 2 of super(); storage: stored in
-// VisibleObject
+// VisibleObject. Java never binds its owner (no setOwner call), so neither does the port.
+class CuringObjectController final : public controllers::VisibleObjectController {};
+
+/** Java super(...) argument: World.getInstance().createPosition(template.getMapId(), x, y, z, (byte) 0, instanceId) (NPE for a null template) */
+runtime::Ref<world::WorldPosition> positionOf(const templates::curingzones::CuringTemplate* template_, int32_t instanceId) {
+	if (template_ == nullptr)
+		throw runtime::NullPointerException("template");
+	return world::World::getInstance().createPosition(template_->getMapId(), template_->getX(), template_->getY(), template_->getZ(), int8_t{0},
+		instanceId);
+}
+
+} // namespace
 
 CuringObject::CuringObject(CreateKey key, const templates::curingzones::CuringTemplate* value, int32_t instanceId)
-	: gameobjects::VisibleObject(key,
-	int32_t{}, nullptr, runtime::Ptr<templates::spawns::SpawnTemplate>{}, static_cast<const templates::VisibleObjectTemplate*>(nullptr),
-	runtime::Ptr<world::WorldPosition>{}, bool{}), template_(value), range() {
-	// Java: super(IDFactory.getInstance().nextId(), new VisibleObjectController<CuringObject>() { }, null, null,
-	// World.getInstance().createPosition(template.getMapId(), template.getX(), template.getY(), template.getZ(), (byte) 0, instanceId), true);
-	// this.range = template.getRange(); setKnownlist(new NpcKnownList(this)); super(...) arguments
-	AION_UNPORTED();
+	: gameobjects::VisibleObject(key, utils::idfactory::IDFactory::getInstance().nextId(), std::make_unique<CuringObjectController>(), nullptr,
+		  nullptr, positionOf(value, instanceId), true),
+	  template_(value), range(value->getRange()) {
+	setKnownlist(std::make_unique<world::knownlist::NpcKnownList>(*this));
 }
 
 std::string CuringObject::getName() {
-	AION_UNPORTED();
+	return "";
 }
 
 void CuringObject::spawn() {
-	AION_UNPORTED();
+	world::World& w = world::World::getInstance();
+	w.storeObject(*this);
+	w.spawn(*this);
 }
 
 CuringObject::~CuringObject() = default;

@@ -3,9 +3,10 @@
 //
 // Test doubles, each standing in for a body of a later chunk:
 // - PlayerPetsDAO.getPlayerPets (P4-14): PetList::setPlayerPetsLoaderForTests installs a loader returning no pets;
-// - the stat containers (P5-01): TestPlayer runs the real Player::postConstruct, which stops at the unported PlayerGameStats constructor after
-//   the controller owner, the AI, the aggro list and the move controller were set, and then installs game and life stats doubles (like the
-//   Npc prototype's setupStatContainers). Player::getGameStats() still casts to PlayerGameStats, so the doubles are read through Creature.
+// - the stat containers: TestPlayer runs the real Player::postConstruct, which creates the real PlayerGameStats and PlayerLifeStats (P5-01,
+//   wave 5a) after the controller owner, the AI, the aggro list and the move controller, and then replaces them with game and life stats
+//   doubles (like the Npc prototype's setupStatContainers). Player::getGameStats() still casts to PlayerGameStats, so the doubles are read through
+//   Creature. The real containers are tested in tests/stats.
 
 #include <gtest/gtest.h>
 
@@ -72,6 +73,8 @@
 #include "aion/gameserver/model/stats/calc/Stat2.h"
 #include "aion/gameserver/model/stats/container/CreatureGameStats.h"
 #include "aion/gameserver/model/stats/container/CreatureLifeStats.h"
+#include "aion/gameserver/model/stats/container/PlayerGameStats.h"
+#include "aion/gameserver/model/stats/container/PlayerLifeStats.h"
 #include "aion/gameserver/model/team/legion/Legion.h"
 #include "aion/gameserver/model/templates/flypath/FlightPath.h"
 #include "aion/gameserver/model/templates/item/ItemAttackType.h"
@@ -170,8 +173,10 @@ class TestPlayer final : public Player {
 public:
 	TestPlayer(CreateKey key, account::PlayerAccountData& playerAccountData, account::Account& account) : Player(key, playerAccountData, account) {}
 
-	/** true if Player::postConstruct stopped at an unported body (normally the PlayerGameStats constructor, P5-01) */
+	/** true if Player::postConstruct stopped at an unported body */
 	bool postConstructReachedStats = false;
+	/** true if Player::postConstruct created the real PlayerGameStats and PlayerLifeStats before the doubles replaced them */
+	bool postConstructCreatedRealStats = false;
 
 protected:
 	~TestPlayer() override { destroyedPlayers.fetch_add(1); }
@@ -180,9 +185,10 @@ protected:
 		try {
 			Player::postConstruct();
 		} catch (const runtime::UnportedException&) {
-			// PlayerGameStats(Player&) is P5-01: everything before it ran
 			postConstructReachedStats = true;
 		}
+		postConstructCreatedRealStats = dynamic_cast<stats::container::PlayerGameStats*>(Creature::getGameStats().get()) != nullptr
+			&& dynamic_cast<stats::container::PlayerLifeStats*>(Creature::getLifeStats().get()) != nullptr;
 		setGameStats(std::make_unique<TestGameStats>(*this));
 		setLifeStats(std::make_unique<TestLifeStats>(*this));
 	}
@@ -263,9 +269,10 @@ TEST_F(PlayerCreationTest, WithoutThePetLoaderTheDaoLogsAndCreationContinues) {
 	runtime::TaskScope scope(AION_TASK_INFO(runtime::TaskKind::TEST));
 	Fixture f = makeAccount(1);
 	// PlayerPetsDAO.getPlayerPets (P4-14) without an initialized DatabaseFactory logs the SQLException and returns no pets, as Java does, so
-	// Player::postConstruct binds the controller owner and stops only at the unported PlayerGameStats constructor (TestPlayer catches it)
+	// Player::postConstruct binds the controller owner and completes with the real stat containers
 	Ref<TestPlayer> player = VisibleObject::create<TestPlayer>(*f.accountData, *f.account);
-	EXPECT_TRUE(player->postConstructReachedStats);
+	EXPECT_FALSE(player->postConstructReachedStats);
+	EXPECT_TRUE(player->postConstructCreatedRealStats);
 	EXPECT_TRUE(player->getController().isOwnerBound());
 	EXPECT_EQ(petLoaderCalls.load(), 0);
 }
@@ -278,7 +285,8 @@ TEST_F(PlayerCreationTest, CreateRunsTheConstructorAndPostConstructInJavaOrder) 
 		EXPECT_EQ(petLoaderCalls.load(), 1) << "the pets are loaded once, by postConstruct";
 		EXPECT_TRUE(petLoaderSawAi.load()) << "Java: the Creature constructor creates the AI before the PetList loads the pets";
 		EXPECT_FALSE(petLoaderSawControllerOwner.load()) << "Java: getController().setOwner(this) follows new PetList(this)";
-		EXPECT_TRUE(player->postConstructReachedStats);
+		EXPECT_FALSE(player->postConstructReachedStats);
+		EXPECT_TRUE(player->postConstructCreatedRealStats) << "Java: new PlayerGameStats(this), then new PlayerLifeStats(this)";
 		EXPECT_EQ(player->getObjectId(), 2);
 		EXPECT_EQ(player->getCommonData().get(), f.commonData.get());
 		EXPECT_EQ(player->getAccount().get(), f.account.get());

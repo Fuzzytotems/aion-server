@@ -23,6 +23,7 @@
 #include "aion/gameserver/network/aion/AionClientPacketFactory.h"
 #include "aion/gameserver/network/aion/AionServerPacket.h"
 #include "aion/gameserver/network/aion/ServerPacketsOpcodes.gen.h"
+#include "aion/gameserver/network/aion/clientpackets/CM_PING.h"
 #include "aion/gameserver/network/aion/serverpackets/SM_KEY.h"
 #include "aion/gameserver/network/aion/serverpackets/SM_MESSAGE.h"
 #include "aion/gameserver/network/loginserver/LoginServer.h"
@@ -38,11 +39,9 @@ static const auto log = commons::logging::LoggerFactory::getLogger("com.aionemu.
 
 namespace {
 
+using clientpackets::CM_PING;
 using configs::network::PffConfig;
 using model::gameobjects::player::Player;
-
-/** Java: CM_PING.CLIENT_PING_INTERVAL (client sends this packet every 180 seconds). TODO(P5-00): use CM_PING::CLIENT_PING_INTERVAL */
-constexpr int32_t CLIENT_PING_INTERVAL = 180 * 1000;
 
 /**
  * Java: GameServer.isShuttingDownSoon() (ShutdownHook running with at most 30 seconds left). TODO(P5-14): call
@@ -73,7 +72,7 @@ runtime::Ref<AionConnection::ConnectionAliveChecker> AionConnection::ConnectionA
 AionConnection::ConnectionAliveChecker::ConnectionAliveChecker(std::weak_ptr<AionConnection> aionConnectionValue)
 	// the task is scheduled before the aionConnection member is initialized (declaration order): it runs on its own copy of the weak_ptr
 	: task(utils::ThreadPoolManager::getInstance().scheduleAtFixedRate(
-			runtime::Pin(this), [connection = aionConnectionValue] { checkAlive(connection); }, CLIENT_PING_INTERVAL, CLIENT_PING_INTERVAL)),
+			runtime::Pin(this), [connection = aionConnectionValue] { checkAlive(connection); }, CM_PING::CLIENT_PING_INTERVAL, CM_PING::CLIENT_PING_INTERVAL)),
 		aionConnection(std::move(aionConnectionValue)) {
 }
 
@@ -93,7 +92,7 @@ void AionConnection::ConnectionAliveChecker::checkAlive(const std::weak_ptr<Aion
 	if (!con)
 		return; // C++: the connection was destroyed (Java keeps it reachable through this task)
 	int64_t millisSinceLastClientPacket = commons::utils::currentTimeMillis() - con->lastClientMessageTime.get();
-	if (millisSinceLastClientPacket - 5000 > CLIENT_PING_INTERVAL) {
+	if (millisSinceLastClientPacket - 5000 > CM_PING::CLIENT_PING_INTERVAL) {
 		log.info("Closing hanged up connection of " + con->toString() + " (last sign of life was " + std::to_string(millisSinceLastClientPacket) +
 			"ms ago)");
 		con->close();

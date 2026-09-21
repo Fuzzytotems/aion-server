@@ -2,8 +2,8 @@
 
 #include <limits>
 
-#include "aion/gameserver/runtime/base/Unported.h"
 #include "aion/gameserver/ai/event/AIEventType.h"
+#include "aion/gameserver/runtime/sync/Monitor.h"
 
 namespace aion::gameserver::ai::event {
 
@@ -25,35 +25,43 @@ runtime::Ref<AIEventLog> AIEventLog::create(int32_t capacityValue) {
 }
 
 bool AIEventLog::offerFirst(AIEventType e) {
-	AION_UNPORTED();
+	SYNCHRONIZED(*this) {
+		if (remainingCapacity() == 0) {
+			removeLast();
+		}
+		// Java: super.offerFirst(e) (returns false only when full, which the removal above rules out while this monitor is held)
+		events.offerFirst(e);
+	}
+	return true;
 }
 
 void AIEventLog::addFirst(AIEventType e) {
-	AION_UNPORTED();
+	// Java: LinkedBlockingDeque.addFirst: if (!offerFirst(e)) throw new IllegalStateException("Deque full"); the override always returns true
+	offerFirst(e);
 }
 
 int32_t AIEventLog::remainingCapacity() {
-	AION_UNPORTED();
+	return capacity - events.size();
 }
 
 AIEventType AIEventLog::removeLast() {
-	AION_UNPORTED();
+	return events.removeLast(); // Java: NoSuchElementException when empty (the shim throws the same)
 }
 
 bool AIEventLog::isEmpty() {
-	AION_UNPORTED();
+	return events.isEmpty();
 }
 
 int32_t AIEventLog::size() {
-	AION_UNPORTED();
+	return events.size();
 }
 
 runtime::JavaIterator<AIEventType> AIEventLog::iterator() {
-	AION_UNPORTED();
+	return events.iterator();
 }
 
 runtime::SnapshotIterator<AIEventType> AIEventLog::begin() {
-	AION_UNPORTED();
+	return events.begin();
 }
 
 } // namespace aion::gameserver::ai::event
