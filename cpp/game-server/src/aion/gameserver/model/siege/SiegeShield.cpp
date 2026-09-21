@@ -1,11 +1,17 @@
 #include "aion/gameserver/model/siege/SiegeShield.h"
 
-#include "aion/gameserver/runtime/base/Unported.h"
+#include "aion/gameserver/controllers/ObserveController.h"
 #include "aion/gameserver/controllers/observer/ActionObserver.h"
+#include "aion/gameserver/controllers/observer/CollisionDieActor.h"
 #include "aion/gameserver/geoEngine/bounding/BoundingBox.h"
 #include "aion/gameserver/geoEngine/scene/DespawnableNode.h"
 #include "aion/gameserver/geoEngine/scene/Node.h"
 #include "aion/gameserver/geoEngine/scene/Spatial.h"
+#include "aion/gameserver/model/gameobjects/Creature.h"
+#include "aion/gameserver/model/gameobjects/player/Player.h"
+#include "aion/gameserver/model/siege/FortressLocation.h"
+#include "aion/gameserver/model/siege/SiegeRaceInfo.h"
+#include "aion/gameserver/services/SiegeService.h"
 
 namespace aion::gameserver::model::siege {
 
@@ -21,15 +27,30 @@ runtime::Ref<SiegeShield> SiegeShield::create(geoEngine::scene::Spatial& value) 
 }
 
 void SiegeShield::onEnterZone(gameobjects::Creature& creature, world::zone::ZoneInstance& zone) {
-	AION_UNPORTED();
+	auto* player = dynamic_cast<gameobjects::player::Player*>(&creature);
+	if (player == nullptr)
+		return;
+	// Java: SiegeService.getInstance().getFortress(siegeLocationId).getRace() - a NullPointerException when sieges are off (the map is empty)
+	runtime::Ptr<FortressLocation> loc = services::SiegeService::getInstance().getFortress(siegeLocationId.get());
+	if (loc->getRace() != getByRace(player->getRace())) {
+		runtime::Ref<controllers::observer::CollisionDieActor> shieldObserver =
+			controllers::observer::CollisionDieActor::create(creature, geometry, *loc);
+		creature.getObserveController()->addObserver(*shieldObserver);
+		observed.put(creature.getObjectId(), shieldObserver);
+	}
 }
 
 void SiegeShield::onLeaveZone(gameobjects::Creature& creature, world::zone::ZoneInstance& zone) {
-	AION_UNPORTED();
+	runtime::Ptr<controllers::observer::ActionObserver> actionObserver = observed.remove(creature.getObjectId());
+	if (actionObserver)
+		creature.getObserveController()->removeObserver(*actionObserver);
 }
 
 void SiegeShield::setSiegeLocationId(int32_t value) {
 	siegeLocationId.set(value);
+	if (auto despawnableNode = runtime::as<geoEngine::scene::DespawnableNode>(geometry->getParent())) {
+		despawnableNode->setId(value);
+	}
 }
 
 std::string SiegeShield::toString() {

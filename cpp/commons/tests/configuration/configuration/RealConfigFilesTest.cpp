@@ -26,12 +26,26 @@ std::optional<fs::path> findRepositoryRoot() {
 	return std::nullopt;
 }
 
-/** Java: Config.loadProperties of the servers */
-Properties loadServerProperties(const fs::path& configDir, std::initializer_list<const char*> defaultsFolders, const char* overrideFile) {
+/**
+ * Java: Config.loadProperties of the servers. The my*.properties overrides are per installation and gitignored - m5a-plan.md §8 asks the user to
+ * write game-server/config/mygs.properties before playing - so the value expectations below load the committed defaults only (overrideFile
+ * nullptr). overridesLoad() keeps the local file covered: whatever it contains, it must still parse.
+ */
+Properties loadServerProperties(const fs::path& configDir, std::initializer_list<const char*> defaultsFolders, const char* overrideFile = nullptr) {
 	auto defaults = std::make_shared<Properties>();
 	for (const char* folder : defaultsFolders)
 		PropertiesUtils::loadFromDirectory(*defaults, configDir / folder, false);
+	if (overrideFile == nullptr)
+		return Properties(defaults);
 	return PropertiesUtils::load(configDir / overrideFile, defaults);
+}
+
+/** The installation's own overrides file, when there is one: it must load on top of the defaults without throwing and keep every default key. */
+void overridesLoad(const fs::path& configDir, std::initializer_list<const char*> defaultsFolders, const char* overrideFile, size_t defaultCount) {
+	if (!fs::exists(configDir / overrideFile))
+		return;
+	Properties properties = loadServerProperties(configDir, defaultsFolders, overrideFile);
+	EXPECT_GE(properties.stringPropertyNames().size(), defaultCount) << overrideFile << " dropped keys of the defaults";
 }
 
 /** Port of com.aionemu.loginserver.configs.Config, as a login server port would write it. */
@@ -145,7 +159,8 @@ TEST(RealConfigFilesTest, LoginServer) {
 	std::optional<fs::path> root = findRepositoryRoot();
 	if (!root)
 		GTEST_SKIP() << "Java server directories not found";
-	Properties properties = loadServerProperties(*root / "login-server" / "config", {"main", "network"}, "myls.properties");
+	Properties properties = loadServerProperties(*root / "login-server" / "config", {"main", "network"});
+	overridesLoad(*root / "login-server" / "config", {"main", "network"}, "myls.properties", properties.stringPropertyNames().size());
 	std::set<std::string> unused =
 	  ConfigurableProcessor::process(properties, {&LoginServerConfig::bind, &configs::CommonsConfig::bind, &configs::DatabaseConfig::bind});
 
@@ -166,7 +181,8 @@ TEST(RealConfigFilesTest, GameServer) {
 	std::optional<fs::path> root = findRepositoryRoot();
 	if (!root)
 		GTEST_SKIP() << "Java server directories not found";
-	Properties properties = loadServerProperties(*root / "game-server" / "config", {"administration", "main", "network"}, "mygs.properties");
+	Properties properties = loadServerProperties(*root / "game-server" / "config", {"administration", "main", "network"});
+	overridesLoad(*root / "game-server" / "config", {"administration", "main", "network"}, "mygs.properties", properties.stringPropertyNames().size());
 	EXPECT_GT(properties.stringPropertyNames().size(), 400u);
 
 	GameServerSample sample;
@@ -210,7 +226,8 @@ TEST(RealConfigFilesTest, ChatServer) {
 	std::optional<fs::path> root = findRepositoryRoot();
 	if (!root)
 		GTEST_SKIP() << "Java server directories not found";
-	Properties properties = loadServerProperties(*root / "chat-server" / "config", {"main", "network"}, "mycs.properties");
+	Properties properties = loadServerProperties(*root / "chat-server" / "config", {"main", "network"});
+	overridesLoad(*root / "chat-server" / "config", {"main", "network"}, "mycs.properties", properties.stringPropertyNames().size());
 	utils::InetSocketAddress connect, socket, gameserver;
 	ConfigurableProcessor::process(properties, {[&](ConfigurableProcessor& p) {
 		                               p.bind("chatserver.network.client.connect_address", connect, "0.0.0.0:10241");
