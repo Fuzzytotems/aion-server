@@ -84,5 +84,94 @@ TEST(OracleTest, OnlyAnIdWhoseEverySpotIsFixedIsPinnedToItsCoordinates) {
 	EXPECT_FALSE(isPinnedToFixedSpots({}, 100)) << "no spots at all pins nothing";
 }
 
+// m5b-monster (m5b-plan.md G-01), pinned the same way: the fields the M5b gate reads out of the answer, and the two of them the oracle may
+// write as null - `nearestPlainSpot` when no spot of the id is plain (every one has a static id, is pooled or walks), and `respawnTime` when
+// the id's spawn groups do not share one. Both must stay distinguishable from a 0, which is why they are not read with value().
+constexpr const char* MONSTER_ANSWER = R"({
+  "format": "aion-m5b-monster", "version": 1, "map": 210010000, "npcId": 210663, "playerLevel": 1,
+  "template": {"level": 2, "maxHp": 199, "rating": "NORMAL", "rank": "DISCIPLINED", "rankOrdinal": 1, "aggroRange": 8, "aggroAngle": 270,
+               "attackRange": 2, "attackSpeed": 2142, "race": "BEAST", "tribe": "MONSTER", "ai": "aggressive",
+               "boundRadius": {"front": 0.55, "side": 0.56, "upper": 2.82, "maxOfFrontAndSide": 0.56}},
+  "spots": [
+    {"x": 1210.58, "y": 1083.4, "z": 138.75, "h": 12, "staticId": 4, "ai": "aggressive", "respawnTime": 20, "spawned": true, "fixed": true,
+     "distance": 38.673},
+    {"x": 1193.01, "y": 1087.08, "z": 137.559, "h": 56, "staticId": 3, "ai": null, "respawnTime": 20, "spawned": null, "fixed": false,
+     "distance": 46.805},
+    {"x": 1226.22, "y": 1096.57, "z": 141.93, "h": 2, "staticId": 0, "ai": "aggressive", "respawnTime": 20, "spawned": true, "fixed": true,
+     "distance": 53.408}],
+  "pinned": true,
+  "nearestPlainSpot": {"x": 1226.22, "y": 1096.57, "z": 141.93, "h": 2, "staticId": 0, "ai": "aggressive", "respawnTime": 20, "spawned": true,
+                       "fixed": true, "distance": 53.408},
+  "respawnTime": 20, "respawnTimes": [20],
+  "exp": {"ratingMultiplier": 2.4000001, "baseExp": 478, "expMultiplier": 1.25, "xpPercentage": 105, "experienceReward": 627,
+          "xpSoloRate": 1.0, "expNeed": 400, "cap": 80.0, "awarded": 80},
+  "player": {"race": "ELYOS", "playerClass": "WARRIOR", "attackRangeStat": 1500, "attackSpeed": 1400, "movementSpeed": 6000},
+  "ranges": {"attackRange": 3.31, "maxCoveredDistance": 0.6, "toleranceRange": 3.9099998}
+})";
+
+TEST(OracleTest, MonsterAnswerIsParsedAsTheOracleWritesIt) {
+	const OracleMonster monster = Oracle::parseMonster(MONSTER_ANSWER);
+	EXPECT_EQ(monster.mapId, 210010000);
+	EXPECT_EQ(monster.npcId, 210663);
+	EXPECT_EQ(monster.playerLevel, 1);
+	EXPECT_EQ(monster.level, 2);
+	EXPECT_EQ(monster.maxHp, 199);
+	EXPECT_EQ(monster.rating, "NORMAL");
+	EXPECT_EQ(monster.rank, "DISCIPLINED");
+	EXPECT_EQ(monster.race, "BEAST");
+	EXPECT_EQ(monster.tribe, "MONSTER");
+	EXPECT_EQ(monster.ai, "aggressive");
+	EXPECT_EQ(monster.aggroRange, 8);
+	EXPECT_EQ(monster.aggroAngle, 270);
+	EXPECT_EQ(monster.npcAttackRange, 2);
+	EXPECT_EQ(monster.npcAttackSpeed, 2142);
+	EXPECT_FLOAT_EQ(monster.boundRadius, 0.56f);
+
+	ASSERT_EQ(monster.spots.size(), 3u);
+	EXPECT_EQ(monster.spots[0].staticId, 4) << "the nearest spot of all carries a static id, which is why the gate may not take it";
+	EXPECT_TRUE(monster.spots[0].fixed);
+	EXPECT_TRUE(monster.spots[0].spawned);
+	EXPECT_DOUBLE_EQ(monster.spots[0].distance, 38.673);
+	EXPECT_EQ(monster.spots[1].ai, "") << "a spot of an npc template without an ai name";
+	EXPECT_FALSE(monster.spots[1].spawned) << "`spawned: null` (a pool or an unknown game time) is not a spawned spot";
+	EXPECT_FALSE(monster.spots[1].fixed);
+	EXPECT_TRUE(monster.pinned);
+	EXPECT_EQ(monster.respawnTime, 20);
+
+	ASSERT_TRUE(monster.nearestPlainSpot.has_value());
+	EXPECT_EQ(monster.nearestPlainSpot->staticId, 0);
+	EXPECT_FLOAT_EQ(monster.nearestPlainSpot->x, 1226.22f);
+	EXPECT_FLOAT_EQ(monster.nearestPlainSpot->y, 1096.57f);
+	EXPECT_FLOAT_EQ(monster.nearestPlainSpot->z, 141.93f);
+	EXPECT_EQ(monster.nearestPlainSpot->heading, 2);
+	EXPECT_EQ(monster.nearestPlainSpot->respawnTime, 20);
+	EXPECT_EQ(monster.nearestPlainSpot->ai, "aggressive");
+
+	EXPECT_EQ(monster.baseExp, 478);
+	EXPECT_EQ(monster.xpPercentage, 105);
+	EXPECT_EQ(monster.experienceReward, 627);
+	EXPECT_EQ(monster.expNeed, 400);
+	EXPECT_EQ(monster.awarded, 80) << "the Rates.XP_HUNTING cap, not the reward, is what the character gains";
+	EXPECT_FLOAT_EQ(monster.attackRange, 3.31f);
+	EXPECT_FLOAT_EQ(monster.toleranceRange, 3.9099998f);
+	EXPECT_FLOAT_EQ(monster.maxCoveredDistance, 0.6f);
+	EXPECT_EQ(monster.playerAttackSpeed, 1400);
+}
+
+TEST(OracleTest, AMonsterWithoutAPlainSpotHasNoNearestPlainSpot) {
+	const OracleMonster monster = Oracle::parseMonster(R"({
+	  "map": 1, "npcId": 2, "playerLevel": 1,
+	  "template": {"level": 1, "maxHp": 10, "rating": "JUNK", "rank": "NOVICE", "boundRadius": {"maxOfFrontAndSide": 0.0}},
+	  "spots": [{"x": 1.0, "y": 2.0, "z": 3.0, "h": 4, "staticId": 7, "respawnTime": 0, "spawned": true, "fixed": true, "distance": 5.0}],
+	  "pinned": true, "nearestPlainSpot": null, "respawnTime": null, "respawnTimes": [0, 20],
+	  "exp": {"baseExp": 22, "xpPercentage": 100, "experienceReward": 28, "expNeed": 400, "awarded": 28},
+	  "player": {"attackSpeed": 1400}, "ranges": {"attackRange": 1.0, "maxCoveredDistance": 0.6, "toleranceRange": 1.6}})");
+	EXPECT_FALSE(monster.nearestPlainSpot.has_value()) << "every spot of this id carries a static id: the gate has no spot to fight at";
+	EXPECT_EQ(monster.respawnTime, 0) << "a null respawn time (the id's groups disagree) reads as 0, and 0 is 'no respawn' either way";
+	EXPECT_EQ(monster.spots.size(), 1u);
+	EXPECT_EQ(monster.spots[0].ai, "") << "no ai name at all";
+	EXPECT_EQ(monster.tribe, "") << "a template without a tribe";
+}
+
 } // namespace
 } // namespace aion::gameserver::scenario

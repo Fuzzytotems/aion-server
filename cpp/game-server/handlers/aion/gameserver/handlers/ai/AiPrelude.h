@@ -186,6 +186,7 @@ using ::aion::gameserver::ai::HpPhases;
 using ::aion::gameserver::ai::NpcAI;
 using ::aion::gameserver::ai::event::AIEventType;
 using ::aion::gameserver::ai::handler::AggroEventHandler;
+using ::aion::gameserver::ai::handler::AttackEventHandler;
 using ::aion::gameserver::ai::handler::CreatureEventHandler;
 using ::aion::gameserver::ai::handler::FollowEventHandler;
 using ::aion::gameserver::ai::handler::MoveEventHandler;

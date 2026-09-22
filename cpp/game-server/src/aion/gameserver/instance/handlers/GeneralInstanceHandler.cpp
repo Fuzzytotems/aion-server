@@ -12,6 +12,7 @@
 #include "aion/gameserver/model/templates/npc/NpcRating.h"
 #include "aion/gameserver/model/templates/world/WorldMapTemplate.h"
 #include "aion/gameserver/runtime/base/Exceptions.h"
+#include "aion/gameserver/world/WorldMap.h"
 #include "aion/gameserver/world/WorldMapInstance.h"
 #include "aion/gameserver/world/WorldPosition.h"
 
@@ -97,7 +98,9 @@ void GeneralInstanceHandler::portToStartPosition(model::gameobjects::player::Pla
 }
 
 float GeneralInstanceHandler::getExpMultiplier() {
-	AION_UNPORTED();
+	// Java GeneralInstanceHandler.java:249-251, comment and all: on retail, instances reward more exp than regular world maps. Reached on every
+	// npc death since M5b-1 registered the AI (StatFunctions::calculateExperienceReward -> NpcController::doReward).
+	return instance->getParent()->isInstanceType() ? 1.5f : 1.25f;
 }
 
 bool GeneralInstanceHandler::allowKiskRevive() {

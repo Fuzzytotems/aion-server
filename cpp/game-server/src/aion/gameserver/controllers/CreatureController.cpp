@@ -18,6 +18,7 @@
 #include "aion/gameserver/controllers/attack/AggroList.h"
 #include "aion/gameserver/controllers/attack/AttackResult.h"
 #include "aion/gameserver/controllers/attack/AttackStatus.h"
+#include "aion/gameserver/controllers/attack/AttackUtil.h"
 #include "aion/gameserver/controllers/effect/EffectController.h"
 #include "aion/gameserver/controllers/movement/CreatureMoveController.h"
 #include "aion/gameserver/controllers/observer/TerrainZoneCollisionMaterialActor.h"
@@ -77,6 +78,7 @@ static const auto log = commons::logging::LoggerFactory::getLogger("com.aionemu.
 using ai::event::AIEventType;
 using attack::AttackResult;
 using attack::AttackStatus;
+using attack::AttackUtil;
 using model::TaskId;
 using model::gameobjects::Creature;
 using model::gameobjects::Item;
@@ -351,7 +353,7 @@ void CreatureController::attackTarget(runtime::Ptr<model::gameobjects::Creature>
 	if (Ptr<Player> p = runtime::as<Player>(self); p && p->getEquipment().isDualWeaponEquipped())
 		calculationTypes.insert(utils::stats::CalculationType::DUAL_WIELD);
 	if (self.getAttackType() == model::templates::item::ItemAttackType::PHYSICAL)
-		attackResult = standins::attackUtilCalculatePhysAttackResult(self, *target, calculationTypes);
+		attackResult = AttackUtil::calculatePhysAttackResult(self, *target, calculationTypes);
 	else {
 		attackResult =
 			standins::attackUtilCalculateMagAttackResult(self, *target, model::templates::item::getMagicalElement(self.getAttackType()), calculationTypes);

@@ -13,13 +13,16 @@
 #include "aion/commons/utils/StringUtils.h"
 #include "aion/gameserver/ai/AITemplate.h"
 #include "aion/gameserver/ai/AbstractAI.h"
+#include "aion/gameserver/ai/NpcAI.h"
 #include "aion/gameserver/GameServerError.h"
 #include "aion/gameserver/configs/main/AIConfig.h"
 #include "aion/gameserver/dataholders/DataManager.h"
 #include "aion/gameserver/dataholders/NpcData.h"
 #include "aion/gameserver/handlers/HandlerRegistry.h"
 #include "aion/gameserver/model/gameobjects/Creature.h"
+#include "aion/gameserver/model/gameobjects/Npc.h"
 #include "aion/gameserver/model/templates/npc/NpcTemplate.h"
+#include "aion/gameserver/runtime/lifetime/Ref.h"
 #include "aion/gameserver/runtime/base/Exceptions.h"
 #include "aion/gameserver/runtime/base/Unported.h"
 
@@ -31,6 +34,53 @@ template <class T>
 class AIEngine::DummyAI final : public AITemplate<T> {
 public:
 	explicit DummyAI(T& owner) : AITemplate<T>(owner) {}
+};
+
+/**
+ * C++ only (m5b-plan.md D15, docs/deviations/P4-01.md): DummyAI<Npc> with NpcAI as its base, so that the five Java-faithful
+ * `(NpcAI) creature.getAi()` casts of the controllers (NpcController.cpp, PlayerController.cpp, NpcMoveController.cpp) keep working for an NPC
+ * whose AI handler is not ported yet. Java has no such AI: newAI throws "No AI found for name X" (AIEngine.java:70-71), so in Java an Npc whose
+ * template names an AI always has an NpcAI. Every hook NpcAI overrides over AITemplate is overridden back to AITemplate's empty body and ask()
+ * back to AITemplate's `return false`, so this AI behaves exactly like the DummyAI<Creature> it replaces.
+ * <p>
+ * The other DummyAI arm - a null AI name - is NOT redirected here: Java's `new DummyAI<>(owner)` for a null name is an AITemplate<Npc> and not an
+ * NpcAI either, so a cast failure there is Java's own behaviour and stays.
+ * <p>
+ * Not overridden, because AITemplate has nothing to fall back to and neither can run for a substitute AI: NpcAI::isMoveSupported and
+ * NpcAI::handleCreatureDetected are declared by NpcAI itself, and the 13 narrowing accessors are pure narrowings of the owner. Only the
+ * ai/handler and ai/manager statics call them, and they are reached only from a registered handler's hooks, every one of which is empty here
+ * (m5b-plan.md §11 item 8; NpcAITest covers the accessors over an npc whose handler never registered).
+ */
+class AIEngine::DummyNpcAI final : public NpcAI {
+public:
+	explicit DummyNpcAI(model::gameobjects::Npc& owner) : NpcAI(owner) {}
+
+	// AITemplate<Npc>::ask / isDestinationReached (NpcAI overrides both)
+	bool ask(poll::AIQuestion question) override { return false; }
+
+	bool isDestinationReached() override { return false; }
+
+protected:
+	// AITemplate<Npc>'s empty hooks (NpcAI overrides all ten)
+	void handleActivate() override {}
+
+	void handleDeactivate() override {}
+
+	void handleBeforeSpawned() override {}
+
+	void handleSpawned() override {}
+
+	void handleDespawned() override {}
+
+	void handleDied() override {}
+
+	void handleMoveArrived() override {}
+
+	void handleTargetChanged(model::gameobjects::Creature& creature) override {}
+
+	void handleMoveValidate() override {}
+
+	void handleCreatureMoved(model::gameobjects::Creature& creature) override {}
 };
 
 namespace {
@@ -85,7 +135,10 @@ void AIEngine::init() {
 }
 
 void AIEngine::reload() {
-	AION_UNPORTED();
+	// Java: scriptManager.shutdown(); aiHandlers.clear(); init(). The C++ port has neither: the AI handlers are compiled in and the registry
+	// (handlers::aiHandlerEntries()) is a fixed table, so there is nothing to unload and nothing to clear - registering them again is what
+	// init() does. `//reload ai` (admincommands/Reload.java:75) therefore re-runs validateScripts and logs the handler count, as it does in Java.
+	init();
 }
 
 void AIEngine::registerAI(const handlers::AIHandlerEntry& aiClass) {
@@ -109,7 +162,12 @@ std::unique_ptr<AbstractAI> AIEngine::newAI(std::optional<std::string_view> name
 			// C++ only (gameserver.dev.missing_ai_handlers=warn, docs/deviations/P4-01.md): an NPC whose AI is not ported gets a DummyAI
 			if (firstMissingUse(*name))
 				log.warn("No AI found for name " + std::string(*name) + ", creating a DummyAI instead (gameserver.dev.missing_ai_handlers=warn)");
-			aiInstance = std::make_unique<DummyAI<model::gameobjects::Creature>>(owner);
+			// C++ only (m5b-plan.md D15): an Npc gets the NpcAI-derived DummyNpcAI, so that `(NpcAI) npc.getAi()` keeps working as it does in
+			// Java, where an unregistered name throws instead of substituting an AI. Same behaviour, different static type.
+			if (runtime::Ptr<model::gameobjects::Npc> npcOwner = runtime::as<model::gameobjects::Npc>(owner))
+				aiInstance = std::make_unique<DummyNpcAI>(*npcOwner);
+			else
+				aiInstance = std::make_unique<DummyAI<model::gameobjects::Creature>>(owner);
 		} else {
 			try {
 				aiInstance = entry->create(owner);

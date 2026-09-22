@@ -21,7 +21,9 @@ namespace aion::gameserver::controllers::attack {
  * Attack status and damage calculations, and the target helpers used when a creature stops being a valid target.
  * <p>
  * C++: a static-only class. The attack result lists Java creates are returned as `std::vector<Ref<AttackResult>>` (the list holds the only
- * references, hub-headers.md §7.1); getWeaponGroup returns `std::optional` (Java returns null). The combat bodies are P5-01 work of M5b.
+ * references, hub-headers.md §7.1) and the helpers of the physical path take them by reference (header request m5b-1); getWeaponGroup returns
+ * `std::optional` (Java returns null). The physical half is ported (M5b-1, item B-01); the magical half and the skill-result path are M5b-2
+ * (m5b-plan.md O-02).
  *
  * @author ATracer
  */
@@ -39,18 +41,22 @@ public:
 	static std::vector<runtime::Ref<AttackResult>> calculatePhysAttackResult(model::gameobjects::Creature& attacker, model::gameobjects::Creature& attacked,
 		const std::unordered_set<utils::stats::CalculationType>& calculationTypes);
 
+	/** header-request: m5b-1 - the result lists are `Ref` vectors (the list holds the only references, hub-headers.md §7.1) */
 	static void adjustDamageByStatModifiers(model::gameobjects::Creature& attacker, model::gameobjects::Creature& attacked, AttackStatus status,
-		const std::vector<runtime::Ptr<AttackResult>>& attackResultList, model::SkillElement element);
+		const std::vector<runtime::Ref<AttackResult>>& attackResultList, model::SkillElement element);
 
 private:
+	/** header-request: m5b-1 */
 	static std::vector<int32_t> calculateAdditionalHitCount(model::gameobjects::Creature& attacker, AttackStatus status,
-		const std::vector<runtime::Ptr<AttackResult>>& attackList);
+		const std::vector<runtime::Ref<AttackResult>>& attackList);
 
+	/** header-request: m5b-1 - Java appends the amplified hits to the list, so the vector is passed by non-const reference */
 	static void amplifyDamageByAdditionalHitCount(model::gameobjects::Creature& attacker, AttackStatus status,
-		const std::vector<runtime::Ptr<AttackResult>>& attackList);
+		std::vector<runtime::Ref<AttackResult>>& attackList);
 
+	/** header-request: m5b-1 */
 	static void modifyDamageByNpcAi(model::gameobjects::Creature& attacker, model::gameobjects::Creature& attacked,
-		const std::vector<runtime::Ptr<AttackResult>>& attackStatus);
+		const std::vector<runtime::Ref<AttackResult>>& attackStatus);
 
 	static float calculateBlockedDamage(model::gameobjects::Creature& attacked, float damage);
 

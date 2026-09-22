@@ -27,7 +27,7 @@ KINAH = 182400001
 RACES = ("ELYOS", "ASMODIANS")
 
 
-def _enum_constants(source: Path, enum_name: str) -> list[tuple[str, str | None]]:
+def enum_constants(source: Path, enum_name: str) -> list[tuple[str, str | None]]:
 	"""(name, argument text) of every constant of `enum enum_name { ... }` (comments removed, one constant per line)."""
 	try:
 		text = source.read_text(encoding="utf-8")
@@ -67,7 +67,7 @@ class JavaEnums:
 		base = Path(java_src) / "com" / "aionemu" / "gameserver"
 		self.slots: list[tuple[str, int, bool]] = []  # name, mask, combo (ordinal order)
 		masks: dict[str, int] = {}
-		for name, args in _enum_constants(base / "model" / "items" / "ItemSlot.java", "ItemSlot"):
+		for name, args in enum_constants(base / "model" / "items" / "ItemSlot.java", "ItemSlot"):
 			parts = [p.strip() for p in (args or "").split(",")]
 			combo = len(parts) > 1 and parts[1] == "true"
 			mask = 0
@@ -84,11 +84,11 @@ class JavaEnums:
 			masks[name] = mask
 			self.slots.append((name, mask, combo))
 		self.sub_type_equip: dict[str, str] = {}
-		for name, args in _enum_constants(base / "model" / "templates" / "item" / "enums" / "ItemSubType.java", "ItemSubType"):
+		for name, args in enum_constants(base / "model" / "templates" / "item" / "enums" / "ItemSubType.java", "ItemSubType"):
 			arg = (args or "").strip()
 			self.sub_type_equip[name] = "ARMOR" if arg.startswith("ArmorType.") else arg.removeprefix("EquipType.")
 		self.item_groups: dict[str, tuple[int, str]] = {}  # name -> (valid slots, equip type)
-		for name, args in _enum_constants(base / "model" / "templates" / "item" / "enums" / "ItemGroup.java", "ItemGroup"):
+		for name, args in enum_constants(base / "model" / "templates" / "item" / "enums" / "ItemGroup.java", "ItemGroup"):
 			if args is None:
 				self.item_groups[name] = (0, "NONE")  # ItemGroup(): no slots, ItemSubType.NONE
 				continue
@@ -115,7 +115,7 @@ class JavaEnums:
 		# PlayerClass(classId, nameId, isStartingClass|startingClass, power, health, agility, accuracy, knowledge, will, healthMultiplier,
 		# willMultiplier, magicalCriticalResist)
 		self.classes: dict[str, tuple[bool, int, int, int, int]] = {}
-		for name, args in _enum_constants(base / "model" / "PlayerClass.java", "PlayerClass"):
+		for name, args in enum_constants(base / "model" / "PlayerClass.java", "PlayerClass"):
 			parts = [p.strip() for p in (args or "").split(",")]
 			if len(parts) != 12:
 				raise OracleError(f"PlayerClass.{name}: expected 12 constructor arguments")

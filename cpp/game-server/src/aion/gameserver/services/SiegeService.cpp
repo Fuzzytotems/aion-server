@@ -12,12 +12,15 @@
 #include "aion/gameserver/dao/SiegeDAO.h"
 #include "aion/gameserver/dataholders/DataManager.h"
 #include "aion/gameserver/dataholders/SiegeLocationData.h"
+#include "aion/gameserver/model/gameobjects/Npc.h"
 #include "aion/gameserver/model/gameobjects/player/Player.h"
+#include "aion/gameserver/model/gameobjects/siege/SiegeNpc.h"
 #include "aion/gameserver/model/siege/AgentLocation.h"
 #include "aion/gameserver/model/siege/ArtifactLocation.h"
 #include "aion/gameserver/model/siege/FortressLocation.h"
 #include "aion/gameserver/model/siege/OutpostLocation.h"
 #include "aion/gameserver/model/siege/SiegeLocation.h"
+#include "aion/gameserver/model/templates/spawns/SpawnTemplate.h"
 #include "aion/gameserver/runtime/base/Unported.h"
 #include "aion/gameserver/services/siege/Siege.h"
 
@@ -219,7 +222,19 @@ void SiegeService::deSpawnNpcs(int32_t siegeLocationId) {
 }
 
 bool SiegeService::isRespawnAllowed(model::gameobjects::Npc& npc) {
-	AION_UNPORTED();
+	// Java SiegeService.java:511-522. Reached on every npc death through NpcAI.ask(ALLOW_RESPAWN) (NpcAI.java:148), so the plain-npc path
+	// below - instanceof false, return true - is the hot one. `npc` is an Npc, not a SiegeNpc, so getSpawn() is VisibleObject::getSpawn and
+	// getRespawnTime() the spawn group's, exactly as Java has it.
+	if (runtime::Ptr<model::gameobjects::siege::SiegeNpc> siegeNpc = runtime::as<model::gameobjects::siege::SiegeNpc>(npc)) {
+		runtime::Ptr<model::siege::FortressLocation> fort = getFortress(siegeNpc->getSiegeId());
+		if (fort) {
+			if (fort->isVulnerable())
+				return false;
+			else if (fort->getNextState() == model::siege::SiegeLocation::STATE_VULNERABLE)
+				return npc.getSpawn()->getRespawnTime() < getSecondsUntilNextFortressState();
+		}
+	}
+	return true;
 }
 
 void SiegeService::broadcastUpdate(model::siege::SiegeLocation& loc) {

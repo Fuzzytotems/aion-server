@@ -59,10 +59,75 @@ OracleSpot readSpot(const json& node) {
 	return spot;
 }
 
+/** A number the oracle may write as null ("no answer"), which value() would not see: it only defaults an *absent* key. */
+template <typename T>
+T readOrDefault(const json& node, const char* key, T fallback) {
+	const auto found = node.find(key);
+	return found == node.end() || found->is_null() ? fallback : found->get<T>();
+}
+
+OracleMonsterSpot readMonsterSpot(const json& node) {
+	OracleMonsterSpot spot;
+	spot.x = node.value("x", 0.0f);
+	spot.y = node.value("y", 0.0f);
+	spot.z = node.value("z", 0.0f);
+	spot.heading = node.value("h", 0);
+	spot.staticId = node.value("staticId", 0);
+	spot.respawnTime = node.value("respawnTime", 0);
+	spot.ai = readOrDefault<std::string>(node, "ai", {}); // a spot of an npc template without an ai name has none
+	spot.spawned = readOrDefault(node, "spawned", false); // null when a pool or an unknown game time decides
+	spot.fixed = node.value("fixed", false);
+	spot.distance = node.value("distance", 0.0);
+	return spot;
+}
+
 } // namespace
 
 OracleSpot Oracle::parseSpot(std::string_view spotJson) {
 	return readSpot(json::parse(spotJson));
+}
+
+OracleMonster Oracle::parseMonster(std::string_view monsterJson) {
+	const json answer = json::parse(monsterJson);
+	OracleMonster monster;
+	monster.mapId = answer.value("map", 0);
+	monster.npcId = answer.value("npcId", 0);
+	monster.playerLevel = answer.value("playerLevel", 0);
+
+	const json& tmpl = answer.at("template");
+	monster.level = tmpl.value("level", 0);
+	monster.maxHp = tmpl.value("maxHp", 0);
+	monster.rating = readOrDefault<std::string>(tmpl, "rating", {});
+	monster.rank = readOrDefault<std::string>(tmpl, "rank", {});
+	monster.race = readOrDefault<std::string>(tmpl, "race", {});
+	monster.tribe = readOrDefault<std::string>(tmpl, "tribe", {});
+	monster.ai = readOrDefault<std::string>(tmpl, "ai", {});
+	monster.aggroRange = tmpl.value("aggroRange", 0);
+	monster.aggroAngle = tmpl.value("aggroAngle", 0);
+	monster.npcAttackRange = tmpl.value("attackRange", 0);
+	monster.npcAttackSpeed = tmpl.value("attackSpeed", 0);
+	monster.boundRadius = tmpl.at("boundRadius").value("maxOfFrontAndSide", 0.0f);
+
+	for (const json& node : answer.at("spots"))
+		monster.spots.push_back(readMonsterSpot(node));
+	monster.pinned = answer.value("pinned", false);
+	if (const auto nearest = answer.find("nearestPlainSpot"); nearest != answer.end() && !nearest->is_null())
+		monster.nearestPlainSpot = readMonsterSpot(*nearest);
+	monster.respawnTime = readOrDefault(answer, "respawnTime", 0); // null when the id's spawn groups disagree
+
+	const json& exp = answer.at("exp");
+	monster.baseExp = exp.value("baseExp", 0);
+	monster.xpPercentage = exp.value("xpPercentage", 0);
+	monster.experienceReward = exp.value("experienceReward", int64_t{0});
+	monster.expNeed = exp.value("expNeed", int64_t{0});
+	monster.awarded = exp.value("awarded", int64_t{0});
+
+	const json& ranges = answer.at("ranges");
+	monster.attackRange = ranges.value("attackRange", 0.0f);
+	monster.toleranceRange = ranges.value("toleranceRange", 0.0f);
+	monster.maxCoveredDistance = ranges.value("maxCoveredDistance", 0.0f);
+	monster.playerAttackSpeed = answer.at("player").value("attackSpeed", 0);
+	return monster;
 }
 
 bool isPinnedToFixedSpots(const std::vector<OracleSpot>& spots, int32_t npcId) {
@@ -189,6 +254,11 @@ OracleBorderTarget Oracle::borderTarget(int32_t mapId, float x, float y, float z
 	for (const json& node : answer.at("disappear"))
 		target.disappear.push_back(readSpot(node));
 	return target;
+}
+
+OracleMonster Oracle::monster(int32_t mapId, int32_t npcId, int32_t playerLevel) const {
+	return parseMonster(run({"m5b-monster", "--map", std::to_string(mapId), "--npc-id", std::to_string(npcId), "--player-level",
+	                         std::to_string(playerLevel)}));
 }
 
 } // namespace aion::gameserver::scenario

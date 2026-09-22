@@ -29,6 +29,7 @@ namespace aion::gameserver::ai {
  * - newAI is ported (Creature::postConstruct needs it): a null name creates DummyAI (an AITemplate over Creature, defined in AIEngine.cpp),
  *   otherwise the registry factory creates the AI and newAI stores the entry for AbstractAI::getName().
  * - The C++-only setting gameserver.dev.missing_ai_handlers=warn turns a missing handler into a DummyAI and a warning (isMissingAiHandlersWarn).
+ *   For an Npc owner the substitute is a DummyNpcAI, so that the Java-faithful `(NpcAI) npc.getAi()` casts keep working (D15 below).
  *
  * @author ATracer
  */
@@ -38,6 +39,15 @@ private:
 	/** Java: private static class DummyAI<T extends Creature> extends AITemplate<T> (defined in AIEngine.cpp, §9.3) */
 	template <class T>
 	class DummyAI;
+
+	/**
+	 * C++ only (m5b-plan.md D15, docs/deviations/P4-01.md): the warn-mode substitute for an Npc whose AI name has no handler. It is a
+	 * DummyAI that happens to derive NpcAI, so `runtime::cast<NpcAI>(npc.getAi())` - a faithful port of Java's `(NpcAI) npc.getAi()`, which
+	 * cannot fail in Java because newAI throws for an unregistered name - keeps working. Every NpcAI hook is overridden back to the
+	 * AITemplate no-op and ask() back to all-false, so the behaviour is exactly a DummyAI's; only the static type differs. Defined in
+	 * AIEngine.cpp.
+	 */
+	class DummyNpcAI;
 
 	AIEngine();
 	~AIEngine();

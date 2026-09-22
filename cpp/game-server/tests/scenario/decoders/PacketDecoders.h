@@ -508,5 +508,72 @@ int32_t decodeDeleteObjectId(std::span<const uint8_t> body);
 int32_t decodeNpcInfoObjectId(std::span<const uint8_t> body);
 /** SM_SYSTEM_MESSAGE: the message id, after the chat type, the encoding byte and the sender object id */
 int32_t decodeSystemMessageId(std::span<const uint8_t> body);
+/**
+ * SM_MOVE: the moving creature's object id, the first field of the body (SM_MOVE.java:37). Everything after the position, the heading and the
+ * movement mask depends on that mask and on whether the mover has a PlayableMoveController (SM_MOVE.java:44-67), so this is a prefix decoder
+ * like decodeNpcInfoObjectId and not one of the D9 decoders that consume the body exactly.
+ */
+int32_t decodeMoveObjectId(std::span<const uint8_t> body);
+
+/** The fields SM_EMOTION writes before its per-emotion switch (SM_EMOTION.java:94-97), plus the CHANGE_SPEED arm's own two */
+struct EmotionHeader {
+	int32_t objectId = 0;
+	/** EmotionType.getTypeId() (model/EmotionType.java) */
+	uint8_t emotionType = 0;
+	/** Creature.getState() */
+	int32_t state = 0;
+	/** CreatureGameStats.getMovementSpeedFloat() */
+	float speed = 0;
+	/** Stat2.getBase() / getCurrent() of the attack speed; CHANGE_SPEED only (SM_EMOTION.java:170-174), 0 for every other emotion */
+	int32_t baseAttackSpeed = 0, currentAttackSpeed = 0;
+};
+
+/**
+ * m5a-plan.md §5.9, m5b-plan.md D2: **the four emotion types EmoteManager broadcasts for an npc**, and the complete list of them
+ * (ai/manager/EmoteManager.cpp, Java EmoteManager.java): WALK from emoteStartWalking, CHANGE_SPEED plus NEUTRALMODE_IN_MOVE from
+ * emoteStartIdling / emoteStartReturning / emoteStartFollowing, CHANGE_SPEED plus ATTACKMODE_IN_MOVE from emoteStartAttacking. No other
+ * emotion of the 55 reaches a client because of an npc's AI.
+ *
+ * Three of them - WALK, ATTACKMODE_IN_MOVE and NEUTRALMODE_IN_MOVE - fall into the bare `break` arm of SM_EMOTION's switch
+ * (SM_EMOTION.java:98-126), so their bodies are the 11-byte header and nothing else. CHANGE_SPEED has an arm of its own and writes the two
+ * attack speeds and a zero byte after the header (SM_EMOTION.java:170-175), 16 bytes in all. decodeEmotionHeader knows both shapes and
+ * consumes the body exactly for all four, which is why it can prove their framing and does not try to for the other 51 types.
+ */
+constexpr uint8_t EMOTION_ATTACKMODE_IN_MOVE = 24;
+constexpr uint8_t EMOTION_NEUTRALMODE_IN_MOVE = 25;
+constexpr uint8_t EMOTION_WALK = 26;
+constexpr uint8_t EMOTION_CHANGE_SPEED = 35;
+
+/** true for one of the four EmoteManager emotion types above */
+bool isNpcEmote(uint8_t emotionType);
+
+/**
+ * SM_EMOTION: object id, emotion type, state and speed, plus the two attack speeds and the zero byte of the CHANGE_SPEED arm. For an emotion
+ * of isNpcEmote the whole body is consumed and a trailing byte fails; for every other type the switch writes a payload this decoder does not
+ * model and only the header is read.
+ */
+EmotionHeader decodeEmotionHeader(std::span<const uint8_t> body);
+
+/** SM_LOOKATOBJECT (SM_LOOKATOBJECT.java:24-26): the whole 9-byte body - who looks, what it looks at (0 for no target) and its heading */
+struct LookAtObject {
+	int32_t objectId = 0;
+	int32_t targetObjectId = 0;
+	uint8_t heading = 0;
+};
+LookAtObject decodeLookAtObject(std::span<const uint8_t> body);
+
+/** SM_ATTACK (SM_ATTACK.java:70-76): the two creatures of one swing */
+struct AttackParties {
+	int32_t attackerObjectId = 0;
+	int32_t targetObjectId = 0;
+};
+/**
+ * The attacker and the target of an SM_ATTACK. It is a prefix decoder: everything after the two HP percentages depends on the attack status,
+ * on the critical proc effect and on the per-result shield types (SM_ATTACK.java:80-167), which is G-04's work for the M5b gate.
+ */
+AttackParties decodeAttackParties(std::span<const uint8_t> body);
+
+/** SM_ATTACK_STATUS (SM_ATTACK_STATUS.java:60): the creature whose HP or MP changed, the first field */
+int32_t decodeAttackStatusObjectId(std::span<const uint8_t> body);
 
 } // namespace aion::gameserver::scenario::decoders

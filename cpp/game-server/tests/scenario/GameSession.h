@@ -18,6 +18,7 @@
 
 #include <chrono>
 #include <cstdint>
+#include <functional>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -90,6 +91,26 @@ public:
 	/** the two in-world packets of item C-01 a real client sends without any user action (AionClientPacketFactory packets[12] and packets[163]) */
 	static constexpr int32_t CM_CUSTOM_SETTINGS = 12;
 	static constexpr int32_t CM_SUBZONE_CHANGE = 163;
+	/** the three packets of an M5b fight (AionClientPacketFactory packets[5], [31] and [32]; m5b-plan.md G-02) */
+	static constexpr int32_t CM_REVIVE = 5;
+	static constexpr int32_t CM_TARGET_SELECT = 31;
+	static constexpr int32_t CM_ATTACK = 32;
+
+	/** ReviveType ids, which are what CM_REVIVE carries (model/gameobjects/player/ReviveType.java; note that 5 and 7 are no revive type) */
+	static constexpr uint8_t BIND_REVIVE = 0;
+	static constexpr uint8_t REBIRTH_REVIVE = 1;
+	static constexpr uint8_t ITEM_SELF_REVIVE = 2;
+	static constexpr uint8_t SKILL_REVIVE = 3;
+	static constexpr uint8_t KISK_REVIVE = 4;
+	static constexpr uint8_t INSTANCE_REVIVE = 6;
+	static constexpr uint8_t OBELISK_REVIVE = 8;
+
+	/**
+	 * The margin PlayerController.attackTarget allows on the attack interval: a CM_ATTACK that arrives less than `attackSpeed - 300` ms after
+	 * the previous one is answered with SM_ATTACK_RESPONSE.STOP_WITHOUT_MESSAGE and nothing else happens (PlayerController.java:424-426,
+	 * `milis - lastAttackMillis + 300 < attackSpeed`). fightUntil therefore paces at the full attack speed.
+	 */
+	static constexpr std::chrono::milliseconds ATTACK_INTERVAL_TOLERANCE{300};
 
 	/** the MAC address (LoginServer.java MAC pattern) and HDD serial every scenario client sends */
 	static constexpr std::string_view MAC_ADDRESS = "0A-1B-2C-3D-4E-5F";
@@ -131,6 +152,33 @@ public:
 	/** "SM_X" for a known opcode, "SM_UNKNOWN_<opcode>" otherwise */
 	static std::string nameOf(int32_t opcode);
 
+	/** What one fightUntil call did */
+	struct FightOutcome {
+		/** the predicate answered true for one of the packets this call read */
+		bool done = false;
+		int32_t attacksSent = 0;
+		/** the index in recorded() of the first packet this call recorded, so the caller can read the fight back packet by packet */
+		size_t firstPacket = 0;
+		std::chrono::milliseconds elapsed{0};
+		/** the connection closed while fighting (the character was kicked, the server died) */
+		bool closed = false;
+	};
+
+	/** Answers true for the packet that ends the fight; it sees every server packet from the call on, in arrival order, exactly once */
+	using FightPredicate = std::function<bool(const Packet&)>;
+
+	/**
+	 * Sends CM_ATTACK(targetObjectId) every `attackSpeed` ms - the value SM_STATS_INFO carries for this character, which is the *minimum*
+	 * interval the server accepts up to ATTACK_INTERVAL_TOLERANCE (m5b-plan.md G-02) - and records every server packet that arrives in
+	 * between, feeding each to `done`. Returns when `done` answers true, when `timeout` has passed, when `maxAttacks` attacks have been sent
+	 * and one more interval has been read, or when the connection closes. The first attack goes out immediately, so the caller stops moving
+	 * and selects its target first (PlayerController.attackTarget widens the range check while the attacker is in move).
+	 *
+	 * @param attackNo is the running count of this call, truncated to a byte: CM_ATTACK reads it and never uses it (CM_ATTACK.java:38)
+	 */
+	FightOutcome fightUntil(int32_t targetObjectId, std::chrono::milliseconds attackSpeed, const FightPredicate& done,
+		std::chrono::milliseconds timeout, int32_t maxAttacks = 60, uint8_t attackType = 0);
+
 	// ---- client packet bodies (Java readImpl order) ----
 	static std::vector<uint8_t> buildCM_VERSION_CHECK(uint16_t clientVersion = CLIENT_VERSION);
 	static std::vector<uint8_t> buildCM_L2AUTH_LOGIN_CHECK(int32_t playOk2, int32_t playOk1, int32_t accountId, int32_t loginOk);
@@ -154,6 +202,16 @@ public:
 	static std::vector<uint8_t> buildCM_CUSTOM_SETTINGS(uint16_t display, uint16_t deny);
 	/** CM_SUBZONE_CHANGE.readImpl: one readC ("always 1") */
 	static std::vector<uint8_t> buildCM_SUBZONE_CHANGE(uint8_t unk);
+	/** CM_TARGET_SELECT.readImpl: readD targetObjectId (0 unselects), readC selectTargetOfTarget */
+	static std::vector<uint8_t> buildCM_TARGET_SELECT(int32_t targetObjectId, bool selectTargetOfTarget = false);
+	/**
+	 * CM_ATTACK.readImpl: readD targetObjectId, readUC attackno, readUH time, readUC type. Only the object id and `time` are used -
+	 * runImpl looks the id up in the knownlist and calls attackTarget(creature, time, false), which passes `time` on to the DelayedOnAttack
+	 * of CreatureController.attackTarget; `attackno` and `type` are read and dropped (CM_ATTACK.java:36-59).
+	 */
+	static std::vector<uint8_t> buildCM_ATTACK(int32_t targetObjectId, uint8_t attackNo = 0, uint16_t time = 0, uint8_t type = 0);
+	/** CM_REVIVE.readImpl: one readUC reviveId, which must be a ReviveType id (CM_REVIVE.java:32-63 throws IllegalArgumentException otherwise) */
+	static std::vector<uint8_t> buildCM_REVIVE(uint8_t reviveId = BIND_REVIVE);
 
 	network::test::FakeGameClient client;
 

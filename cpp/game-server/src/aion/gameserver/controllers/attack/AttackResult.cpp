@@ -1,6 +1,6 @@
 #include "aion/gameserver/controllers/attack/AttackResult.h"
 
-#include "aion/gameserver/runtime/base/Unported.h"
+#include "aion/gameserver/model/templates/detail/JavaCasts.h"
 
 namespace aion::gameserver::controllers::attack {
 
@@ -22,11 +22,13 @@ runtime::Ref<AttackResult> AttackResult::create(float value, AttackStatus attack
 }
 
 int32_t AttackResult::getDamage() {
-	AION_UNPORTED();
+	// Java: (int) damage - NaN becomes 0, out-of-range values saturate
+	return model::templates::detail::floatToInt(damage.get());
 }
 
 void AttackResult::setShieldType(int32_t value) {
-	AION_UNPORTED();
+	// Java: this.shieldType |= shieldType (the setter accumulates the shield flags)
+	shieldType.set(shieldType.get() | value);
 }
 
 AttackResult::~AttackResult() = default;

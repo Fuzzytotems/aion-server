@@ -7,6 +7,7 @@
 #include <vector>
 
 #include "aion/commons/logging/LoggerFactory.h"
+#include "aion/commons/utils/Rnd.h"
 #include "aion/gameserver/runtime/base/Unported.h"
 #include "aion/gameserver/dataholders/DataManager.h"
 #include "aion/gameserver/dataholders/NpcSkillData.h"
@@ -57,27 +58,68 @@ void NpcSkillList::initSkillList(int32_t npcId) {
 }
 
 bool NpcSkillList::isEmpty() {
-	AION_UNPORTED();
+	return skills.get()->isEmpty();
 }
 
 runtime::Ptr<NpcSkillEntry> NpcSkillList::getRandomSkill() {
-	AION_UNPORTED();
+	// Java: return Rnd.get(skills) - Rnd.java:50-52 is `list.isEmpty() ? null : list.size() == 1 ? list.getFirst() : list.get(nextInt(list.size()))`.
+	// Written out instead of calling commons::utils::Rnd::get, which takes a sized forward range and does not accept the ArrayList shim (and
+	// whose range overload draws a random index even for a single element, where Java draws none).
+	runtime::Ptr<runtime::RcArrayList<runtime::Ref<NpcSkillEntry>>> currentSkills = skills.get();
+	int32_t size = currentSkills->size();
+	if (size == 0)
+		return nullptr;
+	return currentSkills->get(size == 1 ? 0 : commons::utils::Rnd::nextInt(size));
 }
 
 runtime::Ptr<NpcSkillEntry> NpcSkillList::getSkillOnPosition(int32_t position) {
-	AION_UNPORTED();
+	runtime::Ptr<runtime::RcArrayList<runtime::Ref<NpcSkillEntry>>> currentSkills = skills.get();
+	if (currentSkills->isEmpty())
+		return nullptr;
+	if (position >= currentSkills->size())
+		position = currentSkills->size() - 1;
+
+	return currentSkills->get(position);
 }
 
 std::vector<runtime::Ptr<NpcSkillEntry>> NpcSkillList::getPostSpawnSkills() {
-	AION_UNPORTED();
+	// Java filters the entries whose hasPostSpawnCondition() is true (NpcSkillList.java:70-76). The only caller, SpawnEventHandler.onSpawn
+	// (SpawnEventHandler.java:20-22), then casts each one through SkillEngine.getSkill(...).useWithoutPropSkill(), and SkillEngine::getSkill is
+	// AION_UNPORTED until M5b-2, so a non-empty answer would throw out of the spawn path (m5b-plan.md D3, docs/deviations/P5-02.md).
+	// 185 npc ids carry is_post_spawn="true"; none of them is on Poeta or Ishalgen, so no M5b-1 gate run reaches this site.
+	AION_PARTIAL("post-spawn npc skills are not cast yet (M5b-2)");
+	return {};
 }
 
 std::vector<runtime::Ptr<NpcSkillEntry>> NpcSkillList::getSkillsByPriority(int32_t priority) {
-	AION_UNPORTED();
+	runtime::Ptr<runtime::RcArrayList<runtime::Ref<NpcSkillEntry>>> currentSkills = skills.get();
+	if (currentSkills->isEmpty())
+		return {}; // Java: Collections.emptyList()
+
+	std::vector<runtime::Ptr<NpcSkillEntry>> skillsByPriority;
+	for (const runtime::Ptr<NpcSkillEntry>& skill : *currentSkills) {
+		if (skill->getPriority() == priority) {
+			skillsByPriority.push_back(skill);
+		}
+	}
+	return skillsByPriority;
 }
 
 std::vector<runtime::Ptr<NpcSkillEntry>> NpcSkillList::getChainSkills(NpcSkillEntry& curSkill) {
-	AION_UNPORTED();
+	runtime::Ptr<runtime::RcArrayList<runtime::Ref<NpcSkillEntry>>> currentSkills = skills.get();
+	if (currentSkills->isEmpty())
+		return {}; // Java: Collections.emptyList()
+
+	std::vector<runtime::Ptr<NpcSkillEntry>> chainSkills;
+	int32_t id = curSkill.getNextChainId();
+	if (id > 0) {
+		for (const runtime::Ptr<NpcSkillEntry>& skill : *currentSkills) {
+			if (skill->getChainId() == id) {
+				chainSkills.push_back(skill);
+			}
+		}
+	}
+	return chainSkills;
 }
 
 } // namespace aion::gameserver::model::skill

@@ -1,8 +1,11 @@
-// The npc side of P5-02 (wave 5a, work item B-05): NpcSkillList over the npc skill templates of an npc that has rows in npc_skills.xml, and the
-// NpcSkillTemplateEntry it builds. Every spawned npc constructs this list (Npc's constructor), so the whole startup walks this path.
+// The npc side of P5-02 (wave 5a, work item B-05; M5b-1 item E-02): NpcSkillList over the npc skill templates of an npc that has rows in
+// npc_skills.xml, and the NpcSkillTemplateEntry it builds. Every spawned npc constructs this list (Npc's constructor), so the whole startup
+// walks this path.
 //
 // Expectations are derived by hand from NpcSkillList.java:27-49 (the entry per template whose skill exists in SKILL_DATA, the "Missing skill"
-// warning, and the distinct priorities in descending order) and NpcSkillTemplateEntry.java:37-108,160-200.
+// warning, and the distinct priorities in descending order) and NpcSkillTemplateEntry.java:37-108,160-200. The accessor cases added by E-02
+// follow NpcSkillList.java:53-114 (isEmpty, getRandomSkill, getSkillOnPosition, getPostSpawnSkills, getSkillsByPriority, getChainSkills) and
+// NpcSkillEntry.java:31-37 (setLastTimeUsed); getPostSpawnSkills is the AION_PARTIAL of m5b-plan.md D3.
 
 #include <gtest/gtest.h>
 
@@ -10,11 +13,16 @@
 
 #include <cstdint>
 #include <memory>
+#include <set>
 #include <sstream>
 #include <string>
+#include <string_view>
 #include <utility>
+#include <vector>
 
 #include "aion/commons/logging/LoggerFactory.h"
+#include "aion/commons/utils/Rnd.h"
+#include "aion/commons/utils/TimeUtils.h"
 #include "aion/gameserver/controllers/NpcController.h"
 #include "aion/gameserver/dataholders/DataManager.h"
 #include "aion/gameserver/dataholders/NpcSkillData.bind.h"
@@ -34,6 +42,7 @@
 #include "aion/gameserver/model/templates/spawns/SpawnGroup.h"
 #include "aion/gameserver/model/templates/spawns/SpawnTemplate.h"
 #include "aion/gameserver/runtime/base/TaskInfo.h"
+#include "aion/gameserver/runtime/base/Unported.h"
 #include "aion/gameserver/runtime/collections/Rc.h"
 #include "aion/gameserver/runtime/fields/Array.h"
 #include "aion/gameserver/runtime/lifetime/Reclaimer.h"
@@ -49,6 +58,17 @@ namespace {
 
 using runtime::Ptr;
 using runtime::Ref;
+
+/** The hit count of one AION_PARTIAL site, found by the reason its macro carries (runtime/base/Unported.h) */
+uint64_t partialHitsFor(std::string_view reason) {
+	for (const runtime::PartialHit& hit : runtime::partialHits()) {
+		if (hit.reason == reason)
+			return hit.hits;
+	}
+	return 0;
+}
+
+constexpr std::string_view POST_SPAWN_PARTIAL = "post-spawn npc skills are not cast yet (M5b-2)";
 
 /** Captures one logger's output (the "Missing skill" warning of NpcSkillList) */
 class LogCapture {
@@ -108,6 +128,16 @@ protected:
 			R"( is_post_spawn="true" next_skill_time="2000" next_chain_id="9" chain_id="4"/>)"
 			R"(<npc_skill id="99" lv="1" prob="25" prio="5"/>)"
 			R"(<npc_skill id="3" lv="1" prob="100" prio="3"/>)"
+			R"(</npc_skills>)"
+			// 700004 (E-02): a chain head (next_chain_id 7) and two chain members (chain_id 7), over two priorities
+			R"(<npc_skills npc_ids="700004">)"
+			R"(<npc_skill id="1" lv="1" prob="100" prio="5" next_chain_id="7"/>)"
+			R"(<npc_skill id="2" lv="1" prob="100" prio="5" chain_id="7"/>)"
+			R"(<npc_skill id="3" lv="1" prob="100" prio="2" chain_id="7"/>)"
+			R"(</npc_skills>)"
+			// 700005 (E-02): exactly one skill, and it is a post-spawn one (D3)
+			R"(<npc_skills npc_ids="700005">)"
+			R"(<npc_skill id="1" lv="1" prob="100" prio="1" is_post_spawn="true"/>)"
 			R"(</npc_skills>)"
 			R"(</npc_skill_templates>)"));
 	}
@@ -223,6 +253,139 @@ TEST_F(NpcSkillListTest, NpcWithoutSkillTemplatesGetsAnEmptyList) {
 	ASSERT_TRUE(skillList->getNpcSkills());
 	EXPECT_EQ(skillList->getNpcSkills()->size(), 0) << "Java: Collections.emptyList()";
 	EXPECT_FALSE(skillList->getPriorities()) << "Java leaves the priorities array null";
+}
+
+// ---------------------------------------------------------------------------------------------------------------------------------------
+// E-02 (m5b-plan.md §4): the accessors SimpleAttackManager and GeneralNpcAI.chooseAttackIntention call.
+// ---------------------------------------------------------------------------------------------------------------------------------------
+
+TEST_F(NpcSkillListTest, IsEmptyFollowsTheSkillList) {
+	runtime::TaskScope scope(AION_TASK_INFO(runtime::TaskKind::TEST));
+	Ref<templates::spawns::SpawnGroup> withSkills;
+	Ref<templates::spawns::SpawnGroup> withoutSkills;
+	Ref<gameobjects::Npc> skilled = spawnNpc(700002, withSkills);
+	Ref<gameobjects::Npc> plain = spawnNpc(700003, withoutSkills);
+
+	// Java: return skills.isEmpty() (NpcSkillList.java:53-55)
+	EXPECT_FALSE(skilled->getSkillList()->isEmpty());
+	EXPECT_TRUE(plain->getSkillList()->isEmpty()) << "no npc_skills row: Collections.emptyList()";
+}
+
+TEST_F(NpcSkillListTest, GetRandomSkillDrawsFromTheListAndIsNullWhenEmpty) {
+	runtime::TaskScope scope(AION_TASK_INFO(runtime::TaskKind::TEST));
+	commons::utils::Rnd::seedCurrentThreadForTests(20260922);
+	Ref<templates::spawns::SpawnGroup> threeGroup;
+	Ref<templates::spawns::SpawnGroup> oneGroup;
+	Ref<templates::spawns::SpawnGroup> emptyGroup;
+	Ref<gameobjects::Npc> three = spawnNpc(700002, threeGroup);
+	Ref<gameobjects::Npc> one = spawnNpc(700005, oneGroup);
+	Ref<gameobjects::Npc> none = spawnNpc(700003, emptyGroup);
+
+	// Java: Rnd.get(skills) -> null for an empty list (Rnd.java:50-52)
+	EXPECT_FALSE(none->getSkillList()->getRandomSkill());
+
+	// a one-element list always answers that element (Java takes it without drawing)
+	Ptr<NpcSkillEntry> only = one->getSkillList()->getNpcSkills()->get(0);
+	for (int32_t i = 0; i < 20; ++i)
+		EXPECT_EQ(one->getSkillList()->getRandomSkill().get(), only.get());
+
+	// a three-element list answers only its own entries, and over enough draws every one of them
+	std::set<int32_t> drawn;
+	for (int32_t i = 0; i < 300; ++i) {
+		Ptr<NpcSkillEntry> skill = three->getSkillList()->getRandomSkill();
+		ASSERT_TRUE(skill) << "the list is not empty";
+		EXPECT_TRUE(skill->getSkillId() == 1 || skill->getSkillId() == 2 || skill->getSkillId() == 3) << "id " << skill->getSkillId();
+		drawn.insert(skill->getSkillId());
+	}
+	EXPECT_EQ(drawn, (std::set<int32_t>{1, 2, 3})) << "every entry can be drawn";
+}
+
+TEST_F(NpcSkillListTest, GetSkillOnPositionClampsAndAnswersNullWhenEmpty) {
+	runtime::TaskScope scope(AION_TASK_INFO(runtime::TaskKind::TEST));
+	Ref<templates::spawns::SpawnGroup> group;
+	Ref<templates::spawns::SpawnGroup> emptyGroup;
+	Ref<gameobjects::Npc> npc = spawnNpc(700002, group);
+	Ref<gameobjects::Npc> none = spawnNpc(700003, emptyGroup);
+	Ptr<NpcSkillList> skillList = npc->getSkillList();
+
+	// Java: null for an empty list, otherwise the position clamped to size - 1 (NpcSkillList.java:61-68)
+	EXPECT_FALSE(none->getSkillList()->getSkillOnPosition(0));
+	EXPECT_FALSE(none->getSkillList()->getSkillOnPosition(7));
+	ASSERT_TRUE(skillList->getSkillOnPosition(0));
+	EXPECT_EQ(skillList->getSkillOnPosition(0)->getSkillId(), 1);
+	EXPECT_EQ(skillList->getSkillOnPosition(1)->getSkillId(), 2);
+	EXPECT_EQ(skillList->getSkillOnPosition(2)->getSkillId(), 3);
+	EXPECT_EQ(skillList->getSkillOnPosition(3)->getSkillId(), 3) << "clamped to the last entry";
+	EXPECT_EQ(skillList->getSkillOnPosition(99)->getSkillId(), 3) << "clamped to the last entry";
+}
+
+TEST_F(NpcSkillListTest, PostSpawnSkillsAreThePartialThatReturnsAnEmptyList) {
+	runtime::TaskScope scope(AION_TASK_INFO(runtime::TaskKind::TEST));
+	Ref<templates::spawns::SpawnGroup> group;
+	Ref<gameobjects::Npc> npc = spawnNpc(700005, group);
+	// the npc really has a post-spawn skill, so Java's filter would answer one entry (NpcSkillList.java:70-76)
+	ASSERT_EQ(npc->getSkillList()->getNpcSkills()->size(), 1);
+	ASSERT_TRUE(npc->getSkillList()->getNpcSkills()->get(0)->hasPostSpawnCondition());
+
+	// m5b-plan.md D3 / docs/deviations/P5-02.md: an AION_PARTIAL that returns empty, because SkillEngine::getSkill is unported until M5b-2
+	uint64_t before = partialHitsFor(POST_SPAWN_PARTIAL);
+	EXPECT_TRUE(npc->getSkillList()->getPostSpawnSkills().empty());
+	EXPECT_EQ(partialHitsFor(POST_SPAWN_PARTIAL), before + 1) << "the site is marked, so the gate's allow-list sees it";
+	EXPECT_TRUE(npc->getSkillList()->getPostSpawnSkills().empty());
+	EXPECT_EQ(partialHitsFor(POST_SPAWN_PARTIAL), before + 2) << "one hit per call";
+}
+
+TEST_F(NpcSkillListTest, SkillsByPriorityAndChainSkillsFilterTheList) {
+	runtime::TaskScope scope(AION_TASK_INFO(runtime::TaskKind::TEST));
+	Ref<templates::spawns::SpawnGroup> group;
+	Ref<templates::spawns::SpawnGroup> emptyGroup;
+	Ref<gameobjects::Npc> npc = spawnNpc(700004, group);
+	Ref<gameobjects::Npc> none = spawnNpc(700003, emptyGroup);
+	Ptr<NpcSkillList> skillList = npc->getSkillList();
+
+	const auto ids = [](const std::vector<Ptr<NpcSkillEntry>>& entries) {
+		std::vector<int32_t> result;
+		for (const Ptr<NpcSkillEntry>& entry : entries)
+			result.push_back(entry->getSkillId());
+		return result;
+	};
+
+	// Java: the entries whose getPriority() equals the argument, in list order (NpcSkillList.java:82-94)
+	EXPECT_EQ(ids(skillList->getSkillsByPriority(5)), (std::vector<int32_t>{1, 2}));
+	EXPECT_EQ(ids(skillList->getSkillsByPriority(2)), (std::vector<int32_t>{3}));
+	EXPECT_TRUE(skillList->getSkillsByPriority(9).empty()) << "no entry has priority 9";
+	EXPECT_TRUE(none->getSkillList()->getSkillsByPriority(0).empty()) << "Java: Collections.emptyList() for an empty skill list";
+
+	Ptr<runtime::RcArrayList<Ref<NpcSkillEntry>>> skills = skillList->getNpcSkills();
+	ASSERT_EQ(skills->size(), 3);
+	Ptr<NpcSkillEntry> head = skills->get(0);   // next_chain_id 7
+	Ptr<NpcSkillEntry> member = skills->get(1); // chain_id 7, next_chain_id 0
+	ASSERT_EQ(head->getNextChainId(), 7);
+	ASSERT_EQ(member->getNextChainId(), 0);
+
+	// Java: the entries whose getChainId() equals curSkill.getNextChainId(), and only when that id is > 0 (NpcSkillList.java:100-114)
+	EXPECT_EQ(ids(skillList->getChainSkills(*head)), (std::vector<int32_t>{2, 3}));
+	EXPECT_TRUE(skillList->getChainSkills(*member).empty()) << "next chain id 0 is not a chain, although every entry's chain id defaults to 0";
+	EXPECT_TRUE(none->getSkillList()->getChainSkills(*head).empty()) << "Java: Collections.emptyList() for an empty skill list";
+}
+
+TEST_F(NpcSkillListTest, SetLastTimeUsedStartsTheCooldown) {
+	runtime::TaskScope scope(AION_TASK_INFO(runtime::TaskKind::TEST));
+	Ref<templates::spawns::SpawnGroup> group;
+	Ref<gameobjects::Npc> npc = spawnNpc(700002, group);
+	Ptr<NpcSkillEntry> ranged = npc->getSkillList()->getNpcSkills()->get(1); // id 2, cd 4000
+
+	// a fresh entry has never been used, so the elapsed time is the whole epoch and NpcSkillTemplateEntry::hasCooldown is false
+	ASSERT_EQ(ranged->getLastTimeUsed(), 0);
+	ASSERT_FALSE(ranged->hasCooldown());
+
+	// Java: this.lastTimeUsed = System.currentTimeMillis() (NpcSkillEntry.java:35-37)
+	int64_t before = commons::utils::currentTimeMillis();
+	ranged->setLastTimeUsed();
+	int64_t after = commons::utils::currentTimeMillis();
+	EXPECT_GE(ranged->getLastTimeUsed(), before);
+	EXPECT_LE(ranged->getLastTimeUsed(), after);
+	EXPECT_TRUE(ranged->hasCooldown()) << "cd 4000 has just started";
 }
 
 } // namespace

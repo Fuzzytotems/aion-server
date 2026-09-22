@@ -7,6 +7,7 @@
 #include "aion/gameserver/ai/AbstractAI.h"
 #include "aion/gameserver/ai/NpcAI.h"
 #include "aion/gameserver/ai/event/AIEventType.h"
+#include "aion/gameserver/ai/handler/ShoutEventHandler.h"
 #include "aion/gameserver/ai/poll/AIQuestion.h"
 #include "aion/gameserver/controllers/ControllerStandIns.h"
 #include "aion/gameserver/controllers/ControllerSupport.h"
@@ -56,6 +57,7 @@
 #include "aion/gameserver/utils/PacketSendUtility.h"
 #include "aion/gameserver/utils/PositionUtil.h"
 #include "aion/gameserver/utils/ThreadPoolManager.h"
+#include "aion/gameserver/utils/stats/StatFunctions.h"
 #include "aion/gameserver/world/World.h"
 #include "aion/gameserver/world/WorldMapInstance.h"
 #include "aion/gameserver/world/WorldPosition.h"
@@ -67,6 +69,7 @@ namespace aion::gameserver::controllers {
 static const auto log = commons::logging::LoggerFactory::getLogger("com.aionemu.gameserver.controllers.NpcController");
 
 using ai::event::AIEventType;
+using ai::handler::ShoutEventHandler;
 using ai::poll::AIQuestion;
 using model::gameobjects::AionObject;
 using model::gameobjects::Creature;
@@ -79,6 +82,7 @@ using runtime::Ptr;
 using runtime::Ref;
 using utils::PacketSendUtility;
 using utils::PositionUtil;
+using utils::stats::StatFunctions;
 
 NpcController::NpcController() = default;
 
@@ -244,8 +248,8 @@ void NpcController::doReward() {
 		} else if (Ptr<Player> player = runtime::as<Player>(attacker)) {
 			if (!player->isDead()) {
 				// Reward init
-				int64_t rewardXp = standins::statFunctionsCalculateExperienceReward(player->getLevel(), getOwner());
-				int32_t rewardDp = standins::statFunctionsCalculateDPReward(*player, getOwner());
+				int64_t rewardXp = StatFunctions::calculateExperienceReward(player->getLevel(), getOwner());
+				int32_t rewardDp = StatFunctions::calculateDPReward(*player, getOwner());
 				float rewardAp = 1;
 
 				// Dmg percent correction
@@ -263,7 +267,7 @@ void NpcController::doReward() {
 				player->getCommonData()->addExp(rewardXp, model::gameobjects::player::Rates::XP_HUNTING, getOwner().getObjectTemplate()->getL10n());
 				player->getCommonData()->addDp(rewardDp);
 				if (getOwner().getAi().ask(AIQuestion::REWARD_AP)) {
-					int32_t calculatedAp = standins::statFunctionsCalculatePvEApGained(*player, getOwner());
+					int32_t calculatedAp = StatFunctions::calculatePvEApGained(*player, getOwner());
 					rewardAp *= static_cast<float>(calculatedAp);
 					if (rewardAp >= 1) {
 						services::abyss::AbyssPointsService::addAp(*player, getOwner(), detail::toInt(rewardAp));
@@ -334,7 +338,7 @@ void NpcController::onAttack(model::gameobjects::Creature& attacker, runtime::Pt
 	CreatureController::onAttack(*actingCreature, effect, type, damage, notifyAttack, logId, attackStatus, hopType);
 
 	Npc& npc = getOwner();
-	standins::shoutEventHandlerOnEnemyAttack(*runtime::cast<ai::NpcAI>(npc.getAi()), attacker);
+	ShoutEventHandler::onEnemyAttack(*runtime::cast<ai::NpcAI>(npc.getAi()), attacker);
 	if (Ptr<Player> player = runtime::as<Player>(actingCreature)) {
 		Ref<questEngine::model::QuestEnv> env = questEngine::model::QuestEnv::create(npc, *player, 0);
 		questEngine::QuestEngine::getInstance().onAttack(*env);

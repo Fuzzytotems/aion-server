@@ -105,8 +105,23 @@ runtime::Ptr<ahserion::PanesterraTeam> PanesterraService::getTeam(model::gameobj
 	AION_UNPORTED();
 }
 
+// Java PanesterraService.java:297-307
+//
+// Ported for m5b-plan.md C-03: PlayerReviveService::bindRevive calls this unconditionally for every character that is neither in prison nor in
+// EVENT_MODE (PlayerReviveService.java:124), which is the M5b-1 gate's death case on Poeta. Java's first statement answers false for every map
+// outside Panesterra, so the whole body below is dead on that path - but it has to *return* false there rather than throw.
+// getTeam(Player&) stays AION_UNPORTED: it can only be reached on a Panesterra map, activeFactionTeams is filled by createTeams alone (itself
+// unported), and the M5b-1 scripted path and real-client checklist never enter Belus, Aspida, Atanatos, Disillon or the Transidium Annex.
 bool PanesterraService::teleportToStartPosition(model::gameobjects::player::Player& player) {
-	AION_UNPORTED();
+	if (!world::isPanesterraMap(player.getWorldId()))
+		return false;
+
+	runtime::Ptr<ahserion::PanesterraTeam> team = getTeam(player);
+	if (team && !team->isEliminated()) {
+		team->movePlayerToStartPosition(player);
+		return true;
+	}
+	return false;
 }
 
 bool PanesterraService::reviveInEventLocation(model::gameobjects::player::Player& player) {

@@ -190,4 +190,55 @@ std::vector<uint8_t> GameSession::buildCM_SUBZONE_CHANGE(uint8_t unk) {
 	return PacketWriter().C(unk).data;
 }
 
+std::vector<uint8_t> GameSession::buildCM_TARGET_SELECT(int32_t targetObjectId, bool selectTargetOfTarget) {
+	return PacketWriter().D(targetObjectId).C(selectTargetOfTarget ? 1 : 0).data;
+}
+
+std::vector<uint8_t> GameSession::buildCM_ATTACK(int32_t targetObjectId, uint8_t attackNo, uint16_t time, uint8_t type) {
+	return PacketWriter().D(targetObjectId).C(attackNo).H(time).C(type).data;
+}
+
+std::vector<uint8_t> GameSession::buildCM_REVIVE(uint8_t reviveId) {
+	return PacketWriter().C(reviveId).data;
+}
+
+GameSession::FightOutcome GameSession::fightUntil(int32_t targetObjectId, std::chrono::milliseconds attackSpeed, const FightPredicate& done,
+	std::chrono::milliseconds timeout, int32_t maxAttacks, uint8_t attackType) {
+	FightOutcome outcome;
+	outcome.firstPacket = packets.size();
+	const auto start = std::chrono::steady_clock::now();
+	const auto deadline = start + timeout;
+	auto nextAttack = start; // the first attack goes out at once
+	for (;;) {
+		auto now = std::chrono::steady_clock::now();
+		if (now >= deadline)
+			break;
+		if (now >= nextAttack) {
+			if (outcome.attacksSent >= maxAttacks)
+				break; // the last attack has had its interval to be answered in
+			send(CM_ATTACK, buildCM_ATTACK(targetObjectId, static_cast<uint8_t>(outcome.attacksSent), 0, attackType));
+			outcome.attacksSent++;
+			now = std::chrono::steady_clock::now();
+			nextAttack = now + attackSpeed;
+		}
+		const auto until = nextAttack < deadline ? nextAttack : deadline;
+		if (now >= until)
+			continue;
+		std::optional<Packet> packet = next(std::chrono::duration_cast<std::chrono::milliseconds>(until - now));
+		if (!packet) {
+			if (client.socket.isClosed()) { // readPacket answers nothing for a timeout and for a closed connection alike
+				outcome.closed = true;
+				break;
+			}
+			continue; // nothing arrived before the next attack was due
+		}
+		if (done(*packet)) {
+			outcome.done = true;
+			break;
+		}
+	}
+	outcome.elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start);
+	return outcome;
+}
+
 } // namespace aion::gameserver::scenario

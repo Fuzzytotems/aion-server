@@ -154,7 +154,8 @@ python oracle.py m5a-creation --race ELYOS --class WARRIOR [--java-src game-serv
   npc id, x/y/z/h, template level, `spawned` (true, false, or null when a pool or an unknown part of the game clock decides), `deterministic`
   (spawned and not a walker) and the flags `pool`, `temporary`, `walker`, `randomWalk`, `handler`, `gatherable`, `flag`, `difficultId`;
   `flagNpcs` lists the FLAG npcs of the whole map (visible map-wide). Temporary spawns are evaluated for the given game time
-  (TemporarySpawn.isInSpawnTime; `--game-minutes` is the SM_GAME_TIME value).
+  (TemporarySpawn.isInSpawnTime; `--game-minutes` is the SM_GAME_TIME value). Each row also carries `staticId`, `spotAi` (the spot's `ai`
+  attribute, which overrides the template's - Creature.java:64-66) and `respawnTime` (the group's, in seconds), which `m5b-monster` reads.
 - `m5a-border-target`: the first target T (150 to 300 m in 10 m steps, 8 directions from east counter-clockwise, same z) inside the map where
   deterministic npcs appear (within 90 m of T, not within 100 m of the start) and disappear (within 90 m of the start, not within 100 m of T).
 - `m5a-creation`: spawn point, starting items with count caps, the equipped flag and the equipment slot mask, the level 1 autolearn skills
@@ -162,3 +163,39 @@ python oracle.py m5a-creation --race ELYOS --class WARRIOR [--java-src game-serv
 
 Tests: `tests/test_m5a.py` (rules on small trees, the game clock, temporary spawn times, the stat formulas, and the two scenario characters on
 the real data).
+
+## M5b scenario oracles (`m5b/`, `docs/design/m5b-plan.md` G-01)
+
+```
+python oracle.py m5b-monster --map 210010000 --npc-id 210663 [--player-level 1] [--race ELYOS] [--class WARRIOR] [--xp-solo-rate 1.0]
+                             [--java-src game-server/src] [--java-handlers game-server/data/handlers] [--game-hour H ...]
+```
+
+Everything the M5b gate needs to predict a fight against one npc id on one map, in one JSON document (`aion-m5b-monster`):
+
+- `template`: the NpcTemplate values of the monster - level, `maxHp`, rating, rank (and its ordinal), `srange`/`sangle`/`arange`,
+  `attack_speed`, race, tribe, `ai` and the `bound_radius` with its `maxOfFrontAndSide`, each with the JAXB field default of
+  `NpcTemplate.java` where the attribute is missing;
+- `spots`: **every** regular spawn spot of that id on the map, nearest first, with `staticId`, the spot's `ai` override, `respawnTime`,
+  `spawned`, `fixed` (not a pool, not a walker, not randomly walking) and the distance from the race's spawn point. `pinned` is `fixed` for
+  all of them, i.e. the `OracleSpot::isPinnedToFixedSpots()` condition the M5a gate's V2 needs, and **`nearestPlainSpot` is the spot the gate
+  takes**: the nearest one whose `staticId` is 0 (m5b-plan.md D11 - a static id changes `ask(IS_IMMUNE_TO_ABNORMAL_STATES)` and puts
+  `GeoService.spawn/despawnPlaceableObject` on the spawn and death paths);
+- `exp`: `ratingMultiplier`, `baseExp`, the map's `expMultiplier`, the `XPRewardEnum` percentage, `experienceReward`, `expNeed`, the
+  `Rates.XP_HUNTING` `cap` (`expNeed * 0.2f`) and `awarded` - the number `STR_GET_EXP` carries on the wire;
+- `ranges`: `attackRange` (`1 + attackRangeStat / 1000f` plus both bound radii, because `PositionUtil.isInAttackRange` passes
+  `centerToCenter = false`), `maxCoveredDistance` (100 ms of the player's movement speed) and `toleranceRange`, the band
+  `PlayerController.attackTarget` adds while the target does not hate the player yet;
+- `player`: the race, class and spawn point the distances and the weapon stats come from, the main hand weapon's attack range and attack
+  speed, the movement speed and the player bound radius.
+
+The values are computed for a **fresh** character, like `m5a-creation`: the starting gear and the unapplied passive skills add no
+`ATTACK_RANGE`, `ATTACK_SPEED`, `SPEED` or `BOOST_HUNTING_XP_RATE` modifier. The formula literals and enum tables (the `NpcRating`
+multipliers, the rank step, `NpcRank`, `XPRewardEnum`, `GeneralInstanceHandler.getExpMultiplier`, the player bound radius of
+`PlayerAccountData`, the run speed of `PlayerClass`, the attack range and attack speed bases of `PlayerGameStats`) are read from the Java
+sources, so a change there is a test failure and not a silently wrong expectation. Exit code 2 (`OracleError`) for what the oracle does not
+model: an instance map (its reward is multiplied by the instance's `maxPlayers`), a map with a registered `@InstanceID` handler (it may
+override `getExpMultiplier`), a template without a rating or rank (Java throws), a map whose `world_type` names no race (pass `--race`).
+
+Tests: `tests/test_m5b.py` (the float formulas alone, the Java literals as they stand today, the whole report on a small static_data tree,
+and npc 210663 on Poeta against a level 1 Elyos Warrior).

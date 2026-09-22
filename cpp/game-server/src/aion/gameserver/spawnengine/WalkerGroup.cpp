@@ -11,6 +11,7 @@
 #include "aion/gameserver/ai/AISubState.h"
 #include "aion/gameserver/ai/AbstractAI.h"
 #include "aion/gameserver/ai/NpcAI.h"
+#include "aion/gameserver/ai/manager/WalkManager.h"
 #include "aion/gameserver/controllers/movement/NpcMoveController.h"
 #include "aion/gameserver/geoEngine/math/JavaFloat.h"
 #include "aion/gameserver/model/gameobjects/Creature.h"
@@ -257,8 +258,9 @@ void WalkerGroup::targetReached(ai::NpcAI& npcAI) {
 				if (memberSteps->get(static_cast<int32_t>(i)) == groupStep.get() && !allArrived)
 					snpc->getNpc()->getMoveController()->abortMove();
 				else
-					// Java: WalkManager.targetReached((NpcAI) snpc.getNpc().getAi()) - ai/manager/WalkManager (P5-05) has no C++ header yet
-					AION_UNPORTED();
+					// Java WalkerGroup.java:218. The cast is Java's own; A-00's DummyNpcAI keeps the invariant it relies on for an npc whose AI
+					// handler is not registered (m5b-plan.md D15).
+					ai::manager::WalkManager::targetReached(*runtime::cast<ai::NpcAI>(snpc->getNpc()->getAi()));
 			}
 		}
 	}

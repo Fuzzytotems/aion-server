@@ -161,6 +161,12 @@ class Spot:
 	walker_id: str | None
 	random_walk: int
 	temporary: TemporarySpawn | None
+	# SpawnSpotTemplate.staticId (default 0): a spot with a static id makes Npc.hasStatic() true, which changes ask(IS_IMMUNE_TO_ABNORMAL_STATES),
+	# puts GeoService.spawn/despawnPlaceableObject on the spawn and death paths and adds a staticId argument to every canSee (m5b-plan.md D11).
+	static_id: int = 0
+	# SpawnSpotTemplate.ai: overrides the npc template's ai name for this spot; SpawnTemplate.NO_AI ("null") means "no ai at all"
+	# (SpawnTemplate.java:39, Creature.java:64-66)
+	ai: str | None = None
 
 
 @dataclass
@@ -171,6 +177,9 @@ class Group:
 	handler: str | None
 	temporary: TemporarySpawn | None
 	spots: list[Spot] = field(default_factory=list)
+	# Spawn.respawnTime in seconds, default 0 = no respawn (SpawnTemplate.isNoRespawn; RespawnService.scheduleRespawn schedules at
+	# getRespawnTime() * 1000 ms)
+	respawn_time: int = 0
 
 
 @dataclass(frozen=True)
@@ -203,12 +212,14 @@ def load_groups(data: StaticData, map_id: int) -> list[Group]:
 				customs.append(npc_id)
 			temporary = spawn.find("temporary_spawn")
 			group = Group(npc_id, java_int(spawn.get("pool"), f"spawn {npc_id} pool", 0), java_int(spawn.get("difficult_id"), f"spawn {npc_id}", 0),
-			              spawn.get("handler"), TemporarySpawn.parse(temporary) if temporary is not None else None)
+			              spawn.get("handler"), TemporarySpawn.parse(temporary) if temporary is not None else None,
+			              respawn_time=java_int(spawn.get("respawn_time"), f"spawn {npc_id} respawn_time", 0))
 			for spot in spawn.findall("spot"):
 				spot_temporary = spot.find("temporary_spawn")
 				group.spots.append(Spot(npc_id, parse_float(spot.get("x")), parse_float(spot.get("y")), parse_float(spot.get("z")),
 				                        _java_byte(spot.get("h"), npc_id), spot.get("walker_id"), java_int(spot.get("random_walk"), "random_walk", 0),
-				                        TemporarySpawn.parse(spot_temporary) if spot_temporary is not None else None))
+				                        TemporarySpawn.parse(spot_temporary) if spot_temporary is not None else None,
+				                        java_int(spot.get("static_id"), f"spot static_id of npc {npc_id}", 0), spot.get("ai")))
 			by_npc.setdefault(npc_id, []).append(group)
 	return [group for groups in by_npc.values() for group in groups]
 
@@ -254,6 +265,11 @@ def evaluate(groups: list[Group], npcs: dict[int, NpcInfo], clock: GameClock) ->
 				"level": template.level if template else None,
 				"spawned": spawned,
 				"deterministic": spawned is True and not walker,
+				# per spot, for the M5b monster oracle (m5b-plan.md D11 and G-01): the spot's static id, the spot's ai override
+				# (Creature.java:64-66) and the group's respawn time in seconds
+				"staticId": spot.static_id,
+				"spotAi": spot.ai,
+				"respawnTime": group.respawn_time,
 				"flags": {
 					"pool": pool,
 					"temporary": group.temporary is not None or spot.temporary is not None,

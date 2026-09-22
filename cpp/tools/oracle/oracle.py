@@ -11,6 +11,7 @@
 	oracle.py m5a-spawns --map ID --x X --y Y --z Z [--radius R] [--game-minutes M | --game-hour H ...] [--weekday DAY]
 	oracle.py m5a-border-target --map ID --x X --y Y --z Z [--game-minutes M | --game-hour H ...]
 	oracle.py m5a-creation --race ELYOS|ASMODIANS --class CLASS [--java-src DIR]   (m5a/ package, m5a-plan.md F-05)
+	oracle.py m5b-monster --map ID --npc-id ID [--player-level N] [--race R] [--class C] [--xp-solo-rate R]   (m5b/ package, m5b-plan.md G-01)
 """
 
 from __future__ import annotations
@@ -130,6 +131,18 @@ def cmd_m5a_creation(args):
 	return 0
 
 
+def cmd_m5b_monster(args):
+	from m5a.data import StaticData
+	from m5b.monster import monster_report
+	data_dir = _data_dir(args)
+	java_src = Path(args.java_src) if args.java_src else data_dir.parent.parent / "src"
+	handlers = Path(args.java_handlers) if args.java_handlers else None
+	report = monster_report(StaticData(data_dir), java_src, handlers, args.map, args.npc_id, args.player_level, _m5a_clock(args), args.race,
+	                        args.player_class, args.xp_solo_rate)
+	sys.stdout.write(runner.dump_json(report))
+	return 0
+
+
 def main(argv=None):
 	parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
 	sub = parser.add_subparsers(dest="command", required=True)
@@ -208,6 +221,21 @@ def main(argv=None):
 	p.add_argument("--race", required=True, choices=("ELYOS", "ASMODIANS"))
 	p.add_argument("--class", dest="player_class", required=True)
 	p.set_defaults(fn=cmd_m5a_creation)
+
+	p = sub.add_parser("m5b-monster", help="template, spawn spots, respawn time, experience reward and attack ranges of one npc (m5b-plan.md G-01)")
+	data_args(p, country=False)
+	p.add_argument("--java-src", help="game-server/src (default: two levels above the static data directory, then src)")
+	p.add_argument("--java-handlers", help="game-server/data/handlers (default: beside the static data directory), scanned for @InstanceID(map)")
+	p.add_argument("--map", type=int, required=True)
+	p.add_argument("--npc-id", type=int, required=True, dest="npc_id")
+	p.add_argument("--player-level", type=int, default=1, dest="player_level", help="the level of the character that gets the kill (default 1)")
+	p.add_argument("--race", choices=("ELYOS", "ASMODIANS"), help="whose spawn point the spot distances are measured from (default: the map's "
+	                                                              "world_type)")
+	p.add_argument("--class", dest="player_class", default="WARRIOR", help="the attacking character's class (default WARRIOR)")
+	p.add_argument("--xp-solo-rate", type=float, default=1.0, dest="xp_solo_rate",
+	               help="RatesConfig.XP_SOLO_RATES[0], i.e. gameserver.rates.xp.solo (default 1.0, the M5b gate profile)")
+	clock_args(p)
+	p.set_defaults(fn=cmd_m5b_monster)
 
 	args = parser.parse_args(argv)
 	try:

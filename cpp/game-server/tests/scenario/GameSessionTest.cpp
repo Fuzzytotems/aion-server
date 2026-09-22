@@ -126,6 +126,35 @@ TEST(GameSessionTest, MoveLayouts) {
 	EXPECT_EQ(GameSession::buildCM_MOVE(1.0f, 2.0f, 3.0f, 0, 0).size(), 14u); // stop move: position, heading, type
 }
 
+TEST(GameSessionTest, FightBodies) {
+	// the opcodes of AionClientPacketFactory: packets[5] CM_REVIVE, packets[31] CM_TARGET_SELECT, packets[32] CM_ATTACK
+	EXPECT_EQ(GameSession::CM_REVIVE, 5);
+	EXPECT_EQ(GameSession::CM_TARGET_SELECT, 31);
+	EXPECT_EQ(GameSession::CM_ATTACK, 32);
+
+	// CM_TARGET_SELECT.readImpl: readD targetObjectId, readC selectTargetOfTarget
+	PacketReader target(GameSession::buildCM_TARGET_SELECT(0x01020304, true));
+	EXPECT_EQ(target.D(), 0x01020304);
+	EXPECT_EQ(target.C(), 1);
+	EXPECT_EQ(target.remaining(), 0u);
+	EXPECT_EQ(GameSession::buildCM_TARGET_SELECT(0), (std::vector<uint8_t>{0, 0, 0, 0, 0})); // the unselect the gate sends
+
+	// CM_ATTACK.readImpl: readD targetObjectId, readUC attackno, readUH time, readUC type
+	PacketReader attack(GameSession::buildCM_ATTACK(0x0A0B0C0D, 7, 0x1234, 5));
+	EXPECT_EQ(attack.D(), 0x0A0B0C0D);
+	EXPECT_EQ(attack.C(), 7);
+	EXPECT_EQ(static_cast<uint16_t>(attack.H()), 0x1234);
+	EXPECT_EQ(attack.C(), 5);
+	EXPECT_EQ(attack.remaining(), 0u);
+	EXPECT_EQ(GameSession::buildCM_ATTACK(1), (std::vector<uint8_t>{1, 0, 0, 0, 0, 0, 0, 0})) << "the defaults are attackno 0, time 0, type 0";
+
+	// CM_REVIVE.readImpl: readUC reviveId, one of the ReviveType ids
+	EXPECT_EQ(GameSession::buildCM_REVIVE(), (std::vector<uint8_t>{0}));
+	EXPECT_EQ(GameSession::BIND_REVIVE, 0);
+	EXPECT_EQ(GameSession::buildCM_REVIVE(GameSession::INSTANCE_REVIVE), (std::vector<uint8_t>{6}));
+	EXPECT_EQ(GameSession::buildCM_REVIVE(GameSession::OBELISK_REVIVE), (std::vector<uint8_t>{8}));
+}
+
 TEST(GameSessionTest, ServerPacketNames) {
 	EXPECT_EQ(GameSession::nameOf(0), "SM_VERSION_CHECK");
 	EXPECT_EQ(GameSession::nameOf(14), "SM_NPC_INFO");

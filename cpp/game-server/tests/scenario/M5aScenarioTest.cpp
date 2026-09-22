@@ -31,6 +31,7 @@
 #include <memory>
 #include <optional>
 #include <set>
+#include <span>
 #include <sstream>
 #include <stdexcept>
 #include <string>
@@ -138,13 +139,37 @@ bool visibilityAcceptsNpc(const OracleSpawns& spawns, int32_t npcId) {
 	return false;
 }
 
-/** V3 / V5: the spots whose object stands at a known position within 90 m */
+/**
+ * V3 / V5: the spots whose object stands at a known position within 90 m.
+ *
+ * **A `randomWalk` spot stays in here after m5b-plan.md D2 registered the three root AI handlers**, and that was measured rather than assumed
+ * (item G-05, 2026-09-22). The obvious worry is that it should not: `ThinkEventHandler::thinkIdle` sends every npc whose spot carries a
+ * `random_walk` range into `WalkManager::startRandomWalking` when the character's map region goes active, and `chooseNextRandomPoint` then
+ * moves it every 3 to 15 s (`AIConfig` MINIMIMUM_DELAY / MAXIMUM_DELAY). On the Elyos start map exactly one of these twenty spots is such a
+ * spot, npc 210115 at 86.8 m - the id V2 already names as having fixed, walker and randomWalk spots at once. But the npc standing on it is
+ * still there when the level-ready burst goes out, both with the shipped delays and with `gameserver.npcmovement.delay.{minimum,maximum}`
+ * forced to 0, so **nothing here had to be widened**. What does move inside that burst is a *path* walker of the same id (object 25951 sent
+ * SM_EMOTION(WALK) and four SM_MOVE while the burst was being collected), and walker spots are the ones the oracle already excludes.
+ *
+ * If this ever goes flaky, the answer is to move the randomWalk spots into a second loop that matches them **by id alone** - the npc must
+ * still be announced, its level and HP% are still compared (V2) and V1 still holds it to a spot of its id inside the visibility radius - and
+ * not to widen `onSpot`'s 1 cm. Do not make that change without a run that shows the npc off its spot.
+ */
 std::vector<const OracleSpot*> deterministicSpotsWithin90m(const OracleSpawns& spawns) {
 	std::vector<const OracleSpot*> spots;
 	for (const OracleSpot& spot : spawns.spots)
 		if (spot.spawned && spot.deterministic && !spot.pool && !spot.walker && !spot.gatherable && spot.distance <= 90.0)
 			spots.push_back(&spot);
 	return spots;
+}
+
+/** how many of the spots above are spots whose npc the AI handlers may move at all, for the count line V3 prints */
+size_t randomWalkSpotCount(const std::vector<const OracleSpot*>& spots) {
+	size_t count = 0;
+	for (const OracleSpot* spot : spots)
+		if (spot->randomWalk)
+			count++;
+	return count;
 }
 
 /** V4: the same for the gather spots, which V3 excludes (the completeness half of V4) */
@@ -413,6 +438,16 @@ std::optional<decoders::PlayerInfo> expectPlayerInfo(const std::vector<Packet>& 
  *
  * Each npc is counted into exactly one bucket and the buckets are printed, so a run can be read afterwards: an assertion that silently covers
  * nothing shows up as a bucket of zero.
+ *
+ * Since m5b-plan.md D2 registered `general`, `aggressive` and `noaction`, the npcs of this burst really do move, and the rule above is what
+ * decides what that costs. It costs the **position** of an id the oracle does not pin, and nothing else:
+ *  - an id the oracle knows only as fixed spots is compared exactly as before, to the 1 cm of onSpot(), and standing anywhere else is still a
+ *    failure. Registering an AI does not make such an npc move: ThinkEventHandler::thinkIdle walks only an npc whose spot has a walker id or
+ *    a random-walk range (Npc::isWalker), and for the rest it does nothing but restore the spawn heading, which is the heading V2 compares.
+ *  - an id with a pool, walker or randomWalk spot is checked for its **level**, its **HP% of 100** and the **exact framing of its body**, all
+ *    of which hold wherever it stands, plus V1's "the oracle has a spot of this id inside the visibility radius" and V3's "it was announced".
+ *    A walker that arrives on one of its route's spots is still compared to that spot's heading through `matchIsFixed`.
+ * So no tolerance was widened: the only assertion the walking costs is "npc 210115 stands on its randomWalk spot", and V3 keeps the rest of it.
  */
 void checkVisibility(const std::vector<Packet>& burst, const OracleSpawns& spawns, std::string_view label) {
 	std::vector<decoders::NpcInfo> npcs;
@@ -499,6 +534,11 @@ void checkVisibility(const std::vector<Packet>& burst, const OracleSpawns& spawn
 		EXPECT_TRUE(found) << label << " V3: no SM_NPC_INFO for the deterministic spot of npc " << spot->npcId << " at " << positionOf(*spot) << ", "
 		                   << spot->distance << " m away";
 	}
+
+	// what V3 just covered, so that a run can be read afterwards and so that the one spot the AI handlers could move is visible as a number
+	// rather than as an assumption (deterministicSpotsWithin90m says why it is still checked by position)
+	std::cout << label << ": " << expected.size() << " deterministic spots within 90 m checked by id and position, "
+	          << randomWalkSpotCount(expected) << " of them randomWalk spots" << std::endl;
 
 	// V4: the gatherable ids are a subset of the gather spots within 100 m, AND every deterministic gather spot within 90 m is among them.
 	// The completeness half mirrors V3 and is what makes V4 fail on a world without gatherables: a subset assertion alone is satisfied by
@@ -611,6 +651,183 @@ private:
 };
 
 // ---- packet stream helpers --------------------------------------------------------------------------------------------------------------
+
+/**
+ * The object ids the server announced as npcs, for the npc half of the async-allowed set (§5.9, m5b-plan.md D2 and G-05). "An npc" means
+ * exactly "an object this connection was sent an SM_NPC_INFO for", decoded with the independent decoder: an SM_MOVE of the character itself,
+ * of another player or of an object the server never announced is therefore not async and breaks the sequence at its position.
+ *
+ * It reads the session's own recording, incrementally, so it costs one pass over the packets whatever the async set asks it. The order it
+ * relies on is the server's: an npc is announced before it can move, because a walker broadcasts only to the players that know it and a
+ * player knows it by having been sent its SM_NPC_INFO first, on this same connection.
+ */
+class AnnouncedNpcs {
+public:
+	/**
+	 * The connection whose SM_NPC_INFO announce the npcs, or nullptr while there is none. A GameSession of this gate does not outlive its
+	 * AsyncAllowed (case 6 destroys A's session and logs in again), and the predicate must never read a destroyed one: detaching answers "no
+	 * npc is announced", which is what a connection that has not entered the world yet is.
+	 */
+	void follow(const GameSession* next) {
+		session = next;
+		scanned = 0;
+		ids.clear();
+	}
+
+	bool contains(int32_t objectId) {
+		scan();
+		return ids.contains(objectId);
+	}
+
+	/** the predicate AsyncAllowed::npcActivity takes; `this` must outlive the AsyncAllowed it is given to */
+	std::function<bool(int32_t)> predicate() {
+		return [this](int32_t objectId) { return contains(objectId); };
+	}
+
+	/** "npc <template id> (object <id>)" for a diagnostic, or what the object is when no SM_NPC_INFO announced it */
+	std::string describe(int32_t objectId) {
+		scan();
+		const auto found = ids.find(objectId);
+		if (found == ids.end())
+			return "object " + std::to_string(objectId) + " (NOT an announced npc)";
+		return "npc " + std::to_string(found->second) + " (object " + std::to_string(objectId) + ")";
+	}
+
+	size_t size() {
+		scan();
+		return ids.size();
+	}
+
+private:
+	void scan() {
+		if (session == nullptr)
+			return;
+		const std::vector<Packet>& packets = session->recorded();
+		for (; scanned < packets.size(); scanned++) {
+			if (packets[scanned].name != "SM_NPC_INFO")
+				continue;
+			try {
+				// the whole body, so that a diagnostic can name the npc template and not only its object id; the object id alone if the rest of
+				// the body does not decode, which is a failure of V2 ("the body decodes exactly") that checkVisibility makes, not this one
+				const decoders::NpcInfo npc = decoders::decodeNpcInfo(packets[scanned].data);
+				ids.emplace(npc.objectId, npc.templateId);
+			} catch (const DecodeError&) {
+				try {
+					ids.emplace(decoders::decodeNpcInfoObjectId(packets[scanned].data), 0);
+				} catch (const DecodeError&) {
+					// the packet announced no id at all, so nothing of that object is async
+				}
+			}
+		}
+	}
+
+	const GameSession* session = nullptr;
+	size_t scanned = 0;
+	/** object id -> npc template id */
+	std::map<int32_t, int32_t> ids;
+};
+
+/**
+ * §5.8's burst window, re-measured for m5b-plan.md D2 and G-05.
+ *
+ * Until the three root AI handlers were registered a burst was everything that arrived until `quiet` passed with **no packet at all**
+ * (GameSession::collectUntilQuiet), and that was a property of the scripted answer: a measured enter-world burst took about 70 ms and the
+ * 1 s gap after it was empty. With the handlers registered it is not. Every npc of the character's map region thinks as soon as the region
+ * goes active, the path walkers among them leave their spots immediately, and they keep broadcasting SM_MOVE and the walk emotes of
+ * EmoteManager for as long as the character is in the world. "No packet for 1 s" then says how busy the neighbourhood happens to be, not
+ * whether the server finished answering: the measured level-ready burst of this gate ends with 4 SM_EMOTION and 28 SM_MOVE of walkers, and a
+ * slower machine can push the next walk start into the gap and stretch the burst towards BURST_LIMIT.
+ *
+ * So the window is measured from the last packet the sequence still has to explain: the burst ends `quiet` after the last packet that
+ * `async` does NOT allow. **Nothing is dropped and no assertion is relaxed** - every packet that arrives inside the window is read, recorded
+ * and returned, the async ones included, so expectSequence and checkVisibility see exactly what collectUntilQuiet gave them. What changes is
+ * only which silence counts as the end of the answer.
+ */
+std::vector<Packet> collectBurst(GameSession& session, const AsyncAllowed& async, std::chrono::milliseconds quiet = QUIET,
+	std::chrono::milliseconds limit = BURST_LIMIT) {
+	std::vector<Packet> collected;
+	const auto start = std::chrono::steady_clock::now();
+	const auto deadline = start + limit;
+	auto lastAwaited = start;
+	for (;;) {
+		const auto now = std::chrono::steady_clock::now();
+		if (now >= deadline)
+			break;
+		const auto quietLeft = std::chrono::duration_cast<std::chrono::milliseconds>(lastAwaited + quiet - now);
+		if (quietLeft <= 0ms)
+			break;
+		std::optional<Packet> packet = session.next(std::min(quietLeft, std::chrono::duration_cast<std::chrono::milliseconds>(deadline - now)));
+		if (!packet)
+			break; // nothing at all arrived for the rest of the quiet period: the old rule, and the only one that ends an idle connection
+		if (!async.allows(packet->name, std::span<const uint8_t>(packet->data)))
+			lastAwaited = std::chrono::steady_clock::now();
+		collected.push_back(std::move(*packet));
+	}
+	return collected;
+}
+
+/**
+ * The npc packets §5.9 knows about. One that is NOT async is the interesting case for a post mortem, because it is what a §5.8 sequence
+ * failure will be about, so reportBurst names its creatures instead of leaving a bare packet name in the failure message.
+ */
+bool isNpcActivityPacket(std::string_view name) {
+	return name == "SM_MOVE" || name == "SM_EMOTION" || name == "SM_LOOKATOBJECT" || name == "SM_ATTACK" || name == "SM_ATTACK_STATUS";
+}
+
+/** who the creatures of one npc-activity packet are, for the diagnostic below */
+std::string describeNpcActivity(const Packet& packet, AnnouncedNpcs& announced) {
+	try {
+		if (packet.name == "SM_MOVE")
+			return announced.describe(decoders::decodeMoveObjectId(packet.data));
+		if (packet.name == "SM_EMOTION") {
+			const decoders::EmotionHeader emotion = decoders::decodeEmotionHeader(packet.data);
+			return announced.describe(emotion.objectId) + ", emotion type " + std::to_string(static_cast<int32_t>(emotion.emotionType)) +
+			       (decoders::isNpcEmote(emotion.emotionType) ? " (an EmoteManager emote)" : " (NOT an EmoteManager emote)");
+		}
+		if (packet.name == "SM_LOOKATOBJECT") {
+			const decoders::LookAtObject look = decoders::decodeLookAtObject(packet.data);
+			return announced.describe(look.objectId) + " looks at " +
+			       (look.targetObjectId == 0 ? "nothing" : announced.describe(look.targetObjectId));
+		}
+		if (packet.name == "SM_ATTACK") {
+			const decoders::AttackParties parties = decoders::decodeAttackParties(packet.data);
+			return announced.describe(parties.attackerObjectId) + " attacks " + announced.describe(parties.targetObjectId);
+		}
+		if (packet.name == "SM_ATTACK_STATUS")
+			return announced.describe(decoders::decodeAttackStatusObjectId(packet.data));
+	} catch (const DecodeError& error) {
+		return std::string("the body does not decode: ") + error.what();
+	}
+	return {};
+}
+
+/**
+ * What a burst was made of: the re-measurement G-05 asks for (how long the window is now and how much of it is npc activity rather than the
+ * §5.8 answer) and, for every npc packet the async set did NOT allow, which creatures it is about. That last list is what a §5.8 sequence
+ * failure of this wave needs: "SM_EMOTION at position 108" says nothing, "npc 211234 (object 1234), emotion type 18 (NOT an EmoteManager
+ * emote)" says which npc did what.
+ */
+void reportBurst(const std::vector<Packet>& burst, const AsyncAllowed& async, AnnouncedNpcs& announced, std::string_view label,
+	std::chrono::milliseconds took) {
+	size_t asyncPackets = 0;
+	std::map<std::string, size_t> asyncByName;
+	std::vector<std::string> notAsync;
+	for (const Packet& packet : burst) {
+		if (async.allows(packet.name, std::span<const uint8_t>(packet.data))) {
+			asyncPackets++;
+			asyncByName[packet.name]++;
+		} else if (isNpcActivityPacket(packet.name)) {
+			notAsync.push_back(std::string(packet.name) + ": " + describeNpcActivity(packet, announced));
+		}
+	}
+	std::cout << label << ": " << burst.size() << " packets in " << took.count() << " ms, " << (burst.size() - asyncPackets)
+	          << " of them awaited by the §5.8 sequence and " << asyncPackets << " async (§5.9)";
+	for (const auto& [name, count] : asyncByName)
+		std::cout << ", " << count << "x " << name;
+	std::cout << std::endl;
+	for (const std::string& line : notAsync)
+		std::cout << label << ": NOT async, so the §5.8 sequence has to explain it - " << line << std::endl;
+}
 
 /**
  * Reads the next server packet and fails unless it has that name. Packets of the async-allowed set are skipped (they are recorded and the
@@ -1083,6 +1300,9 @@ TEST(M5aScenario, Run) {
 	// Util.convertName normalises the case, so a digit or an underscore would be rejected with RESPONSE_INVALID_NAME.
 	ScenarioClient a;
 	ScenarioClient b;
+	/** the npcs A and B were told about, for the npc half of the async set (§5.9); each follows its own connection */
+	AnnouncedNpcs announcedNpcs;
+	AnnouncedNpcs announcedNpcsB;
 	a.account = "m5aa" + servers.gameSchema().substr(servers.gameSchema().size() - 8);
 	b.account = "m5ab" + servers.gameSchema().substr(servers.gameSchema().size() - 8);
 	a.characterName = "Scenariowarrior";
@@ -1246,11 +1466,18 @@ TEST(M5aScenario, Run) {
 	std::optional<decoders::StatsInfo> enterStats;
 	runCase("case 3", "enter world (A, first enter)", [&] {
 		async.selfPlayerState(a.playerId);
+		// m5b-plan.md D2/G-05: from the moment the character's map region goes active its npcs walk, so their SM_MOVE and walk emotes join the
+		// async set (§5.9). It is turned on here and not later because the region goes active on this CM_ENTER_WORLD.
+		announcedNpcs.follow(a.game.get());
+		async.npcActivity(announcedNpcs.predicate());
 		a.game->send(GameSession::CM_MAY_LOGIN_INTO_GAME, GameSession::buildCM_MAY_LOGIN_INTO_GAME());
 		expectNext(*a.game, "SM_MAY_LOGIN_INTO_GAME", async);
 		const size_t before = a.game->recorded().size();
+		const auto entered = std::chrono::steady_clock::now();
 		a.game->send(GameSession::CM_ENTER_WORLD, GameSession::buildCM_ENTER_WORLD(a.playerId));
-		enterBurst = a.game->collectUntilQuiet(QUIET, BURST_LIMIT);
+		enterBurst = collectBurst(*a.game, async);
+		reportBurst(enterBurst, async, announcedNpcs, "case 3 enter-world burst",
+			std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - entered));
 		ASSERT_FALSE(enterBurst.empty()) << "no packet after CM_ENTER_WORLD (recorded before: " << before << ")";
 
 		// §5.8 #13: PlayerEnterWorldService.sendItemInfos splits the kinah item plus every equipped and inventory item into parts of 10 and
@@ -1403,8 +1630,12 @@ TEST(M5aScenario, Run) {
 	std::vector<Packet> levelReadyBurst;
 	OracleSpawns spawns;
 	runCase("case 4", "level ready and NPC visibility", [&] {
+		const auto asked = std::chrono::steady_clock::now();
 		a.game->send(GameSession::CM_LEVEL_READY, GameSession::buildCM_LEVEL_READY());
-		levelReadyBurst = a.game->collectUntilQuiet(QUIET, BURST_LIMIT);
+		levelReadyBurst = collectBurst(*a.game, async);
+		// the re-measurement G-05 asks for: how long the window is now and how much of it is npc movement rather than the §5.8 answer
+		reportBurst(levelReadyBurst, async, announcedNpcs, "case 4 level-ready burst",
+			std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - asked));
 		ASSERT_FALSE(levelReadyBurst.empty()) << "no packet after CM_LEVEL_READY";
 		expectSequence(levelReadyBurst, levelReadyPattern(), async);
 
@@ -1441,14 +1672,14 @@ TEST(M5aScenario, Run) {
 			// CM_CUSTOM_SETTINGS stores display/deny in PlayerSettings and then broadcasts SM_CUSTOM_SETTINGS(player) with toSelf, so the
 			// sender gets it back
 			a.game->send(GameSession::CM_CUSTOM_SETTINGS, GameSession::buildCM_CUSTOM_SETTINGS(0, 0));
-			const std::vector<Packet> settings = a.game->collectUntilQuiet(QUIET, 30s);
+			const std::vector<Packet> settings = collectBurst(*a.game, async, QUIET, 30s);
 			EXPECT_FALSE(ofName(settings, "SM_CUSTOM_SETTINGS").empty())
 			  << "CM_CUSTOM_SETTINGS did not come back as SM_CUSTOM_SETTINGS; got: " << join(namesOf(settings));
 
 			// CM_SUBZONE_CHANGE calls Player::revalidateZones and is silent for a non-staff account (the per-zone messages are behind
 			// AdminConfig::ZONE_INFO), so the only assertion is that the zone handlers did not kill the connection
 			a.game->send(GameSession::CM_SUBZONE_CHANGE, GameSession::buildCM_SUBZONE_CHANGE(1));
-			const std::vector<Packet> subzone = a.game->collectUntilQuiet(QUIET, 30s);
+			const std::vector<Packet> subzone = collectBurst(*a.game, async, QUIET, 30s);
 			EXPECT_TRUE(ofName(subzone, "SM_SYSTEM_MESSAGE").empty())
 			  << "CM_SUBZONE_CHANGE answered a non-staff account: " << join(namesOf(subzone));
 			EXPECT_FALSE(a.game->client.socket.isClosed()) << "the connection died on CM_SUBZONE_CHANGE (Player::revalidateZones)";
@@ -1475,7 +1706,10 @@ TEST(M5aScenario, Run) {
 			std::this_thread::sleep_for(120ms);
 		}
 		a.game->send(GameSession::CM_MOVE, GameSession::buildCM_MOVE(target.targetX, target.targetY, target.targetZ, 0, 0));
-		const std::vector<Packet> moveBurst = a.game->collectUntilQuiet(QUIET, BURST_LIMIT);
+		const auto moved = std::chrono::steady_clock::now();
+		const std::vector<Packet> moveBurst = collectBurst(*a.game, async);
+		reportBurst(moveBurst, async, announcedNpcs, "case 5 region-move burst",
+			std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - moved));
 
 		// M0: SM_PLAYER_STATE of the own player (the end of the spawn protection)
 		bool ownState = false;
@@ -1532,14 +1766,12 @@ TEST(M5aScenario, Run) {
 			EXPECT_TRUE(deleted) << "M2: npc " << spot.npcId << " should have been deleted on the way to the target";
 		}
 
-		// M3: no forced move and no SM_MOVE to self
+		// M3: no forced move and no SM_MOVE to self. Since the AI handlers were registered this burst also carries the SM_MOVE of the npcs the
+		// character walks past (m5b-plan.md D2), which the async set of §5.9 allows only for an announced npc - so M3 is now the assertion that
+		// keeps that allowance honest, and it is made over every SM_MOVE of the burst, async or not.
 		EXPECT_TRUE(ofName(moveBurst, "SM_FORCED_MOVE").empty()) << "M3: the server corrected the position";
-		for (const Packet& packet : ofName(moveBurst, "SM_MOVE")) {
-			ASSERT_GE(packet.data.size(), 4u);
-			const int32_t objectId =
-			  static_cast<int32_t>(packet.data[0] | packet.data[1] << 8 | packet.data[2] << 16 | static_cast<uint32_t>(packet.data[3]) << 24);
-			EXPECT_NE(objectId, a.playerId) << "M3: the server sent SM_MOVE for the moving player itself";
-		}
+		for (const Packet& packet : ofName(moveBurst, "SM_MOVE"))
+			EXPECT_NE(decoders::decodeMoveObjectId(packet.data), a.playerId) << "M3: the server sent SM_MOVE for the moving player itself";
 	});
 
 	// ---- case 6: quit, persistence, relogin (§5.7 Q1-Q5) ----
@@ -1580,7 +1812,7 @@ TEST(M5aScenario, Run) {
 		std::this_thread::sleep_for(1500ms); // gameserver.character.reentry.time is 1 second in the scenario profile
 
 		a.game->send(GameSession::CM_ENTER_WORLD, GameSession::buildCM_ENTER_WORLD(a.playerId));
-		const std::vector<Packet> reenter = a.game->collectUntilQuiet(QUIET, BURST_LIMIT);
+		const std::vector<Packet> reenter = collectBurst(*a.game, async);
 		const int32_t inventoryPackets = static_cast<int32_t>((elyos.items.size() + 9) / 10) + 1;
 		expectSequence(reenter, enterWorldPattern(false, inventoryPackets), async);
 		const Packet* spawn = firstOfName(reenter, "SM_PLAYER_SPAWN");
@@ -1593,7 +1825,7 @@ TEST(M5aScenario, Run) {
 		const decoders::StatsInfo statsInfo = decoders::decodeStatsInfo(stats.back().data);
 		EXPECT_EQ(statsInfo.currentHp, static_cast<int32_t>(halfHp)) << "Q3: the stored half HP was not restored";
 		a.game->send(GameSession::CM_LEVEL_READY, GameSession::buildCM_LEVEL_READY());
-		a.game->collectUntilQuiet(QUIET, BURST_LIMIT);
+		collectBurst(*a.game, async);
 
 		// Q4: CM_QUIT(0) ends the connection
 		a.game->send(GameSession::CM_QUIT, GameSession::buildCM_QUIT(false));
@@ -1601,12 +1833,15 @@ TEST(M5aScenario, Run) {
 		EXPECT_TRUE(a.game->waitClosed(30s)) << "Q4: the socket stayed open after CM_QUIT(0)";
 		a.game.reset();
 		a.login.reset();
+		// the connection the npc half of the async set reads is gone; nothing is an announced npc until the relogin below has one again
+		announcedNpcs.follow(nullptr);
 
 		// Q5: a new login server and game server login, with the stored character in the list
 		ScenarioClient again;
 		again.account = a.account;
 		again.characterName = a.characterName;
 		const decoders::CharacterList stored = logIn(servers, again, async, false);
+		announcedNpcs.follow(again.game.get());
 		ASSERT_EQ(stored.characters.size(), 1u);
 		const decoders::PlayerInfoBlock& block = stored.characters[0];
 		EXPECT_EQ(block.playerId, a.playerId);
@@ -1632,7 +1867,7 @@ TEST(M5aScenario, Run) {
 		// takes less than that, so Q5 waits it out exactly as Q3 does - otherwise the relogin is refused and no SM_PLAYER_SPAWN follows.
 		std::this_thread::sleep_for(1500ms);
 		again.game->send(GameSession::CM_ENTER_WORLD, GameSession::buildCM_ENTER_WORLD(a.playerId));
-		const std::vector<Packet> burst = again.game->collectUntilQuiet(QUIET, BURST_LIMIT);
+		const std::vector<Packet> burst = collectBurst(*again.game, async);
 		const Packet* enterCheck = firstOfName(burst, "SM_ENTER_WORLD_CHECK");
 		ASSERT_NE(enterCheck, nullptr) << "Q5: no SM_ENTER_WORLD_CHECK after the relogin; got: " << join(namesOf(burst));
 		ASSERT_FALSE(enterCheck->data.empty());
@@ -1646,6 +1881,7 @@ TEST(M5aScenario, Run) {
 		again.game->send(GameSession::CM_QUIT, GameSession::buildCM_QUIT(false));
 		expectNext(*again.game, "SM_QUIT_RESPONSE", async, 30s);
 		EXPECT_TRUE(again.game->waitClosed(30s));
+		announcedNpcs.follow(nullptr); // `again` dies with this case body, and `async` must not read a destroyed session afterwards
 	});
 
 	// ---- case 7: shutdown with a player online (§5.7 Q7) ----
@@ -1671,16 +1907,21 @@ TEST(M5aScenario, Run) {
 	float shutdownX = 0, shutdownY = 0;
 	runCase("case 7", "shutdown with a player online", [&] {
 		AsyncAllowed shutdownAsync = AsyncAllowed::m5aDefault();
-		shutdownAsync.selfPlayerState(b.playerId).serverShutdownMessage();
+		announcedNpcsB.follow(b.game.get());
+		// the Asmodian start map's npcs walk exactly as the Elyos one's do (m5b-plan.md D2), so B's sequences need the same npc half of §5.9
+		shutdownAsync.selfPlayerState(b.playerId).serverShutdownMessage().npcActivity(announcedNpcsB.predicate());
 
 		b.game->send(GameSession::CM_MAY_LOGIN_INTO_GAME, GameSession::buildCM_MAY_LOGIN_INTO_GAME());
 		expectNext(*b.game, "SM_MAY_LOGIN_INTO_GAME", shutdownAsync);
 		b.game->send(GameSession::CM_ENTER_WORLD, GameSession::buildCM_ENTER_WORLD(b.playerId));
-		const std::vector<Packet> burst = b.game->collectUntilQuiet(QUIET, BURST_LIMIT);
+		const std::vector<Packet> burst = collectBurst(*b.game, shutdownAsync);
 		const int32_t inventoryPackets = static_cast<int32_t>((asmodian.items.size() + 9) / 10) + 1;
 		expectSequence(burst, enterWorldPattern(true, inventoryPackets), shutdownAsync);
+		const auto askedB = std::chrono::steady_clock::now();
 		b.game->send(GameSession::CM_LEVEL_READY, GameSession::buildCM_LEVEL_READY());
-		const std::vector<Packet> ready = b.game->collectUntilQuiet(QUIET, BURST_LIMIT);
+		const std::vector<Packet> ready = collectBurst(*b.game, shutdownAsync);
+		reportBurst(ready, shutdownAsync, announcedNpcsB, "case 7 level-ready burst (Mage on 220010000)",
+			std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - askedB));
 		expectSequence(ready, levelReadyPattern(), shutdownAsync);
 		expectPlayerInfo(ready, b.playerId, b.characterName, asmodian, CLASS_MAGE, RACE_ASMODIAN, GENDER_FEMALE, appearance, "V5");
 
@@ -1703,7 +1944,7 @@ TEST(M5aScenario, Run) {
 			std::this_thread::sleep_for(150ms);
 		}
 		b.game->send(GameSession::CM_MOVE, GameSession::buildCM_MOVE(shutdownX, shutdownY, asmodian.z, 0, 0));
-		b.game->collectUntilQuiet(500ms, 10s);
+		collectBurst(*b.game, shutdownAsync, 500ms, 10s);
 
 		connectionsAtShutdown = openSessions();
 		gameServerExit = servers.stopGameServer();
@@ -2050,6 +2291,7 @@ TEST(M5aScenarioGeo, Run) {
 	a.characterName = "Geowarrior";
 	const CharacterAppearance appearance = scenarioAppearance();
 	AsyncAllowed async = AsyncAllowed::m5aDefault();
+	AnnouncedNpcs announcedNpcs;
 	OracleCreation elyos;
 
 	runCase("geo 1", "login and create an Elyos Warrior", [&] {
@@ -2075,10 +2317,17 @@ TEST(M5aScenarioGeo, Run) {
 	std::vector<Packet> enterBurst;
 	runCase("geo 2", "enter world with geo on", [&] {
 		async.selfPlayerState(a.playerId);
+		// the npcs walk on a geo-built world too, and WalkManager::chooseNextRandomPoint even asks the geo engine for the next point
+		// (WalkManager.cpp, GEO_NPC_MOVE), so the npc half of §5.9 is as necessary here as in the geo-off gate (m5b-plan.md D2/G-05)
+		announcedNpcs.follow(a.game.get());
+		async.npcActivity(announcedNpcs.predicate());
 		a.game->send(GameSession::CM_MAY_LOGIN_INTO_GAME, GameSession::buildCM_MAY_LOGIN_INTO_GAME());
 		expectNext(*a.game, "SM_MAY_LOGIN_INTO_GAME", async);
+		const auto entered = std::chrono::steady_clock::now();
 		a.game->send(GameSession::CM_ENTER_WORLD, GameSession::buildCM_ENTER_WORLD(a.playerId));
-		enterBurst = a.game->collectUntilQuiet(QUIET, BURST_LIMIT);
+		enterBurst = collectBurst(*a.game, async);
+		reportBurst(enterBurst, async, announcedNpcs, "geo 2 enter-world burst",
+			std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - entered));
 		ASSERT_FALSE(enterBurst.empty()) << "no packet after CM_ENTER_WORLD";
 		const int32_t inventoryPackets = static_cast<int32_t>((elyos.items.size() + 9) / 10) + 1;
 		// the §5.8 order must be the same with geo on: an extra or missing packet here would be a geo-only wire difference
@@ -2113,8 +2362,11 @@ TEST(M5aScenarioGeo, Run) {
 
 	std::vector<Packet> levelReadyBurst;
 	runCase("geo 3", "level ready: the world a geo-enabled server shows", [&] {
+		const auto asked = std::chrono::steady_clock::now();
 		a.game->send(GameSession::CM_LEVEL_READY, GameSession::buildCM_LEVEL_READY());
-		levelReadyBurst = a.game->collectUntilQuiet(QUIET, BURST_LIMIT);
+		levelReadyBurst = collectBurst(*a.game, async);
+		reportBurst(levelReadyBurst, async, announcedNpcs, "geo 3 level-ready burst",
+			std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - asked));
 		ASSERT_FALSE(levelReadyBurst.empty()) << "no packet after CM_LEVEL_READY";
 		expectSequence(levelReadyBurst, levelReadyPattern(), async);
 		expectPlayerInfo(levelReadyBurst, a.playerId, a.characterName, elyos, CLASS_WARRIOR, RACE_ELYOS, GENDER_MALE, appearance, "geo V9");
@@ -2134,7 +2386,7 @@ TEST(M5aScenarioGeo, Run) {
 		// against. A non-staff account gets no packet back (MaterialZoneHandler.cpp:65-67 answers only a staff player, and only with
 		// GEO_MATERIALS_SHOWDETAILS), so what is asserted is that the geo-built zone set neither answered nor killed the connection.
 		a.game->send(GameSession::CM_SUBZONE_CHANGE, GameSession::buildCM_SUBZONE_CHANGE(1));
-		const std::vector<Packet> subzone = a.game->collectUntilQuiet(QUIET, 30s);
+		const std::vector<Packet> subzone = collectBurst(*a.game, async, QUIET, 30s);
 		EXPECT_TRUE(ofName(subzone, "SM_SYSTEM_MESSAGE").empty())
 		  << "CM_SUBZONE_CHANGE answered a non-staff account on a geo-enabled server: " << join(namesOf(subzone));
 		EXPECT_FALSE(a.game->client.socket.isClosed()) << "the connection died on CM_SUBZONE_CHANGE (Player::revalidateZones with geo on)";
@@ -2154,7 +2406,10 @@ TEST(M5aScenarioGeo, Run) {
 			std::this_thread::sleep_for(120ms);
 		}
 		a.game->send(GameSession::CM_MOVE, GameSession::buildCM_MOVE(target.targetX, target.targetY, target.targetZ, 0, 0));
-		const std::vector<Packet> moveBurst = a.game->collectUntilQuiet(QUIET, BURST_LIMIT);
+		const auto moved = std::chrono::steady_clock::now();
+		const std::vector<Packet> moveBurst = collectBurst(*a.game, async);
+		reportBurst(moveBurst, async, announcedNpcs, "geo 4 region-move burst",
+			std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - moved));
 
 		// What a walk on a geo-enabled server can say through packets is that it was not corrected, answered or punished - the same M1-M3 as
 		// §5.6. There is no geo call on the CM_MOVE path itself (neither CM_MOVE.cpp nor AntiHackService.cpp has one, in the port or in Java);
@@ -2177,10 +2432,7 @@ TEST(M5aScenarioGeo, Run) {
 		EXPECT_TRUE(ofName(moveBurst, "SM_FORCED_MOVE").empty())
 		  << "geo M3: the geo-enabled server corrected the walk with SM_FORCED_MOVE, which the geo-off gate never sees";
 		for (const Packet& packet : ofName(moveBurst, "SM_MOVE")) {
-			ASSERT_GE(packet.data.size(), 4u);
-			const int32_t objectId =
-			  static_cast<int32_t>(packet.data[0] | packet.data[1] << 8 | packet.data[2] << 16 | static_cast<uint32_t>(packet.data[3]) << 24);
-			EXPECT_NE(objectId, a.playerId) << "geo M3: the server sent SM_MOVE for the moving player itself";
+			EXPECT_NE(decoders::decodeMoveObjectId(packet.data), a.playerId) << "geo M3: the server sent SM_MOVE for the moving player itself";
 		}
 		EXPECT_FALSE(a.game->client.socket.isClosed()) << "the connection died during the walk on a geo-enabled server";
 		// the walk ended where the client said it did: a material zone that killed or teleported the character would show here

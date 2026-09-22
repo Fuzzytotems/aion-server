@@ -95,6 +95,60 @@ struct OracleBorderTarget {
 	std::vector<OracleSpot> disappear;
 };
 
+/** One spawn spot of m5b-monster (tools/oracle/m5b/monster.py): every field the gate needs to pick and to recognize its monster */
+struct OracleMonsterSpot {
+	float x = 0, y = 0, z = 0;
+	int32_t heading = 0;
+	/**
+	 * SpawnSpotTemplate.staticId, 0 for a plain spot. **The gate takes a spot whose static id is 0** (m5b-plan.md D11): a static id makes
+	 * `Npc::hasStatic()` true, which answers `ask(IS_IMMUNE_TO_ABNORMAL_STATES)` true and puts GeoService's placeable object in and out of the
+	 * spawn and death paths - couplings a combat gate did not ask for.
+	 */
+	int32_t staticId = 0;
+	/** Spawn.respawnTime in seconds; 0 means the spot never respawns (SpawnTemplate.isNoRespawn) */
+	int32_t respawnTime = 0;
+	/** the ai name this spot's npc gets: the spot's own `ai` attribute if it has one, else the template's (Creature.java:64-66) */
+	std::string ai;
+	/** false for a spot the given game time does not spawn */
+	bool spawned = false;
+	/** not in a pool, not a walker and not randomly walking, i.e. an npc that stands exactly here */
+	bool fixed = false;
+	/** metres from the race's spawn point */
+	double distance = 0;
+};
+
+/** oracle.py m5b-monster --map M --npc-id N [--player-level L] (m5b-plan.md G-01) */
+struct OracleMonster {
+	int32_t mapId = 0, npcId = 0, playerLevel = 0;
+
+	// the npc template (NpcTemplate.java), with its JAXB defaults
+	int32_t level = 0, maxHp = 0;
+	std::string rating, rank, race, tribe, ai;
+	int32_t aggroRange = 0, aggroAngle = 0, npcAttackRange = 0, npcAttackSpeed = 0;
+	/** BoundRadius.getMaxOfFrontAndSide, which is what PositionUtil.isInRange adds to a range */
+	float boundRadius = 0;
+
+	/** every regular spawn spot of the id on the map, nearest first */
+	std::vector<OracleMonsterSpot> spots;
+	/** every spot is `fixed`: only then may an assertion pin the npc to an exact position (the V2 rule of m5a-plan.md §5.5) */
+	bool pinned = false;
+	/** the nearest spot that is `fixed`, spawned and has no static id - the spot the gate fights at */
+	std::optional<OracleMonsterSpot> nearestPlainSpot;
+	/** the respawn time in seconds when every spot of the id shares one, else 0 */
+	int32_t respawnTime = 0;
+
+	// the experience of one kill (m5b-plan.md D7)
+	int32_t baseExp = 0, xpPercentage = 0;
+	int64_t experienceReward = 0, expNeed = 0;
+	/** what STR_GET_EXP carries and what `players.exp` grows by: `(long) min(reward * rate, expNeed * 0.2f)` */
+	int64_t awarded = 0;
+
+	// the two ranges of the first hit (PlayerController.java:400-409)
+	float attackRange = 0, toleranceRange = 0, maxCoveredDistance = 0;
+	/** PlayerGameStats.getAttackSpeed of the fresh character, i.e. the pace fightUntil needs */
+	int32_t playerAttackSpeed = 0;
+};
+
 /** Runs tools/oracle/oracle.py. Every call starts a process and parses its stdout as JSON. */
 class Oracle {
 public:
@@ -112,6 +166,8 @@ public:
 	/** @param radius the query radius in metres (V1 accepts a walker up to 105 m away, so the gate asks for more than the default 100) */
 	OracleSpawns spawns(int32_t mapId, float x, float y, float z, int32_t gameHour, double radius = 120.0) const;
 	OracleBorderTarget borderTarget(int32_t mapId, float x, float y, float z, int32_t gameHour) const;
+	/** @param playerLevel the level of the character that gets the kill, which decides the XPRewardEnum percentage and the experience cap */
+	OracleMonster monster(int32_t mapId, int32_t npcId, int32_t playerLevel) const;
 
 	/** the raw JSON text of a run, for a decoder of its own */
 	std::string run(const std::vector<std::string>& arguments) const;
@@ -121,6 +177,13 @@ public:
 	 * level" and between a fixed and a moving spot, which OracleTest pins without a server (@throws on invalid JSON).
 	 */
 	static OracleSpot parseSpot(std::string_view spotJson);
+
+	/**
+	 * Parses a whole m5b-monster answer. Public for the same reason as parseSpot: the rules the gate depends on - which spot is the plain one,
+	 * that a missing `nearestPlainSpot` is null rather than a zeroed spot, that `respawnTime` may be null when the id's groups disagree - are
+	 * pinned by OracleTest without a server (@throws on invalid JSON).
+	 */
+	static OracleMonster parseMonster(std::string_view monsterJson);
 
 private:
 	std::filesystem::path python;

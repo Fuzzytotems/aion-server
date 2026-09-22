@@ -2,8 +2,10 @@
 
 #include "aion/commons/utils/Rnd.h"
 #include "aion/commons/utils/TimeUtils.h"
+#include "aion/gameserver/ai/AILogger.h"
 #include "aion/gameserver/ai/AISubState.h"
 #include "aion/gameserver/ai/AbstractAI.h"
+#include "aion/gameserver/controllers/movement/CreatureMoveController.h"
 #include "aion/gameserver/model/gameobjects/Npc.h"
 #include "aion/gameserver/model/gameobjects/state/CreatureState.h"
 #include "aion/gameserver/model/skill/NpcSkillEntry.h"
@@ -17,6 +19,7 @@
 #include "aion/gameserver/runtime/base/Unported.h"
 #include "aion/gameserver/spawnengine/WalkerGroup.h"
 #include "aion/gameserver/utils/JavaMath.h"
+#include "aion/gameserver/utils/PositionUtil.h"
 
 namespace aion::gameserver::model::stats::container {
 
@@ -141,7 +144,26 @@ void NpcGameStats::setFightStartingTime() {
 }
 
 int32_t NpcGameStats::getNextAttackInterval() {
-	AION_UNPORTED();
+	int64_t attackDelay = commons::utils::currentTimeMillis() - lastAttackTime.get();
+	int32_t attackSpeed = getAttackSpeed()->getCurrent();
+	if (attackSpeed == 0) {
+		attackSpeed = 2000;
+	}
+	if (owner.getAi().isLogging()) {
+		ai::AILogger::info(owner.getAi(), "adelay = " + std::to_string(attackDelay) + " aspeed = " + std::to_string(attackSpeed));
+	}
+	int32_t nextAttack = 0;
+	// Java: owner.getTarget() instanceof Creature - a null or non-creature target skips the 750 ms opener (NpcGameStats.java:150-153)
+	runtime::Ptr<gameobjects::Creature> target = runtime::as<gameobjects::Creature>(owner.getTarget());
+	if (lastAttackTime.get() == 0 && !owner.getMoveController()->isInMove() && target
+		&& utils::PositionUtil::isInAttackRange(runtime::Ptr<gameobjects::Creature>(owner), target, getAttackRange()->getCurrent() / 1000.0f)) {
+		nextAttack = 750;
+	}
+	if (attackDelay < attackSpeed) {
+		// Java: (int) (attackSpeed - attackDelay) of a long - the narrowing cast keeps the low 32 bits
+		nextAttack = static_cast<int32_t>(static_cast<uint32_t>(static_cast<uint64_t>(attackSpeed - attackDelay)));
+	}
+	return nextAttack;
 }
 
 void NpcGameStats::renewLastSkillTime() {
@@ -186,7 +208,10 @@ void NpcGameStats::resetFightStats() {
 }
 
 int32_t NpcGameStats::getInitialSkillDelay() {
-	AION_UNPORTED();
+	int32_t attackSpeed = getAttackSpeed()->getCurrent();
+	// Java: Rnd.get(attackSpeed, 3 * attackSpeed) - the int multiplication wraps, and Rnd.get logs and returns min when max < min
+	return owner.getAi().modifyInitialSkillDelay(
+		commons::utils::Rnd::get(attackSpeed, static_cast<int32_t>(3u * static_cast<uint32_t>(attackSpeed))));
 }
 
 } // namespace aion::gameserver::model::stats::container

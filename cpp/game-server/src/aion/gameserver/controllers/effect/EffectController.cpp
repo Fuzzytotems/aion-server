@@ -202,7 +202,11 @@ std::vector<runtime::Ptr<skillengine::model::Effect>> EffectController::filterEf
 }
 
 void EffectController::removeByDispelSlotType(skillengine::model::DispelSlotType dispelSlotType) {
-	AION_UNPORTED();
+	// Java: removeByDispelEffect(null, dispelSlotType, 255, 100, 100) (EffectController.java:427-429). Every npc that walks back home reaches this
+	// through ReturningEventHandler::onBackHome, and the dispel machinery under it needs the effect engine (m5b-plan.md O-01, M5b-2). Nothing can
+	// put an abnormal effect on a creature at M5b-1 - SkillEngine::applyEffectDirectly is itself a partial - so there is never anything to dispel;
+	// M5b-2 replaces this with the call above.
+	AION_PARTIAL("dispelling by slot type needs the effect engine (M5b-2)");
 }
 
 bool EffectController::removeByEffectId(int32_t effectId, int32_t dispelLevel, int32_t power) {

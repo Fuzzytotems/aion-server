@@ -13,6 +13,7 @@
 #include "aion/gameserver/GameServer.h"
 #include "aion/gameserver/ai/AbstractAI.h"
 #include "aion/gameserver/ai/NpcAI.h"
+#include "aion/gameserver/ai/handler/ShoutEventHandler.h"
 #include "aion/gameserver/configs/administration/AdminConfig.h"
 #include "aion/gameserver/configs/main/CustomConfig.h"
 #include "aion/gameserver/configs/main/GSConfig.h"
@@ -103,6 +104,7 @@
 #include "aion/gameserver/network/aion/serverpackets/SM_TARGET_UPDATE.h"
 #include "aion/gameserver/questEngine/QuestEngine.h"
 #include "aion/gameserver/questEngine/model/QuestEnv.h"
+#include "aion/gameserver/restrictions/PlayerRestrictions.h"
 #include "aion/gameserver/services/BonusPackService.h"
 #include "aion/gameserver/services/DuelService.h"
 #include "aion/gameserver/services/FactionPackService.h"
@@ -144,6 +146,7 @@ namespace aion::gameserver::controllers {
 
 static const auto log = commons::logging::LoggerFactory::getLogger("com.aionemu.gameserver.controllers.PlayerController");
 
+using ai::handler::ShoutEventHandler;
 using model::actions::PlayerMode;
 using model::gameobjects::Creature;
 using model::gameobjects::Npc;
@@ -153,6 +156,7 @@ using model::gameobjects::player::Player;
 using model::gameobjects::state::CreatureState;
 using model::gameobjects::state::FlyState;
 using network::aion::serverpackets::SM_SYSTEM_MESSAGE;
+using restrictions::PlayerRestrictions;
 using runtime::Ptr;
 using runtime::Ref;
 using services::RecallService_CancelReason;
@@ -483,7 +487,7 @@ void PlayerController::onBeforeSpawn() {
 
 void PlayerController::attackTarget(runtime::Ptr<model::gameobjects::Creature> target, int32_t time, bool skipChecks) {
 	Player& player = getOwner();
-	if (!standins::playerRestrictionsCanAttack(player, *target))
+	if (!PlayerRestrictions::canAttack(player, *target))
 		return;
 
 	Ptr<model::stats::container::PlayerGameStats> gameStats = player.getGameStats();
@@ -540,7 +544,7 @@ void PlayerController::onAttack(model::gameobjects::Creature& attacker, runtime:
 	CreatureController::onAttack(attacker, effect, type, damage, notifyAttack, logId, attackStatus, hopType);
 
 	if (runtime::as<Npc>(attacker)) {
-		standins::shoutEventHandlerOnAttack(*runtime::cast<ai::NpcAI>(attacker.getAi()), player);
+		ShoutEventHandler::onAttack(*runtime::cast<ai::NpcAI>(attacker.getAi()), player);
 		Ref<questEngine::model::QuestEnv> env = questEngine::model::QuestEnv::create(attacker, player, 0);
 		questEngine::QuestEngine::getInstance().onAttack(*env);
 	}

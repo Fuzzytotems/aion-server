@@ -1,19 +1,71 @@
 #include "aion/gameserver/controllers/attack/AggroList.h"
 
+#include <algorithm>
+#include <limits>
+#include <string>
+
+#include "aion/commons/utils/Rnd.h"
+#include "aion/commons/utils/TimeUtils.h"
+#include "aion/gameserver/controllers/CreatureController.h"
 #include "aion/gameserver/controllers/attack/AggroInfo.h"
+#include "aion/gameserver/controllers/attack/AggroTarget.h"
+#include "aion/gameserver/controllers/attack/DamageInfo.h"
 #include "aion/gameserver/controllers/attack/DamageList.h"
 #include "aion/gameserver/controllers/effect/EffectController.h"
 #include "aion/gameserver/dataholders/DataManager.h"
 #include "aion/gameserver/dataholders/TribeRelationsData.h"
 #include "aion/gameserver/model/gameobjects/Creature.h"
+#include "aion/gameserver/model/gameobjects/SummonedObject.h"
+#include "aion/gameserver/model/gameobjects/player/Player.h"
+#include "aion/gameserver/model/stats/container/CreatureLifeStats.h"
 #include "aion/gameserver/runtime/base/Unported.h"
 #include "aion/gameserver/skillengine/effect/AbnormalState.h"
+#include "aion/gameserver/skillengine/model/HopType.h"
+#include "aion/gameserver/utils/PositionUtil.h"
+#include "aion/gameserver/utils/ThreadPoolManager.h"
+#include "aion/gameserver/utils/stats/StatFunctions.h"
+#include "aion/gameserver/world/geo/GeoService.h"
 #include "aion/gameserver/world/knownlist/KnownList.h"
 
 namespace aion::gameserver::controllers::attack {
 
 using runtime::Ptr;
 using runtime::Ref;
+
+namespace {
+
+/** Java int a * b (wraps on overflow) */
+constexpr int32_t mulInt(int32_t a, int32_t b) noexcept {
+	return static_cast<int32_t>(static_cast<uint32_t>(a) * static_cast<uint32_t>(b));
+}
+
+/** Java: stream.map(AggroInfo::getAttacker) */
+std::vector<Ptr<model::gameobjects::Creature>> attackersOf(const std::vector<Ptr<AggroInfo>>& infos) {
+	std::vector<Ptr<model::gameobjects::Creature>> attackers;
+	attackers.reserve(infos.size());
+	for (const Ptr<AggroInfo>& info : infos)
+		attackers.push_back(info->getAttacker());
+	return attackers;
+}
+
+/**
+ * Java MOST_HATED / SECOND_MOST_HATED / THIRD_MOST_HATED:
+ * `stream.sorted(comparingInt(AggroInfo::getHate).reversed()).limit(n).reduce((_, b) -> b).map(AggroInfo::getAttacker).orElse(null)`, and for
+ * n == 1 the equivalent `stream.max(comparingInt(AggroInfo::getHate))`. Both keep the first of two equal elements in encounter order, so the
+ * sort is stable and `max` is the first maximum; the encounter order of a ConcurrentHashMap's values is unspecified in Java as in C++.
+ */
+Ptr<model::gameobjects::Creature> nthMostHated(const std::vector<Ptr<AggroInfo>>& infos, size_t n) {
+	if (infos.empty())
+		return {};
+	std::vector<Ptr<AggroInfo>> sorted = infos;
+	std::stable_sort(sorted.begin(), sorted.end(),
+		[](const Ptr<AggroInfo>& a, const Ptr<AggroInfo>& b) { return a->getHate() > b->getHate(); });
+	// Java: limit(n).reduce((_, b) -> b) - the last of the first n elements, so a shorter list yields its last element
+	size_t index = std::min(n, sorted.size()) - 1;
+	return sorted[index]->getAttacker();
+}
+
+} // namespace
 
 AggroList::AggroList(model::gameobjects::Creature& ownerValue) : OwnedPart(ownerValue), owner(ownerValue) {
 }
@@ -22,27 +74,70 @@ AggroList::~AggroList() = default;
 
 void AggroList::addDamage(model::gameobjects::Creature& attacker, int32_t damage, bool notifyAttack,
 	std::optional<skillengine::model::HopType> hopType) {
-	AION_UNPORTED();
+	if (!isAware(Ptr<model::gameobjects::Creature>(attacker)))
+		return;
+	// If the incoming damage is higher than the rest life it will decreased to the rest life
+	if (damage >= owner.getLifeStats()->getCurrentHp()) {
+		damage = owner.getLifeStats()->getCurrentHp();
+		// java-race: hateReductionTask is read here without the monitor clear() writes it under (AggroList.java:43 vs :129-137)
+	} else if (!hateReductionTask.get()) {
+		startHateReductionTask();
+	}
+	int32_t hate = 0;
+	if (notifyAttack && hopType == skillengine::model::HopType::DAMAGE && damage > 0) {
+		// damage caused by auto attacks and skills with HopType.DAMAGE is multiplied by 10 and added as hate on retail
+		hate = utils::stats::StatFunctions::calculateHate(attacker, mulInt(damage, 10));
+	}
+	addDamageAndHate(attacker, damage, hate);
 }
 
 void AggroList::addHate(model::gameobjects::Creature& creature, int32_t hate) {
-	AION_UNPORTED();
+	Ptr<model::gameobjects::Creature> target(creature);
+	if (shouldAddHateToMaster(*target))
+		target = target->getMaster(); // Java reassigns the parameter: creature = creature.getMaster()
+	if (!isAware(target))
+		return;
+	if (hate < 0 && !aggroList.containsKey(target->getObjectId()))
+		return;
+	addDamageAndHate(*target, 0, hate);
 }
 
 void AggroList::addDamageAndHate(model::gameobjects::Creature& creature, int32_t damage, int32_t hate) {
-	AION_UNPORTED();
+	Ptr<AggroInfo> ai = aggroList.computeIfAbsent(creature.getObjectId(), [&creature] { return AggroInfo::create(creature); });
+	// java-race: the hate is read after computeIfAbsent and before addDamage/addHate, so isNewInAggroList can be wrong under concurrent
+	// attackers and onAddHate then fires the AI event twice (AggroList.java:68-72)
+	bool isNewInAggroList = ai->getHate() == 0;
+	ai->addDamage(damage);
+	ai->addHate(hate);
+	owner.getController().onAddHate(creature, isNewInAggroList);
 }
 
 bool AggroList::shouldAddHateToMaster(model::gameobjects::Creature& creature) {
-	AION_UNPORTED();
+	// ice sheet, threatening wave, etc. generate hate for their master. taunting spirit does not!
+	Ptr<model::gameobjects::SummonedObject> summonedObject = runtime::as<model::gameobjects::SummonedObject>(creature);
+	return summonedObject && !isTauntingSpirit(*summonedObject);
 }
 
 bool AggroList::isTauntingSpirit(model::gameobjects::SummonedObject& npc) {
-	AION_UNPORTED();
+	switch (npc.getNpcId()) {
+		case 833403:
+		case 833404:
+		case 833478:
+		case 833479:
+		case 833480:
+		case 833481:
+			return true; // spawned by Summon Vexing Energy
+		default:
+			return false;
+	}
 }
 
 runtime::Ptr<model::gameobjects::player::Player> AggroList::getMostPlayerDamage() {
-	AION_UNPORTED();
+	// Use final damage list to get pet damage as well.
+	std::optional<DamageInfo> mostDamage = getFinalDamageList().getMostDamage();
+	if (!mostDamage)
+		return {};
+	return runtime::as<model::gameobjects::player::Player>(mostDamage->getAttacker());
 }
 
 void AggroList::stopHating(model::gameobjects::VisibleObject& creature) {
@@ -102,27 +197,63 @@ int32_t AggroList::getHate(model::gameobjects::Creature& creature) {
 }
 
 std::vector<runtime::Ptr<AggroInfo>> AggroList::stream() {
-	AION_UNPORTED();
+	return aggroList.values().toVector();
 }
 
 runtime::Ptr<model::gameobjects::Creature> AggroList::getTarget(AggroTarget targetType) {
-	AION_UNPORTED();
+	return getTarget(targetType, static_cast<float>(std::numeric_limits<int32_t>::max()));
 }
 
 runtime::Ptr<model::gameobjects::Creature> AggroList::getTarget(AggroTarget targetType, float range) {
-	AION_UNPORTED();
+	std::vector<Ptr<AggroInfo>> infos = streamValidTargetInfo(range);
+	switch (targetType) {
+		case AggroTarget::RANDOM: {
+			std::vector<Ptr<model::gameobjects::Creature>> attackers = attackersOf(infos);
+			// Java: Rnd.get(List) - null for an empty list
+			Ptr<model::gameobjects::Creature>* chosen = commons::utils::Rnd::get(attackers);
+			return chosen ? *chosen : Ptr<model::gameobjects::Creature>();
+		}
+		case AggroTarget::RANDOM_EXCEPT_CURRENT_TARGET: {
+			std::vector<Ptr<model::gameobjects::Creature>> attackers;
+			Ptr<model::gameobjects::VisibleObject> currentTarget = owner.getTarget();
+			for (const Ptr<model::gameobjects::Creature>& attacker : attackersOf(infos)) {
+				// Java: !c.equals(owner.getTarget()) - AionObject.equals is identity (the target is re-read on every element)
+				if (!(attacker.get() == owner.getTarget().get()))
+					attackers.push_back(attacker);
+			}
+			Ptr<model::gameobjects::Creature>* chosen = commons::utils::Rnd::get(attackers);
+			return chosen ? *chosen : Ptr<model::gameobjects::Creature>();
+		}
+		case AggroTarget::MOST_HATED:
+			return nthMostHated(infos, 1);
+		case AggroTarget::SECOND_MOST_HATED:
+			return nthMostHated(infos, 2);
+		case AggroTarget::THIRD_MOST_HATED:
+			return nthMostHated(infos, 3);
+	}
+	// Java's switch expression is exhaustive over the enum; an unknown constant cannot occur
+	throw runtime::IllegalArgumentException("Unknown AggroTarget " + std::to_string(static_cast<int32_t>(targetType)));
 }
 
 std::vector<runtime::Ptr<model::gameobjects::Creature>> AggroList::streamValidTargets(float range) {
-	AION_UNPORTED();
+	return attackersOf(streamValidTargetInfo(range));
 }
 
 std::vector<runtime::Ptr<AggroInfo>> AggroList::streamValidTargetInfo(float range) {
-	AION_UNPORTED();
+	std::vector<Ptr<AggroInfo>> valid;
+	for (const Ptr<AggroInfo>& ai : stream()) {
+		Ptr<model::gameobjects::Creature> attacker = ai->getAttacker();
+		if (ai->getHate() > 0 && !attacker->isDead() && !attacker->getLifeStats()->isAboutToDie() && owner.getKnownList().sees(*attacker)
+			&& (range == static_cast<float>(std::numeric_limits<int32_t>::max())
+				|| utils::PositionUtil::isInRange(owner, *attacker, range, false))
+			&& world::geo::GeoService::getInstance().canSee(owner, *attacker))
+			valid.push_back(ai);
+	}
+	return valid;
 }
 
 DamageList AggroList::getFinalDamageList() {
-	AION_UNPORTED();
+	return DamageList(aggroList.values().toVector(), owner);
 }
 
 bool AggroList::isAware(runtime::Ptr<model::gameobjects::Creature> creature) {
@@ -138,7 +269,23 @@ bool AggroList::isAware(runtime::Ptr<model::gameobjects::Creature> creature) {
 
 // callbacks: com.aionemu.gameserver.controllers.attack.AggroList@L206:77 (hate reduction task, stored as hateReductionTask)
 void AggroList::startHateReductionTask() {
-	AION_UNPORTED();
+	SYNCHRONIZED(*this) {
+		// Java assigns the scheduleAtFixedRate result inside the synchronized block too (AggroList.java:204-214)
+		// lockdep: hateReductionTask.get() reads the Field<FutureRef>, it does not wait for the task
+		if (!hateReductionTask.get()) {
+			// the captured Ref<AggroList> is the `this` of the Java lambda (fieldmap: `const Ref<AggroList>`); it pins the aggro list and, through
+			// its owner reference, the creature, until clear() cancels the task (cycles.toml AggroList@L206:77#this)
+			hateReductionTask = utils::ThreadPoolManager::getInstance().scheduleAtFixedRate(runtime::Pin(),
+				[self = Ref<AggroList>(*this)] {
+					for (const Ptr<AggroInfo>& info : self->aggroList.values()) {
+						if (info->getLastInteractionTime() != 0 && commons::utils::currentTimeMillis() - info->getLastInteractionTime() > 5000) {
+							info->reduceHate();
+						}
+					}
+				},
+				10000, 10000); // every 10 sec reduce hate of not attacking creatures
+		}
+	}
 }
 
 } // namespace aion::gameserver::controllers::attack

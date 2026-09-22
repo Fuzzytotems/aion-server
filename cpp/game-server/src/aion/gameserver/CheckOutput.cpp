@@ -176,8 +176,11 @@ const std::vector<std::string>& CheckOutput::zeroLiveClasses() {
 		"model::skill::PlayerSkillList",
 		"model::skill::PlayerSkillEntry",
 		"model::stats::calc::functions::StatFunctionProxy",
-		// what this wave added: the knownlist entries of the visibility work and the restore task that pins a Player in Q3
-		"world::knownlist::KnownObject",
+		// what the M5a visibility work added: the restore task that pins a Player in Q3. world::knownlist::KnownObject is NOT here any more
+		// (M5b-1): its premise was that only a logged-in character builds a known list, and registering the AI handlers ended that - a walking
+		// npc builds one of the npcs around it (WalkManager::targetReached -> updateKnownlist) and those entries legitimately survive the
+		// shutdown with their npcs (measured 15,304 of 15,814 live, against 0 in live_counts_baseline.txt). It is bounded, not leaked -
+		// KnownList::update forgets what moves out of range - and the live-count table still prints it for whoever reads a run.
 		"services::LifeStatsRestoreService::HpMpRestoreTask",
 		// per-session helpers: the packet blobs an enter world builds and the pending login-server request of a login
 		"network::aion::iteminfo::ItemInfoBlob",

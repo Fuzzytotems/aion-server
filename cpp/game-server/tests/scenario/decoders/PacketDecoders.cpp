@@ -916,4 +916,59 @@ int32_t decodeSystemMessageId(std::span<const uint8_t> body) {
 	return reader.D();
 }
 
+int32_t decodeMoveObjectId(std::span<const uint8_t> body) {
+	BodyReader reader(body, "SM_MOVE");
+	return reader.D(); // creature.getObjectId(), SM_MOVE.java:37
+}
+
+bool isNpcEmote(uint8_t emotionType) {
+	return emotionType == EMOTION_ATTACKMODE_IN_MOVE || emotionType == EMOTION_NEUTRALMODE_IN_MOVE || emotionType == EMOTION_WALK ||
+		emotionType == EMOTION_CHANGE_SPEED;
+}
+
+EmotionHeader decodeEmotionHeader(std::span<const uint8_t> body) {
+	BodyReader reader(body, "SM_EMOTION");
+	EmotionHeader emotion;
+	emotion.objectId = reader.D();
+	emotion.emotionType = reader.C();
+	emotion.state = reader.H();
+	emotion.speed = reader.F();
+	if (emotion.emotionType == EMOTION_CHANGE_SPEED) {
+		// SM_EMOTION.java:170-175, the "emote startloop" arm
+		emotion.baseAttackSpeed = reader.H();
+		emotion.currentAttackSpeed = reader.H();
+		reader.expectC(0, "the byte after the two attack speeds (SM_EMOTION.java:174, \"new 4.0\")");
+		reader.expectFullyConsumed();
+	} else if (isNpcEmote(emotion.emotionType)) {
+		reader.expectFullyConsumed(); // SM_EMOTION.java:98-126: WALK, ATTACKMODE_IN_MOVE and NEUTRALMODE_IN_MOVE write nothing after the header
+	}
+	return emotion;
+}
+
+LookAtObject decodeLookAtObject(std::span<const uint8_t> body) {
+	BodyReader reader(body, "SM_LOOKATOBJECT");
+	LookAtObject look;
+	look.objectId = reader.D();
+	look.targetObjectId = reader.D();
+	look.heading = reader.C();
+	reader.expectFullyConsumed();
+	return look;
+}
+
+AttackParties decodeAttackParties(std::span<const uint8_t> body) {
+	BodyReader reader(body, "SM_ATTACK");
+	AttackParties parties;
+	parties.attackerObjectId = reader.D();
+	reader.skip(1); // attackno
+	reader.skip(2); // time
+	reader.skip(2); // attackTypeAnimation and attackHandAnimation
+	parties.targetObjectId = reader.D();
+	return parties;
+}
+
+int32_t decodeAttackStatusObjectId(std::span<const uint8_t> body) {
+	BodyReader reader(body, "SM_ATTACK_STATUS");
+	return reader.D(); // creature.getObjectId()
+}
+
 } // namespace aion::gameserver::scenario::decoders

@@ -198,6 +198,18 @@ adds the 0-hit startup check (F-01b).
 
 ## 5. Scenario gate (`ctest -L scenario`)
 
+> **State after the M5b-1 stage-1 wave (m5b-plan.md item G-05), measured 2026-09-22 in a Debug tree.** Registering the three root AI handlers
+> changed what both gates see, and §5.5, §5.8, §5.9 and §5.10 below carry the new rules and the new numbers. Every packet-facing case of both
+> gates passes again: `gs.scenario.m5a` cases 0 to 7, `gs.scenario.m5a_geo` geo 0 to geo 5. What is still red on both is **case 8 / geo 6**, and
+> only for reasons that live outside the gate's own chunk: (a) `EffectController::removeByDispelSlotType` is `AION_UNPORTED` and every npc that
+> walks back home reaches it through `ReturningEventHandler::onBackHome` (P5-02 owns the body, P5-05 the caller), which fails Q8's
+> "`unported_trace.txt` empty" and puts its `ExecuteWrapper` stack in `server_errors.log`; (b) the server's own
+> `CheckOutput::zeroLiveClasses()` still lists `world::knownlist::KnownObject`, whose premise — "a class that belongs to a character must be at
+> 0 once it logged out" — stopped holding when npcs began to move: a walking npc builds a knownlist of the other npcs around it
+> (`WalkManager::targetReached` -> `updateKnownlist`), and those entries survive the shutdown with the npcs that hold them (15 304 of 15 814 in
+> the geo-off run, 7 770 of 7 880 in the geo one, against **0 live at `live_counts_baseline.txt`**, which the server writes after the spawns and
+> before the first client connects — so every one of them was created by npcs moving, not by the character). That row is P5-14's to correct.
+
 ### 5.1 Processes and databases
 
 | Piece | Setup |
@@ -257,11 +269,20 @@ adds the 0-hit startup check (F-01b).
 CM_LEVEL_READY, then collect until 1 s passes with no packet. The types match the level-ready part of §5.8. The harness takes the game hour from
 the enter-world `SM_GAME_TIME` and runs `oracle.py m5a-spawns --map 210010000 --x 1212.94 --y 1044.85 --z 140.76 --game-hour H`.
 
+**Since the M5b-1 stage-1 wave registered `general`, `aggressive` and `noaction` (m5b-plan.md D2, item G-05) the npcs of this burst move — and
+V1 to V4 are unchanged, which was re-measured and not assumed.** Registering an AI does not make a fixed npc move: `ThinkEventHandler.thinkIdle`
+walks only an npc whose spot has a walker id or a random-walk range (`Npc.isWalker`), and for the rest it does nothing but restore the spawn
+heading, which is the heading V2 compares. The ids that *can* move were already outside V2's position rule and outside the oracle's
+`deterministic`, so nothing had to be relaxed. Measured on 2026-09-22 (Debug, `M5aScenarioTest`'s own bucket counts, which a run prints whether
+it passes or fails): **210010000** 27 SM_NPC_INFO — 21 on a fixed spot, 4 on a pool/walker/randomWalk spot, 2 off-spot npcs of an id that has
+one, 0 unknown to the oracle; **220010000** 77 SM_NPC_INFO — 66 / 4 / 7 / 0. Both runs also hold V3's 20 and 60 deterministic spots to their
+exact coordinates, V4's five gatherables to theirs, and the geo gate the same in a geo-built world.
+
 | # | Assertion |
 |---|---|
 | V1 | Every SM_NPC_INFO npcId is a spot within 95 m (+5 m slack, +10 m for walkers) or a flag NPC of the map. |
 | V2 | For non-walker, non-pool NPCs: x/y/z equal a spot of that id (±0.01); heading and template level equal; HP% 100; the body decodes exactly. An NPC whose id the oracle knows **only** as fixed spots (the id has no pool, walker or randomWalk spot at all) and that stands on none of them fails here — it must not fall through to V1, which matches by id alone. An id with both fixed and moving spots, such as 210115 on the Elyos start map (4 fixed, 3 walker, 1 randomWalk), may legitimately stand anywhere and is still only covered by V1. The oracle's level is an **optional**: `"level": null` means "this spot has no npc template" (a gatherable spot), while `0` is a level like any other and is compared. Collapsing the two into a plain 0 made the check assert `level > 0` on a genuine level-0 npc instead of comparing it, which is a gate that fails on correct behaviour (`OracleSpot::level`, `OracleTest`). |
-| V3 | count(SM_NPC_INFO) ≥ N, the deterministic spots within 90 m (no pool, no walker; temporary spots included if in time for H), each matched by id and position. |
+| V3 | count(SM_NPC_INFO) ≥ N, the deterministic spots within 90 m (no pool, no walker; temporary spots included if in time for H), each matched by id and position. **A `randomWalk` spot is still one of them after G-05, and that was measured rather than assumed**: 20 spots on 210010000 of which 1 is a randomWalk spot (npc 210115 at 86.8 m, the id V2 names as having fixed, walker and randomWalk spots at once), 60 of which 0 on 220010000; both numbers are printed by every run. The npc standing on that spot is still there when the level-ready burst goes out, with the shipped `gameserver.npcmovement.delay.{minimum,maximum}` of 3 and 15 s **and** with both forced to 0, so no tolerance was widened here. What does move inside the burst is a *path* walker of the same id — object 25951 sent SM_EMOTION(WALK) and four SM_MOVE while the burst was being collected — and walker spots are the ones the oracle already excludes. If it ever goes flaky, the answer is a second loop matching the randomWalk spots **by id alone** (the npc must still be announced, V2 still compares its level and HP%, V1 still holds it to a spot of its id inside the visibility radius), never a wider `onSpot`. |
 | V4 | SM_GATHERABLE_INFO ids ⊆ the gather spots within 100 m, **and** every deterministic gather spot within 90 m has an SM_GATHERABLE_INFO of that id at that position. The completeness half mirrors V3 and is what makes V4 fail on a world without gatherables: a subset assertion alone is satisfied by zero SM_GATHERABLE_INFO, and the level-ready `(SM_NPC_INFO \| SM_GATHERABLE_INFO)+` is satisfied by the NPCs on their own. |
 | V5 | The same for the Mage (account B) on 220010000 (571.04, 2787.34, 299.875), in case 7. |
 
@@ -319,6 +340,29 @@ Notation: `T` once, `T{n}` n times, `T+` one or more, `[T]` optional, `T*` any n
 
 With `disabled_events=*`, EventService.onPlayerLogin and onEnterMap add nothing.
 
+**The burst window, re-measured 2026-09-22 for m5b-plan.md D2 and item G-05.** Until the three root AI handlers were registered, a burst was
+everything that arrived until 1 s passed with **no packet at all**, and that silence was a property of the scripted answer: the enter-world burst
+took about 70 ms and the gap after it was empty. With the handlers registered it is not. The npcs of the character's map region walk and fight for
+as long as the character is in the world, so "no packet for 1 s" measures how busy the neighbourhood is, not whether the server finished
+answering. The harness (`collectBurst` in `M5aScenarioTest.cpp`) therefore ends a burst 1 s after the last packet **that the async set of §5.9
+does not allow**. Nothing is dropped and no assertion is relaxed: every packet inside the window is still read, recorded and matched, the async
+ones included. Measured in Debug on this tree, printed by every run as `<case> burst: N packets in T ms, A awaited and B async`:
+
+| Burst | Packets | Window | Awaited by §5.8 | Async (§5.9) |
+|---|---|---|---|---|
+| case 3, enter world (210010000) | 76 | 1069 ms | 75 | 1 (`SM_GAME_TIME`) |
+| case 4, level ready (210010000) | 54 | 1019 ms | 39 | 15: 9 `SM_MOVE`, 4 `SM_EMOTION`, 1 `SM_PLAYER_STATE`, 1 `SM_WEATHER` |
+| case 5, region move (210010000) | 65 | 1001 ms | 43 | 22: 8 `SM_ATTACK`, 8 `SM_ATTACK_STATUS`, 5 `SM_MOVE`, 1 `SM_PLAYER_STATE` |
+| case 7, level ready (220010000) | 143 | 1021 ms | 89 | 54: 30 `SM_MOVE`, 16 `SM_EMOTION`, 6 `SM_LOOKATOBJECT`, 1 `SM_PLAYER_STATE`, 1 `SM_WEATHER` |
+| geo 2, enter world (210010000) | 76 | 1049 ms | 75 | 1 (`SM_GAME_TIME`) |
+| geo 3, level ready (210010000) | 53 | 1015 ms | 39 | 14: 8 `SM_MOVE`, 4 `SM_EMOTION`, 1 `SM_PLAYER_STATE`, 1 `SM_WEATHER` |
+| geo 4, region move (210010000) | 64 | 1000 ms | 43 | 21: 7 `SM_ATTACK`, 7 `SM_ATTACK_STATUS`, 6 `SM_MOVE`, 1 `SM_PLAYER_STATE` |
+
+**The window is now the stable column and the async counts are not**, which is the point: a window of 1.00 to 1.07 s is the 1 s rule plus the
+round trip, while how many npcs walked or swung inside it varies by a few packets from run to run (case 7 was 144/55, 171/78 and 143/54 over
+three runs of the same build). The same bursts under the old rule ended only when the npcs happened to fall silent: the level-ready one ran
+5.4 s instead of 1.0 s in the run that first showed the problem, and nothing bounds it below `BURST_LIMIT` (90 s) except luck.
+
 ### 5.9 Async-allowed set (PacketSequence)
 
 Packets allowed at any position, each still recorded and checked:
@@ -328,8 +372,22 @@ Packets allowed at any position, each still recorded and checked:
 - `SM_WEATHER` (weather change 20-240 s after an in-game hour)
 - `SM_NPC_INFO` / `SM_DELETE` of temporary-spawn ids at an hour change, outside the region-move window
 - `SM_SYSTEM_MESSAGE` STR_SERVER_SHUTDOWN (Q7 only)
+- **`SM_MOVE`, `SM_EMOTION`, `SM_LOOKATOBJECT`, `SM_ATTACK` and `SM_ATTACK_STATUS` whose every object id is an npc the server already announced**
+  (m5b-plan.md D2 and G-05, `AsyncAllowed::npcActivity`). Two things produce them, both of them Java's own behaviour and neither reversible by
+  configuration once a handler is registered: npcs **walk** (a path walker leaves its spot the moment the character's region goes active, a random
+  walker 3 to 15 s later, and each broadcasts one `SM_EMOTION` of `EmoteManager` and one `SM_MOVE` per move start), and npcs of hostile tribes
+  **fight each other** — `CreatureEventHandler.checkAggro` takes any `Creature` and decides by `TribeRelationService.isAggressive` and
+  `Creature.isEnemyFrom` (CreatureEventHandler.java:56-95), so a guard that sees a monster aggroes it with no player involved. On 220010000 such a
+  fight runs inside the Mage's level-ready window.
+  **The rule that keeps this from being a hole: every object id the packet names must be an announced npc.** The character's own object id is
+  never announced by an SM_NPC_INFO — it arrives in `SM_PLAYER_INFO` and `SM_PLAYER_SPAWN` — so a packet about the character is never absorbed,
+  and a gate whose character is moved, looked at, attacked or damaged still fails at that packet's position. `SM_EMOTION` is narrowed once more,
+  to the four emotion types `EmoteManager` sends (WALK, CHANGE_SPEED, NEUTRALMODE_IN_MOVE, ATTACKMODE_IN_MOVE): a death, a resurrection, a loot
+  or a chair emote is news and breaks the sequence. All five bodies are read with the independent decoders of F-08; `SM_EMOTION` and
+  `SM_LOOKATOBJECT` are consumed exactly, so a port that changes their framing fails here as well.
 
-Case 5 expects `SM_PLAYER_STATE` explicitly (M0).
+Case 5 expects `SM_PLAYER_STATE` explicitly (M0), and §5.6 M3 — "no `SM_MOVE` to self" — is what keeps the `SM_MOVE` allowance honest: it is made
+over every `SM_MOVE` of the burst, async or not.
 
 ### 5.10 CTest wiring
 
@@ -339,6 +397,24 @@ Case 5 expects `SM_PLAYER_STATE` explicitly (M0).
 - `gs.scenario.m5a_geo` (stage 3 wave B, §5.1 "Geodata"): the same binary and the same scripted path with `-Dgameserver.geodata.enable=true`, `--gtest_filter=M5aScenarioGeo.Run`. LABELS `scenario;realdata;geo`; TIMEOUT 2700 (the geo startup is seconds in a checked RelWithDebInfo tree and minutes in a Debug one); the **same** `RESOURCE_LOCK` as `gs.scenario.m5a`, which is what keeps two geo-sized servers from running at once; `SKIP_REGULAR_EXPRESSION "gs\\.scenario\\.m5a_geo: skipped"`, and it skips itself when the tree has no `game-server/data/geo/*.geo`. A separate CTest and not a flag on the gate above, so that `ctest -R 'gs\.scenario\.m5a$'` still runs the milestone gate alone on a tree that cannot afford the geo run.
 - `gs.smoke.startup` (updated by F-02), `gs.smoke.startup_geo` (wave A) and `gs.m4.check_static_data` keep passing.
 - `gs.scenario.m5a_stress`: LABELS `scenario;stress;nightly`.
+- **What the two gates cost after the M5b-1 stage-1 wave (item G-05), measured 2026-09-22 in a Debug tree.** The numbers above are checked
+  RelWithDebInfo ones and are not comparable; these are what a fixer on a Debug tree should expect. `gs.scenario.m5a`: **56 to 79 s** over the
+  runs of that day for the twelve cases, and the spread is almost all case 0 — 25 s to 43 s to bring both servers up and spawn the whole world,
+  depending on what else the machine is doing. Registering the AI handlers did not cost the gate time: the bursts are bounded by §5.8's 1 s
+  window again, where the old rule let the level-ready burst run 5.4 s and bounded it only by `BURST_LIMIT`.
+
+| Case | Debug, 2026-09-22 (the last run of the day) |
+|---|---|
+| 0 servers start / 0b creation oracle | 43 036 ms / 5 482 ms |
+| 1 login / 2 create / 2b account B | 550 ms / 722 ms / 74 ms |
+| 3 enter world / 4 level ready / 4b C-01 packets | 1 074 ms / 3 086 ms / 1 999 ms |
+| 5 region move / 6 quit and relogin / 7 shutdown online | 6 779 ms / 7 125 ms / 7 782 ms |
+
+  `gs.scenario.m5a_geo`: **164 to 181 s**, of which **152 to 169 s is geo 0** — the Debug startup with the 151 `.geo` files, the 144 s of
+  m5a-client-session.md measured again. Its own six cases cost 11 s together: geo 1 login and create 1 381 ms, geo 2 enter world 1 057 ms,
+  geo 3 level ready 2 009 ms, geo 4 zone revalidation and region move 6 616 ms, geo 5 quit 61 ms. The `TIMEOUT 2700` above is what makes a Debug
+  tree able to run it at all, and the geo-specific live counts of §5.1 are unchanged by the AI handlers (`Terrain` 89,
+  `TerrainZoneCollisionMaterialActor` 6598, `MaterialZoneHandler` 7901, GEO4's client half +0 for all three).
 
 ## 6. Header requests expected
 

@@ -694,6 +694,96 @@ TEST(PacketDecodersTest, PrefixDecoders) {
 	EXPECT_THROW(decodeSystemMessageId(tooShort.data), DecodeError);
 }
 
+/** SM_MOVE.java:37-42 and SM_EMOTION.java:94-97, the two packets the npc half of §5.9 reads (m5b-plan.md G-05) */
+TEST(PacketDecodersTest, MoveAndEmotionPrefixes) {
+	PacketWriter walkerMove;
+	// object id, x, y, z, heading, movement mask; the POSITION|MANUAL mask (3|8 = 0x0B) adds the three target floats
+	walkerMove.D(0x00A13001).F(1212.94f).F(1044.85f).F(140.76f).C(90).C(0x0B).F(1.0f).F(2.0f).F(3.0f);
+	EXPECT_EQ(walkerMove.data.size(), 30u);
+	EXPECT_EQ(decodeMoveObjectId(walkerMove.data), 0x00A13001);
+
+	PacketWriter noMask;
+	noMask.D(0x00A13002).F(0).F(0).F(0).C(0).C(0);
+	EXPECT_EQ(noMask.data.size(), 18u);
+	EXPECT_EQ(decodeMoveObjectId(noMask.data), 0x00A13002);
+
+	PacketWriter truncated;
+	truncated.C(1).C(2).C(3);
+	EXPECT_THROW(decodeMoveObjectId(truncated.data), DecodeError);
+
+	// the walk emote: object id, type, state, speed and nothing else, because WALK's arm of the switch is a bare break
+	PacketWriter walk;
+	walk.D(0x00A13001).C(EMOTION_WALK).H(0x40).F(1.5f);
+	EXPECT_EQ(walk.data.size(), 11u);
+	const EmotionHeader header = decodeEmotionHeader(walk.data);
+	EXPECT_EQ(header.objectId, 0x00A13001);
+	EXPECT_EQ(header.emotionType, EMOTION_WALK);
+	EXPECT_EQ(header.state, 0x40);
+	EXPECT_FLOAT_EQ(header.speed, 1.5f);
+
+	// CHANGE_SPEED is the one EmoteManager emote with an arm of its own: two attack speeds and a zero byte after the header
+	PacketWriter changeSpeed;
+	changeSpeed.D(0x00A13001).C(EMOTION_CHANGE_SPEED).H(0x40).F(6.0f).H(1500).H(1300).C(0);
+	EXPECT_EQ(changeSpeed.data.size(), 16u);
+	const EmotionHeader speedHeader = decodeEmotionHeader(changeSpeed.data);
+	EXPECT_EQ(speedHeader.emotionType, EMOTION_CHANGE_SPEED);
+	EXPECT_EQ(speedHeader.baseAttackSpeed, 1500);
+	EXPECT_EQ(speedHeader.currentAttackSpeed, 1300);
+	PacketWriter changeSpeedWithoutTail;
+	changeSpeedWithoutTail.D(0x00A13001).C(EMOTION_CHANGE_SPEED).H(0).F(6.0f);
+	EXPECT_THROW(decodeEmotionHeader(changeSpeedWithoutTail.data), DecodeError) << "the 11-byte shape is not CHANGE_SPEED's";
+	PacketWriter changeSpeedWrongConstant;
+	changeSpeedWrongConstant.D(0x00A13001).C(EMOTION_CHANGE_SPEED).H(0).F(6.0f).H(1500).H(1300).C(1);
+	EXPECT_THROW(decodeEmotionHeader(changeSpeedWrongConstant.data), DecodeError) << "the last byte of the arm is a literal 0";
+
+	EXPECT_TRUE(isNpcEmote(EMOTION_WALK));
+	EXPECT_TRUE(isNpcEmote(EMOTION_CHANGE_SPEED));
+	EXPECT_TRUE(isNpcEmote(EMOTION_NEUTRALMODE_IN_MOVE));
+	EXPECT_TRUE(isNpcEmote(EMOTION_ATTACKMODE_IN_MOVE));
+	EXPECT_FALSE(isNpcEmote(18)) << "DIE writes the target object id (SM_EMOTION.java:129-134)";
+	EXPECT_FALSE(isNpcEmote(3)) << "STAND has an empty arm too, but EmoteManager never sends it";
+
+	// an empty-body emotion with a payload is a framing error; one of a type that HAS a payload is read as a prefix and keeps its tail
+	PacketWriter walkWithTail;
+	walkWithTail.D(0x00A13001).C(EMOTION_WALK).H(0).F(1.5f).C(0);
+	EXPECT_THROW(decodeEmotionHeader(walkWithTail.data), DecodeError);
+	PacketWriter die;
+	die.D(0x00A13001).C(18).H(0).F(1.5f).D(0x0BADF00D); // DIE writes targetObjectId
+	EXPECT_EQ(decodeEmotionHeader(die.data).objectId, 0x00A13001);
+	EXPECT_EQ(decodeEmotionHeader(die.data).emotionType, 18);
+}
+
+/** SM_LOOKATOBJECT, SM_ATTACK and SM_ATTACK_STATUS: the npc fights the async set of §5.9 has to recognize (m5b-plan.md G-05) */
+TEST(PacketDecodersTest, NpcFightPackets) {
+	PacketWriter look;
+	look.D(0x00A13001).D(0x00A13002).C(30);
+	EXPECT_EQ(look.data.size(), 9u);
+	const LookAtObject decoded = decodeLookAtObject(look.data);
+	EXPECT_EQ(decoded.objectId, 0x00A13001);
+	EXPECT_EQ(decoded.targetObjectId, 0x00A13002);
+	EXPECT_EQ(decoded.heading, 30);
+	look.C(0); // SM_LOOKATOBJECT is exactly 9 bytes
+	EXPECT_THROW(decodeLookAtObject(look.data), DecodeError);
+
+	// SM_ATTACK: attacker, attackno, time, attackTypeAnimation, attackHandAnimation, target, then the parts this prefix decoder does not read
+	PacketWriter swing;
+	swing.D(0x00A13001).C(3).H(750).C(0).C(1).D(0x00A13002).C(88).C(100).H(0).H(0).C(1).D(17).C(-1).C(0).C(0);
+	const AttackParties parties = decodeAttackParties(swing.data);
+	EXPECT_EQ(parties.attackerObjectId, 0x00A13001);
+	EXPECT_EQ(parties.targetObjectId, 0x00A13002) << "the target follows attackno, time and the two animation bytes (SM_ATTACK.java:70-76)";
+
+	PacketWriter shortSwing;
+	shortSwing.D(0x00A13001).C(3).H(750).C(0);
+	EXPECT_THROW(decodeAttackParties(shortSwing.data), DecodeError);
+
+	PacketWriter status;
+	status.D(0x00A13002).D(-17).C(0).C(88).H(0).C(0).C(0);
+	EXPECT_EQ(decodeAttackStatusObjectId(status.data), 0x00A13002);
+	PacketWriter shortStatus;
+	shortStatus.C(1).C(2);
+	EXPECT_THROW(decodeAttackStatusObjectId(shortStatus.data), DecodeError);
+}
+
 TEST(PacketDecodersTest, BodyReaderReportsThePacketAndTheOffset) {
 	const std::vector<uint8_t> body = {1, 2, 3};
 	BodyReader reader(body, "SM_EXAMPLE");

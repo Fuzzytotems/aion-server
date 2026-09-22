@@ -1,5 +1,7 @@
 # The AION_PARTIAL sites the M5a scenario gate accepts (m5a-plan.md D3: "partial sites subset of tests/scenario/m5a_partial_allowlist.txt").
-# One site per line, whose file paths are relative to game-server/src (e.g. "aion/gameserver/GameServer.cpp:129"). An entry WITH a line number
+# One site per line, whose file paths are relative to the compiling target's source root - game-server/src for the server itself
+# (e.g. "aion/gameserver/GameServer.cpp:129") and game-server/handlers for a registered handler
+# (e.g. "aion/gameserver/handlers/ai/GeneralNpcAI.cpp:122"). An entry WITH a line number
 # ("<file>:<line>") must match the whole site: a prefix match would let ":133" also cover ":1330" to ":1339". An entry without one ("<file>")
 # is an explicit whole-file wildcard. Lines starting with '#' and empty lines are ignored. Case 8 prints every row a run did not hit, so a row
 # left behind after the site it describes was ported becomes visible instead of staying green forever.
@@ -20,8 +22,19 @@ aion/gameserver/services/BaseService.cpp:18
 # the PvP map instance needs InstanceService.getNextAvailableInstance (plan W-03, explicitly AION_PARTIAL there)
 aion/gameserver/custom/pvpmap/PvpMapService.cpp:32
 
+# --- the three root AI handlers of m5b-plan.md A-06, registered in the M5b-1 stage-1 wave (D2: a registered handler cannot be turned off by
+# configuration, so both sites below are reached by every run of this gate from now on; G-05 is the item that put them here) ---
+# "npc skill attacks are not chosen yet (M5b-2): every attack stays a simple melee attack" (m5b-plan.md D4). Reached whenever a registered
+# AI picks its next attack, which in an M5a run is the npcs that fight each other in the character's map region.
+aion/gameserver/handlers/ai/GeneralNpcAI.cpp:122
+# "post-spawn npc skills are not cast yet (M5b-2)" (m5b-plan.md D3). SpawnEventHandler::onSpawn asks every one of the 83,885 spawns for its
+# post-spawn skills, so this is by far the most-hit site of a run; none of the 185 npc ids that have one is on Poeta or Ishalgen.
+aion/gameserver/model/skill/NpcSkillList.cpp:90
+
 # --- enter world (plan §5.4 V9 "the passive-skill delta of AION_PARTIAL O-09 is on the allow-list") ---
-aion/gameserver/skillengine/SkillEngine.cpp:74
+# O-09 "passive skill effects are not applied yet (M5a O-09)". The line moved from :74 to :79 when the M5b-1 wave added
+# SkillEngine::createCriticalProcEffect above it; an entry with a line number must match the whole site, so the row moves with it.
+aion/gameserver/skillengine/SkillEngine.cpp:79
 # a fresh level 1 character has no saved effect, so this one should not be hit; it is listed because a relogin after Q3 walks the same code
 aion/gameserver/controllers/effect/PlayerEffectController.cpp:120
 # EMOTIONS_ALL is off by default, so this is only reached with the config the real-client checklist uses
@@ -29,3 +42,8 @@ aion/gameserver/services/player/PlayerService.cpp:268
 # personal instances and the instance exit teleport are M5a AION_PARTIAL by plan W-03
 aion/gameserver/services/instance/InstanceService.cpp:133
 aion/gameserver/services/instance/InstanceService.cpp:153
+# --- what registering the AI handlers made reachable (M5b-1 stage 1) ---
+# Every npc that walks back to its spawn point after a fight runs ReturningEventHandler::onBackHome, whose last statement drops the buffs
+# of the fight. The dispel machinery needs the effect engine (M5b-2) and nothing can put an abnormal effect on a creature yet, so the
+# partial has nothing to do; it was AION_UNPORTED until M5b-1, where it threw out of the BACK_HOME event of every returning npc.
+aion/gameserver/controllers/effect/EffectController.cpp:209

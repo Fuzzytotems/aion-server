@@ -7,12 +7,14 @@
 
 #include "aion/commons/logging/LoggerFactory.h"
 #include "aion/commons/utils/TimeUtils.h"
+#include "aion/gameserver/ai/AILogger.h"
 #include "aion/gameserver/ai/AIState.h"
 #include "aion/gameserver/ai/AISubState.h"
 #include "aion/gameserver/ai/AbstractAI.h"
 #include "aion/gameserver/ai/NpcAI.h"
+#include "aion/gameserver/ai/handler/TargetEventHandler.h"
+#include "aion/gameserver/ai/manager/WalkManager.h"
 #include "aion/gameserver/configs/main/GeoDataConfig.h"
-#include "aion/gameserver/controllers/ControllerStandIns.h"
 #include "aion/gameserver/controllers/ControllerSupport.h"
 #include "aion/gameserver/controllers/NpcController.h"
 #include "aion/gameserver/controllers/movement/MovementMask.h"
@@ -47,8 +49,11 @@ namespace aion::gameserver::controllers::movement {
 
 static const auto log = commons::logging::LoggerFactory::getLogger("com.aionemu.gameserver.controllers.movement.NpcMoveController");
 
+using ai::AILogger;
 using ai::AIState;
 using ai::AISubState;
+using ai::handler::TargetEventHandler;
+using ai::manager::WalkManager;
 using geoEngine::math::JavaFloat;
 using model::gameobjects::Creature;
 using model::gameobjects::Npc;
@@ -88,7 +93,7 @@ void NpcMoveController::moveToTargetObject() {
 	Npc& npc = static_cast<Npc&>(owner);
 	if (started->compareAndSet(false, true)) {
 		if (npc.getAi().isLogging()) {
-			standins::aiLoggerMoveinfo(npc, "MC: moveToTarget started");
+			AILogger::moveinfo(npc, "MC: moveToTarget started");
 		}
 		destination = Destination::TARGET_OBJECT;
 		updateLastMove();
@@ -102,7 +107,7 @@ bool NpcMoveController::moveToPoint(float x, float y, float z) {
 	if (!startedMoving && destination.get() != Destination::POINT)
 		return false;
 	if (npc.getAi().isLogging()) {
-		standins::aiLoggerMoveinfo(npc, std::format("MC: moveToPoint (startedMoving={})", startedMoving));
+		AILogger::moveinfo(npc, std::format("MC: moveToPoint (startedMoving={})", startedMoving));
 	}
 	// java-race: destination and point coordinates are written without a lock after the compare-and-set; concurrent moveToPoint and
 	// forcedMoveToPoint callers can leave a destination and coordinates mixed from two calls
@@ -120,7 +125,7 @@ void NpcMoveController::forcedMoveToPoint(float x, float y, float z) {
 	Npc& npc = static_cast<Npc&>(owner);
 	if (started->compareAndSet(false, true)) {
 		if (npc.getAi().isLogging()) {
-			standins::aiLoggerMoveinfo(npc, "MC: forcedMoveToPoint started");
+			AILogger::moveinfo(npc, "MC: forcedMoveToPoint started");
 		}
 		// java-race: see moveToPoint (a concurrent moveToPoint of a started move writes the same fields)
 		destination = Destination::FORCED_POINT;
@@ -136,7 +141,7 @@ void NpcMoveController::moveToNextPoint() {
 	Npc& npc = static_cast<Npc&>(owner);
 	if (started->compareAndSet(false, true)) {
 		if (npc.getAi().isLogging()) {
-			standins::aiLoggerMoveinfo(npc, "MC: moveToNextPoint started");
+			AILogger::moveinfo(npc, "MC: moveToNextPoint started");
 		}
 		destination = Destination::POINT;
 		updateLastMove();
@@ -147,7 +152,7 @@ void NpcMoveController::moveToNextPoint() {
 void NpcMoveController::moveToDestination() {
 	Npc& npc = static_cast<Npc&>(owner);
 	if (npc.getAi().isLogging()) {
-		standins::aiLoggerMoveinfo(npc, std::string("moveToDestination destination: ").append(destinationName(destination.get())));
+		AILogger::moveinfo(npc, std::string("moveToDestination destination: ").append(destinationName(destination.get())));
 	}
 	if (npc.isDead()) {
 		abortMove();
@@ -155,7 +160,7 @@ void NpcMoveController::moveToDestination() {
 	}
 	if (!npc.canPerformMove()) {
 		if (npc.getAi().isLogging()) {
-			standins::aiLoggerMoveinfo(npc, "moveToDestination can't perform move");
+			AILogger::moveinfo(npc, "moveToDestination can't perform move");
 		}
 		if (started->compareAndSet(true, false)) {
 			setAndSendStopMove(npc);
@@ -242,7 +247,7 @@ void NpcMoveController::moveToLocation(float targetX, float targetY, float targe
 	float ownerZ = npc.getZ();
 
 	if (npc.getAi().isLogging()) {
-		standins::aiLoggerMoveinfo(npc, std::format("OLD targetDestX: {} targetDestY: {} targetDestZ {}", JavaFloat::toString(targetDestX.get()),
+		AILogger::moveinfo(npc, std::format("OLD targetDestX: {} targetDestY: {} targetDestZ {}", JavaFloat::toString(targetDestX.get()),
 			JavaFloat::toString(targetDestY.get()), JavaFloat::toString(targetDestZ.get())));
 	}
 
@@ -265,9 +270,9 @@ void NpcMoveController::moveToLocation(float targetX, float targetY, float targe
 	targetDestZ = targetZ;
 
 	if (npc.getAi().isLogging()) {
-		standins::aiLoggerMoveinfo(npc, std::format("ownerX={} ownerY={} ownerZ={}", JavaFloat::toString(ownerX), JavaFloat::toString(ownerY),
+		AILogger::moveinfo(npc, std::format("ownerX={} ownerY={} ownerZ={}", JavaFloat::toString(ownerX), JavaFloat::toString(ownerY),
 			JavaFloat::toString(ownerZ)));
-		standins::aiLoggerMoveinfo(npc, std::format("targetDestX: {} targetDestY: {} targetDestZ {}", JavaFloat::toString(targetDestX.get()),
+		AILogger::moveinfo(npc, std::format("targetDestX: {} targetDestY: {} targetDestZ {}", JavaFloat::toString(targetDestX.get()),
 			JavaFloat::toString(targetDestY.get()), JavaFloat::toString(targetDestZ.get())));
 	}
 
@@ -276,15 +281,15 @@ void NpcMoveController::moveToLocation(float targetX, float targetY, float targe
 	float dist = static_cast<float>(PositionUtil::getDistance(ownerX, ownerY, ownerZ, targetX, targetY, targetZ));
 
 	if (npc.getAi().isLogging()) {
-		standins::aiLoggerMoveinfo(npc, std::format("futureDist: {} dist: {}", JavaFloat::toString(futureDistPassed), JavaFloat::toString(dist)));
+		AILogger::moveinfo(npc, std::format("futureDist: {} dist: {}", JavaFloat::toString(futureDistPassed), JavaFloat::toString(dist)));
 	}
 
 	if (dist == 0) {
 		if (npc.getAi().getState() == AIState::RETURNING) {
 			if (npc.getAi().isLogging()) {
-				standins::aiLoggerMoveinfo(npc, "State RETURNING: abort move");
+				AILogger::moveinfo(npc, "State RETURNING: abort move");
 			}
-			standins::targetEventHandlerOnTargetReached(*runtime::cast<ai::NpcAI>(npc.getAi()));
+			TargetEventHandler::onTargetReached(*runtime::cast<ai::NpcAI>(npc.getAi()));
 		}
 		return;
 	}
@@ -314,7 +319,7 @@ void NpcMoveController::moveToLocation(float targetX, float targetY, float targe
 		npc.getGameStats()->setNextGeoZUpdate(commons::utils::currentTimeMillis() + 1000);
 	}
 	if (npc.getAi().isLogging()) {
-		standins::aiLoggerMoveinfo(npc, std::format("newX={} newY={} newZ={} mask={}", JavaFloat::toString(newX), JavaFloat::toString(newY),
+		AILogger::moveinfo(npc, std::format("newX={} newY={} newZ={} mask={}", JavaFloat::toString(newX), JavaFloat::toString(newY),
 			JavaFloat::toString(newZ), movementMask.get()));
 	}
 
@@ -324,7 +329,7 @@ void NpcMoveController::moveToLocation(float targetX, float targetY, float targe
 	if (movementMask.get() != newMask || destinationChanged) {
 		if (movementMask.get() != newMask) {
 			if (npc.getAi().isLogging()) {
-				standins::aiLoggerMoveinfo(npc, std::format("oldMask={} newMask={}", movementMask.get(), newMask));
+				AILogger::moveinfo(npc, std::format("oldMask={} newMask={}", movementMask.get(), newMask));
 			}
 			movementMask = newMask;
 		}
@@ -363,7 +368,7 @@ void NpcMoveController::abortMove() {
 void NpcMoveController::resetMove() {
 	Npc& npc = static_cast<Npc&>(owner);
 	if (npc.getAi().isLogging()) {
-		standins::aiLoggerMoveinfo(npc, "MC perform stop");
+		AILogger::moveinfo(npc, "MC perform stop");
 	}
 	npc.getController().onStopMove();
 	started->set(false);
@@ -409,11 +414,11 @@ bool NpcMoveController::isReachedPoint() {
 bool NpcMoveController::isNextRouteStepChosen() {
 	Npc& npc = static_cast<Npc&>(owner);
 	if (isStop_.get()) {
-		standins::walkManagerStopWalking(*runtime::cast<ai::NpcAI>(npc.getAi()));
+		WalkManager::stopWalking(*runtime::cast<ai::NpcAI>(npc.getAi()));
 		return false;
 	}
 	if (walkerTemplate.get() == nullptr) {
-		standins::walkManagerStopWalking(*runtime::cast<ai::NpcAI>(npc.getAi()));
+		WalkManager::stopWalking(*runtime::cast<ai::NpcAI>(npc.getAi()));
 		if (spawnengine::WalkerFormator::processClusteredNpc(npc, npc.getWorldId(), npc.getInstanceId()))
 			return false;
 
@@ -461,7 +466,7 @@ void NpcMoveController::tryStoreStep(float x, float y, float z) {
 		Ptr<model::geometry::Point3D> lastStep = steps->isEmpty() ? nullptr : steps->getLast();
 		if (!lastStep || !PositionUtil::isInRange(lastStep->getX(), lastStep->getY(), lastStep->getZ(), x, y, z, 10)) {
 			if (npc.getAi().isLogging()) {
-				standins::aiLoggerMoveinfo(npc, std::format("store back step: X={} Y={} Z={}", JavaFloat::toString(npc.getX()),
+				AILogger::moveinfo(npc, std::format("store back step: X={} Y={} Z={}", JavaFloat::toString(npc.getX()),
 					JavaFloat::toString(npc.getY()), JavaFloat::toString(npc.getZ())));
 			}
 			steps->add(model::geometry::Point3D::create(x, y, z));
@@ -485,13 +490,13 @@ void NpcMoveController::returnToLastStepOrSpawn() {
 			targetDestY = spawn.getY();
 			targetDestZ = spawn.getZ();
 			if (npc.getAi().isLogging())
-				standins::aiLoggerMoveinfo(npc, "recall back step: spawn point");
+				AILogger::moveinfo(npc, "recall back step: spawn point");
 		} else {
 			targetDestX = step->getX();
 			targetDestY = step->getY();
 			targetDestZ = step->getZ();
 			if (npc.getAi().isLogging())
-				standins::aiLoggerMoveinfo(npc, std::format("recall back step: X={} Y={} Z={}", JavaFloat::toString(step->getX()),
+				AILogger::moveinfo(npc, std::format("recall back step: X={} Y={} Z={}", JavaFloat::toString(step->getX()),
 					JavaFloat::toString(step->getY()), JavaFloat::toString(step->getZ())));
 		}
 		moveToPoint(targetDestX.get(), targetDestY.get(), targetDestZ.get());

@@ -1,13 +1,11 @@
 #pragma once
 
 #include <cstdint>
-#include <string_view>
 #include <unordered_set>
 #include <vector>
 
 #include "aion/gameserver/runtime/lifetime/Ref.h"
 #include "aion/gameserver/runtime/sched/Future.h"
-#include "aion/gameserver/ai/fwd.h"
 #include "aion/gameserver/controllers/attack/fwd.h"
 #include "aion/gameserver/model/Race.h"
 #include "aion/gameserver/instance/handlers/fwd.h"
@@ -31,56 +29,56 @@ namespace aion::gameserver::controllers::standins {
 
 // ------------------------------------------------------------------------------------------------------------------- P5-05 (aion_gs_ai)
 
-/** Java: AILogger.moveinfo(owner, message) */
-void aiLoggerMoveinfo(model::gameobjects::Creature& owner, std::string_view message);
-
-/** Java: TargetEventHandler.onTargetReached(npcAI) */
-void targetEventHandlerOnTargetReached(ai::NpcAI& npcAI);
-
-/** Java: WalkManager.stopWalking(npcAI) */
-void walkManagerStopWalking(ai::NpcAI& npcAI);
+// m5b-1 E-01a (header-request m5b-2): `aiLoggerMoveinfo`, `targetEventHandlerOnTargetReached`, `walkManagerStopWalking`,
+// `shoutEventHandlerOnAttack` and `shoutEventHandlerOnEnemyAttack` are gone - `ai/AILogger.h`, `ai/handler/TargetEventHandler.h`,
+// `ai/manager/WalkManager.h` and `ai/handler/ShoutEventHandler.h` exist, and NpcMoveController, NpcController and PlayerController call them
+// the way Java writes them.
+//
+// m5b-1 E-01b, stage 1 (header-request m5b-3, and m5b-plan.md §4 E-01b moved forward from stage 2): `attackUtilCalculatePhysAttackResult`,
+// `statFunctionsCalculateExperienceReward`, `statFunctionsCalculateDPReward`, `statFunctionsCalculatePvEApGained` and
+// `playerRestrictionsCanAttack` are gone too - B-01, B-02/B-03 and C-01 landed in the same stage, and A-06's registered AggressiveNpcAI made the
+// first of them live (a Poeta monster aggroes the gate's character and swings, so `CreatureController::attackTarget` reaches the physical half).
+// The plan scheduled them for stage 2 on the reasoning that "none of these is reachable before its owner lands"; that reasoning held for the
+// owners and not for the caller. Each stand-in left below now names the milestone that deletes it.
 
 /** Java: FollowStartService.newFollowingToTargetCheckTask(follower, leading) */
 runtime::FutureRef followStartServiceNewFollowingToTargetCheckTask(model::gameobjects::Summon& follower, model::gameobjects::Creature& leading);
-
-/** Java: ShoutEventHandler.onAttack(npcAI, attacked) */
-void shoutEventHandlerOnAttack(ai::NpcAI& npcAI, model::gameobjects::Creature& attacked);
-
-/** Java: ShoutEventHandler.onEnemyAttack(npcAI, attacker) */
-void shoutEventHandlerOnEnemyAttack(ai::NpcAI& npcAI, model::gameobjects::Creature& attacker);
 
 // --------------------------------------------------------------------------------------------------------------- P5-02 (aion_gs_skills)
 
 /**
  * Java: `ChargeSkill skill = SkillEngine.getInstance().getChargeSkill(creature, skillId, skillLevel, chargeLevel, startSkill); skill != null &&
  * skill.useSkill()` (ChargeSkill has no header, so its Ref cannot be released here)
+ * <p>
+ * **Closed by M5b-2** (m5b-plan.md O-01): `ChargeSkill` is one of the eleven P5-02 classes that have no C++ file at all. Unreachable at M5b-1 -
+ * its only call site, `CreatureController::useChargeSkill`, needs a cast skill, and `CM_CASTSPELL` does not exist yet (O-04).
  */
 bool chargeSkillGetAndUse(model::gameobjects::Creature& creature, int32_t skillId, int32_t skillLevel, int32_t chargeLevel,
 	skillengine::model::Skill& startSkill);
 
 // ---------------------------------------------------------------------------------------------------------------- P5-01 (aion_gs_stats)
 
-/** Java: AttackUtil.calculatePhysAttackResult(attacker, attacked, calculationTypes) */
-std::vector<runtime::Ref<attack::AttackResult>> attackUtilCalculatePhysAttackResult(model::gameobjects::Creature& attacker,
-	model::gameobjects::Creature& attacked, const std::unordered_set<utils::stats::CalculationType>& calculationTypes);
-
-/** Java: AttackUtil.calculateMagAttackResult(attacker, attacked, element, calculationTypes) */
+/**
+ * Java: AttackUtil.calculateMagAttackResult(attacker, attacked, element, calculationTypes)
+ * <p>
+ * **Closed by M5b-2** (m5b-plan.md O-02, the magical half of `AttackUtil`). The physical half landed in M5b-1 (B-01) and
+ * `CreatureController::attackTarget` calls `AttackUtil::calculatePhysAttackResult` directly; this arm is taken when
+ * `Creature::getAttackType()` is not PHYSICAL. An `Npc` never takes it with the three handlers M5b-1 registers - `Npc::getAttackType` is
+ * `getAi().modifyAttackType(PHYSICAL)` (Npc.java:124) and only instance/world handlers override `modifyAttackType`, none of them registered -
+ * but a `Player` wielding a magical weapon does (Player.java:937-941), so an M5b-2 that is late makes every mage auto-attack throw.
+ */
 std::vector<runtime::Ref<attack::AttackResult>> attackUtilCalculateMagAttackResult(model::gameobjects::Creature& attacker,
 	model::gameobjects::Creature& attacked, model::SkillElement element,
 	const std::unordered_set<utils::stats::CalculationType>& calculationTypes);
 
-/** Java: StatFunctions.calculateExperienceReward(playerLevel, target) */
-int64_t statFunctionsCalculateExperienceReward(int32_t playerLevel, model::gameobjects::Npc& target);
-
-/** Java: StatFunctions.calculateDPReward(player, target) */
-int32_t statFunctionsCalculateDPReward(model::gameobjects::player::Player& player, model::gameobjects::Creature& target);
-
-/** Java: StatFunctions.calculatePvEApGained(player, target) */
-int32_t statFunctionsCalculatePvEApGained(model::gameobjects::player::Player& player, model::gameobjects::Creature& target);
-
 // --------------------------------------------------------------------------------------------------------------- P5-10 (aion_gs_team)
 
-/** Java: PlayerTeamDistributionService.doReward(team, damagePercent, owner, winner, damageList) */
+/**
+ * Java: PlayerTeamDistributionService.doReward(team, damagePercent, owner, winner, damageList)
+ * <p>
+ * **Closed by P5-10** (m5b-plan.md E-01b): the whole `services/teleport`-sibling team package is unported. `NpcController::doReward` reaches it
+ * only for a `TemporaryPlayerTeam` attacker, which needs a group or an alliance; a solo character never makes one.
+ */
 void playerTeamDistributionServiceDoReward(model::team::TemporaryPlayerTeam& team, float damagePercent, model::gameobjects::Npc& owner,
 	model::gameobjects::AionObject& winner, attack::TeamDamageList& damageList);
 
@@ -123,10 +121,14 @@ RiftEnumData riftEnumData(services::rift::RiftEnum riftTemplate);
 
 // ------------------------------------------------------------------------------------------------------------ P5-13 (aion_gs_instance)
 
-/** Java: PlayerRestrictions.canAttack(player, target) */
-bool playerRestrictionsCanAttack(model::gameobjects::player::Player& player, model::gameobjects::VisibleObject& target);
-
-/** Java: PlayerRestrictions.canUseSkill(player, skill) */
+/**
+ * Java: PlayerRestrictions.canUseSkill(player, skill)
+ * <p>
+ * **Closed by M5b-2** (m5b-plan.md E-01b/O-01). `restrictions/PlayerRestrictions.h` exists since C-01 and `canAttack` beside it is called
+ * directly now, but `canUseSkill` is an `AION_PARTIAL` that refuses every skill until the skill engine lands (PlayerRestrictions.cpp, C-01), and
+ * swapping a throwing stand-in for a silently-refusing partial would hide the gap rather than record it. `PlayerController::useSkill` is
+ * unreachable at M5b-1 anyway: `CM_CASTSPELL` does not exist (O-04).
+ */
 bool playerRestrictionsCanUseSkill(model::gameobjects::player::Player& player, skillengine::model::Skill& skill);
 
 /** Java: PvpMapService.getInstance().isOnPvPMap(creature) */

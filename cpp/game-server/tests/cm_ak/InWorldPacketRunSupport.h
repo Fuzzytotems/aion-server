@@ -64,6 +64,7 @@
 #include "aion/gameserver/model/stats/container/CreatureGameStats.h"
 #include "aion/gameserver/model/stats/container/StatEnum.h"
 #include "aion/gameserver/model/stats/container/CreatureLifeStats.h"
+#include "aion/gameserver/model/stats/container/PlayerLifeStats.h"
 #include "aion/gameserver/network/aion/AionClientPacket.h"
 #include "aion/gameserver/network/aion/AionConnection.h"
 #include "aion/gameserver/network/aion/AionServerPacket.h"
@@ -100,6 +101,19 @@ inline constexpr std::string_view PLAYER_EXPERIENCE_TABLE_XML =
 class DeadLifeStats final : public model::stats::container::CreatureLifeStats {
 public:
 	explicit DeadLifeStats(model::gameobjects::Creature& owner) : CreatureLifeStats(owner, 0, 0) {}
+};
+
+/**
+ * The same for a body that reads `player.getLifeStats()` rather than `creature.getLifeStats()`: Player narrows the part with a cast
+ * (Player.cpp:336-338, Java's covariant CreatureLifeStats<Player>), which a plain DeadLifeStats fails. onHpChanged is overridden away so that
+ * setCurrentHp(0) only writes the field instead of running the whole PlayerController::onDie path (CreatureLifeStats.cpp:303-307).
+ */
+class DeadPlayerLifeStats final : public model::stats::container::PlayerLifeStats {
+public:
+	explicit DeadPlayerLifeStats(model::gameobjects::player::Player& owner) : PlayerLifeStats(owner) { setCurrentHp(0); }
+
+protected:
+	void onHpChanged(int32_t, int32_t, runtime::Ptr<model::gameobjects::Creature>) override {}
 };
 
 /**
