@@ -294,6 +294,12 @@ if(AION_BUILD_TESTS)
 	if(EXISTS "${GS_TESTS}/scenario/ScenarioTests.cmake")
 		include("${GS_TESTS}/scenario/ScenarioTests.cmake")
 	endif()
+	# The stress nightly (m5a-plan.md G-01). This include is what DISABLES the discovered M5aStress case: without it the case is still discovered
+	# from aion_gs_scenario_tests and a plain ctest would start a game server, a login server and its clients with no label, no timeout and no
+	# resource lock - next to the two scenario gates, which hold that lock exactly to keep two game servers apart.
+	if(EXISTS "${GS_TESTS}/scenario/StressTests.cmake")
+		include("${GS_TESTS}/scenario/StressTests.cmake")
+	endif()
 
 	# the configure-time empty registry tables (linked by the unit tests) equal the tool's
 	list(JOIN AION_GS_REGISTRY_NAMES "," gs_registry_names)
