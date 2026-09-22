@@ -11,8 +11,9 @@
 //     a working directory of its own with a copy of its config (Logging::init archives and DELETES the log files it finds).
 //   - Both schemas carry an in-use marker (SchemaLease) for the whole run, and createSchemas() drops the schemas of runs that were killed
 //     before they could drop their own. A CTest TIMEOUT runs no destructor; the marker is a session lock, so it dies with the process.
-//   - stopProblems() collects what went wrong while stopping, and the destructor reports an unread list as a test failure, so no run passes
-//     with a hung game server or a killed login server.
+//   - stopProblems() collects what went wrong while stopping, and the destructor reports the list as a test failure unless a caller took
+//     responsibility for it with stopProblemsReported(), so no run passes with a hung game server or a killed login server.
+//   - A run drops its two schemas at the end, a failed one as well unless AION_SCENARIO_KEEP_SCHEMAS asks for a post mortem (dropSchemas()).
 
 #include <chrono>
 #include <cstdint>
@@ -79,6 +80,26 @@ public:
 	/** How long a scenario schema must have been untouched before dropAbandonedSchemas() may drop it (see there; a gate run has TIMEOUT 900) */
 	static constexpr std::chrono::minutes ABANDONED_SCHEMA_AGE{60};
 
+	/**
+	 * Drops both test schemas and releases their in-use markers. Safe to call more than once and when createSchemas() never ran.
+	 * <p>
+	 * A gate calls this at the end of a run. Before stage 3 only a **passed** run did, so every failed run left its two schemas in MariaDB: the
+	 * next run of the same gate recreates them (the schema name is a hash of the output directory, so it is the same pair every time) and
+	 * createSchemas() sweeps the ones an hour old, but neither happens if the gate is never run again - and with a second gate the tree now
+	 * leaves four. A failed run therefore drops them too unless keepSchemasOnFailure() says otherwise.
+	 */
+	void dropSchemas();
+
+	/**
+	 * Whether a FAILED run keeps its two schemas for a post mortem: true when the environment variable AION_SCENARIO_KEEP_SCHEMAS is set to
+	 * anything but "0" or "".
+	 * <p>
+	 * The default is to drop them. What a post mortem actually reads is the run's own report files and the two server logs, which a failed run
+	 * keeps and names; the database rows are worth a repeat run with this variable set, and are not worth leaving a schema per failed run of
+	 * every build tree behind in MariaDB. The gate prints the variable in its failure message, so the way back is one environment variable away.
+	 */
+	static bool keepSchemasOnFailure();
+
 	/** Starts the login server and waits until it listens for clients and game servers */
 	void startLoginServer();
 
@@ -99,11 +120,26 @@ public:
 	 * server that had to be **killed** because Windows refused CTRL_BREAK (exit code 98), and a server that was still running when the harness
 	 * was destroyed and had to be terminated. Empty when both children shut down in order.
 	 * <p>
-	 * A caller that reads this list owns the reporting; a list that nobody reads is reported by the destructor as a GoogleTest failure, so a
-	 * run that never checks the exit codes still cannot pass with a killed or hung server (stage 2 review: "nothing checks the game server's
-	 * exit code when case 7 does not run, and a forced login-server kill counts as success").
+	 * A list that nobody reports is reported by the destructor as a GoogleTest failure, so a run that never checks the exit codes still cannot
+	 * pass with a killed or hung server (stage 2 review: "nothing checks the game server's exit code when case 7 does not run, and a forced
+	 * login-server kill counts as success").
+	 * <p>
+	 * This reader is **pure**: it neither latches nor clears anything, so every caller sees the same list and a diagnostic read (a failure
+	 * message, a log line) cannot silence the destructor for the caller that would have reported it. Whoever takes responsibility for reporting
+	 * says so with stopProblemsReported(); until then the destructor keeps the last word. It used to latch on read, which meant that the first
+	 * reader - including one that only printed the list - turned the destructor's safety net off for everybody.
 	 */
-	std::vector<std::string> stopProblems();
+	std::vector<std::string> stopProblems() const;
+
+	/**
+	 * Declares that the caller has reported stopProblems() itself, so that the destructor does not report them a second time.
+	 *
+	 * @return the problems, for `const std::vector<std::string> problems = servers.stopProblemsReported();`
+	 */
+	std::vector<std::string> stopProblemsReported();
+
+	/** true while nobody has called stopProblemsReported(), i.e. while the destructor would still report a non-empty list */
+	bool stopProblemsUnreported() const noexcept { return !stopProblemsRead; }
 
 	uint16_t loginClientPort() const noexcept { return loginPort; }
 	uint16_t loginGameServerPort() const noexcept { return gameServerLinkPort; }

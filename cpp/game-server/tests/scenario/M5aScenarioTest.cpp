@@ -9,6 +9,11 @@
 // The whole run is one GoogleTest case, because it owns one pair of server processes; CTest registers it as gs.scenario.m5a
 // (tests/scenario/ScenarioTests.cmake) and the discovered case is disabled so that it cannot run twice. It is skipped without
 // AION_TEST_GS_DATABASE_URL / AION_TEST_LS_DATABASE_URL or without a Python interpreter for the oracle.
+//
+// This file holds a SECOND such gate since stage 3 wave B: M5aScenarioGeo.Run, registered as gs.scenario.m5a_geo, which walks the same path
+// through a server started with -Dgameserver.geodata.enable=true (§5.1 "Geodata"). It runs only the cases geo can change, shares everything
+// above it in this file, and has an output directory, a schema pair and a CTest entry of its own while sharing the RESOURCE_LOCK, so the two
+// never run at the same time. Its own header comment says what is geo-specific about it and what 4.8 turns out not to have.
 
 #include <gtest/gtest.h>
 
@@ -397,11 +402,17 @@ std::optional<decoders::PlayerInfo> expectPlayerInfo(const std::vector<Packet>& 
  * inline code of case 4.
  *
  * V2 checks EVERY decoded npc, not only the ones whose position already matches: level and HP% do not depend on where an npc stands, so they
- * are compared for all of them, and the position is compared against every spot of the id. The only npcs of these two maps that may legitimately
- * stand off their spot are the ones whose id has walker spots (V1 gives them 10 m of slack, and a walker group's formation moves its members);
- * everything else that matches no spot fails here instead of falling through to V1, which matches by id and oracle distance alone and never
- * looks at the coordinates the server sent. Each npc is counted into exactly one bucket and the buckets are printed, so a run can be read
- * afterwards: an assertion that silently covers nothing shows up as a bucket of zero.
+ * are compared for all of them, and the position is compared against every spot of the id.
+ *
+ * Which npcs may stand off their spot is exactly §5.5 V2's rule, and not "walkers only" as this function first read it: an npc fails here only
+ * when the oracle knows its id **solely** as fixed spots ("the id has no pool, walker or randomWalk spot at all"). An id with a walker spot
+ * moves with its group's formation, an id with a randomWalk spot wanders by definition, and an id with a pool spot is one of several candidates
+ * of that pool - all three are covered by V1 (id plus oracle distance) instead, and each is counted into its own bucket below. Reading the rule
+ * as "walker" alone made V2 fail a randomWalk-only or pool-only id that legitimately stood somewhere else, which is a gate that fails on correct
+ * behaviour; the check that matters - an id the oracle pins to fixed coordinates standing anywhere else - is unchanged.
+ *
+ * Each npc is counted into exactly one bucket and the buckets are printed, so a run can be read afterwards: an assertion that silently covers
+ * nothing shows up as a bucket of zero.
  */
 void checkVisibility(const std::vector<Packet>& burst, const OracleSpawns& spawns, std::string_view label) {
 	std::vector<decoders::NpcInfo> npcs;
@@ -416,21 +427,20 @@ void checkVisibility(const std::vector<Packet>& burst, const OracleSpawns& spawn
 		  << ") has no spot within the visibility radius";
 
 	// V2: an npc stands on a spot of its id; heading, level and HP% match
-	size_t onFixedSpot = 0, onMovingSpot = 0, offSpotWalker = 0, flagOnly = 0, unknownToTheOracle = 0;
+	size_t onFixedSpot = 0, onMovingSpot = 0, offSpotMoving = 0, flagOnly = 0, unknownToTheOracle = 0;
 	for (const decoders::NpcInfo& npc : npcs) {
 		const OracleSpot* match = nullptr;
 		bool matchIsFixed = false;
-		bool hasWalkerSpot = false;
 		bool isFlagNpc = false;
-		int32_t templateLevel = -1;
+		std::optional<int32_t> templateLevel;
 		std::vector<std::string> spotsOfId;
 		for (const OracleSpot& spot : spawns.spots) {
 			if (spot.npcId != npc.templateId)
 				continue;
-			// every spot of an id carries the npc_template level of that id (oracle m5a/spawns.py:254), so any spot answers it
-			if (spot.level > 0)
+			// every spot of an id carries the npc_template level of that id (oracle m5a/spawns.py:254), so any spot that has one answers it;
+			// a level of 0 is a level like any other and is compared (OracleSpot::level)
+			if (spot.level)
 				templateLevel = spot.level;
-			hasWalkerSpot = hasWalkerSpot || spot.walker;
 			spotsOfId.push_back(positionOf(spot));
 			// a fixed spot wins over a pool or walker spot at the same coordinates: only its heading is worth comparing
 			const bool fixed = !spot.pool && !spot.walker && !spot.randomWalk;
@@ -442,14 +452,14 @@ void checkVisibility(const std::vector<Packet>& burst, const OracleSpawns& spawn
 		for (const OracleSpot& spot : spawns.flagNpcs)
 			if (spot.npcId == npc.templateId) {
 				isFlagNpc = true;
-				if (templateLevel < 0 && spot.level > 0)
+				if (!templateLevel && spot.level)
 					templateLevel = spot.level;
 			}
 
 		// level and HP% are template properties: they are checked for every npc, matched or not, so that they no longer depend on V3 having
 		// matched the position first
-		if (templateLevel >= 0)
-			EXPECT_EQ(static_cast<int32_t>(npc.level), templateLevel) << label << " V2: level of npc " << npc.templateId;
+		if (templateLevel)
+			EXPECT_EQ(static_cast<int32_t>(npc.level), *templateLevel) << label << " V2: level of npc " << npc.templateId;
 		else
 			EXPECT_GT(static_cast<int32_t>(npc.level), 0) << label << " V2: level of npc " << npc.templateId << ", which the oracle has no level for";
 		EXPECT_EQ(npc.hpPercentage, 100) << label << " V2: HP% of npc " << npc.templateId;
@@ -459,20 +469,21 @@ void checkVisibility(const std::vector<Packet>& burst, const OracleSpawns& spawn
 			if (matchIsFixed)
 				EXPECT_EQ(npc.heading, match->heading) << label << " V2: heading of npc " << npc.templateId << " at " << positionOf(*match);
 			matchIsFixed ? onFixedSpot++ : onMovingSpot++;
-		} else if (hasWalkerSpot) {
-			offSpotWalker++; // a walker group member: V1 covered it within its 10 m of slack
 		} else if (spotsOfId.empty() && isFlagNpc) {
 			flagOnly++; // a flag npc has no spawn spot of its own
 		} else if (spotsOfId.empty()) {
 			unknownToTheOracle++; // V1 already failed for this one
-		} else {
+		} else if (isPinnedToFixedSpots(spawns.spots, npc.templateId)) {
 			ADD_FAILURE() << label << " V2: SM_NPC_INFO for npc " << npc.templateId << " at (" << npc.x << ", " << npc.y << ", " << npc.z
-			              << "), which is none of its " << spotsOfId.size() << " oracle spots " << join(spotsOfId);
+			              << "), which is none of its " << spotsOfId.size() << " oracle spots " << join(spotsOfId)
+			              << " - and the oracle knows this id only as fixed spots, so it cannot legitimately stand anywhere else";
+		} else {
+			offSpotMoving++; // a pool member, a walker group member or a randomWalk npc: V1 covered it by id and oracle distance (§5.5 V2)
 		}
 	}
 	std::cout << label << ": " << npcs.size() << " SM_NPC_INFO - " << onFixedSpot << " on a fixed spot, " << onMovingSpot
-	          << " on a pool or walker spot, " << offSpotWalker << " off-spot members of a walker group, " << flagOnly << " flag npcs, "
-	          << unknownToTheOracle << " unknown to the oracle" << std::endl;
+	          << " on a pool, walker or randomWalk spot, " << offSpotMoving << " off-spot npcs of an id with a pool, walker or randomWalk spot, "
+	          << flagOnly << " flag npcs, " << unknownToTheOracle << " unknown to the oracle" << std::endl;
 
 	// V3: every deterministic spot within 90 m is among the npcs, matched by id and position
 	const std::vector<const OracleSpot*> expected = deterministicSpotsWithin90m(spawns);
@@ -937,6 +948,42 @@ bool allowlistEntryMatches(const std::string& entry, const std::string& site) {
 	if (entry.find(':') != std::string::npos)
 		return entry == site;
 	return site.starts_with(entry) && (site.size() == entry.size() || site[entry.size()] == ':');
+}
+
+/**
+ * The end of a run: the two test schemas are dropped, and a failed run says where its evidence is.
+ *
+ * Before stage 3 a failed run kept its schemas unconditionally "for the post mortem", which meant that every failing run of every build tree
+ * left a pair behind: the next run of the same gate recreates them (the name is a hash of the output directory) and createSchemas() sweeps
+ * what is an hour old, but neither happens if nobody runs the gate again - and since this file has two gates a failing tree now leaves four.
+ * What a post mortem reads first is the run's own reports and the two server logs, which are kept and named below whatever happens; the
+ * database rows are one environment variable and one repeat run away (AION_SCENARIO_KEEP_SCHEMAS, ScenarioServers::keepSchemasOnFailure).
+ */
+void finishRun(ScenarioServers& servers, const std::filesystem::path& outputDir, std::string_view testName) {
+	// The destructor's report is the net, not the gate: it runs after this function, so a stop problem it found - a killed login server, a game
+	// server that had to be terminated - would arrive after `failed` was computed, and the run would take the passed branch, drop its schemas and
+	// print nothing. The gate takes responsibility for them here, while the verdict still counts.
+	for (const std::string& problem : servers.stopProblemsReported())
+		ADD_FAILURE() << testName << ": " << problem;
+	const bool failed = ::testing::Test::HasFailure();
+	if (failed)
+		std::cout << testName << " failed.\n"
+		          << "logs: " << (outputDir / "game_server.log") << ", " << (outputDir / "login_server.log") << "\n"
+		          << "reports: " << servers.checkOutputDir() << std::endl;
+	if (failed && ScenarioServers::keepSchemasOnFailure()) {
+		std::cout << "the scenario schemas " << servers.gameSchema() << " and " << servers.loginSchema()
+		          << " were kept for the post mortem (AION_SCENARIO_KEEP_SCHEMAS is set)" << std::endl;
+		return;
+	}
+	try {
+		servers.dropSchemas();
+		if (failed)
+			std::cout << "the scenario schemas " << servers.gameSchema() << " and " << servers.loginSchema()
+			          << " were dropped; set AION_SCENARIO_KEEP_SCHEMAS=1 and run the gate again to keep them" << std::endl;
+	} catch (const std::exception& exception) {
+		// never mask the failure this run is about: the schemas are recreated by the next run of the same gate and swept after an hour
+		std::cout << "the scenario schemas could not be dropped (" << exception.what() << ")" << std::endl;
+	}
 }
 
 /** "<hits>\t<site>\t<function>\t<reason>" of partial_trace.txt -> the site column */
@@ -1846,15 +1893,449 @@ TEST(M5aScenario, Run) {
 			EXPECT_EQ(zombieCuts->second[0], "0") << "Q8: the zombie breaker cut references";
 	});
 
-	// the schemas of a passed run are dropped; a failed run keeps them for the post mortem
-	if (!::testing::Test::HasFailure()) {
-		servers.gameDatabase().drop(servers.gameSchema());
-		servers.loginDatabase().drop(servers.loginSchema());
-	} else {
-		std::cout << "the scenario schemas " << servers.gameSchema() << " and " << servers.loginSchema() << " were kept for the post mortem\n"
-		          << "logs: " << (outputDir / "game_server.log") << ", " << (outputDir / "login_server.log") << "\n"
-		          << "reports: " << servers.checkOutputDir() << std::endl;
+	finishRun(servers, outputDir, "gs.scenario.m5a");
+}
+
+// ---- the geo gate (stage 3 wave B; m5a-plan.md §5.1 "Geodata", §11 first row) ------------------------------------------------------------
+
+/**
+ * `gs.scenario.m5a_geo`: the enter-world half of the geo debt. `gs.scenario.m5a` above runs with `gameserver.geodata.enable=false`, and
+ * `gs.smoke.startup_geo` (wave A) runs with it on but never lets a client in, so until this test no automated run had ever walked a character
+ * through a world that has its geo data. That is the configuration the user plays in, and the one the first real-client session found a bug in
+ * (m5a-client-session.md F-1: 13 npc spawns died inside fortress shields, invisible to both existing tests).
+ *
+ * It runs only the cases geo changes - enter world, visibility, the client-driven zone revalidation, one region move, quit - because the geo data
+ * costs a startup: measured over six runs of this checked RelWithDebInfo tree, the case that brings both servers up takes 6 to 9 s with the geo
+ * data against 4 s without, and a Debug build pays the 144 s and 3.2 GB of m5a-client-session.md. Everything §5 proves that geo cannot touch
+ * (creation, the DB rows, persistence, the relogin, the shutdown with a player online) stays in `gs.scenario.m5a` and is not repeated here: this
+ * gate runs in 18 to 21 s where that one takes 32 s for twice the cases.
+ *
+ * **What is geo-specific here, and what the brief of this wave asked for that 4.8 does not have.** The three facts it named as the geo-specific
+ * assertions - an npc spawn z corrected against the terrain, a gatherable that `canSee` includes or excludes, and a move whose z the server
+ * corrects - do not exist in this server. The code says so, and the first geo run of this gate confirmed all three:
+ *   - **No npc spawn z is geo-corrected.** `SpawnEngine` and `VisibleObjectSpawner` call the geo engine only for the postman, the functional npc
+ *     and a summon (VisibleObjectSpawner.cpp:223, :241, :300 = Java VisibleObjectSpawner.java:172, :188, :238), none of which a scripted M5a path
+ *     reaches, and the one place that would correct a walker's height is commented out in Java itself (WalkerGroup.java:273-278 =
+ *     WalkerGroup.cpp:316-322). An npc stands at its spawn template's z with geo on and off alike. That is why V1-V4 run unchanged against the
+ *     same oracle here: in a geo-built world they are the assertion that the terrain moved nothing, to the 1 cm of `onSpot`, and they are what a
+ *     geo z-snap added to the spawn path fails. Measured in the first run: 21 of 27 npcs on a fixed spot, 4 deterministic gather spots matched.
+ *   - **`canSee` never decides what a client is told about.** Its call sites in the port are the gather dialog (GatherableController.cpp:89), the
+ *     attack path (PlayerController.cpp:500), the siege weapon (SiegeWeaponController.cpp:63) and npc movement (NpcMoveController.cpp:483); the
+ *     knownlist that fills SM_NPC_INFO and SM_GATHERABLE_INFO does not consult it at all. The gather dialog is the one a gatherable would go
+ *     through, and no ported M5a client packet reaches it (CM_TARGET_SELECT is on the unported list, m5a-client-session.md F-2).
+ *   - **No player move is geo-corrected.** CM_MOVE.cpp and AntiHackService.cpp contain no geo call, in the port and in Java. The only geo call a
+ *     moving creature makes is `TerrainZoneCollisionMaterialActor::moved` (getTerrainMaterialAt), and the player of this gate has no such actor:
+ *     see GEO4 in case geo 6, where the run's own numbers pin why.
+ * What geo *does* add on this path is the world it is walked through: the terrain, the material zones and the terrain-material observers of the
+ * creatures, three classes a geo-off run never creates once (GEO1-GEO3). GEO4 then measures, from the live-count baseline the server writes
+ * before the first client connects, which of them the client half of the run touched - none, on this map - so that the three rows cannot be
+ * misread as evidence about the enter-world path. The value of the cases in between is the F-1 class of bug they would catch: an exception, an
+ * ERROR, an AION_UNPORTED site, a lost spawn or a hang that only a geo-built world reaches, on the path a player actually walks. The gather
+ * obstacle check and a real terrain-z correction need the M5b client packet set and are named in §5.1, not faked here.
+ */
+TEST(M5aScenarioGeo, Run) {
+	// the same "a skipped gate is not a passed gate" rule as the gate above (§5.10): AION_SCENARIO_REQUIRE turns every skip reason into a failure
+	const char* requireEnvironment = std::getenv("AION_SCENARIO_REQUIRE");
+	const bool required = requireEnvironment != nullptr && *requireEnvironment != '\0' && std::string_view(requireEnvironment) != "0";
+	const auto unavailable = [&](std::string_view reason) {
+		if (required)
+			ADD_FAILURE() << "gs.scenario.m5a_geo was not configured and AION_SCENARIO_REQUIRE is set: " << reason;
+		else
+			GTEST_SKIP() << "gs.scenario.m5a_geo: skipped (" << reason << ")";
+	};
+
+	std::optional<ScenarioEnvironment> environment = ScenarioEnvironment::fromEnvironment();
+	if (!environment) {
+		unavailable("set AION_TEST_GS_DATABASE_URL and AION_TEST_LS_DATABASE_URL");
+		return;
 	}
+	// its own output directory, so its schema pair, its logs and its reports are separate from those of gs.scenario.m5a (the schema name is a
+	// hash of this path, ScenarioServers.cpp)
+	const std::filesystem::path outputDir = std::filesystem::path(AION_SCENARIO_OUTPUT_DIR) / "m5a_geo";
+	std::optional<Oracle> oracle = Oracle::fromEnvironment(outputDir / "oracle");
+	if (!oracle) {
+		unavailable("no Python interpreter for tools/oracle: set AION_TEST_PYTHON");
+		return;
+	}
+	// data/geo is this test's whole subject: without it the server would start with the geo data off and every assertion below would describe
+	// the configuration the other gate already covers. It is a missing prerequisite, exactly as RunStartupSmoke.cmake MODE geo treats it.
+	const std::filesystem::path geoDirectory = std::filesystem::path(AION_GAMESERVER_JAVA_DIR) / "data" / "geo";
+	size_t geoFiles = 0;
+	if (std::filesystem::is_directory(geoDirectory))
+		for (const std::filesystem::directory_entry& entry : std::filesystem::directory_iterator(geoDirectory))
+			if (entry.path().extension() == ".geo")
+				geoFiles++;
+	if (geoFiles == 0) {
+		unavailable("the Java game server checkout has no data/geo/*.geo files, which this gate exists to run against: check out or unpack "
+		            "game-server/data/geo (151 .geo files in the 4.8 tree)");
+		return;
+	}
+	std::cout << "gs.scenario.m5a_geo: " << geoFiles << " .geo files in " << geoDirectory << std::endl;
+
+	CaseLog cases;
+	struct ReportPrinter {
+		const CaseLog& cases;
+		~ReportPrinter() { std::cout << cases.report() << std::flush; }
+	} printer{cases};
+
+	ScenarioServers::Config config;
+	config.gameServerExecutable = AION_GAME_SERVER_EXECUTABLE;
+	config.loginServerExecutable = AION_LOGIN_SERVER_EXECUTABLE;
+	config.gameServerJavaDir = AION_GAMESERVER_JAVA_DIR;
+	config.loginServerJavaDir = AION_LOGINSERVER_JAVA_DIR;
+	config.outputDir = outputDir;
+	// The one key that separates this gate from gs.scenario.m5a. It overrides the profile's false (ScenarioServers::gameServerArguments merges
+	// the configured keys over m5aProfile()), so the profile itself stays what §5.1 describes.
+	config.gameServerProperties["gameserver.geodata.enable"] = "true";
+	// The reference geo startup takes 144 s and about 5 GB in a Debug build (m5a-client-session.md "Setup"); the headroom is for a loaded
+	// machine, and RunStartupSmoke.cmake gives its geo mode the same order of magnitude (2100 s).
+	config.startupTimeout = 25min;
+	config.stopTimeout = 3min;
+	ScenarioServers servers(config, *environment);
+	const ScenarioDatabase& database = servers.gameDatabase();
+	const std::string schema = servers.gameSchema();
+
+	bool ok = true;
+	const auto runCase = [&](std::string_view id, std::string_view title, const std::function<void()>& body) {
+		if (!ok)
+			cases.skip(id, title, "an earlier case failed");
+		else
+			ok = cases.run(id, title, body);
+	};
+
+	ok = cases.run("geo 0", "the servers start with the geo data enabled", [&] {
+		servers.createSchemas();
+		servers.startLoginServer();
+		try {
+			servers.startGameServer();
+		} catch (const std::exception& exception) {
+			std::vector<std::string> diagnosis;
+			diagnosis.push_back(exception.what());
+			ChildProcess* gameServer = servers.gameServer();
+			if (gameServer != nullptr) {
+				const std::vector<std::string> steps = gameServer->findLogLines("startup step ", 1000);
+				if (!steps.empty())
+					diagnosis.push_back("last startup step: " + steps.back());
+				for (const std::string& line : gameServer->findLogLines("is not ported yet", 5))
+					diagnosis.push_back("unported: " + line);
+				for (const std::string& line : gameServer->findLogLines(" ERROR ", 5))
+					diagnosis.push_back(line);
+			}
+			throw std::runtime_error(join(diagnosis, "\n  "));
+		}
+	});
+
+	// The non-vacuity guard of the whole gate: every geo assertion below is worthless if the server silently ran without the geo data, and a
+	// typo in one -D is all it takes. GeoService logs "Geo data is disabled" when GEO_ENABLE is off (GeoService.cpp:94) and GeoWorldLoader logs
+	// the entity and terrain counts when it loaded (GeoWorldLoader.cpp:211, :256), which is what gs.smoke.startup_geo reads as well.
+	runCase("geo 0a", "the run really loaded the geo data", [&] {
+		ASSERT_NE(servers.gameServer(), nullptr);
+		EXPECT_TRUE(servers.gameServer()->findLogLines("Geo data is disabled", 1).empty())
+		  << "the game server logged 'Geo data is disabled', so -Dgameserver.geodata.enable=true did not arrive and this gate would prove "
+		     "nothing that gs.scenario.m5a does not prove already";
+		const std::vector<std::string> entities = servers.gameServer()->findLogLines("Loaded ", 200);
+		std::vector<std::string> geoLines;
+		for (const std::string& line : entities)
+			if (line.find(" entities on ") != std::string::npos || line.find("Loaded terrains for ") != std::string::npos ||
+			    line.find(" meshes") != std::string::npos)
+				geoLines.push_back(line);
+		EXPECT_FALSE(geoLines.empty()) << "no geo load line ('Loaded N meshes', 'Loaded terrains for N maps', 'Loaded N entities on M maps') in "
+		                                  "the game server log";
+		for (const std::string& line : geoLines)
+			std::cout << "geo: " << line << std::endl;
+	});
+
+	ScenarioClient a;
+	a.account = "m5ag" + servers.gameSchema().substr(servers.gameSchema().size() - 8);
+	a.characterName = "Geowarrior";
+	const CharacterAppearance appearance = scenarioAppearance();
+	AsyncAllowed async = AsyncAllowed::m5aDefault();
+	OracleCreation elyos;
+
+	runCase("geo 1", "login and create an Elyos Warrior", [&] {
+		elyos = oracle->creation("ELYOS", "WARRIOR");
+		ASSERT_FALSE(elyos.items.empty());
+		const decoders::CharacterList list = logIn(servers, a, async, false);
+		EXPECT_EQ(list.characterCount, 0) << "a fresh account must have no character";
+
+		NewCharacter warrior;
+		warrior.name = a.characterName;
+		warrior.asmodian = false;
+		warrior.playerClassId = CLASS_WARRIOR;
+		warrior.appearance = appearance;
+		a.game->send(GameSession::CM_CREATE_CHARACTER, GameSession::buildCM_CREATE_CHARACTER(a.key.accountId, a.account, warrior, 0));
+		const decoders::CreateCharacter created = decoders::decodeCreateCharacter(expectNext(*a.game, "SM_CREATE_CHARACTER", async).data);
+		ASSERT_EQ(created.responseCode, RESPONSE_OK);
+		ASSERT_TRUE(created.player);
+		a.playerId = created.player->playerId;
+		EXPECT_EQ(created.player->mapId, ELYOS_START_MAP);
+	});
+
+	int32_t gameHour = 0;
+	std::vector<Packet> enterBurst;
+	runCase("geo 2", "enter world with geo on", [&] {
+		async.selfPlayerState(a.playerId);
+		a.game->send(GameSession::CM_MAY_LOGIN_INTO_GAME, GameSession::buildCM_MAY_LOGIN_INTO_GAME());
+		expectNext(*a.game, "SM_MAY_LOGIN_INTO_GAME", async);
+		a.game->send(GameSession::CM_ENTER_WORLD, GameSession::buildCM_ENTER_WORLD(a.playerId));
+		enterBurst = a.game->collectUntilQuiet(QUIET, BURST_LIMIT);
+		ASSERT_FALSE(enterBurst.empty()) << "no packet after CM_ENTER_WORLD";
+		const int32_t inventoryPackets = static_cast<int32_t>((elyos.items.size() + 9) / 10) + 1;
+		// the §5.8 order must be the same with geo on: an extra or missing packet here would be a geo-only wire difference
+		expectSequence(enterBurst, enterWorldPattern(true, inventoryPackets), async);
+
+		const Packet* check = firstOfName(enterBurst, "SM_ENTER_WORLD_CHECK");
+		ASSERT_NE(check, nullptr);
+		ASSERT_FALSE(check->data.empty());
+		EXPECT_EQ(check->data[0], 0) << "the geo-enabled enter world was refused";
+
+		// V6 with geo on. The player's spawn z is the `players` row's z, which creation wrote from the oracle, and nothing on the enter-world
+		// path corrects it against the terrain - so this is the assertion that a geo-only z correction (or a geo-driven teleport) would break.
+		const Packet* spawn = firstOfName(enterBurst, "SM_PLAYER_SPAWN");
+		ASSERT_NE(spawn, nullptr);
+		const decoders::PlayerSpawn spawned = decoders::decodePlayerSpawn(spawn->data);
+		EXPECT_EQ(spawned.worldId, elyos.mapId);
+		EXPECT_NEAR(spawned.x, elyos.x, 0.01) << "geo moved the player's spawn x";
+		EXPECT_NEAR(spawned.y, elyos.y, 0.01) << "geo moved the player's spawn y";
+		EXPECT_NEAR(spawned.z, elyos.z, 0.01) << "geo moved the player's spawn z";
+		EXPECT_EQ(spawned.heading, elyos.heading);
+		// the same position in the database, so a wrong z cannot be a decoder artefact
+		const auto rows = database.queryRows(schema, "SELECT x, y, z FROM players WHERE id = " + std::to_string(a.playerId), 3);
+		ASSERT_EQ(rows.size(), 1u);
+		EXPECT_NEAR(std::stod(rows[0][2].value_or("0")), elyos.z, 0.01) << "the stored z of the character changed under a geo-enabled server";
+
+		const Packet* time = firstOfName(enterBurst, "SM_GAME_TIME");
+		ASSERT_NE(time, nullptr);
+		ASSERT_EQ(time->data.size(), 4u);
+		gameHour = gameHourOf(
+		  static_cast<int32_t>(time->data[0] | time->data[1] << 8 | time->data[2] << 16 | static_cast<uint32_t>(time->data[3]) << 24));
+	});
+
+	std::vector<Packet> levelReadyBurst;
+	runCase("geo 3", "level ready: the world a geo-enabled server shows", [&] {
+		a.game->send(GameSession::CM_LEVEL_READY, GameSession::buildCM_LEVEL_READY());
+		levelReadyBurst = a.game->collectUntilQuiet(QUIET, BURST_LIMIT);
+		ASSERT_FALSE(levelReadyBurst.empty()) << "no packet after CM_LEVEL_READY";
+		expectSequence(levelReadyBurst, levelReadyPattern(), async);
+		expectPlayerInfo(levelReadyBurst, a.playerId, a.characterName, elyos, CLASS_WARRIOR, RACE_ELYOS, GENDER_MALE, appearance, "geo V9");
+		// V1-V4 against the same oracle the geo-off gate uses, and with geo on they say more than they do there. The oracle knows nothing about
+		// geo, so this is the assertion that a geo-built world puts the same objects in the same places, to the 1 cm of onSpot(): every npc of
+		// this burst spawned into a world with terrain, meshes and material zones and ran its own revalidateZones on the way in (the F-1 class
+		// of bug), and a terrain-z snap anywhere on the spawn path - the thing §5.1 feared and 4.8 does not do - shows up here as an npc that
+		// is on none of its oracle spots, in a run where the geo-off gate stays green.
+		const OracleSpawns spawns = oracle->spawns(elyos.mapId, elyos.x, elyos.y, elyos.z, gameHour);
+		checkVisibility(levelReadyBurst, spawns, "geo V1-V4 (Warrior on 210010000, geodata enabled)");
+	});
+
+	runCase("geo 4", "the client-driven zone revalidation and a region move", [&] {
+		// CM_SUBZONE_CHANGE is the client's entry into Creature::revalidateZones, and with geo on the zone set MapRegion::revalidateZones walks
+		// includes the material zones GeoWorldLoader built through ZoneService::createMaterialZoneTemplate (a sphere, cylinder or semisphere per
+		// material mesh, ZoneService.cpp:280-294): the player-side zone machinery of §5.1, which no automated run had ever asked a position
+		// against. A non-staff account gets no packet back (MaterialZoneHandler.cpp:65-67 answers only a staff player, and only with
+		// GEO_MATERIALS_SHOWDETAILS), so what is asserted is that the geo-built zone set neither answered nor killed the connection.
+		a.game->send(GameSession::CM_SUBZONE_CHANGE, GameSession::buildCM_SUBZONE_CHANGE(1));
+		const std::vector<Packet> subzone = a.game->collectUntilQuiet(QUIET, 30s);
+		EXPECT_TRUE(ofName(subzone, "SM_SYSTEM_MESSAGE").empty())
+		  << "CM_SUBZONE_CHANGE answered a non-staff account on a geo-enabled server: " << join(namesOf(subzone));
+		EXPECT_FALSE(a.game->client.socket.isClosed()) << "the connection died on CM_SUBZONE_CHANGE (Player::revalidateZones with geo on)";
+
+		const OracleBorderTarget target = oracle->borderTarget(elyos.mapId, elyos.x, elyos.y, elyos.z, gameHour);
+		const double total = distance2d(target.startX, target.startY, target.targetX, target.targetY);
+		const int32_t steps = std::max(1, static_cast<int32_t>(total / 5.0));
+		std::vector<std::array<float, 3>> path;
+		for (int32_t step = 1; step <= steps; step++) {
+			const float t = static_cast<float>(step) / static_cast<float>(steps);
+			const float x = target.startX + (target.targetX - target.startX) * t;
+			const float y = target.startY + (target.targetY - target.startY) * t;
+			const float z = target.startZ + (target.targetZ - target.startZ) * t;
+			path.push_back({x, y, z});
+			a.game->send(GameSession::CM_MOVE,
+			             GameSession::buildCM_MOVE(x, y, z, 0, static_cast<int8_t>(0xE0), target.targetX, target.targetY, target.targetZ));
+			std::this_thread::sleep_for(120ms);
+		}
+		a.game->send(GameSession::CM_MOVE, GameSession::buildCM_MOVE(target.targetX, target.targetY, target.targetZ, 0, 0));
+		const std::vector<Packet> moveBurst = a.game->collectUntilQuiet(QUIET, BURST_LIMIT);
+
+		// What a walk on a geo-enabled server can say through packets is that it was not corrected, answered or punished - the same M1-M3 as
+		// §5.6. There is no geo call on the CM_MOVE path itself (neither CM_MOVE.cpp nor AntiHackService.cpp has one, in the port or in Java);
+		// the one a moving creature can make is TerrainZoneCollisionMaterialActor::moved, and GEO4 in case geo 6 measures that this player has
+		// no such actor because 210010000 carries no terrain materials. So this case is about the zone machinery around the move - every step
+		// crosses regions and revalidates zones in a world whose zone set includes 7901 material zones - and not about a corrected z.
+		std::set<int32_t> appeared;
+		for (const Packet& packet : ofName(moveBurst, "SM_NPC_INFO")) {
+			const decoders::NpcInfo npc = decoders::decodeNpcInfo(packet.data);
+			appeared.insert(npc.templateId);
+			bool nearPath = false;
+			for (const auto& point : path)
+				if (distance2d(npc.x, npc.y, point[0], point[1]) <= 100.0)
+					nearPath = true;
+			EXPECT_TRUE(nearPath) << "geo M1: SM_NPC_INFO for npc " << npc.templateId << " at (" << npc.x << ", " << npc.y
+			                      << "), farther than 100 m from every path point";
+		}
+		for (const OracleSpot& spot : target.appear)
+			EXPECT_TRUE(appeared.contains(spot.npcId)) << "geo M1: npc " << spot.npcId << " should have appeared on the way to the target";
+		EXPECT_TRUE(ofName(moveBurst, "SM_FORCED_MOVE").empty())
+		  << "geo M3: the geo-enabled server corrected the walk with SM_FORCED_MOVE, which the geo-off gate never sees";
+		for (const Packet& packet : ofName(moveBurst, "SM_MOVE")) {
+			ASSERT_GE(packet.data.size(), 4u);
+			const int32_t objectId =
+			  static_cast<int32_t>(packet.data[0] | packet.data[1] << 8 | packet.data[2] << 16 | static_cast<uint32_t>(packet.data[3]) << 24);
+			EXPECT_NE(objectId, a.playerId) << "geo M3: the server sent SM_MOVE for the moving player itself";
+		}
+		EXPECT_FALSE(a.game->client.socket.isClosed()) << "the connection died during the walk on a geo-enabled server";
+		// the walk ended where the client said it did: a material zone that killed or teleported the character would show here
+		const auto rows = database.queryRows(schema, "SELECT online FROM players WHERE id = " + std::to_string(a.playerId), 1);
+		ASSERT_EQ(rows.size(), 1u);
+		EXPECT_EQ(rows[0][0].value_or(""), "1") << "the character is no longer online after the walk";
+	});
+
+	runCase("geo 5", "quit", [&] {
+		a.game->send(GameSession::CM_QUIT, GameSession::buildCM_QUIT(false));
+		expectNext(*a.game, "SM_QUIT_RESPONSE", async, 30s);
+		EXPECT_TRUE(a.game->waitClosed(30s)) << "the socket stayed open after CM_QUIT(0)";
+		a.game.reset();
+		a.login.reset();
+		const auto rows = database.queryRows(schema, "SELECT online FROM players WHERE id = " + std::to_string(a.playerId), 1);
+		ASSERT_EQ(rows.size(), 1u);
+		EXPECT_EQ(rows[0][0].value_or(""), "0") << "the character stayed online after the quit";
+	});
+
+	const std::optional<int32_t> gameServerExit = servers.stopGameServer();
+	const std::optional<int32_t> loginServerExit = servers.stopLoginServer();
+
+	cases.run("geo 6", "the reports of a geo-enabled run", [&] {
+		ASSERT_TRUE(gameServerExit) << "the game server did not exit after the stop file was written";
+		EXPECT_EQ(*gameServerExit, 0) << "the geo-enabled game server exited with " << *gameServerExit;
+		ASSERT_TRUE(loginServerExit) << "the login server did not exit on CTRL_BREAK";
+		ASSERT_TRUE(std::filesystem::is_regular_file(servers.checkOutputDir() / "m5a_summary.txt"))
+		  << "the game server wrote no check output in " << servers.checkOutputDir();
+
+		// the same clean-run bar as Q8, with the geo data on: this is where the F-1 class of bug (an unported zone handler on a path only geo
+		// reaches) turns into a failure instead of into a user's first walk
+		EXPECT_TRUE(servers.readReportLines("unported_trace.txt").empty())
+		  << "AION_UNPORTED sites were reached on the geo-enabled path:\n" << join(servers.readReportLines("unported_trace.txt"), "\n");
+		const std::vector<std::string> allowlist = readAllowlist();
+		for (const std::string& line : servers.readReportLines("partial_trace.txt")) {
+			const std::string site = siteOf(line);
+			bool allowed = false;
+			for (const std::string& entry : allowlist)
+				if (allowlistEntryMatches(entry, site))
+					allowed = true;
+			EXPECT_TRUE(allowed) << "the AION_PARTIAL site " << site << " is not in tests/scenario/m5a_partial_allowlist.txt";
+		}
+		EXPECT_TRUE(servers.readReportLines("census.txt").empty()) << "the final census of the geo-enabled run reports leaks:\n"
+		                                                            << join(servers.readReportLines("census.txt"), "\n");
+		std::vector<std::string> errors;
+		ASSERT_NE(servers.gameServer(), nullptr);
+		for (const std::string& line : servers.gameServer()->findLogLines(" ERROR "))
+			errors.push_back("game server: " + line);
+		if (servers.loginServer() != nullptr)
+			for (const std::string& line : servers.loginServer()->findLogLines(" ERROR "))
+				errors.push_back("login server: " + line);
+		EXPECT_TRUE(errors.empty()) << "ERROR lines in the logs of the geo-enabled run:\n" << join(errors, "\n");
+		const std::vector<std::string> unclean = servers.gameServer()->findLogLines("did not leave world cleanly", 5);
+		EXPECT_TRUE(unclean.empty()) << "objects did not leave the world cleanly:\n" << join(unclean, "\n");
+
+		const std::map<std::string, std::vector<std::string>> summary = servers.readSummary();
+		// The two rows of Q8 that say what the geo-enabled path did to the server itself. notPortedClientPacket is the F-2 class (a client
+		// packet whose C++ port is missing answers nothing and is only counted), and knownListNotifyFailures is W-07: KnownList swallows every
+		// exception out of notifySee/notifyNotSee, so a geo-only throw while the 83k npcs and the player learn about each other would otherwise
+		// leave no trace at all in a run whose packets all arrived.
+		const auto notPorted = summary.find("notPortedClientPacket");
+		if (notPorted != summary.end())
+			ADD_FAILURE() << "the scripted geo path sent client packets that are not ported: " << join(notPorted->second);
+		const auto notifyFailures = summary.find("knownListNotifyFailures");
+		EXPECT_TRUE(notifyFailures != summary.end() && !notifyFailures->second.empty() && notifyFailures->second[0] == "0")
+		  << "KnownList swallowed notification exceptions on the geo-enabled path: "
+		  << (notifyFailures == summary.end() || notifyFailures->second.empty() ? "(no counter in m5a_summary.txt)" : notifyFailures->second[0]);
+		const auto liveCountsEnabled = summary.find("liveCountsEnabled");
+		// GEO1-GEO4 below are live-instance counts, and in a release build every one of them is 0 whatever the run did (§10.2)
+		ASSERT_TRUE(liveCountsEnabled != summary.end() && !liveCountsEnabled->second.empty() && liveCountsEnabled->second[0] == "true")
+		  << "the game server reports liveCountsEnabled false, so its live-count rows measured nothing: build it checked";
+
+		const std::vector<std::pair<std::string, LiveCount>> counts = readLiveCounts(servers, "live_counts.txt");
+		// live_counts_baseline.txt is written right after "Game server started" (CheckOutput.h), i.e. after the geo load and the 83k spawns and
+		// BEFORE the first client connects. The difference between the two files is therefore exactly what the scripted client path created, and
+		// it is what separates a world-construction fact from an enter-world fact below.
+		const std::vector<std::pair<std::string, LiveCount>> baselineCounts = readLiveCounts(servers, "live_counts_baseline.txt");
+		ASSERT_FALSE(baselineCounts.empty()) << "live_counts_baseline.txt is empty, so the client half of the run cannot be told from the startup";
+		const auto sumOf = [](const std::vector<std::pair<std::string, LiveCount>>& rows, std::string_view className) {
+			LiveCount total;
+			for (const auto& [name, count] : rows)
+				if (name == className) {
+					total.live += count.live;
+					total.created += count.created;
+					total.line += (total.line.empty() ? "" : " | ") + count.line;
+				}
+			return total;
+		};
+		const auto countOf = [&](std::string_view className) { return sumOf(counts, className); };
+		const auto baselineOf = [&](std::string_view className) { return sumOf(baselineCounts, className); };
+		// Diagnostics first, so that a failing row below can be read against the whole geo half of the table.
+		std::cout << "geo: the live-instance counts of the geo classes (live / created / class, and what the client half added):\n";
+		for (const auto& [name, count] : counts)
+			if (name.find("Geo") != std::string::npos || name.find("Material") != std::string::npos || name.find("Terrain") != std::string::npos ||
+			    name.find("Zone") != std::string::npos || name.find("Shield") != std::string::npos || name == "Mesh" || name == "Geometry")
+				std::cout << "  " << count.line << "\t(client half: +" << count.created - baselineOf(name).created << ")\n";
+		std::cout << std::flush;
+
+		// GEO1: the terrain of the geo data. Terrain objects exist only where GeoWorldLoader read a heightmap .png next to the .geo files
+		// (GeoWorldLoader.cpp:181 `terrainByMap.emplace_back(map, models::Terrain::create())`); a run with gameserver.geodata.enable=false
+		// never enters that code and its count is 0. Measured on this tree: 89 for 78 terrain images.
+		const LiveCount terrain = countOf("Terrain");
+		EXPECT_GT(terrain.created, 0) << "GEO1: no Terrain was created, so the run loaded no terrain and 'geo on' means nothing here";
+
+		// GEO2: the terrain-material observer of a creature. CreatureController::onAfterSpawn creates one per Creature that has a move controller
+		// and whose world has terrain materials (CreatureController.cpp:553-562) - GeoService::worldHasTerrainMaterials, which is false for every
+		// world without geo data (GeoService.cpp:236-238, GeoMap::hasTerrainMaterials at GeoMap.cpp:113-116). Measured: 6598, all of them npcs of
+		// the 16 maps that the ten material images of data/geo cover; see GEO4 for why the player is not among them.
+		const LiveCount terrainActor = countOf("TerrainZoneCollisionMaterialActor");
+		EXPECT_GT(terrainActor.created, 0)
+		  << "GEO2: no TerrainZoneCollisionMaterialActor was created, so not one creature of this world ran the terrain-material path of "
+		     "CreatureController::onAfterSpawn";
+
+		// GEO3: the material zones themselves. ZoneService::createMaterialZoneTemplate builds a MaterialZoneHandler per geometry with a
+		// material (ZoneService.cpp:239-256), and it is called only from GeoWorldLoader while it reads the geo data. These are the player-side
+		// zone handlers of §5.1 that the geo-off gate cannot reach, because with geo off they do not exist at all. Measured: 7901.
+		const LiveCount materialZones = countOf("MaterialZoneHandler");
+		EXPECT_GT(materialZones.created, 0)
+		  << "GEO3: no MaterialZoneHandler was created, so the geo data brought no material zone and the player-side zone handlers this gate "
+		     "exists to walk through were not there";
+
+		// GEO4, the client half: GEO1-GEO3 are world-construction facts - all three were already at their final value in the baseline, before this
+		// gate's client connected - and this row is the measurement that says so, so that the three above cannot be read as evidence about the
+		// enter-world path. What it pins:
+		//   - the client half of the run - the player's enter world, its zone revalidation, its walk, and every npc that respawned while it was
+		//     online - created NO TerrainZoneCollisionMaterialActor. It would have, on a map with terrain materials: 210010000 has a heightmap
+		//     image (210010000.png, 16 bit) but no material image, and only ten of the 78 terrain images of the 4.8 tree are material images
+		//     (*_materials.png, 8 bit, covering 16 maps; the nearest one is 220020000, Morheim). worldHasTerrainMaterials(210010000) is therefore
+		//     false and CreatureController::onAfterSpawn takes its other arm for the player, exactly as it does for every npc of Poeta.
+		//   - nothing entered a material zone: MaterialZoneHandler::onEnterZone creates a ZoneCollisionMaterialActor per creature that enters one
+		//     (MaterialZoneHandler.cpp:61-63), and not one was created in the whole run - not by the 83k spawning npcs and not by the player's
+		//     revalidateZones, its CM_SUBZONE_CHANGE or its walk.
+		// So the geo machinery this gate walks a character through is built, alive and asserted, but on this map and this path it stays passive.
+		// The day that changes - a geo-aware start map, a material zone on the walk, a port that gives the player an actor - this row fails and
+		// says that the player-side geo path has become assertable for real, which is the M5b work §5.1 names.
+		const int64_t clientTerrainActors = terrainActor.created - baselineOf("TerrainZoneCollisionMaterialActor").created;
+		EXPECT_EQ(clientTerrainActors, 0)
+		  << "GEO4: the client half of the run created " << clientTerrainActors
+		  << " TerrainZoneCollisionMaterialActor. The character now runs the terrain-material path on its own map, which §5.1 records as "
+		     "impossible on 210010000 (no *_materials.png): assert that path here instead of this row";
+		const LiveCount zoneActors = countOf("ZoneCollisionMaterialActor");
+		EXPECT_EQ(zoneActors.created, 0)
+		  << "GEO4: " << zoneActors.created
+		  << " ZoneCollisionMaterialActor were created, so something entered a material zone in this run (" << zoneActors.line
+		  << "). That is the player-side zone handler firing, which §5.1 records as unreached on this path: assert what it did instead of this row";
+		EXPECT_EQ(materialZones.created, baselineOf("MaterialZoneHandler").created)
+		  << "GEO4: the client half of the run created material zones, which only GeoWorldLoader does (ZoneService.cpp:239-256)";
+
+		// everything above is geo; the ordinary leak bar of Q8 applies here as well
+		for (const auto& [name, count] : counts)
+			if (strictlyZeroLiveClasses().contains(name))
+				EXPECT_EQ(count.live, 0) << "live instances left after the geo-enabled run: " << count.line;
+	});
+
+	finishRun(servers, outputDir, "gs.scenario.m5a_geo");
 }
 
 } // namespace aion::gameserver::scenario

@@ -2,10 +2,12 @@
 
 #include <gtest/gtest.h>
 
+#include <cstdlib>
 #include <fstream>
 #include <iostream>
 #include <sstream>
 #include <stdexcept>
+#include <string_view>
 #include <thread>
 
 #include <asio/io_context.hpp>
@@ -71,7 +73,7 @@ ScenarioServers::~ScenarioServers() {
 	// A run that never looked at how its servers stopped must not pass with a killed or hung server: the gate's own case 7 asserts the game
 	// server's exit code, but case 7 does not run when an earlier case failed (stage 2 review). Reported before the children are terminated,
 	// because "was still running at the end" is one of the problems.
-	if (!stopProblemsRead) {
+	if (stopProblemsUnreported()) {
 		const std::vector<std::string> problems = stopProblems();
 		if (!problems.empty()) {
 			std::string text;
@@ -102,6 +104,20 @@ void ScenarioServers::createSchemas() {
 	lsDatabase.recreate(lsSchema, config.loginServerJavaDir / "sql" / "aion_ls.sql");
 	gsDatabase.recreate(gsSchema, config.gameServerJavaDir / "sql" / "aion_gs.sql");
 	lsDatabase.execute(lsSchema, "INSERT INTO gameservers (id, mask, password) VALUES (1, '127.0.0.1', '1234')");
+}
+
+void ScenarioServers::dropSchemas() {
+	// the markers go last: dropping a schema whose in-use marker this process holds is exactly what the marker is for, and releasing them first
+	// would open a window in which another run's sweep could see a free marker on a schema that still exists
+	gsDatabase.drop(gsSchema);
+	lsDatabase.drop(lsSchema);
+	gsLease.release();
+	lsLease.release();
+}
+
+bool ScenarioServers::keepSchemasOnFailure() {
+	const char* value = std::getenv("AION_SCENARIO_KEEP_SCHEMAS");
+	return value != nullptr && *value != '\0' && std::string_view(value) != "0";
 }
 
 std::vector<std::string> ScenarioServers::loginServerArguments() const {
@@ -237,8 +253,12 @@ std::optional<int32_t> ScenarioServers::stopLoginServer() {
 	return loginServerExit;
 }
 
-std::vector<std::string> ScenarioServers::stopProblems() {
+std::vector<std::string> ScenarioServers::stopProblemsReported() {
 	stopProblemsRead = true;
+	return stopProblems();
+}
+
+std::vector<std::string> ScenarioServers::stopProblems() const {
 	std::vector<std::string> problems;
 	const auto seconds = [this] { return std::to_string(std::chrono::duration_cast<std::chrono::seconds>(config.stopTimeout).count()); };
 	if (gameServerStopped && !gameServerExit)

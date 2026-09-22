@@ -9,7 +9,8 @@
 // is `target == null ? MaterialTarget.ALL : target` (MaterialSkill.java:38-40), so a <skill> without a target attribute matches every creature
 // instead of throwing; the port keeps that tolerance in the `getTarget()` of the hand-written shell. A <material> without any <skill> child is
 // the opposite case and the one deviation of this handler: Java's getSkills() is null there and throws, the C++ vector is empty and does nothing
-// (docs/deviations/P4-11a.md, AMaterialWithoutSkillsIsANoOpWhereJavaThrows).
+// (docs/deviations/P4-10.md, AMaterialWithoutSkillsIsANoOpWhereJavaThrows; the row was filed in P4-11a.md and moved to the world file, where its
+// subject and this test live, in stage 3 wave B).
 //
 // Test doubles: the mesh is a geoEngine Node with no children (so the collision check of the actor finds nothing) that records the ray it is
 // asked to collide with (RecordingMesh below; stage 3 fixer run, see TheQueuedCollisionCheckOfTheActorFindsNothing), and the material template
@@ -246,7 +247,7 @@ TEST_F(MaterialZoneHandlerTest, AMaterialWithoutSkillsIsANoOpWhereJavaThrows) {
 	// material_templates.xml:84-87 has four entries with a skill_obstacle attribute and no <skill> child (ids 121-124). Java's
 	// MaterialTemplate.getSkills() returns the raw JAXB list, which is null for them, so the for-each of MaterialZoneHandler.java:46 throws a
 	// NullPointerException at the first creature that enters such a zone - and nothing catches a throwing zone handler (m5a-client-session.md
-	// F-1). The generated C++ template holds an empty vector, so the loop body simply never runs. Deviation: docs/deviations/P4-11a.md.
+	// F-1). The generated C++ template holds an empty vector, so the loop body simply never runs. Deviation: docs/deviations/P4-10.md.
 	Ref<zone::handler::MaterialZoneHandler> handler = makeHandler("BU_AB_DARKSP_TEST_121", 121);
 	const model::templates::materials::MaterialTemplate* template_ = materials->getTemplate(121);
 	ASSERT_TRUE(template_);

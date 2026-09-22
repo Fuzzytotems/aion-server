@@ -5,6 +5,7 @@
 #include <fstream>
 #include <sstream>
 #include <stdexcept>
+#include <string_view>
 
 #include <nlohmann/json.hpp>
 
@@ -30,12 +31,6 @@ std::string environmentVariable(const char* name) {
 	return value == nullptr ? std::string() : std::string(value);
 }
 
-/** `node.value(key, fallback)` throws when the key is present but null, which the oracle uses for "this template has no such field" */
-template <typename T> T optional(const json& node, const char* key, T fallback) {
-	const auto found = node.find(key);
-	return found == node.end() || found->is_null() ? fallback : found->get<T>();
-}
-
 OracleSpot readSpot(const json& node) {
 	OracleSpot spot;
 	spot.npcId = node.value("npcId", 0);
@@ -43,9 +38,12 @@ OracleSpot readSpot(const json& node) {
 	spot.y = node.value("y", 0.0f);
 	spot.z = node.value("z", 0.0f);
 	spot.heading = node.value("h", 0);
-	// a gatherable spot has no level: its template is a GatherableTemplate, so the oracle reports null there (V2 only compares the level of
-	// npcs it decoded from SM_NPC_INFO, and a gatherable is never one of them)
-	spot.level = optional(node, "level", 0);
+	// A gatherable spot has no level: its template is a GatherableTemplate, so the oracle reports `"level": null` there (V2 only compares the
+	// level of npcs it decoded from SM_NPC_INFO, and a gatherable is never one of them). "no level" and "level 0" must stay distinguishable:
+	// an npc_template without a `level` attribute answers 0 (tools/oracle/m5a/spawns.py:186), and reading both as 0 made V2 assert
+	// `level > 0` on a genuine level-0 npc instead of comparing it.
+	if (const auto found = node.find("level"); found != node.end() && !found->is_null())
+		spot.level = found->get<int32_t>();
 	spot.spawned = node.value("spawned", true);
 	spot.deterministic = node.value("deterministic", false);
 	spot.distance = node.value("distance", 0.0);
@@ -62,6 +60,25 @@ OracleSpot readSpot(const json& node) {
 }
 
 } // namespace
+
+OracleSpot Oracle::parseSpot(std::string_view spotJson) {
+	return readSpot(json::parse(spotJson));
+}
+
+bool isPinnedToFixedSpots(const std::vector<OracleSpot>& spots, int32_t npcId) {
+	bool any = false;
+	for (const OracleSpot& spot : spots) {
+		if (spot.npcId != npcId)
+			continue;
+		// A pool spot is NOT an excuse: a pooled group spawns `pool` of the coordinates the oracle already lists for that id
+		// (SpawnEngine.java:160-168, resetPoolSpots then reserveRandomFreePoolSpot in a loop), so a pool npc always stands on one of them and
+		// checkVisibility compares against every spot of the id. Only a walker or a random walker can legitimately be somewhere else.
+		if (spot.walker || spot.randomWalk)
+			return false;
+		any = true;
+	}
+	return any;
+}
 
 std::vector<OracleItem> OracleCreation::equippedItems() const {
 	std::vector<OracleItem> result;

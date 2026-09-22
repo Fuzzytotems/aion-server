@@ -8,6 +8,7 @@
 #include <filesystem>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <vector>
 
 namespace aion::gameserver::scenario {
@@ -46,7 +47,15 @@ struct OracleSpot {
 	int32_t npcId = 0;
 	float x = 0, y = 0, z = 0;
 	int32_t heading = 0;
-	int32_t level = 0;
+	/**
+	 * The `level` attribute of the npc_template of this id, std::nullopt when the oracle has no npc template for the spot at all (a gatherable
+	 * spot, whose template is a GatherableTemplate). It is an optional and not a 0 default because **0 is a legitimate level**: the oracle reads
+	 * `java_int(element.get("level"), ..., 0)` (tools/oracle/m5a/spawns.py:186), so an npc_template without a `level` attribute answers 0, and
+	 * `"level": null` (spawns.py:254, `template.level if template else None`) means something else entirely. With a plain int both collapsed into
+	 * 0 and V2 read a genuine level-0 npc as "the oracle has no level for this one", i.e. it compared nothing and then asserted level > 0, which
+	 * fails on the very npc it was supposed to check.
+	 */
+	std::optional<int32_t> level;
 	/** false for a spot that the given game time does not spawn */
 	bool spawned = false;
 	/** a spot whose object is at a known position: not in a pool, not a walker and not randomly walking */
@@ -54,6 +63,16 @@ struct OracleSpot {
 	bool pool = false, temporary = false, walker = false, randomWalk = false, gatherable = false, flag = false;
 	double distance = 0;
 };
+
+/**
+ * m5a-plan.md §5.5 V2: true when the oracle pins `npcId` to fixed coordinates - it knows at least one spot of that id and **none** of them is a
+ * pool, walker or randomWalk spot. Only such an npc fails V2 for standing somewhere else; an id with a pool, walker or randomWalk spot may
+ * legitimately stand anywhere and is covered by V1 (id plus oracle distance) alone, "such as 210115 on the Elyos start map (4 fixed, 3 walker,
+ * 1 randomWalk)".
+ *
+ * @param spots every spot of the answer, not only those of `npcId`
+ */
+bool isPinnedToFixedSpots(const std::vector<OracleSpot>& spots, int32_t npcId);
 
 /** oracle.py m5a-spawns --map M --x X --y Y --z Z [--game-hour H] */
 struct OracleSpawns {
@@ -96,6 +115,12 @@ public:
 
 	/** the raw JSON text of a run, for a decoder of its own */
 	std::string run(const std::vector<std::string>& arguments) const;
+
+	/**
+	 * Parses one `spots` entry of an m5a-spawns answer. Public because the gate's V2 rules depend on the difference between "level 0" and "no
+	 * level" and between a fixed and a moving spot, which OracleTest pins without a server (@throws on invalid JSON).
+	 */
+	static OracleSpot parseSpot(std::string_view spotJson);
 
 private:
 	std::filesystem::path python;

@@ -4,10 +4,11 @@
 # compile definitions AION_GAME_SERVER_EXECUTABLE, AION_LOGIN_SERVER_EXECUTABLE, AION_LOGINSERVER_JAVA_DIR, AION_GAMESERVER_JAVA_DIR,
 # AION_SCENARIO_OUTPUT_DIR).
 #
-# The GoogleTest cases of aion_gs_scenario_tests are discovered like every chunk test. M5aScenario.Run is the gate: it owns one pair of server
-# processes, so it must not run twice, and the discovered case is therefore marked DISABLED while gs.scenario.m5a runs the same binary with a
-# filter (LABELS "scenario;realdata", TIMEOUT 900, RESOURCE_LOCK "aion_game_server_log;aion_login_server_log",
-# SKIP_REGULAR_EXPRESSION "gs\\.scenario\\.m5a: skipped"). gs.scenario.m5a_stress (G-01, stage 3): LABELS "scenario;stress;nightly".
+# The GoogleTest cases of aion_gs_scenario_tests are discovered like every chunk test. M5aScenario.Run and M5aScenarioGeo.Run are the gates:
+# each owns one pair of server processes, so neither must run twice, and the discovered cases are therefore marked DISABLED while
+# gs.scenario.m5a and gs.scenario.m5a_geo run the same binary with a filter (LABELS "scenario;realdata", TIMEOUT 900 / 2700, RESOURCE_LOCK
+# "aion_game_server_log;aion_login_server_log", SKIP_REGULAR_EXPRESSION "gs\\.scenario\\.m5a: skipped" / "...m5a_geo: skipped").
+# gs.scenario.m5a_stress (G-01, stage 3): LABELS "scenario;stress;nightly".
 
 if(TARGET aion_gs_scenario_tests)
 	# the harness self-tests (F-04): the stub game server is StubGameServer.cmake run by this CMake
@@ -29,8 +30,8 @@ if(TARGET aion_gs_scenario_tests)
 	# so that two real login servers never start at the same time as the gate's
 	aion_set_discovered_test_properties(aion_gs_scenario_tests REGEX "^LoginServerHarnessTest\\."
 		PROPERTIES LABELS "scenario;realdata" RESOURCE_LOCK "aion_login_server_log" TIMEOUT 300)
-	# the gate runs as gs.scenario.m5a below, never as a discovered case
-	aion_set_discovered_test_properties(aion_gs_scenario_tests REGEX "^M5aScenario\\." PROPERTIES DISABLED TRUE
+	# the gates run as gs.scenario.m5a and gs.scenario.m5a_geo below, never as discovered cases
+	aion_set_discovered_test_properties(aion_gs_scenario_tests REGEX "^M5aScenario(Geo)?\\." PROPERTIES DISABLED TRUE
 		LABELS "scenario;realdata")
 
 	# F-06: the M5a gate (§5.10). The oracle needs a Python interpreter; without it the test prints "gs.scenario.m5a: skipped".
@@ -54,5 +55,26 @@ if(TARGET aion_gs_scenario_tests)
 	# cache option is the opt-out here. -DAION_SCENARIO_REQUIRE=ON still forces the requirement, even with the opt-out on.
 	if(AION_SCENARIO_REQUIRE OR NOT AION_GS_ALLOW_MILESTONE_SKIP)
 		set_property(TEST gs.scenario.m5a APPEND PROPERTY ENVIRONMENT_MODIFICATION "AION_SCENARIO_REQUIRE=set:1")
+	endif()
+
+	# gs.scenario.m5a_geo (stage 3 wave B, m5a-plan.md §5.1 "Geodata" and §11): the SAME binary and the same scripted path, with
+	# -Dgameserver.geodata.enable=true. It is a second CTest and not a flag on the one above, because the two configurations have different
+	# costs - loading the 151 .geo files takes a checked RelWithDebInfo startup from 4 s to 6-9 s and a Debug one to 144 s and 3.2 GB
+	# (m5a-client-session.md) - and because a tree that cannot afford the geo run must still be able to run the milestone gate:
+	# `ctest -R 'gs\.scenario\.m5a$'`.
+	#
+	# It carries the SAME RESOURCE_LOCK as gs.scenario.m5a, which is what keeps the two from ever running at the same time: two game servers
+	# with the geo data loaded on a machine somebody is working on is the one configuration the resource lock exists to prevent.
+	add_test(NAME gs.scenario.m5a_geo COMMAND "$<TARGET_FILE:aion_gs_scenario_tests>" --gtest_filter=M5aScenarioGeo.Run
+		WORKING_DIRECTORY "${scenario_work_dir}")
+	# TIMEOUT: the measured run is 18-21 s in this tree, but a Debug build starts in 144 s (m5a-client-session.md) and the timeout has to hold for
+	# a loaded machine as well; RunStartupSmoke.cmake gives its own geo mode 2100 s of server time for the same reason.
+	set_tests_properties(gs.scenario.m5a_geo PROPERTIES LABELS "scenario;realdata;geo" TIMEOUT 2700
+		RESOURCE_LOCK "aion_game_server_log;aion_login_server_log" SKIP_REGULAR_EXPRESSION "gs\\.scenario\\.m5a_geo: skipped")
+	if(Python3_Interpreter_FOUND)
+		set_property(TEST gs.scenario.m5a_geo APPEND PROPERTY ENVIRONMENT_MODIFICATION "AION_TEST_PYTHON=set:${Python3_EXECUTABLE}")
+	endif()
+	if(AION_SCENARIO_REQUIRE OR NOT AION_GS_ALLOW_MILESTONE_SKIP)
+		set_property(TEST gs.scenario.m5a_geo APPEND PROPERTY ENVIRONMENT_MODIFICATION "AION_SCENARIO_REQUIRE=set:1")
 	endif()
 endif()

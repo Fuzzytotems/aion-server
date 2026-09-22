@@ -164,6 +164,50 @@ TEST_F(KnownListTest, ThrowingNotificationsAreSwallowedLoggedAndCounted) {
 	knownlist::KnownList::resetNotifyFailureCountForTests();
 }
 
+/**
+ * The other end of W-07: what a gate reads is not `notifyFailureCount()` at the moment of the failure but the number
+ * `CheckOutput::writeSummary` puts into `m5a_summary.txt` as `knownListNotifyFailures` (CheckOutput.cpp:257) - taken by the ShutdownHook, on a
+ * thread that never touched a known list, when everything that failed is long destroyed. §5.7 Q8 of the scenario gate then asserts that number is
+ * 0 (and only a gate run reaches it: a startup without a client builds no known list at all, `NpcKnownList::update` clears while the map region
+ * is inactive). That assertion is worth nothing unless the count survives the objects and crosses threads, so this test reads it the way the
+ * report does. A per-instance or thread-local counter passes ThrowingNotificationsAreSwallowedLoggedAndCounted above and fails here.
+ * <p>
+ * Measured end to end (stage 3 wave B): three throws injected into `NpcController::see` of a real server make the gate's run write
+ * `knownListNotifyFailures 3` and fail M5aScenarioTest's Q8 row; without them the same run writes 0 and passes.
+ */
+TEST_F(KnownListTest, TheReportedNotifyFailureCountIsTheOneAGateReads) {
+	knownlist::KnownList::resetNotifyFailureCountForTests();
+	// the three swallowed exceptions are logged with Java's empty message; the test does not need them on the console
+	std::ostringstream captured;
+	auto sink = std::make_shared<spdlog::sinks::ostream_sink_mt>(captured);
+	commons::logging::LoggerFactory::configure("com.aionemu.gameserver.world.knownlist.KnownList", {.sinks = {sink}, .additive = false});
+
+	{
+		runtime::TaskScope scope(AION_TASK_INFO(runtime::TaskKind::TEST));
+		World& world = World::getInstance();
+		runtime::Ref<TestObject> a = place(2301, 300, 1000);
+		runtime::Ref<TestObject> b = place(2302, 310, 1000); // 10 m: in range
+		a->recorder().hook = [](RecordingController::Event, VisibleObject&) { throw runtime::IllegalStateException("notification failed"); };
+		world.spawn(runtime::Ptr<VisibleObject>(*a));
+		world.spawn(runtime::Ptr<VisibleObject>(*b));       // a.see(b) throws
+		world.updatePosition(*b, 700, 1000, 10, int8_t{0}); // a.notSee(b) and a.notKnow(b) throw
+		a->recorder().hook = nullptr;
+		world.removeObject(*a);
+		world.removeObject(*b);
+	}
+	runtime::Reclaimer::getInstance().drain(); // both objects are destroyed, as they are when the ShutdownHook writes the summary
+
+	// the ShutdownHook's read: another thread, no known list in sight
+	uint64_t reported = 0;
+	std::thread reader([&reported] { reported = knownlist::KnownList::notifyFailureCount(); });
+	reader.join();
+	commons::logging::LoggerFactory::removeConfig("com.aionemu.gameserver.world.knownlist.KnownList");
+	EXPECT_EQ(reported, 3u) << "the count a report row carries is one per notifySee/notifyNotSee/notifyNotKnow catch of the whole process, "
+	                           "counted where the exception is swallowed and readable when the objects are gone";
+	knownlist::KnownList::resetNotifyFailureCountForTests();
+	EXPECT_EQ(knownlist::KnownList::notifyFailureCount(), 0u) << "a clean run reports 0, which is what the gate asserts";
+}
+
 TEST_F(KnownListTest, ClearWithoutNotifyDropsTheEntriesSilently) {
 	runtime::TaskScope scope(AION_TASK_INFO(runtime::TaskKind::TEST));
 	World& world = World::getInstance();

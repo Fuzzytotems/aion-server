@@ -21,6 +21,10 @@
 
 #include "aion/commons/logging/LoggerFactory.h"
 #include "aion/gameserver/CheckOutput.h"
+#include "aion/gameserver/controllers/VisibleObjectController.h"
+#include "aion/gameserver/model/animations/ObjectDeleteAnimation.h"
+#include "aion/gameserver/model/gameobjects/VisibleObject.h"
+#include "aion/gameserver/runtime/base/Exceptions.h"
 #include "aion/gameserver/runtime/fields/Field.h"
 #include "aion/gameserver/runtime/lifetime/LiveInstanceCounters.h"
 #include "aion/gameserver/runtime/lifetime/Ref.h"
@@ -28,6 +32,8 @@
 #include "aion/gameserver/runtime/lifetime/Reclaimer.h"
 #include "aion/gameserver/runtime/lifetime/TaskScope.h"
 #include "aion/gameserver/runtime/services/LeakCensus.h"
+#include "aion/gameserver/world/WorldPosition.h"
+#include "aion/gameserver/world/knownlist/KnownList.h"
 
 namespace aion::gameserver {
 namespace {
@@ -80,6 +86,58 @@ public:
 protected:
 	GatheringTask_ActionObserver() = default;
 	~GatheringTask_ActionObserver() override = default;
+};
+
+/**
+ * A controller that throws out of every known list notification: the W-07 case (m5a-plan.md), where Java swallows the exception and logs it with
+ * an empty message and the C++ port counts it as well (KnownList.cpp:224-250).
+ */
+class ThrowingController final : public controllers::VisibleObjectController {
+public:
+	void see(model::gameobjects::VisibleObject&) override { throw runtime::IllegalStateException("notification failed"); }
+
+	void notSee(model::gameobjects::VisibleObject&, model::animations::ObjectDeleteAnimation) override {
+		throw runtime::IllegalStateException("notification failed");
+	}
+
+	void notKnow(model::gameobjects::VisibleObject&) override { throw runtime::IllegalStateException("notification failed"); }
+};
+
+/** KnownList with Java's add(VisibleObject) and del(VisibleObject, animation) exposed (both protected since S0b) */
+class OpenKnownList final : public world::knownlist::KnownList {
+public:
+	explicit OpenKnownList(model::gameobjects::VisibleObject& owner) : KnownList(owner) {}
+
+	bool addForTest(model::gameobjects::VisibleObject& object) { return add(object); }
+
+	void delForTest(model::gameobjects::VisibleObject& object) { del(object, model::animations::ObjectDeleteAnimation::FADE_OUT); }
+};
+
+/**
+ * A synthetic visible object with a plain KnownList, the shape of tests/world/WorldTestSupport.h's TestObject without the World: a known list
+ * needs no map region, and VisibleObject::canSee says yes to any object, so add() reaches the see notification on its own.
+ */
+class NotifyingObject final : public model::gameobjects::VisibleObject {
+	AION_MAKE_REF_FRIEND
+
+public:
+	static runtime::Ref<NotifyingObject> create(int32_t objectId) { return VisibleObject::create<NotifyingObject>(objectId); }
+
+	NotifyingObject(CreateKey key, int32_t objectId)
+		: VisibleObject(key, objectId, std::make_unique<ThrowingController>(), nullptr, nullptr, world::WorldPosition::create(210010000), false) {}
+
+	std::string getName() override { return "NotifyingObject" + std::to_string(getObjectId()); }
+
+	OpenKnownList& list() { return static_cast<OpenKnownList&>(getKnownList()); }
+
+protected:
+	void postConstruct() override {
+		VisibleObject::postConstruct();
+		getController().setOwner(*this);
+		setKnownlist(std::make_unique<OpenKnownList>(*this));
+	}
+
+	~NotifyingObject() override = default;
 };
 
 /** Captures the messages of one logger subtree ("level|message" lines) while it exists. */
@@ -194,6 +252,48 @@ TEST(CheckOutputTest, SummaryListsTheCountsAndTheUnportedClientPackets) {
 	CheckOutput::writeSummary(unknownOut, unknown);
 	EXPECT_NE(unknownOut.str().find("started false\n"), std::string::npos);
 	EXPECT_NE(unknownOut.str().find("atreianPassportDisabled unknown\n"), std::string::npos);
+}
+
+/**
+ * The value of the knownListNotifyFailures row (m5a-plan.md W-07, §5.7 Q8). The test above asserts the key and stops before the number, and the
+ * summary has no Summary field to carry it: the row reads the process counter KnownList::notifyFailureCount() directly (CheckOutput.cpp:257), so
+ * only a real counted failure can tell a writeSummary that prints it from one that prints a literal 0 (docs/deviations/P4-10.md, the change
+ * request to this chunk). §5.7 Q8 and both startup smoke tests are green either way.
+ * <p>
+ * The three failures below are counted where KnownList swallows them (notifySee, notifyNotSee, notifyNotKnow, KnownList.cpp:224-250), by the same
+ * throwing controller tests/world/KnownListTest.cpp drives through World.spawn - here through add() and del() of the known list itself, because
+ * tests/app has no world.
+ */
+TEST(CheckOutputTest, TheSummaryRowCarriesTheKnownListNotifyFailureCount) {
+	const auto summary = [] {
+		std::ostringstream out;
+		CheckOutput::writeSummary(out, CheckOutput::Summary{});
+		return out.str();
+	};
+	world::knownlist::KnownList::resetNotifyFailureCountForTests();
+	EXPECT_NE(summary().find("\nknownListNotifyFailures 0\n"), std::string::npos) << summary();
+
+	{
+		// Java logs every swallowed notification with an empty message (log.error("", ex)); the test does not need them on the console
+		LogCapture capture("com.aionemu.gameserver.world.knownlist.KnownList");
+		runtime::TaskScope scope(AION_TASK_INFO(runtime::TaskKind::TEST));
+		runtime::Ref<NotifyingObject> watcher = NotifyingObject::create(990001);
+		runtime::Ref<NotifyingObject> seen = NotifyingObject::create(990002);
+
+		ASSERT_TRUE(watcher->list().addForTest(*seen)) << "the entry is added, then the see notification throws";
+		watcher->list().delForTest(*seen); // the entry was visible, so notSee and notKnow both run and both throw
+
+		EXPECT_EQ(world::knownlist::KnownList::notifyFailureCount(), 3u) << "one per swallowed see / notSee / notKnow";
+		EXPECT_TRUE(capture.contains("notification failed")) << capture.str();
+	}
+	runtime::Reclaimer::getInstance().drain();
+
+	EXPECT_NE(summary().find("\nknownListNotifyFailures 3\n"), std::string::npos)
+		<< "the row must print KnownList::notifyFailureCount(), not a constant:\n"
+		<< summary();
+
+	world::knownlist::KnownList::resetNotifyFailureCountForTests();
+	EXPECT_NE(summary().find("\nknownListNotifyFailures 0\n"), std::string::npos) << "and follow it back to 0 for the next reader";
 }
 
 TEST(CheckOutputTest, ReportFilesAreWrittenIntoTheOutputDirectory) {

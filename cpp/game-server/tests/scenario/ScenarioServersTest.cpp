@@ -3,7 +3,9 @@
 // "Game server started", the stop file, the exit code and the check output reports. Needs no database.
 
 #include <gtest/gtest.h>
+#include <gtest/gtest-spi.h> // EXPECT_NONFATAL_FAILURE: the destructor's own report is the subject of a test here
 
+#include <algorithm>
 #include <chrono>
 #include <filesystem>
 #include <cstdint>
@@ -209,6 +211,8 @@ TEST(ScenarioServersTest, TheGameServerGetsTheM5aProfileAndTheScenarioArguments)
 	EXPECT_TRUE(has("-Dgameserver.event.service.disabled_events=*"));
 	EXPECT_TRUE(has("-Dgameserver.geodata.enable=false"));
 	EXPECT_TRUE(has("-Dgameserver.character.reentry.time=1"));
+	EXPECT_EQ(ScenarioServers::m5aProfile().at("gameserver.geodata.enable"), "false")
+	  << "the M5a profile runs without the geo data (§5.1 'Geodata'); gs.scenario.m5a_geo overrides the key instead of changing the profile";
 	EXPECT_TRUE(has("-Dgameserver.shutdown.delay=5")); // the configured key wins over the profile
 	EXPECT_TRUE(has("-Dgameserver.network.client.socket_address=127.0.0.1:" + std::to_string(servers.gameClientPort())));
 	EXPECT_TRUE(has("-Dgameserver.network.login.address=127.0.0.1:" + std::to_string(servers.loginGameServerPort())));
@@ -233,6 +237,17 @@ TEST(ScenarioServersTest, TheGameServerGetsTheM5aProfileAndTheScenarioArguments)
 	EXPECT_NE(servers.loginLogFolder(), std::filesystem::path(AION_LOGINSERVER_JAVA_DIR) / "log");
 }
 
+TEST(ScenarioServersTest, TheGeoGateTurnsTheGeoDataOnThroughTheSamePropertyOverride) {
+	// gs.scenario.m5a_geo (stage 3 wave B, m5a-plan.md §5.1 "Geodata"): the only difference to gs.scenario.m5a is this one key, and it has to
+	// arrive as exactly one -D with the value true - a profile entry that stayed behind it would give the child two contradicting arguments.
+	ScenarioServers::Config config = stubConfig("arguments-geo");
+	config.gameServerProperties["gameserver.geodata.enable"] = "true";
+	ScenarioServers servers(config, offlineEnvironment());
+	const std::vector<std::string> arguments = servers.gameServerArguments();
+	EXPECT_EQ(std::ranges::count(arguments, std::string("-Dgameserver.geodata.enable=true")), 1);
+	EXPECT_EQ(std::ranges::count(arguments, std::string("-Dgameserver.geodata.enable=false")), 0);
+}
+
 TEST(ScenarioServersTest, AStubGameServerThatStopsInOrderReportsNoStopProblem) {
 	ScenarioServers servers(stubConfig("stopproblems-clean"), offlineEnvironment());
 	servers.startGameServer();
@@ -242,13 +257,13 @@ TEST(ScenarioServersTest, AStubGameServerThatStopsInOrderReportsNoStopProblem) {
 
 TEST(ScenarioServersTest, StopProblemsNameAGameServerThatDidNotExitWithZero) {
 	// Stage 2 review: "nothing checks the game server's exit code when case 7 does not run". The gate's case 7 asserts it, but case 7 is skipped
-	// when an earlier case failed, so the harness itself collects what went wrong - and the destructor reports a list nobody read.
+	// when an earlier case failed, so the harness itself collects what went wrong - and the destructor reports a list nobody reported.
 	ScenarioServers servers(stubConfig("stopproblems-exitcode"), offlineEnvironment());
 	servers.startGameServer();
 	ASSERT_NE(servers.gameServer(), nullptr);
 	servers.gameServer()->terminate(3); // as if the game server had died instead of shutting down on the stop file
 	EXPECT_EQ(servers.stopGameServer(), 3);
-	const std::vector<std::string> problems = servers.stopProblems();
+	const std::vector<std::string> problems = servers.stopProblemsReported();
 	ASSERT_EQ(problems.size(), 1u) << (problems.empty() ? "" : problems[0]);
 	EXPECT_EQ(problems[0], "the game server exited with code 3 (expected 0)");
 }
@@ -256,9 +271,47 @@ TEST(ScenarioServersTest, StopProblemsNameAGameServerThatDidNotExitWithZero) {
 TEST(ScenarioServersTest, StopProblemsNameAServerThatWasStillRunningAtTheEnd) {
 	ScenarioServers servers(stubConfig("stopproblems-running"), offlineEnvironment());
 	servers.startGameServer();
-	const std::vector<std::string> problems = servers.stopProblems(); // read here, so the destructor does not report it as a failure
+	// reported here, so the destructor does not report it a second time
+	const std::vector<std::string> problems = servers.stopProblemsReported();
 	ASSERT_EQ(problems.size(), 1u) << (problems.empty() ? "" : problems[0]);
 	EXPECT_EQ(problems[0], "the game server was still running at the end of the run and had to be terminated");
+}
+
+TEST(ScenarioServersTest, ReadingTheStopProblemsDoesNotSilenceTheDestructorAndEveryReaderSeesThem) {
+	// Wave A review: stopProblems() latched on read, so the FIRST reader - even one that only printed the list into a diagnosis, as case 0 of the
+	// gate does - turned the destructor's report off for everybody, and a run could then end with a hung server and no failure. The reader is
+	// pure now and only stopProblemsReported() takes the destructor's word away.
+	ScenarioServers servers(stubConfig("stopproblems-reread"), offlineEnvironment());
+	servers.startGameServer();
+	const std::vector<std::string> first = servers.stopProblems();
+	const std::vector<std::string> second = servers.stopProblems();
+	ASSERT_EQ(first.size(), 1u);
+	EXPECT_EQ(second, first) << "a second reader saw a different list";
+	EXPECT_TRUE(servers.stopProblemsUnreported()) << "a plain read must not count as reporting";
+	EXPECT_EQ(servers.stopProblemsReported(), first);
+	EXPECT_FALSE(servers.stopProblemsUnreported());
+	EXPECT_EQ(servers.stopProblems(), first) << "stopProblemsReported() must not clear the list either";
+}
+
+TEST(ScenarioServersTest, TheDestructorReportsStopProblemsNobodyReported) {
+	// The destructor report is the harness's last safety net (a hung game server, a killed login server), and nothing ever proved that it fires:
+	// every test above reports the list itself, so deleting the whole `if (stopProblemsUnreported())` block from the destructor left the suite
+	// and the gate green. This is the permanent test wave A's review asked for. Everything the failing statement needs is built inside it,
+	// because EXPECT_NONFATAL_FAILURE runs it in a helper class that cannot see the enclosing scope's locals.
+	EXPECT_NONFATAL_FAILURE(
+		{
+			ScenarioServers servers(stubConfig("stopproblems-destructor"), offlineEnvironment());
+			servers.startGameServer(); // still running at the end of the scope, and nobody calls stopProblemsReported()
+		},
+		"the scenario servers did not stop cleanly");
+}
+
+TEST(ScenarioServersTest, TheDestructorIsSilentWhenTheServersStoppedInOrder) {
+	// the other half: the net must not fire on a clean run, or every passing gate would carry a failure
+	ScenarioServers servers(stubConfig("stopproblems-destructor-clean"), offlineEnvironment());
+	servers.startGameServer();
+	EXPECT_EQ(servers.stopGameServer(), 0);
+	EXPECT_TRUE(servers.stopProblems().empty()) << "read, not reported: the destructor below must stay silent by itself";
 }
 
 TEST(ScenarioServersTest, StubGameServerStartsStopsAndWritesItsReports) {
