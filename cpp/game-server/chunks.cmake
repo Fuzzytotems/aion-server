@@ -154,8 +154,10 @@ aion_gs_chunk(P4-07b TARGET aion_gs_templates PHASE 4
 # (their targets compile them, `chunks.py owner` names those chunks); the lease only lets P4-08 change them during phase 4. Ownership passes to
 # the P5 chunks at the end of phase 4 by removing this call. XMLGEN_SHELLS restricts the globs to behaviour class shells: X.h/X.cpp whose
 # generated/<same path>/X.xml.inc exists.
+# M5b-2 (2026-09-23): the skillengine half of this lease is released - phase 4 ended long ago and the abilities milestone is now writing the
+# behaviour of these shells, so P5-02a/b, P5-03 and P5-04 own them outright. The questEngine half stays until phase 6 takes the quest shells.
 aion_gs_chunk(P4-08 LEASE PHASE 4 XMLGEN_SHELLS
-	GLOBS "aion/gameserver/skillengine/**" "aion/gameserver/questEngine/**")
+	GLOBS "aion/gameserver/questEngine/**")
 # The shell tests link the libraries the shells compile into, so they live in the test directories of P5-02 (tests/skills) and P5-06
 # (tests/quest); P4-08 leases both during phase 4 (header request shells-5).
 aion_gs_chunk(P4-08 LEASE PHASE 4
