@@ -41,6 +41,14 @@ public:
 		std::filesystem::path outputDir;
 		/** seed of the schema name suffix (default: the output directory) */
 		std::string schemaSeed;
+		/**
+		 * The milestone part of the two schema names, i.e. "m5a" in `aion_gs_test_m5a_<suffix>` (m5b-plan.md §6.1 asks the M5b gate for
+		 * `aion_ls_test_m5b_<hash>` / `aion_gs_test_m5b_<hash>`). It is also the prefix createSchemas() sweeps for abandoned schemas, so a
+		 * milestone only ever reclaims its own: an M5a run must not drop the pair of an M5b run that is in flight in another build tree.
+		 * The suffix alone already separates two gates (it is a hash of the output directory); the prefix is what makes the name say which
+		 * gate left it behind when a post mortem looks at MariaDB.
+		 */
+		std::string schemaPrefix = "m5a";
 		/** C++ test seam: false skips the check that the client port accepts connections (the stub game server has no port) */
 		bool checkClientPort = true;
 		/** C++ test seam: arguments put before the game server arguments (the stub game server: "-P", script, "--") */

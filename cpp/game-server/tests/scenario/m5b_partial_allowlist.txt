@@ -1,0 +1,91 @@
+# The AION_PARTIAL sites the M5b-1 gate accepts (m5b-plan.md D9 and §6.1). One site per line, whose file paths are relative to the compiling
+# target's source root - game-server/src for the server itself (e.g. "aion/gameserver/GameServer.cpp:129") and game-server/handlers for a
+# registered handler (e.g. "aion/gameserver/handlers/ai/GeneralNpcAI.cpp:122"). An entry WITH a line number must match the whole site: a prefix
+# match would let ":133" also cover ":1330" to ":1339". An entry without one is an explicit whole-file wildcard. Lines starting with '#' and
+# empty lines are ignored.
+#
+# This is a SEPARATE list from m5a_partial_allowlist.txt (D9): M5b-1 legitimately adds partials - D3 the post-spawn skills, D4 the npc skill
+# attack, D5 the drop registration, D14 the critical proc - that the M5a scripted path must still not reach, and the two lists must be able to
+# disagree.
+#
+# THE LIST IS IN THREE SECTIONS AND Q1 READS ALL THREE. A section begins at its "# --- SECTION X" marker line below and runs to the next one;
+# M5bScenarioTest.cpp matches those markers literally, so a row that moves between sections changes what the gate asserts about it. Every site
+# of partial_trace.txt must be in one of the three, and in addition:
+#   SECTION A  the gate asserts the row was hit at least once, and for DropRegistrationService exactly once per kill (R3)
+#   SECTION B  the gate asserts the row was hit EXACTLY ZERO times - the stronger half, and the one that catches a monster that unexpectedly
+#              has a post-spawn skill, an AttackIntention that reaches SkillAttackManager, or a Warrior whose starter weapon changed under D14
+#   SECTION C  the row is allowed and its hit count is printed but not pinned, because whether the scripted path reaches it depends on timing
+#              (an npc that happens to walk home inside the run) or on a configuration the gate does not set
+#
+# **Rev 2 of the plan put three rows in section B that a run of this gate proves belong in section A**, and §6.1 is corrected with this file:
+# NpcSkillList::getPostSpawnSkills and GeneralNpcAI::chooseSkillAttack are entered on every spawn and on every npc attack decision
+# respectively, whatever the npc's skill list holds - the partial is the whole body, not an arm behind a data check - so "no Poeta npc has a
+# post-spawn skill" and "neither gate monster has an npc_skills.xml entry" do not make the site unreachable, they make it return empty.
+# SkillEngine::createCriticalProcEffect is the one of the four that really is unreachable, because D14's reordering returns null for a SWORD
+# before the AION_PARTIAL line.
+
+# =========================================================================================================================================
+# --- SECTION A - hit at least once, asserted ---
+# =========================================================================================================================================
+
+# M5b-1 runs without quests, exactly as M5a does (m5a-plan.md W-02 "QuestEngine init (empty registry)")
+aion/gameserver/questEngine/QuestEngine.cpp:111
+# base locations are M5b-2/M5b-3 (m5a-plan.md E1-06); BaseService::start runs on every startup
+aion/gameserver/services/BaseService.cpp:18
+# O-09 "passive skill effects are not applied yet (M5a O-09)": 8 hits per enter world, inherited from the M5a gate
+aion/gameserver/skillengine/SkillEngine.cpp:79
+# D3 "post-spawn npc skills are not cast yet (M5b-2)". SpawnEventHandler::onSpawn asks EVERY one of the ~83,885 spawns for its post-spawn
+# skills (SpawnEventHandler.java:20-22), so this is by far the most-hit site of a run. §6.1 rev 2 listed it as a §B zero-hit row on the
+# grounds that no Poeta or Ishalgen npc has a post-spawn skill; that is true of the DATA and irrelevant to the SITE, which is the whole body.
+aion/gameserver/model/skill/NpcSkillList.cpp:90
+# D4 "npc skill attacks are not chosen yet (M5b-2): every attack stays a simple melee attack". Reached whenever a registered AI picks its next
+# attack - the gate's own monster on every swing, plus the npcs that fight each other in the character's map region. Same correction as above.
+aion/gameserver/handlers/ai/GeneralNpcAI.cpp:122
+# D5 "npc drops are not registered yet (M5b-3)". EXACTLY ONCE PER KILL, and the gate asserts the count, not just the membership (R3):
+# NpcController::doReward reaches it only inside `if (attacker.equals(winner) && ask(REWARD_LOOT))` and only for an `attacker instanceof
+# Player` (NpcController.java:225-245), so npcs killing each other in the neighbourhood cannot add to this count. This is also the fix for
+# m5b-client-session.md S-1: until the stage-1 fixup made this an AION_PARTIAL it was an AION_UNPORTED that threw once per kill.
+aion/gameserver/services/drop/DropRegistrationService.cpp:43
+
+# =========================================================================================================================================
+# --- SECTION B - hit exactly zero times, asserted ---
+# =========================================================================================================================================
+
+# D14 "critical proc stumble/stun needs the effect engine (M5b-2)". The gate's Elyos Warrior starts with item 100000094 "Training Sword"
+# (item_group="SWORD"), and E-05's body returns null for every weapon group but POLEARM/STAFF/GREATSWORD/BOW BEFORE this line, so a correct
+# port never reaches it. A hit here means the weapon group switch was reordered or the starter weapon changed.
+aion/gameserver/skillengine/SkillEngine.cpp:138
+# D4's other half: GeneralNpcAI::chooseSkillAttack above answers false, so SkillAttackManager is unreachable. A hit here means an
+# AttackIntention reached the skill path.
+aion/gameserver/ai/manager/SkillAttackManager.cpp:19
+aion/gameserver/ai/manager/SkillAttackManager.cpp:23
+aion/gameserver/ai/manager/SkillAttackManager.cpp:28
+aion/gameserver/ai/manager/SkillAttackManager.cpp:40
+# C-01: PlayerRestrictions::canUseSkill refuses every skill until M5b-2. The scripted path sends no CM_CASTSPELL, and a level 1 Warrior casts
+# nothing by itself, so a hit here means something on the fight path tried to use a skill.
+aion/gameserver/restrictions/PlayerRestrictions.cpp:60
+
+# =========================================================================================================================================
+# --- SECTION C - allowed, counted and printed, not pinned ---
+# =========================================================================================================================================
+
+# behind gameserver.analysis.quest_handlers, which the M5b profile does not set
+aion/gameserver/questEngine/QuestEngine.cpp:115
+# the PvP map instance needs InstanceService::getNextAvailableInstance (m5a-plan.md W-03)
+aion/gameserver/custom/pvpmap/PvpMapService.cpp:32
+# personal instances and the instance exit teleport are M5a AION_PARTIAL by plan W-03
+aion/gameserver/services/instance/InstanceService.cpp:133
+aion/gameserver/services/instance/InstanceService.cpp:153
+# a fresh level 1 character has no saved effect; K7b's relogin walks the same code
+aion/gameserver/controllers/effect/PlayerEffectController.cpp:120
+# EMOTIONS_ALL is off by default, so this is only reached with the config the real-client checklist uses
+aion/gameserver/services/player/PlayerService.cpp:268
+# AbyssRankUpdateService's periodic tasks. A normal gate run (90-180 s) does not reach them; a run that takes longer does - the §6.6 damage
+# mutation of 2026-09-22 stretched the fight to 84 s and hit :37 once, which is how these two rows got here. They are a property of the run's
+# LENGTH, not of its script, so their count is not pinned.
+aion/gameserver/services/abyss/AbyssRankUpdateService.cpp:37
+aion/gameserver/services/abyss/AbyssRankUpdateService.cpp:58
+# Every npc that walks back to its spawn point after a fight runs ReturningEventHandler::onBackHome, whose last statement drops the buffs of
+# the fight. Whether the gate's own monster gets there depends on A8's chase and on what the neighbourhood's npcs do, so the count is not
+# pinned; the dispel machinery needs the effect engine (M5b-2) and nothing can put an abnormal effect on a creature yet.
+aion/gameserver/controllers/effect/EffectController.cpp:209

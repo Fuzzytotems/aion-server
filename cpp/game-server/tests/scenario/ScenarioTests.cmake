@@ -15,9 +15,12 @@ if(TARGET aion_gs_scenario_tests)
 	target_compile_definitions(aion_gs_scenario_tests PRIVATE AION_SCENARIO_CMAKE_COMMAND="${CMAKE_COMMAND}"
 		AION_SCENARIO_STUB_GAME_SERVER="${CMAKE_CURRENT_SOURCE_DIR}/tests/scenario/StubGameServer.cmake")
 
-	# the gate's own inputs: tools/oracle/oracle.py (F-05, run with AION_TEST_PYTHON) and the AION_PARTIAL allow-list of D3
+	# the gate's own inputs: tools/oracle/oracle.py (F-05, run with AION_TEST_PYTHON) and the AION_PARTIAL allow-list of D3. The M5b gate reads a
+	# SECOND list (m5b-plan.md D9): M5b-1 legitimately adds partials - D3 the post-spawn skills, D4 the npc skill attack, D5 the drop
+	# registration, D14 the critical proc - that the M5a scripted path must still not reach, so the two lists have to be able to disagree.
 	target_compile_definitions(aion_gs_scenario_tests PRIVATE AION_SCENARIO_ORACLE_SCRIPT="${CMAKE_SOURCE_DIR}/tools/oracle/oracle.py"
-		AION_SCENARIO_PARTIAL_ALLOWLIST="${CMAKE_CURRENT_SOURCE_DIR}/tests/scenario/m5a_partial_allowlist.txt")
+		AION_SCENARIO_PARTIAL_ALLOWLIST="${CMAKE_CURRENT_SOURCE_DIR}/tests/scenario/m5a_partial_allowlist.txt"
+		AION_SCENARIO_M5B_PARTIAL_ALLOWLIST="${CMAKE_CURRENT_SOURCE_DIR}/tests/scenario/m5b_partial_allowlist.txt")
 
 	# the oracle answers are JSON (Oracle.cpp); commons finds the same package in its own directory scope
 	find_package(nlohmann_json CONFIG REQUIRED)
@@ -32,6 +35,9 @@ if(TARGET aion_gs_scenario_tests)
 		PROPERTIES LABELS "scenario;realdata" RESOURCE_LOCK "aion_login_server_log" TIMEOUT 300)
 	# the gates run as gs.scenario.m5a and gs.scenario.m5a_geo below, never as discovered cases
 	aion_set_discovered_test_properties(aion_gs_scenario_tests REGEX "^M5aScenario(Geo)?\\." PROPERTIES DISABLED TRUE
+		LABELS "scenario;realdata")
+	# the same for the M5b-1 gates (m5b-plan.md §6.5): M5bScenario.Run and M5bScenarioGeo.Run each own one pair of server processes
+	aion_set_discovered_test_properties(aion_gs_scenario_tests REGEX "^M5bScenario(Geo)?\\." PROPERTIES DISABLED TRUE
 		LABELS "scenario;realdata")
 
 	# F-06: the M5a gate (§5.10). The oracle needs a Python interpreter; without it the test prints "gs.scenario.m5a: skipped".
@@ -76,5 +82,40 @@ if(TARGET aion_gs_scenario_tests)
 	endif()
 	if(AION_SCENARIO_REQUIRE OR NOT AION_GS_ALLOW_MILESTONE_SKIP)
 		set_property(TEST gs.scenario.m5a_geo APPEND PROPERTY ENVIRONMENT_MODIFICATION "AION_SCENARIO_REQUIRE=set:1")
+	endif()
+
+	# ---- the M5b-1 gate (m5b-plan.md G-03/G-06, §6.5) ------------------------------------------------------------------------------------
+	#
+	# gs.scenario.m5b: the scripted fight of §6.2 - approach, target, an out-of-range shot, the kill, the reward, the respawn, the character's
+	# own death and its bind revive - in the same binary, with its own output directory <bin>/scenario/m5b, its own schema pair
+	# (aion_gs_test_m5b_<hash>, ScenarioServers::Config::schemaPrefix) and its own AION_PARTIAL allow-list. It carries the SAME RESOURCE_LOCK as
+	# the two M5a gates: the whole reason that lock exists is that the user works at this machine, and a third geo-capable server running beside
+	# the other two is what it prevents (§8 risk 15). TIMEOUT 900 like gs.scenario.m5a; the run itself is budgeted at 60-90 s, of which K7's
+	# respawn assertion alone costs the spawn's 20 s respawn time and K8's death costs the monster's attack tempo.
+	add_test(NAME gs.scenario.m5b COMMAND "$<TARGET_FILE:aion_gs_scenario_tests>" --gtest_filter=M5bScenario.Run
+		WORKING_DIRECTORY "${scenario_work_dir}")
+	set_tests_properties(gs.scenario.m5b PROPERTIES LABELS "scenario;realdata" TIMEOUT 900
+		RESOURCE_LOCK "aion_game_server_log;aion_login_server_log" SKIP_REGULAR_EXPRESSION "gs\\.scenario\\.m5b: skipped")
+	if(Python3_Interpreter_FOUND)
+		set_property(TEST gs.scenario.m5b APPEND PROPERTY ENVIRONMENT_MODIFICATION "AION_TEST_PYTHON=set:${Python3_EXECUTABLE}")
+	endif()
+	# A SKIPPED GATE IS NOT A PASSED GATE - the same default and the same opt-out as the two gates above (§6.5)
+	if(AION_SCENARIO_REQUIRE OR NOT AION_GS_ALLOW_MILESTONE_SKIP)
+		set_property(TEST gs.scenario.m5b APPEND PROPERTY ENVIRONMENT_MODIFICATION "AION_SCENARIO_REQUIRE=set:1")
+	endif()
+
+	# gs.scenario.m5b_geo (G-06): the same scripted fight with -Dgameserver.geodata.enable=true. It is the only run in which
+	# GeoService::canSee can answer false on the attack path, and the only one in which R4's respawn position is asserted against a world that
+	# has its terrain - which is what a geo z-snap on the respawn path breaks (§6.6, the same argument wave B made for gs.scenario.m5a_geo).
+	# TIMEOUT 2700 for the same reason as gs.scenario.m5a_geo: the geo startup is seconds in a checked RelWithDebInfo tree and minutes in Debug.
+	add_test(NAME gs.scenario.m5b_geo COMMAND "$<TARGET_FILE:aion_gs_scenario_tests>" --gtest_filter=M5bScenarioGeo.Run
+		WORKING_DIRECTORY "${scenario_work_dir}")
+	set_tests_properties(gs.scenario.m5b_geo PROPERTIES LABELS "scenario;realdata;geo" TIMEOUT 2700
+		RESOURCE_LOCK "aion_game_server_log;aion_login_server_log" SKIP_REGULAR_EXPRESSION "gs\\.scenario\\.m5b_geo: skipped")
+	if(Python3_Interpreter_FOUND)
+		set_property(TEST gs.scenario.m5b_geo APPEND PROPERTY ENVIRONMENT_MODIFICATION "AION_TEST_PYTHON=set:${Python3_EXECUTABLE}")
+	endif()
+	if(AION_SCENARIO_REQUIRE OR NOT AION_GS_ALLOW_MILESTONE_SKIP)
+		set_property(TEST gs.scenario.m5b_geo APPEND PROPERTY ENVIRONMENT_MODIFICATION "AION_SCENARIO_REQUIRE=set:1")
 	endif()
 endif()

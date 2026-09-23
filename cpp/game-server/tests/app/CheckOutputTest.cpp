@@ -22,6 +22,8 @@
 #include "aion/commons/logging/LoggerFactory.h"
 #include "aion/gameserver/CheckOutput.h"
 #include "aion/gameserver/controllers/VisibleObjectController.h"
+#include "aion/gameserver/controllers/attack/AttackResult.h"
+#include "aion/gameserver/controllers/attack/AttackStatus.h"
 #include "aion/gameserver/model/animations/ObjectDeleteAnimation.h"
 #include "aion/gameserver/model/gameobjects/VisibleObject.h"
 #include "aion/gameserver/runtime/base/Exceptions.h"
@@ -237,7 +239,9 @@ TEST(CheckOutputTest, SummaryListsTheCountsAndTheUnportedClientPackets) {
 	EXPECT_NE(text.find("\npartialSites "), std::string::npos) << text;
 	// knownListNotifyFailures is the W-07 counter: every KnownList notifySee/notifyNotSee/notifyNotKnow catch counts as a failure, and §5.7 Q8
 	// asserts it is 0. Java logs those with an empty message (`log.error("", ex)`), so without this key the gate has no attributable signal.
-	EXPECT_NE(text.find("\ncensusLeaks 1\nzombieCuts 2\nlockdepReports 3\nwatchdogDumps 4\nknownListNotifyFailures "), std::string::npos) << text;
+	EXPECT_NE(text.find("\ncensusLeaks 1\ncensusTracked unknown\nzombieCuts 2\nlockdepReports 3\nwatchdogDumps 4\nknownListNotifyFailures "),
+		std::string::npos)
+		<< text;
 	EXPECT_NE(text.find("\natreianPassportDisabled false\n"), std::string::npos) << text;
 	// sorted, and followed by the live-count rows stage 3 appended: liveLeaks is the last line of a clean summary. liveCountsEnabled says
 	// whether the counters this check reads exist in this build at all (§10.2): "liveLeaks 0" of a release build means "not measured".
@@ -460,6 +464,198 @@ TEST(CheckOutputTest, TheLiveCountCheckReadsTheProcessCountersOfAZeroClass) {
 	observer.reset();
 	runtime::Reclaimer::getInstance().drain();
 	EXPECT_TRUE(observers().empty()) << "and stop reporting it once the Reclaimer freed it";
+}
+
+// ---------------------------------------------------------------------------------------------------------------------------------------
+// M5b-1 E-03 (m5b-plan.md §4, Q2/Q3) and m5b-client-session.md S-2.
+// ---------------------------------------------------------------------------------------------------------------------------------------
+
+/**
+ * The four combat classes m5b-plan.md E-03 names, decided one by one rather than by analogy - which is what stage 1 had to do when it took
+ * world::knownlist::KnownObject back out of zeroLiveClasses().
+ * <p>
+ * AttackResult: strict 0, and exercised. AttackUtil makes one per hit, it travels in the result list of SM_ATTACK and in DelayedOnAttack, and
+ * nothing keeps one after the hit is applied - measured 0 live of 183 created in the green M5a gate run that followed A-06 (0 of 93 in the geo
+ * run).
+ * <p>
+ * DropNpc: strict 0 is sound (it is RefCounted with a create()), but it is a guard, not an assertion: its only constructor call site is
+ * DropRegistrationService::initDropNpc, behind registerDrop's whole-body AION_PARTIAL (m5b-plan.md D5), so created stays 0 until M5b-3.
+ * <p>
+ * AggroInfo: NOT strict 0. The same M5a gate run reports 34 live of 36 created with censusLeaks 0, liveLeaks 0 and exitCode 0 (22 of 22 in the
+ * geo run): an AggroList is an OwnedPart of a Creature, the shutdown does not despawn the world, and since A-06 the npcs fight each other, so an
+ * npc still in a fight legitimately holds hate entries. Adding it would have turned that green run red.
+ * <p>
+ * DamageList: cannot be listed at all - a K5 confined value class (DamageList.h:18-22), not RefCounted, so no counter can ever see it and the row
+ * would be dead forever.
+ */
+TEST(CheckOutputTest, TheCombatClassesOfTheM5bGateAreDecidedOneByOne) {
+	const auto strict = [](std::string_view name) { return std::ranges::count(CheckOutput::zeroLiveClasses(), name) == 1; };
+	const auto reported = [](std::string_view name) { return std::ranges::count(CheckOutput::summaryLiveClasses(), name) == 1; };
+
+	EXPECT_TRUE(strict("controllers::attack::AttackResult")) << "0 live of 183 created in the M5a gate run: a strict zero that is exercised";
+	EXPECT_TRUE(strict("model::gameobjects::DropNpc")) << "sound, but a guard until M5b-3 creates one";
+	EXPECT_FALSE(strict("controllers::attack::AggroInfo")) << "34 of 36 live in a GREEN gate run: bounded by the live creatures, not zero";
+	EXPECT_FALSE(strict("controllers::attack::DamageList")) << "a value class no counter can see: the row would never fire";
+	EXPECT_FALSE(reported("controllers::attack::DamageList")) << "and reporting 0 0 for it forever would only read as a pass";
+
+	// what the gate reads as numbers instead
+	EXPECT_TRUE(reported("controllers::attack::AggroInfo"));
+	EXPECT_TRUE(reported("controllers::attack::AttackResult")) << "the created half is what makes the strict row an assertion";
+	EXPECT_TRUE(reported("model::gameobjects::DropNpc"));
+	EXPECT_TRUE(reported("model::gameobjects::Npc")) << "Q3's npc conservation: live back to the baseline, created up by the respawns";
+	EXPECT_TRUE(reported("world::knownlist::KnownObject")) << "the class stage 1 removed from the strict list is still bounded by the gate";
+
+	// the decision, exercised: the numbers of the green run must produce no leak at all
+	LogCapture capture("com.aionemu.gameserver.CheckOutput");
+	const std::vector<LiveCount> gateRun{
+		{"aion::gameserver::controllers::attack::AggroInfo", 34, 36},
+		{"aion::gameserver::controllers::attack::AttackResult", 0, 183},
+		{"aion::gameserver::world::knownlist::KnownObject", 15'238, 15'744},
+		{"aion::gameserver::model::gameobjects::Npc", 82'126, 82'129},
+	};
+	EXPECT_TRUE(CheckOutput::checkLiveCounts(gateRun).empty())
+		<< "the live counts of the green M5a gate run of 2026-09-22 must stay green: a strict AggroInfo row would fail it";
+
+	// and a live AttackResult must still fail, or the strict row is decoration
+	std::vector<LiveCount> leaked = gateRun;
+	leaked[1].live = 1;
+	const std::vector<LiveCount> leaks = CheckOutput::checkLiveCounts(leaked);
+	ASSERT_EQ(leaks.size(), 1u);
+	EXPECT_EQ(leaks[0].className, "aion::gameserver::controllers::attack::AttackResult");
+}
+
+/**
+ * summaryLiveCounts() keeps `created` for a class at 0 live, which is the whole point of the row: liveLeak lines only exist for a class that is
+ * already failing, and runtime::liveInstancesOf drops every counter at 0 live (LiveInstanceCounters.cpp:121-122), so neither can tell the gate
+ * that an AttackResult was ever created. A class no counter matches reports 0 0.
+ */
+TEST(CheckOutputTest, SummaryLiveCountsReportCreatedEvenWhenNothingIsLive) {
+	const std::vector<LiveCount> counts{
+		{"aion::gameserver::controllers::attack::AggroInfo", 34, 36},
+		{"aion::gameserver::controllers::attack::AttackResult", 0, 183},
+		{"aion::gameserver::model::gameobjects::Npc", 82'126, 82'129},
+		{"aion::gameserver::model::gameobjects::SummonedHouseNpc", 2'060, 2'060},
+	};
+	const std::vector<LiveCount> rows = CheckOutput::summaryLiveCounts(counts);
+	ASSERT_EQ(rows.size(), CheckOutput::summaryLiveClasses().size());
+	for (size_t i = 0; i < rows.size(); i++)
+		EXPECT_EQ(rows[i].className, CheckOutput::summaryLiveClasses()[i]) << "the requested name, in list order, so the gate's key is stable";
+
+	const auto row = [&rows](std::string_view name) {
+		auto it = std::ranges::find(rows, name, &LiveCount::className);
+		return it == rows.end() ? LiveCount{std::string(name), -1, 0} : *it;
+	};
+	EXPECT_EQ(row("controllers::attack::AggroInfo").live, 34);
+	EXPECT_EQ(row("controllers::attack::AggroInfo").created, 36u);
+	EXPECT_EQ(row("controllers::attack::AttackResult").live, 0);
+	EXPECT_EQ(row("controllers::attack::AttackResult").created, 183u) << "0 live with 183 created is an assertion; 0 live with 0 created is not";
+	EXPECT_EQ(row("model::gameobjects::DropNpc").live, 0);
+	EXPECT_EQ(row("model::gameobjects::DropNpc").created, 0u) << "no counter at all: 0 0, the honest answer for a class M5b-1 never creates";
+	EXPECT_EQ(row("model::gameobjects::Npc").live, 82'126) << "SummonedHouseNpc must not be summed into Npc: the rule matches on \"::\" + name";
+	EXPECT_EQ(row("model::gameobjects::Npc").created, 82'129u);
+}
+
+/** The name rule of summaryLiveCounts() is runtime::liveInstancesOf's, minus its `live != 0` filter (CheckOutput.cpp's matchesClassName). */
+TEST(CheckOutputTest, SummaryLiveCountsUseTheLiveInstancesOfNameRule) {
+	for (const std::string& className : CheckOutput::summaryLiveClasses()) {
+		const std::vector<LiveCount> counts{{"aion::gameserver::" + className, 7, 9}, {"aion::gameserver::Other" + className, 5, 5},
+			{"aion::gameserver::model::gameobjects::Unrelated", 3, 3}};
+		const std::vector<LiveCount> viaRuntime = runtime::liveInstancesOf(counts, {className});
+		ASSERT_EQ(viaRuntime.size(), 1u) << className << ": a trailing part after \"::\" matches, a longer word ending in it does not";
+
+		const std::vector<LiveCount> rows = CheckOutput::summaryLiveCounts(counts);
+		const auto it = std::ranges::find(rows, className, &LiveCount::className);
+		ASSERT_NE(it, rows.end()) << className;
+		EXPECT_EQ(it->live, viaRuntime[0].live) << className << ": the two matchers must agree wherever liveInstancesOf can answer";
+		EXPECT_EQ(it->created, viaRuntime[0].created) << className;
+	}
+}
+
+/** The liveCount rows of m5a_summary.txt, written after the liveLeak rows so a clean summary still ends with the live-count block. */
+TEST(CheckOutputTest, SummaryWritesOneLiveCountRowPerReportedClass) {
+	CheckOutput::Summary summary;
+	summary.started = true;
+	summary.summaryCounts = {{"controllers::attack::AggroInfo", 34, 36}, {"controllers::attack::AttackResult", 0, 183},
+		{"model::gameobjects::DropNpc", 0, 0}};
+	std::ostringstream out;
+	CheckOutput::writeSummary(out, summary);
+	const std::string text = out.str();
+	EXPECT_NE(text.find("\nliveLeaks 0\nliveCount controllers::attack::AggroInfo 34 36\n"), std::string::npos) << text;
+	EXPECT_NE(text.find("\nliveCount controllers::attack::AttackResult 0 183\n"), std::string::npos) << text;
+	EXPECT_TRUE(text.ends_with("\nliveCount model::gameobjects::DropNpc 0 0\n")) << text;
+
+	std::ostringstream none;
+	CheckOutput::writeSummary(none, CheckOutput::Summary{});
+	EXPECT_EQ(none.str().find("\nliveCount "), std::string::npos) << "the pure form writes only what it was given";
+}
+
+/**
+ * m5b-client-session.md S-2. The five-kill session ended with "1 objects removed from the world are still alive" and no report named the object.
+ * censusLeaks cannot carry that number: runFinalCensus runs BEFORE RuntimeLifecycle::shutdown, so an object that leaves the world during the
+ * shutdown itself is in neither census.txt nor liveLeaks. Only the caller that performs the shutdown can measure it
+ * (RuntimeLifecycle::ShutdownReport::censusTracked), and LeakCensus::uninstall() has emptied the table by the time this file is written - so an
+ * unset value must say "unknown" and not a 0 nobody measured, or a gate asserting the row would pass vacuously.
+ */
+TEST(CheckOutputTest, SummaryCarriesTheShutdownCensusTrackedCountOrSaysUnknown) {
+	const auto write = [](const CheckOutput::Summary& summary) {
+		std::ostringstream out;
+		CheckOutput::writeSummary(out, summary);
+		return out.str();
+	};
+	CheckOutput::Summary summary;
+	summary.censusLeaks = 0;
+	EXPECT_NE(write(summary).find("\ncensusLeaks 0\ncensusTracked unknown\n"), std::string::npos) << write(summary);
+
+	summary.censusTracked = 0;
+	EXPECT_NE(write(summary).find("\ncensusTracked 0\n"), std::string::npos) << write(summary);
+
+	summary.censusTracked = 1; // the client session's number: 0 census leaks and 1 object still tracked at the end of the shutdown
+	EXPECT_NE(write(summary).find("\ncensusLeaks 0\ncensusTracked 1\n"), std::string::npos)
+		<< "the row must print the value it was given, not censusLeaks and not a constant:\n"
+		<< write(summary);
+}
+
+/**
+ * The directory form is what a real run writes, and it is the form that fills the rows itself (`started` set means the run reached the final
+ * census). The `created` half must survive the object: a class at 0 live with a non-zero `created` is what m5b-plan.md Q2 asserts, and a summary
+ * that read `created` from something transient would report `0 0` for a perfectly exercised class.
+ */
+TEST(CheckOutputTest, TheDirectoryFormFillsTheLiveCountRowsFromTheProcessCounters) {
+	if (!runtime::LIVE_COUNTS_ENABLED)
+		GTEST_SKIP() << "release build: makeRef and the Reclaimer count nothing (AION_CHECKED off)";
+	const std::filesystem::path dir = uniqueDirectory("summary");
+	LogCapture capture("com.aionemu.gameserver.CheckOutput"); // the deliberate live AttackResult below is an ERROR line by design
+	const auto row = [&dir] {
+		CheckOutput::Summary summary;
+		summary.started = true;
+		CheckOutput::writeSummary(dir, summary);
+		const std::string text = readFile(dir / "m5a_summary.txt");
+		const size_t at = text.find("\nliveCount controllers::attack::AttackResult ");
+		return at == std::string::npos ? std::string("(no row)") : text.substr(at + 1, text.find('\n', at + 1) - at - 1);
+	};
+	const std::string before = row();
+	ASSERT_TRUE(before.starts_with("liveCount controllers::attack::AttackResult ")) << before;
+
+	int64_t live = 0;
+	uint64_t created = 0;
+	{
+		runtime::TaskScope scope(AION_TASK_INFO(runtime::TaskKind::TEST));
+		runtime::Ref<controllers::attack::AttackResult> hit =
+			controllers::attack::AttackResult::create(12.0f, controllers::attack::AttackStatus::NORMALHIT);
+		const std::string withOne = row();
+		ASSERT_EQ(sscanf_s(withOne.c_str(), "liveCount controllers::attack::AttackResult %lld %llu", &live, &created), 2) << withOne;
+		EXPECT_GE(live, 1) << "the row must read the process counters: " << withOne;
+		EXPECT_GE(created, 1u) << withOne;
+	}
+	runtime::Reclaimer::getInstance().drain();
+
+	int64_t liveAfter = 1;
+	uint64_t createdAfter = 0;
+	const std::string after = row();
+	ASSERT_EQ(sscanf_s(after.c_str(), "liveCount controllers::attack::AttackResult %lld %llu", &liveAfter, &createdAfter), 2) << after;
+	EXPECT_EQ(liveAfter, 0) << "and follow it back to 0 once the Reclaimer freed it: " << after;
+	EXPECT_EQ(createdAfter, created) << "while `created` stays - that is the half that makes the strict zero an assertion: " << after;
+	std::filesystem::remove_all(dir);
 }
 
 } // namespace

@@ -3,6 +3,7 @@
 #include "aion/gameserver/model/drop/DropItem.h"
 #include "aion/gameserver/model/drop/DropModifiers.h"
 #include "aion/gameserver/model/gameobjects/DropNpc.h"
+#include "aion/gameserver/model/gameobjects/player/Player.h"
 #include "aion/gameserver/runtime/base/Unported.h"
 
 namespace aion::gameserver::services::drop {
@@ -17,11 +18,29 @@ DropRegistrationService& DropRegistrationService::getInstance() {
 }
 
 void DropRegistrationService::registerDrop(model::gameobjects::Npc& npc, model::gameobjects::player::Player& player, const std::vector<runtime::Ptr<model::gameobjects::player::Player>>& groupMembers) {
-	AION_UNPORTED();
+	registerDrop(npc, player, player.getLevel(), groupMembers); // DropRegistrationService.java:52-54
 }
 
 void DropRegistrationService::registerDrop(model::gameobjects::Npc& npc, model::gameobjects::player::Player& player, int32_t highestLevel, const std::vector<runtime::Ptr<model::gameobjects::player::Player>>& groupMembers) {
-	AION_UNPORTED();
+	// Loot is M5b-3 (m5b-plan.md D5/O-05, docs/deviations/P5-09.md). Java (DropRegistrationService.java:59-109) builds the drop set from
+	// CUSTOM_NPC_DROP, QuestService.getQuestDrop and the global-rule evaluator, puts it into currentDropMap (:80), registers the DropNpc with its
+	// allowed looters through initDropNpc (:68), then calls instanceHandler.onDropRegistered and the DROP_REGISTERED AI event (:101-102), sends
+	// SM_LOOT_STATUS(npcObjId, LOOT_ENABLE) to every allowed looter (:104-106) and schedules the free-for-all timer (:108). Every one of those is
+	// behind a body this milestone does not have: 123 AION_UNPORTED sites across DropRegistrationService, DropService and DropDistributionService.
+	//
+	// Whole body, not an arm, because there is no partial answer that is Java-exact: a drop set built from ported predicates only would be a drop
+	// set Java never computes, and sending LOOT_ENABLE for a corpse whose currentDropMap entry does not exist makes CM_START_LOOT answer with an
+	// empty list. So the M5b-1 answer is "no drops at all", and the gate asserts the drop path by what NpcAI::ask(REWARD_LOOT) answered and by this
+	// site's hit count (m5b-plan.md R3: exactly once per kill), not by an item.
+	//
+	// Why it must not throw: NpcController::onDie reaches this through doReward inside a try that only logs (NpcController.cpp:172-181, Java
+	// NpcController.java:146-155), so an AION_UNPORTED here completed the kill and kept the experience but skipped InstanceHandler::onDie and the
+	// DIED AI event, and logged an ERROR per kill (m5b-client-session.md S-1: five kills, five ERROR lines).
+	//
+	// What the skipped statements leave behind, and why nothing downstream trips over it: currentDropMap and dropRegistrationMap stay empty, so
+	// NpcController::petLoot and findPetForLooting - which run AFTER the try, unguarded - find no DropNpc and return (NpcController.cpp:201-230),
+	// and DropService::unregisterDrop on the despawn path removes nothing. No DropNpc is created at M5b-1 at all.
+	AION_PARTIAL("npc drops are not registered yet (M5b-3)");
 }
 
 model::drop::DropModifiers DropRegistrationService::createDropModifiers(model::gameobjects::Npc& npc, model::gameobjects::player::Player& player, int32_t highestLevel) {

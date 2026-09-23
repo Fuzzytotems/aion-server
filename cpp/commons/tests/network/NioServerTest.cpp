@@ -73,17 +73,20 @@ TEST(NioServerTest, FactoryReturningNullClosesTheSocket) {
 }
 
 TEST(NioServerTest, SingleThreadRunsAllNetworkCodeOnOneThread) {
-	TestServer server;
+	// The recorded state is declared BEFORE the server, so the server is destroyed FIRST and its dispatcher is stopped before these locals die.
+	// The other order segfaults: the callbacks below capture them by reference, and closing the four connections during teardown makes the
+	// dispatcher run record() once more. It only crashes under load, which is how the full suite found it and twenty runs in isolation did not.
 	std::mutex mutex;
 	std::set<std::thread::id> threadIds;
 	std::set<std::string> threadNames;
+	std::atomic<int> factoryCalls = 0;
+	std::atomic<int> writeDataCalls = 0;
 	auto record = [&] {
 		std::lock_guard lock(mutex);
 		threadIds.insert(std::this_thread::get_id());
 		threadNames.insert(utils::concurrent::getCurrentThreadName());
 	};
-	std::atomic<int> factoryCalls = 0;
-	std::atomic<int> writeDataCalls = 0;
+	TestServer server; // after EVERY captured local, so that ~TestServer stops the dispatcher while they are all still alive
 	server.onFactory = [&] {
 		record();
 		factoryCalls++;

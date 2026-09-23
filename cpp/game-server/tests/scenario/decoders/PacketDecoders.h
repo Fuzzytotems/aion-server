@@ -550,7 +550,8 @@ bool isNpcEmote(uint8_t emotionType);
 /**
  * SM_EMOTION: object id, emotion type, state and speed, plus the two attack speeds and the zero byte of the CHANGE_SPEED arm. For an emotion
  * of isNpcEmote the whole body is consumed and a trailing byte fails; for every other type the switch writes a payload this decoder does not
- * model and only the header is read.
+ * model and only the header is read. `decodeEmotion` of decoders/CombatDecoders.h (G-04) models all ten arms and consumes the body exactly for
+ * every emotion type, which is what the M5b gate's D1a needs for DIE.
  */
 EmotionHeader decodeEmotionHeader(std::span<const uint8_t> body);
 
@@ -562,18 +563,22 @@ struct LookAtObject {
 };
 LookAtObject decodeLookAtObject(std::span<const uint8_t> body);
 
-/** SM_ATTACK (SM_ATTACK.java:70-76): the two creatures of one swing */
+/** SM_ATTACK (SM_ATTACK.java:45-51, re-checked against the Java tree by G-04): the two creatures of one swing */
 struct AttackParties {
 	int32_t attackerObjectId = 0;
 	int32_t targetObjectId = 0;
 };
 /**
  * The attacker and the target of an SM_ATTACK. It is a prefix decoder: everything after the two HP percentages depends on the attack status,
- * on the critical proc effect and on the per-result shield types (SM_ATTACK.java:80-167), which is G-04's work for the M5b gate.
+ * on the critical proc effect and on the per-result shield types (SM_ATTACK.java:57-146). That was G-04's work for the M5b gate and it is
+ * done: `decodeAttack` of decoders/CombatDecoders.h reads the whole body and consumes it exactly. This one stays what the M5a async set needs.
  */
 AttackParties decodeAttackParties(std::span<const uint8_t> body);
 
-/** SM_ATTACK_STATUS (SM_ATTACK_STATUS.java:60): the creature whose HP or MP changed, the first field */
+/**
+ * SM_ATTACK_STATUS (SM_ATTACK_STATUS.java:124): the creature whose HP or MP changed, the first field. `decodeAttackStatus` of
+ * decoders/CombatDecoders.h reads the whole 14-byte body.
+ */
 int32_t decodeAttackStatusObjectId(std::span<const uint8_t> body);
 
 } // namespace aion::gameserver::scenario::decoders

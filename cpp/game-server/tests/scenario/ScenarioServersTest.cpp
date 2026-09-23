@@ -237,6 +237,25 @@ TEST(ScenarioServersTest, TheGameServerGetsTheM5aProfileAndTheScenarioArguments)
 	EXPECT_NE(servers.loginLogFolder(), std::filesystem::path(AION_LOGINSERVER_JAVA_DIR) / "log");
 }
 
+/**
+ * m5b-plan.md §6.1: the M5b gate runs on `aion_gs_test_m5b_<hash>` / `aion_ls_test_m5b_<hash>`. The suffix alone already separates two gates
+ * (it is a hash of the output directory); the prefix is what makes the name say which gate left a schema behind when a post mortem looks at
+ * MariaDB, and it is also the prefix createSchemas() sweeps for abandoned schemas - so a milestone only ever reclaims its own.
+ */
+TEST(ScenarioServersTest, TheSchemaPrefixNamesTheMilestoneAndDefaultsToM5a) {
+	ScenarioServers::Config m5a = stubConfig("prefix-default");
+	ScenarioServers defaultPrefix(m5a, offlineEnvironment());
+	EXPECT_TRUE(defaultPrefix.gameSchema().starts_with("aion_gs_test_m5a_")) << defaultPrefix.gameSchema();
+	EXPECT_TRUE(defaultPrefix.loginSchema().starts_with("aion_ls_test_m5a_")) << defaultPrefix.loginSchema();
+
+	ScenarioServers::Config m5b = stubConfig("prefix-m5b");
+	m5b.schemaPrefix = "m5b";
+	ScenarioServers m5bServers(m5b, offlineEnvironment());
+	EXPECT_TRUE(m5bServers.gameSchema().starts_with("aion_gs_test_m5b_")) << m5bServers.gameSchema();
+	EXPECT_TRUE(m5bServers.loginSchema().starts_with("aion_ls_test_m5b_")) << m5bServers.loginSchema();
+	EXPECT_NE(m5bServers.gameSchema(), defaultPrefix.gameSchema());
+}
+
 TEST(ScenarioServersTest, TheGeoGateTurnsTheGeoDataOnThroughTheSamePropertyOverride) {
 	// gs.scenario.m5a_geo (stage 3 wave B, m5a-plan.md §5.1 "Geodata"): the only difference to gs.scenario.m5a is this one key, and it has to
 	// arrive as exactly one -D with the value true - a profile entry that stayed behind it would give the child two contradicting arguments.

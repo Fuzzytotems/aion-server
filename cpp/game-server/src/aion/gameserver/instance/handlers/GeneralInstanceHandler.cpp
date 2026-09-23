@@ -1,6 +1,7 @@
 #include "aion/gameserver/instance/handlers/GeneralInstanceHandler.h"
 
 #include <string>
+#include <typeinfo>
 #include <vector>
 
 #include "aion/gameserver/runtime/base/Unported.h"
@@ -15,6 +16,7 @@
 #include "aion/gameserver/world/WorldMap.h"
 #include "aion/gameserver/world/WorldMapInstance.h"
 #include "aion/gameserver/world/WorldPosition.h"
+#include "aion/gameserver/world/WorldType.h"
 
 namespace aion::gameserver::instance::handlers {
 
@@ -104,11 +106,16 @@ float GeneralInstanceHandler::getExpMultiplier() {
 }
 
 bool GeneralInstanceHandler::allowKiskRevive() {
-	AION_UNPORTED();
+	return !instance->getTemplate()->isInstance();
 }
 
 bool GeneralInstanceHandler::allowInstanceRevive() {
-	AION_UNPORTED();
+	// Java: `instance.getTemplate().isInstance() && getClass() != GeneralInstanceHandler.class || ... == WorldType.PANESTERRA`
+	// (GeneralInstanceHandler.java:274-275). `getClass() != X.class` is an exact runtime-type test, not an instanceof: the port spells it
+	// `typeid(*this) != typeid(X)`, as KnownObject::equals spells Java's `getClass() == o.getClass()` (KnownObject.cpp:32). A derived
+	// instance handler - every ported instance script - therefore answers true inside an instance map, and this base class answers false.
+	return instance->getTemplate()->isInstance() && typeid(*this) != typeid(GeneralInstanceHandler) ||
+		instance->getTemplate()->getWorldType() == world::WorldType::PANESTERRA;
 }
 
 bool GeneralInstanceHandler::isRestrictedToInstance(model::gameobjects::Item& item) {

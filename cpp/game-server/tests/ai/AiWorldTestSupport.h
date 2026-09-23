@@ -88,6 +88,11 @@ inline constexpr int32_t DUMMY_NPC_ID = 210668;
 inline constexpr int32_t NO_ACTION_NPC_ID = 210669;
 /** `<talk_info is_dialog="true"/>`, so NpcTemplate::isDialogNpc() is true and TalkEventHandler::onSimpleTalk has an owner */
 inline constexpr int32_t DIALOG_NPC_ID = 210670;
+/**
+ * The real npc 210160 "tursin big boss": `ai="aggressive"` like SPARKIE_NPC_ID, but tribe KRALL, which the real `tribe_relations.xml` *does*
+ * make aggressive to PC. It is one of the seven Poeta ids that would aggro a level-1 Elyos on sight; SPARKIE_NPC_ID (tribe MONSTER) is not.
+ */
+inline constexpr int32_t AGGRO_TO_PC_NPC_ID = 210160;
 
 inline const char* const AI_WORLD_MAPS_XML = R"(<world_maps>)"
 											 R"(<map id="210010000" cName="LF1" name="Poeta" name_id="1" water_level="16" death_level="0")"
@@ -101,6 +106,14 @@ inline const char* const AI_WORLD_MAPS_XML = R"(<world_maps>)"
  * MONSTER is also aggressive to MONSTER. That is what makes checkAggro's `!isFriend` term observable: two npcs of the same tribe are friends
  * (TribeRelationService.java:175), so without the term an aggressive-to-its-own-tribe npc would aggro its own kind. With the term only
  * isAggressive would decide, and a test whose pair is not aggressive at all cannot tell the two apart.
+ * <p>
+ * **MONSTER is deliberately NOT aggressive to PC/PC_DARK, because the real `tribe_relations.xml` is not either** (its whole row is
+ * `<tribe name="MONSTER"><hostile>YUN_GUARD</hostile><friend>…</friend></tribe>`, tribe_relations.xml:2170-2173). An earlier revision of this
+ * fixture gave MONSTER `<aggro>PC PC_DARK …</aggro>`, and that fabrication is what kept every unit case from seeing what the M5b gate's A5
+ * found: a MONSTER-tribe npc with `ai="aggressive"` fights back but never starts a fight with a character. The tribes that do are separate
+ * rows - KRALL and TOWERMAN below are copied verbatim from the real file (:1592-1595, :2579-2581) - and `UnprovokedAggroTest` asserts both
+ * sides against them. The `<hostile>PC PC_DARK</hostile>` entry is kept as a fabrication: in the real data that answer comes from
+ * `TribeRelationService::isHostile`'s hard-coded `baseTribe == MONSTER && PC/PC_DARK` arm, which needs a tribe whose *base* is MONSTER.
  */
 inline const char* const AI_TRIBE_RELATIONS_XML =
 	R"(<tribe_relations>)"
@@ -108,7 +121,10 @@ inline const char* const AI_TRIBE_RELATIONS_XML =
 	R"(<tribe name="GENERAL"><hostile>GUARD</hostile></tribe>)"
 	R"(<tribe name="DUMMY"><hostile>GUARD</hostile></tribe>)"
 	R"(<tribe name="GUARD"><aggro>MONSTER</aggro><hostile>MONSTER GENERAL DUMMY</hostile></tribe>)"
-	R"(<tribe name="MONSTER"><aggro>PC PC_DARK GUARD MONSTER</aggro><hostile>PC PC_DARK GUARD</hostile><support>MONSTER</support></tribe>)"
+	R"(<tribe name="MONSTER"><aggro>GUARD MONSTER</aggro><hostile>PC PC_DARK GUARD</hostile><support>MONSTER</support></tribe>)"
+	R"(<tribe name="KRALL" base="MONSTER"><aggro>PC GUARD PC_DARK GUARD_DARK</aggro>)"
+	R"(<support>KRALL KRALLMASTER KRALL_TRAINING</support><none>KRALLWIZARDCY</none></tribe>)"
+	R"(<tribe name="TOWERMAN" base="MONSTER"><aggro>PC PC_DARK</aggro></tribe>)"
 	R"(</tribe_relations>)";
 
 inline std::string aiNpcTemplatesXml() {
@@ -137,6 +153,9 @@ inline std::string aiNpcTemplatesXml() {
 		+ R"(<npc_template npc_id="210670" name_id="1" level="2" name="villager" attack_speed="2000" tribe="GENERAL" rating="NORMAL")"
 		  R"( rank="NOVICE" ai="general" srange="8" sangle="270" arange="2"><stats maxHp="199" maxMp="0" attack="10")"
 		  R"(><speeds walk="0.8" run="2.0" run_fight="3.0" fly="4.0"/></stats><talk_info is_dialog="true"/></npc_template>)"
+		+ R"(<npc_template npc_id="210160" name_id="1" level="8" name="tursin big boss" attack_speed="2000" tribe="KRALL" rating="NORMAL")"
+		  R"( rank="NOVICE" ai="aggressive" srange="8" sangle="270" arange="2"><stats maxHp="199" maxMp="0" attack="10")"
+		  R"(><speeds walk="0.8" run="2.0" run_fight="3.0" fly="4.0"/></stats></npc_template>)"
 		+ R"(</npc_templates>)";
 }
 

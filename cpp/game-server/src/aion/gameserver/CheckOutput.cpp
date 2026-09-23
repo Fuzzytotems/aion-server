@@ -37,6 +37,17 @@ std::string_view fileName(std::string_view path) {
 	return slash == std::string_view::npos ? path : path.substr(slash + 1);
 }
 
+/**
+ * runtime::liveInstancesOf's name rule (LiveInstanceCounters.h: equal to the counter's class name, or a trailing part of one after a "::")
+ * without its `live != 0` filter, which summaryLiveCounts() must not have: a class at 0 live with a non-zero `created` is exactly the row that
+ * turns a zeroLiveClasses() guard into an assertion. LiveInstanceCounters.cpp:118-132 is the source of truth for the rule;
+ * CheckOutputTest.SummaryLiveCountsUseTheLiveInstancesOfNameRule pins the two against each other.
+ */
+bool matchesClassName(const std::string& className, const std::string& name) {
+	return className == name || (className.size() > name.size() + 2 && className.ends_with(name) &&
+									className.compare(className.size() - name.size() - 2, 2, "::") == 0);
+}
+
 } // namespace
 
 void CheckOutput::writeUnportedTrace(const std::filesystem::path& dir) {
@@ -196,8 +207,47 @@ const std::vector<std::string>& CheckOutput::zeroLiveClasses() {
 		"skillengine::task::GatheringTask",
 		"GatheringTask_ActionObserver",
 		"controllers::observer::StanceObserver",
+		// M5b-1 E-03. AttackUtil makes one AttackResult per hit; it travels in the result list of SM_ATTACK and in DelayedOnAttack, and nothing
+		// keeps one once the hit was applied (measured 0 live of 183 created in the M5a gate run after A-06, 0 of 93 in the geo run). This is the
+		// row that catches m5b-plan.md §8 risk 2, the DelayedOnAttack that pins both creatures. DropNpc is the guard of the header note: its only
+		// constructor call site is behind registerDrop's partial, so created stays 0 until M5b-3.
+		"controllers::attack::AttackResult",
+		"model::gameobjects::DropNpc",
 	};
 	return *classes;
+}
+
+const std::vector<std::string>& CheckOutput::summaryLiveClasses() {
+	// built once and never destroyed, like zeroLiveClasses()
+	static const auto* classes = new std::vector<std::string>{
+		// the combat classes of m5b-plan.md Q2. AggroInfo and KnownObject are bounded, not zero (see the header); AttackResult and DropNpc are
+		// zeroLiveClasses() rows whose `created` half only this row can show.
+		"controllers::attack::AggroInfo",
+		"controllers::attack::AttackResult",
+		"model::gameobjects::DropNpc",
+		"world::knownlist::KnownObject",
+		// the npc conservation of m5b-plan.md Q3: a killed npc respawns as a NEW Npc, so `live` must come back to the baseline while `created`
+		// grows by the number of respawns
+		"model::gameobjects::Npc",
+	};
+	return *classes;
+}
+
+std::vector<runtime::LiveCount> CheckOutput::summaryLiveCounts(const std::vector<runtime::LiveCount>& counts) {
+	std::vector<runtime::LiveCount> result;
+	result.reserve(summaryLiveClasses().size());
+	for (const std::string& className : summaryLiveClasses()) {
+		runtime::LiveCount row;
+		row.className = className; // the requested name, so the row's key is stable whatever the counter's qualified spelling is
+		for (const runtime::LiveCount& counter : counts) {
+			if (!matchesClassName(counter.className, className))
+				continue;
+			row.live += counter.live;
+			row.created += counter.created;
+		}
+		result.push_back(std::move(row));
+	}
+	return result;
 }
 
 const std::vector<std::string>& CheckOutput::accountBoundedLiveClasses() {
@@ -239,8 +289,10 @@ std::vector<runtime::LiveCount> CheckOutput::checkLiveCounts(const std::vector<r
 
 void CheckOutput::writeSummary(const std::filesystem::path& dir, const Summary& summary) {
 	Summary checked = summary;
-	if (summary.started)
+	if (summary.started) {
 		checked.liveLeaks = checkLiveCounts();
+		checked.summaryCounts = summaryLiveCounts(runtime::liveCounts());
+	}
 	std::ofstream out = openOutput(dir / "m5a_summary.txt");
 	writeSummary(out, checked);
 }
@@ -252,6 +304,11 @@ void CheckOutput::writeSummary(std::ostream& out, const Summary& summary) {
 	out << "partialHits " << runtime::partialHitCount() << '\n';
 	out << "partialSites " << runtime::partialHits().size() << '\n';
 	out << "censusLeaks " << summary.censusLeaks << '\n';
+	// m5b-client-session.md S-2. censusLeaks comes from runFinalCensus, which runs BEFORE the runtime shuts down; this is what the shutdown
+	// itself left behind (RuntimeLifecycle::ShutdownReport::censusTracked, the number behind the "N objects removed from the world are still
+	// alive" warning). Only the caller that performs the shutdown can measure it - LeakCensus::uninstall() empties the table before this file is
+	// written - so a summary that says "unknown" means nobody passed it in, not that nothing survived.
+	out << "censusTracked " << (summary.censusTracked ? std::to_string(*summary.censusTracked) : "unknown") << '\n';
 	out << "zombieCuts " << summary.zombieCuts << '\n';
 	out << "lockdepReports " << summary.lockdepReports << '\n';
 	out << "watchdogDumps " << summary.watchdogDumps << '\n';
@@ -272,6 +329,11 @@ void CheckOutput::writeSummary(std::ostream& out, const Summary& summary) {
 	out << "liveLeaks " << summary.liveLeaks.size() << '\n';
 	for (const runtime::LiveCount& leak : summary.liveLeaks)
 		out << "liveLeak " << leak.className << ' ' << leak.live << '\n';
+	// M5b-1 E-03: the classes a gate reads as numbers (summaryLiveClasses()). A liveLeak row only exists for a class that is already failing, so
+	// without these rows nothing in the summary can say that an AttackResult was ever created - and "0 live" of a class that was never created is
+	// a guard, not an assertion (m5a-plan.md §10.2).
+	for (const runtime::LiveCount& count : summary.summaryCounts)
+		out << "liveCount " << count.className << ' ' << count.live << ' ' << count.created << '\n';
 }
 
 } // namespace aion::gameserver

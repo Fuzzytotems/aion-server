@@ -60,8 +60,8 @@ ScenarioServers::ScenarioServers(Config configValue, ScenarioEnvironment environ
 	  lsDatabase(environment.lsUrl, environment.lsUser, environment.lsPassword),
 	  gsDatabase(environment.gsUrl, environment.gsUser, environment.gsPassword) {
 	std::string suffix = schemaSuffix(config.schemaSeed.empty() ? config.outputDir.generic_string() : config.schemaSeed);
-	lsSchema = "aion_ls_test_m5a_" + suffix;
-	gsSchema = "aion_gs_test_m5a_" + suffix;
+	lsSchema = "aion_ls_test_" + config.schemaPrefix + "_" + suffix;
+	gsSchema = "aion_gs_test_" + config.schemaPrefix + "_" + suffix;
 	const std::vector<uint16_t> ports = reservePorts(3); // reserved together: three freePort() calls in a row could repeat a port
 	loginPort = ports[0];
 	gameServerLinkPort = ports[1];
@@ -97,9 +97,9 @@ void ScenarioServers::createSchemas() {
 		                         " (its in-use marker is held); run one gate per build tree");
 	// Schemas of runs that were killed before they could drop their own: with the gate's TIMEOUT 900 and a crash, nothing runs a destructor,
 	// so this is the only place that ever reclaims them. Nothing a live run uses can be dropped here (marker held, or younger than an hour).
-	for (const std::string& schema : lsDatabase.dropAbandonedSchemas("aion_ls_test_m5a_", ABANDONED_SCHEMA_AGE))
+	for (const std::string& schema : lsDatabase.dropAbandonedSchemas("aion_ls_test_" + config.schemaPrefix + "_", ABANDONED_SCHEMA_AGE))
 		std::cout << "the scenario harness dropped the abandoned schema " << schema << " of an earlier run" << std::endl;
-	for (const std::string& schema : gsDatabase.dropAbandonedSchemas("aion_gs_test_m5a_", ABANDONED_SCHEMA_AGE))
+	for (const std::string& schema : gsDatabase.dropAbandonedSchemas("aion_gs_test_" + config.schemaPrefix + "_", ABANDONED_SCHEMA_AGE))
 		std::cout << "the scenario harness dropped the abandoned schema " << schema << " of an earlier run" << std::endl;
 	lsDatabase.recreate(lsSchema, config.loginServerJavaDir / "sql" / "aion_ls.sql");
 	gsDatabase.recreate(gsSchema, config.gameServerJavaDir / "sql" / "aion_gs.sql");
