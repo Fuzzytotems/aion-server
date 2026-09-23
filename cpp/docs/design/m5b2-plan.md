@@ -333,6 +333,11 @@ The wire shapes the gate reads:
 
 ## 4. Decisions
 
+**Accepted by the user, 2026-09-23: stage 0 runs FIRST, then D1's manifest split.** D2 to D10 stand as written. The order matters for a
+reason beyond sequencing: stage 0 makes Mage, Priest and Spiritmaster characters able to auto-attack at all (m5b-client-session.md S-3),
+so the user can play a caster before abilities exist. It has no dependency on the effect engine and does not touch P5-02, so it is also the
+last work that can land cleanly before the chunk is split.
+
 | # | Decision | Why |
 |---|---|---|
 | **D1** | **P5-02 is split in the manifest into P5-02a and P5-02b, two parts sharing the target `aion_gs_skills`, along the `Skill` \| `Effect` seam.** P5-02a: `skillengine/{SkillEngine.*, model/{Skill*,Chain*}, properties, condition, action, change, periodicaction, task}`. P5-02b: `skillengine/model/Effect*`, `skillengine/effect/modifier`, `controllers/effect/**`, `model/skill/**`. **The integrator decides this before stage 1 starts; it is a manifest change, not a precedent.** | P5-02 holds **262 of the three skill chunks' 436 sites and 9,505 of their 17,835 Java LOC in one chunk**, and a chunk is the unit of ownership: as the manifest stands, the core of M5b-2 is one lane for the whole milestone and the two halves that could be written in parallel cannot be. The pattern exists: **P4-07a and P4-07b share `aion_gs_templates`** (`chunks.cmake:139-151`), and P5-05 already has two parts. The seam is the natural review seam too: `Skill` is the cast state machine, `Effect` is the application and lifetime. Split sizes: **P5-02a ≈ 113 sites + 21 new bodies, P5-02b ≈ 150 sites.** The alternative — one lane over three stages, or file leases under I-03 — is honest but costs the milestone a stage. |

@@ -253,12 +253,27 @@ aion_gs_chunk(P5-01 TARGET aion_gs_stats PHASE 5
 	GLOBS "aion/gameserver/model/stats/**" "aion/gameserver/utils/stats/**" "aion/gameserver/controllers/attack/**"
 	JAVA "src/com/aionemu/gameserver/model/stats/**" "src/com/aionemu/gameserver/utils/stats/**" "src/com/aionemu/gameserver/controllers/attack/**")
 
-# P5-02: skillengine except the effect classes (effect/modifier stays here), model.skill, controllers.effect
-aion_gs_chunk(P5-02 TARGET aion_gs_skills PHASE 5
-	GLOBS "aion/gameserver/skillengine/**" "aion/gameserver/model/skill/**" "aion/gameserver/controllers/effect/**"
-	EXCLUDE "aion/gameserver/skillengine/effect/*"
-	JAVA "src/com/aionemu/gameserver/skillengine/**" "src/com/aionemu/gameserver/model/skill/**" "src/com/aionemu/gameserver/controllers/effect/**"
-	JAVA_EXCLUDE "src/com/aionemu/gameserver/skillengine/effect/*")
+# P5-02a / P5-02b: skillengine except the effect classes (effect/modifier stays here), model.skill, controllers.effect - two parts of one target,
+# split along the Skill | Effect seam for M5b-2 (m5b2-plan.md D1, accepted 2026-09-23). P5-02 held 262 of the three skill chunks' 436 unported
+# sites and 9,505 of their 17,835 Java lines in ONE chunk, and a chunk is the unit of ownership, so the core of the abilities milestone would have
+# been a single lane for the whole of it. The seam is also the review seam: P5-02a is the cast state machine (Skill, the engine, its conditions,
+# actions, changes, periodic actions and tasks), P5-02b is the application and lifetime of what a cast produces (Effect, the effect modifiers, the
+# effect controller and the player's skill list). Two parts of one target is the pattern P4-07a/P4-07b already use for aion_gs_templates.
+aion_gs_chunk(P5-02a TARGET aion_gs_skills PHASE 5
+	GLOBS "aion/gameserver/skillengine/*" "aion/gameserver/skillengine/{action,change,condition,periodicaction,properties,task}/**"
+		"aion/gameserver/skillengine/model/*"
+	EXCLUDE "aion/gameserver/skillengine/model/Effect*"
+	JAVA "src/com/aionemu/gameserver/skillengine/*" "src/com/aionemu/gameserver/skillengine/{action,change,condition,periodicaction,properties,task}/**"
+		"src/com/aionemu/gameserver/skillengine/model/*"
+	JAVA_EXCLUDE "src/com/aionemu/gameserver/skillengine/model/Effect*")
+# The tests follow the seam into tests/skills/P5-02a and tests/skills/P5-02b, which is what the manifest derives for a target of several chunks
+# (the same shape as tests/templates/P4-07a and P4-07b). The cast state machine, the engine's critical proc, the interaction tasks and the xmlgen
+# shells went to P5-02a; the npc skill list and the player's skills and effects to P5-02b.
+aion_gs_chunk(P5-02b TARGET aion_gs_skills PHASE 5
+	GLOBS "aion/gameserver/skillengine/model/Effect*" "aion/gameserver/skillengine/effect/modifier/**"
+		"aion/gameserver/model/skill/**" "aion/gameserver/controllers/effect/**"
+	JAVA "src/com/aionemu/gameserver/skillengine/model/Effect*" "src/com/aionemu/gameserver/skillengine/effect/modifier/**"
+		"src/com/aionemu/gameserver/model/skill/**" "src/com/aionemu/gameserver/controllers/effect/**")
 
 # P5-03/04: behaviour of the effect classes A-L / M-Z (shells from P4-08); P5-04 also owns the directory's fwd.h
 aion_gs_chunk(P5-03 TARGET aion_gs_effects_al PHASE 5
