@@ -362,7 +362,15 @@ void AttackUtil::calculateEffectResult(skillengine::model::Effect& effect, Creat
 
 std::vector<runtime::Ref<AttackResult>> AttackUtil::calculateMagAttackResult(Creature& attacker, Creature& attacked, model::SkillElement element,
 	const std::unordered_set<utils::stats::CalculationType>& calculationTypes) {
-	AION_UNPORTED();
+	AttackStatus attackStatus = calculateMagicalStatus(attacker, attacked, 100, false);
+	std::vector<Ref<AttackResult>> attackResultList =
+		utils::stats::StatFunctions::calculateAttackDamage(attacker, element, attackStatus, calculationTypes);
+	// header-request: m5b-1 (the three helpers take the Ref list this one owns; amplifyDamageByAdditionalHitCount appends to it)
+	adjustDamageByStatModifiers(attacker, attacked, attackStatus, attackResultList, element);
+	amplifyDamageByAdditionalHitCount(attacker, attackStatus, attackResultList);
+	modifyDamageByNpcAi(attacker, attacked, attackResultList);
+	attacked.getObserveController()->checkShieldStatus(toPtrList(attackResultList), nullptr, attacker);
+	return attackResultList;
 }
 
 int32_t AttackUtil::calculateMagicalOverTimeSkillResult(skillengine::model::Effect& effect, float skillDamage,
@@ -413,8 +421,25 @@ AttackStatus AttackUtil::calculatePhysicalStatus(Creature& attacker, Creature& a
 	return isMainHand ? status : getOffHandStats(status);
 }
 
+/**
+ * Every + 100 delta of (MR - MA) = + 10% to resist<br>
+ * if the difference is 1000 = 100% resist
+ */
 AttackStatus AttackUtil::calculateMagicalStatus(Creature& attacker, Creature& attacked, int32_t criticalProb, bool isSkill) {
-	AION_UNPORTED();
+	if (!isSkill) {
+		// Java evaluates the operands left to right and both call out: Rnd.get draws, and calculateMagicalResistRate asks every
+		// AttackCalcObserver of the target. C++ leaves the order of `a <= b` unspecified, so the draw is pinned to a local.
+		// Rnd.get(1, 1000) is inclusive on both ends and the comparison is <=, so a resist rate of 1000 always resists and one of 0 never does.
+		int32_t roll = commons::utils::Rnd::get(1, 1000);
+		if (roll <= utils::stats::StatFunctions::calculateMagicalResistRate(attacker, attacked, 0, model::SkillElement::NONE))
+			return AttackStatus::RESIST;
+	}
+
+	if (utils::stats::StatFunctions::calculateMagicalCriticalRate(attacker, attacked, criticalProb)) {
+		return AttackStatus::CRITICAL;
+	}
+
+	return AttackStatus::NORMALHIT;
 }
 
 void AttackUtil::cancelCastOn(Creature& target) {

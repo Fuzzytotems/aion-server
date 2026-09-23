@@ -356,7 +356,7 @@ void CreatureController::attackTarget(runtime::Ptr<model::gameobjects::Creature>
 		attackResult = AttackUtil::calculatePhysAttackResult(self, *target, calculationTypes);
 	else {
 		attackResult =
-			standins::attackUtilCalculateMagAttackResult(self, *target, model::templates::item::getMagicalElement(self.getAttackType()), calculationTypes);
+			AttackUtil::calculateMagAttackResult(self, *target, model::templates::item::getMagicalElement(self.getAttackType()), calculationTypes);
 		attackHandAnimation = model::animations::AttackHandAnimation::OFF_HAND;
 	}
 	if (runtime::as<Npc>(self)) {

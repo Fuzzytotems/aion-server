@@ -6,18 +6,11 @@
 #include "aion/gameserver/runtime/base/Unported.h"
 #include "aion/gameserver/instance/handlers/InstanceHandler.h"
 #include "aion/gameserver/utils/SimpleClassName.h"
-#include "aion/gameserver/controllers/attack/AttackResult.h"
 
 namespace aion::gameserver::controllers::standins {
 
 bool chargeSkillGetAndUse(model::gameobjects::Creature& creature, int32_t skillId, int32_t skillLevel, int32_t chargeLevel,
 	skillengine::model::Skill& startSkill) {
-	AION_UNPORTED();
-}
-
-std::vector<runtime::Ref<attack::AttackResult>> attackUtilCalculateMagAttackResult(model::gameobjects::Creature& attacker,
-	model::gameobjects::Creature& attacked, model::SkillElement element,
-	const std::unordered_set<utils::stats::CalculationType>& calculationTypes) {
 	AION_UNPORTED();
 }
 

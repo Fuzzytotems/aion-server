@@ -21,6 +21,7 @@
 #include "aion/gameserver/model/gameobjects/Item.h"
 #include "aion/gameserver/model/gameobjects/Npc.h"
 #include "aion/gameserver/model/gameobjects/Servant.h"
+#include "aion/gameserver/model/gameobjects/Summon.h"
 #include "aion/gameserver/model/gameobjects/player/Equipment.h"
 #include "aion/gameserver/model/gameobjects/player/Player.h"
 #include "aion/gameserver/model/gameobjects/player/PlayerCommonData.h"
@@ -319,7 +320,22 @@ float StatFunctions::calculateMagicalSkillDamage(model::gameobjects::Creature& e
 }
 
 bool StatFunctions::calculateMagicalCriticalRate(model::gameobjects::Creature& attacker, model::gameobjects::Creature& attacked, int32_t criticalProb) {
-	AION_UNPORTED();
+	if (runtime::as<model::gameobjects::Servant>(attacker) || runtime::as<model::gameobjects::Homing>(attacker))
+		return false;
+
+	// Java: `float critical = getMCritical().getCurrent() - getMCR().getCurrent()` - both accessors return int, so the subtraction is int
+	// arithmetic (it wraps) and only the result is widened to float
+	float critical = static_cast<float>(subInt(attacker.getGameStats()->getMCritical()->getCurrent(), attacked.getGameStats()->getMCR()->getCurrent()));
+	// add critical Prob
+	if (criticalProb != 100) {
+		// note the difference from checkIsPhysicalCriticalHit, which multiplies only `criticalRate > 0`: the magical body raises a rate of 0 or
+		// below to 1 first, so a skill's criticalProb can never scale it away to nothing (StatFunctions.java:426-429)
+		if (critical <= 0)
+			critical = 1;
+		critical *= static_cast<float>(criticalProb) / 100.0f;
+	}
+
+	return static_cast<float>(commons::utils::Rnd::nextInt(1000)) < limit(StatEnum::MAGICAL_CRITICAL, critical);
 }
 
 int32_t StatFunctions::calculateRatingMultiplier(model::templates::npc::NpcRating npcRating) {
@@ -492,7 +508,28 @@ bool StatFunctions::checkIsPhysicalCriticalHit(model::gameobjects::Creature& att
 
 int32_t StatFunctions::calculateMagicalResistRate(model::gameobjects::Creature& attacker, model::gameobjects::Creature& attacked, int32_t accMod,
 	model::SkillElement element) {
-	AION_UNPORTED();
+	using controllers::attack::AttackStatus;
+	if (attacked.getObserveController()->checkAttackStatus(AttackStatus::RESIST))
+		return 1000;
+	if (element != model::SkillElement::NONE) {
+		if (Ptr<model::gameobjects::Summon> summon = runtime::as<model::gameobjects::Summon>(attacked);
+			summon && element == summon->getAlwaysResistElement())
+			return 1000;
+	}
+
+	int32_t levelDiff = subInt(attacked.getLevel(), attacker.getLevel());
+	int32_t mResi = attacked.getGameStats()->getMResist()->getCurrent();
+	int32_t resistRate = subInt(subInt(mResi, attacker.getGameStats()->getMAccuracy()->getCurrent()), accMod);
+
+	if (mResi > 0 && levelDiff > 4) // only apply if creature has mres > 0 (to keep effect of AI#modifyOwnerStat)
+		resistRate = addInt(resistRate, mulInt(subInt(levelDiff, 4), 100));
+
+	// checked on retail: only applies to PvP
+	if (runtime::as<model::gameobjects::player::Player>(attacker) && runtime::as<model::gameobjects::player::Player>(attacked))
+		return std::min(500, resistRate);
+
+	// Java: `(int) limit(StatEnum.MAGICAL_RESIST, resistRate)` - limit returns a float, so this is the saturating (int) cast of a float
+	return model::templates::detail::floatToInt(limit(StatEnum::MAGICAL_RESIST, static_cast<float>(resistRate)));
 }
 
 int32_t StatFunctions::calculateFallDamage(model::gameobjects::player::Player& player, float distance) {

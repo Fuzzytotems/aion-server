@@ -1,8 +1,6 @@
 #pragma once
 
 #include <cstdint>
-#include <unordered_set>
-#include <vector>
 
 #include "aion/gameserver/runtime/lifetime/Ref.h"
 #include "aion/gameserver/runtime/sched/Future.h"
@@ -10,9 +8,7 @@
 #include "aion/gameserver/model/Race.h"
 #include "aion/gameserver/instance/handlers/fwd.h"
 #include "aion/gameserver/model/team/fwd.h"
-#include "aion/gameserver/model/SkillElement.h"
 #include "aion/gameserver/skillengine/model/fwd.h"
-#include "aion/gameserver/utils/stats/CalculationType.h"
 #include "aion/gameserver/model/gameobjects/fwd.h"
 #include "aion/gameserver/model/gameobjects/player/fwd.h"
 #include "aion/gameserver/services/rift/fwd.h"
@@ -56,20 +52,10 @@ runtime::FutureRef followStartServiceNewFollowingToTargetCheckTask(model::gameob
 bool chargeSkillGetAndUse(model::gameobjects::Creature& creature, int32_t skillId, int32_t skillLevel, int32_t chargeLevel,
 	skillengine::model::Skill& startSkill);
 
-// ---------------------------------------------------------------------------------------------------------------- P5-01 (aion_gs_stats)
-
-/**
- * Java: AttackUtil.calculateMagAttackResult(attacker, attacked, element, calculationTypes)
- * <p>
- * **Closed by M5b-2** (m5b-plan.md O-02, the magical half of `AttackUtil`). The physical half landed in M5b-1 (B-01) and
- * `CreatureController::attackTarget` calls `AttackUtil::calculatePhysAttackResult` directly; this arm is taken when
- * `Creature::getAttackType()` is not PHYSICAL. An `Npc` never takes it with the three handlers M5b-1 registers - `Npc::getAttackType` is
- * `getAi().modifyAttackType(PHYSICAL)` (Npc.java:124) and only instance/world handlers override `modifyAttackType`, none of them registered -
- * but a `Player` wielding a magical weapon does (Player.java:937-941), so an M5b-2 that is late makes every mage auto-attack throw.
- */
-std::vector<runtime::Ref<attack::AttackResult>> attackUtilCalculateMagAttackResult(model::gameobjects::Creature& attacker,
-	model::gameobjects::Creature& attacked, model::SkillElement element,
-	const std::unordered_set<utils::stats::CalculationType>& calculationTypes);
+// m5b-2 stage 0 (header-request m5b2-1): `attackUtilCalculateMagAttackResult` is gone - `AttackUtil::calculateMagAttackResult` and the three
+// bodies below it (`calculateMagicalStatus`, `StatFunctions::calculateMagicalResistRate` and `calculateMagicalCriticalRate`) are ported, and
+// `CreatureController::attackTarget` calls the real function the way its PHYSICAL sibling already does. That closes
+// m5b-client-session.md S-3: a character whose main-hand weapon is magical can auto-attack.
 
 // --------------------------------------------------------------------------------------------------------------- P5-10 (aion_gs_team)
 

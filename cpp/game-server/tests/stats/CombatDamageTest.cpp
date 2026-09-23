@@ -24,7 +24,6 @@
 #include "aion/commons/utils/Rnd.h"
 #include "aion/gameserver/ai/AbstractAI.h"
 #include "aion/gameserver/ai/NpcAI.h"
-#include "aion/gameserver/configs/main/GeoDataConfig.h"
 #include "aion/gameserver/configs/main/RatesConfig.h"
 #include "aion/gameserver/configs/main/WorldConfig.h"
 #include "aion/gameserver/controllers/NpcController.h"
@@ -48,14 +47,8 @@
 #include "aion/gameserver/dataholders/PlayerExperienceTable.h"
 #include "aion/gameserver/dataholders/TribeRelationsData.bind.h"
 #include "aion/gameserver/dataholders/TribeRelationsData.h"
-#include "aion/gameserver/dataholders/MaterialData.bind.h"
-#include "aion/gameserver/dataholders/MaterialData.h"
-#include "aion/gameserver/dataholders/ShieldData.bind.h"
-#include "aion/gameserver/dataholders/ShieldData.h"
 #include "aion/gameserver/dataholders/WorldMapsData.bind.h"
 #include "aion/gameserver/dataholders/WorldMapsData.h"
-#include "aion/gameserver/dataholders/ZoneData.bind.h"
-#include "aion/gameserver/dataholders/ZoneData.h"
 #include "aion/gameserver/dataholders/loadingutils/LoadContext.h"
 #include "aion/gameserver/dataholders/loadingutils/StaticDataLoader.h"
 #include "aion/gameserver/instance/handlers/GeneralInstanceHandler.h"
@@ -118,12 +111,6 @@ using templates::npc::NpcRating;
 using utils::stats::StatFunctions;
 
 constexpr int32_t POETA = 210010000;
-
-/** world_maps.xml of Poeta (the real attribute set) - an open world map, so WorldMap.isInstanceType() is false */
-const char* const WORLD_MAPS_XML = R"(<world_maps>)"
-								   R"(<map id="210010000" cName="LF1" name="Poeta" name_id="1" water_level="16" death_level="0")"
-								   R"( world_type="ELYSEA" world_size="1024" flags="FLY GLIDE RECALL"/>)"
-								   R"(</world_maps>)";
 
 /**
  * The first eleven rows of player_experience_table.xml, verbatim. PlayerCommonData.setExp reads getStartExpForLevel(10) for the non-daeva
@@ -226,25 +213,7 @@ Ref<skill::PlayerSkillList> masterySkillList() {
  * modifyDamage / modifyOwnerDamage return the damage unchanged, so a port that never calls them is indistinguishable from one that does
  * until an AI answers something else - which is what every world AI handler of chunk A1 will do.
  */
-class ScalingNpcAI final : public ::aion::gameserver::ai::NpcAI {
-public:
-	ScalingNpcAI(gameobjects::Npc& owner, float ownerFactorValue, float attackedFactorValue)
-		: NpcAI(owner), ownerFactor(ownerFactorValue), attackedFactor(attackedFactorValue) {}
-
-	/** Java NpcAI.modifyOwnerDamage: the damage this npc deals */
-	float modifyOwnerDamage(float damage, gameobjects::Creature& effected, runtime::Ptr<skillengine::model::Effect> effect) override {
-		return damage * ownerFactor;
-	}
-
-	/** Java NpcAI.modifyDamage: the damage this npc takes */
-	float modifyDamage(gameobjects::Creature& attacker, float damage, runtime::Ptr<skillengine::model::Effect> effect) override {
-		return damage * attackedFactor;
-	}
-
-private:
-	const float ownerFactor;
-	const float attackedFactor;
-};
+// ScalingNpcAI moved to StatsTestSupport.h: MagicalCombatTest needs the same double for the magical half of modifyOwnerDamage/modifyDamage.
 
 /** A spawn template of the group, like the spawn data of a map */
 class CombatSpawnTemplate final : public templates::spawns::SpawnTemplate {
@@ -270,27 +239,8 @@ protected:
 	}
 };
 
-/**
- * The holders the map regions and the reward chain read. ZoneService and WorldMapInstance::regionSize() read their data once per process, so
- * these four are published once and never reset (the pattern of tests/world/WorldTestSupport.h, which this chunk may not include).
- */
-void publishMapStaticDataOnce() {
-	static const bool published = [] {
-		configs::main::WorldConfig::WORLD_REGION_SIZE.store(128);
-		// the unit tests never load geo data; with gameserver.geodata.cansee.enable off GeoService::canSee answers true (GeoService.cpp:117-119),
-		// which AggroList::streamValidTargetInfo asks for every candidate target
-		configs::main::GeoDataConfig::CANSEE_ENABLE.store(false);
-		runtime::TaskScope scope(AION_TASK_INFO(runtime::TaskKind::TEST));
-		static std::deque<xml::LoadContext> contexts;
-		dataholders::DataManager::WORLD_MAPS_DATA.publish(xml::bindString<dataholders::WorldMapsData>(contexts.emplace_back(), WORLD_MAPS_XML));
-		dataholders::DataManager::ZONE_DATA.publish(xml::bindString<dataholders::ZoneData>(contexts.emplace_back(), "<zones/>"));
-		dataholders::DataManager::SHIELD_DATA.publish(xml::bindString<dataholders::ShieldData>(contexts.emplace_back(), "<shields/>"));
-		dataholders::DataManager::MATERIAL_DATA.publish(
-			xml::bindString<dataholders::MaterialData>(contexts.emplace_back(), "<material_templates/>"));
-		return true;
-	}();
-	static_cast<void>(published);
-}
+// publishMapStaticDataOnce (and the Poeta world_maps.xml it binds) moved to StatsTestSupport.h: a HolderRef publishes exactly once per process
+// (HolderRef.h:47) and this executable now has a second combat test file, so the once-flag has to be shared, not per file.
 
 class CombatDamageTest : public StatsPlayerTest {
 protected:

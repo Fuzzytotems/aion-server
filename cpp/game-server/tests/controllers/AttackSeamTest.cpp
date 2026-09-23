@@ -29,6 +29,7 @@
 #include <cstdint>
 #include <deque>
 #include <memory>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <unordered_set>
@@ -44,6 +45,7 @@
 #include "aion/gameserver/controllers/PlayerController.h"
 #include "aion/gameserver/controllers/attack/AggroList.h"
 #include "aion/gameserver/controllers/attack/AttackResult.h"
+#include "aion/gameserver/controllers/attack/AttackStatus.h"
 #include "aion/gameserver/controllers/attack/AttackUtil.h"
 #include "aion/gameserver/controllers/effect/EffectController.h"
 #include "aion/gameserver/controllers/effect/PlayerEffectController.h"
@@ -65,15 +67,27 @@
 #include "aion/gameserver/model/Race.h"
 #include "aion/gameserver/model/account/Account.h"
 #include "aion/gameserver/model/account/PlayerAccountData.h"
+#include "aion/gameserver/model/gameobjects/Item.h"
+#include "aion/gameserver/model/gameobjects/Persistable.h"
 #include "aion/gameserver/model/gameobjects/VisibleObject.h"
+#include "aion/gameserver/model/gameobjects/player/Equipment.h"
 #include "aion/gameserver/model/gameobjects/player/PetCommonData.h"
 #include "aion/gameserver/model/gameobjects/player/PetList.h"
 #include "aion/gameserver/model/gameobjects/player/Player.h"
 #include "aion/gameserver/model/gameobjects/player/PlayerAppearance.h"
 #include "aion/gameserver/model/gameobjects/player/PlayerCommonData.h"
+#include "aion/gameserver/model/items/ItemSlot.h"
+#include "aion/gameserver/model/items/ItemSlotInfo.h"
 #include "aion/gameserver/model/items/storage/PlayerStorage.h"
 #include "aion/gameserver/model/items/storage/StorageType.h"
+#include "aion/gameserver/model/skill/PlayerSkillEntry.h"
+#include "aion/gameserver/model/skill/PlayerSkillList.h"
 #include "aion/gameserver/model/stats/container/CreatureLifeStats.h"
+#include "aion/gameserver/model/stats/container/PlayerGameStats.h"
+#include "aion/gameserver/model/templates/item/ItemAttackType.h"
+#include "aion/gameserver/model/templates/item/ItemAttackTypeInfo.h"
+#include "aion/gameserver/model/templates/item/ItemTemplate.bind.h"
+#include "aion/gameserver/model/templates/item/ItemTemplate.h"
 #include "aion/gameserver/model/templates/npc/NpcTemplate.bind.h"
 #include "aion/gameserver/runtime/base/Unported.h"
 #include "aion/gameserver/skillengine/model/HopType.h"
@@ -91,6 +105,7 @@ namespace aion::gameserver::controllers::testing {
 namespace {
 
 using attack::AttackResult;
+using attack::AttackStatus;
 using attack::AttackUtil;
 using model::gameobjects::Npc;
 using runtime::Ptr;
@@ -111,10 +126,19 @@ const std::unordered_set<CalculationType>& meleeCalculationTypes() {
 class SeamNpcAI final : public ai::NpcAI {
 public:
 	std::unordered_set<ai::poll::AIQuestion> answeredTrue;
+	/**
+	 * Java AI.modifyAttackType, which Npc.getAttackType() calls with PHYSICAL (Npc.java:124). AbstractAI returns the argument, so an ordinary npc
+	 * is physical; the world and instance handlers that answer something else are the npc half of CreatureController.attackTarget's magical arm.
+	 */
+	std::optional<model::templates::item::ItemAttackType> attackType;
 
 	explicit SeamNpcAI(Npc& owner) : NpcAI(owner) {}
 
 	bool ask(ai::poll::AIQuestion question) override { return answeredTrue.contains(question); }
+
+	model::templates::item::ItemAttackType modifyAttackType(model::templates::item::ItemAttackType type) override {
+		return attackType.value_or(type);
+	}
 };
 
 /**
@@ -303,6 +327,20 @@ protected:
 		R"(<npc_template npc_id="210013" name_id="1" level="12" name="sandbag" attack_speed="2000" rating="NORMAL" rank="VETERAN" tribe="MONSTER")"
 		R"(><stats maxHp="199" maxMp="0" attack="4" pdef="20" evasion="20" accuracy="60" pcrit="10")"
 		R"(><speeds walk="0.8" run="2.0" run_fight="3.0" fly="4.0"/></stats></npc_template>)");
+
+	/**
+	 * The target of the two magical cases. Every magical stat is written out because `NpcData::loadData` computes the ones an XML leaves at 0
+	 * (NpcData.cpp:64-90) - and the two that matter are chosen so that the swing has no random outcome at all: `mresist="10"` is below any
+	 * attacker's magical accuracy, so `calculateMagicalStatus` never rolls a RESIST, and `spell_resist="700"` is above it, so it never rolls a
+	 * CRITICAL either. A CRITICAL would matter beyond its damage: `CreatureController::attackTarget` answers one with a `Rnd.chance() < 10` draw
+	 * into `SkillEngine::createCriticalProcEffect` for a **Player** attacker (CreatureController.java:341-345), and that extra draw would put the
+	 * replayed AttackUtil call below out of step with the controller's run.
+	 */
+	static inline const model::templates::npc::NpcTemplate* magicalTargetTemplate = npcTemplateFrom(
+		R"(<npc_template npc_id="210014" name_id="1" level="2" name="spell sandbag" attack_speed="2000" rating="NORMAL" rank="NOVICE")"
+		R"( tribe="MONSTER"><stats maxHp="199" maxMp="0" attack="4" pdef="20" mdef="40" evasion="20" accuracy="60" pcrit="10")"
+		R"( mresist="10" macc="20" mcrit="40" spell_resist="700")"
+		R"(><speeds walk="0.8" run="2.0" run_fight="3.0" fly="4.0"/></stats></npc_template>)");
 };
 
 /**
@@ -338,6 +376,115 @@ TEST_F(AttackSeamTest, AttackTargetTakesItsDamageFromTheRealAttackUtil) {
 	EXPECT_GT(expected, 0) << "this seed lands the hit, so the case is not vacuously equal at 0";
 	EXPECT_EQ(attacker->getGameStats()->getAttackCounter(), 1) << "increaseAttackCounter ran after the broadcast (CreatureController.java:351)";
 	EXPECT_EQ(target->getAttackedCount(), 1) << "CreatureController.onAttack reached incrementAttackedCount";
+}
+
+/**
+ * m5b-2 stage 0, M-03: `CreatureController.attackTarget`'s **else** arm ->
+ * `AttackUtil.calculateMagAttackResult(getOwner(), target, getOwner().getAttackType().getMagicalElement(), calculationTypes)`
+ * (CreatureController.java:325). Until this item the call site was `standins::attackUtilCalculateMagAttackResult`, an `AION_UNPORTED()` stub, so
+ * every swing of a creature whose attack type is not PHYSICAL threw - m5b-client-session.md S-3.
+ *
+ * This case takes the arm through an **npc**, whose `getAttackType()` is `getAi().modifyAttackType(PHYSICAL)` (Npc.java:124): the fixture's AI
+ * answers MAGICAL_FIRE, which is what a world or instance handler does on a caster npc. The equivalence is the same one the physical sibling
+ * asserts - seed, run the controller, replay the same seed through a direct `AttackUtil::calculateMagAttackResult` with the same pair, the same
+ * element and the same calculation types, and the HP the controller took off must be that list's sum. A call site that passed the wrong pair, the
+ * wrong element (SkillElement::NONE reads MAGICAL_ATTACK's physical sibling and MAGICAL_DEFEND's) or an empty calculation-type set moves it.
+ */
+TEST_F(AttackSeamTest, AttackTargetOfAMagicalAttackTypeTakesItsDamageFromTheRealAttackUtil) {
+	CONTROLLERS_TEST_SCOPE;
+	Ref<ControllersTestNpc> attacker = createFighter(fighterTemplate);
+	SeamNpcAI& attackerAi = *npcAi;
+	Ref<ControllersTestNpc> target = createFighter(magicalTargetTemplate);
+	ASSERT_EQ(attacker->getAttackType(), model::templates::item::ItemAttackType::PHYSICAL) << "AbstractAI.modifyAttackType returns its argument";
+	attackerAi.attackType = model::templates::item::ItemAttackType::MAGICAL_FIRE;
+	ASSERT_EQ(attacker->getAttackType(), model::templates::item::ItemAttackType::MAGICAL_FIRE) << "so the else arm of attackTarget is taken";
+
+	const int32_t hpBefore = target->model::gameobjects::Creature::getLifeStats()->getCurrentHp();
+	ASSERT_EQ(hpBefore, 1000) << "FixedLifeStats";
+
+	commons::utils::Rnd::seedCurrentThreadForTests(20260923);
+	attacker->recordingController().attackTarget(Ptr<model::gameobjects::Creature>(*target), 0, true);
+	const int32_t applied = hpBefore - target->model::gameobjects::Creature::getLifeStats()->getCurrentHp();
+
+	commons::utils::Rnd::seedCurrentThreadForTests(20260923);
+	std::vector<Ref<AttackResult>> replay = AttackUtil::calculateMagAttackResult(*attacker, *target,
+		model::templates::item::getMagicalElement(model::templates::item::ItemAttackType::MAGICAL_FIRE), meleeCalculationTypes());
+	ASSERT_FALSE(replay.empty());
+	int32_t expected = 0;
+	for (const Ref<AttackResult>& result : replay)
+		expected += result->getDamage();
+
+	EXPECT_EQ(applied, expected) << "the damage reduceHp took off is the sum of the AttackUtil result list";
+	EXPECT_GT(expected, 0) << "the target resists nothing at mresist 10, so the case is not vacuously equal at 0";
+	EXPECT_EQ(replay[0]->getAttackStatus(), AttackStatus::NORMALHIT) << "and it neither resisted nor critted, as the template promises";
+	EXPECT_EQ(attacker->getGameStats()->getAttackCounter(), 1) << "increaseAttackCounter ran after the broadcast";
+	EXPECT_EQ(target->getAttackedCount(), 1) << "CreatureController.onAttack reached incrementAttackedCount";
+
+	// and the same attacker back on PHYSICAL takes the other arm, so the case really is about the branch and not about the seed
+	attackerAi.attackType.reset();
+	commons::utils::Rnd::seedCurrentThreadForTests(20260923);
+	std::vector<Ref<AttackResult>> physical = AttackUtil::calculatePhysAttackResult(*attacker, *target, meleeCalculationTypes());
+	EXPECT_NE(physical[0]->getDamage(), expected) << "the two halves read different stats, so they must not agree by accident";
+}
+
+/**
+ * The same arm, reached the way the user reaches it: a **character whose main-hand weapon is magical**. `Player.getAttackType()` returns the main
+ * hand item template's attack type (Player.java:937-941), so equipping an orb is the whole difference between a Mage that can swing and the
+ * `UnportedException` of m5b-client-session.md S-3.
+ *
+ * This goes in through `PlayerController::attackTarget`, i.e. through PlayerRestrictions.canAttack, the attack-range check and GeoService - the
+ * real entry point of a left click - and then into CreatureController::attackTarget's magical arm.
+ */
+TEST_F(AttackSeamTest, AMageWhoseMainHandWeaponIsMagicalCanAutoAttack) {
+	CONTROLLERS_TEST_SCOPE;
+	Ref<ControllersTestNpc> target = createFighter(magicalTargetTemplate);
+	place(*target, 500.0f, 500.0f, 10.0f);
+	Ref<SeamPlayer> mage = createPlayer(100031, 9031, model::PlayerClass::MAGE);
+	place(*mage, 501.0f, 500.0f, 10.0f);
+	ASSERT_TRUE(KnownListPairing::pair(*target, *mage));
+
+	// Equipment.checkAvailableEquipSkills wants the spellbook mastery (ItemGroupInfo.h: SPELLBOOK {100}) or the item goes back into the inventory
+	std::vector<Ref<model::skill::PlayerSkillEntry>> owned;
+	std::vector<Ptr<model::skill::PlayerSkillEntry>> entries;
+	for (int32_t skillId : {100, 111}) {
+		owned.push_back(model::skill::PlayerSkillEntry::create(skillId, 1, 0, model::gameobjects::Persistable::PersistentState::NOACTION));
+		entries.emplace_back(*owned.back());
+	}
+	mage->setSkillList(model::skill::PlayerSkillList::create(entries));
+	// **Item 100600034, "Training Spellbook", verbatim from data/static_data/items/item_templates.xml.** It is not an example: it is the weapon a
+	// level-1 MAGE is handed at character creation (player_initial_data.xml, `<player_data class="MAGE">` item 100600034), and its
+	// `attack_type="MAGICAL_WATER"` is the whole of m5b-client-session.md S-3 - every left click of a fresh Mage went through the stand-in.
+	// The Warrior's own starting weapon, 100000094 "Training Sword", is `attack_type="PHYSICAL"`, which is why the M5b-1 gate never saw this.
+	xml::LoadContext itemContext;
+	const model::templates::item::ItemTemplate* spellbookTemplate = xml::bindString<model::templates::item::ItemTemplate>(itemContext,
+		R"(<item_template id="100600034" name="Training Spellbook" level="1" item_group="SPELLBOOK" quality="COMMON" attack_type="MAGICAL_WATER">)"
+		R"(<weapon_stats hit_count="1" attack_range="15000" boost_magical_skill="80" magical_accuracy="85" attack_speed="2200")"
+		R"( max_damage="23" min_damage="20"/></item_template>)")
+		.release();
+	Ref<model::gameobjects::Item> spellbook = model::gameobjects::Item::create(9032, spellbookTemplate, 1, true,
+		model::items::getSlotIdMask(model::items::ItemSlot::MAIN_HAND));
+	mage->getEquipment().onLoadHandler(*spellbook);
+	ASSERT_TRUE(mage->getEquipment().getMainHandWeapon()) << "the spellbook was not equipped, so the case would test the unarmed physical arm";
+	ASSERT_EQ(mage->getAttackType(), model::templates::item::ItemAttackType::MAGICAL_WATER)
+		<< "Player.getAttackType() is the main hand template's - this is the whole of m5b-client-session.md S-3";
+
+	const int32_t hpBefore = target->model::gameobjects::Creature::getLifeStats()->getCurrentHp();
+	commons::utils::Rnd::seedCurrentThreadForTests(20260923);
+	// with the stand-in still in place this threw UnportedException out of PlayerController::attackTarget
+	ASSERT_NO_THROW(mage->getController().attackTarget(Ptr<model::gameobjects::Creature>(*target), 0, false));
+	const int32_t applied = hpBefore - target->model::gameobjects::Creature::getLifeStats()->getCurrentHp();
+
+	commons::utils::Rnd::seedCurrentThreadForTests(20260923);
+	std::vector<Ref<AttackResult>> replay = AttackUtil::calculateMagAttackResult(*mage, *target,
+		model::templates::item::getMagicalElement(model::templates::item::ItemAttackType::MAGICAL_WATER), meleeCalculationTypes());
+	int32_t expected = 0;
+	for (const Ref<AttackResult>& result : replay)
+		expected += result->getDamage();
+
+	EXPECT_GT(applied, 0) << "the monster lost hit points: a Mage can swing";
+	EXPECT_EQ(applied, expected) << "and exactly what AttackUtil::calculateMagAttackResult answers for the same pair and element";
+	EXPECT_EQ(target->getAttackedCount(), 1) << "the whole chain ran, down to CreatureController.onAttack";
+	EXPECT_EQ(mage->getGameStats()->getAttackCounter(), 1);
 }
 
 /**
