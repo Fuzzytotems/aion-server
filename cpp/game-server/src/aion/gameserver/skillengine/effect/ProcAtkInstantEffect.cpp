@@ -12,6 +12,10 @@ bool ProcAtkInstantEffect::shouldApplyAttackerMovementModifier() const {
 	return false;
 }
 
+int32_t ProcAtkInstantEffect::calculateBaseValue(model::Effect& /*effect*/) const {
+	AION_UNPORTED();
+}
+
 bool ProcAtkInstantEffect::shouldUseBoostSpellAttackEffects() const {
 	return false;
 }

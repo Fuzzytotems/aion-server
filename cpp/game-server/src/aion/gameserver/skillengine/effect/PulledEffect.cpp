@@ -8,4 +8,16 @@ void PulledEffect::applyEffect(model::Effect& /*effect*/) const {
 	AION_UNPORTED();
 }
 
+void PulledEffect::calculate(model::Effect& /*effect*/) const {
+	AION_UNPORTED();
+}
+
+void PulledEffect::startEffect(model::Effect& /*effect*/) const {
+	AION_UNPORTED();
+}
+
+void PulledEffect::endEffect(model::Effect& /*effect*/) const {
+	AION_UNPORTED();
+}
+
 } // namespace aion::gameserver::skillengine::effect

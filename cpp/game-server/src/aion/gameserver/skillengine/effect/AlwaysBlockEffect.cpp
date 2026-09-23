@@ -8,4 +8,8 @@ void AlwaysBlockEffect::applyEffect(model::Effect& /*effect*/) const {
 	AION_UNPORTED();
 }
 
+void AlwaysBlockEffect::startEffect(model::Effect& /*effect*/) const {
+	AION_UNPORTED();
+}
+
 } // namespace aion::gameserver::skillengine::effect

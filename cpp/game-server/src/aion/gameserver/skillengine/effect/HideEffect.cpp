@@ -8,4 +8,12 @@ void HideEffect::applyEffect(model::Effect& /*effect*/) const {
 	AION_UNPORTED();
 }
 
+void HideEffect::endEffect(model::Effect& /*effect*/) const {
+	AION_UNPORTED();
+}
+
+void HideEffect::startEffect(model::Effect& /*effect*/) const {
+	AION_UNPORTED();
+}
+
 } // namespace aion::gameserver::skillengine::effect

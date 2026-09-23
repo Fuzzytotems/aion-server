@@ -9,6 +9,8 @@ namespace aion::gameserver::skillengine::effect {
 class DispelDebuffPhysicalEffect : public ::aion::gameserver::skillengine::effect::AbstractDispelEffect {
 #include "aion/gameserver/skillengine/effect/DispelDebuffPhysicalEffect.xml.inc"
 public:
+	using AbstractDispelEffect::applyEffect; // C++ name hiding by the declaration below (hub-headers.md §9.1)
+
 	void applyEffect(model::Effect& effect) const override;
 };
 

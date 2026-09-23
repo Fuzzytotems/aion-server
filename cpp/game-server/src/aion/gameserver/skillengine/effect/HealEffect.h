@@ -10,6 +10,14 @@ namespace aion::gameserver::skillengine::effect {
 class HealEffect : public ::aion::gameserver::skillengine::effect::HealOverTimeEffect {
 #include "aion/gameserver/skillengine/effect/HealEffect.xml.inc"
 public:
+	using HealOverTimeEffect::startEffect; // C++ name hiding by the declaration below (hub-headers.md §9.1)
+
+	void startEffect(model::Effect& effect) const override;
+
+	using HealOverTimeEffect::onPeriodicAction; // C++ name hiding by the declaration below (hub-headers.md §9.1)
+
+	void onPeriodicAction(model::Effect& effect) const override;
+
 	int32_t getCurrentStatValue(model::Effect& effect) const override;
 
 	int32_t getMaxStatValue(model::Effect& effect) const override;

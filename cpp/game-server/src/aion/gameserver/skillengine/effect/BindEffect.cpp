@@ -8,4 +8,16 @@ void BindEffect::applyEffect(model::Effect& /*effect*/) const {
 	AION_UNPORTED();
 }
 
+void BindEffect::calculate(model::Effect& /*effect*/) const {
+	AION_UNPORTED();
+}
+
+void BindEffect::startEffect(model::Effect& /*effect*/) const {
+	AION_UNPORTED();
+}
+
+void BindEffect::endEffect(model::Effect& /*effect*/) const {
+	AION_UNPORTED();
+}
+
 } // namespace aion::gameserver::skillengine::effect

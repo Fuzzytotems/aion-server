@@ -10,6 +10,8 @@ class AlwaysResistEffect : public ::aion::gameserver::skillengine::effect::Effec
 #include "aion/gameserver/skillengine/effect/AlwaysResistEffect.xml.inc"
 public:
 	void applyEffect(model::Effect& effect) const override;
+
+	void startEffect(model::Effect& effect) const override;
 };
 
 } // namespace aion::gameserver::skillengine::effect

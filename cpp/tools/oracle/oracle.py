@@ -12,6 +12,7 @@
 	oracle.py m5a-border-target --map ID --x X --y Y --z Z [--game-minutes M | --game-hour H ...]
 	oracle.py m5a-creation --race ELYOS|ASMODIANS --class CLASS [--java-src DIR]   (m5a/ package, m5a-plan.md F-05)
 	oracle.py m5b-monster --map ID --npc-id ID [--player-level N] [--race R] [--class C] [--xp-solo-rate R]   (m5b/ package, m5b-plan.md G-01)
+	oracle.py m5b2-skills --race R --class C [--level N] [--skill ID[:LEVEL] ...] [--npc ID ...] [--death-count N]   (m5b2/, m5b2-plan.md G-01)
 """
 
 from __future__ import annotations
@@ -143,6 +144,17 @@ def cmd_m5b_monster(args):
 	return 0
 
 
+def cmd_m5b2_skills(args):
+	from m5a.data import StaticData
+	from m5b2.skills import skills_report
+	data_dir = _data_dir(args)
+	java_src = Path(args.java_src) if args.java_src else data_dir.parent.parent / "src"
+	report = skills_report(StaticData(data_dir), java_src, args.race, args.player_class, args.level, args.skill or [], args.npc or [],
+	                       args.death_count)
+	sys.stdout.write(runner.dump_json(report))
+	return 0
+
+
 def main(argv=None):
 	parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
 	sub = parser.add_subparsers(dest="command", required=True)
@@ -236,6 +248,19 @@ def main(argv=None):
 	               help="RatesConfig.XP_SOLO_RATES[0], i.e. gameserver.rates.xp.solo (default 1.0, the M5b gate profile)")
 	clock_args(p)
 	p.set_defaults(fn=cmd_m5b_monster)
+
+	p = sub.add_parser("m5b2-skills", help="the skills of a fresh character and the template constants the M5b-2 gate asserts (m5b2-plan.md G-01)")
+	data_args(p, country=False)
+	p.add_argument("--java-src", help="game-server/src (default: two levels above the static data directory, then src)")
+	p.add_argument("--race", required=True, choices=("ELYOS", "ASMODIANS"))
+	p.add_argument("--class", dest="player_class", required=True, help="a starting class (CM_CREATE_CHARACTER refuses the others)")
+	p.add_argument("--level", type=int, default=1, help="the character level whose autolearn skills are reported, 1..9 (default 1)")
+	p.add_argument("--skill", action="append", metavar="ID[:LEVEL]",
+	               help="a further skill to report, e.g. one the gate seeds into player_skills (default level: the template's lvl); repeatable")
+	p.add_argument("--npc", action="append", type=int, metavar="ID", help="an npc whose npc_skills list to report; repeatable")
+	p.add_argument("--death-count", type=int, default=1, dest="death_count",
+	               help="the deathCount updateSoulSickness casts skill 8291 at, i.e. its skill level (default 1: the first death)")
+	p.set_defaults(fn=cmd_m5b2_skills)
 
 	args = parser.parse_args(argv)
 	try:

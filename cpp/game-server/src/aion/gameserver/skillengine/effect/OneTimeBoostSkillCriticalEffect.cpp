@@ -8,4 +8,8 @@ void OneTimeBoostSkillCriticalEffect::applyEffect(model::Effect& /*effect*/) con
 	AION_UNPORTED();
 }
 
+void OneTimeBoostSkillCriticalEffect::startEffect(model::Effect& /*effect*/) const {
+	AION_UNPORTED();
+}
+
 } // namespace aion::gameserver::skillengine::effect

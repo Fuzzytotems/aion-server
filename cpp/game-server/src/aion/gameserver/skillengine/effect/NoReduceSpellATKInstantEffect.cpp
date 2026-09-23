@@ -1,6 +1,16 @@
 #include "aion/gameserver/skillengine/effect/NoReduceSpellATKInstantEffect.h"
 
+#include "aion/gameserver/runtime/base/Unported.h"
+
 namespace aion::gameserver::skillengine::effect {
+
+void NoReduceSpellATKInstantEffect::resolveMagicalCritical(model::Effect& /*effect*/) const {
+	AION_UNPORTED();
+}
+
+void NoReduceSpellATKInstantEffect::calculateDamage(model::Effect& /*effect*/) const {
+	AION_UNPORTED();
+}
 
 bool NoReduceSpellATKInstantEffect::shouldApplyAttackerMovementModifier() const {
 	return false;

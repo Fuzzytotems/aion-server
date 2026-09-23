@@ -8,4 +8,8 @@ void ChangeHateOnAttackedEffect::applyEffect(model::Effect& /*effect*/) const {
 	AION_UNPORTED();
 }
 
+void ChangeHateOnAttackedEffect::startEffect(model::Effect& /*effect*/) const {
+	AION_UNPORTED();
+}
+
 } // namespace aion::gameserver::skillengine::effect

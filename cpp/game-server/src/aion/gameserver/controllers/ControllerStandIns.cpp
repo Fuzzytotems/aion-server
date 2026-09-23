@@ -47,10 +47,6 @@ void gameServerUpdateRatio(model::Race race, int32_t i) {
 	GameServer::updateRatio(race, i);
 }
 
-bool playerRestrictionsCanUseSkill(model::gameobjects::player::Player& player, skillengine::model::Skill& skill) {
-	AION_UNPORTED();
-}
-
 bool pvpMapServiceIsOnPvPMap(model::gameobjects::Creature& creature) {
 	AION_UNPORTED();
 }

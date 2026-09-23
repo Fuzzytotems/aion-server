@@ -96,6 +96,10 @@ public:
 	static constexpr int32_t CM_TARGET_SELECT = 31;
 	static constexpr int32_t CM_ATTACK = 32;
 
+	/** the two packets of an M5b-2 cast (AionClientPacketFactory packets[33] and [35]; m5b2-plan.md G-02) */
+	static constexpr int32_t CM_CASTSPELL = 33;
+	static constexpr int32_t CM_REMOVE_ALTERED_STATE = 35;
+
 	/** ReviveType ids, which are what CM_REVIVE carries (model/gameobjects/player/ReviveType.java; note that 5 and 7 are no revive type) */
 	static constexpr uint8_t BIND_REVIVE = 0;
 	static constexpr uint8_t REBIRTH_REVIVE = 1;
@@ -179,6 +183,69 @@ public:
 	FightOutcome fightUntil(int32_t targetObjectId, std::chrono::milliseconds attackSpeed, const FightPredicate& done,
 		std::chrono::milliseconds timeout, int32_t maxAttacks = 60, uint8_t attackType = 0);
 
+	/**
+	 * The fields CM_CASTSPELL.readImpl reads, in its order (CM_CASTSPELL.java:36-71): readUH spellid, readUC level, readUC targetType, the target
+	 * arm, readUH hitTime, readD unk. runImpl passes spellid, targetType, x/y/z, hitTime and level on to PlayerController.useSkill
+	 * (CM_CASTSPELL.java:108); the object id of the 0/3/4 arm and `unk` are read and dropped - the first target is the player's current target
+	 * (PlayerController.useSkill: SkillEngine.getSkillFor(player, template, player.getTarget())), which is why the gate selects it first.
+	 */
+	struct CastRequest {
+		uint16_t spellId = 0;
+		/** the level the client claims; Skill takes the level from the player's skill list, not from here */
+		uint8_t level = 1;
+		/** 0, 3 and 4 read an object id, 1 reads x/y/z, 2 reads x/y/z and eight more floats, and any other value reads no arm at all */
+		uint8_t targetType = 0;
+		int32_t targetObjectId = 0;
+		float x = 0, y = 0, z = 0;
+		/** the client's hit time, which PlayerController.useSkill hands to Skill.setClientHitTime */
+		uint16_t hitTime = 0;
+		int32_t unk = 0;
+	};
+
+	/**
+	 * A client packet castAndWait sends once while the cast is running, `after` the CM_CASTSPELL went out - X5's CM_MOVE 300 ms into a cast
+	 * (m5b2-plan.md §10.3), which PlayerController.onStartMove answers by cancelling it. It is not sent if the cast has ended before.
+	 */
+	struct CastInterruption {
+		std::chrono::milliseconds after{0};
+		int32_t opcode = 0;
+		std::vector<uint8_t> body;
+	};
+
+	/** What one castAndWait call saw; the indices are into recorded() */
+	struct CastOutcome {
+		/** the first packet this call recorded */
+		size_t firstPacket = 0;
+		/** when the CM_CASTSPELL was sent: X4's "SM_CASTSPELL_RESULT not before 1,800 ms later" is measured from the SM_CASTSPELL, not from here */
+		std::chrono::steady_clock::time_point sentAt;
+		/** the caster's first SM_CASTSPELL for the skill (Skill.startCast) */
+		std::optional<size_t> castSpell;
+		/** the caster's SM_CASTSPELL_RESULT for the skill (Skill.sendCastSpellEnd); it ends the wait */
+		std::optional<size_t> castSpellResult;
+		/** the caster's SM_SKILL_CANCEL for the skill (PlayerController.cancelCurrentSkill); it ends the wait */
+		std::optional<size_t> skillCancel;
+		/** when the interruption was sent, if it was */
+		std::optional<std::chrono::steady_clock::time_point> interruptionSentAt;
+		std::chrono::milliseconds elapsed{0};
+		/** the connection closed while waiting */
+		bool closed = false;
+
+		bool ended() const noexcept { return castSpellResult.has_value() || skillCancel.has_value(); }
+	};
+
+	/**
+	 * castAndWait(skillId, timeout) of m5b2-plan.md G-02: sends CM_CASTSPELL(request) and records every server packet until the cast of
+	 * `request.spellId` by `casterObjectId` ends - its SM_CASTSPELL_RESULT or its SM_SKILL_CANCEL - or `timeout` passes or the connection closes.
+	 * The caster's object id is part of the match because a fight is full of other casts: npc 210133 casts its own skill at the character
+	 * (§10.3 X9), and an SM_CASTSPELL of the monster must not end the character's wait. The three packets are decoded with the independent
+	 * decoders of decoders/SkillDecoders.h, so a body that does not match its Java writeImpl fails the call with DecodeError.
+	 *
+	 * A refused cast (PlayerRestrictions.canUseSkill, a condition, no target) sends neither packet: the call then runs into its timeout and
+	 * `ended()` is false, with whatever the server sent instead (an SM_SYSTEM_MESSAGE) recorded from firstPacket on.
+	 */
+	CastOutcome castAndWait(int32_t casterObjectId, const CastRequest& request, std::chrono::milliseconds timeout,
+		const std::optional<CastInterruption>& interruption = std::nullopt);
+
 	// ---- client packet bodies (Java readImpl order) ----
 	static std::vector<uint8_t> buildCM_VERSION_CHECK(uint16_t clientVersion = CLIENT_VERSION);
 	static std::vector<uint8_t> buildCM_L2AUTH_LOGIN_CHECK(int32_t playOk2, int32_t playOk1, int32_t accountId, int32_t loginOk);
@@ -212,6 +279,18 @@ public:
 	static std::vector<uint8_t> buildCM_ATTACK(int32_t targetObjectId, uint8_t attackNo = 0, uint16_t time = 0, uint8_t type = 0);
 	/** CM_REVIVE.readImpl: one readUC reviveId, which must be a ReviveType id (CM_REVIVE.java:32-63 throws IllegalArgumentException otherwise) */
 	static std::vector<uint8_t> buildCM_REVIVE(uint8_t reviveId = BIND_REVIVE);
+	/** CM_CASTSPELL.readImpl (CM_CASTSPELL.java:36-71), every target arm; the eight extra floats of arm 2 are written as 0 */
+	static std::vector<uint8_t> buildCM_CASTSPELL(const CastRequest& request);
+	/**
+	 * CM_CASTSPELL for an object target, the form the gate casts with (m5b2-plan.md §10.2: `CM_CASTSPELL(1282, 1, 0, objId, hitTime)`).
+	 * @throws std::invalid_argument for target type 1 or 2, which read a point instead: use the CastRequest form
+	 */
+	static std::vector<uint8_t> buildCM_CASTSPELL(uint16_t spellId, uint8_t level, uint8_t targetType, int32_t targetObjectId, uint16_t hitTime = 0);
+	/**
+	 * CM_REMOVE_ALTERED_STATE.readImpl: readUH skillId, then two readC the server drops (CM_REMOVE_ALTERED_STATE.java:24-28, "seen 1 with
+	 * skillId 3573"). runImpl ends the player's effect of that skill unless it is a DEBUFF (:31-42) - the client's right click on a buff icon.
+	 */
+	static std::vector<uint8_t> buildCM_REMOVE_ALTERED_STATE(uint16_t skillId, uint8_t unk1 = 0, uint8_t unk2 = 0);
 
 	network::test::FakeGameClient client;
 

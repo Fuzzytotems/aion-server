@@ -8,4 +8,12 @@ void SanctuaryEffect::applyEffect(model::Effect& /*effect*/) const {
 	AION_UNPORTED();
 }
 
+void SanctuaryEffect::startEffect(model::Effect& /*effect*/) const {
+	AION_UNPORTED();
+}
+
+void SanctuaryEffect::endEffect(model::Effect& /*effect*/) const {
+	AION_UNPORTED();
+}
+
 } // namespace aion::gameserver::skillengine::effect

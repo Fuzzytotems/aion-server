@@ -1,6 +1,10 @@
 #include "GameSession.h"
 
+#include <algorithm>
 #include <stdexcept>
+#include <string>
+
+#include "decoders/SkillDecoders.h"
 
 #include "aion/gameserver/network/aion/ServerPacketsOpcodes.gen.h"
 
@@ -200,6 +204,99 @@ std::vector<uint8_t> GameSession::buildCM_ATTACK(int32_t targetObjectId, uint8_t
 
 std::vector<uint8_t> GameSession::buildCM_REVIVE(uint8_t reviveId) {
 	return PacketWriter().C(reviveId).data;
+}
+
+std::vector<uint8_t> GameSession::buildCM_CASTSPELL(const CastRequest& request) {
+	// readImpl: readUH spellid, readUC level, readUC targetType, the arm of CM_CASTSPELL.java:43-67, readUH hitTime, readD unk
+	PacketWriter writer;
+	writer.H(request.spellId).C(request.level).C(request.targetType);
+	switch (request.targetType) {
+		case 0:
+		case 3:
+		case 4:
+			writer.D(request.targetObjectId); // :47
+			break;
+		case 1:
+			writer.F(request.x).F(request.y).F(request.z); // :50-52
+			break;
+		case 2:
+			writer.F(request.x).F(request.y).F(request.z); // :55-57
+			for (int i = 0; i < 8; i++)
+				writer.F(0.0f); // :58-65, "unk1" .. "unk8"
+			break;
+		default:
+			break; // no arm: the switch has no default
+	}
+	writer.H(request.hitTime).D(request.unk); // :69-70
+	return writer.data;
+}
+
+std::vector<uint8_t> GameSession::buildCM_CASTSPELL(uint16_t spellId, uint8_t level, uint8_t targetType, int32_t targetObjectId, uint16_t hitTime) {
+	if (targetType == 1 || targetType == 2)
+		throw std::invalid_argument("CM_CASTSPELL target type " + std::to_string(targetType) + " reads a point, not an object id");
+	CastRequest request;
+	request.spellId = spellId;
+	request.level = level;
+	request.targetType = targetType;
+	request.targetObjectId = targetObjectId;
+	request.hitTime = hitTime;
+	return buildCM_CASTSPELL(request);
+}
+
+std::vector<uint8_t> GameSession::buildCM_REMOVE_ALTERED_STATE(uint16_t skillId, uint8_t unk1, uint8_t unk2) {
+	return PacketWriter().H(skillId).C(unk1).C(unk2).data;
+}
+
+GameSession::CastOutcome GameSession::castAndWait(int32_t casterObjectId, const CastRequest& request, std::chrono::milliseconds timeout,
+	const std::optional<CastInterruption>& interruption) {
+	CastOutcome outcome;
+	outcome.firstPacket = packets.size();
+	send(CM_CASTSPELL, buildCM_CASTSPELL(request));
+	outcome.sentAt = std::chrono::steady_clock::now();
+	const auto deadline = outcome.sentAt + timeout;
+	for (;;) {
+		auto now = std::chrono::steady_clock::now();
+		if (now >= deadline)
+			break;
+		auto until = deadline;
+		if (interruption && !outcome.interruptionSentAt) {
+			const auto due = outcome.sentAt + interruption->after;
+			if (now >= due) {
+				send(interruption->opcode, interruption->body);
+				outcome.interruptionSentAt = std::chrono::steady_clock::now();
+				continue;
+			}
+			until = std::min(until, due);
+		}
+		std::optional<Packet> packet = next(std::chrono::ceil<std::chrono::milliseconds>(until - now));
+		if (!packet) {
+			if (client.socket.isClosed()) { // readPacket answers nothing for a timeout and for a closed connection alike
+				outcome.closed = true;
+				break;
+			}
+			continue;
+		}
+		const size_t index = packets.size() - 1;
+		if (packet->name == "SM_CASTSPELL") {
+			const decoders::CastSpell cast = decoders::decodeCastSpell(packet->data);
+			if (!outcome.castSpell && cast.effectorObjectId == casterObjectId && cast.spellId == request.spellId)
+				outcome.castSpell = index;
+		} else if (packet->name == "SM_CASTSPELL_RESULT") {
+			const decoders::CastSpellResult result = decoders::decodeCastSpellResult(packet->data);
+			if (result.effectorObjectId == casterObjectId && result.skillId == request.spellId) {
+				outcome.castSpellResult = index;
+				break;
+			}
+		} else if (packet->name == "SM_SKILL_CANCEL") {
+			const decoders::SkillCancel cancel = decoders::decodeSkillCancel(packet->data);
+			if (cancel.creatureObjectId == casterObjectId && cancel.skillId == request.spellId) {
+				outcome.skillCancel = index;
+				break;
+			}
+		}
+	}
+	outcome.elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - outcome.sentAt);
+	return outcome;
 }
 
 GameSession::FightOutcome GameSession::fightUntil(int32_t targetObjectId, std::chrono::milliseconds attackSpeed, const FightPredicate& done,

@@ -6,6 +6,14 @@
 
 namespace aion::gameserver::skillengine::effect {
 
+void AbstractHealEffect::calculate(model::Effect& /*effect*/, model::HealType /*healType*/) const {
+	AION_UNPORTED();
+}
+
+void AbstractHealEffect::applyEffect(model::Effect& /*effect*/, model::HealType /*healType*/) const {
+	AION_UNPORTED();
+}
+
 bool AbstractHealEffect::isPercent() const {
 	return percent;
 }

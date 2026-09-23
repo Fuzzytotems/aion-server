@@ -8,4 +8,12 @@ void RideRobotEffect::applyEffect(model::Effect& /*effect*/) const {
 	AION_UNPORTED();
 }
 
+void RideRobotEffect::startEffect(model::Effect& /*effect*/) const {
+	AION_UNPORTED();
+}
+
+void RideRobotEffect::endEffect(model::Effect& /*effect*/) const {
+	AION_UNPORTED();
+}
+
 } // namespace aion::gameserver::skillengine::effect

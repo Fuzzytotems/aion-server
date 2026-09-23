@@ -8,4 +8,16 @@ void SlowEffect::applyEffect(model::Effect& /*effect*/) const {
 	AION_UNPORTED();
 }
 
+void SlowEffect::calculate(model::Effect& /*effect*/) const {
+	AION_UNPORTED();
+}
+
+void SlowEffect::startEffect(model::Effect& /*effect*/) const {
+	AION_UNPORTED();
+}
+
+void SlowEffect::endEffect(model::Effect& /*effect*/) const {
+	AION_UNPORTED();
+}
+
 } // namespace aion::gameserver::skillengine::effect

@@ -14,6 +14,10 @@ public:
 
 	bool shouldApplyAttackerMovementModifier() const override;
 
+protected:
+	int32_t calculateBaseValue(model::Effect& effect) const override;
+
+public:
 	bool shouldUseBoostSpellAttackEffects() const override;
 
 	bool shouldUseOneTimeBoostSkillAttack() const override;

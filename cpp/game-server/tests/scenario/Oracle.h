@@ -149,6 +149,97 @@ struct OracleMonster {
 	int32_t playerAttackSpeed = 0;
 };
 
+/** One effect template of an m5b2-skills entry, in the document order of <effects> */
+struct OracleSkillEffect {
+	/** the XML tag, e.g. "root" */
+	std::string tag;
+	/** the class Effects.java binds the tag to, e.g. "RootEffect", and its `extends` chain up to "EffectTemplate" */
+	std::string effectClass;
+	std::vector<std::string> classChain;
+	/** the `e` attribute */
+	int32_t position = 0;
+	int32_t duration1 = 0, duration2 = 0, randomTime = 0;
+};
+
+/** SkillTargetSlot of a skill template (tools/oracle/m5b2/skills.py) */
+struct OracleTargetSlot {
+	std::string name;
+	/** what SM_ABNORMAL_STATE and SM_ABNORMAL_EFFECT write per effect */
+	int32_t ordinal = 0;
+	/** the slot mask of the packet-level slot byte */
+	int32_t id = 0;
+};
+
+/**
+ * One (skill id, level) entry of m5b2-skills (m5b2-plan.md G-01, D8): the template constants the M5b-2 gate asserts exactly. Every value the
+ * oracle does not model is std::nullopt here - never a 0 - and the oracle says why in `notModelled`.
+ */
+struct OracleSkillTemplate {
+	int32_t skillId = 0;
+	/** the level of the cast / of the effect: the skill list level, the npc skill's lv, or the death count for the soul sickness */
+	int32_t level = 0;
+	/** "autolearn", "extra", "soulSickness", "npc:<id>" */
+	std::vector<std::string> sources;
+	std::string name, activation, method, subType, category;
+	/** SkillTemplate.getLvl(), the level SM_CASTSPELL_RESULT writes */
+	int32_t lvl = 0;
+	/** std::nullopt for a template without a tslot */
+	std::optional<OracleTargetSlot> targetSlot;
+	int32_t baseCastDuration = 0;
+	/** what SM_CASTSPELL writes for a player caster */
+	std::optional<int32_t> castDuration;
+	std::optional<float> castSpeed;
+	bool allowAnimationBoost = false;
+	/** what SM_CASTSPELL_RESULT writes, in units of 100 ms */
+	int32_t cooldown = 0;
+	/** what SM_SKILL_COOLDOWN writes as the duration */
+	int32_t cooldownMillis = 0;
+	/** the END condition <mp> cost, 0 without one: the USED_MP of SM_ATTACK_STATUS */
+	std::optional<int32_t> mpCost;
+	std::optional<std::string> chainCategory;
+	std::vector<OracleSkillEffect> effects;
+	/** Effect.calculateTemplateDuration with every template successful, 0 for no timed effect */
+	std::optional<int32_t> effectDuration;
+	int32_t effectDurationRandomTime = 0;
+	std::vector<std::string> notModelled;
+};
+
+/** One npc skill of m5b2-skills --npc */
+struct OracleNpcSkill {
+	int32_t skillId = 0, level = 0, prob = 0;
+	bool isPostSpawn = false;
+	/** Math.round(duration * cast_speed / 1000f), the npc's own cast bar */
+	int32_t castDuration = 0;
+};
+
+/** One --npc of m5b2-skills */
+struct OracleNpcSkills {
+	int32_t npcId = 0, level = 0, castSpeed = 0;
+	/** empty for an npc without an npc_skills list */
+	std::vector<OracleNpcSkill> skills;
+};
+
+/** oracle.py m5b2-skills --race R --class C [--level N] [--skill ID[:LEVEL]] [--npc ID] [--death-count N] (m5b2-plan.md G-01) */
+struct OracleSkills {
+	std::string race, playerClass;
+	int32_t level = 0;
+	/** SkillLearnService.learnNewSkills(player, 1, level): what `player_skills` holds for a fresh character */
+	std::vector<OracleSkill> characterSkills;
+	std::vector<int32_t> passives;
+	/** PlayerController.updateSoulSickness's skill (8291) and the death count it was reported at */
+	int32_t soulSicknessSkillId = 0, deathCount = 0;
+	std::vector<OracleNpcSkills> npcs;
+	std::vector<OracleSkillTemplate> skills;
+	/** the leaf effect classes of every reported skill, and their closure under `extends` (m5b2-plan.md §2.4) */
+	std::vector<std::string> effectLeaves, effectClasses;
+
+	/**
+	 * The entry of `skillId` at `level`, or at its only level when `level` is not given.
+	 * @throws std::out_of_range when the oracle reported no such entry, or several levels of the id and no level was given
+	 */
+	const OracleSkillTemplate& skill(int32_t skillId, std::optional<int32_t> level = std::nullopt) const;
+};
+
 /** Runs tools/oracle/oracle.py. Every call starts a process and parses its stdout as JSON. */
 class Oracle {
 public:
@@ -168,6 +259,14 @@ public:
 	OracleBorderTarget borderTarget(int32_t mapId, float x, float y, float z, int32_t gameHour) const;
 	/** @param playerLevel the level of the character that gets the kill, which decides the XPRewardEnum percentage and the experience cap */
 	OracleMonster monster(int32_t mapId, int32_t npcId, int32_t playerLevel) const;
+	/**
+	 * oracle.py m5b2-skills: the character's autolearn skills and the exact constants of every skill the gate casts or observes.
+	 * @param extraSkills further skills as "ID" or "ID:LEVEL" - the ones the gate seeds into player_skills (plan D3)
+	 * @param npcIds npcs whose npc_skills lists to report (X9's npc 210133)
+	 * @param deathCount the level the soul sickness is reported at (the first death is 1)
+	 */
+	OracleSkills skills(std::string_view race, std::string_view playerClass, int32_t level = 1, const std::vector<std::string>& extraSkills = {},
+		const std::vector<int32_t>& npcIds = {}, int32_t deathCount = 1) const;
 
 	/** the raw JSON text of a run, for a decoder of its own */
 	std::string run(const std::vector<std::string>& arguments) const;
@@ -184,6 +283,13 @@ public:
 	 * pinned by OracleTest without a server (@throws on invalid JSON).
 	 */
 	static OracleMonster parseMonster(std::string_view monsterJson);
+
+	/**
+	 * Parses a whole m5b2-skills answer. Public like parseMonster: the nulls the oracle writes for what it does not model (castDuration,
+	 * castSpeed, mpCost, effectDuration, targetSlot, chainCategory) must stay distinguishable from a 0, and OracleTest pins that without a server
+	 * (@throws on invalid JSON).
+	 */
+	static OracleSkills parseSkills(std::string_view skillsJson);
 
 private:
 	std::filesystem::path python;

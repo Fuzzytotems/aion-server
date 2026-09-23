@@ -10,6 +10,8 @@ class MagicCounterAtkEffect : public ::aion::gameserver::skillengine::effect::Ef
 #include "aion/gameserver/skillengine/effect/MagicCounterAtkEffect.xml.inc"
 public:
 	void applyEffect(model::Effect& effect) const override;
+
+	void startEffect(model::Effect& effect) const override;
 };
 
 } // namespace aion::gameserver::skillengine::effect

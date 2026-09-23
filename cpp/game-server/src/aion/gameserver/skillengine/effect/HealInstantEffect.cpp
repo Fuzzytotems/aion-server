@@ -8,6 +8,10 @@ void HealInstantEffect::applyEffect(model::Effect& /*effect*/) const {
 	AION_UNPORTED();
 }
 
+void HealInstantEffect::calculate(model::Effect& /*effect*/) const {
+	AION_UNPORTED();
+}
+
 int32_t HealInstantEffect::getCurrentStatValue(model::Effect& /*effect*/) const {
 	AION_UNPORTED();
 }

@@ -81,7 +81,107 @@ OracleMonsterSpot readMonsterSpot(const json& node) {
 	return spot;
 }
 
+/** a value the oracle writes as null when it does not model it (tools/oracle/m5b2/skills.py `notModelled`) */
+template <typename T>
+std::optional<T> readOptional(const json& node, const char* key) {
+	const auto found = node.find(key);
+	if (found == node.end() || found->is_null())
+		return std::nullopt;
+	return found->get<T>();
+}
+
+std::vector<std::string> readStrings(const json& node, const char* key) {
+	std::vector<std::string> values;
+	if (const auto found = node.find(key); found != node.end())
+		for (const json& value : *found)
+			values.push_back(value.get<std::string>());
+	return values;
+}
+
+OracleSkillTemplate readSkillTemplate(const json& node) {
+	OracleSkillTemplate skill;
+	skill.skillId = node.at("skillId").get<int32_t>();
+	skill.level = node.at("level").get<int32_t>();
+	skill.sources = readStrings(node, "sources");
+	skill.name = readOrDefault<std::string>(node, "name", {});
+	skill.activation = readOrDefault<std::string>(node, "activation", {});
+	skill.method = readOrDefault<std::string>(node, "method", {});
+	skill.subType = readOrDefault<std::string>(node, "subType", {});
+	skill.category = readOrDefault<std::string>(node, "category", {});
+	skill.lvl = node.value("lvl", 0);
+	if (const auto slot = node.find("targetSlot"); slot != node.end() && !slot->is_null())
+		skill.targetSlot = OracleTargetSlot{slot->at("name").get<std::string>(), slot->at("ordinal").get<int32_t>(), slot->at("id").get<int32_t>()};
+	skill.baseCastDuration = node.value("baseCastDuration", 0);
+	skill.castDuration = readOptional<int32_t>(node, "castDuration");
+	skill.castSpeed = readOptional<float>(node, "castSpeed");
+	skill.allowAnimationBoost = node.value("allowAnimationBoost", false);
+	skill.cooldown = node.value("cooldown", 0);
+	skill.cooldownMillis = node.value("cooldownMillis", 0);
+	skill.mpCost = readOptional<int32_t>(node, "mpCost");
+	skill.chainCategory = readOptional<std::string>(node, "chainCategory");
+	for (const json& effectNode : node.at("effects")) {
+		OracleSkillEffect effect;
+		effect.tag = effectNode.at("tag").get<std::string>();
+		effect.effectClass = effectNode.at("class").get<std::string>();
+		effect.classChain = readStrings(effectNode, "classChain");
+		effect.position = effectNode.value("position", 0);
+		effect.duration1 = effectNode.value("duration1", 0);
+		effect.duration2 = effectNode.value("duration2", 0);
+		effect.randomTime = effectNode.value("randomTime", 0);
+		skill.effects.push_back(std::move(effect));
+	}
+	skill.effectDuration = readOptional<int32_t>(node, "effectDuration");
+	skill.effectDurationRandomTime = readOrDefault(node, "effectDurationRandomTime", 0);
+	skill.notModelled = readStrings(node, "notModelled");
+	return skill;
+}
+
 } // namespace
+
+const OracleSkillTemplate& OracleSkills::skill(int32_t skillId, std::optional<int32_t> level) const {
+	const OracleSkillTemplate* found = nullptr;
+	for (const OracleSkillTemplate& entry : skills) {
+		if (entry.skillId != skillId || (level && entry.level != *level))
+			continue;
+		if (found != nullptr)
+			throw std::out_of_range("m5b2-skills reported skill " + std::to_string(skillId) + " at several levels: name the level");
+		found = &entry;
+	}
+	if (found == nullptr)
+		throw std::out_of_range("m5b2-skills reported no skill " + std::to_string(skillId) +
+			(level ? " at level " + std::to_string(*level) : std::string()));
+	return *found;
+}
+
+OracleSkills Oracle::parseSkills(std::string_view skillsJson) {
+	const json answer = json::parse(skillsJson);
+	OracleSkills skills;
+	skills.race = answer.at("race").get<std::string>();
+	skills.playerClass = answer.at("playerClass").get<std::string>();
+	skills.level = answer.at("level").get<int32_t>();
+	const json& character = answer.at("character");
+	for (const json& node : character.at("skills"))
+		skills.characterSkills.push_back(OracleSkill{node.at("skillId").get<int32_t>(), node.at("level").get<int32_t>()});
+	for (const json& node : character.at("passives"))
+		skills.passives.push_back(node.get<int32_t>());
+	skills.soulSicknessSkillId = answer.at("soulSickness").at("skillId").get<int32_t>();
+	skills.deathCount = answer.at("soulSickness").at("deathCount").get<int32_t>();
+	for (const json& npcNode : answer.at("npcs")) {
+		OracleNpcSkills npc;
+		npc.npcId = npcNode.at("npcId").get<int32_t>();
+		npc.level = npcNode.value("level", 0);
+		npc.castSpeed = npcNode.value("castSpeed", 0);
+		for (const json& node : npcNode.at("skills"))
+			npc.skills.push_back(OracleNpcSkill{node.at("skillId").get<int32_t>(), node.at("level").get<int32_t>(), node.value("prob", 0),
+				node.value("isPostSpawn", false), node.value("castDuration", 0)});
+		skills.npcs.push_back(std::move(npc));
+	}
+	for (const json& node : answer.at("skills"))
+		skills.skills.push_back(readSkillTemplate(node));
+	skills.effectLeaves = readStrings(answer.at("effectClasses"), "leaves");
+	skills.effectClasses = readStrings(answer.at("effectClasses"), "withBases");
+	return skills;
+}
 
 OracleSpot Oracle::parseSpot(std::string_view spotJson) {
 	return readSpot(json::parse(spotJson));
@@ -259,6 +359,21 @@ OracleBorderTarget Oracle::borderTarget(int32_t mapId, float x, float y, float z
 OracleMonster Oracle::monster(int32_t mapId, int32_t npcId, int32_t playerLevel) const {
 	return parseMonster(run({"m5b-monster", "--map", std::to_string(mapId), "--npc-id", std::to_string(npcId), "--player-level",
 	                         std::to_string(playerLevel)}));
+}
+
+OracleSkills Oracle::skills(std::string_view race, std::string_view playerClass, int32_t level, const std::vector<std::string>& extraSkills,
+	const std::vector<int32_t>& npcIds, int32_t deathCount) const {
+	std::vector<std::string> arguments = {"m5b2-skills", "--race", std::string(race), "--class", std::string(playerClass), "--level",
+	                                      std::to_string(level), "--death-count", std::to_string(deathCount)};
+	for (const std::string& skill : extraSkills) {
+		arguments.push_back("--skill");
+		arguments.push_back(skill);
+	}
+	for (const int32_t npcId : npcIds) {
+		arguments.push_back("--npc");
+		arguments.push_back(std::to_string(npcId));
+	}
+	return parseSkills(run(arguments));
 }
 
 } // namespace aion::gameserver::scenario

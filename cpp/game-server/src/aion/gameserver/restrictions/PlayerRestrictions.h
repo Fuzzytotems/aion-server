@@ -14,8 +14,9 @@ namespace aion::gameserver::restrictions {
  * game-server/src/com/aionemu/gameserver/restrictions/PlayerRestrictions.java (hub-headers.md §5.1 decides the reference and Ptr parameters:
  * `canTrade`, `canChat` and `canUseItem` take a Ptr because Java checks `player == null` in their first statement, the others a reference).
  * <p>
- * M5b-1 (m5b-plan.md C-01) ports `canAttack` and its `checkFly` helper, the first statement of `PlayerController::attackTarget`. `canUseSkill`
- * is an AION_PARTIAL until M5b-2 and the remaining bodies are AION_UNPORTED; see docs/deviations/P5-13.md.
+ * M5b-1 (m5b-plan.md C-01) ports `canAttack` and its `checkFly` helper, the first statement of `PlayerController::attackTarget`; M5b-2
+ * (m5b2-plan.md P-01) ports `canUseSkill`, the restriction step of `PlayerController::useSkill`. The remaining bodies are AION_UNPORTED; see
+ * docs/deviations/P5-13.md.
  *
  * @author lord_rex, Sippolo
  */

@@ -16,6 +16,14 @@ int32_t CaseHealEffect::getMaxStatValue(model::Effect& /*effect*/) const {
 	AION_UNPORTED();
 }
 
+void CaseHealEffect::startEffect(model::Effect& /*effect*/) const {
+	AION_UNPORTED();
+}
+
+bool CaseHealEffect::tryHeal(model::Effect& /*effect*/) const {
+	AION_UNPORTED();
+}
+
 bool CaseHealEffect::allowHpHealBoost(model::Effect& /*effect*/) const {
 	return false;
 }

@@ -10,6 +10,11 @@ void DamageEffect::applyEffect(model::Effect& /*effect*/) const {
 	AION_UNPORTED();
 }
 
+void DamageEffect::onAttack(model::Effect& /*effect*/, network::aion::serverpackets::SM_ATTACK_STATUS_TYPE /*type*/,
+	network::aion::serverpackets::SM_ATTACK_STATUS_LOG /*log*/) const {
+	AION_UNPORTED();
+}
+
 void DamageEffect::resolveMagicalCritical(model::Effect& /*effect*/) const {
 	AION_UNPORTED();
 }

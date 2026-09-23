@@ -4,7 +4,15 @@
 
 namespace aion::gameserver::skillengine::effect {
 
+void InvulnerableWingEffect::calculate(model::Effect& /*effect*/) const {
+	AION_UNPORTED();
+}
+
 void InvulnerableWingEffect::applyEffect(model::Effect& /*effect*/) const {
+	AION_UNPORTED();
+}
+
+void InvulnerableWingEffect::endEffect(model::Effect& /*effect*/) const {
 	AION_UNPORTED();
 }
 

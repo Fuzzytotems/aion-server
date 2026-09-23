@@ -10,6 +10,14 @@ class OpenAerialEffect : public ::aion::gameserver::skillengine::effect::EffectT
 #include "aion/gameserver/skillengine/effect/OpenAerialEffect.xml.inc"
 public:
 	void applyEffect(model::Effect& effect) const override;
+
+	using EffectTemplate::calculate; // C++ name hiding by the declaration below (hub-headers.md §9.1)
+
+	void calculate(model::Effect& effect) const override;
+
+	void startEffect(model::Effect& effect) const override;
+
+	void endEffect(model::Effect& effect) const override;
 };
 
 } // namespace aion::gameserver::skillengine::effect

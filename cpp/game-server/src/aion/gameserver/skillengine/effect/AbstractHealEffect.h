@@ -12,6 +12,14 @@ class AbstractHealEffect : public ::aion::gameserver::skillengine::effect::Effec
 						   public ::aion::gameserver::skillengine::effect::HealEffectTemplate {
 #include "aion/gameserver/skillengine/effect/AbstractHealEffect.xml.inc"
 public:
+	using EffectTemplate::calculate; // C++ name hiding by the declaration below (hub-headers.md §9.1)
+
+	void calculate(model::Effect& effect, model::HealType healType) const;
+
+	using EffectTemplate::applyEffect; // C++ name hiding by the declaration below (hub-headers.md §9.1)
+
+	void applyEffect(model::Effect& effect, model::HealType healType) const;
+
 	bool isPercent() const override;
 
 	bool allowHpHealBoost(model::Effect& effect) const override;

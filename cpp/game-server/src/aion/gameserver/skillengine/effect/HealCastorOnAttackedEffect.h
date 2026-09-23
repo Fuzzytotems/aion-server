@@ -10,6 +10,8 @@ class HealCastorOnAttackedEffect : public ::aion::gameserver::skillengine::effec
 #include "aion/gameserver/skillengine/effect/HealCastorOnAttackedEffect.xml.inc"
 public:
 	void applyEffect(model::Effect& effect) const override;
+
+	void startEffect(model::Effect& effect) const override;
 };
 
 } // namespace aion::gameserver::skillengine::effect

@@ -570,7 +570,7 @@ void PlayerController::useSkill(const skillengine::model::SkillTemplate* templat
 		if (player.isCasting() && player.getCastingSkill()->getItemTemplate() != nullptr)
 			cancelCurrentSkill(nullptr);
 
-		if (!standins::playerRestrictionsCanUseSkill(player, *skill))
+		if (!PlayerRestrictions::canUseSkill(player, *skill))
 			return;
 
 		skill->setTargetType(targetType, x, y, z);

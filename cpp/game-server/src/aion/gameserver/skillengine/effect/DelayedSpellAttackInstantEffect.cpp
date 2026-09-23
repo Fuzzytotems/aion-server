@@ -8,4 +8,8 @@ void DelayedSpellAttackInstantEffect::applyEffect(model::Effect& /*effect*/) con
 	AION_UNPORTED();
 }
 
+void DelayedSpellAttackInstantEffect::calculateDamage(model::Effect& /*effect*/) const {
+	AION_UNPORTED();
+}
+
 } // namespace aion::gameserver::skillengine::effect

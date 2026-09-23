@@ -10,4 +10,8 @@ std::vector<runtime::Ref<gameserver::model::stats::calc::functions::IStatFunctio
 	AION_UNPORTED();
 }
 
+const gameserver::model::templates::stats::ModifiersTemplate* AbstractAbsoluteStatEffect::getModifiersSet() const {
+	AION_UNPORTED();
+}
+
 } // namespace aion::gameserver::skillengine::effect

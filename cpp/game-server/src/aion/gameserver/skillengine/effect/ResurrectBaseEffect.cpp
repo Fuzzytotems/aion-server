@@ -4,7 +4,15 @@
 
 namespace aion::gameserver::skillengine::effect {
 
+void ResurrectBaseEffect::calculate(model::Effect& /*effect*/) const {
+	AION_UNPORTED();
+}
+
 void ResurrectBaseEffect::applyEffect(model::Effect& /*effect*/) const {
+	AION_UNPORTED();
+}
+
+void ResurrectBaseEffect::endEffect(model::Effect& /*effect*/) const {
 	AION_UNPORTED();
 }
 

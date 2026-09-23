@@ -4,6 +4,14 @@
 
 namespace aion::gameserver::skillengine::effect {
 
+void MPHealEffect::startEffect(model::Effect& /*effect*/) const {
+	AION_UNPORTED();
+}
+
+void MPHealEffect::onPeriodicAction(model::Effect& /*effect*/) const {
+	AION_UNPORTED();
+}
+
 int32_t MPHealEffect::getCurrentStatValue(model::Effect& /*effect*/) const {
 	AION_UNPORTED();
 }

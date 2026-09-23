@@ -2,6 +2,10 @@
 
 #include <string>
 
+#include "aion/gameserver/controllers/effect/EffectController.h"
+#include "aion/gameserver/controllers/effect/PlayerEffectController.h"
+#include "aion/gameserver/dataholders/DataManager.h"
+#include "aion/gameserver/dataholders/PanelSkillsData.h"
 #include "aion/gameserver/dataholders/loadingutils/EnumTraits.h"
 #include "aion/gameserver/model/ActionState.h"
 #include "aion/gameserver/model/ActionStateInfo.h"
@@ -9,13 +13,20 @@
 #include "aion/gameserver/model/gameobjects/TransformModel.h"
 #include "aion/gameserver/model/gameobjects/VisibleObject.h"
 #include "aion/gameserver/model/gameobjects/player/Player.h"
+#include "aion/gameserver/model/gameobjects/player/PrivateStore.h"
 #include "aion/gameserver/model/stats/container/CreatureLifeStats.h"
 #include "aion/gameserver/model/stats/container/PlayerGameStats.h"
 #include "aion/gameserver/model/stats/container/PlayerLifeStats.h"
 #include "aion/gameserver/model/templates/flypath/FlightPath.h"
+#include "aion/gameserver/model/templates/panels/SkillPanel.h"
 #include "aion/gameserver/network/aion/serverpackets/SM_ATTACK_RESPONSE.h"
 #include "aion/gameserver/network/aion/serverpackets/SM_SYSTEM_MESSAGE.h"
 #include "aion/gameserver/runtime/base/Unported.h"
+#include "aion/gameserver/skillengine/effect/AbnormalState.h"
+#include "aion/gameserver/skillengine/model/Skill.h"
+#include "aion/gameserver/skillengine/model/SkillTemplate.h"
+#include "aion/gameserver/skillengine/model/SkillType.h"
+#include "aion/gameserver/skillengine/model/TransformType.h"
 #include "aion/gameserver/utils/ChatUtil.h"
 #include "aion/gameserver/utils/PacketSendUtility.h"
 #include "aion/gameserver/utils/audit/AuditLogger.h"
@@ -27,7 +38,12 @@ namespace aion::gameserver::restrictions {
 using model::gameobjects::Creature;
 using model::gameobjects::VisibleObject;
 using model::gameobjects::player::Player;
+using model::templates::panels::SkillPanel;
 using network::aion::serverpackets::SM_ATTACK_RESPONSE;
+using skillengine::effect::AbnormalState;
+using skillengine::model::SkillTemplate;
+using skillengine::model::SkillType;
+using skillengine::model::TransformType;
 using network::aion::serverpackets::SM_SYSTEM_MESSAGE;
 using utils::PacketSendUtility;
 
@@ -50,15 +66,78 @@ bool PlayerRestrictions::checkFly(Player& player) {
 	return true;
 }
 
-// Java PlayerRestrictions.java:51-116
+// Java PlayerRestrictions.java:51-116 (m5b2-plan.md P-01; the AION_PARTIAL of M5b-1 C-01 is closed)
 bool PlayerRestrictions::canUseSkill(Player& player, skillengine::model::Skill& skill) {
-	// m5b-plan.md C-01: every branch of the Java body reads the skill engine (SkillTemplate.hasEvadeEffect, getType, hasResurrectEffect,
-	// Player.getCastingSkill/isSkillDisabled, EffectController.isAbnormalSet), which is P5-02 and M5b-2. Answering "no" is the conservative
-	// half of Java's two answers and follows D4's precedent (GeneralNpcAI.chooseSkillAttack is an AION_PARTIAL returning false). There is no
-	// caller at M5b-1: PlayerController::useSkill still calls standins::playerRestrictionsCanUseSkill (ControllerStandIns.cpp:98), which
-	// m5b-plan.md E-01b leaves standing until M5b-2. docs/deviations/P5-13.md records the divergence.
-	AION_PARTIAL("PlayerRestrictions.canUseSkill refuses every skill: its checks need the skill engine (M5b-2, m5b-plan.md C-01)");
-	return false;
+	if (player.isInPrison()) {
+		PacketSendUtility::sendPacket(player, SM_SYSTEM_MESSAGE::STR_MSG_ACCUSE_TARGET_IS_NOT_VALID());
+		return false;
+	}
+	// Java reads the target here, before any check: the resurrect arm at the end judges this target, not a later one
+	runtime::Ptr<VisibleObject> target = player.getTarget();
+	const SkillTemplate* template_ = skill.getSkillTemplate();
+
+	if (!checkFly(player) || player.getLifeStats()->isAboutToDie() || player.isDead()) {
+		return false;
+	}
+
+	if (player.getStore()) { // You cannot do that while you are running a Private Store.
+		// Java ActionState.PERSONAL_SHOP.getL10n(), spelled out at the call site as checkFly does (ActionStateInfo.h)
+		PacketSendUtility::sendPacket(player,
+			SM_SYSTEM_MESSAGE::STR_SKILL_CANT_CAST(utils::ChatUtil::l10n(getL10nId(model::ActionState::PERSONAL_SHOP))));
+		return false;
+	}
+	// item casts are interruptible (PlayerController cancels them), skill casts are not
+	// java-race: isCasting() and getCastingSkill() read the field twice; a cast ending in between throws NullPointerException here as in Java
+	if (player.isCasting() && player.getCastingSkill()->getItemTemplate() == nullptr)
+		return false;
+
+	if (!player.canAttack() && !template_->hasEvadeEffect()) {
+		PacketSendUtility::sendPacket(player, SM_SYSTEM_MESSAGE::STR_SKILL_CAN_NOT_ATTACK_WHILE_IN_ABNORMAL_STATE());
+		return false;
+	}
+
+	// in 3.0 players can use remove shock even when silenced
+	if (template_->getType() == SkillType::MAGICAL && player.getEffectController()->isAbnormalSet(AbnormalState::SILENCE) &&
+		!template_->hasEvadeEffect()) {
+		PacketSendUtility::sendPacket(player, SM_SYSTEM_MESSAGE::STR_SKILL_CANT_CAST_MAGIC_SKILL_WHILE_SILENCED());
+		return false;
+	}
+
+	if (template_->getType() == SkillType::PHYSICAL && player.getEffectController()->isAbnormalSet(AbnormalState::BIND)) {
+		PacketSendUtility::sendPacket(player, SM_SYSTEM_MESSAGE::STR_SKILL_CANT_CAST_PHYSICAL_SKILL_IN_FEAR());
+		return false;
+	}
+
+	if (player.isSkillDisabled(template_))
+		return false;
+
+	// cannot use skills while transformed
+	if (player.getTransformModel().isActive()) {
+		if (player.getTransformModel().cantUseSkills()) {
+			PacketSendUtility::sendPacket(player, SM_SYSTEM_MESSAGE::STR_SKILL_CAN_NOT_CAST_IN_SHAPECHANGE());
+			return false;
+		}
+		// can use only panel skills in FORM1
+		if (player.getTransformModel().getType() == TransformType::FORM1) {
+			const SkillPanel* panel = dataholders::DataManager::PANEL_SKILL_DATA->getSkillPanel(player.getTransformModel().getPanelId());
+			if (panel == nullptr || !panel->isSkillPresent(skill.getSkillId())) {
+				utils::audit::AuditLogger::log(player, "tried to use non panel skill while transformed in TransformType.FORM1");
+				return false;
+			}
+		}
+	}
+	if (template_->hasResurrectEffect()) {
+		runtime::Ptr<Player> targetPlayer = runtime::as<Player>(target); // Java: `target instanceof Player targetPlayer`, false for null
+		if (!targetPlayer) {
+			PacketSendUtility::sendPacket(player, SM_SYSTEM_MESSAGE::STR_SKILL_TARGET_IS_NOT_VALID());
+			return false;
+		}
+		if (!targetPlayer->isDead()) {
+			PacketSendUtility::sendPacket(player, SM_SYSTEM_MESSAGE::STR_SKILL_TARGET_IS_NOT_VALID());
+			return false;
+		}
+	}
+	return true;
 }
 
 bool PlayerRestrictions::canInviteToGroup(Player& player, Player& target) {

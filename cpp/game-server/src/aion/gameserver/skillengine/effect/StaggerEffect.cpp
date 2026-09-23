@@ -8,4 +8,16 @@ void StaggerEffect::applyEffect(model::Effect& /*effect*/) const {
 	AION_UNPORTED();
 }
 
+void StaggerEffect::startEffect(model::Effect& /*effect*/) const {
+	AION_UNPORTED();
+}
+
+void StaggerEffect::calculate(model::Effect& /*effect*/) const {
+	AION_UNPORTED();
+}
+
+void StaggerEffect::endEffect(model::Effect& /*effect*/) const {
+	AION_UNPORTED();
+}
+
 } // namespace aion::gameserver::skillengine::effect

@@ -4,6 +4,10 @@
 
 namespace aion::gameserver::skillengine::effect {
 
+void FPHealInstantEffect::calculate(model::Effect& /*effect*/) const {
+	AION_UNPORTED();
+}
+
 void FPHealInstantEffect::applyEffect(model::Effect& /*effect*/) const {
 	AION_UNPORTED();
 }

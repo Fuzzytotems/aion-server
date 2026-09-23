@@ -5,6 +5,7 @@
 #include <vector>
 
 #include "aion/gameserver/model/stats/calc/functions/fwd.h"
+#include "aion/gameserver/model/templates/stats/fwd.h"
 #include "aion/gameserver/runtime/lifetime/Ref.h"
 #include "aion/gameserver/skillengine/model/fwd.h"
 
@@ -18,6 +19,10 @@ public:
 
 protected:
 	std::vector<runtime::Ref<gameserver::model::stats::calc::functions::IStatFunction>> getModifiers(model::Effect& effect) const override;
+
+public:
+	/** @return the absolute stat set of statSetId (Java null: nullptr) */
+	const gameserver::model::templates::stats::ModifiersTemplate* getModifiersSet() const;
 };
 
 } // namespace aion::gameserver::skillengine::effect

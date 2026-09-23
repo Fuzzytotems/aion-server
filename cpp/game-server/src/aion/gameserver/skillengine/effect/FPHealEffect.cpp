@@ -4,6 +4,14 @@
 
 namespace aion::gameserver::skillengine::effect {
 
+void FPHealEffect::startEffect(model::Effect& /*effect*/) const {
+	AION_UNPORTED();
+}
+
+void FPHealEffect::onPeriodicAction(model::Effect& /*effect*/) const {
+	AION_UNPORTED();
+}
+
 int32_t FPHealEffect::getCurrentStatValue(model::Effect& /*effect*/) const {
 	AION_UNPORTED();
 }

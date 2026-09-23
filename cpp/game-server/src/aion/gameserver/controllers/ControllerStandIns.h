@@ -46,8 +46,9 @@ runtime::FutureRef followStartServiceNewFollowingToTargetCheckTask(model::gameob
  * Java: `ChargeSkill skill = SkillEngine.getInstance().getChargeSkill(creature, skillId, skillLevel, chargeLevel, startSkill); skill != null &&
  * skill.useSkill()` (ChargeSkill has no header, so its Ref cannot be released here)
  * <p>
- * **Closed by M5b-2** (m5b-plan.md O-01): `ChargeSkill` is one of the eleven P5-02 classes that have no C++ file at all. Unreachable at M5b-1 -
- * its only call site, `CreatureController::useChargeSkill`, needs a cast skill, and `CM_CASTSPELL` does not exist yet (O-04).
+ * **Closed by M5b-2** (m5b-plan.md O-01; m5b2-plan.md P-04's second half, after S-01 ports `SkillEngine::getChargeSkill`). Unreachable
+ * still: its only call site, `CreatureController::useChargeSkill`, is reached from `CM_USE_CHARGE_SKILL` alone, which is not registered (m5b2-plan.md
+ * P-03, W), and needs a charge skill that is casting, which needs `Skill::useSkill` (S-02).
  */
 bool chargeSkillGetAndUse(model::gameobjects::Creature& creature, int32_t skillId, int32_t skillLevel, int32_t chargeLevel,
 	skillengine::model::Skill& startSkill);
@@ -107,15 +108,8 @@ RiftEnumData riftEnumData(services::rift::RiftEnum riftTemplate);
 
 // ------------------------------------------------------------------------------------------------------------ P5-13 (aion_gs_instance)
 
-/**
- * Java: PlayerRestrictions.canUseSkill(player, skill)
- * <p>
- * **Closed by M5b-2** (m5b-plan.md E-01b/O-01). `restrictions/PlayerRestrictions.h` exists since C-01 and `canAttack` beside it is called
- * directly now, but `canUseSkill` is an `AION_PARTIAL` that refuses every skill until the skill engine lands (PlayerRestrictions.cpp, C-01), and
- * swapping a throwing stand-in for a silently-refusing partial would hide the gap rather than record it. `PlayerController::useSkill` is
- * unreachable at M5b-1 anyway: `CM_CASTSPELL` does not exist (O-04).
- */
-bool playerRestrictionsCanUseSkill(model::gameobjects::player::Player& player, skillengine::model::Skill& skill);
+// m5b-2 stage 1 (m5b2-plan.md P-04, first half): `playerRestrictionsCanUseSkill` is gone - `PlayerRestrictions::canUseSkill` is ported (P-01),
+// so `PlayerController::useSkill` calls it the way `attackTarget` calls `canAttack`. `CM_CASTSPELL` exists now (P-02) and is the caller.
 
 /** Java: PvpMapService.getInstance().isOnPvPMap(creature) */
 bool pvpMapServiceIsOnPvPMap(model::gameobjects::Creature& creature);

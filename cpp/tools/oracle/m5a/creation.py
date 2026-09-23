@@ -2,9 +2,11 @@
 
 Java rules:
 - spawn point: PlayerInitialData.getSpawnLocation(race) (<elyos_spawn_location>, <asmodian_spawn_location>);
-- skills: SkillLearnService.learnNewSkills(player, 1, 1): the autolearn templates of SkillTreeData.getTemplatesFor(class, 1, race) (race specific
-  first, then PC_ALL; a template without classId belongs to every class), without skill 30001 for non-starting classes; the level is the skill
-  template's lvl; PlayerSkillList.addSkill keeps the higher level of a skill id added twice;
+- skills: SkillLearnService.learnNewSkills(player, 1, 1) through learn_new_skills: the autolearn templates of
+  SkillTreeData.getTemplatesFor(class, 1, race) (race specific first, then PC_ALL; a template without classId belongs to every class), without
+  skill 30001 for a class that is not a starting class - but a non-starting class first learns its starting class's templates, and that arm
+  does teach 30001 (only starting classes can be created, CM_CREATE_CHARACTER.java:92, so the M5a characters never take it); the level is the
+  skill template's lvl; PlayerSkillList.addSkill keeps the higher level of a skill id added twice;
 - items: the <player_data class=...> items; ItemFactory.newItem caps the count at max_stack_count (kinah 182400001 is never capped) and throws
   NullPointerException for an unknown item id; every armor or weapon is equipped (the new Equipment is empty, so isSlotEquipped is always false)
   with ItemSlot.getSlotFor(itemGroup.validEquipmentSlots).slotIdMask, the first non-combo slot of the mask; kinah is the inventory's kinah item;
@@ -115,11 +117,20 @@ class JavaEnums:
 		# PlayerClass(classId, nameId, isStartingClass|startingClass, power, health, agility, accuracy, knowledge, will, healthMultiplier,
 		# willMultiplier, magicalCriticalResist)
 		self.classes: dict[str, tuple[bool, int, int, int, int]] = {}
+		# name -> PlayerClass.getStartingClass(): the class itself for a starting class (`this.startingClass = this`), the named constant for
+		# the others (the PlayerClass(..., PlayerClass startingClass, ...) constructor)
+		self.starting_classes: dict[str, str] = {}
 		for name, args in enum_constants(base / "model" / "PlayerClass.java", "PlayerClass"):
 			parts = [p.strip() for p in (args or "").split(",")]
 			if len(parts) != 12:
 				raise OracleError(f"PlayerClass.{name}: expected 12 constructor arguments")
 			self.classes[name] = (parts[2] == "true", int(parts[4]), int(parts[8]), int(parts[9]), int(parts[10]))
+			if parts[2] == "true":
+				self.starting_classes[name] = name
+			elif re.fullmatch(r"[A-Z][A-Z0-9_]*", parts[2]):
+				self.starting_classes[name] = parts[2]
+			else:
+				raise OracleError(f"PlayerClass.{name}: cannot read the starting class argument {parts[2]!r}")
 
 	def slot_for(self, slot_mask: int) -> int:
 		"""ItemSlot.getSlotFor(mask).getSlotIdMask(): the first non-combo slot fully contained in the mask."""
@@ -191,13 +202,74 @@ def _skill_levels(data: StaticData, wanted: set[int]) -> dict[int, int]:
 	return levels
 
 
+def learn_new_skills(data: StaticData, enums: JavaEnums, race: str, player_class: str, from_level: int, to_level: int) -> dict[int, int]:
+	"""
+	SkillLearnService.learnNewSkills(player, fromLevel, toLevel) on an EMPTY PlayerSkillList (SkillLearnService.java:60-93): skill id -> level.
+
+	- the levels run from toLevel down to fromLevel, and for a level below 10 a character whose class is not a starting class first learns
+	  the level's autolearn templates of its starting class (:63-66);
+	- autoLearnSkills(level, class, race) walks SkillTreeData.getTemplatesFor(class, level, race): the templates of `minLevel == level` whose
+	  classId is the class or absent (SkillTreeData.afterUnmarshal adds a class-less row to every class) and whose race is the player's -
+	  race specific first, then PC_ALL, each in document order (SkillTreeData.java:71-83) - skipping the non-autolearn ones and skill 30001
+	  when THE CLASS PASSED IN is not a starting class (:88), which is why the starting class arm of a daeva class still teaches 30001;
+	- PlayerSkillList.addSkill keeps the higher level of a skill id added twice (PlayerSkillList.java:57-64), and the level is the skill
+	  template's `lvl` (SkillLearnTemplate.getSkillLevel), which throws NullPointerException for a skill id without a template;
+	- the daeva branch (:69-74, 30001 becomes 30002) needs toLevel >= 10 and PlayerCommonData.isDaeva(), which this model refuses to answer for.
+	"""
+	if to_level >= 10:
+		raise OracleError(f"level {to_level}: from level 10 on learnNewSkills depends on PlayerCommonData.isDaeva() (SkillLearnService.java:70), "
+		                  "which is quest state, not static data")
+	if from_level < 1 or from_level > to_level:
+		raise OracleError(f"learnNewSkills({from_level}, {to_level}): the level range is empty")
+	if player_class not in enums.classes:
+		raise OracleError(f"unknown player class {player_class}")
+
+	# (classId, race, minLevel, autolearn, skillId) of every <skill> in document order, which is the order SkillTreeData.afterUnmarshal fills
+	# its per (class, race, minLevel) lists in
+	rows = []
+	for element in data.children("skill_tree", "skill"):
+		rows.append((element.get("classId"), element.get("race", "PC_ALL"), java_int(element.get("minLevel"), "minLevel"),
+		             java_boolean(element.get("autolearn")), java_int(element.get("skillId"), "skillId")))
+
+	def templates_for(cls: str, level: int) -> list[tuple[bool, int]]:
+		specific = [(auto, skill) for class_id, skill_race, min_level, auto, skill in rows
+		            if (class_id is None or class_id == cls) and skill_race == race and min_level == level]
+		generic = [(auto, skill) for class_id, skill_race, min_level, auto, skill in rows
+		           if (class_id is None or class_id == cls) and skill_race == "PC_ALL" and min_level == level]
+		return specific + generic
+
+	def auto_learn(level: int, cls: str, learned: list[int]) -> None:
+		cls_starting = enums.classes[cls][0]
+		for autolearn, skill_id in templates_for(cls, level):
+			if not autolearn:
+				continue
+			if skill_id == 30001 and not cls_starting:
+				continue
+			learned.append(skill_id)
+
+	starting_class = None if enums.classes[player_class][0] else enums.starting_classes[player_class]
+	learned: list[int] = []
+	for level in range(to_level, from_level - 1, -1):
+		if level < 10 and starting_class is not None:
+			auto_learn(level, starting_class, learned)
+		auto_learn(level, player_class, learned)
+
+	levels = _skill_levels(data, set(learned))
+	skills: dict[int, int] = {}
+	for skill_id in learned:
+		if skill_id not in levels:
+			raise OracleError(f"skill {skill_id} has no skill template (SkillLearnTemplate.getSkillLevel throws NullPointerException)")
+		skills[skill_id] = max(skills.get(skill_id, 0), levels[skill_id])
+	return skills
+
+
 def creation_report(data: StaticData, java_src: Path, race: str, player_class: str) -> dict:
 	if race not in RACES:
 		raise OracleError(f"race must be one of {RACES}")
 	enums = JavaEnums(java_src)
 	if player_class not in enums.classes:
 		raise OracleError(f"unknown player class {player_class}")
-	starting, health, will, health_multiplier, will_multiplier = enums.classes[player_class]
+	_starting, health, will, health_multiplier, will_multiplier = enums.classes[player_class]
 
 	location = None
 	class_items: list[tuple[int, int]] | None = None
@@ -210,26 +282,9 @@ def creation_report(data: StaticData, java_src: Path, race: str, player_class: s
 	if location is None:
 		raise OracleError(f"no spawn location for {race}")
 
-	# skills
-	templates = []
-	for element in data.children("skill_tree", "skill"):
-		if java_int(element.get("minLevel"), "minLevel") != 1 or not java_boolean(element.get("autolearn")):
-			continue
-		class_id = element.get("classId")
-		if class_id is not None and class_id != player_class:
-			continue
-		skill_race = element.get("race", "PC_ALL")
-		if skill_race not in (race, "PC_ALL"):
-			continue
-		templates.append((0 if skill_race == race else 1, java_int(element.get("skillId"), "skillId")))
-	templates.sort(key=lambda t: t[0])  # SkillTreeData.getTemplatesFor: race specific first (stable document order inside)
-	skill_ids = [skill_id for _, skill_id in templates if not (skill_id == 30001 and not starting)]
-	levels = _skill_levels(data, set(skill_ids))
-	skills: dict[int, int] = {}
-	for skill_id in skill_ids:
-		if skill_id not in levels:
-			raise OracleError(f"skill {skill_id} has no skill template (SkillLearnTemplate.getSkillLevel throws NullPointerException)")
-		skills[skill_id] = max(skills.get(skill_id, 0), levels[skill_id])
+	# skills: PlayerService.newPlayer calls learnNewSkills(newPlayer, 1, newPlayer.getLevel()) and a new character is level 1
+	# (PlayerService.java:202, CM_CREATE_CHARACTER.java:62)
+	skills = learn_new_skills(data, enums, race, player_class, 1, 1)
 
 	# items
 	items_out = []

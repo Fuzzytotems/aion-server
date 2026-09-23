@@ -7,6 +7,7 @@
 #include <bit>
 #include <cstdint>
 #include <regex>
+#include <stdexcept>
 #include <string>
 #include <vector>
 
@@ -155,12 +156,72 @@ TEST(GameSessionTest, FightBodies) {
 	EXPECT_EQ(GameSession::buildCM_REVIVE(GameSession::OBELISK_REVIVE), (std::vector<uint8_t>{8}));
 }
 
+TEST(GameSessionTest, CastBodies) {
+	// the opcodes of AionClientPacketFactory: packets[33] CM_CASTSPELL, packets[35] CM_REMOVE_ALTERED_STATE
+	EXPECT_EQ(GameSession::CM_CASTSPELL, 33);
+	EXPECT_EQ(GameSession::CM_REMOVE_ALTERED_STATE, 35);
+
+	// CM_CASTSPELL.readImpl, the object arm: readUH spellid, readUC level, readUC targetType, readD targetObjectId, readUH hitTime, readD unk
+	const std::vector<uint8_t> flameBolt = GameSession::buildCM_CASTSPELL(1282, 1, 0, 0x0A0B0C0D, 1200);
+	EXPECT_EQ(flameBolt, (std::vector<uint8_t>{0x02, 0x05, 0x01, 0x00, 0x0D, 0x0C, 0x0B, 0x0A, 0xB0, 0x04, 0x00, 0x00, 0x00, 0x00}))
+		<< "1282 as a short, level 1, type 0, the object id, hit time 1200 as a short, the unk int";
+	for (const uint8_t type : {uint8_t{3}, uint8_t{4}}) {
+		PacketReader r(GameSession::buildCM_CASTSPELL(2864, 2, type, 77, 9));
+		EXPECT_EQ(static_cast<uint16_t>(r.H()), 2864);
+		EXPECT_EQ(r.C(), 2);
+		EXPECT_EQ(r.C(), type);
+		EXPECT_EQ(r.D(), 77) << "types 3 and 4 read an object id too (CM_CASTSPELL.java:44-48)";
+		EXPECT_EQ(static_cast<uint16_t>(r.H()), 9);
+		EXPECT_EQ(r.D(), 0);
+		EXPECT_EQ(r.remaining(), 0u);
+	}
+	EXPECT_THROW(GameSession::buildCM_CASTSPELL(1282, 1, 1, 5), std::invalid_argument) << "type 1 reads a point, not an object id";
+	EXPECT_THROW(GameSession::buildCM_CASTSPELL(1282, 1, 2, 5), std::invalid_argument);
+
+	GameSession::CastRequest point;
+	point.spellId = 1328;
+	point.level = 3;
+	point.targetType = 1;
+	point.x = 1.0f;
+	point.y = 2.0f;
+	point.z = 3.0f;
+	point.hitTime = 0x0102;
+	point.unk = 0x11223344;
+	PacketReader p(GameSession::buildCM_CASTSPELL(point));
+	EXPECT_EQ(static_cast<uint16_t>(p.H()), 1328);
+	EXPECT_EQ(p.C(), 3);
+	EXPECT_EQ(p.C(), 1);
+	EXPECT_EQ(std::bit_cast<float>(static_cast<uint32_t>(p.D())), 1.0f); // x (CM_CASTSPELL.java:50)
+	EXPECT_EQ(std::bit_cast<float>(static_cast<uint32_t>(p.D())), 2.0f);
+	EXPECT_EQ(std::bit_cast<float>(static_cast<uint32_t>(p.D())), 3.0f);
+	EXPECT_EQ(static_cast<uint16_t>(p.H()), 0x0102);
+	EXPECT_EQ(p.D(), 0x11223344);
+	EXPECT_EQ(p.remaining(), 0u);
+
+	point.targetType = 2;
+	EXPECT_EQ(GameSession::buildCM_CASTSPELL(point).size(), 4u + 12u + 32u + 6u) << "arm 2 reads eight more floats (CM_CASTSPELL.java:58-65)";
+	point.targetType = 9;
+	EXPECT_EQ(GameSession::buildCM_CASTSPELL(point).size(), 4u + 6u) << "a type without an arm reads nothing between the type and the hit time";
+
+	// CM_REMOVE_ALTERED_STATE.readImpl: readUH skillId, readC, readC
+	EXPECT_EQ(GameSession::buildCM_REMOVE_ALTERED_STATE(3195), (std::vector<uint8_t>{0x7B, 0x0C, 0x00, 0x00}));
+	EXPECT_EQ(GameSession::buildCM_REMOVE_ALTERED_STATE(3573, 0, 1), (std::vector<uint8_t>{0xF5, 0x0D, 0x00, 0x01}));
+}
+
 TEST(GameSessionTest, ServerPacketNames) {
 	EXPECT_EQ(GameSession::nameOf(0), "SM_VERSION_CHECK");
 	EXPECT_EQ(GameSession::nameOf(14), "SM_NPC_INFO");
 	EXPECT_EQ(GameSession::nameOf(15), "SM_PLAYER_SPAWN");
 	EXPECT_EQ(GameSession::nameOf(72), "SM_KEY");
 	EXPECT_EQ(GameSession::nameOf(9), "SM_UNKNOWN_9");
+	// the names castAndWait matches on (m5b2-plan.md G-02), and the four other packets of SkillDecoders.h
+	EXPECT_EQ(GameSession::nameOf(33), "SM_CASTSPELL");
+	EXPECT_EQ(GameSession::nameOf(42), "SM_SKILL_CANCEL");
+	EXPECT_EQ(GameSession::nameOf(43), "SM_CASTSPELL_RESULT");
+	EXPECT_EQ(GameSession::nameOf(49), "SM_ABNORMAL_STATE");
+	EXPECT_EQ(GameSession::nameOf(50), "SM_ABNORMAL_EFFECT");
+	EXPECT_EQ(GameSession::nameOf(51), "SM_SKILL_COOLDOWN");
+	EXPECT_EQ(GameSession::nameOf(4), "SM_STATUPDATE_MP");
 }
 
 } // namespace

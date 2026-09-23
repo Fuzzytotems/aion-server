@@ -10,6 +10,12 @@ namespace aion::gameserver::skillengine::effect {
 class SignetBurstEffect : public ::aion::gameserver::skillengine::effect::DamageEffect {
 #include "aion/gameserver/skillengine/effect/SignetBurstEffect.xml.inc"
 public:
+	void calculateDamage(model::Effect& effect) const override;
+
+	using DamageEffect::calculate; // C++ name hiding by the declaration below (hub-headers.md §9.1)
+
+	void calculate(model::Effect& effect) const override;
+
 	bool shouldUseBoostSpellAttackEffects() const override;
 
 	bool shouldUseOneTimeBoostSkillAttack() const override;

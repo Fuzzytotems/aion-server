@@ -10,6 +10,8 @@
 #include <gtest/gtest.h>
 
 #include <cstdint>
+#include <stdexcept>
+#include <string>
 #include <vector>
 
 #include "Oracle.h"
@@ -171,6 +173,158 @@ TEST(OracleTest, AMonsterWithoutAPlainSpotHasNoNearestPlainSpot) {
 	EXPECT_EQ(monster.spots.size(), 1u);
 	EXPECT_EQ(monster.spots[0].ai, "") << "no ai name at all";
 	EXPECT_EQ(monster.tribe, "") << "a template without a tribe";
+}
+
+// m5b2-skills (m5b2-plan.md G-01): the constants the M5b-2 gate asserts exactly. The answer below is a real run of
+// `oracle.py m5b2-skills --race ELYOS --class MAGE --npc 210133`, trimmed to the gate's three Mage ids (1282, 1328, 8291) and to the fields
+// Oracle::parseSkills reads, so the parser is pinned to the format the oracle actually writes.
+constexpr const char* SKILLS_ANSWER = R"({"format": "aion-m5b2-skills", "version": 1, "race": "ELYOS", "playerClass": "MAGE", "level": 1,
+  "character": {"skills": [{"skillId": 40, "level": 1}, {"skillId": 100, "level": 1}, {"skillId": 103, "level": 1}, {"skillId": 243, "level": 1},
+                           {"skillId": 245, "level": 1}, {"skillId": 302, "level": 1}, {"skillId": 1282, "level": 1}, {"skillId": 1328, "level": 1},
+                           {"skillId": 30001, "level": 1}], "passives": [40, 100, 103]},
+  "soulSickness": {"skillId": 8291, "deathCount": 1, "maxDeathCount": 10},
+  "npcs": [{"npcId": 210133, "name": "striped kerub", "level": 1, "castSpeed": 1000, "skills": [{"skillId": 16419, "level": 1, "prob": 25,
+            "minHp": 0, "maxHp": 100, "cd": 0, "prio": 0, "nextSkillTime": -1, "isPostSpawn": false, "target": "MOST_HATED", "castDuration": 2500}]}],
+  "skills": [
+    {"skillId": 1282, "level": 1, "sources": ["autolearn"], "name": "Flame Bolt", "lvl": 1, "skillType": "MAGICAL", "subType": "ATTACK",
+     "category": "CHAIN_SKILL", "activation": "ACTIVE", "method": "CAST", "targetSlot": {"name": "NONE", "ordinal": 7, "id": 128},
+     "baseCastDuration": 2000, "castDuration": 2000, "castSpeed": 1.0, "allowAnimationBoost": true, "cooldown": 0, "cooldownMillis": 0,
+     "chainCategory": "M_CHAINA_1TH_1", "mpCost": 19, "effects": [{"tag": "spellatkinstant", "class": "SpellAttackInstantEffect",
+     "classChain": ["SpellAttackInstantEffect", "DamageEffect", "EffectTemplate"], "position": 1, "duration1": 0, "duration2": 0,
+     "randomTime": 0}], "effectDuration": 0, "effectDurationRandomTime": 0, "notModelled": []},
+    {"skillId": 1328, "level": 1, "sources": ["autolearn"], "name": "Root", "lvl": 1, "skillType": "MAGICAL", "subType": "DEBUFF",
+     "category": "PHYSICAL_DEBUFF", "activation": "ACTIVE", "method": "CAST", "targetSlot": {"name": "DEBUFF", "ordinal": 1, "id": 2},
+     "baseCastDuration": 0, "castDuration": 0, "castSpeed": 1.0, "allowAnimationBoost": true, "cooldown": 600, "cooldownMillis": 60000,
+     "chainCategory": null, "mpCost": 38, "effects": [{"tag": "root", "class": "RootEffect", "classChain": ["RootEffect", "EffectTemplate"],
+     "position": 1, "duration1": 0, "duration2": 20000, "randomTime": 0}], "effectDuration": 20000, "effectDurationRandomTime": 0, "notModelled": []},
+    {"skillId": 8291, "level": 1, "sources": ["soulSickness"], "name": "Soul Sickness", "lvl": 1, "skillType": "MAGICAL", "subType": "NONE",
+     "category": "NONE", "activation": "PROVOKED", "method": "PROVOKED", "targetSlot": {"name": "SPEC2", "ordinal": 4, "id": 16},
+     "baseCastDuration": 0, "castDuration": 0, "castSpeed": 1.0, "allowAnimationBoost": false, "cooldown": 0, "cooldownMillis": 0,
+     "chainCategory": null, "mpCost": 0, "effects": [{"tag": "statdown", "class": "StatdownEffect", "classChain": ["StatdownEffect", "BufEffect",
+     "EffectTemplate"], "position": 1, "duration1": 20000, "duration2": 40000, "randomTime": 0}], "effectDuration": 60000,
+     "effectDurationRandomTime": 0, "notModelled": []}],
+  "effectClasses": {"leaves": ["AlwaysDodgeEffect", "AlwaysResistEffect", "ArmorMasteryEffect", "EscapeEffect", "HealInstantEffect", "ReturnEffect",
+                               "RootEffect", "SkillAttackInstantEffect", "SpellAttackInstantEffect", "StatdownEffect", "WeaponMasteryEffect"],
+                    "withBases": ["AbstractHealEffect", "AlwaysDodgeEffect", "AlwaysResistEffect", "ArmorMasteryEffect", "BufEffect", "DamageEffect",
+                                  "EffectTemplate", "EscapeEffect", "HealInstantEffect", "ReturnEffect", "RootEffect", "SkillAttackInstantEffect",
+                                  "SpellAttackInstantEffect", "StatdownEffect", "WeaponMasteryEffect"]}})";
+
+TEST(OracleTest, SkillsAnswerIsParsedAsTheOracleWritesIt) {
+	const OracleSkills skills = Oracle::parseSkills(SKILLS_ANSWER);
+	EXPECT_EQ(skills.race, "ELYOS");
+	EXPECT_EQ(skills.playerClass, "MAGE");
+	EXPECT_EQ(skills.level, 1);
+	ASSERT_EQ(skills.characterSkills.size(), 9u);
+	EXPECT_EQ(skills.characterSkills[3].skillId, 243) << "the class-less Return";
+	EXPECT_EQ(skills.characterSkills[6].skillId, 1282);
+	EXPECT_EQ(skills.characterSkills[6].level, 1);
+	EXPECT_EQ(skills.passives, (std::vector<int32_t>{40, 100, 103}));
+	EXPECT_EQ(skills.soulSicknessSkillId, 8291);
+	EXPECT_EQ(skills.deathCount, 1);
+	ASSERT_EQ(skills.npcs.size(), 1u);
+	EXPECT_EQ(skills.npcs[0].npcId, 210133);
+	EXPECT_EQ(skills.npcs[0].level, 1);
+	EXPECT_EQ(skills.npcs[0].castSpeed, 1000);
+	ASSERT_EQ(skills.npcs[0].skills.size(), 1u);
+	EXPECT_EQ(skills.npcs[0].skills[0].skillId, 16419);
+	EXPECT_EQ(skills.npcs[0].skills[0].level, 1);
+	EXPECT_EQ(skills.npcs[0].skills[0].prob, 25);
+	EXPECT_FALSE(skills.npcs[0].skills[0].isPostSpawn);
+	EXPECT_EQ(skills.npcs[0].skills[0].castDuration, 2500);
+	EXPECT_EQ(skills.effectLeaves.size(), 11u);
+	EXPECT_EQ(skills.effectClasses.size(), 15u);
+	EXPECT_EQ(skills.effectClasses[6], "EffectTemplate");
+
+	const OracleSkillTemplate& bolt = skills.skill(1282);
+	EXPECT_EQ(bolt.name, "Flame Bolt");
+	EXPECT_EQ(bolt.sources, (std::vector<std::string>{"autolearn"}));
+	EXPECT_EQ(bolt.castDuration, 2000) << "X4's cast bar";
+	EXPECT_EQ(bolt.castSpeed, 1.0f);
+	EXPECT_TRUE(bolt.allowAnimationBoost);
+	EXPECT_EQ(bolt.mpCost, 19) << "X4's MP";
+	EXPECT_EQ(bolt.cooldown, 0);
+	EXPECT_EQ(bolt.baseCastDuration, 2000);
+	EXPECT_EQ(bolt.chainCategory, "M_CHAINA_1TH_1");
+	ASSERT_TRUE(bolt.targetSlot.has_value());
+	EXPECT_EQ(bolt.targetSlot->name, "NONE");
+	ASSERT_EQ(bolt.effects.size(), 1u);
+	EXPECT_EQ(bolt.effects[0].effectClass, "SpellAttackInstantEffect");
+	EXPECT_EQ(bolt.effects[0].classChain, (std::vector<std::string>{"SpellAttackInstantEffect", "DamageEffect", "EffectTemplate"}));
+	EXPECT_EQ(bolt.effectDuration, 0) << "0 is 'no timed effect', which is an answer, not a missing one";
+
+	const OracleSkillTemplate& root = skills.skill(1328, 1);
+	ASSERT_TRUE(root.targetSlot.has_value());
+	EXPECT_EQ(root.targetSlot->ordinal, 1) << "what SM_ABNORMAL_EFFECT writes per effect for X6";
+	EXPECT_EQ(root.targetSlot->id, 2) << "the slot mask";
+	EXPECT_EQ(root.effectDuration, 20000) << "X6's 20-second debuff";
+	EXPECT_EQ(root.cooldown, 600);
+	EXPECT_EQ(root.cooldownMillis, 60000);
+	EXPECT_EQ(root.mpCost, 38);
+	EXPECT_FALSE(root.chainCategory.has_value()) << "null, not an empty category";
+	EXPECT_EQ(root.effects[0].tag, "root");
+	EXPECT_EQ(root.effects[0].duration2, 20000);
+	EXPECT_EQ(root.effects[0].duration1, 0);
+
+	const OracleSkillTemplate& sickness = skills.skill(skills.soulSicknessSkillId);
+	EXPECT_EQ(sickness.activation, "PROVOKED");
+	EXPECT_EQ(sickness.method, "PROVOKED");
+	EXPECT_EQ(sickness.targetSlot->ordinal, 4) << "SPEC2";
+	EXPECT_EQ(sickness.targetSlot->id, 16);
+	EXPECT_EQ(sickness.effectDuration, 60000) << "X10: 40000 + 20000 * deathCount 1";
+	EXPECT_EQ(sickness.effects[0].duration1, 20000);
+	EXPECT_EQ(sickness.effects[0].duration2, 40000);
+	EXPECT_EQ(sickness.lvl, 1);
+}
+
+TEST(OracleTest, WhatTheSkillsOracleDoesNotModelStaysNull) {
+	// tools/oracle/m5b2/skills.py writes null (with a `notModelled` reason) for a value it refuses to guess, and 0 where 0 is the answer
+	const OracleSkills skills = Oracle::parseSkills(R"({"race": "ELYOS", "playerClass": "WARRIOR", "level": 3,
+	  "character": {"skills": [], "passives": []}, "soulSickness": {"skillId": 8291, "deathCount": 2}, "npcs": [{"npcId": 5, "skills": []}],
+	  "skills": [
+	    {"skillId": 7, "level": 1, "targetSlot": null, "castDuration": null, "castSpeed": null, "mpCost": null, "chainCategory": null,
+	     "effects": [], "effectDuration": null, "effectDurationRandomTime": null, "notModelled": ["castDuration: charge", "mpCost: ratio"]},
+	    {"skillId": 7, "level": 3, "targetSlot": {"name": "BUFF", "ordinal": 0, "id": 1}, "castDuration": 0, "castSpeed": 0.0, "mpCost": 0,
+	     "effects": [], "effectDuration": 0, "effectDurationRandomTime": 250, "notModelled": []}],
+	  "effectClasses": {"leaves": [], "withBases": []}})");
+	EXPECT_EQ(skills.level, 3);
+	EXPECT_EQ(skills.deathCount, 2);
+	ASSERT_EQ(skills.npcs.size(), 1u);
+	EXPECT_TRUE(skills.npcs[0].skills.empty()) << "an npc without a list";
+
+	const OracleSkillTemplate& unknown = skills.skill(7, 1);
+	EXPECT_FALSE(unknown.castDuration.has_value());
+	EXPECT_FALSE(unknown.castSpeed.has_value());
+	EXPECT_FALSE(unknown.mpCost.has_value());
+	EXPECT_FALSE(unknown.effectDuration.has_value());
+	EXPECT_FALSE(unknown.targetSlot.has_value());
+	EXPECT_FALSE(unknown.chainCategory.has_value());
+	EXPECT_EQ(unknown.effectDurationRandomTime, 0);
+	EXPECT_EQ(unknown.notModelled, (std::vector<std::string>{"castDuration: charge", "mpCost: ratio"}));
+
+	const OracleSkillTemplate& zeros = skills.skill(7, 3);
+	EXPECT_EQ(zeros.castDuration, 0) << "a 0 is engaged, not null";
+	EXPECT_EQ(zeros.castSpeed, 0.0f);
+	EXPECT_EQ(zeros.mpCost, 0);
+	EXPECT_EQ(zeros.effectDuration, 0);
+	EXPECT_EQ(zeros.effectDurationRandomTime, 250);
+	ASSERT_TRUE(zeros.targetSlot.has_value());
+	EXPECT_EQ(zeros.targetSlot->ordinal, 0) << "BUFF's ordinal is 0 and its id 1";
+	EXPECT_EQ(zeros.targetSlot->id, 1);
+}
+
+TEST(OracleTest, ASkillOfSeveralLevelsNeedsItsLevel) {
+	const OracleSkills skills = Oracle::parseSkills(R"({"race": "ELYOS", "playerClass": "MAGE", "level": 1,
+	  "character": {"skills": [], "passives": []}, "soulSickness": {"skillId": 8291, "deathCount": 1}, "npcs": [],
+	  "skills": [{"skillId": 8291, "level": 1, "effects": [], "effectDuration": 60000},
+	             {"skillId": 8291, "level": 3, "effects": [], "effectDuration": 100000},
+	             {"skillId": 1282, "level": 1, "effects": []}],
+	  "effectClasses": {"leaves": [], "withBases": []}})");
+	EXPECT_EQ(skills.skill(8291, 1).effectDuration, 60000);
+	EXPECT_EQ(skills.skill(8291, 3).effectDuration, 100000) << "the level picks the entry";
+	EXPECT_THROW(skills.skill(8291), std::out_of_range) << "two levels of the id and no level given";
+	EXPECT_EQ(skills.skill(1282).skillId, 1282) << "an id of one level needs none";
+	EXPECT_THROW(skills.skill(1282, 2), std::out_of_range);
+	EXPECT_THROW(skills.skill(4242), std::out_of_range);
 }
 
 } // namespace

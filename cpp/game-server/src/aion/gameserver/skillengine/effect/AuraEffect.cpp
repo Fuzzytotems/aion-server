@@ -8,4 +8,20 @@ void AuraEffect::applyEffect(model::Effect& /*effect*/) const {
 	AION_UNPORTED();
 }
 
+void AuraEffect::onPeriodicAction(model::Effect& /*effect*/) const {
+	AION_UNPORTED();
+}
+
+void AuraEffect::applyAuraTo(gameserver::model::gameobjects::Creature& /*effected*/) const {
+	AION_UNPORTED();
+}
+
+void AuraEffect::startEffect(model::Effect& /*effect*/) const {
+	AION_UNPORTED();
+}
+
+void AuraEffect::endEffect(model::Effect& /*effect*/) const {
+	AION_UNPORTED();
+}
+
 } // namespace aion::gameserver::skillengine::effect

@@ -8,4 +8,16 @@ void SpinEffect::applyEffect(model::Effect& /*effect*/) const {
 	AION_UNPORTED();
 }
 
+void SpinEffect::calculate(model::Effect& /*effect*/) const {
+	AION_UNPORTED();
+}
+
+void SpinEffect::startEffect(model::Effect& /*effect*/) const {
+	AION_UNPORTED();
+}
+
+void SpinEffect::endEffect(model::Effect& /*effect*/) const {
+	AION_UNPORTED();
+}
+
 } // namespace aion::gameserver::skillengine::effect

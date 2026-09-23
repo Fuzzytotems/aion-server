@@ -4,6 +4,10 @@
 
 namespace aion::gameserver::skillengine::effect {
 
+void ProcHealInstantEffect::calculate(model::Effect& /*effect*/) const {
+	AION_UNPORTED();
+}
+
 void ProcHealInstantEffect::applyEffect(model::Effect& /*effect*/) const {
 	AION_UNPORTED();
 }

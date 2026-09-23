@@ -8,4 +8,16 @@ void SleepEffect::applyEffect(model::Effect& /*effect*/) const {
 	AION_UNPORTED();
 }
 
+void SleepEffect::calculate(model::Effect& /*effect*/) const {
+	AION_UNPORTED();
+}
+
+void SleepEffect::startEffect(model::Effect& /*effect*/) const {
+	AION_UNPORTED();
+}
+
+void SleepEffect::endEffect(model::Effect& /*effect*/) const {
+	AION_UNPORTED();
+}
+
 } // namespace aion::gameserver::skillengine::effect

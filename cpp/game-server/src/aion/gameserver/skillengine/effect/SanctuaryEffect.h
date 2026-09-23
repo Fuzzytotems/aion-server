@@ -10,6 +10,10 @@ class SanctuaryEffect : public ::aion::gameserver::skillengine::effect::EffectTe
 #include "aion/gameserver/skillengine/effect/SanctuaryEffect.xml.inc"
 public:
 	void applyEffect(model::Effect& effect) const override;
+
+	void startEffect(model::Effect& effect) const override;
+
+	void endEffect(model::Effect& effect) const override;
 };
 
 } // namespace aion::gameserver::skillengine::effect

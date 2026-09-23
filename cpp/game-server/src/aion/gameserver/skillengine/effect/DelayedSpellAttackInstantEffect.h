@@ -10,6 +10,8 @@ class DelayedSpellAttackInstantEffect : public ::aion::gameserver::skillengine::
 #include "aion/gameserver/skillengine/effect/DelayedSpellAttackInstantEffect.xml.inc"
 public:
 	void applyEffect(model::Effect& effect) const override;
+
+	void calculateDamage(model::Effect& effect) const override;
 };
 
 } // namespace aion::gameserver::skillengine::effect

@@ -199,3 +199,42 @@ override `getExpMultiplier`), a template without a rating or rank (Java throws),
 
 Tests: `tests/test_m5b.py` (the float formulas alone, the Java literals as they stand today, the whole report on a small static_data tree,
 and npc 210663 on Poeta against a level 1 Elyos Warrior).
+
+## M5b-2 scenario oracles (`m5b2/`, `docs/design/m5b2-plan.md` G-01)
+
+```
+python oracle.py m5b2-skills --race ELYOS --class MAGE [--level 1] [--skill ID[:LEVEL] ...] [--npc ID ...] [--death-count 1]
+                             [--java-src game-server/src]
+```
+
+The skills a character casts in the M5b-2 gate and every template constant the gate asserts exactly (plan D8), in one JSON document
+(`aion-m5b2-skills`):
+
+- `character.skills`: the autolearn set of `SkillLearnService.learnNewSkills(player, 1, level)` - shared with `m5a-creation` through
+  `m5a/creation.py learn_new_skills`, so the class-less `skill_tree.xml` rows (243 *Return*, 245 *Bandage Heal*, 302 *Escape*) are there by
+  construction. Only a starting class (`CM_CREATE_CHARACTER.java:92`) and levels 1..9 (a character that is not a daeva is capped at 9); plus
+  `passives`, the `equippedItems` of the starting gear and the stat sources the oracle refuses to model (`castingTimeSources`,
+  `skillCostSources`);
+- `skills`: one entry per (skill id, level) - the autolearn set, every `--skill` (a skill the gate seeds into `player_skills`, default level
+  the template's `lvl`), the soul sickness at `--death-count`, and every `--npc`'s npc skills - with `castDuration` (the `writeH` of
+  `SM_CASTSPELL`, `Skill.updateCastDurationAndSpeed` for a player), `castSpeed` and `allowAnimationBoost` (its float and its last byte),
+  `cooldown` (the `writeD` of `SM_CASTSPELL_RESULT`, 100 ms units, with `cooldown_delta_lv * level`) and `cooldownMillis` (the duration
+  `SM_SKILL_COOLDOWN` writes), `mpCost` (the `<mp>` END condition: `MpCondition.getCost`, i.e. the `USED_MP` of `SM_ATTACK_STATUS`) and every
+  cost per condition section, `targetSlot` (name, `ordinal` - what `SM_ABNORMAL_STATE`/`SM_ABNORMAL_EFFECT` write per effect - and `id`, the
+  slot mask), the `effects` with their tag, **class** (`Effects.java`), `classChain` up to `EffectTemplate`, position, `duration1`,
+  `duration2`, `randomTime`, `preEffects`, `changes` and raw attributes, and `effectDuration` (`Effect.calculateTemplateDuration` when every
+  template succeeds; the random part is `effectDurationRandomTime`, not rolled);
+- `soulSickness`: the skill id `PlayerController.updateSoulSickness` casts (8291) and the death count it casts it at;
+- `npcs`: each `--npc`'s `npc_skills` list (the first list naming the id wins, `NpcSkillData.afterUnmarshal`) with the npc's own
+  `castDuration` (`Math.round(duration * cast_speed / 1000f)`);
+- `effectClasses`: the leaf effect classes of all reported skills and their closure under `extends` - the per-character form of
+  m5b2-plan.md §2.4's inventory.
+
+A value the oracle does not model is `null` with a reason in the entry's `notModelled`, never a guess: a casting time stat function (an
+equipped `BOOST_CASTING_TIME*` modifier, an item set, a passive that changes such a stat or is a `BoostSkillCastingTimeEffect`), a
+`BoostSkillCostEffect` passive, an `<mp ratio="true">` cost, a CHARGE skill. The literals (`SkillTargetSlot`, the 8291 and its death count
+cap, the 25 % cast duration cap, the 170 `Effects.java` bindings and the `extends` chains) are read from the Java sources. Exit code 2
+(`OracleError`) for a class that cannot be created, a level outside 1..9, a death count outside 1..10 and a skill id without a template.
+
+Tests: `tests/test_m5b2.py` (the formulas alone, the Java tables as they stand today, the whole report on a small static_data tree, and the
+gate's four ids 2864, 1282, 1328 and 8291 plus 3195, 1838 and npc 210133 on the real data).
