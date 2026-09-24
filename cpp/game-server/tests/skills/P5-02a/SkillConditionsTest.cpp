@@ -13,6 +13,7 @@
 #include <cstdint>
 #include <memory>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include "aion/commons/utils/TimeUtils.h"
@@ -23,6 +24,7 @@
 #include "aion/gameserver/controllers/movement/PlayerMoveController.h"
 #include "aion/gameserver/dataholders/ItemData.bind.h"
 #include "aion/gameserver/dataholders/ItemData.h"
+#include "aion/gameserver/dataholders/ItemRestrictionCleanupData.h"
 #include "aion/gameserver/dataholders/loadingutils/EnumTraits.h"
 #include "aion/gameserver/model/Race.h"
 #include "aion/gameserver/model/gameobjects/Creature.h"
@@ -43,8 +45,12 @@
 #include "aion/gameserver/model/templates/item/enums/ItemGroup.h"
 #include "aion/gameserver/model/templates/item/enums/ItemGroupInfo.h"
 #include "aion/gameserver/network/aion/serverpackets/SM_CASTSPELL_RESULT.h"
+#include "aion/gameserver/network/aion/serverpackets/SM_CUBE_UPDATE.h"
+#include "aion/gameserver/network/aion/serverpackets/SM_DELETE_ITEM.h"
+#include "aion/gameserver/network/aion/serverpackets/SM_INVENTORY_UPDATE_ITEM.h"
 #include "aion/gameserver/network/aion/serverpackets/SM_SYSTEM_MESSAGE.h"
 #include "aion/gameserver/runtime/base/Exceptions.h"
+#include "aion/gameserver/services/item/ItemPacketService_ItemUpdateType.h"
 #include "aion/gameserver/skillengine/SkillEngine.h"
 #include "aion/gameserver/skillengine/action/Action.h"
 #include "aion/gameserver/skillengine/action/Actions.h"
@@ -71,8 +77,13 @@ using gameserver::model::stats::calc::functions::StatFunctionProxy;
 using gameserver::model::stats::container::StatEnum;
 using gameserver::model::templates::item::enums::ItemGroup;
 using network::aion::serverpackets::SM_CASTSPELL_RESULT;
+using network::aion::serverpackets::SM_CUBE_UPDATE;
+using network::aion::serverpackets::SM_DELETE_ITEM;
+using network::aion::serverpackets::SM_INVENTORY_UPDATE_ITEM;
 using network::aion::serverpackets::SM_SYSTEM_MESSAGE;
 using properties::Properties_CastState;
+using ItemUpdateType = services::item::ItemPacketService_ItemUpdateType;
+using namespace std::chrono_literals;
 using runtime::Ptr;
 using runtime::Ref;
 
@@ -123,6 +134,63 @@ constexpr int32_t PENALTY_CAST_SKILL = 61111;
 
 constexpr int32_t UNKNOWN_PENALTY_SKILL = 99998;
 
+/**
+ * 245 Bandage Heal (skill_templates.xml:3072) without its <healinstant> effect and its "mending" motion: a 4,000 ms PHYSICAL HEAL cast on
+ * oneself whose cost is <itemuse itemid="169300002" count="1"/>
+ */
+constexpr int32_t BANDAGE_HEAL = 61113;
+/** An instant self skill without costs, cast by an item (Skill's ITEM method: a potion's skill) */
+constexpr int32_t ITEM_ACTIVATED = 61114;
+/** item_templates.xml:850013 */
+constexpr int32_t BANDAGE = 169300002;
+constexpr const char* BANDAGE_TEMPLATE_XML = R"(<item_template id="169300002" name="Bandage" level="1" cName="bandage_01" mask="12414")"
+											  R"( max_stack_count="10000" quality="COMMON" price="5" desc="701824"/>)";
+/** item_templates.xml:830772 without its <actions> (item action hooks, later P5-07 work) and <uselimits> */
+constexpr int32_t MANA_POTION = 162000010;
+constexpr const char* MANA_POTION_TEMPLATE_XML = R"(<item_template id="162000010" name="Greater Mana Potion" level="40" cName="remedy_mp_40a")"
+												  R"( mask="12414" max_stack_count="1000" quality="COMMON" price="1500" desc="702599" activate_target="STANDALONE")"
+												  R"( activate_count="1"/>)";
+
+// ServerPacketsOpcodes.java
+constexpr int32_t SM_DELETE_ITEM_OPCODE = 28;
+constexpr int32_t SM_CUBE_UPDATE_OPCODE = 130;
+
+/** One server packet as Java writes it: AionServerPacket.writeOP ([H op][C 0x44][H ~op], op = Crypt.encodeServerPacketOpcode) and the body */
+std::vector<uint8_t> javaPacket(int32_t opcode, const network::test::PacketWriter& body) {
+	int32_t op = (opcode + 207) ^ 0xDF; // (opcode + SM_VERSION_CHECK.INTERNAL_VERSION) ^ 0xDF
+	network::test::PacketWriter packet;
+	packet.H(op).C(0x44).H(~op);
+	packet.B(body.data);
+	return packet.data;
+}
+
+/** The last two body bytes of a captured packet as Java's final writeH (the update type mask of a sendable type), -1 for a shorter body */
+int32_t trailingMask(const std::vector<uint8_t>& packet) {
+	std::vector<uint8_t> body = cp::bodyOf(packet);
+	return body.size() < 2 ? -1 : body[body.size() - 2] | body[body.size() - 1] << 8;
+}
+
+/** SM_CUBE_UPDATE.cubeSize(CUBE, player) of a character without cube expansions: action 0, CUBE's ordinal 0, the item count, three zeros */
+std::vector<uint8_t> javaCubeSize(int32_t itemsCount) {
+	return javaPacket(SM_CUBE_UPDATE_OPCODE, network::test::PacketWriter().C(0).C(0).D(itemsCount).C(0).C(0).C(0));
+}
+
+/** ITEM_DATA with the templates and the empty ITEM_CLEAN_UP that SM_INVENTORY_UPDATE_ITEM's item info blob reads, for one test */
+class PublishedItems {
+public:
+	PublishedItems(xml::LoadContext& context, std::string_view templates) {
+		dataholders::DataManager::ITEM_DATA.publish(
+			xml::bindString<dataholders::ItemData>(context, "<item_templates>" + std::string(templates) + "</item_templates>"));
+		dataholders::DataManager::ITEM_CLEAN_UP.publish(std::make_unique<dataholders::ItemRestrictionCleanupData>());
+	}
+	~PublishedItems() {
+		dataholders::DataManager::ITEM_CLEAN_UP.resetForTests();
+		dataholders::DataManager::ITEM_DATA.resetForTests();
+	}
+	PublishedItems(const PublishedItems&) = delete;
+	PublishedItems& operator=(const PublishedItems&) = delete;
+};
+
 std::string conditionSkillData() {
 	auto skill = [](int32_t id, std::string_view extra, std::string_view body) {
 		return "<skill_template skill_id=\"" + std::to_string(id) + "\" name=\"c" + std::to_string(id) + "\" nameId=\"1\" stack=\"C"
@@ -166,7 +234,13 @@ std::string conditionSkillData() {
 		+ skill(FRIEND_AREA_PROPERTY, "", R"(<properties first_target="ME" target_relation="FRIEND" target_type="AREA" effective_range="10"/>)")
 		+ skill(COUNTER_SKILL, R"(counter_skill="DODGE")", me)
 		+ skill(PENALTY_EFFECT_SKILL, R"(penalty_skill_id="99998")", me)
-		+ skill(PENALTY_CAST_SKILL, R"(penalty_skill_id="60002" penalty_skill_send_msg="true")", me) + "</skill_data>";
+		+ skill(PENALTY_CAST_SKILL, R"(penalty_skill_id="60002" penalty_skill_send_msg="true")", me)
+		+ R"(<skill_template skill_id="61113" name="c61113" nameId="1" stack="C61113" lvl="1" skilltype="PHYSICAL" skill_category="HEAL")"
+		  R"( skillsubtype="HEAL" activation="ACTIVE" cooldown="0" duration="4000">)"
+		  R"(<properties first_target="ME" first_target_range="1" target_relation="FRIEND" target_type="ONLYONE"/>)"
+		  R"(<useconditions><move_casting allow="false"/></useconditions><actions><itemuse itemid="169300002" count="1"/></actions>)"
+		  R"(</skill_template>)"
+		+ skill(ITEM_ACTIVATED, "", me) + "</skill_data>";
 }
 
 /** Exposes the protected KnownList::addPair, so two objects know each other without the World singleton (AttackSeamTest's KnownListPairing) */
@@ -579,9 +653,8 @@ TEST_F(SkillConditionsTest, APeriodicRatioCostBeyondTheIntRangeSaturatesAndEndsT
 
 TEST_F(SkillConditionsTest, AnItemCostCountsTheItemsOfTheInventory) {
 	// ItemUseAction (ItemUseAction.java:32-49): canAct wants `count` of the item in the inventory, STR_SKILL_NOT_ENOUGH_ITEM with the item's name
-	// otherwise; act takes them (decreaseByItemId), or with expendable="false" only checks; an npc is never asked. Taking them is not observable
-	// here: Storage.decreaseByItemId sends the inventory update through ItemPacketService, whose bodies are AION_UNPORTED (P5-07's), and so is
-	// the add path, which is why the items are loaded with onLoadHandler (the DAO's path, no packet)
+	// otherwise; act takes them (decreaseByItemId), or with expendable="false" only checks; an npc is never asked. The items are loaded with
+	// onLoadHandler (the DAO's path, no packet); taking them sends the deletes through ItemPacketService (ported with m5b3-plan.md T-02)
 	if (dataholders::DataManager::ITEM_DATA)
 		GTEST_SKIP() << "another test of this process published ITEM_DATA";
 	dataholders::DataManager::ITEM_DATA.publish(xml::bindString<dataholders::ItemData>(itemContext,
@@ -615,6 +688,89 @@ TEST_F(SkillConditionsTest, AnItemCostCountsTheItemsOfTheInventory) {
 	caster.player->getInventory().onLoadHandler(*moreMedals);
 	ASSERT_EQ(caster.player->getInventory().getItemCountByItemId(COST_ITEM), 2);
 	EXPECT_TRUE(takeTwo.canAct(*conditionSkill(ITEM_COSTS))) << "2 of 2";
+
+	// act takes both one-item stacks: Storage.decreaseByItemId -> decreaseItemCount(item, left, DEC_ITEM_USE) per stack -> an emptied stack is
+	// deleted with ItemDeleteType.fromUpdateType(DEC_ITEM_USE) = USE -> SM_DELETE_ITEM(objectId, 0x17), then the cube size (Storage.java,
+	// ItemPacketService.java:177-185). Which stack goes first is the storage's order; the cube size after each delete is 1, then 0.
+	(*client)->clearSent();
+	EXPECT_TRUE(takeTwo.act(*conditionSkill(ITEM_COSTS)));
+	EXPECT_EQ(caster.player->getInventory().getItemCountByItemId(COST_ITEM), 0);
+	EXPECT_FALSE(caster.player->getInventory().getItemByObjId(810010));
+	EXPECT_FALSE(caster.player->getInventory().getItemByObjId(810011));
+	std::vector<std::vector<uint8_t>> packets = sent();
+	ASSERT_EQ(packets.size(), 4u) << "two deletes, each with its cube size";
+	const int32_t firstDeleted = packets[0] == javaPacket(SM_DELETE_ITEM_OPCODE, network::test::PacketWriter().D(810010).C(0x17)) ? 810010 : 810011;
+	const int32_t secondDeleted = firstDeleted == 810010 ? 810011 : 810010;
+	EXPECT_EQ(packets[0], javaPacket(SM_DELETE_ITEM_OPCODE, network::test::PacketWriter().D(firstDeleted).C(0x17)));
+	EXPECT_EQ(packets[1], javaCubeSize(1));
+	EXPECT_EQ(packets[2], javaPacket(SM_DELETE_ITEM_OPCODE, network::test::PacketWriter().D(secondDeleted).C(0x17)));
+	EXPECT_EQ(packets[3], javaCubeSize(0));
+}
+
+TEST_F(SkillConditionsTest, ABandageHealCastTakesOneBandageWhenItEndsAndSendsJavasInventoryPackets) {
+	// m5b3-plan.md E-14: 245 Bandage Heal's <itemuse itemid="169300002" count="1"/> is paid at the end of the cast - endCast -> payCastCosts ->
+	// ItemUseAction.act -> Storage.decreaseByItemId -> decreaseItemCount(DEC_ITEM_USE) -> ItemPacketService.sendItemPacket (Skill.java:784-812,
+	// Storage.java, ItemPacketService.java:167-204): a stack with bandages left is updated (SM_INVENTORY_UPDATE_ITEM, DEC_ITEM_USE), the last
+	// bandage is deleted (SM_DELETE_ITEM with USE, then SM_CUBE_UPDATE)
+	if (dataholders::DataManager::ITEM_DATA)
+		GTEST_SKIP() << "another test of this process published ITEM_DATA";
+	PublishedItems published(itemContext, BANDAGE_TEMPLATE_XML);
+	Ref<Item> bandages = Item::create(810020, dataholders::DataManager::ITEM_DATA->getItemTemplate(BANDAGE), 2, false, 0);
+	caster.player->getInventory().onLoadHandler(*bandages);
+	(*client)->clearSent();
+
+	static_cast<void>(conditionSkill(BANDAGE_HEAL, caster.player)->useSkill());
+	EXPECT_TRUE(caster.player->isCasting());
+	advance(3999ms);
+	EXPECT_EQ(bandages->getItemCount(), 2) << "nothing is paid before the cast ends";
+	EXPECT_TRUE(packetsOf<SM_INVENTORY_UPDATE_ITEM>(sent()).empty());
+	advance(1ms);
+	EXPECT_FALSE(caster.player->isCasting()) << "endCast ran to its end (setCasting(null) comes after payCastCosts)";
+	EXPECT_EQ(bandages->getItemCount(), 1) << "one bandage taken";
+	std::vector<std::vector<uint8_t>> packets = sent();
+	std::vector<std::vector<uint8_t>> updates = packetsOf<SM_INVENTORY_UPDATE_ITEM>(packets);
+	ASSERT_EQ(updates.size(), 1u);
+	EXPECT_EQ(network::test::PacketReader(cp::bodyOf(updates[0])).D(), 810020) << "writeD(item.getObjectId())";
+	EXPECT_EQ(trailingMask(updates[0]), 0x16) << "writeH(DEC_ITEM_USE 0x16), the last field";
+	EXPECT_EQ(updates[0], cp::serialized(SM_INVENTORY_UPDATE_ITEM(*caster.player, *bandages, ItemUpdateType::DEC_ITEM_USE), client->con()));
+	EXPECT_TRUE(packetsOf<SM_CUBE_UPDATE>(packets).empty()) << "an updated stack sends no cube size";
+	auto firstOf = [&](auto isType) { return std::find_if(packets.begin(), packets.end(), isType) - packets.begin(); };
+	EXPECT_LT(firstOf(isPacket<SM_INVENTORY_UPDATE_ITEM>), firstOf(isPacket<SM_CASTSPELL_RESULT>))
+		<< "the costs are paid before the result is sent (Skill.endCast)";
+
+	(*client)->clearSent();
+	static_cast<void>(conditionSkill(BANDAGE_HEAL, caster.player)->useSkill());
+	advance(4000ms);
+	EXPECT_FALSE(caster.player->getInventory().getItemByObjId(810020)) << "the last bandage: the stack is deleted";
+	packets = sent();
+	EXPECT_TRUE(packetsOf<SM_INVENTORY_UPDATE_ITEM>(packets).empty());
+	EXPECT_EQ(packetsOf<SM_DELETE_ITEM>(packets), cp::exactly({javaPacket(SM_DELETE_ITEM_OPCODE, network::test::PacketWriter().D(810020).C(0x17))}))
+		<< "USE: ItemDeleteType.fromUpdateType(DEC_ITEM_USE)";
+	EXPECT_EQ(packetsOf<SM_CUBE_UPDATE>(packets), cp::exactly({javaCubeSize(0)}));
+	EXPECT_EQ(runtime::unportedHitCount(), 0u);
+}
+
+TEST_F(SkillConditionsTest, AnItemSkillCastUsesUpOneOfItsItems) {
+	// m5b3-plan.md E-7: Skill.payCastCosts' ITEM arm (Skill.java:790-800) - the item of itemObjectId, activation count 1 ->
+	// inventory.decreaseByObjectId(objectId, 1, DEC_ITEM_USE) -> ItemPacketService.sendItemPacket -> SM_INVENTORY_UPDATE_ITEM(DEC_ITEM_USE)
+	if (dataholders::DataManager::ITEM_DATA)
+		GTEST_SKIP() << "another test of this process published ITEM_DATA";
+	PublishedItems published(itemContext, MANA_POTION_TEMPLATE_XML);
+	const gameserver::model::templates::item::ItemTemplate* potionTemplate = dataholders::DataManager::ITEM_DATA->getItemTemplate(MANA_POTION);
+	Ref<Item> potions = Item::create(810030, potionTemplate, 3, false, 0);
+	caster.player->getInventory().onLoadHandler(*potions);
+	(*client)->clearSent();
+
+	Ref<model::Skill> use = model::Skill::create(conditionTemplate(ITEM_ACTIVATED), *caster.player, 1, nullptr, potionTemplate);
+	use->setItemObjectId(810030);
+	static_cast<void>(use->useSkill()); // an instant skill: endCast runs inside useSkill
+	EXPECT_EQ(potions->getItemCount(), 2);
+	std::vector<std::vector<uint8_t>> updates = packetsOf<SM_INVENTORY_UPDATE_ITEM>(sent());
+	ASSERT_EQ(updates.size(), 1u);
+	EXPECT_EQ(network::test::PacketReader(cp::bodyOf(updates[0])).D(), 810030);
+	EXPECT_EQ(trailingMask(updates[0]), 0x16) << "DEC_ITEM_USE";
+	EXPECT_EQ(updates[0], cp::serialized(SM_INVENTORY_UPDATE_ITEM(*caster.player, *potions, ItemUpdateType::DEC_ITEM_USE), client->con()));
+	EXPECT_EQ(runtime::unportedHitCount(), 0u);
 }
 
 // ------------------------------------------------------------------------------------------------------------------------- properties

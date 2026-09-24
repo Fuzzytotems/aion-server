@@ -34,6 +34,7 @@
 #include "aion/gameserver/model/stats/container/CreatureLifeStats.h"
 #include "aion/gameserver/model/templates/item/ItemTemplate.bind.h"
 #include "aion/gameserver/model/templates/item/ItemTemplate.h"
+#include "aion/gameserver/model/templates/item/actions/ItemActions.h"
 #include "aion/gameserver/network/aion/serverpackets/SM_NPC_INFO.h"
 #include "aion/gameserver/runtime/base/Exceptions.h"
 #include "aion/gameserver/skillengine/effect/AbnormalState.h"
@@ -425,13 +426,32 @@ std::string castXml(int32_t skillId, bool self, std::string_view extra = {}) {
 }
 
 /**
- * HideEffect.startEffect (HideEffect.java:53-74) on a player, in Java order up to `effected.getController().onHide()`: BufEffect's SPEED function,
- * the HIDE abnormal state of the controller and the effect, the visual state, SM_PLAYER_STATE to everyone who sees the hider and the hider itself,
- * and the delayed removeTargetFrom. PlayerController.onHide calls DuelService.fixTeamVisibility (PlayerController.java:157-160), which is
- * AION_UNPORTED (P5-08), so a player's hide stops there: its three observers (HideEffect$1 to $3, HideEffect.java:76-118) and its cancel on damage
- * are not reached yet (docs/deviations/P5-03.md, "Reached next"). endEffect undoes what was done, in Java order.
+ * A skill the hider starts to cast (HideEffect$1 is a STARTSKILLCAST observer), built as Skill.java's constructor sees it: `self` is a BUFF of
+ * first target ME and target ONLYONE (Skill.isSelfBuff), otherwise a DEBUFF of first target TARGET; `effect` is its one effect, whose type
+ * HideEffect$1 asks for SHAPECHANGE; `duration` is the cast time an item's skill is checked for.
  */
-TEST_F(BuffEffectsTest, HideOfAPlayerSetsItsStatesUntilPlayerControllerOnHideStops) {
+std::string startedSkillXml(int32_t skillId, bool self, std::string_view effect, std::string_view duration = "0") {
+	return R"(<skill_template skill_id=")" + std::to_string(skillId) + R"(" name="cast" nameId="1" stack="EFFECTS_AL_CAST_)" + std::to_string(skillId)
+		+ R"(" lvl="1" skilltype="MAGICAL" skillsubtype=")" + (self ? "BUFF" : "DEBUFF") + R"(" activation="ACTIVE" duration=")" + std::string(duration)
+		+ R"("><properties first_target=")" + (self ? "ME" : "TARGET") + R"(" target_type="ONLYONE"/><effects>)" + std::string(effect)
+		+ R"(</effects></skill_template>)";
+}
+
+/** An effect that changes no shape, and the <shapechange> of the data's transformation skills (e.g. skill_templates.xml's model 202641) */
+constexpr const char* PLAIN_EFFECT_XML = R"(<statboost duration2="10000" e="1" noresist="true"><change stat="BOOST_SPELL_ATTACK" func="ADD" value="1"/></statboost>)";
+constexpr const char* SHAPECHANGE_EFFECT_XML = R"(<shapechange model="202641" type="PC" duration2="120000" e="1" noresist="true"/>)";
+
+/**
+ * 3222 Stealth on a player, run to its end (HideEffect.java:53-118, Effect.startEffect): BufEffect's SPEED function, the HIDE abnormal state of
+ * the controller and the effect, the visual state, SM_PLAYER_STATE to everyone who sees the hider and to the hider itself, then
+ * PlayerController.onHide, whose DuelService.fixTeamVisibility (DuelService.java:176-184) returns at once for a hider who is not dueling
+ * (tests/playersvc: FixTeamVisibilityOfAHiderWhoIsNotDuelingEndsAtTheOpponentLookup), and after it the observers and the cancel on damage of
+ * type 0. Effect.startEffect then schedules the end task: after duration2 the effect ends by time, HideEffect.endEffect undoes the visual state,
+ * the HIDE state and the hide (onHideEnd, SM_PLAYER_STATE), and Effect.endEffects removes the SPEED function (CreatureGameStats.endEffect). Before
+ * DuelService.fixTeamVisibility was ported it threw out of startEffect ahead of the observers, the cancel on damage and the end task, and the hide
+ * stayed on the player for good.
+ */
+TEST_F(BuffEffectsTest, HideOfAPlayerLastsItsDurationAndEndsWithItsStatesAndStatFunction) {
 	EFFECT_TEST_SCOPE;
 	Ref<Player> player = makePlayer(5071);
 	cp::RecordingAionConnection& client = connect(*player, *accounts.back());
@@ -439,35 +459,223 @@ TEST_F(BuffEffectsTest, HideOfAPlayerSetsItsStatesUntilPlayerControllerOnHideSto
 	ASSERT_EQ(effectOf(*stealth, 0).javaClassName(), "HideEffect");
 	const int32_t visible = player->getVisualState();
 	ASSERT_EQ(statOf(*player, StatEnum::SPEED, 1000), 1000);
+	ASSERT_FALSE(player->getObserveController()->hasObservers());
 	client.clearSent();
 
-	Ref<Effect> hide = Effect::create(*player, Ptr<Creature>(*player), stealth, 1);
-	hide->initialize();
-	std::string stoppedAt;
-	try {
-		hide->applyEffect();
-	} catch (const std::exception& e) {
-		stoppedAt = causeChain(e);
-	}
-	EXPECT_NE(stoppedAt.find("DuelService::fixTeamVisibility"), std::string::npos) << "PlayerController.onHide: " << stoppedAt;
+	Ref<Effect> hide = cast(*player, *player, stealth, 1);
 	EXPECT_TRUE(player->getEffectController()->isAbnormalSet(AbnormalState::HIDE));
 	EXPECT_NE(hide->getAbnormals(), 0) << "effect.setAbnormal(AbnormalState.HIDE)";
 	EXPECT_TRUE(player->isInVisualState(CreatureVisualState::HIDE1));
 	EXPECT_EQ(statOf(*player, StatEnum::SPEED, 1000), 600) << "BufEffect.startEffect first: SPEED 1000 * -40 / 100 as a bonus";
+	EXPECT_TRUE(hide->isCancelOnDmg()) << "type 0: setCancelOnDmg(true), after onHide";
+	ASSERT_TRUE(player->getObserveController()->hasObservers()) << "HideEffect$1-$3 and the cancel observers of the cancel on damage";
+	ASSERT_EQ(hide->getDuration(), 50000) << "duration2, which the end task is scheduled for";
 	std::vector<std::vector<uint8_t>> playerStates = packetsOf<SM_PLAYER_STATE>(client);
 	ASSERT_EQ(playerStates.size(), 1u) << "broadcastPacketAndReceive: the hider is told its own state";
 	EXPECT_EQ(decodePlayerState(playerStates[0]).objectId, player->getObjectId());
 	EXPECT_EQ(decodePlayerState(playerStates[0]).visualState, player->getVisualState());
-	EXPECT_FALSE(hide->isCancelOnDmg()) << "setCancelOnDmg comes after onHide";
 
 	client.clearSent();
-	hide->endEffect();
+	advance(49999);
+	EXPECT_TRUE(player->getEffectController()->hasAbnormalEffect(9741));
+	EXPECT_TRUE(player->isInVisualState(CreatureVisualState::HIDE1));
+	advance(1);
+	EXPECT_TRUE(hide->isEndedByTime()) << "the end task Effect.startEffect scheduled for duration2";
+	EXPECT_FALSE(player->getEffectController()->hasAbnormalEffect(9741));
 	EXPECT_FALSE(player->getEffectController()->isAbnormalSet(AbnormalState::HIDE)) << "endEffect: unsetAbnormal(HIDE)";
 	EXPECT_EQ(player->getVisualState(), visible) << "endEffect: unsetVisualState(state)";
-	EXPECT_EQ(statOf(*player, StatEnum::SPEED, 1000), 1000) << "the SPEED function ends with the effect";
+	EXPECT_EQ(statOf(*player, StatEnum::SPEED, 1000), 1000) << "Effect.endEffects: the SPEED function ends with the effect";
+	EXPECT_FALSE(player->getObserveController()->hasObservers())
+		<< "Effect.endEffect -> removeObservers: the observers HideEffect added through effect.addObserver leave with the hide";
 	playerStates = packetsOf<SM_PLAYER_STATE>(client);
 	ASSERT_EQ(playerStates.size(), 1u) << "endEffect: SM_PLAYER_STATE (update visibility)";
 	EXPECT_EQ(decodePlayerState(playerStates[0]).visualState, visible);
+}
+
+/**
+ * What a player's hide does to the creatures that know the hider (PlayerController.onHide -> CreatureController.onHide, and onHideEnd at the end,
+ * CreatureController.java:86-95): each of them updates its view of the hider (KnownList.updateVisibleObject). A monster's see state (0) is below
+ * HIDE1 (Creature.canSee), so it stops seeing the hider but keeps knowing it, until the end of the hide shows the hider again. An npc stands in
+ * for the players around the hider: a player who sees the hider again is sent SM_PLAYER_INFO, which this fixture cannot build (the hider's
+ * settings, abyss rank, house and motion parts).
+ */
+TEST_F(BuffEffectsTest, HideOfAPlayerTakesItOutOfTheSightOfTheCreaturesThatKnowItUntilItEnds) {
+	EFFECT_TEST_SCOPE;
+	Ref<Player> player = makePlayer(5076);
+	connect(*player, *accounts.back());
+	Ref<Npc> monster = makeMonster(700615);
+	ASSERT_TRUE(KnownListPairing::pair(*monster, *player));
+	const model::SkillTemplate* stealth = bindSkill(hideXml(9745, R"(state="HIDE1" bufcount="1")"));
+	auto& monsterView = monster->getKnownList();
+	ASSERT_TRUE(monsterView.knows(*player));
+	ASSERT_TRUE(monsterView.sees(*player));
+
+	cast(*player, *player, stealth, 1);
+	EXPECT_FALSE(monsterView.sees(*player)) << "onHide: the monster's updateVisibleObject, and a see state of 0 does not see HIDE1";
+	EXPECT_TRUE(monsterView.knows(*player)) << "the hider stays in the monster's known list, only its visibility changes";
+	advance(49999);
+	ASSERT_TRUE(player->getEffectController()->hasAbnormalEffect(9745));
+	EXPECT_FALSE(monsterView.sees(*player)) << "for as long as the hide lasts";
+	advance(1);
+	ASSERT_FALSE(player->getEffectController()->hasAbnormalEffect(9745));
+	EXPECT_TRUE(monsterView.sees(*player)) << "endEffect -> onHideEnd: the monster's updateVisibleObject sees the hider again";
+	EXPECT_TRUE(monsterView.knows(*player));
+}
+
+/**
+ * What ends a player's hide besides its duration (HideEffect.java:96-102, 116-118; Effect.addCancelOnDmgObserver): the hider's own attack
+ * (HideEffect$2, for every type) and, for type 0 only, the first hit or damage over time it takes (the ATTACKED and DOT_ATTACKED observers that
+ * setCancelOnDmg(true) makes Effect.startEffect add). Type 1 (18 hides of the data) keeps the hide through damage.
+ */
+TEST_F(BuffEffectsTest, HideOfAPlayerEndsAtItsAttackAndAtDamageUnlessItsTypeKeepsItThroughDamage) {
+	EFFECT_TEST_SCOPE;
+	Ref<Player> player = makePlayer(5081);
+	Ref<Npc> monster = makeMonster(700612);
+	const model::SkillTemplate* stealth = bindSkill(hideXml(9751, R"(state="HIDE1" bufcount="1")"));
+	const model::SkillTemplate* keptThroughDamage = bindSkill(hideXml(9752, R"(state="HIDE1" bufcount="1" type="1")"));
+	auto observers = player->getObserveController();
+	auto hidden = [&](int32_t skillId) { return player->getEffectController()->hasAbnormalEffect(skillId); };
+	// the damage over time the DOT_ATTACKED observers are told about (an effect object only; it is never applied)
+	Ref<Effect> dot = Effect::create(*monster, Ptr<Creature>(*player), stealth, 1);
+	ASSERT_FALSE(observers->hasObservers());
+
+	cast(*player, *player, stealth, 1);
+	ASSERT_TRUE(hidden(9751));
+	observers->notifyAttackObservers(*monster, 0);
+	EXPECT_FALSE(hidden(9751)) << "HideEffect$2: the hider attacked";
+	EXPECT_FALSE(player->isInVisualState(CreatureVisualState::HIDE1)) << "endEffect: unsetVisualState(state)";
+	EXPECT_FALSE(player->getEffectController()->isAbnormalSet(AbnormalState::HIDE)) << "endEffect: unsetAbnormal(HIDE)";
+	EXPECT_EQ(statOf(*player, StatEnum::SPEED, 1000), 1000) << "Effect.endEffects: the SPEED function went with the hide";
+	EXPECT_FALSE(observers->hasObservers()) << "removeObservers: no observer outlives the hide that ended by an attack";
+
+	cast(*player, *player, stealth, 1);
+	observers->notifyAttackedObservers(*monster, 0);
+	EXPECT_FALSE(hidden(9751)) << "type 0: the first hit ends it";
+	EXPECT_FALSE(observers->hasObservers()) << "removeObservers: ended by a hit";
+
+	cast(*player, *player, stealth, 1);
+	observers->notifyDotAttackedObservers(*monster, *dot);
+	EXPECT_FALSE(hidden(9751)) << "type 0: damage over time ends it too";
+	EXPECT_FALSE(observers->hasObservers()) << "removeObservers: ended by damage over time";
+
+	Ref<Effect> kept = cast(*player, *player, keptThroughDamage, 1);
+	EXPECT_FALSE(kept->isCancelOnDmg()) << "type >= 1";
+	observers->notifyAttackedObservers(*monster, 0);
+	observers->notifyDotAttackedObservers(*monster, *dot);
+	EXPECT_TRUE(hidden(9752)) << "type 1: no cancel on damage";
+	observers->notifyAttackObservers(*monster, 0);
+	EXPECT_FALSE(hidden(9752)) << "HideEffect$2 is added whatever the type";
+	EXPECT_FALSE(observers->hasObservers()) << "removeObservers: type 1 ended by an attack";
+}
+
+/**
+ * HideEffect$1 (HideEffect.java:79-95), the hider starting a skill: an item's skill (SkillMethod.ITEM) ends the hide if the item is a potion or
+ * the skill has a cast time and otherwise leaves it alone without counting it; any other skill ends it if it changes the shape, if it is no self
+ * buff, or when `++buffNumber >= bufcount` - so bufcount 1 (3222 Stealth) ends at the first self buff and bufcount 2 at the second.
+ */
+TEST_F(BuffEffectsTest, HideOfAPlayerEndsAtASkillUnlessItIsASelfBuffWithinItsBuffCount) {
+	EFFECT_TEST_SCOPE;
+	Ref<Player> player = makePlayer(5091);
+	Ref<Npc> monster = makeMonster(700613);
+	const model::SkillTemplate* stealth = bindSkill(hideXml(9761, R"(state="HIDE1" bufcount="1")"));
+	const model::SkillTemplate* twoBuffs = bindSkill(hideXml(9762, R"(state="HIDE1" bufcount="2")"));
+	const model::SkillTemplate* selfBuff = bindSkill(startedSkillXml(9763, true, PLAIN_EFFECT_XML));
+	const model::SkillTemplate* attack = bindSkill(startedSkillXml(9764, false, PLAIN_EFFECT_XML));
+	const model::SkillTemplate* shapeChange = bindSkill(startedSkillXml(9765, true, SHAPECHANGE_EFFECT_XML));
+	const model::SkillTemplate* castTimeBuff = bindSkill(startedSkillXml(9766, true, PLAIN_EFFECT_XML, "2000"));
+	const gameserver::model::templates::item::ItemTemplate* potion =
+		itemTemplate(R"(<item_template id="162000002" name="Minor Life Potion" level="10"/>)");
+	const gameserver::model::templates::item::ItemTemplate* scroll = itemTemplate(R"(<item_template id="164000073" name="scroll" level="10"/>)");
+	ASSERT_TRUE(potion->isPotion());
+	ASSERT_FALSE(scroll->isPotion());
+	auto hidden = [&](int32_t skillId) { return player->getEffectController()->hasAbnormalEffect(skillId); };
+	// Java: Skill.startCast notifies the caster's STARTSKILLCAST observers; an item template makes the skill's method ITEM
+	auto start = [&](const model::SkillTemplate* skill, const gameserver::model::templates::item::ItemTemplate* item = nullptr) {
+		Ptr<Creature> firstTarget = skill == attack ? Ptr<Creature>(*monster) : Ptr<Creature>(*player);
+		player->getObserveController()->notifyStartSkillCastObservers(*model::Skill::create(skill, *player, 1, firstTarget, item));
+	};
+	// Effect.endEffect -> removeObservers: no observer of an ended hide stays on the player
+	auto observed = [&] { return player->getObserveController()->hasObservers(); };
+	ASSERT_FALSE(observed());
+
+	cast(*player, *player, stealth, 1);
+	start(selfBuff);
+	EXPECT_FALSE(hidden(9761)) << "bufcount 1: ++buffNumber (1) >= buffCount (1) at the first self buff";
+	EXPECT_FALSE(observed()) << "ended by a self buff";
+
+	cast(*player, *player, twoBuffs, 1);
+	start(attack);
+	EXPECT_FALSE(hidden(9762)) << "!skill.isSelfBuff(): a skill at a target ends it at once";
+	EXPECT_FALSE(observed()) << "ended by a skill at a target";
+
+	cast(*player, *player, twoBuffs, 1);
+	start(shapeChange);
+	EXPECT_FALSE(hidden(9762)) << "isShapeChange: ends it at once, though a self buff";
+	EXPECT_FALSE(observed()) << "ended by a shapechange";
+
+	cast(*player, *player, twoBuffs, 1);
+	start(selfBuff);
+	EXPECT_TRUE(hidden(9762)) << "bufcount 2: the first self buff is let through (1 < 2)";
+	EXPECT_TRUE(player->isInVisualState(CreatureVisualState::HIDE1));
+	start(selfBuff);
+	EXPECT_FALSE(hidden(9762)) << "bufcount 2: the second self buff ends it (2 >= 2)";
+	EXPECT_FALSE(observed()) << "ended by the second self buff";
+
+	cast(*player, *player, stealth, 1);
+	start(selfBuff, scroll);
+	EXPECT_TRUE(hidden(9761)) << "SkillMethod.ITEM: a non-potion item's skill without a cast time returns before the buff count";
+	start(selfBuff, scroll);
+	EXPECT_TRUE(hidden(9761)) << "and is not counted: bufcount 1 would have ended at a counted self buff";
+	start(selfBuff, potion);
+	EXPECT_FALSE(hidden(9761)) << "SkillMethod.ITEM: a potion ends it";
+	EXPECT_FALSE(observed()) << "ended by a potion";
+
+	cast(*player, *player, stealth, 1);
+	start(castTimeBuff, scroll);
+	EXPECT_FALSE(hidden(9761)) << "SkillMethod.ITEM: an item's skill with a cast time (getDuration() > 0) ends it";
+	EXPECT_FALSE(observed()) << "ended by an item's skill with a cast time";
+}
+
+/**
+ * HideEffect$3 (HideEffect.java:103-114), the hider using an item: an item without <actions> never ends the hide; one with actions ends it when
+ * the hide's bufcount is 0 or when none of its actions is a <skilluse> ("[4.5] Buff items do not affect Hide II. Hide I is cancelled.").
+ */
+TEST_F(BuffEffectsTest, HideOfAPlayerEndsAtAnItemUseUnlessItIsASkillItemItsBuffCountAllows) {
+	EFFECT_TEST_SCOPE;
+	Ref<Player> player = makePlayer(5101);
+	const model::SkillTemplate* stealth = bindSkill(hideXml(9771, R"(state="HIDE1" bufcount="1")"));
+	const model::SkillTemplate* noBuffs = bindSkill(hideXml(9772, R"(state="HIDE1" bufcount="0")"));
+	Ref<gameserver::model::gameobjects::Item> plain =
+		gameserver::model::gameobjects::Item::create(5102, itemTemplate(R"(<item_template id="182000001" name="plain" level="1"/>)"));
+	Ref<gameserver::model::gameobjects::Item> skillItem = gameserver::model::gameobjects::Item::create(5103,
+		itemTemplate(R"(<item_template id="162000002" name="Minor Life Potion" level="10"><actions><skilluse level="1" skillid="9889"/></actions>)"
+					 R"(</item_template>)"));
+	Ref<gameserver::model::gameobjects::Item> recipe = gameserver::model::gameobjects::Item::create(5104,
+		itemTemplate(R"(<item_template id="169000001" name="recipe" level="1"><actions><craftlearn recipeid="155000001"/></actions></item_template>)"));
+	ASSERT_EQ(plain->getItemTemplate()->getActions(), nullptr);
+	ASSERT_NE(skillItem->getItemTemplate()->getActions()->getSkillUseAction(), nullptr);
+	ASSERT_EQ(recipe->getItemTemplate()->getActions()->getSkillUseAction(), nullptr);
+	auto hidden = [&](int32_t skillId) { return player->getEffectController()->hasAbnormalEffect(skillId); };
+	auto use = [&](gameserver::model::gameobjects::Item& item) { player->getObserveController()->notifyItemuseObservers(item); };
+	// Effect.endEffect -> removeObservers: no observer of an ended hide stays on the player
+	auto observed = [&] { return player->getObserveController()->hasObservers(); };
+	ASSERT_FALSE(observed());
+
+	cast(*player, *player, stealth, 1);
+	use(*plain);
+	EXPECT_TRUE(hidden(9771)) << "no <actions>: nothing to check";
+	use(*skillItem);
+	EXPECT_TRUE(hidden(9771)) << "bufcount 1 and a <skilluse>: a buff item keeps the hide";
+	use(*recipe);
+	EXPECT_FALSE(hidden(9771)) << "actions without a <skilluse> end it";
+	EXPECT_FALSE(observed()) << "ended by an item without a <skilluse>";
+
+	cast(*player, *player, noBuffs, 1);
+	use(*plain);
+	EXPECT_TRUE(hidden(9772)) << "no <actions>, whatever the bufcount";
+	use(*skillItem);
+	EXPECT_FALSE(hidden(9772)) << "bufcount 0: every item with actions ends it";
+	EXPECT_FALSE(observed()) << "ended by an item with actions at bufcount 0";
 }
 
 /**

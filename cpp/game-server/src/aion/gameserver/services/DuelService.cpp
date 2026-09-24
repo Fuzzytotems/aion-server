@@ -3,7 +3,11 @@
 #include "aion/gameserver/runtime/base/Unported.h"
 #include "aion/commons/logging/LoggerFactory.h"
 #include "aion/gameserver/model/gameobjects/player/Player.h"
+#include "aion/gameserver/network/aion/serverpackets/SM_DELETE.h"
 #include "aion/gameserver/runtime/sched/Future.h"
+#include "aion/gameserver/utils/PacketSendUtility.h"
+#include "aion/gameserver/world/World.h"
+#include "aion/gameserver/world/knownlist/KnownList.h"
 
 namespace aion::gameserver::services {
 
@@ -43,7 +47,14 @@ void DuelService::startDuel(model::gameobjects::player::Player& requester, model
 }
 
 void DuelService::fixTeamVisibility(model::gameobjects::player::Player& hiddenDuelist) {
-	AION_UNPORTED();
+	// Java: DuelService.getInstance().getOpponentId(hiddenDuelist) - the singleton itself
+	std::optional<int32_t> opponentId = DuelService::getInstance().getOpponentId(hiddenDuelist);
+	if (opponentId) {
+		runtime::Ptr<model::gameobjects::player::Player> opponent = world::World::getInstance().getPlayer(*opponentId);
+		if (opponent && opponent->getKnownList().knows(hiddenDuelist) && !opponent->getKnownList().sees(hiddenDuelist)
+			&& hiddenDuelist.isInSameTeam(*opponent))
+			utils::PacketSendUtility::sendPacket(*opponent, network::aion::serverpackets::SM_DELETE(hiddenDuelist));
+	}
 }
 
 void DuelService::loseDuel(model::gameobjects::player::Player& loser) {

@@ -12,12 +12,16 @@
 #include <gtest/gtest.h>
 
 #include <algorithm>
+#include <atomic>
+#include <chrono>
 #include <cstdint>
 #include <deque>
 #include <memory>
 #include <optional>
+#include <set>
 #include <string>
 #include <string_view>
+#include <thread>
 #include <vector>
 
 #include "aion/commons/configuration/ConfigValue.h"
@@ -27,6 +31,7 @@
 #include "aion/gameserver/configs/main/RatesConfig.h"
 #include "aion/gameserver/configs/main/WorldConfig.h"
 #include "aion/gameserver/controllers/NpcController.h"
+#include "aion/gameserver/controllers/attack/AggroInfo.h"
 #include "aion/gameserver/controllers/attack/AggroList.h"
 #include "aion/gameserver/controllers/attack/AggroTarget.h"
 #include "aion/gameserver/controllers/attack/AttackResult.h"
@@ -890,6 +895,143 @@ TEST_F(CombatDamageTest, GetTargetRanksTheAggroListByHateAndFiltersByRange) {
 	// the range overload: 15 m leaves only the character 10 m away, 5 m leaves nobody
 	EXPECT_EQ(aggroList.getTarget(AggroTarget::MOST_HATED, 15.0f).rawPointer(), static_cast<gameobjects::Creature*>(near.player.get()));
 	EXPECT_FALSE(aggroList.getTarget(AggroTarget::MOST_HATED, 5.0f));
+}
+
+TEST_F(CombatDamageTest, GetTargetBreaksHateTiesByTheEncounterOrderOfTheAggroList) {
+	runtime::TaskScope scope(AION_TASK_INFO(runtime::TaskKind::TEST));
+	// AggroList.java:168-170 with Java's comparators: MOST_HATED is Stream.max(comparingInt(getHate)), a reduce with BinaryOperator.maxBy, which
+	// keeps the earlier element on a tie (`compare(a, b) >= 0 ? a : b`), so it answers the first maximum; SECOND and THIRD sort with
+	// comparingInt(getHate).reversed(), a stable sort (equal hates keep their encounter order), and answer the last of the first n. "Earlier" is
+	// the encounter order of aggroList.values(), which the test reads through stream() instead of assuming a hash order. The ranking reads a
+	// snapshot of the hates (audit M-1, docs/deviations/P5-01.md); nothing changes them during these calls, so the answers are Java's.
+	Ref<gameobjects::Npc> sparkie = makeNpc(SPARKIE_NPC_ID);
+	std::vector<PlayerFixture> fixtures; // six, so that no asserted position is the middle one, which reversing the order would keep
+	for (int32_t i = 0; i < 6; ++i) {
+		fixtures.push_back(makeLevelOnePlayer(9250 + i, 505.0f + static_cast<float>(i), 500, 10));
+		KnownListPairing::pair(*sparkie, *fixtures.back().player);
+	}
+	controllers::attack::AggroList& aggroList = sparkie->getAggroList();
+	using controllers::attack::AggroTarget;
+	for (const PlayerFixture& f : fixtures)
+		aggroList.addHate(*f.player, 40);
+	std::vector<gameobjects::Creature*> order; // the encounter order of the aggro list's values
+	for (const Ptr<controllers::attack::AggroInfo>& info : aggroList.stream())
+		order.push_back(info->getAttacker().rawPointer());
+	ASSERT_EQ(order.size(), 6u);
+	auto target = [&aggroList](AggroTarget type) { return aggroList.getTarget(type).rawPointer(); };
+
+	// six equal hates: the encounter order alone decides
+	EXPECT_EQ(target(AggroTarget::MOST_HATED), order[0]) << "Stream.max keeps the first of equal elements";
+	EXPECT_EQ(target(AggroTarget::SECOND_MOST_HATED), order[1]) << "the stable sort keeps equal hates in encounter order";
+	EXPECT_EQ(target(AggroTarget::THIRD_MOST_HATED), order[2]);
+
+	// two tied maxima after the first element: order[1] and order[3] at 70, the other four at 40
+	aggroList.addHate(*order[1], 30);
+	aggroList.addHate(*order[3], 30);
+	EXPECT_EQ(target(AggroTarget::MOST_HATED), order[1]) << "the earlier of the two maxima, not the later one";
+	EXPECT_EQ(target(AggroTarget::SECOND_MOST_HATED), order[3]);
+	EXPECT_EQ(target(AggroTarget::THIRD_MOST_HATED), order[0]) << "the first of the four 40s";
+
+	// a strictly greater later hate takes the lead
+	aggroList.addHate(*order[4], 60); // 100
+	EXPECT_EQ(target(AggroTarget::MOST_HATED), order[4]) << "a later element replaces the maximum only with a greater hate";
+	EXPECT_EQ(target(AggroTarget::SECOND_MOST_HATED), order[1]);
+	EXPECT_EQ(target(AggroTarget::THIRD_MOST_HATED), order[3]);
+
+	// fewer valid entries than n: limit(n).reduce((_, b) -> b) answers the last element of the shorter sorted list
+	aggroList.stopHating(*order[0]);
+	aggroList.stopHating(*order[2]);
+	aggroList.stopHating(*order[3]);
+	aggroList.stopHating(*order[5]);
+	EXPECT_EQ(target(AggroTarget::MOST_HATED), order[4]);
+	EXPECT_EQ(target(AggroTarget::SECOND_MOST_HATED), order[1]);
+	EXPECT_EQ(target(AggroTarget::THIRD_MOST_HATED), order[1]) << "two valid entries: THIRD is the second of them, not null";
+}
+
+TEST_F(CombatDamageTest, GetTargetStaysInsideTheAggroListWhileOtherThreadsChangeTheHate) {
+	// Audit M-1. Packet threads (addDamage/addHate), AggroNotifier and the 10 s hate reduction task change AggroInfo.hate without a common lock
+	// while an npc ranks its aggro list (SimpleAttackManager.attackAction, AttackManager.targetTooFar, GeneralNpcAI, AbstractAI). A sort whose
+	// comparator re-reads that live hate sees the order of two entries flip between two comparisons; MSVC's insertion sort (stable_sort below 33
+	// elements) then walks before begin() - a crash in a release build, a stale-borrow exception or an "invalid comparator" abort in this checked
+	// Debug build. The ranking reads a snapshot of the hates, so every answer is an entry of the list. For a bounded 2 s, one thread flips an
+	// entry's hate around a fixed one as fast as it can (the plain store of stopHating and the hate reduction task), a second one flips another
+	// entry through AggroList.addHate and removes and re-adds a third (the entry leaves the map while the ranking may hold it), and this thread
+	// asks for the three rankings.
+	using controllers::attack::AggroTarget;
+	Ref<gameobjects::Npc> sparkie;
+	std::vector<PlayerFixture> fixtures;
+	Ref<controllers::attack::AggroInfo> flipped; // attacker 1's entry, written directly
+	controllers::attack::AggroList* shared = nullptr; // the npc's aggro list part, alive as long as `sparkie` holds the npc
+	{
+		runtime::TaskScope scope(AION_TASK_INFO(runtime::TaskKind::TEST));
+		sparkie = makeNpc(SPARKIE_NPC_ID);
+		for (int32_t i = 0; i < 4; ++i) {
+			fixtures.push_back(makeLevelOnePlayer(9260 + i, 505.0f + static_cast<float>(i), 500, 10));
+			KnownListPairing::pair(*sparkie, *fixtures.back().player);
+		}
+		shared = &sparkie->getAggroList();
+		shared->addHate(*fixtures[0].player, 100); // never changes: every ranking has an answer
+		shared->addHate(*fixtures[1].player, 101);
+		shared->addHate(*fixtures[2].player, 99);
+		shared->addHate(*fixtures[3].player, 100);
+		for (const Ptr<controllers::attack::AggroInfo>& info : shared->stream()) {
+			if (info->getAttacker().rawPointer() == fixtures[1].player.get())
+				flipped = Ref<controllers::attack::AggroInfo>(*info);
+		}
+		ASSERT_TRUE(flipped);
+		ASSERT_EQ(shared->getTarget(AggroTarget::MOST_HATED).rawPointer(), static_cast<gameobjects::Creature*>(fixtures[1].player.get()));
+	}
+	controllers::attack::AggroList& aggroList = *shared;
+	std::set<const gameobjects::Creature*> attackers;
+	for (const PlayerFixture& f : fixtures)
+		attackers.insert(f.player.get());
+
+	std::atomic<bool> stop{false};
+	std::thread storeWriter([&] {
+		while (!stop.load(std::memory_order_relaxed)) {
+			runtime::TaskScope scope(AION_TASK_INFO(runtime::TaskKind::TEST));
+			for (int i = 0; i < 1024; ++i) {
+				flipped->setHate(99);
+				flipped->setHate(101);
+			}
+		}
+	});
+	std::thread apiWriter([&] {
+		for (uint32_t round = 0; !stop.load(std::memory_order_relaxed); ++round) {
+			runtime::TaskScope scope(AION_TASK_INFO(runtime::TaskKind::TEST));
+			aggroList.addHate(*fixtures[2].player, 2);  // 99 -> 101
+			aggroList.addHate(*fixtures[2].player, -2); // 101 -> 99
+			if (round % 16 == 0) {
+				aggroList.remove(*fixtures[3].player);
+				aggroList.addHate(*fixtures[3].player, 100);
+			}
+		}
+	});
+
+	uint64_t rankings = 0;
+	std::string failure;
+	const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(2);
+	while (failure.empty() && std::chrono::steady_clock::now() < deadline) {
+		runtime::TaskScope scope(AION_TASK_INFO(runtime::TaskKind::TEST));
+		for (AggroTarget type : {AggroTarget::MOST_HATED, AggroTarget::SECOND_MOST_HATED, AggroTarget::THIRD_MOST_HATED}) {
+			try {
+				Ptr<gameobjects::Creature> chosen = aggroList.getTarget(type);
+				if (!chosen)
+					failure = "getTarget answered null while attacker 0 always had hate 100";
+				else if (!attackers.contains(chosen.rawPointer()))
+					failure = "getTarget answered a creature that is not in the aggro list";
+			} catch (const std::exception& e) {
+				failure = std::string("getTarget threw: ") + e.what();
+			}
+			++rankings;
+		}
+	}
+	stop.store(true);
+	storeWriter.join();
+	apiWriter.join();
+
+	EXPECT_EQ(failure, "") << "after " << rankings << " rankings";
+	EXPECT_GT(rankings, 10000u) << "the reader must have raced the writers for the whole 2 s";
 }
 
 TEST_F(CombatDamageTest, ACharactersAggroListOnlyAsksItsKnownList) {

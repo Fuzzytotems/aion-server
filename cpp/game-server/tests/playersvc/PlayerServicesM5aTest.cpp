@@ -154,6 +154,19 @@ TEST_F(PlayerServicesM5aTest, DuelAndRecallStateOfAPlayerWithoutDuelOrRequest) {
 	recall.accept(*first.player);
 }
 
+TEST_F(PlayerServicesM5aTest, FixTeamVisibilityOfAHiderWhoIsNotDuelingEndsAtTheOpponentLookup) {
+	// DuelService.java:176-184. PlayerController.onHide calls it at every hide of a player (HideEffect.startEffect, before the hide's observers are
+	// added), so 3222 Stealth reaches it. Without a duel getOpponentId answers null and the body ends there: no World lookup, no known list, no
+	// isInSameTeam, no packet. The dueling arm has no case: no public body can register a duel yet (registerDuel is private, and its only caller
+	// startDuel, like onDuelRequest and confirmDuelWith, is AION_UNPORTED), so no C++ caller can reach it either.
+	PlayerFixture hider = makePlayer(10, 1000);
+	services::DuelService& duels = services::DuelService::getInstance();
+	ASSERT_FALSE(duels.getOpponentId(*hider.player));
+	runtime::resetUnportedHitsForTests();
+	EXPECT_NO_THROW(duels.fixTeamVisibility(*hider.player));
+	EXPECT_EQ(runtime::unportedHitCount(), 0u);
+}
+
 TEST_F(PlayerServicesM5aTest, CreationLearnsTheAutolearnSkillsOfTheStartingClass) {
 	auto skill = [](int32_t id, int32_t lvl) {
 		return "<skill_template skill_id=\"" + std::to_string(id) + "\" name=\"s" + std::to_string(id) + "\" nameId=\"1\" lvl=\"" + std::to_string(lvl) +

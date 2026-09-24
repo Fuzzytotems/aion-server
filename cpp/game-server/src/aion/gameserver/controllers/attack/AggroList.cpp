@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <limits>
 #include <string>
+#include <utility>
 
 #include "aion/commons/utils/Rnd.h"
 #include "aion/commons/utils/TimeUtils.h"
@@ -49,20 +50,39 @@ std::vector<Ptr<model::gameobjects::Creature>> attackersOf(const std::vector<Ptr
 }
 
 /**
- * Java MOST_HATED / SECOND_MOST_HATED / THIRD_MOST_HATED:
- * `stream.sorted(comparingInt(AggroInfo::getHate).reversed()).limit(n).reduce((_, b) -> b).map(AggroInfo::getAttacker).orElse(null)`, and for
- * n == 1 the equivalent `stream.max(comparingInt(AggroInfo::getHate))`. Both keep the first of two equal elements in encounter order, so the
- * sort is stable and `max` is the first maximum; the encounter order of a ConcurrentHashMap's values is unspecified in Java as in C++.
+ * Java MOST_HATED / SECOND_MOST_HATED / THIRD_MOST_HATED: for n == 1 `stream.max(comparingInt(AggroInfo::getHate))`, otherwise
+ * `stream.sorted(comparingInt(AggroInfo::getHate).reversed()).limit(n).reduce((_, b) -> b).map(AggroInfo::getAttacker).orElse(null)`. `max`
+ * (BinaryOperator.maxBy) keeps the earlier of two equal elements, so it answers the first maximum in encounter order, and `sorted` is stable,
+ * so equal hates keep their encounter order; the encounter order of a ConcurrentHashMap's values is unspecified in Java as in C++.
+ * <p>
+ * C++: each entry's hate is read once into a snapshot, and the ranking reads only the snapshot (docs/deviations/P5-01.md, audit M-1). Java's
+ * comparator re-reads the live hate at every comparison while packet threads, AggroNotifier and the hate reduction task change it; TimSort
+ * survives that (a wrong order, at worst an IllegalArgumentException), but a C++ sort whose comparator answers inconsistently is undefined
+ * behaviour, and MSVC's unguarded insertion sort then walks before begin(). For a list nobody changes during the call the result is Java's.
  */
 Ptr<model::gameobjects::Creature> nthMostHated(const std::vector<Ptr<AggroInfo>>& infos, size_t n) {
 	if (infos.empty())
 		return {};
-	std::vector<Ptr<AggroInfo>> sorted = infos;
-	std::stable_sort(sorted.begin(), sorted.end(),
-		[](const Ptr<AggroInfo>& a, const Ptr<AggroInfo>& b) { return a->getHate() > b->getHate(); });
+	std::vector<std::pair<Ptr<AggroInfo>, int32_t>> snapshot; // (entry, its hate read once), in encounter order
+	snapshot.reserve(infos.size());
+	for (const Ptr<AggroInfo>& info : infos)
+		snapshot.emplace_back(info, info->getHate());
+	if (n == 1) {
+		// Java: stream.max(comparingInt(AggroInfo::getHate)) - reduce((a, b) -> compare(a, b) >= 0 ? a : b): a later element replaces the
+		// candidate only with a strictly greater hate
+		size_t most = 0;
+		for (size_t i = 1; i < snapshot.size(); ++i) {
+			if (snapshot[i].second > snapshot[most].second)
+				most = i;
+		}
+		return snapshot[most].first->getAttacker();
+	}
+	// Java: comparingInt(AggroInfo::getHate).reversed() - a before b iff Integer.compare(b.hate, a.hate) < 0, i.e. a.hate > b.hate; stable
+	std::stable_sort(snapshot.begin(), snapshot.end(),
+		[](const std::pair<Ptr<AggroInfo>, int32_t>& a, const std::pair<Ptr<AggroInfo>, int32_t>& b) { return a.second > b.second; });
 	// Java: limit(n).reduce((_, b) -> b) - the last of the first n elements, so a shorter list yields its last element
-	size_t index = std::min(n, sorted.size()) - 1;
-	return sorted[index]->getAttacker();
+	size_t index = std::min(n, snapshot.size()) - 1;
+	return snapshot[index].first->getAttacker();
 }
 
 } // namespace
