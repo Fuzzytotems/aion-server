@@ -13,6 +13,14 @@
 	oracle.py m5a-creation --race ELYOS|ASMODIANS --class CLASS [--java-src DIR]   (m5a/ package, m5a-plan.md F-05)
 	oracle.py m5b-monster --map ID --npc-id ID [--player-level N] [--race R] [--class C] [--xp-solo-rate R]   (m5b/ package, m5b-plan.md G-01)
 	oracle.py m5b2-skills --race R --class C [--level N] [--skill ID[:LEVEL] ...] [--npc ID ...] [--death-count N]   (m5b2/, m5b2-plan.md G-01)
+	oracle.py m5b3-drops (--npc ID [--map ID] | --survey --map ID) [--player-level N] [--race R] [--drop-rate R]   (m5b3/drops.py, m5b3-plan.md G-01)
+	oracle.py m5c-trade (--npc ID [--item ID] | --item ID | --map ID) [--count N] [--race R] [--set KEY=VALUE ...]   (m5c/trade.py, m5c-plan.md G-01)
+	oracle.py m5c-craft (--recipe ID [--skill-level N] [--craft-type 0|1] | --skill ID --level N [--map ID] | --gatherable ID [--skill-level N])
+	                    [--skill-xp X] [--character-level N] [--membership M] [--set KEY=VALUE ...]   (m5c/craft.py, m5c-plan.md §2.6 G-01)
+	oracle.py m5d-quest --quest ID [--race R] [--class C] [--level N] [--exp X] [--gender G] [--completed ID[:GROUP] ...] [--inventory ITEM[:COUNT] ...]
+	                    [--profile FILE | --no-profile]   (m5d/quests.py, m5d-plan.md G-01)
+	oracle.py m5d-quests --map ID [--race R] [--class C] [--level N] [--gender G] [--completed ID[:GROUP] ...] [--started ID ...]
+	                     [--inventory ITEM[:COUNT] ...] [--profile FILE | --no-profile]   (m5d/quests.py)
 """
 
 from __future__ import annotations
@@ -155,6 +163,81 @@ def cmd_m5b2_skills(args):
 	return 0
 
 
+def cmd_m5b3_drops(args):
+	from m5a.data import StaticData
+	from m5b3.drops import DropData, drops_report, map_survey
+	if args.survey == (args.npc is not None) or (args.survey and args.map is None):
+		raise OracleError("pass --npc ID [--map ID], or --survey --map ID")
+	data_dir = _data_dir(args)
+	java_src = Path(args.java_src) if args.java_src else data_dir.parent.parent / "src"
+	drop_data = DropData(StaticData(data_dir), java_src, Path(args.java_handlers) if args.java_handlers else None)
+	if args.survey:
+		report = map_survey(drop_data, args.map, args.player_level, args.race, args.drop_rate)
+	else:
+		report = drops_report(drop_data, args.npc, args.map, args.player_level, args.race, args.drop_rate)
+	sys.stdout.write(runner.dump_json(report))
+	return 0
+
+
+def cmd_m5c_trade(args):
+	from m5a.creation import RACES
+	from m5a.data import StaticData
+	from m5c.trade import parse_influences, trade_report
+	from m5c.trade_config import load_config, refuse_event_keys
+	data_dir = _data_dir(args)
+	java_src = Path(args.java_src) if args.java_src else data_dir.parent.parent / "src"
+	config_dir = Path(args.config) if args.config else java_src.parent / "config"
+	profile = None if args.no_profile else Path(args.profile) if args.profile else config_dir / "mygs.properties"
+	config = load_config(java_src, config_dir, profile, args.set or [], require_profile=bool(args.profile) and not args.no_profile)
+	data = StaticData(data_dir, config["gameserver.country.code"].value)  # the region variants of gameserver.country.code
+	refuse_event_keys(data)
+	report = trade_report(data, java_src, config, args.npc, args.item, args.map, tuple(args.race) if args.race else RACES, args.count,
+	                      parse_influences(args.influence or []), args.legion_level, args.account_max_level, args.membership,
+	                      handlers_dir=Path(args.java_handlers) if args.java_handlers else None)
+	sys.stdout.write(runner.dump_json(report))
+	return 0
+
+
+def cmd_m5c_craft(args):
+	from m5a.data import StaticData
+	from m5c.craft import CraftContext, craft_report
+	data_dir = _data_dir(args)
+	java_src = Path(args.java_src) if args.java_src else data_dir.parent.parent / "src"
+	config_dir = Path(args.config) if args.config else java_src.parent / "config"
+	profile = None if args.no_profile else Path(args.profile) if args.profile else config_dir / "mygs.properties"
+	ctx = CraftContext.create(StaticData(data_dir), java_src, config_dir, profile, args.set or [], args.membership)
+	report = craft_report(ctx, args.recipe, args.skill, args.level, args.gatherable, args.skill_level, args.craft_type, args.map,
+	                      args.character_level, args.skill_xp)
+	sys.stdout.write(runner.dump_json(report))
+	return 0
+
+
+def _m5d_world(args):
+	from m5a.data import StaticData
+	from m5d.quests import DEFAULT_PROFILE, QuestWorld
+	data_dir = _data_dir(args)
+	java_src = Path(args.java_src) if args.java_src else data_dir.parent.parent / "src"
+	profile =None if args.no_profile else Path(args.profile) if args.profile else DEFAULT_PROFILE
+	return QuestWorld(StaticData(data_dir), java_src, Path(args.java_handlers) if args.java_handlers else None,
+	                  Path(args.config) if args.config else None, profile)
+
+
+def cmd_m5d_quest(args):
+	from m5d.quests import quest_report
+	report = quest_report(_m5d_world(args), args.quest, args.race, args.player_class, args.level, args.gender, args.completed or [],
+	                      args.inventory or [], args.exp)
+	sys.stdout.write(runner.dump_json(report))
+	return 0
+
+
+def cmd_m5d_quests(args):
+	from m5d.quests import map_report
+	report = map_report(_m5d_world(args), args.map, args.race, args.player_class, args.level, args.gender, _m5a_clock(args), args.completed or [],
+	                    args.started or [], args.inventory or [])
+	sys.stdout.write(runner.dump_json(report))
+	return 0
+
+
 def main(argv=None):
 	parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
 	sub = parser.add_subparsers(dest="command", required=True)
@@ -261,6 +344,104 @@ def main(argv=None):
 	p.add_argument("--death-count", type=int, default=1, dest="death_count",
 	               help="the deathCount updateSoulSickness casts skill 8291 at, i.e. its skill level (default 1: the first death)")
 	p.set_defaults(fn=cmd_m5b2_skills)
+
+	p = sub.add_parser("m5b3-drops", help="what a killed npc can drop: rules, chances, candidates, counts, kinah and the entry count (m5b3-plan.md G-01)")
+	data_args(p, country=False)
+	p.add_argument("--java-src", help="game-server/src (default: two levels above the static data directory, then src)")
+	p.add_argument("--java-handlers", help="game-server/data/handlers: the AI classes, quest handlers and @InstanceID handlers (default: beside "
+	                                       "--java-src)")
+	p.add_argument("--npc", type=int, metavar="ID", help="the killed npc (a regular spawn)")
+	p.add_argument("--map", type=int, metavar="ID", help="the npc's map (default: the one map with a regular spawn of it); with --survey, the map")
+	p.add_argument("--survey", action="store_true", help="one summary row per npc id spawned on --map (210010000 Poeta, 220010000 Ishalgen)")
+	p.add_argument("--player-level", type=int, default=1, dest="player_level",
+	               help="the killer's level when registerDrop runs, i.e. after the kill's XP (default 1; from 10 on, repose 0 is an assumption)")
+	p.add_argument("--race", choices=("ELYOS", "ASMODIANS"), help="the killer's race (default: the map's world_type)")
+	p.add_argument("--drop-rate", dest="drop_rate", metavar="R",
+	               help="the gameserver.rates.drop value of the killer's membership (default: RatesConfig.DROP_RATES[0], 1.0; the M5b-3 gate "
+	                    "forces drops with a large one, the M5b/M5b-2 gates switch them off with 0)")
+	p.set_defaults(fn=cmd_m5b3_drops)
+
+	p = sub.add_parser("m5c-trade", help="a merchant's goods with their buy prices, what it pays for a sold item, and a map's merchants (m5c-plan.md G-01)")
+	data_args(p, country=False)
+	p.add_argument("--java-src", help="game-server/src (default: two levels above the static data directory, then src)")
+	p.add_argument("--config", help="game-server/config, whose administration, main and network folders give the defaults (default: beside --java-src)")
+	p.add_argument("--profile", help="the override file Config.loadProperties reads (default: <config>/mygs.properties, which may be missing; a file "
+	                                 "named here must exist)")
+	p.add_argument("--no-profile", action="store_true", dest="no_profile", help="read no override file: the default folders and --set only")
+	p.add_argument("--set", action="append", metavar="KEY=VALUE", help="a property read as one line of the profile (its trailing white space "
+	                                                                   "stays), e.g. the gate's keys; repeatable. gameserver.country.code picks the "
+	                                                                   "goodslists region variant")
+	p.add_argument("--java-handlers", help="game-server/data/handlers, whose AI classes answer a dialog before DialogService (default: beside "
+	                                       "--java-src)")
+	p.add_argument("--npc", type=int, metavar="ID", help="a merchant: its buy window, goods, prices and sell behaviour")
+	p.add_argument("--item", type=int, metavar="ID", help="one item: at --npc, or alone with every npc that sells or purchases it")
+	p.add_argument("--map", type=int, metavar="ID", help="every npc of the map with a trade function (210010000 Poeta, 220010000 Ishalgen)")
+	p.add_argument("--count", type=int, default=1, help="the count of one CM_BUY_ITEM entry the prices are computed for, 1..20000 (default 1)")
+	p.add_argument("--race", action="append", choices=("ELYOS", "ASMODIANS"), help="the buyer's race (default: both); repeatable")
+	p.add_argument("--influence", action="append", metavar="RACE=N", help="Influence.getInfluence(race) when sieges are on; repeatable")
+	p.add_argument("--legion-level", type=int, default=0, dest="legion_level", help="the buyer's legion level, 0 without a legion (default 0)")
+	p.add_argument("--account-max-level", type=int, default=1, dest="account_max_level",
+	               help="Account.getMaxPlayerLevel for the sell limit when gameserver.limits.enable is on (default 1)")
+	p.add_argument("--membership", type=int, default=0, help="the account membership that picks the sell limit rate (default 0)")
+	p.set_defaults(fn=cmd_m5c_trade)
+
+	p = sub.add_parser("m5c-craft", help="a recipe's materials, products, procs, task timing and skill-up; a profession skill at a level; a gatherable "
+	                                     "(m5c-plan.md §2.6 G-01)")
+	data_args(p, country=False)
+	p.add_argument("--java-src", help="game-server/src (default: two levels above the static data directory, then src)")
+	p.add_argument("--config", help="game-server/config, whose administration, main and network folders give the defaults (default: beside --java-src)")
+	p.add_argument("--profile", help="the override file Config.loadProperties reads (default: <config>/mygs.properties; a missing file is no error)")
+	p.add_argument("--no-profile", action="store_true", dest="no_profile", help="read no override file: the default folders and --set only")
+	p.add_argument("--set", action="append", metavar="KEY=VALUE",
+	               help="a property as if written in the profile, e.g. the gate's gameserver.craft.fail.chance=0; repeatable")
+	p.add_argument("--recipe", type=int, metavar="ID", help="a recipe_template id, e.g. 155001381 (Roast Inina)")
+	p.add_argument("--skill", type=int, metavar="ID", help="a profession skill: 30001-30003 gathering, 40001-40010 crafting, 40009 morph (with --level)")
+	p.add_argument("--level", type=int, metavar="N", help="the skill level of --skill (0: not learned yet, the master's first price)")
+	p.add_argument("--gatherable", type=int, metavar="ID", help="a gatherable_template id, e.g. 400601 (Young Aria, Poeta)")
+	p.add_argument("--skill-level", type=int, dest="skill_level", metavar="N",
+	               help="the crafter's or gatherer's skill level (default: the recipe's skillpoint or the gatherable's skillLevel)")
+	p.add_argument("--craft-type", type=int, default=0, dest="craft_type", help="CM_CRAFT's craftType: 1 uses the bonus item for +15%% xp (default 0)")
+	p.add_argument("--skill-xp", type=int, default=0, dest="skill_xp", help="the skill's current xp before the craft or gather (default 0)")
+	p.add_argument("--character-level", type=int, default=1, dest="character_level", help="the character level, for a gatherable's lvlLimit (default 1)")
+	p.add_argument("--map", type=int, metavar="ID", help="with --skill of a gathering skill: the gatherables spawned on this map (210010000 Poeta, "
+	                                                     "220010000 Ishalgen)")
+	p.add_argument("--membership", type=int, default=0, help="the account membership that picks the rate of every float[] rate key (default 0)")
+	p.set_defaults(fn=cmd_m5c_craft)
+
+	def m5d_args(p):
+		data_args(p, country=False)
+		p.add_argument("--java-src", help="game-server/src (default: two levels above the static data directory, then src)")
+		p.add_argument("--java-handlers", help="game-server/data/handlers/quest (default: beside src)")
+		p.add_argument("--config", help="game-server/config, for the rate defaults (default: beside src)")
+		p.add_argument("--profile", help="the override file Config.loadProperties reads over config/{administration,main,network} (default: "
+		                                 "<config>/mygs.properties when it exists; a file named here must exist)")
+		p.add_argument("--no-profile", action="store_true", dest="no_profile", help="read no override file: the default folders only")
+		p.add_argument("--race", choices=("ELYOS", "ASMODIANS"))
+		p.add_argument("--class", dest="player_class", default="WARRIOR", help="the character's class (default WARRIOR)")
+		p.add_argument("--gender", choices=("MALE", "FEMALE"), help="needed only when a quest in question has gender_permitted")
+		p.add_argument("--completed", nargs="+", action="extend", metavar="ID[:GROUP]",
+		               help="quests the character has completed once (reward group GROUP, default 0 when it has rewards)")
+		p.add_argument("--inventory", nargs="+", action="extend", metavar="ITEM[:COUNT]",
+		               help="items in the cube (COUNT default 1; 0 states that the cube does not hold it), needed for an inventory_items check "
+		                    "on an item a quest of the list may have given or taken")
+
+	p = sub.add_parser("m5d-quest", help="one quest: handler, prerequisites, steps as QuestState changes, targets, rewards after rates, follow-up "
+	                                     "(m5d-plan.md G-01)")
+	m5d_args(p)
+	p.add_argument("--quest", type=int, required=True)
+	p.add_argument("--level", type=int, help="the character level before the reward, for the follow-up (default: the level of --exp, else the "
+	                                         "quest's minlevel_permitted, at least 1); the follow-up is checked at the level after the reward")
+	p.add_argument("--exp", type=int, help="the character's exp before the reward (default: the start exp of --level)")
+	p.set_defaults(fn=cmd_m5d_quest)
+
+	p = sub.add_parser("m5d-quests", help="the quests a character meets on a map and the SM_NEARBY_QUESTS set, XML-only registry marked "
+	                                      "(m5d-plan.md G-01, D9)")
+	m5d_args(p)
+	p.add_argument("--map", type=int, required=True)
+	p.add_argument("--level", type=int, default=1, help="the character level (default 1)")
+	p.add_argument("--started", nargs="+", action="extend", type=int, metavar="ID", help="quests the character has in START state")
+	clock_args(p)
+	p.set_defaults(fn=cmd_m5d_quests)
 
 	args = parser.parse_args(argv)
 	try:
