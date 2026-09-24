@@ -43,6 +43,10 @@ endif()
 
 add_subdirectory(commons)
 add_subdirectory(login-server)
+option(AION_BUILD_CHAT_SERVER "Build the chat server port (cpp/chat-server); OFF until the integrator switches it on" OFF)
+if(AION_BUILD_CHAT_SERVER)
+	add_subdirectory(chat-server)
+endif()
 add_subdirectory(game-server)
 add_subdirectory(tools)
 
