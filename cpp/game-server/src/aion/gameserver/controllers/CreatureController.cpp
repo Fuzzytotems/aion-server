@@ -12,7 +12,6 @@
 #include "aion/gameserver/ai/AbstractAI.h"
 #include "aion/gameserver/ai/NpcAI.h"
 #include "aion/gameserver/ai/event/AIEventType.h"
-#include "aion/gameserver/controllers/ControllerStandIns.h"
 #include "aion/gameserver/controllers/ControllerSupport.h"
 #include "aion/gameserver/controllers/ObserveController.h"
 #include "aion/gameserver/controllers/attack/AggroList.h"
@@ -54,6 +53,7 @@
 #include "aion/gameserver/services/item/ItemPacketService.h"
 #include "aion/gameserver/skillengine/SkillEngine.h"
 #include "aion/gameserver/skillengine/condition/SkillChargeCondition.h"
+#include "aion/gameserver/skillengine/model/ChargeSkill.h"
 #include "aion/gameserver/skillengine/model/ChargeSkillEntry.h"
 #include "aion/gameserver/skillengine/model/ChargedSkill.h"
 #include "aion/gameserver/skillengine/model/Effect.h"
@@ -505,9 +505,11 @@ bool CreatureController::useChargeSkill(skillengine::model::Skill& startSkill, i
 				break;
 		}
 		int32_t skillId = detail::listGet(skills, index).getId();
-		// Java: ChargeSkill skill = SkillEngine.getInstance().getChargeSkill(getOwner(), skillId, startSkill.getSkillLevel(), index + 1, startSkill);
-		// if (skill != null) return skill.useSkill();
-		result = standins::chargeSkillGetAndUse(getOwner(), skillId, startSkill.getSkillLevel(), index + 1, startSkill);
+		// m5b2-plan.md P-04, second half (header request m5b2-p2-4): the stand-in is gone, SkillEngine::getChargeSkill is ported (S-01)
+		runtime::Ref<skillengine::model::ChargeSkill> skill =
+			skillengine::SkillEngine::getInstance().getChargeSkill(getOwner(), skillId, startSkill.getSkillLevel(), index + 1, startSkill);
+		if (skill)
+			result = skill->useSkill(); // Java: return skill.useSkill() - the finally below still cancels the start skill
 	} catch (const std::exception& ex) {
 		log.error("Could not use charge skill " + std::to_string(startSkill.getSkillId()) + " with charge time " + std::to_string(chargeTimeMillis), ex);
 	} catch (...) {

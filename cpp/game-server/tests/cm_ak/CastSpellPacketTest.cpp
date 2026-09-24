@@ -7,23 +7,24 @@
 // 2: a point and eight unknown floats, anything else: nothing), and every decoded field is compared, not only the byte count - the arms 0 and 1
 // differ by eight bytes, but a swapped x/y or a hit time read as the level would consume exactly as many bytes as the right one.
 //
-// runImpl: every early return of the Java body is driven against a real Player and a real AionConnection. The body ends in
-// PlayerController::useSkill, whose first statement is SkillEngine::getSkillFor - AION_UNPORTED until the cast lane ports it (m5b2-plan.md
-// S-01). So, the way m5b-1's CM_ATTACK tests first proved the creature branch (AttackPacketTest.cpp), the arm that reaches the controller is
-// asserted by the UnportedException of getSkillFor: that is "the packet reaches the engine", and it is all a unit test can see today.
-// WHEN S-01 LANDS, SkillEngineReached below stops throwing and must become the real assertion: with the skill in the player's skill list
-// (PlayerSkillList) getSkillFor answers a Skill, PlayerRestrictions::canUseSkill runs (tests/instance/PlayerRestrictionsTest.cpp) and the
-// Skill carries targetType/x/y/z/clientHitTime from this packet; without it getSkillFor answers null and nothing happens.
+// runImpl: every early return of the Java body is driven against a real Player and a real AionConnection, and since M5b-2 part 2 ported the
+// cast engine (m5b2-plan.md S-01, S-02) so is the arm that goes on to PlayerController::useSkill (:108). The caster has learned ACTIVE_SKILL,
+// a 2,000 ms self cast: SkillEngine::getSkillFor answers a Skill, PlayerRestrictions::canUseSkill lets it through (that body's own cases are
+// tests/instance/PlayerRestrictionsTest.cpp) and Skill::useSkill starts the cast - the caster is casting and SM_CASTSPELL is sent now, the end
+// task waits on the fixture's manual clock, which no case here advances (the whole cast is tests/skills/P5-02a's). A skill the caster has not
+// learned makes getSkillFor answer null, and nothing follows the protection and item-use statements. Spell id 0 cancels the cast in progress
+// with SM_SKILL_CANCEL and STR_SKILL_CANCELED (PlayerController.cancelCurrentSkill).
 //
 // NOT COVERED: the `!player.getSummon().isPet()` half of the pet-order guard (a Summon needs an npc template and a spawn this fixture does
-// not build; only the `getSummon() == null` half is driven), and the level, target arm and hit time as arguments of useSkill, which only
-// S-01's getSkillFor can make observable - the read tests below assert that readImpl decoded them.
+// not build; only the `getSummon() == null` half is driven), and useSkill's transform arm, the only reader of the packet's level (the FORM1
+// panel lookup, PlayerController.java:460-466) - the level of a normal cast is the skill list's, which the start case asserts.
 
 #include "InWorldPacketRunSupport.h"
 
 #include <chrono>
 #include <cstdint>
 #include <memory>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <thread>
@@ -41,10 +42,15 @@
 #include "aion/gameserver/dataholders/PetSkillData.h"
 #include "aion/gameserver/model/ActionState.h"
 #include "aion/gameserver/model/ActionStateInfo.h"
+#include "aion/gameserver/model/gameobjects/Persistable.h"
+#include "aion/gameserver/model/gameobjects/state/CreatureState.h"
 #include "aion/gameserver/model/gameobjects/state/CreatureVisualState.h"
+#include "aion/gameserver/model/skill/PlayerSkillEntry.h"
 #include "aion/gameserver/model/skill/PlayerSkillList.h"
 #include "aion/gameserver/network/aion/clientpackets/CM_CASTSPELL.h"
+#include "aion/gameserver/network/aion/serverpackets/SM_CASTSPELL.h"
 #include "aion/gameserver/network/aion/serverpackets/SM_PLAYER_STATE.h"
+#include "aion/gameserver/network/aion/serverpackets/SM_SKILL_CANCEL.h"
 #include "aion/gameserver/network/aion/serverpackets/SM_SYSTEM_MESSAGE.h"
 #include "aion/gameserver/runtime/base/Exceptions.h"
 #include "aion/gameserver/runtime/base/Unported.h"
@@ -74,11 +80,15 @@ namespace testing {
 namespace {
 
 using Access = CM_CASTSPELLTestAccess;
+using model::gameobjects::state::CreatureState;
 using model::gameobjects::state::CreatureVisualState;
 using network::test::LogCapture;
 using network::test::PacketWriter;
+using serverpackets::SM_CASTSPELL;
 using serverpackets::SM_PLAYER_STATE;
+using serverpackets::SM_SKILL_CANCEL;
 using serverpackets::SM_SYSTEM_MESSAGE;
+using skillengine::model::Skill;
 
 /** the decoded opcode of ClientPacketInfo.gen.inc:45 (Java AionClientPacketFactory: packets[33] = CM_CASTSPELL, State.IN_GAME) */
 constexpr int32_t OPCODE = 33;
@@ -86,10 +96,12 @@ constexpr int32_t OPCODE = 33;
 const char* BASE_CLIENT_PACKET_LOGGER = "com.aionemu.commons.network.packet.BaseClientPacket";
 const char* AUDIT_LOGGER = "AUDIT_LOG"; // AuditLogger.cpp:22
 
-constexpr int32_t ACTIVE_SKILL = 1282;  // Flame Bolt, the Mage's first cast
+constexpr int32_t ACTIVE_SKILL = 1282;  // the id of Flame Bolt, the Mage's first cast; its template below is a 2,000 ms self cast (no target to find)
 constexpr int32_t PASSIVE_SKILL = 40;   // a passive of every starting class
 constexpr int32_t PET_ORDER_SKILL = 3835; // pet_skills.xml: the order skill of a pet
-constexpr int32_t PREVIOUS_SKILL = 2864;  // the skill of the "previous skill" in the too-early audit line
+constexpr int32_t PREVIOUS_SKILL = 2864;  // the skill of the "previous skill" in the too-early audit line; an ACTIVE skill the caster has not learned
+constexpr int32_t LEARNED_LEVEL = 2;      // ACTIVE_SKILL's level in the caster's skill list; every packet below says level 1
+constexpr int32_t CAST_DURATION = 2000;   // ACTIVE_SKILL's duration, the SM_CASTSPELL cast time without a cast speed modifier
 
 /** readImpl up to the target arm: UH spell id, UC level, UC target type */
 PacketWriter head(int32_t spellId, int32_t level, int32_t targetType) {
@@ -101,6 +113,11 @@ PacketWriter head(int32_t spellId, int32_t level, int32_t targetType) {
 /** targetType 0 (the same layout as 3 and 4): D target object id, then UH hit time and D unk */
 std::vector<uint8_t> objectBody(int32_t spellId, int32_t level, int32_t targetObjectId, int32_t hitTime, int32_t targetType = 0) {
 	return head(spellId, level, targetType).D(targetObjectId).H(hitTime).D(0x0BADF00D).data;
+}
+
+/** targetType 1: F x, F y, F z, then UH hit time and D unk */
+std::vector<uint8_t> pointBody(int32_t spellId, int32_t level, float x, float y, float z, int32_t hitTime) {
+	return head(spellId, level, 1).F(x).F(y).F(z).H(hitTime).D(0x0BADF00D).data;
 }
 
 /** A fresh packet of type CM_CASTSPELL that has read `data`; nullptr if read() failed */
@@ -215,19 +232,33 @@ TEST(CastSpellPacketReadTest, AShortBodyUnderflowsAndASpareByteIsLeft) {
 
 // --------------------------------------------------------------------------------------------------------------------------------- runImpl
 
-/** One of Java's anonymous `new ItemUseObserver() { ... }` of a delayed item action, which PlayerController::cancelUseItem aborts */
+/**
+ * One of Java's anonymous `new ItemUseObserver() { ... }` of a delayed item action, which PlayerController::cancelUseItem aborts. It also
+ * records whether its owner's spawn protection was still on when it was aborted: a real one sends nothing a test could order against
+ * stopProtectionActiveTask's SM_PLAYER_STATE, so this is how the order of CM_CASTSPELL.java:95-97 is seen.
+ */
 class RecordingItemUseObserver final : public controllers::observer::ItemUseObserver {
 	AION_MAKE_REF_FRIEND
 public:
 	int32_t aborted = 0;
+	/** the owner's isProtectionActive() at the last abort(); empty while it was never aborted */
+	std::optional<bool> protectionActiveAtAbort;
 
-	static runtime::Ref<RecordingItemUseObserver> create() { return runtime::makeRef<RecordingItemUseObserver>(); }
+	static runtime::Ref<RecordingItemUseObserver> create(model::gameobjects::player::Player& owner) {
+		return runtime::makeRef<RecordingItemUseObserver>(owner);
+	}
 
-	void abort() override { aborted++; }
+	void abort() override {
+		aborted++;
+		protectionActiveAtAbort = owner.isProtectionActive();
+	}
 
 protected:
-	RecordingItemUseObserver() = default;
+	explicit RecordingItemUseObserver(model::gameobjects::player::Player& ownerValue) : owner(ownerValue) {}
 	~RecordingItemUseObserver() override = default;
+
+private:
+	model::gameobjects::player::Player& owner; // attached to the owner's ObserveController, which the owner outlives
 };
 
 /** AuditLogger only writes its line with gameserver.log.audit on, and must not reach AutoBan (PunishmentConfig off) */
@@ -242,10 +273,10 @@ public:
 	AuditScope& operator=(const AuditScope&) = delete;
 };
 
-std::string skillTemplateXml(int32_t skillId, std::string_view activation) {
+std::string skillTemplateXml(int32_t skillId, std::string_view activation, int32_t duration = 0, std::string_view children = {}) {
 	return "<skill_template skill_id=\"" + std::to_string(skillId) + "\" name=\"s" + std::to_string(skillId) +
-		R"(" nameId="1" skilltype="MAGICAL" skillsubtype="ATTACK" activation=")" + std::string(activation) + R"(" duration="0" stack="S)" +
-		std::to_string(skillId) + "\"/>";
+		R"(" nameId="1" skilltype="MAGICAL" skillsubtype="ATTACK" activation=")" + std::string(activation) + R"(" duration=")" +
+		std::to_string(duration) + R"(" stack="S)" + std::to_string(skillId) + "\">" + std::string(children) + "</skill_template>";
 }
 
 class CastSpellRunTest : public InWorldPacketTest {
@@ -254,15 +285,22 @@ protected:
 		InWorldPacketTest::SetUp();
 		xml::LoadContext context;
 		dataholders::DataManager::SKILL_DATA.resetForTests(); // the fixture published an empty holder
+		// ACTIVE_SKILL: first_target ME, so FirstTargetProperty makes the caster the target and the cast needs no other creature
+		// (FirstTargetProperty.java:22-25); the templates without <properties> have an empty effected list, which the object arm refuses
 		dataholders::DataManager::SKILL_DATA.publish(xml::bindString<dataholders::SkillData>(context,
-			"<skill_data>" + skillTemplateXml(ACTIVE_SKILL, "ACTIVE") + skillTemplateXml(PASSIVE_SKILL, "PASSIVE") +
-				skillTemplateXml(PET_ORDER_SKILL, "ACTIVE") + skillTemplateXml(PREVIOUS_SKILL, "ACTIVE") + "</skill_data>"));
+			"<skill_data>" +
+				skillTemplateXml(ACTIVE_SKILL, "ACTIVE", CAST_DURATION, R"(<properties first_target="ME" target_type="ONLYONE"/>)") +
+				skillTemplateXml(PASSIVE_SKILL, "PASSIVE") + skillTemplateXml(PET_ORDER_SKILL, "ACTIVE") +
+				skillTemplateXml(PREVIOUS_SKILL, "ACTIVE") + "</skill_data>"));
 		dataholders::DataManager::PET_SKILL_DATA.publish(xml::bindString<dataholders::PetSkillData>(context,
 			R"(<pet_skill_templates><pet_skill skill_id="22107" pet_id="833288" order_skill=")" + std::to_string(PET_ORDER_SKILL) +
 				R"("/></pet_skill_templates>)"));
 		actor = makePlayer(310001, 9301, "Caster");
 		actor.player->getPosition()->setIsSpawned(true);
-		actor.player->setSkillList(model::skill::PlayerSkillList::create());
+		// the caster's one learned skill (Java PlayerSkillListDAO rows): SkillEngine.getSkillFor answers null for every other ACTIVE skill
+		learned = model::skill::PlayerSkillEntry::create(ACTIVE_SKILL, LEARNED_LEVEL, 0, model::gameobjects::Persistable_PersistentState::NOACTION);
+		actor.player->setSkillList(
+			model::skill::PlayerSkillList::create({runtime::Ptr<model::skill::PlayerSkillEntry>(learned)}));
 		client = std::make_unique<TestClient>();
 		client->enterWorld(actor);
 		(*client)->clearSent();
@@ -276,12 +314,13 @@ protected:
 		}
 		client.reset();
 		actor = {};
+		learned.reset();
 		dataholders::DataManager::PET_SKILL_DATA.resetForTests();
 		InWorldPacketTest::TearDown();
 	}
 
-	runtime::Ref<skillengine::model::Skill> skill(int32_t skillId) {
-		return skillengine::model::Skill::create(dataholders::DataManager::SKILL_DATA->getSkillTemplate(skillId), *actor.player, nullptr, 1);
+	runtime::Ref<Skill> skill(int32_t skillId) {
+		return Skill::create(dataholders::DataManager::SKILL_DATA->getSkillTemplate(skillId), *actor.player, nullptr, 1);
 	}
 
 	/** Reads and runs one CM_CASTSPELL, after dropping everything the arrangement queued */
@@ -293,27 +332,28 @@ protected:
 
 	void cast(int32_t spellId) { cast(objectBody(spellId, 1, 0, 0)); }
 
-	/** Runs `run` and returns the message of the UnportedException it must throw ("<function> is not ported yet (<file>:<line>)") */
-	template <class F>
-	std::string unportedMessage(F&& run) {
-		try {
-			run();
-		} catch (const runtime::UnportedException& e) {
-			return e.what();
-		}
-		ADD_FAILURE() << "no UnportedException";
-		return {};
+	/**
+	 * true if the packet went on to PlayerController::useSkill and started the cast of ACTIVE_SKILL: Skill.useSkill has made it the caster's
+	 * casting skill (Skill.java:289), and its end task waits on the manual clock
+	 */
+	bool castStarted() {
+		runtime::Ptr<Skill> casting = actor.player->getCastingSkill();
+		return casting && casting->getSkillId() == ACTIVE_SKILL;
 	}
 
-	/** true if an AION_UNPORTED site in `file` whose function contains `function` was hit since SetUp */
-	static bool unportedSiteHit(std::string_view file, std::string_view function) {
-		for (const runtime::UnportedHit& hit : runtime::unportedHits())
-			if (hit.hits > 0 && hit.file.find(file) != std::string::npos && hit.function.find(function) != std::string::npos)
-				return true;
-		return false;
+	/**
+	 * The SM_CASTSPELL startCast broadcasts to the caster for the cast in progress of an object-arm packet (Skill.java:495-503): the learned
+	 * level, the caster himself as the target of a first_target ME skill, and the template's duration. The two animation fields are the
+	 * started Skill's own; nothing here sets a cast speed.
+	 */
+	std::vector<uint8_t> castSpellOfTheCastInProgress() {
+		runtime::Ptr<Skill> casting = actor.player->getCastingSkill();
+		if (!casting)
+			return {};
+		return serialized(SM_CASTSPELL(*actor.player, ACTIVE_SKILL, LEARNED_LEVEL, 0, actor.player->getObjectId(), CAST_DURATION,
+							  casting->getCastSpeedForAnimationBoostAndChargeSkills(), casting->allowAnimationBoostByCastSpeed()),
+			client->con());
 	}
-
-	static bool skillEngineReached() { return unportedSiteHit("skillengine/SkillEngine.cpp", "getSkillFor"); }
 
 	/** Sets the last skill the way Java does: Player.setCasting remembers the template of the cast it replaces */
 	void rememberLastSkill(int32_t skillId) {
@@ -326,34 +366,49 @@ protected:
 
 	std::vector<uint8_t> playerState() { return serialized(SM_PLAYER_STATE(*actor.player), client->con()); }
 
+	/** A pending delayed item use of the caster, as ItemUseObserver: what PlayerController::cancelUseItem aborts (CM_CASTSPELL.java:97) */
+	runtime::Ref<RecordingItemUseObserver> pendingItemUse() {
+		runtime::Ref<RecordingItemUseObserver> itemUse = RecordingItemUseObserver::create(*actor.player);
+		actor.player->getObserveController()->attach(*itemUse);
+		return itemUse;
+	}
+
 	PlayerFixture actor;
 	std::unique_ptr<TestClient> client;
+	runtime::Ref<model::skill::PlayerSkillEntry> learned;
 };
 
 TEST_F(CastSpellRunTest, ADeadCasterIsToldSoAndNothingElseHappens) {
 	actor.player->setLifeStats(std::make_unique<DeadPlayerLifeStats>(*actor.player));
 	ASSERT_TRUE(actor.player->isDead());
 	actor.player->setVisualState(CreatureVisualState::BLINKING);
-	actor.player->setCasting(skill(ACTIVE_SKILL)); // spell id 0 would cancel it, which reaches the unported Skill::cancelCast
+	runtime::Ref<Skill> inProgress = skill(PREVIOUS_SKILL);
+	actor.player->setCasting(inProgress); // spell id 0 would cancel it
+	runtime::Ref<RecordingItemUseObserver> itemUse = pendingItemUse();
+	const std::vector<uint8_t> dead = message(SM_SYSTEM_MESSAGE::STR_SKILL_CANT_CAST(utils::ChatUtil::l10n(getL10nId(model::ActionState::DEAD))));
 
 	EXPECT_NO_THROW(cast(0)) << "CM_CASTSPELL.java:77-80: the dead branch returns before the cancel";
-	EXPECT_EQ((*client)->sentBytes(), exactly({message(SM_SYSTEM_MESSAGE::STR_SKILL_CANT_CAST(
-										  utils::ChatUtil::l10n(getL10nId(model::ActionState::DEAD))))}));
+	EXPECT_EQ((*client)->sentBytes(), exactly({dead})) << "no SM_SKILL_CANCEL";
+	EXPECT_EQ(actor.player->getCastingSkill(), inProgress) << "the cast in progress is still the caster's";
 
 	EXPECT_NO_THROW(cast(ACTIVE_SKILL)) << "and before the engine";
+	EXPECT_EQ((*client)->sentBytes(), exactly({dead}));
 	EXPECT_TRUE(actor.player->isProtectionActive()) << "and before the protection task";
-	EXPECT_FALSE(skillEngineReached());
+	EXPECT_EQ(itemUse->aborted, 0) << "and before the item-use cancel";
+	EXPECT_EQ(actor.player->getCastingSkill(), inProgress) << "and no cast of ACTIVE_SKILL started";
 }
 
 TEST_F(CastSpellRunTest, SpellIdZeroCancelsTheCastInProgress) {
-	actor.player->setCasting(skill(ACTIVE_SKILL));
+	cast(ACTIVE_SKILL);
+	ASSERT_TRUE(castStarted()) << "the 2,000 ms cast of AnActiveSkillEndsTheProtectionCancelsTheItemUseAndReachesTheEngine, waiting for its end";
 
-	// Java: player.getController().cancelCurrentSkill(null), whose first step on a cast in progress is castingSkill.cancelCast() - a P5-02a body
-	// (m5b2-plan.md S-02). Its UnportedException is the proof that the cancel was asked for; WHEN S-02 LANDS this case becomes the
-	// SM_SKILL_CANCEL + STR_SKILL_CANCELED pair of PlayerController::cancelCurrentSkill.
-	const std::string what = unportedMessage([&] { cast(0); });
-	EXPECT_NE(what.find("Skill::cancelCast"), std::string::npos) << what;
-	EXPECT_FALSE(skillEngineReached()) << "CM_CASTSPELL.java:82-85: spell id 0 returns after the cancel";
+	EXPECT_NO_THROW(cast(0));
+
+	// CM_CASTSPELL.java:82-85: player.getController().cancelCurrentSkill(null) -> castingSkill.cancelCast(), player.setCasting(null), and for a
+	// CAST skill SM_SKILL_CANCEL to the caster and everyone who sees him, then the message (PlayerController.java:514-541)
+	EXPECT_FALSE(actor.player->isCasting());
+	EXPECT_EQ((*client)->sentBytes(),
+		exactly({serialized(SM_SKILL_CANCEL(*actor.player, ACTIVE_SKILL), client->con()), message(SM_SYSTEM_MESSAGE::STR_SKILL_CANCELED())}));
 }
 
 TEST_F(CastSpellRunTest, SpellIdZeroWithoutACastDoesNothing) {
@@ -369,45 +424,88 @@ TEST_F(CastSpellRunTest, APetOrderSkillWithoutAPetIsRefused) {
 	ASSERT_NE(dataholders::DataManager::SKILL_DATA->getSkillTemplate(PET_ORDER_SKILL), nullptr)
 		<< "the order skill has a template, so without the guard it would go on to the engine";
 	actor.player->setVisualState(CreatureVisualState::BLINKING);
+	runtime::Ref<RecordingItemUseObserver> itemUse = pendingItemUse();
 
 	EXPECT_NO_THROW(cast(PET_ORDER_SKILL));
 	EXPECT_EQ((*client)->sentBytes(), exactly({message(SM_SYSTEM_MESSAGE::STR_SKILL_NOT_NEED_PET())})) << "CM_CASTSPELL.java:86-89";
 	EXPECT_TRUE(actor.player->isProtectionActive());
-	EXPECT_FALSE(skillEngineReached());
+	EXPECT_EQ(itemUse->aborted, 0) << "the pet guard returns before the item-use cancel";
+	EXPECT_FALSE(actor.player->isCasting());
 }
 
 TEST_F(CastSpellRunTest, AnUnknownOrPassiveSkillIsIgnored) {
 	actor.player->setVisualState(CreatureVisualState::BLINKING);
 	ASSERT_EQ(dataholders::DataManager::SKILL_DATA->getSkillTemplate(9999), nullptr);
 	ASSERT_TRUE(dataholders::DataManager::SKILL_DATA->getSkillTemplate(PASSIVE_SKILL)->isPassive());
+	runtime::Ref<RecordingItemUseObserver> itemUse = pendingItemUse();
 
 	for (int32_t spellId : {9999, PASSIVE_SKILL}) {
 		SCOPED_TRACE("skill " + std::to_string(spellId));
 		EXPECT_NO_THROW(cast(spellId));
 		EXPECT_TRUE((*client)->sentBytes().empty()) << "CM_CASTSPELL.java:91-93 returns without a word";
 		EXPECT_TRUE(actor.player->isProtectionActive()) << "and before the protection task";
+		EXPECT_EQ(itemUse->aborted, 0) << "and before the item-use cancel (:97)";
 	}
-	EXPECT_FALSE(skillEngineReached());
+	EXPECT_FALSE(actor.player->isCasting());
 }
 
 TEST_F(CastSpellRunTest, AnActiveSkillEndsTheProtectionCancelsTheItemUseAndReachesTheEngine) {
 	actor.player->setVisualState(CreatureVisualState::BLINKING);
-	runtime::Ref<RecordingItemUseObserver> itemUse = RecordingItemUseObserver::create();
-	actor.player->getObserveController()->attach(*itemUse);
+	runtime::Ref<RecordingItemUseObserver> itemUse = pendingItemUse();
 
-	const std::string what = unportedMessage([&] { cast(ACTIVE_SKILL); });
+	// the point arm, so the SM_CASTSPELL below carries the x/y/z this packet brought
+	EXPECT_NO_THROW(cast(pointBody(ACTIVE_SKILL, 1, 1.5f, -2.25f, 100.125f, 700)));
 
-	// CM_CASTSPELL.java:95-97, then :108 -> PlayerController.useSkill -> SkillEngine.getSkillFor (m5b2-plan.md S-01, not ported yet)
-	EXPECT_NE(what.find("SkillEngine::getSkillFor"), std::string::npos) << what;
-	EXPECT_TRUE(skillEngineReached());
+	// CM_CASTSPELL.java:95-97: the protection ends, and only then is the item use cancelled
 	EXPECT_FALSE(actor.player->isProtectionActive()) << "stopProtectionActiveTask";
-	EXPECT_EQ((*client)->sentBytes(), exactly({playerState()})) << "stopProtectionActiveTask's SM_PLAYER_STATE and nothing else";
 	EXPECT_EQ(itemUse->aborted, 1) << "cancelUseItem aborted the pending item use";
+	EXPECT_EQ(itemUse->protectionActiveAtAbort, std::optional<bool>(false)) << "stopProtectionActiveTask runs before cancelUseItem";
+	// :108 -> PlayerController.useSkill (PlayerController.java:458-481): getSkillFor answers the learned skill, canUseSkill lets it through,
+	// setTargetType/setClientHitTime hand it this packet's target and hit time, and Skill.useSkill starts the cast (Skill.java:274-319)
+	ASSERT_TRUE(castStarted());
+	runtime::Ptr<Skill> started = actor.player->getCastingSkill();
+	EXPECT_EQ(started->getSkillLevel(), LEARNED_LEVEL) << "new Skill(template, player, target) takes the skill list's level, not the packet's 1";
+	EXPECT_EQ(started->getHitTime(), 700) << "the client's hit time: gameserver.security.check_animations is off here (Skill.java:416-418)";
+	EXPECT_EQ((*client)->sentBytes(),
+		exactly({playerState(), serialized(SM_CASTSPELL(*actor.player, ACTIVE_SKILL, LEARNED_LEVEL, 1, 1.5f, -2.25f, 100.125f, CAST_DURATION,
+										 started->getCastSpeedForAnimationBoostAndChargeSkills(), started->allowAnimationBoostByCastSpeed()),
+									client->con())}))
+		<< "stopProtectionActiveTask's SM_PLAYER_STATE, then startCast's SM_CASTSPELL of the point arm (Skill.java:515-518)";
+	EXPECT_EQ(runtime::unportedHitCount(), 0u) << "starting a cast reaches no unported body";
+}
+
+TEST_F(CastSpellRunTest, ASkillTheCasterHasNotLearnedEndsInTheEngine) {
+	actor.player->setVisualState(CreatureVisualState::BLINKING);
+	ASSERT_FALSE(actor.player->getSkillList()->isSkillPresent(PREVIOUS_SKILL));
+	runtime::Ref<RecordingItemUseObserver> itemUse = pendingItemUse();
+
+	EXPECT_NO_THROW(cast(PREVIOUS_SKILL));
+
+	// the template exists and is active, so :91-93 lets it through and :95-97 run; then SkillEngine.getSkillFor answers null for a skill that is
+	// not PROVOKED and not in the skill list (SkillEngine.java:56-61), the caster is not transformed, and useSkill ends without a word
+	// (PlayerController.java:460-468)
+	EXPECT_FALSE(actor.player->isProtectionActive());
+	EXPECT_EQ(itemUse->aborted, 1);
+	EXPECT_EQ((*client)->sentBytes(), exactly({playerState()})) << "no SM_CASTSPELL and no refusal";
+	EXPECT_FALSE(actor.player->isCasting());
+}
+
+TEST_F(CastSpellRunTest, ALearnedSkillIsStillAskedToPlayerRestrictions) {
+	actor.player->setState(CreatureState::RESTING); // Creature.canAttack is false while resting; Skill.canUseSkill does not look at it
+	ASSERT_FALSE(actor.player->canAttack());
+
+	EXPECT_NO_THROW(cast(ACTIVE_SKILL));
+
+	// PlayerController.java:473-474: `if (!PlayerRestrictions.canUseSkill(player, skill)) return;` between getSkillFor and useSkill - the
+	// refusal is PlayerRestrictions.java:72-75's, and no cast starts
+	EXPECT_EQ((*client)->sentBytes(), exactly({message(SM_SYSTEM_MESSAGE::STR_SKILL_CAN_NOT_ATTACK_WHILE_IN_ABNORMAL_STATE())}));
+	EXPECT_FALSE(actor.player->isCasting());
 }
 
 TEST_F(CastSpellRunTest, ACastBeforeTheNextSkillUseIsAuditedAndRefused) {
 	rememberLastSkill(PREVIOUS_SKILL);
 	actor.player->setVisualState(CreatureVisualState::BLINKING);
+	runtime::Ref<RecordingItemUseObserver> itemUse = pendingItemUse();
 	AuditScope auditOn;
 	LogCapture audit({AUDIT_LOGGER});
 	Driver<CM_CASTSPELL> packet(OPCODE);
@@ -423,7 +521,8 @@ TEST_F(CastSpellRunTest, ACastBeforeTheNextSkillUseIsAuditedAndRefused) {
 		<< audit.dump();
 	// the protection task and the item-use cancel come first (CM_CASTSPELL.java:95-97), the refusal after them (:102-104)
 	EXPECT_EQ((*client)->sentBytes(), exactly({playerState(), message(SM_SYSTEM_MESSAGE::STR_SKILL_NOT_READY())}));
-	EXPECT_FALSE(skillEngineReached()) << "a refused cast never reaches the controller";
+	EXPECT_EQ(itemUse->aborted, 1) << "a refused cast has still cancelled the pending item use: cancelUseItem runs before the too-early check";
+	EXPECT_FALSE(actor.player->isCasting()) << "a refused cast never reaches the controller";
 }
 
 TEST_F(CastSpellRunTest, AnEarlyCastThatIsDueByNowIsAuditedAndGoesOn) {
@@ -436,12 +535,13 @@ TEST_F(CastSpellRunTest, AnEarlyCastThatIsDueByNowIsAuditedAndGoesOn) {
 	actor.player->setNextSkillUse(receiveTime + 1);
 	while (commons::utils::currentTimeMillis() <= receiveTime + 1)
 		std::this_thread::sleep_for(std::chrono::milliseconds(1));
+	(*client)->clearSent();
 
-	const std::string what = unportedMessage([&] { packet.readAndRun(objectBody(ACTIVE_SKILL, 1, 0, 0), client->get()); });
+	EXPECT_NO_THROW(packet.readAndRun(objectBody(ACTIVE_SKILL, 1, 0, 0), client->get()));
 
 	EXPECT_TRUE(audit.contains("tried to use skill " + std::to_string(ACTIVE_SKILL) + " 1 ms too early")) << audit.dump();
-	EXPECT_NE(what.find("SkillEngine::getSkillFor"), std::string::npos) << "CM_CASTSPELL.java:102 is false, so :108 runs: " << what;
-	EXPECT_TRUE((*client)->sentBytes().empty()) << "no STR_SKILL_NOT_READY";
+	ASSERT_TRUE(castStarted()) << "CM_CASTSPELL.java:102 is false, so :108 runs and the cast starts";
+	EXPECT_EQ((*client)->sentBytes(), exactly({castSpellOfTheCastInProgress()})) << "SM_CASTSPELL and no STR_SKILL_NOT_READY";
 }
 
 TEST_F(CastSpellRunTest, ACastAtTheNextSkillUseIsNotEarly) {
@@ -451,10 +551,11 @@ TEST_F(CastSpellRunTest, ACastAtTheNextSkillUseIsNotEarly) {
 	actor.player->setNextSkillUse(Access::receiveTime(packet)); // `getNextSkillUse() > receiveTime` is false for equal times
 	ASSERT_EQ(actor.player->getLastSkill(), nullptr) << "no last skill: the audit branch would throw NullPointerException";
 
-	const std::string what = unportedMessage([&] { packet.readAndRun(objectBody(ACTIVE_SKILL, 1, 0, 0), client->get()); });
+	EXPECT_NO_THROW(packet.readAndRun(objectBody(ACTIVE_SKILL, 1, 0, 0), client->get()));
 
-	EXPECT_NE(what.find("SkillEngine::getSkillFor"), std::string::npos) << what;
 	EXPECT_FALSE(audit.contains("too early")) << audit.dump();
+	ASSERT_TRUE(castStarted()) << ":99 is false, so :108 runs and the cast starts";
+	EXPECT_EQ((*client)->sentBytes(), exactly({castSpellOfTheCastInProgress()}));
 }
 
 TEST_F(CastSpellRunTest, AnEarlyCastWithoutALastSkillThrowsLikeJava) {
@@ -463,7 +564,7 @@ TEST_F(CastSpellRunTest, AnEarlyCastWithoutALastSkillThrowsLikeJava) {
 	actor.player->setNextSkillUse(commons::utils::currentTimeMillis() + 60000);
 
 	EXPECT_THROW(cast(ACTIVE_SKILL), runtime::NullPointerException);
-	EXPECT_FALSE(skillEngineReached());
+	EXPECT_FALSE(actor.player->isCasting());
 }
 
 } // namespace

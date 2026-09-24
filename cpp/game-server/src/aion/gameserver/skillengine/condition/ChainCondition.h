@@ -15,6 +15,10 @@ public:
 	using Condition::validate; // C++ name hiding: the overloads this class does not override
 
 	bool validate(model::Skill& env) const override;
+
+private:
+	// header-request: m5b2-p2-2 (Java private ChainCondition.shouldReset, ChainCondition.java:50-65; additive, non-virtual)
+	bool shouldReset(model::ChainSkills& chain, model::Skill& env) const;
 };
 
 } // namespace aion::gameserver::skillengine::condition

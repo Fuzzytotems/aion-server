@@ -13,6 +13,10 @@ public:
 	bool act(model::Skill& skill) const override;
 
 	bool canAct(model::Skill& skill) const override;
+
+private:
+	// header-request: m5b2-p2-3 (Java private MpUseAction.getCost, MpUseAction.java; additive, non-virtual)
+	int32_t getCost(model::Skill& skill) const;
 };
 
 } // namespace aion::gameserver::skillengine::action

@@ -6,15 +6,13 @@
 // instead. The protected JAXB fields and hooks are made public by using-declarations; the nine private helpers are reached through the
 // explicit-instantiation access rule (PrivateAccess below), so the frozen hub header needs no test friend.
 //
-// **What these cases can reach and what they cannot.** 83 of Effect's 88 bodies are still AION_UNPORTED (the effect-core lane, P5-02b, owns them
-// in part 2), and most of EffectTemplate's branches call one of them early: getEffected() (checkEffectResistRate, checkDodgeOrResistRate,
-// isImmuneToAbnormal, calculateDamage), isForcedEffect() and addSuccessEffect() (calculate), isInSuccessEffects() (validatePreEffects),
-// setShieldDefense() (calculateSubEffect), getReserveds() (calculateHate's DAMAGE arm) and applyEffect() (startSubEffect). Where a body reaches one,
-// the case asserts **which** unported site the body hit - the name std::source_location puts into the UnportedException - because that is what
-// proves the statements before it ran in Java's order and took Java's branches (the passive arm of calculate stops at Effect::addSuccessEffect, the
-// non-passive one at Effect::isForcedEffect; a BLEED_RESISTANCE effect skips isImmuneToAbnormal, a STUN_RESISTANCE one does not). The arithmetic
-// behind getEffected() - checkEffectResistRate's effect power and its PvP level-difference narrowing, checkDodgeOrResistRate's accuracy modifier -
-// cannot run before Effect::getEffected is ported; the report of this lane lists the vectors part 2 must add.
+// **What these cases can reach.** In part 1 of the stage 83 of Effect's 88 bodies were AION_UNPORTED, and nine cases here asserted which unported
+// Effect or EffectController body a branch stopped at. Part 2 (the effect-core lane, P5-02b) ported them, and those cases now assert what the
+// bodies do: the passive, immunity, forced and dodge arms of calculate by their results; the sub effect calculateSubEffect builds; the sub
+// effect startSubEffect applies; the reserved damage of calculateHate's DAMAGE arm; the pre-effect positions; the normal shield of
+// isProtectedByShield; and the effect power of checkEffectResistRate at its exact threshold. The draw-order cases (review of part 1) pin the
+// order of the random draws the bodies keep: the dodge-or-resist roll before the magical resist rate is computed (checkDodgeOrResistRate), and
+// the effect-resist roll before the dodge-or-resist roll, which a failed resist roll skips (isDodgedOrResisted).
 //
 // Golden values come from the Java expressions, and the real-data rows from skill_templates.xml: 1328 Root (hopb 1239), 10506 [Common]
 // Flamethrower's confuse (critprobmod1 100, hopa 60, hopb 60) and 324 Shredding Blow (critprobmod2 10, critadddmg2 50, hoptype SKILLLV without
@@ -38,8 +36,14 @@
 #include "aion/commons/logging/LoggerFactory.h"
 #include "aion/commons/utils/Exception.h"
 #include "aion/commons/utils/Rnd.h"
+#include "aion/gameserver/controllers/NpcController.h"
+#include "aion/gameserver/controllers/ObserveController.h"
+#include "aion/gameserver/controllers/attack/AttackStatus.h"
+#include "aion/gameserver/controllers/effect/EffectController.h"
 #include "aion/gameserver/controllers/effect/PlayerEffectController.h"
+#include "aion/gameserver/controllers/observer/AttackCalcObserver.h"
 #include "aion/gameserver/dataholders/DataManager.h"
+#include "aion/gameserver/dataholders/NpcSkillData.h"
 #include "aion/gameserver/dataholders/SkillData.bind.h"
 #include "aion/gameserver/dataholders/SkillData.h"
 #include "aion/gameserver/dataholders/loadingutils/EnumTraits.h"
@@ -57,7 +61,17 @@
 #include "aion/gameserver/model/gameobjects/player/PlayerCommonData.h"
 #include "aion/gameserver/model/items/storage/PlayerStorage.h"
 #include "aion/gameserver/model/items/storage/StorageType.h"
+#include "aion/gameserver/model/gameobjects/Npc.h"
+#include "aion/gameserver/model/stats/calc/Stat2.h"
+#include "aion/gameserver/model/stats/calc/functions/StatAddFunction.h"
+#include "aion/gameserver/model/stats/calc/functions/StatFunction.h"
+#include "aion/gameserver/model/stats/container/CreatureGameStats.h"
+#include "aion/gameserver/model/stats/container/PlayerGameStats.h"
 #include "aion/gameserver/model/stats/container/StatEnum.h"
+#include "aion/gameserver/model/templates/npc/NpcTemplate.bind.h"
+#include "aion/gameserver/model/templates/npc/NpcTemplate.h"
+#include "aion/gameserver/model/templates/spawns/SpawnGroup.h"
+#include "aion/gameserver/model/templates/spawns/SpawnTemplate.h"
 #include "aion/gameserver/runtime/base/Exceptions.h"
 #include "aion/gameserver/runtime/base/TaskInfo.h"
 #include "aion/gameserver/runtime/base/Unported.h"
@@ -73,6 +87,7 @@
 #include "aion/gameserver/skillengine/effect/modifier/ActionModifier.h"
 #include "aion/gameserver/skillengine/effect/modifier/ActionModifiers.h"
 #include "aion/gameserver/skillengine/model/Effect.h"
+#include "aion/gameserver/skillengine/model/EffectReserved.h"
 #include "aion/gameserver/skillengine/model/HopType.h"
 #include "aion/gameserver/skillengine/model/SkillTemplate.bind.h"
 #include "aion/gameserver/skillengine/model/SkillTemplate.h"
@@ -81,6 +96,7 @@
 #include "aion/gameserver/utils/idfactory/IDFactory.h"
 #include "aion/gameserver/world/WorldPosition.h"
 #include "aion/gameserver/world/knownlist/KnownList.h"
+#include "aion/gameserver/world/knownlist/NpcKnownList.h"
 
 namespace aion::gameserver::skillengine::effect::test {
 namespace {
@@ -189,6 +205,7 @@ public:
 	using EffectTemplate::critProbMod2;
 	using EffectTemplate::delta;
 	using EffectTemplate::effectConditions;
+	using EffectTemplate::element;
 	using EffectTemplate::effectSubConditions;
 	using EffectTemplate::hopA;
 	using EffectTemplate::hopB;
@@ -296,36 +313,6 @@ std::unique_ptr<SubEffect> subEffectOf(int32_t skillId, int32_t chance, bool add
 	return sub;
 }
 
-/**
- * Runs the call and answers the what() of the UnportedException it threw ("<function> is not ported yet (<file>:<line>)"), or a marker when it
- * returned or threw something else - so a case can say which AION_UNPORTED body a branch reached.
- */
-template <class Call>
-std::string unportedSiteOf(Call&& call) {
-	try {
-		call();
-	} catch (const runtime::UnportedException& unported) {
-		return unported.what();
-	} catch (const std::exception& other) {
-		return std::string("<threw something else: ") + other.what() + ">";
-	}
-	return "<returned>";
-}
-
-/** std::source_location spells the unported member with its class, e.g. "... aion::gameserver::skillengine::model::Effect::isForcedEffect(void)" */
-bool reached(const std::string& site, std::string_view member) {
-	return site.find(std::string(member) + "(") != std::string::npos;
-}
-
-constexpr std::string_view ADD_SUCCESS_EFFECT = "skillengine::model::Effect::addSuccessEffect";
-constexpr std::string_view IS_FORCED_EFFECT = "skillengine::model::Effect::isForcedEffect";
-constexpr std::string_view GET_EFFECTED = "skillengine::model::Effect::getEffected";
-constexpr std::string_view GET_RESERVEDS = "skillengine::model::Effect::getReserveds";
-constexpr std::string_view SET_SHIELD_DEFENSE = "skillengine::model::Effect::setShieldDefense";
-constexpr std::string_view APPLY_EFFECT = "skillengine::model::Effect::applyEffect";
-constexpr std::string_view IS_IN_SUCCESS_EFFECTS = "skillengine::model::Effect::isInSuccessEffects";
-constexpr std::string_view IS_UNDER_NORMAL_SHIELD = "controllers::effect::EffectController::isUnderNormalShield";
-
 /** The first `count` values Rnd::chance() gives after seeding the calling thread with `seed` (leaves the thread seeded and advanced) */
 std::vector<float> chanceStream(uint64_t seed, int count) {
 	Rnd::seedCurrentThreadForTests(seed);
@@ -389,6 +376,9 @@ protected:
 		Rnd::generator() = *savedRnd;
 		if (skillDataPublished)
 			dataholders::DataManager::SKILL_DATA.resetForTests();
+		spawnGroups.clear();
+		if (npcSkillDataPublished)
+			dataholders::DataManager::NPC_SKILL_DATA.resetForTests();
 		gameserver::model::gameobjects::player::PetList::setPlayerPetsLoaderForTests(nullptr);
 		runtime::Reclaimer::getInstance().drain();
 		utils::ThreadPoolManager::installBackend(nullptr);
@@ -445,11 +435,44 @@ protected:
 		return model::Effect::create(effector, effected, skill, level);
 	}
 
+	/**
+	 * An npc whose template has no run speed - the npcs isImmuneToAbnormal makes immune to PULLED, STAGGER and STUMBLE (EffectTemplate.java:536-538)
+	 * - with the known list and effect controller its spawn gives it. Npc's constructor reads NPC_SKILL_DATA (empty here).
+	 */
+	Ref<gameserver::model::gameobjects::Npc> makeRootedNpc(int32_t npcId) {
+		namespace m = gameserver::model;
+		if (!dataholders::DataManager::NPC_SKILL_DATA) {
+			dataholders::DataManager::NPC_SKILL_DATA.publish(std::make_unique<dataholders::NpcSkillData>());
+			npcSkillDataPublished = true;
+		}
+		xml::LoadContext context;
+		const m::templates::npc::NpcTemplate* npcTemplate = xml::bindString<m::templates::npc::NpcTemplate>(context,
+			R"(<npc_template name_id="1" npc_id=")" + std::to_string(npcId) + R"(" level="4" name="rooted" attack_speed="2000" arange="2")"
+				R"( rating="NORMAL" tribe="GENERAL"><stats maxHp="2522" maxMp="100" attack="16"><speeds walk="0" run="0"/></stats></npc_template>)")
+			.release(); // immortal static data, like the holder keeps it
+		spawnGroups.push_back(m::templates::spawns::SpawnGroup::create(210010000, npcId, 0, nullptr));
+		m::templates::spawns::SpawnTemplate& spawnTemplate = spawnGroups.back()->addSpawnTemplate(std::make_unique<TemplateTestSpawn>(*spawnGroups.back()));
+		Ref<m::gameobjects::Npc> npc =
+			m::gameobjects::VisibleObject::create<m::gameobjects::Npc>(std::make_unique<controllers::NpcController>(), spawnTemplate, npcTemplate);
+		npc->setKnownlist(std::make_unique<world::knownlist::NpcKnownList>(*npc));
+		npc->setEffectController(std::make_unique<controllers::effect::EffectController>(*npc));
+		return npc;
+	}
+
+	/** A spawn template the npc of makeRootedNpc returns to */
+	class TemplateTestSpawn final : public gameserver::model::templates::spawns::SpawnTemplate {
+	public:
+		explicit TemplateTestSpawn(gameserver::model::templates::spawns::SpawnGroup& group)
+			: SpawnTemplate(group, 10.0f, 20.0f, 30.0f, int8_t{0}, 0, std::nullopt, 0, 0, std::nullopt) {}
+	};
+
 	runtime::ManualClock clock{0};
 	std::optional<Rnd::Xoshiro256PlusPlus> savedRnd;
 	std::vector<std::unique_ptr<model::SkillTemplate>> skills;
+	std::vector<Ref<gameserver::model::templates::spawns::SpawnGroup>> spawnGroups;
 	xml::LoadContext skillDataContext;
 	bool skillDataPublished = false;
+	bool npcSkillDataPublished = false;
 };
 
 // ---- the template arithmetic ------------------------------------------------------------------------------------------------------------------
@@ -527,9 +550,9 @@ TEST_F(EffectTemplateTest, SkillLevelHateIsHopbPlusHopaTimesTheLevelAndAtLeastOn
 }
 
 /**
- * The DAMAGE arm reads the reserved damage of position 0 and falls through into the SKILLLV sum (:448-452). Effect::getReserveds is unported, so
- * the case can only prove the arm starts there - a port that skipped the read (or broke instead of falling through before it) would answer a
- * number. An out-of-range HopType takes the default arm, whose exception is Java's UnsupportedOperationException, not the unported marker.
+ * The DAMAGE arm reads the reserved damage of position 0 (Effect.getReserveds, an empty value 0 when there is none) and falls through into the
+ * SKILLLV sum (:448-452): reserved + hopb + hopa * skillLevel, at least 1. An out-of-range HopType takes the default arm, whose exception is Java's
+ * UnsupportedOperationException.
  */
 TEST_F(EffectTemplateTest, DamageHateReadsTheReservedDamageAndAnUnknownHopTypeThrows) {
 	runtime::TaskScope scope(AION_TASK_INFO(runtime::TaskKind::TEST));
@@ -540,8 +563,16 @@ TEST_F(EffectTemplateTest, DamageHateReadsTheReservedDamageAndAnUnknownHopTypeTh
 	ProbeEffect probe;
 	probe.hopType = HopType::DAMAGE;
 	probe.hopB = 7;
-	std::string site = unportedSiteOf([&] { probe.calculateHate(*effect); });
-	EXPECT_TRUE(reached(site, GET_RESERVEDS)) << site;
+	EXPECT_EQ(probe.calculateHate(*effect), 7) << "no reserved value at position 0: 0 + 7 + 0 * 2";
+	effect->setReserveds(*model::EffectReserved::create(1, 900, model::EffectReserved::ResourceType::HP, true), true);
+	EXPECT_EQ(probe.calculateHate(*effect), 7) << "position 1 is not the position the DAMAGE arm reads";
+	effect->setReserveds(*model::EffectReserved::create(0, 250, model::EffectReserved::ResourceType::HP, true), true);
+	EXPECT_EQ(probe.calculateHate(*effect), 257) << "250 + 7: the reserved damage of position 0";
+	probe.hopA = 3;
+	EXPECT_EQ(probe.calculateHate(*effect), 263) << "the fall-through adds hopa * skillLevel: 250 + 7 + 3 * 2";
+	probe.hopA = 0;
+	probe.hopB = -400;
+	EXPECT_EQ(probe.calculateHate(*effect), 1) << "Math.max(1, 250 - 400)";
 
 	probe.hopType = static_cast<HopType>(7); // no such constant: HopType has DAMAGE and SKILLLV only
 	try {
@@ -711,9 +742,11 @@ TEST_F(EffectTemplateTest, SubEffectStopsAtTheModifierTheSubConditionAndTheChanc
 }
 
 /**
- * Past the chance gate calculateSubEffect looks the sub skill up in SKILL_DATA and builds `new Effect(effector, originalEffected, template, 1,
- * null, forceType, true, null)`; its next statement, newEffect.setShieldDefense, is the first unported Effect body. A missing template is Java's
- * NullPointerException (the Effect constructor dereferences it).
+ * Past the chance gate calculateSubEffect looks the sub skill up in SKILL_DATA and builds `new Effect(effector, originalEffected, template, level,
+ * null, forceType, true, null)` (:420-433): the sub effect copies the effect's shield defense, gets the accuracy boost, is initialized and becomes
+ * the effect's sub effect, whose spell status, sub effect type and target location the effect takes over unless it dodged or resisted. A plain
+ * <subeffect> is level 1 with the effect's accuracy boost; an addeffect one (signet bursts) takes the signet bursted count as its level and
+ * Short.MAX_VALUE as its boost. A missing template is Java's NullPointerException (the Effect constructor dereferences it).
  */
 TEST_F(EffectTemplateTest, APassingChanceBuildsTheSubEffectFromSkillData) {
 	runtime::TaskScope scope(AION_TASK_INFO(runtime::TaskKind::TEST));
@@ -726,49 +759,81 @@ TEST_F(EffectTemplateTest, APassingChanceBuildsTheSubEffectFromSkillData) {
 	ASSERT_LT(stream[0], 99.0f);
 
 	Ref<model::Effect> effect = effectFor(*caster.player, *target.player, skill, 1);
+	effect->setShieldDefense(2);
+	effect->setAccModBoost(40);
+	effect->setSpellStatus(model::SpellStatus::PARRY);
 	ProbeEffect probe;
 	probe.subEffect = subEffectOf(8217, static_cast<int32_t>(stream[0]) + 1); // roll < chance: triggers
 	Rnd::seedCurrentThreadForTests(SEED);
-	std::string site = unportedSiteOf([&] { probe.calculateSubEffect(*effect); });
-	EXPECT_TRUE(reached(site, SET_SHIELD_DEFENSE)) << "the lookup and the Effect construction ran; " << site;
+	probe.calculateSubEffect(*effect);
+	Ptr<model::Effect> built = effect->getSubEffect();
+	ASSERT_TRUE(built) << "the lookup, the construction and initialize ran";
+	EXPECT_EQ(built->getSkillId(), 8217);
+	EXPECT_TRUE(built->isSubEffect());
+	EXPECT_EQ(built->getSkillLevel(), 1);
+	EXPECT_EQ(built->getEffector().get(), caster.player.get());
+	EXPECT_EQ(built->getOriginalEffected().get(), target.player.get());
+	EXPECT_EQ(built->getShieldDefense(), 2) << "newEffect.setShieldDefense(effect.getShieldDefense())";
+	EXPECT_EQ(built->getAccModBoost(), 40) << "a plain sub effect keeps the effect's accuracy boost";
+	EXPECT_EQ(effect->getSpellStatus(), model::SpellStatus::NONE) << "the sub effect's spell status (it neither dodged nor resisted)";
 
-	probe.subEffect = subEffectOf(8217, 100);
-	site = unportedSiteOf([&] { probe.calculateSubEffect(*effect); });
-	EXPECT_TRUE(reached(site, SET_SHIELD_DEFENSE)) << "chance 100 always triggers; " << site;
-
+	effect->setSignetBurstedCount(3);
 	probe.subEffect = subEffectOf(8217, 100, true); // addeffect: level = signet bursted count, accBoost = Short.MAX_VALUE
-	site = unportedSiteOf([&] { probe.calculateSubEffect(*effect); });
-	EXPECT_TRUE(reached(site, SET_SHIELD_DEFENSE)) << site;
+	probe.calculateSubEffect(*effect);
+	Ptr<model::Effect> burst = effect->getSubEffect();
+	ASSERT_TRUE(burst);
+	EXPECT_NE(burst.get(), built.get()) << "a new sub effect replaces the first";
+	EXPECT_EQ(burst->getSkillLevel(), 3);
+	EXPECT_EQ(burst->getAccModBoost(), std::numeric_limits<int16_t>::max());
 
+	effect->setSubEffect(nullptr);
 	probe.subEffect = subEffectOf(4242, 100); // not in SKILL_DATA
 	EXPECT_THROW(probe.calculateSubEffect(*effect), runtime::NullPointerException);
 	EXPECT_EQ(effect->getSubEffect(), nullptr);
 }
 
-/** Java startSubEffect (:462-470): no <subeffect>, an aborted one or no built sub effect apply nothing; otherwise the sub effect's applyEffect */
+/** A template whose applyEffect counts the calls (the sub effect's template in StartSubEffect...) */
+class ApplyCountingProbe final : public EffectTemplate {
+public:
+	std::string_view javaClassName() const override { return "ApplyCountingProbe"; }
+	void applyEffect(model::Effect& /*effect*/) const override { ++applied; }
+	using EffectTemplate::position;
+	mutable int applied = 0;
+};
+
+/**
+ * Java startSubEffect (:462-470): no <subeffect>, an aborted one or no built sub effect apply nothing; otherwise the sub effect's applyEffect
+ * (Effect.applyEffect), which applies its success effects. The built sub effect is a passive one, because Effect.shouldApplyFurtherEffects
+ * applies nothing to the fixture's unspawned player otherwise (Effect.java:640-641).
+ */
 TEST_F(EffectTemplateTest, StartSubEffectAppliesOnlyABuiltSubEffectThatWasNotAborted) {
 	runtime::TaskScope scope(AION_TASK_INFO(runtime::TaskKind::TEST));
 	PlayerFixture caster = makePlayer(1901);
 	const model::SkillTemplate* skill = bindSkill(ACTIVE_SKILL_XML);
 	Ref<model::Effect> effect = effectFor(*caster.player, *caster.player, skill, 1);
-	Ref<model::Effect> built = effectFor(*caster.player, *caster.player, skill, 1);
+	ApplyCountingProbe subTemplate;
+	subTemplate.position = 1;
+	Ref<model::Effect> built = effectFor(*caster.player, *caster.player, bindSkill(PASSIVE_SKILL_XML), 1);
+	built->addSuccessEffect(&subTemplate);
 	effect->setSubEffect(built);
 
 	ProbeEffect withoutSub;
-	EXPECT_NO_THROW(withoutSub.startSubEffect(*effect)) << "no <subeffect>: the built sub effect is not this template's";
+	withoutSub.startSubEffect(*effect);
+	EXPECT_EQ(subTemplate.applied, 0) << "no <subeffect>: the built sub effect is not this template's";
 
 	ProbeEffect probe;
 	probe.subEffect = subEffectOf(8217, 100);
 	effect->setSubEffectAborted(true);
-	EXPECT_NO_THROW(probe.startSubEffect(*effect)) << "aborted by its sub conditions";
+	probe.startSubEffect(*effect);
+	EXPECT_EQ(subTemplate.applied, 0) << "aborted by its sub conditions";
 
 	effect->setSubEffectAborted(false);
 	effect->setSubEffect(nullptr);
 	EXPECT_NO_THROW(probe.startSubEffect(*effect)) << "nothing was built (the chance failed)";
 
 	effect->setSubEffect(built);
-	std::string site = unportedSiteOf([&] { probe.startSubEffect(*effect); });
-	EXPECT_TRUE(reached(site, APPLY_EFFECT)) << site;
+	probe.startSubEffect(*effect);
+	EXPECT_EQ(subTemplate.applied, 1) << "the built sub effect was applied";
 }
 
 // ---- the calculate chain ------------------------------------------------------------------------------------------------------------------------
@@ -788,76 +853,209 @@ TEST_F(EffectTemplateTest, TheEmptyHooksDoNothing) {
 }
 
 /**
- * Java calculate (:281-322): which Effect body each arm reaches first. A passive skill adds the success effect and stops (Effect.addSuccessEffect);
- * any other skill asks isForcedEffect first - unless an altered-state stat sends it through isImmuneToAbnormal, whose first call is getEffected.
- * BLEED and POISON are not altered states (isAlteredState), so they skip the immunity check. The one- and three-argument overloads delegate with
- * null/nothing lost.
+ * Java calculate (:281-322) arm by arm. A passive skill adds the success effect (and the spell status) before anything else - even for an
+ * altered-state stat the effected is immune to. Any other skill is refused by isImmuneToAbnormal for an altered-state stat the effected is immune
+ * to: an npc without run speed for PULLED, STAGGER and STUMBLE (:536-538), not for STUN. A forced effect skips the conditions, the pre-effects
+ * and the dodge and resist rolls. The one- and three-argument overloads delegate with a null stat and spell status.
  */
 TEST_F(EffectTemplateTest, CalculateTakesThePassiveTheImmunityAndTheForcedArmsInJavaOrder) {
 	runtime::TaskScope scope(AION_TASK_INFO(runtime::TaskKind::TEST));
 	PlayerFixture caster = makePlayer(2101);
-	PlayerFixture target = makePlayer(2102);
-	Ref<model::Effect> passive = effectFor(*caster.player, *caster.player, bindSkill(PASSIVE_SKILL_XML), 1);
-	Ref<model::Effect> active = effectFor(*caster.player, *target.player, bindSkill(ACTIVE_SKILL_XML), 1);
+	Ref<gameserver::model::gameobjects::Npc> rooted = makeRootedNpc(700211);
+	const model::SkillTemplate* passiveSkill = bindSkill(PASSIVE_SKILL_XML);
+	const model::SkillTemplate* activeSkill = bindSkill(ACTIVE_SKILL_XML);
 	ProbeEffect probe;
+	probe.position = 1;
 
-	std::string site = unportedSiteOf([&] { probe.calculate(*passive); });
-	EXPECT_TRUE(reached(site, ADD_SUCCESS_EFFECT)) << "passive: addSuccessEffect before anything else; " << site;
-	site = unportedSiteOf([&] { probe.calculate(*passive, StatEnum::STUN_RESISTANCE, model::SpellStatus::STUMBLE); });
-	EXPECT_TRUE(reached(site, ADD_SUCCESS_EFFECT)) << "passive wins over the altered-state check; " << site;
+	Ref<model::Effect> passive = effectFor(*caster.player, *rooted, passiveSkill, 1);
+	EXPECT_TRUE(probe.calculate(*passive, StatEnum::STAGGER_RESISTANCE, model::SpellStatus::STUMBLE)) << "passive wins over the immunity";
+	EXPECT_TRUE(passive->isInSuccessEffects(1));
+	EXPECT_EQ(passive->getSpellStatus(), model::SpellStatus::STUMBLE);
 
-	site = unportedSiteOf([&] { probe.calculate(*active); });
-	EXPECT_TRUE(reached(site, IS_FORCED_EFFECT)) << "calculate(effect) passes a null stat; " << site;
-	site = unportedSiteOf([&] { probe.calculate(*active, std::nullopt, std::nullopt); });
-	EXPECT_TRUE(reached(site, IS_FORCED_EFFECT)) << site;
+	probe.noResist = true; // the dodge and resist rolls are the business of the draw-order cases
+	Ref<model::Effect> immune = effectFor(*caster.player, *rooted, activeSkill, 1);
+	EXPECT_FALSE(probe.calculate(*immune, StatEnum::STAGGER_RESISTANCE, model::SpellStatus::STUMBLE)) << "a rooted npc is immune to STAGGER";
+	EXPECT_FALSE(immune->isInSuccessEffects(1));
+	EXPECT_EQ(immune->getSpellStatus(), model::SpellStatus::NONE);
+	EXPECT_TRUE(probe.calculate(*immune, StatEnum::STUN_RESISTANCE, model::SpellStatus::STUMBLE)) << "but not to STUN";
+	EXPECT_TRUE(immune->isInSuccessEffects(1));
+	EXPECT_EQ(immune->getSpellStatus(), model::SpellStatus::STUMBLE);
+	Ref<model::Effect> bleeding = effectFor(*caster.player, *rooted, activeSkill, 1);
+	EXPECT_TRUE(probe.calculate(*bleeding, StatEnum::BLEED_RESISTANCE, std::nullopt)) << "BLEED is no altered state";
 
-	site = unportedSiteOf([&] { probe.calculate(*active, StatEnum::STUN_RESISTANCE, std::nullopt); });
-	EXPECT_TRUE(reached(site, GET_EFFECTED)) << "STUN is an altered state: isImmuneToAbnormal runs; " << site;
-	site = unportedSiteOf([&] { probe.calculate(*active, StatEnum::ROOT_RESISTANCE, std::nullopt, gameserver::model::SkillElement::WATER); });
-	EXPECT_TRUE(reached(site, GET_EFFECTED)) << site;
+	Ref<model::Effect> viaOneArgument = effectFor(*caster.player, *rooted, activeSkill, 1);
+	probe.calculate(*viaOneArgument);
+	EXPECT_TRUE(viaOneArgument->isInSuccessEffects(1)) << "calculate(effect) passes a null stat and spell status";
+	EXPECT_EQ(viaOneArgument->getSpellStatus(), model::SpellStatus::NONE);
 
-	site = unportedSiteOf([&] { probe.calculate(*active, StatEnum::BLEED_RESISTANCE, std::nullopt); });
-	EXPECT_TRUE(reached(site, IS_FORCED_EFFECT)) << "BLEED is no altered state: the immunity check is skipped; " << site;
-	site = unportedSiteOf([&] { probe.calculate(*active, StatEnum::POISON_RESISTANCE, std::nullopt); });
-	EXPECT_TRUE(reached(site, IS_FORCED_EFFECT)) << "POISON is no altered state; " << site;
+	ConditionProbes failing = conditionProbes({false});
+	probe.effectConditions = std::move(failing.conditions);
+	probe.noResist = false;
+	Ref<model::Effect> conditioned = effectFor(*caster.player, *rooted, activeSkill, 1);
+	EXPECT_FALSE(probe.calculate(*conditioned, std::nullopt, std::nullopt)) << "a failing condition refuses the effect";
+	EXPECT_EQ(failing.probes[0]->calls, 1);
+	Ref<model::Effect> forced = effectFor(*caster.player, *rooted, activeSkill, 1);
+	forced->setForceType(model::Effect::ForceType::DEFAULT);
+	const std::vector<float> stream = chanceStream(SEED, 1);
+	Rnd::seedCurrentThreadForTests(SEED);
+	EXPECT_TRUE(probe.calculate(*forced, std::nullopt, std::nullopt)) << "a forced effect skips the conditions and the dodge roll";
+	EXPECT_EQ(failing.probes[0]->calls, 1) << "the condition was not asked";
+	EXPECT_EQ(Rnd::chance(), stream[0]) << "no roll";
+	EXPECT_TRUE(forced->isInSuccessEffects(1));
+}
+
+/** An attack-calc observer that draws one Rnd.get(1, 1000) whenever it is asked for RESIST, so a case can see WHEN the resist rate was computed */
+class DrawingObserver final : public controllers::observer::AttackCalcObserver {
+	AION_MAKE_REF_FRIEND
+public:
+	static Ref<DrawingObserver> create() { return runtime::makeRef<DrawingObserver>(); }
+	bool checkStatus(controllers::attack::AttackStatus status) override {
+		if (status == controllers::attack::AttackStatus::RESIST)
+			drawn.push_back(Rnd::get(1, 1000));
+		return false;
+	}
+	std::vector<int32_t> drawn;
+
+protected:
+	DrawingObserver() = default;
+	~DrawingObserver() override = default;
+};
+
+/** The values Rnd.get(1, 1000) gives after seeding the calling thread with `seed` */
+std::vector<int32_t> rollStream(uint64_t seed, int count) {
+	Rnd::seedCurrentThreadForTests(seed);
+	std::vector<int32_t> stream;
+	for (int i = 0; i < count; ++i)
+		stream.push_back(Rnd::get(1, 1000));
+	return stream;
+}
+
+/** Adds `value` to one stat of the creature through a stat function without an owner (as RoahCustomInstanceHandler does) */
+void addStat(Creature& creature, StatEnum stat, int32_t value) {
+	creature.getGameStats()->addEffect(nullptr,
+		{Ptr<gameserver::model::stats::calc::functions::IStatFunction>(
+			gameserver::model::stats::calc::functions::RcStatFunction<gameserver::model::stats::calc::functions::StatAddFunction>::create(stat, value, true))});
 }
 
 /**
- * Java isDodgedOrResisted (:347-349): a noresist template is never dodged or resisted and asks nothing - through the virtual getter, which
- * SkillAttackInstantEffect overrides for cannotmiss. Otherwise the resist and dodge checks run (and reach Effect.getEffected).
+ * Java isDodgedOrResisted (:347-349): a noresist template - the field or the virtual getter SkillAttackInstantEffect overrides for cannotmiss -
+ * is never dodged or resisted and draws nothing. Otherwise a null stat draws only the dodge roll (checkEffectResistRate answers true without
+ * one), and a stat draws the effect-resist roll first and then the dodge roll (physical: StatFunctions.checkIsDodgedHit's Rnd.nextInt(1000)).
  */
 TEST_F(EffectTemplateTest, NoResistSkipsTheResistAndDodgeChecks) {
 	runtime::TaskScope scope(AION_TASK_INFO(runtime::TaskKind::TEST));
 	PlayerFixture caster = makePlayer(2201);
 	PlayerFixture target = makePlayer(2202);
 	Ref<model::Effect> effect = effectFor(*caster.player, *target.player, bindSkill(ACTIVE_SKILL_XML), 1);
+	const std::vector<float> stream = chanceStream(SEED, 1);
+	auto nextAfter = [](std::initializer_list<int> calls) {
+		Rnd::seedCurrentThreadForTests(SEED);
+		for (int call : calls)
+			static_cast<void>(call == 0 ? Rnd::get(1, 1000) : Rnd::nextInt(1000)); // 0: the resist roll, 1: the physical dodge roll
+		return Rnd::chance();
+	};
 
 	ProbeEffect probe;
 	probe.noResist = true;
-	bool dodgedOrResisted = true;
-	std::string site = unportedSiteOf([&] { dodgedOrResisted = probe.isDodgedOrResisted(*effect, StatEnum::STUN_RESISTANCE); });
-	EXPECT_EQ(site, "<returned>") << "noresist asks neither check";
-	EXPECT_FALSE(dodgedOrResisted);
-	dodgedOrResisted = true;
-	site = unportedSiteOf([&] { dodgedOrResisted = probe.isDodgedOrResisted(*effect, std::nullopt); });
-	EXPECT_EQ(site, "<returned>");
-	EXPECT_FALSE(dodgedOrResisted);
-
+	Rnd::seedCurrentThreadForTests(SEED);
+	EXPECT_FALSE(probe.isDodgedOrResisted(*effect, StatEnum::STUN_RESISTANCE));
+	EXPECT_FALSE(probe.isDodgedOrResisted(*effect, std::nullopt));
 	CannotMissProbeEffect cannotMiss;
 	ASSERT_FALSE(cannotMiss.noResist);
-	dodgedOrResisted = true;
-	site = unportedSiteOf([&] { dodgedOrResisted = cannotMiss.isDodgedOrResisted(*effect, StatEnum::STUN_RESISTANCE); });
-	EXPECT_EQ(site, "<returned>") << "isNoResist() is virtual; the field alone is false";
-	EXPECT_FALSE(dodgedOrResisted);
+	EXPECT_FALSE(cannotMiss.isDodgedOrResisted(*effect, StatEnum::STUN_RESISTANCE)) << "isNoResist() is virtual; the field alone is false";
+	EXPECT_EQ(Rnd::chance(), stream[0]) << "noresist draws nothing";
 
 	probe.noResist = false;
-	site = unportedSiteOf([&] { probe.isDodgedOrResisted(*effect, std::nullopt); });
-	EXPECT_TRUE(reached(site, GET_EFFECTED)) << "a null stat passes the resist rate and reaches the dodge check; " << site;
-	site = unportedSiteOf([&] { probe.isDodgedOrResisted(*effect, StatEnum::STUN_RESISTANCE); });
-	EXPECT_TRUE(reached(site, GET_EFFECTED)) << site;
+	const float afterDodgeRoll = nextAfter({1});
+	const float afterResistAndDodgeRolls = nextAfter({0, 1});
+	ASSERT_NE(afterDodgeRoll, afterResistAndDodgeRolls);
+	Rnd::seedCurrentThreadForTests(SEED);
+	probe.isDodgedOrResisted(*effect, std::nullopt);
+	EXPECT_EQ(Rnd::chance(), afterDodgeRoll) << "a null stat: only the dodge roll";
+	Rnd::seedCurrentThreadForTests(SEED);
+	probe.isDodgedOrResisted(*effect, StatEnum::STUN_RESISTANCE);
+	EXPECT_EQ(Rnd::chance(), afterResistAndDodgeRolls) << "a stat: the effect-resist roll, then the dodge roll";
 }
 
-/** Java checkEffectResistRate (:492-494): no stat is no resist - true, before anything is read and without a roll */
+/**
+ * Draw order kept by checkDodgeOrResistRate (EffectTemplate.cpp; EffectTemplate.java:358): Java evaluates `Rnd.get(1, 1000) >
+ * calculateMagicalResistRate(...)` left to right, so the roll is drawn BEFORE the resist rate is computed. The target's attack-calc observer draws
+ * when the rate asks it for RESIST (StatFunctions.calculateMagicalResistRate's first statement), so it must see the second value of the stream.
+ * The element that decides the magical path is the template's field: the four-argument calculate ignores its element argument (:281).
+ */
+TEST_F(EffectTemplateTest, TheDodgeOrResistRollIsDrawnBeforeTheResistRateIsComputed) {
+	runtime::TaskScope scope(AION_TASK_INFO(runtime::TaskKind::TEST));
+	PlayerFixture caster = makePlayer(2251);
+	PlayerFixture target = makePlayer(2252);
+	Ref<model::Effect> effect = effectFor(*caster.player, *target.player, bindSkill(ACTIVE_SKILL_XML), 1);
+	Ref<DrawingObserver> observer = DrawingObserver::create();
+	target.player->getObserveController()->addAttackCalcObserver(*observer);
+	const std::vector<int32_t> rolls = rollStream(SEED, 2);
+	ASSERT_NE(rolls[0], rolls[1]) << "the seed must tell the two draws apart";
+
+	ProbeEffect magical;
+	magical.element = gameserver::model::SkillElement::FIRE;
+	Rnd::seedCurrentThreadForTests(SEED);
+	(magical.*privateMember(CheckDodgeOrResistRateTag{}))(*effect);
+	ASSERT_EQ(observer->drawn.size(), 1u) << "the magical path computes the resist rate once";
+	EXPECT_EQ(observer->drawn[0], rolls[1]) << "the rate was computed after the roll";
+
+	observer->drawn.clear();
+	ProbeEffect physical; // element NONE: StatFunctions.checkIsDodgedHit, which never asks for RESIST
+	Rnd::seedCurrentThreadForTests(SEED);
+	physical.calculate(*effect, std::nullopt, std::nullopt, gameserver::model::SkillElement::FIRE);
+	EXPECT_TRUE(observer->drawn.empty()) << "the element argument is ignored: the field's NONE takes the physical path";
+	target.player->getObserveController()->removeAttackCalcObserver(*observer);
+}
+
+/**
+ * Draw order kept by isDodgedOrResisted (:347-349): `!checkEffectResistRate(...) || !checkDodgeOrResistRate(...)` draws the effect-resist roll
+ * first and skips the dodge-or-resist roll when the effect was resisted. checkEffectResistRate passes when its roll is at most the effect power,
+ * 1000 - the abnormal resistance - the stat's resistance + the effector's penetration (:496-529); the target's STUN resistance puts the power
+ * exactly at the first roll (passes) or one below it (resisted), which pins the arithmetic at its threshold as well.
+ */
+TEST_F(EffectTemplateTest, TheEffectResistRollComesFirstAndAResistedEffectDrawsNoDodgeRoll) {
+	runtime::TaskScope scope(AION_TASK_INFO(runtime::TaskKind::TEST));
+	PlayerFixture caster = makePlayer(2261);
+	PlayerFixture target = makePlayer(2262);
+	Ref<model::Effect> effect = effectFor(*caster.player, *target.player, bindSkill(ACTIVE_SKILL_XML), 1);
+	Ref<DrawingObserver> observer = DrawingObserver::create();
+	target.player->getObserveController()->addAttackCalcObserver(*observer);
+	const std::vector<int32_t> rolls = rollStream(SEED, 3);
+	ASSERT_TRUE(rolls[0] != rolls[1] && rolls[1] != rolls[2] && rolls[0] != rolls[2]) << "the seed must tell the draws apart";
+	ASSERT_GT(rolls[0], 1);
+
+	// effect power = 1000 - abnormal resistance - STUN resistance + STUN penetration; the added resistance sets it to the first roll
+	const int32_t basePower = 1000 - target.player->getGameStats()->getAbnormalResistance()->getCurrent()
+		- target.player->getGameStats()->getResistance(StatEnum::STUN_RESISTANCE)->getCurrent()
+		+ caster.player->getGameStats()->getStat(StatEnum::STUN_RESISTANCE_PENETRATION, 0)->getCurrent();
+	addStat(*target.player, StatEnum::STUN_RESISTANCE, basePower - rolls[0]);
+	ProbeEffect magical;
+	magical.element = gameserver::model::SkillElement::FIRE;
+
+	Rnd::seedCurrentThreadForTests(SEED);
+	EXPECT_TRUE(magical.checkEffectResistRate(*effect, StatEnum::STUN_RESISTANCE)) << "power == roll: Rnd.get(1, 1000) <= effectPower";
+	Rnd::seedCurrentThreadForTests(SEED);
+	magical.isDodgedOrResisted(*effect, StatEnum::STUN_RESISTANCE);
+	ASSERT_EQ(observer->drawn.size(), 1u) << "not resisted: the dodge-or-resist check ran";
+	EXPECT_EQ(observer->drawn[0], rolls[2]) << "resist roll, dodge-or-resist roll, then the resist rate's observer";
+
+	addStat(*target.player, StatEnum::STUN_RESISTANCE, 1); // power = roll - 1
+	observer->drawn.clear();
+	Rnd::seedCurrentThreadForTests(SEED);
+	EXPECT_FALSE(magical.checkEffectResistRate(*effect, StatEnum::STUN_RESISTANCE)) << "power == roll - 1: resisted";
+	Rnd::seedCurrentThreadForTests(SEED);
+	EXPECT_TRUE(magical.isDodgedOrResisted(*effect, StatEnum::STUN_RESISTANCE));
+	EXPECT_TRUE(observer->drawn.empty()) << "a resisted effect draws no dodge-or-resist roll";
+	EXPECT_EQ(Rnd::get(1, 1000), rolls[1]) << "exactly one draw";
+	target.player->getObserveController()->removeAttackCalcObserver(*observer);
+}
+
+/**
+ * Java checkEffectResistRate (:492-494): no stat is no resist - true, before anything is read and without a roll. (The effect power behind a
+ * stat is TheEffectResistRollComesFirstAndAResistedEffectDrawsNoDodgeRoll's threshold; calculateDamage's reflector arm needs a SKILL_REFLECTOR
+ * AttackShieldObserver and belongs to the ReflectorEffect cases of part 3.)
+ */
 TEST_F(EffectTemplateTest, EffectResistRateWithoutAStatIsNoResist) {
 	runtime::TaskScope scope(AION_TASK_INFO(runtime::TaskKind::TEST));
 	PlayerFixture caster = makePlayer(2301);
@@ -869,11 +1067,6 @@ TEST_F(EffectTemplateTest, EffectResistRateWithoutAStatIsNoResist) {
 	Rnd::seedCurrentThreadForTests(SEED);
 	EXPECT_TRUE(probe.checkEffectResistRate(*effect, std::nullopt));
 	EXPECT_EQ(Rnd::chance(), stream[0]) << "no roll";
-
-	std::string site = unportedSiteOf([&] { probe.checkEffectResistRate(*effect, StatEnum::STUN_RESISTANCE); });
-	EXPECT_TRUE(reached(site, GET_EFFECTED)) << site;
-	site = unportedSiteOf([&] { probe.calculateDamage(*effect); });
-	EXPECT_TRUE(reached(site, GET_EFFECTED)) << "calculateDamage builds its AttackResult, then asks the effected; " << site;
 }
 
 // ---- the private helpers ------------------------------------------------------------------------------------------------------------------------
@@ -942,29 +1135,40 @@ TEST_F(EffectTemplateTest, PenetrationStatIsTheSameNamedPenetrationConstant) {
 }
 
 /**
- * Java isProtectedByShield (:558-563): only STUMBLE, OPENAERIAL, SPIN and STAGGER ask the effect controller (EffectController.isUnderNormalShield,
- * unported); every other stat answers false without asking.
+ * Java isProtectedByShield (:558-563): only STUMBLE, OPENAERIAL, SPIN and STAGGER ask the effect controller whether the effected is under a
+ * normal shield (EffectController.isUnderNormalShield: an abnormal effect whose shield defense has the NORMAL bit); every other stat answers
+ * false without asking - so with a normal shield up exactly the four answer true.
  */
 TEST_F(EffectTemplateTest, OnlyTheFourKnockStatsAskForANormalShield) {
 	runtime::TaskScope scope(AION_TASK_INFO(runtime::TaskKind::TEST));
 	PlayerFixture target = makePlayer(2401);
 	ProbeEffect probe;
 	const auto isProtectedByShield = privateMember(IsProtectedByShieldTag{});
-	for (size_t ordinal = 0; ordinal < xml::EnumTraits<StatEnum>::names.size(); ++ordinal) {
-		const StatEnum stat = static_cast<StatEnum>(ordinal);
-		const bool asks = stat == StatEnum::STUMBLE_RESISTANCE || stat == StatEnum::OPENAERIAL_RESISTANCE || stat == StatEnum::SPIN_RESISTANCE
-			|| stat == StatEnum::STAGGER_RESISTANCE;
-		std::string site = unportedSiteOf([&] { EXPECT_FALSE((probe.*isProtectedByShield)(*target.player, stat)) << xml::enumName(stat); });
-		if (asks)
-			EXPECT_TRUE(reached(site, IS_UNDER_NORMAL_SHIELD)) << xml::enumName(stat) << ": " << site;
-		else
-			EXPECT_EQ(site, "<returned>") << xml::enumName(stat);
-	}
+	auto protectedStats = [&] {
+		std::vector<StatEnum> stats;
+		for (size_t ordinal = 0; ordinal < xml::EnumTraits<StatEnum>::names.size(); ++ordinal) {
+			const StatEnum stat = static_cast<StatEnum>(ordinal);
+			if ((probe.*isProtectedByShield)(*target.player, stat))
+				stats.push_back(stat);
+		}
+		return stats;
+	};
+	EXPECT_TRUE(protectedStats().empty()) << "no shield";
+
+	Ref<model::Effect> shield = effectFor(*target.player, *target.player, bindSkill(ACTIVE_SKILL_XML), 1);
+	shield->setShieldDefense(2); // ShieldType.NORMAL
+	target.player->getEffectController()->addEffect(*shield);
+	ASSERT_TRUE(target.player->getEffectController()->isUnderNormalShield());
+	EXPECT_EQ(protectedStats(), (std::vector<StatEnum>{StatEnum::OPENAERIAL_RESISTANCE, StatEnum::SPIN_RESISTANCE, StatEnum::STAGGER_RESISTANCE,
+									StatEnum::STUMBLE_RESISTANCE}))
+		<< "the four knock stats, in StatEnum order";
+	target.player->getEffectController()->clearEffectMapsWithoutNotify(); // the never started effect holds the player
 }
 
 /**
  * Java validatePreEffects (:335-345): no preeffect list passes without a roll; with one, every listed position must have succeeded
- * (Effect.isInSuccessEffects, unported) and then a chance roll below preeffect_prob decides. An empty list is the roll alone.
+ * (Effect.isInSuccessEffects) - a missing one fails before the roll - and then a chance roll below preeffect_prob decides. An empty list is the
+ * roll alone.
  */
 TEST_F(EffectTemplateTest, PreEffectsNeedTheirPositionsAndThePreEffectProbabilityRoll) {
 	runtime::TaskScope scope(AION_TASK_INFO(runtime::TaskKind::TEST));
@@ -992,9 +1196,21 @@ TEST_F(EffectTemplateTest, PreEffectsNeedTheirPositionsAndThePreEffectProbabilit
 	probe.preEffectProb = 100;
 	EXPECT_TRUE((probe.*validatePreEffects)(*effect)) << "the default 100 always passes";
 
+	ProbeEffect positionOne;
+	positionOne.position = 1;
+	probe.preEffects = std::vector<int32_t>{1, 2};
+	effect->addSuccessEffect(&positionOne);
+	Rnd::seedCurrentThreadForTests(SEED);
+	EXPECT_FALSE((probe.*validatePreEffects)(*effect)) << "position 2 did not succeed";
+	EXPECT_EQ(Rnd::chance(), stream[0]) << "a missing position fails before the roll";
 	probe.preEffects = std::vector<int32_t>{1};
-	std::string site = unportedSiteOf([&] { (probe.*validatePreEffects)(*effect); });
-	EXPECT_TRUE(reached(site, IS_IN_SUCCESS_EFFECTS)) << site;
+	probe.preEffectProb = static_cast<int32_t>(stream[0]);
+	Rnd::seedCurrentThreadForTests(SEED);
+	EXPECT_FALSE((probe.*validatePreEffects)(*effect)) << "position 1 succeeded, then the roll decides: " << stream[0];
+	EXPECT_EQ(Rnd::chance(), stream[1]) << "one roll";
+	probe.preEffectProb = static_cast<int32_t>(stream[0]) + 1;
+	Rnd::seedCurrentThreadForTests(SEED);
+	EXPECT_TRUE((probe.*validatePreEffects)(*effect));
 }
 
 /**
@@ -1030,26 +1246,56 @@ TEST_F(EffectTemplateTest, EffectConditionsAndSubConditionsPassOnlyWhenEveryCond
 }
 
 /**
- * The private helpers whose first statement is an unported Effect body: addSuccessEffect (Effect.addSuccessEffect), isImmuneToAbnormal and
- * checkDodgeOrResistRate (Effect.getEffected). checkDodgeOrResistRate computes its accuracy modifier first - for a DEBUFF skill that includes
- * the effector's BOOST_RESIST_DEBUFF stat, which a real Player answers - so reaching getEffected proves those reads did not throw.
+ * The private helpers over the Effect: addSuccessEffect adds the template under its position and sets a given spell status (:363-367);
+ * isImmuneToAbnormal only considers an npc or summon other than the effector (:524-541); and checkDodgeOrResistRate's accuracy modifier -
+ * accmod2 + accmod1 * skillLevel + the effect's accuracy boost, plus the effector's BOOST_RESIST_DEBUFF for a DEBUFF skill (:351-357) - goes into
+ * the magical resist rate, min(500, mResist - mAccuracy - accuracyModifier) between two players, which the roll must exceed. The accuracy
+ * modifier puts the rate exactly at the roll (resisted: `roll > rate` is false) and one below it (passes).
  */
-TEST_F(EffectTemplateTest, TheHelpersBehindUnportedEffectBodiesReachThem) {
+TEST_F(EffectTemplateTest, TheHelpersAddTheSuccessDecideTheImmunityAndWeighTheAccuracy) {
 	runtime::TaskScope scope(AION_TASK_INFO(runtime::TaskKind::TEST));
 	PlayerFixture caster = makePlayer(2701);
 	PlayerFixture target = makePlayer(2702);
-	Ref<model::Effect> effect = effectFor(*caster.player, *target.player, bindSkill(ACTIVE_SKILL_XML), 3);
+	Ref<gameserver::model::gameobjects::Npc> rooted = makeRootedNpc(700271);
+	const model::SkillTemplate* skill = bindSkill(ACTIVE_SKILL_XML);
+	Ref<model::Effect> effect = effectFor(*caster.player, *target.player, skill, 3);
 	ProbeEffect probe;
-	probe.accMod1 = 10;
-	probe.accMod2 = 500;
+	probe.position = 2;
 
-	std::string site = unportedSiteOf([&] { (probe.*privateMember(AddSuccessEffectTag{}))(*effect, model::SpellStatus::STUMBLE); });
-	EXPECT_TRUE(reached(site, ADD_SUCCESS_EFFECT)) << site;
-	EXPECT_EQ(effect->getSpellStatus(), model::SpellStatus::NONE) << "the spell status is set after the success effect is added";
-	site = unportedSiteOf([&] { (probe.*privateMember(IsImmuneToAbnormalTag{}))(*effect, StatEnum::STUN_RESISTANCE); });
-	EXPECT_TRUE(reached(site, GET_EFFECTED)) << site;
-	site = unportedSiteOf([&] { (probe.*privateMember(CheckDodgeOrResistRateTag{}))(*effect); });
-	EXPECT_TRUE(reached(site, GET_EFFECTED)) << "the DEBUFF accuracy read ran first; " << site;
+	(probe.*privateMember(AddSuccessEffectTag{}))(*effect, std::nullopt);
+	EXPECT_EQ(effect->effectInPos(2), &probe);
+	EXPECT_EQ(effect->getSpellStatus(), model::SpellStatus::NONE) << "no spell status given: unchanged";
+	(probe.*privateMember(AddSuccessEffectTag{}))(*effect, model::SpellStatus::STUMBLE);
+	EXPECT_EQ(effect->getSpellStatus(), model::SpellStatus::STUMBLE);
+
+	const auto isImmuneToAbnormal = privateMember(IsImmuneToAbnormalTag{});
+	EXPECT_FALSE((probe.*isImmuneToAbnormal)(*effect, StatEnum::STAGGER_RESISTANCE)) << "a player is never immune here";
+	Ref<model::Effect> onRooted = effectFor(*caster.player, *rooted, skill, 1);
+	EXPECT_TRUE((probe.*isImmuneToAbnormal)(*onRooted, StatEnum::STAGGER_RESISTANCE));
+	EXPECT_TRUE((probe.*isImmuneToAbnormal)(*onRooted, StatEnum::PULLED_RESISTANCE));
+	EXPECT_FALSE((probe.*isImmuneToAbnormal)(*onRooted, StatEnum::STUN_RESISTANCE));
+	Ref<model::Effect> ownEffect = effectFor(*rooted, *rooted, skill, 1);
+	EXPECT_FALSE((probe.*isImmuneToAbnormal)(*ownEffect, StatEnum::STAGGER_RESISTANCE)) << "the npc's own effect";
+
+	uint64_t seed = SEED;
+	while (rollStream(seed, 1)[0] >= 500) // a roll below the PvP clamp of 500
+		++seed;
+	const int32_t roll = rollStream(seed, 1)[0];
+	const int32_t mResist = target.player->getGameStats()->getMResist()->getCurrent();
+	const int32_t mAccuracy = caster.player->getGameStats()->getMAccuracy()->getCurrent();
+	const int32_t boostResistDebuff = caster.player->getGameStats()->getStat(StatEnum::BOOST_RESIST_DEBUFF, 0)->getCurrent();
+	ProbeEffect magical;
+	magical.element = gameserver::model::SkillElement::WIND;
+	magical.accMod1 = 10;
+	effect->setAccModBoost(7);
+	// rate = mResist - mAccuracy - (accmod2 + 10 * 3 + 7 + boostResistDebuff) == roll
+	magical.accMod2 = mResist - mAccuracy - roll - 30 - 7 - boostResistDebuff;
+	const auto checkDodgeOrResistRate = privateMember(CheckDodgeOrResistRateTag{});
+	Rnd::seedCurrentThreadForTests(seed);
+	EXPECT_FALSE((magical.*checkDodgeOrResistRate)(*effect)) << "rate == roll " << roll << ": resisted";
+	magical.accMod2 += 1;
+	Rnd::seedCurrentThreadForTests(seed);
+	EXPECT_TRUE((magical.*checkDodgeOrResistRate)(*effect)) << "rate == roll - 1: not resisted";
 }
 
 } // namespace

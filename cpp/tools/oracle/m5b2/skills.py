@@ -26,12 +26,19 @@ Java rules, each with the method the value comes from:
   section is what payCastCosts pays (m5b2-plan.md X4); an <mp> in the START section is paid by Conditions.validate at CAST_START as well;
 - the effects: every child of <effects> in document order, the class Effects.java's @XmlElements binds its tag to, and that class's `extends`
   chain up to EffectTemplate (read from skillengine/effect/*.java). A tag Effects.java does not bind is dropped by JAXB and listed under
-  `ignoredEffectElements`. The EffectTemplate attributes with their JAXB defaults (EffectTemplate.java:37-95);
+  `ignoredEffectElements`. The EffectTemplate attributes with their JAXB defaults (EffectTemplate.java:37-95), and effectiveDuration2, what the
+  VIRTUAL getDuration2() answers: the attribute plus the constant of the nearest override in the class chain, read from the Java sources -
+  AbstractOverTimeEffect.java:64-67 `return duration2 + 1000;` ("on retail these effects last one sec more than their template value"), so
+  every damage and heal over time (BleedEffect, PoisonEffect, SpellAttackEffect, HealOverTimeEffect and its HealEffect/MPHealEffect/...) lasts
+  1,000 ms longer than its duration2 attribute says;
 - effectDuration: Effect.calculateTemplateDuration (Effect.java:899-910) when every template succeeds: the first template in successEffects -
-  a ConcurrentHashMap keyed by position, so ascending positions while they are below its 16 bins - whose duration2 + duration1 * skillLevel
-  is positive, minus Rnd.get(0, randomtime), which the oracle reports as effectDurationRandomTime instead of rolling. 0 means no timed effect.
-  Neither the PvP percentage nor the cumulative resist of calculateEffectsDuration (:884-897) applies to an npc target or to the effector
-  itself, which are the gate's cases;
+  a ConcurrentHashMap keyed by position, so ascending positions while they are below its 16 bins - whose et.getDuration2() + duration1 *
+  skillLevel is positive, minus Rnd.get(0, randomtime), which the oracle reports as effectDurationRandomTime instead of rolling. 0 means no
+  timed effect. getDuration2() is the virtual one, so an over time template counts its extra second there, and one with duration2 = 0 is
+  still positive (1000) and still decides. The sum is a long (`(long) et.getDuration1()`, "some event skills would produce an int overflow"),
+  and calculateEffectsDuration (:884-897) ends in `(int) Math.min(Integer.MAX_VALUE, duration)`: the xpboost templates (duration1 2000000000)
+  last Integer.MAX_VALUE ms at every level. Neither the PvP percentage nor the cumulative resist of calculateEffectsDuration applies to an npc
+  target or to the effector itself, which are the gate's cases;
 - targetSlot: the template's tslot as SkillTargetSlot's name, ordinal (what SM_ABNORMAL_STATE.java:36 and SM_ABNORMAL_EFFECT.java:54 write
   per effect) and id (the slot mask EffectController.broadCastEffects passes, SM_ABNORMAL_EFFECT.java:45);
 - the soul sickness: PlayerController.updateSoulSickness (PlayerController.java:712-734) casts skill 8291 at skill level deathCount, which it
@@ -59,6 +66,7 @@ SKILL_COST_EFFECT = "BoostSkillCostEffect"
 EFFECT_TEMPLATE = "EffectTemplate"
 CONDITION_SECTIONS = (("start", "startconditions"), ("use", "useconditions"), ("end", "endconditions"))
 MAX_LEVEL_WITHOUT_DAEVA = 9
+JAVA_INT_MAX = 2**31 - 1
 
 
 def _read(source: Path) -> str:
@@ -72,6 +80,11 @@ def _strip_comments(text: str) -> str:
 	return re.sub(r"//[^\n]*", "", re.sub(r"/\*.*?\*/", "", text, flags=re.DOTALL))
 
 
+def _int32(value: int) -> int:
+	"""Java int arithmetic: the value wrapped to 32 bits two's complement."""
+	return (value + 2**31) % 2**32 - 2**31
+
+
 @dataclass(frozen=True)
 class JavaSkillRules:
 	"""The tables the report needs from the Java sources."""
@@ -82,6 +95,7 @@ class JavaSkillRules:
 	soul_sickness_skill: int               # PlayerController.updateSoulSickness: `if (skillId == 0) skillId = N;`
 	soul_sickness_max_death_count: int     # ... `if (deathCount < N) deathCount++;`
 	cast_duration_cap: float               # Skill.calculateMagicalCastDuration: `Math.round(baseCastDuration * Nf)`
+	duration2_bonuses: dict[str, int]      # effect class -> N of its `int getDuration2() { return duration2 [+ N]; }` (EffectTemplate: 0)
 
 	@staticmethod
 	def read(java_src: Path) -> "JavaSkillRules":
@@ -103,10 +117,29 @@ class JavaSkillRules:
 			effect_classes[tag] = cls
 
 		superclasses: dict[str, str] = {}
+		duration2_bonuses: dict[str, int] = {}
 		for source in sorted(effect_dir.glob("*.java")):
-			match = re.search(r"\bclass\s+(\w+)(?:<[^>]*>)?\s+extends\s+(\w+)", _strip_comments(_read(source)))
+			text = _strip_comments(_read(source))
+			match = re.search(r"\bclass\s+(\w+)(?:<[^>]*>)?\s+extends\s+(\w+)", text)
 			if match and match.group(1) == source.stem:
 				superclasses[match.group(1)] = match.group(2)
+			# Effect.calculateTemplateDuration reads the three duration getters virtually. getDuration2 has one override today
+			# (AbstractOverTimeEffect.java:64-67); an override of another shape, or of the other two, is a rule this oracle does not know.
+			# The method is found by its head alone, as getDuration1/getRandomTime below are, and only then held to the one shape: a body with
+			# braces of its own (an if, a nested block) or with anything else in it is refused, never skipped.
+			for head in re.finditer(r"\bint\s+getDuration2\s*\(\s*\)\s*\{", text):
+				getter = re.compile(r"\bint\s+getDuration2\s*\(\s*\)\s*\{([^{}]*)\}").match(text, head.start())
+				body = re.fullmatch(r"\s*return\s+duration2\s*(?:\+\s*(\d+)\s*)?;\s*", getter.group(1)) if getter else None
+				if not body:
+					raise OracleError(f"{source.name}: getDuration2() is not `return duration2 [+ N];`, the shape this oracle was written against")
+				if source.stem in duration2_bonuses:
+					raise OracleError(f"{source.name}: a second getDuration2() (a nested class?), which this oracle does not model")
+				duration2_bonuses[source.stem] = int(body.group(1) or 0)
+			for other in ("getDuration1", "getRandomTime"):
+				if source.stem != EFFECT_TEMPLATE and re.search(rf"\bint\s+{other}\s*\(\s*\)\s*\{{", text):
+					raise OracleError(f"{source.name} overrides {other}(), which Effect.calculateTemplateDuration reads and this oracle does not model")
+		if duration2_bonuses.get(EFFECT_TEMPLATE) != 0:
+			raise OracleError(f"{effect_dir / 'EffectTemplate.java'}: no getDuration2() answering `return duration2;`")
 
 		slots: dict[str, tuple[int, int]] = {}
 		for ordinal, (name, args) in enumerate(enum_constants(base / "skillengine" / "model" / "SkillTargetSlot.java", "SkillTargetSlot")):
@@ -120,7 +153,16 @@ class JavaSkillRules:
 		cap = re.search(r"if\s*\(deathCount\s*<\s*(\d+)\)\s*\{?\s*deathCount\+\+;", body.group(1))
 		if not skill or not cap:
 			raise OracleError("PlayerController.updateSoulSickness does not have the shape this oracle was written against")
-		return JavaSkillRules(effect_classes, superclasses, slots, int(skill.group(1)), int(cap.group(1)), f32(float(cap_match.group(1))))
+		return JavaSkillRules(effect_classes, superclasses, slots, int(skill.group(1)), int(cap.group(1)), f32(float(cap_match.group(1))),
+		                      duration2_bonuses)
+
+	def duration2_bonus(self, cls: str) -> int:
+		"""What the virtual EffectTemplate.getDuration2() adds to the duration2 attribute of a template of class `cls`: the override nearest to
+		the class in its `extends` chain - 1000 below AbstractOverTimeEffect (AbstractOverTimeEffect.java:64-67), 0 through EffectTemplate's."""
+		for ancestor in self.class_chain(cls):
+			if ancestor in self.duration2_bonuses:
+				return self.duration2_bonuses[ancestor]
+		raise OracleError(f"effect class {cls}: no getDuration2() in its extends chain")  # read() guarantees EffectTemplate's
 
 	def class_chain(self, cls: str) -> list[str]:
 		"""The class and its superclasses up to and including EffectTemplate."""
@@ -199,9 +241,10 @@ def _condition_cost(tag: str, attrs: dict[str, str], level: int, skill_id: int) 
 def effect_duration(effects: list[dict], level: int) -> tuple[int, int] | None:
 	"""
 	Effect.calculateTemplateDuration for an effect whose every template succeeded: (duration, randomtime) of the first template in
-	successEffects order with a positive duration2 + duration1 * skillLevel, (0, 0) when there is none. successEffects is a ConcurrentHashMap
-	keyed by position that a later template of the same position overwrites; the ascending order only holds below its 16 initial bins, so a
-	position outside 0..15 answers None.
+	successEffects order with a positive et.getDuration2() + duration1 * skillLevel, (0, 0) when there is none. getDuration2() is virtual, so it
+	is each effect's effectiveDuration2, not its duration2 attribute: an over time template adds its 1,000 ms before the `> 0` test.
+	successEffects is a ConcurrentHashMap keyed by position that a later template of the same position overwrites; the ascending order only
+	holds below its 16 initial bins, so a position outside 0..15 answers None.
 	"""
 	by_position: dict[int, dict] = {}
 	for effect in effects:
@@ -210,10 +253,26 @@ def effect_duration(effects: list[dict], level: int) -> tuple[int, int] | None:
 		return None
 	for position in sorted(by_position):
 		effect = by_position[position]
-		duration = effect["duration2"] + effect["duration1"] * level
+		duration = effect["effectiveDuration2"] + effect["duration1"] * level  # Effect.java:902, a long: `(long) et.getDuration1()`
 		if duration > 0:
 			return duration, effect["randomTime"]
 	return 0, 0
+
+
+def effects_duration(template_duration: tuple[int, int]) -> tuple[int, int] | None:
+	"""
+	Effect.calculateEffectsDuration (Effect.java:884-897) over calculateTemplateDuration's long, without the PvP percentage and the cumulative
+	resist (neither applies to the gate's targets): `(int) Math.min(Integer.MAX_VALUE, duration)`, where the random part was already subtracted.
+	(duration, randomtime) as the report writes them: a duration above Integer.MAX_VALUE that every roll leaves above it is the clamp with no
+	random part left (the xpboost templates of skill_templates.xml, 2000000000 per level); None when the roll decides whether the clamp
+	applies, which no single pair can say.
+	"""
+	duration, random_time = template_duration
+	if duration <= JAVA_INT_MAX:
+		return duration, random_time
+	if duration - random_time >= JAVA_INT_MAX:
+		return JAVA_INT_MAX, 0
+	return None
 
 
 class SkillReporter:
@@ -243,13 +302,15 @@ class SkillReporter:
 				continue
 			what = f"skill {info.skill_id} <{tag}>"
 			pre_effects = [java_int(p, f"{what} preeffect") for p in attrs.get("preeffect", "").split()]
+			duration2 = java_int(attrs.get("duration2"), f"{what} duration2", 0)
 			effects.append({
 				"tag": tag,
 				"class": cls,
 				"classChain": self.rules.class_chain(cls),
 				"position": java_int(attrs.get("e"), f"{what} e", 0),
 				"duration1": java_int(attrs.get("duration1"), f"{what} duration1", 0),
-				"duration2": java_int(attrs.get("duration2"), f"{what} duration2", 0),
+				"duration2": duration2,
+				"effectiveDuration2": _int32(duration2 + self.rules.duration2_bonus(cls)),  # the virtual getDuration2(), an int
 				"randomTime": java_int(attrs.get("randomtime"), f"{what} randomtime", 0),
 				"preEffects": pre_effects,
 				"noResist": java_boolean(attrs.get("noresist")),
@@ -312,6 +373,10 @@ class SkillReporter:
 		duration = effect_duration(effects, level)
 		if duration is None:
 			not_modelled.append("effectDuration: an effect position outside 0..15 leaves the ConcurrentHashMap order of successEffects")
+		else:
+			duration = effects_duration(duration)
+			if duration is None:
+				not_modelled.append("effectDuration: the randomtime roll decides whether calculateEffectsDuration's Integer.MAX_VALUE clamp applies")
 
 		chain = [attrs.get("category") for tag, attrs in info.conditions["start"] if tag == "chain"]
 		return {

@@ -138,10 +138,10 @@ OracleSkillTemplate readSkillTemplate(const json& node) {
 
 } // namespace
 
-const OracleSkillTemplate& OracleSkills::skill(int32_t skillId, std::optional<int32_t> level) const {
+const OracleSkillTemplate& OracleSkills::skill(int32_t skillId, std::optional<int32_t> skillLevel) const {
 	const OracleSkillTemplate* found = nullptr;
 	for (const OracleSkillTemplate& entry : skills) {
-		if (entry.skillId != skillId || (level && entry.level != *level))
+		if (entry.skillId != skillId || (skillLevel && entry.level != *skillLevel))
 			continue;
 		if (found != nullptr)
 			throw std::out_of_range("m5b2-skills reported skill " + std::to_string(skillId) + " at several levels: name the level");
@@ -149,7 +149,7 @@ const OracleSkillTemplate& OracleSkills::skill(int32_t skillId, std::optional<in
 	}
 	if (found == nullptr)
 		throw std::out_of_range("m5b2-skills reported no skill " + std::to_string(skillId) +
-			(level ? " at level " + std::to_string(*level) : std::string()));
+			(skillLevel ? " at level " + std::to_string(*skillLevel) : std::string()));
 	return *found;
 }
 
@@ -361,8 +361,8 @@ OracleMonster Oracle::monster(int32_t mapId, int32_t npcId, int32_t playerLevel)
 	                         std::to_string(playerLevel)}));
 }
 
-OracleSkills Oracle::skills(std::string_view race, std::string_view playerClass, int32_t level, const std::vector<std::string>& extraSkills,
-	const std::vector<int32_t>& npcIds, int32_t deathCount) const {
+std::vector<std::string> Oracle::skillsArguments(std::string_view race, std::string_view playerClass, int32_t level,
+	const std::vector<std::string>& extraSkills, const std::vector<int32_t>& npcIds, int32_t deathCount) {
 	std::vector<std::string> arguments = {"m5b2-skills", "--race", std::string(race), "--class", std::string(playerClass), "--level",
 	                                      std::to_string(level), "--death-count", std::to_string(deathCount)};
 	for (const std::string& skill : extraSkills) {
@@ -373,7 +373,12 @@ OracleSkills Oracle::skills(std::string_view race, std::string_view playerClass,
 		arguments.push_back("--npc");
 		arguments.push_back(std::to_string(npcId));
 	}
-	return parseSkills(run(arguments));
+	return arguments;
+}
+
+OracleSkills Oracle::skills(std::string_view race, std::string_view playerClass, int32_t level, const std::vector<std::string>& extraSkills,
+	const std::vector<int32_t>& npcIds, int32_t deathCount) const {
+	return parseSkills(run(skillsArguments(race, playerClass, level, extraSkills, npcIds, deathCount)));
 }
 
 } // namespace aion::gameserver::scenario

@@ -117,8 +117,11 @@ endfunction()
 # name ("Suite.Test") matches REGEX, e.g. labels for the tests that read the Java data tree:
 #   aion_set_discovered_test_properties(aion_gs_xml_tests REGEX "^StaticDataRealFilesTest\\." PROPERTIES LABELS realdata)
 # Discovery runs at ctest time (PRE_TEST), so this appends a script to the directory's TEST_INCLUDE_FILES that runs after the discovered list.
+# Every argument after PROPERTIES is one property name or one value, and a value may be a list: LABELS "scenario;realdata" gives the tests
+# both labels. The arguments are parsed with PARSE_ARGV, which keeps such a value one element (`${ARGN}` would flatten it into two, and every
+# name and value after it would pair up wrongly), and each one is written into the script as one bracket argument.
 function(aion_set_discovered_test_properties target)
-	cmake_parse_arguments(ARG "" "REGEX;DIRECTORY" "PROPERTIES" ${ARGN})
+	cmake_parse_arguments(PARSE_ARGV 1 ARG "" "REGEX;DIRECTORY" "PROPERTIES")
 	if(NOT AION_BUILD_TESTS OR NOT TARGET ${target})
 		return()
 	endif()

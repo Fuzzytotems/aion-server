@@ -8,6 +8,7 @@
 #include <string>
 #include <vector>
 
+#include "aion/gameserver/configs/main/CraftConfig.h"
 #include "aion/gameserver/controllers/effect/PlayerEffectController.h"
 #include "aion/gameserver/dataholders/DataManager.h"
 #include "aion/gameserver/dataholders/SkillData.bind.h"
@@ -219,7 +220,9 @@ TEST_F(PlayerEffectControllerTest, QueriesAndLogoutWithoutEffects) {
 	EXPECT_NO_THROW(effects->clearEffectMapsWithoutNotify());
 	EXPECT_TRUE(effects->isEmpty());
 
-	// passive skill effects are a stub with a warning at M5a (O-09): no effect, execution goes on
+	// the O-09 holdback (docs/deviations/P5-02b.md): SkillEngine.applyEffectDirectly(SkillTemplate, ...) of the passive skills stays the M5a
+	// partial until part 3 ports the leaf effects every enter-world passive reaches - one partial hit, no effect
+	// part 3 (m5b2-plan.md F-02/F-03) removes the holdback; restore: a null template throws NullPointerException (Effect.java:154), no partial hit
 	uint64_t partialHitsBefore = runtime::partialHitCount();
 	EXPECT_FALSE(skillengine::SkillEngine::getInstance().applyEffectDirectly(nullptr, 1, *player, *player));
 	EXPECT_EQ(runtime::partialHitCount(), partialHitsBefore + 1);
@@ -349,14 +352,76 @@ TEST_F(PlayerSkillLearnTest, TemporarySkillsAreNotStoredAndPassiveSkillsReachThe
 	EXPECT_EQ(temporary->getSkillLevel(), 5);
 	EXPECT_EQ(temporary->getPersistentState(), Persistable_PersistentState::NOACTION) << "a temporary skill is never stored";
 
-	// SkillLearnService.onLearnSkill applies the effect of a passive skill: the M5a warn stub (O-09), not an unported body
+	// SkillLearnService.onLearnSkill applies the effect of a passive skill through SkillEngine.applyEffectDirectly(SkillTemplate, ...), which
+	// stays the M5a warn stub (O-09) until part 3 (the holdback of docs/deviations/P5-02b.md): one partial hit, no effect, no unported body
+	// part 3 (m5b2-plan.md F-02/F-03) removes the holdback; restore: no partial hit (the Effect is applied; without <effects> nothing is added)
 	uint64_t partialsBefore = runtime::partialHitCount();
 	EXPECT_TRUE(skills->addSkill(*f.player, 3, 1));
-	EXPECT_EQ(runtime::partialHitCount(), partialsBefore + 1);
+	EXPECT_EQ(runtime::partialHitCount(), partialsBefore + 1) << "the O-09 warn stub";
+	EXPECT_TRUE(f.player->getEffectController()->getAllEffects().empty());
 	EXPECT_EQ(runtime::unportedHitCount(), 0u);
 }
 
-TEST_F(PlayerSkillLearnTest, SavedEffectsAreSkippedWithAWarningInsteadOfAbortingTheLogin) {
+/**
+ * PlayerSkillList.addSkillXp (PlayerSkillList.java:84-126), the last body of the list: no experience past 40 levels above the object's level;
+ * the gathering and crafting caps (30001 stops at 49; the tapping skills break out at 449 and, with the cap disabled, at 499 and above; every
+ * listed skill stops at the mastery levels 99..549); otherwise the experience accumulates until (int) (0.23 * (level + 17.2)^2), which raises
+ * the level by one, resets the experience and tells SkillLearnService.
+ */
+TEST_F(PlayerSkillLearnTest, AddSkillXpAccumulatesUntilTheLevelUpAndStopsAtTheCaps) {
+	runtime::TaskScope scope(AION_TASK_INFO(runtime::TaskKind::TEST));
+	PlayerFixture f = makePlayer(4104);
+	using gameobjects::Persistable_PersistentState;
+	Ref<PlayerSkillEntry> learned = PlayerSkillEntry::create(2, 1, 0, Persistable_PersistentState::NOACTION);
+	Ref<PlayerSkillEntry> human = PlayerSkillEntry::create(30001, 49, 0, Persistable_PersistentState::NOACTION);
+	Ref<PlayerSkillEntry> tapping = PlayerSkillEntry::create(30002, 449, 0, Persistable_PersistentState::NOACTION);
+	Ref<PlayerSkillEntry> crafting = PlayerSkillEntry::create(40001, 199, 0, Persistable_PersistentState::NOACTION);
+	f.player->setSkillList(PlayerSkillList::create({learned, human, tapping, crafting}));
+	Ptr<PlayerSkillList> skills = f.player->getSkillList();
+
+	EXPECT_THROW(skills->addSkillXp(*f.player, 1, 10, 1), runtime::NullPointerException) << "a skill the list does not hold";
+
+	// level 1: (int) (0.23 * 18.2 * 18.2) = (int) 76.1852 = 76
+	EXPECT_TRUE(skills->addSkillXp(*f.player, 2, 50, 1));
+	EXPECT_EQ(learned->getCurrentXp(), 50);
+	EXPECT_EQ(learned->getSkillLevel(), 1);
+	EXPECT_TRUE(skills->addSkillXp(*f.player, 2, 25, 1));
+	EXPECT_EQ(learned->getCurrentXp(), 75) << "75 < 76";
+	EXPECT_TRUE(skills->addSkillXp(*f.player, 2, 1, 1));
+	EXPECT_EQ(learned->getSkillLevel(), 2) << "76 >= 76: the next level";
+	EXPECT_EQ(learned->getCurrentXp(), 0);
+
+	learned->setSkillLvl(45);
+	EXPECT_FALSE(skills->addSkillXp(*f.player, 2, 10, 4)) << "45 - 4 = 41 > 40";
+	EXPECT_EQ(learned->getCurrentXp(), 0);
+	EXPECT_TRUE(skills->addSkillXp(*f.player, 2, 10, 5)) << "45 - 5 = 40 is not above 40";
+	EXPECT_EQ(learned->getCurrentXp(), 10);
+
+	EXPECT_FALSE(skills->addSkillXp(*f.player, 30001, 10, 49)) << "human gathering is capped at 49";
+	EXPECT_EQ(human->getCurrentXp(), 0);
+	human->setSkillLvl(99);
+	EXPECT_FALSE(skills->addSkillXp(*f.player, 30001, 10, 99)) << "30001 falls through into the mastery levels";
+	EXPECT_TRUE(skills->addSkillXp(*f.player, 30002, 10, 449)) << "a tapping skill at 449 breaks out of the switch";
+	EXPECT_EQ(tapping->getCurrentXp(), 10);
+	tapping->setSkillLvl(499);
+	EXPECT_FALSE(skills->addSkillXp(*f.player, 30002, 10, 499)) << "499 with the cap enabled: the mastery level";
+	configs::main::CraftConfig::DISABLE_AETHER_AND_ESSENCE_TAPPING_CAP.store(true);
+	EXPECT_TRUE(skills->addSkillXp(*f.player, 30002, 10, 499)) << "with the cap disabled 499 breaks out";
+	configs::main::CraftConfig::DISABLE_AETHER_AND_ESSENCE_TAPPING_CAP.store(false);
+	EXPECT_EQ(tapping->getCurrentXp(), 20);
+	EXPECT_FALSE(skills->addSkillXp(*f.player, 40001, 10, 199)) << "a crafting skill at the mastery level 199";
+	crafting->setSkillLvl(150);
+	EXPECT_TRUE(skills->addSkillXp(*f.player, 40001, 10, 150));
+	EXPECT_EQ(crafting->getCurrentXp(), 10);
+}
+
+/**
+ * M5b-2 closed the M5a AION_PARTIAL of addSavedEffect: a row Java restores is restored (the whole restore is asserted by
+ * EffectControllerTest.ASavedEffectIsRestoredWithItsRemainingTime). What is left for this fixture, whose skills carry no <effects>: a row without
+ * remaining time is still dropped before anything is created, and a restorable row now runs Java's restore - put, then addAllEffectToSucess,
+ * which reads the template's <effects> and throws Java's NullPointerException for a skill without them (PlayerEffectController.java:110-115).
+ */
+TEST_F(PlayerSkillLearnTest, SavedEffectsWithoutRemainingTimeAreDroppedAndTheOthersAreRestored) {
 	runtime::TaskScope scope(AION_TASK_INFO(runtime::TaskKind::TEST));
 	PlayerFixture f = makePlayer(4103);
 	Ptr<controllers::effect::PlayerEffectController> effects = f.player->getEffectController();
@@ -366,15 +431,15 @@ TEST_F(PlayerSkillLearnTest, SavedEffectsAreSkippedWithAWarningInsteadOfAborting
 
 	// PlayerEffectsDAO passes one row per stored effect. Java drops a row without remaining time before creating the Effect, so does the port
 	EXPECT_NO_THROW(effects->addSavedEffect(1, 1, 0, 0, nullptr, nullptr));
-	EXPECT_EQ(runtime::partialHitCount(), partialsBefore) << "an expired row is dropped, as in Java";
+	EXPECT_NO_THROW(effects->addSavedEffect(1, 1, -5, 0, nullptr, nullptr));
+	EXPECT_TRUE(effects->isEmpty()) << "an expired row is dropped, as in Java";
 
-	// a row Java would restore: the port warns once and goes on (EffectController.put and Effect.startEffect are M5b work)
-	EXPECT_NO_THROW(effects->addSavedEffect(1, 1, 60000, 0, nullptr, nullptr));
-	EXPECT_EQ(runtime::partialHitCount(), partialsBefore + 1);
-	EXPECT_NO_THROW(effects->addSavedEffect(2, 1, 60000, 0, nullptr, nullptr));
-	EXPECT_EQ(runtime::partialHitCount(), partialsBefore + 2) << "every row counts, the warning is logged once";
-	EXPECT_TRUE(effects->isEmpty()) << "no effect was restored";
+	// a row Java would restore reaches the restore: no partial any more, and the missing <effects> is Java's NullPointerException
+	EXPECT_THROW(effects->addSavedEffect(1, 1, 60000, 0, nullptr, nullptr), runtime::NullPointerException);
+	EXPECT_EQ(runtime::partialHitCount(), partialsBefore) << "the M5a partial is closed";
+	EXPECT_FALSE(effects->isEmpty()) << "Java puts the effect before addAllEffectToSucess throws";
 	EXPECT_EQ(runtime::unportedHitCount(), 0u) << "enter-world never reaches an unported body because of a stored effect";
+	effects->clearEffectMapsWithoutNotify(); // the unstarted effect holds the player (LogoutBreakers D3 cuts it in the server)
 }
 
 } // namespace

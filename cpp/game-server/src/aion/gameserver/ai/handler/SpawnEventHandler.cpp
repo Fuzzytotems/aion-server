@@ -20,8 +20,8 @@ void SpawnEventHandler::onSpawn(NpcAI& npcAI) {
 	if (npcAI.setStateIfNot(AIState::IDLE)) {
 		npcAI.think();
 		Npc& npc = npcAI.getOwner();
-		// NpcSkillList::getPostSpawnSkills is an AION_PARTIAL that answers with the empty list until M5b-2 (m5b-plan.md D3): SkillEngine::getSkill
-		// is AION_UNPORTED and would throw out of the spawn path, which has no catch.
+		// NpcSkillList::getPostSpawnSkills is an AION_PARTIAL that answers with the empty list until M5b-2 part 3 (m5b2-plan.md D11): the cast is
+		// ported, but the effect classes the post-spawn skills reach are not, and the spawn path has no catch.
 		std::vector<runtime::Ptr<NpcSkillEntry>> skills = npc.getSkillList()->getPostSpawnSkills();
 		if (!skills.empty()) {
 			for (const runtime::Ptr<NpcSkillEntry>& s : skills)

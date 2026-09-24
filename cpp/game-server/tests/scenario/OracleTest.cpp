@@ -1,5 +1,6 @@
 // The parsing of the spawn oracle's answers (m5a-plan.md F-05, §5.5), which the gate's V2 rules rest on. No server, no database and no Python
-// interpreter: these are the two distinctions that made V2 assert the wrong thing on real data, pinned on hand written JSON.
+// interpreter - except OracleRunTest at the end, which drives the m5b2-skills binding through the real oracle.py: these are the two
+// distinctions that made V2 assert the wrong thing on real data, pinned on hand written JSON.
 //
 //   - "level": 0 is a level, "level": null is "this spot has no npc template". tools/oracle/m5a/spawns.py:186 reads the npc_template attribute
 //     with java_int(..., 0), so a template without a `level` attribute answers 0, and spawns.py:254 writes null for a gatherable spot. Reading
@@ -10,6 +11,8 @@
 #include <gtest/gtest.h>
 
 #include <cstdint>
+#include <filesystem>
+#include <optional>
 #include <stdexcept>
 #include <string>
 #include <vector>
@@ -325,6 +328,53 @@ TEST(OracleTest, ASkillOfSeveralLevelsNeedsItsLevel) {
 	EXPECT_EQ(skills.skill(1282).skillId, 1282) << "an id of one level needs none";
 	EXPECT_THROW(skills.skill(1282, 2), std::out_of_range);
 	EXPECT_THROW(skills.skill(4242), std::out_of_range);
+}
+
+// Oracle::skills, the C++ binding of `oracle.py m5b2-skills`: every case above parses a hand-written answer, so none of them notices a binding
+// that asks the oracle the wrong question - a level passed as the death count, a dropped --skill, a flag argparse does not know. Two cases do:
+// the exact command line, without a process, and the whole binding against the real oracle (OracleRunTest, labelled realdata in
+// ScenarioTests.cmake, which also hands it the configure-time Python as AION_TEST_PYTHON).
+TEST(OracleTest, TheSkillsCommandLineSpellsEveryParameterAsOraclePyReadsIt) {
+	// tools/oracle/oracle.py main(): p.add_argument("--race"), ("--class"), ("--level"), ("--skill", action="append"), ("--npc", action="append"),
+	// ("--death-count")
+	EXPECT_EQ(Oracle::skillsArguments("ASMODIANS", "MAGE", 3, {"3195", "1282:2"}, {210133, 210306}, 2),
+		(std::vector<std::string>{"m5b2-skills", "--race", "ASMODIANS", "--class", "MAGE", "--level", "3", "--death-count", "2", "--skill", "3195",
+			"--skill", "1282:2", "--npc", "210133", "--npc", "210306"}))
+		<< "one flag per value, repeated for the two lists, in the caller's order";
+	EXPECT_EQ(Oracle::skillsArguments("ELYOS", "WARRIOR", 1, {}, {}, 1),
+		(std::vector<std::string>{"m5b2-skills", "--race", "ELYOS", "--class", "WARRIOR", "--level", "1", "--death-count", "1"}))
+		<< "no --skill and no --npc without a value: argparse refuses a flag whose value is missing";
+}
+
+TEST(OracleRunTest, TheSkillsBindingAsksTheRealOracleWhatItWasGiven) {
+	std::optional<Oracle> oracle = Oracle::fromEnvironment(std::filesystem::path(AION_SCENARIO_OUTPUT_DIR) / "selftest" / "oracle");
+	if (!oracle)
+		GTEST_SKIP() << "no Python interpreter for tools/oracle: set AION_TEST_PYTHON (ctest sets the configure-time one)";
+
+	// every parameter at a value that differs from its default and from the others, so that a swapped or dropped one changes the answer
+	const OracleSkills skills = oracle->skills("ASMODIANS", "MAGE", 3, {"3195", "1282:2", "1447"}, {210133}, 2);
+	EXPECT_EQ(skills.race, "ASMODIANS");
+	EXPECT_EQ(skills.playerClass, "MAGE");
+	EXPECT_EQ(skills.level, 3) << "--level";
+	bool iceChain = false;
+	for (const OracleSkill& learned : skills.characterSkills)
+		iceChain = iceChain || learned.skillId == 1363;
+	EXPECT_TRUE(iceChain) << "1363 Ice Chain is autolearnt above level 1: the oracle computed the level 3 set, not only echoed the level";
+	EXPECT_EQ(skills.deathCount, 2) << "--death-count";
+	EXPECT_EQ(skills.soulSicknessSkillId, 8291);
+	EXPECT_EQ(skills.skill(8291, 2).effectDuration, 80000) << "the soul sickness at skill level deathCount 2: 40000 + 20000 * 2";
+	EXPECT_EQ(skills.skill(8291, 2).sources, (std::vector<std::string>{"soulSickness"}));
+	EXPECT_EQ(skills.skill(1282, 2).sources, (std::vector<std::string>{"extra"})) << "--skill ID:LEVEL";
+	EXPECT_EQ(skills.skill(1282, 1).sources, (std::vector<std::string>{"autolearn"}));
+	EXPECT_EQ(skills.skill(3195).sources, (std::vector<std::string>{"extra"})) << "--skill ID, at the template's lvl";
+	EXPECT_EQ(skills.skill(3195).effectDuration, 5000);
+	EXPECT_EQ(skills.skill(1447).effectDuration, 16000)
+		<< "1447 Erosion's <spellatk duration2=15000>: AbstractOverTimeEffect.getDuration2 adds 1000 (AbstractOverTimeEffect.java:64-67)";
+	ASSERT_EQ(skills.npcs.size(), 1u) << "--npc";
+	EXPECT_EQ(skills.npcs[0].npcId, 210133);
+	ASSERT_EQ(skills.npcs[0].skills.size(), 1u);
+	EXPECT_EQ(skills.npcs[0].skills[0].skillId, 16419) << "the striped kerub's Brandish";
+	EXPECT_EQ(skills.skill(16419).sources, (std::vector<std::string>{"npc:210133"}));
 }
 
 } // namespace

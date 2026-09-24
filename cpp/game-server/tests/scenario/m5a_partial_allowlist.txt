@@ -29,21 +29,16 @@ aion/gameserver/custom/pvpmap/PvpMapService.cpp:32
 aion/gameserver/handlers/ai/GeneralNpcAI.cpp:122
 # "post-spawn npc skills are not cast yet (M5b-2)" (m5b-plan.md D3). SpawnEventHandler::onSpawn asks every one of the 83,885 spawns for its
 # post-spawn skills, so this is by far the most-hit site of a run; none of the 185 npc ids that have one is on Poeta or Ishalgen.
-aion/gameserver/model/skill/NpcSkillList.cpp:90
+# M5b-2 part 2 ported the cast and held the site back until part 3 ports the effects those npcs cast (m5b2-plan.md D7); :90 became :91.
+aion/gameserver/model/skill/NpcSkillList.cpp:91
 
 # --- enter world (plan §5.4 V9 "the passive-skill delta of AION_PARTIAL O-09 is on the allow-list") ---
 # O-09 "passive skill effects are not applied yet (M5a O-09)". The line moved from :74 to :79 when the M5b-1 wave added
-# SkillEngine::createCriticalProcEffect above it; an entry with a line number must match the whole site, so the row moves with it.
-aion/gameserver/skillengine/SkillEngine.cpp:79
-# a fresh level 1 character has no saved effect, so this one should not be hit; it is listed because a relogin after Q3 walks the same code
-aion/gameserver/controllers/effect/PlayerEffectController.cpp:120
+# SkillEngine::createCriticalProcEffect above it; an entry with a line number must match the whole site, so the row moves with it. M5b-2
+# part 2 ported the path and held it back until part 3 ports BufEffect and the mastery effects (m5b2-plan.md D2), moving it to :137.
+aion/gameserver/skillengine/SkillEngine.cpp:137
 # EMOTIONS_ALL is off by default, so this is only reached with the config the real-client checklist uses
 aion/gameserver/services/player/PlayerService.cpp:268
 # personal instances and the instance exit teleport are M5a AION_PARTIAL by plan W-03
 aion/gameserver/services/instance/InstanceService.cpp:133
 aion/gameserver/services/instance/InstanceService.cpp:153
-# --- what registering the AI handlers made reachable (M5b-1 stage 1) ---
-# Every npc that walks back to its spawn point after a fight runs ReturningEventHandler::onBackHome, whose last statement drops the buffs
-# of the fight. The dispel machinery needs the effect engine (M5b-2) and nothing can put an abnormal effect on a creature yet, so the
-# partial has nothing to do; it was AION_UNPORTED until M5b-1, where it threw out of the BACK_HOME event of every returning npc.
-aion/gameserver/controllers/effect/EffectController.cpp:209

@@ -60,9 +60,10 @@
 #include "aion/gameserver/network/aion/serverpackets/SM_PLAYER_INFO.h"
 #include "aion/gameserver/network/aion/serverpackets/SM_PLAYER_SPAWN.h"
 #include "aion/gameserver/network/aion/serverpackets/SM_PLAYER_STATE.h"
+#include "aion/gameserver/network/aion/serverpackets/SM_SKILL_CANCEL.h"
 #include "aion/gameserver/network/aion/serverpackets/SM_STATS_INFO.h"
+#include "aion/gameserver/network/aion/serverpackets/SM_SYSTEM_MESSAGE.h"
 #include "aion/gameserver/network/aion/serverpackets/detail/PacketLookups.h"
-#include "aion/gameserver/runtime/base/Unported.h"
 #include "aion/gameserver/services/teleport/TeleportService.h"
 #include "aion/gameserver/skillengine/model/Skill.h"
 #include "aion/gameserver/skillengine/model/SkillTargetSlotInfo.h"
@@ -143,6 +144,13 @@ protected:
 
 	void TearDown() override {
 		if (actor.player) {
+			// ZoneUpdateService is a process-wide queue that nothing drains in a unit test (its own 500 ms task is scheduled on a thread pool
+			// backend the fixtures replace), and every same-map teleport queues the character (spawnOnSameMap -> updateZone). run() moves the
+			// queue into a LinkedHashSet, which keeps the FIRST of two Java-equal characters (AionObject.equals: the object id): a character
+			// left behind here would be the one the next test's run() revalidates instead of that test's own. So each test drains its own
+			// entries while its character still exists, and cancels the drowning the bind point's z starts.
+			world::zone::ZoneUpdateService::getInstance().run();
+			actor.player->getController().cancelTask(model::TaskId::DROWN);
 			if (actor.player->isSpawned())
 				world::World::getInstance().despawn(*actor.player);
 			world::World::getInstance().removeObject(*actor.player);
@@ -294,17 +302,19 @@ TEST_F(TeleportStatementsTest, AbortPlayerActionsCancelsTheCastingSkill) {
 	actor.player->setCasting(runtime::Ptr<skillengine::model::Skill>(skill));
 	ASSERT_TRUE(actor.player->getCastingSkill());
 
-	// Java: player.getController().cancelCurrentSkill(null) (TeleportService.java:199). The body's first statement on a casting character is
-	// castingSkill.cancelCast() (PlayerController.cpp:621), and Skill::cancelCast is AION_UNPORTED until M5b-2 (Skill.cpp:168-170). The throw
-	// is what proves the statement is there: a teleport that skips it finishes silently. Nothing on the M5b-1 gate path reaches it - a dying
-	// character's cast is already cleared by CreatureController::onDie (CreatureController.cpp:208) before bindRevive teleports him.
-	try {
-		teleportToBindPoint();
-		FAIL() << "Skill::cancelCast is unported";
-	} catch (const runtime::UnportedException& unported) {
-		EXPECT_NE(std::string(unported.what()).find("cancelCast"), std::string::npos) << unported.what();
-	}
-	actor.player->setCasting(nullptr);
+	teleportToBindPoint();
+
+	// Java: player.getController().cancelCurrentSkill(null) (TeleportService.java:199) -> castingSkill.cancelCast(), player.setCasting(null),
+	// and for a CAST skill SM_SKILL_CANCEL to the character and everyone who sees him, then STR_SKILL_CANCELED (PlayerController.java:519-541).
+	// abortPlayerActions runs before the character is moved, so the pair comes before spawnOnSameMap's burst. Nothing on the M5b-1 gate path
+	// reaches it - a dying character's cast is already cleared by CreatureController::onDie before bindRevive teleports him.
+	EXPECT_FALSE(actor.player->isCasting());
+	std::vector<std::vector<uint8_t>> bytes = sent();
+	ASSERT_GE(bytes.size(), 3u);
+	EXPECT_EQ(bytes[0], serialized(serverpackets::SM_SKILL_CANCEL(*actor.player, 1), client->con()));
+	EXPECT_EQ(bytes[1], serialized(serverpackets::SM_SYSTEM_MESSAGE::STR_SKILL_CANCELED(), client->con()));
+	EXPECT_EQ(headerOf(bytes[2]), headerOf(serialized(serverpackets::SM_CHANNEL_INFO(actor.player->getPosition()), client->con())))
+		<< "the same-map burst follows the cancel";
 }
 
 } // namespace

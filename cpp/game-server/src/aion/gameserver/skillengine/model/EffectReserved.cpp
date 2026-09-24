@@ -2,7 +2,6 @@
 
 #include <functional>
 
-#include "aion/gameserver/runtime/base/Unported.h"
 #include "aion/gameserver/controllers/attack/AttackStatus.h"
 
 namespace aion::gameserver::skillengine::model {
@@ -37,7 +36,10 @@ runtime::Ref<EffectReserved> EffectReserved::create(int32_t positionValue, int32
 }
 
 int32_t EffectReserved::getValueToSend() {
-	AION_UNPORTED();
+	if (isDamage_)
+		return this->value;
+	else
+		return static_cast<int32_t>(0u - static_cast<uint32_t>(this->value)); // Java: -this.value (wraps for Integer.MIN_VALUE)
 }
 
 int32_t EffectReserved::compareTo(const EffectReserved& o) const {

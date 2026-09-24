@@ -11,9 +11,10 @@
 //   WalkManager::stopWalking, ActivateEventHandler::onActivate, ReturningEventHandler::onBackHome, HpPhases::tryEnterNextPhase and
 //   NpcAI::handleSpawned's second call.
 //
-// Two of them assert an exception on purpose, because that is what the tree does today and the assertion is how the gate lane learns it:
-// ReturningEventHandler::onBackHome reaches EffectController::removeByDispelSlotType (AION_UNPORTED, P5-02) and NpcAI::handleSpawned reaches
-// NpcShoutsService::mayShout (AION_UNPORTED, P5-14) once shouts are switched on. Both are noted in the case that asserts them.
+// One of them asserts an exception on purpose, because that is what the tree does today and the assertion is how the gate lane learns it:
+// NpcAI::handleSpawned reaches NpcShoutsService::mayShout (AION_UNPORTED, P5-14) once shouts are switched on; it is noted in the case that
+// asserts it. ReturningEventHandler::onBackHome's EffectController::removeByDispelSlotType is ported since M5b-2 part 2, and its case puts
+// ProbeEffect effects (tests/skills/P5-02b/EffectTestSupport.h) on the npc to see the buff of the fight dropped.
 
 #include <gtest/gtest.h>
 
@@ -21,6 +22,8 @@
 #include <cstdint>
 #include <memory>
 #include <string>
+#include <string_view>
+#include <utility>
 #include <vector>
 
 #include "aion/gameserver/ai/AIState.h"
@@ -43,6 +46,7 @@
 #include "aion/gameserver/controllers/NpcController.h"
 #include "aion/gameserver/controllers/attack/AggroList.h"
 #include "aion/gameserver/controllers/attack/AggroTarget.h"
+#include "aion/gameserver/controllers/effect/EffectController.h"
 #include "aion/gameserver/model/gameobjects/Creature.h"
 #include "aion/gameserver/model/gameobjects/Npc.h"
 #include "aion/gameserver/model/gameobjects/VisibleObject.h"
@@ -55,10 +59,13 @@
 #include "aion/gameserver/runtime/lifetime/Ref.h"
 #include "aion/gameserver/runtime/sched/DeterministicExecutor.h"
 #include "aion/gameserver/model/templates/npc/NpcTemplate.h"
+#include "aion/gameserver/skillengine/model/Effect.h"
+#include "aion/gameserver/skillengine/model/SkillTemplate.h"
 #include "aion/gameserver/utils/PositionUtil.h"
 #include "aion/gameserver/world/World.h"
 #include "aion/gameserver/world/WorldPosition.h"
 
+#include "../skills/P5-02b/EffectTestSupport.h"
 #include "AiWorldTestSupport.h"
 
 namespace aion::gameserver::ai::testing {
@@ -162,7 +169,16 @@ protected:
 		return result;
 	}
 
+	/** Keeps a probe skill template until the fixture goes: the effects made of it point into it */
+	const skillengine::model::SkillTemplate* keep(std::unique_ptr<skillengine::model::SkillTemplate> skill) {
+		keptSkills.push_back(std::move(skill));
+		return keptSkills.back().get();
+	}
+
 	runtime::Ref<model::gameobjects::player::Player> regionActivator;
+	/** What the probe effects of the BACK_HOME case record (skillengine::effecttest::ProbeEffect) */
+	skillengine::effecttest::Journal journal;
+	std::vector<std::unique_ptr<skillengine::model::SkillTemplate>> keptSkills;
 };
 
 // ---- AttackEventHandler::onAttack ------------------------------------------------------------------------------------------------------------
@@ -455,17 +471,51 @@ TEST_F(AiHandlerBodiesTest, ActivateOnlyMakesAnIdleNpcThink) {
 
 // ---- ReturningEventHandler::onBackHome -------------------------------------------------------------------------------------------------------
 
+/** The hits of the AION_PARTIAL sites whose function contains `function` since the last resetPartialHitsForTests() */
+uint64_t partialHitsOf(std::string_view function) {
+	uint64_t hits = 0;
+	for (const runtime::PartialHit& hit : runtime::partialHits())
+		if (hit.function.find(function) != std::string::npos)
+			hits += hit.hits;
+	return hits;
+}
+
+/** Java Skill.applyEffect for one effected creature: new Effect(effector, effected, template, 1), initialize(), addToEffectedController() */
+runtime::Ref<skillengine::model::Effect> putOn(Npc& npc, const skillengine::model::SkillTemplate* skill) {
+	runtime::Ref<skillengine::model::Effect> effect = skillengine::model::Effect::create(npc, runtime::Ptr<Creature>(npc), skill, 1);
+	effect->initialize();
+	effect->addToEffectedController();
+	return effect;
+}
+
+/** A probe template of one skill (EffectTestSupport.h) that lasts a minute, in the target slot `tslot`, dispellable at level 1 */
+std::unique_ptr<skillengine::model::SkillTemplate> fightEffect(int32_t skillId, std::string_view tslot, std::string name,
+	skillengine::effecttest::Journal& journal) {
+	std::unique_ptr<skillengine::effecttest::ProbeEffect> probe = skillengine::effecttest::probe(std::move(name), &journal, 1);
+	probe->duration2 = 60000;
+	return skillengine::effecttest::skillWithProbes(
+		skillengine::effecttest::skillXml(skillId, "HOME" + std::to_string(skillId),
+			R"(tslot=")" + std::string(tslot) + R"(" req_dispel_level="1" req_dispel_count="10")"),
+		skillengine::effecttest::probeList(std::move(probe)));
+}
+
 TEST_F(AiHandlerBodiesTest, BackHomePutsTheNpcBackToIdleAndAsksForTheBuffsOfTheFightToBeDropped) {
 	AI_TEST_SCOPE;
-	// ReturningEventHandler.java:47-64. The first three statements of the IDLE block are ported and observable; the fourth,
-	// `getEffectController().removeByDispelSlotType(DispelSlotType.BUFF)`, is an AION_PARTIAL (EffectController.cpp:204, chunk P5-02): the
-	// dispel machinery under it needs the effect engine (M5b-2), and nothing can put an abnormal effect on a creature yet, so there is never
-	// anything to drop. It used to be AION_UNPORTED, which threw out of the BACK_HOME event of every npc that walked home after a fight - the
-	// integrator's suite found that the moment the AI handlers were registered.
+	// ReturningEventHandler.java:47-64. The IDLE block: setSubStateIfNot(NONE), then `getEffectController().removeByDispelSlotType(
+	// DispelSlotType.BUFF)` - the M5b-1 AION_PARTIAL, ported by M5b-2 part 2 (m5b2-plan.md K-02): removeByDispelEffect(null, BUFF, 255, 100, 100)
+	// (EffectController.java:427-429, 450-485) ends every effect of the BUFF slot whose req_dispel_level is at most 100 and whose
+	// req_dispel_count the 100 power covers. So a buff the npc gave itself in the fight is dropped on the way home, and a debuff is not.
 	runtime::Ref<Npc> npc = makeWorldNpc(SPARKIE_NPC_ID, 500, 500, 100);
 	HandlerTestAI& ai = installAi<HandlerTestAI>(*npc);
 	ASSERT_TRUE(ai.setStateIfNot(AIState::RETURNING));
 	ASSERT_TRUE(ai.setSubStateIfNot(AISubState::WALK_PATH));
+	const skillengine::model::SkillTemplate* buff = keep(fightEffect(9701, "BUFF", "buff", journal));
+	const skillengine::model::SkillTemplate* debuff = keep(fightEffect(9702, "DEBUFF", "debuff", journal));
+	putOn(*npc, buff);
+	putOn(*npc, debuff);
+	ASSERT_TRUE(npc->getEffectController()->hasAbnormalEffect(9701));
+	ASSERT_TRUE(npc->getEffectController()->hasAbnormalEffect(9702));
+	journal.clear();
 
 	runtime::resetUnportedHitsForTests();
 	runtime::resetPartialHitsForTests();
@@ -473,21 +523,26 @@ TEST_F(AiHandlerBodiesTest, BackHomePutsTheNpcBackToIdleAndAsksForTheBuffsOfTheF
 
 	EXPECT_TRUE(ai.isInState(AIState::IDLE)) << "setStateIfNot(IDLE) ran";
 	EXPECT_TRUE(ai.isInSubState(AISubState::NONE)) << "and setSubStateIfNot(NONE) with it";
+	EXPECT_EQ(journal, (skillengine::effecttest::Journal{"buff.end"})) << "the buff of the fight is dropped, the debuff is not";
+	EXPECT_FALSE(npc->getEffectController()->hasAbnormalEffect(9701));
+	EXPECT_TRUE(npc->getEffectController()->hasAbnormalEffect(9702)) << "another slot";
 	EXPECT_EQ(runtime::unportedHitCount(), 0u) << "walking home may not reach an unported body any more";
-	bool reachedTheEffectController = false;
-	for (const runtime::PartialHit& hit : runtime::partialHits()) {
-		if (hit.hits > 0 && hit.function.find("removeByDispelSlotType") != std::string::npos)
-			reachedTheEffectController = true;
-	}
-	EXPECT_TRUE(reachedTheEffectController) << "the buffs of the fight are asked to be dropped here (P5-02, M5b-2)";
+	EXPECT_EQ(partialHitsOf("removeByDispelSlotType"), 0u) << "the M5b-1 partial is closed";
+	// part 3 (m5b2-plan.md F-02/F-03) removes the holdback; restore: no partial hit, a post-spawn npc skill is cast (ReturningEventHandler.java:58-60)
+	EXPECT_EQ(partialHitsOf("getPostSpawnSkills"), 1u) << "NpcSkillList::getPostSpawnSkills is held back behind its partial, and answers empty";
 
 	// the whole block is behind setStateIfNot(IDLE): a second BACK_HOME does nothing at all, not even ask the effect controller
+	putOn(*npc, buff);
+	journal.clear();
 	runtime::resetPartialHitsForTests();
 	EXPECT_NO_THROW(ReturningEventHandler::onBackHome(ai));
+	EXPECT_TRUE(journal.empty()) << "the second call returns at setStateIfNot(IDLE), before the dispel";
+	EXPECT_TRUE(npc->getEffectController()->hasAbnormalEffect(9701));
 	// partialHits() keeps one row per site for the whole process; resetPartialHitsForTests() zeroes the counts, so "not reached" is hits == 0
 	for (const runtime::PartialHit& hit : runtime::partialHits())
 		EXPECT_EQ(hit.hits, 0u) << "the second call returns at setStateIfNot(IDLE), but it reached " << hit.function;
 	EXPECT_TRUE(ai.isInState(AIState::IDLE));
+	npc->getEffectController()->removeAllEffects(true); // an effect holds its effector: the npc -> effect -> npc cycle is cut here
 }
 
 // ---- HpPhases::tryEnterNextPhase -------------------------------------------------------------------------------------------------------------

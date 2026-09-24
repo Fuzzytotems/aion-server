@@ -40,6 +40,7 @@
 #include "aion/gameserver/configs/main/LoggingConfig.h"
 #include "aion/gameserver/configs/main/PunishmentConfig.h"
 #include "aion/gameserver/controllers/VisibleObjectController.h"
+#include "aion/gameserver/controllers/effect/PlayerEffectController.h"
 #include "aion/gameserver/dataholders/PanelSkillsData.bind.h"
 #include "aion/gameserver/dataholders/PanelSkillsData.h"
 #include "aion/gameserver/model/ActionState.h"
@@ -59,6 +60,7 @@
 #include "aion/gameserver/network/aion/serverpackets/SM_SYSTEM_MESSAGE.h"
 #include "aion/gameserver/restrictions/PlayerRestrictions.h"
 #include "aion/gameserver/runtime/base/Unported.h"
+#include "aion/gameserver/skillengine/effect/AbnormalState.h"
 #include "aion/gameserver/skillengine/model/Skill.h"
 #include "aion/gameserver/skillengine/model/SkillTemplate.h"
 #include "aion/gameserver/skillengine/model/TransformType.h"
@@ -76,6 +78,7 @@ using network::test::LogCapture;
 using restrictions::PlayerRestrictions;
 using serverpackets::SM_ATTACK_RESPONSE;
 using serverpackets::SM_SYSTEM_MESSAGE;
+using skillengine::effect::AbnormalState;
 
 const char* AUDIT_LOGGER = "AUDIT_LOG"; // AuditLogger.cpp:22
 
@@ -303,8 +306,8 @@ TEST_F(PlayerRestrictionsTest, TheLastAnswerIsIsEnemy) {
 //   getStore() != null                       -> STR_SKILL_CANT_CAST(personal shop), false
 //   casting a skill that is no item cast     -> false, silently
 //   !canAttack() && !hasEvadeEffect          -> STR_SKILL_CAN_NOT_ATTACK_WHILE_IN_ABNORMAL_STATE, false
-//   MAGICAL && SILENCE && !hasEvadeEffect    -> STR_SKILL_CANT_CAST_MAGIC_SKILL_WHILE_SILENCED, false        (NOT COVERED, see below)
-//   PHYSICAL && BIND                         -> STR_SKILL_CANT_CAST_PHYSICAL_SKILL_IN_FEAR, false            (NOT COVERED, see below)
+//   MAGICAL && SILENCE && !hasEvadeEffect    -> STR_SKILL_CANT_CAST_MAGIC_SKILL_WHILE_SILENCED, false
+//   PHYSICAL && BIND                         -> STR_SKILL_CANT_CAST_PHYSICAL_SKILL_IN_FEAR, false             (no evade exemption)
 //   isSkillDisabled                          -> STR_SKILL_NOT_READY (sent by Player::isSkillDisabled), false
 //   transformed: cantUseSkills               -> STR_SKILL_CAN_NOT_CAST_IN_SHAPECHANGE, false
 //   transformed FORM1: skill not on panel    -> audit line, false
@@ -312,20 +315,23 @@ TEST_F(PlayerRestrictionsTest, TheLastAnswerIsIsEnemy) {
 //   otherwise                                -> true
 //
 // Unlike canAttack's, this body's last answer is `true`, so every refusal that says nothing is asserted by its return value flipping, not by a
-// silence the fall-through would share.
+// silence the fall-through would share. The single-guard cases pin what each guard answers; the ORDER of the whole table - which answer a
+// player with several restrictions at once sees - is pinned by EveryGuardIsAskedBeforeEveryGuardBehindIt, which arms the guards from the last
+// to the first.
+//
+// The SILENCE and BIND arms put the player into the state through EffectController::setAbnormal (EffectController.java:706-718), which
+// M5b-2 part 2 ported (m5b2-plan.md K-02): the bit is what isAbnormalSet reads, with no Effect behind it.
 //
 // NOT COVERED, and named so that nobody mistakes the absence for coverage:
-// - the SILENCE and BIND arms. isAbnormalSet is ported, but the only writer of the field behind it, EffectController::setAbnormal, is still
-//   AION_UNPORTED (m5b2-plan.md K-02, P5-02b), so no test can put a player into either state. When K-02 lands, the two cases are: a MAGICAL skill
-//   under SILENCE is refused with the silenced message unless it has an evade effect, and a PHYSICAL skill under BIND with the fear message.
-// - the multicast exception of Player::isSkillDisabled (a ChainCondition with allowedActivations > 1): it reads ChainSkills, whose four bodies
-//   are AION_UNPORTED (m5b2-plan.md S-06, P5-02a), so a multicast skill throws there. It is the Player's body, not this one.
+// - the multicast exception of Player::isSkillDisabled (a ChainCondition with allowedActivations > 1). It is the Player's body, not this one,
+//   and it reads the caster's ChainSkills, whose cases are tests/skills/P5-02a's.
 
 constexpr int32_t PHYSICAL_SKILL = 10;
 constexpr int32_t MAGICAL_SKILL = 11;
 constexpr int32_t EVADE_SKILL = 12;
 constexpr int32_t RESURRECT_SKILL = 13;
 constexpr int32_t PANEL_SKILL = 14;
+constexpr int32_t PHYSICAL_EVADE_SKILL = 15;
 constexpr int32_t PANEL_ID = 7;
 constexpr int32_t TRANSFORM_MODEL_ID = 202650; // any model id other than the player's own template id (100000 + race * 2 + gender)
 
@@ -335,12 +341,16 @@ std::string skillTemplateXml(int32_t skillId, std::string_view skillType, std::s
 		std::string(children) + "</skill_template>";
 }
 
-/** The five templates of these cases. EVADE_SKILL is MAGICAL, so it is the one skill for which hasEvadeEffect can decide an arm. */
+/**
+ * The six templates of these cases. EVADE_SKILL is MAGICAL, so it is the skill for which hasEvadeEffect decides the canAttack and SILENCE arms;
+ * PHYSICAL_EVADE_SKILL is the same effect on a PHYSICAL skill, for the BIND arm, which has no evade exemption.
+ */
 std::string canUseSkillData() {
 	return "<skill_data>" + skillTemplateXml(PHYSICAL_SKILL, "PHYSICAL") + skillTemplateXml(MAGICAL_SKILL, "MAGICAL") +
 		skillTemplateXml(EVADE_SKILL, "MAGICAL", R"(<effects><evade duration2="1" e="1"/></effects>)") +
 		skillTemplateXml(RESURRECT_SKILL, "MAGICAL", R"(<effects><resurrect duration2="1" e="1"/></effects>)") +
-		skillTemplateXml(PANEL_SKILL, "PHYSICAL") + "</skill_data>";
+		skillTemplateXml(PANEL_SKILL, "PHYSICAL") +
+		skillTemplateXml(PHYSICAL_EVADE_SKILL, "PHYSICAL", R"(<effects><evade duration2="1" e="1"/></effects>)") + "</skill_data>";
 }
 
 class CanUseSkillTest : public PlayerRestrictionsTest {
@@ -391,6 +401,12 @@ protected:
 
 	void makeTarget(model::gameobjects::VisibleObject& target) {
 		actor.player->setTarget(runtime::Ptr<model::gameobjects::VisibleObject>(target)); // PlayerController::onTargetChanged sends its own
+	}
+
+	/** Java EffectController.setAbnormal: the state bit the SILENCE and BIND guards read (isAbnormalSet), without an effect behind it */
+	void setAbnormal(skillengine::effect::AbnormalState state) {
+		actor.player->getEffectController()->setAbnormal(state);
+		ASSERT_TRUE(actor.player->getEffectController()->isAbnormalSet(state));
 	}
 
 	std::vector<uint8_t> message(SM_SYSTEM_MESSAGE&& packet) { return serialized(std::move(packet), client->con()); }
@@ -514,6 +530,32 @@ TEST_F(CanUseSkillTest, AnEvadeSkillMayBeUsedByAPlayerWhoCannotAttack) {
 	EXPECT_TRUE(sent().empty());
 }
 
+TEST_F(CanUseSkillTest, ASilencedPlayerIsRefusedAMagicalSkillUnlessItHasAnEvadeEffect) {
+	setAbnormal(AbnormalState::SILENCE);
+	ASSERT_TRUE(actor.player->canAttack()) << "SILENCE is no CANT_ATTACK_STATE bit: the canAttack guard lets the player through";
+
+	// PlayerRestrictions.java:76-80, "in 3.0 players can use remove shock even when silenced"
+	EXPECT_FALSE(canUse(MAGICAL_SKILL));
+	EXPECT_EQ(sent(), exactly({message(SM_SYSTEM_MESSAGE::STR_SKILL_CANT_CAST_MAGIC_SKILL_WHILE_SILENCED())}));
+	EXPECT_TRUE(canUse(EVADE_SKILL)) << "a MAGICAL skill with an evade effect";
+	EXPECT_TRUE(sent().empty());
+	EXPECT_TRUE(canUse(PHYSICAL_SKILL)) << "SILENCE stops MAGICAL skills only";
+	EXPECT_TRUE(sent().empty());
+}
+
+TEST_F(CanUseSkillTest, ABoundPlayerIsRefusedEveryPhysicalSkill) {
+	setAbnormal(AbnormalState::BIND);
+	ASSERT_TRUE(actor.player->canAttack()) << "BIND is no CANT_ATTACK_STATE bit either";
+
+	// PlayerRestrictions.java:82-85: the message speaks of fear, the state is BIND - and unlike SILENCE's, the guard has no evade exemption
+	EXPECT_FALSE(canUse(PHYSICAL_SKILL));
+	EXPECT_EQ(sent(), exactly({message(SM_SYSTEM_MESSAGE::STR_SKILL_CANT_CAST_PHYSICAL_SKILL_IN_FEAR())}));
+	EXPECT_FALSE(canUse(PHYSICAL_EVADE_SKILL)) << "an evade effect does not free a PHYSICAL skill from BIND";
+	EXPECT_EQ(sent(), exactly({message(SM_SYSTEM_MESSAGE::STR_SKILL_CANT_CAST_PHYSICAL_SKILL_IN_FEAR())}));
+	EXPECT_TRUE(canUse(MAGICAL_SKILL)) << "BIND stops PHYSICAL skills only";
+	EXPECT_TRUE(sent().empty());
+}
+
 TEST_F(CanUseSkillTest, ASkillOnCooldownIsRefusedWithNotReady) {
 	const skillengine::model::SkillTemplate* physical = skillTemplate(PHYSICAL_SKILL);
 	actor.player->setSkillCoolDown(physical->getCooldownId(), commons::utils::currentTimeMillis() + 60000);
@@ -606,6 +648,127 @@ TEST_F(CanUseSkillTest, TheTransformIsAskedBeforeTheResurrectTarget) {
 
 	EXPECT_FALSE(canUse(RESURRECT_SKILL)); // no target either, which the resurrect arm would answer with STR_SKILL_TARGET_IS_NOT_VALID
 	EXPECT_EQ(sent(), exactly({message(SM_SYSTEM_MESSAGE::STR_SKILL_CAN_NOT_CAST_IN_SHAPECHANGE())}));
+}
+
+TEST_F(CanUseSkillTest, AForm1TransformThatForbidsSkillsAnswersBeforeItsPanelIsAsked) {
+	// PlayerRestrictions.java:90-104: cantUseSkills is the first statement of the transform block, the FORM1 panel lookup the second - so a
+	// FORM1 transform that forbids skills refuses with the shapechange message, even a skill of its own panel, and never reaches the audit line
+	transform(skillengine::model::TransformType::FORM1, PANEL_ID, true);
+	AuditScope auditOn;
+	LogCapture audit({AUDIT_LOGGER});
+
+	EXPECT_FALSE(canUse(PHYSICAL_SKILL)) << "not on the panel";
+	EXPECT_EQ(sent(), exactly({message(SM_SYSTEM_MESSAGE::STR_SKILL_CAN_NOT_CAST_IN_SHAPECHANGE())}));
+	EXPECT_FALSE(canUse(PANEL_SKILL)) << "on the panel, which only the FORM1 arm would have allowed";
+	EXPECT_EQ(sent(), exactly({message(SM_SYSTEM_MESSAGE::STR_SKILL_CAN_NOT_CAST_IN_SHAPECHANGE())}));
+	EXPECT_FALSE(audit.contains("non panel skill")) << audit.dump();
+}
+
+TEST_F(CanUseSkillTest, EveryGuardIsAskedBeforeEveryGuardBehindIt) {
+	// Java's check ORDER decides which message a refused player sees, and a port that asks the same questions in another order passes every
+	// single-guard case above. So the guards are armed here from the LAST to the FIRST, one per step, and never disarmed: at each step every
+	// guard behind the new one is armed too, and the new one answers only if it is asked before all of them (PlayerRestrictions.java:51-116).
+	// A guard moved up past another one answers in that one's place at the step that arms the one it passed - moving isSkillDisabled in front
+	// of the canAttack guard, or the private store in front of the death terms or the prison, fails here. The only pairs this cannot order are
+	// the silent guards with no answering guard between them: the aboutToDie and isDead terms of one expression, which Java cannot tell apart
+	// either; and SILENCE and BIND, of which a skill meets at most one (MAGICAL, PHYSICAL). The skill is RESURRECT_SKILL: MAGICAL, without an
+	// evade effect, with the resurrect effect of the last guard and its own cooldown id. BIND answers only a PHYSICAL skill, so from the cooldown
+	// step on PHYSICAL_SKILL is asked as well, with its own cooldown armed: it is the probe that pins BIND's place (:82-85) - behind the
+	// canAttack guard and every guard before it, in front of isSkillDisabled - as RESURRECT_SKILL pins SILENCE's (:76-80).
+	AuditScope auditOn;
+	LogCapture audit({AUDIT_LOGGER});
+	other.player->setLifeStats(std::make_unique<DeadLifeStats>(*other.player));
+	makeTarget(*other.player);
+	ASSERT_TRUE(canUse(RESURRECT_SKILL)) << "nothing armed: a dead Player target is what the resurrect arm asks for";
+	EXPECT_TRUE(sent().empty());
+
+	// :106-113, the last guard: a resurrect skill without a target
+	actor.player->setTarget(nullptr);
+	EXPECT_FALSE(canUse(RESURRECT_SKILL));
+	EXPECT_EQ(sent(), exactly({message(SM_SYSTEM_MESSAGE::STR_SKILL_TARGET_IS_NOT_VALID())})) << "the resurrect target";
+
+	// :90-95, a transform that forbids skills
+	transform(skillengine::model::TransformType::AVATAR, 0, true);
+	EXPECT_FALSE(canUse(RESURRECT_SKILL));
+	EXPECT_EQ(sent(), exactly({message(SM_SYSTEM_MESSAGE::STR_SKILL_CAN_NOT_CAST_IN_SHAPECHANGE())})) << "the transform";
+
+	// :87-88, isSkillDisabled: the skill's cooldown; Player.isSkillDisabled sends STR_SKILL_NOT_READY itself
+	actor.player->setSkillCoolDown(skillTemplate(RESURRECT_SKILL)->getCooldownId(), commons::utils::currentTimeMillis() + 600000);
+	actor.player->setSkillCoolDown(skillTemplate(PHYSICAL_SKILL)->getCooldownId(), commons::utils::currentTimeMillis() + 600000);
+	EXPECT_FALSE(canUse(RESURRECT_SKILL));
+	EXPECT_EQ(sent(), exactly({message(SM_SYSTEM_MESSAGE::STR_SKILL_NOT_READY())})) << "the cooldown";
+	EXPECT_FALSE(canUse(PHYSICAL_SKILL));
+	EXPECT_EQ(sent(), exactly({message(SM_SYSTEM_MESSAGE::STR_SKILL_NOT_READY())})) << "the probe's cooldown";
+
+	// :82-85, BIND: the PHYSICAL probe's answer; the MAGICAL skill passes it and still meets its cooldown
+	setAbnormal(AbnormalState::BIND);
+	EXPECT_FALSE(canUse(PHYSICAL_SKILL));
+	EXPECT_EQ(sent(), exactly({message(SM_SYSTEM_MESSAGE::STR_SKILL_CANT_CAST_PHYSICAL_SKILL_IN_FEAR())}))
+		<< "BIND, and no STR_SKILL_NOT_READY: isSkillDisabled comes after";
+	EXPECT_FALSE(canUse(RESURRECT_SKILL));
+	EXPECT_EQ(sent(), exactly({message(SM_SYSTEM_MESSAGE::STR_SKILL_NOT_READY())})) << "BIND does not stop a MAGICAL skill";
+
+	// :76-80, SILENCE: the MAGICAL skill's answer; the probe still meets BIND
+	setAbnormal(AbnormalState::SILENCE);
+	EXPECT_FALSE(canUse(RESURRECT_SKILL));
+	EXPECT_EQ(sent(), exactly({message(SM_SYSTEM_MESSAGE::STR_SKILL_CANT_CAST_MAGIC_SKILL_WHILE_SILENCED())})) << "SILENCE, before the cooldown";
+	EXPECT_FALSE(canUse(PHYSICAL_SKILL));
+	EXPECT_EQ(sent(), exactly({message(SM_SYSTEM_MESSAGE::STR_SKILL_CANT_CAST_PHYSICAL_SKILL_IN_FEAR())})) << "SILENCE does not stop a PHYSICAL skill";
+
+	// :72-75, a player who cannot attack
+	actor.player->setState(CreatureState::RESTING);
+	ASSERT_FALSE(actor.player->canAttack());
+	for (int32_t skillId : {RESURRECT_SKILL, PHYSICAL_SKILL}) {
+		EXPECT_FALSE(canUse(skillId));
+		EXPECT_EQ(sent(), exactly({message(SM_SYSTEM_MESSAGE::STR_SKILL_CAN_NOT_ATTACK_WHILE_IN_ABNORMAL_STATE())}))
+			<< "skill " << skillId << ": the abnormal state message, and no SILENCE, BIND or STR_SKILL_NOT_READY: they come after";
+	}
+
+	// :69-70, a skill cast in progress: silent
+	actor.player->setCasting(skill(MAGICAL_SKILL));
+	for (int32_t skillId : {RESURRECT_SKILL, PHYSICAL_SKILL}) {
+		EXPECT_FALSE(canUse(skillId));
+		EXPECT_TRUE(sent().empty()) << "skill " << skillId << ": the cast in progress";
+	}
+
+	// :64-67, a private store
+	actor.player->setStore(std::make_unique<model::gameobjects::player::PrivateStore>(*actor.player));
+	for (int32_t skillId : {RESURRECT_SKILL, PHYSICAL_SKILL}) {
+		EXPECT_FALSE(canUse(skillId));
+		EXPECT_EQ(sent(), exactly({cantCast(model::ActionState::PERSONAL_SHOP)})) << "skill " << skillId << ": the store";
+	}
+
+	// :60, the death terms: silent
+	actor.player->setLifeStats(std::make_unique<DeadPlayerLifeStats>(*actor.player));
+	ASSERT_TRUE(actor.player->isDead());
+	for (int32_t skillId : {RESURRECT_SKILL, PHYSICAL_SKILL}) {
+		EXPECT_FALSE(canUse(skillId));
+		EXPECT_TRUE(sent().empty()) << "skill " << skillId << ": isDead, before the store message";
+	}
+	actor.player->getLifeStats()->setKillingBlow(7);
+	ASSERT_TRUE(actor.player->getLifeStats()->isAboutToDie());
+	for (int32_t skillId : {RESURRECT_SKILL, PHYSICAL_SKILL}) {
+		EXPECT_FALSE(canUse(skillId));
+		EXPECT_TRUE(sent().empty()) << "skill " << skillId << ": isAboutToDie, before the store message";
+	}
+	EXPECT_EQ(audit.count("tried to attack"), 0) << audit.dump();
+
+	// :60, checkFly, the first operand of the same expression
+	putOnFlightPath(actor);
+	for (int32_t skillId : {RESURRECT_SKILL, PHYSICAL_SKILL}) {
+		EXPECT_FALSE(canUse(skillId));
+		EXPECT_EQ(sent(), exactly({cantCast(model::ActionState::PATH_FLYING)})) << "skill " << skillId << ": checkFly, before isAboutToDie and isDead";
+	}
+	EXPECT_EQ(audit.count("tried to attack"), 2) << "one checkFly audit line per call: " << audit.dump();
+
+	// :52-55, the prison, the first guard of all
+	actor.player->setPrisonEndTimeMillis(commons::utils::currentTimeMillis() + 600000);
+	ASSERT_TRUE(actor.player->isInPrison());
+	for (int32_t skillId : {RESURRECT_SKILL, PHYSICAL_SKILL}) {
+		EXPECT_FALSE(canUse(skillId));
+		EXPECT_EQ(sent(), exactly({message(SM_SYSTEM_MESSAGE::STR_MSG_ACCUSE_TARGET_IS_NOT_VALID())})) << "skill " << skillId << ": the prison";
+	}
+	EXPECT_EQ(audit.count("tried to attack"), 2) << "no further checkFly audit line: " << audit.dump();
 }
 
 } // namespace

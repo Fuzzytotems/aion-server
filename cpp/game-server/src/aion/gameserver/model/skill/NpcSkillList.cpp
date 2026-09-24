@@ -83,10 +83,11 @@ runtime::Ptr<NpcSkillEntry> NpcSkillList::getSkillOnPosition(int32_t position) {
 }
 
 std::vector<runtime::Ptr<NpcSkillEntry>> NpcSkillList::getPostSpawnSkills() {
-	// Java filters the entries whose hasPostSpawnCondition() is true (NpcSkillList.java:70-76). The only caller, SpawnEventHandler.onSpawn
-	// (SpawnEventHandler.java:20-22), then casts each one through SkillEngine.getSkill(...).useWithoutPropSkill(), and SkillEngine::getSkill is
-	// AION_UNPORTED until M5b-2, so a non-empty answer would throw out of the spawn path (m5b-plan.md D3, docs/deviations/P5-02.md).
-	// 185 npc ids carry is_post_spawn="true"; none of them is on Poeta or Ishalgen, so no M5b-1 gate run reaches this site.
+	// Java filters the entries whose hasPostSpawnCondition() is true (NpcSkillList.java:70-76); SpawnEventHandler.onSpawn and
+	// ReturningEventHandler.onBackHome cast each one through SkillEngine.getSkill(...).useWithoutPropSkill(). Part 2 of M5b-2 ported that cast
+	// (m5b2-plan.md D7), but the 46 post-spawn npcs of Gelkmaros and Enshar cast statup (19125/19135/16873) and hide (16822) skills, whose
+	// BufEffect/HideEffect/StatupEffect bodies part 3 ports; until then every server start would log an ERROR and delete those npcs, so D7 stays
+	// held back behind the M5b-1 partial (m5b-plan.md D3).
 	AION_PARTIAL("post-spawn npc skills are not cast yet (M5b-2)");
 	return {};
 }

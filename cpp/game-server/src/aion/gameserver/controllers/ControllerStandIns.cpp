@@ -9,11 +9,6 @@
 
 namespace aion::gameserver::controllers::standins {
 
-bool chargeSkillGetAndUse(model::gameobjects::Creature& creature, int32_t skillId, int32_t skillLevel, int32_t chargeLevel,
-	skillengine::model::Skill& startSkill) {
-	AION_UNPORTED();
-}
-
 void playerTeamDistributionServiceDoReward(model::team::TemporaryPlayerTeam& team, float damagePercent, model::gameobjects::Npc& owner,
 	model::gameobjects::AionObject& winner, attack::TeamDamageList& damageList) {
 	AION_UNPORTED();

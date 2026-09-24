@@ -8,7 +8,6 @@
 #include "aion/gameserver/model/Race.h"
 #include "aion/gameserver/instance/handlers/fwd.h"
 #include "aion/gameserver/model/team/fwd.h"
-#include "aion/gameserver/skillengine/model/fwd.h"
 #include "aion/gameserver/model/gameobjects/fwd.h"
 #include "aion/gameserver/model/gameobjects/player/fwd.h"
 #include "aion/gameserver/services/rift/fwd.h"
@@ -42,16 +41,9 @@ runtime::FutureRef followStartServiceNewFollowingToTargetCheckTask(model::gameob
 
 // --------------------------------------------------------------------------------------------------------------- P5-02 (aion_gs_skills)
 
-/**
- * Java: `ChargeSkill skill = SkillEngine.getInstance().getChargeSkill(creature, skillId, skillLevel, chargeLevel, startSkill); skill != null &&
- * skill.useSkill()` (ChargeSkill has no header, so its Ref cannot be released here)
- * <p>
- * **Closed by M5b-2** (m5b-plan.md O-01; m5b2-plan.md P-04's second half, after S-01 ports `SkillEngine::getChargeSkill`). Unreachable
- * still: its only call site, `CreatureController::useChargeSkill`, is reached from `CM_USE_CHARGE_SKILL` alone, which is not registered (m5b2-plan.md
- * P-03, W), and needs a charge skill that is casting, which needs `Skill::useSkill` (S-02).
- */
-bool chargeSkillGetAndUse(model::gameobjects::Creature& creature, int32_t skillId, int32_t skillLevel, int32_t chargeLevel,
-	skillengine::model::Skill& startSkill);
+// m5b-2 stage 1 part 2 (m5b2-plan.md P-04, second half; header request m5b2-p2-4): `chargeSkillGetAndUse` is gone - ChargeSkill has a header
+// (S-07) and `SkillEngine::getChargeSkill` and `ChargeSkill::useSkill` are ported (S-01, S-07), so `CreatureController::useChargeSkill` calls
+// them the way Java writes them. No stand-in of this section is left.
 
 // m5b-2 stage 0 (header-request m5b2-1): `attackUtilCalculateMagAttackResult` is gone - `AttackUtil::calculateMagAttackResult` and the three
 // bodies below it (`calculateMagicalStatus`, `StatFunctions::calculateMagicalResistRate` and `calculateMagicalCriticalRate`) are ported, and

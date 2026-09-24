@@ -32,12 +32,14 @@
 aion/gameserver/questEngine/QuestEngine.cpp:111
 # base locations are M5b-2/M5b-3 (m5a-plan.md E1-06); BaseService::start runs on every startup
 aion/gameserver/services/BaseService.cpp:18
-# O-09 "passive skill effects are not applied yet (M5a O-09)": 8 hits per enter world, inherited from the M5a gate
-aion/gameserver/skillengine/SkillEngine.cpp:79
+# O-09 "passive skill effects are not applied yet (M5a O-09)": 8 hits per enter world, inherited from the M5a gate. M5b-2 part 2 ported
+# the path and held it back until part 3 ports BufEffect and the mastery effects (m5b2-plan.md D2); :79 became :137.
+aion/gameserver/skillengine/SkillEngine.cpp:137
 # D3 "post-spawn npc skills are not cast yet (M5b-2)". SpawnEventHandler::onSpawn asks EVERY one of the ~83,885 spawns for its post-spawn
 # skills (SpawnEventHandler.java:20-22), so this is by far the most-hit site of a run. §6.1 rev 2 listed it as a §B zero-hit row on the
 # grounds that no Poeta or Ishalgen npc has a post-spawn skill; that is true of the DATA and irrelevant to the SITE, which is the whole body.
-aion/gameserver/model/skill/NpcSkillList.cpp:90
+# M5b-2 part 2 ported the cast and held the site back until part 3 ports the effects those npcs cast (m5b2-plan.md D7); :90 became :91.
+aion/gameserver/model/skill/NpcSkillList.cpp:91
 # D4 "npc skill attacks are not chosen yet (M5b-2): every attack stays a simple melee attack". Reached whenever a registered AI picks its next
 # attack - the gate's own monster on every swing, plus the npcs that fight each other in the character's map region. Same correction as above.
 aion/gameserver/handlers/ai/GeneralNpcAI.cpp:122
@@ -51,10 +53,6 @@ aion/gameserver/services/drop/DropRegistrationService.cpp:43
 # --- SECTION B - hit exactly zero times, asserted ---
 # =========================================================================================================================================
 
-# D14 "critical proc stumble/stun needs the effect engine (M5b-2)". The gate's Elyos Warrior starts with item 100000094 "Training Sword"
-# (item_group="SWORD"), and E-05's body returns null for every weapon group but POLEARM/STAFF/GREATSWORD/BOW BEFORE this line, so a correct
-# port never reaches it. A hit here means the weapon group switch was reordered or the starter weapon changed.
-aion/gameserver/skillengine/SkillEngine.cpp:138
 # D4's other half: GeneralNpcAI::chooseSkillAttack above answers false, so SkillAttackManager is unreachable. A hit here means an
 # AttackIntention reached the skill path.
 aion/gameserver/ai/manager/SkillAttackManager.cpp:19
@@ -76,8 +74,6 @@ aion/gameserver/custom/pvpmap/PvpMapService.cpp:32
 # personal instances and the instance exit teleport are M5a AION_PARTIAL by plan W-03
 aion/gameserver/services/instance/InstanceService.cpp:133
 aion/gameserver/services/instance/InstanceService.cpp:153
-# a fresh level 1 character has no saved effect; K7b's relogin walks the same code
-aion/gameserver/controllers/effect/PlayerEffectController.cpp:120
 # EMOTIONS_ALL is off by default, so this is only reached with the config the real-client checklist uses
 aion/gameserver/services/player/PlayerService.cpp:268
 # AbyssRankUpdateService's periodic tasks. A normal gate run (90-180 s) does not reach them; a run that takes longer does - the §6.6 damage
@@ -85,7 +81,3 @@ aion/gameserver/services/player/PlayerService.cpp:268
 # LENGTH, not of its script, so their count is not pinned.
 aion/gameserver/services/abyss/AbyssRankUpdateService.cpp:37
 aion/gameserver/services/abyss/AbyssRankUpdateService.cpp:58
-# Every npc that walks back to its spawn point after a fight runs ReturningEventHandler::onBackHome, whose last statement drops the buffs of
-# the fight. Whether the gate's own monster gets there depends on A8's chase and on what the neighbourhood's npcs do, so the count is not
-# pinned; the dispel machinery needs the effect engine (M5b-2) and nothing can put an abnormal effect on a creature yet.
-aion/gameserver/controllers/effect/EffectController.cpp:209

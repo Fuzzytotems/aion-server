@@ -10,6 +10,7 @@
 #include "InWorldPacketRunSupport.h"
 
 #include <cstdint>
+#include <utility>
 #include <vector>
 
 #include "aion/gameserver/configs/main/CustomConfig.h"
@@ -30,7 +31,6 @@
 #include "aion/gameserver/network/aion/serverpackets/SM_EMOTION.h"
 #include "aion/gameserver/network/aion/serverpackets/SM_PLAYER_STATE.h"
 #include "aion/gameserver/network/aion/serverpackets/SM_SYSTEM_MESSAGE.h"
-#include "aion/gameserver/runtime/base/Unported.h"
 #include "aion/gameserver/skillengine/effect/AbnormalState.h"
 #include "aion/gameserver/world/WorldPosition.h"
 
@@ -335,22 +335,45 @@ TEST_F(EmotionRunTest, AnEmoteCarriesTheCurrentTargetAndFallsBackToThePacketsId)
 }
 
 /**
- * Java's abnormal-state guard covers every emotion except SELECT_TARGET and the four attack/neutral mode ones, so a rooted player could still
- * sheathe his weapon but not sit down. Only the passing side can be driven from here, and this test pins why: the three flags the guard reads are
- * ported, but the only writer of the field behind them, EffectController::setAbnormal, is still AION_UNPORTED (EffectController.cpp:299-306,
- * P5-04), so nothing at M5a can put a player into an abnormal state. The wave B report names the symbol.
+ * Java's abnormal-state guard (CM_EMOTION.java:109-115) covers every emotion except SELECT_TARGET and the four attack/neutral mode ones, so a
+ * rooted player can still sheathe his weapon but not sit down. Its three operands - any CANT_MOVE_STATE bit, FEAR, CONFUSE - are driven one by
+ * one through EffectController::setAbnormal (EffectController.java:706-718, ported in M5b-2 part 2): each makes SIT a silent no-op, and
+ * unsetAbnormal (:720-733; no effect carries the state, so the bit is simply cleared) lets the same player sit again. ROOT is the CANT_MOVE_STATE
+ * bit because it is not in AUTOMATICALLY_STANDUP, so setting it leaves the states alone; FEAR and CONFUSE are, but only for a RESTING player.
  */
 TEST_F(EmotionRunTest, TheAbnormalStateGuardIsReadAndLetsAnUnaffectedPlayerThrough) {
-	EXPECT_FALSE(actor.player->getEffectController()->isInAnyAbnormalState(AbnormalState::CANT_MOVE_STATE));
-	EXPECT_FALSE(actor.player->getEffectController()->isUnderFear());
-	EXPECT_FALSE(actor.player->getEffectController()->isConfused());
-	EXPECT_THROW(actor.player->getEffectController()->setAbnormal(AbnormalState::CANT_MOVE_STATE), runtime::UnportedException)
-		<< "if this stops throwing, the blocking side of the guard became testable and this test should cover it";
+	controllers::effect::PlayerEffectController& effects = *actor.player->getEffectController();
+	for (const auto& [state, name] : {std::pair{AbnormalState::ROOT, "ROOT"}, std::pair{AbnormalState::FEAR, "FEAR"},
+			 std::pair{AbnormalState::CONFUSE, "CONFUSE"}}) {
+		SCOPED_TRACE(name);
+		effects.setAbnormal(state);
+		ASSERT_TRUE(effects.isInAnyAbnormalState(AbnormalState::CANT_MOVE_STATE) || effects.isUnderFear() || effects.isConfused());
+
+		emote(EmotionType::SIT);
+
+		EXPECT_FALSE(actor.player->isInState(CreatureState::RESTING)) << "the guard returns before the SIT arm";
+		EXPECT_TRUE((*client)->sentBytes().empty()) << "and before the broadcast";
+		effects.unsetAbnormal(state);
+	}
+	ASSERT_FALSE(effects.isInAnyAbnormalState(AbnormalState::CANT_MOVE_STATE));
+	ASSERT_FALSE(effects.isUnderFear());
+	ASSERT_FALSE(effects.isConfused());
 
 	emote(EmotionType::SIT);
 
 	EXPECT_TRUE(actor.player->isInState(CreatureState::RESTING));
 	EXPECT_EQ((*client)->sentBytes(), exactly({expectedEmotion(EmotionType::SIT)}));
+}
+
+/** The five emotions the abnormal-state guard lets through (CM_EMOTION.java:109-111): a rooted player still switches to attack mode */
+TEST_F(EmotionRunTest, TheAbnormalStateGuardLetsTheModeSwitchesThrough) {
+	actor.player->getEffectController()->setAbnormal(AbnormalState::ROOT);
+	ASSERT_TRUE(actor.player->getEffectController()->isInAnyAbnormalState(AbnormalState::CANT_MOVE_STATE));
+
+	emote(EmotionType::ATTACKMODE_IN_STANDING);
+
+	EXPECT_TRUE(actor.player->isInState(CreatureState::WEAPON_EQUIPPED));
+	EXPECT_EQ((*client)->sentBytes(), exactly({expectedEmotion(EmotionType::ATTACKMODE_IN_STANDING)}));
 }
 
 /** Java: SELECT_TARGET returns right after the item-use cancel, before the stance check and the broadcast */

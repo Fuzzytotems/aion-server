@@ -1,11 +1,13 @@
 #include "aion/gameserver/dataholders/MotionData.h"
 
 #include <algorithm>
+#include <cstdint>
+#include <limits>
 
 #include "aion/gameserver/dataholders/detail/JavaHashMapOrder.h"
 #include "aion/gameserver/model/gameobjects/player/Player.h"
 #include "aion/gameserver/model/stats/container/PlayerGameStats.h"
-#include "aion/gameserver/runtime/base/Unported.h"
+#include "aion/gameserver/skillengine/model/ChargeSkill.h"
 #include "aion/gameserver/skillengine/model/Motion.h"
 #include "aion/gameserver/skillengine/model/MotionTime.h"
 #include "aion/gameserver/skillengine/model/Skill.h"
@@ -55,10 +57,40 @@ float MotionData::calculateAnimationTimeUntilFirstHit(model::gameobjects::player
 	return (player.isInRobotMode() ? times->getAnimationLength() : times->getMinTime()) * static_cast<float>(motionSpeed) * motionSpeedRate;
 }
 
-std::optional<MotionData::AnimationTimes> MotionData::calculateAnimationTimesAfterLastHit(model::gameobjects::player::Player& /*player*/,
-                                                                                          skillengine::model::Skill& /*skill*/) const {
-	// needs `skill instanceof ChargeSkill chargeSkill ? chargeSkill.getMotionId()`: skillengine/model/ChargeSkill.h (P5-02) does not exist yet
-	AION_UNPORTED();
+namespace {
+
+/** Java `(int) f`: NaN 0, saturating (a C++ cast is undefined out of range) */
+int32_t javaFloatToInt(float value) {
+	if (value != value)
+		return 0;
+	if (value >= 2147483648.0f)
+		return std::numeric_limits<int32_t>::max();
+	if (value <= -2147483648.0f)
+		return std::numeric_limits<int32_t>::min();
+	return static_cast<int32_t>(value);
+}
+
+} // namespace
+
+// Ported under the P5-02a lease of M5b-2 stage 1 part 2 (I-03): every player cast calls it right after sendCastSpellEnd (Skill.java:665-680)
+std::optional<MotionData::AnimationTimes> MotionData::calculateAnimationTimesAfterLastHit(model::gameobjects::player::Player& player,
+                                                                                          skillengine::model::Skill& skill) const {
+	const MotionTime* motionTime = getMotionTime(skill);
+	if (motionTime == nullptr)
+		return std::nullopt;
+	runtime::Ptr<skillengine::model::ChargeSkill> chargeSkill = runtime::as<skillengine::model::ChargeSkill>(skill);
+	int32_t motionId = chargeSkill ? chargeSkill->getMotionId() : std::max(1, skill.getMultiCastCount());
+	const skillengine::model::Times* times = motionTime->getTimesFor(player, motionId);
+	if (times == nullptr)
+		return std::nullopt;
+	int32_t motionSpeed = skill.getSkillTemplate()->getMotion()->getSpeed() * 10;
+	float attackRate = player.getGameStats()->getAttackSpeedRate();
+	float motionSpeedRate = skill.allowAnimationBoostByCastSpeed()
+		? std::min(attackRate, calculateCastSpeedRate(skill.getCastSpeedForAnimationBoostAndChargeSkills()))
+		: attackRate;
+	int32_t animationLastHitMillis = javaFloatToInt(times->getMaxTime() * static_cast<float>(motionSpeed) * motionSpeedRate);
+	int32_t animationFullDurationMillis = javaFloatToInt(times->getAnimationLength() * static_cast<float>(motionSpeed) * motionSpeedRate);
+	return AnimationTimes{animationLastHitMillis, animationFullDurationMillis};
 }
 
 float MotionData::calculateCastSpeedRate(float castSpeedForAnimationBoost) {

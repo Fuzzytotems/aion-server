@@ -9,13 +9,16 @@ tree is skipped without it, like M5bFixtureReportTest.
 import contextlib
 import io
 import json
+import shutil
+import tempfile
 import unittest
+from pathlib import Path
 
 from m5a.creation import JavaEnums, creation_report, learn_new_skills
 from m5a.data import StaticData
 from m5a.javafloat import f32
-from m5b2.skills import (JavaSkillRules, _condition_cost, effect_duration, magical_cast_duration_without_functions, npc_cast_duration,
-                         skills_report)
+from m5b2.skills import (JavaSkillRules, _condition_cost, effect_duration, effects_duration, magical_cast_duration_without_functions,
+                         npc_cast_duration, skills_report)
 from staticdata_oracle import OracleError
 from staticdata_oracle import run as runner
 
@@ -27,8 +30,10 @@ JAVA_SRC = runner.TOOL_DIR.parents[2] / "game-server" / "src"
 HAVE_JAVA_TREE = (JAVA_SRC / "com" / "aionemu" / "gameserver").is_dir() and runner.DEFAULT_STATIC_DATA.is_dir()
 
 
-def effect(position, duration1=0, duration2=0, random_time=0):
-	return {"position": position, "duration1": duration1, "duration2": duration2, "randomTime": random_time}
+def effect(position, duration1=0, duration2=0, random_time=0, over_time=False):
+	"""One effects entry as SkillReporter.effects_of writes it; `over_time` is a class below AbstractOverTimeEffect (getDuration2 adds 1000)."""
+	return {"position": position, "duration1": duration1, "duration2": duration2, "effectiveDuration2": duration2 + (1000 if over_time else 0),
+	        "randomTime": random_time}
 
 
 class M5b2FormulaTest(unittest.TestCase):
@@ -68,6 +73,31 @@ class M5b2FormulaTest(unittest.TestCase):
 		self.assertEqual(effect_duration([], 1), (0, 0))
 		self.assertIsNone(effect_duration([effect(16, duration2=1)], 1), "outside the 16 bins the ConcurrentHashMap order is not modelled")
 
+	def test_effect_duration_reads_the_virtual_get_duration2(self):
+		# Effect.java:902 calls et.getDuration2(), which AbstractOverTimeEffect.java:64-67 overrides with `duration2 + 1000`
+		self.assertEqual(effect_duration([effect(1), effect(2, duration2=15000, over_time=True)], 1), (16000, 0),
+		                 "1447 Erosion's <spellatk duration2=15000>: a damage over time lasts one second more than its attribute")
+		self.assertEqual(effect_duration([effect(1), effect(2, duration1=300, duration2=12100, over_time=True)], 1), (13400, 0),
+		                 "17018 Bite's <bleed duration2=12100 duration1=300>: 12100 + 1000 + 300 * 1")
+		self.assertEqual(effect_duration([effect(1, over_time=True), effect(2, duration2=20000)], 1), (1000, 0),
+		                 "the extra second is part of getDuration2(), so it counts before the `> 0` test: an over time template of duration2 0 "
+		                 "is positive and decides, however long the later template is")
+		self.assertEqual(effect_duration([effect(1, duration1=-1000, over_time=True), effect(2, duration2=20000)], 1), (20000, 0),
+		                 "... and 1000 - 1000 * level 1 is 0, which is not positive: the next position decides")
+
+	def test_effect_duration_is_a_long_that_calculate_effects_duration_clamps(self):
+		# Effect.java:902 `et.getDuration2() + ((long) et.getDuration1()) * getSkillLevel()`: a long, "some event skills would produce an int
+		# overflow" - the xpboost templates of skill_templates.xml (duration2 1184000000, duration1 2000000000)
+		xpboost = [effect(1, duration1=2000000000, duration2=1184000000), effect(2, duration2=5000)]
+		self.assertEqual(effect_duration(xpboost, 1), (3184000000, 0), "in int arithmetic -1110967296, not positive, and position 2 would decide")
+		self.assertEqual(effect_duration(xpboost, 2), (5184000000, 0), "in int arithmetic 889032704")
+		# Effect.java:896 `(int) Math.min(Integer.MAX_VALUE, duration)`, after calculateTemplateDuration subtracted the roll
+		self.assertEqual(effects_duration((5184000000, 0)), (2**31 - 1, 0))
+		self.assertEqual(effects_duration((2**31 - 1, 0)), (2**31 - 1, 0), "Integer.MAX_VALUE itself is not clamped")
+		self.assertEqual(effects_duration((20000, 300)), (20000, 300), "below the clamp the pair is calculateTemplateDuration's")
+		self.assertEqual(effects_duration((2**31 + 499, 500)), (2**31 - 1, 0), "every roll stays above the clamp: no random part is left")
+		self.assertIsNone(effects_duration((2**31 + 499, 501)), "a roll of 501 would end 1 ms below Integer.MAX_VALUE: the roll decides")
+
 	def test_condition_costs(self):
 		# MpCondition.getCost / HpCondition.getCost: value + delta * skillLevel; a ratio is a percentage of the max, which is not static data
 		self.assertEqual(_condition_cost("mp", {"value": "19", "delta": "0"}, 1, 1282), {"value": 19, "delta": 0, "ratio": False, "cost": 19})
@@ -106,12 +136,67 @@ class M5b2JavaRulesTest(unittest.TestCase):
 		with self.assertRaises(OracleError):
 			self.rules.class_chain("NoSuchEffect")
 
+	def test_get_duration2_overrides(self):
+		# EffectTemplate.java:116-118 `return duration2;` and the one override, AbstractOverTimeEffect.java:64-67 `return duration2 + 1000;`
+		self.assertEqual(self.rules.duration2_bonuses, {"EffectTemplate": 0, "AbstractOverTimeEffect": 1000})
+		for over_time in ("SpellAttackEffect", "BleedEffect", "PoisonEffect", "HealOverTimeEffect", "AbstractOverTimeEffect"):
+			self.assertEqual(self.rules.duration2_bonus(over_time), 1000, f"{over_time} inherits the override")
+		self.assertEqual(self.rules.class_chain("HealEffect"), ["HealEffect", "HealOverTimeEffect", "AbstractOverTimeEffect", "EffectTemplate"])
+		self.assertEqual(self.rules.duration2_bonus("HealEffect"), 1000, "two levels below the override (the post-spawn <heal> of plan §2.4(c))")
+		for plain in ("RootEffect", "StatdownEffect", "AlwaysDodgeEffect", "SpellAttackInstantEffect", "HealInstantEffect", "EffectTemplate"):
+			self.assertEqual(self.rules.duration2_bonus(plain), 0, f"{plain} answers the attribute")
+		with self.assertRaises(OracleError):
+			self.rules.duration2_bonus("NoSuchEffect")
+
 	def test_target_slots_soul_sickness_and_the_cast_cap(self):
 		# SkillTargetSlot(id) in declaration order: the ordinal is what SM_ABNORMAL_STATE writes, the id is the slot mask
 		self.assertEqual(self.rules.target_slots, {"BUFF": (0, 1), "DEBUFF": (1, 2), "CHANT": (2, 4), "SPEC": (3, 8), "SPEC2": (4, 16),
 		                                           "BOOST": (5, 32), "NOSHOW": (6, 64), "NONE": (7, 128)})
 		self.assertEqual((self.rules.soul_sickness_skill, self.rules.soul_sickness_max_death_count), (8291, 10))
 		self.assertEqual(self.rules.cast_duration_cap, f32(0.25))
+
+
+@unittest.skipUnless(HAVE_JAVA_TREE, "Java tree not present")
+class M5b2JavaRulesShapeTest(unittest.TestCase):
+	"""JavaSkillRules.read on a copy of the Java files it reads, one of them changed: the duration getters are read, not assumed."""
+
+	BASE = ("com", "aionemu", "gameserver")
+
+	def rules_with(self, relative: str, old: str, new: str) -> JavaSkillRules:
+		with tempfile.TemporaryDirectory() as root:
+			source, target = JAVA_SRC.joinpath(*self.BASE), Path(root).joinpath(*self.BASE)
+			for part in ("skillengine/effect", "skillengine/model", "controllers"):
+				(target / part).mkdir(parents=True)
+			for path in [*(source / "skillengine" / "effect").glob("*.java"), source / "skillengine" / "model" / "Skill.java",
+			             source / "skillengine" / "model" / "SkillTargetSlot.java", source / "controllers" / "PlayerController.java"]:
+				shutil.copyfile(path, target / path.relative_to(source))
+			changed = target / relative
+			text = changed.read_text(encoding="utf-8")
+			self.assertIn(old, text, f"{relative} no longer contains the text this case changes")
+			changed.write_text(text.replace(old, new, 1), encoding="utf-8")
+			return JavaSkillRules.read(Path(root))
+
+	def test_the_constant_is_read_from_the_override(self):
+		rules = self.rules_with("skillengine/effect/AbstractOverTimeEffect.java", "return duration2 + 1000;", "return duration2 + 1500;")
+		self.assertEqual(rules.duration2_bonus("BleedEffect"), 1500)
+		self.assertEqual(rules.duration2_bonus("RootEffect"), 0)
+
+	def test_a_getter_the_oracle_does_not_model_is_refused(self):
+		cases = [
+			("skillengine/effect/AbstractOverTimeEffect.java", "return duration2 + 1000;", "return duration2 * 2;"),
+			("skillengine/effect/EffectTemplate.java", "return duration2;", "return duration2 + 1;"),
+			("skillengine/effect/RootEffect.java", "public void applyEffect(", "public int getDuration1() { return 5; }\n\tpublic void applyEffect("),
+			("skillengine/effect/BleedEffect.java", "public void calculate(", "public int getRandomTime() { return 5; }\n\tpublic void calculate("),
+			# a body with braces of its own: the getter must be found by its head and refused, not skipped as if there were no override (which
+			# would leave the over time classes at EffectTemplate's `return duration2;` without a word)
+			("skillengine/effect/AbstractOverTimeEffect.java", "return duration2 + 1000;",
+			 "if (duration2 > 0) {\n\t\t\treturn duration2 + 1000;\n\t\t}\n\t\treturn duration2;"),
+			("skillengine/effect/RootEffect.java", "public void applyEffect(",
+			 "public int getDuration2() {\n\t\t{ return duration2; }\n\t}\n\tpublic void applyEffect("),
+		]
+		for relative, old, new in cases:
+			with self.subTest(file=relative, new=new), self.assertRaises(OracleError):
+				self.rules_with(relative, old, new)
 
 
 SKILL_TREE = (
@@ -163,6 +248,18 @@ SKILLS = """
 <skill_template skill_id="1012" name="fixture ratio" stack="L" skillsubtype="NONE" activation="ACTIVE" duration="0">
 	<startconditions><mp value="4"/></startconditions>
 	<endconditions><mp value="10" ratio="true"/></endconditions>
+</skill_template>
+<skill_template skill_id="1015" name="fixture bleed first" stack="R" lvl="1" skillsubtype="DEBUFF" tslot="DEBUFF" activation="ACTIVE" duration="0">
+	<effects><bleed checktime="3000" value="5" e="1"/><root duration2="20000" e="2"/></effects>
+</skill_template>
+<skill_template skill_id="1017" name="fixture int overflow" stack="U" lvl="1" skillsubtype="DEBUFF" tslot="DEBUFF" activation="ACTIVE" duration="0">
+	<effects><bleed checktime="3000" value="5" duration2="2147483000" e="1"/><root duration2="5000" e="2"/></effects>
+</skill_template>
+<skill_template skill_id="1016" name="fixture heal over time" stack="T" lvl="1" skillsubtype="HEAL" tslot="BUFF" activation="ACTIVE" duration="0">
+	<effects><heal checktime="1000" value="10" duration2="2000" duration1="100" e="1"/></effects>
+</skill_template>
+<skill_template skill_id="1018" name="fixture event boost" stack="V" lvl="1" skillsubtype="BUFF" tslot="BOOST" activation="ACTIVE" duration="0">
+	<effects><xpboost duration2="1184000000" duration1="2000000000" e="1" basiclvl="2" noresist="true"/><root duration2="5000" e="2"/></effects>
 </skill_template>
 <skill_template skill_id="1013" name="fixture elyos everyone" stack="P" lvl="1" skillsubtype="NONE" activation="ACTIVE" duration="0"/>
 <skill_template skill_id="1014" name="fixture asmodian everyone" stack="Q" lvl="1" skillsubtype="NONE" activation="ACTIVE" duration="0"/>
@@ -317,6 +414,35 @@ class M5b2FixtureReportTest(unittest.TestCase):
 		with self.assertRaises(OracleError):
 			self.report(extra_skills=["424242"])  # no template
 
+	def test_over_time_templates_last_a_second_longer(self):
+		# AbstractOverTimeEffect.getDuration2 (AbstractOverTimeEffect.java:64-67) is `duration2 + 1000`, and calculateTemplateDuration calls it
+		report = self.report(extra_skills=["1015", "1016:3"])
+		bleed_first = self.skill(report, 1015)
+		self.assertEqual([(e["class"], e["duration2"], e["effectiveDuration2"]) for e in bleed_first["effects"]],
+		                 [("BleedEffect", 0, 1000), ("RootEffect", 20000, 20000)], "the attribute as written, and what getDuration2() answers")
+		self.assertEqual(bleed_first["effectDuration"], 1000,
+		                 "position 1 is a bleed without duration2: getDuration2() is 1000, which is positive, so the root's 20000 never counts")
+		heal = self.skill(report, 1016, 3)
+		self.assertEqual([(e["class"], e["classChain"][1:3], e["effectiveDuration2"]) for e in heal["effects"]],
+		                 [("HealEffect", ["HealOverTimeEffect", "AbstractOverTimeEffect"], 3000)])
+		self.assertEqual(heal["effectDuration"], 3300, "2000 + 1000 + 100 * level 3: the override two classes up the chain still applies")
+		overflow = self.skill(self.report(extra_skills=["1017"]), 1017)
+		self.assertEqual(overflow["effects"][0]["effectiveDuration2"], 2147484000 - 2**32,
+		                 "`duration2 + 1000` is int arithmetic in Java: 2147483000 + 1000 wraps to a negative getDuration2()")
+		self.assertEqual(overflow["effectDuration"], 5000, "... which is not positive, so the next position decides")
+
+	def test_an_event_boost_lasts_integer_max_value(self):
+		# the shape of skill_templates.xml:109087/:109104, the 60-day Experience Boost: getDuration2() 1184000000 + duration1 2000000000 * level
+		# is a long in Effect.calculateTemplateDuration (Effect.java:902), and Effect.calculateEffectsDuration clamps it (:896)
+		report = self.report(extra_skills=["1018:1", "1018:2"])
+		for level, unclamped in ((1, 3184000000), (2, 5184000000)):
+			with self.subTest(level=level):
+				boost = self.skill(report, 1018, level)
+				self.assertEqual([e["class"] for e in boost["effects"]], ["XPBoostEffect", "RootEffect"])
+				self.assertEqual((boost["effectDuration"], boost["effectDurationRandomTime"], boost["notModelled"]), (2**31 - 1, 0, []),
+				                 f"(int) Math.min(Integer.MAX_VALUE, {unclamped}) - not the int arithmetic (the root's 5000 at level 1, 889032704 "
+				                 "at level 2) and not the unclamped long")
+
 	def test_npc_skill_lists_first_list_wins_and_npc_cast_speed(self):
 		report = self.report(npc_ids=[900001, 900002, 900003])
 		first, default, silent = report["npcs"]
@@ -428,6 +554,24 @@ class M5b2RealDataTest(unittest.TestCase):
 		self.assertEqual((npc["npcId"], npc["level"], npc["castSpeed"]), (210133, 1, 1000))
 		self.assertEqual([(s["skillId"], s["level"], s["prob"], s["castDuration"]) for s in npc["skills"]], [(16419, 1, 25, 2500)])
 		self.assertEqual(self.skill(self.mage, 16419)["effects"][0]["class"], "SkillAttackInstantEffect")
+
+	def test_damage_over_time_on_the_real_data(self):
+		# The two over time skills a level 1..9 starting character meets on the start maps (m5b2-plan.md §2.4): the Mage's 1447 Erosion,
+		# autolearnt at minLevel 5 (skill_tree.xml:1584), and 17018 Bite of the level 8 scar 210306 (§2.4(b), its BleedEffect)
+		report = skills_report(self.data, JAVA_SRC, "ELYOS", "MAGE", level=9, npc_ids=[210306])
+		erosion = self.skill(report, 1447)
+		self.assertEqual(erosion["sources"], ["autolearn"])
+		self.assertEqual([(e["class"], e["duration2"], e["effectiveDuration2"]) for e in erosion["effects"]],
+		                 [("SpellAttackInstantEffect", 0, 0), ("SpellAttackEffect", 15000, 16000)])
+		self.assertEqual(erosion["effectDuration"], 16000,
+		                 "skill_templates.xml: <spellatk checktime=3000 duration2=15000 e=2>, plus AbstractOverTimeEffect.getDuration2's second")
+		bite = self.skill(report, 17018)
+		self.assertEqual(bite["sources"], ["npc:210306"])
+		self.assertEqual([(e["class"], e["position"], e["duration1"], e["duration2"]) for e in bite["effects"]],
+		                 [("SkillAttackInstantEffect", 1, 0, 0), ("BleedEffect", 2, 300, 12100)])
+		self.assertEqual(bite["effectDuration"], 13400, "<bleed duration2=12100 duration1=300> at npc skill level 1: 12100 + 1000 + 300 * 1")
+		root = self.skill(report, 1328)
+		self.assertEqual(root["effectDuration"], 20000, "a RootEffect is no over time effect: X6's 20 seconds stay exact")
 
 	def test_the_command_line(self):
 		out = io.StringIO()

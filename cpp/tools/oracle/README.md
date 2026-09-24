@@ -222,8 +222,11 @@ The skills a character casts in the M5b-2 gate and every template constant the g
   `SM_SKILL_COOLDOWN` writes), `mpCost` (the `<mp>` END condition: `MpCondition.getCost`, i.e. the `USED_MP` of `SM_ATTACK_STATUS`) and every
   cost per condition section, `targetSlot` (name, `ordinal` - what `SM_ABNORMAL_STATE`/`SM_ABNORMAL_EFFECT` write per effect - and `id`, the
   slot mask), the `effects` with their tag, **class** (`Effects.java`), `classChain` up to `EffectTemplate`, position, `duration1`,
-  `duration2`, `randomTime`, `preEffects`, `changes` and raw attributes, and `effectDuration` (`Effect.calculateTemplateDuration` when every
-  template succeeds; the random part is `effectDurationRandomTime`, not rolled);
+  `duration2`, `effectiveDuration2` (what the virtual `getDuration2()` answers: `AbstractOverTimeEffect.java:64-67` adds 1,000 ms to every
+  damage and heal over time), `randomTime`, `preEffects`, `changes` and raw attributes, and `effectDuration` (`Effect.calculateTemplateDuration`
+  when every template succeeds, over `getDuration2()` and not the attribute - 1447 *Erosion*'s `duration2="15000"` lasts 16,000 ms; the
+  random part is `effectDurationRandomTime`, not rolled; the sum is a Java `long`, which `Effect.calculateEffectsDuration` clamps to
+  `Integer.MAX_VALUE` - the xpboost templates' `duration1="2000000000"` last 2,147,483,647 ms at every level);
 - `soulSickness`: the skill id `PlayerController.updateSoulSickness` casts (8291) and the death count it casts it at;
 - `npcs`: each `--npc`'s `npc_skills` list (the first list naming the id wins, `NpcSkillData.afterUnmarshal`) with the npc's own
   `castDuration` (`Math.round(duration * cast_speed / 1000f)`);
@@ -232,9 +235,14 @@ The skills a character casts in the M5b-2 gate and every template constant the g
 
 A value the oracle does not model is `null` with a reason in the entry's `notModelled`, never a guess: a casting time stat function (an
 equipped `BOOST_CASTING_TIME*` modifier, an item set, a passive that changes such a stat or is a `BoostSkillCastingTimeEffect`), a
-`BoostSkillCostEffect` passive, an `<mp ratio="true">` cost, a CHARGE skill. The literals (`SkillTargetSlot`, the 8291 and its death count
-cap, the 25 % cast duration cap, the 170 `Effects.java` bindings and the `extends` chains) are read from the Java sources. Exit code 2
-(`OracleError`) for a class that cannot be created, a level outside 1..9, a death count outside 1..10 and a skill id without a template.
+`BoostSkillCostEffect` passive, an `<mp ratio="true">` cost, a CHARGE skill, an `effectDuration` above `Integer.MAX_VALUE` whose
+`randomtime` roll decides whether the clamp applies. The literals (`SkillTargetSlot`, the 8291 and its death count cap, the 25 % cast
+duration cap, the 170 `Effects.java` bindings, the `extends` chains and the `getDuration2()` overrides with their constant) are read from the
+Java sources. Exit code 2 (`OracleError`) for a class that cannot be created, a level outside 1..9, a death count outside 1..10, a skill id
+without a template, and for Java sources whose duration getters the oracle does not model (a `getDuration2()` whose body is anything but
+`return duration2 [+ N];` - found by its head, so a body with braces of its own is refused too - or any override of `getDuration1()` /
+`getRandomTime()`).
 
-Tests: `tests/test_m5b2.py` (the formulas alone, the Java tables as they stand today, the whole report on a small static_data tree, and the
-gate's four ids 2864, 1282, 1328 and 8291 plus 3195, 1838 and npc 210133 on the real data).
+Tests: `tests/test_m5b2.py` (the formulas alone, the Java tables as they stand today and on an edited copy, the whole report on a small
+static_data tree, and the gate's four ids 2864, 1282, 1328 and 8291 plus 3195, 1838, npc 210133 and the two damage-over-time skills 1447
+*Erosion* and npc 210306's 17018 *Bite* on the real data).

@@ -8,6 +8,8 @@
 //     SM_ABNORMAL_EFFECT's two effect types), where the body is written out field by field in Java order and every case also asserts the exact
 //     body size Java produces. A decoder that reads a field with the wrong width or in the wrong order cannot pass both the value assertions
 //     and the exact-consumption check.
+// And one pair of cases over every hand-built body (EXACT_BODIES): the body decodes, one byte more does not and one byte less does not - the
+// proof that each of the seven decoders consumes its body exactly, which the value cases alone do not give.
 //
 // No case here includes or consults a C++ serverpackets header, which is what makes the gate's comparison independent (D9).
 
@@ -191,21 +193,178 @@ void expectResultEquals(const CastSpellResult& decoded, const CastSpellResult& e
 	EXPECT_EQ(decoded.effects, expected.effects);
 }
 
+// ---- the hand-built bodies, one per packet --------------------------------------------------------------------------------------------------
+
+/** SM_CASTSPELL.java:47-78, byte for byte: the Mage's 1282 Flame Bolt on npc 210663, a 2,000 ms cast bar (X4) */
+const std::vector<uint8_t> FLAME_BOLT_CAST_SPELL = {
+	0x01, 0x30, 0xA1, 0x00, // 0: writeD(effector.getObjectId()) = 0x00A13001        (:47)
+	0x02, 0x05,             // 4: writeH(spellId) = 1282                             (:48)
+	0x01,                   // 6: writeC(level) = 1                                  (:49)
+	0x00,                   // 7: writeC(targetType) = 0                             (:50)
+	0x02, 0x30, 0xA1, 0x00, // 8: writeD(targetObjectId) = 0x00A13002                (:55)
+	0xD0, 0x07,             // 12: writeH(castDuration) = 2000                        (:75)
+	0x00,                   // 14: writeC(0x00)                                       (:76)
+	0x00, 0x00, 0x80, 0x3F, // 15: writeF(castSpeed) = 1.0f                           (:77)
+	0x01,                   // 19: writeC(allowAnimationBoostByCastSpeed ? 1 : 0) = 1 (:78)
+};
+
+/** SM_CASTSPELL_RESULT.java:52-210, byte for byte: the Warrior's 2864 on npc 210663, a chain success with one effect and one HP reservation */
+const std::vector<uint8_t> FEROCIOUS_STRIKE_CAST_SPELL_RESULT = {
+	0x01, 0x30, 0xA1, 0x00, // 0: writeD(effector.getObjectId()) = 0x00A13001                  (:52)
+	0x00,                   // 4: writeC(targetType) = 0                                       (:53)
+	0x02, 0x30, 0xA1, 0x00, // 5: writeD(target.getObjectId()) = 0x00A13002                    (:58)
+	0x30, 0x0B,             // 9: writeH(skillId) = 2864                                        (:79)
+	0x01,                   // 11: writeC(getLvl()) = 1                                         (:80)
+	0x64, 0x00, 0x00, 0x00, // 12: writeD(cooldown) = 100                                       (:81)
+	0xEE, 0x02,             // 16: writeH(hitTime) = 750                                        (:82)
+	0x00,                   // 18: writeC(0)                                                    (:83)
+	0x20,                   // 19: writeC(32), a chain success                                  (:92)
+	0x00,                   // 20: writeC(0), not a penalty skill                               (:105)
+	0x00,                   // 21: writeC(dashStatus) = 0                                       (:106)
+	0x01, 0x00,             // 22: writeH(effects.size()) = 1                                   (:121)
+	0x02, 0x30, 0xA1, 0x00, // 24: writeD(effected.getObjectId()) = 0x00A13002                  (:126)
+	0x00,                   // 28: writeC(effectResult) = NORMAL                                (:127)
+	0x4F,                   // 29: writeC(target %hp) = 79                                      (:128)
+	0x64,                   // 30: writeC(attacker %hp) = 100                                   (:135)
+	0x00,                   // 31: writeC(spellStatus) = NONE                                   (:140)
+	0x01,                   // 32: writeC(successfulEffects) = 1                                (:141)
+	0x00, 0x00,             // 33: writeH(0)                                                    (:142)
+	0x00,                   // 35: writeC(carvedSignet) = 0                                     (:143)
+	0x01,                   // 36: writeC(reservedEffects.size()) = 1                           (:170)
+	0x00,                   // 37: writeC(ResourceType.HP) = 0                                  (:172)
+	0x2A, 0x00, 0x00, 0x00, // 38: writeD(valueToSend) = 42                                     (:173)
+	0x0A,                   // 42: writeC(AttackStatus.NORMALHIT) = 10                          (:174)
+	0x00,                   // 43: writeC(shieldDefense) = 0                                    (:188)
+};
+
+/** SM_SKILL_CANCEL.java:22-23 */
+const std::vector<uint8_t> FLAME_BOLT_SKILL_CANCEL = {
+	0x01, 0x30, 0xA1, 0x00, // 0: writeD(creature.getObjectId()) = 0x00A13001 (SM_SKILL_CANCEL.java:22)
+	0x02, 0x05,             // 4: writeH(skillId) = 1282                        (:23)
+};
+
+/** SM_ABNORMAL_STATE.java:26-38: the character's own icons - 3195's two BUFF entries (X7) and the soul sickness at death count 2 (X10) */
+const std::vector<uint8_t> OWN_ICONS_ABNORMAL_STATE = {
+	0x40, 0x00, 0x00, 0x00, // 0: writeD(abnormals) = 0x40                     (:26)
+	0x00, 0x00, 0x00, 0x00, // 4: writeD(0)                                    (:27)
+	0x00, 0x00, 0x00, 0x00, // 8: writeD(0)                                    (:28)
+	0x7F,                   // 12: writeC(slot) = FULLSLOTS                     (:29)
+	0x03, 0x00,             // 13: writeH(effects.size()) = 3                   (:30)
+	0x01, 0x30, 0xA1, 0x00, // 15: writeD(effectorId) = 0x00A13001              (:33)
+	0x7B, 0x0C,             // 19: writeH(skillId) = 3195                       (:34)
+	0x01,                   // 21: writeC(skillLevel) = 1                       (:35)
+	0x00,                   // 22: writeC(targetSlot.ordinal()) = BUFF          (:36)
+	0x88, 0x13, 0x00, 0x00, // 23: writeD(remainingTimeToDisplay) = 5000        (:37)
+	0x01, 0x30, 0xA1, 0x00, // 27: the second entry of the same effect
+	0x7B, 0x0C,             // 31
+	0x01,                   // 33
+	0x00,                   // 34
+	0x87, 0x13, 0x00, 0x00, // 35: 4999
+	0x01, 0x30, 0xA1, 0x00, // 39: the soul sickness: effector and effected are the character
+	0x63, 0x20,             // 43: 8291
+	0x02,                   // 45: skill level = death count 2
+	0x04,                   // 46: SPEC2
+	0xFF, 0xFF, 0xFF, 0xFF, // 47: -1, a permanent effect
+};
+
+/** SM_ABNORMAL_EFFECT.java:40-55: the Mage's 1328 Root on npc 210663 as the broadcast of EffectController.broadCastEffects (X6) */
+const std::vector<uint8_t> ROOT_ON_AN_NPC_ABNORMAL_EFFECT = {
+	0x02, 0x30, 0xA1, 0x00, // 0: writeD(effected.getObjectId()) = 0x00A13002    (:40)
+	0x01,                   // 4: writeC(effectType) = 1, not a Player            (:41)
+	0x00, 0x00, 0x00, 0x00, // 5: writeD(0), "TODO time"                          (:42)
+	0x00, 0x40, 0x00, 0x00, // 9: writeD(abnormals) = 0x4000                       (:43)
+	0x00, 0x00, 0x00, 0x00, // 13: writeD(0)                                       (:44)
+	0x02,                   // 17: writeC(slots) = DEBUFF's id                     (:45)
+	0x01, 0x00,             // 18: writeH(filtered.size()) = 1                     (:46)
+	0x30, 0x05,             // 20: writeH(skillId) = 1328                          (:52)
+	0x01,                   // 22: writeC(skillLevel) = 1                          (:53)
+	0x01,                   // 23: writeC(targetSlot.ordinal()) = DEBUFF           (:54)
+	0x20, 0x4E, 0x00, 0x00, // 24: writeD(remainingTimeToDisplay) = 20000          (:55)
+};
+
+/**
+ * SM_ABNORMAL_EFFECT.java:40-61 for a Player effected (effectType 2): the Mage's 1328 Root on another character, whose entries carry the
+ * effector id in front of the type 1 fields (:49-51 falls through into :52-55). The second arm of the effect type switch, byte for byte.
+ */
+const std::vector<uint8_t> ROOT_ON_A_PLAYER_ABNORMAL_EFFECT = {
+	0x05, 0x30, 0xA1, 0x00, // 0: writeD(effected.getObjectId()) = 0x00A13005    (:40)
+	0x02,                   // 4: writeC(effectType) = 2, a Player                (:41)
+	0x00, 0x00, 0x00, 0x00, // 5: writeD(0), "TODO time"                          (:42)
+	0x00, 0x40, 0x00, 0x00, // 9: writeD(abnormals) = 0x4000                       (:43)
+	0x00, 0x00, 0x00, 0x00, // 13: writeD(0)                                       (:44)
+	0x7F,                   // 17: writeC(slots) = FULLSLOTS                       (:45)
+	0x01, 0x00,             // 18: writeH(filtered.size()) = 1                     (:46)
+	0x01, 0x30, 0xA1, 0x00, // 20: writeD(effect.getEffectorId()) = 0x00A13001     (:50)
+	0x30, 0x05,             // 24: writeH(skillId) = 1328                          (:52)
+	0x01,                   // 26: writeC(skillLevel) = 1                          (:53)
+	0x01,                   // 27: writeC(targetSlot.ordinal()) = DEBUFF           (:54)
+	0x20, 0x4E, 0x00, 0x00, // 28: writeD(remainingTimeToDisplay) = 20000          (:55)
+};
+
+/** SM_SKILL_COOLDOWN.java:46-52: the enter-world list with two cooldowns */
+const std::vector<uint8_t> ENTER_WORLD_SKILL_COOLDOWN = {
+	0x02, 0x00,             // 0: writeH(cooldowns.size()) = 2              (:46)
+	0x00,                   // 2: writeC(notify ? 1 : 0) = 0                 (:47)
+	0x30, 0x0B,             // 3: writeH(skillId) = 2864                     (:49)
+	0x07, 0x00, 0x00, 0x00, // 5: writeD(remainingSeconds) = 7               (:50)
+	0x10, 0x27, 0x00, 0x00, // 9: writeD(durationMillis) = 10000             (:51)
+	0x30, 0x05,             // 13: 1328
+	0x3B, 0x00, 0x00, 0x00, // 15: 59
+	0x60, 0xEA, 0x00, 0x00, // 19: 60000
+};
+
+/** SM_STATUPDATE_MP.java:27-28: X4's MP after Flame Bolt, 405 - 19 = 386 of 405 */
+const std::vector<uint8_t> AFTER_FLAME_BOLT_STATUPDATE_MP = {
+	0x82, 0x01, 0x00, 0x00, // 0: writeD(currentMp) = 386 (:27)
+	0x95, 0x01, 0x00, 0x00, // 4: writeD(maxMp) = 405     (:28)
+};
+
+// ---- exact consumption, for all seven decoders ------------------------------------------------------------------------------------------
+//
+// "Every decode function consumes the body exactly" (SkillDecoders.h) is what makes a hand-built body evidence: a decoder that stops early
+// reads the fields it knows and never sees the ones after them, and a decoder that tolerates a short body reads a truncated packet as a whole
+// one. So every hand-built body above, as it is, one byte longer and one byte shorter - and only the body as Java writes it may decode.
+
+struct ExactBody {
+	const char* packet;
+	const std::vector<uint8_t>* body;
+	void (*decode)(std::span<const uint8_t>);
+};
+
+const ExactBody EXACT_BODIES[] = {
+	{"SM_CASTSPELL", &FLAME_BOLT_CAST_SPELL, [](std::span<const uint8_t> b) { (void)decodeCastSpell(b); }},
+	{"SM_CASTSPELL_RESULT", &FEROCIOUS_STRIKE_CAST_SPELL_RESULT, [](std::span<const uint8_t> b) { (void)decodeCastSpellResult(b); }},
+	{"SM_SKILL_CANCEL", &FLAME_BOLT_SKILL_CANCEL, [](std::span<const uint8_t> b) { (void)decodeSkillCancel(b); }},
+	{"SM_ABNORMAL_STATE", &OWN_ICONS_ABNORMAL_STATE, [](std::span<const uint8_t> b) { (void)decodeAbnormalState(b); }},
+	{"SM_ABNORMAL_EFFECT (type 1)", &ROOT_ON_AN_NPC_ABNORMAL_EFFECT, [](std::span<const uint8_t> b) { (void)decodeAbnormalEffect(b); }},
+	{"SM_ABNORMAL_EFFECT (type 2)", &ROOT_ON_A_PLAYER_ABNORMAL_EFFECT, [](std::span<const uint8_t> b) { (void)decodeAbnormalEffect(b); }},
+	{"SM_SKILL_COOLDOWN", &ENTER_WORLD_SKILL_COOLDOWN, [](std::span<const uint8_t> b) { (void)decodeSkillCooldown(b); }},
+	{"SM_STATUPDATE_MP", &AFTER_FLAME_BOLT_STATUPDATE_MP, [](std::span<const uint8_t> b) { (void)decodeStatUpdateMp(b); }},
+};
+
+TEST(SkillDecodersTest, EveryDecoderAcceptsItsHandBuiltBodyAndNotOneByteMore) {
+	for (const ExactBody& exact : EXACT_BODIES) {
+		SCOPED_TRACE(exact.packet);
+		EXPECT_NO_THROW(exact.decode(*exact.body)) << "the body as Java writes it";
+		std::vector<uint8_t> longer = *exact.body;
+		longer.push_back(0x00); // a zero byte: exactly what a decoder that stopped one field early would leave unread without noticing
+		EXPECT_THROW(exact.decode(longer), DecodeError) << "one byte too many (" << longer.size() << " bytes) must not decode";
+	}
+}
+
+TEST(SkillDecodersTest, EveryDecoderRefusesItsHandBuiltBodyOneByteShort) {
+	for (const ExactBody& exact : EXACT_BODIES) {
+		SCOPED_TRACE(exact.packet);
+		ASSERT_FALSE(exact.body->empty());
+		const std::span<const uint8_t> shorter = std::span<const uint8_t>(*exact.body).first(exact.body->size() - 1);
+		EXPECT_THROW(exact.decode(shorter), DecodeError) << "one byte too few (" << shorter.size() << " bytes) must not decode";
+	}
+}
+
 // ---- SM_CASTSPELL -----------------------------------------------------------------------------------------------------------------------
 
 TEST(SkillDecodersTest, CastSpellOfFlameBoltFromAHandBuiltBody) {
-	// SM_CASTSPELL.java:47-78, byte for byte: the Mage's 1282 Flame Bolt on npc 210663, a 2,000 ms cast bar (X4)
-	const std::vector<uint8_t> body = {
-		0x01, 0x30, 0xA1, 0x00, // 0: writeD(effector.getObjectId()) = 0x00A13001        (:47)
-		0x02, 0x05,             // 4: writeH(spellId) = 1282                             (:48)
-		0x01,                   // 6: writeC(level) = 1                                  (:49)
-		0x00,                   // 7: writeC(targetType) = 0                             (:50)
-		0x02, 0x30, 0xA1, 0x00, // 8: writeD(targetObjectId) = 0x00A13002                (:55)
-		0xD0, 0x07,             // 12: writeH(castDuration) = 2000                        (:75)
-		0x00,                   // 14: writeC(0x00)                                       (:76)
-		0x00, 0x00, 0x80, 0x3F, // 15: writeF(castSpeed) = 1.0f                           (:77)
-		0x01,                   // 19: writeC(allowAnimationBoostByCastSpeed ? 1 : 0) = 1 (:78)
-	};
+	const std::vector<uint8_t>& body = FLAME_BOLT_CAST_SPELL;
 	ASSERT_EQ(body.size(), 20u);
 
 	const CastSpell cast = decodeCastSpell(body);
@@ -299,34 +458,7 @@ TEST(SkillDecodersTest, CastSpellDurationIsAShort) {
 // ---- SM_CASTSPELL_RESULT ----------------------------------------------------------------------------------------------------------------
 
 TEST(SkillDecodersTest, CastSpellResultOfFerociousStrikeFromAHandBuiltBody) {
-	// SM_CASTSPELL_RESULT.java:52-210, byte for byte: the Warrior's 2864 on npc 210663, a chain success with one effect and one HP reservation
-	const std::vector<uint8_t> body = {
-		0x01, 0x30, 0xA1, 0x00, // 0: writeD(effector.getObjectId()) = 0x00A13001                  (:52)
-		0x00,                   // 4: writeC(targetType) = 0                                       (:53)
-		0x02, 0x30, 0xA1, 0x00, // 5: writeD(target.getObjectId()) = 0x00A13002                    (:58)
-		0x30, 0x0B,             // 9: writeH(skillId) = 2864                                        (:79)
-		0x01,                   // 11: writeC(getLvl()) = 1                                         (:80)
-		0x64, 0x00, 0x00, 0x00, // 12: writeD(cooldown) = 100                                       (:81)
-		0xEE, 0x02,             // 16: writeH(hitTime) = 750                                        (:82)
-		0x00,                   // 18: writeC(0)                                                    (:83)
-		0x20,                   // 19: writeC(32), a chain success                                  (:92)
-		0x00,                   // 20: writeC(0), not a penalty skill                               (:105)
-		0x00,                   // 21: writeC(dashStatus) = 0                                       (:106)
-		0x01, 0x00,             // 22: writeH(effects.size()) = 1                                   (:121)
-		0x02, 0x30, 0xA1, 0x00, // 24: writeD(effected.getObjectId()) = 0x00A13002                  (:126)
-		0x00,                   // 28: writeC(effectResult) = NORMAL                                (:127)
-		0x4F,                   // 29: writeC(target %hp) = 79                                      (:128)
-		0x64,                   // 30: writeC(attacker %hp) = 100                                   (:135)
-		0x00,                   // 31: writeC(spellStatus) = NONE                                   (:140)
-		0x01,                   // 32: writeC(successfulEffects) = 1                                (:141)
-		0x00, 0x00,             // 33: writeH(0)                                                    (:142)
-		0x00,                   // 35: writeC(carvedSignet) = 0                                     (:143)
-		0x01,                   // 36: writeC(reservedEffects.size()) = 1                           (:170)
-		0x00,                   // 37: writeC(ResourceType.HP) = 0                                  (:172)
-		0x2A, 0x00, 0x00, 0x00, // 38: writeD(valueToSend) = 42                                     (:173)
-		0x0A,                   // 42: writeC(AttackStatus.NORMALHIT) = 10                          (:174)
-		0x00,                   // 43: writeC(shieldDefense) = 0                                    (:188)
-	};
+	const std::vector<uint8_t>& body = FEROCIOUS_STRIKE_CAST_SPELL_RESULT;
 	ASSERT_EQ(body.size(), 44u);
 
 	const CastSpellResult result = decodeCastSpellResult(body);
@@ -553,10 +685,7 @@ TEST(SkillDecodersTest, CastSpellResultReservationShieldArms) {
 // ---- SM_SKILL_CANCEL --------------------------------------------------------------------------------------------------------------------
 
 TEST(SkillDecodersTest, SkillCancelFromAHandBuiltBody) {
-	const std::vector<uint8_t> body = {
-		0x01, 0x30, 0xA1, 0x00, // 0: writeD(creature.getObjectId()) = 0x00A13001 (SM_SKILL_CANCEL.java:22)
-		0x02, 0x05,             // 4: writeH(skillId) = 1282                        (:23)
-	};
+	const std::vector<uint8_t>& body = FLAME_BOLT_SKILL_CANCEL;
 	const SkillCancel cancel = decodeSkillCancel(body);
 	EXPECT_EQ(cancel.creatureObjectId, 0x00A13001);
 	EXPECT_EQ(cancel.skillId, 1282);
@@ -569,29 +698,7 @@ TEST(SkillDecodersTest, SkillCancelFromAHandBuiltBody) {
 // ---- SM_ABNORMAL_STATE ------------------------------------------------------------------------------------------------------------------
 
 TEST(SkillDecodersTest, AbnormalStateFromAHandBuiltBody) {
-	// SM_ABNORMAL_STATE.java:26-38: the character's own icons - 3195's two BUFF entries (X7) and the soul sickness at death count 2 (X10)
-	const std::vector<uint8_t> body = {
-		0x40, 0x00, 0x00, 0x00, // 0: writeD(abnormals) = 0x40                     (:26)
-		0x00, 0x00, 0x00, 0x00, // 4: writeD(0)                                    (:27)
-		0x00, 0x00, 0x00, 0x00, // 8: writeD(0)                                    (:28)
-		0x7F,                   // 12: writeC(slot) = FULLSLOTS                     (:29)
-		0x03, 0x00,             // 13: writeH(effects.size()) = 3                   (:30)
-		0x01, 0x30, 0xA1, 0x00, // 15: writeD(effectorId) = 0x00A13001              (:33)
-		0x7B, 0x0C,             // 19: writeH(skillId) = 3195                       (:34)
-		0x01,                   // 21: writeC(skillLevel) = 1                       (:35)
-		0x00,                   // 22: writeC(targetSlot.ordinal()) = BUFF          (:36)
-		0x88, 0x13, 0x00, 0x00, // 23: writeD(remainingTimeToDisplay) = 5000        (:37)
-		0x01, 0x30, 0xA1, 0x00, // 27: the second entry of the same effect
-		0x7B, 0x0C,             // 31
-		0x01,                   // 33
-		0x00,                   // 34
-		0x87, 0x13, 0x00, 0x00, // 35: 4999
-		0x01, 0x30, 0xA1, 0x00, // 39: the soul sickness: effector and effected are the character
-		0x63, 0x20,             // 43: 8291
-		0x02,                   // 45: skill level = death count 2
-		0x04,                   // 46: SPEC2
-		0xFF, 0xFF, 0xFF, 0xFF, // 47: -1, a permanent effect
-	};
+	const std::vector<uint8_t>& body = OWN_ICONS_ABNORMAL_STATE;
 	ASSERT_EQ(body.size(), 51u);
 	const AbnormalState state = decodeAbnormalState(body);
 	EXPECT_EQ(state.abnormals, 0x40);
@@ -621,20 +728,7 @@ TEST(SkillDecodersTest, AbnormalStateRejectsWhatJavaCannotWrite) {
 // ---- SM_ABNORMAL_EFFECT -----------------------------------------------------------------------------------------------------------------
 
 TEST(SkillDecodersTest, AbnormalEffectOfRootOnAnNpcFromAHandBuiltBody) {
-	// SM_ABNORMAL_EFFECT.java:40-55: the Mage's 1328 Root on npc 210663 as the broadcast of EffectController.broadCastEffects (X6)
-	const std::vector<uint8_t> body = {
-		0x02, 0x30, 0xA1, 0x00, // 0: writeD(effected.getObjectId()) = 0x00A13002    (:40)
-		0x01,                   // 4: writeC(effectType) = 1, not a Player            (:41)
-		0x00, 0x00, 0x00, 0x00, // 5: writeD(0), "TODO time"                          (:42)
-		0x00, 0x40, 0x00, 0x00, // 9: writeD(abnormals) = 0x4000                       (:43)
-		0x00, 0x00, 0x00, 0x00, // 13: writeD(0)                                       (:44)
-		0x02,                   // 17: writeC(slots) = DEBUFF's id                     (:45)
-		0x01, 0x00,             // 18: writeH(filtered.size()) = 1                     (:46)
-		0x30, 0x05,             // 20: writeH(skillId) = 1328                          (:52)
-		0x01,                   // 22: writeC(skillLevel) = 1                          (:53)
-		0x01,                   // 23: writeC(targetSlot.ordinal()) = DEBUFF           (:54)
-		0x20, 0x4E, 0x00, 0x00, // 24: writeD(remainingTimeToDisplay) = 20000          (:55)
-	};
+	const std::vector<uint8_t>& body = ROOT_ON_AN_NPC_ABNORMAL_EFFECT;
 	ASSERT_EQ(body.size(), 28u);
 	const AbnormalEffect effect = decodeAbnormalEffect(body);
 	EXPECT_EQ(effect.effectedObjectId, 0x00A13002);
@@ -651,6 +745,19 @@ TEST(SkillDecodersTest, AbnormalEffectOfRootOnAnNpcFromAHandBuiltBody) {
 		otherType[4] = type;
 		EXPECT_THROW(decodeAbnormalEffect(otherType), DecodeError) << "effect type " << int{type} << ": the constructor writes only 1 or 2 (:34)";
 	}
+}
+
+TEST(SkillDecodersTest, AbnormalEffectOfRootOnAPlayerFromAHandBuiltBody) {
+	const std::vector<uint8_t>& body = ROOT_ON_A_PLAYER_ABNORMAL_EFFECT;
+	ASSERT_EQ(body.size(), 32u);
+	const AbnormalEffect effect = decodeAbnormalEffect(body);
+	EXPECT_EQ(effect.effectedObjectId, 0x00A13005);
+	EXPECT_EQ(effect.effectType, ABNORMAL_EFFECT_TYPE_PLAYER);
+	EXPECT_EQ(effect.abnormals, 0x4000);
+	EXPECT_EQ(effect.slots, TARGET_SLOT_FULLSLOTS);
+	ASSERT_EQ(effect.effects.size(), 1u);
+	EXPECT_EQ(effect.effects[0], (AbnormalEntry{0x00A13001, 1328, 1, TARGET_SLOT_ORDINAL_DEBUFF, 20000}))
+		<< "the effector id at offset 20 comes first, then the type 1 fields four bytes later than in the npc body";
 }
 
 TEST(SkillDecodersTest, AbnormalEffectOfAnotherPlayerCarriesTheEffectorIds) {
@@ -685,17 +792,7 @@ TEST(SkillDecodersTest, AbnormalEffectOfAnotherPlayerCarriesTheEffectorIds) {
 // ---- SM_SKILL_COOLDOWN ------------------------------------------------------------------------------------------------------------------
 
 TEST(SkillDecodersTest, SkillCooldownFromAHandBuiltBody) {
-	// SM_SKILL_COOLDOWN.java:46-52: the enter-world list with two cooldowns
-	const std::vector<uint8_t> body = {
-		0x02, 0x00,             // 0: writeH(cooldowns.size()) = 2              (:46)
-		0x00,                   // 2: writeC(notify ? 1 : 0) = 0                 (:47)
-		0x30, 0x0B,             // 3: writeH(skillId) = 2864                     (:49)
-		0x07, 0x00, 0x00, 0x00, // 5: writeD(remainingSeconds) = 7               (:50)
-		0x10, 0x27, 0x00, 0x00, // 9: writeD(durationMillis) = 10000             (:51)
-		0x30, 0x05,             // 13: 1328
-		0x3B, 0x00, 0x00, 0x00, // 15: 59
-		0x60, 0xEA, 0x00, 0x00, // 19: 60000
-	};
+	const std::vector<uint8_t>& body = ENTER_WORLD_SKILL_COOLDOWN;
 	const SkillCooldown cooldown = decodeSkillCooldown(body);
 	EXPECT_FALSE(cooldown.notify);
 	ASSERT_EQ(cooldown.cooldowns.size(), 2u);
@@ -712,11 +809,7 @@ TEST(SkillDecodersTest, SkillCooldownFromAHandBuiltBody) {
 // ---- SM_STATUPDATE_MP -------------------------------------------------------------------------------------------------------------------
 
 TEST(SkillDecodersTest, StatUpdateMpFromAHandBuiltBody) {
-	// SM_STATUPDATE_MP.java:27-28: X4's MP after Flame Bolt, 405 - 19 = 386 of 405
-	const std::vector<uint8_t> body = {
-		0x82, 0x01, 0x00, 0x00, // 0: writeD(currentMp) = 386 (:27)
-		0x95, 0x01, 0x00, 0x00, // 4: writeD(maxMp) = 405     (:28)
-	};
+	const std::vector<uint8_t>& body = AFTER_FLAME_BOLT_STATUPDATE_MP;
 	const StatUpdateMp mp = decodeStatUpdateMp(body);
 	EXPECT_EQ(mp.currentMp, 386) << "the CURRENT value comes first";
 	EXPECT_EQ(mp.maxMp, 405);

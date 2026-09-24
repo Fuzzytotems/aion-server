@@ -35,6 +35,26 @@
 #
 # Edges of the handler scripts (game-server/data/handlers) are resolved by their phase-6 chunks
 # (handlers-and-porting-plan.md amendments §12); lint --cycles is enabled in CTest once they are.
+#
+# Reviewed without a row (m5b2-plan.md K-06, the debt of m5b-plan.md risk 7): the AI's scheduled tasks. Each one retains its npc (the NpcAI
+# part retains its owner) from the pool's queue until it has run, but no object on that path stores the task or its Future: the npc is pinned
+# by a root, the executor, and reaches nothing that leads back to the task. fieldmap.py therefore finds no cycle edge for them - a
+# [resolutions] key would be a stale key (test_fieldmap_real, lint L16) - and they are listed here instead, each with what releases it:
+#   AttackManager@L86:46 #npc #npcAI            the TARGET_LOST give-up, AttackManager.java:86-89 (AttackManager.cpp:104, pins {&npc, &npcAI}):
+#                                               one-shot task, released when it has run 2000 ms later or with its cancelled Future
+#   SimpleAttackManager@L34:45 #npcAI           attackAction after the attack delay, SimpleAttackManager.java:34 (SimpleAttackManager.cpp:81):
+#                                               one-shot task, the same
+#   SkillAttackManager@L46:46 #npcAI            skillAction after the skill delay, SkillAttackManager.java:46: one-shot task, the same
+#   SimpleAttackManager.SimpleCheckedAttackAction.npcAI
+#                                               java-hook: run() sets npcAI = null (SimpleAttackManager.java:109, kept in
+#                                               SimpleAttackManager.cpp); the lambda of SimpleAttackManager.cpp:95 releases the task itself when
+#                                               it has run, so an exception before the null-out does not keep the npc either
+#   AggroEventHandler.AggroNotifier.aggressive, .target
+#                                               java-hook: run() sets aggressive = null and target = null (AggroEventHandler.java:75-76, kept in
+#                                               AggroEventHandler.cpp); the lambdas of AggroEventHandler.cpp:84/96/111 release the notifier
+#                                               500 ms later when it has run, whatever run() threw
+# A C++ change that stores one of these tasks where its npc reaches it (a Future field of the npc, the AI or the game stats) makes it a cycle
+# edge: rerun fieldmap.py and move its line into [resolutions].
 
 [resolutions]
 "com.aionemu.gameserver.ai.AIActions$1#request" = "java-hook: ResponseRequester.respond / denyAll drop the pending request (PlayerLeaveWorldService.leaveWorld calls denyAll before delete)"

@@ -234,10 +234,10 @@ struct OracleSkills {
 	std::vector<std::string> effectLeaves, effectClasses;
 
 	/**
-	 * The entry of `skillId` at `level`, or at its only level when `level` is not given.
+	 * The entry of `skillId` at `skillLevel`, or at its only level when `skillLevel` is not given.
 	 * @throws std::out_of_range when the oracle reported no such entry, or several levels of the id and no level was given
 	 */
-	const OracleSkillTemplate& skill(int32_t skillId, std::optional<int32_t> level = std::nullopt) const;
+	const OracleSkillTemplate& skill(int32_t skillId, std::optional<int32_t> skillLevel = std::nullopt) const;
 };
 
 /** Runs tools/oracle/oracle.py. Every call starts a process and parses its stdout as JSON. */
@@ -267,6 +267,14 @@ public:
 	 */
 	OracleSkills skills(std::string_view race, std::string_view playerClass, int32_t level = 1, const std::vector<std::string>& extraSkills = {},
 		const std::vector<int32_t>& npcIds = {}, int32_t deathCount = 1) const;
+
+	/**
+	 * The command line skills() hands to oracle.py after the script path: the `m5b2-skills` sub command and one flag per parameter, spelled as
+	 * tools/oracle/oracle.py's argparse spells them (`--race`, `--class`, `--level`, `--death-count`, one `--skill` per extra skill and one `--npc`
+	 * per npc id). Public so that OracleTest pins the binding without a Python interpreter; OracleRunTest drives it through the real oracle.
+	 */
+	static std::vector<std::string> skillsArguments(std::string_view race, std::string_view playerClass, int32_t level,
+		const std::vector<std::string>& extraSkills, const std::vector<int32_t>& npcIds, int32_t deathCount);
 
 	/** the raw JSON text of a run, for a decoder of its own */
 	std::string run(const std::vector<std::string>& arguments) const;

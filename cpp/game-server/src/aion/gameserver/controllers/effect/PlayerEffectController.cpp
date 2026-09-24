@@ -2,6 +2,7 @@
 
 #include "aion/commons/utils/TimeUtils.h"
 #include "aion/gameserver/configs/main/CustomConfig.h"
+#include "aion/gameserver/controllers/ControllerSupport.h"
 #include "aion/gameserver/controllers/effect/CumulativeResist.h"
 #include "aion/gameserver/controllers/effect/CumulativeResistType.h"
 #include "aion/gameserver/dataholders/DataManager.h"
@@ -13,7 +14,6 @@
 #include "aion/gameserver/model/team/group/PlayerGroupService.h"
 #include "aion/gameserver/network/aion/serverpackets/SM_ABNORMAL_STATE.h"
 #include "aion/gameserver/runtime/base/Exceptions.h"
-#include "aion/gameserver/runtime/base/Unported.h"
 #include "aion/gameserver/services/event/EventService.h"
 #include "aion/gameserver/skillengine/model/Effect.h"
 #include "aion/gameserver/skillengine/model/SkillTargetSlotInfo.h"
@@ -43,11 +43,16 @@ PlayerEffectController::PlayerEffectController(model::gameobjects::Creature& own
 PlayerEffectController::~PlayerEffectController() = default;
 
 void PlayerEffectController::addEffect(skillengine::model::Effect& effect) {
-	AION_UNPORTED();
+	if (checkDuelCondition(effect) && !effect.isForcedEffect())
+		return;
+	EffectController::addEffect(effect);
+	updatePlayerIconsAndGroup(runtime::Ptr<Effect>(effect));
 }
 
 void PlayerEffectController::clearEffect(skillengine::model::Effect& effect, bool broadcast) {
-	AION_UNPORTED();
+	EffectController::clearEffect(effect, broadcast);
+	if (broadcast)
+		updatePlayerIconsAndGroup(runtime::Ptr<Effect>(effect));
 }
 
 model::gameobjects::player::Player& PlayerEffectController::getOwner() const {
@@ -88,7 +93,10 @@ void PlayerEffectController::updatePlayerEffectIcons(runtime::Ptr<skillengine::m
 }
 
 bool PlayerEffectController::checkDuelCondition(skillengine::model::Effect& effect) {
-	AION_UNPORTED();
+	if (effect.getTargetSlot() != SkillTargetSlot::DEBUFF)
+		return false;
+	runtime::Ptr<model::gameobjects::player::Player> player = runtime::as<model::gameobjects::player::Player>(effect.getEffector());
+	return player && !getOwner().equals(*player) && !getOwner().isEnemy(*player);
 }
 
 void PlayerEffectController::addSavedEffect(int32_t skillId, int32_t skillLvl, int32_t remainingTime, int64_t endTime,
@@ -110,14 +118,16 @@ void PlayerEffectController::addSavedEffect(int32_t skillId, int32_t skillLvl, i
 		}
 	}
 
-	// M5a warn stub for the rest of the Java method (plan D3): restoring the effect needs EffectController.put, Effect.addAllEffectToSucess and
-	// Effect.startEffect, all outside the M5a subset (P5-02/P5-03). The checks above are Java's, so a row Java drops is dropped here too; a row
-	// Java would restore is skipped with one warning instead of aborting enter-world (docs/deviations/P5-02.md). Nothing writes player_effects at
-	// M5a (the passive effects of O-09 are a warn stub as well), so the table is empty for the D1 profile.
-	// Java (PlayerEffectController.java:110-117): new Effect(owner, owner, template, skillLvl, remainingTime, forceType, false,
-	// magicalCriticalPositions); put(effect); effect.addAllEffectToSucess(); effect.startEffect(); and, unless the target slot is NOSHOW,
-	// PacketSendUtility.sendPacket(owner, new SM_ABNORMAL_STATE(List.of(effect), getAbnormals(), SkillTargetSlot.FULLSLOTS)).
-	AION_PARTIAL("a saved effect is not restored: EffectController.put and Effect.startEffect are not ported yet (M5a)");
+	// a null template is Java's NullPointerException of the Effect constructor (skillTemplate.getReqDispelCount(), Effect.java:154)
+	runtime::Ref<Effect> effect = Effect::create(getOwner(), runtime::Ptr<model::gameobjects::Creature>(getOwner()), skillTemplate, skillLvl,
+		remainingTime, forceType, false, magicalCriticalPositions);
+	put(*effect);
+	effect->addAllEffectToSucess();
+	effect->startEffect();
+
+	if (effect->getSkillTemplate()->getTargetSlot() != SkillTargetSlot::NOSHOW)
+		utils::PacketSendUtility::sendPacket(getOwner(), network::aion::serverpackets::SM_ABNORMAL_STATE(std::vector<runtime::Ptr<Effect>>{effect},
+															 getAbnormals(), skillengine::model::SKILL_TARGET_SLOT_FULLSLOTS));
 }
 
 void PlayerEffectController::removeAllEffects() {
@@ -136,11 +146,21 @@ bool PlayerEffectController::canRemoveOnDie(skillengine::model::Effect& effect) 
 }
 
 int64_t PlayerEffectController::calculateAndApplyCumulativeResistDuration(CumulativeResistType type, int64_t duration) {
-	AION_UNPORTED();
+	SYNCHRONIZED(cumulativeResistInfo) {
+		runtime::Ptr<CumulativeResist> cumulativeResist = cumulativeResistInfo.computeIfAbsent(type, [] { return CumulativeResist::create(); });
+		int64_t cooldownAfterProc = duration + cumulativeResist->getCooldownTimeOffset(type);
+		// Java: (long) (duration * cumulativeResist.getDurationMultiplier()) - a long times a float is a float product, narrowed by (long)
+		int64_t finalDuration = detail::toLong(static_cast<float>(duration) * cumulativeResist->getDurationMultiplier());
+		cumulativeResist->tryIncrementLevel(cooldownAfterProc);
+		return finalDuration;
+	}
 }
 
 int32_t PlayerEffectController::getCumulativeResistance(CumulativeResistType type) {
-	AION_UNPORTED();
+	SYNCHRONIZED(cumulativeResistInfo) {
+		runtime::Ptr<CumulativeResist> cumulativeResist = cumulativeResistInfo.get(type);
+		return !cumulativeResist ? 0 : cumulativeResist->getResistance();
+	}
 }
 
 } // namespace aion::gameserver::controllers::effect
