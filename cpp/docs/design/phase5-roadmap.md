@@ -14,6 +14,8 @@ Java quests, instance bosses, world AI) comes after it.
 | Effect bodies the headers never declared | ~85, being surfaced by M5b-2 stage 1's header batch |
 | Java lines in the phase-5 chunks | ~98,500 |
 
+**Measured again later that day by the census** ([phase5-census.md](phase5-census.md), re-run with `python tools/porting/census.py`, self-check with `--self-check`): the counts above understate the work. Phase 5 has **3,315 open bodies** (36,569 Java lines), about twice its 1,672 unported sites, because 1,606 Java methods have no C++ declaration at all - 1,356 of them in 322 Java files with no C++ file (147 client packets alone are 450 bodies). The biggest gaps between sites and bodies are M5g (524 vs 294), M5f (459 vs 149) and M5b-3 (294 vs 163). Re-run the census before sizing each milestone plan.
+
 Largest areas by unported bodies: P5-10 teams 294, P5-12b world events 197, P5-08 player services 166, P5-06 quest engine 163, P5-09 loot and
 economy 121, P5-13 instances and restrictions 118, P5-07 items 109, P5-12a siege 105, P5-11 legion and housing 86.
 
