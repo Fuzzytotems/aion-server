@@ -6,8 +6,9 @@ m5a/spawns.py and m5a/creation.py. The real data cases are skipped without the J
 import unittest
 import xml.etree.ElementTree as ET
 
-from m5a.creation import (JavaEnums, PassiveRules, base_stat_dependent_additional_value, creation_report, max_hp, max_mp,
-                          passive_stat_functions, stats_info_base_max_hp, stats_info_base_max_mp)
+from m5a.creation import (ItemInfo, JavaEnums, PassiveRules, base_stat_dependent_additional_value, creation_report, max_hp, max_mp,
+                          passive_stat_functions, stats_info_base_max_hp, stats_info_base_max_mp, stats_info_current_max,
+                          stats_info_main_hand_p_attack)
 from m5a.data import StaticData
 from m5a.javafloat import f32, in_range
 from m5a.spawns import GameClock, TemporarySpawn, border_target, evaluate, load_groups, load_npc_templates, spots_report
@@ -300,6 +301,75 @@ class M5aPassiveModelTest(unittest.TestCase):
 
 
 @unittest.skipUnless(HAVE_JAVA_TREE, "Java tree not present")
+class M5aMainHandAttackModelTest(unittest.TestCase):
+	"""stats_info_main_hand_p_attack (m5b2-plan.md X1) on hand-built weapons and passives. Every expected value is derived by hand from
+	PlayerGameStats.getMainHandPAttack(DISPLAY), PhysicalAttackFunction, StatAddFunction, StatWeaponMasteryFunction and Stat2 in float."""
+
+	SWORD = ItemInfo("SWORD", 1, attack_type="PHYSICAL", min_damage=16, max_damage=20, has_weapon_stats=True)
+	STATBOOST = {"skillId": 140, "function": "StatAddFunction", "stat": "PHYSICAL_ATTACK", "value": 7, "bonus": True, "applies": True}
+	SWORD_MASTERY = {"skillId": 37, "function": "StatWeaponMasteryFunction", "stat": "MAIN_HAND_POWER", "value": 16, "bonus": True,
+	                 "applies": True}
+	MACE_MASTERY = {"skillId": 39, "function": "StatWeaponMasteryFunction", "stat": "MAIN_HAND_POWER", "value": 20, "bonus": True,
+	                "applies": False}
+
+	@classmethod
+	def setUpClass(cls):
+		cls.enums = JavaEnums(JAVA_SRC)
+
+	def attack(self, weapon, passives, equipped=None, power=110):
+		return stats_info_main_hand_p_attack(self.enums, power, weapon, equipped if equipped is not None else [weapon], passives)
+
+	def test_the_training_sword_with_the_warrior_passives(self):
+		# mean (16 + 20) / 2f = 18.0; base rate 110 * 0.01f = 1.1f; base 18 * 1.1f = 19.8 -> (int) 19; current 19.8 + 7 * 1 + 18 * 0.16f = 29.68
+		# -> (int) 29
+		self.assertEqual(self.attack(self.SWORD, [self.STATBOOST, self.SWORD_MASTERY, self.MACE_MASTERY]), {"base": 19, "current": 29})
+
+	def test_each_passive_moves_the_current_value_and_never_the_base(self):
+		self.assertEqual(self.attack(self.SWORD, []), {"base": 19, "current": 19}, "no passive applied: 19.8 -> 19 twice")
+		self.assertEqual(self.attack(self.SWORD, [self.STATBOOST]), {"base": 19, "current": 26}, "19.8 + 7 = 26.8")
+		self.assertEqual(self.attack(self.SWORD, [self.SWORD_MASTERY]), {"base": 19, "current": 22}, "19.8 + 2.88 = 22.68")
+		self.assertEqual(self.attack(self.SWORD, [self.STATBOOST, self.STATBOOST, self.SWORD_MASTERY]), {"base": 19, "current": 36},
+		                 "a statboost counted twice: 19.8 + 14 + 2.88 = 36.68")
+		wrong_group = dict(self.MACE_MASTERY, applies=True)
+		self.assertEqual(self.attack(self.SWORD, [self.STATBOOST, wrong_group]), {"base": 19, "current": 30},
+		                 "the mace mastery applied to a sword: 19.8 + 7 + 3.6 = 30.4")
+
+	def test_a_magical_main_hand_answers_the_empty_addition_stat(self):
+		book = ItemInfo("SPELLBOOK", 1, attack_type="MAGICAL_FIRE", min_damage=10, max_damage=12, has_weapon_stats=True)
+		self.assertEqual(self.attack(book, [self.STATBOOST]), {"base": 0, "current": 0})
+
+	def test_the_current_maxima_add_the_bonus_modifiers_and_refuse_the_rest(self):
+		tunic = ItemInfo("RB_TORSO", 1, modifiers=(("add", "EVASION", 34, False), ("add", "MAXMP", 26, True)))
+		leggings = ItemInfo("RB_PANTS", 1, modifiers=(("add", "MAXMP", 21, True),))
+		self.assertEqual(stats_info_current_max("MAXMP", 405, [tunic, leggings], []), {"base": 405, "bonus": 47.0, "current": 452})
+		self.assertEqual(stats_info_current_max("MAXHP", 132, [tunic, leggings], []), {"base": 132, "bonus": 0.0, "current": 132})
+		boost = {"skillId": 1, "function": "StatAddFunction", "stat": "MAXHP", "value": 50, "bonus": True, "applies": True}
+		self.assertEqual(stats_info_current_max("MAXHP", 132, [], [boost])["current"], 182)
+		for reason, items in (("<rate", [ItemInfo("X", 1, modifiers=(("rate", "MAXMP", 10, True),))]),
+		                      ("bonus=False", [ItemInfo("X", 1, modifiers=(("add", "MAXMP", 10, False),))])):
+			with self.subTest(reason=reason):
+				with self.assertRaises(OracleError) as raised:
+					stats_info_current_max("MAXMP", 405, items, [])
+				self.assertIn(reason, str(raised.exception))
+
+	def test_what_the_model_does_not_know_is_refused(self):
+		armor = ItemInfo("CH_TORSO", 1, modifier_stats=frozenset({"PHYSICAL_ATTACK"}))
+		power = {"skillId": 1, "function": "StatAddFunction", "stat": "POWER", "value": 5, "bonus": True, "applies": True}
+		rate = dict(self.STATBOOST, function="StatRateFunction")
+		for reason, weapon, passives, equipped in (
+				("no main hand weapon", None, [], []),
+				("<modifiers>", self.SWORD, [], [self.SWORD, armor]),
+				("POWER", self.SWORD, [power], None),
+				("StatRateFunction", self.SWORD, [rate], None),
+				("more than one weapon mastery", self.SWORD, [self.SWORD_MASTERY, dict(self.MACE_MASTERY, applies=True)], None),
+				("attack_type", ItemInfo("SWORD", 1, min_damage=16, max_damage=20, has_weapon_stats=True), [], None)):
+			with self.subTest(reason=reason):
+				with self.assertRaises(OracleError) as raised:
+					self.attack(weapon, passives, equipped)
+				self.assertIn(reason, str(raised.exception))
+
+
+@unittest.skipUnless(HAVE_JAVA_TREE, "Java tree not present")
 class M5aRealDataTest(unittest.TestCase):
 	@classmethod
 	def setUpClass(cls):
@@ -308,6 +378,9 @@ class M5aRealDataTest(unittest.TestCase):
 	def test_java_enum_data(self):
 		enums = JavaEnums(JAVA_SRC)
 		self.assertEqual(enums.classes["WARRIOR"], (True, 110, 90, 400, 400))
+		self.assertEqual((enums.powers["WARRIOR"], enums.powers["MAGE"]), (110, 90), "the fourth PlayerClass constructor argument")
+		self.assertEqual(enums.attack_type_magical, {"PHYSICAL": False, "MAGICAL_EARTH": True, "MAGICAL_WATER": True, "MAGICAL_WIND": True,
+		                                             "MAGICAL_FIRE": True})
 		self.assertEqual(enums.classes["GLADIATOR"], (False, 115, 90, 440, 400))
 		self.assertEqual(enums.classes["BARD"], (False, 100, 110, 320, 520))
 		self.assertEqual(enums.item_groups["SWORD"], (3, "WEAPON"))
@@ -338,9 +411,17 @@ class M5aRealDataTest(unittest.TestCase):
 		self.assertEqual(applied, [(37, "StatWeaponMasteryFunction", "MAIN_HAND_POWER", 16), (42, "StatArmorMasteryFunction", "PHYSICAL_DEFENSE", 5),
 		                           (140, "StatAddFunction", "PHYSICAL_ATTACK", 7)])
 		self.assertEqual(sorted({f["skillId"] for f in report["passiveStatFunctions"]}), [37, 39, 40, 41, 42, 43, 103, 140])
+		# m5b2-plan.md X1: the Training Sword's 16-20 at power 110, raised by 37 and 140 - the 19/29 the M5b-2 part 3 regate measured on the wire
+		self.assertEqual(report["statsInfo"], {"mainHandPAttack": {"base": 19, "current": 29}, "maxHp": {"base": 284, "bonus": 0.0, "current": 284},
+		                                       "maxMp": {"base": 170, "bonus": 0.0, "current": 170}, "notModelled": []},
+		                 "the Warrior's chain armor carries no MAXHP or MAXMP modifier")
 
 	def test_asmodian_mage(self):
 		report = creation_report(self.data, JAVA_SRC, "ASMODIANS", "MAGE")
+		self.assertEqual(report["statsInfo"]["mainHandPAttack"], {"base": 0, "current": 0}, "a spellbook is a magical main hand")
+		# the Training Tunic's <add name="MAXMP" value="26" bonus="true"/> and the Training Leggings' 21 (item_templates.xml): 315 + 90 + 47
+		self.assertEqual(report["statsInfo"]["maxMp"], {"base": 405, "bonus": 47.0, "current": 452})
+		self.assertEqual(report["statsInfo"]["maxHp"], {"base": 132, "bonus": 0.0, "current": 132})
 		self.assertEqual(report["spawn"]["mapId"], 220010000)
 		self.assertEqual(report["baseStats"], {"maxHp": 132, "maxMp": 405}, "SM_STATS_INFO base: 158 - 26, 315 + 90")
 		self.assertEqual(report["statsTemplate"], {"maxHp": 158, "maxMp": 315})

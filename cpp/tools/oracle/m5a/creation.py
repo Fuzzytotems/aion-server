@@ -126,6 +126,8 @@ class JavaEnums:
 		# PlayerClass(classId, nameId, isStartingClass|startingClass, power, health, agility, accuracy, knowledge, will, healthMultiplier,
 		# willMultiplier, magicalCriticalResist)
 		self.classes: dict[str, tuple[bool, int, int, int, int]] = {}
+		# name -> the power argument, which PlayerStatsTemplate.getPower() answers (PlayerClass.java:200-205)
+		self.powers: dict[str, int] = {}
 		# name -> PlayerClass.getStartingClass(): the class itself for a starting class (`this.startingClass = this`), the named constant for
 		# the others (the PlayerClass(..., PlayerClass startingClass, ...) constructor)
 		self.starting_classes: dict[str, str] = {}
@@ -134,12 +136,20 @@ class JavaEnums:
 			if len(parts) != 12:
 				raise OracleError(f"PlayerClass.{name}: expected 12 constructor arguments")
 			self.classes[name] = (parts[2] == "true", int(parts[4]), int(parts[8]), int(parts[9]), int(parts[10]))
+			self.powers[name] = int(parts[3])
 			if parts[2] == "true":
 				self.starting_classes[name] = name
 			elif re.fullmatch(r"[A-Z][A-Z0-9_]*", parts[2]):
 				self.starting_classes[name] = parts[2]
 			else:
 				raise OracleError(f"PlayerClass.{name}: cannot read the starting class argument {parts[2]!r}")
+		# name -> ItemAttackType.isMagical(), the first constructor argument (ItemAttackType(boolean magic, SkillElement elem))
+		self.attack_type_magical: dict[str, bool] = {}
+		for name, args in enum_constants(base / "model" / "templates" / "item" / "ItemAttackType.java", "ItemAttackType"):
+			first = (args or "").split(",")[0].strip()
+			if first not in ("true", "false"):
+				raise OracleError(f"ItemAttackType.{name}: cannot read the magic argument {first!r}")
+			self.attack_type_magical[name] = first == "true"
 
 	def slot_for(self, slot_mask: int) -> int:
 		"""ItemSlot.getSlotFor(mask).getSlotIdMask(): the first non-combo slot fully contained in the mask."""
@@ -192,6 +202,16 @@ def stats_info_base_max_mp(will: int, will_multiplier: int, level: int) -> int:
 class ItemInfo:
 	item_group: str
 	max_stack_count: int
+	# ItemTemplate.getAttackType (attack_type; the field has no default, so a template without the attribute answers null) and WeaponStats
+	# min_damage/max_damage (0 without <weapon_stats>)
+	attack_type: str | None = None
+	min_damage: int = 0
+	max_damage: int = 0
+	has_weapon_stats: bool = False
+	# the stat names of the template's <modifiers> children (ItemTemplate.getModifiers), for the models that refuse an item which touches them
+	modifier_stats: frozenset[str] = frozenset()
+	# the <modifiers> children themselves: (tag, stat name, value, bonus) in document order
+	modifiers: tuple[tuple[str, str, int, bool], ...] = ()
 
 
 def _item_templates(data: StaticData, wanted: set[int]) -> dict[int, ItemInfo]:
@@ -199,8 +219,114 @@ def _item_templates(data: StaticData, wanted: set[int]) -> dict[int, ItemInfo]:
 	for element in data.stream("item_templates", "item_template"):
 		item_id = java_int(element.get("id"), "item_template id")
 		if item_id in wanted:
-			items[item_id] = ItemInfo(element.get("item_group", "NONE"), java_int(element.get("max_stack_count"), "max_stack_count", 1))
+			weapon = element.find("weapon_stats")
+			modifiers = element.find("modifiers")
+			items[item_id] = ItemInfo(
+				element.get("item_group", "NONE"), java_int(element.get("max_stack_count"), "max_stack_count", 1),
+				attack_type=element.get("attack_type"),
+				min_damage=java_int(weapon.get("min_damage"), f"item {item_id} min_damage", 0) if weapon is not None else 0,
+				max_damage=java_int(weapon.get("max_damage"), f"item {item_id} max_damage", 0) if weapon is not None else 0,
+				has_weapon_stats=weapon is not None,
+				modifier_stats=frozenset(child.get("name", "") for child in modifiers) if modifiers is not None else frozenset(),
+				modifiers=tuple((child.tag, child.get("name", ""), java_int(child.get("value"), f"item {item_id} modifier value", 0),
+				                 java_boolean(child.get("bonus"))) for child in modifiers) if modifiers is not None else ())
 	return items
+
+
+# ---- SM_STATS_INFO's current max HP and MP (m5b2-plan.md §10.3 X1, X10) --------------------------------------------------------------------------
+
+def stats_info_current_max(stat: str, base: int, equipped_items: list[ItemInfo], passives: list[dict]) -> dict:
+	"""
+	What SM_STATS_INFO writes as the CURRENT [max hp] / [max mana] (pgs.getMaxHp().getCurrent(), getMaxMp()) of a fresh character, beside the
+	base baseStats reports: the equipped items' <modifiers><add name="MAXHP|MAXMP" bonus="true"/> are bonus StatAddFunctions
+	(ModifiersTemplate binds <add> to StatAddFunction, StatAddFunction.apply: `stat.addToBonus(value)`), a passive's bonus StatAddFunction on
+	the stat adds the same way, and Stat2.getCurrent() is `(int) (base * 1 + bonus * 1 + base * 0) * 1` in float. `bonus` is reported too:
+	a later bonus function - the soul sickness's MAXHP/MAXMP PERCENT - adds to the same float (m5b2-plan.md X10).
+	Refused: any other modifier on the stat (a <rate>, a <sub>, a non-bonus <add> that would move the base baseStats reports) and any passive
+	on it that is not a bonus StatAddFunction.
+	"""
+	bonus = 0.0
+	for item in equipped_items:
+		for tag, name, value, is_bonus in item.modifiers:
+			if name != stat:
+				continue
+			if tag != "add" or not is_bonus:
+				raise OracleError(f"an equipped {item.item_group} carries <{tag} name={stat} bonus={is_bonus}>, which the max {stat} model does not model")
+			bonus = f32(bonus + value)
+	for function in passives:
+		if not function["applies"] or function["stat"] != stat:
+			continue
+		if function["function"] != "StatAddFunction" or not function["bonus"]:
+			raise OracleError(f"skill {function['skillId']}: a {function['function']} on {stat} is not modelled")
+		bonus = f32(bonus + function["value"])
+	return {"base": base, "bonus": bonus, "current": to_int(f32(f32(base) + f32(bonus)))}
+
+
+# ---- SM_STATS_INFO's main hand physical attack (m5b2-plan.md §10.3 X1) ------------------------------------------------------------------------
+
+# the stats whose functions reach PlayerGameStats.getMainHandPAttack: PHYSICAL_ATTACK (getStat), MAIN_HAND_POWER (applyStatFunctions) and
+# POWER, which PhysicalAttackFunction reads for the base rate
+MAIN_HAND_P_ATTACK_STATS = ("PHYSICAL_ATTACK", "MAIN_HAND_POWER", "POWER")
+
+
+def stats_info_main_hand_p_attack(enums: JavaEnums, power: int, main_hand: ItemInfo | None, equipped_items: list[ItemInfo],
+                                  passives: list[dict]) -> dict:
+	"""
+	What SM_STATS_INFO writes as [base main hand attack] and [current main hand attack] (SM_STATS_INFO.java:79, :157):
+	pgs.getMainHandPAttack(CalculationType.DISPLAY).getBase() and .getCurrent() (PlayerGameStats.java:151-170), for a fresh character with
+	its passive skill effects applied (m5b2-plan.md D2, the X1 assertion of §10.3):
+	- a main hand weapon whose ItemTemplate.getAttackType().isMagical() answers `new AdditionStat(PHYSICAL_ATTACK, 0, owner)`: 0 and 0;
+	- otherwise the DISPLAY base is WeaponStats.getMeanDamage() = (minDamage + maxDamage) / 2f, and getStat(PHYSICAL_ATTACK, base) applies
+	  PhysicalAttackFunction (PlayerStatFunctions.java:51-78: with a main hand weapon `stat.setBaseRate(power * 0.01f)`, power being
+	  getPower().getCurrent(), i.e. PlayerStatsTemplate.getPower() = the PlayerClass power) and the passives' PHYSICAL_ATTACK functions - a
+	  bonus StatAddFunction is `stat.addToBonus(value)` (StatAddFunction.java:22-27);
+	- applyStatFunctions(MAIN_HAND_POWER, stat) applies the weapon mastery: a bonus StatWeaponMasteryFunction whose group is the main hand's
+	  is `stat.setFixedBonusRate(value / 100f)` (StatWeaponMasteryFunction.java:45-53);
+	- Stat2.getBase() is `(int) (base * baseRate)` and getCurrent() `(int) ((base * baseRate + bonus * bonusRate + base * fixedBonusRate) *
+	  finalRate)` in float arithmetic (Stat2.java:30-31, 64-69), bonusRate and finalRate staying 1. StatCapUtil caps PHYSICAL_ATTACK at
+	  [0, unlimited] and POWER at [80, 999], which a starting class does not reach.
+	Refused with OracleError instead of guessed: no main hand weapon (the no-weapon power multiplier arm), an equipped item whose <modifiers>
+	touch PHYSICAL_ATTACK, MAIN_HAND_POWER or POWER, a passive on POWER, a passive on PHYSICAL_ATTACK that is not a bonus StatAddFunction, a
+	passive on MAIN_HAND_POWER that is not a bonus StatWeaponMasteryFunction, more than one applying weapon mastery (their order would decide),
+	and a power outside the cap.
+	"""
+	if main_hand is None or not main_hand.has_weapon_stats:
+		raise OracleError("no main hand weapon: PhysicalAttackFunction's no-weapon arm is not modelled")
+	for item in equipped_items:
+		touched = sorted(item.modifier_stats & set(MAIN_HAND_P_ATTACK_STATS))
+		if touched:
+			raise OracleError(f"an equipped {item.item_group} carries <modifiers> on {touched}, which the main hand attack model does not model")
+	# ItemAttackType.isMagical() (the constructor's first argument, read from ItemAttackType.java); a weapon without the attribute throws
+	if main_hand.attack_type not in enums.attack_type_magical:
+		raise OracleError(f"main hand attack_type {main_hand.attack_type!r}: Java's getAttackType().isMagical() does not answer for it")
+	if enums.attack_type_magical[main_hand.attack_type]:
+		return {"base": 0, "current": 0}
+	if not 80 <= power <= 999:
+		raise OracleError(f"power {power} is outside StatCapUtil's [80, 999]")
+	bonus = 0.0
+	fixed_bonus_rate = 0.0
+	masteries = 0
+	for function in passives:
+		if not function["applies"] or function["stat"] not in MAIN_HAND_P_ATTACK_STATS:
+			continue
+		if function["stat"] == "POWER":
+			raise OracleError(f"skill {function['skillId']}: a passive on POWER is not modelled")
+		if function["stat"] == "PHYSICAL_ATTACK":
+			if function["function"] != "StatAddFunction" or not function["bonus"]:
+				raise OracleError(f"skill {function['skillId']}: a {function['function']} on PHYSICAL_ATTACK is not modelled")
+			bonus = f32(bonus + function["value"])
+		else:
+			if function["function"] != "StatWeaponMasteryFunction" or not function["bonus"]:
+				raise OracleError(f"skill {function['skillId']}: a {function['function']} on MAIN_HAND_POWER is not modelled")
+			masteries += 1
+			fixed_bonus_rate = f32(f32(function["value"]) / f32(100.0))
+	if masteries > 1:
+		raise OracleError("more than one weapon mastery applies to the main hand; their order is not modelled")
+	mean = f32(f32(main_hand.min_damage + main_hand.max_damage) / f32(2.0))
+	base_rate = f32(power * f32(0.01))
+	based = f32(mean * base_rate)
+	current = f32(f32(based + f32(bonus * f32(1.0))) + f32(mean * fixed_bonus_rate))
+	return {"base": to_int(based), "current": to_int(f32(current * f32(1.0)))}
 
 
 def _skill_levels(data: StaticData, wanted: set[int]) -> dict[int, int]:
@@ -470,6 +596,7 @@ def creation_report(data: StaticData, java_src: Path, race: str, player_class: s
 	# items
 	items_out = []
 	equipped: dict[str, str] = {}  # ItemSlot name -> item group of what is equipped there, for the passive model
+	equipped_infos: dict[str, ItemInfo] = {}  # ItemSlot name -> the template of what is equipped there, for the main hand attack model
 	slot_names = {mask: name for name, mask, combo in enums.slots if not combo}
 	if class_items is not None:
 		infos = _item_templates(data, {item_id for item_id, _ in class_items})
@@ -487,9 +614,24 @@ def creation_report(data: StaticData, java_src: Path, race: str, player_class: s
 			items_out.append({"itemId": item_id, "count": count, "kinah": item_id == KINAH, "equipped": is_equipped, "slot": slot})
 			if is_equipped:
 				equipped[slot_names[slot]] = info.item_group
+				equipped_infos[slot_names[slot]] = info
 
 	# the passive skill effects of enter world (PlayerEnterWorldService.activatePassiveSkillEffects)
 	passives = passive_stat_functions(data, enums, PassiveRules(java_src), skills, equipped)
+
+	# SM_STATS_INFO's main hand physical attack with those passives applied (m5b2-plan.md X1); null with the reason where the model refuses
+	stats_info: dict = {"mainHandPAttack": None, "maxHp": None, "maxMp": None, "notModelled": []}
+	try:
+		stats_info["mainHandPAttack"] = stats_info_main_hand_p_attack(enums, enums.powers[player_class], equipped_infos.get("MAIN_HAND"),
+		                                                              list(equipped_infos.values()), passives)
+	except OracleError as e:
+		stats_info["notModelled"].append(f"mainHandPAttack: {e}")
+	for key, stat, base in (("maxHp", "MAXHP", stats_info_base_max_hp(health, health_multiplier, 1)),
+	                        ("maxMp", "MAXMP", stats_info_base_max_mp(will, will_multiplier, 1))):
+		try:
+			stats_info[key] = stats_info_current_max(stat, base, list(equipped_infos.values()), passives)
+		except OracleError as e:
+			stats_info["notModelled"].append(f"{key}: {e}")
 
 	return {
 		"format": "aion-m5a-creation",
@@ -505,4 +647,6 @@ def creation_report(data: StaticData, java_src: Path, race: str, player_class: s
 		"statsTemplate": {"maxHp": max_hp(health_multiplier, 1), "maxMp": max_mp(will_multiplier, 1)},
 		# the stat functions the passive skills register at enter world, and whether each changes a stat for the starting equipment
 		"passiveStatFunctions": passives,
+		# what SM_STATS_INFO writes as [base main hand attack] / [current main hand attack] with those functions applied (m5b2-plan.md X1)
+		"statsInfo": stats_info,
 	}

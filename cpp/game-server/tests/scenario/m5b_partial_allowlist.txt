@@ -1,6 +1,6 @@
 # The AION_PARTIAL sites the M5b-1 gate accepts (m5b-plan.md D9 and §6.1). One site per line, whose file paths are relative to the compiling
 # target's source root - game-server/src for the server itself (e.g. "aion/gameserver/GameServer.cpp:129") and game-server/handlers for a
-# registered handler (e.g. "aion/gameserver/handlers/ai/GeneralNpcAI.cpp:122"). An entry WITH a line number must match the whole site: a prefix
+# registered handler (e.g. "aion/gameserver/handlers/ai/<Handler>.cpp:<line>"). An entry WITH a line number must match the whole site: a prefix
 # match would let ":133" also cover ":1330" to ":1339". An entry without one is an explicit whole-file wildcard. Lines starting with '#' and
 # empty lines are ignored.
 #
@@ -12,11 +12,14 @@
 # M5bScenarioTest.cpp matches those markers literally, so a row that moves between sections changes what the gate asserts about it. Every site
 # of partial_trace.txt must be in one of the three, and in addition:
 #   SECTION A  the gate asserts the row was hit at least once, and for DropRegistrationService exactly once per kill (R3)
-#   SECTION B  the gate asserts the row was hit EXACTLY ZERO times - the stronger half, and the one that catches a monster that unexpectedly
-#              has a post-spawn skill, an AttackIntention that reaches SkillAttackManager, or a Warrior whose starter weapon changed under D14
+#   SECTION B  the gate asserts the row was hit EXACTLY ZERO times - the stronger half. It was written for a monster that unexpectedly
+#              had a post-spawn skill, an AttackIntention that reached SkillAttackManager, or a Warrior whose starter weapon changed under
+#              D14; M5b-2 closed all of those partials, so the section is empty today (see its HISTORY lines)
 #   SECTION C  the row is allowed and its hit count is printed but not pinned, because whether the scripted path reaches it depends on timing
 #              (an npc that happens to walk home inside the run) or on a configuration the gate does not set
 #
+# HISTORY (every partial this paragraph names is closed since M5b-2 and its row is gone; it stays because it is why section A is built from
+# measured runs):
 # **Rev 2 of the plan put three rows in section B that a run of this gate proves belong in section A**, and §6.1 is corrected with this file:
 # NpcSkillList::getPostSpawnSkills and GeneralNpcAI::chooseSkillAttack are entered on every spawn and on every npc attack decision
 # respectively, whatever the npc's skill list holds - the partial is the whole body, not an arm behind a data check - so "no Poeta npc has a
@@ -34,9 +37,9 @@ aion/gameserver/questEngine/QuestEngine.cpp:111
 aion/gameserver/services/BaseService.cpp:18
 # HISTORY: two rows of this section are gone since M5b-2 part 3 closed their partials (m5b2-plan.md D11, G-05): O-09 in SkillEngine.cpp
 # (the enter-world passives apply, D2) and D3 in NpcSkillList.cpp (every spawn casts its post-spawn skills, D7).
-# D4 "npc skill attacks are not chosen yet (M5b-2): every attack stays a simple melee attack". Reached whenever a registered AI picks its next
-# attack - the gate's own monster on every swing, plus the npcs that fight each other in the character's map region. Same correction as above.
-aion/gameserver/handlers/ai/GeneralNpcAI.cpp:122
+# HISTORY: D4's row, GeneralNpcAI.cpp:122 ("npc skill attacks are not chosen yet (M5b-2): every attack stays a simple melee attack"), was here
+# until M5b-2 stage 2 closed it (m5b2-plan.md N-02, GeneralNpcAI.java:130-138); the site no longer exists. Every attack decision of a
+# registered AI now asks the npc's skill list first: the gate's own monsters (210663, 210673) own none, so their fights are unchanged.
 # D5 "npc drops are not registered yet (M5b-3)". EXACTLY ONCE PER KILL, and the gate asserts the count, not just the membership (R3):
 # NpcController::doReward reaches it only inside `if (attacker.equals(winner) && ask(REWARD_LOOT))` and only for an `attacker instanceof
 # Player` (NpcController.java:225-245), so npcs killing each other in the neighbourhood cannot add to this count. This is also the fix for
@@ -47,15 +50,11 @@ aion/gameserver/services/drop/DropRegistrationService.cpp:43
 # --- SECTION B - hit exactly zero times, asserted ---
 # =========================================================================================================================================
 
-# D4's other half: GeneralNpcAI::chooseSkillAttack above answers false, so SkillAttackManager is unreachable. A hit here means an
-# AttackIntention reached the skill path.
-aion/gameserver/ai/manager/SkillAttackManager.cpp:19
-aion/gameserver/ai/manager/SkillAttackManager.cpp:23
-aion/gameserver/ai/manager/SkillAttackManager.cpp:28
-aion/gameserver/ai/manager/SkillAttackManager.cpp:40
-# C-01: PlayerRestrictions::canUseSkill refuses every skill until M5b-2. The scripted path sends no CM_CASTSPELL, and a level 1 Warrior casts
-# nothing by itself, so a hit here means something on the fight path tried to use a skill.
-aion/gameserver/restrictions/PlayerRestrictions.cpp:60
+# HISTORY: D4's other half, the four SkillAttackManager.cpp rows (:19, :23, :28, :40), was here while GeneralNpcAI::chooseSkillAttack
+# answered false and SkillAttackManager was unreachable. M5b-2 stage 2 ported both (m5b2-plan.md N-01, SkillAttackManager.java:35-213, and
+# N-02), so the attack intention reaches the skill path as a normal path and the sites no longer exist.
+# HISTORY: C-01's row, PlayerRestrictions.cpp:60 ("canUseSkill refuses every skill until M5b-2"), was here until M5b-2 part 1 (P-01) ported
+# PlayerRestrictions::canUseSkill; the site no longer exists.
 
 # =========================================================================================================================================
 # --- SECTION C - allowed, counted and printed, not pinned ---

@@ -4,6 +4,7 @@
 
 #include "aion/gameserver/controllers/PlayerController.h"
 #include "aion/gameserver/controllers/attack/AggroList.h"
+#include "aion/gameserver/controllers/effect/PlayerEffectController.h"
 #include "aion/gameserver/model/EmotionType.h"
 #include "aion/gameserver/model/gameobjects/VisibleObject.h"
 #include "aion/gameserver/model/gameobjects/player/CustomPlayerState.h"
@@ -24,6 +25,7 @@
 #include "aion/gameserver/services/panesterra/PanesterraService.h"
 #include "aion/gameserver/services/teleport/TeleportService.h"
 #include "aion/gameserver/services/vortex/DimensionalVortex.h"
+#include "aion/gameserver/skillengine/model/Effect.h"
 #include "aion/gameserver/utils/PacketSendUtility.h"
 #include "aion/gameserver/world/WorldMapTypeInfo.h"
 #include "aion/gameserver/world/WorldPosition.h"
@@ -117,10 +119,10 @@ void PlayerReviveService::revive(model::gameobjects::player::Player& player, int
 		if (target && player.equals(*target))
 			p.setTarget(nullptr);
 	});
-	// m5b-plan.md C-01/D14 precedent: EffectController::hasAbnormalEffect(predicate) is P5-02 and AION_UNPORTED (EffectController.cpp:115-117),
-	// and Effect::isNoResurrectPenalty needs the effect engine. No effect exists at M5b-1, so Java's answer is false here for every character;
-	// the guard is skipped exactly as D14 skips isUnderNormalShield, with a docs/deviations/P5-08.md row that M5b-2 closes.
-	const bool isNoResurrectPenalty = false;
+	// M5b-1 skipped this guard with a constant false (docs/deviations/P5-08.md) until EffectController::hasAbnormalEffect(predicate) and
+	// Effect::isNoResurrectPenalty were ported; M5b-2 closed it, as D14's isUnderNormalShield (SkillEngine::createCriticalProcEffect)
+	const bool isNoResurrectPenalty =
+		player.getEffectController()->hasAbnormalEffect([](skillengine::model::Effect& effect) { return effect.isNoResurrectPenalty(); });
 	player.setPlayerResActivate(false);
 	player.getLifeStats()->setCurrentHpPercent(isNoResurrectPenalty ? 100 : hpPercent);
 	player.getLifeStats()->setCurrentMpPercent(isNoResurrectPenalty ? 100 : mpPercent);

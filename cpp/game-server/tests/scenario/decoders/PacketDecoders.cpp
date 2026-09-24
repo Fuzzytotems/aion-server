@@ -921,6 +921,25 @@ int32_t decodeMoveObjectId(std::span<const uint8_t> body) {
 	return reader.D(); // creature.getObjectId(), SM_MOVE.java:37
 }
 
+NpcMove decodeNpcMove(std::span<const uint8_t> body) {
+	BodyReader reader(body, "SM_MOVE");
+	NpcMove move;
+	move.objectId = reader.D(); // SM_MOVE.java:37-41
+	move.x = reader.F();
+	move.y = reader.F();
+	move.z = reader.F();
+	move.heading = reader.C();
+	move.movementMask = reader.C(); // :43
+	// :45-55: POSITION and MANUAL write the target; for an npc (pmc == null) always the move controller's getTargetX2/Y2/Z2
+	if ((move.movementMask & MOVEMENT_MASK_POSITION) != 0 && (move.movementMask & MOVEMENT_MASK_MANUAL) != 0)
+		move.target = std::array<float, 3>{reader.F(), reader.F(), reader.F()};
+	// :56-61: GLIDE writes the glide flag, 0 without a PlayableMoveController, and no geyser id then; :62-68 the vehicle arm needs a pmc
+	if ((move.movementMask & MOVEMENT_MASK_GLIDE) != 0)
+		reader.expectC(0, "SM_MOVE glide flag of an npc (pmc == null writes 0)");
+	reader.expectFullyConsumed();
+	return move;
+}
+
 bool isNpcEmote(uint8_t emotionType) {
 	return emotionType == EMOTION_ATTACKMODE_IN_MOVE || emotionType == EMOTION_NEUTRALMODE_IN_MOVE || emotionType == EMOTION_WALK ||
 		emotionType == EMOTION_CHANGE_SPEED;

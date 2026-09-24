@@ -7,6 +7,7 @@
 #include "aion/gameserver/model/skill/NpcSkillEntry.h"
 #include "aion/gameserver/model/skill/fwd.h"
 #include "aion/gameserver/model/templates/npcskill/fwd.h"
+#include "aion/gameserver/skillengine/model/fwd.h"
 
 namespace aion::gameserver::model::skill {
 
@@ -16,9 +17,7 @@ namespace aion::gameserver::model::skill {
  * The element type NpcSkillList builds from the npc skill templates. RefCounted (fieldmap K4), created with create; the template is static
  * data and outlives every entry, so the member is a raw pointer (Java holds the shared NpcSkillTemplate object).
  * <p>
- * M5a subset (plan D2: every npc runs DummyAI and never casts): the constructor and the template getters are ported, so NpcSkillList can be
- * built for the npcs of npc_skills.xml. conditionReady and fireOnEndCastEvents (and their private Java helpers hasCarvedSignet/spawnNpc, which
- * this header does not declare yet) wait for the skill engine, the effect controller and SpawnEngine.
+ * Every body is ported (M5b-2); Java's private helpers hasCarvedSignet and spawnNpc are declared since header request m5b2-p2-7.
  *
  * @author ATracer, nrg, Yeats
  */
@@ -51,6 +50,12 @@ public:
 
 	bool conditionReady(gameobjects::Creature& creature) override;
 
+private:
+	/** @param curTarget nullable; @param skillTemp nullable (Java: private, header request m5b2-p2-7) */
+	bool hasCarvedSignet(runtime::Ptr<gameobjects::VisibleObject> curTarget, const skillengine::model::SkillTemplate* skillTemp,
+		int32_t signetLvl) const;
+
+public:
 	const templates::npcskill::NpcSkillConditionTemplate* getConditionTemplate() override;
 
 	bool hasCondition() override;
@@ -68,6 +73,10 @@ public:
 	bool canUseNextChain(gameobjects::Npc& owner) override;
 
 	void fireOnEndCastEvents(gameobjects::Npc& npc) override;
+
+private:
+	/** Java: private (header request m5b2-p2-7) */
+	void spawnNpc(gameobjects::Npc& npc, const templates::npcskill::NpcSkillSpawn& spawn) const;
 };
 
 } // namespace aion::gameserver::model::skill

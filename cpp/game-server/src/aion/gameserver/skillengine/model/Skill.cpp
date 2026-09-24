@@ -604,12 +604,10 @@ void Skill::startCast() {
 				PacketSendUtility::broadcastPacketAndReceive(*effector,
 					SM_CASTSPELL(*effector, skillTemplate->getSkillId(), skillLevel, targetType.get(), targetObjId, castDuration.get(),
 						castSpeedForAnimationBoostAndChargeSkills.get(), allowAnimationBoostByCastSpeed()));
-				if (runtime::as<Npc>(effector)) {
-					// Java: ShoutEventHandler.onCast((NpcAI) effector.getAi(), firstTarget), whose body is `if (firstTarget instanceof Player && ...)`:
-					// a null first target does nothing there, and the C++ signature takes a reference, so the call is skipped for null
-					if (target)
-						ai::handler::ShoutEventHandler::onCast(*runtime::cast<ai::NpcAI>(effector->getAi()), *target);
-				}
+				// Java: ShoutEventHandler.onCast((NpcAI) effector.getAi(), firstTarget) with the nullable first target, which onCast ignores unless it
+				// is a Player (m5b2-p2-8 made the C++ parameter a Ptr for exactly this call)
+				if (runtime::as<Npc>(effector))
+					ai::handler::ShoutEventHandler::onCast(*runtime::cast<ai::NpcAI>(effector->getAi()), target);
 				break;
 
 			case 3: // Target not in sight?

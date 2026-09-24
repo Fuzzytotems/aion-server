@@ -7,9 +7,13 @@
 #include "aion/gameserver/ai/handler/TalkEventHandler.h"
 #include "aion/gameserver/ai/handler/TargetEventHandler.h"
 #include "aion/gameserver/ai/handler/ThinkEventHandler.h"
+#include "aion/gameserver/ai/manager/SkillAttackManager.h"
 #include "aion/gameserver/controllers/NpcController.h"
 #include "aion/gameserver/controllers/attack/AggroList.h"
 #include "aion/gameserver/instance/handlers/InstanceHandler.h"
+#include "aion/gameserver/model/skill/NpcSkillEntry.h"
+#include "aion/gameserver/model/skill/NpcSkillList.h"
+#include "aion/gameserver/model/stats/container/NpcGameStats.h"
 #include "aion/gameserver/model/templates/npc/NpcTemplate.h"
 #include "aion/gameserver/world/WorldMapInstance.h"
 #include "aion/gameserver/world/WorldPosition.h"
@@ -111,15 +115,14 @@ AttackIntention GeneralNpcAI::chooseAttackIntention() {
 }
 
 bool GeneralNpcAI::chooseSkillAttack(bool alwaysRandomSkill) {
-	// Java (GeneralNpcAI.java:130-138):
-	//   NpcSkillEntry skill = alwaysRandomSkill ? getOwner().getSkillList().getRandomSkill() : SkillAttackManager.chooseNextSkill(this);
-	//   if (skill != null) { getOwner().getGameStats().setLastSkill(skill); getOwner().removeNextQueuedSkill(skill); return true; }
-	//   return false;
-	// Both arms reach the skill engine of M5b-2 (NpcSkillTemplateEntry.conditionReady, SkillEngine), so M5b-1 answers "no skill" (m5b-plan.md
-	// D4). AttackManager::chooseAttack then takes the SIMPLE_ATTACK arm, and SkillAttackManager - itself a shell of partials - is never asked.
-	// The gate asserts this site is hit 0 times on the scripted path (m5b-plan.md §6.1 §B): neither gate monster has an npc_skills.xml entry,
-	// and both have attack_range != 0, so `alwaysRandomSkill` is false there.
-	AION_PARTIAL("npc skill attacks are not chosen yet (M5b-2): every attack stays a simple melee attack");
+	// m5b2-plan.md N-02: the M5b-1 partial (m5b-plan.md D4) is closed now that SkillAttackManager (N-01) and the skill engine are ported.
+	runtime::Ptr<NpcSkillEntry> skill =
+		alwaysRandomSkill ? getOwner().getSkillList()->getRandomSkill() : SkillAttackManager::chooseNextSkill(*this);
+	if (skill) {
+		getOwner().getGameStats()->setLastSkill(skill);
+		getOwner().removeNextQueuedSkill(*skill);
+		return true;
+	}
 	return false;
 }
 

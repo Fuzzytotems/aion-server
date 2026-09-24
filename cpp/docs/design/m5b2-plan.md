@@ -511,7 +511,8 @@ M5b-1's**, and I-02 should put it in front of the reviewer before stage 1 opens.
 | `skillengine/model/{Skill,Effect}.h`, `controllers/effect/EffectController.h` — none expected; they are hub headers written at the freeze and `Effect.h:44-47` already names the callback structs the bodies will add **inside the `.cpp`** | – | S-02, K-01, K-02 |
 | P5-14 `CheckOutput`: `zeroLiveClasses()` gains `Effect`, `EffectReserved`, `Skill`; the summary gains the effect rows | additive | **G-07** |
 | **Manifest (D1)**: split P5-02 into P5-02a/P5-02b sharing `aion_gs_skills`; test directories `tests/effects_al`, `tests/effects_mz`, and a `TESTS` keyword for whichever of P5-02a/b does not inherit `tests/skills` | **build** | **I-01** |
-| `game-server/config/m5b2.properties.example` in the **Java** tree beside `m5a.properties.example` and `m5b.properties.example` (m5b-plan.md I-01 decided this location) | none | gate profile |
+| `game-server/config/m5b2.properties.example` in the **Java** tree beside `m5a.properties.example` and `m5b.properties.example` (m5b-plan.md I-01 decided this location) | none | gate profile (written by the gate lane's fix pass) |
+| `skillengine/model/Effect.h`: a const accessor for the private `reservedEffects` (a count, or a `forEach` over the stored EffectReserveds), so `CheckOutput` heldEffects can write the exact `live EffectReserved == stored` relation instead of §10.7's `storesReserved` bound. **Requested by the gate lane's fix pass (2026-09-24), not applied** | additive | **G-07** |
 
 ---
 
@@ -703,6 +704,278 @@ what the gate deliberately cannot catch**:
 `gs.scenario.m5b2_geo` runs the same script with `gameserver.geodata.enable=true`, `LABELS "scenario;realdata;geo"`, `TIMEOUT 2700`, the same
 `RESOURCE_LOCK`. **G-04 must first establish whether geo changes anything on the cast path at all**; m5b-plan.md §6.4 is the precedent for saying
 "it does not, and here is what the geo run does assert instead" rather than inventing a row that cannot fail.
+
+### 10.6 Corrections from the gate lane (2026-09-24)
+
+The gate (`tests/scenario/M5b2ScenarioTest.cpp`, cases S0-S17) was written against the Java and the oracle, and §10.2-§10.5 were wrong in
+the places below. The code follows the Java; this note records where and why, so the next reader does not "fix" the gate back.
+
+- **§10.1 profile, D5.** Dropping `gameserver.soulsickness.disable` is not enough: the game server also reads the Java tree's untracked
+  `config/mygs.properties` (the user's play profile), and the M5b-1 one sets it to 0. The first gate run measured exactly that - no soul
+  sickness after the revive. Both gates now state MembershipConfig's own default, `10`. **The M5b gate's K8 had passed P2 only because of
+  that file**; with the soul sickness really on, P2 is rewritten from Java (below, X10) and the Warrior's revive reads 50/198 HP, 29/119 MP.
+- **§10.1 allow-list.** No skill-engine row exists at all: CumulativeResist and the modifiers were ported without partials (part 2), and O-09,
+  D3, D14 and C-01 are closed. §A holds the startup rows and `DropRegistrationService.cpp:43`; §B the four SkillAttackManager rows (a site of
+  them is unreachable while `chooseSkillAttack` is a partial and gone once N-01 lands); §C holds `GeneralNpcAI.cpp:122`, so the gate holds on
+  both sides of the npc-abilities join.
+- **§10.1 target.** The npc-skill case (C11/X9) is the join's (N-01/N-02). The gate's two monsters are 210663 spots chosen by the oracle as
+  the nearest plain spots at least 30 m from every spot of 210133 and 210134, and S0 asserts that 210663 owns no npc_skills list.
+- **C9/C10.** The seeded skills (D3) are written between character creation and the first enter world, so no relog is needed.
+- **X1.** The oracle now models the value exactly (`m5a-creation` `statsInfo`): the Training Sword's mean 18.0 at power 110 is the base 19,
+  37's 16 % fixed bonus rate and 140's +7 bonus make the current 29. It also models the current max HP/MP: the Mage's robe carries 47 bonus MP,
+  so its current max MP is 452, not the base 405.
+- **X2.** The damage status does not precede the result. `Skill.endCast` applies the effects at once only for `isInstantSkill()` - hit time 0
+  or an instant motion (Skill.java:660-663, 1084-1086) - and 2864 has no cast bar but its animation's hit time, so its SM_ATTACK_STATUS
+  follows SM_CASTSPELL_RESULT. The damage half is conditional on the effect result: a physical skill without an element can be dodged
+  (EffectTemplate.checkDodgeOrResistRate); the gate re-casts after the cooldown until one lands, and asserts the applied damage equals the
+  announced reserved value.
+- **X3.** 32 is written whenever the effect list is non-empty and the chain was not blocked: a target that dodged or resisted blocks it
+  (Skill.java:597-607, 626-637) and a skill with no chain category keeps `chainSuccess`'s initial true (Skill.java:73). The "chain window in a
+  second cast" half is not observable with 2864: its chain has selfcount 1, so a second 2864 resets the chain and is 32 again.
+- **Cooldowns.** A cast's cooldown travels in SM_CASTSPELL_RESULT; SM_SKILL_COOLDOWN is only sent at enter world (PlayerEnterWorldService
+  .java:232) and on resets. A cast inside the cooldown is refused by `Player.isSkillDisabled` WITH `STR_SKILL_NOT_READY` (Player.java:1524-1536).
+  The gate asserts the result's cooldown, the refusal one second before the end, the acceptance one second after, and Root's cooldown across a
+  quit (`player_cooldowns`, SM_SKILL_COOLDOWN at re-entry).
+- **X4.** The MP cost is on the wire NEGATED (`value == -19`, SM_ATTACK_STATUS.java:137-140).
+- **X5** also asserts `STR_SKILL_CANCELED` (cancelCurrentSkill(null)).
+- **X6.** A monster's effects reach the client as **SM_ABNORMAL_EFFECT**, not SM_ABNORMAL_STATE (EffectController.broadCastEffects). And "no
+  SM_MOVE while rooted" is not Java: `NpcMoveController.moveToTargetObject` marks the move started and `moveToDestination` then answers the
+  refused `canPerformMove` with a STOP move (NpcMoveController.java:71-80, 134-141). The gate asserts that every SM_MOVE of the rooted
+  monster is such a stop at its spot, and that its first move after the root is a start.
+- **X7.** SM_ABNORMAL_STATE writes ONE entry per Effect (SM_ABNORMAL_STATE.java:32-38), and the two templates of 3195 are one Effect. What
+  shows both templates is SM_CASTSPELL_RESULT's success byte (`Effect.getSuccessfulEffectsAsByte`, 1 << (position + 3) each: 48).
+- **X10.** Exact, not "70 % ± 1": the revive sets 25 % of the current maxima BEFORE the soul sickness (PlayerReviveService.java:196-202),
+  the PERCENT change is a bonus StatRateFunction, a player's MAXHP is capped below at 100 (StatCapUtil), and checkMaxHPChanged /
+  checkMaxMPChanged rescale the current values with Math.round of the float product. For the Mage: 25/100 HP (92.4 capped to 100) and 83/330
+  MP (82.5 rounds up); for the M5b Warrior 50/198 HP (49.5 rounds up) and 29/119 MP. A PROVOKED skill sends no SM_CASTSPELL and no result.
+- **X11.** The "> 28 s effect" is the soul sickness itself (60 s at the first death). addSavedEffect's own SM_ABNORMAL_STATE is dropped
+  because it runs in PlayerService.getPlayer before the connection is set; the restored icon is the level-ready one.
+- **X13.** Not zeros: the post-spawn statup buffs keep 309 Effects and their 309 Skills alive at every shutdown. G-07 made them summary rows
+  compared against relations m5a_summary.txt writes beside them (`effectsHeld`, `skillsHeld`, `effectReservedCapacity`, CheckOutput.cpp
+  heldEffects): live Effect == effects the world's creatures hold, live Skill == skills those effects and the casting creatures reference,
+  live StartMovingListener == live Skill, live EffectReserved <= the held effects' templates whose class stores an EffectReserved (CheckOutput
+  `storesReserved`; the first version counted every template, 530, and could not fail - §10.7 fix pass). The M5b gate asserts them too (Q2b).
+  The listener row is not a check of `Skill.removeObservers` (the listener is a one-time observer, §10.7); `SkillCastPhasesTest` is.
+- **§10.5 geo.** FirstTargetRangeProperty.set calls `GeoService.canSee(effector, firstTarget)` at the cast start and end
+  (FirstTargetRangeProperty.java:67-72); TargetRangeProperty only for AREA skills. The geo run asserts the positive half for targets in the
+  open (no STR_SKILL_OBSTACLE); the obstacle half needs a line-of-sight probe the oracle does not have (the GEO-A1 gap of m5b-plan.md §6.4).
+
+### 10.7 Mutation evidence and the §10.4 rows that were wrong (gate lane, 2026-09-24, second run)
+
+Every row below was measured with a real gate run: the production file saved and restored byte for byte (sha256 compared, `git diff` of the
+file empty afterwards), the mutant built into the shared `build/msvc` game server and the gate run against it. The "must stay green" rows are
+the cases that passed in the same run. The evidence logs are the gate lane's report.
+
+| Row | Mutant actually run | Failed | Stayed green |
+|---|---|---|---|
+| X4 (MP) | `MpCondition::validate` only checks the MP (the `reduceMp` line removed) | S9 "charged its MP 0 times" | S8/X5 |
+| X4 (cast bar) | `Skill::useSkill` schedules `endCast` at `castDuration / 4` | S9 `castTook` 502 vs >= 1800, MP 501 ms in | S8/X5 |
+| X5 | `payCastCosts()` moved from `endCast` to `useSkill` | S8: USED_MP 19 on the cancelled cast, MP 433 != 452 | S1-S7 |
+| X6 | `RootEffect::startEffect` without the controller's `setAbnormal(ROOT)` | S12: the rooted monster moved (start moves 106 ms into the root) | X7's success byte |
+| X7 | `EffectTemplate::validatePreEffects` fails every preeffect | S12: success byte 16 vs 48 | X6 |
+| X8 | `AbstractHealEffect::applyEffect` heals `-healValue` | S11: SM_STATUPDATE_HP 122 vs 132 | S1-S10 |
+| cooldown across a quit | `PlayerCooldownsDAO` threshold 280000 instead of 28000 | S13: no player_cooldowns row, no SM_SKILL_COOLDOWN | S1-S12 |
+| X10 | `PlayerController::updateSoulSickness` guard inverted | S15: no 8291; and the M5b gate's P2 (71/284 HP, no penalty) | S1-S14 |
+| X11 | `addSavedEffect` restores `remainingTime + 10000` | S16: 67466 > 58486 stored | S1-S15, S17 |
+| X12 | an `AION_PARTIAL` in `AbstractHealEffect::applyEffect` | S17: the site is on no allow-list | S1-S16 |
+| X13 | every ended Effect retained (`new Ref<Effect>` at the end of `endEffect`) | S17: Effect 320 live vs 309 held; M5b Q2b 326 vs 309. **Correction (review):** the m5b2 run failed first at S10 ("monster A never damaged the Mage"), so S11-S16 never ran and its X12 rows are mixed with the mid-fight stop described below; the clean "X12 fails beside X13" evidence is the review's R6 (fix-pass table) | - (see below) |
+| X13 (skills) | `CheckOutput.cpp heldEffects` does not count the held Effects' Skills | S17: Skill 309 live vs skillsHeld 0 | S1-S16, X13's Effect row |
+| G-04 (geo run) | `GeoService::canSee` ends the ray 20 m under the target | S4 (0 SM_CASTSPELL, STR_SKILL_OBSTACLE) and S17's G-04 row | S0-S3 |
+
+X1, X2, X3 and the S4 cooldown row were killed in the first run of the lane (WeaponMasteryEffect.cpp, DamageEffect.cpp, Skill.cpp).
+
+What §10.4 got wrong, from the Java:
+
+- **"`Skill::cancelCast`: do not set `isCancelled` -> X5" is an equivalent mutant.** `CreatureController.abortCast` calls `cancelCast()` AND
+  `setCasting(null)` (CreatureController.java:495-501), and `Skill.endCast` returns on `!effector.isCasting() || isCancelled`
+  (Skill.java:556-559), so the scheduled endCast returns either way. The first X5 mutant run of the lane was exactly that and S8 passed. X5's
+  measured mutant is the `payCastCosts` one.
+- **"`Skill::useSkill`: call `endCast()` directly -> X4" fails X5 first**: S8 runs before S9, and a result sent at the start leaves nothing
+  for the CM_MOVE to cancel. The cast-bar half of X4 was measured with the endCast scheduled at a quarter of the bar, which X5 does not see.
+- **"`SkillEngine::getSkillFor`: check `isSkillPresent` before the PROVOKED bypass -> X10" cannot reach X10**: updateSoulSickness calls
+  `SkillEngine.getSkill` (PlayerController.java:732), which has no isSkillPresent gate at all (SkillEngine.java:86-100); only `getSkillFor`
+  does. What PROVOKED changes is the skill method (Skill.java:127-135: no SM_CASTSPELL, no SM_CASTSPELL_RESULT). X10's mutant is the
+  updateSoulSickness guard.
+- **"An Effect leaked deliberately -> X13, X12 stays green" is not achievable.** A retained Effect keeps its effector and effected, and the
+  Players among them are exactly what X12's census, its live-instance ERROR lines ("AbyssRank/BlockList/Cooldowns still alive") and its
+  `Player` live row are for. X13 names the class; X12 fails beside it. X13 alone would fail only for an Effect between two creatures that are
+  still in the world at the stop (npc on npc).
+- **X7's lifetime row depends on X6**: with the root broken the monster reaches the Mage and consumes Focused Evasion's single dodge, so the
+  buff ended after 754 ms. The success byte is X7's own row.
+- **X8's `value > 0` row cannot see a sign error**: a REGULAR SM_ATTACK_STATUS carries `newHp - previousHp` for a heal and `previousHp - newHp`
+  for damage, both written as they are (CreatureLifeStats.java:110/191, SM_ATTACK_STATUS.java's default arm). The SM_STATUPDATE_HP relation
+  is what caught the negated heal. And that relation must read the whole recording: the first clean run of this pass failed X8 with "123
+  found, 6 healed, 132 after" - a regeneration tick in the 500 ms between the gate's HP snapshot and the cast's first packet, in neither
+  window (the 6 was already Java's cap `maxHp - currentHp` of a Mage at 126). Fixed in the gate, not retried.
+- **G-04 is observable only in the geo run**: with geo off the GeoMaps carry no geometry and canSee answers true (inferred, not run).
+- **§10.1 npc casting**: the gates ran with the npc-abilities lane's N-01/N-02 in the working tree. gs.scenario.m5b2 and m5b2_geo are
+  unaffected (their monsters own no npc_skills list, S0; the five npc partial rows read 0 because the sites are gone). **gs.scenario.m5b is
+  not**: its §A row `GeneralNpcAI.cpp:122` must be hit at least once and N-02 deleted the site, so K9 fails at Q1 and nowhere else. That is
+  the "soul-sickness failure" of the first pass: P2 passes with the soul sickness on (50/198 HP, 29/119 MP) and Q2b passes. The join deletes
+  that row and the four SkillAttackManager rows of `m5b_partial_allowlist.txt` (and the five of `m5b2_partial_allowlist.txt`) in the commit
+  that lands N-01/N-02.
+- **An observation, not a gate row**: one mutant run stopped the server while monster A still hated the online Mage (the cascade after a failed
+  S9) and census.txt reported a Player (object 103897). The likely holder is the npc's AggroList, which keeps the attacker past the logout in
+  Java too (the M5b gate's K7b relies on it) - inferred, not traced. The clean runs never stop mid-fight, so no clean run has shown it; a
+  gate that stops a fight in progress would.
+
+**Fix pass after the gate review (2026-09-24).** The review ran six mutants (R1-R6) and found two X13 rows that could not fail and exact rows
+of X10, X11, S13 and P2 that no mutant had reached (the lane's mutants stopped at an earlier ASSERT). Everything below was measured the same
+way: production file saved, mutated, built into `build/msvc`, restored byte for byte (sha256 equal, `git diff` of the file empty or equal to
+this pass's own change) before the mutant's gate or unit run, and one gate at a time. A failed case skips every later case ("NOT RUN"), so a
+row is only evidenced by a mutant whose earlier cases all passed.
+
+| Row | Mutant | Failed | Stayed green |
+|---|---|---|---|
+| X10 currentMp (review R1) | `setCurrentMpPercent` takes 25 % of the BASE max MP | S15: currentMp 74 vs 83 | everything else |
+| X11 maxHp and remaining time (review R4) | `addSavedEffect` without `addAllEffectToSucess` | S16: maxHp 132 vs 100, remaining-time row | S1-S15 |
+| S13 cooldown expiry (review R5) | the loaded cooldown expiry moved 30 s later | S13: the NEAR row, 61 vs 30 s | S1-S12 |
+| X12 beside X13 (review R6) | `Effect::removeObservers` runs no removal task | S17: X13 Effect and Skill 310 vs 309, and X12's census, live-instance ERROR lines and Player live 1; S1-S16 all ran | S1-S16 |
+| X13 EffectReserved (new capacity) | `Effect::setReserveds` leaks every stored EffectReserved (review R2) | S17: EffectReserved 6 live vs capacity 0 - nothing else | S1-S16 and every other S17 row |
+| M5b Q2b EffectReserved | the same R2 binary | **nothing**: the M5b script stores no EffectReserved (6 of 6 leaked in m5b2, 0 in M5b; the Warrior only auto-attacks), so the row is vacuous there; M5b failed only at the join's K9/Q1 row | all of M5b but K9/Q1 |
+| X10 maxHp at the floor | `StatCapUtil`: a player's MAXHP lower cap 1 instead of 100 | S15: maxHp 92 vs 100 (then the `both` ASSERT) | S1-S14 |
+| X10 and P2 current HP/MP | `revive` sets `hpPercent + 1` / `mpPercent + 1` | S15: 26 vs 25 HP, 85 vs 83 MP; M5b P2: 51 vs 50 HP, 31 vs 29 MP (plus the join's K9/Q1) | the maxima and base rows; S1-S14; M5b K0-K7b |
+| X10 and P2 base rows | `StatRateFunction`: the MAXHP/MAXMP bonus rates write the base | S15: baseMaxHp 92 vs 132, baseMaxMp 283 vs 405; M5b P2: baseMaxHp 198 vs 284 | the maxima and current rows (25/100, 83/330; 50/198, 29/119) |
+| X10 maxMp | `StatRateFunction`: the MAXMP rate one point lower | S15: maxMp 326 vs 330 (then the `both` ASSERT) | X10's HP and base rows; S1-S14 |
+| S16 row count | `PlayerEffectsDAO` predicate `> 280000` | S16: 0 rows vs 1 (ASSERT) | S1-S15, S17 |
+| S16 skill_id and skill_lvl | the DAO stores `skillId + 1` and `skillLevel + 1` | S16: "8292" vs "8291", "2" vs "1" (and, downstream, the restore rows, since 8292 is another skill) | the two stored-time rows |
+| S16 stored > 28000 | the DAO stores `remaining - 40000` | S16: 18487 vs > 28000 - nothing else | the rest of S16 |
+| S16 stored < time left at the revive | the DAO stores `remaining + 5000` | S16: 63485 vs < 60000 - nothing else | the rest of S16, including the restore's `<= stored` |
+| `Skill.removeObservers` (unit) | the `removeObserver(*moveListener)` line removed (review R3) | `SkillCastPhasesTest`: the end-task path, the cancel path and the new `ACompletedCastDetachesItsMoveListener` | the other 13 cases |
+| revive's isNoResurrectPenalty guard (unit) | the guard answers `false` again, as at M5b-1 | effects_mz `OtherEffectsTest.AReviveUnderNoResurrectPenaltyIsFullAndBringsNoSoulSickness`: HP 39 vs 158, MP 78 vs 315, then updateSoulSickness throws | the other 9 cases |
+
+What the review found and this pass changed:
+
+- **X13's `StartMovingListener == Skill` row cannot see `Skill.removeObservers` missing the listener.** `Skill.useSkill` attaches it with
+  `ObserveController.attach`, i.e. for one notification (ObserveController.java:31-34): a forgotten listener is dropped at the caster's next
+  move, and a Player's whole ObserveController goes with the Player at logout. R3 passed the whole gate (listener 309 == Skill 309). The row
+  stays as a relation (it could only fail for an npc caster that never moves again before the stop) and is listed as **cannot prove**; the
+  check is `SkillCastPhasesTest` (three cases, R3 kills all three).
+- **X13's EffectReserved row could not fail**: its capacity counted every template of the held Effects, 530 statup templates that never store
+  a reserved, while the gate stores about 6. It now counts only the templates of the nine classes that call `Effect.setReserveds` (every call
+  site of the Java tree: AttackUtil.java:401 via DamageEffect, AbstractHealEffect, BleedEffect, DPTransferEffect, FpAttackInstantEffect,
+  HealOverTimeEffect, MpAttackInstantEffect, PoisonEffect, SpellAttackEffect), which is 0 in these gates, and R2 fails it (6 vs 0). It is
+  still a bound: the exact relation `live EffectReserved == what the held Effects store` needs a const count accessor for the private
+  `Effect::reservedEffects` in Effect.h - **a header request** (Effect.h is frozen). Until then the row cannot see a reserved leak smaller
+  than the unused capacity of held damage/heal Effects, which is 0 here but not in general.
+- **Which runs used the final script.** The lane last wrote M5b2ScenarioTest.cpp at 04:21, after its clean3 and geo1; only its clean4 ran
+  that file. This pass changed the file again (failure messages and comments of X13 and the profile comment; no assertion logic), and its
+  clean m5b2 and m5b2_geo runs used the final file.
+- **revive's isNoResurrectPenalty guard is ported** (PlayerReviveService.java:194, docs/deviations/P5-08.md row closed): M5b-1's constant
+  false is `hasAbnormalEffect(Effect::isNoResurrectPenalty)` now, so K8's and S15's "Java's real path" includes it. The gates cannot see it
+  (no effect of either script is a NoResurrectPenaltyEffect); the unit case above is its evidence.
+- **The profile example** `game-server/config/m5b2.properties.example` (Java tree) is written, with `gameserver.soulsickness.disable = 10`;
+  `m5b.properties.example` states 10 instead of M5b-1's 0.
+- **Left for the join, unchanged by this pass:** gs.scenario.m5b fails at K9/Q1 until the N-01/N-02 commit deletes the dead rows
+  (`GeneralNpcAI.cpp:122` in §A and the four `SkillAttackManager.cpp` rows in §B of `m5b_partial_allowlist.txt`; the four §B and the §C
+  rows of `m5b2_partial_allowlist.txt`; the `GeneralNpcAI.cpp:122` row of `m5a_partial_allowlist.txt`), and X9/C11 is not written. Stage 2
+  must not be committed before both.
+
+### 10.8 Stage 2 results (the join, 2026-09-24)
+
+The join put the npc-abilities lane (N-01..N-04, P5-05 with the P5-02b lease) and the gate lane (G-03, G-04, G-07 with its review and fix
+pass) together in one working tree, deleted the allow-list rows the npc partials left behind, and wrote the npc-casts case X9 (§10.2 C11).
+Both lanes were already measured against each other (the gate lane ran with N-01/N-02 in the tree), so the join's own changes are small.
+
+**The allow-lists.** The five npc partial sites no longer exist, so their rows became HISTORY lines: `m5a_partial_allowlist.txt` loses
+`GeneralNpcAI.cpp:122`; `m5b_partial_allowlist.txt` loses §A `GeneralNpcAI.cpp:122` (the K9/Q1 failure of every gs.scenario.m5b run since
+N-02) and the four §B `SkillAttackManager.cpp` rows, so its §B is empty; `m5b2_partial_allowlist.txt` loses the four §B and the §C row, so its
+§B is empty too. An empty §B asserts nothing, and both gates read it without complaint (Q1 and X12 loop over the rows).
+
+**X9 is case S5b** of `M5b2ScenarioTest.cpp`, between the Warrior's cases and the Mage's. The Warrior walks to the oracle's nearest plain spot
+of npc 210133 (76.8 m from the spawn, far from spots A and B), pulls the kerub with one swing - it is tribe MONSTER, so it starts no fight
+itself (m5b-plan.md A5a) - and sends nothing more; the recording ends at the first Brandish that landed and did its damage, or after
+`X9_DECISIONS` = 33 attack decisions that rolled the entry's chance (0.75^33 = 7.5e-5). Then the Warrior finishes the kerub, so no npc hates
+it across S6's quit. S5b runs through `cases.run`, not `runCase`: nothing after it reads its outcome, so its failure leaves S6-S17 running.
+Five rows, each killed by its own mutant built into `build/msvc` and restored byte for byte (sha256 equal, `git diff` of the file empty or
+equal to the lane's own change) right after the build, before the gate run:
+
+| Row | Mutant | Failed | Stayed green |
+|---|---|---|---|
+| (1) at least one SM_CASTSPELL of the kerub for 16419 at the Warrior | `GeneralNpcAI::chooseSkillAttack` answers false (M9a, §10.4's row) | S5b: 36 decisions, 33 rolled, no cast | S0-S5, S6-S17 |
+| (2) its cast bar is the oracle's npc cast bar, `Math.round(duration * castSpeed / 1000f)` = 2500 | the npc arm of `Skill::updateCastDurationAndSpeed` adds 500 ms (M9d) | S5b: 3000 vs 2500 | rows (1), (3)-(5); S6-S17 |
+| (3) every such cast ends in the kerub's own SM_CASTSPELL_RESULT naming the Warrior | `Skill::endCast` returns for an npc effector (M9b) | S5b: 1 cast, 0 results | S6-S17 |
+| (4) the first landed cast's damage: an SM_ATTACK_STATUS of the Warrior with skill id 16419 | `DamageEffect::applyEffect` does nothing for an npc effector (M9c) | S5b: no status | rows (1)-(3); S6-S17 |
+| (5) its value is the reserved value the result announced | `DamageEffect::onAttack` applies the reserved value + 1 for an npc effector (M9f) | S5b: 4 vs 3 | rows (1)-(4); S6-S17 |
+
+What §10.3 X9 got wrong, from the Java:
+
+- **"followed by ... an SM_ATTACK_STATUS"**: for an npc the damage PRECEDES the result. An npc sends no client hit time, so `hitTime` is 0
+  (Skill.updateHitTime, Skill.java:416-418), `isInstantSkill()` holds, and endCast applies the effects before `sendCastSpellEnd`
+  (Skill.java:660-667) - the opposite order of the player's 2864 in S4. The first run of S5b failed exactly there; the damage row now looks
+  from the cast's start and asserts no order.
+- **"Pull npc 210133"**: it must be pulled by an attack; a tribe-MONSTER npc never aggroes a character.
+- **"n >= 33 attack decisions"**: only a decision that passed the initial skill delay (`Rnd.get(attackSpeed, 3 * attackSpeed)`, drawn again
+  at every call, NpcGameStats.java:226-228, SkillAttackManager.java:129) and, after a cast, the next skill delay (`next_skill_time` -1:
+  `Rnd.get(3000, 9000)`, NpcGameStats.java:186-191) rolls the chance; S5b counts only those.
+- **"a rotation that casts on every swing"** is not a row: one fight cannot tell 25 % from 100 % when it stops at the first cast. It is
+  `NpcSkillRotationTest.TheKerubChoosesBrandishOnlyWhenEveryGateAndTheChanceAllowIt`'s job.
+
+Measured in the five runs in which S5b ran without a mutant (four geo off, one geo on; the first still with an earlier, larger row set): the
+kerub's first Brandish came 9.2-26.0 s into the fight after 2-10
+rolled decisions (5-13 in all), its result 2501-2502 ms after its SM_CASTSPELL, 3-6 damage to the Warrior; S5b took 20-37 s. Under M9a the
+Warrior survived 36 kerub decisions (the whole budget) and still finished the kerub, so the budget does not trade the case for a dead Warrior.
+
+**Other changes of the join.** `decodeNpcMove` and the MovementMask constants moved from M5b2ScenarioTest.cpp to `decoders/PacketDecoders.{h,cpp}`
+(the gate lane's decoder request), with `PacketDecodersTest.NpcMoveConsumesTheBodyOfAnNpcExactly` (a decoder mutant that reads the target
+for POSITION or MANUAL fails it). `Skill::startCast` passes the nullable first target to `ShoutEventHandler::onCast` as Java does, now that
+m5b2-p2-8 is applied (no behaviour change: onCast ignores anything but a Player). docs/porting/header-requests.md marks m5b2-p2-7/p2-8
+applied and files m5b2-s2-1..3; docs/deviations/P5-02b.md closes the `hasCarvedSignet`/`spawnNpc` row and P5-02a.md the `onCast` row;
+`cycles.toml`'s "reviewed without a row" entry for `SkillAttackManager@L46:46` cites its C++ site (SkillAttackManager.cpp:153).
+
+**Unit tests.** `ctest -C Debug -j 6 -LE "scenario|geo|m4|nightly|stress|smoke"` on the join's tree: 2,967 of 2,967 passed in 577 s (the
+stress tests are Disabled; the smoke tests ran one at a time with the gates). The run before the join's edits had one failure,
+`LoginSliceDatabaseFlowTest.AnEnterRejectedOnASecondConnectionKeepsTheAccountWarehouseActorOfTheOnlineCharacter` (tests/network, 10 s
+under -j 6, the account warehouse actor read right after the rejection); it passed three times alone and in the second full run. Not
+a stage-2 file; recorded as a load-dependent flake of that test.
+
+**Gates**, one at a time, exact-name regexes, `--output-on-failure`, all on the join's final production tree:
+
+| Gate | Result | Seconds |
+|---|---|---|
+| gs.smoke.startup | passed | 30 |
+| gs.smoke.startup_progress | passed | 28 |
+| gs.smoke.startup_geo | passed | 148 |
+| gs.m4.check_static_data | passed | 141 |
+| gs.scenario.m5a | passed; the unhit rows are PlayerService.cpp:268 and InstanceService.cpp:133/153 (no GeneralNpcAI row any more) | 54 |
+| gs.scenario.m5a_geo | passed | 160 |
+| gs.scenario.m5b | **passed** - green again: Q1's §A rows are QuestEngine.cpp:111, BaseService.cpp:18 and DropRegistrationService.cpp:43, hit once each; P2 50/198 HP, 29/119 MP; Q2b Effect 309/309, Skill 309/309 | 218 |
+| gs.scenario.m5b_geo | passed | 339 |
+| gs.scenario.m5b2 | first run **failed at S14** (below); the next two passed | 235 / 197 / 168 |
+| gs.scenario.m5b2_geo | passed (G-04 obstacles 0; X9 in the geo world: 12 decisions, Brandish 23.9 s into the fight) | 303 |
+
+No scenario gate reached an `AION_UNPORTED` site or logged an ERROR line (their Q8/Q1/X12 rows): the npcs that own skills and fight in the characters' regions cast now, and
+none of their casts reached an unported body or the timed-cast freeze of docs/deviations/P5-05.md (§13 question 5).
+
+**The S14 failure (one of the 37 runs that reached S14, across the gate lane, its review, its fix pass and the join).** "monster B did not kill
+the 1-HP Mage within 75 s": the first pull's Flame Bolt completed, B did not swing in the 8 s after it, and the five pulls after it were not
+cast at all (no SM_CASTSPELL; the auto-attack did not bring B either); the Mage regenerated meanwhile. The other 36 runs took the same
+14.0 s: B never touched the re-entered Mage by itself and killed it within 8 s of the first pull. The cause is not established. Two
+readings fit the message: (a) the pull hit B while it was still RETURNING from the fight S12/S13 left, and a returning npc does not fight
+what hits it (AttackEventHandler.java:32-37: abortMove, IDLE, NOT_AT_HOME); (b) B was drawn into a fight with another npc - 210705 "kerub
+fighter" and 203055 "mercenary" stand 22-28 m from spot B - and was killed or pulled out of the Mage's sight, which would also explain the
+refused casts. Neither is a stage-2 regression on its face (S14 involves no npc skill, and none of these npcs owns one). S14's failure
+message now names what B did (its SM_ATTACK targets, SM_MOVE count and last position, SM_ATTACK_STATUS, death, SM_DELETE, SM_NPC_INFO) and
+the system messages of each refused pull, so the next occurrence says which it is. Open for the next lane; the gate is not flaky enough
+to hide a regression (X10/X11 behind it ran in every other run), but a gate that fails one run in 37 must not stay that way.
+
+**What remains for stage 3** (§9: the leak surface):
+
+- **G-06**, the stress nightly with casting clients under ASan (20 clients, 30 minutes: 0 reused ids, empty census, bounded `Effect`,
+  `EffectReserved`, `AttackResult`). Nothing of it is written.
+- **m5b2-s2-1**, the `Effect.h` accessor, so X13 and Q2b can assert `live EffectReserved == stored` instead of the `storesReserved` bound
+  (M5b's Q2b row is vacuous meanwhile: its script stores no EffectReserved).
+- **The S14 failure above.**
+- **The integrator's decision on §13 question 5**, with the timed-cast freeze in view (P5-05.md's last row): a scheduled `endCast` that throws
+  leaves the npc in `AISubState::CAST`.
+- **NpcShoutsService.mayShout** is `AION_UNPORTED` (NpcShoutsService.cpp:60) and every npc cast at a player reaches it through
+  `ShoutEventHandler::onCast` -> `NpcAI::ask(CAN_SHOUT)` once `gameserver.npcshouts.enable` is on (off by default and in both gate
+  profiles).
+- The Player-side arms of StaggerEffect, StumbleEffect, PolymorphEffect (17241) and BleedEffect, which the start-map npc skills reach, were
+  checked by reading only; no run has a Player hit by them.
+- `oracle.py m5b2-skills --npc` does not follow `<subeffect skill_id>` or a provoker's `skill_id`, so it under-reports effect classes (the
+  closure adds only 8217, 8218 and 16393).
+- The real-client checklist §11, step 10 included (a striped kerub uses Brandish on the character).
 
 ---
 

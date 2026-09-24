@@ -126,6 +126,29 @@ std::string join(const std::vector<std::string>& values, std::string_view separa
 	return text;
 }
 
+/** Java Math.round(float), half up on the exact float value (a float plus 0.5 is exact in double) - P2's soul sickness arithmetic */
+int32_t javaRound(float value) {
+	return static_cast<int32_t>(std::floor(static_cast<double>(value) + 0.5));
+}
+
+/**
+ * P2 (m5b2-plan.md D5): Stat2.getCurrent() of a player's MAXHP or MAXMP whose base is `base` and whose bonus holds `itemBonus`, after the soul
+ * sickness's bonus StatRateFunction of `percent` - `baseValue * getValue() / 100f` added to the bonus first (RATE bonus priority 50 before
+ * ADD bonus 60), `(int) (base + bonus)` in float, and StatCapUtil's lower cap (StatRateFunction.java:22-29, Stat2.java:64-69,
+ * StatCapUtil.java:18-19 and 104-115). The same restatement as M5b2ScenarioTest.cpp's withPercentBonus.
+ */
+int32_t withPercentBonus(int32_t base, float itemBonus, int32_t percent, int32_t lowerCap) {
+	const float bonus = static_cast<float>(base * percent) / 100.0f + itemBonus;
+	const float current = (static_cast<float>(base) * 1.0f + bonus * 1.0f + static_cast<float>(base) * 0.0f) * 1.0f;
+	return current < static_cast<float>(lowerCap) ? lowerCap : static_cast<int32_t>(current);
+}
+
+/** CreatureGameStats.checkMaxHPChanged / checkMaxMPChanged: `Math.min(Math.round(current * (1f * newMax / oldMax)), newMax)` in float */
+int32_t rescaledToNewMax(int32_t current, int32_t oldMax, int32_t newMax) {
+	const float percent = 1.0f * static_cast<float>(newMax) / static_cast<float>(oldMax);
+	return std::min(javaRound(static_cast<float>(current) * percent), newMax);
+}
+
 double distance2d(double x1, double y1, double x2, double y2) {
 	const double dx = x1 - x2, dy = y1 - y2;
 	return std::sqrt(dx * dx + dy * dy);
@@ -896,14 +919,17 @@ void runM5bGate(const GateVariant& variant) {
 	//  - geodata: false for gs.scenario.m5b, true for gs.scenario.m5b_geo (the one key that separates the two runs)
 	//  - npcshouts: the default made explicit, which keeps NpcShoutsService (6 unported bodies, P5-14) off the fight path
 	//  - rates.xp.solo: the default made explicit, because R1 asserts an exact integer that this rate multiplies
-	//  - soulsickness.disable=0: REQUIRED. bindRevive revives a character outside EVENT_MODE with setSoulSickness = true, which reaches
-	//    SkillEngine::getSkill (AION_UNPORTED until M5b-2) and would throw out of K8's revive. Java's own guard in front of that call is
-	//    `!player.hasPermission(MembershipConfig.DISABLE_SOULSICKNESS)` and the @Property default is 10, which exempts nobody; 0 exempts
-	//    every account and takes the branch Java itself provides. A configuration answer, not a C++ deviation (D1).
+	//  - soulsickness.disable=10 (m5b2-plan.md D5, G-05 (c)): the profile carried 0 while SkillEngine::getSkill was AION_UNPORTED, because
+	//    bindRevive -> updateSoulSickness would have thrown out of K8's revive. M5b-2 ported the cast engine and StatdownEffect, so K8's revive
+	//    takes Java's real path: `!player.hasPermission(MembershipConfig.DISABLE_SOULSICKNESS)` with the @Property default 10
+	//    (MembershipConfig.java:37-38) exempts no scenario account, and skill 8291 is cast at the new death count. The default is STATED and
+	//    not left out, because the game server also reads the Java tree's untracked config/mygs.properties - the user's local play profile -
+	//    and the M5b-1 one carries `gameserver.soulsickness.disable = 0`: a gate that only dropped the key ran with the soul sickness off
+	//    (measured by gs.scenario.m5b2's first run). P2 below asserts what the real path does to the revive burst.
 	config.gameServerProperties["gameserver.geodata.enable"] = variant.geodata ? "true" : "false";
 	config.gameServerProperties["gameserver.npcshouts.enable"] = "false";
 	config.gameServerProperties["gameserver.rates.xp.solo"] = "1.0, 2.0";
-	config.gameServerProperties["gameserver.soulsickness.disable"] = "0";
+	config.gameServerProperties["gameserver.soulsickness.disable"] = "10";
 	// the geo startup is seconds in a checked RelWithDebInfo tree and minutes in a Debug one (m5a-client-session.md)
 	config.startupTimeout = variant.geodata ? 25min : 10min;
 	config.stopTimeout = 3min;
@@ -950,10 +976,23 @@ void runM5bGate(const GateVariant& variant) {
 	OracleCreation elyos;
 	OracleMonster monster;
 	OracleMonster aggressive;
+	std::optional<int32_t> sicknessHpPercent, sicknessMpPercent; // P2: the soul sickness's MAXHP/MAXMP PERCENT changes (m5b2-plan.md D5)
 	runCase("K0", "the creation and monster oracles answer (G-01)", [&] {
 		elyos = oracle->creation("ELYOS", "WARRIOR");
 		ASSERT_FALSE(elyos.items.empty());
 		EXPECT_EQ(elyos.mapId, ELYOS_START_MAP);
+		// the soul sickness K8's revive casts at the first death (PlayerController.updateSoulSickness: skill 8291 at death count 1)
+		const OracleSkills sickness = oracle->skills("ELYOS", "WARRIOR", 1, {"8291:1"}, {}, 1);
+		for (const OracleSkillEffect& effect : sickness.skill(8291).effects)
+			for (const OracleStatChange& change : effect.changes) {
+				if (change.stat == "MAXHP" && change.func == "PERCENT")
+					sicknessHpPercent = change.value;
+				else if (change.stat == "MAXMP" && change.func == "PERCENT")
+					sicknessMpPercent = change.value;
+			}
+		EXPECT_TRUE(sicknessHpPercent && sicknessMpPercent) << "P2: the oracle's 8291 has no MAXHP/MAXMP PERCENT change";
+		EXPECT_TRUE(elyos.maxHpCurrent && elyos.maxMpCurrent && elyos.maxHpBonus && elyos.maxMpBonus)
+		  << "P2: the creation oracle does not model the Warrior's current maxima: " << join(elyos.statsInfoNotModelled);
 
 		monster = oracle->monster(ELYOS_START_MAP, GATE_MONSTER_NPC_ID, 1);
 		// the template of D11, re-derived by the oracle rather than quoted from the plan (§8 risk 20)
@@ -1874,15 +1913,36 @@ void runM5bGate(const GateVariant& variant) {
 		  << join(namesOf(revive));
 		const std::vector<Packet> reviveStats = ofName(revive, "SM_STATS_INFO");
 		ASSERT_FALSE(reviveStats.empty()) << "P2: no SM_STATS_INFO after the revive";
-		// the FIRST one: PlayerLifeStats::onHpChanged triggers the restore task when previousHp was 0, so a regeneration tick 1,700 ms later
-		// would move the percentage this row is about
-		const decoders::StatsInfo revived = decoders::decodeStatsInfo(reviveStats.front().data);
-		// PlayerReviveService.bindRevive outside EVENT_MODE is revive(player, 25, 25, true, skillId) (PlayerReviveService.java:104-108)
-		EXPECT_GT(revived.currentHp, 0) << "P2: the character is still dead after CM_REVIVE(BIND_REVIVE)";
-		EXPECT_EQ(revived.currentHp, static_cast<int32_t>(revived.maxHp * 25 / 100))
-		  << "P2: bindRevive revives with 25 % HP (" << revived.currentHp << " of " << revived.maxHp << ")";
-		EXPECT_EQ(revived.currentMp, static_cast<int32_t>(revived.maxMp * 25 / 100))
-		  << "P2: bindRevive revives with 25 % MP (" << revived.currentMp << " of " << revived.maxMp << ")";
+		// PlayerReviveService.bindRevive outside EVENT_MODE is revive(player, 25, 25, true, skillId) (PlayerReviveService.java:104-108), and revive
+		// sets 25 % of the CURRENT maxima (`(int) ((long) getMaxHp() * 25 / 100)`, CreatureLifeStats.java:339-341) BEFORE updateSoulSickness
+		// (PlayerReviveService.java:196-202). The soul sickness then lowers the current maxima by its PERCENT bonus functions, and
+		// CreatureGameStats.checkMaxHPChanged / checkMaxMPChanged rescale the current values to the new maxima (m5b2-plan.md D5; the rev of P2
+		// that asserted `currentHp == maxHp * 25 / 100` on the first SM_STATS_INFO only held with the soul sickness off). The row reads the first
+		// SM_STATS_INFO that shows both penalties, before a regeneration tick 1,700 ms later can move the values it is about.
+		ASSERT_TRUE(sicknessHpPercent && sicknessMpPercent && elyos.maxHpCurrent && elyos.maxMpCurrent && elyos.maxHpBonus && elyos.maxMpBonus);
+		const int32_t maxHpBefore = *elyos.maxHpCurrent, maxMpBefore = *elyos.maxMpCurrent;
+		const int32_t sickMaxHp = withPercentBonus(elyos.baseMaxHp, *elyos.maxHpBonus, *sicknessHpPercent, 100);
+		const int32_t sickMaxMp = withPercentBonus(elyos.baseMaxMp, *elyos.maxMpBonus, *sicknessMpPercent, 1);
+		const int32_t revivedHp = static_cast<int32_t>(static_cast<int64_t>(maxHpBefore) * 25 / 100);
+		const int32_t revivedMp = static_cast<int32_t>(static_cast<int64_t>(maxMpBefore) * 25 / 100);
+		std::vector<std::string> sequence;
+		std::optional<decoders::StatsInfo> revived;
+		for (const Packet& packet : reviveStats) {
+			const decoders::StatsInfo stats = decoders::decodeStatsInfo(packet.data);
+			sequence.push_back(std::to_string(stats.currentHp) + "/" + std::to_string(stats.maxHp) + " HP " + std::to_string(stats.currentMp) + "/" +
+			                   std::to_string(stats.maxMp) + " MP");
+			if (!revived && stats.maxHp == sickMaxHp && stats.maxMp == sickMaxMp)
+				revived = stats;
+		}
+		ASSERT_TRUE(revived) << "P2: no SM_STATS_INFO of the revive shows the soul sickness's maxima " << sickMaxHp << " HP and " << sickMaxMp
+		                     << " MP; they were " << join(sequence, "; ");
+		EXPECT_GT(revived->currentHp, 0) << "P2: the character is still dead after CM_REVIVE(BIND_REVIVE)";
+		EXPECT_EQ(revived->baseMaxHp, elyos.baseMaxHp) << "P2: the soul sickness is a bonus function; the base max HP stays";
+		EXPECT_EQ(revived->currentHp, rescaledToNewMax(revivedHp, maxHpBefore, sickMaxHp))
+		  << "P2: 25 % of " << maxHpBefore << " (" << revivedHp << ") rescaled to " << sickMaxHp << "; the SM_STATS_INFO were " << join(sequence, "; ");
+		EXPECT_EQ(revived->currentMp, rescaledToNewMax(revivedMp, maxMpBefore, sickMaxMp))
+		  << "P2: 25 % of " << maxMpBefore << " (" << revivedMp << ") rescaled to " << sickMaxMp << "; the SM_STATS_INFO were " << join(sequence, "; ");
+		std::cout << "P2: the revive's SM_STATS_INFO: " << join(sequence, "; ") << std::endl;
 
 		// P3 (a): NO SM_STATUPDATE_EXP between the death and the revive. PlayerController::onDie guards calculateExpLoss with getLevel() > 4,
 		// and calculateExpLoss ends by sending one unconditionally (PlayerCommonData.java:144-146), so its absence is the proof the guard held.
@@ -2317,6 +2377,39 @@ void runM5bGate(const GateVariant& variant) {
 		}
 		std::cout << "Q2: AggroInfo " << (aggroInfo ? aggroInfo->line : "(no row)") << "; AttackResult "
 		          << (attackResult ? attackResult->line : "(no row)") << "; DropNpc " << (dropNpc ? dropNpc->line : "(no row)") << std::endl;
+
+		// ---- Q2b: the skill classes against their relations (m5b2-plan.md G-07, the X13 of gs.scenario.m5b2) ----
+		// Not zero rows: the post-spawn statup buffs keep their Effects and Skills alive with their npcs at every shutdown. What a leak breaks is
+		// the equality between what is alive and what the creatures still in the world hold, which m5a_summary.txt writes beside the counts
+		// (CheckOutput.cpp heldEffects). In this gate the character's own effects are its passives and, since D5 took soulsickness.disable out
+		// of the profile, K8's Soul Sickness - all of which must be gone with the Player.
+		const auto summaryNumber = [&](std::string_view key) -> std::optional<int64_t> {
+			try {
+				return std::stoll(value(key));
+			} catch (const std::exception&) {
+				return std::nullopt;
+			}
+		};
+		const std::optional<LiveCount> effect = liveCountOf("Effect");
+		const std::optional<LiveCount> skill = liveCountOf("Skill");
+		const std::optional<LiveCount> listener = liveCountOf("StartMovingListener");
+		const std::optional<LiveCount> reserved = liveCountOf("EffectReserved");
+		const std::optional<int64_t> effectsHeld = summaryNumber("effectsHeld");
+		const std::optional<int64_t> skillsHeld = summaryNumber("skillsHeld");
+		const std::optional<int64_t> reservedCapacity = summaryNumber("effectReservedCapacity");
+		ASSERT_TRUE(effect && skill && listener && reserved) << "Q2b: m5a_summary.txt lacks a liveCount row of the skill classes (CheckOutput G-07)";
+		ASSERT_TRUE(effectsHeld && skillsHeld && reservedCapacity)
+		  << "Q2b: m5a_summary.txt has no effectsHeld/skillsHeld/effectReservedCapacity number: '" << value("effectsHeld") << "'";
+		EXPECT_EQ(effect->live, *effectsHeld) << "Q2b: " << effect->line << " against " << *effectsHeld << " Effects held by the world's creatures";
+		EXPECT_GT(effect->created, *effectsHeld) << "Q2b: " << effect->line << " - the character's passives and its soul sickness were created and ended";
+		EXPECT_EQ(skill->live, *skillsHeld) << "Q2b: " << skill->line << " against " << *skillsHeld << " Skills the held Effects and casting creatures reference";
+		// the listener row is not a check of Skill.removeObservers (see X13 of M5b2ScenarioTest.cpp: the listener is a one-time observer)
+		EXPECT_EQ(listener->live, skill->live) << "Q2b: " << listener->line << " against " << skill->line;
+		// the capacity counts only the held Effects' templates whose class stores an EffectReserved (CheckOutput.cpp storesReserved)
+		EXPECT_LE(reserved->live, *reservedCapacity) << "Q2b: " << reserved->line << " against a capacity of " << *reservedCapacity
+		                                             << ": an EffectReserved kept past its Effect";
+		std::cout << "Q2b: " << effect->line << " / effectsHeld " << *effectsHeld << "; " << skill->line << " / skillsHeld " << *skillsHeld << "; "
+		          << listener->line << "; " << reserved->line << " / capacity " << *reservedCapacity << std::endl;
 
 		// ---- Q3: no npc corpse is retained ----
 		//

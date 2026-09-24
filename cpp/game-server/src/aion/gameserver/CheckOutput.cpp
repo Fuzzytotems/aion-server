@@ -2,16 +2,37 @@
 
 #include <algorithm>
 #include <fstream>
+#include <optional>
 #include <thread>
+#include <unordered_set>
 
 #include "aion/commons/logging/LoggerFactory.h"
 #include "aion/commons/utils/Exception.h"
+#include "aion/gameserver/controllers/effect/EffectController.h"
+#include "aion/gameserver/dataholders/DataManager.h"
+#include "aion/gameserver/model/gameobjects/Creature.h"
+#include "aion/gameserver/model/gameobjects/VisibleObject.h"
+#include "aion/gameserver/runtime/base/TaskInfo.h"
 #include "aion/gameserver/runtime/base/Unported.h"
 #include "aion/gameserver/runtime/lifetime/LiveInstanceCounters.h"
 #include "aion/gameserver/runtime/lifetime/Reclaimer.h"
+#include "aion/gameserver/runtime/lifetime/TaskScope.h"
 #include "aion/gameserver/runtime/sched/Future.h"
 #include "aion/gameserver/runtime/sync/LockOrderValidator.h"
+#include "aion/gameserver/skillengine/effect/AbstractHealEffect.h"
+#include "aion/gameserver/skillengine/effect/BleedEffect.h"
+#include "aion/gameserver/skillengine/effect/DPTransferEffect.h"
+#include "aion/gameserver/skillengine/effect/DamageEffect.h"
+#include "aion/gameserver/skillengine/effect/EffectTemplate.h"
+#include "aion/gameserver/skillengine/effect/FpAttackInstantEffect.h"
+#include "aion/gameserver/skillengine/effect/HealOverTimeEffect.h"
+#include "aion/gameserver/skillengine/effect/MpAttackInstantEffect.h"
+#include "aion/gameserver/skillengine/effect/PoisonEffect.h"
+#include "aion/gameserver/skillengine/effect/SpellAttackEffect.h"
+#include "aion/gameserver/skillengine/model/Effect.h"
+#include "aion/gameserver/skillengine/model/Skill.h"
 #include "aion/gameserver/utils/ThreadPoolManager.h"
+#include "aion/gameserver/world/World.h"
 #include "aion/gameserver/world/knownlist/KnownList.h"
 
 namespace aion::gameserver {
@@ -46,6 +67,106 @@ std::string_view fileName(std::string_view path) {
 bool matchesClassName(const std::string& className, const std::string& name) {
 	return className == name || (className.size() > name.size() + 2 && className.ends_with(name) &&
 									className.compare(className.size() - name.size() - 2, 2, "::") == 0);
+}
+
+/**
+ * m5b2-plan.md G-07: what the creatures of the world legitimately hold of the skill classes when the summary is written, so that a gate can
+ * compare the live counts of summaryLiveClasses() against a RELATION instead of a zero. The effect classes cannot be strict zero rows: every
+ * spawn casts its post-spawn skills (NpcSkillList.getPostSpawnSkills), whose statup buffs last 86,400,000 ms and survive the shutdown with their
+ * npcs (309 Effects and 309 Skills live in every gate run of 2026-09-24), which is the precedent of StatFunctionProxy (docs/deviations/P5-14.md).
+ * What a leak breaks is the equality between what is alive and what something that is still alive is entitled to hold:
+ * - effectsHeld: the distinct Effects of every creature's EffectController (EffectController::getAllEffects, the abnormal and the passive map),
+ *   closed over the two Effect fields that retain another Effect (subEffect, designatedDispelEffect). An Effect that ended but is still
+ *   retained - by an observer its endEffect did not remove, a stat function it did not take back, a periodic task it did not cancel - is alive
+ *   and in no controller, so `live Effect > effectsHeld`;
+ * - skillsHeld: the distinct Skills those Effects reference (Effect::skill), plus every creature's casting skill (an npc may be mid-cast when
+ *   the stop file is written). A Skill kept past its cast (a DeathObserver or a cast task that was not released) breaks `live Skill ==
+ *   skillsHeld`. Each Skill owns one StartMovingListener, so `live StartMovingListener == live Skill` holds too, but it is NOT a check of
+ *   Skill.removeObservers: Skill.useSkill attaches the listener with ObserveController.attach, i.e. for one notification
+ *   (ObserveController.java:31-34), so a listener removeObservers forgot is dropped at its caster's next move, and a player's whole
+ *   ObserveController goes with the Player at logout. The row could only see a forgotten listener on an npc caster that never moves again
+ *   before the stop; SkillCastPhasesTest is where removeObservers is checked (m5b2-plan.md §10.7: mutant R3 passed the whole gate);
+ * - effectReservedCapacity: the templates of those Effects whose class stores an EffectReserved. Every Effect.setReserveds of the Java tree is
+ *   in one of storesReserved()'s nine classes, called once per Effect from the template's calculate or startEffect, and only the Effect keeps
+ *   the EffectReserved (fieldmap K3, Effect::reservedEffects), so `live EffectReserved <= effectReservedCapacity`. Still a bound and not an
+ *   equality: Effect::reservedEffects is private and Effect.h has no accessor for it (the header request of m5b2-plan.md §7), so the walk
+ *   cannot count what the held Effects really store. The bound is tight in practice because the post-spawn statup buffs that make up the held
+ *   Effects store none: the capacity is 0 in the gates of 2026-09-24, and a reserved kept past its Effect is caught (§10.7: mutant R2, 6 live
+ *   against 0). Counting every template instead (530 in those gates) made the row unable to fail.
+ * std::nullopt when this process never created a world (DataManager::WORLD_MAPS_DATA is empty, e.g. a unit test): World::getInstance() would
+ * try to build one from the missing static data. After RuntimeLifecycle::shutdown nothing runs any more, so the walk sees a still world; it
+ * only borrows (Ptr), so it changes no live or created count.
+ */
+struct HeldEffects {
+	size_t effects = 0;
+	size_t skills = 0;
+	size_t reservedCapacity = 0;
+};
+
+/**
+ * The effect classes whose instances call Effect.setReserveds, each once per Effect. The Java tree has nine call sites and no other:
+ * AttackUtil.java:401 (calculateEffectResult, reached only from calculateSkillResult, which only DamageEffect and its subclasses call),
+ * AbstractHealEffect.java:30, BleedEffect.java:37, DPTransferEffect.java:30, FpAttackInstantEffect.java:36, HealOverTimeEffect.java:33 (in
+ * startEffect, not in the periodic action), MpAttackInstantEffect.java:31, PoisonEffect.java:37 and SpellAttackEffect.java:31. Subclasses
+ * match through their base (SkillAttackInstantEffect is a DamageEffect, HealEffect a HealOverTimeEffect, ...).
+ */
+bool storesReserved(const skillengine::effect::EffectTemplate& effectTemplate) {
+	namespace effect = skillengine::effect;
+	return dynamic_cast<const effect::DamageEffect*>(&effectTemplate) != nullptr ||
+		   dynamic_cast<const effect::AbstractHealEffect*>(&effectTemplate) != nullptr ||
+		   dynamic_cast<const effect::BleedEffect*>(&effectTemplate) != nullptr ||
+		   dynamic_cast<const effect::DPTransferEffect*>(&effectTemplate) != nullptr ||
+		   dynamic_cast<const effect::FpAttackInstantEffect*>(&effectTemplate) != nullptr ||
+		   dynamic_cast<const effect::HealOverTimeEffect*>(&effectTemplate) != nullptr ||
+		   dynamic_cast<const effect::MpAttackInstantEffect*>(&effectTemplate) != nullptr ||
+		   dynamic_cast<const effect::PoisonEffect*>(&effectTemplate) != nullptr ||
+		   dynamic_cast<const effect::SpellAttackEffect*>(&effectTemplate) != nullptr;
+}
+
+std::optional<HeldEffects> heldEffects() {
+	if (!dataholders::DataManager::WORLD_MAPS_DATA)
+		return std::nullopt;
+	runtime::TaskScope scope(AION_TASK_INFO(runtime::TaskKind::SHUTDOWN));
+	std::unordered_set<const skillengine::model::Effect*> effects;
+	std::unordered_set<const skillengine::model::Skill*> skills;
+	std::vector<runtime::Ptr<skillengine::model::Effect>> pending;
+	world::World::getInstance().forEachObject([&effects, &skills, &pending](model::gameobjects::VisibleObject& object) {
+		auto* creature = dynamic_cast<model::gameobjects::Creature*>(&object);
+		if (creature == nullptr)
+			return;
+		if (runtime::Ptr<skillengine::model::Skill> casting = creature->getCastingSkill())
+			skills.insert(casting.get());
+		runtime::Ptr<controllers::effect::EffectController> controller = creature->getEffectController();
+		if (!controller)
+			return;
+		for (runtime::Ptr<skillengine::model::Effect> effect : controller->getAllEffects())
+			pending.push_back(effect);
+	});
+	HeldEffects held;
+	while (!pending.empty()) {
+		runtime::Ptr<skillengine::model::Effect> effect = pending.back();
+		pending.pop_back();
+		if (!effect || !effects.insert(effect.get()).second)
+			continue;
+		if (runtime::Ptr<skillengine::model::Skill> skill = effect->getSkill())
+			skills.insert(skill.get());
+		for (const skillengine::effect::EffectTemplate* effectTemplate : effect->getEffectTemplates())
+			if (storesReserved(*effectTemplate))
+				held.reservedCapacity++;
+		pending.push_back(effect->getSubEffect());
+		pending.push_back(effect->getDesignatedDispelEffect());
+	}
+	held.effects = effects.size();
+	held.skills = skills.size();
+	return held;
+}
+
+/** the three G-07 rows of m5a_summary.txt (heldEffects), "unknown" where no world was walked */
+void writeHeldEffects(std::ostream& out, const std::optional<HeldEffects>& held) {
+	const auto value = [&held](size_t HeldEffects::*field) { return held ? std::to_string((*held).*field) : std::string("unknown"); };
+	out << "effectsHeld " << value(&HeldEffects::effects) << '\n';
+	out << "skillsHeld " << value(&HeldEffects::skills) << '\n';
+	out << "effectReservedCapacity " << value(&HeldEffects::reservedCapacity) << '\n';
 }
 
 } // namespace
@@ -233,6 +354,21 @@ const std::vector<std::string>& CheckOutput::summaryLiveClasses() {
 		// the npc conservation of m5b-plan.md Q3: a killed npc respawns as a NEW Npc, so `live` must come back to the baseline while `created`
 		// grows by the number of respawns
 		"model::gameobjects::Npc",
+		// m5b2-plan.md G-07: the skill classes. None of them is a zeroLiveClasses() row - the post-spawn buffs keep 309 Effects and their 309
+		// Skills alive at every shutdown - so each is a number the gate compares against a relation the summary writes beside it (heldEffects
+		// above): Effect against effectsHeld, Skill against skillsHeld, StartMovingListener against Skill, EffectReserved against
+		// effectReservedCapacity. The effect observers follow: each one retains its Effect (RootEffect_ActionObserver::effect,
+		// Effect_ActionObserver, the AttackStatusObservers of AlwaysDodge/AlwaysResist), so an observer that endEffect did not remove keeps
+		// its Effect alive and breaks the Effect relation; their own rows say which one it was.
+		"skillengine::model::Effect",
+		"skillengine::model::EffectReserved",
+		"skillengine::model::Skill",
+		"controllers::observer::StartMovingListener",
+		"skillengine::model::Effect_ActionObserver",
+		"skillengine::model::Effect_ActionObserver_2",
+		"skillengine::effect::RootEffect_ActionObserver",
+		"skillengine::effect::AlwaysDodgeEffect_AttackStatusObserver",
+		"skillengine::effect::AlwaysResistEffect_AttackStatusObserver",
 	};
 	return *classes;
 }
@@ -293,12 +429,16 @@ std::vector<runtime::LiveCount> CheckOutput::checkLiveCounts(const std::vector<r
 
 void CheckOutput::writeSummary(const std::filesystem::path& dir, const Summary& summary) {
 	Summary checked = summary;
+	std::optional<HeldEffects> held;
 	if (summary.started) {
 		checked.liveLeaks = checkLiveCounts();
 		checked.summaryCounts = summaryLiveCounts(runtime::liveCounts());
+		// m5b2-plan.md G-07: the relation side of the skill rows, walked right after the counts it is compared with (nothing runs any more)
+		held = heldEffects();
 	}
 	std::ofstream out = openOutput(dir / "m5a_summary.txt");
 	writeSummary(out, checked);
+	writeHeldEffects(out, held);
 }
 
 void CheckOutput::writeSummary(std::ostream& out, const Summary& summary) {

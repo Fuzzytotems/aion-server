@@ -44,7 +44,8 @@
 #                                               one-shot task, released when it has run 2000 ms later or with its cancelled Future
 #   SimpleAttackManager@L34:45 #npcAI           attackAction after the attack delay, SimpleAttackManager.java:34 (SimpleAttackManager.cpp:81):
 #                                               one-shot task, the same
-#   SkillAttackManager@L46:46 #npcAI            skillAction after the skill delay, SkillAttackManager.java:46: one-shot task, the same
+#   SkillAttackManager@L46:46 #npcAI            skillAction after the skill delay, SkillAttackManager.java:46 (SkillAttackManager.cpp:153, ported
+#                                               in M5b-2 stage 2): one-shot task, the same
 #   SimpleAttackManager.SimpleCheckedAttackAction.npcAI
 #                                               java-hook: run() sets npcAI = null (SimpleAttackManager.java:109, kept in
 #                                               SimpleAttackManager.cpp); the lambda of SimpleAttackManager.cpp:95 releases the task itself when

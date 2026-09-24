@@ -5,6 +5,7 @@
 #include "aion/gameserver/model/gameobjects/fwd.h"
 #include "aion/gameserver/model/gameobjects/player/fwd.h"
 #include "aion/gameserver/model/templates/npcshout/fwd.h"
+#include "aion/gameserver/runtime/lifetime/Ref.h"
 
 namespace aion::gameserver::ai::handler {
 
@@ -43,7 +44,8 @@ public:
 	 */
 	static void onEnemyAttack(NpcAI& npcAI, model::gameobjects::Creature& attacker);
 
-	static void onCast(NpcAI& npcAI, model::gameobjects::Creature& firstTarget);
+	/** @param firstTarget nullable (Java's `firstTarget instanceof Player` is false for null; header request m5b2-p2-8) */
+	static void onCast(NpcAI& npcAI, runtime::Ptr<model::gameobjects::Creature> firstTarget);
 
 	/**
 	 * Handle target attacked events

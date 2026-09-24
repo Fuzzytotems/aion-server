@@ -24,6 +24,7 @@
 #include "aion/gameserver/controllers/VisibleObjectController.h"
 #include "aion/gameserver/controllers/attack/AttackResult.h"
 #include "aion/gameserver/controllers/attack/AttackStatus.h"
+#include "aion/gameserver/dataholders/DataManager.h"
 #include "aion/gameserver/model/animations/ObjectDeleteAnimation.h"
 #include "aion/gameserver/model/gameobjects/VisibleObject.h"
 #include "aion/gameserver/runtime/base/Exceptions.h"
@@ -537,6 +538,74 @@ TEST(CheckOutputTest, TheStatFunctionsOfPostSpawnBuffsSurviveTheShutdownWithThei
 		{"aion::gameserver::model::gameobjects::Npc", 82'127, 82'127},
 	};
 	EXPECT_TRUE(CheckOutput::checkLiveCounts(startup).empty()) << "the post-spawn buffs of a green startup are not a leak";
+}
+
+/**
+ * m5b2-plan.md G-07, decided by measurement and not by the plan's §7 row (which asked for strict zeros): Effect, EffectReserved, Skill, the
+ * StartMovingListener every Skill owns and the effect observers are counted summary rows, never zeroLiveClasses() rows. The numbers are the
+ * live_counts.txt of the green gs.scenario.m5b run of 2026-09-24: the post-spawn statup buffs keep 309 Effects, their 309 Skills and those
+ * Skills' 309 StartMovingListeners alive at the shutdown, and the 18 hide effects of the post-spawn hiders keep their Effect_ActionObservers.
+ * A strict row would turn every green gate red with an ERROR line; what a gate asserts instead is the relation m5a_summary.txt writes beside
+ * the rows (effectsHeld, skillsHeld, effectReservedCapacity).
+ */
+TEST(CheckOutputTest, TheSkillClassesAreCountedAgainstARelationNotAZero) {
+	const auto strict = [](std::string_view name) { return std::ranges::count(CheckOutput::zeroLiveClasses(), name) == 1; };
+	const auto reported = [](std::string_view name) { return std::ranges::count(CheckOutput::summaryLiveClasses(), name) == 1; };
+	for (const char* name : {"skillengine::model::Effect", "skillengine::model::EffectReserved", "skillengine::model::Skill",
+			 "controllers::observer::StartMovingListener", "skillengine::model::Effect_ActionObserver", "skillengine::model::Effect_ActionObserver_2",
+			 "skillengine::effect::RootEffect_ActionObserver", "skillengine::effect::AlwaysDodgeEffect_AttackStatusObserver",
+			 "skillengine::effect::AlwaysResistEffect_AttackStatusObserver"}) {
+		EXPECT_FALSE(strict(name)) << name << ": the post-spawn buffs keep it alive at every shutdown, so a strict zero fails a green run";
+		EXPECT_TRUE(reported(name)) << name << ": the gate reads its live and created numbers from m5a_summary.txt";
+	}
+
+	LogCapture capture("com.aionemu.gameserver.CheckOutput");
+	const std::vector<LiveCount> gateRun{
+		{"aion::gameserver::skillengine::model::Effect", 309, 325},
+		{"aion::gameserver::skillengine::model::EffectReserved", 0, 332},
+		{"aion::gameserver::skillengine::model::Skill", 309, 309},
+		{"aion::gameserver::controllers::observer::StartMovingListener", 309, 309},
+		{"aion::gameserver::skillengine::model::Effect_ActionObserver", 18, 18},
+		{"aion::gameserver::skillengine::model::Effect_ActionObserver_2", 18, 18},
+	};
+	EXPECT_TRUE(CheckOutput::checkLiveCounts(gateRun).empty()) << "the skill classes of a green gate run are not a leak by themselves";
+	const std::vector<LiveCount> rows = CheckOutput::summaryLiveCounts(gateRun);
+	const auto row = [&rows](std::string_view name) {
+		auto it = std::ranges::find(rows, name, &LiveCount::className);
+		return it == rows.end() ? LiveCount{std::string(name), -1, 0} : *it;
+	};
+	EXPECT_EQ(row("skillengine::model::Effect").live, 309);
+	EXPECT_EQ(row("skillengine::model::Effect").created, 325u);
+	EXPECT_EQ(row("skillengine::model::EffectReserved").created, 332u) << "0 live with 332 created: the created half makes the bound mean something";
+	EXPECT_EQ(row("skillengine::model::Effect_ActionObserver").live, 18) << "the _2 counter must not be summed into its prefix";
+	EXPECT_EQ(row("skillengine::effect::RootEffect_ActionObserver").live, 0) << "no counter: 0 0";
+}
+
+/**
+ * The relation side of G-07: the directory form writes effectsHeld, skillsHeld and effectReservedCapacity after the pure summary, walked over
+ * the world's creatures. A process that never created a world - this test binary, unless a test loaded the world maps - writes "unknown"
+ * rather than a 0 nobody measured, exactly as censusTracked does; a summary that was not `started` never walks.
+ */
+TEST(CheckOutputTest, TheDirectoryFormWritesTheHeldEffectRowsOrUnknown) {
+	const std::filesystem::path dir = uniqueDirectory("held");
+	LogCapture capture("com.aionemu.gameserver.CheckOutput");
+	const auto rowsOf = [&dir](bool started) {
+		CheckOutput::Summary summary;
+		summary.started = started;
+		CheckOutput::writeSummary(dir, summary);
+		return readFile(dir / "m5a_summary.txt");
+	};
+	const std::string notStarted = rowsOf(false);
+	EXPECT_NE(notStarted.find("\neffectsHeld unknown\nskillsHeld unknown\neffectReservedCapacity unknown\n"), std::string::npos) << notStarted;
+	EXPECT_TRUE(notStarted.ends_with("\neffectReservedCapacity unknown\n")) << "the three rows close the file: " << notStarted;
+
+	const std::string started = rowsOf(true);
+	if (!dataholders::DataManager::WORLD_MAPS_DATA)
+		EXPECT_NE(started.find("\neffectsHeld unknown\nskillsHeld unknown\neffectReservedCapacity unknown\n"), std::string::npos)
+			<< "no world was created in this process, so nothing was walked: " << started;
+	else
+		EXPECT_EQ(started.find("Held unknown"), std::string::npos) << "a world exists, so the rows are numbers: " << started;
+	std::filesystem::remove_all(dir);
 }
 
 /**

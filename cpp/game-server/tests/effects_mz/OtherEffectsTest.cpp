@@ -1,6 +1,7 @@
 // P5-04, M5b-2 stage 1 part 3 (m5b2-plan.md F-03, F-05, D13): ReturnEffect (243 Return, on every character's bar), TransformEffect through its
 // concrete subclass PolymorphEffect (242 Drakan Transformation), and the two classes of 8751 "Light of Repose" that CuringZoneService casts
-// once a second near a curing object (D13): MPHealEffect and ProcVPHealInstantEffect.
+// once a second near a curing object (D13): MPHealEffect and ProcVPHealInstantEffect. Stage 2's gate lane added the one reader of
+// NoResurrectPenaltyEffect, PlayerReviveService.revive's guard (P5-08), at the end: it needs this fixture's world and effect controllers.
 
 #include "EffectsMzTestSupport.h"
 
@@ -15,6 +16,7 @@
 #include "aion/gameserver/model/stats/container/PlayerLifeStats.h"
 #include "aion/gameserver/network/aion/serverpackets/SM_STATUPDATE_EXP.h"
 #include "aion/gameserver/runtime/base/Exceptions.h"
+#include "aion/gameserver/services/player/PlayerReviveService.h"
 #include "aion/gameserver/skillengine/effect/HealEffectTemplate.h"
 #include "aion/gameserver/skillengine/effect/MPHealEffect.h"
 #include "aion/gameserver/skillengine/model/EffectReserved.h"
@@ -282,6 +284,52 @@ TEST_F(OtherEffectsTest, AFlatReposeHealStopsAtTheCap) {
 
 	Ref<Npc> npc = monster();
 	EXPECT_NO_THROW(applied(64021, *npc, *npc)) << "only a player effected";
+}
+
+// ---- PlayerReviveService.revive's resurrection-penalty guard (docs/deviations/P5-08.md, closed in M5b-2 stage 2) -------------------------
+
+/**
+ * 10350 "Administrator's Boon" as skill_templates.xml has it, less its <nodeathpenalty> and <hipass> positions and its <properties> and
+ * conditions: a NoResurrectPenaltyEffect of one hour, which Effect.isNoResurrectPenalty finds by its effect type.
+ */
+constexpr int32_t NO_RESURRECT_PENALTY_SKILL = 10350;
+inline const char* const NO_RESURRECT_PENALTY_XML =
+	R"(<skill_template skill_id="10350" name="Administrator's Boon" nameId="770429" stack="CASH_ITEM_START_KIT" lvl="1" skilltype="MAGICAL")"
+	R"( skillsubtype="BUFF" tslot="BOOST" dispel_category="NEVER" activation="ACTIVE" cooldown="0" duration="0" noremoveatdie="true"><effects>)"
+	R"(<noresurrectpenalty duration2="3600000" effectid="2103501" e="1" basiclvl="1" noresist="true"/></effects></skill_template>)";
+
+/**
+ * PlayerReviveService.revive (PlayerReviveService.java:189-213): `isNoResurrectPenalty = hasAbnormalEffect(Effect::isNoResurrectPenalty)`
+ * revives to 100 % HP and MP whatever the caller asked for, and skips the soul sickness even when setSoulSickness is true. M5b-1 had skipped
+ * the guard with a constant false. The boon is put on the character the way a relog restores it (PlayerEffectController.addSavedEffect: every
+ * template successful, so NoResurrectPenaltyEffect.calculate is not asked).
+ */
+TEST_F(OtherEffectsTest, AReviveUnderNoResurrectPenaltyIsFullAndBringsNoSoulSickness) {
+	EFFECT_TEST_SCOPE;
+	dataholders::DataManager::SKILL_DATA.resetForTests(); // SetUp published the lane's templates; the holder is immortal, only forgotten
+	publishSkillData(effectsMzSkills() + NO_RESURRECT_PENALTY_XML);
+	Ref<Player> revived = player(9131);
+	revived->getEffectController()->addSavedEffect(NO_RESURRECT_PENALTY_SKILL, 1, 3600000, 0, nullptr, nullptr);
+	ASSERT_TRUE(revived->getEffectController()->hasAbnormalEffect(NO_RESURRECT_PENALTY_SKILL));
+	const int32_t maxHp = revived->getLifeStats()->getMaxHp(), maxMp = revived->getLifeStats()->getMaxMp();
+	ASSERT_GT(maxHp * 25 / 100, 1);
+
+	// the duel/kisk shape (setSoulSickness false): the percentages the caller gave are replaced by 100
+	revived->getLifeStats()->setCurrentHp(1);
+	revived->getLifeStats()->setCurrentMp(1);
+	services::player::PlayerReviveService::revive(*revived, 25, 25, false, 0);
+	EXPECT_EQ(revived->getLifeStats()->getCurrentHp(), maxHp) << "isNoResurrectPenalty ? 100 : hpPercent (PlayerReviveService.java:196)";
+	EXPECT_EQ(revived->getLifeStats()->getCurrentMp(), maxMp) << "isNoResurrectPenalty ? 100 : mpPercent (PlayerReviveService.java:197)";
+
+	// the bind-point shape (setSoulSickness true): `!isNoResurrectPenalty && setSoulSickness` keeps updateSoulSickness from running, so the
+	// death count it would raise stays and no 8291 is cast
+	const int32_t deathCount = revived->getCommonData()->getDeathCount();
+	revived->getLifeStats()->setCurrentHp(1);
+	services::player::PlayerReviveService::revive(*revived, 25, 25, true, 0);
+	EXPECT_EQ(revived->getLifeStats()->getCurrentHp(), maxHp);
+	EXPECT_EQ(revived->getCommonData()->getDeathCount(), deathCount) << "updateSoulSickness was not called (PlayerReviveService.java:200-202)";
+	EXPECT_FALSE(revived->getEffectController()->hasAbnormalEffect(8291));
+	EXPECT_TRUE(revived->getEffectController()->hasAbnormalEffect(NO_RESURRECT_PENALTY_SKILL)) << "the revive does not consume the boon";
 }
 
 } // namespace

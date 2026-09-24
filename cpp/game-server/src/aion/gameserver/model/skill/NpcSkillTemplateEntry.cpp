@@ -45,11 +45,16 @@ using templates::npcskill::NpcSkillCondition;
 
 namespace {
 
-/**
- * Java: the private NpcSkillTemplateEntry.hasCarvedSignet(VisibleObject, SkillTemplate, int) (NpcSkillTemplateEntry.java:131-148). The header
- * does not declare Java's private helpers (its class comment), so the body is a file-local function; it reads nothing of the entry.
- */
-bool hasCarvedSignet(runtime::Ptr<gameobjects::VisibleObject> curTarget, const skillengine::model::SkillTemplate* skillTemp, int32_t signetLvl) {
+/** Java Math.toRadians(double) (JDK 9+: angdeg * DEGREES_TO_RADIANS) */
+constexpr double toRadians(double angdeg) noexcept {
+	return angdeg * 0.017453292519943295;
+}
+
+} // namespace
+
+/** Java: the private NpcSkillTemplateEntry.hasCarvedSignet(VisibleObject, SkillTemplate, int) (NpcSkillTemplateEntry.java:131-148) */
+bool NpcSkillTemplateEntry::hasCarvedSignet(runtime::Ptr<gameobjects::VisibleObject> curTarget, const skillengine::model::SkillTemplate* skillTemp,
+	int32_t signetLvl) const {
 	runtime::Ptr<gameobjects::Creature> target = runtime::as<gameobjects::Creature>(curTarget);
 	if (skillTemp != nullptr && target && !target->isDead() && !target->getLifeStats()->isAboutToDie()) {
 		const skillengine::effect::Effects* effects = skillTemp->getEffects();
@@ -68,18 +73,14 @@ bool hasCarvedSignet(runtime::Ptr<gameobjects::VisibleObject> curTarget, const s
 	return false;
 }
 
-/** Java Math.toRadians(double) (JDK 9+: angdeg * DEGREES_TO_RADIANS) */
-constexpr double toRadians(double angdeg) noexcept {
-	return angdeg * 0.017453292519943295;
-}
-
 /**
- * Java: the private NpcSkillTemplateEntry.spawnNpc(Npc, NpcSkillSpawn) (NpcSkillTemplateEntry.java:164-181), file-local like hasCarvedSignet.
- * The random draws come in Java's order per spawned npc: the count once, then per npc the angle and (with a max distance) the distance.
+ * Java: the private NpcSkillTemplateEntry.spawnNpc(Npc, NpcSkillSpawn) (NpcSkillTemplateEntry.java:164-181). The random draws come in Java's
+ * order per spawned npc: the count once, then per npc the angle and (with a max distance) the distance.
  */
-void spawnNpc(gameobjects::Npc& npc, const templates::npcskill::NpcSkillSpawn& spawn) {
-	int32_t count = spawn.getMaxCount() > 1 ? commons::utils::Rnd::get(spawn.getMinCount(), spawn.getMaxCount()) : spawn.getMinCount();
-	for (int32_t i = 0; i < count; i++) {
+void NpcSkillTemplateEntry::spawnNpc(gameobjects::Npc& npc, const templates::npcskill::NpcSkillSpawn& spawn) const {
+	// Java: int count (RefCounted's member is named count in C++, hence the other name)
+	int32_t spawnCount = spawn.getMaxCount() > 1 ? commons::utils::Rnd::get(spawn.getMinCount(), spawn.getMaxCount()) : spawn.getMinCount();
+	for (int32_t i = 0; i < spawnCount; i++) {
 		float x1 = 0;
 		float y1 = 0;
 		if (spawn.getMinDistance() > 0) {
@@ -90,13 +91,13 @@ void spawnNpc(gameobjects::Npc& npc, const templates::npcskill::NpcSkillSpawn& s
 			x1 = static_cast<float>(std::cos(radian) * distance);
 			y1 = static_cast<float>(std::sin(radian) * distance);
 		}
-		runtime::Ref<templates::spawns::SpawnTemplate> template_ = spawnengine::SpawnEngine::newSingleTimeSpawn(npc.getWorldId(), spawn.getNpcId(),
-			npc.getX() + x1, npc.getY() + y1, npc.getZ(), npc.getHeading(), runtime::Ptr<gameobjects::VisibleObject>(npc), std::nullopt);
-		spawnengine::SpawnEngine::spawnObject(*template_, npc.getInstanceId());
+		// Java: SpawnTemplate template = ... (a local named like the member template_ in C++, hence the other name)
+		runtime::Ref<templates::spawns::SpawnTemplate> spawnTemplate = spawnengine::SpawnEngine::newSingleTimeSpawn(npc.getWorldId(),
+			spawn.getNpcId(), npc.getX() + x1, npc.getY() + y1, npc.getZ(), npc.getHeading(), runtime::Ptr<gameobjects::VisibleObject>(npc),
+			std::nullopt);
+		spawnengine::SpawnEngine::spawnObject(*spawnTemplate, npc.getInstanceId());
 	}
 }
-
-} // namespace
 
 NpcSkillTemplateEntry::NpcSkillTemplateEntry(const templates::npcskill::NpcSkillTemplate& templateValue)
 	: NpcSkillEntry(templateValue.getSkillId(), templateValue.getSkillLevel()), template_(&templateValue) {
@@ -286,7 +287,7 @@ void NpcSkillTemplateEntry::fireOnEndCastEvents(gameobjects::Npc& npc) {
 		// the immortal template is captured by reference and pinned (a template pin retains nothing, lint L5)
 		const templates::npcskill::NpcSkillSpawn& spawnTemplate = *spawn;
 		utils::ThreadPoolManager::getInstance().schedule(runtime::Pin{this, &npc, &spawnTemplate}, [this, &npc, &spawnTemplate] {
-			static_cast<void>(this); // Java: the lambda of an instance method captures the entry (fieldmap pin {this})
+			// Java: the lambda of an instance method captures the entry (fieldmap pin {this}) and calls the private spawnNpc on it
 			if (!npc.isDead() && !npc.getLifeStats()->isAboutToDie())
 				spawnNpc(npc, spawnTemplate);
 		}, spawn->getDelay());

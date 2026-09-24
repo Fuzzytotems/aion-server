@@ -20,7 +20,8 @@ if(TARGET aion_gs_scenario_tests)
 	# registration, D14 the critical proc - that the M5a scripted path must still not reach, so the two lists have to be able to disagree.
 	target_compile_definitions(aion_gs_scenario_tests PRIVATE AION_SCENARIO_ORACLE_SCRIPT="${CMAKE_SOURCE_DIR}/tools/oracle/oracle.py"
 		AION_SCENARIO_PARTIAL_ALLOWLIST="${CMAKE_CURRENT_SOURCE_DIR}/tests/scenario/m5a_partial_allowlist.txt"
-		AION_SCENARIO_M5B_PARTIAL_ALLOWLIST="${CMAKE_CURRENT_SOURCE_DIR}/tests/scenario/m5b_partial_allowlist.txt")
+		AION_SCENARIO_M5B_PARTIAL_ALLOWLIST="${CMAKE_CURRENT_SOURCE_DIR}/tests/scenario/m5b_partial_allowlist.txt"
+		AION_SCENARIO_M5B2_PARTIAL_ALLOWLIST="${CMAKE_CURRENT_SOURCE_DIR}/tests/scenario/m5b2_partial_allowlist.txt")
 
 	# the oracle answers are JSON (Oracle.cpp); commons finds the same package in its own directory scope
 	find_package(nlohmann_json CONFIG REQUIRED)
@@ -46,6 +47,9 @@ if(TARGET aion_gs_scenario_tests)
 		LABELS "scenario;realdata")
 	# the same for the M5b-1 gates (m5b-plan.md §6.5): M5bScenario.Run and M5bScenarioGeo.Run each own one pair of server processes
 	aion_set_discovered_test_properties(aion_gs_scenario_tests REGEX "^M5bScenario(Geo)?\\." PROPERTIES DISABLED TRUE
+		LABELS "scenario;realdata")
+	# and for the M5b-2 gates (m5b2-plan.md G-03/G-04)
+	aion_set_discovered_test_properties(aion_gs_scenario_tests REGEX "^M5b2Scenario(Geo)?\\." PROPERTIES DISABLED TRUE
 		LABELS "scenario;realdata")
 
 	# F-06: the M5a gate (§5.10). The oracle needs a Python interpreter; without it the test prints "gs.scenario.m5a: skipped".
@@ -125,5 +129,39 @@ if(TARGET aion_gs_scenario_tests)
 	endif()
 	if(AION_SCENARIO_REQUIRE OR NOT AION_GS_ALLOW_MILESTONE_SKIP)
 		set_property(TEST gs.scenario.m5b_geo APPEND PROPERTY ENVIRONMENT_MODIFICATION "AION_SCENARIO_REQUIRE=set:1")
+	endif()
+
+	# ---- the M5b-2 gate (m5b2-plan.md G-03/G-04, §10) ------------------------------------------------------------------------------------
+	#
+	# gs.scenario.m5b2: the abilities of §10.2 - an Elyos Warrior and an Elyos Mage on one account, the instant chain skill and its cooldown, an
+	# npc's skill cast at the Warrior (X9), the cast bar with its MP cost and its interruption, a 20-second debuff on a monster, a two-template
+	# self-buff, a heal, the enter-world passives,
+	# the revive debuff and the saved effect and cooldown of a quit - in the same binary, with its own output directory <bin>/scenario/m5b2, its
+	# own schema pair (aion_gs_test_m5b2_<hash>) and its own AION_PARTIAL allow-list, under the SAME RESOURCE_LOCK as the four gates above.
+	# TIMEOUT 900 like gs.scenario.m5b: the run is budgeted at three to four minutes, of which the Root's lifetime and the cooldowns are a
+	# minute of deliberate waiting.
+	add_test(NAME gs.scenario.m5b2 COMMAND "$<TARGET_FILE:aion_gs_scenario_tests>" --gtest_filter=M5b2Scenario.Run
+		WORKING_DIRECTORY "${scenario_work_dir}")
+	set_tests_properties(gs.scenario.m5b2 PROPERTIES LABELS "scenario;realdata" TIMEOUT 900
+		RESOURCE_LOCK "aion_game_server_log;aion_login_server_log" SKIP_REGULAR_EXPRESSION "gs\\.scenario\\.m5b2: skipped")
+	if(Python3_Interpreter_FOUND)
+		set_property(TEST gs.scenario.m5b2 APPEND PROPERTY ENVIRONMENT_MODIFICATION "AION_TEST_PYTHON=set:${Python3_EXECUTABLE}")
+	endif()
+	if(AION_SCENARIO_REQUIRE OR NOT AION_GS_ALLOW_MILESTONE_SKIP)
+		set_property(TEST gs.scenario.m5b2 APPEND PROPERTY ENVIRONMENT_MODIFICATION "AION_SCENARIO_REQUIRE=set:1")
+	endif()
+
+	# gs.scenario.m5b2_geo (G-04): the same script with -Dgameserver.geodata.enable=true. The one geo check on the cast path of these skills is
+	# FirstTargetRangeProperty's GeoService.canSee at the cast start and end, which this run exercises for targets in the open (see the comment
+	# above TEST(M5b2ScenarioGeo, Run) for what it cannot assert and why). TIMEOUT 2700 for the geo startup, as the other geo gates.
+	add_test(NAME gs.scenario.m5b2_geo COMMAND "$<TARGET_FILE:aion_gs_scenario_tests>" --gtest_filter=M5b2ScenarioGeo.Run
+		WORKING_DIRECTORY "${scenario_work_dir}")
+	set_tests_properties(gs.scenario.m5b2_geo PROPERTIES LABELS "scenario;realdata;geo" TIMEOUT 2700
+		RESOURCE_LOCK "aion_game_server_log;aion_login_server_log" SKIP_REGULAR_EXPRESSION "gs\\.scenario\\.m5b2_geo: skipped")
+	if(Python3_Interpreter_FOUND)
+		set_property(TEST gs.scenario.m5b2_geo APPEND PROPERTY ENVIRONMENT_MODIFICATION "AION_TEST_PYTHON=set:${Python3_EXECUTABLE}")
+	endif()
+	if(AION_SCENARIO_REQUIRE OR NOT AION_GS_ALLOW_MILESTONE_SKIP)
+		set_property(TEST gs.scenario.m5b2_geo APPEND PROPERTY ENVIRONMENT_MODIFICATION "AION_SCENARIO_REQUIRE=set:1")
 	endif()
 endif()

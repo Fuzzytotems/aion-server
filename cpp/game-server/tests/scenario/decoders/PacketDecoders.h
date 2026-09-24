@@ -515,6 +515,28 @@ int32_t decodeSystemMessageId(std::span<const uint8_t> body);
  */
 int32_t decodeMoveObjectId(std::span<const uint8_t> body);
 
+/** MovementMask (controllers/movement/MovementMask.java), the bits decodeNpcMove reads */
+constexpr uint8_t MOVEMENT_MASK_IMMEDIATE = 0x00;
+constexpr uint8_t MOVEMENT_MASK_GLIDE = 0x04;
+constexpr uint8_t MOVEMENT_MASK_MANUAL = 0x40;
+constexpr uint8_t MOVEMENT_MASK_POSITION = 0x80;
+
+/**
+ * SM_MOVE of a creature whose move controller is not a PlayableMoveController - an npc (SM_MOVE.java:35-66): the vector arm is never taken,
+ * the glide flag is 0 (`pmc == null`) and the vehicle arm is skipped, so unlike decodeMoveObjectId this consumes the body exactly. Moved here
+ * from M5b2ScenarioTest.cpp (its X6 reads the movement mask of a rooted monster's moves) by the M5b-2 stage-2 join.
+ */
+struct NpcMove {
+	int32_t objectId = 0;
+	float x = 0, y = 0, z = 0;
+	uint8_t heading = 0;
+	uint8_t movementMask = 0;
+	/** POSITION | MANUAL: the move controller's target (getTargetX2/Y2/Z2) */
+	std::optional<std::array<float, 3>> target;
+};
+
+NpcMove decodeNpcMove(std::span<const uint8_t> body);
+
 /** The fields SM_EMOTION writes before its per-emotion switch (SM_EMOTION.java:94-97), plus the CHANGE_SPEED arm's own two */
 struct EmotionHeader {
 	int32_t objectId = 0;

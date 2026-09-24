@@ -5,7 +5,8 @@
 // - the AION_AI markers: aion_gs_regscan turns each into a `Class##_aiFactory` function of the registry's type, and AIEngine::newAI's owner-type
 //   check is that factory returning null (HandlerRegistry.h createAI). The test declares the three factories and calls them, which is the only
 //   way to reach them from an executable that links the *empty* registry table (AionChunks.cmake: a handler target's tests do).
-// - GeneralNpcAI::canHandleEvent's CREATURE_NEEDS_SUPPORT arm and chooseAttackIntention's three answers, including the AION_PARTIAL of D4.
+// - GeneralNpcAI::canHandleEvent's CREATURE_NEEDS_SUPPORT arm and chooseAttackIntention's FINISH_ATTACK and SIMPLE_ATTACK answers (the
+//   SKILL_ATTACK answer, closed in M5b-2, is NpcSkillAttackTest's).
 // - the aggro chain of an AggressiveNpcAI end to end: handleCreatureSee -> CreatureEventHandler -> CREATURE_AGGRO -> AggroEventHandler's 500 ms
 //   AggroNotifier -> AggroList::addHate -> NpcController::onAddHate -> the ATTACK event -> AttackEventHandler -> AIState::FIGHT and a scheduled
 //   attack. The scheduled attack is asserted as *scheduled*: running it reaches CreatureController::attackTarget, whose
@@ -156,7 +157,7 @@ TEST_F(RootAiHandlersTest, ChooseAttackIntentionFinishesWithoutAHatedTarget) {
 	EXPECT_EQ(ai.chooseAttackIntention(), AttackIntention::FINISH_ATTACK);
 }
 
-TEST_F(RootAiHandlersTest, ChooseAttackIntentionAnswersSimpleAttackWhileTheSkillEngineIsMissing) {
+TEST_F(RootAiHandlersTest, ChooseAttackIntentionAnswersSimpleAttackForAnNpcWithoutSkills) {
 	AI_TEST_SCOPE;
 	runtime::Ref<Npc> npc = makeWorldNpc(SPARKIE_NPC_ID, 500, 500, 100);
 	runtime::Ref<Npc> target = makeWorldNpc(GUARD_NPC_ID, 503, 500, 100);
@@ -168,7 +169,8 @@ TEST_F(RootAiHandlersTest, ChooseAttackIntentionAnswersSimpleAttackWhileTheSkill
 	npc->setTarget(runtime::Ptr<model::gameobjects::VisibleObject>(*target));
 	ASSERT_TRUE(npc->getAggroList().isHating(*target));
 
-	// chooseSkillAttack is the AION_PARTIAL of m5b-plan.md D4 and answers false, so every npc attack is a simple melee attack in M5b-1
+	// 210663 owns no npc_skills row (m5b2-plan.md §2.4 (b)), so SkillAttackManager::chooseNextSkill finds an empty skill list and the attack is
+	// a simple melee attack; the npcs that own skills are NpcSkillAttackTest's
 	EXPECT_EQ(ai.chooseAttackIntention(), AttackIntention::SIMPLE_ATTACK);
 }
 

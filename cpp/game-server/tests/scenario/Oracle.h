@@ -37,6 +37,20 @@ struct OracleCreation {
 	std::vector<OracleItem> items;
 	std::vector<OracleSkill> skills;
 	int32_t baseMaxHp = 0, baseMaxMp = 0;
+	/**
+	 * What SM_STATS_INFO writes as [base main hand attack] / [current main hand attack] with the enter-world passives applied
+	 * (tools/oracle/m5a/creation.py stats_info_main_hand_p_attack, m5b2-plan.md §10.3 X1). std::nullopt where the oracle refuses to model it,
+	 * with the reason in statsInfoNotModelled - never a 0, because a magical main hand legitimately answers 0 and 0.
+	 */
+	std::optional<int32_t> mainHandPAttackBase, mainHandPAttackCurrent;
+	/**
+	 * The CURRENT max HP and MP SM_STATS_INFO writes beside the base ones: the base plus the float bonus of the equipped items' bonus modifiers
+	 * (creation.py stats_info_current_max) - the Mage's robe adds 47 MP. The bonus is what a later bonus function (the soul sickness, X10)
+	 * adds to. std::nullopt where the oracle refuses to model it.
+	 */
+	std::optional<int32_t> maxHpCurrent, maxMpCurrent;
+	std::optional<float> maxHpBonus, maxMpBonus;
+	std::vector<std::string> statsInfoNotModelled;
 
 	/** the items without the kinah row, i.e. what the `inventory` table holds besides kinah */
 	std::vector<OracleItem> equippedItems() const;
@@ -149,6 +163,12 @@ struct OracleMonster {
 	int32_t playerAttackSpeed = 0;
 };
 
+/** One <change> of an effect template (BufEffect.getModifiers turns it into a stat function): stat, func (ADD, PERCENT, REPLACE) and value */
+struct OracleStatChange {
+	std::string stat, func;
+	int32_t value = 0;
+};
+
 /** One effect template of an m5b2-skills entry, in the document order of <effects> */
 struct OracleSkillEffect {
 	/** the XML tag, e.g. "root" */
@@ -159,6 +179,8 @@ struct OracleSkillEffect {
 	/** the `e` attribute */
 	int32_t position = 0;
 	int32_t duration1 = 0, duration2 = 0, randomTime = 0;
+	/** the <change> children, in document order (the soul sickness's MAXHP -30 PERCENT is what X10 derives the sickened max HP from) */
+	std::vector<OracleStatChange> changes;
 };
 
 /** SkillTargetSlot of a skill template (tools/oracle/m5b2/skills.py) */
@@ -190,6 +212,8 @@ struct OracleSkillTemplate {
 	std::optional<int32_t> castDuration;
 	std::optional<float> castSpeed;
 	bool allowAnimationBoost = false;
+	/** SkillTemplate.getCooldownId(): the key of Player.skillCoolDowns and of the `player_cooldowns` table */
+	int32_t cooldownId = 0;
 	/** what SM_CASTSPELL_RESULT writes, in units of 100 ms */
 	int32_t cooldown = 0;
 	/** what SM_SKILL_COOLDOWN writes as the duration */

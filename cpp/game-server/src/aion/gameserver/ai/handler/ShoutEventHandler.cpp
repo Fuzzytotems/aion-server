@@ -153,7 +153,8 @@ void ShoutEventHandler::onEnemyAttack(NpcAI& npcAI, Creature& attacker) {
 	}
 }
 
-void ShoutEventHandler::onCast(NpcAI& npcAI, Creature& firstTarget) {
+void ShoutEventHandler::onCast(NpcAI& npcAI, runtime::Ptr<Creature> firstTarget) {
+	// Java: firstTarget instanceof Player - false for a null first target (header request m5b2-p2-8)
 	if (runtime::Ptr<Player> player = runtime::as<Player>(firstTarget); player && npcAI.ask(poll::AIQuestion::CAN_SHOUT))
 		handleNumericEvent(npcAI, *player, ShoutEventType::CAST_K);
 }

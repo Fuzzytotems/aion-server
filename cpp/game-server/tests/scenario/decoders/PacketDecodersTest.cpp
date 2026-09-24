@@ -694,6 +694,50 @@ TEST(PacketDecodersTest, PrefixDecoders) {
 	EXPECT_THROW(decodeSystemMessageId(tooShort.data), DecodeError);
 }
 
+/**
+ * SM_MOVE.java:34-68 for a creature without a PlayableMoveController (an npc), the full decoder the M5b-2 gate's X6 reads: the three masks an
+ * npc sends there, each consumed exactly, and the two bodies an npc cannot send.
+ */
+TEST(PacketDecodersTest, NpcMoveConsumesTheBodyOfAnNpcExactly) {
+	// NPC_STARTMOVE 0xE0 = POSITION | MANUAL | ABSOLUTE: the move controller's getTargetX2/Y2/Z2 follow the mask (:45-55, the pmc == null arm)
+	PacketWriter start;
+	start.D(0x00A13003).F(1162.81f).F(1173.61f).F(133.4f).C(17).C(0xE0).F(1160.5f).F(1170.25f).F(133.0f);
+	EXPECT_EQ(start.data.size(), 30u);
+	const NpcMove started = decodeNpcMove(start.data);
+	EXPECT_EQ(started.objectId, 0x00A13003);
+	EXPECT_FLOAT_EQ(started.x, 1162.81f);
+	EXPECT_FLOAT_EQ(started.y, 1173.61f);
+	EXPECT_FLOAT_EQ(started.z, 133.4f);
+	EXPECT_EQ(started.heading, 17);
+	EXPECT_EQ(started.movementMask, 0xE0);
+	ASSERT_TRUE(started.target);
+	EXPECT_FLOAT_EQ((*started.target)[0], 1160.5f);
+	EXPECT_FLOAT_EQ((*started.target)[1], 1170.25f);
+	EXPECT_FLOAT_EQ((*started.target)[2], 133.0f);
+
+	// IMMEDIATE, the stop NpcMoveController.moveToDestination answers a refused canPerformMove with: nothing after the mask
+	PacketWriter stop;
+	stop.D(0x00A13003).F(1162.81f).F(1173.61f).F(133.4f).C(17).C(MOVEMENT_MASK_IMMEDIATE);
+	EXPECT_EQ(stop.data.size(), 18u);
+	const NpcMove stopped = decodeNpcMove(stop.data);
+	EXPECT_EQ(stopped.movementMask, MOVEMENT_MASK_IMMEDIATE);
+	EXPECT_FALSE(stopped.target);
+
+	// GLIDE: `pmc == null ? 0 : pmc.glideFlag` (:56-61), so an npc's glide flag is 0 and a non-zero one is a player's
+	PacketWriter glide;
+	glide.D(0x00A13004).F(0).F(0).F(0).C(0).C(MOVEMENT_MASK_GLIDE).C(0);
+	EXPECT_EQ(glide.data.size(), 19u);
+	EXPECT_FALSE(decodeNpcMove(glide.data).target);
+	PacketWriter playerGlide;
+	playerGlide.D(0x00A13004).F(0).F(0).F(0).C(0).C(MOVEMENT_MASK_GLIDE).C(1);
+	EXPECT_THROW(decodeNpcMove(playerGlide.data), DecodeError);
+
+	// POSITION without MANUAL writes no target (the condition is both bits), so three floats after such a mask are not an npc's move
+	PacketWriter positionOnly;
+	positionOnly.D(0x00A13004).F(0).F(0).F(0).C(0).C(MOVEMENT_MASK_POSITION).F(1.0f).F(2.0f).F(3.0f);
+	EXPECT_THROW(decodeNpcMove(positionOnly.data), DecodeError);
+}
+
 /** SM_MOVE.java:37-42 and SM_EMOTION.java:94-97, the two packets the npc half of §5.9 reads (m5b-plan.md G-05) */
 TEST(PacketDecodersTest, MoveAndEmotionPrefixes) {
 	PacketWriter walkerMove;

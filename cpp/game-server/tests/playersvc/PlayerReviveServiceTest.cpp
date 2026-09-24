@@ -124,10 +124,11 @@ TEST_F(ReviveTest, ReviveSetsTheHpAndMpPercentagesItWasGiven) {
 	EXPECT_EQ(actor.player->getLifeStats()->getCurrentHp(), static_cast<int32_t>(static_cast<int64_t>(maxHp()) * 30 / 100));
 	EXPECT_EQ(actor.player->getLifeStats()->getCurrentMp(), static_cast<int32_t>(static_cast<int64_t>(maxMp()) * 30 / 100));
 	EXPECT_FALSE(actor.player->isDead());
-	// the isNoResurrectPenalty branch is the one M5b-1 skips (docs/deviations/P5-08.md): it must not reach the unported
-	// EffectController::hasAbnormalEffect, and it must not raise the percentages to 100
-	EXPECT_EQ(runtime::unportedHitCount(), 0u) << "revive must not consult the effect controller at M5b-1";
-	EXPECT_NE(actor.player->getLifeStats()->getCurrentHp(), maxHp()) << "the skipped guard answers false, not true";
+	// the isNoResurrectPenalty guard (PlayerReviveService.java:194), skipped at M5b-1 and ported in M5b-2 (docs/deviations/P5-08.md): the
+	// effect controller answers through the ported hasAbnormalEffect(predicate), and a character without a NoResurrectPenaltyEffect keeps the
+	// percentages it was given. The character with one is effects_mz OtherEffectsTest.AReviveUnderNoResurrectPenaltyIsFullAndBringsNoSoulSickness
+	EXPECT_EQ(runtime::unportedHitCount(), 0u) << "the guard reaches no unported body";
+	EXPECT_NE(actor.player->getLifeStats()->getCurrentHp(), maxHp()) << "no NoResurrectPenaltyEffect: the guard answers false, not true";
 }
 
 TEST_F(ReviveTest, ReviveClearsTheResurrectionSkillAndTheResFlag) {

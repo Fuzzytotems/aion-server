@@ -29,21 +29,19 @@ gameserver.network.client.connect_address = 127.0.0.1:7777
 
 # --- what M5b-1 adds -----------------------------------------------------------------------------------------------------------------------
 
-# REQUIRED at M5b-1: soul sickness off for every account.
+# Soul sickness ON, the retail default, stated explicitly (cpp/docs/design/m5b2-plan.md D5 and §10.6).
 #
 # gameserver.soulsickness.disable is the minimum membership level that is EXEMPT from soul sickness (MembershipConfig.java:37-38,
 # @Property defaultValue = "10"), and Player.hasPermission(perm) is `playerAccount.getMembership() >= perm` (Player.java:1275-1277).
-# A normal account has membership 0, so the retail default of 10 exempts nobody. Setting it to 0 exempts everybody.
+# A normal account has membership 0, so the default of 10 exempts nobody and 0 exempts everybody.
 #
-# Which case depends on it: the death-and-revive case. PlayerReviveService.bindRevive revives a character that is not in EVENT_MODE with
-# setSoulSickness = true (PlayerReviveService.java:104-108), which reaches PlayerController.updateSoulSickness ->
-# SkillEngine.getInstance().getSkill(player, 8291, deathCount, player).useSkill() (PlayerController.java:723-733). SkillEngine::getSkill is
-# AION_UNPORTED until M5b-2, and it throws: the whole revive dies with it and the character stays a corpse. The permission check is the guard
-# Java itself puts in front of that call (PlayerController.java:723), so skipping the skill this way is Java behaviour, not a C++ deviation -
-# a premium account on a retail server takes the same branch.
-#
-# Remove this line when M5b-2 ports the skill engine; the gate's allow-list is what will notice.
-gameserver.soulsickness.disable = 0
+# M5b-1 shipped this line as 0: SkillEngine::getSkill was AION_UNPORTED, and PlayerReviveService.bindRevive -> revive(..., setSoulSickness =
+# true, ...) -> PlayerController.updateSoulSickness -> SkillEngine.getInstance().getSkill(player, 8291, deathCount, player).useSkill()
+# (PlayerReviveService.java:104-108, PlayerController.java:712-733) would have thrown and left the character a corpse. M5b-2 ported the skill
+# engine, so a bind-point revive now casts Soul Sickness 8291 as on retail. The value is written out rather than left to the default because a
+# config/mygs.properties copied from the M5b-1 version of this file still carries the 0, and that one line hid the soul sickness from the
+# first gs.scenario.m5b2 run. The scenario gates pass the same 10 as a -D argument.
+gameserver.soulsickness.disable = 10
 
 # the shout service is 6 unported bodies (P5-14) and an aggroing monster is what would reach it. false is already the default
 # (AIConfig.cpp:14); M5b-1 writes it out so that a local mygs.properties cannot turn it on by accident (m5b-plan.md D1).

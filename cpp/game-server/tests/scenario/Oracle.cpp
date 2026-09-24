@@ -6,6 +6,7 @@
 #include <sstream>
 #include <stdexcept>
 #include <string_view>
+#include <tuple>
 
 #include <nlohmann/json.hpp>
 
@@ -115,6 +116,7 @@ OracleSkillTemplate readSkillTemplate(const json& node) {
 	skill.castDuration = readOptional<int32_t>(node, "castDuration");
 	skill.castSpeed = readOptional<float>(node, "castSpeed");
 	skill.allowAnimationBoost = node.value("allowAnimationBoost", false);
+	skill.cooldownId = node.value("cooldownId", 0);
 	skill.cooldown = node.value("cooldown", 0);
 	skill.cooldownMillis = node.value("cooldownMillis", 0);
 	skill.mpCost = readOptional<int32_t>(node, "mpCost");
@@ -128,6 +130,16 @@ OracleSkillTemplate readSkillTemplate(const json& node) {
 		effect.duration1 = effectNode.value("duration1", 0);
 		effect.duration2 = effectNode.value("duration2", 0);
 		effect.randomTime = effectNode.value("randomTime", 0);
+		if (const auto changes = effectNode.find("changes"); changes != effectNode.end())
+			for (const json& changeNode : *changes) {
+				// the oracle writes the <change> attributes as the XML has them, i.e. value as a string
+				OracleStatChange change;
+				change.stat = changeNode.at("stat").get<std::string>();
+				change.func = changeNode.at("func").get<std::string>();
+				const json& value = changeNode.at("value");
+				change.value = value.is_string() ? std::stoi(value.get<std::string>()) : value.get<int32_t>();
+				effect.changes.push_back(std::move(change));
+			}
 		skill.effects.push_back(std::move(effect));
 	}
 	skill.effectDuration = readOptional<int32_t>(node, "effectDuration");
@@ -321,6 +333,26 @@ OracleCreation Oracle::creation(std::string_view race, std::string_view playerCl
 	}
 	creation.baseMaxHp = answer.at("baseStats").at("maxHp").get<int32_t>();
 	creation.baseMaxMp = answer.at("baseStats").at("maxMp").get<int32_t>();
+	// m5b2-plan.md X1: null where the oracle refuses to model the value, with the reason in notModelled - never read as a 0
+	if (const auto statsInfo = answer.find("statsInfo"); statsInfo != answer.end()) {
+		const json& attack = statsInfo->at("mainHandPAttack");
+		if (!attack.is_null()) {
+			creation.mainHandPAttackBase = attack.at("base").get<int32_t>();
+			creation.mainHandPAttackCurrent = attack.at("current").get<int32_t>();
+		}
+		for (const auto& [key, current, bonus] : {std::tuple{"maxHp", &creation.maxHpCurrent, &creation.maxHpBonus},
+				 std::tuple{"maxMp", &creation.maxMpCurrent, &creation.maxMpBonus}}) {
+			const auto node = statsInfo->find(key);
+			if (node == statsInfo->end() || node->is_null())
+				continue;
+			*current = node->at("current").get<int32_t>();
+			*bonus = node->at("bonus").get<float>();
+		}
+		for (const json& reason : statsInfo->at("notModelled"))
+			creation.statsInfoNotModelled.push_back(reason.get<std::string>());
+	} else {
+		creation.statsInfoNotModelled.push_back("the oracle wrote no statsInfo");
+	}
 	return creation;
 }
 

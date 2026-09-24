@@ -1,0 +1,55 @@
+# M5b-2 profile of the C++ game server (cpp/docs/design/m5b2-plan.md §7 and §10.1). Copy these lines into config/mygs.properties to play with a
+# real 4.8 client at milestone M5b-2 (abilities: the starting classes' skills, their cast bars and cooldowns, buffs and debuffs with lifetimes,
+# heals, the soul sickness after a bind-point revive, effects that survive a relog). The scenario gates (gs.scenario.m5b2, gs.scenario.m5b2_geo)
+# pass the same keys as -D arguments.
+#
+# It is the M5b-1 profile (m5b.properties.example) with one change, decision D5: the soul sickness is on. Keep the files in sync: M5b-2 adds to
+# M5b-1 and M5a, it replaces nothing else.
+#
+# Not read by the servers: only config/mygs.properties is loaded.
+
+# --- the M5a profile, unchanged ------------------------------------------------------------------------------------------------------------
+
+# C++ only: NPCs whose AI handler is not ported yet get a dummy AI with a warning instead of failing the spawn (fail = default)
+gameserver.dev.missing_ai_handlers = warn
+
+# systems whose services are not part of M5a
+gameserver.siege.enable = false
+gameserver.autogroup.enable = false
+gameserver.rift.enable = false
+gameserver.vortex.enable = false
+gameserver.worldraid.enable = false
+gameserver.cp.enable = false
+gameserver.limits.enable = false
+# every event off, including the date-less "Beyond Aion Server Buffs" of custom_events.xml
+gameserver.event.service.disabled_events = *
+
+# the address the login server lists for this game server (the default 0.0.0.0 is not reachable by the client)
+gameserver.network.client.connect_address = 127.0.0.1:7777
+
+# --- the M5b-1 profile, unchanged --------------------------------------------------------------------------------------------------------
+
+# the shout service is 6 unported bodies (P5-14) and an aggroing monster is what would reach it. false is already the default
+# (AIConfig.cpp:14); it is written out so that a local mygs.properties cannot turn it on by accident (m5b-plan.md D1).
+gameserver.npcshouts.enable = false
+
+# the solo experience rates the M5b gate's exp assertion is derived against (m5b-plan.md D7/§6.3 R1); "1.0, 2.0" is the default
+# (RatesConfig.java:30)
+gameserver.rates.xp.solo = 1.0, 2.0
+
+# --- what M5b-2 changes (D5) ---------------------------------------------------------------------------------------------------------------
+
+# Soul sickness ON: the retail default, written out.
+#
+# gameserver.soulsickness.disable is the minimum membership level that is EXEMPT from soul sickness (MembershipConfig.java:37-38,
+# @Property defaultValue = "10"), and Player.hasPermission(perm) is `playerAccount.getMembership() >= perm` (Player.java:1275-1277), so 10
+# exempts no normal account (membership 0). A bind-point revive then casts Soul Sickness 8291 (PlayerReviveService.java:104-108 and 189-213,
+# PlayerController.java:712-733): the character comes back with 25 % of its HP and MP, its maximum HP and MP 30 % lower, and the debuff for
+# 40 s + 20 s per death. M5b-1 had to set 0 here because the skill engine was not ported; a config/mygs.properties that still carries that 0
+# hides the soul sickness, which is exactly what the first gs.scenario.m5b2 run measured. Write 10, not nothing.
+gameserver.soulsickness.disable = 10
+
+# Only in the scenario gates, not for play (geo data stays on with the real client; gs.scenario.m5b2_geo turns it on):
+# gameserver.geodata.enable = false
+# gameserver.character.reentry.time = 1
+# gameserver.shutdown.delay = 2

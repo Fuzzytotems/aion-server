@@ -175,6 +175,23 @@ TEST_F(SkillCastPhasesTest, CancellingACastDetachesItsObserversAtOnce) {
 	EXPECT_EQ(executor->pendingTaskCount(), 1u) << "the end task is still pending";
 }
 
+TEST_F(SkillCastPhasesTest, ACompletedCastDetachesItsMoveListener) {
+	// Skill.endCast's first statement is removeObservers() (Skill.java:557) on the path that goes on to the result too: the caster's first move
+	// after a completed cast no longer reaches the StartMovingListener useSkill attached (Skill.java:299). This is the check m5b2-plan.md G-07's
+	// `live StartMovingListener == live Skill` row cannot make: the listener is attached for one notification (ObserveController.java:31-34),
+	// so one that removeObservers forgot is dropped at the caster's next move and never shows up as a live count at the shutdown
+	Ref<CastTestNpc> npc = spawnMonster(110.0f, 100.0f, 50.0f);
+	Ref<model::Skill> cast = skill(FLAME_BOLT_SKILL, npc);
+	ASSERT_TRUE(cast->useSkill());
+	advance(2000ms);
+	ASSERT_EQ(packetsOf<SM_CASTSPELL_RESULT>(sent()).size(), 1u) << "the cast completed";
+	EXPECT_FALSE(caster.player->isCasting());
+	EXPECT_FALSE(cast->getMoveListener()->isEffectorMoved()) << "nothing moved during the cast";
+
+	caster.player->getObserveController()->notifyMoveObservers();
+	EXPECT_FALSE(cast->getMoveListener()->isEffectorMoved()) << "endCast's removeObservers took the move listener out of the caster's controller";
+}
+
 TEST_F(SkillCastPhasesTest, MovingDuringACastWithMoveCastingDisallowedCancelsItWhenItEnds) {
 	// Skill.useSkill attaches the StartMovingListener to the caster (Skill.java:299); a move of the caster reaches it through the observe
 	// controller (here the real PlayerMoveController.updateFalling, PlayerMoveController.java:70-80), and 1282's
