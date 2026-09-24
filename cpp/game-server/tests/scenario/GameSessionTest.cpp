@@ -6,6 +6,7 @@
 
 #include <bit>
 #include <cstdint>
+#include <initializer_list>
 #include <regex>
 #include <stdexcept>
 #include <string>
@@ -208,6 +209,82 @@ TEST(GameSessionTest, CastBodies) {
 	EXPECT_EQ(GameSession::buildCM_REMOVE_ALTERED_STATE(3573, 0, 1), (std::vector<uint8_t>{0xF5, 0x0D, 0x00, 0x01}));
 }
 
+// m5b3-plan.md G-02: the nine client packets of loot and items, read back in the order of their Java readImpl
+TEST(GameSessionTest, LootAndItemBodies) {
+	// the opcodes, AionClientPacketFactory.java:65, 66, 102, 144, 182-185, 206
+	EXPECT_EQ(GameSession::CM_USE_ITEM, 37);
+	EXPECT_EQ(GameSession::CM_EQUIP_ITEM, 38);
+	EXPECT_EQ(GameSession::CM_MANASTONE, 74);
+	EXPECT_EQ(GameSession::CM_DELETE_ITEM, 116);
+	EXPECT_EQ(GameSession::CM_START_LOOT, 154);
+	EXPECT_EQ(GameSession::CM_LOOT_ITEM, 155);
+	EXPECT_EQ(GameSession::CM_MOVE_ITEM, 156);
+	EXPECT_EQ(GameSession::CM_SPLIT_ITEM, 157);
+	EXPECT_EQ(GameSession::CM_REPLACE_ITEM, 178);
+
+	// CM_START_LOOT: readD targetObjectId, readC action; CM_LOOT_ITEM: readD targetObjectId, readUC index
+	EXPECT_EQ(GameSession::buildCM_START_LOOT(0x0A0B0C0D), (std::vector<uint8_t>{0x0D, 0x0C, 0x0B, 0x0A, 0x00})) << "action 0 opens";
+	EXPECT_EQ(GameSession::buildCM_START_LOOT(0x0A0B0C0D, GameSession::LOOT_CLOSE), (std::vector<uint8_t>{0x0D, 0x0C, 0x0B, 0x0A, 0x01}));
+	EXPECT_EQ(GameSession::buildCM_LOOT_ITEM(0x0A0B0C0D, 200), (std::vector<uint8_t>{0x0D, 0x0C, 0x0B, 0x0A, 0xC8}));
+
+	// CM_USE_ITEM: readD uniqueItemId, readC type, and an int only for types 2, 5 and 6
+	EXPECT_EQ(GameSession::buildCM_USE_ITEM(0x01020304), (std::vector<uint8_t>{0x04, 0x03, 0x02, 0x01, 0x00})) << "a potion: type 0, no arm";
+	for (const int8_t type : std::initializer_list<int8_t>{2, 5, 6}) {
+		PacketReader use(GameSession::buildCM_USE_ITEM(7, type, 0x11223344));
+		EXPECT_EQ(use.D(), 7);
+		EXPECT_EQ(use.C(), type);
+		EXPECT_EQ(use.D(), 0x11223344) << "type " << static_cast<int32_t>(type);
+		EXPECT_EQ(use.remaining(), 0u);
+	}
+	EXPECT_EQ(GameSession::buildCM_USE_ITEM(7, 3, 0x11223344).size(), 5u) << "type 3 has no arm, whatever `extra` says";
+
+	// CM_MOVE_ITEM: readD itemObjId, readC source, readC destination, readH slot
+	EXPECT_EQ(GameSession::buildCM_MOVE_ITEM(0x01020304, 0, 1, -1), (std::vector<uint8_t>{0x04, 0x03, 0x02, 0x01, 0x00, 0x01, 0xFF, 0xFF}));
+
+	// CM_SPLIT_ITEM: readD source, readQ amount, readC source storage, readD destination, readC destination storage, readH slot
+	PacketReader split(GameSession::buildCM_SPLIT_ITEM(0x0100, 0x123456789A, 0, 0x0200, 1, -1));
+	EXPECT_EQ(split.D(), 0x0100);
+	EXPECT_EQ(split.Q(), 0x123456789A) << "the amount is a long";
+	EXPECT_EQ(split.C(), 0);
+	EXPECT_EQ(split.D(), 0x0200);
+	EXPECT_EQ(split.C(), 1);
+	EXPECT_EQ(split.H(), -1);
+	EXPECT_EQ(split.remaining(), 0u);
+
+	// CM_REPLACE_ITEM: readC, readD, readC, readD
+	EXPECT_EQ(GameSession::buildCM_REPLACE_ITEM(0, 0x01020304, 1, 0x05060708),
+		(std::vector<uint8_t>{0x00, 0x04, 0x03, 0x02, 0x01, 0x01, 0x08, 0x07, 0x06, 0x05}));
+
+	// CM_MANASTONE: readUC action, readUC fused slot, readD target, then the arm - the gate's godstone socketing is (4, 0, sword, stone, 0)
+	EXPECT_EQ(GameSession::buildCM_MANASTONE(GameSession::MANASTONE_SOCKET_GODSTONE, 0, 0x0100, 0x0200),
+		(std::vector<uint8_t>{0x04, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}));
+	for (const uint8_t action : std::initializer_list<uint8_t>{1, 2, 8})
+		EXPECT_EQ(GameSession::buildCM_MANASTONE(action, 1, 3, 4, 5).size(), 14u) << "arm " << static_cast<int32_t>(action) << " reads two ints";
+	GameSession::ManastoneRequest remove;
+	remove.actionType = GameSession::MANASTONE_REMOVE;
+	remove.targetFusedSlot = 1;
+	remove.targetItemUniqueId = 0x0100;
+	remove.slotNum = 5;
+	remove.npcObjId = 0x0300;
+	EXPECT_EQ(GameSession::buildCM_MANASTONE(remove),
+		(std::vector<uint8_t>{0x03, 0x01, 0x00, 0x01, 0x00, 0x00, 0x05, 0x00, 0x00, 0x00, 0x00, 0x03, 0x00, 0x00}))
+		<< "arm 3: readUC slotNum, a dropped readC and readH, readD npcObjId";
+	remove.actionType = 5;
+	EXPECT_EQ(GameSession::buildCM_MANASTONE(remove).size(), 6u) << "an action without an arm reads nothing after the target";
+	EXPECT_THROW(GameSession::buildCM_MANASTONE(GameSession::MANASTONE_REMOVE, 0, 1, 2), std::invalid_argument);
+
+	// CM_EQUIP_ITEM: readC action, readQ slotRead, readD itemObjId
+	PacketReader equip(GameSession::buildCM_EQUIP_ITEM(GameSession::EQUIP, 1, 0x0100));
+	EXPECT_EQ(equip.C(), GameSession::EQUIP);
+	EXPECT_EQ(equip.Q(), 1) << "MAIN_HAND, a long slot mask";
+	EXPECT_EQ(equip.D(), 0x0100);
+	EXPECT_EQ(equip.remaining(), 0u);
+	EXPECT_EQ(GameSession::buildCM_EQUIP_ITEM(GameSession::UNEQUIP, 0, 7).size(), 13u);
+
+	// CM_DELETE_ITEM: readD itemObjectId
+	EXPECT_EQ(GameSession::buildCM_DELETE_ITEM(0x01020304), (std::vector<uint8_t>{0x04, 0x03, 0x02, 0x01}));
+}
+
 TEST(GameSessionTest, ServerPacketNames) {
 	EXPECT_EQ(GameSession::nameOf(0), "SM_VERSION_CHECK");
 	EXPECT_EQ(GameSession::nameOf(14), "SM_NPC_INFO");
@@ -222,6 +299,19 @@ TEST(GameSessionTest, ServerPacketNames) {
 	EXPECT_EQ(GameSession::nameOf(50), "SM_ABNORMAL_EFFECT");
 	EXPECT_EQ(GameSession::nameOf(51), "SM_SKILL_COOLDOWN");
 	EXPECT_EQ(GameSession::nameOf(4), "SM_STATUPDATE_MP");
+	// the names the M5b-3 gate matches its item and loot packets on (decoders/ItemDecoders.h; ServerPacketsOpcodes.java:45-47, 54, 148,
+	// 187-189, 201, 223-224)
+	EXPECT_EQ(GameSession::nameOf(27), "SM_INVENTORY_ADD_ITEM");
+	EXPECT_EQ(GameSession::nameOf(28), "SM_DELETE_ITEM");
+	EXPECT_EQ(GameSession::nameOf(29), "SM_INVENTORY_UPDATE_ITEM");
+	EXPECT_EQ(GameSession::nameOf(36), "SM_UPDATE_PLAYER_APPEARANCE");
+	EXPECT_EQ(GameSession::nameOf(130), "SM_CUBE_UPDATE");
+	EXPECT_EQ(GameSession::nameOf(169), "SM_WAREHOUSE_ADD_ITEM");
+	EXPECT_EQ(GameSession::nameOf(170), "SM_DELETE_WAREHOUSE_ITEM");
+	EXPECT_EQ(GameSession::nameOf(171), "SM_WAREHOUSE_UPDATE_ITEM");
+	EXPECT_EQ(GameSession::nameOf(183), "SM_ITEM_USAGE_ANIMATION");
+	EXPECT_EQ(GameSession::nameOf(205), "SM_LOOT_STATUS");
+	EXPECT_EQ(GameSession::nameOf(206), "SM_LOOT_ITEMLIST");
 }
 
 } // namespace

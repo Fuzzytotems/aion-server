@@ -926,10 +926,21 @@ void runM5bGate(const GateVariant& variant) {
 	//    not left out, because the game server also reads the Java tree's untracked config/mygs.properties - the user's local play profile -
 	//    and the M5b-1 one carries `gameserver.soulsickness.disable = 0`: a gate that only dropped the key ran with the soul sickness off
 	//    (measured by gs.scenario.m5b2's first run). P2 below asserts what the real path does to the revive burst.
+	//  - rates.drop=0 (m5b3-plan.md D4, G-05; m5b.properties.example's M5b-3 block): no drop rule ever fires, because Rates.get(killer,
+	//    DROP_RATES) multiplies every global and custom rule's chance (DropRegistrationService.java:218, DropModifiers.java:53-57,
+	//    DropGroup.java:64) and a rule fires unless `Rnd.chance() >= chance`. registerDrop still runs to its end - the DropNpc, the
+	//    SM_LOOT_STATUS(LOOT_ENABLE) R3 asserts, the free-for-all task - but the drop set stays empty, so RespawnService.scheduleDecayTask keeps
+	//    IMMEDIATE_DECAY (2 s) and R2, R4, Q2 and Q3 keep their meaning. Without it the monster (210663) drops on 58.2 % of kills (§2.4), its
+	//    corpse then stands WITH_DROP_DECAY, 300 s (RespawnService.java:34-50), and R4's SM_DELETE and Q3's npc conservation become coin flips.
+	//    Q2 below asserts that not one drop item is created in the whole run. That DETECTS a key that did not reach the server in most runs,
+	//    not all: at the default rate the one 210663 kill makes no drop item 41.8 % of the time (§2.4), so a lost key goes unseen in those
+	//    runs - and the server logs no effective drop rate the gate could read instead (ConfigurableProcessor only has a debug line for a key
+	//    left at its default).
 	config.gameServerProperties["gameserver.geodata.enable"] = variant.geodata ? "true" : "false";
 	config.gameServerProperties["gameserver.npcshouts.enable"] = "false";
 	config.gameServerProperties["gameserver.rates.xp.solo"] = "1.0, 2.0";
 	config.gameServerProperties["gameserver.soulsickness.disable"] = "10";
+	config.gameServerProperties["gameserver.rates.drop"] = "0";
 	// the geo startup is seconds in a checked RelWithDebInfo tree and minutes in a Debug one (m5a-client-session.md)
 	config.startupTimeout = variant.geodata ? 25min : 10min;
 	config.stopTimeout = 3min;
@@ -1331,6 +1342,7 @@ void runM5bGate(const GateVariant& variant) {
 	// The two cases run over ONE recording, as §6.2 says: K6 "runs concurrently with K5 and is asserted from the same recording".
 	size_t killWindowStart = 0;
 	bool monsterDied = false;
+	int32_t corpseObjectId = 0; // the killed monster's object id: R3's SM_LOOT_STATUS names the corpse (R4 moves monsterObjectId on to the respawn)
 	std::optional<FightRecording> fight;
 	runCase("K5", "the fight until one of them dies (A2)", [&] {
 		ASSERT_NE(monsterObjectId, 0);
@@ -1380,6 +1392,7 @@ void runM5bGate(const GateVariant& variant) {
 					  return false;
 				  if (emotion.senderObjectId == monsterObjectId) {
 					  monsterDied = true;
+					  corpseObjectId = monsterObjectId;
 					  return true;
 				  }
 				  if (emotion.senderObjectId == a.playerId) {
@@ -2187,13 +2200,36 @@ void runM5bGate(const GateVariant& variant) {
 		// R3: registerDrop exactly once per kill, and the gate's scripted path makes exactly one kill. NpcController::doReward reaches it only
 		// inside `if (attacker.equals(winner) && ask(REWARD_LOOT))` and only for an `attacker instanceof Player`, so the npcs that fight each
 		// other in the neighbourhood cannot add to this count (§6.3 R3 and the rev-2 note after it).
-		const std::string registerDropSite = "aion/gameserver/services/drop/DropRegistrationService.cpp:43";
-		ASSERT_TRUE(hitsByEntry.contains(registerDropSite))
-		  << "R3: tests/scenario/m5b_partial_allowlist.txt has no row for " << registerDropSite
-		  << "; the AION_PARTIAL of D5 moved, and both the list and this assertion have to move with it";
-		EXPECT_EQ(hitsByEntry[registerDropSite], monsterDied ? 1 : 0)
-		  << "R3: DropRegistrationService::registerDrop was hit " << hitsByEntry[registerDropSite] << " times for "
-		  << (monsterDied ? 1 : 0) << " kill(s)";
+		// m5b3-plan.md D4 (G-05): M5b-1 counted the hits of registerDrop's whole-body AION_PARTIAL (DropRegistrationService.cpp:43, a §A row
+		// of the allow-list); M5b-3 closed it (L-01), and the row asserts what m5b-plan.md D5 named its deterministic successor: the LAST
+		// statement but one of registerDrop, `for (Player p : allowedLooters) sendPacket(p, new SM_LOOT_STATUS(npcObjId, LOOT_ENABLE))`
+		// (DropRegistrationService.java:104-106). It runs for an empty drop set too, and initDropNpc allows the killer alone (no team: the
+		// else arm, :158-160), so the Warrior gets exactly one, naming the corpse. Its lootEffectId is getLootEffect over the corpse's drop set
+		// (SM_LOOT_STATUS.java:23, 33-36): with gameserver.rates.drop = 0 the set is empty and the id is 0. Nothing else sends an
+		// SM_LOOT_STATUS on this path: no CM_START_LOOT goes out, and the free-for-all task (DropService.java:54-70) finds no DropNpc once the
+		// 2 s corpse despawned (unregisterDrop, :78-82), so the whole session carries exactly this one.
+		ASSERT_TRUE(a.game) << "R3: no game session was recorded";
+		std::vector<decoders::LootStatus> lootStatuses;
+		for (const Packet& packet : a.game->recorded())
+			if (packet.name == "SM_LOOT_STATUS")
+				lootStatuses.push_back(decoders::decodeLootStatus(packet.data));
+		const auto describe = [](const decoders::LootStatus& loot) {
+			return "(target " + std::to_string(loot.targetObjectId) + ", status " + std::to_string(static_cast<int32_t>(loot.status)) +
+			       ", lootEffectId " + std::to_string(loot.lootEffectId) + ")";
+		};
+		std::vector<std::string> lootLines;
+		for (const decoders::LootStatus& loot : lootStatuses)
+			lootLines.push_back(describe(loot));
+		// EXPECT, not ASSERT: a wrong count must not cost the run the Q1/Q2 rows below, which say whether registerDrop ran at all (DropNpc)
+		EXPECT_EQ(lootStatuses.size(), monsterDied ? 1u : 0u)
+		  << "R3: " << lootStatuses.size() << " SM_LOOT_STATUS in the whole session for " << (monsterDied ? 1 : 0)
+		  << " kill(s): " << (lootLines.empty() ? "none - registerDrop did not run to its end" : join(lootLines));
+		for (size_t i = 0; i < lootStatuses.size(); i++) {
+			EXPECT_EQ(lootStatuses[i].status, decoders::LOOT_STATUS_LOOT_ENABLE) << "R3: " << lootLines[i];
+			EXPECT_EQ(lootStatuses[i].targetObjectId, corpseObjectId) << "R3: the SM_LOOT_STATUS does not name the corpse: " << lootLines[i];
+			EXPECT_EQ(lootStatuses[i].lootEffectId, 0) << "R3: an empty drop set has no loot effect (gameserver.rates.drop = 0): " << lootLines[i];
+		}
+		std::cout << "R3: " << (lootLines.empty() ? std::string("no SM_LOOT_STATUS") : join(lootLines)) << std::endl;
 		std::cout << "Q1: AION_PARTIAL hits by allow-list row (hits, section, site):\n";
 		for (const AllowlistEntry& entry : allowlist)
 			std::cout << "  " << hitsByEntry[entry.site] << "\t" << sectionName(entry.section) << "\t" << entry.site << "\n";
@@ -2319,8 +2355,9 @@ void runM5bGate(const GateVariant& variant) {
 		//  - KnownObject is bounded for the same reason (a walking npc builds a known list of the npcs around it).
 		//  - DamageList is not RefCounted at all - AggroList::getFinalDamageList returns it by value - so no counter exists and a row for it
 		//    would be silently dead in every build forever. Its arithmetic is B-08's unit assertion.
-		//  - DropNpc's only constructor call site is behind registerDrop's AION_PARTIAL, so created stays 0 until M5b-3; the row is asserted as
-		//    0/0 rather than dropped, because that is what makes it fail the day the partial goes away without this gate being updated.
+		//  - DropNpc: M5b-1 asserted 0/0 while its only constructor call site sat behind registerDrop's AION_PARTIAL, so that the row failed the
+		//    day the partial went away without this gate being updated. M5b-3 closed it (m5b3-plan.md D4/D5, G-05/G-06): created = the kills,
+		//    live 0 and dropNpcsHeld 0 - DropRegistrationService holds a DropNpc until its corpse despawns, 2 s after the kill at rates.drop 0.
 		// The numbers come from m5a_summary.txt's `liveCount <class> <live> <created>` rows and not from live_counts.txt, which is the file the
 		// M5a gate reads. That is E-03's contract and the difference matters: live_counts.txt has a row only for a class that was ever created,
 		// so a DropNpc that is never constructed has NO row there and a gate reading it would silently assert nothing about the one class whose
@@ -2358,11 +2395,25 @@ void runM5bGate(const GateVariant& variant) {
 		EXPECT_GT(aggroInfo->created, 0) << "Q2: " << aggroInfo->line << " - no AggroInfo was ever created, so nothing ever hated anything";
 		const std::optional<LiveCount> dropNpc = liveCountOf("DropNpc");
 		ASSERT_TRUE(dropNpc) << "Q2: m5a_summary.txt has no `liveCount ...DropNpc` row";
-		EXPECT_EQ(dropNpc->live, 0) << "Q2: " << dropNpc->line;
-		EXPECT_EQ(dropNpc->created, 0)
-		  << "Q2: " << dropNpc->line
-		  << " - DropNpc's only constructor call site is DropRegistrationService::initDropNpc, which registerDrop's whole-body AION_PARTIAL "
-		     "(D5) never reaches. A non-zero created here means the drop path came back and this gate has to grow with it";
+		EXPECT_EQ(dropNpc->live, 0) << "Q2: " << dropNpc->line << " - the corpse despawned 2 s after the kill (an empty drop set) and "
+		                                                            "DropService::unregisterDrop released its DropNpc";
+		EXPECT_EQ(dropNpc->created, monsterDied ? 1 : 0)
+		  << "Q2: " << dropNpc->line << " - DropRegistrationService::initDropNpc makes one per registerDrop, and registerDrop runs once per "
+		     "kill of the character's (R3); the gate's path makes " << (monsterDied ? 1 : 0) << " kill(s)";
+		// m5b3-plan.md G-06: the bound of the drop rows, and the check that gameserver.rates.drop = 0 took effect - not one drop item was made
+		// in the run (no custom drop for 210663, every global rule's chance multiplied by 0, and a character without quests gets no quest drop,
+		// QuestService.java:754-760). A check, not a proof: were the key lost, the default rate would still make no drop item in 41.8 % of
+		// runs (the one 210663 kill, §2.4), so the rows detect a lost key in about 58 % of runs. The two drop item rows are the static-data and
+		// the run-time DropItem (CheckOutput.cpp)
+		EXPECT_EQ(value("dropNpcsHeld"), "0") << "Q2: DropRegistrationService still held a DropNpc at the stop";
+		EXPECT_EQ(value("dropItemsHeld"), "0") << "Q2: DropRegistrationService still held drop items at the stop";
+		for (const std::string_view name : {"DropItem", "RuntimeDropItem"}) {
+			const std::optional<LiveCount> dropItem = liveCountOf(name);
+			ASSERT_TRUE(dropItem) << "Q2: m5a_summary.txt has no `liveCount " << name << "` row (CheckOutput G-06)";
+			EXPECT_EQ(dropItem->created, 0) << "Q2: " << dropItem->line << " - at gameserver.rates.drop = 0 no drop rule fires, so the profile key "
+			                                                                "did not reach the server or a drop path ignores the rate";
+			EXPECT_EQ(dropItem->live, 0) << "Q2: " << dropItem->line;
+		}
 		// Player and AbyssRank are zeroLiveClasses() rows, so a leftover is already an ERROR line and a `liveLeak` row; live_counts.txt is where
 		// their numbers are, and the gate reads them there because summaryLiveClasses() does not carry them.
 		std::map<std::string, LiveCount> byName;

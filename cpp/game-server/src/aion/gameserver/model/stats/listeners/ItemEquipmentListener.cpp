@@ -8,6 +8,7 @@
 #include "aion/gameserver/controllers/PlayerController.h"
 #include "aion/gameserver/dataholders/DataManager.h"
 #include "aion/gameserver/dataholders/SkillData.h"
+#include "aion/gameserver/model/enchants/EnchantEffect.h"
 #include "aion/gameserver/model/enchants/TemperingEffect.h"
 #include "aion/gameserver/model/gameobjects/Item.h"
 #include "aion/gameserver/model/gameobjects/player/Equipment.h"
@@ -34,7 +35,6 @@
 #include "aion/gameserver/model/templates/itemset/PartBonus.h"
 #include "aion/gameserver/network/aion/serverpackets/SM_SKILL_COOLDOWN.h"
 #include "aion/gameserver/runtime/base/Exceptions.h"
-#include "aion/gameserver/runtime/base/Unported.h"
 #include "aion/gameserver/services/EnchantService.h"
 #include "aion/gameserver/services/SkillLearnService.h"
 #include "aion/gameserver/skillengine/model/SkillTemplate.h"
@@ -148,8 +148,45 @@ void ItemEquipmentListener::forEachBonusStats(const std::function<void(items::Ra
 			action(*bonusStats);
 }
 
+// Java ItemEquipmentListener.java:86-121 (m5b3-plan.md P-02): Equipment.notifyItemUnequip's listener, the mirror of onItemEquipment
 void ItemEquipmentListener::onItemUnequipment(Item& item, Player& owner) {
-	AION_UNPORTED();
+	owner.getController().cancelUseItem();
+
+	const templates::item::ItemTemplate& itemTemplate = nonNull(item.getItemTemplate(), "itemTemplate");
+	// Check if belongs to ItemSet
+	if (itemTemplate.isItemSet())
+		recalculateItemSet(itemTemplate.getItemSet(), owner);
+
+	owner.getGameStats()->endEffect(item);
+
+	if (item.hasManaStones())
+		removeStoneStats(stonesOf(item.getItemStones()), *owner.getGameStats());
+
+	if (item.hasFusionStones())
+		removeStoneStats(stonesOf(item.getFusionStones()), *owner.getGameStats());
+
+	if (Ptr<items::ChargeInfo> conditioningInfo = item.getConditioningInfo()) {
+		owner.getObserveController()->removeObserver(*conditioningInfo);
+		conditioningInfo->setPlayer(nullptr);
+	}
+	Ptr<items::IdianStone> idianStone = item.getIdianStone();
+	if (idianStone)
+		idianStone->onUnEquip(owner);
+	forEachBonusStats([&owner](items::RandomBonusEffect& bonusStats) { bonusStats.endEffect(owner); },
+		{item.getBonusStatsEffect(), item.getFusionedItemBonusStatsEffect()});
+	// the Ptr keeps the effect alive through endEffect after setEnchantEffect(null) drops the item's reference (Ref.h: a borrow published
+	// while the field still holds it)
+	if (Ptr<enchants::EnchantEffect> enchantEffect = item.getEnchantEffect()) {
+		enchantEffect->endEffect(owner);
+		item.setEnchantEffect(nullptr);
+	}
+	if (Ptr<enchants::TemperingEffect> temperingEffect = item.getTemperingEffect()) {
+		temperingEffect->endEffect(owner);
+		item.setTemperingEffect(nullptr);
+	}
+	if (item.getBuffSkill() != 0)
+		services::SkillLearnService::removeSkill(owner, item.getBuffSkill());
+	owner.getGameStats()->updateArmorMasteryStats(owner.getEquipment().getEquippedItems());
 }
 
 void ItemEquipmentListener::addWeaponStats(Item& item, container::CreatureGameStats& cgs) {
@@ -256,8 +293,16 @@ void ItemEquipmentListener::addStoneStats(Item& item, Ptr<items::ManaStone> ston
 	cgs.addEffect(Ptr<StatOwner>(*stone), functions);
 }
 
+// Java ItemEquipmentListener.java:211-219 (m5b3-plan.md P-02)
 void ItemEquipmentListener::removeStoneStats(const std::vector<Ptr<items::ManaStone>>& itemStones, container::CreatureGameStats& cgs) {
-	AION_UNPORTED();
+	if (itemStones.empty())
+		return;
+	for (const Ptr<items::ManaStone>& stone : itemStones) {
+		// C++: getModifiers() is never null (ManaStone.h, empty where Java's is null), so Java's `modifiers != null` has no counterpart. A stone
+		// whose Java list is null never had a function added (addStoneStats' null check), and endEffect of an owner without functions changes
+		// nothing and notifies nobody (CreatureGameStats.java:94-103), so ending it here is the same no-op
+		cgs.endEffect(*stone);
+	}
 }
 
 } // namespace aion::gameserver::model::stats::listeners

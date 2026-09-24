@@ -319,6 +319,81 @@ parser, the Java tables today and on an edited copy, the whole report on a small
 each AI question on its own, an AI registering the drop itself, the siege_teleporter rewrite, the default-exclusion boundaries, zone rules
 that add no entry, `max_items` -1, the loot effect probability - and 210663, 210133 and the Poeta survey on the real data).
 
+### The cube-slot budget of a corpse (`m5b3/items.py`, `m5b3-drops --inventory`, m5b3-plan.md G-01, risk 5)
+
+```
+python oracle.py m5b3-drops --npc 210133 --drop-rate 1000000 --inventory 182400001:1000 --inventory 169000003:2 ... [--cube-expansions N]
+```
+
+With `--npc`, the report carries `cube`: what looting every entry of that corpse does to the looter's cube when it holds the `--inventory`
+stacks (ITEM[:COUNT], one per stack; kinah is the storage's own item and takes no slot). DropService.requestDropItem's solo arm calls
+ItemService.addItem(player, itemId, count): kinah goes to the kinah item, a stackable item fills the room of every existing stack of its id
+(Item.increaseItemCount) and then makes new stacks of at most `max_stack_count` (ItemFactory.calculateCount), a non-stackable item takes one
+slot per unit, an item with `<inventory id>` above 0 goes to the special cube, and a LIMIT_ONE item already in the cube is refused and stays
+in the corpse (`refusedLimitOne`). Per applicable rule: each candidate's `merge` (`certain` - it fits the room of existing stacks at its
+maximum count, `partial`, `never`, `kinah`, `specialCube`, `refusedLimitOne`) and `newSlotsWorst`/`newSlotsBest`; per corpse
+`worstCaseNewSlots` (an upper bound: two entries that pick the same new stackable item share a stack), `bestCaseNewSlots` (certain rules at
+their minimum), `kinahEntries`, `deterministicMerges` (the entries that take no slot whatever is picked - the Minor Power Shard of "Power
+Shards" once a shard stack exists), `limit` (StorageType.CUBE 27 + 9 per expansion) and `slotsFree`. A custom drop group that applies is an
+entry too (`customGroup`): its drops that can be picked (`finalChance` above 0), each at `minAmount`..`maxAmount` (DropItem.calculateCount),
+the `maxEntries` largest for the worst case and the `minEntries` smallest for the best. Today, for a fresh Elyos Warrior's cube
+(9 stacks) at the gate's rate: the first 210663 takes up to 10 slots; 210133 after it up to 8 (kinah takes none, the shard merges); a second
+210663 up to 8 (the shard and the Sparkie Carapace Fragment merge) - m5b3-plan.md risk 5's 10 + 8 + 8.
+
+## M5b-3 item oracle (`m5b3/items.py`, `docs/design/m5b3-plan.md` G-01)
+
+```
+python oracle.py m5b3-item --item 162000002 [--item 168000116 ...]
+```
+
+One document (`aion-m5b3-item`) per call, one entry per item: the template's attributes, `maxStackCount`/`stackable` (the JAXB default 1,
+`isStackable` is `> 1`), `mask` with its `maskFlags` (ItemMask.java's constants, read from the source), `extraInventoryId`,
+`expireTimeMinutes`, `useLimits` and `cooldown` (`usedelay` ms under the `usedelayid` group - what Player.hasCooldown checks), the `actions`
+(tag -> action class of ItemActions.java's @XmlElements) and, for `skilluse` and a `<godstone>`, the skill: `templateCount` (how many
+`<skill_template>`s carry the id; SkillData.afterUnmarshal keeps the LAST, SkillData.java:33-39), its attributes and properties, and per effect
+the tag, class (Effects.java), `classChain`, attributes and `valueAtLevel` (EffectTemplate.calculateBaseValue: `value + delta * level`).
+Today: 162000002 heals 37 at once (`ProcHealInstantEffect`) and 37 per tick for 20 s (`HealEffect`), 30,000 ms under use-delay group 11;
+168000116's godstone (probability 1000, breakprob 0) casts 8267, a MAGICAL `ProcAtkInstantEffect` EARTH with delta 100 - **one** template
+of 8267 in skill_templates.xml (:80570), not the two m5b3-plan.md §2.6 (b) and risk 11 describe (the WIND template above it is another id).
+
+```
+python oracle.py m5b3-item --survey --map 210010000 --map 220010000
+```
+
+The survey (`m5b3/survey.py`, `aion-m5b3-item-survey`) re-derives the counts of m5b3-plan.md §2.5-§2.6: `skilluse` - the starter items of
+every class (player_initial_data.xml) and the items droppable on the maps (m5b3-drops --survey's `distinctDroppableItems` for the map's
+default killer) with a `skilluse` action, their leaf effect classes with `items`, `effects` and `skills` each, and `classChain` (closed under
+`extends`); `godstones` - every `<godstone>` item, its proc skill's classes, and the godstones droppable per map; `materials` - every skill of
+material_templates.xml and its classes. The last `<skill_template>` of an id is kept. Today: 48 skilluse items (8 starter, 31 droppable on
+each map) with 9 leaf classes - StatupEffect is 12 items and 20 effects, §2.5's table counts the effects; 268 godstones with 110 proc skills
+and 10 classes (ProcAtkInstantEffect 70 skills, Poison 6, Silence 5, Blind 5, Paralyze 4), the 34 Poeta drops reaching the same ten; 28
+material skills with 13 classes.
+
+## M5b-3 material oracle (`m5b3/materials.py`, `docs/design/m5b3-plan.md` G-01, §2.6, §10.5)
+
+```
+python oracle.py m5b3-material --map 210010000 [--near 1212.9423,1044.8516,140.75568] [--radius R] [--limit N] [--geo-dir DIR]
+```
+
+The skill materials of a map (`aion-m5b3-material`): the material zones GeoWorldLoader.createZone makes for every placed geometry with the
+MATERIAL collision intention (named by `geo/loader.py` itself - PlacedGeometry.zone_geometry_name, the string its checked `material_zones`
+carry - with its float arithmetic, `|` aliases and town levels), filtered by
+ZoneService.createMaterialZoneTemplate (no MaterialTemplate -> no zone; a duplicate zone name keeps the first), each with its `materialId`,
+mesh, world bound `center`/`extents`, MaterialZoneTemplate's `area` (CYLINDER for CYLINDER/CONE/H_COLUME names, SEMISPHERE, else SPHERE, radius
+the bound's corner distance + 1) and the material's `skills` (id, level, target, frequency, conditions), nearest to `--near` first;
+`skillZones`, `skillPlacements`, `skillZonesByMaterial`, `nearestUnconditional` (a zone whose skill has no weather/time condition) and
+`terrain`: the histogram of the map's 8-bit materials PNG and the ids with a MaterialTemplate (TerrainZoneCollisionMaterialActor). Today:
+Poeta 98 skill zones (material 60 x22, 61 x7, 62 x69; the review's 97 was the miscount) and Ishalgen 48 (11, 1, 36), all skill 8302; the nearest
+unconditional one on Poeta is `pr_l_fire_semisphere_01a.cgf` 407 m from the Elyos spawn, the nearest of any a material-62 fire at 108 m; neither
+map has a terrain materials file, so no terrain material casts a skill there. Which positions pass the TOUCH check on a zone's mesh is not
+modelled (G-04 measures it).
+
+Tests: `tests/test_m5b3_items.py` (the slot arithmetic, the Java tables today and on an edited copy, the item report and the budget on a small
+static_data tree - the last skill template wins, valueAtLevel, every `merge` class, top-k picks, a custom drop group's amounts, the refusals -,
+the survey on a small tree - the starter and droppable scope, effects against items, a replaced godstone template, material skills -,
+MaterialZoneTemplate's three shapes, the zones of a synthetic geo scene - the template filter, a duplicate name, the `_CHILD<n>` suffix, the
+distances -, the gate's items, corpses and camp fires and the §2.5-§2.6 survey on the real data, and the CLI).
+
 ## M5c trade oracle (`m5c/trade.py`, `m5c/trade_config.py`, `docs/design/m5c-plan.md` G-01)
 
 ```

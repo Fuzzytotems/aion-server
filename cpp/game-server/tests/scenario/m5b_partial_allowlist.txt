@@ -11,7 +11,7 @@
 # THE LIST IS IN THREE SECTIONS AND Q1 READS ALL THREE. A section begins at its "# --- SECTION X" marker line below and runs to the next one;
 # M5bScenarioTest.cpp matches those markers literally, so a row that moves between sections changes what the gate asserts about it. Every site
 # of partial_trace.txt must be in one of the three, and in addition:
-#   SECTION A  the gate asserts the row was hit at least once, and for DropRegistrationService exactly once per kill (R3)
+#   SECTION A  the gate asserts the row was hit at least once (until M5b-3 also DropRegistrationService's, exactly once per kill: R3)
 #   SECTION B  the gate asserts the row was hit EXACTLY ZERO times - the stronger half. It was written for a monster that unexpectedly
 #              had a post-spawn skill, an AttackIntention that reached SkillAttackManager, or a Warrior whose starter weapon changed under
 #              D14; M5b-2 closed all of those partials, so the section is empty today (see its HISTORY lines)
@@ -40,11 +40,10 @@ aion/gameserver/services/BaseService.cpp:18
 # HISTORY: D4's row, GeneralNpcAI.cpp:122 ("npc skill attacks are not chosen yet (M5b-2): every attack stays a simple melee attack"), was here
 # until M5b-2 stage 2 closed it (m5b2-plan.md N-02, GeneralNpcAI.java:130-138); the site no longer exists. Every attack decision of a
 # registered AI now asks the npc's skill list first: the gate's own monsters (210663, 210673) own none, so their fights are unchanged.
-# D5 "npc drops are not registered yet (M5b-3)". EXACTLY ONCE PER KILL, and the gate asserts the count, not just the membership (R3):
-# NpcController::doReward reaches it only inside `if (attacker.equals(winner) && ask(REWARD_LOOT))` and only for an `attacker instanceof
-# Player` (NpcController.java:225-245), so npcs killing each other in the neighbourhood cannot add to this count. This is also the fix for
-# m5b-client-session.md S-1: until the stage-1 fixup made this an AION_PARTIAL it was an AION_UNPORTED that threw once per kill.
-aion/gameserver/services/drop/DropRegistrationService.cpp:43
+# HISTORY: D5's row, DropRegistrationService.cpp:43 ("npc drops are not registered yet (M5b-3)"), was here - hit exactly once per kill,
+# which R3 counted - until M5b-3 closed registerDrop (m5b3-plan.md L-01, DropRegistrationService.java:59-109); the site no longer exists.
+# R3 now asserts the SM_LOOT_STATUS(corpse, LOOT_ENABLE) registerDrop sends the killer (m5b-plan.md D5's deterministic successor), and the
+# profile sets gameserver.rates.drop = 0 so the corpse still decays after 2 s (m5b3-plan.md D4, G-05).
 
 # =========================================================================================================================================
 # --- SECTION B - hit exactly zero times, asserted ---

@@ -534,6 +534,8 @@ void readBlobEntry(BodyReader& reader, BlobType type, InventoryItem& item) {
 	}
 }
 
+} // namespace
+
 void readItemInfoBlob(BodyReader& reader, InventoryItem& item) {
 	const size_t declaredSize = reader.H();
 	const size_t end = reader.offset() + declaredSize;
@@ -547,8 +549,6 @@ void readItemInfoBlob(BodyReader& reader, InventoryItem& item) {
 	if (reader.offset() != end)
 		reader.fail("the item info blob entries overrun its announced size of " + std::to_string(declaredSize) + " bytes");
 }
-
-} // namespace
 
 InventoryInfo decodeInventoryInfo(std::span<const uint8_t> body) {
 	BodyReader reader(body, "SM_INVENTORY_INFO");

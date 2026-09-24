@@ -2,7 +2,9 @@
 
 #include <algorithm>
 #include <fstream>
+#include <initializer_list>
 #include <optional>
+#include <string_view>
 #include <thread>
 #include <unordered_set>
 
@@ -10,7 +12,9 @@
 #include "aion/commons/utils/Exception.h"
 #include "aion/gameserver/controllers/effect/EffectController.h"
 #include "aion/gameserver/dataholders/DataManager.h"
+#include "aion/gameserver/model/drop/DropItem.h"
 #include "aion/gameserver/model/gameobjects/Creature.h"
+#include "aion/gameserver/model/gameobjects/DropNpc.h"
 #include "aion/gameserver/model/gameobjects/VisibleObject.h"
 #include "aion/gameserver/runtime/base/TaskInfo.h"
 #include "aion/gameserver/runtime/base/Unported.h"
@@ -19,6 +23,7 @@
 #include "aion/gameserver/runtime/lifetime/TaskScope.h"
 #include "aion/gameserver/runtime/sched/Future.h"
 #include "aion/gameserver/runtime/sync/LockOrderValidator.h"
+#include "aion/gameserver/services/drop/DropRegistrationService.h"
 #include "aion/gameserver/skillengine/effect/AbstractHealEffect.h"
 #include "aion/gameserver/skillengine/effect/BleedEffect.h"
 #include "aion/gameserver/skillengine/effect/DPTransferEffect.h"
@@ -169,6 +174,74 @@ void writeHeldEffects(std::ostream& out, const std::optional<HeldEffects>& held)
 	out << "effectReservedCapacity " << value(&HeldEffects::reservedCapacity) << '\n';
 }
 
+/**
+ * The summary rows of the drop classes (m5b3-plan.md D5, G-06). A drop item has two counters: model::drop::DropItem for a drop of the static
+ * data (DropItem::create(const Drop*), the custom drops of NpcDrop.dropCalculator) and the anonymous-namespace RuntimeDropItem of DropItem.cpp for
+ * a drop made at run time (DropItem::create(Drop&&): every global rule's and quest drop's `new DropItem(new Drop(...))`), which the name rule
+ * cannot reach through "DropItem" - so both are rows, and the relation below sums them.
+ */
+constexpr std::string_view DROP_NPC_CLASS = "model::gameobjects::DropNpc";
+constexpr std::string_view DROP_ITEM_CLASS = "model::drop::DropItem";
+constexpr std::string_view RUNTIME_DROP_ITEM_CLASS = "RuntimeDropItem";
+
+/**
+ * m5b3-plan.md D5 (G-06): what DropRegistrationService still holds when the summary is written, the bound of the drop rows. `DropNpc` is not a
+ * zeroLiveClasses() row any more: the service is an Immortal that keeps a Ref<DropNpc> in dropRegistrationMap and the drop set in currentDropMap
+ * from registerDrop until the corpse despawns (DropService::unregisterDrop from NpcController::onDespawn), and a corpse with an unlooted drop
+ * stands for RespawnService.WITH_DROP_DECAY, 300 s (RespawnService.java:35) - so a server stopped within five minutes of such a kill holds one
+ * legitimately, in Java too (the precedent of KnownObject). What a leak breaks is the equality between what is alive and what the service holds:
+ * - dropNpcsHeld: dropRegistrationMap's size - the corpses with a registered drop that have not despawned yet;
+ * - dropItemsHeld: the elements of currentDropMap's sets - the unlooted drop items of those corpses.
+ * Nothing else keeps either alive (DropService's free-for-all task captures the npc id only, fieldmap DropService@L55:44; SM_LOOT_ITEMLIST and
+ * SM_LOOT_STATUS borrow), so a DropNpc or drop item alive beyond these numbers - one unregisterDrop missed, one a static kept - is a leak, and
+ * checkHeldDrops logs it as an ERROR like checkLiveCounts, so a run fails the gates' "no ERROR line" row even where nothing reads the counts.
+ */
+struct HeldDrops {
+	size_t dropNpcs = 0;
+	size_t dropItems = 0;
+};
+
+HeldDrops heldDrops() {
+	runtime::TaskScope scope(AION_TASK_INFO(runtime::TaskKind::SHUTDOWN));
+	services::drop::DropRegistrationService& service = services::drop::DropRegistrationService::getInstance();
+	HeldDrops held;
+	held.dropNpcs = static_cast<size_t>(service.getDropRegistrationMap().size());
+	for (const auto& entry : service.getCurrentDropMap().snapshot())
+		if (entry.value)
+			held.dropItems += static_cast<size_t>(entry.value->size());
+	return held;
+}
+
+/** the summed `live` of the summaryLiveCounts() rows with these names */
+int64_t liveOf(const std::vector<runtime::LiveCount>& rows, std::initializer_list<std::string_view> names) {
+	int64_t live = 0;
+	for (const runtime::LiveCount& row : rows)
+		if (std::ranges::find(names, std::string_view(row.className)) != names.end())
+			live += row.live;
+	return live;
+}
+
+/** the relation of HeldDrops: an ERROR line per drop class that has more live instances than the service holds */
+void checkHeldDrops(const std::vector<runtime::LiveCount>& summaryCounts, const HeldDrops& held) {
+	const int64_t dropNpcs = liveOf(summaryCounts, {DROP_NPC_CLASS});
+	if (dropNpcs > static_cast<int64_t>(held.dropNpcs))
+		log().error("Live instance leak: {} DropNpc instances are alive after the runtime shut down and DropRegistrationService holds {} (a DropNpc "
+					"lives from registerDrop until its corpse despawns, in the service's dropRegistrationMap; m5b3-plan.md D5)",
+			dropNpcs, held.dropNpcs);
+	const int64_t dropItems = liveOf(summaryCounts, {DROP_ITEM_CLASS, RUNTIME_DROP_ITEM_CLASS});
+	if (dropItems > static_cast<int64_t>(held.dropItems))
+		log().error("Live instance leak: {} DropItem instances are alive after the runtime shut down and DropRegistrationService holds {} in the drop "
+					"sets of the corpses that still stand (a looted item leaves the set, the rest goes with the corpse; m5b3-plan.md D5)",
+			dropItems, held.dropItems);
+}
+
+/** the two G-06 rows of m5a_summary.txt (heldDrops), "unknown" where the summary was not `started` */
+void writeHeldDrops(std::ostream& out, const std::optional<HeldDrops>& held) {
+	const auto value = [&held](size_t HeldDrops::*field) { return held ? std::to_string((*held).*field) : std::string("unknown"); };
+	out << "dropNpcsHeld " << value(&HeldDrops::dropNpcs) << '\n';
+	out << "dropItemsHeld " << value(&HeldDrops::dropItems) << '\n';
+}
+
 } // namespace
 
 void CheckOutput::writeUnportedTrace(const std::filesystem::path& dir) {
@@ -207,14 +280,30 @@ std::vector<runtime::LeakCensus::LeakReport> CheckOutput::runFinalCensus(const s
 	// object is only waiting for the reclaimer to sweep it - which also removes its entry from the table. Under a loaded machine that window is
 	// wide enough to put a Player into census.txt with refcount 0 while live_counts.txt already reports 0 live Players (measured in a full
 	// `ctest -j 6`). Reclaim until no such entry is left, then report what is really still referenced.
-	std::vector<runtime::LeakCensus::LeakReport> leaks;
+	// m5b3-plan.md §16 (the stage-1 integration): the same holds for a count that is still FALLING. A report's refCount is the one the census
+	// hook saw after its scan, and the references of a logout that has just finished are dropped scan by scan - each retired KnownObject or
+	// Effect that holds the Player is destroyed only once the reclaimer's epoch has passed it, and its destructor retires the next holder - so two
+	// scans are not always enough: gs.scenario.m5b wrote `Player <id> 3` twice in a row (the census hook logged 86, then 3) while the same run's
+	// shutdown left "0 objects still tracked" and live_counts.txt 0 live Players. So a leak is written only when two census checks in a row
+	// report the same objects with the same counts, none of them 0; a real leak keeps its count and costs one more scan, a finishing logout
+	// runs its count down to 0 and is swept. The deadline still bounds the wait.
+	std::vector<runtime::LeakCensus::LeakReport> leaks = census.getLeaks();
+	const auto sameCounts = [](const std::vector<runtime::LeakCensus::LeakReport>& a, const std::vector<runtime::LeakCensus::LeakReport>& b) {
+		return std::ranges::equal(a, b, [](const runtime::LeakCensus::LeakReport& x, const runtime::LeakCensus::LeakReport& y) {
+			return x.objectId == y.objectId && x.className == y.className && x.refCount == y.refCount;
+		});
+	};
 	for (;;) {
-		leaks = census.getLeaks();
 		const bool pending = std::ranges::any_of(leaks, [](const runtime::LeakCensus::LeakReport& leak) { return leak.refCount == 0; });
-		if (!pending || std::chrono::steady_clock::now() >= deadline)
+		if (std::chrono::steady_clock::now() >= deadline)
 			break;
 		std::this_thread::sleep_for(std::chrono::milliseconds(25));
 		runtime::Reclaimer::getInstance().reclaimNow();
+		std::vector<runtime::LeakCensus::LeakReport> next = census.getLeaks();
+		const bool stable = !pending && sameCounts(leaks, next);
+		leaks = std::move(next);
+		if (stable)
+			break;
 	}
 	std::erase_if(leaks, [](const runtime::LeakCensus::LeakReport& leak) { return leak.refCount == 0; });
 	{
@@ -334,10 +423,10 @@ const std::vector<std::string>& CheckOutput::zeroLiveClasses() {
 		"controllers::observer::StanceObserver",
 		// M5b-1 E-03. AttackUtil makes one AttackResult per hit; it travels in the result list of SM_ATTACK and in DelayedOnAttack, and nothing
 		// keeps one once the hit was applied (measured 0 live of 183 created in the M5a gate run after A-06, 0 of 93 in the geo run). This is the
-		// row that catches m5b-plan.md §8 risk 2, the DelayedOnAttack that pins both creatures. DropNpc is the guard of the header note: its only
-		// constructor call site is behind registerDrop's partial, so created stays 0 until M5b-3.
+		// row that catches m5b-plan.md §8 risk 2, the DelayedOnAttack that pins both creatures. model::gameobjects::DropNpc is NOT here any more
+		// (m5b3-plan.md D5, G-06): a corpse with an unlooted drop keeps its DropNpc for 300 s, in Java too, so it is bounded by what
+		// DropRegistrationService holds (heldDrops above, the dropNpcsHeld row) instead of zero.
 		"controllers::attack::AttackResult",
-		"model::gameobjects::DropNpc",
 	};
 	return *classes;
 }
@@ -345,11 +434,15 @@ const std::vector<std::string>& CheckOutput::zeroLiveClasses() {
 const std::vector<std::string>& CheckOutput::summaryLiveClasses() {
 	// built once and never destroyed, like zeroLiveClasses()
 	static const auto* classes = new std::vector<std::string>{
-		// the combat classes of m5b-plan.md Q2. AggroInfo and KnownObject are bounded, not zero (see the header); AttackResult and DropNpc are
-		// zeroLiveClasses() rows whose `created` half only this row can show.
+		// the combat classes of m5b-plan.md Q2. AggroInfo and KnownObject are bounded, not zero (see the header); AttackResult is a
+		// zeroLiveClasses() row whose `created` half only this row can show.
 		"controllers::attack::AggroInfo",
 		"controllers::attack::AttackResult",
-		"model::gameobjects::DropNpc",
+		// m5b3-plan.md D5 (G-06): the drop classes, bounded by what DropRegistrationService holds (heldDrops above: dropNpcsHeld, dropItemsHeld).
+		// A drop item has two counters, the static-data DropItem and the run-time RuntimeDropItem of DropItem.cpp's anonymous namespace
+		std::string(DROP_NPC_CLASS),
+		std::string(DROP_ITEM_CLASS),
+		std::string(RUNTIME_DROP_ITEM_CLASS),
 		"world::knownlist::KnownObject",
 		// the npc conservation of m5b-plan.md Q3: a killed npc respawns as a NEW Npc, so `live` must come back to the baseline while `created`
 		// grows by the number of respawns
@@ -430,14 +523,19 @@ std::vector<runtime::LiveCount> CheckOutput::checkLiveCounts(const std::vector<r
 void CheckOutput::writeSummary(const std::filesystem::path& dir, const Summary& summary) {
 	Summary checked = summary;
 	std::optional<HeldEffects> held;
+	std::optional<HeldDrops> drops;
 	if (summary.started) {
 		checked.liveLeaks = checkLiveCounts();
 		checked.summaryCounts = summaryLiveCounts(runtime::liveCounts());
+		// m5b3-plan.md D5 (G-06): the bound of the drop rows, read right after the counts it is compared with, and the check against it
+		drops = heldDrops();
+		checkHeldDrops(checked.summaryCounts, *drops);
 		// m5b2-plan.md G-07: the relation side of the skill rows, walked right after the counts it is compared with (nothing runs any more)
 		held = heldEffects();
 	}
 	std::ofstream out = openOutput(dir / "m5a_summary.txt");
 	writeSummary(out, checked);
+	writeHeldDrops(out, drops);
 	writeHeldEffects(out, held);
 }
 

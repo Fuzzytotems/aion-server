@@ -51,6 +51,18 @@ gameserver.npcshouts.enable = false
 # (RatesConfig.java:30); it is written out because the assertion is an exact integer and a changed rate silently moves it.
 gameserver.rates.xp.solo = 1.0, 2.0
 
+# --- what M5b-3 changes in this profile (cpp/docs/design/m5b3-plan.md D4) ----------------------------------------------------------------
+
+# No drops. Rates.get(killer, DROP_RATES) multiplies the chance of every global and custom drop rule (DropRegistrationService.java:218,
+# DropModifiers.java:53-57, DropGroup.java:64), so at 0 none ever fires, while registerDrop still runs completely (the DropNpc,
+# SM_LOOT_STATUS(LOOT_ENABLE), the free-for-all task). Quest drops are not scaled (QuestService.java:673) but need a started quest (M5d). A
+# corpse with an empty drop set decays after 2 s (RespawnService IMMEDIATE_DECAY) instead of the 300 s of a corpse with loot, which is what
+# this milestone's gate asserts about corpses (m5b3-plan.md finding 1). The retail default is "1.0, 2.0" (RatesConfig.java:81-82); for loot,
+# use m5b3.properties.example.
+# The gate profile (M5bScenarioTest.cpp) carries the same key since M5b-3 stage 1 (G-05, landed with L-01's registerDrop, m5b3-plan.md D4):
+# its R3 row asserts one SM_LOOT_STATUS(LOOT_ENABLE) per kill with lootEffectId 0, and Q2 that no drop item was made.
+gameserver.rates.drop = 0
+
 # Only in the scenario gate, not for play (geo data stays on with the real client):
 # gameserver.geodata.enable = false
 # gameserver.character.reentry.time = 1

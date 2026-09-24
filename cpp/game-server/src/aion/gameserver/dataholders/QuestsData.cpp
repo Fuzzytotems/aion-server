@@ -4,6 +4,7 @@
 
 #include "aion/gameserver/dataholders/detail/JavaHashMapOrder.h"
 #include "aion/gameserver/model/templates/QuestTemplate.h"
+#include "aion/gameserver/model/templates/quest/QuestDrop.h"
 #include "aion/gameserver/questEngine/QuestEngine.h"
 #include "aion/gameserver/runtime/base/Exceptions.h"
 #include "aion/gameserver/services/QuestService.h"
@@ -17,6 +18,12 @@ void QuestsData::afterUnmarshal(xml::LoadContext& /*ctx*/, const xml::XmlParent&
 	sortedByFactionId.clear();
 	detail::JavaHashMapOrder<int32_t, const QuestTemplate*> order;
 	for (const QuestTemplate& quest : questsData) {
+		// Java: QuestEngine.init sets drop.setQuestId(data.getId()) on the published template (QuestEngine.java:89); C++: templates are const
+		// once published, so the holder sets it here, before publication, and QuestEngine::init only reads it (docs/DEVIATIONS.md, "static data
+		// templates", row QuestDrop.questId). The drops are elements of this holder's own storage, which is not const: the const_cast is well
+		// defined.
+		for (const model::templates::quest::QuestDrop& drop : quest.getQuestDrop())
+			const_cast<model::templates::quest::QuestDrop&>(drop).setQuestId(quest.getId());
 		questTemplates.insert_or_assign(quest.getId(), &quest);
 		order.put(quest.getId(), &quest, detail::javaHashCode(quest.getId()));
 		int32_t npcFactionId = quest.getNpcFactionId();

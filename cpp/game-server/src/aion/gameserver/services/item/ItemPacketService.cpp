@@ -17,6 +17,7 @@
 #include "aion/gameserver/network/aion/serverpackets/SM_LEGION_EDIT.h"
 #include "aion/gameserver/network/aion/serverpackets/SM_WAREHOUSE_ADD_ITEM.h"
 #include "aion/gameserver/network/aion/serverpackets/SM_WAREHOUSE_UPDATE_ITEM.h"
+#include "aion/gameserver/services/item/ItemPacketService_ItemDeleteTypeInfo.h"
 #include "aion/gameserver/utils/PacketSendUtility.h"
 
 namespace aion::gameserver::services::item {
@@ -35,23 +36,6 @@ using network::aion::serverpackets::SM_LEGION_EDIT;
 using network::aion::serverpackets::SM_WAREHOUSE_ADD_ITEM;
 using network::aion::serverpackets::SM_WAREHOUSE_UPDATE_ITEM;
 using utils::PacketSendUtility;
-
-/**
- * Java ItemDeleteType.fromUpdateType(updateType) (ItemPacketService.java:143-150). The generated enum's companion header does not exist yet and
- * headers are frozen, so the service keeps a local copy, as Storage.cpp does.
- */
-ItemPacketService::ItemDeleteType deleteTypeFromUpdateType(ItemPacketService::ItemUpdateType updateType) noexcept {
-	switch (updateType) {
-		case ItemPacketService::ItemUpdateType::DEC_ITEM_SPLIT:
-			return ItemPacketService::ItemDeleteType::SPLIT;
-		case ItemPacketService::ItemUpdateType::DEC_ITEM_USE:
-			return ItemPacketService::ItemDeleteType::USE;
-		case ItemPacketService::ItemUpdateType::DEC_ITEM_SPLIT_MOVE:
-			return ItemPacketService::ItemDeleteType::MOVE;
-		default:
-			return ItemPacketService::ItemDeleteType::DEFAULT;
-	}
-}
 
 /**
  * Java `PacketSendUtility.sendPacket(player, new SM_LEGION_EDIT(0x04, player.getLegion()))`.
@@ -83,7 +67,7 @@ void ItemPacketService::updateItemAfterEquip(Player& player, Item& item) {
 
 void ItemPacketService::sendItemPacket(Player& player, StorageType storageType, Item& item, ItemPacketService::ItemUpdateType updateType) {
 	if (item.getItemCount() <= 0 && !item.getItemTemplate()->isKinah()) {
-		sendItemDeletePacket(player, storageType, item, deleteTypeFromUpdateType(updateType));
+		sendItemDeletePacket(player, storageType, item, fromUpdateType(updateType));
 	} else {
 		sendItemUpdatePacket(player, storageType, item, updateType);
 	}

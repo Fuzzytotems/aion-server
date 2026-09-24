@@ -2013,6 +2013,12 @@ def drops_report(drop_data: DropData, npc_id: int, map_id: int | None = None, pl
 
 def map_survey(drop_data: DropData, map_id: int, player_level: int = 1, race: str | None = None, drop_rate: str | None = None) -> dict:
 	"""One row per npc id with a regular spot on the map that may be spawned; an npc the oracle refuses is listed with the reason."""
+	return map_survey_with_items(drop_data, map_id, player_level, race, drop_rate)[0]
+
+
+def map_survey_with_items(drop_data: DropData, map_id: int, player_level: int = 1, race: str | None = None,
+                          drop_rate: str | None = None) -> tuple[dict, set[int]]:
+	"""map_survey and the ids its `distinctDroppableItems` counts (rule and custom drop candidates, quest drop items)."""
 	map_info = drop_data.map_info(map_id)
 	_check_handler(drop_data, map_id)
 	killer = _killer(drop_data, map_info, race, player_level, drop_rate)
@@ -2042,6 +2048,7 @@ def map_survey(drop_data: DropData, map_id: int, player_level: int = 1, race: st
 			"questDropItems": sorted({q["itemId"] for q in report["questDrops"]}),
 			"entriesMin": report["entries"]["min"], "entriesMax": report["entries"]["max"], "pNoDrop": report["entries"]["pNoDrop"],
 		})
+	droppable = items | {i for s in summaries for i in s["questDropItems"]}
 	return {
 		"format": "aion-m5b3-drop-survey",
 		"version": 1,
@@ -2054,7 +2061,7 @@ def map_survey(drop_data: DropData, map_id: int, player_level: int = 1, race: st
 		"questDropItems": len({i for s in summaries for i in s["questDropItems"]}),
 		# rule and custom drop candidates, and with the quest drop items (the m5b3-plan.md §2.4 count)
 		"distinctRuleItems": len(items),
-		"distinctDroppableItems": len(items | {i for s in summaries for i in s["questDropItems"]}),
+		"distinctDroppableItems": len(droppable),
 		"npcs": summaries,
 		"refused": refused,
-	}
+	}, droppable

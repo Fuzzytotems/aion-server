@@ -1,5 +1,7 @@
 #include "aion/gameserver/model/templates/item/actions/EmotionLearnAction.h"
 
+#include "aion/gameserver/runtime/base/Unported.h"
+
 #include "aion/gameserver/runtime/collections/HashSet.h"
 #include "aion/gameserver/runtime/sync/LockClass.h"
 
@@ -18,6 +20,16 @@ runtime::HashSet<int32_t> learnableIds{AION_LOCK_CLASS(EmotionLearnAction::LEARN
 
 void EmotionLearnAction::afterUnmarshal(xml::LoadContext& /*ctx*/, const xml::XmlParent& /*parent*/) {
 	learnableIds.add(emotionId);
+}
+
+bool EmotionLearnAction::canAct(gameobjects::player::Player& /*player*/, runtime::Ptr<gameobjects::Item> /*parentItem*/,
+	runtime::Ptr<gameobjects::Item> /*targetItem*/, std::initializer_list<std::any> /*params*/) const {
+	AION_UNPORTED();
+}
+
+void EmotionLearnAction::act(gameobjects::player::Player& /*player*/, runtime::Ptr<gameobjects::Item> /*parentItem*/,
+	runtime::Ptr<gameobjects::Item> /*targetItem*/, std::initializer_list<std::any> /*params*/) const {
+	AION_UNPORTED();
 }
 
 bool EmotionLearnAction::isLearnable(int32_t emotionId) {

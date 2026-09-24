@@ -13,8 +13,11 @@
 #include "aion/gameserver/model/gameobjects/Item.h"
 #include "aion/gameserver/model/gameobjects/player/Player.h"
 #include "aion/gameserver/model/gameobjects/player/PlayerCommonData.h"
+#include "aion/gameserver/model/items/storage/IStorage.h"
+#include "aion/gameserver/model/items/storage/StorageType.h"
 #include "aion/gameserver/model/team/legion/Legion.h"
 #include "aion/gameserver/model/team/legion/LegionEmblem.h"
+#include "aion/gameserver/model/team/legion/LegionHistoryAction.h"
 #include "aion/gameserver/model/team/legion/LegionMember.h"
 #include "aion/gameserver/model/team/legion/LegionWarehouse.h"
 #include "aion/gameserver/runtime/base/Exceptions.h"
@@ -418,7 +421,15 @@ void LegionService::onLogout(model::gameobjects::player::Player& player) {
 }
 
 void LegionService::addWHItemHistory(model::gameobjects::player::Player& player, int32_t itemId, int64_t value, model::items::storage::IStorage& sourceStorage, model::items::storage::IStorage& destStorage) {
-	AION_UNPORTED();
+	runtime::Ptr<model::team::legion::Legion> legion = player.getLegion();
+	if (legion) {
+		std::string description = std::to_string(itemId) + ":" + std::to_string(value); // Java: itemId + ":" + count
+		if (sourceStorage.getStorageType() == model::items::storage::StorageType::LEGION_WAREHOUSE) {
+			addHistory(*legion, player.getName(), model::team::legion::LegionHistoryAction::ITEM_WITHDRAW, description);
+		} else if (destStorage.getStorageType() == model::items::storage::StorageType::LEGION_WAREHOUSE) {
+			addHistory(*legion, player.getName(), model::team::legion::LegionHistoryAction::ITEM_DEPOSIT, description);
+		}
+	}
 }
 
 void LegionService::updateLegionMemberList(model::gameobjects::player::Player& player, bool broadcastToLegion) {

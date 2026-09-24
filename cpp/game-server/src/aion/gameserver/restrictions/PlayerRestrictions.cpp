@@ -1,7 +1,10 @@
 #include "aion/gameserver/restrictions/PlayerRestrictions.h"
 
+#include <optional>
 #include <string>
 
+#include "aion/gameserver/GameServer.h"
+#include "aion/gameserver/controllers/PlayerController.h"
 #include "aion/gameserver/controllers/effect/EffectController.h"
 #include "aion/gameserver/controllers/effect/PlayerEffectController.h"
 #include "aion/gameserver/dataholders/DataManager.h"
@@ -9,11 +12,19 @@
 #include "aion/gameserver/dataholders/loadingutils/EnumTraits.h"
 #include "aion/gameserver/model/ActionState.h"
 #include "aion/gameserver/model/ActionStateInfo.h"
+#include "aion/gameserver/model/Race.h"
+#include "aion/gameserver/model/TaskId.h"
 #include "aion/gameserver/model/gameobjects/Creature.h"
+#include "aion/gameserver/model/gameobjects/Item.h"
 #include "aion/gameserver/model/gameobjects/TransformModel.h"
 #include "aion/gameserver/model/gameobjects/VisibleObject.h"
 #include "aion/gameserver/model/gameobjects/player/Player.h"
+#include "aion/gameserver/model/gameobjects/player/PlayerCommonData.h"
 #include "aion/gameserver/model/gameobjects/player/PrivateStore.h"
+#include "aion/gameserver/model/templates/item/ItemTemplate.h"
+#include "aion/gameserver/model/templates/item/ItemUseLimits.h"
+#include "aion/gameserver/model/templates/item/actions/ItemActions.h"
+#include "aion/gameserver/questEngine/QuestEngine.h"
 #include "aion/gameserver/model/stats/container/CreatureLifeStats.h"
 #include "aion/gameserver/model/stats/container/PlayerGameStats.h"
 #include "aion/gameserver/model/stats/container/PlayerLifeStats.h"
@@ -38,6 +49,7 @@ namespace aion::gameserver::restrictions {
 using model::gameobjects::Creature;
 using model::gameobjects::VisibleObject;
 using model::gameobjects::player::Player;
+using model::templates::item::ItemTemplate;
 using model::templates::panels::SkillPanel;
 using network::aion::serverpackets::SM_ATTACK_RESPONSE;
 using skillengine::effect::AbnormalState;
@@ -189,20 +201,147 @@ bool PlayerRestrictions::canAttack(Player& player, VisibleObject& target) {
 	return player.isEnemy(*creature);
 }
 
+// Java PlayerRestrictions.java:240-252 (m5b3-plan.md P-01, optional: every callee is ported; its callers, the exchange and private store
+// packets, are M5c's)
 bool PlayerRestrictions::canTrade(runtime::Ptr<Player> player) {
-	AION_UNPORTED();
+	if (!player || player->isDead() || !player->isOnline())
+		return false;
+	if (GameServer::isShuttingDownSoon()) {
+		PacketSendUtility::sendPacket(*player, SM_SYSTEM_MESSAGE::STR_MSG_DISABLE("Shutdown Progress"));
+		return false;
+	}
+	if (player->isTrading()) {
+		PacketSendUtility::sendPacket(*player, SM_SYSTEM_MESSAGE::STR_EXCHANGE_PARTNER_IS_EXCHANGING_WITH_OTHER());
+		return false;
+	}
+	return true;
 }
 
 bool PlayerRestrictions::canChat(runtime::Ptr<Player> player) {
 	AION_UNPORTED();
 }
 
+// Java PlayerRestrictions.java:277-369 (m5b3-plan.md P-01): the restriction step of CM_USE_ITEM, after the item-use observers were notified
 bool PlayerRestrictions::canUseItem(runtime::Ptr<Player> player, model::gameobjects::Item& item) {
-	AION_UNPORTED();
+	if (!player || !player->isOnline())
+		return false;
+
+	if (player->isInPrison()) {
+		PacketSendUtility::sendPacket(*player, SM_SYSTEM_MESSAGE::STR_MSG_ACCUSE_TARGET_IS_NOT_VALID());
+		return false;
+	}
+
+	if (player->getLifeStats()->isAboutToDie() || player->isDead())
+		return false;
+
+	if (player->getEffectController()->isInAnyAbnormalState(AbnormalState::CANT_ATTACK_STATE)) {
+		PacketSendUtility::sendPacket(*player, SM_SYSTEM_MESSAGE::STR_SKILL_CAN_NOT_USE_ITEM_WHILE_IN_ABNORMAL_STATE());
+		return false;
+	}
+
+	// cannot use item while transformed
+	if (player->getTransformModel().cantUseItems()) {
+		// client sends message by itself
+		return false;
+	}
+
+	if (player->getStore()) { // You cannot use an item while running a Private Store.
+		// Java ActionState.PERSONAL_SHOP.getL10n(), spelled out at the call site as checkFly does (ActionStateInfo.h)
+		PacketSendUtility::sendPacket(*player,
+			SM_SYSTEM_MESSAGE::STR_MSG_CANNOT_USE_ITEM_DURING_PATH_FLYING(utils::ChatUtil::l10n(getL10nId(model::ActionState::PERSONAL_SHOP))));
+		return false;
+	}
+
+	// Prevents potion spamming, and relogging to use kisks/aether jelly/long CD items.
+	if (player->hasCooldown(item)) {
+		PacketSendUtility::sendPacket(*player, SM_SYSTEM_MESSAGE::STR_ITEM_CANT_USE_UNTIL_DELAY_TIME());
+		return false;
+	}
+
+	const ItemTemplate* itemTemplate = item.getItemTemplate();
+	// Checked before the "no actions" fallback below so a race mismatch reports correctly even without one
+	if (itemTemplate->getRace() != model::Race::PC_ALL && itemTemplate->getRace() != player->getRace()) {
+		PacketSendUtility::sendPacket(*player, SM_SYSTEM_MESSAGE::STR_CANNOT_USE_ITEM_INVALID_RACE());
+		return false;
+	}
+
+	// getItemActions() answers the bound list, empty where Java's field is null - Java's getter answers Collections.emptyList() there
+	// (ItemActions.java:38-40, ItemActions.h)
+	const model::templates::item::actions::ItemActions* itemActions = itemTemplate->getActions();
+	if (itemActions == nullptr || itemActions->getItemActions().empty()) {
+		if (!questEngine::QuestEngine::getInstance().isRegisteredQuestItem(item.getItemId())) {
+			PacketSendUtility::sendPacket(*player, SM_SYSTEM_MESSAGE::STR_ITEM_IS_NOT_USABLE());
+			return false;
+		}
+	}
+
+	const model::templates::item::ItemUseLimits* limits = itemTemplate->getUseLimits();
+	if (limits->getGenderPermitted() && *limits->getGenderPermitted() != player->getGender()) {
+		PacketSendUtility::sendPacket(*player, SM_SYSTEM_MESSAGE::STR_CANNOT_USE_ITEM_INVALID_GENDER());
+		return false;
+	}
+
+	if (!itemTemplate->isClassSpecific(player->getCommonData()->getPlayerClass())) {
+		PacketSendUtility::sendPacket(*player, SM_SYSTEM_MESSAGE::STR_CANNOT_USE_ITEM_INVALID_CLASS());
+		return false;
+	}
+
+	int32_t requiredLevel = itemTemplate->getRequiredLevel(player->getPlayerClass());
+	if (requiredLevel > player->getLevel()) {
+		PacketSendUtility::sendPacket(*player, SM_SYSTEM_MESSAGE::STR_CANNOT_USE_ITEM_TOO_LOW_LEVEL_MUST_BE_THIS_LEVEL(item.getL10n(), requiredLevel));
+		return false;
+	}
+
+	int8_t levelRestrict = itemTemplate->getMaxLevelRestrict(player->getPlayerClass());
+	if (levelRestrict != 0 && player->getLevel() > levelRestrict) {
+		PacketSendUtility::sendPacket(*player, SM_SYSTEM_MESSAGE::STR_CANNOT_USE_ITEM_TOO_HIGH_LEVEL(levelRestrict, item.getL10n()));
+		return false;
+	}
+
+	if (itemTemplate->hasAreaRestriction()) {
+		const world::zone::ZoneName* restriction = itemTemplate->getUseArea();
+		if (!player->isInsideItemUseZone(restriction)) {
+			PacketSendUtility::sendPacket(*player, SM_SYSTEM_MESSAGE::STR_SKILL_CAN_NOT_USE_ITEM_IN_CURRENT_POSITION());
+			return false;
+		}
+	}
+
+	if (std::optional<model::Race> activationRace = itemTemplate->getActivationRace()) {
+		// TODO: check retail messages
+		if (!runtime::as<Creature>(player->getTarget())) {
+			PacketSendUtility::sendPacket(*player, SM_SYSTEM_MESSAGE::STR_ITEM_CANT_FIND_VALID_TARGET());
+			return false;
+		}
+		// java-race: Java reads player.getTarget() a second time for the cast; a target changed in between to null or to a non-Creature throws
+		// NullPointerException or ClassCastException here as in Java (runtime::cast and the Ptr dereference)
+		if (runtime::cast<Creature>(player->getTarget())->getRace() != *activationRace) {
+			PacketSendUtility::sendPacket(*player, SM_SYSTEM_MESSAGE::STR_SKILL_CANT_CAST_TO_CURRENT_TARGET());
+			return false;
+		}
+	}
+
+	return true;
 }
 
+// Java PlayerRestrictions.java:371-389 (m5b3-plan.md P-01): the first check of CM_EQUIP_ITEM after cancelUseItem
 bool PlayerRestrictions::canChangeEquip(Player& player) {
-	AION_UNPORTED();
+	if (player.isInPrison()) {
+		PacketSendUtility::sendPacket(player, SM_SYSTEM_MESSAGE::STR_MSG_ACCUSE_TARGET_IS_NOT_VALID());
+		return false;
+	}
+	if (player.getController().isUnderStance()) {
+		PacketSendUtility::sendPacket(player, SM_SYSTEM_MESSAGE::STR_SKILL_CAN_NOT_EQUIP_ITEM_WHILE_IN_CURRENT_STANCE());
+		return false;
+	}
+	if (player.getEffectController()->isInAnyAbnormalState(AbnormalState::CANT_ATTACK_STATE)) {
+		PacketSendUtility::sendPacket(player, SM_SYSTEM_MESSAGE::STR_SKILL_CAN_NOT_EQUIP_ITEM_WHILE_IN_ABNORMAL_STATE());
+		return false;
+	}
+	if (player.getController().hasScheduledTask(model::TaskId::ITEM_USE)) {
+		PacketSendUtility::sendPacket(player, SM_SYSTEM_MESSAGE::STR_CANT_EQUIP_ITEM_IN_ACTION());
+		return false;
+	}
+	return true;
 }
 
 } // namespace aion::gameserver::restrictions

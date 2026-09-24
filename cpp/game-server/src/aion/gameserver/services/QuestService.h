@@ -3,7 +3,6 @@
 #include <chrono>
 #include <cstdint>
 #include <optional>
-#include <unordered_set>
 #include <vector>
 
 #include "aion/gameserver/runtime/collections/HashMap.h"
@@ -74,7 +73,12 @@ public:
 	 */
 	static int32_t checkAndGetCollectItemQuestRewardCategory(questEngine::model::QuestEnv& env);
 	static int32_t checkAndGetCollectItemQuestRewardCategory(questEngine::model::QuestEnv& env, std::optional<int32_t> rewardIndex);
-	static int32_t getQuestDrop(const std::unordered_set<runtime::Ptr<model::drop::DropItem>>& dropItems, int32_t index, model::gameobjects::Npc& npc,
+	/**
+	 * C++ (header request m5b3-h03): `dropItems` is the caller's live set, which Java adds to (QuestService.java:682-728) - the set
+	 * DropRegistrationService.registerDrop stores in currentDropMap (DropRegistrationService.h). An empty `players` stands for Java null
+	 * (m5b3-plan.md D11).
+	 */
+	static int32_t getQuestDrop(runtime::RcHashSet<runtime::Ref<model::drop::DropItem>>& dropItems, int32_t index, model::gameobjects::Npc& npc,
 		const std::vector<runtime::Ptr<model::gameobjects::player::Player>>& players, model::gameobjects::player::Player& player);
 private:
 	static void allowLooting(const std::vector<runtime::Ptr<model::gameobjects::player::Player>>& players, model::gameobjects::DropNpc& dropNpc,

@@ -326,4 +326,34 @@ bool ScenarioDatabase::isReachable() const {
 	}
 }
 
+bool ScenarioDatabase::isInvalidObjectId(int32_t id) noexcept {
+	// IDFactory.java:46-47 INVALID_ID_BIT_MASK and INVALID_ID_BITCHECK (6484), compared as in isInvalidId (:152-154)
+	constexpr int32_t INVALID_ID_BIT_MASK = 0b0010011111100110101111111111100;
+	constexpr int32_t INVALID_ID_BITCHECK = 0b0000000000000000001100101010100;
+	return (id & INVALID_ID_BIT_MASK) == INVALID_ID_BITCHECK;
+}
+
+int32_t ScenarioDatabase::seedInventoryItem(std::string_view database, const InventorySeed& seed) const {
+	const int64_t highest =
+	  queryLong(database, "SELECT COALESCE(MAX(item_unique_id), 0) FROM inventory WHERE item_unique_id >= " + std::to_string(SEEDED_OBJECT_ID_BASE))
+		.value_or(0);
+	int64_t id = highest >= SEEDED_OBJECT_ID_BASE ? highest + 1 : SEEDED_OBJECT_ID_BASE;
+	while (id < SEEDED_OBJECT_ID_END && isInvalidObjectId(static_cast<int32_t>(id)))
+		id++;
+	if (id >= SEEDED_OBJECT_ID_END)
+		throw std::runtime_error("the seeded object id range [" + std::to_string(SEEDED_OBJECT_ID_BASE) + ", " + std::to_string(SEEDED_OBJECT_ID_END) +
+								 ") of " + std::string(database) + ".inventory is used up");
+	execute(database, "INSERT INTO inventory (item_unique_id, item_id, item_count, item_owner, slot, item_location) VALUES (" + std::to_string(id) +
+						  ", " + std::to_string(seed.itemId) + ", " + std::to_string(seed.count) + ", " + std::to_string(seed.ownerId) + ", " +
+						  std::to_string(seed.slot) + ", " + std::to_string(seed.location) + ")");
+	return static_cast<int32_t>(id);
+}
+
+void ScenarioDatabase::setLifeStatHp(std::string_view database, int32_t playerId, int32_t hp) const {
+	const std::string player = std::to_string(playerId);
+	if (queryLong(database, "SELECT COUNT(*) FROM player_life_stats WHERE player_id = " + player).value_or(0) != 1)
+		throw std::runtime_error("player " + player + " has no player_life_stats row in " + std::string(database));
+	execute(database, "UPDATE player_life_stats SET hp = " + std::to_string(hp) + " WHERE player_id = " + player);
+}
+
 } // namespace aion::gameserver::scenario

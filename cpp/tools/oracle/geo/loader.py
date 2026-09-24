@@ -48,6 +48,8 @@ class PlacedGeometry:
 	node_type: int  # 0 for a plain Node, otherwise the DespawnableType id
 	node_id: int
 	node_intentions: int
+	# the name createZone gives a geometry with the MATERIAL intention, without the map id (the zone name is it + "_" + map id); None otherwise
+	zone_geometry_name: str | None = None
 
 
 @dataclass
@@ -206,6 +208,7 @@ def load(geo_dir: Path, world_maps_xml: Path, probe_maps: set[int] | None = None
 				result.geometries += 1
 				if not town_level_node:
 					result.placement_geometries += 1
+				geometry_name = None
 				if mesh.intentions & MATERIAL:
 					center, extents = mesh_aabb(mesh)
 					world_center, _ = transform_box(center, extents, matrix)
@@ -217,7 +220,7 @@ def load(geo_dir: Path, world_maps_xml: Path, probe_maps: set[int] | None = None
 					result.material_zones.append((f"{geometry_name}_{map_id}", map_id, geometry_name, mesh.material_id))
 					result.material_geometries += 1
 				if keep:
-					placed[map_id].append(PlacedGeometry(order, child_index, name, mesh, matrix, node_type, node_id, model.intentions))
+					placed[map_id].append(PlacedGeometry(order, child_index, name, mesh, matrix, node_type, node_id, model.intentions, geometry_name))
 			result.attached_nodes += 1
 			if node_type:
 				label = DESPAWNABLE_TYPES[node_type]

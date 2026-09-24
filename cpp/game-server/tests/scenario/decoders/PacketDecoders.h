@@ -481,6 +481,12 @@ Appearance readPlayerInfoAppearance(BodyReader& reader);
 Appearance readSpawnAppearance(BodyReader& reader);
 PlayerInfoBlock readPlayerInfoBlock(BodyReader& reader);
 EquippedItems readEquippedItems(BodyReader& reader);
+/**
+ * ItemInfoBlob.writeMe: writeH(size), then the entries (id byte + body) that fill exactly `size` bytes, into `item`'s blob fields
+ * (blobEntryIds, general, enchant, equippedSlotBlob); the item packets of decoders/ItemDecoders.h read their blobs with it too (m5b3-plan.md
+ * G-02). A socketed godstone is ENCHANT_INFO's godStoneId (EnchantInfoBlobEntry.java:51), not an entry of its own.
+ */
+void readItemInfoBlob(BodyReader& reader, InventoryItem& item);
 
 // ---- packets ----------------------------------------------------------------------------------------------------------------------------
 

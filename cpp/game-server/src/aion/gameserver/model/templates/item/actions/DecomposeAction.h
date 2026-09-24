@@ -1,7 +1,14 @@
 #pragma once
 
-#include "aion/gameserver/dataholders/fwd.h"
 #include "aion/gameserver/model/templates/item/actions/DecomposeAction.xml.h"
+
+#include <any>
+#include <initializer_list>
+
+#include "aion/gameserver/dataholders/fwd.h"
+#include "aion/gameserver/model/gameobjects/fwd.h"
+#include "aion/gameserver/model/gameobjects/player/fwd.h"
+#include "aion/gameserver/runtime/lifetime/Ref.h"
 
 namespace aion::gameserver::model::templates::item::actions {
 
@@ -9,6 +16,12 @@ namespace aion::gameserver::model::templates::item::actions {
 class DecomposeAction : public ::aion::gameserver::model::templates::item::actions::AbstractItemAction {
 #include "aion/gameserver/model/templates/item/actions/DecomposeAction.xml.inc"
 public:
+	bool canAct(gameobjects::player::Player& player, runtime::Ptr<gameobjects::Item> parentItem, runtime::Ptr<gameobjects::Item> targetItem,
+		std::initializer_list<std::any> params = {}) const override;
+
+	void act(gameobjects::player::Player& player, runtime::Ptr<gameobjects::Item> parentItem, runtime::Ptr<gameobjects::Item> targetItem,
+		std::initializer_list<std::any> params = {}) const override;
+
 	/**
 	 * Checks that every random reward item id of the decompose action exists: the last DataManager post-processing step.
 	 * <p>

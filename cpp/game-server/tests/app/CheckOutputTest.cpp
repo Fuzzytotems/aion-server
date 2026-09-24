@@ -15,6 +15,7 @@
 #include <sstream>
 #include <string>
 #include <thread>
+#include <utility>
 #include <vector>
 
 #include <spdlog/sinks/ostream_sink.h>
@@ -25,9 +26,18 @@
 #include "aion/gameserver/controllers/attack/AttackResult.h"
 #include "aion/gameserver/controllers/attack/AttackStatus.h"
 #include "aion/gameserver/dataholders/DataManager.h"
+#include "aion/gameserver/dataholders/loadingutils/LoadContext.h"
+#include "aion/gameserver/dataholders/loadingutils/StaticDataLoader.h"
 #include "aion/gameserver/model/animations/ObjectDeleteAnimation.h"
+#include "aion/gameserver/model/drop/Drop.h"
+#include "aion/gameserver/model/drop/DropItem.h"
+#include "aion/gameserver/model/gameobjects/DropNpc.h"
 #include "aion/gameserver/model/gameobjects/VisibleObject.h"
+#include "aion/gameserver/model/items/detail/StaticDataLookups.h"
+#include "aion/gameserver/model/templates/item/ItemTemplate.bind.h"
+#include "aion/gameserver/model/templates/item/ItemTemplate.h"
 #include "aion/gameserver/runtime/base/Exceptions.h"
+#include "aion/gameserver/runtime/collections/Rc.h"
 #include "aion/gameserver/runtime/fields/Field.h"
 #include "aion/gameserver/runtime/lifetime/LiveInstanceCounters.h"
 #include "aion/gameserver/runtime/lifetime/Ref.h"
@@ -35,6 +45,7 @@
 #include "aion/gameserver/runtime/lifetime/Reclaimer.h"
 #include "aion/gameserver/runtime/lifetime/TaskScope.h"
 #include "aion/gameserver/runtime/services/LeakCensus.h"
+#include "aion/gameserver/services/drop/DropRegistrationService.h"
 #include "aion/gameserver/world/WorldPosition.h"
 #include "aion/gameserver/world/knownlist/KnownList.h"
 
@@ -351,6 +362,50 @@ TEST(CheckOutputTest, FinalCensusReportsRemovedObjectsThatAreStillReferenced) {
 	std::filesystem::remove_all(dir);
 }
 
+// m5b3-plan.md §16 (the stage-1 integration): a removed object whose references are still being dropped scan by scan when the census starts is
+// a logout that is finishing, not a leak. gs.scenario.m5b wrote `Player <id> 3` twice in a row - the census hook logged 86, then 3, after its
+// two scans - while the same shutdown left "0 objects still tracked" and 0 live Players: the KnownObjects and Effects of the logout that hold
+// the Player are destroyed epoch by epoch, and two scans were not enough. Here five holders let go of the "Player" one per scan of this thread
+// (the reclaimer's own thread, if a test started it, is ignored), so after runFinalCensus' two fixed scans the count is still 3 or 4 and
+// falling; the census has to keep scanning until two checks in a row agree, and by then the count has reached 0 and the object is swept.
+TEST(CheckOutputTest, FinalCensusWaitsForACountThatIsStillFalling) {
+	LeakCensus& census = LeakCensus::getInstance();
+	census.uninstall();
+	LeakCensus::Config config;
+	config.censusAfter = std::chrono::minutes(10);
+	config.checkInterval = std::chrono::seconds(1);
+	census.configure(config);
+	census.install();
+
+	runtime::Ref<CensusObject> player = CensusObject::create();
+	census.onRemovedFromWorld(*player, "Player", 61);
+	auto holders = std::make_shared<std::vector<runtime::Ref<CensusObject>>>();
+	for (int i = 0; i < 5; i++)
+		holders->push_back(player);
+	player.reset();
+	const std::thread::id scanner = std::this_thread::get_id();
+	runtime::Reclaimer& reclaimer = runtime::Reclaimer::getInstance();
+	const uint64_t hook = reclaimer.addPostScanHook("CheckOutputTest.fallingCount", [holders, scanner] {
+		if (std::this_thread::get_id() == scanner && !holders->empty())
+			holders->pop_back();
+	});
+
+	const std::filesystem::path dir = uniqueDirectory("falling");
+	const std::vector<LeakCensus::LeakReport> leaks = CheckOutput::runFinalCensus(dir, [] { return false; }, std::chrono::seconds(10));
+	reclaimer.removePostScanHook(hook);
+
+	EXPECT_TRUE(holders->empty()) << "the census stopped scanning while the count was still falling (" << holders->size() << " holders left)";
+	EXPECT_TRUE(leaks.empty()) << "a count that falls scan by scan is not a leak: " << readFile(dir / "census.txt");
+	EXPECT_EQ(readFile(dir / "census.txt"), "# final census v1\n");
+
+	holders->clear();
+	reclaimer.drain();
+	EXPECT_TRUE(census.getLeaks().empty());
+	census.uninstall();
+	census.configure(LeakCensus::Config{});
+	std::filesystem::remove_all(dir);
+}
+
 // m5a-plan.md §10.3: runFinalCensus must end with runBreakerPass(), the one place that ever arms the zombie breaker and the stale-pin check in a
 // gate run - the configured thresholds are 30 and 10 minutes against a run of one to three minutes. Without the call the gate's "zombieCuts 0"
 // and "no stale pin" rows only assert absence, so nothing else in the tree notices that the pass is gone.
@@ -479,8 +534,9 @@ TEST(CheckOutputTest, TheLiveCountCheckReadsTheProcessCountersOfAZeroClass) {
  * nothing keeps one after the hit is applied - measured 0 live of 183 created in the green M5a gate run that followed A-06 (0 of 93 in the geo
  * run).
  * <p>
- * DropNpc: strict 0 is sound (it is RefCounted with a create()), but it is a guard, not an assertion: its only constructor call site is
- * DropRegistrationService::initDropNpc, behind registerDrop's whole-body AION_PARTIAL (m5b-plan.md D5), so created stays 0 until M5b-3.
+ * DropNpc: strict 0 while M5b-1's registerDrop was a whole-body AION_PARTIAL (a guard, created 0); NOT strict since M5b-3 (m5b3-plan.md D5,
+ * G-06): DropRegistrationService holds a corpse's DropNpc until the corpse despawns, 300 s for an unlooted drop, so a stop within five minutes of
+ * such a kill holds one in Java too. It is bounded by what the service holds (TheDropClassesAreBoundedByWhatTheDropServiceHolds below).
  * <p>
  * AggroInfo: NOT strict 0. The same M5a gate run reports 34 live of 36 created with censusLeaks 0, liveLeaks 0 and exitCode 0 (22 of 22 in the
  * geo run): an AggroList is an OwnedPart of a Creature, the shutdown does not despawn the world, and since A-06 the npcs fight each other, so an
@@ -494,7 +550,8 @@ TEST(CheckOutputTest, TheCombatClassesOfTheM5bGateAreDecidedOneByOne) {
 	const auto reported = [](std::string_view name) { return std::ranges::count(CheckOutput::summaryLiveClasses(), name) == 1; };
 
 	EXPECT_TRUE(strict("controllers::attack::AttackResult")) << "0 live of 183 created in the M5a gate run: a strict zero that is exercised";
-	EXPECT_TRUE(strict("model::gameobjects::DropNpc")) << "sound, but a guard until M5b-3 creates one";
+	EXPECT_FALSE(strict("model::gameobjects::DropNpc"))
+		<< "a corpse with an unlooted drop keeps its DropNpc for 300 s: bounded by DropRegistrationService's map (m5b3-plan.md D5), not zero";
 	EXPECT_FALSE(strict("controllers::attack::AggroInfo")) << "34 of 36 live in a GREEN gate run: bounded by the live creatures, not zero";
 	EXPECT_FALSE(strict("controllers::attack::DamageList")) << "a value class no counter can see: the row would never fire";
 	EXPECT_FALSE(reported("controllers::attack::DamageList")) << "and reporting 0 0 for it forever would only read as a pass";
@@ -502,7 +559,9 @@ TEST(CheckOutputTest, TheCombatClassesOfTheM5bGateAreDecidedOneByOne) {
 	// what the gate reads as numbers instead
 	EXPECT_TRUE(reported("controllers::attack::AggroInfo"));
 	EXPECT_TRUE(reported("controllers::attack::AttackResult")) << "the created half is what makes the strict row an assertion";
-	EXPECT_TRUE(reported("model::gameobjects::DropNpc"));
+	EXPECT_TRUE(reported("model::gameobjects::DropNpc")) << "the gates assert created = kills and live = dropNpcsHeld";
+	EXPECT_TRUE(reported("model::drop::DropItem")) << "a drop of the static data (the custom drops of NpcDrop.dropCalculator)";
+	EXPECT_TRUE(reported("RuntimeDropItem")) << "a drop made at run time (every global rule's and quest drop's new DropItem(new Drop(...)))";
 	EXPECT_TRUE(reported("model::gameobjects::Npc")) << "Q3's npc conservation: live back to the baseline, created up by the respawns";
 	EXPECT_TRUE(reported("world::knownlist::KnownObject")) << "the class stage 1 removed from the strict list is still bounded by the gate";
 
@@ -523,6 +582,142 @@ TEST(CheckOutputTest, TheCombatClassesOfTheM5bGateAreDecidedOneByOne) {
 	const std::vector<LiveCount> leaks = CheckOutput::checkLiveCounts(leaked);
 	ASSERT_EQ(leaks.size(), 1u);
 	EXPECT_EQ(leaks[0].className, "aion::gameserver::controllers::attack::AttackResult");
+}
+
+/**
+ * m5b3-plan.md D5 (G-06): DropNpc and the drop items are summary rows bounded by what DropRegistrationService holds, not zero rows. A corpse with
+ * an unlooted drop keeps its DropNpc and its drop set in the service's two maps until it despawns - RespawnService.WITH_DROP_DECAY, 300 s - so a
+ * server stopped within five minutes of such a kill holds them, in Java too. The dir form writes the bound (dropNpcsHeld, dropItemsHeld) and logs
+ * an ERROR for a drop class with more live instances than the service holds, which is the leak (a DropNpc unregisterDrop missed, a drop item a
+ * static kept). The drop item that every global rule makes is DropItem.cpp's anonymous-namespace RuntimeDropItem, whose counter the name rule
+ * reaches only as "RuntimeDropItem": the dir-form half pins that against the real class.
+ */
+TEST(CheckOutputTest, TheDropClassesAreBoundedByWhatTheDropServiceHolds) {
+	{
+		// the numbers of a stop five seconds after a kill whose corpse still stands with ten entries (the M5b-3 gate's rate, §2.4)
+		LogCapture capture("com.aionemu.gameserver.CheckOutput");
+		const std::vector<LiveCount> standingCorpse{
+			{"aion::gameserver::model::gameobjects::DropNpc", 1, 3},
+			{"aion::gameserver::model::drop::`anonymous namespace'::RuntimeDropItem", 10, 30},
+		};
+		EXPECT_TRUE(CheckOutput::checkLiveCounts(standingCorpse).empty()) << "a standing corpse's drop is no zero-class leak";
+		EXPECT_FALSE(capture.contains("error|")) << capture.str();
+		const std::vector<LiveCount> rows = CheckOutput::summaryLiveCounts(standingCorpse);
+		const auto row = [&rows](std::string_view name) {
+			auto it = std::ranges::find(rows, name, &LiveCount::className);
+			return it == rows.end() ? LiveCount{std::string(name), -1, 0} : *it;
+		};
+		EXPECT_EQ(row("model::gameobjects::DropNpc").live, 1);
+		EXPECT_EQ(row("model::gameobjects::DropNpc").created, 3u);
+		EXPECT_EQ(row("RuntimeDropItem").live, 10) << "MSVC's spelling of the anonymous namespace sits between the namespace and the class name";
+		EXPECT_EQ(row("model::drop::DropItem").live, 0) << "the static-data drop item is a separate counter";
+	}
+
+	const std::filesystem::path dir = uniqueDirectory("drops");
+	const auto summaryOf = [&dir](bool started) {
+		CheckOutput::Summary summary;
+		summary.started = started;
+		CheckOutput::writeSummary(dir, summary);
+		return readFile(dir / "m5a_summary.txt");
+	};
+	const auto rowOf = [](const std::string& text, std::string_view key) {
+		const size_t at = text.find("\n" + std::string(key) + " ");
+		return at == std::string::npos ? std::string("(no row)") : text.substr(at + 1, text.find('\n', at + 1) - at - 1);
+	};
+	{
+		LogCapture capture("com.aionemu.gameserver.CheckOutput");
+		const std::string notStarted = summaryOf(false);
+		EXPECT_NE(notStarted.find("\ndropNpcsHeld unknown\ndropItemsHeld unknown\neffectsHeld "), std::string::npos)
+			<< "a summary that was not `started` measured nothing, and the drop rows come before the G-07 rows: " << notStarted;
+	}
+	if (!runtime::LIVE_COUNTS_ENABLED) {
+		std::filesystem::remove_all(dir);
+		GTEST_SKIP() << "release build: makeRef and the Reclaimer count nothing (AION_CHECKED off)";
+	}
+
+	// Sparkie Carapace Fragment, item_templates.xml:874138 - the one candidate of JUNK_SPAKY_MATERIAL (m5b3-plan.md §2.4); DropItem's
+	// constructor reads its option_slot_bonus through the ITEM_DATA lookup
+	static const model::templates::item::ItemTemplate* const junk = [] {
+		xml::LoadContext context;
+		return xml::bindString<model::templates::item::ItemTemplate>(context,
+			R"(<item_template id="182004793" name="Sparkie Carapace Fragment" level="5" cName="junk_spaky_05" mask="12414" max_stack_count="1000" quality="JUNK" price="300" desc="718718"/>)")
+			.release();
+	}();
+	model::items::detail::StaticDataLookupsForTests lookups;
+	lookups.itemTemplate = [](int32_t itemId) -> const model::templates::item::ItemTemplate* { return itemId == 182004793 ? junk : nullptr; };
+	model::items::detail::setStaticDataLookupsForTests(lookups);
+
+	services::drop::DropRegistrationService& service = services::drop::DropRegistrationService::getInstance();
+	constexpr int32_t corpse = 0x7FFFFF01; // an object id no test of this binary registers
+	const auto countsOf = [&](std::string_view key) {
+		int64_t live = -1;
+		uint64_t created = 0;
+		const std::string line = rowOf(summaryOf(true), "liveCount " + std::string(key));
+		std::istringstream in(line);
+		std::string label, name;
+		in >> label >> name >> live >> created;
+		return std::pair<int64_t, uint64_t>{live, created};
+	};
+	// a custom drop's Drop lives in the static data (NpcDrop's DropGroup), DropItem::create(const Drop*) borrows it
+	static const model::drop::Drop staticDrop(182004793, 1, 1, 100.0f);
+	{
+		runtime::TaskScope scope(AION_TASK_INFO(runtime::TaskKind::TEST));
+		runtime::Ref<model::gameobjects::DropNpc> dropNpc = model::gameobjects::DropNpc::create(corpse);
+		runtime::Ref<runtime::RcHashSet<runtime::Ref<model::drop::DropItem>>> dropItems =
+			runtime::RcHashSet<runtime::Ref<model::drop::DropItem>>::create();
+		// initDropNpc's dropRegistrationMap.put and registerDrop's currentDropMap.put (DropRegistrationService.java:163, :82): the corpse's
+		// DropNpc and its drop set with THREE entries - two run-time ones (a global rule's `new DropItem(new Drop(itemId, count, count, 100))`)
+		// and a custom drop's (NpcDrop.dropCalculator: `new DropItem(drop)` over the static-data Drop) - so dropItemsHeld must count the
+		// elements of the set, not the corpses (the M5b-3 gate's corpses hold up to ten each, §2.4)
+		dropItems->add(model::drop::DropItem::create(model::drop::Drop(182004793, 1, 1, 100.0f)));
+		dropItems->add(model::drop::DropItem::create(model::drop::Drop(182004793, 1, 1, 100.0f)));
+		dropItems->add(model::drop::DropItem::create(&staticDrop));
+		ASSERT_EQ(dropItems->size(), 3) << "three distinct DropItem objects: DropItem has identity equality, as in Java";
+		service.getDropRegistrationMap().put(corpse, dropNpc);
+		service.getCurrentDropMap().put(corpse, dropItems);
+		{
+			LogCapture capture("com.aionemu.gameserver.CheckOutput");
+			const std::string held = summaryOf(true);
+			EXPECT_EQ(rowOf(held, "dropNpcsHeld"), "dropNpcsHeld 1") << held;
+			EXPECT_EQ(rowOf(held, "dropItemsHeld"), "dropItemsHeld 3") << "the elements of the one corpse's drop set: " << held;
+			EXPECT_EQ(countsOf("model::gameobjects::DropNpc").first, 1) << rowOf(held, "liveCount model::gameobjects::DropNpc");
+			EXPECT_EQ(countsOf("RuntimeDropItem").first, 2)
+				<< "the real RuntimeDropItem must reach the RuntimeDropItem row: " << rowOf(held, "liveCount RuntimeDropItem");
+			EXPECT_EQ(countsOf("model::drop::DropItem").first, 1)
+				<< "the static-data drop item reaches its own row: " << rowOf(held, "liveCount model::drop::DropItem");
+			// no line about a drop class at all: neither checkHeldDrops nor a zero row of checkLiveCounts may call the standing corpse a leak
+			EXPECT_EQ(capture.str().find("Drop"), std::string::npos) << "what the service holds is no leak: " << capture.str();
+		}
+
+		// DropService.unregisterDrop (DropService.java:78-82: the corpse despawned) while something still keeps both objects: the leak the bound
+		// exists for
+		service.getCurrentDropMap().remove(corpse);
+		service.getDropRegistrationMap().remove(corpse);
+		{
+			LogCapture capture("com.aionemu.gameserver.CheckOutput");
+			const std::string leaked = summaryOf(true);
+			EXPECT_EQ(rowOf(leaked, "dropNpcsHeld"), "dropNpcsHeld 0") << leaked;
+			EXPECT_EQ(rowOf(leaked, "dropItemsHeld"), "dropItemsHeld 0") << leaked;
+			EXPECT_TRUE(capture.contains("error|Live instance leak: 1 DropNpc instances are alive after the runtime shut down and "
+										 "DropRegistrationService holds 0"))
+				<< capture.str();
+			EXPECT_TRUE(capture.contains("error|Live instance leak: 3 DropItem instances are alive after the runtime shut down and "
+										 "DropRegistrationService holds 0"))
+				<< "both drop item classes count against the bound: " << capture.str();
+		}
+	}
+	runtime::Reclaimer::getInstance().drain();
+	{
+		LogCapture capture("com.aionemu.gameserver.CheckOutput");
+		const std::string after = summaryOf(true);
+		EXPECT_EQ(countsOf("model::gameobjects::DropNpc").first, 0) << "released and reclaimed: " << after;
+		EXPECT_GE(countsOf("model::gameobjects::DropNpc").second, 1u) << "while `created` stays: " << after;
+		EXPECT_EQ(countsOf("RuntimeDropItem").first, 0) << after;
+		EXPECT_EQ(countsOf("model::drop::DropItem").first, 0) << after;
+		EXPECT_EQ(capture.str().find("Drop"), std::string::npos) << capture.str();
+	}
+	model::items::detail::setStaticDataLookupsForTests({});
+	std::filesystem::remove_all(dir);
 }
 
 /**
@@ -634,7 +829,7 @@ TEST(CheckOutputTest, SummaryLiveCountsReportCreatedEvenWhenNothingIsLive) {
 	EXPECT_EQ(row("controllers::attack::AttackResult").live, 0);
 	EXPECT_EQ(row("controllers::attack::AttackResult").created, 183u) << "0 live with 183 created is an assertion; 0 live with 0 created is not";
 	EXPECT_EQ(row("model::gameobjects::DropNpc").live, 0);
-	EXPECT_EQ(row("model::gameobjects::DropNpc").created, 0u) << "no counter at all: 0 0, the honest answer for a class M5b-1 never creates";
+	EXPECT_EQ(row("model::gameobjects::DropNpc").created, 0u) << "no counter at all in these counts: 0 0, the honest answer for a class never created";
 	EXPECT_EQ(row("model::gameobjects::Npc").live, 82'126) << "SummonedHouseNpc must not be summed into Npc: the rule matches on \"::\" + name";
 	EXPECT_EQ(row("model::gameobjects::Npc").created, 82'129u);
 }

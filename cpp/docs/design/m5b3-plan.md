@@ -1,6 +1,9 @@
 # M5b-3 work plan (loot and items)
 
-> **Status:** plan **rev 2**, 2026-09-23 — rev 1 after its adversarial review (22 findings, 2 high; §14 lists them and what changed). A
+> **Status:** plan **rev 2**, 2026-09-23 — rev 1 after its adversarial review (22 findings, 2 high; §14 lists them and what changed).
+> **Stage 0 applied 2026-09-24** on `27726d32c`: §15 records what landed, the I-03 leases and what §7 got wrong. **Stage 1 integrated
+> 2026-09-24** (L-01 with G-05, not yet committed): §16 records what landed, the re-derived counts, the gates before and after, and what
+> stage 2 must know. A
 > **read-only** analysis over HEAD `c1edb0afb` ("M5b-2 stage 1 part 2: the cast engine and the effect
 > core") plus the uncommitted M5b-2 part 3 lanes in the working tree (P5-01, P5-03, P5-04), against the Java 4.8 tree. **Nothing was compiled,
 > built or run for this plan**; every C++ statement below comes from reading the two trees, from `tools/porting/chunks.py files|owner` and from
@@ -138,7 +141,7 @@ Java method (inner and anonymous classes included) with every `name(` in the C++
 
 | Area | Chunk | Chunk total | **On this milestone's path** | Undeclared bodies (lesson 1) |
 |---|---|---|---|---|
-| drop: `DropRegistrationService` / `DropService` / `DropDistributionService` | P5-09 | 121 + 1 partial (rest: trade 8, exchange 11, broker 11, private store 8, mail 15, craft 9, reward 12, recipe 3, passport 1) | **32 + 1 partial** required (26 + the 6 solo `DropService` bodies); 7 team bodies optional; `DropDistributionService` 4 → M5g | 0 |
+| drop: `DropRegistrationService` / `DropService` / `DropDistributionService` | P5-09 | 121 + 1 partial (rest: trade 8, exchange 11, broker 11, private store 8, mail 15, craft 9, reward 12, recipe 3, passport 1) | **32 + 1 partial** required (26 + the 6 solo `DropService` bodies); 7 team bodies optional; `DropDistributionService` 4 → M5g | 0 by the plan's script; **`census.py` counts 11** (stage 1, §16) |
 | quest drops | P5-06 | 163 + 2 | **4** (`getQuestDrop`, `isQuestDrop`, `allowLooting`, `regQuestDropItem`) + a signature request | 0 |
 | item services | P5-07 | 109 | **32**: `ItemService` 11, `ItemPacketService` 9, `ItemMoveService` 3, `ItemRestrictionService` 3, `ItemSplitService` 4, `socketGodstone` 1, `notifyEquipAction` 1 | `ItemPacketService` enum companions 3 (`getKinahUpdateTypeFromAddType`, `ItemDeleteType.fromUpdateType`/`fromQuestStatus`; `Storage.cpp:34` holds a local copy of one), `socketGodstone`'s observer 1 |
 | **item actions** | P5-07 | 0 sites (30 of 32 are headers without `.cpp`) | `SkillUseAction` 3 bodies + the API | **143 over 36 files**: `canAct`/`act` × 32 bound classes = 64, `ItemActions` lookups 9 (incl. `getItemActions`), 70 private/inner (`finishUse`, `abort`, …); `CompositionAction` has **no C++ file** (4) |
@@ -258,7 +261,7 @@ under `extends`:
 
 | Class | Items | M5b-2's 38 | State | Chunk |
 |---|---|---|---|---|
-| `StatupEffect` | 20 (juice, buff food, event potions) | yes | ported | P5-04 |
+| `StatupEffect` | 20 effects in **12 items** (juice, buff food, event potions; the 8 serums and focus agents carry two statups each — stage 1, `m5b3-item --survey`) | yes | ported | P5-04 |
 | `HealEffect`, `MPHealEffect` (+ `HealOverTimeEffect`, `AbstractOverTimeEffect`, `AbstractHealEffect`, `BufEffect`) | 9 + 9 | yes | ported | P5-03/04 |
 | **`ProcHealInstantEffect`** | **18** (every life potion, serum, panacea, elixir) | no | **4 unported** | P5-04 |
 | **`ProcMPHealInstantEffect`** | **18** | no | **4 unported** | P5-04 |
@@ -283,7 +286,7 @@ godstones that Poeta monsters drop use exactly the same ten.** What a godstone n
 | Piece | State |
 |---|---|
 | **Getting one**: a drop (0.03 %/kill in Poeta; certain at `rates.drop = 1000000`) or the gate's inventory seed | this milestone's loot path |
-| **Socketing it**: 4.8 does it with **`CM_MANASTONE` action 4, no npc** (`packets[91]` = `CM_GODSTONE_SOCKET` is commented out, AionClientPacketFactory.java:119) → `ItemSocketService.socketGodstone`: an `ItemUseObserver`, a 2 s `ITEM_USE` task, `decreaseByObjectId(stone)`, `weapon.addGodStone`, `updateItemAfterInfoChange` | `CM_MANASTONE` no C++ file; `socketGodstone` unported (`ItemSocketService.cpp:36`); `Item::addGodStone` ported; cycles rows exist (`cycles.toml:272-273`), fieldmap callback `ItemSocketService@L193:92` exists |
+| **Socketing it**: 4.8 does it with **`CM_MANASTONE` action 4, no npc** (`packets[91]` = `CM_GODSTONE_SOCKET` is commented out, AionClientPacketFactory.java:119) → `ItemSocketService.socketGodstone`: an `ItemUseObserver`, a 2 s `ITEM_USE` task, `decreaseByObjectId(stone)`, `weapon.addGodStone`, `updateItemAfterInfoChange` | `CM_MANASTONE` no C++ file; `socketGodstone` unported (`ItemSocketService.cpp:36`); `Item::addGodStone` ported; cycles rows exist (`cycles.toml:273-274`; rev 2 said 272-273), fieldmap callback `ItemSocketService@L193:92` exists |
 | **The proc**: `CreatureController.applyGodStoneEffect` → `GodStone.tryActivate` (probability − `PROC_REDUCE_RATE`, × `gameserver.rates.godstone.activation.rate`, a 750 ms evaluation cooldown) → `getSkill` → `new Effect(skill, target).initialize(); applyEffect()` → `STR_SKILL_PROC_EFFECT_OCCURRED`; illusion godstones break after `nonbreakcount` activations | ported (`CreatureController.cpp:316`, `GodStone.cpp`); only the 5 effect classes are missing, and `updateItemAfterInfoChange` for the break |
 | **The other `CM_MANASTONE` arms** (1 enchant stone, 2 manastone, 3 remove manastone, 8 amplification) | `EnchantItemAction`, `EnchantService`, `ItemSocketService` manastone bodies, `StigmaService.chargeStigma`: **M5c** (D8); they throw until then |
 
@@ -293,21 +296,22 @@ skill 8267 = `procatk_instant delta="100" element="EARTH"` — every evaluated h
 `skilltype="MAGICAL"` with no `noresist`, so `EffectTemplate.calculate` can resist it at `isDodgedOrResisted` (EffectTemplate.java:314), and
 `applyGodStoneEffect` sends `STR_SKILL_PROC_EFFECT_OCCURRED` after `applyEffect()` whether the effect landed or not — in Java
 (CreatureController.java:278-283) and, faithfully, in C++ (`CreatureController.cpp:318-324`). The proc is evaluated only for an auto-attack
-whose status is neither DODGE nor RESIST (CreatureController.java:255-256). (b) **Skill 8267 has two templates**
-(skill_templates.xml:80570, `element="WIND"`, no properties; :80575, `element="EARTH"`, a weapon start condition and `move_casting
-allow="false"`); `SkillData.afterUnmarshal` keeps the **last** (`skillTemplateById.put`, SkillData.java:33-39), and the oracle must do the same.
+whose status is neither DODGE nor RESIST (CreatureController.java:255-256). (b) ~~Skill 8267 has two templates~~ — **wrong (stage 1,
+§16): skill 8267 has one template**, skill_templates.xml:80570, `element="EARTH"`, with a weapon start condition and `move_casting
+allow="false"`; the `element="WIND"` template above it (opening at :80557) is skill 8266. `SkillData.afterUnmarshal` still keeps the **last**
+of duplicate ids (`skillTemplateById.put`, SkillData.java:33-39), and `oracle.py m5b3-item` does the same.
 
 **Material skills.** `AbstractMaterialSkillActor.MaterialSkillTask` (a 1 s fixed-rate task while a creature touches a skill material, geo and
 `gameserver.geodata.materials.enable` on — the default) calls `SkillEngine.applyEffectDirectly(skillId, level, creature, creature, null,
 MATERIAL_SKILL)`. `material_templates.xml` names 28 skills needing 13 leaf classes, **6 new**: `ProcAtkInstantEffect` (13), `DispelEffect` (5),
 `AbsoluteSnareEffect` (4, data-only), `FearEffect` (1), `MpAttackInstantEffect` (1), `ProcHealInstantEffect` (1). **Measured on the geo files:**
-Poeta's 4,496 mesh placements include **98 with a skill material** (material 62 ×69, 60 ×22, 61 ×7) and Ishalgen's 5,017 include 48 (the
-review's independent lookup, which ignores the `|` aliases of mesh names, found 97 and 44: unconfirmed either way until `m5b3-material`
-re-derives it, G-01) — **every one
+Poeta's 4,496 mesh placements include **98 with a skill material** (material 62 ×69, 60 ×22, 61 ×7) and Ishalgen's 5,017 include 48
+(material 62 ×36, 60 ×11, 61 ×1) — **confirmed by `oracle.py m5b3-material` in stage 1** (§16); the review's 97 and 44 were wrong — **every one
 of them skill 8302 *Flame Strike*, `procatk_instant value="5" element="FIRE" noresist="true"`** (skill_templates.xml:81174-81186, stack
 `MATERIAL_SKILL_PROC_BONFIRE_DAMAGE`): the camp fires. Material 60 is unconditional; 61/62 need NIGHT / not-raining. The nearest material-60
 placement is `pr_l_fire_semisphere_01a.cgf` at **(863.54, 1252.50, 119.50), 407 m** from the Elyos spawn; the nearest of any is a material-62
-fire at (1118.42, 992.52, 131.61), 108 m. **Terrain materials (the `<map>.png` byte layer) were not read** (§12). So on the start maps material
+fire at (1118.42, 992.52, 131.61), 108 m. **Terrain materials (the `<map>.png` byte layer) were not read** (§12) — **settled in stage 1:
+neither map has a terrain-materials file** (`210010000.png` and `220010000.png` are 16-bit heightmaps; §16). So on the start maps material
 skills need **only `ProcAtkInstantEffect`**; the other five are for the rest of the world.
 
 **The union this milestone ports: 14 classes, 38 sites + 3 inner bodies, 618 Java LOC** — P5-03: `BlindEffect`, `DispelEffect`, `FearEffect`,
@@ -393,7 +397,7 @@ Traced from each entry point to the first unported or partial body. **E-13 and E
 | **D3** | **The M5b-3 gate forces drops with `gameserver.rates.drop = 1000000`** (rev 2; rev 1 said 10000, which left the 0.01 % rules at exactly 100.0f, §2.4) and asserts the drop set **by rule**: the entry count and indexes exactly, a bijection between entries and **applicable rules** (restrictions pass *and* the candidate set is non-empty after the race and level filter, §2.4), each item as a member of its rule's candidate set, counts as ranges, all computed by the oracle. **Event rules are out** because every scenario profile carries `gameserver.event.service.disabled_events = *` (`ScenarioServers.cpp:31`); the oracle states that assumption. | A Java configuration lever (§2.4), not a C++ deviation, so no `docs/deviations` row. At the default rate the gate would see an empty 210663 corpse 41.8 % of the time. |
 | **D4** | **The M5b and M5b-2 gates (and their geo variants) set `gameserver.rates.drop = 0`, and their R3/Q2/allow-list rows are rewritten — in stage 1, in the same integrator commit as L-01** (rev 2; rev 1 put this in stage 2). R3 moves from "the partial was hit once" to "`SM_LOOT_STATUS(LOOT_ENABLE)` arrived once, for the corpse, with `lootEffectId` 0"; Q2's `DropNpc` row becomes created = kills, live 0; the §A row `DropRegistrationService.cpp:43` leaves both allow-lists. The stress nightly needs no key: its clients do not fight (`tests/scenario/stress/`), and npcs killing each other register no drop (`doReward` requires a Player winner, NpcController.java:225-245). | Finding 1. With 0, `registerDrop` still runs completely (the `DropNpc`, the `LOOT_ENABLE`, the free-for-all task) but the drop set is empty, so `scheduleDecayTask` keeps `IMMEDIATE_DECAY` and R4, Q2, Q3 keep their meaning, and the corpse's despawn unregisters the `DropNpc` 2 s after the kill (`NpcController.cpp:159`). Merging L-01 without these turns R3, Q1 and Q2 red on **every** run, not by chance (§2.3's table). The M5b-1 `soulsickness.disable` key is the precedent (m5b-plan.md D1). |
 | **D5** | **`DropNpc` leaves `CheckOutput::zeroLiveClasses()` for a bounded row ("corpses with an unlooted drop at the stop"), and `DropItem` joins the summary rows** — in stage 1 (G-06, gate-harness lane under a P5-14 lease). The gates assert the exact number their script leaves (0). | `DropRegistrationService` is an `Immortal` holding `Ref<DropNpc>` until the corpse despawns (`DropRegistrationService.h:30-31`), and a corpse with a drop lives 300 s: a server stopped within 5 minutes of a kill holds one **in Java too**. That is a bound, not a leak — the same argument that moved `KnownObject` (`CheckOutput.cpp:190-194`). **Not** a merge-together constraint for L-01 (under D4's rate 0 a `DropNpc` lives 2 s, so the zero row stays green in the earlier gates), but required before the M5b-3 gate and before the user's first real-client session at the default rate, where any unlooted kill in the last 5 minutes would print a false `liveLeak`. Under D1 it waits for M5b-2's stage-3 census lane (m5b2-plan.md G-07) to release P5-14. |
-| **D6** | **The item-action API is declared for all 32 bound action classes; only `SkillUseAction` gets bodies; every other action stays `AION_UNPORTED` and throws.** Signature (hub-headers.md §7.4: varargs → `std::initializer_list`, default `{}`, overrides repeat it): `virtual bool canAct(player::Player& player, Item& parentItem, runtime::Ptr<Item> targetItem, std::initializer_list<std::any> params = {}) const = 0;` and the same for `void act(...)`. | Java declares them abstract (AbstractItemAction.java:26, 34); `shells-3` is the precedent for declaring a behaviour API across every concrete shell with stubs. m5b2-plan.md D6's argument for throwing instead of a blanket partial holds: a silently ignored item use is a lost item or a missing buff. **This is the milestone's largest invisible item: 62 declarations that stay unported** (§8 risk 3). |
+| **D6** | **The item-action API is declared for all 32 bound action classes; only `SkillUseAction` gets bodies; every other action stays `AION_UNPORTED` and throws.** Signature (hub-headers.md §7.4: varargs → `std::initializer_list`, default `{}`, overrides repeat it): `virtual bool canAct(player::Player& player, Item& parentItem, runtime::Ptr<Item> targetItem, std::initializer_list<std::any> params = {}) const = 0;` and the same for `void act(...)`. **Applied in stage 0 with `runtime::Ptr<Item> parentItem`, not `Item&` (§15 item 1): port against the header, not this row.** | Java declares them abstract (AbstractItemAction.java:26, 34); `shells-3` is the precedent for declaring a behaviour API across every concrete shell with stubs. m5b2-plan.md D6's argument for throwing instead of a blanket partial holds: a silently ignored item use is a lost item or a missing buff. **This is the milestone's largest invisible item: 62 declarations that stay unported** (§8 risk 3). |
 | **D7** | **The effect subset is the 14 classes of §2.6.** The three not needed on the start maps (`DispelEffect`, `FearEffect`, `MpAttackInstantEffect`, 7 sites) are **W but recommended**: they close material skills for the whole world with geo on. | 247 Java lines; the alternative is a known throw per second on every material they touch elsewhere. |
 | **D8** | **`CM_MANASTONE` is ported whole; its arms 1, 2, 3 and 8 reach `EnchantItemAction`, `ItemSocketService` manastone bodies, `StigmaService.chargeStigma` and `EnchantService`, which stay unported.** Arms 1/2 call `EnchantItemAction`'s **non-virtual five-argument `act(player, stone, target, supplement, targetFusedSlot)`** (CM_MANASTONE.java:86; EnchantItemAction.java:86 — the varargs override ignores its parameters and calls it with `(null, 1)`, :81-83), so **h01 declares that overload too, stubbed `AION_UNPORTED`, with a `using AbstractItemAction::act;`** so the overload does not hide the virtual (rev 2). | A faithful packet with honest throws behind it; the godstone arm (4) is the only one this milestone needs (§2.6). Without the overload in h01 the player-side lane would need a P5-07 header change in the middle of the wave to port the packet whole. |
 | **D9** | **Team loot is M5g.** The solo path is ported completely; the team arms of `DropService` (7 bodies) are **O** — port them faithfully if the loot lane has time, they then throw inside `LootGroupRules` (P5-10) until M5g; `DropDistributionService` (4), `TemporaryTradeTimeTask` (no file) and the four team packets wait. | §2.4 (b). |
@@ -435,7 +439,7 @@ Effort: **S** < 1 agent-day, **M** 1-2, **L** 2-4, **XL** > 4. Need: **R** requi
 | **T-02** | `ItemPacketService` — the 9, plus a companion header for the enum methods (`getKinahUpdateTypeFromAddType`, `ItemDeleteType.fromUpdateType`, `fromQuestStatus`; generated enums take "hand-written free functions in a companion header", `ItemPacketService_ItemUpdateType.h:12`). **This item alone closes E-13 and E-14.** Optional follow-up with a P4-13 lease: delete `Storage.cpp:34`'s local copy. | ItemPacketService.java:27-235 | – | R | M |
 | **T-03** | `ItemMoveService` (3), `ItemRestrictionService` (3), `ItemSplitService` (4). | ItemMoveService.java:25-126; ItemRestrictionService.java:21-79; ItemSplitService.java:29-147 | T-02 | R | M |
 | **T-04** | `SkillUseAction` — new `.cpp`: `canAct`, `act`, `isIneffectiveHealSkill`; `ItemActions::getItemActions` and the 8 other typed lookups (h02). | SkillUseAction.java:43-110; ItemActions.java:38-150 | I-01 | R | S |
-| **T-05** | `ItemSocketService::socketGodstone` with its `ItemUseObserver` and 2 s `ITEM_USE` task (cycles rows `cycles.toml:272-273` are the specification). | ItemSocketService.java:153-207 | T-02 | R | S |
+| **T-05** | `ItemSocketService::socketGodstone` with its `ItemUseObserver` and 2 s `ITEM_USE` task (cycles rows `cycles.toml:273-274` are the specification; rev 2 said 272-273). | ItemSocketService.java:153-207 | T-02 | R | S |
 | **T-06** | `StigmaService::notifyEquipAction`, the whole body (its stigma arm reaches `getPossibleStigmaCount` and `removeStigmaSkills`, unported, and throws for stigma items only). | StigmaService.java:42-100 | – | R | S |
 | **T-07** | Tests in `tests/itemsvc`: `addItem` (new stack, merge, overflow, full cube message, kinah, power shards), the packet per storage type (cube, warehouse, legion kinah) **and per path — a merge sends `SM_INVENTORY_UPDATE_ITEM` alone, a new stack `SM_INVENTORY_ADD_ITEM` + `SM_CUBE_UPDATE`** (ItemPacketService.java:191-228), `moveItem` (same storage sends nothing, restricted → unlock packet, full, merge with `slot == -1`), `switchItemsInStorages` (both deletes before both adds), split and kinah split, **a split from the cube into the regular warehouse for a player without a legion (T-08's no-op)**, `socketGodstone` on a `DeterministicExecutor` (the 2 s task, abort through the observer), `SkillUseAction::canAct`'s refusal arms. Mutation-proven. | – | T-01..T-06, T-08 | R | L |
 | **T-08** | `LegionService::addWHItemHistory` (P5-11, under the I-03 lease): the 10-line body. Without a legion it does nothing; a legion member's legion-warehouse arm reaches `addHistory` (`LegionService.cpp:384-386`, unported, M5h) and throws there. | LegionService.java:1082-1092 | – | R | S |
@@ -542,7 +546,7 @@ final `M5bScenarioTest.cpp` and the integrator lands L-01 + G-05 together. Playe
 
 | Request | Kind | For |
 |---|---|---|
-| **m5b3-h01** `model/templates/item/actions/AbstractItemAction.h` (P5-07): `virtual bool canAct(player::Player&, gameobjects::Item& parentItem, runtime::Ptr<gameobjects::Item> targetItem, std::initializer_list<std::any> params = {}) const = 0;` and `virtual void act(… same …) const = 0;` (D6); **`override` declarations with `AION_UNPORTED` stubs in the 32 bound action classes** (30 new `.cpp` files; `DecomposeAction.cpp` and `EmotionLearnAction.cpp` exist); **and in `EnchantItemAction.h` the non-virtual overload `void act(player::Player&, gameobjects::Item& parentItem, gameobjects::Item& targetItem, runtime::Ptr<gameobjects::Item> supplementItem, int32_t targetWeapon) const;` with `using AbstractItemAction::act;`, stubbed `AION_UNPORTED`** (rev 2, D8) | **layout** (new pure virtuals on a base every action shell derives from; the precedent is `shells-3`) | T-04, P-05; `CM_MANASTONE` constructs `EnchantItemAction` directly and calls `canAct` and the five-argument `act` (CM_MANASTONE.java:79-86, EnchantItemAction.java:86) |
+| **m5b3-h01** `model/templates/item/actions/AbstractItemAction.h` (P5-07): `virtual bool canAct(player::Player&, gameobjects::Item& parentItem, runtime::Ptr<gameobjects::Item> targetItem, std::initializer_list<std::any> params = {}) const = 0;` and `virtual void act(… same …) const = 0;` (D6); **`override` declarations with `AION_UNPORTED` stubs in the 32 bound action classes** (30 new `.cpp` files; `DecomposeAction.cpp` and `EmotionLearnAction.cpp` exist); **and in `EnchantItemAction.h` the non-virtual overload `void act(player::Player&, gameobjects::Item& parentItem, gameobjects::Item& targetItem, runtime::Ptr<gameobjects::Item> supplementItem, int32_t targetWeapon) const;` with `using AbstractItemAction::act;`, stubbed `AION_UNPORTED`** (rev 2, D8) | **layout** (new pure virtuals on a base every action shell derives from; the precedent is `shells-3`) | T-04, P-05; `CM_MANASTONE` constructs `EnchantItemAction` directly and calls `canAct` and the five-argument `act` (CM_MANASTONE.java:79-86, EnchantItemAction.java:86). **Applied in stage 0 with `runtime::Ptr<gameobjects::Item> parentItem` in `canAct`/`act` (§15 item 1)** |
 | **m5b3-h02** `ItemActions.h` (P5-07): `const std::vector<std::unique_ptr<AbstractItemAction>>& getItemActions() const;` and the 8 typed lookups Java declares (`getEnchantAction`, `getHouseObjectAction`, `getDecorateAction`, `getDyeAction`, `getAdoptPetAction`, `getRemodelAction`, `getTuningAction`, `getRideAction`) | additive (`items-3` / `controllers-1` pattern) | T-04, P-05 |
 | **m5b3-h03** `services/QuestService.h` (P5-06): `getQuestDrop(runtime::RcHashSet<runtime::Ref<model::drop::DropItem>>& dropItems, …)` instead of `const std::unordered_set<runtime::Ptr<…>>&` | **signature** (Java adds to the set, QuestService.java:682-728; the caller's set is `DropRegistrationService.h:30`'s) | L-04 |
 | none for `DropService::resendDropList` / `SM_LOOT_ITEMLIST` (`std::unordered_set<Ptr<DropItem>>`): the body passes a snapshot of the live set (D10) | – | L-02 |
@@ -603,7 +607,7 @@ Ordered by what is most likely to go wrong, with the evidence.
 11. **A godstone proc is not a hit** (rev 2, §2.6). Skill 8267 is MAGICAL and resistible, the proc message is sent even for a resisted proc,
     and the level-2 monster dies within a few hits; rev 1's Y7 ("every hit procs with value > 0") would have failed a correct server. Y7 now
     counts proc messages per evaluated hit and asks for at least one landed proc; the residual chance that every proc of the fight is resisted
-    is small and reported by the gate, not hidden. And 8267 has **two** templates; an oracle that keeps the first would predict WIND.
+    is small and reported by the gate, not hidden. (Rev 2 added "8267 has two templates"; stage 1 found it has one, EARTH, §2.6 (b), §16.)
 12. **Under D1, finished loot work sits unmerged** (rev 2). L-01 is written and reviewed early but cannot land before M5b-2 releases P5-SC; the
     longer it waits, the more `M5bScenarioTest.cpp` moves under G-05. G-05 is therefore written last, on M5b-2's final version of the file,
     and L-01 is re-verified against the tree it finally lands on.
@@ -778,7 +782,8 @@ session scratchpad under `plans/m5b3/`):
   data/handlers/ai/events/HalloweenPumpkinAI.java:60.
 - The re-green surface of §2.3's table (the M5b gate lines, the allow-list row, `CheckOutput.cpp:215`, `CheckOutputTest.cpp:496, 552-553, 585`),
   and that the stress clients do not fight (`tests/scenario/stress/`).
-- Skill 8267's two templates (skill_templates.xml:80570, :80575), `SkillData`'s last-wins map, and the MAGICAL resist path (EffectTemplate.java:314).
+- ~~Skill 8267's two templates (skill_templates.xml:80570, :80575)~~ (a misreading, corrected in stage 1: one template, :80570, EARTH; §16),
+  `SkillData`'s last-wins map, and the MAGICAL resist path (EffectTemplate.java:314).
 - P5-03 / P5-04: 164 / 192 `AION_UNPORTED` at HEAD, 122 / 134 in the working tree (the paths `chunks.py files` prints, read at `HEAD:cpp/game-server/…`).
 - The item subset of §2.5 (48 `skilluse` items, 9 leaf classes, 6 new), the godstone and material subsets of §2.6 (110 / 28 skills, 10 / 13
   leaves), the state of each of the 14 classes, and **the geo parse**: 98 skill-material placements on Poeta, 48 on Ishalgen, all skill 8302,
@@ -789,7 +794,7 @@ session scratchpad under `plans/m5b3/`):
 - The corpse-decay coupling: `RespawnService` constants and both the Java and C++ bodies; the M5b gate lines that assert decay, respawn,
   `DropNpc` and the partial's hit count; `CheckOutput`'s zero and summary rows.
 - `cycles.toml`: 54 rows name the item-action, socket, charge, stigma, equipment and drop classes (among them `DropItem.winningPlayer`
-  :127, `Equipment$1..$2` :141-144, `ItemSocketService$1` :272-273, the action observers' captures from :208); `fieldmap.json`: 51 callbacks
+  :127, `Equipment$1..$2` :141-144, `ItemSocketService$1` :273-274 (rev 2 said :272-273), the action observers' captures from :208); `fieldmap.json`: 51 callbacks
   of the drop, item, action and stigma classes.
 
 **Inferred, to confirm before relying on it:**
@@ -797,9 +802,11 @@ session scratchpad under `plans/m5b3/`):
 - **That rate 1000000 makes every rule certain in the running server.** It follows from Rates.java:166-173, DropModifiers.java:53-57,
   DropRegistrationService.java:189 and Rnd.java:32-34, with a 100× margin over the smallest rule (rev 2); nobody ran it. (Rev 1's membership
   caveat is moot: a one-value list is index 0 for every membership, Rates.java:171-172.)
-- **That no Poeta terrain material carries a skill.** Only mesh placements were parsed; the `<map>.png` byte layer was not.
+- ~~**That no Poeta terrain material carries a skill.**~~ **Settled in stage 1** (G-01): neither start map has a terrain-materials file, so no
+  terrain material casts a skill there (§16).
 - **That seeding an `inventory` row at a high object id mid-run is safe** (the `IDFactory` cursor comment, `IDFactory.h:26-32`; not tested).
-- **That the M5b-2 gate kills 210663 and 210133 and so needs D4's key** — from m5b2-plan.md §10.2 C5-C12; the gate file does not exist yet.
+- ~~**That the M5b-2 gate kills 210663 and 210133 and so needs D4's key**~~ — **confirmed** in stage 0 (`GATE_MONSTER_NPC_ID` in case S5b of
+  `M5b2ScenarioTest.cpp`) and in stage 1 (X12 counts 3 kills: 210663 twice, 210133 once).
 - **The effort letters and the 8-10 day critical path** (rev 2; rev 1's 3-4 days contradicted its own letters), from body counts and Java LOC
   against earlier lanes (M5b-2's long stage-1 lanes were budgeted 7-9 days).
 - **That the per-proc resist chance of 8267 against 210663 is small** (Y7's residual case); the gate prints it rather than asserting it.
@@ -866,3 +873,224 @@ none of the chunk-local test directories can host a parallel tests lane (`tests/
 **The shape after the review:** ~145 required bodies (+ a 64-declaration layout batch), stage 0 (integrator, ~1 day), stage 1 with five lanes
 (loot, items, player-side, effects, gate-harness + re-green) at ~8-10 days on the critical path, stage 2 with two lanes (the gate and its geo
 variant, fixups) at ~3-4 days. D1 (starting loot and items beside M5b-2) and G-08 (looting stress) are the user's.
+
+---
+
+## 15. Stage 0 (applied), 2026-09-24
+
+Applied by the integrator's stage-0 lane on HEAD `27726d32c` (the plan was written at `c1edb0afb`). Since then T-02 landed (`706dc55c1`,
+E-13/E-14 closed) and M5b-2 closed (stage 2, `50a9158bf`), so **D1 is moot**: P5-SC is free and every stage-1 lane can start; L-01 still
+merges only together with G-05 (D4).
+
+**I-01, the header batch** — recorded row by row in `docs/porting/header-requests.md`, "Wave 5b-3 stage 0" (`m5b3-h01`, `m5b3-h01-1..32`,
+`m5b3-h02`, `m5b3-h03`, applied by the integrator; h01 and h03 are layout and signature changes and were **reviewed 2026-09-24: approve**
+(hub-headers.md §14), h02 is additive): `AbstractItemAction::canAct`/`act` pure virtual,
+the two overrides in all 32 bound classes in Java order with 30 new stub `.cpp` files, `EnchantItemAction`'s five-argument `act` with the
+using-declaration, the nine `ItemActions` lookups, the `QuestService::getQuestDrop` signature. **74 new `AION_UNPORTED(` sites** (64 + 1 + 9;
+`game-server/src` 1,744 → 1,818), no body changed. The class list re-derived from ItemActions.java:15-31 is the plan's: 32 classes, exactly the
+package's `extends AbstractItemAction`; `CompositionAction` is no `AbstractItemAction` and `UseTarget` an enum.
+
+**I-02, the profiles** (Java tree, `game-server/config/`): `gameserver.rates.drop = 0` in `m5b.properties.example` and
+`m5b2.properties.example` (a new "what M5b-3 changes in this profile" block, D4); new `m5b3.properties.example`: the M5b-2 set (with
+`gameserver.event.service.disabled_events = *`) + `gameserver.rates.drop = 1000000`, `gameserver.items.ignore_potions_at_full_health = false`,
+`gameserver.rates.godstone.activation.rate = 1.0`, `gameserver.rates.godstone.evaluation.cooldown_millis = 750`,
+`gameserver.drop.announce_quality = MYTHIC`, and geo/re-entry/shutdown under "only in the scenario gates" as in the siblings; its header tells
+a player to set the drop rate back to `1.0, 2.0` (§11). The gate profiles in `M5bScenarioTest.cpp` / `M5b2ScenarioTest.cpp` are **not**
+touched: that is G-05, in L-01's commit. `oracle.py m5b3-drops --npc 210663 --drop-rate 1000000` answers 10 entries with a smallest certain
+effective chance of 10,000 (no margin caution).
+
+**I-03, the leases** (one active lease per file, released at the lane's merge; recorded here, not as `aion_gs_chunk(... LEASE ...)` calls in
+`chunks.cmake`, as M5b-2's were, so `chunks.py owner` still prints the owning chunk):
+
+| Lane (chunk) | Leased file | Owner (`chunks.py owner`) | For | Test file the lease also covers |
+|---|---|---|---|---|
+| loot (P5-09) | `src/aion/gameserver/services/QuestService.cpp` | P5-06 | L-04, the four quest-drop bodies against h03 | one new file in `tests/quest` (P5-06; the manifest still carries a phase-4 P4-08 lease on that directory) |
+| loot (P5-09) | new `src/aion/gameserver/utils/stats/DropRewardEnumInfo.h` | P5-01 (by glob, like `XPRewardEnumInfo.h`) | L-06 | one new file in `tests/stats` (P5-01) |
+| items (P5-07) | `src/aion/gameserver/services/LegionService.cpp` | P5-11 | T-08, `addWHItemHistory` | one new file in `tests/legionhouse` (P5-11) |
+| gate-harness (P5-SC) | `src/aion/gameserver/CheckOutput.h`, `CheckOutput.cpp`, `tests/app/CheckOutputTest.cpp` | P5-14 | G-06 (D5) | – (the test file is named) |
+
+No other lane may edit these files while the lease is active; the player-side lane's P5-01 work stays in `ItemEquipmentListener.cpp` (§6).
+
+**What §7 (and the counts around it) got wrong, found while applying it:**
+
+1. **`parentItem` must be `runtime::Ptr<gameobjects::Item>`, not `gameobjects::Item&`** (h01, D6). hub-headers.md §5.1: CM_APPEARANCE.java:112-113
+   passes `null` directly (`canAct(player, null, null)`, `act(player, null, item)`), and five bodies compare it with `null`
+   (AnimationAddAction.java:38, EmotionLearnAction.java:40, EnchantItemAction.java:48, RideAction.java:48, TitleAddAction.java:29). Applied
+   as `Ptr`; with `Item&` the M5c port of CM_APPEARANCE and those five checks would have needed the same 32-class layout change again. The
+   five-argument `EnchantItemAction::act` keeps `Item&` for the parent and the target (no `null` at that arity) and `Ptr` for the supplement,
+   as §7 wrote it. For T-04 this means `parentItem->getItemTemplate()` (a `Ptr` dereference throws Java's NullPointerException).
+2. **h01 omits `SkillUseAction::isIneffectiveHealSkill`**, the private static helper T-04 ports (§2.3 counts it among `SkillUseAction`'s three
+   bodies; SkillUseAction.java:82-97, called from `canAct` when `ignore_potions_at_full_health` is true). Not applied (it is not in §7):
+   filed as **`m5b3-h04`, pending**, with the signature in header-requests.md. Decide it before T-04 starts, or T-04 writes a file-local
+   function (the m5b2-s2-2 workaround). It is additive (private, static, non-virtual), so hub-headers.md §14 lets the integrator batch it
+   without review; after the stage-0 review it takes the effected list read-only, as a `const std::vector<runtime::Ptr<Creature>>&` that
+   `canAct` fills with `skill.getEffectedList().snapshot()` (hub-headers.md §7.1: the callee only streams it, SkillUseAction.java:94-95).
+3. **`using AbstractItemAction::act;` in `EnchantItemAction` hides nothing**: the class declares the four-parameter override itself, so the
+   five-argument overload hides no base overload (D8's reason). Applied as D8 says; it is redundant and harmless.
+4. **"143 undeclared bodies across the 36 action files"** (§1, §2.3) is the plan's own name-level count including inner and anonymous bodies;
+   `census.py --chunks P5-07` counts **119 named undeclared bodies** in the package before stage 0 and **45 after** (39 private helpers and
+   non-generated getters of the 32 classes — `finishUse` ×12, `EnchantItemAction`'s `isSuccess`/`getMinLevel`/`getMaxLevel`/
+   `isSupplementAction`/`checkSupplementLevel`, … — plus `CompositionAction` 4 and `UseTarget` 2). The census counts anonymous classes (the
+   actions' `ItemUseObserver`s and tasks) separately: 29 in P5-07 ("Anon in open").
+5. **Counts that moved since `c1edb0afb`** (census.py at `27726d32c`): P5-07 **100** unported (109 − T-02's 9), 174 after stage 0, 56
+   undeclared (was 130), shells 30 → 0; **P5-11 87 + 3 partial, not 86** (87 already at `c1edb0afb`: a miscount in §12, not a change);
+   P5-09 121 + 1, P5-06 163 + 2, P5-13 118 + 3, P5-01 28, P4-12 5, P5-03 122, P5-04 134 (the working-tree numbers of §2.3, now committed),
+   P5-15/P5-16 0 unported with 244 / 206 undeclared bodies (the missing packet files) — unchanged.
+6. **The Java-tree profiles are LF, not CRLF**: `git ls-files --eol` shows `i/lf w/lf` for `m5a/m5b/m5b2.properties.example` (the other
+   Java-tree files are `w/crlf` through `core.autocrlf`), and the Java tree has no `.gitattributes`. Kept as they were; the new
+   `m5b3.properties.example` is LF like its siblings.
+7. **§5 I-03 names `CheckOutput.{h,cpp}` without a path**: they are `src/aion/gameserver/CheckOutput.{h,cpp}` (P5-14), recorded above.
+
+**The stage-0 review (2026-09-24): approve**, six findings (four low, two info), closed in the same working tree: header-requests.md's
+decision cells of m5b3-h01, h01-1..32 and h03 carry the review's verdict (they are layout and signature changes, hub-headers.md §14); D6
+points at item 1; m5b3-h04 takes the effected list read-only (item 2) and stays pending for the integrator's additive batch; the M5b and
+M5b-2 profiles say their gates get `gameserver.rates.drop = 0` only with G-05; the verification note names the 48 game-server test targets
+that were built; `EnchantItemAction.h`'s class comment says why the varargs override may dereference its two items (comment only).
+
+---
+
+## 16. Stage 1 results (integrated), 2026-09-24
+
+The stage-1 integration step, on the working tree over HEAD `27726d32c`: stage 0 (§15) plus the five lanes of §6 — loot, items, player side,
+effects, gate harness — each ported, reviewed and fixed. Nothing is committed. **L-01 and G-05 are in the same tree, as D4 requires:**
+`DropRegistrationService.cpp` has no `AION_PARTIAL`/`AION_UNPORTED` left, both earlier gate profiles set `gameserver.rates.drop = "0"`
+(`M5bScenarioTest.cpp:943`, `M5b2ScenarioTest.cpp:856`), the `DropRegistrationService.cpp:43` §A row is gone from both allow-lists (HISTORY
+notes in its place), M5b's R3 asserts exactly one `SM_LOOT_STATUS(LOOT_ENABLE)` naming the corpse with `lootEffectId` 0, Q2 and M5b-2's X12
+assert `DropNpc` created = kills, live 0, `dropNpcsHeld`/`dropItemsHeld` 0 and both drop-item rows 0/0, and `CheckOutput` has the D5 rows
+(G-06). **They land together with the loot lane's one edit outside its chunk**, which the integrator accepts: `QuestsData::afterUnmarshal`
+(P4-09) now sets every `<quest_drop>`'s quest id before publication (QuestEngine.java:89 semantics; docs/deviations/P4-09.md). Without it every
+kill of an npc with a quest drop (e.g. 210668 on Poeta, none of the gate npcs) throws a NullPointerException in `isQuestDrop`, inside
+`registerDrop`, which `NpcController::onDie`'s catch logs as one ERROR per kill (§8 risk 8).
+
+### 16.1 What landed
+
+| Lane | Items | Production | Tests (binary, cases now) |
+|---|---|---|---|
+| loot (P5-09; P5-06, P5-01 leases) | L-01, L-02, L-04, L-05, L-06; L-03's team arms ported but untested | `DropRegistrationService` 32 of 32 bodies (the `registerDrop` partial closed), `DropService` 16 of 16 (`TempTradeDropPredicate::changeItem` stays unported: `TemporaryTradeTimeTask` has no C++ file), the four `QuestService` quest-drop bodies, new `utils/stats/DropRewardEnumInfo.h`; `QuestsData.cpp` (P4-09, above) | `aion_gs_economy_tests` 50, `aion_gs_quest_tests` 25, `DropRewardEnumTest` 3 |
+| items (P5-07; P5-11 lease) | T-01, T-03..T-08 (T-02 landed before, `706dc55c1`) | `ItemService` 11, `ItemMoveService` 3, `ItemRestrictionService` 3, `ItemSplitService` 4, `SkillUseAction::canAct`/`act` (+ `isIneffectiveHealSkill` as a file-local function: m5b3-h04 pending), the 9 `ItemActions` lookups, `socketGodstone` with its observer and 2 s task, `StigmaService::notifyEquipAction`, `LegionService::addWHItemHistory`, three `ItemPacketService_Item*Info.h` companions | `aion_gs_itemsvc_tests` 69, `LegionWarehouseHistoryTest` 1 |
+| player side (P5-13, P5-01, P4-12, P5-15, P5-16) | P-01, P-02, P-04..P-06 | `canUseItem`, `canChangeEquip` (+ the optional `canTrade`), `onItemUnequipment`, `removeStoneStats`, the soul-bind accept with its observer and 5 s task, the nine client packets of §2.7 | `aion_gs_instance_tests` 68, `aion_gs_player_tests` 32, `aion_gs_stats_tests` 92, `aion_gs_cm_ak_tests` 82, `aion_gs_cm_lz_tests` 85 |
+| effects (P5-03, P5-04) | E-01..E-04 (D7's three included) | the 14 classes of §2.5/§2.6 | `aion_gs_effects_al_tests` 78, `aion_gs_effects_mz_tests` 88 |
+| gate harness (P5-SC, `tools/oracle`; P5-14 lease) | G-01, G-02, G-05, G-06 | `CheckOutput` drop rows (D5) | `CheckOutputTest` 19 (with the integration's case), the scenario unit suites 95, `tools.oracle` 352 |
+
+`oracle.py` now answers `m5b3-drops --inventory ITEM[:COUNT] [--cube-expansions N]` (a `cube` section: per corpse the worst- and best-case new
+slots, kinah entries and deterministic merges), `m5b3-item --item ID` and `m5b3-item --survey --map ID` (§2.5-§2.6's counts, reproduced), and
+`m5b3-material --map ID [--near X,Y,Z --radius R]`. Every new assertion of the five lanes was mutation-proven by the lane, and the reviews
+re-ran their own mutants (the survivors became the fix passes' new cases; what is still untested is in each lane's deviation doc).
+
+### 16.2 The integration's own edits
+
+- **`CheckOutput::runFinalCensus` (P5-14): a leak is written only when two census checks in a row agree** — the fix for the one failure the
+  integration found (16.4). New case `CheckOutputTest.FinalCensusWaitsForACountThatIsStillFalling`; with the old loop it fails (`Player 61 4`
+  in `census.txt`), with the new one it passes (mutation run, restored byte for byte). docs/deviations/P5-14.md; `CheckOutput.h`'s doc of the
+  function is now incomplete (comment-only request m5b3-i-1).
+- The Java-tree profiles `m5b.properties.example` and `m5b2.properties.example`: the "gate profile does not carry this key yet" lines now say
+  the gates carry it since this stage (G-05).
+- `docs/porting/header-requests.md`, new section "Wave 5b-3 stage 1": every header request the lanes filed (none applied, 16.6).
+- `docs/deviations/P4-09.md` (the quest-id fix), `docs/deviations/P5-14.md` (G-06 and the census), `docs/design/m5i-plan.md:251`
+  (`XPBoostEffect::calculate` is ported now).
+- This plan, in place: §2.3 (P5-09's undeclared bodies), §2.5 (`StatupEffect` is 12 items carrying 20 effects), §2.6 (skill 8267 has **one**
+  template, EARTH, :80570 — the WIND one above it is 8266; the 98/48 camp-fire counts confirmed by `m5b3-material`, the review's 97/44 were
+  wrong; neither start map has a terrain-materials file), `cycles.toml:273-274` (not 272-273) at §2.6 and T-05, risk 11, §12.
+
+### 16.3 Counts, re-derived (`census.py --chunks …` and `AION_UNPORTED(` sites, working tree)
+
+`game-server/src`: **1,744** `AION_UNPORTED(` sites at HEAD, **1,818** after stage 0's 74 stubs, **1,697** now (121 closed by stage 1);
+`AION_PARTIAL(` 17 → 16 (the `registerDrop` partial).
+
+| Chunk | Plan (`c1edb0afb`) | After stage 0 | Now | Where the plan's number moved |
+|---|---|---|---|---|
+| P5-09 | 121 + 1 partial, 0 undeclared | 121 + 1, **11** undeclared | **83 + 0**, 11 undeclared | the plan's name-level script counted 0 undeclared; `census.py` counts 11 (the gate-harness lane found it). Left: `DropDistributionService` 4 (M5g), `changeItem`, and the rest of the chunk (trade, exchange, broker, mail, craft … — M5c) |
+| P5-06 | 163 + 2 | 163 + 2 | **159 + 2** | as planned (the four quest-drop bodies) |
+| P5-07 | 109 | 174, 56 undeclared | **140**, 49 undeclared | the plan's "32 on the path" included T-02's 9 (landed before); stage 0 added 11 stubs on the path, so the lane closed 34; the three companions count as 7 undeclared in the census (accessors, enum constructors) |
+| P5-11 | 86 | 87 + 3 | **86 + 3** | §12's 86 was a miscount (stage 0) |
+| P5-13 | 118 + 3 | 118 + 3 | **115 + 3** | + the optional `canTrade` |
+| P5-01 | 28 | 28, 27 undeclared | **26**, 24 undeclared | as planned (+ `DropRewardEnum`'s two, its enum constructor stays) |
+| P4-12 | 5 | 5 | **4** | the four left are `registerExpirable` helper sites of other lists, none in `Equipment.cpp` |
+| P5-03 / P5-04 | 122 / 134 | 122 / 134 | **112 / 106** | 38 sites, as §2.6 said; P5-03's undeclared 4 → 3 (`FearTask.run`) |
+| P5-15 / P5-16 | 0 unported; 244 / 206 undeclared | the same | 0; **238 / 185** undeclared | the nine packet files |
+| P5-14 / P5-SC | 31 / 0 | 31 / 0 | 31 / 0 | – |
+
+### 16.4 Build, unit tests and gates, before and after
+
+Shared `build/msvc`, configured with `-DAION_BUILD_CHAT_SERVER=ON`, Debug, `--parallel 6 -p:CL_MPCount=2`, all 177 targets: 0 errors, 0
+warnings. `ctest -C Debug -j 6 -LE "scenario|geo|m4|nightly|stress|smoke"`: **3,338 of 3,338 passed in 660 s** (the M5b-2 join: 2,967 in
+577 s); after the census fix `aion_gs_app_tests` 34 of 34. `lint_concurrency`, `chunks.py check` and the three `skeleton.py` checks are clean.
+
+Gates, one at a time, exact-name regexes, `--output-on-failure`, seconds. **Before** is the M5b-2 join on `50a9158bf` (m5b2-plan.md, stage-2
+results; the gate-harness lane's own G-05 runs, on a tree without the player-side and effects production code, are in its column's notes);
+**first run** is this integration's tree before the census fix; **final** is the final tree.
+
+| Gate | Before | First run | Final | Notes |
+|---|---|---|---|---|
+| gs.smoke.startup | passed, 30 | passed, 29 | **passed, 25** | |
+| gs.smoke.startup_geo | passed, 148 | passed, 150 | **passed, 144** | |
+| gs.m4.check_static_data | passed, 141 | passed, 138 | **passed, 140** | |
+| gs.scenario.m5a | passed, 54 | passed, 54 | **passed, 53** | the drop rows read 0 0 (no kill) |
+| gs.scenario.m5a_geo | passed, 160 | passed, 158 | **passed, 156** | |
+| gs.scenario.m5b | passed, 218 (R3 then counted the partial) | **failed, 217, twice in a row**: K9 Q1, `census.txt` held `Player 103883 3` / `Player 103881 3` | **passed, 218** | the census race below; with the fix it passed at once (216 s) and again in the final run (the census logged refcount 3 and wrote nothing). R3: one `LOOT_ENABLE` for the corpse, `lootEffectId` 0; Q2 `DropNpc 0 1`. The gate-harness lane's G-05 run: passed, 216 |
+| gs.scenario.m5b_geo | passed, 339 | passed, 353 | **passed, 349** | `DropNpc 0 1` |
+| gs.scenario.m5b2 | S14 failed once, then passed, 235 / 197 / 168 | **failed at S14**, 236; the rerun passed, 164 | **passed, 163** | X12: 3 kills (4 in the S14 run), `DropNpc` created = kills, live 0. The gate-harness lane's G-05 run: passed, 185 |
+| gs.scenario.m5b2_geo | passed, 303 | passed, 288 | **passed, 297** | `DropNpc 0 3` |
+
+**The census race (fixed).** Both failing M5b runs logged `Leak census: … Player … refcount 86` and wrote `Player <id> 3`, while the same
+shutdown logged "Runtime shut down: … 0 objects still tracked" and `live_counts.txt` read `Player 0 3`: no leak, a logout still being
+reclaimed. `runFinalCensus` ran two fixed `reclaimNow()` scans and re-scanned only for a count of 0, while the census's reported count is the
+one its hook saw after the last scan, and the objects a logout drops (the retired `KnownObject`s and `Effect`s holding the Player) are
+destroyed epoch by epoch; the non-geo M5b run, which stops with the Warrior still connected in a crowded spot, now needed a third scan. (The
+m5b_geo run of the same tree logged the same line with refcount 3 and wrote nothing; m5b-plan.md G-3's note had seen the transient line with
+refcount 65 on 2026-09-23.) Why this tree needs one scan more than the M5b-2 tree did was not traced: the gate-harness lane's green G-05 runs
+predate the player-side and effects production code (its lint counted 3,693 files, the final tree 3,711), which is the only candidate list.
+
+**S14 (the known M5b-2 flake) recurred, and its new message names the cause.** Saved output: the session scratchpad `s1i/fail-r1-m5b2/`.
+"monster B (object 25204): 0 SM_ATTACK at the Mage, 0 elsewhere, 1 SM_MOVE (… 0.88 m from spot B), 1 SM_ATTACK_STATUS, died": B, a 199-HP
+210663 that the script never damages, **died to the Mage's first Flame Bolt**, so its HP had been drained before the pull, while the Mage was
+logged out — m5b2-plan.md's reading (b), a fight with a neighbour (203055 "mercenary" and 210705 "kerub fighter" stand 22-28 m from spot B).
+The script then pulled a dead npc for 75 s. It is the gate script's problem, not the server's: S14 should notice that B died to its pull and
+wait for B's respawn at spot B (G-07). Stage 1 did not touch it.
+
+### 16.5 What stage 2 (G-03, G-04, G-07) must know
+
+- **The profile.** `game-server/config/m5b3.properties.example` has the keys (§10.1); `M5b3ScenarioTest.cpp` passes them as `-D` arguments
+  the way `M5b2ScenarioTest.cpp:856` does. At rate 1,000,000 `oracle.py m5b3-drops --npc 210663` and `--npc 210133` answer **10 entries**
+  each, deterministic, smallest certain chance 10,000; 210133 has one kinah entry. The cube budget comes from `m5b3-drops --inventory`
+  (the fresh Warrior's 9 stacks: 10, then 8 with the shard a certain merge, then 8 with the shard and the junk merging — the plan's 10 + 8 + 8).
+  Custom-group rows of `deterministicMerges` carry `customGroup`, not `ruleName` (none for the gate npcs).
+- **The harness pieces:** `decoders/ItemDecoders.{h,cpp}` (the nine packets of §2.7 plus `SM_WAREHOUSE_UPDATE_ITEM`), `readItemInfoBlob`
+  public in `PacketDecoders.h` — a socketed godstone travels in ENCHANT_INFO's `godStoneId`, so §13 question 2 is answered: no new blob
+  entry —, the nine `GameSession` builders with a `ManastoneRequest` for every `CM_MANASTONE` arm, `ScenarioDatabase::seedInventoryItem`
+  (object ids from `0x07000000` up, below the `IDFactory` wrap and skipping Java's invalid-id pattern) and `setLifeStatHp`.
+- **The held rows at rate 1,000,000:** `dropNpcsHeld`/`dropItemsHeld` count what `DropRegistrationService` still holds; Y14 wants both 0
+  after L6c, and a drop class alive beyond them is an ERROR line.
+- **Y7 and risk 11:** 8267 has one template (EARTH); the oracle keeps the last template of an id, as `SkillData` does.
+- **The camp fire (G-04, Y15).** The nearest unconditional fire is `PR_L_FIRE_SEMISPHERE_01A_103337_210010000`, material 60, a SEMISPHERE of
+  r 1.76 at (863.54, 1252.50, 119.32), 407.01 m from the Elyos spawn; the nearest fire of any kind is a material-62 box 108.4 m away.
+  **A material-61 firepot zone overlaps the gate's fire** (`PR_D_FIREPOT_01A_WEATHERFIRE_CHILD2_154501`, SPHERE r 1.46 at 0.18 m, conditions
+  SUNNY + NIGHT) and a material-62 fire stands 8.55 m away (SUNNY): at night in fine weather a character on the fire is in two skill zones,
+  each with its own 5 s task, so Y15's "5 ± 1 s apart" must count per zone or pin the game time and weather (`oracle.py m5b3-material --near
+  863.54,1252.50,119.32 --radius 10` lists the three).
+- **Reachable unported bodies** after stage 1 (none on the gate's script): every item action but `skilluse` (D6); `CM_MANASTONE` arms 1/2
+  (`EnchantItemAction`), 3 (`removeManastone`), 8 (`amplifyItem`) and the stigma pair (`chargeStigma`); equipping a stigma
+  (`getPossibleStigmaCount`, `getPossibleAdvancedStigmaCount`, `addStigmaSkills`), unequipping one (`removeStigmaSkills`), an item with
+  enchant level > 0 (`EnchantService::applyEnchantEffect`); a legion member's legion-warehouse move or split (`LegionService::addHistory`);
+  the team loot arms (`LootGroupRules`, D9); `isQuestDrop` for a started quest with a collecting step (`QuestState::getQuestVarById`, M5d);
+  `copyItemInfo` of a source with mana stones (`ItemSocketService::addManaStone`).
+- **Flakes:** the S14 cause above; the M5b-2 lane's S6/S10 flakes (the gate-harness report); the census race is fixed. Unit-test note from
+  the items lane: `PricesConfig`'s atomics are 0 in unit tests, so a price test sets Java's defaults (100/100/100).
+
+### 16.6 Left for the integrator
+
+- **Header requests, none applied** (header-requests.md "Wave 5b-3 stage 1"): m5b3-h04 (additive; then move `isIneffectiveHealSkill` into
+  the class), m5b3-loot-h01 (`QuestDrop` virtual destructor, layout), m5b3-p04-1 (`friend struct Equipment_Runnable;`), m5b3-e-1 / e-2
+  (`FearEffect.h` friend and nested `FearTask`), the comment-only m5b3-p04-2, m5b3-p01-1, m5b3-i-1, and m5b2-p3-2 (approved, now also for
+  `ProcAtkInstantEffect` and `PoisonEffect`).
+- `Storage.cpp` (P4-13, `deleteTypeFromUpdateType`/`deleteTypeFromQuestStatus`) and `PacketSupport.h` (P4-17, the three item-type
+  stand-ins) should switch to the new `ItemPacketService_Item*Info.h` companions.
+- Untested and documented in the lanes' deviation docs: the palace boost, a zone rule's true arm, the event pass's chest arm and the team
+  arms (P5-09); the `quest_use_item` exclusion (unobservable with the shipped data); the trading arms of move/switch/split
+  (`ExchangeService::registerExchange` unported); `isIneffectiveHealSkill`'s negative-value arm (no shipped row); the stigma price ladder;
+  the arguments `CM_MANASTONE` hands its unported bodies.
+- Pre-existing: two `LegionHouseServicesTest` cases fail when `aion_gs_legionhouse_tests` runs in one process (order-dependent; green under
+  ctest).
+- Process notes: three lanes edited a `cpp/` file once with `sed -i` or Python against the Edit/Write rule (player side, effects, loot; each
+  verified LF), and so did this integration once, on this plan (the two `cycles.toml` citations; LF verified). All `build/b3-*` build
+  directories are deleted; their logs in `build/` can go.

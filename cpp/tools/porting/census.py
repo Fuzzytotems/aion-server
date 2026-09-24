@@ -3011,8 +3011,9 @@ LIVE_CHECKS = [
     ('model/geometry/RectangleArea.java', 'RectangleArea', 'RectangleArea', 8, 112, 'ported', None),
     ('model/geometry/PolyArea.java', 'PolyArea', 'PolyArea', 5, 46, 'ported', 'merged'),
     ('dataholders/loadingutils/XmlMerger.java', 'XmlMerger', 'merge', 0, None, 'replaced', None),
-    ('model/templates/item/actions/SkillUseAction.java', 'SkillUseAction', 'canAct', 4, None, 'undeclared', None),
-    ('model/templates/item/actions/SkillUseAction.java', 'SkillUseAction', 'act', 4, None, 'undeclared', None),
+    # canAct/act: declared with AION_UNPORTED stubs by M5b-3 stage 0 (header request m5b3-h01, 2026-09-24); the private helper is m5b3-h04
+    ('model/templates/item/actions/SkillUseAction.java', 'SkillUseAction', 'canAct', 4, None, 'unported', None),
+    ('model/templates/item/actions/SkillUseAction.java', 'SkillUseAction', 'act', 4, None, 'unported', None),
     ('model/templates/item/actions/SkillUseAction.java', 'SkillUseAction', 'isIneffectiveHealSkill', 2, None, 'undeclared', None),
     ('model/templates/spawns/Spawn.java', 'Spawn', 'beforeMarshal', 1, None, 'undeclared', None),
 ]

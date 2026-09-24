@@ -336,8 +336,9 @@ inline std::string effectsMzSkills() {
 		R"(<skill_template skill_id="64028" name="mz form" nameId="1" stack="MZ_FORM" lvl="1" skilltype="MAGICAL" skillsubtype="BUFF" tslot="BUFF")"
 		R"( activation="ACTIVE" cooldown="0" duration="0"><effects>)"
 		R"(<polymorph model="281813" type="FORM1" panelid="1" duration2="30000" e="1" noresist="true"/></effects></skill_template>)"
-		// 64029: a root whose skill also carries a <paralyze> (Effect.isParalyzeEffect: SkillTemplate.hasAnyEffect(PARALYZE)); ParalyzeEffect is
-		// outside the lane (AION_UNPORTED), so the cases calculate and apply only the root position (rootedWithParalyze)
+		// 64029: a root whose skill also carries a <paralyze> (Effect.isParalyzeEffect: SkillTemplate.hasAnyEffect(PARALYZE)); the cases calculate
+		// and apply only the root position (rootedWithParalyze), so they see the root alone (ParalyzeEffect has its own cases since M5b-3,
+		// ProcEffectsTest.cpp)
 		R"(<skill_template skill_id="64029" name="mz paralyzing root" nameId="1" stack="MZ_PARALYZE" lvl="1" skilltype="MAGICAL")"
 		R"( skillsubtype="DEBUFF" tslot="DEBUFF" activation="ACTIVE" cooldown="0" duration="0"><effects>)"
 		R"(<root resistchance="10" duration2="20000" e="1" noresist="true"/><paralyze duration2="20000" e="2" noresist="true"/>)"
@@ -624,9 +625,9 @@ protected:
 
 	/**
 	 * 64029 on the effected: a root whose skill also carries a <paralyze>, so Effect.isParalyzeEffect answers true and
-	 * EffectController.removeParalyzeEffects ends it. ParalyzeEffect is outside the lane (AION_UNPORTED): the root's calculate stands in for
-	 * Effect.initialize's loop, which would call ParalyzeEffect.calculate as well, and Effect.applyEffect / startEffect / endEffect then run
-	 * the success effects only, i.e. the root.
+	 * EffectController.removeParalyzeEffects ends it. The root's calculate stands in for Effect.initialize's loop, which would calculate the
+	 * <paralyze> as well (ParalyzeEffect, ported in M5b-3), and Effect.applyEffect / startEffect / endEffect then run the success effects only,
+	 * i.e. the root: the cases see a root and no PARALYZE state.
 	 */
 	Ref<Effect> rootedWithParalyze(Creature& effector, Creature& effected) {
 		Ref<Effect> effect = Effect::create(effector, Ptr<Creature>(effected), skillTemplate(64029), 1);

@@ -14,6 +14,9 @@
 	oracle.py m5b-monster --map ID --npc-id ID [--player-level N] [--race R] [--class C] [--xp-solo-rate R]   (m5b/ package, m5b-plan.md G-01)
 	oracle.py m5b2-skills --race R --class C [--level N] [--skill ID[:LEVEL] ...] [--npc ID ...] [--death-count N]   (m5b2/, m5b2-plan.md G-01)
 	oracle.py m5b3-drops (--npc ID [--map ID] | --survey --map ID) [--player-level N] [--race R] [--drop-rate R]   (m5b3/drops.py, m5b3-plan.md G-01)
+	                     [--inventory ITEM[:COUNT] ...] [--cube-expansions N]   (the cube-slot budget, m5b3/items.py)
+	oracle.py m5b3-item (--item ID [--item ID ...] | --survey --map ID [--map ID ...])   (m5b3/items.py, m5b3/survey.py, m5b3-plan.md G-01)
+	oracle.py m5b3-material --map ID [--near X,Y,Z] [--radius R] [--limit N] [--geo-dir DIR]   (m5b3/materials.py, m5b3-plan.md G-01)
 	oracle.py m5c-trade (--npc ID [--item ID] | --item ID | --map ID) [--count N] [--race R] [--set KEY=VALUE ...]   (m5c/trade.py, m5c-plan.md G-01)
 	oracle.py m5c-craft (--recipe ID [--skill-level N] [--craft-type 0|1] | --skill ID --level N [--map ID] | --gatherable ID [--skill-level N])
 	                    [--skill-xp X] [--character-level N] [--membership M] [--set KEY=VALUE ...]   (m5c/craft.py, m5c-plan.md §2.6 G-01)
@@ -163,18 +166,78 @@ def cmd_m5b2_skills(args):
 	return 0
 
 
+def _item_counts(values, option: str) -> list[tuple[int, int]]:
+	"""ITEM[:COUNT] arguments (COUNT default 1)"""
+	result = []
+	for value in values or []:
+		item, _, count = value.partition(":")
+		try:
+			result.append((int(item), int(count) if count else 1))
+		except ValueError as e:
+			raise OracleError(f"{option} {value}: not ITEM[:COUNT]") from e
+	return result
+
+
 def cmd_m5b3_drops(args):
 	from m5a.data import StaticData
 	from m5b3.drops import DropData, drops_report, map_survey
+	from m5b3.items import JavaItemRules, cube_budget
 	if args.survey == (args.npc is not None) or (args.survey and args.map is None):
 		raise OracleError("pass --npc ID [--map ID], or --survey --map ID")
+	if args.survey and (args.inventory or args.cube_expansions):
+		raise OracleError("--inventory and --cube-expansions describe the looter's cube for one --npc, not a survey")
 	data_dir = _data_dir(args)
 	java_src = Path(args.java_src) if args.java_src else data_dir.parent.parent / "src"
-	drop_data = DropData(StaticData(data_dir), java_src, Path(args.java_handlers) if args.java_handlers else None)
+	data = StaticData(data_dir)
+	drop_data = DropData(data, java_src, Path(args.java_handlers) if args.java_handlers else None)
 	if args.survey:
 		report = map_survey(drop_data, args.map, args.player_level, args.race, args.drop_rate)
 	else:
 		report = drops_report(drop_data, args.npc, args.map, args.player_level, args.race, args.drop_rate)
+		if report["registerDrop"] or report["registerDropByAi"]:
+			report["cube"] = cube_budget(report, data, JavaItemRules.read(java_src), _item_counts(args.inventory, "--inventory"),
+			                             args.cube_expansions)
+	sys.stdout.write(runner.dump_json(report))
+	return 0
+
+
+def cmd_m5b3_item(args):
+	from m5a.data import StaticData
+	from m5b3.items import item_report
+	if bool(args.item) == args.survey:
+		raise OracleError("pass --item ID [--item ID ...], or --survey --map ID [--map ID ...]")
+	if args.survey != bool(args.map):
+		raise OracleError("--map names the maps of a --survey (and --survey needs at least one)")
+	data_dir = _data_dir(args)
+	java_src = Path(args.java_src) if args.java_src else data_dir.parent.parent / "src"
+	data = StaticData(data_dir)
+	if args.survey:
+		from m5b3.drops import DropData
+		from m5b3.survey import droppable_items, item_survey
+		drop_data = DropData(data, java_src, Path(args.java_handlers) if args.java_handlers else None)
+		droppable, killers = droppable_items(drop_data, args.map)
+		sys.stdout.write(runner.dump_json(item_survey(data, java_src, droppable, killers)))
+	else:
+		sys.stdout.write(runner.dump_json(item_report(data, java_src, args.item)))
+	return 0
+
+
+def cmd_m5b3_material(args):
+	from m5a.data import StaticData
+	from m5b3.materials import material_report
+	data_dir = _data_dir(args)
+	near = None
+	if args.near is not None:
+		parts = args.near.split(",")
+		try:
+			near = tuple(float(p) for p in parts)
+		except ValueError as e:
+			raise OracleError(f"--near {args.near}: not x,y,z") from e
+		if len(near) != 3:
+			raise OracleError(f"--near {args.near}: not x,y,z")
+	geo_dir = Path(args.geo_dir) if args.geo_dir else data_dir.parent / "geo"
+	world_maps = data_dir / "world_maps.xml"
+	report = material_report(StaticData(data_dir), geo_dir, world_maps, args.map, near, args.radius, args.limit)
 	sys.stdout.write(runner.dump_json(report))
 	return 0
 
@@ -359,7 +422,34 @@ def main(argv=None):
 	p.add_argument("--drop-rate", dest="drop_rate", metavar="R",
 	               help="the gameserver.rates.drop value of the killer's membership (default: RatesConfig.DROP_RATES[0], 1.0; the M5b-3 gate "
 	                    "forces drops with a large one, the M5b/M5b-2 gates switch them off with 0)")
+	p.add_argument("--inventory", action="append", metavar="ITEM[:COUNT]",
+	               help="one stack in the looter's cube before the loot (COUNT default 1; repeat an id for several stacks): the `cube` budget "
+	                    "counts the entries that merge into it")
+	p.add_argument("--cube-expansions", type=int, default=0, dest="cube_expansions",
+	               help="the cube's npc + quest + item expansions, 9 slots each (default 0: a fresh character's 27 slots)")
 	p.set_defaults(fn=cmd_m5b3_drops)
+
+	p = sub.add_parser("m5b3-item", help="an item's actions -> skill -> effect classes and values, its use delay and mask flags, and a godstone's "
+	                                     "proc skill; or, with --survey, the effect classes of the starter and droppable skilluse items, every "
+	                                     "godstone and every material skill (m5b3-plan.md G-01, §2.5-§2.6)")
+	data_args(p, country=False)
+	p.add_argument("--java-src", help="game-server/src (default: two levels above the static data directory, then src)")
+	p.add_argument("--java-handlers", help="game-server/data/handlers, for the drop survey's AI classes and @InstanceID handlers (default: beside "
+	                                       "the static data directory)")
+	p.add_argument("--item", type=int, action="append", metavar="ID", help="an item template id; repeatable")
+	p.add_argument("--survey", action="store_true", help="the survey of m5b3/survey.py over the droppable items of the --map(s)")
+	p.add_argument("--map", type=int, action="append", metavar="ID", help="with --survey: a map whose droppable items are surveyed; repeatable")
+	p.set_defaults(fn=cmd_m5b3_item)
+
+	p = sub.add_parser("m5b3-material", help="the skill materials of a map: mesh material zones with their areas and skills, nearest first, and the "
+	                                         "terrain materials (m5b3-plan.md G-01, §2.6)")
+	data_args(p, country=False)
+	p.add_argument("--geo-dir", dest="geo_dir", help="game-server/data/geo (default: beside the static data directory)")
+	p.add_argument("--map", type=int, required=True, metavar="ID")
+	p.add_argument("--near", metavar="X,Y,Z", help="sort the zones by their distance from this point (e.g. the race's spawn point)")
+	p.add_argument("--radius", type=float, help="only the zones whose center is within this distance of --near")
+	p.add_argument("--limit", type=int, help="list at most this many zones (the counts cover all)")
+	p.set_defaults(fn=cmd_m5b3_material)
 
 	p = sub.add_parser("m5c-trade", help="a merchant's goods with their buy prices, what it pays for a sold item, and a map's merchants (m5c-plan.md G-01)")
 	data_args(p, country=False)

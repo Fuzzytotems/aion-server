@@ -1,5 +1,7 @@
 #include "aion/gameserver/model/templates/item/actions/DecomposeAction.h"
 
+#include "aion/gameserver/runtime/base/Unported.h"
+
 #include <array>
 #include <cstdint>
 #include <span>
@@ -67,6 +69,16 @@ void validateItemIds(const dataholders::ItemData& itemData, std::span<const int3
 }
 
 } // namespace
+
+bool DecomposeAction::canAct(gameobjects::player::Player& /*player*/, runtime::Ptr<gameobjects::Item> /*parentItem*/,
+	runtime::Ptr<gameobjects::Item> /*targetItem*/, std::initializer_list<std::any> /*params*/) const {
+	AION_UNPORTED();
+}
+
+void DecomposeAction::act(gameobjects::player::Player& /*player*/, runtime::Ptr<gameobjects::Item> /*parentItem*/,
+	runtime::Ptr<gameobjects::Item> /*targetItem*/, std::initializer_list<std::any> /*params*/) const {
+	AION_UNPORTED();
+}
 
 void DecomposeAction::validateRandomItemIds(const dataholders::ItemData& itemData) {
 	// Java: chunkEarth.values(), then chunkSand.values() (HashMap<Race, int[]> order: only the first invalid id of the message can differ)

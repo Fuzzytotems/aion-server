@@ -6,12 +6,14 @@
 #include "aion/commons/logging/LoggerFactory.h"
 #include "aion/gameserver/controllers/ObserveController.h"
 #include "aion/gameserver/controllers/PlayerController.h"
+#include "aion/gameserver/controllers/observer/ItemUseObserver.h"
 #include "aion/gameserver/dao/InventoryDAO.h"
 #include "aion/gameserver/dataholders/loadingutils/EnumTraits.h"
 #include "aion/gameserver/model/ActionState.h"
 #include "aion/gameserver/model/ActionStateInfo.h"
 #include "aion/gameserver/model/EmotionType.h"
 #include "aion/gameserver/model/Race.h"
+#include "aion/gameserver/model/TaskId.h"
 #include "aion/gameserver/model/actions/PlayerMode.h"
 #include "aion/gameserver/model/gameobjects/Item.h"
 #include "aion/gameserver/model/gameobjects/Summon.h"
@@ -37,17 +39,18 @@
 #include "aion/gameserver/network/aion/serverpackets/SM_DELETE_ITEM.h"
 #include "aion/gameserver/network/aion/serverpackets/SM_EMOTION.h"
 #include "aion/gameserver/network/aion/serverpackets/SM_INVENTORY_UPDATE_ITEM.h"
+#include "aion/gameserver/network/aion/serverpackets/SM_ITEM_USAGE_ANIMATION.h"
 #include "aion/gameserver/network/aion/serverpackets/SM_QUESTION_WINDOW.h"
 #include "aion/gameserver/network/aion/serverpackets/SM_SYSTEM_MESSAGE.h"
 #include "aion/gameserver/network/aion/serverpackets/SM_UPDATE_PLAYER_APPEARANCE.h"
 #include "aion/gameserver/questEngine/QuestEngine.h"
 #include "aion/gameserver/questEngine/model/QuestEnv.h"
 #include "aion/gameserver/runtime/base/Exceptions.h"
-#include "aion/gameserver/runtime/base/Unported.h"
 #include "aion/gameserver/services/StigmaService.h"
 #include "aion/gameserver/services/item/ItemPacketService.h"
 #include "aion/gameserver/utils/ChatUtil.h"
 #include "aion/gameserver/utils/PacketSendUtility.h"
+#include "aion/gameserver/utils/ThreadPoolManager.h"
 #include "aion/gameserver/utils/audit/AuditLogger.h"
 #include "aion/gameserver/utils/stats/AbyssRankEnum.h"
 
@@ -57,7 +60,9 @@ static const auto log = commons::logging::LoggerFactory::getLogger("com.aionemu.
 
 namespace {
 
+using network::aion::serverpackets::SM_ITEM_USAGE_ANIMATION;
 using network::aion::serverpackets::SM_SYSTEM_MESSAGE;
+using network::aion::serverpackets::SM_UPDATE_PLAYER_APPEARANCE;
 using state::CreatureState;
 using templates::item::enums::ItemGroup;
 using templates::item::enums::ItemSubType;
@@ -115,6 +120,42 @@ bool containsEqual(const std::vector<runtime::Ptr<Item>>& items, Item& item) {
 	return std::ranges::any_of(items, [&item](const runtime::Ptr<Item>& other) { return other->equals(item); });
 }
 
+/**
+ * C++ only: the private Equipment::equip, which Java's Equipment$3 calls through its enclosing instance (Equipment.java:760). The callback
+ * structs below are no members of Equipment and Equipment.h declares no friend for them, so Equipment::soulBindItem - a member, allowed to name
+ * the private function - hands its address to the request handler, which hands it to the task. Header request m5b3-p04-1 (`friend struct
+ * Equipment_Runnable;`, the IdianStone_ActionObserver precedent) would replace this with a direct call.
+ */
+using EquipMethod = runtime::Ptr<Item> (Equipment::*)(int64_t, Item&);
+
+// fieldmap-class: com.aionemu.gameserver.model.gameobjects.player.Equipment$2
+/**
+ * Java: the anonymous ItemUseObserver of the soul-bind accept (Equipment.java:733-742), attached to the responder's ObserveController until an
+ * item-use abort or the task's removeObserver drops it (cycles.toml "Equipment$2#item" / "#responder": cpp-breaker, the logout breaker's
+ * ObserveController::clearWithoutNotify drops it).
+ */
+struct Equipment_ItemUseObserver final : controllers::observer::ItemUseObserver {
+	AION_MAKE_REF_FRIEND
+
+	const runtime::Ref<Player> responder; // captured param Player responder (line 737)
+	const runtime::Ref<Item> item;        // captured param Item item (line 738)
+
+	static runtime::Ref<Equipment_ItemUseObserver> create(Player& responderValue, Item& itemValue) {
+		return runtime::makeRef<Equipment_ItemUseObserver>(responderValue, itemValue);
+	}
+
+	void abort() override {
+		responder->getController().cancelTask(TaskId::ITEM_USE);
+		PacketSendUtility::sendPacket(*responder, SM_SYSTEM_MESSAGE::STR_SOUL_BOUND_ITEM_CANCELED(item->getL10n()));
+		PacketSendUtility::broadcastPacket(*responder,
+			SM_ITEM_USAGE_ANIMATION(responder->getObjectId(), item->getObjectId(), item->getItemId(), 0, 8), true);
+	}
+
+protected:
+	Equipment_ItemUseObserver(Player& responderValue, Item& itemValue) : responder(responderValue), item(itemValue) {}
+	~Equipment_ItemUseObserver() override = default;
+};
+
 // fieldmap-class: com.aionemu.gameserver.model.gameobjects.player.Equipment$1
 /** Java: the anonymous RequestResponseHandler<Player> of soulBindItem (fieldmap callback struct) */
 class Equipment_RequestResponseHandler final : public RequestResponseHandler {
@@ -123,19 +164,53 @@ public:
 	const runtime::Ref<Equipment> equipment; // captured this Equipment
 	const runtime::Ref<Item> item;           // captured param Item item
 	const int64_t slot;                      // captured param long slot
+	const EquipMethod equipMethod; // fieldmap: C++ only, Equipment::equip for the task (EquipMethod above); a member function pointer, retains nothing
 
-	static runtime::Ref<Equipment_RequestResponseHandler> create(Player& player, Equipment& equipmentValue, Item& itemValue, int64_t slotValue) {
-		return runtime::makeRef<Equipment_RequestResponseHandler>(player, equipmentValue, itemValue, slotValue);
+	static runtime::Ref<Equipment_RequestResponseHandler> create(Player& player, Equipment& equipmentValue, Item& itemValue, int64_t slotValue,
+		EquipMethod equipValue) {
+		return runtime::makeRef<Equipment_RequestResponseHandler>(player, equipmentValue, itemValue, slotValue, equipValue);
 	}
 
+	// Java Equipment.java:726-764
 	void acceptRequest(runtime::Ptr<Creature> requesterValue, Player& responder) override {
-		// Java: responder.getController().cancelUseItem(); SM_ITEM_USAGE_ANIMATION(..., 5000, 4); attach the anonymous ItemUseObserver
-		// (Equipment_ItemUseObserver: cancel ITEM_USE, STR_SOUL_BOUND_ITEM_CANCELED, animation 0/8) and schedule the 5 s Equipment_Runnable
-		// (remove the observer, animation 0/6, STR_SOUL_BOUND_ITEM_SUCCEED, item.setSoulBound(true), updateItemAfterInfoChange, equip(slot,
-		// item), SM_UPDATE_PLAYER_APPEARANCE). ItemUseObserver (P4-11b) has no C++ header yet.
 		static_cast<void>(requesterValue);
-		static_cast<void>(responder);
-		AION_UNPORTED();
+		responder.getController().cancelUseItem();
+
+		PacketSendUtility::broadcastPacket(responder,
+			SM_ITEM_USAGE_ANIMATION(responder.getObjectId(), item->getObjectId(), item->getItemId(), 5000, 4), true);
+
+		const runtime::Ref<Equipment_ItemUseObserver> observer = Equipment_ItemUseObserver::create(responder, *item);
+
+		responder.getObserveController()->attach(*observer);
+
+		// item usage animation
+		// Java: the anonymous Runnable at Equipment.java:747 (fieldmap Equipment$3, the K3 Equipment_Runnable), a lambda pinned to what the Java
+		// class captures - the responder, the observer, the item and this Equipment (a part: its pin retains the owner); the slot and the
+		// C++-only equip address are values. The task and the observer end each other only through the controller's ITEM_USE task, as in Java
+		controllers::observer::ItemUseObserver& itemUseObserver = *observer;
+		Item& soulBoundItem = *item;
+		Equipment& equipmentPart = *equipment;
+		const int64_t slotValue = slot;
+		const EquipMethod equipValue = equipMethod;
+		responder.getController().addTask(TaskId::ITEM_USE,
+			utils::ThreadPoolManager::getInstance().schedule({&responder, &itemUseObserver, &soulBoundItem, &equipmentPart},
+				[&responder, &itemUseObserver, &soulBoundItem, &equipmentPart, slotValue, equipValue] {
+					responder.getObserveController()->removeObserver(itemUseObserver);
+
+					PacketSendUtility::broadcastPacket(responder,
+						SM_ITEM_USAGE_ANIMATION(responder.getObjectId(), soulBoundItem.getObjectId(), soulBoundItem.getItemId(), 0, 6), true);
+					PacketSendUtility::sendPacket(responder, SM_SYSTEM_MESSAGE::STR_SOUL_BOUND_ITEM_SUCCEED(soulBoundItem.getL10n()));
+
+					soulBoundItem.setSoulBound(true);
+					// Java passes the Equipment's owner; it is the responder: soulBindItem puts the request on the owner's own ResponseRequester
+					// (equipItem's only call passes `owner`), which answers with its own player (ResponseRequester.java respond)
+					services::item::ItemPacketService::updateItemAfterInfoChange(responder, soulBoundItem);
+
+					(equipmentPart.*equipValue)(slotValue, soulBoundItem);
+					PacketSendUtility::broadcastPacket(responder,
+						SM_UPDATE_PLAYER_APPEARANCE(responder.getObjectId(), equipmentPart.getEquippedForAppearance()), true);
+				},
+				5000));
 	}
 
 	void denyRequest(runtime::Ptr<Creature> requesterValue, Player& responder) override {
@@ -144,8 +219,8 @@ public:
 	}
 
 protected:
-	Equipment_RequestResponseHandler(Player& player, Equipment& equipmentValue, Item& itemValue, int64_t slotValue)
-		: RequestResponseHandler(runtime::Ptr<Creature>(player)), equipment(equipmentValue), item(itemValue), slot(slotValue) {}
+	Equipment_RequestResponseHandler(Player& player, Equipment& equipmentValue, Item& itemValue, int64_t slotValue, EquipMethod equipValue)
+		: RequestResponseHandler(runtime::Ptr<Creature>(player)), equipment(equipmentValue), item(itemValue), slot(slotValue), equipMethod(equipValue) {}
 	~Equipment_RequestResponseHandler() override = default;
 };
 
@@ -786,7 +861,7 @@ bool Equipment::soulBindItem(Player& player, Item& item, int64_t slot) {
 		return false;
 	}
 
-	runtime::Ref<Equipment_RequestResponseHandler> responseHandler = Equipment_RequestResponseHandler::create(player, *this, item, slot);
+	runtime::Ref<Equipment_RequestResponseHandler> responseHandler = Equipment_RequestResponseHandler::create(player, *this, item, slot, &Equipment::equip);
 
 	bool requested = player.getResponseRequester().putRequest(network::aion::serverpackets::SM_QUESTION_WINDOW::STR_SOUL_BOUND_ITEM_DO_YOU_WANT_SOUL_BOUND,
 		runtime::Ptr<RequestResponseHandler>(responseHandler));

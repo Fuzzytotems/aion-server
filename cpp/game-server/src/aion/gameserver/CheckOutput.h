@@ -100,12 +100,15 @@ public:
 	 *   before LoginServer.onDisconnect, and LoginServer.java:119 is the only place that unregisters the connection). Their bound is the number
 	 *   of open connections, which the process cannot know here; the scenario gate checks it, because it knows how many clients it left open.
 	 * - Creature-attached observers (`AttackCalcObserver`, `ShieldObserver`): an npc that stays in the world keeps its observers.
+	 * - `DropNpc` and the drop items (m5b3-plan.md D5, G-06; M5b-1 had `DropNpc` here as a guard while `registerDrop` was a whole-body
+	 *   AION_PARTIAL): `DropRegistrationService` is an Immortal that holds a corpse's `DropNpc` and drop set from `registerDrop` until the corpse
+	 *   despawns, and a corpse with an unlooted drop stands for 300 s (RespawnService.WITH_DROP_DECAY) - a server stopped within five minutes of
+	 *   such a kill holds one, in Java too. They are summaryLiveClasses() rows bounded by what the service holds: writeSummary's dir form writes
+	 *   `dropNpcsHeld` and `dropItemsHeld` and logs an ERROR for a drop class with more live instances than that.
 	 * <p>
 	 * The last seven entries (Summon, Pet, Kisk, AbstractInteractionTask, GatheringTask, GatheringTask_ActionObserver, StanceObserver) are
 	 * never created by the M5a scenario, so they cannot fail a gate run today: they are guards for the stress run, the real client and M5b
-	 * (m5a-plan.md §10.2). `DropNpc` joins them at M5b-1 for a sharper reason: its only constructor call site is
-	 * `DropRegistrationService::initDropNpc`, which `registerDrop`'s whole-body AION_PARTIAL (m5b-plan.md D5) never reaches, so `created` is 0
-	 * for every M5b-1 run and the row cannot fail until M5b-3 lands the drop path.
+	 * (m5a-plan.md §10.2).
 	 */
 	static const std::vector<std::string>& zeroLiveClasses();
 
@@ -195,7 +198,10 @@ public:
 	 * checkLiveCounts(), and one "liveCount <class> <live> <created>" line per class of summaryLiveClasses().
 	 * <p>
 	 * The dir form runs checkLiveCounts() and summaryLiveCounts() itself when `summary.started` is set, i.e. only after a run mode that reached
-	 * the final census: on a startup that never ran, every object of the run is still alive and the check would report the world.
+	 * the final census: on a startup that never ran, every object of the run is still alive and the check would report the world. It then adds
+	 * the bound of the drop rows - "dropNpcsHeld" and "dropItemsHeld", what DropRegistrationService still holds (m5b3-plan.md D5), with an
+	 * ERROR line for a drop class that has more live instances - and the relations of the skill rows ("effectsHeld", "skillsHeld",
+	 * "effectReservedCapacity", m5b2-plan.md G-07), each "unknown" when it was not measured.
 	 */
 	static void writeSummary(const std::filesystem::path& dir, const Summary& summary);
 

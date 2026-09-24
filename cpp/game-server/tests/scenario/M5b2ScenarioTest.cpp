@@ -847,6 +847,13 @@ void runM5b2Gate(const GateVariant& variant) {
 	// this gate measured exactly that - no soul sickness after the revive. The gate therefore states MembershipConfig's own @Property default,
 	// 10 (MembershipConfig.java:37-38), under which Player.hasPermission exempts no scenario account and updateSoulSickness casts 8291.
 	config.gameServerProperties["gameserver.soulsickness.disable"] = "10";
+	// m5b3-plan.md D4 (G-05), m5b2.properties.example's M5b-3 block: no drop rule fires at a drop rate of 0 (Rates.get(killer, DROP_RATES)
+	// multiplies every rule's chance: DropRegistrationService.java:218, DropModifiers.java:53-57, DropGroup.java:64), while registerDrop still
+	// runs to its end for every kill of the characters. What this gate's kills would do with drops (§2.4 of that plan): monster A (210663)
+	// drops on 58.2 % of kills and the kerub (210133) on 78.5 %, and a corpse with loot stands 300 s (RespawnService.WITH_DROP_DECAY) instead of
+	// 2 s - A's corpse beside its respawn in S7 and S10, a live DropNpc and its items at the stop. At 0 every corpse decays after 2 s, and
+	// X12's drop rows assert that registerDrop ran once per kill and made no drop item.
+	config.gameServerProperties["gameserver.rates.drop"] = "0";
 	config.startupTimeout = variant.geodata ? 25min : 10min;
 	config.stopTimeout = 3min;
 	ScenarioServers servers(config, *environment);
@@ -2375,6 +2382,76 @@ void runM5b2Gate(const GateVariant& variant) {
 		}
 		std::cout << "X13: " << effect->line << " / effectsHeld " << *effectsHeld << "; " << skill->line << " / skillsHeld " << *skillsHeld << "; "
 		          << listener->line << "; " << reserved->line << " / capacity " << *reservedCapacity << std::endl;
+
+		// ---- X12, the drop rows (m5b3-plan.md D4, G-05): what the allow-list's DropRegistrationService.cpp:43 row stood for until M5b-3 ----
+		// The characters' kills are read from the recording: an npc's SM_EMOTION(DIE) names its last attacker (CreatureController.java:164-165),
+		// and every kill of this script is made by one character alone (monster A in S5 and its respawn in S10, the kerub in S5b when the
+		// Warrior finishes it), so that attacker is also doReward's most-damage winner, for whom registerDrop runs (NpcController.java:244-245).
+		// registerDrop's last statement but one sends the winner SM_LOOT_STATUS(corpse, LOOT_ENABLE) (DropRegistrationService.java:104-106),
+		// for an empty drop set too, with getLootEffect over that set: 0 at gameserver.rates.drop = 0. The free-for-all task finds no DropNpc
+		// once the 2 s corpse despawned (DropService.java:54-70, 78-82), so each corpse gets exactly one.
+		std::set<int32_t> kills;
+		std::map<int32_t, int32_t> lootEnables;
+		std::vector<std::string> otherLootStatuses;
+		std::vector<std::string> dropDecodeFailures;
+		if (a.game)
+			for (const Packet& packet : a.game->recorded()) {
+				try {
+					if (packet.name == "SM_EMOTION") {
+						const decoders::Emotion emotion = decoders::decodeEmotion(packet.data);
+						if (emotion.emotionType == decoders::EMOTION_DIE && emotion.senderObjectId != a.warriorId &&
+						    emotion.senderObjectId != a.mageId && (emotion.targetObjectId == a.warriorId || emotion.targetObjectId == a.mageId))
+							kills.insert(emotion.senderObjectId);
+					} else if (packet.name == "SM_LOOT_STATUS") {
+						const decoders::LootStatus loot = decoders::decodeLootStatus(packet.data);
+						if (loot.status == decoders::LOOT_STATUS_LOOT_ENABLE && loot.lootEffectId == 0)
+							lootEnables[loot.targetObjectId]++;
+						else
+							otherLootStatuses.push_back("(target " + std::to_string(loot.targetObjectId) + ", status " +
+							                            std::to_string(static_cast<int32_t>(loot.status)) + ", lootEffectId " +
+							                            std::to_string(loot.lootEffectId) + ")");
+					}
+				} catch (const DecodeError& error) {
+					dropDecodeFailures.push_back(packet.name + ": " + error.what());
+				}
+			}
+		EXPECT_TRUE(dropDecodeFailures.empty()) << "X12: " << join(dropDecodeFailures, "\n  ");
+		EXPECT_TRUE(otherLootStatuses.empty()) << "X12: SM_LOOT_STATUS other than LOOT_ENABLE with lootEffectId 0 (an empty drop set at rates.drop 0): "
+		                                       << join(otherLootStatuses);
+		std::vector<std::string> killLines;
+		for (const int32_t npc : kills) {
+			killLines.push_back(std::to_string(npc));
+			EXPECT_EQ(lootEnables[npc], 1) << "X12: the characters killed npc object " << npc << " and got " << lootEnables[npc]
+			                               << " SM_LOOT_STATUS(LOOT_ENABLE) for its corpse (registerDrop runs once per kill, to its end)";
+		}
+		for (const auto& [target, count] : lootEnables)
+			EXPECT_TRUE(kills.contains(target)) << "X12: " << count << " SM_LOOT_STATUS(LOOT_ENABLE) for object " << target
+			                                    << ", which no character killed";
+		EXPECT_GE(kills.size(), 2u) << "X12: the recording holds " << kills.size() << " kills of the characters; S5 and S10 kill monster A twice";
+		const std::optional<LiveCount> dropNpc = liveCount("model::gameobjects::DropNpc");
+		if (!dropNpc) {
+			ADD_FAILURE() << "X12: m5a_summary.txt has no liveCount row for DropNpc (CheckOutput G-06)";
+		} else {
+			EXPECT_EQ(dropNpc->created, static_cast<int64_t>(kills.size()))
+			  << "X12: " << dropNpc->line << " against " << kills.size() << " kills (initDropNpc makes one per registerDrop)";
+			EXPECT_EQ(dropNpc->live, 0) << "X12: " << dropNpc->line << " - every corpse despawned 2 s after its kill and unregisterDrop released it";
+		}
+		EXPECT_EQ(value("dropNpcsHeld"), "0") << "X12: DropRegistrationService still held a DropNpc at the stop";
+		EXPECT_EQ(value("dropItemsHeld"), "0") << "X12: DropRegistrationService still held drop items at the stop";
+		for (const std::string_view name : {"model::drop::DropItem", "RuntimeDropItem"}) {
+			const std::optional<LiveCount> dropItem = liveCount(name);
+			if (!dropItem) {
+				ADD_FAILURE() << "X12: m5a_summary.txt has no liveCount row for " << name << " (CheckOutput G-06)";
+				continue;
+			}
+			// a check of the profile key, not a proof: at the default rate this script's kills (monster A twice, the kerub once) would make no drop
+			// item in 0.418^2 x 0.215 = 3.8 % of runs (m5b3-plan.md §2.4), so a lost key goes unseen in those
+			EXPECT_EQ(dropItem->created, 0) << "X12: " << dropItem->line << " - at gameserver.rates.drop = 0 no drop rule fires, so the profile key "
+			                                                                  "did not reach the server or a drop path ignores the rate";
+			EXPECT_EQ(dropItem->live, 0) << "X12: " << dropItem->line;
+		}
+		std::cout << "X12: the characters killed " << (killLines.empty() ? std::string("nothing") : join(killLines)) << "; DropNpc "
+		          << (dropNpc ? dropNpc->line : std::string("(no row)")) << std::endl;
 
 		// the account-level classes Java keeps for a connection still open at the stop (M5bScenarioTest.cpp's Q2 tail): AionConnection.onDisconnect
 		// returns before LoginServer.onDisconnect (AionConnection.java:239-243), so the Account survives with the PlayerAccountData of EVERY

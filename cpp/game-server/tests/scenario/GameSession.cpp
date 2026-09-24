@@ -247,6 +247,77 @@ std::vector<uint8_t> GameSession::buildCM_REMOVE_ALTERED_STATE(uint16_t skillId,
 	return PacketWriter().H(skillId).C(unk1).C(unk2).data;
 }
 
+std::vector<uint8_t> GameSession::buildCM_START_LOOT(int32_t targetObjectId, uint8_t action) {
+	return PacketWriter().D(targetObjectId).C(action).data; // CM_START_LOOT.java:36-37
+}
+
+std::vector<uint8_t> GameSession::buildCM_LOOT_ITEM(int32_t targetObjectId, uint8_t index) {
+	return PacketWriter().D(targetObjectId).C(index).data; // CM_LOOT_ITEM.java:24-25
+}
+
+std::vector<uint8_t> GameSession::buildCM_USE_ITEM(int32_t uniqueItemId, int8_t type, int32_t extra) {
+	PacketWriter writer;
+	writer.D(uniqueItemId).C(type); // CM_USE_ITEM.java:39-40
+	if (type == 2 || type == 5 || type == 6)
+		writer.D(extra); // :42-50: targetItemId, syncId or indexReturn
+	return writer.data;
+}
+
+std::vector<uint8_t> GameSession::buildCM_MOVE_ITEM(int32_t itemObjId, uint8_t source, uint8_t destination, int16_t slot) {
+	return PacketWriter().D(itemObjId).C(source).C(destination).H(slot).data; // CM_MOVE_ITEM.java:26-29
+}
+
+std::vector<uint8_t> GameSession::buildCM_SPLIT_ITEM(int32_t sourceItemObjId, int64_t itemAmount, uint8_t sourceStorageType, int32_t destinationItemObjId,
+	uint8_t destinationStorageType, int16_t slotNum) {
+	// CM_SPLIT_ITEM.java:28-33
+	return PacketWriter().D(sourceItemObjId).Q(itemAmount).C(sourceStorageType).D(destinationItemObjId).C(destinationStorageType).H(slotNum).data;
+}
+
+std::vector<uint8_t> GameSession::buildCM_REPLACE_ITEM(uint8_t sourceStorageType, int32_t sourceItemObjId, uint8_t replaceStorageType,
+	int32_t replaceItemObjId) {
+	return PacketWriter().C(sourceStorageType).D(sourceItemObjId).C(replaceStorageType).D(replaceItemObjId).data; // CM_REPLACE_ITEM.java:26-29
+}
+
+std::vector<uint8_t> GameSession::buildCM_MANASTONE(const ManastoneRequest& request) {
+	PacketWriter writer;
+	writer.C(request.actionType).C(request.targetFusedSlot).D(request.targetItemUniqueId); // CM_MANASTONE.java:40-42
+	switch (request.actionType) {
+		case 1:
+		case 2:
+		case 4:
+		case 8:
+			writer.D(request.stoneUniqueId).D(request.supplementUniqueId); // :48-49
+			break;
+		case MANASTONE_REMOVE:
+			writer.C(request.slotNum).C(0).H(0).D(request.npcObjId); // :52-55, the readC and readH are dropped
+			break;
+		default:
+			break; // no arm: the switch has no default
+	}
+	return writer.data;
+}
+
+std::vector<uint8_t> GameSession::buildCM_MANASTONE(uint8_t actionType, uint8_t targetFusedSlot, int32_t targetItemUniqueId, int32_t stoneUniqueId,
+	int32_t supplementUniqueId) {
+	if (actionType == MANASTONE_REMOVE)
+		throw std::invalid_argument("CM_MANASTONE action 3 reads a slot and an npc, not two item ids");
+	ManastoneRequest request;
+	request.actionType = actionType;
+	request.targetFusedSlot = targetFusedSlot;
+	request.targetItemUniqueId = targetItemUniqueId;
+	request.stoneUniqueId = stoneUniqueId;
+	request.supplementUniqueId = supplementUniqueId;
+	return buildCM_MANASTONE(request);
+}
+
+std::vector<uint8_t> GameSession::buildCM_EQUIP_ITEM(uint8_t action, int64_t slot, int32_t itemObjId) {
+	return PacketWriter().C(action).Q(slot).D(itemObjId).data; // CM_EQUIP_ITEM.java:30-32
+}
+
+std::vector<uint8_t> GameSession::buildCM_DELETE_ITEM(int32_t itemObjectId) {
+	return PacketWriter().D(itemObjectId).data; // CM_DELETE_ITEM.java:27
+}
+
 GameSession::CastOutcome GameSession::castAndWait(int32_t casterObjectId, const CastRequest& request, std::chrono::milliseconds timeout,
 	const std::optional<CastInterruption>& interruption) {
 	CastOutcome outcome;

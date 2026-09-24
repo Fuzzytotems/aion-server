@@ -100,6 +100,33 @@ public:
 	static constexpr int32_t CM_CASTSPELL = 33;
 	static constexpr int32_t CM_REMOVE_ALTERED_STATE = 35;
 
+	/**
+	 * the nine packets of M5b-3's loot and items (m5b3-plan.md §2.7, G-02): AionClientPacketFactory packets[37], [38], [74], [116], [154],
+	 * [155], [156], [157] and [178] (AionClientPacketFactory.java:65, 66, 102, 144, 182-185, 206). 4.8 sockets a godstone with CM_MANASTONE
+	 * action 4; CM_GODSTONE_SOCKET (packets[91]) is commented out there (:119)
+	 */
+	static constexpr int32_t CM_USE_ITEM = 37;
+	static constexpr int32_t CM_EQUIP_ITEM = 38;
+	static constexpr int32_t CM_MANASTONE = 74;
+	static constexpr int32_t CM_DELETE_ITEM = 116;
+	static constexpr int32_t CM_START_LOOT = 154;
+	static constexpr int32_t CM_LOOT_ITEM = 155;
+	static constexpr int32_t CM_MOVE_ITEM = 156;
+	static constexpr int32_t CM_SPLIT_ITEM = 157;
+	static constexpr int32_t CM_REPLACE_ITEM = 178;
+
+	/** CM_START_LOOT's action (CM_START_LOOT.java runImpl): 0 opens the drop list (requestDropList), 1 closes it (closeDropList) */
+	static constexpr uint8_t LOOT_OPEN = 0;
+	static constexpr uint8_t LOOT_CLOSE = 1;
+	/** CM_EQUIP_ITEM's action (CM_EQUIP_ITEM.java:30, "0/1/2 = equip/unequip/switch weapons") */
+	static constexpr uint8_t EQUIP = 0;
+	static constexpr uint8_t UNEQUIP = 1;
+	static constexpr uint8_t SWITCH_WEAPONS = 2;
+	/** CM_MANASTONE's actionType for a godstone (CM_MANASTONE.java runImpl: ItemSocketService.socketGodstone) */
+	static constexpr uint8_t MANASTONE_SOCKET_GODSTONE = 4;
+	/** CM_MANASTONE's arm that reads a slot and an npc instead of two item ids (CM_MANASTONE.java:51-56, removeManastone) */
+	static constexpr uint8_t MANASTONE_REMOVE = 3;
+
 	/** ReviveType ids, which are what CM_REVIVE carries (model/gameobjects/player/ReviveType.java; note that 5 and 7 are no revive type) */
 	static constexpr uint8_t BIND_REVIVE = 0;
 	static constexpr uint8_t REBIRTH_REVIVE = 1;
@@ -212,6 +239,23 @@ public:
 		std::vector<uint8_t> body;
 	};
 
+	/**
+	 * The fields CM_MANASTONE.readImpl reads, in its order (CM_MANASTONE.java:39-58): readUC actionType, readUC targetFusedSlot, readD
+	 * targetItemUniqueId, then the arm of the action - 1, 2, 4 and 8 read the stone and the supplement (readD, readD), 3 reads readUC slotNum, a
+	 * dropped readC and readH, and readD npcObjId - and any other action reads no arm (the switch has no default).
+	 */
+	struct ManastoneRequest {
+		uint8_t actionType = MANASTONE_SOCKET_GODSTONE;
+		uint8_t targetFusedSlot = 0;
+		int32_t targetItemUniqueId = 0;
+		/** arms 1, 2, 4, 8 */
+		int32_t stoneUniqueId = 0;
+		int32_t supplementUniqueId = 0;
+		/** arm 3 */
+		uint8_t slotNum = 0;
+		int32_t npcObjId = 0;
+	};
+
 	/** What one castAndWait call saw; the indices are into recorded() */
 	struct CastOutcome {
 		/** the first packet this call recorded */
@@ -291,6 +335,42 @@ public:
 	 * skillId 3573"). runImpl ends the player's effect of that skill unless it is a DEBUFF (:31-42) - the client's right click on a buff icon.
 	 */
 	static std::vector<uint8_t> buildCM_REMOVE_ALTERED_STATE(uint16_t skillId, uint8_t unk1 = 0, uint8_t unk2 = 0);
+
+	// ---- M5b-3's loot and item packets (m5b3-plan.md §2.7, G-02), each the Java readImpl field order ----
+	/** CM_START_LOOT.readImpl (CM_START_LOOT.java:35-38): readD targetObjectId, readC action (LOOT_OPEN, LOOT_CLOSE) */
+	static std::vector<uint8_t> buildCM_START_LOOT(int32_t targetObjectId, uint8_t action = LOOT_OPEN);
+	/** CM_LOOT_ITEM.readImpl (CM_LOOT_ITEM.java:23-26): readD targetObjectId, readUC index (the entry's DropItem index, not its position) */
+	static std::vector<uint8_t> buildCM_LOOT_ITEM(int32_t targetObjectId, uint8_t index);
+	/**
+	 * CM_USE_ITEM.readImpl (CM_USE_ITEM.java:38-52): readD uniqueItemId, readC type, then readD targetItemId for type 2, syncId for type 5 or
+	 * indexReturn for type 6 - `extra` - and nothing for any other type (a potion is type 0)
+	 */
+	static std::vector<uint8_t> buildCM_USE_ITEM(int32_t uniqueItemId, int8_t type = 0, int32_t extra = 0);
+	/**
+	 * CM_MOVE_ITEM.readImpl (CM_MOVE_ITEM.java:25-30): readD itemObjId, readC source, readC destination (0 cube, 1 regular, 2 account, 3 legion
+	 * warehouse), readH slot (-1 merges into a stack of the same item, ItemMoveService.moveItem)
+	 */
+	static std::vector<uint8_t> buildCM_MOVE_ITEM(int32_t itemObjId, uint8_t source, uint8_t destination, int16_t slot);
+	/**
+	 * CM_SPLIT_ITEM.readImpl (CM_SPLIT_ITEM.java:27-34): readD sourceItemObjId, readQ itemAmount, readC sourceStorageType, readD
+	 * destinationItemObjId (0: a new stack), readC destinationStorageType, readH slotNum
+	 */
+	static std::vector<uint8_t> buildCM_SPLIT_ITEM(int32_t sourceItemObjId, int64_t itemAmount, uint8_t sourceStorageType, int32_t destinationItemObjId,
+		uint8_t destinationStorageType, int16_t slotNum);
+	/** CM_REPLACE_ITEM.readImpl (CM_REPLACE_ITEM.java:25-30): readC sourceStorageType, readD sourceItemObjId, readC replaceStorageType, readD replaceItemObjId */
+	static std::vector<uint8_t> buildCM_REPLACE_ITEM(uint8_t sourceStorageType, int32_t sourceItemObjId, uint8_t replaceStorageType, int32_t replaceItemObjId);
+	/** CM_MANASTONE.readImpl, every arm (ManastoneRequest) */
+	static std::vector<uint8_t> buildCM_MANASTONE(const ManastoneRequest& request);
+	/**
+	 * CM_MANASTONE for the arms that read two item ids (1, 2, 4, 8) - the gate's `CM_MANASTONE(4, 0, sword, stone, 0)` (m5b3-plan.md §10.2 L6).
+	 * @throws std::invalid_argument for action 3, which reads a slot and an npc instead: use the ManastoneRequest form
+	 */
+	static std::vector<uint8_t> buildCM_MANASTONE(uint8_t actionType, uint8_t targetFusedSlot, int32_t targetItemUniqueId, int32_t stoneUniqueId,
+		int32_t supplementUniqueId = 0);
+	/** CM_EQUIP_ITEM.readImpl (CM_EQUIP_ITEM.java:29-33): readC action (EQUIP, UNEQUIP, SWITCH_WEAPONS), readQ slotRead, readD itemObjId */
+	static std::vector<uint8_t> buildCM_EQUIP_ITEM(uint8_t action, int64_t slot, int32_t itemObjId);
+	/** CM_DELETE_ITEM.readImpl (CM_DELETE_ITEM.java:26-28): readD itemObjectId */
+	static std::vector<uint8_t> buildCM_DELETE_ITEM(int32_t itemObjectId);
 
 	network::test::FakeGameClient client;
 

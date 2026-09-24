@@ -39,12 +39,16 @@
 #include "aion/commons/utils/TimeUtils.h"
 #include "aion/gameserver/configs/main/LoggingConfig.h"
 #include "aion/gameserver/configs/main/PunishmentConfig.h"
+#include "aion/gameserver/controllers/PlayerController.h"
 #include "aion/gameserver/controllers/VisibleObjectController.h"
 #include "aion/gameserver/controllers/effect/PlayerEffectController.h"
 #include "aion/gameserver/dataholders/PanelSkillsData.bind.h"
 #include "aion/gameserver/dataholders/PanelSkillsData.h"
 #include "aion/gameserver/model/ActionState.h"
 #include "aion/gameserver/model/ActionStateInfo.h"
+#include "aion/gameserver/model/Gender.h"
+#include "aion/gameserver/model/TaskId.h"
+#include "aion/gameserver/model/gameobjects/Item.h"
 #include "aion/gameserver/model/gameobjects/TransformModel.h"
 #include "aion/gameserver/model/gameobjects/player/CustomPlayerState.h"
 #include "aion/gameserver/model/gameobjects/player/PrivateStore.h"
@@ -58,6 +62,7 @@
 #include "aion/gameserver/model/templates/item/ItemTemplate.h"
 #include "aion/gameserver/network/aion/serverpackets/SM_ATTACK_RESPONSE.h"
 #include "aion/gameserver/network/aion/serverpackets/SM_SYSTEM_MESSAGE.h"
+#include "aion/gameserver/questEngine/QuestEngine.h"
 #include "aion/gameserver/restrictions/PlayerRestrictions.h"
 #include "aion/gameserver/runtime/base/Unported.h"
 #include "aion/gameserver/skillengine/effect/AbnormalState.h"
@@ -769,6 +774,568 @@ TEST_F(CanUseSkillTest, EveryGuardIsAskedBeforeEveryGuardBehindIt) {
 		EXPECT_EQ(sent(), exactly({message(SM_SYSTEM_MESSAGE::STR_MSG_ACCUSE_TARGET_IS_NOT_VALID())})) << "skill " << skillId << ": the prison";
 	}
 	EXPECT_EQ(audit.count("tried to attack"), 2) << "no further checkFly audit line: " << audit.dump();
+}
+
+// ============================================================================================================================ canUseItem
+//
+// PlayerRestrictions.canUseItem (m5b3-plan.md P-01), the restriction step of CM_USE_ITEM (CM_USE_ITEM.java:82), read off
+// PlayerRestrictions.java:277-369 in Java order:
+//
+//   player null | !isOnline                -> false, silently
+//   isInPrison                             -> STR_MSG_ACCUSE_TARGET_IS_NOT_VALID
+//   isAboutToDie | isDead                  -> false, silently
+//   CANT_ATTACK_STATE                      -> STR_SKILL_CAN_NOT_USE_ITEM_WHILE_IN_ABNORMAL_STATE
+//   transform cantUseItems                 -> false, silently ("client sends message by itself")
+//   private store                          -> STR_MSG_CANNOT_USE_ITEM_DURING_PATH_FLYING(PERSONAL_SHOP)
+//   hasCooldown(item)                      -> STR_ITEM_CANT_USE_UNTIL_DELAY_TIME
+//   item race                              -> STR_CANNOT_USE_ITEM_INVALID_RACE
+//   no actions, not a quest item           -> STR_ITEM_IS_NOT_USABLE
+//   gender                                 -> STR_CANNOT_USE_ITEM_INVALID_GENDER
+//   class                                  -> STR_CANNOT_USE_ITEM_INVALID_CLASS
+//   required level                         -> STR_CANNOT_USE_ITEM_TOO_LOW_LEVEL_MUST_BE_THIS_LEVEL(l10n, level)
+//   max level                              -> STR_CANNOT_USE_ITEM_TOO_HIGH_LEVEL(level, l10n)
+//   use area                               -> STR_SKILL_CAN_NOT_USE_ITEM_IN_CURRENT_POSITION
+//   activation race: no Creature target    -> STR_ITEM_CANT_FIND_VALID_TARGET
+//                    another race          -> STR_SKILL_CANT_CAST_TO_CURRENT_TARGET
+//
+// Every item is a row of item_templates.xml copied verbatim (line in the comment above it). The order of the guards is pinned in the last case
+// the way CanUseSkillTest pins canUseSkill's, as far as one row can arm several guards; the pairs no shipped row can arm together are named
+// there. The actions' place before every guard behind them is pinned by TheActionsAreAskedBeforeEveryGuardBehindThem, with rows without
+// actions.
+//
+// NOT COVERED, and named so that nobody mistakes the absence for coverage:
+// - the use area answering true: an item-use zone needs a zone template of the map (MapRegion.isInsideItemUseZone, ZoneData); the case below
+//   arms the guard with an unspawned player, for whom Creature.isInsideItemUseZone answers false before any zone is asked.
+
+/** item_templates.xml rows */
+constexpr std::string_view MINOR_LIFE_POTION_XML = // :830724
+	R"(<item_template id="162000002" name="Minor Life Potion" level="10" cName="remedy_hp_10a" mask="12414" max_stack_count="1000" quality="COMMON" price="250" desc="702583" activate_target="STANDALONE" activate_count="1">
+		<actions>
+			<skilluse level="1" skillid="9889"/>
+		</actions>
+		<uselimits usedelay="30000" usedelayid="11"/>
+	</item_template>)";
+constexpr std::string_view GRAVEKNIGHT_CANDY_XML = // :825798, ASMODIANS
+	R"(<item_template id="160002284" name="Graveknight Candy" level="50" cName="food_d_GraveknightD" mask="12414" max_stack_count="1000" quality="RARE" price="3650" race="ASMODIANS" desc="743960" activate_target="STANDALONE" activate_count="1">
+		<actions>
+			<skilluse level="1" skillid="10220"/>
+		</actions>
+		<uselimits usedelay="5000" usedelayid="24"/>
+	</item_template>)";
+constexpr std::string_view RAW_BRAX_MEAT_XML = // :744848, ASMODIANS and no actions
+	R"(<item_template id="152015501" name="Raw Brax Meat" level="30" cName="food_d_material_30a" mask="12414" max_stack_count="1000" quality="COMMON" price="100" race="ASMODIANS" desc="728788"/>)";
+constexpr std::string_view SPARKIE_CARAPACE_FRAGMENT_XML = // :874138, no actions
+	R"(<item_template id="182004793" name="Sparkie Carapace Fragment" level="5" cName="junk_spaky_05" mask="12414" max_stack_count="1000" quality="JUNK" price="300" desc="718718"/>)";
+constexpr std::string_view LESSER_ANCIENT_KINAH_XML = // :876350, no actions (registered as a quest item by one case)
+	R"(<item_template id="182006985" name="Lesser Ancient Kinah" level="1" cName="junk_OwnerTree_housing_gold_01" mask="28684" max_stack_count="1000" quality="JUNK" price="42857" desc="801258"/>)";
+constexpr std::string_view HOT_DENIM_DRESS_XML = // :273513, FEMALE
+	R"(<item_template id="110900085" name="Hot Denim Dress" level="1" cName="cash_ms_torso_wondergirls_01" mask="37448" item_group="TORSO" quality="COMMON" price="5" desc="768562">
+		<actions>
+			<remodel type="2"/>
+		</actions>
+		<uselimits gender="FEMALE"/>
+	</item_template>)";
+constexpr std::string_view WORG_SOUL_XML = // :832502, assassins and rangers only
+	R"(<item_template id="164000026" name="Worg Soul Level 1" level="20" cName="soulstone_shapechange_zaif_20" mask="12414" max_stack_count="10000" item_group="SOULSTONE" quality="COMMON" price="900" restrict="0 0 0 0 1 1 0 0 0 0 0 0 0 0 0 0 0" desc="701854" activate_target="STANDALONE" activate_count="1">
+		<actions>
+			<skilluse level="2" skillid="9935"/>
+		</actions>
+		<uselimits usedelay="15000" usedelayid="33"/>
+	</item_template>)";
+constexpr std::string_view XP_EXTRACTING_ITEM_14_XML = // :930498, level 10 exactly
+	R"(<item_template id="188920013" name="PC XP Extracting Item 14" level="10" cName="world_cash_item_exp_extraction_test14" mask="12410" max_stack_count="1000" quality="RARE" price="5" restrict="10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10" restrict_max="10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10" desc="821732" activate_target="STANDALONE" activate_count="1">
+		<actions>
+			<expextract item_id="188052060" percent="true" cost="45"/>
+		</actions>
+		<uselimits usedelay="2000"/>
+	</item_template>)";
+constexpr std::string_view TALOC_FRUIT_XML = // :823434, usearea
+	R"(<item_template id="160001286" name="Taloc Fruit" level="50" cName="food_kaspa_shapechange_light" casting_delay="1000" mask="4161" quality="LEGEND" price="5" desc="751618" activate_target="STANDALONE" activate_count="1000">
+		<actions>
+			<skilluse level="1" skillid="10251"/>
+		</actions>
+		<uselimits usedelay="1200000" usedelayid="33" usearea="IDELIM_ITEMUSE" ownership_worlds="300190000"/>
+	</item_template>)";
+constexpr std::string_view GREEN_CLEANSE_XML = // :833219, activation race LIVINGWATER
+	R"(<item_template id="164000150" name="Green Cleanse" level="1" cName="sp_idelemental_prime_dispel_green" mask="12617" max_stack_count="1000" quality="COMMON" price="0" desc="773702" activate_target="LIVINGWATER" activate_count="1">
+		<actions>
+			<skilluse level="65" skillid="10352"/>
+		</actions>
+		<uselimits usedelay="1000"/>
+	</item_template>)";
+constexpr std::string_view BLESSING_OF_CONCENTRATION_XML = // :832823, ELYOS, level 50, usedelayid 17, activation race GHENCHMAN_LIGHT
+	R"(<item_template id="164000081" name="Blessing of Concentration" level="50" cName="Item_test_Q_Wonkiock_skill" mask="12352" max_stack_count="10" quality="RARE" price="5" race="ELYOS" restrict="50 50 50 50 50 50 50 50 50 50 50 50 50 50 50 50 50" desc="753616" activate_target="GHENCHMAN_LIGHT" activate_combat="true" activate_count="1">
+		<actions>
+			<skilluse level="1" skillid="10253"/>
+		</actions>
+		<uselimits usedelayid="17"/>
+		<inventory id="2"/>
+	</item_template>)";
+// Rows WITHOUT actions that arm one guard behind the actions each (TheActionsAreAskedBeforeEveryGuardBehindThem)
+constexpr std::string_view APPEARANCE_TEST_FEMALE_XML = // :273408, FEMALE
+	R"(<item_template id="110900054" name="Test_AppearanceModificationTest_Female" level="1" cName="test_ms_torso_changeskin_04a" mask="37502" item_group="TORSO" quality="COMMON" price="5" desc="751891">
+		<uselimits gender="FEMALE"/>
+	</item_template>)";
+constexpr std::string_view ADVANCED_DUAL_WIELDING_I_XML = // :739018, gladiators only
+	R"(<item_template id="140000005" name="Advanced Dual-Wielding I" level="20" cName="stigma_fi_p_equip_dual_g1" mask="4684" item_group="STIGMA" quality="RARE" price="1000000" restrict="0 20 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0" desc="727966"/>)";
+constexpr std::string_view MERCENARY_SWORD_XML = // :379, restrict 3
+	R"(<item_template id="100000095" name="Mercenary Sword" level="3" cName="sword_n_c_03a" mask="138366" item_group="SWORD" quality="COMMON" price="400" restrict="3 3 3 3 3 3 3 3 3 3 3 3 3 3 3 3 3" desc="700776" attack_type="PHYSICAL" max_enchant="10" m_slots="1">
+		<weapon_stats hit_count="2" attack_range="1500" parry="191" physical_accuracy="72" critical="50" attack_speed="1400" max_damage="26" min_damage="20"/>
+		<idian burn_attack="29" burn_defend="12"/>
+	</item_template>)";
+constexpr std::string_view LESSER_SECRET_REMEDY_OF_GROWTH_I_XML = // :930295, restrict 10 and restrict_max 19
+	R"(<item_template id="188900002" name="Lesser Secret Remedy of Growth I" level="1" cName="world_cash_item_addexp_10_10" mask="12376" max_stack_count="1000" quality="RARE" price="5" restrict="10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10" restrict_max="19 19 19 19 19 19 19 19 19 19 19 19 19 19 19 19 19" desc="801728" activate_target="STANDALONE" activate_count="1">
+		<uselimits usedelay="21600000" usedelayid="145"/>
+	</item_template>)";
+constexpr std::string_view RUSTED_VAULT_KEY_XML = // :896194, usearea
+	R"(<item_template id="185000222" name="Rusted Vault Key" level="40" cName="key_IDSweep_world_event_box01" mask="28736" max_stack_count="1000" item_group="KEY" quality="RARE" price="5" desc="842381">
+		<uselimits usearea="IDSWEEP_ITEMAREA" ownership_worlds="301400000"/>
+	</item_template>)";
+constexpr std::string_view GUARDIAN_GENERAL_BUFF_TEST_ITEM_08_XML = // :832421, activation race GCHIEF_LIGHT
+	R"(<item_template id="164000008" name="Guardian General Buff Test Item 08" level="1" cName="item_test_avatar_buff_08" mask="12414" max_stack_count="1000" quality="COMMON" price="1" desc="752630" activate_target="GCHIEF_LIGHT" activate_count="1">
+		<uselimits usedelay="5000" usedelayid="31"/>
+	</item_template>)";
+
+/** player_experience_table.xml:3-24, the start experience of levels 1 to 22: enough for a level-20 character (setLevel caps at size - 1) */
+constexpr std::string_view PLAYER_EXPERIENCE_TABLE_TO_LEVEL_21_XML =
+	"<player_experience_table><exp>0</exp><exp>400</exp><exp>1433</exp><exp>3820</exp><exp>9054</exp><exp>17655</exp><exp>30978</exp>"
+	"<exp>52010</exp><exp>82982</exp><exp>126069</exp><exp>182252</exp><exp>260622</exp><exp>360825</exp><exp>490331</exp><exp>649169</exp>"
+	"<exp>844378</exp><exp>1083018</exp><exp>1401356</exp><exp>1808613</exp><exp>2314771</exp><exp>2941893</exp><exp>3769257</exp>"
+	"</player_experience_table>";
+
+class CanUseItemTest : public PlayerRestrictionsTest {
+protected:
+	void SetUp() override {
+		PlayerRestrictionsTest::SetUp();
+		actor.commonData->setGender(model::Gender::MALE);
+		runtime::resetUnportedHitsForTests();
+		runtime::resetPartialHitsForTests();
+	}
+
+	void TearDown() override {
+		if (actor.player) {
+			actor.player->setStore(nullptr);
+			actor.player->setTarget(nullptr);
+		}
+		items.clear();
+		PlayerRestrictionsTest::TearDown();
+		templates.clear(); // after the items that point at them
+	}
+
+	/** An item of the row (static data: the template stays with the fixture) */
+	model::gameobjects::Item& item(std::string_view row) {
+		xml::LoadContext context;
+		templates.push_back(xml::bindString<model::templates::item::ItemTemplate>(context, row));
+		items.push_back(model::gameobjects::Item::create(nextObjectId++, templates.back().get(), 1, false, 0));
+		return *items.back();
+	}
+
+	/** PlayerRestrictions.canUseItem for the actor, with everything the arrangement sent dropped first */
+	bool canUse(model::gameobjects::Item& usedItem) {
+		(*client)->clearSent();
+		return PlayerRestrictions::canUseItem(runtime::Ptr<model::gameobjects::player::Player>(*actor.player), usedItem);
+	}
+
+	std::vector<uint8_t> message(SM_SYSTEM_MESSAGE&& packet) { return serialized(std::move(packet), client->con()); }
+
+	/** Java TransformModel.apply with cantUseItems: the item-refusing transform of a shapechange */
+	void transformCantUseItems() {
+		actor.player->getTransformModel().apply(TRANSFORM_MODEL_ID, skillengine::model::TransformType::AVATAR, 0, false, false, false, false, false,
+			true, false);
+		ASSERT_TRUE(actor.player->getTransformModel().cantUseItems());
+	}
+
+	void setAbnormal(AbnormalState state) {
+		actor.player->getEffectController()->setAbnormal(state);
+		ASSERT_TRUE(actor.player->getEffectController()->isInAnyAbnormalState(AbnormalState::CANT_ATTACK_STATE));
+	}
+
+	/**
+	 * Java PlayerCommonData.setLevel on a character that is not online (no level-up packets). Level 10 and above needs the ascension: a
+	 * character that is no daeva stops at 9 (PlayerCommonData.java setExp: maxLevel 10, "9 for non daeva ... shown with full XP bar")
+	 */
+	void setLevel(int32_t level) {
+		actor.commonData->setDaeva(level >= 10);
+		actor.commonData->setLevel(level);
+		ASSERT_EQ(actor.player->getLevel(), level);
+	}
+
+	std::vector<std::unique_ptr<model::templates::item::ItemTemplate>> templates;
+	std::vector<runtime::Ref<model::gameobjects::Item>> items;
+	int32_t nextObjectId = 780001;
+};
+
+TEST_F(CanUseItemTest, AnUnrestrictedPlayerMayUseAPotion) {
+	EXPECT_TRUE(canUse(item(MINOR_LIFE_POTION_XML)));
+	EXPECT_TRUE(sent().empty()) << "PlayerRestrictions.java:368 answers true and says nothing";
+	EXPECT_EQ(runtime::unportedHitCount(), 0u) << "every callee of the body is ported";
+	EXPECT_EQ(runtime::partialHitCount(), 0u);
+}
+
+TEST_F(CanUseItemTest, NoPlayerOrAnOfflineOneIsRefusedSilently) {
+	model::gameobjects::Item& potion = item(MINOR_LIFE_POTION_XML);
+	EXPECT_FALSE(PlayerRestrictions::canUseItem(nullptr, potion)) << "PlayerRestrictions.java:278, `player == null`";
+	actor.player->setClientConnection(nullptr);
+	ASSERT_FALSE(actor.player->isOnline());
+	EXPECT_FALSE(canUse(potion)) << ":278, `!player.isOnline()`";
+	EXPECT_TRUE(sent().empty());
+}
+
+TEST_F(CanUseItemTest, APrisonerIsRefusedWithTheAccuseMessage) {
+	actor.player->setPrisonEndTimeMillis(commons::utils::currentTimeMillis() + 600000);
+	EXPECT_FALSE(canUse(item(MINOR_LIFE_POTION_XML)));
+	EXPECT_EQ(sent(), exactly({message(SM_SYSTEM_MESSAGE::STR_MSG_ACCUSE_TARGET_IS_NOT_VALID())})) << ":281-284";
+}
+
+TEST_F(CanUseItemTest, APlayerAboutToDieOrDeadIsRefusedSilently) {
+	model::gameobjects::Item& potion = item(MINOR_LIFE_POTION_XML);
+	actor.player->getLifeStats()->setKillingBlow(7);
+	ASSERT_FALSE(actor.player->isDead());
+	EXPECT_FALSE(canUse(potion)) << ":286, the isAboutToDie term";
+	EXPECT_TRUE(sent().empty());
+	actor.player->setLifeStats(std::make_unique<DeadPlayerLifeStats>(*actor.player));
+	ASSERT_FALSE(actor.player->getLifeStats()->isAboutToDie());
+	EXPECT_FALSE(canUse(potion)) << ":286, the isDead term";
+	EXPECT_TRUE(sent().empty());
+}
+
+TEST_F(CanUseItemTest, AStunnedPlayerIsRefusedWithTheAbnormalStateMessage) {
+	setAbnormal(AbnormalState::STUN);
+	EXPECT_FALSE(canUse(item(MINOR_LIFE_POTION_XML)));
+	EXPECT_EQ(sent(), exactly({message(SM_SYSTEM_MESSAGE::STR_SKILL_CAN_NOT_USE_ITEM_WHILE_IN_ABNORMAL_STATE())})) << ":289-292";
+}
+
+TEST_F(CanUseItemTest, ATransformThatForbidsItemsRefusesSilently) {
+	transformCantUseItems();
+	EXPECT_FALSE(canUse(item(MINOR_LIFE_POTION_XML)));
+	EXPECT_TRUE(sent().empty()) << ":295-298, the client sends the message itself";
+}
+
+TEST_F(CanUseItemTest, APrivateStoreOwnerIsRefusedWithThePersonalShopMessage) {
+	actor.player->setStore(std::make_unique<model::gameobjects::player::PrivateStore>(*actor.player));
+	EXPECT_FALSE(canUse(item(MINOR_LIFE_POTION_XML)));
+	EXPECT_EQ(sent(), exactly({message(SM_SYSTEM_MESSAGE::STR_MSG_CANNOT_USE_ITEM_DURING_PATH_FLYING(
+						  utils::ChatUtil::l10n(getL10nId(model::ActionState::PERSONAL_SHOP))))}))
+		<< ":300-303";
+}
+
+TEST_F(CanUseItemTest, AnItemOnCooldownIsRefusedUntilTheDelayEnds) {
+	model::gameobjects::Item& potion = item(MINOR_LIFE_POTION_XML);
+	actor.player->addItemCoolDown(11, commons::utils::currentTimeMillis() + 30000, 30); // usedelayid 11 (:830728)
+
+	EXPECT_FALSE(canUse(potion)) << ":306-309, `player.hasCooldown(item)`";
+	EXPECT_EQ(sent(), exactly({message(SM_SYSTEM_MESSAGE::STR_ITEM_CANT_USE_UNTIL_DELAY_TIME())}));
+
+	actor.player->addItemCoolDown(11, commons::utils::currentTimeMillis() - 1, 30);
+	EXPECT_TRUE(canUse(potion)) << "an expired delay no longer refuses";
+}
+
+TEST_F(CanUseItemTest, AnItemOfTheOtherRaceIsRefused) {
+	EXPECT_FALSE(canUse(item(GRAVEKNIGHT_CANDY_XML)));
+	EXPECT_EQ(sent(), exactly({message(SM_SYSTEM_MESSAGE::STR_CANNOT_USE_ITEM_INVALID_RACE())})) << ":312-315";
+}
+
+TEST_F(CanUseItemTest, TheRaceIsAskedBeforeTheActions) {
+	// ":311 Checked before the 'no actions' fallback below so a race mismatch reports correctly even without one"
+	EXPECT_FALSE(canUse(item(RAW_BRAX_MEAT_XML)));
+	EXPECT_EQ(sent(), exactly({message(SM_SYSTEM_MESSAGE::STR_CANNOT_USE_ITEM_INVALID_RACE())}));
+}
+
+TEST_F(CanUseItemTest, AnItemWithoutActionsIsUsableOnlyAsAQuestItem) {
+	EXPECT_FALSE(canUse(item(SPARKIE_CARAPACE_FRAGMENT_XML)));
+	EXPECT_EQ(sent(), exactly({message(SM_SYSTEM_MESSAGE::STR_ITEM_IS_NOT_USABLE())})) << ":317-323";
+
+	// a quest item passes (QuestEngine.isRegisteredQuestItem); the registration stays in the engine for the rest of this process (ctest runs
+	// each case in its own), and no other case of this executable uses the item
+	questEngine::QuestEngine::getInstance().registerQuestItem(182006985, 99999);
+	EXPECT_TRUE(canUse(item(LESSER_ANCIENT_KINAH_XML)));
+	EXPECT_TRUE(sent().empty());
+}
+
+TEST_F(CanUseItemTest, TheActionsAreAskedBeforeEveryGuardBehindThem) {
+	// :317-323 before each of :325-366. Every row below has no actions and arms one guard behind them: Java answers STR_ITEM_IS_NOT_USABLE
+	// for each (what a client sees for a weapon or armour used from the cube: 32,700 shipped rows without actions and not of the ASMODIANS
+	// ask a warrior for a level above 1).
+	// Registering the item as a quest item then lets it past :317-323 (QuestEngine.isRegisteredQuestItem) and the guard behind answers - so
+	// each row shows that it arms both guards, and a port that asked that guard first would answer its message instead. The registrations stay
+	// in the engine for the rest of the process (ctest runs each case in its own); no other case uses these items.
+	questEngine::QuestEngine& quests = questEngine::QuestEngine::getInstance();
+	const std::vector<uint8_t> notUsable = message(SM_SYSTEM_MESSAGE::STR_ITEM_IS_NOT_USABLE());
+
+	// :325-329, the gender: a FEMALE-only torso, the actor is MALE
+	model::gameobjects::Item& femaleTorso = item(APPEARANCE_TEST_FEMALE_XML);
+	EXPECT_FALSE(canUse(femaleTorso));
+	EXPECT_EQ(sent(), exactly({notUsable})) << "the actions before the gender";
+	quests.registerQuestItem(110900054, 99999);
+	EXPECT_FALSE(canUse(femaleTorso));
+	EXPECT_EQ(sent(), exactly({message(SM_SYSTEM_MESSAGE::STR_CANNOT_USE_ITEM_INVALID_GENDER())})) << "the row arms the gender";
+
+	// :331-334, the class: a gladiator stigma, restrict 0 for the WARRIOR
+	model::gameobjects::Item& stigma = item(ADVANCED_DUAL_WIELDING_I_XML);
+	EXPECT_FALSE(canUse(stigma));
+	EXPECT_EQ(sent(), exactly({notUsable})) << "the actions before the class";
+	quests.registerQuestItem(140000005, 99999);
+	EXPECT_FALSE(canUse(stigma));
+	EXPECT_EQ(sent(), exactly({message(SM_SYSTEM_MESSAGE::STR_CANNOT_USE_ITEM_INVALID_CLASS())})) << "the row arms the class";
+
+	// :336-340, the required level: the Mercenary Sword (restrict 3) of the level-1 warrior
+	model::gameobjects::Item& sword = item(MERCENARY_SWORD_XML);
+	EXPECT_FALSE(canUse(sword));
+	EXPECT_EQ(sent(), exactly({notUsable})) << "the actions before the required level";
+	quests.registerQuestItem(100000095, 99999);
+	EXPECT_FALSE(canUse(sword));
+	EXPECT_EQ(sent(), exactly({message(SM_SYSTEM_MESSAGE::STR_CANNOT_USE_ITEM_TOO_LOW_LEVEL_MUST_BE_THIS_LEVEL(sword.getL10n(), 3))}))
+		<< "the row arms the required level";
+
+	// :348-354, the use area: an unspawned player is inside no item-use zone (Creature.isInsideItemUseZone)
+	model::gameobjects::Item& key = item(RUSTED_VAULT_KEY_XML);
+	actor.player->getPosition()->setIsSpawned(false);
+	EXPECT_FALSE(canUse(key));
+	EXPECT_EQ(sent(), exactly({notUsable})) << "the actions before the use area";
+	quests.registerQuestItem(185000222, 99999);
+	EXPECT_FALSE(canUse(key));
+	EXPECT_EQ(sent(), exactly({message(SM_SYSTEM_MESSAGE::STR_SKILL_CAN_NOT_USE_ITEM_IN_CURRENT_POSITION())})) << "the row arms the use area";
+	actor.player->getPosition()->setIsSpawned(true);
+
+	// :356-366, the activation race: GCHIEF_LIGHT, and the actor has no target
+	ASSERT_FALSE(actor.player->getTarget());
+	model::gameobjects::Item& buff = item(GUARDIAN_GENERAL_BUFF_TEST_ITEM_08_XML);
+	EXPECT_FALSE(canUse(buff));
+	EXPECT_EQ(sent(), exactly({notUsable})) << "the actions before the activation race";
+	quests.registerQuestItem(164000008, 99999);
+	EXPECT_FALSE(canUse(buff));
+	EXPECT_EQ(sent(), exactly({message(SM_SYSTEM_MESSAGE::STR_ITEM_CANT_FIND_VALID_TARGET())})) << "the row arms the activation race";
+
+	// :342-346, the max level: restrict_max 19 (the lowest of any shipped row without actions) for a level-20 character, which needs the
+	// experience table beyond the fixture's 16 levels; last, because the level stays
+	dataholders::DataManager::PLAYER_EXPERIENCE_TABLE.resetForTests();
+	xml::LoadContext context;
+	dataholders::DataManager::PLAYER_EXPERIENCE_TABLE.publish(
+		xml::bindString<dataholders::PlayerExperienceTable>(context, PLAYER_EXPERIENCE_TABLE_TO_LEVEL_21_XML));
+	setLevel(20);
+	model::gameobjects::Item& remedy = item(LESSER_SECRET_REMEDY_OF_GROWTH_I_XML);
+	EXPECT_FALSE(canUse(remedy));
+	EXPECT_EQ(sent(), exactly({notUsable})) << "the actions before the max level";
+	quests.registerQuestItem(188900002, 99999);
+	EXPECT_FALSE(canUse(remedy));
+	EXPECT_EQ(sent(), exactly({message(SM_SYSTEM_MESSAGE::STR_CANNOT_USE_ITEM_TOO_HIGH_LEVEL(19, remedy.getL10n()))})) << "the row arms the max level";
+}
+
+TEST_F(CanUseItemTest, AnItemOfTheOtherGenderIsRefused) {
+	model::gameobjects::Item& dress = item(HOT_DENIM_DRESS_XML);
+	EXPECT_FALSE(canUse(dress));
+	EXPECT_EQ(sent(), exactly({message(SM_SYSTEM_MESSAGE::STR_CANNOT_USE_ITEM_INVALID_GENDER())})) << ":325-329";
+	actor.commonData->setGender(model::Gender::FEMALE);
+	EXPECT_TRUE(canUse(dress));
+}
+
+TEST_F(CanUseItemTest, AnItemOfAnotherClassIsRefused) {
+	EXPECT_FALSE(canUse(item(WORG_SOUL_XML))) << "restrict 0 for the WARRIOR";
+	EXPECT_EQ(sent(), exactly({message(SM_SYSTEM_MESSAGE::STR_CANNOT_USE_ITEM_INVALID_CLASS())})) << ":331-334";
+}
+
+TEST_F(CanUseItemTest, TheLevelMustBeInsideTheItemsRange) {
+	model::gameobjects::Item& extractor = item(XP_EXTRACTING_ITEM_14_XML);
+	EXPECT_FALSE(canUse(extractor));
+	EXPECT_EQ(sent(), exactly({message(SM_SYSTEM_MESSAGE::STR_CANNOT_USE_ITEM_TOO_LOW_LEVEL_MUST_BE_THIS_LEVEL(extractor.getL10n(), 10))})) << ":336-340";
+
+	setLevel(10);
+	EXPECT_TRUE(canUse(extractor)) << "restrict 10 and restrict_max 10: level 10 is inside";
+
+	setLevel(11);
+	EXPECT_FALSE(canUse(extractor));
+	EXPECT_EQ(sent(), exactly({message(SM_SYSTEM_MESSAGE::STR_CANNOT_USE_ITEM_TOO_HIGH_LEVEL(10, extractor.getL10n()))})) << ":342-346";
+}
+
+TEST_F(CanUseItemTest, AnItemBoundToAnAreaIsRefusedOutsideIt) {
+	actor.player->getPosition()->setIsSpawned(false); // Creature.isInsideItemUseZone answers false for an unspawned creature
+	EXPECT_FALSE(canUse(item(TALOC_FRUIT_XML)));
+	EXPECT_EQ(sent(), exactly({message(SM_SYSTEM_MESSAGE::STR_SKILL_CAN_NOT_USE_ITEM_IN_CURRENT_POSITION())})) << ":348-354";
+}
+
+TEST_F(CanUseItemTest, AnActivationRaceNeedsACreatureTargetOfThatRace) {
+	model::gameobjects::Item& cleanse = item(GREEN_CLEANSE_XML);
+	EXPECT_FALSE(canUse(cleanse)) << "no target";
+	EXPECT_EQ(sent(), exactly({message(SM_SYSTEM_MESSAGE::STR_ITEM_CANT_FIND_VALID_TARGET())})) << ":358-361";
+
+	runtime::Ref<PlainObject> object = PlainObject::create(200003);
+	actor.player->setTarget(runtime::Ptr<model::gameobjects::VisibleObject>(*object));
+	EXPECT_FALSE(canUse(cleanse)) << "a target that is no Creature";
+	EXPECT_EQ(sent(), exactly({message(SM_SYSTEM_MESSAGE::STR_ITEM_CANT_FIND_VALID_TARGET())}));
+
+	actor.player->setTarget(runtime::Ptr<model::gameobjects::VisibleObject>(*other.player));
+	EXPECT_FALSE(canUse(cleanse)) << "an ELYOS target, not LIVINGWATER";
+	EXPECT_EQ(sent(), exactly({message(SM_SYSTEM_MESSAGE::STR_SKILL_CANT_CAST_TO_CURRENT_TARGET())})) << ":362-365";
+
+	PlayerFixture livingWater = makePlayer(200004, 9104, "Water", model::Race::LIVINGWATER);
+	actor.player->setTarget(runtime::Ptr<model::gameobjects::VisibleObject>(*livingWater.player));
+	EXPECT_TRUE(canUse(cleanse)) << "a Creature of the activation race";
+	EXPECT_TRUE(sent().empty());
+	actor.player->setTarget(nullptr);
+}
+
+TEST_F(CanUseItemTest, EveryGuardIsAskedBeforeEveryGuardBehindIt) {
+	// As CanUseSkillTest pins canUseSkill's order: guards armed from the LAST to the FIRST and never disarmed, so each new one answers only if
+	// Java asks it before all the armed ones. The Blessing of Concentration (ELYOS, restrict 50, usedelayid 17, activation race
+	// GHENCHMAN_LIGHT) arms the activation race, the level, the race and the cooldown at once (the actions against every guard behind them:
+	// TheActionsAreAskedBeforeEveryGuardBehindThem). The pairs no row arms together are not ordered here: gender/class/area against their
+	// neighbours (no shipped row with actions has two of them), and class against level or max level -
+	// a class refusal means a restriction of 0, i.e. no required level (ItemTemplate.getRequiredLevel answers -1), and a too-high level needs
+	// restrict_max below the level, which no item without restrict_max >= restrict has - so neither order is observable
+	model::gameobjects::Item& blessing = item(BLESSING_OF_CONCENTRATION_XML);
+	ASSERT_FALSE(actor.player->getTarget());
+
+	// :336-340 before :356-366: the level answers, not the missing target
+	EXPECT_FALSE(canUse(blessing));
+	EXPECT_EQ(sent(), exactly({message(SM_SYSTEM_MESSAGE::STR_CANNOT_USE_ITEM_TOO_LOW_LEVEL_MUST_BE_THIS_LEVEL(blessing.getL10n(), 50))}));
+
+	// :312-315: the race, before the level
+	actor.commonData->setRace(model::Race::ASMODIANS);
+	EXPECT_FALSE(canUse(blessing));
+	EXPECT_EQ(sent(), exactly({message(SM_SYSTEM_MESSAGE::STR_CANNOT_USE_ITEM_INVALID_RACE())}));
+
+	// :306-309: the cooldown, before the race
+	actor.player->addItemCoolDown(17, commons::utils::currentTimeMillis() + 60000, 60);
+	EXPECT_FALSE(canUse(blessing));
+	EXPECT_EQ(sent(), exactly({message(SM_SYSTEM_MESSAGE::STR_ITEM_CANT_USE_UNTIL_DELAY_TIME())}));
+
+	// :300-303: the store, before the cooldown
+	actor.player->setStore(std::make_unique<model::gameobjects::player::PrivateStore>(*actor.player));
+	EXPECT_FALSE(canUse(blessing));
+	EXPECT_EQ(sent(), exactly({message(SM_SYSTEM_MESSAGE::STR_MSG_CANNOT_USE_ITEM_DURING_PATH_FLYING(
+						  utils::ChatUtil::l10n(getL10nId(model::ActionState::PERSONAL_SHOP))))}));
+
+	// :295-298: the transform, silently, before the store
+	transformCantUseItems();
+	EXPECT_FALSE(canUse(blessing));
+	EXPECT_TRUE(sent().empty()) << "the transform";
+
+	// :289-292: the abnormal state, before the transform
+	setAbnormal(AbnormalState::STUN);
+	EXPECT_FALSE(canUse(blessing));
+	EXPECT_EQ(sent(), exactly({message(SM_SYSTEM_MESSAGE::STR_SKILL_CAN_NOT_USE_ITEM_WHILE_IN_ABNORMAL_STATE())}));
+
+	// :286: death, silently, before the abnormal state
+	actor.player->setLifeStats(std::make_unique<DeadPlayerLifeStats>(*actor.player));
+	EXPECT_FALSE(canUse(blessing));
+	EXPECT_TRUE(sent().empty()) << "isDead";
+
+	// :281-284: the prison, before death
+	actor.player->setPrisonEndTimeMillis(commons::utils::currentTimeMillis() + 600000);
+	EXPECT_FALSE(canUse(blessing));
+	EXPECT_EQ(sent(), exactly({message(SM_SYSTEM_MESSAGE::STR_MSG_ACCUSE_TARGET_IS_NOT_VALID())}));
+	// :278, offline, is not ordered here: without a connection no guard's message can reach the client, so every order answers the same
+	actor.commonData->setRace(model::Race::ELYOS);
+}
+
+// ======================================================================================================================== canChangeEquip
+//
+// PlayerRestrictions.canChangeEquip (m5b3-plan.md P-01), the first check of CM_EQUIP_ITEM after cancelUseItem (CM_EQUIP_ITEM.java:41),
+// PlayerRestrictions.java:371-389: the prison, a stance, CANT_ATTACK_STATE, an ITEM_USE task - each with its own message.
+
+/** a stance skill for PlayerController.startStance / stopStance (stopStance ends the effect of the skill, which SKILL_DATA must know) */
+constexpr int32_t STANCE_SKILL = 16;
+
+class CanChangeEquipTest : public PlayerRestrictionsTest {
+protected:
+	void SetUp() override {
+		PlayerRestrictionsTest::SetUp();
+		xml::LoadContext context;
+		dataholders::DataManager::SKILL_DATA.resetForTests(); // the fixture published an empty holder; the base TearDown resets this one
+		dataholders::DataManager::SKILL_DATA.publish(
+			xml::bindString<dataholders::SkillData>(context, "<skill_data>" + skillTemplateXml(STANCE_SKILL, "PHYSICAL") + "</skill_data>"));
+		runtime::resetUnportedHitsForTests();
+	}
+
+	void TearDown() override {
+		if (actor.player) {
+			actor.player->getController().cancelTask(model::TaskId::ITEM_USE);
+			actor.player->getController().stopStance();
+		}
+		PlayerRestrictionsTest::TearDown();
+	}
+
+	bool canChange() {
+		(*client)->clearSent();
+		return PlayerRestrictions::canChangeEquip(*actor.player);
+	}
+
+	std::vector<uint8_t> message(SM_SYSTEM_MESSAGE&& packet) { return serialized(std::move(packet), client->con()); }
+
+	void startItemUseTask() {
+		actor.player->getController().addTask(model::TaskId::ITEM_USE, utils::ThreadPoolManager::getInstance().schedule([] {}, 60000));
+	}
+};
+
+TEST_F(CanChangeEquipTest, AnUnrestrictedPlayerMayChangeEquipment) {
+	EXPECT_TRUE(canChange());
+	EXPECT_TRUE(sent().empty());
+	EXPECT_EQ(runtime::unportedHitCount(), 0u);
+}
+
+TEST_F(CanChangeEquipTest, EachGuardAnswersWithItsOwnMessage) {
+	actor.player->setPrisonEndTimeMillis(commons::utils::currentTimeMillis() + 600000);
+	EXPECT_FALSE(canChange());
+	EXPECT_EQ(sent(), exactly({message(SM_SYSTEM_MESSAGE::STR_MSG_ACCUSE_TARGET_IS_NOT_VALID())})) << ":372-375";
+	actor.player->setPrisonEndTimeMillis(0);
+
+	actor.player->getController().startStance(STANCE_SKILL);
+	EXPECT_FALSE(canChange());
+	EXPECT_EQ(sent(), exactly({message(SM_SYSTEM_MESSAGE::STR_SKILL_CAN_NOT_EQUIP_ITEM_WHILE_IN_CURRENT_STANCE())})) << ":376-379";
+	actor.player->getController().stopStance();
+
+	actor.player->getEffectController()->setAbnormal(AbnormalState::STUN);
+	EXPECT_FALSE(canChange());
+	EXPECT_EQ(sent(), exactly({message(SM_SYSTEM_MESSAGE::STR_SKILL_CAN_NOT_EQUIP_ITEM_WHILE_IN_ABNORMAL_STATE())})) << ":380-383";
+	actor.player->getEffectController()->unsetAbnormal(AbnormalState::STUN);
+
+	startItemUseTask();
+	EXPECT_FALSE(canChange());
+	EXPECT_EQ(sent(), exactly({message(SM_SYSTEM_MESSAGE::STR_CANT_EQUIP_ITEM_IN_ACTION())})) << ":384-387";
+	actor.player->getController().cancelTask(model::TaskId::ITEM_USE);
+
+	EXPECT_TRUE(canChange()) << "every guard disarmed again";
+}
+
+TEST_F(CanChangeEquipTest, EveryGuardIsAskedBeforeEveryGuardBehindIt) {
+	startItemUseTask();
+	EXPECT_FALSE(canChange());
+	EXPECT_EQ(sent(), exactly({message(SM_SYSTEM_MESSAGE::STR_CANT_EQUIP_ITEM_IN_ACTION())}));
+
+	actor.player->getEffectController()->setAbnormal(AbnormalState::STUN);
+	EXPECT_FALSE(canChange());
+	EXPECT_EQ(sent(), exactly({message(SM_SYSTEM_MESSAGE::STR_SKILL_CAN_NOT_EQUIP_ITEM_WHILE_IN_ABNORMAL_STATE())}));
+
+	actor.player->getController().startStance(STANCE_SKILL);
+	EXPECT_FALSE(canChange());
+	EXPECT_EQ(sent(), exactly({message(SM_SYSTEM_MESSAGE::STR_SKILL_CAN_NOT_EQUIP_ITEM_WHILE_IN_CURRENT_STANCE())}));
+
+	actor.player->setPrisonEndTimeMillis(commons::utils::currentTimeMillis() + 600000);
+	EXPECT_FALSE(canChange());
+	EXPECT_EQ(sent(), exactly({message(SM_SYSTEM_MESSAGE::STR_MSG_ACCUSE_TARGET_IS_NOT_VALID())}));
+}
+
+// ============================================================================================================================== canTrade
+//
+// PlayerRestrictions.canTrade (m5b3-plan.md P-01, optional: its callers, the exchange and private-store packets, are M5c's; every callee is
+// ported), PlayerRestrictions.java:240-252. NOT COVERED: the shutdown arm (it needs a running ShutdownHook within 30 s of its end) and the
+// trading arm (ExchangeService.registerExchange, the only writer of the exchange map, is AION_UNPORTED).
+
+TEST_F(PlayerRestrictionsTest, CanTradeRefusesNoPlayerADeadOneAndAnOfflineOneSilently) {
+	EXPECT_TRUE(PlayerRestrictions::canTrade(runtime::Ptr<model::gameobjects::player::Player>(*actor.player)));
+	EXPECT_FALSE(PlayerRestrictions::canTrade(nullptr));
+
+	other.player->setLifeStats(std::make_unique<DeadLifeStats>(*other.player));
+	ASSERT_TRUE(other.player->isDead());
+	auto otherClient = std::make_unique<TestClient>();
+	otherClient->enterWorld(other);
+	EXPECT_FALSE(PlayerRestrictions::canTrade(runtime::Ptr<model::gameobjects::player::Player>(*other.player))) << "dead, online";
+	other.player->setClientConnection(nullptr);
+	otherClient.reset();
+
+	actor.player->setClientConnection(nullptr);
+	EXPECT_FALSE(PlayerRestrictions::canTrade(runtime::Ptr<model::gameobjects::player::Player>(*actor.player))) << "alive, offline";
+	EXPECT_TRUE(sent().empty());
 }
 
 } // namespace

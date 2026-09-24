@@ -159,6 +159,52 @@ public:
 	/** @return every row with `columns` columns as strings (NULL: std::nullopt) */
 	std::vector<std::vector<std::optional<std::string>>> queryRows(std::string_view database, std::string_view sql, int32_t columns) const;
 
+	/** One `inventory` row a gate seeds while its character is logged out (seedInventoryItem); the other columns keep their SQL defaults */
+	struct InventorySeed {
+		int32_t ownerId = 0;
+		int32_t itemId = 0;
+		int64_t count = 1;
+		/** item_location: StorageType.getId() - 0 the cube, 1 the regular warehouse (StorageType.java:7-8) */
+		int32_t location = 0;
+		/** slot: ItemStorage.FIRST_AVAILABLE_SLOT (ItemStorage.java:16), the slot every new Item carries (Item.java:45) */
+		int64_t slot = 65535;
+	};
+
+	/**
+	 * The first object id seedInventoryItem hands out, and the end of its range: gameserver.idfactory.wrap_at's default 2^27 (IDFactory.h).
+	 * <p>
+	 * Why this range is safe to write into while the game server runs (m5b3-plan.md §12 named it an unchecked inference): the server locks the
+	 * ids InventoryDAO and the other DAOs report at startup and then allocates upward from a monotone cursor that wraps only at wrap_at
+	 * (IDFactory.h: "Monotone cursor", "DAO seeding"). A startup with the whole world takes about 100,000 ids (82,000 npcs, m5b-plan.md Q3) and
+	 * a gate run a few thousand more, so no id at or above 0x07000000 (117,440,512) is allocated in a run. A seeded row inserted after the startup
+	 * is not locked in IDFactory, and nothing asks IDFactory about an item's id later: an Item is created without autoReleaseObjectId, so its id
+	 * is never released (AionObject.java:27-35), not even when the item is consumed.
+	 */
+	static constexpr int32_t SEEDED_OBJECT_ID_BASE = 0x07000000;
+	static constexpr int32_t SEEDED_OBJECT_ID_END = 1 << 27;
+
+	/**
+	 * Java IDFactory.isInvalidId (IDFactory.java:46-47, 152-154): the bit pattern IDFactory never allocates, so a seeded id avoids it too
+	 */
+	static bool isInvalidObjectId(int32_t id) noexcept;
+
+	/**
+	 * m5b3-plan.md G-02 and §10.1 "Character": inserts `seed` into `database`.inventory with the next object id of the seeded range - above
+	 * every inventory row at or above SEEDED_OBJECT_ID_BASE, skipping isInvalidObjectId - which the character's next enter world loads
+	 * (InventoryDAO.loadStorage). Call it while the owner is logged out: a logged-in character's storage is not reloaded, and its shutdown store
+	 * would not know the row.
+	 *
+	 * @return the object id of the row
+	 * @throws std::runtime_error when the seeded range is used up
+	 */
+	int32_t seedInventoryItem(std::string_view database, const InventorySeed& seed) const;
+
+	/**
+	 * Sets `player_life_stats.hp` of `playerId`, which the next enter world restores (the M5b gate's D12 death and the M5b-3 potion case, both
+	 * with the character logged out). @throws std::runtime_error if the player has no player_life_stats row
+	 */
+	void setLifeStatHp(std::string_view database, int32_t playerId, int32_t hp) const;
+
 	/** @return true if the server accepts a connection */
 	bool isReachable() const;
 

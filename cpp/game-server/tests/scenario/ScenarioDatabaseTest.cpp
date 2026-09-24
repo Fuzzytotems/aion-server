@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <chrono>
 #include <filesystem>
+#include <optional>
 #include <stdexcept>
 #include <string>
 #include <vector>
@@ -79,6 +80,61 @@ TEST(ScenarioDatabaseTest, CreatesAGameServerSchemaFromTheJavaScript) {
 	ASSERT_EQ(rows.size(), 1u);
 	EXPECT_EQ(rows[0][0], "scenario");
 	EXPECT_FALSE(database.queryString(schema, "SELECT `value` FROM server_variables WHERE `key` = 'none'"));
+	database.drop(schema);
+}
+
+// m5b3-plan.md G-02: the seeded ids avoid Java's invalid-id bit pattern (IDFactory.java:46-47, 152-154; 6484 is INVALID_ID_BITCHECK itself,
+// and the two low bits are outside the mask), and the seeded range is valid from its first id on
+TEST(ScenarioDatabaseTest, SeededObjectIdsFollowTheIdFactoryValidity) {
+	EXPECT_TRUE(ScenarioDatabase::isInvalidObjectId(6484));
+	EXPECT_TRUE(ScenarioDatabase::isInvalidObjectId(6487)) << "bits 0 and 1 are not in INVALID_ID_BIT_MASK";
+	EXPECT_FALSE(ScenarioDatabase::isInvalidObjectId(6488));
+	EXPECT_FALSE(ScenarioDatabase::isInvalidObjectId(0));
+	EXPECT_FALSE(ScenarioDatabase::isInvalidObjectId(ScenarioDatabase::SEEDED_OBJECT_ID_BASE));
+	EXPECT_EQ(ScenarioDatabase::SEEDED_OBJECT_ID_END, 134'217'728) << "gameserver.idfactory.wrap_at's default, 2^27";
+}
+
+// m5b3-plan.md G-02: the M5b-3 gate's two seeds - the godstone row of L6 and the low HP of L7 - on a schema of the Java script
+TEST(ScenarioDatabaseTest, SeedsAnInventoryRowAndTheLifeStatHp) {
+	std::optional<ScenarioEnvironment> environment = ScenarioEnvironment::fromEnvironment();
+	if (!environment)
+		GTEST_SKIP() << "set AION_TEST_GS_DATABASE_URL and AION_TEST_LS_DATABASE_URL";
+	ScenarioDatabase database(environment->gsUrl, environment->gsUser, environment->gsPassword);
+	const std::string schema = "aion_gs_test_m5b3_selftest_" + schemaSuffix(AION_SCENARIO_OUTPUT_DIR);
+	database.recreate(schema, std::filesystem::path(AION_GAMESERVER_JAVA_DIR) / "sql" / "aion_gs.sql");
+	constexpr int32_t player = 0x100001;
+	// a character's object ids come from IDFactory's cursor, far below the seeded range; one starter row at a low id stays below it
+	database.execute(schema, "INSERT INTO players (id, name, account_id, account_name, x, y, z, heading, world_id, gender, race, player_class) VALUES (" +
+							   std::to_string(player) + ", 'Seedtest', 1, 'seedtest', 1212.9423, 1044.8516, 140.75568, 32, 210010000, 'MALE', 'ELYOS', 'WARRIOR')");
+	database.execute(schema, "INSERT INTO player_life_stats (player_id, hp, mp, fp) VALUES (" + std::to_string(player) + ", 184, 110, 60)");
+	database.execute(schema, "INSERT INTO inventory (item_unique_id, item_id, item_count, item_owner) VALUES (" + std::to_string(player + 1) +
+							   ", 162000002, 100, " + std::to_string(player) + ")");
+
+	// 168000116 "Fx Test Earth Godstone" (item_templates.xml:848006), the gate's L6 seed, into the cube
+	ScenarioDatabase::InventorySeed godstone;
+	godstone.ownerId = player;
+	godstone.itemId = 168000116;
+	const int32_t first = database.seedInventoryItem(schema, godstone);
+	EXPECT_EQ(first, ScenarioDatabase::SEEDED_OBJECT_ID_BASE) << "the low starter row does not move the seeded range";
+	ScenarioDatabase::InventorySeed junk;
+	junk.ownerId = player;
+	junk.itemId = 182004793;
+	junk.count = 5;
+	junk.location = 1;
+	const int32_t second = database.seedInventoryItem(schema, junk);
+	EXPECT_EQ(second, first + 1) << "each seed takes the next id of the range";
+	const auto rows = database.queryRows(schema, "SELECT item_unique_id, item_id, item_count, item_owner, slot, item_location, is_equipped FROM inventory "
+											   "WHERE item_unique_id >= " + std::to_string(ScenarioDatabase::SEEDED_OBJECT_ID_BASE) + " ORDER BY item_unique_id", 7);
+	ASSERT_EQ(rows.size(), 2u);
+	EXPECT_EQ(rows[0], (std::vector<std::optional<std::string>>{std::to_string(first), "168000116", "1", std::to_string(player), "65535", "0", "0"}))
+		<< "one item in the cube at ItemStorage.FIRST_AVAILABLE_SLOT, not equipped";
+	EXPECT_EQ(rows[1], (std::vector<std::optional<std::string>>{std::to_string(second), "182004793", "5", std::to_string(player), "65535", "1", "0"}))
+		<< "the location is the StorageType id";
+
+	database.setLifeStatHp(schema, player, 40);
+	EXPECT_EQ(database.queryLong(schema, "SELECT hp FROM player_life_stats WHERE player_id = " + std::to_string(player)), 40);
+	EXPECT_EQ(database.queryLong(schema, "SELECT mp FROM player_life_stats WHERE player_id = " + std::to_string(player)), 110) << "only hp changes";
+	EXPECT_THROW(database.setLifeStatHp(schema, player + 1, 40), std::runtime_error) << "a player without a row is an error, not a silent no-op";
 	database.drop(schema);
 }
 

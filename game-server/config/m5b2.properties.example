@@ -49,6 +49,14 @@ gameserver.rates.xp.solo = 1.0, 2.0
 # hides the soul sickness, which is exactly what the first gs.scenario.m5b2 run measured. Write 10, not nothing.
 gameserver.soulsickness.disable = 10
 
+# --- what M5b-3 changes in this profile (cpp/docs/design/m5b3-plan.md D4) ----------------------------------------------------------------
+
+# No drops, as in m5b.properties.example (the same key and the same reasons): the gate kills 210663 and 210133, whose corpses would otherwise
+# hold loot and stay 300 s instead of 2 s. For loot, use m5b3.properties.example.
+# The gate profile (M5b2ScenarioTest.cpp) carries the same key since M5b-3 stage 1 (G-05, landed with L-01's registerDrop, m5b3-plan.md D4):
+# its X12 rows assert one SM_LOOT_STATUS(LOOT_ENABLE) per kill with lootEffectId 0, and that no drop item was made.
+gameserver.rates.drop = 0
+
 # Only in the scenario gates, not for play (geo data stays on with the real client; gs.scenario.m5b2_geo turns it on):
 # gameserver.geodata.enable = false
 # gameserver.character.reentry.time = 1

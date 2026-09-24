@@ -24,8 +24,10 @@
 # every startup: the gates run without quests (m5a-plan.md W-02) and without base locations (E1-06)
 aion/gameserver/questEngine/QuestEngine.cpp:111
 aion/gameserver/services/BaseService.cpp:18
-# M5b-3's drop registration (m5b-plan.md D5): the Warrior kills monster A in S5 and the kerub in S5b, the Mage kills A's respawn in S10
-aion/gameserver/services/drop/DropRegistrationService.cpp:43
+# HISTORY: M5b-3's drop registration (m5b-plan.md D5), DropRegistrationService.cpp:43, was here - the Warrior kills monster A in S5 and the
+# kerub in S5b, the Mage kills A's respawn in S10 - until M5b-3 closed registerDrop (m5b3-plan.md L-01); the site no longer exists. X12's drop
+# rows assert what registerDrop sends for each of those kills instead (one SM_LOOT_STATUS(LOOT_ENABLE) per corpse, DropNpc created = kills),
+# and the profile sets gameserver.rates.drop = 0 (m5b3-plan.md D4, G-05).
 
 # =========================================================================================================================================
 # --- SECTION B - hit exactly zero times, asserted ---
