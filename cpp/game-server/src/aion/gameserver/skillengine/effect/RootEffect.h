@@ -8,6 +8,7 @@ namespace aion::gameserver::skillengine::effect {
 /** Java com.aionemu.gameserver.skillengine.effect.RootEffect. @author ATracer */
 class RootEffect : public ::aion::gameserver::skillengine::effect::EffectTemplate {
 #include "aion/gameserver/skillengine/effect/RootEffect.xml.inc"
+	friend struct RootEffect_ActionObserver;
 public:
 	void applyEffect(model::Effect& effect) const override;
 

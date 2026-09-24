@@ -5,7 +5,7 @@
 // Expectations are derived by hand from NpcSkillList.java:27-49 (the entry per template whose skill exists in SKILL_DATA, the "Missing skill"
 // warning, and the distinct priorities in descending order) and NpcSkillTemplateEntry.java:37-108,160-200. The accessor cases added by E-02
 // follow NpcSkillList.java:53-114 (isEmpty, getRandomSkill, getSkillOnPosition, getPostSpawnSkills, getSkillsByPriority, getChainSkills) and
-// NpcSkillEntry.java:31-37 (setLastTimeUsed); getPostSpawnSkills is the AION_PARTIAL of m5b-plan.md D3.
+// NpcSkillEntry.java:31-37 (setLastTimeUsed); getPostSpawnSkills, the AION_PARTIAL of m5b-plan.md D3, is Java's filter since M5b-2 part 3.
 
 #include <gtest/gtest.h>
 
@@ -16,7 +16,6 @@
 #include <set>
 #include <sstream>
 #include <string>
-#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -58,17 +57,6 @@ namespace {
 
 using runtime::Ptr;
 using runtime::Ref;
-
-/** The hit count of one AION_PARTIAL site, found by the reason its macro carries (runtime/base/Unported.h) */
-uint64_t partialHitsFor(std::string_view reason) {
-	for (const runtime::PartialHit& hit : runtime::partialHits()) {
-		if (hit.reason == reason)
-			return hit.hits;
-	}
-	return 0;
-}
-
-constexpr std::string_view POST_SPAWN_PARTIAL = "post-spawn npc skills are not cast yet (M5b-2)";
 
 /** Captures one logger's output (the "Missing skill" warning of NpcSkillList) */
 class LogCapture {
@@ -138,6 +126,12 @@ protected:
 			// 700005 (E-02): exactly one skill, and it is a post-spawn one (D3)
 			R"(<npc_skills npc_ids="700005">)"
 			R"(<npc_skill id="1" lv="1" prob="100" prio="1" is_post_spawn="true"/>)"
+			R"(</npc_skills>)"
+			// 700006: two post-spawn skills around a plain one, the first of them with the higher id
+			R"(<npc_skills npc_ids="700006">)"
+			R"(<npc_skill id="3" lv="1" prob="100" prio="1" is_post_spawn="true"/>)"
+			R"(<npc_skill id="1" lv="1" prob="100" prio="1"/>)"
+			R"(<npc_skill id="2" lv="1" prob="100" prio="1" is_post_spawn="true"/>)"
 			R"(</npc_skills>)"
 			R"(</npc_skill_templates>)"));
 	}
@@ -320,34 +314,40 @@ TEST_F(NpcSkillListTest, GetSkillOnPositionClampsAndAnswersNullWhenEmpty) {
 }
 
 /**
- * The D7 holdback (docs/deviations/P5-02b.md): Java's getPostSpawnSkills answers the entries whose hasPostSpawnCondition() is true, in list order
- * (NpcSkillList.java:70-76), but part 2 keeps the M5b-1 AION_PARTIAL (m5b-plan.md D3) until part 3 ports the statup/hide/buf leaves the
- * post-spawn casts reach. The filter lives only in the held-back body, so what is reachable is pinned: the entries carry the condition Java's
- * filter reads, and every call marks the partial once and answers empty.
+ * D7, closed in part 3 (m5b2-plan.md D11): getPostSpawnSkills answers the entries whose hasPostSpawnCondition() is true, in list order
+ * (NpcSkillList.java:70-76) - the list SpawnEventHandler.onSpawn and ReturningEventHandler.onBackHome cast. The M5b-1 AION_PARTIAL
+ * (m5b-plan.md D3) is gone, so no call reaches a partial site.
  */
-TEST_F(NpcSkillListTest, PostSpawnSkillsAreHeldBackBehindThePartial) {
+TEST_F(NpcSkillListTest, PostSpawnSkillsAreTheEntriesWithThePostSpawnConditionInListOrder) {
 	runtime::TaskScope scope(AION_TASK_INFO(runtime::TaskKind::TEST));
 	Ref<templates::spawns::SpawnGroup> onlyGroup;
 	Ref<templates::spawns::SpawnGroup> mixedGroup;
+	Ref<templates::spawns::SpawnGroup> twoGroup;
 	Ref<templates::spawns::SpawnGroup> noneGroup;
 	Ref<templates::spawns::SpawnGroup> emptyGroup;
 	Ref<gameobjects::Npc> only = spawnNpc(700005, onlyGroup);   // one skill, a post-spawn one
 	Ref<gameobjects::Npc> mixed = spawnNpc(700002, mixedGroup); // skills 1, 2 (post-spawn) and 3
+	Ref<gameobjects::Npc> two = spawnNpc(700006, twoGroup);     // skills 3 (post-spawn), 1 and 2 (post-spawn)
 	Ref<gameobjects::Npc> none = spawnNpc(700004, noneGroup);   // three skills, none post-spawn
 	Ref<gameobjects::Npc> empty = spawnNpc(700003, emptyGroup); // no skills at all
-	// the predicate of Java's filter: Java would answer only's one entry and mixed's skill 2
+	// the predicate of Java's filter
 	ASSERT_TRUE(only->getSkillList()->getNpcSkills()->get(0)->hasPostSpawnCondition());
 	ASSERT_FALSE(mixed->getSkillList()->getNpcSkills()->get(0)->hasPostSpawnCondition());
 	ASSERT_TRUE(mixed->getSkillList()->getNpcSkills()->get(1)->hasPostSpawnCondition());
 	ASSERT_FALSE(mixed->getSkillList()->getNpcSkills()->get(2)->hasPostSpawnCondition());
-	uint64_t before = partialHitsFor(POST_SPAWN_PARTIAL);
+	uint64_t before = runtime::partialHitCount();
 
-	// part 3 (m5b2-plan.md F-02/F-03) removes the holdback; restore: only -> [its entry], mixed -> [skill 2], none/empty -> [], no partial hit
-	EXPECT_TRUE(only->getSkillList()->getPostSpawnSkills().empty());
-	EXPECT_TRUE(mixed->getSkillList()->getPostSpawnSkills().empty());
 	EXPECT_TRUE(none->getSkillList()->getPostSpawnSkills().empty());
 	EXPECT_TRUE(empty->getSkillList()->getPostSpawnSkills().empty());
-	EXPECT_EQ(partialHitsFor(POST_SPAWN_PARTIAL), before + 4) << "the site is marked once per call, so the gate's allow-list sees it";
+	EXPECT_EQ(only->getSkillList()->getPostSpawnSkills().size(), 1u) << "its one entry";
+	std::vector<Ptr<NpcSkillEntry>> mixedPostSpawn = mixed->getSkillList()->getPostSpawnSkills();
+	ASSERT_EQ(mixedPostSpawn.size(), 1u) << "skills 1 and 3 are filtered out";
+	EXPECT_EQ(mixedPostSpawn[0].get(), mixed->getSkillList()->getNpcSkills()->get(1).get()) << "the list's own entry of skill 2";
+	std::vector<Ptr<NpcSkillEntry>> twoPostSpawn = two->getSkillList()->getPostSpawnSkills();
+	ASSERT_EQ(twoPostSpawn.size(), 2u);
+	EXPECT_EQ(twoPostSpawn[0]->getSkillId(), 3) << "list order, not skill id order";
+	EXPECT_EQ(twoPostSpawn[1]->getSkillId(), 2);
+	EXPECT_EQ(runtime::partialHitCount(), before) << "the M5b-1 partial is closed";
 }
 
 TEST_F(NpcSkillListTest, SkillsByPriorityAndChainSkillsFilterTheList) {

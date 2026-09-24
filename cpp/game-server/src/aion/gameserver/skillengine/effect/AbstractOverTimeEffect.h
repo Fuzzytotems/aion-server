@@ -17,8 +17,8 @@ public:
 
 	int32_t getValue() const override { return value; }
 
-	/** on retail these effects last one sec more than their template value of duration2 */
-	int32_t getDuration2() const override { return duration2 + 1000; }
+	/** on retail these effects last one sec more than their template value of duration2 (Java int arithmetic: wraps above 2147482647) */
+	int32_t getDuration2() const override { return static_cast<int32_t>(static_cast<uint32_t>(duration2) + 1000u); }
 
 	void startEffect(model::Effect& effect) const override;
 

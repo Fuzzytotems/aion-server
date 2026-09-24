@@ -11,7 +11,6 @@
 #include "aion/gameserver/model/skill/PlayerSkillList.h"
 #include "aion/gameserver/model/templates/item/enums/ItemGroup.h"
 #include "aion/gameserver/runtime/base/Exceptions.h"
-#include "aion/gameserver/runtime/base/Unported.h"
 #include "aion/gameserver/runtime/collections/ArrayList.h"
 #include "aion/gameserver/skillengine/effect/EffectType.h"
 #include "aion/gameserver/skillengine/model/ActivationAttribute.h"
@@ -131,11 +130,8 @@ runtime::Ref<model::Effect> SkillEngine::applyEffectDirectly(int32_t skillId, in
 
 runtime::Ref<model::Effect> SkillEngine::applyEffectDirectly(const model::SkillTemplate* skillTemplate, int32_t skillLevel,
 	gameserver::model::gameobjects::Creature& effector, gameserver::model::gameobjects::Creature& effected) {
-	// Java: return applyEffect(effector, effected, skillTemplate, skillLevel, null, ForceType.DEFAULT). Part 2 of M5b-2 ported that path
-	// (m5b2-plan.md S-01, D2), but every enter-world passive reaches BufEffect::applyEffect and the mastery effects, which part 3 ports; until
-	// then the path would throw UnportedException before setActivePlayer, so O-09 stays held back behind its partial.
-	AION_PARTIAL("passive skill effects are not applied yet (M5a O-09)");
-	return {};
+	// M5a O-09 is closed: the enter-world passives apply since part 3 ported the effect classes they reach (m5b2-plan.md D2, D11)
+	return applyEffect(effector, effected, skillTemplate, skillLevel, std::nullopt, Effect_ForceType::DEFAULT);
 }
 
 std::vector<runtime::Ptr<gameserver::model::gameobjects::Creature>> SkillEngine::applyEffectsDirectly(int32_t skillId,

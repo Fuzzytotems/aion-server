@@ -14,7 +14,8 @@
 // One of them asserts an exception on purpose, because that is what the tree does today and the assertion is how the gate lane learns it:
 // NpcAI::handleSpawned reaches NpcShoutsService::mayShout (AION_UNPORTED, P5-14) once shouts are switched on; it is noted in the case that
 // asserts it. ReturningEventHandler::onBackHome's EffectController::removeByDispelSlotType is ported since M5b-2 part 2, and its case puts
-// ProbeEffect effects (tests/skills/P5-02b/EffectTestSupport.h) on the npc to see the buff of the fight dropped.
+// ProbeEffect effects (tests/skills/P5-02b/EffectTestSupport.h) on the npc to see the buff of the fight dropped; since part 3 the same case
+// gives the npc a post-spawn probe skill and sees it cast again after the dispel.
 
 #include <gtest/gtest.h>
 
@@ -47,12 +48,20 @@
 #include "aion/gameserver/controllers/attack/AggroList.h"
 #include "aion/gameserver/controllers/attack/AggroTarget.h"
 #include "aion/gameserver/controllers/effect/EffectController.h"
+#include "aion/gameserver/dataholders/DataManager.h"
+#include "aion/gameserver/dataholders/NpcSkillData.bind.h"
+#include "aion/gameserver/dataholders/NpcSkillData.h"
+#include "aion/gameserver/dataholders/SkillData.bind.h"
+#include "aion/gameserver/dataholders/SkillData.h"
+#include "aion/gameserver/dataholders/loadingutils/LoadContext.h"
+#include "aion/gameserver/dataholders/loadingutils/StaticDataLoader.h"
 #include "aion/gameserver/model/gameobjects/Creature.h"
 #include "aion/gameserver/model/gameobjects/Npc.h"
 #include "aion/gameserver/model/gameobjects/VisibleObject.h"
 #include "aion/gameserver/model/gameobjects/state/CreatureState.h"
 #include "aion/gameserver/model/stats/container/CreatureLifeStats.h"
 #include "aion/gameserver/model/stats/container/NpcGameStats.h"
+#include "aion/gameserver/model/skill/NpcSkillList.h"
 #include "aion/gameserver/model/stats/container/NpcLifeStats.h"
 #include "aion/gameserver/model/templates/spawns/SpawnTemplate.h"
 #include "aion/gameserver/runtime/base/Unported.h"
@@ -179,6 +188,9 @@ protected:
 	/** What the probe effects of the BACK_HOME case record (skillengine::effecttest::ProbeEffect) */
 	skillengine::effecttest::Journal journal;
 	std::vector<std::unique_ptr<skillengine::model::SkillTemplate>> keptSkills;
+	/** The load contexts of the BACK_HOME case's post-spawn skill data (PostSpawnSkillData) */
+	xml::LoadContext postSpawnSkillContext;
+	xml::LoadContext postSpawnNpcSkillContext;
 };
 
 // ---- AttackEventHandler::onAttack ------------------------------------------------------------------------------------------------------------
@@ -488,6 +500,37 @@ runtime::Ref<skillengine::model::Effect> putOn(Npc& npc, const skillengine::mode
 	return effect;
 }
 
+/**
+ * One post-spawn skill of one npc id for the life of a case: SKILL_DATA holds the probe skill `skillId` - the shape of the post-spawn 19125
+ * Dragon's Blessing (skill_templates.xml: an instant BUFF with first_target TARGET, first_target_range 17, target_relation FRIEND, which
+ * Properties.endCastValidate needs to put the npc on the effected list) whose one probe "home" lasts a minute and puts its Effect on the effected
+ * as BufEffect.applyEffect does - and NPC_SKILL_DATA gives `npcId` that skill with is_post_spawn="true". Both are published before the npc is
+ * created, because the Npc constructor builds its NpcSkillList (NpcSkillList.java:27-49).
+ */
+class PostSpawnSkillData {
+public:
+	PostSpawnSkillData(int32_t skillId, int32_t npcId, skillengine::effecttest::Journal& journal, xml::LoadContext& skillContext,
+		xml::LoadContext& npcSkillContext) {
+		dataholders::DataManager::SKILL_DATA.publish(xml::bindString<dataholders::SkillData>(skillContext,
+			R"(<skill_data><skill_template skill_id=")" + std::to_string(skillId) + R"(" name="home" nameId="1" stack="HOME)"
+				+ std::to_string(skillId) + R"(" lvl="1" skilltype="MAGICAL" skillsubtype="BUFF" tslot="BUFF" activation="ACTIVE" duration="0">)"
+				+ R"(<properties first_target="TARGET" first_target_range="17" target_relation="FRIEND" target_type="ONLYONE" target_maxcount="1"/>)"
+				+ R"(</skill_template></skill_data>)"));
+		std::unique_ptr<skillengine::effecttest::ProbeEffect> home = skillengine::effecttest::probe("home", &journal, 1);
+		home->duration2 = 60000;
+		home->onApply = [](skillengine::model::Effect& effect) { effect.addToEffectedController(); };
+		skillengine::effecttest::injectProbes(dataholders::DataManager::SKILL_DATA->getSkillTemplate(skillId),
+			skillengine::effecttest::probeList(std::move(home)));
+		dataholders::DataManager::NPC_SKILL_DATA.resetForTests(); // the fixture published an empty one
+		dataholders::DataManager::NPC_SKILL_DATA.publish(xml::bindString<dataholders::NpcSkillData>(npcSkillContext,
+			R"(<npc_skill_templates><npc_skills npc_ids=")" + std::to_string(npcId) + R"("><npc_skill id=")" + std::to_string(skillId)
+				+ R"(" lv="1" prob="100" prio="1" is_post_spawn="true"/></npc_skills></npc_skill_templates>)"));
+	}
+	~PostSpawnSkillData() { dataholders::DataManager::SKILL_DATA.resetForTests(); } // AiTest::TearDown forgets NPC_SKILL_DATA
+	PostSpawnSkillData(const PostSpawnSkillData&) = delete;
+	PostSpawnSkillData& operator=(const PostSpawnSkillData&) = delete;
+};
+
 /** A probe template of one skill (EffectTestSupport.h) that lasts a minute, in the target slot `tslot`, dispellable at level 1 */
 std::unique_ptr<skillengine::model::SkillTemplate> fightEffect(int32_t skillId, std::string_view tslot, std::string name,
 	skillengine::effecttest::Journal& journal) {
@@ -505,7 +548,11 @@ TEST_F(AiHandlerBodiesTest, BackHomePutsTheNpcBackToIdleAndAsksForTheBuffsOfTheF
 	// DispelSlotType.BUFF)` - the M5b-1 AION_PARTIAL, ported by M5b-2 part 2 (m5b2-plan.md K-02): removeByDispelEffect(null, BUFF, 255, 100, 100)
 	// (EffectController.java:427-429, 450-485) ends every effect of the BUFF slot whose req_dispel_level is at most 100 and whose
 	// req_dispel_count the 100 power covers. So a buff the npc gave itself in the fight is dropped on the way home, and a debuff is not.
+	// Then, after think(), the npc casts its post-spawn skills again (ReturningEventHandler.java:58-60): NpcSkillList::getPostSpawnSkills is
+	// Java's filter since M5b-2 part 3 (m5b2-plan.md D7, D11), so this npc's one post-spawn skill, a probe (9703), is cast on itself.
+	const PostSpawnSkillData postSpawn(9703, SPARKIE_NPC_ID, journal, postSpawnSkillContext, postSpawnNpcSkillContext);
 	runtime::Ref<Npc> npc = makeWorldNpc(SPARKIE_NPC_ID, 500, 500, 100);
+	ASSERT_EQ(npc->getSkillList()->getNpcSkills()->size(), 1) << "the npc's skill list is built from the NPC_SKILL_DATA published above";
 	HandlerTestAI& ai = installAi<HandlerTestAI>(*npc);
 	ASSERT_TRUE(ai.setStateIfNot(AIState::RETURNING));
 	ASSERT_TRUE(ai.setSubStateIfNot(AISubState::WALK_PATH));
@@ -523,13 +570,15 @@ TEST_F(AiHandlerBodiesTest, BackHomePutsTheNpcBackToIdleAndAsksForTheBuffsOfTheF
 
 	EXPECT_TRUE(ai.isInState(AIState::IDLE)) << "setStateIfNot(IDLE) ran";
 	EXPECT_TRUE(ai.isInSubState(AISubState::NONE)) << "and setSubStateIfNot(NONE) with it";
-	EXPECT_EQ(journal, (skillengine::effecttest::Journal{"buff.end"})) << "the buff of the fight is dropped, the debuff is not";
+	EXPECT_EQ(journal, (skillengine::effecttest::Journal{"buff.end", "home.calculate", "home.apply", "home.start"}))
+		<< "the buff of the fight is dropped, the debuff is not; then the post-spawn skill is cast, after the dispel";
 	EXPECT_FALSE(npc->getEffectController()->hasAbnormalEffect(9701));
 	EXPECT_TRUE(npc->getEffectController()->hasAbnormalEffect(9702)) << "another slot";
+	EXPECT_TRUE(npc->getEffectController()->hasAbnormalEffect(9703)) << "the post-spawn buff, cast on the npc itself";
 	EXPECT_EQ(runtime::unportedHitCount(), 0u) << "walking home may not reach an unported body any more";
 	EXPECT_EQ(partialHitsOf("removeByDispelSlotType"), 0u) << "the M5b-1 partial is closed";
-	// part 3 (m5b2-plan.md F-02/F-03) removes the holdback; restore: no partial hit, a post-spawn npc skill is cast (ReturningEventHandler.java:58-60)
-	EXPECT_EQ(partialHitsOf("getPostSpawnSkills"), 1u) << "NpcSkillList::getPostSpawnSkills is held back behind its partial, and answers empty";
+	for (const runtime::PartialHit& hit : runtime::partialHits())
+		EXPECT_EQ(hit.hits, 0u) << "no partial on the way home, but it reached " << hit.function;
 
 	// the whole block is behind setStateIfNot(IDLE): a second BACK_HOME does nothing at all, not even ask the effect controller
 	putOn(*npc, buff);

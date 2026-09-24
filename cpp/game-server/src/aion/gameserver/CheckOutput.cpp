@@ -186,7 +186,11 @@ const std::vector<std::string>& CheckOutput::zeroLiveClasses() {
 		"model::gameobjects::player::RecipeList",
 		"model::skill::PlayerSkillList",
 		"model::skill::PlayerSkillEntry",
-		"model::stats::calc::functions::StatFunctionProxy",
+		// model::stats::calc::functions::StatFunctionProxy is NOT here any more (M5b-2 part 3): its premise was that only a character's game stats
+		// hold stat functions, and closing D7 ended that - every spawn casts its post-spawn skills (NpcSkillList.getPostSpawnSkills), and the
+		// statup buffs of those npcs register their functions for 86,400,000 ms and legitimately survive the shutdown with their npcs (measured
+		// 1,171 of 1,171 live in gs.smoke.startup, against 0 before). A character's own proxies go with its Player, which is still a row here;
+		// the live-count table still prints the class for whoever reads a run.
 		// what the M5a visibility work added: the restore task that pins a Player in Q3. world::knownlist::KnownObject is NOT here any more
 		// (M5b-1): its premise was that only a logged-in character builds a known list, and registering the AI handlers ended that - a walking
 		// npc builds one of the npcs around it (WalkManager::targetReached -> updateKnownlist) and those entries legitimately survive the

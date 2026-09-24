@@ -11,6 +11,7 @@ namespace aion::gameserver::skillengine::effect {
 /** Java com.aionemu.gameserver.skillengine.effect.ProvokerEffect. @author ATracer, kecimis */
 class ProvokerEffect : public ::aion::gameserver::skillengine::effect::ShieldEffect {
 #include "aion/gameserver/skillengine/effect/ProvokerEffect.xml.inc"
+	friend struct ProvokerEffect_ActionObserver;
 public:
 	void applyEffect(model::Effect& effect) const override;
 

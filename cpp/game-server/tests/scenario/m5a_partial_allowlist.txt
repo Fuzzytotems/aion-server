@@ -27,16 +27,12 @@ aion/gameserver/custom/pvpmap/PvpMapService.cpp:32
 # "npc skill attacks are not chosen yet (M5b-2): every attack stays a simple melee attack" (m5b-plan.md D4). Reached whenever a registered
 # AI picks its next attack, which in an M5a run is the npcs that fight each other in the character's map region.
 aion/gameserver/handlers/ai/GeneralNpcAI.cpp:122
-# "post-spawn npc skills are not cast yet (M5b-2)" (m5b-plan.md D3). SpawnEventHandler::onSpawn asks every one of the 83,885 spawns for its
-# post-spawn skills, so this is by far the most-hit site of a run; none of the 185 npc ids that have one is on Poeta or Ishalgen.
-# M5b-2 part 2 ported the cast and held the site back until part 3 ports the effects those npcs cast (m5b2-plan.md D7); :90 became :91.
-aion/gameserver/model/skill/NpcSkillList.cpp:91
+# HISTORY: NpcSkillList.cpp's "post-spawn npc skills are not cast yet (M5b-2)" (m5b-plan.md D3) was here until M5b-2 part 3 closed it
+# (m5b2-plan.md D7, D11); every spawn now casts its post-spawn skills.
 
-# --- enter world (plan §5.4 V9 "the passive-skill delta of AION_PARTIAL O-09 is on the allow-list") ---
-# O-09 "passive skill effects are not applied yet (M5a O-09)". The line moved from :74 to :79 when the M5b-1 wave added
-# SkillEngine::createCriticalProcEffect above it; an entry with a line number must match the whole site, so the row moves with it. M5b-2
-# part 2 ported the path and held it back until part 3 ports BufEffect and the mastery effects (m5b2-plan.md D2), moving it to :137.
-aion/gameserver/skillengine/SkillEngine.cpp:137
+# --- enter world ---
+# HISTORY: plan §5.4 V9's O-09 row, SkillEngine.cpp's "passive skill effects are not applied yet (M5a O-09)", was here until M5b-2 part 3
+# closed it (m5b2-plan.md D2, D11); the enter-world passives apply now.
 # EMOTIONS_ALL is off by default, so this is only reached with the config the real-client checklist uses
 aion/gameserver/services/player/PlayerService.cpp:268
 # personal instances and the instance exit teleport are M5a AION_PARTIAL by plan W-03

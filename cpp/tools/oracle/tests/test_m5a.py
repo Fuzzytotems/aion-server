@@ -6,8 +6,8 @@ m5a/spawns.py and m5a/creation.py. The real data cases are skipped without the J
 import unittest
 import xml.etree.ElementTree as ET
 
-from m5a.creation import (JavaEnums, base_stat_dependent_additional_value, creation_report, max_hp, max_mp, stats_info_base_max_hp,
-                          stats_info_base_max_mp)
+from m5a.creation import (JavaEnums, PassiveRules, base_stat_dependent_additional_value, creation_report, max_hp, max_mp,
+                          passive_stat_functions, stats_info_base_max_hp, stats_info_base_max_mp)
 from m5a.data import StaticData
 from m5a.javafloat import f32, in_range
 from m5a.spawns import GameClock, TemporarySpawn, border_target, evaluate, load_groups, load_npc_templates, spots_report
@@ -196,6 +196,109 @@ class M5aStatFormulaTest(unittest.TestCase):
 		self.assertEqual((stats_info_base_max_hp(90, 260, 1), stats_info_base_max_mp(115, 600, 1)), (132, 405))
 
 
+PASSIVE_SKILLS = (
+	# 2001: a statboost with the three BufEffect functions, the ADD one with a per-level delta
+	'<skill_template skill_id="2001" activation="PASSIVE" lvl="1"><effects><statboost e="1">'
+	'<change stat="PHYSICAL_ATTACK" func="ADD" value="7" delta="2"/><change stat="PHYSICAL_DEFENSE" func="PERCENT" value="10"/>'
+	'<change stat="PARRY" func="REPLACE" value="300"/><change func="ADD" value="1"/></statboost><notanelement e="2"/></effects></skill_template>'
+	# 2002: an ACTIVE skill with the same effect registers nothing at enter world
+	'<skill_template skill_id="2002" activation="ACTIVE" lvl="1"><effects><statboost e="1">'
+	'<change stat="PHYSICAL_ATTACK" func="ADD" value="7"/></statboost></effects></skill_template>'
+	# 2003: a ONE_HAND mastery: the attack stats become MAIN_HAND_POWER and OFF_HAND_POWER, anything else is dropped
+	'<skill_template skill_id="2003" activation="PASSIVE" lvl="1"><effects><wpnmastery weapon="SWORD" e="1">'
+	'<change stat="PHYSICAL_ATTACK" func="PERCENT" value="16"/><change stat="PHYSICAL_ACCURACY" func="ADD" value="50"/></wpnmastery></effects>'
+	'</skill_template>'
+	# 2004: a TWO_HAND mastery keeps its stat
+	'<skill_template skill_id="2004" activation="PASSIVE" lvl="1"><effects><wpnmastery weapon="GREATSWORD" e="1">'
+	'<change stat="PHYSICAL_ATTACK" func="PERCENT" value="20"/></wpnmastery></effects></skill_template>'
+	# 2005: a chain armor mastery with a fixed bonus of 3 + 1 * level
+	'<skill_template skill_id="2005" activation="PASSIVE" lvl="1"><effects><armormastery armor="CHAIN" value="3" delta="1" e="1">'
+	'<change stat="PHYSICAL_DEFENSE" func="PERCENT" value="10"/></armormastery></effects></skill_template>'
+	# 2006: a shield mastery
+	'<skill_template skill_id="2006" activation="PASSIVE" lvl="1"><effects><shieldmastery e="1">'
+	'<change stat="DAMAGE_REDUCE" func="PERCENT" value="4"/></shieldmastery></effects></skill_template>'
+	# 2007-2010: what the model refuses - a conditioned change, a heal over time, a REPLACE of MAXHP, a HEALTH bonus
+	'<skill_template skill_id="2007" activation="PASSIVE" lvl="1"><effects><statboost e="1">'
+	'<change stat="PHYSICAL_ATTACK" func="ADD" value="7"><conditions><weapon weapon="SWORD"/></conditions></change></statboost></effects>'
+	'</skill_template>'
+	'<skill_template skill_id="2008" activation="PASSIVE" lvl="1"><effects><heal e="1" value="10" checktime="1000"/></effects></skill_template>'
+	'<skill_template skill_id="2009" activation="PASSIVE" lvl="1"><effects><statboost e="1">'
+	'<change stat="MAXHP" func="REPLACE" value="1000"/></statboost></effects></skill_template>'
+	'<skill_template skill_id="2010" activation="PASSIVE" lvl="1"><effects><statboost e="1">'
+	'<change stat="HEALTH" func="ADD" value="5"/></statboost></effects></skill_template>'
+	# 2011: a MAXHP bonus and a MAXMP rate leave the base alone
+	'<skill_template skill_id="2011" activation="PASSIVE" lvl="1"><effects><statboost e="1">'
+	'<change stat="MAXHP" func="ADD" value="100"/><change stat="MAXMP" func="PERCENT" value="10"/></statboost></effects></skill_template>'
+)
+
+
+@unittest.skipUnless(HAVE_JAVA_TREE, "Java tree not present")
+class M5aPassiveModelTest(unittest.TestCase):
+	"""passive_stat_functions on a small skill_data (the effect classes and the armor factors come from the Java sources); the expected values
+	follow BufEffect.getModifiers and the startEffect of WeaponMasteryEffect, ArmorMasteryEffect and ShieldMasteryEffect."""
+
+	@classmethod
+	def setUpClass(cls):
+		cls.tree = Tree()
+		cls.tree.minimal({"skill_data": PASSIVE_SKILLS})
+		cls.data = StaticData(cls.tree.root)
+		cls.enums = JavaEnums(JAVA_SRC)
+		cls.rules = PassiveRules(JAVA_SRC)
+
+	@classmethod
+	def tearDownClass(cls):
+		cls.tree.close()
+
+	def functions(self, skills, equipped):
+		return [(f["skillId"], f["function"], f["stat"], f["value"], f["bonus"], f["applies"])
+		        for f in passive_stat_functions(self.data, self.enums, self.rules, skills, equipped)]
+
+	def test_a_statboost_registers_the_three_buf_functions_with_the_level_delta(self):
+		self.assertEqual(self.functions({2001: 3, 2002: 1}, {}), [
+			(2001, "StatAddFunction", "PHYSICAL_ATTACK", 13, True, True),  # 7 + 2 * 3
+			(2001, "StatRateFunction", "PHYSICAL_DEFENSE", 10, True, True),
+			(2001, "StatSetFunction", "PARRY", 300, False, True),
+		], "the stat-less change and the unbound <notanelement> are dropped, the ACTIVE 2002 registers nothing")
+
+	def test_a_one_hand_mastery_splits_the_attack_between_the_hands_that_hold_its_weapon(self):
+		self.assertEqual(self.functions({2003: 1}, {"MAIN_HAND": "SWORD"}), [
+			(2003, "StatWeaponMasteryFunction", "MAIN_HAND_POWER", 16, True, True),
+			(2003, "StatWeaponMasteryFunction", "OFF_HAND_POWER", 16, True, False),
+		], "PHYSICAL_ACCURACY is dropped; the off hand holds nothing")
+		self.assertEqual([f[5] for f in self.functions({2003: 1}, {"MAIN_HAND": "MACE", "SUB_HAND": "SWORD"})], [False, True],
+		                 "a sword in the off hand only")
+
+	def test_a_two_hand_mastery_keeps_its_stat_and_needs_the_weapon_in_the_main_hand(self):
+		self.assertEqual(self.functions({2004: 1}, {"MAIN_HAND": "GREATSWORD"}),
+		                 [(2004, "StatWeaponMasteryFunction", "PHYSICAL_ATTACK", 20, True, True)])
+		self.assertEqual(self.functions({2004: 1}, {"MAIN_HAND": "SWORD"}),
+		                 [(2004, "StatWeaponMasteryFunction", "PHYSICAL_ATTACK", 20, True, False)])
+
+	def test_an_armor_mastery_scales_with_the_slots_of_its_armor_type(self):
+		chain = {"MAIN_HAND": "SWORD", "TORSO": "CH_TORSO", "PANTS": "CH_PANTS", "SHOULDER": "LT_SHOULDER"}
+		[function] = passive_stat_functions(self.data, self.enums, self.rules, {2005: 2}, chain)
+		# torso 30 + pants 25 of CHAIN (the leather shoulder does not count): 10 * 55 / 100 = 5 in int arithmetic; (3 + 1 * 2) * 55 / 100f
+		self.assertEqual((function["value"], function["equipmentFactor"], function["fixedBonus"], function["applies"]), (5, 55, 5, True))
+		self.assertEqual(function["bonusAdded"], f32(2.75))
+		chain["SHOULDER"] = "CH_SHOULDER"
+		[function] = passive_stat_functions(self.data, self.enums, self.rules, {2005: 2}, chain)
+		self.assertEqual((function["value"], function["equipmentFactor"]), (7, 70), "a chain shoulder adds 15")
+		[function] = passive_stat_functions(self.data, self.enums, self.rules, {2005: 2}, {"TORSO": "LT_TORSO"})
+		self.assertEqual((function["value"], function["bonusAdded"], function["applies"]), (0, 0.0, False), "no chain armor")
+
+	def test_a_shield_mastery_needs_a_shield(self):
+		self.assertEqual(self.functions({2006: 1}, {"SUB_HAND": "SHIELD"}), [(2006, "StatShieldMasteryFunction", "DAMAGE_REDUCE", 4, True, True)])
+		self.assertEqual(self.functions({2006: 1}, {"SUB_HAND": "SWORD"})[0][5], False)
+
+	def test_what_the_model_does_not_know_is_refused(self):
+		for skill_id, reason in ((2007, "<conditions>"), (2008, "does not model"), (2009, "base max HP/MP"), (2010, "base max HP/MP")):
+			with self.subTest(skill=skill_id):
+				with self.assertRaises(OracleError) as raised:
+					passive_stat_functions(self.data, self.enums, self.rules, {skill_id: 1}, {})
+				self.assertIn(reason, str(raised.exception))
+		self.assertEqual([f[2] for f in self.functions({2011: 1}, {})], ["MAXHP", "MAXMP"], "bonus functions leave the base alone")
+
+
 @unittest.skipUnless(HAVE_JAVA_TREE, "Java tree not present")
 class M5aRealDataTest(unittest.TestCase):
 	@classmethod
@@ -228,6 +331,13 @@ class M5aRealDataTest(unittest.TestCase):
 		skills = {s["skillId"]: s["level"] for s in report["skills"]}
 		self.assertEqual(skills.get(30001), 1, "human gathering for a starting class")
 		self.assertEqual(skills.get(37), 1, "skill_tree.xml: 37 minLevel 1 autolearn WARRIOR")
+		# m5b2-plan.md D2: of the eight passives, 37 Basic Sword Training raises the main hand of the Training Sword by 16 %, 42 Basic Chain
+		# Armor Proficiency the physical defence of the chain torso and pants (30 + 25: 10 % * 55 / 100 = 5 %, plus 1 * 55 / 100f), 140 adds 7
+		# physical attack; 39 (MACE), 40/41/103 (no such armor) and 43 (no shield) change nothing - and the base HP/MP above do not move
+		applied = [(f["skillId"], f["function"], f["stat"], f["value"]) for f in report["passiveStatFunctions"] if f["applies"]]
+		self.assertEqual(applied, [(37, "StatWeaponMasteryFunction", "MAIN_HAND_POWER", 16), (42, "StatArmorMasteryFunction", "PHYSICAL_DEFENSE", 5),
+		                           (140, "StatAddFunction", "PHYSICAL_ATTACK", 7)])
+		self.assertEqual(sorted({f["skillId"] for f in report["passiveStatFunctions"]}), [37, 39, 40, 41, 42, 43, 103, 140])
 
 	def test_asmodian_mage(self):
 		report = creation_report(self.data, JAVA_SRC, "ASMODIANS", "MAGE")

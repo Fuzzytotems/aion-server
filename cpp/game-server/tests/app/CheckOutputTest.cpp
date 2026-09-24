@@ -525,6 +525,21 @@ TEST(CheckOutputTest, TheCombatClassesOfTheM5bGateAreDecidedOneByOne) {
 }
 
 /**
+ * M5b-2 part 3 took model::stats::calc::functions::StatFunctionProxy out of zeroLiveClasses(), as M5b-1 did with KnownObject: closing D7 makes
+ * every spawn cast its post-spawn skills (NpcSkillList.getPostSpawnSkills, SpawnEventHandler.java:20-22), and the statup buffs of those npcs
+ * last 86,400,000 ms, so their stat functions survive the shutdown with their npcs. The numbers are gs.smoke.startup's of 2026-09-23, the first
+ * run with the holdback removed; a strict row turned them into an ERROR line, which fails every gate's "no ERROR line" check.
+ */
+TEST(CheckOutputTest, TheStatFunctionsOfPostSpawnBuffsSurviveTheShutdownWithTheirNpcs) {
+	LogCapture capture("com.aionemu.gameserver.CheckOutput");
+	const std::vector<LiveCount> startup{
+		{"aion::gameserver::model::stats::calc::functions::StatFunctionProxy", 1'171, 1'171},
+		{"aion::gameserver::model::gameobjects::Npc", 82'127, 82'127},
+	};
+	EXPECT_TRUE(CheckOutput::checkLiveCounts(startup).empty()) << "the post-spawn buffs of a green startup are not a leak";
+}
+
+/**
  * summaryLiveCounts() keeps `created` for a class at 0 live, which is the whole point of the row: liveLeak lines only exist for a class that is
  * already failing, and runtime::liveInstancesOf drops every counter at 0 live (LiveInstanceCounters.cpp:121-122), so neither can tell the gate
  * that an AttackResult was ever created. A class no counter matches reports 0 0.

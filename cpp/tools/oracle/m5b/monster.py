@@ -20,8 +20,9 @@ Java rules, each with the method the value comes from:
 What the oracle does NOT model, and raises OracleError for instead of guessing: instance maps (their exp multiplier is 1.5f and
 calculateExperienceReward multiplies by the instance's maxPlayers, which is not static data), a map with a registered @InstanceID handler (it may
 override getExpMultiplier, as BeshmundirInstance and RaksangRuinsInstance do), a template without a rating (Java's switch would throw), and a
-player with stat modifiers - like m5a-creation, this oracle computes the values of a *fresh* character, whose starting gear and unapplied passive
-skills add no ATTACK_RANGE, ATTACK_SPEED, SPEED or BOOST_HUNTING_XP_RATE modifier.
+player with stat modifiers - like m5a-creation, this oracle computes the values of a *fresh* character, whose starting gear adds no
+ATTACK_RANGE, ATTACK_SPEED, SPEED or BOOST_HUNTING_XP_RATE modifier. Its passive skills apply at enter world since M5b-2 part 3 (m5b2-plan.md
+D2); m5a-creation's passiveStatFunctions lists what they register, and a passive that changes one of those four stats is refused.
 
 The constructor data of the Java enums and the literals of the four formulas (the rating multipliers, the rank step, the exp multipliers, the
 player's bound radius and run speed, the attack range and attack speed bases) are read from the Java sources, so a change in the Java tree is a
@@ -40,6 +41,9 @@ from m5a.creation import JavaEnums, creation_report, enum_constants
 from m5a.data import StaticData, java_int
 from m5a.javafloat import distance, f32, parse_float, round_to_int, to_long
 from m5a.spawns import GameClock, evaluate, load_groups, load_npc_templates
+
+# the player stats the report computes as if no stat function changed them (see the module docstring)
+UNMODELLED_PLAYER_STATS = ("ATTACK_RANGE", "ATTACK_SPEED", "SPEED", "BOOST_HUNTING_XP_RATE")
 
 # WorldMapTemplate.worldType -> the race whose spawn point the distances are measured from (world/WorldType.java, model/Race.java)
 RACE_OF_WORLD_TYPE = {"ELYSEA": "ELYOS", "ASMODAE": "ASMODIANS"}
@@ -325,6 +329,10 @@ def monster_report(data: StaticData, java_src: Path, handlers_dir: Path | None, 
 		race = RACE_OF_WORLD_TYPE[world_type]
 
 	creation = creation_report(data, java_src, race, player_class)
+	for function in creation["passiveStatFunctions"]:
+		if function["applies"] and function["stat"] in UNMODELLED_PLAYER_STATS:
+			raise OracleError(f"skill {function['skillId']}: its passive {function['function']} changes {function['stat']}, which this oracle "
+			                  "computes for a character without stat functions")
 	spawn = creation["spawn"]
 	attack_range_stat, player_attack_speed = player_weapon_stats(data, enums, rules, creation["items"])
 	player_bound = max(rules.player_bound_front, rules.player_bound_side)  # BoundRadius.getMaxOfFrontAndSide

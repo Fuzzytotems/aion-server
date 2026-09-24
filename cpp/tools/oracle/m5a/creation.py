@@ -10,7 +10,11 @@ Java rules:
 - items: the <player_data class=...> items; ItemFactory.newItem caps the count at max_stack_count (kinah 182400001 is never capped) and throws
   NullPointerException for an unknown item id; every armor or weapon is equipped (the new Equipment is empty, so isSlotEquipped is always false)
   with ItemSlot.getSlotFor(itemGroup.validEquipmentSlots).slotIdMask, the first non-combo slot of the mask; kinah is the inventory's kinah item;
-- base stats: PlayerStatCalculator.calculateMaxHp/calculateMaxMp with PlayerClass.healthMultiplier/willMultiplier in float arithmetic.
+- base stats: PlayerStatCalculator.calculateMaxHp/calculateMaxMp with PlayerClass.healthMultiplier/willMultiplier in float arithmetic;
+- the passive skill effects (passive_stat_functions): PlayerEnterWorldService.activatePassiveSkillEffects applies every PASSIVE skill of the
+  list through SkillEngine.applyEffectDirectly(template, level, player, player) (PlayerEnterWorldService.java:407-413; closed in the C++ server
+  by M5b-2 part 3, m5b2-plan.md D2), and the stat functions each effect class's startEffect registers are reported with whether they change
+  the character's stats for its starting equipment. They never touch the BASE of MAXHP or MAXMP (checked), so baseStats does not move.
 The enum constructor data (ItemGroup, ItemSubType, ItemSlot, PlayerClass) is read from the Java sources.
 """
 
@@ -90,9 +94,12 @@ class JavaEnums:
 			arg = (args or "").strip()
 			self.sub_type_equip[name] = "ARMOR" if arg.startswith("ArmorType.") else arg.removeprefix("EquipType.")
 		self.item_groups: dict[str, tuple[int, str]] = {}  # name -> (valid slots, equip type)
+		# name -> ItemGroup.getItemSubType(): the ItemSubType argument, NONE for the ArmorType constructors and ItemGroup() (ItemGroup.java:114-139)
+		self.item_group_sub_types: dict[str, str] = {}
 		for name, args in enum_constants(base / "model" / "templates" / "item" / "enums" / "ItemGroup.java", "ItemGroup"):
 			if args is None:
 				self.item_groups[name] = (0, "NONE")  # ItemGroup(): no slots, ItemSubType.NONE
+				self.item_group_sub_types[name] = "NONE"
 				continue
 			first, _, rest = args.partition(",")
 			slots = 0
@@ -108,8 +115,10 @@ class JavaEnums:
 			second = rest.split(",")[0].strip()
 			if second.startswith("ArmorType."):
 				equip = "ARMOR"
+				self.item_group_sub_types[name] = "NONE"
 			elif second.startswith("ItemSubType."):
 				equip = self.sub_type_equip[second.removeprefix("ItemSubType.")]
+				self.item_group_sub_types[name] = second.removeprefix("ItemSubType.")
 			else:
 				raise OracleError(f"ItemGroup.{name}: unexpected argument {second!r}")
 			self.item_groups[name] = (slots, equip)
@@ -167,8 +176,9 @@ def stats_info_base_max_hp(health: int, health_multiplier: int, level: int) -> i
 	"""
 	The value SM_STATS_INFO writes as [base hp]: pgs.getMaxHp().getBase(), i.e. the stats template's maxHp
 	(PlayerStatCalculator.calculateMaxHp through PlayerClass.createStatsTemplate) plus what MaxHpFunction adds to the BASE - not the bonus -
-	in PlayerStatFunctions (getHealthDependentAdditionalHp). A fresh character has no other MAXHP stat function: the starting gear carries no
-	MAXHP modifier, passive skill effects are not applied, and the HEALTH stat is the class value, so its Stat2 current is the class health.
+	in PlayerStatFunctions (getHealthDependentAdditionalHp). A fresh character has no other function on the base of MAXHP: the starting gear
+	carries no MAXHP modifier, the functions of its passive skill effects are bonus functions or leave MAXHP alone (passive_stat_functions
+	refuses a character for which that is not true), and the HEALTH stat is the class value, so its Stat2 current is the class health.
 	"""
 	return max_hp(health_multiplier, level) + base_stat_dependent_additional_value(health, health_multiplier)
 
@@ -263,6 +273,177 @@ def learn_new_skills(data: StaticData, enums: JavaEnums, race: str, player_class
 	return skills
 
 
+# ---- the passive skill effects of a fresh character (m5b2-plan.md D2, X1) ---------------------------------------------------------------------
+
+# BufEffect.getModifiers (BufEffect.java:48-71): the function each <change func> becomes and whether it is a bonus function
+BUF_FUNCTIONS = {"ADD": ("StatAddFunction", True), "PERCENT": ("StatRateFunction", True), "REPLACE": ("StatSetFunction", False)}
+# the effect classes whose startEffect this model follows; every one of them inherits BufEffect.applyEffect (addToEffectedController)
+MODELLED_PASSIVE_STARTS = ("BufEffect", "WeaponMasteryEffect", "ArmorMasteryEffect", "ShieldMasteryEffect")
+# a function on these moves the value SM_STATS_INFO writes as [base hp] / [base mana]: MAXHP and MAXMP through a non-bonus function, HEALTH
+# and WILL through any, because MaxHpFunction/MaxMpFunction add a value computed from their current to the base (PlayerStatFunctions.java:81-115)
+BASE_STAT_INPUTS = {"MAXHP": False, "MAXMP": False, "HEALTH": True, "WILL": True}
+
+
+def _java_int_div(a: int, b: int) -> int:
+	"""Java int division: truncated toward zero."""
+	q = abs(a) // abs(b)
+	return q if (a >= 0) == (b > 0) else -q
+
+
+class PassiveRules:
+	"""What the passive model reads from the Java sources: the effect classes (m5b2 JavaSkillRules), which class of a chain overrides
+	startEffect/applyEffect/getModifiers, and StatArmorMasteryFunction.getEquipmentFactor's slot table."""
+
+	def __init__(self, java_src: Path):
+		from m5b2.skills import JavaSkillRules  # m5b2.skills imports this module, so not at module level
+
+		self.skill_rules = JavaSkillRules.read(java_src)
+		base = Path(java_src) / "com" / "aionemu" / "gameserver"
+		self.effect_dir = base / "skillengine" / "effect"
+		self._overrides: dict[str, set[str]] = {}
+		source = base / "model" / "stats" / "calc" / "functions" / "StatArmorMasteryFunction.java"
+		try:
+			text = source.read_text(encoding="utf-8")
+		except OSError as e:
+			raise OracleError(f"{source}: {e}") from e
+		body = re.search(r"int getEquipmentFactor\(ItemSlot itemSlot\)\s*\{(.*?)\n\t\}", text, re.DOTALL)
+		if not body or not re.search(r"default\s*->\s*0\s*;", body.group(1)):
+			raise OracleError(f"{source}: getEquipmentFactor is not the `switch (itemSlot) {{ case ... -> N; default -> 0; }}` this oracle reads")
+		self.armor_factors: dict[str, int] = {}
+		for slots, factor in re.findall(r"case\s+([A-Z_,\s]+?)\s*->\s*(\d+)\s*;", body.group(1)):
+			for slot in slots.split(","):
+				self.armor_factors[slot.strip()] = int(factor)
+
+	def overrides(self, cls: str) -> set[str]:
+		if cls not in self._overrides:
+			source = self.effect_dir / f"{cls}.java"
+			try:
+				text = source.read_text(encoding="utf-8")
+			except OSError as e:
+				raise OracleError(f"{source}: {e}") from e
+			text = re.sub(r"//[^\n]*", "", re.sub(r"/\*.*?\*/", "", text, flags=re.DOTALL))
+			self._overrides[cls] = {m for m in ("startEffect", "applyEffect", "getModifiers", "endEffect")
+			                        if re.search(rf"\b{m}\s*\(\s*Effect\s+\w+\s*\)\s*\{{", text)}
+		return self._overrides[cls]
+
+	def nearest(self, cls: str, method: str) -> str:
+		"""The class of the chain whose `method` a template of class `cls` runs."""
+		for ancestor in self.skill_rules.class_chain(cls):
+			if method in self.overrides(ancestor):
+				return ancestor
+		raise OracleError(f"effect class {cls}: no {method} in its extends chain")
+
+
+def _passive_templates(data: StaticData, wanted: set[int]) -> dict[int, tuple[str | None, list[tuple[str, dict, list[tuple[dict, bool]]]]]]:
+	"""skill id -> (activation, [(effect tag, attributes, [(<change> attributes, has <conditions>)])]) of the wanted skill templates."""
+	templates = {}
+	for element in data.stream("skill_data", "skill_template"):
+		skill_id = java_int(element.get("skill_id"), "skill_template skill_id")
+		if skill_id not in wanted:
+			continue
+		effects = []
+		container = element.find("effects")
+		if container is not None:
+			for child in container:
+				changes = [(dict(c.attrib), c.find("conditions") is not None) for c in child.findall("change")]
+				effects.append((child.tag, dict(child.attrib), changes))
+		templates[skill_id] = (element.get("activation"), effects)
+	return templates
+
+
+def passive_stat_functions(data: StaticData, enums: JavaEnums, rules: PassiveRules, skills: dict[int, int], equipped: dict[str, str]) -> list[dict]:
+	"""
+	The stat functions the passive skills of `skills` (id -> level) register at enter world, for a character wearing `equipped` (ItemSlot name
+	-> item group), in skill id order and then in document order:
+	- SkillTemplate.isPassive is activation="PASSIVE"; EffectTemplate.calculate succeeds unconditionally for a passive skill
+	  (EffectTemplate.java:298-301), so every effect Effects.java binds starts. A tag it does not bind is dropped by JAXB;
+	- BufEffect.getModifiers: per <change>, value + delta * skillLevel as StatAddFunction / StatRateFunction (bonus) or StatSetFunction (base);
+	  a <change> without a stat is skipped with a warning;
+	- WeaponMasteryEffect.startEffect: nothing without <change>; a TWO_HAND weapon group keeps the stat, otherwise PHYSICAL_ATTACK and
+	  MAGICAL_ATTACK become MAIN_HAND_POWER and OFF_HAND_POWER and every other stat is dropped. StatWeaponMasteryFunction.apply changes
+	  MAIN_HAND_POWER (and any other stat) only when the main hand item's group is the mastery's, OFF_HAND_POWER only when the off hand holds a
+	  weapon of that group (Equipment.getMainHandWeaponType / getOffHandWeaponType);
+	- ArmorMasteryEffect.startEffect: nothing without <change>; the fixed bonus is calculateBaseValue (value + delta * skillLevel of the effect);
+	  StatArmorMasteryFunction's equipment factor sums getEquipmentFactor(slot) over the equipped items of the armor's ItemSubType, getValue()
+	  is value * factor / 100 in int arithmetic, and apply adds fixedBonus * factor / 100f to the bonus when both are non-zero;
+	- ShieldMasteryEffect.startEffect: StatShieldMasteryFunction changes the stat only with a SHIELD in the sub hand (Equipment.isShieldEquipped).
+	`applies` is whether the function changes the stat for this equipment. A passive effect whose class starts or applies differently, a
+	<change> with <conditions>, or a function that would move SM_STATS_INFO's base max HP/MP is not modelled and raises OracleError.
+	"""
+	templates = _passive_templates(data, set(skills))
+	main_group = equipped.get("MAIN_HAND")
+	off_group = equipped.get("SUB_HAND")
+	off_weapon = off_group if off_group is not None and enums.item_groups[off_group][1] == "WEAPON" else None
+	shield = off_group is not None and enums.item_group_sub_types[off_group] == "SHIELD"
+	functions = []
+	for skill_id in sorted(skills):
+		if skill_id not in templates:
+			raise OracleError(f"skill {skill_id} has no skill template")
+		activation, effects = templates[skill_id]
+		if activation != "PASSIVE":
+			continue
+		level = skills[skill_id]
+		for tag, attrs, changes in effects:
+			cls = rules.skill_rules.effect_classes.get(tag)
+			if cls is None:
+				continue
+			starter = rules.nearest(cls, "startEffect")
+			if starter not in MODELLED_PASSIVE_STARTS or rules.nearest(cls, "applyEffect") != "BufEffect" \
+					or rules.nearest(cls, "getModifiers") != "BufEffect":
+				raise OracleError(f"skill {skill_id}: the passive <{tag}> ({cls}) starts in {starter}, which this oracle does not model")
+			modifiers = []  # BufEffect.getModifiers: (stat, function, value, bonus)
+			for change, has_conditions in changes:
+				if has_conditions:
+					raise OracleError(f"skill {skill_id}: a <change> of <{tag}> carries <conditions>, which this oracle does not model")
+				stat = change.get("stat")
+				if stat is None:
+					continue
+				func = change.get("func")
+				if func not in BUF_FUNCTIONS:
+					raise OracleError(f"skill {skill_id}: <change func={func!r}> is not ADD, PERCENT or REPLACE")
+				value = java_int(change.get("value"), f"skill {skill_id} change value", 0) \
+					+ java_int(change.get("delta"), f"skill {skill_id} change delta", 0) * level
+				modifiers.append((stat, *BUF_FUNCTIONS[func], value))
+
+			def add(function: str, stat: str, value: int, bonus: bool, applies: bool, **extra) -> None:
+				functions.append({"skillId": skill_id, "level": level, "effect": tag, "effectClass": cls, "function": function, "stat": stat,
+				                  "value": value, "bonus": bonus, "applies": applies, **extra})
+
+			if starter == "BufEffect":
+				for stat, function, bonus, value in modifiers:
+					add(function, stat, value, bonus, True)
+			elif starter == "WeaponMasteryEffect":
+				weapon = attrs.get("weapon")
+				if weapon not in enums.item_group_sub_types:
+					raise OracleError(f"skill {skill_id}: <{tag} weapon={weapon!r}> is not an ItemGroup")
+				for stat, _function, bonus, value in modifiers:
+					if enums.item_group_sub_types[weapon] == "TWO_HAND":
+						add("StatWeaponMasteryFunction", stat, value, bonus, main_group == weapon, weapon=weapon)
+					elif stat in ("PHYSICAL_ATTACK", "MAGICAL_ATTACK"):
+						add("StatWeaponMasteryFunction", "MAIN_HAND_POWER", value, bonus, main_group == weapon, weapon=weapon)
+						add("StatWeaponMasteryFunction", "OFF_HAND_POWER", value, bonus, off_weapon == weapon, weapon=weapon)
+			elif starter == "ArmorMasteryEffect":
+				armor = attrs.get("armor")
+				if armor is None:
+					raise OracleError(f"skill {skill_id}: <{tag}> without armor (Java: NullPointerException comparing the item sub types)")
+				fixed_bonus = java_int(attrs.get("value"), f"skill {skill_id} value", 0) + java_int(attrs.get("delta"), f"skill {skill_id} delta", 0) * level
+				factor = sum(rules.armor_factors.get(slot, 0) for slot, group in equipped.items() if enums.item_group_sub_types[group] == armor)
+				for stat, _function, bonus, value in modifiers:
+					rate = _java_int_div(value * factor, 100)
+					bonus_add = f32(f32(fixed_bonus * factor) / f32(100.0)) if fixed_bonus != 0 and factor != 0 else 0.0
+					add("StatArmorMasteryFunction", stat, rate, bonus, rate != 0 or bonus_add != 0, armor=armor, equipmentFactor=factor,
+					    fixedBonus=fixed_bonus, bonusAdded=bonus_add)
+			else:  # ShieldMasteryEffect
+				for stat, _function, bonus, value in modifiers:
+					add("StatShieldMasteryFunction", stat, value, bonus, shield)
+	for function in functions:
+		moves_base = BASE_STAT_INPUTS.get(function["stat"])
+		if function["applies"] and moves_base is not None and (moves_base or not function["bonus"]):
+			raise OracleError(f"skill {function['skillId']}: its passive {function['function']} on {function['stat']} moves the base max HP/MP "
+			                  "SM_STATS_INFO writes, which this oracle does not model")
+	return functions
+
+
 def creation_report(data: StaticData, java_src: Path, race: str, player_class: str) -> dict:
 	if race not in RACES:
 		raise OracleError(f"race must be one of {RACES}")
@@ -288,6 +469,8 @@ def creation_report(data: StaticData, java_src: Path, race: str, player_class: s
 
 	# items
 	items_out = []
+	equipped: dict[str, str] = {}  # ItemSlot name -> item group of what is equipped there, for the passive model
+	slot_names = {mask: name for name, mask, combo in enums.slots if not combo}
 	if class_items is not None:
 		infos = _item_templates(data, {item_id for item_id, _ in class_items})
 		for item_id, count in class_items:
@@ -299,9 +482,14 @@ def creation_report(data: StaticData, java_src: Path, race: str, player_class: s
 			if info.item_group not in enums.item_groups:
 				raise OracleError(f"item {item_id}: unknown item_group {info.item_group}")
 			slots, equip = enums.item_groups[info.item_group]
-			equipped = equip in ("ARMOR", "WEAPON")
-			items_out.append({"itemId": item_id, "count": count, "kinah": item_id == KINAH, "equipped": equipped,
-			                  "slot": enums.slot_for(slots) if equipped else 0})
+			is_equipped = equip in ("ARMOR", "WEAPON")
+			slot = enums.slot_for(slots) if is_equipped else 0
+			items_out.append({"itemId": item_id, "count": count, "kinah": item_id == KINAH, "equipped": is_equipped, "slot": slot})
+			if is_equipped:
+				equipped[slot_names[slot]] = info.item_group
+
+	# the passive skill effects of enter world (PlayerEnterWorldService.activatePassiveSkillEffects)
+	passives = passive_stat_functions(data, enums, PassiveRules(java_src), skills, equipped)
 
 	return {
 		"format": "aion-m5a-creation",
@@ -315,4 +503,6 @@ def creation_report(data: StaticData, java_src: Path, race: str, player_class: s
 		# statsTemplate is the PlayerStatCalculator half alone (PlayerClass.createStatsTemplate), kept separate because the two differ.
 		"baseStats": {"maxHp": stats_info_base_max_hp(health, health_multiplier, 1), "maxMp": stats_info_base_max_mp(will, will_multiplier, 1)},
 		"statsTemplate": {"maxHp": max_hp(health_multiplier, 1), "maxMp": max_mp(will_multiplier, 1)},
+		# the stat functions the passive skills register at enter world, and whether each changes a stat for the starting equipment
+		"passiveStatFunctions": passives,
 	}

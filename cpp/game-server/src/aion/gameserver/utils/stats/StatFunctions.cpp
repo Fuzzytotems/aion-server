@@ -22,6 +22,7 @@
 #include "aion/gameserver/model/gameobjects/Npc.h"
 #include "aion/gameserver/model/gameobjects/Servant.h"
 #include "aion/gameserver/model/gameobjects/Summon.h"
+#include "aion/gameserver/model/gameobjects/SummonedObject.h"
 #include "aion/gameserver/model/gameobjects/player/Equipment.h"
 #include "aion/gameserver/model/gameobjects/player/Player.h"
 #include "aion/gameserver/model/gameobjects/player/PlayerCommonData.h"
@@ -30,6 +31,7 @@
 #include "aion/gameserver/model/stats/calc/Stat2.h"
 #include "aion/gameserver/model/stats/calc/StatCapUtil.h"
 #include "aion/gameserver/model/stats/container/CombatMode.h"
+#include "aion/gameserver/model/stats/container/CreatureGameStats.h"
 #include "aion/gameserver/model/stats/container/NpcGameStats.h"
 #include "aion/gameserver/model/stats/container/PlayerGameStats.h"
 #include "aion/gameserver/model/stats/container/PlayerLifeStats.h"
@@ -42,6 +44,8 @@
 #include "aion/gameserver/model/templates/npc/NpcTemplate.h"
 #include "aion/gameserver/runtime/base/Exceptions.h"
 #include "aion/gameserver/runtime/base/Unported.h"
+#include "aion/gameserver/skillengine/effect/EffectTemplate.h"
+#include "aion/gameserver/skillengine/effect/NoReduceSpellATKInstantEffect.h"
 #include "aion/gameserver/skillengine/model/HitType.h"
 #include "aion/gameserver/utils/JavaMath.h"
 #include "aion/gameserver/utils/stats/CalculationType.h"
@@ -316,7 +320,49 @@ int32_t StatFunctions::getElementalDefenseDenominator(model::gameobjects::Creatu
 
 float StatFunctions::calculateMagicalSkillDamage(model::gameobjects::Creature& effector, model::gameobjects::Creature& target, float baseDamage,
 	int32_t bonus, const skillengine::effect::EffectTemplate* template_, bool useMagicBoost, bool useKnowledge, bool useBoostSpellAttack) {
-	AION_UNPORTED();
+	using model::templates::detail::floatToInt;
+
+	float damage = baseDamage;
+	Ptr<model::stats::container::CreatureGameStats> sgs = effector.getGameStats();
+	Ptr<model::stats::container::CreatureGameStats> tgs = target.getGameStats();
+	int32_t magicBoost = 0;
+
+	if (useMagicBoost) {
+		magicBoost = sgs->getMBoost()->getCurrent();
+		magicBoost = subInt(magicBoost, tgs->getMBResist()->getCurrent());
+		// Java: (int) Math.max(0, limit(StatEnum.BOOST_MAGICAL_SKILL, magicBoost)) - the int is widened for limit, Math.max(float, float) keeps
+		// the float, and the (int) cast saturates. Neither operand can be NaN or -0.0f here, so std::max answers what Math.max answers.
+		magicBoost = floatToInt(std::max(0.0f, limit(StatEnum::BOOST_MAGICAL_SKILL, static_cast<float>(magicBoost))));
+	}
+	int32_t knowledge = useKnowledge ? sgs->getKnowledge()->getCurrent() : 100;
+	damage *= (static_cast<float>(magicBoost) / 1000.0f) + (static_cast<float>(knowledge) / 100.0f);
+
+	// Java: getStat(StatEnum.BOOST_SPELL_ATTACK, (int) damage).getCurrent() - the damage is truncated to an int base (widened back to float for
+	// getStat(StatEnum, float)), and the int the stat answers replaces the damage
+	if (useBoostSpellAttack)
+		damage = static_cast<float>(sgs->getStat(StatEnum::BOOST_SPELL_ATTACK, static_cast<float>(floatToInt(damage)))->getCurrent());
+
+	// add bonus damage
+	damage += static_cast<float>(bonus);
+	// Java: template.getElement() is the first dereference of the template, a NullPointerException for null
+	const skillengine::effect::EffectTemplate& effectTemplate = nonNull(template_, "template");
+	if (effectTemplate.getElement() != model::SkillElement::NONE
+		&& !dynamic_cast<const skillengine::effect::NoReduceSpellATKInstantEffect*>(template_)) {
+		damage = reduceDamageByElementalDefense(effector, target, effectTemplate.getElement(), damage);
+		// damage is reduced by 100 per 1000 mdef
+		damage -=
+			adjustStatByMovementModifier(target, StatEnum::MAGICAL_DEFEND, static_cast<float>(target.getGameStats()->getMDef()->getCurrent())) / 10.0f;
+	}
+
+	if (damage < 0) {
+		damage = 0;
+	} else if (runtime::as<model::gameobjects::Npc>(effector) && !runtime::as<model::gameobjects::SummonedObject>(effector)) {
+		// Java: (int) (damage * 0.08f) - the saturating cast; damage is not negative here (or NaN, which casts to 0), so -rnd cannot overflow
+		int32_t rnd = floatToInt(damage * 0.08f);
+		damage += static_cast<float>(commons::utils::Rnd::get(-rnd, rnd));
+	}
+
+	return damage;
 }
 
 bool StatFunctions::calculateMagicalCriticalRate(model::gameobjects::Creature& attacker, model::gameobjects::Creature& attacked, int32_t criticalProb) {

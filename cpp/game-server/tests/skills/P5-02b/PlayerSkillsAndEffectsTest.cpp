@@ -220,12 +220,11 @@ TEST_F(PlayerEffectControllerTest, QueriesAndLogoutWithoutEffects) {
 	EXPECT_NO_THROW(effects->clearEffectMapsWithoutNotify());
 	EXPECT_TRUE(effects->isEmpty());
 
-	// the O-09 holdback (docs/deviations/P5-02b.md): SkillEngine.applyEffectDirectly(SkillTemplate, ...) of the passive skills stays the M5a
-	// partial until part 3 ports the leaf effects every enter-world passive reaches - one partial hit, no effect
-	// part 3 (m5b2-plan.md F-02/F-03) removes the holdback; restore: a null template throws NullPointerException (Effect.java:154), no partial hit
+	// SkillEngine.applyEffectDirectly(SkillTemplate, ...) of the passive skills, M5a O-09, closed in part 3 (m5b2-plan.md D11): the template is
+	// not checked, so a null one reaches new Effect(...), whose skillTemplate.getReqDispelCount() throws (Effect.java:154), and no partial is hit
 	uint64_t partialHitsBefore = runtime::partialHitCount();
-	EXPECT_FALSE(skillengine::SkillEngine::getInstance().applyEffectDirectly(nullptr, 1, *player, *player));
-	EXPECT_EQ(runtime::partialHitCount(), partialHitsBefore + 1);
+	EXPECT_THROW(skillengine::SkillEngine::getInstance().applyEffectDirectly(nullptr, 1, *player, *player), runtime::NullPointerException);
+	EXPECT_EQ(runtime::partialHitCount(), partialHitsBefore);
 }
 
 
@@ -242,7 +241,7 @@ protected:
 		utils::ThreadPoolManager::installBackend(std::make_unique<runtime::DeterministicExecutor>(clock, 17));
 		utils::idfactory::IDFactory::getInstance().resetForTests();
 		gameobjects::player::PetList::setPlayerPetsLoaderForTests(&noPets);
-		// skills 1 and 2 are active, skill 3 is passive (SkillLearnService applies its effect through the O-09 warn stub)
+		// skills 1 and 2 are active, skill 3 is passive (SkillLearnService applies its effect through SkillEngine.applyEffectDirectly)
 		dataholders::DataManager::SKILL_DATA.publish(xml::bindString<dataholders::SkillData>(skillContext, R"(<skill_data>)"
 			R"(<skill_template skill_id="1" name="s1" nameId="1" skilltype="PHYSICAL" skillsubtype="ATTACK" activation="ACTIVE" duration="0" stack="S1"/>)"
 			R"(<skill_template skill_id="2" name="s2" nameId="1" skilltype="PHYSICAL" skillsubtype="ATTACK" activation="ACTIVE" duration="0" stack="S2"/>)"
@@ -332,7 +331,7 @@ TEST_F(PlayerSkillLearnTest, AddSkillCreatesUpdatesAndRejectsEntries) {
 	EXPECT_EQ(runtime::unportedHitCount(), 0u) << "the create path reaches no unported body";
 }
 
-TEST_F(PlayerSkillLearnTest, TemporarySkillsAreNotStoredAndPassiveSkillsReachTheEffectStub) {
+TEST_F(PlayerSkillLearnTest, TemporarySkillsAreNotStoredAndPassiveSkillsApplyTheirEffect) {
 	runtime::TaskScope scope(AION_TASK_INFO(runtime::TaskKind::TEST));
 	PlayerFixture f = makePlayer(4102);
 	Ptr<PlayerSkillList> skills = f.player->getSkillList();
@@ -352,12 +351,11 @@ TEST_F(PlayerSkillLearnTest, TemporarySkillsAreNotStoredAndPassiveSkillsReachThe
 	EXPECT_EQ(temporary->getSkillLevel(), 5);
 	EXPECT_EQ(temporary->getPersistentState(), Persistable_PersistentState::NOACTION) << "a temporary skill is never stored";
 
-	// SkillLearnService.onLearnSkill applies the effect of a passive skill through SkillEngine.applyEffectDirectly(SkillTemplate, ...), which
-	// stays the M5a warn stub (O-09) until part 3 (the holdback of docs/deviations/P5-02b.md): one partial hit, no effect, no unported body
-	// part 3 (m5b2-plan.md F-02/F-03) removes the holdback; restore: no partial hit (the Effect is applied; without <effects> nothing is added)
+	// SkillLearnService.onLearnSkill applies the effect of a passive skill through SkillEngine.applyEffectDirectly(SkillTemplate, ...), the M5a
+	// O-09 warn stub until part 3 closed it (m5b2-plan.md D11): the Effect is applied, and without <effects> nothing is added and no partial hit
 	uint64_t partialsBefore = runtime::partialHitCount();
 	EXPECT_TRUE(skills->addSkill(*f.player, 3, 1));
-	EXPECT_EQ(runtime::partialHitCount(), partialsBefore + 1) << "the O-09 warn stub";
+	EXPECT_EQ(runtime::partialHitCount(), partialsBefore) << "the O-09 warn stub is gone";
 	EXPECT_TRUE(f.player->getEffectController()->getAllEffects().empty());
 	EXPECT_EQ(runtime::unportedHitCount(), 0u);
 }

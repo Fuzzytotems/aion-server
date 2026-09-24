@@ -8,7 +8,6 @@
 
 #include "aion/commons/logging/LoggerFactory.h"
 #include "aion/commons/utils/Rnd.h"
-#include "aion/gameserver/runtime/base/Unported.h"
 #include "aion/gameserver/dataholders/DataManager.h"
 #include "aion/gameserver/dataholders/NpcSkillData.h"
 #include "aion/gameserver/dataholders/SkillData.h"
@@ -83,13 +82,14 @@ runtime::Ptr<NpcSkillEntry> NpcSkillList::getSkillOnPosition(int32_t position) {
 }
 
 std::vector<runtime::Ptr<NpcSkillEntry>> NpcSkillList::getPostSpawnSkills() {
-	// Java filters the entries whose hasPostSpawnCondition() is true (NpcSkillList.java:70-76); SpawnEventHandler.onSpawn and
-	// ReturningEventHandler.onBackHome cast each one through SkillEngine.getSkill(...).useWithoutPropSkill(). Part 2 of M5b-2 ported that cast
-	// (m5b2-plan.md D7), but the 46 post-spawn npcs of Gelkmaros and Enshar cast statup (19125/19135/16873) and hide (16822) skills, whose
-	// BufEffect/HideEffect/StatupEffect bodies part 3 ports; until then every server start would log an ERROR and delete those npcs, so D7 stays
-	// held back behind the M5b-1 partial (m5b-plan.md D3).
-	AION_PARTIAL("post-spawn npc skills are not cast yet (M5b-2)");
-	return {};
+	// Java: the entries whose hasPostSpawnCondition() is true, in list order (NpcSkillList.java:70-76). The M5b-1 partial (m5b-plan.md D3) is
+	// closed since part 3 ported the effect classes the post-spawn casts reach (m5b2-plan.md D7, D11).
+	runtime::Ptr<runtime::RcArrayList<runtime::Ref<NpcSkillEntry>>> currentSkills = skills.get();
+	std::vector<runtime::Ptr<NpcSkillEntry>> filteredSkills;
+	for (const runtime::Ptr<NpcSkillEntry>& skill : *currentSkills)
+		if (skill->hasPostSpawnCondition())
+			filteredSkills.push_back(skill);
+	return filteredSkills;
 }
 
 std::vector<runtime::Ptr<NpcSkillEntry>> NpcSkillList::getSkillsByPriority(int32_t priority) {

@@ -255,10 +255,9 @@ void EffectTemplate::calculateSubEffect(model::Effect& effect) const {
 	if (commons::utils::Rnd::chance() >= static_cast<float>(subEffect->getChance()))
 		return;
 
-	// Java passes a missing template on to the Effect constructor, which throws NullPointerException on skillTemplate.getReqDispelCount();
-	// the C++ constructor dereferences the raw pointer, so the same exception is thrown here (docs/deviations/P5-03.md)
-	const model::SkillTemplate* skillTemplate = &nonNull(dataholders::DataManager::SKILL_DATA->getSkillTemplate(subEffect->getSkillId()),
-		"SKILL_DATA.getSkillTemplate(subEffect.getSkillId())");
+	// a missing template (null) goes on to the Effect constructor, whose skillTemplate.getReqDispelCount() throws Java's NullPointerException in
+	// C++ as well (requireTemplate, Effect.cpp)
+	const model::SkillTemplate* skillTemplate = dataholders::DataManager::SKILL_DATA->getSkillTemplate(subEffect->getSkillId());
 	int32_t level = 1;
 	int32_t accBoost = effect.getAccModBoost();
 	if (subEffect->isAddEffect()) { // Only used by signet bursts

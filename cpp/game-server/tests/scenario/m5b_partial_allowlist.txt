@@ -32,14 +32,8 @@
 aion/gameserver/questEngine/QuestEngine.cpp:111
 # base locations are M5b-2/M5b-3 (m5a-plan.md E1-06); BaseService::start runs on every startup
 aion/gameserver/services/BaseService.cpp:18
-# O-09 "passive skill effects are not applied yet (M5a O-09)": 8 hits per enter world, inherited from the M5a gate. M5b-2 part 2 ported
-# the path and held it back until part 3 ports BufEffect and the mastery effects (m5b2-plan.md D2); :79 became :137.
-aion/gameserver/skillengine/SkillEngine.cpp:137
-# D3 "post-spawn npc skills are not cast yet (M5b-2)". SpawnEventHandler::onSpawn asks EVERY one of the ~83,885 spawns for its post-spawn
-# skills (SpawnEventHandler.java:20-22), so this is by far the most-hit site of a run. §6.1 rev 2 listed it as a §B zero-hit row on the
-# grounds that no Poeta or Ishalgen npc has a post-spawn skill; that is true of the DATA and irrelevant to the SITE, which is the whole body.
-# M5b-2 part 2 ported the cast and held the site back until part 3 ports the effects those npcs cast (m5b2-plan.md D7); :90 became :91.
-aion/gameserver/model/skill/NpcSkillList.cpp:91
+# HISTORY: two rows of this section are gone since M5b-2 part 3 closed their partials (m5b2-plan.md D11, G-05): O-09 in SkillEngine.cpp
+# (the enter-world passives apply, D2) and D3 in NpcSkillList.cpp (every spawn casts its post-spawn skills, D7).
 # D4 "npc skill attacks are not chosen yet (M5b-2): every attack stays a simple melee attack". Reached whenever a registered AI picks its next
 # attack - the gate's own monster on every swing, plus the npcs that fight each other in the character's map region. Same correction as above.
 aion/gameserver/handlers/ai/GeneralNpcAI.cpp:122

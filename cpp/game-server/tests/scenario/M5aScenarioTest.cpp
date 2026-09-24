@@ -1566,9 +1566,10 @@ TEST(M5aScenario, Run) {
 		gameHour = gameHourOf(minutes);
 
 		// V9: base max HP/MP of SM_STATS_INFO equal the oracle's PlayerStatCalculator values, current max >= base.
-		// SCOPE (m5a-plan.md §5.4 V9 and the M5b item O-13): passive skill effects are not applied at M5a (O-09, the allow-listed
-		// AION_PARTIAL in SkillEngine::applyEffectDirectly), and the creation oracle answers base max HP and MP only, so no oracle exists for
-		// attack, accuracy, evasion, crit, magic boost or the current maxima. Everything that IS checkable without that oracle is asserted
+		// SCOPE (m5a-plan.md §5.4 V9 and the M5b item O-13): the passive skill effects apply since M5b-2 part 3 closed O-09 (m5b2-plan.md D2),
+		// and the creation oracle lists the stat functions they register (passiveStatFunctions) but answers base max HP and MP only - which
+		// the passives leave alone - so no oracle exists for attack, accuracy, evasion, crit, magic boost or the current maxima (the M5b-2
+		// gate's X1 is where the passive attack is asserted). Everything that IS checkable without that oracle is asserted
 		// here: the identity fields, the two oracle values in EVERY SM_STATS_INFO of the burst (the first-enter one of §5.8 #0 as well as #26,
 		// not only the last), the life stats of a character that has never fought, the exp of a level 1 character, the game time the packet
 		// carries against the SM_GAME_TIME of the same burst, and "a class stats template was applied at all" for the six base attributes and
@@ -1588,6 +1589,10 @@ TEST(M5aScenario, Run) {
 		}
 		const decoders::StatsInfo statsInfo = decoders::decodeStatsInfo(stats.back().data);
 		enterStats = statsInfo;
+		// the numbers m5b2-plan.md D2 asks a wave that changes the passives to record
+		std::cout << "V9: SM_STATS_INFO of the Warrior: max HP " << statsInfo.baseMaxHp << "/" << statsInfo.maxHp << ", max MP "
+		          << statsInfo.baseMaxMp << "/" << statsInfo.maxMp << ", main hand attack " << statsInfo.baseMainHandPAttack << "/"
+		          << statsInfo.mainHandPAttack << " (base/current)" << std::endl;
 		// a character that was created seconds ago has full HP and MP, no DP and no experience (Q3 proves the opposite case, where the harness
 		// seeds player_life_stat.hp with half and the relogin has to show it)
 		EXPECT_EQ(statsInfo.currentHp, statsInfo.maxHp) << "V9: a character that never fought enters the world with full HP";

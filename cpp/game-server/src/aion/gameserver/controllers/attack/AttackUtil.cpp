@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <limits>
 #include <string>
+#include <unordered_set>
 
 #include "aion/commons/logging/LoggerFactory.h"
 #include "aion/commons/utils/Rnd.h"
@@ -17,6 +18,9 @@
 #include "aion/gameserver/model/gameobjects/Creature.h"
 #include "aion/gameserver/model/gameobjects/Item.h"
 #include "aion/gameserver/model/gameobjects/Npc.h"
+#include "aion/gameserver/model/gameobjects/Servant.h"
+#include "aion/gameserver/model/gameobjects/SummonedObject.h"
+#include "aion/gameserver/model/gameobjects/Trap.h"
 #include "aion/gameserver/model/gameobjects/player/Equipment.h"
 #include "aion/gameserver/model/gameobjects/player/Player.h"
 #include "aion/gameserver/model/items/ItemSlot.h"
@@ -25,13 +29,26 @@
 #include "aion/gameserver/model/stats/container/CreatureGameStats.h"
 #include "aion/gameserver/model/stats/container/StatEnum.h"
 #include "aion/gameserver/model/templates/detail/JavaCasts.h"
+#include "aion/gameserver/model/templates/item/ItemAttackType.h"
 #include "aion/gameserver/model/templates/item/ItemTemplate.h"
 #include "aion/gameserver/model/templates/item/WeaponStats.h"
 #include "aion/gameserver/model/templates/item/enums/ItemSubType.h"
 #include "aion/gameserver/model/templates/npc/NpcTemplate.h"
 #include "aion/gameserver/runtime/base/Exceptions.h"
-#include "aion/gameserver/runtime/base/Unported.h"
+#include "aion/gameserver/skillengine/change/Func.h"
+#include "aion/gameserver/skillengine/effect/DamageEffect.h"
+#include "aion/gameserver/skillengine/effect/DelayedSpellAttackInstantEffect.h"
+#include "aion/gameserver/skillengine/effect/EffectTemplate.h"
+#include "aion/gameserver/skillengine/effect/NoReduceSpellATKInstantEffect.h"
+#include "aion/gameserver/skillengine/effect/ProcAtkInstantEffect.h"
+#include "aion/gameserver/skillengine/effect/SkillAttackInstantEffect.h"
+#include "aion/gameserver/skillengine/effect/modifier/ActionModifier.h"
+#include "aion/gameserver/skillengine/model/Effect.h"
+#include "aion/gameserver/skillengine/model/EffectReserved.h"
+#include "aion/gameserver/skillengine/model/HitType.h"
 #include "aion/gameserver/skillengine/model/Skill.h"
+#include "aion/gameserver/skillengine/model/SkillType.h"
+#include "aion/gameserver/utils/stats/CalculationType.h"
 #include "aion/gameserver/utils/stats/StatFunctions.h"
 #include "aion/gameserver/world/knownlist/KnownList.h"
 
@@ -67,6 +84,11 @@ T unbox(const std::optional<T>& value, const char* what) {
 /** Java int a + b (wraps on overflow) */
 constexpr int32_t addInt(int32_t a, int32_t b) noexcept {
 	return static_cast<int32_t>(static_cast<uint32_t>(a) + static_cast<uint32_t>(b));
+}
+
+/** Java int a * b (wraps on overflow) */
+constexpr int32_t mulInt(int32_t a, int32_t b) noexcept {
+	return static_cast<int32_t>(static_cast<uint32_t>(a) * static_cast<uint32_t>(b));
 }
 
 /** Java `(int) doubleValue`: NaN becomes 0, out-of-range values saturate */
@@ -313,7 +335,170 @@ float AttackUtil::getWeaponMultiplier(std::optional<ItemGroup> group) {
 
 void AttackUtil::calculateSkillResult(skillengine::model::Effect& effect, int32_t skillDamage, const skillengine::effect::DamageEffect* template_,
 	bool ignoreShield) {
-	AION_UNPORTED();
+	using model::stats::container::StatEnum;
+	using model::templates::item::ItemAttackType;
+	using skillengine::model::HitType;
+	using utils::stats::CalculationType;
+	using utils::stats::StatFunctions;
+
+	Ptr<Creature> effector = effect.getEffector();
+	// nullable (a point-point effect): Java hands null to the callees, the `Creature&` parameters dereference it at each call (P5-01.md, F-06)
+	Ptr<Creature> effected = effect.getEffected();
+	// define values
+	// Java: template.getActionModifiers(effect) is the first dereference of the template, a NullPointerException for null
+	const skillengine::effect::modifier::ActionModifier* modifier = nonNull(template_, "template").getActionModifiers(effect);
+	model::SkillElement element = template_->getElement();
+	const auto* skillAttackInstantEffect = dynamic_cast<const skillengine::effect::SkillAttackInstantEffect*>(template_);
+	int32_t randomDamageType = skillAttackInstantEffect ? skillAttackInstantEffect->getRnddmg() : 0;
+	bool useTemplateDmg = dynamic_cast<const skillengine::effect::NoReduceSpellATKInstantEffect*>(template_) != nullptr;
+	bool send = !dynamic_cast<const skillengine::effect::DelayedSpellAttackInstantEffect*>(template_)
+		&& !dynamic_cast<const skillengine::effect::ProcAtkInstantEffect*>(template_);
+
+	AttackStatus status;
+	switch (element) {
+		case model::SkillElement::NONE:
+			status = calculatePhysicalStatus(*effector, *effected, template_, effect);
+			break;
+		default:
+			status = effect.isMagicalCritical(template_->getPosition()) ? AttackStatus::CRITICAL : AttackStatus::NORMALHIT;
+			break;
+	}
+
+	int32_t baseAttack = 0;
+	float bonus = 0;
+	HitType ht = HitType::PHHIT;
+	std::vector<Ref<AttackResult>> weaponAttack;
+	float damage = 0;
+	// Java: EnumSet.of(CalculationType.SKILL), mutated below between the stat reads (the order of the adds is the order of the power shard reads)
+	std::unordered_set<CalculationType> calculationTypes{CalculationType::SKILL};
+	if (Ptr<Player> p = runtime::as<Player>(effector); p && p->getEquipment().isDualWeaponEquipped())
+		calculationTypes.insert(CalculationType::DUAL_WIELD);
+	if (!useTemplateDmg) {
+		if (runtime::as<model::gameobjects::SummonedObject>(effector) && !runtime::as<model::gameobjects::Servant>(effector)) {
+			ht = effect.getSkillType() == skillengine::model::SkillType::MAGICAL ? HitType::MAHIT : HitType::PHHIT;
+			baseAttack = effector->getGameStats()->getMainHandPAttack(calculationTypes)->getBase();
+			weaponAttack = StatFunctions::calculateAttackDamage(*effect.getEffector(), model::SkillElement::NONE, status, calculationTypes);
+		} else {
+			switch (effect.getSkillType()) {
+				case skillengine::model::SkillType::MAGICAL:
+					ht = HitType::MAHIT;
+					baseAttack = effector->getGameStats()->getMainHandMAttack(calculationTypes)->getBase();
+					if (baseAttack == 0 && effector->getAttackType() == ItemAttackType::PHYSICAL) { // dirty fix for staffs and maces -.-
+						calculationTypes.insert(CalculationType::APPLY_POWER_SHARD_DAMAGE);
+						if (element == model::SkillElement::NONE) { // fix for magical skills which actually inflict physical damage
+							weaponAttack = StatFunctions::calculateAttackDamage(*effect.getEffector(), model::SkillElement::NONE, status, calculationTypes);
+						}
+						calculationTypes.insert(CalculationType::REMOVE_POWER_SHARD);
+						baseAttack = effector->getGameStats()->getMainHandPAttack(calculationTypes)->getBase();
+					}
+					break;
+				default:
+					if (element == model::SkillElement::NONE) {
+						calculationTypes.insert(CalculationType::APPLY_POWER_SHARD_DAMAGE);
+						baseAttack = effector->getGameStats()->getMainHandPAttack(calculationTypes)->getBase();
+						calculationTypes.insert(CalculationType::REMOVE_POWER_SHARD);
+						weaponAttack = StatFunctions::calculateAttackDamage(*effect.getEffector(), model::SkillElement::NONE, status, calculationTypes);
+					} else {
+						baseAttack = effector->getGameStats()->getMainHandMAttack(calculationTypes)->getBase();
+					}
+					break;
+			}
+		}
+	}
+	for (const Ref<AttackResult>& res : weaponAttack) {
+		damage += res->getExactDamage();
+	}
+	// add skill damage
+	switch (template_->getMode()) {
+		case skillengine::change::Func::ADD:
+			damage += static_cast<float>(skillDamage);
+			break;
+		case skillengine::change::Func::PERCENT:
+			// Java: baseAttack * skillDamage / 100f - the int product wraps, then the float division
+			damage += static_cast<float>(mulInt(baseAttack, skillDamage)) / 100.0f;
+			break;
+		default:
+			break;
+	}
+
+	// add bonus damage
+	if (modifier != nullptr) {
+		bonus = static_cast<float>(modifier->analyze(effect));
+		switch (modifier->getFunc()) {
+			case skillengine::change::Func::ADD:
+				break;
+			case skillengine::change::Func::PERCENT:
+				// Java: baseAttack * bonus / 100f - bonus is a float, so the product is a float product (no int wrap)
+				bonus = static_cast<float>(baseAttack) * bonus / 100.0f;
+				break;
+			default:
+				break;
+		}
+	}
+
+	bool isPhysical = element == model::SkillElement::NONE;
+	if (!useTemplateDmg) {
+		float damageMultiplier;
+		if (isPhysical) {
+			damageMultiplier =
+				template_->shouldUseOneTimeBoostSkillAttack() ? effector->getObserveController()->getBasePhysicalDamageMultiplier(true) : 1.0f;
+			damage += bonus;
+		} else {
+			bool applyMagicalSkillBoostBonus = template_->shouldApplyMagicalSkillBoostBonus(effect);
+			damageMultiplier = template_->shouldUseOneTimeBoostSkillAttack() ? effector->getObserveController()->getBaseMagicalDamageMultiplier() : 1.0f;
+			// Java: `(int) bonus` - the saturating cast of the float bonus
+			damage = StatFunctions::calculateMagicalSkillDamage(*effector, *effected, damage, model::templates::detail::floatToInt(bonus), template_,
+				applyMagicalSkillBoostBonus, template_->shouldUseKnowledge(), template_->shouldUseBoostSpellAttackEffects());
+		}
+		if (template_->shouldApplyAttackerMovementModifier()) {
+			damage = StatFunctions::adjustStatByMovementModifier(*effector, isPhysical ? StatEnum::PHYSICAL_ATTACK : StatEnum::MAGICAL_ATTACK, damage);
+		}
+		damage *= damageMultiplier;
+	}
+
+	if (randomDamageType > 0)
+		damage = randomizeDamage(randomDamageType, damage);
+
+	if (isCritical(status) && !useTemplateDmg) {
+		int32_t critAddDmg = template_->calculateCritAddDmg(effect);
+		StatEnum stat = element == model::SkillElement::NONE ? StatEnum::PHYSICAL_CRITICAL_DAMAGE_REDUCE : StatEnum::MAGICAL_CRITICAL_DAMAGE_REDUCE;
+		damage = calculateWeaponCritical(element, *effected, damage, getWeaponGroup(*effector, true), critAddDmg, stat, true);
+	}
+
+	if (isPhysical) {
+		float def = StatFunctions::adjustStatByMovementModifier(*effected, StatEnum::PHYSICAL_DEFENSE,
+			static_cast<float>(effected->getGameStats()->getPDef()->getCurrent()));
+		damage -= def / 10;
+	}
+
+	switch (getBaseStatus(status)) {
+		case AttackStatus::BLOCK:
+			damage = calculateBlockedDamage(*effected, damage);
+			break;
+		case AttackStatus::PARRY:
+			damage *= 0.6f;
+			break;
+		default:
+			break;
+	}
+
+	if (runtime::as<model::gameobjects::Npc>(effector)) {
+		damage = effector->getAi().modifyOwnerDamage(damage, *effected, Ptr<skillengine::model::Effect>(effect));
+	}
+
+	if (effect.getSkill() && effect.getSkill()->getEffectedList().size() > 1 && template_->isShared()) {
+		damage /= static_cast<float>(effect.getSkill()->getEffectedList().size());
+	}
+	damage = StatFunctions::adjustDamageByPvpOrPveModifiers(*effector, *effected, damage, effect.getPvpDamage(), useTemplateDmg, element);
+
+	if (damage < 0)
+		damage = 0;
+
+	if (runtime::as<model::gameobjects::Npc>(effected)) {
+		damage = effected->getAi().modifyDamage(*effector, damage, Ptr<skillengine::model::Effect>(effect));
+	}
+	// Java: (int) damage - the saturating cast
+	calculateEffectResult(effect, *effected, model::templates::detail::floatToInt(damage), status, ht, ignoreShield, template_->getPosition(), send);
 }
 
 float AttackUtil::randomizeDamage(int32_t randomDamageType, float damage) {
@@ -357,7 +542,28 @@ float AttackUtil::randomizeDamage(int32_t randomDamageType, float damage) {
 
 void AttackUtil::calculateEffectResult(skillengine::model::Effect& effect, Creature& effected, int32_t damage, AttackStatus status,
 	skillengine::model::HitType hitType, bool ignoreShield, int32_t position, bool send) {
-	AION_UNPORTED();
+	using skillengine::model::EffectReserved;
+
+	// Java: new AttackResult(damage, status, hitType) - the int damage widened to the float field
+	Ref<AttackResult> attackResult = AttackResult::create(static_cast<float>(damage), status, hitType);
+	if (!ignoreShield) {
+		// Java: Collections.singletonList(attackResult)
+		effected.getObserveController()->checkShieldStatus(std::vector<Ptr<AttackResult>>{Ptr<AttackResult>(attackResult)},
+			Ptr<skillengine::model::Effect>(effect), *effect.getEffector());
+		effect.setReflectedDamage(attackResult->getReflectedDamage());
+		effect.setReflectedSkillId(attackResult->getReflectedSkillId());
+		effect.setMpAbsorbed(attackResult->getMpAbsorbed());
+		effect.setMpShieldSkillId(attackResult->getMpShieldSkillId());
+		effect.setProtectedDamage(attackResult->getProtectedDamage());
+		effect.setProtectedSkillId(attackResult->getProtectedSkillId());
+		effect.setProtectorId(attackResult->getProtectorId());
+		effect.setShieldDefense(attackResult->getShieldType());
+	}
+	Ref<EffectReserved> reserved = EffectReserved::create(position, attackResult->getDamage(), EffectReserved::ResourceType::HP, true, send,
+		attackResult->getAttackStatus());
+	effect.setReserveds(*reserved, false);
+	effect.setAttackStatus(attackResult->getAttackStatus());
+	effect.setLaunchSubEffect(attackResult->isLaunchSubEffect());
 }
 
 std::vector<runtime::Ref<AttackResult>> AttackUtil::calculateMagAttackResult(Creature& attacker, Creature& attacked, model::SkillElement element,
@@ -375,12 +581,49 @@ std::vector<runtime::Ref<AttackResult>> AttackUtil::calculateMagAttackResult(Cre
 
 int32_t AttackUtil::calculateMagicalOverTimeSkillResult(skillengine::model::Effect& effect, float skillDamage,
 	const skillengine::effect::EffectTemplate* template_, bool useMagicBoost) {
-	AION_UNPORTED();
+	using model::stats::container::StatEnum;
+
+	Ptr<Creature> effector = effect.getEffector();
+	// nullable, as in calculateSkillResult; the Trap arm never dereferences it
+	Ptr<Creature> effected = effect.getEffected();
+	float damage;
+
+	if (runtime::as<model::gameobjects::Trap>(effector)) {
+		damage = skillDamage;
+	} else {
+		float damageMultiplier = effector->getObserveController()->getBaseMagicalDamageMultiplier();
+		damage = utils::stats::StatFunctions::calculateMagicalSkillDamage(*effector, *effected, skillDamage, 0, template_, useMagicBoost, false, false);
+		damage = damage * damageMultiplier;
+
+		// calculateMagicalSkillDamage has already dereferenced the template (template.getElement()), so a null one never reaches this line
+		AttackStatus status = effect.isMagicalCritical(nonNull(template_, "template").getPosition()) ? AttackStatus::CRITICAL : AttackStatus::NORMALHIT;
+		if (status == AttackStatus::CRITICAL) {
+			int32_t critAddDmg = template_->calculateCritAddDmg(effect);
+			damage = calculateWeaponCritical(template_->getElement(), *effected, damage, getWeaponGroup(*effector, true), critAddDmg,
+				StatEnum::MAGICAL_CRITICAL_DAMAGE_REDUCE, true);
+		}
+		damage = utils::stats::StatFunctions::adjustDamageByPvpOrPveModifiers(*effector, *effected, damage, effect.getPvpDamage(), false,
+			template_->getElement());
+	}
+
+	if (damage < 1)
+		damage = 1;
+
+	if (runtime::as<model::gameobjects::Npc>(effected))
+		damage = effected->getAi().modifyDamage(*effector, damage, Ptr<skillengine::model::Effect>(effect));
+
+	// Java: (int) damage - the saturating cast
+	return model::templates::detail::floatToInt(damage);
 }
 
 AttackStatus AttackUtil::calculatePhysicalStatus(Creature& attacker, Creature& attacked, const skillengine::effect::EffectTemplate* template_,
 	skillengine::model::Effect& effect) {
-	AION_UNPORTED();
+	const skillengine::effect::EffectTemplate& effectTemplate = nonNull(template_, "template");
+	// Java: template.getAccMod2() + template.getAccMod1() * effect.getSkillLevel() - int arithmetic, wrapping on overflow
+	int32_t accMod = addInt(effectTemplate.getAccMod2(), mulInt(effectTemplate.getAccMod1(), effect.getSkillLevel()));
+	const auto* skillAttackInstantEffect = dynamic_cast<const skillengine::effect::SkillAttackInstantEffect*>(template_);
+	bool cannotMiss = skillAttackInstantEffect && skillAttackInstantEffect->isCannotmiss();
+	return calculatePhysicalStatus(attacker, attacked, true, accMod, effectTemplate.calculateCritProbMod(effect), true, cannotMiss);
 }
 
 AttackStatus AttackUtil::calculatePhysicalStatus(Creature& attacker, Creature& attacked, bool isMainHand, int32_t accMod, int32_t criticalProb, bool isSkill,

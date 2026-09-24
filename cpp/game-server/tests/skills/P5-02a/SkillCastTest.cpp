@@ -402,31 +402,27 @@ TEST_F(SkillCastTest, GetSkillBuildsAnUnlearnedSkillAtTheGivenLevel) {
 	EXPECT_FALSE(SkillEngine::getInstance().getSkill(*caster.player, 99999, 1, nullptr));
 }
 
-TEST_F(SkillCastTest, ApplyEffectDirectlyOfATemplateIsHeldBackAndTheIdOverloadsCreateARealEffect) {
+TEST_F(SkillCastTest, ApplyEffectDirectlyOfATemplateAndTheIdOverloadsCreateARealEffect) {
 	// SkillEngine.applyEffectDirectly(template, level, effector, effected) is applyEffect(..., null, ForceType.DEFAULT), i.e. new Effect(...),
-	// initialize(), applyEffect() (SkillEngine.java:145-147, 174-179) - the enter-world passive skills. Part 2 ported the path, but every
-	// enter-world passive reaches effect leaves that part 3 ports, so the overload stays behind the M5a O-09 partial until then.
-	// part 3 (m5b2-plan.md F-02/F-03) removes the holdback; restore: a real Effect of PASSIVE_SKILL, ForceType DEFAULT, no partial hit
+	// initialize(), applyEffect() (SkillEngine.java:145-147, 174-179) - the enter-world passive skills. M5a O-09 is closed since part 3 ported
+	// the effect leaves the passives reach (m5b2-plan.md D2, D11): a real Effect at the level given, not the template's, and no partial.
 	uint64_t partialsBefore = runtime::partialHitCount();
-	Ref<model::Effect> effect = SkillEngine::getInstance().applyEffectDirectly(skillTemplate(PASSIVE_SKILL), 1, *caster.player, *caster.player);
-	EXPECT_FALSE(effect) << "the held-back overload answers null";
-	EXPECT_EQ(runtime::partialHitCount(), partialsBefore + 1) << "through the O-09 AION_PARTIAL, once";
-	bool o09Hit = false;
-	for (const runtime::PartialHit& hit : runtime::partialHits())
-		if (hit.reason == "passive skill effects are not applied yet (M5a O-09)" && hit.hits > 0)
-			o09Hit = true;
-	EXPECT_TRUE(o09Hit) << "the partial reached is SkillEngine.cpp's O-09 site";
+	Ref<model::Effect> effect = SkillEngine::getInstance().applyEffectDirectly(skillTemplate(PASSIVE_SKILL), 3, *caster.player, *caster.player);
+	ASSERT_TRUE(effect) << "a real Effect";
+	EXPECT_EQ(effect->getSkillLevel(), 3) << "the level argument, not the template's lvl 1";
+	EXPECT_EQ(effect->getForceType(), model::Effect_ForceType::DEFAULT);
+	EXPECT_EQ(runtime::partialHitCount(), partialsBefore) << "the O-09 AION_PARTIAL is gone";
 	EXPECT_EQ(runtime::unportedHitCount(), 0u);
 
-	// the id overloads are not held back: they look the template up first and answer null for an unknown id (checkAndGetSkillTemplate,
-	// SkillEngine.java:181-188), else a real Effect at the template's lvl with ForceType.DEFAULT (SkillEngine.java:121-124)
+	// the id overloads look the template up first and answer null for an unknown id (checkAndGetSkillTemplate, SkillEngine.java:181-188), else
+	// a real Effect at the template's lvl with ForceType.DEFAULT (SkillEngine.java:121-124)
 	EXPECT_FALSE(SkillEngine::getInstance().applyEffectDirectly(99999, *caster.player, *caster.player));
 	Ref<model::Effect> byId = SkillEngine::getInstance().applyEffectDirectly(PASSIVE_SKILL, *caster.player, *caster.player);
 	ASSERT_TRUE(byId);
 	EXPECT_EQ(byId->getSkillId(), PASSIVE_SKILL);
 	EXPECT_EQ(byId->getSkillLevel(), 1) << "the template's lvl";
 	EXPECT_EQ(byId->getForceType(), model::Effect_ForceType::DEFAULT);
-	EXPECT_EQ(runtime::partialHitCount(), partialsBefore + 1) << "no partial on the id path";
+	EXPECT_EQ(runtime::partialHitCount(), partialsBefore) << "no partial on the id path";
 	EXPECT_EQ(runtime::unportedHitCount(), 0u);
 }
 
