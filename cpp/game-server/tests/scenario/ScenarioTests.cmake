@@ -21,7 +21,8 @@ if(TARGET aion_gs_scenario_tests)
 	target_compile_definitions(aion_gs_scenario_tests PRIVATE AION_SCENARIO_ORACLE_SCRIPT="${CMAKE_SOURCE_DIR}/tools/oracle/oracle.py"
 		AION_SCENARIO_PARTIAL_ALLOWLIST="${CMAKE_CURRENT_SOURCE_DIR}/tests/scenario/m5a_partial_allowlist.txt"
 		AION_SCENARIO_M5B_PARTIAL_ALLOWLIST="${CMAKE_CURRENT_SOURCE_DIR}/tests/scenario/m5b_partial_allowlist.txt"
-		AION_SCENARIO_M5B2_PARTIAL_ALLOWLIST="${CMAKE_CURRENT_SOURCE_DIR}/tests/scenario/m5b2_partial_allowlist.txt")
+		AION_SCENARIO_M5B2_PARTIAL_ALLOWLIST="${CMAKE_CURRENT_SOURCE_DIR}/tests/scenario/m5b2_partial_allowlist.txt"
+		AION_SCENARIO_M5B3_PARTIAL_ALLOWLIST="${CMAKE_CURRENT_SOURCE_DIR}/tests/scenario/m5b3_partial_allowlist.txt")
 
 	# the oracle answers are JSON (Oracle.cpp); commons finds the same package in its own directory scope
 	find_package(nlohmann_json CONFIG REQUIRED)
@@ -50,6 +51,9 @@ if(TARGET aion_gs_scenario_tests)
 		LABELS "scenario;realdata")
 	# and for the M5b-2 gates (m5b2-plan.md G-03/G-04)
 	aion_set_discovered_test_properties(aion_gs_scenario_tests REGEX "^M5b2Scenario(Geo)?\\." PROPERTIES DISABLED TRUE
+		LABELS "scenario;realdata")
+	# and for the M5b-3 gates (m5b3-plan.md G-03/G-04)
+	aion_set_discovered_test_properties(aion_gs_scenario_tests REGEX "^M5b3Scenario(Geo)?\\." PROPERTIES DISABLED TRUE
 		LABELS "scenario;realdata")
 
 	# F-06: the M5a gate (§5.10). The oracle needs a Python interpreter; without it the test prints "gs.scenario.m5a: skipped".
@@ -163,5 +167,37 @@ if(TARGET aion_gs_scenario_tests)
 	endif()
 	if(AION_SCENARIO_REQUIRE OR NOT AION_GS_ALLOW_MILESTONE_SKIP)
 		set_property(TEST gs.scenario.m5b2_geo APPEND PROPERTY ENVIRONMENT_MODIFICATION "AION_SCENARIO_REQUIRE=set:1")
+	endif()
+
+	# ---- the M5b-3 gate (m5b3-plan.md G-03/G-04, §10) ------------------------------------------------------------------------------------
+	#
+	# gs.scenario.m5b3: the loot and item cases of §10.2 at gameserver.rates.drop = 1000000 (m5b3.properties.example) - the Elyos Warrior loots
+	# two 210663 corpses and a 210133 corpse empty, kinah included, unequips and re-equips its sword, sockets a seeded godstone and sees it proc,
+	# drinks a potion, moves, splits, destroys and swaps items and reads its inventory back from the database after a quit - in the same binary,
+	# with its own output directory <bin>/scenario/m5b3, its own schema pair (aion_gs_test_m5b3_<hash>) and its own AION_PARTIAL allow-list,
+	# under the SAME RESOURCE_LOCK as the six gates above. TIMEOUT 900 like gs.scenario.m5b2: the run is budgeted at four to six minutes, of
+	# which three fights, three relogs and the oracle's cube budgets are most.
+	add_test(NAME gs.scenario.m5b3 COMMAND "$<TARGET_FILE:aion_gs_scenario_tests>" --gtest_filter=M5b3Scenario.Run
+		WORKING_DIRECTORY "${scenario_work_dir}")
+	set_tests_properties(gs.scenario.m5b3 PROPERTIES LABELS "scenario;realdata" TIMEOUT 900
+		RESOURCE_LOCK "aion_game_server_log;aion_login_server_log" SKIP_REGULAR_EXPRESSION "gs\\.scenario\\.m5b3: skipped")
+	if(Python3_Interpreter_FOUND)
+		set_property(TEST gs.scenario.m5b3 APPEND PROPERTY ENVIRONMENT_MODIFICATION "AION_TEST_PYTHON=set:${Python3_EXECUTABLE}")
+	endif()
+	if(AION_SCENARIO_REQUIRE OR NOT AION_GS_ALLOW_MILESTONE_SKIP)
+		set_property(TEST gs.scenario.m5b3 APPEND PROPERTY ENVIRONMENT_MODIFICATION "AION_SCENARIO_REQUIRE=set:1")
+	endif()
+
+	# gs.scenario.m5b3_geo (G-04, §10.5): the same script with -Dgameserver.geodata.enable=true plus the camp fire (case L14, Y15), which only a
+	# server with the geo meshes has - the material zones are created from them. TIMEOUT 2700 for the geo startup, as the other geo gates.
+	add_test(NAME gs.scenario.m5b3_geo COMMAND "$<TARGET_FILE:aion_gs_scenario_tests>" --gtest_filter=M5b3ScenarioGeo.Run
+		WORKING_DIRECTORY "${scenario_work_dir}")
+	set_tests_properties(gs.scenario.m5b3_geo PROPERTIES LABELS "scenario;realdata;geo" TIMEOUT 2700
+		RESOURCE_LOCK "aion_game_server_log;aion_login_server_log" SKIP_REGULAR_EXPRESSION "gs\\.scenario\\.m5b3_geo: skipped")
+	if(Python3_Interpreter_FOUND)
+		set_property(TEST gs.scenario.m5b3_geo APPEND PROPERTY ENVIRONMENT_MODIFICATION "AION_TEST_PYTHON=set:${Python3_EXECUTABLE}")
+	endif()
+	if(AION_SCENARIO_REQUIRE OR NOT AION_GS_ALLOW_MILESTONE_SKIP)
+		set_property(TEST gs.scenario.m5b3_geo APPEND PROPERTY ENVIRONMENT_MODIFICATION "AION_SCENARIO_REQUIRE=set:1")
 	endif()
 endif()

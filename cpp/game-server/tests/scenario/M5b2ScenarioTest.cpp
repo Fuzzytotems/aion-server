@@ -465,14 +465,20 @@ std::string enterWorldPattern(bool firstEnter, int32_t inventoryPackets) {
 	return pattern;
 }
 
-/** The CM_LEVEL_READY part of m5a-plan.md §5.8 (#33 to #44) */
+/**
+ * The CM_LEVEL_READY part of m5a-plan.md §5.8 (#33 to #44), and after its SM_CUBE_UPDATE any number of SM_NPC_INFO / SM_GATHERABLE_INFO:
+ * the burst is read until the connection has been quiet for a while, and an object that spawns or comes into view in that time is
+ * announced by the known-list update, after the answer (m5b3-plan.md §18.5: the final run f2 failed S6 on one trailing SM_NPC_INFO - the Mage
+ * enters 20-odd seconds after S5 killed monster A, whose respawnTime is 20 s). The order up to SM_CUBE_UPDATE is asserted as before.
+ */
 std::string levelReadyPattern() {
 	return "SM_PLAYER_INFO, SM_PLAYER_STATE, SM_ACCOUNT_PROPERTIES, SM_MOTION, "
 	       "SM_WINDSTREAM_ANNOUNCE*, "
 	       "(SM_NPC_INFO | SM_GATHERABLE_INFO)+, "
 	       "SM_RIFT_ANNOUNCE, "
 	       "SM_NEARBY_QUESTS, [SM_QUEST_REPEAT], [SM_WEATHER], "
-	       "SM_ABNORMAL_STATE, SM_CUBE_UPDATE";
+	       "SM_ABNORMAL_STATE, SM_CUBE_UPDATE, "
+	       "(SM_NPC_INFO | SM_GATHERABLE_INFO)*";
 }
 
 // ---- the skill recording ----------------------------------------------------------------------------------------------------------------
@@ -1109,8 +1115,22 @@ void runM5b2Gate(const GateVariant& variant) {
 		const std::vector<Packet> burst = collectBurst(*a.game, async);
 		if (burst.empty())
 			throw std::runtime_error("no packet after CM_LEVEL_READY");
-		if (assertSequence)
+		if (assertSequence) {
 			expectSequence(burst, levelReadyPattern(), async);
+			// the known-list updates after the answer's SM_CUBE_UPDATE (levelReadyPattern), named in the log
+			const auto answerEnd = std::ranges::find(burst, std::string("SM_CUBE_UPDATE"), &Packet::name);
+			for (auto it = answerEnd == burst.end() ? burst.end() : std::next(answerEnd); it != burst.end(); ++it) {
+				if (it->name != "SM_NPC_INFO")
+					continue;
+				try {
+					const decoders::NpcInfo npc = decoders::decodeNpcInfo(it->data);
+					std::cout << "level ready: after the answer, SM_NPC_INFO of npc " << npc.templateId << " (object " << npc.objectId << ") at ("
+					          << npc.x << ", " << npc.y << ", " << npc.z << ")" << std::endl;
+				} catch (const DecodeError&) {
+					// named only
+				}
+			}
+		}
 		if (burstOut != nullptr)
 			*burstOut = burst;
 	};
@@ -1157,6 +1177,66 @@ void runM5b2Gate(const GateVariant& variant) {
 		if (!index)
 			return std::nullopt;
 		return decoders::decodeNpcInfo(a.game->recorded()[*index].data).objectId;
+	};
+
+	/** whether `packet` is the SM_EMOTION(DIE) of `creature` */
+	const auto isDeathOf = [](const Packet& packet, int32_t creature) {
+		if (packet.name != "SM_EMOTION")
+			return false;
+		try {
+			const decoders::Emotion emotion = decoders::decodeEmotion(packet.data);
+			return emotion.emotionType == decoders::EMOTION_DIE && emotion.senderObjectId == creature;
+		} catch (const DecodeError&) {
+			return false;
+		}
+	};
+	/** the recording index of `creature`'s SM_EMOTION(DIE) at or after `since`, if it died there */
+	const auto deathIndexOf = [&](int32_t creature, size_t since) -> std::optional<size_t> {
+		for (size_t i = since; i < a.game->recorded().size(); i++)
+			if (isDeathOf(a.game->recorded()[i], creature))
+				return i;
+		return std::nullopt;
+	};
+
+	/**
+	 * G-07 (m5b3-plan.md §18.1): the respawn of the npc of `templateId` that died on `spot` at recording index `diedAt` - the first SM_NPC_INFO
+	 * at the spot recorded after the death whose object was never announced at the spot before it. A respawn is a new object and cannot be
+	 * announced before the death; every object announced there before it is the dead one or an npc an earlier case killed (a corpse that comes
+	 * back into view is announced again under its own id). objectAt's "the latest one but `excluding`" is not enough here: before the respawn
+	 * is announced it answers the npc an earlier case killed at the same spot (the review's mutant RS10b pulled S5's corpse of monster A).
+	 */
+	const auto waitForRespawnAt = [&](const OracleMonsterSpot& spot, size_t diedAt, std::chrono::milliseconds timeout,
+	                                  int32_t templateId = GATE_MONSTER_NPC_ID) -> std::optional<int32_t> {
+		const auto atSpot = [&](const Packet& packet) -> std::optional<int32_t> {
+			if (packet.name != "SM_NPC_INFO")
+				return std::nullopt;
+			try {
+				const decoders::NpcInfo npc = decoders::decodeNpcInfo(packet.data);
+				if (npc.templateId == templateId && std::abs(npc.x - spot.x) <= 0.01f && std::abs(npc.y - spot.y) <= 0.01f &&
+				    std::abs(npc.z - spot.z) <= 0.01f)
+					return npc.objectId;
+			} catch (const DecodeError&) {
+				// a packet that does not decode is not this npc
+			}
+			return std::nullopt;
+		};
+		std::set<int32_t> announcedBefore;
+		for (size_t i = 0; i < diedAt && i < a.game->recorded().size(); i++)
+			if (const std::optional<int32_t> id = atSpot(a.game->recorded()[i]))
+				announcedBefore.insert(*id);
+		for (size_t i = diedAt; i < a.game->recorded().size(); i++)
+			if (const std::optional<int32_t> id = atSpot(a.game->recorded()[i]); id && !announcedBefore.contains(*id))
+				return id;
+		const std::optional<size_t> index = readUntil(
+		  *a.game,
+		  [&](const Packet& packet) {
+			  const std::optional<int32_t> id = atSpot(packet);
+			  return id && !announcedBefore.contains(*id);
+		  },
+		  timeout);
+		if (!index)
+			return std::nullopt;
+		return atSpot(a.game->recorded()[*index]);
 	};
 
 	// the walk cursor and the two walks of the M5b gate: `walkTo` sleeps between its 5 m steps, `trekTo` drains the socket while it walks
@@ -1669,8 +1749,10 @@ void runM5b2Gate(const GateVariant& variant) {
 	});
 
 	// ---- S9: the cast bar and the MP (X4) ----
+	size_t s9From = 0; // where S9's recording starts: S10 looks for monster A's death from here (G-07, m5b3-plan.md §18.1)
 	runCase("S9", "Flame Bolt: the cast bar, the two-phase cast and the MP it costs (X4)", [&] {
 		const OracleSkillTemplate& bolt = *boltPointer;
+		s9From = a.game->recorded().size();
 		collectFor(*a.game, 1500ms);
 		const GameSession::CastOutcome outcome = cast(a.mageId, FLAME_BOLT, monsterA, std::chrono::milliseconds(*bolt.castDuration + 4000));
 		collectFor(*a.game, 1500ms); // a cast skill applies its effects hitTime after endCast (Skill.java:664); the damage arrives after the result
@@ -1723,27 +1805,168 @@ void runM5b2Gate(const GateVariant& variant) {
 			  << "X4: the damage applied is the damage the result announced";
 		}
 		std::cout << "X4: SM_CASTSPELL_RESULT " << castTook << " ms after SM_CASTSPELL, " << *bolt.mpCost << " MP charged "
-		          << millisBetween(casts[0].at, costs[0].at) << " ms into the cast; " << (missed ? "resisted" : "landed") << std::endl;
+		          << millisBetween(casts[0].at, costs[0].at) << " ms into the cast; " << (missed ? "resisted" : "landed")
+		          << (recording.diedAt(monsterA) ? "; it killed monster A (S10 pulls A's respawn)" : "") << std::endl;
 	});
 
+	/**
+	 * G-07 (m5b3-plan.md §18.1): a pull that cannot kill a fresh 210663 (199 HP): an auto-attack of the Mage's Training Spellbook (100600034:
+	 * 20-23 damage, attack_range 15000, attack_speed 2200, item_templates.xml), which reaches the npc from CAST_DISTANCE; it is sent again only
+	 * while it has not gone out (a refused CM_ATTACK sends no SM_ATTACK), at most three times, as S5b pulls the kerub. A Flame Bolt is no such
+	 * pull: 1282's value 141 with apply_magical_critical, x 1.5 on a magical critical (AttackUtil.calculateSkillResult -> calculateWeaponCritical,
+	 * AttackUtil.java:318-323, 191-208), takes all 199 HP
+	 * - the review's mutant RC9 (every magical roll of the Mage critical) reproduced c2's failure with exactly that. @return whether it went out
+	 */
+	const auto pullWithSwing = [&](int32_t npc) {
+		const size_t pullFrom = a.game->recorded().size();
+		const auto swung = [&] {
+			for (size_t i = pullFrom; i < a.game->recorded().size(); i++) {
+				if (a.game->recorded()[i].name != "SM_ATTACK")
+					continue;
+				try {
+					const decoders::Attack attack = decoders::decodeAttack(a.game->recorded()[i].data);
+					if (attack.attackerObjectId == a.mageId && attack.targetObjectId == npc)
+						return true;
+				} catch (const DecodeError&) {
+					// not a swing this pull can count
+				}
+			}
+			return false;
+		};
+		for (int32_t attempt = 0; attempt < 3 && !swung(); attempt++) {
+			a.game->send(GameSession::CM_ATTACK, GameSession::buildCM_ATTACK(npc));
+			collectFor(*a.game, 2500ms);
+		}
+		return swung();
+	};
+
 	// ---- S10: monster A fights back until it has hit the Mage, then dies to more Flame Bolts (the setup of X8, not an assertion) ----
+	/**
+	 * What an npc did in the recording since `since`, for a failure message: its swings (at whom, with which first status), the swings at it and
+	 * who made them, its HP changes (count and sum, by skill), its moves (the last one's distance from `spot`), its death and its last attacker.
+	 * G-07 (m5b3-plan.md §17.5): the diagnosis S10's failure message carries, so that the next occurrence names what killed or held monster A.
+	 */
+	const auto npcActivity = [&](int32_t npc, const OracleMonsterSpot& spot, size_t since) {
+		std::map<int32_t, int32_t> swingsAt, swingsFrom;
+		std::vector<std::string> statusesAtMage;
+		int32_t hpChanges = 0, damage = 0;
+		std::map<int32_t, int32_t> damageBySkill;
+		std::optional<decoders::NpcMove> lastMove;
+		int32_t moves = 0;
+		std::optional<int32_t> killer;
+		const std::vector<Packet>& packets = a.game->recorded();
+		for (size_t i = since; i < packets.size(); i++) {
+			const Packet& packet = packets[i];
+			try {
+				if (packet.name == "SM_ATTACK") {
+					const decoders::Attack attack = decoders::decodeAttack(packet.data);
+					if (attack.attackerObjectId == npc) {
+						swingsAt[attack.targetObjectId]++;
+						if (attack.targetObjectId == a.mageId)
+							statusesAtMage.push_back(std::to_string(attack.results.front().attackStatusId) + "/" +
+							                         std::to_string(attack.results.front().damage));
+					} else if (attack.targetObjectId == npc) {
+						swingsFrom[attack.attackerObjectId]++;
+					}
+				} else if (packet.name == "SM_ATTACK_STATUS") {
+					const decoders::AttackStatusUpdate status = decoders::decodeAttackStatus(packet.data);
+					if (status.creatureObjectId == npc) {
+						hpChanges++;
+						damage += status.value;
+						damageBySkill[status.skillId] += status.value;
+					}
+				} else if (packet.name == "SM_MOVE" && decoders::decodeMoveObjectId(packet.data) == npc) {
+					lastMove = decoders::decodeNpcMove(packet.data);
+					moves++;
+				} else if (packet.name == "SM_EMOTION") {
+					const decoders::Emotion emotion = decoders::decodeEmotion(packet.data);
+					if (emotion.emotionType == decoders::EMOTION_DIE && emotion.senderObjectId == npc)
+						killer = emotion.targetObjectId;
+				}
+			} catch (const DecodeError&) {
+				// a body that does not decode says nothing about the npc
+			}
+		}
+		const auto who = [&](int32_t id) { return id == a.mageId ? std::string("the Mage") : id == a.warriorId ? std::string("the Warrior") : std::to_string(id); };
+		std::vector<std::string> at, from, bySkill;
+		for (const auto& [target, count] : swingsAt)
+			at.push_back(std::to_string(count) + " at " + who(target));
+		for (const auto& [attacker, count] : swingsFrom)
+			from.push_back(std::to_string(count) + " from " + who(attacker));
+		for (const auto& [skill, value] : damageBySkill)
+			bySkill.push_back(std::to_string(value) + " by skill " + std::to_string(skill));
+		return "npc " + std::to_string(npc) + ": swings " + (at.empty() ? std::string("none") : join(at)) +
+		       (statusesAtMage.empty() ? std::string() : " (first status/damage at the Mage " + join(statusesAtMage) + ")") + ", swung at by " +
+		       (from.empty() ? std::string("nobody") : join(from)) + ", " + std::to_string(hpChanges) + " HP changes (" + join(bySkill) + "), " +
+		       std::to_string(moves) + " SM_MOVE" +
+		       (lastMove ? " (the last " + std::to_string(distance2d(lastMove->x, lastMove->y, spot.x, spot.y)) + " m from its spot)" : std::string()) +
+		       ", " + (killer ? "died, last attacker " + who(*killer) : std::string("alive"));
+	};
+
 	runCase("S10", "monster A hits the Mage and dies to Flame Bolts", [&] {
-		const size_t from = a.game->recorded().size();
-		// monster A was hit in S9 (or resisted it) and hates the Mage; wait until it has damaged the Mage once, so X8 has HP to heal
-		const std::optional<size_t> hit = readUntil(
-		  *a.game,
-		  [&](const Packet& packet) {
-			  if (packet.name != "SM_ATTACK_STATUS")
-				  return false;
-			  try {
-				  const decoders::AttackStatusUpdate status = decoders::decodeAttackStatus(packet.data);
-				  return status.creatureObjectId == a.mageId && status.type == decoders::ATTACK_STATUS_TYPE_REGULAR && status.value > 0;
-			  } catch (const DecodeError&) {
-				  return false;
-			  }
-		  },
-		  30s);
-		ASSERT_TRUE(hit) << "monster A never damaged the Mage; X8 has nothing to heal";
+		size_t from = a.game->recorded().size();
+		const auto hitsMage = [&](const Packet& packet) {
+			if (packet.name != "SM_ATTACK_STATUS")
+				return false;
+			try {
+				const decoders::AttackStatusUpdate status = decoders::decodeAttackStatus(packet.data);
+				return status.creatureObjectId == a.mageId && status.type == decoders::ATTACK_STATUS_TYPE_REGULAR && status.value > 0;
+			} catch (const DecodeError&) {
+				return false;
+			}
+		};
+		const auto hitSince = [&](size_t since) {
+			for (size_t i = since; i < a.game->recorded().size(); i++)
+				if (hitsMage(a.game->recorded()[i]))
+					return true;
+			return false;
+		};
+		// monster A was hit in S9 (or resisted it) and hates the Mage; wait until it has damaged the Mage once, so X8 has HP to heal.
+		//
+		// G-07 (m5b3-plan.md §18.1, correcting §17.3/§17.5): this failed in the stage-2 run c2 (scratchpad stage2/fail-c2-gs.scenario.m5b2) and
+		// once for the gate-harness lane, 30 s after S10 began, with A's respawn in X12's kill list and A's death credited to the Mage. The
+		// cause is Java's own arithmetic, not a neighbour and not a port defect: S9's Flame Bolt was a magical critical (1282 has
+		// apply_magical_critical; value 141 x 1.5 on a critical, AttackUtil.java:318-323) and took all of the 199-HP A's life in S9. X4 still
+		// passes then - it expects min(announced, maxHp), and reduceHp sends the HP actually taken (CreatureLifeStats.java:100-110) - so "X4
+		// passed, A had HP left" was a wrong inference. The review's mutant RC9 (every magical-critical roll of the Mage succeeds) reproduced c2
+		// exactly (review2/fail-RC9-gs.scenario.m5b2). So A's death is looked for from S9's first packet on, and the wait for its swing also
+		// ends at its death. When A died without hitting the Mage, the case waits for A's respawn at spot A (waitForRespawnAt: an object first
+		// announced there after the death) and pulls it with an auto-attack, which cannot kill it (pullWithSwing); at most twice, and a living
+		// A that does not come is still a failure. The setup changes, X8's assertions do not.
+		std::vector<std::string> steps;
+		size_t deathsFrom = s9From;
+		std::optional<size_t> died = deathIndexOf(monsterA, deathsFrom);
+		bool hit = false;
+		if (!died) {
+			readUntil(*a.game, [&](const Packet& packet) { return hitsMage(packet) || isDeathOf(packet, monsterA); }, 30s);
+			hit = hitSince(from);
+			died = hit ? std::nullopt : deathIndexOf(monsterA, deathsFrom);
+		}
+		for (int32_t respawns = 0; !hit && died && respawns < 2; respawns++) {
+			steps.push_back(std::string("A (object ") + std::to_string(monsterA) + ") died " + (*died < from ? "in S9" : "in S10") +
+			                " without hitting the Mage: " + npcActivity(monsterA, *spotA, deathsFrom));
+			const std::optional<int32_t> respawned = waitForRespawnAt(*spotA, *died, std::chrono::seconds(monster.respawnTime) + 30s);
+			if (!respawned) {
+				steps.push_back("A did not respawn within " + std::to_string(monster.respawnTime + 30) + " s");
+				break;
+			}
+			monsterA = *respawned;
+			steps.push_back("A respawned as object " + std::to_string(monsterA));
+			const size_t pullFrom = a.game->recorded().size();
+			from = pullFrom;
+			deathsFrom = pullFrom;
+			a.game->send(GameSession::CM_TARGET_SELECT, GameSession::buildCM_TARGET_SELECT(monsterA));
+			collectFor(*a.game, 500ms);
+			steps.push_back(pullWithSwing(monsterA) ? "the Mage's swing went out" : "no swing of the Mage went out in three CM_ATTACK");
+			if (!hitSince(pullFrom) && !deathIndexOf(monsterA, pullFrom))
+				readUntil(*a.game, [&](const Packet& packet) { return hitsMage(packet) || isDeathOf(packet, monsterA); }, 30s);
+			hit = hitSince(pullFrom);
+			died = hit ? std::nullopt : deathIndexOf(monsterA, pullFrom);
+		}
+		if (!steps.empty())
+			std::cout << "S10 (G-07): " << join(steps, "; ") << (hit ? "; then A hit the Mage" : "") << std::endl;
+		ASSERT_TRUE(hit) << "monster A never damaged the Mage; X8 has nothing to heal: " << join(steps, "; ") << "; "
+		                 << npcActivity(monsterA, *spotA, deathsFrom);
 		for (int32_t casts = 0; casts < 15 && !recordSkills(*a.game, from).diedAt(monsterA); casts++) {
 			cast(a.mageId, FLAME_BOLT, monsterA, std::chrono::milliseconds(*boltPointer->castDuration + 4000));
 			collectFor(*a.game, 1500ms);
@@ -2003,9 +2226,19 @@ void runM5b2Gate(const GateVariant& variant) {
 	// ---- S14: the Mage dies to monster B (the setup of X10, not an assertion) ----
 	runCase("S14", "the Mage (1 HP) dies to monster B", [&] {
 		// the Mage is where it quit, CAST_DISTANCE from spot B. When B still hates it, its chase ends the 1 HP inside S13's burst; when the logout
-		// made B give up, nothing touches the Mage, and a pull is needed: a Flame Bolt, or - if that cast does not go out - an auto-attack, which a
-		// spellbook reaches from its 15 m (stage 0). The pull is repeated while B has not swung at the Mage, and every step is kept for the message.
-		const size_t from = a.game->recorded().size();
+		// made B give up, nothing touches the Mage, and a pull is needed. The pull is repeated while B has not swung at the Mage, and every step is
+		// kept for the message.
+		//
+		// G-07 (m5b3-plan.md §18.1, correcting §16.4): the pull used to be a Flame Bolt, and B died to it - the saved run of 2026-09-24
+		// (s1i/fail-r1-m5b2) shows B at spot B with one SM_ATTACK_STATUS, the Mage's first Flame Bolt, and dead, a 199-HP npc the script had only
+		// rooted. §16.4 read that as HP a neighbour's fight had drained; the tribes rule that out (210663's MONSTER is hostile only to YUN_GUARD;
+		// 203055's FARMER_HKERUBIM_LF1 and 210705's KERUBIM_AFARMER_LF1 only to each other, tribe_relations.xml). It is S10's cause: a magical
+		// critical Flame Bolt (141 x 1.5) takes a full 210663's 199 HP (the review's mutant RC9). So the pull is the spellbook's auto-attack
+		// (pullWithSwing), which cannot kill B, and a Flame Bolt only when no swing went out. When B dies anyway without killing the Mage, the case
+		// waits for B's respawn at spot B (waitForRespawnAt, the spot's respawn time, m5b-plan.md R4) and pulls the respawn, at most twice. The
+		// assertions of S15 and S16 do not change.
+		size_t from = a.game->recorded().size();
+		int32_t respawnsPulled = 0;
 		const auto died = [&] { return recordSkills(*a.game, 0).diedAt(a.mageId); };
 		const auto swungSince = [&](size_t since) {
 			for (const auto& status : recordSkills(*a.game, since).statusesOf(a.mageId))
@@ -2015,28 +2248,44 @@ void runM5b2Gate(const GateVariant& variant) {
 		};
 		std::vector<std::string> steps;
 		collectFor(*a.game, 3s);
-		const auto deadline = std::chrono::steady_clock::now() + 75s;
+		auto deadline = std::chrono::steady_clock::now() + 75s;
 		while (!died() && std::chrono::steady_clock::now() < deadline) {
+			if (const std::optional<size_t> bDied = deathIndexOf(monsterB, from); bDied && respawnsPulled < 2) {
+				steps.push_back("B (object " + std::to_string(monsterB) + ") died without killing the Mage; waiting for its respawn at spot B");
+				const std::optional<int32_t> respawned = waitForRespawnAt(*spotB, *bDied, std::chrono::seconds(monster.respawnTime) + 30s);
+				if (!respawned) {
+					steps.push_back("B did not respawn within " + std::to_string(monster.respawnTime + 30) + " s");
+					break;
+				}
+				monsterB = *respawned;
+				respawnsPulled++;
+				from = a.game->recorded().size();
+				deadline = std::chrono::steady_clock::now() + 75s;
+				steps.push_back("B respawned as object " + std::to_string(monsterB));
+				continue;
+			}
 			const size_t pullFrom = a.game->recorded().size();
 			if (!swungSince(from)) {
 				a.game->send(GameSession::CM_TARGET_SELECT, GameSession::buildCM_TARGET_SELECT(monsterB));
 				collectFor(*a.game, 500ms);
-				const GameSession::CastOutcome pull = cast(a.mageId, FLAME_BOLT, monsterB, std::chrono::milliseconds(*boltPointer->castDuration + 4000));
-				std::string refusal;
-				if (!pull.castSpell)
-					for (const auto& message : recordSkills(*a.game, pullFrom).systemMessages)
-						refusal += (refusal.empty() ? " (system messages " : ", ") + std::to_string(message.value);
-				steps.push_back(std::string("Flame Bolt ") + (pull.castSpellResult ? "completed" : pull.skillCancel ? "cancelled" : "not cast") +
-				                (refusal.empty() ? "" : refusal + ")"));
-				if (!pull.castSpell) {
-					a.game->send(GameSession::CM_ATTACK, GameSession::buildCM_ATTACK(monsterB));
-					steps.push_back("CM_ATTACK");
+				if (pullWithSwing(monsterB)) {
+					steps.push_back("the Mage's swing at B went out");
+				} else if (!died()) {
+					const GameSession::CastOutcome pull = cast(a.mageId, FLAME_BOLT, monsterB, std::chrono::milliseconds(*boltPointer->castDuration + 4000));
+					std::string refusal;
+					if (!pull.castSpell)
+						for (const auto& message : recordSkills(*a.game, pullFrom).systemMessages)
+							refusal += (refusal.empty() ? " (system messages " : ", ") + std::to_string(message.value);
+					steps.push_back(std::string("no swing went out in three CM_ATTACK; Flame Bolt ") +
+					                (pull.castSpellResult ? "completed" : pull.skillCancel ? "cancelled" : "not cast") + (refusal.empty() ? "" : refusal + ")"));
 				}
 			}
 			collectFor(*a.game, 8s);
 			if (!died())
 				steps.push_back(swungSince(pullFrom) ? "B swung, the Mage lives" : "B did not swing in 8 s");
 		}
+		std::cout << "S14 (G-07): " << (steps.empty() ? std::string("B killed the Mage without a pull") : join(steps, "; "))
+		          << (died() ? "; the Mage died" : "") << std::endl;
 		// what monster B did meanwhile, for the message only (a diagnosis of the one S14 failure of 2026-09-24, m5b2-plan.md §10.8)
 		const auto monsterBSummary = [&] {
 			const SkillRecording seen = recordSkills(*a.game, from);

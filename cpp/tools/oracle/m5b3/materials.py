@@ -34,11 +34,22 @@ from staticdata_oracle import OracleError
 from geo import GeoOracleError
 from geo import loader as geo_loader
 from geo.javamath import add, mul, sqrt, sub
-from geo.jgeo import transform_box
+from geo.jgeo import transform_box, v_normalize, v_sub
 from geo.pngread import read_png
+from geo.probes import Ambiguous, IndexedGeometry, MapScene
 from m5a.data import StaticData, java_int
 
 SHIELD_MATERIAL = 11  # ZoneService.createMaterialZoneTemplate: `if (geometry.getMaterialId() == 11)` -> ShieldService
+
+# AbstractCollisionObserver.moved, the TOUCH arm (controllers/observer/AbstractCollisionObserver.java:47-64): a vertical ray from
+# z + 0.05f + boundRadius.upper down to geoZ - 0.11f, geoZ being GeoService.getZ(worldId, x, y, z, instanceId) = GeoMap.getZ(x, y, z + 2, z - 2)
+# (GeoService.java:57-59), or z - 0.11f when that is NaN
+TOUCH_ABOVE = 0.05
+TOUCH_BELOW = 0.11
+GEO_Z_HALF_RANGE = 2.0
+# a player's BoundRadius: (0.25, 0.25, PlayerAppearance.getBoundHeight()) (PlayerAccountData.java:99), getBoundHeight = height * 1.75f
+# (PlayerAppearance.java:1051-1053); the scenario characters are created with height 1.0 (GameSession.h CharacterAppearance)
+PLAYER_BOUND_UPPER = 1.75
 
 
 def material_templates(data: StaticData) -> dict[int, list[dict]]:
@@ -84,8 +95,202 @@ def terrain_materials(geo_dir: Path, world_maps_xml: Path, map_id: int, material
 	        "withSkills": {str(k): {"samples": v, "skills": materials[k]} for k, v in sorted(histogram.items()) if materials.get(k)}}
 
 
+def inside_area(area: dict, x: float, y: float, z: float) -> bool:
+	"""Area.isInside3D of a material zone's area (ZoneInstance.revalidate, ZoneInstance.java:49-50): a SphereArea is PositionUtil.isInRange, a
+	squared distance below r^2 (PositionUtil.java:257-262); a SemisphereArea also needs the center below the point (`this.z < z`,
+	SemisphereArea.isInside3D); a CylinderArea is AbstractArea.isInside3D, isInsideZ and a 2D distance below r (CylinderArea.java:67-69)"""
+	kind = area["type"]
+	if kind == "CYLINDER":
+		return area["bottom"] <= z <= area["top"] and math.dist((x, y), (area["x"], area["y"])) < area["r"]
+	if (x - area["x"]) ** 2 + (y - area["y"]) ** 2 + (z - area["z"]) ** 2 >= area["r"] ** 2:
+		return False
+	return kind != "SEMISPHERE" or area["z"] < z
+
+
+def area_depth(area: dict, x: float, y: float, z: float) -> float:
+	"""how deep (x, y, z) lies inside inside_area's region (positive, the distance to its nearest boundary) or how far outside it (negative; a
+	lower bound of the distance, so a margin read from it is never too generous)"""
+	kind = area["type"]
+	if kind == "CYLINDER":
+		return min(area["r"] - math.dist((x, y), (area["x"], area["y"])), z - area["bottom"], area["top"] - z)
+	depth = area["r"] - math.dist((x, y, z), (area["x"], area["y"], area["z"]))
+	return min(depth, z - area["z"]) if kind == "SEMISPHERE" else depth
+
+
+class TouchScene:
+	"""the map's geometries for GeoMap.getZ (tools/oracle/geo/probes.py MapScene) and each skill zone's own geometry for the TOUCH check"""
+
+	def __init__(self, map_id: int, geometries: list, heightmap, zone_geometries: dict[str, object]):
+		self.scene = MapScene(map_id, geometries, heightmap)
+		by_geometry = {id(indexed.geometry): indexed for indexed in self.scene.geometries}
+		self.zone_geometry = {name: by_geometry[id(geometry)] for name, geometry in zone_geometries.items()}
+
+	def surface_z(self, x: float, y: float, z_max: float, z_min: float) -> float:
+		"""GeoMap.getZ(x, y, zMax, zMin): the PHYSICAL surface nearest zMax, NaN if none (GeoMap.java:114-135). @raises Ambiguous"""
+		return self.scene.get_z(x, y, z_max, z_min)[0]
+
+	def touched(self, zone_name: str, x: float, y: float, z: float, bound_upper: float) -> bool:
+		"""ZoneCollisionMaterialActor's TOUCH check for a walking player at (x, y, z) (AbstractCollisionObserver.java:47-64, 71-76): the ray from
+		z + 0.05 + upper down to geoZ - 0.11 hits the zone's geometry. @raises Ambiguous"""
+		geo_z = self.surface_z(x, y, z + GEO_Z_HALF_RANGE, z - GEO_Z_HALF_RANGE)
+		z_max = z + TOUCH_ABOVE + bound_upper
+		z_min = (z if math.isnan(geo_z) else geo_z) - TOUCH_BELOW
+		origin = (x, y, z_max)
+		direction = v_normalize(v_sub((x, y, z_min), origin))
+		hits: list = []
+		self.scene._collide_geometry(self.zone_geometry[zone_name], origin, direction, z_max - z_min, 0, hits, through_map=False)
+		return bool(hits)
+
+
+def stand_report(touch: TouchScene, skill_zones: list[dict], target: dict, bound_upper: float = PLAYER_BOUND_UPPER, step: float = 0.02,
+                 min_clearance: float = 0.05, step_off_distance: float = 4.0) -> dict:
+	"""m5b3-plan.md G-04 (§10.5, §13 question 3): where a player stands so that `target` is the ONLY skill zone whose material actor acts.
+
+	Every skill zone whose area holds the player gets its own ZoneCollisionMaterialActor (MaterialZoneHandler.onEnterZone), but a creature has
+	one ZONE_MATERIAL_ACTION task: AbstractMaterialSkillActor.act schedules the 1 s MaterialSkillTask only when the creature has none
+	(AbstractMaterialSkillActor.java:37-44), with the skills of the actor that was touched FIRST - and the zones' collision checks run on the
+	thread pool (AbstractCollisionObserver.moved), so where two zones are touched the order, and so which zone's conditions apply, is a race.
+	A point where the target zone is inside and touched and every other zone the player is inside is NOT touched makes the ticks the target's.
+
+	The grid covers the target geometry's world bound in `step` metres. A client standing at (x, y) reports the highest PHYSICAL surface there
+	(the fire meshes are PHYSICAL | MATERIAL). The chosen point is the valid one farthest from any invalid grid point (its clearance, at least
+	`min_clearance`); ties go to the one nearer the zone center. The step-off point is `step_off_distance` from the target center, on the
+	ground, inside no skill zone's area, and farthest from the other zones."""
+	cx, cy, cz = target["center"]
+	ex, ey, ez = target["extents"]
+	nearby = [z for z in skill_zones if math.dist(z["center"], target["center"]) <= z["area"]["r"] + target["area"]["r"] + step_off_distance + 2]
+	nx = int(math.ceil(2 * ex / step)) + 1
+	ny = int(math.ceil(2 * ey / step)) + 1
+	grid: dict[tuple[int, int], dict] = {}
+	counts = {"points": 0, "noSurface": 0, "ambiguous": 0, "targetInside": 0, "targetTouched": 0, "targetOnly": 0, "othersTouched": 0}
+	for i in range(nx):
+		for j in range(ny):
+			x = cx - ex + i * step
+			y = cy - ey + j * step
+			counts["points"] += 1
+			cell = {"x": x, "y": y, "valid": False}
+			grid[(i, j)] = cell
+			try:
+				z = touch.surface_z(x, y, cz + ez + GEO_Z_HALF_RANGE, cz - ez - GEO_Z_HALF_RANGE)
+				if math.isnan(z):
+					counts["noSurface"] += 1
+					continue
+				cell["z"] = z
+				inside = [zone["zoneName"] for zone in nearby if inside_area(zone["area"], x, y, z)]
+				touched = [name for name in inside if touch.touched(name, x, y, z, bound_upper)]
+			except Ambiguous:
+				# a ray near a triangle edge: inside the mesh that is an edge two of its own triangles share, which cannot change "touched", so
+				# the cell is neither a candidate nor a reason to keep away from its neighbours
+				counts["ambiguous"] += 1
+				cell["unknown"] = True
+				continue
+			cell["inside"], cell["touched"] = inside, touched
+			if target["zoneName"] in inside:
+				counts["targetInside"] += 1
+			if target["zoneName"] in touched:
+				counts["targetTouched"] += 1
+				if touched == [target["zoneName"]]:
+					counts["targetOnly"] += 1
+					cell["valid"] = True
+				else:
+					counts["othersTouched"] += 1
+	best = None
+	for (i, j), cell in grid.items():
+		if not cell["valid"]:
+			continue
+		clearance = math.inf
+		for (k, m), other in grid.items():
+			if not other["valid"] and not other.get("unknown"):
+				clearance = min(clearance, math.hypot((k - i) * step, (m - j) * step))
+		# the grid's border: beyond it the target geometry is not under the point, so it counts as invalid
+		clearance = min(clearance, (i + 1) * step, (nx - i) * step, (j + 1) * step, (ny - j) * step)
+		key = (round(clearance, 6), -math.dist((cell["x"], cell["y"]), (cx, cy)))
+		if best is None or key > best[0]:
+			best = (key, cell, clearance)
+	stand = None
+	if best is not None and best[2] >= min_clearance:
+		cell = best[1]
+		stand = {"x": cell["x"], "y": cell["y"], "z": cell["z"], "clearance": best[2], "inside": cell["inside"], "touched": cell["touched"],
+		         "distanceToCenter": math.dist((cell["x"], cell["y"], cell["z"]), target["center"])}
+	step_off = None
+	others = [z for z in nearby if z["zoneName"] != target["zoneName"]]
+	for k in range(16):
+		angle = 2 * math.pi * k / 16
+		x, y = cx + step_off_distance * math.cos(angle), cy + step_off_distance * math.sin(angle)
+		try:
+			z = touch.surface_z(x, y, cz + 3, cz - 3)
+		except Ambiguous:
+			continue
+		if math.isnan(z) or any(inside_area(zone["area"], x, y, z) for zone in nearby):
+			continue
+		spacing = min((math.dist((x, y), zone["center"][:2]) for zone in others), default=math.inf)
+		if step_off is None or spacing > step_off["nearestOtherZone"]:
+			step_off = {"x": x, "y": y, "z": z, "nearestOtherZone": spacing}
+	return {"zoneName": target["zoneName"], "boundUpper": bound_upper, "step": step, "minClearance": min_clearance, "grid": counts,
+	        "nearbyZones": [{"zoneName": z["zoneName"], "materialId": z["materialId"], "conditions": [c for s in z["skills"] for c in (s["conditions"] or [])],
+	                         "distance": math.dist(z["center"], target["center"])} for z in nearby],
+	        "point": stand, "stepOff": step_off, "untouched": untouched_point(touch, nearby, target, bound_upper)}
+
+
+def untouched_point(touch: TouchScene, nearby: list[dict], target: dict, bound_upper: float = PLAYER_BOUND_UPPER, step: float = 0.05,
+                    min_outside_bound: float = 0.25, max_height: float = 1.0, min_margin: float = 0.05) -> dict | None:
+	"""m5b3-plan.md §18.2 (the review of stage 2): a point INSIDE the target zone's area - and no other skill zone's - whose TOUCH ray misses
+	every mesh, so a correct server creates the target's ZoneCollisionMaterialActor there (MaterialZoneHandler.onEnterZone -> actor.moved())
+	and never touches it, and a port that ignores the ray (isTouched = true) starts the fire's task there. The stand point cannot show that:
+	it is on the fire mesh, touched either way.
+
+	The columns are a `step` grid over the area's disc, at least `min_outside_bound` outside the target geometry's world bound horizontally
+	(no vertical ray there can reach the geometry); in each, the heights are the highest PHYSICAL surface and the heights `step` apart above
+	the area's center within `max_height` of that surface - a SEMISPHERE is entered only above its center, and its fire stands on a floor
+	below it, so the client may have to report a z above the floor (CM_MOVE takes the client's z, CM_MOVE.java). A candidate's margin is the
+	least of its depth inside the target's area and its distance outside every other nearby zone's (area_depth); the point is the candidate
+	with the largest margin, at least `min_margin`, whose emulated TOUCH checks (TouchScene.touched) all miss; ties go to the lower one."""
+	cx, cy, cz = target["center"]
+	ex, ey, _ = target["extents"]
+	r = target["area"]["r"]
+	others = [z for z in nearby if z["zoneName"] != target["zoneName"]]
+	n = int(math.ceil(r / step))
+	counts = {"columns": 0, "ambiguous": 0, "noSurface": 0, "candidates": 0, "rejected": 0}
+	candidates = []
+	for i in range(-n, n + 1):
+		for j in range(-n, n + 1):
+			x, y = cx + i * step, cy + j * step
+			outside_bound = max(abs(x - cx) - ex, abs(y - cy) - ey)
+			if outside_bound < min_outside_bound or math.dist((x, y), (cx, cy)) >= r:
+				continue
+			counts["columns"] += 1
+			try:
+				surface = touch.surface_z(x, y, cz + r + GEO_Z_HALF_RANGE, cz - r - GEO_Z_HALF_RANGE)
+			except Ambiguous:
+				counts["ambiguous"] += 1
+				continue
+			if math.isnan(surface):
+				counts["noSurface"] += 1
+				continue
+			heights = [surface] + [cz + k * step for k in range(1, n + 1) if surface < cz + k * step <= surface + max_height]
+			for z in heights:
+				margin = min([area_depth(target["area"], x, y, z)] + [-area_depth(o["area"], x, y, z) for o in others])
+				if margin >= min_margin:
+					candidates.append(((round(margin, 6), -round(z - surface, 6)), x, y, z, surface, outside_bound, margin))
+	counts["candidates"] = len(candidates)
+	candidates.sort(key=lambda c: c[0], reverse=True)
+	for _, x, y, z, surface, outside_bound, margin in candidates:
+		try:
+			inside = [zone["zoneName"] for zone in nearby if inside_area(zone["area"], x, y, z)]
+			touched = [name for name in inside if touch.touched(name, x, y, z, bound_upper)]
+		except Ambiguous:
+			counts["ambiguous"] += 1
+			continue
+		if inside != [target["zoneName"]] or touched:
+			counts["rejected"] += 1  # a ray that hit a mesh (or, on a float edge, another zone's area)
+			continue
+		return {"x": x, "y": y, "z": z, "surfaceZ": surface, "height": z - surface, "margin": margin, "outsideBound": outside_bound,
+		        "inside": inside, "touched": touched, "distanceToCenter": math.dist((x, y, z), target["center"]), "search": counts}
+	return None
+
+
 def material_report(data: StaticData, geo_dir: Path, world_maps_xml: Path, map_id: int, near: tuple[float, float, float] | None,
-                    radius: float | None = None, limit: int | None = None) -> dict:
+                    radius: float | None = None, limit: int | None = None, stand: bool = False, bound_upper: float = PLAYER_BOUND_UPPER) -> dict:
 	materials = material_templates(data)
 	placed: dict[int, list] = {}
 	try:
@@ -96,6 +301,7 @@ def material_report(data: StaticData, geo_dir: Path, world_maps_xml: Path, map_i
 		raise OracleError(f"map {map_id} is not a world map of {world_maps_xml}")
 	geometries = placed.get(map_id, [])
 	zones: dict[str, dict] = {}
+	zone_geometries: dict[str, object] = {}  # the geometry whose zone was created (the first one of a name)
 	duplicates: list[str] = []
 	without_template: dict[int, int] = {}
 	for geometry in geometries:
@@ -121,6 +327,7 @@ def material_report(data: StaticData, geo_dir: Path, world_maps_xml: Path, map_i
 			zone["distance"] = math.dist(near, center)
 			zone["distance2d"] = math.dist(near[:2], center[:2])
 		zones[zone_name] = zone
+		zone_geometries[zone_name] = geometry
 	skill_zones = [z for z in zones.values() if z["skills"]]
 	by_material: dict[int, int] = {}
 	for zone in skill_zones:
@@ -135,6 +342,13 @@ def material_report(data: StaticData, geo_dir: Path, world_maps_xml: Path, map_i
 		listed = listed[:limit]
 	unconditional = [z for z in skill_zones if any(s["conditions"] is None for s in z["skills"])]
 	nearest_unconditional = min(unconditional, key=lambda z: z["distance"]) if near is not None and unconditional else None
+	stand_section = None
+	if stand:
+		if nearest_unconditional is None:
+			raise OracleError("--stand needs --near and an unconditional skill zone on the map")
+		touch = TouchScene(map_id, geometries, geo_loader.read_heightmap(result.terrains.get(map_id)),
+		                   {z["zoneName"]: zone_geometries[z["zoneName"]] for z in skill_zones})
+		stand_section = stand_report(touch, skill_zones, nearest_unconditional, bound_upper)
 	return {
 		"format": "aion-m5b3-material",
 		"version": 1,
@@ -151,6 +365,8 @@ def material_report(data: StaticData, geo_dir: Path, world_maps_xml: Path, map_i
 		"nearestUnconditional": nearest_unconditional,
 		"zones": listed,
 		"terrain": terrain_materials(geo_dir, world_maps_xml, map_id, materials),
-		"notModelled": ["which positions pass the TOUCH check of ZoneCollisionMaterialActor on a zone's mesh (m5b3-plan.md risk 9, G-04)",
+		"stand": stand_section,
+		"notModelled": ["without --stand: which positions pass the TOUCH check of ZoneCollisionMaterialActor on a zone's mesh (m5b3-plan.md "
+		                "risk 9, G-04); --stand emulates it in double precision and keeps a clearance from every grid point it rejects",
 		                "the conditions of a material skill (SUNNY, NIGHT: the weather and the game time decide them)"],
 	}

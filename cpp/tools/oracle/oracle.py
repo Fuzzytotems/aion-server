@@ -16,7 +16,7 @@
 	oracle.py m5b3-drops (--npc ID [--map ID] | --survey --map ID) [--player-level N] [--race R] [--drop-rate R]   (m5b3/drops.py, m5b3-plan.md G-01)
 	                     [--inventory ITEM[:COUNT] ...] [--cube-expansions N]   (the cube-slot budget, m5b3/items.py)
 	oracle.py m5b3-item (--item ID [--item ID ...] | --survey --map ID [--map ID ...])   (m5b3/items.py, m5b3/survey.py, m5b3-plan.md G-01)
-	oracle.py m5b3-material --map ID [--near X,Y,Z] [--radius R] [--limit N] [--geo-dir DIR]   (m5b3/materials.py, m5b3-plan.md G-01)
+	oracle.py m5b3-material --map ID [--near X,Y,Z [--stand [--bound-upper U]]] [--radius R] [--limit N] [--geo-dir DIR]   (m5b3/materials.py, G-01, G-04)
 	oracle.py m5c-trade (--npc ID [--item ID] | --item ID | --map ID) [--count N] [--race R] [--set KEY=VALUE ...]   (m5c/trade.py, m5c-plan.md G-01)
 	oracle.py m5c-craft (--recipe ID [--skill-level N] [--craft-type 0|1] | --skill ID --level N [--map ID] | --gatherable ID [--skill-level N])
 	                    [--skill-xp X] [--character-level N] [--membership M] [--set KEY=VALUE ...]   (m5c/craft.py, m5c-plan.md §2.6 G-01)
@@ -237,7 +237,10 @@ def cmd_m5b3_material(args):
 			raise OracleError(f"--near {args.near}: not x,y,z")
 	geo_dir = Path(args.geo_dir) if args.geo_dir else data_dir.parent / "geo"
 	world_maps = data_dir / "world_maps.xml"
-	report = material_report(StaticData(data_dir), geo_dir, world_maps, args.map, near, args.radius, args.limit)
+	if args.stand and near is None:
+		raise OracleError("--stand needs --near")
+	extra = {} if args.bound_upper is None else {"bound_upper": args.bound_upper}
+	report = material_report(StaticData(data_dir), geo_dir, world_maps, args.map, near, args.radius, args.limit, stand=args.stand, **extra)
 	sys.stdout.write(runner.dump_json(report))
 	return 0
 
@@ -449,6 +452,12 @@ def main(argv=None):
 	p.add_argument("--near", metavar="X,Y,Z", help="sort the zones by their distance from this point (e.g. the race's spawn point)")
 	p.add_argument("--radius", type=float, help="only the zones whose center is within this distance of --near")
 	p.add_argument("--limit", type=int, help="list at most this many zones (the counts cover all)")
+	p.add_argument("--stand", action="store_true",
+	               help="with --near: where a player stands so that the nearest unconditional zone is the only one whose TOUCH check passes, a "
+	                    "step-off point outside every zone and an untouched point inside that zone alone where every TOUCH ray misses (the `stand` "
+	                    "section, m5b3-plan.md G-04, §18.2)")
+	p.add_argument("--bound-upper", type=float, dest="bound_upper", default=None,
+	               help="the player's BoundRadius.upper for the TOUCH ray (default 1.75: PlayerAppearance height 1.0 x 1.75)")
 	p.set_defaults(fn=cmd_m5b3_material)
 
 	p = sub.add_parser("m5c-trade", help="a merchant's goods with their buy prices, what it pays for a sold item, and a map's merchants (m5c-plan.md G-01)")
@@ -542,4 +551,9 @@ def main(argv=None):
 
 
 if __name__ == "__main__":
+	# the answers are JSON with ensure_ascii=False (runner.dump_json), and a static-data name can hold a character outside ASCII (the M5b-3
+	# godstone "Freyr's Esprit" of item_templates.xml): redirected on Windows, stdout would encode it in the ANSI code page, which the gate's JSON
+	# parser (nlohmann, Oracle.cpp) refuses as ill-formed UTF-8 - so the command line answers in UTF-8 whatever the platform
+	if hasattr(sys.stdout, "reconfigure"):
+		sys.stdout.reconfigure(encoding="utf-8")
 	sys.exit(main())

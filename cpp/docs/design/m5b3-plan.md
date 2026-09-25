@@ -2,8 +2,11 @@
 
 > **Status:** plan **rev 2**, 2026-09-23 — rev 1 after its adversarial review (22 findings, 2 high; §14 lists them and what changed).
 > **Stage 0 applied 2026-09-24** on `27726d32c`: §15 records what landed, the I-03 leases and what §7 got wrong. **Stage 1 integrated
-> 2026-09-24** (L-01 with G-05, not yet committed): §16 records what landed, the re-derived counts, the gates before and after, and what
-> stage 2 must know. A
+> 2026-09-24** (L-01 with G-05, committed as `4867fbc44`): §16 records what landed, the re-derived counts, the gates before and after, and
+> what stage 2 must know. **Stage 2 (the gate) 2026-09-24**, not yet committed: §17 records `gs.scenario.m5b3` and `_geo`, the camp-fire
+> measurement, the corrections to §10, the mutation runs and M5b-2's S14/S10 setup fixes; **§18 records the fixes after the review of stage
+> 2** (S10/S14's real cause, a magical critical Flame Bolt; Y15's untouched point; Y2's RY2 run; the documentation corrections).
+> **The regate of stage 2, 2026-09-24 (§19):** the full build, the unit suite and all eleven gates passed; **M5b-3 is complete**. A
 > **read-only** analysis over HEAD `c1edb0afb` ("M5b-2 stage 1 part 2: the cast engine and the effect
 > core") plus the uncommitted M5b-2 part 3 lanes in the working tree (P5-01, P5-03, P5-04), against the Java 4.8 tree. **Nothing was compiled,
 > built or run for this plan**; every C++ statement below comes from reading the two trees, from `tools/porting/chunks.py files|owner` and from
@@ -689,6 +692,19 @@ C1-C3 as M5b-1 (login, create, enter world, level ready). L0: `oracle.py m5b3-lo
 | **Y14** | L13 | `DropNpc` created 3 (two 210663, one 210133) live 0; `DropItem` live 0; `AttackResult`, `Effect` live 0; `Item` within its account bound. | **Proves:** every corpse was looted empty (L3, L4, **L6c**) and deleted and nothing kept a drop, a looter or an effect. **Cannot prove:** the 300 s path (the script never leaves a drop). | `resendDropList` not deleting; `unregisterDrop` skipped; a looter pinned by a thrown `requestDropList` |
 | **Y16** | L11 | (rev 2; rev 1 had no row for the swap) `CM_REPLACE_ITEM(0, cube item, 1, warehouse item)` yields, in this order: `SM_DELETE_ITEM(cube item, MOVE)` + `SM_CUBE_UPDATE`, `SM_DELETE_WAREHOUSE_ITEM(1, warehouse item, MOVE)` + `SM_CUBE_UPDATE`, then `SM_INVENTORY_ADD_ITEM(the former warehouse item)` + `SM_CUBE_UPDATE`, `SM_WAREHOUSE_ADD_ITEM(the former cube item)` + `SM_CUBE_UPDATE` — "delete items, then add items" (ItemMoveService.java:115-125; each delete and add goes through ItemPacketService.java:178-185 and :214-228) — and each added item carries the other's former slot. | **Proves:** `CM_REPLACE_ITEM`, `switchItemsInStorages`, its restriction checks passing for storable items. **Cannot prove:** the restricted arm (the two unlock packets; a T-07 unit case). | the adds sent before the deletes (the client drops the items it just received); the slots not exchanged (Y12's rows) |
 
+**Corrected 2026-09-24 (stage 2, §17.2):** Y5 (the sword's stats are no stat functions of the item; parry, accuracy and critical must fall
+too), Y7 and Y15 (TYPE.DAMAGE goes on the wire negated: "value > 0" is a damage, a negative int), Y8 (the heal-over-time lives duration2 +
+1000 = 21,000 ms), Y9 ("no packet at all" is no item or storage packet: the potion's ticks go on), Y12 (after L11 the junk is back in the
+cube and the mana potions are in the warehouse), Y14 (the run-time drops are `RuntimeDropItem`; `Effect` live equals `effectsHeld`) and the
+slots and budget of L3b and L8-L11. The gate follows the Java; §10 is left as it was reviewed.
+
+**Corrected 2026-09-24 (the review of stage 2, §18):** **Y14 does not prove "deleted"** - the counts are written after the shutdown, which
+deletes a corpse that outlived its loot, so `resendDropList` without `delete()` leaves `DropNpc` live 0 and `dropNpcsHeld` 0 (the review's
+mutant RK1 failed Y3 alone); Y3's "`SM_DELETE(corpse)` within 1 s" is the only proof of the delete. **Y8** checks only the 37 arm of
+min(37, maxHp − hp): L7 seeds 100 of 284 HP, so the cap arm is never reached (the review's RV2, `calculateHealValue` without the cap,
+survived; on the wire it is equivalent while `CreatureLifeStats.increaseHp` clamps). **Y15** gained a negative case for the TOUCH ray
+(§10.5, §18.2).
+
 ### 10.4 Mutation proof (the minimum set)
 
 | Mutation | Must fail | Must stay green |
@@ -713,6 +729,18 @@ C1-C3 as M5b-1 (login, create, enter world, level ready). L0: `oracle.py m5b3-lo
 | a socketed godstone not written by `ItemStoneListDAO` | **Y12** (moved from Y7, rev 2) | Y6, Y7 |
 | a `DropItem` kept in a static | **Y14** | Y13 |
 
+**Stage 2 (2026-09-24, §17.4):** the mutants actually run against the gate. Two rows of this table are wrong: `onItemUnequipment` without
+`endEffect(item)` is an equivalent mutant for the starter sword (it has no `<modifiers>`; Y5 is killed by `Equipment.unEquip` keeping the
+weapon instead), and `splitItem` without the decrease fails Y10 alone (Y12 compares the database with what the client was told, and both
+carry the duplicated count).
+
+**Corrected 2026-09-24 (the review of stage 2, §18.3-§18.4):** the row "`resendDropList`: skip `delete()` → Y3, Y14" is **Y3 alone** (RK1;
+Y14's counts are written after the shutdown deleted the corpse). Rows of this table **never run as mutants**: `checkGlobalRuleNpcGroups`
+answering true, `isAllowedDefaultGlobalDropNpc` without its Poeta/Ishalgen exemption, `collectDrops` ignoring `max_drop_rule`, the item-race
+rows and `getLootEffectId` / `getItemCount` (L-05's by the table itself), `ItemSocketService` synchronous (M6 ran the 0 ms schedule
+instead), and a `DropItem` kept in a static (M14 ran `unregisterDrop` a no-op instead). Y2's count and bijection rows got their "the others
+pass" run in §18.3 (RY2: `checkGlobalRuleWorlds` never matching).
+
 ### 10.5 The geo gate (`gs.scenario.m5b3_geo`)
 
 The whole script with `gameserver.geodata.enable = true`, `LABELS "scenario;realdata;geo"`, the same lock, **plus one case the flat run
@@ -725,6 +753,17 @@ force type and `ProcAtkInstantEffect` through `applyEffectDirectly`. **Cannot pr
 conditions of materials 61/62. **Mutations:** `ProcAtkInstantEffect::applyEffect` a no-op (no packet); the task firing every second (1 s
 apart). If G-04 finds a fake client cannot trigger the collision observer, it says so and the geo gate stays a re-run (m5b-plan.md §6.4's
 precedent).
+
+**Stage 2 (2026-09-24, §17.2 items 9-10):** a fake client triggers it. The point is `oracle.py m5b3-material --stand`'s, ON the fire mesh
+(the zone is a SEMISPHERE, entered only above its center) and outside the firepot's mesh, so the firepot's actor exists but is never touched;
+the per-zone counting and the pinned weather of the hand-off notes are not needed (a creature has one material task). "value > 0" is a
+damage: TYPE.DAMAGE is written negated.
+
+**Corrected 2026-09-24 (the review of stage 2, §18.2):** the stand point alone cannot prove the TOUCH ray - it is on the fire mesh, touched
+either way, and the step-off point is inside no zone, so a port with `isTouched = true` passed the whole geo gate (the review's RV1). L14
+now first stands 7 s on the oracle's **untouched point**: inside the fire's SEMISPHERE and no other zone, 0.25 m or more beside the fire's
+mesh, where every emulated TOUCH ray misses; no tick may come there. Y15 **proves** the ray's negative arm now; it still cannot prove the
+damage value, the NIGHT and not-raining conditions, or either abort path alone.
 
 ---
 
@@ -758,6 +797,10 @@ events on, the active events' drop rules add entries to every corpse — Java's 
     stigma, tuning/identifying, group loot. Note the item ids that appear in `unported_trace.txt` — they are M5c's entry list.
 12. With geo on, walk into a **camp fire**: you take a little fire damage every 5 seconds (before M5b-3 each of those ticks threw inside the material task).
 13. Send `game-server/log/`, `m5a_summary.txt`, `live_counts.txt`, `partial_trace.txt` and `unported_trace.txt`.
+
+**Corrected 2026-09-24 (the regate of stage 2, §19.5):** what the gates measured for each item. Item 8's heal-over-time lasts **21 s**, not 20.
+Item 12's fire burns only a character standing **on** the fire. Items 4, 7 and 9 are not covered by any gate: item 7 cannot be done at all
+until M5c ports the npc dialog.
 
 ---
 
@@ -825,8 +868,9 @@ the M5b gate's R3); m5b2-plan.md D13's godstone/material note (**confirmed and s
 2. **Whether `SM_INVENTORY_UPDATE_ITEM`'s full blob for a socketed weapon decodes with the existing `decodeInventoryInfo` reader** or needs the
    godstone blob entry added (G-02).
 3. ~~How the material collision observer is attached~~ — **answered (rev 2):** on zone entry, by `MaterialZoneHandler::onEnterZone`
-   (`MaterialZoneHandler.cpp:47-69`), and the task skips a player under spawn protection (`AbstractMaterialSkillActor.cpp:70`). **Still open:**
-   which reported coordinates pass the TOUCH test on the fire's mesh (G-04 measures it).
+   (`MaterialZoneHandler.cpp:47-69`), and the task skips a player under spawn protection (`AbstractMaterialSkillActor.cpp:70`). ~~**Still
+   open:** which reported coordinates pass the TOUCH test on the fire's mesh~~ — **answered in stage 2 (§17.2 item 9):** the points above the
+   fire mesh's own triangles, at a z above the SEMISPHERE's center; `oracle.py m5b3-material --stand` emulates the ray over a 2 cm grid.
 4. ~~Whether any AI handler overrides `handleDropRegistered`~~ — **answered (rev 2):** only data/handlers/ai/events/HalloweenPumpkinAI.java:60,
    an event npc that is not on the start maps; the C++ default is the inline no-op of `AITemplate.h:102`.
 5. ~~The cube budget~~ — **settled in the plan (rev 2):** three corpses, worst case 10 + 8 + 8 new stacks against 27 slots, handled by L3b and
@@ -1048,6 +1092,13 @@ logged out — m5b2-plan.md's reading (b), a fight with a neighbour (203055 "mer
 The script then pulled a dead npc for 75 s. It is the gate script's problem, not the server's: S14 should notice that B died to its pull and
 wait for B's respawn at spot B (G-07). Stage 1 did not touch it.
 
+**Corrected 2026-09-24 (the review of stage 2, §18.1):** the cause is not a neighbour. The tribes rule it out (210663's `MONSTER` is hostile
+only to `YUN_GUARD`; 203055's `FARMER_HKERUBIM_LF1` and 210705's `KERUBIM_AFARMER_LF1` only to each other, tribe_relations.xml), and no
+drained HP is needed: Flame Bolt 1282 has `apply_magical_critical`, and a magical critical multiplies its 141 by 1.5
+(AttackUtil.calculateSkillResult -> calculateWeaponCritical, AttackUtil.java:191-208, 318-323), which takes all 199 HP of a full 210663. The
+review's mutant RC9 (every magical-critical roll of the Mage succeeds) shows it. S14 now pulls with the spellbook's auto-attack, which cannot
+kill B, and keeps the respawn branch.
+
 ### 16.5 What stage 2 (G-03, G-04, G-07) must know
 
 - **The profile.** `game-server/config/m5b3.properties.example` has the keys (§10.1); `M5b3ScenarioTest.cpp` passes them as `-D` arguments
@@ -1094,3 +1145,407 @@ wait for B's respawn at spot B (G-07). Stage 1 did not touch it.
 - Process notes: three lanes edited a `cpp/` file once with `sed -i` or Python against the Edit/Write rule (player side, effects, loot; each
   verified LF), and so did this integration once, on this plan (the two `cycles.toml` citations; LF verified). All `build/b3-*` build
   directories are deleted; their logs in `build/` can go.
+
+---
+
+## 17. Stage 2 results (the gate), 2026-09-24
+
+G-03, G-04 and G-07 on the working tree over HEAD `4867fbc44`. **No production file changed**: every divergence the gate found was the
+plan's, not the port's. Nothing is committed.
+
+### 17.1 What landed
+
+| Item | Files | What |
+|---|---|---|
+| G-03 | `tests/scenario/M5b3ScenarioTest.cpp` (new), `ScenarioTests.cmake`, `tests/scenario/m5b3_partial_allowlist.txt` (new) | `TEST(M5b3Scenario, Run)` as `gs.scenario.m5b3`: `<bin>/scenario/m5b3`, schemas `aion_{ls,gs}_test_m5b3_<hash>`, the shared `RESOURCE_LOCK`, TIMEOUT 900, the profile of `m5b3.properties.example` key by key; cases S-0, L0, C1-C3, L1-L3, L4 (with L3b), L5, L6, L6b-L6c (with L3b), L7, L8, L9, L10, L11, L12, L13 |
+| G-04 | the same file, `ScenarioTests.cmake`; `tools/oracle/m5b3/materials.py`, `geo/probes.py`, `oracle.py`, `tests/test_m5b3_items.py` | `TEST(M5b3ScenarioGeo, Run)` as `gs.scenario.m5b3_geo` (TIMEOUT 2700, labels `scenario;realdata;geo`) with case L14, the camp fire; `oracle.py m5b3-material --near X,Y,Z --stand` emulates the TOUCH ray (AbstractCollisionObserver.java:47-76) and picks the point; `MaterialStandTest` (2 cases) on a synthetic scene |
+| G-07 | `tests/scenario/M5b2ScenarioTest.cpp` | S14: when monster B dies without killing the Mage, the case waits for B's respawn at spot B (`respawnTime` + 30 s) and pulls the respawn, at most twice. S10 (it recurred here, §17.3): when monster A dies without having hit the Mage, the case waits for A's respawn at spot A and pulls it, at most twice, and a failure prints what A did (`npcActivity`: its swings, who swung at it, its HP changes by skill, its death and last attacker). The assertions are unchanged. **Superseded by §18.1** (the death is looked for from S9 on; the respawn lookup and the pulls changed) |
+| harness | `tools/oracle/oracle.py` | the command line answers in UTF-8 (`sys.stdout.reconfigure`): the first gate run failed parsing "Illusion Godstone: Freyr's Esprit", whose apostrophe the Windows ANSI code page wrote as an ill-formed UTF-8 byte |
+
+**How the gate reads the server.** Every item packet is applied in arrival order to a model of the cube, the equipment and the regular
+warehouse (`InventoryModel`, decoded with ItemDecoders.h/PacketDecoders.h); that model is what a loot is expected to merge into (Y3), what
+the oracle's cube budget is asked about before each corpse (`m5b3-drops --inventory`, L3b), the count before the potion and the split (Y8,
+Y10) and what `inventory` must hold after the quit (Y12). The starter stacks and the two junk stacks are followed by object id, so a port
+that adds a second stack fails its own row, not a later lookup. **A case that fails only non-fatally (EXPECT) lets the next case run**; an
+exception or an ASSERT stops the script as in M5b-2 - so a mutant shows which rows it breaks and that the others hold.
+
+### 17.2 Corrections to §10 (the Java and the data over the plan)
+
+1. **Y8:** the heal-over-time's lifetime is `duration2 + 1000` = 21,000 ms, not ~20,000: `AbstractOverTimeEffect.getDuration2()` adds a
+   second ("on retail these effects last one sec more", AbstractOverTimeEffect.java:64-67), and `Effect.calculateTemplateDuration` takes the
+   first template with a duration, the HealEffect (Effect.java:899-910). Measured 21,000 ms in every run.
+2. **Y7 and Y15, "value > 0":** `TYPE.DAMAGE` is written negated (SM_ATTACK_STATUS.java:125-133), so a proc's or a fire's damage is a
+   NEGATIVE int on the wire (-102, -41 for 8267; -1 per fire tick). `TYPE.HP` shares the byte 7 and is written as it is: the potion's +37.
+3. **Y5:** `ItemEquipmentListener.onItemUnequipment` without `endEffect(item)` is an **equivalent mutant** for the starter Training Sword
+   (it survived, §17.4): the sword has no `<modifiers>`, and its `weapon_stats` reach SM_STATS_INFO through PlayerGameStats' BASE from
+   `Equipment.getMainHandWeapon` (PlayerGameStats.java:141-147 and the critical/accuracy twins); the main-hand attack falls on the unequip
+   because the weapon leaves the main hand (the sword-mastery passive checks the weapon group), 29 -> 26 -> 29. Y5 now also requires the
+   parry, the main-hand accuracy and the main-hand critical to fall (247/250/52 in the clean runs); the mutant that kills it is
+   `Equipment.unEquip` keeping the weapon in the equipment map.
+4. **Y9, "the same-storage move: no packet at all":** no item or storage packet and no message. The character's own HP packets keep coming
+   (L7's heal-over-time ticks every 2 s for 21 s, and regeneration), and they are no answer to the move - the first run failed on them.
+5. **Y14:** the run-time drops are CheckOutput's `RuntimeDropItem` row (created = the 30 entries the three corpses listed, live 0); the
+   static-data `DropItem` row counts custom drops (0 here). "`AttackResult`, `Effect` live 0": `AttackResult` live 0 holds; `Effect` live
+   equals `effectsHeld` (309, the post-spawn statup buffs of M5b-2's X13), so the gate asserts the relation. "`Item` within its account
+   bound": `Item` live is 0 at the stop (the shutdown saves and releases the online character).
+6. **Y10/Y12 (§10.4):** `splitItem` without the decrease fails Y10 alone; Y12 compares the database with what the client was told, and both
+   carry the duplicated count.
+7. **L3b's budget:** the oracle's worst case plus the sword for L4 (as planned), **2 before L6** (the seeded stone and the unequipped sword;
+   rev 2 left the stone out - `Equipment.unEquipItem` refuses on a full cube), the worst case plus **L9's split** before L6b (the sword is
+   not unequipped again), and **one spare slot** each time, so that a stack that should have merged fails Y3 and not Y5 at the next unequip.
+8. **Slots (L8, L9, L11, Y12, Y16):** L8 moves the starter life potions to cube slot 21 and the mana potions to 22 (the same-storage arm);
+   L9 splits into slot 23 (rev 2's -1 would leave Y12's slot row nothing to check); L11 swaps the mana potions (slot 22) with the warehouse
+   junk (slot -1), and each takes the other's slot. Y12 therefore finds the junk back in the cube at slot 22 and the mana potions in the
+   warehouse at -1, not "the warehouse junk at `item_location = 1`"; it compares every row with the model, both directions.
+9. **§13 question 3 and the hand-off's camp-fire notes.** A creature has **one** `ZONE_MATERIAL_ACTION` task: `AbstractMaterialSkillActor.act`
+   schedules it only when the creature has none (AbstractMaterialSkillActor.java:37-44), with the skills of the actor touched first - and the
+   actors' collision checks run on the thread pool, so on a point that touches the fire and the firepot, whose conditions apply is a race;
+   overlapping zones never double the ticks (the same skill 8302 either way, so "count per zone" cannot be done from the wire either), and
+   pinning the game time and the weather is unnecessary on a point that touches the fire alone. The zone is a **SEMISPHERE**, entered only
+   ABOVE its center (`SemisphereArea.isInside3D`, `this.z < z`): a player on the floor beside the fire (z 119.13) is outside it; the fire
+   mesh is PHYSICAL | MATERIAL and a client stands on its top (119.50). `oracle.py m5b3-material --stand` evaluates the TOUCH ray (from z +
+   0.05 + 1.75 down to getZ - 0.11, a player's bound height 1.0 x 1.75, PlayerAppearance.java:1051) against every nearby zone's own
+   triangles over a 2 cm grid of the fire's bound: 2,916 points, 963 touch the fire, 321 the fire alone; the point with the largest
+   clearance is (863.5389, 1252.2198, 119.5043), 0.08 m from any point that does not qualify, inside the fire's and the firepot's zones and
+   touching only the fire; the step-off point (865.07, 1248.81, 119.13) is 4 m away and inside no zone. (The review of stage 2: these two
+   points make the ticks deterministic but give the ray no negative case - a port that ignores it passes; §18.2 adds the untouched point.)
+10. **Y15's timing:** `MaterialSkillTask` runs every second from the first touched second and uses the skill when `secondsElapsed++ %
+    frequency == 0`; until it has used it once (a protected player, a condition that does not match) the modulus is 1 and it tries every
+    second, so only the ticks after the first are sure to be 5 s apart. The walk ends the protection before the step (CM_MOVE.java:140-141),
+    so the first tick comes at once and the gaps are 5 s: measured 3 ticks at 183/5,183/10,183 ms and 228/5,229/10,230 ms. "None after it steps off" is guarded twice: the step-off's TOUCH check untouches (abort, and the task returns on
+    `!isTouched`) and `onLeaveZone` aborts; a mutant of either one survives, one of both does not (§17.4).
+11. **Y6:** the stone's `SM_DELETE_ITEM` carries `ItemDeleteType.USE` (`decreaseByObjectId`'s DEC_ITEM_USE, Storage.java).
+12. **Y7's k:** the evaluated hits were 1 or 2 in the clean runs (a critical first hit plus the 102 of the proc leaves the second swing a
+    kill), so the "one message for k > 1" clause discriminates only in runs with k >= 2; the gate prints k and the mutation run had k = 3.
+
+### 17.3 Gate runs (Debug, one at a time, exact-name regexes, seconds)
+
+| Gate | Runs | Notes |
+|---|---|---|
+| gs.scenario.m5b3 | development r1-r3 failed (the oracle's encoding; Y8's 20,000; Y14's `DropItem`; Y9's HP ticks), r4 passed 128; after the hardening c1 passed 132, c2 passed 125; **final binary: f1 passed 143, f2 passed 129** | kinah k = 5 to 25 over the runs; Y7 k = 1 or 2 |
+| gs.scenario.m5b3_geo | r1 passed 299, c1 passed 288, c2 passed 288; **final binary: f1 passed 290, f2 passed 302** | 3 ticks every run, 5,000 ± 2 ms apart; startup ~140 s |
+| gs.scenario.m5b2 | r1 passed 172, c1 passed 167, **c2 FAILED at S10** (128 s; kept in the scratchpad `stage2/fail-c2-gs.scenario.m5b2`); with a first S10 change d1-d4 passed 188/174/167/190; **final binary: f1 passed 192, f2 passed 174** | the S10 and S14 branches of G-07 were not needed in the passing runs; S6 did not fail |
+
+**S10's recurrence (c2).** "monster A never damaged the Mage" after 30 s. What the saved output shows without a packet dump: S9's Flame
+Bolt landed and did not kill A (X4 passed, the damage applied equal to the announced 141-base bolt, so A had more HP than it took), S10
+attacked nothing, and yet X12's kill list and `DropNpc` (created 3, live 0) hold A's respawn (object 103919): **A died inside S10's window
+without having hit the Mage** - the S14 pattern at spot A. Its `SM_EMOTION(DIE)` names the Mage as the last attacker, which nothing in the
+saved output explains; the new failure message prints A's activity so the next occurrence says who damaged it.
+
+**Corrected 2026-09-24 (the review of stage 2, §18.1):** the inference "X4 passed, so A had more HP than the bolt took" is wrong. X4 expects
+min(announced, maxHp), and `reduceHp` sends the HP actually taken (CreatureLifeStats.java:100-110), so a Flame Bolt that kills passes X4. S9's
+bolt was a **magical critical** (141 x 1.5 > 199) and killed A in S9, credited to the Mage - ordinary Java behaviour. S10 waited 30 s for a
+dead npc, and its branch only looked for a death after S10's start. The review's mutant RC9 reproduced c2 exactly. The death is
+explained, and the G-07 branch above did not cover it.
+
+Besides the gates: `tools.oracle` passed (with `MaterialStandTest`), the 141 harness unit tests of `aion_gs_scenario_tests` (decoders,
+GameSession, Oracle, the database and server harness) passed, `lint_concurrency --werror --cycles=core game-server/src` reports 3,711 files,
+0 errors, 0 warnings, 0 advisories and `chunks.py check` 0 problems; only `aion_gs_scenario_tests` (and `aion_game_server` for the mutants)
+was built, `--parallel 6 -p:CL_MPCount=2`.
+
+### 17.4 Mutation runs (each a real gate run of a production mutant; the file restored byte for byte - sha256 and an empty `git diff` - before the gate started)
+
+| # | Row | Mutant | Result |
+|---|---|---|---|
+| M1 | Y1 | `registerDrop` sends no `LOOT_ENABLE` | Y1 failed (the three corpses, both rows); everything else passed |
+| M2 | Y2 | `collectAllowedDrops` without the `min_diff..max_diff` test | Y2 failed (43 entries instead of 10, 8 rules without an entry); the cube then overflowed at entry 16 (Y3) and a fatal lookup ended the script |
+| M2b | Y2 | `registerDrop`'s running index from 0 | Y2's index row failed for the three corpses; everything else passed |
+| M3r | Y3 | `addStackableItem` never merges | Y3 failed (L3's two potion merges, L4's shard, L6c's shard and junk); everything else passed |
+| M4 | Y4 | `Storage.increaseKinah` adds twice the amount | Y4 failed (1000 + 11 -> 1022); everything else passed |
+| M5 | Y5 | `onItemUnequipment` without `endEffect(item)` | **survived**: equivalent for the starter sword (item 3) |
+| M5br2 | Y5 | `Equipment.unEquip` keeps the weapon in the map | Y5 failed (attack, parry, accuracy, critical unchanged; the appearance does not decode) in L5 and L6; everything else passed |
+| M6 | Y6 | the socketing task at 0 ms | Y6 failed (0 ms); everything else passed |
+| M7 | Y7 | `ProcAtkInstantEffect::applyEffect` a no-op | Y7 failed (5 procs, no damage packet); everything else passed |
+| M7b | Y7 | `GodStone.tryActivate`'s cooldown never expires | Y7 failed (1 message for 3 evaluated hits); everything else passed |
+| M8 | Y8 | `canUseItem` without `hasCooldown` | Y8 failed (the second use consumed and was animated); everything else passed |
+| M9r | Y9 | `isItemRestrictedTo` lets anything into the warehouse | Y9 failed (no refusal, no unlock, the event potion moved); everything else passed |
+| M10 | Y10 | `splitItem` does not decrease the source | Y10 failed; everything else passed (item 6) |
+| M11 | Y11 | `CM_DELETE_ITEM` deletes with DEFAULT | Y11 failed (L3b's deletes and L10); everything else passed |
+| M12 | Y12 | `ItemStoneListDAO.save` skips the godstones | Y12 failed (no `item_stones` row); everything else passed |
+| M13 | Y13 | an `AION_PARTIAL` left in `registerDrop` | Y13 failed (not allowed; a DropRegistrationService site); everything else passed |
+| M14 | Y14 | `DropService.unregisterDrop` a no-op | Y14 failed (`DropNpc` 3 live, `dropNpcsHeld` 3); everything else passed |
+| M15 | Y16 | `switchItemsInStorages` adds before it deletes | Y16 failed, and Y12 (the client dropped the two items it had just received); everything else passed |
+| M16 | Y15 | the material task uses the skill every second | Y15 failed (12 ticks 1 s apart); everything else of the geo gate passed |
+| M17 | Y15 | `onLeaveZone` does not abort | **survived**: the untouch aborts too (item 10) |
+| M17b | Y15 | the actor never untouches and `onLeaveZone` does not abort | Y15's step-off row failed (a tick after stepping off); everything else passed |
+
+Three first attempts (M3, M5b, M9) showed the targeted row failing but an ASSERT or a decode exception of the gate ending the script;
+the gate was hardened (EXPECT inside the loot loop, the equip rows and L8's unlock; a decode failure of an equip packet is a Y5 failure)
+and the three were rerun (M3r, M5br2, M9r). The runs up to M4 used a gate binary before that hardening; the rows they target did not change.
+
+### 17.5 Left for a regate
+
+- **S14 (M5b-2)** did not recur in the stage-2 runs, so its new respawn branch has not run against the server; the saved failure of the
+  stage-1 integration (the scratchpad's `s1i/fail-r1-m5b2`) is the case it is written for. The same holds for S10's branch (c2).
+- **S10's attribution:** in c2 monster A died with the Mage named its last attacker although S10 made no attack after S9's bolt, which had
+  not killed it; the next occurrence prints A's swings, attackers and HP changes (`npcActivity`) and should settle whether that is a
+  neighbour's fight credited oddly, a delayed hit or a port defect in the death attribution (`CreatureLifeStats::onHpChanged` passes the
+  killing damage's effector, as Java does). **Settled 2026-09-24 (§18.1):** S9's bolt did kill it, as a magical critical. No port defect.
+- **Y1's `lootEffectId`** is checked on every corpse, but a mutant that hardcodes 0 is caught only when a listed godstone has 1003 (about 40
+  % of corpses; it happened in some runs and not in others) - L-05's unit case stays the proof.
+- **Y7's cooldown clause** discriminates only in runs with k >= 2 (item 12).
+- The oracle's stand point relies on the double-precision emulation of the TOUCH ray with a 0.08 m clearance; a geometry change in the
+  client data (a new `models.mesh`) moves it, and the oracle recomputes it on every run.
+
+## 18. The review of stage 2, and its fixes, 2026-09-24
+
+The review of stage 2 (verdict "changes requested": one high, three medium, two low findings and one info) ran its own mutants and kept
+the evidence in the session scratchpad `review2/`. This section records the fixes. Each fix has a real gate run of a production mutant: the
+file was saved, mutated, built into `aion_game_server`, and restored byte for byte (sha256 and an empty `git diff`) **before** the gate
+started. The mutant runs' logs are in the scratchpad `fix3/logs/`. **No production file changed.** Files: `M5b2ScenarioTest.cpp`
+(S9, S10, S14, and S6's level-ready pattern, §18.5), `M5b3ScenarioTest.cpp`, `tools/oracle/m5b3/materials.py`, `tools/oracle/oracle.py`
+(help text) and `tools/oracle/tests/test_m5b3_items.py`.
+
+### 18.1 M5b-2's S10 and S14: the cause is a magical critical (the high finding and two medium ones)
+
+**The cause.** Flame Bolt 1282 has `apply_magical_critical="true"`. A magical critical multiplies the damage by 1.5
+(AttackUtil.calculateSkillResult -> calculateWeaponCritical, AttackUtil.java:191-208, 318-323). The bolt's normal damage to a fresh 210663
+is already 197 of 199 HP (the runs below print "197 by skill 1282"), so a critical bolt takes all of a full 210663's HP. X4 still passes:
+it expects min(announced, maxHp), and `reduceHp` sends the HP actually taken (CreatureLifeStats.java:100-110). The review's mutant **RC9**
+makes every magical-critical roll of the Mage succeed; it reproduced c2 exactly (S10 failed after 30,000 ms, A dead in S9, credited to the
+Mage). So:
+- **S10 (c2):** A died to S9's bolt. §17.3's "X4 passed, so A had HP left" and §17.5's "unexplained attribution" are corrected there.
+  G-07's branch did not cover this case: it only looked for a death after S10's start.
+- **S14 (s1i/fail-r1-m5b2):** B died to the pull's Flame Bolt. It was not HP drained by a neighbour: the tribes rule that out (§16.4,
+  corrected there).
+
+**The fixes (`M5b2ScenarioTest.cpp`).**
+- `s9From`: S9 records where its recording starts. S10 looks for A's death from there, and its wait for A's swing also ends at A's death
+  (`isDeathOf`, `deathIndexOf`). S9's X4 line says when its bolt killed A.
+- `waitForRespawnAt(spot, diedAt, timeout)`: the respawn is the first `SM_NPC_INFO` at the spot recorded after the death whose object was
+  never announced at the spot before it. The old `waitForNpcAt(spot, current)` answered the npc an earlier case had killed at the same spot
+  until the respawn was announced. That was the second finding: the review's RS10b pulled S5's corpse, and S14's second round would have
+  pulled the original B. S10 and S14 both use the new lookup.
+- `pullWithSwing(npc)`: one auto-attack of the Training Spellbook (100600034: 20-23 damage, attack_range 15000), sent again only while it has
+  not gone out, at most three times. It cannot kill a 199-HP npc. S10 pulls A's respawn with it. S14 pulls B with it (a Flame Bolt only
+  when no swing went out), so a critical can no longer kill B at the pull. S14 keeps its respawn branch and now prints its steps on every
+  run.
+- The comments of S10 and S14 give the critical-hit cause and cite RC9.
+
+**Evidence** (`gs.scenario.m5b2`, each a real gate run):
+
+| Run | Mutant | Result |
+|---|---|---|
+| RC9 | `StatFunctions::calculateMagicalCriticalRate` returns true for a Mage (the review's c2 reproducer) | **passed, 193 s**. "X4: … landed; it killed monster A". "S10 (G-07): A (object 103928) died in S9 without hitting the Mage: … 1 HP changes (199 by skill 1282) … died, last attacker the Mage; A respawned as object 103935; the Mage's swing went out; then A hit the Mage". S14: "the Mage's swing at B went out; the Mage died". The kill list 26048, 35183, 103928, 103935 shows that the old lookup would have answered 26048, S3's A, which S5 killed. The review's run of the same mutant against the stage-2 script failed at S10 |
+| RS | `CreatureController::attackTarget`: a 210663's first swing at a Mage kills the npc instead (a delayed hit credited to the Mage); the 1-HP Mage's first two swings at a 210663 take all its HP | **passed, 214 s**. S10: "A (object 103923) died in S10 without hitting the Mage … respawned as object 103941 … then A hit the Mage" (the in-window death of RS10b). S14's half did not fire: the Mage had regenerated above 1 HP |
+| RS2 | the same, with the Mage's half taken below 10 % HP | **passed, 212 s**. S14: one round, "B (object 25014) died without killing the Mage … B respawned as object 103942 … the Mage died". The second kill did not fire (the Mage was above 10 % by then) |
+| RS3 | the same, with the Mage's second and third swings at a 210663 killing it | **passed, 236 s**. S14 went two rounds: "B (object 25334) died … respawned as object 103944 … B (object 103944) died … respawned as object 103950 … the Mage died". The old lookup would have answered 25334 in the second round |
+
+### 18.2 Y15's negative case: the TOUCH ray (medium)
+
+The review's RV1 (`ZoneCollisionMaterialActor::onMoved` with `isTouched = true`) passed the whole geo gate. The stand point is on the fire
+mesh, so it is touched either way, and the step-off point is inside no zone.
+
+**Oracle.** `oracle.py m5b3-material --stand` now also answers `stand.untouched` (`materials.py untouched_point`). It searches a 5 cm grid over
+the fire zone's disc, at least 0.25 m outside the fire geometry's world bound. The heights are the PHYSICAL surface, plus heights 5 cm apart
+above the zone's center within 1 m of that surface. The zone is a SEMISPHERE whose center stands 0.19 m above the floor, so the client must
+report a z above the floor, which CM_MOVE takes as the client sends it. A candidate's margin is the smaller of its depth inside the fire's
+area and its distance outside every other nearby zone's area (`area_depth`). The chosen point has the largest margin among candidates whose
+emulated TOUCH checks all miss. For the Poeta fire it is **(864.2429, 1251.1038, 119.5162)**: 0.38 m above the floor, margin 0.185 m,
+0.88 m outside the mesh's bound, inside the fire's zone only (the firepot's sphere is 0.185 m away), with no ray hitting. Out of 2,948
+columns and 8,771 candidates, none was rejected. `MaterialStandTest.test_the_untouched_point` checks it on the synthetic scene: inside the fire's
+area alone, no ray hitting, at least 0.25 m outside the bound, not below the floor, on the side away from the pot, with a margin above
+0.33 m (the analytic optimum is 0.354 m) and, without the pot, above 0.95 m.
+
+**Gate (`M5b3ScenarioTest.cpp` L14).** After the 3 s on the step-off point, the character stands 7 s on the untouched point. Entering the
+zone creates the fire's actor and runs its check at once (MaterialZoneHandler.onEnterZone -> actor.moved()). It then goes back to the
+step-off point, which leaves the zone, and on to the fire as before. The new Y15 row: no tick of 8302 in that window.
+
+| Run | Gate | Result |
+|---|---|---|
+| g1 (clean) | gs.scenario.m5b3_geo | **passed, 325 s**; 3 ticks on the fire at 209 / 5,210 / 10,210 ms, none at the untouched point |
+| RV1 | gs.scenario.m5b3_geo | **failed, 310 s**, only in the new row: "2 tick(s) at the untouched point" (at -8,514 and -3,513 ms from the step onto the fire). Standing, the 5 s gaps and the step-off rows passed, and so did every other case (S-0 … L13) |
+
+### 18.3 Y2's count and bijection rows (low)
+
+Stage 2's M2 overflowed the cube and M2b covered only the index row. The new mutant **RY2** is `checkGlobalRuleWorlds`: a `gd_worlds` rule
+never matches. It removes "Weapons (Common)" and "Armor (Common)" from 210663 and "Weapons (Common)" from 210133 (the only applicable rules
+with a `gd_worlds` restriction, rules_equipment.xml). No later case uses those items. `gs.scenario.m5b3` **failed, 177 s**, only in Y2's
+count row (M5b3ScenarioTest.cpp:1608: 8, 9 and 8 entries against the oracle's 10) and its bijection row (:1630: "2 applicable rule(s) of npc
+210663 have no entry", "1 … of npc 210133"), on all three corpses. Every other row passed, including L4's kinah, the merges, Y12, and L13's
+Y14 (`RuntimeDropItem` created = the 25 entries listed). The §10.4 rows that were never run are listed there.
+
+### 18.4 Documentation only (low, info)
+
+- **Y14 and `resendDropList`** (the review's RK1: `resendDropList` without `delete()` failed Y3 alone): §10.3 and §10.4 are corrected. Y14's
+  counts are written after the shutdown, which deletes a corpse that outlived its loot, so Y3's `SM_DELETE` within 1 s is the only proof.
+- **Y8's min()**: L7 seeds 100 of 284 HP, so only the 37 arm is checked. The review's RV2 (`calculateHealValue` without the cap) survived,
+  equivalent on the wire while `increaseHp` clamps. Noted in §10.3 and next to the row.
+
+### 18.5 Gate runs on the final sources (Debug, one at a time, exact-name regexes, seconds)
+
+`aion_game_server` was rebuilt from the restored sources after the last mutant: four files, each with its sha256 checked and an empty
+`git diff -- game-server/src`. Every gate below ran on that binary.
+
+| Gate | Runs | Notes |
+|---|---|---|
+| gs.scenario.m5b3 | **f1 passed 155, f2 passed 138** | the M5b3 script is unchanged since these runs |
+| gs.scenario.m5b3_geo | **g1 passed 325, f2 passed 330** | 3 ticks each (209/5,210/10,210 and 376/5,376/10,377 ms), none at the untouched point |
+| gs.scenario.m5b2 | f1 passed 179; **f2 FAILED at S6** (92 s; output kept in the scratchpad `fix3/fail-f2-gs.scenario.m5b2`); after the S6 fix below **f3 passed 172, f4 passed 174** | S14 pulled with the swing in every run ("the Mage's swing at B went out; the Mage died") |
+| gs.scenario.m5b2_geo | f1 passed 292 (before the S6 fix); **f2 passed 293** | the same script with geodata |
+
+**S6 (f2): the cause and the fix.** The Mage's CM_LEVEL_READY burst matched §5.8 up to its `SM_CUBE_UPDATE`, and then one more
+`SM_NPC_INFO` arrived inside the burst's quiet window: "the packets match the sequence up to packet #35 SM_NPC_INFO, where it expected the
+end of the packets". The M5b-2 lane saw the same kind of failure before, with a trailing `SM_ATTACK_STATUS` (its runs 5 and 9). An object that
+spawns or comes into view while the burst is still being read is announced by the known-list update, after the answer. The Mage enters about
+20 s after S5 killed monster A, and A's respawnTime is 20 s, which makes A's respawn the likely one. The saved output has no packet dump, so
+the npc is not named. M5b-2's `levelReadyPattern` now accepts `(SM_NPC_INFO | SM_GATHERABLE_INFO)*` after `SM_CUBE_UPDATE`; the order up to
+it is asserted as before. `levelReady` prints each such trailing npc ("level ready: after the answer, SM_NPC_INFO of npc …"), and none came
+in f3, f4 or the geo run. The M5a, M5b and M5b-3 copies of the pattern are unchanged: M5b-3 asserts only its first level ready, before any
+kill.
+
+Besides the gates: `tools.oracle` passed (154 s, with the new `MaterialStandTest` case). The harness unit tests of
+`aion_gs_scenario_tests` (every test but the gates and `M5aStress`) passed: 154, plus `OracleRunTest` once `AION_TEST_PYTHON` was set.
+`lint_concurrency --werror
+--cycles=core game-server/src` reported 3,711 files with 0 errors, 0 warnings and 0 advisories, and `chunks.py check` reported 0 problems.
+
+### 18.6 Left for a regate
+
+- The respawn branches of S10 and S14 have run only under mutants (RC9, RS, RS2, RS3). A natural critical Flame Bolt in S9 (c2's case) now
+  takes the S10 branch. That costs the respawn wait (20 s) plus a pull, well inside TIMEOUT 900.
+- The untouched point floats 0.38 m above the floor. A server that snapped a player's z to the ground would move it out of the SEMISPHERE,
+  and the row would pass without proving anything. Java does not snap (CM_MOVE takes the client's z), and RV1 shows that the port's
+  character is inside the zone there.
+- Two other lanes were building in `build/leak-a` and `build/leak-b` during the final runs. Their load was on the same machine.
+- S6's trailing `SM_NPC_INFO` (f2) is the only new failure. The fix relaxes the burst's end, not its order. Which npc it was stays
+  unnamed: the saved run has no packet dump, and the new log line will name the next one.
+
+## 19. Stage 2 results (the regate), 2026-09-24
+
+The regate ran after §18's fixes, on the working tree over HEAD `4867fbc44`: a full build, the unit suite, and **all eleven gates, one at a
+time. Each gate passed on its first run.** Stage 2 changed no production file. Every gate ran on binaries built at 21:24 from a tree with an
+empty `git diff -- game-server/src`, and the diff was checked again before each gate started. Nothing is committed. **M5b-3 is complete**
+(phase5-roadmap.md, row 2). The logs are in the session scratchpad under `regate3/logs/`.
+
+### 19.1 §18.6's list, item by item
+
+- **The respawn branches of S10 and S14.** No natural critical came in either M5b-2 run. S9's bolt landed without killing A (X4 "landed"),
+  and S14 printed "the Mage's swing at B went out; the Mage died". Neither branch ran, so they are still proven only by mutants (RC9, RS,
+  RS2 and RS3, §18.1).
+- **The height of the untouched point.** Unchanged, and documented in §18.6. No packet tells the client that the server placed the
+  character inside the zone. The run RV1 remains the evidence.
+- **S6's trailing npc.** No npc arrived after the level-ready answer in either M5b-2 run: neither log has an "after the answer" line.
+- **Y8's cap arm.** Still documented only (§10.3, §18.4). To check it, the gate would need a second potion use at an HP within 37 of the
+  maximum. That use must wait out the 30 s `usedelay`, which `ItemCooldownsDAO` keeps across a relog, and natural regeneration races the
+  HP during the wait. A regate does not add a case like that.
+- **The limits of Y1, Y7 and Y15 (§17.5).** Unchanged. In this run both clauses that depend on chance discriminated: Y1 saw `lootEffectId`
+  1003 on both 210663 corpses, and Y7 had k = 2.
+- None of these items needed a change to `tests/scenario` or `tools/oracle`.
+
+### 19.2 Build, unit tests, lint
+
+- `cmake --preset msvc -DAION_BUILD_CHAT_SERVER=ON`, then all targets, Debug, `--parallel 6 -p:CL_MPCount=2`: **0 errors, 0 warnings**, in
+  54 s. The build was incremental: the only new objects were two lifetime tests that another lane had added and not yet tracked
+  (`effects_mz/NpcEffectLifetimeTest.cpp`, `handlers_ai_core/NpcCastDeathLifetimeTest.cpp`).
+- `ctest -C Debug -j 6 -LE "scenario|geo|m4|nightly|stress|smoke"`: **3,360 of 3,361 passed in 717 s.** The one failure was `tools.oracle`,
+  in `test_m5b2.M5b2JavaRulesShapeTest.test_the_constant_is_read_from_the_override`, which found no `SkillEngine.java` in its temporary
+  tree. Another lane was editing `tools/oracle/m5b2/skills.py` and `tests/test_m5b2.py` during the run; neither file is in stage 2's list.
+  Its new `_read_launch_rules` reads `SkillEngine.java`, and the test's helper, which copies part of the Java tree, did not copy that
+  file yet. After that lane's next edit of the test (21:51), **`tools.oracle` passed on its own in 146 s** (355 tests, stage 2's
+  `MaterialStandTest` included).
+- `lint_concurrency --werror --cycles=core game-server/src`: 0 errors, 0 warnings, 0 advisories. `chunks.py check`: 0 problems. Both
+  ran again at the end, after the leak lane's in-progress production edits (§19.6), so they cover those edits too. The gates do not.
+- **Process note.** The first attempt at the unit run stopped while listing the tests. A `ctest -N` had been started beside it. Discovery
+  runs before the tests (PRE_TEST), so both processes rewrote the `*[1]_tests-Debug.cmake` files at the same moment and interleaved them
+  (`aion_gs_legionhouse_tests`, `…controllers…`, `…player…`, `…handlers_ai_core…`). Deleting the regenerated files and running one
+  `ctest -N` alone repaired them. **Two `ctest` processes in the same build directory can corrupt its discovery files**: one more reason to
+  run one `ctest` at a time.
+
+### 19.3 Gates (Debug, one at a time, exact-name regexes, `--output-on-failure`, seconds as ctest reports them)
+
+| Gate | Result | Seconds | Earlier (§16.4 final; §18.5) | Notes |
+|---|---|---|---|---|
+| gs.smoke.startup | **passed** | 34 | 25 | |
+| gs.smoke.startup_geo | **passed** | 150 | 144 | 83,885 npc spawns, 0 spawn failures, 0 unexpected ERROR entries |
+| gs.m4.check_static_data | **passed** | 149 | 140 | |
+| gs.scenario.m5a | **passed** | 65 | 53 | |
+| gs.scenario.m5a_geo | **passed** | 170 | 156 | |
+| gs.scenario.m5b | **passed** | 227 | 218 | R3: one `LOOT_ENABLE`, `lootEffectId` 0; Q2 `DropNpc 0 1` |
+| gs.scenario.m5b_geo | **passed** | 351 | 349 | |
+| gs.scenario.m5b2 | **passed** | 172 | 163; 172, 174 | S9's bolt landed and did not kill A (no S10 branch); S14 pulled with the swing; X12: 3 kills, `DropNpc 0 3`; no npc after the level-ready answer |
+| gs.scenario.m5b2_geo | **passed** | 301 | 297; 293 | the same as m5b2 |
+| gs.scenario.m5b3 | **passed** | 146 | -; 155, 138 | below |
+| gs.scenario.m5b3_geo | **passed** | 314 | -; 325, 330 | Y15: 3 ticks of 1 HP at 127, 5,127 and 10,127 ms after the step onto the fire; none at the untouched point (0.382 m above the floor, margin 0.185 m) and none after the step off |
+
+Most gates took 5 to 20 s longer than in §16.4. Other lanes were working on the same machine at the time (the lifetime and leak lanes,
+and the oracle edits above). No gate came close to its timeout.
+
+**What `gs.scenario.m5b3` saw.** L0: 10 entries for each monster (210663 at 53.4 m, 210133 at 76.8 m). Y1: `lootEffectId` 1003, 0 and 1003,
+as each corpse's entries predict. Y4: kinah 1,000 + 17. Y5: the main-hand attack went 29 -> 26 -> 29. Y6: 2,001 ms. Y7: k = 2, two proc
+messages, damage -102 and -39, none resisted. Y8: +37 at 104 of 284 HP, the stack 100 -> 99, a heal-over-time of 21,000 ms. Y9, Y10 and
+Y16: the exact packet orders. Y12: 29 `inventory` rows and one `item_stones` row. Y14: `DropNpc 0 3`, and `Effect` live 309, equal to
+`effectsHeld`. No gate log has a leak-census line.
+
+### 19.4 The corrections, in one place
+
+Where the plan and the Java or the data disagreed, the gate follows the Java and the data. Each correction is written where it was found,
+and §10's dated notes point to most of them:
+
+1. **Y5:** the Training Sword's stats reach the player through the base, because the sword has no `<modifiers>`. So `onItemUnequipment`
+   without `endEffect` is an equivalent mutant for it. The parry, accuracy and critical fall too (§17.2 item 3).
+2. **Y7 and Y15:** a damage goes on the wire as a negative value (§17.2 item 2).
+3. **Y8:** the heal-over-time lasts 21,000 ms (§17.2 item 1). Only the 37 arm of min(37, maxHp - hp) is checked (§18.4).
+4. **Y9:** "no packet" means no item or storage packet (§17.2 item 4).
+5. **Y10 and Y12:** a split that does not decrease the source fails Y10 alone (§17.2 item 6).
+6. **Y14:** the run-time drops are counted in the `RuntimeDropItem` row, and live `Effect` equals `effectsHeld`. **Y14 does not prove that
+   a corpse is deleted; only Y3 does** (§17.2 item 5, §18.4).
+7. **Y6:** the stone's `SM_DELETE_ITEM` carries `USE` (§17.2 item 11).
+8. **L3b's budget and the slots of L8 to L11** (§17.2 items 7 and 8).
+9. **§10.5 and §13 question 3:** a creature has one material task. The SEMISPHERE is entered only above its center, and the character
+   stands on the fire's mesh. The untouched point is the TOUCH ray's negative case (§17.2 items 9 and 10, §18.2).
+10. **M5b-2's S10 and S14:** the cause is a magical critical Flame Bolt, not a neighbour. S6's trailing `SM_NPC_INFO` is §18.5's (§16.4,
+    §17.3, §18.1).
+11. **§10.4:** the rows that never ran as mutants are listed in §10.4's note.
+
+The regate adds no correction of its own. It adds a note to §11 that points to §19.5.
+
+### 19.5 What the real-client checklist (§11) should expect
+
+For §11's profile: Java's drop rates and events disabled. Each numbered item below is the same item of §11.
+
+1. Every kill sends the killer `LOOT_ENABLE` (Y1), so **every corpse sparkles**, even with nothing on it. When an illusion godstone from
+   the list is on the corpse, the packet carries loot effect 1003.
+2. The loot window lists the drop. Each item either adds a stack or merges into one of the same id (Y3). After the last item the window
+   closes and the corpse **vanishes within a second** (Y3's `SM_DELETE`).
+3. For 210133, a kinah entry at level 1 is 5 to 25; the counter rises by that much, and no item is added (Y4).
+4. **No gate covers the 5-minute decay** of a corpse left with loot (§18.4). Only the client check shows it.
+5. With the Warrior's Training Sword, the main-hand attack goes **29 -> 26 -> 29**. Parry, accuracy and critical fall with it and return
+   (Y5). Other gear shows other numbers, but the same round trip.
+6. Split, swap and destroy are covered by Y10, Y16 and Y11, and a swap exchanges the two slots. **No gate covers a split into the
+   warehouse.**
+7. **The warehouse cannot be opened from the client yet.** The npc dialog (`CM_SHOW_DIALOG`) is M5c's. The gate sends `CM_MOVE_ITEM`
+   without a dialog, which a real client never does. Skip this item.
+8. Minor Life Potion: **+37 at once**, then up to 37 every 2 s for **21 s** (the buff shows 21 s, not 20). A second use inside 30 s is
+   refused with STR_ITEM_CANT_USE_UNTIL_DELAY_TIME, and no potion is consumed (Y8). Near full HP the instant heal is capped at the missing
+   HP; no gate covers that.
+9. The Administrator's Boon and the Lodas Amulet are not in any gate script. Only the client check covers them.
+10. The godstone: a 2 s bar, and the weapon still has the godstone after a relog (Y6, Y12). 168000116 (Fx Test Earth Godstone) has
+    probability 1000 on a main hand, so **every** auto-attack that lands and does not kill shows "proc effect occurred", at most one every
+    750 ms (Y7). Skill 8267's damage is magical: -102 and -39 on a 210663 in this run. A resisted proc shows the message without damage.
+11. The loud failures are unchanged.
+12. **The camp fire burns only a character standing on it.** The zone is a semisphere that is entered only above its center, and the
+    TOUCH ray must hit the fire's own mesh. On the fire: one tick at once, then one every 5 s (1 HP each for the gate's level-1 Warrior).
+    Next to the fire, even inside its zone: nothing. Stepping off stops it (Y15).
+13. The same files. After a clean shutdown with every corpse looted or decayed, `live_counts.txt` shows `DropNpc` live 0 and created equal
+    to the kills.
+
+**A real-client session on `4867fbc44` has already happened.** It is `docs/design/m5b3-client-session.md`, written by another lane and not
+committed. It confirmed items 1-3, 5, 6, 8-10 and 12. It also found one leaked Npc (its S-1), which the leak lane is fixing (§19.6).
+
+### 19.6 Left for the integrator
+
+- **Commit stage 2.** Its files: `tests/scenario/M5b3ScenarioTest.cpp` and `m5b3_partial_allowlist.txt` (both new),
+  `tests/scenario/ScenarioTests.cmake`, `tests/scenario/M5b2ScenarioTest.cpp`, `tools/oracle/m5b3/materials.py`, `tools/oracle/geo/probes.py`,
+  `tools/oracle/oracle.py`, `tools/oracle/tests/test_m5b3_items.py`, this plan and phase5-roadmap.md (row 2's status note).
+- **Not stage 2's work, though it is in the same tree:** `tools/oracle/m5b2/skills.py`, `tools/oracle/tests/test_m5b2.py` and
+  `tools/oracle/README.md` (the launcher work for m5e-plan.md), `docs/design/m5c-plan.md`, `docs/design/m5b3-client-session.md`,
+  `docs/design/phase6-questgen-prototype.md`, `tools/gen/**`, the untracked lifetime and probe tests
+  (`NpcEffectLifetimeTest.cpp`, `NpcCastDeathLifetimeTest.cpp`, `world/WorldContainerLifetimeTest.cpp`,
+  `runtime/services/LeakCensusHolderProbeTest.cpp`), and **the leak lane's production edits**: `world/World.cpp`,
+  `world/zone/ZoneInstance.cpp`, `GameServer.cpp`, `runtime/services/LeakCensus.cpp`, the header `LeakCensus.h`, and the new
+  `world/WorldLeakProbe.{h,cpp}`. That lane made them from 22:12 on, after the last gate had started, and was still making them
+  when this section was written. No gate binary contains them. **If they are committed with stage 2, run the gates again on a binary built from both.** The
+  M5b-2 and M5b-3 gates call `oracle.py` at run time, so they did run with the other lane's `m5b2/skills.py` as it was at 21:29.
+- Still open from §17.5 and §18.6: Y8's cap arm; Y1's `lootEffectId` check depends on chance, and so does Y7's cooldown clause; Y15 cannot
+  catch a port that breaks only one of the two abort paths; the untouched point's height; and the S10 and S14 branches, which only
+  mutants have run.

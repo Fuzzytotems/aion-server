@@ -136,16 +136,20 @@ class MapScene:
 				raise Ambiguous("two collisions at nearly the same distance")
 		return best[1], best[2]
 
-	def _collide_geometry(self, indexed: IndexedGeometry, origin, direction, limit, theme_id, hits):
+	def _collide_geometry(self, indexed: IndexedGeometry, origin, direction, limit, theme_id, hits, through_map: bool = True):
+		"""the collisions of one geometry with the ray. `through_map` False is a direct Geometry.collideWith on the geometry itself - what
+		AbstractCollisionObserver's TOUCH check does with a material zone's geometry (m5b3/materials.py stand_report) - which asks neither the
+		node's type nor any intention (Geometry.java:118-131, Mesh.java:102-109); True is the map's collideWith of getZ, which does"""
 		geometry = indexed.geometry
 		node_type = geometry.node_type
-		if node_type == 1:  # EVENT
-			if theme_id != geometry.node_id:
+		if through_map:
+			if node_type == 1:  # EVENT
+				if theme_id != geometry.node_id:
+					return
+			elif node_type != 0 and node_type != 3:  # not HOUSE: inactive until setActive (instances start empty)
 				return
-		elif node_type != 0 and node_type != 3:  # not HOUSE: inactive until setActive (instances start empty)
-			return
-		if geometry.node_intentions & PHYSICAL == 0 or geometry.mesh.intentions & PHYSICAL == 0:
-			return
+			if geometry.node_intentions & PHYSICAL == 0 or geometry.mesh.intentions & PHYSICAL == 0:
+				return
 		if not box_intersects_ray(indexed.center, indexed.extents, origin, direction):
 			return
 		if box_collide_ray_count(indexed.center, indexed.extents, origin, direction, limit) == 0 and not box_contains(indexed.center, indexed.extents, origin):

@@ -9,6 +9,7 @@ tree or the geo files is skipped without them.
 import contextlib
 import io
 import json
+import math
 import shutil
 import struct
 import tempfile
@@ -378,6 +379,87 @@ class MaterialFixtureTest(unittest.TestCase):
 		self.assertEqual(dict(names)[61], twin[1], "the second child is the night fire")
 		(single,) = [n for m, n in names if "TWIN" not in n]
 		self.assertRegex(single, r"^FIRE_SEMISPHERE_01A_-?\d+_110010000$", "a node with one child has no suffix")
+
+
+def horizontal_quad(x0, y0, x1, y1, z, material, intentions):
+	"""a 2-triangle horizontal rectangle in mesh coordinates (placed at the origin)"""
+	return ([x0, y0, z, x1, y0, z, x0, y1, z, x1, y1, z], [0, 1, 2, 1, 3, 2], 1, material, intentions)
+
+
+class MaterialStandTest(unittest.TestCase):
+	"""m5b3-material --stand (G-04): the point where only the target zone's TOUCH check passes, on a synthetic scene - a 1 x 1 m fire (material
+	60, PHYSICAL | MATERIAL) at z 1, a 0.5 x 0.5 m firepot over its south-west quarter (material 61, MATERIAL only) and a PHYSICAL floor at z
+	0.5 (the sizes keep the 2 cm grid small)"""
+
+	def report(self, pot=True):
+		with Tree() as tree:
+			tree.minimal({"material_templates": '<material id="60"><skill id="8302" level="1" target="PLAYER" frequency="5"/></material>'
+			                                    '<material id="61"><skill id="8302" level="1" target="PLAYER" frequency="5" conditions="SUNNY NIGHT"/>'
+			                                    '</material>'})
+			geo = tree.mkdir("geo")
+			models = mesh_entry("levels/fire.cgf", [horizontal_quad(-0.5, -0.5, 0.5, 0.5, 1.0, 60, 3)])
+			models += mesh_entry("levels/pot.cgf", [horizontal_quad(-0.5, -0.5, 0.0, 0.0, 1.0, 61, 2)])
+			models += mesh_entry("levels/floor.cgf", [horizontal_quad(-20.0, -20.0, 20.0, 20.0, 0.5, 0, 1)])
+			placements = placement("levels/fire.cgf", 100, 100, 0) + placement("levels/floor.cgf", 100, 100, 0)
+			if pot:
+				placements += placement("levels/pot.cgf", 100, 100, 0)
+			(geo / "models.mesh").write_bytes(models)
+			(geo / "110010000.geo").write_bytes(placements)
+			world_maps = geo / "world_maps.xml"
+			world_maps.write_text('<world_maps>\n\t<map id="110010000" world_size="1024"/>\n</world_maps>\n')
+			return material_report(StaticData(tree.root), geo, world_maps, 110010000, (90.0, 100.0, 0.5), stand=True)
+
+	def test_the_point_touches_the_fire_alone(self):
+		report = self.report()
+		stand = report["stand"]
+		self.assertEqual(stand["zoneName"], report["nearestUnconditional"]["zoneName"])
+		point = stand["point"]
+		self.assertIsNotNone(point)
+		fire, = [z["zoneName"] for z in report["zones"] if z["materialId"] == 60]
+		pot, = [z["zoneName"] for z in report["zones"] if z["materialId"] == 61]
+		self.assertEqual(point["touched"], [fire], "the chosen point touches the fire and not the firepot")
+		self.assertIn(pot, point["inside"], "it stands inside the firepot's zone area, whose actor is never touched")
+		self.assertEqual(point["z"], 1.0, "a client stands on the fire, the highest PHYSICAL surface there")
+		# the fire alone covers everything but the south-west quarter: the point farthest from both the fire's north and east edges (0.5 - t)
+		# and the pot's corner (t * sqrt 2) is (t, t) with t = 0.5 / (1 + sqrt 2) = 0.207, its clearance 0.293
+		self.assertAlmostEqual(point["x"], 100.207, delta=0.03)
+		self.assertAlmostEqual(point["y"], 100.207, delta=0.03)
+		self.assertGreaterEqual(point["clearance"], 0.26)
+		self.assertEqual(stand["grid"]["targetOnly"] + stand["grid"]["othersTouched"], stand["grid"]["targetTouched"])
+		self.assertGreater(stand["grid"]["othersTouched"], 0, "the pot's quarter touches both")
+		off = stand["stepOff"]
+		self.assertIsNotNone(off)
+		self.assertAlmostEqual(math.dist((off["x"], off["y"]), (100.0, 100.0)), 4.0, places=6)
+		self.assertEqual(off["z"], 0.5, "the step-off point stands on the floor")
+
+	def test_without_the_pot_the_middle_is_best(self):
+		point = self.report(pot=False)["stand"]["point"]
+		self.assertAlmostEqual(point["x"], 100.0, delta=0.03)
+		self.assertAlmostEqual(point["y"], 100.0, delta=0.03)
+		self.assertGreaterEqual(point["clearance"], 0.45)
+
+	def test_the_untouched_point(self):
+		"""m5b3-plan.md §18.2: inside the fire's area and no other, 0.25 m or more outside the fire's bound, every TOUCH ray missing - the
+		negative case of Y15. The fire's zone is a SPHERE of r 1 + sqrt(0.5) at (100, 100, 1) (no SEMISPHERE in the name), the pot's one of r
+		1 + sqrt(0.125) at (99.75, 99.75, 1): on the diagonal away from the pot, d from the fire's center, the margin is min(1.707 - d, d + 0.354
+		- 1.354), at most 0.354 at z 1; the 5 cm grid and the heights 1.05, 1.10, ... get within 0.02 of it"""
+		report = self.report()
+		fire, = [z["zoneName"] for z in report["zones"] if z["materialId"] == 60]
+		point = report["stand"]["untouched"]
+		self.assertIsNotNone(point)
+		self.assertEqual(point["inside"], [fire], "inside the fire's area and not the pot's")
+		self.assertEqual(point["touched"], [], "no ray of the emulated TOUCH check hits a mesh")
+		self.assertGreaterEqual(point["outsideBound"], 0.25)
+		self.assertGreaterEqual(point["z"], point["surfaceZ"], "never below the floor")
+		self.assertAlmostEqual(point["surfaceZ"], 0.5, places=5, msg="the floor, in the ray's float arithmetic")
+		self.assertGreater(point["margin"], 0.33)
+		self.assertLessEqual(point["margin"], 0.354)
+		self.assertGreater(point["x"], 100.5, "on the side away from the pot")
+		self.assertGreater(point["y"], 100.5)
+		# without the pot only the fire's area and its bound limit it: 0.75 m out on an axis at z 1.05, depth 1.707 - 0.752
+		alone = self.report(pot=False)["stand"]["untouched"]
+		self.assertGreater(alone["margin"], 0.95)
+		self.assertEqual(alone["touched"], [])
 
 
 @unittest.skipUnless(HAVE_JAVA_TREE, "Java tree not present")
