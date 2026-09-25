@@ -232,6 +232,21 @@ The skills a character casts in the M5b-2 gate and every template constant the g
   `castDuration` (`Math.round(duration * cast_speed / 1000f)`);
 - `effectClasses`: the leaf effect classes of all reported skills and their closure under `extends` - the per-character form of
   m5b2-plan.md §2.4's inventory.
+- The skills an effect or a skill template launches, followed to a fixpoint over (skill id, level, whether it runs `Skill.endCast`)
+  (format version 2; m5b2-plan.md §10, m5e-plan.md §2.4 lesson 2): `<subeffect skill_id>` at level 1 with its `chance`
+  (`EffectTemplate.calculateSubEffect`), `provoker` (chance `hittypeprob2`), `delayedskill`, `skilllauncher`, `condskilllauncher` and
+  `aura` `skill_id` at the launched template's `lvl`, `carvesignet` `signet_id + level - 1` for every level a carver of the same signet
+  stack can leave on the target, and the template's `penalty_skill_id` (kind `penalty`, `Skill.startPenaltySkill`): at the launched
+  template's `lvl`, or at level 1 and cast in turn with `penalty_skill_send_msg`, and only from a skill that runs `endCast` - an npc's
+  row, the soul sickness, an autolearnt or `--skill` skill that is not PASSIVE, or a penalty skill cast with the message; never a skill
+  an effect launches. Each entry lists its `launches` (the effect - null for a penalty -, the launched skill and level, the chance,
+  `followed`) and its `launchedBy`; a launched skill is an entry with source `launch`; the character and each `--npc` get
+  `launchedSkills` and `effectClasses` with `addedByLaunches`. The launching classes and every modelled shape are read from the Java; any
+  other launch of an effect class or a skill template (resurrect / rebirth, pet orders, summons, `addeffect`, two `<subeffect>`s on an
+  effect or two effects with one in a skill, a missing or template-less id, a modelled launcher that launches in more ways) is refused
+  with exit code 2. Out of scope: the 10 % critical hit proc of a Player (8218 with a polearm, staff or greatsword, 8217 with a bow;
+  `SkillEngine.createCriticalProcEffect`), which the equipped weapon decides - the starting weapons launch nothing - and what AI
+  scripts, items, chain or charge skills cast.
 
 A value the oracle does not model is `null` with a reason in the entry's `notModelled`, never a guess: a casting time stat function (an
 equipped `BOOST_CASTING_TIME*` modifier, an item set, a passive that changes such a stat or is a `BoostSkillCastingTimeEffect`), a

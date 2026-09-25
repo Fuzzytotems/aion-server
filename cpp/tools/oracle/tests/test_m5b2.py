@@ -12,13 +12,14 @@ import json
 import shutil
 import tempfile
 import unittest
+import xml.etree.ElementTree as ET
 from pathlib import Path
 
 from m5a.creation import JavaEnums, creation_report, learn_new_skills
 from m5a.data import StaticData
 from m5a.javafloat import f32
-from m5b2.skills import (JavaSkillRules, _condition_cost, effect_duration, effects_duration, magical_cast_duration_without_functions,
-                         npc_cast_duration, skills_report)
+from m5b2.skills import (JavaSkillRules, LaunchClosure, _condition_cost, carvable_levels, carve_levels, effect_duration, effects_duration,
+                         load_skill_templates, magical_cast_duration_without_functions, npc_cast_duration, npc_skill_lists, skills_report)
 from staticdata_oracle import OracleError
 from staticdata_oracle import run as runner
 
@@ -108,6 +109,22 @@ class M5b2FormulaTest(unittest.TestCase):
 		with self.assertRaises(OracleError):
 			_condition_cost("mp", {}, 1, 1)  # value is required
 
+	def test_carve_levels_follow_next_signet_level(self):
+		# CarveSignetEffect.java:37-41: signetIncrement without the stack, min(carved + signetIncrement, max(signetCap, carved)) with it
+		self.assertEqual(carve_levels(1, 3, set()), {1}, "a first carve, or a signet no carve applied (carved 0): the increment")
+		self.assertEqual(carve_levels(1, 3, {1, 2, 3}), {1, 2, 3}, "min(3 + 1, max(3, 3)) is 3: the cap holds")
+		self.assertEqual(carve_levels(1, 3, {5}), {1, 5}, "a target carved to 5 by a deeper carver keeps 5: min(5 + 1, max(3, 5))")
+		self.assertEqual(carve_levels(2, 5, {1}), {2, 3}, "min(1 + 2, max(5, 1)) is 3")
+		self.assertEqual(carve_levels(5, 3, set()), {3, 5}, "an increment above the cap: 5 on a fresh target, min(0 + 5, max(3, 0)) = 3 on an "
+		                                                    "uncarved signet")
+		# the levels a stack can carry: the fixpoint over every carver
+		self.assertEqual(carvable_levels([(1, 3)]), {1, 2, 3}, "1, then 2, then 3, then the cap")
+		self.assertEqual(carvable_levels([(2, 5)]), {2, 4, 5}, "2, 4, then min(6, 5): 1 and 3 are never carved by this carver alone")
+		self.assertEqual(carvable_levels([(1, 3), (2, 5)]), {1, 2, 3, 4, 5}, "together every level: 1 + 2 is 3, and 3 + 2 is 5")
+		self.assertEqual(carvable_levels([]), set())
+		with self.assertRaises(OracleError):
+			carvable_levels([(0, 3)])  # an increment below 1 never ends (or runs below 1): not modelled
+
 
 @unittest.skipUnless(HAVE_JAVA_TREE, "Java tree not present")
 class M5b2JavaRulesTest(unittest.TestCase):
@@ -155,6 +172,34 @@ class M5b2JavaRulesTest(unittest.TestCase):
 		self.assertEqual((self.rules.soul_sickness_skill, self.rules.soul_sickness_max_death_count), (8291, 10))
 		self.assertEqual(self.rules.cast_duration_cap, f32(0.25))
 
+	def test_the_launchers_the_java_declares(self):
+		launch = self.rules.launch
+		# every effect class whose own source launches a skill (m5e-plan.md §2.4 lesson 2): the six modelled ones, the revive family (the
+		# skill_id is cast on revive), the pet order (PET_SKILL_DATA), the summons (npc_id; SummonSkillAreaEffect also makes its servant use one)
+		self.assertEqual(sorted(launch.evidence), ["AuraEffect", "CarveSignetEffect", "CondSkillLauncherEffect", "DelayedSkillEffect",
+		                                           "PetOrderUseUltraSkillEffect", "ProvokerEffect", "RebirthEffect", "ResurrectBaseEffect",
+		                                           "ResurrectEffect", "SkillLauncherEffect", "SummonEffect", "SummonSkillAreaEffect"])
+		self.assertEqual(launch.kinds, {"ProvokerEffect": "provoker", "DelayedSkillEffect": "delayedskill", "CarveSignetEffect": "carvesignet",
+		                                "SkillLauncherEffect": "skilllauncher", "CondSkillLauncherEffect": "condskilllauncher", "AuraEffect": "aura"})
+		self.assertEqual(launch.unmodelled, {}, "every modelled class still has the shape the closure models")
+		# EffectTemplate.java:52-54, ShieldEffect.java:26, CarveSignetEffect.java:20, :28; calculateSubEffect `int level = 1;` (:419);
+		# SubEffect.java:18 `chance = 100`
+		self.assertEqual(launch.defaults["provoker"], {"hittype": "EVERYHIT", "hittypeprob2": 100, "radius": 0})
+		self.assertEqual(launch.defaults["carvesignet"], {"signet_increment": 1, "prob": 100})
+		self.assertEqual((launch.subeffect_error, launch.subeffect_level, launch.subeffect_chance, launch.template_error), (None, 1, 100, None))
+		self.assertEqual((launch.subeffect_overrides, launch.launch_rolls), (frozenset(), frozenset({"SignetBurstEffect"})),
+		                 "nothing overrides calculateSubEffect; SignetBurstEffect.java:44 rolls launchSubEffect from the signet data")
+		# Skill.startPenaltySkill (Skill.java:478-489): getPenaltySkill(effector, penaltySkill, 1) with the message; SkillTemplate.java:84-85
+		# `penaltySkillSendMsg = false`
+		self.assertEqual((launch.penalty_error, launch.penalty_level, launch.penalty_send_msg_default), (None, 1, False))
+		launcher = lambda cls: launch.launcher(self.rules.class_chain(cls))  # noqa: E731
+		self.assertEqual(launcher("ProvokerEffect"), ("provoker", None))
+		self.assertEqual(launcher("RootEffect"), (None, None))
+		self.assertEqual(launcher("SignetBurstEffect"), (None, None), "a burst launches only through its <subeffect>")
+		self.assertIn("ResurrectEffect binds the attribute skill_id", launcher("ResurrectPositionalEffect")[1], "inherited from ResurrectEffect")
+		self.assertIn("SummonEffect binds the attribute npc_id", launcher("SummonTotemEffect")[1], "two classes up the chain")
+		self.assertIn("PET_SKILL_DATA", launcher("PetOrderUseUltraSkillEffect")[1])
+
 
 @unittest.skipUnless(HAVE_JAVA_TREE, "Java tree not present")
 class M5b2JavaRulesShapeTest(unittest.TestCase):
@@ -168,7 +213,9 @@ class M5b2JavaRulesShapeTest(unittest.TestCase):
 			for part in ("skillengine/effect", "skillengine/model", "controllers"):
 				(target / part).mkdir(parents=True)
 			for path in [*(source / "skillengine" / "effect").glob("*.java"), source / "skillengine" / "model" / "Skill.java",
-			             source / "skillengine" / "model" / "SkillTargetSlot.java", source / "controllers" / "PlayerController.java"]:
+			             source / "skillengine" / "model" / "SkillTargetSlot.java", source / "controllers" / "PlayerController.java",
+			             source / "skillengine" / "SkillEngine.java", source / "skillengine" / "model" / "SkillTemplate.java",
+			             source / "skillengine" / "model" / "PenaltySkill.java"]:
 				shutil.copyfile(path, target / path.relative_to(source))
 			changed = target / relative
 			text = changed.read_text(encoding="utf-8")
@@ -198,6 +245,81 @@ class M5b2JavaRulesShapeTest(unittest.TestCase):
 			with self.subTest(file=relative, new=new), self.assertRaises(OracleError):
 				self.rules_with(relative, old, new)
 
+	def test_the_launch_shapes_are_read(self):
+		# the constants of the closure come from the Java: SubEffect's default chance and calculateSubEffect's level
+		rules = self.rules_with("skillengine/effect/SubEffect.java", "private int chance = 100;", "private int chance = 40;")
+		self.assertEqual(rules.launch.subeffect_chance, 40)
+		rules = self.rules_with("skillengine/effect/EffectTemplate.java", "int level = 1;", "int level = 2;")
+		self.assertEqual(rules.launch.subeffect_level, 2)
+		rules = self.rules_with("skillengine/effect/CarveSignetEffect.java", "protected int prob = 100;", "protected int prob = 90;")
+		self.assertEqual(rules.launch.defaults["carvesignet"]["prob"], 90)
+		# a modelled launcher whose Java changed is no longer modelled, and says why; the other launchers stay
+		rules = self.rules_with("skillengine/effect/DelayedSkillEffect.java", "if (effect.isEndedByTime())", "if (true)")
+		self.assertNotIn("DelayedSkillEffect", rules.launch.kinds)
+		self.assertIn("DelayedSkillEffect.java does not have the launch shape", rules.launch.unmodelled["DelayedSkillEffect"])
+		self.assertEqual(rules.launch.launcher(rules.class_chain("DelayedSkillEffect"))[0], None)
+		self.assertIn("ProvokerEffect", rules.launch.kinds)
+		# a SkillEngine entry point that stops applying the template's lvl unmodels every launcher calling it
+		rules = self.rules_with("skillengine/SkillEngine.java", "applyEffect(effector, effected, skillTemplate, skillTemplate.getLvl(), null, null)",
+		                        "applyEffect(effector, effected, skillTemplate, 1, null, null)")
+		self.assertEqual(sorted(rules.launch.unmodelled), ["AuraEffect", "CarveSignetEffect", "SkillLauncherEffect"])
+		# a new launcher is found by what its source does; a subeffect override or a launch in EffectTemplate itself is recorded
+		rules = self.rules_with("skillengine/effect/RootEffect.java", "public void applyEffect(",
+		                        "public void calculateSubEffect(Effect effect) {\n\t\tSkillEngine.getInstance().applyEffect(1, null, null);\n\t}\n\t"
+		                        "public void applyEffect(")
+		self.assertEqual(rules.launch.evidence["RootEffect"], "calls SkillEngine.applyEffect")
+		self.assertEqual(rules.launch.subeffect_overrides, frozenset({"RootEffect"}))
+		rules = self.rules_with("skillengine/effect/EffectTemplate.java", "public void startSubEffect(Effect effect) {",
+		                        "public void startSubEffect(Effect effect) {\n\t\tSkillEngine.getInstance().applyEffect(1, null, null);")
+		self.assertIn("outside calculateSubEffect", rules.launch.template_error)
+		rules = self.rules_with("skillengine/effect/SubEffect.java", "private int chance = 100;", "private int chance;")
+		self.assertIn("SubEffect.java has no `private int chance = N;`", rules.launch.subeffect_error)
+		# a modelled launcher that gains a second launch is no longer modelled: the closure would follow the first one only
+		rules = self.rules_with("skillengine/effect/AuraEffect.java", "SkillEngine.getInstance().applyEffect(skillId, effected, effected);",
+		                        "SkillEngine.getInstance().applyEffect(skillId, effected, effected);\n\t\t"
+		                        "SkillEngine.getInstance().applyEffect(skillId + 1, effected, effected);")
+		self.assertIn("AuraEffect.java launches in more ways than this oracle models", rules.launch.unmodelled["AuraEffect"])
+		self.assertEqual(rules.launch.launcher(rules.class_chain("AuraEffect"))[0], None)
+
+	def test_the_penalty_shape_is_read(self):
+		# the level of the message arm and the JAXB default of penalty_skill_send_msg come from the Java
+		rules = self.rules_with("skillengine/model/Skill.java", "getPenaltySkill(effector, penaltySkill, 1)", "getPenaltySkill(effector, penaltySkill, 2)")
+		self.assertEqual((rules.launch.penalty_error, rules.launch.penalty_level), (None, 2))
+		rules = self.rules_with("skillengine/model/SkillTemplate.java", "private boolean penaltySkillSendMsg = false;",
+		                        "private boolean penaltySkillSendMsg = true;")
+		self.assertEqual((rules.launch.penalty_error, rules.launch.penalty_send_msg_default), (None, True))
+		# any other shape of the launch, its gate, the PenaltySkill cast or the attribute is not modelled, and says why
+		cases = [
+			("skillengine/model/Skill.java", "if (!blockedPenaltySkill)\n\t\t\tstartPenaltySkill();", "startPenaltySkill();"),
+			("skillengine/model/Skill.java", "if (setCooldowns)\n\t\t\tsetCooldowns();", "if (setCooldowns)\n\t\t\tsetCooldowns();\n\t\tstartPenaltySkill();"),
+			("skillengine/model/Skill.java", "blockedPenaltySkill = true;", "blockedChain = true;"),
+			("skillengine/model/Skill.java", "SkillEngine.getInstance().applyEffectDirectly(penaltySkill, firstTarget, effector);",
+			 "SkillEngine.getInstance().applyEffectDirectly(penaltySkill, effector, firstTarget);"),
+			("skillengine/model/Skill.java", "if (penaltySkill == 0)\n\t\t\treturn;",
+			 "if (penaltySkill == 0)\n\t\t\treturn;\n\t\tSkillEngine.getInstance().applyEffect(penaltySkill + 1, effector, effector);"),
+			("skillengine/model/PenaltySkill.java", "super.useWithoutPropSkill();", "super.useNoAnimationSkill();"),
+			("skillengine/model/PenaltySkill.java", "super(skillTemplate, effector, skillLevel, effector, null);",
+			 "super(skillTemplate, effector, 1, effector, null);"),
+			("skillengine/SkillEngine.java", "return new PenaltySkill(template, effector, skillLevel);", "return new PenaltySkill(template, effector, 1);"),
+			("skillengine/model/SkillTemplate.java", '@XmlAttribute(name = "penalty_skill_id")', '@XmlAttribute(name = "penalty_skill")'),
+		]
+		for relative, old, new in cases:
+			with self.subTest(file=relative, new=new):
+				self.assertIsNotNone(self.rules_with(relative, old, new).launch.penalty_error)
+		# applyEffectDirectly(int, Creature, Creature) at another level unmodels the provoker and the penalty
+		rules = self.rules_with("skillengine/SkillEngine.java", "applyEffect(effector, effected, skillTemplate, skillTemplate.getLvl(), null, ForceType.DEFAULT)",
+		                        "applyEffect(effector, effected, skillTemplate, 1, null, ForceType.DEFAULT)")
+		self.assertEqual(sorted(rules.launch.unmodelled), ["ProvokerEffect"])
+		self.assertIn("applyEffectDirectly(int, Creature, Creature)", rules.launch.penalty_error)
+		# and a penalty the Java does not have the modelled shape for is refused when the closure reaches it
+		with fixture_tree() as tree:
+			data = StaticData(tree.root)
+			closure = LaunchClosure(data, rules, load_skill_templates(data, {1090, 1001}))
+			self.assertEqual(closure.close({(1001, 1)}, {(1001, 1)}), {(1001, 1)}, "a cast without a penalty skill does not need the shape")
+			with self.assertRaises(OracleError) as caught:
+				closure.close({(1090, 1)}, {(1090, 1)})
+			self.assertIn("skill 1090 penalty_skill_id 1091", str(caught.exception))
+
 
 SKILL_TREE = (
 	'<skill skillId="1001" minLevel="1" classId="WARRIOR" autolearn="true"/>'
@@ -212,6 +334,9 @@ SKILL_TREE = (
 	'<skill skillId="1013" minLevel="1" race="ELYOS" autolearn="true"/>'                     # class-less and race specific
 	'<skill skillId="1014" minLevel="1" race="ASMODIANS" autolearn="true"/>'
 	'<skill skillId="1009" minLevel="1" classId="GLADIATOR" autolearn="true"/>'
+	'<skill skillId="1034" minLevel="3" classId="WARRIOR" autolearn="true"/>'                  # a launcher on the character's own bar
+	'<skill skillId="1092" minLevel="4" classId="WARRIOR" autolearn="true"/>'                  # a penalty skill with the message
+	'<skill skillId="1096" minLevel="4" classId="WARRIOR" autolearn="true"/>'                  # a passive with a penalty skill
 )
 
 SKILLS = """
@@ -273,21 +398,178 @@ SKILLS = """
 	duration="0"/>
 """
 
+# The launched-skill closure (m5b2/skills.py LaunchClosure): one fixture per launch kind, a two-step chain, cycles, and the shapes it refuses.
+# The attributes are those of skill_templates.xml's own launchers (e.g. :117912's provoker, :17522's subeffect).
+LAUNCH_SKILLS = """
+<skill_template skill_id="1030" name="fixture subeffect" stack="LA" lvl="2" skillsubtype="ATTACK" activation="ACTIVE" duration="0">
+	<effects>
+		<skillatk value="10" e="1"><subeffect skill_id="1051" chance="30"/></skillatk>
+		<nosucheffect e="3"><subeffect skill_id="424242"/></nosucheffect>
+	</effects>
+</skill_template>
+<skill_template skill_id="1031" name="fixture gated subeffect" stack="LV" lvl="1" skillsubtype="ATTACK" activation="ACTIVE" duration="0">
+	<effects>
+		<skillatk value="1" e="1"/>
+		<spellatkinstant value="5" e="2"><subconditions/><subeffect skill_id="1052"/></spellatkinstant>
+	</effects>
+</skill_template>
+<skill_template skill_id="1033" name="fixture subeffect that never lands" stack="LW" lvl="1" skillsubtype="ATTACK" activation="ACTIVE" duration="0">
+	<effects><skillatk value="1" e="4"><subeffect skill_id="1053" chance="0"/></skillatk></effects>
+</skill_template>
+<skill_template skill_id="1035" name="fixture two subeffect effects" lvl="1" activation="ACTIVE">
+	<effects>
+		<skillatk value="10" e="1"><subeffect skill_id="1051" chance="30"/></skillatk>
+		<spellatkinstant value="5" e="2"><subeffect skill_id="1052"/></spellatkinstant>
+	</effects>
+</skill_template>
+<skill_template skill_id="1051" name="fixture stumble" stack="LB" lvl="4" skillsubtype="NONE" tslot="DEBUFF" activation="ACTIVE" duration="3000">
+	<effects><stumble duration1="2000" e="1"/></effects>
+</skill_template>
+<skill_template skill_id="1052" name="fixture stagger" stack="LC" lvl="1" skillsubtype="NONE" tslot="DEBUFF" activation="ACTIVE" duration="3000">
+	<effects><stagger duration1="2000" e="1"/></effects>
+</skill_template>
+<skill_template skill_id="1053" name="fixture never" stack="LD" lvl="1" skillsubtype="NONE" activation="ACTIVE" duration="0">
+	<effects><spin e="1"/></effects>
+</skill_template>
+<skill_template skill_id="1032" name="fixture provokers" stack="LE" lvl="1" skillsubtype="BUFF" tslot="BUFF" activation="ACTIVE" duration="0">
+	<effects>
+		<provoker skill_id="1054" provoke_target="OPPONENT" hittype="NMLATK" hittypeprob2="20" radius="25" duration2="5000" e="1"/>
+		<provoker skill_id="1054" provoke_target="ME" duration2="5000" e="2"/>
+	</effects>
+</skill_template>
+<skill_template skill_id="1054" name="fixture blessing" stack="LF" lvl="3" skillsubtype="BUFF" tslot="BUFF" activation="PROVOKED" duration="1000">
+	<effects><statup duration2="5000" duration1="100" e="1"><change stat="MAXHP" func="ADD" value="1"/></statup></effects>
+</skill_template>
+<skill_template skill_id="1034" name="fixture delayed" stack="LG" lvl="1" skillsubtype="DEBUFF" tslot="DEBUFF" activation="ACTIVE" duration="0">
+	<effects><delayedskill skill_id="1055" duration2="3000" e="1"/></effects>
+</skill_template>
+<skill_template skill_id="1055" name="fixture delayed blow" stack="LH" lvl="2" skillsubtype="ATTACK" activation="PROVOKED" duration="0">
+	<effects><skillatk value="20" e="1"><subeffect skill_id="1052"/></skillatk></effects>
+</skill_template>
+<skill_template skill_id="1036" name="fixture carve" stack="LI" lvl="1" skillsubtype="ATTACK" activation="ACTIVE" duration="0">
+	<effects><carvesignet signet="SIGNETX" signet_id="1040" signet_cap="3" prob="70" value="10" e="1"/></effects>
+</skill_template>
+<skill_template skill_id="1037" name="fixture deep carve" stack="LJ" lvl="1" skillsubtype="ATTACK" activation="ACTIVE" duration="0">
+	<effects><carvesignet signet="SIGNETX" signet_id="1040" signet_cap="5" signet_increment="2" value="10" e="1"/></effects>
+</skill_template>
+<skill_template skill_id="1038" name="fixture carve that never lands" stack="LK" lvl="1" skillsubtype="ATTACK" activation="ACTIVE" duration="0">
+	<effects><carvesignet signet="SIGNETX" signet_id="1040" signet_cap="7" prob="0" value="10" e="1"/></effects>
+</skill_template>
+""" + "".join(
+	f'<skill_template skill_id="{1039 + level}" name="fixture signet {level}" stack="SIGNETX" lvl="{level}" skillsubtype="DEBUFF" tslot="DEBUFF" '
+	f'activation="PROVOKED" duration="0"><effects><signet duration2="10000" e="1"/></effects></skill_template>\n' for level in range(1, 8)) + """
+<skill_template skill_id="1060" name="fixture launcher" stack="LL" lvl="1" skillsubtype="DEBUFF" activation="ACTIVE" duration="0">
+	<effects><skilllauncher skill_id="1061" e="1"/></effects>
+</skill_template>
+<skill_template skill_id="1061" name="fixture launched root" stack="LM" lvl="2" skillsubtype="DEBUFF" tslot="DEBUFF" activation="PROVOKED"
+	duration="0">
+	<effects><root duration2="1000" e="1"/></effects>
+</skill_template>
+<skill_template skill_id="1062" name="fixture last stand" stack="LN" lvl="1" skillsubtype="BUFF" tslot="NOSHOW" activation="PASSIVE" duration="0">
+	<effects><condskilllauncher skill_id="1063" value="30" e="1"/></effects>
+</skill_template>
+<skill_template skill_id="1063" name="fixture dodge" stack="LO" lvl="1" skillsubtype="BUFF" tslot="BUFF" activation="PROVOKED" duration="0">
+	<effects><alwaysdodge duration2="5000" e="1"/></effects>
+</skill_template>
+<skill_template skill_id="1064" name="fixture aura" stack="LP" lvl="1" skillsubtype="BUFF" tslot="BUFF" activation="TOGGLE" duration="0">
+	<effects><aura skill_id="1065" distance="20" e="1"/></effects>
+</skill_template>
+<skill_template skill_id="1065" name="fixture aura pulse" stack="LQ" lvl="1" skillsubtype="BUFF" tslot="BUFF" activation="PROVOKED" duration="0">
+	<effects><statup duration2="6500" e="1"><change stat="MAXMP" func="ADD" value="1"/></statup></effects>
+</skill_template>
+<skill_template skill_id="1070" name="fixture ping" stack="LR" lvl="5" skillsubtype="ATTACK" activation="ACTIVE" duration="0">
+	<effects><skillatk value="1" e="1"><subeffect skill_id="1071"/></skillatk></effects>
+</skill_template>
+<skill_template skill_id="1071" name="fixture pong" stack="LS" lvl="1" skillsubtype="ATTACK" activation="ACTIVE" duration="0">
+	<effects><skillatk value="1" e="1"><subeffect skill_id="1070"/></skillatk></effects>
+</skill_template>
+<skill_template skill_id="1072" name="fixture echo" stack="LT" lvl="1" skillsubtype="ATTACK" activation="ACTIVE" duration="0">
+	<effects><skillatk value="1" e="1"><subeffect skill_id="1072" chance="50"/></skillatk></effects>
+</skill_template>
+<skill_template skill_id="1073" name="fixture burst" stack="LU" lvl="1" skillsubtype="ATTACK" activation="ACTIVE" duration="0">
+	<effects><signetburst signet="SIGNETX" signetlvl="5" value="10" e="1"><subeffect skill_id="1052"/></signetburst></effects>
+</skill_template>
+<skill_template skill_id="1080" name="fixture resurrect" lvl="1" activation="ACTIVE">
+	<effects><resurrect skill_id="1061" e="1"/></effects>
+</skill_template>
+<skill_template skill_id="1081" name="fixture servant" lvl="1" activation="ACTIVE">
+	<effects><summonservant npc_id="900001" e="1"/></effects>
+</skill_template>
+<skill_template skill_id="1082" name="fixture burst add effect" lvl="1" activation="ACTIVE">
+	<effects><signetburst signet="SIGNETX" signetlvl="5" value="10" e="1"><subeffect skill_id="1052" addeffect="true"/></signetburst></effects>
+</skill_template>
+<skill_template skill_id="1083" name="fixture two subeffects" lvl="1" activation="ACTIVE">
+	<effects><skillatk value="1" e="1"><subeffect skill_id="1051"/><subeffect skill_id="1052"/></skillatk></effects>
+</skill_template>
+<skill_template skill_id="1084" name="fixture provoker without skill" lvl="1" activation="ACTIVE">
+	<effects><provoker provoke_target="ME" e="1"/></effects>
+</skill_template>
+<skill_template skill_id="1085" name="fixture missing launch" lvl="1" activation="ACTIVE">
+	<effects><skillatk value="1" e="1"><subeffect skill_id="424243"/></skillatk></effects>
+</skill_template>
+<skill_template skill_id="1086" name="fixture provoker without target" lvl="1" activation="ACTIVE">
+	<effects><provoker skill_id="1054" e="1"/></effects>
+</skill_template>
+<skill_template skill_id="1087" name="fixture pet order" lvl="1" activation="ACTIVE">
+	<effects><petorderuseultraskill e="1"/></effects>
+</skill_template>
+<skill_template skill_id="1088" name="fixture launches a resurrect" lvl="1" activation="ACTIVE">
+	<effects><skilllauncher skill_id="1080" e="1"/></effects>
+</skill_template>
+<skill_template skill_id="1090" name="fixture penalty" stack="PA" lvl="1" skillsubtype="ATTACK" activation="ACTIVE" duration="0"
+	penalty_skill_id="1091">
+	<effects><skillatk value="1" e="1"/></effects>
+</skill_template>
+<skill_template skill_id="1091" name="fixture guardian" stack="PB" lvl="3" skillsubtype="BUFF" tslot="BUFF" activation="ACTIVE" duration="0">
+	<effects><provoker skill_id="1054" provoke_target="ME" hittype="EVERYHIT" duration2="5000" e="1"/></effects>
+</skill_template>
+<skill_template skill_id="1092" name="fixture penalty with message" stack="PC" lvl="1" skillsubtype="ATTACK" activation="ACTIVE" duration="0"
+	penalty_skill_id="1093" penalty_skill_send_msg="true">
+	<effects><skillatk value="1" e="1"/></effects>
+</skill_template>
+<skill_template skill_id="1093" name="fixture mp return" stack="PD" lvl="4" skillsubtype="HEAL" activation="ACTIVE" duration="0"
+	penalty_skill_id="1094">
+	<effects><mphealinstant value="10" e="1"/></effects>
+</skill_template>
+<skill_template skill_id="1094" name="fixture second penalty" stack="PE" lvl="2" skillsubtype="BUFF" tslot="BUFF" activation="ACTIVE" duration="0">
+	<effects><alwaysblock duration2="3000" e="1"/></effects>
+</skill_template>
+<skill_template skill_id="1095" name="fixture launches a penalty skill" stack="PF" lvl="1" skillsubtype="DEBUFF" activation="ACTIVE" duration="0">
+	<effects><skilllauncher skill_id="1090" e="1"/></effects>
+</skill_template>
+<skill_template skill_id="1096" name="fixture passive penalty" stack="PG" lvl="1" skillsubtype="NONE" tslot="NOSHOW" activation="PASSIVE"
+	duration="0" penalty_skill_id="1091">
+	<effects><statup e="1"><change stat="MAXHP" func="ADD" value="1"/></statup></effects>
+</skill_template>
+<skill_template skill_id="1097" name="fixture missing penalty" lvl="1" activation="ACTIVE" penalty_skill_id="424244"/>
+<skill_template skill_id="1098" name="fixture penalty onto a penalty" stack="PH" lvl="1" skillsubtype="ATTACK" activation="ACTIVE" duration="0"
+	penalty_skill_id="1090"/>
+"""
+
 NPC_SKILLS = (
 	'<npc_skills npc_ids="900001 900002"><npc_skill id="1020" lv="3" prob="25"/></npc_skills>'
 	'<npc_skills npc_ids="900001"><npc_skill id="1002" lv="9" prob="100" is_post_spawn="true"/></npc_skills>'  # the second list of 900001
+	'<npc_skills npc_ids="900004"><npc_skill id="1032" lv="1" prob="50"/><npc_skill id="1030" lv="2" prob="50"/>'
+	'<npc_skill id="1031" lv="2" prob="50"/></npc_skills>'
+	'<npc_skills npc_ids="900005"><npc_skill id="1090" lv="1" prob="100"/></npc_skills>'
+	'<npc_skills npc_ids="900006"><npc_skill id="1096" lv="1" prob="100"/></npc_skills>'
 )
 
 NPCS = ('<npc_template npc_id="900001" level="3" name="fixture caster" cast_speed="1100"><stats maxHp="10"/></npc_template>'
         '<npc_template npc_id="900002" level="4" name="fixture default"><stats maxHp="10"/></npc_template>'
-        '<npc_template npc_id="900003" level="5" name="fixture silent"><stats maxHp="10"/></npc_template>')
+        '<npc_template npc_id="900003" level="5" name="fixture silent"><stats maxHp="10"/></npc_template>'
+        '<npc_template npc_id="900004" level="6" name="fixture launcher"><stats maxHp="10"/></npc_template>'
+        '<npc_template npc_id="900005" level="7" name="fixture penalty caster"><stats maxHp="10"/></npc_template>'
+        '<npc_template npc_id="900006" level="7" name="fixture passive caster"><stats maxHp="10"/></npc_template>')
 
 
 def fixture_tree(item='<item_template id="500" name="fixture sword" item_group="SWORD"><weapon_stats attack_range="1500"/></item_template>',
-                 item_sets='<itemset id="1"><itempart itemid="1"/></itemset>', passive_change="PHYSICAL_ATTACK", passive_tag="statboost"):
+                 item_sets='<itemset id="1"><itempart itemid="1"/></itemset>', passive_change="PHYSICAL_ATTACK", passive_tag="statboost",
+                 sickness_attributes="", sickness_activation="PROVOKED"):
 	tree = Tree()
 	skills = SKILLS.replace('<change stat="PHYSICAL_ATTACK"', f'<change stat="{passive_change}"').replace("<statboost e=", f"<{passive_tag} e=") \
-		.replace("</statboost>", f"</{passive_tag}>")
+		.replace("</statboost>", f"</{passive_tag}>").replace('<skill_template skill_id="8291" ', f'<skill_template skill_id="8291" {sickness_attributes} ') \
+		.replace('tslot="SPEC2" activation="PROVOKED"', f'tslot="SPEC2" activation="{sickness_activation}"') + LAUNCH_SKILLS
 	tree.minimal({
 		"skill_tree": SKILL_TREE,
 		"skill_data": skills,
@@ -480,6 +762,243 @@ class M5b2FixtureReportTest(unittest.TestCase):
 			self.assertEqual(self.skill(report, 1001)["castDuration"], 2000)
 
 
+def edge_view(edges):
+	"""(kind, effect position, launched skill, level, chance, followed) of each launch edge, in report order; a penalty has no effect (None)."""
+	return [(e["kind"], e["effect"]["position"] if e["effect"] else None, e["skillId"], e["level"], e["chance"], e["followed"]) for e in edges]
+
+
+def launcher_view(links):
+	"""(launching skill, its level, kind, effect position, chance) of each launchedBy link; a penalty has no effect (None)."""
+	return [(link["skillId"], link["level"], link["kind"], link["effect"]["position"] if link["effect"] else None, link["chance"]) for link in links]
+
+
+@unittest.skipUnless(HAVE_JAVA_TREE, "Java tree not present")
+class M5b2LaunchClosureTest(unittest.TestCase):
+	"""The skills an effect launches, followed to a fixpoint (LaunchClosure), on the LAUNCH_SKILLS fixture: one case per launch kind, a chain,
+	cycles, the per-npc and per-character closures, and every launch shape the oracle refuses."""
+
+	@classmethod
+	def setUpClass(cls):
+		cls.tree = fixture_tree()
+		cls.data = StaticData(cls.tree.root)
+
+	@classmethod
+	def tearDownClass(cls):
+		cls.tree.close()
+
+	def report(self, **kwargs):
+		return skills_report(self.data, JAVA_SRC, "ELYOS", "WARRIOR", **kwargs)
+
+	skill = staticmethod(M5b2FixtureReportTest.skill)
+
+	def test_subeffects_run_at_level_1_with_their_chance(self):
+		# EffectTemplate.calculateSubEffect: `int level = 1` (EffectTemplate.java:419) whatever the template's lvl, Rnd.chance() >= chance fails
+		# (:415), the chance defaulting to 100 (SubEffect.java:18); a tag Effects.java does not bind is dropped with its <subeffect>
+		report = self.report(extra_skills=["1030", "1031", "1033"])
+		parent = self.skill(report, 1030, 2)
+		self.assertEqual(edge_view(parent["launches"]), [("subeffect", 1, 1051, 1, 30, True)],
+		                 "the <nosucheffect> of position 3 is dropped by JAXB, so its skill 424242 (no template) is never launched, and it is no "
+		                 "second <subeffect> of the Effect either")
+		self.assertEqual([(e["effect"]["tag"], e["effect"]["class"], e["effect"]["index"], e["gates"]) for e in parent["launches"]],
+		                 [("skillatk", "SkillAttackInstantEffect", 0, [])])
+		gated = self.skill(report, 1031)["launches"]
+		self.assertEqual(edge_view(gated), [("subeffect", 2, 1052, 1, 100, True)])
+		self.assertEqual([(e["effect"]["tag"], e["effect"]["index"], e["gates"]) for e in gated], [("spellatkinstant", 1, ["subconditions"])])
+		self.assertEqual(edge_view(self.skill(report, 1033)["launches"]), [("subeffect", 4, 1053, 1, 0, False)])
+		stumble = self.skill(report, 1051)
+		self.assertEqual((stumble["level"], stumble["lvl"], stumble["sources"], stumble["effectDuration"]), (1, 4, ["launch"], 2000),
+		                 "launched at level 1, not at its lvl 4: duration1 2000 * 1")
+		self.assertEqual(launcher_view(stumble["launchedBy"]), [(1030, 2, "subeffect", 1, 30)])
+		self.assertEqual(launcher_view(self.skill(report, 1052)["launchedBy"]), [(1031, 1, "subeffect", 2, 100)])
+		self.assertEqual([s["skillId"] for s in report["skills"] if s["skillId"] == 1053], [],
+		                 "a chance of 0 never launches (Rnd.chance() is never below 0): reported as an edge, not followed")
+		self.assertIn("StumbleEffect", report["effectClasses"]["addedByLaunches"]["leaves"])
+		self.assertNotIn("SpinEffect", report["effectClasses"]["withBases"])
+
+	def test_provokers_launch_at_the_template_level_per_qualifying_hit(self):
+		# ProvokerEffect.java:43 (ATTACK for NMLATK/BACKATK, else ATTACKED), :69-73 (OPPONENT, radius, hittypeprob2), :62 applyEffectDirectly
+		# at skillTemplate.getLvl() (SkillEngine.java:121-124); hittype EVERYHIT and hittypeprob2 100 by default (EffectTemplate.java:52-54)
+		report = self.report(extra_skills=["1032"])
+		parent = self.skill(report, 1032)
+		self.assertEqual(edge_view(parent["launches"]), [("provoker", 1, 1054, 3, 20, True), ("provoker", 2, 1054, 3, 100, True)])
+		self.assertEqual([(e["observer"], e["hitType"], e["provokeTarget"], e["radius"]) for e in parent["launches"]],
+		                 [("ATTACK", "NMLATK", "OPPONENT", 25), ("ATTACKED", "EVERYHIT", "ME", 0)])
+		blessing = self.skill(report, 1054)
+		self.assertEqual((blessing["level"], blessing["effectDuration"], blessing["sources"]), (3, 5300, ["launch"]),
+		                 "at its lvl 3: 5000 + 100 * 3")
+		self.assertEqual(launcher_view(blessing["launchedBy"]), [(1032, 1, "provoker", 1, 20), (1032, 1, "provoker", 2, 100)])
+
+	def test_delayed_skills_and_the_fixpoint(self):
+		# DelayedSkillEffect.java:24-25 when the effect ends by time, at the lvl of 1055 (2); 1055 then launches 1052 by a subeffect: two steps
+		report = self.report(extra_skills=["1034"])
+		self.assertEqual(edge_view(self.skill(report, 1034)["launches"]), [("delayedskill", 1, 1055, 2, 100, True)])
+		self.assertEqual(self.skill(report, 1034)["launches"][0]["trigger"], "endedByTime")
+		blow = self.skill(report, 1055)
+		self.assertEqual((blow["level"], blow["sources"], launcher_view(blow["launchedBy"])), (2, ["launch"], [(1034, 1, "delayedskill", 1, 100)]))
+		self.assertEqual(launcher_view(self.skill(report, 1052)["launchedBy"]), [(1055, 2, "subeffect", 1, 100)], "the second step")
+		self.assertEqual(report["effectClasses"]["addedByLaunches"], {"leaves": ["SkillAttackInstantEffect", "StaggerEffect"],
+		                                                              "withBases": ["SkillAttackInstantEffect", "StaggerEffect"]},
+		                 "DamageEffect is not added: it is a base of the autolearnt 1001's SpellAttackInstantEffect")
+
+	def test_carved_signets_follow_every_carver_of_the_stack(self):
+		# CarveSignetEffect.java:34-44: 1036 (cap 3, prob 70) carves 1, 2, 3 itself, and keeps a SIGNETX carved to 4 or 5 by 1037 (cap 5,
+		# increment 2) at that level: min(4 + 1, max(3, 4)) = 4, min(5 + 1, max(3, 5)) = 5. 1038 (cap 7) has prob 0 and never carves.
+		report = self.report(extra_skills=["1036", "1037"])
+		carve = self.skill(report, 1036)
+		self.assertEqual(edge_view(carve["launches"]), [("carvesignet", 1, 1039 + level, level, 70, True) for level in range(1, 6)])
+		self.assertEqual([(e["carvedLevel"], e["viaOtherCarvers"]) for e in carve["launches"]],
+		                 [(1, False), (2, False), (3, False), (4, True), (5, True)])
+		self.assertEqual({(e["signet"], e["signetCap"], e["signetIncrement"]) for e in carve["launches"]}, {("SIGNETX", 3, 1)})
+		deep = self.skill(report, 1037)
+		self.assertEqual([(e["carvedLevel"], e["skillId"], e["chance"], e["viaOtherCarvers"]) for e in deep["launches"]],
+		                 [(2, 1041, 100, False), (3, 1042, 100, True), (4, 1043, 100, False), (5, 1044, 100, False)],
+		                 "increment 2 from nothing is 2, then 4, then 5; 3 only on a signet 1036 carved to 1; never 1")
+		self.assertEqual(sorted(s["skillId"] for s in report["skills"] if s["skillId"] in range(1040, 1047)), [1040, 1041, 1042, 1043, 1044],
+		                 "no 1045 or 1046: the prob 0 carver cannot carve 6 or 7")
+		self.assertEqual(launcher_view(self.skill(report, 1044)["launchedBy"]), [(1036, 1, "carvesignet", 1, 70), (1037, 1, "carvesignet", 1, 100)])
+		self.assertEqual([link["carvedLevel"] for link in self.skill(report, 1044)["launchedBy"]], [5, 5])
+
+	def test_skill_launchers_conditional_launchers_and_auras(self):
+		# SkillLauncherEffect.java:23, CondSkillLauncherEffect.java:46 (HP at or below value %; a PASSIVE launcher's effect is permanent),
+		# AuraEffect.java:71 - each at the launched template's lvl
+		report = self.report(extra_skills=["1060", "1062", "1064"])
+		self.assertEqual(edge_view(self.skill(report, 1060)["launches"]), [("skilllauncher", 1, 1061, 2, 100, True)])
+		conditional = self.skill(report, 1062)["launches"]
+		self.assertEqual(edge_view(conditional), [("condskilllauncher", 1, 1063, 1, 100, True)])
+		self.assertEqual((conditional[0]["hpPercent"], conditional[0]["permanent"], conditional[0]["trigger"]), (30, True, "hpAtOrBelow"))
+		self.assertEqual(edge_view(self.skill(report, 1064)["launches"]), [("aura", 1, 1065, 1, 100, True)])
+		self.assertEqual([self.skill(report, s)["sources"] for s in (1061, 1063, 1065)], [["launch"]] * 3)
+		self.assertEqual(self.skill(report, 1061)["effectDuration"], 1000)
+
+	def test_cycles_end(self):
+		# 1070 (lvl 5) and 1071 launch each other through subeffects, at level 1; 1072 launches itself. The fixpoint is over (skill, level).
+		report = self.report(extra_skills=["1070", "1072"])
+		self.assertEqual(sorted((s["skillId"], s["level"], tuple(s["sources"])) for s in report["skills"] if s["skillId"] in (1070, 1071, 1072)),
+		                 [(1070, 1, ("launch",)), (1070, 5, ("extra",)), (1071, 1, ("launch",)), (1072, 1, ("extra", "launch"))])
+		self.assertEqual(launcher_view(self.skill(report, 1071)["launchedBy"]), [(1070, 1, "subeffect", 1, 100), (1070, 5, "subeffect", 1, 100)])
+		self.assertEqual(launcher_view(self.skill(report, 1070, 1)["launchedBy"]), [(1071, 1, "subeffect", 1, 100)])
+		self.assertEqual(self.skill(report, 1070, 5)["launchedBy"], [], "nothing launches 1070 at level 5")
+		self.assertEqual(launcher_view(self.skill(report, 1072)["launchedBy"]), [(1072, 1, "subeffect", 1, 50)])
+
+	def test_a_signet_burst_rolls_its_own_launch(self):
+		# SignetBurstEffect.java:44 sets Effect.launchSubEffect from the signet data, and calculateSubEffect only runs while it is set
+		report = self.report(extra_skills=["1073"])
+		[edge] = self.skill(report, 1073)["launches"]
+		self.assertEqual((edge["skillId"], edge["level"], edge["gates"]), (1052, 1, ["SignetBurstEffect.launchSubEffect"]))
+
+	def test_the_npc_and_character_closures(self):
+		report = self.report(level=3, npc_ids=[900004, 900001])
+		launcher, caster = report["npcs"]
+		self.assertEqual(launcher["launchedSkills"], [{"skillId": 1051, "level": 1}, {"skillId": 1052, "level": 1}, {"skillId": 1054, "level": 3}])
+		self.assertEqual(launcher["effectClasses"]["addedByLaunches"], {"leaves": ["StaggerEffect", "StatupEffect", "StumbleEffect"],
+		                                                                "withBases": ["BufEffect", "StaggerEffect", "StatupEffect", "StumbleEffect"]})
+		self.assertEqual(launcher["effectClasses"]["leaves"], ["ProvokerEffect", "SkillAttackInstantEffect", "SpellAttackInstantEffect",
+		                                                       "StaggerEffect", "StatupEffect", "StumbleEffect"])
+		self.assertEqual((caster["launchedSkills"], caster["effectClasses"]["addedByLaunches"]), ([], {"leaves": [], "withBases": []}))
+		# the level 3 Warrior autolearns 1034 (the fixture's skill_tree row): its closure is the character's
+		character = report["character"]
+		self.assertIn({"skillId": 1034, "level": 1}, character["skills"])
+		self.assertEqual(character["launchedSkills"], [{"skillId": 1052, "level": 1}, {"skillId": 1055, "level": 2}])
+		self.assertEqual(character["effectClasses"]["addedByLaunches"], {"leaves": ["SkillAttackInstantEffect", "StaggerEffect"],
+		                                                                 "withBases": ["SkillAttackInstantEffect", "StaggerEffect"]},
+		                 "DamageEffect is already a base of the autolearnt 1001's SpellAttackInstantEffect")
+		self.assertEqual(self.skill(report, 1052)["sources"], ["launch"])
+		self.assertEqual(report["effectClasses"]["addedByLaunches"], {"leaves": ["StaggerEffect", "StatupEffect", "StumbleEffect"],
+		                                                              "withBases": ["StaggerEffect", "StatupEffect", "StumbleEffect"]},
+		                 "1055's SkillAttackInstantEffect is new for the character, not for the report (the npcs' 1030 and 1020 have it), and "
+		                 "BufEffect is a base of the direct StatdownEffect")
+		self.assertEqual(report["version"], 2)
+
+	def test_penalty_skills_run_when_the_cast_ends(self):
+		# Skill.endCast (Skill.java:646-648) -> startPenaltySkill (:478-489). Without penalty_skill_send_msg the penalty skill is applied from
+		# the first target on the caster at its lvl (applyEffectDirectly, :488; SkillEngine.java:121-124). With it, PenaltySkill.useSkill casts
+		# it at level 1 (getPenaltySkill(effector, penaltySkill, 1), :483), and a skill so used runs endCast itself (PenaltySkill.java:12-14
+		# -> useWithoutPropSkill), so its own penalty skill follows. No roll: chance 100, unless blockedPenaltySkill (:603-606)
+		report = self.report(extra_skills=["1090", "1092"])
+		[penalty] = self.skill(report, 1090)["launches"]
+		self.assertEqual(edge_view([penalty]), [("penalty", None, 1091, 3, 100, True)])
+		self.assertEqual({key: penalty[key] for key in ("trigger", "sendMsg", "effector", "runsEndCast", "gates")},
+		                 {"trigger": "endCast", "sendMsg": False, "effector": "firstTarget", "runsEndCast": False, "gates": ["Skill.blockedPenaltySkill"]})
+		guardian = self.skill(report, 1091)
+		self.assertEqual((guardian["level"], guardian["sources"], launcher_view(guardian["launchedBy"])), (3, ["launch"], [(1090, 1, "penalty", None, 100)]))
+		self.assertEqual(launcher_view(self.skill(report, 1054)["launchedBy"]), [(1091, 3, "provoker", 1, 100)], "the penalty skill's provoker")
+		[message] = self.skill(report, 1092)["launches"]
+		self.assertEqual(edge_view([message]), [("penalty", None, 1093, 1, 100, True)])
+		self.assertEqual((message["sendMsg"], message["effector"], message["runsEndCast"]), (True, "caster", True))
+		mp_return = self.skill(report, 1093)
+		self.assertEqual((mp_return["level"], mp_return["lvl"], mp_return["sources"]), (1, 4, ["launch"]), "a PenaltySkill at level 1, not its lvl 4")
+		self.assertEqual(edge_view(mp_return["launches"]), [("penalty", None, 1094, 2, 100, True)])
+		second = self.skill(report, 1094)
+		self.assertEqual((second["level"], launcher_view(second["launchedBy"])), (2, [(1093, 1, "penalty", None, 100)]),
+		                 "1093 runs endCast, so its own penalty skill 1094 follows, at its lvl 2")
+		self.assertEqual(report["effectClasses"]["addedByLaunches"]["leaves"], ["AlwaysBlockEffect", "MPHealInstantEffect", "ProvokerEffect",
+		                                                                         "StatupEffect"])
+
+	def test_only_a_skill_that_runs_end_cast_launches_its_penalty(self):
+		# a skill an effect launches (Effect.applyEffect), a penalty skill applied without the message (applyEffectDirectly) and a passive
+		# (applied directly, SkillLearnService.java:35-36; CM_CASTSPELL.java:92 refuses to cast one) never run Skill.endCast
+		report = self.report(extra_skills=["1095", "1096", "1098"])
+		cleave = self.skill(report, 1090)
+		self.assertEqual(launcher_view(cleave["launchedBy"]), [(1095, 1, "skilllauncher", 1, 100), (1098, 1, "penalty", None, 100)])
+		self.assertEqual(edge_view(cleave["launches"]), [("penalty", None, 1091, 3, 100, True)], "the edge is listed ...")
+		self.assertEqual([s["skillId"] for s in report["skills"] if s["skillId"] in (1091, 1054)], [], "... but nothing reached 1090 or 1096 by a cast")
+		self.assertEqual(self.skill(report, 1096)["launches"][0]["skillId"], 1091)
+		# the same skill cast as well: one link per launching (skill, level), not one per way it was reached
+		cast = self.report(extra_skills=["1095", "1090"])
+		self.assertEqual(self.skill(cast, 1090)["sources"], ["extra", "launch"])
+		self.assertEqual(launcher_view(self.skill(cast, 1091)["launchedBy"]), [(1090, 1, "penalty", None, 100)])
+		# an npc casts every npc_skills row through Skill.useSkill (CreatureController.java:455-460); the level 4 Warrior casts 1092 and its
+		# PenaltySkill 1093 runs endCast, but not the passive 1096
+		report = self.report(level=4, npc_ids=[900005])
+		[npc] = report["npcs"]
+		self.assertEqual(npc["launchedSkills"], [{"skillId": 1054, "level": 3}, {"skillId": 1091, "level": 3}])
+		character = report["character"]
+		self.assertEqual([s["skillId"] for s in character["skills"] if 1090 < s["skillId"] < 2000], [1092, 1096])
+		self.assertEqual(character["launchedSkills"], [{"skillId": 1052, "level": 1}, {"skillId": 1055, "level": 2}, {"skillId": 1093, "level": 1},
+		                                               {"skillId": 1094, "level": 2}])
+		self.assertEqual(launcher_view(self.skill(report, 1091)["launchedBy"]), [(1090, 1, "penalty", None, 100)], "the npc's 1090, not the passive")
+		# CreatureController.useSkill does not ask whether the template is passive: an npc row runs endCast whatever its activation
+		[passive_caster] = self.report(npc_ids=[900006])["npcs"]
+		self.assertEqual(passive_caster["launchedSkills"], [{"skillId": 1054, "level": 3}, {"skillId": 1091, "level": 3}])
+		# updateSoulSickness casts its skill through Skill.useSkill (PlayerController.java:732) whatever the activation, so it runs endCast -
+		# even as a PASSIVE, which the character itself could not cast
+		with fixture_tree(sickness_attributes='penalty_skill_id="1091"', sickness_activation="PASSIVE") as tree:
+			sick = skills_report(StaticData(tree.root), JAVA_SRC, "ELYOS", "WARRIOR")
+			self.assertEqual(launcher_view(self.skill(sick, 1091)["launchedBy"]), [(8291, 1, "penalty", None, 100)])
+
+	def test_launch_shapes_the_oracle_does_not_model_are_refused(self):
+		cases = {
+			"1080": "ResurrectEffect launches a skill in a shape this oracle does not model",
+			"1081": "SummonEffect binds the attribute npc_id",
+			"1082": "addeffect",
+			"1083": "2 <subeffect>s",
+			"1084": "has no skill_id",
+			"1085": "skill 1085 <skillatk> (subeffect) launches skill 424243, which has no skill_template",
+			"1086": "provoke_target None",
+			"1087": "PET_SKILL_DATA",
+			"1088": "skill 1080 <resurrect>: ResurrectEffect",
+			# an Effect keeps one sub effect and one <subconditions> abort flag for all its templates (Effect.java:479-481, :1001-1003)
+			"1035": "skill 1035 has 2 effects with a <subeffect>",
+			"1097": "skill 1097 penalty_skill_id (penalty) launches skill 424244, which has no skill_template",
+		}
+		for skill, message in cases.items():
+			with self.subTest(skill=skill), self.assertRaises(OracleError) as caught:
+				self.report(extra_skills=[skill])
+			self.assertIn(message, str(caught.exception))
+
+	def test_the_command_line_refuses_with_exit_code_2(self):
+		arguments = ["m5b2-skills", "--static-data", str(self.tree.root), "--java-src", str(JAVA_SRC), "--race", "ELYOS", "--class", "WARRIOR"]
+		err = io.StringIO()
+		with contextlib.redirect_stderr(err), contextlib.redirect_stdout(io.StringIO()):
+			self.assertEqual(oracle.main(arguments + ["--skill", "1088"]), 2)
+		self.assertIn("does not model", err.getvalue())
+		out = io.StringIO()
+		with contextlib.redirect_stdout(out):
+			self.assertEqual(oracle.main(arguments + ["--skill", "1034"]), 0)
+		[blow] = [s for s in json.loads(out.getvalue())["skills"] if s["skillId"] == 1055]
+		self.assertEqual(launcher_view(blow["launchedBy"]), [(1034, 1, "delayedskill", 1, 100)])
+
+
 @unittest.skipUnless(HAVE_JAVA_TREE, "Java tree not present")
 class M5b2RealDataTest(unittest.TestCase):
 	"""The gate's own characters (m5b2-plan.md D4): a level 1 Elyos Warrior and a level 1 Elyos Mage, the revive debuff (D5) and npc 210133."""
@@ -572,6 +1091,85 @@ class M5b2RealDataTest(unittest.TestCase):
 		self.assertEqual(bite["effectDuration"], 13400, "<bleed duration2=12100 duration1=300> at npc skill level 1: 12100 + 1000 + 300 * 1")
 		root = self.skill(report, 1328)
 		self.assertEqual(root["effectDuration"], 20000, "a RootEffect is no over time effect: X6's 20 seconds stay exact")
+
+	def test_the_gate_skills_launch_nothing(self):
+		# npc 210133's only skill, 16419 Brandish, has no subeffect and no launcher; nor has anything a level 1 Mage or Warrior casts
+		[npc] = self.mage["npcs"]
+		self.assertEqual((npc["launchedSkills"], npc["effectClasses"]["addedByLaunches"]), ([], {"leaves": [], "withBases": []}))
+		for report in (self.warrior, self.mage):
+			self.assertEqual(report["effectClasses"]["addedByLaunches"], {"leaves": [], "withBases": []})
+			self.assertEqual([s["skillId"] for s in report["skills"] if s["launches"] or s["launchedBy"]], [])
+
+	def test_the_start_map_npcs_launch_stagger_stumble_and_blessing_of_rock(self):
+		# m5b2-plan.md §10 "what remains": the closure adds 8217, 8218 and 16393 on the start maps. From skill_templates.xml:
+		# 16742 Wide Thrust (:123086, <subeffect skill_id="8217"/> :123096), 16785 Knockback (:123777, :123787), 17720 Press Strike (:137554,
+		# :137564) -> 8217 "Stunned", a <stagger duration1="2000"> (:79903-79912); 16422 Thrust (:118299, :118309) and 16460 Strike Chain Skill
+		# (:118854, :118864) -> 8218 Stumble, a <stumble duration1="2000"> (:79916-79925); 16394 (:117903, <provoker skill_id="16393"
+		# provoke_target="ME" hittype="EVERYHIT">, :117912) and 16856 (:124842, :124851) -> 16393 Blessing of Rock, lvl 1, a <statup
+		# duration2="5000" duration1="100"> (:117888-117897). The npcs are npc_skills.xml:2881 (210162), :3259 (210407), :5637 (211284),
+		# :3888 (210637).
+		report = skills_report(self.data, JAVA_SRC, "ELYOS", "WARRIOR", npc_ids=[210162, 210407, 211284, 210637])
+		launched = {npc["npcId"]: [(s["skillId"], s["level"]) for s in npc["launchedSkills"]] for npc in report["npcs"]}
+		self.assertEqual(launched, {210162: [(8217, 1), (16393, 1)], 210407: [(8217, 1), (16393, 1)], 211284: [(8218, 1)], 210637: [(8217, 1)]})
+		added = {npc["npcId"]: npc["effectClasses"]["addedByLaunches"]["leaves"] for npc in report["npcs"]}
+		self.assertEqual(added, {210162: ["StaggerEffect", "StatupEffect"], 210407: ["StaggerEffect", "StatupEffect"], 211284: ["StumbleEffect"],
+		                         210637: ["StaggerEffect"]})
+		self.assertEqual(report["npcs"][0]["effectClasses"]["addedByLaunches"]["withBases"], ["BufEffect", "StaggerEffect", "StatupEffect"])
+		stagger, stumble, blessing = self.skill(report, 8217), self.skill(report, 8218), self.skill(report, 16393)
+		self.assertEqual(launcher_view(stagger["launchedBy"]), [(16742, 1, "subeffect", 1, 100), (16785, 1, "subeffect", 1, 100),
+		                                                         (17720, 1, "subeffect", 1, 100)])
+		self.assertEqual(launcher_view(stumble["launchedBy"]), [(16422, 1, "subeffect", 1, 100), (16460, 1, "subeffect", 1, 100)])
+		self.assertEqual(launcher_view(blessing["launchedBy"]), [(16394, 1, "provoker", 1, 100), (16856, 1, "provoker", 1, 100)])
+		self.assertEqual([(s["sources"], s["effects"][0]["class"], s["effectDuration"]) for s in (stagger, stumble, blessing)],
+		                 [(["launch"], "StaggerEffect", 2000), (["launch"], "StumbleEffect", 2000), (["launch"], "StatupEffect", 5100)])
+		[provoke] = self.skill(report, 16394)["launches"]
+		self.assertEqual((provoke["observer"], provoke["provokeTarget"], provoke["radius"]), ("ATTACKED", "ME", 0),
+		                 "EVERYHIT is no NMLATK or BACKATK: the observer is ATTACKED, so every hit on the npc may cast 16393 on the npc")
+
+	def test_the_start_maps_closure_adds_exactly_three_skills(self):
+		# every npc spawned on Poeta and Ishalgen (the spawn files' npc ids), their npc_skills lists, and the closure over all of them
+		npc_ids = set()
+		for spawns in ("210010000_Poeta.xml", "220010000_Ishalgen.xml"):
+			npc_ids |= {int(spawn.get("npc_id")) for spawn in ET.parse(runner.DEFAULT_STATIC_DATA / "spawns" / "Npcs" / spawns).getroot().iter("spawn")}
+		lists = npc_skill_lists(self.data, npc_ids)
+		self.assertEqual(len(lists), 68, "m5b2-plan.md §2.4(b): 32 of Poeta's npc ids and 36 of Ishalgen's own skills")
+		roots = {(row["skillId"], row["level"]) for rows in lists.values() for row in rows}
+		self.assertEqual(len({skill for skill, _ in roots}), 29, "§2.4(b): the 29 distinct npc skill ids of the two maps")
+		closure = LaunchClosure(self.data, JavaSkillRules.read(JAVA_SRC), load_skill_templates(self.data, {skill for skill, _ in roots}))
+		self.assertEqual(sorted(closure.close(roots, roots) - roots), [(8217, 1), (8218, 1), (16393, 1)],
+		                 "an npc casts its rows (Skill.useSkill), so their penalty skills count; none of the 29 has one")
+		npc_closure = lambda rows: closure.close({(r["skillId"], r["level"]) for r in rows}, {(r["skillId"], r["level"]) for r in rows})  # noqa: E731
+		self.assertEqual(sorted(npc for npc, rows in lists.items() if npc_closure(rows) - roots), [210162, 210407, 210409, 210637, 211284])
+		self.assertEqual([edge for skill, _ in sorted(closure.close(roots, roots)) for edge in closure.edges[skill] if edge["kind"] == "penalty"], [])
+
+	def test_the_mage_reaches_stagger_through_frozen_shock_at_level_7(self):
+		# the player path: 1226 Frozen Shock is autolearnt at minLevel 7 (skill_tree.xml:1369) and its <spellatkinstant> carries
+		# <subeffect skill_id="8217"/> (skill_templates.xml:17512, :17522)
+		level6 = skills_report(self.data, JAVA_SRC, "ELYOS", "MAGE", level=6)
+		self.assertEqual(level6["character"]["launchedSkills"], [])
+		level7 = skills_report(self.data, JAVA_SRC, "ELYOS", "MAGE", level=7)
+		self.assertEqual(level7["character"]["launchedSkills"], [{"skillId": 8217, "level": 1}])
+		self.assertEqual(level7["character"]["effectClasses"]["addedByLaunches"], {"leaves": ["StaggerEffect"], "withBases": ["StaggerEffect"]})
+		self.assertEqual(launcher_view(self.skill(level7, 8217)["launchedBy"]), [(1226, 1, "subeffect", 1, 100)])
+		self.assertEqual(self.skill(level7, 1226)["launches"][0]["effect"]["class"], "SpellAttackInstantEffect")
+
+	def test_penalty_skills_on_the_real_data(self):
+		# Skill.startPenaltySkill (Skill.java:478-489). skill_templates.xml: 17551 Holy Wave (:135257) and 17846 Dark Force Cleave (:139275)
+		# carry penalty_skill_id="16394", Blessing of Rock (:117903), whose provoker launches 16393 (:117912); npc 212346 casts 17846 at lv 34
+		# (npc_skills.xml:9286-9291). 3019 Empyrean Chastisement (:50824) -> 9042 Razorlight Veil (:90377) without the message; 2171
+		# Crosstrigger (:34262) -> 8938 (:89178) with penalty_skill_send_msg="true", so at level 1 through PenaltySkill. Before the penalty
+		# kind, this report left 16394, 9042 and 8938 out without a word.
+		report = skills_report(self.data, JAVA_SRC, "ELYOS", "WARRIOR", extra_skills=["17551", "3019", "2171"], npc_ids=[212346])
+		[npc] = report["npcs"]
+		self.assertEqual(npc["launchedSkills"], [{"skillId": 8218, "level": 1}, {"skillId": 16393, "level": 1}, {"skillId": 16394, "level": 1}])
+		self.assertEqual(launcher_view(self.skill(report, 16394)["launchedBy"]), [(17551, 1, "penalty", None, 100), (17846, 34, "penalty", None, 100)])
+		self.assertIn((16394, 1, "provoker", 1, 100), launcher_view(self.skill(report, 16393)["launchedBy"]))
+		penalties = {s: [(e["skillId"], e["level"], e["sendMsg"], e["effector"]) for e in self.skill(report, s)["launches"] if e["kind"] == "penalty"]
+		             for s in (17551, 3019, 2171)}
+		self.assertEqual(penalties, {17551: [(16394, 1, False, "firstTarget")], 3019: [(9042, 1, False, "firstTarget")],
+		                             2171: [(8938, 1, True, "caster")]})
+		self.assertEqual([(self.skill(report, s)["sources"], self.skill(report, s)["effects"][0]["class"]) for s in (9042, 8938)],
+		                 [(["launch"], "ShieldEffect"), (["launch"], "MPHealInstantEffect")])
 
 	def test_the_command_line(self):
 		out = io.StringIO()
