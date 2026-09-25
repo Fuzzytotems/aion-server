@@ -1,7 +1,9 @@
 #pragma once
 
 #include <chrono>
+#include <cstddef>
 #include <cstdint>
+#include <span>
 #include <string>
 #include <vector>
 
@@ -42,6 +44,12 @@ protected:
  * - Every `checkInterval` (1 s): objects with a reference count > 0 removed longer than `censusAfter` (gameserver.debug.leak_census_minutes,
  *   10 min) are reported once as leaks (warning with class, id, refcount and the call sites of pending tasks pinning them, from
  *   ThreadPoolManager::tasksPinning; strings are static). Objects at count 0 are waiting for reclamation, not leaking.
+ * - Holder probe (C++-only diagnostics): with a probe set (setHolderProbe), a check that reports new leaks posts the probe once to the instant
+ *   pool for at most MAX_PROBED_LEAKS_PER_PASS of them (oldest removal first), pinned by the task, so the game layer can name the references
+ *   that keep them alive in one pass over its structures. The others are not probed (each leak is reported once), and neither are the new
+ *   leaks of a check less than a minute after the last probe was posted or while it is still pending or running; the census logs how many it
+ *   skipped. A check with `censusAfter` 0 posts no probe: it also reports objects whose references are still being released, and the pin
+ *   would hold their counts up for its callers (CheckOutput's final census and breaker pass), which re-read them.
  * - Zombie breaker (D7): objects with count > 0 removed longer than `zombieBreakAfter` (gameserver.runtime.zombie_break_minutes, 30 min) get
  *   breakKnownEdges() posted once to the instant pool, pinned by the task; each cut edge is logged as a warning naming class, id and edge (a
  *   missing cycle breaker to fix) and counted in zombieCutCount(); an object that is not ZombieBreakable, or whose breaker cut nothing, gets a
@@ -108,6 +116,27 @@ public:
 	size_t trackedCount() const;
 	/** total zombie-breaker cuts since start (stress harness pass criterion: 0) */
 	uint64_t zombieCutCount() const noexcept;
+
+	/** One newly reported leak handed to the holder probe; the probe's task pins `object` while it runs. `className` is static. */
+	struct ProbedLeak {
+		RefCounted* object = nullptr;
+		const char* className = nullptr;
+		int32_t objectId = 0;
+	};
+	/** at most this many new leaks of one census check get the holder probe (the capacity of one task's Pin: one task, one pass) */
+	static constexpr size_t MAX_PROBED_LEAKS_PER_PASS = 4;
+	/**
+	 * A game-layer diagnostic that looks for the references keeping leaked objects alive and logs every holder it finds, in one pass over its
+	 * structures for all `leaks` (it must not change game state). The leak census counts references but cannot say whose they are; the probe
+	 * can (world::WorldLeakProbe, installed by the game server's World step).
+	 */
+	using HolderProbe = void (*)(std::span<const ProbedLeak> leaks);
+	/**
+	 * Sets the holder probe (nullptr removes it; independent of install/uninstall). A census check that reports new leaks posts the probe once
+	 * to the instant pool with at most MAX_PROBED_LEAKS_PER_PASS of them, pinned by the task like the zombie breaker, at most once a minute and
+	 * never with `censusAfter` 0; an exception of the probe is logged. See the class comment for what is skipped.
+	 */
+	void setHolderProbe(HolderProbe probe) noexcept;
 
 private:
 	LeakCensus() = default;

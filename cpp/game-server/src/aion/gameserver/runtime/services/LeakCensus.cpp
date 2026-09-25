@@ -3,10 +3,14 @@
 #include "aion/gameserver/runtime/services/LeakCensus.h"
 
 #include <algorithm>
+#include <array>
 #include <atomic>
 #include <format>
+#include <memory>
 #include <mutex>
 #include <new>
+#include <span>
+#include <string>
 #include <unordered_map>
 #include <unordered_set>
 
@@ -22,6 +26,9 @@ namespace aion::gameserver::runtime {
 namespace {
 
 using TimePoint = std::chrono::steady_clock::time_point;
+
+/** the holder probe's budget: a census check posts it at most once a minute (the new leaks of the other checks are logged, not probed) */
+constexpr std::chrono::minutes HOLDER_PROBE_INTERVAL{1};
 
 const commons::logging::Logger& log() {
 	static const auto* instance = new commons::logging::Logger(commons::logging::LoggerFactory::getLogger("com.aionemu.gameserver.runtime.LeakCensus"));
@@ -53,6 +60,9 @@ struct CensusState {
 	std::atomic<bool> installed{false};
 	std::atomic<size_t> tracked{0};
 	std::atomic<uint64_t> zombieCuts{0};
+	std::atomic<LeakCensus::HolderProbe> holderProbe{nullptr};
+	/** a holder probe task is posted and has not finished yet (cleared when the task releases its captures: run, cancelled or dropped) */
+	std::atomic<bool> probePending{false};
 	/** guards `table` for readers and every write to it, and `config`. Only the scanning thread inserts or erases entries. */
 	mutable RankedMutex<LockRank::STATS> tableMutex;
 	std::unordered_map<const RefCounted*, Entry> table;
@@ -60,6 +70,8 @@ struct CensusState {
 	// scanning thread only (serialized by the Reclaimer's scan mutex)
 	TimePoint nextCheck{};
 	TimePoint nextStalePinCheck{};
+	/** the earliest time a census check may post the holder probe again (reset by install) */
+	TimePoint nextProbe{};
 	std::unordered_set<const Future*> warnedStalePins;
 	// install/uninstall
 	std::mutex installMutex;
@@ -183,6 +195,69 @@ void postZombieBreaker(const Candidate& candidate) {
 		});
 }
 
+/** Clears CensusState::probePending when the last copy of the probe task's callable is destroyed: after it ran, was cancelled or was dropped */
+struct PendingProbe {
+	PendingProbe() = default;
+	PendingProbe(const PendingProbe&) = delete;
+	PendingProbe& operator=(const PendingProbe&) = delete;
+	~PendingProbe() { state().probePending.store(false, std::memory_order_release); }
+};
+
+/**
+ * Posts the holder probe (LeakCensus::setHolderProbe) for the new leaks of one census check: one task for at most MAX_PROBED_LEAKS_PER_PASS of
+ * them, oldest removal first, pinned on them like the zombie breaker, so a systematic leak costs one pass over the game's structures per check
+ * instead of one per object, and at most one check a minute (HOLDER_PROBE_INTERVAL) posts one. The others are skipped, and so is every new leak
+ * of a check within the minute or while the previous probe has not finished; all three are logged.
+ * Not for a zero-threshold check (censusAfter 0: CheckOutput::runFinalCensus and runBreakerPass): it reports every removed object that is still
+ * referenced, also one whose references are still being released scan by scan, and its caller re-reads the counts until two checks agree; the
+ * probe's pin would hold such a count up for the whole pass over the world and turn a finishing logout into a leak of census.txt.
+ */
+void postHolderProbe(CensusState& s, const LeakCensus::Config& config, TimePoint now, std::vector<Candidate> newLeaks) {
+	LeakCensus::HolderProbe probe = s.holderProbe.load(std::memory_order_acquire);
+	if (probe == nullptr || newLeaks.empty() || config.censusAfter <= std::chrono::milliseconds::zero())
+		return;
+	if (now < s.nextProbe) {
+		log().warn("Leak census: {} new leak(s) not probed for holders: the holder probe runs at most once a minute", newLeaks.size());
+		return;
+	}
+	if (s.probePending.exchange(true, std::memory_order_acq_rel)) {
+		log().warn("Leak census: {} new leak(s) not probed for holders: the previous holder probe has not finished", newLeaks.size());
+		return;
+	}
+	s.nextProbe = now + HOLDER_PROBE_INTERVAL;
+	std::shared_ptr<PendingProbe> pending; // clears probePending whatever happens to the task, or here if it is not posted
+	try {
+		pending = std::make_shared<PendingProbe>();
+	} catch (...) {
+		s.probePending.store(false, std::memory_order_release);
+		throw;
+	}
+	std::ranges::sort(newLeaks, [](const Candidate& a, const Candidate& b) {
+		return a.removedAt != b.removedAt ? a.removedAt < b.removedAt : a.objectId < b.objectId;
+	});
+	size_t count = std::min(newLeaks.size(), LeakCensus::MAX_PROBED_LEAKS_PER_PASS);
+	std::array<LeakCensus::ProbedLeak, LeakCensus::MAX_PROBED_LEAKS_PER_PASS> leaks{};
+	for (size_t i = 0; i < count; ++i)
+		leaks[i] = LeakCensus::ProbedLeak{const_cast<RefCounted*>(newLeaks[i].object), newLeaks[i].className, newLeaks[i].objectId};
+	if (newLeaks.size() > count)
+		log().warn("Leak census: the holder probe runs for {} of {} new leaks, {} skipped", count, newLeaks.size(), newLeaks.size() - count);
+	static_assert(LeakCensus::MAX_PROBED_LEAKS_PER_PASS == Pin::MAX_OWNERS, "one task pins every probed leak");
+	// runtime code: the pin retains the objects while the task is pending (a null slot pins nothing); the raw pointers are only used by the
+	// pinned body. Never creates the default pools (no backend installed: the probe is not posted)
+	(void)utils::ThreadPoolManager::executeIfInstalled(
+		Pin({PinTarget(leaks[0].object), PinTarget(leaks[1].object), PinTarget(leaks[2].object), PinTarget(leaks[3].object)}),
+		[probe, leaks, count, pending] {
+			try {
+				probe(std::span<const LeakCensus::ProbedLeak>(leaks.data(), count));
+			} catch (...) {
+				std::string objects;
+				for (size_t i = 0; i < count; ++i)
+					objects += std::format("{}{} (object id {})", i == 0 ? "" : ", ", leaks[i].className, leaks[i].objectId);
+				log().errorCurrentException("Leak census: the holder probe failed for " + objects);
+			}
+		});
+}
+
 void checkStalePins(CensusState& s, const std::vector<Candidate>& old, TimePoint now) {
 	runtime::ExecutorBackend* backend = utils::ThreadPoolManager::installedBackend(); // never creates the default pools
 	if (backend == nullptr)
@@ -278,6 +353,11 @@ void censusHook() {
 		if (auto it = s.table.find(leak.object); it != s.table.end())
 			it->second.pinningTasks = std::move(pinning);
 	}
+	try {
+		postHolderProbe(s, config, now, newLeaks);
+	} catch (...) {
+		log().errorCurrentException("Leak census: could not post the holder probe");
+	}
 	for (const Candidate& zombie : zombies) {
 		try {
 			postZombieBreaker(zombie);
@@ -324,6 +404,7 @@ void LeakCensus::install() {
 		s.tracked.store(0, std::memory_order_release);
 		s.nextCheck = {};
 		s.nextStalePinCheck = {};
+		s.nextProbe = {};
 	}
 	s.warnedStalePins.clear();
 	Reclaimer::getInstance().setDestroyObserver(&onDestroy);
@@ -400,6 +481,10 @@ size_t LeakCensus::trackedCount() const {
 
 uint64_t LeakCensus::zombieCutCount() const noexcept {
 	return state().zombieCuts.load(std::memory_order_acquire);
+}
+
+void LeakCensus::setHolderProbe(HolderProbe probe) noexcept {
+	state().holderProbe.store(probe, std::memory_order_release);
 }
 
 } // namespace aion::gameserver::runtime

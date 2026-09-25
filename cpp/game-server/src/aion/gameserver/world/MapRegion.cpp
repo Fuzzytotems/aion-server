@@ -190,6 +190,7 @@ bool MapRegion::anyNeighbourHasPlayers() {
 	return false;
 }
 
+// lint: L7 C++ only: each zone is tested and entered or left under the zone's own monitor, the one ZoneInstance.onEnter/onLeave take (P4-10.md)
 void MapRegion::revalidateZones(model::gameobjects::Creature& creature) {
 	std::optional<ZoneClassName> zoneType; // Java: ZoneClassName zoneType = null
 	bool enteredPriorityZone = false;
@@ -198,14 +199,21 @@ void MapRegion::revalidateZones(model::gameobjects::Creature& creature) {
 			zoneType = zone->getZoneTemplate()->getZoneType();
 			enteredPriorityZone = false;
 		}
-		if (!creature.isSpawned() || enteredPriorityZone || !zone->revalidate(creature)) {
-			zone->onLeave(creature);
-			continue;
+		// C++ only (docs/deviations/P4-10.md, WorldContainerLifetimeTest): the test and the onEnter/onLeave it decides run under the zone's
+		// monitor, which onEnter and onLeave take again (reentrant). Java tests outside it, so World.despawn (a corpse's decay) or a move across a
+		// region line on another thread could leave the zone between the test and onEnter, and the creature stayed in the zone for good: despawn
+		// leaves only the zones of the final region. Both store the new isSpawned or position before their own onLeave takes this monitor, so
+		// a test under it sees them; a race Java loses ends as if the despawn or the move had come first. The outcome of every serial run is Java's.
+		SYNCHRONIZED(*zone) {
+			if (!creature.isSpawned() || enteredPriorityZone || !zone->revalidate(creature)) {
+				zone->onLeave(creature);
+				continue;
+			}
+			if (zone->getZoneTemplate()->getPriority() != 0) {
+				enteredPriorityZone = true;
+			}
+			zone->onEnter(creature);
 		}
-		if (zone->getZoneTemplate()->getPriority() != 0) {
-			enteredPriorityZone = true;
-		}
-		zone->onEnter(creature);
 	}
 }
 

@@ -12,6 +12,7 @@
 #include <fstream>
 #include <functional>
 #include <memory>
+#include <span>
 #include <sstream>
 #include <string>
 #include <thread>
@@ -401,6 +402,67 @@ TEST(CheckOutputTest, FinalCensusWaitsForACountThatIsStillFalling) {
 	holders->clear();
 	reclaimer.drain();
 	EXPECT_TRUE(census.getLeaks().empty());
+	census.uninstall();
+	census.configure(LeakCensus::Config{});
+	std::filesystem::remove_all(dir);
+}
+
+std::atomic<int32_t> slowProbeCalls{0};
+std::atomic<int32_t> slowProbesDone{0};
+
+/** stands for world::WorldLeakProbe::probe, whose pass over the whole world takes time: it keeps the task's pin on the probed objects 300 ms */
+void slowProbe(std::span<const LeakCensus::ProbedLeak>) {
+	slowProbeCalls.fetch_add(1);
+	std::this_thread::sleep_for(std::chrono::milliseconds(300));
+	slowProbesDone.fetch_add(1);
+}
+
+// The leak census's holder probe (LeakCensus::setHolderProbe, world::WorldLeakProbe in the server) pins the leaks it probes while it passes
+// over the world. runFinalCensus reports with a zero threshold, so its first check reports every removed object that is still referenced - also
+// a logout whose references are still falling - and a probe posted for it would hold that count up past two agreeing checks: the review of the
+// probe wrote `Player 72 1` into census.txt with a probe taking 200 ms, where the same run without one wrote an empty census. The census posts no
+// probe for the leaks of a zero-threshold check.
+TEST(CheckOutputTest, FinalCensusWithAHolderProbeStillWaitsForAFallingCount) {
+	LeakCensus& census = LeakCensus::getInstance();
+	census.uninstall();
+	LeakCensus::Config config;
+	config.censusAfter = std::chrono::minutes(10);
+	config.checkInterval = std::chrono::seconds(1);
+	census.configure(config);
+	census.install();
+	slowProbeCalls = 0;
+	slowProbesDone = 0;
+	census.setHolderProbe(&slowProbe);
+
+	runtime::Ref<CensusObject> player = CensusObject::create();
+	census.onRemovedFromWorld(*player, "Player", 62);
+	auto holders = std::make_shared<std::vector<runtime::Ref<CensusObject>>>();
+	for (int i = 0; i < 5; i++)
+		holders->push_back(player);
+	player.reset();
+	const std::thread::id scanner = std::this_thread::get_id();
+	runtime::Reclaimer& reclaimer = runtime::Reclaimer::getInstance();
+	const uint64_t hook = reclaimer.addPostScanHook("CheckOutputTest.fallingCountWithProbe", [holders, scanner] {
+		if (std::this_thread::get_id() == scanner && !holders->empty())
+			holders->pop_back();
+	});
+
+	const std::filesystem::path dir = uniqueDirectory("falling-probe");
+	const std::vector<LeakCensus::LeakReport> leaks = CheckOutput::runFinalCensus(dir, [] { return false; }, std::chrono::seconds(10));
+	reclaimer.removePostScanHook(hook);
+	census.setHolderProbe(nullptr);
+
+	EXPECT_TRUE(holders->empty()) << "the census stopped scanning while the count was still falling (" << holders->size() << " holders left)";
+	EXPECT_TRUE(leaks.empty()) << "a count that falls scan by scan is not a leak, with a holder probe installed too: " << readFile(dir / "census.txt");
+	EXPECT_EQ(readFile(dir / "census.txt"), "# final census v1\n");
+	EXPECT_EQ(slowProbeCalls.load(), 0) << "no holder probe for the leaks of the zero-threshold checks (runFinalCensus, runBreakerPass)";
+
+	EXPECT_TRUE(waitFor([] { return slowProbesDone.load() == slowProbeCalls.load(); })) << "a probe that ran anyway has finished";
+	holders->clear();
+	EXPECT_TRUE(waitFor([&] {
+		reclaimer.drain();
+		return census.getLeaks().empty();
+	}));
 	census.uninstall();
 	census.configure(LeakCensus::Config{});
 	std::filesystem::remove_all(dir);

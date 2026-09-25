@@ -18,6 +18,7 @@
 #include "aion/gameserver/model/gameobjects/player/Player.h"
 #include "aion/gameserver/model/gameobjects/siege/SiegeNpc.h"
 #include "aion/gameserver/model/templates/world/WorldMapTemplate.h"
+#include "aion/gameserver/model/templates/zone/ZoneTemplate.h"
 #include "aion/gameserver/network/aion/AionConnection.h"
 #include "aion/gameserver/network/aion/serverpackets/SM_SYSTEM_MESSAGE.h"
 #include "aion/gameserver/runtime/base/Exceptions.h"
@@ -35,6 +36,8 @@
 #include "aion/gameserver/world/WorldMapTypeInfo.h"
 #include "aion/gameserver/world/WorldPosition.h"
 #include "aion/gameserver/world/container/PlayerContainer.h"
+#include "aion/gameserver/world/zone/ZoneInstance.h"
+#include "aion/gameserver/world/zone/ZoneName.h"
 #include "aion/gameserver/dataholders/PlayerInitialData.h"
 #include "aion/gameserver/dataholders/WorldMapsData.h"
 #include "aion/gameserver/model/gameobjects/player/PlayerCommonData.h"
@@ -58,6 +61,56 @@ using geoEngine::math::JavaFloat;
 /** Java: `new Throwable()` / `new Exception()` handed to a log call only for its stack trace */
 runtime::Exception stackTrace(const char* javaClass) {
 	return runtime::Exception(javaClass);
+}
+
+/**
+ * C++ only, World.removeObject after despawn and onDelete (docs/deviations/P4-10.md, WorldContainerLifetimeTest): hardening, not the fix of a
+ * reproduced leak. World.despawn takes the object out of the object map of its final map region only. Two concurrent updatePosition calls that
+ * read the same old region both add the object to their new region, and an updatePosition that passed its isSpawned test before a despawn adds
+ * it to its new region after the despawn; either entry keeps the deleted object until shutdown (in Java a ghost rooted in World, which the
+ * garbage collector does not collect either). Such a move ends in the final region or next to it, so this removes the object from the object
+ * maps of the final region and its neighbours - only an entry that is this very object (compare-and-remove), and silently: no deactivation, no
+ * notification (no reader of the map acts on an object that left the world: KnownList.addPair rolls back an unspawned object, and the AI of a
+ * removed npc ignores ACTIVATE/DEACTIVATE). Players are left out: MapRegion.remove would count the entry off the region's player count and
+ * schedule its deactivation, which a silent removal cannot do, and Java's ghost of a player that logs in again is replaced by the next entry
+ * of its object id (MapRegion.add), which keeps the count balanced. An entry left farther away (the old map of a World.setPosition, whose
+ * object is still in the world when it moves, or a later updatePosition that passed its isSpawned test) is not searched here; the leak census
+ * reports it and WorldLeakProbe::findHolders names the region.
+ * Zones: MapRegion.revalidateZones tests and enters each zone under the zone's monitor, which closes the known ways into a zone that the
+ * creature is then never left from; two concurrent updatePosition calls can still leave an entry. A zone of the neighbourhood that still has an
+ * entry for the deleted creature is only logged: ZoneInstance has no silent removal (header request m5b3-leak-h02), and Java's onLeave would
+ * notify the controller and the zone handlers.
+ */
+void dropStaleRegionEntries(VisibleObject& object) noexcept {
+	try {
+		runtime::Ptr<WorldPosition> position = object.getPosition();
+		runtime::Ptr<MapRegion> finalRegion = position ? position->getMapRegion() : nullptr;
+		if (!finalRegion)
+			return;
+		bool player = dynamic_cast<Player*>(&object) != nullptr;
+		auto* creature = dynamic_cast<Creature*>(&object);
+		std::vector<zone::ZoneInstance*> reportedZones;
+		for (MapRegion* region : *finalRegion->getNeighbours()) {
+			if (!player && region->getObjects().remove(object.getObjectId(), runtime::Ref<VisibleObject>(object)))
+				log.warn("{} was still in the objects of map region {} after its removal from the world: the entry is dropped", object.toString(),
+					region->getRegionId());
+			if (creature == nullptr)
+				continue;
+			for (runtime::Ptr<zone::ZoneInstance> zone : region->findZones(*creature)) {
+				if (std::ranges::find(reportedZones, zone.get()) != reportedZones.end())
+					continue;
+				reportedZones.push_back(zone.get());
+				log.warn("{} is still in zone {} after its removal from the world (the zone keeps it)", object.toString(),
+					zone->getZoneTemplate()->getName()->name());
+			}
+		}
+	} catch (...) {
+		try {
+			log.warnCurrentException("Could not drop the stale map region entries of object " + std::to_string(object.getObjectId()));
+		} catch (...) {
+			// logging must not throw out of a noexcept breaker
+		}
+	}
 }
 
 } // namespace
@@ -143,6 +196,7 @@ bool World::removeObject(VisibleObject& object) {
 			} catch (const std::exception& e) {
 				log.error(object.toString() + " did not leave world cleanly", e);
 			}
+			dropStaleRegionEntries(object); // C++ only, noexcept (see there)
 			removed = allObjects.remove(object.getObjectId(), runtime::Ref<VisibleObject>(object));
 		} else if (worldObject) {
 			log.warn("Attempt to remove " + object.toString() + " from world but ID already belongs to " + worldObject->toString(),

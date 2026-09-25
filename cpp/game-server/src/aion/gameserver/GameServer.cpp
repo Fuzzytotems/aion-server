@@ -87,6 +87,7 @@
 #include "aion/gameserver/utils/ThreadPoolManager.h"
 #include "aion/gameserver/utils/chathandlers/ChatProcessor.h"
 #include "aion/gameserver/world/World.h"
+#include "aion/gameserver/world/WorldLeakProbe.h"
 #include "aion/gameserver/world/geo/GeoService.h"
 #include "aion/gameserver/world/zone/ZoneService.h"
 
@@ -169,6 +170,7 @@ bool GameServer::main(StartupObserver& observer) {
 		runtime::QuiescentScope quiescent; // quiescent-safe: this frame and runStep hold no borrow (values only)
 		runtime::QuiescentOptIn worldCreation(runtime::QuiescentOptIn::WORLD_CREATION);
 		world::World::getInstance();
+		world::WorldLeakProbe::install(); // C++ only: a leak census report names the world structures that hold the leaked object
 	});
 	if (!observer.continueAfterWorld())
 		return false;

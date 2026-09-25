@@ -14,6 +14,7 @@
 #include "aion/gameserver/model/templates/spawns/SpawnTemplate.h"
 #include "aion/gameserver/model/templates/walker/WalkerTemplate.h"
 #include "aion/gameserver/runtime/base/Exceptions.h"
+#include "aion/gameserver/runtime/base/Finally.h"
 #include "aion/gameserver/runtime/sync/Monitor.h"
 #include "aion/gameserver/spawnengine/ClusteredNpc.h"
 #include "aion/gameserver/spawnengine/WalkerGroup.h"
@@ -69,7 +70,22 @@ bool InstanceWalkerFormations::cacheWalkerCandidate(ClusteredNpc& npcWalker) {
 	}
 }
 
+// lint: L7 C++ only: the candidate lists are dropped under the monitor cacheWalkerCandidate and onInstanceDestroy take (P4-10.md)
 void InstanceWalkerFormations::organizeAndSpawn() {
+	// C++ only (docs/deviations/P4-10.md, WalkerGroupLifetimeTest): this is the only reader of groupedSpawnObjects, and it runs once per
+	// InstanceWalkerFormations: SpawnEngine.spawnInstance calls it once per instance, after every spot is cached (SpawnEngine.java:178-179),
+	// and instance ids are never reused (WorldMap.getNextInstanceId is a counter, WorldMap.java:188-190), so no later call reads these lists.
+	// Java keeps every ClusteredNpc of the map until the instance is destroyed - for a world map until shutdown - and never reads one again, so
+	// the lists go when this returns: a lone walker (a pool route with one spot, 3805A343 in Poeta) and a walker spawned beside its route's group
+	// are held by nothing else, and each kept its first npc, corpse included, for good (the leak census's Npc at refcount 1). The ClusteredNpc
+	// objects of the groups stay in walkFormations, which Java reads (formationVariants and walkerVariants stay empty: none of the version ids
+	// of walker_versions.xml is a route of the walker data). cacheWalkerCandidate keeps appending (a lone walker's respawn is cached and never
+	// spawned, as in Java).
+	auto dropCandidates = runtime::finally([this] {
+		SYNCHRONIZED(*this) {
+			groupedSpawnObjects.clear();
+		}
+	});
 	for (runtime::Ptr<ClusteredNpcList> candidateList : groupedSpawnObjects.values()) {
 		std::vector<runtime::Ptr<ClusteredNpc>> candidates = candidateList->snapshot();
 		// Java: candidates.stream().collect(Collectors.groupingBy(cNpc -> cNpc.getPositionHash())) - a HashMap (iteration order unspecified); the
