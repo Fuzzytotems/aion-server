@@ -30,8 +30,8 @@
 // files (grep over data/static_data/npc_skills/**), and their conditionReady arms are covered by EffectControllerTest (P5-02b). The carved-signet
 // boundary and spawn_npc's count are not re-tested here either; P5-02b's fixtures stand for them (EffectControllerTest.cpp,
 // ACarvedSignetConditionNeedsASignetAboveItsLevel and AnNpcSkillSpawnDrawsItsCountOnlyForAMaxCountAboveOneAndALivingNpc): a shipped signet row
-// (21412 Pain Rune, 301130000_Sauro_Supply_Base.xml:269-271) needs a carved signet on the target, which only CarveSignetEffect places and which
-// is still AION_UNPORTED, and a shipped spawn_npc row needs SpawnEngine to place real npcs in the world, which this fixture does not model.
+// (21412 Pain Rune, 301130000_Sauro_Supply_Base.xml:269-271) needs a carved signet on the target, which only CarveSignetEffect places (ported in
+// M5e, SignetEffectsTest; this fixture does not cast it), and a shipped spawn_npc row needs SpawnEngine to place real npcs in the world, which this fixture does not model.
 //
 // Target attributes without a small shipped row: SECOND_MOST_HATED and THIRD_MOST_HATED appear only in 277224 Ahserion's 119-entry list
 // (400030000_Transidium_Annex.xml:94-278), RANDOM_EXCEPT_CURRENT_TARGET and NONE only beside skills this fixture does not carry. Their

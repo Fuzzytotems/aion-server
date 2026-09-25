@@ -1,15 +1,54 @@
 #include "aion/gameserver/skillengine/effect/AlwaysBlockEffect.h"
 
-#include "aion/gameserver/runtime/base/Unported.h"
+#include <cstdint>
+
+#include "aion/gameserver/controllers/attack/AttackStatus.h"
+#include "aion/gameserver/controllers/observer/AttackStatusObserver.h"
+#include "aion/gameserver/model/gameobjects/Creature.h"
+#include "aion/gameserver/runtime/lifetime/Ref.h"
+#include "aion/gameserver/skillengine/model/Effect.h"
 
 namespace aion::gameserver::skillengine::effect {
 
-void AlwaysBlockEffect::applyEffect(model::Effect& /*effect*/) const {
-	AION_UNPORTED();
+/**
+ * Java: the anonymous AttackStatusObserver(value, AttackStatus.BLOCK) of AlwaysBlockEffect.startEffect (AlwaysBlockEffect.java:25-37, fieldmap key
+ * AlwaysBlockEffect$1). `value` in its body is the observer's own inherited field (Java resolves an inherited member before the enclosing
+ * template's field of the same name). Stored in the effected creature's ObserveController and, through the removal task of Effect.addObserver, in
+ * Effect.observerRemoveTasks; removeObservers (from Effect.endEffect) removes it from both (cycles.toml "AlwaysBlockEffect$1#effect": java-hook).
+ */
+struct AlwaysBlockEffect_AttackStatusObserver final : controllers::observer::AttackStatusObserver {
+	AION_MAKE_REF_FRIEND
+
+	const runtime::Ref<model::Effect> effect; // captured param Effect effect (line 31)
+
+	static runtime::Ref<AlwaysBlockEffect_AttackStatusObserver> create(int32_t value, model::Effect& effect) {
+		return runtime::makeRef<AlwaysBlockEffect_AttackStatusObserver>(value, effect);
+	}
+
+	bool checkStatus(controllers::attack::AttackStatus statusValue) override {
+		if (statusValue == controllers::attack::AttackStatus::BLOCK) {
+			// Java `--value` on the observer's int (wraps); java-race: a plain read-modify-write, like Java's
+			value.set(static_cast<int32_t>(static_cast<uint32_t>(value.get()) - 1u));
+			if (value.get() <= 0)
+				effect->endEffect();
+			return true;
+		}
+		return false;
+	}
+
+protected:
+	AlwaysBlockEffect_AttackStatusObserver(int32_t valueValue, model::Effect& effectValue)
+		: AttackStatusObserver(valueValue, controllers::attack::AttackStatus::BLOCK), effect(runtime::Ref<model::Effect>(effectValue)) {}
+	~AlwaysBlockEffect_AttackStatusObserver() override = default;
+};
+
+void AlwaysBlockEffect::applyEffect(model::Effect& effect) const {
+	effect.addToEffectedController();
 }
 
-void AlwaysBlockEffect::startEffect(model::Effect& /*effect*/) const {
-	AION_UNPORTED();
+// Anonymous class com.aionemu.gameserver.skillengine.effect.AlwaysBlockEffect$1: the callback struct AlwaysBlockEffect_AttackStatusObserver above
+void AlwaysBlockEffect::startEffect(model::Effect& effect) const {
+	effect.addObserver(*effect.getEffected(), *AlwaysBlockEffect_AttackStatusObserver::create(value, effect));
 }
 
 } // namespace aion::gameserver::skillengine::effect
