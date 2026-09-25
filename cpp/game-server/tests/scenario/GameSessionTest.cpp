@@ -285,6 +285,47 @@ TEST(GameSessionTest, LootAndItemBodies) {
 	EXPECT_EQ(GameSession::buildCM_DELETE_ITEM(0x01020304), (std::vector<uint8_t>{0x04, 0x03, 0x02, 0x01}));
 }
 
+// m5c-plan.md G-02: the four client packets of talking to an npc, read back in the order of their Java readImpl
+TEST(GameSessionTest, DialogBodies) {
+	// the opcodes, AionClientPacketFactory.java:78, 80-82
+	EXPECT_EQ(GameSession::CM_QUESTION_RESPONSE, 50);
+	EXPECT_EQ(GameSession::CM_SHOW_DIALOG, 52);
+	EXPECT_EQ(GameSession::CM_CLOSE_DIALOG, 53);
+	EXPECT_EQ(GameSession::CM_DIALOG_SELECT, 54);
+
+	// CM_SHOW_DIALOG and CM_CLOSE_DIALOG: readD targetObjectId
+	EXPECT_EQ(GameSession::buildCM_SHOW_DIALOG(0x0A0B0C0D), (std::vector<uint8_t>{0x0D, 0x0C, 0x0B, 0x0A}));
+	EXPECT_EQ(GameSession::buildCM_CLOSE_DIALOG(0x0A0B0C0D), (std::vector<uint8_t>{0x0D, 0x0C, 0x0B, 0x0A}));
+
+	// CM_DIALOG_SELECT: readD targetObjectId, readUH dialogActionId, readUH extendedRewardIndex, readUH lastPage, readD questId, readUH unk -
+	// the gate's BUY at 798007 leaves the last four at 0
+	EXPECT_EQ(GameSession::buildCM_DIALOG_SELECT(0x0A0B0C0D, 2),
+		(std::vector<uint8_t>{0x0D, 0x0C, 0x0B, 0x0A, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}));
+	PacketReader select(GameSession::buildCM_DIALOG_SELECT(7, 1011, 3, 10, 1101, 0x0102));
+	EXPECT_EQ(select.D(), 7);
+	EXPECT_EQ(static_cast<uint16_t>(select.H()), 1011) << "dialogActionId";
+	EXPECT_EQ(select.H(), 3) << "extendedRewardIndex comes before lastPage";
+	EXPECT_EQ(select.H(), 10) << "lastPage";
+	EXPECT_EQ(select.D(), 1101) << "questId is an int";
+	EXPECT_EQ(select.H(), 0x0102) << "the 4.7 short";
+	EXPECT_EQ(select.remaining(), 0u);
+	EXPECT_EQ(static_cast<uint16_t>(PacketReader(GameSession::buildCM_DIALOG_SELECT(7, 65535)).B(6)[5]), 0xFF)
+		<< "readUH: an action id above 32767 is written unsigned";
+
+	// CM_QUESTION_RESPONSE: readD questionid, readUC response, readC, readH, readD senderid, readD, readH - the soul healer's yes (C13)
+	EXPECT_EQ(GameSession::buildCM_QUESTION_RESPONSE(160011, GameSession::ANSWER_YES),
+		(std::vector<uint8_t>{0x0B, 0x71, 0x02, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}));
+	PacketReader answer(GameSession::buildCM_QUESTION_RESPONSE(90001, GameSession::ANSWER_NO, 0x01020304));
+	EXPECT_EQ(answer.D(), 90001);
+	EXPECT_EQ(answer.C(), 0) << "ANSWER_NO: RequestResponseHandler.handle denies on 0 only (RequestResponseHandler.java:28-33)";
+	EXPECT_EQ(answer.C(), 0) << "the dropped readC";
+	EXPECT_EQ(answer.H(), 0) << "the dropped readH";
+	EXPECT_EQ(answer.D(), 0x01020304) << "senderid";
+	EXPECT_EQ(answer.D(), 0) << "the dropped readD";
+	EXPECT_EQ(answer.H(), 0) << "the dropped readH";
+	EXPECT_EQ(answer.remaining(), 0u);
+}
+
 TEST(GameSessionTest, ServerPacketNames) {
 	EXPECT_EQ(GameSession::nameOf(0), "SM_VERSION_CHECK");
 	EXPECT_EQ(GameSession::nameOf(14), "SM_NPC_INFO");
@@ -312,6 +353,16 @@ TEST(GameSessionTest, ServerPacketNames) {
 	EXPECT_EQ(GameSession::nameOf(183), "SM_ITEM_USAGE_ANIMATION");
 	EXPECT_EQ(GameSession::nameOf(205), "SM_LOOT_STATUS");
 	EXPECT_EQ(GameSession::nameOf(206), "SM_LOOT_ITEMLIST");
+	// the names the M5c gate matches its dialog and shop packets on (decoders/EconomyDecoders.h; ServerPacketsOpcodes.java:43, 58, 70, 78, 80,
+	// 185, 270-271)
+	EXPECT_EQ(GameSession::nameOf(25), "SM_SYSTEM_MESSAGE");
+	EXPECT_EQ(GameSession::nameOf(40), "SM_LOOKATOBJECT");
+	EXPECT_EQ(GameSession::nameOf(52), "SM_QUESTION_WINDOW");
+	EXPECT_EQ(GameSession::nameOf(60), "SM_DIALOG_WINDOW");
+	EXPECT_EQ(GameSession::nameOf(62), "SM_SELL_ITEM");
+	EXPECT_EQ(GameSession::nameOf(167), "SM_REPURCHASE");
+	EXPECT_EQ(GameSession::nameOf(252), "SM_PRICES");
+	EXPECT_EQ(GameSession::nameOf(253), "SM_TRADELIST");
 }
 
 } // namespace

@@ -326,14 +326,30 @@ aion_gs_chunk(P5-08 TARGET aion_gs_playersvc PHASE 5
 		"src/com/aionemu/gameserver/services/{PvpService,RecallService,SkillLearnService,SocialService}.java"
 	JAVA_EXCLUDE "src/com/aionemu/gameserver/services/player/{PlayerService,PlayerEnterWorldService,PlayerLeaveWorldService}.java")
 
-# P5-09: drop, mail, craft, reward, trade/exchange/private store, broker, recipe, passport, bonus/faction packs
-aion_gs_chunk(P5-09 TARGET aion_gs_economy PHASE 5
-	GLOBS "aion/gameserver/services/{drop,mail,craft,reward,trade}/**" "aion/gameserver/model/{craft,guide}/**"
-		"aion/gameserver/services/{AtreianPassportService,BonusPackService,BrokerService,ExchangeService,FactionPackService}.*"
-		"aion/gameserver/services/{PrivateStoreService,RecipeService,TradeService}.*"
-	JAVA "src/com/aionemu/gameserver/services/{drop,mail,craft,reward,trade}/**" "src/com/aionemu/gameserver/model/{craft,guide}/**"
-		"src/com/aionemu/gameserver/services/{AtreianPassportService,BonusPackService,BrokerService,ExchangeService,FactionPackService}.java"
-		"src/com/aionemu/gameserver/services/{PrivateStoreService,RecipeService,TradeService}.java")
+# P5-09a / P5-09b / P5-09c: the economy (drop, mail, craft, reward, trade/exchange/private store, broker, recipe, passport, bonus/faction packs,
+# guide) - three parts of one target, split for M5c (m5c-plan.md D1, item I-01). P5-09 was one chunk, and a chunk is the unit of ownership, so the
+# trade services and mail would have been one serial lane through M5c's stages 1 and 2 (~1,400 Java lines of bodies). The seam is the one the
+# milestones already draw: P5-09a is M5b-3's side (drop, rewards, passport, bonus and faction packs, guide), P5-09b trade and market (TradeService,
+# ExchangeService, PrivateStoreService, BrokerService, services/trade), P5-09c mail and craft (services/mail, services/craft, RecipeService,
+# model/craft). Three parts of one target is the pattern P5-02a/P5-02b use for aion_gs_skills.
+aion_gs_chunk(P5-09a TARGET aion_gs_economy PHASE 5
+	GLOBS "aion/gameserver/services/{drop,reward}/**" "aion/gameserver/model/guide/**"
+		"aion/gameserver/services/{AtreianPassportService,BonusPackService,FactionPackService}.*"
+	JAVA "src/com/aionemu/gameserver/services/{drop,reward}/**" "src/com/aionemu/gameserver/model/guide/**"
+		"src/com/aionemu/gameserver/services/{AtreianPassportService,BonusPackService,FactionPackService}.java")
+# The tests follow the seam into tests/economy/P5-09a, P5-09b and P5-09c, which is what the manifest derives for a target of several chunks (the
+# shape of tests/skills/P5-02a and P5-02b): M5b-3's loot tests and their fixtures, the passport and the reward services to P5-09a, the broker,
+# PricesService and ExchangeService to P5-09b, mail and craft to P5-09c. EconomyTestSupport.h, the database fixture all three share, lives in
+# P5-09a (DropTestSupport.h builds on it) and is included by name from the other two: every test directory of aion_gs_economy_tests is an include
+# directory of that one executable (aion_add_tests).
+aion_gs_chunk(P5-09b TARGET aion_gs_economy PHASE 5
+	GLOBS "aion/gameserver/services/trade/**" "aion/gameserver/services/{BrokerService,ExchangeService,PrivateStoreService,TradeService}.*"
+	JAVA "src/com/aionemu/gameserver/services/trade/**"
+		"src/com/aionemu/gameserver/services/{BrokerService,ExchangeService,PrivateStoreService,TradeService}.java")
+aion_gs_chunk(P5-09c TARGET aion_gs_economy PHASE 5
+	GLOBS "aion/gameserver/services/{mail,craft}/**" "aion/gameserver/model/craft/**" "aion/gameserver/services/RecipeService.*"
+	JAVA "src/com/aionemu/gameserver/services/{mail,craft}/**" "src/com/aionemu/gameserver/model/craft/**"
+		"src/com/aionemu/gameserver/services/RecipeService.java")
 
 # P5-10: model.team, autogroup, findgroup, challenge tasks, team task updaters
 aion_gs_chunk(P5-10 TARGET aion_gs_team PHASE 5

@@ -1,7 +1,7 @@
 #pragma once
 
-// Shared fixture of the P5-11 legion and housing tests (m5a-plan.md E2-04, E2-05); a copy of tests/economy/EconomyTestSupport.h (P5-09), since a
-// chunk's tests may only include its own test directories.
+// Shared fixture of the P5-11 legion and housing tests (m5a-plan.md E2-04, E2-05); a copy of tests/economy/P5-09a/EconomyTestSupport.h (P5-09a,
+// P5-09 when it was copied), since a chunk's tests may only include its own test directories.
 //
 // Database: a fresh database `aion_gs_test_legionhouse` on the server named by AION_TEST_GS_DATABASE_URL (the database of the URL is only used for
 // the lock connection), created from game-server/sql/aion_gs.sql of the Java tree, like the DAO tests (tests/dao/DaoTestDatabase.h, whose rules this

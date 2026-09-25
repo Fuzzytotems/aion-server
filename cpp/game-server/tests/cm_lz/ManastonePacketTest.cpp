@@ -5,18 +5,23 @@
 // Java: game-server/src/com/aionemu/gameserver/network/aion/clientpackets/CM_MANASTONE.java:38-108.
 //
 // M5b-3 needs the godstone arm (m5b3-plan.md §2.6): it is driven end to end with the Fx Test Earth Godstone (item_templates.xml:848006) and the
-// Training Sword (:375), through ItemSocketService.socketGodstone's 2 s task on the fixture's manual clock. The other arms reach bodies of M5c
-// that stay AION_UNPORTED (EnchantItemAction.canAct and its five-argument act, StigmaService.chargeStigma, ItemSocketService.removeManastone,
-// EnchantService.amplifyItem): the cases below pin the packet's own checks in front of them and that each arm reaches exactly its own
-// unported body, which is the whole of what the packet decides. The remove arm is driven at a spawned npc of npc_templates.xml:37718-37722
-// (in talk range and out of it), the stigma arm with two shipped stigmas (item_templates.xml:742368, :742371).
+// Training Sword (:375), through ItemSocketService.socketGodstone's 2 s task on the fixture's manual clock. M5c stage 0 ported the bodies the
+// other arms reach (m5c-plan.md E-01..E-03: EnchantItemAction's canAct and five-argument act, EnchantService.socketManastone and
+// amplifyItem, ItemSocketService.removeManastone), so the cases below pin the packet's own checks and what each arm hands its body: the
+// enchant arms socket the stone into the packet's target, into its own slots for the fused slot 1 and into the fused weapon's for any other
+// value, and end at a supplement that is no 1661xxxxx item; the remove arm hands on the slot and `targetFusedSlot != 1`; amplification hands
+// on the target, the supplement as the material and the stone as the tool. The bodies themselves are tested in tests/itemsvc
+// (EnchantServiceTest, EnhanceActionsTest). The remove arm is driven at a spawned npc of npc_templates.xml:37718-37722 (in talk range and out
+// of it), the stigma arm with two shipped stigmas (item_templates.xml:742368, :742371); StigmaService.chargeStigma stays AION_UNPORTED (M5e,
+// m5c-plan.md §3a).
 //
-// NOT COVERED, and named so that nobody mistakes the absence for coverage: the arguments the arms hand to their unported bodies - the slot
-// and `targetFusedSlot != 1` of removeManastone, the (target, stone) order of chargeStigma, the supplement and fused slot of act. An
-// AION_UNPORTED body records its site only; they become observable when M5c ports the bodies.
+// NOT COVERED, and named so that nobody mistakes the absence for coverage: the (target, stone) order of chargeStigma (its body is unported),
+// a real supplement (the fixture has no 1661xxxxx row; EnchantServiceTest covers supplements) and removeManastone's successful removal, which
+// writes item_stones (EnchantServiceTest.ARemovedStoneIsDeletedFromTheDatabase covers it against the test database).
 
 #include "../cm_ak/ItemPacketTestSupport.h"
 
+#include <atomic>
 #include <cstdint>
 #include <memory>
 #include <optional>
@@ -26,12 +31,15 @@
 
 #include "aion/commons/utils/ByteBuffer.h"
 #include "aion/gameserver/configs/main/AIConfig.h"
+#include "aion/gameserver/configs/main/PricesConfig.h"
+#include "aion/gameserver/configs/main/RatesConfig.h"
 #include "aion/gameserver/controllers/NpcController.h"
 #include "aion/gameserver/controllers/effect/EffectController.h"
 #include "aion/gameserver/dataholders/NpcData.bind.h"
 #include "aion/gameserver/dataholders/NpcData.h"
 #include "aion/gameserver/model/gameobjects/Npc.h"
 #include "aion/gameserver/model/items/GodStone.h"
+#include "aion/gameserver/model/items/ManaStone.h"
 #include "aion/gameserver/model/templates/npc/NpcTemplate.h"
 #include "aion/gameserver/model/templates/spawns/SpawnGroup.h"
 #include "aion/gameserver/model/templates/spawns/SpawnTemplate.h"
@@ -39,6 +47,8 @@
 #include "aion/gameserver/network/aion/serverpackets/SM_SYSTEM_MESSAGE.h"
 #include "aion/gameserver/runtime/base/Exceptions.h"
 #include "aion/gameserver/runtime/base/Unported.h"
+#include "aion/gameserver/services/item/ItemSocketService.h"
+#include "aion/gameserver/services/trade/PricesService.h"
 #include "aion/gameserver/world/knownlist/NpcKnownList.h"
 
 #include "aion/commons/utils/WindowsMacroGuard.h" // after all headers that may include windows.h
@@ -153,6 +163,56 @@ uint64_t unportedHitsIn(std::string_view file) {
 			hits += hit.hits;
 	}
 	return hits;
+}
+
+/**
+ * gameserver.rates.manastone_chances for one case, restored at its end. m5c-plan.md D6 gives the gate 200: socketManastone's chance has no
+ * cap (EnchantService.java:344-395), so every socketing then succeeds and the case does not depend on Rnd
+ */
+class ManastoneChancesScope {
+public:
+	explicit ManastoneChancesScope(float chance) : previous(configs::main::RatesConfig::MANASTONE_CHANCES.get()) {
+		configs::main::RatesConfig::MANASTONE_CHANCES.set(std::vector<float>{chance, chance});
+	}
+	~ManastoneChancesScope() { configs::main::RatesConfig::MANASTONE_CHANCES.set(*previous); }
+	ManastoneChancesScope(const ManastoneChancesScope&) = delete;
+	ManastoneChancesScope& operator=(const ManastoneChancesScope&) = delete;
+
+private:
+	const std::shared_ptr<const std::vector<float>> previous;
+};
+
+/** Sets an atomic configuration value for the scope and restores the previous value (the executable loads no properties file) */
+template <class T>
+class AtomicConfigScope {
+public:
+	AtomicConfigScope(std::atomic<T>& configValue, T value) : config(configValue), previous(configValue.load()) { config.store(value); }
+	~AtomicConfigScope() { config.store(previous); }
+	AtomicConfigScope(const AtomicConfigScope&) = delete;
+	AtomicConfigScope& operator=(const AtomicConfigScope&) = delete;
+
+private:
+	std::atomic<T>& config;
+	const T previous;
+};
+
+/** (slot, stone item id) of an item's own stones, or of its fusion stones, in slot order */
+std::vector<std::pair<int32_t, int32_t>> stonesOf(Item& item, bool fusion = false) {
+	std::vector<std::pair<int32_t, int32_t>> stones;
+	for (const runtime::Ptr<model::items::ManaStone>& stone : (fusion ? item.getFusionStones() : item.getItemStones())->snapshot())
+		stones.emplace_back(stone->getSlot(), stone->getItemId());
+	return stones;
+}
+
+using Stones = std::vector<std::pair<int32_t, int32_t>>;
+
+/** Whether `packets` holds `packet` byte for byte */
+bool containsPacket(const std::vector<std::vector<uint8_t>>& packets, const std::vector<uint8_t>& packet) {
+	for (const std::vector<uint8_t>& candidate : packets) {
+		if (candidate == packet)
+			return true;
+	}
+	return false;
 }
 
 /** the npc of the remove arm's cases */
@@ -289,26 +349,78 @@ TEST_F(ManastoneRunTest, TheEnchantArmsNeedTheStoneAndATarget) {
 	EXPECT_EQ(runtime::unportedHitCount(), 0u);
 }
 
-TEST_F(ManastoneRunTest, TheEnchantArmsReachTheUnportedEnchantItemAction) {
-	// with a stone and a target (equipped, then of the cube), actions 1 and 2 construct an EnchantItemAction and ask canAct (:79-80), which is
-	// M5c's (m5b3-plan.md D8): AION_UNPORTED, and nothing of StigmaService or EnchantService is asked
-	stored(760008, MANASTONE_HP_20, 1);
-	equipped(760009, TRAINING_SWORD, 1);
-	stored(760010, TRAINING_SWORD, 1);
+TEST_F(ManastoneRunTest, TheEnchantArmsSocketTheStoneIntoTheTargetThroughTheEnchantItemAction) {
+	// With a stone and a target (equipped, then of the cube), actions 1 and 2 ask Java's attribute-less EnchantItemAction (:79-80). Its canAct
+	// passes for a manastone (167xxxxxx) on a weapon (below 120xxxxxx, EnchantItemAction.java:75-77), whichever of the two actions carries it.
+	// A supplement of the cube that is no 1661xxxxx item ends the arm before act (:81-85). act waits 2 s for a manastone
+	// (EnchantItemAction.java:91, 114), and with the fused slot 1 socketManastone and socketManastoneAct use the item's own slots
+	// (EnchantService.java:302-303, 320-322, 329-331, 412): the stone lands in the packet's target, slot 0, and one of the stack is used each time
+	ManastoneChancesScope chances(200.0f);
+	Item& stone = stored(760008, MANASTONE_HP_20, 2);
+	Item& worn = equipped(760009, TRAINING_SWORD, 1);
+	Item& carried = stored(760010, TRAINING_SWORD, 1);
 
-	EXPECT_THROW(run(stoneBody(1, 0, 760009, 760008, 0)), runtime::UnportedException);
-	EXPECT_THROW(run(stoneBody(2, 0, 760010, 760008, 0)), runtime::UnportedException);
+	run(stoneBody(1, 1, 760009, 760008, 760010)); // the carried sword as the supplement: 100000094 / 100000 is no 1661
+	EXPECT_TRUE(sent().empty()) << "no animation, no message: the arm returned before act";
 
-	EXPECT_EQ(unportedHitsIn("EnchantItemAction.cpp"), 2u);
-	EXPECT_EQ(runtime::unportedHitCount(), 2u);
-	EXPECT_TRUE(sent().empty());
+	run(stoneBody(1, 1, 760009, 760008, 0));
+	EXPECT_EQ(packetsOf(sent(), SM_ITEM_USAGE_ANIMATION_OPCODE).size(), 1u);
+	EXPECT_TRUE(stonesOf(worn).empty()) << "the task sockets, 2 s later";
+	executor->advance(std::chrono::milliseconds(2000));
+	EXPECT_EQ(stonesOf(worn), (Stones{{0, MANASTONE_HP_20}}));
+	EXPECT_TRUE(stonesOf(carried).empty());
+	EXPECT_EQ(stone.getItemCount(), 1);
+	EXPECT_TRUE(containsPacket(sent(), message(SM_SYSTEM_MESSAGE::STR_GIVE_ITEM_OPTION_SUCCEED(worn.getL10n()))));
+
+	clearSent();
+	run(stoneBody(2, 1, 760010, 760008, 0));
+	executor->advance(std::chrono::milliseconds(2000));
+	EXPECT_EQ(stonesOf(carried), (Stones{{0, MANASTONE_HP_20}}));
+	EXPECT_EQ(stonesOf(worn), (Stones{{0, MANASTONE_HP_20}})) << "unchanged";
+	EXPECT_FALSE(storage(StorageType::CUBE).getItemByObjId(760008)) << "the last stone of the stack is used up";
+	EXPECT_TRUE(containsPacket(sent(), message(SM_SYSTEM_MESSAGE::STR_GIVE_ITEM_OPTION_SUCCEED(carried.getL10n()))));
+	EXPECT_EQ(runtime::unportedHitCount(), 0u);
 }
 
-TEST_F(ManastoneRunTest, AmplificationReachesTheUnportedEnchantService) {
-	EXPECT_THROW(run(stoneBody(8, 0, 760011, 760012, 760013)), runtime::UnportedException);
+TEST_F(ManastoneRunTest, AFusedSlotOtherThanOneSocketsTheFusedWeapon) {
+	// CM_MANASTONE.java:86 hands targetFusedSlot to act as its targetWeapon. For any value but 1, socketManastone takes the fused weapon's
+	// level, stones and sockets (EnchantService.java:304-306, 323-326, 336-337), and socketManastoneAct puts the stone among the fusion stones
+	// (`targetWeapon != 1`, :412). Here the sword carries a second Training Sword as its fused weapon (Item.setFusionedItem, the state an arms fusion leaves). On an
+	// item without a fused weapon the same arm is Java's NullPointerException on item.getFusionedItemTemplate() (:306)
+	ManastoneChancesScope chances(200.0f);
+	stored(760024, MANASTONE_HP_20, 1);
+	Item& sword = stored(760025, TRAINING_SWORD, 1);
+	sword.setFusionedItem(dataholders::DataManager::ITEM_DATA->getItemTemplate(TRAINING_SWORD), 0, 0);
 
-	EXPECT_EQ(unportedHitsIn("EnchantService.cpp"), 1u);
-	EXPECT_EQ(runtime::unportedHitCount(), 1u);
+	run(stoneBody(2, 0, 760025, 760024, 0));
+	executor->advance(std::chrono::milliseconds(2000));
+
+	EXPECT_EQ(stonesOf(sword, true), (Stones{{0, MANASTONE_HP_20}}));
+	EXPECT_TRUE(stonesOf(sword).empty()) << "not the item's own slots";
+	EXPECT_FALSE(storage(StorageType::CUBE).getItemByObjId(760024));
+	EXPECT_EQ(runtime::unportedHitCount(), 0u);
+}
+
+TEST_F(ManastoneRunTest, AmplificationHandsTheTargetTheMaterialAndTheToolToAmplifyItem) {
+	// CM_MANASTONE.java:104-106: amplifyItem(player, target, the supplement as the material, the stone as the tool). Without the three items:
+	// STR_MSG_EXCEED_NO_TARGET_ITEM (EnchantService.java:557-563). Set Test Sword 01 can exceed its enchant and has no max_enchant, so at +0 it is
+	// at its maximum (:568-575); with a second one as the material (:576) and any item as the tool it is amplified and both are used up (:580-582)
+	run(stoneBody(8, 0, 760011, 760012, 760013));
+	EXPECT_EQ(sent(), exactly({message(SM_SYSTEM_MESSAGE::STR_MSG_EXCEED_NO_TARGET_ITEM())}));
+	clearSent();
+
+	Item& target = stored(760011, SET_TEST_SWORD_01, 1);
+	stored(760012, MANASTONE_HP_20, 1);	  // the tool
+	stored(760013, SET_TEST_SWORD_01, 1); // the material
+
+	run(stoneBody(8, 0, 760011, 760012, 760013));
+
+	EXPECT_TRUE(target.isAmplified());
+	EXPECT_TRUE(storage(StorageType::CUBE).getItemByObjId(760011)) << "the target stays";
+	EXPECT_FALSE(storage(StorageType::CUBE).getItemByObjId(760012)) << "the tool is used up";
+	EXPECT_FALSE(storage(StorageType::CUBE).getItemByObjId(760013)) << "the material is used up";
+	EXPECT_TRUE(containsPacket(sent(), message(SM_SYSTEM_MESSAGE::STR_MSG_EXCEED_SUCCEED(target.getL10n()))));
+	EXPECT_EQ(runtime::unportedHitCount(), 0u);
 }
 
 TEST_F(ManastoneRunTest, TheRemoveArmNeedsTheNamedNpcAsTheTarget) {
@@ -322,20 +434,36 @@ TEST_F(ManastoneRunTest, TheRemoveArmNeedsTheNamedNpcAsTheTarget) {
 	// the player is no Npc even when the ids match: `visibleObject instanceof Npc npc` is false
 	EXPECT_NO_THROW(run(removeBody(1, 760014, 2, player().getObjectId())));
 
-	EXPECT_TRUE(sent().empty());
-	EXPECT_EQ(runtime::unportedHitCount(), 0u) << "removeManastone is not reached";
+	EXPECT_TRUE(sent().empty()) << "removeManastone is not reached: it would answer each of these with a message";
+	EXPECT_EQ(runtime::unportedHitCount(), 0u);
 }
 
-TEST_F(ManastoneRunTest, TheRemoveArmReachesTheUnportedRemoveManastoneAtTheNamedNpcInTalkRange) {
+TEST_F(ManastoneRunTest, TheRemoveArmHandsTheSlotAndTheSocketKindToRemoveManastoneAtTheNamedNpcInTalkRange) {
 	// CM_MANASTONE.java:91-93: the target is the packet's npc, an Npc, and in talk range - PositionUtil.isInTalkRange: talk_info distance
-	// 5 + 1 plus both bound radii, and the npc stands 3 m away - so ItemSocketService.removeManastone (M5c, AION_UNPORTED) is asked
+	// 5 + 1 plus both bound radii, and the npc stands 3 m away - so ItemSocketService.removeManastone(player, target, slot, `targetFusedSlot !=
+	// 1`) is asked (ItemSocketService.java:102-138). The superior test sword (two sockets) carries one stone, in slot 1, as an item_stones row
+	// loads it. Each call ends at its own refusal, in the order of the body: no such item; no stone in slot 0; no fusion stone for the fused slot
+	// 0; and for slot 1 the stone is found and its price (PricesService.getPriceForService(650)) cannot be paid with no kinah, so it stays.
+	// The shipped default prices, modifier and taxes (prices.properties:8, :12, :16) give that price; the executable loads no profile
+	AtomicConfigScope<int32_t> prices(configs::main::PricesConfig::DEFAULT_PRICES, 100);
+	AtomicConfigScope<int32_t> modifier(configs::main::PricesConfig::DEFAULT_MODIFIER, 100);
+	AtomicConfigScope<int32_t> taxes(configs::main::PricesConfig::DEFAULT_TAXES, 100);
+	ASSERT_GT(services::trade::PricesService::getPriceForService(650, player().getRace()), 0);
 	model::gameobjects::Npc& npc = targetNpcAt(103.0f);
+	Item& sword = stored(760017, SOUL_BOUND_TEST_SWORD, 1);
+	ASSERT_TRUE(services::item::ItemSocketService::addManaStone(runtime::Ptr<Item>(sword), MANASTONE_HP_20, 1, false));
 
-	EXPECT_THROW(run(removeBody(1, 760017, 2, npc.getObjectId())), runtime::UnportedException);
+	run(removeBody(1, 760099, 1, npc.getObjectId()));
+	run(removeBody(1, 760017, 0, npc.getObjectId()));
+	run(removeBody(0, 760017, 1, npc.getObjectId()));
+	run(removeBody(1, 760017, 1, npc.getObjectId()));
 
-	EXPECT_EQ(unportedHitsIn("ItemSocketService.cpp"), 1u);
-	EXPECT_EQ(runtime::unportedHitCount(), 1u);
-	EXPECT_TRUE(sent().empty());
+	EXPECT_EQ(sent(), exactly({message(SM_SYSTEM_MESSAGE::STR_REMOVE_ITEM_OPTION_NO_TARGET_ITEM()),
+						  message(SM_SYSTEM_MESSAGE::STR_REMOVE_ITEM_OPTION_INVALID_OPTION_SLOT_NUMBER(sword.getL10n())),
+						  message(SM_SYSTEM_MESSAGE::STR_REMOVE_ITEM_OPTION_NO_OPTION_TO_REMOVE(sword.getL10n())),
+						  message(SM_SYSTEM_MESSAGE::STR_REMOVE_ITEM_OPTION_NOT_ENOUGH_GOLD(sword.getL10n()))}));
+	EXPECT_EQ(stonesOf(sword), (Stones{{1, MANASTONE_HP_20}}));
+	EXPECT_EQ(runtime::unportedHitCount(), 0u);
 }
 
 TEST_F(ManastoneRunTest, TheRemoveArmDoesNothingForAnotherNpcIdOrOutOfTalkRange) {
@@ -347,8 +475,8 @@ TEST_F(ManastoneRunTest, TheRemoveArmDoesNothingForAnotherNpcIdOrOutOfTalkRange)
 	model::gameobjects::Npc& far = targetNpcAt(130.0f);
 	EXPECT_NO_THROW(run(removeBody(1, 760017, 2, far.getObjectId())));
 
-	EXPECT_TRUE(sent().empty());
-	EXPECT_EQ(runtime::unportedHitCount(), 0u) << "removeManastone is not reached";
+	EXPECT_TRUE(sent().empty()) << "removeManastone is not reached: it would answer the missing item 760017 with a message";
+	EXPECT_EQ(runtime::unportedHitCount(), 0u);
 }
 
 TEST_F(ManastoneRunTest, AStigmaOnAStigmaIsChargedByTheUnportedChargeStigma) {
@@ -367,18 +495,21 @@ TEST_F(ManastoneRunTest, AStigmaOnAStigmaIsChargedByTheUnportedChargeStigma) {
 }
 
 TEST_F(ManastoneRunTest, AStigmaIsChargedOnlyWhenBothItemsAreStigmas) {
-	// :76 is `stone.isStigma() && targetItem.isStigma()`: a stigma stone on a sword and a manastone on a stigma both go to the EnchantItemAction
+	// :76 is `stone.isStigma() && targetItem.isStigma()`: a stigma stone on a sword and a manastone on a stigma both go to the EnchantItemAction,
+	// whose canAct refuses both without a message (EnchantItemAction.java:75-77: a stigma, 140xxxxxx, is neither a 166/167 stone nor a target
+	// below 120xxxxxx), so nothing happens and StigmaService's unported chargeStigma is not asked
 	stored(760020, SPITE_STRIKE_STIGMA, 1);
 	stored(760021, TRAINING_SWORD, 1);
 	stored(760022, MANASTONE_HP_20, 1);
 	stored(760023, SURE_STRIKE_STIGMA, 1);
 
-	EXPECT_THROW(run(stoneBody(2, 0, 760021, 760020, 0)), runtime::UnportedException) << "a stigma stone on a sword";
-	EXPECT_THROW(run(stoneBody(2, 0, 760023, 760022, 0)), runtime::UnportedException) << "a manastone on a stigma";
+	EXPECT_NO_THROW(run(stoneBody(2, 1, 760021, 760020, 0))) << "a stigma stone on a sword";
+	EXPECT_NO_THROW(run(stoneBody(2, 1, 760023, 760022, 0))) << "a manastone on a stigma";
 
-	EXPECT_EQ(unportedHitsIn("EnchantItemAction.cpp"), 2u);
+	EXPECT_TRUE(sent().empty());
 	EXPECT_EQ(unportedHitsIn("StigmaService.cpp"), 0u);
-	EXPECT_EQ(runtime::unportedHitCount(), 2u);
+	EXPECT_EQ(runtime::unportedHitCount(), 0u);
+	EXPECT_EQ(storage(StorageType::CUBE).getItemByObjId(760022)->getItemCount(), 1) << "the manastone is not used";
 }
 
 TEST_F(ManastoneRunTest, AnUnknownActionDoesNothing) {

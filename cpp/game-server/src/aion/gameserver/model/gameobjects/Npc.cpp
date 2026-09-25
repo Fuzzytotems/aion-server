@@ -10,6 +10,7 @@
 #include "aion/gameserver/controllers/NpcController.h"
 #include "aion/gameserver/controllers/movement/NpcMoveController.h"
 #include "aion/gameserver/dataholders/DataManager.h"
+#include "aion/gameserver/dataholders/TradeListData.h"
 #include "aion/gameserver/dataholders/TribeRelationsData.h"
 #include "aion/gameserver/dataholders/loadingutils/adapters/NpcEquipmentList.h"
 #include "aion/gameserver/model/CreatureType.h"
@@ -351,20 +352,26 @@ Race Npc::getRace() {
 	return getObjectTemplate()->getRace();
 }
 
+// Java Npc.java:361-363
 bool Npc::canSell() {
-	AION_UNPORTED();
+	return dataholders::DataManager::TRADE_LIST_DATA->getTradeListTemplate(getNpcId()) != nullptr
+		&& getObjectTemplate()->supportsAction(DialogAction::BUY);
 }
 
 bool Npc::canBuy() {
 	return getObjectTemplate()->supportsAction(DialogAction::SELL) || canSell();
 }
 
+// Java Npc.java:375-377
 bool Npc::canTradeIn() {
-	AION_UNPORTED();
+	return dataholders::DataManager::TRADE_LIST_DATA->getTradeInListTemplate(getNpcId()) != nullptr
+		&& getObjectTemplate()->supportsAction(DialogAction::TRADE_IN);
 }
 
+// Java Npc.java:382-384
 bool Npc::canPurchase() {
-	AION_UNPORTED();
+	return dataholders::DataManager::TRADE_LIST_DATA->getPurchaseTemplate(getNpcId()) != nullptr
+		&& getObjectTemplate()->supportsAction(DialogAction::TRADE_SELL_LIST);
 }
 
 templates::npc::GroupDropType Npc::getGroupDrop() {

@@ -321,11 +321,17 @@ Ref<Player> PlayerService::newPlayer(PlayerAccountData& playerAccountData, Accou
 }
 
 Ref<PlayerCommonData> PlayerService::getOrLoadPlayerCommonData(int32_t playerObjId) {
-	AION_UNPORTED();
+	Ptr<Player> player = world::World::getInstance().getPlayer(playerObjId);
+	if (!player)
+		return dao::PlayerDAO::loadPlayerCommonData(playerObjId);
+	return player->getCommonData();
 }
 
 Ref<PlayerCommonData> PlayerService::getOrLoadPlayerCommonData(std::string_view name) {
-	AION_UNPORTED();
+	Ptr<Player> player = world::World::getInstance().getPlayer(name);
+	if (!player)
+		return dao::PlayerDAO::loadPlayerCommonDataByName(name);
+	return player->getCommonData();
 }
 
 bool PlayerService::cancelPlayerDeletion(PlayerAccountData& accData) {

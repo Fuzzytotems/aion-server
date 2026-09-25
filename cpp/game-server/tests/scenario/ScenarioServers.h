@@ -8,7 +8,10 @@
 //
 // Three things make a run survivable for everything around it:
 //   - Neither child writes a shared log directory: the game server gets --log-folder, and the login server - which has no such argument - gets
-//     a working directory of its own with a copy of its config (Logging::init archives and DELETES the log files it finds).
+//     a working directory of its own with a copy of its config (Logging::init archives and DELETES the log files it finds). The game server
+//     also gets its own HTML cache file (htmlCacheFile()). What it still writes below the shared game-server directory is
+//     ./log/stats/MethodStats.log (RunnableStatsManager::dumpClassStats, hard-coded like Java's) and, only on a watchdog stall, a minidump
+//     with the process id in its name in ./log/dumps - see ScenarioTests.cmake, "the two gate slots".
 //   - Both schemas carry an in-use marker (SchemaLease) for the whole run, and createSchemas() drops the schemas of runs that were killed
 //     before they could drop their own. A CTest TIMEOUT runs no destructor; the marker is a session lock, so it dies with the process.
 //   - stopProblems() collects what went wrong while stopping, and the destructor reports the list as a test failure unless a caller took
@@ -160,6 +163,14 @@ public:
 	std::filesystem::path checkOutputDir() const { return config.outputDir / "check"; }
 	/** the game server's own log directory (main.cpp --log-folder), so the gate never writes the shared game-server/log */
 	std::filesystem::path logFolder() const { return config.outputDir / "gs_log"; }
+	/**
+	 * The game server's own HTML cache file (-Dgameserver.html.cache.file). HTMLCache writes its cache file at startup whenever the file does
+	 * not exist (HTMLCache.java:112-120, HTMLCache.cpp:200-207), and the default `./cache/html.cache` is relative to the working directory -
+	 * the Java module directory that every gate, smoke test and play server shares. Two servers starting there at once would truncate and read
+	 * the same file (today the write only fails because game-server/cache does not exist). startGameServer() removes it first, so every run
+	 * takes the same path (parse, compact, write) whatever an earlier run left.
+	 */
+	std::filesystem::path htmlCacheFile() const { return config.outputDir / "html.cache"; }
 	/**
 	 * The login server's working directory: a copy of its `config` directory, made by startLoginServer(). The login server has no
 	 * `--log-folder` of its own and resolves `./config` and `./log` against its working directory, so running it in the Java module directory

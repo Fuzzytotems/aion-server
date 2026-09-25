@@ -86,6 +86,7 @@ inline constexpr int32_t SM_LOOT_ITEMLIST_OPCODE = 206;
 inline constexpr int32_t TRAINING_SWORD = 100000094;
 inline constexpr int32_t SOUL_BOUND_TEST_SWORD = 100000377;
 inline constexpr int32_t FABLED_TEST_SWORD = 100000379;
+inline constexpr int32_t SET_TEST_SWORD_01 = 100000714;
 inline constexpr int32_t TRAINING_HAUBERK = 110500003;
 inline constexpr int32_t SURE_STRIKE_STIGMA = 140001103;
 inline constexpr int32_t SPITE_STRIKE_STIGMA = 140001104;
@@ -118,6 +119,15 @@ inline constexpr std::string_view ITEM_TEMPLATES_XML = R"xml(<item_templates>
 			<add name="MAXHP" value="500" bonus="true"/>
 		</modifiers>
 		<weapon_stats hit_count="2" attack_range="1500" magical_accuracy="42" parry="173" physical_accuracy="250" critical="50" attack_speed="1400" max_damage="20" min_damage="16"/>
+		<idian burn_attack="29" burn_defend="12"/>
+	</item_template>
+	<!-- :4443 -->
+	<item_template id="100000714" name="Set Test Sword 01" level="30" cName="test_set_sword_01" mask="138366" item_group="SWORD" quality="COMMON" price="5" restrict="30 30 30 30 30 30 30 30 30 30 30 30 30 30 30 30 30" desc="743693" attack_type="PHYSICAL" can_exceed_enchant="true" enchant_type="1" max_enchant_bonus="5">
+		<modifiers>
+			<add name="MAXHP" value="135" bonus="true"/>
+			<add name="PHYSICAL_ACCURACY" value="60" bonus="true"/>
+		</modifiers>
+		<weapon_stats hit_count="2" attack_range="1500" parry="173" physical_accuracy="52" critical="50" attack_speed="1400" max_damage="20" min_damage="16"/>
 		<idian burn_attack="29" burn_defend="12"/>
 	</item_template>
 	<!-- :232833 -->

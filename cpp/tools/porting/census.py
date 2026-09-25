@@ -181,14 +181,14 @@ MILESTONES = [
 ]
 CHUNK_MILESTONE = {
     'P5-00': 'M5a', 'P5-01': 'M5b-2', 'P5-02a': 'M5b-2', 'P5-02b': 'M5b-2', 'P5-03': 'M5b-2', 'P5-04': 'M5b-2', 'P5-05': 'M5j',
-    'P5-06': 'M5d', 'P5-07': 'M5b-3', 'P5-08': 'M5j', 'P5-09': 'M5c', 'P5-10': 'M5g', 'P5-11': 'M5h', 'P5-12a': 'M5i', 'P5-12b': 'M5i',
-    'P5-13': 'M5f', 'P5-14': 'M5j', 'P5-15': 'CM', 'P5-16': 'CM', 'P5-SC': 'none',
+    'P5-06': 'M5d', 'P5-07': 'M5b-3', 'P5-08': 'M5j', 'P5-09a': 'M5b-3', 'P5-09b': 'M5c', 'P5-09c': 'M5c', 'P5-10': 'M5g', 'P5-11': 'M5h',
+    'P5-12a': 'M5i', 'P5-12b': 'M5i', 'P5-13': 'M5f', 'P5-14': 'M5j', 'P5-15': 'CM', 'P5-16': 'CM', 'P5-SC': 'none',
 }
 # (chunk, milestone, regex over the path relative to the package root without extension: 'services/drop/DropService'); the first match wins,
-# else CHUNK_MILESTONE. The same path serves the Java file, its C++ files and its generated files.
+# else CHUNK_MILESTONE. The same path serves the Java file, its C++ files and its generated files. P5-09 needs no row since its split into
+# P5-09a (drop, rewards, passport, bonus and faction packs, guide: M5b-3's side), P5-09b (trade and market) and P5-09c (mail and craft), the M5c
+# rest (m5c-plan.md D1, I-01): each part has one milestone.
 MILESTONE_SPLITS = [
-    # m5c-plan.md D1: P5-09a (drop, rewards, passport, bonus and faction packs, guide) is M5b-3's side, the trade/market and mail/craft rest M5c
-    ('P5-09', 'M5b-3', r'^services/(drop|reward)/|^services/(AtreianPassportService|BonusPackService|FactionPackService)(_|Info)?$|^model/guide/'),
     # roadmap M5b-3: "P5-13 (rest of restrictions)"; the instance engine is M5f
     ('P5-13', 'M5b-3', r'^restrictions/'),
     # roadmap M5e: "P5-08 (skill learn, class change, dialog)"; M5f: "P5-08 (teleport)"; the rest of P5-08 has no milestone named: M5j
@@ -202,7 +202,10 @@ CHUNK_NOTES = {
     'P5-05': 'whole under M5j: the AI framework is done, the root AI handlers are M5j',
     'P5-07': 'whole under M5b-3: M5c continues it (the roadmap lists P5-07 under both)',
     'P5-08': 'split: SkillLearn/ClassChange/DialogService -> M5e, services/teleport -> M5f, the rest (no milestone named) -> M5j',
-    'P5-09': 'split: drop/reward/passport/bonus/faction packs/guide -> M5b-3 (m5c-plan D1 P5-09a), trade/mail/craft/broker -> M5c',
+    'P5-09a': 'whole under M5b-3: drop/reward/passport/bonus/faction packs/guide (m5c-plan D1); its team-loot bodies are M5g work, reported here',
+    'P5-09b': 'whole under M5c: trade and market (m5c-plan D1); the broker is reported here although m5c-plan D2 offers it to a later milestone',
+    'P5-09c': 'whole under M5c: mail and craft (m5c-plan D1); express mail and MailFormatter\'s siege-mail enums are reported here although '
+              'm5c-plan D2/D9 leave them to later milestones',
     'P5-13': 'split: restrictions -> M5b-3, the instance engine and the rest -> M5f',
     'P5-15': 'own row CM: each milestone pulls in its packets, the leftovers are M5j',
     'P5-16': 'own row CM: as P5-15',
@@ -3165,11 +3168,12 @@ def self_check(tree=True):
 
     # helpers
     check('join_variants', join_variants(('A', 'B', 'C')), [('A', 'B', 'C'), ('A', 'B_C'), ('A_B', 'C'), ('A_B_C',)])
-    check('milestone split', [milestone_of('P5-09', '5', 'services/drop/DropService'), milestone_of('P5-09', '5', 'services/mail/Mail'),
+    check('milestone split', [milestone_of('P5-09a', '5', 'services/drop/DropService'), milestone_of('P5-09c', '5', 'services/mail/Mail'),
+                              milestone_of('P5-09b', '5', 'services/trade/PricesService'),
                               milestone_of('P5-08', '5', 'services/teleport/TeleportService'),
                               milestone_of('P5-08', '5', 'services/DialogService'), milestone_of('P5-08', '5', 'services/DuelService'),
                               milestone_of('P4-12', '4', 'x'), milestone_of('Q01', '6', 'x')],
-          ['M5b-3', 'M5c', 'M5f', 'M5e', 'M5j', 'phase 4', 'phase 6'])
+          ['M5b-3', 'M5c', 'M5c', 'M5f', 'M5e', 'M5j', 'phase 4', 'phase 6'])
     check('package_relative', [package_relative('src/aion/gameserver/services/drop/DropService.cpp'),
                                package_relative('generated/aion/gameserver/model/X_Y.xml.inc'),
                                package_relative('data/handlers/ai/GeneralNpcAI.java')],

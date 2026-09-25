@@ -14,4 +14,8 @@ void TuningAction::act(gameobjects::player::Player& /*player*/, runtime::Ptr<gam
 	AION_UNPORTED();
 }
 
+int32_t TuningAction::getRandomStatBonusIdFor(gameobjects::Item& /*item*/) {
+	AION_UNPORTED();
+}
+
 } // namespace aion::gameserver::model::templates::item::actions

@@ -57,6 +57,11 @@
 # archives and deletes the *.log files of the previous run, so a second server process in the same directory - another build directory's test
 # run, or a game server the user started - makes both runs fail with "Error gathering and archiving old logs". Together with the hashed schema
 # name this makes the test independent of what else runs on the machine (CTest's RESOURCE_LOCK only serializes one ctest run).
+#
+# TWO SERVER RUNS AT A TIME (M5c stage 0): the RESOURCE_LOCK aion_game_server_log that cmake/AppTests.cmake gives these tests is gate slot 1 of
+# game-server/tests/scenario/ScenarioTests.cmake ("the two gate slots"), so one of them may run beside a scenario gate of slot 2. What the two
+# servers could still share was audited there; the one shared write this script had to route away is the HTML cache (-Dgameserver.html.cache.file
+# below). docs/deviations/P5-SC.md, section "M5c stage 0", and docs/deviations/P5-14.md, section "M5c stage 0", record it.
 
 if(NOT DEFINED MODE)
 	set(MODE smoke)
@@ -221,6 +226,19 @@ list(APPEND arguments "-Dgameserver.dev.missing_ai_handlers=warn" "-Dgameserver.
 set(login_address "127.0.0.1:1")
 list(APPEND arguments "-Dgameserver.network.client.socket_address=127.0.0.1:0" "-Dgameserver.network.login.address=${login_address}")
 list(APPEND arguments "--stop-file=${stop_file}" "--check-output=${OUTPUT_DIR}/check" "--log-folder=${OUTPUT_DIR}/log")
+# The HTML cache for the same reason as --log-folder: HTMLCache writes ./cache/html.cache below the shared working directory whenever that file is
+# missing (HTMLCache.java:112-120), and two servers starting at once - this test beside a scenario gate, which run two at a time
+# (tests/scenario/ScenarioTests.cmake, "two gate slots") - would truncate and read one file. The run's own file instead, removed first so that
+# every run parses, compacts and writes it. A file that survives the removal would be read instead (and would satisfy the "wrote its cache"
+# check below by itself, which the M5c stage-0 review's mutant showed), so that is a failure here, before the server starts.
+set(html_cache_file "${OUTPUT_DIR}/html.cache")
+file(REMOVE "${html_cache_file}")
+if(EXISTS "${html_cache_file}")
+	fail("${test_name}: could not remove the previous run's ${html_cache_file}, so this start would read it instead of writing its own")
+endif()
+list(APPEND arguments "-Dgameserver.html.cache.file=${html_cache_file}")
+# the start of the run in seconds since the epoch: the cache file the server writes must be newer than this (see the check after the run)
+string(TIMESTAMP run_start_epoch "%s" UTC)
 
 execute_process(
 	COMMAND "${EXECUTABLE}" ${arguments}
@@ -276,6 +294,23 @@ endif()
 set(started FALSE)
 if(log MATCHES "Game server started in [0-9-]+ seconds\\.")
 	set(started TRUE)
+endif()
+# HTMLCache.getInstance() is a startup step (GameServer.cpp), so a started server has written its cache file - into OUTPUT_DIR, not below the
+# shared working directory. Existence alone proves nothing (the M5c stage-0 review: an earlier run's file passed it while this run failed to
+# write ./cache/html.cache), so the file must also be this run's: the server did not read one ("Using cache file"), and the file is not older
+# than the start of this run. (The log line "Creating cache file" proves nothing here: HTMLCache logs it before it tries the write.)
+if(started)
+	if(log MATCHES "Cache\\[HTML\\]: Using cache file")
+		fail("${test_name}: the server read an existing ${html_cache_file} instead of parsing, compacting and writing its own")
+	endif()
+	if(NOT EXISTS "${html_cache_file}")
+		fail("${test_name}: the server started but wrote no ${html_cache_file} (-Dgameserver.html.cache.file was not honoured)")
+	endif()
+	file(TIMESTAMP "${html_cache_file}" html_cache_epoch "%s" UTC)
+	if(html_cache_epoch LESS run_start_epoch)
+		fail("${test_name}: ${html_cache_file} was written at ${html_cache_epoch}, before this run started at ${run_start_epoch} (seconds since the "
+			"epoch): it is an earlier run's file, and this run wrote none there (-Dgameserver.html.cache.file was not honoured)")
+	endif()
 endif()
 set(stopped_at "")
 if(log MATCHES "startup stopped at an unported function: ([^\r\n]*)")

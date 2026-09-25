@@ -152,6 +152,10 @@ std::vector<std::string> ScenarioServers::gameServerArguments() const {
 	// Logging::init archives and DELETES at startup: two build trees running the gate, or a gate run next to the user's own play server, then
 	// destroy each other's logs. It also puts the server's own server_errors.log where Q8 can read it (RunStartupSmoke.cmake does the same).
 	arguments.push_back("--log-folder=" + logFolder().string());
+	// The same for the HTML cache: HTMLCache writes `./cache/html.cache` below the shared working directory whenever the file is missing, so two
+	// gates starting at once (ScenarioTests.cmake runs two at a time) would truncate and read one file. A -D key, not a profile entry: it is a
+	// path of this run, not a server setting.
+	arguments.push_back("-Dgameserver.html.cache.file=" + htmlCacheFile().string());
 	return arguments;
 }
 
@@ -193,6 +197,8 @@ void ScenarioServers::startGameServer() {
 	std::error_code error;
 	std::filesystem::remove(stopFile(), error);
 	std::filesystem::remove_all(checkOutputDir(), error);
+	// every start parses, compacts and writes the HTML cache itself, instead of reading what the previous run of this gate wrote
+	std::filesystem::remove(htmlCacheFile(), error);
 	ChildProcess::Options options;
 	options.executable = config.gameServerExecutable;
 	options.arguments = config.gameServerLeadingArguments;

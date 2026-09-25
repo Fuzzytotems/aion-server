@@ -516,7 +516,7 @@ Not part of M4: handler engines (their tables are empty), spawns, network.
 | P5-06 | `aion_gs_quest` | questEngine (16 templates + abstract, models, conditions, operations), QuestService, QuestSpawnAnalyzer | 8,211 (80) | 138 | – | 5a |
 | P5-07 | `aion_gs_itemsvc` | services.item, item actions (behaviour), Enchant/Armsfusion/Stigma/Warehouse/CubeExpand/Repurchase/LimitedItemTrade/UpgradeArcade | 7,085 (56) | 245 | P5-02 | 5b |
 | P5-08 | `aion_gs_playersvc` | services.player (rest), teleport, revive, recall, kisk, duel, pvp, skill learn, class change, dialog, social, summons, abyss, toypet, life stats restore, punishment, ban | ~5,300 (37) | 446 | P5-00 | 5b |
-| P5-09 | `aion_gs_economy` | drop, mail, craft, reward, trade/exchange/private store, broker, recipe, passport, bonus/faction packs | 5,771 (26) | 250 | P5-07 | 5b |
+| P5-09a / P5-09b / P5-09c | `aion_gs_economy` (three parts) | drop, reward, passport, bonus/faction packs, guide / trade/exchange/private store, broker, prices / mail, craft, recipe | 5,771 (26) | 250 | P5-07 | 5b; split for M5c (m5c-plan.md D1) |
 | P5-10 | `aion_gs_team` | model.team, autogroup, findgroup, challenge tasks | 7,260 (89) | 129 | – | 5b |
 | P5-11 | `aion_gs_legionhouse` | LegionService, Housing(+Bid), Town, LegionDominion, model.house/town, housing cron tasks | 3,486 (14) | 126 | – | 5b |
 | P5-12a / b | `aion_gs_siege` / `aion_gs_worldevents` | (a) siege + SiegeService + model.siege; (b) base, rift, vortex, world raid, panesterra, conqueror/protector, events | ~4,000 / ~4,450 (70) | 215 | P5-10 | 5b |

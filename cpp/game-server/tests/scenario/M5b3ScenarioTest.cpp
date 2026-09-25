@@ -19,10 +19,10 @@
 // through one shared body; the geo run adds the camp fire (§10.5, Y15). The comment above TEST(M5b3ScenarioGeo, Run) says what it adds.
 //
 // **The inventory model.** Every item packet the character receives is applied, in arrival order, to a model of its cube, equipment and
-// regular warehouse (InventoryModel below): SM_INVENTORY_INFO and SM_WAREHOUSE_INFO at enter world, then SM_INVENTORY_ADD_ITEM,
-// SM_INVENTORY_UPDATE_ITEM, SM_DELETE_ITEM and their warehouse twins. The model is what the gate expects a loot to merge into (Y3), what the
-// cube budget is asked about (L3b), the count before a potion or a split (Y8, Y10), and what the database must hold after the quit (Y12) -
-// "the count of the last packet the client got about it".
+// regular warehouse (InventoryModel.h, lifted out of this file for M5c): SM_INVENTORY_INFO and SM_WAREHOUSE_INFO at enter world, then
+// SM_INVENTORY_ADD_ITEM, SM_INVENTORY_UPDATE_ITEM, SM_DELETE_ITEM and their warehouse twins. The model is what the gate expects a loot to
+// merge into (Y3), what the cube budget is asked about (L3b), the count before a potion or a split (Y8, Y10), and what the database must hold
+// after the quit (Y12) - "the count of the last packet the client got about it".
 
 #include <gtest/gtest.h>
 
@@ -52,6 +52,7 @@
 #include "AsyncAllowed.h"
 #include "FakeLoginClient.h"
 #include "GameSession.h"
+#include "InventoryModel.h"
 #include "Oracle.h"
 #include "PacketSequence.h"
 #include "ScenarioDatabase.h"
@@ -458,169 +459,11 @@ std::string levelReadyPattern() {
 	       "SM_ABNORMAL_STATE, SM_CUBE_UPDATE";
 }
 
-// ---- the inventory model ----------------------------------------------------------------------------------------------------------------
+// ---- the inventory model (InventoryModel.h) ------------------------------------------------------------------------------------------
 
-/** StorageType ids of the two storages this gate touches (StorageType.java:7-8), the `item_location` column */
-constexpr int32_t LOCATION_CUBE = decoders::STORAGE_CUBE;
-constexpr int32_t LOCATION_WAREHOUSE = decoders::STORAGE_REGULAR_WAREHOUSE;
-
-struct ModelItem {
-	int32_t objectId = 0;
-	int32_t itemId = 0;
-	int64_t count = 0;
-	int32_t location = LOCATION_CUBE;
-	/** the EQUIPPED_SLOT blob entry / the equipped state of SM_INVENTORY_INFO: the slot mask, 0 when the item is not equipped */
-	int64_t equippedSlot = 0;
-	/** the low 16 bits of Item.getEquipmentSlot() the last ADD/INFO packet carried (0xFFFF for -1 and 65535) */
-	uint16_t slot = 0xFFFF;
-	int32_t godStoneId = 0;
-};
-
-/**
- * The character's items as its client knows them: every item packet applied in arrival order. Nothing here reads a C++ server class; the
- * packets are decoded with ItemDecoders.h / PacketDecoders.h.
- */
-class InventoryModel {
-public:
-	std::map<int32_t, ModelItem> items;
-	std::vector<std::string> decodeFailures;
-	/** the last SM_CUBE_UPDATE(cubeSize) item count per StorageType, for the message of a mismatch */
-	std::map<int32_t, int32_t> lastCubeUpdateCount;
-
-	void follow(const GameSession* next) {
-		session = next;
-		scanned = 0;
-		items.clear();
-	}
-
-	/** applies the packets recorded since the last call */
-	void sync() {
-		if (session == nullptr)
-			return;
-		const std::vector<Packet>& packets = session->recorded();
-		for (; scanned < packets.size(); scanned++)
-			apply(packets[scanned], scanned);
-	}
-
-	/** the stacks that take a cube slot: in the cube, not equipped, not the kinah (Storage keeps the kinah item apart, Storage.java:172-173) */
-	std::vector<ModelItem> cubeStacks() const {
-		std::vector<ModelItem> stacks;
-		for (const auto& [id, item] : items)
-			if (item.location == LOCATION_CUBE && item.equippedSlot == 0 && item.itemId != KINAH_ITEM)
-				stacks.push_back(item);
-		return stacks;
-	}
-
-	std::vector<ModelItem> byItemId(int32_t itemId, int32_t location = LOCATION_CUBE) const {
-		std::vector<ModelItem> found;
-		for (const auto& [id, item] : items)
-			if (item.itemId == itemId && item.location == location && item.equippedSlot == 0)
-				found.push_back(item);
-		return found;
-	}
-
-	std::optional<ModelItem> byObjectId(int32_t objectId) const {
-		const auto found = items.find(objectId);
-		if (found == items.end())
-			return std::nullopt;
-		return found->second;
-	}
-
-	std::optional<ModelItem> equipped(int32_t itemId) const {
-		for (const auto& [id, item] : items)
-			if (item.itemId == itemId && item.equippedSlot != 0)
-				return item;
-		return std::nullopt;
-	}
-
-	int64_t kinah() const {
-		for (const auto& [id, item] : items)
-			if (item.itemId == KINAH_ITEM && item.location == LOCATION_CUBE)
-				return item.count;
-		return 0;
-	}
-
-	std::string describe() const {
-		std::vector<std::string> lines;
-		for (const auto& [id, item] : items)
-			lines.push_back(std::to_string(id) + ":" + std::to_string(item.itemId) + "x" + std::to_string(item.count) + "@" + std::to_string(item.location) +
-			                (item.equippedSlot != 0 ? "(equipped " + std::to_string(item.equippedSlot) + ")" : "") + " slot " + std::to_string(item.slot));
-		return join(lines, "; ");
-	}
-
-private:
-	void put(const decoders::InventoryItem& item, int32_t location) {
-		ModelItem& model = items[item.objectId];
-		model.objectId = item.objectId;
-		if (item.templateId != 0)
-			model.itemId = item.templateId;
-		model.location = location;
-		if (item.general)
-			model.count = item.general->count;
-		model.equippedSlot = item.equippedSlotBlob.value_or(0);
-		model.slot = item.equipmentSlot;
-		if (item.enchant)
-			model.godStoneId = item.enchant->godStoneId;
-	}
-
-	void update(const decoders::InventoryItem& item) {
-		const auto found = items.find(item.objectId);
-		if (found == items.end()) {
-			decodeFailures.push_back("an update of object " + std::to_string(item.objectId) + ", which the client does not have");
-			return;
-		}
-		if (item.general)
-			found->second.count = item.general->count;
-		if (item.equippedSlotBlob)
-			found->second.equippedSlot = *item.equippedSlotBlob;
-		if (item.enchant)
-			found->second.godStoneId = item.enchant->godStoneId;
-	}
-
-	void apply(const Packet& packet, size_t index) {
-		try {
-			if (packet.name == "SM_INVENTORY_INFO") {
-				const decoders::InventoryInfo info = decoders::decodeInventoryInfo(packet.data);
-				if (info.firstPacket)
-					std::erase_if(items, [](const auto& entry) { return entry.second.location == LOCATION_CUBE; });
-				for (const decoders::InventoryItem& item : info.items)
-					put(item, LOCATION_CUBE);
-			} else if (packet.name == "SM_WAREHOUSE_INFO") {
-				const decoders::WarehouseInfo info = decoders::decodeWarehouseInfo(packet.data);
-				if (info.warehouseType != LOCATION_WAREHOUSE)
-					return;
-				if (info.firstPacket)
-					std::erase_if(items, [](const auto& entry) { return entry.second.location == LOCATION_WAREHOUSE; });
-				for (const decoders::InventoryItem& item : info.items)
-					put(item, LOCATION_WAREHOUSE);
-			} else if (packet.name == "SM_INVENTORY_ADD_ITEM") {
-				for (const decoders::InventoryItem& item : decoders::decodeInventoryAddItem(packet.data).items)
-					put(item, LOCATION_CUBE);
-			} else if (packet.name == "SM_INVENTORY_UPDATE_ITEM") {
-				update(decoders::decodeInventoryUpdateItem(packet.data).item);
-			} else if (packet.name == "SM_DELETE_ITEM") {
-				items.erase(decoders::decodeDeleteItem(packet.data).objectId);
-			} else if (packet.name == "SM_WAREHOUSE_ADD_ITEM") {
-				const decoders::WarehouseAddItem add = decoders::decodeWarehouseAddItem(packet.data);
-				for (const decoders::InventoryItem& item : add.items)
-					put(item, add.warehouseType);
-			} else if (packet.name == "SM_WAREHOUSE_UPDATE_ITEM") {
-				update(decoders::decodeWarehouseUpdateItem(packet.data).item);
-			} else if (packet.name == "SM_DELETE_WAREHOUSE_ITEM") {
-				items.erase(decoders::decodeDeleteWarehouseItem(packet.data).objectId);
-			} else if (packet.name == "SM_CUBE_UPDATE") {
-				const decoders::CubeUpdate cube = decoders::decodeCubeUpdate(packet.data);
-				if (cube.action == 0)
-					lastCubeUpdateCount[cube.actionValue] = cube.itemsCount;
-			}
-		} catch (const DecodeError& error) {
-			decodeFailures.push_back(packet.name + " at " + std::to_string(index) + ": " + error.what());
-		}
-	}
-
-	const GameSession* session = nullptr;
-	size_t scanned = 0;
-};
+/** StorageType ids of the two storages this gate touches (StorageType.java:7-8), the `item_location` column (InventoryModel.h's) */
+constexpr int32_t LOCATION_CUBE = ModelItem::CUBE;
+constexpr int32_t LOCATION_WAREHOUSE = ModelItem::REGULAR_WAREHOUSE;
 
 // ---- the oracle answers this gate reads (tools/oracle/m5b3/*.py) -------------------------------------------------------------------------
 

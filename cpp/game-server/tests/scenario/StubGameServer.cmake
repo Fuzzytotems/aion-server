@@ -3,9 +3,13 @@
 # aion_game_server in the run mode as far as the harness sees it: it logs the startup lines, waits for the --stop-file, writes the
 # --check-output reports m5a_summary.txt and unported_trace.txt, logs the runtime shutdown and exits with code 0. With
 # -Dgameserver.stub.fail=true among its arguments it logs a startup stop and exits with code 1 instead, without waiting for the stop file.
+# With -Dgameserver.html.cache.file=<path> it does at startup what HTMLCache::reload does with that file (HTMLCache.java:64-120), as far as
+# the harness can see it: a file that is already there is read ("Cache[HTML]: Using cache file... OK."), a missing one is written
+# ("Cache[HTML]: Creating cache file... OK."), both before "Game server started" - so a harness test can tell which of the two the start saw.
 
 set(stop_file "")
 set(check_output "")
+set(html_cache_file "")
 set(fail FALSE)
 math(EXPR last "${CMAKE_ARGC} - 1")
 foreach(i RANGE ${last})
@@ -14,6 +18,8 @@ foreach(i RANGE ${last})
 		set(stop_file "${CMAKE_MATCH_1}")
 	elseif(argument MATCHES "^--check-output=(.*)$")
 		set(check_output "${CMAKE_MATCH_1}")
+	elseif(argument MATCHES "^-Dgameserver\\.html\\.cache\\.file=(.*)$")
+		set(html_cache_file "${CMAKE_MATCH_1}")
 	elseif(argument STREQUAL "-Dgameserver.stub.fail=true")
 		set(fail TRUE)
 	endif()
@@ -23,6 +29,14 @@ execute_process(COMMAND "${CMAKE_COMMAND}" -E echo "startup step 1: Config.load(
 if(fail)
 	execute_process(COMMAND "${CMAKE_COMMAND}" -E echo "Game server startup stopped at an unported function: stub")
 	message(FATAL_ERROR "stub game server: startup failed")
+endif()
+if(NOT html_cache_file STREQUAL "")
+	if(EXISTS "${html_cache_file}")
+		execute_process(COMMAND "${CMAKE_COMMAND}" -E echo "Cache[HTML]: Using cache file... OK.")
+	else()
+		execute_process(COMMAND "${CMAKE_COMMAND}" -E echo "Cache[HTML]: Creating cache file... OK.")
+		file(WRITE "${html_cache_file}" "stub html cache\n")
+	endif()
 endif()
 execute_process(COMMAND "${CMAKE_COMMAND}" -E echo "Game server started in 0 seconds.")
 if(stop_file STREQUAL "")

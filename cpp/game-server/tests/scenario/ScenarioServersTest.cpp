@@ -223,6 +223,10 @@ TEST(ScenarioServersTest, TheGameServerGetsTheM5aProfileAndTheScenarioArguments)
 	// the gate's game server must never write the shared game-server/log: Logging::init archives and DELETES the *.log files it finds there
 	EXPECT_TRUE(has("--log-folder=" + servers.logFolder().string()));
 	EXPECT_NE(servers.logFolder(), std::filesystem::path("log"));
+	// Two gates run at once (ScenarioTests.cmake, "two gate slots"), and HTMLCache writes its cache file at startup whenever it is missing
+	// (HTMLCache.java:112-120): the file is the run's own, never the default ./cache/html.cache below the shared working directory.
+	EXPECT_TRUE(has("-Dgameserver.html.cache.file=" + servers.htmlCacheFile().string()));
+	EXPECT_EQ(servers.htmlCacheFile(), config.outputDir / "html.cache");
 
 	std::vector<std::string> ls = servers.loginServerArguments();
 	auto lsHas = [&ls](std::string_view argument) { return std::ranges::find(ls, argument) != ls.end(); };
@@ -265,6 +269,36 @@ TEST(ScenarioServersTest, TheGeoGateTurnsTheGeoDataOnThroughTheSamePropertyOverr
 	const std::vector<std::string> arguments = servers.gameServerArguments();
 	EXPECT_EQ(std::ranges::count(arguments, std::string("-Dgameserver.geodata.enable=true")), 1);
 	EXPECT_EQ(std::ranges::count(arguments, std::string("-Dgameserver.geodata.enable=false")), 0);
+}
+
+TEST(ScenarioServersTest, EveryStartRemovesTheHtmlCacheTheRunBeforeLeft) {
+	// HTMLCache reads an existing cache file instead of parsing and compacting the HTML directory (HTMLCache.java:66-83), so a gate whose file
+	// survived from its last run would take a different startup path than its first run did. What matters is what the server SEES when it
+	// starts, not what is on disk afterwards (the M5c stage-0 review's mutant removed the file only after "Game server started" and passed): the
+	// stub does what HTMLCache does with the file (StubGameServer.cmake), so its log says whether the start found one, and the file it leaves is
+	// the one it wrote itself.
+	ScenarioServers servers(stubConfig("html-cache"), offlineEnvironment());
+	const std::string staleContent = "AIONHTM1 left by an earlier run";
+	{
+		std::ofstream stale(servers.htmlCacheFile(), std::ios::binary | std::ios::trunc);
+		stale << staleContent;
+	}
+	ASSERT_TRUE(std::filesystem::exists(servers.htmlCacheFile()));
+	servers.startGameServer();
+	ASSERT_NE(servers.gameServer(), nullptr);
+	const std::string log = servers.gameServer()->readLog();
+	EXPECT_EQ(log.find("Cache[HTML]: Using cache file"), std::string::npos) << "the start read the stale " << servers.htmlCacheFile() << ":\n" << log;
+	EXPECT_NE(log.find("Cache[HTML]: Creating cache file"), std::string::npos) << "the start wrote no cache file of its own:\n" << log;
+	std::string content;
+	{
+		std::ifstream written(servers.htmlCacheFile(), std::ios::binary);
+		std::stringstream buffer;
+		buffer << written.rdbuf();
+		content = buffer.str();
+	}
+	EXPECT_EQ(content.find(staleContent), std::string::npos) << servers.htmlCacheFile() << " is still the earlier run's file";
+	EXPECT_EQ(servers.stopGameServer(), 0);
+	EXPECT_TRUE(servers.stopProblems().empty());
 }
 
 TEST(ScenarioServersTest, AStubGameServerThatStopsInOrderReportsNoStopProblem) {

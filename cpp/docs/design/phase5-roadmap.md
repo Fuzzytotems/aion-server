@@ -26,8 +26,8 @@ Each milestone ends with something a player can do, in roughly the order a new c
 | # | Milestone | What a player can do after it | Chunks, mainly |
 |---|---|---|---|
 | 1 | **M5b-2 abilities** | Cast skills; buffs and debuffs; casters play properly | P5-02a/b, P5-03/04 (the 34-class subset), P5-01 magical half |
-| 2 | **M5b-3 loot and items** (complete, 2026-09-24: all eleven gates pass, m5b3-plan.md §19) | Loot a corpse; use and move items | P5-09 (drop), P5-07, P5-13 (rest of restrictions) |
-| 3 | **M5c vendors and economy** | Sell loot, buy potions, trade, mail, private store, crafting | P5-09 (trade, mail, craft, broker), P5-07 |
+| 2 | **M5b-3 loot and items** (complete, 2026-09-24: all eleven gates pass, m5b3-plan.md §19) | Loot a corpse; use and move items | P5-09 (drop; P5-09a since the split of m5c-plan.md D1), P5-07, P5-13 (rest of restrictions) |
+| 3 | **M5c vendors and economy** | Sell loot, buy potions, trade, mail, private store, crafting | P5-09 (trade, mail, craft, broker; P5-09b and P5-09c since the split of m5c-plan.md D1), P5-07 |
 | 4 | **M5d quest engine** | **~4,184 XML-template quests come online** | P5-06 |
 | 5 | **M5e training and progression** | Learn skills from trainers, class change | P5-08 (skill learn, class change, dialog) |
 | 6 | **M5f travel and instances** | Teleporters, flight paths, the instance engine | P5-08 (teleport), P5-13 |

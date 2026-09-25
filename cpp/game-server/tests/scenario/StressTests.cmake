@@ -35,8 +35,9 @@ if(TARGET aion_gs_scenario_tests)
 	# minutes for the shutdown with its final census, and slack - a client that is waiting out its packet timeout when the duration ends adds one
 	# more minute. The run's own duration comes from the environment below, so raising it means raising this too.
 	set_tests_properties(gs.scenario.m5a_stress PROPERTIES LABELS "scenario;realdata;stress;nightly" TIMEOUT 3600
-		# the SAME lock as gs.scenario.m5a and gs.scenario.m5a_geo: never two game servers at once, whichever of the three is running
-		RESOURCE_LOCK "aion_game_server_log;aion_login_server_log"
+		# BOTH gate slots (ScenarioTests.cmake, "the two gate slots"): nothing else starts a server beside the twenty clients, and the run's
+		# schema prefix m5a is the m5a gates' (slot 1)
+		RESOURCE_LOCK "${AION_GS_GATE_SLOT_1};${AION_GS_GATE_SLOT_2}"
 		SKIP_REGULAR_EXPRESSION "gs\\.scenario\\.m5a_stress: skipped")
 	if(NOT AION_STRESS_NIGHTLY)
 		set_tests_properties(gs.scenario.m5a_stress PROPERTIES DISABLED TRUE)

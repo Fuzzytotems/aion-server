@@ -42,8 +42,9 @@ foreach(gs_smoke_mode IN ITEMS smoke progress geo)
 			"-DALLOW_SKIP=${AION_GS_ALLOW_MILESTONE_SKIP}"
 			"-DOUTPUT_DIR=${CMAKE_CURRENT_BINARY_DIR}/${gs_smoke_name}/$<CONFIG>" -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/RunStartupSmoke.cmake")
 	# Each run has its own log directory and schema now (RunStartupSmoke.cmake), so a run of another build directory no longer breaks this one.
-	# The lock stays: two game servers loading the whole static data at once make both runs much slower and can exhaust the machine's memory
-	# (the geo run alone needs about 5 GB).
+	# The lock is gate slot 1 (AION_GS_GATE_SLOT_1 in tests/scenario/ScenarioTests.cmake, M5c stage 0, docs/deviations/P5-SC.md): the gates
+	# run two at a time, one game server per slot, because two geo servers need about 6.4 GB and more would exhaust the machine's memory. The
+	# literal name stays here because this file is read before ScenarioTests.cmake defines the variable; the slot table there lists this test.
 	set_tests_properties(${gs_smoke_name} PROPERTIES LABELS "${gs_smoke_labels}" TIMEOUT ${gs_smoke_timeout}
 		SKIP_REGULAR_EXPRESSION "${gs_smoke_name}: skipped" RESOURCE_LOCK aion_game_server_log)
 endforeach()
@@ -67,5 +68,6 @@ add_test(NAME gs.m4.check_static_data
 		"-DWORKING_DIRECTORY=${GS_JAVA_DIR}" "-DPYTHON=${gs_m4_python}" "-DORACLE_DIR=${CMAKE_SOURCE_DIR}/tools/oracle"
 		"-DALLOW_SKIP=${AION_GS_ALLOW_MILESTONE_SKIP}"
 		"-DOUTPUT_DIR=${CMAKE_CURRENT_BINARY_DIR}/m4/$<CONFIG>" -P "${CMAKE_CURRENT_SOURCE_DIR}/cmake/RunM4Check.cmake")
+# gate slot 1 as well (see the smoke tests above)
 set_tests_properties(gs.m4.check_static_data PROPERTIES LABELS "m4;oracle;realdata" TIMEOUT 1500
 	SKIP_REGULAR_EXPRESSION "gs\\.m4\\.check_static_data: skipped" RESOURCE_LOCK aion_game_server_log)

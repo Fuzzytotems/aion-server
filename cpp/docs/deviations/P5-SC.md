@@ -71,3 +71,72 @@ schemas, and no pass with a server that did not shut down.
 tree by the sweep once they are an hour old - not at the moment of the kill. Dropping them at the kill needs a reaper process outside the job
 object that survives the gate and decides on its own that the run is dead; that was rejected here, because a reaper that misjudges a live run
 issues `DROP DATABASE` under it, which is a worse failure than a leftover schema.
+
+## M5c stage 0 (gate-parallel lane): two server runs at a time
+
+Every gate used to hold the one lock `"aion_game_server_log;aion_login_server_log"`, so a full `ctest -L "scenario|smoke|geo|m4"` ran its eleven
+server runs one after the other (about 2,100 s in a Debug tree). The lock is older than the harness's own files per run; this lane audited what
+two concurrent runs still share and replaced it with two slots.
+
+| Area | As built | Reason |
+|---|---|---|
+| Two gate slots | Every test that starts a real game server holds exactly one of two CTest resource locks, `AION_GS_GATE_SLOT_1` = `aion_game_server_log` and `AION_GS_GATE_SLOT_2` = `aion_game_server_slot_2` (`ScenarioTests.cmake`, "the two gate slots"). Slot 1: `gs.smoke.startup`, `gs.smoke.startup_progress`, `gs.smoke.startup_geo`, `gs.m4.check_static_data`, `gs.scenario.m5a`, `m5a_geo`, `m5b3`, `m5b3_geo` (1,062 s run alone); slot 2: `m5b`, `m5b_geo`, `m5b2`, `m5b2_geo` (1,051 s). `gs.scenario.m5a_stress` holds both; `LoginServerHarnessTest` holds slot 1 instead of the unused `aion_login_server_log` | At most two game servers under any `ctest -j`, balanced by runtime. Slot 1 keeps the historical name because `cmake/AppTests.cmake` (P5-14) registers the smoke tests and the M4 check with exactly that lock, so they are in slot 1 without an edit in another chunk |
+| One slot per schema prefix | A gate and its geo variant share a slot; `LoginServerHarnessTest`, whose schema pair has the prefix `m5a`, shares the m5a gates' slot | `ScenarioDatabase::dropAbandonedSchemas` tests the in-use marker (`IS_FREE_LOCK`) before its `DROP`, not under it: two runs of one prefix that start together could drop the pair the other is recreating if a killed run left it behind. The smoke and M4 schemas are never swept |
+| Slot guard | `aion_gs_check_gate_slots`, deferred to the end of the game-server directory (`cmake_language(DEFER CALL)`), gives a `gs.scenario.*`, `gs.smoke.*` or `gs.m4.*` test that holds neither slot both slots and a configure warning | A gate registered without a slot would start a third server beside two others; with both it runs alone. Mutation-proven: `gs.scenario.m5a` without its lock configured with the warning and `RESOURCE_LOCK ['aion_game_server_log', 'aion_game_server_slot_2']` |
+| HTML cache | `ScenarioServers::gameServerArguments` passes `-Dgameserver.html.cache.file=<outputDir>/html.cache` and `startGameServer` removes that file first; `RunStartupSmoke.cmake` does the same with `<OUTPUT_DIR>/html.cache` and fails a run whose file survives the removal, and a started run that read a cache ("Cache[HTML]: Using cache file") or left no file at least as new as its own start | `HTMLCache::reload` writes `./cache/html.cache` below the shared working directory whenever the file is missing (HTMLCache.java:112-120). Today the write only fails because `game-server/cache` does not exist (a warning in every run); with the directory present, two servers starting together would truncate and read one file. The M4 check never creates `HTMLCache`. The checks are about what the start saw, not what is on disk afterwards (the stage-0 review's two surviving mutants: the harness removing the file only after "Game server started", and the smoke script without the removal and the override, which passed on the previous run's file). `StubGameServer.cmake` therefore does what `HTMLCache` does with the file - logs "Using cache file" for an existing one, writes a missing one and logs "Creating cache file" - and `EveryStartRemovesTheHtmlCacheTheRunBeforeLeft` asserts the second |
+| Not routed: `MethodStats.log` | Unchanged: every orderly shutdown writes `game-server/log/stats/MethodStats.log` | `RunnableStatsManager::dumpClassStats` hard-codes `./log/stats` (as Java does) and ignores `--log-folder`; routing it needs a production change in commons. Two shutdowns at the same moment interleave a diagnostic file no test reads |
+| Unshared by construction | Log folders, check output, stop files, login-server working directories, oracle output (all below the run's output directory); ports (ephemeral; `NioServer` binds with `SO_EXCLUSIVEADDRUSE`, so a collision fails loudly); schemas (hash of the output directory, in-use marker); a watchdog minidump names its process id | Checked in the harness, `RunStartupSmoke.cmake`, `RunM4Check.cmake`, `tools/oracle` (writes only the paths it is given) and the production writers (`HTMLCache`, `RunnableStatsManager`, `Watchdog`, `Logging`) |
+| One ctest process | The slots are CTest resource locks, so they bound the server runs of one `ctest` invocation. Two build trees running their gate sets at once can reach four game servers (about 12.8 GB with geo), and the marker-before-`DROP` window of `dropAbandonedSchemas` is open between them | Operational rule, written into the slot table of `ScenarioTests.cmake`: one tree's gate set at a time. `RunStartupSmoke.cmake` already said so for its own lock ("CTest's RESOURCE_LOCK only serializes one ctest run") |
+| `RunStartupSmoke.cmake` is P5-14's file | Edited under this lane's lease; `P5-14.md`, section "M5c stage 0", has pointer rows for its lock (now slot 1) and the HTML cache checks, and the script's header names both documents | The comment at `cmake/AppTests.cmake:44-46` described the single lock; the stage-0 integration (2026-09-25) rewrote it to name gate slot 1 (P5-14's file, recorded in `P5-14.md`) |
+
+**Measured, 2026-09-24** (`ctest -C Debug -j 2 -L "scenario|smoke|geo|m4" -E m5a_stress`, the machine building other trees meanwhile):
+1,286 s and 1,227 s of wall clock, against the ~2,100 s the same runs take one after the other; the two slots finished within 27 s and 21 s of
+each other. Every pair really overlapped, and the memory sampler never saw more than two `aion_game_server` processes; the peak of two geo
+servers together was 6,352 MB of private bytes. Each run is 10-30 % slower beside another (`m5b_geo` 351 → 364 / 424 s).
+Both runs had gate failures, all of one kind, and none caused by the parallel runs: the final census wrote `Player <id> 1` (run 1: `m5b`,
+`m5b2`, `m5b3_geo`; run 2: `m5b`, `m5b_geo`), while the same shutdown logged "0 objects still tracked" and `live_counts.txt` 0 live Players.
+`gs.scenario.m5b` alone, with no other gate running, fails the same way. Each of these runs logs one "Leak census: ... Player ... refcount 3"
+line, then a "Leak probe" line from a pool thread, and every passing run has neither. The npc-leak lane's uncommitted `LeakCensus`
+holder probe pins the reported object until the probe task runs (`postHolderProbe`, `Pin(candidate.object)`), so the two consecutive
+scans of `CheckOutput::runFinalCensus` see a steady count of 1 instead of a logout that is still being reclaimed and falls to 0. M5b-3's
+tree logged the same transient line and wrote no leak (m5b3-plan.md, "The census race (fixed)").
+
+**Again, 2026-09-25, after the stage-0 review** (the same command, a fresh `build/msvc` of the tree at 00:30 with the npc-leak lane's code of
+00:21): 1,162 s of wall clock, 43 of 46 passed, at most two game servers and two login servers in 217 samples (two in 196 of them), peak
+6,328 MB of private bytes for the two servers, free commit down to 3.9 GB while other lanes compiled. The three failures are the same
+false leak: `m5b3_geo` (census at 00:40:13, "Leak probe ... no holder found" at 00:40:17) and `m5b` (00:53:13, probe at 00:53:14) exactly as
+above; `m5b_geo` shows a second face of it: the probe, walking a geo-built world in a Debug build, was still running when
+`ThreadPoolManager` shut down ("success: false in 5001 msec"), so its pin also left the Player alive past the runtime shutdown ("1 objects
+still tracked", `live_counts.txt` 1 live Player, a "Live instance leak" ERROR for `AbyssRank`). Nothing in this lane can change that: the probe
+belongs to `LeakCensus` (P4-02b) and `WorldLeakProbe` (P4-10), the final census to `CheckOutput` (P5-14).
+
+**Closed, 2026-09-25, with the fixed probe** (the npc-leak lane's holder probe in the form header request m5b3-leak-h01 applies,
+which posts no probe for a zero-threshold check such as the final census; `build/msvc` built at 04:33 from the tree as it is now). Each
+gate that had failed, alone: `m5b` 239 s, `m5b_geo` 361 s, `m5b2` 173 s, `m5b2_geo` 331 s, `m5b3_geo` 395 s, all passed. Then the same
+command twice: 1,220 s and 1,145 s of wall clock, 46 of 46 passed both times, at most two game servers and two login servers (two in 531 of
+580 and 548 of 571 samples), peak 6,328 MB of private bytes for the two servers, at least 12.2 GB of physical memory available, other
+lanes compiling beside (up to 32 `cl.exe`). Geo gates overlapped each other (`m5a_geo`/`smoke_geo` beside `m5b_geo`; `m5b3_geo` beside
+`m5b_geo` and then `m5b2_geo`). `m5b`, `m5b_geo` and `m5b3_geo` still log the transient "Leak census: ... Player ... refcount 3" line at
+shutdown, now with no "Leak probe" after it and "0 leaks written", exactly as M5b-3's tree did: the false leak above was the first probe's
+pin. Between the two, the first run of this fix (a binary of 01:15-01:20, when the npc-leak lane had taken the probe back out of the tree
+into that patch, so the server had no probe at all) had no census failure either, but one geo gate per run failed its "no watchdog dump"
+assertion (M5b-3 Y13, M5b-2 X12): `MapRegion::activate`'s instant task (MapRegion.cpp:141, the AI ACTIVATE of the regions a player
+enters) ran 9.8 s, 11.1 s and 6.3 s in `m5b3_geo` and 8.9 s in `m5b2_geo`, over the 5 s threshold. The dumps show the thread running, not
+waiting for a lock, at 17-27 % of the machine's CPU. It is not the harness's (the task runs inside the server) and did not come back: the
+same task takes at most 88-122 ms in each gate alone (`MethodStats.log`), and no gate log of the two runs above has a slow task. The code
+those gates executed was the same (the probe runs only after a census report, and none came before the shutdown), and the machine had less
+free commit memory then (6-11 GB against 11-14 GB), so the likeliest cause is load, a stall of the server process on a busy machine,
+which any watchdog-gated run can meet: a geo gate that fails only on a watchdog dump should be rerun alone before it is read as a
+regression.
+
+## M5c stage 0 (harness-a lane): the dialog decoders and builders, the shared inventory model
+
+m5c-plan.md G-02's first part and the harness side of G-01 (the `m5c-economy` oracle is in `tools/oracle`, README "M5c economy oracle").
+Nothing here changes a gate's behaviour; the M5b-3 gate compiles against the lifted model unchanged.
+
+| Area | As built | Reason |
+|---|---|---|
+| `decoders/EconomyDecoders.{h,cpp}` | `SM_DIALOG_WINDOW`, `SM_PRICES`, `SM_TRADELIST`, `SM_SELL_ITEM`, `SM_REPURCHASE`, `SM_QUESTION_WINDOW`, each from its Java `writeImpl` (m5a-plan.md D9). The literal constants are verified (`SM_DIALOG_WINDOW`'s `writeH(0)` at :34 and its last short for every page but MAIL and TOWN_CHALLENGE_TASK, `SM_TRADELIST`'s `writeD(100)`, `SM_REPURCHASE`'s `writeD(1)`, `SM_QUESTION_WINDOW`'s `writeD(0)`), every `? 1 : 0` flag must be 0 or 1, and `SM_QUESTION_WINDOW`'s flag must agree with its range (`rangeOrCooldownSeconds > 0 ? 1 : 0`) | the stage-0 dialog path (X1-X4, X8, X15, X25, X26); the exchange, mail, store and craft packets of G-02 join the same file in stage 1 |
+| `SM_QUESTION_WINDOW`'s parameters | A `writeS(null)` and a `writeS("")` are the same lone NUL char on the wire: both decode as `""` | Java writes `String.valueOf(params[i])` or null past the given ones (SM_QUESTION_WINDOW.java:307-308); the decoder cannot and need not tell them apart |
+| `GameSession` builders | `CM_QUESTION_RESPONSE` (50), `CM_SHOW_DIALOG` (52), `CM_CLOSE_DIALOG` (53), `CM_DIALOG_SELECT` (54) in their readImpl field order; the fields the server reads and drops are written as 0, and `CM_DIALOG_SELECT` takes its arguments in read order (action, extendedRewardIndex, lastPage, questId, unk) | as the M5b-3 builders |
+| `InventoryModel.{h,cpp}` | M5b-3's file-local model lifted out of `M5b3ScenarioTest.cpp` as the plan asks (m5c-plan.md G-02, A-11). Two changes, both additive: the storage and kinah constants became `ModelItem::CUBE`, `ModelItem::REGULAR_WAREHOUSE` and `InventoryModel::KINAH_ITEM_ID` (so they cannot collide with a gate's own `LOCATION_*`/`KINAH_ITEM`), and `followPackets` follows any growing packet list besides a session's recorder, which lets `InventoryModelTest` drive the model without a connection | X16's per-client models; M5b-3's gate keeps its `LOCATION_CUBE`/`LOCATION_WAREHOUSE`, now aliases of the model's |

@@ -3,6 +3,7 @@
 #include "aion/gameserver/model/templates/item/actions/TuningAction.xml.h"
 
 #include <any>
+#include <cstdint>
 #include <initializer_list>
 
 #include "aion/gameserver/model/gameobjects/fwd.h"
@@ -20,6 +21,12 @@ public:
 
 	void act(gameobjects::player::Player& player, runtime::Ptr<gameobjects::Item> parentItem, runtime::Ptr<gameobjects::Item> targetItem,
 		std::initializer_list<std::any> params = {}) const override;
+
+	/**
+	 * Java: DataManager.ITEM_RANDOM_BONUSES.selectRandomBonusNumber(StatBonusType.INVENTORY, item's statBonusSetId). Called by act's task, by
+	 * ItemActionService.identifyItem (ItemActionService.java:45) and by ItemPurificationService (ItemPurificationService.java:130).
+	 */
+	static int32_t getRandomStatBonusIdFor(gameobjects::Item& item);
 };
 
 } // namespace aion::gameserver::model::templates::item::actions

@@ -20,6 +20,9 @@
 	oracle.py m5c-trade (--npc ID [--item ID] | --item ID | --map ID) [--count N] [--race R] [--set KEY=VALUE ...]   (m5c/trade.py, m5c-plan.md G-01)
 	oracle.py m5c-craft (--recipe ID [--skill-level N] [--craft-type 0|1] | --skill ID --level N [--map ID] | --gatherable ID [--skill-level N])
 	                    [--skill-xp X] [--character-level N] [--membership M] [--set KEY=VALUE ...]   (m5c/craft.py, m5c-plan.md §2.6 G-01)
+	oracle.py m5c-economy [--map ID] [--npc ID ...] [--near X,Y,Z] [--far D] [--direction DEG] [--recover-exp N] [--npc-expands N]
+	                      [--quest-expands N] [--item-expands N] [--mail ITEM:COUNT:KINAH[:express] ...] [--item ID ...] [--class C] [--race R]
+	                      [--level N] [--influence RACE=N ...] [--profile FILE | --no-profile] [--set KEY=VALUE ...]   (m5c/economy.py, G-01)
 	oracle.py m5d-quest --quest ID [--race R] [--class C] [--level N] [--exp X] [--gender G] [--completed ID[:GROUP] ...] [--inventory ITEM[:COUNT] ...]
 	                    [--profile FILE | --no-profile]   (m5d/quests.py, m5d-plan.md G-01)
 	oracle.py m5d-quests --map ID [--race R] [--class C] [--level N] [--gender G] [--completed ID[:GROUP] ...] [--started ID ...]
@@ -278,6 +281,35 @@ def cmd_m5c_craft(args):
 	return 0
 
 
+def cmd_m5c_economy(args):
+	from m5a.data import StaticData
+	from m5c.economy import ECONOMY_KEYS, economy_report
+	from m5c.trade import parse_influences
+	from m5c.trade_config import load_config, refuse_event_keys
+	data_dir = _data_dir(args)
+	java_src = Path(args.java_src) if args.java_src else data_dir.parent.parent / "src"
+	config_dir = Path(args.config) if args.config else java_src.parent / "config"
+	profile = None if args.no_profile else Path(args.profile) if args.profile else config_dir / "mygs.properties"
+	config = load_config(java_src, config_dir, profile, args.set or [], keys=ECONOMY_KEYS, require_profile=bool(args.profile) and not args.no_profile)
+	data = StaticData(data_dir, config["gameserver.country.code"].value)
+	refuse_event_keys(data, ECONOMY_KEYS)
+	near = None
+	if args.near is not None:
+		try:
+			near = tuple(float(p) for p in args.near.split(","))
+		except ValueError as e:
+			raise OracleError(f"--near {args.near}: not x,y,z") from e
+		if len(near) != 3:
+			raise OracleError(f"--near {args.near}: not x,y,z")
+	report = economy_report(data, java_src, config, args.map, args.npc or [], near, args.far, args.recover_exp, args.npc_expands, args.quest_expands,
+	                        args.item_expands, args.mail or [], args.item or [], args.player_class, args.level,
+	                        influences=parse_influences(args.influence or []),
+	                        handlers_dir=Path(args.java_handlers) if args.java_handlers else None,
+	                        commons_src=Path(args.commons_src) if args.commons_src else None, direction=args.direction, player_race=args.race)
+	sys.stdout.write(runner.dump_json(report))
+	return 0
+
+
 def _m5d_world(args):
 	from m5a.data import StaticData
 	from m5d.quests import DEFAULT_PROFILE, QuestWorld
@@ -506,6 +538,41 @@ def main(argv=None):
 	                                                     "220010000 Ishalgen)")
 	p.add_argument("--membership", type=int, default=0, help="the account membership that picks the rate of every float[] rate key (default 0)")
 	p.set_defaults(fn=cmd_m5c_craft)
+
+	p = sub.add_parser("m5c-economy", help="the M5c gate's talk spots and windows, soul healing, cube, manastone removal, mail commission and the "
+	                                       "extraction, identification and equip facts of items (m5c-plan.md G-01)")
+	data_args(p, country=False)
+	p.add_argument("--java-src", help="game-server/src (default: two levels above the static data directory, then src)")
+	p.add_argument("--java-handlers", help="game-server/data/handlers, whose GeneralNpcAI and PostboxAI answer DIALOG_START (default: beside --java-src)")
+	p.add_argument("--commons-src", dest="commons_src", help="commons/src, for Rnd.get (default: beside the game-server tree)")
+	p.add_argument("--config", help="game-server/config, whose administration, main and network folders give the defaults (default: beside --java-src)")
+	p.add_argument("--profile", help="the override file Config.loadProperties reads (default: <config>/mygs.properties, which may be missing; a file "
+	                                 "named here must exist)")
+	p.add_argument("--no-profile", action="store_true", dest="no_profile", help="read no override file: the default folders and --set only")
+	p.add_argument("--set", action="append", metavar="KEY=VALUE", help="a property read as one line of the profile, e.g. the gate's keys; repeatable")
+	p.add_argument("--influence", action="append", metavar="RACE=N", help="Influence.getInfluence(race) when sieges are on; repeatable")
+	p.add_argument("--map", type=int, default=210010000, metavar="ID", help="the map whose spots the --npc talk blocks use (default 210010000 Poeta)")
+	p.add_argument("--npc", type=int, action="append", metavar="ID",
+	               help="an npc to talk to: its spots, the X2 band spot, a near and a far spot, the window it opens and its function arms; the first "
+	                    "one's spot is the reference the others' spots are chosen by (nearest); repeatable")
+	p.add_argument("--near", metavar="X,Y,Z", help="the reference point for choosing each npc's spot (default: the first --npc's first fixed spot)")
+	p.add_argument("--far", type=float, default=10.0, help="the distance of the far spot from each npc, outside its talk range (default 10)")
+	p.add_argument("--direction", type=float, default=0.0, help="the angle in degrees, counter-clockwise from +x, along which each npc's band, near and "
+	                                                            "far spots lie (default 0)")
+	p.add_argument("--recover-exp", type=int, dest="recover_exp", metavar="N", help="the recoverable exp at the soul healer: RECOVERY's price and question")
+	p.add_argument("--npc-expands", type=int, default=0, dest="npc_expands", help="the cube's npc expansions before a cube expander's question (default 0)")
+	p.add_argument("--quest-expands", type=int, default=0, dest="quest_expands", help="the cube's quest expansions (default 0)")
+	p.add_argument("--item-expands", type=int, default=0, dest="item_expands", help="the cube's item expansions (default 0)")
+	p.add_argument("--mail", action="append", metavar="ITEM:COUNT:KINAH[:express]",
+	               help="a letter's attachment (ITEM 0 for none) and kinah: its commission and what the sender pays; repeatable")
+	p.add_argument("--item", type=int, action="append", metavar="ID",
+	               help="an item: extraction (breakItem), identification (tuning) and whether --class at --level may equip it; repeatable")
+	p.add_argument("--class", dest="player_class", default="MAGE", help="the class the --item equip checks are made for (default MAGE)")
+	p.add_argument("--race", default="ELYOS", choices=("ELYOS", "ASMODIANS"),
+	               help="the character race of the --item equip checks: the item's race and the skill_tree rows it learns (default ELYOS; the "
+	                    "price blocks are given for both races)")
+	p.add_argument("--level", type=int, default=1, help="the character level of the equip checks (default 1)")
+	p.set_defaults(fn=cmd_m5c_economy)
 
 	def m5d_args(p):
 		data_args(p, country=False)

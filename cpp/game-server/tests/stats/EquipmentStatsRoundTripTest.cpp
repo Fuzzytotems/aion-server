@@ -11,8 +11,9 @@
 // ArmorMasteryEffect.startEffect builds for Basic Chain Armor Proficiency (skill_templates.xml:790-800, skill 42).
 //
 // NOT COVERED, and named so that nobody mistakes the absence for coverage: the enchant effect (EnchantService.applyEnchantEffect, its equip
-// side, is AION_UNPORTED - M5c), the tempering and random bonus effects, the idian stone, the conditioning observer, the buff skill and the
-// item set (each needs data holders of its own; their unequip statements are ported one for one with their equip mirrors of M5a).
+// side, is ported since M5c stage 0, E-01; tests/itemsvc/EnchantServiceTest.cpp equips an enchanted sword, and its unequip round trip is not
+// driven here yet), the tempering and random bonus effects, the idian stone, the conditioning observer, the buff skill and the item set (each
+// needs data holders of its own; their unequip statements are ported one for one with their equip mirrors of M5a).
 
 #include "../cm_ak/ItemPacketTestSupport.h"
 

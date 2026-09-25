@@ -115,6 +115,22 @@ public:
 	static constexpr int32_t CM_SPLIT_ITEM = 157;
 	static constexpr int32_t CM_REPLACE_ITEM = 178;
 
+	/**
+	 * the four packets of talking to an npc (m5c-plan.md §2.1, G-02): AionClientPacketFactory packets[50], [52], [53] and [54]
+	 * (AionClientPacketFactory.java:78, 80-82)
+	 */
+	static constexpr int32_t CM_QUESTION_RESPONSE = 50;
+	static constexpr int32_t CM_SHOW_DIALOG = 52;
+	static constexpr int32_t CM_CLOSE_DIALOG = 53;
+	static constexpr int32_t CM_DIALOG_SELECT = 54;
+
+	/**
+	 * CM_QUESTION_RESPONSE's answer (CM_QUESTION_RESPONSE.java:30, "y/n"): RequestResponseHandler.handle denies on 0 and accepts on any other
+	 * value (RequestResponseHandler.java:28-33)
+	 */
+	static constexpr uint8_t ANSWER_NO = 0;
+	static constexpr uint8_t ANSWER_YES = 1;
+
 	/** CM_START_LOOT's action (CM_START_LOOT.java runImpl): 0 opens the drop list (requestDropList), 1 closes it (closeDropList) */
 	static constexpr uint8_t LOOT_OPEN = 0;
 	static constexpr uint8_t LOOT_CLOSE = 1;
@@ -371,6 +387,24 @@ public:
 	static std::vector<uint8_t> buildCM_EQUIP_ITEM(uint8_t action, int64_t slot, int32_t itemObjId);
 	/** CM_DELETE_ITEM.readImpl (CM_DELETE_ITEM.java:26-28): readD itemObjectId */
 	static std::vector<uint8_t> buildCM_DELETE_ITEM(int32_t itemObjectId);
+
+	// ---- M5c's dialog packets (m5c-plan.md §2.1, G-02), each the Java readImpl field order ----
+	/** CM_SHOW_DIALOG.readImpl (CM_SHOW_DIALOG.java:23-25): readD targetObjectId */
+	static std::vector<uint8_t> buildCM_SHOW_DIALOG(int32_t targetObjectId);
+	/** CM_CLOSE_DIALOG.readImpl (CM_CLOSE_DIALOG.java:24-26): readD targetObjectId */
+	static std::vector<uint8_t> buildCM_CLOSE_DIALOG(int32_t targetObjectId);
+	/**
+	 * CM_DIALOG_SELECT.readImpl (CM_DIALOG_SELECT.java:47-54): readD targetObjectId, readUH dialogActionId, readUH extendedRewardIndex, readUH
+	 * lastPage, readD questId, readUH unk ("unk 4.7"). A function dialog - the gate's `CM_DIALOG_SELECT(798007, BUY = 2)` - leaves the last four at 0
+	 */
+	static std::vector<uint8_t> buildCM_DIALOG_SELECT(int32_t targetObjectId, uint16_t dialogActionId, uint16_t extendedRewardIndex = 0,
+		uint16_t lastPage = 0, int32_t questId = 0, uint16_t unk = 0);
+	/**
+	 * CM_QUESTION_RESPONSE.readImpl (CM_QUESTION_RESPONSE.java:27-36): readD questionid, readUC response, a dropped readC ("unk 0x00 - 0x01 ?")
+	 * and readH, readD senderid, then a dropped readD and readH. runImpl answers by questionid alone (ResponseRequester.respond): the sender id
+	 * is read and never used, so it defaults to 0
+	 */
+	static std::vector<uint8_t> buildCM_QUESTION_RESPONSE(int32_t questionId, uint8_t response, int32_t senderId = 0);
 
 	network::test::FakeGameClient client;
 

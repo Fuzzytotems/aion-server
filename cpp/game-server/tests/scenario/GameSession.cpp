@@ -318,6 +318,25 @@ std::vector<uint8_t> GameSession::buildCM_DELETE_ITEM(int32_t itemObjectId) {
 	return PacketWriter().D(itemObjectId).data; // CM_DELETE_ITEM.java:27
 }
 
+std::vector<uint8_t> GameSession::buildCM_SHOW_DIALOG(int32_t targetObjectId) {
+	return PacketWriter().D(targetObjectId).data; // CM_SHOW_DIALOG.java:24
+}
+
+std::vector<uint8_t> GameSession::buildCM_CLOSE_DIALOG(int32_t targetObjectId) {
+	return PacketWriter().D(targetObjectId).data; // CM_CLOSE_DIALOG.java:25
+}
+
+std::vector<uint8_t> GameSession::buildCM_DIALOG_SELECT(int32_t targetObjectId, uint16_t dialogActionId, uint16_t extendedRewardIndex,
+	uint16_t lastPage, int32_t questId, uint16_t unk) {
+	// CM_DIALOG_SELECT.java:48-53
+	return PacketWriter().D(targetObjectId).H(dialogActionId).H(extendedRewardIndex).H(lastPage).D(questId).H(unk).data;
+}
+
+std::vector<uint8_t> GameSession::buildCM_QUESTION_RESPONSE(int32_t questionId, uint8_t response, int32_t senderId) {
+	// CM_QUESTION_RESPONSE.java:28-35: the readC, readH, readD and readH the server drops are written as 0
+	return PacketWriter().D(questionId).C(response).C(0).H(0).D(senderId).D(0).H(0).data;
+}
+
 GameSession::CastOutcome GameSession::castAndWait(int32_t casterObjectId, const CastRequest& request, std::chrono::milliseconds timeout,
 	const std::optional<CastInterruption>& interruption) {
 	CastOutcome outcome;

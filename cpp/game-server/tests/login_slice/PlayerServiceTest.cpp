@@ -1,5 +1,6 @@
-// PlayerService (P5-00, m5a-plan.md S-04/S-09/S-10) on the test schema: name checks, deletion and creation times, the player name lookup, and
-// storeNewPlayer/storePlayer of a player built by newPlayer (SlicePlayer: the real Player with stat container doubles).
+// PlayerService (P5-00, m5a-plan.md S-04/S-09/S-10) on the test schema: name checks, deletion and creation times, the player name lookup, the
+// common data lookup (m5c-plan.md M-02), and storeNewPlayer/storePlayer of a player built by newPlayer (SlicePlayer: the real Player with stat
+// container doubles).
 
 #include <gtest/gtest.h>
 
@@ -26,7 +27,9 @@
 #include "aion/gameserver/model/gameobjects/player/PlayerCommonData.h"
 #include "aion/gameserver/model/items/storage/PlayerStorage.h"
 #include "aion/gameserver/model/items/storage/StorageType.h"
+#include "aion/gameserver/runtime/base/Finally.h"
 #include "aion/gameserver/services/player/PlayerService.h"
+#include "aion/gameserver/world/World.h"
 #include "aion/gameserver/world/WorldPosition.h"
 
 namespace aion::gameserver::loginslice::test {
@@ -140,6 +143,40 @@ TEST_F(PlayerServiceTest, CreationTimeAndPlayerName) {
 	// not in the world: read from the database; unknown ids give null
 	EXPECT_EQ(PlayerService::getPlayerName(2021), std::optional<std::string>("Named"));
 	EXPECT_EQ(PlayerService::getPlayerName(2099), std::nullopt);
+}
+
+TEST_F(PlayerServiceTest, GetOrLoadPlayerCommonDataAsksTheWorldFirstThenTheDatabase) {
+	// m5c-plan.md M-02 (PlayerService.java:235-247). Not in the world: PlayerDAO.loadPlayerCommonData / loadPlayerCommonDataByName, null without
+	// a players row. The reads are null-safe, so that one failing lookup does not hide the others
+	auto nameOf = [](const Ref<PlayerCommonData>& data) { return data ? data->getName() : std::string("<null>"); };
+	auto objectIdOf = [](const Ref<PlayerCommonData>& data) { return data ? data->getPlayerObjId() : 0; };
+	insertPlayer(2061, "Resting", 6);
+	EXPECT_EQ(nameOf(PlayerService::getOrLoadPlayerCommonData(2061)), "Resting");
+	EXPECT_EQ(objectIdOf(PlayerService::getOrLoadPlayerCommonData("Resting")), 2061);
+	EXPECT_FALSE(PlayerService::getOrLoadPlayerCommonData(2099));
+	EXPECT_FALSE(PlayerService::getOrLoadPlayerCommonData("Nobody"));
+
+	// in the world: the player's own common data, not a load. Both keys have a players row that is not this player: its id's row carries another
+	// name, and another row (2063) carries its name. So a lookup that loaded first (by id or by name) and asked the World only on null would
+	// return a detached copy instead of the live object
+	insertPlayer(2062, "Stored", 21);
+	insertPlayer(2063, "Roaming", 9);
+	NewCharacter c = newCharacter(2062, "Roaming", model::Race::ELYOS, model::PlayerClass::WARRIOR);
+	Ref<Player> player;
+	SLICE_SKIP_IF_UNPORTED(player = PlayerService::newPlayer(*c.accountData, *c.account));
+	// entered the world: PlayerService.getPlayer gives the position, PlayerEnterWorldService.enterWorld stores the player. The position is the
+	// Elyos spawn location, player_initial_data.xml:4 (elyos_spawn_location)
+	player->setPosition(world::WorldPosition::create(210010000, 1212.9423f, 1044.8516f, 140.75568f, 32));
+	world::World::getInstance().storeObject(*player);
+	auto leaveWorld = runtime::finally([&player] { world::World::getInstance().removeObject(*player); });
+	EXPECT_EQ(PlayerService::getOrLoadPlayerCommonData(2062).get(), c.commonData.get());
+	EXPECT_EQ(PlayerService::getOrLoadPlayerCommonData("Roaming").get(), c.commonData.get());
+
+	// out of the world again: the players rows, by id the row 2062 and by name the row 2063
+	world::World::getInstance().removeObject(*player);
+	leaveWorld.dismiss();
+	EXPECT_EQ(nameOf(PlayerService::getOrLoadPlayerCommonData(2062)), "Stored");
+	EXPECT_EQ(objectIdOf(PlayerService::getOrLoadPlayerCommonData("Roaming")), 2063);
 }
 
 TEST_F(PlayerServiceTest, DeletePlayerFromDbRemovesTheCharacterAndItsItems) {

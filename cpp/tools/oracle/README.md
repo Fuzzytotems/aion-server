@@ -540,6 +540,67 @@ tree with a distinct rate array per key at membership 1 and a level difference o
 the repeated-item and shadowed recipes 155101624 and 155101544, and recipe 155001381 *Roast Inina* under the gate profile on the real data:
 2 x 160001001, 141 xp, cooking 1 -> 2, 11-36 s).
 
+## M5c economy oracle (`m5c/economy.py`, `docs/design/m5c-plan.md` G-01)
+
+```
+python oracle.py m5c-economy --npc 798007 --npc 700000 --npc 203336 --npc 203064 --npc 798008 [--map 210010000] [--near X,Y,Z]
+                 [--far 10] [--direction DEG] [--recover-exp 1000] [--npc-expands N] [--quest-expands N] [--item-expands N]
+                 [--mail 162000002:5:200 --mail 0:0:10 ...] [--item 100000133 --item 110100355 ...] [--class MAGE] [--race ELYOS]
+                 [--level 1] [--config DIR] [--profile F | --no-profile] [--set KEY=VALUE ...] [--influence RACE=N ...]
+                 [--java-src DIR] [--java-handlers DIR] [--commons-src DIR]
+```
+
+The gate constants `m5c-trade` and `m5c-craft` do not answer (stage 0 of G-01), in one JSON document (`aion-m5c-economy`); the Java methods
+are named with file:line in the module docstring:
+
+- `talk` per `--npc`: its spots on `--map` (each with the effective AI of the spot and whether it stays where it is), the chosen one (the
+  nearest to `--near`, else to the first npc's), the talk distance, both bound radii, `limit` (isInTalkRange's `talk + 1` plus the npc's and the
+  player's BoundRadius.getMaxOfFrontAndSide, float), `limitWithoutPlusOne` and `limitCenterToCenter`, and three float-checked spots along
+  `--direction`: the **X2 `bandSpot`** in the middle of `[max(talk + radii, talk + 1), talk + 1 + radii)` - admitted by isInTalkRange and refused
+  both without its "+ 1" and centre to centre -, a `nearSpot` 2 m away and a `farSpot` (`--far`) outside the range, each with the other
+  reported npcs it is in talk range of; `outOfRange` (STR_DIALOG_TOO_FAR_TO_TALK for an is_dialog npc, else STR_WAREHOUSE_TOO_FAR_FROM_NPC;
+  null for an npc without talk_info, which onDialogRequest leaves before the range check),
+  `startWindow` (GeneralNpcAI -> DialogPage.getStartPageId: 10 for a function npc, 0 without a conversation; PostboxAI: MAIL 18 with the
+  mailbox state REGULAR 1 in the last short) and `functions` (REMOVE_ITEM_OPTION's page 20, RECOVERY's and EXTEND_INVENTORY's questions,
+  BUY/SELL named for m5c-trade);
+- `recovery` for `--recover-exp`: the double factor, the price (249 for 1,000), STR_ASK_RECOVER_EXPERIENCE with its parameter, and what yes
+  pays, gives back and says;
+- `cube` for each `--npc` with EXTEND_INVENTORY: the cube_expander template, canExpand and the level window against `--npc-expands`,
+  `--quest-expands`, `--item-expands` and the config's limits, the raw price (1,000 at Poeta), STR_WAREHOUSE_EXPAND_WARNING and SM_CUBE_UPDATE
+  after yes;
+- `manastoneRemoval`: getPriceForService(650) per race (917 with sieges off);
+- `mail` per `--mail ITEM:COUNT:KINAH[:express]`: the base cost and cost factor, the float item commission (quality rate), the kinah
+  commission and what the sender pays per race (251 for five Minor Life Potions and 200 kinah, 23 for 10 kinah alone);
+- `items` per `--item`: `breakItem` (effective level, roll range, the stone ids with their probabilities, the count range - Alpha only and 2-5
+  for a Plainsman's weapon), `identification` (maxTuneCount after ItemTemplate.afterUnmarshal, whether a new item is unidentified, the SQL
+  default of `inventory.tune_count` read from `sql/aion_gs.sql` and whether it loads identified - it does, so a seed that must load
+  unidentified writes -1 - and the socket, enchant-bonus and stat-bonus rolls) and `equip` for `--class` and `--race` at `--level`:
+  equipItem's checks in its order - isClassSpecific, getRequiredLevel (with the start exp of that level), getMaxLevelRestrict (restrict_max),
+  the item's race, checkAvailableEquipSkills (the item group's getRequiredSkills against the autolearn skills learnNewSkills(1, level) teaches
+  the class, its starting class's below level 10; `character.learnedSkills` lists them) and the equipment slot -, `refusedBy` naming the first
+  that fails and `message` its system message (null for the two that refuse without a packet). C15: a Plainsman's armour piece needs level 4
+  (exp 3,820), and a Mage wears only its robe pieces (Tunic 110100355, Leggings 113100293, Shoes 114100311): it knows 103 of the equip skills,
+  not the chain, leather or sword ones.
+
+Every modelled member (75 in the game server, GeneralNpcAI.handleDialogStart and PostboxAI in data/handlers, commons' Rnd.get) is fingerprinted
+whole as `m5c-trade` does, and the statements the report leans on (the XML defaults, the learn calls at creation, level change and enter
+world) must be present verbatim, so an edit in one is exit 2; the tables and literals (DialogAction, DialogPage, PlayerMailboxState, the
+question and system message ids, the player bound radius, EnchantmentStone, calculateEffectiveLevel's arms, the removal base price, sendMail's
+costs and rates, ItemGroup's required skills, the SQL default) are read. Exit 2 also for: an npc whose DIALOG_START AI is neither GeneralNpcAI
+nor PostboxAI, a subdialog_type, a town npc, a moving npc or none on the map, a band no float spot fits, a quality calculateEffectiveLevel
+answers 0 for, unknown ids, classes, races or levels, an item group requiring 30001/30002 (the daeva branch of learnNewSkills), sieges without
+`--influence`. Not modelled (stated in `assumptions` or as null): a quest handler that answers USE_OBJECT first (the M5d oracle's field), the
+player's known list, trading and hide state, a rnd_bonus set's stat bonus draw, skills not learned by autolearn, equipItem's gender, rank and
+cube-space checks and everything after its slot check.
+
+Not yet answered (stage 1, harness-b): the Daeva seed and its enter-world learn list, the Sanctum spots and ovens, C19's exact kinah, whether
+the seeded manastone can be socketed into the seeded armour.
+
+Tests: `tests/test_m5c_economy.py` (the service price, the recovery price and the talk range with the band alone, the Java tables today and
+33 edited copies refused, a comment accepted, the SQL default and two literals followed, the whole report on a small static_data tree -
+every start window, the refusals, the cube arms, the mail, extraction, identification, every modelled equip check and the learned skills -
+the CLI, and the gate's Poeta npcs and Plainsman's items on the real data, C15's level-4 Mage included).
+
 ## M5d quest oracles (`m5d/`, `docs/design/m5d-plan.md` G-01, D9)
 
 ```

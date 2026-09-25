@@ -9,16 +9,10 @@
 #include "aion/gameserver/network/aion/serverpackets/SM_DIALOG_WINDOW.h"
 #include "aion/gameserver/network/aion/serverpackets/SM_OBJECT_USE_UPDATE.h"
 #include "aion/gameserver/network/aion/serverpackets/SM_SYSTEM_MESSAGE.h"
+#include "aion/gameserver/services/player/PlayerMailboxState.h"
 #include "aion/gameserver/utils/PacketSendUtility.h"
 
 namespace aion::gameserver::model::gameobjects {
-
-namespace {
-
-/** Java: PlayerMailboxState.REGULAR (services.player.PlayerMailboxState, no C++ header yet) */
-constexpr int8_t PLAYER_MAILBOX_STATE_REGULAR = 0x01;
-
-} // namespace
 
 PostboxObject::PostboxObject(CreateKey key, house::HouseRegistry& registry, int32_t objId, int32_t templateId)
 	: UseableHouseObject(key, registry, objId, templateId) {
@@ -35,7 +29,7 @@ void PostboxObject::onUse(player::Player& player) {
 		utils::PacketSendUtility::sendPacket(player, network::aion::serverpackets::SM_SYSTEM_MESSAGE::STR_MSG_HOUSING_OBJECT_OCCUPIED_BY_OTHER());
 		return;
 	}
-	player.getMailbox()->mailBoxState.set(PLAYER_MAILBOX_STATE_REGULAR);
+	player.getMailbox()->mailBoxState.set(services::player::PlayerMailboxState::REGULAR);
 	utils::PacketSendUtility::sendPacket(player,
 		network::aion::serverpackets::SM_SYSTEM_MESSAGE::STR_MSG_HOUSING_OBJECT_USE(getObjectTemplate()->getL10n()));
 	utils::PacketSendUtility::sendPacket(player, network::aion::serverpackets::SM_DIALOG_WINDOW(getObjectId(), id(DialogPage::MAIL)));

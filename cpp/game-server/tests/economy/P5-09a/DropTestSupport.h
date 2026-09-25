@@ -17,7 +17,7 @@
 //   case reads. The two rules whose restriction no shipped rule uses (gd_tribes, gd_excluded_npcs: 0 of the 2,196 rules) are marked as fixture
 //   rules; they are bound beside the shipped ones, never published.
 
-#include "../cm_ak/InWorldPacketRunSupport.h"
+#include "../../cm_ak/InWorldPacketRunSupport.h"
 #include "EconomyTestSupport.h"
 
 #include <cstdint>

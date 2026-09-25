@@ -8,6 +8,7 @@
 
 #include "aion/gameserver/model/gameobjects/fwd.h"
 #include "aion/gameserver/model/gameobjects/player/fwd.h"
+#include "aion/gameserver/model/templates/item/fwd.h"
 #include "aion/gameserver/runtime/lifetime/Ref.h"
 
 namespace aion::gameserver::model::templates::item::actions {
@@ -42,6 +43,35 @@ public:
 	/** necessary overloading to not change AbstractItemAction */
 	void act(gameobjects::player::Player& player, gameobjects::Item& parentItem, gameobjects::Item& targetItem,
 		runtime::Ptr<gameobjects::Item> supplementItem, int32_t targetWeapon) const;
+
+private:
+	/**
+	 * Check, if the item enchant will be successful
+	 * <p>
+	 * C++ (header request m5c-h01): supplementItem is nullable like the five-argument act's, which hands it on (the varargs act passes null).
+	 *
+	 * @param parentItem the enchantment-/manastone to insert
+	 * @param targetItem the current item to enchant
+	 * @param supplementItem the item to increase the enchant chance (if exists)
+	 * @param targetWeapon the fused weapon (if exists)
+	 * @return true if successful
+	 */
+	bool isSuccess(gameobjects::player::Player& player, gameobjects::Item& parentItem, gameobjects::Item& targetItem,
+		runtime::Ptr<gameobjects::Item> supplementItem, int32_t targetWeapon) const;
+
+public:
+	/** Java: max_level != null ? max_level : 0 */
+	int32_t getMaxLevel() const;
+
+	/** Java: min_level != null ? min_level : 0 */
+	int32_t getMinLevel() const;
+
+	/** package-private in Java */
+	bool isSupplementAction() const;
+
+private:
+	bool checkSupplementLevel(gameobjects::player::Player& player, const ItemTemplate* supplementTemplate,
+		const ItemTemplate* targetItemTemplate) const;
 };
 
 } // namespace aion::gameserver::model::templates::item::actions
