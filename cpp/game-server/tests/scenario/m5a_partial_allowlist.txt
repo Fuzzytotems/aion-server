@@ -1,0 +1,40 @@
+# The AION_PARTIAL sites the M5a scenario gate accepts (m5a-plan.md D3: "partial sites subset of tests/scenario/m5a_partial_allowlist.txt").
+# One site per line, whose file paths are relative to the compiling target's source root - game-server/src for the server itself
+# (e.g. "aion/gameserver/GameServer.cpp:129") and game-server/handlers for a registered handler
+# (e.g. "aion/gameserver/handlers/ai/<Handler>.cpp:<line>"; no handler holds a partial today). An entry WITH a line number
+# ("<file>:<line>") must match the whole site: a prefix match would let ":133" also cover ":1330" to ":1339". An entry without one ("<file>")
+# is an explicit whole-file wildcard. Lines starting with '#' and empty lines are ignored. Case 8 prints every row a run did not hit, so a row
+# left behind after the site it describes was ported becomes visible instead of staying green forever.
+#
+# Filled by stage 2 (F-06, S-11) from the sites the startup and the scripted path reach.
+#
+# HISTORY: aion/gameserver/spawnengine/VisibleObjectSpawner.cpp (spawnGatherable) was deliberately kept off this list while it was partial,
+# because no gatherable existed anywhere in the world and scenario assertion V4 plus real-client checklist step 7 would have passed vacuously.
+# The site is ported now (the world holds 18,432 Gatherables), so that guard is gone - which is why V4 itself gained the completeness half in
+# stage 2 phase 4: every deterministic gather spot within 90 m must be announced, so a world without gatherables fails V4 on its own.
+
+# --- startup (measured in the stage-2 phase-1 startup runs of the app-gate and world-visibility lanes) ---
+# M5a runs without quests (plan W-02 "QuestEngine init (empty registry)")
+aion/gameserver/questEngine/QuestEngine.cpp:111
+aion/gameserver/questEngine/QuestEngine.cpp:115
+# base locations are M5b (plan E1-06)
+aion/gameserver/services/BaseService.cpp:18
+# the PvP map instance needs InstanceService.getNextAvailableInstance (plan W-03, explicitly AION_PARTIAL there)
+aion/gameserver/custom/pvpmap/PvpMapService.cpp:32
+
+# --- the three root AI handlers of m5b-plan.md A-06, registered in the M5b-1 stage-1 wave (D2: a registered handler cannot be turned off by
+# configuration; G-05 put their two partials here). Both are closed, so no site is left under this heading ---
+# HISTORY: GeneralNpcAI.cpp:122's "npc skill attacks are not chosen yet (M5b-2): every attack stays a simple melee attack" (m5b-plan.md D4)
+# was here until M5b-2 stage 2 closed it (m5b2-plan.md N-02, GeneralNpcAI.java:130-138, with N-01's SkillAttackManager); every attack
+# decision of a registered AI now asks the npc's skill list first, so the npcs that fight each other in the character's map region cast.
+# HISTORY: NpcSkillList.cpp's "post-spawn npc skills are not cast yet (M5b-2)" (m5b-plan.md D3) was here until M5b-2 part 3 closed it
+# (m5b2-plan.md D7, D11); every spawn now casts its post-spawn skills.
+
+# --- enter world ---
+# HISTORY: plan §5.4 V9's O-09 row, SkillEngine.cpp's "passive skill effects are not applied yet (M5a O-09)", was here until M5b-2 part 3
+# closed it (m5b2-plan.md D2, D11); the enter-world passives apply now.
+# EMOTIONS_ALL is off by default, so this is only reached with the config the real-client checklist uses
+aion/gameserver/services/player/PlayerService.cpp:268
+# personal instances and the instance exit teleport are M5a AION_PARTIAL by plan W-03
+aion/gameserver/services/instance/InstanceService.cpp:133
+aion/gameserver/services/instance/InstanceService.cpp:153

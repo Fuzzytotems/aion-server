@@ -1,0 +1,62 @@
+cmake_minimum_required(VERSION 3.28)
+
+# Locate vcpkg before project(): an explicit toolchain file wins, then $VCPKG_ROOT, then the vcpkg bundled with Visual Studio.
+if(NOT DEFINED CMAKE_TOOLCHAIN_FILE)
+	if(DEFINED ENV{VCPKG_ROOT} AND EXISTS "$ENV{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake")
+		set(CMAKE_TOOLCHAIN_FILE "$ENV{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake" CACHE FILEPATH "")
+	elseif(CMAKE_HOST_WIN32)
+		set(_pf86 "ProgramFiles(x86)")
+		set(_vswhere "$ENV{${_pf86}}/Microsoft Visual Studio/Installer/vswhere.exe")
+		if(EXISTS "${_vswhere}")
+			execute_process(COMMAND "${_vswhere}" -latest -products * -property installationPath OUTPUT_VARIABLE _vs_path OUTPUT_STRIP_TRAILING_WHITESPACE)
+			if(EXISTS "${_vs_path}/VC/vcpkg/scripts/buildsystems/vcpkg.cmake")
+				set(CMAKE_TOOLCHAIN_FILE "${_vs_path}/VC/vcpkg/scripts/buildsystems/vcpkg.cmake" CACHE FILEPATH "")
+			endif()
+		endif()
+	endif()
+endif()
+if(NOT DEFINED VCPKG_INSTALLED_DIR)
+	# shared by all build directories, so dependencies are only built once
+	set(VCPKG_INSTALLED_DIR "${CMAKE_CURRENT_SOURCE_DIR}/vcpkg_installed" CACHE PATH "")
+endif()
+if(NOT DEFINED VCPKG_TARGET_TRIPLET AND CMAKE_HOST_WIN32)
+	set(VCPKG_TARGET_TRIPLET "x64-windows" CACHE STRING "")
+endif()
+
+project(aion-server-cpp VERSION 4.8 LANGUAGES CXX)
+
+set(CMAKE_CXX_STANDARD 23)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
+include(AionCompilerOptions)
+include(AionVersionInfo)
+
+option(AION_BUILD_TESTS "Build unit tests" ON)
+if(AION_BUILD_TESTS)
+	enable_testing()
+	find_package(GTest CONFIG REQUIRED)
+	include(GoogleTest)
+endif()
+
+add_subdirectory(commons)
+add_subdirectory(login-server)
+option(AION_BUILD_CHAT_SERVER "Build the chat server port (cpp/chat-server)" ON)
+if(AION_BUILD_CHAT_SERVER)
+	add_subdirectory(chat-server)
+endif()
+add_subdirectory(game-server)
+add_subdirectory(tools)
+
+# The Python tool suites that also read the Java tree (their real-tree cases skip without it) carry the label realdata, like the game server's
+# real-tree tests, so `ctest -LE realdata` is a fast run without the Java checkout. The label applies to the whole suite.
+if(AION_BUILD_TESTS)
+	get_property(tool_tests DIRECTORY tools PROPERTY TESTS)
+	foreach(tool_test IN ITEMS tools.gen tools.oracle tools.porting tools.xmlgen)
+		if(tool_test IN_LIST tool_tests)
+			set_tests_properties(${tool_test} DIRECTORY tools PROPERTIES LABELS realdata)
+		endif()
+	endforeach()
+endif()
