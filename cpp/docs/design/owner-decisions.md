@@ -1,0 +1,17 @@
+# Owner decisions
+
+The owner's answers to the open decisions of the milestone plans, newest first. Each plan applies its answer at its next refresh; until
+then this file wins over a plan's "until the user answers" default.
+
+## 2026-09-27
+
+| Decision | Answer | What it changes |
+|---|---|---|
+| **M5c D7** — the exchange double-confirm race (m5c-plan.md D7; T-04 measured split stacks destroying items, kinah moving twice each way and a live item's object id being released) | **Fix it, and record the fix** | A deviation from Java in P5-09b (ExchangeService): the two confirmations of one pair are serialized. It lands as its own commit after M5c stage 1, with its tests (the ExchangeRaceTest cases change from pinning the race to proving it closed) and a `Deviation:` comment, a docs/DEVIATIONS.md row and a docs/deviations/P5-09b.md entry |
+| **M5c D10 / M5d D13** — gathering (`CM_GATHER`) | **After quests** | Not in M5c stage 2 (the craft-edges lane drops `CM_GATHER`). Gathering comes after M5d's quest gate; M5d's four gathering quests (1206, 1207, 2133, 2134) wait for it |
+| **M5c D2** — the broker | **Now** | M5c stage 3 gets the broker lane (B-01..B-03: 11 sites and 18 packet bodies). Group K, express mail, trade-in and the AP vendors follow m5c-plan.md D2's "now" branch |
+| **M5j D1** — GM commands (and the chat stage that comes with them) early | **After quests** | M5j stage 0 runs right after M5d, before M5e. The GM login arm (M5j I-02) may still ride earlier as a one-body rider, because M5i's gate needs it |
+| **Phase 6 U1 / U7** — adopt the quest transliterator; interleave phase-6 work with phase 5 | **Yes, carefully**: "the earlier questing comes in, the better, but I don't want to sabotage the project" | The Python-only tooling (quest generator fixes, parity tools, the golden oracle) may run now. Generated quest handlers merge only after M5d's join (D3), in their own chunks, only in spare build slots, and never at the cost of a phase-5 gate: a phase-6 lane that turns a phase-5 test or gate red is reverted, not fixed forward |
+| **M5e D1** — how a player changes class at ascension | **Asked back; explained** (the simple class-selection window vs. the retail quest 1006 / 2008, which needs M5f's instances) | Until answered, M5e proceeds with (a), the simple window, as its plan says |
+| Book-only skill training (investigated 2026-09-25) | **Later** | Nothing now |
+| Capacity-test design (capacity-proposals.md) | **Later** | Stress and soak runs stay off |
