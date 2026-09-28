@@ -1,7 +1,9 @@
 #include "aion/gameserver/services/reward/StarterKitService.h"
 
+#include "aion/gameserver/model/gameobjects/LetterType.h"
+#include "aion/gameserver/model/gameobjects/player/Player.h"
 #include "aion/gameserver/model/templates/rewards/RewardItem.h"
-#include "aion/gameserver/runtime/base/Unported.h"
+#include "aion/gameserver/services/mail/SystemMailService.h"
 
 namespace aion::gameserver::services::reward {
 
@@ -53,7 +55,18 @@ StarterKitService::StarterKitService() {
 }
 
 void StarterKitService::onLevelUp(model::gameobjects::player::Player& player, int32_t fromLevel, int32_t toLevel) {
-	AION_UNPORTED();
+	// the only caller passes character levels (PlayerController::onLevelChange), so `level++` never passes Integer.MAX_VALUE
+	for (int32_t level = fromLevel; level <= toLevel; level++) {
+		if (!itemMap.containsKey(level))
+			continue;
+		for (runtime::Ptr<RewardItem> e : *itemMap.get(level)) {
+			mail::SystemMailService::sendMail("Beyond Aion", player.getName(), "Starter Kit",
+				"Greetings Daeva!\n\n"
+				"In gratitude for your decision to join our server, we would like to support you with an additional item pack during the leveling.\n\n"
+				"Enjoy your stay on Beyond Aion!",
+				e->getId(), e->getCount(), 0, model::gameobjects::LetterType::EXPRESS);
+		}
+	}
 }
 
 } // namespace aion::gameserver::services::reward

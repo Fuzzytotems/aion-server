@@ -24,11 +24,13 @@ private:
 	static int32_t calculateEffectiveLevel(model::templates::item::ItemQuality itemQuality, int32_t itemLevel);
 public:
 	static bool enchantItem(model::gameobjects::player::Player& player, model::gameobjects::Item& enchantmentStoneItem, model::gameobjects::Item& targetItem, runtime::Ptr<model::gameobjects::Item> supplementItem);
-	static void enchantItemAct(model::gameobjects::player::Player& player, model::gameobjects::Item& parentItem, model::gameobjects::Item& targetItem, model::gameobjects::Item& supplementItem, int32_t currentEnchant, bool success);
+	/** @param supplementItem nullable, as in Java (EnchantItemAction's varargs act passes null); never read (header request m5c-h05) */
+	static void enchantItemAct(model::gameobjects::player::Player& player, model::gameobjects::Item& parentItem, model::gameobjects::Item& targetItem, runtime::Ptr<model::gameobjects::Item> supplementItem, int32_t currentEnchant, bool success);
 	static void setEnchantLevel(model::gameobjects::player::Player& player, model::gameobjects::Item& item, int32_t enchantLevel);
 	static void applyEnchantEffect(model::gameobjects::Item& targetItem, model::gameobjects::player::Player& owner, int32_t enchantLevel);
 	static bool socketManastone(model::gameobjects::player::Player& player, model::gameobjects::Item& manastone, model::gameobjects::Item& targetItem, runtime::Ptr<model::gameobjects::Item> supplementItem, int32_t fusionedWeaponLevel);
-	static bool socketManastoneAct(model::gameobjects::player::Player& player, model::gameobjects::Item& parentItem, model::gameobjects::Item& targetItem, model::gameobjects::Item& supplementItem, int32_t targetWeapon, bool result);
+	/** @param supplementItem nullable, as in Java (EnchantItemAction's varargs act passes null); never read (header request m5c-h05) */
+	static bool socketManastoneAct(model::gameobjects::player::Player& player, model::gameobjects::Item& parentItem, model::gameobjects::Item& targetItem, runtime::Ptr<model::gameobjects::Item> supplementItem, int32_t targetWeapon, bool result);
 	static int32_t getEquipBuff(model::gameobjects::Item& item);
 	static void amplifyItem(runtime::Ptr<model::gameobjects::player::Player> player, int32_t targetItemObjId, int32_t materialId, int32_t toolId);
 };

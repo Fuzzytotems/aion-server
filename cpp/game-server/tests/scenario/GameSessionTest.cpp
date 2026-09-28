@@ -326,6 +326,147 @@ TEST(GameSessionTest, DialogBodies) {
 	EXPECT_EQ(answer.remaining(), 0u);
 }
 
+TEST(GameSessionTest, ShopAndExchangeBodies) {
+	// the opcodes, AionClientPacketFactory.java:79, 91-92, 94-97 (no packets[65]: C_REMOVE_XCHG is commented out at :93)
+	EXPECT_EQ(GameSession::CM_BUY_ITEM, 51);
+	EXPECT_EQ(GameSession::CM_EXCHANGE_REQUEST, 63);
+	EXPECT_EQ(GameSession::CM_EXCHANGE_ADD_ITEM, 64);
+	EXPECT_EQ(GameSession::CM_EXCHANGE_ADD_KINAH, 66);
+	EXPECT_EQ(GameSession::CM_EXCHANGE_LOCK, 67);
+	EXPECT_EQ(GameSession::CM_EXCHANGE_OK, 68);
+	EXPECT_EQ(GameSession::CM_EXCHANGE_CANCEL, 69);
+
+	// CM_BUY_ITEM: readD sellerObjId, readH tradeActionId, readUH amount, then readD itemId, readQ count per entry - the gate's C5
+	// `CM_BUY_ITEM(798007, 13, [(162000052, 2)])`
+	const std::vector<GameSession::BuyItemEntry> elixirs{{162000052, 2}};
+	EXPECT_EQ(GameSession::buildCM_BUY_ITEM(0x0A0B0C0D, GameSession::TRADE_BUY, elixirs),
+		(std::vector<uint8_t>{0x0D, 0x0C, 0x0B, 0x0A, 0x0D, 0x00, 0x01, 0x00, 0xB4, 0xEC, 0xA7, 0x09, 0x02, 0, 0, 0, 0, 0, 0, 0}));
+	const std::vector<GameSession::BuyItemEntry> two{{0, 3}, {1, 20001}};
+	PacketReader store(GameSession::buildCM_BUY_ITEM(7, GameSession::TRADE_PRIVATE_STORE, two));
+	EXPECT_EQ(store.D(), 7);
+	EXPECT_EQ(store.H(), 0) << "tradeActionId 0: the ids are indices into the seller's list";
+	EXPECT_EQ(store.H(), 2) << "amount is the entry count";
+	EXPECT_EQ(store.D(), 0) << "an index of 0 is sent as it is";
+	EXPECT_EQ(store.Q(), 3) << "the count is a long";
+	EXPECT_EQ(store.D(), 1);
+	EXPECT_EQ(store.Q(), 20001) << "nothing is clamped: a count above the audit bound 20000 reaches the server";
+	EXPECT_EQ(store.remaining(), 0u);
+	const std::vector<GameSession::BuyItemEntry> tooMany(GameSession::BUY_ITEM_MAX_ENTRIES + 1, GameSession::BuyItemEntry{162000052, 1});
+	const std::vector<uint8_t> audit = GameSession::buildCM_BUY_ITEM(7, GameSession::TRADE_BUY, tooMany);
+	EXPECT_EQ(audit[6], 37) << "37 entries are announced as 37 (the readImpl audits amount > 36)";
+	EXPECT_EQ(audit.size(), 8u + 37u * 12u);
+	EXPECT_EQ(GameSession::buildCM_BUY_ITEM(7, GameSession::TRADE_SELL, {}).size(), 8u);
+	EXPECT_EQ(PacketReader(GameSession::buildCM_BUY_ITEM(7, -1, {})).B(6)[5], 0xFF) << "readH: a negative action id stays negative";
+
+	// CM_EXCHANGE_REQUEST: readD targetObjectId; CM_EXCHANGE_ADD_ITEM: readD itemObjId, readD itemCount (an int); CM_EXCHANGE_ADD_KINAH: readQ
+	EXPECT_EQ(GameSession::buildCM_EXCHANGE_REQUEST(0x0A0B0C0D), (std::vector<uint8_t>{0x0D, 0x0C, 0x0B, 0x0A}));
+	EXPECT_EQ(GameSession::buildCM_EXCHANGE_ADD_ITEM(0x0A0B0C0D, 10), (std::vector<uint8_t>{0x0D, 0x0C, 0x0B, 0x0A, 0x0A, 0x00, 0x00, 0x00}));
+	EXPECT_EQ(GameSession::buildCM_EXCHANGE_ADD_KINAH(100), (std::vector<uint8_t>{0x64, 0, 0, 0, 0, 0, 0, 0}));
+	EXPECT_EQ(PacketReader(GameSession::buildCM_EXCHANGE_ADD_KINAH(5'000'000'000LL)).Q(), 5'000'000'000LL);
+	// CM_EXCHANGE_LOCK, CM_EXCHANGE_OK and CM_EXCHANGE_CANCEL read nothing
+	EXPECT_TRUE(GameSession::buildCM_EXCHANGE_LOCK().empty());
+	EXPECT_TRUE(GameSession::buildCM_EXCHANGE_OK().empty());
+	EXPECT_TRUE(GameSession::buildCM_EXCHANGE_CANCEL().empty());
+}
+
+TEST(GameSessionTest, StoreMailAndIdentificationBodies) {
+	// the opcodes, AionClientPacketFactory.java:147-148, 160-162, 164-165, 263-264, 266 (packets[135], C_MAIL_SETREAD, is commented out)
+	EXPECT_EQ(GameSession::CM_PRIVATE_STORE, 119);
+	EXPECT_EQ(GameSession::CM_PRIVATE_STORE_NAME, 120);
+	EXPECT_EQ(GameSession::CM_SEND_MAIL, 132);
+	EXPECT_EQ(GameSession::CM_CHECK_MAIL_LIST, 133);
+	EXPECT_EQ(GameSession::CM_READ_MAIL, 134);
+	EXPECT_EQ(GameSession::CM_GET_MAIL_ATTACHMENT, 136);
+	EXPECT_EQ(GameSession::CM_DELETE_MAIL, 137);
+	EXPECT_EQ(GameSession::CM_TUNE, 235);
+	EXPECT_EQ(GameSession::CM_SELECT_DECOMPOSABLE, 236);
+	EXPECT_EQ(GameSession::CM_TUNE_RESULT, 238);
+
+	// CM_PRIVATE_STORE: readUH itemCount, then readD itemObjId, readD itemId, readUH count, readQ price - the gate's C10
+	const std::vector<GameSession::PrivateStoreItem> potions{{0x0A0B0C0D, 162000002, 5, 100}};
+	EXPECT_EQ(GameSession::buildCM_PRIVATE_STORE(potions),
+		(std::vector<uint8_t>{0x01, 0x00, 0x0D, 0x0C, 0x0B, 0x0A, 0x82, 0xEC, 0xA7, 0x09, 0x05, 0x00, 0x64, 0, 0, 0, 0, 0, 0, 0}));
+	EXPECT_EQ(GameSession::buildCM_PRIVATE_STORE({}), (std::vector<uint8_t>{0x00, 0x00})) << "an empty list closes the store";
+	const std::vector<GameSession::PrivateStoreItem> big{{1, 2, 40000, 3}};
+	PacketReader unsignedCount(GameSession::buildCM_PRIVATE_STORE(big));
+	unsignedCount.B(10);
+	EXPECT_EQ(static_cast<uint16_t>(unsignedCount.H()), 40000) << "readUH: the count is unsigned";
+	// CM_PRIVATE_STORE_NAME: readS name
+	EXPECT_EQ(GameSession::buildCM_PRIVATE_STORE_NAME("m5c"), (std::vector<uint8_t>{'m', 0, '5', 0, 'c', 0, 0, 0}));
+
+	// CM_SEND_MAIL: readS recipientName, readS title, readS message, readD itemObjId, readQ itemCount, readQ kinahCount, readUC idLetterType -
+	// the gate's C11 letter: 5 potions and 200 kinah, NORMAL
+	PacketReader mail(GameSession::buildCM_SEND_MAIL("Mfivecmage", "m5c", "gate", 0x0A0B0C0D, 5, 200));
+	EXPECT_EQ(mail.S(), "Mfivecmage");
+	EXPECT_EQ(mail.S(), "m5c") << "the title comes second";
+	EXPECT_EQ(mail.S(), "gate");
+	EXPECT_EQ(mail.D(), 0x0A0B0C0D);
+	EXPECT_EQ(mail.Q(), 5) << "the item count is a long";
+	EXPECT_EQ(mail.Q(), 200) << "the kinah follows the item count";
+	EXPECT_EQ(mail.C(), GameSession::LETTER_NORMAL);
+	EXPECT_EQ(mail.remaining(), 0u);
+	PacketReader express(GameSession::buildCM_SEND_MAIL("x", "", "", 0, 0, 10, GameSession::LETTER_EXPRESS));
+	express.S();
+	EXPECT_EQ(express.S(), "") << "an empty title is one NUL char";
+	express.S();
+	express.B(20);
+	EXPECT_EQ(express.C(), 1);
+
+	// CM_CHECK_MAIL_LIST: readC, `== 1` for express only; CM_READ_MAIL: readD; CM_GET_MAIL_ATTACHMENT: readD mailObjId, readC attachmentType
+	EXPECT_EQ(GameSession::buildCM_CHECK_MAIL_LIST(), (std::vector<uint8_t>{0}));
+	EXPECT_EQ(GameSession::buildCM_CHECK_MAIL_LIST(true), (std::vector<uint8_t>{1}));
+	EXPECT_EQ(GameSession::buildCM_READ_MAIL(0x0A0B0C0D), (std::vector<uint8_t>{0x0D, 0x0C, 0x0B, 0x0A}));
+	EXPECT_EQ(GameSession::buildCM_GET_MAIL_ATTACHMENT(0x0A0B0C0D, GameSession::MAIL_ATTACHMENT_KINAH),
+		(std::vector<uint8_t>{0x0D, 0x0C, 0x0B, 0x0A, 0x01}));
+	// CM_DELETE_MAIL: readUH count, then readD mailObjId and a dropped readC per letter
+	const std::vector<int32_t> letters{0x0A0B0C0D, 7};
+	EXPECT_EQ(GameSession::buildCM_DELETE_MAIL(letters),
+		(std::vector<uint8_t>{0x02, 0x00, 0x0D, 0x0C, 0x0B, 0x0A, 0x00, 0x07, 0x00, 0x00, 0x00, 0x00}));
+	// a readUH count carries 65,535 entries at most: one more cannot be written (the four list builders share this check)
+	const std::vector<int32_t> most(0xFFFF, 7);
+	const std::vector<uint8_t> full = GameSession::buildCM_DELETE_MAIL(most);
+	ASSERT_EQ(full.size(), 2u + 0xFFFFu * 5u);
+	EXPECT_EQ(full[0], 0xFF);
+	EXPECT_EQ(full[1], 0xFF);
+	const std::vector<int32_t> tooMany(0x10000, 7);
+	EXPECT_THROW(GameSession::buildCM_DELETE_MAIL(tooMany), std::invalid_argument) << "65,536 letters: the count would wrap to 0";
+
+	// CM_TUNE: readD itemObjectId, readD tuningScrollObjectId (0: identify without a scroll, C15); CM_TUNE_RESULT: readD, readC `== 1`
+	EXPECT_EQ(GameSession::buildCM_TUNE(0x0A0B0C0D), (std::vector<uint8_t>{0x0D, 0x0C, 0x0B, 0x0A, 0, 0, 0, 0}));
+	EXPECT_EQ(GameSession::buildCM_TUNE(1, 0x0A0B0C0D), (std::vector<uint8_t>{1, 0, 0, 0, 0x0D, 0x0C, 0x0B, 0x0A}));
+	EXPECT_EQ(GameSession::buildCM_TUNE_RESULT(0x0A0B0C0D, true), (std::vector<uint8_t>{0x0D, 0x0C, 0x0B, 0x0A, 1}));
+	EXPECT_EQ(GameSession::buildCM_TUNE_RESULT(1, false), (std::vector<uint8_t>{1, 0, 0, 0, 0}));
+	// CM_SELECT_DECOMPOSABLE: readD objectId, readD unk, readUC index
+	EXPECT_EQ(GameSession::buildCM_SELECT_DECOMPOSABLE(0x0A0B0C0D, 2, 200), (std::vector<uint8_t>{0x0D, 0x0C, 0x0B, 0x0A, 2, 0, 0, 0, 200}));
+}
+
+TEST(GameSessionTest, CraftBodies) {
+	// the opcodes, AionClientPacketFactory.java:117, 169
+	EXPECT_EQ(GameSession::CM_RECIPE_DELETE, 89);
+	EXPECT_EQ(GameSession::CM_CRAFT, 141);
+
+	// CM_CRAFT: readUC unk, readD targetTemplateId, readD recipeId, readD targetObjId, readUH materialsCount, readUC craftType, then readD itemId,
+	// readQ count per material - the gate's C19 `CM_CRAFT(0, 150000009, 155001381, oven, {152001001: 1, 169400096: 2}, 0)`
+	const std::vector<GameSession::CraftMaterial> materials{{152001001, 1}, {169400096, 2}};
+	PacketReader craft(GameSession::buildCM_CRAFT(0, 150000009, 155001381, 0x0A0B0C0D, materials));
+	EXPECT_EQ(craft.C(), 0);
+	EXPECT_EQ(craft.D(), 150000009) << "the oven's template id";
+	EXPECT_EQ(craft.D(), 155001381) << "the recipe";
+	EXPECT_EQ(craft.D(), 0x0A0B0C0D) << "the oven's object id";
+	EXPECT_EQ(craft.H(), 2) << "the material count comes before the craft type";
+	EXPECT_EQ(craft.C(), 0) << "craftType";
+	EXPECT_EQ(craft.D(), 152001001);
+	EXPECT_EQ(craft.Q(), 1) << "a material count is a long";
+	EXPECT_EQ(craft.D(), 169400096);
+	EXPECT_EQ(craft.Q(), 2);
+	EXPECT_EQ(craft.remaining(), 0u);
+	const std::vector<uint8_t> morph = GameSession::buildCM_CRAFT(GameSession::CRAFT_UNK_MORPH, 0, 155000002, 0, {}, 1);
+	EXPECT_EQ(morph, (std::vector<uint8_t>{129, 0, 0, 0, 0, 0xC2, 0x1C, 0x3D, 0x09, 0, 0, 0, 0, 0x00, 0x00, 0x01}));
+
+	// CM_RECIPE_DELETE: readD recipeId
+	EXPECT_EQ(GameSession::buildCM_RECIPE_DELETE(155001381), (std::vector<uint8_t>{0x25, 0x22, 0x3D, 0x09}));
+}
+
 TEST(GameSessionTest, ServerPacketNames) {
 	EXPECT_EQ(GameSession::nameOf(0), "SM_VERSION_CHECK");
 	EXPECT_EQ(GameSession::nameOf(14), "SM_NPC_INFO");

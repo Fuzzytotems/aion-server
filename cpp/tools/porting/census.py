@@ -2991,9 +2991,11 @@ LIVE_CHECKS = [
     ('network/aion/serverpackets/SM_BROKER_SERVICE.java', 'SM_BROKER_SERVICE.BrokerPacketType', 'getId', 0, None, 'ported', 'renamed'),
     ('geoEngine/collision/CollisionIntention.java', 'CollisionIntention', 'toString', 1, None, 'ported', 'renamed'),
     ('model/gameobjects/player/Rates.java', 'Rates', 'calcXpRate', 3, None, 'ported', 'fileLocal'),
-    ('model/skill/NpcSkillTemplateEntry.java', 'NpcSkillTemplateEntry', 'hasCarvedSignet', 3, None, 'ported', 'fileLocal'),
+    # a member since M5b-2 stage 2 declared it (NpcSkillTemplateEntry.h); the 2026-09-23 answer was a file-local function
+    ('model/skill/NpcSkillTemplateEntry.java', 'NpcSkillTemplateEntry', 'hasCarvedSignet', 3, None, 'ported', ''),
     ('model/templates/item/actions/DecomposeAction.java', 'DecomposeAction', 'validateItemIds', 1, None, 'ported', 'fileLocal'),
-    ('model/templates/item/actions/DecomposeAction.java', 'DecomposeAction', 'isValidItemId', 1, None, 'ported', 'inlined'),
+    # a file-local function since M5c stage 0's E-04 (DecomposeAction.cpp; its random arms call it at run time), inlined before
+    ('model/templates/item/actions/DecomposeAction.java', 'DecomposeAction', 'isValidItemId', 1, None, 'ported', 'fileLocal'),
     ('configs/Config.java', 'Config', 'removePropertiesUsedInLogbackXml', 1, None, 'ported', 'inlined'),
     ('services/cron/CronServiceException.java', 'CronServiceException', 'CronServiceException', 1, 10, 'ported', None),
     ('services/cron/CronServiceException.java', 'CronServiceException', 'CronServiceException', 2, 14, 'ported', None),
@@ -3014,10 +3016,11 @@ LIVE_CHECKS = [
     ('model/geometry/RectangleArea.java', 'RectangleArea', 'RectangleArea', 8, 112, 'ported', None),
     ('model/geometry/PolyArea.java', 'PolyArea', 'PolyArea', 5, 46, 'ported', 'merged'),
     ('dataholders/loadingutils/XmlMerger.java', 'XmlMerger', 'merge', 0, None, 'replaced', None),
-    # canAct/act: declared with AION_UNPORTED stubs by M5b-3 stage 0 (header request m5b3-h01, 2026-09-24); the private helper is m5b3-h04
-    ('model/templates/item/actions/SkillUseAction.java', 'SkillUseAction', 'canAct', 4, None, 'unported', None),
-    ('model/templates/item/actions/SkillUseAction.java', 'SkillUseAction', 'act', 4, None, 'unported', None),
-    ('model/templates/item/actions/SkillUseAction.java', 'SkillUseAction', 'isIneffectiveHealSkill', 2, None, 'undeclared', None),
+    # canAct/act: declared with AION_UNPORTED stubs by M5b-3 stage 0 (header request m5b3-h01, 2026-09-24) and ported by its T-04; the
+    # private helper is a file-local function until m5b3-h04 declares it (SkillUseAction.cpp)
+    ('model/templates/item/actions/SkillUseAction.java', 'SkillUseAction', 'canAct', 4, None, 'ported', None),
+    ('model/templates/item/actions/SkillUseAction.java', 'SkillUseAction', 'act', 4, None, 'ported', None),
+    ('model/templates/item/actions/SkillUseAction.java', 'SkillUseAction', 'isIneffectiveHealSkill', 2, None, 'ported', 'fileLocal'),
     ('model/templates/spawns/Spawn.java', 'Spawn', 'beforeMarshal', 1, None, 'undeclared', None),
 ]
 # (Java file, type path, expected initializer statuses in order)

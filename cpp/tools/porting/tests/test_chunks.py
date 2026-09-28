@@ -585,17 +585,19 @@ class RealTreeTest(unittest.TestCase):
         owners, leases = self.manifest.other_file_parts('cmake/RunStartupSmoke.cmake')
         self.assertEqual(([p.name for p in owners], leases), (['P5-14'], []))
         self.assertEqual(self.manifest.other_file_parts('cmake/AionChunks.cmake'), ([], []))
-        self.assertEqual(test_owner('tests/cm_ak/CM_CHAT_AUTHTest.cpp'), (['P5-15'], ['P4-16']))
-        self.assertEqual(test_owner('tests/cm_lz/CM_MAY_QUITTest.cpp'), (['P5-16'], ['P4-17']))
+        # the C-01 leases of wave 5a stage 2 (P4-16 on tests/cm_ak, P4-17 on tests/cm_lz) were released at M5c stage 1
+        self.assertEqual(test_owner('tests/cm_ak/CM_CHAT_AUTHTest.cpp'), (['P5-15'], []))
+        self.assertEqual(test_owner('tests/cm_lz/CM_MAY_QUITTest.cpp'), (['P5-16'], []))
 
-    def test_c01_leases(self):
+    def test_c01_leases_released(self):
+        # wave 5a stage 2's C-01 leases (P4-16, P4-17) were released at M5c stage 1: the seven packets belong to their chunks alone
         cm = 'src/aion/gameserver/network/aion/clientpackets/'
-        for cls, owner, lessee in (('CM_CHECK_MAIL_UNK', 'P5-15', 'P4-16'), ('CM_CUSTOM_SETTINGS', 'P5-15', 'P4-16'), ('CM_CHAT_AUTH', 'P5-15', 'P4-16'),
-                                   ('CM_MAY_QUIT', 'P5-16', 'P4-17'), ('CM_PING_REQUEST', 'P5-16', 'P4-17'), ('CM_SHOW_FRIENDLIST', 'P5-16', 'P4-17'),
-                                   ('CM_SUBZONE_CHANGE', 'P5-16', 'P4-17')):
+        for cls, owner in (('CM_CHECK_MAIL_UNK', 'P5-15'), ('CM_CUSTOM_SETTINGS', 'P5-15'), ('CM_CHAT_AUTH', 'P5-15'),
+                           ('CM_MAY_QUIT', 'P5-16'), ('CM_PING_REQUEST', 'P5-16'), ('CM_SHOW_FRIENDLIST', 'P5-16'),
+                           ('CM_SUBZONE_CHANGE', 'P5-16')):
             for ext in ('h', 'cpp'):
                 owners, leases = chunks.owners_of(self.manifest, f'{cm}{cls}.{ext}')
-                self.assertEqual(([p.name for p in owners], [p.name for p in leases]), ([owner], [lessee]), cls)
+                self.assertEqual(([p.name for p in owners], [p.name for p in leases]), ([owner], []), cls)
         owners, leases = chunks.owners_of(self.manifest, f'{cm}CM_MOVE.h')
         self.assertEqual(([p.name for p in owners], leases), (['P5-00'], []))
 

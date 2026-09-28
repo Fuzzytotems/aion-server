@@ -12,9 +12,10 @@
 // - CM_QUESTION_RESPONSE answers the soul-bind question of Equipment.soulBindItem (the Manastone Slot Test Superior Sword,
 //   item_templates.xml:2062, as tests/player/SoulBindTest.cpp asks it).
 //
-// NOT COVERED, and named: the `isTrading()` bail-outs of both packets and CM_QUESTION_RESPONSE's cancel-on-yes (nothing can put a player into
-// an exchange before ExchangeService.registerExchange is ported, M5c T-02; m5c-plan.md W-28 gives that test to T-04), and CM_SHOW_DIALOG's
-// removeHideEffects arm (no hide effect can be applied without a skill of M5b-2's subset that hides; the call itself is ported).
+// Covered elsewhere: the `isTrading()` bail-outs of both packets and CM_QUESTION_RESPONSE's cancel-on-yes need a registered exchange, which
+// M5c stage 1 ported (T-02): tests/economy/P5-09b/TradingRefusalsTest.cpp drives the three through their readImpl and runImpl (W-28, T-04).
+// NOT COVERED, and named: CM_SHOW_DIALOG's removeHideEffects arm (no hide effect can be applied without a skill of M5b-2's subset that hides;
+// the call itself is ported).
 
 #include "../cm_ak/ItemPacketTestSupport.h"
 

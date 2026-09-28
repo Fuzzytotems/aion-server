@@ -337,6 +337,113 @@ std::vector<uint8_t> GameSession::buildCM_QUESTION_RESPONSE(int32_t questionId, 
 	return PacketWriter().D(questionId).C(response).C(0).H(0).D(senderId).D(0).H(0).data;
 }
 
+namespace {
+
+/** the readUH count every M5c list packet starts with: more than 65535 entries cannot be written */
+uint16_t listCount(size_t size, std::string_view packet) {
+	if (size > 0xFFFF)
+		throw std::invalid_argument(std::string(packet) + ": " + std::to_string(size) + " entries do not fit its readUH count");
+	return static_cast<uint16_t>(size);
+}
+
+} // namespace
+
+std::vector<uint8_t> GameSession::buildCM_BUY_ITEM(int32_t sellerObjectId, int16_t tradeActionId, std::span<const BuyItemEntry> entries) {
+	PacketWriter writer;
+	writer.D(sellerObjectId).H(tradeActionId).H(listCount(entries.size(), "CM_BUY_ITEM")); // CM_BUY_ITEM.java:49-51
+	for (const BuyItemEntry& entry : entries)
+		writer.D(entry.itemId).Q(entry.count); // :65-66
+	return writer.data;
+}
+
+std::vector<uint8_t> GameSession::buildCM_EXCHANGE_REQUEST(int32_t targetObjectId) {
+	return PacketWriter().D(targetObjectId).data; // CM_EXCHANGE_REQUEST.java:35
+}
+
+std::vector<uint8_t> GameSession::buildCM_EXCHANGE_ADD_ITEM(int32_t itemObjectId, int32_t itemCount) {
+	return PacketWriter().D(itemObjectId).D(itemCount).data; // CM_EXCHANGE_ADD_ITEM.java:24-25
+}
+
+std::vector<uint8_t> GameSession::buildCM_EXCHANGE_ADD_KINAH(int64_t kinahCount) {
+	return PacketWriter().Q(kinahCount).data; // CM_EXCHANGE_ADD_KINAH.java:22
+}
+
+std::vector<uint8_t> GameSession::buildCM_EXCHANGE_LOCK() {
+	return {}; // CM_EXCHANGE_LOCK.readImpl reads nothing
+}
+
+std::vector<uint8_t> GameSession::buildCM_EXCHANGE_OK() {
+	return {}; // CM_EXCHANGE_OK.readImpl reads nothing
+}
+
+std::vector<uint8_t> GameSession::buildCM_EXCHANGE_CANCEL() {
+	return {}; // CM_EXCHANGE_CANCEL.readImpl reads nothing
+}
+
+std::vector<uint8_t> GameSession::buildCM_PRIVATE_STORE(std::span<const PrivateStoreItem> items) {
+	PacketWriter writer;
+	writer.H(listCount(items.size(), "CM_PRIVATE_STORE")); // CM_PRIVATE_STORE.java:24
+	for (const PrivateStoreItem& item : items)
+		writer.D(item.itemObjectId).D(item.itemId).H(item.count).Q(item.price); // :27-30
+	return writer.data;
+}
+
+std::vector<uint8_t> GameSession::buildCM_PRIVATE_STORE_NAME(std::string_view name) {
+	return PacketWriter().S(name).data; // CM_PRIVATE_STORE_NAME.java:28
+}
+
+std::vector<uint8_t> GameSession::buildCM_SEND_MAIL(std::string_view recipientName, std::string_view title, std::string_view message,
+	int32_t itemObjectId, int64_t itemCount, int64_t kinahCount, uint8_t letterType) {
+	// CM_SEND_MAIL.java:30-36
+	return PacketWriter().S(recipientName).S(title).S(message).D(itemObjectId).Q(itemCount).Q(kinahCount).C(letterType).data;
+}
+
+std::vector<uint8_t> GameSession::buildCM_CHECK_MAIL_LIST(bool expressOnly) {
+	return PacketWriter().C(expressOnly ? 1 : 0).data; // CM_CHECK_MAIL_LIST.java:23, `readC() == 1`
+}
+
+std::vector<uint8_t> GameSession::buildCM_READ_MAIL(int32_t letterObjectId) {
+	return PacketWriter().D(letterObjectId).data; // CM_READ_MAIL.java:23
+}
+
+std::vector<uint8_t> GameSession::buildCM_GET_MAIL_ATTACHMENT(int32_t letterObjectId, uint8_t attachmentType) {
+	return PacketWriter().D(letterObjectId).C(attachmentType).data; // CM_GET_MAIL_ATTACHMENT.java:24-25
+}
+
+std::vector<uint8_t> GameSession::buildCM_DELETE_MAIL(std::span<const int32_t> letterObjectIds) {
+	PacketWriter writer;
+	writer.H(listCount(letterObjectIds.size(), "CM_DELETE_MAIL")); // CM_DELETE_MAIL.java:23
+	for (const int32_t id : letterObjectIds)
+		writer.D(id).C(0); // :25-26, the dropped readC written as 0
+	return writer.data;
+}
+
+std::vector<uint8_t> GameSession::buildCM_TUNE(int32_t itemObjectId, int32_t tuningScrollObjectId) {
+	return PacketWriter().D(itemObjectId).D(tuningScrollObjectId).data; // CM_TUNE.java:26-27
+}
+
+std::vector<uint8_t> GameSession::buildCM_TUNE_RESULT(int32_t itemObjectId, bool accepted) {
+	return PacketWriter().D(itemObjectId).C(accepted ? 1 : 0).data; // CM_TUNE_RESULT.java:29-30, `readC() == 1`
+}
+
+std::vector<uint8_t> GameSession::buildCM_SELECT_DECOMPOSABLE(int32_t objectId, int32_t unk, uint8_t index) {
+	return PacketWriter().D(objectId).D(unk).C(index).data; // CM_SELECT_DECOMPOSABLE.java:39-41
+}
+
+std::vector<uint8_t> GameSession::buildCM_CRAFT(uint8_t unk, int32_t targetTemplateId, int32_t recipeId, int32_t targetObjectId,
+	std::span<const CraftMaterial> materials, uint8_t craftType) {
+	PacketWriter writer;
+	writer.C(unk).D(targetTemplateId).D(recipeId).D(targetObjectId);           // CM_CRAFT.java:33-36
+	writer.H(listCount(materials.size(), "CM_CRAFT")).C(craftType);           // :37-38, the count before the craft type
+	for (const CraftMaterial& material : materials)
+		writer.D(material.itemId).Q(material.count); // :39-40
+	return writer.data;
+}
+
+std::vector<uint8_t> GameSession::buildCM_RECIPE_DELETE(int32_t recipeId) {
+	return PacketWriter().D(recipeId).data; // CM_RECIPE_DELETE.java:22
+}
+
 GameSession::CastOutcome GameSession::castAndWait(int32_t casterObjectId, const CastRequest& request, std::chrono::milliseconds timeout,
 	const std::optional<CastInterruption>& interruption) {
 	CastOutcome outcome;

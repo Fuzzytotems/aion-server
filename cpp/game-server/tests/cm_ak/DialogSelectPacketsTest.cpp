@@ -12,8 +12,9 @@
 // quest_data.xml's, verbatim (file:line beside each). The npcs' rows name ai="general" and ai="aggressive", whose handlers live in the handler
 // library this executable does not link: the cases that talk give the npc a leaf AI with GeneralNpcAI's dialog hooks (GeneralNpcAI.java:49-57).
 //
-// NOT COVERED, and named: the `isTrading()` bail-out (no exchange can be registered before ExchangeService.registerExchange is ported, M5c
-// T-02; m5c-plan.md W-28 gives it to T-04) and a player target (PlayerController.onDialogSelect's private store arm, M5c T-03).
+// Covered elsewhere since M5c stage 1: the `isTrading()` bail-out (tests/economy/P5-09b/TradingRefusalsTest.cpp, W-28, T-04) and a player
+// target's BUY, which opens his private store window (PlayerController.onDialogSelect: SM_PRIVATE_STORE; tests/cm_ak/BuyItemPacketTest.cpp,
+// APlayersPrivateStoreSellsForAction0Only, K-01).
 
 #include "ItemPacketTestSupport.h"
 

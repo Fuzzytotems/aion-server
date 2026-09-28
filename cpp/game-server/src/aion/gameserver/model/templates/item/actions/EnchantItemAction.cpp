@@ -149,13 +149,11 @@ void EnchantItemAction::act(gameobjects::player::Player& player, gameobjects::It
 				}
 
 				player.startCooldown(parentItem);
-				// Java hands its nullable supplementItem on; both callees never read it (EnchantService.java:173-231, 404-424). Until header
-				// request m5c-h05 makes the parameter a nullable Ptr, a null supplement is passed as the parent item, which the callee ignores
-				Item& supplementArgument = supplement ? *supplement : parentItem;
+				// Java hands its nullable supplementItem on (null from the varargs act); both callees take it as a nullable Ptr (m5c-h05)
 				if (isEnchantmentStone)
-					EnchantService::enchantItemAct(player, parentItem, targetItem, supplementArgument, currentEnchant, success);
+					EnchantService::enchantItemAct(player, parentItem, targetItem, Ptr<Item>(supplement), currentEnchant, success);
 				else // Manastone
-					EnchantService::socketManastoneAct(player, parentItem, targetItem, supplementArgument, targetWeapon, success);
+					EnchantService::socketManastoneAct(player, parentItem, targetItem, Ptr<Item>(supplement), targetWeapon, success);
 
 				PacketSendUtility::broadcastPacketAndReceive(player, SM_ITEM_USAGE_ANIMATION(player.getObjectId(), parentItem.getObjectId(),
 					parentItem.getItemTemplate()->getTemplateId(), 0, success ? 1 : 2, 0));

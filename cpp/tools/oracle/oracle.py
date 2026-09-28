@@ -21,8 +21,10 @@
 	oracle.py m5c-craft (--recipe ID [--skill-level N] [--craft-type 0|1] | --skill ID --level N [--map ID] | --gatherable ID [--skill-level N])
 	                    [--skill-xp X] [--character-level N] [--membership M] [--set KEY=VALUE ...]   (m5c/craft.py, m5c-plan.md §2.6 G-01)
 	oracle.py m5c-economy [--map ID] [--npc ID ...] [--near X,Y,Z] [--far D] [--direction DEG] [--recover-exp N] [--npc-expands N]
-	                      [--quest-expands N] [--item-expands N] [--mail ITEM:COUNT:KINAH[:express] ...] [--item ID ...] [--class C] [--race R]
-	                      [--level N] [--influence RACE=N ...] [--profile FILE | --no-profile] [--set KEY=VALUE ...]   (m5c/economy.py, G-01)
+	                      [--quest-expands N] [--item-expands N] [--mail ITEM:COUNT:KINAH[:express] ...] [--item ID ...] [--manastone ID ...]
+	                      [--membership M] [--class C] [--race R] [--level N] [--daeva CLASS [--daeva-old-level N]]
+	                      [--craft-recipe ID --craft-tool ID [--craft-map ID] [--craft-distance D ...]]
+	                      [--influence RACE=N ...] [--profile FILE | --no-profile] [--set KEY=VALUE ...]   (m5c/economy.py, m5c/sanctum.py, G-01)
 	oracle.py m5d-quest --quest ID [--race R] [--class C] [--level N] [--exp X] [--gender G] [--completed ID[:GROUP] ...] [--inventory ITEM[:COUNT] ...]
 	                    [--profile FILE | --no-profile]   (m5d/quests.py, m5d-plan.md G-01)
 	oracle.py m5d-quests --map ID [--race R] [--class C] [--level N] [--gender G] [--completed ID[:GROUP] ...] [--started ID ...]
@@ -301,11 +303,18 @@ def cmd_m5c_economy(args):
 			raise OracleError(f"--near {args.near}: not x,y,z") from e
 		if len(near) != 3:
 			raise OracleError(f"--near {args.near}: not x,y,z")
+	craft_ctx = None
+	if args.daeva is not None or args.craft_recipe is not None:  # the C19 blocks compose m5c-craft over the same data and profile
+		from m5c.craft import CraftContext
+		craft_ctx = CraftContext.create(data, java_src, config_dir, profile, args.set or [], args.membership)
 	report = economy_report(data, java_src, config, args.map, args.npc or [], near, args.far, args.recover_exp, args.npc_expands, args.quest_expands,
 	                        args.item_expands, args.mail or [], args.item or [], args.player_class, args.level,
 	                        influences=parse_influences(args.influence or []),
 	                        handlers_dir=Path(args.java_handlers) if args.java_handlers else None,
-	                        commons_src=Path(args.commons_src) if args.commons_src else None, direction=args.direction, player_race=args.race)
+	                        commons_src=Path(args.commons_src) if args.commons_src else None, direction=args.direction, player_race=args.race,
+	                        manastones=args.manastone or [], membership=args.membership, craft_ctx=craft_ctx, daeva_class=args.daeva,
+	                        daeva_old_level=args.daeva_old_level, craft_recipe=args.craft_recipe, craft_map=args.craft_map, craft_tool=args.craft_tool,
+	                        craft_distances=tuple(args.craft_distance) if args.craft_distance else None)
 	sys.stdout.write(runner.dump_json(report))
 	return 0
 
@@ -572,6 +581,18 @@ def main(argv=None):
 	               help="the character race of the --item equip checks: the item's race and the skill_tree rows it learns (default ELYOS; the "
 	                    "price blocks are given for both races)")
 	p.add_argument("--level", type=int, default=1, help="the character level of the equip checks (default 1)")
+	p.add_argument("--manastone", type=int, action="append", metavar="ID",
+	               help="a manastone each --item is tried with: CM_MANASTONE arm 2 on the item without stones (`socketing`); repeatable")
+	p.add_argument("--membership", type=int, default=0, help="the account membership that picks a float[] rate (default 0)")
+	p.add_argument("--daeva", metavar="CLASS", help="the C19 Daeva seed of an advanced class of --race: its level and what its enter world learns")
+	p.add_argument("--daeva-old-level", type=int, default=1, dest="daeva_old_level",
+	               help="players.old_level of the Daeva seed, the level its last quit stored (default 1)")
+	p.add_argument("--craft-recipe", type=int, dest="craft_recipe", metavar="ID",
+	               help="the C19 craft: the recipe's master, component vendors and exact kinah on --craft-map, and the spots at --craft-tool")
+	p.add_argument("--craft-map", type=int, default=110010000, dest="craft_map", metavar="ID", help="the map of the C19 craft (default 110010000 Sanctum)")
+	p.add_argument("--craft-tool", type=int, dest="craft_tool", metavar="ID", help="the item template id of the static object crafted at (e.g. 150000009)")
+	p.add_argument("--craft-distance", type=float, action="append", dest="craft_distance", metavar="D",
+	               help="a distance from the tool the character sends CM_CRAFT from (default 3, 7 and 12); repeatable")
 	p.set_defaults(fn=cmd_m5c_economy)
 
 	def m5d_args(p):

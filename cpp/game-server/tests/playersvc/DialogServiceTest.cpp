@@ -13,8 +13,9 @@
 //   D-01, W-03), TRADE_IN -> SM_TRADE_IN_LIST and its refusal, the page arm and its function check, the Poeta teleporter's non-Daeva refusal,
 //   MATCH_MAKER with autogroup off, FACTION_JOIN / FACTION_SEPARATE through NpcFactions, the character edit and pet windows, the quest /
 //   next-page fallback, RECOVERY (soul healing) with its price arithmetic, its question handler and the Soul Sickness (8291, SPEC2) it
-//   removes, and every arm that reaches a body of another item or milestone, each asserted as the UnportedException of that function (W-08,
-//   W-09, W-29, W-31, P5-07, P5-09's craft bodies, P5-11's legion bodies). Not driven: HOUSING_RECREATE_PERSONAL_INS, whose
+//   removes, the cube expander's question (EXTEND_INVENTORY, W-09, ported by m5c-plan.md P-05 in stage 1), and every arm that reaches a body
+//   of another item or milestone, each asserted as the UnportedException of that function (W-08, W-29, W-31, P5-07, P5-09's craft bodies,
+//   P5-11's legion bodies). Not driven: HOUSING_RECREATE_PERSONAL_INS, whose
 //   HousingService singleton loads the houses from the database when it is first asked (HousingService.cpp, P5-11's test database fixture).
 // - onCloseDialog: the mailbox, the null target, and a legion-warehouse npc closed by a player without a legion.
 // Expected packets are Java's bytes where the fields are the packet's own choice; packets with a localized message or a question parameter
@@ -36,9 +37,12 @@
 #include "aion/gameserver/ai/AIState.h"
 #include "aion/gameserver/configs/main/AIConfig.h"
 #include "aion/gameserver/configs/main/AutoGroupConfig.h"
+#include "aion/gameserver/configs/main/CustomConfig.h"
 #include "aion/gameserver/configs/main/PricesConfig.h"
 #include "aion/gameserver/controllers/NpcController.h"
 #include "aion/gameserver/controllers/effect/EffectController.h"
+#include "aion/gameserver/dataholders/CubeExpandData.bind.h"
+#include "aion/gameserver/dataholders/CubeExpandData.h"
 #include "aion/gameserver/dataholders/GoodsListData.bind.h"
 #include "aion/gameserver/dataholders/GoodsListData.h"
 #include "aion/gameserver/dataholders/NpcData.bind.h"
@@ -101,6 +105,7 @@ constexpr int32_t SM_TRADELIST_OPCODE = 253;
 // the npc ids of the rows below
 constexpr int32_t MAILBOX = 700000;
 constexpr int32_t MINALINERK = 798007;
+constexpr int32_t BAEVRUNERK = 798008;
 constexpr int32_t MOGIRONERK = 798088;
 constexpr int32_t GWENSPENA = 203724;
 constexpr int32_t AMARUNERK = 279058;
@@ -148,6 +153,14 @@ constexpr std::string_view NPC_TEMPLATES_XML = R"xml(<npc_templates>
 		</stats>
 		<bound_radius front="0.595" side="0.3774" upper="1.16875" />
 		<talk_info distance="5" is_dialog="true" func_dialogs="2 3" can_talk_invisible="false" />
+	</npc_template>
+	<!-- :461611-461617 -->
+	<npc_template npc_id="798008" level="9" name="baevrunerk" name_id="351141" height="1.16875" title_id="350421" group_drop="NONE" rank="DISCIPLINED" rating="NORMAL" race="BROWNIE" tribe="GENERAL" type="GENERAL" ai="general" srange="20" sangle="240" attack_speed="2100" hpgauge="3">
+		<stats maxHp="2568">
+			<speeds walk="1.5" group_walk="1.5" run="4.23" run_fight="4.23" group_run_fight="4.23" />
+		</stats>
+		<bound_radius front="0.595" side="0.3774" upper="1.16875" />
+		<talk_info distance="5" is_dialog="true" func_dialogs="47" can_talk_invisible="false" />
 	</npc_template>
 	<!-- :462170-462176 -->
 	<npc_template npc_id="798088" level="1" name="mogironerk" name_id="353292" height="1.16875" title_id="350530" group_drop="NONE" rank="DISCIPLINED" rating="NORMAL" race="BROWNIE" tribe="GENERAL_DARK" type="GENERAL" ai="general" srange="20" sangle="240" attack_speed="2000" hpgauge="3">
@@ -1060,7 +1073,7 @@ TEST_F(DialogServiceTest, TheArmsOfOtherServicesReachTheirOwnUnportedBodies) {
 		{DialogAction::LEAVE_PVP, NEPIS, "TeleportService::teleportTo"},                        // :179-181, out of Sanctum's arena (W-29)
 		{DialogAction::GATHER_SKILL_LEVELUP, MINALINERK, "CraftSkillUpdateService::learnSkill"}, // :199-202, C-01
 		{DialogAction::COMBINE_SKILL_LEVELUP, MINALINERK, "CraftSkillUpdateService::learnSkill"},
-		{DialogAction::EXTEND_INVENTORY, MINALINERK, "CubeExpandService::expandCube"},                  // :203-205, P-05 (W-09)
+		// EXTEND_INVENTORY (:203-205) left this table with P-05 (m5c-plan.md stage 1, W-09): see TheCubeExpanderArm... below
 		{DialogAction::EXTEND_CHAR_WAREHOUSE, MINALINERK, "WarehouseService::expandWarehouse"},        // :206-208, P5-07
 		{DialogAction::OPEN_LEGION_WAREHOUSE, PAUTON, "LegionService::openLegionWarehouse"},           // :209-211, P5-11
 		{DialogAction::CHARGE_ITEM_MULTI, MINALINERK, "ItemChargeService::startChargingEquippedItems"}, // :241-243, P5-07
@@ -1078,6 +1091,41 @@ TEST_F(DialogServiceTest, TheArmsOfOtherServicesReachTheirOwnUnportedBodies) {
 		EXPECT_EQ(runtime::unportedHitCount(), 1u);
 		EXPECT_TRUE(sent().empty());
 	}
+}
+
+TEST_F(DialogServiceTest, TheCubeExpanderArmAsksTheExpansionQuestionOfTheNpc) {
+	// :203-205 -> CubeExpandService.expandCube (m5c-plan.md P-05, W-09): Baevrunerk's expansion (storage_expander/cube_expander.xml:4-6, level 1
+	// for 1,000 kinah; tools/oracle `oracle.py m5c-economy --no-profile --set gameserver.siege.enable=false --npc 798008`) asks
+	// STR_WAREHOUSE_EXPAND_WARNING with the price, for a character without expansions and the shipped limits (custom.properties:154, :158)
+	struct CubeExpanderScope {
+		const int32_t savedCubeExpansionLimit = configs::main::CustomConfig::CUBE_EXPANSION_LIMIT.exchange(11);
+		const int32_t savedNpcCubeExpandsLimit = configs::main::CustomConfig::NPC_CUBE_EXPANDS_SIZE_LIMIT.exchange(5);
+		CubeExpanderScope() {
+			xml::LoadContext context;
+			dataholders::DataManager::CUBEEXPANDER_DATA.publish(xml::bindString<dataholders::CubeExpandData>(context, R"xml(<cube_expander>
+	<expansion_npc ids="798008 798037">
+		<expand level="1" price="1000" />
+	</expansion_npc>
+</cube_expander>)xml"));
+		}
+		~CubeExpanderScope() {
+			dataholders::DataManager::CUBEEXPANDER_DATA.resetForTests();
+			configs::main::CustomConfig::NPC_CUBE_EXPANDS_SIZE_LIMIT.store(savedNpcCubeExpandsLimit);
+			configs::main::CustomConfig::CUBE_EXPANSION_LIMIT.store(savedCubeExpansionLimit);
+		}
+	} cubeExpander;
+	Npc& baevrunerk = npc(BAEVRUNERK);
+
+	select(DialogAction::EXTEND_INVENTORY, baevrunerk);
+	EXPECT_EQ(sent(), exactly({serializedFor(SM_QUESTION_WINDOW(SM_QUESTION_WINDOW::STR_WAREHOUSE_EXPAND_WARNING, 0, 0, std::string("1000")))}));
+
+	// an npc without an expansion template (Minalinerk) only logs a warning (CubeExpandService.java:31-34)
+	clearSent();
+	LogCapture cubeLog({"com.aionemu.gameserver.services.CubeExpandService"});
+	select(DialogAction::EXTEND_INVENTORY, npc(MINALINERK));
+	EXPECT_TRUE(sent().empty());
+	EXPECT_EQ(cubeLog.count("Cube expansion template could not be found for"), 1) << cubeLog.dump();
+	player().getResponseRequester().denyAll(); // the pending question holds Baevrunerk
 }
 
 TEST_F(DialogServiceTest, ThePvpArmsTeleportOnlyFromTheirArenaNpcs) {

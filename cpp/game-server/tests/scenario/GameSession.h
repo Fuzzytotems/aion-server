@@ -125,6 +125,57 @@ public:
 	static constexpr int32_t CM_DIALOG_SELECT = 54;
 
 	/**
+	 * the stage-1 packets of M5c (m5c-plan.md K-01, K-02, G-02): the shop, the exchange, the private store, the mail and identification
+	 * (AionClientPacketFactory packets[51], [63], [64], [66]-[69], [119], [120], [132]-[134], [136], [137], [235], [236] and [238],
+	 * AionClientPacketFactory.java:79, 91-92, 94-97, 147-148, 160-162, 164-165, 263-264, 266), and stage 2's two crafting packets
+	 * (packets[89] and [141], :117, :169). There is no packets[65] (the exchange's) and packets[135] (C_MAIL_SETREAD) is commented out
+	 */
+	static constexpr int32_t CM_BUY_ITEM = 51;
+	static constexpr int32_t CM_EXCHANGE_REQUEST = 63;
+	static constexpr int32_t CM_EXCHANGE_ADD_ITEM = 64;
+	static constexpr int32_t CM_EXCHANGE_ADD_KINAH = 66;
+	static constexpr int32_t CM_EXCHANGE_LOCK = 67;
+	static constexpr int32_t CM_EXCHANGE_OK = 68;
+	static constexpr int32_t CM_EXCHANGE_CANCEL = 69;
+	static constexpr int32_t CM_RECIPE_DELETE = 89;
+	static constexpr int32_t CM_PRIVATE_STORE = 119;
+	static constexpr int32_t CM_PRIVATE_STORE_NAME = 120;
+	static constexpr int32_t CM_SEND_MAIL = 132;
+	static constexpr int32_t CM_CHECK_MAIL_LIST = 133;
+	static constexpr int32_t CM_READ_MAIL = 134;
+	static constexpr int32_t CM_GET_MAIL_ATTACHMENT = 136;
+	static constexpr int32_t CM_DELETE_MAIL = 137;
+	static constexpr int32_t CM_CRAFT = 141;
+	static constexpr int32_t CM_TUNE = 235;
+	static constexpr int32_t CM_SELECT_DECOMPOSABLE = 236;
+	static constexpr int32_t CM_TUNE_RESULT = 238;
+
+	/**
+	 * CM_BUY_ITEM's tradeActionId (CM_BUY_ITEM.java:75-88): what the entries' ids mean - a private store's INDEX (0), an inventory object id to
+	 * sell (1) or a repurchase object id (2), a template id to buy (13-16), a pet's (17)
+	 */
+	static constexpr int16_t TRADE_PRIVATE_STORE = 0;
+	static constexpr int16_t TRADE_SELL = 1;
+	static constexpr int16_t TRADE_REPURCHASE = 2;
+	static constexpr int16_t TRADE_BUY = 13;
+	static constexpr int16_t TRADE_BUY_ABYSS = 14;
+	static constexpr int16_t TRADE_BUY_REWARD = 15;
+	static constexpr int16_t TRADE_BUY_GENERAL = 16;
+	static constexpr int16_t TRADE_SELL_TO_PET = 17;
+	/** the audit bounds CM_BUY_ITEM.readImpl checks (CM_BUY_ITEM.java:53, 69): at most 36 entries, each count at most 20000 */
+	static constexpr uint16_t BUY_ITEM_MAX_ENTRIES = 36;
+	static constexpr int64_t BUY_ITEM_MAX_COUNT = 20000;
+
+	/** CM_GET_MAIL_ATTACHMENT's attachmentType (CM_GET_MAIL_ATTACHMENT.java:25, "0 - item , 1 - kinah") */
+	static constexpr uint8_t MAIL_ATTACHMENT_ITEM = 0;
+	static constexpr uint8_t MAIL_ATTACHMENT_KINAH = 1;
+	/** CM_SEND_MAIL's idLetterType, LetterType.getId() (LetterType.java:8-10) */
+	static constexpr uint8_t LETTER_NORMAL = 0;
+	static constexpr uint8_t LETTER_EXPRESS = 1;
+	/** CM_CRAFT's first byte: 129 is the morph substances' arm, which skips the target check (CM_CRAFT.java:53) */
+	static constexpr uint8_t CRAFT_UNK_MORPH = 129;
+
+	/**
 	 * CM_QUESTION_RESPONSE's answer (CM_QUESTION_RESPONSE.java:30, "y/n"): RequestResponseHandler.handle denies on 0 and accepts on any other
 	 * value (RequestResponseHandler.java:28-33)
 	 */
@@ -405,6 +456,83 @@ public:
 	 * is read and never used, so it defaults to 0
 	 */
 	static std::vector<uint8_t> buildCM_QUESTION_RESPONSE(int32_t questionId, uint8_t response, int32_t senderId = 0);
+
+	// ---- M5c's stage-1 packets (m5c-plan.md K-01, K-02, G-02) and stage 2's crafting packets, each the Java readImpl field order ----
+	/** one entry of CM_BUY_ITEM (CM_BUY_ITEM.java:65-66): readD itemId (see TRADE_*), readQ count */
+	struct BuyItemEntry {
+		int32_t itemId = 0;
+		int64_t count = 0;
+	};
+	/**
+	 * CM_BUY_ITEM.readImpl (CM_BUY_ITEM.java:47-90): readD sellerObjId, readH tradeActionId, readUH amount = entries.size(), then each entry.
+	 * The gate's `CM_BUY_ITEM(798007, 13, [(162000052, 2)])` (m5c-plan.md C5). Nothing is clamped: 37 entries or a count above 20000 are sent as
+	 * given, which is how a test reaches the audit arms
+	 * @throws std::invalid_argument for more than 65535 entries (readUH cannot carry them)
+	 */
+	static std::vector<uint8_t> buildCM_BUY_ITEM(int32_t sellerObjectId, int16_t tradeActionId, std::span<const BuyItemEntry> entries);
+	/** CM_EXCHANGE_REQUEST.readImpl (CM_EXCHANGE_REQUEST.java:34-36): readD targetObjectId */
+	static std::vector<uint8_t> buildCM_EXCHANGE_REQUEST(int32_t targetObjectId);
+	/** CM_EXCHANGE_ADD_ITEM.readImpl (CM_EXCHANGE_ADD_ITEM.java:23-26): readD itemObjId, readD itemCount - an int, not a long */
+	static std::vector<uint8_t> buildCM_EXCHANGE_ADD_ITEM(int32_t itemObjectId, int32_t itemCount);
+	/** CM_EXCHANGE_ADD_KINAH.readImpl (CM_EXCHANGE_ADD_KINAH.java:21-23): readQ kinahCount */
+	static std::vector<uint8_t> buildCM_EXCHANGE_ADD_KINAH(int64_t kinahCount);
+	/** CM_EXCHANGE_LOCK, CM_EXCHANGE_OK and CM_EXCHANGE_CANCEL read nothing (their readImpl is empty): an empty body */
+	static std::vector<uint8_t> buildCM_EXCHANGE_LOCK();
+	static std::vector<uint8_t> buildCM_EXCHANGE_OK();
+	static std::vector<uint8_t> buildCM_EXCHANGE_CANCEL();
+	/** one item of CM_PRIVATE_STORE (CM_PRIVATE_STORE.java:27-30): readD itemObjId, readD itemId, readUH count, readQ price (of one item) */
+	struct PrivateStoreItem {
+		int32_t itemObjectId = 0;
+		int32_t itemId = 0;
+		uint16_t count = 0;
+		int64_t price = 0;
+	};
+	/**
+	 * CM_PRIVATE_STORE.readImpl (CM_PRIVATE_STORE.java:23-33): readUH itemCount, then each item; an empty list closes the store
+	 * @throws std::invalid_argument for more than 65535 items
+	 */
+	static std::vector<uint8_t> buildCM_PRIVATE_STORE(std::span<const PrivateStoreItem> items);
+	/** CM_PRIVATE_STORE_NAME.readImpl (CM_PRIVATE_STORE_NAME.java:27-29): readS name */
+	static std::vector<uint8_t> buildCM_PRIVATE_STORE_NAME(std::string_view name);
+	/**
+	 * CM_SEND_MAIL.readImpl (CM_SEND_MAIL.java:29-37): readS recipientName, readS title, readS message, readD itemObjId (0 for none), readQ
+	 * itemCount, readQ kinahCount, readUC idLetterType (LETTER_NORMAL, LETTER_EXPRESS). The gate's `CM_SEND_MAIL(B, "m5c", "gate", potion
+	 * stack, 5, 200, NORMAL)` (m5c-plan.md C11)
+	 */
+	static std::vector<uint8_t> buildCM_SEND_MAIL(std::string_view recipientName, std::string_view title, std::string_view message,
+		int32_t itemObjectId, int64_t itemCount, int64_t kinahCount, uint8_t letterType = LETTER_NORMAL);
+	/** CM_CHECK_MAIL_LIST.readImpl (CM_CHECK_MAIL_LIST.java:22-24): readC, `== 1` lists only the unread express letters */
+	static std::vector<uint8_t> buildCM_CHECK_MAIL_LIST(bool expressOnly = false);
+	/** CM_READ_MAIL.readImpl (CM_READ_MAIL.java:22-24): readD mailObjId */
+	static std::vector<uint8_t> buildCM_READ_MAIL(int32_t letterObjectId);
+	/** CM_GET_MAIL_ATTACHMENT.readImpl (CM_GET_MAIL_ATTACHMENT.java:23-26): readD mailObjId, readC attachmentType (MAIL_ATTACHMENT_*) */
+	static std::vector<uint8_t> buildCM_GET_MAIL_ATTACHMENT(int32_t letterObjectId, uint8_t attachmentType);
+	/**
+	 * CM_DELETE_MAIL.readImpl (CM_DELETE_MAIL.java:22-28): readUH count, then per letter readD mailObjId and a dropped readC (written 0)
+	 * @throws std::invalid_argument for more than 65535 letters
+	 */
+	static std::vector<uint8_t> buildCM_DELETE_MAIL(std::span<const int32_t> letterObjectIds);
+	/** CM_TUNE.readImpl (CM_TUNE.java:25-28): readD itemObjectId, readD tuningScrollObjectId - 0 identifies without a scroll (C15) */
+	static std::vector<uint8_t> buildCM_TUNE(int32_t itemObjectId, int32_t tuningScrollObjectId = 0);
+	/** CM_TUNE_RESULT.readImpl (CM_TUNE_RESULT.java:28-31): readD itemObjectId, readC `== 1` hasAccepted */
+	static std::vector<uint8_t> buildCM_TUNE_RESULT(int32_t itemObjectId, bool accepted);
+	/** CM_SELECT_DECOMPOSABLE.readImpl (CM_SELECT_DECOMPOSABLE.java:38-42): readD objectId, readD unk, readUC index */
+	static std::vector<uint8_t> buildCM_SELECT_DECOMPOSABLE(int32_t objectId, int32_t unk, uint8_t index);
+	/** one material of CM_CRAFT (CM_CRAFT.java:40): readD itemId, readQ count - the key and value of Java's materialsData map */
+	struct CraftMaterial {
+		int32_t itemId = 0;
+		int64_t count = 0;
+	};
+	/**
+	 * CM_CRAFT.readImpl (CM_CRAFT.java:32-41): readUC unk, readD targetTemplateId, readD recipeId, readD targetObjId, readUH materialsCount,
+	 * readUC craftType - the count comes BEFORE the craft type and the materials after both. The gate's
+	 * `CM_CRAFT(0, 150000009, 155001381, oven, {152001001: 1, 169400096: 2}, 0)` (m5c-plan.md C19)
+	 * @throws std::invalid_argument for more than 65535 materials
+	 */
+	static std::vector<uint8_t> buildCM_CRAFT(uint8_t unk, int32_t targetTemplateId, int32_t recipeId, int32_t targetObjectId,
+		std::span<const CraftMaterial> materials, uint8_t craftType = 0);
+	/** CM_RECIPE_DELETE.readImpl (CM_RECIPE_DELETE.java:21-23): readD recipeId */
+	static std::vector<uint8_t> buildCM_RECIPE_DELETE(int32_t recipeId);
 
 	network::test::FakeGameClient client;
 

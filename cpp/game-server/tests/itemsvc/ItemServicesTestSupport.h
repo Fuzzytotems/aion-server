@@ -13,19 +13,28 @@
 
 #include <atomic>
 #include <cstdint>
+#include <deque>
 #include <memory>
 #include <optional>
 #include <string_view>
 #include <vector>
 
+#include "aion/gameserver/configs/main/GeoDataConfig.h"
+#include "aion/gameserver/configs/main/WorldConfig.h"
 #include "aion/gameserver/dataholders/DataManager.h"
 #include "aion/gameserver/dataholders/ItemData.bind.h"
 #include "aion/gameserver/dataholders/ItemData.h"
 #include "aion/gameserver/dataholders/ItemRestrictionCleanupData.h"
 #include "aion/gameserver/dataholders/MaterialData.bind.h"
 #include "aion/gameserver/dataholders/MaterialData.h"
+#include "aion/gameserver/dataholders/ShieldData.bind.h"
+#include "aion/gameserver/dataholders/ShieldData.h"
 #include "aion/gameserver/dataholders/SkillData.bind.h"
 #include "aion/gameserver/dataholders/SkillData.h"
+#include "aion/gameserver/dataholders/WorldMapsData.bind.h"
+#include "aion/gameserver/dataholders/WorldMapsData.h"
+#include "aion/gameserver/dataholders/ZoneData.bind.h"
+#include "aion/gameserver/dataholders/ZoneData.h"
 #include "aion/gameserver/model/gameobjects/Item.h"
 #include "aion/gameserver/model/gameobjects/player/Player.h"
 #include "aion/gameserver/model/items/storage/Storage.h"
@@ -407,6 +416,30 @@ inline std::vector<uint8_t> itemUsageAnimation(int32_t playerObjId, int32_t item
 inline Ref<Item> loadedItem(int32_t objId, int32_t itemId, int64_t count, StorageType location, int64_t slot = 0, bool equipped = false) {
 	return Item::create(objId, itemId, count, std::nullopt, 0, "", 0, 0, equipped, false, slot, model::items::storage::getId(location), 0, 0, 0, 0, 0,
 		0, 0, 0, 0, 0, 0, 0, false, 0, 0);
+}
+
+/**
+ * The world holders of Poeta a cast or the World needs (world_maps.xml:11's row, no zones, no shields), published once per process and never
+ * reset (World, ZoneService and the map instances cache them; the pattern of tests/skills/P5-02a/CastTestSupport.h). A holder that is already
+ * published is left as it is, since a second publisher is refused (HolderRef::publish): every fixture of this executable that needs them goes
+ * through this helper (ItemSkillCastTest, and the M5c player-items lane's TemporaryTradeTimeTaskTest, which stores its player in the World).
+ */
+inline void publishPoetaCastWorldDataOnce() {
+	static const bool published = [] {
+		// Java's defaults (WorldConfig.java:15 gameserver.world.region.size = 128); cansee stays off: the unit tests load no geo data
+		configs::main::WorldConfig::WORLD_REGION_SIZE.store(128);
+		configs::main::GeoDataConfig::CANSEE_ENABLE.store(false);
+		static std::deque<xml::LoadContext> contexts;
+		if (!dataholders::DataManager::WORLD_MAPS_DATA)
+			dataholders::DataManager::WORLD_MAPS_DATA.publish(xml::bindString<dataholders::WorldMapsData>(contexts.emplace_back(),
+				R"(<world_maps><map id="210010000" cName="LF1" name="Poeta" name_id="400234" twin_count="5" beginner_twin_count="6" max_user="200" water_level="100" death_level="0" world_type="ELYSEA" world_size="3072" drop_type="ELYSEA" flags="BIND RECALL GLIDE PVP DUEL_SAME_RACE" pve_attack_ratio="150" pve_defend_ratio="50"/></world_maps>)"));
+		if (!dataholders::DataManager::ZONE_DATA)
+			dataholders::DataManager::ZONE_DATA.publish(xml::bindString<dataholders::ZoneData>(contexts.emplace_back(), "<zones/>"));
+		if (!dataholders::DataManager::SHIELD_DATA)
+			dataholders::DataManager::SHIELD_DATA.publish(xml::bindString<dataholders::ShieldData>(contexts.emplace_back(), "<shields/>"));
+		return true;
+	}();
+	static_cast<void>(published);
 }
 
 class ItemServicesTest : public cp::InWorldPacketTest {

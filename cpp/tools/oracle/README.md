@@ -545,8 +545,11 @@ the repeated-item and shadowed recipes 155101624 and 155101544, and recipe 15500
 ```
 python oracle.py m5c-economy --npc 798007 --npc 700000 --npc 203336 --npc 203064 --npc 798008 [--map 210010000] [--near X,Y,Z]
                  [--far 10] [--direction DEG] [--recover-exp 1000] [--npc-expands N] [--quest-expands N] [--item-expands N]
-                 [--mail 162000002:5:200 --mail 0:0:10 ...] [--item 100000133 --item 110100355 ...] [--class MAGE] [--race ELYOS]
-                 [--level 1] [--config DIR] [--profile F | --no-profile] [--set KEY=VALUE ...] [--influence RACE=N ...]
+                 [--mail 162000002:5:200 --mail 0:0:10 ...] [--item 100000133 --item 110100355 ...] [--manastone 167000226 ...]
+                 [--membership M] [--class MAGE] [--race ELYOS] [--level 1]
+                 [--daeva GLADIATOR [--daeva-old-level 2]] [--craft-recipe 155001381 --craft-tool 150000009 [--craft-map 110010000]
+                 [--craft-distance 3 --craft-distance 7 --craft-distance 12]]
+                 [--config DIR] [--profile F | --no-profile] [--set KEY=VALUE ...] [--influence RACE=N ...]
                  [--java-src DIR] [--java-handlers DIR] [--commons-src DIR]
 ```
 
@@ -593,10 +596,43 @@ answers 0 for, unknown ids, classes, races or levels, an item group requiring 30
 player's known list, trading and hide state, a rnd_bonus set's stat bonus draw, skills not learned by autolearn, equipItem's gender, rank and
 cube-space checks and everything after its slot check.
 
-Not yet answered (stage 1, harness-b): the Daeva seed and its enter-world learn list, the Sanctum spots and ovens, C19's exact kinah, whether
-the seeded manastone can be socketed into the seeded armour.
+Stage 1 (harness-b) added the rest of G-01 (`m5c/sanctum.py` for the C19 blocks; the Java methods with file:line in its docstring and in
+`socket_block`'s):
 
-Tests: `tests/test_m5c_economy.py` (the service price, the recovery price and the talk range with the band alone, the Java tables today and
+- `items[].socketing` per `--manastone` (C16, X24): CM_MANASTONE arm 2 with targetFusedSlot 1 on the item without stones -
+  `new EnchantItemAction().canAct` (a stone id / 1,000,000 of 166 or 167, an item id / 1,000,000 below 120; a refusal sends nothing and keeps
+  the stone), socketManastone's slot level `(int) (10 * ceil((itemLevel + 10) / 10d))` against the stone's level, the sockets
+  min(m_slots + optional sockets, MAX_BASIC_STONES) of a weapon or an armour and none of any other equip type (Item.getSockets: the
+  [Event] Extraction Greatsword 100901051 is refused with `noSocket`) and the float chance Rates.get(MANASTONE_CHANCES) (at `--membership`, * 0.8f from RARE
+  on) + (slotLevel - stoneLevel) / 1.75f; `certain` for a chance of 100 or more (D6's 200). The seeded Plainsman's robe pieces take
+  167000226 (level 10) with certainty;
+- `daeva` for `--daeva CLASS` (C19's seed, X21a; the race is `--race`): the exp getStartExpForLevel(10) = 126,069, the ascension quest
+  (1006 Elyos, 2008 Asmodians), the level at load with the quest (10) and without it (9, m5c0-client-session.md F-1), and what the enter
+  world's onLevelChange(`--daeva-old-level`, 10) teaches: learnNewSkills(old + 1, 10) over the starting class's rows below 10 and the class's
+  own, each learned skill with its level and class (per level in getTemplatesFor's order, the race's rows first), the Daeva swap 30001 -> 30002 (SM_SKILL_REMOVE), the final skill list of the burst's
+  SM_SKILL_LIST and the SM_LEARN_RECIPE recipes of the learned crafting and morph skills (the Elyos morph recipes 155000001, 155000002,
+  155000005); `needs` names M5d's QuestState restore (F-1) and the disconnected seeding (F-3);
+- `craft` for `--craft-recipe ID --craft-tool TEMPLATE` (C19, X17-X20): the recipe summary from m5c-craft (components, product, steps,
+  finish times, xp, the skill level after), the profession master standing on `--craft-map` (Hestia 203784) with its talk block,
+  COMBINE_SKILL_LEVELUP (46, level 10 and up) and its question STR_CRAFT_ADDSKILL_CONFIRM(ChatUtil.l10n of the skill's nameId, "3500"), the
+  recipes learning the skill teaches, the vendors of each component on the map (m5c-trade's kinah for the quantity, the one nearest the
+  master chosen: Luelas 203785, 140 for two Salt) and the seed items no vendor sells (one Inina), `exactKinah` (3,640), a `seedSpot` beside
+  the master, and the tool's static objects (every spot of the STATIC group, the one nearest the master chosen: Oven static id 103) with the
+  spots at each `--craft-distance` along `--direction`, checked against CM_CRAFT's centre-to-centre 10 and checkCraft's 5 plus both bound
+  radii (m5c-craft's `craft.station`): 3 m crafts, 7 m answers STR_COMBINE_TOO_FAR_FROM_TOOL, 12 m nothing.
+
+The C19 blocks need the m5c-craft context over the same data and profile (the command builds it); their own Java members (setExp,
+updateDaeva, the experience table, PlayerSkillList.addSkill/removeSkill, RecipeList.addRecipe, SkillLearnTemplate.getSkillLevel, the
+COMBINE_SKILL_LEVELUP arm, Profession.getClientName, SpawnEngine.spawnInstance, StaticObjectSpawnManager, PlayerController.see,
+SM_GATHERABLE_INFO) are fingerprinted like the rest, and the literals (the quest ids, the level cap, the Daeva swap, the dialog action, the
+question id, the learn level) are read. Exit 2 also for a starting class for `--daeva`, an old level outside 1..9, a recipe of another race
+or of the morph skill, no master or no tool spot on the map, a tool group with a pool, an enchantment stone for `--manastone`.
+
+Tests: `tests/test_m5c_sanctum.py` (the level at load and the row filter alone, the C19 literals today and 12 edited copies refused, the
+Daeva, the craft and the socketing on a small static_data tree - every learn-list arm, the vendor and tool choices (a vendor that does not
+sell, one that only walks, a regular spawn of the oven's template, a master without COMBINE_SKILL_LEVELUP), the ranges, the refusals -, the
+Daeva swap without 30001 or with 30002 known and a stored crafting skill on a second skill tree, the CLI, and the gate's Daeva, Sanctum craft
+and ovens, robe pieces and an extraction sword on the real data) and `tests/test_m5c_economy.py` (the service price, the recovery price and the talk range with the band alone, the Java tables today and
 33 edited copies refused, a comment accepted, the SQL default and two literals followed, the whole report on a small static_data tree -
 every start window, the refusals, the cube arms, the mail, extraction, identification, every modelled equip check and the learned skills -
 the CLI, and the gate's Poeta npcs and Plainsman's items on the real data, C15's level-4 Mage included).

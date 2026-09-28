@@ -455,15 +455,8 @@ aion_gs_chunk(P5-16 TARGET aion_gs_cm_lz PHASE 5
 		"src/com/aionemu/gameserver/network/aion/clientpackets/{CM_MAY_LOGIN_INTO_GAME,CM_LEVEL_READY,CM_TIME_CHECK,CM_PING,CM_MOVE,CM_QUIT}.java"
 		"src/com/aionemu/gameserver/network/aion/clientpackets/{CM_UI_SETTINGS,CM_SECURITY_TOKEN,CM_RECONNECT_AUTH}.java")
 
-# Wave 5a stage 2 leases (m5a-plan.md D7, C-01, lane packets-dao): the seven in-world client packets that need no service, with their byte-vector
-# tests. P4-16 (server packets A-K) leases the three P5-15 classes and tests/cm_ak, P4-17 (L-Z) the four P5-16 classes and tests/cm_lz.
-# Released (these calls removed) when stage 2 is merged.
-aion_gs_chunk(P4-16 LEASE PHASE 5
-	GLOBS "aion/gameserver/network/aion/clientpackets/{CM_CHECK_MAIL_UNK,CM_CUSTOM_SETTINGS,CM_CHAT_AUTH}.*"
-	TEST_SUPPORT cm_ak)
-aion_gs_chunk(P4-17 LEASE PHASE 5
-	GLOBS "aion/gameserver/network/aion/clientpackets/{CM_MAY_QUIT,CM_PING_REQUEST,CM_SHOW_FRIENDLIST,CM_SUBZONE_CHANGE}.*"
-	TEST_SUPPORT cm_lz)
+# Wave 5a stage 2's leases (m5a-plan.md D7, C-01, lane packets-dao: P4-16 on three P5-15 classes and tests/cm_ak, P4-17 on four P5-16 classes
+# and tests/cm_lz) were released at M5c stage 1 (m5c-plan.md §19); wave 5a's stage 2 had long merged.
 
 # ---------------------------------------------------------------------------------------------------------------------------------------------
 # Phase 6 (§2.10): handler libraries (ROOT handlers). Category preludes are the PCH; a prelude shared by several chunks is owned by one of them.

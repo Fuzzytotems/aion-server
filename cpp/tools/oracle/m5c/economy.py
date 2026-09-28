@@ -101,6 +101,8 @@ ECONOMY_KEYS = {
 	**TRADE_KEYS,
 	"gameserver.cube.expansion_limit": ("CustomConfig", "CUBE_EXPANSION_LIMIT", "int"),
 	"gameserver.npcexpands.limit": ("CustomConfig", "NPC_CUBE_EXPANDS_SIZE_LIMIT", "int"),
+	# socketing a manastone (--manastone): Rates.get(player, MANASTONE_CHANCES), the start value of socketManastone's chance
+	"gameserver.rates.manastone_chances": ("RatesConfig", "MANASTONE_CHANCES", "float[]"),
 }
 
 # Every member whose code the oracle models, fingerprinted whole like m5c-trade's MODELLED_MEMBERS (trade.member_fingerprint: sha256 of the text
@@ -192,6 +194,17 @@ MODELLED_MEMBERS = (
 	("model/gameobjects/Creature.java", "method Creature(int objId, CreatureController<? extends Creature> controller, SpawnTemplate spawnTemplate, "
 	 "CreatureTemplate objectTemplate, WorldPosition position, boolean autoReleaseObjectId)", "bb89200104d6a250"),
 	("dataholders/ItemRandomBonusData.java", "method getBonusSet", "96d45c2966e31fd3"),
+	# a manastone in an item (--manastone; C16, X24): CM_MANASTONE's arms 1 and 2, EnchantItemAction.canAct on the `new EnchantItemAction()` the
+	# packet makes, socketManastone with targetFusedSlot 1 and no supplement, the item's sockets and the membership rate
+	("network/aion/clientpackets/CM_MANASTONE.java", "method runImpl", "58d4eccf14374f7d"),
+	("model/templates/item/actions/EnchantItemAction.java", "method canAct", "c689d08f2c954775"),
+	("model/templates/item/actions/EnchantItemAction.java", "method isSupplementAction", "0d99964603d05c7c"),
+	("services/EnchantService.java", "method socketManastone", "c1f41ad8fd36dad7"),
+	("model/gameobjects/Item.java", "method getSockets", "3500150dc69ad711"),
+	("model/gameobjects/player/Rates.java", "method get(Player player, float[] membershipRates)", "fceb69c865b0fc64"),
+	("model/templates/item/ItemTemplate.java", "method isStigma", "3ee6bc022c290783"),
+	("model/templates/item/ItemTemplate.java", "method getLevel", "5bb148eb7df8d1b5"),
+	("model/templates/item/ItemTemplate.java", "method getManastoneSlots", "5c763b9763a2d191"),
 )
 
 # below data/handlers: the two DIALOG_START AIs the report models
@@ -203,6 +216,9 @@ HANDLER_MEMBERS = (
 # below commons/src/com/aionemu/commons
 COMMONS_MEMBERS = (
 	("utils/Rnd.java", "method get(int minInclusive, int maxInclusive)", "aa21293fb0e45ba4"),
+	# socketManastone's roll: Rnd.chance() < successChance, chance() = nextFloat(100f), uniform on [0, 100)
+	("utils/Rnd.java", "method chance()", "fc915407161a04ad"),
+	("utils/Rnd.java", "method nextFloat(float bound)", "ceba3cd0ccea478c"),
 )
 
 # The statements whose literals the report follows; each must be present verbatim (comments and white space removed) in its file, so the
@@ -225,6 +241,8 @@ MODELLED_STATEMENTS = (
 	("controllers/PlayerController.java", "SkillLearnService.learnNewSkills(player, minNewLevel, newLevel);"),
 	("services/player/PlayerEnterWorldService.java",
 	 "player.getController().onLevelChange(PlayerDAO.getOldCharacterLevel(player.getObjectId()), player.getLevel());"),
+	# Item.getSockets caps the sockets at MAX_BASIC_STONES (read by JavaEconomyRules.read)
+	("model/gameobjects/Item.java", "public static final int MAX_BASIC_STONES = 6;"),
 )
 
 # Every Java file JavaEconomyRules.read reads below com/aionemu/gameserver (JavaEnums: ItemSlot, ItemSubType, ItemGroup, PlayerClass, ItemAttackType)
@@ -232,7 +250,7 @@ JAVA_SOURCES = tuple(sorted({relative for relative, _, _ in MODELLED_MEMBERS} | 
 	"model/DialogAction.java", "model/DialogPage.java", "services/player/PlayerMailboxState.java",
 	"network/aion/serverpackets/SM_QUESTION_WINDOW.java", "network/aion/serverpackets/SM_SYSTEM_MESSAGE.java", "model/enchants/EnchantmentStone.java",
 	"model/items/ItemSlot.java", "model/templates/item/enums/ItemSubType.java", "model/templates/item/enums/ItemGroup.java", "model/PlayerClass.java",
-	"model/templates/item/ItemAttackType.java"}))
+	"model/templates/item/ItemAttackType.java", "model/templates/item/ItemQuality.java"}))
 
 # the DialogAction constants the function arms are keyed by (DialogAction.java), and the arms this oracle models
 FUNCTION_ARMS = ("BUY", "SELL", "RECOVERY", "REMOVE_ITEM_OPTION", "EXTEND_INVENTORY")
@@ -243,7 +261,8 @@ MESSAGE_NAMES = ("STR_DIALOG_TOO_FAR_TO_TALK", "STR_WAREHOUSE_TOO_FAR_FROM_NPC",
                  "STR_EXTEND_INVENTORY_CANT_EXTEND_MORE", "STR_EXTEND_INVENTORY_CANT_EXTEND_DUE_TO_MINIMUM_EXTEND_LEVEL_BY_THIS_NPC",
                  "STR_EXTEND_INVENTORY_CANT_EXTEND_MORE_DUE_TO_MAXIMUM_EXTEND_LEVEL_BY_THIS_NPC", "STR_DECOMPOSE_ITEM_SUCCEED",
                  "STR_MSG_ITEM_IDENTIFY_SUCCEED", "STR_NOT_ENOUGH_MONEY", "STR_CANNOT_USE_ITEM_INVALID_CLASS",
-                 "STR_CANNOT_USE_ITEM_TOO_LOW_LEVEL_MUST_BE_THIS_LEVEL", "STR_CANNOT_USE_ITEM_TOO_HIGH_LEVEL", "STR_CANNOT_USE_ITEM_INVALID_RACE")
+                 "STR_CANNOT_USE_ITEM_TOO_LOW_LEVEL_MUST_BE_THIS_LEVEL", "STR_CANNOT_USE_ITEM_TOO_HIGH_LEVEL", "STR_CANNOT_USE_ITEM_INVALID_RACE",
+                 "STR_GIVE_ITEM_OPTION_SUCCEED", "STR_GIVE_ITEM_OPTION_FAILED")
 # the skills learnNewSkills' daeva branch swaps (SkillLearnService.java:69-74), which needs PlayerCommonData.isDaeva - not modelled
 DAEVA_GATHERING_SKILLS = (30001, 30002)
 # the stones breakItem can give, in its order (EnchantService.java:58-67)
@@ -289,6 +308,8 @@ class JavaEconomyRules:
 	tune_count_sql_default: int         # sql/aion_gs.sql: the DEFAULT of inventory.tune_count, what a row written without it loads
 	enums: JavaEnums                    # ItemGroup (slots, equip type), PlayerClass (ordinals, starting classes)
 	required_skills: dict[str, tuple[int, ...]]  # ItemGroup: name -> getRequiredSkills (the `new int[] {...}` argument, empty without one)
+	max_basic_stones: int               # Item.MAX_BASIC_STONES, the cap of Item.getSockets
+	quality_ids: dict[str, int]         # ItemQuality: name -> getQualityId(), the constructor argument
 
 	@staticmethod
 	def read(java_src: Path, handlers_dir: Path, commons_src: Path, sql_file: Path) -> "JavaEconomyRules":
@@ -379,8 +400,12 @@ class JavaEconomyRules:
 				raise OracleError(f"ItemGroup.{name}: {len(arrays)} int arrays in {args!r}")
 			required_skills[name] = tuple(java_int(t.strip(), f"ItemGroup.{name} required skill") for t in arrays[0].split(",") if t.strip()) \
 				if arrays else ()
+		max_stones = int(_search(_strip_comments(texts["model/gameobjects/Item.java"]), r"public\s+static\s+final\s+int\s+MAX_BASIC_STONES\s*=\s*(\d+)\s*;",
+		                         "Item.MAX_BASIC_STONES").group(1))
+		qualities = {name: java_int((args or "").strip(), f"ItemQuality.{name}")
+		             for name, args in enum_constants(base / "model" / "templates" / "item" / "ItemQuality.java", "ItemQuality")}
 		return JavaEconomyRules(actions, page_by_action, pages, states, questions, messages, player_bound, stones, bonus, removal, mail,
-		                        tune_default, JavaEnums(java_src), required_skills)
+		                        tune_default, JavaEnums(java_src), required_skills, max_stones, qualities)
 
 
 # ---- arithmetic ----------------------------------------------------------------------------------------------------------------------------
@@ -490,6 +515,7 @@ class ItemInfo:
 	race: str
 	desc: int
 	restrict_max: tuple[int, ...] | None  # ItemTemplate.maxLevelRestrictions: null without restrict_max
+	stigma: bool = False                  # ItemTemplate.isStigma: a <stigma> child element
 
 
 def _bytes(text: str, what: str) -> tuple[int, ...]:
@@ -518,7 +544,7 @@ def _items(data: StaticData, wanted: set[int]) -> dict[int, ItemInfo]:
 			java_int(element.get("max_enchant_bonus"), f"{what} max_enchant_bonus", 0), java_int(element.get("m_slots"), f"{what} m_slots", 0),
 			_bytes(restrict, f"{what} restrict") if restrict is not None else (1,) * 17,
 			element.get("race", "PC_ALL"), java_int(element.get("desc"), f"{what} desc", 0),
-			_bytes(restrict_max, f"{what} restrict_max") if restrict_max is not None else None)
+			_bytes(restrict_max, f"{what} restrict_max") if restrict_max is not None else None, element.find("stigma") is not None)
 	for item_id in wanted - items.keys():
 		raise OracleError(f"item {item_id} has no item_template")
 	return items
@@ -749,6 +775,60 @@ def break_item(ctx: EconomyContext, item: ItemInfo, equip_type: str) -> dict:
 	        "countRange": count_range, "message": "STR_DECOMPOSE_ITEM_SUCCEED", "messageId": ctx.rules.messages["STR_DECOMPOSE_ITEM_SUCCEED"]}
 
 
+def socket_block(ctx: EconomyContext, item: ItemInfo, stone: ItemInfo, equip_type: str, membership: int = 0) -> dict:
+	"""
+	CM_MANASTONE arm 2 (actionType 2, targetFusedSlot 1, no supplement) with `stone` on `item`, an item without stones yet (the gate's seeded
+	armour): CM_MANASTONE.runImpl charges a stigma with a stigma (not modelled), else asks `new EnchantItemAction().canAct` - never a supplement
+	action (its fields are the defaults), and for a stone that is no ENCHANTMENT stone only `stone id / 1000000` in {166, 167} and `item id /
+	1000000 < 120` - and a refusal there sends nothing. Past it, act() plays the 2 s animation and EnchantService.socketManastone decides
+	(EnchantService.java:298-402): the stone's level above `(int) (10 * Math.ceil((itemLevel + 10) / 10d))` fails, no free socket
+	(getSockets(false) = min(m_slots + optional sockets, MAX_BASIC_STONES) for an item whose `equip_type` (ItemGroup's EquipType) is WEAPON or
+	ARMOR, 0 for any other: Item.java:611-624) fails with an AuditLogger line, else the float chance
+	Rates.get(player, MANASTONE_CHANCES) (* 0.8f for a stone of RARE quality or better) + (slotLevel - stoneLevel) / (stoneCount * 1.25f + 1.75f)
+	against Rnd.chance() (uniform on [0, 100)). A failure of any kind still consumes the stone after the 2 s (socketManastoneAct with result
+	false: STR_GIVE_ITEM_OPTION_FAILED).
+	"""
+	rules = ctx.rules
+	if stone.item_group == "ENCHANTMENT":
+		raise OracleError(f"--manastone {stone.item_id}: an enchantment stone takes enchantItem's arm (actionType 1), not socketManastone")
+	if stone.stigma and item.stigma:
+		raise OracleError(f"--manastone {stone.item_id} on item {item.item_id}: a stigma on a stigma is StigmaService.chargeStigma (not modelled)")
+	rates = ctx.cfg("gameserver.rates.manastone_chances")
+	if not rates:
+		raise OracleError("gameserver.rates.manastone_chances is empty: Rates.get logs 'Missing rates' and answers 1 (not modelled)")
+	rate = f32(rates[min(len(rates) - 1, membership)])
+	result = {"stoneId": stone.item_id, "stoneName": stone.name, "stoneLevel": stone.level, "stoneQuality": stone.quality, "itemLevel": item.level,
+	          "manastoneSlots": item.manastone_slots, "optionSlotBonus": item.option_slot_bonus, "maxBasicStones": rules.max_basic_stones}
+	can_act = stone.item_id // 1000000 in (166, 167) and item.item_id // 1000000 < 120
+	if not can_act:
+		return {**result, "canAct": False, "fits": False, "refusedBy": "canAct", "message": None, "messageId": None, "stoneConsumed": False,
+		        "note": "EnchantItemAction.canAct is false: CM_MANASTONE sends nothing and keeps the stone"}
+	slot_level = to_int(10 * math.ceil((item.level + 10) / 10))  # (int) (10 * Math.ceil((targetItemLevel + 10) / 10d)), in double
+	if equip_type in ("WEAPON", "ARMOR"):  # Item.getSockets: itemTemplate.isWeapon() || itemTemplate.isArmor()
+		socket_range = [min(item.manastone_slots, rules.max_basic_stones), min(item.manastone_slots + item.option_slot_bonus, rules.max_basic_stones)]
+	else:
+		socket_range = [0, 0]  # getSockets answers 0 whatever the m_slots: "Manastone socket overload"
+	chance = rate
+	if stone.quality is not None and rules.quality_ids.get(stone.quality, -1) >= rules.quality_ids["RARE"]:
+		chance = f32(chance * f32(0.8))
+	socket_diff = f32(f32(0 * f32(1.25)) + f32(1.75))  # stoneCount 0: the item holds no stone yet
+	chance = f32(chance + f32((slot_level - stone.level) / socket_diff))
+	result.update({"canAct": True, "equipType": equip_type, "slotLevel": slot_level, "socketsRange": socket_range, "successChance": chance,
+	               "rate": rate})
+	failed = {"message": "STR_GIVE_ITEM_OPTION_FAILED", "messageId": rules.messages["STR_GIVE_ITEM_OPTION_FAILED"], "stoneConsumed": True}
+	if stone.level > slot_level:
+		return {**result, "fits": False, "refusedBy": "stoneLevel", **failed}
+	if socket_range[1] == 0:
+		return {**result, "fits": False, "refusedBy": "noSocket", "auditLog": "Manastone socket overload", **failed}
+	return {**result, "fits": True, "refusedBy": None,
+	        # a template without m_slots has a socket only after identification rolled optional sockets (Rnd.get(0, option_slot_bonus))
+	        "needsOptionalSocket": socket_range[0] == 0,
+	        "certain": chance >= 100.0, "impossible": chance <= 0.0,
+	        "success": {"message": "STR_GIVE_ITEM_OPTION_SUCCEED", "messageId": rules.messages["STR_GIVE_ITEM_OPTION_SUCCEED"], "slot": 0,
+	                    "stoneConsumed": True},
+	        "failure": failed, "animationMillis": 2000}
+
+
 def learned_skills(data: StaticData, enums: JavaEnums, race: str, player_class: str, level: int) -> set[int]:
 	"""
 	The ids of the skills SkillLearnService.learnNewSkills(player, 1, level) teaches (SkillLearnService.java:60-93), the ones creation and every
@@ -826,7 +906,7 @@ def _equip_block(ctx: EconomyContext, item: ItemInfo, slots: int, player_class: 
 
 
 def item_block(ctx: EconomyContext, item: ItemInfo, player_class: str, level: int, experience: list[int], race: str = "ELYOS",
-               learned: set[int] | None = None) -> dict:
+               learned: set[int] | None = None, stones: list[ItemInfo] = (), membership: int = 0) -> dict:
 	enums = ctx.rules.enums
 	if item.item_group not in enums.item_groups:
 		raise OracleError(f"item {item.item_id}: unknown ItemGroup {item.item_group}")
@@ -863,6 +943,7 @@ def item_block(ctx: EconomyContext, item: ItemInfo, player_class: str, level: in
 		"identification": identification,
 		"breakItem": break_item(ctx, item, equip_type),
 		"equip": equip,
+		"socketing": [socket_block(ctx, item, stone, equip_type, membership) for stone in stones],
 	}
 
 
@@ -871,11 +952,16 @@ def economy_report(data: StaticData, java_src: Path, config: dict[str, ConfigVal
                    npc_expands: int = 0, quest_expands: int = 0, item_expands: int = 0, mails: list[str] = (), item_ids: list[int] = (),
                    player_class: str = "MAGE", level: int = 1, races: tuple[str, ...] = RACES, influences: dict[str, int] | None = None,
                    handlers_dir: Path | None = None, commons_src: Path | None = None, sql_file: Path | None = None,
-                   rules: JavaEconomyRules | None = None, direction: float = 0.0, player_race: str = "ELYOS") -> dict:
+                   rules: JavaEconomyRules | None = None, direction: float = 0.0, player_race: str = "ELYOS", manastones: list[int] = (),
+                   membership: int = 0, craft_ctx=None, daeva_class: str | None = None, daeva_old_level: int = 1, craft_recipe: int | None = None,
+                   craft_map: int = 110010000, craft_tool: int | None = None, craft_distances: tuple[float, ...] | None = None) -> dict:
 	"""`data` must be read with the configured gameserver.country.code; `handlers_dir` is data/handlers, `commons_src` commons/src and `sql_file`
 	sql/aion_gs.sql (default: beside the game-server tree of `java_src`); `direction` the angle in degrees, counter-clockwise from +x, along which
 	the band, near and far spots lie; `player_class`, `player_race` and `level` the character the item equip checks are made for (`races` are
-	the races of the price blocks)."""
+	the races of the price blocks); `manastones` the stones each item's `socketing` tries (at account `membership`). The C19 blocks (m5c/sanctum.py)
+	need `craft_ctx`, m5c-craft's CraftContext over the same data and profile: `daeva_class` the Daeva seed's advanced class (the race is
+	`player_race`) with the level its last quit stored, `craft_recipe` the capital craft on `craft_map` with the static template `craft_tool` and
+	the player's distances from it (`direction` again)."""
 	java_src = Path(java_src)
 	handlers_dir = Path(handlers_dir) if handlers_dir is not None else java_src.parent / "data" / "handlers"
 	commons_src = Path(commons_src) if commons_src is not None else java_src.parent.parent / "commons" / "src"
@@ -898,7 +984,9 @@ def economy_report(data: StaticData, java_src: Path, config: dict[str, ConfigVal
 		head = spec.split(":")[0]
 		if head.lstrip("-").isdigit() and int(head) != 0:
 			mail_items.add(int(head))
-	items = _items(data, set(item_ids) | mail_items)
+	if membership < 0:
+		raise OracleError("--membership: a negative membership indexes no rate (Rates.get: ArrayIndexOutOfBoundsException)")
+	items = _items(data, set(item_ids) | mail_items | set(manastones))
 	experience = [_java_long(e.text, "player_experience_table exp") for e in data.children("player_experience_table", "exp")]
 	learned = learned_skills(data, rules.enums, player_race, player_class, level) if item_ids else set()
 
@@ -925,6 +1013,19 @@ def economy_report(data: StaticData, java_src: Path, config: dict[str, ConfigVal
 		removal = {"basePrice": rules.removal_base, "byRace": {race: service_price(rules.removal_base, p) for race, p in prices.items()},
 		           "messages": {"succeed": rules.messages["STR_REMOVE_ITEM_OPTION_SUCCEED"],
 		                        "notEnoughKinah": rules.messages["STR_REMOVE_ITEM_OPTION_NOT_ENOUGH_GOLD"]}}
+	daeva = craft = None
+	if daeva_class is not None or craft_recipe is not None:
+		from .sanctum import DEFAULT_DISTANCES, JavaC19Rules, craft_block, daeva_block  # sanctum imports this module
+		if craft_ctx is None:
+			raise OracleError("the C19 blocks need m5c-craft's CraftContext (craft_ctx)")
+		c19_rules = JavaC19Rules.read(java_src)
+		if daeva_class is not None:
+			daeva = daeva_block(data, c19_rules, rules.enums, craft_ctx, player_race, daeva_class, daeva_old_level, experience)
+		if craft_recipe is not None:
+			if craft_tool is None:
+				raise OracleError("--craft-recipe needs --craft-tool, the template id of the static object the character crafts at")
+			craft = craft_block(ctx, c19_rules, craft_ctx, java_src, craft_recipe, craft_map, craft_tool,
+			                    tuple(craft_distances) if craft_distances else DEFAULT_DISTANCES, direction, player_race, far, handlers_dir)
 	return {
 		"format": FORMAT,
 		"version": 1,
@@ -947,7 +1048,10 @@ def economy_report(data: StaticData, java_src: Path, config: dict[str, ConfigVal
 		"cube": cube,
 		"manastoneRemoval": removal,
 		"mail": [mail_block(ctx, spec, items) for spec in mails],
-		"items": [item_block(ctx, items[item_id], player_class, level, experience, player_race, learned) for item_id in item_ids],
+		"items": [item_block(ctx, items[item_id], player_class, level, experience, player_race, learned, [items[s] for s in manastones], membership)
+		          for item_id in item_ids],
 		"character": {"class": player_class, "race": player_race, "level": level,
 		              "learnedSkills": sorted(learned) if item_ids else None},
+		"daeva": daeva,
+		"craft": craft,
 	}

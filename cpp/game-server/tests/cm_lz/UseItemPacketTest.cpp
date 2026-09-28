@@ -8,10 +8,9 @@
 // those that can. The skilluse arm is driven end to end with Mercenary's Fruit Juice (item_templates.xml:821856, skill 10034 a statup, which
 // M5b-2 ported): the cast pays one item and starts the item's cooldown. The three actions that take a parameter (DyeAction, MultiReturnAction,
 // InstanceTimeClear) stay AION_UNPORTED (m5b3-plan.md D6), so the parameter each receives is not observable yet; neither is the house-object
-// lookup of a target id found in no storage, which asks Player.getActiveHouse and so the database (HousingService); nor is the target item
-// itself - the cube first, then the equipment (CM_USE_ITEM.java:67-70) - because the one ported action, SkillUseAction, does not read it and
-// every action that does (enchant, dye, charge, ...) has an AION_UNPORTED canAct until M5c. All three are named here so their absence is not
-// mistaken for coverage.
+// lookup of a target id found in no storage, which asks Player.getActiveHouse and so the database (HousingService). The target item itself -
+// the cube first, then the equipment (CM_USE_ITEM.java:67-70) - became observable when M5c stage 0 ported ExtractAction's canAct:
+// UseItemTargetLookupTest.cpp covers it (M5c stage 1). The two uncovered parts are named here so their absence is not mistaken for coverage.
 
 #include "../cm_ak/ItemPacketTestSupport.h"
 

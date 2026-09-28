@@ -287,18 +287,9 @@ class ItemSkillCastTest : public ItemSocketAndActionsTest {
 protected:
 	void SetUp() override {
 		ItemSocketAndActionsTest::SetUp();
-		static const bool published = [] {
-			// Java's defaults (WorldConfig.java:15 gameserver.world.region.size = 128); cansee stays off: the unit tests load no geo data
-			configs::main::WorldConfig::WORLD_REGION_SIZE.store(128);
-			configs::main::GeoDataConfig::CANSEE_ENABLE.store(false);
-			static std::deque<xml::LoadContext> contexts;
-			dataholders::DataManager::WORLD_MAPS_DATA.publish(xml::bindString<dataholders::WorldMapsData>(contexts.emplace_back(),
-				R"(<world_maps><map id="210010000" cName="LF1" name="Poeta" name_id="400234" twin_count="5" beginner_twin_count="6" max_user="200" water_level="100" death_level="0" world_type="ELYSEA" world_size="3072" drop_type="ELYSEA" flags="BIND RECALL GLIDE PVP DUEL_SAME_RACE" pve_attack_ratio="150" pve_defend_ratio="50"/></world_maps>)"));
-			dataholders::DataManager::ZONE_DATA.publish(xml::bindString<dataholders::ZoneData>(contexts.emplace_back(), "<zones/>"));
-			dataholders::DataManager::SHIELD_DATA.publish(xml::bindString<dataholders::ShieldData>(contexts.emplace_back(), "<shields/>"));
-			return true;
-		}();
-		static_cast<void>(published);
+		// the world holders, published once per process by whichever fixture of this executable asks first (ItemServicesTestSupport.h: the
+		// M5c player-items lane's TemporaryTradeTimeTaskTest publishes the same set for the World)
+		publishPoetaCastWorldDataOnce();
 		xml::LoadContext context;
 		dataholders::DataManager::MOTION_DATA.publish(xml::bindString<dataholders::MotionData>(context, "<motion_times/>"));
 		map = world::WorldMap::create(dataholders::DataManager::WORLD_MAPS_DATA->getTemplate(210010000));

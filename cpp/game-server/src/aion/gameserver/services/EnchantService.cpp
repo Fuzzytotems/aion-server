@@ -496,8 +496,8 @@ bool EnchantService::enchantItem(model::gameobjects::player::Player& player, mod
 	return result;
 }
 
-void EnchantService::enchantItemAct(model::gameobjects::player::Player& player, model::gameobjects::Item& parentItem, model::gameobjects::Item& targetItem, model::gameobjects::Item& /*supplementItem*/, int32_t currentEnchant, bool success) {
-	// Java never reads supplementItem here (EnchantService.java:173-231; header request m5c-h05 makes it a nullable Ptr)
+void EnchantService::enchantItemAct(model::gameobjects::player::Player& player, model::gameobjects::Item& parentItem, model::gameobjects::Item& targetItem, runtime::Ptr<model::gameobjects::Item> /*supplementItem*/, int32_t currentEnchant, bool success) {
+	// Java never reads supplementItem here (EnchantService.java:173-231); it is nullable (header request m5c-h05)
 	int32_t addLevel = 1;
 
 	int32_t maxEnchant = targetItem.getItemTemplate()->getMaxEnchantLevel(); // max enchant level from item_templates
@@ -757,8 +757,8 @@ bool EnchantService::socketManastone(model::gameobjects::player::Player& player,
 	return result;
 }
 
-bool EnchantService::socketManastoneAct(model::gameobjects::player::Player& player, model::gameobjects::Item& parentItem, model::gameobjects::Item& targetItem, model::gameobjects::Item& /*supplementItem*/, int32_t targetWeapon, bool result) {
-	// Java never reads supplementItem here (EnchantService.java:404-424; header request m5c-h05 makes it a nullable Ptr)
+bool EnchantService::socketManastoneAct(model::gameobjects::player::Player& player, model::gameobjects::Item& parentItem, model::gameobjects::Item& targetItem, runtime::Ptr<model::gameobjects::Item> /*supplementItem*/, int32_t targetWeapon, bool result) {
+	// Java never reads supplementItem here (EnchantService.java:404-424); it is nullable (header request m5c-h05)
 	if (!player.getInventory().decreaseByObjectId(parentItem.getObjectId(), 1))
 		return false;
 	// Decrease required supplements
