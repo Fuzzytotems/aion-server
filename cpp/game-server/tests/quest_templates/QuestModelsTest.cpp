@@ -1,4 +1,5 @@
-// P4-08 (the lease over the questEngine xmlgen shells): the data-only helpers of the XML quest models, bound from fixture XML. Expectations are
+// P5-06c (written by P4-08 under its lease over the questEngine xmlgen shells; moved here from tests/quest when m5d-plan.md D1 split P5-06
+// and D2 released the lease): the data-only helpers of the XML quest models, bound from fixture XML. Expectations are
 // derived by hand from Monster.java, QuestEvent.java, OnKillEvent.java, QuestOperations.java and the getAlternativeNpcs overrides of the XMLQuest
 // subclasses (ReportToData.java, ReportOnLevelUpData.java, FountainRewardsData.java, ReportToManyData.java, XmlQuestData.java,
 // MonsterHuntData.java, KillSpawnedData.java). The models have no afterUnmarshal hooks. Test double: QuestsData bound from XML text and published

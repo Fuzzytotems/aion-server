@@ -640,3 +640,82 @@ Wave 5b-3 stage 1) is applied in the same edit as m5c-h07, since both change tha
 | m5c-h07 | `CheckOutput.h` (P5-14) | comment only: `zeroLiveClasses()`'s doc said "The last seven entries ... are never created by the M5a scenario" and named no economy class; it now calls those seven the creature and task entries and adds a paragraph on the M5c transfer rows (G-06: `Exchange`, `ExchangeItem`, `TradeList`, `TradeItem`, `RepurchaseList`, `TradePSItem`, `Letter`, `CraftingTask`, the ported `<Service>_RequestResponseHandler` subclasses) and on why `PrivateStore` (an `OwnedPart`) and `RequestResponseHandler` (abstract; counters are per dynamic type) are not rows | **approved by the integrator under the standing instruction and applied** (2026-09-28), with m5b3-i-1's `runFinalCensus` doc (it now describes the stable-count loop of the M5b-3 stage-1 integration) | filed by the gate-1 lane (G-06 added the rows in `CheckOutput.cpp`, whose comment carried the reasons meanwhile) |
 | (new files) | `network/aion/clientpackets/CM_CRAFT.{h,cpp}` (P5-15), `CM_RECIPE_DELETE.{h,cpp}` (P5-16) | the two client packets of C-04, registered with `AION_CLIENT_PACKET` (opcode 141, wire 0x0150; opcode 89, wire 0x013C; both `IN_GAME`); members as `fieldmap.json` types them | no request (new files); `skeleton.py --fwd --check` clean (252 files, 0 problems) | `CM_GATHER` is not ported (owner decision D10) |
 | (test support) | `tests/economy/P5-09c/CraftTestSupport.h`, `tests/skills/P5-02a/CraftingTaskTestSupport.h`, `tests/cm_ak/CraftPacketTestSupport.h` (P5-15; `tests/cm_lz` includes it) | new test headers | not frozen (tests) | The stage's two leases were released at the merge (m5c-plan.md §6): `tests/economy/P5-09a/EconomyTestSupport.h` (P5-09a) was never changed (the craft fixture includes `MailTestSupport.h` instead), and `tests/playersvc/DialogServiceTest.cpp` (P5-08) was changed only as the lease allowed (the four `CraftSkillUpdateService` rows moved into two craft-arm cases, one header-comment sentence) |
+
+## Wave 5d stage 1a: the quest engine's header batch (2026-09-25)
+
+m5d-plan.md item **I-02**, the header batch of its §9 with the two shapes of D17, applied by the integrator's step of the M5d overlap (the
+M5d stage-1a engine work that does not depend on M5c, run beside M5c) in the worktree `D:/aion-server-wt/m5d` (branch `wip/m5d-engine` at
+`4dbbd119b`), together with I-01: D1's split of P5-06 into P5-06a (engine), P5-06b (handler base) and P5-06c (XML templates), D2's release
+of the P4-08 lease on `questEngine/**` and `tests/quest`, and the new test directories `tests/quest_handlers` and `tests/quest_templates`
+(`chunks.cmake`). **Declarations and `AION_UNPORTED` stubs only.** The one ported body the batch touches, `QuestEngine::onBonusApplyEvent`
+(`QuestEngine.cpp:617`), changes its parameter type and nothing else. D17's two integrator decisions are taken as the plan recommends: (a)
+H-06's spelling, `questEngine/handlers/HandlerResultInfo.h`; (b) the reward list as values.
+
+**Nothing becomes reachable and no reachable behaviour changes.** No running code calls a changed function: `getRewardItems`' only caller is
+`finishQuest` (unported, E-02), `getQuestBonus`'s only caller is `getRewardItems`, `QuestEngine::onBonusApplyEvent`'s only caller is
+`getRewardItems`, no C++ handler overrides the hook (the quest handler registry is empty), `fromBoolean` has no caller yet, and only the
+xmlQuest language (T-03, unported) calls the five xmlQuest methods, and it is registered only after the `QuestEngine.cpp:111` join (D3).
+`AION_UNPORTED(` sites in `game-server/src`: 1,697 → 1,703 (the P5-06 files: 159 → 165). `census.py --chunks P5-06a,P5-06b,P5-06c`: M5d
+stays at **269 open bodies**. Six bodies moved from undeclared to unported (`fromBoolean` and the five xmlQuest methods), so the totals are
+165 unported, 1 partial body (2 sites) and 103 undeclared. Per part: P5-06a 68 open (40 unported, 2 partial sites, 27 undeclared), P5-06b 89
+(89 unported), P5-06c 112 (36 unported, 76 undeclared).
+
+**The rows of §9 that need no request**, re-checked against the tree. The 17 template headers, `task/**` and `QuestSpawnAnalyzer.h` are new
+files their lanes write (§14 of hub-headers.md: a new file a chunk owns needs no request). `AbstractQuestHandler.h`, `QuestEngine.h`,
+`QuestState.h` and `QuestVars.h` need nothing beyond m5d-h01, because every Java method is declared. `QuestService.h`'s `getQuestDrop` was
+m5b3-h03, applied in M5b-3's stage 0. `DialogService.h`, the AI handlers, `AbyssPointsService.h`, `GloryPointsService.h` and
+`CubeExpandService.h` need none. `QuestStartAction.h`/`ReadAction.h`'s private `finishUse` is E-10's choice (an additive request or a
+file-local helper), and E-10 is not part of this overlap. The manifest row is I-01 (above) and I-04's file leases, which this overlap does
+not apply.
+
+| Id | File | Change | Decision | Reason |
+|---|---|---|---|---|
+| m5d-h01 | `questEngine/handlers/AbstractQuestHandler.h` (P5-06b), `questEngine/QuestEngine.h` and `.cpp` (P5-06a), `services/QuestService.h` and `.cpp` (P5-06a), `services/reward/BonusService.h` and `.cpp` (P5-09; P5-09a in M5c's manifest) | the reward list as values (m5d-plan.md D17(b)): `onBonusApplyEvent(model::QuestEnv& env, BonusType bonusType, std::vector<QuestItems>& rewardItems)` in the hook (its inline default still answers `UNKNOWN`) and in the engine (the ported dispatcher body unchanged but for the parameter); `std::vector<QuestItems> getRewardItems(...)` (stub); `std::optional<QuestItems> getQuestBonus(...)` (stub; `<optional>` added), empty for Java's `null`; a comment on each declaration. `QuestItems` stays forward-declared in the four headers (hub-headers.md §3.1); `QuestService.cpp` and `BonusService.cpp` include `QuestItems.h` for the complete return type | **approved by the integrator under the standing instruction, applied in the M5d overlap** (a signature change on two hub headers: hub-headers.md §14 asks for the reviewer, so the stage-1a review should look at this row); **the stage-1a review approved it** as that reviewer (2026-09-25) | **Signature.** Java builds the list and adds new items to it: `getRewardItems` creates it (QuestService.java:148), a handler may add `new QuestItems(188051106, 1)` (_80016EventSockHop.java:81, _80018EventSockItToEm.java:81), and `getQuestBonus` returns a new one (BonusService.java:36) that is added too (QuestService.java:201-203). A `const` reference cannot be appended to, and a `const QuestItems*` cannot own an item made at run time. `QuestItems` is a value type (`QuestItems.h:9-12`: `StaticTemplate`, not `RefCounted`), so the list holds copies. E-02 and E-09 need this whether or not a handler is ever generated. Checked by `QuestBonusApplyTest` (tests/quest: the dispatcher hands the caller's list to the handler, which adds to it) and `AbstractQuestHandlerTest` (tests/quest_handlers: the default hook), on the shipped rows of quests 80016 and 80018; the quest transliterator now refuses its two bonus handlers for the `List.add` idiom instead of the header signature (`tools/gen/tests/test_questgen.py`, rewritten) |
+| m5d-h02 | new `questEngine/handlers/HandlerResultInfo.h` (P5-06b), new `HandlerResultInfo.cpp` | `HandlerResult fromBoolean(std::optional<bool> value);`, a free function in `::aion::gameserver::questEngine::handlers`, the companion of the generated enum in the shape of `model/DialogPageInfo.h`; 1 `AION_UNPORTED` stub (H-06 ports it) | **approved by the integrator under the standing instruction, applied in the M5d overlap** (a new companion file needs no request, hub-headers.md §14; recorded because D17(a) fixes its spelling) | m5d-plan.md D17(a) and H-06: the spelling the quest transliterator emits in 60 generated handlers (`tools/gen/questgen/api.py` PLANNED; phase6-questgen-prototype.md §5.2 item 1). Java `HandlerResult.fromBoolean(Boolean)` (HandlerResult.java:11-17): null gives UNKNOWN, true SUCCESS, false FAILED; a Java `Boolean` that may be null is `std::optional<bool>` (hub-headers.md §5.1) |
+| m5d-h03 | `questEngine/handlers/models/xmlQuest/QuestDialog.h`, `QuestNpc.h`, `QuestVar.h`, `conditions/QuestConditions.h`, `operations/QuestOperations.h` (P5-06c), five new `.cpp` files | public, non-virtual, `const`: `bool operate(model::QuestEnv& env, runtime::Ptr<model::QuestState> qs) const;` in `QuestDialog`, `QuestNpc` and `QuestVar`; `bool checkConditionOfSet(model::QuestEnv& env) const;` in `QuestConditions`; `bool operate(model::QuestEnv& env) const;` in `QuestOperations`; each header includes `questEngine/model/fwd.h`, the three with a quest state also `runtime/lifetime/Ref.h`; 5 `AION_UNPORTED` stubs (T-03 ports them) | **approved (modified) by the integrator under the standing instruction, applied in the M5d overlap** (additive) | **Additive**: the five undeclared methods of m5d-plan.md §4.2 (QuestDialog.java:30, QuestNpc.java:28, QuestVar.java:27, QuestConditions.java:29, QuestOperations.java:40), non-virtual because Java overrides none of them, `const` because the models are static data. **Modified**: §9 wrote `model::QuestState&`, but the quest state is nullable (hub-headers.md §5.1 rule 2): QuestVar.java:29 compares it with null, OnTalkEvent.java:27 passes `getQuestState`, which is null for a quest the player does not hold, and QuestVar and QuestNpc hand it on (QuestVar.java:34, QuestNpc.java:35). So the three take `runtime::Ptr<model::QuestState>` |
+
+**Verified** in `D:/aion-server-wt/m5d/cpp/build/m5d-int` (Debug; configured with the `msvc` preset against the main tree's installed
+vcpkg packages, `VCPKG_MANIFEST_INSTALL=OFF`, `AION_BUILD_CHAT_SERVER=OFF`). All 137 game-server targets build with no error and no
+warning: `aion_game_server`, `aion_gs_header_check`, every chunk library, the registries and the 49 test executables. `aion_gs_quest_tests`
+passes (28 tests, also shuffled; 32 after the review fix below). The two new files `QuestBonusApplyTest.cpp` (tests/quest) and `AbstractQuestHandlerTest.cpp`
+(tests/quest_handlers) are among them, and `QuestModelsTest.cpp` and `QuestModelsRealDataTest.cpp` moved unchanged but for their first
+comment lines into tests/quest_templates. `aion_gs_objects_tests`' `SpinePrototypeHandlers` cases pass (the other test that includes
+`AbstractQuestHandler.h`). `tools.porting` passes (71 tests), and so does `census.py --self-check`. Its four live-tree failures, all on
+`SkillUseAction` and `NpcSkillTemplateEntry`, were there before this batch. `tools.gen` passes (354 tests). Its three compile tests
+look for vcpkg under `cpp/vcpkg_installed`, which a worktree does not have, so they were run again with that path set to the main tree's
+packages. `lint_concurrency.py --werror --cycles=core game-server/src` finds nothing in 3,718 files. `chunks.py check` and `verify-json`
+report 0 problems (69 chunks, 80 parts). `skeleton.py --fwd --check`, `--definitions` and `--guards` are clean. Each new assertion was
+watched failing on a mutant, and every mutant was restored byte for byte (sha256):
+- `QuestEngine.cpp` passes a copy of the list to the handler: `TheRegisteredHandlerAddsANewItemToTheCallersRewardList` fails (2 items, not
+  3).
+- It no longer sets the env's quest id: the same case fails.
+- It answers FAILED without a registered quest: `ABonusTypeWithoutARegisteredQuestAnswersUnknownAndLeavesTheListAlone` fails.
+- It ignores the bonus type: the same case fails on the env's quest id.
+- The hook's default answers SUCCESS and clears the list: `TheDefaultBonusHookAnswersUnknownAndLeavesTheRewardListAsItIs` fails.
+- The hook's old `const std::vector<const QuestItems*>&`: C2664 in `QuestEngine.cpp`.
+- The same old hook in the header: `test_questgen`'s rewritten case fails with the old `header-signature` refusal.
+- In the manifest, P5-06b's test directory renamed, the P4-08 questEngine lease restored, the `tests/quest` lease restored, or P5-06c
+  renamed back to P5-06: each makes a `test_chunks` case fail.
+- `census.py` without P5-06b's milestone: its new self-check fails.
+
+**Review fix (2026-09-25).** The stage-1a review approved I-01 and I-02 (and m5d-h01, as hub-headers.md §14's reviewer) and found three
+mutants of the dispatcher that `QuestBonusApplyTest` let pass: the handler's answer replaced by a constant SUCCESS, UNKNOWN at the first
+registered quest without a handler, and UNKNOWN from the catch. The test now has six cases on the shipped rows of quests 80016 and 80018
+(`aion_gs_quest_tests`: 32 tests, also shuffled and repeated). Each of eight `QuestEngine.cpp` mutants fails the cases named, and each was
+restored byte for byte (sha256):
+- a copy of the list goes to the handler: `TheRegisteredHandlerAddsANewItemToTheCallersRewardList`,
+  `ARegisteredQuestWithoutAHandlerIsSkippedForTheNextRegisteredOne` and `OnlyTheFirstRegisteredHandlerGetsTheEventWhateverTheEnvsQuest`
+  (2 items, not 3);
+- no `setQuestId`: five of the six cases;
+- FAILED when no registered quest has a handler: `ABonusTypeWithoutARegisteredQuestAnswersUnknownAndLeavesTheListAlone` and
+  `ARegisteredQuestWithoutAHandlerIsSkippedForTheNextRegisteredOne`;
+- the lookup ignores the bonus type: `ABonusTypeWithoutARegisteredQuestAnswersUnknownAndLeavesTheListAlone`;
+- the handler's answer ignored for a constant SUCCESS (the review's mutant a): `TheHandlersFailedIsTheEnginesAnswer`;
+- UNKNOWN at the first registered quest without a handler (mutant b): `ARegisteredQuestWithoutAHandlerIsSkippedForTheNextRegisteredOne`;
+- UNKNOWN from the catch (mutant c): `AHandlerThatThrowsMakesTheEngineAnswerFailed`;
+- every registered handler asked and the last answer returned: `OnlyTheFirstRegisteredHandlerGetsTheEventWhateverTheEnvsQuest`.
+
+The review's other findings: the parts write their deviations to the new `docs/deviations/P5-06a.md`, `P5-06b.md` and `P5-06c.md` (the
+P5-02a/P5-02b precedent), and the integrator edits the shared `P5-06.md` rows, which `chunks.cmake`'s comment now says; that comment's body
+count is ~264; this section says four headers and P5-09a. The questgen prototype's document (phase6-questgen-prototype.md §5.2 item 2 and its
+refusal table) and the comment at `tools/gen/questgen/emit.py:1194` still describe the header-signature refusal: left to the questgen lane.

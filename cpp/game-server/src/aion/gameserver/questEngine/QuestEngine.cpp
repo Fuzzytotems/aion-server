@@ -615,7 +615,7 @@ void QuestEngine::onDredgionReward(model::QuestEnv& env) {
 }
 
 handlers::HandlerResult QuestEngine::onBonusApplyEvent(model::QuestEnv& env, gameserver::model::templates::rewards::BonusType bonusType,
-	const std::vector<const gameserver::model::templates::quest::QuestItems*>& rewardItems) {
+	std::vector<gameserver::model::templates::quest::QuestItems>& rewardItems) {
 	try {
 		runtime::Ptr<IdList> questIds = questOnBonusApply.get(bonusType);
 		if (questIds) {

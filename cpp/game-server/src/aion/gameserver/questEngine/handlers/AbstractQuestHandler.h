@@ -141,8 +141,13 @@ public:
 
 	virtual bool onDredgionRewardEvent(model::QuestEnv& env) { return false; }
 
+	/**
+	 * rewardItems: the reward list QuestService::getRewardItems is building, which the handler may add to (header request m5d-h01):
+	 * _80016EventSockHop.java:81 and _80018EventSockItToEm.java:81 add a `new QuestItems(188051106, 1)`. QuestItems is a value type, so the
+	 * list holds copies, and an item made at run time needs no owner (m5d-plan.md D17(b)).
+	 */
 	virtual HandlerResult onBonusApplyEvent(model::QuestEnv& env, gameserver::model::templates::rewards::BonusType bonusType,
-		const std::vector<const gameserver::model::templates::quest::QuestItems*>& rewardItems) { return HandlerResult::UNKNOWN; }
+		std::vector<gameserver::model::templates::quest::QuestItems>& rewardItems) { return HandlerResult::UNKNOWN; }
 
 	bool onProtectEndEvent(model::QuestEnv& env) { return false; }
 

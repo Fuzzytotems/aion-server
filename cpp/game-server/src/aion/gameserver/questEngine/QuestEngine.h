@@ -159,8 +159,9 @@ public:
 
 	void onDredgionReward(model::QuestEnv& env);
 
+	/** rewardItems: the caller's list, handed on to the handler, which may add to it (header request m5d-h01, AbstractQuestHandler.h) */
 	handlers::HandlerResult onBonusApplyEvent(model::QuestEnv& env, gameserver::model::templates::rewards::BonusType bonusType,
-		const std::vector<const gameserver::model::templates::quest::QuestItems*>& rewardItems);
+		std::vector<gameserver::model::templates::quest::QuestItems>& rewardItems);
 
 	bool onAddAggroList(model::QuestEnv& env);
 

@@ -242,15 +242,17 @@ class RealQuests(unittest.TestCase):
         r = self.run_file('poeta/_1005BarringtheGate.java')
         self.assertEqual((r.status, r.primary), ('refused', 'varargs-array'))
 
-    def test_refused_header_signature(self):
-        # Java adds to the reward list (_80016EventSockHop.java:81; QuestService.java:197-203 hands the same list on as the reward), but
-        # the C++ hook takes it as a const vector of raw const pointers (AbstractQuestHandler.h:144-145): no API row can close that
-        r = self.run_file('event_quests/_80016EventSockHop.java')
-        self.assertEqual((r.status, r.primary), ('refused', 'header-signature'))
-        self.assertEqual(r.reason_keys(), ['header-signature: AbstractQuestHandler.onBonusApplyEvent(rewardItems) is '
-                                           'const std::vector<const QuestItems*>&; Java List.add mutates it'])
+    def test_bonus_list_handlers_wait_only_for_the_list_add_idiom(self):
+        # Java adds to the reward list (_80016EventSockHop.java:81, _80018EventSockItToEm.java:81; QuestService.java:197-203 hands the same
+        # list on as the reward). The hook took it as a const vector of raw const pointers, a header-signature refusal no API row could
+        # close; header request m5d-h01 (m5d-plan.md D17(b)) made it a mutable std::vector<QuestItems>& (AbstractQuestHandler.h). What is
+        # left is the emitter idiom List.add(new X(...)) -> push_back(X(...)) of phase6-questgen-prototype.md §5.2 item 2, an API gap
+        for rel in ('event_quests/_80016EventSockHop.java', 'event_quests/_80018EventSockItToEm.java'):
+            r = self.run_file(rel)
+            self.assertEqual((r.status, r.primary), ('refused', 'api-missing'), rel)
+            self.assertEqual(r.reason_keys(), ['api-missing: vector<value:QuestItems>.add'], rel)
         rep = cli.summarize([r], self.tr.api)
-        self.assertEqual(rep['apiGaps'], [])                  # not an API gap
+        self.assertEqual([gap['api'] for gap in rep['apiGaps']], ['api-missing: vector<value:QuestItems>.add'])
         self.assertEqual(list(rep['refusedByPrimaryReason']), r.reason_keys())
 
     def test_types_the_prelude_exports_are_indexed(self):

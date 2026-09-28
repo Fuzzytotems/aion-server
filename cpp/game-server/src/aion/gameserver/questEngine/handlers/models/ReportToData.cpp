@@ -1,11 +1,14 @@
 #include "aion/gameserver/questEngine/handlers/models/ReportToData.h"
 
-#include "aion/gameserver/runtime/base/Unported.h"
+#include <memory>
+
+#include "aion/gameserver/questEngine/QuestEngine.h"
+#include "aion/gameserver/questEngine/handlers/template/ReportTo.h"
 
 namespace aion::gameserver::questEngine::handlers::models {
 
-void ReportToData::register_(QuestEngine& /*questEngine*/) const {
-	AION_UNPORTED();
+void ReportToData::register_(QuestEngine& questEngine) const {
+	questEngine.addQuestHandler(std::make_unique<template_::ReportTo>(id, startNpcIds, endNpcIds, startDialogId));
 }
 
 std::optional<std::unordered_set<int32_t>> ReportToData::getAlternativeNpcs(int32_t npcId) const {

@@ -341,10 +341,11 @@ TEST_F(QuestDropTest, AHandlerSideDropAsksTheHandlersAmountInsteadOfTheCollectIt
 	EXPECT_EQ(QuestService::getQuestDrop(*enough, 1, npc, {}, *f.player), 1) << "5 held: the handler needs no more";
 }
 
-// isQuestDrop (:759-763): a drop with a collecting step compares it with the quest's first variable, QuestState.getQuestVarById(0) -
-// P5-06's QuestState::getQuestVarById / QuestVars::getVarById, both AION_UNPORTED (m5b3-plan.md L-04, O-06). Reached only with the quest in
-// START, which needs a quest that can start (M5d); until then this arm throws, and the case pins where.
-TEST_F(QuestDropTest, ACollectingStepReachesTheUnportedQuestVariablesOnlyForAStartedQuest) {
+// isQuestDrop (:759-763): a drop with a collecting step drops only while the quest's first variable, QuestState.getQuestVarById(0), equals
+// the step - quest 1001's Kerubar Fang on 210671 has collecting_step 7 (quest_data.xml:18). M5d's E-01 ported the quest variables (this case
+// pinned their throw until then, m5b3-plan.md L-04, O-06). A quest that is not started reads no variable (:757); the step is compared with
+// variable 0 and no other (the 6-bit packing of QuestVars: the value 7 << 6 is variable 1 = 7, variable 0 = 0).
+TEST_F(QuestDropTest, ACollectingStepDropsOnlyWhileTheQuestsFirstVariableIsAtThatStep) {
 	model::gameobjects::Npc& npc = spawnNpc(BIGFOOT_KERUBAR_XML);
 	Ref<runtime::RcHashSet<Ref<DropItem>>> dropItems = newDropSet();
 	startQuest(1001, QuestStatus::COMPLETE);
@@ -352,8 +353,30 @@ TEST_F(QuestDropTest, ACollectingStepReachesTheUnportedQuestVariablesOnlyForASta
 
 	f.player->setQuestStateList(model::gameobjects::player::QuestStateList::create());
 	startQuest(1001, QuestStatus::START);
-	EXPECT_THROW(QuestService::getQuestDrop(*dropItems, 1, npc, {}, *f.player), runtime::UnportedException);
+	Ptr<QuestState> qs = f.player->getQuestStateList()->getQuestState(1001);
+	EXPECT_EQ(QuestService::getQuestDrop(*dropItems, 1, npc, {}, *f.player), 1) << "variable 0 is 0, the step is 7";
 	EXPECT_TRUE(dropItems->isEmpty());
+
+	qs->setQuestVar(7 << 6);
+	ASSERT_EQ(qs->getQuestVarById(1), 7);
+	EXPECT_EQ(QuestService::getQuestDrop(*dropItems, 1, npc, {}, *f.player), 1) << "variable 1 is 7: the step is compared with variable 0 only";
+	EXPECT_TRUE(dropItems->isEmpty());
+
+	qs->setQuestVarById(0, 6);
+	EXPECT_EQ(QuestService::getQuestDrop(*dropItems, 1, npc, {}, *f.player), 1) << "variable 0 is 6, one below the step";
+	EXPECT_TRUE(dropItems->isEmpty());
+
+	qs->setQuestVarById(0, 7);
+	EXPECT_EQ(QuestService::getQuestDrop(*dropItems, 1, npc, {}, *f.player), 2) << "variable 0 is at the step: 0 of 3 fangs held, one drops";
+	std::vector<Ptr<DropItem>> entries = dropItems->snapshot();
+	ASSERT_EQ(entries.size(), 1u);
+	EXPECT_EQ(entries.front()->getDropTemplate()->getItemId(), KERUBAR_FANG);
+	EXPECT_EQ(entries.front()->getIndex(), 1);
+
+	qs->setQuestVarById(0, 8);
+	Ref<runtime::RcHashSet<Ref<DropItem>>> past = newDropSet();
+	EXPECT_EQ(QuestService::getQuestDrop(*past, 1, npc, {}, *f.player), 1) << "variable 0 is past the step";
+	EXPECT_TRUE(past->isEmpty());
 }
 
 // isQuestDrop (:766-770): a quest whose target is ALLIANCE drops nothing for a player outside an alliance, even started and still collecting -

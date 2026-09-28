@@ -1,4 +1,6 @@
-// P4-08 on the real static data: quest_data/quest_data.xml is bound strictly with hooks into the real QuestsData holder (its hook is ported, P4-09;
+// P5-06c (written by P4-08 under its lease over the questEngine xmlgen shells; moved here from tests/quest when m5d-plan.md D1 split P5-06
+// and D2 released the lease) on the real static data: quest_data/quest_data.xml is bound strictly with hooks into the real QuestsData holder
+// (its hook is ported, P4-09;
 // QuestTemplate belongs to P4-07b), and the 89 files of quest_script_data into a test holder of this file with one list per XML quest class (the
 // XMLQuests hook belongs to P4-09 and is unported; the 16 XMLQuest models have no hooks of their own). Checks:
 // - the holder counts of the count oracle (quest data entries; extras.xml_quests: distinct XML quest ids) and the element/attribute totals;

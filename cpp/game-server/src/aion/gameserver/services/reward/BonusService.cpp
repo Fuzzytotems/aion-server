@@ -1,10 +1,11 @@
 #include "aion/gameserver/services/reward/BonusService.h"
 
 #include "aion/gameserver/runtime/base/Unported.h"
+#include "aion/gameserver/model/templates/quest/QuestItems.h"
 
 namespace aion::gameserver::services::reward {
 
-const model::templates::quest::QuestItems* BonusService::getQuestBonus(model::gameobjects::player::Player& player, const model::templates::QuestTemplate* questTemplate) {
+std::optional<model::templates::quest::QuestItems> BonusService::getQuestBonus(model::gameobjects::player::Player& player, const model::templates::QuestTemplate* questTemplate) {
 	AION_UNPORTED();
 }
 

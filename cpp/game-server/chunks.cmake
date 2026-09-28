@@ -155,13 +155,15 @@ aion_gs_chunk(P4-07b TARGET aion_gs_templates PHASE 4
 # the P5 chunks at the end of phase 4 by removing this call. XMLGEN_SHELLS restricts the globs to behaviour class shells: X.h/X.cpp whose
 # generated/<same path>/X.xml.inc exists.
 # M5b-2 (2026-09-23): the skillengine half of this lease is released - phase 4 ended long ago and the abilities milestone is now writing the
-# behaviour of these shells, so P5-02a/b, P5-03 and P5-04 own them outright. The questEngine half stays until phase 6 takes the quest shells.
-aion_gs_chunk(P4-08 LEASE PHASE 4 XMLGEN_SHELLS
-	GLOBS "aion/gameserver/questEngine/**")
-# The shell tests link the libraries the shells compile into, so they live in the test directories of P5-02 (tests/skills) and P5-06
-# (tests/quest); P4-08 leases both during phase 4 (header request shells-5).
+# behaviour of these shells, so P5-02a/b, P5-03 and P5-04 own them outright.
+# M5d (2026-09-25, m5d-plan.md D2, item I-01): the questEngine half is released too, and with it the lease on tests/quest. The comment above
+# said it stayed "until phase 6 takes the quest shells", but the quest shells are not phase 6's: their behaviour (the *Data register_ bodies,
+# the xmlQuest conditions' doCheck, the operations' doOperate, the events' operate) is P5-06c's M5d work, and phase 6's quest handlers live in
+# handlers/quest/**, another tree. The lease covered 74 of P5-06's files, which would have spanned all three parts of D1's split below.
+# The shell tests link the libraries the shells compile into, so they live in the test directory of P5-02 (tests/skills); P4-08 leases it
+# during phase 4 (header request shells-5).
 aion_gs_chunk(P4-08 LEASE PHASE 4
-	TEST_SUPPORT skills quest)
+	TEST_SUPPORT skills)
 
 # P4-09: the 97 holders, StaticData, DataManager, and the JAXB roots of config/ingameshop and config/schedule (they need the static data runtime)
 aion_gs_chunk(P4-09 TARGET aion_gs_dataholders PHASE 4
@@ -297,11 +299,34 @@ aion_gs_chunk(P5-05 TARGET aion_gs_handlers_ai_core PHASE 5 ROOT handlers
 	JAVA "data/handlers/ai/*"
 	PCH "aion/gameserver/handlers/ai/AiPrelude.h")
 
-# P5-06: questEngine, QuestService, QuestSpawnAnalyzer
-aion_gs_chunk(P5-06 TARGET aion_gs_quest PHASE 5
-	GLOBS "aion/gameserver/questEngine/**" "aion/gameserver/services/QuestService.*"
-	JAVA "src/com/aionemu/gameserver/questEngine/**" "src/com/aionemu/gameserver/services/QuestService.java"
-	JAVA_EXCLUDE "src/com/aionemu/gameserver/questEngine/handlers/QuestHandlerLoader.java")
+# P5-06a / P5-06b / P5-06c: questEngine, QuestService, QuestSpawnAnalyzer - three parts of one target, split for M5d (m5d-plan.md D1, item
+# I-01). As one chunk P5-06 was one lane of ~264 bodies (159 AION_UNPORTED sites and 105 bodies with no C++ file or declaration at HEAD), the
+# critical path of the whole milestone. The seams are the ones the code already has: the engine routes and stores (P5-06a: QuestEngine,
+# QuestSpawnAnalyzer, QuestService, model/ - QuestState, QuestVars, QuestEnv - and task/), the handler base provides the helpers every
+# handler calls (P5-06b: AbstractQuestHandler, the HandlerResult companion and the directory's fwd.h; every file directly in handlers/),
+# and the XML templates are the 4,184 XML quests (P5-06c: the 17 classes of handlers/template/ and the models they are built from,
+# handlers/models/, whose register_ constructs a template - so models and templates are one part). Three parts of one target is the
+# pattern P5-02a/P5-02b use for aion_gs_skills. QuestHandlerLoader.java stays P4-02b's (the handler registry replaces it).
+# The tests follow the seam, each part into a test directory of its own name rather than tests/quest/<chunk> (D1 names them): tests/quest
+# stays the engine's (the engine, QuestService and the quest drops), tests/quest_handlers is new, and tests/quest_templates is new and takes
+# the xmlgen shell tests of the models. All three build into the one executable aion_gs_quest_tests, whose include directories they all are.
+# The deviations follow it too, as P5-02a/P5-02b's did: each part writes docs/deviations/P5-06a.md, P5-06b.md or P5-06c.md, and the shared
+# P5-06.md keeps the rows of wave 5a and M5b-3. check-ownership allows a chunk only its own deviations file, so the integrator edits the
+# shared rows (E-01's closure of the isQuestDrop collecting-step row, D8's acceptance-row deviation at I-05).
+aion_gs_chunk(P5-06a TARGET aion_gs_quest PHASE 5
+	GLOBS "aion/gameserver/questEngine/*" "aion/gameserver/questEngine/{model,task}/**" "aion/gameserver/services/QuestService.*"
+	JAVA "src/com/aionemu/gameserver/questEngine/*" "src/com/aionemu/gameserver/questEngine/{model,task}/**"
+		"src/com/aionemu/gameserver/services/QuestService.java"
+	TESTS quest)
+aion_gs_chunk(P5-06b TARGET aion_gs_quest PHASE 5
+	GLOBS "aion/gameserver/questEngine/handlers/*"
+	JAVA "src/com/aionemu/gameserver/questEngine/handlers/*"
+	JAVA_EXCLUDE "src/com/aionemu/gameserver/questEngine/handlers/QuestHandlerLoader.java"
+	TESTS quest_handlers)
+aion_gs_chunk(P5-06c TARGET aion_gs_quest PHASE 5
+	GLOBS "aion/gameserver/questEngine/handlers/{models,template}/**"
+	JAVA "src/com/aionemu/gameserver/questEngine/handlers/{models,template}/**"
+	TESTS quest_templates)
 
 # P5-07: services.item, item actions, Enchant/Armsfusion/Stigma/Warehouse/CubeExpand/Repurchase/LimitedItemTrade/UpgradeArcade
 aion_gs_chunk(P5-07 TARGET aion_gs_itemsvc PHASE 5

@@ -437,12 +437,21 @@ TEST(PlayerModelBodiesTest, QuestStateListKeepsDeletedQuestIds) {
 	ASSERT_EQ(list->getCompletedQuests().size(), 1u) << "Java: new QuestState(id, COMPLETE) has the complete count 1";
 	EXPECT_EQ(list->getCompletedQuests()[0]->getQuestId(), 2008);
 
-	// QuestState.setPersistentState is P5-06: deleteQuest removed the state and recorded its id before that call
-	EXPECT_THROW(static_cast<void>(list->deleteQuest(1006)), runtime::UnportedException);
+	// deleteQuest removes the state, records its id and sets the state DELETED (QuestStateList.java:51-58). QuestState.setPersistentState
+	// (P5-06a, ported by M5d's E-01; this case pinned its throw until then) turns DELETED on a NEW state, one never stored, into NOACTION and
+	// on any other state into DELETED (QuestState.java:140-147)
+	Ptr<questEngine::model::QuestState> deleted = list->deleteQuest(1006);
+	ASSERT_EQ(deleted.get(), started.get());
+	EXPECT_EQ(deleted->getPersistentState(), PersistentState::NOACTION) << "a NEW state was never stored: nothing to delete";
 	EXPECT_FALSE(list->hasQuest(1006));
 	EXPECT_TRUE(list->getDeletedQuestIds().contains(1006));
 	EXPECT_FALSE(list->deleteQuest(1006));
 	EXPECT_EQ(list->getQuestState(2008).get(), completed.get());
+
+	completed->setPersistentState(PersistentState::UPDATED); // as PlayerQuestListDAO.load and store leave a stored state
+	EXPECT_EQ(list->deleteQuest(2008).get(), completed.get());
+	EXPECT_EQ(completed->getPersistentState(), PersistentState::DELETED) << "a stored state is deleted by the next store";
+	EXPECT_TRUE(list->getDeletedQuestIds().contains(2008));
 }
 
 TEST(PlayerModelBodiesTest, EnumCompanionsHoldTheJavaConstructorData) {
