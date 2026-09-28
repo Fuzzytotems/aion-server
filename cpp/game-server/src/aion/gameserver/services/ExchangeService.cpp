@@ -23,6 +23,8 @@
 #include "aion/gameserver/network/aion/serverpackets/SM_INVENTORY_UPDATE_ITEM.h"
 #include "aion/gameserver/network/aion/serverpackets/SM_SYSTEM_MESSAGE.h"
 #include "aion/gameserver/restrictions/PlayerRestrictions.h"
+#include "aion/gameserver/runtime/base/Finally.h"
+#include "aion/gameserver/runtime/collections/ConcurrentHashMap.h"
 #include "aion/gameserver/services/AdminService.h"
 #include "aion/gameserver/services/item/ItemFactory.h"
 #include "aion/gameserver/services/item/ItemPacketService_ItemAddType.h"
@@ -41,6 +43,14 @@ namespace {
 constexpr int64_t javaSub(int64_t a, int64_t b) noexcept {
 	return static_cast<int64_t>(static_cast<uint64_t>(a) - static_cast<uint64_t>(b));
 }
+
+/**
+ * Deviation: D7 (owner decision 2026-09-27; docs/DEVIATIONS.md, docs/deviations/P5-09b.md). The exchange pairs whose trade has started, each
+ * by its key exchange: of the pair's two Exchange objects the one of the player with the lower object id, so both partners' confirmations
+ * name the same object. confirmExchange adds it before performTrade and removes it when performTrade has returned; Java has no such state.
+ * Identity membership (Exchange has no Java equals); the Ref keeps the object, and so its identity, alive while the claim is held.
+ */
+runtime::ConcurrentKeySet<runtime::Ref<model::trade::Exchange>> tradesStarted{AION_LOCK_CLASS(ExchangeService::tradesStarted#stripe)};
 
 } // namespace
 
@@ -251,18 +261,27 @@ void ExchangeService::confirmExchange(runtime::Ptr<model::gameobjects::player::P
 	runtime::Ptr<model::gameobjects::player::Player> currentPartner = getCurrentParter(*activePlayer);
 	utils::PacketSendUtility::sendPacket(*currentPartner, network::aion::serverpackets::SM_EXCHANGE_CONFIRMATION(2));
 
-	// java-race (m5c-plan.md D7): confirm() above and the partner's confirmed flag read here are a check-then-act on plain fields
-	// (ExchangeService.java:225-232, Exchange.confirmed). Two CM_EXCHANGE_OK processed at once on the two players' connection threads can both
-	// see the partner confirmed and both call performTrade; the second one then works on exchanges the first is using or has removed. Ported as
-	// Java has it: a fix is a behaviour change offered to the user (docs/deviations/P5-09b.md, "M5c stage 1"; ExchangeServiceTest pins the
-	// interleavings).
-	if (getCurrentExchange(*currentPartner)->isConfirmed()) {
+	runtime::Ptr<model::trade::Exchange> partnerExchange = getCurrentExchange(*currentPartner);
+	if (partnerExchange->isConfirmed()) {
+		// Deviation: D7 (owner decision 2026-09-27; docs/DEVIATIONS.md, docs/deviations/P5-09b.md). Java calls performTrade here unguarded:
+		// confirm() above and the partner's isConfirmed() are a check-then-act on plain fields (ExchangeService.java:225-232,
+		// Exchange.confirmed), so two CM_EXCHANGE_OK processed at once on the partners' connection threads could both pass the check and both
+		// trade - destroying split stacks, paying the kinah twice each way or releasing the object id of a live item (m5c-plan.md D7, §19.4).
+		// The two confirmations of one pair are serialized by a compare-and-set on the pair's key exchange (tradesStarted): the one that adds
+		// it trades, if the pair it confirmed is still the registered one (a trade that ended meanwhile has removed it); the other returns
+		// after its SM_EXCHANGE_CONFIRMATION(2). An unraced confirmation adds the key at once and trades exactly as Java does.
+		model::trade::Exchange& pairKey = activePlayer->getObjectId() < currentPartner->getObjectId() ? *currentExchange : *partnerExchange;
+		if (!tradesStarted.add(runtime::Ref<model::trade::Exchange>(pairKey)))
+			return; // the partner's confirmation is trading this pair
+		auto claimed = runtime::finally([&pairKey] { tradesStarted.remove(runtime::Ptr<model::trade::Exchange>(pairKey)); });
+		if (getCurrentExchange(*activePlayer) != currentExchange || getCurrentExchange(*currentPartner) != partnerExchange)
+			return; // the partner's confirmation traded this pair and released the key before this one took it
 		performTrade(*activePlayer, *currentPartner);
 	}
 }
 
 void ExchangeService::performTrade(model::gameobjects::player::Player& activePlayer, model::gameobjects::player::Player& currentPartner) {
-	// java-race (D7): nothing serializes two performTrade calls of one exchange pair (see confirmExchange)
+	// Deviation: D7 (see confirmExchange): runs at most once per exchange pair, while its confirmation holds the pair's key in tradesStarted
 	runtime::Ptr<model::trade::Exchange> exchange1 = getCurrentExchange(activePlayer);
 	runtime::Ptr<model::trade::Exchange> exchange2 = getCurrentExchange(currentPartner);
 
