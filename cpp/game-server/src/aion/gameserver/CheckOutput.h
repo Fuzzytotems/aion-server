@@ -37,9 +37,11 @@ public:
 	/**
 	 * The final census (D8): waits until playersLeft() is false or logoutTimeout passed (the logout tasks of the network shutdown run on the
 	 * instant pool), drains the instant and long-running pools with the same deadline (drainPools), configures LeakCensus with censusAfter and
-	 * checkInterval 0 (zombie breaker off), runs Reclaimer::reclaimNow() twice and writes census.txt: "# final census v1", then one tab
-	 * separated line per leak: className, objectId, refCount, the call sites of the pending tasks pinning it ("file:line kind", separated by
-	 * "; "). Must run outside any TaskScope while LeakCensus is installed and the thread pools still run (before RuntimeLifecycle::shutdown).
+	 * checkInterval 0 (zombie breaker off), runs Reclaimer::reclaimNow() twice, then keeps reclaiming and re-reading the census while a reported
+	 * count is 0 or still changing (a finishing logout drops its references scan by scan), and writes a leak only when two census checks in a
+	 * row report the same objects with the same counts, none of them 0 (docs/deviations/P5-14.md; the deadline bounds the wait). census.txt:
+	 * "# final census v1", then one tab separated line per leak: className, objectId, refCount, the call sites of the pending tasks pinning it
+	 * ("file:line kind", separated by "; "). Must run outside any TaskScope while LeakCensus is installed and the thread pools still run (before RuntimeLifecycle::shutdown).
 	 * Afterwards it runs runBreakerPass(), so LeakCensus::zombieCutCount() and the stale-pin warnings are meaningful in the run that follows.
 	 *
 	 * @return the leaks written
@@ -106,9 +108,16 @@ public:
 	 *   such a kill holds one, in Java too. They are summaryLiveClasses() rows bounded by what the service holds: writeSummary's dir form writes
 	 *   `dropNpcsHeld` and `dropItemsHeld` and logs an ERROR for a drop class with more live instances than that.
 	 * <p>
-	 * The last seven entries (Summon, Pet, Kisk, AbstractInteractionTask, GatheringTask, GatheringTask_ActionObserver, StanceObserver) are
-	 * never created by the M5a scenario, so they cannot fail a gate run today: they are guards for the stress run, the real client and M5b
-	 * (m5a-plan.md §10.2).
+	 * The seven creature and task entries (Summon, Pet, Kisk, AbstractInteractionTask, GatheringTask, GatheringTask_ActionObserver,
+	 * StanceObserver) are never created by the M5a scenario, so they cannot fail a gate run today: they are guards for the stress run, the real
+	 * client and M5b (m5a-plan.md §10.2).
+	 * <p>
+	 * The last rows are the economy's transfer objects (m5c-plan.md G-06, X22): Exchange, ExchangeItem, TradeList, TradeItem, RepurchaseList,
+	 * TradePSItem, Letter, CraftingTask and the ported `<Service>_RequestResponseHandler` subclasses. Each lives for one packet or one
+	 * transaction of a character that is online, and summaryLiveClasses() reports the created half of the ones the M5c gate exercises. Two
+	 * names of m5c-plan.md §10.3 cannot be rows, the DamageList precedent: `PrivateStore` is an OwnedPart of its Player (never counted; its
+	 * items are the TradePSItem row), and `RequestResponseHandler` is abstract (a counter is kept per dynamic type), so each ported handler
+	 * subclass is its own row and the lane that ports another Java handler adds one (CheckOutput.cpp lists the unported ones).
 	 */
 	static const std::vector<std::string>& zeroLiveClasses();
 

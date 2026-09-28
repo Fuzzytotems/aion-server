@@ -13,10 +13,11 @@
 //   D-01, W-03), TRADE_IN -> SM_TRADE_IN_LIST and its refusal, the page arm and its function check, the Poeta teleporter's non-Daeva refusal,
 //   MATCH_MAKER with autogroup off, FACTION_JOIN / FACTION_SEPARATE through NpcFactions, the character edit and pet windows, the quest /
 //   next-page fallback, RECOVERY (soul healing) with its price arithmetic, its question handler and the Soul Sickness (8291, SPEC2) it
-//   removes, the cube expander's question (EXTEND_INVENTORY, W-09, ported by m5c-plan.md P-05 in stage 1), and every arm that reaches a body
-//   of another item or milestone, each asserted as the UnportedException of that function (W-08, W-29, W-31, P5-07, P5-09's craft bodies,
-//   P5-11's legion bodies). Not driven: HOUSING_RECREATE_PERSONAL_INS, whose
-//   HousingService singleton loads the houses from the database when it is first asked (HousingService.cpp, P5-11's test database fixture).
+//   removes, the cube expander's question (EXTEND_INVENTORY, W-09, ported by m5c-plan.md P-05 in stage 1), the craft arms
+//   (CraftSkillUpdateService, ported by m5c-plan.md C-01 in stage 2; RelinquishCraftStatus, reached through it since), and every arm that
+//   reaches a body of another item or milestone, each asserted as the UnportedException of that function (W-08, W-29, W-31, P5-07, P5-11's
+//   legion bodies). Not driven: HOUSING_RECREATE_PERSONAL_INS, whose HousingService singleton loads the houses from the database when it is
+//   first asked (HousingService.cpp, P5-11's test database fixture).
 // - onCloseDialog: the mailbox, the null target, and a legion-warehouse npc closed by a player without a legion.
 // Expected packets are Java's bytes where the fields are the packet's own choice; packets with a localized message or a question parameter
 // are compared against the server's own serialization of the packet Java constructs there (their bytes are pinned by tests/sm_ak, sm_lz).
@@ -1071,14 +1072,12 @@ TEST_F(DialogServiceTest, TheArmsOfOtherServicesReachTheirOwnUnportedBodies) {
 		{DialogAction::RECREATE_LEGION, MINALINERK, "LegionService::recreateLegion"},           // :123-125, P5-11
 		{DialogAction::ENTER_PVP, EPEIOS, "TeleportService::teleportTo"},                       // :166-168, Sanctum's arena (W-29)
 		{DialogAction::LEAVE_PVP, NEPIS, "TeleportService::teleportTo"},                        // :179-181, out of Sanctum's arena (W-29)
-		{DialogAction::GATHER_SKILL_LEVELUP, MINALINERK, "CraftSkillUpdateService::learnSkill"}, // :199-202, C-01
-		{DialogAction::COMBINE_SKILL_LEVELUP, MINALINERK, "CraftSkillUpdateService::learnSkill"},
+		// GATHER_SKILL_LEVELUP and COMBINE_SKILL_LEVELUP (:199-202) left this table with C-01 (m5c-plan.md stage 2): see TheCraftArms... below
 		// EXTEND_INVENTORY (:203-205) left this table with P-05 (m5c-plan.md stage 1, W-09): see TheCubeExpanderArm... below
 		{DialogAction::EXTEND_CHAR_WAREHOUSE, MINALINERK, "WarehouseService::expandWarehouse"},        // :206-208, P5-07
 		{DialogAction::OPEN_LEGION_WAREHOUSE, PAUTON, "LegionService::openLegionWarehouse"},           // :209-211, P5-11
 		{DialogAction::CHARGE_ITEM_MULTI, MINALINERK, "ItemChargeService::startChargingEquippedItems"}, // :241-243, P5-07
-		{DialogAction::GIVEUP_CRAFT_EXPERT, MINALINERK, "CraftSkillUpdateService::getProfessionByNpc"}, // :255-257, C-01
-		{DialogAction::GIVEUP_CRAFT_MASTER, MINALINERK, "CraftSkillUpdateService::getProfessionByNpc"}, // :258-260, C-01
+		// GIVEUP_CRAFT_EXPERT and GIVEUP_CRAFT_MASTER (:255-260) left this table with C-01 (m5c-plan.md stage 2): see TheCraftArms... below
 		{DialogAction::CHARGE_ITEM_MULTI2, MINALINERK, "ItemChargeService::startChargingEquippedItems"}, // :267-269, P5-07
 	};
 	for (const Row& row : rows) {
@@ -1091,6 +1090,109 @@ TEST_F(DialogServiceTest, TheArmsOfOtherServicesReachTheirOwnUnportedBodies) {
 		EXPECT_EQ(runtime::unportedHitCount(), 1u);
 		EXPECT_TRUE(sent().empty());
 	}
+}
+
+TEST_F(DialogServiceTest, TheCraftArmsDoNothingAtAnNpcThatTeachesNoProfession) {
+	// :199-202 and :255-260, the four rows C-01 (m5c-plan.md stage 2) moved out of the table above: learnSkill returns below level 10 and, from
+	// level 10 on, for an npc without a profession (CraftSkillUpdateService.java:84-88); a null profession makes relinquishCraftStatus answer
+	// false before anything else (RelinquishCraftStatus.java:46-48; DialogService.cpp skips the call for it)
+	Npc& merchant = npc(MINALINERK);
+	const int32_t actions[] = {DialogAction::GATHER_SKILL_LEVELUP, DialogAction::COMBINE_SKILL_LEVELUP, DialogAction::GIVEUP_CRAFT_EXPERT,
+		DialogAction::GIVEUP_CRAFT_MASTER};
+	for (int32_t level : {1, 10}) {
+		if (level == 10)
+			setDaevaLevel(10);
+		for (int32_t action : actions) {
+			SCOPED_TRACE(std::string(DialogAction::nameOf(action).value_or("?")) + " at level " + std::to_string(level));
+			runtime::resetUnportedHitsForTests();
+			clearSent();
+			EXPECT_NO_THROW(select(action, merchant));
+			EXPECT_EQ(runtime::unportedHitCount(), 0u);
+			EXPECT_TRUE(sent().empty());
+		}
+	}
+}
+
+/** npc_templates.xml:10432, verbatim: hestia, the Elyos cooking master (CraftSkillUpdateService.java:61) */
+constexpr std::string_view HESTIA_NPC_TEMPLATES_XML = R"xml(<npc_templates>
+	<npc_template npc_id="203784" level="40" name="hestia" name_id="351275" height="2" title_id="350401" group_drop="LIGHT" rank="DISCIPLINED" rating="NORMAL" race="ELYOS" tribe="GENERAL" type="GENERAL" ai="general" srange="10" sangle="300" attack_speed="2000" hpgauge="3">
+		<stats maxHp="9426">
+			<speeds walk="1.5" group_walk="1.5" run="6" run_fight="4.2" group_run_fight="4.2" />
+		</stats>
+		<equipment>
+			<item>113100277</item>
+			<item>110100339</item>
+			<item>111100278</item>
+			<item>114100295</item>
+			<item>125000652</item>
+		</equipment>
+		<bound_radius front="0.25" side="0.35" upper="2" />
+		<talk_info distance="5" is_dialog="true" func_dialogs="46 79 58 80" can_talk_invisible="false" />
+	</npc_template>
+</npc_templates>)xml";
+
+TEST_F(DialogServiceTest, TheCraftArmsReachTheProfessionOfTheCraftMaster) {
+	// hestia teaches cooking (m5c-plan.md C-01). Both level-up arms (:199-202) reach learnSkill, whose cooking level 1 has no price
+	// (Profession.getUpgradeCost; `oracle.py m5c-craft --no-profile --set gameserver.event.service.disabled_events=* --skill 40001 --level 1`:
+	// refusal STR_MSG_DONT_RANK_UP). The relinquish arms (:255-260) reach RelinquishCraftStatus with cooking: an expert cook (400) may give up
+	// expert status and a master cook (500) master status, each for a price (RelinquishCraftStatus.java:23-24, PricesService.getPriceForService
+	// with the shipped prices.properties) this character without kinah cannot pay (decreaseKinah, :64-70: STR_NOT_ENOUGH_MONEY), while the
+	// other arm's level range (400-499, 500-549) does not hold his level and ends silently
+	struct ShippedPricesScope {
+		const int32_t savedPrices = configs::main::PricesConfig::DEFAULT_PRICES.exchange(100);
+		const int32_t savedModifier = configs::main::PricesConfig::DEFAULT_MODIFIER.exchange(100);
+		const int32_t savedTaxes = configs::main::PricesConfig::DEFAULT_TAXES.exchange(100);
+		~ShippedPricesScope() {
+			configs::main::PricesConfig::DEFAULT_TAXES.store(savedTaxes);
+			configs::main::PricesConfig::DEFAULT_MODIFIER.store(savedModifier);
+			configs::main::PricesConfig::DEFAULT_PRICES.store(savedPrices);
+		}
+	} shippedPrices;
+	static const dataholders::NpcData* hestiaData = [] {
+		static xml::LoadContext context;
+		return xml::bindString<dataholders::NpcData>(context, HESTIA_NPC_TEMPLATES_XML).release();
+	}();
+	const model::templates::npc::NpcTemplate* objectTemplate = hestiaData->getNpcTemplate(203784);
+	ASSERT_NE(objectTemplate, nullptr);
+	runtime::Ref<model::templates::spawns::SpawnGroup> group = model::templates::spawns::SpawnGroup::create(210010000, 203784, 0, nullptr);
+	model::templates::spawns::SpawnTemplate& spawn = group->addSpawnTemplate(std::make_unique<DialogSpawnTemplate>(*group, 103.0f, 100.0f, 50.0f));
+	runtime::Ref<Npc> hestia = model::gameobjects::VisibleObject::create<Npc>(std::make_unique<controllers::NpcController>(), spawn, objectTemplate);
+	hestia->setKnownlist(std::make_unique<world::knownlist::NpcKnownList>(*hestia));
+	hestia->setEffectController(std::make_unique<controllers::effect::EffectController>(*hestia));
+	hestia->setPosition(world::WorldPosition::create(210010000, 103.0f, 100.0f, 50.0f, int8_t{0}, mapInstance->getRegion(103.0f, 100.0f, 50.0f)));
+	hestia->getPosition()->setIsSpawned(true);
+	spawnGroups.push_back(group);
+	npcs.push_back(hestia);
+	setDaevaLevel(10);
+	auto setCooking = [this](int32_t level) {
+		player().setSkillList(model::skill::PlayerSkillList::create(
+			{model::skill::PlayerSkillEntry::create(40001, level, 0, model::gameobjects::Persistable_PersistentState::UPDATED)}));
+	};
+
+	setCooking(1);
+	for (int32_t action : {DialogAction::GATHER_SKILL_LEVELUP, DialogAction::COMBINE_SKILL_LEVELUP}) {
+		SCOPED_TRACE(std::string(DialogAction::nameOf(action).value_or("?")));
+		clearSent();
+		select(action, *hestia);
+		EXPECT_EQ(sent(), exactly({serializedFor(SM_SYSTEM_MESSAGE::STR_MSG_DONT_RANK_UP())}));
+	}
+
+	setCooking(400);
+	clearSent();
+	select(DialogAction::GIVEUP_CRAFT_EXPERT, *hestia);
+	EXPECT_EQ(sent(), exactly({serializedFor(SM_SYSTEM_MESSAGE::STR_NOT_ENOUGH_MONEY())}));
+	clearSent();
+	select(DialogAction::GIVEUP_CRAFT_MASTER, *hestia);
+	EXPECT_TRUE(sent().empty());
+
+	setCooking(500);
+	clearSent();
+	select(DialogAction::GIVEUP_CRAFT_MASTER, *hestia);
+	EXPECT_EQ(sent(), exactly({serializedFor(SM_SYSTEM_MESSAGE::STR_NOT_ENOUGH_MONEY())}));
+	clearSent();
+	select(DialogAction::GIVEUP_CRAFT_EXPERT, *hestia);
+	EXPECT_TRUE(sent().empty());
+	EXPECT_EQ(player().getSkillList()->getSkillLevel(40001), 500) << "nothing was given up";
 }
 
 TEST_F(DialogServiceTest, TheCubeExpanderArmAsksTheExpansionQuestionOfTheNpc) {

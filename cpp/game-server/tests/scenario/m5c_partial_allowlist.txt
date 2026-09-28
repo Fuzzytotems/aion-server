@@ -1,20 +1,24 @@
-# The AION_PARTIAL sites the M5b-3 gate accepts (m5b3-plan.md §10.1 "Allow-list", G-03). One site per line, whose file paths are relative to
+# The AION_PARTIAL sites the M5c gate accepts (m5c-plan.md §10.1 "Allow-list", G-03). One site per line, whose file paths are relative to
 # the compiling target's source root - game-server/src for the server itself (e.g. "aion/gameserver/GameServer.cpp:129") and
 # game-server/handlers for a registered handler (e.g. "aion/gameserver/handlers/ai/<Handler>.cpp:<line>"). An entry WITH a line number must
 # match the whole site; an entry without one is an explicit whole-file wildcard. Lines starting with '#' and empty lines are ignored.
 #
-# A SEPARATE list from the M5a, M5b and M5b-2 lists (m5b-plan.md D9): each gate's scripted path reaches its own set, and the lists must be able
-# to disagree.
+# A SEPARATE list from the M5a, M5b, M5b-2 and M5b-3 lists (m5b-plan.md D9): each gate's scripted path reaches its own set, and the lists must be
+# able to disagree.
 #
-# THE LIST IS IN THREE SECTIONS AND Y13 READS ALL THREE. A section begins at its "# --- SECTION X" marker line below and runs to the next one;
-# M5b3ScenarioTest.cpp matches those markers literally. Every site of partial_trace.txt must be in one of the three, and in addition:
+# THE LIST IS IN THREE SECTIONS AND X22 READS ALL THREE. A section begins at its "# --- SECTION X" marker line below and runs to the next one;
+# M5cScenarioTest.cpp matches those markers literally. Every site of partial_trace.txt must be in one of the three, and in addition:
 #   SECTION A  the gate asserts the row was hit at least once
 #   SECTION B  the gate asserts the row was hit EXACTLY ZERO times
 #   SECTION C  the row is allowed and its hit count is printed but not pinned
 #
-# §10.1: "no drop row; §A the M5a startup rows; §B nothing new; §C M5b's timing rows". Stage 1 closed the one partial of the loot path
-# (DropRegistrationService.cpp:43, L-01), so no row below belongs to the drop, item, equipment, potion, godstone or material code, and Y13
-# asserts besides that no DropRegistrationService site appears in partial_trace.txt at all.
+# §10.1: "§A is copied at branch time from the §A of m5b2_partial_allowlist.txt and m5b3_partial_allowlist.txt (the rows every gate's startup
+# and enter world hit); §B nothing new; §C the timing rows". Copied on 2026-09-28 from the committed lists (HEAD a75d281ff): both §A are the
+# same two startup rows, both §B are empty, and §C is M5b-3's. Stages 0 and 1 of M5c added no AION_PARTIAL (m5c-plan.md §18.5, §19.5), so no
+# row below belongs to the dialog, trade, exchange, store, mail, cube, identification, manastone or extraction code; the M5d engine overlay
+# does not move QuestEngine.cpp:111/115 (§20.3). Since G-07's census (the stage-2 review) §B holds the four sites of the wall-clock cron jobs
+# the gate profile moves out of the run, two of them M5b-3's former §C rows (the integration of stage 2 made those two §B rows of the m5b,
+# m5b2 and m5b3 lists as well).
 
 # =========================================================================================================================================
 # --- SECTION A - hit at least once, asserted ---
@@ -28,11 +32,14 @@ aion/gameserver/services/BaseService.cpp:18
 # --- SECTION B - hit exactly zero times, asserted ---
 # =========================================================================================================================================
 
-# §10.1 said "§B nothing new". Since M5c stage 2: AbyssRankUpdateService's two cron jobs, the rank update (daily 00:00) and the GP loss (daily
-# 12:00), section C rows until then ("a property of the run's LENGTH"), but they fire at a time of day. ScenarioServers::m5aProfile sets both
-# keys past every gate run (m5c-plan.md G-07), so a hit means a key no longer reaches the server (the m5b, m5b2 and m5c lists agree).
+# m5c-plan.md G-07 (the stage-2 review): the wall-clock cron jobs whose schedules ScenarioServers::m5aProfile moves past every gate run
+# (ScenarioServers.cpp's census). Only their cron reaches these sites, so a hit means a gate key no longer reaches the server. The rank
+# update and the GP loss were §C rows ("a property of the run's LENGTH", the M5b-1 list): they fire at 00:00 and 12:00 daily, whatever the
+# run's length; the auction end (Sunday 12:00) and the auto fill (Monday 00:00) were in no list, so a run at those times failed X22.
 aion/gameserver/services/abyss/AbyssRankUpdateService.cpp:37
 aion/gameserver/services/abyss/AbyssRankUpdateService.cpp:58
+aion/gameserver/taskmanager/tasks/housing/AuctionEndTask.cpp:81
+aion/gameserver/taskmanager/tasks/housing/AuctionAutoFillTask.cpp:38
 
 # =========================================================================================================================================
 # --- SECTION C - allowed, counted and printed, not pinned ---
@@ -47,4 +54,4 @@ aion/gameserver/services/instance/InstanceService.cpp:133
 aion/gameserver/services/instance/InstanceService.cpp:153
 # EMOTIONS_ALL is off by default, so this is only reached with the config the real-client checklist uses
 aion/gameserver/services/player/PlayerService.cpp:268
-# HISTORY: AbyssRankUpdateService.cpp:37 and :58 were here ("a property of the run's LENGTH"); section B rows since M5c stage 2 (G-07).
+# (AbyssRankUpdateService.cpp:37 and :58, M5b-3's former last two rows, are §B rows above since G-07)

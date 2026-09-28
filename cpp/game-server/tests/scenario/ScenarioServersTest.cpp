@@ -20,6 +20,13 @@
 
 #include "ChildProcess.h"
 #include "ScenarioServers.h"
+#include "aion/commons/database/SqlTypes.h"
+#include "aion/commons/utils/TimeUtils.h"
+#include "aion/gameserver/configs/main/GSConfig.h"
+#include "aion/gameserver/runtime/lifetime/Ref.h"
+#include "aion/gameserver/services/cron/CronExpression.h"
+#include "aion/gameserver/services/cron/CronService.h"
+#include "aion/gameserver/taskmanager/AbstractCronTask.h"
 
 #include <Windows.h>
 
@@ -269,6 +276,115 @@ TEST(ScenarioServersTest, TheGeoGateTurnsTheGeoDataOnThroughTheSamePropertyOverr
 	const std::vector<std::string> arguments = servers.gameServerArguments();
 	EXPECT_EQ(std::ranges::count(arguments, std::string("-Dgameserver.geodata.enable=true")), 1);
 	EXPECT_EQ(std::ranges::count(arguments, std::string("-Dgameserver.geodata.enable=false")), 0);
+}
+
+/**
+ * m5c-plan.md G-07 (§20.4): the configurable wall-clock cron jobs that reach unported code never fire in a gate run. On 2026-09-27 a gate
+ * whose server was up at Sunday 18:50 failed its unported bar on the Ahserion raid (P5-SC.md "M5c stage 1 integration"); the housing auction
+ * end (Sunday 12:00) and auto fill (Monday 00:00) and the abyss rank update (daily 00:00) and GP loss (daily 12:00) reach AION_PARTIAL the same
+ * way (ScenarioServers.cpp's census). Every gate builds its arguments from m5aProfile(), so each key must reach every game server as exactly
+ * one -D, set to a schedule CronService accepts - a past-only year is refused as "the given trigger will never fire" and startup would fail
+ * (CronService.cpp:318-321) - whose next fire time no run can live to see. A gate's own value still wins, as for every key.
+ */
+TEST(ScenarioServersTest, TheWallClockWorldEventsAreScheduledPastEveryGateRun) {
+	const std::string farFuture = "0 0 0 1 1 ? 2000,2100,2101";
+	const std::vector<std::string> keys = {"gameserver.siege.panesterra.ahserion.time", "gameserver.moltenus.time",
+		"gameserver.housing.auction.end_time", "gameserver.housing.auction.auto_fill.time", "gameserver.topranking.updaterule",
+		"gameserver.topranking.daily.gploss.time"};
+	const std::map<std::string, std::string> profile = ScenarioServers::m5aProfile();
+	for (const std::string& key : keys) {
+		EXPECT_TRUE(profile.contains(key)) << key << ": missing from the profile every scenario gate starts from";
+		if (profile.contains(key))
+			EXPECT_EQ(profile.at(key), farFuture) << key;
+	}
+
+	ScenarioServers servers(stubConfig("arguments-cron"), offlineEnvironment());
+	const std::vector<std::string> arguments = servers.gameServerArguments();
+	const auto count = [&arguments](std::string_view prefix) {
+		return std::ranges::count_if(arguments, [prefix](const std::string& argument) { return argument.starts_with(prefix); });
+	};
+	for (const std::string& key : keys) {
+		EXPECT_EQ(std::ranges::count(arguments, "-D" + key + "=" + farFuture), 1) << key;
+		EXPECT_EQ(count("-D" + key + "="), 1) << key << ": one value of the key, never two contradicting ones";
+	}
+
+	// CronService's own parser accepts it, and its next fire time is decades after any run of the gates
+	ASSERT_TRUE(services::cron::CronExpression::isValidExpression(farFuture));
+	const services::cron::CronExpression expression(farFuture);
+	const std::chrono::sys_seconds now = std::chrono::floor<std::chrono::seconds>(std::chrono::system_clock::now());
+	const std::optional<std::chrono::sys_seconds> next = expression.getNextValidTimeAfter(now, std::chrono::current_zone());
+	ASSERT_TRUE(next) << "a schedule that never fires is refused at startup (CronService.cpp:318-321)";
+	EXPECT_GT(*next, now + std::chrono::years(50)) << "the first fire time must lie beyond any gate run";
+	const std::optional<std::chrono::sys_seconds> last = expression.getNextValidTimeAfter(*next, std::chrono::current_zone());
+	ASSERT_TRUE(last);
+	const auto yearOf = [](std::chrono::sys_seconds time) {
+		return static_cast<int32_t>(std::chrono::year_month_day(std::chrono::floor<std::chrono::days>(time)).year());
+	};
+	EXPECT_LE(yearOf(*last), static_cast<int32_t>(std::chrono::year_month_day(std::chrono::floor<std::chrono::days>(now)).year()) + 100)
+		<< "inside Quartz's years (1970 to the current year + 100)";
+	EXPECT_LE(yearOf(*last), services::cron::CronExpression::MAX_YEAR) << "and the C++ CronExpression's";
+
+	ScenarioServers::Config own = stubConfig("arguments-cron-own");
+	own.gameServerProperties["gameserver.moltenus.time"] = "0 0 22 ? * SUN";
+	ScenarioServers ownServers(own, offlineEnvironment());
+	const std::vector<std::string> ownArguments = ownServers.gameServerArguments();
+	EXPECT_EQ(std::ranges::count(ownArguments, std::string("-Dgameserver.moltenus.time=0 0 22 ? * SUN")), 1) << "a gate's own key wins";
+	EXPECT_EQ(std::ranges::count(ownArguments, "-Dgameserver.moltenus.time=" + farFuture), 0);
+}
+
+/** An AbstractCronTask as the housing tasks are, never posted (postConstruct schedules; the constructor alone computes the dates) */
+class ProfileCronTask final : public taskmanager::AbstractCronTask {
+	AION_MAKE_REF_FRIEND
+
+public:
+	static runtime::Ref<ProfileCronTask> create(const services::cron::CronExpression* expression) {
+		return runtime::makeRef<ProfileCronTask>(expression);
+	}
+
+protected:
+	explicit ProfileCronTask(const services::cron::CronExpression* expression)
+		: AbstractCronTask(expression, "com.aionemu.gameserver.taskmanager.tasks.housing.ProfileCronTask") {}
+	~ProfileCronTask() override = default;
+
+	void executeTask() override {}
+};
+
+/**
+ * m5c-plan.md G-07: the housing keys are read by AbstractCronTask, not by CronService alone. Its constructor (AuctionEndTask.getInstance() at
+ * startup step GameServer.cpp:193) needs the fire time after the next one and a fire time before now (findLastPlannedRun), so the profile's
+ * schedule must give both, or every gate's server fails to start ("0 0 0 1 1 ? 2100" throws a NullPointerException there, as Java does on the
+ * null Date). The last planned run lies decades back, so neither AbstractCronTask.shouldRunOnStart (a server stop before it) nor
+ * AuctionEndTask's (a stop at most 30 minutes after it) runs the task at startup.
+ */
+TEST(ScenarioServersTest, TheHousingCronTasksAcceptTheWallClockSchedule) {
+	const std::map<std::string, std::string> profile = ScenarioServers::m5aProfile();
+	const std::chrono::time_zone* zone = configs::main::GSConfig::TIME_ZONE_ID.load();
+	configs::main::GSConfig::TIME_ZONE_ID.store(std::chrono::current_zone()); // the zone a gate's server computes its cron times in
+	struct RestoreZone {
+		const std::chrono::time_zone* zone;
+		~RestoreZone() { configs::main::GSConfig::TIME_ZONE_ID.store(zone); }
+	} restoreZone{zone};
+	for (const char* key : {"gameserver.housing.auction.end_time", "gameserver.housing.auction.auto_fill.time"}) {
+		ASSERT_TRUE(profile.contains(key)) << key;
+		const services::cron::CronExpression& expression = services::cron::CronExpressions::getOrCreate(profile.at(key));
+		const int64_t now = commons::utils::currentTimeMillis();
+		std::optional<runtime::Ref<ProfileCronTask>> task;
+		try {
+			task.emplace(ProfileCronTask::create(&expression));
+		} catch (const std::exception& exception) {
+			ADD_FAILURE() << key << " = " << profile.at(key) << ": the housing task's constructor throws, so the game server cannot start: "
+			              << exception.what();
+			continue;
+		}
+		const std::optional<commons::database::Timestamp> next = (*task)->getNextRun();
+		ASSERT_TRUE(next) << key;
+		EXPECT_GT(next->time_since_epoch().count(), now + std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::years(50)).count())
+			<< key << ": the next run lies beyond any gate run";
+		const std::optional<commons::database::Timestamp> lastPlanned = (*task)->getLastPlannedRun();
+		ASSERT_TRUE(lastPlanned) << key;
+		EXPECT_LT(lastPlanned->time_since_epoch().count(), now - std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::years(20)).count())
+			<< key << ": no server stop of a gate's schema lies before it or within 30 minutes after it";
+	}
 }
 
 TEST(ScenarioServersTest, EveryStartRemovesTheHtmlCacheTheRunBeforeLeft) {

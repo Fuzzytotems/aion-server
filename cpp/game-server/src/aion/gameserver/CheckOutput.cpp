@@ -427,6 +427,40 @@ const std::vector<std::string>& CheckOutput::zeroLiveClasses() {
 		// (m5b3-plan.md D5, G-06): a corpse with an unlooted drop keeps its DropNpc for 300 s, in Java too, so it is bounded by what
 		// DropRegistrationService holds (heldDrops above, the dropNpcsHeld row) instead of zero.
 		"controllers::attack::AttackResult",
+		// m5c-plan.md G-06: the transfer objects of the economy (stage 1's trade, exchange, private store and mail, stage 2's crafting). Each one
+		// lives for one packet or one transaction of a character that is online: CM_BUY_ITEM's TradeList and its TradeItems (CM_BUY_ITEM.java's
+		// readImpl) or RepurchaseList, the Exchange pair and its ExchangeItems from registerExchange to cleanUpExchanges (ExchangeService.java),
+		// the store's TradePSItems (the store is the Player's own part), a Letter from the send to the mailbox that holds it, the CraftingTask
+		// from startCrafting to its finish or abort - so nothing of them may outlive the logout of every character (X22 of m5c-plan.md §10.3). The
+		// economy objects no gate before M5c creates: in every earlier gate and smoke run live_counts.txt has no row of them at all.
+		// Two of §10.3's names cannot be rows, the precedent of DamageList (the header's "Deliberately NOT here"):
+		// - PrivateStore is an OwnedPart the Player owns through a unique_ptr (PrivateStoreService.cpp, Player::setStore), not a makeRef'd
+		//   RefCounted, so no counter ever sees one; it dies with its Player (a strict row above), and its items are the TradePSItem row;
+		// - RequestResponseHandler is abstract: a counter is kept per DYNAMIC type (LiveInstanceCounters.h), and every handler is the
+		//   anonymous-namespace subclass of the Java anonymous class, whose counted name ends in "::<Service>_RequestResponseHandler" - a
+		//   "RequestResponseHandler" row would match none of them. The nine subclasses of the tree are listed instead: a request a character
+		//   never answered goes with its ResponseRequester, i.e. with its Player. Java has more anonymous handlers that are not ported yet
+		//   (DuelService, LegionService, WarehouseService, ItemChargeService, TeleportService, CM_FRIEND_ADD, Invasion; the handler scripts
+		//   PortalRequestAI, GateRepairAI and the Buy command), so the lane that ports one adds its "<Service>_RequestResponseHandler" row here
+		//   (and to summaryLiveClasses if a gate answers it).
+		// The CraftingTask row joins the AbstractInteractionTask guard above, which for the same reason can match nothing (an abstract class).
+		"model::trade::Exchange",
+		"model::trade::ExchangeItem",
+		"model::trade::TradeList",
+		"model::trade::TradeItem",
+		"model::trade::RepurchaseList",
+		"model::trade::TradePSItem",
+		"model::gameobjects::Letter",
+		"skillengine::task::CraftingTask",
+		"CM_EXCHANGE_REQUEST_RequestResponseHandler",
+		"DialogService_RequestResponseHandler",
+		"CubeExpandService_RequestResponseHandler",
+		"CraftSkillUpdateService_RequestResponseHandler",
+		"Equipment_RequestResponseHandler",
+		"NpcFactions_RequestResponseHandler",
+		"AIActions_RequestResponseHandler",
+		"RVController_RequestResponseHandler",
+		"RVController_RequestResponseHandler_2",
 	};
 	return *classes;
 }
@@ -462,6 +496,21 @@ const std::vector<std::string>& CheckOutput::summaryLiveClasses() {
 		"skillengine::effect::RootEffect_ActionObserver",
 		"skillengine::effect::AlwaysDodgeEffect_AttackStatusObserver",
 		"skillengine::effect::AlwaysResistEffect_AttackStatusObserver",
+		// m5c-plan.md G-06: the created half of the economy's strict rows (zeroLiveClasses above), which only these rows can show - "0 live" of
+		// an Exchange that was never created is a guard, not X22's assertion. The request handlers are the four the M5c gate answers: the
+		// exchange question (C8-C9), the soul healing (C13), the cube expansion (C17) and, in stage 3's C19, the craft skill.
+		"model::trade::Exchange",
+		"model::trade::ExchangeItem",
+		"model::trade::TradeList",
+		"model::trade::TradeItem",
+		"model::trade::RepurchaseList",
+		"model::trade::TradePSItem",
+		"model::gameobjects::Letter",
+		"skillengine::task::CraftingTask",
+		"CM_EXCHANGE_REQUEST_RequestResponseHandler",
+		"DialogService_RequestResponseHandler",
+		"CubeExpandService_RequestResponseHandler",
+		"CraftSkillUpdateService_RequestResponseHandler",
 	};
 	return *classes;
 }

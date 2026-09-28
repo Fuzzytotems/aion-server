@@ -6,6 +6,7 @@
 #include <gtest/gtest.h>
 
 #include <algorithm>
+#include <array>
 #include <atomic>
 #include <chrono>
 #include <filesystem>
@@ -37,6 +38,9 @@
 #include "aion/gameserver/model/items/detail/StaticDataLookups.h"
 #include "aion/gameserver/model/templates/item/ItemTemplate.bind.h"
 #include "aion/gameserver/model/templates/item/ItemTemplate.h"
+#include "aion/gameserver/model/trade/RepurchaseList.h"
+#include "aion/gameserver/model/trade/TradeItem.h"
+#include "aion/gameserver/model/trade/TradeList.h"
 #include "aion/gameserver/runtime/base/Exceptions.h"
 #include "aion/gameserver/runtime/collections/Rc.h"
 #include "aion/gameserver/runtime/fields/Field.h"
@@ -997,6 +1001,121 @@ TEST(CheckOutputTest, TheDirectoryFormFillsTheLiveCountRowsFromTheProcessCounter
 	EXPECT_EQ(liveAfter, 0) << "and follow it back to 0 once the Reclaimer freed it: " << after;
 	EXPECT_EQ(createdAfter, created) << "while `created` stays - that is the half that makes the strict zero an assertion: " << after;
 	std::filesystem::remove_all(dir);
+}
+
+// ---------------------------------------------------------------------------------------------------------------------------------------
+// m5c-plan.md G-06 (X22 of §10.3): the transfer objects of the economy.
+// ---------------------------------------------------------------------------------------------------------------------------------------
+
+/** the transfer classes the M5c gate creates (or, CraftingTask and the craft handler, stage 3's C19 creates): strict zeros AND counted rows */
+constexpr std::array<std::string_view, 12> M5C_TRANSFER_CLASSES = {"model::trade::Exchange", "model::trade::ExchangeItem", "model::trade::TradeList",
+	"model::trade::TradeItem", "model::trade::RepurchaseList", "model::trade::TradePSItem", "model::gameobjects::Letter",
+	"skillengine::task::CraftingTask", "CM_EXCHANGE_REQUEST_RequestResponseHandler", "DialogService_RequestResponseHandler",
+	"CubeExpandService_RequestResponseHandler", "CraftSkillUpdateService_RequestResponseHandler"};
+
+/**
+ * Every class of X22 is a strict zero with a counted row, decided one by one as E-03 decided the combat classes. PrivateStore and the bare
+ * RequestResponseHandler are the two names of §10.3 no counter can see - an OwnedPart held by a unique_ptr, and an abstract base whose
+ * instances are counted under their dynamic types - so they are NOT rows (the DamageList precedent above: a row that can never fire reads as a
+ * pass forever); the handler rows name the subclasses instead, the five the gate never answers as guards only.
+ */
+TEST(CheckOutputTest, TheTransferClassesOfTheEconomyAreStrictZerosWithACountedRow) {
+	const auto strict = [](std::string_view name) { return std::ranges::count(CheckOutput::zeroLiveClasses(), name) == 1; };
+	const auto reported = [](std::string_view name) { return std::ranges::count(CheckOutput::summaryLiveClasses(), name) == 1; };
+	for (std::string_view name : M5C_TRANSFER_CLASSES) {
+		EXPECT_TRUE(strict(name)) << name << ": X22 asserts live 0 after every character logged out";
+		EXPECT_TRUE(reported(name)) << name << ": and needs the created half, which only a summary row shows";
+	}
+	for (std::string_view name : {"Equipment_RequestResponseHandler", "NpcFactions_RequestResponseHandler", "AIActions_RequestResponseHandler",
+			 "RVController_RequestResponseHandler", "RVController_RequestResponseHandler_2"}) {
+		EXPECT_TRUE(strict(name)) << name << ": a request handler goes with its Player's ResponseRequester";
+		EXPECT_FALSE(reported(name)) << name << ": no gate answers it, so a counted row would only print 0 0";
+	}
+	for (std::string_view name : {"model::gameobjects::player::PrivateStore", "PrivateStore", "model::gameobjects::player::RequestResponseHandler",
+			 "RequestResponseHandler"}) {
+		EXPECT_FALSE(strict(name)) << name << ": no counter can ever match it, so a strict row would be dead";
+		EXPECT_FALSE(reported(name)) << name << ": and a counted row would report 0 0 forever";
+	}
+}
+
+/**
+ * The strict rows against a run in which every transfer was reclaimed (the X22 bar), and one leak of each: the counters' spellings, an
+ * anonymous namespace's MSVC spelling included, must be matched by exactly the row they belong to, and TradePSItem must not be summed into
+ * TradeItem (nor RVController_RequestResponseHandler_2 into its prefix).
+ */
+TEST(CheckOutputTest, AnEconomyTransferObjectThatOutlivesTheLogoutIsALeak) {
+	LogCapture capture("com.aionemu.gameserver.CheckOutput");
+	const std::vector<LiveCount> gateRun{
+		{"aion::gameserver::model::trade::Exchange", 0, 8},
+		{"aion::gameserver::model::trade::ExchangeItem", 0, 3},
+		{"aion::gameserver::model::trade::TradeList", 0, 9},
+		{"aion::gameserver::model::trade::TradeItem", 0, 9},
+		{"aion::gameserver::model::trade::RepurchaseList", 0, 1},
+		{"aion::gameserver::model::trade::TradePSItem", 0, 3},
+		{"aion::gameserver::model::gameobjects::Letter", 0, 5},
+		{"aion::gameserver::network::aion::clientpackets::`anonymous namespace'::CM_EXCHANGE_REQUEST_RequestResponseHandler", 0, 4},
+		{"aion::gameserver::services::`anonymous namespace'::DialogService_RequestResponseHandler", 0, 1},
+		{"aion::gameserver::services::`anonymous namespace'::CubeExpandService_RequestResponseHandler", 0, 1},
+		{"aion::gameserver::controllers::`anonymous namespace'::RVController_RequestResponseHandler_2", 0, 0},
+		{"aion::gameserver::model::gameobjects::Npc", 82'126, 82'129},
+	};
+	EXPECT_TRUE(CheckOutput::checkLiveCounts(gateRun).empty()) << "every transfer object reclaimed is no leak";
+	for (size_t i = 0; i + 1 < gateRun.size(); i++) {
+		std::vector<LiveCount> leaked = gateRun;
+		leaked[i].live = 1;
+		const std::vector<LiveCount> leaks = CheckOutput::checkLiveCounts(leaked);
+		ASSERT_EQ(leaks.size(), 1u) << gateRun[i].className << " alive after the logout must be reported";
+		EXPECT_EQ(leaks[0].className, gateRun[i].className);
+	}
+	EXPECT_TRUE(capture.contains("error|Live instance leak: 1 of the 8 aion::gameserver::model::trade::Exchange instances")) << capture.str();
+
+	std::vector<LiveCount> storeItemAlive = gateRun;
+	storeItemAlive[5].live = 2;
+	const std::vector<LiveCount> rows = CheckOutput::summaryLiveCounts(storeItemAlive);
+	const auto row = [&rows](std::string_view name) {
+		auto it = std::ranges::find(rows, name, &LiveCount::className);
+		return it == rows.end() ? LiveCount{std::string(name), -1, 0} : *it;
+	};
+	EXPECT_EQ(row("model::trade::TradePSItem").live, 2);
+	EXPECT_EQ(row("model::trade::TradeItem").live, 0) << "a TradePSItem is not a TradeItem row: the rule matches on \"::\" + name";
+	EXPECT_EQ(row("model::trade::TradeItem").created, 9u);
+	EXPECT_EQ(row("CM_EXCHANGE_REQUEST_RequestResponseHandler").created, 4u) << "the anonymous namespace's spelling is matched by the bare name";
+	EXPECT_EQ(row("DialogService_RequestResponseHandler").created, 1u);
+	EXPECT_EQ(row("model::gameobjects::Letter").created, 5u);
+	EXPECT_EQ(row("skillengine::task::CraftingTask").created, 0u) << "no counter: 0 0 (part 1 of the gate runs no craft)";
+}
+
+/** The rows read the real counters of the real classes: a TradeList with its TradeItem and a RepurchaseList alive are three leaks, then none */
+TEST(CheckOutputTest, TheEconomyRowsReadTheCountersOfTheRealTradeClasses) {
+	if (!runtime::LIVE_COUNTS_ENABLED)
+		GTEST_SKIP() << "release build: makeRef and the Reclaimer count nothing (AION_CHECKED off)";
+	LogCapture capture("com.aionemu.gameserver.CheckOutput");
+	const auto tradeLeaks = [] {
+		std::vector<LiveCount> leaks;
+		for (const LiveCount& leak : CheckOutput::checkLiveCounts())
+			if (leak.className.find("::model::trade::") != std::string::npos)
+				leaks.push_back(leak);
+		return leaks;
+	};
+	EXPECT_TRUE(tradeLeaks().empty()) << "nothing of the trade classes is alive before the test creates one";
+	{
+		runtime::TaskScope scope(AION_TASK_INFO(runtime::TaskKind::TEST));
+		runtime::Ref<model::trade::TradeList> tradeList = model::trade::TradeList::create(4711);
+		runtime::Ref<model::trade::TradeItem> tradeItem = model::trade::TradeItem::create(162000052, 2);
+		runtime::Ref<model::trade::RepurchaseList> repurchase = model::trade::RepurchaseList::create(4711);
+		std::vector<LiveCount> leaks = tradeLeaks();
+		std::ranges::sort(leaks, {}, &LiveCount::className);
+		ASSERT_EQ(leaks.size(), 3u) << "each class is its own counter, and each is a strict row";
+		EXPECT_EQ(leaks[0].className, "aion::gameserver::model::trade::RepurchaseList");
+		EXPECT_EQ(leaks[1].className, "aion::gameserver::model::trade::TradeItem");
+		EXPECT_EQ(leaks[2].className, "aion::gameserver::model::trade::TradeList");
+		const std::vector<LiveCount> rows = CheckOutput::summaryLiveCounts(runtime::liveCounts());
+		const auto it = std::ranges::find(rows, std::string("model::trade::TradeList"), &LiveCount::className);
+		ASSERT_NE(it, rows.end());
+		EXPECT_GE(it->live, 1);
+	}
+	runtime::Reclaimer::getInstance().drain();
+	EXPECT_TRUE(tradeLeaks().empty()) << "and none once the Reclaimer freed them";
 }
 
 } // namespace

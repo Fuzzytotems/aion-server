@@ -15,7 +15,7 @@
 # §10.1 expected section A to be "nearly empty" and section B to hold CumulativeResist and the damage modifiers if K-03/K-04 stayed W. Both
 # were ported in part 2 without a partial, and M5b-2 closed every skill-engine partial it owned (O-09, D3, D14's createCriticalProcEffect, the
 # PlayerRestrictions::canUseSkill of C-01), so no row below belongs to the skill engine at all. Stage 2 closed the npc side as well (N-01,
-# N-02): no row below belongs to the npc AI either, and section B is empty.
+# N-02): no row below belongs to the npc AI either. Section B holds only the two AbyssRankUpdateService cron rows since M5c stage 2 (G-07).
 
 # =========================================================================================================================================
 # --- SECTION A - hit at least once, asserted ---
@@ -37,6 +37,12 @@ aion/gameserver/services/BaseService.cpp:18
 # SkillAttackManager (m5b2-plan.md N-01, SkillAttackManager.java:35-213); the sites no longer exist, and X9 (S5b) now asserts the skill path
 # the rows stood for: npc 210133 casts 16419 at the character.
 
+# AbyssRankUpdateService's two cron jobs, the rank update (daily 00:00) and the GP loss (daily 12:00): section C rows until M5c stage 2 ("a
+# property of the run's LENGTH"), but they fire at a time of day. ScenarioServers::m5aProfile sets both keys past every gate run
+# (m5c-plan.md G-07), so a hit means a key no longer reaches the server (the m5b and m5c lists have the same two rows here).
+aion/gameserver/services/abyss/AbyssRankUpdateService.cpp:37
+aion/gameserver/services/abyss/AbyssRankUpdateService.cpp:58
+
 # =========================================================================================================================================
 # --- SECTION C - allowed, counted and printed, not pinned ---
 # =========================================================================================================================================
@@ -52,6 +58,4 @@ aion/gameserver/services/instance/InstanceService.cpp:133
 aion/gameserver/services/instance/InstanceService.cpp:153
 # EMOTIONS_ALL is off by default, so this is only reached with the config the real-client checklist uses
 aion/gameserver/services/player/PlayerService.cpp:268
-# AbyssRankUpdateService's periodic tasks: a property of the run's LENGTH, not of its script (the M5b-1 list's reason)
-aion/gameserver/services/abyss/AbyssRankUpdateService.cpp:37
-aion/gameserver/services/abyss/AbyssRankUpdateService.cpp:58
+# HISTORY: AbyssRankUpdateService.cpp:37 and :58 were here ("a property of the run's LENGTH"); section B rows since M5c stage 2 (G-07).

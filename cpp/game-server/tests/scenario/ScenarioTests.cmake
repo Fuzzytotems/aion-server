@@ -46,8 +46,10 @@
 #   slot 1  gs.smoke.startup 34, gs.smoke.startup_progress 34, gs.smoke.startup_geo 150, gs.m4.check_static_data 149,
 #           gs.scenario.m5a 65, gs.scenario.m5a_geo 170, gs.scenario.m5b3 146, gs.scenario.m5b3_geo 314            = 1062
 #   slot 2  gs.scenario.m5b 227, gs.scenario.m5b_geo 351, gs.scenario.m5b2 172, gs.scenario.m5b2_geo 301           = 1051
-# The balance holds for the full set above. `ctest -L scenario` alone leaves the smoke and M4 tests out, so slot 1 is then m5a, m5a_geo, m5b3 and
-# m5b3_geo (about 695 s plus LoginServerHarnessTest) against slot 2's 1051 s: correct, just a longer wall clock for that label.
+#           + gs.scenario.m5c 225 (m5c-plan.md §10.5, measured 2026-09-28 in a Debug tree, alone; it has no geo variant) = 1276
+# The balance held for the full set above before M5c; the plan put the M5c gate into slot 2 (§10.1: the smaller sum then, and a prefix of its
+# own), which now leads slot 1 by about 210 s - the next gate joins slot 1. `ctest -L scenario` alone leaves the smoke and M4 tests out, so slot 1 is then m5a, m5a_geo, m5b3 and
+# m5b3_geo (about 695 s plus LoginServerHarnessTest) against slot 2's 1276 s: correct, just a longer wall clock for that label.
 # The slots count inside ONE ctest process. Two build trees running their gates at the same time can reach four servers (about 12.8 GB with
 # geo), and the marker-before-DROP window of dropAbandonedSchemas is open between them again: run one tree's gate set at a time.
 # Slot 1 keeps the historical name aion_game_server_log because cmake/AppTests.cmake (chunk P5-14) registers the three smoke tests and the M4
@@ -94,7 +96,8 @@ if(TARGET aion_gs_scenario_tests)
 		AION_SCENARIO_PARTIAL_ALLOWLIST="${CMAKE_CURRENT_SOURCE_DIR}/tests/scenario/m5a_partial_allowlist.txt"
 		AION_SCENARIO_M5B_PARTIAL_ALLOWLIST="${CMAKE_CURRENT_SOURCE_DIR}/tests/scenario/m5b_partial_allowlist.txt"
 		AION_SCENARIO_M5B2_PARTIAL_ALLOWLIST="${CMAKE_CURRENT_SOURCE_DIR}/tests/scenario/m5b2_partial_allowlist.txt"
-		AION_SCENARIO_M5B3_PARTIAL_ALLOWLIST="${CMAKE_CURRENT_SOURCE_DIR}/tests/scenario/m5b3_partial_allowlist.txt")
+		AION_SCENARIO_M5B3_PARTIAL_ALLOWLIST="${CMAKE_CURRENT_SOURCE_DIR}/tests/scenario/m5b3_partial_allowlist.txt"
+		AION_SCENARIO_M5C_PARTIAL_ALLOWLIST="${CMAKE_CURRENT_SOURCE_DIR}/tests/scenario/m5c_partial_allowlist.txt")
 
 	# the oracle answers are JSON (Oracle.cpp); commons finds the same package in its own directory scope
 	find_package(nlohmann_json CONFIG REQUIRED)
@@ -126,6 +129,9 @@ if(TARGET aion_gs_scenario_tests)
 		LABELS "scenario;realdata")
 	# and for the M5b-3 gates (m5b3-plan.md G-03/G-04)
 	aion_set_discovered_test_properties(aion_gs_scenario_tests REGEX "^M5b3Scenario(Geo)?\\." PROPERTIES DISABLED TRUE
+		LABELS "scenario;realdata")
+	# and for the M5c gate (m5c-plan.md G-03, §10.5; no geo variant, D12)
+	aion_set_discovered_test_properties(aion_gs_scenario_tests REGEX "^M5cScenario\\." PROPERTIES DISABLED TRUE
 		LABELS "scenario;realdata")
 
 	# F-06: the M5a gate (§5.10). The oracle needs a Python interpreter; without it the test prints "gs.scenario.m5a: skipped".
@@ -271,5 +277,24 @@ if(TARGET aion_gs_scenario_tests)
 	endif()
 	if(AION_SCENARIO_REQUIRE OR NOT AION_GS_ALLOW_MILESTONE_SKIP)
 		set_property(TEST gs.scenario.m5b3_geo APPEND PROPERTY ENVIRONMENT_MODIFICATION "AION_SCENARIO_REQUIRE=set:1")
+	endif()
+
+	# ---- the M5c gate (m5c-plan.md G-03, §10) ----------------------------------------------------------------------------------------------
+	#
+	# gs.scenario.m5c: the economy of §10.2 on two accounts at once - an Elyos Warrior (A) and an Elyos Mage (B) at Akarios village: talking to
+	# the merchant, the postbox and the function npcs, buying, selling and buying back, an exchange, a cancelled one and one whose partner quits,
+	# a private store, mail online and offline, soul healing, the database after both quit, identification, a manastone socketed and removed, the
+	# cube expansion, an extraction and an enchantment - in the same binary, with its own output directory <bin>/scenario/m5c, its own schema
+	# pair (aion_gs_test_m5c_<hash>) and its own AION_PARTIAL allow-list. Part 1 (stage 2) runs C0-C18 and C20; C19, the crafting, is stage 3's
+	# (G-03 part 2). No geo variant (D12). Gate slot 2, the slot with the smaller sum (see "the two gate slots" above). TIMEOUT 2700 (§10.5).
+	add_test(NAME gs.scenario.m5c COMMAND "$<TARGET_FILE:aion_gs_scenario_tests>" --gtest_filter=M5cScenario.Run
+		WORKING_DIRECTORY "${scenario_work_dir}")
+	set_tests_properties(gs.scenario.m5c PROPERTIES LABELS "scenario;realdata" TIMEOUT 2700
+		RESOURCE_LOCK "${AION_GS_GATE_SLOT_2}" SKIP_REGULAR_EXPRESSION "gs\\.scenario\\.m5c: skipped")
+	if(Python3_Interpreter_FOUND)
+		set_property(TEST gs.scenario.m5c APPEND PROPERTY ENVIRONMENT_MODIFICATION "AION_TEST_PYTHON=set:${Python3_EXECUTABLE}")
+	endif()
+	if(AION_SCENARIO_REQUIRE OR NOT AION_GS_ALLOW_MILESTONE_SKIP)
+		set_property(TEST gs.scenario.m5c APPEND PROPERTY ENVIRONMENT_MODIFICATION "AION_SCENARIO_REQUIRE=set:1")
 	endif()
 endif()

@@ -17,6 +17,21 @@
 
 namespace aion::gameserver::scenario {
 
+namespace {
+
+/**
+ * m5c-plan.md G-07: New Year's midnight of 2000, 2100 and 2101 - a schedule whose next fire time no gate run reaches, accepted by every
+ * consumer of a wall-clock key (m5aProfile below): CronService needs one fire time after now, and AbstractCronTask's constructor needs a
+ * second one after it and one before now (findLastPlannedRun, AbstractCronTask.java:108-118: the interval between the next two fire times,
+ * then back from now in half intervals until a fire time lies before now). A single year such as "0 0 0 1 1 ? 2100" has no second fire time,
+ * and the housing tasks' constructors throw a NullPointerException at startup (Java: on getTime() of the null Date), and a schedule without a
+ * past fire time never leaves that loop. The last fire time before the run is 2000-01-01, so no server stop after it makes shouldRunOnStart
+ * true. Every year lies inside Quartz's 1970 to the current year + 100 and the C++ CronExpression's 1970-2299.
+ */
+constexpr std::string_view FAR_FUTURE_CRON = "0 0 0 1 1 ? 2000,2100,2101";
+
+} // namespace
+
 std::map<std::string, std::string> ScenarioServers::m5aProfile() {
 	return {
 		// D1
@@ -33,6 +48,29 @@ std::map<std::string, std::string> ScenarioServers::m5aProfile() {
 		{"gameserver.geodata.enable", "false"},
 		{"gameserver.character.reentry.time", "1"},
 		{"gameserver.shutdown.delay", "2"},
+		// m5c-plan.md G-07: every configurable wall-clock cron job that reaches unported code or spawns into the world, out of every gate run. A
+		// gate whose server was up at Sunday 18:50 on 2026-09-27 failed its unported bar on PanesterraService::startAhserionRaid (P5-SC.md "M5c
+		// stage 1 integration"). The census of the jobs a gate's server schedules (P5-SC.md "M5c stage 2", the rerun rule):
+		// - CronJobService, whatever gameserver.siege.enable says (CronJobService.java:35, 62): the Ahserion raid (Sunday 18:50, AION_UNPORTED)
+		//   and the Moltenus spawn (Sunday 22:00, a boss in Reshanta);
+		// - the housing AbstractCronTasks (GameServer.java:120-121): AuctionEndTask (Sunday 12:00, AION_PARTIAL at AuctionEndTask.cpp:81) and
+		//   AuctionAutoFillTask (Monday 00:00, AION_PARTIAL at AuctionAutoFillTask.cpp:38, as gameserver.housing.auction.enable is true);
+		// - AbyssRankUpdateService (AbyssRankUpdateService.java:30, 33): the rank update (daily 00:00) and the GP loss (daily 12:00), both
+		//   AION_PARTIAL (AbyssRankUpdateService.cpp:37, 58): no row of M5a's list, §B rows (asserted unhit) of the M5b, M5b-2, M5b-3 and M5c
+		//   lists (the M5b lists had them in §C until the M5c stage-2 integration).
+		// Each key gets FAR_FUTURE_CRON (above: a past-only year is refused as "the given trigger will never fire", CronService.cpp:318-321,
+		// and a single future year throws in the housing tasks' constructors). The keys live here and in ScenarioServersTest only, never in
+		// the Java tree's m5c.properties.example, whose lines the owner copies into mygs.properties to play with a real client. No key moves
+		// the hard-coded jobs: LegionDominion's weekly calculation ("0 0 9 ? * WED *", CronJobService.cpp:185-187, AION_UNPORTED; the M5c gate
+		// names a hit of it as the cron's, m5c-plan.md §20.7 item 2), QuestEngine's reset notice and AtreianPassportService's stamp reset (daily
+		// 09:00; packets to the online players, no unported code). MaintenanceTask (Monday 00:00) reaches its AION_PARTIAL only for an owned
+		// house, and no gate owns one.
+		{"gameserver.siege.panesterra.ahserion.time", std::string(FAR_FUTURE_CRON)},
+		{"gameserver.moltenus.time", std::string(FAR_FUTURE_CRON)},
+		{"gameserver.housing.auction.end_time", std::string(FAR_FUTURE_CRON)},
+		{"gameserver.housing.auction.auto_fill.time", std::string(FAR_FUTURE_CRON)},
+		{"gameserver.topranking.updaterule", std::string(FAR_FUTURE_CRON)},
+		{"gameserver.topranking.daily.gploss.time", std::string(FAR_FUTURE_CRON)},
 	};
 }
 

@@ -1,0 +1,2727 @@
+// The M5c scenario gate (m5c-plan.md G-03, §10), part 1: C0-C18 and C20. One login server and one game server as child processes on their own
+// test schemas and TWO accounts online at once - A, an Elyos Warrior, and B, an Elyos Mage - at Akarios village on Poeta: talking to the
+// merchant 798007, the postbox and the function npcs, buying, selling and buying back, an exchange, a cancelled one and one whose partner quits,
+// a private store, mail online and offline, soul healing, the database after both quit, identification, a manastone socketed and removed at
+// Seril, the cube expansion, an extraction and an enchantment - then the reports the server writes at shutdown. C19 (crafting) is stage 3's
+// part 2 (G-03): it needs M5d's QuestState restore and C-01 merged first (§20.5, §20.6).
+//
+// Every expectation is independent of the C++ server code, as in the earlier gates: server packets are read with the decoders of
+// tests/scenario/decoders (EconomyDecoders.h for the economy packets, ItemDecoders.h, CombatDecoders.h and PacketDecoders.h, all written from
+// the Java writeImpl methods, m5a-plan.md D9), and every number comes from `tools/oracle/oracle.py` - m5c-economy (the talk spots and windows,
+// soul healing, the cube, Seril's price, the mail commission, identification, extraction, socketing and the equip facts, through
+// EconomyOracle.h), m5c-trade (SM_PRICES, the merchant's windows, buy prices, sell rewards and refusals), m5a-creation (the starter
+// inventories) and m5b3-item (the item masks) - or from the Java arithmetic of the method an assertion is about, cited at the line.
+//
+// **This file does not share M5b3ScenarioTest.cpp's helpers**, for the reason that file gives: each gate owns one pair of server processes and
+// its helpers live in an anonymous namespace. What is duplicated is scaffolding (the case log, the burst collector, the login conversation,
+// the report readers), never an assertion. The inventory model is the shared one (InventoryModel.h), one per client.
+//
+// **The ledger (X16).** The gate keeps a per-character, per-item-id ledger that starts from the oracle's starter inventories and applies every
+// buy, sale, buy-back, exchange, store sale, mail and commission of C5-C13 with the oracles' prices. Three things are compared with it: the
+// clients' inventory models (every item packet each client received), the database after both quit (C14), and the re-entry's
+// SM_INVENTORY_INFO. And from C8 to C13 no object id may ever be in both clients' models.
+//
+// **Two clients, one reader at a time.** GameSession reads on demand, so a client that is not being read keeps its packets in the socket
+// buffer. Every step reads the acting client first and then drains the other one; a window "of B" is B's packets recorded between two marks.
+
+#include <gtest/gtest.h>
+
+#include <algorithm>
+#include <array>
+#include <chrono>
+#include <cmath>
+#include <ctime>
+#include <cstdint>
+#include <cstdlib>
+#include <filesystem>
+#include <fstream>
+#include <functional>
+#include <iostream>
+#include <map>
+#include <memory>
+#include <optional>
+#include <set>
+#include <span>
+#include <sstream>
+#include <stdexcept>
+#include <string>
+#include <thread>
+#include <vector>
+
+#include <nlohmann/json.hpp>
+
+#include "AsyncAllowed.h"
+#include "EconomyOracle.h"
+#include "FakeLoginClient.h"
+#include "GameSession.h"
+#include "InventoryModel.h"
+#include "Oracle.h"
+#include "ScenarioDatabase.h"
+#include "ScenarioServers.h"
+#include "decoders/CombatDecoders.h"
+#include "decoders/EconomyDecoders.h"
+#include "decoders/ItemDecoders.h"
+#include "decoders/PacketDecoders.h"
+
+#include "aion/commons/utils/WindowsMacroGuard.h" // after all headers that may include windows.h
+
+namespace aion::gameserver::scenario {
+namespace {
+
+using namespace std::chrono_literals;
+using decoders::DecodeError;
+using nlohmann::json;
+using Packet = GameSession::Packet;
+
+/** the quiet period that ends a burst of server packets (m5a-plan.md §5.4) */
+constexpr std::chrono::milliseconds QUIET = 1000ms;
+constexpr std::chrono::milliseconds BURST_LIMIT = 90s;
+/** how long a step reads for the answer of one client packet when no single packet ends it, and how long a refusal is watched for silence */
+constexpr std::chrono::milliseconds STEP = 1500ms;
+constexpr std::chrono::milliseconds SILENCE = 1500ms;
+
+/** SM_CREATE_CHARACTER response codes (SM_CREATE_CHARACTER.java) */
+constexpr int32_t RESPONSE_OK = 0;
+constexpr int32_t RESPONSE_OPEN_CREATION_WINDOW = 22;
+
+/** the Elyos start map and the npcs of §10.2 (the oracle's --npc list, in this order: the first is the reference of the spots) */
+constexpr int32_t ELYOS_START_MAP = 210010000;
+constexpr int32_t MERCHANT = 798007;  // minalinerk: BUY, SELL
+constexpr int32_t POSTBOX = 700000;   // the mailbox (PostboxAI)
+constexpr int32_t SERIL = 203336;     // REMOVE_ITEM_OPTION
+constexpr int32_t FULLA = 203064;     // RECOVERY
+constexpr int32_t CUBE_NPC = 798008;  // baevrunerk: EXTEND_INVENTORY
+/** the oracle's --direction for the talk spots: C3's stage-0 finding, along +x the band and far spots also lie in Seril's range (§18) */
+constexpr double SPOT_DIRECTION = 270.0;
+
+/** the items of §10.2 */
+constexpr int32_t KINAH_ITEM = 182400001;
+constexpr int32_t LIFE_POTION = 162000002;
+constexpr int32_t LIFE_ELIXIR = 162000052;
+constexpr int32_t JUICE = 160000001;
+constexpr int32_t BANDAGE = 169300002;
+constexpr int32_t TUNIC = 110100355;           // Plainsman's Tunic: C15-C18's armour (a robe piece a level-4 Mage can wear, §18)
+constexpr int32_t PLAINSMAN_SWORD = 100000133; // C18's weapon to break
+constexpr int32_t MANASTONE = 167000226;       // Manastone: HP +20
+constexpr int32_t EXTRACTION_TOOLS = 165000001;
+
+/** C5-C11's quantities */
+constexpr int64_t ELIXIRS_BOUGHT = 2;
+constexpr int64_t POTIONS_SOLD = 10;
+constexpr int64_t POTIONS_EXCHANGED = 10;
+constexpr int64_t KINAH_EXCHANGED = 100;
+constexpr int64_t BANDAGES_EXCHANGED = 5;
+constexpr uint16_t STORE_COUNT = 5;
+constexpr int64_t STORE_PRICE = 100;
+constexpr int64_t STORE_FIRST_BUY = 3;
+constexpr int64_t STORE_SECOND_BUY = 2;
+constexpr int64_t MAILED_POTIONS = 5;
+constexpr int64_t MAILED_KINAH = 200;
+constexpr int64_t KINAH_LETTER = 10;
+constexpr int64_t RECOVERABLE_EXP = 1000;
+constexpr std::string_view FIRST_MAIL = "162000002:5:200";
+constexpr std::string_view KINAH_MAIL = "0:0:10";
+
+/** DialogAction ids (DialogAction.java:17-18, 50, 57, 62, 85) */
+constexpr uint16_t DIALOG_BUY = 2;
+constexpr uint16_t DIALOG_SELL = 3;
+constexpr uint16_t DIALOG_RECOVERY = 35;
+constexpr uint16_t DIALOG_REMOVE_ITEM_OPTION = 42;
+constexpr uint16_t DIALOG_EXTEND_INVENTORY = 47;
+constexpr uint16_t DIALOG_BUY_AGAIN = 70;
+/** SM_QUESTION_WINDOW.STR_EXCHANGE_DO_YOU_ACCEPT_EXCHANGE (SM_QUESTION_WINDOW.java:107) */
+constexpr int32_t QUESTION_EXCHANGE = 90001;
+/** EmotionType.OPEN_PRIVATESHOP / CLOSE_PRIVATESHOP (EmotionType.java:41-42) */
+constexpr uint8_t EMOTION_OPEN_PRIVATESHOP = 33;
+constexpr uint8_t EMOTION_CLOSE_PRIVATESHOP = 34;
+/** ItemSlot.TORSO.getSlotIdMask() (ItemSlot.java:15), where CM_EQUIP_ITEM puts the tunic */
+constexpr int64_t TORSO = 1LL << 3;
+/** ItemStone.ItemStoneType.MANASTONE.ordinal(): the `category` ItemStoneListDAO stores for a manastone (ItemStone.java:22-27) */
+constexpr int32_t ITEM_STONE_CATEGORY_MANASTONE = 0;
+/** CM_USE_ITEM's type 2: a target item follows (CM_USE_ITEM.java:38-52) */
+constexpr int8_t USE_ITEM_ON_ITEM = 2;
+/** CM_MANASTONE's actionType for an enchantment stone and for a manastone (CM_MANASTONE.java runImpl: "case 1: // enchant stone", "case 2: // add
+ * manastone"), both handed to EnchantItemAction; GameSession names only the godstone (4) and removal (3) arms */
+constexpr uint8_t MANASTONE_ENCHANT = 1;
+constexpr uint8_t MANASTONE_ADD = 2;
+
+/** SM_SYSTEM_MESSAGE ids the oracles do not carry (SM_SYSTEM_MESSAGE.java) */
+constexpr int32_t STR_BUY_SELL_USER_BUY_FAILED = 1300335;
+constexpr int32_t STR_MSG_NOT_ENOUGH_MONEY = 1300759;
+constexpr int32_t STR_BUY_SELL_ITEM_CAN_NOT_BE_SELLED_TO_NPC = 1300344;
+constexpr int32_t STR_EXCHANGE_ASKED_EXCHANGE_TO_HIM = 1300353;
+constexpr int32_t STR_MSG_PERSONAL_SHOP_SELL_ITEM_MULTI = 1400135;
+constexpr int32_t STR_MSG_PERSONAL_SHOP_SELL_ITEM = 1400134;
+constexpr int32_t STR_MSG_ENCHANT_ITEM_SUCCEED_NEW = 1401681;
+constexpr int32_t STR_ENCHANT_ITEM_FAILED = 1300456;
+
+/** the ten client-visible statuses of SM_ENTER_WORLD_CHECK: 0 is the only one that lets the character in */
+constexpr uint8_t ENTER_WORLD_OK = 0;
+
+// ---- small helpers ----------------------------------------------------------------------------------------------------------------------
+
+std::string join(const std::vector<std::string>& values, std::string_view separator = ", ") {
+	std::string text;
+	for (size_t i = 0; i < values.size(); i++) {
+		if (i > 0)
+			text += separator;
+		text += values[i];
+	}
+	return text;
+}
+
+template <typename T>
+std::string joinNumbers(const std::vector<T>& values) {
+	std::vector<std::string> texts;
+	for (const T& value : values)
+		texts.push_back(std::to_string(value));
+	return join(texts);
+}
+
+double distance2d(double x1, double y1, double x2, double y2) {
+	const double dx = x1 - x2, dy = y1 - y2;
+	return std::sqrt(dx * dx + dy * dy);
+}
+
+std::vector<std::string> namesOf(const std::vector<Packet>& packets) {
+	std::vector<std::string> names;
+	names.reserve(packets.size());
+	for (const Packet& packet : packets)
+		names.push_back(packet.name);
+	return names;
+}
+
+std::vector<Packet> ofName(const std::vector<Packet>& packets, std::string_view name) {
+	std::vector<Packet> result;
+	for (const Packet& packet : packets)
+		if (packet.name == name)
+			result.push_back(packet);
+	return result;
+}
+
+const Packet* firstOfName(const std::vector<Packet>& packets, std::string_view name) {
+	for (const Packet& packet : packets)
+		if (packet.name == name)
+			return &packet;
+	return nullptr;
+}
+
+/** the packets [from, to) of a session's recording */
+std::vector<Packet> slice(const GameSession& session, size_t from, std::optional<size_t> to = std::nullopt) {
+	const std::vector<Packet>& packets = session.recorded();
+	const size_t end = std::min(packets.size(), to.value_or(packets.size()));
+	if (from >= end)
+		return {};
+	return std::vector<Packet>(packets.begin() + static_cast<std::ptrdiff_t>(from), packets.begin() + static_cast<std::ptrdiff_t>(end));
+}
+
+int64_t millisBetween(std::chrono::steady_clock::time_point earlier, std::chrono::steady_clock::time_point later) {
+	return std::chrono::duration_cast<std::chrono::milliseconds>(later - earlier).count();
+}
+
+/** the SM_SYSTEM_MESSAGE ids of a window, in order */
+std::vector<int32_t> messageIds(const std::vector<Packet>& packets) {
+	std::vector<int32_t> ids;
+	for (const Packet& packet : packets)
+		if (packet.name == "SM_SYSTEM_MESSAGE") {
+			try {
+				ids.push_back(decoders::decodeSystemMessageId(packet.data));
+			} catch (const DecodeError&) {
+				ids.push_back(-1);
+			}
+		}
+	return ids;
+}
+
+bool contains(const std::vector<int32_t>& values, int32_t value) {
+	return std::ranges::find(values, value) != values.end();
+}
+
+/** every packet of `name` in a window, decoded; a body that does not decode fails the row that reads it and is skipped */
+template <typename Decoded, typename Decode>
+std::vector<Decoded> decodeAll(const std::vector<Packet>& packets, std::string_view name, Decode decode, std::string_view row) {
+	std::vector<Decoded> decoded;
+	for (const Packet& packet : packets) {
+		if (packet.name != name)
+			continue;
+		try {
+			decoded.push_back(decode(std::span<const uint8_t>(packet.data)));
+		} catch (const DecodeError& error) {
+			ADD_FAILURE() << row << ": " << name << " does not decode: " << error.what();
+		}
+	}
+	return decoded;
+}
+
+/** SM_STATUPDATE_EXP (SM_STATUPDATE_EXP.java:32-38): five longs, the current exp first */
+struct StatUpdateExp {
+	int64_t currentExp = 0, recoverableExp = 0, maxExp = 0, curBoostExp = 0, maxBoostExp = 0;
+};
+
+StatUpdateExp decodeStatUpdateExp(std::span<const uint8_t> body) {
+	decoders::BodyReader reader(body, "SM_STATUPDATE_EXP");
+	StatUpdateExp exp;
+	exp.currentExp = reader.Q();
+	exp.recoverableExp = reader.Q();
+	exp.maxExp = reader.Q();
+	exp.curBoostExp = reader.Q();
+	exp.maxBoostExp = reader.Q();
+	reader.expectFullyConsumed();
+	return exp;
+}
+
+/** SM_ENTER_WORLD_CHECK's first byte (SM_ENTER_WORLD_CHECK.java: writeC(msg), then the rest) */
+std::optional<uint8_t> enterWorldCheck(const std::vector<Packet>& burst) {
+	const Packet* check = firstOfName(burst, "SM_ENTER_WORLD_CHECK");
+	if (check == nullptr || check->data.empty())
+		return std::nullopt;
+	return check->data[0];
+}
+
+// ---- the case-by-case report (the M5a §5.7 Q8 shape) -----------------------------------------------------------------------------------
+
+struct CaseResult {
+	std::string id;
+	std::string title;
+	bool ran = false;
+	bool failed = false;
+	std::string error;
+	std::chrono::milliseconds duration{0};
+};
+
+/** the failed assertions of the running test so far (HasFailure() cannot tell a later case's failure from an earlier one's) */
+int32_t failedAssertions(bool fatalOnly = false) {
+	const ::testing::TestResult* result = ::testing::UnitTest::GetInstance()->current_test_info()->result();
+	int32_t failed = 0;
+	for (int i = 0; i < result->total_part_count(); i++)
+		if (fatalOnly ? result->GetTestPartResult(i).fatally_failed() : result->GetTestPartResult(i).failed())
+			failed++;
+	return failed;
+}
+
+/**
+ * Runs the cases in order, records their result and never lets one case's exception end the run silently.
+ * @return whether the NEXT case can run: false after an exception or a fatal (ASSERT_*) failure, which leave the characters' state unknown;
+ * true after non-fatal (EXPECT_*) failures only, which leave it as the script intended - so a mutant that breaks one row still shows every
+ * later row of the gate (the "others pass" half of a mutation run)
+ */
+class CaseLog {
+public:
+	bool run(std::string_view id, std::string_view title, const std::function<void()>& body) {
+		CaseResult result;
+		result.id = id;
+		result.title = title;
+		result.ran = true;
+		const int32_t failedBefore = failedAssertions();
+		const int32_t fatalBefore = failedAssertions(true);
+		bool threw = false;
+		const auto started = std::chrono::steady_clock::now();
+		{
+			SCOPED_TRACE(std::string(id) + ": " + std::string(title));
+			try {
+				body();
+			} catch (const std::exception& exception) {
+				threw = true;
+				result.error = exception.what();
+				ADD_FAILURE() << id << " (" << title << ") ended with an exception: " << exception.what();
+			}
+		}
+		result.duration = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - started);
+		result.failed = failedAssertions() > failedBefore;
+		results.push_back(result);
+		return !threw && failedAssertions(true) == fatalBefore;
+	}
+
+	void skip(std::string_view id, std::string_view title, std::string_view reason) {
+		CaseResult result;
+		result.id = id;
+		result.title = title;
+		result.error = std::string("not run: ") + std::string(reason);
+		results.push_back(result);
+	}
+
+	std::string report(std::string_view testName) const {
+		std::ostringstream text;
+		text << testName << ", case by case:\n";
+		for (const CaseResult& result : results) {
+			text << "  " << result.id << " " << result.title << ": ";
+			if (!result.ran)
+				text << "NOT RUN (" << result.error << ")";
+			else
+				text << (result.failed ? "FAILED" : "passed") << " in " << result.duration.count() << " ms"
+				     << (result.error.empty() ? "" : " [" + result.error + "]");
+			text << "\n";
+		}
+		return text.str();
+	}
+
+private:
+	std::vector<CaseResult> results;
+};
+
+// ---- packet stream helpers -------------------------------------------------------------------------------------------------------------
+
+/** The object ids the server announced as npcs (SM_NPC_INFO), for the npc half of the async-allowed set (m5b-plan.md D2) */
+class AnnouncedNpcs {
+public:
+	void follow(const GameSession* next) {
+		session = next;
+		scanned = 0;
+		ids.clear();
+	}
+
+	bool contains(int32_t objectId) {
+		scan();
+		return ids.contains(objectId);
+	}
+
+	std::function<bool(int32_t)> predicate() {
+		return [this](int32_t objectId) { return contains(objectId); };
+	}
+
+private:
+	void scan() {
+		if (session == nullptr)
+			return;
+		const std::vector<Packet>& packets = session->recorded();
+		for (; scanned < packets.size(); scanned++) {
+			if (packets[scanned].name != "SM_NPC_INFO")
+				continue;
+			try {
+				ids.emplace(decoders::decodeNpcInfo(packets[scanned].data).objectId);
+			} catch (const DecodeError&) {
+				try {
+					ids.emplace(decoders::decodeNpcInfoObjectId(packets[scanned].data));
+				} catch (const DecodeError&) {
+					// the packet announced no id at all
+				}
+			}
+		}
+	}
+
+	const GameSession* session = nullptr;
+	size_t scanned = 0;
+	std::set<int32_t> ids;
+};
+
+/** A burst ends `quiet` after the last packet the async-allowed set does not explain (M5bScenarioTest.cpp's collectBurst) */
+std::vector<Packet> collectBurst(GameSession& session, const AsyncAllowed& async, std::chrono::milliseconds quiet = QUIET,
+	std::chrono::milliseconds limit = BURST_LIMIT) {
+	std::vector<Packet> collected;
+	const auto start = std::chrono::steady_clock::now();
+	const auto deadline = start + limit;
+	auto lastAwaited = start;
+	for (;;) {
+		const auto now = std::chrono::steady_clock::now();
+		if (now >= deadline)
+			break;
+		const auto quietLeft = std::chrono::duration_cast<std::chrono::milliseconds>(lastAwaited + quiet - now);
+		if (quietLeft <= 0ms)
+			break;
+		std::optional<Packet> packet = session.next(std::min(quietLeft, std::chrono::duration_cast<std::chrono::milliseconds>(deadline - now)));
+		if (!packet)
+			break;
+		if (!async.allows(packet->name, std::span<const uint8_t>(packet->data)))
+			lastAwaited = std::chrono::steady_clock::now();
+		collected.push_back(std::move(*packet));
+	}
+	return collected;
+}
+
+/** Reads and records everything that arrives within a FIXED window; the gate waits by reading, never by sleeping on a live socket */
+std::vector<Packet> collectFor(GameSession& session, std::chrono::milliseconds window) {
+	std::vector<Packet> collected;
+	const auto deadline = std::chrono::steady_clock::now() + window;
+	for (;;) {
+		const auto now = std::chrono::steady_clock::now();
+		if (now >= deadline)
+			break;
+		std::optional<Packet> packet = session.next(std::chrono::duration_cast<std::chrono::milliseconds>(deadline - now));
+		if (!packet) {
+			if (session.client.socket.isClosed())
+				break;
+			continue;
+		}
+		collected.push_back(std::move(*packet));
+	}
+	return collected;
+}
+
+/**
+ * Reads until `accept` answers true for a packet, recording everything on the way, or until `timeout`. The predicate sees every packet once.
+ * @return the index in recorded() of the accepted packet, std::nullopt on timeout or close
+ */
+std::optional<size_t> readUntil(GameSession& session, const std::function<bool(const Packet&)>& accept, std::chrono::milliseconds timeout) {
+	const auto deadline = std::chrono::steady_clock::now() + timeout;
+	for (;;) {
+		const auto now = std::chrono::steady_clock::now();
+		if (now >= deadline)
+			return std::nullopt;
+		std::optional<Packet> packet = session.next(std::chrono::duration_cast<std::chrono::milliseconds>(deadline - now));
+		if (!packet) {
+			if (session.client.socket.isClosed())
+				return std::nullopt;
+			continue;
+		}
+		if (accept(*packet))
+			return session.recorded().size() - 1;
+	}
+}
+
+/** Reads until a packet with that name arrives and records everything on the way. @throws std::runtime_error on timeout or close */
+Packet waitFor(GameSession& session, std::string_view name, std::chrono::milliseconds timeout = 15s) {
+	const std::optional<size_t> index = readUntil(session, [name](const Packet& packet) { return packet.name == name; }, timeout);
+	if (!index)
+		throw std::runtime_error("timeout waiting for " + std::string(name) + (session.client.socket.isClosed() ? " (the connection closed)" : ""));
+	return session.recorded()[*index];
+}
+
+/** Reads until a packet with that name arrives, skipping the async-allowed set. @throws std::runtime_error on timeout or close */
+Packet expectNext(GameSession& session, std::string_view name, const AsyncAllowed& async, std::chrono::milliseconds timeout = 15s) {
+	const auto deadline = std::chrono::steady_clock::now() + timeout;
+	for (;;) {
+		const auto now = std::chrono::steady_clock::now();
+		if (now >= deadline)
+			throw std::runtime_error("timeout waiting for " + std::string(name));
+		std::optional<Packet> packet = session.next(std::chrono::duration_cast<std::chrono::milliseconds>(deadline - now));
+		if (!packet)
+			throw std::runtime_error("expected " + std::string(name) + ", got nothing (" +
+			                         (session.client.socket.isClosed() ? "connection closed" : "timeout") + ")");
+		if (packet->name == name)
+			return *packet;
+		if (async.allows(packet->name, packet->data))
+			continue;
+		throw std::runtime_error("expected " + std::string(name) + ", got " + packet->name);
+	}
+}
+
+// ---- the oracle answers this gate reads besides EconomyOracle.h (tools/oracle/m5c/trade.py, m5b3/item.py) -----------------------------
+
+/** oracle.py m5c-trade --npc 798007 --item ID --count N --race ELYOS: the merchant's windows and one item's buy and sell (m5c/trade.py) */
+struct TradeAnswer {
+	/** prices.ELYOS.smPrices: SM_PRICES' three bytes */
+	std::array<int32_t, 3> smPrices{};
+	/** buy.smTradeList */
+	int32_t tradeNpcTypeIndex = 0, buyPriceModifier = 0;
+	bool tradeShowBuyTab = false, tradeShowSellTab = false;
+	std::vector<int32_t> tradeTabs;
+	size_t limitedItems = 0;
+	/** sell.smSellItem */
+	int32_t sellNpcTypeIndex = 0, sellBuyPriceRate = 0;
+	bool sellShowBuyTab = false, sellShowSellTab = false;
+	std::vector<int32_t> sellTabs;
+	/** item.buy / item.sell for the --count */
+	int32_t itemId = 0;
+	bool buyable = false;
+	std::optional<std::string> buyFailure;
+	int64_t buyUnitPrice = 0, buyKinah = 0;
+	bool sellAccepted = false;
+	std::optional<std::string> sellFailure;
+	int64_t sellKinah = 0, soldCount = 0;
+	std::optional<int64_t> repurchasePrice;
+};
+
+std::optional<std::string> failureMessage(const json& node) {
+	if (!node.contains("failure") || node.at("failure").is_null())
+		return std::nullopt;
+	return node.at("failure").at("message").get<std::string>();
+}
+
+TradeAnswer parseTrade(const std::string& text) {
+	const json root = json::parse(text);
+	if (root.at("format").get<std::string>() != "aion-m5c-trade")
+		throw std::runtime_error("not an m5c-trade answer");
+	TradeAnswer answer;
+	const json& prices = root.at("prices").at("ELYOS").at("smPrices");
+	for (size_t i = 0; i < 3; i++)
+		answer.smPrices[i] = prices.at(i).get<int32_t>();
+	const json& tradeList = root.at("buy").at("smTradeList");
+	answer.tradeNpcTypeIndex = tradeList.at("npcTypeIndex").get<int32_t>();
+	answer.buyPriceModifier = tradeList.at("buyPriceModifier").get<int32_t>();
+	answer.tradeShowBuyTab = tradeList.at("showBuyTab").get<bool>();
+	answer.tradeShowSellTab = tradeList.at("showSellTab").get<bool>();
+	answer.tradeTabs = tradeList.at("tabs").get<std::vector<int32_t>>();
+	answer.limitedItems = tradeList.at("limitedItems").size();
+	const json& sellItem = root.at("sell").at("smSellItem");
+	answer.sellNpcTypeIndex = sellItem.at("npcTypeIndex").get<int32_t>();
+	answer.sellBuyPriceRate = sellItem.at("buyPriceRate").get<int32_t>();
+	answer.sellShowBuyTab = sellItem.at("showBuyTab").get<bool>();
+	answer.sellShowSellTab = sellItem.at("showSellTab").get<bool>();
+	answer.sellTabs = sellItem.at("tabs").get<std::vector<int32_t>>();
+	const json& item = root.at("item");
+	answer.itemId = item.at("itemId").get<int32_t>();
+	const json& buy = item.at("buy");
+	answer.buyable = buy.at("buyable").get<bool>();
+	answer.buyFailure = failureMessage(buy);
+	answer.buyUnitPrice = buy.at("unitPrice").at("ELYOS").get<int64_t>();
+	answer.buyKinah = buy.at("kinah").at("ELYOS").get<int64_t>();
+	const json& sell = item.at("sell");
+	answer.sellAccepted = sell.at("accepted").get<bool>();
+	answer.sellFailure = failureMessage(sell);
+	answer.sellKinah = sell.at("kinah").get<int64_t>();
+	answer.soldCount = sell.at("soldCount").get<int64_t>();
+	if (!sell.at("repurchasePrice").is_null())
+		answer.repurchasePrice = sell.at("repurchasePrice").get<int64_t>();
+	return answer;
+}
+
+/** oracle.py m5b3-item: the mask flags of each item (m5b3/item.py) */
+std::map<int32_t, std::set<std::string>> parseMaskFlags(const std::string& text) {
+	const json root = json::parse(text);
+	std::map<int32_t, std::set<std::string>> flags;
+	for (const json& item : root.at("items")) {
+		std::set<std::string>& set = flags[item.at("itemId").get<int32_t>()];
+		for (const json& flag : item.at("maskFlags"))
+			set.insert(flag.get<std::string>());
+	}
+	return flags;
+}
+
+// ---- the scenario clients ---------------------------------------------------------------------------------------------------------------
+
+struct ScenarioClient {
+	std::string label; // "A" or "B"
+	std::string account;
+	std::string password = "m5cPassword1";
+	std::string name;
+	int32_t classId = 0;
+	std::unique_ptr<FakeLoginClient> login;
+	std::unique_ptr<GameSession> game;
+	FakeLoginClient::SessionKey key;
+	int32_t playerId = 0;
+	InventoryModel model;
+	AnnouncedNpcs npcs;
+	AsyncAllowed async = AsyncAllowed::m5aDefault();
+	/** the walk cursor: where the server has the character after its last CM_MOVE (or its spawn) */
+	float x = 0, y = 0, z = 0;
+	/** the last enter-world burst */
+	std::vector<Packet> lastEnterWorld;
+
+	size_t mark() const { return game ? game->recorded().size() : 0; }
+	std::vector<Packet> since(size_t from) const { return game ? slice(*game, from) : std::vector<Packet>{}; }
+	/** reads whatever is waiting (and what arrives within `window`) */
+	void drain(std::chrono::milliseconds window = 300ms) {
+		if (game && !game->client.socket.isClosed())
+			collectFor(*game, window);
+		model.sync();
+	}
+	int64_t kinah() {
+		model.sync();
+		return model.kinah();
+	}
+	std::optional<int32_t> kinahObject() {
+		model.sync();
+		for (const auto& [id, item] : model.items)
+			if (item.itemId == KINAH_ITEM && item.location == ModelItem::CUBE)
+				return id;
+		return std::nullopt;
+	}
+	/** the count of an item id over every stack of the model, equipped ones included */
+	int64_t countOf(int32_t itemId) {
+		model.sync();
+		int64_t count = 0;
+		for (const auto& [id, item] : model.items)
+			if (item.itemId == itemId)
+				count += item.count;
+		return count;
+	}
+	/** the largest unequipped cube stack of an item id (the starter stack), 0 without one */
+	int32_t stackOf(int32_t itemId) {
+		model.sync();
+		int32_t best = 0;
+		int64_t bestCount = -1;
+		for (const ModelItem& item : model.byItemId(itemId))
+			if (item.count > bestCount) {
+				best = item.objectId;
+				bestCount = item.count;
+			}
+		return best;
+	}
+};
+
+/** m5a-plan.md §5.2: the login server conversation and the game server login up to SM_CHARACTER_LIST */
+decoders::CharacterList logIn(ScenarioServers& servers, ScenarioClient& client) {
+	client.login = std::make_unique<FakeLoginClient>(servers.loginClientPort());
+	client.login->login(client.account, client.password);
+	const FakeLoginClient::ServerList list = client.login->requestServerList();
+	bool listed = false;
+	for (const FakeLoginClient::GameServerEntry& entry : list.servers)
+		if (entry.id == 1)
+			listed = entry.online;
+	EXPECT_TRUE(listed) << client.label << ": game server 1 is not listed as online (" << list.servers.size() << " servers)";
+	client.key = client.login->play(1);
+
+	client.game = std::make_unique<GameSession>(servers.gameClientPort());
+	client.model.follow(client.game.get());
+	client.npcs.follow(client.game.get());
+	client.async = AsyncAllowed::m5aDefault();
+	client.game->readKey();
+	client.game->send(GameSession::CM_VERSION_CHECK, GameSession::buildCM_VERSION_CHECK());
+	expectNext(*client.game, "SM_VERSION_CHECK", client.async);
+	client.game->send(GameSession::CM_L2AUTH_LOGIN_CHECK,
+	                  GameSession::buildCM_L2AUTH_LOGIN_CHECK(client.key.playOk2, client.key.playOk1, client.key.accountId, client.key.loginOk));
+	client.game->send(GameSession::CM_MAC_ADDRESS, GameSession::buildCM_MAC_ADDRESS());
+	expectNext(*client.game, "SM_L2AUTH_LOGIN_CHECK", client.async);
+	client.game->send(GameSession::CM_TIME_CHECK, GameSession::buildCM_TIME_CHECK(1));
+	expectNext(*client.game, "SM_AFTER_TIME_CHECK_4_7_5", client.async);
+	expectNext(*client.game, "SM_TIME_CHECK", client.async);
+	client.game->send(GameSession::CM_CHARACTER_LIST, GameSession::buildCM_CHARACTER_LIST(client.key.playOk2));
+	expectNext(*client.game, "SM_ACCOUNT_PROPERTIES", client.async);
+	return decoders::decodeCharacterList(expectNext(*client.game, "SM_CHARACTER_LIST", client.async).data);
+}
+
+/** CM_ENTER_WORLD and its burst; the character must be let in (SM_ENTER_WORLD_CHECK 0) and spawned. @return the burst */
+std::vector<Packet> enterWorld(ScenarioClient& client) {
+	client.async = AsyncAllowed::m5aDefault();
+	client.async.selfPlayerState(client.playerId);
+	client.async.npcActivity(client.npcs.predicate());
+	client.game->send(GameSession::CM_ENTER_WORLD, GameSession::buildCM_ENTER_WORLD(client.playerId));
+	std::vector<Packet> burst = collectBurst(*client.game, client.async);
+	if (burst.empty())
+		throw std::runtime_error(client.label + ": no packet after CM_ENTER_WORLD");
+	const std::optional<uint8_t> check = enterWorldCheck(burst);
+	if (!check || *check != ENTER_WORLD_OK)
+		throw std::runtime_error(client.label + ": the enter world was refused (SM_ENTER_WORLD_CHECK " +
+		                         (check ? std::to_string(*check) : std::string("missing")) + "; 3 is REENTRY_TIME, 1 CONNECTION_ERROR): " +
+		                         join(namesOf(burst)));
+	const Packet* spawn = firstOfName(burst, "SM_PLAYER_SPAWN");
+	if (spawn == nullptr)
+		throw std::runtime_error(client.label + ": no SM_PLAYER_SPAWN after CM_ENTER_WORLD: " + join(namesOf(burst)));
+	const decoders::PlayerSpawn spawned = decoders::decodePlayerSpawn(spawn->data);
+	client.x = spawned.x;
+	client.y = spawned.y;
+	client.z = spawned.z;
+	client.model.sync();
+	client.lastEnterWorld = burst;
+	return burst;
+}
+
+std::vector<Packet> levelReady(ScenarioClient& client) {
+	client.game->send(GameSession::CM_LEVEL_READY, GameSession::buildCM_LEVEL_READY());
+	std::vector<Packet> burst = collectBurst(*client.game, client.async);
+	if (burst.empty())
+		throw std::runtime_error(client.label + ": no packet after CM_LEVEL_READY");
+	client.model.sync();
+	return burst;
+}
+
+/** CM_QUIT(1): back to the character list, the connection kept; then CM_CHARACTER_LIST as the client does (M5a's Q1). @return the list */
+decoders::CharacterList quitToCharacterList(ScenarioClient& client) {
+	client.game->send(GameSession::CM_QUIT, GameSession::buildCM_QUIT(true));
+	waitFor(*client.game, "SM_QUIT_RESPONSE", 30s);
+	client.game->send(GameSession::CM_CHARACTER_LIST, GameSession::buildCM_CHARACTER_LIST(client.key.playOk2));
+	const Packet list = waitFor(*client.game, "SM_CHARACTER_LIST", 15s);
+	client.model.sync();
+	return decoders::decodeCharacterList(list.data);
+}
+
+/** from the character list back into the world (gameserver.character.reentry.time is 1 s in the scenario profile) */
+std::vector<Packet> reenter(ScenarioClient& client) {
+	std::this_thread::sleep_for(1500ms);
+	client.model.follow(client.game.get());
+	std::vector<Packet> burst = enterWorld(client);
+	levelReady(client);
+	return burst;
+}
+
+/** CM_QUIT(0): the character leaves the world (if it is in one) and the connection ends - the only state in which a `players` seed survives (F-3) */
+void disconnect(ScenarioClient& client) {
+	if (!client.game)
+		return;
+	client.game->send(GameSession::CM_QUIT, GameSession::buildCM_QUIT(false));
+	waitFor(*client.game, "SM_QUIT_RESPONSE", 30s);
+	if (!client.game->waitClosed(30s))
+		throw std::runtime_error(client.label + ": the socket stayed open after CM_QUIT(0)");
+	client.model.sync();
+	client.npcs.follow(nullptr);
+	client.model.follow(nullptr);
+	client.game.reset();
+	client.login.reset();
+}
+
+/** a new login and the stored character into the world (M5a's Q5). @return the character list and the enter-world burst */
+std::pair<decoders::CharacterList, std::vector<Packet>> relogIn(ScenarioServers& servers, ScenarioClient& client) {
+	decoders::CharacterList list = logIn(servers, client);
+	client.game->send(GameSession::CM_MAY_LOGIN_INTO_GAME, GameSession::buildCM_MAY_LOGIN_INTO_GAME());
+	expectNext(*client.game, "SM_MAY_LOGIN_INTO_GAME", client.async);
+	std::this_thread::sleep_for(1500ms);
+	std::vector<Packet> burst = enterWorld(client);
+	levelReady(client);
+	return {std::move(list), std::move(burst)};
+}
+
+/** the walk of the M5b gates: 5 m steps, each followed by a short read, then a stop */
+void walkTo(ScenarioClient& client, float toX, float toY, float toZ) {
+	const double total = distance2d(client.x, client.y, toX, toY);
+	const int32_t steps = std::max(1, static_cast<int32_t>(total / 5.0));
+	const float fromX = client.x, fromY = client.y, fromZ = client.z;
+	for (int32_t step = 1; step <= steps; step++) {
+		const float t = static_cast<float>(step) / static_cast<float>(steps);
+		client.game->send(GameSession::CM_MOVE, GameSession::buildCM_MOVE(fromX + (toX - fromX) * t, fromY + (toY - fromY) * t,
+		                                                                    fromZ + (toZ - fromZ) * t, 0, static_cast<int8_t>(0xE0), toX, toY, toZ));
+		collectFor(*client.game, 120ms);
+	}
+	client.game->send(GameSession::CM_MOVE, GameSession::buildCM_MOVE(toX, toY, toZ, 0, 0));
+	client.x = toX;
+	client.y = toY;
+	client.z = toZ;
+	collectFor(*client.game, 1s);
+	client.model.sync();
+}
+
+/** the object id of the npc of `templateId` nearest to (x, y), from every SM_NPC_INFO this session recorded (the npcs of §10.2 are fixed) */
+std::optional<int32_t> npcObject(const ScenarioClient& client, int32_t templateId, float x, float y) {
+	std::optional<int32_t> found;
+	double best = 5.0;
+	if (!client.game)
+		return found;
+	for (const Packet& packet : client.game->recorded()) {
+		if (packet.name != "SM_NPC_INFO")
+			continue;
+		try {
+			const decoders::NpcInfo npc = decoders::decodeNpcInfo(packet.data);
+			if (npc.templateId != templateId)
+				continue;
+			const double distance = distance2d(npc.x, npc.y, x, y);
+			if (distance < best) {
+				best = distance;
+				found = npc.objectId;
+			}
+		} catch (const DecodeError&) {
+			// a packet that does not decode is not this npc
+		}
+	}
+	return found;
+}
+
+/**
+ * The packets of a window a row about `client` must not see besides its own answer: the async set, an announced npc turning to or from
+ * anyone (NpcController.onTargetChanged broadcasts SM_LOOKATOBJECT with the talker as the target, which the async set only allows for an npc
+ * target), and the other character's own movement and emotes.
+ */
+bool isNoise(ScenarioClient& client, int32_t otherPlayerId, const Packet& packet) {
+	if (client.async.allows(packet.name, std::span<const uint8_t>(packet.data)))
+		return true;
+	try {
+		if (packet.name == "SM_LOOKATOBJECT")
+			return client.npcs.contains(decoders::decodeLookAtObject(packet.data).objectId) ||
+			       decoders::decodeLookAtObject(packet.data).objectId == otherPlayerId;
+		if (packet.name == "SM_MOVE")
+			return decoders::decodeMoveObjectId(packet.data) == otherPlayerId;
+		if (packet.name == "SM_EMOTION")
+			return decoders::decodeEmotionHeader(packet.data).objectId == otherPlayerId;
+		if (packet.name == "SM_PLAYER_STATE")
+			return decoders::decodePlayerStateObjectId(packet.data) == otherPlayerId;
+	} catch (const DecodeError&) {
+		return false;
+	}
+	return false;
+}
+
+std::vector<Packet> news(ScenarioClient& client, int32_t otherPlayerId, const std::vector<Packet>& packets) {
+	std::vector<Packet> result;
+	for (const Packet& packet : packets)
+		if (!isNoise(client, otherPlayerId, packet))
+			result.push_back(packet);
+	return result;
+}
+
+/** the counts of the kinah item's SM_INVENTORY_UPDATE_ITEMs in a window (Storage.increaseKinah / decreaseKinah, Storage.java) */
+std::vector<int64_t> kinahUpdates(const std::vector<Packet>& packets, int32_t kinahObject, std::string_view row) {
+	std::vector<int64_t> counts;
+	for (const decoders::InventoryUpdateItem& update :
+	     decodeAll<decoders::InventoryUpdateItem>(packets, "SM_INVENTORY_UPDATE_ITEM", decoders::decodeInventoryUpdateItem, row))
+		if (update.item.objectId == kinahObject && update.item.general)
+			counts.push_back(update.item.general->count);
+	return counts;
+}
+
+/** the SM_INVENTORY_UPDATE_ITEMs of one object in a window */
+std::vector<decoders::InventoryUpdateItem> updatesOf(const std::vector<Packet>& packets, int32_t objectId, std::string_view row) {
+	std::vector<decoders::InventoryUpdateItem> updates;
+	for (const decoders::InventoryUpdateItem& update :
+	     decodeAll<decoders::InventoryUpdateItem>(packets, "SM_INVENTORY_UPDATE_ITEM", decoders::decodeInventoryUpdateItem, row))
+		if (update.item.objectId == objectId)
+			updates.push_back(update);
+	return updates;
+}
+
+/** the items SM_INVENTORY_ADD_ITEM added in a window */
+std::vector<decoders::InventoryItem> addedItems(const std::vector<Packet>& packets, std::string_view row) {
+	std::vector<decoders::InventoryItem> items;
+	for (const decoders::InventoryAddItem& add :
+	     decodeAll<decoders::InventoryAddItem>(packets, "SM_INVENTORY_ADD_ITEM", decoders::decodeInventoryAddItem, row))
+		for (const decoders::InventoryItem& item : add.items)
+			items.push_back(item);
+	return items;
+}
+
+/** the object ids SM_DELETE_ITEM removed in a window */
+std::vector<int32_t> deletedObjects(const std::vector<Packet>& packets, std::string_view row) {
+	std::vector<int32_t> ids;
+	for (const decoders::DeleteItem& deleted : decodeAll<decoders::DeleteItem>(packets, "SM_DELETE_ITEM", decoders::decodeDeleteItem, row))
+		ids.push_back(deleted.objectId);
+	return ids;
+}
+
+/** the item packets of a window (a refusal's "no change") */
+std::vector<std::string> itemPackets(const std::vector<Packet>& packets) {
+	std::vector<std::string> names;
+	for (const Packet& packet : packets)
+		if (packet.name == "SM_INVENTORY_UPDATE_ITEM" || packet.name == "SM_INVENTORY_ADD_ITEM" || packet.name == "SM_DELETE_ITEM")
+			names.push_back(packet.name);
+	return names;
+}
+
+std::vector<uint8_t> exchangeConfirmations(const std::vector<Packet>& packets, std::string_view row) {
+	return decodeAll<uint8_t>(packets, "SM_EXCHANGE_CONFIRMATION", decoders::decodeExchangeConfirmation, row);
+}
+
+std::vector<decoders::MailService> mailServices(const std::vector<Packet>& packets, std::string_view row) {
+	return decodeAll<decoders::MailService>(packets, "SM_MAIL_SERVICE", decoders::decodeMailService, row);
+}
+
+std::vector<decoders::DialogWindow> dialogWindows(const std::vector<Packet>& packets, std::string_view row) {
+	return decodeAll<decoders::DialogWindow>(packets, "SM_DIALOG_WINDOW", decoders::decodeDialogWindow, row);
+}
+
+std::vector<decoders::QuestionWindow> questionWindows(const std::vector<Packet>& packets, std::string_view row) {
+	return decodeAll<decoders::QuestionWindow>(packets, "SM_QUESTION_WINDOW", decoders::decodeQuestionWindow, row);
+}
+
+std::vector<decoders::ItemUsageAnimation> usageAnimations(const std::vector<Packet>& packets, std::string_view row) {
+	return decodeAll<decoders::ItemUsageAnimation>(packets, "SM_ITEM_USAGE_ANIMATION", decoders::decodeItemUsageAnimation, row);
+}
+
+std::vector<decoders::Emotion> emotions(const std::vector<Packet>& packets, std::string_view row) {
+	return decodeAll<decoders::Emotion>(packets, "SM_EMOTION", decoders::decodeEmotion, row);
+}
+
+// ---- the check output reports (X22) ------------------------------------------------------------------------------------------------------
+
+/** One section of m5c_partial_allowlist.txt: §A hit at least once, §B hit exactly zero times, §C counted but not pinned */
+enum class AllowlistSection { HitAtLeastOnce, HitNever, NotPinned };
+
+struct AllowlistEntry {
+	std::string site;
+	AllowlistSection section = AllowlistSection::NotPinned;
+};
+
+/** Reads tests/scenario/m5c_partial_allowlist.txt with its three sections ("# --- SECTION A/B/C" marker lines, as the M5b lists) */
+std::vector<AllowlistEntry> readAllowlist() {
+	std::vector<AllowlistEntry> entries;
+	std::ifstream in(AION_SCENARIO_M5C_PARTIAL_ALLOWLIST, std::ios::binary);
+	std::string line;
+	AllowlistSection section = AllowlistSection::NotPinned;
+	while (std::getline(in, line)) {
+		if (!line.empty() && line.back() == '\r')
+			line.pop_back();
+		if (line.starts_with("# --- SECTION A"))
+			section = AllowlistSection::HitAtLeastOnce;
+		else if (line.starts_with("# --- SECTION B"))
+			section = AllowlistSection::HitNever;
+		else if (line.starts_with("# --- SECTION C"))
+			section = AllowlistSection::NotPinned;
+		if (line.empty() || line.starts_with('#'))
+			continue;
+		entries.push_back({line, section});
+	}
+	return entries;
+}
+
+std::string_view sectionName(AllowlistSection section) {
+	switch (section) {
+		case AllowlistSection::HitAtLeastOnce:
+			return "A";
+		case AllowlistSection::HitNever:
+			return "B";
+		default:
+			return "C";
+	}
+}
+
+/** an entry WITH a line number must match the whole site; one without is an explicit whole-file wildcard */
+bool allowlistEntryMatches(const std::string& entry, const std::string& site) {
+	if (entry.find(':') != std::string::npos)
+		return entry == site;
+	return site.starts_with(entry) && (site.size() == entry.size() || site[entry.size()] == ':');
+}
+
+struct PartialHit {
+	int64_t hits = 0;
+	std::string site;
+	std::string line;
+};
+
+std::vector<PartialHit> readPartialHits(const ScenarioServers& servers) {
+	std::vector<PartialHit> hits;
+	for (const std::string& line : servers.readReportLines("partial_trace.txt")) {
+		const size_t first = line.find('\t');
+		if (first == std::string::npos)
+			continue;
+		const size_t second = line.find('\t', first + 1);
+		PartialHit hit;
+		hit.line = line;
+		hit.site = line.substr(first + 1, second == std::string::npos ? std::string::npos : second - first - 1);
+		try {
+			hit.hits = std::stoll(line.substr(0, first));
+		} catch (const std::exception&) {
+			continue;
+		}
+		hits.push_back(hit);
+	}
+	return hits;
+}
+
+struct LiveCount {
+	int64_t live = 0;
+	int64_t created = 0;
+	std::string line;
+};
+
+/** "<live>\t<created>\t<qualified class name>" rows of live_counts.txt, keyed by the unqualified name */
+std::vector<std::pair<std::string, LiveCount>> readLiveCounts(const ScenarioServers& servers, std::string_view fileName) {
+	std::vector<std::pair<std::string, LiveCount>> counts;
+	for (const std::string& line : servers.readReportLines(fileName)) {
+		const size_t firstTab = line.find('\t');
+		const size_t lastTab = line.rfind('\t');
+		if (firstTab == std::string::npos || lastTab == firstTab)
+			continue;
+		const std::string qualified = line.substr(lastTab + 1);
+		const size_t colons = qualified.rfind("::");
+		LiveCount count;
+		count.line = line;
+		try {
+			count.live = std::stoll(line.substr(0, firstTab));
+			count.created = std::stoll(line.substr(firstTab + 1, lastTab - firstTab - 1));
+		} catch (const std::exception&) {
+			continue;
+		}
+		counts.emplace_back(colons == std::string::npos ? qualified : qualified.substr(colons + 2), count);
+	}
+	return counts;
+}
+
+/**
+ * m5c-plan.md G-07 (2), §20.7 item 2: LegionDominionService::startWeeklyCalculation is scheduled with a hard-coded "0 0 9 ? * WED *"
+ * (CronJobService.cpp:185-187, CronJobService.java:70) that no key moves, and it is AION_UNPORTED. A production seam would be a deviation the
+ * owner has not decided, so the gate only NAMES a hit of that site as the cron's when its server was up at a Wednesday 09:00 local time - the
+ * failure stays (P5-SC.md's rerun rule: rerun it before reading it as a regression).
+ */
+bool crossesWednesdayNine(std::chrono::system_clock::time_point from, std::chrono::system_clock::time_point to) {
+	for (auto at = std::chrono::floor<std::chrono::minutes>(from); at <= to; at += std::chrono::minutes(1)) {
+		const std::time_t seconds = std::chrono::system_clock::to_time_t(at);
+		std::tm local{};
+		localtime_s(&local, &seconds);
+		if (local.tm_wday == 3 && local.tm_hour == 9 && local.tm_min == 0)
+			return true;
+	}
+	return false;
+}
+
+/** The end of a run: the two test schemas are dropped, and a failed run says where its evidence is (the M5a finishRun) */
+void finishRun(ScenarioServers& servers, const std::filesystem::path& outputDir, std::string_view testName) {
+	for (const std::string& problem : servers.stopProblemsReported())
+		ADD_FAILURE() << testName << ": " << problem;
+	const bool failed = ::testing::Test::HasFailure();
+	if (failed)
+		std::cout << testName << " failed.\n"
+		          << "logs: " << (outputDir / "game_server.log") << ", " << (outputDir / "login_server.log") << "\n"
+		          << "reports: " << servers.checkOutputDir() << std::endl;
+	if (failed && ScenarioServers::keepSchemasOnFailure()) {
+		std::cout << "the scenario schemas " << servers.gameSchema() << " and " << servers.loginSchema()
+		          << " were kept for the post mortem (AION_SCENARIO_KEEP_SCHEMAS is set)" << std::endl;
+		return;
+	}
+	try {
+		servers.dropSchemas();
+		if (failed)
+			std::cout << "the scenario schemas " << servers.gameSchema() << " and " << servers.loginSchema()
+			          << " were dropped; set AION_SCENARIO_KEEP_SCHEMAS=1 and run the gate again to keep them" << std::endl;
+	} catch (const std::exception& exception) {
+		std::cout << "the scenario schemas could not be dropped (" << exception.what() << ")" << std::endl;
+	}
+}
+
+// ---- the ledger (X16) --------------------------------------------------------------------------------------------------------------------
+
+/** item id -> count of one character, starting from the oracle's starter inventory (the kinah item carries the kinah) */
+using Ledger = std::map<int32_t, int64_t>;
+
+Ledger starterLedger(const OracleCreation& creation) {
+	Ledger ledger;
+	for (const OracleItem& item : creation.items)
+		ledger[item.itemId] += item.count;
+	return ledger;
+}
+
+/** the per-item-id differences "id: have/want" between two ledgers (0-count entries count as absent) */
+std::vector<std::string> ledgerDifferences(const Ledger& have, const Ledger& want) {
+	std::set<int32_t> ids;
+	for (const auto& [id, count] : have)
+		ids.insert(id);
+	for (const auto& [id, count] : want)
+		ids.insert(id);
+	std::vector<std::string> differences;
+	for (int32_t id : ids) {
+		const int64_t a = have.contains(id) ? have.at(id) : 0;
+		const int64_t b = want.contains(id) ? want.at(id) : 0;
+		if (a != b)
+			differences.push_back(std::to_string(id) + ": " + std::to_string(a) + "/" + std::to_string(b));
+	}
+	return differences;
+}
+
+Ledger ledgerOf(const InventoryModel& model) {
+	Ledger ledger;
+	for (const auto& [id, item] : model.items)
+		ledger[item.itemId] += item.count;
+	return ledger;
+}
+
+// ---- the gate ---------------------------------------------------------------------------------------------------------------------------
+
+void runM5cGate() {
+	const std::string testName = "gs.scenario.m5c";
+	// A skipped gate is NOT a passed gate (m5a-plan.md §5.10): AION_SCENARIO_REQUIRE=1 - the default of the CTest registration - turns every
+	// skip reason into a failure that names the variable.
+	const char* requireEnvironment = std::getenv("AION_SCENARIO_REQUIRE");
+	const bool required = requireEnvironment != nullptr && *requireEnvironment != '\0' && std::string_view(requireEnvironment) != "0";
+	const auto unavailable = [&](std::string_view reason) {
+		if (required)
+			ADD_FAILURE() << testName << " was not configured and AION_SCENARIO_REQUIRE is set: " << reason;
+		else
+			GTEST_SKIP() << testName << ": skipped (" << reason << ")";
+	};
+
+	std::optional<ScenarioEnvironment> environment = ScenarioEnvironment::fromEnvironment();
+	if (!environment) {
+		unavailable("set AION_TEST_GS_DATABASE_URL and AION_TEST_LS_DATABASE_URL");
+		return;
+	}
+	const std::filesystem::path outputDir = std::filesystem::path(AION_SCENARIO_OUTPUT_DIR) / "m5c";
+	std::optional<Oracle> oracle = Oracle::fromEnvironment(outputDir / "oracle");
+	if (!oracle) {
+		unavailable("no Python interpreter for tools/oracle: set AION_TEST_PYTHON");
+		return;
+	}
+
+	CaseLog cases;
+	struct ReportPrinter {
+		const CaseLog& cases;
+		const std::string& testName;
+		~ReportPrinter() { std::cout << cases.report(testName) << std::flush; }
+	} printer{cases, testName};
+
+	// ---- §10.1 processes, databases and profile: game-server/config/m5c.properties.example, key by key ----
+	// The M5a set comes from ScenarioServers::m5aProfile (with G-07's far-future wall-clock schedules), then the M5b-1, M5b-2 and M5b-3
+	// keys at the values the M5c profile gives them (the drop rate back at 0, m5b3-plan.md D4), then M5c's three (D6): crafting never fails
+	// and never crits, and a manastone always sockets.
+	ScenarioServers::Config config;
+	config.gameServerExecutable = AION_GAME_SERVER_EXECUTABLE;
+	config.loginServerExecutable = AION_LOGIN_SERVER_EXECUTABLE;
+	config.gameServerJavaDir = AION_GAMESERVER_JAVA_DIR;
+	config.loginServerJavaDir = AION_LOGINSERVER_JAVA_DIR;
+	config.outputDir = outputDir;
+	config.schemaPrefix = "m5c";
+	config.gameServerProperties["gameserver.npcshouts.enable"] = "false";
+	config.gameServerProperties["gameserver.rates.xp.solo"] = "1.0, 2.0";
+	config.gameServerProperties["gameserver.soulsickness.disable"] = "10";
+	config.gameServerProperties["gameserver.rates.drop"] = "0";
+	config.gameServerProperties["gameserver.items.ignore_potions_at_full_health"] = "false";
+	config.gameServerProperties["gameserver.rates.godstone.activation.rate"] = "1.0";
+	config.gameServerProperties["gameserver.rates.godstone.evaluation.cooldown_millis"] = "750";
+	config.gameServerProperties["gameserver.drop.announce_quality"] = "MYTHIC";
+	config.gameServerProperties["gameserver.craft.fail.chance"] = "0";
+	config.gameServerProperties["gameserver.rates.crafting.crit_chances"] = "0, 0";
+	config.gameServerProperties["gameserver.rates.manastone_chances"] = "200, 200";
+	config.startupTimeout = 10min;
+	config.stopTimeout = 3min;
+	// the oracles read exactly the properties the server is given: the M5a profile under the gate's own keys, nothing from mygs.properties
+	std::vector<std::string> oracleSettings;
+	{
+		std::map<std::string, std::string> properties = ScenarioServers::m5aProfile();
+		for (const auto& [key, value] : config.gameServerProperties)
+			properties[key] = value;
+		for (const auto& [key, value] : properties)
+			oracleSettings.push_back(key + "=" + value);
+	}
+	ScenarioServers servers(config, *environment);
+	const std::string schema = servers.gameSchema();
+	const ScenarioDatabase& database = servers.gameDatabase();
+
+	bool ok = true;
+	const auto runCase = [&](std::string_view id, std::string_view title, const std::function<void()>& body) {
+		if (!ok)
+			cases.skip(id, title, "an earlier case ended with an exception or a fatal failure");
+		else
+			ok = cases.run(id, title, body);
+	};
+
+	std::chrono::system_clock::time_point serverUpFrom = std::chrono::system_clock::now();
+	ok = cases.run("S-0", "the servers start (§10.1)", [&] {
+		servers.createSchemas();
+		servers.startLoginServer();
+		serverUpFrom = std::chrono::system_clock::now();
+		try {
+			servers.startGameServer();
+		} catch (const std::exception& exception) {
+			std::vector<std::string> diagnosis;
+			diagnosis.push_back(exception.what());
+			ChildProcess* gameServer = servers.gameServer();
+			if (gameServer != nullptr) {
+				const std::vector<std::string> steps = gameServer->findLogLines("startup step ", 1000);
+				if (!steps.empty())
+					diagnosis.push_back("last startup step: " + steps.back());
+				for (const std::string& line : gameServer->findLogLines(" ERROR ", 5))
+					diagnosis.push_back(line);
+			}
+			throw std::runtime_error(join(diagnosis, "\n  "));
+		}
+	});
+
+	ScenarioClient a, b;
+	a.label = "A";
+	b.label = "B";
+	const std::string suffix = servers.gameSchema().substr(servers.gameSchema().size() - 8);
+	a.account = "m5ca" + suffix;
+	b.account = "m5cb" + suffix;
+	a.name = "Economya";
+	b.name = "Economyb";
+	a.classId = NewCharacter::WARRIOR;
+	b.classId = NewCharacter::MAGE;
+
+	// ---- C0: the oracles answer, and the plan's premises are re-derived from them (§10.2 C0, G-01) ----
+	EconomyAnswer economy;
+	TradeAnswer elixirs, potions, juice, tools;
+	OracleCreation warrior, mage;
+	std::map<int32_t, std::set<std::string>> masks;
+	Ledger ledgerA, ledgerB;
+	int64_t seedKinahB = 0;
+	runCase("C0", "the oracles answer and the plan's premises hold (m5c-economy, m5c-trade, m5a-creation, m5b3-item)", [&] {
+		EconomyRequest request;
+		request.noProfile = true;
+		request.settings = oracleSettings;
+		request.mapId = ELYOS_START_MAP;
+		request.npcIds = {MERCHANT, POSTBOX, SERIL, FULLA, CUBE_NPC};
+		request.direction = SPOT_DIRECTION;
+		request.recoverExp = RECOVERABLE_EXP;
+		request.mails = {std::string(FIRST_MAIL), std::string(KINAH_MAIL)};
+		request.itemIds = {TUNIC, PLAINSMAN_SWORD};
+		request.manastones = {MANASTONE};
+		request.playerClass = "MAGE";
+		request.race = "ELYOS";
+		request.level = 4;
+		economy = runEconomy(*oracle, request);
+
+		const auto trade = [&](int32_t itemId, int64_t count) {
+			std::vector<std::string> arguments = {"m5c-trade", "--no-profile", "--npc", std::to_string(MERCHANT), "--item", std::to_string(itemId),
+				"--count", std::to_string(count), "--race", "ELYOS"};
+			for (const std::string& setting : oracleSettings) {
+				arguments.push_back("--set");
+				arguments.push_back(setting);
+			}
+			return parseTrade(oracle->run(arguments));
+		};
+		elixirs = trade(LIFE_ELIXIR, ELIXIRS_BOUGHT);
+		potions = trade(LIFE_POTION, POTIONS_SOLD);
+		juice = trade(JUICE, 1);
+		tools = trade(EXTRACTION_TOOLS, 1);
+		warrior = oracle->creation("ELYOS", "WARRIOR");
+		mage = oracle->creation("ELYOS", "MAGE");
+		masks = parseMaskFlags(oracle->run({"m5b3-item", "--item", std::to_string(JUICE), "--item", std::to_string(LIFE_POTION), "--item",
+		                                    std::to_string(BANDAGE), "--item", std::to_string(MANASTONE)}));
+
+		// X1's premise: the siege off leaves every influence at 0, so SM_PRICES is 125/100/113 for either race (§2.10)
+		EXPECT_EQ(economy.smPrices.at("ELYOS"), (std::array<int32_t, 3>{125, 100, 113})) << "§2.10's SM_PRICES";
+		EXPECT_EQ(elixirs.smPrices, economy.smPrices.at("ELYOS")) << "m5c-trade and m5c-economy must agree on SM_PRICES";
+		// X2: the band spot of 798007 is inside the talk range only because of isInTalkRange's "+ 1" (PositionUtil.java:243-261, 306-309)
+		const EconomyTalk& merchant = economy.talkOf(MERCHANT);
+		EXPECT_TRUE(merchant.canInteract);
+		EXPECT_TRUE(merchant.bandSpot.inTalkRange && !merchant.bandSpot.inRangeWithoutPlusOne && !merchant.bandSpot.inRangeCenterToCenter)
+		  << "the X2 spot must lie in [talk + R_npc + R_player, talk + 1 + R_npc + R_player), " << merchant.bandSpot.distance << " m";
+		EXPECT_FALSE(merchant.farSpot.inTalkRange) << "C3's far spot is out of range";
+		for (int32_t npcId : {MERCHANT, POSTBOX, SERIL, FULLA, CUBE_NPC}) {
+			const EconomyTalk& talk = economy.talkOf(npcId);
+			EXPECT_TRUE(talk.nearSpot.inTalkRange) << npcId;
+			EXPECT_TRUE(talk.bandSpot.otherNpcsInTalkRange.empty() && talk.nearSpot.otherNpcsInTalkRange.empty() && talk.farSpot.otherNpcsInTalkRange.empty())
+			  << npcId << ": --direction " << SPOT_DIRECTION << " must leave every spot in no other npc's range (C3, §18)";
+			EXPECT_TRUE(talk.startWindow.has_value()) << npcId;
+		}
+		ASSERT_TRUE(merchant.startWindow && merchant.startWindow->page && economy.talkOf(POSTBOX).startWindow);
+		EXPECT_EQ(*merchant.startWindow->page, 10) << "a function npc's start page (DialogPage.getStartPageId)";
+		EXPECT_EQ(economy.talkOf(POSTBOX).startWindow->page, std::optional<int32_t>(decoders::DIALOG_PAGE_MAIL));
+		EXPECT_EQ(economy.talkOf(POSTBOX).startWindow->pageValue, decoders::MAILBOX_STATE_REGULAR);
+		// X4-X8: the merchant's windows, prices, sell rewards and refusals
+		EXPECT_EQ(elixirs.tradeTabs, (std::vector<int32_t>{132, 720})) << "X4's tabs";
+		EXPECT_EQ(elixirs.tradeNpcTypeIndex, 1) << "TradeNpcType.NORMAL's constructor argument (TradeNpcType.java:12), never its ordinal";
+		EXPECT_TRUE(elixirs.buyable);
+		EXPECT_EQ(elixirs.buyKinah, ELIXIRS_BOUGHT * 352) << "§2.10: 250 x 125 % x 113 % = 352";
+		EXPECT_FALSE(potions.buyable) << "C5's unlisted item";
+		EXPECT_EQ(potions.buyFailure, std::optional<std::string>("STR_BUY_SELL_USER_BUY_FAILED"));
+		EXPECT_TRUE(potions.sellAccepted);
+		EXPECT_EQ(potions.soldCount, POTIONS_SOLD);
+		EXPECT_EQ(potions.sellKinah, 500) << "X7: 250 x 20 % x 10";
+		EXPECT_EQ(potions.repurchasePrice, std::optional<int64_t>(500)) << "X8's buy-back price is the sale's reward";
+		EXPECT_FALSE(juice.sellAccepted);
+		EXPECT_EQ(juice.sellFailure, std::optional<std::string>("STR_BUY_SELL_ITEM_CAN_NOT_BE_SELLED_TO_NPC"));
+		EXPECT_EQ(tools.buyKinah, 1412) << "X27: 1,000 x 125 % x 113 %";
+		// X9: the juice cannot be traded, the potion and the bandage can (Item.isTradeable over the template mask)
+		EXPECT_FALSE(masks.at(JUICE).contains("TRADEABLE"));
+		EXPECT_TRUE(masks.at(LIFE_POTION).contains("TRADEABLE") && masks.at(BANDAGE).contains("TRADEABLE"));
+		// X13-X15, X25-X26
+		ASSERT_EQ(economy.mail.size(), 2u);
+		EXPECT_EQ(economy.mail[0].byRace.at("ELYOS").second, 251) << "X13: 5 potions and 200 kinah";
+		EXPECT_EQ(economy.mail[1].byRace.at("ELYOS").second, 23) << "a 10-kinah letter";
+		ASSERT_TRUE(economy.recovery && economy.recovery->price && economy.recovery->question);
+		EXPECT_EQ(*economy.recovery->price, 249) << "X15";
+		ASSERT_FALSE(economy.cube.empty());
+		EXPECT_EQ(economy.cube[0].price, std::optional<int64_t>(1000)) << "X26";
+		ASSERT_TRUE(economy.removalPrice);
+		EXPECT_EQ(economy.removalPrice->at("ELYOS"), 917) << "X25";
+		// X23-X24, X27: the items of C14's seed
+		const EconomyItem& tunic = economy.item(TUNIC);
+		const EconomyItem& sword = economy.item(PLAINSMAN_SWORD);
+		EXPECT_TRUE(tunic.canTune);
+		EXPECT_EQ(tunic.seedTuneCountForUnidentified, std::optional<int32_t>(-1)) << "D5: the row must be written with tune_count -1";
+		EXPECT_TRUE(tunic.equipPasses) << "C15: a level-4 Mage wears the robe piece";
+		ASSERT_TRUE(tunic.startExpOfRequiredLevel);
+		EXPECT_EQ(*tunic.startExpOfRequiredLevel, 3820) << "§10.1: players.exp = 3,820 makes B level 4";
+		ASSERT_FALSE(tunic.socketing.empty());
+		EXPECT_TRUE(tunic.socketing[0].fits && tunic.socketing[0].certain.value_or(false)) << "X24: rate 200 socket without randomness (D6)";
+		EXPECT_TRUE(sword.breakable);
+		EXPECT_EQ(sword.breakCountRange, (std::optional<std::array<int32_t, 2>>(std::array<int32_t, 2>{2, 5}))) << "X27: a weapon breaks into 2-5";
+		// B's kinah for C16-C18: exactly the removal, the cube and the tools (§10.1 "Seeds"), so the tools leave 0 (X27)
+		seedKinahB = economy.removalPrice->at("ELYOS") + *economy.cube[0].price + tools.buyKinah;
+		EXPECT_EQ(seedKinahB, 917 + 1000 + 1412);
+
+		// the ledgers of §10.1: A's kinah must stay above C13's price until C13 (1,000 -> 296 -> 196 -> 696 -> 399)
+		ledgerA = starterLedger(warrior);
+		ledgerB = starterLedger(mage);
+		EXPECT_EQ(ledgerA[KINAH_ITEM], 1000);
+		EXPECT_EQ(ledgerB[KINAH_ITEM], 1000);
+		EXPECT_GE(ledgerA[LIFE_POTION], 100) << "C6-C11 take potions from A's starter stack";
+		EXPECT_GE(ledgerA[BANDAGE], 20);
+		EXPECT_GE(ledgerB[BANDAGE], BANDAGES_EXCHANGED);
+		EXPECT_GE(ledgerA[JUICE], 1);
+		const int64_t beforeRecovery = 1000 - elixirs.buyKinah + potions.sellKinah - *potions.repurchasePrice - KINAH_EXCHANGED +
+		                               STORE_PRICE * STORE_COUNT - economy.mail[0].byRace.at("ELYOS").second - 2 * economy.mail[1].byRace.at("ELYOS").second;
+		EXPECT_EQ(beforeRecovery, 399) << "§10.2 C12's ledger";
+		EXPECT_GE(beforeRecovery, *economy.recovery->price) << "C13 needs A to afford the soul healing";
+		std::cout << "C0: merchant band spot " << merchant.bandSpot.distance << " m (limit " << merchant.limit << ", without + 1 " << merchant.limitWithoutPlusOne
+		          << "), elixirs " << elixirs.buyKinah << ", 10 potions sold for " << potions.sellKinah << ", tools " << tools.buyKinah << ", mail "
+		          << economy.mail[0].byRace.at("ELYOS").second << "/" << economy.mail[1].byRace.at("ELYOS").second << ", recovery "
+		          << *economy.recovery->price << ", cube " << *economy.cube[0].price << ", removal " << economy.removalPrice->at("ELYOS")
+		          << "; B's seed kinah " << seedKinahB << std::endl;
+	});
+
+	// ---- C1: login, create A and B, seed both at the X2 spot while disconnected (F-3), enter world, level ready ----
+	std::array<float, 3> bandSpot{};
+	runCase("C1", "login, create the Warrior A and the Mage B, seed both at the X2 spot, enter world, level ready", [&] {
+		const EconomyTalk& merchant = economy.talkOf(MERCHANT);
+		bandSpot = {merchant.bandSpot.x, merchant.bandSpot.y, merchant.bandSpot.z};
+		for (ScenarioClient* client : {&a, &b}) {
+			const decoders::CharacterList list = logIn(servers, *client);
+			EXPECT_EQ(list.characterCount, 0) << client->label << ": a fresh account must have no character";
+			NewCharacter character;
+			character.name = client->name;
+			character.asmodian = false;
+			character.playerClassId = client->classId;
+			client->game->send(GameSession::CM_CREATE_CHARACTER, GameSession::buildCM_CREATE_CHARACTER(client->key.accountId, client->account, character, 1));
+			EXPECT_EQ(decoders::decodeCreateCharacter(expectNext(*client->game, "SM_CREATE_CHARACTER", client->async).data).responseCode,
+			          RESPONSE_OPEN_CREATION_WINDOW);
+			client->game->send(GameSession::CM_CREATE_CHARACTER, GameSession::buildCM_CREATE_CHARACTER(client->key.accountId, client->account, character, 0));
+			const decoders::CreateCharacter created = decoders::decodeCreateCharacter(expectNext(*client->game, "SM_CREATE_CHARACTER", client->async).data);
+			if (created.responseCode != RESPONSE_OK || !created.player)
+				throw std::runtime_error(client->label + ": creating the character answered response code " + std::to_string(created.responseCode));
+			client->playerId = created.player->playerId;
+			// §10.1 "Seeds": the position is a `players` column, and the account's copy of it is loaded at connect and saved at logout, so the
+			// seed is written with the account disconnected (m5c0-client-session.md F-3)
+			disconnect(*client);
+		}
+		for (ScenarioClient* client : {&a, &b})
+			database.execute(schema, "UPDATE players SET x = " + std::to_string(bandSpot[0]) + ", y = " + std::to_string(bandSpot[1]) + ", z = " +
+			                           std::to_string(bandSpot[2]) + " WHERE id = " + std::to_string(client->playerId));
+		for (ScenarioClient* client : {&a, &b}) {
+			const auto [list, burst] = relogIn(servers, *client);
+			ASSERT_EQ(list.characters.size(), 1u);
+			EXPECT_NEAR(list.characters[0].x, bandSpot[0], 0.01) << client->label << ": the seeded position is not in the character list";
+			EXPECT_NEAR(client->x, bandSpot[0], 0.01) << client->label << ": SM_PLAYER_SPAWN is not at the seeded X2 spot";
+			EXPECT_NEAR(client->y, bandSpot[1], 0.01);
+			// the model against the oracle's starter inventory: every m5a-creation item, equipped where it says so
+			const OracleCreation& creation = client == &a ? warrior : mage;
+			const std::vector<std::string> differences = ledgerDifferences(ledgerOf(client->model), starterLedger(creation));
+			EXPECT_TRUE(differences.empty()) << client->label << ": the enter-world SM_INVENTORY_INFO against m5a-creation (have/want): "
+			                                 << join(differences) << "; it lists " << client->model.describe();
+			EXPECT_TRUE(client->model.decodeFailures.empty()) << join(client->model.decodeFailures, "\n  ");
+		}
+		a.drain();
+	});
+
+	// ---- C2: X1, SM_PRICES of both enter-world bursts ----
+	runCase("C2", "SM_PRICES in both enter-world bursts (X1)", [&] {
+		for (ScenarioClient* client : {&a, &b}) {
+			const std::vector<decoders::Prices> prices =
+			  decodeAll<decoders::Prices>(client->lastEnterWorld, "SM_PRICES", decoders::decodePrices, "X1");
+			ASSERT_EQ(prices.size(), 1u) << client->label << ": one SM_PRICES per enter world: " << join(namesOf(client->lastEnterWorld));
+			const std::array<int32_t, 3>& want = economy.smPrices.at("ELYOS");
+			EXPECT_EQ(prices[0].globalPrices, want[0]) << "X1 (" << client->label << "): PricesService.getGlobalPrices";
+			EXPECT_EQ(prices[0].globalPricesModifier, want[1]) << "X1 (" << client->label << "): getGlobalPricesModifier";
+			EXPECT_EQ(prices[0].taxes, want[2]) << "X1 (" << client->label << "): getTaxes";
+		}
+	});
+
+	// object ids of the npcs, from the SM_NPC_INFO the clients were sent
+	const auto npcOf = [&](ScenarioClient& client, int32_t npcId) -> int32_t {
+		const EconomyTalk& talk = economy.talkOf(npcId);
+		const std::optional<int32_t> object = npcObject(client, npcId, talk.x, talk.y);
+		if (!object)
+			throw std::runtime_error(client.label + " was never sent the SM_NPC_INFO of npc " + std::to_string(npcId) + " at (" + std::to_string(talk.x) +
+			                         ", " + std::to_string(talk.y) + ")");
+		return *object;
+	};
+	const auto walkToSpot = [&](ScenarioClient& client, const EconomySpot& spot, float offsetX = 0) { walkTo(client, spot.x + offsetX, spot.y, spot.z); };
+
+	// ---- C3: talking (X2, X3) ----
+	runCase("C3", "A talks to 798007 from the band spot and from 10 m; B opens the postbox (X2, X3)", [&] {
+		const EconomyTalk& merchantTalk = economy.talkOf(MERCHANT);
+		const int32_t merchant = npcOf(a, MERCHANT);
+		b.drain();
+		size_t from = a.mark();
+		a.game->send(GameSession::CM_SHOW_DIALOG, GameSession::buildCM_SHOW_DIALOG(merchant));
+		collectFor(*a.game, STEP);
+		std::vector<Packet> window = news(a, b.playerId, a.since(from));
+		std::vector<decoders::DialogWindow> windows = dialogWindows(window, "X2");
+		EXPECT_EQ(windows.size(), 1u) << "X2: from the band spot (" << merchantTalk.bandSpot.distance << " m, inside only with isInTalkRange's + 1) "
+		                              << "one SM_DIALOG_WINDOW: " << join(namesOf(window)) << " (messages " << joinNumbers(messageIds(window)) << ")";
+		if (!windows.empty()) {
+			EXPECT_EQ(windows[0].targetObjectId, merchant);
+			EXPECT_EQ(windows[0].dialogPageId, *merchantTalk.startWindow->page) << "X2: DialogPage.getStartPageId of a function npc";
+			EXPECT_EQ(windows[0].questId, merchantTalk.startWindow->questId);
+			EXPECT_EQ(windows[0].pageValue, merchantTalk.startWindow->pageValue);
+		}
+		EXPECT_EQ(window.size(), 1u) << "X2: SM_DIALOG_WINDOW and nothing else: " << join(namesOf(window));
+
+		walkToSpot(a, merchantTalk.farSpot);
+		from = a.mark();
+		a.game->send(GameSession::CM_SHOW_DIALOG, GameSession::buildCM_SHOW_DIALOG(merchant));
+		collectFor(*a.game, SILENCE);
+		window = news(a, b.playerId, a.since(from));
+		EXPECT_EQ(messageIds(window), std::vector<int32_t>{*merchantTalk.outOfRangeMessageId})
+		  << "X2: from " << merchantTalk.farSpot.distance << " m STR_DIALOG_TOO_FAR_TO_TALK (NpcController.onDialogRequest): " << join(namesOf(window));
+		EXPECT_TRUE(dialogWindows(window, "X2").empty()) << "X2: no SM_DIALOG_WINDOW out of range";
+		a.game->send(GameSession::CM_CLOSE_DIALOG, GameSession::buildCM_CLOSE_DIALOG(merchant));
+		collectFor(*a.game, 500ms);
+
+		// B at the postbox (X3): PostboxAI sets the mailbox state and answers page MAIL with it
+		const EconomyTalk& postboxTalk = economy.talkOf(POSTBOX);
+		const int32_t postbox = npcOf(b, POSTBOX);
+		walkToSpot(b, postboxTalk.nearSpot);
+		from = b.mark();
+		b.game->send(GameSession::CM_SHOW_DIALOG, GameSession::buildCM_SHOW_DIALOG(postbox));
+		collectFor(*b.game, STEP);
+		windows = dialogWindows(b.since(from), "X3");
+		ASSERT_EQ(windows.size(), 1u) << "X3: the postbox answers one SM_DIALOG_WINDOW: " << join(namesOf(b.since(from)));
+		EXPECT_EQ(windows[0].targetObjectId, postbox);
+		EXPECT_EQ(windows[0].dialogPageId, decoders::DIALOG_PAGE_MAIL) << "X3: DialogPage.MAIL (PostboxAI.handleDialogStart)";
+		EXPECT_EQ(windows[0].pageValue, decoders::MAILBOX_STATE_REGULAR) << "X3: the last writeH is the mailbox state REGULAR";
+		// back beside A at the merchant for C4-C10 (C8's exchange needs 5 m)
+		walkToSpot(a, merchantTalk.nearSpot);
+		walkToSpot(b, merchantTalk.nearSpot, 1.5f);
+		a.drain();
+	});
+
+	// ---- C4: a shop's windows (X4) ----
+	runCase("C4", "A opens the merchant's BUY and SELL windows (X4)", [&] {
+		const int32_t merchant = npcOf(a, MERCHANT);
+		size_t from = a.mark();
+		a.game->send(GameSession::CM_DIALOG_SELECT, GameSession::buildCM_DIALOG_SELECT(merchant, DIALOG_BUY));
+		collectFor(*a.game, STEP);
+		std::vector<Packet> window = a.since(from);
+		const std::vector<decoders::TradeList> lists = decodeAll<decoders::TradeList>(window, "SM_TRADELIST", decoders::decodeTradeList, "X4");
+		EXPECT_EQ(lists.size(), 1u) << "X4: BUY answers one SM_TRADELIST: " << join(namesOf(window));
+		if (!lists.empty()) {
+			EXPECT_EQ(lists[0].npcObjectId, merchant);
+			EXPECT_EQ(lists[0].tradeNpcType, elixirs.tradeNpcTypeIndex) << "X4: TradeNpcType.index() (NORMAL is 1), never ordinal() (0)";
+			EXPECT_EQ(lists[0].buyPriceModifier, elixirs.buyPriceModifier) << "X4: VENDOR_BUY_MODIFIER x sell_price_rate / 100";
+			EXPECT_EQ(lists[0].showBuyTab, elixirs.tradeShowBuyTab) << "X4: Npc.canSell (W-03)";
+			EXPECT_EQ(lists[0].showSellTab, elixirs.tradeShowSellTab) << "X4: Npc.canBuy";
+			EXPECT_EQ(lists[0].tabs, elixirs.tradeTabs) << "X4: the tabs the player's legion level may see";
+			EXPECT_EQ(lists[0].limitedItems.size(), elixirs.limitedItems);
+		}
+		EXPECT_TRUE(ofName(window, "SM_SELL_ITEM").empty());
+
+		from = a.mark();
+		a.game->send(GameSession::CM_DIALOG_SELECT, GameSession::buildCM_DIALOG_SELECT(merchant, DIALOG_SELL));
+		collectFor(*a.game, STEP);
+		window = a.since(from);
+		const std::vector<decoders::SellItemWindow> sells = decodeAll<decoders::SellItemWindow>(window, "SM_SELL_ITEM", decoders::decodeSellItem, "X4");
+		EXPECT_EQ(sells.size(), 1u) << "X4: SELL answers one SM_SELL_ITEM: " << join(namesOf(window));
+		EXPECT_TRUE(ofName(window, "SM_TRADELIST").empty()) << "X4: SELL is not answered with SM_TRADELIST";
+		if (!sells.empty()) {
+			EXPECT_EQ(sells[0].npcObjectId, merchant);
+			EXPECT_EQ(sells[0].tradeNpcType, elixirs.sellNpcTypeIndex) << "X4: the NORMAL fallback's index() (SM_SELL_ITEM.java:30)";
+			EXPECT_EQ(sells[0].buyPriceRate, elixirs.sellBuyPriceRate) << "X4: getVendorSellModifier without a purchase template";
+			EXPECT_EQ(sells[0].showBuyTab, elixirs.sellShowBuyTab);
+			EXPECT_EQ(sells[0].showSellTab, elixirs.sellShowSellTab);
+			EXPECT_EQ(sells[0].tabs, elixirs.sellTabs);
+		}
+	});
+
+	// ---- C5: buying (X5, X6) ----
+	runCase("C5", "A buys two elixirs, then an unlisted item and an elixir it cannot afford (X5, X6)", [&] {
+		const int32_t merchant = npcOf(a, MERCHANT);
+		const std::optional<int32_t> kinah = a.kinahObject();
+		ASSERT_TRUE(kinah) << "A's model has no kinah item: " << a.model.describe();
+		EXPECT_EQ(a.kinah(), ledgerA[KINAH_ITEM]) << "A's starter kinah";
+		// every kinah row below is a DELTA from the kinah the client was last told, so a wrong price fails its own row and not every later one
+		// (the "must stay green" half of §10.4); the absolute amounts are X16's, through the ledger
+		const int64_t before = a.kinah();
+		size_t from = a.mark();
+		const std::array<GameSession::BuyItemEntry, 1> buy{{{LIFE_ELIXIR, ELIXIRS_BOUGHT}}};
+		a.game->send(GameSession::CM_BUY_ITEM, GameSession::buildCM_BUY_ITEM(merchant, GameSession::TRADE_BUY, buy));
+		collectFor(*a.game, STEP);
+		std::vector<Packet> window = a.since(from);
+		ledgerA[KINAH_ITEM] -= elixirs.buyKinah;
+		ledgerA[LIFE_ELIXIR] += ELIXIRS_BOUGHT;
+		EXPECT_EQ(kinahUpdates(window, *kinah, "X5"), std::vector<int64_t>{before - elixirs.buyKinah})
+		  << "X5: exactly one kinah update, to " << before << " - " << elixirs.buyKinah << ": " << join(namesOf(window));
+		const std::vector<decoders::InventoryItem> added = addedItems(window, "X5");
+		EXPECT_EQ(added.size(), 1u) << "X5: one SM_INVENTORY_ADD_ITEM: " << join(namesOf(window));
+		if (!added.empty()) {
+			EXPECT_EQ(added[0].templateId, LIFE_ELIXIR);
+			EXPECT_EQ(added[0].general ? added[0].general->count : -1, ELIXIRS_BOUGHT) << "X5: ItemService.addItem(BUY) of the count";
+		}
+
+		from = a.mark();
+		const std::array<GameSession::BuyItemEntry, 1> unlisted{{{LIFE_POTION, 1}}};
+		a.game->send(GameSession::CM_BUY_ITEM, GameSession::buildCM_BUY_ITEM(merchant, GameSession::TRADE_BUY, unlisted));
+		collectFor(*a.game, SILENCE);
+		window = a.since(from);
+		EXPECT_EQ(messageIds(window), std::vector<int32_t>{STR_BUY_SELL_USER_BUY_FAILED}) << "X6: validateBuyItems refuses an unlisted item";
+		EXPECT_TRUE(itemPackets(window).empty()) << "X6: nothing changes: " << join(itemPackets(window));
+
+		const int64_t left = a.kinah();
+		if (left >= elixirs.buyKinah / ELIXIRS_BOUGHT) {
+			ADD_FAILURE() << "C5's third buy must be one A cannot afford, and A has " << left << " kinah: X6's second refusal is not tried";
+			return;
+		}
+		from = a.mark();
+		const std::array<GameSession::BuyItemEntry, 1> unaffordable{{{LIFE_ELIXIR, 1}}};
+		a.game->send(GameSession::CM_BUY_ITEM, GameSession::buildCM_BUY_ITEM(merchant, GameSession::TRADE_BUY, unaffordable));
+		collectFor(*a.game, SILENCE);
+		window = a.since(from);
+		EXPECT_EQ(messageIds(window), std::vector<int32_t>{STR_MSG_NOT_ENOUGH_MONEY}) << "X6: calculateBuyListPrice refuses before any change";
+		EXPECT_TRUE(itemPackets(window).empty()) << "X6: nothing changes: " << join(itemPackets(window));
+		EXPECT_EQ(a.kinah(), left);
+	});
+
+	// ---- C6: selling (X7) ----
+	int32_t potionStackA = 0;
+	int64_t potionStackCountA = 0; // the stack's count before the sale, as A's model holds it (X8 buys the potions back into it)
+	runCase("C6", "A sells 10 potions, then the juice (X7)", [&] {
+		const int32_t merchant = npcOf(a, MERCHANT);
+		const int32_t kinah = a.kinahObject().value_or(0);
+		potionStackA = a.stackOf(LIFE_POTION);
+		ASSERT_NE(potionStackA, 0) << "A has no potion stack: " << a.model.describe();
+		const int64_t stackBefore = a.model.byObjectId(potionStackA)->count;
+		potionStackCountA = stackBefore;
+		const int64_t before = a.kinah();
+		size_t from = a.mark();
+		const std::array<GameSession::BuyItemEntry, 1> sell{{{potionStackA, POTIONS_SOLD}}};
+		a.game->send(GameSession::CM_BUY_ITEM, GameSession::buildCM_BUY_ITEM(merchant, GameSession::TRADE_SELL, sell));
+		collectFor(*a.game, STEP);
+		std::vector<Packet> window = a.since(from);
+		ledgerA[KINAH_ITEM] += potions.sellKinah;
+		ledgerA[LIFE_POTION] -= POTIONS_SOLD;
+		EXPECT_EQ(kinahUpdates(window, kinah, "X7"), std::vector<int64_t>{before + potions.sellKinah}) << "X7: +" << potions.sellKinah << " (getSellReward x 10)";
+		const std::vector<decoders::InventoryUpdateItem> stack = updatesOf(window, potionStackA, "X7");
+		EXPECT_EQ(stack.size(), 1u) << "X7: the stack is decreased by SM_INVENTORY_UPDATE_ITEM, not deleted: " << join(namesOf(window));
+		if (!stack.empty())
+			EXPECT_EQ(stack[0].item.general ? stack[0].item.general->count : -1, stackBefore - POTIONS_SOLD) << "X7: the stack less the ten sold";
+		EXPECT_FALSE(contains(deletedObjects(window, "X7"), potionStackA)) << "X7: decreaseItemCount, not delete";
+
+		const int32_t juiceObject = a.stackOf(JUICE);
+		ASSERT_NE(juiceObject, 0);
+		from = a.mark();
+		const std::array<GameSession::BuyItemEntry, 1> juiceSale{{{juiceObject, 1}}};
+		a.game->send(GameSession::CM_BUY_ITEM, GameSession::buildCM_BUY_ITEM(merchant, GameSession::TRADE_SELL, juiceSale));
+		collectFor(*a.game, SILENCE);
+		window = a.since(from);
+		EXPECT_EQ(messageIds(window), std::vector<int32_t>{STR_BUY_SELL_ITEM_CAN_NOT_BE_SELLED_TO_NPC}) << "X7: Item.isSellable";
+		EXPECT_TRUE(itemPackets(window).empty()) << "X7: the juice sale changes nothing: " << join(itemPackets(window));
+	});
+
+	// ---- C7: buying back (X8) ----
+	runCase("C7", "A opens the buy-back list and buys the potions back (X8)", [&] {
+		const int32_t merchant = npcOf(a, MERCHANT);
+		const int32_t kinah = a.kinahObject().value_or(0);
+		size_t from = a.mark();
+		a.game->send(GameSession::CM_DIALOG_SELECT, GameSession::buildCM_DIALOG_SELECT(merchant, DIALOG_BUY_AGAIN));
+		collectFor(*a.game, STEP);
+		std::vector<Packet> window = a.since(from);
+		const std::vector<decoders::Repurchase> lists = decodeAll<decoders::Repurchase>(window, "SM_REPURCHASE", decoders::decodeRepurchase, "X8");
+		ASSERT_EQ(lists.size(), 1u) << "X8: BUY_AGAIN answers one SM_REPURCHASE: " << join(namesOf(window));
+		EXPECT_EQ(lists[0].targetObjectId, merchant);
+		ASSERT_EQ(lists[0].items.size(), 1u) << "X8: exactly the last sale (the refused juice is no sale; the set is replaced per sale)";
+		const decoders::RepurchaseEntry& entry = lists[0].items[0];
+		EXPECT_EQ(entry.item.templateId, LIFE_POTION);
+		EXPECT_EQ(entry.item.general ? entry.item.general->count : -1, POTIONS_SOLD) << "X8: the ten potions sold";
+		EXPECT_EQ(entry.repurchasePrice, *potions.repurchasePrice) << "X8: the sale's reward, not the template price";
+		EXPECT_NE(entry.item.objectId, potionStackA) << "a part of a stack is sold as a NEW item (TradeService.java:229-231)";
+
+		const int64_t before = a.kinah();
+		const int64_t potionsBefore = a.countOf(LIFE_POTION);
+		from = a.mark();
+		const std::array<GameSession::BuyItemEntry, 1> buyBack{{{entry.item.objectId, POTIONS_SOLD}}};
+		a.game->send(GameSession::CM_BUY_ITEM, GameSession::buildCM_BUY_ITEM(merchant, GameSession::TRADE_REPURCHASE, buyBack));
+		collectFor(*a.game, STEP);
+		window = a.since(from);
+		ledgerA[KINAH_ITEM] -= *potions.repurchasePrice;
+		ledgerA[LIFE_POTION] += POTIONS_SOLD;
+		EXPECT_EQ(kinahUpdates(window, kinah, "X8"), std::vector<int64_t>{before - *potions.repurchasePrice}) << "X8: -" << *potions.repurchasePrice;
+		EXPECT_EQ(a.countOf(LIFE_POTION), potionsBefore + POTIONS_SOLD) << "X8: the potions back: " << a.model.describe();
+		const std::vector<decoders::InventoryUpdateItem> stack = updatesOf(window, potionStackA, "X8");
+		EXPECT_FALSE(stack.empty()) << "X8: the bought-back potions merge into the stack (ItemService.addItem): " << join(namesOf(window));
+		if (!stack.empty())
+			EXPECT_EQ(stack.back().item.general ? stack.back().item.general->count : -1, potionStackCountA) << "X8: the stack back to its C6 count";
+	});
+
+	// the disjointness of X16, checked after every step of C8-C13
+	std::vector<std::string> sharedObjects;
+	const auto checkDisjoint = [&](std::string_view when) {
+		a.model.sync();
+		b.model.sync();
+		for (const auto& [id, item] : a.model.items)
+			if (b.model.items.contains(id))
+				sharedObjects.push_back(std::string(when) + ": object " + std::to_string(id) + " (" + std::to_string(item.itemId) + ") in both");
+	};
+	const auto exchangeStep = [&](ScenarioClient& actor, ScenarioClient& partner, int32_t opcode, const std::vector<uint8_t>& body,
+	                              std::string_view when) {
+		const size_t actorFrom = actor.mark(), partnerFrom = partner.mark();
+		actor.game->send(opcode, body);
+		collectFor(*actor.game, 1000ms);
+		collectFor(*partner.game, 500ms);
+		checkDisjoint(when);
+		return std::pair<std::vector<Packet>, std::vector<Packet>>{actor.since(actorFrom), partner.since(partnerFrom)};
+	};
+	/** A asks, B answers yes: both get SM_EXCHANGE_REQUEST with the other's name. @return B's question window */
+	const auto openExchange = [&](std::string_view row) {
+		const auto [askA, askB] = exchangeStep(a, b, GameSession::CM_EXCHANGE_REQUEST, GameSession::buildCM_EXCHANGE_REQUEST(b.playerId), row);
+		const std::vector<decoders::QuestionWindow> questions = questionWindows(askB, row);
+		if (questions.size() != 1)
+			throw std::runtime_error(std::string(row) + ": B got " + std::to_string(questions.size()) + " SM_QUESTION_WINDOW for the request: " +
+			                         join(namesOf(askB)));
+		EXPECT_EQ(questions[0].code, QUESTION_EXCHANGE) << row << ": STR_EXCHANGE_DO_YOU_ACCEPT_EXCHANGE";
+		EXPECT_EQ(questions[0].params[0], a.name) << row << ": the question names the requester";
+		EXPECT_TRUE(contains(messageIds(askA), STR_EXCHANGE_ASKED_EXCHANGE_TO_HIM)) << row << ": " << join(namesOf(askA));
+		const auto [yesB, yesA] = exchangeStep(b, a, GameSession::CM_QUESTION_RESPONSE,
+		                                       GameSession::buildCM_QUESTION_RESPONSE(QUESTION_EXCHANGE, GameSession::ANSWER_YES), row);
+		const std::vector<std::string> toA = decodeAll<std::string>(yesA, "SM_EXCHANGE_REQUEST", decoders::decodeExchangeRequest, row);
+		const std::vector<std::string> toB = decodeAll<std::string>(yesB, "SM_EXCHANGE_REQUEST", decoders::decodeExchangeRequest, row);
+		EXPECT_EQ(toA, std::vector<std::string>{b.name}) << row << ": registerExchange sends A the partner's name: " << join(namesOf(yesA));
+		EXPECT_EQ(toB, std::vector<std::string>{a.name}) << row << ": and B the requester's: " << join(namesOf(yesB));
+		return questions[0];
+	};
+
+	// ---- C8: an exchange (X9, X10) ----
+	runCase("C8", "A and B exchange potions and kinah for bandages; the juice is refused (X9, X10)", [&] {
+		b.drain();
+		checkDisjoint("C8 start");
+		// X10 is read as deltas of what each client was told before the exchange, so a wrong vendor price of C5-C7 cannot fail it
+		const int64_t kinahBeforeA = a.kinah(), kinahBeforeB = b.kinah();
+		const int64_t potionsBeforeA = a.countOf(LIFE_POTION), potionsBeforeB = b.countOf(LIFE_POTION);
+		const int64_t bandagesBeforeA = a.countOf(BANDAGE), bandagesBeforeB = b.countOf(BANDAGE);
+		const size_t fromA = a.mark(), fromB = b.mark();
+		openExchange("X9");
+		const int32_t potionStack = a.stackOf(LIFE_POTION);
+		ASSERT_NE(potionStack, 0) << "A has no potion stack to offer: " << a.model.describe();
+		const int64_t stackCount = a.model.byObjectId(potionStack)->count;
+		// A adds 10 potions: the fake stack update to 90 (PUT_TO_EXCHANGE) and SM_EXCHANGE_ADD_ITEM to both
+		auto [addA, addB] = exchangeStep(a, b, GameSession::CM_EXCHANGE_ADD_ITEM,
+		                                 GameSession::buildCM_EXCHANGE_ADD_ITEM(potionStack, static_cast<int32_t>(POTIONS_EXCHANGED)), "C8 add potions");
+		const std::vector<decoders::InventoryUpdateItem> fake = updatesOf(addA, potionStack, "X9");
+		EXPECT_EQ(fake.size(), 1u) << "X9: A's fake stack update: " << join(namesOf(addA));
+		if (!fake.empty())
+			EXPECT_EQ(fake[0].item.general ? fake[0].item.general->count : -1, stackCount - POTIONS_EXCHANGED) << "X9: the stack shown at 90";
+		std::vector<decoders::ExchangeAddItem> addedA = decodeAll<decoders::ExchangeAddItem>(addA, "SM_EXCHANGE_ADD_ITEM", decoders::decodeExchangeAddItem, "X9");
+		std::vector<decoders::ExchangeAddItem> addedB = decodeAll<decoders::ExchangeAddItem>(addB, "SM_EXCHANGE_ADD_ITEM", decoders::decodeExchangeAddItem, "X9");
+		ASSERT_EQ(addedA.size(), 1u) << join(namesOf(addA));
+		ASSERT_EQ(addedB.size(), 1u) << join(namesOf(addB));
+		EXPECT_EQ(addedA[0].action, decoders::EXCHANGE_SELF);
+		EXPECT_EQ(addedA[0].item.templateId, LIFE_POTION);
+		EXPECT_EQ(addedB[0].action, decoders::EXCHANGE_OTHER);
+		EXPECT_EQ(addedB[0].item.templateId, LIFE_POTION);
+		EXPECT_EQ(addedB[0].item.general ? addedB[0].item.general->count : -1, POTIONS_EXCHANGED);
+		// A adds 100 kinah
+		auto [kinahA, kinahB] = exchangeStep(a, b, GameSession::CM_EXCHANGE_ADD_KINAH, GameSession::buildCM_EXCHANGE_ADD_KINAH(KINAH_EXCHANGED),
+		                                     "C8 add kinah");
+		EXPECT_EQ(decodeAll<decoders::ExchangeAddKinah>(kinahA, "SM_EXCHANGE_ADD_KINAH", decoders::decodeExchangeAddKinah, "X9"),
+		          (std::vector<decoders::ExchangeAddKinah>{{decoders::EXCHANGE_SELF, KINAH_EXCHANGED}}));
+		EXPECT_EQ(decodeAll<decoders::ExchangeAddKinah>(kinahB, "SM_EXCHANGE_ADD_KINAH", decoders::decodeExchangeAddKinah, "X9"),
+		          (std::vector<decoders::ExchangeAddKinah>{{decoders::EXCHANGE_OTHER, KINAH_EXCHANGED}}));
+		// B adds 5 bandages
+		const int32_t bandageStack = b.stackOf(BANDAGE);
+		auto [bandB, bandA] = exchangeStep(b, a, GameSession::CM_EXCHANGE_ADD_ITEM,
+		                                   GameSession::buildCM_EXCHANGE_ADD_ITEM(bandageStack, static_cast<int32_t>(BANDAGES_EXCHANGED)), "C8 add bandages");
+		addedA = decodeAll<decoders::ExchangeAddItem>(bandA, "SM_EXCHANGE_ADD_ITEM", decoders::decodeExchangeAddItem, "X9");
+		addedB = decodeAll<decoders::ExchangeAddItem>(bandB, "SM_EXCHANGE_ADD_ITEM", decoders::decodeExchangeAddItem, "X9");
+		ASSERT_EQ(addedA.size(), 1u);
+		ASSERT_EQ(addedB.size(), 1u);
+		EXPECT_EQ(addedA[0].action, decoders::EXCHANGE_OTHER);
+		EXPECT_EQ(addedA[0].item.templateId, BANDAGE);
+		EXPECT_EQ(addedB[0].action, decoders::EXCHANGE_SELF);
+		// A tries the juice: not tradeable, so nothing to either (ExchangeService.addItem's first check)
+		auto [juiceA, juiceB] = exchangeStep(a, b, GameSession::CM_EXCHANGE_ADD_ITEM, GameSession::buildCM_EXCHANGE_ADD_ITEM(a.stackOf(JUICE), 1),
+		                                     "C8 add juice");
+		collectFor(*a.game, 400ms);
+		collectFor(*b.game, 400ms);
+		EXPECT_TRUE(ofName(juiceA, "SM_EXCHANGE_ADD_ITEM").empty() && ofName(juiceB, "SM_EXCHANGE_ADD_ITEM").empty())
+		  << "X9: the untradeable juice appears to neither partner: " << join(namesOf(juiceA)) << " / " << join(namesOf(juiceB));
+		for (ScenarioClient* client : {&a, &b})
+			for (const decoders::ExchangeAddItem& added :
+			     decodeAll<decoders::ExchangeAddItem>(client->since(client == &a ? fromA : fromB), "SM_EXCHANGE_ADD_ITEM", decoders::decodeExchangeAddItem, "X9"))
+				EXPECT_NE(added.item.templateId, JUICE) << "X9: " << client->label << " was shown the juice (ExchangeService.addItem's isTradeable check)";
+		EXPECT_TRUE(itemPackets(juiceA).empty()) << "X9: the juice is not taken out of A's cube: " << join(namesOf(juiceA));
+		// both lock: (3) to the partner of each lock
+		auto [lockA, lockAtB] = exchangeStep(a, b, GameSession::CM_EXCHANGE_LOCK, GameSession::buildCM_EXCHANGE_LOCK(), "C8 lock A");
+		EXPECT_EQ(exchangeConfirmations(lockAtB, "X9"), std::vector<uint8_t>{decoders::EXCHANGE_CONFIRMATION_PARTNER_LOCKED}) << "X9: A's lock to B";
+		EXPECT_TRUE(exchangeConfirmations(lockA, "X9").empty()) << "X9: nothing to the one who locked";
+		auto [lockB, lockAtA] = exchangeStep(b, a, GameSession::CM_EXCHANGE_LOCK, GameSession::buildCM_EXCHANGE_LOCK(), "C8 lock B");
+		EXPECT_EQ(exchangeConfirmations(lockAtA, "X9"), std::vector<uint8_t>{decoders::EXCHANGE_CONFIRMATION_PARTNER_LOCKED}) << "X9: B's lock to A";
+		EXPECT_TRUE(exchangeConfirmations(lockB, "X9").empty());
+		// A's OK: (2) to B only
+		auto [okA, okAtB] = exchangeStep(a, b, GameSession::CM_EXCHANGE_OK, GameSession::buildCM_EXCHANGE_OK(), "C8 ok A");
+		EXPECT_EQ(exchangeConfirmations(okAtB, "X9"), std::vector<uint8_t>{decoders::EXCHANGE_CONFIRMATION_PARTNER_CONFIRMED}) << "X9: A's OK to B";
+		EXPECT_TRUE(exchangeConfirmations(okA, "X9").empty()) << "X9: (2) goes to the partner, never to self; performTrade waits for both OKs";
+		EXPECT_TRUE(itemPackets(okA).empty() && itemPackets(okAtB).empty()) << "X9: no trade on the first OK";
+		// B's OK: (2) to A, then the trade and (0) to both
+		auto [okB, okAtA] = exchangeStep(b, a, GameSession::CM_EXCHANGE_OK, GameSession::buildCM_EXCHANGE_OK(), "C8 ok B");
+		collectFor(*a.game, 400ms);
+		collectFor(*b.game, 400ms);
+		checkDisjoint("C8 trade");
+		EXPECT_EQ(exchangeConfirmations(okAtA, "X9"),
+		          (std::vector<uint8_t>{decoders::EXCHANGE_CONFIRMATION_PARTNER_CONFIRMED, decoders::EXCHANGE_CONFIRMATION_DONE}))
+		  << "X9: B's OK sends A (2) before the partner check, then the trade (0) (ExchangeService.java:227-231, 254-255): " << join(namesOf(okAtA));
+		EXPECT_EQ(exchangeConfirmations(okB, "X9"), std::vector<uint8_t>{decoders::EXCHANGE_CONFIRMATION_DONE}) << "X9: (0) to B: " << join(namesOf(okB));
+		// X9 as a whole: every confirmation each partner got, in order
+		EXPECT_EQ(exchangeConfirmations(a.since(fromA), "X9"),
+		          (std::vector<uint8_t>{decoders::EXCHANGE_CONFIRMATION_PARTNER_LOCKED, decoders::EXCHANGE_CONFIRMATION_PARTNER_CONFIRMED,
+		                                decoders::EXCHANGE_CONFIRMATION_DONE}));
+		EXPECT_EQ(exchangeConfirmations(b.since(fromB), "X9"),
+		          (std::vector<uint8_t>{decoders::EXCHANGE_CONFIRMATION_PARTNER_LOCKED, decoders::EXCHANGE_CONFIRMATION_PARTNER_CONFIRMED,
+		                                decoders::EXCHANGE_CONFIRMATION_DONE}));
+
+		// X10: the ledgers after the trade, from the packets
+		ledgerA[LIFE_POTION] -= POTIONS_EXCHANGED;
+		ledgerA[KINAH_ITEM] -= KINAH_EXCHANGED;
+		ledgerA[BANDAGE] += BANDAGES_EXCHANGED;
+		ledgerB[LIFE_POTION] += POTIONS_EXCHANGED;
+		ledgerB[KINAH_ITEM] += KINAH_EXCHANGED;
+		ledgerB[BANDAGE] -= BANDAGES_EXCHANGED;
+		// the removals themselves: the fake PUT_TO_EXCHANGE updates (0x25) already showed 90 and 15, so only the trade's own decreaseItemCount
+		// packets (ExchangeService.removeItemsFromInventory -> Storage.decreaseItemCount, DEC_ITEM_USE 0x16, Storage.java:126-147) tell a real
+		// removal from a dupe that leaves the giver's stack whole - whichever OK the trade ran on
+		const auto removal = [](const std::vector<Packet>& window, int32_t stack, int64_t count) {
+			return std::ranges::any_of(updatesOf(window, stack, "X10"), [count](const decoders::InventoryUpdateItem& update) {
+				return update.updateTypeMask == std::optional<uint16_t>(decoders::ITEM_UPDATE_DEC_ITEM_USE) && update.item.general &&
+				       update.item.general->count == count;
+			});
+		};
+		EXPECT_TRUE(removal(a.since(fromA), potionStack, stackCount - POTIONS_EXCHANGED)) << "X10: the trade decreases A's potion stack itself";
+		EXPECT_TRUE(removal(b.since(fromB), bandageStack, bandagesBeforeB - BANDAGES_EXCHANGED)) << "X10: the trade decreases B's bandage stack itself";
+		EXPECT_EQ(a.countOf(LIFE_POTION), potionsBeforeA - POTIONS_EXCHANGED) << "X10: A's potions (removeItemsFromInventory): " << a.model.describe();
+		EXPECT_EQ(a.countOf(BANDAGE), bandagesBeforeA + BANDAGES_EXCHANGED) << "X10: A's bandages (putItemToInventory)";
+		EXPECT_EQ(a.kinah(), kinahBeforeA - KINAH_EXCHANGED) << "X10: A's kinah";
+		EXPECT_EQ(b.countOf(LIFE_POTION), potionsBeforeB + POTIONS_EXCHANGED) << "X10: B's potions: " << b.model.describe();
+		EXPECT_EQ(b.countOf(BANDAGE), bandagesBeforeB - BANDAGES_EXCHANGED) << "X10: B's bandages";
+		EXPECT_EQ(b.kinah(), kinahBeforeB + KINAH_EXCHANGED) << "X10: B's kinah";
+	});
+
+	// ---- C9: a cancelled exchange, and a partner who quits (X11) ----
+	runCase("C9", "a cancelled exchange, one whose partner quits, and a new request after the partner's return (X11)", [&] {
+		const int64_t kinahBeforeA = a.kinah(), kinahBeforeB = b.kinah();
+		const int64_t potionsBeforeA = a.countOf(LIFE_POTION), potionsBeforeB = b.countOf(LIFE_POTION);
+		openExchange("X11");
+		const int32_t potionStack = a.stackOf(LIFE_POTION);
+		ASSERT_NE(potionStack, 0) << a.model.describe();
+		const int64_t stackCount = a.model.byObjectId(potionStack)->count;
+		exchangeStep(a, b, GameSession::CM_EXCHANGE_ADD_ITEM, GameSession::buildCM_EXCHANGE_ADD_ITEM(potionStack, static_cast<int32_t>(POTIONS_EXCHANGED)),
+		             "C9 add");
+		EXPECT_EQ(a.model.byObjectId(potionStack)->count, stackCount - POTIONS_EXCHANGED) << "the fake update of the added part";
+		auto [cancelB, cancelA] = exchangeStep(b, a, GameSession::CM_EXCHANGE_CANCEL, GameSession::buildCM_EXCHANGE_CANCEL(), "C9 cancel");
+		collectFor(*a.game, 400ms);
+		EXPECT_EQ(exchangeConfirmations(cancelA, "X11"), std::vector<uint8_t>{decoders::EXCHANGE_CONFIRMATION_CANCELLED})
+		  << "X11: the partner of the cancel gets (1): " << join(namesOf(cancelA));
+		const std::vector<decoders::InventoryUpdateItem> back = updatesOf(cancelA, potionStack, "X11");
+		EXPECT_EQ(back.size(), 1u) << "X11: returnItems gives A its part back (GET_BACK): " << join(namesOf(cancelA));
+		if (!back.empty())
+			EXPECT_EQ(back[0].item.general ? back[0].item.general->count : -1, stackCount) << "X11: the whole stack again";
+		EXPECT_TRUE(itemPackets(cancelB).empty() && exchangeConfirmations(cancelB, "X11").empty())
+		  << "X11: B added nothing and gets nothing: " << join(namesOf(cancelB));
+		EXPECT_EQ(a.countOf(LIFE_POTION), potionsBeforeA) << "X11: the ledgers are unchanged";
+		EXPECT_EQ(a.kinah(), kinahBeforeA);
+		EXPECT_EQ(b.countOf(LIFE_POTION), potionsBeforeB);
+		EXPECT_EQ(b.kinah(), kinahBeforeB);
+
+		// a third exchange; B quits the game mid-exchange (CM_QUIT(0)): the logout cancels it (PlayerLeaveWorldService.java:85)
+		openExchange("X11");
+		const size_t fromA = a.mark();
+		disconnect(b);
+		collectFor(*a.game, STEP);
+		checkDisjoint("C9 quit");
+		EXPECT_EQ(exchangeConfirmations(a.since(fromA), "X11"), std::vector<uint8_t>{decoders::EXCHANGE_CONFIRMATION_CANCELLED})
+		  << "X11: the partner who quits cancels the exchange: " << join(namesOf(a.since(fromA)));
+		relogIn(servers, b);
+		EXPECT_EQ(b.countOf(LIFE_POTION), potionsBeforeB) << "B's re-entry inventory";
+		EXPECT_EQ(b.kinah(), kinahBeforeB);
+		a.drain();
+		checkDisjoint("C9 re-entry");
+		// X11: after B's return a new exchange opens - a stale entry in ExchangeService.exchanges would make isTrading refuse registerExchange
+		openExchange("X11 (after the return)");
+		auto [cancelA2, cancelAtB] = exchangeStep(a, b, GameSession::CM_EXCHANGE_CANCEL, GameSession::buildCM_EXCHANGE_CANCEL(), "C9 cancel 2");
+		EXPECT_EQ(exchangeConfirmations(cancelAtB, "X11"), std::vector<uint8_t>{decoders::EXCHANGE_CONFIRMATION_CANCELLED});
+		(void)cancelA2;
+	});
+
+	// ---- C10: a private store (X12) ----
+	runCase("C10", "A opens a private store of 5 potions; B buys 3, then 2, and the store closes (X12)", [&] {
+		a.drain();
+		b.drain();
+		const int32_t potionStack = a.stackOf(LIFE_POTION);
+		const int64_t stackCount = a.model.byObjectId(potionStack)->count;
+		const int32_t kinahA = a.kinahObject().value_or(0), kinahB = b.kinahObject().value_or(0);
+		size_t fromA = a.mark(), fromB = b.mark();
+		const std::array<GameSession::PrivateStoreItem, 1> store{{{potionStack, LIFE_POTION, STORE_COUNT, STORE_PRICE}}};
+		a.game->send(GameSession::CM_PRIVATE_STORE, GameSession::buildCM_PRIVATE_STORE(store));
+		collectFor(*a.game, STEP);
+		a.game->send(GameSession::CM_PRIVATE_STORE_NAME, GameSession::buildCM_PRIVATE_STORE_NAME("m5c"));
+		collectFor(*a.game, STEP);
+		collectFor(*b.game, 500ms);
+		for (ScenarioClient* client : {&a, &b}) {
+			const std::vector<Packet> window = client->since(client == &a ? fromA : fromB);
+			const std::vector<decoders::Emotion> opened = emotions(window, "X12");
+			EXPECT_TRUE(std::ranges::any_of(opened, [&](const decoders::Emotion& e) {
+				return e.senderObjectId == a.playerId && e.emotionType == EMOTION_OPEN_PRIVATESHOP;
+			})) << "X12: " << client->label << " gets SM_EMOTION(A, OPEN_PRIVATESHOP): " << join(namesOf(window));
+			const std::vector<decoders::PrivateStoreName> names =
+			  decodeAll<decoders::PrivateStoreName>(window, "SM_PRIVATE_STORE_NAME", decoders::decodePrivateStoreName, "X12");
+			EXPECT_EQ(names, (std::vector<decoders::PrivateStoreName>{{a.playerId, "m5c"}})) << "X12: " << client->label << " gets the store's name";
+		}
+		fromB = b.mark();
+		b.game->send(GameSession::CM_DIALOG_SELECT, GameSession::buildCM_DIALOG_SELECT(a.playerId, DIALOG_BUY));
+		collectFor(*b.game, STEP);
+		const std::vector<decoders::PrivateStore> stores = decodeAll<decoders::PrivateStore>(b.since(fromB), "SM_PRIVATE_STORE", decoders::decodePrivateStore, "X12");
+		ASSERT_EQ(stores.size(), 1u) << "X12: B's BUY on A answers SM_PRIVATE_STORE: " << join(namesOf(b.since(fromB)));
+		EXPECT_TRUE(stores[0].present);
+		EXPECT_EQ(stores[0].sellerObjectId, a.playerId);
+		ASSERT_EQ(stores[0].items.size(), 1u);
+		EXPECT_EQ(stores[0].items[0].itemObjectId, potionStack);
+		EXPECT_EQ(stores[0].items[0].itemId, LIFE_POTION);
+		EXPECT_EQ(stores[0].items[0].count, STORE_COUNT);
+		EXPECT_EQ(stores[0].items[0].price, STORE_PRICE) << "X12: the price of ONE item";
+
+		struct Purchase {
+			std::vector<Packet> seller, buyer;
+			int64_t sellerKinah = 0, buyerKinah = 0, buyerPotions = 0;
+		};
+		const auto buy = [&](int64_t count, std::string_view when) {
+			Purchase purchase;
+			purchase.sellerKinah = a.kinah();
+			purchase.buyerKinah = b.kinah();
+			purchase.buyerPotions = b.countOf(LIFE_POTION);
+			const size_t atA = a.mark(), atB = b.mark();
+			const std::array<GameSession::BuyItemEntry, 1> entries{{{0, count}}}; // the store's index 0, not an object id (PrivateStoreService.java:209)
+			b.game->send(GameSession::CM_BUY_ITEM, GameSession::buildCM_BUY_ITEM(a.playerId, GameSession::TRADE_PRIVATE_STORE, entries));
+			collectFor(*b.game, STEP);
+			collectFor(*a.game, 600ms);
+			checkDisjoint(when);
+			ledgerA[LIFE_POTION] -= count;
+			ledgerA[KINAH_ITEM] += count * STORE_PRICE;
+			ledgerB[LIFE_POTION] += count;
+			ledgerB[KINAH_ITEM] -= count * STORE_PRICE;
+			purchase.seller = a.since(atA);
+			purchase.buyer = b.since(atB);
+			return purchase;
+		};
+		const Purchase first = buy(STORE_FIRST_BUY, "C10 buy 3");
+		EXPECT_EQ(kinahUpdates(first.buyer, kinahB, "X12"), std::vector<int64_t>{first.buyerKinah - STORE_FIRST_BUY * STORE_PRICE})
+		  << "X12: B -300 (the price times the count)";
+		EXPECT_EQ(kinahUpdates(first.seller, kinahA, "X12"), std::vector<int64_t>{first.sellerKinah + STORE_FIRST_BUY * STORE_PRICE}) << "X12: A +300";
+		EXPECT_EQ(b.countOf(LIFE_POTION), first.buyerPotions + STORE_FIRST_BUY) << "X12: B +3 potions";
+		const std::vector<decoders::InventoryUpdateItem> sold = updatesOf(first.seller, potionStack, "X12");
+		EXPECT_EQ(sold.size(), 1u) << "X12: the seller's stack is decreased: " << join(namesOf(first.seller));
+		if (!sold.empty())
+			EXPECT_EQ(sold[0].item.general ? sold[0].item.general->count : -1, stackCount - STORE_FIRST_BUY) << "X12: A -3";
+		EXPECT_EQ(messageIds(first.seller), std::vector<int32_t>{STR_MSG_PERSONAL_SHOP_SELL_ITEM_MULTI}) << "X12: the seller's message for a count above 1";
+		EXPECT_FALSE(std::ranges::any_of(emotions(first.seller, "X12"), [](const decoders::Emotion& e) { return e.emotionType == EMOTION_CLOSE_PRIVATESHOP; }))
+		  << "X12: the store stays open with 2 left";
+
+		const Purchase second = buy(STORE_SECOND_BUY, "C10 buy 2");
+		EXPECT_EQ(kinahUpdates(second.buyer, kinahB, "X12"), std::vector<int64_t>{second.buyerKinah - STORE_SECOND_BUY * STORE_PRICE}) << "X12: B -200";
+		EXPECT_EQ(kinahUpdates(second.seller, kinahA, "X12"), std::vector<int64_t>{second.sellerKinah + STORE_SECOND_BUY * STORE_PRICE}) << "X12: A +200";
+		EXPECT_EQ(b.countOf(LIFE_POTION), second.buyerPotions + STORE_SECOND_BUY) << "X12: B +2 potions";
+		EXPECT_TRUE(contains(messageIds(second.seller), STR_MSG_PERSONAL_SHOP_SELL_ITEM_MULTI) &&
+		            !contains(messageIds(second.seller), STR_MSG_PERSONAL_SHOP_SELL_ITEM));
+		for (const std::vector<Packet>* window : {&second.seller, &second.buyer})
+			EXPECT_TRUE(std::ranges::any_of(emotions(*window, "X12"), [&](const decoders::Emotion& e) {
+				return e.senderObjectId == a.playerId && e.emotionType == EMOTION_CLOSE_PRIVATESHOP;
+			})) << "X12: the empty store closes: SM_EMOTION(A, CLOSE_PRIVATESHOP) to " << (window == &second.seller ? "A" : "B") << ": "
+			    << join(namesOf(*window));
+	});
+
+	// ---- C11: mail, online (X3, X13) ----
+	int32_t mailedPotionsObject = 0;
+	runCase("C11", "B opens the postbox, A mails 5 potions and 200 kinah, B takes both and deletes the letter; a kinah letter (X3, X13)", [&] {
+		const EconomyTalk& postboxTalk = economy.talkOf(POSTBOX);
+		walkToSpot(b, postboxTalk.nearSpot);
+		walkToSpot(a, postboxTalk.nearSpot, 1.0f);
+		b.drain();
+		const int32_t postbox = npcOf(b, POSTBOX);
+		// B first: C9's relog gave B a new Mailbox at state 0 (MailDAO.java:34, Mailbox.java:25), which updateRecipientMailbox would not refresh
+		size_t fromB = b.mark();
+		b.game->send(GameSession::CM_SHOW_DIALOG, GameSession::buildCM_SHOW_DIALOG(postbox));
+		collectFor(*b.game, STEP);
+		std::vector<decoders::DialogWindow> windows = dialogWindows(b.since(fromB), "X3");
+		ASSERT_EQ(windows.size(), 1u) << join(namesOf(b.since(fromB)));
+		EXPECT_EQ(windows[0].pageValue, decoders::MAILBOX_STATE_REGULAR) << "X3: the reopened postbox after the relog";
+		size_t fromA = a.mark();
+		a.game->send(GameSession::CM_SHOW_DIALOG, GameSession::buildCM_SHOW_DIALOG(npcOf(a, POSTBOX)));
+		collectFor(*a.game, STEP);
+		windows = dialogWindows(a.since(fromA), "X3");
+		ASSERT_EQ(windows.size(), 1u) << join(namesOf(a.since(fromA)));
+		EXPECT_EQ(windows[0].pageValue, decoders::MAILBOX_STATE_REGULAR);
+
+		const int32_t potionStack = a.stackOf(LIFE_POTION);
+		const int64_t stackCount = a.model.byObjectId(potionStack)->count;
+		const int32_t kinahA = a.kinahObject().value_or(0), kinahB = b.kinahObject().value_or(0);
+		int64_t beforeA = a.kinah();
+		fromA = a.mark();
+		fromB = b.mark();
+		a.game->send(GameSession::CM_SEND_MAIL, GameSession::buildCM_SEND_MAIL(b.name, "m5c", "gate", potionStack, MAILED_POTIONS, MAILED_KINAH));
+		collectFor(*a.game, STEP);
+		collectFor(*b.game, 600ms);
+		checkDisjoint("C11 send");
+		const int64_t firstCost = economy.mail[0].byRace.at("ELYOS").second;
+		ledgerA[KINAH_ITEM] -= firstCost;
+		ledgerA[LIFE_POTION] -= MAILED_POTIONS;
+		std::vector<Packet> window = a.since(fromA);
+		std::vector<decoders::MailService> mail = mailServices(window, "X13");
+		ASSERT_EQ(mail.size(), 1u) << "X13: the sender gets one SM_MAIL_SERVICE: " << join(namesOf(window));
+		EXPECT_EQ(mail[0].serviceId, decoders::MAIL_SERVICE_MESSAGE);
+		EXPECT_EQ(mail[0].mailMessage, std::optional<uint8_t>(decoders::MAIL_MESSAGE_SEND_SUCCESS));
+		EXPECT_EQ(kinahUpdates(window, kinahA, "X13"), std::vector<int64_t>{beforeA - firstCost}) << "X13: -" << firstCost << " (commission + service)";
+		EXPECT_EQ(a.model.byObjectId(potionStack)->count, stackCount - MAILED_POTIONS) << "X13: the stack -5";
+		// B, looking into its mailbox: the notice and the list refresh (SystemMailService.java:126-132)
+		window = b.since(fromB);
+		mail = mailServices(window, "X3");
+		ASSERT_GE(mail.size(), 2u) << "X3: the first letter reaches B with a list refresh: " << join(namesOf(window));
+		EXPECT_EQ(mail[0].serviceId, decoders::MAIL_SERVICE_MAILBOX_STATE);
+		ASSERT_TRUE(mail[0].mailboxState);
+		EXPECT_EQ(mail[0].mailboxState->total, 1) << "X13: total 1";
+		EXPECT_EQ(mail[0].mailboxState->unread, 1) << "X13: unread 1";
+		EXPECT_EQ(mail[1].serviceId, decoders::MAIL_SERVICE_LETTER_LIST) << "X3: the refresh follows the notice";
+
+		// B's list, read, both attachments, the list again, delete
+		fromB = b.mark();
+		b.game->send(GameSession::CM_CHECK_MAIL_LIST, GameSession::buildCM_CHECK_MAIL_LIST(false));
+		collectFor(*b.game, STEP);
+		mail = mailServices(b.since(fromB), "X13");
+		ASSERT_FALSE(mail.empty());
+		ASSERT_TRUE(mail.back().letterList) << join(namesOf(b.since(fromB)));
+		ASSERT_EQ(mail.back().letterList->letters.size(), 1u);
+		const decoders::LetterListEntry letter = mail.back().letterList->letters[0];
+		EXPECT_EQ(letter.senderName, a.name);
+		EXPECT_EQ(letter.title, "m5c");
+		EXPECT_FALSE(letter.read) << "X13: unread";
+		EXPECT_EQ(letter.attachedItemTemplateId, LIFE_POTION);
+		EXPECT_NE(letter.attachedItemObjectId, 0);
+		EXPECT_EQ(letter.attachedKinah, MAILED_KINAH);
+		EXPECT_EQ(letter.letterType, decoders::LETTER_TYPE_NORMAL);
+		fromB = b.mark();
+		b.game->send(GameSession::CM_READ_MAIL, GameSession::buildCM_READ_MAIL(letter.letterObjectId));
+		collectFor(*b.game, STEP);
+		mail = mailServices(b.since(fromB), "X13");
+		ASSERT_EQ(mail.size(), 1u);
+		ASSERT_TRUE(mail[0].letterRead) << "X13: read -> (3)";
+		EXPECT_EQ(mail[0].letterRead->letterObjectId, letter.letterObjectId);
+		EXPECT_EQ(mail[0].letterRead->message, "gate");
+		ASSERT_TRUE(mail[0].letterRead->attachedItem);
+		EXPECT_EQ(mail[0].letterRead->attachedItem->templateId, LIFE_POTION);
+		EXPECT_EQ(mail[0].letterRead->attachedKinah, MAILED_KINAH);
+
+		fromB = b.mark();
+		b.game->send(GameSession::CM_GET_MAIL_ATTACHMENT, GameSession::buildCM_GET_MAIL_ATTACHMENT(letter.letterObjectId, GameSession::MAIL_ATTACHMENT_ITEM));
+		collectFor(*b.game, STEP);
+		checkDisjoint("C11 item attachment");
+		ledgerB[LIFE_POTION] += MAILED_POTIONS;
+		window = b.since(fromB);
+		const std::vector<decoders::InventoryItem> taken = addedItems(window, "X13");
+		ASSERT_EQ(taken.size(), 1u) << "X13: the item arrives as its own stack (Storage.add): " << join(namesOf(window));
+		EXPECT_EQ(taken[0].templateId, LIFE_POTION);
+		EXPECT_EQ(taken[0].general ? taken[0].general->count : -1, MAILED_POTIONS);
+		mailedPotionsObject = taken[0].objectId;
+		EXPECT_EQ(mailedPotionsObject, letter.attachedItemObjectId) << "the letter's item is the one B receives";
+		mail = mailServices(window, "X13");
+		ASSERT_EQ(mail.size(), 1u);
+		EXPECT_EQ(mail[0].attachmentTaken, (std::optional<decoders::AttachmentTaken>(decoders::AttachmentTaken{letter.letterObjectId, decoders::MAIL_ATTACHMENT_ITEM})));
+
+		const int64_t beforeB = b.kinah();
+		fromB = b.mark();
+		b.game->send(GameSession::CM_GET_MAIL_ATTACHMENT, GameSession::buildCM_GET_MAIL_ATTACHMENT(letter.letterObjectId, GameSession::MAIL_ATTACHMENT_KINAH));
+		collectFor(*b.game, STEP);
+		ledgerB[KINAH_ITEM] += MAILED_KINAH;
+		window = b.since(fromB);
+		EXPECT_EQ(kinahUpdates(window, kinahB, "X13"), std::vector<int64_t>{beforeB + MAILED_KINAH}) << "X13: +200";
+		mail = mailServices(window, "X13");
+		ASSERT_EQ(mail.size(), 1u);
+		EXPECT_EQ(mail[0].attachmentTaken, (std::optional<decoders::AttachmentTaken>(decoders::AttachmentTaken{letter.letterObjectId, decoders::MAIL_ATTACHMENT_KINAH})));
+
+		fromB = b.mark();
+		b.game->send(GameSession::CM_CHECK_MAIL_LIST, GameSession::buildCM_CHECK_MAIL_LIST(false));
+		collectFor(*b.game, STEP);
+		mail = mailServices(b.since(fromB), "X13");
+		ASSERT_FALSE(mail.empty());
+		ASSERT_TRUE(mail.back().letterList);
+		ASSERT_EQ(mail.back().letterList->letters.size(), 1u);
+		EXPECT_TRUE(mail.back().letterList->letters[0].read) << "X13: the second list shows the letter read";
+		EXPECT_EQ(mail.back().letterList->letters[0].attachedItemObjectId, 0) << "X13: the item left the letter (MailService.getAttachments)";
+		EXPECT_EQ(mail.back().letterList->letters[0].attachedItemTemplateId, 0);
+		EXPECT_EQ(mail.back().letterList->letters[0].attachedKinah, 0) << "X13: and the kinah";
+
+		fromB = b.mark();
+		const std::array<int32_t, 1> deleted{letter.letterObjectId};
+		b.game->send(GameSession::CM_DELETE_MAIL, GameSession::buildCM_DELETE_MAIL(deleted));
+		collectFor(*b.game, STEP);
+		mail = mailServices(b.since(fromB), "X13");
+		ASSERT_EQ(mail.size(), 1u);
+		ASSERT_TRUE(mail[0].lettersDeleted) << "X13: delete -> (6)";
+		EXPECT_EQ(mail[0].lettersDeleted->letterObjectIds, std::vector<int32_t>{letter.letterObjectId});
+		EXPECT_EQ(mail[0].lettersDeleted->counts.total, 0) << "X13: 0 letters";
+
+		// B closes the postbox (DialogService.onCloseDialog clears the state), then A's second letter: the notice only (X3)
+		b.game->send(GameSession::CM_CLOSE_DIALOG, GameSession::buildCM_CLOSE_DIALOG(postbox));
+		collectFor(*b.game, 500ms);
+		beforeA = a.kinah();
+		fromA = a.mark();
+		fromB = b.mark();
+		a.game->send(GameSession::CM_SEND_MAIL, GameSession::buildCM_SEND_MAIL(b.name, "m5c", "kinah", 0, 0, KINAH_LETTER));
+		collectFor(*a.game, STEP);
+		collectFor(*b.game, 600ms);
+		const int64_t kinahCost = economy.mail[1].byRace.at("ELYOS").second;
+		ledgerA[KINAH_ITEM] -= kinahCost;
+		EXPECT_EQ(kinahUpdates(a.since(fromA), kinahA, "X13"), std::vector<int64_t>{beforeA - kinahCost}) << "the kinah letter costs " << kinahCost;
+		mail = mailServices(b.since(fromB), "X3");
+		// non-fatal (the review of 2026-09-28): a mutant of X3 alone must leave C12-C18 running, so the rows after it stay observable
+		EXPECT_EQ(mail.size(), 1u) << "X3: after CM_CLOSE_DIALOG the letter is the notice only, no refresh: " << join(namesOf(b.since(fromB)));
+		if (!mail.empty())
+			EXPECT_EQ(mail[0].serviceId, decoders::MAIL_SERVICE_MAILBOX_STATE) << "X3: the notice";
+		checkDisjoint("C11 end");
+	});
+
+	// ---- C12: mail, offline, and a wrong name (X14) ----
+	runCase("C12", "B quits; A mails B offline and a name that does not exist; B re-enters (X14)", [&] {
+		const decoders::CharacterList atSelect = quitToCharacterList(b);
+		(void)atSelect;
+		const std::string bId = std::to_string(b.playerId);
+		const int64_t lettersBefore = database.queryLong(schema, "SELECT mailbox_letters FROM players WHERE id = " + bId).value_or(-1);
+		const int64_t rowsBefore = database.queryLong(schema, "SELECT COUNT(*) FROM mail WHERE mail_recipient_id = " + bId).value_or(-1);
+		const int32_t kinahA = a.kinahObject().value_or(0);
+		const int64_t beforeA = a.kinah();
+		size_t fromA = a.mark();
+		a.game->send(GameSession::CM_SEND_MAIL, GameSession::buildCM_SEND_MAIL(b.name, "m5c", "offline", 0, 0, KINAH_LETTER));
+		collectFor(*a.game, STEP);
+		ledgerA[KINAH_ITEM] -= economy.mail[1].byRace.at("ELYOS").second;
+		std::vector<decoders::MailService> mail = mailServices(a.since(fromA), "X14");
+		ASSERT_EQ(mail.size(), 1u);
+		EXPECT_EQ(mail[0].mailMessage, std::optional<uint8_t>(decoders::MAIL_MESSAGE_SEND_SUCCESS)) << "X14: an offline name is found (W-05)";
+		EXPECT_EQ(kinahUpdates(a.since(fromA), kinahA, "X14"), std::vector<int64_t>{beforeA - economy.mail[1].byRace.at("ELYOS").second});
+		EXPECT_EQ(database.queryLong(schema, "SELECT COUNT(*) FROM mail WHERE mail_recipient_id = " + bId).value_or(-1), rowsBefore + 1)
+		  << "X14: the letter is stored";
+		EXPECT_EQ(database.queryLong(schema, "SELECT mailbox_letters FROM players WHERE id = " + bId).value_or(-1), lettersBefore + 1)
+		  << "X14: SystemMailService.updateRecipientMailbox's offline counter (updateOfflineMailCounter)";
+
+		fromA = a.mark();
+		a.game->send(GameSession::CM_SEND_MAIL, GameSession::buildCM_SEND_MAIL("Nobodyhere", "m5c", "nobody", 0, 0, KINAH_LETTER));
+		collectFor(*a.game, SILENCE);
+		mail = mailServices(a.since(fromA), "X14");
+		ASSERT_EQ(mail.size(), 1u) << join(namesOf(a.since(fromA)));
+		EXPECT_EQ(mail[0].mailMessage, std::optional<uint8_t>(decoders::MAIL_MESSAGE_NO_SUCH_CHARACTER_NAME)) << "X14: the wrong name";
+		EXPECT_TRUE(kinahUpdates(a.since(fromA), kinahA, "X14").empty()) << "X14: no kinah change";
+		checkDisjoint("C12 sends");
+
+		// B's return: the character list flags unread mail (MailDAO.haveUnread), the enter world counts the two unread letters
+		b.game->send(GameSession::CM_CHARACTER_LIST, GameSession::buildCM_CHARACTER_LIST(b.key.playOk2));
+		const decoders::CharacterList list = decoders::decodeCharacterList(waitFor(*b.game, "SM_CHARACTER_LIST").data);
+		ASSERT_EQ(list.characters.size(), 1u);
+		EXPECT_EQ(list.characters[0].unreadMail, 1) << "X14: the character list's unread flag";
+		const std::vector<Packet> burst = reenter(b);
+		mail = mailServices(burst, "X14");
+		ASSERT_FALSE(mail.empty()) << join(namesOf(burst));
+		ASSERT_TRUE(mail[0].mailboxState);
+		EXPECT_EQ(mail[0].mailboxState->unread, 2) << "X14: the second and the third letter (MailService.onPlayerLogin, loadPlayerMailbox)";
+		EXPECT_EQ(mail[0].mailboxState->total, 2);
+		checkDisjoint("C12 re-entry");
+	});
+
+	// ---- C13: soul healing (X15) ----
+	runCase("C13", "A disconnects, recoverexp is seeded, A heals its soul at Fulla (X15)", [&] {
+		const int64_t kinahBeforeQuit = a.kinah();
+		disconnect(a);
+		database.execute(schema, "UPDATE players SET recoverexp = " + std::to_string(RECOVERABLE_EXP) + " WHERE id = " + std::to_string(a.playerId));
+		relogIn(servers, a);
+		EXPECT_EQ(a.kinah(), kinahBeforeQuit) << "A's kinah after the relog";
+		b.drain();
+		checkDisjoint("C13 re-entry");
+		const EconomyTalk& fullaTalk = economy.talkOf(FULLA);
+		walkToSpot(a, fullaTalk.nearSpot);
+		const int32_t fulla = npcOf(a, FULLA);
+		const int32_t kinah = a.kinahObject().value_or(0);
+		const int64_t before = a.kinah();
+		size_t from = a.mark();
+		a.game->send(GameSession::CM_DIALOG_SELECT, GameSession::buildCM_DIALOG_SELECT(fulla, DIALOG_RECOVERY));
+		collectFor(*a.game, STEP);
+		const std::vector<decoders::QuestionWindow> questions = questionWindows(a.since(from), "X15");
+		ASSERT_EQ(questions.size(), 1u) << "X15: RECOVERY asks: " << join(namesOf(a.since(from)));
+		const EconomyQuestion& want = *economy.recovery->question;
+		EXPECT_EQ(questions[0].code, want.id) << "X15: STR_ASK_RECOVER_EXPERIENCE";
+		EXPECT_EQ(questions[0].params, want.params) << "X15: the price as text";
+		EXPECT_EQ(questions[0].senderId, want.senderId);
+		EXPECT_EQ(questions[0].rangeOrCooldownSeconds, want.range);
+		from = a.mark();
+		a.game->send(GameSession::CM_QUESTION_RESPONSE, GameSession::buildCM_QUESTION_RESPONSE(want.id, GameSession::ANSWER_YES));
+		collectFor(*a.game, STEP);
+		const std::vector<Packet> window = a.since(from);
+		ledgerA[KINAH_ITEM] += *economy.recovery->yesKinahDelta;
+		std::vector<int32_t> wantMessages;
+		for (const EconomyMessage& message : economy.recovery->yesMessages)
+			wantMessages.push_back(message.id);
+		std::vector<int32_t> gotMessages;
+		for (int32_t id : messageIds(window))
+			if (contains(wantMessages, id))
+				gotMessages.push_back(id);
+		EXPECT_EQ(gotMessages, wantMessages) << "X15: STR_GET_EXP2 then STR_SUCCESS_RECOVER_EXPERIENCE: " << joinNumbers(messageIds(window));
+		EXPECT_EQ(kinahUpdates(window, kinah, "X15"), std::vector<int64_t>{before + *economy.recovery->yesKinahDelta}) << "X15: -" << -*economy.recovery->yesKinahDelta;
+		const std::vector<StatUpdateExp> exp = decodeAll<StatUpdateExp>(window, "SM_STATUPDATE_EXP", decodeStatUpdateExp, "X15");
+		// non-fatal (the review of 2026-09-28): a mutant of X15 alone must leave C14-C18 running, so the rows after it stay observable
+		EXPECT_FALSE(exp.empty()) << "X15: the exp update: " << join(namesOf(window));
+		if (!exp.empty())
+			EXPECT_EQ(exp.back().recoverableExp, *economy.recovery->yesRecoverableExpAfter) << "X15: resetRecoverableExp";
+		checkDisjoint("C13 end");
+	});
+
+	// ---- C14: persistence (X16) ----
+	std::map<int32_t, int32_t> seeded; // item id -> object id of B's seeds
+	runCase("C14", "both disconnect; the database against the ledger; B's seeds; both re-enter (X16, X15)", [&] {
+		EXPECT_TRUE(sharedObjects.empty()) << "X16: object ids in both clients' inventory models during C8-C13:\n  " << join(sharedObjects, "\n  ");
+		// the models against the ledger before the quit
+		for (ScenarioClient* client : {&a, &b}) {
+			client->drain();
+			const Ledger& want = client == &a ? ledgerA : ledgerB;
+			const std::vector<std::string> differences = ledgerDifferences(ledgerOf(client->model), want);
+			EXPECT_TRUE(differences.empty()) << "X16: " << client->label << "'s model against the ledger (have/want): " << join(differences);
+		}
+		disconnect(a);
+		disconnect(b);
+		std::this_thread::sleep_for(500ms);
+		for (ScenarioClient* client : {&a, &b}) {
+			const Ledger& want = client == &a ? ledgerA : ledgerB;
+			Ledger stored;
+			for (const auto& row : database.queryRows(schema, "SELECT item_id, SUM(item_count) FROM inventory WHERE item_owner = " +
+			                                                    std::to_string(client->playerId) + " GROUP BY item_id",
+			                                          2))
+				stored[std::stoi(row[0].value_or("0"))] = std::stoll(row[1].value_or("0"));
+			const std::vector<std::string> differences = ledgerDifferences(stored, want);
+			EXPECT_TRUE(differences.empty()) << "X16: " << client->label << "'s `inventory` rows against the ledger (have/want): " << join(differences);
+		}
+		// per item id over both characters: every transfer conserved (the starters plus the vendors' net)
+		Ledger bothStored, bothWant;
+		for (const auto& row : database.queryRows(schema, "SELECT item_id, SUM(item_count) FROM inventory WHERE item_owner IN (" + std::to_string(a.playerId) +
+		                                                    ", " + std::to_string(b.playerId) + ") GROUP BY item_id",
+		                                          2))
+			bothStored[std::stoi(row[0].value_or("0"))] = std::stoll(row[1].value_or("0"));
+		for (const Ledger* ledger : {&ledgerA, &ledgerB})
+			for (const auto& [id, count] : *ledger)
+				bothWant[id] += count;
+		EXPECT_TRUE(ledgerDifferences(bothStored, bothWant).empty()) << "X16: per item id over A and B: " << join(ledgerDifferences(bothStored, bothWant));
+		EXPECT_EQ(database.queryLong(schema, "SELECT item_owner FROM inventory WHERE item_unique_id = " + std::to_string(mailedPotionsObject)).value_or(-1),
+		          b.playerId)
+		  << "X16: the mailed potions' row belongs to B";
+		const auto letters = database.queryRows(schema, "SELECT mail_recipient_id, attached_item_id, attached_kinah_count, unread FROM mail", 4);
+		EXPECT_EQ(letters.size(), 2u) << "X16: `mail` holds only the two unread kinah letters";
+		for (const auto& row : letters) {
+			EXPECT_EQ(row[0].value_or(""), std::to_string(b.playerId));
+			EXPECT_EQ(row[1].value_or(""), "0");
+			EXPECT_EQ(row[2].value_or(""), std::to_string(KINAH_LETTER));
+			EXPECT_EQ(row[3].value_or(""), "1");
+		}
+		// X15's persistence: the exp came back, nothing is recoverable any more
+		const auto aRow = database.queryRows(schema, "SELECT exp, recoverexp FROM players WHERE id = " + std::to_string(a.playerId), 2);
+		ASSERT_EQ(aRow.size(), 1u);
+		EXPECT_EQ(aRow[0][0].value_or(""), std::to_string(*economy.recovery->yesExpDelta)) << "X15: exp +1,000 over A's 0";
+		EXPECT_EQ(aRow[0][1].value_or(""), std::to_string(*economy.recovery->yesRecoverableExpAfter)) << "X15: players.recoverexp = 0";
+		ASSERT_NE(servers.gameServer(), nullptr);
+		std::vector<std::string> daoErrors;
+		for (const std::string& line : servers.gameServer()->findLogLines(" ERROR "))
+			if (line.find("InventoryDAO") != std::string::npos || line.find("MailDAO") != std::string::npos)
+				daoErrors.push_back(line);
+		EXPECT_TRUE(daoErrors.empty()) << "X16: ERROR lines of InventoryDAO or MailDAO (a duplicate item_unique_id fails there):\n" << join(daoErrors, "\n");
+
+		// §10.1 "Seeds" for C15-C18, with B disconnected (F-3): level 4, the removal + cube + tools kinah, the unidentified tunic, the sword, the stone
+		const std::string bId = std::to_string(b.playerId);
+		database.execute(schema, "UPDATE players SET exp = " + std::to_string(*economy.item(TUNIC).startExpOfRequiredLevel) + " WHERE id = " + bId);
+		database.execute(schema, "UPDATE inventory SET item_count = " + std::to_string(seedKinahB) + " WHERE item_owner = " + bId + " AND item_id = " +
+		                           std::to_string(KINAH_ITEM));
+		for (int32_t itemId : {TUNIC, PLAINSMAN_SWORD, MANASTONE})
+			seeded[itemId] = database.seedInventoryItem(schema, {b.playerId, itemId, 1, ModelItem::CUBE, 65535});
+		database.execute(schema, "UPDATE inventory SET tune_count = " + std::to_string(*economy.item(TUNIC).seedTuneCountForUnidentified) +
+		                           " WHERE item_unique_id = " + std::to_string(seeded[TUNIC]));
+		ledgerB[KINAH_ITEM] = seedKinahB;
+		ledgerB[TUNIC] += 1;
+		ledgerB[PLAINSMAN_SWORD] += 1;
+		ledgerB[MANASTONE] += 1;
+
+		// both re-enter: SM_INVENTORY_INFO against the same ledger
+		for (ScenarioClient* client : {&a, &b}) {
+			relogIn(servers, *client);
+			const Ledger& want = client == &a ? ledgerA : ledgerB;
+			const std::vector<std::string> differences = ledgerDifferences(ledgerOf(client->model), want);
+			EXPECT_TRUE(differences.empty()) << "X16: " << client->label << "'s re-entry SM_INVENTORY_INFO against the ledger (have/want): " << join(differences);
+		}
+		a.drain();
+		const std::optional<decoders::StatsInfo> stats = [&]() -> std::optional<decoders::StatsInfo> {
+			std::optional<decoders::StatsInfo> last;
+			for (const Packet& packet : b.game->recorded())
+				if (packet.name == "SM_STATS_INFO")
+					last = decoders::decodeStatsInfo(packet.data);
+			return last;
+		}();
+		ASSERT_TRUE(stats);
+		EXPECT_EQ(stats->level, economy.item(TUNIC).requiredLevel) << "B is level 4 after the exp seed (onLevelChange at the enter world, W-20)";
+	});
+
+	// ---- C15: identification (X23) ----
+	const auto armourOf = [&]() -> std::optional<ModelItem> {
+		b.model.sync();
+		return b.model.byObjectId(seeded[TUNIC]);
+	};
+	runCase("C15", "B identifies the tunic, equips and unequips it (X23)", [&] {
+		const EconomyItem& tunic = economy.item(TUNIC);
+		const int32_t armour = seeded[TUNIC];
+		ASSERT_TRUE(armourOf()) << "the seeded tunic " << armour << " was not loaded: " << b.model.describe();
+		// the seed loads unidentified: EnchantInfoBlobEntry writes -1 for the sockets and the bonus of an unidentified item
+		const std::vector<decoders::InventoryInfo> infos =
+		  decodeAll<decoders::InventoryInfo>(b.lastEnterWorld, "SM_INVENTORY_INFO", decoders::decodeInventoryInfo, "X23");
+		bool unidentified = false;
+		for (const decoders::InventoryInfo& info : infos)
+			for (const decoders::InventoryItem& item : info.items)
+				if (item.objectId == armour && item.enchant)
+					unidentified = item.enchant->optionalSockets == -1 && item.enchant->enchantBonus == -1;
+		EXPECT_TRUE(unidentified) << "X23: the seeded tunic (tune_count -1) must load unidentified (D5)";
+
+		ASSERT_TRUE(tunic.identifyAnimation);
+		const size_t from = b.mark();
+		const auto sentAt = std::chrono::steady_clock::now();
+		b.game->send(GameSession::CM_TUNE, GameSession::buildCM_TUNE(armour, 0));
+		const std::optional<size_t> done = readUntil(
+		  *b.game,
+		  [&](const Packet& packet) {
+			  if (packet.name != "SM_SYSTEM_MESSAGE")
+				  return false;
+			  try {
+				  return decoders::decodeSystemMessageId(packet.data) == tunic.identifyMessageId.value_or(0);
+			  } catch (const DecodeError&) {
+				  return false;
+			  }
+		  },
+		  15s);
+		collectFor(*b.game, 500ms);
+		const std::vector<Packet> window = b.since(from);
+		ASSERT_TRUE(done) << "X23: no STR_MSG_ITEM_IDENTIFY_SUCCEED within 15 s: " << join(namesOf(window));
+		const std::vector<decoders::ItemUsageAnimation> animations = usageAnimations(window, "X23");
+		ASSERT_EQ(animations.size(), 2u) << "X23: the start and the end animation: " << join(namesOf(window));
+		const EconomyAnimation& want = *tunic.identifyAnimation;
+		EXPECT_EQ(animations[0].playerObjectId, b.playerId);
+		EXPECT_EQ(animations[0].itemObjectId, armour);
+		EXPECT_EQ(animations[0].itemId, TUNIC);
+		EXPECT_EQ(animations[0].time, want.time) << "X23: 5,000 ms";
+		EXPECT_EQ(animations[0].end, want.start) << "X23: the start action 9";
+		EXPECT_EQ(animations[1].time, 0);
+		EXPECT_EQ(animations[1].end, want.end) << "X23: the end action 10";
+		const std::vector<Packet> animationPackets = ofName(window, "SM_ITEM_USAGE_ANIMATION");
+		const int64_t millis = millisBetween(animationPackets.front().receivedAt, animationPackets.back().receivedAt);
+		EXPECT_GE(millis, want.time - 300) << "X23: the task runs " << want.time << " ms after the start animation, not with delay 0";
+		EXPECT_LE(millisBetween(sentAt, animationPackets.front().receivedAt), 2000) << "X23: the start animation comes at once";
+		const std::vector<decoders::InventoryUpdateItem> updates = updatesOf(window, armour, "X23");
+		ASSERT_EQ(updates.size(), 1u) << "X23: one SM_INVENTORY_UPDATE_ITEM of the tunic: " << join(namesOf(window));
+		ASSERT_TRUE(updates[0].item.enchant) << "X23: the full blob";
+		ASSERT_TRUE(tunic.optionalSocketsRange && tunic.enchantBonusRange);
+		EXPECT_GE(updates[0].item.enchant->optionalSockets, (*tunic.optionalSocketsRange)[0]) << "X23: Rnd.get(0, option_slot_bonus)";
+		EXPECT_LE(updates[0].item.enchant->optionalSockets, (*tunic.optionalSocketsRange)[1]);
+		EXPECT_GE(updates[0].item.enchant->enchantBonus, (*tunic.enchantBonusRange)[0]) << "X23: Rnd.get(0, max_enchant_bonus)";
+		EXPECT_LE(updates[0].item.enchant->enchantBonus, (*tunic.enchantBonusRange)[1]);
+		EXPECT_TRUE(contains(messageIds(window), *tunic.identifyMessageId));
+
+		// identified, B can wear it (Equipment.java:163-167 refuses an unidentified item); then it comes off again for C16's removal
+		size_t equipFrom = b.mark();
+		b.game->send(GameSession::CM_EQUIP_ITEM, GameSession::buildCM_EQUIP_ITEM(GameSession::EQUIP, TORSO, armour));
+		collectFor(*b.game, STEP);
+		std::vector<decoders::InventoryUpdateItem> equip = updatesOf(b.since(equipFrom), armour, "X23");
+		const bool equipped = !equip.empty() && equip.back().item.equippedSlotBlob == std::optional<int64_t>(TORSO);
+		EXPECT_TRUE(equipped) << "X23: the identified tunic can be equipped (A-05's equip packets): " << join(namesOf(b.since(equipFrom)));
+		const std::vector<decoders::UpdatePlayerAppearance> appearance =
+		  decodeAll<decoders::UpdatePlayerAppearance>(b.since(equipFrom), "SM_UPDATE_PLAYER_APPEARANCE", decoders::decodeUpdatePlayerAppearance, "X23");
+		EXPECT_TRUE(std::ranges::any_of(appearance, [&](const decoders::UpdatePlayerAppearance& update) { return update.playerObjectId == b.playerId; }))
+		  << "X23: CM_EQUIP_ITEM's SM_UPDATE_PLAYER_APPEARANCE";
+		if (equipped) {
+			// back into the cube, where C16's removal looks for it (ItemSocketService.removeManastone reads the inventory only)
+			equipFrom = b.mark();
+			b.game->send(GameSession::CM_EQUIP_ITEM, GameSession::buildCM_EQUIP_ITEM(GameSession::UNEQUIP, 0, armour));
+			collectFor(*b.game, STEP);
+			equip = updatesOf(b.since(equipFrom), armour, "X23");
+			EXPECT_TRUE(!equip.empty() && equip.back().item.equippedSlotBlob == std::optional<int64_t>(0))
+			  << "the tunic back in the cube: " << join(namesOf(b.since(equipFrom)));
+		}
+	});
+
+	// ---- C16: a manastone, and Seril (X24, X25) ----
+	runCase("C16", "B sockets the manastone, relogs, and has it removed at Seril (X24, X25)", [&] {
+		const EconomyItem& tunic = economy.item(TUNIC);
+		const EconomySocketing& socketing = tunic.socketing.at(0);
+		const int32_t armour = seeded[TUNIC], stone = seeded[MANASTONE];
+		size_t from = b.mark();
+		b.game->send(GameSession::CM_MANASTONE, GameSession::buildCM_MANASTONE(MANASTONE_ADD, 1, armour, stone, 0));
+		const std::optional<size_t> done = readUntil(
+		  *b.game,
+		  [&](const Packet& packet) {
+			  if (packet.name != "SM_ITEM_USAGE_ANIMATION")
+				  return false;
+			  try {
+				  const decoders::ItemUsageAnimation animation = decoders::decodeItemUsageAnimation(packet.data);
+				  return animation.time == 0 && animation.end != 0;
+			  } catch (const DecodeError&) {
+				  return true;
+			  }
+		  },
+		  10s);
+		collectFor(*b.game, 500ms);
+		std::vector<Packet> window = b.since(from);
+		ASSERT_TRUE(done) << "X24: the socketing never ended: " << join(namesOf(window));
+		ledgerB[MANASTONE] -= 1;
+		EXPECT_TRUE(contains(deletedObjects(window, "X24"), stone)) << "X24: the stone is consumed: " << join(namesOf(window));
+		const std::vector<decoders::InventoryUpdateItem> socketed = updatesOf(window, armour, "X24");
+		ASSERT_FALSE(socketed.empty()) << "X24: the tunic's update: " << join(namesOf(window));
+		ASSERT_TRUE(socketed.back().item.enchant);
+		EXPECT_EQ(socketed.back().item.enchant->manaStones[0], MANASTONE) << "X24: the stone in slot 0";
+		EXPECT_EQ(socketed.back().item.enchant->manaStones[1], 0) << "X24: and nowhere else";
+		EXPECT_TRUE(contains(messageIds(window), *socketing.successMessageId)) << "X24: STR_GIVE_ITEM_OPTION_SUCCEED (chance 200, no randomness, D6)";
+		EXPECT_FALSE(contains(messageIds(window), *socketing.failureMessageId));
+		const std::vector<decoders::ItemUsageAnimation> animations = usageAnimations(window, "X24");
+		ASSERT_FALSE(animations.empty());
+		EXPECT_EQ(animations.front().time, *socketing.animationMillis);
+		EXPECT_EQ(animations.back().end, 1) << "X24: the closing animation says success";
+
+		// the socket is stored at the quit as an item_stones row, and comes back at the re-entry
+		quitToCharacterList(b);
+		const auto stones = database.queryRows(schema, "SELECT item_id, slot, category FROM item_stones WHERE item_unique_id = " + std::to_string(armour), 3);
+		ASSERT_EQ(stones.size(), 1u) << "X24: one item_stones row for the tunic after the quit";
+		EXPECT_EQ(stones[0][0].value_or(""), std::to_string(MANASTONE));
+		EXPECT_EQ(stones[0][1].value_or(""), "0");
+		EXPECT_EQ(stones[0][2].value_or(""), std::to_string(ITEM_STONE_CATEGORY_MANASTONE));
+		const std::vector<Packet> burst = reenter(b);
+		bool reloaded = false;
+		for (const decoders::InventoryInfo& info : decodeAll<decoders::InventoryInfo>(burst, "SM_INVENTORY_INFO", decoders::decodeInventoryInfo, "X24"))
+			for (const decoders::InventoryItem& item : info.items)
+				if (item.objectId == armour && item.enchant)
+					reloaded = item.enchant->manaStones[0] == MANASTONE;
+		EXPECT_TRUE(reloaded) << "X24: the re-entry shows the stone in the tunic's item info";
+
+		// Seril: target, talk, REMOVE_ITEM_OPTION's page, the removal
+		const EconomyTalk& serilTalk = economy.talkOf(SERIL);
+		walkToSpot(b, serilTalk.nearSpot);
+		const int32_t seril = npcOf(b, SERIL);
+		b.game->send(GameSession::CM_TARGET_SELECT, GameSession::buildCM_TARGET_SELECT(seril));
+		collectFor(*b.game, 500ms);
+		from = b.mark();
+		b.game->send(GameSession::CM_SHOW_DIALOG, GameSession::buildCM_SHOW_DIALOG(seril));
+		collectFor(*b.game, STEP);
+		std::vector<decoders::DialogWindow> windows = dialogWindows(b.since(from), "X25");
+		ASSERT_EQ(windows.size(), 1u) << join(namesOf(b.since(from)));
+		EXPECT_EQ(windows[0].dialogPageId, *serilTalk.startWindow->page) << "X25: Seril's start page";
+		from = b.mark();
+		b.game->send(GameSession::CM_DIALOG_SELECT, GameSession::buildCM_DIALOG_SELECT(seril, DIALOG_REMOVE_ITEM_OPTION));
+		collectFor(*b.game, STEP);
+		windows = dialogWindows(b.since(from), "X25");
+		ASSERT_EQ(windows.size(), 1u) << "X25: REMOVE_ITEM_OPTION answers a window (W-18): " << join(namesOf(b.since(from)));
+		const auto removeArm = std::ranges::find_if(serilTalk.functions, [](const EconomyFunction& arm) { return arm.action == DIALOG_REMOVE_ITEM_OPTION; });
+		ASSERT_NE(removeArm, serilTalk.functions.end());
+		EXPECT_EQ(windows[0].dialogPageId, removeArm->page.value_or(-1)) << "X25: DialogPage.REMOVE_MANASTONE (20), not the action id 42";
+
+		const int32_t kinah = b.kinahObject().value_or(0);
+		const int64_t before = b.kinah();
+		from = b.mark();
+		GameSession::ManastoneRequest removal;
+		removal.actionType = GameSession::MANASTONE_REMOVE;
+		removal.targetFusedSlot = 1;
+		removal.targetItemUniqueId = armour;
+		removal.slotNum = 0;
+		removal.npcObjId = seril;
+		b.game->send(GameSession::CM_MANASTONE, GameSession::buildCM_MANASTONE(removal));
+		collectFor(*b.game, STEP);
+		window = b.since(from);
+		ledgerB[KINAH_ITEM] -= economy.removalPrice->at("ELYOS");
+		EXPECT_EQ(kinahUpdates(window, kinah, "X25"), std::vector<int64_t>{before - economy.removalPrice->at("ELYOS")})
+		  << "X25: -" << economy.removalPrice->at("ELYOS") << " (PricesService.getPriceForService(650), with the taxes)";
+		EXPECT_TRUE(contains(messageIds(window), *economy.removalSucceedMessageId)) << "X25: STR_REMOVE_ITEM_OPTION_SUCCEED: " << joinNumbers(messageIds(window));
+		const std::vector<decoders::InventoryUpdateItem> removed = updatesOf(window, armour, "X25");
+		ASSERT_FALSE(removed.empty()) << join(namesOf(window));
+		ASSERT_TRUE(removed.back().item.enchant);
+		EXPECT_EQ(removed.back().item.enchant->manaStones[0], 0) << "X25: the tunic without its stone";
+		EXPECT_EQ(database.queryLong(schema, "SELECT COUNT(*) FROM item_stones WHERE item_unique_id = " + std::to_string(armour)).value_or(-1), 0)
+		  << "X25: the removal writes at once (ItemStoneListDAO.storeManaStones with DELETED)";
+	});
+
+	// ---- C17: the cube (X26) ----
+	runCase("C17", "B expands the cube at 798008 (X26)", [&] {
+		const EconomyTalk& cubeTalk = economy.talkOf(CUBE_NPC);
+		const EconomyCube& cube = economy.cube.at(0);
+		walkToSpot(b, cubeTalk.nearSpot);
+		const int32_t npc = npcOf(b, CUBE_NPC);
+		b.game->send(GameSession::CM_SHOW_DIALOG, GameSession::buildCM_SHOW_DIALOG(npc));
+		collectFor(*b.game, STEP);
+		size_t from = b.mark();
+		b.game->send(GameSession::CM_DIALOG_SELECT, GameSession::buildCM_DIALOG_SELECT(npc, DIALOG_EXTEND_INVENTORY));
+		collectFor(*b.game, STEP);
+		const std::vector<decoders::QuestionWindow> questions = questionWindows(b.since(from), "X26");
+		ASSERT_EQ(questions.size(), 1u) << "X26: EXTEND_INVENTORY asks: " << join(namesOf(b.since(from)));
+		ASSERT_TRUE(cube.question);
+		EXPECT_EQ(questions[0].code, cube.question->id) << "X26: STR_WAREHOUSE_EXPAND_WARNING (the cube reuses the warehouse question)";
+		EXPECT_EQ(questions[0].params, cube.question->params) << "X26: the price";
+		const int32_t kinah = b.kinahObject().value_or(0);
+		const int64_t before = b.kinah();
+		from = b.mark();
+		b.game->send(GameSession::CM_QUESTION_RESPONSE, GameSession::buildCM_QUESTION_RESPONSE(cube.question->id, GameSession::ANSWER_YES));
+		collectFor(*b.game, STEP);
+		const std::vector<Packet> window = b.since(from);
+		ledgerB[KINAH_ITEM] += *cube.yesKinahDelta;
+		EXPECT_EQ(kinahUpdates(window, kinah, "X26"), std::vector<int64_t>{before + *cube.yesKinahDelta}) << "X26: -1,000 (the raw template price)";
+		ASSERT_TRUE(cube.yesMessage && cube.smCubeUpdate);
+		EXPECT_TRUE(contains(messageIds(window), cube.yesMessage->id)) << "X26: STR_EXTEND_INVENTORY_SIZE_EXTENDED";
+		const std::vector<decoders::CubeUpdate> updates = decodeAll<decoders::CubeUpdate>(window, "SM_CUBE_UPDATE", decoders::decodeCubeUpdate, "X26");
+		ASSERT_FALSE(updates.empty()) << join(namesOf(window));
+		EXPECT_EQ(updates.back().action, cube.smCubeUpdate->action);
+		EXPECT_EQ(updates.back().actionValue, cube.smCubeUpdate->storage);
+		EXPECT_EQ(updates.back().npcExpands, cube.smCubeUpdate->npcExpands) << "X26: the npc expansion count 1 (npcExpand)";
+		EXPECT_EQ(updates.back().questExpands, cube.smCubeUpdate->questExpands);
+		EXPECT_EQ(updates.back().itemExpands, cube.smCubeUpdate->itemExpands);
+	});
+
+	// ---- C18: extraction and enchanting (X27, X28) ----
+	int32_t enchantSeen = -1;
+	runCase("C18", "B buys the tools with its last kinah, breaks the sword and enchants the tunic (X27, X28)", [&] {
+		const EconomyItem& sword = economy.item(PLAINSMAN_SWORD);
+		const int32_t armour = seeded[TUNIC], weapon = seeded[PLAINSMAN_SWORD];
+		const EconomyTalk& merchantTalk = economy.talkOf(MERCHANT);
+		walkToSpot(b, merchantTalk.nearSpot);
+		const int32_t merchant = npcOf(b, MERCHANT);
+		b.game->send(GameSession::CM_DIALOG_SELECT, GameSession::buildCM_DIALOG_SELECT(merchant, DIALOG_BUY));
+		collectFor(*b.game, STEP);
+		const int32_t kinah = b.kinahObject().value_or(0);
+		EXPECT_EQ(b.kinah(), tools.buyKinah) << "C14's seed minus X25 and X26 leaves exactly the tools' price";
+		size_t from = b.mark();
+		const std::array<GameSession::BuyItemEntry, 1> buy{{{EXTRACTION_TOOLS, 1}}};
+		b.game->send(GameSession::CM_BUY_ITEM, GameSession::buildCM_BUY_ITEM(merchant, GameSession::TRADE_BUY, buy));
+		collectFor(*b.game, STEP);
+		std::vector<Packet> window = b.since(from);
+		ledgerB[KINAH_ITEM] -= tools.buyKinah;
+		EXPECT_EQ(kinahUpdates(window, kinah, "X27"), std::vector<int64_t>{0}) << "X27: the tools take the last kinah (>= in the kinah checks): "
+		                                                                       << joinNumbers(messageIds(window));
+		const std::vector<decoders::InventoryItem> bought = addedItems(window, "X27");
+		ASSERT_EQ(bought.size(), 1u) << "X27: " << join(namesOf(window));
+		EXPECT_EQ(bought[0].templateId, EXTRACTION_TOOLS);
+		const int32_t toolsObject = bought[0].objectId;
+
+		from = b.mark();
+		b.game->send(GameSession::CM_USE_ITEM, GameSession::buildCM_USE_ITEM(toolsObject, USE_ITEM_ON_ITEM, weapon));
+		const std::optional<size_t> done = readUntil(
+		  *b.game,
+		  [&](const Packet& packet) {
+			  if (packet.name != "SM_ITEM_USAGE_ANIMATION")
+				  return false;
+			  try {
+				  const decoders::ItemUsageAnimation animation = decoders::decodeItemUsageAnimation(packet.data);
+				  return animation.time == 0 && animation.end != 0;
+			  } catch (const DecodeError&) {
+				  return true;
+			  }
+		  },
+		  15s);
+		collectFor(*b.game, 500ms);
+		window = b.since(from);
+		ASSERT_TRUE(done) << "X27: the extraction never ended: " << join(namesOf(window));
+		const std::vector<decoders::ItemUsageAnimation> animations = usageAnimations(window, "X27");
+		ASSERT_GE(animations.size(), 2u);
+		EXPECT_EQ(animations.front().itemObjectId, toolsObject);
+		EXPECT_EQ(animations.front().time, 5000) << "X27: ExtractAction's 5,000 ms (ExtractAction.java)";
+		EXPECT_EQ(animations.back().end, 1) << "X27: the animation's result 1";
+		const std::vector<int32_t> deleted = deletedObjects(window, "X27");
+		EXPECT_TRUE(contains(deleted, weapon)) << "X27: the sword is deleted (breakItem): " << join(namesOf(window));
+		EXPECT_TRUE(contains(deleted, toolsObject)) << "X27: the tools are used up";
+		EXPECT_TRUE(contains(messageIds(window), *sword.breakMessageId)) << "X27: STR_DECOMPOSE_ITEM_SUCCEED";
+		const std::vector<decoders::InventoryItem> stones = addedItems(window, "X27");
+		ASSERT_EQ(stones.size(), 1u) << "X27: ONE stone stack: " << join(namesOf(window));
+		EXPECT_TRUE(std::ranges::any_of(sword.breakStones, [&](const auto& stone) { return stone.first == stones[0].templateId; }))
+		  << "X27: " << stones[0].templateId << " is not in the oracle's grade set";
+		const int64_t stoneCount = stones[0].general ? stones[0].general->count : 0;
+		EXPECT_GE(stoneCount, (*sword.breakCountRange)[0]) << "X27: a weapon breaks into [2, 5] (EnchantService.java:52-74)";
+		EXPECT_LE(stoneCount, (*sword.breakCountRange)[1]);
+		ledgerB[PLAINSMAN_SWORD] -= 1;
+		ledgerB[stones[0].templateId] += stoneCount;
+		const int32_t enchantStone = stones[0].objectId;
+
+		// the enchantment: exactly one of Java's two outcomes (the chance is capped at 80 %, EnchantService.java:126-127)
+		from = b.mark();
+		b.game->send(GameSession::CM_MANASTONE, GameSession::buildCM_MANASTONE(MANASTONE_ENCHANT, 1, armour, enchantStone, 0));
+		const std::optional<size_t> ended = readUntil(
+		  *b.game,
+		  [&](const Packet& packet) {
+			  if (packet.name != "SM_ITEM_USAGE_ANIMATION")
+				  return false;
+			  try {
+				  const decoders::ItemUsageAnimation animation = decoders::decodeItemUsageAnimation(packet.data);
+				  return animation.time == 0 && animation.end != 0;
+			  } catch (const DecodeError&) {
+				  return true;
+			  }
+		  },
+		  10s);
+		collectFor(*b.game, 500ms);
+		window = b.since(from);
+		ASSERT_TRUE(ended) << "X28: the enchantment never ended: " << join(namesOf(window));
+		ledgerB[stones[0].templateId] -= 1;
+		const std::vector<decoders::InventoryUpdateItem> stoneUpdates = updatesOf(window, enchantStone, "X28");
+		EXPECT_TRUE((!stoneUpdates.empty() && stoneUpdates.back().item.general && stoneUpdates.back().item.general->count == stoneCount - 1) ||
+		            (stoneCount == 1 && contains(deletedObjects(window, "X28"), enchantStone)))
+		  << "X28: the stone -1 on either outcome: " << join(namesOf(window));
+		const std::vector<int32_t> messages = messageIds(window);
+		const bool success = contains(messages, STR_MSG_ENCHANT_ITEM_SUCCEED_NEW);
+		const bool failure = contains(messages, STR_ENCHANT_ITEM_FAILED);
+		EXPECT_NE(success, failure) << "X28: exactly one of the two outcomes: " << joinNumbers(messages);
+		const std::vector<decoders::InventoryUpdateItem> armourUpdates = updatesOf(window, armour, "X28");
+		ASSERT_FALSE(armourUpdates.empty()) << "X28: setEnchantLevel updates the tunic: " << join(namesOf(window));
+		ASSERT_TRUE(armourUpdates.back().item.enchant);
+		enchantSeen = armourUpdates.back().item.enchant->enchantLevel;
+		if (success) {
+			EXPECT_GE(enchantSeen, 1) << "X28: +1, +2 or +3";
+			EXPECT_LE(enchantSeen, 3);
+		} else {
+			EXPECT_EQ(enchantSeen, 0) << "X28: a failure at +0 stays at 0";
+			EXPECT_FALSE(contains(deletedObjects(window, "X28"), armour)) << "X28: the tunic kept (enchant type 0)";
+		}
+		EXPECT_EQ(usageAnimations(window, "X28").back().end, success ? 1 : 2) << "X28: the closing animation's result";
+		std::cout << "X27/X28: " << stoneCount << " x " << stones[0].templateId << "; the enchantment " << (success ? "succeeded" : "failed") << " at +"
+		          << enchantSeen << std::endl;
+	});
+
+	// ---- C20: reports and shutdown (X22, and the last quit's rows of X23, X26, X28) ----
+	// C20a always runs, whatever failed before it: the characters must be out of the world for X22's bar (nobody online at the end)
+	cases.run("C20a", "both quit; the rows of the last quit (X16, X23, X26, X28)", [&] {
+		for (ScenarioClient* client : {&a, &b}) {
+			try {
+				client->drain();
+				disconnect(*client);
+			} catch (const std::exception& exception) {
+				ADD_FAILURE() << client->label << " could not quit: " << exception.what();
+				client->game.reset();
+				client->login.reset();
+			}
+		}
+		std::this_thread::sleep_for(500ms);
+		if (!ok) {
+			std::cout << "C20a: an earlier case ended the script, so the rows of the last quit are not the script's and are not read" << std::endl;
+			return;
+		}
+		// X16 "and every later quit": both characters against their ledgers, C15-C18 included
+		for (ScenarioClient* client : {&a, &b}) {
+			Ledger stored;
+			for (const auto& row : database.queryRows(schema, "SELECT item_id, SUM(item_count) FROM inventory WHERE item_owner = " +
+			                                                    std::to_string(client->playerId) + " GROUP BY item_id",
+			                                          2))
+				stored[std::stoi(row[0].value_or("0"))] = std::stoll(row[1].value_or("0"));
+			const std::vector<std::string> differences = ledgerDifferences(stored, client == &a ? ledgerA : ledgerB);
+			EXPECT_TRUE(differences.empty()) << "X16 (the last quit): " << client->label << "'s `inventory` rows against the ledger (have/want): "
+			                                 << join(differences);
+		}
+		EXPECT_EQ(database.queryLong(schema, "SELECT COUNT(*) FROM inventory WHERE item_unique_id = " + std::to_string(seeded[PLAINSMAN_SWORD])).value_or(-1), 0)
+		  << "X16/X27: the broken sword's row is gone";
+		const auto row = database.queryRows(schema, "SELECT tune_count, enchant FROM inventory WHERE item_unique_id = " + std::to_string(seeded[TUNIC]), 2);
+		ASSERT_EQ(row.size(), 1u);
+		EXPECT_EQ(row[0][0].value_or(""), std::to_string(*economy.item(TUNIC).tuneCountAfter)) << "X23: inventory.tune_count after the identification";
+		EXPECT_EQ(row[0][1].value_or(""), std::to_string(enchantSeen)) << "X28: inventory.enchant is the level the client saw";
+		EXPECT_EQ(database.queryLong(schema, "SELECT npc_expands FROM players WHERE id = " + std::to_string(b.playerId)).value_or(-1),
+		          *economy.cube.at(0).npcExpandsAfter)
+		  << "X26: players.npc_expands";
+	});
+
+	std::optional<int32_t> gameServerExit;
+	const int64_t connectionsAtShutdown = (a.game && !a.game->client.socket.isClosed() ? 1 : 0) + (b.game && !b.game->client.socket.isClosed() ? 1 : 0);
+	gameServerExit = servers.stopGameServer();
+	const std::chrono::system_clock::time_point serverUpTo = std::chrono::system_clock::now();
+	for (ScenarioClient* client : {&a, &b})
+		if (client->game)
+			client->game->waitClosed(60s);
+	const std::optional<int32_t> loginServerExit = servers.stopLoginServer();
+
+	cases.run("C20", "reports: the Q8 bar, the allow-list and the transfer classes (X22)", [&] {
+		ASSERT_TRUE(gameServerExit) << "the game server did not exit after the stop file was written";
+		EXPECT_EQ(*gameServerExit, 0) << "the game server exited with " << *gameServerExit;
+		ASSERT_TRUE(loginServerExit) << "the login server did not exit on CTRL_BREAK";
+		if (*loginServerExit == 98) {
+			ASSERT_NE(servers.loginServer(), nullptr);
+			EXPECT_FALSE(servers.loginServer()->findLogLines("ServerChannels closed.", 1).empty())
+			  << "the login server was terminated (exit 98) without shutting down";
+		} else {
+			EXPECT_EQ(*loginServerExit, 0) << "the login server exited with " << *loginServerExit;
+		}
+		ASSERT_TRUE(std::filesystem::is_regular_file(servers.checkOutputDir() / "m5a_summary.txt"))
+		  << "X22: the game server wrote no check output in " << servers.checkOutputDir();
+
+		// ---- X22: the M5a Q8 bar ----
+		const std::vector<std::string> unported = servers.readReportLines("unported_trace.txt");
+		const bool legionDominionCron = crossesWednesdayNine(serverUpFrom, serverUpTo);
+		std::string cronNote;
+		for (const std::string& line : unported)
+			if (line.find("LegionDominionService") != std::string::npos && legionDominionCron)
+				cronNote = "\n  NOTE: the server was up at a Wednesday 09:00 local time, when CronJobService's hard-coded LegionDominion job fires into the "
+				           "unported LegionDominionService::startWeeklyCalculation (CronJobService.cpp:185-187, m5c-plan.md G-07): that hit is the cron's, "
+				           "not the script's - rerun the gate (P5-SC.md \"M5c stage 1 integration\")";
+		EXPECT_TRUE(unported.empty()) << "X22: AION_UNPORTED sites were reached on the economy path:\n" << join(unported, "\n") << cronNote;
+		const std::vector<AllowlistEntry> allowlist = readAllowlist();
+		ASSERT_FALSE(allowlist.empty()) << "X22: tests/scenario/m5c_partial_allowlist.txt is empty or missing";
+		std::map<std::string, int64_t> hitsByEntry;
+		for (const AllowlistEntry& entry : allowlist)
+			hitsByEntry[entry.site] = 0;
+		for (const PartialHit& hit : readPartialHits(servers)) {
+			bool allowed = false;
+			for (const AllowlistEntry& entry : allowlist)
+				if (allowlistEntryMatches(entry.site, hit.site)) {
+					allowed = true;
+					hitsByEntry[entry.site] += hit.hits;
+				}
+			EXPECT_TRUE(allowed) << "X22: the AION_PARTIAL site " << hit.site << " is not in tests/scenario/m5c_partial_allowlist.txt (" << hit.line << ")";
+		}
+		for (const AllowlistEntry& entry : allowlist) {
+			if (entry.section == AllowlistSection::HitAtLeastOnce)
+				EXPECT_GT(hitsByEntry[entry.site], 0) << "X22: the section A row " << entry.site << " was never hit";
+			else if (entry.section == AllowlistSection::HitNever)
+				EXPECT_EQ(hitsByEntry[entry.site], 0) << "X22: the section B row " << entry.site << " was hit " << hitsByEntry[entry.site] << " times";
+		}
+		std::cout << "X22: AION_PARTIAL hits by allow-list row (hits, section, site):\n";
+		for (const AllowlistEntry& entry : allowlist)
+			std::cout << "  " << hitsByEntry[entry.site] << "\t" << sectionName(entry.section) << "\t" << entry.site << "\n";
+		std::cout << std::flush;
+
+		const std::vector<std::string> census = servers.readReportLines("census.txt");
+		EXPECT_TRUE(census.empty()) << "X22: the final census reports leaks:\n" << join(census, "\n");
+		EXPECT_TRUE(servers.readReportLines("lockdep.txt").empty()) << "X22: the lock order validator reported:\n"
+		                                                            << join(servers.readReportLines("lockdep.txt"), "\n");
+		EXPECT_TRUE(servers.readReportLines("watchdog.txt").empty()) << "X22: the watchdog dumped:\n" << join(servers.readReportLines("watchdog.txt"), "\n");
+		const std::map<std::string, std::vector<std::string>> summary = servers.readSummary();
+		const auto value = [&](std::string_view key) -> std::string {
+			const auto found = summary.find(std::string(key));
+			return found == summary.end() || found->second.empty() ? std::string() : found->second[0];
+		};
+		EXPECT_EQ(value("started"), "true");
+		EXPECT_EQ(value("exitCode"), "0");
+		EXPECT_EQ(value("knownListNotifyFailures"), "0");
+		EXPECT_EQ(value("liveCountsEnabled"), "true") << "X22: a release build counts nothing: build it checked";
+		EXPECT_EQ(value("liveLeaks"), "0") << "X22: a strict class is alive after the logouts: " << join(summary.contains("liveLeak") ? summary.at("liveLeak") : std::vector<std::string>{});
+		EXPECT_EQ(value("zombieCuts"), "0");
+		const auto notPorted = summary.find("notPortedClientPacket");
+		if (notPorted != summary.end())
+			ADD_FAILURE() << "X22: the scripted path sent client packets that are not ported: " << join(notPorted->second);
+		std::vector<std::string> errors;
+		ASSERT_NE(servers.gameServer(), nullptr);
+		for (const std::string& line : servers.gameServer()->findLogLines(" ERROR "))
+			errors.push_back("game server: " + line);
+		if (servers.loginServer() != nullptr)
+			for (const std::string& line : servers.loginServer()->findLogLines(" ERROR "))
+				errors.push_back("login server: " + line);
+		EXPECT_TRUE(errors.empty()) << "X22: ERROR lines in the server logs:\n" << join(errors, "\n") << cronNote;
+		const std::filesystem::path errorLog = servers.logFolder() / "server_errors.log";
+		if (std::filesystem::exists(errorLog)) {
+			std::vector<std::string> fileErrors;
+			std::ifstream in(errorLog, std::ios::binary);
+			std::string line;
+			while (std::getline(in, line) && fileErrors.size() < 20) {
+				if (!line.empty() && line.back() == '\r')
+					line.pop_back();
+				if (!line.empty())
+					fileErrors.push_back(line);
+			}
+			EXPECT_TRUE(fileErrors.empty()) << "X22: " << errorLog << " is not empty:\n" << join(fileErrors, "\n");
+		} else {
+			ADD_FAILURE() << "X22: the game server wrote no " << errorLog;
+		}
+		EXPECT_TRUE(servers.gameServer()->findLogLines("did not leave world cleanly", 5).empty());
+		EXPECT_TRUE(servers.gameServer()->findLogLines("stale pin", 5).empty());
+		EXPECT_TRUE(servers.gameServer()->findLogLines("objects removed from the world are still alive", 5).empty())
+		  << "X22: " << join(servers.gameServer()->findLogLines("objects removed from the world are still alive", 5), "\n");
+
+		// ---- X22: the transfer classes (G-06): live 0 with created > 0 - every transfer object of the run was reclaimed ----
+		const auto liveCount = [&](std::string_view name) -> std::optional<LiveCount> {
+			const auto rows = summary.find("liveCount");
+			if (rows == summary.end())
+				return std::nullopt;
+			for (const std::string& row : rows->second) {
+				std::istringstream in(row);
+				std::string key;
+				LiveCount count;
+				if (!(in >> key >> count.live >> count.created) || key != name)
+					continue;
+				count.line = row;
+				return count;
+			}
+			return std::nullopt;
+		};
+		for (const std::string_view name : {"model::trade::Exchange", "model::trade::ExchangeItem", "model::trade::TradeList", "model::trade::TradeItem",
+		                                    "model::trade::RepurchaseList", "model::trade::TradePSItem", "model::gameobjects::Letter",
+		                                    "CM_EXCHANGE_REQUEST_RequestResponseHandler", "DialogService_RequestResponseHandler",
+		                                    "CubeExpandService_RequestResponseHandler"}) {
+			const std::optional<LiveCount> count = liveCount(name);
+			if (!count) {
+				ADD_FAILURE() << "X22: m5a_summary.txt has no liveCount row for " << name << " (CheckOutput, G-06)";
+				continue;
+			}
+			EXPECT_EQ(count->live, 0) << "X22: " << count->line << " - a transfer object outlived the logouts";
+			EXPECT_GT(count->created, 0) << "X22: " << count->line << " - the gate's path never created one, so its 0 live proves nothing";
+		}
+		// part 1 runs no craft (C19 is stage 3's): the CraftingTask row is a guard here, live 0 only
+		const std::optional<LiveCount> crafting = liveCount("skillengine::task::CraftingTask");
+		ASSERT_TRUE(crafting) << "X22: no liveCount row for CraftingTask (G-06)";
+		EXPECT_EQ(crafting->live, 0) << "X22: " << crafting->line;
+		// nobody is online at the end, so no per-connection object survives either (the M5a bound, here 0)
+		const std::set<std::string> perConnection = {"Account", "AccountTime", "ConnectionAliveChecker", "PlayerAccountData", "PlayerCommonData",
+			"PlayerAppearance"};
+		for (const auto& [name, count] : readLiveCounts(servers, "live_counts.txt")) {
+			if (perConnection.contains(name) || name.ends_with("Storage"))
+				EXPECT_LE(count.live, connectionsAtShutdown) << "X22: live instances left: " << count.line;
+			if (name == "Player" || name == "Item" || name == "Mailbox")
+				EXPECT_EQ(count.live, 0) << "X22: live instances left: " << count.line;
+		}
+		EXPECT_EQ(connectionsAtShutdown, 0) << "both characters quit before the stop (C20a)";
+	});
+
+	finishRun(servers, outputDir, testName);
+}
+
+} // namespace
+
+// ---- the gate ----------------------------------------------------------------------------------------------------------------------------
+
+/** `gs.scenario.m5c` (G-03 part 1): the economy cases of §10.2, C0-C18 and C20, two accounts online at once; no geo variant (D12) */
+TEST(M5cScenario, Run) {
+	runM5cGate();
+}
+
+} // namespace aion::gameserver::scenario
