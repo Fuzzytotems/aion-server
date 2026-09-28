@@ -24,6 +24,17 @@
 > `a75d281ff`, with chunks, leases, merge order, the earlier-gate impact and a mutation-proof test plan. The owner's 2026-09-27 answers are
 > applied where they sit: H-02 is required and names 1007/2009 (I-01, D5, §2.6, §6, §7, §9), `CM_PLAY_MOVIE_END` is required (§2.6, §2.10,
 > P-06, H-01), and G-05 cites the allow-list rows where they are.
+>
+> **The instance subset merged early, 2026-09-28**, at the owner's request ([owner-decisions.md](owner-decisions.md), 2026-09-28). It merged
+> after M5c stage 2 and the M5d/M5e ascension pieces, as one integration part (§15.4's commits A-D together). It holds N-01, N-02, N-07,
+> N-03, all 11 bodies of N-04, the T-02 subset, T-06, P-02, P-05 and `CM_PLAY_MOVIE_END` (P5-13.md, P5-08.md, P5-16.md, P4-10.md).
+> `InstanceService.cpp:133/:153` are closed, and their rows are gone from all five allow-lists (I-04). The `teleportTo(player, worldId,
+> instanceId, x, y, z)` overload stays unported, so `DialogServiceTest.cpp:1073-1074` still pin it. **m5c0-client-session.md F-2 (no bind
+> revive or Return across maps) is fixed in the tests.** `InstanceTeleportTest.WithoutAStartPositionInstanceReviveFallsBackToTheBindRevive`
+> runs F-2's chain: `bindRevive` → `moveToBindLocation` → `SpawnTask::run`'s cross-map arm → `onLeaveInstance`. It ends alive at the Poeta
+> bind point. A mutant that restores `onLeaveInstance`'s `AION_UNPORTED` on that move alone fails the case at exactly that stack. With
+> HEAD's whole body restored, 31 of the 72 instance, teleport and revive cases fail. No gate crosses maps, so the real client still has to
+> confirm F-2. All 13 gates passed two at a time with unchanged packet sequences, which confirms §15.5 (c).
 
 ---
 

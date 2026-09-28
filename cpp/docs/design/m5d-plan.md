@@ -22,6 +22,13 @@
 > §15-§20 and [phase6-questgen-prototype.md](phase6-questgen-prototype.md) rev 2. **§17 lists every change and its reason.** The body is
 > edited only where a statement had become wrong, and each such edit says "(refresh)". The user's decisions (D13, D16) stay open.
 >
+> **Stage 1a's engine overlay merged early, 2026-09-28**, at the owner's request ([owner-decisions.md](owner-decisions.md), 2026-09-28).
+> This is m5c-plan.md I-05's engine part, not this plan's I-05. It holds E-01 to E-05, H-01 to H-07 and T-01a with their tests, the P5-06a/b/c
+> split (I-01) and `m5d-h01` (D17 b), rebased onto `a75d281ff` and merged on top of M5c stage 2 (P5-06a.md, P5-06b.md, P5-06c.md).
+> `QuestEngine.cpp:111` stays `AION_PARTIAL`, so no XML quest registers yet: T-01b, the D3 join (I-05) and the gate are still ahead. The
+> same merge brought A-01 (`simple_abyssguard`, P5-05.md) and M5f's `CM_PLAY_MOVIE_END`, so D-05 must not port that packet again. On the
+> merged tree the unit suite passed (4,294 of 4,294) and so did all 13 gates, run two at a time.
+>
 > **Three corrections to the roadmap, in order of how much they change the milestone.**
 >
 > 1. **"About 4,184 XML-template quests come online with P5-06" is half true.** The number is exact: 4,184 `quest_script_data` elements, 4,184

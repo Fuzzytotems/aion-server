@@ -31,6 +31,13 @@
 > gate. Three additive header requests are approved for the next P5-03 / P5-04 lane (m5e-h01..h03) and the GeoService test hook is deferred
 > (m5e-h04). D1 is still the user's; stage 1 (the class change) has not started.
 >
+> **C-01 merged early, 2026-09-28**, at the owner's request ([owner-decisions.md](owner-decisions.md), 2026-09-28). All 7
+> `ClassChangeService` bodies are in, with `ClassChangeServiceTest` (29 cases; P5-08.md "M5e C-01, ported early"), so stage 1 does not port
+> C-01 again. The simple class window (D1 a) works with `gameserver.simple.secondclass.enable = true`. The login window from level 9
+> (`PlayerEnterWorldService.cpp:559-560`) and the journal choice (`CM_DIALOG_SELECT.cpp:112-113`) now reach ported bodies. The key still
+> defaults to false, and no gate profile turns it on. The unit cases drive the service directly, so the M5e gate's X1/X5 remain the tests
+> of the live path.
+>
 > **Four corrections to the roadmap row, in order of how much they change the milestone.**
 >
 > 1. **Aion 4.8 has no skill trainer.** No dialog action teaches a class skill: the only npc-taught skills are the **profession skills** of the

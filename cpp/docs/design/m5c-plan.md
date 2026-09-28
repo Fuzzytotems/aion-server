@@ -61,6 +61,12 @@
 > suite (0 failed of 4,053) and all 13 gates two at a time (50 of 50, every final census clean), applied two comment-only header requests
 > and released both leases. §21.3 lists the corrections (G-07: six keys and `0 0 0 1 1 ? 2000,2100,2101`; §10.1, §10.3, §10.4). **Stage 3
 > needs the M5d overlay merged (I-05) before C19**; the owner is asked about the free craft (§21.4).
+>
+> **I-05 is done (2026-09-28).** At the owner's request ([owner-decisions.md](owner-decisions.md), 2026-09-28), the M5d engine overlay merged
+> early on top of stage 2's commit, together with M5e's C-01 and M5f's instance subset. With the `QuestState` restore (F-1) and C-01 both in,
+> **stage 3's C19 can run.** `DialogSelectRunTest.ReportingAQuestWithoutAnNpc…` became the two `AnAutoReward…` cases. §21.7 said the
+> overlay's `header-requests.md` hunk used the m5b3-i-1 row as context. It did not: the hunk is a plain append. On the merged tree the unit
+> suite passed (4,294 of 4,294) and so did all 13 gates, run two at a time, with every final census clean.
 
 ---
 
