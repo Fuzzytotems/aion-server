@@ -1,0 +1,48 @@
+# The AION_PARTIAL sites the M5b-3 gate accepts (m5b3-plan.md §10.1 "Allow-list", G-03). One site per line, whose file paths are relative to
+# the compiling target's source root - game-server/src for the server itself (e.g. "aion/gameserver/GameServer.cpp:129") and
+# game-server/handlers for a registered handler (e.g. "aion/gameserver/handlers/ai/<Handler>.cpp:<line>"). An entry WITH a line number must
+# match the whole site; an entry without one is an explicit whole-file wildcard. Lines starting with '#' and empty lines are ignored.
+#
+# A SEPARATE list from the M5a, M5b and M5b-2 lists (m5b-plan.md D9): each gate's scripted path reaches its own set, and the lists must be able
+# to disagree.
+#
+# THE LIST IS IN THREE SECTIONS AND Y13 READS ALL THREE. A section begins at its "# --- SECTION X" marker line below and runs to the next one;
+# M5b3ScenarioTest.cpp matches those markers literally. Every site of partial_trace.txt must be in one of the three, and in addition:
+#   SECTION A  the gate asserts the row was hit at least once
+#   SECTION B  the gate asserts the row was hit EXACTLY ZERO times
+#   SECTION C  the row is allowed and its hit count is printed but not pinned
+#
+# §10.1: "no drop row; §A the M5a startup rows; §B nothing new; §C M5b's timing rows". Stage 1 closed the one partial of the loot path
+# (DropRegistrationService.cpp:43, L-01), so no row below belongs to the drop, item, equipment, potion, godstone or material code, and Y13
+# asserts besides that no DropRegistrationService site appears in partial_trace.txt at all.
+
+# =========================================================================================================================================
+# --- SECTION A - hit at least once, asserted ---
+# =========================================================================================================================================
+
+# every startup: the gates run without quests (m5a-plan.md W-02) and without base locations (E1-06)
+aion/gameserver/questEngine/QuestEngine.cpp:111
+aion/gameserver/services/BaseService.cpp:18
+
+# =========================================================================================================================================
+# --- SECTION B - hit exactly zero times, asserted ---
+# =========================================================================================================================================
+
+# (none: §10.1 "§B nothing new")
+
+# =========================================================================================================================================
+# --- SECTION C - allowed, counted and printed, not pinned ---
+# =========================================================================================================================================
+
+# behind gameserver.analysis.quest_handlers, which the gate profile does not set
+aion/gameserver/questEngine/QuestEngine.cpp:115
+# the PvP map instance needs InstanceService::getNextAvailableInstance (m5a-plan.md W-03)
+aion/gameserver/custom/pvpmap/PvpMapService.cpp:32
+# personal instances and the instance exit teleport are M5a AION_PARTIAL by plan W-03
+aion/gameserver/services/instance/InstanceService.cpp:133
+aion/gameserver/services/instance/InstanceService.cpp:153
+# EMOTIONS_ALL is off by default, so this is only reached with the config the real-client checklist uses
+aion/gameserver/services/player/PlayerService.cpp:268
+# AbyssRankUpdateService's periodic tasks: a property of the run's LENGTH, not of its script (the M5b-1 list's reason)
+aion/gameserver/services/abyss/AbyssRankUpdateService.cpp:37
+aion/gameserver/services/abyss/AbyssRankUpdateService.cpp:58

@@ -1,0 +1,464 @@
+[
+	{
+		"class": "*",
+		"kind": "attributeRequiredMismatch",
+		"name": "*",
+		"reason": "XSD use=\"required\" and Java required=true differ (396 vs 319, research static-data-jaxb.md); JAXB enforces neither, the C++ binder enforces the Java flag and the XSD flag is not enforced (static-data.md section 3.4)"
+	},
+	{
+		"class": "*",
+		"kind": "elementRequiredMismatch",
+		"name": "*",
+		"reason": "XSD minOccurs and Java @XmlElement(required) differ; the C++ binder enforces the Java flag only (static-data.md section 3.4)"
+	},
+	{
+		"class": "com.aionemu.gameserver.skillengine.effect.*",
+		"kind": "attributeMissingInIr",
+		"name": "mrresist",
+		"reason": "declared on the XSD EffectTemplate type, bound by no Java class, unused in the data (totals.json); a use fails strict loading"
+	},
+	{
+		"class": "com.aionemu.gameserver.skillengine.effect.*",
+		"kind": "attributeMissingInIr",
+		"name": "onfly",
+		"reason": "declared on the XSD EffectTemplate type, bound by no Java class, unused in the data (totals.json); a use fails strict loading"
+	},
+	{
+		"class": "com.aionemu.gameserver.model.templates.item.ItemTemplate",
+		"kind": "attributeMissingInIr",
+		"name": "cName",
+		"reason": "XSD-only attribute used by the data: consumed without a member (xmlgen.toml [ignore_attributes])"
+	},
+	{
+		"class": "com.aionemu.gameserver.model.templates.QuestTemplate",
+		"kind": "attributeMissingInIr",
+		"name": "quest_zone",
+		"reason": "XSD-only attribute used by the data: consumed without a member (xmlgen.toml [ignore_attributes])"
+	},
+	{
+		"class": "com.aionemu.gameserver.model.templates.npc.NpcTemplate",
+		"kind": "attributeMissingInIr",
+		"name": "item_upgrade",
+		"reason": "XSD-only attribute used by the data: consumed without a member (xmlgen.toml [ignore_attributes])"
+	},
+	{
+		"class": "com.aionemu.gameserver.model.templates.teleport.TelelocationTemplate",
+		"kind": "attributeMissingInIr",
+		"name": "name",
+		"reason": "XSD-only attribute used by the data: consumed without a member (xmlgen.toml [ignore_attributes])"
+	},
+	{
+		"class": "com.aionemu.gameserver.skillengine.effect.PetOrderUseUltraSkillEffect",
+		"kind": "attributeMissingInIr",
+		"name": "ultra_skill",
+		"reason": "XSD-only attribute used by the data: consumed without a member (xmlgen.toml [ignore_attributes])"
+	},
+	{
+		"class": "com.aionemu.gameserver.model.templates.BindPointTemplate",
+		"kind": "*",
+		"name": "*",
+		"reason": "Java declares @XmlRootElement(name = \"bind_points\") on the template (copy of the holder's), so V1 matches it with the holder element; the element property of BindPointData binds <bind_point> correctly"
+	},
+	{
+		"class": "com.aionemu.gameserver.model.templates.restriction.ItemCleanupTemplate",
+		"kind": "*",
+		"name": "*",
+		"reason": "Java declares @XmlRootElement(name = \"item_restriction_cleanups\") on the template (copy of the holder's), so V1 matches it with the holder element"
+	},
+	{
+		"class": "com.aionemu.gameserver.model.templates.stats.ModifiersTemplate",
+		"kind": "elementMissingInIr",
+		"name": "mean",
+		"reason": "XSD choice without a Java @XmlElements entry, unused in the data; JAXB and the C++ binder reject it"
+	},
+	{
+		"class": "com.aionemu.gameserver.questEngine.handlers.models.xmlQuest.operations.QuestOperations",
+		"kind": "elementMissingInIr",
+		"name": "kill",
+		"reason": "XSD choice without a Java @XmlElements entry (KillOperation is unreachable), unused in the data"
+	},
+	{
+		"class": "com.aionemu.gameserver.skillengine.effect.Effects",
+		"kind": "elementMissingInIr",
+		"name": "nofpconsum",
+		"reason": "XSD choice without a Java @XmlElements entry, unused in the data"
+	},
+	{
+		"class": "com.aionemu.gameserver.skillengine.effect.Effects",
+		"kind": "elementMissingInXsd",
+		"name": "buf",
+		"reason": "choice of the abstract BufEffect: JAXB cannot instantiate it, the generated factory leaves it out (xmlgen-report.md)"
+	},
+	{
+		"class": "com.aionemu.gameserver.configs.*",
+		"kind": "unmatchedClass",
+		"name": "*",
+		"reason": "config XML roots (config/*.xml) have no XSD under data/static_data"
+	},
+	{
+		"class": "com.aionemu.gameserver.model.templates.ingameshop.*",
+		"kind": "unmatchedClass",
+		"name": "*",
+		"reason": "in_game_shop config types (config root InGameShopProperty) have no XSD under data/static_data"
+	},
+	{
+		"class": "com.aionemu.gameserver.model.templates.rift.OpenRift",
+		"kind": "unmatchedClass",
+		"name": "*",
+		"reason": "rift schedule config type (config root RiftSchedule) has no XSD under data/static_data"
+	},
+	{
+		"class": "com.aionemu.gameserver.model.gameobjects.CreatureTemplate",
+		"kind": "unmatchedClass",
+		"name": "*",
+		"reason": "unannotated abstract base class without properties; the XSD types of its subclasses are flat"
+	},
+	{
+		"class": "com.aionemu.gameserver.skillengine.periodicaction.PeriodicAction",
+		"kind": "unmatchedClass",
+		"name": "*",
+		"reason": "unannotated abstract base class without properties: JAXB's default type name periodicAction differs from the empty abstract XSD type PeriodicAction"
+	},
+	{
+		"class": "com.aionemu.gameserver.model.templates.VisibleObjectTemplate",
+		"kind": "unmatchedClass",
+		"name": "*",
+		"reason": "unannotated abstract base class without properties; the XSD types of its subclasses are flat"
+	},
+	{
+		"class": "com.aionemu.gameserver.model.templates.mail.StringParamList",
+		"kind": "unmatchedClass",
+		"name": "*",
+		"reason": "no @XmlType: JAXB's default type name stringParamList differs from the XSD type StringParamList; its element param is compared through the subclasses (MailPart)"
+	},
+	{
+		"class": "com.aionemu.gameserver.model.templates.QuestTemplate",
+		"kind": "attributeMissingInIr",
+		"name": "mentor",
+		"reason": "XSD-only attribute that the data does not use (tests/test_real_tree.py walks the data and allows unbound attributes only for xmlgen.toml [ignore_attributes]); JAXB would ignore it, strict C++ loading reports a use"
+	},
+	{
+		"class": "com.aionemu.gameserver.model.templates.event.AtreianPassport",
+		"kind": "attributeMissingInIr",
+		"name": "reward_item_expire",
+		"reason": "XSD-only attribute that the data does not use (tests/test_real_tree.py walks the data and allows unbound attributes only for xmlgen.toml [ignore_attributes]); JAXB would ignore it, strict C++ loading reports a use"
+	},
+	{
+		"class": "com.aionemu.gameserver.model.templates.gather.GatherableTemplate",
+		"kind": "attributeMissingInIr",
+		"name": "desc",
+		"reason": "XSD-only attribute that the data does not use (tests/test_real_tree.py walks the data and allows unbound attributes only for xmlgen.toml [ignore_attributes]); JAXB would ignore it, strict C++ loading reports a use"
+	},
+	{
+		"class": "com.aionemu.gameserver.model.templates.item.ItemTemplate",
+		"kind": "attributeMissingInIr",
+		"name": "multi_return",
+		"reason": "XSD-only attribute that the data does not use (tests/test_real_tree.py walks the data and allows unbound attributes only for xmlgen.toml [ignore_attributes]); JAXB would ignore it, strict C++ loading reports a use"
+	},
+	{
+		"class": "com.aionemu.gameserver.model.templates.item.ItemTemplate",
+		"kind": "attributeMissingInIr",
+		"name": "slot",
+		"reason": "XSD-only attribute that the data does not use (tests/test_real_tree.py walks the data and allows unbound attributes only for xmlgen.toml [ignore_attributes]); JAXB would ignore it, strict C++ loading reports a use"
+	},
+	{
+		"class": "com.aionemu.gameserver.model.templates.npc.NpcTemplate",
+		"kind": "attributeMissingInIr",
+		"name": "ammo_speed",
+		"reason": "XSD-only attribute that the data does not use (tests/test_real_tree.py walks the data and allows unbound attributes only for xmlgen.toml [ignore_attributes]); JAXB would ignore it, strict C++ loading reports a use"
+	},
+	{
+		"class": "com.aionemu.gameserver.model.templates.npc.NpcTemplate",
+		"kind": "attributeMissingInIr",
+		"name": "mobile_event",
+		"reason": "XSD-only attribute that the data does not use (tests/test_real_tree.py walks the data and allows unbound attributes only for xmlgen.toml [ignore_attributes]); JAXB would ignore it, strict C++ loading reports a use"
+	},
+	{
+		"class": "com.aionemu.gameserver.model.templates.npc.NpcTemplate",
+		"kind": "attributeMissingInIr",
+		"name": "on_mist",
+		"reason": "XSD-only attribute that the data does not use (tests/test_real_tree.py walks the data and allows unbound attributes only for xmlgen.toml [ignore_attributes]); JAXB would ignore it, strict C++ loading reports a use"
+	},
+	{
+		"class": "com.aionemu.gameserver.model.templates.npc.NpcTemplate",
+		"kind": "attributeMissingInIr",
+		"name": "stare_range",
+		"reason": "XSD-only attribute that the data does not use (tests/test_real_tree.py walks the data and allows unbound attributes only for xmlgen.toml [ignore_attributes]); JAXB would ignore it, strict C++ loading reports a use"
+	},
+	{
+		"class": "com.aionemu.gameserver.model.templates.spawns.SpawnSpotTemplate",
+		"kind": "attributeMissingInIr",
+		"name": "fly",
+		"reason": "XSD-only attribute that the data does not use (tests/test_real_tree.py walks the data and allows unbound attributes only for xmlgen.toml [ignore_attributes]); JAXB would ignore it, strict C++ loading reports a use"
+	},
+	{
+		"class": "com.aionemu.gameserver.model.templates.stats.StatsTemplate",
+		"kind": "attributeMissingInIr",
+		"name": "magic_boost",
+		"reason": "XSD-only attribute that the data does not use (tests/test_real_tree.py walks the data and allows unbound attributes only for xmlgen.toml [ignore_attributes]); JAXB would ignore it, strict C++ loading reports a use"
+	},
+	{
+		"class": "com.aionemu.gameserver.model.templates.teleport.TelelocationTemplate",
+		"kind": "attributeMissingInIr",
+		"name": "teleportid",
+		"reason": "XSD-only attribute that the data does not use (tests/test_real_tree.py walks the data and allows unbound attributes only for xmlgen.toml [ignore_attributes]); JAXB would ignore it, strict C++ loading reports a use"
+	},
+	{
+		"class": "com.aionemu.gameserver.skillengine.change.Change",
+		"kind": "attributeMissingInIr",
+		"name": "unchecked",
+		"reason": "XSD-only attribute that the data does not use (tests/test_real_tree.py walks the data and allows unbound attributes only for xmlgen.toml [ignore_attributes]); JAXB would ignore it, strict C++ loading reports a use"
+	},
+	{
+		"class": "com.aionemu.gameserver.skillengine.effect.FpAttackInstantEffect",
+		"kind": "attributeMissingInIr",
+		"name": "mode",
+		"reason": "XSD-only attribute that the data does not use (tests/test_real_tree.py walks the data and allows unbound attributes only for xmlgen.toml [ignore_attributes]); JAXB would ignore it, strict C++ loading reports a use"
+	},
+	{
+		"class": "com.aionemu.gameserver.skillengine.effect.FpAttackInstantEffect",
+		"kind": "attributeMissingInIr",
+		"name": "shared",
+		"reason": "XSD-only attribute that the data does not use (tests/test_real_tree.py walks the data and allows unbound attributes only for xmlgen.toml [ignore_attributes]); JAXB would ignore it, strict C++ loading reports a use"
+	},
+	{
+		"class": "com.aionemu.gameserver.skillengine.effect.HealCastorOnAttackedEffect",
+		"kind": "attributeMissingInIr",
+		"name": "percent",
+		"reason": "XSD-only attribute that the data does not use (tests/test_real_tree.py walks the data and allows unbound attributes only for xmlgen.toml [ignore_attributes]); JAXB would ignore it, strict C++ loading reports a use"
+	},
+	{
+		"class": "com.aionemu.gameserver.skillengine.effect.HealCastorOnTargetDeadEffect",
+		"kind": "attributeMissingInIr",
+		"name": "percent",
+		"reason": "XSD-only attribute that the data does not use (tests/test_real_tree.py walks the data and allows unbound attributes only for xmlgen.toml [ignore_attributes]); JAXB would ignore it, strict C++ loading reports a use"
+	},
+	{
+		"class": "com.aionemu.gameserver.skillengine.effect.MagicCounterAtkEffect",
+		"kind": "attributeMissingInIr",
+		"name": "percent",
+		"reason": "XSD-only attribute that the data does not use (tests/test_real_tree.py walks the data and allows unbound attributes only for xmlgen.toml [ignore_attributes]); JAXB would ignore it, strict C++ loading reports a use"
+	},
+	{
+		"class": "com.aionemu.gameserver.skillengine.effect.MpAttackInstantEffect",
+		"kind": "attributeMissingInIr",
+		"name": "mode",
+		"reason": "XSD-only attribute that the data does not use (tests/test_real_tree.py walks the data and allows unbound attributes only for xmlgen.toml [ignore_attributes]); JAXB would ignore it, strict C++ loading reports a use"
+	},
+	{
+		"class": "com.aionemu.gameserver.skillengine.effect.MpAttackInstantEffect",
+		"kind": "attributeMissingInIr",
+		"name": "shared",
+		"reason": "XSD-only attribute that the data does not use (tests/test_real_tree.py walks the data and allows unbound attributes only for xmlgen.toml [ignore_attributes]); JAXB would ignore it, strict C++ loading reports a use"
+	},
+	{
+		"class": "com.aionemu.gameserver.skillengine.effect.OneTimeBoostSkillCriticalEffect",
+		"kind": "attributeMissingInIr",
+		"name": "maxstat",
+		"reason": "XSD-only attribute that the data does not use (tests/test_real_tree.py walks the data and allows unbound attributes only for xmlgen.toml [ignore_attributes]); JAXB would ignore it, strict C++ loading reports a use"
+	},
+	{
+		"class": "com.aionemu.gameserver.skillengine.effect.SignetBurstEffect",
+		"kind": "attributeMissingInIr",
+		"name": "absorb",
+		"reason": "XSD-only attribute that the data does not use (tests/test_real_tree.py walks the data and allows unbound attributes only for xmlgen.toml [ignore_attributes]); JAXB would ignore it, strict C++ loading reports a use"
+	},
+	{
+		"class": "com.aionemu.gameserver.skillengine.effect.SummonServantEffect",
+		"kind": "attributeMissingInIr",
+		"name": "hp_ratio",
+		"reason": "XSD-only attribute that the data does not use (tests/test_real_tree.py walks the data and allows unbound attributes only for xmlgen.toml [ignore_attributes]); JAXB would ignore it, strict C++ loading reports a use"
+	},
+	{
+		"class": "com.aionemu.gameserver.skillengine.effect.SummonSkillAreaEffect",
+		"kind": "attributeMissingInIr",
+		"name": "hp_ratio",
+		"reason": "XSD-only attribute that the data does not use (tests/test_real_tree.py walks the data and allows unbound attributes only for xmlgen.toml [ignore_attributes]); JAXB would ignore it, strict C++ loading reports a use"
+	},
+	{
+		"class": "com.aionemu.gameserver.skillengine.effect.SummonTotemEffect",
+		"kind": "attributeMissingInIr",
+		"name": "hp_ratio",
+		"reason": "XSD-only attribute that the data does not use (tests/test_real_tree.py walks the data and allows unbound attributes only for xmlgen.toml [ignore_attributes]); JAXB would ignore it, strict C++ loading reports a use"
+	},
+	{
+		"class": "com.aionemu.gameserver.skillengine.effect.SwitchHostileEffect",
+		"kind": "attributeMissingInIr",
+		"name": "maxstat",
+		"reason": "XSD-only attribute that the data does not use (tests/test_real_tree.py walks the data and allows unbound attributes only for xmlgen.toml [ignore_attributes]); JAXB would ignore it, strict C++ loading reports a use"
+	},
+	{
+		"class": "com.aionemu.gameserver.skillengine.model.SkillTemplate",
+		"kind": "attributeMissingInIr",
+		"name": "attacktype",
+		"reason": "XSD-only attribute that the data does not use (tests/test_real_tree.py walks the data and allows unbound attributes only for xmlgen.toml [ignore_attributes]); JAXB would ignore it, strict C++ loading reports a use"
+	},
+	{
+		"class": "com.aionemu.gameserver.skillengine.model.SkillTemplate",
+		"kind": "attributeMissingInIr",
+		"name": "remove_flyend",
+		"reason": "XSD-only attribute that the data does not use (tests/test_real_tree.py walks the data and allows unbound attributes only for xmlgen.toml [ignore_attributes]); JAXB would ignore it, strict C++ loading reports a use"
+	},
+	{
+		"class": "com.aionemu.gameserver.model.templates.housing.BuildingCapabilities",
+		"kind": "attributeMissingInXsd",
+		"name": "exterior",
+		"reason": "bound by Java but not declared by the XSD: Java's startup XSD validation rejects such data, so the data never contains it"
+	},
+	{
+		"class": "com.aionemu.gameserver.model.templates.housing.BuildingCapabilities",
+		"kind": "attributeMissingInXsd",
+		"name": "interior",
+		"reason": "bound by Java but not declared by the XSD: Java's startup XSD validation rejects such data, so the data never contains it"
+	},
+	{
+		"class": "com.aionemu.gameserver.model.templates.item.actions.ToyPetSpawnAction",
+		"kind": "attributeMissingInXsd",
+		"name": "time",
+		"reason": "bound by Java but not declared by the XSD: Java's startup XSD validation rejects such data, so the data never contains it"
+	},
+	{
+		"class": "com.aionemu.gameserver.model.templates.spawns.mercenaries.MercenaryZone",
+		"kind": "attributeMissingInXsd",
+		"name": "announce_id",
+		"reason": "bound by Java but not declared by the XSD: Java's startup XSD validation rejects such data, so the data never contains it"
+	},
+	{
+		"class": "com.aionemu.gameserver.model.templates.spawns.mercenaries.MercenaryZone",
+		"kind": "attributeMissingInXsd",
+		"name": "cooldown",
+		"reason": "bound by Java but not declared by the XSD: Java's startup XSD validation rejects such data, so the data never contains it"
+	},
+	{
+		"class": "com.aionemu.gameserver.model.templates.spawns.mercenaries.MercenaryZone",
+		"kind": "attributeMissingInXsd",
+		"name": "costs",
+		"reason": "bound by Java but not declared by the XSD: Java's startup XSD validation rejects such data, so the data never contains it"
+	},
+	{
+		"class": "com.aionemu.gameserver.model.templates.spawns.mercenaries.MercenaryZone",
+		"kind": "attributeMissingInXsd",
+		"name": "msg_id",
+		"reason": "bound by Java but not declared by the XSD: Java's startup XSD validation rejects such data, so the data never contains it"
+	},
+	{
+		"class": "com.aionemu.gameserver.model.templates.stats.StatsTemplate",
+		"kind": "attributeMissingInXsd",
+		"name": "mboost",
+		"reason": "bound by Java but not declared by the XSD: Java's startup XSD validation rejects such data, so the data never contains it"
+	},
+	{
+		"class": "com.aionemu.gameserver.skillengine.effect.AbsoluteStatToPCBuffEffect",
+		"kind": "attributeMissingInXsd",
+		"name": "maxstat",
+		"reason": "bound by Java but not declared by the XSD: Java's startup XSD validation rejects such data, so the data never contains it"
+	},
+	{
+		"class": "com.aionemu.gameserver.skillengine.effect.AbsoluteStatToPCDebuffEffect",
+		"kind": "attributeMissingInXsd",
+		"name": "maxstat",
+		"reason": "bound by Java but not declared by the XSD: Java's startup XSD validation rejects such data, so the data never contains it"
+	},
+	{
+		"class": "com.aionemu.gameserver.skillengine.effect.AbstractAbsoluteStatEffect",
+		"kind": "attributeMissingInXsd",
+		"name": "maxstat",
+		"reason": "bound by Java but not declared by the XSD: Java's startup XSD validation rejects such data, so the data never contains it"
+	},
+	{
+		"class": "com.aionemu.gameserver.skillengine.effect.BoostSkillCostEffect",
+		"kind": "attributeMissingInXsd",
+		"name": "maxstat",
+		"reason": "bound by Java but not declared by the XSD: Java's startup XSD validation rejects such data, so the data never contains it"
+	},
+	{
+		"class": "com.aionemu.gameserver.skillengine.effect.HideEffect",
+		"kind": "attributeMissingInXsd",
+		"name": "maxstat",
+		"reason": "bound by Java but not declared by the XSD: Java's startup XSD validation rejects such data, so the data never contains it"
+	},
+	{
+		"class": "com.aionemu.gameserver.skillengine.effect.OneTimeBoostSkillAttackEffect",
+		"kind": "attributeMissingInXsd",
+		"name": "maxstat",
+		"reason": "bound by Java but not declared by the XSD: Java's startup XSD validation rejects such data, so the data never contains it"
+	},
+	{
+		"class": "com.aionemu.gameserver.skillengine.effect.SlowEffect",
+		"kind": "attributeMissingInXsd",
+		"name": "maxstat",
+		"reason": "bound by Java but not declared by the XSD: Java's startup XSD validation rejects such data, so the data never contains it"
+	},
+	{
+		"class": "com.aionemu.gameserver.skillengine.effect.SnareEffect",
+		"kind": "attributeMissingInXsd",
+		"name": "maxstat",
+		"reason": "bound by Java but not declared by the XSD: Java's startup XSD validation rejects such data, so the data never contains it"
+	},
+	{
+		"class": "com.aionemu.gameserver.model.stats.calc.functions.StatAbsFunction",
+		"kind": "elementMissingInXsd",
+		"name": "debuff",
+		"reason": "bound by Java (implicit FIELD binding or a property the XSD lacks) but not declared by the XSD: Java's startup XSD validation rejects such data"
+	},
+	{
+		"class": "com.aionemu.gameserver.model.templates.goods.GoodsList",
+		"kind": "elementMissingInXsd",
+		"name": "itemIdList",
+		"reason": "bound by Java (implicit FIELD binding or a property the XSD lacks) but not declared by the XSD: Java's startup XSD validation rejects such data"
+	},
+	{
+		"class": "com.aionemu.gameserver.model.templates.item.ReturnLocList",
+		"kind": "elementMissingInXsd",
+		"name": "item",
+		"reason": "bound by Java (implicit FIELD binding or a property the XSD lacks) but not declared by the XSD: Java's startup XSD validation rejects such data"
+	},
+	{
+		"class": "com.aionemu.gameserver.model.templates.item.ReturnLocList",
+		"kind": "elementMissingInXsd",
+		"name": "random_item",
+		"reason": "bound by Java (implicit FIELD binding or a property the XSD lacks) but not declared by the XSD: Java's startup XSD validation rejects such data"
+	},
+	{
+		"class": "com.aionemu.gameserver.model.templates.itemset.FullBonus",
+		"kind": "elementMissingInXsd",
+		"name": "totalnumberofitems",
+		"reason": "bound by Java (implicit FIELD binding or a property the XSD lacks) but not declared by the XSD: Java's startup XSD validation rejects such data"
+	},
+	{
+		"class": "com.aionemu.gameserver.model.templates.npc.NpcTemplate",
+		"kind": "elementMissingInXsd",
+		"name": "ammo_speed",
+		"reason": "bound by Java (implicit FIELD binding or a property the XSD lacks) but not declared by the XSD: Java's startup XSD validation rejects such data"
+	},
+	{
+		"class": "com.aionemu.gameserver.skillengine.action.Action",
+		"kind": "elementMissingInXsd",
+		"name": "modifiers",
+		"reason": "bound by Java (implicit FIELD binding or a property the XSD lacks) but not declared by the XSD: Java's startup XSD validation rejects such data"
+	},
+	{
+		"class": "com.aionemu.gameserver.skillengine.action.DpUseAction",
+		"kind": "elementMissingInXsd",
+		"name": "modifiers",
+		"reason": "bound by Java (implicit FIELD binding or a property the XSD lacks) but not declared by the XSD: Java's startup XSD validation rejects such data"
+	},
+	{
+		"class": "com.aionemu.gameserver.skillengine.action.HpUseAction",
+		"kind": "elementMissingInXsd",
+		"name": "modifiers",
+		"reason": "bound by Java (implicit FIELD binding or a property the XSD lacks) but not declared by the XSD: Java's startup XSD validation rejects such data"
+	},
+	{
+		"class": "com.aionemu.gameserver.skillengine.action.ItemUseAction",
+		"kind": "elementMissingInXsd",
+		"name": "modifiers",
+		"reason": "bound by Java (implicit FIELD binding or a property the XSD lacks) but not declared by the XSD: Java's startup XSD validation rejects such data"
+	},
+	{
+		"class": "com.aionemu.gameserver.skillengine.action.MpUseAction",
+		"kind": "elementMissingInXsd",
+		"name": "modifiers",
+		"reason": "bound by Java (implicit FIELD binding or a property the XSD lacks) but not declared by the XSD: Java's startup XSD validation rejects such data"
+	}
+]

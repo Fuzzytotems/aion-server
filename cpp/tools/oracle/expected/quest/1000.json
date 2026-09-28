@@ -1,0 +1,96 @@
+{
+ "format": "aion-quest-trace",
+ "version": 1,
+ "questId": 1000,
+ "java": "poeta/_1000Prologue.java",
+ "class": "_1000Prologue",
+ "javaSha256": "2ea51e5499ac9ed38571ee3db12a78d8ff27ae201f01f82b2e442426730003b8",
+ "register": [{"call": "registerOnEnterWorld", "args": [1000]}],
+ "hooks": [{"hook": "onEnterWorldEvent", "line": 26, "cases": 4}, {"hook": "onMovieEndEvent", "line": 39, "cases": 4}],
+ "cases": [
+  {
+   "id": "onEnterWorldEvent#1",
+   "hook": "onEnterWorldEvent",
+   "given": {"player": {"race": "ELYOS"}, "questState": null},
+   "guards": [
+    "player.getRace() == Race.ELYOS -> true @28",
+    "player.getQuestStateList().hasQuest(questId) -> false @28",
+    "QuestService.startQuest(env) -> false @30"
+   ],
+   "assume": [{"effect": 1, "returns": false}],
+   "effects": [
+    {"call": "env.setQuestId", "kind": "env", "args": [1000], "line": 29},
+    {"call": "QuestService.startQuest", "kind": "quest", "args": [], "line": 30}
+   ],
+   "throws": "NullPointerException"
+  },
+  {
+   "id": "onEnterWorldEvent#2",
+   "hook": "onEnterWorldEvent",
+   "given": {"player": {"race": "ELYOS"}, "questState": {"status": "START"}},
+   "guards": ["player.getRace() == Race.ELYOS -> true @28", "player.getQuestStateList().hasQuest(questId) -> true @28"],
+   "effects": [],
+   "returns": false
+  },
+  {
+   "id": "onEnterWorldEvent#3",
+   "hook": "onEnterWorldEvent",
+   "given": {"player": {"race": "ELYOS"}, "questState": null},
+   "guards": [
+    "player.getRace() == Race.ELYOS -> true @28",
+    "player.getQuestStateList().hasQuest(questId) -> false @28",
+    "QuestService.startQuest(env) -> true @30"
+   ],
+   "assume": [{"effect": 1, "returns": true}],
+   "effects": [
+    {"call": "env.setQuestId", "kind": "env", "args": [1000], "line": 29},
+    {"call": "QuestService.startQuest", "kind": "quest", "args": [], "line": 30},
+    {"call": "playQuestMovie", "kind": "movie", "args": [1, true], "line": 31}
+   ],
+   "returns": true
+  },
+  {
+   "id": "onEnterWorldEvent#4",
+   "hook": "onEnterWorldEvent",
+   "given": {"player": {"race": "ASMODIANS"}},
+   "guards": ["player.getRace() == Race.ELYOS -> false @28"],
+   "effects": [],
+   "returns": false
+  },
+  {
+   "id": "onMovieEndEvent#1",
+   "hook": "onMovieEndEvent",
+   "given": {"args": {"movieId": 0}},
+   "guards": ["movieId != 1 -> true @40"],
+   "effects": [],
+   "returns": null
+  },
+  {
+   "id": "onMovieEndEvent#2",
+   "hook": "onMovieEndEvent",
+   "given": {"args": {"movieId": 1}, "questState": null},
+   "guards": ["movieId != 1 -> false @40", "qs == null -> true @44"],
+   "effects": [],
+   "returns": null
+  },
+  {
+   "id": "onMovieEndEvent#3",
+   "hook": "onMovieEndEvent",
+   "given": {"args": {"movieId": 1}, "questState": {"status": "REWARD"}},
+   "guards": ["movieId != 1 -> false @40", "qs == null -> false @44", "qs.getStatus() != QuestStatus.START -> true @44"],
+   "effects": [],
+   "returns": null
+  },
+  {
+   "id": "onMovieEndEvent#4",
+   "hook": "onMovieEndEvent",
+   "given": {"args": {"movieId": 1}, "questState": {"status": "START"}},
+   "guards": ["movieId != 1 -> false @40", "qs == null -> false @44", "qs.getStatus() != QuestStatus.START -> false @44"],
+   "effects": [
+    {"call": "qs.setStatus", "kind": "status", "args": ["REWARD"], "line": 46},
+    {"call": "QuestService.finishQuest", "kind": "quest", "args": [], "line": 47}
+   ],
+   "returns": null
+  }
+ ]
+}

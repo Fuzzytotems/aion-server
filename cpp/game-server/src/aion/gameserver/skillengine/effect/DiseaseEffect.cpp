@@ -1,0 +1,23 @@
+#include "aion/gameserver/skillengine/effect/DiseaseEffect.h"
+
+#include "aion/gameserver/runtime/base/Unported.h"
+
+namespace aion::gameserver::skillengine::effect {
+
+void DiseaseEffect::calculate(model::Effect& /*effect*/) const {
+	AION_UNPORTED();
+}
+
+void DiseaseEffect::applyEffect(model::Effect& /*effect*/) const {
+	AION_UNPORTED();
+}
+
+void DiseaseEffect::startEffect(model::Effect& /*effect*/) const {
+	AION_UNPORTED();
+}
+
+void DiseaseEffect::endEffect(model::Effect& /*effect*/) const {
+	AION_UNPORTED();
+}
+
+} // namespace aion::gameserver::skillengine::effect

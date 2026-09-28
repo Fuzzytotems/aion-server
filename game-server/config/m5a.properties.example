@@ -1,0 +1,27 @@
+# M5a profile of the C++ game server (cpp/docs/design/m5a-plan.md, decision D1). Copy these lines into config/mygs.properties to play with a
+# real 4.8 client at milestone M5a (character creation, enter world in Poeta/Ishalgen, NPCs, walking, relog). The scenario gate
+# (gs.scenario.m5a) passes the same keys as -D arguments.
+#
+# Not read by the servers: only config/mygs.properties is loaded.
+
+# C++ only: NPCs whose AI handler is not ported yet get a dummy AI with a warning instead of failing the spawn (fail = default)
+gameserver.dev.missing_ai_handlers = warn
+
+# systems whose services are not part of M5a
+gameserver.siege.enable = false
+gameserver.autogroup.enable = false
+gameserver.rift.enable = false
+gameserver.vortex.enable = false
+gameserver.worldraid.enable = false
+gameserver.cp.enable = false
+gameserver.limits.enable = false
+# every event off, including the date-less "Beyond Aion Server Buffs" of custom_events.xml
+gameserver.event.service.disabled_events = *
+
+# the address the login server lists for this game server (the default 0.0.0.0 is not reachable by the client)
+gameserver.network.client.connect_address = 127.0.0.1:7777
+
+# Only in the scenario gate, not for play (geo data stays on with the real client):
+# gameserver.geodata.enable = false
+# gameserver.character.reentry.time = 1
+# gameserver.shutdown.delay = 2

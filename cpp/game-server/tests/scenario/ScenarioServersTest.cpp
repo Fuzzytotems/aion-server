@@ -1,0 +1,401 @@
+// The process side of the scenario harness (m5a-plan.md F-04, D4): ChildProcess (command line quoting, log redirection, exit codes,
+// termination), and ScenarioServers with the stub game server (StubGameServer.cmake run by cmake): the M5a arguments, readiness on
+// "Game server started", the stop file, the exit code and the check output reports. Needs no database.
+
+#include <gtest/gtest.h>
+#include <gtest/gtest-spi.h> // EXPECT_NONFATAL_FAILURE: the destructor's own report is the subject of a test here
+
+#include <algorithm>
+#include <chrono>
+#include <filesystem>
+#include <cstdint>
+#include <fstream>
+#include <map>
+#include <optional>
+#include <set>
+#include <sstream>
+#include <string>
+#include <utility>
+#include <vector>
+
+#include "ChildProcess.h"
+#include "ScenarioServers.h"
+
+#include <Windows.h>
+
+#include "aion/commons/utils/WindowsMacroGuard.h" // after all headers that may include windows.h
+
+namespace aion::gameserver::scenario {
+namespace {
+
+using namespace std::chrono_literals;
+
+std::filesystem::path outputDir(std::string_view test) {
+	return std::filesystem::path(AION_SCENARIO_OUTPUT_DIR) / "selftest" / test;
+}
+
+/** An environment whose URLs are never connected (the stub game server needs no database) */
+ScenarioEnvironment offlineEnvironment() {
+	ScenarioEnvironment environment;
+	environment.gsUrl = "jdbc:mysql://127.0.0.1:1/aion_cpp_test?characterEncoding=UTF-8";
+	environment.gsUser = "root";
+	environment.lsUrl = "jdbc:mysql://127.0.0.1:1/aion_ls_test";
+	environment.lsUser = "root";
+	return environment;
+}
+
+ScenarioServers::Config stubConfig(std::string_view test) {
+	ScenarioServers::Config config;
+	config.gameServerExecutable = AION_SCENARIO_CMAKE_COMMAND;
+	config.checkClientPort = false; // the stub game server listens on no port
+	config.gameServerLeadingArguments = {"-P", AION_SCENARIO_STUB_GAME_SERVER, "--"};
+	config.loginServerExecutable = AION_LOGIN_SERVER_EXECUTABLE;
+	config.gameServerJavaDir = AION_GAMESERVER_JAVA_DIR;
+	config.loginServerJavaDir = AION_LOGINSERVER_JAVA_DIR;
+	config.outputDir = outputDir(test);
+	config.startupTimeout = 60s;
+	config.stopTimeout = 60s;
+	return config;
+}
+
+TEST(ChildProcessTest, CommandLinesAreQuotedForTheMsvcRuntime) {
+	EXPECT_EQ(ChildProcess::commandLine("C:/a b/x.exe", {"plain", "with space", "quote\"d", "trailing\\", "back\\\\slash \"x\"", ""}),
+		LR"("C:/a b/x.exe" plain "with space" "quote\"d" trailing\ "back\\slash \"x\"" "")");
+}
+
+TEST(ChildProcessTest, RedirectsTheOutputAndReportsTheExitCode) {
+	ChildProcess::Options options;
+	options.executable = AION_SCENARIO_CMAKE_COMMAND;
+	options.arguments = {"-E", "echo", "hello from the child", "with space"};
+	options.logFile = outputDir("echo") / "child.log";
+	ChildProcess child(options);
+	std::optional<int32_t> exitCode = child.waitForExit(30s);
+	ASSERT_TRUE(exitCode);
+	EXPECT_EQ(*exitCode, 0);
+	EXPECT_NE(child.readLog().find("hello from the child with space"), std::string::npos) << child.readLog();
+	EXPECT_FALSE(child.isRunning());
+
+	options.arguments = {"-E", "false"};
+	options.logFile = outputDir("echo") / "false.log";
+	ChildProcess failing(options);
+	EXPECT_EQ(failing.waitForExit(30s), 1);
+}
+
+TEST(ChildProcessTest, TerminatesARunningProcess) {
+	ChildProcess::Options options;
+	options.executable = AION_SCENARIO_CMAKE_COMMAND;
+	options.arguments = {"-E", "sleep", "60"};
+	options.logFile = outputDir("sleep") / "child.log";
+	options.newProcessGroup = true;
+	ChildProcess child(options);
+	EXPECT_TRUE(child.isRunning());
+	EXPECT_FALSE(child.waitForExit(200ms));
+	EXPECT_FALSE(child.waitForLog("never logged", 300ms));
+	child.terminate(7);
+	EXPECT_EQ(child.waitForExit(10s), 7);
+	EXPECT_THROW(ChildProcess({"C:/no/such/executable.exe", {}, {}, outputDir("sleep") / "none.log", false}), std::runtime_error);
+}
+
+TEST(ChildProcessTest, ReadsTheLogWithoutHoldingItInMemory) {
+	// stage 2: the game server's log can grow to hundreds of megabytes while the harness waits for "Game server started", so waitForLog scans
+	// only what it has not seen yet, and the report cases read single lines or the tail instead of the whole file
+	ChildProcess::Options options;
+	options.executable = AION_SCENARIO_CMAKE_COMMAND;
+	options.arguments = {"-E", "echo", "first line", ";", "wanted marker", ";", "last line"};
+	options.logFile = outputDir("logreading") / "child.log";
+	ChildProcess child(options);
+	ASSERT_EQ(child.waitForExit(30s), 0);
+
+	EXPECT_TRUE(child.waitForLog("wanted marker", 5s));
+	// the same text again: the scan offset stays at the match instead of running past it
+	EXPECT_TRUE(child.waitForLog("wanted marker", 5s));
+	EXPECT_FALSE(child.waitForLog("never logged", 300ms));
+
+	std::vector<std::string> lines = child.findLogLines("marker");
+	ASSERT_EQ(lines.size(), 1u) << child.readLog();
+	EXPECT_NE(lines[0].find("wanted marker"), std::string::npos);
+	EXPECT_TRUE(child.findLogLines("never logged").empty());
+	EXPECT_EQ(child.findLogLines("line", 1).size(), 1u) << "maxMatches stops the scan";
+
+	EXPECT_NE(child.readLogTail(4096).find("last line"), std::string::npos);
+	EXPECT_EQ(child.readLogTail(5).find("first line"), std::string::npos) << "a short tail must not reach the first line";
+}
+
+TEST(ChildProcessTest, KeepsTheStandardErrorOfAToolOutOfItsOutput) {
+	// Oracle.cpp parses the tool's stdout as JSON, so its stderr must not be mixed into the same file
+	ChildProcess::Options options;
+	options.executable = AION_SCENARIO_CMAKE_COMMAND;
+	options.arguments = {"-E", "cat", "C:/no/such/file/for/the/scenario/harness"};
+	options.logFile = outputDir("stderr") / "out.txt";
+	options.errorFile = outputDir("stderr") / "err.txt";
+	ChildProcess child(options);
+	EXPECT_NE(child.waitForExit(30s), 0);
+	EXPECT_EQ(child.readLog(), "") << "the failure message belongs in the error file";
+	std::ifstream errors(options.errorFile, std::ios::binary);
+	std::stringstream content;
+	content << errors.rdbuf();
+	EXPECT_FALSE(content.str().empty()) << "cmake -E cat of a missing file writes to stderr";
+}
+
+TEST(ChildProcessTest, ClosesEveryHandleWhenTheChildCannotBeStarted) {
+	// Stage 2 review: "the new errorFile path leaks the NUL stdin handle when the error file cannot be created". The log file and the NUL stdin
+	// handle are opened before the error file, so every failure after them has to close both - including the create_directories of the error
+	// file's parent, which throws when a path component is a file and closed nothing at all. The handle count is what proves it: a leak of one
+	// handle per attempt is invisible in a single run and exhausts nothing in a short test, so only counting catches it.
+	const std::filesystem::path directory = outputDir("handles");
+	std::filesystem::create_directories(directory / "err_is_a_directory");
+	{
+		std::ofstream file(directory / "not_a_directory.txt", std::ios::binary | std::ios::trunc);
+		file << "x";
+	}
+
+	ChildProcess::Options options;
+	options.executable = AION_SCENARIO_CMAKE_COMMAND;
+	options.arguments = {"-E", "true"};
+	options.logFile = directory / "child.log";
+
+	const std::vector<std::pair<std::string, ChildProcess::Options>> failures = [&] {
+		std::vector<std::pair<std::string, ChildProcess::Options>> cases;
+		ChildProcess::Options errorIsADirectory = options;
+		errorIsADirectory.errorFile = directory / "err_is_a_directory"; // CreateFileW fails: the path is a directory
+		cases.emplace_back("the error file is a directory", errorIsADirectory);
+		ChildProcess::Options errorUnderAFile = options;
+		errorUnderAFile.errorFile = directory / "not_a_directory.txt" / "err.txt"; // create_directories throws
+		cases.emplace_back("the error file's parent is a file", errorUnderAFile);
+		ChildProcess::Options noExecutable = options;
+		noExecutable.executable = "C:/no/such/executable/for/the/scenario/harness.exe"; // CreateProcess fails, after the job object was created
+		cases.emplace_back("the executable does not exist", noExecutable);
+		return cases;
+	}();
+
+	const auto handleCount = [] {
+		DWORD count = 0;
+		GetProcessHandleCount(GetCurrentProcess(), &count);
+		return static_cast<int64_t>(count);
+	};
+	for (const auto& [name, failing] : failures) // the first attempt of each kind may make the runtime cache a handle of its own
+		EXPECT_THROW(ChildProcess{failing}, std::exception) << name;
+	const int64_t before = handleCount();
+	for (int32_t round = 0; round < 20; round++)
+		for (const auto& [name, failing] : failures)
+			EXPECT_THROW(ChildProcess{failing}, std::exception) << name;
+	const int64_t after = handleCount();
+	EXPECT_LE(after - before, 4) << "60 failed starts leaked " << (after - before) << " handles (the log file, the NUL stdin handle or the job)";
+}
+
+TEST(ScenarioServersTest, ReservedPortsAreDistinctAndTheThreeScenarioPortsDoNotCollide) {
+	// reservePorts holds every acceptor open until all ports are known, so the OS cannot hand out one port twice
+	std::vector<uint16_t> ports = ScenarioServers::reservePorts(8);
+	ASSERT_EQ(ports.size(), 8u);
+	std::set<uint16_t> distinct(ports.begin(), ports.end());
+	EXPECT_EQ(distinct.size(), ports.size()) << "two reserved ports were equal";
+	for (uint16_t port : ports)
+		EXPECT_NE(port, 0);
+
+	ScenarioServers servers(stubConfig("ports"), offlineEnvironment());
+	std::set<uint16_t> scenarioPorts{servers.loginClientPort(), servers.loginGameServerPort(), servers.gameClientPort()};
+	EXPECT_EQ(scenarioPorts.size(), 3u) << "the LS client, LS link and GS client ports must differ";
+}
+
+TEST(ScenarioServersTest, TheGameServerGetsTheM5aProfileAndTheScenarioArguments) {
+	ScenarioServers::Config config = stubConfig("arguments");
+	config.gameServerProperties["gameserver.shutdown.delay"] = "5";
+	ScenarioServers servers(config, offlineEnvironment());
+	EXPECT_TRUE(servers.gameSchema().starts_with("aion_gs_test_m5a_"));
+	EXPECT_TRUE(servers.loginSchema().starts_with("aion_ls_test_m5a_"));
+	EXPECT_NE(servers.gameClientPort(), 0);
+	std::vector<std::string> arguments = servers.gameServerArguments();
+	auto has = [&arguments](std::string_view argument) { return std::ranges::find(arguments, argument) != arguments.end(); };
+	EXPECT_TRUE(has("-Dgameserver.dev.missing_ai_handlers=warn"));
+	EXPECT_TRUE(has("-Dgameserver.siege.enable=false"));
+	EXPECT_TRUE(has("-Dgameserver.event.service.disabled_events=*"));
+	EXPECT_TRUE(has("-Dgameserver.geodata.enable=false"));
+	EXPECT_TRUE(has("-Dgameserver.character.reentry.time=1"));
+	EXPECT_EQ(ScenarioServers::m5aProfile().at("gameserver.geodata.enable"), "false")
+	  << "the M5a profile runs without the geo data (§5.1 'Geodata'); gs.scenario.m5a_geo overrides the key instead of changing the profile";
+	EXPECT_TRUE(has("-Dgameserver.shutdown.delay=5")); // the configured key wins over the profile
+	EXPECT_TRUE(has("-Dgameserver.network.client.socket_address=127.0.0.1:" + std::to_string(servers.gameClientPort())));
+	EXPECT_TRUE(has("-Dgameserver.network.login.address=127.0.0.1:" + std::to_string(servers.loginGameServerPort())));
+	EXPECT_TRUE(has("-Ddatabase.url=jdbc:mysql://127.0.0.1:1/" + servers.gameSchema() + "?serverTimezone=${gameserver.timezone}&characterEncoding=UTF-8"));
+	EXPECT_TRUE(has("-Ddatabase.user=root"));
+	EXPECT_TRUE(has("--stop-file=" + servers.stopFile().string()));
+	EXPECT_TRUE(has("--check-output=" + servers.checkOutputDir().string()));
+	// the gate's game server must never write the shared game-server/log: Logging::init archives and DELETES the *.log files it finds there
+	EXPECT_TRUE(has("--log-folder=" + servers.logFolder().string()));
+	EXPECT_NE(servers.logFolder(), std::filesystem::path("log"));
+	// Two gates run at once (ScenarioTests.cmake, "two gate slots"), and HTMLCache writes its cache file at startup whenever it is missing
+	// (HTMLCache.java:112-120): the file is the run's own, never the default ./cache/html.cache below the shared working directory.
+	EXPECT_TRUE(has("-Dgameserver.html.cache.file=" + servers.htmlCacheFile().string()));
+	EXPECT_EQ(servers.htmlCacheFile(), config.outputDir / "html.cache");
+
+	std::vector<std::string> ls = servers.loginServerArguments();
+	auto lsHas = [&ls](std::string_view argument) { return std::ranges::find(ls, argument) != ls.end(); };
+	EXPECT_TRUE(lsHas("-Dloginserver.network.client.socket_address=127.0.0.1:" + std::to_string(servers.loginClientPort())));
+	EXPECT_TRUE(lsHas("-Dloginserver.network.gameserver.socket_address=127.0.0.1:" + std::to_string(servers.loginGameServerPort())));
+	EXPECT_TRUE(lsHas("-Dloginserver.accounts.autocreate=true"));
+	EXPECT_TRUE(lsHas("-Ddatabase.url=jdbc:mysql://127.0.0.1:1/" + servers.loginSchema() + "?serverTimezone=&characterEncoding=UTF-8"));
+	// The login server has no --log-folder: it writes ./log in its working directory, so the gate gives it one of its own. Without this the
+	// child archives and DELETES the shared login-server/log of the other build trees and of the user's own login server.
+	EXPECT_EQ(servers.loginServerWorkingDirectory(), config.outputDir / "ls_run");
+	EXPECT_EQ(servers.loginLogFolder(), config.outputDir / "ls_run" / "log");
+	EXPECT_NE(servers.loginLogFolder(), std::filesystem::path(AION_LOGINSERVER_JAVA_DIR) / "log");
+}
+
+/**
+ * m5b-plan.md §6.1: the M5b gate runs on `aion_gs_test_m5b_<hash>` / `aion_ls_test_m5b_<hash>`. The suffix alone already separates two gates
+ * (it is a hash of the output directory); the prefix is what makes the name say which gate left a schema behind when a post mortem looks at
+ * MariaDB, and it is also the prefix createSchemas() sweeps for abandoned schemas - so a milestone only ever reclaims its own.
+ */
+TEST(ScenarioServersTest, TheSchemaPrefixNamesTheMilestoneAndDefaultsToM5a) {
+	ScenarioServers::Config m5a = stubConfig("prefix-default");
+	ScenarioServers defaultPrefix(m5a, offlineEnvironment());
+	EXPECT_TRUE(defaultPrefix.gameSchema().starts_with("aion_gs_test_m5a_")) << defaultPrefix.gameSchema();
+	EXPECT_TRUE(defaultPrefix.loginSchema().starts_with("aion_ls_test_m5a_")) << defaultPrefix.loginSchema();
+
+	ScenarioServers::Config m5b = stubConfig("prefix-m5b");
+	m5b.schemaPrefix = "m5b";
+	ScenarioServers m5bServers(m5b, offlineEnvironment());
+	EXPECT_TRUE(m5bServers.gameSchema().starts_with("aion_gs_test_m5b_")) << m5bServers.gameSchema();
+	EXPECT_TRUE(m5bServers.loginSchema().starts_with("aion_ls_test_m5b_")) << m5bServers.loginSchema();
+	EXPECT_NE(m5bServers.gameSchema(), defaultPrefix.gameSchema());
+}
+
+TEST(ScenarioServersTest, TheGeoGateTurnsTheGeoDataOnThroughTheSamePropertyOverride) {
+	// gs.scenario.m5a_geo (stage 3 wave B, m5a-plan.md §5.1 "Geodata"): the only difference to gs.scenario.m5a is this one key, and it has to
+	// arrive as exactly one -D with the value true - a profile entry that stayed behind it would give the child two contradicting arguments.
+	ScenarioServers::Config config = stubConfig("arguments-geo");
+	config.gameServerProperties["gameserver.geodata.enable"] = "true";
+	ScenarioServers servers(config, offlineEnvironment());
+	const std::vector<std::string> arguments = servers.gameServerArguments();
+	EXPECT_EQ(std::ranges::count(arguments, std::string("-Dgameserver.geodata.enable=true")), 1);
+	EXPECT_EQ(std::ranges::count(arguments, std::string("-Dgameserver.geodata.enable=false")), 0);
+}
+
+TEST(ScenarioServersTest, EveryStartRemovesTheHtmlCacheTheRunBeforeLeft) {
+	// HTMLCache reads an existing cache file instead of parsing and compacting the HTML directory (HTMLCache.java:66-83), so a gate whose file
+	// survived from its last run would take a different startup path than its first run did. What matters is what the server SEES when it
+	// starts, not what is on disk afterwards (the M5c stage-0 review's mutant removed the file only after "Game server started" and passed): the
+	// stub does what HTMLCache does with the file (StubGameServer.cmake), so its log says whether the start found one, and the file it leaves is
+	// the one it wrote itself.
+	ScenarioServers servers(stubConfig("html-cache"), offlineEnvironment());
+	const std::string staleContent = "AIONHTM1 left by an earlier run";
+	{
+		std::ofstream stale(servers.htmlCacheFile(), std::ios::binary | std::ios::trunc);
+		stale << staleContent;
+	}
+	ASSERT_TRUE(std::filesystem::exists(servers.htmlCacheFile()));
+	servers.startGameServer();
+	ASSERT_NE(servers.gameServer(), nullptr);
+	const std::string log = servers.gameServer()->readLog();
+	EXPECT_EQ(log.find("Cache[HTML]: Using cache file"), std::string::npos) << "the start read the stale " << servers.htmlCacheFile() << ":\n" << log;
+	EXPECT_NE(log.find("Cache[HTML]: Creating cache file"), std::string::npos) << "the start wrote no cache file of its own:\n" << log;
+	std::string content;
+	{
+		std::ifstream written(servers.htmlCacheFile(), std::ios::binary);
+		std::stringstream buffer;
+		buffer << written.rdbuf();
+		content = buffer.str();
+	}
+	EXPECT_EQ(content.find(staleContent), std::string::npos) << servers.htmlCacheFile() << " is still the earlier run's file";
+	EXPECT_EQ(servers.stopGameServer(), 0);
+	EXPECT_TRUE(servers.stopProblems().empty());
+}
+
+TEST(ScenarioServersTest, AStubGameServerThatStopsInOrderReportsNoStopProblem) {
+	ScenarioServers servers(stubConfig("stopproblems-clean"), offlineEnvironment());
+	servers.startGameServer();
+	EXPECT_EQ(servers.stopGameServer(), 0);
+	EXPECT_TRUE(servers.stopProblems().empty());
+}
+
+TEST(ScenarioServersTest, StopProblemsNameAGameServerThatDidNotExitWithZero) {
+	// Stage 2 review: "nothing checks the game server's exit code when case 7 does not run". The gate's case 7 asserts it, but case 7 is skipped
+	// when an earlier case failed, so the harness itself collects what went wrong - and the destructor reports a list nobody reported.
+	ScenarioServers servers(stubConfig("stopproblems-exitcode"), offlineEnvironment());
+	servers.startGameServer();
+	ASSERT_NE(servers.gameServer(), nullptr);
+	servers.gameServer()->terminate(3); // as if the game server had died instead of shutting down on the stop file
+	EXPECT_EQ(servers.stopGameServer(), 3);
+	const std::vector<std::string> problems = servers.stopProblemsReported();
+	ASSERT_EQ(problems.size(), 1u) << (problems.empty() ? "" : problems[0]);
+	EXPECT_EQ(problems[0], "the game server exited with code 3 (expected 0)");
+}
+
+TEST(ScenarioServersTest, StopProblemsNameAServerThatWasStillRunningAtTheEnd) {
+	ScenarioServers servers(stubConfig("stopproblems-running"), offlineEnvironment());
+	servers.startGameServer();
+	// reported here, so the destructor does not report it a second time
+	const std::vector<std::string> problems = servers.stopProblemsReported();
+	ASSERT_EQ(problems.size(), 1u) << (problems.empty() ? "" : problems[0]);
+	EXPECT_EQ(problems[0], "the game server was still running at the end of the run and had to be terminated");
+}
+
+TEST(ScenarioServersTest, ReadingTheStopProblemsDoesNotSilenceTheDestructorAndEveryReaderSeesThem) {
+	// Wave A review: stopProblems() latched on read, so the FIRST reader - even one that only printed the list into a diagnosis, as case 0 of the
+	// gate does - turned the destructor's report off for everybody, and a run could then end with a hung server and no failure. The reader is
+	// pure now and only stopProblemsReported() takes the destructor's word away.
+	ScenarioServers servers(stubConfig("stopproblems-reread"), offlineEnvironment());
+	servers.startGameServer();
+	const std::vector<std::string> first = servers.stopProblems();
+	const std::vector<std::string> second = servers.stopProblems();
+	ASSERT_EQ(first.size(), 1u);
+	EXPECT_EQ(second, first) << "a second reader saw a different list";
+	EXPECT_TRUE(servers.stopProblemsUnreported()) << "a plain read must not count as reporting";
+	EXPECT_EQ(servers.stopProblemsReported(), first);
+	EXPECT_FALSE(servers.stopProblemsUnreported());
+	EXPECT_EQ(servers.stopProblems(), first) << "stopProblemsReported() must not clear the list either";
+}
+
+TEST(ScenarioServersTest, TheDestructorReportsStopProblemsNobodyReported) {
+	// The destructor report is the harness's last safety net (a hung game server, a killed login server), and nothing ever proved that it fires:
+	// every test above reports the list itself, so deleting the whole `if (stopProblemsUnreported())` block from the destructor left the suite
+	// and the gate green. This is the permanent test wave A's review asked for. Everything the failing statement needs is built inside it,
+	// because EXPECT_NONFATAL_FAILURE runs it in a helper class that cannot see the enclosing scope's locals.
+	EXPECT_NONFATAL_FAILURE(
+		{
+			ScenarioServers servers(stubConfig("stopproblems-destructor"), offlineEnvironment());
+			servers.startGameServer(); // still running at the end of the scope, and nobody calls stopProblemsReported()
+		},
+		"the scenario servers did not stop cleanly");
+}
+
+TEST(ScenarioServersTest, TheDestructorIsSilentWhenTheServersStoppedInOrder) {
+	// the other half: the net must not fire on a clean run, or every passing gate would carry a failure
+	ScenarioServers servers(stubConfig("stopproblems-destructor-clean"), offlineEnvironment());
+	servers.startGameServer();
+	EXPECT_EQ(servers.stopGameServer(), 0);
+	EXPECT_TRUE(servers.stopProblems().empty()) << "read, not reported: the destructor below must stay silent by itself";
+}
+
+TEST(ScenarioServersTest, StubGameServerStartsStopsAndWritesItsReports) {
+	ScenarioServers servers(stubConfig("stub"), offlineEnvironment());
+	servers.startGameServer();
+	ASSERT_NE(servers.gameServer(), nullptr);
+	EXPECT_TRUE(servers.gameServer()->isRunning());
+	std::optional<int32_t> exitCode = servers.stopGameServer();
+	ASSERT_TRUE(exitCode) << servers.gameServer()->readLog();
+	EXPECT_EQ(*exitCode, 0) << servers.gameServer()->readLog();
+	std::string log = servers.gameServer()->readLog();
+	EXPECT_NE(log.find("Stop file"), std::string::npos) << log;
+	EXPECT_NE(log.find("Runtime shut down"), std::string::npos) << log;
+	EXPECT_FALSE(std::filesystem::exists(servers.stopFile()));
+
+	std::map<std::string, std::vector<std::string>> summary = servers.readSummary();
+	EXPECT_EQ(summary["started"], std::vector<std::string>{"true"});
+	EXPECT_EQ(summary["notPortedClientPacket"], (std::vector<std::string>{"CM_A", "CM_B"}));
+	EXPECT_TRUE(servers.readReportLines("unported_trace.txt").empty());
+	EXPECT_THROW(servers.readReportLines("missing.txt"), std::runtime_error);
+}
+
+TEST(ScenarioServersTest, AGameServerThatStopsDuringTheStartupFailsTheReadiness) {
+	ScenarioServers::Config config = stubConfig("stub-fail");
+	config.gameServerProperties["gameserver.stub.fail"] = "true";
+	ScenarioServers servers(config, offlineEnvironment());
+	EXPECT_THROW(servers.startGameServer(), std::runtime_error);
+	ASSERT_NE(servers.gameServer(), nullptr);
+	EXPECT_EQ(servers.gameServer()->waitForExit(30s), 1);
+	EXPECT_NE(servers.gameServer()->readLog().find("startup stopped at an unported function"), std::string::npos);
+}
+
+} // namespace
+} // namespace aion::gameserver::scenario

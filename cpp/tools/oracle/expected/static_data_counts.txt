@@ -1,0 +1,90 @@
+Loaded 161 maps
+Loaded 35 material ids
+Loaded weather for 24 maps
+Loaded 66 player experience table entries
+Loaded 47 absolute stat templates
+Loaded 1 item cleanup entries
+Loaded 102009 item templates
+Loaded 539 item bonus templates
+Loaded 5139 bonus item group templates and 787 pet food items
+Loaded 63287 npc templates
+Loaded 174 custom npc drops
+Loaded 14 system mail templates
+Loaded 3789 npc shout templates
+Loaded 218 pet templates and 33 food flavours
+Loaded 31 pet doping templates
+Loaded 9 pet buffs templates
+Loaded 6 initial player templates
+Loaded 1969 trade lists
+Loaded 249 npc teleporter templates
+Loaded 284 teleport locations
+Loaded 13570 skill templates
+Loaded 163 skill charge entries
+Loaded 304 motion times
+Loaded 4888 skill learn entries
+Loaded 7 cube expand entries
+Loaded 254 warehouse expand entries
+Loaded 129 bind point entries
+Loaded 8043 quest data entries
+Loaded 756 gatherable entries
+Loaded 300 title entries
+Loaded 6449 walker routes
+Loaded 12 walker group variants
+Loaded 3978 zone entries
+Loaded 3239 goodslist entries
+Loaded 719 tribe relation entries
+Loaded 12494 recipe entries
+Loaded 187 chest locations
+Loaded 63 static door locations
+Loaded 558 item set entries
+Loaded 18 npc factions
+Loaded 11931 npc skill list entries
+Loaded 13 pet skill list entries
+Loaded 70 siege location entries
+Loaded 2 vortex entries
+Loaded 60 rift entries
+Loaded 42 base entries
+Loaded 74 fly ring entries
+Loaded 8 shield entries
+Loaded 218 pet entries
+Loaded 80 guide entries
+Loaded 8 road entries
+Loaded 110 instance cooltime entries
+Loaded 2483 decomposable items entries
+Loaded 75 ai templates
+Loaded 208 flypath templates
+Loaded 5 windstream entries
+Loaded 21 assembled npcs entries
+Loaded 366 cosmetic items entries
+Loaded 114 auto group entries
+Loaded 140 spawn maps entries
+Loaded 76 events
+Loaded 61 skill panel entries
+Loaded 16 instance Buffs entries
+Loaded 1511 housing object entries
+Loaded 65 ride info entries
+Loaded 137 instance exit entries
+Loaded 405 portal loc entries
+Loaded 466 portal templates2 entries
+Loaded 20 housing lands
+Loaded 9 house building styles
+Loaded 276 house parts
+Loaded 3094 house spawns
+Loaded 10 curing object entries
+Loaded 89 assembly items entries
+Loaded 122 challenge tasks entries
+Loaded 6 conqueror and protector entries
+Loaded 2450 town spawns
+Loaded 57 temperings
+Loaded 44 enchants
+Loaded 2196 global drop rules with global drop npc exclusions
+Loaded 7 multi return item entries
+Loaded 73 hotspot entries
+Loaded 1830 item purifications entries
+Loaded 4 upgrade arcade entries
+Loaded 394 atreian passports
+Loaded 48 world raid locations
+Loaded 27 kill bounty templates
+Loaded 6 legion dominion locations
+Loaded 2 skill alias locations
+Loaded 4 signet data templates

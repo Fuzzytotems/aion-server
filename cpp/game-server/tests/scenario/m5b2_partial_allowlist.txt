@@ -1,0 +1,57 @@
+# The AION_PARTIAL sites the M5b-2 gate accepts (m5b2-plan.md §10.1 "Allow-list", G-03). One site per line, whose file paths are relative to
+# the compiling target's source root - game-server/src for the server itself (e.g. "aion/gameserver/GameServer.cpp:129") and
+# game-server/handlers for a registered handler (e.g. "aion/gameserver/handlers/ai/<Handler>.cpp:<line>"). An entry WITH a line number must
+# match the whole site; an entry without one is an explicit whole-file wildcard. Lines starting with '#' and empty lines are ignored.
+#
+# A SEPARATE list from m5a_partial_allowlist.txt and m5b_partial_allowlist.txt (m5b-plan.md D9): each gate's scripted path reaches its own set,
+# and the lists must be able to disagree.
+#
+# THE LIST IS IN THREE SECTIONS AND X12 READS ALL THREE. A section begins at its "# --- SECTION X" marker line below and runs to the next one;
+# M5b2ScenarioTest.cpp matches those markers literally. Every site of partial_trace.txt must be in one of the three, and in addition:
+#   SECTION A  the gate asserts the row was hit at least once
+#   SECTION B  the gate asserts the row was hit EXACTLY ZERO times
+#   SECTION C  the row is allowed and its hit count is printed but not pinned
+#
+# §10.1 expected section A to be "nearly empty" and section B to hold CumulativeResist and the damage modifiers if K-03/K-04 stayed W. Both
+# were ported in part 2 without a partial, and M5b-2 closed every skill-engine partial it owned (O-09, D3, D14's createCriticalProcEffect, the
+# PlayerRestrictions::canUseSkill of C-01), so no row below belongs to the skill engine at all. Stage 2 closed the npc side as well (N-01,
+# N-02): no row below belongs to the npc AI either, and section B is empty.
+
+# =========================================================================================================================================
+# --- SECTION A - hit at least once, asserted ---
+# =========================================================================================================================================
+
+# every startup: the gates run without quests (m5a-plan.md W-02) and without base locations (E1-06)
+aion/gameserver/questEngine/QuestEngine.cpp:111
+aion/gameserver/services/BaseService.cpp:18
+# HISTORY: M5b-3's drop registration (m5b-plan.md D5), DropRegistrationService.cpp:43, was here - the Warrior kills monster A in S5 and the
+# kerub in S5b, the Mage kills A's respawn in S10 - until M5b-3 closed registerDrop (m5b3-plan.md L-01); the site no longer exists. X12's drop
+# rows assert what registerDrop sends for each of those kills instead (one SM_LOOT_STATUS(LOOT_ENABLE) per corpse, DropNpc created = kills),
+# and the profile sets gameserver.rates.drop = 0 (m5b3-plan.md D4, G-05).
+
+# =========================================================================================================================================
+# --- SECTION B - hit exactly zero times, asserted ---
+# =========================================================================================================================================
+
+# HISTORY: m5b-plan.md D4's other half, the four SkillAttackManager.cpp rows (:19, :23, :28, :40), was here until stage 2 ported
+# SkillAttackManager (m5b2-plan.md N-01, SkillAttackManager.java:35-213); the sites no longer exist, and X9 (S5b) now asserts the skill path
+# the rows stood for: npc 210133 casts 16419 at the character.
+
+# =========================================================================================================================================
+# --- SECTION C - allowed, counted and printed, not pinned ---
+# =========================================================================================================================================
+
+# HISTORY: m5b-plan.md D4's row, GeneralNpcAI.cpp:122 ("npc skill attacks are not chosen yet"), was here (section C, so that the gate held on
+# both sides of the join) until stage 2 closed it (m5b2-plan.md N-02, GeneralNpcAI.java:130-138); the site no longer exists.
+# behind gameserver.analysis.quest_handlers, which the gate profile does not set
+aion/gameserver/questEngine/QuestEngine.cpp:115
+# the PvP map instance needs InstanceService::getNextAvailableInstance (m5a-plan.md W-03)
+aion/gameserver/custom/pvpmap/PvpMapService.cpp:32
+# personal instances and the instance exit teleport are M5a AION_PARTIAL by plan W-03
+aion/gameserver/services/instance/InstanceService.cpp:133
+aion/gameserver/services/instance/InstanceService.cpp:153
+# EMOTIONS_ALL is off by default, so this is only reached with the config the real-client checklist uses
+aion/gameserver/services/player/PlayerService.cpp:268
+# AbyssRankUpdateService's periodic tasks: a property of the run's LENGTH, not of its script (the M5b-1 list's reason)
+aion/gameserver/services/abyss/AbyssRankUpdateService.cpp:37
+aion/gameserver/services/abyss/AbyssRankUpdateService.cpp:58
