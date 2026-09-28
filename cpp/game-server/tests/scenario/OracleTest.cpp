@@ -347,7 +347,9 @@ TEST(OracleTest, TheSkillsCommandLineSpellsEveryParameterAsOraclePyReadsIt) {
 }
 
 TEST(OracleRunTest, TheSkillsBindingAsksTheRealOracleWhatItWasGiven) {
-	std::optional<Oracle> oracle = Oracle::fromEnvironment(std::filesystem::path(AION_SCENARIO_OUTPUT_DIR) / "selftest" / "oracle");
+	// a work directory of its own: the economy case (EconomyOracleTest.cpp) runs in another process, maybe at the same time under ctest -j,
+	// and each Oracle names its answers oracle1.json, oracle2.json, ... (Oracle::run)
+	std::optional<Oracle> oracle = Oracle::fromEnvironment(std::filesystem::path(AION_SCENARIO_OUTPUT_DIR) / "selftest" / "oracle-skills");
 	if (!oracle)
 		GTEST_SKIP() << "no Python interpreter for tools/oracle: set AION_TEST_PYTHON (ctest sets the configure-time one)";
 

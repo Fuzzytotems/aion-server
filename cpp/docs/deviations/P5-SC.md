@@ -259,3 +259,138 @@ added and removed no `AION_PARTIAL`, so no row shifted.
 
 The two-at-a-time run of every gate (§21.6) logged `Scheduled AuctionEndTask with cron expression: 0 0 0 1 1 ? 2000,2100,2101` and the
 same expression for the ranking update in every scenario gate, and the shipped schedules in the three smoke tests, as G-07 intends.
+
+## M5c stage 3 (gate-2 lane): the M5c gate part 2, C19
+
+m5c-plan.md G-03 part 2 (§10.2 C19, §10.3 X17-X21a and X22's craft rows, §10.4's craft mutants) on HEAD `5cccfd6a4`, where the M5d engine's
+`QuestState` restore (m5c0-client-session.md F-1) and C-01 are merged. Test infrastructure only: `M5cScenarioTest.cpp` and the slot table's
+comment in `ScenarioTests.cmake`. No production file and no oracle file changed: `oracle.py m5c-economy`'s `--daeva` and `--craft-*` blocks
+(`m5c/sanctum.py`, stage 1) answer every field C19 reads, and `EconomyOracle.h` parses all of them but `craft.learn.yes`. (The review below
+added fields to `m5c/sanctum.py`'s blocks, which the gate reads file-locally too; `EconomyOracle.h` is still unchanged.)
+
+| Area | As built | Reason |
+|---|---|---|
+| C19 | Between C18 and C20a: A disconnects (`CM_QUIT(0)`), `players.old_level` is read, `m5c-economy` runs with the gate's properties (`--no-profile`, `--set`), `--race ELYOS --direction 45 --daeva GLADIATOR --daeva-old-level <old> --craft-recipe 155001381 --craft-tool 150000009 --craft-distance 3/7/12`; the seed is written with the account disconnected - `player_class`, `exp` 126,069, `world_id` 110010000 at the oracle's `seedSpot` (Hestia's near spot), a `player_quests` row (1006, COMPLETE, `complete_count` 1), the kinah row set to `exactKinah` 3,640 and one Inina (two since the review below: the recipe's one and `SURPLUS_ININA`) through `seedInventoryItem`; A logs in again (M5a's Q5) into Sanctum, talks to Hestia, `CM_DIALOG_SELECT(46)`, answers 900852 yes, walks to Luelas' near spot, opens BUY and buys 2 Salt, sends `CM_CRAFT(0, 150000009, 155001381, oven, {152001001: 1, 169400096: 2}, 0)` from 7 m, 12 m and 3 m, waits for the end, sends `CM_RECIPE_DELETE(155001381)`, disconnects and reads the rows. 56-64 s of the run; `gs.scenario.m5c` takes 265-283 s alone (four runs), the slot table says 283 (since the review's fix: 60-71 s and 265-289 s, the slot table says 289) | §10.2 C19; F-3 (the account's `players` rows are loaded at connect and saved at logout) |
+| The old level | Read after the disconnect and handed to `--daeva-old-level`, so the learn list is the oracle's for the level the enter world really starts from (`PlayerLeaveWorldService.java:148` stores it, `PlayerEnterWorldService.java:204` reads it). It is 2 in every run: A levels up on C13's 1,000 exp | the oracle's default (1) would name the level-2 Warrior skills A already has |
+| `--direction 45` | The craft spots of the oracle lie along `--direction`; along 45 degrees the 7 m and 12 m spots are in no other oven's `checkCraft` range, the default 0 leaves oven 104 in range of the 7 m spot. The 3 m spot has oven 104 in range along every direction tried (0-315 by 45); `CM_CRAFT` names its target, so that does not matter | the `otherToolsInCheckCraftRange` field is there for this choice |
+| `craft.learn.yes` | Read file-locally (`parseLearnYes`, from the same JSON text `parseEconomy` reads): the yes's kinah delta (-3,500) and the skill and level it teaches (40001 at 1). `EconomyOracle.h` is not changed | its parser and its test fixture are harness-b's; the gate reads two more fields |
+| X21a | The level of the enter world's last `SM_STATS_INFO` against the oracle's 10; the union of the burst's full `SM_SKILL_LIST`s (message 0) against the oracle's 41 skills as sets (missing and extra named), the swap (30001 out, 30002 in) and every level-10 skill named on its own; the burst's `SM_LEARN_RECIPE`s sorted against the three morph recipes, the union of its `SM_RECIPE_LIST`s as a set; `player_recipes` after the quit equal to those three | a Java HashSet's order is not asserted (m5c-plan.md §7); the message-0 filter leaves out a one-skill update |
+| X17 | Hestia's window (one `SM_DIALOG_WINDOW`, page not asserted: a quest handler may answer first since M5d, and the oracle does not model it); the question's id, its three parameters - the profession's `ChatUtil.l10n` name compared as the oracle's three UTF-16 code units converted to UTF-8, as the decoder returns them -, sender and range; the yes: one kinah update of the oracle's delta, one one-skill `SM_SKILL_LIST` (40001 at 1, message 1330061, SkillLearnService.java:49), `SM_LEARN_RECIPE`s equal to the oracle's `[155001381]`; the kinah left is exactly the Salt's price; the Salt: one kinah update to **0** and one `SM_INVENTORY_ADD_ITEM` of 2 | §10.3 X17 |
+| X18 | 7 m: `STR_COMBINE_TOO_FAR_FROM_TOOL` (1330040), exactly one `SM_CRAFT_UPDATE` (action 4, the skill and the product), exactly `SM_CRAFT_ANIMATION(A, oven, 0, 2)`, no item packet and the component counts unchanged; 12 m: no `SM_CRAFT_UPDATE`, `SM_CRAFT_ANIMATION`, system message or item packet, counts unchanged | §10.3 X18; `CraftService.sendCancelCraft` |
+| X19 | The window from `CM_CRAFT` to 1.5 s after `SM_CRAFT_UPDATE(5)`: the first update INIT (skill, product, bars 1000/1000), the second NORMAL with empty bars, the last SUCCESS with a full bar; exactly the three animations (…, 40001, 0), (…, 40001, 1), (…, 0, 2); both component stacks deleted and the counts 0 (since the review below: the Salt's deleted, the Inina's updated to the surplus 1); one `SM_INVENTORY_ADD_ITEM` of 2 Roast Inina; one one-skill `SM_SKILL_LIST` (40001 at 2, message 1330064); the shown exp +141 over the last shown value (the level-10 bar starts at 0) and `players.exp` 126,069 + 141 after the quit | §10.3 X19 |
+| X20 | Between the start pair and the end: 4-14 progress updates (the oracle's), each NORMAL or CRIT_BLUE with a growing success bar and failure 0, the last one full; the time from `SM_CRAFT_UPDATE(0)` to `(5)` is `firstTickDelay + n x interval` +-750 ms (since the review below: each gap and the total +-250 ms) and within the oracle's 11-36 s (9-12 updates in 23.5-31.0 s in the runs). The gate waits for the end up to five times the oracle's longest craft plus 15 s, so that a craft that runs long is counted by X20 instead of being cut off by the wait | §10.3 X20; the min-step mutant needs about 35 ticks on average (43 in its run, 108.5 s) |
+| X21 | `SM_RECIPE_DELETE(155001381)`; after the quit no 155001381 in `player_recipes` and `player_skills` 40001 at the oracle's level 2 | §10.3 X21 |
+| X16 for A | The ledger goes on: the seed (kinah set to 3,640, +1 Inina; +2 since the review below), the learn, the Salt, the craft; compared with the Sanctum enter world's `SM_INVENTORY_INFO`, A's model before C19's quit and C20a's `inventory` rows | §10.3 X16 "and every later quit" |
+| X22 | `CraftingTask` and `CraftSkillUpdateService_RequestResponseHandler` join the rows that must be live 0 with created > 0 (`0 1` in every run); part 1's guard (`CraftingTask` live 0 only) is gone | G-03 part 2 |
+| The first automated Sanctum entry (W-16) | 362 objects spawned in 110010000 at startup; A's enter world, the talk, the purchase, the three crafts and the quit reached no `AION_UNPORTED` site and no new `AION_PARTIAL` site (the allow-list is unchanged), wrote no ERROR line, and `CheckOutput`'s census and live counts stayed clean | m5c-plan.md §21.2 |
+
+**Mutation proof (§10.4)**, production schemata switched by `AION_M5C_MUTANT` (`c19-*`), built in two batches into `build/c3-gate`'s server
+only (the test binary was not rebuilt), the sources restored by sha256 right after each build; one gate run per mutant. The rebuilt clean
+binaries hold no schema string.
+
+| Mutant | Failed | Stayed green | Note |
+|---|---|---|---|
+| `c19-daeva`: `PlayerCommonData::updateDaeva` ignores the quest list | X21a (`SM_STATS_INFO` level 9; skills missing 169, 246, 249, 348, 519, 758, 769, 2891, 2981, 30002, 30003, 40009, extra 30001; no `SM_LEARN_RECIPE`; empty `SM_RECIPE_LIST`), X17 (no question: its fatal row ends C19), X22 (`CraftingTask 0 0`, `CraftSkillUpdateService_RequestResponseHandler 0 0`) | S-0, C0-C18 (X1-X16, X23-X28), C20a | as §10.4 |
+| `c19-morph`: `SkillLearnService::onLearnSkill` without `isMorphSkill()` | X21a only (`SM_LEARN_RECIPE`, `SM_RECIPE_LIST`, `player_recipes`) | X17, X18-X21, X22 | as §10.4 |
+| `c19-consume-first`: `checkCraft` consumes the materials before its checks | X18 (two `SM_DELETE_ITEM` at 7 m; the counts at 7 m and 12 m), X19 (the 3 m craft is refused for want of components: its fatal row ends C19), X22 (`CraftingTask` created 0) | X17, X21a, part 1 | **§10.4 lists X19 as green; it cannot be with the exact seed** - the refused 7 m craft took the only Inina and Salt (with the review's surplus Inina the only Salt: rerun as `c3f-consume-first` below) |
+| `c19-min-step`: `analyzeInteraction` without the 70 minimum | X20 (43 progress updates, 108,502 ms against 36,750) | X19 (product, level, exp), X21, X21a, X22 | as §10.4 |
+| `c19-race`: `getAutolearnRecipes` without the race filter (C++ keeps Java's filter in `RecipeData`) | X17 (`SM_LEARN_RECIPE` 155001381 and 155006386), X21a (six morph recipes; `SM_RECIPE_LIST`; `player_recipes`) | X19, X20 | as §10.4 (plus X21a, which §10.3 names) |
+| `c19-del-recipe`: `RecipeList::deleteRecipe` without `PlayerRecipesDAO::delRecipe` | X21 (155001381 still stored; the stored set) | X19; `SM_RECIPE_DELETE` is still sent | §10.3 X21 |
+| `c19-interval`: cooking gets the morph's interval 200 | X20 (10 updates and the end in 3,001 ms against 26,000; below 11 s) | X19 | §10.3 X20 |
+| `c19-taxes`: `getTaxes` truncates (113 -> 112) | X1, X5, X25, X27, X16 as in stage 2, X17 (the Salt costs 138, 2 kinah left), X16 for A after C19 and at the last quit (`182400001: 2/0`) | X19-X21a; X7, X8, X13, X15, X26 | as §10.4 |
+| `c19-kinah-gt`: `>=` -> `>` in `calculateBuyListPrice` | X27 (fatal at C18: C19 does not run) | – | the plan's X17 half is hidden behind part 1's fatal row, hence the two targeted mutants below |
+| `c19-kinah-gt-sanctum`: the same, for a buyer in 110010000 only | X17 (the Salt refused), then X18/X19 (no Salt, no craft) and X22 (created 0) | part 1, X21a | the exact-kinah purchase kills it |
+| `c19-trydecrease-gt-sanctum`: `Storage::tryDecreaseKinah` `>=` -> `>`, for an actor in 110010000 | X17 (no kinah update, no Salt), then X18/X19 and X22 | part 1, X21a, the learn (3,640 > 3,500) | §10.4 "or `Storage::tryDecreaseKinah`" |
+| `c19-combo-product`: `finishCrafting` adds the combo product | X19 (160001051 added), X16 (`160001001: 0/2, 160001051: 2/0`, before the quit and at the last quit) | X20, X21, X21a | the INIT update carries the task's template, still the base product |
+| `c19-skill-threshold`: `addSkillXp`'s threshold doubled | X19 (no level-up `SM_SKILL_LIST`), X21 (`skill_level` 1) | X20, X21a | §10.3 X19 "the level-up threshold" |
+| `c19-no-exp`: `finishCrafting` without `addExp` | X19 (no `SM_STATUPDATE_EXP`; `players.exp`) | X20, X21 | |
+| test side, `AION_M5C_TEST_MUTANT=c19-expectations` in the gate source (removed after its build, the file restored by sha256): every C19 expectation no production mutant above kills, shifted by one or negated - the oracle premises, the spawn, the Sanctum ledger, Hestia's window, the question, the learn's packets, the Salt's addition, the component counts, X18's cancel packets and the 12 m silence, X19's INIT/start/end updates, the progress bars, the animations, the deleted stacks, the product, the level-up and `SM_RECIPE_DELETE` | all 65 of those assertion lines, nothing else | S-0, C0-C18, C20a, C20 | |
+
+The clean binaries then passed `gs.scenario.m5c` three times in a row (279.5 s, 270.6 s, 265.0 s; the first run of the lane, with the same
+gate less the X20 time bounds and the long wait, 282.7 s): 23 of 23 cases each time, `CraftingTask 0 1`, the unported trace empty.
+
+### The review of the gate-2 lane (2026-09-28) and its fix
+
+The review (approve-with-changes) ran 9 mutants of its own (`AION_C3R_MUTANT`, one build into `build/c3-gate`'s server, the sources restored
+and the server rebuilt clean). Three of them are §10.3 C19 mutants the lane had not run, and the gate killed them: `c3r-5m` (the 5 m check
+dropped: X18 - no 1330040, three `SM_CRAFT_UPDATE`, two `SM_DELETE_ITEM`, the counts 0 - then X19), `c3r-cost` (the price 3,500 -> 3,400: X17
+- the parameter "3400", kinah {240}, the Salt leaving 100 - and X16 in C19 and C20a) and `c3r-swap-skip` (X21a: 30002 missing, 30001 extra).
+Six passed: `c3r-consume-twice`, `c3r-delay`, `c3r-speed`, `c3r-cancel-bars`, `c3r-swap-level` and `c3r-learn-anim`. The fix tightens the
+gate so that each of these is killed. The table below lists the changes to `M5cScenarioTest.cpp` and `m5c/sanctum.py`.
+
+| Area | As built | Reason |
+|---|---|---|
+| X20's timing | Checked gap by gap: from the start pair to the first progress update is `firstTickDelay`, and every later gap, including the one to the end, is `interval`. Each gap must be within 250 ms (`TICK_TOLERANCE_MS`). The total `firstTickDelay + n x interval` must also be within 250 ms, and the oracle's 11-36 s bounds get the same 250 ms. In the clean runs and the non-timing mutant runs, no gap was off by more than 2 ms | Review medium 1: 750 ms on the total let a first tick 600 ms late pass |
+| The surplus Inina | C19 seeds the recipe's Inina plus `SURPLUS_ININA` (1). X18's counts are 2 Inina and 2 Salt. X19 wants the Salt's stack deleted and the Inina's stack kept: no `SM_DELETE_ITEM` for it, and its last `SM_INVENTORY_UPDATE_ITEM` at count 1. X19's counts are then 1 and 0, and the X16 ledger carries the extra Inina to C20a's rows | Review medium 2: with the exact seed a second consumption finds nothing to take, so §10.3 X19's "materials consumed twice" was an equivalent mutant. This departs from §10.1's exact seed for Inina only. The kinah stays exact, so X17's `>=` rows are unchanged |
+| `SM_CRAFT_UPDATE`'s speed, delay and bars | m5c-economy's `craft.recipe` now carries `executionSpeed` and `showBarDelay` (900 and 1200), and `updates`: m5c-craft's rows for the start pair, the end and `sendCancelCraft`. X20 checks every progress update's speed and delay. X19 checks the action, bars, speed and delay of the INIT, start and SUCCESS updates (speed 0, delay 0). X18 checks the same for the cancel update (bars 0 and 0) | Review low 4 |
+| X21a's levels and `SM_SKILL_REMOVE` | The oracle's `daeva.enterWorld.skillLevels` and `daevaSwap.smSkillRemove`, read file-locally. Every skill in the burst's message-0 `SM_SKILL_LIST` must be at the oracle's level as the packet shows it: 1 for a normal skill (SkillEntryWriter.java:27), the real level for 30002, 30003 and 40009. There must be exactly one `SM_SKILL_REMOVE(30001, 1, 0)`, where 1 is a tapping skill's `getProfessionFlag()`. After the quit, `player_skills` must equal the oracle's 41 levels plus Cooking at 2. That row catches the normal skills' stored levels, which the packet hides (169, 2865, 2878 and 2891 are at 2) | Review low 5 |
+| The CRAFT_LEVEL_UP animation | The yes window's `SM_ACTION_ANIMATION`s must equal the oracle's `learn.yes.animations`: one, `(A, 4, 0)`. X19's window must equal `recipe.skillUpAnimations`: none, because level 2 is not an animation level | Review low 6 |
+| The old level | A's level is taken from the last `SM_STATS_INFO` of its connection before C19's quit, and `players.old_level` must equal it (-1 if the connection had none) | Review low 7: the oracle models the stored skills from this value, so a store that was lower, or missing, passed X21a unseen |
+| The oracle | `m5c/sanctum.py`: `JavaC19Rules.craft_level_up_animation`, read from ActionAnimation.java, and the new fields above. `tests/test_m5c_sanctum.py` has 27 tests, one of them new (`test_the_craft_updates`), plus new rows in `test_today`, `test_literals_are_read`, the fixture's question test and the real-data tests. The README section is updated | Every number comes from the oracle. `EconomyOracle.h` is untouched, because its parser and fixture are harness-b's; `parseC19Extras` reads the new fields file-locally, as `parseLearnYes` does |
+
+**Mutation proof.** The 12 production schemata are switched by `AION_C3F_MUTANT` (`c3f-*`). They were built in one batch into
+`build/c3-gate`'s server only. Right after the build the five sources were restored with Edit and matched their sha256. The server was then
+rebuilt clean, with no `AION_C3F` string in the exe. Each mutant had one gate run, with the final test binary less the two guard edits
+described under the test-side run below.
+
+| Mutant | Failed | Stayed green |
+|---|---|---|
+| `c3f-delay`: `AbstractInteractionTask::start` schedules the first tick 600 ms late (the review's `c3r-delay`) | X20: the first gap (1,601 ms) and the total (29,100 ms against 28,500) | Every later gap; C0-C18, C20a, C20 |
+| `c3f-interval`: the craft interval +300 ms | X20: all 11 later gaps (2,799-2,801 ms) and the total (31,801 against 28,500) | The first gap; the rest |
+| `c3f-consume-twice`: `checkCraft`'s consume loop runs twice (the review's `c3r-consume-twice`) | X19: the Inina stack deleted, the counts (0 and 0 against 1 and 0); X16 before C19's quit and at C20a's last quit | X17, X18, X20, X21, X21a; X19's update row for the Inina stack (the first decrease sends count 1 before the second deletes the stack; the test side proves that row) |
+| `c3f-consume-first`: `checkCraft` consumes before its checks (the lane's `c19-consume-first`, rerun with the surplus) | X18: the item packets at 7 m, and the counts at 7 m and 12 m; X19: the 3 m craft is refused for want of Salt, a fatal row that ends C19; X22: `CraftingTask 0 0` | X17, X21a, part 1. With the surplus, X19 still cannot stay green, because the refused 7 m craft takes the only Salt |
+| `c3f-speed`: `analyzeInteraction` sets 300 and 500 (the review's `c3r-speed`) | X20: all 9 progress updates' speed and delay | X19, X21 |
+| `c3f-cancel-bars`: `sendCancelCraft` with bars 1000 and 1000 (the review's `c3r-cancel-bars`) | X18: the cancel update's success and failure bars | The rest |
+| `c3f-swap-level`: 30002 at 30001's level + 1 (the review's `c3r-swap-level`) | X21a: 30002 shown at 2, and `player_skills` | X17-X21 |
+| `c3f-no-skill-remove`: the swap without `SM_SKILL_REMOVE` | X21a: no `SM_SKILL_REMOVE` | The rest |
+| `c3f-autolearn-level1`: `autoLearnSkills` adds every skill at level 1 | X21a: `player_skills` (169, 2865, 2878 and 2891 at 1). The packet shows every normal skill as 1 anyway | The level shown for 30002, 30003 and 40009 (all at lvl 1) |
+| `c3f-learn-anim`: `onLearnSkill` without CRAFT_LEVEL_UP (the review's `c3r-learn-anim`) | X17: no `SM_ACTION_ANIMATION` | The rest |
+| `c3f-anim-every-level`: CRAFT_LEVEL_UP at every level of a crafting skill | X19: `SM_ACTION_ANIMATION(A, 4, 0)` at level 2 | X17 |
+| `c3f-old-level`: `storeOldCharacterLevel` stores level - 1 | X21a: `old_level` 1 against the 2 A had. X21a's skills and recipes stay green, as the review predicted: the oracle, asked with 1, names the same list | The rest |
+
+**Test side.** `AION_C3F_TEST_MUTANT=c3f-expectations` is an env-guarded schema in the gate source. It was built into the test binary, then
+removed with Edit, and the source matched its sha256 again. It shifts every C19 expectation this fix added or changed:
+
+- the old level, the `skillLevels` premise and the shown levels;
+- the `SM_SKILL_REMOVE` premise and packet;
+- both animation rows;
+- X18's component premise;
+- the five fields `expectCraftUpdate` compares (action, the two bars, speed and delay), which cover X18's cancel and X19's start pair and end;
+- X20's speed and delay, the first gap, the later gaps, the total and the 11-36 s bounds;
+- X19's three stack rows (the branch swapped);
+- `player_skills`.
+
+All 24 of those assertion lines failed, and nothing else did: C19 alone failed, while S-0, C0-C18, C20a and C20 passed. Before that build,
+the two guards this fix had added as `ASSERT`s became non-fatal rows, so no mutant can end C19 early: A's level (`value_or(-1)`) and the
+oracle's `smSkillRemove`. Both are among the 24.
+
+**For the plan's owner** (m5c-plan.md is not this lane's to change). §10.3 X19 "materials consumed twice" is proven only with the surplus
+Inina, which is a §10.1 seed change. §10.4's consume-first row still cannot keep X19 green (see `c3f-consume-first`). The review's two info
+findings are not closed; they are recorded here instead:
+
+- (a) §10.3 X18's "Proves both range checks" is coarser than X2's band spots. With spots at 3, 7 and 12 m, any `checkCraft` range in
+  [3, 6.75), a centre-to-centre `checkCraft`, or any `CM_CRAFT` range in [7, 12) keeps X18 and X19 green. A band spot (5.1 m, in range only
+  with the radii) was not added. This belongs in X18's "cannot prove".
+- (b) At the level difference 0, the interval `2500 - 60 x diff`, its 1200 cap, `lvlBoni`, and the speed and delay difference terms are all
+  constants. A mutant of any of them is equivalent here, so they belong in §10.3 X20's "cannot prove". P5-02a's unit tests own that
+  arithmetic.
+
+**Runs.** The fixed gate passed on the clean binaries once before the mutants (275.0 s; the gate then lacked the gap statistics in C19's
+log line and the two guard edits), and three times in a row after them (288.6 s,
+270.9 s and 271.8 s): 23 of 23 cases each time. C19 took 60-71 s, with 10-13 progress updates, and no gap was off by more than 2 ms.
+Together with the lane's and the review's runs, the gate takes 265-289 s alone, so the slot table in `ScenarioTests.cmake` now says 289
+(slot 2 sums 1,340 s). This answers the review's info finding: the review's 284.2 s was already above the 283 the lane had recorded.
+
+## M5c stage 3 integration (2026-09-28)
+
+m5c-plan.md §22. The items the lane and the fix left for the plan's owner are applied in m5c-plan.md §10.1-§10.5, §11 and §13 (§22.3 lists
+them): the surplus Inina in §10.1's seeds, C19 as built, the "as built" and "cannot prove" halves of X17-X22 (X18's range edges, X20's
+level-difference terms at Δ 0), and §10.4's consume-first, `>=` → `>` and race-filter rows. Two harness items of the lane:
+
+| Area | As built | Reason |
+|---|---|---|
+| `OracleRunTest`'s work directories | The skills case (`OracleTest.cpp`) writes its answers to `selftest/oracle-skills`, the economy case (`EconomyOracleTest.cpp`) to `selftest/oracle-economy`. Both used `selftest/oracle` before, and each `Oracle` names its answers `oracle1.json`, `oracle2.json`, … from its own counter (`Oracle::run`), so the two processes `ctest -j` may start together wrote one file. No assertion changed | The lane saw `TheEconomyBindingAsksTheRealOracleWhatItWasGiven` fail with a JSON parse error under `-j 4`. Measured here on the old sources: `ctest -R "^OracleRunTest\." -j 2 --repeat until-fail:4` failed the economy case in its second round (`parse error at line 1999, column 1: … unexpected '{'`, two answers in one file). With the change, `--repeat until-fail:6` passed 12 of 12 |
+| `getenv` in the gate sources | Unchanged. `lint_concurrency.py --werror --cycles=core game-server/tests/scenario` reports L8 (`getenv`) in every gate source (M5a, M5b, M5b-2, M5b-3, M5c, the stress run) and in `Oracle.cpp`, `ScenarioDatabase.cpp` and `ScenarioServers.cpp`, and L6/L11 rows elsewhere in the harness | Pre-existing at HEAD (M5c's one call, `AION_SCENARIO_REQUIRE`, has the other gates' shape). The registered lint, `gs.lint.concurrency`, covers `game-server/src` only, which is clean |
+
+The lane's build tree `build/c3-gate` was already gone when this step began; its configure log `build/c3-gate-configure.log` is deleted.
+The unit suite and every gate, run two at a time on the integrated tree, are in m5c-plan.md §22.4-§22.5.

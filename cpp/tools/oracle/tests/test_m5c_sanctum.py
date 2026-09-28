@@ -41,7 +41,7 @@ class M5cSanctumFormulaTest(unittest.TestCase):
 
 	def rules(self, **changes):
 		values = {"ascension_quests": {"ELYOS": 1006, "ASMODIANS": 2008}, "daeva_level": 10, "non_daeva_max_level": 10,
-		          "daeva_swap": (10, 30001, 30002), "combine_action": 46, "question_id": 900852, "learn_min_level": 10}
+		          "daeva_swap": (10, 30001, 30002), "combine_action": 46, "question_id": 900852, "learn_min_level": 10, "craft_level_up_animation": 4}
 		values.update(changes)
 		return JavaC19Rules(**values)
 
@@ -101,6 +101,7 @@ class M5cSanctumJavaRulesTest(unittest.TestCase):
 		self.assertEqual(rules.ascension_quests, {"ELYOS": 1006, "ASMODIANS": 2008})
 		self.assertEqual((rules.daeva_level, rules.non_daeva_max_level, rules.daeva_swap), (10, 10, (10, 30001, 30002)))
 		self.assertEqual((rules.combine_action, rules.question_id, rules.learn_min_level), (46, 900852, 10))
+		self.assertEqual(rules.craft_level_up_animation, 4, "ActionAnimation.CRAFT_LEVEL_UP(4)")
 		self.assertEqual(JavaC19Rules.read(self.java), rules, "the copy reads the same")
 
 	def test_a_changed_rule_is_refused(self):
@@ -142,6 +143,8 @@ class M5cSanctumJavaRulesTest(unittest.TestCase):
 		self.assertEqual(JavaC19Rules.read(self.java).combine_action, 47)
 		self.changed("services/craft/CraftSkillUpdateService.java", "if (player.getLevel() < 10)\n\t\t\treturn;", "if (player.getLevel() < 11)\n\t\t\treturn;")
 		self.assertEqual(JavaC19Rules.read(self.java).learn_min_level, 11)
+		self.changed("model/animations/ActionAnimation.java", "CRAFT_LEVEL_UP(4)", "CRAFT_LEVEL_UP(5)")
+		self.assertEqual(JavaC19Rules.read(self.java).craft_level_up_animation, 5)
 		self.changed("services/SkillLearnService.java", "if (!player.getSkillList().isSkillPresent(30002))\n\t\t\t\tplayer.getSkillList().addSkill(player, 30002,",
 		             "if (!player.getSkillList().isSkillPresent(30003))\n\t\t\t\tplayer.getSkillList().addSkill(player, 30002,")
 		with self.assertRaises(OracleError):  # the swap's shape: the skill checked must be the one added
@@ -385,8 +388,10 @@ class M5cSanctumFixtureReportTest(unittest.TestCase):
 		self.assertEqual(craft["learn"]["question"], {"id": 900852, "params": [{"l10nId": 280383, "utf16": [36, code & 0xFFFF, code >> 16]}, "3500", ""],
 		                                              "senderId": 0, "range": 0},
 		                 "SM_QUESTION_WINDOW(STR_CRAFT_ADDSKILL_CONFIRM, 0, 0, ChatUtil.l10n(nameId), \"3500\")")
-		self.assertEqual(craft["learn"]["yes"], {"kinahDelta": -3500, "skill": {"skillId": 40001, "level": 1}, "learnedRecipes": [900001]},
-		                 "the Asmodian twin 900003 is not learned")
+		animation = {"packet": "SM_ACTION_ANIMATION", "to": "everyone, the player too", "animation": "CRAFT_LEVEL_UP", "id": 4, "levelOrObjectId": 0}
+		self.assertEqual(craft["learn"]["yes"], {"kinahDelta": -3500, "skill": {"skillId": 40001, "level": 1}, "learnedRecipes": [900001],
+		                                         "animations": [animation]},
+		                 "the Asmodian twin 900003 is not learned; onLearnSkill's level 1 of a crafting skill (not of a tapping one) animates")
 		arm = next(a for a in craft["master"]["talk"]["functions"] if a["action"] == 46)
 		self.assertEqual((arm["name"], arm["question"]), ("COMBINE_SKILL_LEVELUP", 900852))
 		self.assertEqual(craft["seedSpot"], {"worldId": 2, "x": 102.0, "y": 100.0, "z": 10.0}, "the master's near spot, 2 m along +x")
@@ -402,6 +407,18 @@ class M5cSanctumFixtureReportTest(unittest.TestCase):
 		self.assertEqual((craft["exactKinah"], craft["kinahParts"]), (3640, {"learn": 3500, "components": 140}))
 		self.assertEqual(craft["recipe"]["cmCraftMaterials"], {"700010": 1, "700011": 2})
 		self.assertEqual((craft["recipe"]["product"]["itemId"], craft["recipe"]["xpReward"], craft["recipe"]["skillLevelAfter"]), (700001, 141, 2))
+
+	def test_the_craft_updates(self):
+		recipe = self.craft()["recipe"]
+		# analyzeInteraction at the level difference 0 and a COMMON product (bonusModifier 1): 900 - 0 * 30 and max(500, 1200 - 0 * 30)
+		self.assertEqual((recipe["executionSpeed"], recipe["showBarDelay"]), (900, 1200))
+		self.assertEqual(recipe["updates"], {
+			"init": {"action": 0, "success": 1000, "failure": 1000, "executionSpeed": 0, "delay": 0},
+			"start": {"action": 1, "success": 0, "failure": 0, "executionSpeed": 0, "delay": 0},
+			"success": {"action": 5, "success": 1000, "executionSpeed": 0, "delay": 0},
+			"cancel": {"action": 4, "success": 0, "failure": 0, "executionSpeed": 0, "delay": 0}},
+		                 "onInteractionStart's pair, onSuccessFinish's (its failure bar is the running value), sendCancelCraft's: all speed 0, delay 0")
+		self.assertEqual(recipe["skillUpAnimations"], [], "the craft's level-up is to 2, no animation level (1, 100, 200, 300, 400, 450, 500)")
 
 	def test_the_tool_spots(self):
 		craft = self.craft(craft_distances=[3, 5.2, 5.3, 7, 10, 12])
@@ -609,6 +626,8 @@ class M5cSanctumRealDataTest(unittest.TestCase):
 		self.assertNotIn(30001, world["skills"])
 		self.assertEqual(world["learnedRecipes"], [155000001, 155000002, 155000005], "X21a: the Elyos morph recipes (recipe_templates.xml:3-27)")
 		self.assertEqual(world["daevaSwap"]["smSkillRemove"], 30001)
+		self.assertEqual((world["skillLevels"]["169"], world["skillLevels"]["30002"]), (2, 1),
+		                 "X21a: Boost Physical Attack II at its template's lvl 2 (skill_templates.xml:2193); 30002 at 30001's level 1")
 
 	def test_the_sanctum_craft(self):
 		craft = self.report["craft"]
@@ -626,6 +645,9 @@ class M5cSanctumRealDataTest(unittest.TestCase):
 		self.assertEqual([s["outcome"] for s in tool["spots"]],
 		                 ["CraftingTask", "STR_COMBINE_TOO_FAR_FROM_TOOL and the cancel pair", "nothing (CM_CRAFT returns)"], "X18, X19")
 		self.assertEqual((craft["recipe"]["steps"]["fewest"], craft["recipe"]["steps"]["most"], craft["recipe"]["xpReward"]), (4, 14, 141), "X19, X20")
+		self.assertEqual((craft["recipe"]["executionSpeed"], craft["recipe"]["showBarDelay"], craft["recipe"]["skillUpAnimations"]), (900, 1200, []),
+		                 "X20: Roast Inina is COMMON, Cooking 1 against the skillpoint 1; X19: the level-up to 2 has no animation")
+		self.assertEqual([a["id"] for a in craft["learn"]["yes"]["animations"]], [4], "X17: CRAFT_LEVEL_UP at Cooking 1")
 
 	def test_the_manastone_fits_the_robe_pieces(self):
 		for item in self.report["items"][:3]:

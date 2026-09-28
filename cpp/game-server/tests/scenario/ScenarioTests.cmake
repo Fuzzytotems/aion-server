@@ -46,10 +46,11 @@
 #   slot 1  gs.smoke.startup 34, gs.smoke.startup_progress 34, gs.smoke.startup_geo 150, gs.m4.check_static_data 149,
 #           gs.scenario.m5a 65, gs.scenario.m5a_geo 170, gs.scenario.m5b3 146, gs.scenario.m5b3_geo 314            = 1062
 #   slot 2  gs.scenario.m5b 227, gs.scenario.m5b_geo 351, gs.scenario.m5b2 172, gs.scenario.m5b2_geo 301           = 1051
-#           + gs.scenario.m5c 225 (m5c-plan.md §10.5, measured 2026-09-28 in a Debug tree, alone; it has no geo variant) = 1276
+#           + gs.scenario.m5c 289 (m5c-plan.md §10.5; 225 s for part 1, 265-289 s alone since C19 joined it in stage 3,
+#             2026-09-28 in a Debug tree, the review's fix included; it has no geo variant)                          = 1340
 # The balance held for the full set above before M5c; the plan put the M5c gate into slot 2 (§10.1: the smaller sum then, and a prefix of its
-# own), which now leads slot 1 by about 210 s - the next gate joins slot 1. `ctest -L scenario` alone leaves the smoke and M4 tests out, so slot 1 is then m5a, m5a_geo, m5b3 and
-# m5b3_geo (about 695 s plus LoginServerHarnessTest) against slot 2's 1276 s: correct, just a longer wall clock for that label.
+# own), which now leads slot 1 by about 280 s - the next gate joins slot 1. `ctest -L scenario` alone leaves the smoke and M4 tests out, so slot 1 is then m5a, m5a_geo, m5b3 and
+# m5b3_geo (about 695 s plus LoginServerHarnessTest) against slot 2's 1340 s: correct, just a longer wall clock for that label.
 # The slots count inside ONE ctest process. Two build trees running their gates at the same time can reach four servers (about 12.8 GB with
 # geo), and the marker-before-DROP window of dropAbandonedSchemas is open between them again: run one tree's gate set at a time.
 # Slot 1 keeps the historical name aion_game_server_log because cmake/AppTests.cmake (chunk P5-14) registers the three smoke tests and the M4

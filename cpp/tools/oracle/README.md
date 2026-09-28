@@ -619,13 +619,17 @@ Stage 1 (harness-b) added the rest of G-01 (`m5c/sanctum.py` for the C19 blocks;
   master chosen: Luelas 203785, 140 for two Salt) and the seed items no vendor sells (one Inina), `exactKinah` (3,640), a `seedSpot` beside
   the master, and the tool's static objects (every spot of the STATIC group, the one nearest the master chosen: Oven static id 103) with the
   spots at each `--craft-distance` along `--direction`, checked against CM_CRAFT's centre-to-centre 10 and checkCraft's 5 plus both bound
-  radii (m5c-craft's `craft.station`): 3 m crafts, 7 m answers STR_COMBINE_TOO_FAR_FROM_TOOL, 12 m nothing.
+  radii (m5c-craft's `craft.station`): 3 m crafts, 7 m answers STR_COMBINE_TOO_FAR_FROM_TOOL, 12 m nothing. Since the review of the gate-2
+  lane (2026-09-28) `craft.recipe` also carries every analyze tick's `executionSpeed` and `showBarDelay` (the product bar's, 900 and 1200 at
+  the level difference 0) and m5c-craft's SM_CRAFT_UPDATE rows of the start pair, the end and sendCancelCraft (`updates`: speed 0, delay 0),
+  and the SM_ACTION_ANIMATION(CRAFT_LEVEL_UP) of the craft's level-up (`skillUpAnimations`, none for level 2) and of the learn
+  (`learn.yes.animations`: onLearnSkill's level 1 of a crafting skill; the id is ActionAnimation's, 4).
 
 The C19 blocks need the m5c-craft context over the same data and profile (the command builds it); their own Java members (setExp,
 updateDaeva, the experience table, PlayerSkillList.addSkill/removeSkill, RecipeList.addRecipe, SkillLearnTemplate.getSkillLevel, the
 COMBINE_SKILL_LEVELUP arm, Profession.getClientName, SpawnEngine.spawnInstance, StaticObjectSpawnManager, PlayerController.see,
 SM_GATHERABLE_INFO) are fingerprinted like the rest, and the literals (the quest ids, the level cap, the Daeva swap, the dialog action, the
-question id, the learn level) are read. Exit 2 also for a starting class for `--daeva`, an old level outside 1..9, a recipe of another race
+question id, the learn level, ActionAnimation.CRAFT_LEVEL_UP's id) are read. Exit 2 also for a starting class for `--daeva`, an old level outside 1..9, a recipe of another race
 or of the morph skill, no master or no tool spot on the map, a tool group with a pool, an enchantment stone for `--manastone`.
 
 Tests: `tests/test_m5c_sanctum.py` (the level at load and the row filter alone, the C19 literals today and 12 edited copies refused, the

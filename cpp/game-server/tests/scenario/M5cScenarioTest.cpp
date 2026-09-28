@@ -1,9 +1,10 @@
-// The M5c scenario gate (m5c-plan.md G-03, §10), part 1: C0-C18 and C20. One login server and one game server as child processes on their own
-// test schemas and TWO accounts online at once - A, an Elyos Warrior, and B, an Elyos Mage - at Akarios village on Poeta: talking to the
-// merchant 798007, the postbox and the function npcs, buying, selling and buying back, an exchange, a cancelled one and one whose partner quits,
-// a private store, mail online and offline, soul healing, the database after both quit, identification, a manastone socketed and removed at
-// Seril, the cube expansion, an extraction and an enchantment - then the reports the server writes at shutdown. C19 (crafting) is stage 3's
-// part 2 (G-03): it needs M5d's QuestState restore and C-01 merged first (§20.5, §20.6).
+// The M5c scenario gate (m5c-plan.md G-03, §10): C0-C20. One login server and one game server as child processes on their own test schemas and
+// TWO accounts online at once - A, an Elyos Warrior, and B, an Elyos Mage - at Akarios village on Poeta: talking to the merchant 798007, the
+// postbox and the function npcs, buying, selling and buying back, an exchange, a cancelled one and one whose partner quits, a private store, mail
+// online and offline, soul healing, the database after both quit, identification, a manastone socketed and removed at Seril, the cube
+// expansion, an extraction and an enchantment (part 1, stage 2); then A, seeded as a level-10 Gladiator in Sanctum, learns Cooking from
+// Hestia, buys Salt from Luelas, crafts Roast Inina at an oven and deletes the recipe (C19, part 2, stage 3: it stands on M5d's QuestState
+// restore and C-01, both merged, §20.5-§20.6, §21.7) - then the reports the server writes at shutdown.
 //
 // Every expectation is independent of the C++ server code, as in the earlier gates: server packets are read with the decoders of
 // tests/scenario/decoders (EconomyDecoders.h for the economy packets, ItemDecoders.h, CombatDecoders.h and PacketDecoders.h, all written from
@@ -37,6 +38,7 @@
 #include <fstream>
 #include <functional>
 #include <iostream>
+#include <iterator>
 #include <map>
 #include <memory>
 #include <optional>
@@ -63,6 +65,7 @@
 #include "decoders/ItemDecoders.h"
 #include "decoders/PacketDecoders.h"
 
+#include "aion/commons/utils/StringUtils.h"
 #include "aion/commons/utils/WindowsMacroGuard.h" // after all headers that may include windows.h
 
 namespace aion::gameserver::scenario {
@@ -157,6 +160,41 @@ constexpr int32_t STR_ENCHANT_ITEM_FAILED = 1300456;
 
 /** the ten client-visible statuses of SM_ENTER_WORLD_CHECK: 0 is the only one that lets the character in */
 constexpr uint8_t ENTER_WORLD_OK = 0;
+
+/** C19 (§10.2): the Daeva A becomes, the recipe, the oven and the three distances CM_CRAFT is sent from (X18, X19) */
+constexpr std::string_view DAEVA_CLASS = "GLADIATOR";
+constexpr int32_t CRAFT_RECIPE = 155001381; // Roast Inina: 1 Inina + 2 Salt -> 2 Roast Inina (recipe_templates.xml:12124-12130)
+constexpr int32_t OVEN = 150000009;         // the Ovens of Sanctum (spawns/Statics/110010000_Sanctum.xml:48-53)
+constexpr double CRAFT_NEAR = 3, CRAFT_TOO_FAR = 7, CRAFT_OUT_OF_PACKET_RANGE = 12;
+/**
+ * the oracle's --direction for C19's spots: along 45 degrees the 7 m and 12 m spots lie in no other oven's checkCraft range (the default 0
+ * leaves oven 104 in range of the 7 m spot); the 3 m spot has oven 104 in range along every direction tried (0-315 by 45), and CM_CRAFT names
+ * its target anyway
+ */
+constexpr double CRAFT_DIRECTION = 45.0;
+/** SM_SYSTEM_MESSAGE.STR_COMBINE_TOO_FAR_FROM_TOOL (SM_SYSTEM_MESSAGE.java:15971-15972) */
+constexpr int32_t STR_COMBINE_TOO_FAR_FROM_TOOL = 1330040;
+/** the one-skill SM_SKILL_LIST of a crafting skill: 1330061 when it is new, 1330064 on a level-up (SkillLearnService.java:48-49) */
+constexpr int32_t SKILL_LIST_CRAFT_LEARNED = 1330061;
+constexpr int32_t SKILL_LIST_CRAFT_LEVEL_UP = 1330064;
+/** SM_CRAFT_ANIMATION's actions: 0 start, 1 in progress, 2 end or cancel (CraftingTask.java onInteractionStart / onSuccessFinish) */
+constexpr uint8_t CRAFT_ANIMATION_START = 0;
+constexpr uint8_t CRAFT_ANIMATION_PROGRESS = 1;
+constexpr uint8_t CRAFT_ANIMATION_END = 2;
+/**
+ * the Inina C19 seeds beyond the recipe's (the review of 2026-09-28): with exactly the recipe's one Inina a second decreaseByItemId finds
+ * nothing to take, so X19 could not see the materials consumed twice; with one more the Inina stack must keep exactly this much
+ */
+constexpr int64_t SURPLUS_ININA = 1;
+/**
+ * X20's tolerance for each gap between two SM_CRAFT_UPDATEs and for the whole craft: the runs of stage 3 were off by 0-2 ms, and a first tick
+ * delayed by 600 ms passed the earlier +-750 ms on the total (the review of 2026-09-28)
+ */
+constexpr double TICK_TOLERANCE_MS = 250.0;
+/** SM_SKILL_LIST writes 1 as the level of a normal skill - no stigma, an id below 30000 (SkillEntryWriter.java:27, PlayerSkillEntry.isNormalSkill) */
+constexpr uint16_t NORMAL_SKILL_ID_LIMIT = 30000;
+/** SM_SKILL_REMOVE writes a profession skill's getProfessionFlag(), 1 for a tapping skill (SM_SKILL_REMOVE.java:18, PlayerSkillEntry.java:84-86) */
+constexpr uint8_t SKILL_REMOVE_TAPPING_FLAG = 1;
 
 // ---- small helpers ----------------------------------------------------------------------------------------------------------------------
 
@@ -268,6 +306,53 @@ StatUpdateExp decodeStatUpdateExp(std::span<const uint8_t> body) {
 	exp.maxBoostExp = reader.Q();
 	reader.expectFullyConsumed();
 	return exp;
+}
+
+/** SM_SKILL_REMOVE (SM_SKILL_REMOVE.java:24-26): writeH(skillId), writeC(the level, a profession skill's getProfessionFlag()), writeC(skillType) */
+struct SkillRemove {
+	uint16_t skillId = 0;
+	uint8_t level = 0;
+	uint8_t skillType = 0;
+
+	bool operator==(const SkillRemove&) const = default;
+};
+
+std::ostream& operator<<(std::ostream& out, const SkillRemove& remove) {
+	return out << "SM_SKILL_REMOVE(" << remove.skillId << ", " << static_cast<int32_t>(remove.level) << ", " << static_cast<int32_t>(remove.skillType)
+	           << ")";
+}
+
+SkillRemove decodeSkillRemove(std::span<const uint8_t> body) {
+	decoders::BodyReader reader(body, "SM_SKILL_REMOVE");
+	SkillRemove remove;
+	remove.skillId = reader.H();
+	remove.level = reader.C();
+	remove.skillType = reader.C();
+	reader.expectFullyConsumed();
+	return remove;
+}
+
+/** SM_ACTION_ANIMATION (SM_ACTION_ANIMATION.java:28-30): writeD(targetObjectId), writeH(the ActionAnimation's id), writeD(levelOrObjectId) */
+struct ActionAnimationPacket {
+	int32_t objectId = 0;
+	uint16_t animation = 0;
+	int32_t levelOrObjectId = 0;
+
+	bool operator==(const ActionAnimationPacket&) const = default;
+};
+
+std::ostream& operator<<(std::ostream& out, const ActionAnimationPacket& packet) {
+	return out << "SM_ACTION_ANIMATION(" << packet.objectId << ", " << packet.animation << ", " << packet.levelOrObjectId << ")";
+}
+
+ActionAnimationPacket decodeActionAnimation(std::span<const uint8_t> body) {
+	decoders::BodyReader reader(body, "SM_ACTION_ANIMATION");
+	ActionAnimationPacket packet;
+	packet.objectId = reader.D();
+	packet.animation = reader.H();
+	packet.levelOrObjectId = reader.D();
+	reader.expectFullyConsumed();
+	return packet;
 }
 
 /** SM_ENTER_WORLD_CHECK's first byte (SM_ENTER_WORLD_CHECK.java: writeC(msg), then the rest) */
@@ -577,6 +662,96 @@ std::map<int32_t, std::set<std::string>> parseMaskFlags(const std::string& text)
 	return flags;
 }
 
+/** m5c-economy's craft.learn.yes (C19, X17), which EconomyOracle.h does not carry: what the yes to Hestia's question takes and teaches */
+struct LearnYes {
+	int64_t kinahDelta = 0;
+	int32_t skillId = 0;
+	int32_t skillLevel = 0;
+};
+
+LearnYes parseLearnYes(const std::string& economyJson) {
+	const json yes = json::parse(economyJson).at("craft").at("learn").at("yes");
+	return {yes.at("kinahDelta").get<int64_t>(), yes.at("skill").at("skillId").get<int32_t>(), yes.at("skill").at("level").get<int32_t>()};
+}
+
+/** one of the craft's SM_CRAFT_UPDATEs as m5c-economy's craft.recipe.updates states it (m5c-craft's packets); a bar it leaves out is not asserted */
+struct CraftUpdateWant {
+	int32_t action = 0;
+	std::optional<int32_t> success, failure;
+	int32_t executionSpeed = 0, delay = 0;
+};
+
+/** the rest of m5c-economy's C19 blocks that EconomyOracle.h does not carry (the review of 2026-09-28), read like craft.learn.yes above */
+struct C19Extras {
+	/** the SM_ACTION_ANIMATIONs (ActionAnimation id, levelOrObjectId) of the learn (craft.learn.yes) and of the craft's level-up (craft.recipe) */
+	std::vector<std::pair<uint16_t, int32_t>> learnAnimations, skillUpAnimations;
+	/** every analyze tick's SM_CRAFT_UPDATE speed and delay (craft.recipe) */
+	int32_t executionSpeed = 0, showBarDelay = 0;
+	/** onInteractionStart's pair, onSuccessFinish's update and sendCancelCraft's (craft.recipe.updates) */
+	CraftUpdateWant init, start, success, cancel;
+	/** skill id -> level after the Daeva's enter world (daeva.enterWorld.skillLevels) */
+	std::map<int32_t, int32_t> skillLevels;
+	/** the skill the Daeva swap's SM_SKILL_REMOVE names (daeva.enterWorld.daevaSwap), null without a swap */
+	std::optional<int32_t> smSkillRemove;
+};
+
+C19Extras parseC19Extras(const std::string& economyJson) {
+	const json root = json::parse(economyJson);
+	const json& recipe = root.at("craft").at("recipe");
+	const auto animations = [](const json& list) {
+		std::vector<std::pair<uint16_t, int32_t>> result;
+		for (const json& animation : list)
+			result.emplace_back(animation.at("id").get<uint16_t>(), animation.at("levelOrObjectId").get<int32_t>());
+		return result;
+	};
+	const auto update = [](const json& row) {
+		CraftUpdateWant want;
+		want.action = row.at("action").get<int32_t>();
+		if (row.contains("success"))
+			want.success = row.at("success").get<int32_t>();
+		if (row.contains("failure"))
+			want.failure = row.at("failure").get<int32_t>();
+		want.executionSpeed = row.at("executionSpeed").get<int32_t>();
+		want.delay = row.at("delay").get<int32_t>();
+		return want;
+	};
+	C19Extras extras;
+	extras.learnAnimations = animations(root.at("craft").at("learn").at("yes").at("animations"));
+	extras.skillUpAnimations = animations(recipe.at("skillUpAnimations"));
+	extras.executionSpeed = recipe.at("executionSpeed").get<int32_t>();
+	extras.showBarDelay = recipe.at("showBarDelay").get<int32_t>();
+	const json& updates = recipe.at("updates");
+	extras.init = update(updates.at("init"));
+	extras.start = update(updates.at("start"));
+	extras.success = update(updates.at("success"));
+	extras.cancel = update(updates.at("cancel"));
+	const json& world = root.at("daeva").at("enterWorld");
+	for (const auto& [skillId, level] : world.at("skillLevels").items())
+		extras.skillLevels[std::stoi(skillId)] = level.get<int32_t>();
+	if (const json& swap = world.at("daevaSwap"); !swap.is_null())
+		extras.smSkillRemove = swap.at("smSkillRemove").get<int32_t>();
+	return extras;
+}
+
+/** a decoded SM_CRAFT_UPDATE against the oracle's row: the action, the bars it states, the speed and the delay */
+void expectCraftUpdate(const decoders::CraftUpdate& update, const CraftUpdateWant& want, std::string_view what) {
+	EXPECT_EQ(update.action, want.action) << what << ": the action";
+	if (want.success)
+		EXPECT_EQ(update.success, *want.success) << what << ": the success bar";
+	if (want.failure)
+		EXPECT_EQ(update.failure, *want.failure) << what << ": the failure bar";
+	EXPECT_EQ(update.executionSpeed, want.executionSpeed) << what << ": executionSpeed";
+	EXPECT_EQ(update.delay, want.delay) << what << ": the bar delay";
+}
+
+/** a ChatUtil.l10n parameter as the question window's decoder returns it: the oracle's three UTF-16 code units as UTF-8 */
+std::string l10nText(const std::array<uint16_t, 3>& units) {
+	std::u16string text;
+	for (const uint16_t unit : units)
+		text += static_cast<char16_t>(unit);
+	return commons::utils::StringUtils::toUtf8(text);
+}
+
 // ---- the scenario clients ---------------------------------------------------------------------------------------------------------------
 
 struct ScenarioClient {
@@ -792,6 +967,24 @@ std::optional<int32_t> npcObject(const ScenarioClient& client, int32_t templateI
 		}
 	}
 	return found;
+}
+
+/** the object id of the static object of `templateId` and `staticId` (C19's oven), from every SM_GATHERABLE_INFO this session recorded */
+std::optional<int32_t> staticObject(const ScenarioClient& client, int32_t templateId, int32_t staticId) {
+	if (!client.game)
+		return std::nullopt;
+	for (const Packet& packet : client.game->recorded()) {
+		if (packet.name != "SM_GATHERABLE_INFO")
+			continue;
+		try {
+			const decoders::GatherableInfo object = decoders::decodeGatherableInfo(packet.data);
+			if (object.templateId == templateId && object.staticId == staticId)
+				return object.objectId;
+		} catch (const DecodeError&) {
+			// a packet that does not decode is not this object
+		}
+	}
+	return std::nullopt;
 }
 
 /**
@@ -2523,6 +2716,478 @@ void runM5cGate() {
 		          << enchantSeen << std::endl;
 	});
 
+	// ---- C19: crafting in Sanctum (X17-X21a) ----
+	// A's account disconnects and A is seeded as a level-10 Gladiator (quest 1006 COMPLETE, exp 126,069) beside Hestia in Sanctum, with exactly
+	// the kinah of the learn and the Salt and the recipe's Inina plus SURPLUS_ININA (§10.1 "Seeds", the surplus since the review of 2026-09-28;
+	// the `players` row is loaded at connect, so the account is disconnected while it is written, F-3); A enters Sanctum (the enter world's
+	// onLevelChange(old_level, 10), W-20), learns Cooking, buys the Salt, sends CM_CRAFT from 7 m, 12 m and 3 m, waits for the end, deletes the
+	// recipe and quits. The expectations are m5c-economy's --daeva and --craft blocks, asked after A's quit with the old level that quit stored.
+	runCase("C19", "A as a level-10 Gladiator in Sanctum: learns Cooking, buys Salt, crafts Roast Inina, deletes the recipe (X17-X21a)", [&] {
+		b.drain();
+		const std::string aId = std::to_string(a.playerId);
+		// A's level as the gate saw it last: the level of the last SM_STATS_INFO of A's connection
+		a.drain();
+		std::optional<int32_t> levelSeen;
+		for (const decoders::StatsInfo& info : decodeAll<decoders::StatsInfo>(a.game->recorded(), "SM_STATS_INFO", decoders::decodeStatsInfo, "C19"))
+			levelSeen = info.level;
+		disconnect(a);
+		// the level A's last quit stored (PlayerLeaveWorldService.java:148), from which the enter world learns (PlayerEnterWorldService.java:204)
+		const std::optional<int64_t> oldLevel = database.queryLong(schema, "SELECT old_level FROM players WHERE id = " + aId);
+		ASSERT_TRUE(oldLevel) << "A has no players row";
+		// the review of 2026-09-28: the oracle models the stored skills from this value, so a quit that stored a lower level (or none) would pass
+		// X21a unseen - the quit must store the level A had
+		EXPECT_EQ(*oldLevel, levelSeen.value_or(-1))
+		  << "X21a: storeOldCharacterLevel(player.getLevel()) at the quit (PlayerLeaveWorldService.java:148); -1: A's connection had no SM_STATS_INFO";
+
+		EconomyRequest request;
+		request.noProfile = true;
+		request.settings = oracleSettings;
+		request.race = "ELYOS";
+		request.direction = CRAFT_DIRECTION;
+		request.daevaClass = std::string(DAEVA_CLASS);
+		request.daevaOldLevel = static_cast<int32_t>(*oldLevel);
+		request.craftRecipe = CRAFT_RECIPE;
+		request.craftTool = OVEN;
+		request.craftDistances = {CRAFT_NEAR, CRAFT_TOO_FAR, CRAFT_OUT_OF_PACKET_RANGE};
+		const std::string answer = oracle->run(economyArguments(request));
+		const EconomyAnswer sanctum = parseEconomy(answer);
+		const LearnYes learnYes = parseLearnYes(answer);
+		const C19Extras extras = parseC19Extras(answer);
+		ASSERT_TRUE(sanctum.daeva && sanctum.craft) << "m5c-economy answered no daeva or craft block";
+		const EconomyDaeva& daeva = *sanctum.daeva;
+		const EconomyCraft& craft = *sanctum.craft;
+
+		// the plan's premises (§2.10, §10.1), re-derived by the oracle
+		EXPECT_EQ(daeva.level, 10) << "§2.10: a Gladiator whose quest 1006 is COMPLETE loads at level 10";
+		EXPECT_EQ(daeva.levelWithoutQuest, 9) << "F-1: without the quest the same exp is level 9, and Hestia refuses silently";
+		EXPECT_EQ(daeva.questStatus, "COMPLETE");
+		EXPECT_TRUE(contains(craft.recipesLearnedWithTheSkill, CRAFT_RECIPE)) << "the recipe C19 crafts is the one learning Cooking teaches";
+		EXPECT_EQ(learnYes.skillId, craft.skillId);
+		EXPECT_EQ(learnYes.kinahDelta, -craft.learnCost);
+		ASSERT_EQ(craft.seedItems.size(), 1u) << "§2.10: only Inina, which no spawned npc sells, is seeded";
+		const EconomyComponent* bought = nullptr;
+		for (const EconomyComponent& component : craft.components)
+			if (component.vendor) {
+				ASSERT_EQ(bought, nullptr) << "§2.10: one component (Salt) is bought";
+				bought = &component;
+			}
+		ASSERT_NE(bought, nullptr) << "§2.10: the Salt is sold in Sanctum";
+		const auto vendorOf = std::ranges::find_if(bought->vendors, [&](const EconomyVendor& vendor) { return vendor.npcId == *bought->vendor; });
+		ASSERT_NE(vendorOf, bought->vendors.end());
+		const EconomyVendor& vendor = *vendorOf;
+		EXPECT_EQ(craft.exactKinah, craft.learnCost + vendor.kinah) << "§2.10: the learn and the Salt spend the seed exactly, so the Salt takes the last kinah";
+		const auto spotAt = [&](double distance) -> const EconomyCraftSpot& {
+			for (const EconomyCraftSpot& spot : craft.spots)
+				if (spot.distance == distance)
+					return spot;
+			throw std::runtime_error("m5c-economy answered no craft spot at " + std::to_string(distance) + " m");
+		};
+		const EconomyCraftSpot& nearSpot = spotAt(CRAFT_NEAR);
+		const EconomyCraftSpot& tooFarSpot = spotAt(CRAFT_TOO_FAR);
+		const EconomyCraftSpot& outOfRangeSpot = spotAt(CRAFT_OUT_OF_PACKET_RANGE);
+		EXPECT_TRUE(nearSpot.inPacketRange && nearSpot.inCheckCraftRange) << "X19: " << nearSpot.outcome;
+		EXPECT_TRUE(tooFarSpot.inPacketRange && !tooFarSpot.inCheckCraftRange) << "X18: 7 m passes CM_CRAFT's 10 m and fails checkCraft's 5 m + radii";
+		EXPECT_TRUE(tooFarSpot.otherToolsInCheckCraftRange.empty()) << "--direction " << CRAFT_DIRECTION;
+		EXPECT_FALSE(outOfRangeSpot.inPacketRange) << "X18: 12 m is outside CM_CRAFT's centre-to-centre 10 m";
+
+		// §10.1 "Seeds" for C19, with A's account disconnected (F-3): the Daeva (class, exp, the ascension quest), Sanctum, the exact kinah, one Inina
+		database.execute(schema, "UPDATE players SET player_class = '" + daeva.playerClass + "', exp = " + std::to_string(daeva.exp) + ", world_id = " +
+		                           std::to_string(craft.seedWorldId) + ", x = " + std::to_string(craft.seedX) + ", y = " + std::to_string(craft.seedY) +
+		                           ", z = " + std::to_string(craft.seedZ) + ", heading = 0 WHERE id = " + aId);
+		database.execute(schema, "INSERT INTO player_quests (player_id, quest_id, status, complete_count) VALUES (" + aId + ", " +
+		                           std::to_string(daeva.questId) + ", '" + daeva.questStatus + "', 1)");
+		database.execute(schema, "UPDATE inventory SET item_count = " + std::to_string(craft.exactKinah) + " WHERE item_owner = " + aId +
+		                           " AND item_id = " + std::to_string(KINAH_ITEM));
+		// the seed item (Inina) with SURPLUS_ININA more than the recipe takes, so that a second consumption would show (X19)
+		std::map<int32_t, int32_t> seededA; // item id -> object id
+		for (const auto& [itemId, count] : craft.seedItems) {
+			seededA[itemId] = database.seedInventoryItem(schema, {a.playerId, itemId, count + SURPLUS_ININA, ModelItem::CUBE, 65535});
+			ledgerA[itemId] += count + SURPLUS_ININA;
+		}
+		ledgerA[KINAH_ITEM] = craft.exactKinah;
+
+		// ---- X21a: the enter world of the seeded Daeva ----
+		const std::vector<Packet> burst = relogIn(servers, a).second;
+		const std::vector<Packet> entered = a.game->recorded(); // the login, the enter world and the level ready of the new connection
+		const Packet* spawnPacket = firstOfName(burst, "SM_PLAYER_SPAWN");
+		ASSERT_NE(spawnPacket, nullptr);
+		EXPECT_EQ(decoders::decodePlayerSpawn(spawnPacket->data).worldId, craft.seedWorldId) << "A enters Sanctum";
+		EXPECT_NEAR(a.x, craft.seedX, 0.01) << "A spawns at the seeded spot beside Hestia";
+		EXPECT_NEAR(a.y, craft.seedY, 0.01);
+		std::optional<decoders::StatsInfo> stats;
+		for (const decoders::StatsInfo& info : decodeAll<decoders::StatsInfo>(entered, "SM_STATS_INFO", decoders::decodeStatsInfo, "X21a"))
+			stats = info;
+		ASSERT_TRUE(stats) << "X21a: no SM_STATS_INFO at the enter world: " << join(namesOf(entered));
+		EXPECT_EQ(stats->level, daeva.level) << "X21a: updateDaeva finds quest 1006 COMPLETE (PlayerCommonData.java:276-281, 588-610); level "
+		                                     << daeva.levelWithoutQuest << " is F-1";
+		std::set<int32_t> skills;
+		std::map<int32_t, decoders::SkillEntry> shownSkills;
+		for (const decoders::SkillList& skillList : decodeAll<decoders::SkillList>(entered, "SM_SKILL_LIST", decoders::decodeSkillList, "X21a"))
+			if (skillList.messageId == 0)
+				for (const decoders::SkillEntry& entry : skillList.skills) {
+					skills.insert(entry.skillId);
+					shownSkills[entry.skillId] = entry;
+				}
+		const std::set<int32_t> wantSkills(daeva.skills.begin(), daeva.skills.end());
+		std::vector<int32_t> missing, extra;
+		std::ranges::set_difference(wantSkills, skills, std::back_inserter(missing));
+		std::ranges::set_difference(skills, wantSkills, std::back_inserter(extra));
+		EXPECT_TRUE(missing.empty() && extra.empty()) << "X21a: the enter world's SM_SKILL_LIST against the oracle's (learnNewSkills(" << daeva.learnNewSkills[0]
+		                                              << ", " << daeva.learnNewSkills[1] << ") over the Warrior's and the Gladiator's rows, and the Daeva swap): "
+		                                              << "missing " << joinNumbers(missing) << ", extra " << joinNumbers(extra);
+		ASSERT_TRUE(daeva.swapRemoved && daeva.swapAdded) << "the oracle's Daeva swap 30001 -> 30002";
+		EXPECT_FALSE(skills.contains(*daeva.swapRemoved)) << "X21a: " << *daeva.swapRemoved << " is swapped out (PlayerController.upgradePlayer)";
+		EXPECT_TRUE(skills.contains(*daeva.swapAdded)) << "X21a: " << *daeva.swapAdded << " is swapped in";
+		for (const EconomyLearnedSkill& learned : daeva.learnedSkills)
+			if (learned.level == 10)
+				EXPECT_TRUE(skills.contains(learned.skillId)) << "X21a: the level-10 skill " << learned.skillId << " of the " << learned.playerClass;
+		// the levels (the review of 2026-09-28): each skill at the oracle's level - its template's lvl (SkillLearnTemplate.getSkillLevel), 30002 at
+		// 30001's - as SM_SKILL_LIST shows it: 1 for a normal skill (SkillEntryWriter.java:27); player_skills after the quit holds every level
+		EXPECT_EQ(extras.skillLevels.size(), daeva.skills.size()) << "the oracle's skillLevels name its skills";
+		for (const auto& [skillId, level] : extras.skillLevels) {
+			const auto shown = shownSkills.find(skillId);
+			if (shown == shownSkills.end())
+				continue; // the set comparison above names it
+			const bool normal = shown->second.skillType == 0 && skillId < NORMAL_SKILL_ID_LIMIT;
+			EXPECT_EQ(shown->second.skillLevel, normal ? 1 : level)
+			  << "X21a: skill " << skillId << " in the enter world's SM_SKILL_LIST (the oracle's level " << level
+			  << (normal ? ", a normal skill shows 1)" : ")");
+		}
+		// the Daeva swap's removal (learnNewSkills -> removeSkill, SkillLearnService.java:73, 108): exactly one SM_SKILL_REMOVE, of 30001
+		EXPECT_TRUE(extras.smSkillRemove.has_value()) << "the oracle's Daeva swap names an SM_SKILL_REMOVE";
+		std::vector<SkillRemove> wantRemoved;
+		if (extras.smSkillRemove)
+			wantRemoved.push_back({static_cast<uint16_t>(*extras.smSkillRemove), SKILL_REMOVE_TAPPING_FLAG, 0});
+		EXPECT_EQ(decodeAll<SkillRemove>(entered, "SM_SKILL_REMOVE", decodeSkillRemove, "X21a"), wantRemoved)
+		  << "X21a: the swap's SM_SKILL_REMOVE(30001, its profession flag, skill type 0) during the enter world's onLevelChange";
+		std::vector<int32_t> learnedRecipes = decodeAll<int32_t>(entered, "SM_LEARN_RECIPE", decoders::decodeLearnRecipe, "X21a");
+		std::vector<int32_t> wantRecipes = daeva.learnedRecipes;
+		std::ranges::sort(learnedRecipes);
+		std::ranges::sort(wantRecipes);
+		EXPECT_EQ(learnedRecipes, wantRecipes) << "X21a: exactly the three Elyos morph recipes, one SM_LEARN_RECIPE each (onLearnSkill -> autoLearnRecipes "
+		                                       << "for the morph skill 40009, W-06): " << joinNumbers(learnedRecipes);
+		std::set<int32_t> recipeList;
+		for (const std::vector<int32_t>& recipes : decodeAll<std::vector<int32_t>>(entered, "SM_RECIPE_LIST", decoders::decodeRecipeList, "X21a"))
+			recipeList.insert(recipes.begin(), recipes.end());
+		EXPECT_EQ(recipeList, std::set<int32_t>(wantRecipes.begin(), wantRecipes.end())) << "X21a: the enter world's SM_RECIPE_LIST";
+		const std::vector<std::string> enteredDifferences = ledgerDifferences(ledgerOf(a.model), ledgerA);
+		EXPECT_TRUE(enteredDifferences.empty()) << "X16: A's Sanctum SM_INVENTORY_INFO against the ledger (have/want): " << join(enteredDifferences);
+
+		// ---- X17: Cooking from Hestia, then the Salt from the vendor with the last kinah ----
+		const std::optional<int32_t> hestia = npcObject(a, craft.masterNpcId, craft.master.x, craft.master.y);
+		ASSERT_TRUE(hestia) << "A was never sent the SM_NPC_INFO of " << craft.masterNpcId;
+		size_t from = a.mark();
+		a.game->send(GameSession::CM_SHOW_DIALOG, GameSession::buildCM_SHOW_DIALOG(*hestia));
+		collectFor(*a.game, STEP);
+		EXPECT_EQ(dialogWindows(a.since(from), "C19").size(), 1u) << "C19: Hestia's window: " << join(namesOf(a.since(from)));
+		from = a.mark();
+		a.game->send(GameSession::CM_DIALOG_SELECT, GameSession::buildCM_DIALOG_SELECT(*hestia, static_cast<uint16_t>(craft.dialogAction)));
+		collectFor(*a.game, STEP);
+		const std::vector<decoders::QuestionWindow> questions = questionWindows(a.since(from), "X17");
+		ASSERT_EQ(questions.size(), 1u) << "X17: COMBINE_SKILL_LEVELUP asks (a level-9 character is refused without a packet, "
+		                                << "CraftSkillUpdateService.java:83-84): " << join(namesOf(a.since(from)));
+		EXPECT_EQ(questions[0].code, craft.learnQuestion.id) << "X17: STR_CRAFT_ADDSKILL_CONFIRM";
+		for (size_t i = 0; i < questions[0].params.size(); i++) {
+			const auto l10n = craft.learnQuestion.l10nParams.find(i);
+			EXPECT_EQ(questions[0].params[i], l10n == craft.learnQuestion.l10nParams.end() ? craft.learnQuestion.params[i] : l10nText(l10n->second))
+			  << "X17: parameter " << i << " (the profession's l10n name, then Profession.getUpgradeCost(0))";
+		}
+		EXPECT_EQ(questions[0].senderId, craft.learnQuestion.senderId);
+		EXPECT_EQ(questions[0].rangeOrCooldownSeconds, craft.learnQuestion.range);
+		const int32_t kinah = a.kinahObject().value_or(0);
+		const int64_t seedKinah = a.kinah();
+		EXPECT_EQ(seedKinah, craft.exactKinah) << "C19's kinah seed";
+		from = a.mark();
+		a.game->send(GameSession::CM_QUESTION_RESPONSE, GameSession::buildCM_QUESTION_RESPONSE(craft.learnQuestion.id, GameSession::ANSWER_YES));
+		collectFor(*a.game, STEP);
+		std::vector<Packet> window = a.since(from);
+		ledgerA[KINAH_ITEM] += learnYes.kinahDelta;
+		EXPECT_EQ(kinahUpdates(window, kinah, "X17"), std::vector<int64_t>{seedKinah + learnYes.kinahDelta})
+		  << "X17: " << learnYes.kinahDelta << " (tryDecreaseKinah of the price): " << joinNumbers(messageIds(window));
+		std::vector<decoders::SkillList> skillUpdates = decodeAll<decoders::SkillList>(window, "SM_SKILL_LIST", decoders::decodeSkillList, "X17");
+		EXPECT_EQ(skillUpdates.size(), 1u) << "X17: one SM_SKILL_LIST for the new skill: " << join(namesOf(window));
+		if (!skillUpdates.empty()) {
+			ASSERT_EQ(skillUpdates[0].skills.size(), 1u);
+			EXPECT_EQ(skillUpdates[0].skills[0].skillId, learnYes.skillId) << "X17: addSkill(skillId, skillLevel + 1)";
+			EXPECT_EQ(skillUpdates[0].skills[0].skillLevel, learnYes.skillLevel);
+			EXPECT_EQ(skillUpdates[0].messageId, SKILL_LIST_CRAFT_LEARNED) << "X17: a new crafting skill's message (SkillLearnService.java:49)";
+		}
+		EXPECT_EQ(decodeAll<int32_t>(window, "SM_LEARN_RECIPE", decoders::decodeLearnRecipe, "X17"), craft.recipesLearnedWithTheSkill)
+		  << "X17: exactly one SM_LEARN_RECIPE, the Elyos autolearn recipe (onLearnSkill -> autoLearnRecipes and its race filter, W-06)";
+		const auto animationsOfA = [&](const std::vector<std::pair<uint16_t, int32_t>>& wanted) {
+			std::vector<ActionAnimationPacket> packets;
+			for (const auto& [animation, levelOrObjectId] : wanted)
+				packets.push_back({a.playerId, animation, levelOrObjectId});
+			return packets;
+		};
+		EXPECT_EQ(decodeAll<ActionAnimationPacket>(window, "SM_ACTION_ANIMATION", decodeActionAnimation, "X17"), animationsOfA(extras.learnAnimations))
+		  << "X17: onLearnSkill's CRAFT_LEVEL_UP at a crafting skill's level 1, broadcast to A too (SkillLearnService.java:24-28)";
+
+		const EconomyTalk& vendorTalk = vendor.talk;
+		walkTo(a, vendorTalk.nearSpot.x, vendorTalk.nearSpot.y, vendorTalk.nearSpot.z);
+		const std::optional<int32_t> seller = npcObject(a, vendor.npcId, vendorTalk.x, vendorTalk.y);
+		ASSERT_TRUE(seller) << "A was never sent the SM_NPC_INFO of " << vendor.npcId;
+		a.game->send(GameSession::CM_DIALOG_SELECT, GameSession::buildCM_DIALOG_SELECT(*seller, DIALOG_BUY));
+		collectFor(*a.game, STEP);
+		EXPECT_EQ(a.kinah(), vendor.kinah) << "the learn leaves exactly the Salt's price";
+		from = a.mark();
+		const std::array<GameSession::BuyItemEntry, 1> salt{{{bought->itemId, bought->quantity}}};
+		a.game->send(GameSession::CM_BUY_ITEM, GameSession::buildCM_BUY_ITEM(*seller, GameSession::TRADE_BUY, salt));
+		collectFor(*a.game, STEP);
+		window = a.since(from);
+		ledgerA[KINAH_ITEM] -= vendor.kinah;
+		ledgerA[bought->itemId] += bought->quantity;
+		EXPECT_EQ(kinahUpdates(window, kinah, "X17"), std::vector<int64_t>{0})
+		  << "X17: the Salt takes the last kinah (>= in calculateBuyListPrice and tryDecreaseKinah): messages " << joinNumbers(messageIds(window));
+		const std::vector<decoders::InventoryItem> saltAdded = addedItems(window, "X17");
+		EXPECT_EQ(saltAdded.size(), 1u) << "X17: " << join(namesOf(window));
+		if (!saltAdded.empty()) {
+			EXPECT_EQ(saltAdded[0].templateId, bought->itemId);
+			EXPECT_EQ(saltAdded[0].general ? saltAdded[0].general->count : -1, bought->quantity);
+		}
+
+		// ---- X18: CM_CRAFT from 7 m (checkCraft refuses) and from 12 m (the packet returns) ----
+		const std::optional<int32_t> oven = staticObject(a, craft.toolTemplateId, craft.chosenToolStaticId);
+		ASSERT_TRUE(oven) << "A was never sent the SM_GATHERABLE_INFO of the oven with static id " << craft.chosenToolStaticId;
+		std::vector<GameSession::CraftMaterial> materials;
+		for (const auto& [itemId, count] : craft.recipeComponents)
+			materials.push_back({itemId, count});
+		const auto sendCraft = [&] {
+			a.game->send(GameSession::CM_CRAFT, GameSession::buildCM_CRAFT(0, craft.toolTemplateId, CRAFT_RECIPE, *oven, materials, 0));
+		};
+		const auto componentCounts = [&] {
+			std::map<int32_t, int64_t> counts;
+			for (const auto& [itemId, count] : craft.recipeComponents)
+				counts[itemId] = a.countOf(itemId);
+			return counts;
+		};
+		std::map<int32_t, int64_t> wantComponents;
+		for (const auto& [itemId, count] : craft.recipeComponents)
+			wantComponents[itemId] = count + (seededA.contains(itemId) ? SURPLUS_ININA : 0);
+		EXPECT_EQ(componentCounts(), wantComponents) << "the components of one craft and the surplus Inina, no more";
+
+		walkTo(a, tooFarSpot.x, tooFarSpot.y, tooFarSpot.z);
+		from = a.mark();
+		sendCraft();
+		collectFor(*a.game, SILENCE);
+		window = a.since(from);
+		EXPECT_TRUE(contains(messageIds(window), STR_COMBINE_TOO_FAR_FROM_TOOL))
+		  << "X18: from " << tooFarSpot.distance << " m STR_COMBINE_TOO_FAR_FROM_TOOL (checkCraft's isInRange(player, target, 5, false)): "
+		  << joinNumbers(messageIds(window));
+		const std::vector<decoders::CraftUpdate> cancelled = decodeAll<decoders::CraftUpdate>(window, "SM_CRAFT_UPDATE", decoders::decodeCraftUpdate, "X18");
+		EXPECT_EQ(cancelled.size(), 1u) << "X18: sendCancelCraft's one SM_CRAFT_UPDATE: " << join(namesOf(window));
+		if (!cancelled.empty()) {
+			EXPECT_EQ(cancelled[0].action, decoders::CRAFT_UPDATE_CANCELLED) << "X18: SM_CRAFT_UPDATE(action 4)";
+			EXPECT_EQ(cancelled[0].skillId, craft.skillId);
+			EXPECT_EQ(cancelled[0].itemId, craft.productId);
+			// the review of 2026-09-28: the bars, the speed and the delay too (CraftService.java:236, SM_CRAFT_UPDATE(..., 0, 0, 4, 0, 0))
+			expectCraftUpdate(cancelled[0], extras.cancel, "X18: sendCancelCraft's update");
+		}
+		EXPECT_EQ(decodeAll<decoders::CraftAnimation>(window, "SM_CRAFT_ANIMATION", decoders::decodeCraftAnimation, "X18"),
+		          (std::vector<decoders::CraftAnimation>{{a.playerId, *oven, 0, CRAFT_ANIMATION_END}}))
+		  << "X18: sendCancelCraft's SM_CRAFT_ANIMATION(player, target, 0, 2)";
+		EXPECT_TRUE(itemPackets(window).empty()) << "X18: checkCraft consumes the materials only at its end: " << join(itemPackets(window));
+		EXPECT_EQ(componentCounts(), wantComponents) << "X18: Inina and Salt unchanged";
+
+		walkTo(a, outOfRangeSpot.x, outOfRangeSpot.y, outOfRangeSpot.z);
+		from = a.mark();
+		sendCraft();
+		collectFor(*a.game, SILENCE);
+		window = a.since(from);
+		EXPECT_TRUE(ofName(window, "SM_CRAFT_UPDATE").empty() && ofName(window, "SM_CRAFT_ANIMATION").empty() && messageIds(window).empty() &&
+		            itemPackets(window).empty())
+		  << "X18: from " << outOfRangeSpot.distance << " m nothing (CM_CRAFT's isInRange(player, staticObject, 10)): " << join(namesOf(window));
+		EXPECT_EQ(componentCounts(), wantComponents) << "X18: Inina and Salt unchanged";
+
+		// ---- X19, X20: CM_CRAFT from 3 m, to the end ----
+		walkTo(a, nearSpot.x, nearSpot.y, nearSpot.z);
+		std::map<int32_t, int32_t> componentObjects; // object id -> item id
+		a.model.sync();
+		for (const auto& [itemId, count] : craft.recipeComponents)
+			for (const ModelItem& item : a.model.byItemId(itemId))
+				componentObjects[item.objectId] = itemId;
+		int64_t expShownBefore = 0;
+		for (const Packet& packet : a.game->recorded()) {
+			try {
+				if (packet.name == "SM_STATUPDATE_EXP")
+					expShownBefore = decodeStatUpdateExp(packet.data).currentExp;
+				else if (packet.name == "SM_STATS_INFO")
+					expShownBefore = decoders::decodeStatsInfo(packet.data).expShown;
+			} catch (const DecodeError&) {
+				// the rows below fail on the missing update
+			}
+		}
+		// the wait is five times the oracle's longest craft, so that a craft that runs long is counted by X20 instead of being cut off here
+		// (the step without its 70 minimum takes about 35 ticks on average, §10.4)
+		from = a.mark();
+		sendCraft();
+		const std::optional<size_t> ended = readUntil(
+		  *a.game,
+		  [](const Packet& packet) {
+			  if (packet.name != "SM_CRAFT_UPDATE")
+				  return false;
+			  try {
+				  return decoders::decodeCraftUpdate(packet.data).action >= decoders::CRAFT_UPDATE_CANCELLED;
+			  } catch (const DecodeError&) {
+				  return true;
+			  }
+		  },
+		  std::chrono::milliseconds(5 * craft.mostMillis) + 15s);
+		collectFor(*a.game, STEP); // finishCrafting's packets follow the (5) in the same tick
+		window = a.since(from);
+		ASSERT_TRUE(ended) << "X19: the craft did not end within 5 x " << craft.mostMillis << " ms + 15 s: " << join(namesOf(window));
+		ledgerA[craft.productId] += craft.productQuantity;
+		for (const auto& [itemId, count] : craft.recipeComponents)
+			ledgerA[itemId] -= count;
+		std::vector<std::pair<decoders::CraftUpdate, std::chrono::steady_clock::time_point>> updates;
+		for (const Packet& packet : ofName(window, "SM_CRAFT_UPDATE")) {
+			try {
+				updates.emplace_back(decoders::decodeCraftUpdate(packet.data), packet.receivedAt);
+			} catch (const DecodeError& error) {
+				ADD_FAILURE() << "X19: SM_CRAFT_UPDATE does not decode: " << error.what();
+			}
+		}
+		ASSERT_GE(updates.size(), 3u) << "X19: the start pair and the end: " << join(namesOf(window));
+		const decoders::CraftUpdate& init = updates.front().first;
+		EXPECT_EQ(init.action, decoders::CRAFT_UPDATE_INIT) << "X19: SM_CRAFT_UPDATE(0) (CraftingTask.onInteractionStart)";
+		EXPECT_EQ(init.skillId, craft.skillId);
+		EXPECT_EQ(init.itemId, craft.productId) << "X19: the base product, not a combo product (crits off, D6)";
+		EXPECT_EQ(init.success, 1000) << "X19: the full bars (AbstractCraftTask.fullBarValue)";
+		EXPECT_EQ(init.failure, 1000);
+		EXPECT_EQ(updates[1].first.action, decoders::CRAFT_UPDATE_NORMAL) << "X19: then SM_CRAFT_UPDATE(1) with empty bars";
+		EXPECT_EQ(updates[1].first.success, 0);
+		EXPECT_EQ(updates[1].first.failure, 0);
+		const decoders::CraftUpdate& last = updates.back().first;
+		EXPECT_EQ(last.action, decoders::CRAFT_UPDATE_SUCCESS) << "X19: SM_CRAFT_UPDATE(5) (CraftingTask.onSuccessFinish)";
+		EXPECT_EQ(last.itemId, craft.productId);
+		EXPECT_EQ(last.success, 1000);
+		// the review of 2026-09-28: the speed and the delay of the start pair and of the end (CraftingTask.java onInteractionStart, onSuccessFinish)
+		expectCraftUpdate(init, extras.init, "X19: onInteractionStart's first update");
+		expectCraftUpdate(updates[1].first, extras.start, "X19: onInteractionStart's second update");
+		expectCraftUpdate(last, extras.success, "X19: onSuccessFinish's update");
+		// X20: the analyze ticks between the start pair and the end, each a progress update of a growing success bar that ends full, each with
+		// the bar's executionSpeed and showBarDelay (CraftingTask.sendInteractionUpdate; analyzeInteraction, CraftingTask.java:170-172, as m5c-craft)
+		const size_t progress = updates.size() - 3;
+		int32_t previous = 0;
+		for (size_t i = 2; i + 1 < updates.size(); i++) {
+			const decoders::CraftUpdate& update = updates[i].first;
+			EXPECT_TRUE(update.action == decoders::CRAFT_UPDATE_NORMAL || update.action == decoders::CRAFT_UPDATE_CRIT_BLUE)
+			  << "X20: progress update " << i - 1 << " has action " << static_cast<int32_t>(update.action);
+			EXPECT_GT(update.success, previous) << "X20: the success bar grows by at least the 70 minimum step";
+			EXPECT_EQ(update.failure, 0) << "X20: gameserver.craft.fail.chance = 0 (D6)";
+			EXPECT_EQ(update.executionSpeed, extras.executionSpeed) << "X20: progress update " << i - 1 << "'s executionSpeed";
+			EXPECT_EQ(update.delay, extras.showBarDelay) << "X20: progress update " << i - 1 << "'s showBarDelay";
+			previous = update.success;
+		}
+		EXPECT_EQ(previous, 1000) << "X20: the last progress update fills the bar";
+		EXPECT_GE(progress, static_cast<size_t>(craft.fewestSteps)) << "X20: between " << craft.fewestSteps << " and " << craft.mostSteps << " progress updates";
+		EXPECT_LE(progress, static_cast<size_t>(craft.mostSteps)) << "X20: the step without its 70 minimum takes more";
+		// the ticks (AbstractInteractionTask.start: scheduleAtFixedRate(delay, interval) right after onInteractionStart): the first progress update
+		// firstTickDelay after the start pair, every later update and the end one interval (2,500 - 60 x the level difference, CraftService.
+		// startCrafting) after the update before it - gap by gap (the review of 2026-09-28: a total alone let a wrong first delay pass)
+		const int64_t firstGap = millisBetween(updates[0].second, updates[2].second);
+		EXPECT_NEAR(static_cast<double>(firstGap), static_cast<double>(craft.firstTickDelay), TICK_TOLERANCE_MS)
+		  << "X20: from the start pair to the first progress update";
+		int64_t largestGapError = std::abs(firstGap - craft.firstTickDelay);
+		for (size_t i = 3; i < updates.size(); i++) {
+			const int64_t gap = millisBetween(updates[i - 1].second, updates[i].second);
+			largestGapError = std::max(largestGapError, std::abs(gap - craft.interval));
+			EXPECT_NEAR(static_cast<double>(gap), static_cast<double>(craft.interval), TICK_TOLERANCE_MS)
+			  << "X20: from update " << i - 2 << " to " << (i + 1 < updates.size() ? "the next" : "the end");
+		}
+		const int64_t elapsed = millisBetween(updates.front().second, updates.back().second);
+		const int64_t expected = craft.firstTickDelay + static_cast<int64_t>(progress) * craft.interval;
+		EXPECT_NEAR(static_cast<double>(elapsed), static_cast<double>(expected), TICK_TOLERANCE_MS)
+		  << "X20: " << progress << " progress updates and the end in " << elapsed << " ms, at " << craft.interval << " ms intervals after "
+		  << craft.firstTickDelay << " ms (the morph's 200 would take " << craft.firstTickDelay + static_cast<int64_t>(progress) * 200 << " ms)";
+		EXPECT_GE(static_cast<double>(elapsed), static_cast<double>(craft.fewestMillis) - TICK_TOLERANCE_MS)
+		  << "X20: the craft takes " << craft.fewestMillis << "-" << craft.mostMillis << " ms";
+		EXPECT_LE(static_cast<double>(elapsed), static_cast<double>(craft.mostMillis) + TICK_TOLERANCE_MS)
+		  << "X20: the craft takes " << craft.fewestMillis << "-" << craft.mostMillis << " ms";
+		EXPECT_EQ(decodeAll<decoders::CraftAnimation>(window, "SM_CRAFT_ANIMATION", decoders::decodeCraftAnimation, "X19"),
+		          (std::vector<decoders::CraftAnimation>{{a.playerId, *oven, static_cast<uint16_t>(craft.skillId), CRAFT_ANIMATION_START},
+		                                                 {a.playerId, *oven, static_cast<uint16_t>(craft.skillId), CRAFT_ANIMATION_PROGRESS},
+		                                                 {a.playerId, *oven, 0, CRAFT_ANIMATION_END}}))
+		  << "X19: SM_CRAFT_ANIMATION (…, 40001, 0) and (…, 1) at the start, (…, 0, 2) at the end";
+		// the materials once (checkCraft's decreaseByItemId per component, CraftService.java:222-230), the product, the skill level and the exp
+		// (CraftService.finishCrafting): the Salt's stack is used up, the Inina's keeps the surplus - a second consumption would take it too
+		std::map<int32_t, int64_t> leftComponents;
+		for (const auto& [itemId, count] : craft.recipeComponents)
+			leftComponents[itemId] = wantComponents[itemId] - count;
+		const std::vector<int32_t> deleted = deletedObjects(window, "X19");
+		for (const auto& [object, itemId] : componentObjects) {
+			if (leftComponents[itemId] == 0) {
+				EXPECT_TRUE(contains(deleted, object))
+				  << "X19: the component stack " << object << " of " << itemId << " is used up: " << join(namesOf(window));
+				continue;
+			}
+			EXPECT_FALSE(contains(deleted, object)) << "X19: the stack " << object << " of " << itemId << " keeps " << leftComponents[itemId];
+			const std::vector<decoders::InventoryUpdateItem> stack = updatesOf(window, object, "X19");
+			EXPECT_TRUE(!stack.empty() && stack.back().item.general && stack.back().item.general->count == leftComponents[itemId])
+			  << "X19: SM_INVENTORY_UPDATE_ITEM of the stack " << object << " of " << itemId << " to " << leftComponents[itemId] << ": "
+			  << join(namesOf(window));
+		}
+		EXPECT_EQ(componentCounts(), leftComponents) << "X19: Inina -1 (the surplus left), Salt -2";
+		const std::vector<decoders::InventoryItem> products = addedItems(window, "X19");
+		EXPECT_EQ(products.size(), 1u) << "X19: " << join(namesOf(window));
+		if (!products.empty()) {
+			EXPECT_EQ(products[0].templateId, craft.productId) << "X19: the product, not getComboProduct";
+			EXPECT_EQ(products[0].general ? products[0].general->count : -1, craft.productQuantity);
+		}
+		skillUpdates = decodeAll<decoders::SkillList>(window, "SM_SKILL_LIST", decoders::decodeSkillList, "X19");
+		EXPECT_EQ(skillUpdates.size(), 1u) << "X19: the skill level-up: " << join(namesOf(window));
+		if (!skillUpdates.empty()) {
+			ASSERT_EQ(skillUpdates[0].skills.size(), 1u);
+			EXPECT_EQ(skillUpdates[0].skills[0].skillId, craft.skillId);
+			EXPECT_EQ(skillUpdates[0].skills[0].skillLevel, craft.skillLevelAfter) << "X19: " << craft.xpReward << " skill xp over the level-1 threshold";
+			EXPECT_EQ(skillUpdates[0].messageId, SKILL_LIST_CRAFT_LEVEL_UP) << "X19: a crafting skill's level-up message (SkillLearnService.java:49)";
+		}
+		EXPECT_EQ(decodeAll<ActionAnimationPacket>(window, "SM_ACTION_ANIMATION", decodeActionAnimation, "X19"), animationsOfA(extras.skillUpAnimations))
+		  << "X19: the level-up to " << craft.skillLevelAfter << " is no CRAFT_LEVEL_UP level (SkillLearnService.java:24-28)";
+		const std::vector<StatUpdateExp> exp = decodeAll<StatUpdateExp>(window, "SM_STATUPDATE_EXP", decodeStatUpdateExp, "X19");
+		EXPECT_FALSE(exp.empty()) << "X19: the exp update: " << join(namesOf(window));
+		if (!exp.empty())
+			EXPECT_EQ(exp.back().currentExp, expShownBefore + craft.playerExp) << "X19: exp +" << craft.playerExp << " (addExp(xpReward, XP_CRAFTING))";
+
+		// ---- X21: the recipe deleted ----
+		from = a.mark();
+		a.game->send(GameSession::CM_RECIPE_DELETE, GameSession::buildCM_RECIPE_DELETE(CRAFT_RECIPE));
+		collectFor(*a.game, STEP);
+		EXPECT_EQ(decodeAll<int32_t>(a.since(from), "SM_RECIPE_DELETE", decoders::decodeRecipeDelete, "X21"), std::vector<int32_t>{CRAFT_RECIPE})
+		  << "X21: RecipeList.deleteRecipe: " << join(namesOf(a.since(from)));
+
+		// the quit, and the rows it stored
+		a.drain();
+		const std::vector<std::string> quitDifferences = ledgerDifferences(ledgerOf(a.model), ledgerA);
+		EXPECT_TRUE(quitDifferences.empty()) << "X16: A's model against the ledger after C19 (have/want): " << join(quitDifferences);
+		disconnect(a);
+		std::this_thread::sleep_for(500ms);
+		std::set<int32_t> storedRecipes;
+		for (const auto& row : database.queryRows(schema, "SELECT recipe_id FROM player_recipes WHERE player_id = " + aId, 1))
+			storedRecipes.insert(std::stoi(row[0].value_or("0")));
+		EXPECT_FALSE(storedRecipes.contains(CRAFT_RECIPE)) << "X21: PlayerRecipesDAO.delRecipe";
+		EXPECT_EQ(storedRecipes, std::set<int32_t>(wantRecipes.begin(), wantRecipes.end())) << "X21a: player_recipes holds the three morph recipes";
+		EXPECT_EQ(database.queryLong(schema, "SELECT skill_level FROM player_skills WHERE player_id = " + aId + " AND skill_id = " +
+		                                       std::to_string(craft.skillId))
+		            .value_or(-1),
+		          craft.skillLevelAfter)
+		  << "X21: player_skills holds Cooking at its new level";
+		// the review of 2026-09-28: every stored level, which SM_SKILL_LIST shows as 1 for a normal skill
+		std::map<int32_t, int32_t> storedSkills;
+		for (const auto& row : database.queryRows(schema, "SELECT skill_id, skill_level FROM player_skills WHERE player_id = " + aId, 2))
+			storedSkills[std::stoi(row[0].value_or("0"))] = std::stoi(row[1].value_or("0"));
+		std::map<int32_t, int32_t> wantStoredSkills = extras.skillLevels;
+		wantStoredSkills[craft.skillId] = craft.skillLevelAfter;
+		EXPECT_EQ(storedSkills, wantStoredSkills) << "X21a: player_skills after the quit: the oracle's skills at their levels (30002 at 30001's, no "
+		                                          << "30001) and Cooking";
+		EXPECT_EQ(database.queryLong(schema, "SELECT exp FROM players WHERE id = " + aId).value_or(-1), daeva.exp + craft.playerExp)
+		  << "X19: players.exp";
+		b.drain();
+		std::cout << "C19: old level " << *oldLevel << ", " << progress << " progress updates in " << elapsed << " ms (the largest gap off by "
+		          << largestGapError << " ms), " << skills.size()
+		          << " skills and recipes " << joinNumbers(learnedRecipes) << " at the enter world" << std::endl;
+	});
+
 	// ---- C20: reports and shutdown (X22, and the last quit's rows of X23, X26, X28) ----
 	// C20a always runs, whatever failed before it: the characters must be out of the world for X22's bar (nobody online at the end)
 	cases.run("C20a", "both quit; the rows of the last quit (X16, X23, X26, X28)", [&] {
@@ -2684,10 +3349,12 @@ void runM5cGate() {
 			}
 			return std::nullopt;
 		};
+		// C19 adds the craft's two: the CraftingTask of the 3 m craft and the handler of Hestia's question (m5c-plan.md G-03 part 2)
 		for (const std::string_view name : {"model::trade::Exchange", "model::trade::ExchangeItem", "model::trade::TradeList", "model::trade::TradeItem",
 		                                    "model::trade::RepurchaseList", "model::trade::TradePSItem", "model::gameobjects::Letter",
 		                                    "CM_EXCHANGE_REQUEST_RequestResponseHandler", "DialogService_RequestResponseHandler",
-		                                    "CubeExpandService_RequestResponseHandler"}) {
+		                                    "CubeExpandService_RequestResponseHandler", "skillengine::task::CraftingTask",
+		                                    "CraftSkillUpdateService_RequestResponseHandler"}) {
 			const std::optional<LiveCount> count = liveCount(name);
 			if (!count) {
 				ADD_FAILURE() << "X22: m5a_summary.txt has no liveCount row for " << name << " (CheckOutput, G-06)";
@@ -2696,10 +3363,6 @@ void runM5cGate() {
 			EXPECT_EQ(count->live, 0) << "X22: " << count->line << " - a transfer object outlived the logouts";
 			EXPECT_GT(count->created, 0) << "X22: " << count->line << " - the gate's path never created one, so its 0 live proves nothing";
 		}
-		// part 1 runs no craft (C19 is stage 3's): the CraftingTask row is a guard here, live 0 only
-		const std::optional<LiveCount> crafting = liveCount("skillengine::task::CraftingTask");
-		ASSERT_TRUE(crafting) << "X22: no liveCount row for CraftingTask (G-06)";
-		EXPECT_EQ(crafting->live, 0) << "X22: " << crafting->line;
 		// nobody is online at the end, so no per-connection object survives either (the M5a bound, here 0)
 		const std::set<std::string> perConnection = {"Account", "AccountTime", "ConnectionAliveChecker", "PlayerAccountData", "PlayerCommonData",
 			"PlayerAppearance"};
@@ -2719,7 +3382,7 @@ void runM5cGate() {
 
 // ---- the gate ----------------------------------------------------------------------------------------------------------------------------
 
-/** `gs.scenario.m5c` (G-03 part 1): the economy cases of §10.2, C0-C18 and C20, two accounts online at once; no geo variant (D12) */
+/** `gs.scenario.m5c` (G-03): the cases of §10.2, C0-C20 (C19, crafting in Sanctum, is part 2), two accounts online at once; no geo variant (D12) */
 TEST(M5cScenario, Run) {
 	runM5cGate();
 }
