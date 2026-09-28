@@ -413,6 +413,10 @@ aion_gs_chunk(P5-13 TARGET aion_gs_instance PHASE 5
 	JAVA "src/com/aionemu/gameserver/{instance,custom,restrictions}/**" "src/com/aionemu/gameserver/services/{instance,transfers}/**"
 		"src/com/aionemu/gameserver/model/instance/**"
 	JAVA_EXCLUDE "src/com/aionemu/gameserver/instance/InstanceHandlerClassListener.java")
+# The ascension lane of M5f (m5f-plan.md §15.4, item I-01): P5-13 leases world/WorldMapInstance.cpp from P4-10 for detachInstanceHandler and
+# the file-local no-op InstanceHandler it installs (N-02, N-07). Released when the lane merges.
+aion_gs_chunk(P5-13 LEASE PHASE 5
+	GLOBS "aion/gameserver/world/WorldMapInstance.cpp")
 
 # P5-14: remaining services, taskmanager, chathandlers framework (ChatProcessor, ChatUtil), CommandsAccessService, AdminService; aion_gs_app:
 # GameServer (main complete), ShutdownHook coordinator, and the executable's main.cpp (MAIN: compiled into aion_game_server, not the library);

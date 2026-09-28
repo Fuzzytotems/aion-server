@@ -1,15 +1,19 @@
 #include "aion/gameserver/services/player/PlayerReviveService.h"
 
 #include <optional>
+#include <unordered_map>
 
 #include "aion/gameserver/controllers/PlayerController.h"
 #include "aion/gameserver/controllers/attack/AggroList.h"
 #include "aion/gameserver/controllers/effect/PlayerEffectController.h"
+#include "aion/gameserver/instance/handlers/InstanceHandler.h"
 #include "aion/gameserver/model/EmotionType.h"
 #include "aion/gameserver/model/gameobjects/VisibleObject.h"
 #include "aion/gameserver/model/gameobjects/player/CustomPlayerState.h"
 #include "aion/gameserver/model/gameobjects/player/Player.h"
 #include "aion/gameserver/model/gameobjects/player/PlayerCommonData.h"
+#include "aion/gameserver/model/gameobjects/player/motion/Motion.h"
+#include "aion/gameserver/model/gameobjects/player/motion/MotionList.h"
 #include "aion/gameserver/model/stats/container/PlayerGameStats.h"
 #include "aion/gameserver/model/stats/container/PlayerLifeStats.h"
 #include "aion/gameserver/model/team/alliance/PlayerAllianceService.h"
@@ -18,6 +22,8 @@
 #include "aion/gameserver/model/team/group/PlayerGroupService.h"
 #include "aion/gameserver/model/vortex/VortexLocation.h"
 #include "aion/gameserver/network/aion/serverpackets/SM_EMOTION.h"
+#include "aion/gameserver/network/aion/serverpackets/SM_MOTION.h"
+#include "aion/gameserver/network/aion/serverpackets/SM_PLAYER_INFO.h"
 #include "aion/gameserver/network/aion/serverpackets/SM_SYSTEM_MESSAGE.h"
 #include "aion/gameserver/runtime/base/Unported.h"
 #include "aion/gameserver/runtime/lifetime/Ref.h"
@@ -27,6 +33,9 @@
 #include "aion/gameserver/services/vortex/DimensionalVortex.h"
 #include "aion/gameserver/skillengine/model/Effect.h"
 #include "aion/gameserver/utils/PacketSendUtility.h"
+#include "aion/gameserver/world/World.h"
+#include "aion/gameserver/world/WorldMap.h"
+#include "aion/gameserver/world/WorldMapInstance.h"
 #include "aion/gameserver/world/WorldMapTypeInfo.h"
 #include "aion/gameserver/world/WorldPosition.h"
 #include "aion/gameserver/world/knownlist/KnownList.h"
@@ -101,12 +110,49 @@ void PlayerReviveService::kiskRevive(model::gameobjects::player::Player& player,
 	AION_UNPORTED();
 }
 
+// Java PlayerReviveService.java:157-159
 void PlayerReviveService::instanceRevive(model::gameobjects::player::Player& player) {
-	AION_UNPORTED();
+	instanceRevive(player, 0);
 }
 
+// Java PlayerReviveService.java:161-187
 void PlayerReviveService::instanceRevive(model::gameobjects::player::Player& player, int32_t skillId) {
-	AION_UNPORTED();
+	using model::gameobjects::player::CustomPlayerState;
+	using network::aion::serverpackets::SM_SYSTEM_MESSAGE;
+	if (player.isInCustomState(CustomPlayerState::EVENT_MODE)) {
+		revive(player, 100, 100, false, skillId);
+		utils::PacketSendUtility::sendPacket(player, SM_SYSTEM_MESSAGE::STR_REBIRTH_MASSAGE_ME());
+		player.getGameStats()->updateStatsAndSpeedVisually();
+		teleport::TeleportService::teleportToEvent(player);
+		return;
+	}
+	if (player.getPosition()->getWorldMapInstance()->getInstanceHandler()->onReviveEvent(player))
+		return;
+	runtime::Ptr<world::WorldMap> map = world::World::getInstance().getWorldMap(player.getWorldId());
+	if (!map) {
+		bindRevive(player);
+		return;
+	}
+	revive(player, 25, 25, true, skillId);
+	utils::PacketSendUtility::sendPacket(player, SM_SYSTEM_MESSAGE::STR_REBIRTH_MASSAGE_ME());
+	player.getGameStats()->updateStatsAndSpeedVisually();
+	utils::PacketSendUtility::sendPacket(player, network::aion::serverpackets::SM_PLAYER_INFO(player));
+	// Java `new SM_MOTION(player.getObjectId(), player.getMotions().getActiveMotions())`: the packet's C++ constructor takes the map by value
+	// type, so the RcLinkedHashMap is copied into it as TeleportService::spawnOnSameMap does (TeleportService.cpp:224-231)
+	std::unordered_map<int32_t, runtime::Ptr<model::gameobjects::player::motion::Motion>> activeMotions;
+	if (runtime::Ptr<runtime::RcLinkedHashMap<int32_t, runtime::Ref<model::gameobjects::player::motion::Motion>>> motions =
+			player.getMotions().getActiveMotions()) {
+		for (const auto& entry : motions->entrySet())
+			activeMotions.emplace(entry.getKey(), entry.getValue());
+	}
+	utils::PacketSendUtility::sendPacket(player, network::aion::serverpackets::SM_MOTION(player.getObjectId(), activeMotions));
+	if (map->isInstanceType() && player.getPosition()->getWorldMapInstance()->getStartPos()) {
+		runtime::Ptr<world::WorldPosition> pos = player.getPosition()->getWorldMapInstance()->getStartPos();
+		teleport::TeleportService::teleportTo(player, pos->getMapId(), pos->getX(), pos->getY(), pos->getZ());
+	} else {
+		bindRevive(player);
+	}
+	player.unsetResPosState();
 }
 
 // Java PlayerReviveService.java:189-213

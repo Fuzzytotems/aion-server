@@ -15,6 +15,8 @@
 #include "aion/gameserver/controllers/effect/PlayerEffectController.h"
 #include "aion/gameserver/model/gameobjects/player/Player.h"
 #include "aion/gameserver/dataholders/DataManager.h"
+#include "aion/gameserver/dataholders/InstanceExitData.h"
+#include "aion/gameserver/dataholders/loadingutils/EnumTraits.h"
 #include "aion/gameserver/dataholders/PlayerInitialData.h"
 #include "aion/gameserver/dataholders/WorldMapsData.h"
 #include "aion/gameserver/model/TaskId.h"
@@ -28,6 +30,7 @@
 #include "aion/gameserver/model/gameobjects/player/motion/Motion.h"
 #include "aion/gameserver/model/gameobjects/player/motion/MotionList.h"
 #include "aion/gameserver/model/team/legion/LegionMember.h"
+#include "aion/gameserver/model/templates/portal/InstanceExit.h"
 #include "aion/gameserver/model/templates/world/WorldMapTemplate.h"
 #include "aion/gameserver/network/aion/serverpackets/SM_BIND_POINT_INFO.h"
 #include "aion/gameserver/network/aion/serverpackets/SM_CHANNEL_INFO.h"
@@ -46,6 +49,7 @@
 #include "aion/gameserver/services/player/PlayerReviveService.h"
 #include "aion/gameserver/utils/PacketSendUtility.h"
 #include "aion/gameserver/world/World.h"
+#include "aion/gameserver/world/WorldMapInstance.h"
 #include "aion/gameserver/world/WorldMapTypeInfo.h"
 #include "aion/gameserver/world/WorldPosition.h"
 
@@ -249,25 +253,33 @@ void TeleportService::teleportTo(model::gameobjects::player::Player& player, int
 }
 
 void TeleportService::teleportTo(model::gameobjects::player::Player& player, int32_t worldId, int32_t instanceId, float x, float y, float z) {
+	// Java TeleportService.java:261-263: teleportTo(player, worldId, instanceId, x, y, z, player.getHeading(), TeleportAnimation.NONE).
+	// Left unported by the ascension lane (m5f-plan.md §15.4 asc-teleport): its only callers are DialogService's ENTER_PVP/LEAVE_PVP arms,
+	// which DialogServiceTest.cpp:1072-1073 pin as throwing, and that test file is leased by M5c stage 2's craft lane tonight. It is one line
+	// for the integrator after M5c stage 2, together with those two rows (the ascension route does not call it).
 	AION_UNPORTED();
 }
 
+// Java TeleportService.java:265-267
 void TeleportService::teleportTo(model::gameobjects::player::Player& player, int32_t worldId, int32_t instanceId, float x, float y, float z,
 	int8_t h) {
-	AION_UNPORTED();
+	teleportTo(player, worldId, instanceId, x, y, z, h, model::animations::TeleportAnimation::NONE);
 }
 
+// Java TeleportService.java:269-271
 void TeleportService::teleportTo(model::gameobjects::player::Player& player, world::WorldMapInstance& instance, float x, float y, float z) {
-	AION_UNPORTED();
+	teleportTo(player, instance.getMapId(), instance.getInstanceId(), x, y, z, player.getHeading(), model::animations::TeleportAnimation::NONE);
 }
 
+// Java TeleportService.java:273-275
 void TeleportService::teleportTo(model::gameobjects::player::Player& player, world::WorldMapInstance& instance, float x, float y, float z, int8_t h) {
-	AION_UNPORTED();
+	teleportTo(player, instance.getMapId(), instance.getInstanceId(), x, y, z, h, model::animations::TeleportAnimation::NONE);
 }
 
+// Java TeleportService.java:277-279
 void TeleportService::teleportTo(model::gameobjects::player::Player& player, world::WorldMapInstance& instance, float x, float y, float z, int8_t h,
 	model::animations::TeleportAnimation animation) {
-	AION_UNPORTED();
+	teleportTo(player, instance.getMapId(), instance.getInstanceId(), x, y, z, h, animation);
 }
 
 // Java TeleportService.java:281-288
@@ -345,8 +357,16 @@ void TeleportService::moveToTargetWithDistance(model::gameobjects::VisibleObject
 	AION_UNPORTED();
 }
 
+// Java TeleportService.java:394-403
 void TeleportService::moveToInstanceExit(model::gameobjects::player::Player& player, int32_t worldId, model::Race race) {
-	AION_UNPORTED();
+	const model::templates::portal::InstanceExit* instanceExit = dataholders::DataManager::INSTANCE_EXIT_DATA->getInstanceExit(worldId, race);
+	if (instanceExit != nullptr && instance::InstanceService::instanceExists(instanceExit->getExitWorld(), 1)) {
+		teleportTo(player, instanceExit->getExitWorld(), instanceExit->getX(), instanceExit->getY(), instanceExit->getZ(), instanceExit->getH());
+	} else {
+		if (instanceExit == nullptr)
+			log.warn("No instance exit found for race: " + std::string(xml::enumName(race)) + " " + std::to_string(worldId));
+		moveToBindLocation(player);
+	}
 }
 
 void TeleportService::useTeleportScroll(model::gameobjects::player::Player& player, std::string_view portalName, int32_t worldId) {

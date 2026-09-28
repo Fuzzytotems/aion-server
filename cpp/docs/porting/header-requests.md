@@ -719,3 +719,14 @@ The review's other findings: the parts write their deviations to the new `docs/d
 P5-02a/P5-02b precedent), and the integrator edits the shared `P5-06.md` rows, which `chunks.cmake`'s comment now says; that comment's body
 count is ~264; this section says four headers and P5-09a. The questgen prototype's document (phase6-questgen-prototype.md §5.2 item 2 and its
 refusal table) and the comment at `tools/gen/questgen/emit.py:1194` still describe the header-signature refusal: left to the questgen lane.
+
+## M5f ascension subset, prepared ahead: the instance core (2026-09-28)
+
+The asc-instance worktree of m5f-plan.md §15.4 (branch `wip/m5f-instance`), prepared during M5c stage 2 and merged after it. **One request,
+pending**: the lane kept `InstanceScaler.h` frozen and uses the `.cpp`-local workaround below until the integrator decides at the merge.
+
+| Id | File | Change | Decision | Reason |
+|---|---|---|---|---|
+| m5f-asc-1 | `services/instance/InstanceScaler.h` (P5-13) | add `static void onInstanceDestroy(world::WorldMapInstance& instance);`, which removes the instance's entry from the private `scalings` | **pending** (integrator, at the merge) | The removal obligation of the wave 5a `InstanceScaler.scalings` row (docs/deviations/P5-13.md, D13): Java's `WeakHashMap` drops a destroyed instance by itself, the port's strong-keyed map must be told. Until then `InstanceService.cpp` (`destroyInstance`) and `tests/instance/InstanceLifecycleTest.cpp` reach the map through the explicit-instantiation access rule ([temp.spec.general]/6; the pattern of tests/effects_al/EffectTemplateTest.cpp); both are replaced when the request is applied |
+| (new files) | `network/aion/clientpackets/CM_TELEPORT_ANIMATION_DONE.{h,cpp}`, `CM_MOVE_IN_AIR.{h,cpp}`, `CM_PLAY_MOVIE_END.{h,cpp}` (P5-16) | `.h` + `.cpp` each, registered with `AION_CLIENT_PACKET` (opcodes 15, 49, 81) | no request (new files) | |
+| (test support) | `tests/instance/AscensionTestSupport.h`, `AscensionTestData.h` (P5-13), included by relative path from `tests/playersvc` and `tests/cm_lz` | new test headers | not frozen (tests) | |
