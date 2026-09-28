@@ -1,6 +1,6 @@
 """cli: the driver of the quest transliterator prototype and its dry-run report.
 
-    python -m tools.gen.questgen --dry-run [--emit DIR] [--only FILE...] [--json OUT] [--markdown OUT] [--quiet]
+    python -m tools.gen.questgen --dry-run [--emit DIR] [--only FILE...] [--json OUT] [--markdown OUT] [--quiet] [--prototype-rules]
 
 --dry-run   transliterate every Java quest handler (or the --only files) in memory and print the report: files transliterated (tier A:
             core vocabulary only; tier B: at least one API_TABLE row), files refused grouped by their primary reason, the API calls
@@ -10,6 +10,9 @@
             repository (the prototype never writes into the source tree); nothing is compiled.
 --only      restrict to these files: paths below data/handlers/quest (`eltnen/_1363ThankingMabangtah.java`), absolute paths or class
             names (`_1363ThankingMabangtah`).
+--prototype-rules
+            leave out the P6-T emitter rules (emit.P6T_RULES: varargs-inline, work-items, switch-expression, nested-array) and reproduce
+            the prototype's rev-2 output (phase6-questgen-prototype.md §3).
 """
 from __future__ import annotations
 
@@ -49,8 +52,8 @@ def find_files(only=None, quest_dir=None):
     return sorted(set(out))
 
 
-def run(files, emit_dir=None, tr=None, pairs=True):
-    tr = tr or emit.Transliterator()
+def run(files, emit_dir=None, tr=None, pairs=True, rules=emit.P6T_RULES):
+    tr = tr or emit.Transliterator(rules=rules)
     results = []
     for f in files:
         r = tr.transliterate(f)
@@ -62,6 +65,7 @@ def run(files, emit_dir=None, tr=None, pairs=True):
             out.write_bytes(r.cpp.encode('utf-8'))
             r.out_path = str(out)
     report = summarize(results, tr.api)
+    report['rules'] = sorted(tr.rules)
     if pairs:
         report['mirrorPairs'] = mirror.pairs_report(files, {r.rel: r for r in results}, tr.quest_dir)
     return results, report
@@ -153,6 +157,8 @@ def text_report(rep, verbose=False):
     c = rep['coverage']
     out = []
     out.append(f"questgen dry run: {c['transliterated']} of {c['total']} transliterated ({c['pct']}%), {c['refused']} refused")
+    if 'rules' in rep:
+        out.append(f"  emitter rules: {', '.join(rep['rules']) or 'the prototype (rev 2) only'}")
     out.append(f"  tier A (core vocabulary only) {c['tierA']}, tier B (API table rows) {c['tierB']}; "
                f"{c['blockedOnPlannedDeclaration']} of them call an API the C++ side does not declare yet (PLANNED)")
     out.append(f"  lines: {c['lines']['transliterated']} of {c['lines']['total']} Java lines")
@@ -234,6 +240,7 @@ def main(argv=None):
     ap.add_argument('--no-pairs', action='store_true', help='skip the mirror-pair analysis')
     ap.add_argument('--verbose', '-v', action='store_true', help='list every refused file with its reasons')
     ap.add_argument('--quiet', '-q', action='store_true', help='print only the coverage line')
+    ap.add_argument('--prototype-rules', action='store_true', help="the prototype's rules only (rev 2): no P6-T emitter rule")
     args = ap.parse_args(argv)
     emit_dir = None
     if args.emit:
@@ -245,7 +252,8 @@ def main(argv=None):
             pass
     t0 = time.time()
     files = find_files(args.only)
-    _results, rep = run(files, emit_dir, pairs=not args.no_pairs)
+    rules = frozenset() if args.prototype_rules else emit.P6T_RULES
+    _results, rep = run(files, emit_dir, pairs=not args.no_pairs, rules=rules)
     rep['seconds'] = round(time.time() - t0, 1)
     if args.json:
         Path(args.json).write_text(json.dumps(rep, indent=1, default=sorted), encoding='utf-8')

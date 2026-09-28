@@ -5,6 +5,10 @@ subset of Java the quest handlers use. Anything outside the subset raises Unsupp
 transliterator): closures (lambda, method reference, anonymous class, local class), exception handling (try, throw), synchronized,
 labeled statements, switch expressions and switch rules, generic method calls, array creation without an initializer, class literals.
 
+Parser(cu, switch_expressions=True) (the P6-T switch rule of phase6-questgen-prototype.md §8.4) also parses a switch expression whose arms
+are `case A, B -> expr;` (SwitchExpr; a block arm with `yield` stays refused) and a switch statement with rule arms `case A -> stmt`
+(Switch.rules). The default keeps the prototype's refusals.
+
 Every node keeps `tok`, the index of its first token; statements also keep `last`, the index of their last token, which the emitter
 uses to carry the Java comments along (comments(), trailing_comment()).
 """
@@ -130,6 +134,12 @@ class Paren(Expr):
     expr: Expr
 
 
+@dataclass
+class SwitchExpr(Expr):
+    expr: Expr
+    arms: list           # [([label Expr | None (default)], value Expr, label token, ';' token)]
+
+
 # --- types -------------------------------------------------------------------------------------------------------------------------
 @dataclass
 class JType:
@@ -181,6 +191,7 @@ class If(Stmt):
 class Switch(Stmt):
     expr: Expr
     groups: list         # [([label Expr | None (default)], [Stmt], label tokens)]
+    rules: bool = False  # `case A -> stmt` arms: no fall-through, each arm is its own group
 
 
 @dataclass
@@ -242,8 +253,10 @@ ASSIGN_OPS = frozenset(('=', '+=', '-=', '*=', '/=', '%=', '&=', '|=', '^=', '<<
 class Parser:
     """Parser over the tokens of one CompilationUnit."""
 
-    def __init__(self, cu):
+    def __init__(self, cu, switch_expressions=False):
         self.cu = cu
+        self.switch_expressions = switch_expressions
+        self.label_mode = False      # parsing a rule arm's case labels: `X ->` is not a lambda
         T = cu.tokens
         self.kind = T.kind
         self.text = T.text
@@ -456,6 +469,7 @@ class Parser:
         groups = []
         j = b1 + 1
         cur = None
+        rules = False
         while j < b2:
             if self.t(j) in ('case', 'default'):
                 labels = []
@@ -465,15 +479,15 @@ class Parser:
                     labels.append(None)
                 else:
                     j += 1
-                    while True:
-                        e, j = self.expr(j, no_lambda=True)
-                        labels.append(e)
-                        if self.t(j) == ',':
-                            j += 1
-                            continue
-                        break
+                    labels, j = self.case_labels(j)
                 if self.t(j) == '->':
-                    self.fail('switch-rule', j)
+                    if not self.switch_expressions:
+                        self.fail('switch-rule', j)
+                    body, j = self.rule_arm(j + 1)
+                    groups.append((labels, [body], [lab_tok]))
+                    rules = True
+                    cur = None
+                    continue
                 j = self.expect(j, ':')
                 if cur is None or cur[1]:
                     cur = (labels, [], [lab_tok])
@@ -486,7 +500,62 @@ class Parser:
                 self.fail('syntax', j, 'statement before the first case label')
             s, j = self.stmt(j)
             cur[1].append(s)
-        return Switch(i, b2, subject, groups), b2 + 1
+        return Switch(i, b2, subject, groups, rules), b2 + 1
+
+    def case_labels(self, j):
+        """the expressions of one `case a, b` label (j after `case`)"""
+        labels = []
+        self.label_mode = self.switch_expressions
+        try:
+            while True:
+                e, j = self.expr(j, no_lambda=True)
+                labels.append(e)
+                if self.t(j) == ',':
+                    j += 1
+                    continue
+                return labels, j
+        finally:
+            self.label_mode = False
+
+    def rule_arm(self, j):
+        """the statement of a `case ... ->` arm of a switch statement: a block or an expression statement"""
+        if self.t(j) == '{':
+            return self.stmt(j)
+        if self.t(j) == 'throw':
+            self.fail('throw', j)
+        e, k = self.expr(j)
+        k = self.expect(k, ';')
+        return ExprStmt(j, k - 1, e), k
+
+    def switch_expr(self, i):
+        """`switch (x) { case A, B -> expr; default -> expr; }` as an expression; a block arm (`yield`) is refused"""
+        c1 = i + 1
+        c2 = self.match[c1]
+        subject = self.expr_span(c1 + 1, c2)
+        b1 = c2 + 1
+        if self.t(b1) != '{':
+            self.fail('syntax', b1, 'switch without a block')
+        b2 = self.match[b1]
+        arms = []
+        j = b1 + 1
+        while j < b2:
+            lab_tok = j
+            if self.t(j) == 'default':
+                labels, j = [None], j + 1
+            elif self.t(j) == 'case':
+                labels, j = self.case_labels(j + 1)
+            else:
+                self.fail('switch-expression', j, 'a statement before the first arm')
+            if self.t(j) != '->':
+                self.fail('switch-expression', j, 'an arm with `:` (yield)')
+            j += 1
+            if self.t(j) == '{' or self.t(j) == 'throw':
+                self.fail('switch-expression', j, 'a block or throw arm (yield)')
+            value, k = self.expr(j)
+            k = self.expect(k, ';')
+            arms.append((labels, value, lab_tok, k - 1))
+            j = k
+        return SwitchExpr(i, subject, arms), b2 + 1
 
     def for_(self, i):
         c1 = i + 1
@@ -555,7 +624,8 @@ class Parser:
         return self.assignment(i)
 
     def assignment(self, i):
-        self.check_lambda(i)
+        if not self.label_mode:
+            self.check_lambda(i)
         left, j = self.conditional(i)
         op = self.t(j)
         if op in ASSIGN_OPS:
@@ -733,9 +803,11 @@ class Parser:
         if t == 'new':
             return self.new(i)
         if t == 'switch':
-            self.fail('switch-expression', i)
+            if not self.switch_expressions:
+                self.fail('switch-expression', i)
+            return self.switch_expr(i)
         if k == IDENT:
-            if self.t(i + 1) == '->':
+            if self.t(i + 1) == '->' and not self.label_mode:
                 self.fail('lambda', i)
             if self.t(i + 1) == '(':
                 args, j = self.args(i + 1)

@@ -20,6 +20,13 @@ logic bug the inventory lists (KNOWN_JAVA_BUGS, phase6-inventory.md §11) is kep
 Refusals (Unsupported categories) are collected per statement, so a file usually lists more than its first reason. They are a lower
 bound: a method whose body does not parse (a lambda, an anonymous class, a switch expression, a throw) is refused whole, and a local of a
 refused type is not checked further, so what such code calls is never looked at.
+
+The P6-T rules (P6T_RULES; phase6-questgen-prototype.md §5.2 items 3-4 and §8.4) are opt-in on a Transliterator and on in the driver
+(cli.py): 'varargs-inline' passes a never-reassigned constant local `int[]` used once as a varargs argument inline as the braced list;
+'work-items' spells AbstractQuestHandler.workItems through its Rc<ArrayList> (`workItems->get(0)` for getFirst); 'switch-expression'
+emits `return switch`, `T x = switch` and `x = switch` as a C++ switch with returns or assignments, and a switch statement with rule arms
+(`case A -> ...`) without fall-through; 'nested-array' makes `int[][]` and `String[]` constants nested std::arrays. A bare
+Transliterator() keeps the prototype's output (rev 2), which tools/gen/tests/test_questgen.py pins.
 """
 from __future__ import annotations
 
@@ -97,6 +104,11 @@ KNOWN_JAVA_BUGS = {
 }
 JAVA_BUG_MARK = '// java-bug kept (U3, phase6-inventory.md §11): '
 
+# the P6-T emitter rules (see the module docstring); the driver turns all of them on
+P6T_RULES = frozenset(('varargs-inline', 'work-items', 'switch-expression', 'nested-array'))
+# the text an inlined varargs array stands for until the call it is passed to consumes it; left in a method, it refuses the file
+INLINE_MARK = '\x00INLINE\x00'
+
 
 class Cascade(Exception):
     """a follow-on failure of an earlier refusal (an unknown variable): not recorded as a reason"""
@@ -108,6 +120,7 @@ class E:
     ct: CT
     prec: int = 0
     lvalue: bool = False
+    items: list | None = None    # a constant int[] local passed inline to a varargs call: its element expressions (rule varargs-inline)
 
 
 @dataclass
@@ -119,6 +132,7 @@ class Var:
     used: bool = False
     mark: str = ''           # placeholder before the declaration: '[[maybe_unused]] ' when the local is never read
     origin: str = ''         # a hook parameter: 'AbstractQuestHandler.hook(name) is <C++ type as the header writes it>'
+    items: list | None = None    # kind 'inline': the element expressions of an int[] local passed inline to a varargs call
 
 
 @dataclass
@@ -178,7 +192,11 @@ def cpp_ident(name):
 class Transliterator:
     """transliterate(path) -> FileResult; one instance serves every file (the Api is loaded once)"""
 
-    def __init__(self, api=None, quest_dir=None):
+    def __init__(self, api=None, quest_dir=None, rules=frozenset()):
+        unknown = set(rules) - P6T_RULES
+        if unknown:
+            raise ValueError(f'unknown emitter rules {sorted(unknown)}; known: {sorted(P6T_RULES)}')
+        self.rules = frozenset(rules)
         self.api = api or apimod.Api()
         self.ix = self.api.index
         self.quest_dir = Path(quest_dir or paths.JAVA_QUEST_DIR)
@@ -208,7 +226,7 @@ class Transliterator:
             self.r.reasons.append(('java-syntax', str(e)))
             return self.r
         self.cu = cu
-        self.p = jast.Parser(cu)
+        self.p = jast.Parser(cu, switch_expressions='switch-expression' in self.rules)
         self.src = cu.tokens.source
         self.r.lines = self.src.count('\n') + (0 if self.src.endswith('\n') else 1)
         self.r.package = cu.package or ''
@@ -365,10 +383,8 @@ class Transliterator:
             items = init.items if isinstance(init, jast.ArrayInit) else (init.init.items if isinstance(init, jast.NewArray) else None)
             if items is None:
                 self.fail('field-initializer', f'{name}: array field without an initializer list', f.index)
-            texts = [self.convert(self.expr(it), CT('prim', ct.name)) for it in items]
-            decl = f'static constexpr std::array<{ct.name}, {len(texts)}> {cpp}{{{", ".join(texts)}}};'
-            self.std_includes.add('array')
-            ct = CT('array', ct.name, size=len(texts))
+            text, ct = self.array_initializer(items, ct, f.index)
+            decl = f'static constexpr {self.decl_type(ct)} {cpp}{text};'
         elif ct.kind in ('prim', 'string', 'enum'):
             e = self.expr(init)
             if not self.is_constant(init):
@@ -404,6 +420,11 @@ class Transliterator:
         name = apimod.NESTED.get(jt.name, jt.name)
         if jt.dims == 1 and jt.name in JAVA_PRIM:
             return CT('array', JAVA_PRIM[jt.name])
+        if 'nested-array' in self.rules:
+            if jt.dims == 1 and jt.name == 'String':
+                return CT('array', 'std::string_view', elem=STRING)
+            if jt.dims == 2 and jt.name in JAVA_PRIM:
+                return CT('array', '', elem=CT('array', JAVA_PRIM[jt.name]))
         if jt.dims:
             self.fail('type', f'{jt}', tok)
         if name in JAVA_PRIM:
@@ -587,6 +608,8 @@ class Transliterator:
         lines += self.leading(self.cu.tokens.match[body_open], 1)
         lines.append('}')
         lines = self.finish_marks(lines)
+        if any(INLINE_MARK in ln for ln in lines):
+            self.fail('varargs-array', f'{m.name}: an int[] kept for a varargs call is used elsewhere', m.index)
         access = 'public' if (hook or 'public' in m.modifiers or 'protected' in m.modifiers) else 'private'
         pre = self.leading(self.first_token(m), 0)      # the Javadoc and any other comment lines before the method
         while pre and not pre[0]:
@@ -647,13 +670,26 @@ class Transliterator:
         if isinstance(s, jast.If):
             return self.if_(s, depth, ind, hoist=top)
         if isinstance(s, jast.Local):
-            return [ind + self.local(s) + tr]
+            if len(s.decls) == 1 and isinstance(s.decls[0][2], jast.SwitchExpr):
+                return self.local_switch(s, depth, ind, tr)
+            text = self.local(s)
+            if not text:
+                return [ind + tr.strip()] if tr else []      # every declarator was passed inline (rule varargs-inline)
+            return [ind + text + tr]
         if isinstance(s, jast.ExprStmt):
+            if isinstance(s.expr, jast.Assign) and s.expr.op == '=' and isinstance(s.expr.value, jast.SwitchExpr):
+                t = self.expr(s.expr.target)
+                if not t.lvalue or (t.ct.kind == 'obj' and t.ct.ref in ('lref', 'clref')):
+                    self.fail('assignment-target', 'a switch expression assigned to a reference', s.tok)
+                return self.switch_expr(s.expr.value, depth, lambda v, d: [
+                    '\t' * d + f'{t.text} = {self.convert(self.expr(v), t.ct)};', '\t' * d + 'break;'], tr)
             e = self.expr(s.expr, stmt=True)
             return [ind + e.text + ';' + tr]
         if isinstance(s, jast.Return):
             if s.expr is None:
                 return [ind + 'return;' + tr]
+            if isinstance(s.expr, jast.SwitchExpr):
+                return self.switch_expr(s.expr, depth, lambda v, d: ['\t' * d + 'return ' + self.convert(self.expr(v), self.method_ret) + ';'], tr)
             e = self.expr(s.expr)
             return [ind + 'return ' + self.convert(e, self.method_ret) + ';' + tr]
         if isinstance(s, jast.Switch):
@@ -803,10 +839,15 @@ class Transliterator:
                 if isinstance(init, jast.ArrayInit):
                     if ct.kind != 'array':
                         self.fail('type', f'array initializer for {s.type}', name_tok)
-                    texts = [self.convert(self.expr(it), CT('prim', ct.name)) for it in init.items]
-                    ct = CT('array', ct.name, size=len(texts))
+                    if 'varargs-inline' in self.rules and self.inline_varargs(name, init, ct):
+                        el = CT('prim', ct.name)
+                        items = [E(self.convert(self.expr(it), el), el) for it in init.items]
+                        self.local_scope[-1][name] = Var(name, cpp_ident(name), CT('array', ct.name, size=len(items)), 'inline', items=items)
+                        self.r.idioms['int[] local passed inline to a varargs helper'] += 1
+                        continue
+                    text, ct = self.array_initializer(init.items, ct, name_tok)
                     v = self.new_local(name, ct)
-                    parts.append(f'{v.mark}{self.decl_type(ct)} {cpp_ident(name)}{{{", ".join(texts)}}};')
+                    parts.append(f'{v.mark}{self.decl_type(ct)} {cpp_ident(name)}{text};')
                     self.r.idioms['int[] local as std::array'] += 1
                     continue
                 e = self.expr(init)
@@ -840,6 +881,90 @@ class Transliterator:
             v = self.new_local(name, ct)
             parts.append(v.mark + text + ';')
         return ' '.join(parts)
+
+    def inline_varargs(self, name, init, ct):
+        """rule varargs-inline (phase6-questgen-prototype.md §5.2 item 3): a local `int[] x = {...}` of constants whose only use is the
+        last argument of an unqualified call of an AbstractQuestHandler helper whose C++ overloads all end in std::initializer_list
+        (defaultOnLevelChangedEvent, defaultOnQuestCompletedEvent: AbstractQuestHandler.h). Java passes the array as the varargs; C++
+        takes the same values as a braced list, so the declaration goes and the list moves into the call (constants: no evaluation order)"""
+        if ct.elem is not None or not all(self.is_constant(it) for it in init.items):
+            return False
+        uses = [x for x in jast.walk_exprs(self.method_stmts) if isinstance(x, jast.Name) and x.name == name]
+        if len(uses) != 1:
+            return False
+        for c in jast.walk_exprs(self.method_stmts):
+            if isinstance(c, jast.Call) and c.args and c.args[-1] is uses[0] and c.name not in self.own \
+                    and (c.target is None or (isinstance(c.target, jast.Name) and c.target.name == 'this')):
+                cname = cpp_ident(c.name)
+                funcs = self.ix.lookup('AbstractQuestHandler', cname) if self.ix.owner_of('AbstractQuestHandler', cname) else []
+                return bool(funcs) and all(f.params and self.cpp_type(f.params[-1].type).kind == 'ilist' for f in funcs)
+        return False
+
+    def array_initializer(self, items, ct, tok):
+        """(braced C++ initializer, CT with its sizes) of a Java array initializer: int[] (flat), and with rule nested-array int[][] (rows
+        of one length: nested std::array) and String[] (std::array<std::string_view, N>)"""
+        if ct.elem is not None and ct.elem.kind == 'array':
+            rows = []
+            for it in items:
+                sub = it.items if isinstance(it, jast.ArrayInit) else (it.init.items if isinstance(it, jast.NewArray) else None)
+                if sub is None:
+                    self.fail('type', 'an int[][] row that is not an initializer list', tok)
+                rows.append([self.convert(self.expr(x), CT('prim', ct.elem.name)) for x in sub])
+            sizes = {len(r) for r in rows}
+            if len(sizes) != 1:
+                self.fail('type', f'int[][] with rows of {sorted(sizes)} elements (std::array needs one length)', tok)
+            n = sizes.pop()
+            self.std_includes.add('array')
+            self.r.idioms['int[][] constant as a nested std::array'] += 1
+            inner = CT('array', ct.elem.name, size=n)
+            return '{{' + ', '.join('{' + ', '.join(r) + '}' for r in rows) + '}}', CT('array', f'std::array<{ct.elem.name}, {n}>', elem=inner,
+                                                                                        size=len(rows))
+        if ct.elem is not None and ct.elem.kind == 'string':
+            texts = [self.convert(self.expr(it), STRING) for it in items]
+            self.std_includes.update(('array', 'string_view'))
+            self.r.idioms['String[] constant as std::array<std::string_view>'] += 1
+            return '{' + ', '.join(texts) + '}', CT('array', 'std::string_view', elem=STRING, size=len(texts))
+        texts = [self.convert(self.expr(it), CT('prim', ct.name)) for it in items]
+        self.std_includes.add('array')
+        return '{' + ', '.join(texts) + '}', CT('array', ct.name, size=len(texts))
+
+    def local_switch(self, s, depth, ind, tr):
+        """rule switch-expression: `T x = switch (...) { case A -> v; ... };` as `T x{};` and a switch assigning x"""
+        name, extra, init, name_tok = s.decls[0]
+        if extra:
+            self.fail('type', f'{s.type} {name}[]', name_tok)
+        ct = self.java_type(s.type, s.tok)
+        if ct.kind in ('var', 'array') or (ct.kind == 'obj' and ct.ref != 'ptr'):
+            self.fail('switch-expression', f'a switch expression initializing {s.type} {name}', s.tok)
+        v = self.new_local(name, ct)
+        cpp = cpp_ident(name)
+        head = [ind + f'{v.mark}{self.decl_type(ct)} {cpp}{{}}; // Java: initialized by the switch expression below']
+        return head + self.switch_expr(init, depth, lambda x, d: ['\t' * d + f'{cpp} = {self.convert(self.expr(x), ct)};',
+                                                                  '\t' * d + 'break;'], tr)
+
+    def switch_expr(self, sx, depth, arm, tr):
+        """rule switch-expression: a Java switch expression (rule arms only) as a C++ switch statement; `arm(value, depth)` gives the lines
+        of one arm (a return, or an assignment and break). Java requires a switch expression to be exhaustive: a default arm is required
+        here, because C++ has no MatchException for an enum value no arm names"""
+        ind = '\t' * depth
+        subj = self.expr(sx.expr)
+        if subj.ct.kind == 'optional':
+            subj = E(self.postfix(subj) + '.value()', subj.ct.elem)
+            self.r.idioms['Integer unboxed with value()'] += 1
+        if subj.ct.kind not in ('prim', 'enum'):
+            self.fail('type', f'switch on {subj.ct}', sx.tok)
+        if not any(None in labels for labels, _v, _t, _e in sx.arms):
+            self.fail('switch-expression', 'a switch expression without a default arm', sx.tok)
+        self.r.idioms['switch expression as a switch statement'] += 1
+        lines = [f'{ind}switch ({subj.text}) {{ // Java: a switch expression' + tr]
+        for labels, value, lab_tok, semi in sx.arms:
+            lines += self.leading(lab_tok, depth + 1)
+            for li, lab in enumerate(labels):
+                text = f'{ind}\tdefault:' if lab is None else f'{ind}\tcase {self.case_label(lab, subj.ct)}:'
+                lines.append(text + (self.trailing(semi) if li == len(labels) - 1 else ''))
+            lines += arm(value, depth + 2)
+        lines.append(ind + '}')
+        return lines
 
     def bindable_to_reference(self, name):
         """the current method never assigns `name` again and never compares it with null"""
@@ -915,7 +1040,12 @@ class Transliterator:
             lines += self.stmts(body, inner)
             self.local_scope.pop()
             last = body[-1] if body else None
-            if body and k + 1 < len(s.groups) and not self.ends_flow(last):
+            if s.rules:
+                if not body or not self.ends_flow(last):
+                    lines.append('\t' * inner + 'break; // Java: a `case ->` arm does not fall through')
+                if k == 0:
+                    self.r.idioms['switch rule arms without fall-through'] += 1
+            elif body and k + 1 < len(s.groups) and not self.ends_flow(last):
                 lines.append('\t' * inner + '[[fallthrough]]; // Java: no break')
                 self.r.idioms['case fall-through kept'] += 1
             if braces:
@@ -925,7 +1055,7 @@ class Transliterator:
         return lines
 
     def label_colon(self, lab_tok):
-        """the ':' that ends the `case ...:` / `default:` label whose keyword is token lab_tok"""
+        """the ':' that ends the `case ...:` / `default:` label whose keyword is token lab_tok (the '->' of a rule arm)"""
         T = self.cu.tokens
         j, pending = lab_tok + 1, 0
         while j < len(T.text):
@@ -934,6 +1064,8 @@ class Transliterator:
                 j = T.match[j]
             elif t == '?':
                 pending += 1
+            elif t == '->' and pending == 0:
+                return j
             elif t == ':':
                 if pending == 0:
                     return j
@@ -1037,11 +1169,12 @@ class Transliterator:
             if a.ct.kind != 'array':
                 self.fail('type', f'index on {a.ct}', x.tok)
             i = self.expr(x.index)
+            elem = a.ct.elem or CT('prim', a.ct.name)     # a row of an int[][] or a String of a String[] (rule nested-array)
             if isinstance(x.index, jast.Lit) and x.index.kind == 'int' and x.index.text.isdigit() and 0 <= int(x.index.text) < a.ct.size:
-                return E(f'{self.postfix(a)}[{i.text}]', CT('prim', a.ct.name), 0, True)
+                return E(f'{self.postfix(a)}[{i.text}]', elem, 0, True)
             # Java throws ArrayIndexOutOfBoundsException where std::array::operator[] is undefined: at() throws too
             self.r.idioms['array index not provably in range: at()'] += 1
-            return E(f'{self.postfix(a)}.at({self.unbox(i)})', CT('prim', a.ct.name), 0, True)
+            return E(f'{self.postfix(a)}.at({self.unbox(i)})', elem, 0, True)
         if isinstance(x, jast.Cast):
             return self.cast(x)
         if isinstance(x, jast.Unary):
@@ -1062,6 +1195,8 @@ class Transliterator:
                      f'{self.paren(E(self.convert(b, ct), ct, b.prec), 13)}', ct, 13)
         if isinstance(x, jast.Assign):
             return self.assign(x)
+        if isinstance(x, jast.SwitchExpr):
+            self.fail('switch-expression', 'a switch expression inside a larger expression', x.tok)
         if isinstance(x, jast.InstanceOf):
             if x.binding:
                 if getattr(x, 'hoisted', False):
@@ -1111,6 +1246,8 @@ class Transliterator:
             if v.ct.kind == 'unknown':
                 raise Cascade()
             v.used = True
+            if v.kind == 'inline':
+                return E(INLINE_MARK, v.ct, 0, False, items=v.items)
             return E(v.cpp, v.ct, 0, v.kind in ('local', 'param'))
         if x.name == 'this':
             return E('*this', CT('obj', self.td.name, 'lref'), 1)
@@ -1168,6 +1305,8 @@ class Transliterator:
             return self.member_call('AbstractQuestHandler', None, x, cname, implicit=True)
         if isinstance(tgt, jast.Name) and tgt.name == 'super':
             return self.member_call('AbstractQuestHandler', None, x, cname, implicit=True, qualifier='AbstractQuestHandler::')
+        if 'work-items' in self.rules and isinstance(tgt, jast.Name) and tgt.name == 'workItems' and self.lookup_var('workItems') is None:
+            return self.work_items(x)
         t = self.expr(tgt)
         if t.ct.kind == 'class':
             return self.static_call(t.ct.name, x, cname)
@@ -1198,6 +1337,35 @@ class Transliterator:
             a = self.expr(x.args[0])
             return E(f'{self.paren(t, 5)} == {self.paren(a, 5)}', BOOL, 6)
         self.fail('api-missing', f'{t.ct}.{name}', x.tok)
+
+    def work_items(self, x):
+        """rule work-items (phase6-questgen-prototype.md §5.2 item 4): AbstractQuestHandler.workItems is a protected
+        Field<Ref<RcArrayList<const QuestItems*>>> (AbstractQuestHandler.h:56) that the ported constructor fills (loadWorkItems,
+        AbstractQuestHandler.cpp). ArrayList has get, size and isEmpty (runtime/collections/ArrayList.h); getFirst and getLast are
+        LinkedList's only, so Java's List.getFirst()/getLast() are get(0) and get(size() - 1). Java throws NoSuchElementException on an empty
+        list where get throws IndexOutOfBoundsException; both throw NullPointerException when the quest has no work items"""
+        item = CT('obj', 'QuestItems', 'raw')
+        n = x.name
+        if n == 'getFirst' and not x.args:
+            e = E('workItems->get(0)', item)
+        elif n == 'getLast' and not x.args:
+            e = E('workItems->get(workItems->size() - 1)', item)
+        elif n == 'get' and len(x.args) == 1:
+            i = self.expr(x.args[0])
+            if self.fit(i, INT) is None:
+                self.fail('type', f'workItems.get({i.ct})', x.tok)
+            e = E(f'workItems->get({self.convert(i, INT)})', item)
+        elif n == 'size' and not x.args:
+            e = E('workItems->size()', INT)
+        elif n == 'isEmpty' and not x.args:
+            e = E('workItems->isEmpty()', BOOL)
+        else:
+            self.fail('api-missing', f'AbstractQuestHandler.workItems.{n}', x.tok)
+        self.record_api('AbstractQuestHandler', 'workItems', 'core')
+        self.r.api_status.setdefault('AbstractQuestHandler.workItems', set()).add('ported')
+        self.need('QuestItems')
+        self.r.idioms['workItems through its Rc<ArrayList> (get, size)'] += 1
+        return e
 
     def pick_own(self, sigs, x):
         fits = [s for s in sigs if len(s.params) == len(x.args)]
@@ -1572,7 +1740,9 @@ class Transliterator:
                 plan.append(('arg', a, p))
             rest = args[len(fixed):]
             if len(rest) == 1 and rest[0].ct.kind == 'array':
-                return None
+                if rest[0].items is None:
+                    return None
+                rest = rest[0].items            # rule varargs-inline: the array's elements, in order
             for a in rest:
                 s = self.fit(a, elem)
                 if s is None:

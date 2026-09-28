@@ -86,6 +86,7 @@ registerAddOnReachTargetEvent registerAddOnLostTargetEvent registerOnEnterWindSt
     'AionObject': {'getObjectId', 'getName'},
     'Npc': {'getNpcId'},
     'Item': {'getItemId', 'getItemTemplate', 'getItemCount', 'getObjectId'},
+    'QuestItems': {'getItemId', 'getCount'},          # the quest's work items (AbstractQuestHandler.workItems, emit rule work-items)
     'ItemTemplate': {'getTemplateId'},
     'VisibleObjectTemplate': {'getTemplateId'},
     'Storage': {'getItemCountByItemId'},

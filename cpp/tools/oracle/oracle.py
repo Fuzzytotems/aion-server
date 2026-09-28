@@ -29,6 +29,9 @@
 	                    [--profile FILE | --no-profile]   (m5d/quests.py, m5d-plan.md G-01)
 	oracle.py m5d-quests --map ID [--race R] [--class C] [--level N] [--gender G] [--completed ID[:GROUP] ...] [--started ID ...]
 	                     [--inventory ITEM[:COUNT] ...] [--profile FILE | --no-profile]   (m5d/quests.py)
+	oracle.py quest-trace generate [--out DIR] [--only REL ...] | check [--expected-dir DIR] [--only REL ...]   golden traces of the Java
+	                     quest handlers (questtrace/, phase6-inventory.md §7.6 item 3): expected/quest/<id>.json for the first slice (exit 1
+	                     on drift; with --only, only the named handlers are checked)
 """
 
 from __future__ import annotations
@@ -345,6 +348,24 @@ def cmd_m5d_quests(args):
 	return 0
 
 
+def cmd_quest_trace(args):
+	from questtrace import extract
+	rels = extract.SLICE if not args.only else tuple(args.only)
+	if args.action == "generate":
+		docs = extract.generate(Path(args.out), rels)
+		cases = sum(len(d["cases"]) for d in docs.values())
+		refused = [f"{d['java']}: {h['hook']}: {h['unsupported']}" for d in docs.values() for h in d["hooks"] if "unsupported" in h]
+		print(f"quest-trace: {len(docs)} quests, {cases} cases written to {args.out}; {len(refused)} hooks refused")
+		for r in refused:
+			print(f"  {r}")
+		return 0
+	problems = extract.check(Path(args.expected_dir), rels, extra=not args.only)
+	for pr in problems:
+		print(pr)
+	print(f"quest-trace check: {len(problems)} problems")
+	return 1 if problems else 0
+
+
 def main(argv=None):
 	parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
 	sub = parser.add_subparsers(dest="command", required=True)
@@ -629,6 +650,14 @@ def main(argv=None):
 	p.add_argument("--started", nargs="+", action="extend", type=int, metavar="ID", help="quests the character has in START state")
 	clock_args(p)
 	p.set_defaults(fn=cmd_m5d_quests)
+
+	p = sub.add_parser("quest-trace", help="golden traces of the Java quest handlers: every return leaf of every hook as a case with its "
+	                                       "effects (questtrace/, phase6-inventory.md §7.6 item 3)")
+	p.add_argument("action", choices=("generate", "check"))
+	p.add_argument("--out", default=str(runner.EXPECTED_DIR / "quest"), help="generate: the output directory (default expected/quest)")
+	p.add_argument("--expected-dir", default=str(runner.EXPECTED_DIR / "quest"), help="check: the committed traces (default expected/quest)")
+	p.add_argument("--only", nargs="+", metavar="REL", help="handlers below data/handlers/quest instead of the slice (questtrace.extract.SLICE)")
+	p.set_defaults(fn=cmd_quest_trace)
 
 	args = parser.parse_args(argv)
 	try:

@@ -714,3 +714,69 @@ Tests: `tests/test_m5d.py` (the var arithmetic of the handlers alone, Java's Has
 tables today and on an edited copy, the whole report on a small static_data tree with a fixture Java handler and config, one fixture quest per
 QuestService rule with every rate apart and a profile, and on the real data 1101 -> 1102 -> 1103 in Poeta, 2101 and 2102 in Ishalgen, both
 start maps' marker sets and wire orders, and the float rounding of 21040's exp).
+
+## Phase-6 golden quest traces (`questtrace/`, `docs/design/phase6-inventory.md` §7.6 item 3)
+
+`questtrace/extract.py` turns a Java quest handler into its expected behaviour, written from Java only: from the handler source,
+`AbstractQuestHandler.java`, `QuestService.java`, `QuestState.java`/`QuestVars.java`/`QuestEnv.java` and the DialogAction, DialogPage and
+enum tables (`m5d/javasrc.py`). It reuses the Java statement parser of the quest generator (`tools/gen/questgen/jast.py`, over
+`tools/gen/javasrc.py`) and never imports the generator itself (`questgen.emit`); a test checks that in a fresh process.
+
+Two consequences of that reuse. The parser is common to the generator and the oracle: a jast mis-parse (precedence, associativity, labels)
+would give the C++ and the expected trace the same wrong meaning, so `tests/test_quest_trace.py` pins the precedence and associativity the
+oracle relies on through evaluated effects (`10 - 4 - 3` is 3, `true || false && false` is true, ...). And the `tools.oracle` tests now
+import `tools/gen`: an edit to `tools/gen/questgen/jast.py` or `tools/gen/javasrc.py` can turn `tools.oracle` red as well as `tools.gen`.
+
+Every hook (the overrides of AbstractQuestHandler's `on*Event` methods and `rideAction`) is executed symbolically; each return leaf is a
+case in `expected/quest/<questId>.json` (`format` `aion-quest-trace`, `version` 1):
+
+| Field | What |
+|---|---|
+| `given` | the inputs the path read, with a value that satisfies every guard on it: `target` (`{kind: npc, npcId}` or `{kind: none}`; a target the guards exclude is the first of the handler's registered npcs, else of `OTHER_NPCS`, the first three templates of `npc_templates.xml`, that no guard names), `questState` (`null`, or `status`, the `vars` slots read, `canRepeat`, the reward group), `dialogAction` (`name`, `id`), `inventory` (item id to count), `otherQuests`, `player` (race, level, class, gender), `item`, `args` (the hook's own int/zone arguments; a zone no guard names is `{anyExcept: [...]}`), `env`. An input the path never read is absent: any value does |
+| `assume` | a helper's result a guard branched on (`if (QuestService.startQuest(env))`), by effect index |
+| `guards` | the Java text of every condition taken, its outcome and its line, in order |
+| `ranges` | an input an ordering guard bounded on both ends, `[lo, hi]`. Both ends satisfy every guard: an end a `!=` guard excludes moves inward (`!(var >= 1 && var < 10) && var != 10` is `[11, 63]`), so `given` holds `lo` and a harness can check `hi` too |
+| `rangeExcludes` | the values inside `[lo, hi]` a guard excludes (none in the corpus today) |
+| `effects` | the calls with side effects in order, arguments evaluated under `given`: the AbstractQuestHandler helpers (`sendQuestDialog` with its page, `changeQuestStep`, `giveQuestItem`, `removeQuestItem`, `playQuestMovie`, ...), `qs.setQuestVarById`/`setQuestVar`/`setStatus`/`setRewardGroup`, `QuestService.*`, `PacketSendUtility.sendPacket` with the packet built, `env.setQuestId`. The hook's own `env` and `player` arguments are left out; a varargs `int[]` is spread |
+| `returns` / `throws` | the value (`true`, `"FAILED"`, `{resultOf: k}` for effect k's result, `{fromBoolean: ...}`), or `NullPointerException` when the path dereferences an absent QuestState or target (after the call's arguments are evaluated, JLS 15.12.4, so their effects are in the case) |
+
+A document also holds `register` (the registration trace of `register()`, loops over constant arrays unrolled: the Python-only form of
+phase6-questgen-prototype.md §8.2) and `hooks` (each hook with its case count, or the reason it is refused).
+
+The cases are call traces. A helper call is an effect with its arguments, not expanded into what it sends: a recording double of
+AbstractQuestHandler/QuestState (the link seam of §7.6 item 3) returns the assumed results and compares the calls; a harness on the real
+engine after M5d compares the observable subset (dialog pages, var and status writes, items, movies) and lets the ported helpers run.
+Assumed helper results are not checked against the helper's own logic (collectItemCheck with no QuestState cannot return true in Java).
+
+Guards are equalities, set membership, ranges and their negations over single inputs (a linear offset such as `var + 1 == 3` is solved),
+so a satisfying value is picked directly and an infeasible branch is dropped. Each label of a multi-label `case` is its own case. State
+writes are read back (`setQuestVarById` then `getQuestVarById`); after a helper whose Java body may write state (`changeQuestStep`,
+`defaultCloseDialog`, `sendQuestEndDialog`, ...), a read of that state refuses the hook, as do a call outside the helper table, a loop that
+is not over a constant array, a guard over two inputs and floating-point arithmetic. `QuestService.startQuest` is modelled (false changes
+nothing, true sets START on `env.getQuestId()`, which is the handler's quest unless `env.setQuestId` changed it). Java's int arithmetic
+(32-bit wrap, `/` and `%` toward zero), casts (JLS 5.1.3), `++`/`--`, compound assignment, switch fall-through, `break`/`continue` in a
+for-each over a constant array, `QuestVars.setVar`'s six 6-bit slots and `DialogPage.getRewardPageByIndex` are modelled, each pinned by a
+test.
+
+The input model has limits a harness should know. The visible object is an Npc or nothing: `QuestEnv.getTargetId` (QuestEnv.java:94-96)
+also returns the template id of a visible object that is not an Npc (a gatherable, a static object), which makes `instanceof Npc` false
+with a non-zero target id, and no case has such a target. The assumed results of helpers are not checked against the helpers.
+
+The first slice is `questtrace.extract.SLICE`: the 20 Poeta and Ishalgen handlers questgen transliterates in tier A with its P6-T rules
+(`tools/gen/tests/test_questgen_p6t.py` keeps the two lists equal): 515 cases, every hook traced. Over all 1,035 handlers the extractor
+writes 972 documents (the other 63 contain Java the shared parser refuses: a lambda, an anonymous class, `new ArrayList<>`, a switch
+expression) with 18,970 cases; 637 of them have every hook traced (17,013 cases; 26 of those with a `register()` it does not follow). The
+most common refusals are crafting calls, the follow helpers, teleports and the packed `getQuestVars().getQuestVars()`.
+
+```
+python oracle.py quest-trace generate [--out DIR] [--only REL ...]   # writes expected/quest/<id>.json (the slice by default)
+python oracle.py quest-trace check [--expected-dir DIR] [--only REL ...]   # exit 1 when a committed trace is missing, stale or extra
+```
+
+With `--only`, `check` compares the named handlers only (the other documents in the directory are not reported as extra).
+
+Tests: `tests/test_quest_trace.py` (the input domains, a synthetic handler through every modelled construct and the refused ones, one
+small handler per Java rule above with its values worked out by hand, the parser precedence the oracle relies on, the range ends, the
+mutation standard - a changed page id, var write or guard in the Java changes the expected case -, hand-derived cases of 1000, 1001, 1005 and
+2122, the committed traces against a regeneration, `OTHER_NPCS` against `npc_templates.xml`, the command line, and the independence from
+the generator).

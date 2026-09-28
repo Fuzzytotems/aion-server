@@ -631,8 +631,8 @@ The plan's verification has no Java runtime (`handlers-and-porting-plan.md:608`)
 
 1. **Structural parity (`tools/parity`, per file, every handler).** Multisets of integer and string literals, `DialogAction` names,
    `STR_*` names, API call names, schedule counts and the spawn npc id set (`handlers-and-porting-plan.md:613-618`). It must be green
-   before merge (`:556`). **`tools/parity` does not exist yet** (`ls tools/` shows gen, oracle, porting, xmlgen), so it belongs to the
-   tooling lane.
+   before merge (`:556`). **`tools/parity` did not exist** when this was written, so it belonged to the tooling lane; P6-T added it on
+   2026-09-27 (§9.2, the P6-T row; `tools/parity/README.md`).
 2. **Registration trace (quests, runnable today).** The ordered (npc or item id, event kind) list that `register()` produces, compared
    with the Java statement order. `QuestEngine::registerQuestNpc` and `QuestNpc::addOn*` are already ported (`QuestEngine.cpp:710-717`,
    `QuestNpc.cpp:25-44`), so this runs before M5d.
@@ -646,7 +646,11 @@ The plan's verification has no Java runtime (`handlers-and-porting-plan.md:608`)
    afterwards and the inventory delta. Because the oracle is written from Java, not from the port, it satisfies the roadmap's mutation
    standard: a flipped page id or var must fail a case. Before M5d, a test-only target could link a recording double of
    `AbstractQuestHandler`/`QuestState` in place of the unported bodies and compare call traces. That is optional; the helpers are
-   non-virtual, so it has to be a link seam.
+   non-virtual, so it has to be a link seam. **P6-T note (2026-09-27):** the oracle (`tools/oracle/questtrace`) reads no C++ and never
+   imports the generator, but it parses the Java with questgen's `jast`, the generator's own parser. A mis-parse there (precedence,
+   associativity, labels) would give the C++ and the expected trace the same wrong meaning; `tests/test_quest_trace.py` pins the
+   precedence and associativity the oracle relies on, and a frozen or second parser is the stronger fix if `jast` changes a lot. The
+   `tools.oracle` tests also import `tools/gen`, so a phase-6 prototype edit there can turn `tools.oracle` red.
 4. **Twins.** The oracle and the parity check always run on the twin's **own** Java file, never on A's. For every G2 output, parity also
    compares the **ordered** sequence of integer and string literals of the C++ file with the Java file's (anchors, where used, fix the
    pairing), because a multiset check cannot see two literals swapped between positions. For the AI and instance twins (the splinter
@@ -758,7 +762,7 @@ will not deliver, and the work is M5j's (its D15). Rev 2 of this document follow
 
 | Lane | Starts after | Scope | Files | Hand h | Route |
 |---|---|---|---|---|---|
-| **P6-T** tooling | now | G1 core + tier-B table + twin tool with its N-way mode + S4 verbs; the `HandlerResult` companion header if M5d has not landed it (R8); the golden quest oracle; `tools/parity` with the ordered-literal check; G3 assist; G4 command shells; the 20-quest prototype and its go/no-go | – | ~118 + `tools/parity` | build |
+| **P6-T** tooling | now | G1 core + tier-B table + twin tool with its N-way mode + S4 verbs; the `HandlerResult` companion header if M5d has not landed it (R8); the golden quest oracle; `tools/parity` with the ordered-literal check; G3 assist; G4 command shells; the 20-quest prototype and its go/no-go. **Done 2026-09-27, Python only (owner: U1/U7 "yes, carefully"):** `tools/parity` (literal multisets; ordered literals, calls, operators and constants; companions; spawn ids; QuestSpawnAnalyzer's own regular expression over the raw text; 29 tests), which finds the 929 files questgen emits at parity with their Java; it has **no per-line waiver yet** (`// parity: <reason>`, `handlers-and-porting-plan.md` §3.1 item 2), so a hand port with an owner-approved deviation cannot pass until that is added, and it does not compare plain identifiers (`tools/parity/README.md`); the golden quest oracle (`tools/oracle/questtrace`, `oracle.py quest-trace`) with its first slice, the 20 Poeta and Ishalgen tier-A quests, 515 cases in `tools/oracle/expected/quest/<id>.json` (44 tests); questgen's P6-T rules (`emit.P6T_RULES`: varargs inline and `workItems` in place of the two header requests of prototype §5.2 items 3-4, switch expressions and switch rules, `int[][]`/`String[]` constants of §8.4), on in the driver: **910 → 929 of 1,035** (the 18 the prototype predicted plus `beshmundir/_30211`), the other 910 files byte-identical (22 tests in `tools/gen/tests/test_questgen_p6t.py`). **Left for a build slot:** the compile check of the emitted files (prototype §8.1), the C++ registration trace (§8.2), the harness that drives the traces through the engine after M5d (§7.6 item 3); then G2, G3, G4, the S4 verbs, complete reason lists (prototype §8.4) and the next oracle slices | – | ~118 + `tools/parity` | build |
 | P5-05 roots (request R1) | now for the phase-4 roots; the casting roots after M5b-2 | the 40 missing roots (S5 F03/F04, the 9 policy roots in F02, a few in F13), including the chest, shifter, kisk and one-damage roots m5j rev 1 inherited; a phase-5 chunk, counted inside the AI lanes below | 40 | ~70 | hand |
 | **P6-A0** | now | AI files calling only phase-4 or framework code (A1 + the `ai/instance` parts of I1-I6) | ~125 | ~185 | hand + G3 |
 | **P6-A1** | M5b-2 | AI files casting through `SkillEngine`/`AIActions.useSkill`: minions, skill tickers, auras, bosses | ~181 | ~410 | hand; ~74 finished only after M5e's effect lanes or J9 (R3) |

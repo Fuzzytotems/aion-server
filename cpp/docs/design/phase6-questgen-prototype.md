@@ -14,6 +14,15 @@
 > parallel lanes now show their real dependencies (§11). **Coverage does not change**: with comments and blank lines removed, the code of
 > all 910 emitted files is identical to rev 1.
 >
+> **P6-T, 2026-09-27** (the owner's U1/U7 "yes, carefully"; phase6-inventory.md §9.2, the P6-T row). The emitter rules of §5.2 items 3-4
+> and the cheap idiom rules of §8.4 are in, as `emit.P6T_RULES`, on in the driver: 'varargs-inline', 'work-items' (spelled `get(0)` and
+> `get(size() - 1)`: see the correction in §5.2 item 4), 'switch-expression' (also the switch rules `case A -> ...`) and 'nested-array'.
+> The dry run transliterates **929 of 1,035** (tier A 708, tier B 221): the 18 files §8.4 counted as upper bounds, all of them, plus
+> `beshmundir/_30211`, which the prototype had refused as a lambda (it read `case SETPRO1, QUEST_SELECT ->` as one). The 910 files of this
+> document are byte-identical. `--prototype-rules` reproduces the numbers below; `tools/parity` finds all 929 at parity with their Java;
+> the golden oracle (§8.3) has its first slice in `tools/oracle/expected/quest/`. New tests:
+> [`tools/gen/tests/test_questgen_p6t.py`](../../tools/gen/tests/test_questgen_p6t.py). Nothing was compiled.
+>
 > Code: [`tools/gen/questgen/`](../../tools/gen/questgen/__init__.py) (package), tests
 > [`tools/gen/tests/test_questgen.py`](../../tools/gen/tests/test_questgen.py) (40 tests, stdlib `unittest`, no compiler).
 > Java files are cited relative to `game-server/data/handlers/quest/` or `game-server/src/com/aionemu/gameserver/`; C++ files relative to
@@ -366,6 +375,11 @@ item 2).
    (`runtime/collections/ArrayList.h:86`, `:266-267`). So `workItems->getFirst()->getItemId()`, `workItems->get(1)` and
    `workItems->getLast()` compile against the declared types. The accessor rev 1 proposed (`const QuestItems* workItem(int)`) would not
    have covered `getFirst` and `getLast` anyway. With the rule, the 5 files where this is the only reason no longer need a header change.
+   **Correction (P6-T, 2026-09-27):** `ArrayList.h:266-267` declare `getFirst` and `getLast` on `LinkedList`, not on `ArrayList`, and
+   `workItems` is an `Rc<ArrayList<const QuestItems*>>` (`AbstractQuestHandler.h:56`, `runtime/collections/Rc.h`), so
+   `workItems->getFirst()` would not compile. The rule spells Java's `getFirst()` as `workItems->get(0)` and `getLast()` as
+   `workItems->get(workItems->size() - 1)` (`get` returns the `const QuestItems*` itself); on an empty list Java throws
+   NoSuchElementException where `get` throws IndexOutOfBoundsException. The rule still needs no header change.
 5. **The quest prelude could include five more headers.** The transliterator adds `QuestStateList.h` to 903 files, `QuestNpc.h` to 901,
    `SM_DIALOG_WINDOW.h` to 202, `QuestService.h` to 199 and `Storage.h` to 165. Including them in `QuestPrelude.h`, which is also its PCH,
    removes the per-file includes. The prelude is Q01's file (`handlers-and-porting-plan.md:874`).
@@ -509,11 +523,13 @@ natural input of that extractor. The oracle can be written now; running it waits
 From `cpp/`:
 
 ```
-python -m tools.gen.questgen --dry-run --json OUT.json --markdown OUT.md     # the report (about 8 s)
-python -m tools.gen.questgen --dry-run --emit <dir outside the repo>         # also write the 910 .cpp files
+python -m tools.gen.questgen --dry-run --prototype-rules --json OUT.json --markdown OUT.md   # this document's report (about 8 s)
+python -m tools.gen.questgen --dry-run --prototype-rules --emit <dir outside the repo>       # also write the 910 .cpp files
 python -m tools.gen.questgen --dry-run --only eltnen/_1363ThankingMabangtah.java -v
 cd tools/gen && python -m unittest tests.test_questgen                       # 40 tests, no compiler
 ```
+
+Without `--prototype-rules` the driver adds the P6-T rules (the note at the top): 929 files, and `tests.test_questgen_p6t` checks them.
 
 The JSON has, for each file, the status, tier, quest id, refusal reasons, API-table rows, APIs called, planned declarations used, unported
 bodies reached and the Java-bug notes placed. It also has the full API and mirror tables.
