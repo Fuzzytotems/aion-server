@@ -3,6 +3,12 @@
 The owner's answers to the open decisions of the milestone plans, newest first. Each plan applies its answer at its next refresh; until
 then this file wins over a plan's "until the user answers" default.
 
+## 2026-09-28
+
+| Decision | Answer | What it changes |
+|---|---|---|
+| Spare night capacity (00:00-06:00, nighttime build caps) | **"If you are able to specifically dedicate the new lanes toward accelerating the Ascension process, please do."** | The main line is unchanged (M5c stage 2 keeps its two build slots). The extra slots go to ascension pieces in worktrees, merged only after M5c stage 2 commits: the M5d quest engine rebased onto HEAD, M5e C-01 (the class change and the simple window), the route's npc AIs (simple_abyssguard, AscensationNpcAI, `isPendingAscension`), and the M5f instance-core subset (N-01/N-02/N-07/N-03/N-04 on the map-change path, T-02's instance teleports, T-06, `CM_TELEPORT_ANIMATION_DONE`, `CM_MOVE_IN_AIR`, `CM_PLAY_MOVIE_END`), which also fixes Return and revive across maps. The retail quest handlers themselves are not part of it |
+
 ## 2026-09-27
 
 | Decision | Answer | What it changes |
