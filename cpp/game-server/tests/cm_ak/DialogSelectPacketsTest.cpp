@@ -14,15 +14,23 @@
 // ai="general" and ai="aggressive", whose handlers live in the handler library this executable does not link: the cases that talk give the
 // npc a leaf AI with GeneralNpcAI's dialog hooks (GeneralNpcAI.java:49-57).
 //
+// M5d D-02's residue (m5d-plan.md §18.3): the quest arm with a registered quest handler - a quest without can_report hands even an auto
+// reward to its handler through QuestEngine.onDialog, and a reportable quest's auto reward finishes it without asking the handler. The
+// handlers are DialogProbes added to the QuestEngine singleton and cleared again (tests/cm_lz/AscensionPacketsTest.cpp's pattern). Not driven
+// here: the simple 2nd class arm (:105-106, `gameserver.simple.secondclass.enable`), whose ClassChangeService.changeClassToSelection
+// tests/playersvc/ClassChangeServiceTest.cpp covers and M5e's gate X1/X5 runs live.
+//
 // Covered elsewhere since M5c stage 1: the `isTrading()` bail-out (tests/economy/P5-09b/TradingRefusalsTest.cpp, W-28, T-04) and a player
 // target's BUY, which opens his private store window (PlayerController.onDialogSelect: SM_PRIVATE_STORE; tests/cm_ak/BuyItemPacketTest.cpp,
 // APlayersPrivateStoreSellsForAction0Only, K-01).
 
 #include "ItemPacketTestSupport.h"
 
+#include <chrono>
 #include <cstdint>
 #include <memory>
 #include <optional>
+#include <ostream>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -61,10 +69,15 @@
 #include "aion/gameserver/network/aion/clientpackets/CM_DIALOG_SELECT.h"
 #include "aion/gameserver/network/aion/serverpackets/SM_MESSAGE.h"
 #include "aion/gameserver/network/aion/serverpackets/SM_SYSTEM_MESSAGE.h"
+#include "aion/gameserver/questEngine/QuestEngine.h"
+#include "aion/gameserver/questEngine/handlers/AbstractQuestHandler.h"
+#include "aion/gameserver/questEngine/model/QuestEnv.h"
 #include "aion/gameserver/questEngine/model/QuestState.h"
 #include "aion/gameserver/questEngine/model/QuestStatus.h"
 #include "aion/gameserver/runtime/base/Unported.h"
+#include "aion/gameserver/services/cron/CronService.h"
 #include "aion/gameserver/services/player/PlayerMailboxState.h"
+#include "aion/gameserver/utils/cron/ThreadPoolManagerRunnableRunner.h"
 #include "aion/gameserver/world/World.h"
 #include "aion/gameserver/world/knownlist/NpcKnownList.h"
 
@@ -291,6 +304,41 @@ std::vector<uint8_t> noNearbyQuests() {
 	return javaPacket(SM_NEARBY_QUESTS_OPCODE, PacketWriter().C(0).H(0));
 }
 
+/** What QuestEngine.onDialog handed a quest handler: the QuestEnv's quest, dialog action, target (0 for null) and player */
+struct DialogCall {
+	int32_t questId = 0;
+	int32_t dialogActionId = 0;
+	int32_t targetId = 0;
+	int32_t playerId = 0;
+
+	bool operator==(const DialogCall&) const = default;
+};
+
+std::ostream& operator<<(std::ostream& os, const DialogCall& call) {
+	return os << "onDialogEvent(quest " << call.questId << ", action " << call.dialogActionId << ", target " << call.targetId << ", player "
+			  << call.playerId << ")";
+}
+
+/**
+ * M5d D-02: a quest handler that records its onDialogEvent calls and answers `answer` (quest handlers are Immortal: QuestEngine keeps them, so
+ * the record is static). QuestEngine.onDialog finds a handler of a QuestEnv with a quest id by that id, so register_ registers nothing.
+ */
+class DialogProbe final : public questEngine::handlers::AbstractQuestHandler {
+public:
+	explicit DialogProbe(int32_t questId) : AbstractQuestHandler(questId) {}
+
+	static inline std::vector<DialogCall> calls;
+	static inline bool answer = true;
+
+	void register_() override {}
+
+	bool onDialogEvent(questEngine::model::QuestEnv& env) override {
+		runtime::Ptr<model::gameobjects::VisibleObject> target = env.getVisibleObject();
+		calls.push_back({env.getQuestId(), env.getDialogActionId(), target ? target->getObjectId() : 0, env.getPlayer()->getObjectId()});
+		return answer;
+	}
+};
+
 /** The quest reward rates at their Java defaults for the case (RatesConfig.java: "1.0, 2.0" each), restored after it */
 struct JavaQuestRates {
 	std::shared_ptr<const std::vector<float>> savedKinah = configs::main::RatesConfig::QUEST_KINAH_RATES.get();
@@ -327,6 +375,10 @@ protected:
 	}
 
 	void TearDown() override {
+		if (dialogProbesAdded) {
+			questEngine::QuestEngine::getInstance().clear(); // the handlers themselves stay (Immortal), unreachable
+			services::cron::CronService::resetForTests();
+		}
 		if (f.player)
 			f.player->setTarget(nullptr);
 		if (online) {
@@ -400,6 +452,25 @@ protected:
 		return javaPacket(SM_TRADELIST_OPCODE, PacketWriter().D(npcObjectId).C(1).D(100).D(100).C(1).C(1).H(2).D(132).D(720).H(0));
 	}
 
+	/**
+	 * M5d D-02: DialogProbes for the two quests of QUEST_DATA_XML in the QuestEngine singleton. AbstractQuestHandler's constructor asks
+	 * QUEST_DATA for the quest's work and action items, and QuestEngine.clear cancels the daily message through the CronService, which is set up
+	 * here as QuestEngineTest's fixture does (tests/cm_lz/AscensionPacketsTest.cpp the same).
+	 */
+	void addDialogProbes() {
+		services::cron::CronService::resetForTests();
+		services::cron::CronService::initSingleton(std::make_unique<utils::cron::ThreadPoolManagerRunnableRunner>(), std::chrono::locate_zone("UTC"),
+			services::cron::CronService::Driver::EXECUTOR);
+		dialogProbesAdded = true;
+		DialogProbe::calls.clear();
+		DialogProbe::answer = true;
+		questEngine::QuestEngine::getInstance().addQuestHandler(std::make_unique<DialogProbe>(PROLOGUE));
+		questEngine::QuestEngine::getInstance().addQuestHandler(std::make_unique<DialogProbe>(SLEEPING_ON_THE_JOB));
+		ASSERT_TRUE(questEngine::QuestEngine::getInstance().isHaveHandler(PROLOGUE));
+		ASSERT_TRUE(questEngine::QuestEngine::getInstance().isHaveHandler(SLEEPING_ON_THE_JOB));
+	}
+
+	bool dialogProbesAdded = false;
 	std::shared_ptr<const std::string> savedMissingAiHandlers;
 	bool online = false;
 	int8_t savedDialogInfo = 0;
@@ -581,6 +652,58 @@ TEST_F(DialogSelectRunTest, AQuestReportWithoutAHandlerOrForAnUnknownQuestDoesNo
 	dialogSelect(selectBody(0, DialogAction::SELECTED_QUEST_AUTO_REWARD, 9999)); // :73-75: no such quest
 	EXPECT_TRUE(sent().empty());
 	EXPECT_EQ(runtime::unportedHitCount(), 0u) << "simple 2nd class is off; nothing reaches QuestService or ClassChangeService";
+}
+
+// M5d D-02 (m5d-plan.md §18.3): the arm of :103 with a registered handler. A quest without can_report is no finish (:81), so even an auto
+// reward goes to QuestEngine.onDialog, which hands the packet's QuestEnv - no target, the quest, the action (:80) - to the quest's handler
+// (QuestEngine.java: getQuestHandlerByQuestId). Its answer ends the packet (:103-104) whether true or false: 1000 is neither 1006 nor 2008, and
+// simple 2nd class is off (:105). The quest itself is the handler's business: nothing is finished or sent here.
+TEST_F(DialogSelectRunTest, AnAutoRewardOfAQuestWithoutCanReportIsItsHandlersDialog) {
+	JavaQuestRates rates;
+	goOnline();
+	addDialogProbes();
+	runtime::Ref<QuestState> prologue = hold(PROLOGUE, QuestStatus::REWARD);
+
+	dialogSelect(selectBody(0, DialogAction::SELECTED_QUEST_AUTO_REWARD, PROLOGUE));
+
+	EXPECT_EQ(DialogProbe::calls,
+		(std::vector<DialogCall>{{PROLOGUE, DialogAction::SELECTED_QUEST_AUTO_REWARD, 0, player().getObjectId()}}));
+	EXPECT_EQ(prologue->getStatus(), QuestStatus::REWARD);
+	EXPECT_EQ(prologue->getCompleteCount(), 0);
+
+	// the player's own object id is the same arm (:75), and a false answer ends there too
+	DialogProbe::calls.clear();
+	DialogProbe::answer = false;
+	dialogSelect(selectBody(player().getObjectId(), DialogAction::SELECTED_QUEST_AUTO_REWARD3, PROLOGUE));
+
+	EXPECT_EQ(DialogProbe::calls,
+		(std::vector<DialogCall>{{PROLOGUE, DialogAction::SELECTED_QUEST_AUTO_REWARD3, 0, player().getObjectId()}}));
+	EXPECT_EQ(prologue->getStatus(), QuestStatus::REWARD);
+	EXPECT_TRUE(sent().empty());
+	EXPECT_EQ(runtime::unportedHitCount(), 0u);
+}
+
+// The other side of :81-100 with a handler: an auto reward of a reportable quest finishes it and returns (:99) before the handler is asked,
+// while any other action of the same quest is the handler's (:103)
+TEST_F(DialogSelectRunTest, AnAutoRewardOfAReportableQuestIsFinishedWithoutAskingItsHandler) {
+	JavaQuestRates rates;
+	goOnline();
+	stored(710301, KINAH, 1000);
+	addDialogProbes();
+	runtime::Ref<QuestState> qs = hold(SLEEPING_ON_THE_JOB, QuestStatus::REWARD);
+
+	dialogSelect(selectBody(0, DialogAction::SELECTED_QUEST_AUTO_REWARD, SLEEPING_ON_THE_JOB));
+
+	EXPECT_EQ(qs->getStatus(), QuestStatus::COMPLETE);
+	EXPECT_TRUE(DialogProbe::calls.empty()) << ::testing::PrintToString(DialogProbe::calls);
+
+	clearSent();
+	dialogSelect(selectBody(0, DialogAction::SELECT1 + 1, SLEEPING_ON_THE_JOB));
+
+	EXPECT_EQ(DialogProbe::calls,
+		(std::vector<DialogCall>{{SLEEPING_ON_THE_JOB, DialogAction::SELECT1 + 1, 0, player().getObjectId()}}));
+	EXPECT_EQ(qs->getCompleteCount(), 1);
+	EXPECT_TRUE(sent().empty());
 }
 
 TEST_F(DialogSelectRunTest, ClosingTheDialogFinishesTheTalkAndLooksAtTheNpc) {

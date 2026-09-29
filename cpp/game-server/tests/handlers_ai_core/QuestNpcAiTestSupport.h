@@ -20,6 +20,14 @@
 //   TribeRelationService's hard-coded `GUARD -> GUARD_DRAGON` arm makes Jucleas aggressive to it (TribeRelationService.java:37-44).
 // - 211042 raider (the solo instance of quest 1006; tribe AGGRESSIVESINGLEMONSTER, ai ascensationquestnpc, srange 20, no sangle = 360).
 // - 211043 orissan (the boss of the same instance, ai ascensationquestnpc): the one of the four with an npc skill, 16526 (npc_skills.xml:5068-5070).
+//
+// Added by M5d's quest-npc-ais lane (m5d-plan.md A-02..A-04: ActionItemNpcAI, P5-05; QuestItemNpcAI, chunk A1 under the lane's file lease on
+// handlers/ai/quests/QuestItemNpcAI.*), the objects a player uses:
+// - 218610 defensive artillery (ai useitem, tribe USEALL, talk distance 1, talk delay 3 s): a use bar of 3000 ms.
+// - 203671 altgard teleport device (ai useitem, tribe GENERAL_DARK, a dialog npc, no talk delay): used at once.
+// - 700105 kerub grain sack (Poeta; ai quest_use_item, tribe FIELD_OBJECT_LIGHT, talk distance 3, talk delay 3 s, not a dialog npc): the quest
+//   object of 1103 "Grain Thieves" (its <quest_drop>, quest_data.xml:910).
+// - 700001 ancient cube (ai quest_use_item, a dialog npc, talk delay 3 s): a quest object that shows page 1011 when no quest takes it.
 
 #include <gtest/gtest.h>
 
@@ -52,6 +60,10 @@ inline constexpr int32_t LEAH = 203725;
 inline constexpr int32_t BALAUR_LEVEL_2 = 250109;
 inline constexpr int32_t RAIDER = 211042;
 inline constexpr int32_t ORISSAN = 211043;
+inline constexpr int32_t DEFENSIVE_ARTILLERY = 218610;
+inline constexpr int32_t ALTGARD_TELEPORT_DEVICE = 203671;
+inline constexpr int32_t KERUB_GRAIN_SACK_OBJECT = 700105;
+inline constexpr int32_t ANCIENT_CUBE = 700001;
 
 /** npcs/npc_templates.xml, verbatim except the <equipment> of each row (see the file comment) */
 inline const char* const QUEST_NPC_AI_TEMPLATES_XML =
@@ -95,16 +107,41 @@ inline const char* const QUEST_NPC_AI_TEMPLATES_XML =
 	R"( group_drop="DRAKANFIGHTER" rank="DISCIPLINED" rating="NORMAL" race="DRAKAN" tribe="GUARD_DRAGON" type="ABYSS_GUARD" abyss_type="RAID")"
 	R"( ai="aggressive" srange="10" sangle="270" arange="2" attack_speed="2100" cast_speed="100" hpgauge="3" floatcorpse="true">)"
 	R"(<stats maxHp="4162"><speeds walk="1.07" group_walk="1.07" run="8" run_fight="6" group_run_fight="8" /></stats>)"
-	R"(<bound_radius front="0.75" side="0.475" upper="2.3" /></npc_template>)";
+	R"(<bound_radius front="0.75" side="0.475" upper="2.3" /></npc_template>)"
+	// npcs/npc_templates.xml:121225-121229
+	R"(<npc_template npc_id="218610" level="60" name="defensive artillery" name_id="324686" height="7.2" group_drop="SIEGEWEAPON" rank="NOVICE")"
+	R"( rating="ELITE" race="CONSTRUCT" tribe="USEALL" type="GENERAL" ai="useitem" srange="10" attack_speed="2260" hpgauge="10")"
+	R"( cancel_level="50"><stats maxHp="46115" /><bound_radius front="2" side="4" upper="7.2" />)"
+	R"(<talk_info distance="1" delay="3" can_talk_invisible="false" /></npc_template>)"
+	// npcs/npc_templates.xml:8883-8887
+	R"(<npc_template npc_id="203671" level="1" name="altgard teleport device" name_id="352239" height="2" group_drop="NONE" rank="DISCIPLINED")"
+	R"( rating="NORMAL" race="ASMODIANS" tribe="GENERAL_DARK" type="GENERAL" ai="useitem" srange="20" sangle="0" attack_speed="2000")"
+	R"( hpgauge="3"><stats maxHp="172" /><bound_radius front="0.25" side="0.35" upper="2" />)"
+	R"(<talk_info distance="6" is_dialog="true" func_dialogs="44" can_talk_invisible="false" /></npc_template>)"
+	// npcs/npc_templates.xml:440035-440039
+	R"(<npc_template npc_id="700105" level="1" name="kerub grain sack" name_id="350753" height="2" group_drop="NONE" rank="DISCIPLINED")"
+	R"( rating="NORMAL" tribe="FIELD_OBJECT_LIGHT" type="GENERAL" ai="quest_use_item" sangle="0" attack_speed="2000" hpgauge="3">)"
+	R"(<stats maxHp="172" /><bound_radius front="0.25" side="0.35" upper="2" />)"
+	R"(<talk_info distance="3" delay="3" can_talk_invisible="false" /></npc_template>)"
+	// npcs/npc_templates.xml:439522-439526
+	R"(<npc_template npc_id="700001" level="1" name="ancient cube" name_id="350700" height="0.3" group_drop="NONE" rank="DISCIPLINED")"
+	R"( rating="NORMAL" tribe="FIELD_OBJECT_LIGHT" type="GENERAL" ai="quest_use_item" sangle="0" attack_speed="2000" hpgauge="3">)"
+	R"(<stats maxHp="172" /><bound_radius front="0.375" side="0.525" upper="0.3" />)"
+	R"(<talk_info distance="3" delay="3" is_dialog="true" can_talk_invisible="false" /></npc_template>)";
 
 /** tribe/tribe_relations.xml, verbatim: the rows of every tribe the npcs above and the two races of the players have */
 inline const char* const QUEST_NPC_AI_TRIBE_RELATIONS_XML =
 	R"(<tribe_relations>)"
 	// tribe/tribe_relations.xml:29-31
 	R"(<tribe name="AGGRESSIVESINGLEMONSTER" base="MONSTER"><aggro>PC PC_DARK</aggro></tribe>)"
+	// tribe/tribe_relations.xml:477
+	R"(<tribe name="FIELD_OBJECT_LIGHT"/>)"
 	// tribe/tribe_relations.xml:719-721
 	R"(<tribe name="GENERAL"><none>NEUTRAL_DGUARD YDUMMY_DGUARD YDUMMY2_DGUARD LDF4B_SPARRING_DGUARD LDF4B_SPARRING_DGUARD2)"
 	R"( LDF5_DUMMY1_DGUARD LDF5_DUMMY2_DGUARD LDF5_SPARRING1_DGUARD LDF5_SPARRING2_DGUARD</none></tribe>)"
+	// tribe/tribe_relations.xml:739-741
+	R"(<tribe name="GENERAL_DARK"><none>NEUTRAL_LGUARD YDUMMY_LGUARD YDUMMY2_LGUARD LDF4B_SPARRING_GUARD LDF4B_SPARRING_GUARD2)"
+	R"( LDF5_DUMMY1_LGUARD LDF5_DUMMY2_LGUARD LDF5_SPARRING1_LGUARD LDF5_SPARRING2_LGUARD</none></tribe>)"
 	// tribe/tribe_relations.xml:805-807
 	R"(<tribe name="GUARD"><friend>DUMMY DUMMY2</friend></tribe>)"
 	// tribe/tribe_relations.xml:817-819
@@ -120,6 +157,8 @@ inline const char* const QUEST_NPC_AI_TRIBE_RELATIONS_XML =
 	R"(<tribe name="PC_DARK"><friend>DARK_SUR_MOB DARK_LICH</friend><neutral>FIELD_OBJECT_ALL FIELD_OBJECT_ALL_HOSTILEMONSTER</neutral>)"
 	R"(<none>NEUTRAL_LGUARD YDUMMY_LGUARD YDUMMY2_LGUARD LDF4B_SPARRING_GUARD LDF4B_SPARRING_GUARD2 XDRAKAN_UNATTACK LDF5_DUMMY1_LGUARD)"
 	R"( LDF5_DUMMY2_LGUARD LDF5_SPARRING1_LGUARD LDF5_SPARRING2_LGUARD</none></tribe>)"
+	// tribe/tribe_relations.xml:2596
+	R"(<tribe name="USEALL"/>)"
 	R"(</tribe_relations>)";
 
 /**

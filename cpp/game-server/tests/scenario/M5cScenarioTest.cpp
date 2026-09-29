@@ -64,6 +64,7 @@
 #include "decoders/EconomyDecoders.h"
 #include "decoders/ItemDecoders.h"
 #include "decoders/PacketDecoders.h"
+#include "decoders/QuestDecoders.h" // SM_STATUPDATE_EXP (m5d-plan.md G-02 moved it there)
 
 #include "aion/commons/utils/StringUtils.h"
 #include "aion/commons/utils/WindowsMacroGuard.h" // after all headers that may include windows.h
@@ -289,23 +290,6 @@ std::vector<Decoded> decodeAll(const std::vector<Packet>& packets, std::string_v
 		}
 	}
 	return decoded;
-}
-
-/** SM_STATUPDATE_EXP (SM_STATUPDATE_EXP.java:32-38): five longs, the current exp first */
-struct StatUpdateExp {
-	int64_t currentExp = 0, recoverableExp = 0, maxExp = 0, curBoostExp = 0, maxBoostExp = 0;
-};
-
-StatUpdateExp decodeStatUpdateExp(std::span<const uint8_t> body) {
-	decoders::BodyReader reader(body, "SM_STATUPDATE_EXP");
-	StatUpdateExp exp;
-	exp.currentExp = reader.Q();
-	exp.recoverableExp = reader.Q();
-	exp.maxExp = reader.Q();
-	exp.curBoostExp = reader.Q();
-	exp.maxBoostExp = reader.Q();
-	reader.expectFullyConsumed();
-	return exp;
 }
 
 /** SM_SKILL_REMOVE (SM_SKILL_REMOVE.java:24-26): writeH(skillId), writeC(the level, a profession skill's getProfessionFlag()), writeC(skillType) */
@@ -2295,7 +2279,8 @@ void runM5cGate() {
 				gotMessages.push_back(id);
 		EXPECT_EQ(gotMessages, wantMessages) << "X15: STR_GET_EXP2 then STR_SUCCESS_RECOVER_EXPERIENCE: " << joinNumbers(messageIds(window));
 		EXPECT_EQ(kinahUpdates(window, kinah, "X15"), std::vector<int64_t>{before + *economy.recovery->yesKinahDelta}) << "X15: -" << -*economy.recovery->yesKinahDelta;
-		const std::vector<StatUpdateExp> exp = decodeAll<StatUpdateExp>(window, "SM_STATUPDATE_EXP", decodeStatUpdateExp, "X15");
+		const std::vector<decoders::StatUpdateExp> exp =
+		  decodeAll<decoders::StatUpdateExp>(window, "SM_STATUPDATE_EXP", decoders::decodeStatUpdateExp, "X15");
 		// non-fatal (the review of 2026-09-28): a mutant of X15 alone must leave C14-C18 running, so the rows after it stay observable
 		EXPECT_FALSE(exp.empty()) << "X15: the exp update: " << join(namesOf(window));
 		if (!exp.empty())
@@ -3010,7 +2995,7 @@ void runM5cGate() {
 		for (const Packet& packet : a.game->recorded()) {
 			try {
 				if (packet.name == "SM_STATUPDATE_EXP")
-					expShownBefore = decodeStatUpdateExp(packet.data).currentExp;
+					expShownBefore = decoders::decodeStatUpdateExp(packet.data).currentExp;
 				else if (packet.name == "SM_STATS_INFO")
 					expShownBefore = decoders::decodeStatsInfo(packet.data).expShown;
 			} catch (const DecodeError&) {
@@ -3144,7 +3129,8 @@ void runM5cGate() {
 		}
 		EXPECT_EQ(decodeAll<ActionAnimationPacket>(window, "SM_ACTION_ANIMATION", decodeActionAnimation, "X19"), animationsOfA(extras.skillUpAnimations))
 		  << "X19: the level-up to " << craft.skillLevelAfter << " is no CRAFT_LEVEL_UP level (SkillLearnService.java:24-28)";
-		const std::vector<StatUpdateExp> exp = decodeAll<StatUpdateExp>(window, "SM_STATUPDATE_EXP", decodeStatUpdateExp, "X19");
+		const std::vector<decoders::StatUpdateExp> exp =
+		  decodeAll<decoders::StatUpdateExp>(window, "SM_STATUPDATE_EXP", decoders::decodeStatUpdateExp, "X19");
 		EXPECT_FALSE(exp.empty()) << "X19: the exp update: " << join(namesOf(window));
 		if (!exp.empty())
 			EXPECT_EQ(exp.back().currentExp, expShownBefore + craft.playerExp) << "X19: exp +" << craft.playerExp << " (addExp(xpReward, XP_CRAFTING))";

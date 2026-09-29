@@ -21,8 +21,8 @@
 # --- SECTION A - hit at least once, asserted ---
 # =========================================================================================================================================
 
-# every startup: the gates run without quests (m5a-plan.md W-02) and without base locations (E1-06)
-aion/gameserver/questEngine/QuestEngine.cpp:111
+# every startup: the gates run without base locations (E1-06). HISTORY: QuestEngine.cpp:111 (no XML quest registered, m5a-plan.md W-02)
+# was here until M5d's D3 join (m5d-plan.md I-05) registered them at every startup; the site no longer exists.
 aion/gameserver/services/BaseService.cpp:18
 # HISTORY: M5b-3's drop registration (m5b-plan.md D5), DropRegistrationService.cpp:43, was here - the Warrior kills monster A in S5 and the
 # kerub in S5b, the Mage kills A's respawn in S10 - until M5b-3 closed registerDrop (m5b3-plan.md L-01); the site no longer exists. X12's drop

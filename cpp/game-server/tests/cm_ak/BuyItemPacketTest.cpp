@@ -17,8 +17,8 @@
 //
 // NOT COVERED, and named: the pet arm (action 17 at a merchant pet: a Pet needs the pet data, a master and its commons data; the arm is one
 // call, TradeService.performSellToShop with the pet function's rate, whose ledger TradeServiceTest covers with the vendor rate) and the ABYSS
-// purchase-template arm of action 1 (TradeService.performSellForAPToShop reaches the unported AbyssPointsService.addAp,
-// docs/deviations/P5-09b.md); the other purchase templates are covered at piarinerk.
+// purchase-template arm of action 1 (TradeService.performSellForAPToShop, which ends in AbyssPointsService.addAp: unported until M5d E-09,
+// docs/deviations/P5-09b.md; the arm is still not driven here); the other purchase templates are covered at piarinerk.
 
 #include "EconomyPacketTestSupport.h"
 

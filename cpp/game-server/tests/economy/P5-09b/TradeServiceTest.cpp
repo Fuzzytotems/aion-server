@@ -1,7 +1,8 @@
 // M5c T-01 / T-04 (m5c-plan.md §5, P5-09b): TradeService at minalinerk 798007 - buying (the goods-list validation, the buy price of §2.10,
 // the exact-kinah purchase, the free slots, canTrade, a REWARD vendor's tokens), selling (the sell reward, the split and the whole stack, the
 // buy-back list, the refusals, the shipped daily sell limit through PlayerLimitService.updateSellLimit, P-02), the buy-back ledger through
-// RepurchaseService.repurchaseFromShop (P-03) and the loud arms (AP, the unhandled npc type, selling for AP, the trade-in refusals).
+// RepurchaseService.repurchaseFromShop (P-03), an abyss vendor's AP and medals (AbyssPointsService.addAp, ported by M5d E-09 under a test-file
+// lease on this file, m5d-plan.md §18.5) and the loud arms (the unhandled npc type, selling for AP, the trade-in refusals).
 //
 // Java: TradeService.java:51-387. The numbers are §2.10's and `oracle.py m5c-trade --npc 798007 --set gameserver.siege.enable=false`'s
 // (prices 125 % and taxes 113 %): Minor Life Elixir (template price 250) 352 each, Extraction Tools (1000) 1,412, the Minor Life Potion's sell
@@ -190,10 +191,11 @@ TEST_F(TradeServiceTest, AnUnhandledNpcTypeIsLoggedAndBuysNothing) {
 	EXPECT_EQ(countOf(a(), MINOR_LIFE_ELIXIR), 0);
 }
 
-// :62-70, :80-146: adetes is an ABYSS vendor, who trades without kinah (useKinah false). TradeList.calculateAbyssRewardBuyList checks the AP
+// :62-70, :80-155: adetes is an ABYSS vendor, who trades without kinah (useKinah false). TradeList.calculateAbyssRewardBuyList checks the AP
 // (70,350 for the shield: (int) (70350 x 1 x 100 / 100D x 100) / 100) and the acquisition items (6 Silver Medals); then the costs are taken,
-// the AP first through AbyssPointsService.addAp, which stays unported and loud (m5c-plan.md §2.2 row 5: no such vendor on the start maps)
-TEST_F(TradeServiceTest, AnAbyssVendorWantsApAndMedalsAndReachesTheUnportedApArm) {
+// the AP first through AbyssPointsService.addAp (M5d E-09 ported it; until then this case pinned its throw), then the medals (:140-146), and
+// the shield is added (:149-151). No such vendor stands on the start maps (m5c-plan.md §2.2 row 5)
+TEST_F(TradeServiceTest, AnAbyssVendorTakesTheApAndThenTheMedalsForTheShield) {
 	setKinah(a(), A_KINAH, 5000);
 	auto buyShield = [this] {
 		runtime::Ref<TradeList> tradeList = TradeList::create(npcOf(ADETES).getObjectId());
@@ -212,10 +214,18 @@ TEST_F(TradeServiceTest, AnAbyssVendorWantsApAndMedalsAndReachesTheUnportedApArm
 
 	give(a(), 830001, SILVER_MEDAL, 6);
 	clearSent();
-	EXPECT_THROW(buyShield(), runtime::UnportedException) << "AbyssPointsService.addAp(player, -70350)";
+	EXPECT_TRUE(buyShield());
+	EXPECT_EQ(a().getAbyssRank()->getAp(), 0) << "AbyssPointsService.addAp(player, -70350)";
 	EXPECT_EQ(kinah(a()), 5000) << "no kinah at an ABYSS vendor";
-	EXPECT_EQ(countOf(a(), SILVER_MEDAL), 6) << "the medals are taken after the AP (:140-146)";
-	EXPECT_EQ(countOf(a(), SQUAD_LEADERS_SHIELD), 0);
+	EXPECT_EQ(countOf(a(), SILVER_MEDAL), 0);
+	EXPECT_EQ(countOf(a(), SQUAD_LEADERS_SHIELD), 1);
+	// the AP first (:130-131): AbyssPointsService.java:46-48 sends STR_MSG_USE_ABYSSPOINT(70350) and SM_ABYSS_RANK (the points moved; the
+	// rank, GRADE9_SOLDIER before and after, did not), and only then are the medals taken and the shield given
+	std::vector<std::vector<uint8_t>> packets = sent();
+	ASSERT_GE(packets.size(), 3u) << ::testing::PrintToString(itemtest::opcodesOf(packets));
+	EXPECT_EQ(packets[0], serializedFor(SM_SYSTEM_MESSAGE::STR_MSG_USE_ABYSSPOINT(70350)));
+	EXPECT_EQ(itemtest::javaOpcodeOf(packets[1]), 237) << "SM_ABYSS_RANK (ServerPacketsOpcodes.java:255)";
+	EXPECT_TRUE(sentB().empty()) << "no rank change, so no SM_ABYSS_RANK_UPDATE for the partner who sees A";
 }
 
 // :62-70, :80-164 at a REWARD vendor: gintarunerk 801517 sells Pandarunerk's Delve Scroll for 2 Ancient Coins each (acquisition REWARD, no
