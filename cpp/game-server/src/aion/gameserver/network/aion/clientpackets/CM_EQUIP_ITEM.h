@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <string>
 
 #include "aion/gameserver/network/aion/AionClientPacket.h"
 
@@ -25,6 +26,13 @@ private:
 
 public:
 	CM_EQUIP_ITEM(int32_t opcode, const StateSet& validStates);
+
+	/**
+	 * C++ only (play-session fixes 2026-09-28, docs/deviations/P5-15.md): the decoded fields, in the form of Java's CM_MOVE.toString, so the client
+	 * packet trace (gameserver.network.trace.client_packets) shows which item the client equipped or unequipped into which slot. Java prints the
+	 * packet name only.
+	 */
+	std::string toString() const override;
 
 protected:
 	void readImpl() override;

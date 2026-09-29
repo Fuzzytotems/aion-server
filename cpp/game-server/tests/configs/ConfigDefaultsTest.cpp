@@ -1,6 +1,7 @@
 #include <chrono>
 #include <cstdint>
 #include <filesystem>
+#include <functional>
 #include <optional>
 #include <regex>
 #include <set>
@@ -628,6 +629,21 @@ TEST_F(ConfigDefaultsTest, NetworkConfig) {
 	EXPECT_EQ(network::NetworkConfig::Flood_LWARN.load(), 30);
 	EXPECT_EQ(network::NetworkConfig::Flood_LReject.load(), 60);
 	EXPECT_EQ(network::NetworkConfig::Flood_LTick.load(), 60);
+	EXPECT_TRUE(network::NetworkConfig::TRACE_CLIENT_PACKETS.get()->empty())
+		<< "C++-only key gameserver.network.trace.client_packets, off by default (docs/deviations/P4-01.md)";
+}
+
+TEST(NetworkConfigTraceKeyTest, TheClientPacketTraceBindsATrimmedSetOfNames) {
+	// C++ only (play-session fixes 2026-09-28, docs/deviations/P4-01.md): a comma separated list, as the Java-style collection properties
+	aion::commons::configuration::Properties properties;
+	properties.setProperty("gameserver.network.trace.client_packets", " CM_EQUIP_ITEM, CM_ATTACK ,CM_TUNE,CM_ATTACK");
+	std::set<std::string> unused = aion::commons::configuration::ConfigurableProcessor::process(properties, {&network::NetworkConfig::bind});
+	EXPECT_TRUE(unused.empty()) << "the key is bound by NetworkConfig";
+	EXPECT_EQ(*network::NetworkConfig::TRACE_CLIENT_PACKETS.get(), (std::set<std::string, std::less<>>{"CM_ATTACK", "CM_EQUIP_ITEM", "CM_TUNE"}));
+
+	aion::commons::configuration::Properties empty;
+	aion::commons::configuration::ConfigurableProcessor::process(empty, {&network::NetworkConfig::bind});
+	EXPECT_TRUE(network::NetworkConfig::TRACE_CLIENT_PACKETS.get()->empty()) << "no key: the default, nothing traced";
 }
 
 TEST_F(ConfigDefaultsTest, PffConfig) {

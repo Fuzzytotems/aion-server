@@ -12,11 +12,15 @@
 #include "ItemPacketTestSupport.h"
 
 #include <cstdint>
+#include <functional>
 #include <memory>
+#include <set>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include "aion/commons/utils/ByteBuffer.h"
+#include "aion/gameserver/configs/network/NetworkConfig.h"
 #include "aion/gameserver/controllers/ObserveController.h"
 #include "aion/gameserver/controllers/PlayerController.h"
 #include "aion/gameserver/controllers/observer/ItemUseObserver.h"
@@ -333,6 +337,136 @@ TEST_F(EquipDeleteRunTest, OnlyTheCubeIsSearched) {
 	EXPECT_TRUE(sent().empty());
 	EXPECT_TRUE(player().getEquipment().getEquippedItemByObjId(720014));
 	EXPECT_TRUE(storage(StorageType::REGULAR_WAREHOUSE).getItemByObjId(720015));
+}
+
+// ---------------------------------------------------------------------------------------------------------- the client packet trace
+//
+// C++ only (play-session fixes 2026-09-28, docs/deviations/P4-15.md, P4-01.md and P5-15.md): gameserver.network.trace.client_packets names the
+// client packets AionClientPacket::run logs at INFO with the player's name before runImpl, so the next play session can capture the sequence of
+// CM_EQUIP_ITEMs behind the "inventory full" report; CM_EQUIP_ITEM's C++-only toString shows the decoded fields.
+
+const char* AION_CLIENT_PACKET_LOGGER = "com.aionemu.gameserver.network.aion.AionClientPacket";
+
+/** Sets gameserver.network.trace.client_packets for one case and puts the previous value back */
+class TraceScope {
+public:
+	explicit TraceScope(std::set<std::string, std::less<>> names) : previous(*configs::network::NetworkConfig::TRACE_CLIENT_PACKETS.get()) {
+		configs::network::NetworkConfig::TRACE_CLIENT_PACKETS.set(std::move(names));
+	}
+	~TraceScope() { configs::network::NetworkConfig::TRACE_CLIENT_PACKETS.set(previous); }
+	TraceScope(const TraceScope&) = delete;
+	TraceScope& operator=(const TraceScope&) = delete;
+
+private:
+	const std::set<std::string, std::less<>> previous;
+};
+
+class ClientPacketTraceTest : public EquipDeleteRunTest {
+protected:
+	/**
+	 * Creates the packet with its registered factory (so its dynamic type, which getPacketName reads, is the packet class itself, not a test
+	 * Driver), reads the body and runs it through AionClientPacket::run, the entry the PacketProcessor calls (Driver::readAndRun calls runImpl)
+	 */
+	void dispatch(std::unique_ptr<AionClientPacket> packet, const std::vector<uint8_t>& body) {
+		std::vector<uint8_t> copy = body;
+		packet->setBuffer(commons::utils::ByteBuffer::wrap(copy));
+		packet->setConnection(client->get());
+		ASSERT_TRUE(packet->read());
+		packet->run();
+	}
+
+	void equipPacket(int32_t action, int64_t slot, int32_t itemObjId) {
+		dispatch(CM_EQUIP_ITEM_clientPacketFactory(CM_EQUIP_ITEM_OPCODE, StateSet{AionConnection_State::IN_GAME}), equipBody(action, slot, itemObjId));
+	}
+
+	void deletePacket(int32_t itemObjId) {
+		dispatch(CM_DELETE_ITEM_clientPacketFactory(CM_DELETE_ITEM_OPCODE, StateSet{AionConnection_State::IN_GAME}), PacketWriter().D(itemObjId).data);
+	}
+
+	std::string traceLine(std::string_view packet) {
+		return "info|" + std::string(AION_CLIENT_PACKET_LOGGER) + "|Client packet trace: " + player().getName() + " sent " + std::string(packet);
+	}
+};
+
+TEST_F(ClientPacketTraceTest, ANamedPacketIsLoggedWithThePlayerAndItsFieldsAndStillRuns) {
+	TraceScope trace({"CM_EQUIP_ITEM"});
+	stored(720101, TRAINING_SWORD, 1);
+	stored(720102, SPARKIE_CARAPACE_FRAGMENT, 1);
+	LogCapture log({AION_CLIENT_PACKET_LOGGER});
+
+	equipPacket(0, MAIN_HAND, 720101);
+	deletePacket(720102);
+
+	EXPECT_EQ(log.count("Client packet trace: "), 1) << "CM_DELETE_ITEM is not named: " << log.dump();
+	EXPECT_TRUE(log.contains(traceLine("CM_EQUIP_ITEM [action=0, slot=1, itemObjId=720101]"))) << log.dump();
+	EXPECT_TRUE(player().getEquipment().getEquippedItemByObjId(720101)) << "the traced packet ran";
+	EXPECT_FALSE(storage(StorageType::CUBE).getItemByObjId(720102)) << "the packet that is not traced ran too";
+}
+
+TEST_F(ClientPacketTraceTest, EveryNamedPacketIsLoggedInTheOrderItRan) {
+	TraceScope trace({"CM_DELETE_ITEM", "CM_EQUIP_ITEM", "CM_TUNE"});
+	equipped(720103, TRAINING_SWORD, MAIN_HAND);
+	LogCapture log({AION_CLIENT_PACKET_LOGGER});
+
+	equipPacket(1, MAIN_HAND, 720103);
+	deletePacket(720099);
+	equipPacket(1, MAIN_HAND, 720103);
+
+	// the second unequip is the report's case: the sword is in the cube already, and Java answers STR_UI_INVENTORY_FULL
+	EXPECT_EQ(log.dump(), traceLine("CM_EQUIP_ITEM [action=1, slot=1, itemObjId=720103]") + "\n" + traceLine("[116] CM_DELETE_ITEM") + "\n" +
+							  traceLine("CM_EQUIP_ITEM [action=1, slot=1, itemObjId=720103]") + "\n")
+		<< "a packet without a toString of its own prints Java's [opcode] name";
+}
+
+TEST_F(ClientPacketTraceTest, AnEmptyListLogsNothing) {
+	TraceScope trace({});
+	stored(720104, TRAINING_SWORD, 1);
+	LogCapture log({AION_CLIENT_PACKET_LOGGER});
+
+	equipPacket(0, MAIN_HAND, 720104);
+	deletePacket(720099);
+
+	EXPECT_EQ(log.dump(), "") << "the default: no trace";
+	EXPECT_TRUE(player().getEquipment().getEquippedItemByObjId(720104));
+}
+
+// The line is written before runImpl, so a traced packet whose runImpl throws is traced before run() logs the failure (the line one needs next to
+// "Error handling client packet"). A CM_EQUIP_ITEM on a connection without an active player throws Java's NullPointerException at its first
+// statement (CM_EQUIP_ITEM.java:37-39); before a player entered the world the connection stands in for the player's name.
+TEST_F(ClientPacketTraceTest, APacketIsTracedBeforeItRunsSoAFailingOneIsTracedBeforeItsError) {
+	TraceScope trace({"CM_EQUIP_ITEM"});
+	TestClient connected; // no player: the state a fresh connection has
+	std::unique_ptr<AionClientPacket> packet =
+		CM_EQUIP_ITEM_clientPacketFactory(CM_EQUIP_ITEM_OPCODE, StateSet{connected->getState()}); // valid in that state
+	std::vector<uint8_t> body = equipBody(1, MAIN_HAND, 720105);
+	packet->setBuffer(commons::utils::ByteBuffer::wrap(body));
+	packet->setConnection(connected.get());
+	ASSERT_TRUE(packet->read());
+	LogCapture log({AION_CLIENT_PACKET_LOGGER});
+
+	packet->run();
+
+	const std::string lines = log.dump();
+	const size_t traced = lines.find("info|" + std::string(AION_CLIENT_PACKET_LOGGER) + "|Client packet trace: " + connected->toString() +
+									 " sent CM_EQUIP_ITEM [action=1, slot=1, itemObjId=720105]\n");
+	const size_t failed = lines.find("|Error handling client packet from ");
+	ASSERT_NE(traced, std::string::npos) << lines;
+	ASSERT_NE(failed, std::string::npos) << "runImpl threw: " << lines;
+	EXPECT_LT(traced, failed) << lines;
+}
+
+// Only a packet run() lets through is traced: one whose connection state is not among its valid states (AionClientPacket.java:36-43, here an
+// AUTHED-only packet on the IN_GAME connection) is neither run nor traced
+TEST_F(ClientPacketTraceTest, APacketRefusedByTheConnectionStateIsNotTraced) {
+	TraceScope trace({"CM_EQUIP_ITEM"});
+	stored(720106, TRAINING_SWORD, 1);
+	LogCapture log({AION_CLIENT_PACKET_LOGGER});
+
+	dispatch(CM_EQUIP_ITEM_clientPacketFactory(CM_EQUIP_ITEM_OPCODE, StateSet{AionConnection_State::AUTHED}), equipBody(0, MAIN_HAND, 720106));
+
+	EXPECT_EQ(log.dump(), "") << "not traced";
+	EXPECT_FALSE(player().getEquipment().getEquippedItemByObjId(720106)) << "not run";
+	EXPECT_TRUE(storage(StorageType::CUBE).getItemByObjId(720106));
 }
 
 } // namespace

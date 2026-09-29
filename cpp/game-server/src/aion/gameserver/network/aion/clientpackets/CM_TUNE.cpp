@@ -1,5 +1,6 @@
 #include "aion/gameserver/network/aion/clientpackets/CM_TUNE.h"
 
+#include "aion/gameserver/controllers/PlayerController.h"
 #include "aion/gameserver/handlers/HandlerRegistry.h"
 #include "aion/gameserver/model/gameobjects/Item.h"
 #include "aion/gameserver/model/gameobjects/player/Player.h"
@@ -31,6 +32,12 @@ void CM_TUNE::readImpl() {
 }
 
 // Java CM_TUNE.java:31-53
+//
+// Deviation (play-session fixes 2026-09-28, docs/deviations/P5-16.md; owner decision M5c D7's precedent: fix Java's bug and record it): Java
+// starts the identification or the tuning without ending an item use that still runs. addTask(ITEM_USE) then cancels the first use's task
+// silently and leaves its one-time ItemUseObserver attached, so the first item stays greyed until a later move or hit aborts that stale observer,
+// which prints "Canceled tuning of <first item>" long after the fact and cancels the second use's task. Here the running use is aborted first,
+// as CM_CASTSPELL and CM_EQUIP_ITEM do (cancelUseItem): its message and cancel animation come at once, and no stale observer is left.
 void CM_TUNE::runImpl() {
 	const runtime::Ptr<Player> player = getConnection()->getActivePlayer();
 	if (!player)
@@ -39,6 +46,7 @@ void CM_TUNE::runImpl() {
 	if (!item)
 		return;
 	if (!item->isIdentified()) {
+		player->getController().cancelUseItem(); // Deviation: see above
 		services::item::ItemActionService::identifyItem(*player, *item);
 	} else if (tuningScrollObjectId != 0) {
 		const runtime::Ptr<Item> tuningScroll = player->getInventory().getItemByObjId(tuningScrollObjectId);
@@ -50,8 +58,10 @@ void CM_TUNE::runImpl() {
 			throw runtime::NullPointerException(
 				"Cannot invoke \"ItemActions.getTuningAction()\" because the return value of \"ItemTemplate.getActions()\" is null");
 		const TuningAction* action = actions->getTuningAction();
-		if (action != nullptr && action->canAct(*player, tuningScroll, item))
+		if (action != nullptr && action->canAct(*player, tuningScroll, item)) {
+			player->getController().cancelUseItem(); // Deviation: see above; only after canAct, so a refused scroll leaves the running use alone
 			action->act(*player, tuningScroll, item);
+		}
 	} else {
 		utils::audit::AuditLogger::log(*player, "attempted to tune an already identified item without tuning scroll.");
 	}

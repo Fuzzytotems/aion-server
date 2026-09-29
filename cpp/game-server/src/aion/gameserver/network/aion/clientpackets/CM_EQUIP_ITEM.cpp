@@ -64,6 +64,12 @@ void CM_EQUIP_ITEM::runImpl() {
 			SM_UPDATE_PLAYER_APPEARANCE(activePlayer->getObjectId(), equipment.getEquippedForAppearance()), true);
 }
 
+// C++ only (play-session fixes 2026-09-28, docs/deviations/P5-15.md): the form of Java's CM_MOVE.toString (CM_MOVE.java:204-208)
+std::string CM_EQUIP_ITEM::toString() const {
+	return "CM_EQUIP_ITEM [action=" + std::to_string(action) + ", slot=" + std::to_string(slotRead) + ", itemObjId=" + std::to_string(itemObjId) +
+		"]";
+}
+
 AION_CLIENT_PACKET(CM_EQUIP_ITEM);
 
 } // namespace aion::gameserver::network::aion::clientpackets

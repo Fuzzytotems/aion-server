@@ -207,9 +207,14 @@ while `start`'s servers are up.
   Use `open(..., newline='')` or the Write/Edit tools.
 - **Wall-clock jobs can hit a gate.** LegionDominion's hard-coded Wednesday 09:00 cron can hit a gate that is running at that time
   (cpp/docs/design/m5c-plan.md G-07). Rerun the gate.
-- **tools.gen's compile tests fail in a worktree.** They look for vcpkg under `cpp/vcpkg_installed` (`VCPKG_INCLUDE` in
-  `cpp/tools/gen/tests/test_skeleton_support.py`), which a worktree lacks. Point that path at the main tree's packages
-  (cpp/docs/porting/header-requests.md).
+- **tools.gen's compile tests in a worktree** take vcpkg's include directory from `AION_VCPKG_INCLUDE`, which the tools' CTest
+  entries set from the build's `VCPKG_INSTALLED_DIR` (PR #2). Run them through ctest, or set it yourself when you run pytest
+  directly in a worktree that has no `cpp/vcpkg_installed`.
+- **A play kit copied from build/msvc holds build/msvc's server PDBs open.** Its binaries name the PDBs of build/msvc, and the
+  stack-trace symbolizer opens them, so while the kit runs, linking `aion_game_server` or `aion_login_server` in build/msvc fails with
+  `LNK1201` (found 2026-09-28). `status` and `build` only see processes that run *from* build/msvc. Never stop the kit: wait for the
+  owner to log out, or link the server alone with `'-p:BuildProjectReferences=false'` and `_LINK_=/PDB:<name>_alt.pdb` in the
+  environment, and delete that PDB afterwards.
 
 ## Troubleshooting
 
@@ -218,6 +223,8 @@ while `start`'s servers are up.
 - **`servers started by this driver are still running (ls, gs); run driver.ps1 stop first`**: run `stop`.
 - **`processes run from build/msvc and lock its binaries: aion_game_server (pid ...)`**: `stop` the driver's servers, or wait for the
   gate that is running.
+- **`LNK1201: error writing to program database '...ion_game_server.pdb'`**: the play kit (or another copy of the servers) runs
+  and holds the PDB open. See Gotchas; never stop the kit.
 - **`a ctest runs that may be in build/msvc (pid ...)`**: wait for it to finish (or use `-Force` if it is another directory).
 - **`MSBUILD : error MSB1005: Specify a property and its value`**: MSBuild switches were passed unquoted from PowerShell (see Gotchas).
 - **`no unit test matches '<re>'` / `no gate '<name>'. Known: m5a, m5a_geo, ...`**: ctest test names are `Suite.Case`
