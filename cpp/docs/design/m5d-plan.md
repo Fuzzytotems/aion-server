@@ -1,5 +1,10 @@
 # M5d work plan (quest engine)
 
+> **Status (2026-09-29, §20): stage 2's gate is built and committed on `m5d/stage-2`, the review's findings closed (§20.8).**
+> `gs.scenario.m5d` (257 s) and `gs.scenario.m5d_geo` (485 s) pass in gate slot 2 with the 42 phase-6 Java handlers registered beside the
+> 4,184 XML quests. Fourteen of the fifteen §10.4 mutants fail the gate at their rows; the race row, which the start maps cannot show, fails
+> the E-10 unit case. F-01 found nothing to fix. Next: stage 3 (E-07, E-08).
+>
 > **Status (2026-09-28, §19): stage 1 is complete.** Stage 1's last wave (xml-templates, dialog-and-rewards, quest-npc-ais,
 > gate-harness) is integrated (checkpoint A). Then the D3 join (I-05) closed `QuestEngine.cpp:111`, so every startup now registers the
 > 4,184 XML quests (checkpoint B, the last change of stage 1).
@@ -1991,7 +1996,8 @@ wave.
 
 - **Stage 2** (§18.7):
   - G-03/G-04: the M5d gate, `gs.scenario.m5d` and `m5d_geo`, in slot 1, with the simple class key pinned to false. Its own allow-list
-    keeps `:115` in §C.
+    keeps `:115` in §C. (As built, §20.1: **slot 2**, the smaller sum when it joined, and `:115` in **§B**, because the gate's profile turns
+    the analysis off, §10.1's review note; the review's `analysis-on` mutant proves the §B row, §20.8.)
   - G-05's re-greening is already met for the earlier gates, which passed on the join (§19.2). So G-05 is only the M5d gate's own.
   - F-01 and §13's real-client checklist.
 - **Stage 3** (§18.7): E-07 (`task/` 17 and the follow family 2) and E-08 (the analyzer's 6 and the `:115` partial). E-08 deletes the
@@ -2004,7 +2010,124 @@ wave.
   - Of the invasion quests, only the ten stigma quests' positions in `questOnEnterWorld` are observed.
 - **P5-SC.md's "M5d stage 1" section has no test list and no mutation-proof paragraph** for G-02. G-02 has 14 cases, all passing, in
   `QuestDecodersTest`, `FightSupportTest` and `GameSessionTalkTest`. If the gate-harness lane's report carries the list and the proof,
-  they belong in that section. Otherwise G-03's lane writes them, since it is the decoders' first reader.
+  they belong in that section. Otherwise G-03's lane writes them, since it is the decoders' first reader. (Written by G-03's lane: §20.4
+  and P5-SC.md's stage-2 section.)
 - **§18.8's open questions** 1-4 and 6 stand:
   - Phase 6's Q05/Q09 prologue item (§18.8 item 3) still has no owner.
   - The generated quest handlers may merge now, but only under the rules of §18.4.
+
+## 20. Stage 2 results (2026-09-29)
+
+Lane G (P5-SC, and the owners F-01 would name) on the branch `m5d/stage-2` at C++ `a72676184`: M5d stage 1 and the D3 join, the phase-6 slice
+1 (42 Java quest handlers of Poeta, Ishalgen and ascension/, p6q-ascension-route.md), `gs.scenario.ascension` and M5f's travel core with
+`gs.scenario.travel`. Build dir `cpp/build/v` (Debug), `--parallel 6 -- -p:CL_MPCount=3 -nr:false`, by day beside another tree's gates.
+docs/deviations/P5-SC.md, section "M5d stage 2 (lane G)", has every row of the as-built and the whole mutation table. Committed on
+`m5d/stage-2` with the review's fixes (§20.8); not pushed.
+
+### 20.1 What was built
+
+- **G-03**: `TEST(M5dScenario, Run)` in `tests/scenario/M5dScenarioTest.cpp`, `ctest` name `gs.scenario.m5d`: S-0, C0 (the oracles), C1-C17 as
+  §10.2, with every row Y1-Y14 of §10.3. The Asmodian's C16 is split into C16a-C16e (markers, 2101, 2102's kills, 2102's reward, the relog).
+- **G-04**: `TEST(M5dScenarioGeo, Run)`, `gs.scenario.m5d_geo`, the same body with geo on. Its comment says what §10.5 says: geo changes
+  nothing on the quest path, so it re-runs the walks and fights under geo heights, and no row was invented for it.
+- `tests/scenario/m5d_partial_allowlist.txt`: §A `BaseService.cpp:18`; §B `QuestEngine.cpp:115` (the profile turns the analysis off, §10.1's
+  review note) and G-07's four cron rows; §C `PvpMapService.cpp:32`, `PlayerService.cpp:268`.
+- `tests/scenario/ScenarioTests.cmake`: the two `add_test` blocks, the DISABLED discovered cases, `AION_SCENARIO_M5D_PARTIAL_ALLOWLIST`, both
+  in **gate slot 2** (the smaller sum: 1,642 s against slot 1's 1,685 s), and the slot table: slot 2 is now 2,384 s (m5d 257 s, m5d_geo 485 s)
+  against slot 1's 1,685 s. The next gate joins slot 1; moving the m5b2 pair to slot 1 (2,158 s against 1,911 s) is the integrator's call.
+- **The profile** (§10.1, §18.4, §18.7): `m5aProfile()` with G-07's keys, M5b-2's keys (drop rate 0), the quest rates written out at their
+  defaults, `gameserver.analysis.quest_handlers = false`, **`gameserver.simple.secondclass.enable = false`**; creation mode 0 (D15). The m5d
+  oracles get the same keys as `--profile`, which the gate writes into its output directory, so the owner's `mygs.properties` reaches no
+  expectation.
+- **Not written: `game-server/config/m5d.properties.example`** (§9's last row, §18.7). It is a file of the Java tree's config directory,
+  which this lane may not edit; the gate's keys are listed in the gate and in P5-SC.md. Writing the example is left to the owner.
+
+### 20.2 What now registers, and how the gate reads it
+
+D9 ("until phase 6 the C++ registry has no Java quest") no longer holds: every gate server logs "Loaded 4226 quest handlers" (4,184 XML + 42
+Java). The gate keeps the XML quests of §10 as its subject and reads the Java handlers where they act on its path:
+- **Y1 / Y13's sets** are `m5d-quests`' `withJava` set restricted to the XML quests and the 42 registered Java ids (`REGISTERED_JAVA_QUESTS`
+  in the gate; the held-back 1000, 1100, 2000, 2100 are not in it). For a level-1 Elyos in Poeta that is 1101, 1105, 1108, 1109, **1111**,
+  1112, 1127 (grey 1108, 1109, 1111, 1112, 1127): 1111 "Insomnia Medicine" is the one Java addition. For the Asmodian in Ishalgen it is the XML
+  set (2101, 2102, 2104, 2105, 2108, 2109, 2110, 2112, 2133). A later phase-6 chunk whose handler starts on a start map at level 1 fails Y1
+  or Y13 with the id named; it joins the constant with the chunk.
+- **Y11's level-up** runs the generated `_1205ANewSkill.onLevelChangedEvent`: in 1102's reward burst, between `LEVEL_UP 2` and
+  onLevelChange's own `SM_NEARBY_QUESTS`, come `ADD 1205` (START), `SM_NEARBY_QUESTS`, `UPDATE 1205` (REWARD, var 1) and `SM_NEARBY_QUESTS`
+  (m5e-plan.md W-24 predicted this `SM_QUEST_ACTION` in the M5d gate). Y12 therefore expects 1205 in REWARD with var 1 in `player_quests` and
+  in the re-entry's `SM_QUEST_LIST`.
+- Nothing else registered acts on the path: the missions 1001-1005 and 2001-2007 wait for the held-back 1100/2100, 2132 needs level 3, and no
+  Java handler names elpas, mires, asak, vandar or the four monsters so that it acts without a quest state (§18.4). The pages and follow-ups
+  of Y2, Y6, Y12 and Y13 did not move, as §18.4 said.
+
+### 20.3 Where the gate reads §10 differently
+
+1. **§10.4's race row cannot be killed by the gate.** "`checkStartConditions`: ignore `race_permitted` -> Y1" assumed Asmodian quests at
+   Poeta's npcs; there are none (`m5d-quests` for an Asmodian in Poeta and for an Elyos in Ishalgen: both sets empty), and the level-change
+   lists are per race, so the Elyos 1205 never runs for the Asmodian. The mutant passed the whole gate. The unit case
+   `QuestItemActionsTest.ARestrictedQuestIsWarnedAboutBeforeTheUseMessage` (E-10) kills it, measured with the same schema.
+2. **`report-without-kills` cannot leave Y10 green** (§10.4 said "must stay green: Y10"): with 1102 in REWARD after one kill, C10b's journal
+   finishes it, so C12's kills credit nothing. Y8 is the row that kills it.
+3. **The talk windows are read with the gate's burst collector**, not `GameSession::talk`, whose `collectUntilQuiet` ends at the first quiet
+   second of all traffic and so, beside Ishalgen's walkers, ran every talk into its 10 s limit (C16b took 36 s). The packet is the same.
+4. **The kills rotate over the three nearest fixed plain spots** of the kill targets (C16c: 94-99 s at one spot, 57-62 s rotating), and tell
+   an npc from a corpse by the object ids the gate killed, which holds across a relog. `FightSupport`'s `waitForRespawnAt` knows one
+   session's recording only and is not used.
+5. **Only a first enter asserts the level-ready sequence**: a relog near the monster spots reads a decaying corpse's `SM_DELETE` there. An
+   enter world or level ready waits up to 30 s for its first packet (a relog's first packet came later than the burst's quiet second once).
+6. The order patterns of Y3, Y5, Y6, Y7, Y7b, Y8, Y11, Y12 and Y13 compare the whole list of the window's quest tokens (`SM_QUEST_ACTION`,
+   `SM_NEARBY_QUESTS`, `SM_DIALOG_WINDOW`, `SM_STATUPDATE_EXP`, the system messages, the item updates, the LEVEL_UP animation) exactly, so
+   "and nothing else from the quest engine" is part of every row.
+
+### 20.4 Results
+
+- **Build:** every target of `build/v`, 0 errors, 0 warnings (after the mutation builds and after the last edit).
+- **`gs.scenario.m5d`: passed, 257 s; `gs.scenario.m5d_geo`: passed, 485 s** (geo startup 172 s; C0's oracles 48 s and 146 s, slow beside
+  another tree's gates). 21 runs of the gate in all (the early ones, fifteen mutants, one rerun, the clean ones and a last one on the final
+  binary, which passed in 396 s beside the other tree's gates): 218-396 s. Census
+  empty, no ERROR line, `QuestEnv` 0 live of about 2,930 created, `QuestState` 0 of 13, §A hit, §B not.
+- The Warriors never needed to rest: the Elyos ended every kerub fight at 282-284 of 284 HP, the Asmodian its sprigg fights above 234 of 284
+  (and at 330 after the level-up heal).
+- **Unit tests:** the scenario harness's cases, `QuestItemActionsTest`, `tools.porting` and `gs.chunks.consistency`: 227 of 227 (`-j 4`).
+- **Checks:** `lint_concurrency.py --werror --cycles=core game-server/src` 3,819 files, 0 errors, 0 warnings, 0 advisories; `chunks.py check`
+  71 chunks, 84 parts, 0 problems; the three new or changed test files are P5-SC's (`chunks.py owner`).
+- **Mutation proof (§10.4):** fifteen schemata switched by `AION_M5DG_MUT` in nine production files, one gate run each. **Fourteen killed**,
+  each at the rows §10.4 names (or more, P5-SC.md's table); `race-ignored` passes the gate and is killed by the unit case above. The G-02
+  decoders' proof that §19.5 left open is there too (six schemata, all killed). Sources restored by sha256, the tree rebuilt, no switch string
+  in a source or a binary.
+
+### 20.5 F-01 and G-05
+
+- **F-01: none.** The gate passed its second run with harness changes only (the first run's failures were the gate's own reading of
+  `SM_INVENTORY_UPDATE_ITEM`, which names the object and not the template, and a relog's level-ready sequence). No production file changed.
+- **G-05:** the earlier gates were re-greened on the join (§19.2) and this lane changed no production code, so G-05 is the M5d pair's own.
+
+### 20.6 §13 at the end of stage 2
+
+The real-client checklist stands, with three notes. Step 1: Poeta's markers include "Insomnia Medicine" (1111, grey at level 1). Step 4:
+the level-up in 1102's reward also puts "A New Skill" (1205) into the journal, ready to report at the Warrior trainer. Step 8: the Java
+quests 1107, 1111, 1114, 1122, 1123 and 1205 are registered now (phase 6), the missions 1001-1005 still do not start (1000/1100 are held
+back), and `gameserver.simple.secondclass.enable` decides only the level-9 ascension, which the checklist does not reach.
+
+### 20.7 Left for stage 3 and after
+
+- Stage 3 (§18.7): E-07 and E-08; E-08 deletes the `:115` rows, the m5d list's §B row among them.
+- `game-server/config/m5d.properties.example` and the slot rebalance (20.1): the owner's and the integrator's.
+- §10.4's four rows the gate cannot see stay with H-07, E-06 and T-04, as planned; the race row joins them with the E-10 unit case (20.3).
+- §19.5's other open items are unchanged.
+
+### 20.8 The review's findings (2026-09-29)
+
+The review approved the gate: its own fifteen mutants (`AION_M5DG_MUT_R`, other than §20.4's) were all killed at their rows, among them
+`analysis-on`, which proves the §B row of `:115`. Its four findings are closed in the same tree (P5-SC.md, "The review's findings"):
+- **`persistent-new-kept`'s cause** was wrong in P5-SC.md: no player cache, but `PlayerQuestListDAO::load` calls the mutated setter on
+  every loaded row, so the states stay NEW across C11's re-entry. Corrected; the kill stands.
+- **The starter kinah and bandages** were the literals 1,000 and 20 where the header and §10.3 say `m5a-creation`. The gate now reads them
+  from C0's `OracleCreation` answers. A schema that shifts the starter items in both the server and the oracle (a data change) failed the old
+  gate at exactly those five assertions and passes the new one; the same shift in the server alone fails the new one at the five.
+- **Comments:** eight kills, not nine; the slot table's M5d entry is marked as measured beside another tree's gates; §19.5 points here.
+- **Coverage:** C16a now asserts the Asmodian's first enter world as C4 asserts the Elyos's (no `SM_QUEST_ACTION`, and any later
+  `SM_NEARBY_QUESTS` decodes to the Ishalgen set), killed by a `min-level-ignored` schema through Ishalgen's own handlers (2008, 2132,
+  23830-23834). The unkilled 210134/210363, the four `player_quests` columns and the missing `m5d.properties.example` are not defects
+  (P5-SC.md says why).
+- **Results** on the rebuilt tree (no schema string left): `gs.scenario.m5d` 241 s and `gs.scenario.m5d_geo` 348 s, both passing with an
+  empty census; the harness's unit cases 225 of 225; lint and `chunks.py check` clean.
