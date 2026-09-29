@@ -7,7 +7,10 @@
 > `Clearusercoolt` joins the required set (41 commands, ~180 bodies), every arm of `//set` now works, and the riders of M5b-3, M5c, M5d,
 > M5e C-01 and M5f's cores, which never had the framework they needed, become item K-11 (26 commands, O, recommended). §17.7 gives lanes for
 > at most four heavy builds. **For stage 0, §17 wins over §5.2, §7 "Stage 0", §8's stage-0 rows, §10.2 and §10.3 where they differ**;
-> stages 1-4 are not refreshed.
+> stages 1-4 are not refreshed. **Revised the same day after its review (§17.12):** `//speed` moves to the commands-c2 lane (it is built on
+> C2's `Stat.CommandStatFunction`); checkpoint 0.1a grows to K-01, K-04, I-02 and H-03; M5d's own builds count against the cap; the main
+> tree's uncommitted `fix/gate-hermetic` change is a launch precondition; the chat gate gets a per-run chat schema; and the command lanes are
+> M5j's own lanes under D3's lease (the integrator confirms, §17.11).
 >
 > **Rev 1:** plan **rev 1**, 2026-09-23, revised after its adversarial review (§16 lists what the review found and what changed). A
 > **read-only** analysis over HEAD `760e8ab5c` ("M5b-2 stage 1 part 3: the effect classes; passives and post-spawn skills go live") plus the
@@ -1070,14 +1073,14 @@ the ascension route), so that its lanes can launch right after M5d. It applies t
 Nothing was built or run except `tools/porting/census.py` (exit 0, also with `--history 760e8ab5c a72676184`), `tools/porting/chunks.py
 check|owner|list`, and two throw-away scripts over the census JSON in the session scratchpad (`m5j0/cmdreach.py`: the one-level callees of
 every command file; `m5j0/cmdsize.py`: bodies and Java lines per command set). The sections above are left as they were. **For stage 0 this
-section wins where they differ.** Stages 1-4 are not refreshed.
+section wins where they differ.** Stages 1-4 are not refreshed. §17.12 lists what the refresh's review found and what changed.
 
 ### 17.1 What landed since the plan, as stage 0 sees it
 
 | Since `760e8ab5c` | What it changes for stage 0 |
 |---|---|
 | M5b-3 (`5fbb03a08`), M5c (`5bbd3551f`) | A-B3a, A-B3b (the `getHouseObjectAction` lookup, `ItemActions.h:34`), A-C1, A-C2 and A-C3 hold. A-C4 is answered **(a)**: the broker and group K go to a capital-economy milestone after M5f stage 3, so J7 is empty. **Their riders (§5.3) were never ported**: both milestones ended before the framework existed (§17.5) |
-| M5d stage 1 (`055680b25`; the D3 join registers all 4,184 XML quests) | `QuestService` 36 of 36 bodies ported. Every level change, kill and enter world now runs the quest engine's hooks (4,226 handlers with P6-Q's 42), all on ported bodies. "After M5d" waits for its stage 2 (the M5d gate, in slot 1) and stage 3 (P5-06 only), m5d-plan.md §19.5 |
+| M5d stage 1 (`055680b25`; the D3 join registers all 4,184 XML quests) | `QuestService` 36 of 36 bodies ported. Every level change, kill and enter world now runs the quest engine's hooks (4,226 handlers with P6-Q's 42), all on ported bodies (the one unported hit after them is the kill variant of `addAp`, §17.4). "After M5d" means after its stage 2, the M5d gate in slot 1 (m5d-plan.md §18.7, "After M5d's gate"). Its stage 3 (E-07, E-08) may still run beside part 0.1: its lane holds P5-06a/b only, but **E-08's merge carries the integrator's edit of the six partial allow-lists in `tests/scenario` (P5-SC)**, which deletes their `QuestEngine.cpp:115` rows (m5d-plan.md §18.5 lane 5, §19.5; §17.7 conflict 3) |
 | M5e C-01, early (`819b84116`) | `ClassChangeService` 7 of 7: `//set class` works, and `changeclass`/`classup` are reachable. `skillRevive` (C-02) is not ported, so `//res` stays M5e's |
 | M5f instance core (`185377020`) and travel core (`83479183e`) | `TeleportService` 21 of 31 bodies. Every `teleportTo` overload is ported except `(Player, WorldPosition)` (TeleportService.java:221-233) and `(Player, worldId, instanceId, x, y, z)` (:261-263), so `//goto`, `//moveplayertoplayer`, `//movetoobj`, `teleport` and `teleportto` are reachable |
 | M5d's E-09 | `AbyssPointsService::addAp(Player, int)` and `GloryPointsService::addGp` are ported; only the kill variant `addAp(Player, VisibleObject, int)` (AbyssPointsService.java:25) is not. **`//set ap` and `//set gp` work** |
@@ -1087,8 +1090,9 @@ section wins where they differ.** Stages 1-4 are not refreshed.
 Measured at `a72676184` (`census.py`): phase 5 has **1,232 `AION_UNPORTED` + 10 `AION_PARTIAL` sites, 1,274 undeclared bodies, 2,535 open**
 (`--history`: 1,682 sites at `760e8ab5c`). **P5-14 is untouched: 31 sites then and now.** That is the whole command framework plus the dormant
 P5-14 services. 109 of the 190 Java client packet files have no C++ file (147 at `760e8ab5c`). The 38 new files are M5b-3's 9, M5c's 23,
-`CM_DELETE_QUEST`, `CM_OBJECT_SEARCH`, `CM_PLAY_MOVIE_END`, and M5f's `CM_TELEPORT_SELECT`, `CM_TELEPORT_ANIMATION_DONE` and
-`CM_MOVE_IN_AIR`. **All eight of stage 0's packets are still among the 109.**
+M5d stage 1's `CM_DELETE_QUEST` and `CM_OBJECT_SEARCH` (`c9450b8e2`), the M5f instance core's `CM_PLAY_MOVIE_END`,
+`CM_TELEPORT_ANIMATION_DONE` and `CM_MOVE_IN_AIR` (`185377020`), and the travel core's `CM_TELEPORT_SELECT` (`d80b88d20`). **All eight of
+stage 0's packets are still among the 109.**
 
 What the owner's sessions missed, and what stage 0 gives them:
 
@@ -1106,17 +1110,18 @@ Every stage-0 body is still open, at the same place. No other milestone ported a
 | Item | Bodies today (census `a72676184`) | C++ site(s) | Changed since rev 1 |
 |---|---|---|---|
 | I-02 | `GMService::onPlayerLogin`'s staff arm, 1 (P4-05) | `GMService.cpp:65` (in `:59-69`); the call `PlayerEnterWorldService.cpp:562`, the catch `:344-351` | not landed (A-I4 is still open) |
-| K-01 | `ChatCommand` 7, `AdminCommand` 2, `PlayerCommand` 2, `ConsoleCommand` 2: 13 (P5-14) | `ChatCommand.cpp:67-131`, `AdminCommand.cpp:20-26`, `PlayerCommand.cpp:14-20`, `ConsoleCommand.cpp:20-26`; declarations `ChatCommand.h:67-164` (rev 1: `:62-143`) | line only |
+| K-01 | `ChatCommand` 7, `AdminCommand` 2, `PlayerCommand` 2, `ConsoleCommand` 2: 13 (P5-14) | `ChatCommand.cpp:67-131`, `AdminCommand.cpp:20-26`, `PlayerCommand.cpp:14-20`, `ConsoleCommand.cpp:20-26`; declarations `ChatCommand.h:67-164` | no: `utils/chathandlers` is byte-identical to `760e8ab5c`; rev 1's `:62-143` cut the declaration range differently, nothing moved |
 | K-02 | the staff `VERSION_INFO` partial, 1 (P5-00) | `PlayerEnterWorldService.cpp:527`; `GameServer::versionInfo()` at `GameServer.h:49`, `GameServer.cpp:135` | no; no allow-list names `:527` (all six checked) |
 | K-03 | `PlayerRestrictions::canChat`, 1 (P5-13) | **`PlayerRestrictions.cpp:220-222`** (rev 1: `:196`); Java PlayerRestrictions.java:254-274 | line only |
 | K-04 | `PlayerChatService` 4, `ChatBanService` 5, and the GAG runnable (ChatBanService.java:40; `fieldmap.json`'s task struct `ChatBanService_Runnable`, holding a `const Ref<Player>`; `TaskId::GAG`, generated `TaskId.h:25`) (P5-08) | `PlayerChatService.cpp:11-27`, `ChatBanService.cpp:7-26`; reached by `CM_CS_PLAYER_AUTH_RESPONSE.cpp:26-27` | no; `cycles.toml` still has no `ChatBanService` row |
 | K-05 | `CM_CHAT_MESSAGE_PUBLIC` 9 (the constructor, `readImpl`, `runImpl`, six `broadcast*` helpers), `CM_CHAT_MESSAGE_WHISPER` 3, `CM_CHAT_GROUP_INFO` 3, `CM_CHAT_PLAYER_INFO` 3: 18 bodies, 313 Java lines (P5-15) | no file; packet ids 27, 28, 61, 39 (`ClientPacketInfo.gen.inc:39, :40, :69, :50`) | no |
 | K-06 | `AbstractGmCommandPacket` 3 + `replaceUnsupportedCommandChars`, `CM_BUILDER_COMMAND` 1, `CM_BUILDER_CONTROL` 1, `CM_DEBUG_COMMAND` 2: 8 bodies, 101 Java lines (P5-15) | no file; packet ids 41, 42, 180 (`ClientPacketInfo.gen.inc:52, :53, :158`) | new: the census credits `replaceUnsupportedCommandChars` to a file-local stand-in, `ChatUtil.cpp:37-41` (P4-05). The lane either declares the packet's static and has `ChatUtil.cpp` call it (a P4-05 edit; Java's ChatUtil imports the packet) or keeps the stand-in and records that in `docs/deviations/P5-15.md` |
 | K-07, K-08, K-08b | 40 commands, 121 bodies, 2,724 Java lines (C1 33 files / 83 / 2,058; C2 7 / 38 / 666) | no file under `handlers/aion/gameserver/handlers/{admincommands,playercommands,consolecommands}`, which hold only their three preludes | reproduces rev 1 exactly; + `Clearusercoolt` (§17.4) |
-| K-10 | the four `registerExpirable` forwarders (P4-12) and `SpawnsData::saveSpawn` (P4-09): 5 | `TitleList.cpp:25-29` (call `:73`), `PetList.cpp:25-28` (`:50`), `EmotionList.cpp:18-21` (`:39`), `MotionList.cpp:24-27` (`:53`); `ExpireTimerTask.cpp:20`; `SpawnsData.cpp:212-215`; Java SpawnsData.java:205-214 | no |
+| K-10 | the four `registerExpirable` forwarders (P4-12) and `SpawnsData::saveSpawn` (P4-09): 5 | `TitleList.cpp:25-29` (call `:73`), `PetList.cpp:25-29` (`:50`), `EmotionList.cpp:18-22` (`:39`), `MotionList.cpp:24-28` (`:53`); `ExpireTimerTask.cpp:20`; `SpawnsData.cpp:212-215`; Java SpawnsData.java:205-214 | no (rev 1's ranges for the last three ended one line early) |
 
-**Stage 0 without K-11: ~180 bodies** (56 outside the commands, +1 anonymous; 124 in 41 command files) **and ~3,800 Java lines**. That is
-rev 1's ~175 / ~3,700 plus `Clearusercoolt`.
+**Stage 0 without K-11: ~180 bodies** (56 outside the commands, +1 anonymous; 124 in 41 command files) **and ~3,800 Java lines**. Against
+rev 1's ~175 (55 + 121 = 176, rounded) / ~3,700: `Clearusercoolt` adds 3 bodies and 56 lines, and K-06's `replaceUnsupportedCommandChars`,
+which the census now counts as a body of its own, adds 1 (55 → 56 outside the commands).
 
 Line references re-checked and unchanged: `ChatProcessor.cpp:73-83` (init), `:110-123` (`handleChatCommand`), `:125-138`
 (`handleConsoleCommand`), `:140-` (`getParamsFromString`); `HandlerRegistry.h:135-158`; `Creature.h:123` (`replaceAi`); `AdminConfig.cpp:28`
@@ -1156,7 +1161,14 @@ Findings:
 - **`//removecd instance all` calls `Clearusercoolt.clearAllInstanceCooldowns`** (RemoveCd.java:51). That is a static of the console
   command `Clearusercoolt` (C2, 3 bodies, 56 lines, no C++ file); rev 1's scan missed it because it is a call into another command class.
   **K-08b takes `Clearusercoolt`.** It is the 41st command and registers as `clearusercoolt`.
-- As in rev 1, `//gag` needs `ChatBanService` (K-04) and `//addtitle` needs `TitleList.addTitle`'s forwarder (K-10).
+- As in rev 1, `//gag` needs `ChatBanService` (K-04) and `//addtitle` needs `TitleList.addTitle`'s forwarder (K-10). `.gmlist` reads
+  `GMService`'s staff list, which a staff login fills only after I-02: with the default `login.execute_commands` the throw at
+  `GMService.cpp:65` comes before `staffMembers.put` at `:67` (Java GMService.java:51-54).
+- **`//speed` (C1) is built on C2's `Stat.CommandStatFunction`**: `import admincommands.Stat.CommandStatFunction;` (Speed.java:11),
+  `new CommandStatFunction(StatEnum.SPEED, speed)` (:41), a nested class of Stat.java (:153; `Stat` is C2, `chunks.cmake:678`). It is the
+  one reference from a C1 command to a C2 class among the 41 + 26 (an import and same-package scan; `RemoveCd` → `Clearusercoolt`,
+  `Classup` → `Changeclass`, `Teleportto` → `GoTo`, `Attrbonus` → `Stat`, `Deletecquest` → `Quest` and `Itemcooltime` → `RemoveCd` stay
+  inside C2), so **`//speed` goes to the commands-c2 lane** (§17.6 K-08b, §17.7).
 - **`//spawn <item id>`**: its lookup exists now (A-B3b). The arm builds a handler-local `DummyHouseObject` on `HouseObject` (P4-11a: 44 of 45
   bodies ported, `getPlacementLimit` is not) and calls `SpawnEngine.bringIntoWorld` (SpawnNpc.java:68-81). It was not traced a second
   level, so the lane traces it. If it is clean, the lane ports it; if not, it stays the one `AION_UNPORTED` arm of `//spawn` (D6).
@@ -1164,12 +1176,19 @@ Findings:
   the console commands' JAXB inner classes named `SkillTemplate` and `NpcTemplate`, and the imports `Set`, `Skill` and `Pet`, which are
   also command class names.
 - **Level two was not re-run.** Since `760e8ab5c` the tree has only gained bodies on these paths. The one kind of new path is the quest
-  engine's hooks on level change, kill and enter world, and they run on ported bodies: the M5d, travel and ascension gates run them without
-  an unported hit. The lanes' first task stays rev 1's two-level trace of their own commands, and every command file passes `tools/parity`
-  before it merges (H-03).
+  engine's hooks on level change, kill and enter world. The hooks themselves run on ported bodies: at the integration of `a72676184` every
+  gate that exists (`m5a`..`m5c` with their geo variants, `travel`, `ascension`) passed with "Loaded 4226 quest handlers"
+  (p6q-ascension-route.md §7), and m5a and m5c logged no ERROR line (§3); the M5d gate does not exist yet (M5d stage 2). **One unported
+  body sits right behind the kill hook**:
+  `NpcController::doReward` calls the kill variant `AbyssPointsService::addAp(Player, VisibleObject, int)` (`NpcController.cpp:273`, after
+  `QuestEngine::onKill` at `:262-265`) for an npc that answers `REWARD_AP`, and `gs.scenario.ascension`'s server logged it as 10 "onDie()
+  exception" ERROR lines (p6q-ascension-route.md §3, §5 item 2). A command that kills such an npc (`//kill`) reaches it; X8's target gives no
+  AP (§17.8). The lanes' first task stays rev 1's two-level trace of their own commands, and every command file passes `tools/parity` before
+  it merges (H-03).
 
-**Required set: 41 commands, 124 bodies, 2,780 Java lines** (C1 33 files / 83 bodies / 2,058 lines; C2 8 / 41 / 722). §5.2's "not in the
-set" list changes: `//moveto`, `//goto`, `//add` and `//quest` are reachable now and go to K-11 (§17.5). `//res` still waits for M5e.
+**Required set: 41 commands, 124 bodies, 2,780 Java lines** (C1 33 files / 83 bodies / 2,058 lines; C2 8 / 41 / 722). By lane, with
+`//speed` (2 bodies, 45 lines) moved: commands-c1 32 / 81 / 2,013, commands-c2 9 / 43 / 767. §5.2's "not in the set" list changes:
+`//moveto`, `//goto`, `//add` and `//quest` are reachable now and go to K-11 (§17.5). `//res` still waits for M5e.
 
 ### 17.5 §5.3 refreshed: riders whose milestone has already passed (K-11)
 
@@ -1183,11 +1202,12 @@ same scan:
 | M5c (complete) | `//access`, `//addcube`, `//sysmail` (loud Black Cloud arm, D6: `MailFormatter.sendBlackCloudMail`, SysMail.java:137, :144), `setinventorygrowth`, `//equip` (loud tempering arm: `TamperingAction.setTemperingLevel`, group K), `set_enchantcount`, `wish` | 28 / 842 | `//rename` (`CM_APPEARANCE.onPlayerNameChanged`: no C++ file; J6, stage 2) |
 | M5d (stage 0 runs after it) | `//quest`, `addquest` | 13 / 369 | none (`//reload quests` stays in stage 4) |
 | M5e (C-01 merged) | `changeclass`, `classup` (which calls `Changeclass.parsePlayerClass`, C2) | 5 / 70 | `//res`, `resurrect` (C-02) |
-| M5f (travel and instance cores) | `//goto`, `//moveplayertoplayer`, `//movetoobj`, `teleport`, `teleportto`; **`//moveto` and `//movetome` with `TeleportService::teleportTo(Player, WorldPosition)`** (TeleportService.java:221-233, 13 lines, P5-08; its callees `abortPlayerActions`, `World.setPosition`, `spawnOnSameMap` and the 8-argument overload are ported) | 24 / 634, + 9 / 208 | `//instance` (X-01), `//house` (M5h's house instance), `//fixpath` (D7), `teleport_to_named` (handler-local JAXB, stage 4) |
+| M5f (travel and instance cores) | `//goto`, `//moveplayertoplayer`, `//movetoobj`, `teleport`, `teleportto`; **`//moveto` and `//movetome` with `TeleportService::teleportTo(Player, WorldPosition)`** (TeleportService.java:221-233, 13 lines, P5-08; its callees `abortPlayerActions`, `World.setPosition`, `spawnOnSameMap` and the 8-argument overload are ported). **Except `//movetome`'s team arm** (`<name> grp\|alli`, MoveToMe.java:36-57): it calls `TemporaryPlayerTeam::getOnlineMembers` (`TemporaryPlayerTeam.cpp:36-38`, `AION_UNPORTED`, P5-10, M5g). It is dormant until M5g lets a group form: `getCurrentGroup()`/`getCurrentTeam()` return null and the command answers "… currently has no team." | 24 / 634, + 9 / 208 | `//instance` (X-01), `//house` (M5h's house instance), `//fixpath` (D7), `teleport_to_named` (handler-local JAXB, stage 4) |
 | M5g, M5h, M5i | none | none | unchanged: `//event`; `//legion`, `//auction`; the six of m5i D2 |
 
 **K-11: 26 commands, 104 bodies, 2,872 Java lines** (C1 14 files / 52 bodies / 1,473 lines; C2 12 / 52 / 1,399), plus `teleportTo(Player,
-WorldPosition)`. Its dead-player arm, `teleportDeadTo`, stays loud. K-11 does not need the other unported overload, `teleportTo(Player,
+WorldPosition)`. Its dead-player arm, `teleportDeadTo`, stays loud, and `//movetome`'s team arm is ported as Java has it and reaches the
+unported `getOnlineMembers` (D6; dormant until M5g, §17.5). K-11 does not need the other unported overload, `teleportTo(Player,
 worldId, instanceId, x, y, z)` (`TeleportService.cpp:463-469`). The C++ comment there hands that one-liner to the integrator, together with
 the two `DialogServiceTest.cpp` rows that pin it as throwing. Those rows are now at `:1109-1110`, not the comment's `:1072-1073`.
 
@@ -1197,56 +1217,83 @@ done (§17.10).
 
 ### 17.6 §7 "Stage 0" refreshed (work items)
 
-Rows not listed are unchanged: K-02, K-03, K-05, K-07 and K-10 keep their rev-1 text, with §17.2's line numbers.
+Rows not listed are unchanged: K-02, K-03, K-05, K-07 and K-10 keep their rev-1 text, with §17.2's line numbers. The integrator's items
+are timed in §17.7's merge order: I-01 before any lane starts, I-03 at checkpoint 0.1b.
 
 | Id | What (the change) | Deps | Need | Eff |
 |---|---|---|---|---|
-| I-01 | Stage 0's manifest part, smaller than in rev 1. (1) **No `TESTS` change**: the manifest already derives `tests/handlers_commands/C1` and `/C2` for the shared target (pinned by `tools/porting/tests/test_chunks.py:581-582`). (2) The C1/C2 lease, either as LEASE rows in the P5-05 form (`chunks.cmake:591-597`, `ROOT handlers`; lessee P5-14, the framework's chunk; GLOBS on the stage's command files, `TEST_SUPPORT` on their test directory) or in the plan only, as M5d's quest-npc-ais lane held its lease before that row recorded it. After adding rows, run `chunks.py check` and `tools.porting`. The Q06 precedent applies: a lease row that changes a pinned owner is reverted. (3) **With K-11**: release the Q09 LEASE row on `services/teleport/TeleportService.cpp` (`chunks.cmake:549-550`); its lane has merged, and p6q-ascension-route.md §2 kept the row | none | R | S |
+| I-01 | Stage 0's manifest part, smaller than in rev 1. (1) **No `TESTS` change**: the manifest already derives `tests/handlers_commands/C1` and `/C2` for the shared target (pinned by `tools/porting/tests/test_chunks.py:581-582`). (2) The C1/C2 lease, either as LEASE rows in the P5-05 form (`chunks.cmake:591-597`, `ROOT handlers`; GLOBS on the stage's command files, `TEST_SUPPORT` on their test directory) or in the plan only, as M5d's quest-npc-ais lane held its lease before that row recorded it. **One lessee per lane, never P5-14 for all three**: `chunks.py check-ownership CHUNK RANGE` allows a chunk its own files and its leases, so with P5-14 as the lessee of C1 and C2 the chat, commands-c1 and commands-c2 lanes would each pass the check on the others' files. So either each command lane is checked as the phase-6 owner itself (commands-c1 as C1, commands-c2 as C2), with its phase-4 files (P4-12's four forwarders; P4-09's `SpawnsData.cpp`) and commands-c2's one C1 file (`admincommands/Speed.*`) leased to that chunk, the way the phase-6 chunk Q09 leases P5-08's `TeleportService.cpp` (`chunks.cmake:549-550`); or, with the lease in the plan only, each lane's diff is checked against its file list in §17.7. After adding rows, run `chunks.py check` and `tools.porting`. The Q06 precedent applies: a lease row that changes a pinned owner is reverted. (3) **With K-11**: release the Q09 LEASE row on `services/teleport/TeleportService.cpp` (`chunks.cmake:549-550`); its lane has merged, and p6q-ascension-route.md §2 kept the row | none | R | S |
 | I-02 | Unchanged, **not landed**. It may ride before stage 0 (D1's answer). It is safe alone: with no command registered, `handleChatCommand` returns false (`ChatProcessor.cpp:118-119`). **Order rule:** once any command file is registered, K-01 must already be in. Otherwise every staff login throws again, inside `AdminCommand::process` (`ChatProcessor.cpp:122`, then `AdminCommand.cpp:24-26`) | none | R | S |
-| I-03 | **Half done**: `AION_BUILD_CHAT_SERVER` defaults to ON (`CMakeLists.txt:46`, `27726d32c`). What is left goes in `game-server/CMakeLists.txt:292-299`: `add_dependencies(aion_gs_scenario_tests aion_chat_server)` under `if(TARGET aion_chat_server)`; the executable path define, as `chat-server/CMakeLists.txt:40` has for its e2e test; and the include directory `chat-server/tests/support` (`FakePeers.h`, `ChatServerTestDatabase.h`), **added the way `:293` adds `login-server/tests/support`**. It is not a manifest `TEST_INCLUDES`, as rev 1's D3 put it: that keyword names game-server test-support directories | none | R | S |
-| K-01 | Unchanged, but **it is part 0.1's first commit and merges first** (checkpoint 0.1a), because the command lanes' tests run through `run` and `sendInfo` | none | R | S |
-| K-04 | Unchanged. The GAG runnable is the `ChatBanService_Runnable` task struct of §17.2, cut by `cancelAllTasks` through `TaskId::GAG` | none | R | S |
+| I-03 | **Half done**: `AION_BUILD_CHAT_SERVER` defaults to ON (`CMakeLists.txt:46`, `27726d32c`). What is left goes in `game-server/CMakeLists.txt:292-299`: `add_dependencies(aion_gs_scenario_tests aion_chat_server)` under `if(TARGET aion_chat_server)`; the executable path define, as `chat-server/CMakeLists.txt:40` has for its e2e test; and the include directory `chat-server/tests/support` (`FakePeers.h`, `ChatServerTestDatabase.h`), **added the way `:293` adds `login-server/tests/support`**. It is not a manifest `TEST_INCLUDES`, as rev 1's D3 put it: that keyword names game-server test-support directories. **The integrator commits it at checkpoint 0.1b**, before the gate lane starts C-03 | none | R | S |
+| K-01 | Unchanged, but **it is part 0.1's first commit and merges first**, in checkpoint 0.1a with K-04, I-02 (if it did not ride) and H-03 (§17.7), because the command lanes' tests run through `run` and `sendInfo` | none | R | S |
+| K-04 | Unchanged. The GAG runnable is the `ChatBanService_Runnable` task struct of §17.2, cut by `cancelAllTasks` through `TaskId::GAG`. **The chat lane's second commit, merged in checkpoint 0.1a**, because `//gag`'s cases (commands-c1) run on it | none | R | S |
 | K-06 | Adds the `replaceUnsupportedCommandChars` stand-in (§17.2) | K-01 | R | S |
-| K-08b | Adds `Clearusercoolt`, the 41st command | K-01, K-10 | R | L (41 bodies, 722 lines) |
-| K-09 | Command tests go to `tests/handlers_commands/C1` and `/C2`, not rev 1's `tests/handlers_commands`. The command smoke of handlers-and-porting-plan.md:652 covers the 41 (and K-11's 26) | K-01..K-10 | R | L |
-| **K-11** | **New: the 26 riders of §17.5** (a C1 part and a C2 part) and `TeleportService::teleportTo(Player, WorldPosition)` (P5-08), with a `tests/playersvc` case beside `TravelTeleportTest.cpp`. Loud arms (D6): `//sysmail`'s Black Cloud arm, `//equip`'s tempering arm, `teleportDeadTo` | K-01, I-01 (3) | **O, recommended** | XL (104 bodies + 1, 2,885 lines) |
-| **K-12** | **New, O: `CM_GATHER`** (P5-15, 5 bodies, 51 Java lines), if the integrator gives it to the chat lane, which holds P5-15 in part 0.1 (§17.7). Gathering comes "after quests" (owner, M5c D10 / M5d D13), no plan item takes it (m5c-plan.md §20.7), and nothing behind it is unported without CAPTCHA (m5c-plan.md §2.6 row 7). Its `GeoService.canSee` coverage (m5c-plan.md D12) becomes a unit case on the `tests/geo` fixtures, since gs.scenario.gm has no geo variant | none | O | S |
+| K-08 | The C1 part is **28 commands**, not rev 1's 29: `//speed` moves to K-08b (§17.4). `.gmlist`'s cases need I-02 (in checkpoint 0.1a), or set `login.execute_commands` empty for the case (D13's documented switch) | K-01, K-04, K-10, I-02 | R | XL (32 files with K-07, 81 bodies, 2,013 lines) |
+| K-08b | Adds `Clearusercoolt`, the 41st command, and **`//speed`** (a C1 file, `admincommands/Speed.*`, held by the commands-c2 lane because it is built on `Stat.CommandStatFunction`) | K-01, K-10 | R | L (9 files, 43 bodies, 767 lines) |
+| K-09 | Command tests go to `tests/handlers_commands/C1` and `/C2`, not rev 1's `tests/handlers_commands`. **The command smoke** of handlers-and-porting-plan.md:652 is commands-c1's: it lives in `tests/handlers_commands/C1` (C1 also holds `CommandPrelude.h`) and iterates over the registered commands, so it covers what each checkpoint has registered: the C1 commands in the lane, all 41 at 0.1b (the integrator's run), K-11's 26 at part 0.2's checkpoint | K-01..K-10 | R | L |
+| **K-11** | **New: the 26 riders of §17.5** (a C1 part and a C2 part) and `TeleportService::teleportTo(Player, WorldPosition)` (P5-08), with a `tests/playersvc` case beside `TravelTeleportTest.cpp`. Loud arms (D6): `//sysmail`'s Black Cloud arm, `//equip`'s tempering arm, `teleportDeadTo`; dormant until M5g: `//movetome`'s team arm (`getOnlineMembers`, P5-10) | K-01, I-01 (3) | **O, recommended** | XL (104 bodies + 1, 2,885 lines) |
+| **K-12** | **New, O: `CM_GATHER`** (P5-15, 5 bodies, 51 Java lines), if the integrator gives it to the chat lane, which holds P5-15 in part 0.1 (§17.7). Gathering comes "after quests" (owner, M5c D10 / M5d D13), no plan item takes it (m5c-plan.md §20.7), and nothing behind it is unported without CAPTCHA (m5c-plan.md §2.6 row 7). Its `GeoService.canSee` coverage (m5c-plan.md D12, GatherableController.java:56) becomes a unit case **in `tests/cm_ak`** (P5-15's test directory; `tests/geo` is P4-04's), with geo files generated in the case the way `tests/handlers_ai_core/AbyssGuardGeoTest.cpp` does (writers copied from `tests/effects_mz/GeoMovementEffectsTest.cpp`), since gs.scenario.gm has no geo variant | none | O | S |
 | H-01 | Unchanged (`tools/oracle/oracle.py` has no `m5j-commands` subcommand yet), plus the 41st command and, with K-11, the riders' texts | none | R | M |
 | H-02 | Unchanged, with one correction. **Gate accounts are created at their first login** (`-Dloginserver.accounts.autocreate=true`, `ScenarioServers.cpp:169`), so "seed `account_data.access_level` before the first login" finds no row to update. H-02 either inserts the `account_data` row itself (the columns of `login-server/sql/aion_ls.sql`, `access_level` at `:12`) or logs the account in once, quits, and updates the row while no client is connected (m5c0-client-session.md F-3). No chat builder and no `SM_MESSAGE` decoder exist yet (`GameSession.h`, `tests/scenario/decoders/`) | none | R | M |
 | **H-03** | **New: `tools/parity` for command files.** Its C++ side ends at an `AION_*_HANDLER` marker (`parity.py:115`), which the command markers `AION_ADMIN_COMMAND`, `AION_PLAYER_COMMAND` and `AION_CONSOLE_COMMAND` (`HandlerRegistry.h:336` and after) do not match. H-03 adds them, plus any command spelling a port needs (documented renames only, the P6-Q method), with cases in `tools/parity/tests/test_parity.py`. Every stage-0 command file is at parity before it merges | none | R | S |
 | C-03 | R (A-CS holds); §17.9 | K-04, I-03 | R | L |
-| G-02 | Re-green **every** gate, not rev 1's six: `gs.smoke.startup`, `_progress`, `_geo`, `gs.m4.check_static_data`, and `gs.scenario.m5a`, `m5a_geo`, `m5b`, `m5b_geo`, `m5b2`, `m5b2_geo`, `m5b3`, `m5b3_geo`, `m5c`, `travel`, `ascension`, plus M5d's `m5d` and `m5d_geo`. None uses a staff account or chat (grep: no gate seeds `access_level` or builds a chat packet). The one thing they see differently is a startup log line ("Loaded N commands", `ChatProcessor.cpp:81`). Record before/after packet counts. The command files are phase-6 chunk files (D3), so **U1/U7's rule applies to them: a command that changes what a phase-5 gate sees is held back and listed, never landed by editing the gate.** The phase-5 bodies (I-02, K-01..K-06, K-10) fall under the milestone's own gate duty | G-01 | R | S |
+| G-02 | Re-green **every** gate, not rev 1's six: `gs.smoke.startup`, `_progress`, `_geo`, `gs.m4.check_static_data`, and `gs.scenario.m5a`, `m5a_geo`, `m5b`, `m5b_geo`, `m5b2`, `m5b2_geo`, `m5b3`, `m5b3_geo`, `m5c`, `travel`, `ascension`, plus M5d's `m5d` and `m5d_geo`. The list leaves out `gs.scenario.m5a_stress` (labels `scenario;realdata;stress;nightly`, both slots), which is registered but disabled unless the tree is configured with `AION_STRESS_NIGHTLY=ON` (`StressTests.cmake:28-44`; the gate runs of p6q-ascension-route.md §3 and §7 pass `-E m5a_stress`); a nightly tree re-runs it. None uses a staff account or chat (grep: no gate seeds `access_level` or builds a chat packet). The one thing they see differently is a startup log line ("Loaded N commands", `ChatProcessor.cpp:81`). Record before/after packet counts. **The command lanes are M5j's own lanes, not phase-6 lanes**: D3 keeps C1/C2 `PHASE 6` for ownership only and has each phase-5 stage that ports commands hold them under a lease, and the owner's D1 answer schedules stage 0, commands included, as main-line work right after M5d. So they take M5j's core build slots (§17.7), and G-02 is the milestone's own gate duty for every stage-0 file, command files included, as it was for M5d's join (m5d-plan.md G-05). U1/U7's "held back, never landed by editing the gate" binds the phase-6 lanes that may run in spare slots (§17.7), not these. The integrator confirms this reading before launch (§17.11) | G-01 | R | S |
 
 ### 17.7 §8 refreshed: stage-0 lanes with at most four heavy builds
 
-A heavy build is a lane's own worktree build of the servers; the tools lane is Python only. Chunk sets are disjoint within a part. The
-commands are hand ports: G4's shells would save about 7% of their lines (phase6-inventory.md §7.4) and are not built. As in the P6-Q slice
-(p6q-ascension-route.md), each port goes statement by statement from Java, with Java bugs kept and marked `// java-bug kept`, parity
-(H-03) and the oracle (H-01). Every lane ends with its adversarial review and a mutation proof: schemata switched by an environment variable
-named after the lane; sources restored byte for byte, checked with sha256, and rebuilt; no mutant string left. A frozen header that needs
-a change gets a request in `docs/porting/header-requests.md` under an "M5j stage 0" section. None is expected for the framework and service
-headers (0 undeclared in P5-14; ChatBanService and PlayerChatService are fully declared).
+A heavy build is a lane's own worktree build of the servers; the tools lane is Python only. **File sets are disjoint within a part**, and
+so are chunk sets, except that commands-c2 also holds one C1 file, `admincommands/Speed.*` (§17.4). Disjoint files do not make the builds
+independent: what one lane needs from another is a checkpoint in the merge order below. The commands are hand ports: G4's shells would save
+about 7% of their lines (phase6-inventory.md §7.4) and are not built. As in the P6-Q slice (p6q-ascension-route.md), each port goes
+statement by statement from Java, with Java bugs kept and marked `// java-bug kept`, parity (H-03) and the oracle (H-01). Every lane ends
+with its adversarial review and a mutation proof: schemata switched by an environment variable named after the lane; sources restored byte
+for byte, checked with sha256, and rebuilt; no mutant string left. A frozen header that needs a change gets a request in
+`docs/porting/header-requests.md` under an "M5j stage 0 (2026-09-29)" section, **in a subsection of its own per lane** ("chat",
+"commands-c1", …), so that two lanes' tables never meet in one merge (P6-Q had that conflict, p6q-ascension-route.md §2). None is expected
+for the framework and service headers (0 undeclared in P5-14; ChatBanService and PlayerChatService are fully declared).
+
+**The two command lanes build one library.** C1 and C2 are both `aion_gs_handlers_commands` (`chunks.cmake:669-682`), `admincommands` is
+split between them, and C2's admin files use C1's `CommandPrelude.h` (C2's `PCH`) and `admincommands/AdminCommandsPrelude.h`. The unity
+batches are per directory in Java order, 16 files each (`cmake/AionChunks.cmake:600-607`), so a C1 and a C2 admin command can share one
+translation unit, which only the combined build at checkpoint 0.1b compiles. Three rules follow. (1) The three preludes and
+`CommandPrelude.h` are frozen for part 0.1; a change is a header request to the integrator, never a commands-c2 edit of a C1 file. (2) The
+handler files' unity rules hold (handlers-and-porting-plan.md, "Unity-safe by construction", checked by regscan): no anonymous namespace
+and no namespace-scope `static`, helpers are private members and constants `static constexpr` members, so a mixed batch meets only the
+command classes' own names, which are Java's. (3) The integrator's 0.1b build is the first with both lanes' files; it builds the library
+with `AION_HANDLER_UNITY` on (the default) before the unit suite.
 
 | Part | Lane | Build | Holds | Items | Tests | Size |
 |---|---|---|---|---|---|---|
-| any time before 0.1 | **gm-login** (the rider) | 1 heavy | P4-05 | I-02 | `tests/base` | S |
-| 0.1 | **chat** | heavy | P5-14, P5-08, P5-13, P5-00, P5-15, P4-05 (K-06's stand-in; I-02 if it did not ride) | K-01 first (checkpoint 0.1a), K-02, K-03, K-04, K-05, K-06; K-12 if given | `tests/misc`, `tests/playersvc`, `tests/instance`, `tests/login_slice`, `tests/cm_ak`, `tests/base` | L: ~51 bodies (+1 anonymous), ~980 Java lines |
-| 0.1 | **commands-c1** | heavy | C1 (lease), P4-12 (lease) | K-07, K-08, K-10's forwarders, K-09's C1 part | `tests/handlers_commands/C1`, `tests/player` | XL: 33 files, 83 + 4 bodies, ~2,080 lines. **The critical path** |
-| 0.1 | **commands-c2** | heavy | C2 (lease), P4-09 (lease) | K-08b (with `Clearusercoolt`), K-10's guard, K-09's C2 part | `tests/handlers_commands/C2`, `tests/dataholders` | L: 8 files, 41 + 1 bodies |
-| 0.1 | **harness** | heavy | P5-SC | H-02 | decoder self-tests in `tests/scenario` | M |
-| 0.1 | **tools** | light (Python) | `tools/oracle`, `tools/parity` | H-01, H-03 | `tools.oracle`, `tools.parity` | M |
+| any time before 0.1 | **gm-login** (the rider) | 1 heavy, counted against the cap wherever it runs (beside M5d's lanes, or in the integration of an M5d wave, m5d-plan.md §18.5) | P4-05 | I-02 | `tests/base` | S |
+| 0.1 | **chat** | heavy | P5-14, P5-08, P5-13, P5-00, P5-15, P4-05 (K-06's stand-in; I-02 if it did not ride) | K-01, then K-04 (and I-02 if it did not ride): checkpoint 0.1a; then K-02, K-03, K-05, K-06; K-12 if given | `tests/misc`, `tests/playersvc`, `tests/instance`, `tests/login_slice`, `tests/cm_ak`, `tests/base` | L: ~51 bodies (+1 anonymous), ~980 Java lines |
+| 0.1 | **commands-c1** | heavy | C1 except `admincommands/Speed.*` (lease), P4-12 (lease) | K-07, K-08 (28 commands), K-10's forwarders, K-09's C1 part with the command smoke | `tests/handlers_commands/C1`, `tests/player` | XL: 32 files, 81 + 4 bodies, ~2,035 lines. **The critical path** |
+| 0.1 | **commands-c2** | heavy | C2 and C1's `admincommands/Speed.*` (lease), P4-09 (lease) | K-08b (with `Clearusercoolt` and `//speed`), K-10's guard, K-09's C2 part | `tests/handlers_commands/C2`, `tests/dataholders` | L: 9 files, 43 + 1 bodies, ~780 lines |
+| 0.1 | **harness** | heavy | P5-SC, except the partial allow-lists (E-08's integrator edit) | H-02 | decoder self-tests in `tests/scenario` | M |
+| 0.1 | **tools** | light (Python) | `tools/oracle`, `tools/parity` | H-03 first (checkpoint 0.1a), then H-01 | `tools.oracle`, `tools.parity` | M |
 | 0.2 | **gate** | heavy | P5-SC | G-01 (X1-X10, then X11 once K-11 has merged), C-03, G-02 | `gs.scenario.gm`, `gs.scenario.chat`, every gate | L |
 | 0.2 | **riders-c1** (K-11, O) | heavy | C1 (lease), P5-08 (after I-01 (3)) | K-11's C1 part, `teleportTo(Player, WorldPosition)` | `tests/handlers_commands/C1`, `tests/playersvc` | L: 14 files, 52 + 1 bodies, ~1,490 lines |
 | 0.2 | **riders-c2** (K-11, O) | heavy | C2 (lease) | K-11's C2 part | `tests/handlers_commands/C2` | L: 12 files, 52 bodies, 1,399 lines |
 | 0.2 | fixups | heavy, only when the gate names one | a chunk no other 0.2 lane holds | none | none | none |
 
-At most four heavy builds run at any time: part 0.1 has four (+ the Python lane), and part 0.2 has three plus a fixup slot. Phase-6 lanes
-use spare slots only (U1/U7), so none runs beside part 0.1. Each build directory runs one ctest process at a time, unit tests at `-j 4` at
-most, and the gate lane's server runs take the machine-wide gate slots.
+**At most four heavy builds run on the machine at any time, whichever milestone runs them.** Part 0.1 has four (+ the Python lane) and
+part 0.2 has three plus a fixup slot, but M5d's lanes and the gm-login rider count too. Part 0.1 launches when M5d's gate (stage 2) has
+merged; if M5d's stage-3 lane (E-07, E-08: one heavy build, m5d-plan.md §18.5 lane 5) still runs then, part 0.1 starts three heavy lanes,
+commands-c1 (the critical path), chat and commands-c2, and the harness lane takes the fourth build when the stage-3 lane has merged. The
+command lanes are M5j's own lanes (§17.6 G-02), so they use these core slots. Phase-6 lanes use spare slots only (U1/U7), so none runs
+beside part 0.1. Each build directory runs one ctest process at a time, unit tests at `-j 4` at most, and the gate lane's server runs take
+the machine-wide gate slots.
 
-**Merge order.** I-02 (any time), then 0.1a (K-01 and its tests; the command lanes merge the stage branch to run theirs), then 0.1b (the rest
-of 0.1, with the integrator's unit suite and every gate), then part 0.2's riders, then the gate lane's X11 and C-03, then part 0.2's
-checkpoint. The command lanes start on day 1 against `ChatCommand.h`, which is frozen and complete, and run their tests after 0.1a.
+**Merge order.**
+
+1. **Before launch**: I-01 (the leases, §17.6), and conflict 4 below resolved. I-02 may merge at any time before 0.1a.
+2. **Checkpoint 0.1a**: the chat lane's K-01 and K-04 (and I-02 if it did not ride) with their tests, and the tools lane's H-03. The command
+   lanes start on day 1 against `ChatCommand.h`, `ChatBanService.h` and `GMService.h`, which are frozen and complete, then merge the stage
+   branch after 0.1a and run their tests: `run` and `sendInfo` need K-01, `//gag` needs K-04, `.gmlist` needs I-02 (§17.6 K-08), and no
+   command file merges before `tools/parity` accepts its marker (H-03, `parity.py:115`). The commands-c2 lane owns `//speed`, so neither
+   command lane waits for the other.
+3. **Checkpoint 0.1b**: the rest of 0.1, merged chat, tools, the two command lanes (in either order), then harness; then the integrator's
+   I-03, the combined build, the unit suite with the command smoke over the 41, and every gate.
+4. **Part 0.2**: the riders, then the gate lane's X11 and C-03 (C-03 needs I-03 from 0.1b and K-04 from 0.1a), then part 0.2's checkpoint.
 
 **Chunk conflicts at launch:**
 
@@ -1256,19 +1303,35 @@ checkpoint. The command lanes start on day 1 against `ChatCommand.h`, which is f
    p6q-ascension-route.md §1) must not hold a file of P5-14, P5-08, P5-13, P5-00, P5-15, P4-05, P4-12 or P4-09 while part 0.1 runs.
 2. **`CM_GATHER` is in P5-15** (`CM_[A-K]`). Gathering is also due "after quests", and a separate gathering lane would collide with the
    chat lane. Either the chat lane carries it (K-12, recommended: 5 bodies), or a gathering lane waits for 0.1b.
-3. M5d's remaining stages hold P5-06 and P5-SC (its gate). The harness and gate lanes cannot start before M5d's gate merges. The chat,
-   command and tools lanes are disjoint from M5d's stages 2 and 3.
+3. M5d's remaining stages hold P5-SC (stage 2, its gate) and P5-06a/b (stage 3's lane). The harness and gate lanes cannot start before
+   M5d's gate merges. **Stage 3 also edits P5-SC at its merge**: E-08 deletes the `QuestEngine.cpp:115` rows from the six partial
+   allow-lists (`m5a`, `m5b`, `m5b2`, `m5b3`, `m5c`, `travel`), and M5d's own list (m5d-plan.md §18.7, §19.5). That is the integrator's edit,
+   made so that a lane holding P5-SC can run beside stage 3 (m5d-plan.md §18.5 lane 5, "because lane 4 holds P5-SC"); m5d-plan.md's "it
+   holds only P5-06a/b" is right about the lane. So the harness lane may run beside stage 3 but does not touch the allow-list files, and
+   the gate lane's new lists (`gm`, `chat`) carry the `:115` row only if E-08 has not merged when G-01 starts, in which case the
+   integrator's E-08 edit covers them too. The chat, command and tools lanes are disjoint from M5d's stages 2 and 3; M5d's builds count
+   against the cap above.
+4. **The main tree's uncommitted `fix/gate-hermetic` change.** At this refresh's review the main tree `D:\aion-server` is on branch
+   `fix/gate-hermetic` (at `a72676184`) with uncommitted changes (the session's `git status`; that tree was not opened) to
+   `src/main.cpp`, `CheckOutput.cpp/.h`, `tests/app/CheckOutputTest.cpp`, `cmake/RunM4Check.cmake` and `cmake/RunStartupSmoke.cmake`
+   (P5-14, `chunks.py owner`), `tests/scenario/ScenarioServers.cpp/.h`, `ScenarioServersTest.cpp`, `ScenarioTests.cmake`,
+   `M5bScenarioTest.cpp` and `M5b2ScenarioTest.cpp` (P5-SC), `configs/Config.cpp/.h` and `tests/configs/ConfigLoadTest.cpp` (P4-01),
+   `tools/oracle/geo/m4.py` with its test, `chat-server/tests/e2e/ChatServerProcessTest.cpp`, and `docs/porting/header-requests.md` with
+   deviation files. That overlaps the chat lane (P5-14), the harness and gate lanes (P5-SC) and the tools lane (`tools/oracle`). **It is
+   merged or dropped before part 0.1 starts**, and the lanes branch from the result. If it makes the gate servers stop loading the main
+   tree's `mygs.properties`, §17.8's key pinning stays anyway: it costs nothing and keeps the gate right in any tree.
 
 ### 17.8 §10.2 refreshed: `gs.scenario.gm`
 
 These are the changes to rev 1's specification; the rows not named keep their text.
 
 - **A gate slot, not the old lock.** §10.1's `RESOURCE_LOCK "aion_game_server_log;aion_login_server_log"` is gone. Every server run holds one
-  of two gate slots (`tests/scenario/ScenarioTests.cmake:13-71`), and a new gate joins the slot with the smaller sum, with its own schema
-  prefix (`:61`, `:67-68`). Today slot 1 is 1,685 s and slot 2 is 1,642 s, and M5d's pair goes to slot 1 (m5d-plan.md §19.5). So
+  of two gate slots (`tests/scenario/ScenarioTests.cmake:13-71`), and a new gate joins the slot with the smaller sum (`:67-68`; `:61`
+  names slot 2 for the next gate as the sums stood), with its geo variant if it has one and its own schema prefix (one slot per prefix,
+  `:39-43`). Today slot 1 is 1,685 s and slot 2 is 1,642 s, and M5d's pair goes to slot 1 (m5d-plan.md §19.5). So
   `gs.scenario.gm` (no geo variant) goes to **slot 2**, unless the sums say otherwise when it lands; its runtime joins the table there.
 - **The profile pins every key an assertion reads.** A gate server in the main tree loads the untracked `game-server/config/mygs.properties`
-  (p6q-ascension-route.md §7). The keys: `gameserver.administration.login.execute_commands` (X1 needs Java's default, `admin.properties:101`),
+  (p6q-ascension-route.md §7; the pins stay even if `fix/gate-hermetic` changes that, §17.7 conflict 4). The keys: `gameserver.administration.login.execute_commands` (X1 needs Java's default, `admin.properties:101`),
   `gameserver.administration.login.print_revision = 9` (`:105`), `gameserver.chat.factions.enable = false`,
   `gameserver.chat.whisper.level = 10`, `gameserver.chatserver.enable = false`, and `gameserver.simple.secondclass.enable = false`, which
   `gs.scenario.ascension` and M5d's gate also pin.
@@ -1280,14 +1343,20 @@ These are the changes to rev 1's specification; the rows not named keep their te
 - **X1**: unchanged while the four first-login quest handlers stay held back. If the owner lands them before this gate (owner-decisions.md
   2026-09-29, open item 2), the first enter world of G, P and L on Poeta starts 1000 and 1100 (for Q on Ishalgen, 2000 and 2100) and plays
   movie 1. The gate then expects that traffic and answers `CM_PLAY_MOVIE_END`, exactly as m5a, m5b and m5b2 will.
-- **X8**: `//addexp <n>` lands on a level **≤ 6**, not ≤ 9. Every level change now runs the quest hooks (§17.1), and from level 7 the
-  ascension mission 1006/2008 appears (locked at 7-8, started at 9 with the key false; owner-decisions.md 2026-09-27). X8, and X9's
-  `levelup`, assert their listed packets by presence, not the whole burst. The kill target 210663 (a juvenile sparkie, level 2,
-  `npc_templates.xml:57809`) gives no AP, so the unported kill variant of `addAp` is not reached.
+- **X8**: `//addexp <n>` lands on a level **≤ 5**, not ≤ 9, so that X9's `levelup 1` ends at ≤ 6. Every level change now runs the quest
+  hooks (§17.1), and from level 7 the ascension mission 1006/2008 appears (locked at 7-8, started at 9 with the key false; owner-decisions.md
+  2026-09-27); keeping X8 and X9 below 7 keeps that traffic out of both. They still assert their listed packets by presence, not the whole
+  burst, because other quests' level hooks may answer at any level. The kill target 210663 (a juvenile sparkie, level 2,
+  `npc_templates.xml:57809`) gives no AP, so the unported kill variant of `addAp` is not reached (§17.4).
 - **X8c (new)**, after X9: G `//set class <G's advanced class>`, then `//set level 10`. G receives `SM_ACTION_ANIMATION(G, CLASS_CHANGE,
   level)` (ClassChangeService.java:75), and after the second command G is level 10, which a non-Daeva cannot reach (§3.6). **Proves**
   `//set`'s class arm with `updateDaevaStatus` (ClassChangeService.java:55, :79-85). **Mutation**: pass `false` for `updateDaevaStatus`, and
-  G stays at level 9.
+  G stays at level 9. **X8c carries the ascension traffic and asserts by presence:** `updateDaevaStatus` runs `completeAscensionQuest`
+  (ClassChangeService.java:36-49): G (Elyos, below 7 until now, so no 1006 state) gets 1006 as `COMPLETE` with `SM_QUEST_ACTION` `ADD` and
+  then `UPDATE`; and `//set level 10` runs the level hooks, which start 1007 with `gameserver.simple.secondclass.enable = false` pinned
+  (owner-decisions.md 2026-09-29, open item 1: a character that has ascended "gets 1007 / 2009 at their next level change"), plus whatever
+  quests the oracle lists for G at level 10 with 1006 complete (`oracle.py m5d-quests --map 210010000 --level 10 --completed 1006`). The
+  gate asserts 1006 `COMPLETE` and 1007 started, not the whole burst.
 - **X11 (new, with K-11)**:
   - G `//add kinah <n>` and `//add <item> <count>` (values from the oracle): the inventory packets M5b-3's decoders read, with the oracle's
     counts.
@@ -1304,9 +1373,14 @@ These are the changes to rev 1's specification; the rows not named keep their te
 - **Slot**: it starts one game server, so it holds one gate slot like any other; the chat server is a light third process. It goes to the
   slot with the smaller sum after `gs.scenario.gm` is placed. chat-server-port.md:159's "the scenario resource lock (one game server at a
   time)" predates the two slots.
-- **Its chat schema** comes from `AION_TEST_CS_DATABASE_URL` (`aion_cs_test`). The gate takes the named lock `"aion_cs_test:<database>"`
-  that `ChatServerTestDatabase.h:138-149` gives every process that changes the schema, so it never meets the chat server's own data and e2e
-  tests (labels `chatserver;realdata`).
+- **Its chat schema is its own, per run**, on the MariaDB server of `AION_TEST_CS_DATABASE_URL`: `aion_cs_test_chat_<hash>` (the scenario
+  harness's `schemaSuffix` of the output directory, its in-use marker and `dropAbandonedSchemas`, as for the gate's login and game schemas,
+  `ScenarioDatabase.h:64-73`, :134-139), created from `chat-server/sql/aion_cs.sql` (the script `recreateSchema` reads) and named in the
+  scratch `mycs.properties`'s `database.url`, as rev 1's §10.3 had it. **It does not use `aion_cs_test` and never takes the named lock
+  `"aion_cs_test:<database>"`** (`ChatServerTestDatabase.h:138-149`): `lockForProcess` holds that lock until the process exits and waits up
+  to 600 s (`GET_LOCK(?, 600)`), while the chat server's e2e tests time out at 180 s (`chat-server/CMakeLists.txt:49`). A gate run of
+  minutes on that lock would fail another lane's `chatserver;realdata` tests (every worktree shares `aion_cs_test`, and `-LE scenario`
+  does not exclude them).
 - **Build**: I-03's remainder (§17.6). `FakeChatClient` is in `chat-server/tests/support/FakePeers.h`.
 - Y1-Y7 are unchanged. The proposal they adopt is chat-server-port.md:139-161 (rev 1: `:122-144`).
 
@@ -1322,7 +1396,14 @@ These are the changes to rev 1's specification; the rows not named keep their te
 - the leases (`chunks.py list`; `check`: 71 chunks, 84 parts, 0 problems);
 - the unchanged and moved line references;
 - the six allow-lists and the slot sums in `ScenarioTests.cmake`;
-- the account autocreate in `ScenarioServers.cpp:169` and the marker regex at `parity.py:115`.
+- the account autocreate in `ScenarioServers.cpp:169` and the marker regex at `parity.py:115`;
+- added by the review's corrections (§17.12): the C1 ↔ C2 references of the command files (Java imports, and same-package references by
+  class name; `//speed` → `Stat.CommandStatFunction` is the only one from C1 to C2), `//speed`'s size (census 2 bodies, `wc` 45 lines),
+  `TemporaryPlayerTeam::getOnlineMembers` (census: unported, P5-10), the `GMService::onPlayerLogin` order (`GMService.cpp:59-69`), the unity
+  grouping (`AionChunks.cmake:600-607`), the `check-ownership` rule (`chunks.py`), the chat test lock and timeouts
+  (`ChatServerTestDatabase.h:138-149`, `chat-server/CMakeLists.txt:49`), the stress test's registration (`StressTests.cmake:28-44`), the
+  commits that added the six named packets (`git log --diff-filter=A`), and the chunk owners of the `fix/gate-hermetic` file list
+  (`chunks.py owner`).
 
 **Inferred**:
 
@@ -1330,12 +1411,41 @@ These are the changes to rev 1's specification; the rows not named keep their te
 - that `//spawn`'s item arm is clean;
 - that no stage-0 change moves a phase-5 gate (read, not run);
 - the slot each new gate lands in (it depends on the M5d gate's runtime);
-- the chat lane's Java lines (file lengths, not body lengths).
+- the chat lane's Java lines (file lengths, not body lengths);
+- what `fix/gate-hermetic` changes (only its file list was seen, from the session's `git status`; the main tree was not opened).
 
 ### 17.11 Open for the integrator and the owner
 
 1. **K-11** (integrator, D15): take the 26 riders in part 0.2 (recommended), or leave them to a later stage.
 2. **K-12, `CM_GATHER`** (integrator; the owner's D10 says only "after quests"): the chat lane, or a gathering lane after 0.1b.
-3. **The C1/C2 lease form** (integrator): LEASE rows or the plan only (§17.6, I-01).
-4. **The four first-login handlers** (owner, 2026-09-29 open item 2): decide before `gs.scenario.gm` lands, since X1 depends on it.
-5. D12, D14 and D9's fix stay with the owner (unchanged).
+3. **The C1/C2 lease form** (integrator): LEASE rows with one lessee per lane (C1, C2) or the plan only (§17.6, I-01); not P5-14 as the
+   lessee of both.
+4. **The command lanes under U1/U7** (integrator, before launch): confirm §17.6 G-02's reading, that the command lanes are M5j's own lanes
+   under D3's lease (core slots; the milestone re-greens its gates), not phase-6 lanes (spare slots only; a command that changes what a
+   phase-5 gate sees is held back). If the integrator rules them phase 6, part 0.1 keeps only the chat, harness and tools lanes in core
+   slots, and the command lanes wait for spare ones.
+5. **`fix/gate-hermetic`** (whoever owns that change): merged or dropped before part 0.1 starts (§17.7 conflict 4).
+6. **The four first-login handlers** (owner, 2026-09-29 open item 2): decide before `gs.scenario.gm` lands, since X1 depends on it.
+7. D12, D14 and D9's fix stay with the owner (unchanged).
+
+### 17.12 Review of this refresh, 2026-09-29
+
+An adversarial review re-checked the refresh read-only (census, `chunks.py`, grep, two scratch scripts) and reproduced every measured
+number and line reference. It found that the lanes could not all run as written. Each finding was re-checked against the tree before it
+was taken; none was rejected outright, and two were taken in part.
+
+| # | Severity | Finding | Verdict | What changed |
+|---|---|---|---|---|
+| 1 | high | `//speed` (C1) is built on C2's `Stat.CommandStatFunction` (Speed.java:11, :41; Stat.java:153), so commands-c1 could not compile it before commands-c2 | **holds**; a scan finds no other C1 → C2 reference | `//speed` moves to commands-c2 (K-08, K-08b, §17.4, §17.7); "disjoint" now says files, and that builds meet only at checkpoints |
+| 2 | medium | M5d stage 3 is not "P5-06 only": E-08 edits P5-SC's allow-lists, and M5d's builds are not counted against the cap | **holds in part.** The allow-list edit is the integrator's at E-08's merge, made so that a lane holding P5-SC can run beside stage 3 (m5d-plan.md §18.5 lane 5), and m5d-plan.md's "holds only P5-06a/b" is right about the lane; so the harness lane need not wait for E-08. The cap does not count M5d's builds or the rider | §17.1, conflict 3 (the harness lane leaves the allow-lists alone; the gm and chat lists follow E-08), the cap paragraph (M5d's builds and the rider count; three 0.1 lanes while M5d's stage-3 lane runs) |
+| 3 | medium | The main tree's uncommitted `fix/gate-hermetic` change touches P5-14, P5-SC, P4-01 and `tools/oracle` | **holds** (file list from the session's `git status`, owners by `chunks.py owner`; the tree was not opened) | conflict 4: merged or dropped before 0.1; §17.8 keeps its pins either way; §17.11 item 5 |
+| 4 | medium | The merge order leaves out H-03, K-04 (`//gag`), I-02 (`.gmlist`) and I-03 (C-03), and no step times I-01/I-03 | **holds** (`parity.py:115`; `GMService.cpp:65` throws before the `put` at `:67`) | checkpoint 0.1a is K-01, K-04, I-02 and H-03; the merge order is a numbered list with I-01 before launch and I-03 at 0.1b; K-08 names `.gmlist`'s need |
+| 5 | medium | U1/U7 applied half-way: G-02 treats command files as phase-6 while the command lanes take core slots; one P5-14 lessee for C1 and C2 defeats `check-ownership` | **holds** | G-02 now reads D3 and D1: the command lanes are M5j's own lanes (core slots, the milestone re-greens its gates); the integrator confirms (§17.11 item 4). I-01: one lessee per lane |
+| 6 | medium | The chat gate on shared `aion_cs_test` holds a process-lifetime lock (600 s wait) that other lanes' 180 s chat e2e tests would time out on | **holds** (`ChatServerTestDatabase.h:138-149`, `chat-server/CMakeLists.txt:49`) | §17.9: a per-run `aion_cs_test_chat_<hash>` schema under the scenario harness's marker, no named lock |
+| 7 | low | "The M5d, travel and ascension gates run the hooks without an unported hit" is not measured | **holds**: no M5d gate exists yet, and the ascension gate logged 10 "onDie() exception" ERRORs from the kill variant of `addAp` right after the kill hook | §17.4 cites the gates that ran and names the `addAp` hit |
+| 8 | low | `//movetome`'s team arm reaches the unported `TemporaryPlayerTeam::getOnlineMembers` (P5-10) | **holds** (`TemporaryPlayerTeam.cpp:36-38`) | §17.5's M5f row, K-11's text and row: a dormant arm until M5g |
+| 9 | low | X8's "≤ 6" is undercut by X9 (`levelup 1` → 7) and X8c (`completeAscensionQuest`, 1007 at level 10) | **holds** | X8 lands on ≤ 5; X8c expects 1006 `COMPLETE` and 1007 started, by presence |
+| 10 | low | K-12's geo case was put in `tests/geo`, P4-04's directory | **holds** | the case goes in `tests/cm_ak` with generated geo files (the `AbyssGuardGeoTest.cpp` precedent) |
+| 11 | low | Shared artefacts: the command smoke has no owner; one header-request section for all lanes; C1 and C2 share one library, its preludes and its unity batches | **holds** (unity batches are per directory, `AionChunks.cmake:600-607`) | K-09: the smoke is commands-c1's; header requests in a subsection per lane; §17.7's paragraph on the shared library (frozen preludes, the regscan unity rules, the 0.1b combined build) |
+| 12 | low | G-02 omits `gs.scenario.m5a_stress` | **holds in part**: it is registered but disabled unless `AION_STRESS_NIGHTLY=ON` | G-02 says the list leaves it out and why |
+| 13 | nit | Five slips: who added `CM_PLAY_MOVIE_END` and its two siblings; "line only" for a byte-identical `ChatCommand.h`; three K-10 ranges one line short; the slot rule's line; the body arithmetic against rev 1 | **all hold** | §17.1, §17.2 (K-01, K-10 and the total), §17.8's slot bullet |
