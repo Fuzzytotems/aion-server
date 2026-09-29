@@ -471,7 +471,8 @@ class Corpus(unittest.TestCase):
     def test_the_oracle_slice_is_tier_a(self):
         # tools/oracle/questtrace/extract.py SLICE: the Poeta and Ishalgen files questgen emits in tier A (phase6-inventory.md §9.3 item 1)
         tree = ast.parse((paths.CPP_ROOT / 'tools' / 'oracle' / 'questtrace' / 'extract.py').read_text(encoding='utf-8'))
-        slice_ = next(ast.literal_eval(n.value) for n in tree.body if isinstance(n, ast.Assign) and getattr(n.targets[0], 'id', '') == 'SLICE')
+        slice_ = next(ast.literal_eval(n.value) for n in tree.body
+                      if isinstance(n, ast.Assign) and getattr(n.targets[0], 'id', '') == 'SLICE_TIER_A')
         expected = sorted(rel for rel, r in self.p6t.items() if rel.startswith(('poeta/', 'ishalgen/')) and r.status == 'ok' and r.tier == 'A')
         self.assertEqual(sorted(slice_), expected)
 
