@@ -21,6 +21,9 @@ concurrency:
 env:
   MARIADB_VERSION: 11.8.9
   PYTHON_VERSION: '3.12.10'
+# The runner's default TEMP is an 8.3 short path (C:\Users\RUNNER~1\...); the oracle tools compare it with resolved long paths
+# (Path.relative_to failed in tools/oracle m5b3/drops.py and m5d/quests.py in the first run), so each job's first step points TEMP/TMP
+# at RUNNER_TEMP (D:\a\_temp, a long path) through GITHUB_ENV.
 
 jobs:
   validators:
@@ -32,6 +35,11 @@ jobs:
         shell: pwsh
         working-directory: cpp
     steps:
+      - name: Long temp path
+        working-directory: ${{ runner.temp }}
+        run: |
+          "TEMP=$env:RUNNER_TEMP" >> $env:GITHUB_ENV
+          "TMP=$env:RUNNER_TEMP" >> $env:GITHUB_ENV
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 1
@@ -61,6 +69,10 @@ jobs:
       AION_TEST_GS_DATABASE_URL: jdbc:mysql://127.0.0.1:3306/aion_cpp_test?characterEncoding=UTF-8
       AION_TEST_CS_DATABASE_URL: jdbc:mysql://127.0.0.1:3306/aion_cs_test
     steps:
+      - name: Long temp path
+        run: |
+          "TEMP=$env:RUNNER_TEMP" >> $env:GITHUB_ENV
+          "TMP=$env:RUNNER_TEMP" >> $env:GITHUB_ENV
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 1
@@ -77,8 +89,9 @@ jobs:
           python --version
           Get-PSDrive -PSProvider FileSystem | Where-Object Used -ne $null | ForEach-Object { '{0}: {1:N1} GB free of {2:N1} GB' -f $_.Name, ($_.Free / 1GB), (($_.Used + $_.Free) / 1GB) }
 
+      # restore and save are separate steps so the caches are saved even when a later step (the tests) fails
       - name: Restore the vcpkg binary cache
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ${{ github.workspace }}\..\vcpkg-archives
           key: vcpkg-${{ runner.os }}-${{ hashFiles('cpp/vcpkg.json', 'cpp/vcpkg-configuration.json') }}-${{ github.run_id }}
@@ -88,7 +101,7 @@ jobs:
 
       - name: Restore the MariaDB archive
         id: mariadb-cache
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ${{ github.workspace }}\..\mariadb.zip
           key: mariadb-${{ env.MARIADB_VERSION }}-winx64
@@ -99,18 +112,29 @@ jobs:
           $url = "https://archive.mariadb.org/mariadb-$env:MARIADB_VERSION/winx64-packages/mariadb-$env:MARIADB_VERSION-winx64.zip"
           Invoke-WebRequest -Uri $url -OutFile "${{ github.workspace }}\..\mariadb.zip"
 
-      - name: Start MariaDB and create the test databases
+      - name: Save the MariaDB archive
+        if: steps.mariadb-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ github.workspace }}\..\mariadb.zip
+          key: mariadb-${{ env.MARIADB_VERSION }}-winx64
+
+      - name: Start MariaDB (as a service) and create the test databases
         run: |
+          # A process started in the background of one step does not outlive that step on the Windows runner (the first run's
+          # tests all got "Can't connect ... (10061)"), so MariaDB runs as a Windows service.
           $root = Join-Path (Resolve-Path "${{ github.workspace }}\..") 'mariadb'
           Expand-Archive -Path "${{ github.workspace }}\..\mariadb.zip" -DestinationPath $root -Force
           $bin = Get-ChildItem $root -Directory | Select-Object -First 1 | ForEach-Object { Join-Path $_.FullName 'bin' }
           $data = Join-Path $root 'data'
-          & "$bin\mariadb-install-db.exe" "--datadir=$data" --port=3306
+          & "$bin\mariadb-install-db.exe" "--datadir=$data" --port=3306 --service=MariaDB
           if ($LASTEXITCODE -ne 0) { throw "mariadb-install-db failed ($LASTEXITCODE)" }
-          Start-Process -FilePath "$bin\mariadbd.exe" -ArgumentList "--datadir=$data", '--port=3306', '--character-set-server=utf8mb4', '--collation-server=utf8mb4_general_ci', '--console' -WindowStyle Hidden -RedirectStandardError "$root\mariadbd.err"
+          Add-Content -Path (Join-Path $data 'my.ini') -Value "`r`n[mysqld]`r`ncharacter-set-server=utf8mb4`r`ncollation-server=utf8mb4_general_ci`r`n"
+          Start-Service MariaDB
           for ($i = 0; $i -lt 60; $i++) { & "$bin\mariadb-admin.exe" -u root ping 2>$null; if ($LASTEXITCODE -eq 0) { break }; Start-Sleep -Seconds 1 }
-          & "$bin\mariadb.exe" -u root -e "CREATE DATABASE IF NOT EXISTS aion_cpp_test; CREATE DATABASE IF NOT EXISTS aion_ls_test; CREATE DATABASE IF NOT EXISTS aion_cs_test; SHOW DATABASES LIKE 'aion%'"
-          if ($LASTEXITCODE -ne 0) { Get-Content "$root\mariadbd.err" -Tail 40; throw 'MariaDB did not start' }
+          & "$bin\mariadb.exe" -u root -e "CREATE DATABASE IF NOT EXISTS aion_cpp_test; CREATE DATABASE IF NOT EXISTS aion_ls_test; CREATE DATABASE IF NOT EXISTS aion_cs_test; SHOW DATABASES LIKE 'aion%'; SHOW VARIABLES LIKE 'collation_server'"
+          if ($LASTEXITCODE -ne 0) { Get-Service MariaDB; Get-ChildItem $data -Filter *.err | ForEach-Object { Get-Content $_.FullName -Tail 40 }; throw 'MariaDB did not start' }
+          Get-Service MariaDB
 
       - name: Configure (Debug, no incremental linking)
         working-directory: cpp
@@ -130,6 +154,13 @@ jobs:
           cmake --build build/msvc --config Debug --parallel 4 -- '-p:CL_MPCount=2' '-nr:false'
           if ($LASTEXITCODE -ne 0) { throw "build failed ($LASTEXITCODE)" }
           Get-PSDrive -PSProvider FileSystem | Where-Object Used -ne $null | ForEach-Object { '{0}: {1:N1} GB free' -f $_.Name, ($_.Free / 1GB) }
+
+      - name: Save the vcpkg binary cache
+        if: always()
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ github.workspace }}\..\vcpkg-archives
+          key: vcpkg-${{ runner.os }}-${{ hashFiles('cpp/vcpkg.json', 'cpp/vcpkg-configuration.json') }}-${{ github.run_id }}
 
       - name: Unit tests
         working-directory: cpp/build/msvc
