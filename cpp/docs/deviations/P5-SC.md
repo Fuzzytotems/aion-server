@@ -720,3 +720,25 @@ The two production files and the oracle file were restored and checked by sha256
 1,000 kinah for both Warriors and 20 Bandages for the Asmodian, and both first-enter bursts of both races held one `SM_NEARBY_QUESTS` each.
 The harness's unit cases, `QuestItemActionsTest`, `tools.porting` and `gs.chunks.consistency`: 225 of 225 at `-j 4`. `lint_concurrency.py
 --werror --cycles=core game-server/src`: 3,819 files, 0 errors, 0 warnings, 0 advisories; `chunks.py check`: 71 chunks, 0 problems.
+
+## The day lanes H and G integrated (2026-09-29)
+
+Branch `integ/day-0929`: `fix/gate-hermetic` (lane H, `6ffcdb187`) with `m5d/stage-2` (lane G, `1a72cf0d4`) merged in, both from C++
+`a72676184`. `ScenarioTests.cmake` merged without a conflict (lane H's `HermeticServersTest` registration in slot 1, lane G's two gates and
+slot-table entry in slot 2); this file conflicted only because both lanes appended a section here, and both are kept, lane H's first. One
+integration fix: `M5dScenarioTest.cpp`'s header still said in the present tense that a gate's server reads the owner's `mygs.properties`,
+which lane H ended for every gate (the same comment edit lane H made in the M5b and M5b-2 gates); comment only, the key stays pinned. The
+header requests gh-1 (`Config.h`, one static setter) and gh-2 (`CheckOutput.h`, comment only) are small and additive, as recorded.
+
+Measured on the integrated tree (build dir `cpp/build/msvc`, Debug, the test database environment, beside other trees' runs): every target
+built twice with 0 errors and 0 warnings (the second build compiled nothing); the unit suite (`-j 4 -LE
+"scenario|geo|m4|nightly|stress|smoke"`) 4,677 of 4,677 in 1,558 s (5 disabled, 30 skipped); the gates and server tests (`-j 2 -L
+"scenario|smoke|geo|m4" -E m5a_stress`) 58 of 58 in 2,256 s (14 disabled gate shadows), `gs.scenario.m5d` 233 s, `m5d_geo` 364 s, `travel`
+58 s, `ascension` 877 s. Every gate's `census.txt` is the header alone, every `game_server.log` has the "Ignoring ./config/mygs.properties"
+line and no "Loading: ./config/mygs.properties", every `login_server.log` "No override properties found". The ascension gate's ten
+"onDie() exception" lines are `AbyssPointsService::addAp`'s `AION_UNPORTED` (Q06.md), as before.
+
+**The slots, not rebalanced here.** In that run slot 2 (m5b2 pair, m5c, ascension, m5d pair) summed 2,246 s and slot 1 1,736 s, so slot 2
+set the wall clock. The best single move is the M5c gate (its own prefix, no geo variant) to slot 1: about 2,017 s against 1,965 s; moving
+the m5b2 pair instead gives about 2,226 s against 1,756 s. Left to the owner (the slot table above and ScenarioTests.cmake still say "the
+next gate joins slot 1").
