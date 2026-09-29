@@ -22,9 +22,21 @@ REAL_HANDLERS_ROOT = REPO_ROOT / 'game-server' / 'data' / 'handlers'
 REAL_CPP_SRC = CPP_ROOT / 'game-server' / 'src'
 REAL_GENERATED = CPP_ROOT / 'game-server' / 'generated'
 REAL_COMMONS_SRC = CPP_ROOT / 'commons' / 'src'
-VCPKG_INCLUDE = CPP_ROOT / 'vcpkg_installed' / 'x64-windows' / 'include'
 UPDATE = os.environ.get('AION_SKELETON_UPDATE') == '1'
 VS_CMAKE = Path('C:/Program Files/Microsoft Visual Studio/18/Community/Common7/IDE/CommonExtensions/Microsoft/CMake/CMake/bin/cmake.exe')
+
+
+def vcpkg_include(environ=None, cpp_root=CPP_ROOT):
+    """The vcpkg include directory of the compile checks: $AION_VCPKG_INCLUDE, which the tools CTest entries set from the build's
+    VCPKG_INSTALLED_DIR and VCPKG_TARGET_TRIPLET (a git worktree configured against another tree's vcpkg_installed has none of its own),
+    else the tree's own vcpkg_installed/x64-windows/include."""
+    env = (os.environ if environ is None else environ).get('AION_VCPKG_INCLUDE')
+    if env:
+        return Path(env)
+    return Path(cpp_root) / 'vcpkg_installed' / 'x64-windows' / 'include'
+
+
+VCPKG_INCLUDE = vcpkg_include()
 
 
 def short_temp_dir(prefix):
