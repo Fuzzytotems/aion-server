@@ -398,6 +398,10 @@ aion_gs_chunk(P5-12a TARGET aion_gs_siege PHASE 5
 	GLOBS "aion/gameserver/services/siege/**" "aion/gameserver/services/{SiegeService,ShieldService}.*" "aion/gameserver/model/siege/**"
 	JAVA "src/com/aionemu/gameserver/services/siege/**" "src/com/aionemu/gameserver/services/{SiegeService,ShieldService}.java"
 		"src/com/aionemu/gameserver/model/siege/**")
+# The early travel slice of M5f (m5f-plan.md §16, item T-05, I-01's P5-12a lease): P5-08 leases services/SiegeService.cpp from P5-12a for the
+# two bodies on every npc teleport and siege-world arrival, getSiegeIdByLocId and onEnterSiegeWorld (D8). Released when the lane merges.
+aion_gs_chunk(P5-08 LEASE PHASE 5
+	GLOBS "aion/gameserver/services/SiegeService.cpp")
 
 # P5-12b: base, rift, vortex, world raid, panesterra, conqueror/protector, events
 aion_gs_chunk(P5-12b TARGET aion_gs_worldevents PHASE 5

@@ -35,6 +35,9 @@
 > bind point. A mutant that restores `onLeaveInstance`'s `AION_UNPORTED` on that move alone fails the case at exactly that stack. With
 > HEAD's whole body restored, 31 of the 72 instance, teleport and revive cases fail. No gate crosses maps, so the real client still has to
 > confirm F-2. All 13 gates passed two at a time with unchanged packet sequences, which confirms §15.5 (c).
+>
+> **The travel core landed early, 2026-09-29 (§16)**: T-01, T-05 (under the P5-12a lease), P-01, their T-08/P-07 tests and a gate of their
+> own, `gs.scenario.travel` (Sanctum -> Verteron, Pandaemonium -> Altgard, one flight in Verteron). The rest of stage 1 is listed in §16.4.
 
 ---
 
@@ -1179,3 +1182,75 @@ Not corrected here, because they sit in other plans:
 - that `spawnInstance` on 310020000, 320020000 and 720010000 reaches nothing unported at runtime (the data has no walker, no temporary
   spawn and no static id);
 - the dates of M5c stage 2's merge and of M5d-1a's start, which decide when steps 1-6 can land.
+
+---
+
+## 16. Travel core, early (2026-09-29)
+
+> Built, tested and gated in the main tree on branch `m5f/travel-core` (from `7bb89eff0`), uncommitted, at the owner's request to have
+> Ascension playable soon: after 1007/2009 the dispatch quests send the new Daeva to Verteron/Altgard, which needs the npc teleporter and the
+> flight master. This section pulls that slice of stage 1 forward. It changes no plan decision.
+
+### 16.1 What landed
+
+| Item | What | Chunk | Where |
+|---|---|---|---|
+| **T-01** | `TeleportService`: `teleportToFirstTeleportLocation`, `teleport` (REGULAR and FLIGHT, with the fly-path validator and D7's quirk kept), `validateTeleporterAndGetTemplate`, `checkKinahForTransportation`, `showMap` | P5-08 | `services/teleport/TeleportService.cpp` |
+| **T-05** | `SiegeService::getSiegeIdByLocId`, `onEnterSiegeWorld` | P5-12a, under P5-08's lease (I-01; the LEASE row in `chunks.cmake`, released at merge) | `services/SiegeService.cpp` |
+| **P-01** | `CM_TELEPORT_SELECT` (new file, `AION_CLIENT_PACKET` marker; opcode 0x0177 was registered) | P5-16 | `network/aion/clientpackets/CM_TELEPORT_SELECT.{h,cpp}` |
+| T-08 (this slice) | the price table, HiPass, the kinah refusal, the required quest, `validateTeleporterAndGetTemplate`'s refusals and talk range, REGULAR (Java-byte `SM_TELEPORT_LOC`, the watcher's `SM_DELETE(11)`, the arrival after the animation) and FLIGHT (state, `SM_EMOTION(START_FLYTELEPORT, id)`, no `SM_TELEPORT_LOC`), the validator's three refusals, its accepting arm and 7 m threshold, REGULAR's instance arm, `SUPPORT` and the refusal order, the `DEC_KINAH_FLY` mask, `teleportToFirstTeleportLocation` (a `<locations/>` without a route is Java's NPE), `showMap`, `getSiegeIdByLocId` rows, `onEnterSiegeWorld` with sieges off and its world filter, and DialogService's `AIRLINE_SERVICE` (203194/203679 `NO_RIGHT` for a non-Daeva, the map for a Daeva, a flight master for anyone) | P5-08 | `tests/playersvc/TravelTeleportTest.cpp` (39), fixture `TravelTestSupport.h`; `DialogServiceTest.cpp`'s airline row flipped (W-08) |
+| P-07 (this slice) | `CM_TELEPORT_SELECT` byte vectors and run tests (dead, not in the known list, not an npc, unknown loc id, refused teleporter, good selection through the real `CM_TELEPORT_ANIMATION_DONE`, the statue animation, D7's missing Daeva check, a flight, a teleporter without a route) | P5-16 | `tests/cm_lz/TeleportSelectPacketTest.cpp` (13) |
+| gate | `gs.scenario.travel` (label `scenario`, gate slot 1): §16.3 | P5-SC | `tests/scenario/TravelScenarioTest.cpp`, `travel_partial_allowlist.txt`, `ScenarioTests.cmake` |
+
+The integrator splits the commit by chunk (P5-08 + the P5-12a lease; P5-16; P5-SC), the way §15.4 split the ascension worktree. The two new
+test files of P5-16 and P5-SC include P5-08's fixture `tests/playersvc/TravelTestSupport.h` by relative path (the precedent of
+`tests/cm_lz` including `tests/instance/AscensionTestSupport.h`). No header of another chunk changed (header-requests.md, "M5f travel core
+(early, 2026-09-29)"). Deviations: P5-08.md, P5-12a.md, P5-16.md, P5-SC.md.
+
+**Census:** P5-08 `TeleportService.cpp` 16 -> 11 `AION_UNPORTED` (the five T-01 bodies); P5-12a 2 fewer (`SiegeService.cpp` 26 -> 24);
+P5-16: one class fewer without a file.
+
+### 16.2 Tests and mutation proof
+
+- Unit: `tests/playersvc/TravelTeleportTest.cpp` (39 cases), `tests/cm_lz/TeleportSelectPacketTest.cpp` (13), the flipped
+  `DialogServiceTest.ThePoetaTeleporterRefusesAPlayerWhoIsNoDaevaAndShowsADaevaItsMap`. The affected executables (`aion_gs_playersvc_tests`,
+  `aion_gs_cm_lz_tests`, `aion_gs_siege_tests`: 413 ctest entries) pass.
+- Mutation (P5-08.md): 40 schemata switched by `AION_TRV_MUT` over `TeleportService.cpp`, `SiegeService.cpp`, `CM_TELEPORT_SELECT.cpp` and
+  `DialogService.cpp`; 39 killed by the unit tests. The survivor, M19 (REGULAR's instance id taken from the player for another map), was
+  first recorded as equivalent; it was only untested. After the mutation and faithfulness reviews (whose reviewer mutants left 9 alive) the
+  tests gained ten cases (nine in `TravelTeleportTest`, one in `TeleportSelectPacketTest`) and the `DEC_KINAH_FLY` mask, and a second round
+  of 14 schemata, M19's among them, was killed whole. Sources restored byte for byte (sha256),
+  rebuilt, no `AION_TRV_MUT` in a source or a binary.
+
+### 16.3 The gate `gs.scenario.travel`
+
+§16.1's gate (P5-SC.md): T1 Sanctum -> Verteron (Polyidus, loc 4, 706 kinah) through `CM_SHOW_DIALOG`, `CM_DIALOG_SELECT(44)`,
+`SM_TELEPORT_MAP`, `CM_TELEPORT_SELECT`, `SM_TELEPORT_LOC`, `CM_TELEPORT_ANIMATION_DONE`, `SM_PLAYER_SPAWN`, `CM_LEVEL_READY`; T2 a flight in
+Verteron (Mirdiena, loc 15, flight 7001, 565 kinah) with `SM_EMOTION(START_FLYTELEPORT)`, three `CM_MOVE_IN_AIR`, `CM_EMOTION(LAND_FLYTELEPORT)`
+and the stored position; T3 Pandaemonium -> Altgard (Doman, loc 9); T4 the Q8 bar. Passed in about 45 s (Debug). The characters are seeded
+level-10 Daevas (C19's recipe), not ascended: the route 1006/2008 -> 1007/2009 -> the dispatch quests is H-02's. Mutation: five of the
+schemata run against the gate (the game server inherits `AION_TRV_MUT`), all killed - the statue animation inverted (M33: T1, T3), the raw
+price (M06: T1, T2, T3), `ACTIVE` not unset (M13: T2), heading 0 (M17: T3), `FLYING` not set (M12: T2, whose `CM_MOVE_IN_AIR` then moves
+nothing, so the stored position fails as well).
+
+### 16.4 What is left of stage 1
+
+Measured in this tree after the slice (`grep -c "AION_UNPORTED()"`, the file lists):
+
+| Item | Left | Where |
+|---|---|---|
+| T-02 | 11 `TeleportService` bodies: `teleportTo(WorldPosition&)`, `teleportDeadTo`, the `(worldId, instanceId, x, y, z)` overload (with `DialogServiceTest.cpp`'s two ENTER_PVP/LEAVE_PVP rows), `teleportToPrison`, **`teleportToNpc`** (another lane may take it tonight), `moveToTargetWithDistance`, `useTeleportScroll`, `changeChannel`, `setEventPos`, `teleportToEvent`, `sendTeleportRequest` (+ the anonymous `acceptRequest`) | P5-08 |
+| T-03 | `PortalService`, 13 | P5-08 |
+| T-04 | `BindPointTeleportService`, 4 (+ the two anonymous `Runnable`s and their `cycles.toml` rows) | P5-08 |
+| T-07 | `RecallService::validateCast` takes a `Ptr` (m5b2-p2-9) with its caller | P5-08, P5-02a lease |
+| T-08 | the hotspot price and cooldown, `PortalService`'s decision table, `teleportToNpc`'s z fallback, the `cycles.toml` rows | P5-08 |
+| P-03, P-04 | `CM_BIND_POINT_TELEPORT`, `CM_INSTANCE_LEAVE` (no file); P-06's O packets | P5-15 |
+| P-07 | the byte vectors and run tests of P-03/P-04 | P5-15 |
+| V-01..V-05 | `ResurrectAI`, `PortalAI`, `PortalDialogAI` (no file) and their tests | P5-05, A1 lease |
+| G-01, G-02 | the `m5f-travel` oracle; `decoders/TravelDecoders` and the `GameSession` builders (the travel gate's file-local ones move there) | P5-SC, `tools/oracle` |
+| X-05a | `SpellAtkDrainInstantEffect`, 1 | P5-04 |
+| N-05 | the parts of the lifecycle test §15.6 left to a gate or recorded | P5-13 |
+| (S-05, m5i-plan) | `SiegeLocation::isCanTeleport`, which `teleport` reaches for a fortress route once sieges are on (every C++ profile runs with them off, where Java's `NullPointerException` comes first) | P5-12a |
+
+Stage 2 (G-03..G-07) and stage 3 (H-02) are unchanged. `gs.scenario.travel` stays a gate of its own until G-03 writes `gs.scenario.m5f`,
+which may absorb it.

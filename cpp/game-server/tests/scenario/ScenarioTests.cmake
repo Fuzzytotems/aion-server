@@ -45,12 +45,14 @@
 # The slots are balanced by the runtimes of a Debug tree, each run alone (seconds, 2026-09-24; gs.smoke.startup_progress ~ gs.smoke.startup):
 #   slot 1  gs.smoke.startup 34, gs.smoke.startup_progress 34, gs.smoke.startup_geo 150, gs.m4.check_static_data 149,
 #           gs.scenario.m5a 65, gs.scenario.m5a_geo 170, gs.scenario.m5b3 146, gs.scenario.m5b3_geo 314            = 1062
+#           + gs.scenario.travel 45 (m5f-plan.md §16; 2026-09-29 in a Debug tree, no geo variant)                  = 1107
 #   slot 2  gs.scenario.m5b 227, gs.scenario.m5b_geo 351, gs.scenario.m5b2 172, gs.scenario.m5b2_geo 301           = 1051
 #           + gs.scenario.m5c 289 (m5c-plan.md §10.5; 225 s for part 1, 265-289 s alone since C19 joined it in stage 3,
 #             2026-09-28 in a Debug tree, the review's fix included; it has no geo variant)                          = 1340
 # The balance held for the full set above before M5c; the plan put the M5c gate into slot 2 (§10.1: the smaller sum then, and a prefix of its
-# own), which now leads slot 1 by about 280 s - the next gate joins slot 1. `ctest -L scenario` alone leaves the smoke and M4 tests out, so slot 1 is then m5a, m5a_geo, m5b3 and
-# m5b3_geo (about 695 s plus LoginServerHarnessTest) against slot 2's 1340 s: correct, just a longer wall clock for that label.
+# own), which led slot 1 by about 280 s - so the travel gate joined slot 1 (about 235 s behind now), and the next gate joins slot 1 too.
+# `ctest -L scenario` alone leaves the smoke and M4 tests out, so slot 1 is then m5a, m5a_geo, m5b3, m5b3_geo and travel
+# (about 740 s plus LoginServerHarnessTest) against slot 2's 1340 s: correct, just a longer wall clock for that label.
 # The slots count inside ONE ctest process. Two build trees running their gates at the same time can reach four servers (about 12.8 GB with
 # geo), and the marker-before-DROP window of dropAbandonedSchemas is open between them again: run one tree's gate set at a time.
 # Slot 1 keeps the historical name aion_game_server_log because cmake/AppTests.cmake (chunk P5-14) registers the three smoke tests and the M4
@@ -98,7 +100,8 @@ if(TARGET aion_gs_scenario_tests)
 		AION_SCENARIO_M5B_PARTIAL_ALLOWLIST="${CMAKE_CURRENT_SOURCE_DIR}/tests/scenario/m5b_partial_allowlist.txt"
 		AION_SCENARIO_M5B2_PARTIAL_ALLOWLIST="${CMAKE_CURRENT_SOURCE_DIR}/tests/scenario/m5b2_partial_allowlist.txt"
 		AION_SCENARIO_M5B3_PARTIAL_ALLOWLIST="${CMAKE_CURRENT_SOURCE_DIR}/tests/scenario/m5b3_partial_allowlist.txt"
-		AION_SCENARIO_M5C_PARTIAL_ALLOWLIST="${CMAKE_CURRENT_SOURCE_DIR}/tests/scenario/m5c_partial_allowlist.txt")
+		AION_SCENARIO_M5C_PARTIAL_ALLOWLIST="${CMAKE_CURRENT_SOURCE_DIR}/tests/scenario/m5c_partial_allowlist.txt"
+		AION_SCENARIO_TRAVEL_PARTIAL_ALLOWLIST="${CMAKE_CURRENT_SOURCE_DIR}/tests/scenario/travel_partial_allowlist.txt")
 
 	# the oracle answers are JSON (Oracle.cpp); commons finds the same package in its own directory scope
 	find_package(nlohmann_json CONFIG REQUIRED)
@@ -133,6 +136,9 @@ if(TARGET aion_gs_scenario_tests)
 		LABELS "scenario;realdata")
 	# and for the M5c gate (m5c-plan.md G-03, §10.5; no geo variant, D12)
 	aion_set_discovered_test_properties(aion_gs_scenario_tests REGEX "^M5cScenario\\." PROPERTIES DISABLED TRUE
+		LABELS "scenario;realdata")
+	# and for the travel-core gate (m5f-plan.md §16)
+	aion_set_discovered_test_properties(aion_gs_scenario_tests REGEX "^TravelScenario\\." PROPERTIES DISABLED TRUE
 		LABELS "scenario;realdata")
 
 	# F-06: the M5a gate (§5.10). The oracle needs a Python interpreter; without it the test prints "gs.scenario.m5a: skipped".
@@ -297,5 +303,21 @@ if(TARGET aion_gs_scenario_tests)
 	endif()
 	if(AION_SCENARIO_REQUIRE OR NOT AION_GS_ALLOW_MILESTONE_SKIP)
 		set_property(TEST gs.scenario.m5c APPEND PROPERTY ENVIRONMENT_MODIFICATION "AION_SCENARIO_REQUIRE=set:1")
+	endif()
+
+	# ---- the travel-core gate (m5f-plan.md §16, the early travel slice of T-01, T-05 and P-01) ------------------------------------------
+	#
+	# gs.scenario.travel: an Elyos Daeva seeded in Sanctum takes Polyidus' route to Verteron and flies with the flight master beside the
+	# arrival, and an Asmodian Daeva seeded in Pandaemonium takes Doman's route to Altgard - talk, map, price, jump, CM_TELEPORT_ANIMATION_DONE,
+	# SM_PLAYER_SPAWN, CM_LEVEL_READY, CM_MOVE_IN_AIR and the landing - in the same binary, with its own output directory <bin>/scenario/travel,
+	# its own schema pair (aion_gs_test_travel_<hash>) and its own AION_PARTIAL allow-list. It needs no oracle (no Python). A gate of its own
+	# because no plan names an existing gate for it (m5f-plan.md G-03's gs.scenario.m5f is stage 2's). Gate slot 1, the slot with the smaller
+	# sum (see "the two gate slots" above; the run is a few minutes in a Debug tree). No geo variant.
+	add_test(NAME gs.scenario.travel COMMAND "$<TARGET_FILE:aion_gs_scenario_tests>" --gtest_filter=TravelScenario.Run
+		WORKING_DIRECTORY "${scenario_work_dir}")
+	set_tests_properties(gs.scenario.travel PROPERTIES LABELS "scenario;realdata" TIMEOUT 1800
+		RESOURCE_LOCK "${AION_GS_GATE_SLOT_1}" SKIP_REGULAR_EXPRESSION "gs\\.scenario\\.travel: skipped")
+	if(AION_SCENARIO_REQUIRE OR NOT AION_GS_ALLOW_MILESTONE_SKIP)
+		set_property(TEST gs.scenario.travel APPEND PROPERTY ENVIRONMENT_MODIFICATION "AION_SCENARIO_REQUIRE=set:1")
 	endif()
 endif()

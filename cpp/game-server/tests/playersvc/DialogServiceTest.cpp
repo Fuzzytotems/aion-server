@@ -10,7 +10,7 @@
 // - DialogPage.getStartPageId's four answers through isInteractionAllowed (DialogPageInfo.cpp:17-29).
 // - onDialogSelect: BUY -> SM_TRADELIST (the vendor modifier times a row's sell_price_rate / 100 in Java int arithmetic) and its two
 //   refusals, SELL / TRADE_SELL_LIST -> SM_SELL_ITEM (the packets whose constructors reached the unported Npc.canSell / canPurchase before
-//   D-01, W-03), TRADE_IN -> SM_TRADE_IN_LIST and its refusal, the page arm and its function check, the Poeta teleporter's non-Daeva refusal,
+//   D-01, W-03), TRADE_IN -> SM_TRADE_IN_LIST and its refusal, the page arm and its function check, the Poeta teleporter's non-Daeva refusal and its map for a Daeva,
 //   MATCH_MAKER with autogroup off, FACTION_JOIN / FACTION_SEPARATE through NpcFactions, the character edit and pet windows, the quest /
 //   next-page fallback, RECOVERY (soul healing) with its price arithmetic, its question handler and the Soul Sickness (8291, SPEC2) it
 //   removes, the cube expander's question (EXTEND_INVENTORY, W-09, ported by m5c-plan.md P-05 in stage 1), the craft arms
@@ -52,8 +52,12 @@
 #include "aion/gameserver/dataholders/NpcFactionsData.h"
 #include "aion/gameserver/dataholders/PlayerExperienceTable.bind.h"
 #include "aion/gameserver/dataholders/PlayerExperienceTable.h"
+#include "aion/gameserver/dataholders/TeleporterData.bind.h"
+#include "aion/gameserver/dataholders/TeleporterData.h"
 #include "aion/gameserver/dataholders/TradeListData.bind.h"
 #include "aion/gameserver/dataholders/TradeListData.h"
+#include "aion/gameserver/dataholders/TribeRelationsData.bind.h"
+#include "aion/gameserver/dataholders/TribeRelationsData.h"
 #include "aion/gameserver/model/DialogAction.h"
 #include "aion/gameserver/model/DialogPageInfo.h"
 #include "aion/gameserver/model/gameobjects/Npc.h"
@@ -992,17 +996,49 @@ TEST_F(DialogServiceTest, APageFunctionOpensItsPageOnlyAtAnNpcThatHasIt) {
 	EXPECT_TRUE(sent().empty()) << ":294: supportsAction(42) is false";
 }
 
-TEST_F(DialogServiceTest, ThePoetaTeleporterRefusesAPlayerWhoIsNoDaevaAndShowsADaevaTheUnportedMap) {
+TEST_F(DialogServiceTest, ThePoetaTeleporterRefusesAPlayerWhoIsNoDaevaAndShowsADaevaItsMap) {
 	Npc& daines = npc(DAINES);
 	select(DialogAction::AIRLINE_SERVICE, daines);
 	// :190-193: DialogPage.NO_RIGHT (27), and the arm returns
 	EXPECT_EQ(sent(), exactly({dialogWindow(daines.getObjectId(), 27)}));
 	EXPECT_EQ(runtime::unportedHitCount(), 0u);
 
+	// :196: TeleportService.showMap, ported by the early travel slice (m5f-plan.md §16; m5c-plan.md W-08 flipped): Daines' teleporter row
+	// (npc_teleporter.xml:15-20) and the tribe relations of the npc's and the player's tribes (tribe_relations.xml's GENERAL and PC rows, as
+	// tests/instance/AscensionTestData.h copies them; GENERAL and PC are friends by TribeRelationService's switch) are what it reads
+	struct TeleporterDataScope {
+		xml::LoadContext context;
+		TeleporterDataScope() {
+			dataholders::DataManager::TELEPORTER_DATA.publish(xml::bindString<dataholders::TeleporterData>(context, R"xml(<npc_teleporter>
+	<teleporter_template npc_ids="203194" teleportId="2">
+		<locations>
+			<telelocation loc_id="2" price="100" pricePvp="100" required_quest="1006" type="REGULAR"/>
+			<telelocation loc_id="4" price="800" pricePvp="800" type="REGULAR"/>
+		</locations>
+	</teleporter_template>
+</npc_teleporter>)xml"));
+			dataholders::DataManager::TRIBE_RELATIONS_DATA.publish(xml::bindString<dataholders::TribeRelationsData>(context,
+				R"xml(<tribe_relations>
+    <tribe name="GENERAL">
+        <none>NEUTRAL_DGUARD YDUMMY_DGUARD YDUMMY2_DGUARD LDF4B_SPARRING_DGUARD LDF4B_SPARRING_DGUARD2 LDF5_DUMMY1_DGUARD LDF5_DUMMY2_DGUARD LDF5_SPARRING1_DGUARD LDF5_SPARRING2_DGUARD</none>
+    </tribe>
+    <tribe name="PC">
+        <friend>LIGHT_SUR_MOB LIGHT_LICH</friend>
+        <none>LASBERG NEUTRAL_DGUARD YDUMMY_DGUARD YDUMMY2_DGUARD LDF4B_SPARRING_DGUARD LDF4B_SPARRING_DGUARD2 XDRAKAN_UNATTACK LDF5_DUMMY1_DGUARD LDF5_DUMMY2_DGUARD LDF5_SPARRING1_DGUARD LDF5_SPARRING2_DGUARD</none>
+    </tribe>
+</tribe_relations>)xml"));
+		}
+		~TeleporterDataScope() {
+			dataholders::DataManager::TRIBE_RELATIONS_DATA.resetForTests();
+			dataholders::DataManager::TELEPORTER_DATA.resetForTests();
+		}
+	} teleporterData;
+	clearSent();
 	commonData().setDaeva(true);
-	// :196: TeleportService.showMap stays AION_UNPORTED until M5f (m5c-plan.md W-08, D4)
-	EXPECT_THROW(select(DialogAction::AIRLINE_SERVICE, daines), runtime::UnportedException);
-	EXPECT_EQ(unportedHitsIn("TeleportService.cpp"), 1u);
+	select(DialogAction::AIRLINE_SERVICE, daines);
+	// SM_TELEPORT_MAP.writeImpl: D targetObjId, H teleportId (ServerPacketsOpcodes.java:214)
+	EXPECT_EQ(sent(), exactly({javaPacket(196, PacketWriter().D(daines.getObjectId()).H(2))}));
+	EXPECT_EQ(runtime::unportedHitCount(), 0u);
 }
 
 TEST_F(DialogServiceTest, MatchMakerWithAutogroupOffOpensTheFirstPage) {
