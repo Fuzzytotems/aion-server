@@ -297,6 +297,41 @@ TEST_F(ObserveControllerTest, AbortItemUseObserversAbortsOnlyItemUseObservers) {
 	EXPECT_EQ(other->moves, 1);
 }
 
+TEST_F(ObserveControllerTest, AnAttachedItemUseObserverOutlivesTheNotificationsItIgnores) {
+	// Deviation (play-session fixes 2026-09-28, docs/deviations/P4-11b.md): Java's notifyObservers removes an attached ALL observer on the first
+	// notification of any type (ObserveController.java:64-71), so HP_CHANGED, ABNORMALSETTED or SUMMONRELEASE, which ItemUseObserver leaves as
+	// no-ops, detached an item use's observer without aborting it. An ItemUseObserver is matched without these three now; any other attached
+	// ALL observer is still consumed by them, as in Java.
+	CONTROLLERS_TEST_SCOPE;
+	Ref<ObserveController> controller = ObserveController::create();
+	Ref<RecordingItemUseObserver> itemUse = RecordingItemUseObserver::create();
+	Ref<RecordingObserver> hpOnce = RecordingObserver::create(ObserverType::ALL);
+	Ref<RecordingObserver> abnormalOnce = RecordingObserver::create(ObserverType::ALL);
+	Ref<RecordingObserver> summonOnce = RecordingObserver::create(ObserverType::ALL);
+	controller->attach(*itemUse);
+	controller->attach(*hpOnce);
+
+	controller->notifyHPChangeObservers(4321);
+	EXPECT_EQ(hpOnce->lastHp, 4321);
+	EXPECT_EQ(hpOnce->removed, 1) << "another one-time ALL observer is consumed by HP_CHANGED, as in Java";
+	controller->attach(*abnormalOnce);
+	controller->notifyAbnormalSettedObservers(skillengine::effect::AbnormalState::STUN);
+	EXPECT_TRUE(abnormalOnce->abnormalSet);
+	EXPECT_EQ(abnormalOnce->removed, 1) << "and by ABNORMALSETTED";
+	controller->attach(*summonOnce);
+	controller->notifySummonReleaseObservers();
+	EXPECT_EQ(summonOnce->summonReleases, 1);
+	EXPECT_EQ(summonOnce->removed, 1) << "and by SUMMONRELEASE";
+	EXPECT_EQ(itemUse->aborts, 0);
+	EXPECT_EQ(itemUse->removed, 0) << "the item use's observer is still attached after the three notifications it ignores";
+	EXPECT_TRUE(controller->hasObservers());
+
+	controller->notifyMoveObservers();
+	EXPECT_EQ(itemUse->aborts, 1) << "ItemUseObserver.moved -> abort";
+	EXPECT_EQ(itemUse->removed, 1) << "the move consumes it";
+	EXPECT_FALSE(controller->hasObservers());
+}
+
 TEST_F(ObserveControllerTest, AttackCalcObserversCombineLikeJava) {
 	CONTROLLERS_TEST_SCOPE;
 	Ref<ObserveController> controller = ObserveController::create();

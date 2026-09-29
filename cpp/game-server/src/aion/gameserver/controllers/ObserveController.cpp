@@ -28,6 +28,36 @@ using observer::ObserverType;
 using runtime::Ptr;
 using runtime::Ref;
 
+namespace {
+
+/**
+ * Deviation (play-session fixes 2026-09-28, docs/deviations/P4-11b.md; owner decision M5c D7's precedent: fix Java's bug and record it): the
+ * notifications an ItemUseObserver ignores. Java's ItemUseObserver is ObserverType.ALL (ItemUseObserver.java:14-16) and every item use attaches
+ * it for a single notification, so notifyObservers removes it on the first notification of any type (ObserveController.java:64-71), also on
+ * HP_CHANGED, ABNORMALSETTED and SUMMONRELEASE, whose ActionObserver hooks it leaves as no-ops (ActionObserver.java:78-88): the first HP
+ * regeneration tick during an identification or a tuning detached the observer without aborting the use, and moving afterwards no longer
+ * cancelled it. Java HEAD does the same.
+ */
+constexpr int32_t ITEM_USE_IGNORED_NOTIFICATIONS =
+	observer::detail::OBSERVER_ABNORMALSETTED | observer::detail::OBSERVER_SUMMONRELEASE | observer::detail::OBSERVER_HP_CHANGED;
+
+/**
+ * Java: observer.getObserverType().matchesObserver(type). An ItemUseObserver is matched with the ALL mask without the three bits above, so it
+ * neither receives nor is consumed by the notifications it ignores; every hook it overrides is matched as before, and every other observer
+ * keeps its ObserverType's mask (the generated ObserverType enum and its companion ObserverTypeInfo.h stay Java's). Only ALL observers can be
+ * ItemUseObservers (its constructor), and only these three notification types ask the dynamic type.
+ */
+bool matches(const Ptr<ActionObserver>& observer, ObserverType type) {
+	const int32_t typeMask = observer::getObserverMask(type);
+	int32_t observerMask = observer::getObserverMask(observer->getObserverType());
+	if ((typeMask & ITEM_USE_IGNORED_NOTIFICATIONS) != 0 && observer->getObserverType() == ObserverType::ALL &&
+		runtime::as<observer::ItemUseObserver>(observer))
+		observerMask &= ~ITEM_USE_IGNORED_NOTIFICATIONS;
+	return (typeMask & observerMask) == typeMask;
+}
+
+} // namespace
+
 ObserveController::ObserveController() = default;
 
 ObserveController::~ObserveController() = default;
@@ -71,7 +101,7 @@ void ObserveController::notifyObservers(observer::ObserverType type, std::initia
 			return;
 		for (auto iterator = observers.iterator(); iterator.hasNext();) {
 			Ptr<ActionObserver> observer = iterator.next();
-			if (observer::matchesObserver(observer->getObserverType(), type)) {
+			if (matches(observer, type)) { // Deviation: an ItemUseObserver ignores three types (see matches)
 				notifiable.push_back(observer);
 				if (observer->isOneTimeUse())
 					iterator.remove();
