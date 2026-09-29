@@ -41,7 +41,11 @@ Documented renames (each undoes one emitter idiom of phase6-questgen-prototype.m
   one name (`a[i]` -> `a.at(i)`, `list.get(i)` -> `list.at(i)`);
 - the class qualifier of a Java static import (`import static ...SM_SYSTEM_MESSAGE.STR_X;`) is dropped from the C++ `SM_SYSTEM_MESSAGE::STR_X`;
 - Java `workItems.getFirst()` / `workItems.getLast()` are compared as `workItems.get(0)` / `workItems.get(workItems.size() - 1)`, the C++
-  spelling of the P6-T emitter rule (`Rc<ArrayList>` has get and size, not getFirst and getLast).
+  spelling of the P6-T emitter rule (`Rc<ArrayList>` has get and size, not getFirst and getLast);
+- hand-port spellings (P6-Q ascension route, integration of 2026-09-29): C++ `push_back` is `add` (java.util.List on a local std::vector,
+  like front/back/empty); a Java `new ArrayList<>()` with no argument is not a call (the C++ local std::vector is default-constructed; with
+  an argument it stays a call); a Java anonymous `new Runnable() { ... public void run() ... }` is a C++ lambda, so its `Runnable` and the
+  `run` it declares are not calls (any other `run(...)` still is).
 
     python parity.py pair JAVA CPP [--json]
     python parity.py tree --java-dir DIR --cpp-dir DIR [--only REL ...] [--json OUT] [--require-all]
@@ -141,7 +145,10 @@ OPERAND_END_WORDS = frozenset(('this', 'true', 'false', 'null', 'nullptr'))
 NOT_OPERAND_WORDS = frozenset('''return case new throw else do instanceof delete sizeof co_return co_yield goto'''.split())
 # calls whose argument order moves in C++ (an enum method becomes a companion free function taking the enum first)
 COMPANIONS = frozenset(('getId', 'id', 'getRewardPageByIndex', 'getStartingClass', 'isStartingClass'))
-CALL_RENAMES = {'front': 'getFirst', 'back': 'getLast', 'empty': 'isEmpty', 'at': 'get', 'super': 'AbstractQuestHandler'}
+CALL_RENAMES = {'front': 'getFirst', 'back': 'getLast', 'empty': 'isEmpty', 'at': 'get', 'super': 'AbstractQuestHandler',
+                'push_back': 'add'}
+# Java collections a hand port declares as a default-constructed local std::vector: `new ArrayList<>()` with no argument is not a call
+JAVA_DEFAULT_CONSTRUCTED = frozenset(('ArrayList',))
 BINARY_OPS = frozenset('== != < > <= >= && || + - * / % & | ^ << >> >>> ?'.split())
 COMPOUND = {'+=': '+', '-=': '-', '*=': '*', '/=': '/', '%=': '%', '&=': '&', '|=': '|', '^=': '^', '<<=': '<<', '>>=': '>>', '>>>=': '>>>'}
 DECLARATOR_FOLLOW = frozenset(') , = ; { : ['.split())
@@ -158,6 +165,7 @@ IDIOMS = (
     'AbstractQuestHandler constructor; arr.length is size(); get, at and a non-literal index are one name',
     'the class of a Java static import is dropped from the C++ qualified name',
     'workItems.getFirst()/getLast() are workItems.get(0)/get(workItems.size() - 1)',
+    'push_back is add; Java new ArrayList<>() with no argument is not a call; an anonymous new Runnable() { run() } is a C++ lambda',
 )
 
 
@@ -334,6 +342,7 @@ def facts(toks, cpp):
     toks = _drop_templates(toks, cpp)
     f = Facts()
     n = len(toks)
+    anonymous_runs = 0                              # anonymous Runnables whose declared run() is still ahead
     for i, t in enumerate(toks):
         prev = toks[i - 1] if i > 0 else None
         nxt = toks[i + 1] if i + 1 < n else None
@@ -368,6 +377,15 @@ def facts(toks, cpp):
                 if name in NOT_CALLS:
                     continue
                 if not cpp and name == 'new':
+                    continue
+                if not cpp and prev is not None and prev.text == 'new':
+                    if name in JAVA_DEFAULT_CONSTRUCTED and i + 2 < n and toks[i + 2].text == ')':
+                        continue                    # new ArrayList<>() -> a default-constructed local std::vector
+                    if name == 'Runnable':
+                        anonymous_runs += 1         # new Runnable() { ... } (an interface: always anonymous) -> a C++ lambda
+                        continue
+                if not cpp and name == 'run' and anonymous_runs:
+                    anonymous_runs -= 1             # the run() the anonymous Runnable declares, its first run( token
                     continue
                 name = CALL_RENAMES.get(name, name)
                 if name in COMPANIONS:
