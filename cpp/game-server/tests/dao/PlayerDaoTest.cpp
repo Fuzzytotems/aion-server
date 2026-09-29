@@ -632,20 +632,27 @@ TEST_F(PlayerDaoTest, QuestStateListLoadAndStore) {
 	ASSERT_TRUE(started && completed);
 	EXPECT_EQ(started->getStatus(), QuestStatus::START);
 	EXPECT_FALSE(started->getRewardGroup()) << "wasNull";
+	// the quest_vars and flags columns (P5-06a.md, "For the integrator (P4-14)"; M5d stage 1's integration)
+	EXPECT_EQ(started->getQuestVars()->getQuestVars(), 3);
+	EXPECT_EQ(started->getFlags(), 1);
 	EXPECT_EQ(completed->getRewardGroup(), 1);
 	EXPECT_EQ(completed->getCompleteCount(), 2);
 	ASSERT_TRUE(completed->getNextRepeatTime());
 
 	auto f = makePlayer(110, 1100, "Quester");
 	f.player->setQuestStateList(list);
-	Ref<QuestState> added = QuestState::create(1002, QuestStatus::REWARD, 7, 0, 1, std::nullopt, 2, std::nullopt);
+	Ref<QuestState> added = QuestState::create(1002, QuestStatus::REWARD, 7, 3, 1, std::nullopt, 2, std::nullopt);
 	added->setPersistentState(Persistable::PersistentState::NEW);
 	list->addQuest(1002, *added);
 	completed->setPersistentState(Persistable::PersistentState::DELETED);
+	started->setQuestVar(4);
+	started->setFlags(2);
 	started->setPersistentState(Persistable::PersistentState::UPDATE_REQUIRED);
 	PlayerQuestListDAO::store(*f.player);
 	EXPECT_EQ(queryString("SELECT GROUP_CONCAT(CONCAT(quest_id, ':', status, ':', IFNULL(reward, '-')) ORDER BY quest_id) FROM player_quests"),
 		"1000:START:-,1002:REWARD:2");
+	// the INSERT of 1002 and the UPDATE of 1000 write the variables and the flags (PlayerQuestListDAO.java:92-93, :117-118)
+	EXPECT_EQ(queryString("SELECT GROUP_CONCAT(CONCAT(quest_id, ':', quest_vars, ':', flags) ORDER BY quest_id) FROM player_quests"), "1000:4:2,1002:7:3");
 }
 
 TEST_F(PlayerDaoTest, QuestIdDeletedDuringTheStoreStaysForTheNextStore) {

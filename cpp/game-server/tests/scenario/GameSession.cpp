@@ -337,6 +337,10 @@ std::vector<uint8_t> GameSession::buildCM_QUESTION_RESPONSE(int32_t questionId, 
 	return PacketWriter().D(questionId).C(response).C(0).H(0).D(senderId).D(0).H(0).data;
 }
 
+std::vector<uint8_t> GameSession::buildCM_DELETE_QUEST(int32_t questId) {
+	return PacketWriter().D(questId).data; // CM_DELETE_QUEST.java:24
+}
+
 namespace {
 
 /** the readUH count every M5c list packet starts with: more than 65535 entries cannot be written */
@@ -532,6 +536,16 @@ GameSession::FightOutcome GameSession::fightUntil(int32_t targetObjectId, std::c
 		}
 	}
 	outcome.elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start);
+	return outcome;
+}
+
+GameSession::TalkOutcome GameSession::talk(int32_t npcObjectId, uint16_t dialogActionId, int32_t questId, std::chrono::milliseconds quiet,
+	std::chrono::milliseconds limit) {
+	TalkOutcome outcome;
+	outcome.firstPacket = packets.size();
+	send(CM_DIALOG_SELECT, buildCM_DIALOG_SELECT(npcObjectId, dialogActionId, 0, 0, questId));
+	outcome.packets = collectUntilQuiet(quiet, limit);
+	outcome.closed = client.socket.isClosed();
 	return outcome;
 }
 

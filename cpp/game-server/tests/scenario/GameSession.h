@@ -124,6 +124,9 @@ public:
 	static constexpr int32_t CM_CLOSE_DIALOG = 53;
 	static constexpr int32_t CM_DIALOG_SELECT = 54;
 
+	/** abandoning a quest (m5d-plan.md D-03, G-02): AionClientPacketFactory packets[80], "C_GIVE_UP_QUEST" (AionClientPacketFactory.java:108) */
+	static constexpr int32_t CM_DELETE_QUEST = 80;
+
 	/**
 	 * the stage-1 packets of M5c (m5c-plan.md K-01, K-02, G-02): the shop, the exchange, the private store, the mail and identification
 	 * (AionClientPacketFactory packets[51], [63], [64], [66]-[69], [119], [120], [132]-[134], [136], [137], [235], [236] and [238],
@@ -357,6 +360,29 @@ public:
 	CastOutcome castAndWait(int32_t casterObjectId, const CastRequest& request, std::chrono::milliseconds timeout,
 		const std::optional<CastInterruption>& interruption = std::nullopt);
 
+	/** What one talk call read */
+	struct TalkOutcome {
+		/** the index in recorded() of the first packet this call recorded (recorded().size() when it read none) */
+		size_t firstPacket = 0;
+		/** the packets this call read, in arrival order: recorded() from firstPacket on */
+		std::vector<Packet> packets;
+		/** the connection was closed when the call ended */
+		bool closed = false;
+	};
+
+	/**
+	 * talk(npcObjectId, action, questId) of m5d-plan.md G-02, one step of a quest conversation (§10.2 C6-C14): sends
+	 * CM_DIALOG_SELECT(npcObjectId, dialogActionId, 0, 0, questId) and reads until no packet arrives for `quiet`, or `limit` has passed, or the
+	 * connection closes (collectUntilQuiet). DialogService answers a quest action inside the packet's runImpl, so every packet of the answer -
+	 * SM_QUEST_ACTION, SM_NEARBY_QUESTS, the reward's item and exp packets and the SM_DIALOG_WINDOW - arrives in one burst, in the order the
+	 * server sent it, which is what the §10.3 order patterns (Y3, Y5, Y6, Y11, Y13) read. A packet that belongs to something else (an
+	 * SM_NEARBY_QUESTS of a spawn, §10.6 (d)) can join the burst; the caller's pattern allows it.
+	 *
+	 * The npc id 0 is the quest journal's form (C10b: `CM_DIALOG_SELECT(target 0, 108, 1102)`, CM_DIALOG_SELECT.java:75-100).
+	 */
+	TalkOutcome talk(int32_t npcObjectId, uint16_t dialogActionId, int32_t questId, std::chrono::milliseconds quiet = std::chrono::seconds(1),
+		std::chrono::milliseconds limit = std::chrono::seconds(10));
+
 	// ---- client packet bodies (Java readImpl order) ----
 	static std::vector<uint8_t> buildCM_VERSION_CHECK(uint16_t clientVersion = CLIENT_VERSION);
 	static std::vector<uint8_t> buildCM_L2AUTH_LOGIN_CHECK(int32_t playOk2, int32_t playOk1, int32_t accountId, int32_t loginOk);
@@ -456,6 +482,13 @@ public:
 	 * is read and never used, so it defaults to 0
 	 */
 	static std::vector<uint8_t> buildCM_QUESTION_RESPONSE(int32_t questionId, uint8_t response, int32_t senderId = 0);
+
+	// ---- M5d's quest packet (m5d-plan.md D-03, G-02) ----
+	/**
+	 * CM_DELETE_QUEST.readImpl (CM_DELETE_QUEST.java:23-25): readD questId. runImpl stops a timer quest's timer (an SM_QUEST_ACTION TIMER 0)
+	 * and calls QuestService.abandonQuest (:28-37) - the gate's `CM_DELETE_QUEST(1103)` (m5d-plan.md §10.2 C14)
+	 */
+	static std::vector<uint8_t> buildCM_DELETE_QUEST(int32_t questId);
 
 	// ---- M5c's stage-1 packets (m5c-plan.md K-01, K-02, G-02) and stage 2's crafting packets, each the Java readImpl field order ----
 	/** one entry of CM_BUY_ITEM (CM_BUY_ITEM.java:65-66): readD itemId (see TRADE_*), readQ count */

@@ -326,6 +326,14 @@ TEST(GameSessionTest, DialogBodies) {
 	EXPECT_EQ(answer.remaining(), 0u);
 }
 
+// m5d-plan.md G-02: abandoning a quest, read back in the order of its Java readImpl
+TEST(GameSessionTest, DeleteQuestBody) {
+	EXPECT_EQ(GameSession::CM_DELETE_QUEST, 80) << "AionClientPacketFactory.java:108, packets[80]";
+	// CM_DELETE_QUEST: readD questId - the gate abandons 1103 (m5d-plan.md §10.2 C14)
+	EXPECT_EQ(GameSession::buildCM_DELETE_QUEST(1103), (std::vector<uint8_t>{0x4F, 0x04, 0x00, 0x00}));
+	EXPECT_EQ(GameSession::buildCM_DELETE_QUEST(0x0A0B0C0D), (std::vector<uint8_t>{0x0D, 0x0C, 0x0B, 0x0A}));
+}
+
 TEST(GameSessionTest, ShopAndExchangeBodies) {
 	// the opcodes, AionClientPacketFactory.java:79, 91-92, 94-97 (no packets[65]: C_REMOVE_XCHG is commented out at :93)
 	EXPECT_EQ(GameSession::CM_BUY_ITEM, 51);
@@ -504,6 +512,13 @@ TEST(GameSessionTest, ServerPacketNames) {
 	EXPECT_EQ(GameSession::nameOf(167), "SM_REPURCHASE");
 	EXPECT_EQ(GameSession::nameOf(252), "SM_PRICES");
 	EXPECT_EQ(GameSession::nameOf(253), "SM_TRADELIST");
+	// the names the M5d gate matches its quest packets on (decoders/QuestDecoders.h; ServerPacketsOpcodes.java:26, 89, 123, 141-142, 145)
+	EXPECT_EQ(GameSession::nameOf(8), "SM_STATUPDATE_EXP");
+	EXPECT_EQ(GameSession::nameOf(71), "SM_QUEST_LIST");
+	EXPECT_EQ(GameSession::nameOf(105), "SM_PLAY_MOVIE");
+	EXPECT_EQ(GameSession::nameOf(123), "SM_QUEST_COMPLETED_LIST");
+	EXPECT_EQ(GameSession::nameOf(124), "SM_QUEST_ACTION");
+	EXPECT_EQ(GameSession::nameOf(127), "SM_NEARBY_QUESTS");
 }
 
 } // namespace

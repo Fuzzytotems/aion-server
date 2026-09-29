@@ -567,6 +567,13 @@ aion_gs_chunk(A1 TARGET aion_gs_handlers_ai_world PHASE 6 ROOT handlers
 	GLOBS "aion/gameserver/handlers/ai/{worlds,siege,portals,events,quests,classNpc,walkers}/**"
 	JAVA "data/handlers/ai/{worlds,siege,portals,events,quests,classNpc,walkers}/**"
 	PCH "aion/gameserver/handlers/ai/AiPrelude.h")
+# M5d (m5d-plan.md D5, I-04, §18.8 item 5): P5-05 leases the two quest npc AIs of A1 that phase 5 ported because the quest engine needs them,
+# AscensationNpcAI.* (the ascension lane, merged with A-01 in 819b84116) and QuestItemNpcAI.* (M5d stage 1's quest-npc-ais lane, A-03). Both
+# lanes held the lease in the plan only; this row records it. It stays while P5-05's test executable compiles the two .cpp files by #include
+# (A1's library is not linked into aion_gs_handlers_ai_core_tests, and A1's own tests would miss P5-05's superclasses, docs/deviations/P5-05.md).
+# Manifest request m5d-m01 (docs/porting/header-requests.md, "Wave 5d stage 1") removes that workaround; its lane releases this lease.
+aion_gs_chunk(P5-05 LEASE PHASE 5 ROOT handlers
+	GLOBS "aion/gameserver/handlers/ai/quests/{AscensationNpcAI,QuestItemNpcAI}.*")
 
 # I1-I6: vertical instance slices, each @InstanceID handler with its ai/instance directory (bin-packed to about 6-8k Java lines; handlers without
 # an AI directory go to I1). I1 owns the instance prelude.

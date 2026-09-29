@@ -43,12 +43,14 @@
 
 #include "AsyncAllowed.h"
 #include "FakeLoginClient.h"
+#include "FightSupport.h"
 #include "GameSession.h"
 #include "Oracle.h"
 #include "PacketSequence.h"
 #include "ScenarioServers.h"
 #include "decoders/CombatDecoders.h"
 #include "decoders/PacketDecoders.h"
+#include "decoders/QuestDecoders.h"
 
 #include "aion/commons/utils/WindowsMacroGuard.h" // after all headers that may include windows.h
 
@@ -182,12 +184,13 @@ int64_t millisBetween(const Packet& earlier, const Packet& later) {
 	return std::chrono::duration_cast<std::chrono::milliseconds>(later.receivedAt - earlier.receivedAt).count();
 }
 
-// ---- four decoders this gate needs and decoders/ does not have yet ----------------------------------------------------------------------
+// ---- three decoders this gate needs and decoders/ does not have yet ---------------------------------------------------------------------
 //
-// G-04's brief is the seven combat packets (CombatDecoders.h). §6.3 T1, R1 (a) and R1 (b) read three more - SM_TARGET_SELECTED,
-// SM_TARGET_UPDATE, SM_SYSTEM_MESSAGE's parameter list and SM_STATUPDATE_EXP - and the M5a decoders only reach SM_SYSTEM_MESSAGE's message
-// id. They are written here to the same rule as everything in decoders/ (m5a-plan.md D9): from the Java writeImpl alone, never from a C++
-// serverpackets header, and each consumes the body exactly. They belong in decoders/ and are a request to the G-04 lane, not a new rule.
+// G-04's brief is the seven combat packets (CombatDecoders.h). §6.3 T1, R1 (a) and R1 (b) read more - SM_TARGET_SELECTED, SM_TARGET_UPDATE,
+// SM_SYSTEM_MESSAGE's parameter list and SM_STATUPDATE_EXP - and the M5a decoders only reach SM_SYSTEM_MESSAGE's message id. They are written
+// here to the same rule as everything in decoders/ (m5a-plan.md D9): from the Java writeImpl alone, never from a C++ serverpackets header, and
+// each consumes the body exactly. They belong in decoders/ and are a request to the G-04 lane, not a new rule. SM_STATUPDATE_EXP, the fourth,
+// moved to decoders/QuestDecoders.h (m5d-plan.md G-02).
 
 /** SM_TARGET_SELECTED (SM_TARGET_SELECTED.java:33-40), a 22-byte body */
 struct TargetSelected {
@@ -222,23 +225,6 @@ TargetUpdate decodeTargetUpdate(std::span<const uint8_t> body) {
 	update.targetObjectId = reader.D();
 	reader.expectFullyConsumed();
 	return update;
-}
-
-/** SM_STATUPDATE_EXP (SM_STATUPDATE_EXP.java:33-40), five writeQ */
-struct StatUpdateExp {
-	int64_t currentExp = 0, recoverableExp = 0, maxExp = 0, currentBoostExp = 0, maxBoostExp = 0;
-};
-
-StatUpdateExp decodeStatUpdateExp(std::span<const uint8_t> body) {
-	decoders::BodyReader reader(body, "SM_STATUPDATE_EXP");
-	StatUpdateExp exp;
-	exp.currentExp = reader.Q();
-	exp.recoverableExp = reader.Q();
-	exp.maxExp = reader.Q();
-	exp.currentBoostExp = reader.Q();
-	exp.maxBoostExp = reader.Q();
-	reader.expectFullyConsumed();
-	return exp;
 }
 
 /**
@@ -759,94 +745,7 @@ void finishRun(ScenarioServers& servers, const std::filesystem::path& outputDir,
 	}
 }
 
-// ---- the fight recording ----------------------------------------------------------------------------------------------------------------
-
-/**
- * One pass over a slice of the session's recording, decoded with the independent combat decoders. Every §6.3 attack assertion reads this
- * structure instead of the raw packets, so that the decode happens once and a body that does not decode is a failure of the case that
- * collected it rather than of the assertion that happens to look first.
- */
-struct FightRecording {
-	struct AttackPacket {
-		size_t index = 0;
-		decoders::Attack attack;
-		int32_t totalDamage = 0;
-		std::chrono::steady_clock::time_point at;
-	};
-	struct StatusPacket {
-		size_t index = 0;
-		decoders::AttackStatusUpdate status;
-		std::chrono::steady_clock::time_point at;
-	};
-	struct HpPacket {
-		size_t index = 0;
-		decoders::StatUpdateHp hp;
-		std::chrono::steady_clock::time_point at;
-	};
-
-	std::vector<AttackPacket> attacks;
-	std::vector<StatusPacket> statuses;
-	std::vector<HpPacket> hpUpdates;
-	std::vector<std::pair<size_t, decoders::AttackResponse>> responses;
-	std::vector<std::pair<size_t, decoders::Emotion>> emotions;
-	/** the decode failures, so a §6.3 assertion never silently sees a shorter stream than the run produced */
-	std::vector<std::string> decodeFailures;
-
-	std::vector<AttackPacket> attacksBy(int32_t attackerObjectId) const {
-		std::vector<AttackPacket> result;
-		for (const AttackPacket& attack : attacks)
-			if (attack.attack.attackerObjectId == attackerObjectId)
-				result.push_back(attack);
-		return result;
-	}
-
-	std::vector<AttackPacket> attacksBetween(int32_t attackerObjectId, int32_t targetObjectId) const {
-		std::vector<AttackPacket> result;
-		for (const AttackPacket& attack : attacks)
-			if (attack.attack.attackerObjectId == attackerObjectId && attack.attack.targetObjectId == targetObjectId)
-				result.push_back(attack);
-		return result;
-	}
-
-	std::vector<StatusPacket> statusesOf(int32_t creatureObjectId) const {
-		std::vector<StatusPacket> result;
-		for (const StatusPacket& status : statuses)
-			if (status.status.creatureObjectId == creatureObjectId)
-				result.push_back(status);
-		return result;
-	}
-};
-
-/** Decodes the packets [from, end) of the session's recording into a FightRecording */
-FightRecording recordFight(const GameSession& session, size_t from) {
-	FightRecording recording;
-	const std::vector<Packet>& packets = session.recorded();
-	for (size_t i = from; i < packets.size(); i++) {
-		const Packet& packet = packets[i];
-		try {
-			if (packet.name == "SM_ATTACK") {
-				FightRecording::AttackPacket attack;
-				attack.index = i;
-				attack.at = packet.receivedAt;
-				attack.attack = decoders::decodeAttack(packet.data);
-				for (const decoders::AttackResultEntry& entry : attack.attack.results)
-					attack.totalDamage += entry.damage;
-				recording.attacks.push_back(attack);
-			} else if (packet.name == "SM_ATTACK_STATUS") {
-				recording.statuses.push_back({i, decoders::decodeAttackStatus(packet.data), packet.receivedAt});
-			} else if (packet.name == "SM_STATUPDATE_HP") {
-				recording.hpUpdates.push_back({i, decoders::decodeStatUpdateHp(packet.data), packet.receivedAt});
-			} else if (packet.name == "SM_ATTACK_RESPONSE") {
-				recording.responses.emplace_back(i, decoders::decodeAttackResponse(packet.data));
-			} else if (packet.name == "SM_EMOTION") {
-				recording.emotions.emplace_back(i, decoders::decodeEmotion(packet.data));
-			}
-		} catch (const DecodeError& error) {
-			recording.decodeFailures.push_back(packet.name + " at " + std::to_string(i) + ": " + error.what());
-		}
-	}
-	return recording;
-}
+// The fight recording (FightRecording, recordFight) was written here and is FightSupport.h's since m5d-plan.md G-02 lifted it for the M5d gate.
 
 // ---- the gate ---------------------------------------------------------------------------------------------------------------------------
 
@@ -1662,10 +1561,10 @@ void runM5bGate(const GateVariant& variant) {
 		  << "); a port that drops Math.min awards " << monster.experienceReward << ", and one that drops Math.round truncates";
 
 		// ---- R1 (b): SM_STATUPDATE_EXP ----
-		std::vector<StatUpdateExp> expUpdates;
+		std::vector<decoders::StatUpdateExp> expUpdates;
 		for (size_t i = killWindowStart; i < packets.size(); i++)
 			if (packets[i].name == "SM_STATUPDATE_EXP")
-				expUpdates.push_back(decodeStatUpdateExp(packets[i].data));
+				expUpdates.push_back(decoders::decodeStatUpdateExp(packets[i].data));
 		ASSERT_FALSE(expUpdates.empty()) << "R1 (b): no SM_STATUPDATE_EXP after the kill (PlayerCommonData::setExp sends one unconditionally)";
 		EXPECT_EQ(expUpdates.back().currentExp, monster.awarded) << "R1 (b): getExpShown() after the kill";
 		EXPECT_EQ(expUpdates.back().maxExp, monster.expNeed)
