@@ -32,8 +32,8 @@
 # --- SECTION A - hit at least once, asserted ---
 # =========================================================================================================================================
 
-# M5b-1 runs without quests, exactly as M5a does (m5a-plan.md W-02 "QuestEngine init (empty registry)")
-aion/gameserver/questEngine/QuestEngine.cpp:111
+# HISTORY: QuestEngine.cpp:111 (M5b-1 ran without quests, as M5a did, m5a-plan.md W-02) was here until M5d's D3 join (m5d-plan.md I-05)
+# registered the XML quests at every startup; the site no longer exists.
 # base locations are M5b-2/M5b-3 (m5a-plan.md E1-06); BaseService::start runs on every startup
 aion/gameserver/services/BaseService.cpp:18
 # HISTORY: two rows of this section are gone since M5b-2 part 3 closed their partials (m5b2-plan.md D11, G-05): O-09 in SkillEngine.cpp
