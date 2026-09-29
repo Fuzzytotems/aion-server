@@ -1009,6 +1009,15 @@ class Transliterator:
             self.fail('string-switch', 'switch on a String', s.tok)
         if subj.ct.kind not in ('prim', 'enum'):
             self.fail('type', f'switch on {subj.ct}', s.tok)
+        if not s.groups:
+            # an empty Java switch only evaluates its selector; a C++ switch without a case label is warning C4060 (C4065 with a default
+            # label alone) under the /W4 the handler libraries build warning-free with
+            self.r.idioms['empty switch as its selector evaluated'] += 1
+            lines = [f'{ind}static_cast<void>({subj.text}); // Java: an empty switch' + self.trailing(self.cu.tokens.match[s.tok + 1] + 1)]
+            lines += self.leading(s.last, depth)
+            if self.trailing(s.last):
+                lines.append(ind + self.trailing(s.last).strip())
+            return lines
         # locals declared in one case group and used in a later one cannot be braced
         declared = []
         for labels, body, _ in s.groups:
@@ -1423,6 +1432,10 @@ class Transliterator:
 
     def ret_type(self, f):
         ct = self.cpp_type(f.ret or 'void')
+        if ct.kind == 'obj' and ct.ref == 'owning':
+            # a returned Ref<T> is destroyed in the handler's translation unit, which needs the complete T (~Ref)
+            self.need(ct.name)
+            self.includes_for_header(apimod.OWNING_RETURN_HEADERS.get(ct.name))
         return ct
 
     def static_call(self, cls, x, cname):
@@ -1840,6 +1853,7 @@ class Transliterator:
         if p.kind == 'obj' and ek == 'obj':
             if p.ref in ('lref', 'clref') and e.ct.ref in ('ptr', 'owning', 'raw'):
                 self.r.idioms['pointer dereferenced for a T& parameter'] += 1
+                self.need(e.ct.name)        # Ptr<T>::operator* needs the complete T
                 return '*' + self.paren(e, 1)
             return e.text
         if p.kind == 'prim' and ek == 'optional':

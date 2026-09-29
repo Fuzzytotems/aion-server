@@ -1,0 +1,47 @@
+{
+ "format": "aion-quest-trace",
+ "version": 1,
+ "questId": 1146,
+ "java": "verteron/_1146DelicateMandrake.java",
+ "class": "_1146DelicateMandrake",
+ "javaSha256": "9ffba0799e0271ce8b8518e22bb313f5c5c33759117ad98a2c53377615a61cad",
+ "register": [
+  {"npc": 203123, "event": "addOnQuestStart", "args": [1146]},
+  {"npc": 203123, "event": "addOnTalkEvent", "args": [1146]},
+  {"npc": 203139, "event": "addOnTalkEvent", "args": [1146]},
+  {"call": "registerOnQuestTimerEnd", "args": [1146]}
+ ],
+ "hooks": [
+  {"hook": "onDialogEvent", "line": 30, "unsupported": "call QuestService.questTimerStart"},
+  {"hook": "onQuestTimerEndEvent", "line": 81, "cases": 3}
+ ],
+ "cases": [
+  {
+   "id": "onQuestTimerEndEvent#1",
+   "hook": "onQuestTimerEndEvent",
+   "given": {"questState": {"status": "START"}},
+   "guards": ["qs != null -> true @84", "qs.getStatus() == QuestStatus.START -> true @84"],
+   "effects": [
+    {"call": "removeQuestItem", "kind": "item", "args": [182200519, 1], "line": 85},
+    {"call": "QuestService.abandonQuest", "kind": "quest", "args": [1146], "line": 86}
+   ],
+   "returns": true
+  },
+  {
+   "id": "onQuestTimerEndEvent#2",
+   "hook": "onQuestTimerEndEvent",
+   "given": {"questState": {"status": "REWARD"}},
+   "guards": ["qs != null -> true @84", "qs.getStatus() == QuestStatus.START -> false @84"],
+   "effects": [],
+   "returns": false
+  },
+  {
+   "id": "onQuestTimerEndEvent#3",
+   "hook": "onQuestTimerEndEvent",
+   "given": {"questState": null},
+   "guards": ["qs != null -> false @84"],
+   "effects": [],
+   "returns": false
+  }
+ ]
+}

@@ -93,7 +93,37 @@ SLICE_ROUTE = (
 	'ascension/_2901DispatchtoAltgard.java', 'ascension/_2902DispatchtoAltgard.java', 'ascension/_2903DispatchtoAltgard.java',
 	'ascension/_2904DispatchtoAltgard.java', 'ascension/_29070ADispatchtoAltgard.java', 'ascension/_29071ADispatchtoAltgard.java',
 )
-SLICE = SLICE_TIER_A + SLICE_ROUTE
+# P6-Q slice 2, chunk Q03 (2026-09-29): the 76 handlers of verteron/ and heiron/ that questgen transliterates (the zones the dispatches of
+# the route end in). The two it refuses, heiron/_1643TheStarOfHeiron and heiron/_3200PriceOfGoodwill (anonymous Runnables), are hand ports
+# with their own unit cases (game-server/tests/quest_handlers_q03), not in the slice. The C++ harness drives every document of the directory.
+SLICE_Q03 = (
+	'verteron/_1131UndeliveredArmor.java', 'verteron/_1141BelbuasTreasure.java', 'verteron/_1146DelicateMandrake.java',
+	'verteron/_1149MissingPoppy.java', 'verteron/_1152OdellaRecipe.java', 'verteron/_1156StolenVillageSeal.java',
+	'verteron/_1157GaphyrksLove.java', 'verteron/_1158VillageSealFound.java', 'verteron/_1162AltenosWeddingRing.java',
+	'verteron/_1163ArachnaAntidote.java', 'verteron/_1169LightningfootTuka.java', 'verteron/_1170HeadlessStoneStatue.java',
+	'verteron/_1183SpiritOfNature.java', 'verteron/_1192VerteronReinforcements.java', 'verteron/_1194ReducingTursinStrength.java',
+	'verteron/_1197KrallBook.java', 'verteron/_1198TheWritingOnTheWall.java', 'verteron/_1218NumonerksDemandNote.java',
+	'verteron/_1220ASecretDelivery.java', 'verteron/_14010TerrainOfTheVerteronFortress.java', 'verteron/_14011FragmentsInTheSky.java',
+	'verteron/_14012DukakiMischief.java', 'verteron/_14013AFrillOfAFuss.java', 'verteron/_14014TurningTheIde.java',
+	'verteron/_14015NotBlindedByVengeance.java', 'verteron/_14016AGateAgape.java', 'heiron/_14050OrdersFromHeironFortress.java',
+	'heiron/_14051RootOfTheProblem.java', 'heiron/_14052RestlessSouls.java', 'heiron/_14053DangerCubed.java',
+	'heiron/_14054KrallIngToKralltumagna.java', 'heiron/_1527RottenRotrons.java', 'heiron/_1528StrangeLeather.java',
+	'heiron/_1535TheColdColdGround.java', 'heiron/_1537FishOnTheLine.java', 'heiron/_1540BaittheHooks.java', 'heiron/_1548KlawControl.java',
+	'heiron/_1553MirrorMirror.java', 'heiron/_1559WhatsintheBox.java', 'heiron/_1560AJobForPobinerk.java', 'heiron/_1561TheMisersMap.java',
+	'heiron/_1562CrossedDestiny.java', 'heiron/_1563TheLegendofVindachinerk.java', 'heiron/_1573SomeTastyMushrooms.java',
+	'heiron/_1574AFeatForAVillage.java', 'heiron/_1578WhereDoRotronsComeFrom.java', 'heiron/_1582ThePriestsNightmare.java',
+	'heiron/_1604ToCatchASpy.java', 'heiron/_1605TheLepharistSituation.java', 'heiron/_1607MappingTheRevolutionaries.java',
+	'heiron/_1609MessageToArbolusHaven.java', 'heiron/_1612LepharistSecrets.java', 'heiron/_1614WheresBelbua.java',
+	'heiron/_1620StartSpreadingTheNews.java', 'heiron/_1626LightThePath.java', 'heiron/_1628MeteriasRegret.java',
+	'heiron/_1634TheWreckOfTheArgos.java', 'heiron/_1636AFluteForTheFixing.java', 'heiron/_1640TeleporterRepairs.java',
+	'heiron/_1644AVeryOldLetter.java', 'heiron/_1647DressingUpForBollvig.java', 'heiron/_1648UndeadWarAlert.java',
+	'heiron/_1661FindingTheForges.java', 'heiron/_1670InvisibleBridges.java', 'heiron/_1687TheTigrakiAgreement.java',
+	'heiron/_1691TheLittleLeatherSlipper.java', 'heiron/_1692ADayOlderAndDeeperInDebt.java', 'heiron/_1693AreYouMyFather.java',
+	'heiron/_18600ScoringSomeBadStigma.java', 'heiron/_18601NightmareonMyStreets.java', 'heiron/_18602NightmareinShiningArmor.java',
+	'heiron/_3502NereusNeedsYou.java', 'heiron/_80217ToDarkPoeta.java', 'heiron/_80218DarkPoetaEncore.java',
+	'heiron/_80219DarkPoetaFinale.java', 'heiron/_80220DarkPoetaFinale.java',
+)
+SLICE = SLICE_TIER_A + SLICE_ROUTE + SLICE_Q03
 
 ENUM_FILES = {'QuestStatus': 'questEngine/model/QuestStatus.java', 'Race': 'model/Race.java', 'PlayerClass': 'model/PlayerClass.java',
               'Gender': 'model/Gender.java', 'HandlerResult': 'questEngine/handlers/HandlerResult.java', 'DialogPage': 'model/DialogPage.java',
@@ -379,6 +409,7 @@ class Extractor:
 		self.mode = 'hook'
 		self.leaves = []
 		self.reg_npcs = []
+		self.reg_items = []
 		self.qid = self.quest_id()
 		self.consts = {}
 		self.fields()
@@ -427,6 +458,9 @@ class Extractor:
 		except Unsupported as e:
 			reg = {'unsupported': str(e)}
 		self.reg_npcs = [r['npc'] for r in reg if 'npc' in r] if isinstance(reg, list) else []
+		# the quest items register() names (QuestEngine.registerQuestItem): the item of an item-use hook whose guards leave it free is one of
+		# them, the only items the engine hands the hook (P6-Q slice 2, Q03: _1561TheMisersMap removes the used item by its id)
+		self.reg_items = [r['args'][0] for r in reg if r.get('call') == 'registerQuestItem'] if isinstance(reg, list) else []
 		hooks, cases = [], []
 		for m in self.td.methods:
 			if m.kind != 'method' or m.name not in self.t.hooks or m.body is None:
@@ -1365,6 +1399,8 @@ class Extractor:
 			prefer = ()
 			if key == ('targetId',):
 				prefer = tuple(self.reg_npcs) + OTHER_NPCS
+			elif key == ('item', 'itemId'):
+				prefer = tuple(self.reg_items)
 			elif key == ('dialog',) and d.allowed is None:
 				prefer = tuple(self.t.dialog.actions.values())
 			v = d.pick(prefer)
@@ -1410,7 +1446,10 @@ class Extractor:
 		the golden harness found the 9 such cases of the first slice). `assume` is otherwise free. giveQuestItem(env, itemId, itemCount) with
 		constants itemId != 0 and itemCount != 0 returns true on both of its paths (AbstractQuestHandler.java:626-641); QuestService.
 		collectItemCheck(env, true) returns false when the player has no QuestState of env's quest (QuestService.java:557-561), which a
-		path shows as that quest's status read as absent"""
+		path shows as that quest's status read as absent. removeQuestItem(env, itemId, itemCount) with constants itemId != 0 and itemCount > 0
+		returns true when the player holds at least itemCount of the item (AbstractQuestHandler.java:644-651, Storage.java:255-267:
+		decreaseByItemId takes the count from the stacks and answers count == 0), which a path shows as a guard that bounds the item's count
+		from below by itemCount (P6-Q slice 2, Q03: _1535TheColdColdGround's `count > 4 && removeQuestItem(env, id, 5)`)"""
 		values = None
 		for k, b in p.assume.items():
 			call, args, _kind, _line = p.effects[k]
@@ -1418,6 +1457,11 @@ class Extractor:
 			if call == 'giveQuestItem' and not b and len(args) == 2 and all(
 					isinstance(a, K) and isinstance(a.v, int) and not isinstance(a.v, bool) and a.v != 0 for a in args):
 				return True
+			if call == 'removeQuestItem' and not b and len(args) == 2 and all(
+					isinstance(a, K) and isinstance(a.v, int) and not isinstance(a.v, bool) for a in args) and args[0].v != 0 and args[1].v > 0:
+				d = p.dom.get(('inv', args[0].v))
+				if d is not None and d.lo >= args[1].v:
+					return True
 			if call == 'QuestService.collectItemCheck' and b and args == [K(True)]:
 				target = self.env_quest(p)
 				if values is None:

@@ -503,10 +503,15 @@ aion_gs_chunk(Q02 TARGET aion_gs_handlers_quest_q02 PHASE 6 ROOT handlers
 	GLOBS "aion/gameserver/handlers/quest/inggison/**"
 	JAVA "data/handlers/quest/inggison/**"
 	PCH "aion/gameserver/handlers/quest/QuestPrelude.h")
+# Q03's tests (P6-Q slice 2, 2026-09-29): tests/quest_handlers_q03, the unit cases of the two hand-ported Heiron quests (1643, 3200) and of
+# the generated hooks the golden oracle refuses, on the real engine and World, and the chunk's registration checks; the executable is
+# aion_gs_handlers_quest_q03_tests. The golden traces of the 72 generated files in the tree run in Q05's harness (tests/quest_handlers_golden),
+# which compiles them by #include; 4 more (14010, 1131, 1146, 1152) are held back for gs.scenario.travel; docs/deviations/Q03.md.
 aion_gs_chunk(Q03 TARGET aion_gs_handlers_quest_q03 PHASE 6 ROOT handlers
 	GLOBS "aion/gameserver/handlers/quest/{heiron,verteron}/**"
 	JAVA "data/handlers/quest/{heiron,verteron}/**"
-	PCH "aion/gameserver/handlers/quest/QuestPrelude.h")
+	PCH "aion/gameserver/handlers/quest/QuestPrelude.h"
+	TESTS quest_handlers_q03)
 aion_gs_chunk(Q04 TARGET aion_gs_handlers_quest_q04 PHASE 6 ROOT handlers
 	GLOBS "aion/gameserver/handlers/quest/{beluslan,brusthonin}/**"
 	JAVA "data/handlers/quest/{beluslan,brusthonin}/**"
@@ -514,12 +519,18 @@ aion_gs_chunk(Q04 TARGET aion_gs_handlers_quest_q04 PHASE 6 ROOT handlers
 # Q05's test directory is the golden quest trace harness of the generated handlers (P6-Q ascension route, lane route-gen, 2026-09-29;
 # phase6-inventory.md §7.6 item 3 and §8.2): it drives every case of tools/oracle/expected/quest through the real engine. A handler target's
 # tests link only their own library, so the executable compiles the generated Q09 (ishalgen) and Q06 (ascension dispatch) files by #include, as
-# P5-05's tests do for the two quest npc AIs (the P5-05 LEASE row below); docs/deviations/Q05.md.
+# P5-05's tests do for the two quest npc AIs (the P5-05 LEASE row below); docs/deviations/Q05.md. P6-Q slice 2 added the 72 generated Q03
+# (verteron, heiron) files the same way, and the hooks, helpers, registrations and overlays they need, under the Q03 LEASE row below
+# (docs/deviations/Q03.md).
 aion_gs_chunk(Q05 TARGET aion_gs_handlers_quest_q05 PHASE 6 ROOT handlers
 	GLOBS "aion/gameserver/handlers/quest/{eltnen,poeta,oriel}/**"
 	JAVA "data/handlers/quest/{eltnen,poeta,oriel}/**"
 	PCH "aion/gameserver/handlers/quest/QuestPrelude.h"
 	TESTS quest_handlers_golden)
+# P6-Q slice 2 (Q03, 2026-09-29; the review of the same day): Q03 changes Q05's golden harness (GoldenQuestTraceTest.cpp, GoldenHandlers.h,
+# GoldenQ03Handlers.cpp) for the generated verteron and heiron files. The integrator merges these edits with the other slice-2 lanes' and
+# releases the lease (docs/deviations/Q03.md).
+aion_gs_chunk(Q03 LEASE PHASE 6 TEST_SUPPORT quest_handlers_golden)
 # Q06's tests (lane P6-Q asc-hand, 2026-09-29): tests/quest_handlers_ascension, the unit cases of the four hand-ported ascension quests
 # (1006, 2008, 1007, 2009) on the real engine and the verbatim data rows of the route; the executable is aion_gs_handlers_quest_q06_tests.
 aion_gs_chunk(Q06 TARGET aion_gs_handlers_quest_q06 PHASE 6 ROOT handlers

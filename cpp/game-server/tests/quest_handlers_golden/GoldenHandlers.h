@@ -7,9 +7,16 @@
 // (GoldenIshalgenHandlers.cpp, GoldenAscensionHandlers.cpp), the way P5-05's tests compile the two quest npc AIs (chunks.cmake, the P5-05 LEASE
 // row). The generated files themselves are never edited here.
 //
+// P6-Q slice 2, chunk Q03 (2026-09-29): the 72 generated verteron and heiron handlers in the tree (the zones the route's dispatches end in),
+// compiled into this executable by #include as well (GoldenQ03Handlers.cpp); Q03's hand ports 1643 and 3200 have their own unit cases
+// (tests/quest_handlers_q03, docs/deviations/Q03.md).
+//
 // Held back (GOLDEN_HELD_BACK): 1000, 2000, 1100 and 2100 register onEnterWorld and start their quest at a character's first enter world
 // (Java behaviour), which turns gs.scenario.m5a, m5b and m5b2 red (docs/deviations/Q05.md, "Gate impact"). Their generated files are not in
 // the handler tree until the gates' owners decide; the harness passed all 30 of their cases with them in (the bytes the generator emits).
+// Q03's 14010, 1131, 1146 and 1152 are held back the same way (the review of 2026-09-29): gs.scenario.travel's level-10 Elyos Daeva arrives
+// in Verteron, where 14010's onEnterWorldEvent starts its quest and the start npcs of 1131, 1146 and 1152 add their quests (min level 11-12,
+// grey) to the arrival's SM_NEARBY_QUESTS (docs/deviations/Q03.md, "Held back"); the harness passed all of their cases with them in.
 
 #include <cstdint>
 #include <memory>
@@ -51,7 +58,79 @@
 	X(ascension, _2903DispatchtoAltgard, 2903) \
 	X(ascension, _2904DispatchtoAltgard, 2904) \
 	X(ascension, _29070ADispatchtoAltgard, 29070) \
-	X(ascension, _29071ADispatchtoAltgard, 29071)
+	X(ascension, _29071ADispatchtoAltgard, 29071) \
+	X(verteron, _1141BelbuasTreasure, 1141) \
+	X(verteron, _1149MissingPoppy, 1149) \
+	X(verteron, _1156StolenVillageSeal, 1156) \
+	X(verteron, _1157GaphyrksLove, 1157) \
+	X(verteron, _1158VillageSealFound, 1158) \
+	X(verteron, _1162AltenosWeddingRing, 1162) \
+	X(verteron, _1163ArachnaAntidote, 1163) \
+	X(verteron, _1169LightningfootTuka, 1169) \
+	X(verteron, _1170HeadlessStoneStatue, 1170) \
+	X(verteron, _1183SpiritOfNature, 1183) \
+	X(verteron, _1192VerteronReinforcements, 1192) \
+	X(verteron, _1194ReducingTursinStrength, 1194) \
+	X(verteron, _1197KrallBook, 1197) \
+	X(verteron, _1198TheWritingOnTheWall, 1198) \
+	X(verteron, _1218NumonerksDemandNote, 1218) \
+	X(verteron, _1220ASecretDelivery, 1220) \
+	X(verteron, _14011FragmentsInTheSky, 14011) \
+	X(verteron, _14012DukakiMischief, 14012) \
+	X(verteron, _14013AFrillOfAFuss, 14013) \
+	X(verteron, _14014TurningTheIde, 14014) \
+	X(verteron, _14015NotBlindedByVengeance, 14015) \
+	X(verteron, _14016AGateAgape, 14016) \
+	X(heiron, _14050OrdersFromHeironFortress, 14050) \
+	X(heiron, _14051RootOfTheProblem, 14051) \
+	X(heiron, _14052RestlessSouls, 14052) \
+	X(heiron, _14053DangerCubed, 14053) \
+	X(heiron, _14054KrallIngToKralltumagna, 14054) \
+	X(heiron, _1527RottenRotrons, 1527) \
+	X(heiron, _1528StrangeLeather, 1528) \
+	X(heiron, _1535TheColdColdGround, 1535) \
+	X(heiron, _1537FishOnTheLine, 1537) \
+	X(heiron, _1540BaittheHooks, 1540) \
+	X(heiron, _1548KlawControl, 1548) \
+	X(heiron, _1553MirrorMirror, 1553) \
+	X(heiron, _1559WhatsintheBox, 1559) \
+	X(heiron, _1560AJobForPobinerk, 1560) \
+	X(heiron, _1561TheMisersMap, 1561) \
+	X(heiron, _1562CrossedDestiny, 1562) \
+	X(heiron, _1563TheLegendofVindachinerk, 1563) \
+	X(heiron, _1573SomeTastyMushrooms, 1573) \
+	X(heiron, _1574AFeatForAVillage, 1574) \
+	X(heiron, _1578WhereDoRotronsComeFrom, 1578) \
+	X(heiron, _1582ThePriestsNightmare, 1582) \
+	X(heiron, _1604ToCatchASpy, 1604) \
+	X(heiron, _1605TheLepharistSituation, 1605) \
+	X(heiron, _1607MappingTheRevolutionaries, 1607) \
+	X(heiron, _1609MessageToArbolusHaven, 1609) \
+	X(heiron, _1612LepharistSecrets, 1612) \
+	X(heiron, _1614WheresBelbua, 1614) \
+	X(heiron, _1620StartSpreadingTheNews, 1620) \
+	X(heiron, _1626LightThePath, 1626) \
+	X(heiron, _1628MeteriasRegret, 1628) \
+	X(heiron, _1634TheWreckOfTheArgos, 1634) \
+	X(heiron, _1636AFluteForTheFixing, 1636) \
+	X(heiron, _1640TeleporterRepairs, 1640) \
+	X(heiron, _1644AVeryOldLetter, 1644) \
+	X(heiron, _1647DressingUpForBollvig, 1647) \
+	X(heiron, _1648UndeadWarAlert, 1648) \
+	X(heiron, _1661FindingTheForges, 1661) \
+	X(heiron, _1670InvisibleBridges, 1670) \
+	X(heiron, _1687TheTigrakiAgreement, 1687) \
+	X(heiron, _1691TheLittleLeatherSlipper, 1691) \
+	X(heiron, _1692ADayOlderAndDeeperInDebt, 1692) \
+	X(heiron, _1693AreYouMyFather, 1693) \
+	X(heiron, _18600ScoringSomeBadStigma, 18600) \
+	X(heiron, _18601NightmareonMyStreets, 18601) \
+	X(heiron, _18602NightmareinShiningArmor, 18602) \
+	X(heiron, _3502NereusNeedsYou, 3502) \
+	X(heiron, _80217ToDarkPoeta, 80217) \
+	X(heiron, _80218DarkPoetaEncore, 80218) \
+	X(heiron, _80219DarkPoetaFinale, 80219) \
+	X(heiron, _80220DarkPoetaFinale, 80220)
 // clang-format on
 
 #define AION_GOLDEN_DECLARE_FACTORY(dir, Class, questId)                                                                                       \
@@ -64,7 +143,7 @@ AION_GOLDEN_GENERATED_HANDLERS(AION_GOLDEN_DECLARE_FACTORY)
 namespace aion::gameserver::questEngine::handlers::test::golden {
 
 /** The route's generated handlers kept out of the handler tree for their gate impact (see above) */
-inline constexpr int32_t GOLDEN_HELD_BACK[] = {1000, 1100, 2000, 2100};
+inline constexpr int32_t GOLDEN_HELD_BACK[] = {1000, 1100, 2000, 2100, 1131, 1146, 1152, 14010};
 
 struct GeneratedHandler {
 	std::string_view directory;
@@ -73,7 +152,7 @@ struct GeneratedHandler {
 	std::unique_ptr<AbstractQuestHandler> (*factory)();
 };
 
-/** Every generated handler of the table, in the table's order (poeta, ishalgen, ascension; file name order inside a directory) */
+/** Every generated handler of the table, in the table's order (poeta, ishalgen, ascension, verteron, heiron; file name order inside a directory) */
 inline const std::vector<GeneratedHandler>& generatedHandlers() {
 #define AION_GOLDEN_ENTRY(dir, Class, questId) GeneratedHandler{#dir, #Class, questId, &::aion::gameserver::handlers::quest::dir::Class##_questFactory},
 	static const std::vector<GeneratedHandler> table{AION_GOLDEN_GENERATED_HANDLERS(AION_GOLDEN_ENTRY)};
