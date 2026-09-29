@@ -648,7 +648,11 @@ python oracle.py m5d-quest --quest 1101 [--race R] [--class C] [--level N] [--ex
                            [--inventory ITEM[:COUNT] ...]
 python oracle.py m5d-quests --map 210010000 [--race R] [--class C] [--level N] [--gender G] [--completed ID[:GROUP] ...] [--started ID ...]
                             [--inventory ITEM[:COUNT] ...] [--game-hour H ...]
-    (both: [--java-src game-server/src] [--java-handlers data/handlers/quest] [--config config] [--profile FILE | --no-profile])
+python oracle.py m5d-quests --registration-order [--npc ID]
+python oracle.py m5d-quests --census
+    (all: [--java-src game-server/src] [--java-handlers data/handlers/quest] [--config config] [--profile FILE | --no-profile]; the last
+     two take no character or game-time option: --race, --class, --level, --gender, --completed, --started, --inventory and --game-*/--weekday
+     are refused, exit 2)
 ```
 
 The list options take several values after one flag or the flag again: `--completed 1101 1102` is `--completed 1101 --completed 1102`.
@@ -694,6 +698,37 @@ instance's ConcurrentHashMap key set order) is not modelled, so the whole order 
 a game time not given, or a quest giver comes from a timed event or a service spawn (siege, base, rift, vortex, mercenary, ahserion, town) -
 those are listed under `notModelled`.
 
+`m5d-quests --registration-order [--npc ID]` (`aion-m5d-registration-order`, `m5d/registry.py`, for T-04's case): the XML-only registry (D9)
+as `QuestEngine.init` builds it. `order` is the registration order, the iteration order of `XMLQuests.questsById` (a `new HashMap<>()` filled in
+document order); `questOnEnterWorld` and `questOnLevelUp` (per race: a quest without race_permitted is in both, a PC_ALL quest in a PC_ALL list
+nobody reads) are the engine's lists; per npc `onTalkEvent` and `onKillEvent` are in registration order and `onQuestStart` is the
+`HashSet<>(0)`'s iteration order. Without `--npc` every npc's three lists; with it that npc's lists, each with `...Flags` (whether it is also
+the ascending or the document order, and for the start set its insertion order: such a list cannot tell a sorted container, an
+insertion-ordered registry filled in document order or an insertion-ordered set from Java's), the set's insertion order and the Java
+handlers that start there (not in the C++ registry). `talkLists` and `killLists` count the npcs whose list is neither ascending nor in
+document order and name them, `startLists` the npcs whose set is none of the three orders. On the data: `questOnEnterWorld`'s 26 ids are
+neither; mires 203057's talk list `[1101, 1102, 1103, 1104]` is ascending, but its start set `[1104, 1102, 1103]` is none of the three (the
+insertion order is `[1102, 1103, 1104]`, the order of the C++ runtime::HashSet, which iterates in insertion order); 137 talk lists, 51 kill
+lists (of 136 not ascending) and 386 start sets (of 447 not in insertion order) tell the orders apart.
+
+`m5d-quests --census` (`aion-m5d-census`): m5d-plan.md §2.3-§2.5 re-derived. The templates and the handlers by category; where each XML quest
+starts, a partition (`start`, first match): minlevel 99, no start npc, a start npc spawned at startup (a regular spawn of an open-world map,
+difficulty 0, no handler, an Npc with a template) with a talking ai (general, aggressive), `simple_abyssguard` or another ai, each talking row
+split by a Java-handled `<finished>`/`<acquired>` precondition that leaves fewer passing groups than required; spawned only by a service
+(siege, instance, base, vortex, ahserion, rift, mercenary); never spawned, split into town spawns (TownService spawns them at startup at the
+town's level), house spawns (HousingService spawns every house of an open-world map but the studios at startup, and each house its land's
+manager, teleport and sign npcs per house_npcs), timed-event spawns, inert spawns (static, another handler, another difficulty, no template,
+no spots, no world map) and `noSpawnData` (no spawn, town, house or event data: Java code spawns the npc or nothing does), whose `namedInJava`
+is a text scan of the Java sources for the start npc id as an int literal - a name, not a proof of a spawn: outside data/handlers/quest
+(instance and ai handlers, game-server/src), only in data/handlers/quest (phase 6), or nowhere. Then what completing the reachable quests
+needs (dialogs and kills, quest loot, crafting, items from elsewhere, quest objects, turn-ins, skill use, PvP kills), E-09's reward bodies
+(bonus, AP, GP, cube, warehouse) over all XML quests and over the reachable ones, the CHALLENGE_TASK quests by row and the Poeta and Ishalgen
+quests by handler. On the data it gives §2.4's 2,072 / 439 / 270 + 37 / 322 / 498 / 415 / 126 / 5 and 2,511 reachable. It also splits the
+498 "never spawned" quests: TownService spawns the givers of 54 at startup, all of them at a town level above 1, the houses the butlers of 2
+(18829, 28829), timed events the givers of 240, and 202 are in no spawn data - 24 of those start at an npc an instance or ai handler names
+(16991 at 802048, IlluminaryObeliskInstance; 30225 at 216527, BeshmundirInstance; ...), 5 at one only phase-6 quest handlers name, 173 at
+one no Java file names.
+
 The cube of both commands is the new character's (m5a-creation, the items that are not equipped). A quest of the list may have changed it:
 a COMPLETE quest paid its reward items (any group, selectable, extended, class lists, a random `<bonus>` item) and work order components and
 took its collect items, work items and report_to_many start item; a START quest holds its work items, start item, components, quest drops
@@ -717,7 +752,10 @@ class above level 9 or a daeva class below 10, an `--exp` that is not an exp of 
 Tests: `tests/test_m5d.py` (the var arithmetic of the handlers alone, Java's HashMap order and buckets and the Java text readers, the Java
 tables today and on an edited copy, the whole report on a small static_data tree with a fixture Java handler and config, one fixture quest per
 QuestService rule with every rate apart and a profile, and on the real data 1101 -> 1102 -> 1103 in Poeta, 2101 and 2102 in Ishalgen, both
-start maps' marker sets and wire orders, and the float rounding of 21040's exp).
+start maps' marker sets and wire orders, and the float rounding of 21040's exp); `tests/test_m5d_registry.py` (the registration order and
+every list on eight fixture quests whose HashMap order is neither ascending nor in document order, the flags and list summaries on six more
+where they differ, one fixture quest per census rule including the house, inert-spawn and Java-scan rules, the command line and its
+refusals, and on the real data the whole order, mires' lists, `questOnEnterWorld`, the list summaries and the census against §2.3-§2.5).
 
 ## Phase-6 golden quest traces (`questtrace/`, `docs/design/phase6-inventory.md` §7.6 item 3)
 

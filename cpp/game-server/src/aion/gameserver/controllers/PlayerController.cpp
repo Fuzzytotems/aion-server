@@ -515,11 +515,17 @@ void PlayerController::attackTarget(runtime::Ptr<model::gameobjects::Creature> t
 
 	int64_t milis = commons::utils::currentTimeMillis();
 	// network ping..
-	if (milis - lastAttackMillis.get() + 300 < attackSpeed) {
+	// Deviation (play-session fixes 2026-09-28, docs/deviations/P4-11b.md; owner decision M5c D7's precedent: fix Java's bug and record it): Java
+	// compares against lastAttackMillis (PlayerController.java:424), which since #175 enterCombat(true) also writes at the end of every hostile
+	// skill (Skill.java:650-651), so the client's first swing after an ability is refused with STOP_WITHOUT_MESSAGE and auto-attack stops - most
+	// often with two weapons, whose attack speed (main + off hand / 4) widens the window. The throttle reads its own swing timestamp here, written
+	// only by a swing it lets through; enterCombat, isInCombat and getLastCombatTime keep #175's meaning.
+	if (milis - lastAutoAttackMillis.get() + 300 < attackSpeed) {
 		// hack
 		PacketSendUtility::sendPacket(player, network::aion::serverpackets::SM_ATTACK_RESPONSE::STOP_WITHOUT_MESSAGE(gameStats->getAttackCounter()));
 		return;
 	}
+	lastAutoAttackMillis = milis; // Deviation: see above
 	enterCombat(true);
 
 	CreatureController::attackTarget(target, time, true);

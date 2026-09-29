@@ -1,6 +1,23 @@
 # M5d work plan (quest engine)
 
-> **Status:** plan **rev 2**, 2026-09-23 — rev 1 revised after its adversarial review; §16 lists what the review found and what changed.
+> **Status (2026-09-28, §19): stage 1 is complete.** Stage 1's last wave (xml-templates, dialog-and-rewards, quest-npc-ais,
+> gate-harness) is integrated (checkpoint A). Then the D3 join (I-05) closed `QuestEngine.cpp:111`, so every startup now registers the
+> 4,184 XML quests (checkpoint B, the last change of stage 1).
+> - Census: M5d's row went from 106 open to 32 (P5-06a 29, P5-06b 2, P5-06c 1: `KillOperation`). Outside P5-06, the wave's 31 bodies are
+>   ported; only `addAp`'s kill variant stays, as §18.8 item 6 chose.
+> - The unit suite and all 13 gates (50 of 50 `ctest` entries, two at a time) passed before and after the join. The join turned nothing
+>   red.
+> - Next: stage 2 (G-03/G-04, the M5d gate; F-01), then stage 3 (E-07, E-08). §19.5 lists what is left.
+>
+> **Before stage 1's end (2026-09-28, §18):** stage 1a's engine, handler base and five XML kinds are merged (early, `ad9a8130f`), with A-01
+> (`819b84116`) and `CM_PLAY_MOVIE_END` (`185377020`); M5c is complete (`5bbd3551f`). **137 bodies are left** (census at `5bbd3551f`:
+> P5-06 106, outside 31): stage 1's last wave (105: dialog-and-rewards, quest-npc-ais, gate-harness, xml-templates' T-01b/T-02/T-03/T-04)
+> and then the D3 join (I-05), stage 2's gate, stage 3's 26. `QuestEngine.cpp:111` is still `AION_PARTIAL`. §18.5 gives the next wave's
+> lanes. Owner decisions applied: gathering after quests (D13), M5j stage 0 right after M5d, phase-6 quest merges only after the join.
+> §18.10 lists the corrections of the refresh's review. The largest: a generated Q05/Q09 prologue would stop every gate's character,
+> not only change M5d's nearby sets.
+>
+> Plan **rev 2**, 2026-09-23 — rev 1 revised after its adversarial review; §16 lists what the review found and what changed.
 > A **read-only** analysis over HEAD `c1edb0afb` ("M5b-2 stage 1 part 2: the cast engine and the effect
 > core") plus the working tree, whose uncommitted M5b-2 part-3 lanes touch `skillengine/effect/*` and `AttackUtil.cpp` and **no file this plan
 > names** (checked with `git status`). **Nothing was compiled, built or run for this plan.** C++ statements come from reading both trees, from
@@ -27,7 +44,7 @@
 > split (I-01) and `m5d-h01` (D17 b), rebased onto `a75d281ff` and merged on top of M5c stage 2 (P5-06a.md, P5-06b.md, P5-06c.md).
 > `QuestEngine.cpp:111` stays `AION_PARTIAL`, so no XML quest registers yet: T-01b, the D3 join (I-05) and the gate are still ahead. The
 > same merge brought A-01 (`simple_abyssguard`, P5-05.md) and M5f's `CM_PLAY_MOVIE_END`, so D-05 must not port that packet again. On the
-> merged tree the unit suite passed (4,294 of 4,294) and so did all 13 gates, run two at a time.
+> merged tree the unit suite passed (4,294 of 4,294) and so did all 13 gates, run two at a time. §18 is the refresh after these merges.
 >
 > **Three corrections to the roadmap, in order of how much they change the milestone.**
 >
@@ -533,6 +550,7 @@ Only the PvP hooks (`onKillInWorldEvent`, `onKillInZoneEvent` — `PvpService` i
 `onAddAggroListEvent` (0 registrations in the data, §5 Aggro row) may land after the join; before they land they stay `AION_UNPORTED`, and no
 gate reaches them. `XmlQuest.onDialogEvent` runs the whole xmlQuest language for every talk to 1127's npcs, so if T-03 is deferred (D10),
 `XmlQuestData::register_` becomes an `AION_PARTIAL` that registers nothing (1127 is then not offered), listed in §B of the allow-lists.
+(Review 2026-09-28: §A or §C, not §B. `init` calls it at every startup, so every gate hits it once; §18.6.)
 
 The same commit deletes the `:111` rows from `m5a_partial_allowlist.txt:18`, `m5b_partial_allowlist.txt:32`, the M5b-2 allow-list
 (m5b2-plan.md §10.1 puts it in §A) and — if they exist by then — the M5b-3 and M5c allow-lists (m5c-plan.md:559 puts `:111` in its §A),
@@ -563,10 +581,10 @@ three unit cases that pin throws (review: the refresh said two): E-01 two, E-02 
 | **D10** | **`xml_quest` (only 1127) is R but last**: the 15 xmlQuest sites + 5 undeclared methods + `XmlQuest` template land in stage 1b, or in stage 2 if stage 1b runs long. **If deferred past the join, `XmlQuestData::register_` becomes an `AION_PARTIAL` that registers nothing** (§5: `XmlQuest.onDialogEvent` runs the language on every talk to its npcs), so 1127 is simply not offered until T-03 lands. | 25 bodies for one quest, which also needs the quest-object AI. |
 | **D11** | **`QuestService`'s quest-drop family** is called from `DropRegistrationService.registerDrop` on every kill (DropRegistrationService.java:84). Reconciled with the M5b-3 draft (rev 1, untracked, unreviewed): **m5b3-plan.md L-04 ports `getQuestDrop`, `isQuestDrop`, `allowLooting` and `regQuestDropItem` under a P5-06 file lease** (m5b3-plan.md:135, 365, 441), against its header request **m5b3-h03**, which replaces the frozen `const std::unordered_set<Ptr<DropItem>>&` of `QuestService.h:77` by a mutable set (m5b3-plan.md:469) — Java adds to that set (QuestService.java:682-728). It leaves `getEachDropMembersGroup/Alliance` (QuestService.java:903-933), which only `QuestItemNpcAI` calls, for a grouped player. **M5d verifies L-04 and ports the two group variants (E-04)**; if M5b-3 left an `AION_PARTIAL` or did not land h03, M5d closes it, carries h03 itself (§9) and edits M5b-3's allow-list. **Refresh: verified at HEAD, all met.** The four bodies are at `QuestService.cpp:368-519` with no partial, h03 is applied (`QuestService.h:81`), and the tests are `tests/quest/QuestDropTest.cpp`. Two deviations are recorded in `docs/deviations/P5-06.md` (M5b-3 section): an empty `players` vector stands for Java's null, and `asHandlerSideDrop` tests membership instead of `instanceof` (m5b3-loot-h01 deferred). The `QuestDrop` quest id is now set by `QuestsData::afterUnmarshal` (`QuestsData.cpp:21-26`, the `4867fbc44` fix), and `QuestEngine::init` only reads it. E-04 is therefore the two group variants only. | Without the quest-state bodies, `isQuestDrop` answers false at `qs == null` (QuestService.java:754-760), so the port is safe before M5d. |
 | **D12** | **The gate is a new `gs.scenario.m5d` (+ `_geo`)** with its own schema pair, output directory and allow-list, under the same `RESOURCE_LOCK`; the earlier gates are kept and re-run. **Review addition, conditional:** another workflow's uncommitted `tests/scenario/ScenarioTests.cmake` replaces the single lock by two gate slots, `AION_GS_GATE_SLOT_1`/`_2` (`ScenarioTests.cmake:13-53`). If that commits, both M5d tests hold **one** slot, the one with the smaller runtime sum, together (a gate and its geo variant share a slot: one schema prefix per slot, `:38-42`), and the runtime comment there gains their two lines (§10.1). | m5b2-plan.md D10's argument. |
-| **D13** | **Gathering is out of scope.** `CM_GATHER` has no C++ file and no roadmap milestone names it; 1206, 1207, 2133, 2134 and part of the 316 "items from elsewhere" wait for it. **Recommend adding it to M5c** (crafting materials come from the same system; the M5c draft already lists `CM_GATHER` as an optional stage-2 packet, m5c-plan.md:232). **Refresh: still open, and still the user's.** M5c's refresh made its own D10 the same question, and `CM_GATHER` stays O there until the user answers. The facts are sharper now: `CM_GATHER` (51 Java lines, 2 bodies) is the only missing piece, and nothing behind it is unported without CAPTCHA (m5c W-27). 1206 and 2133 need Collection 1, which every character has; 1207 and 2134 need Collection 15 (§2.5 note). | A user-visible gap on the start maps; the decision is the user's (it changes a milestone's scope). |
+| **D13** | **Gathering is out of scope.** `CM_GATHER` has no C++ file and no roadmap milestone names it; 1206, 1207, 2133, 2134 and part of the 316 "items from elsewhere" wait for it. **Recommend adding it to M5c** (crafting materials come from the same system; the M5c draft already lists `CM_GATHER` as an optional stage-2 packet, m5c-plan.md:232). **Refresh: still open, and still the user's.** M5c's refresh made its own D10 the same question, and `CM_GATHER` stays O there until the user answers. The facts are sharper now: `CM_GATHER` (51 Java lines, 2 bodies) is the only missing piece, and nothing behind it is unported without CAPTCHA (m5c W-27). 1206 and 2133 need Collection 1, which every character has; 1207 and 2134 need Collection 15 (§2.5 note). **Answered 2026-09-27 (owner-decisions.md, with m5c D10): after quests.** `CM_GATHER` (P5-15, census 5 bodies) comes after M5d's quest gate, and 1206, 1207, 2133 and 2134 wait for it: after the join they are offered and cannot be finished. Which plan carries it is open (§18.4, §18.8). | A user-visible gap on the start maps; the decision is the user's (it changes a milestone's scope). |
 | **D14** | **M5d ports the four reward services `finishQuest` reaches outside M5b-3 (E-09)**: `BonusService` (P5-09, file lease), `AbyssPointsService::addAp` ×2 + `onRankChanged` and `GloryPointsService::addGp` (P5-08, the dialog lane's chunk), `CubeExpandService::questExpand`/`expand`/`canExpand` (P5-07, file lease, unless M5c's optional P-05 landed them). `Legion::addContributionPoints` (P5-11, legion members only) stays unported until M5h. **Refresh:** `BonusService` sits in **P5-09a** after M5c's split, so the lease names P5-09a. M5c's rev 2 made P-05 (`CubeExpandService` whole) **required** in its stage 1, so the cube part drops here once M5c lands, which the roadmap order makes the planned case. `AbyssPointsService` stays with M5d, because M5c's D2 sends the AP vendors to a later milestone. `getQuestBonus` needs the reward-list header change of D17. | §3.5: 844 reachable quests carry a bonus, AP, GP or cube reward, all 574 work orders among them; left unported, AP and GP quests pay kinah and exp again on every retry. ~10 bodies, ~150 Java lines. Integrator's decision under the standing instruction: it adds scope inside the milestone the user asked for. |
 | **D15** | **The Asmodian gate character is created on a second account B**, not in a second slot of account A. | `gameserver.character.creation.mode` defaults to 0 (GSConfig.java:37-38, config/main/gameserver.properties:35), and in mode 0 `CM_CREATE_CHARACTER` answers `RESPONSE_OTHER_RACE` when the account already holds a character of the other race (CM_CREATE_CHARACTER.java:94-96) — `gs.scenario.m5a` asserts exactly that (`M5aScenarioTest.cpp:1368-1375`) and already uses two accounts (`:1298-1307`). A second account keeps the M5d profile equal to the M5b-2 profile; setting mode 1 in `m5d.properties.example` would also work, but it would change a server default for a reason unrelated to quests, and the real-client session would inherit it. |
-| **D16** | **The quest stress run (G-06) is offered to the user, not scheduled by the integrator.** | phase5-roadmap.md:62-66: machine load beyond the resource rules and the design of the capacity tests are the user's. G-06 extends the M5b-2 leak nightly (a precedent), but stress clients that fight and quest add load. |
+| **D16** | **The quest stress run (G-06) is offered to the user, not scheduled by the integrator.** **Answered 2026-09-27 (owner-decisions.md, "Capacity-test design: later"): G-06 stays off**; the census rows go into the gate's Y14 only (§18.4). | phase5-roadmap.md:62-66: machine load beyond the resource rules and the design of the capacity tests are the user's. G-06 extends the M5b-2 leak nightly (a precedent), but stress clients that fight and quest add load. |
 | **D17** | **Refresh — proposed for the integrator (the M5d owner) to confirm at I-02: the two header shapes that phase 6's generated quests depend on.** (a) **H-06 lands as `questEngine/handlers/HandlerResultInfo.h`** with `fromBoolean(std::optional<bool>)` in namespace `::aion::gameserver::questEngine::handlers`, the spelling the transliterator assumes (phase6-questgen-prototype.md §5.2 item 1; 60 generated files call it). (b) **The reward list becomes a list of values**: `std::vector<QuestItems>&` in `AbstractQuestHandler::onBonusApplyEvent` and `QuestEngine::onBonusApplyEvent` (declared `const std::vector<const QuestItems*>&`, `AbstractQuestHandler.h:144-145`, `QuestEngine.h:162-163`; `QuestEngine.cpp:617` holds the ported body); `std::vector<QuestItems>` from `QuestService::getRewardItems` (`QuestService.h:39-40`); `std::optional<QuestItems>` from `BonusService::getQuestBonus` (`BonusService.h:24`). | (a) The prototype needs a spelling to emit, and the plan named only "a new file". If H-06 lands with any other spelling, the 60 generated files must be regenerated against it. (b) Java builds the list and adds a **new** `QuestItems` to it: the bonus (BonusService.java:36, QuestService.java:197-203), and two event handlers (`event_quests/_80016`, `_80018`, `:81`). A `const` reference cannot be appended to, and a `const QuestItems*` cannot own an item made at run time. `QuestItems` is already a value type (`QuestItems.h:9-12`), and it is not `RefCounted`. **E-02 and E-09 need (b) whether or not any handler is generated**, so §9's "none expected" for these headers was wrong. It is a hub-header change, hence the integrator's. |
 | **D18** | **Refresh — open for the integrator: M5c's C19 needs two `QuestState` bodies before M5d exists.** m5c-plan.md D5 seeds a Daeva with a `player_quests` row (1006, COMPLETE). Its load runs through `PlayerQuestListDAO::load` twice: once at login, once in `PlayerCommonData::updateDaeva`. Both calls hit the unported `QuestState::setPersistentState` (§3.6). Once that is ported, the enter world's `SM_QUEST_COMPLETED_LIST` hits `canRepeat` next (`SM_QUEST_COMPLETED_LIST.cpp:29`), and the logout's `store` runs `setPersistentState(UPDATED)` on every state (`PlayerQuestListDAO.cpp:103-105`). **Recommended:** M5c ports `setPersistentState` and `canRepeat` under a P5-06 file lease on `QuestState.cpp` (QuestState.java:121-154, ~35 lines) before its stage 3. E-01 then takes them as done and adds the rest. The alternative is that C19 waits for M5d's E-01. **Review addition:** porting `setPersistentState` turns a committed P4-12 case red, whoever ports it: `PlayerModelBodiesTest.QuestStateListKeepsDeletedQuestIds` (`tests/player/PlayerModelBodiesTest.cpp:441`, `a99ec5fcb`) expects `QuestStateList::deleteQuest(1006)` to throw, because `deleteQuest` calls `setPersistentState(DELETED)` (`QuestStateList.cpp:45`). So the lease also covers that test file (chunk P4-12, `chunks.py owner`), and the port rewrites `:441` to assert the transition: a NEW state becomes NOACTION, any other DELETED (QuestState.java:140-154). **Resolved (2026-09-28, when the stage-1a engine overlay was rebased onto `a75d281ff` on the local branch `wip/ascension`): the alternative — the overlay's E-01 carries both bodies, and C19 waits for its merge.** M5c did not take them: at `a75d281ff` (M5c stage 1 and the D7 fix committed) every `QuestState` body is still `AION_UNPORTED`, and no commit since the overlay's base `4dbbd119b` touches `questEngine/`, `services/QuestService.*`, `services/reward/BonusService.*` or `tests/player/PlayerModelBodiesTest.cpp`. E-01 ports `setPersistentState` and `canRepeat` with the other eleven `QuestState` bodies, and its rewrite of `PlayerModelBodiesTest.QuestStateListKeepsDeletedQuestIds` (a NEW state deleted becomes NOACTION, a stored one DELETED) is the P4-12 test-file edit that m5c-plan.md §6's lease table records for I-05's merge commit. m5c-plan.md I-05 times that merge with or after C-01: the restore lets a seeded Daeva load at level 10, and until `RecipeService::autoLearnRecipes` is ported its enter world throws out of `onLevelChange` (the overlay's merge notes §7; m5c-plan.md §20.5). | Without one of the two, C19 logs two ERROR lines at login and loads the character as a level-9 non-Daeva, so X21a and Hestia's learn (X17) fail. m5c-plan.md does not mention it (checked: no `setPersistentState`, `canRepeat` or `PlayerQuestListDAO` in it). The roadmap runs M5c before M5d, so "wait" means M5c's stage 3 cannot close. **Resolution:** m5c-plan.md §20.5-20.6 now name it (G-03 part 2 starts only once the restore and C-01 are in). |
 | **D19** | **Refresh — M5d takes `QuestStartAction` and `ReadAction` (E-10)**, under a P5-07 file lease on their four files. | m5c-plan.md §3a and m5b3-plan.md O-03 (as edited by m5b3 §20) name M5d as their home. `CM_USE_ITEM` reaches their throwing stubs today, from four start-map drops. Their `finishUse` routes into the quest engine (QuestStartAction.java:68-88), so they belong with it. **Review correction: more than "stop the stubs throwing".** `QuestStartAction.finishUse` is the **start path of 39 XML quests**: 27 of the 32 `item_order` quests, 6 of the 7 `report_to_many` start items, 5 `report_to` and 1 `item_collecting` (§5, §17.3 N1). Without E-10, 38 of them cannot be started after the join; the 39th, 11216, also has a start npc (799017). |
@@ -574,6 +592,19 @@ three unit cases that pin throws (review: the refresh said two): E-01 two, E-02 
 ---
 
 ## 7. Work items
+
+> **Status at `5bbd3551f` (review of the 2026-09-28 refresh):** the rows below are the plan as written. Several are merged:
+> - I-01 and I-02;
+> - E-01 to E-06;
+> - H-01 to H-07, except the follow family, which is E-07's;
+> - T-01a, and T-02 and T-04 for the five kinds;
+> - A-01;
+> - D-01, D-02's port and D-04 (M5c);
+> - D-05's `CM_PLAY_MOVIE_END` (M5f) and `CM_QUESTION_RESPONSE` (M5c);
+> - E-09's cube part (M5c P-05);
+> - G-02's three dialog builders, the `SM_DIALOG_WINDOW` decoder and `InventoryModel` (M5c).
+>
+> `CM_QUEST_SHARE` is M5g's (K-04). §8.2's status column and §18.3 give what is left of each item, and §18.5 gives the lanes.
 
 Effort: **S** < 1 agent-day, **M** 1-2, **L** 2-4, **XL** > 4. Need: **R** required, **W** stub-with-warning allowed, **O** optional,
 **P** phase-6 prerequisite (in milestone if time allows).
@@ -697,22 +728,26 @@ At most six per stage; chunks disjoint within a stage.
 stage 1 is in its third part). The integrator commits between them; `:111` stays partial through 1a, so part 1a changes nothing the earlier
 gates see.
 
-| Stage | Lane | Chunks | Items | Tests |
-|---|---|---|---|---|
-| 1a | **quest-engine** | P5-06a | E-01..E-03, E-05, E-06 | `tests/quest` |
-| 1a | **handler-base** | P5-06b | H-01..H-07 | `tests/quest_handlers` |
-| 1a | **xml-templates** | P5-06c | T-01a, T-02, T-04 for the five kinds | `tests/quest_templates` |
-| 1a | **dialog-and-rewards** | P5-08, P5-15, P5-16 + file leases `BonusService.*` (P5-09; refresh: P5-09a), `CubeExpandService.*` (P5-07; refresh: only if M5c's P-05 did not land), refresh: `QuestStartAction.*`, `ReadAction.*` (P5-07) | D-02 tests, D-03, D-05, **E-09**, refresh: **E-10**; D-01/D-02 port/D-04 only as I-03's fallback | `tests/cm_ak`, `tests/cm_lz`, `tests/playersvc`, `tests/economy` (refresh: `tests/economy/P5-09a`), `tests/itemsvc` |
-| 1a | **quest-npc-ais** | P5-05 | A-01, A-02, A-04 for them | `tests/handlers_ai_core` |
-| 1a | **gate-harness** | P5-SC, tools/oracle | G-01, G-02 | `tools.oracle`, decoder self-tests |
-| 1b | **xml-templates** | P5-06c | T-01b, T-03 (D10), the rest of T-04 and the smoke | `tests/quest_templates` |
-| 1b | **quest-npc-ais** | P5-05 + A1 lease | A-03, A-04 for it | `tests/handlers_ai_core` |
-| 1b | **quest-engine** | P5-06a | E-04 (after M5b-3's L-04; refresh: L-04 is in, so E-04 can move to 1a), fixups from 1a | `tests/quest` |
-| 1a→1b | integrator | manifest, leases | I-01..I-04; **I-05, the join, closes 1b** | full verification + every earlier gate |
-| 2 | **gate** | P5-SC | G-03, G-04 | `gs.scenario.m5d`, `_geo` |
-| 2 | **regate** | P5-SC (second lease) | G-05 | the earlier gates |
-| 2 | **xml-quest + fixups** | P5-06c, owners | T-03 if still deferred (D10), F-01 | owning tests |
-| 3 | **phase-6 prerequisites** (+ stress if the user says yes, D16) | P5-06a, P5-14, P5-SC | E-07, E-08, (G-06) | `tests/quest`, (`gs.scenario.m5a_stress`) |
+| Stage | Lane | Chunks | Items | Tests | Status at `5bbd3551f` (refresh 2026-09-28, §18) |
+|---|---|---|---|---|---|
+| 1a | **quest-engine** | P5-06a | E-01..E-03, E-05, E-06 | `tests/quest` | **done** (`ad9a8130f`), E-04 too; `QuestService.cpp` has no `AION_UNPORTED` left |
+| 1a | **handler-base** | P5-06b | H-01..H-07 | `tests/quest_handlers` | **done** (`ad9a8130f`), except the follow family (`defaultStartFollowEvent` ×2, `AbstractQuestHandler.cpp:820, 825`), which is E-07's (stage 3) |
+| 1a | **xml-templates** | P5-06c | T-01a, T-02, T-04 for the five kinds | `tests/quest_templates` | **done** (`ad9a8130f`): 32 template bodies, five `register_`, 43 cases on 26 quests (P5-06c.md) |
+| 1a | **dialog-and-rewards** | P5-08, P5-15, P5-16 + file leases `BonusService.*` (P5-09; refresh: P5-09a), `CubeExpandService.*` (P5-07; refresh: only if M5c's P-05 did not land), refresh: `QuestStartAction.*`, `ReadAction.*` (P5-07) | D-02 tests, D-03, D-05, **E-09**, refresh: **E-10**; D-01/D-02 port/D-04 only as I-03's fallback | `tests/cm_ak`, `tests/cm_lz`, `tests/playersvc`, `tests/economy` (refresh: `tests/economy/P5-09a`), `tests/itemsvc` | **open, 21 bodies**: E-09 without the cube (7), E-10 (8), D-03 `CM_DELETE_QUEST` (3), D-05 = `CM_OBJECT_SEARCH` only (3, O), D-02's residue (tests). Not needed any more: the fallbacks (M5c ported them), the cube lease (M5c P-05), `CM_PLAY_MOVIE_END` (merged with M5f's subset), `CM_QUEST_SHARE` (m5g-plan.md K-04 takes it) |
+| 1a | **quest-npc-ais** | P5-05 | A-01, A-02, A-04 for them | `tests/handlers_ai_core` | A-01 **done** (`819b84116`: `AbyssGuardSimpleAiTest`, `AbyssGuardDialogTest`, `AbyssGuardGeoTest` and `QuestNpcAiTestSupport.h`; the commit's fourth test file, `AscensationNpcAiTest.cpp`, is `AscensationNpcAI`'s); **open**: A-02 (6 bodies) and its A-04 |
+| 1a | **gate-harness** | P5-SC, tools/oracle | G-01, G-02 | `tools.oracle`, decoder self-tests | **open**: G-01's `--registration-order` and `--census` (Python); G-02 without M5c's three dialog builders, `SM_DIALOG_WINDOW` decoder and `InventoryModel`, which exist |
+| 1b | **xml-templates** | P5-06c | T-01b, T-03 (D10), the rest of T-04 and the smoke | `tests/quest_templates` | **open, 74 bodies**, the long pole: T-01b's ten classes (39), T-02's other ten `register_`, T-03 (25 with `XmlQuest` and `XmlQuestData::register_`) |
+| 1b | **quest-npc-ais** | P5-05 + A1 lease | A-03, A-04 for it | `tests/handlers_ai_core` | **open**, 4 bodies; every dependency but A-02 is met, so it follows A-02 in the same lane (§18.5) |
+| 1b | **quest-engine** | P5-06a | E-04 (after M5b-3's L-04; refresh: L-04 is in, so E-04 can move to 1a), fixups from 1a | `tests/quest` | **done**: E-04 ported by the overlay, no unit case (W until M5g can build a team, P5-06a.md) |
+| 1a→1b | integrator | manifest, leases | I-01..I-04; **I-05, the join, closes 1b** | full verification + every earlier gate | I-01, I-02 (`m5d-h01`..`h03`) **done**; I-03 **met** (M5c complete); I-04: the next wave's three file leases (§18.5); **I-05 open** |
+| 2 | **gate** | P5-SC | G-03, G-04 | `gs.scenario.m5d`, `_geo` | open; the pair joins gate slot 1 (`ScenarioTests.cmake:51-53`) |
+| 2 | **regate** | P5-SC (second lease) | G-05 | the earlier gates | open; 13 gates, 50 `ctest` entries |
+| 2 | **xml-quest + fixups** | P5-06c, owners | T-03 if still deferred (D10), F-01 | owning tests | open |
+| 3 | **phase-6 prerequisites** (+ stress if the user says yes, D16) | P5-06a, P5-14, P5-SC | E-07, E-08, (G-06) | `tests/quest`, (`gs.scenario.m5a_stress`) | open, 26 bodies (E-07 19, E-08 6 + the `:115` partial); **G-06 stays off** (D16 answered) |
+
+**Refresh 2026-09-28.** The split into 1a and 1b was by time: E-01 → T-01a had to land before T-01b could. Both are merged, so what is left of
+1a and all of 1b run as **one wave** of four lanes, and the join (I-05) stays the last commit of stage 1 (D3). §18.5 has that wave's lane
+table, §18.6 its merge order.
 
 T-04 stays in the xml-templates lane in both parts: `tests/quest_templates` is P5-06c's, and rev 1's "quest-engine takes T-04's smoke" would
 have had the P5-06a lane write another lane's test directory inside one stage.
@@ -767,7 +802,7 @@ As m5b2-plan.md §10.1, except:
 | Output | `<bin>/scenario/m5d` |
 | `RESOURCE_LOCK` | the same `"aion_game_server_log;aion_login_server_log"`. **Review addition, conditional on another workflow's uncommitted `tests/scenario/ScenarioTests.cmake`:** if its two gate slots commit (`AION_GS_GATE_SLOT_1` = `aion_game_server_log`, `AION_GS_GATE_SLOT_2` = `aion_game_server_slot_2`, `:52-53`), G-03 and G-04 register `gs.scenario.m5d` and `gs.scenario.m5d_geo` with **one** slot, the same for both (they share the schema prefix `m5d`, `:38-42`): the slot with the smaller runtime sum at that time, and add their two runtimes to the comment (`:44-47`: "A new gate joins the slot with the smaller sum, together with its geo variant, and adds its runtime above"). The end-of-directory check `aion_gs_check_gate_slots` (`:55-78`) warns about a server test that holds neither slot and gives it both. G-06 holds both slots |
 | Profile | the M5b-2 profile, geo off, plus `gameserver.rates.xp.quest` and `gameserver.rates.kinah.quest` left at their defaults (membership 0 → 1.0), `gameserver.analysis.quest_handlers=false`, `gameserver.character.creation.mode` left at its default 0 (D15); written out as `m5d.properties.example`. **Refresh:** since `4867fbc44` the M5b-2 profile carries `gameserver.rates.drop = 0` (`m5b2.properties.example`), so the kerub and sprigg kills leave no loot. Quest drops are not scaled by that rate (QuestService.java:673 compares `Rnd.chance()` with the drop's own chance), so a later case that needs one works under the same profile. Every kill still sends the unconditional `SM_LOOT_STATUS(LOOT_ENABLE)` (DropRegistrationService.java:104-106; M5b's R3), and Y8's and Y10's kill sequences must allow it |
-| Allow-list | `tests/scenario/m5d_partial_allowlist.txt`, three sections as M5b-1's. `QuestEngine.cpp:111` **must not appear** (the site no longer exists); the re-pinned `:115` in §C; §B holds the partials M5d leaves on purpose (the analyzer if E-08 slips; `XmlQuestData::register_` if D10 defers 1127 — never hit by this script, which does not talk to 1127's npcs) |
+| Allow-list | `tests/scenario/m5d_partial_allowlist.txt`, three sections as M5b-1's. `QuestEngine.cpp:111` **must not appear** (the site no longer exists); the re-pinned `:115` in §C; §B holds the partials M5d leaves on purpose (the analyzer if E-08 slips; `XmlQuestData::register_` if D10 defers 1127 — never hit by this script, which does not talk to 1127's npcs). **Review 2026-09-28:** the analyzer row fits §B only because this profile sets `gameserver.analysis.quest_handlers=false`. `XmlQuestData::register_`'s partial does not fit §B: `init` reaches it at every startup, whatever the script does, so it goes into §A here and in every earlier list (§18.6) |
 | Characters | a fresh **Elyos WARRIOR** on account A and a fresh **Asmodian WARRIOR** on **account B** (D15: in the default `creation.mode` 0 a second race on account A is refused with `RESPONSE_OTHER_RACE`, CM_CREATE_CHARACTER.java:94-96, which `M5aScenarioTest.cpp:1368-1375` asserts; the two-account setup is M5a's, `:1298-1307`) |
 | Targets | npcs **203049 elpas**, **203057 mires** (`210010000_Poeta.xml:383, 878`), **210133/210134** striped kerub (`:1224`, respawn 15 s); **203500 asak**, **203504 vandar**, **210363/210364** sprigg worker (`220010000_Ishalgen.xml:69, 1740, 1489`) — **all chosen by the oracle**, not hardcoded |
 
@@ -936,12 +971,12 @@ Ordered by likelihood, with the evidence.
 
 ## 12. Sizing and the split
 
-| Stage | What a player can do at the end | Chunks | Bodies | Lanes | Duration |
-|---|---|---|---|---|---|
-| **1a — the engine and the first five kinds** | nothing new yet (`:111` stays partial; the earlier gates see no change) — unit and real-data tests only | P5-06a/b/c, P5-08, P5-15, P5-16, P5-05, P5-SC + leases P5-09/P5-07 files | ~205: engine 37, handler base 89, 6 template classes 32 + 16 `register_`, dialog-and-rewards 18 (E-09 10; +15 if M5c's stage 0 is missing), AIs ~13. **Refresh: ~213**, because E-10 adds 8 to dialog-and-rewards; −3 if M5c's P-05 has taken the cube; E-04's 2 may move in from 1b | **6** | 5-7 days |
-| **1b — every template, then the join** | Talk to a quest giver, accept, progress by kills and dialogs, report, get rewards; abandon; the journal survives a relog; quest objects and guard quest givers work | P5-06c, P5-06a, P5-05 + A1 lease | ~69: 11 template classes 43, xmlQuest 20 (D10), `QuestItemNpcAI` 4, group drop variants 2; then I-05 | 3 + integrator | 5-7 days |
-| **2 — the gate proves it** | the same, proved; the earlier gates green; `xml_quest` 1127 if it slipped | P5-SC, P5-06c, fixups | fixups + gate | 3 | 3-4 days |
-| **3 — phase-6 ready** | the follow tasks for Java quests, the analyzer (the acceptance row, D8); quests in the stress nightly if the user says yes (D16) | P5-06a, P5-14, P5-SC | ~24 | 1-2 | ~2 days |
+| Stage | What a player can do at the end | Chunks | Bodies | Lanes | Duration | Left at `5bbd3551f` (refresh 2026-09-28, §18) |
+|---|---|---|---|---|---|---|
+| **1a — the engine and the first five kinds** | nothing new yet (`:111` stays partial; the earlier gates see no change) — unit and real-data tests only | P5-06a/b/c, P5-08, P5-15, P5-16, P5-05, P5-SC + leases P5-09/P5-07 files | ~205: engine 37, handler base 89, 6 template classes 32 + 16 `register_`, dialog-and-rewards 18 (E-09 10; +15 if M5c's stage 0 is missing), AIs ~13. **Refresh: ~213**, because E-10 adds 8 to dialog-and-rewards; −3 if M5c's P-05 has taken the cube; E-04's 2 may move in from 1b | **6** | 5-7 days | the engine, the base and the five kinds are **merged** (`ad9a8130f`), and A-01 (`819b84116`). **27 left** (review: not 31, which is everything outside P5-06 and includes A-03's 4): dialog-and-rewards 21 (E-09 7, E-10 8, D-03 3, D-05 3 O), A-02 6, plus the harness (G-01, G-02) — they run in one wave with 1b |
+| **1b — every template, then the join** | Talk to a quest giver, accept, progress by kills and dialogs, report, get rewards; abandon; the journal survives a relog; quest objects and guard quest givers work | P5-06c, P5-06a, P5-05 + A1 lease | ~69: 11 template classes 43, xmlQuest 20 (D10), `QuestItemNpcAI` 4, group drop variants 2; then I-05 | 3 + integrator | 5-7 days | **78 left**: xml-templates 74 (T-01b 39, T-02 10, T-03 25), A-03 4; E-04 is merged. Then I-05. With 1a's rest: **one wave of 105 bodies, four lanes** (§18.5) |
+| **2 — the gate proves it** | the same, proved; the earlier gates green; `xml_quest` 1127 if it slipped | P5-SC, P5-06c, fixups | fixups + gate | 3 | 3-4 days | all of it; 13 earlier gates now (§18.7) |
+| **3 — phase-6 ready** | the follow tasks for Java quests, the analyzer (the acceptance row, D8); quests in the stress nightly if the user says yes (D16) | P5-06a, P5-14, P5-SC | ~24 | 1-2 | ~2 days | **26**: E-07 19, E-08 6 + the `:115` partial; G-06 off (D16 answered); P5-06a/b only, so it can run beside M5j stage 0 |
 
 **Why this order.** Stage 1a has a green point of its own (the engine, base and five-kind tests, E-09's tests, the decoder and oracle
 self-tests) and changes nothing the earlier gates see. Stage 1b's green point is T-04's smoke over all 4,184 and every earlier gate run on the
@@ -1382,3 +1417,594 @@ accepted. The corrections are made in place and marked "review":
    is no longer written as a sum (§17.1). 8. Y11 and the review-response row 5 point at `m5d-quest --exp` (C0).
 
 Nothing was built or run except Python (the two scratch scripts above and the reviewer's `m5d_review/items_check.py`).
+
+---
+
+## 18. Refresh after the early merges, 2026-09-28
+
+On 2026-09-28 the owner asked for the spare night build slots to go to the ascension route ([owner-decisions.md](owner-decisions.md)).
+So stage 1a's engine overlay merged early, on top of M5c stage 2, together with M5e's C-01, the route's npc AIs and M5f's instance
+subset. M5c's stage 3 then completed M5c. This refresh re-measures the plan against HEAD `5bbd3551f` ("M5c stage 3: the crafting gate
+case; M5c complete"), with a clean working tree. It is **docs only**: nothing was built, and no test, gate or oracle ran.
+
+What ran:
+- `census.py --chunks P5-06a,P5-06b,P5-06c,P5-05,P5-08,P5-15,P5-16,P5-SC,P5-07,P5-09a,A1 --json --markdown`, into the session scratchpad;
+- `grep 'AION_UNPORTED(\|AION_PARTIAL('` over the files the items name;
+- `chunks.py owner` for every file a lease names.
+
+What was read:
+- owner-decisions.md, every answer;
+- m5c-plan.md §20-§22;
+- the dated early-merge notes of m5e-plan.md and m5f-plan.md;
+- P5-05.md, P5-06a.md, P5-06b.md and P5-06c.md;
+- `header-requests.md`'s M5d batch;
+- the session's forward plan of 2026-09-25.
+
+The Java tree has not changed since `c1edb0afb`, so §2's data stands.
+
+### 18.1 What the early merges delivered to M5d
+
+| Commit | M5d items closed | Notes |
+|---|---|---|
+| `ad9a8130f` (stage 1a engine) | I-01 (the P5-06a/b/c split; the P4-08 lease on `questEngine/**` and `tests/quest` released); I-02 (`m5d-h01`, the value-typed reward list; `m5d-h02`, H-06's `HandlerResultInfo.h` in D17 a's spelling; `m5d-h03`, T-03's five declarations); E-01..E-06, with E-04's group variants and E-05's timers; H-01..H-07 except the follow family (E-07); T-01a; T-02 and T-04 for the five kinds | D18 resolved as its alternative: E-01 carries `setPersistentState` and `canRepeat`. The three pinned throws are rewritten: `QuestDropTest.cpp:347` (now `ACollectingStepDropsOnlyWhileTheQuestsFirstVariableIsAtThatStep`, `:348`); `PlayerModelBodiesTest.cpp:441` (P4-12; the case starts at `:425`); and M5c's `DialogSelectRunTest.ReportingAQuestWithoutAnNpc…`, which became D-02's `AnAutoRewardWithoutAnNpcFinishesAReportableQuestInReward` and `AnAutoRewardFinishesNothingButAReportableQuestHeldInReward` (`tests/cm_ak/DialogSelectPacketsTest.cpp:520, 558`). `PlayerDaoTest.QuestStateListLoadAndStore` now runs, because its `SKIP_IF_UNPORTED` guards pass. `QuestEngine.cpp:111/:115` did not move |
+| `819b84116` | A-01 (`AbyssGuardSimpleAI`, 6 of 6 with the constructor) | It also brought M5e's C-01 (`ClassChangeService` 7 of 7), `AscensationNpcAI` and `WebRewardService::MaxLevelReward::isPendingAscension`. `AscensationNpcAI` is an A1 file under a lease that exists only in the docs: chunks.cmake has no row for it. The tests share a new `tests/handlers_ai_core/QuestNpcAiTestSupport.h`, which A-04 can reuse |
+| `185377020` | D-05's `CM_PLAY_MOVIE_END` (3 of 3) | This is M5f's P-06, which every movie needs. T-01b's `CraftingRewards` plays one in 28 rows (`sanctum.xml`, `pandaemonium.xml`: `movie="93"` …), so the join stands on it. The commit also fixed cross-map revive and Return (F-2), which the gate does not use |
+| M5c stages 0-3 (`03f924c55`…`5bbd3551f`; review: stage 0 is `03f924c55`, stage 1 `379610d9e`) | D-01, D-02's port and D-04 (the fallbacks); `CM_QUESTION_RESPONSE`; E-09's cube part (P-05, `CubeExpandService` 7 of 7); G-02's three dialog builders (`GameSession.h:444-451`); the `SM_DIALOG_WINDOW` decoder (`decoders/EconomyDecoders.h:48-65`); the `InventoryModel` lift (`tests/scenario/InventoryModel.{h,cpp}`) | `DialogService` keeps one in-arm `AION_UNPORTED` (`DialogService.cpp:314`: `MATCH_MAKER` with autogroup on, m5c W-31), which no quest path reaches. `CM_GATHER` was not ported (D13) |
+
+On the merged tree the unit suite passed (4,294 of 4,294). At M5c's close all 13 gates passed two at a time: 50 of 50 `ctest` entries in
+1,336 s (m5c-plan.md §22.5). No scenario gate has yet run with an XML quest registered. I-05 will be the first.
+
+### 18.2 Re-measured at `5bbd3551f`
+
+**Phase 5:** 1,282 `AION_UNPORTED` sites and 11 `AION_PARTIAL` sites, plus 1,334 undeclared bodies: **2,645 open** (27,204 open Java
+lines).
+
+**M5d's row (P5-06a/b/c):** 34 unported sites, 2 partial sites and 71 undeclared bodies, so **106 open** (1,404 open Java lines). 19
+classes have no C++ file (67 bodies). At the refresh of 2026-09-24 the chunk had 269 open (§4.2), so the overlay closed 163.
+
+| Part | Open | What (census names) | Where it goes |
+|---|---|---|---|
+| P5-06a | **29** (209 lines) | `QuestEngine::reload` (1, `:121`); `init`'s partial body (the two sites `:111` and `:115`); `QuestSpawnAnalyzer` 6; `task/` 17 (`FollowingNpcCheckTask` 5, `QuestTasks` 4, four checkers × 2); `ConditionOperation`/`ConditionUnionType` `value`/`fromValue` 4 | `:111`: I-05. The analyzer and `:115`: E-08. `task/`: E-07. `reload` stays (D8). The four enum bodies are census artefacts, since `EnumTraits` serves them (§4.2) |
+| P5-06b | **2** (24 lines) | `defaultStartFollowEvent` ×2 (`AbstractQuestHandler.cpp:820, 825`); `defaultFollowEndEvent` ×2 are ported | E-07 |
+| P5-06c | **75** (1,171 lines) | 44 undeclared: the eleven template classes, 43 bodies (`CraftingRewards` 4, `FountainRewards` 3, `ItemOrders` 4, `KillInWorld` 7, `KillInZone` 5, `KillSpawned` 4, `MentorMonsterHunt` 2, `RelicRewards` 3, `SkillUse` 4, `WorkOrders` 3, `XmlQuest` 4), and `KillOperation` 1. 31 sites: eleven `register_` (ten `*Data` and `XmlQuestData`), and the xmlQuest language's 20 (8 `doOperate`, `QuestOperations::operate`, 5 `doCheck`, `QuestConditions::checkConditionOfSet`, `OnKillEvent::operate` and `OnTalkEvent::operate`, and `operate` in `QuestDialog`, `QuestNpc` and `QuestVar`; `m5d-h03` turned the five undeclared methods into stubs) | T-01b, T-02, T-03. `KillOperation` stays, because JAXB never builds one (§4.2) |
+
+Outside P5-06 (census, and `grep -c 'AION_UNPORTED('` per file):
+
+| File | Chunk | Open | Item |
+|---|---|---|---|
+| `services/reward/BonusService.cpp` | P5-09a | 3: `getQuestBonus` (already `std::optional<QuestItems>` under `m5d-h01`), `getMatchingItemsOfRandomGroup`, `getBonusGroups` | E-09. `QuestService.cpp:345` calls it for every `<bonus>`, which 760 XML quests have, all 574 work orders among them |
+| `services/abyss/AbyssPointsService.cpp` | P5-08 | 4 sites. `addAp(Player&, int)`, `addAp(Ptr<Player>, int, gainMessage)` and `onRankChanged` are E-09's. `addAp(Player&, VisibleObject&, int)` (`:12`) is the kill and PvP variant, not E-09's | E-09 (3) |
+| `services/abyss/GloryPointsService.cpp` | P5-08 | 1 (`addGp`) | E-09 |
+| `model/templates/item/actions/QuestStartAction.cpp`, `ReadAction.cpp` | P5-07 | 2 + 2 sites (`canAct`, `act`), `finishUse` ×2 undeclared, and the two anonymous `ItemUseObserver`s | E-10 (8) |
+| `handlers/ai/ActionItemNpcAI` | P5-05 | 6 undeclared, no file | A-02 |
+| `handlers/ai/quests/QuestItemNpcAI` | A1 | 4 undeclared, no file | A-03 |
+| `CM_DELETE_QUEST` | P5-15 | 3, no file | D-03 |
+| `CM_OBJECT_SEARCH` | P5-16 | 3, no file | D-05 (O) |
+| `CM_QUEST_SHARE` | P5-16 | 3, no file | **M5g**: m5g-plan.md K-04 took it (its A-09) |
+| `CM_GATHER` | P5-15 | 5, no file | after M5d's gate (D13) |
+| `CubeExpandService`, `ClassChangeService`, `AbyssGuardSimpleAI`, `AscensationNpcAI`, `CM_SHOW_DIALOG`, `CM_DIALOG_SELECT`, `CM_CLOSE_DIALOG`, `CM_QUESTION_RESPONSE`, `CM_PLAY_MOVIE_END` | P5-07, P5-08, P5-05, A1, P5-15/16 | 0 | done |
+
+**The milestone at HEAD: 137 open bodies.**
+- Stage 1's last wave: 105 (P5-06c 74, dialog-and-rewards 21, quest-npc-ais 10).
+- Stage 3: 26 (E-07 19, and E-08's 6 plus the `init` partial body).
+- Staying unported: 6 (`reload`, `KillOperation` and the four enum bodies).
+- `CM_QUEST_SHARE`'s 3 are M5g's, not counted here.
+
+The plan's ~307-322 (§4.3, §17.1) was measured before the overlay. The difference is the overlay's 163, A-01's 6, M5c's dialog plumbing
+and cube, M5f's `CM_PLAY_MOVIE_END` and `CM_QUEST_SHARE`'s move to M5g. (Review: these do not add up to 322 − 137 exactly, because the
+bases differ. §4.3 counted a packet as 2 bodies (read + run) and the census counts 3 with the constructor; §4.3 left out the four enum
+bodies, which the census counts; and `ActionItemNpcAI` was ~7 there and is 6 in the census.)
+
+**The join's allow-list rows at HEAD** (§5's list; the lists were edited since §17.1, among others by M5c's G-07 rows and M5f's deletion
+of the `InstanceService.cpp:133/:153` rows, so the lines moved). Review: `m5a_partial_allowlist.txt` has no sections (its rows are
+allowed, and an unhit row is only printed); the other four put `:111` in §A and `:115` in §C:
+
+| Allow-list | `QuestEngine.cpp:111` (§A) | `QuestEngine.cpp:115` (§C) |
+|---|---|---|
+| `m5a_partial_allowlist.txt` | `:18` | `:19` |
+| `m5b_partial_allowlist.txt` | `:36` | `:72` |
+| `m5b2_partial_allowlist.txt` | `:25` | `:53` |
+| `m5b3_partial_allowlist.txt` | `:24` | `:42` |
+| `m5c_partial_allowlist.txt` | `:28` | `:49` |
+
+`QuestEngineTest.InitReachesThePartialSitesOfXmlQuestsAndTheSpawnAnalysis` is at `tests/quest/QuestEngineTest.cpp:151` and expects two
+partial hits.
+
+### 18.3 What is left, item by item
+
+| Item | Status at `5bbd3551f` | What is left | Bodies | Java lines |
+|---|---|---|---|---|
+| **D-02** tests | The quest-arm cases exist (`DialogSelectPacketsTest.cpp:520-584`): REWARD finishes; START and no state do nothing; a quest without `can_report` goes on to `QuestEngine::onDialog` | The no-`can_report` arm **with a registered handler**: today's case uses 1000, which has none. Optional: the simple-class arm with `gameserver.simple.secondclass.enable` on. It now reaches the ported `ClassChangeService::changeClassToSelection` (`CM_DIALOG_SELECT.cpp:112-113`), and M5e's gate X1/X5 is its live test | tests | – |
+| **D-03** | `CM_CLOSE_DIALOG` is done (M5c) | `CM_DELETE_QUEST`, its `AION_CLIENT_PACKET` marker, byte vectors and a run test over the ported `abandonQuest` | 3 | 38 |
+| **D-05** | `CM_PLAY_MOVIE_END` is done (M5f) and `CM_QUESTION_RESPONSE` (M5c) | `CM_OBJECT_SEARCH` (O). `CM_QUEST_SHARE` is M5g's K-04 | 3 (O) | 47 |
+| **E-09** | The cube part is done (M5c P-05), and `m5d-h01` is applied | `BonusService` 3 (P5-09a lease); `AbyssPointsService::addAp` ×2 and `onRankChanged` (P5-08); `GloryPointsService::addGp` (P5-08); with §7's tests. **Review:** (a) one committed case pins E-09's throw: `TradeServiceTest.AnAbyssVendorWantsApAndMedalsAndReachesTheUnportedApArm` (`tests/economy/P5-09b/TradeServiceTest.cpp:196, 215`, chunk P5-09b). E-09 rewrites it under a test-file lease to assert the AP taken, then the medals, then the shield. The AP vendors' capital reach stays with the capital-economy milestone (m5c §20.2). (b) `QuestLifecycleTest.cpp:17-19` (P5-06a) leaves the AP and GP arms of `giveReward` and a `<bonus>` that reaches `getQuestBonus` untested until E-09. That includes E-06's order tail AP → DP → GP (QuestService.java:220-244). T-04's `RelicRewards`, `KillInZone`, `WorkOrders` and `FountainRewards` cases must assert that order, because no wave lane holds P5-06a | 7 | ~105 |
+| **E-10** | The stubs throw (`m5b3-h01`) | As §7. It merges after E-01, which is in | 8 | 155 |
+| **A-02** | No file | As §7. Its dependency, `DialogService::isInteractionAllowed`, is in (M5c) | 6 | 99 |
+| **A-03** | No file | As §7. Of its dependencies (A-02, H-02, T-01a, E-04 and M5b-3's drops), only A-02 is still open. Review: the census's four bodies are the constructor, `handleDialogStart`, `handleUseItemFinish` and **`handleCreatureSee`**, which §7's list leaves out. It calls the ported `CreatureEventHandler::onCreatureSee` (`checkAggro`, then `QuestEngine::onAtDistance` for every player the object sees; QuestItemNpcAI.java:73-76), so it runs at all 2,720 spots whether or not anyone talks to them | 4 | 77 |
+| **A-04** | A-01's cases are done | For A-02 and A-03: the smoke of the three AI names, and a quest object used on a `ManualClock` (the bar, the abort on a move, the finish) | tests | – |
+| **G-01** | `m5d-quest` and `m5d-quests` exist | `--registration-order [--npc ID]` (the `onTalkEvent` and `questOnEnterWorld` lists, which `m5d/quests.py` computes but does not print) and `--census` (§2.4) | Python | – |
+| **G-02** | M5c landed the three dialog builders, the `SM_DIALOG_WINDOW` decoder and `InventoryModel` | See the list below this table. M5e (A-04c) and M5g (A-09) need these decoders | harness | – |
+| **T-01b** | Only `fwd.h` | The ten classes other than `XmlQuest`, each with at least §5's join minimum. The PvP hooks may come later | 39 | 1,123 |
+| **T-02** | The five kinds are done | The other ten `*Data::register_`. `XmlQuestData`'s goes with T-03 | 10 | – |
+| **T-03** | The five declarations exist (`m5d-h03`) | The xmlQuest language (20), `XmlQuest` (4) and `XmlQuestData::register_`, or D10's partial | 25 | 968 + 104 |
+| **T-04** | The five kinds are done | See the list below this table | tests | – |
+| **E-04** | Ported, with no unit case | Nothing in M5d. The case waits for M5g, which ports `GeneralTeam::getMembers` and the team constructors (P5-06a.md, W) | – | – |
+| **I-05** | – | The D3 join (§18.6) | the `:111` site | – |
+| **G-03/G-04/G-05, F-01** | – | Stage 2 (§18.7) | gate | – |
+| **E-07, E-08** | – | Stage 3 (§18.7) | 26 | ~352 |
+
+**G-02, what is left:**
+- `buildCM_DELETE_QUEST` and `talk()`;
+- `decoders/QuestDecoders.{h,cpp}` for `SM_QUEST_ACTION` (all six types, and the empty body an `extra_category` quest sends, risk 9) and for
+  `SM_NEARBY_QUESTS`;
+- `SM_STATUPDATE_EXP` moved out of `M5bScenarioTest.cpp` and `M5cScenarioTest.cpp`;
+- `FightRecording` and `waitForRespawnAt` lifted out of their gate files;
+- `QuestDecodersTest.cpp`.
+
+**T-04, what is left:**
+- one real quest per template for the other eleven (§7's list): `WorkOrders`, `RelicRewards`, `KillInZone` and `FountainRewards` with
+  E-09; 1182 and 2274 through E-10 (P5-06c.md);
+- the registration order, against G-01;
+- the smoke over all 4,184;
+- if the fixture has a database, a `WorkOrders` abandon, which proves P5-06a.md's W row on the recipe deletion.
+
+### 18.4 The owner's decisions that touch M5d
+
+**D13 (with m5c D10), gathering: after quests** (2026-09-27).
+- `CM_GATHER` (P5-15, census 5 bodies, 51 Java lines) comes after M5d's quest gate, together with its geo `canSee` coverage (m5c D12).
+- **1206, 1207, 2133 and 2134 wait for it.** After the join they are offered at their givers but cannot be finished, because a plant does
+  nothing (m5c W-27).
+- §13 step 8 already lists 1206 and 1207 as expected gaps; 2133 and 2134 are their Asmodian pair.
+- Which plan carries `CM_GATHER` is open (m5c-plan.md §20.7 item 1; §18.8 here).
+
+**M5j D1, GM commands and chat: after quests** (2026-09-27). **M5j stage 0 runs right after M5d, before M5e.**
+- Its lanes hold P5-08, P5-13, P5-14, P5-15, P5-00, P5-SC and `tools/oracle`, with leases on C1, C2, P4-12 and P4-09 (m5j-plan.md
+  §8, stages 0.1-0.2). Of these, M5d's dialog-and-rewards lane holds P5-08 and P5-15, and its gate-harness lane and stage 2 hold P5-SC and
+  `tools/oracle` (review: P5-13 and P5-14 collide with no M5d lane). So stage 0 starts once M5d's stage 2 has merged.
+- M5d's stage 3 holds only P5-06a/b and can run beside it.
+- The GM login arm (m5j I-02, `utils/audit/GMService.cpp:65`, P4-05) is still `AION_UNPORTED`. As the owner allowed, it may ride as a
+  one-body rider in any earlier integration. It is not M5d's scope.
+- M5j's riders for M5d, `//quest` and `addquest` (m5j-plan.md §5.3, 369 Java lines, A-D1), need `QuestService`, which is now in. Where
+  they go is open (§18.8).
+
+**Phase 6 U1/U7: yes, carefully** (2026-09-27).
+- The Python tooling may run now.
+- **Generated quest handlers merge only after the D3 join**, in their own chunks (Q01-Q14), only in spare build slots, and never at the
+  cost of a phase-5 gate. A phase-6 lane that turns a phase-5 test or gate red is reverted, not fixed forward.
+- **What this means for M5d and the earlier gates** (review: the refresh named only Y1 and Y13; measured with a grep of
+  `data/handlers/quest/*/*.java` for `registerOnEnterWorld`/`registerOnLevelChanged`, 133 files, against `quest_data.xml`'s levels):
+  - **Q05 (`quest/{eltnen,poeta,oriel}`) and Q09 (`quest/{morheim,ishalgen,pernon}`) change every earlier gate, not only M5d's.**
+    `_1000Prologue` and `_2000Prologue` register `onEnterWorld` (level 1, one per race). At the first enter world of every fresh
+    character they start quest 1000 or 2000 and play movie 1 or 2 (`_1000Prologue.java:26-35`, `_2000Prologue.java:26-35`).
+    `SM_PLAY_MOVIE` sets `WATCHING_CUTSCENE` (`SM_PLAY_MOVIE.cpp:18`), and `CM_MOVE` drops every move until `CM_PLAY_MOVIE_END`
+    arrives (`CM_MOVE.cpp:147`). No gate sends that packet (`GameSession` has no builder), so every gate with a fresh character would
+    stop moving, M5d's included.
+  - M5d's gate asserts an **XML-only** registry (D9). Y1's and Y13's nearby-quest sets gain the maps' Java start quests (1100, 1107, 1111,
+    1114, 1122, 1123, 2100, 2106, 2114, …, §2.5). Y11's level-up to 2 also runs Q05's level-2 `onLevelChanged` handlers (1001, 1205).
+  - The pages and follow-ups at elpas, mires, asak and vandar (Y2, Y6, Y12, Y13) do not move: no Java handler names those four npcs
+    (grep for 203049, 203057, 203500 and 203504 over all of `data/handlers/quest`).
+  - Other chunks reach M5c's C19, a level-10 Elyos Daeva: Q03's 14010 (`verteron`, `onEnterWorld`, level 10), Q12's 80028
+    (`event_quests`, `onLevelChanged`, level 10), and Q06's 1006/1007 (M5f's lease).
+  - **So Q05 and Q09 need a P5-SC change before they merge.** Every gate has to answer `SM_PLAY_MOVIE` with `CM_PLAY_MOVIE_END` and accept
+    the prologue's packets in its enter-world patterns, and `oracle.py m5d-quests` has to model the registry as built. They wait until
+    G-03 and G-05 are green. Every Q-chunk merge runs all the gates, because the rule says revert.
+- Q06 (`quest/{crafting,ascension}`) is under M5f H-02's lease (m5f-plan.md I-01).
+
+**M5e D1 (a), the simple class window** (2026-09-27).
+- The play profile sets **`gameserver.simple.secondclass.enable = true`**. The owner's `game-server/config/mygs.properties:27` already
+  does; the file is ignored by git.
+- The key defaults to false (`CustomConfig.cpp:18`), and `m5aProfile` does not set it. **Review correction:** a gate's game server runs
+  in `game-server/` and reads the owner's `./config/mygs.properties` (`Config.cpp:193-194`, m5c-plan.md §21.7), so on the owner's machine
+  every gate runs with the key **on**. M5d's script reaches neither arm (no level-9 character, no 1006/2008). Even so, G-03 should pin
+  the key to false in the M5d gate's `gameServerProperties`, which reach the server as `-D` keys (`ScenarioServers.cpp:180-186`), so the
+  run does not depend on the owner's file. M5e's gate turns it on.
+- With the key on, the journal branch hands 1006 and 2008 to `ClassChangeService::changeClassToSelection` when no handler consumes the
+  dialog (`CM_DIALOG_SELECT.cpp:112-113`). Neither is an XML quest, so the join changes nothing there.
+- A level-9 character with a full bar gets the class window at login (`PlayerEnterWorldService.cpp:559-560`). §13's session should expect
+  it, not report it.
+- **The retail ascension handlers (1006/2008 and 1007/2009, Q06) stay M5f stage 3.** They are Java handlers, not XML quests, and not
+  M5d's work. While the key is on they do not register, and the play profile turns the key off when they land.
+
+**The early merges of 2026-09-28** (the owner's night request, for the ascension route). They are why stage 1a's engine, A-01 and
+`CM_PLAY_MOVIE_END` are in (§18.1), and why D-05 must not port `CM_PLAY_MOVIE_END` again.
+
+**D16, capacity-test design: later** (2026-09-27). **G-06 stays off**, and Y14 keeps the `QuestEnv`/`QuestState` census rows.
+
+**M5c D2, the broker: later.** This answer is what left P5-15/P5-16 free for M5d's dialog lane beside M5c stage 3. That no longer
+matters: M5c is complete, and every M5c chunk is free.
+
+### 18.5 Lanes for the next workflow
+
+**Why one wave.**
+- The chain the 1a/1b split protected (E-01 → T-01a → T-01b) is two-thirds merged.
+- The four lanes below hold disjoint chunks (checked with `chunks.py owner`), and none waits on another milestone.
+- M5c's completion freed P5-07, P5-08, P5-15, P5-16 and P5-SC.
+- The join (I-05) stays the last commit of stage 1 (D3).
+
+**The build cap is two heavy builds at a time by day** (about five at night, forward plan §4). So by day slot 1 holds the long pole all
+day, and slot 2 runs the other three lanes one after another.
+
+| # | Lane | Chunks | Leases | Items | Size | Build | Dependencies | By day |
+|---|---|---|---|---|---|---|---|---|
+| 1 | **xml-templates** | P5-06c (`tests/quest_templates`) | – | T-01b (39); T-02's ten `register_`; T-03 (25, or D10's partial); the rest of T-04 (the eleven kinds, the registration order, the smoke over 4,184) | **L**: 74 bodies, ~2,200 Java lines with the xmlQuest files | heavy | In the lane: T-01b's join minimum first, then T-03, then the smoke. Across lanes: the order case after G-01's `--registration-order`; the `WorkOrders`, `RelicRewards`, `KillInZone` and `FountainRewards` cases after E-09; the 1182 and 2274 cases after E-10 | **slot 1, from hour 0**; the critical path |
+| 2 | **dialog-and-rewards** | P5-08, P5-15, P5-16 (`tests/playersvc`, `tests/cm_ak`, `tests/cm_lz`) | files: `services/reward/BonusService.*` (P5-09a) with a new test file in `tests/economy/P5-09a`; `model/templates/item/actions/{QuestStartAction,ReadAction}.*` (P5-07) with new test files in `tests/itemsvc`. **Review addition:** a P5-09b test-file lease on `tests/economy/P5-09b/TradeServiceTest.cpp`. Its `AnAbyssVendorWantsApAndMedalsAndReachesTheUnportedApArm` (`:196`) pins `addAp(Player&, int)`'s throw (`EXPECT_THROW` at `:215`), so E-09 turns it red and rewrites it in the same commit (risk 11) | E-09 (7), E-10 (8), D-03 (3), D-05 = `CM_OBJECT_SEARCH` (3, O), D-02's residue | **M**: 21 bodies, ~345 Java lines | heavy (five test targets: playersvc, cm_ak, cm_lz, economy, itemsvc) | None open. What E-10 (E-01), E-09 (`m5d-h01`) and D-03 (`abandonQuest`) need is merged | **slot 2, from hour 0** |
+| 3 | **quest-npc-ais** | P5-05 (`tests/handlers_ai_core`) | file: `handlers/ai/quests/QuestItemNpcAI.*` (A1) | A-02 (6), then A-03 (4), and A-04 for both | **S-M**: 10 bodies, 176 Java lines | medium | A-03 after A-02, in the lane. A1's library is not linked into `aion_gs_handlers_ai_core_tests`, so until the manifest request (P5-05.md) lands, the test `#include`s the leased `.cpp`, as `AscensationNpcAiTest.cpp:15` does | slot 2, after lane 2 |
+| 4 | **gate-harness** | P5-SC, `tools/oracle` | – | the rest of G-01 (Python, no build); the rest of G-02 | **M** (G-01 S, G-02 M) | G-01: none. G-02: medium (the scenario harness and `QuestDecodersTest`) | None. G-01 comes first, because T-04 needs it | **G-01 at hour 0** (no slot); G-02 in slot 2 after lane 3, or at night |
+| (5) | *optional, night only:* **stage-3 lane** | P5-06a, P5-06b | – | E-07 (19); E-08 (6 and the `:115` partial) | **S-M**: ~352 Java lines | medium | None. The `:115` allow-list rows are the integrator's edit, because lane 4 holds P5-SC | not by day |
+
+**What the integrator provides (I-04):**
+- the three file leases of lanes 2 and 3, and (review) lane 2's P5-09b test-file lease on `TradeServiceTest.cpp`;
+- an A1 manifest row for `QuestItemNpcAI.*` (`AscensationNpcAI.*` has none either);
+- a P4-14 test-file lease for the stronger `PlayerDaoTest.QuestStateListLoadAndStore` assertions that P5-06a.md asks for (`quest_vars`
+  and `flags`, loaded and stored). Review: no lane of this wave holds P5-06a, and P5-06a.md addresses it "for the integrator", so this
+  is the integrator's own edit in the wave's integration commit (or the optional stage-3 lane's, if it runs);
+- I-05's own edits (§18.6).
+
+**Header requests:** none expected. The one exception is E-10's `finishUse`, if the lane declares it instead of keeping it file-local (an
+additive request on `QuestStartAction.h`/`ReadAction.h`, §9).
+
+**A rider that is not M5d's:** m5j I-02, the GM login arm (§18.4), may ride in this wave's integration.
+
+**At night** all four lanes, and the optional fifth, run at once. The day order above exists only because of the build cap.
+
+**Pace (inferred).** M5c stage 2 (four lanes, 29 sites and the first half of its gate, each lane reviewed) went from the refresh
+`44ec7a514` (09-27 20:16) to its commit `ce80a4c15` (09-28 05:50) in about ten hours, overnight. At that pace this wave (105 bodies, one L
+lane) and the join take one to two days by day's cap, and stage 2 takes about a day. That puts M5d's gate at about 10-01..10-03, ahead of
+the forward plan's 10-03..10-08.
+
+### 18.6 Merge order, and the join
+
+**1. The wave's integration commit** (`:111` still partial):
+- merge in this order: G-01; dialog-and-rewards (E-10, E-09, D-03, D-05, D-02); quest-npc-ais (A-02, A-03); G-02; xml-templates (T-01b,
+  T-02, T-03, and T-04 with the smoke);
+- then build, run the unit suite, and run every earlier gate two at a time.
+
+The only change the earlier gates can see is the AIs:
+- the `useitem` and `quest_use_item` spots leave `DummyNpcAI` (D5; 2,720 `quest_use_item` spots at startup, 237 of them on the start
+  maps);
+- startup stops warning about the two names.
+
+No earlier gate talks to a quest object.
+
+**2. I-05, the join**, in its own commit, the last of stage 1:
+- close `QuestEngine.cpp:111`;
+- delete the five `:111` rows and re-pin the five `:115` rows (§18.2). If the optional E-08 merged first, delete the `:115` rows instead;
+- change the expectation of `QuestEngineTest.cpp:151` from two partial hits to one (to none with E-08);
+- record D8's acceptance-row deviation in `docs/deviations/P5-06.md`, the integrator's shared file;
+- make sure every process that registers the XML quests has `VORTEX_DATA` published and `RiftService` initialized. The six
+  `invasion_world` quests call `VortexService::getLocationByWorld` on every enter world (P5-06c.md, "For the integrator");
+- if T-03 slipped and D10's fallback is taken: `XmlQuestData::register_`'s `AION_PARTIAL` is reached at **every startup**, because
+  `init` registers every XML quest and 1127 is one of them. Its row therefore goes into **§A** (or §C) of all five earlier lists and
+  `m5d`'s in this commit, not §B as §5 and §10.1 said (review correction; §B asserts zero hits);
+- run every earlier gate two at a time on the join commit: 13 gates, 50 `ctest` entries, 1,336 s at M5c's close. Any new ERROR line points
+  to a missing join-minimum body (risk 1).
+
+Things to watch in that run. Only `gs.scenario.m5c` talks to npcs (review correction: the refresh said C19 is its first case to meet an
+npc with XML quests, but three of its npcs have them, `quest_script_data` measured):
+- **C3 onwards, merchant 798007 (minalinerk)**, the start npc of `item_collecting` 1109, one of stage 1a's kinds.
+- **C17, cube npc 798008 (baevrunerk)**, the start npc of **`xml_quest` 1127**, the only XML-language quest. With T-03 in, every talk to
+  it runs `XmlQuest.onDialogEvent` → `OnTalkEvent::operate` → `QuestConditions::checkConditionOfSet` → `QuestStatusCondition::doCheck`
+  (XmlQuest.java:71-76; poeta.xml:69-111). Those bodies are T-03's join minimum, and this is the only earlier-gate case that proves them.
+  Under D10's fallback 1127 is not registered, and C17 sees nothing new.
+- **C19, Hestia (203784)** starts 49 XML quests: `item_collecting` 1672, 1904, 3950 and 3951; `report_to` 1954; `crafting_rewards`
+  1944, 3952 and 19039; and 41 `work_order` quests (5500 onwards). So C19's talk exercises T-01b's `CraftingRewards` and `WorkOrders`
+  `onDialogEvent` without a quest state. `CraftingRewards` calls the ported `canLearnMoreExpertCraftingSkill`/`…Master…`
+  (CraftingRewards.java:53, 84-90). Those send a chat message only when the limit is reached, which C19's fresh Daeva is not.
+- N6 says the pages of functional npcs do not move (DialogPage.java:119-121), and this run is where that is proved for all three.
+- `SM_NEARBY_QUESTS` may arrive outside the enter-world burst (§10.6 (d)), inside the strict packet sequences of C19 and of the fights.
+
+### 18.7 Stage 2 and stage 3
+
+**Stage 2** is as §7 and §10 describe, with these facts at HEAD:
+- **The two gate slots have committed.** Slot 1 is about 280 s behind slot 2 (`ScenarioTests.cmake:45-53`: 1,062 s against 1,340 s), so
+  `gs.scenario.m5d` and `m5d_geo` join **slot 1**.
+- With the pair (410-660 s, risk 13), slot 1 becomes the larger at 1,472-1,722 s. The whole set then takes about 25-29 min, or 28-35 min
+  with the slowdown of a neighbouring run.
+- The profile is `m5aProfile`'s, with G-07's six wall-clock keys (m5c §21.3). The simple class key is pinned to false in the gate's own
+  properties (review: left unset, it would come from the owner's `mygs.properties`, which sets it true; §18.4).
+- `game-server/config/m5d.properties.example` (Java tree) does not exist yet. M5c's example is the model: it names its gate-only keys as
+  such.
+- G-05 re-greens 13 gates.
+
+**Stage 3:**
+- E-07 (`task/` 17 and the follow family 2) and E-08 (the analyzer's 6 and the `:115` partial).
+- E-08 deletes the `:115` rows from all six allow-lists, `m5d`'s included. That is the integrator's edit.
+- **G-06 stays off** (D16).
+- It holds only P5-06a/b, so it can run beside M5j stage 0, or as the optional night lane of §18.5.
+
+**After M5d's gate:**
+- `CM_GATHER` (D13);
+- M5j stage 0 (M5j D1);
+- the phase-6 Q05/Q09 merges (§18.4);
+- then M5e. Its G-02 builds on this plan's `QuestDecoders`, and its stage 2 needs M5d's gate (m5e-plan.md).
+
+### 18.8 Open questions
+
+1. **Where `CM_GATHER` goes** (P5-15, 5 bodies, after M5d's gate). The candidates are M5j stage 0, which runs right after M5d and holds
+   P5-15, or an M5d stage-3 item. m5c §20.7 item 1 asks the same question. Review: as an M5d stage-3 item it would give stage 3 the P5-15
+   chunk, so stage 3 could no longer run beside M5j stage 0, whose chat-packets lane holds P5-15. M5j stage 0 is the home that keeps
+   both schedules.
+2. **Where `//quest` and `addquest` go** (m5j §5.3's M5d riders, which need a C1/C2 lease). They could ride in M5d's stage 3, or join M5j
+   stage 0, which follows M5d at once and owns the command framework. Stage 0 is proposed.
+3. **Phase-6 Q05/Q09 after the gate** (§18.4). The integrator and the P6-T lane should confirm three things. Start-map generated
+   handlers wait for G-03/G-05. `m5d-quests` learns the registry as built before they merge. And (review) a P5-SC item, owned by
+   nobody yet, teaches every gate the prologue: a `GameSession::buildCM_PLAY_MOVIE_END`, and enter-world patterns that accept quest
+   1000/2000's packets and movie. Without it, the first generated prologue stops every gate's character from moving. It could ride in
+   M5d's G-02 as a builder only, but the gate edits belong with the Q05/Q09 merge.
+4. **The optional E-08 before the join.** With it in, the join deletes the `:115` rows instead of re-pinning them.
+5. **The A1 manifest.** It needs lease rows for `QuestItemNpcAI.*` and `AscensationNpcAI.*`, and the request that the tests of A1 and
+   I1-I6 link `aion_gs_handlers_ai_core` (P5-05.md). Until then the tests use the `#include` workaround.
+6. **`AbyssPointsService::addAp(Player&, VisibleObject&, int)`**, the kill and PvP variant (called from `NpcController.doReward` for an
+   npc that rewards AP). It stays unported, since no start map spawns such an npc. E-09's lane could take it as one more body in the same
+   file. Review: that would also turn P4-11b's `AttackSeamTest.DoRewardReachesTheRealPvEApGainedBeforeTheUnportedAbyssPointsService`
+   (`tests/controllers/AttackSeamTest.cpp:557`) red, which needs one more test-file lease. It would also end the self-enforcement of M5b's R2
+   (`M5bScenarioTest.cpp:1676, 1816`). It also calls the unported `SiegeService::onAbyssPointsAdded` (AbyssPointsService.java:30).
+   Leaving it is the cheaper choice.
+
+### 18.9 What this refresh did not do
+
+- It built nothing and ran no test, gate or oracle. It ran only `census.py`, `chunks.py owner` and greps.
+- It edited only this file: the status block, D13 and D16, §8.2's lane table and §12's stage table in place, and this section.
+- It did not re-derive §2.4, because the Java data is unchanged.
+- It did not trace T-01b's join-minimum callees body by body.
+- It did not check the other plans' rows (m5j A-D1..A-D4, m5g A-09, m5e A-04) beyond the facts cited here.
+
+### 18.10 Review of this refresh, 2026-09-28
+
+An adversarial review re-measured the refresh at `5bbd3551f`. It ran `census.py` (the same totals: 1,282 + 11 + 1,334 → 2,645; M5d's
+row 34 + 2 + 71 → 106, 1,404 lines; every per-type body name of P5-06a/b/c, P5-05, A1, P5-07, P5-08, P5-09a, P5-15 and P5-16),
+`chunks.py owner` for every file and test directory a lane or lease names, and greps over the C++ tree, the Java tree and
+`quest_script_data`. Nothing was built.
+
+**Confirmed:**
+- the 137, the 105 / 26 / 6 split and the per-item body counts;
+- the allow-list rows and `QuestEngineTest.cpp:151`;
+- the D-02 cases at `DialogSelectPacketsTest.cpp:520-584`, and `CM_DIALOG_SELECT.cpp:112-113`, `PlayerEnterWorldService.cpp:559-560`,
+  `GameSession.h:444-451`, `DialogService.cpp:314`, `GMService.cpp:65`, `ScenarioTests.cmake:45-53`;
+- the chunk owners (the four lanes are chunk-disjoint, and the three file leases sit in chunks no lane holds);
+- `CM_QUEST_SHARE`'s move to M5g K-04, and every "done" status in §8.2.
+
+**Corrected in place (marked "review"):**
+1. **High: phase 6's consequence was understated** (§18.4, §18.8 item 3). Q05's and Q09's prologues (1000, 2000) play a movie at every
+   first enter world. `CM_MOVE` is then dropped until `CM_PLAY_MOVIE_END`, which no gate sends. So all nine earlier scenario gates change,
+   and their characters stop moving, not only M5d's Y1/Y13. Y11 can move too (1001, 1205 at level 2). Q03's 14010 and Q12's 80028 reach
+   M5c's level-10 C19 Daeva.
+2. **Medium: the join's watch list was wrong** (§18.6). C19 is not the first earlier-gate talk to an npc with XML quests: M5c's C3
+   (798007, `item_collecting` 1109) and C17 (798008, `xml_quest` 1127, T-03's language) come first. Hestia starts 49 XML quests,
+   T-01b's `CraftingRewards` and `WorkOrders` among them, not 4 of stage 1a's kinds.
+3. **Medium: D10's fallback partial in §B** (§5, §10.1, §18.6). `init` reaches it at every startup, so its row belongs in §A of every
+   list, added by the join.
+4. **Medium: "the gate leaves the simple class key at false"** (§18.4, §18.7). The gates' servers read the owner's `mygs.properties`,
+   which sets it true. G-03 pins it.
+5. **Medium: E-09 turns a committed case red that no lease covered** (§18.3, §18.5, I-04):
+   `TradeServiceTest.AnAbyssVendorWantsApAndMedalsAndReachesTheUnportedApArm` (P5-09b, `:215`) pins `addAp(Player&, int)`'s throw. Lane
+   2 gets a P5-09b test-file lease. E-06's AP → DP → GP order tail is owed by T-04's four E-09 cases. §18.8 item 6's optional kill
+   variant would also turn P4-11b's `AttackSeamTest.cpp:557` red.
+6. Low:
+   - §12's stage-1a "31 left" is 27;
+   - A-01 has 3 test files, not 4;
+   - M5c's commit range starts at `03f924c55`;
+   - `EconomyDecoders.h:48-65`, not `:48-50`;
+   - the m5a list has no sections;
+   - dialog-and-rewards builds five test targets, not four;
+   - the P4-14 test lease has no lane, so the integrator makes that edit;
+   - M5j stage 0's chunks were listed imprecisely;
+   - a stage-3 `CM_GATHER` would collide with M5j stage 0 on P5-15;
+   - A-03's fourth body is `handleCreatureSee`;
+   - the 322 → 137 reconciliation mixes counting bases;
+   - the rewritten `QuestDropTest` case is at `:348`, and the `PlayerModelBodiesTest` case starts at `:425`;
+   - §7 gets a status pointer, so a lane reading it does not port merged items again.
+
+**Left open by the review:**
+- The P5-SC prologue item (§18.8 item 3) has no owner.
+- "M5j stage 0 right after M5d" is read as "after M5d's stage 2, with M5d's stage 3 beside it". The owner may mean after all of M5d.
+- The body counts mix bases. E-10's 8 counts its two anonymous `ItemUseObserver`s; A-02's 6 (census) does not count its own.
+- The pace in §18.5 is inferred, not measured.
+
+## 19. Stage 1 results; the D3 join (2026-09-28)
+
+The integration step of stage 1's last wave (§18.5-§18.6), then the join (I-05), on the branch `m5d/stage-1` (off `024f4c0c8`), in
+`build/msvc` (the msvc preset, `AION_BUILD_CHAT_SERVER=ON`, every target, `--parallel 4 -- -p:CL_MPCount=2 -nr:false`). There were two
+checkpoints. Each had a full build, the unit suite (`ctest -C Debug -j 4 -LE "scenario|geo|m4|nightly|stress|smoke"`) and every gate two
+at a time (`ctest -C Debug -j 2 -L "scenario|smoke|geo|m4" -E m5a_stress`). §19.4 lists which files belong to which checkpoint. The join's
+files are its own commit, the last of stage 1 (D3).
+
+### 19.1 Checkpoint A: the wave
+
+**What merged.** Each lane's deviation section "M5d stage 1" says what each body does and holds the lane's mutation proof.
+- **xml-templates** (P5-06c.md):
+  - T-01b's eleven template classes (43 bodies) and T-02's eleven `register_`.
+  - T-03's twenty xmlQuest language bodies, so D10's fallback partial was not needed.
+  - T-04: one real quest per template. That includes the E-09 finishes of 21281, 15205, 15220 and 5000, and 1182 and 2274 through E-10's
+    `QuestStartAction`. It also covers the registration order against G-01's oracle, and the smoke over all 4,184.
+  - P5-06c goes from 75 open bodies to 1: `KillOperation`, which JAXB never builds.
+- **dialog-and-rewards**:
+  - E-09: `BonusService` 3 (P5-09a.md); `AbyssPointsService::addAp` ×2, `onRankChanged` and `GloryPointsService::addGp` (P5-08.md).
+  - E-10: `QuestStartAction` and `ReadAction` (P5-07.md).
+  - D-03 `CM_DELETE_QUEST` (P5-15.md), D-05 `CM_OBJECT_SEARCH` (P5-16.md), and D-02's residue (two `DialogSelectPacketsTest` cases).
+  - `TradeServiceTest`'s abyss vendor case now asserts the AP (risk 11).
+  - The kill and PvP variant `addAp(Player&, VisibleObject&, int)` stays `AION_UNPORTED` (§18.8 item 6).
+- **quest-npc-ais** (P5-05.md): A-02 `ActionItemNpcAI` (`useitem`), A-03 `QuestItemNpcAI` (`quest_use_item`, an A1 file), and A-04's cases and
+  AI smoke.
+- **gate-harness** (P5-SC.md, `tools/oracle`):
+  - G-01: `m5d-quests --registration-order` and `--census` (`tools/oracle/m5d/registry.py`).
+  - G-02's rest: `decoders/QuestDecoders`, `GameSession::talk()` and `buildCM_DELETE_QUEST`, `FightSupport` lifted out of the M5b and
+    M5b-2 gates, and `SM_STATUPDATE_EXP` moved into the decoders.
+
+**The integrator's edits** (the rest of I-04, and the lanes' items for the integrator):
+- **`game-server/chunks.cmake`**: a P5-05 LEASE row on A1's `handlers/ai/quests/{AscensationNpcAI,QuestItemNpcAI}.*` (§18.8 item 5).
+  - It stays while P5-05's test executable compiles the two `.cpp` files by `#include`.
+  - `chunks.py owner` now answers "A1 ...; leased to P5-05".
+- **`docs/porting/header-requests.md`**, "Wave 5d stage 1": no frozen header changed.
+  - The one request, **m5d-m01** (the unit tests of A1 and I1-I6 link `aion_gs_handlers_ai_core`), is approved under the standing
+    instruction.
+  - It is left to the lane that next writes an A1 AI test. That lane moves the two tests into A1's test directory and releases the lease.
+  - The lanes' other file leases existed in this plan only, and end with the wave: `BonusService.*`, `QuestStartAction.*`/`ReadAction.*`,
+    `TradeServiceTest.cpp` and `QuestItemNpcAI.*`.
+- **`game-server/CMakeLists.txt`**: the `realdata` label regex of `aion_gs_quest_tests` also names `QuestTemplatesRealDataTest`
+  (P5-06c.md).
+- **`tests/quest_templates/expected/m5d_registration_order.json`**: regenerated with the merged G-01 oracle
+  (`oracle.py m5d-quests --registration-order --no-profile`).
+  - The only change is two added keys, `startLists` and `killLists`.
+  - Every key the test compares was already equal.
+- **`tests/dao/PlayerDaoTest.cpp`** (P4-14; the integrator's edit that P5-06a.md asks for). `QuestStateListLoadAndStore` now asserts:
+  - the loaded `quest_vars` (3) and `flags` (1);
+  - the stored `quest_vars:flags` of the UPDATE (1000: 4:2) and of the INSERT (1002: 7:3).
+- **Mutation proof for `PlayerDaoTest`**:
+  - Six schemata in `PlayerQuestListDAO.cpp`, switched by `AION_M5DI_MUT`: the loaded vars, the loaded flags, and each of the four
+    bindings written as 0.
+  - They were built once into `aion_gs_dao_tests`. The source was restored right after the build and checked by sha256. The tree was
+    then rebuilt clean, with no switch string left in the executable or the library.
+  - All six are killed, each at a new assertion line (636, 637, 655). The unmutated case passes.
+- **Two MSVC C4458 warnings** in the lanes' tests, at `DeleteQuestPacketTest.cpp:176` and `UseQuestItemPacketTest.cpp:122`. A local
+  `items` hid `ItemPacketTest::items`; the local is renamed `itemRows`, and the build has no warning left.
+
+**Results:**
+- **Build:** every target, with no error and no warning after the two renames.
+- **Unit suite: 4,429 of 4,429 passed** in 1,184 s. 4,434 tests are registered and 5 are disabled; 30 of the 4,429 skip themselves, as
+  before. At `5bbd3551f` the suite had 4,294 tests.
+- **Gates: 50 of 50** `ctest` entries (13 gates and the harness cases) passed in 1,362.5 s wall clock.
+  - Each gate's census is clean (the header line only).
+  - Every gate still hit `QuestEngine.cpp:111` once at startup, as its §A row asserts.
+  - Seconds per gate: `m5a` 60.7, `m5a_geo` 157.9, `m5b` 222.4, `m5b_geo` 331.9, `m5b2` 198.3, `m5b2_geo` 296.5, `m5b3` 141.1,
+    `m5b3_geo` 319.2, `m5c` 312.8, `startup` 29.3, `startup_progress` 29.8, `startup_geo` 148.5, `m4.check_static_data` 129.8.
+- **Census:** M5d's row (P5-06a/b/c) goes from 106 open to **32**: 3 unported sites, 2 partial sites and 28 undeclared bodies.
+  - P5-06a 29: `reload`, `init`'s partial body, the analyzer's 6, `task/` 17 and the four enum bodies.
+  - P5-06b 2: `defaultStartFollowEvent` ×2.
+  - P5-06c 1: `KillOperation`.
+  - Outside P5-06, the wave's 31 bodies are all ported. `BonusService`, `GloryPointsService`, `QuestStartAction`, `ReadAction`,
+    `CM_DELETE_QUEST`, `CM_OBJECT_SEARCH`, `ActionItemNpcAI` and `QuestItemNpcAI` have 0 `AION_UNPORTED`. `AbyssPointsService` keeps its
+    one, the kill variant.
+- **Checks:** `census.py --self-check` 0 failures; lint 3,817 files, 0 errors; `chunks.py check` 71 chunks, 82 parts, 0 problems.
+
+### 19.2 Checkpoint B: the D3 join (I-05)
+
+**The edits** (the last change of stage 1):
+- **`QuestEngine.cpp:110-111`**: `init` registers every XML quest in `XMLQuests.getAllQuests`' Java `HashMap` order
+  (QuestEngine.java:104-105), before it logs the handler count. The `:111` partial is gone.
+  - The spawn-analysis partial stays on line **115**, so the `:115` rows did not need re-pinning.
+  - The line did not move because the loop takes the two lines the `if` and the partial took, and needs no new include
+    (`XMLQuests.xml.h` includes `XMLQuest.h`).
+- **Allow-lists:** the five `:111` rows are deleted, each with a HISTORY comment in its place: `m5a_partial_allowlist.txt` (no sections),
+  and §A of `m5b`, `m5b2`, `m5b3` and `m5c`.
+- **`QuestEngineTest`**: `InitReachesThePartialSitesOfXmlQuestsAndTheSpawnAnalysis` became
+  `InitRegistersEveryXmlQuestAndReachesOnlyTheSpawnAnalysisPartial`. The case registers two `item_collecting` rows (1000 on 700001, 1002
+  on 700002) and asserts:
+  - each start npc offers its quest;
+  - the log says "Loaded 2 quest handlers.";
+  - the partial count grows by one (the analysis).
+- **Mutation proof for `QuestEngineTest`**:
+  - Four schemata in `QuestEngine.cpp`, switched by `AION_M5DJ_MUT`: no registration; only the first quest registered; the old partial
+    still reached; the registration after the log.
+  - They were built once into `aion_gs_quest_tests`. The source was restored right after the build and checked by sha256, and the tree
+    was then rebuilt clean.
+  - All four are killed, and every new or changed assertion line (164, 166-171) fails under at least one of them. The unmutated binary
+    passes the six `QuestEngineTest` cases.
+- **`docs/deviations/P5-06.md`** (the integrator's shared file):
+  - the wave 5a row "`QuestEngine.init`, XML quests" is marked closed;
+  - a join section records D9: the registry holds the XML quests only until phase 6;
+  - it also records D8: the analyzer column of the P5-06 acceptance row is a deviation until E-08.
+- **`VORTEX_DATA` and `RiftService`** (§18.6, P5-06c.md "For the integrator"): nothing needed a change.
+  - The server publishes all static data before `QuestEngine.init`.
+  - `GameServer.cpp:186-187` initializes the vortex and rift locations before any player can enter, in Java's order
+    (GameServer.java:114-115).
+  - Of the tests, only `QuestEngineTest` and `QuestDropTest` call `init`, and neither publishes an invasion quest.
+
+**Results:**
+- **Build:** every target, with no error and no warning.
+- **Unit suite: 4,429 of 4,429 passed** in 1,238 s (the same 4,434 registered, 5 disabled, 30 self-skipped), the rewritten
+  `QuestEngineTest` case among them.
+- **Gates: 50 of 50** again, in 1,497.8 s wall clock, with the census clean in every gate.
+  - Every game server logs "Loaded 4184 quest handlers." at startup (the registration takes under 1 s) and 0 ERROR lines.
+  - Only `:115` (§C) and the other startup rows are hit.
+  - Seconds per gate: `m5a` 56.1, `m5a_geo` 170.7, `m5b` 223.3, `m5b_geo` 429.0, `m5b2` 184.8, `m5b2_geo` 298.2, `m5b3` 212.9,
+    `m5b3_geo` 310.6, `m5c` 346.7, `startup` 32.1, `startup_progress` 30.2, `startup_geo` 150.3, `m4.check_static_data` 139.5.
+  - The two slow ones are not the join's. `m5b3`'s server was idle for 88 s between the startup probe and the first login (21:32:27 to
+    21:33:55, the harness's side). `m5b_geo`'s geo startup took 175 s against `startup_geo`'s 150 s, beside another run.
+- **The join turned nothing red.** §5 and §18.6 expected the nearby-quest sets, the quest packets at enter world and the allow-lists to
+  move.
+  - The allow-lists were edited in the join itself.
+  - The earlier gates match `SM_NEARBY_QUESTS` by name, never by content (`M5aScenarioTest.cpp:1044, 1070`). So the XML start quests it
+    now carries are asserted nowhere before M5d's own gate (Y1, G-03).
+  - No gate's character reaches level 30, the lowest level of the ten stigma quests, which are the `report_on_levelup` quests of the
+    enter world and the level change.
+  - M5c's C3 (798007, `item_collecting` 1109), C17 (798008, `xml_quest` 1127, the xmlQuest language) and C19 (Hestia, 49 quests) talk to
+    their npcs and get the pages the gate asserts, as before the join. The talk's `USE_OBJECT` reaches every quest of the npc's
+    `onTalkEvent` list, none of which takes it without a quest state, and a functional npc's start page stays 10 (DialogPage.java:119-121,
+    N6).
+- **Census:** phase 5 has 10 `AION_PARTIAL` sites (was 11). M5d's row is 32 open: 3 unported, **1** partial site and 28 undeclared.
+  `init`'s body stays open for the `:115` partial until E-08. Lint, `chunks.py check` and `census.py --self-check` are clean.
+
+### 19.3 Process notes
+
+- **The owner's play kit held `build/msvc`'s two server PDBs open.**
+  - The kit (`D:\aion-dev\play`) runs copies of `aion_game_server.exe` and `aion_login_server.exe` built in `build/msvc`. Their debug
+    directory names `build/msvc`'s `.pdb` files.
+  - While the kit ran, both PDBs were open for reading. So at checkpoint A the link of both servers failed with LNK1201, and
+    `aion_gs_scenario_tests`, which depends on them, was skipped.
+  - The kit was not touched. The two servers were linked alone with `_LINK_=/PDB:<name>_m5d.pdb`, a PDB of another name, and
+    `-p:BuildProjectReferences=false`. `aion_gs_scenario_tests` was then built alone the same way.
+  - The kit had stopped by the join's build, which linked both servers normally. The two `_m5d.pdb` files are deleted.
+  - **For run-aion-cpp's gotchas:** the driver checks for processes running *from* `build/msvc`, not for a kit that holds its PDBs.
+- Only one `ctest` process ran in `build/msvc` at a time, and no other agent built there. No `build/d1-*` directory was left: the
+  xml-templates lane had deleted `build/d1-xml`, and the others were gone. The lanes' 61 `build/d1-*.log` files are deleted.
+
+### 19.4 Files of each checkpoint
+
+**Checkpoint A, the wave.** This includes the refresh's own `docs/design/m5d-plan.md` edits, which were in the working tree before the
+wave.
+- **Production** (paths below `game-server/src/aion/gameserver/` unless given):
+  - new: `questEngine/handlers/template/{CraftingRewards,FountainRewards,ItemOrders,KillInWorld,KillInZone,KillSpawned,MentorMonsterHunt,RelicRewards,SkillUse,WorkOrders,XmlQuest}.{h,cpp}`;
+  - `questEngine/handlers/models/{CraftingRewards,FountainRewards,ItemOrders,KillInWorld,KillInZone,KillSpawned,MentorMonsterHunt,RelicRewards,SkillUse,WorkOrders,XmlQuest}Data.cpp`;
+  - `questEngine/handlers/models/xmlQuest/{QuestDialog,QuestNpc,QuestVar}.cpp`;
+  - `.../xmlQuest/conditions/{QuestConditions,DialogIdCondition,NpcIdCondition,PcInventoryCondition,QuestStatusCondition,QuestVarCondition}.cpp`;
+  - `.../xmlQuest/events/{OnTalkEvent,OnKillEvent}.cpp`;
+  - `.../xmlQuest/operations/{QuestOperations,ActionItemUseOperation,CollectItemQuestOperation,GiveItemOperation,NpcDialogOperation,SetQuestStatusOperation,SetQuestVarOperation,StartQuestOperation,TakeItemOperation}.cpp`;
+  - `services/reward/BonusService.cpp`, `services/abyss/{AbyssPointsService,GloryPointsService}.cpp`;
+  - `model/templates/item/actions/{QuestStartAction,ReadAction}.cpp`;
+  - new: `network/aion/clientpackets/{CM_DELETE_QUEST,CM_OBJECT_SEARCH}.{h,cpp}`;
+  - new, below `game-server/handlers/aion/gameserver/`: `handlers/ai/ActionItemNpcAI.{h,cpp}` and `handlers/ai/quests/QuestItemNpcAI.{h,cpp}`.
+- **Tests** (paths below `game-server/tests/`):
+  - new: `quest_templates/{QuestTemplate1bTestSupport.h,XmlQuestTemplateTest.cpp,CraftingTemplatesTest.cpp,ItemAndSkillTemplatesTest.cpp,KillTemplatesTest.cpp,CoinTemplatesTest.cpp,QuestTemplatesRealDataTest.cpp}`
+    and `quest_templates/expected/m5d_registration_order.json`;
+  - `cm_ak/{BuyItemPacketTest,DialogSelectPacketsTest}.cpp`; new: `cm_ak/DeleteQuestPacketTest.cpp`;
+  - new: `cm_lz/{ObjectSearchPacketTest,UseQuestItemPacketTest}.cpp`;
+  - new: `economy/P5-09a/BonusServiceTest.cpp`; `economy/P5-09b/TradeServiceTest.cpp`;
+  - `handlers_ai_core/QuestNpcAiTestSupport.h`; new: `handlers_ai_core/{ActionItemNpcAiTest,QuestItemNpcAiTest,QuestNpcAiSmokeTest}.cpp`;
+  - new: `itemsvc/QuestItemActionsTest.cpp`, `playersvc/AbyssAndGloryPointsServiceTest.cpp`;
+  - `dao/PlayerDaoTest.cpp`;
+  - `scenario/{GameSession.h,GameSession.cpp,GameSessionTest.cpp,M5bScenarioTest.cpp,M5b2ScenarioTest.cpp,M5cScenarioTest.cpp}`;
+  - new: `scenario/{FightSupport.h,FightSupport.cpp,FightSupportTest.cpp,GameSessionTalkTest.cpp}`;
+  - new: `scenario/decoders/{QuestDecoders.h,QuestDecoders.cpp,QuestDecodersTest.cpp}`.
+- **Build and manifest:** `game-server/CMakeLists.txt`, `game-server/chunks.cmake`.
+- **Tools:** `tools/oracle/{oracle.py,README.md}`; new: `tools/oracle/m5d/registry.py`, `tools/oracle/tests/test_m5d_registry.py`.
+- **Docs:** `docs/deviations/{P5-05,P5-06c,P5-07,P5-08,P5-09a,P5-15,P5-16,P5-SC}.md`, `docs/porting/header-requests.md`.
+
+**Checkpoint B, the join:**
+- `game-server/src/aion/gameserver/questEngine/QuestEngine.cpp`;
+- `game-server/tests/quest/QuestEngineTest.cpp`;
+- `game-server/tests/scenario/{m5a,m5b,m5b2,m5b3,m5c}_partial_allowlist.txt`;
+- `docs/deviations/P5-06.md`;
+- this section and the status block of `docs/design/m5d-plan.md`.
+
+### 19.5 Left for stage 2 and after
+
+- **Stage 2** (§18.7):
+  - G-03/G-04: the M5d gate, `gs.scenario.m5d` and `m5d_geo`, in slot 1, with the simple class key pinned to false. Its own allow-list
+    keeps `:115` in §C.
+  - G-05's re-greening is already met for the earlier gates, which passed on the join (§19.2). So G-05 is only the M5d gate's own.
+  - F-01 and §13's real-client checklist.
+- **Stage 3** (§18.7): E-07 (`task/` 17 and the follow family 2) and E-08 (the analyzer's 6 and the `:115` partial). E-08 deletes the
+  `:115` rows from all six lists and closes D8's row in `P5-06.md`.
+- **m5d-m01**, the A1/I1-I6 test link, with the move of `AscensationNpcAiTest.cpp` and `QuestItemNpcAiTest.cpp`. Then the P5-05 lease on
+  the two A1 files is released.
+- **The lanes' named gaps**, which the join does not change:
+  - WorkOrders' recipe learn and delete, and the §18.3 WorkOrders abandon, need a database case (P5-06c.md, "Reachable and not asserted").
+  - `MentorMonsterHunt`'s counting and `QuestItemNpcAI`'s group and alliance loot need M5g's `GeneralTeam::getMembers`.
+  - Of the invasion quests, only the ten stigma quests' positions in `questOnEnterWorld` are observed.
+- **P5-SC.md's "M5d stage 1" section has no test list and no mutation-proof paragraph** for G-02. G-02 has 14 cases, all passing, in
+  `QuestDecodersTest`, `FightSupportTest` and `GameSessionTalkTest`. If the gate-harness lane's report carries the list and the proof,
+  they belong in that section. Otherwise G-03's lane writes them, since it is the decoders' first reader.
+- **§18.8's open questions** 1-4 and 6 stand:
+  - Phase 6's Q05/Q09 prologue item (§18.8 item 3) still has no owner.
+  - The generated quest handlers may merge now, but only under the rules of §18.4.

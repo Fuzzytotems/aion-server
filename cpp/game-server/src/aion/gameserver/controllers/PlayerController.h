@@ -32,6 +32,11 @@ private:
 	runtime::Field<int64_t> lastAttackMillis{0};
 	runtime::Field<int64_t> lastAttackedMillis{0};
 	runtime::Field<runtime::Ref<observer::StanceObserver>> stanceObserver{};
+	/**
+	 * C++ only (play-session fixes 2026-09-28, docs/deviations/P4-11b.md): the time of the last auto-attack swing attackTarget let through, the
+	 * swing throttle's own timestamp. Java throttles against lastAttackMillis, which enterCombat(true) also writes for every hostile skill.
+	 */
+	runtime::Field<int64_t> lastAutoAttackMillis{0};
 
 public:
 	PlayerController();

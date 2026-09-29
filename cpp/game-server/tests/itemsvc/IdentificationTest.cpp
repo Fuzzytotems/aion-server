@@ -16,20 +16,29 @@
 
 #include <chrono>
 #include <cstdint>
+#include <functional>
 #include <set>
 #include <string>
+#include <string_view>
+#include <utility>
 #include <vector>
 
 #include "aion/commons/utils/Rnd.h"
 #include "aion/gameserver/configs/main/LoggingConfig.h"
 #include "aion/gameserver/controllers/ObserveController.h"
+#include "aion/gameserver/dataholders/SkillData.h"
 #include "aion/gameserver/model/gameobjects/Persistable_PersistentState.h"
 #include "aion/gameserver/model/items/PendingTuneResult.h"
+#include "aion/gameserver/model/stats/container/PlayerLifeStats.h"
 #include "aion/gameserver/model/templates/item/actions/TuningAction.h"
+#include "aion/gameserver/network/aion/serverpackets/SM_ATTACK_STATUS_TYPE.h"
 #include "aion/gameserver/network/aion/serverpackets/SM_INVENTORY_UPDATE_ITEM.h"
 #include "aion/gameserver/network/aion/serverpackets/SM_SYSTEM_MESSAGE.h"
 #include "aion/gameserver/network/aion/serverpackets/SM_TUNE_RESULT.h"
 #include "aion/gameserver/services/item/ItemActionService.h"
+#include "aion/gameserver/skillengine/model/Effect.h"
+#include "aion/gameserver/skillengine/model/Skill.h"
+#include "aion/gameserver/skillengine/model/SkillTemplate.h"
 
 #include "aion/commons/utils/WindowsMacroGuard.h" // after all headers that may include windows.h
 
@@ -380,6 +389,106 @@ TEST_F(IdentificationTest, MovingCancelsTheTuning) {
 	EXPECT_TRUE(sent().empty());
 	EXPECT_EQ(scroll.getItemCount(), 2);
 	EXPECT_EQ(sword.getTuneCount(), 0);
+}
+
+// ------------------------------------------------------------------------------------ play-session fixes 2026-09-28 (docs/deviations/P4-11b.md)
+//
+// Deviation: an HP change during an item use no longer detaches its observer. Java's ItemUseObserver is an attached (one-time) ObserverType.ALL
+// observer, so the first notification of any type removes it - also HP_CHANGED, whose hook it leaves empty: after the first HP regeneration tick
+// of a 5 s identification or tuning, moving no longer cancelled it (Java HEAD does the same). The HP change here is a real one: HP below the
+// maximum, then increaseHp (what LifeStatsRestoreService's tick calls through restoreHp), which reaches onHpChanged -> notifyHPChangeObservers.
+
+TEST_F(IdentificationTest, MovingAfterAnHpChangeStillCancelsTheIdentification) {
+	Item& sword = inCube(971101, MODORS_SWORD, 1, -1);
+	const Ptr<model::stats::container::PlayerLifeStats> lifeStats = player().getLifeStats();
+	lifeStats->setCurrentHp(lifeStats->getMaxHp() - 100); // before the use: nothing observes yet
+	ItemActionService::identifyItem(player(), sword);
+	executor->advance(1000ms);
+	ASSERT_EQ(lifeStats->increaseHp(network::aion::serverpackets::SM_ATTACK_STATUS_TYPE::NATURAL_HP, 10), lifeStats->getMaxHp() - 90);
+	clearSent();
+
+	player().getObserveController()->notifyMoveObservers();
+	EXPECT_EQ(sent(), cp::exactly({systemMessage(SM_SYSTEM_MESSAGE::STR_MSG_ITEM_IDENTIFY_CANCELED(sword.getL10n())),
+						  animation(971101, MODORS_SWORD, 0, 11)}))
+		<< "ItemActionService.java:28-34: the move aborts the identification, as it does without the HP change";
+	clearSent();
+
+	executor->advance(5000ms);
+	EXPECT_TRUE(sent().empty());
+	EXPECT_FALSE(sword.isIdentified());
+}
+
+TEST_F(IdentificationTest, MovingAfterAnHpChangeStillCancelsTheTuning) {
+	Item& scroll = inCube(971201, WEAPON_TUNING_SCROLL, 2);
+	Item& sword = inCube(971202, MODORS_SWORD, 1, 0);
+	const Ptr<model::stats::container::PlayerLifeStats> lifeStats = player().getLifeStats();
+	lifeStats->setCurrentHp(lifeStats->getMaxHp() - 100);
+	tuningOf(WEAPON_TUNING_SCROLL).act(player(), Ptr<Item>(scroll), Ptr<Item>(sword));
+	executor->advance(1000ms);
+	ASSERT_EQ(lifeStats->increaseHp(network::aion::serverpackets::SM_ATTACK_STATUS_TYPE::NATURAL_HP, 10), lifeStats->getMaxHp() - 90);
+	clearSent();
+
+	player().getObserveController()->notifyMoveObservers();
+	EXPECT_EQ(sent(), cp::exactly({systemMessage(SM_SYSTEM_MESSAGE::STR_MSG_ITEM_REIDENTIFY_CANCELED(sword.getL10n())),
+						  animation(971201, WEAPON_TUNING_SCROLL, 0, 14)}))
+		<< "TuningAction.java:69-76: the move aborts the tuning, as it does without the HP change";
+	clearSent();
+
+	executor->advance(5000ms);
+	EXPECT_TRUE(sent().empty());
+	EXPECT_EQ(scroll.getItemCount(), 2);
+	EXPECT_EQ(sword.getTuneCount(), 0);
+	EXPECT_FALSE(sword.getPendingTuneResult());
+}
+
+// The exemption covers only the three notifications ItemUseObserver ignores: each of the twelve whose hook it overrides (ItemUseObserver.java:18-76:
+// attack, attacked, died, dotattacked, equip, unequip, moved, startSkillCast, sit, endSkillCast, itemused, boostSkillCost) still reaches the
+// attached observer, aborts the identification at once and consumes the observer, as in Java. The notifications are sent straight to the
+// player's ObserveController; their arguments are real objects (a skill of the fixture's skill data and its effect), which the hooks do not read.
+TEST_F(IdentificationTest, EveryNotificationTheItemUseObserverHandlesStillAbortsTheIdentification) {
+	model::gameobjects::player::Player& user = player();
+	const skillengine::model::SkillTemplate* skillTemplate = dataholders::DataManager::SKILL_DATA->getSkillTemplate(9832);
+	ASSERT_NE(skillTemplate, nullptr);
+	const Ref<skillengine::model::Skill> skill = skillengine::model::Skill::create(skillTemplate, user, 1, nullptr, nullptr);
+	const Ref<skillengine::model::Effect> effect =
+		skillengine::model::Effect::create(user, Ptr<model::gameobjects::Creature>(user), skillTemplate, 1);
+	Item& usedItem = inCube(971390, TRAINING_SWORD, 1);
+	controllers::ObserveController& observers = *user.getObserveController();
+	const std::vector<std::pair<std::string_view, std::function<void()>>> notifications = {
+		{"ATTACK", [&] { observers.notifyAttackObservers(user, 0); }},
+		{"ATTACKED", [&] { observers.notifyAttackedObservers(user, 0); }},
+		{"DEATH", [&] { observers.notifyDeathObservers(user); }},
+		{"DOT_ATTACKED", [&] { observers.notifyDotAttackedObservers(user, *effect); }},
+		{"EQUIP", [&] { observers.notifyItemEquip(usedItem, user); }},
+		{"UNEQUIP", [&] { observers.notifyItemUnEquip(usedItem, user); }},
+		{"MOVE", [&] { observers.notifyMoveObservers(); }},
+		{"STARTSKILLCAST", [&] { observers.notifyStartSkillCastObservers(*skill); }},
+		{"SIT", [&] { observers.notifySitObservers(); }},
+		{"ENDSKILLCAST", [&] { observers.notifyEndSkillCastObservers(*skill); }},
+		{"ITEMUSE", [&] { observers.notifyItemuseObservers(usedItem); }},
+		{"BOOSTSKILLCOST", [&] { observers.notifyBoostSkillCostObservers(*skill); }},
+	};
+
+	int32_t objId = 971301;
+	for (const auto& [type, notify] : notifications) {
+		SCOPED_TRACE(type);
+		Item& sword = inCube(objId, MODORS_SWORD, 1, -1);
+		ItemActionService::identifyItem(user, sword);
+		executor->advance(1000ms);
+		clearSent();
+
+		notify();
+		EXPECT_EQ(sent(), cp::exactly({systemMessage(SM_SYSTEM_MESSAGE::STR_MSG_ITEM_IDENTIFY_CANCELED(sword.getL10n())),
+							  animation(objId, MODORS_SWORD, 0, 11)}))
+			<< "ItemActionService.java:28-34: the notification aborts the identification";
+		clearSent();
+		observers.notifyMoveObservers();
+		EXPECT_TRUE(sent().empty()) << "the notification consumed the one-time observer";
+		executor->advance(5000ms);
+		EXPECT_TRUE(sent().empty());
+		EXPECT_FALSE(sword.isIdentified());
+		objId++;
+	}
 }
 
 TEST_F(IdentificationTest, AnItemWithoutARandomBonusSetRollsNoStatBonus) {

@@ -24,8 +24,8 @@
 # --- SECTION A - hit at least once, asserted ---
 # =========================================================================================================================================
 
-# every startup: the gates run without quests (m5a-plan.md W-02) and without base locations (E1-06)
-aion/gameserver/questEngine/QuestEngine.cpp:111
+# every startup: the gates run without base locations (E1-06). HISTORY: QuestEngine.cpp:111 (no XML quest registered, m5a-plan.md W-02)
+# was here until M5d's D3 join (m5d-plan.md I-05) registered them at every startup; the site no longer exists.
 aion/gameserver/services/BaseService.cpp:18
 
 # =========================================================================================================================================

@@ -1,17 +1,20 @@
 #include "aion/gameserver/questEngine/handlers/models/XmlQuestData.h"
 
+#include <memory>
 #include <string>
 
+#include "aion/gameserver/questEngine/QuestEngine.h"
 #include "aion/gameserver/questEngine/handlers/models/Monster.h"
 #include "aion/gameserver/questEngine/handlers/models/xmlQuest/events/OnKillEvent.h"
 #include "aion/gameserver/questEngine/handlers/models/xmlQuest/events/OnTalkEvent.h"
+#include "aion/gameserver/questEngine/handlers/template/XmlQuest.h"
 #include "aion/gameserver/runtime/base/Exceptions.h"
-#include "aion/gameserver/runtime/base/Unported.h"
 
 namespace aion::gameserver::questEngine::handlers::models {
 
-void XmlQuestData::register_(QuestEngine& /*questEngine*/) const {
-	AION_UNPORTED();
+void XmlQuestData::register_(QuestEngine& questEngine) const {
+	// the handler keeps pointers to this data's event elements (Java: the same objects)
+	questEngine.addQuestHandler(std::make_unique<template_::XmlQuest>(id, startNpcIds, endNpcIds, onTalkEvents, onKillEvents));
 }
 
 std::optional<std::unordered_set<int32_t>> XmlQuestData::getAlternativeNpcs(int32_t npcId) const {

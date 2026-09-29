@@ -262,7 +262,7 @@ if(AION_BUILD_TESTS)
 	aion_set_discovered_test_properties(aion_gs_geo_tests REGEX "^GeoRealDataTest\\." ${gs_realdata})
 	aion_set_discovered_test_properties(aion_gs_templates_tests REGEX "^(TemplatesRealDataTest|TemplatesBRealDataTest)\\." ${gs_realdata})
 	aion_set_discovered_test_properties(aion_gs_skills_tests REGEX "^SkillShellsRealDataTest\\." ${gs_realdata})
-	aion_set_discovered_test_properties(aion_gs_quest_tests REGEX "^QuestModelsRealDataTest\\." ${gs_realdata})
+	aion_set_discovered_test_properties(aion_gs_quest_tests REGEX "^(QuestModelsRealDataTest|QuestTemplatesRealDataTest)\\." ${gs_realdata})
 	# the whole static data load (M4); with AION_TEST_PYTHON the test also runs tools/oracle/oracle.py compare-counts/compare-totals
 	if(Python3_Interpreter_FOUND)
 		aion_set_discovered_test_properties(aion_gs_dataholders_tests REGEX "^(StaticDataRealDataTest|ConfigRootsRealDataTest)\\." ${gs_realdata}

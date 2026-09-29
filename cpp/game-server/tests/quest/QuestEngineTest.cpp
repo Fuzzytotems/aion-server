@@ -1,7 +1,8 @@
 // QuestEngine and QuestService at M5a (P5-06, m5a-plan.md W-02): init with the empty quest handler registry (quest drops, the update items, the
-// quest spawn analysis and the XML quests as AION_PARTIAL sites, the 09:00 message cron job), the registration maps, handler registration and
-// the lookups over empty registrations. Expectations are hand-derived from QuestEngine.java and QuestService.java. Dispatch with a QuestEnv needs a
-// Player; the enter-world and logout paths are covered by the scenario flows (m5a-plan.md §5).
+// quest spawn analysis as an AION_PARTIAL site, the 09:00 message cron job; since M5d's D3 join also the XML quests' registration, m5d-plan.md
+// I-05), the registration maps, handler registration and the lookups over empty registrations. Expectations are hand-derived from
+// QuestEngine.java and QuestService.java. Dispatch with a QuestEnv needs a Player; the enter-world and logout paths are covered by the scenario
+// flows (m5a-plan.md §5).
 
 #include <gtest/gtest.h>
 
@@ -148,15 +149,26 @@ TEST_F(QuestEngineTest, InitRegistersQuestDropsAndSchedulesTheDailyMessageWithAn
 	EXPECT_TRUE(services::QuestService::getQuestDrop(210001).empty()) << "clear drops the quest drops";
 }
 
-TEST_F(QuestEngineTest, InitReachesThePartialSitesOfXmlQuestsAndTheSpawnAnalysis) {
+TEST_F(QuestEngineTest, InitRegistersEveryXmlQuestAndReachesOnlyTheSpawnAnalysisPartial) {
+	// the D3 join (m5d-plan.md I-05): init registers every XML quest (QuestEngine.java:104-105) before it logs the handler count (:106); the
+	// spawn analysis (:107-108) stays the one AION_PARTIAL site until E-08
 	xml::LoadContext context;
 	dataholders::DataManager::XML_QUESTS.resetForTests();
-	dataholders::DataManager::XML_QUESTS.publish(xml::bindString<dataholders::XMLQuests>(context, R"(<quest_scripts><item_collecting id="1002"/></quest_scripts>)"));
+	dataholders::DataManager::XML_QUESTS.publish(xml::bindString<dataholders::XMLQuests>(context,
+		R"(<quest_scripts><item_collecting id="1000" start_npc_ids="700001"/><item_collecting id="1002" start_npc_ids="700002"/></quest_scripts>)"));
 	configs::main::GSConfig::ANALYZE_QUESTHANDLERS.store(true);
+	LogCapture capture("com.aionemu.gameserver.questEngine.QuestEngine");
 	QUEST_TEST_SCOPE;
 	uint64_t partialsBefore = runtime::partialHitCount();
 	EXPECT_NO_THROW(QuestEngine::getInstance().init());
-	EXPECT_EQ(runtime::partialHitCount(), partialsBefore + 2);
+	EXPECT_EQ(runtime::partialHitCount(), partialsBefore + 1) << "the spawn analysis only";
+	QuestEngine& qe = QuestEngine::getInstance();
+	EXPECT_EQ(qe.getQuestHandlerCount(), 2);
+	EXPECT_TRUE(qe.isHaveHandler(1000));
+	EXPECT_TRUE(qe.isHaveHandler(1002));
+	EXPECT_TRUE(qe.getQuestNpc(700001)->getOnQuestStart().contains(1000)) << "ItemCollecting.register: the start npc offers the quest";
+	EXPECT_TRUE(qe.getQuestNpc(700002)->getOnQuestStart().contains(1002));
+	EXPECT_NE(capture.text().find("info|Loaded 2 quest handlers."), std::string::npos) << capture.text();
 }
 
 TEST_F(QuestEngineTest, QuestNpcsAreCreatedForLookupsAndKeptWhenRegistered) {

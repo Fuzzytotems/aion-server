@@ -11,21 +11,33 @@
 #include "InWorldPacketRunSupport.h"
 
 #include <algorithm>
+#include <chrono>
 #include <cstdint>
 #include <memory>
 #include <string>
+#include <thread>
 #include <vector>
 
 #include "aion/commons/utils/ByteBuffer.h"
+#include "aion/commons/utils/TimeUtils.h"
 #include "aion/gameserver/configs/main/GeoDataConfig.h"
 #include "aion/gameserver/controllers/PlayerController.h"
 #include "aion/gameserver/controllers/VisibleObjectController.h"
 #include "aion/gameserver/controllers/attack/AggroList.h"
 #include "aion/gameserver/model/animations/AttackHandAnimation.h"
 #include "aion/gameserver/model/animations/AttackTypeAnimation.h"
+#include "aion/gameserver/model/gameobjects/Item.h"
+#include "aion/gameserver/model/gameobjects/Persistable_PersistentState.h"
 #include "aion/gameserver/model/gameobjects/player/CustomPlayerState.h"
+#include "aion/gameserver/model/gameobjects/player/Equipment.h"
 #include "aion/gameserver/model/gameobjects/state/CreatureVisualState.h"
+#include "aion/gameserver/model/items/ItemSlotInfo.h"
+#include "aion/gameserver/model/skill/PlayerSkillEntry.h"
+#include "aion/gameserver/model/skill/PlayerSkillList.h"
+#include "aion/gameserver/model/stats/calc/Stat2.h"
 #include "aion/gameserver/model/stats/container/PlayerGameStats.h"
+#include "aion/gameserver/model/templates/item/ItemTemplate.bind.h"
+#include "aion/gameserver/model/templates/item/ItemTemplate.h"
 #include "aion/gameserver/network/aion/clientpackets/CM_ATTACK.h"
 #include "aion/gameserver/network/aion/clientpackets/CM_HEADING_UPDATE.h"
 #include "aion/gameserver/network/aion/serverpackets/SM_ATTACK.h"
@@ -148,6 +160,7 @@ protected:
 			actor.player->setClientConnection(nullptr);
 		}
 		client.reset();
+		weapons.clear();
 		actor = {};
 		victim = {};
 		configs::main::GeoDataConfig::CANSEE_ENABLE.store(canSeeEnabled);
@@ -187,7 +200,51 @@ protected:
 
 	int32_t attackResponseOpcode() const { return SM_ATTACK_RESPONSE::STOP_WITHOUT_MESSAGE(0).getOpCode(); }
 
+	/** The attacker and the victim know each other, and the victim is an enemy in attack range (the setup of the in-range case below) */
+	void standInRangeOfAnEnemy() {
+		makeEnemy();
+		ASSERT_TRUE(actor.knownList().addForTest(*victim.player));
+		ASSERT_TRUE(victim.knownList().addForTest(*actor.player)); // so AggroList.isAware answers for the hit that lands
+	}
+
+	/** The one-handed Training Sword (item_templates.xml:375: attack speed 1400), bound once for the process as the DataManager holders keep it */
+	static const model::templates::item::ItemTemplate* trainingSword() {
+		static const model::templates::item::ItemTemplate* const sword = [] {
+			xml::LoadContext context;
+			return xml::bindString<model::templates::item::ItemTemplate>(context,
+				R"(<item_template id="100000094" name="Training Sword" level="1" cName="sword_n_c_01a" mask="138366" item_group="SWORD")"
+				R"( quality="COMMON" price="5" desc="700775" attack_type="PHYSICAL" max_enchant="10" m_slots="1"><weapon_stats hit_count="2")"
+				R"( attack_range="1500" parry="173" physical_accuracy="52" critical="50" attack_speed="1400" max_damage="20" min_damage="16"/>)"
+				R"(</item_template>)")
+				.release();
+		}();
+		return sword;
+	}
+
+	/**
+	 * A sword in each hand, loaded the way PlayerService.loadPlayer loads equipped items (Equipment.onLoadHandler). Its two checks pass: the sword
+	 * skill 37 (ItemGroup SWORD, Equipment.checkAvailableEquipSkills) and, for the left hand, WeaponDualEffect.hasDualWieldEffect, which asks a
+	 * spawned player's skill efficiency (what the dual-wield passive of a Scout sets). The attack speed becomes 1400 + 1400 / 4 = 1750
+	 * (PlayerGameStats.getBaseAttackSpeed), the dual-wield window of the play-session report.
+	 */
+	void equipTwoSwords() {
+		actor.player->setSkillList(model::skill::PlayerSkillList::create(
+			{model::skill::PlayerSkillEntry::create(37, 1, 0, model::gameobjects::Persistable_PersistentState::UPDATED)}));
+		actor.player->getGameStats()->setSkillEfficiency(1.0f);
+		runtime::Ref<model::gameobjects::Item> mainHand =
+			model::gameobjects::Item::create(300101, trainingSword(), 1, true, model::items::getSlotIdMask(model::items::ItemSlot::MAIN_HAND));
+		runtime::Ref<model::gameobjects::Item> offHand =
+			model::gameobjects::Item::create(300102, trainingSword(), 1, true, model::items::getSlotIdMask(model::items::ItemSlot::SUB_HAND));
+		weapons = {mainHand, offHand};
+		actor.player->getEquipment().onLoadHandler(*mainHand);
+		actor.player->getEquipment().onLoadHandler(*offHand);
+		ASSERT_EQ(actor.player->getEquipment().getMainHandWeapon().get(), mainHand.get());
+		ASSERT_EQ(actor.player->getEquipment().getOffHandWeapon().get(), offHand.get()) << "the left-hand sword was put back into the cube";
+		ASSERT_EQ(actor.player->getGameStats()->getAttackSpeed()->getCurrent(), 1750);
+	}
+
 	PlayerFixture actor, victim;
+	std::vector<runtime::Ref<model::gameobjects::Item>> weapons;
 	std::unique_ptr<TestClient> client;
 	bool canSeeEnabled = false;
 };
@@ -298,6 +355,111 @@ TEST_F(AttackRunTest, AnEnemyInAttackRangeIsAnsweredWithSmAttackAndTakesDamage) 
 	EXPECT_EQ(actor.player->getGameStats()->getAttackCounter(), 1) << "increaseAttackCounter (CreatureController.java:351)";
 	EXPECT_LT(victim.player->getLifeStats()->getCurrentHp(), hpBefore) << "onAttack reached reduceHp with the summed AttackUtil damage";
 	EXPECT_EQ(victim.player->getAttackedCount(), 1);
+}
+
+// ---------------------------------------------------------------------- play-session fixes 2026-09-28 (docs/deviations/P4-11b.md)
+//
+// Deviation: the swing throttle of PlayerController.attackTarget reads its own timestamp. Java compares against lastAttackMillis
+// (PlayerController.java:424), which enterCombat(true) also writes at the end of every hostile skill since #175 (Skill.java:650-651), so the
+// client's first CM_ATTACK after an ability got STOP_WITHOUT_MESSAGE and auto-attack stopped - most often with two weapons, whose attack speed
+// widens the refusal window. No clock is needed: the swings below follow each other within a few milliseconds.
+
+TEST_F(AttackRunTest, TheFirstSwingAfterAHostileSkillIsAnsweredWithSmAttackAndDamage) {
+	standInRangeOfAnEnemy();
+	const int32_t hpBefore = victim.player->getLifeStats()->getCurrentHp();
+	actor.player->getController().enterCombat(true); // what a hostile skill's Skill.endCast does
+	ASSERT_TRUE(actor.player->getController().isInCombat()) << "#175's meaning is kept: a hostile skill counts as combat";
+
+	attack(victim.player->getObjectId());
+
+	const std::vector<int32_t> opcodes = sentOpcodes();
+	ASSERT_FALSE(opcodes.empty()) << "attackTarget queued nothing at all";
+	EXPECT_EQ(opcodes.front(), attackOpcode());
+	EXPECT_EQ(std::count(opcodes.begin(), opcodes.end(), attackResponseOpcode()), 0) << "no STOP_WITHOUT_MESSAGE: the swing was not throttled";
+	EXPECT_EQ(actor.player->getGameStats()->getAttackCounter(), 1);
+	EXPECT_LT(victim.player->getLifeStats()->getCurrentHp(), hpBefore);
+}
+
+TEST_F(AttackRunTest, TwoSwingsBackToBackStillStopTheSecond) {
+	standInRangeOfAnEnemy();
+	attack(victim.player->getObjectId());
+	ASSERT_EQ(actor.player->getGameStats()->getAttackCounter(), 1);
+	const int32_t hpAfterTheFirst = victim.player->getLifeStats()->getCurrentHp();
+
+	attack(victim.player->getObjectId());
+
+	// Java's anti-speed-hack check (PlayerController.java:420-428): a swing within attackSpeed - 300 ms of the last one is refused
+	EXPECT_EQ((*client)->sentBytes(),
+		exactly({serialized(SM_ATTACK_RESPONSE::STOP_WITHOUT_MESSAGE(actor.player->getGameStats()->getAttackCounter()), client->con())}));
+	EXPECT_EQ(actor.player->getGameStats()->getAttackCounter(), 1);
+	EXPECT_EQ(victim.player->getLifeStats()->getCurrentHp(), hpAfterTheFirst);
+}
+
+TEST_F(AttackRunTest, WithTwoSwordsTheFirstSwingAfterAHostileSkillIsNotRefusedAndTheNextIs) {
+	equipTwoSwords();
+	standInRangeOfAnEnemy();
+	const int32_t hpBefore = victim.player->getLifeStats()->getCurrentHp();
+	actor.player->getController().enterCombat(true);
+
+	attack(victim.player->getObjectId());
+
+	const std::vector<int32_t> opcodes = sentOpcodes();
+	ASSERT_FALSE(opcodes.empty()) << "attackTarget queued nothing at all";
+	EXPECT_EQ(opcodes.front(), attackOpcode());
+	EXPECT_EQ(std::count(opcodes.begin(), opcodes.end(), attackResponseOpcode()), 0) << "no STOP_WITHOUT_MESSAGE: the swing was not throttled";
+	EXPECT_EQ(actor.player->getGameStats()->getAttackCounter(), 1);
+	EXPECT_LT(victim.player->getLifeStats()->getCurrentHp(), hpBefore);
+
+	attack(victim.player->getObjectId());
+
+	EXPECT_EQ((*client)->sentBytes(),
+		exactly({serialized(SM_ATTACK_RESPONSE::STOP_WITHOUT_MESSAGE(actor.player->getGameStats()->getAttackCounter()), client->con())}))
+		<< "the swing throttle still refuses a second swing within 1750 - 300 ms";
+}
+
+// A swing is combat of its own: attackTarget calls enterCombat(true) right after the throttle (PlayerController.java:428), beside the throttle's
+// own timestamp; the skill cases above only see the combat a skill entered
+TEST_F(AttackRunTest, ASwingEntersCombat) {
+	standInRangeOfAnEnemy();
+	ASSERT_FALSE(actor.player->getController().isInCombat()) << "no fight yet";
+	const int64_t beforeTheSwing = commons::utils::currentTimeMillis();
+
+	attack(victim.player->getObjectId());
+
+	ASSERT_EQ(actor.player->getGameStats()->getAttackCounter(), 1) << "the swing was let through";
+	EXPECT_TRUE(actor.player->getController().isInCombat());
+	EXPECT_GE(actor.player->getController().getLastCombatTime(), beforeTheSwing);
+}
+
+// Only a swing the throttle lets through moves its timestamp: a refused swing does not, so the next one is measured from the last swing that
+// landed, as Java's lastAttackMillis was before #175. currentTimeMillis has no test clock, so this case waits for real (attack speed - 300 ms):
+// the refused swing comes a third of the window after the first, the last one just after the first swing's window closed and well inside the
+// window a refused swing would have opened.
+TEST_F(AttackRunTest, ARefusedSwingDoesNotPostponeTheNextOne) {
+	standInRangeOfAnEnemy();
+	const int64_t window = actor.player->getGameStats()->getAttackSpeed()->getCurrent() - 300;
+	ASSERT_GE(window, 900) << "the margins below assume the unarmed attack speed";
+
+	attack(victim.player->getObjectId());
+	const int64_t firstSwing = commons::utils::currentTimeMillis(); // no earlier than the time attackTarget read
+	ASSERT_EQ(actor.player->getGameStats()->getAttackCounter(), 1);
+
+	std::this_thread::sleep_for(std::chrono::milliseconds(window / 3));
+	attack(victim.player->getObjectId());
+	ASSERT_EQ((*client)->sentBytes(),
+		exactly({serialized(SM_ATTACK_RESPONSE::STOP_WITHOUT_MESSAGE(actor.player->getGameStats()->getAttackCounter()), client->con())}))
+		<< "the second swing is inside the first one's window (" << commons::utils::currentTimeMillis() - firstSwing << " ms after it)";
+
+	while (commons::utils::currentTimeMillis() < firstSwing + window + 20)
+		std::this_thread::sleep_for(std::chrono::milliseconds(5));
+	attack(victim.player->getObjectId());
+
+	const std::vector<int32_t> opcodes = sentOpcodes();
+	ASSERT_FALSE(opcodes.empty()) << "attackTarget queued nothing at all";
+	EXPECT_EQ(opcodes.front(), attackOpcode());
+	EXPECT_EQ(std::count(opcodes.begin(), opcodes.end(), attackResponseOpcode()), 0)
+		<< "the refused swing moved the throttle's timestamp (" << commons::utils::currentTimeMillis() - firstSwing << " ms after the first)";
+	EXPECT_EQ(actor.player->getGameStats()->getAttackCounter(), 2);
 }
 
 TEST(HeadingUpdateRunTest, RunImplDoesNothing) {

@@ -57,6 +57,7 @@
 
 #include "AsyncAllowed.h"
 #include "FakeLoginClient.h"
+#include "FightSupport.h"
 #include "GameSession.h"
 #include "Oracle.h"
 #include "PacketSequence.h"
@@ -1198,46 +1199,7 @@ void runM5b2Gate(const GateVariant& variant) {
 		return std::nullopt;
 	};
 
-	/**
-	 * G-07 (m5b3-plan.md §18.1): the respawn of the npc of `templateId` that died on `spot` at recording index `diedAt` - the first SM_NPC_INFO
-	 * at the spot recorded after the death whose object was never announced at the spot before it. A respawn is a new object and cannot be
-	 * announced before the death; every object announced there before it is the dead one or an npc an earlier case killed (a corpse that comes
-	 * back into view is announced again under its own id). objectAt's "the latest one but `excluding`" is not enough here: before the respawn
-	 * is announced it answers the npc an earlier case killed at the same spot (the review's mutant RS10b pulled S5's corpse of monster A).
-	 */
-	const auto waitForRespawnAt = [&](const OracleMonsterSpot& spot, size_t diedAt, std::chrono::milliseconds timeout,
-	                                  int32_t templateId = GATE_MONSTER_NPC_ID) -> std::optional<int32_t> {
-		const auto atSpot = [&](const Packet& packet) -> std::optional<int32_t> {
-			if (packet.name != "SM_NPC_INFO")
-				return std::nullopt;
-			try {
-				const decoders::NpcInfo npc = decoders::decodeNpcInfo(packet.data);
-				if (npc.templateId == templateId && std::abs(npc.x - spot.x) <= 0.01f && std::abs(npc.y - spot.y) <= 0.01f &&
-				    std::abs(npc.z - spot.z) <= 0.01f)
-					return npc.objectId;
-			} catch (const DecodeError&) {
-				// a packet that does not decode is not this npc
-			}
-			return std::nullopt;
-		};
-		std::set<int32_t> announcedBefore;
-		for (size_t i = 0; i < diedAt && i < a.game->recorded().size(); i++)
-			if (const std::optional<int32_t> id = atSpot(a.game->recorded()[i]))
-				announcedBefore.insert(*id);
-		for (size_t i = diedAt; i < a.game->recorded().size(); i++)
-			if (const std::optional<int32_t> id = atSpot(a.game->recorded()[i]); id && !announcedBefore.contains(*id))
-				return id;
-		const std::optional<size_t> index = readUntil(
-		  *a.game,
-		  [&](const Packet& packet) {
-			  const std::optional<int32_t> id = atSpot(packet);
-			  return id && !announcedBefore.contains(*id);
-		  },
-		  timeout);
-		if (!index)
-			return std::nullopt;
-		return atSpot(a.game->recorded()[*index]);
-	};
+	// waitForRespawnAt (G-07, m5b3-plan.md §18.1) was a lambda here and is FightSupport.h's since m5d-plan.md G-02 lifted it for the M5d gate
 
 	// the walk cursor and the two walks of the M5b gate: `walkTo` sleeps between its 5 m steps, `trekTo` drains the socket while it walks
 	float atX = warriorCreation.x, atY = warriorCreation.y, atZ = warriorCreation.z;
@@ -1945,7 +1907,8 @@ void runM5b2Gate(const GateVariant& variant) {
 		for (int32_t respawns = 0; !hit && died && respawns < 2; respawns++) {
 			steps.push_back(std::string("A (object ") + std::to_string(monsterA) + ") died " + (*died < from ? "in S9" : "in S10") +
 			                " without hitting the Mage: " + npcActivity(monsterA, *spotA, deathsFrom));
-			const std::optional<int32_t> respawned = waitForRespawnAt(*spotA, *died, std::chrono::seconds(monster.respawnTime) + 30s);
+			const std::optional<int32_t> respawned =
+			  waitForRespawnAt(*a.game, *spotA, GATE_MONSTER_NPC_ID, *died, std::chrono::seconds(monster.respawnTime) + 30s);
 			if (!respawned) {
 				steps.push_back("A did not respawn within " + std::to_string(monster.respawnTime + 30) + " s");
 				break;
@@ -2252,7 +2215,8 @@ void runM5b2Gate(const GateVariant& variant) {
 		while (!died() && std::chrono::steady_clock::now() < deadline) {
 			if (const std::optional<size_t> bDied = deathIndexOf(monsterB, from); bDied && respawnsPulled < 2) {
 				steps.push_back("B (object " + std::to_string(monsterB) + ") died without killing the Mage; waiting for its respawn at spot B");
-				const std::optional<int32_t> respawned = waitForRespawnAt(*spotB, *bDied, std::chrono::seconds(monster.respawnTime) + 30s);
+				const std::optional<int32_t> respawned =
+				  waitForRespawnAt(*a.game, *spotB, GATE_MONSTER_NPC_ID, *bDied, std::chrono::seconds(monster.respawnTime) + 30s);
 				if (!respawned) {
 					steps.push_back("B did not respawn within " + std::to_string(monster.respawnTime + 30) + " s");
 					break;
