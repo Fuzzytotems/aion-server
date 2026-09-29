@@ -20,6 +20,10 @@
 //   --log-folder=<dir>         the log directory (logback.xml property "logFolder", Logging::Config::logFolder), default ./log. Logging::init
 //                              archives and deletes the *.log files of the previous run in it, so two server processes must never share one:
 //                              every test that starts a game server passes its own directory (cmake/RunStartupSmoke.cmake, RunM4Check.cmake)
+//   --ignore-mygs-properties   a test hook: config/mygs.properties, the operator's untracked play profile, is not read (Config::
+//                              setOverrideFileIgnored; "Ignoring ./config/mygs.properties ..." is logged instead of "Loading: ..."), so a
+//                              server a test starts runs the shipped defaults and its own -D keys on every machine. Every test that starts a
+//                              game server passes it (tests/scenario/ScenarioServers.cpp, cmake/RunStartupSmoke.cmake, RunM4Check.cmake)
 // M4 check modes (M4 gate, CTest gs.m4.check_static_data, cmake/RunM4Check.cmake): the startup without the handler engines up to World, then an
 // orderly runtime shutdown and exit code 0:
 //   --check-static-data        the M4 report files in the check output directory:
@@ -128,6 +132,8 @@ struct Arguments {
 	std::optional<std::filesystem::path> geoProbes;
 	std::optional<std::filesystem::path> stopFile;
 	std::optional<std::filesystem::path> logFolder;
+	/** --ignore-mygs-properties (the test hook of the file comment) */
+	bool ignoreMygsProperties = false;
 
 	/** the M4 check modes: the startup ends after the runtime or World */
 	bool checkMode() const { return checkStaticData || checkIdFactory; }
@@ -158,6 +164,8 @@ Arguments parseArguments(int argc, char* argv[]) {
 			arguments.stopFile = std::filesystem::path(std::string(arg.substr(std::string_view("--stop-file=").size())));
 		else if (arg.starts_with("--log-folder="))
 			arguments.logFolder = std::filesystem::path(std::string(arg.substr(std::string_view("--log-folder=").size())));
+		else if (arg == "--ignore-mygs-properties")
+			arguments.ignoreMygsProperties = true;
 		else
 			arguments.unknown.emplace_back(arg);
 	}
@@ -634,6 +642,9 @@ int main(int argc, char* argv[]) {
 	int exitCode = aion::commons::utils::ExitCode::ERROR_;
 	bool started = false;
 	try {
+		// C++ only: before the first read of the configuration, so neither the logging settings nor Config.load see the operator's profile
+		if (arguments.ignoreMygsProperties)
+			aion::gameserver::configs::Config::setOverrideFileIgnored(true);
 		// Java: GameServer's static initializer
 		Logging::Config loggingConfig = aion::gameserver::configs::Config::loadLoggingConfig();
 		if (arguments.logFolder) // C++ only: --log-folder, so two test servers never archive each other's log files (file comment)

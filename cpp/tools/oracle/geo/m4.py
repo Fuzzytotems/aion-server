@@ -54,16 +54,22 @@ def write_probes(expected: dict, out: Path) -> int:
 	return len(expected["probes"])
 
 
-def read_properties(config_dir: Path) -> dict[str, str]:
-	"""Config.load: the default directories (administration, main, network), then mygs.properties; `key = value` lines, # and ! comments"""
-	properties: dict[str, str] = {}
+def property_files(config_dir: Path, profile: bool = True) -> list[Path]:
+	"""Config.load's files: the default directories (administration, main, network), then mygs.properties unless `profile` is False (the game
+	server's C++ test hook --ignore-mygs-properties, which the M4 check's server runs with: RunM4Check.cmake passes --no-profile)"""
 	files = []
 	for sub in ("administration", "main", "network"):
 		directory = config_dir / sub
 		if directory.is_dir():
 			files += sorted(directory.glob("*.properties"))
-	if (config_dir / "mygs.properties").is_file():
+	if profile and (config_dir / "mygs.properties").is_file():
 		files.append(config_dir / "mygs.properties")
+	return files
+
+
+def parse_properties(files: list[Path]) -> dict[str, str]:
+	"""`key = value` lines of the files in order (a later file wins), # and ! comments"""
+	properties: dict[str, str] = {}
 	for file in files:
 		for raw in file.read_text(encoding="utf-8", errors="replace").splitlines():
 			line = raw.strip()
@@ -73,6 +79,11 @@ def read_properties(config_dir: Path) -> dict[str, str]:
 			if match:
 				properties[match.group(1)] = match.group(2).strip()
 	return properties
+
+
+def read_properties(config_dir: Path, profile: bool = True) -> dict[str, str]:
+	"""Config.load: parse_properties of property_files"""
+	return parse_properties(property_files(config_dir, profile))
 
 
 def java_boolean(value: str) -> bool:
@@ -144,7 +155,18 @@ def float_bits_equal(actual: int, expected: int) -> bool:
 	return actual == expected or (is_nan(actual) and is_nan(expected))
 
 
-def compare(directory: Path, expected: dict, geo_dir: Path, static_data_dir: Path, config_dir: Path, country_code: int) -> tuple[list[str], list[str]]:
+def profile_note(config_dir: Path, files: list[Path], profile: bool) -> str:
+	"""the note line of compare() that says whether the prediction read the operator's profile, from the files it read (property_files): it
+	says "not read" only when mygs.properties is not among them (RunM4Check.cmake requires the --no-profile form)"""
+	if config_dir / "mygs.properties" in files:
+		return f"properties: the defaults of {config_dir} and its mygs.properties"
+	if not profile:
+		return f"properties: the defaults of {config_dir}, mygs.properties not read (--no-profile)"
+	return f"properties: the defaults of {config_dir} (it has no mygs.properties)"
+
+
+def compare(directory: Path, expected: dict, geo_dir: Path, static_data_dir: Path, config_dir: Path, country_code: int,
+		profile: bool = True) -> tuple[list[str], list[str]]:
 	diffs: list[str] = []
 	notes: list[str] = []
 	world_maps_xml = static_data_dir / "world_maps.xml"
@@ -198,7 +220,9 @@ def compare(directory: Path, expected: dict, geo_dir: Path, static_data_dir: Pat
 			hits += 1
 	notes.append(f"getZ probes: {len(actual_lines)} evaluated, {hits} surface hits")
 
-	properties = read_properties(config_dir)
+	files = property_files(config_dir, profile)
+	properties = parse_properties(files)
+	notes.append(profile_note(config_dir, files, profile))
 	max_usual = int(properties.get("gameserver.world.max.twincount.usual", "1"))
 	max_beginner = int(properties.get("gameserver.world.max.twincount.beginner", "-1"))
 	shields = java_boolean(properties.get("gameserver.geodata.shields.enable", "false"))
@@ -257,6 +281,8 @@ def main(argv: list[str]) -> int:
 	parser.add_argument("--static-data", type=Path, default=JAVA_DIR / "data" / "static_data")
 	parser.add_argument("--config", type=Path, default=JAVA_DIR / "config")
 	parser.add_argument("--country-code", type=int, default=99)
+	parser.add_argument("--no-profile", action="store_true", help="leave <config>/mygs.properties out, as the game server does with its C++ test "
+		"hook --ignore-mygs-properties (m4-compare; RunM4Check.cmake passes both)")
 	args = parser.parse_args(argv)
 	expected = json.loads(args.expected.read_text(encoding="utf-8"))
 	if args.command == "m4-probes":
@@ -266,7 +292,7 @@ def main(argv: list[str]) -> int:
 		return 0
 	if args.dir is None:
 		parser.error("m4-compare needs --dir")
-	diffs, notes = compare(args.dir, expected, args.geo_dir, args.static_data, args.config, args.country_code)
+	diffs, notes = compare(args.dir, expected, args.geo_dir, args.static_data, args.config, args.country_code, not args.no_profile)
 	for note in notes:
 		print(note)
 	for diff in diffs:

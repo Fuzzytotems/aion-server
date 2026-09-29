@@ -108,7 +108,7 @@ What you should see:
 
 The servers keep running after the tool call returns, in their own minimized console windows. `start` reads the Java tree's configs,
 with working directories `D:\aion-server\login-server` and `D:\aion-server\game-server`, including the owner's
-`config\mygs.properties`.
+`config\mygs.properties` (the servers a test starts do not: see Gotchas).
 
 | command | what it does |
 |---|---|
@@ -197,6 +197,16 @@ while `start`'s servers are up.
   when that ctest certainly runs in another directory.
 - **An old cache keeps `AION_BUILD_CHAT_SERVER=OFF`.** The default became ON in 27726d32c, but `option()` never overrides a cached
   value. `build` reconfigures with `-DAION_BUILD_CHAT_SERVER=ON`.
+- **Test servers never read `mygs.properties`; `start` does.** `game-server\config\mygs.properties` is the owner's untracked play profile
+  (never edit, move or delete it), and `myls.properties` / `mycs.properties` are the login and chat servers' equivalents. Since 2026-09-29
+  (lane H) every server a test starts runs without them: the gates and the stress run through `ScenarioServers` (the game server gets the
+  C++-only test hook `--ignore-mygs-properties`, the login server a copy of its config without `myls.properties`), the smoke tests and the
+  M4 check through their CMake scripts (`m4-compare` gets `--no-profile`), and the chat server's e2e test writes its own `mycs.properties`.
+  So a gate sees the shipped defaults and its own `-D` keys in the main tree, in a worktree and in CI alike; before, the main tree's gates
+  ran under the owner's profile (`gameserver.simple.secondclass.enable = true`: docs/design/p6q-ascension-route.md §7). A gate that needs a
+  key pins it with a `-D`. The gate's `game_server.log` says "Ignoring ./config/mygs.properties (C++ test hook --ignore-mygs-properties)",
+  and a gate fails at its start ("the game server read the operator's config/mygs.properties ...") when it does not; `start` (the live
+  path) still reads the profile, like the play kit.
 - **`start` uses the live schemas and rotates the owner's logs.** It reads the same configs as the play kit, so do experiments in
   gates, which use their own schemas. Each game server start zips the previous run's logs, including a play session's, into
   `game-server\log\archived\<from> to <to>.zip`.

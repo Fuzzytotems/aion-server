@@ -122,6 +122,10 @@ if(TARGET aion_gs_scenario_tests)
 	# It holds the slot of the two m5a gates because its schema pair carries their prefix m5a (see "the two gate slots" above).
 	aion_set_discovered_test_properties(aion_gs_scenario_tests REGEX "^LoginServerHarnessTest\\."
 		PROPERTIES LABELS "scenario;realdata" RESOURCE_LOCK "${AION_GS_GATE_SLOT_1}" TIMEOUT 300)
+	# start the real game and login servers in module directories of their own, up to their database step (a few seconds each, no schema), to
+	# show that a gate server does not read the operator's override files (ScenarioServersTest.cpp, "hermetic servers"); a server run holds a slot
+	aion_set_discovered_test_properties(aion_gs_scenario_tests REGEX "^HermeticServersTest\\."
+		PROPERTIES LABELS "scenario;realdata" RESOURCE_LOCK "${AION_GS_GATE_SLOT_1}" TIMEOUT 300)
 	# OracleRunTest runs tools/oracle/oracle.py m5b2-skills over the real static data through Oracle::skills (OracleTest.cpp), with the
 	# interpreter CMake found handed over the way the gates below get theirs; without one the case skips itself.
 	if(Python3_Interpreter_FOUND)

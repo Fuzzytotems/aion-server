@@ -257,3 +257,10 @@ out:
 Verdict: a flake of the harness's final census beside a second geo server, not caused by a phase-6 change; no gate was edited and nothing
 was reverted. The fix belongs to the census (make `drainPools` wait for the tasks already running when it starts, or have the census wait
 until no instant task older than the logout still runs); not made here.
+
+**Follow-up (lane H, branch `fix/gate-hermetic`, 2026-09-29).** Both harness findings of this section are fixed there: every server a test
+starts leaves the owner's `mygs.properties` out (the game server's C++ test hook `--ignore-mygs-properties`, the login server's config copy
+without `myls.properties`), so every gate runs `gameserver.simple.secondclass.enable` at the shipped `false` in the main tree as in a
+worktree (the travel gate's second row of the table above), and every gate now fails at its start when its server's log shows the profile
+was read; and `CheckOutput::drainPools` waits for every task that is queued in or running on a pool when the census starts (the queued half
+since the review of the lane). docs/deviations/P5-SC.md and P5-14.md, section "Lane H".

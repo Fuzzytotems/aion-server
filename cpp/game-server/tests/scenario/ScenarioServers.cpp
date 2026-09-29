@@ -2,7 +2,9 @@
 
 #include <gtest/gtest.h>
 
+#include <algorithm>
 #include <cstdlib>
+#include <cwctype>
 #include <fstream>
 #include <iostream>
 #include <sstream>
@@ -29,6 +31,16 @@ namespace {
  * true. Every year lies inside Quartz's 1970 to the current year + 100 and the C++ CronExpression's 1970-2299.
  */
 constexpr std::string_view FAR_FUTURE_CRON = "0 0 0 1 1 ? 2000,2100,2101";
+
+/**
+ * true if the file names are equal in any letter case: Windows opens ./config/myls.properties whatever the case of the file's name, while
+ * std::filesystem::path compares case-sensitively (the review of lane H)
+ */
+bool sameFileNameIgnoringCase(const std::filesystem::path& name, const std::filesystem::path& other) {
+	const std::wstring a = name.wstring();
+	const std::wstring b = other.wstring();
+	return std::ranges::equal(a, b, [](wchar_t x, wchar_t y) { return std::towlower(x) == std::towlower(y); });
+}
 
 } // namespace
 
@@ -194,6 +206,11 @@ std::vector<std::string> ScenarioServers::gameServerArguments() const {
 	// gates starting at once (ScenarioTests.cmake runs two at a time) would truncate and read one file. A -D key, not a profile entry: it is a
 	// path of this run, not a server setting.
 	arguments.push_back("-Dgameserver.html.cache.file=" + htmlCacheFile().string());
+	// The operator's play profile stays out (main.cpp --ignore-mygs-properties, the C++ test hook of Config::setOverrideFileIgnored): the
+	// working directory is the Java module directory, whose untracked config/mygs.properties the owner writes to play (on 2026-09-29 it set
+	// gameserver.simple.secondclass.enable = true, p6q-ascension-route.md §7). Without the switch a key a gate does not pin took the owner's
+	// value in the main tree and the shipped default in CI and in a worktree; with it every gate runs the shipped defaults and its own keys.
+	arguments.push_back(std::string(IGNORE_MYGS_PROPERTIES));
 	return arguments;
 }
 
@@ -203,14 +220,39 @@ void ScenarioServers::prepareLoginServerDirectory() const {
 	// the Java module directory it therefore writes the shared login-server/log, which Logging::init archives and DELETES at startup: two build
 	// trees running the gate, or a gate run next to the user's own login server, destroy each other's logs (the game server's half of this was
 	// fixed with --log-folder in stage 2). The child gets a working directory of its own with a copy of config/ instead - four small files.
+	// The copy leaves config/myls.properties out, the operator's untracked override file (loginServerOverrideFile()): like the game server's
+	// --ignore-mygs-properties, the gate's login server runs the shipped defaults and the harness's own -D keys on every machine. Only the
+	// copy is built here; the Java module directory is only read.
 	const std::filesystem::path directory = loginServerWorkingDirectory();
 	const std::filesystem::path source = config.loginServerJavaDir / "config";
 	if (!std::filesystem::is_directory(source))
 		throw std::runtime_error("the login server has no configuration directory " + source.string());
 	std::filesystem::create_directories(directory);
 	std::filesystem::remove_all(directory / "config");
-	std::filesystem::copy(source, directory / "config",
-		std::filesystem::copy_options::recursive | std::filesystem::copy_options::overwrite_existing);
+	std::filesystem::create_directories(directory / "config");
+	for (const std::filesystem::directory_entry& entry : std::filesystem::directory_iterator(source)) {
+		if (sameFileNameIgnoringCase(entry.path().filename(), loginServerOverrideFile().filename()))
+			continue;
+		std::filesystem::copy(entry.path(), directory / "config" / entry.path().filename(),
+			std::filesystem::copy_options::recursive | std::filesystem::copy_options::overwrite_existing);
+	}
+}
+
+std::string ScenarioServers::gameServerProfileProblem(std::string_view log) {
+	if (log.find(GAME_SERVER_PROFILE_LOADED) != std::string_view::npos)
+		return "the game server read the operator's config/mygs.properties (its log says '" + std::string(GAME_SERVER_PROFILE_LOADED) +
+		       "'), so the gate would run with the owner's play profile";
+	if (log.find(GAME_SERVER_PROFILE_IGNORED) == std::string_view::npos)
+		return "the game server's log does not say that it left config/mygs.properties out ('" + std::string(GAME_SERVER_PROFILE_IGNORED) +
+		       "' is missing): was it started without " + std::string(IGNORE_MYGS_PROPERTIES) + "?";
+	return {};
+}
+
+std::string ScenarioServers::loginServerProfileProblem(std::string_view log) {
+	if (log.find(LOGIN_SERVER_NO_PROFILE) == std::string_view::npos)
+		return "the login server read an override file: its log does not say '" + std::string(LOGIN_SERVER_NO_PROFILE) +
+		       "', so its working directory held a config/myls.properties (the owner's play profile?)";
+	return {};
 }
 
 void ScenarioServers::startLoginServer() {
@@ -228,6 +270,8 @@ void ScenarioServers::startLoginServer() {
 	const std::string gameServers = "Listening on 127.0.0.1:" + std::to_string(gameServerLinkPort);
 	if (!ls->waitForLog(gameServers, config.startupTimeout))
 		throw std::runtime_error("the login server did not log '" + gameServers + "' (see " + ls->options().logFile.string() + ")");
+	if (const std::string problem = loginServerProfileProblem(ls->readLog()); !problem.empty())
+		throw std::runtime_error(problem + " (see " + ls->options().logFile.string() + ")");
 	loginServerReady = true;
 }
 
@@ -247,6 +291,8 @@ void ScenarioServers::startGameServer() {
 	gs = std::make_unique<ChildProcess>(std::move(options));
 	if (!gs->waitForLog("Game server started", config.startupTimeout))
 		throw std::runtime_error("the game server did not log 'Game server started' (see " + gs->options().logFile.string() + ")");
+	if (const std::string problem = gameServerProfileProblem(gs->readLog()); !problem.empty())
+		throw std::runtime_error(problem + " (see " + gs->options().logFile.string() + ")");
 	if (ls && !ls->waitForLog("Gameserver #1 is now online", config.startupTimeout))
 		throw std::runtime_error("the login server did not authenticate game server 1 (see " + ls->options().logFile.string() + ")");
 	if (config.checkClientPort && !waitForClientPort(std::chrono::seconds(30)))

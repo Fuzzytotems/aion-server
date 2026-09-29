@@ -49,8 +49,11 @@
 #include "aion/gameserver/runtime/lifetime/RefCounted.h"
 #include "aion/gameserver/runtime/lifetime/Reclaimer.h"
 #include "aion/gameserver/runtime/lifetime/TaskScope.h"
+#include "aion/gameserver/runtime/sched/Pin.h"
+#include "aion/gameserver/runtime/sched/PoolBackends.h"
 #include "aion/gameserver/runtime/services/LeakCensus.h"
 #include "aion/gameserver/services/drop/DropRegistrationService.h"
+#include "aion/gameserver/utils/ThreadPoolManager.h"
 #include "aion/gameserver/world/WorldPosition.h"
 #include "aion/gameserver/world/knownlist/KnownList.h"
 
@@ -521,6 +524,254 @@ TEST(CheckOutputTest, FinalCensusEndsWithTheZeroThresholdBreakerPass) {
 	census.uninstall();
 	census.configure(LeakCensus::Config{});
 	std::filesystem::remove_all(dir);
+}
+
+/**
+ * The real pools of ThreadPoolBackend (`instantThreads` instant and two scheduled threads, the cached long-running pool), forwarded as they are,
+ * with one addition for the order of a test: pendingTasks(), which drainPools calls first (its snapshot of the queued tasks, CheckOutput.cpp),
+ * sets `queuedSnapshotTaken` once it has copied the queues - only for the thread that created the backend, the test's: LeakCensus calls
+ * pendingTasks() from the reclaimer's thread as well.
+ */
+class ObservedPoolBackend final : public runtime::ExecutorBackend {
+public:
+	explicit ObservedPoolBackend(int32_t instantThreads) : pools(options(instantThreads)), drainThread(std::this_thread::get_id()) {}
+
+	const runtime::Clock& clock() const noexcept override { return pools.clock(); }
+	void execute(runtime::PoolKind kind, runtime::FutureRef task) override { pools.execute(kind, std::move(task)); }
+	void schedule(runtime::FutureRef task) override { pools.schedule(std::move(task)); }
+	bool shutdown(std::chrono::milliseconds awaitTermination) override { return pools.shutdown(awaitTermination); }
+	bool isShutdown() const noexcept override { return pools.isShutdown(); }
+	void retire() noexcept override { pools.retire(); }
+	bool isExecutorThread() const noexcept override { return pools.isExecutorThread(); }
+	bool runOneTask() override { return pools.runOneTask(); }
+	std::vector<std::string> getStats() const override { return pools.getStats(); }
+	std::vector<runtime::FutureRef> pendingTasks() const override {
+		std::vector<runtime::FutureRef> tasks = pools.pendingTasks();
+		if (std::this_thread::get_id() == drainThread)
+			queuedSnapshotTaken->store(true);
+		return tasks;
+	}
+
+	const std::shared_ptr<std::atomic<bool>> queuedSnapshotTaken = std::make_shared<std::atomic<bool>>(false);
+
+private:
+	static runtime::ThreadPoolBackend::Options options(int32_t instantThreads) {
+		runtime::ThreadPoolBackend::Options options;
+		options.instantThreads = instantThreads;
+		options.scheduledThreads = 2;
+		return options;
+	}
+
+	runtime::ThreadPoolBackend pools;
+	const std::thread::id drainThread;
+};
+
+/** Real pools for one test (ObservedPoolBackend, or the single executor of gameserver.debug.single_executor), the default ones after it. */
+class RealPools {
+public:
+	explicit RealPools(int32_t instantThreads = 4) {
+		auto backend = std::make_unique<ObservedPoolBackend>(instantThreads);
+		queuedSnapshotTaken = backend->queuedSnapshotTaken;
+		utils::ThreadPoolManager::installBackend(std::move(backend));
+	}
+	/** SingleExecutorBackend: one thread ("SingleExecutor") runs every pool */
+	struct SingleExecutor {};
+	explicit RealPools(SingleExecutor) { utils::ThreadPoolManager::installBackend(std::make_unique<runtime::SingleExecutorBackend>()); }
+	~RealPools() { utils::ThreadPoolManager::installBackend(nullptr); } // joins the threads: every task of the test has ended
+	RealPools(const RealPools&) = delete;
+	RealPools& operator=(const RealPools&) = delete;
+
+	/** ObservedPoolBackend::queuedSnapshotTaken (never set for the single executor) */
+	std::shared_ptr<std::atomic<bool>> queuedSnapshotTaken = std::make_shared<std::atomic<bool>>(false);
+};
+
+/** A task that runs `duration` on a pool thread and says when it started and when it is done. */
+struct LongTask {
+	std::shared_ptr<std::atomic<bool>> started = std::make_shared<std::atomic<bool>>(false);
+	std::shared_ptr<std::atomic<bool>> finished = std::make_shared<std::atomic<bool>>(false);
+
+	std::function<void()> body(std::chrono::milliseconds duration) const {
+		return [started = started, finished = finished, duration] {
+			started->store(true);
+			std::this_thread::sleep_for(duration);
+			finished->store(true);
+		};
+	}
+};
+
+/** drainPools(now + limit) on the calling thread; @return how long it took */
+std::chrono::milliseconds timedDrain(std::chrono::milliseconds limit) {
+	const auto begin = std::chrono::steady_clock::now();
+	CheckOutput::drainPools(begin + limit);
+	return std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - begin);
+}
+
+// p6q-ascension-route.md §7: gs.scenario.m5a_geo's final census reported `Player 103881 506` (2 of 7 loaded runs) because a 9 s
+// MapRegion::activate task, which fills the known lists, was still running on one instant pool thread when drainPools queued its barrier - and
+// another thread of that pool ran the barrier at once. The window here: a long task on one pool thread, the drain on the test thread, free
+// threads beside the task. Before lane H's fix drainPools returned after about 10 ms, while the task still ran. Each executor pool in turn:
+// instant, long-running and scheduled.
+TEST(CheckOutputTest, TheDrainWaitsForATaskThatIsAlreadyRunningOnAnotherPoolThread) {
+	RealPools pools;
+	utils::ThreadPoolManager& pool = utils::ThreadPoolManager::getInstance();
+	const std::vector<std::pair<std::string, std::function<void(const std::function<void()>&)>>> submitters = {
+		{"InstantPool", [&pool](const std::function<void()>& body) { pool.execute(runtime::Pin(), [body] { body(); }); }},
+		{"LongRunning", [&pool](const std::function<void()>& body) { pool.executeLongRunning(runtime::Pin(), [body] { body(); }); }},
+		{"ScheduledPool", [&pool](const std::function<void()>& body) { (void)pool.schedule(runtime::Pin(), [body] { body(); }, 0); }},
+	};
+	for (const auto& [name, submit] : submitters) {
+		SCOPED_TRACE(name);
+		LongTask task;
+		submit(task.body(std::chrono::milliseconds(700)));
+		ASSERT_TRUE(waitFor([&task] { return task.started->load(); })) << "the long task never started";
+		const std::chrono::milliseconds waited = timedDrain(std::chrono::seconds(10));
+		EXPECT_TRUE(task.finished->load()) << "drainPools returned after " << waited.count() << " ms while the task that was running on a "
+		                                   << name << " thread when it started still ran";
+		EXPECT_LT(waited, std::chrono::seconds(5)) << "the drain ends when the task ends, not at its deadline";
+	}
+}
+
+// The review of lane H: a task QUEUED when the drain starts must have ended too, whichever thread takes it. Lane H's drain queued one barrier
+// task per pool behind it; the queue is FIFO, but with two threads the one that is free first takes the task and the other one the barrier at
+// once, so the barrier ended while the task still ran. The reviewer's probe: two instant threads busy for 200 and 250 ms, a 1000 ms task queued
+// behind them, then the drain - lane H's drain returned after 250-273 ms in 5 of 5 runs, with the task running. The drain waits for the task's
+// future now. A scheduled task that is not due for a minute and a periodic one are pending as well, and it must not wait for them (a periodic
+// task is never done).
+TEST(CheckOutputTest, TheDrainWaitsForATaskThatWasQueuedWhenItStarted) {
+	RealPools pools(2);
+	utils::ThreadPoolManager& pool = utils::ThreadPoolManager::getInstance();
+	LongTask first;
+	LongTask second;
+	LongTask queued;
+	pool.execute(runtime::Pin(), [body = first.body(std::chrono::milliseconds(200))] { body(); });
+	pool.execute(runtime::Pin(), [body = second.body(std::chrono::milliseconds(250))] { body(); });
+	ASSERT_TRUE(waitFor([&first, &second] { return first.started->load() && second.started->load(); })) << "both instant threads are busy";
+	pool.execute(runtime::Pin(), [body = queued.body(std::chrono::milliseconds(1000))] { body(); });
+	const runtime::FutureRef later = pool.schedule(runtime::Pin(), [] {}, 60'000);
+	const runtime::FutureRef periodic = pool.scheduleAtFixedRate(runtime::Pin(), [] {}, 60'000, 60'000);
+	ASSERT_FALSE(queued.started->load()) << "the task must still be queued when the drain starts";
+	const std::chrono::milliseconds waited = timedDrain(std::chrono::seconds(10));
+	EXPECT_TRUE(queued.finished->load()) << "drainPools returned after " << waited.count()
+	                                     << " ms while the task that was queued when it started still ran";
+	EXPECT_LT(waited, std::chrono::seconds(5)) << "the drain waited for a scheduled task that is not due, or for a periodic one";
+	(void)later->cancel();
+	(void)periodic->cancel();
+}
+
+// gameserver.debug.single_executor: one thread ("SingleExecutor", ExecutorBackend.h) runs every pool. The drain waits for the task it runs, and
+// for a long-running task queued behind it: the queued tasks of the long-running pool are waited for like those of the instant pool.
+TEST(CheckOutputTest, TheDrainWaitsForTheSingleExecutorsTaskAndItsQueue) {
+	RealPools pools{RealPools::SingleExecutor{}};
+	utils::ThreadPoolManager& pool = utils::ThreadPoolManager::getInstance();
+	LongTask running;
+	pool.execute(runtime::Pin(), [body = running.body(std::chrono::milliseconds(500))] { body(); });
+	ASSERT_TRUE(waitFor([&running] { return running.started->load(); }));
+	std::chrono::milliseconds waited = timedDrain(std::chrono::seconds(10));
+	EXPECT_TRUE(running.finished->load()) << "drainPools returned after " << waited.count()
+	                                      << " ms while the SingleExecutor thread still ran the task it ran when the drain started";
+
+	LongTask first;
+	LongTask queued;
+	pool.execute(runtime::Pin(), [body = first.body(std::chrono::milliseconds(300))] { body(); });
+	ASSERT_TRUE(waitFor([&first] { return first.started->load(); }));
+	pool.executeLongRunning(runtime::Pin(), [body = queued.body(std::chrono::milliseconds(300))] { body(); });
+	waited = timedDrain(std::chrono::seconds(10));
+	EXPECT_TRUE(queued.finished->load()) << "drainPools returned after " << waited.count()
+	                                     << " ms while the long-running task that was queued when it started still ran";
+	EXPECT_LT(waited, std::chrono::seconds(5));
+}
+
+// The review of lane H (mutant h1): a long task that renews its scope id at quiescent points (quiescentPoint(), TaskScope.cpp: a new scope id,
+// the same start) is still the task the drain saw. The drain knows a running task by its thread and the start of its outermost TaskScope,
+// never by the scope id, or it would return at the task's first quiescent point.
+TEST(CheckOutputTest, TheDrainWaitsForALongTaskThroughItsQuiescentPoints) {
+	RealPools pools;
+	LongTask task;
+	utils::ThreadPoolManager::getInstance().execute(runtime::Pin(), [started = task.started, finished = task.finished] {
+		runtime::QuiescentScope quiescent;
+		started->store(true);
+		for (int32_t step = 0; step < 7; ++step) {
+			std::this_thread::sleep_for(std::chrono::milliseconds(100));
+			runtime::quiescentPoint();
+		}
+		finished->store(true);
+	});
+	ASSERT_TRUE(waitFor([&task] { return task.started->load(); }));
+	const std::chrono::milliseconds waited = timedDrain(std::chrono::seconds(10));
+	EXPECT_TRUE(task.finished->load()) << "drainPools returned after " << waited.count()
+	                                   << " ms while the task went on through its quiescent points";
+}
+
+// The review of lane H (mutant h3): both waits end at the deadline, so a hung pool task cannot hang the final census (nor runBreakerPass after
+// it). A 2.5 s task on the only instant thread and one queued behind it, a 300 ms deadline.
+TEST(CheckOutputTest, TheDrainGivesUpAtItsDeadline) {
+	RealPools pools(1);
+	utils::ThreadPoolManager& pool = utils::ThreadPoolManager::getInstance();
+	LongTask running;
+	LongTask queued;
+	pool.execute(runtime::Pin(), [body = running.body(std::chrono::milliseconds(2500))] { body(); });
+	ASSERT_TRUE(waitFor([&running] { return running.started->load(); }));
+	pool.execute(runtime::Pin(), [body = queued.body(std::chrono::milliseconds(10))] { body(); });
+	const std::chrono::milliseconds waited = timedDrain(std::chrono::milliseconds(300));
+	EXPECT_LT(waited, std::chrono::milliseconds(1500)) << "the drain waited past its deadline";
+	EXPECT_FALSE(running.finished->load());
+	EXPECT_FALSE(queued.started->load());
+}
+
+// The review of lane H (mutant h2): drainPools called inside a pool task does not wait for that task - it would until its deadline.
+TEST(CheckOutputTest, TheDrainDoesNotWaitForTheTaskThatCallsIt) {
+	RealPools pools;
+	auto waitedMillis = std::make_shared<std::atomic<int64_t>>(-1);
+	utils::ThreadPoolManager::getInstance().execute(runtime::Pin(),
+		[waitedMillis] { waitedMillis->store(timedDrain(std::chrono::seconds(3)).count()); });
+	ASSERT_TRUE(waitFor([&waitedMillis] { return waitedMillis->load() >= 0; }));
+	EXPECT_LT(waitedMillis->load(), 1500) << "the drain waited for the task it runs in";
+}
+
+// The other half of the same rule: the drain waits for what was queued or running when it started, not until the pools are idle. The world
+// keeps running during a census (npc tasks, the movement), so waiting for idle pools could last until the deadline and leave the census no time.
+// Here the running task starts a second one and ends; the drain returns with the first one while the second one still runs - on another thread
+// of a four-thread pool, and on the same thread of a one-thread pool, where the thread is busy again but no longer with the task the drain saw.
+// The order (the review of lane H): the second task is queued only after the drain copied the queues (ObservedPoolBackend), and 200 ms later,
+// so the drain's snapshot of the running tasks, which follows at once on the test thread, cannot hold it unless the test thread stalls for
+// 200 ms right there. Before, it was queued 300 ms after the first one started, so a test thread that stalled that long anywhere before the
+// drain began (ctest -j beside geo gates) saw it queued.
+TEST(CheckOutputTest, TheDrainDoesNotWaitForATaskThatStartedAfterIt) {
+	for (const int32_t instantThreads : {4, 1}) {
+		SCOPED_TRACE(std::to_string(instantThreads) + " instant pool threads");
+		RealPools pools(instantThreads);
+		utils::ThreadPoolManager& pool = utils::ThreadPoolManager::getInstance();
+		LongTask first;
+		LongTask late;
+		auto release = std::make_shared<std::atomic<bool>>(false);
+		const std::function<void()> lateBody = [started = late.started, finished = late.finished, release] {
+			started->store(true);
+			const auto limit = std::chrono::steady_clock::now() + std::chrono::seconds(8);
+			while (!release->load() && std::chrono::steady_clock::now() < limit)
+				std::this_thread::sleep_for(std::chrono::milliseconds(5));
+			finished->store(true);
+		};
+		pool.execute(runtime::Pin(), [started = first.started, finished = first.finished, lateBody, drained = pools.queuedSnapshotTaken] {
+			started->store(true);
+			const auto limit = std::chrono::steady_clock::now() + std::chrono::seconds(8);
+			while (!drained->load() && std::chrono::steady_clock::now() < limit) // the drain starts meanwhile
+				std::this_thread::sleep_for(std::chrono::milliseconds(1));
+			std::this_thread::sleep_for(std::chrono::milliseconds(200));
+			utils::ThreadPoolManager::getInstance().execute(runtime::Pin(), [lateBody] { lateBody(); });
+			std::this_thread::sleep_for(std::chrono::milliseconds(100)); // another thread picks it up meanwhile, if there is one
+			finished->store(true);
+		});
+		ASSERT_TRUE(waitFor([&first] { return first.started->load(); }));
+		const std::chrono::milliseconds waited = timedDrain(std::chrono::seconds(6));
+		EXPECT_TRUE(pools.queuedSnapshotTaken->load()) << "drainPools did not start with its snapshot of the queued tasks";
+		EXPECT_TRUE(first.finished->load()) << "the task that was running when the drain started";
+		EXPECT_TRUE(waitFor([&late] { return late.started->load(); }, std::chrono::seconds(2))) << "the second task runs";
+		EXPECT_FALSE(late.finished->load()) << "the drain waited for a task that started after it";
+		EXPECT_LT(waited, std::chrono::seconds(3)) << "the drain waited " << waited.count()
+		                                           << " ms: for a task that started after it, or for idle pools";
+		release->store(true);
+		EXPECT_TRUE(waitFor([&late] { return late.finished->load(); }));
+	}
 }
 
 // m5a-plan.md §10.1: Item is not a strict zero. A login loads the ACCOUNT warehouse (AccountService.cpp:98-104) and the logout only detaches its

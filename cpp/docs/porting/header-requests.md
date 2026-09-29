@@ -800,3 +800,17 @@ p6q-rh-m01 removes them in the same commit. The Q09 lease of `TeleportService.cp
 `WorldMapInstance.cpp` does after its lane merged. The Q06 lease of `tests/scenario` is released (its row removed; the files are P5-SC's):
 the row turned the phase-5 test `tools.porting` red (`test_chunks.RealTreeTest.test_test_directories` pins P5-SC's test directory without a
 lease), so the lane's change is reverted rather than the test edited (U1/U7; docs/design/p6q-ascension-route.md).
+
+## Lane H: hermetic gate servers and the census drain (2026-09-29)
+
+Lane H (harness; branch `fix/gate-hermetic`) fixes the two harness defects of docs/design/p6q-ascension-route.md §7: every server a test starts
+read the owner's untracked `mygs.properties`, and the final census did not wait for a task already running on another pool thread
+(docs/deviations/P5-SC.md and P5-14.md, "Lane H"). Two headers of other chunks change, both small and additive (one C++-only test hook, one
+comment), so each request was **approved by the integrator under the standing instruction** and applied with its call sites.
+
+| Id | File | Change | Decision | Reason |
+|---|---|---|---|---|
+| gh-1 | `configs/Config.h` (P4-01) | public C++-only `static void setOverrideFileIgnored(bool ignored);` after `setLocalIPv4Finder`, with its doc; the class doc's source list and `loadLoggingConfig`'s doc say that `config/mygs.properties` is left out while it is on | **approved by the integrator under the standing instruction** (small and additive), applied | The test hook behind `aion_game_server --ignore-mygs-properties` (main.cpp, P5-14): `loadProperties` and `loadLoggingConfig` leave the operator's profile out and log "Ignoring ./config/mygs.properties (C++ test hook --ignore-mygs-properties)" in place of "Loading: ...". The default (off) is Java's behaviour; a production start never passes the switch. An atomic flag in `Config.cpp`, next to the other two C++ seams (`setEventConfigPropertiesProvider`, `setLocalIPv4Finder`). docs/deviations/P4-01.md, "Lane H" |
+| gh-2 | `CheckOutput.h` (P5-14) | comment only: `drainPools`' doc says that it waits for every task queued in the instant or the long-running pool and every task running on a pool thread when it starts (the queued half since the review fixes, which replaced the barrier tasks) | **approved by the integrator under the standing instruction** (comment only, the m5b3-i-1 / m5c-h07 precedent), applied | The body changed (docs/deviations/P5-14.md, "Lane H"); the old doc ("one barrier task per pool") described the defect |
+| (no request) | `runtime/base/ThreadContext.h` (P4-02a), `runtime/sched/ExecutorBackend.h`, `PoolBackends.h`, `utils/ThreadPoolManager.h` (P4-02b) | none | **none filed** | The drain reads what the kernel already publishes: `ThreadContext::forEach`, `threadName()` (the pool thread names are part of `ExecutorBackend`'s contract) and the `task()` snapshot (active, start of the outermost `TaskScope`), design §1.2 - the records the watchdog reads - and, since the review fixes, `ExecutorBackend::pendingTasks()` and `Future::getPool()` / `isDone()`, which `//debug tasks` and LeakCensus already use. No pool gains an "active tasks" API |
+| (no request) | `tests/scenario/ScenarioServers.h` (P5-SC) | `IGNORE_MYGS_PROPERTIES`, `loginServerOverrideFile()`, doc comments; since the review fixes the log lines `GAME_SERVER_PROFILE_IGNORED` / `_LOADED` and `LOGIN_SERVER_NO_PROFILE` and the checks `gameServerProfileProblem` / `loginServerProfileProblem` | none (the lane's own chunk) | – |
