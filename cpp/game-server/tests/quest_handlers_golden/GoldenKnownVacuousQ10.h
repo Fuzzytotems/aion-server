@@ -6,6 +6,8 @@
 // own report of the first run with the 69 traces, each entry classified by its case's effects, status and dialog action (docs/deviations/Q10.md).
 // The review of 2026-09-29 made 122 of the 162 observable (the free-dialog overlays, GoldenQuestTraceTest.cpp overlaysFor): every
 // sendQuestStartDialog at USE_OBJECT (105, the kind IDLE_START, gone) and 17 sendQuestEndDialog cases whose dialog action the path leaves free.
+// The integration of slice 2 held 16 of the chunk's generated handlers back (GoldenHandlers.h): their 11 rows left the list
+// (2207 #9 #12 #16 #20, 2209 #18, 2231 #22 #23, 2911 #11, 2917 #8 #26 #27), measured with the files in; measure them again when they land.
 
 #include <string_view>
 #include <utility>
@@ -20,24 +22,16 @@ enum class Vacuous {
 
 // clang-format off
 inline constexpr std::pair<std::string_view, Vacuous> Q10_VACUOUS[] = {
-	{"2207 onDialogEvent#9", Vacuous::IDLE_END},
-	{"2207 onDialogEvent#12", Vacuous::IDLE_END},
-	{"2207 onDialogEvent#16", Vacuous::IDLE_END},
-	{"2207 onDialogEvent#20", Vacuous::IDLE_END},
-	{"2209 onDialogEvent#18", Vacuous::IDLE_END},
 	{"2216 onDialogEvent#4", Vacuous::IDLE_END},
 	{"2216 onDialogEvent#5", Vacuous::IDLE_END},
 	{"2222 onDialogEvent#13", Vacuous::IDLE_END},
 	{"2222 onDialogEvent#14", Vacuous::IDLE_END},
 	{"2228 onDialogEvent#4", Vacuous::IDLE_END},
 	{"2228 onDialogEvent#5", Vacuous::IDLE_END},
-	{"2231 onDialogEvent#22", Vacuous::IDLE_END},
-	{"2231 onDialogEvent#23", Vacuous::IDLE_END},
 	{"2271 onDialogEvent#20", Vacuous::IDLE_END},
 	{"2271 onDialogEvent#21", Vacuous::IDLE_END},
 	{"2278 onDialogEvent#13", Vacuous::IDLE_END},
 	{"2279 onDialogEvent#20", Vacuous::IDLE_END},
-	{"2911 onDialogEvent#11", Vacuous::IDLE_END},
 	{"2912 onDialogEvent#8", Vacuous::IDLE_END},
 	{"2912 onDialogEvent#32", Vacuous::IDLE_END},
 	{"2912 onDialogEvent#33", Vacuous::IDLE_END},
@@ -45,9 +39,6 @@ inline constexpr std::pair<std::string_view, Vacuous> Q10_VACUOUS[] = {
 	{"2913 onDialogEvent#26", Vacuous::IDLE_END},
 	{"2913 onDialogEvent#27", Vacuous::IDLE_END},
 	{"2914 onDialogEvent#8", Vacuous::IDLE_END},
-	{"2917 onDialogEvent#8", Vacuous::IDLE_END},
-	{"2917 onDialogEvent#26", Vacuous::IDLE_END},
-	{"2917 onDialogEvent#27", Vacuous::IDLE_END},
 	{"2918 onDialogEvent#3", Vacuous::IDLE_END},
 	{"2918 onDialogEvent#5", Vacuous::IDLE_END},
 	{"2918 onDialogEvent#7", Vacuous::IDLE_END},

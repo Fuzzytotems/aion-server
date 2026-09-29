@@ -1381,8 +1381,9 @@ const std::set<std::string>& knownNotReproducible() {
 	//   cannot take for these quests (the oracle reads no template and treats canRepeat as free).
 	//
 	// P6-Q slice 2, chunk Q10 (altgard, pandaemonium), 2026-09-29:
-	// - 2223 onDialogEvent#21, 24012 onDialogEvent#12 and its high end: useQuestObject's die kills the target (KILLS_TARGET, runDoc); the two
-	//   paths are covered by tests/quest_handlers_asmodae on a spawned npc.
+	// - 24012 onDialogEvent#12 and its high end: useQuestObject's die kills the target (KILLS_TARGET, runDoc); the path is covered by
+	//   tests/quest_handlers_asmodae on a spawned npc. (2223 onDialogEvent#21, the same kind, left with 2223, held back at the integration of
+	//   slice 2: GoldenHandlers.h.)
 	// - (4210 onKillEvent#1, #2 were listed here: the path reads neither a QuestState nor the target (`defaultOnKillEvent(env, 215056, 0, 1, 1) ||
 	//   defaultOnKillEvent(env, 215080, 0, 1, 2)`, _4210MissingHaorunerk.java:73), so no setup of the case as given makes a kill helper return
 	//   the assumed true. Since the integration of slice 2 Q03's rule counts a target overlay of a path that reads no target as reproducing the
@@ -1398,7 +1399,6 @@ const std::set<std::string>& knownNotReproducible() {
 		"80218 onDialogEvent#9",
 		"80219 onDialogEvent#9",
 		"80220 onDialogEvent#9",
-		"2223 onDialogEvent#21",
 		"24012 onDialogEvent#12",
 		"24012 onDialogEvent#12@questState.vars.0=4",
 	};
@@ -1511,10 +1511,11 @@ const std::map<std::string, std::string>& knownUnported() {
 /**
  * The quests whose every hook the oracle refuses (tools/oracle/questtrace): no case. 1205 and 2132: `new QuestEnv`, getStartingClass on a value.
  * P6-Q slice 2 (Q03): 1640 (TeleportService.teleportTo), 1647 (player.getEquipment, spawnForFiveMinutesInFrontOf). P6-Q slice 2 (Q10):
- * 2213 (getEffectController, SkillEngine), 2925 (getEquipment), 2938 (TeleportService.teleportTo), 2952 (the whole var field), 4966-4969
- * (tryDecreaseKinah); their registration traces are checked, their hooks only by parity, the drift test and the chunks' unit cases
+ * 2925 (getEquipment), 2938 (TeleportService.teleportTo), 2952 (the whole var field), 4966-4969 (tryDecreaseKinah); their registration traces
+ * are checked, their hooks only by parity, the drift test and the chunks' unit cases. (Q10's 2213, getEffectController and SkillEngine, is
+ * held back since the integration of slice 2: GoldenHandlers.h)
  */
-constexpr int32_t ORACLE_REFUSES_EVERY_HOOK[] = {1205, 2132, 1640, 1647, 2213, 2925, 2938, 2952, 4966, 4967, 4968, 4969};
+constexpr int32_t ORACLE_REFUSES_EVERY_HOOK[] = {1205, 2132, 1640, 1647, 2925, 2938, 2952, 4966, 4967, 4968, 4969};
 
 TEST_F(GoldenQuestTraceTest, EveryExpectedDocumentHasAGeneratedHandlerAndEveryHandlerADocument) {
 	std::vector<int32_t> ids = expectedQuestIds();

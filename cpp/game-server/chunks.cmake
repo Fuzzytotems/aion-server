@@ -556,9 +556,10 @@ aion_gs_chunk(Q09 TARGET aion_gs_handlers_quest_q09 PHASE 6 ROOT handlers
 aion_gs_chunk(Q09 LEASE PHASE 6
 	GLOBS "aion/gameserver/services/teleport/TeleportService.cpp")
 # Q10's tests (P6-Q slice 2, 2026-09-29): tests/quest_handlers_asmodae, the unit cases of the five hand-ported altgard and pandaemonium quests
-# (2208, 2230, 2252, 24013, 2900) and of the two generated paths that kill their target (24012, 2223), on the fixture of tests/quest_handlers
-# (included by relative path, as Q05's golden harness does); the executable is aion_gs_handlers_quest_q10_tests. The generated files' golden
-# cases run in Q05's harness, which compiles them by #include (docs/deviations/Q10.md).
+# (2208, 2230, 2252, 24013, 2900) and of the generated path that kills its target (24012; 2223 is held back), on the fixture of
+# tests/quest_handlers (included by relative path, as Q05's golden harness does); the executable is aion_gs_handlers_quest_q10_tests. The
+# generated files' golden cases run in Q05's harness, which compiles them by #include (docs/deviations/Q10.md; 16 generated files are held
+# back since the integration of slice 2, its section "Held back").
 aion_gs_chunk(Q10 TARGET aion_gs_handlers_quest_q10 PHASE 6 ROOT handlers
 	GLOBS "aion/gameserver/handlers/quest/{pandaemonium,altgard}/**"
 	JAVA "data/handlers/quest/{pandaemonium,altgard}/**"

@@ -1,7 +1,9 @@
 // Q10 (P6-Q slice 2, 2026-09-29): the five hand-ported quests of altgard and pandaemonium (docs/deviations/Q10.md, "Hand ports") through the
-// real QuestEngine on the fixture of AsmodaeQuestTestSupport.h, every hook of each, with its Java lines beside the case; and the two generated
-// paths that kill their target, which the golden harness cannot pair (24012's cart, 2223's bones). The review of 2026-09-29 added the cases
-// its mutants showed missing (the section at the end) and the generated hooks the golden harness leaves unobserved (24010, 24016, 2925, 2263).
+// real QuestEngine on the fixture of AsmodaeQuestTestSupport.h, every hook of each, with its Java lines beside the case; and the generated
+// path that kills its target, which the golden harness cannot pair (24012's cart). The review of 2026-09-29 added the cases its mutants
+// showed missing (the section at the end) and the generated hooks the golden harness leaves unobserved (24016, 2925, 2263). The integration
+// of slice 2 held 24010 and 2223 back with 14 more generated handlers (docs/deviations/Q10.md, "Held back"): their two cases (24010's
+// enter-world start, 2223's bones) left with them and return when they land (p6q/q10, ed1b2a822).
 
 #include "AsmodaeQuestTestSupport.h"
 
@@ -38,9 +40,7 @@ AION_ASMODAE_FACTORY(altgard, _2230AFriendlyWager)
 AION_ASMODAE_FACTORY(altgard, _2252ChasingtheLegend)
 AION_ASMODAE_FACTORY(altgard, _24013PoisonInTheWaters)
 AION_ASMODAE_FACTORY(pandaemonium, _2900NoEscapingDestiny)
-AION_ASMODAE_FACTORY(altgard, _2223AMythicalMonster)
 AION_ASMODAE_FACTORY(altgard, _24012AnOminousCrop)
-AION_ASMODAE_FACTORY(altgard, _24010SuthransOrders)
 AION_ASMODAE_FACTORY(altgard, _24016AStrangeNewThread)
 AION_ASMODAE_FACTORY(altgard, _2263ShugoPotion)
 AION_ASMODAE_FACTORY(pandaemonium, _2925AHeartfeltConfession)
@@ -557,21 +557,6 @@ TEST_F(AsmodaeHandPortsTest, TheCartOfAnOminousCropDiesAtItsUse) {
 	EXPECT_FALSE(another.isDead());
 }
 
-TEST_F(AsmodaeHandPortsTest, TheBonesOfAMythicalMonsterDieWithTheMovie) {
-	// _2223AMythicalMonster.java:66-70: USE_OBJECT at var 1 with the item: useQuestObject(1, 1, false, 0, 0, 0, 182203217, 1, 67, true)
-	install(altgard::_2223AMythicalMonster_questFactory());
-	Quester* q = quester(Race::ASMODIANS, 12);
-	hold(*q, 2223, QuestStatus::START, 1);
-	holdItem(*q, 840012, 182203217, 1);
-	Npc& bones = spawnNpc(700134);
-	q->clearSent();
-	dialog(*q, bones, 2223, DA::USE_OBJECT);
-	EXPECT_EQ(held(*q, 182203217), 0) << "the item removed";
-	EXPECT_TRUE(sentTo(*q, playMovie(false, bones.getObjectId(), 2223, 67))) << "movie 67";
-	EXPECT_TRUE(bones.isDead());
-	EXPECT_EQ(varOf(*q, 2223), 1) << "step 1 -> 1";
-}
-
 // --- the review of 2026-09-29 (docs/deviations/Q10.md, "Review"): what the cases above left unobserved ---------------------------------------
 
 TEST_F(AsmodaeHandPortsTest, TheWagerTimerEndsAfterHalfAnHour) {
@@ -741,29 +726,6 @@ TEST_F(AsmodaeHandPortsTest, DestinyIsLockedTwoLevelsBeforeTheMissionsLevel) {
 }
 
 // --- generated handlers whose hooks the golden harness leaves unobserved (the oracle refuses them, or their effect is invisible there) -------
-
-TEST_F(AsmodaeHandPortsTest, SuthransOrdersStartAtTheEnterWorldInAltgard) {
-	// _24010SuthransOrders.java:36-41: at an enter world in Altgard (220030000) without the quest, startQuest; the hook gs.scenario.travel's T3
-	// reaches (docs/deviations/Q10.md, "Gate impact")
-	install(altgard::_24010SuthransOrders_questFactory());
-	Quester* q = quester(Race::ASMODIANS, 10);
-	QuestEngine::getInstance().onEnterWorld(q->player());
-	EXPECT_EQ(statusOf(*q, 24010), std::nullopt) << "in Poeta: nothing";
-	Ref<world::WorldPosition> poetaPosition = onMap(*q, 220030000);
-	q->clearSent();
-	QuestEngine::getInstance().onEnterWorld(q->player());
-	EXPECT_EQ(statusOf(*q, 24010), QuestStatus::START) << "in Altgard: started";
-	q->clearSent();
-	QuestEngine::getInstance().onEnterWorld(q->player());
-	EXPECT_TRUE(q->sent().empty()) << "hasQuest: once only";
-	Quester* done = quester(Race::ASMODIANS, 10);
-	hold(*done, 24010, QuestStatus::COMPLETE);
-	Ref<world::WorldPosition> donePosition = onMap(*done, 220030000);
-	QuestEngine::getInstance().onEnterWorld(done->player());
-	EXPECT_EQ(statusOf(*done, 24010), QuestStatus::COMPLETE);
-	done->player().setPosition(donePosition);
-	q->player().setPosition(poetaPosition);
-}
 
 TEST_F(AsmodaeHandPortsTest, AStrangeNewThreatGoesBackAStepAtADeath) {
 	// _24016AStrangeNewThread.java onDieEvent: START with var >= 2: var 1 and the update; below 2 nothing

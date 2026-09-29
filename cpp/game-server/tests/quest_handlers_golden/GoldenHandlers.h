@@ -18,6 +18,11 @@
 // Q03's 14010, 1131, 1146 and 1152 are held back the same way (the review of 2026-09-29): gs.scenario.travel's level-10 Elyos Daeva arrives
 // in Verteron, where 14010's onEnterWorldEvent starts its quest and the start npcs of 1131, 1146 and 1152 add their quests (min level 11-12,
 // grey) to the arrival's SM_NEARBY_QUESTS (docs/deviations/Q03.md, "Held back"); the harness passed all of their cases with them in.
+// The integration of slice 2 held 16 of Q10's generated handlers back the same way (docs/design/p6q-ascension-route.md, "Slice 2"):
+// gs.scenario.travel's level-10 Asmodian Daeva logs in beside Doman in Pandaemonium, where 2953, 29004, 29048 and 4973 are in his
+// SM_NEARBY_QUESTS, and arrives in Altgard, where 24010's onEnterWorldEvent starts its quest and 2207, 2209, 2213, 2221, 2223, 2231, 2232,
+// 2239, 2288 and 2917 are in the arrival's SM_NEARBY_QUESTS; 2911 (after 2009, start npc in Pandaemonium) for gs.scenario.ascension's
+// Asmodian after the ceremony. The harness passed all of their cases with them in (docs/deviations/Q10.md, "Held back").
 
 #include <cstdint>
 #include <memory>
@@ -132,17 +137,9 @@
 	X(heiron, _80218DarkPoetaEncore, 80218) \
 	X(heiron, _80219DarkPoetaFinale, 80219) \
 	X(heiron, _80220DarkPoetaFinale, 80220) \
-	X(altgard, _2207ConversingWithaSkurv, 2207) \
-	X(altgard, _2209TheScribbler, 2209) \
-	X(altgard, _2213PoisonRootPotentFruit, 2213) \
 	X(altgard, _2216MuMuGrassKnot, 2216) \
-	X(altgard, _2221ManirsUncle, 2221) \
 	X(altgard, _2222ManirsMessage, 2222) \
-	X(altgard, _2223AMythicalMonster, 2223) \
 	X(altgard, _2228AThornInItsSide, 2228) \
-	X(altgard, _2231SiblingRivalry, 2231) \
-	X(altgard, _2232TheBrokenHoneyJar, 2232) \
-	X(altgard, _2239MalodorAntidote, 2239) \
 	X(altgard, _2247TheGergersDisguise, 2247) \
 	X(altgard, _2263ShugoPotion, 2263) \
 	X(altgard, _2266ATrustworthyMessenger, 2266) \
@@ -150,24 +147,18 @@
 	X(altgard, _2278ASecretProposal, 2278) \
 	X(altgard, _2279SolidProof, 2279) \
 	X(altgard, _2284EscapingAsmodae, 2284) \
-	X(altgard, _2288MoneyWhereYourMouthIs, 2288) \
 	X(altgard, _2289RampagingMosbears, 2289) \
 	X(altgard, _2290GrokensEscape, 2290) \
-	X(altgard, _24010SuthransOrders, 24010) \
 	X(altgard, _24011FunnyFloatingFungus, 24011) \
 	X(altgard, _24012AnOminousCrop, 24012) \
 	X(altgard, _24014StompOutThePlot, 24014) \
 	X(altgard, _24015TotemPlowed, 24015) \
 	X(altgard, _24016AStrangeNewThread, 24016) \
 	X(altgard, _24112NoLaissezFaireForLepharists, 24112) \
-	X(pandaemonium, _29004VeldinaCall, 29004) \
-	X(pandaemonium, _29048SeriphimTeachings, 29048) \
-	X(pandaemonium, _2911SongOfBlessing, 2911) \
 	X(pandaemonium, _2912FollowtheRibbon, 2912) \
 	X(pandaemonium, _2913AChainofDebt, 2913) \
 	X(pandaemonium, _2914ATokenofLostLove, 2914) \
 	X(pandaemonium, _2916ManInTheLongBlackRobe, 2916) \
-	X(pandaemonium, _2917ArekedilsHeritage, 2917) \
 	X(pandaemonium, _2918DeepMaternalLove, 2918) \
 	X(pandaemonium, _2919BookOfOblivion, 2919) \
 	X(pandaemonium, _2920ElementaryMyDearDaeva, 2920) \
@@ -179,7 +170,6 @@
 	X(pandaemonium, _2938SecretLibraryAccess, 2938) \
 	X(pandaemonium, _2948HuronsLetter, 2948) \
 	X(pandaemonium, _2952WinningVindachinerksFavor, 2952) \
-	X(pandaemonium, _2953DeliveringSupplyRequest, 2953) \
 	X(pandaemonium, _2954DeliveringOdellaJuice, 2954) \
 	X(pandaemonium, _2957FlowersForTheBanquet, 2957) \
 	X(pandaemonium, _2958LastMinuteWorries, 2958) \
@@ -198,7 +188,6 @@
 	X(pandaemonium, _4970TheFashionistas, 4970) \
 	X(pandaemonium, _4971ProjectRunway, 4971) \
 	X(pandaemonium, _4972JudgeNot, 4972) \
-	X(pandaemonium, _4973MarraWorry, 4973) \
 	X(pandaemonium, _4974TheSecretOfHisSuccess, 4974) \
 	X(pandaemonium, _4976ASettlerAmbition, 4976)
 // clang-format on
@@ -213,7 +202,8 @@ AION_GOLDEN_GENERATED_HANDLERS(AION_GOLDEN_DECLARE_FACTORY)
 namespace aion::gameserver::questEngine::handlers::test::golden {
 
 /** The route's generated handlers kept out of the handler tree for their gate impact (see above) */
-inline constexpr int32_t GOLDEN_HELD_BACK[] = {1000, 1100, 2000, 2100, 1131, 1146, 1152, 14010};
+inline constexpr int32_t GOLDEN_HELD_BACK[] = {1000, 1100, 2000, 2100, 1131, 1146, 1152, 14010, 2207, 2209, 2213, 2221, 2223, 2231, 2232,
+	2239, 2288, 24010, 2911, 2917, 2953, 29004, 29048, 4973};
 
 struct GeneratedHandler {
 	std::string_view directory;

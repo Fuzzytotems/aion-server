@@ -1,9 +1,9 @@
 #pragma once
 
 // Q10 (P6-Q slice 2, 2026-09-29): the fixture of the hand-ported quests of altgard and pandaemonium - 2208, 2230, 2252, 24013 and 2900 - and
-// of the two generated handlers whose path kills its target (24012's cart, 2223's bones), which the golden harness cannot pair
-// (tests/quest_handlers_golden, knownNotReproducible), and, since the review of 2026-09-29, of the generated 2263, 2925, 24010 and 24016, whose
-// hooks the golden harness does not observe.
+// of the generated handler whose path kills its target (24012's cart), which the golden harness cannot pair (tests/quest_handlers_golden,
+// knownNotReproducible), and, since the review of 2026-09-29, of the generated 2263, 2925 and 24016, whose hooks the golden harness does not
+// observe (2223 and 24010, held back at the integration of slice 2, left the fixture's cases; docs/deviations/Q10.md, "Held back").
 //
 // - QuestHandlerTest (tests/quest_handlers/QuestHandlerTestSupport.h, included by relative path as the golden harness does): the quester stands
 //   in the item fixture's Poeta instance on a DeterministicExecutor over a ManualClock, the npcs a case needs are spawned into the World's
