@@ -187,6 +187,28 @@ class Renames(unittest.TestCase):
         self.assertEqual(checks(java('\t\tmobs.add(npc);\n\t\tmobs.add(npc);\n\t\treturn true;'),
                                 cpp('\t\tmobs.push_back(npc);\n\t\treturn true;')), ['calls-multiset', 'calls-order'])
 
+    def test_the_enum_name_spelling(self):
+        # P6-Q slice 2 integration (2026-09-29): _2900NoEscapingDestiny.java:259, Java string concatenation with an enum (Enum.toString), as the
+        # hand port spells it (std::string of the xml companion enumName, qualified or not)
+        jf, cf = self.at_parity(
+            java('		throw new UnsupportedOperationException("Unhandled player class " + player.getPlayerClass());'),
+            cpp('		throw runtime::UnsupportedOperationException("Unhandled player class " + '
+                'std::string(::aion::gameserver::xml::enumName(player->getPlayerClass())));'))
+        self.assertEqual(cf.calls, ['onDialogEvent', 'UnsupportedOperationException', 'getPlayerClass'])
+        self.assertEqual(jf.calls, cf.calls)
+        self.at_parity(java('		return "a" + x.getRace();'), cpp('		return "a" + std::string(enumName(x->getRace()));'))
+        self.at_parity(java('		return x.getRace() + "a";'), cpp('		return std::string(enumName(x->getRace())) + "a";'))
+
+    def test_the_enum_name_spelling_is_narrow(self):
+        # a bare enumName call, and a std::string of anything but enumName, stay calls
+        self.assertEqual(checks(java('		return "a" + x.getRace();'), cpp('		return "a" + enumName(x->getRace());')),
+                         ['calls-multiset', 'calls-order'])
+        self.assertEqual(checks(java('		return "a" + x.getName();'), cpp('		return "a" + std::string(x->getName());')),
+                         ['calls-multiset', 'calls-order'])
+        # and a std::string(enumName(x)) that is no operand of a +: Java has no concatenation there
+        self.assertEqual(checks(java('		return x.getRace();'), cpp('		return std::string(enumName(x->getRace()));')),
+                         ['calls-multiset', 'calls-order'])
+
     def test_annotations_are_not_code(self):
         _, cf = self.at_parity(java('\t\treturn true;', head='\t@SuppressWarnings("unused")\n\t@Override\n\tpublic void register() {\n\t}'),
                                cpp('\t\treturn true;', head='\tvoid register_() override {\n\t}'))
