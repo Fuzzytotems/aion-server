@@ -161,6 +161,7 @@ Coverage and tooling:
 8. No `gs.scenario.ascension_geo`. The M5e gate profile (flag on) is not in this base, so it was not run.
 9. The branch is based on `055680b25`. The main tree has moved on (`m5f/travel-core`, `d80b88d20`, and an uncommitted
    TravelScenarioTest.cpp); merging onto it needs the gates rerun there, TravelScenarioTest with these handlers registered in particular.
+   (Done: §7.)
 
 ## 6. What the owner must do to play the retail route
 
@@ -177,3 +178,82 @@ Coverage and tooling:
 4. Not measured tonight: a character that already ascended through the simple window has no 1006 / 2008 row; with the flag off, Java's
    `defaultOnLevelChangedEvent` would offer it 1006 / 2008 at its next enter world if `QuestService.checkStartConditions` lets it. Check an
    existing Daeva before switching the flag on a live account.
+
+## 7. Integrated with the travel core (branch `integ/asc-travel`, 2026-09-29)
+
+Branch `integ/asc-travel` in the main tree (build dir `cpp/build/msvc`, Debug), from C++ `56f2fd295` (PR #6): `git merge --no-ff
+m5f/travel-core` (`d80b88d20`, no conflict), then `git merge --no-ff p6q/ascension-route` (`57308669f`), whose three conflicts the merge
+commit resolves:
+
+- `services/teleport/TeleportService.cpp`: include blocks only (the union, in the file's order); the bodies are disjoint (travel's T-01,
+  this branch's `teleportToNpc`) and merged cleanly: 10 `AION_UNPORTED` left (travel's 11 less `teleportToNpc`).
+- `tests/scenario/ScenarioTests.cmake`: both gates kept, with their DISABLED gtest shadow rows and `add_test` blocks. Both lanes had joined
+  gate slot 1 (1,987 s against 1,340 s together); rebalanced by the slot table: `gs.scenario.ascension` to slot 2 and the M5b pair
+  (`m5b`, `m5b_geo`: one schema prefix, moved together) to slot 1, travel staying in slot 1: 1,685 s against 1,642 s. No placement that
+  moves a single pair does better (the best one, 21 s apart, moves three). The table, its narrative and the m5b / m5b2 / m5b3 / ascension
+  block comments say so; docs/deviations/P5-SC.md records it.
+- `docs/porting/header-requests.md`: both sections kept.
+
+The manifest is unchanged by the merge: `TeleportService.cpp` is P5-08's with the Q09 LEASE row (§2), `SiegeService.cpp` P5-12a's with
+travel's P5-08 LEASE row; both rows stay, as the P5-13 lease of `WorldMapInstance.cpp` did. No integration fix was needed.
+
+**Verification** (from `cpp/`, the test database environment of §3):
+
+- Build, every target, twice: 0 errors, 0 warnings (the first reconfigured and compiled the new sources, the route handlers in their unity
+  files; the second had nothing to do).
+- Unit suite (`-LE "scenario|geo|m4|nightly|stress|smoke"`, 1,356 s): **4,668 of 4,668 passed** (4,673 entries, 5 disabled; 30 skip
+  themselves as usual). `tools.porting` passed (71 cases), and `chunks.py check` reports 71 chunks, 84 parts, 0 problems.
+- Gates (`ctest -C Debug -j 2 -L "scenario|smoke|geo|m4" -E m5a_stress`, 1,643 s): 64 entries, 12 of them the disabled gtest shadows, so
+  **52 run, 52 passed**. Times (s): smoke.startup 27, smoke.startup_progress 27, smoke.startup_geo 146, m4.check_static_data 139, m5a 56,
+  m5a_geo 156, m5b 214, m5b_geo 331, m5b2 169, m5b2_geo 280, m5b3 128, m5b3_geo 311, m5c 311, **travel 38**, **ascension 862**. This
+  build dir had no cost data for the new gates, so ctest started ascension only after m5b2; the next run schedules it first.
+- `census.py` exit 0 (6,938 C++ files; phase 5: 1,232 `AION_UNPORTED` + 10 `AION_PARTIAL` sites: §3's 1,239 less travel's 7),
+  `census.py --self-check` 0 synthetic and 0 live-tree failures, `lint_concurrency.py --werror --cycles=core game-server/src` 3,819 files,
+  0 errors, 0 warnings, 0 advisories.
+
+**gs.scenario.travel with the route handlers.** Every gate server logs "Loaded 4226 quest handlers". What they do to the travel gate depends
+on the untracked `game-server/config/mygs.properties`, which every gate server of the main tree loads ("Loading: ./config/mygs.properties")
+and which sets `gameserver.simple.secondclass.enable = true` (the owner's play profile, §6 item 2). The travel gate does not pin that key,
+so in the main tree 1006, 2008, 1007 and 2009 return from `register()` and its seeded Daevas get no 1007 / 2009; they do get the generated
+**1205 / 2132** ("A New Skill") at the enter world, stored as `REWARD` with var 1. In a tree without the file (the CI workflow, a worktree)
+the key is `false` (`config/main/custom.properties`). Measured both ways by reading the gate's own test schema while it ran (the rows its
+Daevas store at logout; each run passed in 39 s):
+
+| Profile | Travellera (Elyos) | Travellerb (Asmodian) |
+|---|---|---|
+| main tree, mygs.properties (flag on) | 1006 COMPLETE (seed), 1205 REWARD | 2008 COMPLETE (seed), 2132 REWARD |
+| flag off (a temporary local pin in TravelScenarioTest.cpp, reverted byte for byte and rebuilt; never committed) | 1006 COMPLETE, **1007 START**, 1205 REWARD | 2008 COMPLETE, **2009 START**, 2132 REWARD |
+
+So §4's "the scenario profiles leave the flag off, so 1006, 2008, 1007 and 2009 register in all of them" holds only where mygs.properties
+does not set it; the verify worktree of §3 had no such file. With the flag off the travel gate passes with 1007 / 2009 started at the enter
+world, the dispatch quests' talk registrations on Polyidus (203726) and Doman (204191) answering nothing before 1007 / 2009 complete, and
+T4's bar (no `AION_UNPORTED`, no ERROR line, an empty census). Only `gs.scenario.ascension` pins the key (`false`), so it tests the four
+handlers in both trees.
+
+**The m5a_geo question.** Four runs of `gs.scenario.m5a_geo` on this tree: in the full gate run beside slot 2 (the ascension gate):
+passed, 156 s; then three runs beside `gs.scenario.m5b2_geo` (`ctest -j 2 -R "^gs\.scenario\.(m5a_geo|m5b2_geo)$"`): **run 1 failed**
+(152 s, geo 6: `census.txt` held `Player 103881 506`, `Npc 103870 4`, `Npc 103871 4`, none pinned by a task), run 2 passed (152 s), run 3
+passed (152 s). One failure in four here; with §4's, two in seven. The failed run's log settles the mechanism and rules the quest handlers
+out:
+
+- At the enter world (07:19:09) the region activation `MapRegion::activate` queued its instant task (MapRegion.cpp:141,
+  `notifyCreatures(ACTIVATE)` over the activated regions). Beside the second geo server it ran **9,101 ms**: the watchdog reported it at
+  5,801 ms (07:19:15) holding an `NpcKnownList`, and it ended at 07:19:19. The quit, the stop file and the final census came at 07:19:18,
+  while that task still ran; one second later the shutdown logged "Runtime shut down: 0 tasks left, ... 0 objects still tracked". The
+  passing runs logged no slow task.
+- `CheckOutput::drainPools` queues one barrier task per pool, which a multi-threaded pool runs beside a long task already running on another
+  thread, so the census does not wait for it: the Player's 506 references are the known lists that activation was filling, and the two Npcs
+  (removed from the world, refcount 4) were held by the same pass. A timing window of the harness, like m5b3-plan.md's census race, but a
+  different one: an in-flight task, not a logout reclaimed epoch by epoch.
+- Not the quest handlers: the census names **0 pending tasks** pinning the Player (no scheduled quest task); `live_counts.txt` at the end
+  has `QuestEnv` 0 live (444 created; 389-416 in the passing runs: the per-npc `onAtDistance` envs of `PlayerController::see` and
+  `CreatureEventHandler`, phase-5 engine code), `QuestStateList` 0 live and `Player` 0 live. For this level-1 Warrior the route handlers'
+  enter-world and level hooks start nothing (1006 / 2008 / 1007 / 2009 are not even registered under mygs.properties; 1000 / 1100 are held
+  back, §5 item 1), and none of the 42 registers an at-distance event, which is what the activation's npc-sees-player path calls.
+- The slow activation predates the handlers: on 2026-09-25 a `gs.scenario.m5b3_geo` server of this build dir, with "Loaded 0 quest
+  handlers", logged the same slow `MapRegion::activate` task (9,772 ms, holding an `NpcKnownList`) right after its enter world; that run
+  went on for minutes, so the census did not meet it.
+
+Verdict: a flake of the harness's final census beside a second geo server, not caused by a phase-6 change; no gate was edited and nothing
+was reverted. The fix belongs to the census (make `drainPools` wait for the tasks already running when it starts, or have the census wait
+until no instant task older than the logout still runs); not made here.

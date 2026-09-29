@@ -433,3 +433,28 @@ mutants, all killed - M33 (the statue animation inverted: T1 and T3 read animati
 stored `inventory` row), M13 (`ACTIVE` not unset: T2's take-off state), M17 (heading 0: T3's `SM_TELEPORT_LOC` and `SM_PLAYER_SPAWN`), M12
 (`FLYING` not set: T2's take-off state, and `CM_MOVE_IN_AIR` then moves nothing, so the stored position is the arrival's). Sources restored
 byte for byte (sha256), rebuilt, no `AION_TRV_MUT` in a source or a binary; the gate passes again on the rebuilt server.
+
+## The travel and ascension gates integrated (2026-09-29): the gate slots
+
+Branch `integ/asc-travel` (docs/design/p6q-ascension-route.md §7) merges `m5f/travel-core` and `p6q/ascension-route`, which had each put
+their gate into slot 1 (`gs.scenario.travel` 45 s, `gs.scenario.ascension` 880 s: 1,987 s against slot 2's 1,340 s together). The merge
+rebalances `ScenarioTests.cmake` by its slot table:
+
+| Change | Why |
+|---|---|
+| `gs.scenario.ascension`: slot 1 -> slot 2 | the long gate goes to the other slot |
+| `gs.scenario.m5b`, `gs.scenario.m5b_geo`: slot 2 -> slot 1, together | one schema prefix, one slot (the sweep rule); 578 s |
+| `gs.scenario.travel`: stays in slot 1 | |
+
+Sums: slot 1 1,685 s (smoke and M4 367, m5a pair 235, m5b3 pair 460, m5b pair 578, travel 45), slot 2 1,642 s (m5b2 pair 473, m5c 289,
+ascension 880). No placement that moves a single pair does better; the best one (21 s apart) moves three. Moving m5b away from m5b2 is safe
+for the schema sweep: `dropAbandonedSchemas`'s `LIKE 'aion_gs_test_m5b_%'` also lists m5b2's and m5b3's schemas (`_` is a wildcard), but
+`isScenarioSchemaName` decides on the exact prefix and the 8 hex digits (ScenarioDatabase.cpp:24-31), which is why m5b and m5b3 could already
+sit in different slots. The next gate joins slot 2. The whole gate set then ran 52 of 52 green in 1,643 s (p6q-ascension-route.md §7).
+
+**What every gate server of the main tree also reads.** The game server loads the Java tree's untracked `config/mygs.properties` after
+`config/main/*` (the log line "Loading: ./config/mygs.properties"), so a key a gate does not pass on the command line takes the owner's play
+value. On 2026-09-29 that file sets `gameserver.simple.secondclass.enable = true`, so the four ascension handlers (1006, 2008, 1007, 2009)
+register only in `gs.scenario.ascension`, which pins the key to `false`; in `gs.scenario.travel` (and m5c) the seeded Daevas get no
+1007 / 2009 in the main tree, and do in a tree without the file (CI, a worktree). Both were measured on the travel gate, both pass
+(p6q-ascension-route.md §7). Recorded here, not changed: pinning the key in the travel gate is the owner's call (U1/U7).
