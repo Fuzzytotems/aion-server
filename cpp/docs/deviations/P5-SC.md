@@ -611,3 +611,112 @@ and LoginServerHarnessTest with the new log checks among them); `tools.porting`,
 four output directories the reviewer's mutant runs had left (`scenario\Debug\m5a_geo`, `m4\Debug`, `gs.smoke.startup\Debug`,
 `gs.smoke.startup_progress\Debug`). Not run: `gs.scenario.ascension`, `m5b`, `m5b_geo`, `m5b2`, `m5b2_geo`, `m5b3`, `m5b3_geo`, `m5c` and the
 whole unit suite; every gate starts its servers through the same `startGameServer()` / `startLoginServer()` checks the runs above passed.
+
+## M5d stage 2 (lane G): the M5d gate `gs.scenario.m5d` and `gs.scenario.m5d_geo` (m5d-plan.md G-03, G-04, §10)
+
+`TEST(M5dScenario, Run)` and `TEST(M5dScenarioGeo, Run)` in `M5dScenarioTest.cpp`, one shared body; output `<bin>/scenario/m5d` and
+`<bin>/scenario/m5d_geo`, schema pairs `aion_{gs,ls}_test_m5d_<hash>` and `..._m5dgeo_<hash>`, the allow-list `m5d_partial_allowlist.txt`
+(`AION_SCENARIO_M5D_PARTIAL_ALLOWLIST`), labels `scenario;realdata` (`;geo`), TIMEOUT 1800 / 2700, both in **gate slot 2** (the smaller sum,
+1,642 s against slot 1's 1,685 s, ScenarioTests.cmake's table; the discovered cases are DISABLED as for every gate). Test infrastructure only,
+no Java counterpart; the rows say where the gate reads the plan's §10 differently and why.
+
+| Area | As built | Reason |
+|---|---|---|
+| The cases | S-0, C0 (the oracles), C1-C3 + C4 (Y1), C5 (Y2), C6 (Y3), C7 (Y4), C8 (Y5), C9 (Y6, Y7), C10 (Y8), C10b (Y7b), C11 (Y9), C12 (Y10), C13 (Y11), C14 (Y12's abandon), C15 (Y12's relog and elpas's page 1011), then account B: C16a (Y13's markers, and no quest action at the first enter world, as C4), C16b (2101), C16c (2102's four kills and a fifth), C16d (2102's reward), C16e (Y13's relog), and C17 (Y14) after both disconnected and the servers stopped. The case log is M5b-3's: a non-fatal row failure lets every later case run, so a mutant shows its own rows red and the others green | §10.2-§10.3 |
+| The expectations | Every number is an oracle's: `m5d-quests --map M --race R --level 1` (the nearby sets and their grey bits), `m5d-quest --quest ID [--completed ...] [--exp X]` (the page each step answers each action with, the kill run and its count, the first completion's payments, the follow-up window at the end npc and `levelsSinceEnterWorld`), `m5a-creation` (the spawns, and the starter kinah and bandages the Y12 and Y13 ledgers begin with, 1,000 and 20 today: `starterCount`), `m5a-spawns` (where elpas, mires, asak and vandar stand), `m5b-monster` (the kerubs' and sprigg workers' fixed plain spots, level 1's and level 2's exp need). The m5d oracles run with `--profile <output>/m5d_oracle_profile.properties`, which the gate writes from the server's own `-D` keys (`m5aProfile()` under the gate's keys), so the owner's `mygs.properties` reaches no expectation (M5c's `--set`, in the form m5d's CLI takes) | "every number comes from the oracle" (§10.1) |
+| The profile | `m5aProfile()` (G-07's wall-clock keys included), M5b-2's keys (`npcshouts.enable=false`, `rates.xp.solo`, `soulsickness.disable`, `rates.drop=0`), and M5d's: `rates.xp.quest` and `rates.kinah.quest` written out at their defaults (`1.0, 2.0`), `analysis.quest_handlers=false`, **`simple.secondclass.enable=false`**; `character.creation.mode` stays 0 (D15). `game-server/config/m5d.properties.example` is **not** written: it is a file of the Java tree's config directory, which this lane may not touch; the profile lives in the gate and here | §10.1, §18.4, §18.7 |
+| The Java handlers now registered | Phase 6's slice 1 registers 42 Java handlers (p6q-ascension-route.md §1), so D9's "no Java quest until phase 6" is gone. The expected nearby set is the oracle's `withJava` set restricted to the XML quests and the ids of `REGISTERED_JAVA_QUESTS` (the 42; the held-back 1000, 1100, 2000, 2100 are not in it): for a level-1 Elyos in Poeta that adds 1111 (grey), in Ishalgen nothing. The Elyos's level-up to 2 inside 1102's reward runs the generated `_1205ANewSkill.onLevelChangedEvent`: Y11's pattern holds `ADD 1205 s3`, `NEARBY`, `UPDATE 1205 s4 v1`, `NEARBY` between `LEVEL_UP 2` and onLevelChange's own `NEARBY`, and Y12's quest list after the relog is `{1205: REWARD, var 1}` (player_quests likewise). m5e-plan.md W-24 predicted exactly this `SM_QUEST_ACTION` in the M5d gate | "adapt the gate's cases to what now registers" |
+| The order patterns | Each talk's answer is reduced to quest tokens in arrival order (`ADD/UPDATE <quest> s<status> v<vars>`, `ABANDON`, `NEARBY`, `DW <npc> <page> <quest>`, `EXP`, `GET_EXP <n>`, `MSG <id>`, `ITEM <template>x<count>`, `LEVEL_UP <level>`) and compared with the whole expected list, after the async set and the talked npc's `SM_LOOKATOBJECT` are taken out. The level-up's stats, skills and animations are not tokens, so Y11 pins the quest packets' order around them without the M5e skill list. `SM_INVENTORY_UPDATE_ITEM` names the object only; its template is the inventory model's | §10.3's "in Java's order" rows, stated once |
+| The talk windows | Read with the gate's own burst collector (quiet measured from the last packet the async set does not explain), not `GameSession::talk`, whose `collectUntilQuiet` ends at the first quiet second of all traffic: beside Ishalgen's walkers every talk ran into its 10 s limit (the first run: 36 s for C16b). The packet is the same `CM_DIALOG_SELECT(npc, action, 0, 0, questId)` | measured, 2026-09-29 |
+| The kills | `killAt` rotates over the three fixed plain spots of the kill targets nearest the end npc (kerubs 21-45 m from mires, sprigg workers 28-41 m from vandar): it takes the npc of the first spot whose latest `SM_NPC_INFO` names an object the gate has not killed, and waits for a respawn only when all three are dead. A corpse keeps its object id, a respawn is a new one, and the set of killed ids works across a relog, which `FightSupport`'s `waitForRespawnAt` (one session's recording index) cannot. The HP is logged before each kill and a Warrior below 60 % rests (reads packets) up to 60 s; no run needed it (the Elyos ended each fight at 281-284 of 284 HP, the Asmodian above 230 of 284) | C16c took 94 s waiting at one spot, 57 s rotating |
+| C7's range | The character stands 15 m from mires on the line from elpas; the row wants exactly `STR_DIALOG_TOO_FAR_TO_TALK` (1300346) and no window | Y4 |
+| Relogs | C11, C15 and C16e disconnect (`CM_QUIT(0)`), read `player_quests`, and log in again; only a first enter asserts the level-ready §5.8 sequence, because a relog near the monster spots reads a decaying corpse's `SM_DELETE` in that burst (the first run's C16e) | not the quest engine's |
+| Allow-list | `m5d_partial_allowlist.txt`: §A `BaseService.cpp:18`; §B `QuestEngine.cpp:115` (the profile turns the analysis off) and G-07's four cron rows; §C `PvpMapService.cpp:32`, `PlayerService.cpp:268`. `QuestEngine.cpp:111` no longer exists (I-05) | §10.1, §19.5 |
+| Y14 | Beside the Q8 bar: `live_counts.txt`'s `QuestEnv`, `QuestState`, `QuestVars`, `QuestStateList` and `Player` rows live 0 with created > 0 | §10.3 Y14 |
+
+**Mutation proof (§10.4)**, schemata switched by `AION_M5DG_MUT` in nine production files (`QuestEngine.cpp`, `QuestService.cpp`,
+`AbstractQuestHandler.cpp`, `DialogService.cpp`, `MonsterHunt.cpp`, `QuestState.cpp`, `DialogPageInfo.cpp`, `PositionUtil.cpp`,
+`SM_QUEST_ACTION.cpp`), built once into `build/v`'s `aion_game_server` (the gate's server inherits the variable), the sources restored right
+after the build and checked by sha256 (all nine OK), then the whole tree rebuilt clean: no `AION_M5DG_MUT` in a source or in the final
+binaries. One `gs.scenario.m5d` run per mutant, 220-380 s each; the case log shows every row:
+
+| Mutant (§10.4 row) | Failed | Stayed green | Note |
+|---|---|---|---|
+| `no-registration`: `QuestEngine::init` skips the XML registration (the old `:111`) | **Y1** (both sets are `{1111}`, the one Java handler of the map), **Y2** (page 1011), and every later row that reads a quest: Y3, Y5-Y14 | Y4 | 55 assertions |
+| `xp-hunting`: `giveReward` pays exp with `Rates::XP_HUNTING` | **Y6** (`GET_EXP 80`, the exp shown 80), Y11 (80; 3 × 80 + 80 still reaches 400, so the level-up stays in the reward), Y13 (2101's 80) | Y3, Y5 and the rest | |
+| `no-follow-up`: `sendQuestEndDialog` without the follow-up loop | **Y6**, **Y11**, **Y13** (`DW mires 10 0` / `DW vandar 10 0` instead of 1011 1102, 1011 1103, 1011 2103) | Y7 and the rest | |
+| `finish-without-guard`: `finishQuest` without `status != REWARD` | **Y7b** (`UPDATE 1102 s5 v0`, `NEARBY`, then the sentinel: 1102 silently completed, no payment), then Y9-Y12, which read 1102 | Y6, Y7, Y13 | as §10.3 Y7b predicted, packet for packet |
+| `no-next-page`: `handleQuestDialogueOrSendNextPage` without its window | **Y7** (the replay answered by nothing), **Y8** (no `DW mires 1009 1102`) | Y6 and the rest | |
+| `count-past-end`: `MonsterHunt::onKillEvent` without `total <= endVar` | **Y13** (the fifth kill: `UPDATE 2102 s3 v5`; the report then `s4 v5`) | Y8, Y10 | |
+| `follow-up-ignores-finished`: the follow-up takes the first startable, acceptable quest whatever its `<finished>` | **Y13** (`DW vandar 1011 2102` after 2101) | Y6, Y11 | |
+| `report-without-kills`: `MonsterHunt::onDialogEvent` without the kill-total check | **Y8** (`UPDATE 1102 s4 v1`, page 5 after one kill), then Y7b (the journal now finishes the REWARD quest, which is right), Y9-Y11 | Y1-Y7, Y12-Y14 | Y10 cannot stay green: 1102 is finished before C12's kills. The first run of this mutant also lost C11's re-entry ("no packet after CM_ENTER_WORLD": the first packet came later than the burst's quiet second); `enterWorld` and `levelReady` now wait up to 30 s for the first packet (`collectAnswer`), and the rerun re-entered |
+| `persistent-new-kept`: `setPersistentState(UPDATED)` keeps NEW | **Y12** (C15: 1102 still START in `player_quests`, no 1205 row), **Y14** (`Failed to insert new quests for player ...`: the second store INSERTs again) | Y9 (the first store is the INSERT) | There is no player cache: every enter world builds a new Player and loads its quest list from the database (`PlayerService.cpp:208`, PlayerService.java:102-135). The mutated `setPersistentState(UPDATED)` is also the call `PlayerQuestListDAO::load` makes on every row it loads (`PlayerQuestListDAO.cpp:70`), so after C11's relog the loaded states stay NEW, and C15's quit INSERTs 1101 and 1102 again (the duplicate key) instead of updating them. That is why §10.4's Y9 stays green: C11 reads the first store, which INSERTs either way |
+| `abandon-keeps-row`: `abandonQuest` without `deleteQuest` | **Y12** (no 1103 in the nearby set after the abandon; `player_quests` and `SM_QUEST_LIST` keep 1103 START) | Y3 | |
+| `race-ignored`: `checkStartConditions` without the `race_permitted` check | **nothing in the gate** | all | Not killable here, against §10.4: no quest a start-map npc starts is of the other race (`m5d-quests` for an Asmodian in Poeta and an Elyos in Ishalgen: both sets empty), and the level-change lists are per race, so the Elyos 1205 never runs for the Asmodian. The unit case `QuestItemActionsTest.ARestrictedQuestIsWarnedAboutBeforeTheUseMessage` (E-10, `:482-483`) kills it: the same schemata built into `aion_gs_itemsvc_tests`, run with the variable, fail that case alone of the suite's 13 (without the variable 13 of 13 pass) |
+| `no-quest-interaction`: `getStartPageId` without `hasQuestInteraction` | **Y2** (`DW elpas 1011 0`), and the other first talks: Y5's mires, Y7b's sentinel, Y13's asak | Y12's final page 1011 | |
+| `questenv-static`: `QuestEngine::onDialog` keeps its `QuestEnv` for ever | **Y14** (`QuestEnv` 28 live, the census names the Player, the leak ERROR lines) | Y1-Y13 | |
+| `talk-range`: `isInTalkRange` always true | **Y4** (`DW mires 10 0` from 15 m) | every other row | |
+| `status-ordinal`: `SM_QUEST_ACTION` writes the ordinal | **Y3** (the decoder refuses status 0), and every row with a quest action: Y5, Y6, Y8, Y10-Y13 | Y1, Y2, Y4, Y7, Y7b, Y9, Y14 | |
+
+The four rows §10.4 sends elsewhere (`sendQuestEndDialog`'s own guard: H-07; the var shift: E-06; `XMLQuests` order: T-04; the skipped
+reward-group check: E-06) were not run: the gate cannot see them by construction, as §10.4 says.
+
+**G-02's quest decoders, the list and the proof §19.5 left open.** The stage-1 harness's cases: `QuestDecodersTest` (7:
+`QuestActionAddIsFourteenBytes`, `QuestActionUpdateIsThirteenBytesAndCarriesTheVarsAndFlags`, `QuestActionAbandonTimerShareAndUnk`,
+`QuestActionOfAnExtraCategoryQuestIsEmpty`, `NearbyQuestsOfALevelOneElyosInPoeta`, `NearbyQuestsEmptyAndMalformed`,
+`StatUpdateExpIsFiveLongs`), `FightSupportTest` (3) and `GameSessionTalkTest` (4). This gate is the decoders' first reader. Six schemata in
+`decoders/QuestDecoders.cpp` (switched by `AION_M5DG_MUT`, built once into `aion_gs_scenario_tests`, the file restored by sha256 right after
+the build, the tree rebuilt, no schema string left), `QuestDecodersTest` run per mutant: the status range dropped (killed by the Add and Update
+cases, `:54`: statuses 0, 1, 2 and 7 must throw); ADD's last byte not read (the Add case); TIMER's `timer > 0 ? 1 : 0` byte not checked
+(`:175`, `:178`); `SM_NEARBY_QUESTS`' count read un-negated (`:269` and the Poeta case); the marker bit kept in the id (`:242-253`, `:276-284`);
+`SM_STATUPDATE_EXP`'s recoverable and max exp swapped (`:299`, `:304`). All six killed; the unmutated binary passes 7 of 7. The gate's own
+`status-ordinal` mutant is the same refusal end to end (Y3). `FightSupportTest` and `GameSessionTalkTest` were not mutated here: the gate uses
+neither `waitForRespawnAt` nor `talk()` (the rows above say why).
+
+**Runs** (build/v, Debug, 2026-09-29, beside another tree's gates): `gs.scenario.m5d` passed in 257 s and `gs.scenario.m5d_geo` in 485 s
+(one ctest, the slot runs them one after the other; the geo startup 172 s), each with an empty census, no ERROR line and the allow-list's §A
+row hit once and every §B row 0 times; a last run on the final binary (a comment, an unused helper and two unused variables apart) passed in 396 s, its
+startup and oracles slowed by the other tree's gates. Both game servers logged "Loaded 4226 quest handlers" (4,184 XML + 42 Java). The harness's unit cases
+(the decoders, `GameSession*`, `FightSupport`, `PacketSequence`, `Oracle*`, `InventoryModel`, `AsyncAllowed`, `Scenario*Test`,
+`LoginServerHarnessTest`), `QuestItemActionsTest`, `tools.porting` and `gs.chunks.consistency`: 227 of 227 at `-j 4`.
+
+**The review's findings (2026-09-29), closed in the same tree.** The review approved the gate with its own fifteen mutants
+(`AION_M5DG_MUT_R`, all killed) and four findings:
+1. **`persistent-new-kept`'s cause** (low): the table's row is corrected. There is no player cache: the mutated `setPersistentState(UPDATED)`
+   is also what `PlayerQuestListDAO::load` calls on every row it loads, so C11's re-entry holds NEW states and C15's quit INSERTs 1101 and
+   1102 again. The kill and its rows were right and stay.
+2. **The starter kinah and bandages** (low): C1-C3, C15 (Y12), C16a and C16e (Y13) compared with the literals 1,000 and 20, while the
+   header, the expectations row above and §10.3's Y13 refresh say those numbers are `m5a-creation`'s. They now read
+   `starterCount(creation, itemId)` over C0's two `OracleCreation` answers (the Elyos's for account A, the Asmodian's for B), and C0 logs
+   them. Two schemata switched by `AION_M5DG_MUT` in `PlayerService::newPlayer` (7 more kinah, 3 fewer Bandages for a new character), the
+   first one also in `tools/oracle/m5a/creation.py`:
+   - `starter-data-shift` stands for a change of `player_initial_data.xml` as both independent readers would see it. **Before:** the lane's
+     gate failed at exactly its five literal assertions (C1-C3: 1,007 kinah, not 1,000; C15: 1,527, not 1,520; C16a: 17 Bandages, not 20;
+     C16e: 27, not 30, and 1,207, not 1,200), every other case green (234 s). **After:** the new gate passes (236 s, and 292 s in a verbose
+     rerun whose C0 logged "Elyos Warrior 1007 kinah; Asmodian Warrior 1007 kinah, 17 x 169300002").
+   - `starter-server-shift` (the server alone): the new gate fails at the five changed assertions (1,007 against the oracle's 1,000, 1,527
+     against 1,520, 17 against 20, 27 against 30, 1,207 against 1,200) and nowhere else (241 s).
+3. **Comments** (low): `ScenarioTests.cmake`'s M5d block says eight kills (one in C10, two in C12, five in C16c), not nine; the slot table's
+   header says its runtimes are alone unless an entry says otherwise, and the M5d entry says it was measured beside another tree's gates
+   (with the review's 220-286 s and 358 s); m5d-plan.md §19.5 points at §20.1 (slot 2, `:115` in §B).
+4. **Coverage** (info):
+   - C16a now asserts for the Asmodian what C4 asserts for the Elyos: no `SM_QUEST_ACTION` in the first `CM_ENTER_WORLD` burst, and any
+     later `SM_NEARBY_QUESTS` of the two first-enter bursts (§10.6 (d)) decodes to the Ishalgen set. C4 and C16a log the bursts' counts: 1
+     and 1 for both races in every run without a quest-start mutant. The schema `min-level-ignored` (`QuestService::checkStartConditions`
+     without its min-level test) kills both new assertions (294 s; a first run before the later clause was added, 270 s, killed the first): the Asmodian's first `CM_ENTER_WORLD` burst held
+     `ADD 2008 s6`, `ADD 2132 s3`, `UPDATE 2132 s4 v1` and `ADD 23830`-`23834 s4` with 8 `SM_NEARBY_QUESTS`, Ishalgen's own handlers, which C4
+     (the Elyos's 1006, 1205 and 13830-13834) cannot see. C4, C11 (Y9), C13 (Y11), C15 (Y12) and C16e went red with it.
+   - Not changed, because they are not defects: no run kills 210134 or 210363, since the kill spots are the three fixed plain spots nearest
+     the end npc that `m5b-monster` names (all 210133 and 210364); `MonsterHunt::onKillEvent`'s `containsId` is exercised at the first id
+     of 1102's list (210133) and the second of 2102's (210364), and a kill of the other two runs the same membership test.
+     `player_quests` is compared on `quest_id`, `status`, `quest_vars` and `complete_count`, the columns Y9, Y12 and Y13 name; `reward` is
+     the group `validateAndFixRewardGroup` sets (0 for these single-group quests), whose effect the payments of Y6, Y11 and Y13 assert, and
+     whose skipped check §10.4 gives to E-06; the times are wall-clock values. `game-server/config/m5d.properties.example` stays unwritten
+     (the Java tree's config is off limits; §20.1).
+
+The two production files and the oracle file were restored and checked by sha256 after the mutation runs, the tree was rebuilt, and no
+`AION_M5DG_MUT` string is left in a source, a binary or a `__pycache__` file. On the rebuilt binaries (build/v, Debug, 2026-09-29): `gs.scenario.m5d` passed in 241 s and
+`gs.scenario.m5d_geo` in 348 s in one ctest, each with an empty census, no ERROR line, §A hit once and every §B row 0 times; C0 logged
+1,000 kinah for both Warriors and 20 Bandages for the Asmodian, and both first-enter bursts of both races held one `SM_NEARBY_QUESTS` each.
+The harness's unit cases, `QuestItemActionsTest`, `tools.porting` and `gs.chunks.consistency`: 225 of 225 at `-j 4`. `lint_concurrency.py
+--werror --cycles=core game-server/src`: 3,819 files, 0 errors, 0 warnings, 0 advisories; `chunks.py check`: 71 chunks, 0 problems.
