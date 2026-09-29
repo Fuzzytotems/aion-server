@@ -61,7 +61,6 @@ jobs:
       run:
         shell: pwsh
     env:
-      VCPKG_BINARY_SOURCES: clear;files,${{ github.workspace }}\..\vcpkg-archives,readwrite
       AION_TEST_DATABASE_URL: jdbc:mysql://localhost:3306/aion_cpp_test
       AION_TEST_DATABASE_USER: root
       AION_TEST_DATABASE_PASSWORD: ''
@@ -69,10 +68,13 @@ jobs:
       AION_TEST_GS_DATABASE_URL: jdbc:mysql://127.0.0.1:3306/aion_cpp_test?characterEncoding=UTF-8
       AION_TEST_CS_DATABASE_URL: jdbc:mysql://127.0.0.1:3306/aion_cs_test
     steps:
-      - name: Long temp path
+      # The caches live beside the checkout, in runner.workspace: actions/cache refuses paths with '..' (run 36523143903 saved
+      # nothing), and the job-level env cannot read the runner context, so VCPKG_BINARY_SOURCES is set here.
+      - name: Long temp path, vcpkg binary cache
         run: |
           "TEMP=$env:RUNNER_TEMP" >> $env:GITHUB_ENV
           "TMP=$env:RUNNER_TEMP" >> $env:GITHUB_ENV
+          "VCPKG_BINARY_SOURCES=clear;files,${{ runner.workspace }}\vcpkg-archives,readwrite" >> $env:GITHUB_ENV
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 1
@@ -82,7 +84,7 @@ jobs:
 
       - name: Toolchain and disk
         run: |
-          New-Item -ItemType Directory -Force -Path "${{ github.workspace }}\..\vcpkg-archives" | Out-Null
+          New-Item -ItemType Directory -Force -Path "${{ runner.workspace }}\vcpkg-archives" | Out-Null
           "Image: $env:ImageOS $env:ImageVersion"
           & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -latest -products * -property catalog_productDisplayVersion
           cmake --version | Select-Object -First 1
@@ -93,7 +95,7 @@ jobs:
       - name: Restore the vcpkg binary cache
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
-          path: ${{ github.workspace }}\..\vcpkg-archives
+          path: ${{ runner.workspace }}\vcpkg-archives
           key: vcpkg-${{ runner.os }}-${{ hashFiles('cpp/vcpkg.json', 'cpp/vcpkg-configuration.json') }}-${{ github.run_id }}
           restore-keys: |
             vcpkg-${{ runner.os }}-${{ hashFiles('cpp/vcpkg.json', 'cpp/vcpkg-configuration.json') }}-
@@ -103,28 +105,28 @@ jobs:
         id: mariadb-cache
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
-          path: ${{ github.workspace }}\..\mariadb.zip
+          path: ${{ runner.workspace }}\mariadb.zip
           key: mariadb-${{ env.MARIADB_VERSION }}-winx64
 
       - name: Download MariaDB
         if: steps.mariadb-cache.outputs.cache-hit != 'true'
         run: |
           $url = "https://archive.mariadb.org/mariadb-$env:MARIADB_VERSION/winx64-packages/mariadb-$env:MARIADB_VERSION-winx64.zip"
-          Invoke-WebRequest -Uri $url -OutFile "${{ github.workspace }}\..\mariadb.zip"
+          Invoke-WebRequest -Uri $url -OutFile "${{ runner.workspace }}\mariadb.zip"
 
       - name: Save the MariaDB archive
         if: steps.mariadb-cache.outputs.cache-hit != 'true'
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
-          path: ${{ github.workspace }}\..\mariadb.zip
+          path: ${{ runner.workspace }}\mariadb.zip
           key: mariadb-${{ env.MARIADB_VERSION }}-winx64
 
       - name: Start MariaDB (as a service) and create the test databases
         run: |
           # A process started in the background of one step does not outlive that step on the Windows runner (the first run's
           # tests all got "Can't connect ... (10061)"), so MariaDB runs as a Windows service.
-          $root = Join-Path (Resolve-Path "${{ github.workspace }}\..") 'mariadb'
-          Expand-Archive -Path "${{ github.workspace }}\..\mariadb.zip" -DestinationPath $root -Force
+          $root = Join-Path "${{ runner.workspace }}" 'mariadb'
+          Expand-Archive -Path "${{ runner.workspace }}\mariadb.zip" -DestinationPath $root -Force
           $bin = Get-ChildItem $root -Directory | Select-Object -First 1 | ForEach-Object { Join-Path $_.FullName 'bin' }
           $data = Join-Path $root 'data'
           & "$bin\mariadb-install-db.exe" "--datadir=$data" --port=3306 --service=MariaDB
@@ -160,7 +162,7 @@ jobs:
         if: always()
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
-          path: ${{ github.workspace }}\..\vcpkg-archives
+          path: ${{ runner.workspace }}\vcpkg-archives
           key: vcpkg-${{ runner.os }}-${{ hashFiles('cpp/vcpkg.json', 'cpp/vcpkg-configuration.json') }}-${{ github.run_id }}
 
       - name: Unit tests
