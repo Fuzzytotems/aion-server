@@ -25,8 +25,9 @@
 //    and 1205 in the quest list of every later enter world (Y12). No other registered handler starts anything on this path: the missions
 //    1001-1005 and 2001-2007 need 1100/2100, which never start (held back), 2132 needs level 3, and no Java handler names elpas, mires, asak,
 //    vandar or the four monsters' npc ids in a way that acts without a quest state (m5d-plan.md §18.4);
-//  - `gameserver.simple.secondclass.enable` is pinned to false (§18.4, §18.7): a gate's server reads the owner's mygs.properties, and the key
-//    decides whether 1006/2008/1007/2009 register. None of them acts at level 1-2.
+//  - `gameserver.simple.secondclass.enable` is pinned to false (§18.4, §18.7): a gate's server read the owner's mygs.properties, and the key
+//    decides whether 1006/2008/1007/2009 register. None of them acts at level 1-2. (Since 2026-09-29 no gate server reads that file:
+//    ScenarioServers passes main.cpp's test hook --ignore-mygs-properties; the key stays pinned.)
 //
 // It holds TWO gates: M5dScenario.Run (gs.scenario.m5d, geo off) and M5dScenarioGeo.Run (gs.scenario.m5d_geo, geo on), the same script through
 // one shared body; the comment above TEST(M5dScenarioGeo, Run) says what the geo run adds (§10.5).
