@@ -1,5 +1,12 @@
 # M5d work plan (quest engine)
 
+> **Status (2026-09-29, §21): stage 3's E-07 is ported and committed on `m5d/stage-3-e07` (local, not pushed), its review's findings
+> closed (§21.1).** `questEngine/task` (17 bodies) and the follow family (`defaultStartFollowEvent` ×2) have no `AION_UNPORTED` left: P5-06b
+> has no open body, P5-06a 12 (E-08's analyzer 6 and the `:115` partial, `reload`, the 4 enum bodies of the census). 29 unit cases on the
+> ManualClock pass; the lane's 59 mutants and the review round's 18 are all killed. It unblocks the transliterator's row B03, 14 generated
+> escort handlers (§21.1, not landed), which must wait for `FollowingNpcAI` (no C++ file): without it an escort's first end or failure
+> deletes its map-spawned follower until the server restarts. E-08 is its own lane (`m5d/stage-3-e08`).
+>
 > **Status (2026-09-29, §20): stage 2's gate is built and committed on `m5d/stage-2`, the review's findings closed (§20.8).**
 > `gs.scenario.m5d` (257 s) and `gs.scenario.m5d_geo` (485 s) pass in gate slot 2 with the 42 phase-6 Java handlers registered beside the
 > 4,184 XML quests. Fourteen of the fifteen §10.4 mutants fail the gate at their rows; the race row, which the start maps cannot show, fails
@@ -2131,3 +2138,136 @@ The review approved the gate: its own fifteen mutants (`AION_M5DG_MUT_R`, other 
   (P5-SC.md says why).
 - **Results** on the rebuilt tree (no schema string left): `gs.scenario.m5d` 241 s and `gs.scenario.m5d_geo` 348 s, both passing with an
   empty census; the harness's unit cases 225 of 225; lint and `chunks.py check` clean.
+
+## 21. Stage 3 results (2026-09-29)
+
+Stage 3 ran as two lanes on branches of C++ `f59e2fe9b` (M5d stages 1-2, the phase-6 slice 1, M5f's travel core, the hermetic gate
+servers): E-07 (`task/**` and the follow family) on `m5d/stage-3-e07` and E-08 (the spawn analyzer) on `m5d/stage-3-e08`. Each lane writes
+its own subsection: §21.1 is E-07's, §21.2 E-08's, which is written on `m5d/stage-3-e08` and is not in E-07's branch (the integrator merges
+the two). The owner's rule of 2026-09-29 (a Java-faithful change in quest traffic may adjust a
+phase-5 gate's expectations) was not needed by E-07: nothing on a gate's path calls the follow family (no registered handler does), so no
+gate expectation can move.
+
+### 21.1 E-07: questEngine/task and the follow family (lane E-07)
+
+Branch `m5d/stage-3-e07` from C++ `f59e2fe9b`: one local commit, not pushed, over two parts and the shared docs (P5-06a: `task/**`,
+`tests/quest`; P5-06b: `AbstractQuestHandler.cpp`, `tests/quest_handlers`; P5-06.md and this plan), so `chunks.py check-ownership` for
+either part alone reports the other's files (P5-06a.md, "The shared `P5-06.md` and the chunks of this change").
+Build dir `cpp/build/msvc` (Debug, incremental), `--parallel 6 --
+-p:CL_MPCount=3 -nr:false`, beside other trees' builds. docs/deviations/P5-06a.md and P5-06b.md, sections "M5d stage 3, E-07", have the rows,
+the cases and the mutants; P5-06.md's note of the same name closes the `task/**` part of D8's row.
+
+**What was built**
+- `questEngine/task` (P5-06a), new `.h`/`.cpp` pairs (§9: new files, no header request): `FollowingNpcCheckTask` (5 bodies), `QuestTasks` (4:
+  the npc, npc id, point and zone overloads of `newFollowingToTargetCheckTask`), `task/checker/` `DestinationChecker`,
+  `CoordinateDestinationChecker`, `TargetDestinationChecker`, `ZoneChecker` (8). The members are fieldmap.json's spellings (K4, RefCounted).
+  The check runs at a fixed rate of 1,000 ms after 1,000 ms, as a closure holding the task and pinned to the following npc (FollowStartService's
+  pattern).
+- `AbstractQuestHandler::defaultStartFollowEvent` ×2 (P5-06b): the last two `AION_UNPORTED` of the handler base. `defaultFollowEndEvent` ×2
+  was ported by H-04 in stage 1a, so "the follow family 2" of §18.7 is these two.
+- Java kept: `FollowingNpcCheckTask.run` has no `return` after `onFail`, so a dead npc out of range fails twice in one check and a failed escort
+  whose npc stands at its destination also arrives; marked `// java-bug kept`, pinned by two cases.
+- Census (`census.py --chunks P5-06a,P5-06b,P5-06c`, working tree): P5-06a 12 open (`reload`, `init`'s `:115`, the analyzer's 6, the 4 enum
+  bodies), P5-06b 0 (was 2), P5-06c 1 (`KillOperation`).
+
+**Tests** (29 cases on the ManualClock, 22 of the lane and 7 of the review round): `tests/quest/QuestTasksTest.cpp` (P5-06a, 18)
+and `tests/quest_handlers/AbstractQuestHandlerFollowTest.cpp` (P5-06b, 11), on the new fixture
+`tests/quest_handlers/QuestFollowTestSupport.h`: the handler-base fixture plus an escort npc spawned into Poeta's instance, an
+`EscortHandler` for quest 1111's reach and lost events, and `FollowingProbeAI`, a stand-in for FollowingNpcAI that
+follows through `FollowEventHandler` and answers "following". The npc follows (FOLLOW_ME, FOLLOWING, the player its target, PEACE for the npc
+overload, `SM_NPC_INFO` for the point); the check ends the step on arrival (`_1149MissingPoppy`'s REWARD with movie 12); it fails the escort
+when the npc or the player dies, when they are 50 m apart or the player is on another map (the step back to 0 with the give-up message); it
+stops each time (the `QUEST_FOLLOW` task removed and cancelled, `STOP_FOLLOW_ME`, the npc deleted unless its AI is "following"); a second start
+replaces the first check; cancelling the player's tasks stops it without an event. After the review: the stop comes before the event (the
+handler finds the task gone and the npc stopped or deleted); the npc watched and stopped is the checker's follower, not the env's object;
+the npc overload checks its target where it is at each check; the npc id overload takes the spot on the follower's own map; a point keeps its
+height through both `QuestTasks` and `defaultStartFollowEvent`; a start at a later step (1 -> 2), and at 1 -> 1 and 1 -> 0, moves or keeps
+the step and closes the window through either overload.
+
+**Results**
+- Build: `aion_gs_quest`, `aion_gs_quest_tests`, `aion_game_server` and the phase-6 quest test executables (`aion_gs_handlers_quest_q05_tests`,
+  `q06_tests`, `q09_tests`): 0 errors, 0 warnings (also after the mutation builds and the last edit).
+- `ctest -j 4` on the 22 new cases, `gs.chunks.consistency`, `tools.porting` and `tools.gen`: 25 of 25 (tools.gen 988 s). The executables
+  whole: `aion_gs_quest_tests` 229 of 229, `q05_tests` 37 of 37, `q06_tests` 67 of 67, `q09_tests` 64 of 64. No gate was run: nothing on
+  a gate's path calls the follow family.
+- `lint_concurrency.py --werror --cycles=core game-server/src`: 3,831 files, 0 errors, 0 warnings, 0 advisories. `chunks.py check`: 71
+  chunks, 84 parts, 0 problems; the new files are P5-06a's (`task/**`, `tests/quest`) and P5-06b's (`tests/quest_handlers`).
+
+**Mutation proof** (switch `AION_E07_MUT`), the lane's: 59 schemata in `FollowingNpcCheckTask.cpp`, `QuestTasks.cpp`, the three checkers,
+`AbstractQuestHandler.cpp` and `QuestEngine.cpp`'s reach and lost dispatch, all killed; each of the 128 assertions of the two test files fails
+under at least one (measured per failed line; assertions no mutant could reach were fixture preconditions or restated another one, and were
+removed). The seven sources restored and checked by sha256, rebuilt; no switch string in a source or a binary.
+
+**The follower's AI.** Every follower of the 14 escorts below has the AI "following" (`FollowingNpcAI`, data/handlers/ai), which has no C++
+file: m5c-plan.md D2 puts it in the capital-economy milestone with express mail. In the server such an npc gets a DummyNpcAI
+(`missing_ai_handlers=warn`), which ignores `FOLLOW_ME` and is named "noname", so `stopFollowing` deletes it, and no respawn follows
+(see "What else they need" below).
+
+**What E-07 unblocks: the transliterator's row B03.** `python -m tools.gen.questgen --dry-run --only <the 20 Java handlers that call
+defaultStartFollowEvent or defaultFollowEndEvent>`: 14 transliterate, all tier B with B03 as their only API row (1693 also B01, B02). Emitted
+outside the tree, each compiles against this tree's headers (`cl /Zs /W4` with the Q chunks' flags: no error, no warning; a copy with a wrong
+argument type fails with C2665, so the check is semantic). **None is landed.**
+
+| Quest | Java file (data/handlers/quest/) | Chunk | Follower (AI "following") | Destination | Start step |
+|---|---|---|---|---|---|
+| 1149 | `verteron/_1149MissingPoppy.java` | Q03 | 203191 poppy | npc 203145 (cannon) | 0 -> 1 |
+| 1364 | `eltnen/_1364JourneytoAgairon.java` | Q05 | 203945 teos | npc 790007 (dellome) | 0 -> 1 |
+| 1385 | `eltnen/_1385RescuingGriffo.java` | Q05 | 204029 dancing feather | (1923.47, 2541.46, 355.61) | 0 -> 1 |
+| 1562 | `heiron/_1562CrossedDestiny.java` | Q03 | 204616 litonos | npc 204589 | 0 -> 0, 1 -> 2 |
+| 1614 | `heiron/_1614WheresBelbua.java` | Q03 | 204645 belbua | (376, 529, 133) | 1 -> 2 |
+| 1693 | `heiron/_1693AreYouMyFather.java` | Q03 | 798388 harmone | npc 203893 (spawned only in Sanctum: getFirstSpawnByNpcId answers another map's first spot, as in Java) | 1 -> 2 |
+| 2284 | `altgard/_2284EscapingAsmodae.java` | Q10 | 798041 disguised germir | npc 798034 | 1 -> 2 |
+| 2290 | `altgard/_2290GrokensEscape.java` | Q10 | 203608 groken | npc 700178 | 0 -> 1 |
+| 2436 | `morheim/_2436LookingForBuBuPat.java` | Q09 | 204401 bubu pat | npc 204390 | 0 -> 1 |
+| 2669 | `beluslan/_2669AtlaEscape.java` | Q04 | 204815 atla | npc 730111 (Alquimia Research Center) | 0 -> 1 |
+| 3050 | `theobomos/_3050RescuingRuria.java` | Q12 | 798211 ruria | npc 798208 | 1 -> 2 |
+| 11040 | `inggison/_11040SquampOnTheCookingPlate.java` | Q02 | 799036 squamp | (296.63, 482.98, 574.37) | 0 -> 1 |
+| 14042 | `reshanta/_14042ARescueOperation.java` | Q01 | 253623 captured elyos prisoner | (1295.1139, 1498.6543, 1571.1763) | 3 -> 4 |
+| 24042 | `reshanta/_24042AReadyRescue.java` | Q01 | 253626 captured asmodian prisoner | (1295.0565, 1499.0419, 1571.1864) | 3 -> 4 |
+
+- **What else they need.** `FollowingNpcAI`, as a **hard prerequisite of landing them**: without it the npc does not walk, so an escort ends
+  only if its destination is already within 20 m of the npc, and fails once the player is 50 m away; and either way `stopFollowing` deletes
+  the map-spawned follower with a plain delete, which schedules no respawn (in Java the respawn comes from FollowingNpcAI's own stop,
+  `FollowEventHandler.stopFollow`: `AIActions.scheduleRespawn`, then `deleteOwner`). The npc is then gone until the server restarts, and the
+  quest is blocked for every player. A landing lane must hold B03's 14 files back until FollowingNpcAI exists (P5-06b.md, the follower's AI
+  row). That is the owner's call (m5c-plan.md D2,
+  m5j-plan.md A-C4). Landing them is phase 6's: each file into its Q chunk under §18.4's rules. Registering them changes `Loaded N quest
+  handlers` and the nearby-quest sets on their start npcs' maps (Verteron, Altgard, Eltnen, Heiron, Morheim, Beluslan, Theobomos, Inggison,
+  Reshanta), which the landing lane must check against the gates (`gs.scenario.travel` arrives in Verteron and Altgard); not measured here.
+- **The other six** callers of the follow helpers are refused for API rows the transliterator lacks, not for E-07: `beluslan/_24053`
+  (`Creature.getAi`, `CreatureController.addTask`), `beluslan/_2634` (also `new SM_NPC_INFO`), `morheim/_2333` and `morheim/_2394`
+  (`WalkManager.startWalking`, `getAi`, `addTask`), `pandaemonium/_4212` and `sanctum/_3212` (`VisibleObject.getSpawn`, `startWalking`,
+  `addTask`). All six call `QuestTasks` directly; its four overloads are ported, and so are the C++ members they name, so each needs only its
+  rows in `tools/gen/questgen/api.py`.
+
+**The review's findings (2026-09-29)**, closed in the same commit (P5-06a.md and P5-06b.md, "The review's findings"). The mutation review
+(74 schemata of its own: 59 killed, 1 equivalent, 14 alive) and the Java review approved the ported code; what they found were holes in the
+tests, notes for the docs, and one include out of order:
+- Test holes, now closed by mutation-proven cases: the order of the stop and the event (`succ-order`, `fail-order`); the follower read from
+  the env's object (`run-npc-envobj`, `stop-npc-envobj`); `defaultCloseDialog` with step 0 (`ah1/ah2-close-step0`); the 0 -> 0 test as
+  `nextStep == 0` or `step == nextStep` (`ah1/ah2-next0`, `ah1/ah2-stepeq`); the point's height replaced by the follower's (`qt-pt-znpc`,
+  `ah2-znpc`); the npc overload as a copy of the target's position (`qt-npc-coord`); the npc id overload on world 0 (`qt-id-world0`). The
+  round: 18 schemata switched by `AION_E07_MUT` (these 14 and `stop-nocancel`, `stop-followme`, `qt-pt-z0`, `ah2-z0` for the new cases' other
+  assertions), all killed, every new or changed assertion failing under at least one; the unmutated run 29 of 29; the three sources
+  restored by sha256, rebuilt, no switch string left in a source or binary. The review's equivalent schema (the delete before
+  `STOP_FOLLOW_ME`) is equivalent for every escort (P5-06a.md).
+- Docs: FollowingNpcAI is a hard prerequisite of B03 (the follower is never respawned without it; above); the follow tests' comments now say
+  that their exact packet lists hold only because the follower's broadcasts do not reach the quester in the fixture, and that `SM_NPC_INFO`'s
+  early serialization is the project's (runtime-architecture.md §8.1); the notes on the shared P5-06.md and on §21.2 are reconciled (above,
+  and P5-06a.md).
+- `AbstractQuestHandler.cpp`'s new `CreatureType.h` include now sorts as .clang-format's `SortIncludes: CaseSensitive` asks.
+- The tree: another reviewer's schemata (`AION_E07_MUT_R`) had been restored before this round started; the task, checker and handler
+  sources hashed to the lane's values, `QuestEngine.cpp` equals HEAD, and after the round's rebuild no `_MUT` string is in
+  `aion_gs_quest.lib`, `aion_gs_quest_tests.exe`, `aion_game_server.exe` or the q05, q06 and q09 test executables.
+
+Results of the round (build dir `cpp/build/msvc`): `aion_gs_quest_tests`, `aion_game_server` and the q05, q06 and q09 test executables
+rebuilt, 0 errors and 0 warnings (the changed sources recompiled after the restore); `ctest -j 4` on the 29 cases, `gs.chunks.consistency`
+and `tools.porting`: 31 of 31; the executables whole: `aion_gs_quest_tests` 236 of 236, q05 37 of 37, q06 67 of 67, q09 64 of 64 (with
+`AION_GAMESERVER_JAVA_DIR`, as ctest sets it); `lint_concurrency.py --werror --cycles=core game-server/src`: 3,831 files, 0/0/0; `chunks.py
+check`: 71 chunks, 84 parts, 0 problems; census unchanged (P5-06a 12, P5-06b 0, P5-06c 1). `tools.gen` was not rerun: the round changed no
+header and no generator input. No gate was run: nothing on a gate's path calls the follow family.
+
+**Left after E-07**
+- E-08 (§21.2, on `m5d/stage-3-e08`).
+- `FollowingNpcAI` for the escorts: a hard prerequisite of B03's 14 files, which must not land before it.
+- §20.7's items are unchanged.
