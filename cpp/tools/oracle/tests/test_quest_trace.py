@@ -753,6 +753,73 @@ class RouteSliceTest(unittest.TestCase):
 
 
 @unittest.skipUnless(HAVE_JAVA_TREE, "Java tree not present")
+class Q10SliceTest(unittest.TestCase):
+	"""the altgard and pandaemonium slice (SLICE_Q10, P6-Q slice 2, 2026-09-29); the cases below derived by hand from the handlers' Java"""
+
+	@classmethod
+	def setUpClass(cls):
+		cls.docs = {}
+		for rel in extract.SLICE_Q10:
+			d = extract.trace_file(tables(), extract.QUEST_DIR / rel, rel)
+			cls.docs[d["questId"]] = d
+
+	def test_the_q10_slice(self):
+		self.assertEqual(len(self.docs), 69)
+		self.assertEqual(set(extract.SLICE_Q10) & (set(extract.SLICE_TIER_A) | set(extract.SLICE_ROUTE)), set())
+		self.assertEqual(sorted({rel.split("/")[0] for rel in extract.SLICE_Q10}), ["altgard", "pandaemonium"])
+		# the six the slice leaves out: the five hand ports and 4212, held back (docs/deviations/Q10.md)
+		for rel in ("altgard/_2208MauInTenMinutesADay.java", "altgard/_2230AFriendlyWager.java", "altgard/_2252ChasingtheLegend.java",
+		            "altgard/_24013PoisonInTheWaters.java", "pandaemonium/_2900NoEscapingDestiny.java", "pandaemonium/_4212MissingSidrunerk.java"):
+			self.assertNotIn(rel, extract.SLICE)
+		# every hook refused: 2213, 2925, 2938, 2952 and the four charms (the golden harness lists them in ORACLE_REFUSES_EVERY_HOOK)
+		empty = sorted(q for q, d in self.docs.items() if not d["cases"])
+		self.assertEqual(empty, [2213, 2925, 2938, 2952, 4966, 4967, 4968, 4969])
+		for qid in empty:
+			self.assertIsInstance(self.docs[qid]["register"], list)
+
+	def test_2207_conversing_with_a_skurv(self):
+		# _2207ConversingWithaSkurv.java:23-29 (register) and :31-64 (onDialogEvent, the second npc)
+		d = self.docs[2207]
+		self.assertEqual(d["register"], [{"npc": 203590, "event": "addOnQuestStart", "args": [2207]},
+		                                 {"npc": 203590, "event": "addOnTalkEvent", "args": [2207]},
+		                                 {"npc": 203591, "event": "addOnTalkEvent", "args": [2207]},
+		                                 {"npc": 203557, "event": "addOnTalkEvent", "args": [2207]}])
+		c = one(d, "onDialogEvent", target={"kind": "npc", "npcId": 203591}, dialogAction={"name": "SETPRO1", "id": 10000},
+		        questState={"status": "START", "vars": {"0": 0}})
+		self.assertEqual((calls(c), c["returns"]), ([("defaultCloseDialog", [0, 1])], {"resultOf": 0}))
+		c = one(d, "onDialogEvent", target={"kind": "npc", "npcId": 203591}, dialogAction={"name": "SELECT_QUEST_REWARD", "id": 1009},
+		        questState={"status": "START", "vars": {"0": 2}})
+		self.assertEqual(calls(c), [("qs.setQuestVar", [3]), ("qs.setStatus", ["REWARD"]), ("updateQuestStatus", []), ("sendQuestEndDialog", [])])
+		c = one(d, "onDialogEvent", target={"kind": "npc", "npcId": 203591}, questState={"status": "START", "vars": {"0": 1}})
+		self.assertEqual((calls(c), c["returns"]), ([], False))
+
+	def test_the_dialog_action_a_path_leaves_free(self):
+		# the review of 2026-09-29 (Extractor.dialog_excludes): the else branch of `if (getDialogActionId() == QUEST_SELECT)` excludes only
+		# QUEST_SELECT (_2207ConversingWithaSkurv.java:38-41), the one inside the START branch also SETPRO1 (:45-50), a switch's default its
+		# cases (_24112NoLaissezFaireForLepharists.java:46-50); a path that names its action has no list
+		d = self.docs[2207]
+		use = {"name": "USE_OBJECT", "id": -1}
+		c = one(d, "onDialogEvent", target={"kind": "npc", "npcId": 203590}, dialogAction=use, questState=None)
+		self.assertEqual((calls(c), c["dialogExcludes"]), ([("sendQuestStartDialog", [])], [31]))
+		c = one(d, "onDialogEvent", target={"kind": "npc", "npcId": 203591}, dialogAction=use, questState={"status": "START", "vars": {"0": 0}})
+		self.assertEqual((calls(c), c["dialogExcludes"]), ([("sendQuestStartDialog", [])], [31, 10000]))
+		c = one(d, "onDialogEvent", target={"kind": "npc", "npcId": 203590}, dialogAction={"name": "QUEST_SELECT", "id": 31}, questState=None)
+		self.assertNotIn("dialogExcludes", c)
+		c = one(d, "onDialogEvent", target={"kind": "npc", "npcId": 203590}, questState={"status": "START"})
+		self.assertNotIn("dialogExcludes", c)                # the path reads no dialog action (DIALOG_OVERLAYS cover it)
+		c = one(self.docs[24112], "onDialogEvent", target={"kind": "npc", "npcId": 203631}, dialogAction=use, questState=None)
+		self.assertEqual((calls(c), c["dialogExcludes"]), ([("sendQuestStartDialog", [])], [31]))
+
+	def test_2213_registers_a_side_drop_and_a_get_item_event(self):
+		# _2213PoisonRootPotentFruit.java:22-29: the talk registration of 203604 twice (QuestNpc keeps it once), the drop, the get-item event
+		reg = self.docs[2213]["register"]
+		self.assertIn({"call": "addHandlerSideQuestDrop", "args": [2213, 700057, 182203208, 1, 100]}, reg)
+		self.assertIn({"call": "registerOnGetItem", "args": [182203208, 2213]}, reg)
+		self.assertEqual([r for r in reg if r.get("npc") == 203604 and r["event"] == "addOnTalkEvent"],
+		                 [{"npc": 203604, "event": "addOnTalkEvent", "args": [2213]}] * 2)
+
+
+@unittest.skipUnless(HAVE_JAVA_TREE, "Java tree not present")
 class CommandLineTest(unittest.TestCase):
 	def run_main(self, argv):
 		with contextlib.redirect_stdout(io.StringIO()) as out:

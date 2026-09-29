@@ -14,7 +14,9 @@ rideAction) over questgen's jast statement trees and records every return leaf a
 - returns (the value, or {"resultOf": k} for a helper's result, or {"fromBoolean": ...}) or throws (a NullPointerException when the path
   dereferences an absent QuestState or target; the call's arguments are evaluated first, JLS 15.12.4);
 - ranges: the inputs a guard bounds on both ends, as [lo, hi]: both ends satisfy every guard of the path (a value a guard excludes is
-  skipped), given holds lo and a harness may check hi as well; rangeExcludes lists the values inside [lo, hi] a guard excludes.
+  skipped), given holds lo and a harness may check hi as well; rangeExcludes lists the values inside [lo, hi] a guard excludes;
+- dialogExcludes: when the path reads the dialog action only through `!=` guards, the action ids they exclude (given holds one action
+  outside them; any other outside them takes the same path with the same effects, Extractor.dialog_excludes).
 
 Each document also holds the registration trace (register(), in statement order, loops over constant arrays unrolled; the Python-only form
 of phase6-questgen-prototype.md §8.2) and the hooks with their case counts or the reason a hook is refused.
@@ -93,7 +95,35 @@ SLICE_ROUTE = (
 	'ascension/_2901DispatchtoAltgard.java', 'ascension/_2902DispatchtoAltgard.java', 'ascension/_2903DispatchtoAltgard.java',
 	'ascension/_2904DispatchtoAltgard.java', 'ascension/_29070ADispatchtoAltgard.java', 'ascension/_29071ADispatchtoAltgard.java',
 )
-SLICE = SLICE_TIER_A + SLICE_ROUTE
+# P6-Q slice 2, chunk Q10 (2026-09-29): the handlers of altgard/ and pandaemonium/ that questgen transliterates (69 of 75; the other six are
+# hand ports or held back, docs/deviations/Q10.md). The C++ harness (game-server/tests/quest_handlers_golden) drives every document.
+SLICE_Q10 = (
+	'altgard/_2207ConversingWithaSkurv.java', 'altgard/_2209TheScribbler.java', 'altgard/_2213PoisonRootPotentFruit.java',
+	'altgard/_2216MuMuGrassKnot.java', 'altgard/_2221ManirsUncle.java', 'altgard/_2222ManirsMessage.java', 'altgard/_2223AMythicalMonster.java',
+	'altgard/_2228AThornInItsSide.java', 'altgard/_2231SiblingRivalry.java', 'altgard/_2232TheBrokenHoneyJar.java',
+	'altgard/_2239MalodorAntidote.java', 'altgard/_2247TheGergersDisguise.java', 'altgard/_2263ShugoPotion.java',
+	'altgard/_2266ATrustworthyMessenger.java', 'altgard/_2271AurtrisLetter.java', 'altgard/_2278ASecretProposal.java',
+	'altgard/_2279SolidProof.java', 'altgard/_2284EscapingAsmodae.java', 'altgard/_2288MoneyWhereYourMouthIs.java',
+	'altgard/_2289RampagingMosbears.java', 'altgard/_2290GrokensEscape.java', 'altgard/_24010SuthransOrders.java',
+	'altgard/_24011FunnyFloatingFungus.java', 'altgard/_24012AnOminousCrop.java', 'altgard/_24014StompOutThePlot.java',
+	'altgard/_24015TotemPlowed.java', 'altgard/_24016AStrangeNewThread.java', 'altgard/_24112NoLaissezFaireForLepharists.java',
+	'pandaemonium/_29004VeldinaCall.java', 'pandaemonium/_29048SeriphimTeachings.java', 'pandaemonium/_2911SongOfBlessing.java',
+	'pandaemonium/_2912FollowtheRibbon.java', 'pandaemonium/_2913AChainofDebt.java', 'pandaemonium/_2914ATokenofLostLove.java',
+	'pandaemonium/_2916ManInTheLongBlackRobe.java', 'pandaemonium/_2917ArekedilsHeritage.java', 'pandaemonium/_2918DeepMaternalLove.java',
+	'pandaemonium/_2919BookOfOblivion.java', 'pandaemonium/_2920ElementaryMyDearDaeva.java', 'pandaemonium/_2921LoveAtFirstSight.java',
+	'pandaemonium/_2922FascinatingGift.java', 'pandaemonium/_2925AHeartfeltConfession.java', 'pandaemonium/_2928PowerofLove.java',
+	'pandaemonium/_2937UnexpectedReward.java', 'pandaemonium/_2938SecretLibraryAccess.java', 'pandaemonium/_2948HuronsLetter.java',
+	'pandaemonium/_2952WinningVindachinerksFavor.java', 'pandaemonium/_2953DeliveringSupplyRequest.java',
+	'pandaemonium/_2954DeliveringOdellaJuice.java', 'pandaemonium/_2957FlowersForTheBanquet.java', 'pandaemonium/_2958LastMinuteWorries.java',
+	'pandaemonium/_2962JafnharWhereabouts.java', 'pandaemonium/_2963OnBehalfOfAFriend.java', 'pandaemonium/_2965AncientWeapons.java',
+	'pandaemonium/_2985AnExpertsReward.java', 'pandaemonium/_4210MissingHaorunerk.java', 'pandaemonium/_4905InterviewingTheVeterans.java',
+	'pandaemonium/_4906TalesOfHeroes.java', 'pandaemonium/_4920MakingTheActivatedSurkana.java', 'pandaemonium/_4966GrowthNinissFirstCharm.java',
+	'pandaemonium/_4967GrowthNinissSecondCharm.java', 'pandaemonium/_4968GrowthNinissThirdCharm.java',
+	'pandaemonium/_4969GrowthNinissFourthCharm.java', 'pandaemonium/_4970TheFashionistas.java', 'pandaemonium/_4971ProjectRunway.java',
+	'pandaemonium/_4972JudgeNot.java', 'pandaemonium/_4973MarraWorry.java', 'pandaemonium/_4974TheSecretOfHisSuccess.java',
+	'pandaemonium/_4976ASettlerAmbition.java',
+)
+SLICE = SLICE_TIER_A + SLICE_ROUTE + SLICE_Q10
 
 ENUM_FILES = {'QuestStatus': 'questEngine/model/QuestStatus.java', 'Race': 'model/Race.java', 'PlayerClass': 'model/PlayerClass.java',
               'Gender': 'model/Gender.java', 'HandlerResult': 'questEngine/handlers/HandlerResult.java', 'DialogPage': 'model/DialogPage.java',
@@ -1437,6 +1467,9 @@ class Extractor:
 		free = self.free_vars(p, v)
 		if free:
 			c['free'] = free
+		excludes = self.dialog_excludes(p, v)
+		if excludes is not None:
+			c['dialogExcludes'] = excludes
 		if p.assume:
 			c['assume'] = [{'effect': k, 'returns': b} for k, b in sorted(p.assume.items())]
 		c.update(self.outcome(kind, p, v, values))
@@ -1459,6 +1492,26 @@ class Extractor:
 		"""the QuestVars slots the path reads with no guard on them and uses in no effect argument and not in the return value: any value
 		takes the same path with the same effects, so a harness may set one to what a helper the path calls reads (P6-Q, the route-gen review:
 		`checkQuestItems(env, 1, ...)` after an unguarded `int var = qs.getQuestVarById(0)` acts only at var 1, and given holds 0)"""
+		used = self.used_keys(p, v)
+		return [self.key_name(k) for k in p.reads if k[0] == 'var' and k not in p.dom and k not in used]
+
+	def dialog_excludes(self, p, v):
+		"""the dialog actions a path excludes when it reads the dialog action only through `!=` guards (the else branch of
+		`if (action == QUEST_SELECT) ... else return sendQuestStartDialog(env)`, a switch's default), sorted; None for any other path. given
+		holds one representative (the first action of the table the guards allow: USE_OBJECT), with which the start and end helpers do
+		nothing; any action outside the list takes the same path with the same effects when the path neither writes the dialog action nor
+		uses it in an effect argument or the return value, so a harness may run the case with the actions those helpers act on (P6-Q slice 2,
+		the Q10 review: `sendQuestStartDialog` was vacuous in 105 cases, and a start branch returning false passed)"""
+		key = ('dialog',)
+		if key not in p.reads or key in p.state or key in self.used_keys(p, v):
+			return None
+		d = self.dom_of(p, key)
+		if d.allowed is not None or d.lo != -INF or d.hi != INF:
+			return None
+		return sorted(x for x in d.excluded if isinstance(x, int) and not isinstance(x, bool))
+
+	def used_keys(self, p, v):
+		"""the inputs an effect argument or the return value of the path reads"""
 		used = set()
 
 		def walk(x):
@@ -1478,7 +1531,7 @@ class Extractor:
 		for _call, args, _kind, _line in p.effects:
 			walk(args)
 		walk(v)
-		return [self.key_name(k) for k in p.reads if k[0] == 'var' and k not in p.dom and k not in used]
+		return used
 
 	def outcome(self, kind, p, v, values):
 		"""the effects and the return value (or the exception) of the path, evaluated under the input values"""

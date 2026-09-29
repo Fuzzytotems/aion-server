@@ -185,6 +185,11 @@ PLANNED = {
                                               'm5d-plan.md H-06 (the HandlerResult companion, a new file)'),
 }
 
+# Classes that a table member returns as runtime::Ref<T> (the caller owns a reference) and that HEADERS does not index. The caller destroys
+# the Ref even when the Java discards the result (an expression statement), and that needs the complete type, so the emitter includes the
+# header (emit.ret_type; P6-Q slice 2, chunk Q10: `SkillEngine.getInstance().applyEffectDirectly(...)` as a statement).
+OWNED_RESULT_HEADERS = {'Effect': G + 'skillengine/model/Effect.h'}
+
 # Java classes whose static members a handler may name, mapped to the C++ class or enum of the same role
 STATIC_CLASSES = {'QuestService', 'TeleportService', 'PacketSendUtility', 'PositionUtil', 'ItemService', 'InstanceService', 'SkillEngine',
                   'CraftSkillUpdateService', 'ZoneName', 'HandlerResult', 'SM_SYSTEM_MESSAGE', 'Rnd', 'EventService'}

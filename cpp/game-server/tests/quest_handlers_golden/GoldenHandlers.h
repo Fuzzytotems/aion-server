@@ -5,7 +5,8 @@
 // names them. The poeta handlers come from Q05's own library (aion_gs_handlers_quest_q05, linked into this executable); a handler target's
 // tests link only their own library, so the ishalgen (Q09) and ascension (Q06) handlers are compiled into this executable by #include
 // (GoldenIshalgenHandlers.cpp, GoldenAscensionHandlers.cpp), the way P5-05's tests compile the two quest npc AIs (chunks.cmake, the P5-05 LEASE
-// row). The generated files themselves are never edited here.
+// row), and so are the altgard and pandaemonium handlers of P6-Q slice 2 (Q10: GoldenAltgardHandlers.cpp, GoldenPandaemoniumHandlers.cpp; the
+// five hand ports and the held-back 4212 are not generated, docs/deviations/Q10.md). The generated files themselves are never edited here.
 //
 // Held back (GOLDEN_HELD_BACK): 1000, 2000, 1100 and 2100 register onEnterWorld and start their quest at a character's first enter world
 // (Java behaviour), which turns gs.scenario.m5a, m5b and m5b2 red (docs/deviations/Q05.md, "Gate impact"). Their generated files are not in
@@ -51,7 +52,76 @@
 	X(ascension, _2903DispatchtoAltgard, 2903) \
 	X(ascension, _2904DispatchtoAltgard, 2904) \
 	X(ascension, _29070ADispatchtoAltgard, 29070) \
-	X(ascension, _29071ADispatchtoAltgard, 29071)
+	X(ascension, _29071ADispatchtoAltgard, 29071) \
+	X(altgard, _2207ConversingWithaSkurv, 2207) \
+	X(altgard, _2209TheScribbler, 2209) \
+	X(altgard, _2213PoisonRootPotentFruit, 2213) \
+	X(altgard, _2216MuMuGrassKnot, 2216) \
+	X(altgard, _2221ManirsUncle, 2221) \
+	X(altgard, _2222ManirsMessage, 2222) \
+	X(altgard, _2223AMythicalMonster, 2223) \
+	X(altgard, _2228AThornInItsSide, 2228) \
+	X(altgard, _2231SiblingRivalry, 2231) \
+	X(altgard, _2232TheBrokenHoneyJar, 2232) \
+	X(altgard, _2239MalodorAntidote, 2239) \
+	X(altgard, _2247TheGergersDisguise, 2247) \
+	X(altgard, _2263ShugoPotion, 2263) \
+	X(altgard, _2266ATrustworthyMessenger, 2266) \
+	X(altgard, _2271AurtrisLetter, 2271) \
+	X(altgard, _2278ASecretProposal, 2278) \
+	X(altgard, _2279SolidProof, 2279) \
+	X(altgard, _2284EscapingAsmodae, 2284) \
+	X(altgard, _2288MoneyWhereYourMouthIs, 2288) \
+	X(altgard, _2289RampagingMosbears, 2289) \
+	X(altgard, _2290GrokensEscape, 2290) \
+	X(altgard, _24010SuthransOrders, 24010) \
+	X(altgard, _24011FunnyFloatingFungus, 24011) \
+	X(altgard, _24012AnOminousCrop, 24012) \
+	X(altgard, _24014StompOutThePlot, 24014) \
+	X(altgard, _24015TotemPlowed, 24015) \
+	X(altgard, _24016AStrangeNewThread, 24016) \
+	X(altgard, _24112NoLaissezFaireForLepharists, 24112) \
+	X(pandaemonium, _29004VeldinaCall, 29004) \
+	X(pandaemonium, _29048SeriphimTeachings, 29048) \
+	X(pandaemonium, _2911SongOfBlessing, 2911) \
+	X(pandaemonium, _2912FollowtheRibbon, 2912) \
+	X(pandaemonium, _2913AChainofDebt, 2913) \
+	X(pandaemonium, _2914ATokenofLostLove, 2914) \
+	X(pandaemonium, _2916ManInTheLongBlackRobe, 2916) \
+	X(pandaemonium, _2917ArekedilsHeritage, 2917) \
+	X(pandaemonium, _2918DeepMaternalLove, 2918) \
+	X(pandaemonium, _2919BookOfOblivion, 2919) \
+	X(pandaemonium, _2920ElementaryMyDearDaeva, 2920) \
+	X(pandaemonium, _2921LoveAtFirstSight, 2921) \
+	X(pandaemonium, _2922FascinatingGift, 2922) \
+	X(pandaemonium, _2925AHeartfeltConfession, 2925) \
+	X(pandaemonium, _2928PowerofLove, 2928) \
+	X(pandaemonium, _2937UnexpectedReward, 2937) \
+	X(pandaemonium, _2938SecretLibraryAccess, 2938) \
+	X(pandaemonium, _2948HuronsLetter, 2948) \
+	X(pandaemonium, _2952WinningVindachinerksFavor, 2952) \
+	X(pandaemonium, _2953DeliveringSupplyRequest, 2953) \
+	X(pandaemonium, _2954DeliveringOdellaJuice, 2954) \
+	X(pandaemonium, _2957FlowersForTheBanquet, 2957) \
+	X(pandaemonium, _2958LastMinuteWorries, 2958) \
+	X(pandaemonium, _2962JafnharWhereabouts, 2962) \
+	X(pandaemonium, _2963OnBehalfOfAFriend, 2963) \
+	X(pandaemonium, _2965AncientWeapons, 2965) \
+	X(pandaemonium, _2985AnExpertsReward, 2985) \
+	X(pandaemonium, _4210MissingHaorunerk, 4210) \
+	X(pandaemonium, _4905InterviewingTheVeterans, 4905) \
+	X(pandaemonium, _4906TalesOfHeroes, 4906) \
+	X(pandaemonium, _4920MakingTheActivatedSurkana, 4920) \
+	X(pandaemonium, _4966GrowthNinissFirstCharm, 4966) \
+	X(pandaemonium, _4967GrowthNinissSecondCharm, 4967) \
+	X(pandaemonium, _4968GrowthNinissThirdCharm, 4968) \
+	X(pandaemonium, _4969GrowthNinissFourthCharm, 4969) \
+	X(pandaemonium, _4970TheFashionistas, 4970) \
+	X(pandaemonium, _4971ProjectRunway, 4971) \
+	X(pandaemonium, _4972JudgeNot, 4972) \
+	X(pandaemonium, _4973MarraWorry, 4973) \
+	X(pandaemonium, _4974TheSecretOfHisSuccess, 4974) \
+	X(pandaemonium, _4976ASettlerAmbition, 4976)
 // clang-format on
 
 #define AION_GOLDEN_DECLARE_FACTORY(dir, Class, questId)                                                                                       \
@@ -73,7 +143,8 @@ struct GeneratedHandler {
 	std::unique_ptr<AbstractQuestHandler> (*factory)();
 };
 
-/** Every generated handler of the table, in the table's order (poeta, ishalgen, ascension; file name order inside a directory) */
+/** Every generated handler of the table, in the table's order (poeta, ishalgen, ascension, altgard, pandaemonium; file name order inside a
+ * directory) */
 inline const std::vector<GeneratedHandler>& generatedHandlers() {
 #define AION_GOLDEN_ENTRY(dir, Class, questId) GeneratedHandler{#dir, #Class, questId, &::aion::gameserver::handlers::quest::dir::Class##_questFactory},
 	static const std::vector<GeneratedHandler> table{AION_GOLDEN_GENERATED_HANDLERS(AION_GOLDEN_ENTRY)};

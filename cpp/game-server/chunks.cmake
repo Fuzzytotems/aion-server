@@ -513,8 +513,9 @@ aion_gs_chunk(Q04 TARGET aion_gs_handlers_quest_q04 PHASE 6 ROOT handlers
 	PCH "aion/gameserver/handlers/quest/QuestPrelude.h")
 # Q05's test directory is the golden quest trace harness of the generated handlers (P6-Q ascension route, lane route-gen, 2026-09-29;
 # phase6-inventory.md §7.6 item 3 and §8.2): it drives every case of tools/oracle/expected/quest through the real engine. A handler target's
-# tests link only their own library, so the executable compiles the generated Q09 (ishalgen) and Q06 (ascension dispatch) files by #include, as
-# P5-05's tests do for the two quest npc AIs (the P5-05 LEASE row below); docs/deviations/Q05.md.
+# tests link only their own library, so the executable compiles the generated Q09 (ishalgen), Q06 (ascension dispatch) and Q10 (altgard,
+# pandaemonium; P6-Q slice 2) files by #include, as P5-05's tests do for the two quest npc AIs (the P5-05 LEASE row below); docs/deviations/Q05.md,
+# Q10.md.
 aion_gs_chunk(Q05 TARGET aion_gs_handlers_quest_q05 PHASE 6 ROOT handlers
 	GLOBS "aion/gameserver/handlers/quest/{eltnen,poeta,oriel}/**"
 	JAVA "data/handlers/quest/{eltnen,poeta,oriel}/**"
@@ -548,10 +549,15 @@ aion_gs_chunk(Q09 TARGET aion_gs_handlers_quest_q09 PHASE 6 ROOT handlers
 # (TeleportService.java:304-333), which quest 2007's last step calls. Released when the lane merges.
 aion_gs_chunk(Q09 LEASE PHASE 6
 	GLOBS "aion/gameserver/services/teleport/TeleportService.cpp")
+# Q10's tests (P6-Q slice 2, 2026-09-29): tests/quest_handlers_asmodae, the unit cases of the five hand-ported altgard and pandaemonium quests
+# (2208, 2230, 2252, 24013, 2900) and of the two generated paths that kill their target (24012, 2223), on the fixture of tests/quest_handlers
+# (included by relative path, as Q05's golden harness does); the executable is aion_gs_handlers_quest_q10_tests. The generated files' golden
+# cases run in Q05's harness, which compiles them by #include (docs/deviations/Q10.md).
 aion_gs_chunk(Q10 TARGET aion_gs_handlers_quest_q10 PHASE 6 ROOT handlers
 	GLOBS "aion/gameserver/handlers/quest/{pandaemonium,altgard}/**"
 	JAVA "data/handlers/quest/{pandaemonium,altgard}/**"
-	PCH "aion/gameserver/handlers/quest/QuestPrelude.h")
+	PCH "aion/gameserver/handlers/quest/QuestPrelude.h"
+	TESTS quest_handlers_asmodae)
 aion_gs_chunk(Q11 TARGET aion_gs_handlers_quest_q11 PHASE 6 ROOT handlers
 	GLOBS "aion/gameserver/handlers/quest/{daevanion,sanctum}/**"
 	JAVA "data/handlers/quest/{daevanion,sanctum}/**"

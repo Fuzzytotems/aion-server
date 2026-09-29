@@ -1423,6 +1423,9 @@ class Transliterator:
 
     def ret_type(self, f):
         ct = self.cpp_type(f.ret or 'void')
+        if ct.kind == 'obj' and ct.ref == 'owning':
+            # the caller destroys a Ref result, even a discarded one, which needs the complete type (api.OWNED_RESULT_HEADERS)
+            self.includes_for_header(self.api.header_of(ct.name) or apimod.OWNED_RESULT_HEADERS.get(ct.name))
         return ct
 
     def static_call(self, cls, x, cname):
@@ -1840,6 +1843,7 @@ class Transliterator:
         if p.kind == 'obj' and ek == 'obj':
             if p.ref in ('lref', 'clref') and e.ct.ref in ('ptr', 'owning', 'raw'):
                 self.r.idioms['pointer dereferenced for a T& parameter'] += 1
+                self.need(e.ct.name)      # Ptr/Ref operator* needs the complete type (P6-Q slice 2, Q10: *getWorldMapInstance())
                 return '*' + self.paren(e, 1)
             return e.text
         if p.kind == 'prim' and ek == 'optional':

@@ -17,6 +17,7 @@
    "hook": "onDialogEvent",
    "given": {"target": {"kind": "none"}, "dialogAction": {"name": "USE_OBJECT", "id": -1}, "questState": null},
    "guards": ["qs == null -> true @34"],
+   "dialogExcludes": [],
    "effects": [],
    "returns": false
   },
@@ -25,6 +26,7 @@
    "hook": "onDialogEvent",
    "given": {"target": {"kind": "none"}, "dialogAction": {"name": "USE_OBJECT", "id": -1}, "questState": {"status": "COMPLETE", "canRepeat": true}},
    "guards": ["qs == null -> false @34", "qs.isStartable() [status == COMPLETE] -> true @34", "qs.isStartable() [canRepeat] -> true @34"],
+   "dialogExcludes": [],
    "effects": [],
    "returns": false
   },
@@ -39,6 +41,7 @@
     "qs.getStatus() == QuestStatus.START -> false @52",
     "qs.getStatus() == QuestStatus.REWARD -> false @64"
    ],
+   "dialogExcludes": [],
    "effects": [],
    "returns": false
   },
@@ -47,6 +50,7 @@
    "hook": "onDialogEvent",
    "given": {"target": {"kind": "none"}, "dialogAction": {"name": "USE_OBJECT", "id": -1}, "questState": {"status": "START"}},
    "guards": ["qs == null -> false @34", "qs.isStartable() [status == COMPLETE] -> false @34", "qs.getStatus() == QuestStatus.START -> true @52"],
+   "dialogExcludes": [],
    "effects": [],
    "returns": false
   },
@@ -60,6 +64,7 @@
     "qs.getStatus() == QuestStatus.START -> false @52",
     "qs.getStatus() == QuestStatus.REWARD -> true @64"
    ],
+   "dialogExcludes": [],
    "effects": [],
    "returns": false
   },
@@ -73,6 +78,7 @@
     "qs.getStatus() == QuestStatus.START -> false @52",
     "qs.getStatus() == QuestStatus.REWARD -> false @64"
    ],
+   "dialogExcludes": [],
    "effects": [],
    "returns": false
   },
@@ -134,6 +140,7 @@
     "targetId == 203502 -> true @35",
     "dialogActionId not in [QUEST_SELECT, ASK_QUEST_ACCEPT, QUEST_ACCEPT_1, QUEST_REFUSE_1, FINISH_DIALOG] -> true @36"
    ],
+   "dialogExcludes": [31, 1002, 1003, 1007, 1008],
    "effects": [],
    "returns": false
   },
@@ -142,6 +149,7 @@
    "hook": "onDialogEvent",
    "given": {"target": {"kind": "npc", "npcId": 203517}, "dialogAction": {"name": "USE_OBJECT", "id": -1}, "questState": null},
    "guards": ["qs == null -> true @34", "targetId == 203502 -> false @35"],
+   "dialogExcludes": [],
    "effects": [],
    "returns": false
   },
@@ -255,6 +263,7 @@
     "targetId == 203502 -> true @35",
     "dialogActionId not in [QUEST_SELECT, ASK_QUEST_ACCEPT, QUEST_ACCEPT_1, QUEST_REFUSE_1, FINISH_DIALOG] -> true @36"
    ],
+   "dialogExcludes": [31, 1002, 1003, 1007, 1008],
    "effects": [],
    "returns": false
   },
@@ -272,6 +281,7 @@
     "qs.isStartable() [canRepeat] -> true @34",
     "targetId == 203502 -> false @35"
    ],
+   "dialogExcludes": [],
    "effects": [],
    "returns": false
   },
@@ -290,6 +300,7 @@
     "qs.getStatus() == QuestStatus.START -> false @52",
     "qs.getStatus() == QuestStatus.REWARD -> false @64"
    ],
+   "dialogExcludes": [],
    "effects": [],
    "returns": false
   },
@@ -349,6 +360,7 @@
     "targetId == 203502 -> true @53",
     "dialogActionId not in [QUEST_SELECT, USE_OBJECT, SETPRO1] -> true @54"
    ],
+   "dialogExcludes": [-1, 31, 10000],
    "effects": [],
    "returns": false
   },
@@ -362,6 +374,7 @@
     "qs.getStatus() == QuestStatus.START -> true @52",
     "targetId == 203502 -> false @53"
    ],
+   "dialogExcludes": [],
    "effects": [],
    "returns": false
   },
@@ -392,6 +405,7 @@
     "targetId == 203517 -> true @65",
     "dialogActionId == USE_OBJECT -> false @66"
    ],
+   "dialogExcludes": [-1],
    "effects": [{"call": "sendQuestEndDialog", "kind": "dialog", "args": [], "line": 68}],
    "returns": {"resultOf": 0}
   },
@@ -406,6 +420,7 @@
     "qs.getStatus() == QuestStatus.REWARD -> true @64",
     "targetId == 203517 -> false @65"
    ],
+   "dialogExcludes": [],
    "effects": [],
    "returns": false
   },
@@ -419,6 +434,7 @@
     "qs.getStatus() == QuestStatus.START -> false @52",
     "qs.getStatus() == QuestStatus.REWARD -> false @64"
    ],
+   "dialogExcludes": [],
    "effects": [],
    "returns": false
   }
