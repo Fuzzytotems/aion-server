@@ -1,0 +1,70 @@
+# Q09 (Morheim, Ishalgen, Pernon quest handlers): hand ports
+
+Q09's record of its hand ports, kept under this name: the four handlers' comments cite it. The route-gen lane creates
+`docs/deviations/Q09.md`; the route-hand lane of 2026-09-29 writes here so the two lanes do not edit one file, and Q09.md's section
+"Hand ports" is a link to this file (one line, added by the integrator when the lanes merge).
+
+## Hand ports
+
+The route-hand lane (phase 6, 2026-09-29, the retail ascension route) hand-ported the four Ishalgen quests that `tools/gen/questgen` refuses.
+All four follow the questgen output's conventions (one `.cpp` per quest, the class in `aion::gameserver::handlers::quest::ishalgen`,
+`AION_QUEST_HANDLER` at the end, Java statement order and literals) and are ported statement by statement. **None has a deviation from
+Java**; one Java bug is kept and marked.
+
+| File | Java | Why questgen refuses it | How the refused construct is ported |
+|---|---|---|---|
+| `handlers/.../quest/ishalgen/_2002WheresRae.cpp` | `quest/ishalgen/_2002WheresRae.java` | the anonymous `Runnable` of `:182` | A pinned task (fieldmap `_2002WheresRae$1`, storage: task): `schedule({this, &flyer, &state, &qEnv}, [...], 40000)`, its four captures (the handler, Immortal; the player; the quest state; `qEnv`) are the Pin |
+| `handlers/.../quest/ishalgen/_2004ACharmedCube.cpp` | `quest/ishalgen/_2004ACharmedCube.java` | `VisibleObject.getObjectTemplate` (not in questgen's API table) | Direct: `VisibleObject::getObjectTemplate()` (VisibleObject.h:172) and `VisibleObjectTemplate::getTemplateId()` |
+| `handlers/.../quest/ishalgen/_2007WheresRaeThisTime.cpp` | `quest/ishalgen/_2007WheresRaeThisTime.java` | `TeleportService.teleportToNpc` (its C++ body was `AION_UNPORTED`) | Direct; the lane ported the body (below) |
+| `handlers/.../quest/ishalgen/_2136TheLostAxe.cpp` | `quest/ishalgen/_2136TheLostAxe.java` | the anonymous `Runnable` of `:61` | A pinned task (fieldmap `_2136TheLostAxe$1`): `schedule({&axeOwner}, [&axeOwner] { axeOwner.getController().delete_(); }, 10000)` |
+
+### Engine body ported under a lease: `TeleportService::teleportToNpc`
+
+`services/teleport/TeleportService.cpp` belongs to P5-08; chunks.cmake records a Q09 LEASE of the file (released when the lane merges). The
+body is TeleportService.java:304-333 statement by statement: the first spawn of the npc on the player's map (`SpawnsData.getFirstSpawnByNpcId`),
+the npc's front bound radius (1 without a template), the instance (the player's own on the same map, `InstanceService.getOrRegisterInstance`
+on an instance map, else the main instance), the point 1 m plus the radius in front of the spot (`Math.toRadians` as the JDK 9+ constant
+product, `(float) Math.cos/sin`), GeoService's Z or the spot's Z + 0.5 when it answers NaN, the heading turned 60 towards the npc (Java's
+`(byte)` of the int arithmetic) and `teleportTo(..., TeleportAnimation.NONE)`. The warning of a missing spawn is Java's text. No header changed.
+Tests: the same-map arm through 2007's last step; in `TeleportToNpcTest` (`IshalgenHandPortsTest.cpp`) the missing spawn, the open-map arm,
+a spot heading of exactly 60 on the player's map (Rae, 203554, spawns/Npcs/220010000_Ishalgen.xml:1335) and the radius 1 of a static
+object without an npc template (the Loom of Pandaemonium, spawns/Statics/120010000_Pandaemonium.xml:6, a fifth map row of the fixture);
+in `SoloInstanceQuestTest` the instance-map arm with a new instance and with the instance the player is registered with, and the player's
+own non-main instance of the npc's map with a heading over 60 (Belpartan, h 66, in a Karamatis instance).
+
+### Java bug kept
+
+| File | Java | Kept behaviour |
+|---|---|---|
+| `_2002WheresRae.cpp`, `SETPRO5` (`_2002WheresRae.java:119-121`) | `if (var == 12 \|\| var == 99)` with `var = qs.getQuestVarById(0)`, then `qs.setQuestVar(99)` | `// java-bug kept`. A var slot is 6 bits (QuestVars.java:23-58), so `var == 99` never holds, and `setQuestVar(99)` leaves slot 0 at 35 (99 & 0x3F). Inside Ataxiar the flight of Hagen (205020) still works (`var >= 12` with 35), but a player who leaves Ataxiar before talking to Hagen cannot enter it again through Rae (790002): the re-entry arm is dead, and 2002 has no enter-world hook to reset the step. `SoloInstanceQuestTest.LeavingAtaxiarEarlyLeavesTheMissionAt99AndRaeCannotSendThePlayerBackIn` pins it. A fix (the owner's call, U3) would compare the whole var field or reset the step on enter-world, as 1002 does |
+
+Java behaviour kept as it is (not bugs):
+
+- 2002 handles npcs 790002 (Rae) and 205020 (Hagen, inside Ataxiar: npc_templates.xml:23709, spawns/Instances/320010000_Ataxiar.xml:63) without registering them (`register()` names 203519, 203534, 203553,
+  700045, 203516, 203538): their dialogs reach the handler through the quest id of the dialog (QuestEngine.onDialog), not the npc's talk list.
+- 2002's spirit stone (700045) applies skill 8343 directly (`SkillEngine.applyEffectDirectly`), Ribbit Transformation, a 10 s shapechange
+  into a frog; it does not block the quest. The fixture publishes its skill row (skill_templates.xml:81678-81690) and the test checks the
+  effect on the player and its model (210273).
+- 2007's `SETPRO6` sends two quest updates (var 9, then var 8 with REWARD), as Java does.
+- 2136's owner (790009) schedules its own deletion 10 s after every dialog in REWARD; a later task finds it deleted already
+  (`World.removeObject` answers false).
+
+Tests: `tests/quest_handlers_zones/IshalgenHandPortsTest.cpp` (every hook and step of the four quests through the real `QuestEngine` on a
+real World of the shipped map rows, `ZoneQuestTestSupport.h`: registration, the pages, var and status writes, the kills with their ranges,
+`collectItemCheck`, skill 8343 of the spirit stone, the spawned npcs (203553 at the rock, 211755 in front of the tombstone with its
+heading, 790009 at its point) and their five-minute and 10 s timers on the ManualClock, the 40 s flight of 205020 with its flight
+transporter (3001), Munin's last step (var 6, the REWARD update and the closed window), movies 52/55/56/58/59, both reward groups of 2136, the finishes with their
+reward items, the level-up and quest-completed starts including 2007's LOCKED arm, and `teleportToNpc`'s point, height and heading in front
+of Ulgorn) and `SoloInstanceQuestTest.cpp` (Ataxiar entered through Rae, the flight back, the mission finished outside, the early leave
+of the kept bug, and a new instance even for a player registered with one). The fixture's data are verbatim excerpts of the shipped static data (`ZoneQuestTestData.h`, file:line in its comments;
+the npcs' `<equipment>` left out, as QuestHandlerTestSupport.h does). The instance cases need `AION_TEST_GS_DATABASE_URL` and skip without it.
+Structural parity (`python tools/parity/parity.py pair <java> <cpp>`): 2004 and 2007 are at parity; 2002's and 2136's only mismatches are
+the `Runnable` and `run` tokens of Java's anonymous class (call multiset and call order), which a C++ lambda has no counterpart for; every
+literal, DialogAction, other call and spawn id matches (parity has no per-line waiver yet, phase6-inventory.md §9.2).
+Mutation proof: 15 schemata over the four files and `teleportToNpc` (switch `AION_RHAND_MUT`), each killed by at least one case; sources
+restored by sha256. The review pass (2026-09-29) closed the gaps the mutation review found with 11 more schemata under the same switch, each
+killed: `teleportToNpc`'s `h - 60` and `>= 60`, the same-map instance, the no-template radius and `getOrRegisterInstance`; 2002's new
+instance, flight transporter id and skill 8343; 2004's last var, the guard's heading and its five minutes.
+
+The test directory `tests/quest_handlers_zones` is Q09's (chunks.cmake `TESTS quest_handlers_zones`, building
+`aion_gs_handlers_quest_q09_tests`); it also holds the tests of the two Poeta hand ports of Q05 (`docs/deviations/Q05-hand.md`).

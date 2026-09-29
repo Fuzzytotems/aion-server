@@ -523,10 +523,19 @@ aion_gs_chunk(Q08 TARGET aion_gs_handlers_quest_q08 PHASE 6 ROOT handlers
 	GLOBS "aion/gameserver/handlers/quest/{gelkmaros,enshar}/**"
 	JAVA "data/handlers/quest/{gelkmaros,enshar}/**"
 	PCH "aion/gameserver/handlers/quest/QuestPrelude.h")
+# Q09's tests (phase 6, route-hand lane, 2026-09-29): tests/quest_handlers_zones holds the tests of the six hand-ported starting-zone quests
+# of Poeta (Q05: 1002, 1114) and Ishalgen (Q09: 2002, 2004, 2007, 2136). The executable links Q09's library only; its test file for the two
+# Poeta quests compiles their .cpp files by #include, the workaround P5-05's lease row below describes for the two quest npc AIs (no lease
+# here: the two files are Q05's own and the test only compiles them) until manifest request p6q-rh-m01 links Q05's library.
 aion_gs_chunk(Q09 TARGET aion_gs_handlers_quest_q09 PHASE 6 ROOT handlers
 	GLOBS "aion/gameserver/handlers/quest/{morheim,ishalgen,pernon}/**"
 	JAVA "data/handlers/quest/{morheim,ishalgen,pernon}/**"
-	PCH "aion/gameserver/handlers/quest/QuestPrelude.h")
+	PCH "aion/gameserver/handlers/quest/QuestPrelude.h"
+	TESTS quest_handlers_zones)
+# The route-hand lane (phase 6, 2026-09-29): Q09 leases services/teleport/TeleportService.cpp from P5-08 for the body of teleportToNpc
+# (TeleportService.java:304-333), which quest 2007's last step calls. Released when the lane merges.
+aion_gs_chunk(Q09 LEASE PHASE 6
+	GLOBS "aion/gameserver/services/teleport/TeleportService.cpp")
 aion_gs_chunk(Q10 TARGET aion_gs_handlers_quest_q10 PHASE 6 ROOT handlers
 	GLOBS "aion/gameserver/handlers/quest/{pandaemonium,altgard}/**"
 	JAVA "data/handlers/quest/{pandaemonium,altgard}/**"
