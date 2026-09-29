@@ -822,9 +822,10 @@ void runM5bGate(const GateVariant& variant) {
 	//    bindRevive -> updateSoulSickness would have thrown out of K8's revive. M5b-2 ported the cast engine and StatdownEffect, so K8's revive
 	//    takes Java's real path: `!player.hasPermission(MembershipConfig.DISABLE_SOULSICKNESS)` with the @Property default 10
 	//    (MembershipConfig.java:37-38) exempts no scenario account, and skill 8291 is cast at the new death count. The default is STATED and
-	//    not left out, because the game server also reads the Java tree's untracked config/mygs.properties - the user's local play profile -
-	//    and the M5b-1 one carries `gameserver.soulsickness.disable = 0`: a gate that only dropped the key ran with the soul sickness off
-	//    (measured by gs.scenario.m5b2's first run). P2 below asserts what the real path does to the revive burst.
+	//    not left out, because the game server also read the Java tree's untracked config/mygs.properties - the user's local play profile -
+	//    and the M5b-1 one carried `gameserver.soulsickness.disable = 0`: a gate that only dropped the key ran with the soul sickness off
+	//    (measured by gs.scenario.m5b2's first run). Since 2026-09-29 no gate server reads that file (ScenarioServers passes main.cpp's test
+	//    hook --ignore-mygs-properties); the key stays stated. P2 below asserts what the real path does to the revive burst.
 	//  - rates.drop=0 (m5b3-plan.md D4, G-05; m5b.properties.example's M5b-3 block): no drop rule ever fires, because Rates.get(killer,
 	//    DROP_RATES) multiplies every global and custom rule's chance (DropRegistrationService.java:218, DropModifiers.java:53-57,
 	//    DropGroup.java:64) and a rule fires unless `Rnd.chance() >= chance`. registerDrop still runs to its end - the DropNpc, the

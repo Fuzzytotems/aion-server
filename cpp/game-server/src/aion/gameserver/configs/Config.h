@@ -23,7 +23,7 @@ namespace aion::gameserver::configs {
  * Property sources, later ones win (Java: Config.loadProperties):
  * <ol>
  * <li>./config/administration/*.properties, ./config/main/*.properties, ./config/network/*.properties (defaults)</li>
- * <li>./config/mygs.properties (operator overrides)</li>
+ * <li>./config/mygs.properties (operator overrides; left out while the C++ test hook setOverrideFileIgnored is on)</li>
  * <li>the properties of active events (Java: EventService.getInstance().getActiveEventConfigProperties()). EventService is not ported yet, so
  * the event service registers a provider with setEventConfigPropertiesProvider; without a provider there are no event properties.</li>
  * </ol>
@@ -94,10 +94,20 @@ struct Config {
 	static void setLocalIPv4Finder(LocalIPv4Finder finder);
 
 	/**
+	 * C++ addition, a test hook: `ignored` true makes load() and loadLoggingConfig() leave ./config/mygs.properties out, as if the file did not
+	 * exist; load() logs "Ignoring ./config/mygs.properties (C++ test hook --ignore-mygs-properties)" in place of "Loading: ...". main.cpp
+	 * sets it for its command line switch --ignore-mygs-properties, which every game server a test starts is given (the scenario gates, the
+	 * startup smoke tests, the M4 check): the file is the operator's untracked play profile, so without the switch a test server of a tree that
+	 * has one runs under it while CI and a fresh checkout run the shipped defaults. The default false reads the file like Java; a production
+	 * start never passes the switch. Thread-safe.
+	 */
+	static void setOverrideFileIgnored(bool ignored);
+
+	/**
 	 * C++ addition: the settings for Logging::init, which the startup code calls before load() like Java's GameServer calls Logging.init() before
 	 * Config.load(). Java's config/logback.xml reads its properties itself; this mirrors it: config/main/gameserver.properties,
 	 * config/main/logging.properties, then config/mygs.properties (values of later files win, values are trimmed, missing files are ignored,
-	 * an unreadable file logs a warning).
+	 * an unreadable file logs a warning). The last one is left out while setOverrideFileIgnored(true) is in effect.
 	 *
 	 * @return the default Logging::Config with timeZone (gameserver.timezone, nullptr = system default, like logback's empty zone),
 	 *         statusDiscordWebhookUrl (gameserver.log.status.discord.webhook_url) and statusDiscordAvatarUrl (gameserver.log.status.discord.avatar_url)

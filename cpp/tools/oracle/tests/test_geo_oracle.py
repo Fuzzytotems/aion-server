@@ -4,6 +4,9 @@ the Java tree). Expectations are derived by hand from the Java sources."""
 
 from __future__ import annotations
 
+import contextlib
+import io
+import json
 import math
 import struct
 import tempfile
@@ -259,6 +262,76 @@ class M4CompareTest(unittest.TestCase):
 		probes = {"probes": [{"map": 210010000, "instanceId": 1, "x": {"bits": 1}, "y": {"bits": 2}, "zMax": {"bits": 3}, "zMin": {"bits": 4}}]}
 		self.assertEqual(m4.write_probes(probes, self.dir / "probes.txt"), 1)
 		self.assertEqual((self.dir / "probes.txt").read_text().splitlines()[1], "210010000 1 1 2 3 4")
+
+	def test_no_profile_leaves_mygs_properties_out(self):
+		# the M4 check's server runs with --ignore-mygs-properties (a C++ test hook), so m4-compare --no-profile must predict from the defaults
+		# only, whatever the operator's untracked profile sets (RunM4Check.cmake passes both, and requires the note line below)
+		(self.dir / "main").mkdir()
+		(self.dir / "main" / "world.properties").write_text("gameserver.world.max.twincount.usual = 3\n")
+		(self.dir / "mygs.properties").write_text("gameserver.world.max.twincount.usual=0\nkey = profile\n")
+		self.assertEqual(m4.read_properties(self.dir, profile=False), {"gameserver.world.max.twincount.usual": "3"})
+		self.assertEqual(m4.read_properties(self.dir, profile=True), {"gameserver.world.max.twincount.usual": "0", "key": "profile"})
+		without = m4.property_files(self.dir, profile=False)
+		self.assertEqual(without, [self.dir / "main" / "world.properties"])
+		self.assertEqual(m4.profile_note(self.dir, without, False), f"properties: the defaults of {self.dir}, mygs.properties not read (--no-profile)")
+		with_profile = m4.property_files(self.dir, profile=True)
+		self.assertEqual(with_profile, [self.dir / "main" / "world.properties", self.dir / "mygs.properties"])
+		self.assertEqual(m4.profile_note(self.dir, with_profile, True), f"properties: the defaults of {self.dir} and its mygs.properties")
+		# the note says what was read, never only what the flag asked for (the review of lane H: RunM4Check checks the note alone)
+		self.assertEqual(m4.profile_note(self.dir, with_profile, False), f"properties: the defaults of {self.dir} and its mygs.properties")
+		(self.dir / "mygs.properties").unlink()
+		self.assertEqual(m4.profile_note(self.dir, m4.property_files(self.dir, True), True),
+			f"properties: the defaults of {self.dir} (it has no mygs.properties)")
+
+	def _compare_fixture(self) -> tuple[Path, Path, Path, Path]:
+		"""a report directory with one map of one instance, the static data of that map (twin_count 5), and a config whose defaults allow one
+		twin while its mygs.properties allows all (0): only a prediction that reads the profile expects five instances"""
+		report = self.dir / "report"
+		report.mkdir()
+		for name in ("static_data_extras.txt", "geo_statistics.txt", "material_zone_names.txt", "geo_probes_actual.txt"):
+			(report / name).write_text("")
+		(report / "world_zones.txt").write_text("map 1 instances 1\ninstance 1 zones 1\nzone 1\n")
+		static_data = self.dir / "static_data"
+		(static_data / "zones").mkdir(parents=True)
+		(static_data / "mesh_materials").mkdir()
+		(static_data / "world_maps.xml").write_text('<world_maps>\n	<map id="1" name="m" twin_count="5"/>\n</world_maps>\n')
+		(static_data / "static_data.xml").write_text('<static_data>\n	<import file="zones" singleRootTag="true"/>\n</static_data>\n')
+		(static_data / "zones" / "zones.xml").write_text("<zones>\n</zones>\n")
+		(static_data / "mesh_materials" / "material_templates.xml").write_text("<material_templates>\n</material_templates>\n")
+		config = self.dir / "config"
+		(config / "main").mkdir(parents=True)
+		(config / "main" / "world.properties").write_text("gameserver.world.max.twincount.usual = 1\n")
+		(config / "mygs.properties").write_text("gameserver.world.max.twincount.usual = 0\n")
+		expected = self.dir / "expected.json"
+		expected.write_text(json.dumps({"counts": {key: None for key in m4.COUNT_KEYS}, "probes": [],
+			"zoneNames": {"count": 0, "distinct": 0, "fnv1a64": run.zone_names_digest([]), "sample": []}}))
+		return report, static_data, config, expected
+
+	def test_compare_predicts_from_the_properties_it_read(self):
+		# the review of lane H: compare() itself must leave the profile out with profile=False (not only read_properties), or the prediction and
+		# the server diverge again as soon as the operator's profile sets a twin count, geodata.enable or geodata.shields.enable
+		report, static_data, config, expected = self._compare_fixture()
+		document = json.loads(expected.read_text())
+		diffs, notes = m4.compare(report, document, self.dir / "no_geo", static_data, config, 99, profile=False)
+		self.assertEqual([diff for diff in diffs if diff.startswith("map 1")], [])
+		self.assertIn(f"properties: the defaults of {config}, mygs.properties not read (--no-profile)", notes)
+		diffs, notes = m4.compare(report, document, self.dir / "no_geo", static_data, config, 99, profile=True)
+		self.assertIn("map 1: 1 instances, expected 5", diffs)
+		self.assertIn(f"properties: the defaults of {config} and its mygs.properties", notes)
+
+	def test_main_passes_no_profile_to_compare(self):
+		# m4-compare --no-profile predicts without the profile; without the flag it reads it, as Java's Config.load does
+		report, static_data, config, expected = self._compare_fixture()
+		arguments = ["m4-compare", "--dir", str(report), "--expected", str(expected), "--geo-dir", str(self.dir / "no_geo"), "--static-data",
+			str(static_data), "--config", str(config)]
+		for flags, profile_read in (([], True), (["--no-profile"], False)):
+			with self.subTest(flags=flags):
+				output = io.StringIO()
+				with contextlib.redirect_stdout(output):
+					m4.main(arguments + flags)
+				lines = output.getvalue().splitlines()
+				self.assertEqual("map 1: 1 instances, expected 5" in lines, profile_read, output.getvalue())
+				self.assertEqual(f"properties: the defaults of {config}, mygs.properties not read (--no-profile)" in lines, not profile_read)
 
 	def test_world_zones_and_xml_zone_names(self):
 		(self.dir / "world_zones.txt").write_text("map 1 instances 1\ninstance 1 zones 2\nzone 1\nzone A_1\nmap 2 missing\n")

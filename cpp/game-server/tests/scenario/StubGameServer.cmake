@@ -6,11 +6,16 @@
 # With -Dgameserver.html.cache.file=<path> it does at startup what HTMLCache::reload does with that file (HTMLCache.java:64-120), as far as
 # the harness can see it: a file that is already there is read ("Cache[HTML]: Using cache file... OK."), a missing one is written
 # ("Cache[HTML]: Creating cache file... OK."), both before "Game server started" - so a harness test can tell which of the two the start saw.
+# Its log says what aion_game_server's says about the operator's config/mygs.properties: "Ignoring ./config/mygs.properties (C++ test hook
+# --ignore-mygs-properties)" with that switch, "Loading: ./config/mygs.properties" without it - or with -Dgameserver.stub.profile=read, a server
+# that takes the switch and reads the file anyway (ScenarioServers::gameServerProfileProblem fails the start).
 
 set(stop_file "")
 set(check_output "")
 set(html_cache_file "")
 set(fail FALSE)
+set(ignore_profile FALSE)
+set(read_profile FALSE)
 math(EXPR last "${CMAKE_ARGC} - 1")
 foreach(i RANGE ${last})
 	set(argument "${CMAKE_ARGV${i}}")
@@ -22,10 +27,19 @@ foreach(i RANGE ${last})
 		set(html_cache_file "${CMAKE_MATCH_1}")
 	elseif(argument STREQUAL "-Dgameserver.stub.fail=true")
 		set(fail TRUE)
+	elseif(argument STREQUAL "--ignore-mygs-properties")
+		set(ignore_profile TRUE)
+	elseif(argument STREQUAL "-Dgameserver.stub.profile=read")
+		set(read_profile TRUE)
 	endif()
 endforeach()
 
 execute_process(COMMAND "${CMAKE_COMMAND}" -E echo "startup step 1: Config.load()")
+if(ignore_profile AND NOT read_profile)
+	execute_process(COMMAND "${CMAKE_COMMAND}" -E echo "Ignoring ./config/mygs.properties (C++ test hook --ignore-mygs-properties)")
+else()
+	execute_process(COMMAND "${CMAKE_COMMAND}" -E echo "Loading: ./config/mygs.properties")
+endif()
 if(fail)
 	execute_process(COMMAND "${CMAKE_COMMAND}" -E echo "Game server startup stopped at an unported function: stub")
 	message(FATAL_ERROR "stub game server: startup failed")

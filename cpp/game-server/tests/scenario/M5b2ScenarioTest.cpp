@@ -849,10 +849,11 @@ void runM5b2Gate(const GateVariant& variant) {
 	config.schemaPrefix = variant.schemaPrefix;
 	config.gameServerProperties["gameserver.geodata.enable"] = variant.geodata ? "true" : "false";
 	config.gameServerProperties["gameserver.npcshouts.enable"] = "false";
-	// D5 is "the key leaves the profile", but leaving it out is not enough: the game server also reads the Java tree's config/mygs.properties,
-	// the user's local play profile (untracked), and the M5b-1 one of 2026-09-22 carries `gameserver.soulsickness.disable = 0`. The first run of
+	// D5 is "the key leaves the profile", but leaving it out was not enough: the game server also read the Java tree's config/mygs.properties,
+	// the user's local play profile (untracked), and the M5b-1 one of 2026-09-22 carried `gameserver.soulsickness.disable = 0`. The first run of
 	// this gate measured exactly that - no soul sickness after the revive. The gate therefore states MembershipConfig's own @Property default,
 	// 10 (MembershipConfig.java:37-38), under which Player.hasPermission exempts no scenario account and updateSoulSickness casts 8291.
+	// (Since 2026-09-29 no gate server reads that file: ScenarioServers passes main.cpp's test hook --ignore-mygs-properties.)
 	config.gameServerProperties["gameserver.soulsickness.disable"] = "10";
 	// m5b3-plan.md D4 (G-05), m5b2.properties.example's M5b-3 block: no drop rule fires at a drop rate of 0 (Rates.get(killer, DROP_RATES)
 	// multiplies every rule's chance: DropRegistrationService.java:218, DropModifiers.java:53-57, DropGroup.java:64), while registerDrop still

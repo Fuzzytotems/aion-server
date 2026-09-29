@@ -34,7 +34,9 @@ std::string readFile(const fs::path& file) {
 
 /**
  * Creates a working directory like chat-server/ in the test's working directory: ./config (the Java module's files plus a mycs.properties with
- * the given ports and the test database) and ./log.
+ * the given ports and the test database) and ./log. The mycs.properties is this test's own: it replaces whatever the copy brought along, so an
+ * operator's untracked chat-server/config/mycs.properties never reaches the server (the game and login servers of the scenario gates leave
+ * theirs out the same way: tests/scenario/ScenarioServers.h).
  */
 fs::path createServerDirectory(std::string_view name, uint16_t clientPort, uint16_t gsPort) {
 	fs::path dir = fs::current_path() / name;

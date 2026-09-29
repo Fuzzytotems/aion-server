@@ -61,8 +61,11 @@ public:
 	static void runBreakerPass();
 
 	/**
-	 * Waits (until `deadline`) for one barrier task per pool, so nothing that was queued before it is still pending. Without it a queued logout
-	 * task still pins its Player and the census reports it as a leak (m5a-plan.md F-07 "drain the pools").
+	 * Waits (until `deadline`) until every task that is queued in the instant or the long-running pool when it starts has ended (its future is
+	 * done, whichever thread took it), and every task that is running on a thread of the executor pools then (the task each thread publishes in
+	 * its runtime::ThreadContext) has been left by its thread. Tasks queued or started later are not waited for. Without it a queued logout
+	 * task still pins its Player and the census reports it as a leak (m5a-plan.md F-07 "drain the pools"), and so does a task still running (a
+	 * 9 s MapRegion::activate, p6q-ascension-route.md §7).
 	 */
 	static void drainPools(std::chrono::steady_clock::time_point deadline);
 

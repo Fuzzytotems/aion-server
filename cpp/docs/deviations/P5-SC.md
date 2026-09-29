@@ -458,3 +458,156 @@ value. On 2026-09-29 that file sets `gameserver.simple.secondclass.enable = true
 register only in `gs.scenario.ascension`, which pins the key to `false`; in `gs.scenario.travel` (and m5c) the seeded Daevas get no
 1007 / 2009 in the main tree, and do in a tree without the file (CI, a worktree). Both were measured on the travel gate, both pass
 (p6q-ascension-route.md §7). Recorded here, not changed: pinning the key in the travel gate is the owner's call (U1/U7).
+
+## Lane H (harness, 2026-09-29): hermetic gate servers and the census drain
+
+Branch `fix/gate-hermetic`, from C++ `a72676184`: the two harness defects of docs/design/p6q-ascension-route.md §7. The game server's test
+hook and the drain are rows of P4-01.md and P5-14.md, section "Lane H"; the header requests gh-1 and gh-2 are in header-requests.md.
+
+**1. The operator's play profile never reaches a test server.** Every server a test started in the Java module directory read its untracked
+override file (`game-server/config/mygs.properties`: "Loading: ./config/mygs.properties" in every gate log), so a key a gate does not pin took
+the owner's value in the main tree and the shipped default in CI and in a worktree (the section "What every gate server of the main tree also
+reads" above, and the m5c row's "a key the owner adds later would reach the server and not the oracles (left for integration)"). Now:
+
+| Area | As built | Reason |
+|---|---|---|
+| `ScenarioServers::gameServerArguments` | Always adds `--ignore-mygs-properties` (`ScenarioServers::IGNORE_MYGS_PROPERTIES`), main.cpp's C++-only test hook: the game server's log says "Ignoring ./config/mygs.properties (C++ test hook --ignore-mygs-properties)" in place of "Loading: ...". Every gate and the stress run build their arguments here | A test-only command line switch keeps the production server exactly Java-faithful (it never passes it) and needs no second working directory: the game server reads `./data` below the module directory too |
+| `ScenarioServers::prepareLoginServerDirectory` | The login server's working directory (`ls_run`) is built entry by entry from the module's `config` and leaves `config/myls.properties` (`ScenarioServers::loginServerOverrideFile()`) out, in any letter case of its name (review fix: `std::filesystem::path` compares case-sensitively, Windows opens the file whatever its case); the module directory is only read | The login server already ran in a copy of its config (stage 3), which copied the operator's `myls.properties` along. With the file left out it logs "No override properties found" |
+| `startGameServer()` / `startLoginServer()` check the servers' logs (review fix) | Once the server is up, `gameServerProfileProblem` requires "Ignoring ./config/mygs.properties (C++ test hook --ignore-mygs-properties)" and no "Loading: ./config/mygs.properties" in the game server's log, `loginServerProfileProblem` "No override properties found" in the login server's; otherwise the start throws and the gate fails. The stub game server (`StubGameServer.cmake`) logs the line `aion_game_server` would, and with `-Dgameserver.stub.profile=read` reads the file although it got the switch | The review of lane H: nothing in a gate checked its own hermeticity - a harness that dropped the switch for the geo gates (mutant c1) passed `gs.scenario.m5a_geo` with the owner's profile read. Now that gate fails at its start under the same mutant (r19, below) |
+| The chat server | Unchanged: `ChatServerProcessTest` (chat-server/tests/e2e) writes its own `config/mycs.properties` over its copy of the module's config, so an operator's file never reached the server; a comment there says so now | Hermetic by construction |
+| The smoke tests and the M4 check | `--ignore-mygs-properties` on every server run, and the M4 check's `m4-compare --no-profile` (P5-14.md, "Lane H") | The same profile, read by the other test servers of the tree |
+| `HermeticServersTest` (in `ScenarioServersTest.cpp`) | Two cases on the REAL servers, in module directories of their own below the test's output directory: `config` holds a copy of the module's `administration`/`main`/`network` folders (never the owner's override file) and an override file the test writes itself with a value the server cannot load (`gameserver.timezone = Mygs/NoSuchZone`; `loginserver.network.client.logintrybeforeban = mylsNotANumber`). The gate's server (`startGameServer()` / `startLoginServer()` with the offline environment) gets past its configuration to its database step (the game server logs the "Ignoring ..." line and "startup step 2: DatabaseFactory.init()", the login server "No override properties found" and "Failed to initialize pool"; `ls_run` has no `myls.properties`, the module's file is still there); the control - the same arguments without the switch in the same directory, and the login server started in the module directory itself - stops at the value ("Unknown time-zone ID: Mygs/NoSuchZone", "Error parsing \"mylsNotANumber\" as int"), which shows the file was there to be read. No database: 3-5 s per case. Registered like LoginServerHarnessTest: `scenario;realdata`, gate slot 1, TIMEOUT 300 (`ScenarioTests.cmake`) | The task's proof that a gate server does not see a `my*.properties` value, without ever writing into the owner's real config directory. A server run holds a slot (the rule of "the two gate slots") |
+| `ScenarioServersTest.TheGameServerGetsTheM5aProfileAndTheScenarioArguments` | Also asserts `--ignore-mygs-properties` exactly once, in main.cpp's spelling | – |
+| The gates in the main tree | They now see what CI and a worktree saw: of the owner's profile of 2026-09-29 two keys differ from that, `gameserver.simple.secondclass.enable` (`true` there, the shipped `false` now: the four ascension handlers 1006, 2008, 1007 and 2009 register in every gate, p6q-ascension-route.md §7's second row for the travel gate) and `gameserver.network.client.connect_address` (`127.0.0.1:7777` there, the play server's port, which every gate's login server handed its fake client; now the shipped `${gameserver.network.client.socket_address}`, the gate's own client address). Its other keys equal the shipped defaults or are pinned by `m5aProfile()` or the gate. No gate expectation changed: the whole gate set had already run without the file in the verify worktree, 51 run, 50 passed at once and m5a_geo on its rerun (the census flake that part 2 fixes; p6q-ascension-route.md §3) | – |
+| Comments | `M5bScenarioTest.cpp` and `M5b2ScenarioTest.cpp` explained their stated `gameserver.soulsickness.disable = 10` with the profile the server read; now in the past tense, the keys stay | – |
+
+**2. The census drain waits for the tasks already running.** `CheckOutput::drainPools` (P5-14.md, "Lane H") now waits until every pool
+thread that ran a task when the drain started has left it, and (since the review fixes below) until every task queued in the instant or the
+long-running pool then is done, in place of its barrier tasks; tasks queued or started later are not waited for. The window of
+`Player 103881 506` - a 9 s `MapRegion::activate` on one instant pool thread while another one ran the barrier - is the unit case
+`CheckOutputTest.TheDrainWaitsForATaskThatIsAlreadyRunningOnAnotherPoolThread`, which failed before the fix (mutant m10 below).
+
+**Measured** (build dir `cpp/build/msvc`, Debug, the test database environment; the owner's `mygs.properties` in place and untouched):
+
+- `gs.scenario.m5a_geo` beside `gs.scenario.m5b2_geo` (`ctest -j 2 -R "^gs\.scenario\.(m5a_geo|m5b2_geo)$"`), twice: **both passed both
+  times** (m5a_geo 153 s and 156 s, m5b2_geo 298 s and 282 s), every `census.txt` empty (the header line alone). No drain logged a wait (no
+  "Pool drain" line: none of the four censuses met a task running 100 ms or longer).
+- `gs.smoke.startup` 30 s, `gs.smoke.startup_progress` 29 s, `gs.m4.check_static_data` 141 s: passed. `gs.scenario.m5a` 61 s,
+  `gs.scenario.travel` 40 s, `gs.scenario.m5c` 282 s and `LoginServerHarnessTest` (`-j 2`): passed, censuses empty. Every gate server's log
+  has the "Ignoring ./config/mygs.properties ..." line and no "Loading: ./config/mygs.properties", every login server's log "No override
+  properties found"; the M4 check's servers now discover the machine's IPv4 for the shipped wildcard connect address ("No IP for Aion client
+  advertisement configured, using ...", as in CI), where the owner's profile had set `127.0.0.1:7777`.
+- The harness cases (`ctest -L scenario -E "^gs\."`: 39 run, 12 disabled gate shadows), `ChildProcessTest.*` and `ScenarioServersTest.*`,
+  `ChatServerProcessTest.*`, `ConfigLoadTest.*`, `CheckOutputTest.*`, `aion_gs_configs_tests` (55) and `aion_gs_app_tests` (40) each in one
+  process, `tools.porting` (71) and `test_geo_oracle` (19): passed.
+
+**Mutation** (switch `AION_GH_MUT`: schemata in `configs/Config.cpp`, `main.cpp`, `ScenarioServers.cpp`, `CheckOutput.cpp`, the login server's
+`configs/Config.cpp`, `RunStartupSmoke.cmake`, `RunM4Check.cmake` and `tools/oracle/geo/m4.py`, one build; every server and CMake script
+inherits the variable from ctest). Every mutant was killed:
+
+| Mutant | What it breaks | Killed by |
+|---|---|---|
+| m1 | `loadProperties` reads `mygs.properties` although the hook is on | `ConfigLoadTest.TheTestHookLeaves...`, `HermeticServersTest.TheGameServerOfAGate...` (the gate's server stops at the profile's zone) |
+| m2 | `loadLoggingConfig` reads it although the hook is on | the same two |
+| m3 | main.cpp parses `--ignore-mygs-properties` but does not apply it | `HermeticServersTest.TheGameServerOfAGate...`, `gs.smoke.startup` ("the server did not leave config/mygs.properties out") |
+| m4 | `gameServerArguments` leaves the switch out | `ScenarioServersTest.TheGameServerGetsTheM5aProfileAndTheScenarioArguments`, `HermeticServersTest.TheGameServerOfAGate...` |
+| m5 | the login server's config copy keeps `myls.properties` | `HermeticServersTest.TheLoginServerOfAGate...` (the file in `ls_run`, no "No override properties found", the value in the log) |
+| m6 | `RunStartupSmoke.cmake` leaves the switch out | `gs.smoke.startup` |
+| m7 | `RunM4Check.cmake` leaves the switch out | `gs.m4.check_static_data` ("id_factory: the server did not leave config/mygs.properties out", 3 s) |
+| m8 | `RunM4Check.cmake` leaves `m4-compare --no-profile` out | `gs.m4.check_static_data` ("items 5 and 6: m4-compare did not say that it left mygs.properties out", 142 s) |
+| m9 | `m4.py` reads the profile although `--no-profile` | `test_geo_oracle.M4CompareTest.test_no_profile_leaves_mygs_properties_out` |
+| m10 | `drainPools` does not wait for running tasks (the code before the fix) | both drain cases of `CheckOutputTest` |
+| m11 | `drainPools` waits until no pool thread runs a task (idle pools) | `CheckOutputTest.TheDrainDoesNotWaitForATaskThatStartedAfterIt` (it waited to its 6 s deadline) |
+| m12 | the "LongRunning-" threads are not tracked | `CheckOutputTest.TheDrainWaitsForATaskThatIsAlreadyRunningOnAnotherPoolThread` (the LongRunning case) |
+| m13 | the "ScheduledPool-" threads are not tracked | the same case (the ScheduledPool case) |
+| m14 | a thread counts as still running its task while it runs any task | `TheDrainDoesNotWaitForATaskThatStartedAfterIt` (the one-thread pool) |
+| m16 | `loadProperties` never reads `mygs.properties` | `ConfigLoadTest.TheTestHookLeaves...` (its hook-off half) and six older `ConfigLoadTest` cases |
+| m17 | the login server never reads `myls.properties` | `HermeticServersTest.TheLoginServerOfAGate...` (its control) |
+| m18 | the game server never reads `mygs.properties` (both loaders) | `HermeticServersTest.TheGameServerOfAGate...` (its control) |
+
+(m15 was not used.) Sources restored byte for byte from saved copies (sha256 checked for all eight files), the stale `m4.cpython-312.pyc` of
+m9 removed, everything rebuilt; no `AION_GH_MUT` string is in a source, in `tools/oracle` or in the five rebuilt executables, and the tests
+pass again on the rebuilt binaries.
+
+### Review fixes (2026-09-29)
+
+The review of lane H requested changes: part 1 sound, part 2 incomplete. Per finding:
+
+1. **medium - the drain returned while a task queued before it still ran** (another pool thread took the task just before the barrier; the
+   reviewer's probe failed 5 of 5). Fixed: the drain waits for the futures of the tasks queued in the instant and long-running pools when it
+   starts (`ExecutorBackend::pendingTasks`), then for the running tasks as before; the barriers are gone. The code comment, `CheckOutput.h`
+   (gh-2) and P5-14.md say what it guarantees now, and what it cannot see (a task popped before the queue snapshot and not yet published when
+   the thread snapshot reads its thread: the few instructions before `runFromExecutor`'s `TaskScope`). `TheDrainWaitsForATaskThatWasQueuedWhenItStarted`
+   is the reviewer's probe; it fails on lane H's drain (r0: "drainPools returned after 254 ms", 255 and 257 ms in three runs).
+2. **low - h1, the start-not-scope-id identity untested.** Fixed: `TheDrainWaitsForALongTaskThroughItsQuiescentPoints` (r7).
+3. **low - h3, the deadline of the running-task wait untested.** Fixed: `TheDrainGivesUpAtItsDeadline`, a running and a queued task (r8).
+4. **low - m4-compare: what compare() reads untested; the M4 check checks a note line only.** Fixed: the note is derived from the list of
+   files `compare()` read (`property_files`), and `compare()` and `main()` are tested with a profile that changes a predicted instance count
+   (r23-r26; P5-14.md, the M4 row).
+5. **low - the gates did not check their own hermeticity.** Fixed: `startGameServer()` / `startLoginServer()` check the servers' logs (table
+   above); `gs.scenario.m5a_geo` under the reviewer's c1 (r19) now fails at its start; `TheGeoGateTurnsTheGeoDataOn...` also counts the switch.
+6. **low - `TheDrainDoesNotWaitForATaskThatStartedAfterIt` could fail on a loaded machine.** Fixed as far as a test without a hook in
+   `drainPools` can: the test's backend (`ObservedPoolBackend`, a forwarder of `ThreadPoolBackend`) tells when the drain has copied the queues,
+   and the running task queues the second one only then and 200 ms later. Before, the second task was queued 300 ms after the first started,
+   so a test thread that stalled that long anywhere before the drain began (a sleep in `waitFor`, a busy machine) saw it queued; now it would
+   have to stall 200 ms inside the few instructions between the two snapshots. A timing test: no mutant can show it.
+7. **low - the login config copy compared the file name case-sensitively.** Fixed (table above); `HermeticServersTest.TheLoginServerOfAGate...`
+   now names the module's file `MyLS.properties`, which the control run of the login server reads; r18 (the old comparison) fails it.
+8. **info - surviving reviewer mutants judged equivalent or log-only.** h2 (the calling thread not skipped) and a3 (the hook also drops
+   `logging.properties`) and b3 (the switch also reported as unknown) are killed now by `TheDrainDoesNotWaitForTheTaskThatCallsIt` (r9),
+   `ConfigLoadTest.TheTestHookKeepsTheShippedLoggingFiles` (r20, r21) and `HermeticServersTest.TheGameServerOfAGate...` (r22). d1 (the copy without
+   `recursive`) and d3 (`ls_run` without `logback.xml`) stay as they are: the login server's config is one directory level deep, which
+   `std::filesystem::copy` copies without `recursive` too, and the C++ login server does not read `logback.xml` - equivalent.
+9. **info - the reviewer's mutant runs overwrote four output directories.** Reran on the restored build (measured below); the shared
+   `game-server/log/stats/MethodStats.log` that every gate run rewrites (it ignores `--log-folder`) is out of scope and unchanged.
+
+**Mutation of the review fixes** (switch `AION_GH_MUT`, ids r0-r26; schemata in `CheckOutput.cpp`, `configs/Config.cpp`, `main.cpp`,
+`ScenarioServers.cpp` and `tools/oracle/geo/m4.py`, one build of `aion_game_server`, `aion_gs_app_tests`, `aion_gs_configs_tests` and
+`aion_gs_scenario_tests`; the whole `CheckOutputTest`, `ConfigLoadTest`, `ScenarioServersTest` or `test_geo_oracle` suite run per mutant):
+
+| Mutant | What it breaks | Killed by |
+|---|---|---|
+| r0 | lane H's drain: one barrier per pool, no wait for the queued tasks | `CheckOutputTest.TheDrainWaitsForATaskThatWasQueuedWhenItStarted` ("returned after 254 ms") |
+| r1 | the queued tasks are not waited for (no barriers either) | the same, and `TheDrainWaitsForTheSingleExecutorsTaskAndItsQueue` |
+| r2 | the long-running pool's queued tasks are left out | `TheDrainWaitsForTheSingleExecutorsTaskAndItsQueue` |
+| r3 | the instant pool's queued tasks are left out | `TheDrainWaitsForATaskThatWasQueuedWhenItStarted` |
+| r4 | the scheduled pool's pending tasks are waited for too | the same (it waited to its 10 s deadline for the not-due and the periodic task) |
+| r5 | `installedBackend()` in place of `getInstance()`: the drain no longer creates the pools | `FinalCensusEndsWithTheZeroThresholdBreakerPass` (no breaker body runs) |
+| r6 | "SingleExecutor" is no pool thread | `TheDrainWaitsForTheSingleExecutorsTaskAndItsQueue` |
+| r7 | a running task is identified by its scope id (the reviewer's h1) | `TheDrainWaitsForALongTaskThroughItsQuiescentPoints` |
+| r8 | no deadline in the wait (h3) | `TheDrainGivesUpAtItsDeadline` |
+| r9 | the calling thread is not skipped (h2) | `TheDrainDoesNotWaitForTheTaskThatCallsIt` (it waited 3 s, its deadline) |
+| r11 | the drain waits for idle pools (m11 on the new code) | `TheDrainDoesNotWaitForATaskThatStartedAfterIt` |
+| r12 | a thread counts as running its task while it runs any task (m14 on the new code) | the same |
+| r13 | `startGameServer()` does not check the log | `ScenarioServersTest.AGameServerThatReadsTheOperatorsProfileFailsTheStart` |
+| r14 | `gameServerProfileProblem` ignores "Loading: ./config/mygs.properties" | `TheProfileChecksReadWhatTheServersLogged`, `AGameServerThatReadsTheOperatorsProfileFailsTheStart` |
+| r15 | `gameServerProfileProblem` does not require the "Ignoring" line | `TheProfileChecksReadWhatTheServersLogged` |
+| r16 | `loginServerProfileProblem` never reports | the same |
+| r17 | `startLoginServer()` does not check the log | **survives** (`ScenarioServersTest`, `HermeticServersTest`, `LoginServerHarnessTest`): the check can only fire when `ls_run` holds an override file, which the copy never puts there (m5, r18 kill the copy's defects); it guards a later change of the copy |
+| r18 | the copy compares the file name case-sensitively (lane H's code) | `HermeticServersTest.TheLoginServerOfAGateDoesNotReadTheOperatorsProfile` |
+| r19 | a geo gate's server does not get the switch (the reviewer's c1) | `ScenarioServersTest.TheGeoGateTurnsTheGeoDataOnThroughTheSamePropertyOverride`; and `gs.scenario.m5a_geo` itself now fails at its start |
+| r20 | with the hook on, the logging settings leave `logging.properties` out (a3) | `ConfigLoadTest.TheTestHookKeepsTheShippedLoggingFiles` |
+| r21 | the same for `gameserver.properties` | the same |
+| r22 | main.cpp also reports the switch as an unknown argument (b3) | `HermeticServersTest.TheGameServerOfAGateDoesNotReadTheOperatorsProfile` |
+| r23 | `compare()` reads the profile whatever its flag (the reviewer's g1) | `test_geo_oracle.M4CompareTest.test_compare_predicts_from_the_properties_it_read`, `test_main_passes_no_profile_to_compare` |
+| r24 | `main()` ignores `--no-profile` (g2) | `test_main_passes_no_profile_to_compare` |
+| r25 | `main()` never reads the profile (g3: the flag's default inverted) | the same |
+| r26 | `profile_note` follows the flag, not the files read | `test_no_profile_leaves_mygs_properties_out` |
+
+(r10 was not used.) Under r19, the reviewer's c1, the real `gs.scenario.m5a_geo` now fails at its start (180 s: "geo 0 ... the game server
+read the operator's config/mygs.properties (its log says 'Loading: ./config/mygs.properties')"), where lane H's harness passed it. The five
+files were restored byte for byte from saved copies (sha256 checked), the `m4.cpython-312.pyc` of the mutant run removed, the whole tree
+rebuilt; no `AION_GH_MUT` or `ghMut` string is in a source, in `tools/oracle`, in `aion_game_server`, `aion_gs_scenario_tests`,
+`aion_gs_app_tests`, `aion_gs_configs_tests` or in `aion_gs_app.lib` / `aion_gs_configs.lib`.
+
+**Measured on the restored build** (build dir `cpp/build/msvc`, Debug, the test database environment; the owner's `mygs.properties` in
+place and untouched): `aion_gs_app_tests` (45), `aion_gs_configs_tests` (56), `ScenarioServersTest.*` and `ChildProcessTest.*` (23),
+`test_geo_oracle` (21) each in one process; `ctest -L scenario -E "^gs\."` 41 run, 12 disabled gate shadows, all passed (HermeticServersTest
+and LoginServerHarnessTest with the new log checks among them); `tools.porting`, `tools.oracle` (the whole suite, 279 s) and
+`gs.chunks.consistency` passed. Gates and server tests, one `ctest -j 2`, all passed: `gs.smoke.startup_geo` 155 s, `gs.scenario.travel`
+44 s, `gs.scenario.m5a` 56 s, `gs.smoke.startup` 28 s, `gs.smoke.startup_progress` 29 s, `gs.m4.check_static_data` 147 s,
+`gs.scenario.m5a_geo` 170 s. The three gates' `census.txt` are empty, each `game_server.log` has the "Ignoring ..." line and no "Loading:
+./config/mygs.properties", each `login_server.log` "No override properties found", and no drain logged a wait. These runs also rewrite the
+four output directories the reviewer's mutant runs had left (`scenario\Debug\m5a_geo`, `m4\Debug`, `gs.smoke.startup\Debug`,
+`gs.smoke.startup_progress\Debug`). Not run: `gs.scenario.ascension`, `m5b`, `m5b_geo`, `m5b2`, `m5b2_geo`, `m5b3`, `m5b3_geo`, `m5c` and the
+whole unit suite; every gate starts its servers through the same `startGameServer()` / `startLoginServer()` checks the runs above passed.

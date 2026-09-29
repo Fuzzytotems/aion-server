@@ -1,6 +1,7 @@
 // The process side of the scenario harness (m5a-plan.md F-04, D4): ChildProcess (command line quoting, log redirection, exit codes,
 // termination), and ScenarioServers with the stub game server (StubGameServer.cmake run by cmake): the M5a arguments, readiness on
-// "Game server started", the stop file, the exit code and the check output reports. Needs no database.
+// "Game server started", the stop file, the exit code and the check output reports. Needs no database. HermeticServersTest runs the real
+// aion_game_server and aion_login_server up to their database step, to show that neither reads the operator's override file.
 
 #include <gtest/gtest.h>
 #include <gtest/gtest-spi.h> // EXPECT_NONFATAL_FAILURE: the destructor's own report is the subject of a test here
@@ -10,11 +11,13 @@
 #include <filesystem>
 #include <cstdint>
 #include <fstream>
+#include <initializer_list>
 #include <map>
 #include <optional>
 #include <set>
 #include <sstream>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -234,6 +237,10 @@ TEST(ScenarioServersTest, TheGameServerGetsTheM5aProfileAndTheScenarioArguments)
 	// (HTMLCache.java:112-120): the file is the run's own, never the default ./cache/html.cache below the shared working directory.
 	EXPECT_TRUE(has("-Dgameserver.html.cache.file=" + servers.htmlCacheFile().string()));
 	EXPECT_EQ(servers.htmlCacheFile(), config.outputDir / "html.cache");
+	// the operator's untracked play profile (config/mygs.properties of the working directory) never reaches a gate: main.cpp's test hook, the
+	// exact spelling main.cpp parses, exactly once (HermeticServersTest below runs the real server with it)
+	EXPECT_EQ(std::ranges::count(arguments, std::string("--ignore-mygs-properties")), 1);
+	EXPECT_EQ(ScenarioServers::IGNORE_MYGS_PROPERTIES, "--ignore-mygs-properties");
 
 	std::vector<std::string> ls = servers.loginServerArguments();
 	auto lsHas = [&ls](std::string_view argument) { return std::ranges::find(ls, argument) != ls.end(); };
@@ -276,6 +283,8 @@ TEST(ScenarioServersTest, TheGeoGateTurnsTheGeoDataOnThroughTheSamePropertyOverr
 	const std::vector<std::string> arguments = servers.gameServerArguments();
 	EXPECT_EQ(std::ranges::count(arguments, std::string("-Dgameserver.geodata.enable=true")), 1);
 	EXPECT_EQ(std::ranges::count(arguments, std::string("-Dgameserver.geodata.enable=false")), 0);
+	// the review of lane H (mutant c1): a geo gate's server leaves the operator's profile out as well
+	EXPECT_EQ(std::ranges::count(arguments, std::string(ScenarioServers::IGNORE_MYGS_PROPERTIES)), 1);
 }
 
 /**
@@ -503,6 +512,41 @@ TEST(ScenarioServersTest, StubGameServerStartsStopsAndWritesItsReports) {
 	EXPECT_THROW(servers.readReportLines("missing.txt"), std::runtime_error);
 }
 
+// The review of lane H: the gates did not check their own hermeticity - a harness path that dropped --ignore-mygs-properties (for the geo gates,
+// mutant c1) passed gs.scenario.m5a_geo with "Loading: ./config/mygs.properties" in its server's log. startGameServer() and startLoginServer()
+// now read what the servers logged about the operator's override file.
+TEST(ScenarioServersTest, TheProfileChecksReadWhatTheServersLogged) {
+	const std::string ignored(ScenarioServers::GAME_SERVER_PROFILE_IGNORED);
+	const std::string loaded(ScenarioServers::GAME_SERVER_PROFILE_LOADED);
+	EXPECT_EQ(ignored, "Ignoring ./config/mygs.properties (C++ test hook --ignore-mygs-properties)") << "Config.cpp's line";
+	EXPECT_EQ(loaded, "Loading: ./config/mygs.properties");
+	EXPECT_EQ(ScenarioServers::gameServerProfileProblem("12:00:01 INFO a\n12:00:01 INFO " + ignored + "\nGame server started\n"), "");
+	EXPECT_NE(ScenarioServers::gameServerProfileProblem("12:00:01 INFO " + loaded + "\nGame server started\n"), "") << "the profile was read";
+	EXPECT_NE(ScenarioServers::gameServerProfileProblem("12:00:01 INFO " + ignored + "\n12:00:01 INFO " + loaded + "\n"), "")
+		<< "the switch was logged and the profile read anyway";
+	EXPECT_NE(ScenarioServers::gameServerProfileProblem("Game server started\n"), "") << "nothing says that the profile was left out";
+
+	EXPECT_EQ(ScenarioServers::LOGIN_SERVER_NO_PROFILE, "No override properties found");
+	EXPECT_EQ(ScenarioServers::loginServerProfileProblem("INFO Loading: ./config/myls.properties\nINFO No override properties found\n"), "");
+	EXPECT_NE(ScenarioServers::loginServerProfileProblem("INFO Loading: ./config/myls.properties\nINFO Listening on 127.0.0.1:1\n"), "");
+}
+
+// ... and the start fails when the server read it: the stub takes the switch and reads the file anyway (StubGameServer.cmake,
+// -Dgameserver.stub.profile=read), as a server that no longer honours the switch would.
+TEST(ScenarioServersTest, AGameServerThatReadsTheOperatorsProfileFailsTheStart) {
+	ScenarioServers::Config config = stubConfig("stub-profile");
+	config.gameServerProperties["gameserver.stub.profile"] = "read";
+	ScenarioServers servers(config, offlineEnvironment());
+	try {
+		servers.startGameServer();
+		ADD_FAILURE() << "the start passed although the game server logged '" << ScenarioServers::GAME_SERVER_PROFILE_LOADED << "'";
+	} catch (const std::runtime_error& error) {
+		EXPECT_NE(std::string(error.what()).find("read the operator's config/mygs.properties"), std::string::npos) << error.what();
+	}
+	ASSERT_NE(servers.gameServer(), nullptr);
+	EXPECT_EQ(servers.stopGameServer(), 0);
+}
+
 TEST(ScenarioServersTest, AGameServerThatStopsDuringTheStartupFailsTheReadiness) {
 	ScenarioServers::Config config = stubConfig("stub-fail");
 	config.gameServerProperties["gameserver.stub.fail"] = "true";
@@ -511,6 +555,115 @@ TEST(ScenarioServersTest, AGameServerThatStopsDuringTheStartupFailsTheReadiness)
 	ASSERT_NE(servers.gameServer(), nullptr);
 	EXPECT_EQ(servers.gameServer()->waitForExit(30s), 1);
 	EXPECT_NE(servers.gameServer()->readLog().find("startup stopped at an unported function"), std::string::npos);
+}
+
+// ---- hermetic servers: the operator's play profile never reaches a gate server ---------------------------------------------------------
+//
+// The Java module directories hold the owner's untracked override files (game-server/config/mygs.properties: his play profile, which on
+// 2026-09-29 set gameserver.simple.secondclass.enable = true; login-server/config/myls.properties when there is one). A gate server that read
+// them ran a key the gate does not pin at the owner's value in the main tree and at the shipped default in CI and in a worktree
+// (p6q-ascension-route.md §7). The cases below run the REAL servers in module directories of their own, whose override file this test writes
+// with a value the server cannot load: the owner's files are never read, copied, written or moved here (only config/<folder> is copied). No
+// database is needed: the offline URL stops each server at its database step, which is after its configuration.
+
+/**
+ * `root`/config: the `folders` of the Java module's config directory, and the override file `overrideFile` with `profile`, written here
+ * @return root
+ */
+std::filesystem::path moduleWithProfile(const std::filesystem::path& root, const std::filesystem::path& javaDir,
+	std::initializer_list<const char*> folders, std::string_view overrideFile, std::string_view profile) {
+	std::filesystem::remove_all(root);
+	std::filesystem::create_directories(root / "config");
+	for (const char* folder : folders)
+		std::filesystem::copy(javaDir / "config" / folder, root / "config" / folder, std::filesystem::copy_options::recursive);
+	std::ofstream out(root / "config" / std::string(overrideFile), std::ios::binary);
+	out << profile;
+	return root;
+}
+
+ScenarioServers::Config realServersConfig(std::string_view test) {
+	ScenarioServers::Config config;
+	config.gameServerExecutable = AION_GAME_SERVER_EXECUTABLE;
+	config.loginServerExecutable = AION_LOGIN_SERVER_EXECUTABLE;
+	config.gameServerJavaDir = AION_GAMESERVER_JAVA_DIR;
+	config.loginServerJavaDir = AION_LOGINSERVER_JAVA_DIR;
+	config.outputDir = outputDir(test);
+	config.startupTimeout = 120s;
+	config.stopTimeout = 60s;
+	return config;
+}
+
+// The game server of every gate is started with main.cpp's test hook --ignore-mygs-properties. The module's mygs.properties names no time zone
+// (gameserver.timezone is read by the logging settings before anything else, and by Config.load), so a server that reads it stops before its
+// first startup step. The gate's arguments get past Config.load to the database (startup step 2); the control - the same arguments without the
+// switch, in the same directory - stops at the profile, which shows that the file was there to be read.
+TEST(HermeticServersTest, TheGameServerOfAGateDoesNotReadTheOperatorsProfile) {
+	ScenarioServers::Config config = realServersConfig("hermetic-gs");
+	config.gameServerJavaDir = moduleWithProfile(config.outputDir / "game-server", AION_GAMESERVER_JAVA_DIR, {"administration", "main", "network"},
+		"mygs.properties", "gameserver.timezone = Mygs/NoSuchZone\n");
+	ScenarioServers servers(config, offlineEnvironment());
+	EXPECT_THROW(servers.startGameServer(), std::runtime_error) << "the offline database ends the startup at step 2";
+	ASSERT_NE(servers.gameServer(), nullptr);
+	EXPECT_TRUE(servers.gameServer()->waitForExit(60s));
+	const std::string log = servers.gameServer()->readLog();
+	EXPECT_NE(log.find("Ignoring ./config/mygs.properties (C++ test hook --ignore-mygs-properties)"), std::string::npos) << log;
+	EXPECT_EQ(log.find("Mygs/NoSuchZone"), std::string::npos) << "the gate's server read the profile\n" << log;
+	EXPECT_NE(log.find("startup step 2: DatabaseFactory.init()"), std::string::npos) << "Config.load did not pass\n" << log;
+	EXPECT_EQ(log.find("Unknown command line argument ignored: --ignore-mygs-properties"), std::string::npos) << "main.cpp parses the switch\n"
+	                                                                                                             << log;
+
+	std::vector<std::string> arguments = servers.gameServerArguments();
+	ASSERT_EQ(std::erase(arguments, std::string(ScenarioServers::IGNORE_MYGS_PROPERTIES)), 1u);
+	std::erase_if(arguments, [](const std::string& argument) { return argument.starts_with("--log-folder="); });
+	arguments.push_back("--log-folder=" + (config.outputDir / "control_log").string());
+	ChildProcess::Options options;
+	options.executable = config.gameServerExecutable;
+	options.arguments = arguments;
+	options.workingDirectory = config.gameServerJavaDir;
+	options.logFile = config.outputDir / "game_server_control.log";
+	ChildProcess control(options);
+	EXPECT_TRUE(control.waitForExit(60s));
+	const std::string controlLog = control.readLog();
+	EXPECT_NE(controlLog.find("Unknown time-zone ID: Mygs/NoSuchZone"), std::string::npos) << "the control did not read the profile\n" << controlLog;
+	EXPECT_EQ(controlLog.find("startup step 1:"), std::string::npos) << controlLog;
+}
+
+// The login server of every gate runs in a copy of its module's config that startLoginServer() builds without myls.properties. The module's
+// myls.properties holds a value the login server cannot bind: the gate's server gets past its configuration ("No override properties found") to
+// the database, and the module's own file is left where it is; the control - the login server started in the module directory itself, with the
+// same arguments - stops at the value. The file is named "MyLS.properties" (the review of lane H): Windows opens ./config/myls.properties
+// whatever the case of the name, as the control shows, so the copy must leave it out in any case, not only when spelt in lower case.
+TEST(HermeticServersTest, TheLoginServerOfAGateDoesNotReadTheOperatorsProfile) {
+	ScenarioServers::Config config = realServersConfig("hermetic-ls");
+	config.loginServerJavaDir = moduleWithProfile(config.outputDir / "login-server", AION_LOGINSERVER_JAVA_DIR, {"main", "network"},
+		"MyLS.properties", "loginserver.network.client.logintrybeforeban = mylsNotANumber\n");
+	ScenarioServers servers(config, offlineEnvironment());
+	EXPECT_THROW(servers.startLoginServer(), std::runtime_error) << "the offline database stops the login server";
+	EXPECT_FALSE(std::filesystem::exists(servers.loginServerWorkingDirectory() / ScenarioServers::loginServerOverrideFile()));
+	for (const std::filesystem::directory_entry& entry : std::filesystem::directory_iterator(servers.loginServerWorkingDirectory() / "config"))
+		EXPECT_NE(entry.path().filename().string(), "MyLS.properties") << "the copy kept the override file";
+	EXPECT_TRUE(std::filesystem::is_directory(servers.loginServerWorkingDirectory() / "config" / "network"));
+	EXPECT_TRUE(std::filesystem::is_regular_file(config.loginServerJavaDir / ScenarioServers::loginServerOverrideFile()))
+	  << "the module's own file stays where it is";
+	ASSERT_NE(servers.loginServer(), nullptr);
+	EXPECT_TRUE(servers.loginServer()->waitForExit(60s));
+	const std::string log = servers.loginServer()->readLog();
+	EXPECT_NE(log.find("No override properties found"), std::string::npos) << log;
+	EXPECT_EQ(log.find("mylsNotANumber"), std::string::npos) << "the gate's login server read the profile\n" << log;
+	EXPECT_NE(log.find("Failed to initialize pool"), std::string::npos) << "it got past its configuration to the database\n" << log;
+
+	ChildProcess::Options options;
+	options.executable = config.loginServerExecutable;
+	options.arguments = servers.loginServerArguments();
+	options.workingDirectory = config.loginServerJavaDir;
+	options.logFile = config.outputDir / "login_server_control.log";
+	options.newProcessGroup = true;
+	ChildProcess control(options);
+	EXPECT_TRUE(control.waitForExit(60s));
+	const std::string controlLog = control.readLog();
+	EXPECT_NE(controlLog.find("Error parsing \"mylsNotANumber\" as int"), std::string::npos) << "the control did not read the profile\n"
+	                                                                                        << controlLog;
+	EXPECT_EQ(controlLog.find("No override properties found"), std::string::npos) << controlLog;
 }
 
 } // namespace
