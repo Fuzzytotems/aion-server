@@ -1,5 +1,6 @@
 #include "aion/gameserver/services/teleport/TeleportService.h"
 
+#include <cmath>
 #include <optional>
 #include <string>
 #include <unordered_map>
@@ -17,7 +18,9 @@
 #include "aion/gameserver/dataholders/DataManager.h"
 #include "aion/gameserver/dataholders/InstanceExitData.h"
 #include "aion/gameserver/dataholders/loadingutils/EnumTraits.h"
+#include "aion/gameserver/dataholders/NpcData.h"
 #include "aion/gameserver/dataholders/PlayerInitialData.h"
+#include "aion/gameserver/dataholders/SpawnsData.h"
 #include "aion/gameserver/dataholders/WorldMapsData.h"
 #include "aion/gameserver/model/TaskId.h"
 #include "aion/gameserver/model/actions/PlayerMode.h"
@@ -30,7 +33,11 @@
 #include "aion/gameserver/model/gameobjects/player/motion/Motion.h"
 #include "aion/gameserver/model/gameobjects/player/motion/MotionList.h"
 #include "aion/gameserver/model/team/legion/LegionMember.h"
+#include "aion/gameserver/model/templates/BoundRadius.h"
+#include "aion/gameserver/model/templates/npc/NpcTemplate.h"
 #include "aion/gameserver/model/templates/portal/InstanceExit.h"
+#include "aion/gameserver/model/templates/spawns/SpawnSearchResult.h"
+#include "aion/gameserver/model/templates/spawns/SpawnSpotTemplate.h"
 #include "aion/gameserver/model/templates/world/WorldMapTemplate.h"
 #include "aion/gameserver/network/aion/serverpackets/SM_BIND_POINT_INFO.h"
 #include "aion/gameserver/network/aion/serverpackets/SM_CHANNEL_INFO.h"
@@ -48,10 +55,13 @@
 #include "aion/gameserver/services/instance/InstanceService.h"
 #include "aion/gameserver/services/player/PlayerReviveService.h"
 #include "aion/gameserver/utils/PacketSendUtility.h"
+#include "aion/gameserver/utils/PositionUtil.h"
 #include "aion/gameserver/world/World.h"
+#include "aion/gameserver/world/WorldMap.h"
 #include "aion/gameserver/world/WorldMapInstance.h"
 #include "aion/gameserver/world/WorldMapTypeInfo.h"
 #include "aion/gameserver/world/WorldPosition.h"
+#include "aion/gameserver/world/geo/GeoService.h"
 
 #include "aion/commons/utils/WindowsMacroGuard.h" // after all headers that may include windows.h
 
@@ -301,8 +311,41 @@ void TeleportService::teleportToPrison(model::gameobjects::player::Player& playe
 	AION_UNPORTED();
 }
 
+// Java TeleportService.java:304-333. Ported by phase 6's route-hand lane under a lease of this file (chunks.cmake, Q09 LEASE): quest 2007's
+// last step calls it (_2007WheresRaeThisTime.java:130). A cross-map arm goes through InstanceService::getOrRegisterInstance or the main
+// instance of the npc's map, as Java does.
 void TeleportService::teleportToNpc(model::gameobjects::player::Player& player, int32_t npcId) {
-	AION_UNPORTED();
+	std::optional<model::templates::spawns::SpawnSearchResult> searchResult =
+		dataholders::DataManager::SPAWNS_DATA->getFirstSpawnByNpcId(player.getWorldId(), npcId);
+
+	if (!searchResult) {
+		log.warn("No npc spawn found for : " + std::to_string(npcId));
+		return;
+	}
+
+	const model::templates::spawns::SpawnSpotTemplate& spot = searchResult->getSpot();
+	const model::templates::npc::NpcTemplate* npcTemplate = dataholders::DataManager::NPC_DATA->getNpcTemplate(npcId);
+	// StaticObject has no npcTemplate since it's no npc
+	float npcRadius = npcTemplate == nullptr ? 1 : npcTemplate->getBoundRadius()->getFront();
+	runtime::Ptr<world::WorldMapInstance> instance;
+	if (player.getWorldId() == searchResult->getWorldId())
+		instance = player.getPosition()->getWorldMapInstance();
+	else if (world::World::getInstance().getWorldMap(searchResult->getWorldId())->isInstanceType())
+		instance = instance::InstanceService::getOrRegisterInstance(searchResult->getWorldId(), player);
+	else
+		instance = world::World::getInstance().getWorldMap(searchResult->getWorldId())->getMainWorldMapInstance();
+
+	// calculate position 1m in front of the npc
+	double radian = utils::PositionUtil::convertHeadingToAngle(spot.getHeading()) * 0.017453292519943295; // Java: Math.toRadians (JDK 9+)
+	float x = spot.getX() + static_cast<float>(std::cos(radian)) * (1.0f + npcRadius);
+	float y = spot.getY() + static_cast<float>(std::sin(radian)) * (1.0f + npcRadius);
+	float z = world::geo::GeoService::getInstance().getZ(searchResult->getWorldId(), x, y, spot.getZ(), instance->getInstanceId());
+	if (std::isnan(z)) // no collision found or geo disabled
+		z = spot.getZ() + 0.5f;
+	// look towards npc (Java: (byte) of the int arithmetic)
+	int8_t heading = static_cast<int8_t>((spot.getHeading() & 0xFF) >= 60 ? spot.getHeading() - 60 : spot.getHeading() + 60);
+
+	teleportTo(player, *instance, x, y, z, heading, model::animations::TeleportAnimation::NONE);
 }
 
 void TeleportService::sendObeliskBindPoint(model::gameobjects::player::Player& player) {
