@@ -251,6 +251,13 @@ if(AION_BUILD_TESTS)
 		"Let the milestone tests (gs.scenario.m5a, gs.m4.check_static_data, gs.smoke.startup*) skip themselves when a prerequisite is missing"
 		OFF)
 
+	# The runtime kernel's tests (PCT schedules, real thread pools, lifetime protocols) wait on other threads with deadlines: label runtime, so a
+	# small machine can run them one at a time after the rest (the C++-staging CI does; on its 4-vCPU runner, 4 at once missed the deadlines of
+	# a PCT schedule and a periodic task in run 36542435827). Labels add up: the realdata test of CronExpressionTest carries both.
+	foreach(gs_runtime_tests IN ITEMS base sync lifetime fields collections sched services stress)
+		aion_set_discovered_test_properties(aion_gs_runtime_${gs_runtime_tests}_tests REGEX "." PROPERTIES LABELS runtime)
+	endforeach()
+
 	# Tests that read the Java tree (config/, src/, data/): label realdata, and pass the tree's location in the environment as well
 	set(gs_realdata PROPERTIES LABELS realdata ENVIRONMENT "AION_GAMESERVER_JAVA_DIR=${GS_JAVA_DIR}")
 	aion_set_discovered_test_properties(aion_gs_configs_tests REGEX "^(ConfigLoadTest|JavaAnnotationsTest)\\." ${gs_realdata})

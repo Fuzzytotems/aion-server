@@ -43,9 +43,9 @@ inline constexpr std::chrono::milliseconds DEFAULT_TIMEOUT = 2s;
 
 /**
  * How long to wait for a log line that carries an exception: the logger symbolizes its stack trace, which takes seconds in a Debug build when
- * other test processes run at the same time.
+ * other test processes run at the same time (over 20 s for the first exception of a process on the 4-vCPU CI runner, run 36512766064).
  */
-inline constexpr std::chrono::milliseconds EXCEPTION_LOG_TIMEOUT = 20s;
+inline constexpr std::chrono::milliseconds EXCEPTION_LOG_TIMEOUT = 90s;
 
 /** Polls pred until it returns true or the timeout passes. */
 inline bool waitUntil(const std::function<bool()>& pred, std::chrono::milliseconds timeout = DEFAULT_TIMEOUT) {
