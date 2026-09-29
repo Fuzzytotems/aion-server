@@ -6,7 +6,7 @@
 // The fixture (tests/instance/AscensionTestSupport.h) is a World of the real map rows with the real spawn, cooltime and exit rows.
 //
 // Not covered here, said in place:
-// - the (worldId, instanceId, x, y, z) overload (TeleportService.cpp:251) stays AION_UNPORTED in this lane: DialogServiceTest.cpp:1072-1073 pins
+// - the (worldId, instanceId, x, y, z) overload (TeleportService.cpp:455) stays AION_UNPORTED in this lane: DialogServiceTest.cpp:1109-1110 pins
 //   it as throwing, and that file is leased by M5c stage 2's craft lane (m5f-plan.md §15.4).
 // - moveToInstanceExit's `instanceExists(exitWorld, 1)` term: every exit world of instance_exit.xml is an open map with an instance 1, so no
 //   shipped row reaches the false arm (a map World does not know is Java's NullPointerException in instanceExists, not that arm).

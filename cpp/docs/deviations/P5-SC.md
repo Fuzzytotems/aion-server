@@ -408,3 +408,28 @@ code, with no assertion changed.
 | `SM_STATUPDATE_EXP` | Moved out of `M5bScenarioTest.cpp` and `M5cScenarioTest.cpp`, which had one copy each, into `QuestDecoders.h`. The fields keep the Java packet's names (`curBoostExp`, `maxBoostExp`). M5b's copy had called the fourth `currentBoostExp`. No gate read either of the last two | G-02; m5e-plan.md A-04c expects the decoder from here |
 | `GameSession` | `CM_DELETE_QUEST` (80) and `buildCM_DELETE_QUEST` (readD questId). `talk(npc, action, questId, quiet = 1 s, limit = 10 s)` sends `CM_DIALOG_SELECT(npc, action, 0, 0, questId)` and returns `TalkOutcome` (`firstPacket`, the burst up to the first gap of `quiet`, `closed`). Target 0 is the journal's form (C10b) | DialogService answers a quest action inside runImpl, so the answer arrives as one burst in the server's order. That is what the Y3/Y5/Y6/Y11/Y13 patterns read. `extendedRewardIndex` and `lastPage` stay 0 as the gate sends them; a reward beyond 15 would need `buildCM_DIALOG_SELECT` directly |
 | `FightSupport.{h,cpp}` | `FightRecording`/`recordFight` moved out of `M5bScenarioTest.cpp`. `waitForRespawnAt` moved out of `M5b2ScenarioTest.cpp`, where it was a lambda. The logic is unchanged. The lambda's captures became parameters (`session`, `templateId`), and the two M5b-2 call sites pass `*a.game` and `GATE_MONSTER_NPC_ID`, the default they used before. The file-local `readUntil` the lambda called is copied into `FightSupport.cpp`'s anonymous namespace. The gates keep their own copies for everything else | G-02: the M5d gate's kerub and sprigg kills (C10, C12, C16) use the same helpers as M5b and M5b-2 |
+
+## M5f travel core, early (2026-09-29): the travel gate `gs.scenario.travel` (m5f-plan.md §16)
+
+A gate of its own (no plan names an existing gate for the slice; G-03's `gs.scenario.m5f` is stage 2's), in the same binary, `TEST(TravelScenario,
+Run)` in `TravelScenarioTest.cpp`, output `<bin>/scenario/travel`, schema pair `aion_gs_test_travel_<hash>`, its own allow-list
+`travel_partial_allowlist.txt` (copied from m5c's: §A the BaseService startup row, §B the four wall-clock cron rows, §C the rest),
+`AION_SCENARIO_TRAVEL_PARTIAL_ALLOWLIST`, gate slot 1 (ScenarioTests.cmake's sums updated), labels `scenario;realdata`, TIMEOUT 1800, no Python.
+
+| Case | What |
+|---|---|
+| S-0 | the servers start (the M5a profile plus `npcshouts.enable=false`, `rates.drop=0`) |
+| T1 | A (Elyos) is created, disconnected and seeded as C19 seeds (m5c-plan.md): `player_class GLADIATOR`, `exp 126069` (level 10), `player_quests (1006, COMPLETE)`, 5000 kinah, 1.5 m from Polyidus (203726) in Sanctum; enters Sanctum; `CM_SHOW_DIALOG` -> `SM_DIALOG_WINDOW`; `CM_DIALOG_SELECT(44)` -> `SM_TELEPORT_MAP(npc, 1)`; `CM_TELEPORT_SELECT(npc, 4)` -> `SM_TELEPORT_LOC(3, Verteron, Verteron, 1640.76, 1500.32, 119.70999, 0)`, the kinah down by `getPriceForService(500) = 706`, no `SM_PLAYER_SPAWN` yet; `CM_TELEPORT_ANIMATION_DONE` -> `SM_CHANNEL_INFO`, `SM_PLAYER_SPAWN(Verteron, loc 4)`; `CM_LEVEL_READY` announces Verteron's npcs around the arrival |
+| T2 | A opens Mirdiena's (203120, 1.9 m from the arrival) map (`SM_TELEPORT_MAP(npc, 105)`) and selects loc 15: `SM_EMOTION(START_FLYTELEPORT, 7001)` from himself with `FLYING` set and `ACTIVE` unset, 565 kinah (400), no `SM_TELEPORT_LOC`; three `CM_MOVE_IN_AIR` (no `SM_MOVE` of his own); `CM_EMOTION(LAND_FLYTELEPORT)` -> `SM_EMOTION(LAND_FLYTELEPORT)` with `ACTIVE` and without `FLYING`; after the quit `players` holds Verteron at the last `CM_MOVE_IN_AIR` point and `inventory` 5000 - 706 - 565 |
+| T3 | B, the Asmodian mirror: quest 2008, Doman (204191) in Pandaemonium, teleportId 50, loc 9 -> Altgard (heading 60), 706 kinah; `players.world_id` 220030000 after the quit |
+| T4 | both quit, the servers stop: exit codes, no `AION_UNPORTED`, every `AION_PARTIAL` hit in the allow-list (§A hit, §B not), no ERROR line, empty census, lockdep and watchdog reports, `liveLeaks 0`, no unported client packet |
+
+The numbers are the data rows through the Java arithmetic, not an oracle's (m5f-plan.md G-01, the `m5f-travel` oracle, is stage 1's
+gate-harness item). The three client packet bodies and the two decoders (`SM_TELEPORT_MAP`, `SM_TELEPORT_LOC`, from their Java writeImpl) are
+file-local; G-02 moves them into `GameSession` and `decoders/TravelDecoders`. Run in this tree (Debug, 2026-09-29): passed in about 45 s.
+The first run failed T2's "no SM_MOVE" row on the SM_MOVE of the npcs walking around the arrival; the row now reads only his own object id.
+**Mutation** (the `AION_TRV_MUT` schemata of P5-08.md, one build of `aion_game_server`, which inherits the variable from the gate): five
+mutants, all killed - M33 (the statue animation inverted: T1 and T3 read animation 4), M06 (the raw price: T1, T2 and T3's kinah and the
+stored `inventory` row), M13 (`ACTIVE` not unset: T2's take-off state), M17 (heading 0: T3's `SM_TELEPORT_LOC` and `SM_PLAYER_SPAWN`), M12
+(`FLYING` not set: T2's take-off state, and `CM_MOVE_IN_AIR` then moves nothing, so the stored position is the arrival's). Sources restored
+byte for byte (sha256), rebuilt, no `AION_TRV_MUT` in a source or a binary; the gate passes again on the rebuilt server.
