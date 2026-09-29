@@ -45,12 +45,16 @@
 # The slots are balanced by the runtimes of a Debug tree, each run alone (seconds, 2026-09-24; gs.smoke.startup_progress ~ gs.smoke.startup):
 #   slot 1  gs.smoke.startup 34, gs.smoke.startup_progress 34, gs.smoke.startup_geo 150, gs.m4.check_static_data 149,
 #           gs.scenario.m5a 65, gs.scenario.m5a_geo 170, gs.scenario.m5b3 146, gs.scenario.m5b3_geo 314            = 1062
+#           + gs.scenario.ascension 880 (lane P6-Q asc-hand, docs/deviations/Q06.md; 866-904 s alone, 2026-09-29 in a Debug
+#             tree: two races' 43 s waits and auto-attack fights; it has no geo variant)                             = 1942
 #   slot 2  gs.scenario.m5b 227, gs.scenario.m5b_geo 351, gs.scenario.m5b2 172, gs.scenario.m5b2_geo 301           = 1051
 #           + gs.scenario.m5c 289 (m5c-plan.md §10.5; 225 s for part 1, 265-289 s alone since C19 joined it in stage 3,
 #             2026-09-28 in a Debug tree, the review's fix included; it has no geo variant)                          = 1340
 # The balance held for the full set above before M5c; the plan put the M5c gate into slot 2 (§10.1: the smaller sum then, and a prefix of its
-# own), which now leads slot 1 by about 280 s - the next gate joins slot 1. `ctest -L scenario` alone leaves the smoke and M4 tests out, so slot 1 is then m5a, m5a_geo, m5b3 and
-# m5b3_geo (about 695 s plus LoginServerHarnessTest) against slot 2's 1340 s: correct, just a longer wall clock for that label.
+# own), which then led slot 1 by about 280 s, so the ascension gate joined slot 1, which now leads slot 2 by about 600 s - the next gate joins
+# slot 2. `ctest -L scenario` alone leaves the smoke and M4 tests out, so slot 1 is then m5a, m5a_geo, m5b3, m5b3_geo and ascension (about
+# 1575 s plus LoginServerHarnessTest) against slot 2's 1340 s: correct, just a longer wall clock for that label (about 4 min more than before
+# the ascension gate; in slot 2 it would have been about 15 min more).
 # The slots count inside ONE ctest process. Two build trees running their gates at the same time can reach four servers (about 12.8 GB with
 # geo), and the marker-before-DROP window of dropAbandonedSchemas is open between them again: run one tree's gate set at a time.
 # Slot 1 keeps the historical name aion_game_server_log because cmake/AppTests.cmake (chunk P5-14) registers the three smoke tests and the M4
@@ -133,6 +137,9 @@ if(TARGET aion_gs_scenario_tests)
 		LABELS "scenario;realdata")
 	# and for the M5c gate (m5c-plan.md G-03, §10.5; no geo variant, D12)
 	aion_set_discovered_test_properties(aion_gs_scenario_tests REGEX "^M5cScenario\\." PROPERTIES DISABLED TRUE
+		LABELS "scenario;realdata")
+	# and for the ascension route (lane P6-Q asc-hand, chunk Q06 under its lease of this directory; docs/deviations/Q06.md)
+	aion_set_discovered_test_properties(aion_gs_scenario_tests REGEX "^AscensionScenario\\." PROPERTIES DISABLED TRUE
 		LABELS "scenario;realdata")
 
 	# F-06: the M5a gate (§5.10). The oracle needs a Python interpreter; without it the test prints "gs.scenario.m5a: skipped".
@@ -297,5 +304,21 @@ if(TARGET aion_gs_scenario_tests)
 	endif()
 	if(AION_SCENARIO_REQUIRE OR NOT AION_GS_ALLOW_MILESTONE_SKIP)
 		set_property(TEST gs.scenario.m5c APPEND PROPERTY ENVIRONMENT_MODIFICATION "AION_SCENARIO_REQUIRE=set:1")
+	endif()
+
+	# ---- the retail ascension route (lane P6-Q asc-hand, chunk Q06; docs/deviations/Q06.md) ------------------------------------------------
+	#
+	# gs.scenario.ascension: an Elyos Warrior and an Asmodian Warrior, each seeded at level 9 with a full bar, play 1006 / 2008 from the enter
+	# world to the Gladiator and 1007 / 2009 to level 10 (AscensionScenarioTest.cpp: E1-E7), with gameserver.simple.secondclass.enable off so
+	# that the four hand-ported handlers register - in the same binary, with its own output directory <bin>/scenario/ascension and its own schema
+	# pair (aion_gs_test_asc_<hash>). No oracle, no AION_PARTIAL allow-list, no geo variant (each geo gate costs minutes of Debug startup).
+	# Gate slot 1, the slot with the smaller sum when it joined (its runtime is in the table above). Each race waits 43 s for its raiders and
+	# fights its boss (1,461 HP) with auto-attacks for minutes; TIMEOUT 2700 like gs.scenario.m5c.
+	add_test(NAME gs.scenario.ascension COMMAND "$<TARGET_FILE:aion_gs_scenario_tests>" --gtest_filter=AscensionScenario.Run
+		WORKING_DIRECTORY "${scenario_work_dir}")
+	set_tests_properties(gs.scenario.ascension PROPERTIES LABELS "scenario;realdata" TIMEOUT 2700
+		RESOURCE_LOCK "${AION_GS_GATE_SLOT_1}" SKIP_REGULAR_EXPRESSION "gs\\.scenario\\.ascension: skipped")
+	if(AION_SCENARIO_REQUIRE OR NOT AION_GS_ALLOW_MILESTONE_SKIP)
+		set_property(TEST gs.scenario.ascension APPEND PROPERTY ENVIRONMENT_MODIFICATION "AION_SCENARIO_REQUIRE=set:1")
 	endif()
 endif()

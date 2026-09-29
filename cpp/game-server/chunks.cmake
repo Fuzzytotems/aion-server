@@ -511,10 +511,18 @@ aion_gs_chunk(Q05 TARGET aion_gs_handlers_quest_q05 PHASE 6 ROOT handlers
 	GLOBS "aion/gameserver/handlers/quest/{eltnen,poeta,oriel}/**"
 	JAVA "data/handlers/quest/{eltnen,poeta,oriel}/**"
 	PCH "aion/gameserver/handlers/quest/QuestPrelude.h")
+# Q06's tests (lane P6-Q asc-hand, 2026-09-29): tests/quest_handlers_ascension, the unit cases of the four hand-ported ascension quests
+# (1006, 2008, 1007, 2009) on the real engine and the verbatim data rows of the route; the executable is aion_gs_handlers_quest_q06_tests.
 aion_gs_chunk(Q06 TARGET aion_gs_handlers_quest_q06 PHASE 6 ROOT handlers
 	GLOBS "aion/gameserver/handlers/quest/{crafting,ascension}/**"
 	JAVA "data/handlers/quest/{crafting,ascension}/**"
-	PCH "aion/gameserver/handlers/quest/QuestPrelude.h")
+	PCH "aion/gameserver/handlers/quest/QuestPrelude.h"
+	TESTS quest_handlers_ascension)
+# Q06's lease of tests/scenario (lane P6-Q asc-hand, 2026-09-29): AscensionScenarioTest.cpp and the gs.scenario.ascension registration in
+# ScenarioTests.cmake, the end-to-end test of the retail ascension route on P5-SC's harness (docs/deviations/Q06.md). Released when the lane
+# merges: the integrator hands the file to P5-SC or keeps the lease.
+aion_gs_chunk(Q06 LEASE PHASE 6
+	TEST_SUPPORT scenario)
 aion_gs_chunk(Q07 TARGET aion_gs_handlers_quest_q07 PHASE 6 ROOT handlers
 	GLOBS "aion/gameserver/handlers/quest/{beshmundir,abyss_entry,silentera_canyon}/**"
 	JAVA "data/handlers/quest/{beshmundir,abyss_entry,silentera_canyon}/**"
