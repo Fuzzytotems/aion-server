@@ -163,11 +163,13 @@ TEST(LoggingTest, ExceptionsInLogFilesLikeLogback) {
 
 #if GTEST_HAS_DEATH_TEST
 TEST(LoggingDeathTest, ExitWithoutShutdownStopsDiscordAppender) {
-	// the Discord worker logs an error while the process exits without Logging::shutdown (used to run during static destruction)
+	// the Discord worker logs an error while the process exits without Logging::shutdown (used to run during static destruction). The URL's
+	// scheme fails inside libcurl at once: a refused connection to a closed local port took longer than stop()'s 1 s maxFlushTime on the
+	// CI runner (run 36531741785), and a send that stop() gave up on logs nothing
 	GTEST_FLAG_SET(death_test_style, "threadsafe");
 	TempFolder folder("aion_LoggingTest_exit");
 	auto exitWithoutShutdown = [&] {
-		Logging::init({.logFolder = folder.path, .statusDiscordWebhookUrl = "http://127.0.0.1:9/api/webhooks/1/token", .console = false});
+		Logging::init({.logFolder = folder.path, .statusDiscordWebhookUrl = "unsupported://127.0.0.1/api/webhooks/1/token", .console = false});
 		LoggerFactory::getLogger("com.aionemu.test.LoggingTest").warn("queued for Discord");
 		std::fprintf(stderr, "exiting\n");
 		std::exit(0);
