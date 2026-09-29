@@ -1,0 +1,22 @@
+{
+ "format": "aion-quest-trace",
+ "version": 1,
+ "questId": 2132,
+ "java": "ishalgen/_2132ANewSkill.java",
+ "class": "_2132ANewSkill",
+ "javaSha256": "878adbd75c2b925b841f1d66bfad4f586816ab83c3b5e0e3586776e0d21c0b8c",
+ "register": [
+  {"call": "registerOnLevelChanged", "args": [2132]},
+  {"npc": 203527, "event": "addOnTalkEvent", "args": [2132]},
+  {"npc": 203528, "event": "addOnTalkEvent", "args": [2132]},
+  {"npc": 203529, "event": "addOnTalkEvent", "args": [2132]},
+  {"npc": 203530, "event": "addOnTalkEvent", "args": [2132]},
+  {"npc": 801218, "event": "addOnTalkEvent", "args": [2132]},
+  {"npc": 801219, "event": "addOnTalkEvent", "args": [2132]}
+ ],
+ "hooks": [
+  {"hook": "onLevelChangedEvent", "line": 35, "unsupported": "new QuestEnv"},
+  {"hook": "onDialogEvent", "line": 73, "unsupported": "call player.getPlayerClass().getStartingClass() on a value"}
+ ],
+ "cases": []
+}

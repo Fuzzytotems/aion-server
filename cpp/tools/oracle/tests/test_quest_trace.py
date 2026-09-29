@@ -431,6 +431,24 @@ class JavaSemanticsTest(unittest.TestCase):
 		self.assertEqual(self.refusal(doc, "onDialogEvent"), "reads var/99100/0 after QuestService.startQuest, which may have written it")
 		self.assertEqual(self.refusal(doc, "onKillEvent"), "reads inv/182200001 after giveQuestItem, which may have written it")
 
+	def test_helper_results_java_cannot_return_are_dead_paths(self):
+		# P6-Q (2026-09-29): giveQuestItem of a non-zero item and count returns true on both of its paths (AbstractQuestHandler.java:626-641),
+		# so its "-> false" branch is dead; an item id 0 can return false. collectItemCheck(env, true) returns false without a QuestState
+		# (QuestService.java:557-561)
+		doc = trace_text(handler(
+			hook("\t\tif (giveQuestItem(env, 182200001, 1))\n\t\t\treturn sendQuestDialog(env, 10);\n\t\treturn false;\n",
+			     "boolean onDialogEvent(QuestEnv env)"),
+			hook("\t\tif (giveQuestItem(env, 0, 1))\n\t\t\treturn sendQuestDialog(env, 10);\n\t\treturn false;\n"),
+			hook(QS + "\t\tif (QuestService.collectItemCheck(env, true))\n\t\t\treturn qs.getStatus() == QuestStatus.START;\n"
+			     "\t\treturn false;\n", "boolean onEnterWorldEvent(QuestEnv env)")))
+		dialog = self.cases(doc, "onDialogEvent")
+		self.assertEqual([(c.get("assume"), c["returns"]) for c in dialog], [([{"effect": 0, "returns": True}], {"resultOf": 1})])
+		kill = self.cases(doc, "onKillEvent")
+		self.assertEqual(sorted(c["assume"][0]["returns"] for c in kill), [False, True])
+		# collectItemCheck -> true with no QuestState (then qs.getStatus() throws) is dead; with one it is kept, and "-> false" never reads qs
+		world = [(c.get("assume"), c["given"].get("questState", "absent")) for c in self.cases(doc, "onEnterWorldEvent")]
+		self.assertEqual(world, [([{"effect": 0, "returns": True}], {"status": "START"}), ([{"effect": 0, "returns": False}], "absent")])
+
 	def test_a_status_switch_takes_the_enum_labels(self):
 		doc = trace_text(handler(hook(
 			QS + "\t\tif (qs == null)\n\t\t\treturn false;\n\t\tswitch (qs.getStatus()) {\n\t\t\tcase START:\n"
@@ -580,7 +598,7 @@ class RealSliceTest(unittest.TestCase):
 	@classmethod
 	def setUpClass(cls):
 		cls.docs = {}
-		for rel in extract.SLICE:
+		for rel in extract.SLICE_TIER_A:
 			d = extract.trace_file(tables(), extract.QUEST_DIR / rel, rel)
 			cls.docs[d["questId"]] = d
 
@@ -607,6 +625,52 @@ class RealSliceTest(unittest.TestCase):
 		c = one(d, "onKillEvent", target={"kind": "npc", "npcId": 210670}, questState={"status": "START", "vars": {"0": 1}})
 		self.assertEqual(calls(c), [("qs.setQuestVarById", [0, 2]), ("updateQuestStatus", [])])     # :46-50
 		self.assertEqual(c["ranges"], {"questState.vars.0": [1, 5]})
+
+	def test_ranged_inputs_are_traced_at_their_high_end(self):
+		# P6-Q (route-gen review): the same path with the ranged input at hi, effects evaluated there. _1001TheKerubThreat.java:47-50: a kill
+		# at var 5 (the last value `var > 0 && var < 6` lets through) sets var 6; :96-108: 2 of 182200001 (the last count `itemCount >= 3`
+		# rejects) gets page 1779
+		d = self.docs[1001]
+		c = one(d, "onKillEvent", target={"kind": "npc", "npcId": 210670}, questState={"status": "START", "vars": {"0": 1}})
+		(h,) = c["atHigh"]
+		self.assertEqual((h["input"], h["value"], h["given"]["questState"]), ("questState.vars.0", 5, {"status": "START", "vars": {"0": 5}}))
+		self.assertEqual((calls(h), h["returns"]), ([("qs.setQuestVarById", [0, 6]), ("updateQuestStatus", [])], True))
+		c = one(d, "onDialogEvent", target={"kind": "npc", "npcId": 203071}, dialogAction={"name": "SETPRO3", "id": 10002},
+		        questState={"status": "START", "vars": {"0": 7}}, inventory={"182200001": 0})
+		(h,) = c["atHigh"]
+		self.assertEqual((h["input"], h["given"]["inventory"]), ("inventory.182200001", {"182200001": 2}))
+		self.assertEqual((calls(h), h["returns"]), ([("sendQuestDialog", [1779])], {"resultOf": 0}))
+		# the other side of `var < 6` runs to 63, the QuestVars slot's own end (QuestVars.java:22-58)
+		c = one(d, "onKillEvent", target={"kind": "npc", "npcId": 210670}, questState={"status": "START", "vars": {"0": 6}})
+		self.assertEqual([(h["value"], h["effects"], h["returns"]) for h in c["atHigh"]], [(63, [], False)])
+		# a case without a range has no high end
+		c = one(d, "onKillEvent", questState=None)
+		self.assertNotIn("atHigh", c)
+
+	def test_unguarded_var_reads_are_free(self):
+		# P6-Q (route-gen review): _2001ThinkingAhead.java:39 reads var with no guard on the CHECK_USER_HAS_QUEST_ITEM path (:62-63), whose
+		# checkQuestItems(env, 1, ...) acts at var 1 only, so a harness may set it; the kill hook guards var (:89-93), so there it is not free
+		d = self.docs[2001]
+		c = one(d, "onDialogEvent", target={"kind": "npc", "npcId": 203518}, questState={"status": "START", "vars": {"0": 0}},
+		        dialogAction={"name": "CHECK_USER_HAS_QUEST_ITEM", "id": 39})
+		self.assertEqual((c["free"], calls(c)), (["questState.vars.0"], [("checkQuestItems", [1, 2, False, 1694, 1693])]))
+		for c in matching(d, "onKillEvent"):
+			self.assertNotIn("free", c)
+		# a var an effect uses is not free: `qs.setQuestVarById(1, var1 + 1)` fixes the written value by var1
+		doc = trace_text(SYNTHETIC.split("\t@Override\n\tpublic boolean onDialogEvent")[0] + """	@Override
+	public boolean onDialogEvent(QuestEnv env) {
+		QuestState qs = env.getPlayer().getQuestStateList().getQuestState(questId);
+		if (qs == null)
+			return false;
+		int var = qs.getQuestVarById(0);
+		int var1 = qs.getQuestVarById(1);
+		qs.setQuestVarById(1, var1 + 1);
+		return sendQuestDialog(env, 1011);
+	}
+}
+""")
+		c = one(doc, "onDialogEvent", lambda c: c["effects"])
+		self.assertEqual(c["free"], ["questState.vars.0"])
 
 	def test_1000_prologue_start_quest(self):
 		# _1000Prologue.java:27-35: an Elyos without the quest starts it and plays movie 1; if startQuest fails and the quest is absent,
@@ -642,6 +706,50 @@ class RealSliceTest(unittest.TestCase):
 
 	def test_committed_traces_are_current(self):
 		self.assertEqual(extract.check(), [], "regenerate with: python oracle.py quest-trace generate")
+
+
+@unittest.skipUnless(HAVE_JAVA_TREE, "Java tree not present")
+class RouteSliceTest(unittest.TestCase):
+	"""the ascension route slice (SLICE_ROUTE, P6-Q 2026-09-29); the cases below derived by hand from the handlers' Java"""
+
+	@classmethod
+	def setUpClass(cls):
+		cls.docs = {}
+		for rel in extract.SLICE_ROUTE:
+			d = extract.trace_file(tables(), extract.QUEST_DIR / rel, rel)
+			cls.docs[d["questId"]] = d
+
+	def test_the_route_slice(self):
+		self.assertEqual(sorted(self.docs), [1100, 1205, 1913, 1914, 1915, 1916, 2100, 2132, 2901, 2902, 2903, 2904, 19070, 19071, 29070, 29071])
+		self.assertEqual(set(extract.SLICE_TIER_A) & set(extract.SLICE_ROUTE), set())
+		for qid in (1205, 2132):                     # every hook refused: `new QuestEnv`, getStartingClass on a value; registration only
+			self.assertEqual((self.docs[qid]["cases"], [h for h in self.docs[qid]["hooks"] if "unsupported" not in h]), ([], []))
+			self.assertIsInstance(self.docs[qid]["register"], list)
+		for qid in (1100, 2100):                     # the enter-world and level hooks are refused (WorldMapType), the others traced
+			refused = sorted(h["hook"] for h in self.docs[qid]["hooks"] if "unsupported" in h)
+			self.assertEqual(refused, ["onEnterWorldEvent", "onLevelChangedEvent"])
+			self.assertTrue(self.docs[qid]["cases"])
+
+	def test_1913_dispatch(self):
+		# _1913DispatchtoVerteron.java:21-25 (register) and :28-68 (onDialogEvent)
+		d = self.docs[1913]
+		self.assertEqual(d["register"], [{"call": "registerOnQuestCompleted", "args": [1913]},
+		                                 {"npc": 203726, "event": "addOnTalkEvent", "args": [1913]},
+		                                 {"npc": 203097, "event": "addOnTalkEvent", "args": [1913]}])
+		c = one(d, "onDialogEvent", target={"kind": "npc", "npcId": 203726}, dialogAction={"name": "QUEST_SELECT", "id": 31},
+		        questState={"status": "START", "vars": {"0": 0}})
+		self.assertEqual((calls(c), c["returns"]), ([("sendQuestDialog", [1352])], {"resultOf": 0}))
+		c = one(d, "onDialogEvent", target={"kind": "npc", "npcId": 203726}, dialogAction={"name": "SETPRO1", "id": 10000},
+		        questState={"status": "START", "vars": {"0": 0}})
+		self.assertEqual((calls(c), c["returns"]), ([("qs.setQuestVarById", [0, 1]), ("updateQuestStatus", []), ("closeDialogWindow", [])],
+		                                            {"resultOf": 2}))
+		c = one(d, "onDialogEvent", target={"kind": "npc", "npcId": 203097}, dialogAction={"name": "QUEST_SELECT", "id": 31},
+		        questState={"status": "START", "vars": {"0": 1}})
+		self.assertEqual(calls(c), [("qs.setStatus", ["REWARD"]), ("updateQuestStatus", []), ("sendQuestDialog", [2375])])
+		c = one(d, "onDialogEvent", target={"kind": "npc", "npcId": 203097}, questState={"status": "REWARD", "vars": {"0": 0}})
+		self.assertEqual((calls(c), c["returns"]), ([("sendQuestEndDialog", [])], {"resultOf": 0}))
+		c = one(d, "onQuestCompletedEvent")
+		self.assertEqual(calls(c), [("defaultOnQuestCompletedEvent", [])])
 
 
 @unittest.skipUnless(HAVE_JAVA_TREE, "Java tree not present")

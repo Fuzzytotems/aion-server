@@ -1233,6 +1233,11 @@ schemata run against the gate (the game server inherits `AION_TRV_MUT`), all kil
 price (M06: T1, T2, T3), `ACTIVE` not unset (M13: T2), heading 0 (M17: T3), `FLYING` not set (M12: T2, whose `CM_MOVE_IN_AIR` then moves
 nothing, so the stored position fails as well).
 
+Integrated with the P6-Q route handlers on branch `integ/asc-travel` (docs/design/p6q-ascension-route.md §7): the gate moved nowhere (slot
+1; the ascension gate took slot 2) and passes with the 42 handlers loaded, in 38-39 s. Its Daevas get 1205 / 2132 at the enter world,
+and 1007 / 2009 as well where `gameserver.simple.secondclass.enable` is off: not in the main tree, whose untracked `mygs.properties` turns it
+on for every gate server that does not pin the key. Both profiles were measured; both pass.
+
 ### 16.4 What is left of stage 1
 
 Measured in this tree after the slice (`grep -c "AION_UNPORTED()"`, the file lists):

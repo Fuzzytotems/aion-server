@@ -772,3 +772,31 @@ request is filed; the rows below record what was checked.
 | (new files) | `network/aion/clientpackets/CM_TELEPORT_SELECT.{h,cpp}` (P5-16) | a new class, named in the directory's `fwd.h` already; its opcode is in `ClientPacketInfo.gen.inc:131` | no request (new files) | – |
 | (no request) | `tests/scenario/GameSession.h`, `tests/scenario/decoders/*` (P5-SC) | none | **none filed** | the gate's three client packet bodies (`CM_TELEPORT_SELECT`, `CM_MOVE_IN_AIR`, `CM_EMOTION(LAND_FLYTELEPORT)`) and its two decoders (`SM_TELEPORT_MAP`, `SM_TELEPORT_LOC`) are file-local in `TravelScenarioTest.cpp`; m5f-plan.md G-02 moves them into `decoders/TravelDecoders.{h,cpp}` and `GameSession` |
 | (manifest) | `game-server/chunks.cmake` | `aion_gs_chunk(P5-08 LEASE PHASE 5 GLOBS "aion/gameserver/services/SiegeService.cpp")` after P5-12a | **the lease I-01 names, approved by the integrator under the standing instruction**; released when the lane merges | T-05: the two siege bodies on the teleport path (D8) |
+
+## P6-Q ascension route (2026-09-29)
+
+Lane route-gen (the generated handlers of Q05, Q09 and Q06, the golden trace harness; docs/deviations/Q05.md). **No frozen header changed**: the
+lane adds generated `.cpp` files, one test directory and Python tools only.
+
+| Id | File | Change | Decision | Reason |
+|---|---|---|---|---|
+| p6q-m01 | `game-server/chunks.cmake` (integrator) | chunk Q05 owns the test directory `tests/quest_handlers_golden` (`TESTS quest_handlers_golden`), the golden quest trace harness (phase6-inventory.md §7.6 item 3), with a comment; its executable compiles the generated Q09 and Q06 files by `#include` (as P5-05's tests do under m5d-m01) | **approved by the integrator under the standing instruction** (small and additive: one `TESTS` keyword and a comment on Q05's row; applied in the lane's commit) | A handler target's tests link only their own library (AionChunks.cmake); the harness needs the three route directories in one executable. m5d-m01's AionChunks.cmake change (a handler target's tests also linking other handler libraries) would remove the `#include` files here too. No LEASE row: a lease moves ownership (P5-05 owns the two AIs it ported), while the Q09 and Q06 files stay their chunks' generated files, compiled into their own libraries; chunks.py has no keyword for "a test executable compiles another chunk's sources", so the comment on Q05's row records the dependency |
+| (no request) | `questEngine/QuestEngine.h` (P5-06a) | a read of the private `registerOn*` lists (`questOnEnterWorld`, `questOnCompleted`, `questOnLevelUp`, ...) for the C++ registration trace | **none filed** | Not needed: the harness reads the npc registrations through the public `getQuestNpc` and `isRegisteredQuestItem`, and observes every other registration by routing the engine's public events (`onQuestCompleted`, `onLevelChanged`, `onEnterWorld`, `onEnterZone`, `onItemUseEvent`, `onCanAct`) to a spy registered in the handler's place (review of 2026-09-29). Only the order of registrations to different lists inside one `register_()` stays unobservable; the emitter keeps Java's statement order and the drift test (`tools/gen/tests/test_questgen_tree.py`) pins it |
+
+Phase 6's ascension-route lanes (owner, 2026-09-29: spare night capacity to the retail Ascension route). The route-hand lane hand-ports the six
+starting-zone quests questgen refuses (Q05: 1002, 1114; Q09: 2002, 2004, 2007, 2136) and ports `TeleportService::teleportToNpc` under a file
+lease (chunks.cmake, the Q09 LEASE row; the body only). **No frozen header changed**: the six handlers are new `.cpp` files of their chunks,
+and the lease changes one `.cpp` body and its includes.
+
+| Id | File | Change | Decision | Reason |
+|---|---|---|---|---|
+| (lease) | `services/teleport/TeleportService.cpp` (P5-08) | the body of `teleportToNpc` (TeleportService.java:304-333), `AION_UNPORTED` before | **recorded as the Q09 LEASE row of chunks.cmake**; released when the lane merges | Quest 2007's last step calls it; the declaration was already in `TeleportService.h` |
+| p6q-rh-m01 | `game-server/cmake/AionChunks.cmake` or `game-server/CMakeLists.txt` (integrator) | Q09's test executable (`aion_gs_handlers_quest_q09_tests`, from `tests/quest_handlers_zones`) also links `aion_gs_handlers_quest_q05`, so that `PoetaHandPortsTest.cpp` need not `#include` the two Q05 handler `.cpp` files | **approved by the integrator under the standing instruction (small and additive, the m5d-m01 pattern); applied when the lanes merge**: the change that adds the link removes the two `#include` lines of `PoetaHandPortsTest.cpp` in the same commit, or the two `_questFactory` functions are defined twice | A handler target's tests link only their own handler library (AionChunks.cmake), and the lane's one test directory holds the tests of both chunks' hand ports. Until then the `#include` stands, as P5-05's does for the two quest npc AIs; no lease goes with it, since the two files are Q05's own and the test only compiles them |
+
+Integration (branch `p6q/ascension-route`, 2026-09-29): the three lanes (asc-hand, route-gen, route-hand) merged with no header change. The
+rows above stand as written. p6q-rh-m01 is approved but **not applied** in the integration: it needs a new link keyword in AionChunks.cmake
+(the m5d-m01 pattern, itself not applied yet), so `PoetaHandPortsTest.cpp` keeps its two `#include` lines and whoever applies m5d-m01 or
+p6q-rh-m01 removes them in the same commit. The Q09 lease of `TeleportService.cpp` stays as a row of chunks.cmake, as the P5-13 lease of
+`WorldMapInstance.cpp` does after its lane merged. The Q06 lease of `tests/scenario` is released (its row removed; the files are P5-SC's):
+the row turned the phase-5 test `tools.porting` red (`test_chunks.RealTreeTest.test_test_directories` pins P5-SC's test directory without a
+lease), so the lane's change is reverted rather than the test edited (U1/U7; docs/design/p6q-ascension-route.md).

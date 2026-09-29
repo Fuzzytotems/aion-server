@@ -32,7 +32,10 @@ Only these documented renames are applied (each undoes one emitter idiom of phas
   `size()`; `get`, `at` and a Java index that is not an int literal are one name;
 - the class of a Java static import is dropped from the C++ qualified name (`SM_SYSTEM_MESSAGE::STR_X`);
 - `workItems.getFirst()`/`getLast()` are compared as `workItems.get(0)` / `workItems.get(workItems.size() - 1)`, the C++ spelling of
-  questgen's work-items rule.
+  questgen's work-items rule;
+- hand-port spellings (P6-Q ascension route, integration of 2026-09-29): `push_back` is `add` (java.util.List on a local `std::vector`);
+  a Java `new ArrayList<>()` with no argument is not a call (the default-constructed local; with an argument it stays a call); a Java
+  anonymous `new Runnable() { ... run() ... }` is a C++ lambda, so its `Runnable` and the `run` it declares are not calls.
 
 Not caught by design: plain identifiers are not compared, so a swapped or substituted operand, local or receiver is at parity (Java
 `return var > targetId;` against C++ `return targetId > var;`, `qs.setQuestVarById(0, var + 1)` against

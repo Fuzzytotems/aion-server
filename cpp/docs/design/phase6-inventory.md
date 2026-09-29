@@ -859,6 +859,8 @@ or a copy would "fix" some of these silently.
 | `instance/pvparenas/ArenaOfGloryInstance.java` | `setRewardItem1` twice in one branch; the second wins |
 | `ai/instance/illuminaryObelisk/ShieldGenerator{East,South,West}AI.java:45` | all three shout `N_WAVE_01_BEGIN` (North shouts wave 04); `getGateMsg` (`:34`) has no caller. Rev 1 named only East and West |
 | `quest/heiron/_3200PriceOfGoodwill.java` vs `quest/beluslan/_4200ASuspiciousCall.java:128-132` | `UNKNOWN` vs `FAILED` on the wrong step; not a bug, but a twin tool must not merge it |
+| `quest/poeta/_1004NeutralizingOdium.java:68` | `targetId == 700030 && var == 1 \|\| var == 4` is `(… && var == 1) \|\| var == 4`: at var 4 any target (none included) takes the cauldron branch. Added by P6-Q (2026-09-29); questgen keeps and marks it |
+| `quest/poeta/_1111InsomniaMedicine.java:60, :62, :72, :81` | the 203061 branch dereferences `qs` without a null check: a caught NullPointerException that ends the talk of that npc (XML quests 1106 and 1108 there are skipped for a player without 1111). Added by P6-Q (2026-09-29); questgen keeps and marks it |
 
 ---
 
