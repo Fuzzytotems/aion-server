@@ -770,5 +770,7 @@ and the lease changes one `.cpp` body and its includes.
 Integration (branch `p6q/ascension-route`, 2026-09-29): the three lanes (asc-hand, route-gen, route-hand) merged with no header change. The
 rows above stand as written. p6q-rh-m01 is approved but **not applied** in the integration: it needs a new link keyword in AionChunks.cmake
 (the m5d-m01 pattern, itself not applied yet), so `PoetaHandPortsTest.cpp` keeps its two `#include` lines and whoever applies m5d-m01 or
-p6q-rh-m01 removes them in the same commit. The Q09 lease of `TeleportService.cpp` and the Q06 lease of `tests/scenario` stay as rows of
-chunks.cmake, as the P5-13 lease of `WorldMapInstance.cpp` does after its lane merged (docs/design/p6q-ascension-route.md).
+p6q-rh-m01 removes them in the same commit. The Q09 lease of `TeleportService.cpp` stays as a row of chunks.cmake, as the P5-13 lease of
+`WorldMapInstance.cpp` does after its lane merged. The Q06 lease of `tests/scenario` is released (its row removed; the files are P5-SC's):
+the row turned the phase-5 test `tools.porting` red (`test_chunks.RealTreeTest.test_test_directories` pins P5-SC's test directory without a
+lease), so the lane's change is reverted rather than the test edited (U1/U7; docs/design/p6q-ascension-route.md).

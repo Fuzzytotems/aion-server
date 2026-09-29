@@ -1,4 +1,4 @@
-// gs.scenario.ascension (lane P6-Q asc-hand, chunk Q06; the test lives in P5-SC's harness directory under a lease, chunks.cmake): the retail
+// gs.scenario.ascension (lane P6-Q asc-hand, chunk Q06; in P5-SC's harness directory, the lane's lease released at integration): the retail
 // ascension route end to end on the real servers and the real static data, for an Elyos Warrior and an Asmodian Warrior, with the four
 // hand-ported handlers (handlers/quest/ascension: 1006, 2008, 1007, 2009) registered because gameserver.simple.secondclass.enable is off.
 //

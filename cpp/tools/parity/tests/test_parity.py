@@ -159,6 +159,34 @@ class Renames(unittest.TestCase):
         self.assertEqual(dict(cf.companions), {'isStartingClass': 1})
         self.assertEqual(cf.calls, ['onDialogEvent', 'getPlayer', 'getPlayerClass', 'check'])
 
+    def test_hand_port_list_and_runnable_spellings(self):
+        # P6-Q integration (2026-09-29): _1006Ascension's raiders list and _2002WheresRae's scheduled Runnable, as the hand ports spell them
+        jf, cf = self.at_parity(
+            java('\t\tList<Npc> mobs = new ArrayList<>();\n\t\tmobs.add((Npc) spawn(211042, player, 1f, 2f, 3f, (byte) 0));\n'
+                 '\t\tmobs.add((Npc) spawn(211042, player, 4f, 5f, 6f, (byte) 0));\n'
+                 '\t\tThreadPoolManager.getInstance().schedule(new Runnable() {\n\n\t\t\t@Override\n\t\t\tpublic void run() {\n'
+                 '\t\t\t\tmobs.get(0).getController().delete();\n\t\t\t\ttask.run();\n\t\t\t}\n\t\t}, 43000);\n\t\treturn true;'),
+            cpp('\t\tstd::vector<runtime::Ptr<Npc>> mobs;\n'
+                '\t\tmobs.push_back(runtime::cast<Npc>(spawn(211042, player, 1.0f, 2.0f, 3.0f, static_cast<int8_t>(0))));\n'
+                '\t\tmobs.push_back(runtime::cast<Npc>(spawn(211042, player, 4.0f, 5.0f, 6.0f, static_cast<int8_t>(0))));\n'
+                '\t\tThreadPoolManager::getInstance().schedule([mobs, task]() {\n\t\t\tmobs.at(0)->getController()->delete_();\n'
+                '\t\t\ttask->run();\n\t\t}, 43000);\n\t\treturn true;'))
+        self.assertEqual(cf.calls, ['onDialogEvent', 'add', 'spawn', 'add', 'spawn', 'getInstance', 'schedule', 'get', 'getController', 'delete',
+                                    'run'])
+        self.assertEqual(jf.calls, cf.calls)
+
+    def test_the_hand_port_spellings_are_narrow(self):
+        # a copy constructor stays a call, a run() outside an anonymous Runnable stays a call, a dropped add is still seen
+        self.assertEqual(checks(java('\t\tList<Npc> copy = new ArrayList<>(mobs);\n\t\treturn true;'),
+                                cpp('\t\tstd::vector<runtime::Ptr<Npc>> copy = mobs;\n\t\treturn true;')),
+                         ['calls-multiset', 'calls-order'])
+        self.assertEqual(checks(java('\t\ttask.run();\n\t\treturn true;'), cpp('\t\treturn true;')), ['calls-multiset', 'calls-order'])
+        self.assertEqual(checks(java('\t\tRunnable r = new Runnable() {\n\t\t\tpublic void run() {\n\t\t\t}\n\t\t};\n'
+                                     '\t\tr.run();\n\t\treturn true;'),
+                                cpp('\t\tauto r = []() {\n\t\t};\n\t\treturn true;')), ['calls-multiset', 'calls-order'])
+        self.assertEqual(checks(java('\t\tmobs.add(npc);\n\t\tmobs.add(npc);\n\t\treturn true;'),
+                                cpp('\t\tmobs.push_back(npc);\n\t\treturn true;')), ['calls-multiset', 'calls-order'])
+
     def test_annotations_are_not_code(self):
         _, cf = self.at_parity(java('\t\treturn true;', head='\t@SuppressWarnings("unused")\n\t@Override\n\tpublic void register() {\n\t}'),
                                cpp('\t\treturn true;', head='\tvoid register_() override {\n\t}'))

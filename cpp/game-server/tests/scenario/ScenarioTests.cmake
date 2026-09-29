@@ -138,7 +138,7 @@ if(TARGET aion_gs_scenario_tests)
 	# and for the M5c gate (m5c-plan.md G-03, §10.5; no geo variant, D12)
 	aion_set_discovered_test_properties(aion_gs_scenario_tests REGEX "^M5cScenario\\." PROPERTIES DISABLED TRUE
 		LABELS "scenario;realdata")
-	# and for the ascension route (lane P6-Q asc-hand, chunk Q06 under its lease of this directory; docs/deviations/Q06.md)
+	# and for the ascension route (lane P6-Q asc-hand, chunk Q06; its lease of this directory released at integration; docs/deviations/Q06.md)
 	aion_set_discovered_test_properties(aion_gs_scenario_tests REGEX "^AscensionScenario\\." PROPERTIES DISABLED TRUE
 		LABELS "scenario;realdata")
 
