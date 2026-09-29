@@ -507,10 +507,15 @@ aion_gs_chunk(Q04 TARGET aion_gs_handlers_quest_q04 PHASE 6 ROOT handlers
 	GLOBS "aion/gameserver/handlers/quest/{beluslan,brusthonin}/**"
 	JAVA "data/handlers/quest/{beluslan,brusthonin}/**"
 	PCH "aion/gameserver/handlers/quest/QuestPrelude.h")
+# Q05's test directory is the golden quest trace harness of the generated handlers (P6-Q ascension route, lane route-gen, 2026-09-29;
+# phase6-inventory.md §7.6 item 3 and §8.2): it drives every case of tools/oracle/expected/quest through the real engine. A handler target's
+# tests link only their own library, so the executable compiles the generated Q09 (ishalgen) and Q06 (ascension dispatch) files by #include, as
+# P5-05's tests do for the two quest npc AIs (the P5-05 LEASE row below); docs/deviations/Q05.md.
 aion_gs_chunk(Q05 TARGET aion_gs_handlers_quest_q05 PHASE 6 ROOT handlers
 	GLOBS "aion/gameserver/handlers/quest/{eltnen,poeta,oriel}/**"
 	JAVA "data/handlers/quest/{eltnen,poeta,oriel}/**"
-	PCH "aion/gameserver/handlers/quest/QuestPrelude.h")
+	PCH "aion/gameserver/handlers/quest/QuestPrelude.h"
+	TESTS quest_handlers_golden)
 aion_gs_chunk(Q06 TARGET aion_gs_handlers_quest_q06 PHASE 6 ROOT handlers
 	GLOBS "aion/gameserver/handlers/quest/{crafting,ascension}/**"
 	JAVA "data/handlers/quest/{crafting,ascension}/**"

@@ -779,6 +779,8 @@ case in `expected/quest/<questId>.json` (`format` `aion-quest-trace`, `version` 
 | `guards` | the Java text of every condition taken, its outcome and its line, in order |
 | `ranges` | an input an ordering guard bounded on both ends, `[lo, hi]`. Both ends satisfy every guard: an end a `!=` guard excludes moves inward (`!(var >= 1 && var < 10) && var != 10` is `[11, 63]`), so `given` holds `lo` and a harness can check `hi` too |
 | `rangeExcludes` | the values inside `[lo, hi]` a guard excludes (none in the corpus today) |
+| `free` | the QuestVars slots the path reads with no guard on them and uses in no effect argument and not in the return value (`"questState.vars.0"`): any value takes the same path with the same effects, so a harness may set one to what a helper the path calls reads (`checkQuestItems(env, 1, ...)` acts only at var 1). P6-Q, 2026-09-29 |
+| `atHigh` | per ranged input, the same path with that input at the high end of its range and the others as given: `input`, `value`, `given`, `effects` and `returns` (or `throws`) evaluated there. `given` holds the low end, so a boundary moved by one (`var < 6` read as `var < 5`) or an expression replaced by its low-end constant (`var + 1` read as 2) fails the high end. P6-Q, 2026-09-29 |
 | `effects` | the calls with side effects in order, arguments evaluated under `given`: the AbstractQuestHandler helpers (`sendQuestDialog` with its page, `changeQuestStep`, `giveQuestItem`, `removeQuestItem`, `playQuestMovie`, ...), `qs.setQuestVarById`/`setQuestVar`/`setStatus`/`setRewardGroup`, `QuestService.*`, `PacketSendUtility.sendPacket` with the packet built, `env.setQuestId`. The hook's own `env` and `player` arguments are left out; a varargs `int[]` is spread |
 | `returns` / `throws` | the value (`true`, `"FAILED"`, `{resultOf: k}` for effect k's result, `{fromBoolean: ...}`), or `NullPointerException` when the path dereferences an absent QuestState or target (after the call's arguments are evaluated, JLS 15.12.4, so their effects are in the case) |
 
@@ -788,7 +790,8 @@ phase6-questgen-prototype.md §8.2) and `hooks` (each hook with its case count, 
 The cases are call traces. A helper call is an effect with its arguments, not expanded into what it sends: a recording double of
 AbstractQuestHandler/QuestState (the link seam of §7.6 item 3) returns the assumed results and compares the calls; a harness on the real
 engine after M5d compares the observable subset (dialog pages, var and status writes, items, movies) and lets the ported helpers run.
-Assumed helper results are not checked against the helper's own logic (collectItemCheck with no QuestState cannot return true in Java).
+Assumed helper results are not checked against the helper's own logic, except the two results `dead_assumption` knows Java cannot return
+(below).
 
 Guards are equalities, set membership, ranges and their negations over single inputs (a linear offset such as `var + 1 == 3` is solved),
 so a satisfying value is picked directly and an infeasible branch is dropped. Each label of a multi-label `case` is its own case. State
@@ -802,12 +805,21 @@ test.
 
 The input model has limits a harness should know. The visible object is an Npc or nothing: `QuestEnv.getTargetId` (QuestEnv.java:94-96)
 also returns the template id of a visible object that is not an Npc (a gatherable, a static object), which makes `instanceof Npc` false
-with a non-zero target id, and no case has such a target. The assumed results of helpers are not checked against the helpers.
+with a non-zero target id, and no case has such a target. The assumed results of helpers are not checked against the helpers (but for `dead_assumption`'s two rules).
 
-The first slice is `questtrace.extract.SLICE`: the 20 Poeta and Ishalgen handlers questgen transliterates in tier A with its P6-T rules
-(`tools/gen/tests/test_questgen_p6t.py` keeps the two lists equal): 515 cases, every hook traced. Over all 1,035 handlers the extractor
+The first slice is `questtrace.extract.SLICE_TIER_A`: the 20 Poeta and Ishalgen handlers questgen transliterates in tier A with its P6-T
+rules (`tools/gen/tests/test_questgen_p6t.py` keeps the two lists equal): 506 cases (515 before `dead_assumption`, below), every hook
+traced. The ascension route slice
+`SLICE_ROUTE` (P6-Q, 2026-09-29) adds the route's other generated handlers: 1100 and 2100 (their enter-world and level hooks refused:
+`WorldMapType`), 1205 and 2132 (every hook refused, registration only) and the 12 dispatches of `ascension/` (17 cases each): 16 documents,
+218 cases. `SLICE` is both. The C++ harness `game-server/tests/quest_handlers_golden` drives every document of `expected/quest` through the real
+engine with the generated handler (docs/deviations/Q05.md). Its first run found 9 cases no state reproduces: paths that assume a helper
+result the helper's Java cannot return. `dead_assumption` drops them since (`giveQuestItem` of a non-zero constant item and count
+"-> false", AbstractQuestHandler.java:626-641; `QuestService.collectItemCheck(env, true)` "-> true" without a QuestState,
+QuestService.java:557-561), so the first slice has 506 cases. Over all 1,035 handlers the extractor
 writes 972 documents (the other 63 contain Java the shared parser refuses: a lambda, an anonymous class, `new ArrayList<>`, a switch
-expression) with 18,970 cases; 637 of them have every hook traced (17,013 cases; 26 of those with a `register()` it does not follow). The
+expression) with 18,861 cases (109 dead paths dropped; 422 high ends); 637 of them have every hook traced (16,904 cases; 26 of those with a
+`register()` it does not follow). Measured 2026-09-29. The
 most common refusals are crafting calls, the follow helpers, teleports and the packed `getQuestVars().getQuestVars()`.
 
 ```
@@ -820,5 +832,5 @@ With `--only`, `check` compares the named handlers only (the other documents in 
 Tests: `tests/test_quest_trace.py` (the input domains, a synthetic handler through every modelled construct and the refused ones, one
 small handler per Java rule above with its values worked out by hand, the parser precedence the oracle relies on, the range ends, the
 mutation standard - a changed page id, var write or guard in the Java changes the expected case -, hand-derived cases of 1000, 1001, 1005 and
-2122, the committed traces against a regeneration, `OTHER_NPCS` against `npc_templates.xml`, the command line, and the independence from
-the generator).
+2122, the high ends and free var slots of 1001 and 2001, the route slice and 1913, the dead paths, the committed traces against a
+regeneration, `OTHER_NPCS` against `npc_templates.xml`, the command line, and the independence from the generator).

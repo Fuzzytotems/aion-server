@@ -7,7 +7,9 @@
             used with their counts and whether the C++ side declares them today (and the body status census.py reports), the API gaps
             that block the most files, and the Elyos/Asmodian mirror pairs G2's twin mode could share.
 --emit DIR  also write each transliterated file to DIR/aion/gameserver/handlers/quest/<dir>/<Class>.cpp. DIR must lie outside the
-            repository (the prototype never writes into the source tree); nothing is compiled.
+            repository (the tool never writes into the source tree): a file lands by being copied into
+            cpp/game-server/handlers/aion/gameserver/handlers/quest/<dir>/, where its Q chunk compiles it and
+            tools/gen/tests/test_questgen_tree.py checks that it is still the tool's output (P6-Q, docs/deviations/Q05.md).
 --only      restrict to these files: paths below data/handlers/quest (`eltnen/_1363ThankingMabangtah.java`), absolute paths or class
             names (`_1363ThankingMabangtah`).
 --prototype-rules

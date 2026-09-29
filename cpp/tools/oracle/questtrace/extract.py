@@ -73,7 +73,7 @@ OTHER_NPCS = (200000, 200001, 201000)
 
 # The first slice (phase6-inventory.md §9.3 item 1): the Poeta and Ishalgen handlers that questgen transliterates in tier A with the P6-T
 # rules (tools/gen/questgen, --dry-run). Chosen once by directory and tier; the list is data here, the oracle never runs the generator.
-SLICE = (
+SLICE_TIER_A = (
 	'ishalgen/_2000Prologue.java', 'ishalgen/_2001ThinkingAhead.java', 'ishalgen/_2003TreasureOfTheDeceased.java',
 	'ishalgen/_2005TeachingaLesson.java', 'ishalgen/_2006HitThemWhereitHurts.java', 'ishalgen/_2106VanarsFlattery.java',
 	'ishalgen/_2114TheInsectProblem.java', 'ishalgen/_2122AshesToAshes.java', 'ishalgen/_2123TheImprisonedGourmet.java',
@@ -82,6 +82,18 @@ SLICE = (
 	'poeta/_1005BarringtheGate.java', 'poeta/_1107TheLostAxe.java', 'poeta/_1111InsomniaMedicine.java',
 	'poeta/_1122DeliveringPernossRobe.java', 'poeta/_1123WheresTutty.java',
 )
+# The ascension route slice (P6-Q, 2026-09-29, lane route-gen): the other generated handlers of the route's three directories. 1100 and 2100
+# (tier B) keep their dialog and quest-completed hooks, their enter-world and level hooks are refused (WorldMapType); 1205 and 2132 have
+# every hook refused (`new QuestEnv`, getStartingClass on a value) and only their registration traced; the 12 dispatches of ascension/
+# are traced whole. The C++ harness (game-server/tests/quest_handlers_golden) drives every document of the directory.
+SLICE_ROUTE = (
+	'poeta/_1100KaliosCall.java', 'poeta/_1205ANewSkill.java', 'ishalgen/_2100OrderoftheCaptain.java', 'ishalgen/_2132ANewSkill.java',
+	'ascension/_1913DispatchtoVerteron.java', 'ascension/_1914DispatchtoVerteron.java', 'ascension/_1915DispatchtoVerteron.java',
+	'ascension/_1916DispatchtoVerteron.java', 'ascension/_19070ADispatchtoVerteron.java', 'ascension/_19071ADispatchtoVerteron.java',
+	'ascension/_2901DispatchtoAltgard.java', 'ascension/_2902DispatchtoAltgard.java', 'ascension/_2903DispatchtoAltgard.java',
+	'ascension/_2904DispatchtoAltgard.java', 'ascension/_29070ADispatchtoAltgard.java', 'ascension/_29071ADispatchtoAltgard.java',
+)
+SLICE = SLICE_TIER_A + SLICE_ROUTE
 
 ENUM_FILES = {'QuestStatus': 'questEngine/model/QuestStatus.java', 'Race': 'model/Race.java', 'PlayerClass': 'model/PlayerClass.java',
               'Gender': 'model/Gender.java', 'HandlerResult': 'questEngine/handlers/HandlerResult.java', 'DialogPage': 'model/DialogPage.java',
@@ -421,7 +433,7 @@ class Extractor:
 				continue
 			try:
 				leaves = self.run_hook(m)
-				mine = [self.case(m, kind, p, v) for kind, p, v in leaves]
+				mine = [self.case(m, kind, p, v) for kind, p, v in leaves if not self.dead_assumption(p)]
 			except Unsupported as e:
 				hooks.append({'hook': m.name, 'line': self.cu.tokens.loc(m.index)[0], 'unsupported': str(e)})
 				continue
@@ -1393,6 +1405,27 @@ class Extractor:
 			return f'inventory.{key[1]}'
 		return '.'.join(map(str, key))
 
+	def dead_assumption(self, p):
+		"""True when the path assumes a helper result the helper's Java body cannot return, so the path is dead Java code (P6-Q, 2026-09-29:
+		the golden harness found the 9 such cases of the first slice). `assume` is otherwise free. giveQuestItem(env, itemId, itemCount) with
+		constants itemId != 0 and itemCount != 0 returns true on both of its paths (AbstractQuestHandler.java:626-641); QuestService.
+		collectItemCheck(env, true) returns false when the player has no QuestState of env's quest (QuestService.java:557-561), which a
+		path shows as that quest's status read as absent"""
+		values = None
+		for k, b in p.assume.items():
+			call, args, _kind, _line = p.effects[k]
+			args = [a for a in args if a not in IMPLICIT]
+			if call == 'giveQuestItem' and not b and len(args) == 2 and all(
+					isinstance(a, K) and isinstance(a.v, int) and not isinstance(a.v, bool) and a.v != 0 for a in args):
+				return True
+			if call == 'QuestService.collectItemCheck' and b and args == [K(True)]:
+				target = self.env_quest(p)
+				if values is None:
+					values = self.pick_all(p)
+				if target is not None and ('status', target) in values and values[('status', target)] is None:
+					return True
+		return False
+
 	def case(self, m, kind, p, v):
 		values = self.pick_all(p)
 		c = {'id': None, 'hook': m.name, 'given': self.given(values), 'guards': [f'{t} -> {str(b).lower()} @{ln}' for ln, t, b in p.guards]}
@@ -1401,15 +1434,61 @@ class Extractor:
 			c['ranges'] = rg
 		if gaps:
 			c['rangeExcludes'] = gaps
+		free = self.free_vars(p, v)
+		if free:
+			c['free'] = free
 		if p.assume:
 			c['assume'] = [{'effect': k, 'returns': b} for k, b in sorted(p.assume.items())]
-		c['effects'] = [{'call': call, 'kind': kd, 'args': [self.render(a, values, p) for a in args if a not in IMPLICIT], 'line': ln}
-		                for call, args, kd, ln in p.effects]
-		if kind == 'throw':
-			c['throws'] = v
-		else:
-			c['returns'] = None if v is None else self.render(v, values, p)
+		c.update(self.outcome(kind, p, v, values))
+		# P6-Q (2026-09-29, the route-gen review): the same path with one ranged input at its high end, the others as given. `given` holds the
+		# low end; a boundary moved by one (`var < 6` read as `var < 5`, `itemCount >= 3` as `>= 1`) or an expression replaced by the constant
+		# it has at the low end (`var + 1` as 2) keeps every low-end case and fails here. hi satisfies every guard of the path (ranges()).
+		high = []
+		for key in p.reads:
+			name = self.key_name(key)
+			if name not in rg:
+				continue
+			at = dict(values)
+			at[key] = rg[name][1]
+			high.append({'input': name, 'value': rg[name][1], 'given': self.given(at), **self.outcome(kind, p, v, at)})
+		if high:
+			c['atHigh'] = high
 		return c
+
+	def free_vars(self, p, v):
+		"""the QuestVars slots the path reads with no guard on them and uses in no effect argument and not in the return value: any value
+		takes the same path with the same effects, so a harness may set one to what a helper the path calls reads (P6-Q, the route-gen review:
+		`checkQuestItems(env, 1, ...)` after an unguarded `int var = qs.getQuestVarById(0)` acts only at var 1, and given holds 0)"""
+		used = set()
+
+		def walk(x):
+			if isinstance(x, (In, Lazy)):
+				used.add(x.key)
+			elif isinstance(x, (Ar, Cmp, BAnd)):
+				walk(x.a)
+				walk(x.b)
+			elif isinstance(x, (Not, FromBool, RewardPage)):
+				walk(x.x)
+			elif isinstance(x, New):
+				walk(x.args)
+			elif isinstance(x, (list, tuple)):
+				for y in x:
+					walk(y)
+
+		for _call, args, _kind, _line in p.effects:
+			walk(args)
+		walk(v)
+		return [self.key_name(k) for k in p.reads if k[0] == 'var' and k not in p.dom and k not in used]
+
+	def outcome(self, kind, p, v, values):
+		"""the effects and the return value (or the exception) of the path, evaluated under the input values"""
+		o = {'effects': [{'call': call, 'kind': kd, 'args': [self.render(a, values, p) for a in args if a not in IMPLICIT], 'line': ln}
+		                 for call, args, kd, ln in p.effects]}
+		if kind == 'throw':
+			o['throws'] = v
+		else:
+			o['returns'] = None if v is None else self.render(v, values, p)
+		return o
 
 	def given(self, values):
 		g = {}
