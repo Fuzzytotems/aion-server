@@ -47,6 +47,7 @@
    "hook": "onDialogEvent",
    "given": {"dialogAction": {"name": "USE_OBJECT", "id": -1}, "target": {"kind": "none"}, "questState": null},
    "guards": ["qs == null -> true @40", "dialogActionId == QUEST_ACCEPT_1 -> false @42"],
+   "dialogExcludes": [1002],
    "effects": [],
    "returns": false
   },
@@ -104,6 +105,7 @@
     "qs.isStartable() [canRepeat] -> true @40",
     "dialogActionId == QUEST_ACCEPT_1 -> false @42"
    ],
+   "dialogExcludes": [1002],
    "effects": [],
    "returns": false
   },
@@ -118,6 +120,7 @@
     "qs.getStatus() == QuestStatus.START -> false @47",
     "qs.getStatus() == QuestStatus.REWARD -> false @55"
    ],
+   "dialogExcludes": [],
    "effects": [],
    "returns": false
   },
@@ -126,6 +129,7 @@
    "hook": "onDialogEvent",
    "given": {"dialogAction": {"name": "USE_OBJECT", "id": -1}, "target": {"kind": "none"}, "questState": {"status": "START"}},
    "guards": ["qs == null -> false @40", "qs.isStartable() [status == COMPLETE] -> false @40", "qs.getStatus() == QuestStatus.START -> true @47"],
+   "dialogExcludes": [],
    "effects": [],
    "returns": false
   },
@@ -139,6 +143,7 @@
     "qs.getStatus() == QuestStatus.START -> false @47",
     "qs.getStatus() == QuestStatus.REWARD -> true @55"
    ],
+   "dialogExcludes": [],
    "effects": [],
    "returns": false
   },
@@ -152,6 +157,7 @@
     "qs.getStatus() == QuestStatus.START -> false @47",
     "qs.getStatus() == QuestStatus.REWARD -> false @55"
    ],
+   "dialogExcludes": [],
    "effects": [],
    "returns": false
   },
@@ -160,6 +166,7 @@
    "hook": "onDialogEvent",
    "given": {"dialogAction": {"name": "USE_OBJECT", "id": -1}, "target": {"kind": "npc", "npcId": 203837}, "questState": null},
    "guards": ["qs == null -> true @40", "targetId == 0 -> false @41"],
+   "dialogExcludes": [],
    "effects": [],
    "returns": false
   },
@@ -177,6 +184,7 @@
     "qs.isStartable() [canRepeat] -> true @40",
     "targetId == 0 -> false @41"
    ],
+   "dialogExcludes": [],
    "effects": [],
    "returns": false
   },
@@ -195,6 +203,7 @@
     "qs.getStatus() == QuestStatus.START -> false @47",
     "qs.getStatus() == QuestStatus.REWARD -> false @55"
    ],
+   "dialogExcludes": [],
    "effects": [],
    "returns": false
   },
@@ -243,6 +252,7 @@
     "dialogActionId == QUEST_SELECT -> false @49",
     "dialogActionId == SELECT_QUEST_REWARD -> false @51"
    ],
+   "dialogExcludes": [31, 1009],
    "effects": [],
    "returns": false
   },
@@ -256,6 +266,7 @@
     "qs.getStatus() == QuestStatus.START -> true @47",
     "targetId == 203837 -> false @48"
    ],
+   "dialogExcludes": [],
    "effects": [],
    "returns": false
   },
@@ -286,6 +297,7 @@
     "targetId == 203837 -> true @56",
     "dialogActionId == USE_OBJECT -> false @57"
    ],
+   "dialogExcludes": [-1],
    "effects": [
     {"call": "removeQuestItem", "kind": "item", "args": [182201770, 1], "line": 60},
     {"call": "sendQuestEndDialog", "kind": "dialog", "args": [], "line": 61}
@@ -303,6 +315,7 @@
     "qs.getStatus() == QuestStatus.REWARD -> true @55",
     "targetId == 203837 -> false @56"
    ],
+   "dialogExcludes": [],
    "effects": [],
    "returns": false
   },
@@ -316,6 +329,7 @@
     "qs.getStatus() == QuestStatus.START -> false @47",
     "qs.getStatus() == QuestStatus.REWARD -> false @55"
    ],
+   "dialogExcludes": [],
    "effects": [],
    "returns": false
   },

@@ -67,6 +67,7 @@
     "env.getDialogActionId() not in [USE_OBJECT] -> true @50",
     "qs == null -> true @58"
    ],
+   "dialogExcludes": [-1],
    "effects": [],
    "returns": false
   },
@@ -139,6 +140,7 @@
     "qs.getStatus() != QuestStatus.START -> true @71"
    ],
    "free": ["questState.vars.0"],
+   "dialogExcludes": [-1],
    "effects": [],
    "returns": false
   },
@@ -296,6 +298,7 @@
     "env.getDialogActionId() == SELECT_QUEST_REWARD -> false @66"
    ],
    "free": ["questState.vars.0"],
+   "dialogExcludes": [-1, 1009],
    "effects": [{"call": "sendQuestEndDialog", "kind": "dialog", "args": [], "line": 69}],
    "returns": {"resultOf": 0}
   },
@@ -418,6 +421,7 @@
     "env.getDialogActionId() not in [QUEST_SELECT, SETPRO2] -> true @86"
    ],
    "free": ["questState.vars.0"],
+   "dialogExcludes": [31, 10001],
    "effects": [],
    "returns": false
   },
@@ -547,6 +551,7 @@
     "env.getDialogActionId() not in [QUEST_SELECT, SETPRO3] -> true @97"
    ],
    "free": ["questState.vars.0"],
+   "dialogExcludes": [31, 10002],
    "effects": [],
    "returns": false
   },
@@ -699,6 +704,7 @@
     "env.getDialogActionId() not in [QUEST_SELECT, SETPRO1] -> true @75"
    ],
    "free": ["questState.vars.0"],
+   "dialogExcludes": [31, 10000],
    "effects": [],
    "returns": false
   },
@@ -821,6 +827,7 @@
     "env.getDialogActionId() not in [QUEST_SELECT, SETPRO2] -> true @86"
    ],
    "free": ["questState.vars.0"],
+   "dialogExcludes": [31, 10001],
    "effects": [],
    "returns": false
   },
@@ -950,6 +957,7 @@
     "env.getDialogActionId() not in [QUEST_SELECT, SETPRO3] -> true @97"
    ],
    "free": ["questState.vars.0"],
+   "dialogExcludes": [31, 10002],
    "effects": [],
    "returns": false
   },
@@ -1013,6 +1021,7 @@
     "env.getDialogActionId() == QUEST_ACCEPT_1 -> false @43",
     "qs == null -> true @58"
    ],
+   "dialogExcludes": [1002],
    "effects": [],
    "returns": false
   },
@@ -1027,6 +1036,7 @@
     "qs.getStatus() == QuestStatus.REWARD -> true @62"
    ],
    "free": ["questState.vars.0"],
+   "dialogExcludes": [1002],
    "effects": [],
    "returns": false
   },
@@ -1042,6 +1052,7 @@
     "qs.getStatus() != QuestStatus.START -> true @71"
    ],
    "free": ["questState.vars.0"],
+   "dialogExcludes": [1002],
    "effects": [],
    "returns": false
   },
@@ -1057,6 +1068,7 @@
     "qs.getStatus() != QuestStatus.START -> false @71"
    ],
    "free": ["questState.vars.0"],
+   "dialogExcludes": [1002],
    "effects": [],
    "returns": false
   },

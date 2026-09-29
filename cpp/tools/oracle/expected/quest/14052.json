@@ -272,6 +272,7 @@
     "env.getDialogActionId() not in [QUEST_SELECT, CHECK_USER_HAS_QUEST_ITEM, SETPRO2, SET_SUCCEED] -> true @74"
    ],
    "free": ["questState.vars.0"],
+   "dialogExcludes": [31, 39, 10001, 10255],
    "effects": [],
    "returns": false
   },
@@ -425,6 +426,7 @@
     "env.getDialogActionId() not in [QUEST_SELECT, SETPRO3] -> true @97"
    ],
    "free": ["questState.vars.0"],
+   "dialogExcludes": [31, 10002],
    "effects": [],
    "returns": false
   },
@@ -584,6 +586,7 @@
     "env.getDialogActionId() not in [QUEST_SELECT, SETPRO3] -> true @114"
    ],
    "free": ["questState.vars.0"],
+   "dialogExcludes": [31, 10002],
    "effects": [],
    "returns": false
   },
@@ -749,6 +752,7 @@
     "env.getDialogActionId() not in [QUEST_SELECT, SETPRO3] -> true @131"
    ],
    "free": ["questState.vars.0"],
+   "dialogExcludes": [31, 10002],
    "effects": [],
    "returns": false
   },
@@ -920,6 +924,7 @@
     "env.getDialogActionId() not in [QUEST_SELECT, SETPRO3] -> true @148"
    ],
    "free": ["questState.vars.0"],
+   "dialogExcludes": [31, 10002],
    "effects": [],
    "returns": false
   },
@@ -972,6 +977,7 @@
     "env.getDialogActionId() == USE_OBJECT -> false @165"
    ],
    "free": ["questState.vars.0"],
+   "dialogExcludes": [-1],
    "effects": [],
    "returns": false
   },
@@ -1129,6 +1135,7 @@
     "env.getDialogActionId() not in [QUEST_SELECT, SETPRO1] -> true @61"
    ],
    "free": ["questState.vars.0"],
+   "dialogExcludes": [31, 10000],
    "effects": [],
    "returns": false
   },
@@ -1344,6 +1351,7 @@
     "env.getDialogActionId() not in [QUEST_SELECT, CHECK_USER_HAS_QUEST_ITEM, SETPRO2, SET_SUCCEED] -> true @74"
    ],
    "free": ["questState.vars.0"],
+   "dialogExcludes": [31, 39, 10001, 10255],
    "effects": [],
    "returns": false
   },
@@ -1497,6 +1505,7 @@
     "env.getDialogActionId() not in [QUEST_SELECT, SETPRO3] -> true @97"
    ],
    "free": ["questState.vars.0"],
+   "dialogExcludes": [31, 10002],
    "effects": [],
    "returns": false
   },
@@ -1656,6 +1665,7 @@
     "env.getDialogActionId() not in [QUEST_SELECT, SETPRO3] -> true @114"
    ],
    "free": ["questState.vars.0"],
+   "dialogExcludes": [31, 10002],
    "effects": [],
    "returns": false
   },
@@ -1821,6 +1831,7 @@
     "env.getDialogActionId() not in [QUEST_SELECT, SETPRO3] -> true @131"
    ],
    "free": ["questState.vars.0"],
+   "dialogExcludes": [31, 10002],
    "effects": [],
    "returns": false
   },
@@ -1992,6 +2003,7 @@
     "env.getDialogActionId() not in [QUEST_SELECT, SETPRO3] -> true @148"
    ],
    "free": ["questState.vars.0"],
+   "dialogExcludes": [31, 10002],
    "effects": [],
    "returns": false
   },
@@ -2044,6 +2056,7 @@
     "env.getDialogActionId() == USE_OBJECT -> false @165"
    ],
    "free": ["questState.vars.0"],
+   "dialogExcludes": [-1],
    "effects": [],
    "returns": false
   },

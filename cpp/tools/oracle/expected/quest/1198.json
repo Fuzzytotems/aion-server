@@ -41,6 +41,7 @@
    "hook": "onDialogEvent",
    "given": {"dialogAction": {"name": "USE_OBJECT", "id": -1}, "target": {"kind": "none"}, "questState": null},
    "guards": ["qs == null -> true @37", "dialogActionId == QUEST_ACCEPT_1 -> false @39"],
+   "dialogExcludes": [1002],
    "effects": [],
    "returns": false
   },
@@ -98,6 +99,7 @@
     "qs.isStartable() [canRepeat] -> true @37",
     "dialogActionId == QUEST_ACCEPT_1 -> false @39"
    ],
+   "dialogExcludes": [1002],
    "effects": [],
    "returns": false
   },
@@ -112,6 +114,7 @@
     "qs.getStatus() == QuestStatus.START -> false @46",
     "qs.getStatus() == QuestStatus.REWARD -> false @55"
    ],
+   "dialogExcludes": [],
    "effects": [],
    "returns": false
   },
@@ -120,6 +123,7 @@
    "hook": "onDialogEvent",
    "given": {"dialogAction": {"name": "USE_OBJECT", "id": -1}, "target": {"kind": "none"}, "questState": {"status": "START"}},
    "guards": ["qs == null -> false @37", "qs.isStartable() [status == COMPLETE] -> false @37", "qs.getStatus() == QuestStatus.START -> true @46"],
+   "dialogExcludes": [],
    "effects": [],
    "returns": false
   },
@@ -133,6 +137,7 @@
     "qs.getStatus() == QuestStatus.START -> false @46",
     "qs.getStatus() == QuestStatus.REWARD -> true @55"
    ],
+   "dialogExcludes": [],
    "effects": [],
    "returns": false
   },
@@ -146,6 +151,7 @@
     "qs.getStatus() == QuestStatus.START -> false @46",
     "qs.getStatus() == QuestStatus.REWARD -> false @55"
    ],
+   "dialogExcludes": [],
    "effects": [],
    "returns": false
   },
@@ -154,6 +160,7 @@
    "hook": "onDialogEvent",
    "given": {"dialogAction": {"name": "USE_OBJECT", "id": -1}, "target": {"kind": "npc", "npcId": 700009}, "questState": null},
    "guards": ["qs == null -> true @37", "targetId == 0 -> false @38", "targetId == 700009 -> true @43"],
+   "dialogExcludes": [],
    "effects": [{"call": "giveQuestItem", "kind": "item", "args": [182200559, 1], "line": 44}],
    "returns": {"resultOf": 0}
   },
@@ -162,6 +169,7 @@
    "hook": "onDialogEvent",
    "given": {"dialogAction": {"name": "USE_OBJECT", "id": -1}, "target": {"kind": "npc", "npcId": 203098}, "questState": null},
    "guards": ["qs == null -> true @37", "targetId == 0 -> false @38", "targetId == 700009 -> false @43"],
+   "dialogExcludes": [],
    "effects": [],
    "returns": false
   },
@@ -180,6 +188,7 @@
     "targetId == 0 -> false @38",
     "targetId == 700009 -> true @43"
    ],
+   "dialogExcludes": [],
    "effects": [{"call": "giveQuestItem", "kind": "item", "args": [182200559, 1], "line": 44}],
    "returns": {"resultOf": 0}
   },
@@ -198,6 +207,7 @@
     "targetId == 0 -> false @38",
     "targetId == 700009 -> false @43"
    ],
+   "dialogExcludes": [],
    "effects": [],
    "returns": false
   },
@@ -216,6 +226,7 @@
     "qs.getStatus() == QuestStatus.START -> false @46",
     "qs.getStatus() == QuestStatus.REWARD -> false @55"
    ],
+   "dialogExcludes": [],
    "effects": [],
    "returns": false
   },
@@ -267,6 +278,7 @@
     "dialogActionId == QUEST_SELECT -> false @48",
     "dialogActionId == SELECT_QUEST_REWARD -> false @50"
    ],
+   "dialogExcludes": [31, 1009],
    "effects": [],
    "returns": false
   },
@@ -280,6 +292,7 @@
     "qs.getStatus() == QuestStatus.START -> true @46",
     "targetId == 203098 -> false @47"
    ],
+   "dialogExcludes": [],
    "effects": [],
    "returns": false
   },
@@ -294,6 +307,7 @@
     "qs.getStatus() == QuestStatus.REWARD -> true @55",
     "targetId == 203098 -> true @56"
    ],
+   "dialogExcludes": [],
    "effects": [{"call": "sendQuestEndDialog", "kind": "dialog", "args": [], "line": 57}],
    "returns": {"resultOf": 0}
   },
@@ -308,6 +322,7 @@
     "qs.getStatus() == QuestStatus.REWARD -> true @55",
     "targetId == 203098 -> false @56"
    ],
+   "dialogExcludes": [],
    "effects": [],
    "returns": false
   },
@@ -321,6 +336,7 @@
     "qs.getStatus() == QuestStatus.START -> false @46",
     "qs.getStatus() == QuestStatus.REWARD -> false @55"
    ],
+   "dialogExcludes": [],
    "effects": [],
    "returns": false
   },

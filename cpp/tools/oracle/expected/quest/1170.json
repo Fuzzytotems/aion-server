@@ -22,6 +22,7 @@
    "hook": "onDialogEvent",
    "given": {"target": {"kind": "none"}, "dialogAction": {"name": "USE_OBJECT", "id": -1}, "questState": null},
    "guards": ["qs == null -> true @36"],
+   "dialogExcludes": [],
    "effects": [],
    "returns": false
   },
@@ -30,6 +31,7 @@
    "hook": "onDialogEvent",
    "given": {"target": {"kind": "none"}, "dialogAction": {"name": "USE_OBJECT", "id": -1}, "questState": {"status": "COMPLETE", "canRepeat": true}},
    "guards": ["qs == null -> false @36", "qs.isStartable() [status == COMPLETE] -> true @36", "qs.isStartable() [canRepeat] -> true @36"],
+   "dialogExcludes": [],
    "effects": [],
    "returns": false
   },
@@ -44,6 +46,7 @@
     "qs.getStatus() == QuestStatus.START -> false @44",
     "qs.getStatus() == QuestStatus.REWARD -> false @50"
    ],
+   "dialogExcludes": [],
    "effects": [],
    "returns": false
   },
@@ -52,6 +55,7 @@
    "hook": "onDialogEvent",
    "given": {"target": {"kind": "none"}, "dialogAction": {"name": "USE_OBJECT", "id": -1}, "questState": {"status": "START"}},
    "guards": ["qs == null -> false @36", "qs.isStartable() [status == COMPLETE] -> false @36", "qs.getStatus() == QuestStatus.START -> true @44"],
+   "dialogExcludes": [],
    "effects": [],
    "returns": false
   },
@@ -65,6 +69,7 @@
     "qs.getStatus() == QuestStatus.START -> false @44",
     "qs.getStatus() == QuestStatus.REWARD -> true @50"
    ],
+   "dialogExcludes": [],
    "effects": [],
    "returns": false
   },
@@ -78,6 +83,7 @@
     "qs.getStatus() == QuestStatus.START -> false @44",
     "qs.getStatus() == QuestStatus.REWARD -> false @50"
    ],
+   "dialogExcludes": [],
    "effects": [],
    "returns": false
   },
@@ -94,6 +100,7 @@
    "hook": "onDialogEvent",
    "given": {"target": {"kind": "npc", "npcId": 730000}, "dialogAction": {"name": "USE_OBJECT", "id": -1}, "questState": null},
    "guards": ["qs == null -> true @36", "targetId == 730000 -> true @37", "dialogActionId == QUEST_SELECT -> false @38"],
+   "dialogExcludes": [31],
    "effects": [{"call": "sendQuestStartDialog", "kind": "dialog", "args": [], "line": 41}],
    "returns": {"resultOf": 0}
   },
@@ -102,6 +109,7 @@
    "hook": "onDialogEvent",
    "given": {"target": {"kind": "npc", "npcId": 700033}, "dialogAction": {"name": "USE_OBJECT", "id": -1}, "questState": null},
    "guards": ["qs == null -> true @36", "targetId == 730000 -> false @37"],
+   "dialogExcludes": [],
    "effects": [],
    "returns": false
   },
@@ -138,6 +146,7 @@
     "targetId == 730000 -> true @37",
     "dialogActionId == QUEST_SELECT -> false @38"
    ],
+   "dialogExcludes": [31],
    "effects": [{"call": "sendQuestStartDialog", "kind": "dialog", "args": [], "line": 41}],
    "returns": {"resultOf": 0}
   },
@@ -155,6 +164,7 @@
     "qs.isStartable() [canRepeat] -> true @36",
     "targetId == 730000 -> false @37"
    ],
+   "dialogExcludes": [],
    "effects": [],
    "returns": false
   },
@@ -173,6 +183,7 @@
     "qs.getStatus() == QuestStatus.START -> false @44",
     "qs.getStatus() == QuestStatus.REWARD -> false @50"
    ],
+   "dialogExcludes": [],
    "effects": [],
    "returns": false
   },
@@ -201,6 +212,7 @@
     "targetId == 700033 -> true @45",
     "dialogActionId == USE_OBJECT -> false @46"
    ],
+   "dialogExcludes": [-1],
    "effects": [],
    "returns": false
   },
@@ -214,6 +226,7 @@
     "qs.getStatus() == QuestStatus.START -> true @44",
     "targetId == 700033 -> false @45"
    ],
+   "dialogExcludes": [],
    "effects": [],
    "returns": false
   },
@@ -264,6 +277,7 @@
     "dialogActionId == USE_OBJECT -> false @52",
     "dialogActionId == SETPRO1 -> false @54"
    ],
+   "dialogExcludes": [-1, 10000],
    "effects": [],
    "returns": false
   },
@@ -278,6 +292,7 @@
     "qs.getStatus() == QuestStatus.REWARD -> true @50",
     "targetId == 730000 -> false @51"
    ],
+   "dialogExcludes": [],
    "effects": [],
    "returns": false
   },
@@ -291,6 +306,7 @@
     "qs.getStatus() == QuestStatus.START -> false @44",
     "qs.getStatus() == QuestStatus.REWARD -> false @50"
    ],
+   "dialogExcludes": [],
    "effects": [],
    "returns": false
   },

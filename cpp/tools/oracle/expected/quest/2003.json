@@ -251,6 +251,7 @@
     "env.getDialogActionId() not in [QUEST_SELECT, SELECT1_1, SETPRO1, CHECK_USER_HAS_QUEST_ITEM] -> true @41"
    ],
    "free": ["questState.vars.0"],
+   "dialogExcludes": [31, 39, 1012, 10000],
    "effects": [],
    "returns": false
   },

@@ -90,6 +90,7 @@
    "hook": "onDialogEvent",
    "given": {"target": {"kind": "npc", "npcId": 203097}, "dialogAction": {"name": "USE_OBJECT", "id": -1}, "questState": null},
    "guards": ["qs == null -> true @36", "targetId == 203097 -> true @37", "env.getDialogActionId() == QUEST_SELECT -> false @38"],
+   "dialogExcludes": [31],
    "effects": [{"call": "sendQuestStartDialog", "kind": "dialog", "args": [], "line": 41}],
    "returns": {"resultOf": 0}
   },
@@ -134,6 +135,7 @@
     "targetId == 203097 -> true @37",
     "env.getDialogActionId() == QUEST_SELECT -> false @38"
    ],
+   "dialogExcludes": [31],
    "effects": [{"call": "sendQuestStartDialog", "kind": "dialog", "args": [], "line": 41}],
    "returns": {"resultOf": 0}
   },
@@ -216,6 +218,7 @@
     "targetId == 799093 -> true @44",
     "env.getDialogActionId() not in [QUEST_SELECT, SETPRO1] -> true @45"
    ],
+   "dialogExcludes": [31, 10000],
    "effects": [{"call": "sendQuestStartDialog", "kind": "dialog", "args": [], "line": 54}],
    "returns": {"resultOf": 0}
   },
@@ -270,6 +273,7 @@
     "targetId == 203101 -> true @56",
     "env.getDialogActionId() not in [QUEST_SELECT, SELECT_QUEST_REWARD] -> true @57"
    ],
+   "dialogExcludes": [31, 1009],
    "effects": [],
    "returns": false
   },

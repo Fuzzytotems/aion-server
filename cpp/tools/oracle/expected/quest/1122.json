@@ -55,6 +55,7 @@
     "env.getDialogActionId() == QUEST_SELECT -> false @37",
     "env.getDialogActionId() == QUEST_ACCEPT_1 -> false @39"
    ],
+   "dialogExcludes": [31, 1002],
    "effects": [{"call": "sendQuestStartDialog", "kind": "dialog", "args": [], "line": 45}],
    "returns": {"resultOf": 0}
   },
@@ -243,6 +244,7 @@
     "qs.getStatus() == QuestStatus.START -> true @48",
     "env.getDialogActionId() not in [QUEST_SELECT, SETPRO1, SETPRO2, SETPRO3] -> true @50"
    ],
+   "dialogExcludes": [31, 10000, 10001, 10002],
    "effects": [{"call": "sendQuestStartDialog", "kind": "dialog", "args": [], "line": 91}],
    "returns": {"resultOf": 0}
   },

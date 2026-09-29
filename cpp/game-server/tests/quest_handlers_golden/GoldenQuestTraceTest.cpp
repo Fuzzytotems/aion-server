@@ -32,6 +32,11 @@
 // Every run reseeds the thread's Rnd with the same seed, on the fixture's ManualClock, so both runs of a case draw the same numbers at the same
 // time. A negative control (TheHarnessFailsDeliberatelyWrongHandlers) proves each comparison fails a handler that differs there.
 //
+// The Q10 review (2026-09-29): a case whose path reads the dialog action only through `!=` guards carries the excluded actions
+// (extract.py dialogExcludes) and runs under free-dialog overlays too, with each action the start and end helpers act on (overlaysFor); a run
+// that reaches an AION_UNPORTED engine body is reported unless knownUnported lists it; the negative control flips the opcodes, the thrown
+// exception and an unported reach as well.
+//
 // The registration trace (phase6-inventory.md §7.6 item 2) registers each handler alone: its QuestNpc lists must hold the quest as often as the
 // Java register() adds it, and the engine events (quest completed, level changed, enter world, enter zone, quest item use, can act) must reach it
 // exactly for the registrations of the Java register().
@@ -47,6 +52,7 @@
 #include <filesystem>
 #include <fstream>
 #include <iostream>
+#include <iterator>
 #include <map>
 #include <optional>
 #include <regex>
@@ -64,6 +70,7 @@
 #include "../quest_handlers/QuestHandlerTestSupport.h"
 
 #include "GoldenHandlers.h"
+#include "GoldenKnownVacuousQ10.h"
 
 #include "aion/commons/utils/Rnd.h"
 #include "aion/gameserver/configs/main/CustomConfig.h"
@@ -74,10 +81,13 @@
 #include "aion/gameserver/model/gameobjects/player/RecipeList.h"
 #include "aion/gameserver/model/gameobjects/player/npcFaction/NpcFactions.h"
 #include "aion/gameserver/model/skill/PlayerSkillList.h"
+#include "aion/gameserver/model/templates/quest/QuestDrop.h"
 #include "aion/gameserver/model/templates/quest/QuestNpc.h"
+#include "aion/gameserver/model/templates/quest/HandlerSideDrop.h"
 #include "aion/gameserver/network/aion/serverpackets/SM_DIALOG_WINDOW.h"
 #include "aion/gameserver/network/aion/serverpackets/SM_SYSTEM_MESSAGE.h"
 #include "aion/gameserver/questEngine/model/QuestActionType.h"
+#include "aion/gameserver/runtime/base/Unported.h"
 #include "aion/gameserver/questEngine/model/QuestVars.h"
 #include "aion/gameserver/services/GameTimeService.h"
 #include "aion/gameserver/services/QuestService.h"
@@ -100,6 +110,8 @@ const fs::path STATIC_DATA = JAVA_DIR / "data/static_data";
 
 /** tools/oracle/questtrace/extract.py OTHER_NPCS: the target of a case whose guards exclude every registered npc */
 constexpr int32_t OTHER_NPCS[] = {200000, 200001, 201000};
+/** The item of an item-use case whose given item id is 0 (an item no guard names): Kerub Grain Sack, a row of HANDLER_ITEMS_XML */
+constexpr int32_t OTHER_ITEM = 182200201;
 constexpr int32_t GOLDEN_PLAYER = 830001;
 constexpr int32_t GOLDEN_ITEM_BASE = 840001;
 constexpr int32_t OPCODE_DIALOG = SM_DIALOG_WINDOW_OPCODE;
@@ -115,6 +127,20 @@ constexpr std::pair<const char*, int32_t> DIALOG_OVERLAYS[] = {
 	{"SET_SUCCEED", DA::SET_SUCCEED},                         // the pre-end npc closes the window
 	{"QUEST_ACCEPT_1", DA::QUEST_ACCEPT_1},                   // startQuest
 	{"QUEST_REFUSE_1", DA::QUEST_REFUSE_1},                   // page 1004
+};
+
+/**
+ * P6-Q slice 2 (the Q10 review): the dialog actions of a free-dialog overlay (extract.py dialogExcludes), the ones above and the other two
+ * sendQuestStartDialog acts on (AbstractQuestHandler.java:374-397)
+ */
+constexpr std::pair<const char*, int32_t> FREE_DIALOG_OVERLAYS[] = {
+	{"SELECT_QUEST_REWARD", DA::SELECT_QUEST_REWARD},
+	{"SELECTED_QUEST_NOREWARD", DA::SELECTED_QUEST_NOREWARD},
+	{"SET_SUCCEED", DA::SET_SUCCEED},
+	{"QUEST_ACCEPT_1", DA::QUEST_ACCEPT_1},
+	{"QUEST_REFUSE_1", DA::QUEST_REFUSE_1},
+	{"ASK_QUEST_ACCEPT", DA::ASK_QUEST_ACCEPT}, // page 4
+	{"FINISH_DIALOG", DA::FINISH_DIALOG},       // the selection dialog
 };
 
 json readJson(const fs::path& path) {
@@ -156,6 +182,7 @@ struct GoldenData {
 	std::string npcsXml;
 	std::string itemsXml;       // rows to append to the item fixture
 	std::map<int32_t, QuestRow> quests;
+	std::string experienceXml;  // the whole player_experience_table.xml (P6-Q slice 2: quests up to level 50; the fixture has 26 levels)
 };
 
 std::string printed(const pugi::xml_node& node) {
@@ -205,6 +232,14 @@ const GoldenData& goldenData() {
 					const std::string call = e["call"];
 					if (e["kind"] == "item")
 						collectIds(e["args"], itemIds);
+					// P6-Q slice 2 (Q10): the helpers that give or take an item besides their step (defaultCloseDialog's six ints, useQuestObject,
+					// sendQuestStartDialog's start item) are no "item" effects; an item id is a nine-digit number, which no npc or quest id is
+					std::set<int32_t> numbers;
+					collectIds(e["args"], numbers);
+					for (int32_t n : numbers) {
+						if (n >= 100000000)
+							itemIds.insert(n);
+					}
 					if (call == "defaultOnQuestCompletedEvent" || call == "defaultOnLevelChangedEvent")
 						collectIds(e["args"], questIds);
 					if (call == "defaultOnKillEvent" && !e["args"].empty())
@@ -285,22 +320,13 @@ const GoldenData& goldenData() {
 				rows += printed(item);
 		}
 		d.itemsXml = rows;
+		std::ifstream experience(STATIC_DATA / "player_experience_table.xml", std::ios::binary);
+		if (!experience)
+			throw std::runtime_error("cannot read player_experience_table.xml");
+		d.experienceXml.assign(std::istreambuf_iterator<char>(experience), std::istreambuf_iterator<char>());
 		return d;
 	}();
 	return data;
-}
-
-/** static_data/player_experience_table.xml as shipped (read once) */
-const std::string& experienceTableXml() {
-	static const std::string text = [] {
-		std::ifstream in(STATIC_DATA / "player_experience_table.xml", std::ios::binary);
-		if (!in)
-			throw std::runtime_error("cannot read player_experience_table.xml");
-		std::ostringstream out;
-		out << in.rdbuf();
-		return out.str();
-	}();
-	return text;
 }
 
 // --- one run ------------------------------------------------------------------------------------------------------------------------
@@ -318,7 +344,16 @@ struct Outcome {
 	std::map<int32_t, int64_t> inventory;                       // item id -> count
 	bool observable = false;                                    // a packet was sent, or a QuestState or the inventory changed
 	std::string replayError;                                    // an effect the replay does not model
+	std::set<std::string> unported;                             // the AION_UNPORTED sites the run reached ("file:line function")
 };
+
+/** Every AION_UNPORTED site reached so far with its hits (runtime/base/Unported.h), keyed "file:line function" */
+std::map<std::string, uint64_t> unportedSites() {
+	std::map<std::string, uint64_t> out;
+	for (const runtime::UnportedHit& hit : runtime::unportedHits())
+		out[hit.file + ":" + std::to_string(hit.line) + " " + hit.function] = hit.hits;
+	return out;
+}
 
 struct CaseSetup {
 	std::string name;
@@ -439,6 +474,33 @@ std::vector<Overlay> overlaysFor(int32_t questId, const json& c) {
 			out.push_back(std::move(o));
 		}
 	}
+	// P6-Q slice 2 (the Q10 review, 2026-09-29): a path that reads the dialog action only through `!=` guards (extract.py dialogExcludes: the
+	// else branch of `if (action == QUEST_SELECT) ... else return sendQuestStartDialog(env)`) takes the same path with every action outside
+	// the list, while given holds one (USE_OBJECT) with which the start and end helpers do nothing: each action a helper acts on runs as an
+	// overlay; the accept also with the quest's start prerequisites finished and its first permitted class, so that startQuest succeeds
+	if (hook == "onDialogEvent" && c.contains("dialogExcludes")) {
+		const json& excluded = c["dialogExcludes"];
+		int32_t givenAction = given.contains("dialogAction") ? given["dialogAction"]["id"].get<int32_t>() : 0;
+		bool classGiven = given.contains("player") && given["player"].contains("class");
+		for (const auto& [name, id] : FREE_DIALOG_OVERLAYS) {
+			if (id == givenAction || std::find(excluded.begin(), excluded.end(), id) != excluded.end())
+				continue;
+			Overlay o;
+			o.name = std::string("dialog action ") + name + " (the path leaves it free)";
+			o.dialogActionId = id;
+			if (id == DA::QUEST_ACCEPT_1) {
+				Overlay started = o;
+				started.name += ", the quest's first permitted class";
+				started.classPermitted = !classGiven;
+				if (!given.contains("otherQuests") && !goldenData().quests.at(questId).finishedPrerequisites.empty()) {
+					started.name += " and its start prerequisites finished";
+					started.prerequisites = true;
+				}
+				out.push_back(std::move(started));
+			}
+			out.push_back(std::move(o));
+		}
+	}
 	Overlay held;
 	held.name = "the items the helpers remove or count held";
 	for (const json& e : c["effects"]) {
@@ -474,9 +536,9 @@ std::vector<Overlay> overlaysFor(int32_t questId, const json& c) {
 					o.targetNpcId = npcId.get<int32_t>();
 					out.push_back(std::move(o));
 				}
-			}
-			// P6-Q slice 2 (Q03): the single-npc overloads (AbstractQuestHandler.java defaultOnKillEvent(env, int npcId, ...))
-			if (e["call"] == "defaultOnKillEvent" && !e["args"].empty() && e["args"][0].is_number_integer()) {
+			} else if (e["call"] == "defaultOnKillEvent" && !e["args"].empty() && e["args"][0].is_number_integer()) {
+				// the single-npc overloads (AbstractQuestHandler.java defaultOnKillEvent(env, int npcId, ...); P6-Q slice 2, Q03, and Q10: 2223, 24016,
+				// 4210)
 				Overlay o;
 				o.name = "target " + e["args"][0].dump();
 				o.targetNpcId = e["args"][0].get<int32_t>();
@@ -518,20 +580,22 @@ std::vector<Overlay> overlaysFor(int32_t questId, const json& c) {
 	for (const json& e : c["effects"]) {
 		const std::string call = e["call"];
 		const json& a = e["args"];
-		if (!var0Free || a.empty() || !a[0].is_number_integer())
+		// P6-Q slice 2 (Q10): useQuestObject and defaultOnGetItemEvent take the step first too, defaultOnKillEvent second (after the npcs)
+		size_t stepAt = call == "defaultOnKillEvent" ? 1 : 0;
+		if (!var0Free || a.size() <= stepAt || !a[stepAt].is_number_integer())
 			continue;
-		// useQuestObject acts at its step like the others (AbstractQuestHandler.java useQuestObject: `var == step`; P6-Q slice 2, Q03)
+		// useQuestObject acts at its step like the others (AbstractQuestHandler.java useQuestObject: `var == step`; P6-Q slice 2, Q03 and Q10)
 		if (call != "defaultCloseDialog" && call != "checkQuestItems" && call != "checkQuestItemsSimple" && call != "changeQuestStep" &&
-			call != "useQuestObject")
+			call != "useQuestObject" && call != "defaultOnGetItemEvent" && call != "defaultOnKillEvent")
 			continue;
 		Overlay o;
-		o.name = "var 0 at the step of " + call + " (" + a[0].dump() + ")";
-		o.questVar0 = a[0].get<int32_t>();
+		o.name = "var 0 at the step of " + call + " (" + a[stepAt].dump() + ")";
+		o.questVar0 = a[stepAt].get<int32_t>();
 		out.push_back(o);
 		// and one step past it, where the helper answers false (P6-Q slice 2, Q03: _1559's `if (!changeQuestStep(env, 0, 1))` with var 0 free)
 		Overlay past;
-		past.name = "var 0 past the step of " + call + " (" + a[0].dump() + ")";
-		past.questVar0 = a[0].get<int32_t>() + 1;
+		past.name = "var 0 past the step of " + call + " (" + a[stepAt].dump() + ")";
+		past.questVar0 = a[stepAt].get<int32_t>() + 1;
 		out.push_back(std::move(past));
 		if (call == "checkQuestItems" || call == "checkQuestItemsSimple") {
 			o.name += ", the collect items held";
@@ -544,24 +608,28 @@ std::vector<Overlay> overlaysFor(int32_t questId, const json& c) {
 		if (removeAt > 0 && a[removeAt].is_number_integer() && a[removeAt + 1].is_number_integer() && a[removeAt].get<int32_t>() != 0 &&
 			a[removeAt + 1].get<int64_t>() > 0 && !namedItem(a[removeAt].get<int32_t>())) {
 			Overlay withItem;
-			withItem.name = "var 0 at the step of " + call + " (" + a[0].dump() + "), the item it removes held";
-			withItem.questVar0 = a[0].get<int32_t>();
+			withItem.name = "var 0 at the step of " + call + " (" + a[stepAt].dump() + "), the item it removes held";
+			withItem.questVar0 = a[stepAt].get<int32_t>();
 			withItem.items.emplace_back(a[removeAt].get<int32_t>(), a[removeAt + 1].get<int64_t>() + 1);
 			out.push_back(std::move(withItem));
 		}
 	}
-	// P6-Q slice 2 (Q03): a hook that reads no QuestState of its quest but calls a step helper (_1157's and _18602's movie hooks:
-	// changeQuestStep(env, 1, 2)) or finishQuest (_1170's) with it: the quest started at the step, or in REWARD for the finish
+	// P6-Q slice 2 (Q03, Q10): a hook that reads no QuestState of its quest but calls a step helper (Q03: _1157's and _18602's movie hooks,
+	// changeQuestStep(env, 1, 2); Q10: a kill or get-item hook that calls the helper straight away) or finishQuest (_1170's) with it has none in
+	// its given, so the helper found none in either run: the quest started at the helper's step, or in REWARD for the finish (the path is the
+	// same without it). A kill helper's step is its second argument (after the npcs); without a target in the given, the kill block above
+	// already made this overlay with the helper's npc as the target
 	if (!given.contains("questState")) {
 		for (const json& e : c["effects"]) {
 			const std::string call = e["call"];
 			const json& a = e["args"];
+			size_t stepAt = call == "defaultOnKillEvent" ? 1 : 0;
 			bool stepHelper = call == "defaultCloseDialog" || call == "checkQuestItems" || call == "checkQuestItemsSimple" || call == "changeQuestStep" ||
-				call == "useQuestObject";
-			if (stepHelper && !a.empty() && a[0].is_number_integer()) {
+				call == "useQuestObject" || call == "defaultOnGetItemEvent" || (call == "defaultOnKillEvent" && given.contains("target"));
+			if (stepHelper && a.size() > stepAt && a[stepAt].is_number_integer()) {
 				Overlay o;
-				o.name = "the quest started at the step of " + call + " (" + a[0].dump() + ")";
-				o.startVar0 = a[0].get<int32_t>();
+				o.name = "the quest started at the step of " + call + " (" + a[stepAt].dump() + ")";
+				o.startVar0 = a[stepAt].get<int32_t>();
 				out.push_back(std::move(o));
 			} else if (call == "QuestService.finishQuest") {
 				Overlay o;
@@ -572,8 +640,9 @@ std::vector<Overlay> overlaysFor(int32_t questId, const json& c) {
 			}
 		}
 	}
-	// P6-Q slice 2 (Q03): a start helper checks the quest's start conditions (QuestService.startQuest: checkStartConditions), which the case's
-	// given does not name: the finished quests of <start_conditions> and the first permitted class (_1540's and _1626's QUEST_ACCEPT_1)
+	// P6-Q slice 2 (Q03, Q10): a start helper checks the quest's start conditions (QuestService.startQuest: checkStartConditions), which the case's
+	// given does not name: the finished quests of <start_conditions> and the first permitted class (_1540's and _1626's QUEST_ACCEPT_1). Q10's
+	// overlay of the same name (only for a quest with prerequisites and a path that names no other quest) is this one's subset
 	for (const json& e : c["effects"]) {
 		if (e["call"] == "sendQuestStartDialog" || e["call"] == "QuestService.startQuest") {
 			Overlay o;
@@ -651,14 +720,15 @@ protected:
 		itemsXml += "</item_templates>";
 		dataholders::DataManager::ITEM_DATA.resetForTests();
 		dataholders::DataManager::ITEM_DATA.publish(xml::bindString<dataholders::ItemData>(contexts.emplace_back(), itemsXml));
+		// the real experience table (QuestHandlerTestSupport.h publishes its first 26 levels): a quester of a level past it throws at creation
+		// ("The given level is higher than possible max", PlayerExperienceTable.getStartExpForLevel), and P6-Q slice 2's quests start at levels up to
+		// 48 (Q03's Heiron) and 50 (Q10's altgard and pandaemonium)
+		dataholders::DataManager::PLAYER_EXPERIENCE_TABLE.resetForTests();
+		dataholders::DataManager::PLAYER_EXPERIENCE_TABLE.publish(
+			xml::bindString<dataholders::PlayerExperienceTable>(contexts.emplace_back(), data.experienceXml));
 		// a finish's exp reward can level the quester up, and SM_STATS_INFO then reads the game time: its singleton loads from the database
 		// (none in the unit tests: it logs the SQL failure) before the first run, not inside one run of a pair
 		services::GameTimeService::getInstance();
-		// the whole experience table (QuestHandlerTestSupport.h publishes its first 26 levels): the Heiron quests of chunk Q03 start at levels up
-		// to 48, and a quester of a level past the table throws at creation (PlayerExperienceTable.getStartExpForLevel; P6-Q slice 2)
-		dataholders::DataManager::PLAYER_EXPERIENCE_TABLE.resetForTests();
-		dataholders::DataManager::PLAYER_EXPERIENCE_TABLE.publish(
-			xml::bindString<dataholders::PlayerExperienceTable>(contexts.emplace_back(), experienceTableXml()));
 		// a level up learns the skills of the skill tree (none: nothing the traces compare)
 		dataholders::DataManager::SKILL_TREE_DATA.resetForTests();
 		dataholders::DataManager::SKILL_TREE_DATA.publish(xml::bindString<dataholders::SkillTreeData>(contexts.emplace_back(), "<skill_tree/>"));
@@ -848,6 +918,10 @@ protected:
 		std::map<int32_t, int64_t> inventoryBefore = inventoryOf(player);
 		quester->clearSent();
 		commons::utils::Rnd::seedCurrentThreadForTests(RUN_SEED);
+		// the Q10 review: a run that reaches an unported engine body throws the same UnportedException in both runs, which the thrown comparison
+		// passes; runDoc reports such a run instead (knownUnported)
+		uint64_t unportedBefore = runtime::unportedHitCount();
+		std::map<std::string, uint64_t> sitesBefore = unportedBefore == 0 ? std::map<std::string, uint64_t>() : unportedSites();
 		try {
 			if (out.replayError.empty()) { // else the state cannot hold the case: nothing runs
 				if (replay)
@@ -860,6 +934,13 @@ protected:
 			out.thrownDetail = e.what();
 		} catch (const std::exception& e) {
 			out.thrown = std::string("C++: ") + e.what();
+		}
+		if (runtime::unportedHitCount() != unportedBefore) {
+			for (const auto& [site, hits] : unportedSites()) {
+				auto before = sitesBefore.find(site);
+				if (before == sitesBefore.end() || before->second < hits)
+					out.unported.insert(site);
+			}
 		}
 		for (const std::vector<uint8_t>& packet : quester->sent()) {
 			int32_t opcode = items::javaOpcodeOf(packet);
@@ -902,14 +983,25 @@ protected:
 				zone.is_string() ? world::zone::ZoneName::get(zone.get<std::string>()) : world::zone::ZoneName::createOrGet("GOLDEN_OTHER_ZONE");
 			return handler.onEnterZoneEvent(env, zoneName);
 		}
+		// P6-Q slice 2 (Q03, Q10): the hooks the chunks' handlers add; each takes the env only (AbstractQuestHandler.java)
+		if (hook == "onLogOutEvent")
+			return handler.onLogOutEvent(env);
+		if (hook == "onQuestTimerEndEvent")
+			return handler.onQuestTimerEndEvent(env);
+		if (hook == "onAtDistanceEvent")
+			return handler.onAtDistanceEvent(env);
+		if (hook == "onGetItemEvent")
+			return handler.onGetItemEvent(env);
+		if (hook == "onDieEvent")
+			return handler.onDieEvent(env);
 		if (hook == "onItemUseEvent") {
 			int32_t itemId = args.value("itemId", 0);
-			const json& givenItem = c["given"].contains("item") ? c["given"]["item"] : json();
-			if (itemId == 0 && givenItem.is_object() && givenItem.contains("itemId")) {
-				// the item the path's guards read (extract.py `item`): 0 stands for an item no guard names, the fixture's kinah (a real template)
-				itemId = givenItem["itemId"].get<int32_t>();
+			// P6-Q slice 2 (Q03, Q10): a hook that reads the item's id has it as given.item.itemId (extract.py); 0 is an item no guard names
+			// (Q03 used the fixture's kinah for it, Q10 OTHER_ITEM; such a path has no effect in either chunk's traces)
+			if (c["given"].contains("item")) {
+				itemId = c["given"]["item"].value("itemId", 0);
 				if (itemId == 0)
-					itemId = items::KINAH;
+					itemId = OTHER_ITEM;
 			}
 			if (itemId == 0)
 				itemId = registeredQuestItem;
@@ -917,17 +1009,6 @@ protected:
 				items::loadedItem(GOLDEN_ITEM_BASE + 900, itemId, 1, gameserver::model::items::storage::StorageType::CUBE);
 			return std::string(resultName(handler.onItemUseEvent(env, *item)));
 		}
-		// P6-Q slice 2 (Q03): the hooks the verteron and heiron handlers add; each takes the env only (AbstractQuestHandler.java)
-		if (hook == "onAtDistanceEvent")
-			return handler.onAtDistanceEvent(env);
-		if (hook == "onLogOutEvent")
-			return handler.onLogOutEvent(env);
-		if (hook == "onDieEvent")
-			return handler.onDieEvent(env);
-		if (hook == "onQuestTimerEndEvent")
-			return handler.onQuestTimerEndEvent(env);
-		if (hook == "onGetItemEvent")
-			return handler.onGetItemEvent(env);
 		throw std::runtime_error("hook " + hook + " is not driven by the harness");
 	}
 
@@ -1017,8 +1098,9 @@ protected:
 					default: result = plain.defaultOnLevelChangedEvent(player, {q[0], q[1], q[2], q[3], q[4], q[5]}); break;
 				}
 			}
-			// P6-Q slice 2 (Q03): the helper overloads the verteron and heiron handlers add, picked by the argument kinds of the Java call
-			// (AbstractQuestHandler.java; a JSON bool is a Java boolean argument, an array an int[] or varargs)
+			// P6-Q slice 2: the helper overloads the verteron and heiron handlers (Q03) and the altgard and pandaemonium ones (Q10) add, picked by the
+			// argument kinds of the Java call (AbstractQuestHandler.java; a JSON bool is a Java boolean argument, an array an int[] or varargs). A
+			// useQuestObject whose die argument is true never gets here (runDoc: killsTarget)
 			else if (call == "sendQuestStartDialog" && a.size() == 2)
 				result = plain.sendQuestStartDialog(env, a[0].get<int32_t>(), a[1].get<int64_t>());
 			else if (call == "sendQuestEndDialog" && a.size() == 1 && a[0].is_array()) {
@@ -1041,6 +1123,9 @@ protected:
 			else if (call == "defaultCloseDialog" && a.size() == 8 && a[2].is_boolean())
 				result = plain.defaultCloseDialog(env, a[0].get<int32_t>(), a[1].get<int32_t>(), a[2].get<bool>(), a[3].get<bool>(), a[4].get<int32_t>(),
 					a[5].get<int64_t>(), a[6].get<int32_t>(), a[7].get<int64_t>());
+			else if (call == "useQuestObject" && a.size() == 10)
+				result = plain.useQuestObject(env, a[0].get<int32_t>(), a[1].get<int32_t>(), a[2].get<bool>(), a[3].get<int32_t>(), a[4].get<int32_t>(),
+					a[5].get<int32_t>(), a[6].get<int32_t>(), a[7].get<int32_t>(), a[8].get<int32_t>(), a[9].get<bool>());
 			else if (call == "defaultOnKillEvent" && a.size() == 3 && a[0].is_number_integer() && a[2].is_boolean())
 				result = plain.defaultOnKillEvent(env, a[0].get<int32_t>(), a[1].get<int32_t>(), a[2].get<bool>());
 			else if (call == "defaultOnKillEvent" && a.size() == 3 && a[0].is_number_integer())
@@ -1068,6 +1153,8 @@ protected:
 			else if (call == "useQuestObject" && a.size() == 8)
 				result = plain.useQuestObject(env, a[0].get<int32_t>(), a[1].get<int32_t>(), a[2].get<bool>(), a[3].get<int32_t>(), a[4].get<int32_t>(),
 					a[5].get<int32_t>(), a[6].get<int32_t>(), a[7].get<int32_t>());
+			else if (call == "defaultOnGetItemEvent" && a.size() == 3)
+				result = plain.defaultOnGetItemEvent(env, a[0].get<int32_t>(), a[1].get<int32_t>(), a[2].get<bool>());
 			else if (call == "PacketSendUtility.sendPacket" && a.size() == 1 && a[0].value("new", std::string()) == "SM_DIALOG_WINDOW") {
 				const json& p = a[0]["args"];
 				int32_t targetObjectId =
@@ -1097,6 +1184,18 @@ protected:
 		return returns;
 	}
 
+	static constexpr const char* KILLS_TARGET = "useQuestObject kills the target npc, which the pair of runs cannot share";
+
+	/** True if an effect of the case kills its target npc: useQuestObject with its die argument (AbstractQuestHandler.java useQuestObject) */
+	static bool killsTarget(const json& c) {
+		for (const json& e : c["effects"]) {
+			const json& a = e["args"];
+			if (e["call"] == "useQuestObject" && !a.empty() && a.back().is_boolean() && a.back().get<bool>() && (a.size() == 4 || a.size() == 10))
+				return true;
+		}
+		return false;
+	}
+
 	/** The target npc of a run, one Npc for both runs (its object id is in the dialog packets): the overlay's, else the case's */
 	Ref<gameserver::model::gameobjects::Npc> targetOf(const json& given, const Overlay& overlay) {
 		if (overlay.targetNpcId) {
@@ -1117,6 +1216,7 @@ protected:
 		std::vector<std::string> unsatisfiable;
 		std::vector<std::string> vacuous;         // cases with effects whose runs never changed anything observable
 		std::set<std::string> failedChecks;       // "thrown" "returned" "packets" "opcodes" "questStates" "inventory"
+		std::map<std::string, std::set<std::string>> unported; // variant id -> the AION_UNPORTED sites a compared run of it reached
 	};
 
 	/**
@@ -1150,6 +1250,7 @@ protected:
 		for (const json& base : doc["cases"]) {
 			bool anyObservable = false;
 			bool anyReproduced = false; // a case no setup reproduces is listed as such, not also as vacuous (P6-Q slice 2, Q03)
+			bool killed = false; // not run (killsTarget): listed as not reproducible, not as vacuous
 			bool hasEffects = !base["effects"].empty();
 			for (const json& c : variantsOf(base)) {
 				const std::string id = c["id"];
@@ -1157,6 +1258,14 @@ protected:
 				bool ok = true;
 				bool reproduced = false;
 				std::string why;
+				if (killsTarget(c)) {
+					killed = true;
+					// P6-Q slice 2 (Q10): useQuestObject's die kills the target, and the fixture's npc stands in no world, so its death throws in
+					// NpcController.onDie and leaves it dead: the second run of the pair cannot start from the first one's state, and a fresh npc
+					// would change the object id the movie packet names. Listed in knownNotReproducible; covered by tests/quest_handlers_asmodae
+					tally.unsatisfiable.push_back(id + ": " + KILLS_TARGET);
+					continue;
+				}
 				for (const Overlay& overlay : overlaysFor(questId, c)) {
 					Ref<gameserver::model::gameobjects::Npc> npc = targetOf(c["given"], overlay);
 					std::optional<CaseSetup> chosen;
@@ -1216,6 +1325,11 @@ protected:
 					check(actual.opcodes == expected.opcodes, "opcodes", "the packet opcode sequence differs");
 					check(actual.questStates == expected.questStates, "questStates", "the quest states afterwards differ");
 					check(actual.inventory == expected.inventory, "inventory", "the inventory afterwards differs");
+					if (!expected.unported.empty() || !actual.unported.empty()) {
+						std::set<std::string>& sites = tally.unported[id];
+						sites.insert(expected.unported.begin(), expected.unported.end());
+						sites.insert(actual.unported.begin(), actual.unported.end());
+					}
 				}
 				if (!reproduced) {
 					tally.unsatisfiable.push_back(id + ": " + why);
@@ -1224,7 +1338,7 @@ protected:
 				anyReproduced = true;
 				(ok ? tally.passed : tally.failed)++;
 			}
-			if (hasEffects && anyReproduced && !anyObservable)
+			if (hasEffects && anyReproduced && !anyObservable && !killed)
 				tally.vacuous.push_back(base["id"].get<std::string>());
 		}
 		if (report) {
@@ -1235,6 +1349,10 @@ protected:
 				std::cout << "[golden]   not reproducible: " << line << "\n";
 			for (const std::string& line : tally.vacuous)
 				std::cout << "[golden]   vacuous: " << line << "\n";
+			for (const auto& [id, sites] : tally.unported) {
+				for (const std::string& site : sites)
+					std::cout << "[golden]   reaches AION_UNPORTED: " << id << ": " << site << "\n";
+			}
 		}
 		return tally;
 	}
@@ -1247,18 +1365,28 @@ protected:
  * reproducible, and every other case must pass.
  */
 const std::set<std::string>& knownNotReproducible() {
-	// Empty. The first run of this harness found 9 cases no setup reproduces: the oracle took a helper's result as free when a guard branched
-	// on it, and wrote paths Java cannot take (giveQuestItem of a non-zero item and count "-> false", AbstractQuestHandler.java:626-641;
+	// The first run of this harness found 9 cases no setup reproduces: the oracle took a helper's result as free when a guard branched on it,
+	// and wrote paths Java cannot take (giveQuestItem of a non-zero item and count "-> false", AbstractQuestHandler.java:626-641;
 	// collectItemCheck(env, true) "-> true" without a QuestState, QuestService.java:557-561). tools/oracle/questtrace/extract.py
 	// (dead_assumption) now drops such paths, and the expected traces were regenerated without them.
 	//
 	// P6-Q slice 2, chunk Q03 (verteron, heiron). Ten, each a state the fixture cannot hold:
 	// - 1612 onDialogEvent#8-#11: useQuestObject(env, step, next, reward, true) kills the target (AbstractQuestHandler.java:911-916,
 	//   npc.getController().die(player)). The fixture's npc is not spawned (NpcController.onDie throws without a map region) and both runs share
-	//   it, so the second run would find it dead: the replay does not model dieObject. The dialog pages of the same hook are compared.
+	//   it, so the second run would find it dead. Since the integration of slice 2 runDoc skips such a case before any run (Q10's killsTarget);
+	//   Q03's replay refused dieObject before. The dialog pages of the same hook are compared; tests/quest_handlers_q03 (LepharistSecretsTest)
+	//   covers the path on a spawned npc.
 	// - 1687 onDialogEvent#7 #23, 80217-80220 onDialogEvent#9: a COMPLETE state whose canRepeat is false. The templates have max_repeat_count
 	//   255 and are not time based (quest_data.xml), so QuestState.canRepeat is always true for them (QuestState.java canRepeat): paths Java
 	//   cannot take for these quests (the oracle reads no template and treats canRepeat as free).
+	//
+	// P6-Q slice 2, chunk Q10 (altgard, pandaemonium), 2026-09-29:
+	// - 2223 onDialogEvent#21, 24012 onDialogEvent#12 and its high end: useQuestObject's die kills the target (KILLS_TARGET, runDoc); the two
+	//   paths are covered by tests/quest_handlers_asmodae on a spawned npc.
+	// - (4210 onKillEvent#1, #2 were listed here: the path reads neither a QuestState nor the target (`defaultOnKillEvent(env, 215056, 0, 1, 1) ||
+	//   defaultOnKillEvent(env, 215080, 0, 1, 2)`, _4210MissingHaorunerk.java:73), so no setup of the case as given makes a kill helper return
+	//   the assumed true. Since the integration of slice 2 Q03's rule counts a target overlay of a path that reads no target as reproducing the
+	//   case (runDoc), and the kill overlay "target 215056, var 0 at the start var 0" does: both pass.)
 	static const std::set<std::string> known{
 		"1612 onDialogEvent#8",
 		"1612 onDialogEvent#9",
@@ -1270,6 +1398,9 @@ const std::set<std::string>& knownNotReproducible() {
 		"80218 onDialogEvent#9",
 		"80219 onDialogEvent#9",
 		"80220 onDialogEvent#9",
+		"2223 onDialogEvent#21",
+		"24012 onDialogEvent#12",
+		"24012 onDialogEvent#12@questState.vars.0=4",
 	};
 	return known;
 }
@@ -1285,46 +1416,43 @@ const std::map<std::string, std::string>& knownVacuous() {
 																 "SET_SUCCEED action (AbstractQuestHandler.java:414-472)";
 	static const std::string IDLE_START =
 		"sendQuestStartDialog: no branch of its switch takes USE_OBJECT, which the path read (AbstractQuestHandler.java:373-397)";
-	// P6-Q slice 2 (Q03). The four NOT_STARTED cases of 2114 (QuestService.startQuest assumed false) are observable since the start-condition
-	// overlay: with the prerequisites finished only the quest-list-full setup still refuses the start, and the refusal's message is compared.
-	// The Q03 review: every IDLE_START case the harness runs (112 of them, slice 1's included) is observable since the accept overlay
-	// (overlaysFor: the accept action the path's guards allow, which starts the quest and gives its work item); only the rows of held-back
-	// handlers, which no case runs, keep the reason
+	// P6-Q slice 2. Both reviews of 2026-09-29 emptied IDLE_START for the cases the harness runs: Q03's accept overlay (the accept action the
+	// path's guards allow, overlaysFor) and Q10's free-dialog overlays (extract.py dialogExcludes: each action the start and end helpers act on)
+	// run those paths with an action the helper acts on; only the rows of the held-back 1100 and 2100, which no case runs, keep the reason. Q10's
+	// overlays also made 7 slice-1 IDLE_END cases observable (1005 #37, 1111 #9, 1123 #7, 2001 #18, 2006 #16, 2106 #28, 2122 #27). The four
+	// 2114 cases "QuestService.startQuest assumed false" are observable since the start-condition overlay (both lanes found it): with the
+	// prerequisites finished only the quest-list-full setup still refuses the start, and the refusal's message is compared.
 	static const std::string REWARD_PAGE = "sendQuestDialog of a reward page (SELECT_QUEST_REWARD_WINDOW1, 5) outside REWARD sends nothing: the "
 		"reward packet exploitation fix (AbstractQuestHandler.java:330-340)";
-	static const std::string SUPER_IDLE =
-		"AbstractQuestHandler.onDialogEvent (super): no branch of its switch takes USE_OBJECT, which the path read (AbstractQuestHandler.java:93-114)";
 	static const std::string ENV_ONLY = "env.setQuestId changes the env only, which no run observes (QuestEnv.java:71-73)";
 	static const std::string STEP_FALSE = "changeQuestStep assumed false: it changes nothing then (AbstractQuestHandler.java:307-327)";
 	static const std::string KILL_FALSE = "defaultOnKillEvent assumed false (every call of the path): it changes nothing then "
 		"(AbstractQuestHandler.java:672-747)";
 	static const std::string KILL_NO_TARGET = "defaultOnKillEvent with the path's target none (the path reads the target through != guards "
 		"only, which the oracle satisfies with no target): no npc of its list is the target, nothing changes (AbstractQuestHandler.java:726-747)";
-	static const std::map<std::string, std::string> known{
-		{"1005 onDialogEvent#37", IDLE_END},
+	static const std::string STEP_NOT_MET = "defaultCloseDialog at a var the path read that is not the helper's step: it does nothing then "
+		"(AbstractQuestHandler.java:486-529)";
+	static const std::string KILLS_ASSUMED_FALSE = "every kill helper of the path assumed false: it changes nothing then (AbstractQuestHandler.java "
+		"defaultOnKillEvent)";
+	static const std::map<std::string, std::string> known = [] {
+		std::map<std::string, std::string> rows{
 		{"1100 onDialogEvent#4", IDLE_START}, // held back (GoldenHandlers.h): measured with the file compiled in, 2026-09-29, before the
-		                                      // accept overlay (the Q03 review): measure it again when 1100 lands
+		                                      // accept overlays (the Q03 and Q10 reviews): measure it again when 1100 lands
 		{"1107 onDialogEvent#4", IDLE_END},
 		{"1107 onDialogEvent#5", IDLE_END},
-		{"1111 onDialogEvent#9", IDLE_END},
-		{"1123 onDialogEvent#7", IDLE_END},
-		{"2001 onDialogEvent#18", IDLE_END},
-		{"2006 onDialogEvent#16", IDLE_END},
 		{"2100 onDialogEvent#5", IDLE_START}, // held back, as 1100
-		{"2106 onDialogEvent#28", IDLE_END},
-		{"2122 onDialogEvent#27", IDLE_END},
 		{"2125 onDialogEvent#13", IDLE_END},
 		{"2125 onDialogEvent#14", IDLE_END},
 		{"2135 onDialogEvent#6", IDLE_END},
-		// chunk Q03 (verteron, heiron; P6-Q slice 2)
-		{"1157 onDialogEvent#10", IDLE_END},
-		{"1158 onDialogEvent#16", IDLE_END},
+		// chunk Q03 (verteron, heiron; P6-Q slice 2). The integration of slice 2 made 15 of Q03's 51 rows observable (removed): Q03's traces
+		// carry dialogExcludes since the merged oracle regenerated them, and Q10's free-dialog overlays run those paths with the actions the
+		// end helper acts on (13 IDLE_END: 1157 #10, 1158 #16, 1194 #11, 1559 #14, 1636 #26, 1692 #20, 14011 #13, 14054 #21, 18600 #11,
+		// 80217-80220 #12) and the ones AbstractQuestHandler.onDialogEvent acts on (the kind SUPER_IDLE, gone: 1605 #9 #15)
 		{"1163 onDialogEvent#10", IDLE_END},
 		{"1163 onDialogEvent#13", IDLE_END},
 		{"1183 onDialogEvent#15", IDLE_END},
 		{"1192 onDialogEvent#13", IDLE_END},
 		{"1192 onDialogEvent#16", IDLE_END},
-		{"1194 onDialogEvent#11", IDLE_END},
 		{"1218 onDialogEvent#13", IDLE_END},
 		{"1218 onDialogEvent#14", IDLE_END},
 		{"1220 onDialogEvent#13", IDLE_END},
@@ -1334,7 +1462,6 @@ const std::map<std::string, std::string>& knownVacuous() {
 		{"1528 onDialogEvent#17", IDLE_END},
 		{"1553 onDialogEvent#22", IDLE_END},
 		{"1553 onDialogEvent#23", IDLE_END},
-		{"1559 onDialogEvent#14", IDLE_END},
 		{"1559 onDialogEvent#18", STEP_FALSE},
 		{"1559 onDialogEvent#23", STEP_FALSE},
 		{"1559 onDialogEvent#30", STEP_FALSE},
@@ -1347,36 +1474,47 @@ const std::map<std::string, std::string>& knownVacuous() {
 		{"1574 onDialogEvent#8", IDLE_END},
 		{"1578 onDialogEvent#22", IDLE_END},
 		{"1578 onDialogEvent#23", IDLE_END},
-		{"1605 onDialogEvent#9", SUPER_IDLE},
-		{"1605 onDialogEvent#15", SUPER_IDLE},
 		{"1605 onDialogEvent#22", IDLE_END},
 		{"1605 onDialogEvent#23", IDLE_END},
 		{"1609 onDialogEvent#16", IDLE_END},
 		{"1609 onDialogEvent#17", IDLE_END},
 		{"1628 onDialogEvent#16", IDLE_END},
 		{"1628 onDialogEvent#17", IDLE_END},
-		{"1636 onDialogEvent#26", IDLE_END},
-		{"1692 onDialogEvent#20", IDLE_END},
-		{"14011 onDialogEvent#13", IDLE_END},
 		{"14013 onKillEvent#1", KILL_NO_TARGET},
 		{"14014 onKillEvent#3", KILL_FALSE},
 		{"14050 onDialogEvent#5", REWARD_PAGE},
 		{"14054 onKillEvent#3", KILL_FALSE},
-		{"14054 onDialogEvent#21", IDLE_END},
-		{"18600 onDialogEvent#11", IDLE_END},
-		{"80217 onDialogEvent#12", IDLE_END},
-		{"80218 onDialogEvent#12", IDLE_END},
-		{"80219 onDialogEvent#12", IDLE_END},
-		{"80220 onDialogEvent#12", IDLE_END},
+		};
+		// P6-Q slice 2 (Q10): the altgard and pandaemonium traces (GoldenKnownVacuousQ10.h)
+		for (const auto& [key, kind] : Q10_VACUOUS) {
+			const std::string& reason = kind == Vacuous::IDLE_END ? IDLE_END : kind == Vacuous::STEP_NOT_MET ? STEP_NOT_MET : KILLS_ASSUMED_FALSE;
+			rows.emplace(std::string(key), reason);
+		}
+		return rows;
+	}();
+	return known;
+}
+
+/**
+ * The Q10 review (2026-09-29): cases a compared run of which reaches an AION_UNPORTED engine body, "<questId> <variant id>", each with its
+ * reason. Both runs throw the same UnportedException there, which the comparisons pass, so such a case proves nothing until the body is ported;
+ * a case listed here must keep reaching it, and no other case may (docs/deviations/Q10.md, "Landed with an unported engine body on the path").
+ */
+const std::map<std::string, std::string>& knownUnported() {
+	static const std::map<std::string, std::string> known{
+		{"2985 onDialogEvent#18", "the finish overlays (SELECTED_QUEST_NOREWARD) reward extend_inventory 2 (quest_data.xml), QuestService.giveReward's "
+			"WarehouseService.expand: AION_UNPORTED (WarehouseService.cpp)"},
 	};
 	return known;
 }
 
 /**
- * The quests whose every hook the oracle refuses (tools/oracle/questtrace: `new QuestEnv`, getStartingClass on a value; Q03: 1640's
- * TeleportService.teleportTo, 1647's player.getEquipment and spawnForFiveMinutesInFrontOf): no case
+ * The quests whose every hook the oracle refuses (tools/oracle/questtrace): no case. 1205 and 2132: `new QuestEnv`, getStartingClass on a value.
+ * P6-Q slice 2 (Q03): 1640 (TeleportService.teleportTo), 1647 (player.getEquipment, spawnForFiveMinutesInFrontOf). P6-Q slice 2 (Q10):
+ * 2213 (getEffectController, SkillEngine), 2925 (getEquipment), 2938 (TeleportService.teleportTo), 2952 (the whole var field), 4966-4969
+ * (tryDecreaseKinah); their registration traces are checked, their hooks only by parity, the drift test and the chunks' unit cases
  */
-constexpr int32_t ORACLE_REFUSES_EVERY_HOOK[] = {1205, 2132, 1640, 1647};
+constexpr int32_t ORACLE_REFUSES_EVERY_HOOK[] = {1205, 2132, 1640, 1647, 2213, 2925, 2938, 2952, 4966, 4967, 4968, 4969};
 
 TEST_F(GoldenQuestTraceTest, EveryExpectedDocumentHasAGeneratedHandlerAndEveryHandlerADocument) {
 	std::vector<int32_t> ids = expectedQuestIds();
@@ -1405,6 +1543,16 @@ TEST_P(GoldenQuestCases, EveryCaseMatchesTheJavaTrace) {
 		if (key.starts_with(std::to_string(questId) + " "))
 			EXPECT_NE(std::find(tally.vacuous.begin(), tally.vacuous.end(), key.substr(key.find(' ') + 1)), tally.vacuous.end())
 				<< "listed as vacuous but observable now: " << key;
+	}
+	// the Q10 review: no compared run may reach an unported engine body (both runs would throw alike and pass) unless knownUnported lists it
+	for (const auto& [id, sites] : tally.unported) {
+		for (const std::string& site : sites)
+			EXPECT_TRUE(knownUnported().contains(std::to_string(questId) + " " + id)) << "reaches AION_UNPORTED and not listed: " << questId << " " << id
+				<< ": " << site;
+	}
+	for (const auto& [key, reason] : knownUnported()) {
+		if (key.starts_with(std::to_string(questId) + " "))
+			EXPECT_TRUE(tally.unported.contains(key.substr(key.find(' ') + 1))) << "listed as reaching AION_UNPORTED but it does not now: " << key;
 	}
 	bool refused =
 		std::find(std::begin(ORACLE_REFUSES_EVERY_HOOK), std::end(ORACLE_REFUSES_EVERY_HOOK), questId) != std::end(ORACLE_REFUSES_EVERY_HOOK);
@@ -1498,8 +1646,13 @@ TEST_F(GoldenQuestTraceTest, HandTracesOfTheClassSkillQuests) {
 
 // --- the harness's own guards ------------------------------------------------------------------------------------------------------------
 
-/** What the negative control changes in its copy of _1111InsomniaMedicine */
-enum class Flip { NONE, PAGE, VAR, REWARD_GROUP, ITEM, STATUS, RETURN, OPCODES, THROW };
+/**
+ * What the negative control changes in its copy of _1111InsomniaMedicine. OPCODES and THROW (the Q03 review, 2026-09-29): a system message
+ * (no key packet) and a NullPointerException before the QUEST_SELECT page. OPCODES_AFTER_STEP, THROW_AFTER_STEP and UNPORTED (the Q10
+ * review, the same day): one more packet that is no key packet, a NullPointerException after the step's effects, and an unported engine
+ * body reached (defaultStartFollowEvent, AION_UNPORTED until questEngine/task lands) that the tally must report
+ */
+enum class Flip { NONE, PAGE, VAR, REWARD_GROUP, ITEM, STATUS, RETURN, OPCODES, THROW, OPCODES_AFTER_STEP, THROW_AFTER_STEP, UNPORTED };
 
 /**
  * A statement-by-statement copy of the generated _1111InsomniaMedicine.cpp (quest 1111) with one deliberate difference, chosen by `flip`: the
@@ -1572,6 +1725,12 @@ public:
 				qs->setStatus(flip == Flip::STATUS ? QuestStatus::START : QuestStatus::REWARD);
 				updateQuestStatus(env);
 				utils::PacketSendUtility::sendPacket(*player, network::aion::serverpackets::SM_DIALOG_WINDOW(env.getVisibleObject()->getObjectId(), 10));
+				if (flip == Flip::OPCODES_AFTER_STEP)
+					utils::PacketSendUtility::sendPacket(*player, network::aion::serverpackets::SM_SYSTEM_MESSAGE::STR_CAN_NOT_GET_LORE_ITEM("flip"));
+				if (flip == Flip::THROW_AFTER_STEP)
+					throw runtime::NullPointerException("the negative control's flip");
+				if (flip == Flip::UNPORTED)
+					return defaultStartFollowEvent(env, *runtime::cast<gameserver::model::gameobjects::Npc>(env.getVisibleObject()), 203075, 0, 1);
 				return flip != Flip::RETURN;
 			} else if (env.getDialogActionId() == DA::SETPRO2 && qs->getStatus() != QuestStatus::COMPLETE) {
 				if (!giveQuestItem(env, 182200221, 1))
@@ -1595,11 +1754,13 @@ std::unique_ptr<AbstractQuestHandler> wrongInsomniaMedicine() {
 TEST_F(GoldenQuestTraceTest, TheHarnessFailsDeliberatelyWrongHandlers) {
 	// each flip must fail at least one case, through the comparison that sees it: the page only in the dialog packet's bytes (the opcodes stay
 	// the same), the reward group only in the QuestState (SM_QUEST_ACTION does not carry it), the item count only in the inventory (the item
-	// packets are no key packets), the var and status in the QuestState, the return value in itself; the Q03 review added a packet only the
-	// opcode sequence sees (a system message, no key packet) and an exception the Java path does not throw
+	// packets are no key packets), the var and status in the QuestState, the return value in itself; the Q03 and Q10 reviews added a packet
+	// only the opcode sequence sees (a system message, no key packet) and an exception the Java path does not throw, before and after the
+	// step's effects, and an unported engine body reached (thrown alike by both runs, reported by the tally)
 	const std::pair<Flip, const char*> flips[] = {{Flip::NONE, ""}, {Flip::PAGE, "packets"}, {Flip::VAR, "questStates"},
 		{Flip::REWARD_GROUP, "questStates"}, {Flip::ITEM, "inventory"}, {Flip::STATUS, "questStates"}, {Flip::RETURN, "returned"},
-		{Flip::OPCODES, "opcodes"}, {Flip::THROW, "thrown"}};
+		{Flip::OPCODES, "opcodes"}, {Flip::THROW, "thrown"}, {Flip::OPCODES_AFTER_STEP, "opcodes"}, {Flip::THROW_AFTER_STEP, "thrown"},
+		{Flip::UNPORTED, "thrown"}};
 	for (const auto& [flip, check] : flips) {
 		SCOPED_TRACE("flip " + std::to_string(static_cast<int>(flip)));
 		QuestEngine::getInstance().clear();
@@ -1613,6 +1774,7 @@ TEST_F(GoldenQuestTraceTest, TheHarnessFailsDeliberatelyWrongHandlers) {
 			EXPECT_GT(tally.failed, 0) << "the harness passes a wrong handler";
 			EXPECT_TRUE(tally.failedChecks.contains(check)) << "the " << check << " comparison did not fail";
 		}
+		EXPECT_EQ(!tally.unported.empty(), flip == Flip::UNPORTED) << "the unported engine body the run reached";
 	}
 }
 
@@ -1657,6 +1819,83 @@ int32_t registeredCount(int32_t npcId, const std::string& event, int32_t questId
 	return -1;
 }
 
+/** A handler-side quest drop as the registration trace names it: item, amount, chance, collecting step (QuestEngine.addHandlerSideQuestDrop) */
+using DropRow = std::tuple<int32_t, int32_t, int32_t, int32_t>;
+using DropsByNpc = std::map<int32_t, std::multiset<DropRow>>;
+
+/** The addHandlerSideQuestDrop rows of a registration trace, per npc (args: quest, npc, item, amount, chance[, step]) */
+DropsByNpc expectedDropsOf(const json& doc) {
+	DropsByNpc out;
+	for (const json& reg : doc["register"]) {
+		if (reg.value("call", std::string()) != "addHandlerSideQuestDrop")
+			continue;
+		const json& a = reg["args"];
+		out[a[1].get<int32_t>()].insert({a[2].get<int32_t>(), a[3].get<int32_t>(), a[4].get<int32_t>(), a.size() > 5 ? a[5].get<int32_t>() : 0});
+	}
+	return out;
+}
+
+using DropTable = std::map<int32_t, std::set<const gameserver::model::templates::quest::QuestDrop*>>;
+
+/** The quest's drops in QuestService's table at each npc of `npcs` */
+DropTable questDropsAt(int32_t questId, const DropsByNpc& npcs) {
+	DropTable out;
+	for (const auto& [npcId, unused] : npcs) {
+		std::set<const gameserver::model::templates::quest::QuestDrop*>& drops = out[npcId];
+		for (const gameserver::model::templates::quest::QuestDrop* drop : services::QuestService::getQuestDrop(npcId)) {
+			if (drop->getQuestId() == questId)
+				drops.insert(drop);
+		}
+	}
+	return out;
+}
+
+/**
+ * The drops of `after` that `before` does not hold, per npc, as rows (the table is static: every registration of a handler adds its drops
+ * again). After the static data only QuestEngine::addHandlerSideQuestDrop adds to it, always a HandlerSideDrop
+ */
+DropsByNpc addedDrops(const DropTable& before, const DropTable& after) {
+	DropsByNpc out;
+	for (const auto& [npcId, drops] : after) {
+		std::multiset<DropRow>& rows = out[npcId];
+		auto known = before.find(npcId);
+		for (const gameserver::model::templates::quest::QuestDrop* drop : drops) {
+			if (known != before.end() && known->second.contains(drop))
+				continue;
+			const auto& side = static_cast<const gameserver::model::templates::quest::HandlerSideDrop&>(*drop);
+			rows.insert({side.getItemId().value_or(0), side.getNeededAmount(), side.getChance(), side.getCollectingStep()});
+		}
+	}
+	return out;
+}
+
+/** 2213's register() with one of its drop's values changed: the negative control of the drop comparison */
+class WrongDropHandler final : public AbstractQuestHandler {
+public:
+	WrongDropHandler(int32_t itemId, int32_t amount, int32_t chance) : AbstractQuestHandler(2213), itemId(itemId), amount(amount), chance(chance) {}
+	void register_() override { qe.addHandlerSideQuestDrop(questId, 700057, itemId, amount, chance); } // _2213PoisonRootPotentFruit.java:26
+
+private:
+	const int32_t itemId, amount, chance;
+};
+
+TEST_F(GoldenQuestTraceTest, TheDropComparisonFailsAWrongDrop) {
+	// the registration trace's drop rows (RegistrationTraceMatchesJavaRegister) against 2213.json's addHandlerSideQuestDrop(2213, 700057,
+	// 182203208, 1, 100): the right drop passes, a changed item, amount or chance fails
+	json doc = readJson(EXPECTED_DIR / "2213.json");
+	DropsByNpc expected = expectedDropsOf(doc);
+	ASSERT_EQ(expected.size(), 1u);
+	const std::tuple<int32_t, int32_t, int32_t, bool> variants[] = {
+		{182203208, 1, 100, true}, {182203209, 1, 100, false}, {182203208, 2, 100, false}, {182203208, 1, 50, false}};
+	for (const auto& [itemId, amount, chance, same] : variants) {
+		SCOPED_TRACE(std::to_string(itemId) + " " + std::to_string(amount) + " " + std::to_string(chance));
+		QuestEngine::getInstance().clear();
+		DropTable before = questDropsAt(2213, expected);
+		QuestEngine::getInstance().addQuestHandler(std::make_unique<WrongDropHandler>(itemId, amount, chance));
+		EXPECT_EQ(addedDrops(before, questDropsAt(2213, expected)) == expected, same);
+	}
+}
+
 /**
  * Registered in place of a generated handler: its register_() is the generated one's (the engine keeps the quest id, not the object), and the
  * engine's events reach this object, which records them
@@ -1685,11 +1924,7 @@ public:
 		events.push_back("onCanAct " + std::to_string(env.getTargetId()));
 		return false;
 	}
-	// P6-Q slice 2 (Q03): the engine-wide lists the verteron and heiron handlers register with
-	bool onDieEvent(QuestEnv&) override {
-		events.push_back("onDieEvent");
-		return false;
-	}
+	// P6-Q slice 2 (Q03, Q10): the engine-wide lists and the get-item registrations of the chunks' handlers
 	bool onLogOutEvent(QuestEnv&) override {
 		events.push_back("onLogOutEvent");
 		return false;
@@ -1698,16 +1933,20 @@ public:
 		events.push_back("onQuestTimerEndEvent");
 		return false;
 	}
+	bool onDieEvent(QuestEnv&) override {
+		events.push_back("onDieEvent");
+		return false;
+	}
+	bool onGetItemEvent(QuestEnv& env) override {
+		events.push_back("onGetItemEvent " + std::to_string(env.getQuestId()));
+		return false;
+	}
 	bool onNpcReachTargetEvent(QuestEnv&) override {
 		events.push_back("onNpcReachTargetEvent");
 		return false;
 	}
 	bool onNpcLostTargetEvent(QuestEnv&) override {
 		events.push_back("onNpcLostTargetEvent");
-		return false;
-	}
-	bool onGetItemEvent(QuestEnv&) override {
-		events.push_back("onGetItemEvent");
 		return false;
 	}
 
@@ -1755,7 +1994,15 @@ TEST_F(GoldenQuestTraceTest, RegistrationTraceMatchesJavaRegister) {
 		ASSERT_TRUE(doc["register"].is_array()) << generated.questId << ": " << doc["register"].dump();
 		QuestEngine::getInstance().clear();
 		std::vector<std::string> events;
+		// addHandlerSideQuestDrop adds to QuestService's static drop table, which QuestEngine::clear keeps: the drops the registration adds, per
+		// npc, must be the document's rows (item, amount, chance, step; the Q10 review: a count alone let a changed item pass)
+		DropsByNpc expectedDrops = expectedDropsOf(doc);
+		DropTable dropsBefore = questDropsAt(generated.questId, expectedDrops);
 		QuestEngine::getInstance().addQuestHandler(std::make_unique<RoutingSpy>(generated.factory(), events));
+		for (const auto& [npcId, rows] : addedDrops(dropsBefore, questDropsAt(generated.questId, expectedDrops))) {
+			EXPECT_EQ(rows, expectedDrops[npcId]) << "quest drops at npc " << npcId;
+			checked++;
+		}
 
 		std::map<std::pair<int32_t, std::string>, int32_t> expected;
 		std::set<int32_t> namedNpcs;
@@ -1766,7 +2013,9 @@ TEST_F(GoldenQuestTraceTest, RegistrationTraceMatchesJavaRegister) {
 				int32_t npcId = reg["npc"].get<int32_t>();
 				namedNpcs.insert(npcId);
 				bool first = !expected.contains({npcId, event});
-				if (event != "addOnQuestStart" || first) // onQuestStart is a set
+				// every add* keeps the quest once (QuestNpc.java: `if (!onTalkEvent.contains(questId))`, onQuestStart a set); a register() may name
+				// one twice (P6-Q slice 2: _2213PoisonRootPotentFruit.java:25 and :27)
+				if (first)
 					expected[{npcId, event}]++;
 				if (first && usesQuestItemAi(npcId) &&
 					(event == "addOnKillEvent" || event == "addOnTalkEvent" || event == "addOnAddAggroListEvent" || event == "addOnAtDistanceEvent"))
@@ -1788,20 +2037,22 @@ TEST_F(GoldenQuestTraceTest, RegistrationTraceMatchesJavaRegister) {
 				if (usesQuestItemAi(reg["args"][1].get<int32_t>()))
 					expectedEvents.push_back("onCanAct " + std::to_string(reg["args"][1].get<int32_t>()));
 			}
-			// P6-Q slice 2 (Q03): QuestEngine.java registerOnDie, registerOnLogOut, registerOnQuestTimerEnd, registerAddOnReachTargetEvent,
-			// registerAddOnLostTargetEvent (engine-wide lists) and registerOnGetItem (per item: onItemGet)
-			else if (call == "registerOnDie")
-				expectedEvents.push_back("onDieEvent");
+			// P6-Q slice 2 (Q03, Q10): QuestEngine.java registerOnDie, registerOnLogOut, registerOnQuestTimerEnd, registerAddOnReachTargetEvent,
+			// registerAddOnLostTargetEvent (engine-wide lists) and registerOnGetItem (per item: onItemGet, the quest in the env)
 			else if (call == "registerOnLogOut")
 				expectedEvents.push_back("onLogOutEvent");
 			else if (call == "registerOnQuestTimerEnd")
 				expectedEvents.push_back("onQuestTimerEndEvent");
+			else if (call == "registerOnDie")
+				expectedEvents.push_back("onDieEvent");
+			else if (call == "registerOnGetItem")
+				expectedEvents.push_back("onGetItemEvent " + std::to_string(reg["args"][1].get<int32_t>()));
 			else if (call == "registerAddOnReachTargetEvent")
 				expectedEvents.push_back("onNpcReachTargetEvent");
 			else if (call == "registerAddOnLostTargetEvent")
 				expectedEvents.push_back("onNpcLostTargetEvent");
-			else if (call == "registerOnGetItem")
-				expectedEvents.push_back("onGetItemEvent");
+			else if (call == "addHandlerSideQuestDrop")
+				continue; // counted above
 			else
 				ADD_FAILURE() << "the registration trace does not model " << reg.dump();
 		}
@@ -1836,9 +2087,9 @@ TEST_F(GoldenQuestTraceTest, RegistrationTraceMatchesJavaRegister) {
 				items::loadedItem(GOLDEN_ITEM_BASE + 901, itemId, 1, gameserver::model::items::storage::StorageType::CUBE);
 			QuestEngine::getInstance().onItemUseEvent(*QuestEnv::create(nullptr, player, 0), *item);
 		}
-		QuestEngine::getInstance().onDie(*QuestEnv::create(nullptr, player, 0));
 		QuestEngine::getInstance().onLogOut(*QuestEnv::create(nullptr, player, 0));
 		QuestEngine::getInstance().onQuestTimerEnd(*QuestEnv::create(nullptr, player, 0));
+		QuestEngine::getInstance().onDie(*QuestEnv::create(nullptr, player, 0));
 		QuestEngine::getInstance().onNpcReachTarget(*QuestEnv::create(nullptr, player, 0));
 		QuestEngine::getInstance().onNpcLostTarget(*QuestEnv::create(nullptr, player, 0));
 		for (int32_t itemId : getItems)

@@ -1433,7 +1433,8 @@ class Transliterator:
     def ret_type(self, f):
         ct = self.cpp_type(f.ret or 'void')
         if ct.kind == 'obj' and ct.ref == 'owning':
-            # a returned Ref<T> is destroyed in the handler's translation unit, which needs the complete T (~Ref)
+            # a returned Ref<T> is destroyed in the handler's translation unit, even a discarded one, which needs the complete T (~Ref);
+            # api.OWNING_RETURN_HEADERS names T's header when HEADERS does not index it (P6-Q slice 2: lanes Q03 and Q10, the same rule)
             self.need(ct.name)
             self.includes_for_header(apimod.OWNING_RETURN_HEADERS.get(ct.name))
         return ct
@@ -1853,7 +1854,7 @@ class Transliterator:
         if p.kind == 'obj' and ek == 'obj':
             if p.ref in ('lref', 'clref') and e.ct.ref in ('ptr', 'owning', 'raw'):
                 self.r.idioms['pointer dereferenced for a T& parameter'] += 1
-                self.need(e.ct.name)        # Ptr<T>::operator* needs the complete T
+                self.need(e.ct.name)        # Ptr<T>::operator* needs the complete T (P6-Q slice 2, Q10: *getWorldMapInstance())
                 return '*' + self.paren(e, 1)
             return e.text
         if p.kind == 'prim' and ek == 'optional':

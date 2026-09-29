@@ -172,6 +172,7 @@
     "env.getDialogActionId() == USE_OBJECT -> false @62",
     "env.getDialogActionId() == SELECT_QUEST_REWARD -> false @64"
    ],
+   "dialogExcludes": [-1, 31, 1009],
    "effects": [],
    "returns": false
   },

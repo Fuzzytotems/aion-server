@@ -35,6 +35,7 @@
     "qs == null -> true @37",
     "env.getDialogActionId() == QUEST_SELECT -> false @38"
    ],
+   "dialogExcludes": [31],
    "effects": [{"call": "sendQuestStartDialog", "kind": "dialog", "args": [], "line": 41}],
    "returns": {"resultOf": 0}
   },
@@ -73,6 +74,7 @@
     "qs.isStartable() [canRepeat] -> true @37",
     "env.getDialogActionId() == QUEST_SELECT -> false @38"
    ],
+   "dialogExcludes": [31],
    "effects": [{"call": "sendQuestStartDialog", "kind": "dialog", "args": [], "line": 41}],
    "returns": {"resultOf": 0}
   },

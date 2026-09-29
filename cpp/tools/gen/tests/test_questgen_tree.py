@@ -33,6 +33,27 @@ ROUTE = {
                   '_19070ADispatchtoVerteron', '_19071ADispatchtoVerteron', '_2901DispatchtoAltgard', '_2902DispatchtoAltgard',
                   '_2903DispatchtoAltgard', '_2904DispatchtoAltgard', '_29070ADispatchtoAltgard', '_29071ADispatchtoAltgard'),
 }
+# P6-Q slice 2, chunk Q10 (docs/deviations/Q10.md): every altgard and pandaemonium file questgen transliterates (28 + 41 of 75; the other six
+# are hand ports, or held back, and carry no banner)
+Q10 = {
+    'altgard': (
+        '_2207ConversingWithaSkurv', '_2209TheScribbler', '_2213PoisonRootPotentFruit', '_2216MuMuGrassKnot', '_2221ManirsUncle',
+        '_2222ManirsMessage', '_2223AMythicalMonster', '_2228AThornInItsSide', '_2231SiblingRivalry', '_2232TheBrokenHoneyJar',
+        '_2239MalodorAntidote', '_2247TheGergersDisguise', '_2263ShugoPotion', '_2266ATrustworthyMessenger', '_2271AurtrisLetter',
+        '_2278ASecretProposal', '_2279SolidProof', '_2284EscapingAsmodae', '_2288MoneyWhereYourMouthIs', '_2289RampagingMosbears',
+        '_2290GrokensEscape', '_24010SuthransOrders', '_24011FunnyFloatingFungus', '_24012AnOminousCrop', '_24014StompOutThePlot',
+        '_24015TotemPlowed', '_24016AStrangeNewThread', '_24112NoLaissezFaireForLepharists'),
+    'pandaemonium': (
+        '_29004VeldinaCall', '_29048SeriphimTeachings', '_2911SongOfBlessing', '_2912FollowtheRibbon', '_2913AChainofDebt',
+        '_2914ATokenofLostLove', '_2916ManInTheLongBlackRobe', '_2917ArekedilsHeritage', '_2918DeepMaternalLove', '_2919BookOfOblivion',
+        '_2920ElementaryMyDearDaeva', '_2921LoveAtFirstSight', '_2922FascinatingGift', '_2925AHeartfeltConfession', '_2928PowerofLove',
+        '_2937UnexpectedReward', '_2938SecretLibraryAccess', '_2948HuronsLetter', '_2952WinningVindachinerksFavor',
+        '_2953DeliveringSupplyRequest', '_2954DeliveringOdellaJuice', '_2957FlowersForTheBanquet', '_2958LastMinuteWorries',
+        '_2962JafnharWhereabouts', '_2963OnBehalfOfAFriend', '_2965AncientWeapons', '_2985AnExpertsReward', '_4210MissingHaorunerk',
+        '_4905InterviewingTheVeterans', '_4906TalesOfHeroes', '_4920MakingTheActivatedSurkana', '_4966GrowthNinissFirstCharm',
+        '_4967GrowthNinissSecondCharm', '_4968GrowthNinissThirdCharm', '_4969GrowthNinissFourthCharm', '_4970TheFashionistas',
+        '_4971ProjectRunway', '_4972JudgeNot', '_4973MarraWorry', '_4974TheSecretOfHisSuccess', '_4976ASettlerAmbition'),
+}
 # transliterated like the others but held out of the tree: they register onEnterWorld and start their quest at a character's first enter
 # world (Java behaviour), which turns gs.scenario.m5a, m5b and m5b2 red; they land when the gates' owners decide (docs/deviations/Q05.md)
 HELD_BACK = ('poeta/_1000Prologue.java', 'poeta/_1100KaliosCall.java', 'ishalgen/_2000Prologue.java', 'ishalgen/_2100OrderoftheCaptain.java')
@@ -74,6 +95,11 @@ class CommittedTree(unittest.TestCase):
                 with self.subTest(file=f'{directory}/{klass}'):
                     self.assertIn((directory, klass), found)
         self.assertEqual(sum(len(v) for v in ROUTE.values()), 32)
+        for directory, classes in Q10.items():
+            for klass in classes:
+                with self.subTest(file=f'{directory}/{klass}'):
+                    self.assertIn((directory, klass), found)
+        self.assertEqual((len(Q10['altgard']), len(Q10['pandaemonium'])), (28, 41))
 
     def test_the_held_back_files_transliterate_and_stay_out_of_the_tree(self):
         for rel in HELD_BACK:
@@ -100,6 +126,25 @@ class CommittedTree(unittest.TestCase):
                 self.assertTrue(r.java_bugs[0].startswith(f'line {line}: ') and words in r.java_bugs[0], r.java_bugs)
                 self.assertRegex(r.cpp, re.escape(before + emit.JAVA_BUG_MARK) + '[^\n]*\n' + re.escape(after))
                 self.assertTrue(all(len(ln.expandtabs(2)) <= 150 for ln in r.cpp.split('\n') if emit.JAVA_BUG_MARK in ln))
+
+    def test_the_slice_two_include_rules(self):
+        # P6-Q slice 2 (Q10, docs/deviations/Q10.md "Generator changes"): the compile fixes of the altgard files. A Ref result the Java discards
+        # is still destroyed by the caller, which needs the complete type (api.OWNING_RETURN_HEADERS); a pointer dereferenced for a T& parameter
+        # needs its class's header (emit.convert)
+        r = self.tr.transliterate(paths.JAVA_QUEST_DIR / 'altgard/_2213PoisonRootPotentFruit.java')
+        self.assertEqual(r.status, 'ok', r.reasons)
+        self.assertIn('\t\tSkillEngine::getInstance().applyEffectDirectly(255, *player, *player);', r.cpp)
+        self.assertIn('#include "aion/gameserver/skillengine/model/Effect.h"\n', r.cpp)
+        self.assertTrue((paths.CPP_GAME_SERVER / 'src' / 'aion/gameserver/skillengine/model/Effect.h').is_file())
+        r = self.tr.transliterate(paths.JAVA_QUEST_DIR / 'altgard/_2223AMythicalMonster.java')
+        self.assertEqual(r.status, 'ok', r.reasons)
+        self.assertIn('spawnForFiveMinutes(211621, *env.getPlayer()->getWorldMapInstance(), ', r.cpp)
+        self.assertIn('#include "aion/gameserver/world/WorldMapInstance.h"\n', r.cpp)
+        # neither rule adds an include a file does not need: 2207 dereferences nothing and calls nothing that returns a Ref
+        r = self.tr.transliterate(paths.JAVA_QUEST_DIR / 'altgard/_2207ConversingWithaSkurv.java')
+        self.assertEqual(r.status, 'ok', r.reasons)
+        self.assertNotIn('Effect.h', r.cpp)
+        self.assertNotIn('WorldMapInstance.h', r.cpp)
 
     def test_every_generated_file_regenerates_byte_for_byte(self):
         self.assertTrue(self.files)

@@ -120,6 +120,7 @@
     "targetId == 204545 -> true @52",
     "env.getDialogActionId() not in [QUEST_SELECT, SETPRO1, SETPRO3] -> true @54"
    ],
+   "dialogExcludes": [31, 10000, 10002],
    "effects": [],
    "returns": false
   },
@@ -165,6 +166,7 @@
     "targetId == 204537 -> true @52",
     "env.getDialogActionId() not in [QUEST_SELECT, SETPRO2] -> true @73"
    ],
+   "dialogExcludes": [31, 10001],
    "effects": [],
    "returns": false
   },
@@ -213,6 +215,7 @@
     "targetId == 204546 -> true @83",
     "env.getDialogActionId() not in [QUEST_SELECT] -> true @84"
    ],
+   "dialogExcludes": [31],
    "effects": [{"call": "sendQuestEndDialog", "kind": "dialog", "args": [], "line": 88}],
    "returns": {"resultOf": 0}
   },
@@ -297,6 +300,7 @@
     "qs != null -> true @51",
     "qs.getStatus() == QuestStatus.START -> true @51"
    ],
+   "dialogExcludes": [1002],
    "effects": [],
    "returns": false
   },
@@ -312,6 +316,7 @@
     "qs != null -> true @82",
     "qs.getStatus() == QuestStatus.REWARD -> true @82"
    ],
+   "dialogExcludes": [1002],
    "effects": [],
    "returns": false
   },
@@ -327,6 +332,7 @@
     "qs != null -> true @82",
     "qs.getStatus() == QuestStatus.REWARD -> false @82"
    ],
+   "dialogExcludes": [1002],
    "effects": [],
    "returns": false
   },
@@ -340,6 +346,7 @@
     "qs != null -> false @51",
     "qs != null -> false @82"
    ],
+   "dialogExcludes": [1002],
    "effects": [],
    "returns": false
   },

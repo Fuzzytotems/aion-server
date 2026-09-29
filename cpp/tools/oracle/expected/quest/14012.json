@@ -261,6 +261,7 @@
     "env.getDialogActionId() not in [QUEST_SELECT, SETPRO1, SETPRO3] -> true @65"
    ],
    "free": ["questState.vars.0"],
+   "dialogExcludes": [31, 10000, 10002],
    "effects": [],
    "returns": false
   },
@@ -495,6 +496,7 @@
     "env.getDialogActionId() not in [QUEST_SELECT, SETPRO1, SETPRO3] -> true @65"
    ],
    "free": ["questState.vars.0"],
+   "dialogExcludes": [31, 10000, 10002],
    "effects": [],
    "returns": false
   },

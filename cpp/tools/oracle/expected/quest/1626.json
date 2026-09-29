@@ -106,6 +106,7 @@
     "env.getDialogActionId() not in [QUEST_SELECT, ASK_QUEST_ACCEPT, QUEST_ACCEPT_1, QUEST_ACCEPT_SIMPLE] -> true @45",
     "qs == null -> true @57"
    ],
+   "dialogExcludes": [31, 1002, 1007, 20000],
    "effects": [],
    "returns": false
   },
@@ -240,6 +241,7 @@
     "qs.getStatus() == QuestStatus.START -> false @60",
     "qs.getStatus() == QuestStatus.REWARD -> false @132"
    ],
+   "dialogExcludes": [31, 1002, 1007, 20000],
    "effects": [],
    "returns": false
   },
@@ -333,6 +335,7 @@
     "targetId == 700221 -> true @61",
     "env.getDialogActionId() not in [USE_OBJECT] -> true @63"
    ],
+   "dialogExcludes": [-1],
    "effects": [],
    "returns": false
   },
@@ -393,6 +396,7 @@
     "targetId == 700222 -> true @61",
     "env.getDialogActionId() not in [USE_OBJECT] -> true @73"
    ],
+   "dialogExcludes": [-1],
    "effects": [],
    "returns": false
   },
@@ -453,6 +457,7 @@
     "targetId == 700223 -> true @61",
     "env.getDialogActionId() not in [USE_OBJECT] -> true @83"
    ],
+   "dialogExcludes": [-1],
    "effects": [],
    "returns": false
   },
@@ -513,6 +518,7 @@
     "targetId == 700224 -> true @61",
     "env.getDialogActionId() not in [USE_OBJECT] -> true @93"
    ],
+   "dialogExcludes": [-1],
    "effects": [],
    "returns": false
   },
@@ -573,6 +579,7 @@
     "targetId == 700225 -> true @61",
     "env.getDialogActionId() not in [USE_OBJECT] -> true @103"
    ],
+   "dialogExcludes": [-1],
    "effects": [],
    "returns": false
   },
@@ -633,6 +640,7 @@
     "targetId == 700226 -> true @61",
     "env.getDialogActionId() not in [USE_OBJECT] -> true @113"
    ],
+   "dialogExcludes": [-1],
    "effects": [],
    "returns": false
   },
@@ -693,6 +701,7 @@
     "targetId == 700227 -> true @61",
     "env.getDialogActionId() not in [USE_OBJECT] -> true @123"
    ],
+   "dialogExcludes": [-1],
    "effects": [],
    "returns": false
   },
@@ -746,6 +755,7 @@
     "targetId == 204592 -> true @133",
     "env.getDialogActionId() == SELECT_QUEST_REWARD -> false @134"
    ],
+   "dialogExcludes": [1009],
    "effects": [{"call": "sendQuestEndDialog", "kind": "dialog", "args": [], "line": 137}],
    "returns": {"resultOf": 0}
   },

@@ -13,6 +13,7 @@
    "hook": "onDialogEvent",
    "given": {"dialogAction": {"name": "USE_OBJECT", "id": -1}, "target": {"kind": "none"}, "questState": null},
    "guards": ["qs == null -> true @33"],
+   "dialogExcludes": [],
    "effects": [],
    "returns": false
   },
@@ -21,6 +22,7 @@
    "hook": "onDialogEvent",
    "given": {"dialogAction": {"name": "USE_OBJECT", "id": -1}, "target": {"kind": "none"}, "questState": {"status": "COMPLETE", "canRepeat": true}},
    "guards": ["qs == null -> false @33", "qs.isStartable() [status == COMPLETE] -> true @33", "qs.isStartable() [canRepeat] -> true @33"],
+   "dialogExcludes": [],
    "effects": [],
    "returns": false
   },
@@ -35,6 +37,7 @@
     "qs.getStatus() == QuestStatus.START -> false @40",
     "qs.getStatus() == QuestStatus.REWARD -> false @50"
    ],
+   "dialogExcludes": [],
    "effects": [],
    "returns": false
   },
@@ -43,6 +46,7 @@
    "hook": "onDialogEvent",
    "given": {"dialogAction": {"name": "USE_OBJECT", "id": -1}, "target": {"kind": "none"}, "questState": {"status": "START"}},
    "guards": ["qs == null -> false @33", "qs.isStartable() [status == COMPLETE] -> false @33", "qs.getStatus() == QuestStatus.START -> true @40"],
+   "dialogExcludes": [],
    "effects": [],
    "returns": false
   },
@@ -56,6 +60,7 @@
     "qs.getStatus() == QuestStatus.START -> false @40",
     "qs.getStatus() == QuestStatus.REWARD -> true @50"
    ],
+   "dialogExcludes": [],
    "effects": [],
    "returns": false
   },
@@ -69,6 +74,7 @@
     "qs.getStatus() == QuestStatus.START -> false @40",
     "qs.getStatus() == QuestStatus.REWARD -> false @50"
    ],
+   "dialogExcludes": [],
    "effects": [],
    "returns": false
   },
@@ -85,6 +91,7 @@
    "hook": "onDialogEvent",
    "given": {"dialogAction": {"name": "USE_OBJECT", "id": -1}, "target": {"kind": "npc", "npcId": 798386}, "questState": null},
    "guards": ["qs == null -> true @33", "targetId == 798386 -> true @34", "env.getDialogActionId() == QUEST_SELECT -> false @35"],
+   "dialogExcludes": [31],
    "effects": [{"call": "sendQuestStartDialog", "kind": "dialog", "args": [], "line": 38}],
    "returns": {"resultOf": 0}
   },
@@ -93,6 +100,7 @@
    "hook": "onDialogEvent",
    "given": {"dialogAction": {"name": "USE_OBJECT", "id": -1}, "target": {"kind": "npc", "npcId": 200000}, "questState": null},
    "guards": ["qs == null -> true @33", "targetId == 798386 -> false @34"],
+   "dialogExcludes": [],
    "effects": [],
    "returns": false
   },
@@ -129,6 +137,7 @@
     "targetId == 798386 -> true @34",
     "env.getDialogActionId() == QUEST_SELECT -> false @35"
    ],
+   "dialogExcludes": [31],
    "effects": [{"call": "sendQuestStartDialog", "kind": "dialog", "args": [], "line": 38}],
    "returns": {"resultOf": 0}
   },
@@ -146,6 +155,7 @@
     "qs.isStartable() [canRepeat] -> true @33",
     "targetId == 798386 -> false @34"
    ],
+   "dialogExcludes": [],
    "effects": [],
    "returns": false
   },
@@ -164,6 +174,7 @@
     "qs.getStatus() == QuestStatus.START -> false @40",
     "qs.getStatus() == QuestStatus.REWARD -> false @50"
    ],
+   "dialogExcludes": [],
    "effects": [],
    "returns": false
   },
@@ -236,6 +247,7 @@
     "dialogActionId == QUEST_SELECT -> false @42",
     "dialogActionId == CHECK_USER_HAS_QUEST_ITEM -> false @46"
    ],
+   "dialogExcludes": [31, 39],
    "effects": [],
    "returns": false
   },
@@ -249,6 +261,7 @@
     "qs.getStatus() == QuestStatus.START -> true @40",
     "targetId == 798386 -> false @41"
    ],
+   "dialogExcludes": [],
    "effects": [],
    "returns": false
   },
@@ -279,6 +292,7 @@
     "targetId == 798386 -> true @51",
     "dialogActionId == USE_OBJECT -> false @52"
    ],
+   "dialogExcludes": [-1],
    "effects": [{"call": "sendQuestEndDialog", "kind": "dialog", "args": [], "line": 55}],
    "returns": {"resultOf": 0}
   },
@@ -293,6 +307,7 @@
     "qs.getStatus() == QuestStatus.REWARD -> true @50",
     "targetId == 798386 -> false @51"
    ],
+   "dialogExcludes": [],
    "effects": [],
    "returns": false
   },
@@ -306,6 +321,7 @@
     "qs.getStatus() == QuestStatus.START -> false @40",
     "qs.getStatus() == QuestStatus.REWARD -> false @50"
    ],
+   "dialogExcludes": [],
    "effects": [],
    "returns": false
   }

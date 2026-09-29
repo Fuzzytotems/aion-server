@@ -55,6 +55,7 @@
     "dialogActionId == QUEST_SELECT -> false @41",
     "dialogActionId == QUEST_ACCEPT_1 -> false @43"
    ],
+   "dialogExcludes": [31, 1002],
    "effects": [{"call": "sendQuestStartDialog", "kind": "dialog", "args": [], "line": 47}],
    "returns": {"resultOf": 0}
   },
@@ -63,6 +64,7 @@
    "hook": "onDialogEvent",
    "given": {"target": {"kind": "npc", "npcId": 206045}, "dialogAction": {"name": "USE_OBJECT", "id": -1}, "questState": null},
    "guards": ["env.getVisibleObject() instanceof Npc -> true @34", "qs == null -> true @39", "targetId == 204600 -> false @40"],
+   "dialogExcludes": [],
    "effects": [],
    "returns": false
   },
@@ -125,6 +127,7 @@
     "dialogActionId == QUEST_SELECT -> false @41",
     "dialogActionId == QUEST_ACCEPT_1 -> false @43"
    ],
+   "dialogExcludes": [31, 1002],
    "effects": [{"call": "sendQuestStartDialog", "kind": "dialog", "args": [], "line": 47}],
    "returns": {"resultOf": 0}
   },
@@ -143,6 +146,7 @@
     "qs.isStartable() [canRepeat] -> true @39",
     "targetId == 204600 -> false @40"
    ],
+   "dialogExcludes": [],
    "effects": [],
    "returns": false
   },
@@ -161,6 +165,7 @@
     "qs.isStartable() [canRepeat] -> false @39",
     "qs.getStatus() == QuestStatus.REWARD -> false @49"
    ],
+   "dialogExcludes": [],
    "effects": [],
    "returns": false
   },
@@ -191,6 +196,7 @@
     "targetId == 204600 -> true @50",
     "dialogActionId == QUEST_SELECT -> false @51"
    ],
+   "dialogExcludes": [31],
    "effects": [{"call": "sendQuestEndDialog", "kind": "dialog", "args": [], "line": 54}],
    "returns": {"resultOf": 0}
   },
@@ -205,6 +211,7 @@
     "qs.getStatus() == QuestStatus.REWARD -> true @49",
     "targetId == 204600 -> false @50"
    ],
+   "dialogExcludes": [],
    "effects": [],
    "returns": false
   },
@@ -218,6 +225,7 @@
     "qs.isStartable() [status == COMPLETE] -> false @39",
     "qs.getStatus() == QuestStatus.REWARD -> false @49"
    ],
+   "dialogExcludes": [],
    "effects": [],
    "returns": false
   },
@@ -226,6 +234,7 @@
    "hook": "onDialogEvent",
    "given": {"target": {"kind": "none"}, "dialogAction": {"name": "USE_OBJECT", "id": -1}, "questState": null},
    "guards": ["env.getVisibleObject() instanceof Npc -> false @34", "qs == null -> true @39"],
+   "dialogExcludes": [],
    "effects": [],
    "returns": false
   },
@@ -239,6 +248,7 @@
     "qs.isStartable() [status == COMPLETE] -> true @39",
     "qs.isStartable() [canRepeat] -> true @39"
    ],
+   "dialogExcludes": [],
    "effects": [],
    "returns": false
   },
@@ -253,6 +263,7 @@
     "qs.isStartable() [canRepeat] -> false @39",
     "qs.getStatus() == QuestStatus.REWARD -> false @49"
    ],
+   "dialogExcludes": [],
    "effects": [],
    "returns": false
   },
@@ -266,6 +277,7 @@
     "qs.isStartable() [status == COMPLETE] -> false @39",
     "qs.getStatus() == QuestStatus.REWARD -> true @49"
    ],
+   "dialogExcludes": [],
    "effects": [],
    "returns": false
   },
@@ -279,6 +291,7 @@
     "qs.isStartable() [status == COMPLETE] -> false @39",
     "qs.getStatus() == QuestStatus.REWARD -> false @49"
    ],
+   "dialogExcludes": [],
    "effects": [],
    "returns": false
   },
