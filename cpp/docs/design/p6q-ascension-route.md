@@ -742,3 +742,17 @@ CM_LEVEL_READY.cpp 706d0eac..., the committed file; PrologueSupport.cpp 76aa6625
 `aion_gs_scenario_tests`, their compiler PDBs, the library and the four executables that held the strings (`aion_game_server`,
 `aion_gs_login_slice_tests`, `aion_gs_network_tests`, `aion_gs_scenario_tests`) with their PDBs and ILKs were deleted and rebuilt; no file
 under `build/msvc`, `game-server` or `tools` contains `AION_SP_MUT` or `aionSpMut`.
+
+**Verification after the review** (on `2d20cfb62`, 2026-09-29/30, nothing else running):
+
+- **Build**, every target twice: 0 errors, 0 warnings; the second build compiled nothing.
+- **Unit suite** (as above, 23:28-00:14, 2,781 s): **4,922 of 4,922 passed** (4,927 entries, 5 disabled, 30 skip themselves);
+  tools.gen 630 s, tools.oracle 301 s, tools.parity, tools.porting and tools.xmlgen passed; PrologueSupportTest 6 of 6, the golden
+  harness 167 of 167.
+- **Gates** (as above, 00:21-00:58, 2,255 s): **58 of 58 passed** (14 disabled gate shadows). Times (s): smoke.startup 30,
+  startup_progress 37, startup_geo 141, m4.check_static_data 142, m5a 88, m5a_geo 162, m5b 218, m5b_geo 340, m5b2 173, m5b2_geo 303,
+  m5b3 143, m5b3_geo 321, m5c 312, m5d 220, m5d_geo 349, travel 40, ascension 897. No flake. Every gate's `census.txt` is the header
+  alone, every `game_server.log` has "Ignoring ./config/mygs.properties" and "Loaded 4362 quest handlers".
+- **Checks** from `cpp/`: `census.py` exit 0 (7,088 C++ files, 1,230 `AION_UNPORTED` + 9 `AION_PARTIAL` sites, 2,509 open);
+  `census.py --self-check` 0 synthetic and 0 live-tree failures; `lint_concurrency.py --werror --cycles=core game-server/src` 3,833
+  files, 0 errors, 0 warnings, 0 advisories; `chunks.py check` 71 chunks, 84 parts, 7,088 C++ files, 532 test files, 0 problems.
