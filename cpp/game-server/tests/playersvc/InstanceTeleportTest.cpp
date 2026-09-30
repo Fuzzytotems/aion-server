@@ -29,6 +29,7 @@
 #include "aion/gameserver/controllers/PlayerController.h"
 #include "aion/gameserver/instance/handlers/GeneralInstanceHandler.h"
 #include "aion/gameserver/model/TaskId.h"
+#include "aion/gameserver/model/animations/ArrivalAnimationInfo.h"
 #include "aion/gameserver/model/animations/TeleportAnimation.h"
 #include "aion/gameserver/model/gameobjects/player/CustomPlayerState.h"
 #include "aion/gameserver/model/gameobjects/player/PlayerCommonData.h"
@@ -200,6 +201,48 @@ TEST_F(InstanceTeleportTest, TheFiveArgumentInstanceIdOverloadKeepsTheHeadingAnd
 	expectAt(KARAMATIS_B, instance->getInstanceId(), 71.0f, 191.0f, 229.0f);
 	EXPECT_EQ(actor.player->getHeading(), 44) << "player.getHeading()";
 	EXPECT_FALSE(actor.player->getController().hasTask(model::TaskId::TELEPORT)) << "NONE: no animation to wait for";
+}
+
+TEST_F(InstanceTeleportTest, TheWorldPositionOverloadOnTheSameMapMovesAtOnceWithItsHeading) {
+	// TeleportService.java:221-226: same map - abortPlayerActions, the pet and the player set to the position, spawnOnSameMap
+	const float z = actor.player->getZ();
+	runtime::Ref<world::WorldPosition> pos = world::WorldPosition::create(POETA, 120.0f, 130.0f, z, int8_t{21});
+
+	TeleportService::teleportTo(*actor.player, *pos);
+
+	expectAt(POETA, 1, 120.0f, 130.0f, z);
+	EXPECT_EQ(actor.player->getHeading(), 21) << "pos.getHeading()";
+	EXPECT_TRUE(actor.player->isSpawned()) << "spawnOnSameMap";
+}
+
+TEST_F(InstanceTeleportTest, TheWorldPositionOverloadToAnotherMapTeleportsWithoutAnimation) {
+	runtime::Ptr<world::WorldMapInstance> instance = InstanceService::getNextAvailableInstance(KARAMATIS_B, *actor.player);
+	runtime::Ref<world::WorldPosition> pos =
+		world::WorldPosition::create(KARAMATIS_B, 60.0f, 170.0f, 229.0f, int8_t{12}, instance->getRegion(60.0f, 170.0f, 229.0f));
+
+	TeleportService::teleportTo(*actor.player, *pos); // TeleportService.java:229-230: the 8-argument overload with NONE
+
+	expectAt(KARAMATIS_B, instance->getInstanceId(), 60.0f, 170.0f, 229.0f);
+	EXPECT_EQ(actor.player->getHeading(), 12);
+	EXPECT_FALSE(actor.player->getController().hasTask(model::TaskId::TELEPORT)) << "NONE: no animation to wait for";
+	EXPECT_FALSE(actor.player->isDead());
+}
+
+TEST_F(InstanceTeleportTest, ADeadPlayerMovedToAnotherMapStaysDeadAndLands) {
+	runtime::Ptr<world::WorldMapInstance> instance = InstanceService::getNextAvailableInstance(KARAMATIS_B, *actor.player);
+	runtime::Ref<world::WorldPosition> pos =
+		world::WorldPosition::create(KARAMATIS_B, 62.0f, 172.0f, 229.0f, int8_t{13}, instance->getRegion(62.0f, 172.0f, 229.0f));
+	die();
+
+	// TeleportService.java:227-228 -> teleportDeadTo (:234-247): no revive (the other overloads revive a dead player first, :282-283)
+	TeleportService::teleportTo(*actor.player, *pos);
+
+	expectAt(KARAMATIS_B, instance->getInstanceId(), 62.0f, 172.0f, 229.0f);
+	EXPECT_TRUE(actor.player->isDead()) << "teleportDeadTo does not revive";
+	EXPECT_TRUE(wasSent(cptest::serialized(network::aion::serverpackets::SM_CHANNEL_INFO(actor.player->getPosition()), client->con())));
+	EXPECT_TRUE(wasSentClass(cptest::serialized(network::aion::serverpackets::SM_PLAYER_SPAWN(*actor.player), client->con())));
+	EXPECT_TRUE(wasSentClass(cptest::serialized(network::aion::serverpackets::SM_PLAYER_INFO(*actor.player), client->con())));
+	EXPECT_EQ(actor.player->getPortAnimationId(), model::animations::getId(model::animations::ArrivalAnimation::LANDING));
 }
 
 TEST_F(InstanceTeleportTest, TheAnimatedInstanceOverloadWaitsForTheClient) {
