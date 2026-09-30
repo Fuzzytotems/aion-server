@@ -49,21 +49,22 @@
 #           + gs.scenario.travel 45 (m5f-plan.md §16; 2026-09-29 in a Debug tree, no geo variant)                  = 1107
 #           + gs.scenario.m5b 227, gs.scenario.m5b_geo 351 (slot 2 until the integration of the ascension gate,    = 1685
 #             2026-09-29: see below)
-#   slot 2  gs.scenario.m5b2 172, gs.scenario.m5b2_geo 301                                                         =  473
 #           + gs.scenario.m5c 289 (m5c-plan.md §10.5; 225 s for part 1, 265-289 s alone since C19 joined it in stage 3,
-#             2026-09-28 in a Debug tree, the review's fix included; it has no geo variant)                          =  762
+#             2026-09-28 in a Debug tree, the review's fix included; it has no geo variant; slot 2 until 2026-09-30)     = 1974
+#   slot 2  gs.scenario.m5b2 172, gs.scenario.m5b2_geo 301                                                         =  473
 #           + gs.scenario.ascension 880 (lane P6-Q asc-hand, docs/deviations/Q06.md; 866-904 s alone, 2026-09-29 in a Debug
-#             tree: two races' 43 s waits and auto-attack fights; it has no geo variant)                             = 1642
+#             tree: two races' 43 s waits and auto-attack fights; it has no geo variant)                             = 1353
 #           + gs.scenario.m5d 257, gs.scenario.m5d_geo 485 (m5d-plan.md §20; 2026-09-29 in a Debug tree, NOT alone:
 #             beside another tree's gates, so both overstate a run alone; m5d took 218-396 s over its lane's 21 runs,
-#             220-286 s in its review's, m5d_geo 358-485 s; m5d_geo's startup alone 172 s)                           = 2384
+#             220-286 s in its review's, m5d_geo 358-485 s; m5d_geo's startup alone 172 s)                           = 2095
 # The balance held for the full set above before M5c; the plan put the M5c gate into slot 2 (§10.1: the smaller sum then, and a prefix of its
 # own), which then led slot 1 by about 280 s, so the travel gate joined slot 1. The ascension gate joined slot 1 as well in its own lane (it
 # would have led slot 2 by about 600 s); at the integration of the two (2026-09-29) it went to slot 2 instead, and the M5b pair (m5b and
 # m5b_geo, one prefix, moved together) to slot 1: 1685 s against 1642 s, where the ascension gate beside the travel gate in slot 1 would have
 # been 1987 s against 1340 s. No other placement of the pairs that moves only one of them does better (the best one, 21 s apart, moves three).
-# The M5d pair joined slot 2, the smaller sum then (1642 s against 1685 s), which now leads slot 1 by about 700 s: the next gate joins slot
-# 1. A rebalance is the integrator's: moving the m5b2 pair (473 s, one prefix) to slot 1 would give 2158 s against 1911 s. `ctest -L scenario`
+# The M5d pair joined slot 2, the smaller sum then (1642 s against 1685 s), which then led slot 1 by about 700 s. The rebalance of 2026-09-30
+# moved the M5c gate (one prefix, no geo variant) to slot 1: in the full gate run of 2026-09-30 00:21 (slot 1 1662 s, slot 2 2254 s measured)
+# that gives about 1974 s against 1942 s, the best single move (the m5b2 pair would give 2138 s against 1778 s). `ctest -L scenario`
 # alone leaves the smoke and M4 tests out, so slot 1 is then m5a, m5a_geo, m5b, m5b_geo, m5b3, m5b3_geo and travel (about 1320 s plus
 # LoginServerHarnessTest) against slot 2's 2384 s: correct, just a longer wall clock for that label.
 # The slots count inside ONE ctest process. Two build trees running their gates at the same time can reach four servers (about 12.8 GB with
@@ -323,7 +324,7 @@ if(TARGET aion_gs_scenario_tests)
 	add_test(NAME gs.scenario.m5c COMMAND "$<TARGET_FILE:aion_gs_scenario_tests>" --gtest_filter=M5cScenario.Run
 		WORKING_DIRECTORY "${scenario_work_dir}")
 	set_tests_properties(gs.scenario.m5c PROPERTIES LABELS "scenario;realdata" TIMEOUT 2700
-		RESOURCE_LOCK "${AION_GS_GATE_SLOT_2}" SKIP_REGULAR_EXPRESSION "gs\\.scenario\\.m5c: skipped")
+		RESOURCE_LOCK "${AION_GS_GATE_SLOT_1}" SKIP_REGULAR_EXPRESSION "gs\\.scenario\\.m5c: skipped")
 	if(Python3_Interpreter_FOUND)
 		set_property(TEST gs.scenario.m5c APPEND PROPERTY ENVIRONMENT_MODIFICATION "AION_TEST_PYTHON=set:${Python3_EXECUTABLE}")
 	endif()
