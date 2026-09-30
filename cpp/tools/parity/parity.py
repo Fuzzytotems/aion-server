@@ -49,8 +49,11 @@ Documented renames (each undoes one emitter idiom of phase6-questgen-prototype.m
 
     python parity.py pair JAVA CPP [--json]
     python parity.py tree --java-dir DIR --cpp-dir DIR [--only REL ...] [--json OUT] [--require-all]
+    python parity.py spawn-analyzer [--suffix SUFFIX ...] DIR...
 
 Exit 0 when every compared pair is at parity, 1 when a pair is not, 2 on a usage or input error. Standard library only.
+`spawn-analyzer` compares nothing: it prints the npc id set of QuestSpawnAnalyzer.loadNpcIdsSpawnedByHandlers over the directories (the
+oracle of QuestSpawnAnalyzerTest, P5-06a, over the ported handler set) and exits 0, or 2 on an input error.
 """
 from __future__ import annotations
 
@@ -283,6 +286,21 @@ SPAWN_ANALYZER = re.compile(r'\bsp(?:awn)?\([^,\d]*(\d{6})(?: : (\d{6}))?', re.A
 def spawn_analyzer_ids(text):
     """the npc ids QuestSpawnAnalyzer.parseSpawnNpcIds adds for this raw source text"""
     return {int(g) for m in SPAWN_ANALYZER.finditer(text) for g in m.groups() if g is not None}
+
+
+def spawn_analyzer_dirs(dirs, suffixes=('.java',)):
+    """QuestSpawnAnalyzer.loadNpcIdsSpawnedByHandlers over directories (QuestSpawnAnalyzer.java:99-123): (files read, npc ids), the union of
+    spawn_analyzer_ids over every file below each directory whose name ends with one of the suffixes (Java: Files.walk and
+    `p.toString().endsWith(".java")`; the C++ handlers are .cpp and .h). A missing directory is an error, as Files.walk's IOException is."""
+    files, ids = 0, set()
+    for d in map(Path, dirs):
+        if not d.is_dir():
+            raise ParityError(f'{d}: not a directory')
+        for p in sorted(d.rglob('*')):
+            if p.is_file() and p.name.endswith(tuple(suffixes)):
+                files += 1
+                ids |= spawn_analyzer_ids(p.read_text(encoding='utf-8-sig'))
+    return files, ids
 
 
 # --- facts -------------------------------------------------------------------------------------------------------------------------
@@ -527,8 +545,19 @@ def main(argv=None):
     p.add_argument('--only', nargs='+', metavar='REL')
     p.add_argument('--json', metavar='OUT', help='write the report as JSON')
     p.add_argument('--require-all', action='store_true', help='a Java file without its C++ file is a failure')
+    p = sub.add_parser('spawn-analyzer', help='the npc ids QuestSpawnAnalyzer.loadNpcIdsSpawnedByHandlers finds below the directories: a '
+                                              'first line "# N files, M npc ids", then the ids in ascending order, one per line')
+    p.add_argument('dirs', nargs='+', metavar='DIR')
+    p.add_argument('--suffix', action='append', metavar='SUFFIX',
+                   help="read the files whose name ends with SUFFIX (repeatable; default .java, the analyzer's own filter)")
     args = ap.parse_args(argv)
     try:
+        if args.cmd == 'spawn-analyzer':
+            files, ids = spawn_analyzer_dirs(args.dirs, args.suffix or ('.java',))
+            print(f'# {files} files, {len(ids)} npc ids')
+            for npc_id in sorted(ids):
+                print(npc_id)
+            return 0
         if args.cmd == 'pair':
             ms = compare_files(args.java, args.cpp)
             if args.json:

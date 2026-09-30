@@ -1422,8 +1422,9 @@ void runM5dGate(const GateVariant& variant) {
 	// ---- §10.1 processes, databases and profile ----
 	// The M5a set comes from ScenarioServers::m5aProfile (with G-07's far-future wall-clock schedules); then the M5b-2 profile's keys (the
 	// M5b-1 ones and the drop rate 0, so a kill leaves no loot) and what M5d adds: the quest rates written out at their defaults (membership
-	// 0 -> 1.0, D7), the spawn analysis off (so QuestEngine.cpp:115 is a §B row) and the simple class window off (§18.4: the gate must not
-	// depend on the owner's mygs.properties, which turns it on; with it off the four ascension handlers register, as in Java's default).
+	// 0 -> 1.0, D7), the spawn analysis off (its partial, QuestEngine.cpp:115, was a §B row until E-08 ported QuestSpawnAnalyzer, m5d-plan.md
+	// §21; C17 checks that the server did not run it) and the simple class window off (§18.4: the gate must not depend on the owner's
+	// mygs.properties, which turns it on; with it off the four ascension handlers register, as in Java's default).
 	// gameserver.character.creation.mode stays at its default 0 (D15: the Asmodian plays on account B). Geodata separates the variants.
 	std::map<std::string, std::string> gateKeys;
 	gateKeys["gameserver.geodata.enable"] = variant.geodata ? "true" : "false";
@@ -2285,6 +2286,14 @@ void runM5dGate(const GateVariant& variant) {
 		for (const AllowlistEntry& entry : allowlist)
 			std::cout << "  " << hitsByEntry[entry.site] << "\t" << sectionName(entry.section) << "\t" << entry.site << "\n";
 		std::cout << std::flush;
+		// §10.1's gameserver.analysis.quest_handlers = false reaches the server (QuestEngine.java:107): run it and the spawn analysis logs
+		// "Analyzing quest handlers (ignoreEventQuests=true)..." first (QuestSpawnAnalyzer.java:35). The §B row of its partial,
+		// QuestEngine.cpp:115, made this check until E-08 ported the analyzer (m5d-plan.md §21.2)
+		ASSERT_NE(servers.gameServer(), nullptr);
+		const std::vector<std::string> analysis = servers.gameServer()->findLogLines("Analyzing quest handlers (ignoreEventQuests=", 1);
+		EXPECT_TRUE(analysis.empty()) << "Y14: the game server ran the quest spawn analysis, so the profile's gameserver.analysis.quest_handlers = "
+		                                 "false did not reach it: "
+		                              << join(analysis, "\n");
 
 		const std::vector<std::string> census = servers.readReportLines("census.txt");
 		EXPECT_TRUE(census.empty()) << "Y14: the final census reports leaks:\n" << join(census, "\n");

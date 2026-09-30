@@ -11,9 +11,10 @@
 #   SECTION C  the row is allowed and its hit count is printed but not pinned
 #
 # Copied on 2026-09-29 from m5c_partial_allowlist.txt (C++ a72676184): the startup row of §A, the wall-clock cron rows of §B and the §C rows,
-# with one move: QuestEngine.cpp:115 (the spawn analysis, E-08's) is a §B row here, because the M5d profile sets
+# with one move: QuestEngine.cpp:115 (the spawn analysis, E-08's) was a §B row here, because the M5d profile sets
 # gameserver.analysis.quest_handlers = false (m5d-plan.md §10.1, the review of 2026-09-28: "the analyzer row fits §B only because this
-# profile sets gameserver.analysis.quest_handlers=false"). QuestEngine.cpp:111 does not appear: the D3 join (I-05) closed it, the site no
+# profile sets gameserver.analysis.quest_handlers=false"), until E-08 (stage 3) ported QuestSpawnAnalyzer and deleted the row with the
+# partial (m5d-plan.md §21). QuestEngine.cpp:111 does not appear: the D3 join (I-05) closed it, the site no
 # longer exists. Stage 1 and the D3 join left no AION_PARTIAL on the quest path (m5d-plan.md §19.1-§19.2), and xml_quest 1127 was ported
 # (T-03), so D10's fallback row does not exist either.
 
@@ -28,9 +29,9 @@ aion/gameserver/services/BaseService.cpp:18
 # --- SECTION B - hit exactly zero times, asserted ---
 # =========================================================================================================================================
 
-# the spawn analysis QuestEngine.init runs behind gameserver.analysis.quest_handlers (default true, GSConfig.cpp:25), which the M5d profile
-# turns off: a hit means the gate key no longer reaches the server. E-08 (stage 3) deletes the row with the partial.
-aion/gameserver/questEngine/QuestEngine.cpp:115
+# HISTORY: QuestEngine.cpp:115, the spawn analysis QuestEngine.init runs behind gameserver.analysis.quest_handlers (default true,
+# GSConfig.cpp:25), which the M5d profile turns off, was here (a hit meant the gate key no longer reached the server) until E-08 (stage 3)
+# ported QuestSpawnAnalyzer (m5d-plan.md §21); the site no longer exists.
 # m5c-plan.md G-07: the wall-clock cron jobs whose schedules ScenarioServers::m5aProfile moves past every gate run (ScenarioServers.cpp's
 # census). Only their cron reaches these sites, so a hit means a gate key no longer reaches the server.
 aion/gameserver/services/abyss/AbyssRankUpdateService.cpp:37

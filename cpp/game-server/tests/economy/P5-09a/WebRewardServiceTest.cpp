@@ -1,6 +1,6 @@
 // The ascension lane: WebRewardService.MaxLevelReward.isPendingAscension (WebRewardService.java:102-104), the body of the class the retail
 // ascension route calls. _1006Ascension.onQuestCompletedEvent and _2008Ascension's (_1006Ascension.java:278-285, _2008Ascension.java:298-305)
-// ask it right after updateDaeva, inside the single try of QuestEngine.onQuestCompleted (QuestEngine.java:254-265, QuestEngine.cpp:255-266),
+// ask it right after updateDaeva, inside the single try of QuestEngine.onQuestCompleted (QuestEngine.java:254-265, QuestEngine.cpp:260-271),
 // so an unported body there logged an ERROR at every ascension and skipped the onQuestCompletedEvent of every handler after it (the
 // ascension analysis, "No owner" row). The set it reads is filled only by MaxLevelReward.reward, the web reward's "level 65" action (still
 // unported, like the rest of the class).

@@ -1,13 +1,15 @@
-// QuestEngine and QuestService at M5a (P5-06, m5a-plan.md W-02): init with the empty quest handler registry (quest drops, the update items, the
-// quest spawn analysis as an AION_PARTIAL site, the 09:00 message cron job; since M5d's D3 join also the XML quests' registration, m5d-plan.md
-// I-05), the registration maps, handler registration and the lookups over empty registrations. Expectations are hand-derived from
-// QuestEngine.java and QuestService.java. Dispatch with a QuestEnv needs a Player; the enter-world and logout paths are covered by the scenario
-// flows (m5a-plan.md §5).
+// QuestEngine and QuestService at M5a (P5-06, m5a-plan.md W-02): init with the empty quest handler registry (quest drops, the update items,
+// the 09:00 message cron job; since M5d's D3 join also the XML quests' registration, m5d-plan.md I-05; since E-08 the quest spawn analysis
+// on the long-running pool, no AION_PARTIAL site any more), the registration maps, handler registration and the lookups over empty
+// registrations. Expectations are hand-derived from QuestEngine.java and QuestService.java. Dispatch with a QuestEnv needs a Player; the
+// enter-world and logout paths are covered by the scenario flows (m5a-plan.md §5).
 
 #include <gtest/gtest.h>
 
+#include <algorithm>
 #include <cstdint>
 #include <memory>
+#include <regex>
 #include <sstream>
 #include <string>
 #include <vector>
@@ -17,10 +19,18 @@
 #include "aion/commons/logging/LoggerFactory.h"
 #include "aion/gameserver/configs/main/GSConfig.h"
 #include "aion/gameserver/dataholders/DataManager.h"
+#include "aion/gameserver/dataholders/EventData.bind.h"
+#include "aion/gameserver/dataholders/EventData.h"
 #include "aion/gameserver/dataholders/NpcData.bind.h"
 #include "aion/gameserver/dataholders/NpcData.h"
+#include "aion/gameserver/dataholders/NpcFactionsData.bind.h"
+#include "aion/gameserver/dataholders/NpcFactionsData.h"
 #include "aion/gameserver/dataholders/QuestsData.bind.h"
 #include "aion/gameserver/dataholders/QuestsData.h"
+#include "aion/gameserver/dataholders/SpawnsData.bind.h"
+#include "aion/gameserver/dataholders/SpawnsData.h"
+#include "aion/gameserver/dataholders/TownSpawnsData.bind.h"
+#include "aion/gameserver/dataholders/TownSpawnsData.h"
 #include "aion/gameserver/dataholders/XMLQuests.bind.h"
 #include "aion/gameserver/dataholders/XMLQuests.h"
 #include "aion/gameserver/dataholders/loadingutils/LoadContext.h"
@@ -36,6 +46,7 @@
 #include "aion/gameserver/runtime/lifetime/TaskScope.h"
 #include "aion/gameserver/runtime/sched/Clock.h"
 #include "aion/gameserver/runtime/sched/DeterministicExecutor.h"
+#include "aion/gameserver/runtime/sched/Future.h"
 #include "aion/gameserver/services/QuestService.h"
 #include "aion/gameserver/services/cron/CronService.h"
 #include "aion/gameserver/utils/ThreadPoolManager.h"
@@ -97,7 +108,9 @@ class QuestEngineTest : public ::testing::Test {
 protected:
 	void SetUp() override {
 		utils::ThreadPoolManager::installBackend(nullptr);
-		utils::ThreadPoolManager::installBackend(std::make_unique<runtime::DeterministicExecutor>(clock, 3));
+		auto backend = std::make_unique<runtime::DeterministicExecutor>(clock, 3);
+		executor = backend.get();
+		utils::ThreadPoolManager::installBackend(std::move(backend));
 		services::cron::CronService::resetForTests();
 		services::cron::CronService::initSingleton(std::make_unique<utils::cron::ThreadPoolManagerRunnableRunner>(), std::chrono::locate_zone("UTC"),
 			services::cron::CronService::Driver::EXECUTOR);
@@ -115,15 +128,22 @@ protected:
 		}
 		configs::main::GSConfig::ANALYZE_QUESTHANDLERS.store(true);
 		services::cron::CronService::resetForTests();
+		// the holders only the spawn analysis case publishes (resetting an unpublished holder does nothing)
+		dataholders::DataManager::EVENT_DATA.resetForTests();
+		dataholders::DataManager::TOWN_SPAWNS_DATA.resetForTests();
+		dataholders::DataManager::SPAWNS_DATA.resetForTests();
+		dataholders::DataManager::NPC_FACTIONS_DATA.resetForTests();
 		dataholders::DataManager::XML_QUESTS.resetForTests();
 		dataholders::DataManager::NPC_DATA.resetForTests();
 		dataholders::DataManager::QUEST_DATA.resetForTests();
 		runtime::Reclaimer::getInstance().drain();
 		utils::ThreadPoolManager::installBackend(nullptr);
+		executor = nullptr;
 		runtime::Reclaimer::getInstance().drain();
 	}
 
 	runtime::ManualClock clock{0};
+	runtime::DeterministicExecutor* executor = nullptr;
 };
 
 TEST_F(QuestEngineTest, InitRegistersQuestDropsAndSchedulesTheDailyMessageWithAnEmptyHandlerRegistry) {
@@ -149,26 +169,75 @@ TEST_F(QuestEngineTest, InitRegistersQuestDropsAndSchedulesTheDailyMessageWithAn
 	EXPECT_TRUE(services::QuestService::getQuestDrop(210001).empty()) << "clear drops the quest drops";
 }
 
-TEST_F(QuestEngineTest, InitRegistersEveryXmlQuestAndReachesOnlyTheSpawnAnalysisPartial) {
-	// the D3 join (m5d-plan.md I-05): init registers every XML quest (QuestEngine.java:104-105) before it logs the handler count (:106); the
-	// spawn analysis (:107-108) stays the one AION_PARTIAL site until E-08
+TEST_F(QuestEngineTest, InitRegistersEveryXmlQuestAndRunsTheSpawnAnalysisOnTheLongRunningPool) {
+	// the D3 join (m5d-plan.md I-05): init registers every XML quest (QuestEngine.java:104-105) before it logs the handler count (:106). Since
+	// E-08 the spawn analysis (:107-108) is no partial site: init hands QuestSpawnAnalyzer.run(questHandlers.values(), questNpcs.values(), true)
+	// to the long-running pool, and it runs when the pool does, over the engine's own handlers and quest npcs. The handlers count: 1000
+	// (minlevel_permitted 99) and 1003 (a faction whose only npc nothing spawns) are unobtainable because they have a handler
+	// (QuestSpawnAnalyzer.java:47-51), so of the three quests at the two unspawned start npcs only 1002 is reported
 	xml::LoadContext context;
+	dataholders::DataManager::QUEST_DATA.resetForTests();
+	dataholders::DataManager::QUEST_DATA.publish(xml::bindString<dataholders::QuestsData>(context,
+		R"(<quests><quest id="1000" minlevel_permitted="99"/><quest id="1002"/><quest id="1003" npcfaction_id="2"/></quests>)"));
 	dataholders::DataManager::XML_QUESTS.resetForTests();
 	dataholders::DataManager::XML_QUESTS.publish(xml::bindString<dataholders::XMLQuests>(context,
-		R"(<quest_scripts><item_collecting id="1000" start_npc_ids="700001"/><item_collecting id="1002" start_npc_ids="700002"/></quest_scripts>)"));
+		R"(<quest_scripts><item_collecting id="1000" start_npc_ids="700001"/><item_collecting id="1002" start_npc_ids="700002"/>)"
+		R"(<item_collecting id="1003" start_npc_ids="700002"/></quest_scripts>)"));
+	// the other holders the analysis reads, empty but for the factions: nothing spawns the two start npcs or faction 2's npc
+	dataholders::DataManager::NPC_FACTIONS_DATA.publish(xml::bindString<dataholders::NpcFactionsData>(context,
+		R"(<npc_factions><npc_faction id="1" name="The Jeridises" name_id="650263" category="MENTOR" min_level="5" race="ELYOS"/>)"
+		R"(<npc_faction id="2" name="Unspawned" npc_ids="700900" name_id="650264" category="DAILY" min_level="5" race="ELYOS"/></npc_factions>)"));
+	dataholders::DataManager::SPAWNS_DATA.publish(xml::bindString<dataholders::SpawnsData>(context, "<spawns/>"));
+	dataholders::DataManager::TOWN_SPAWNS_DATA.publish(xml::bindString<dataholders::TownSpawnsData>(context, "<town_spawns_data/>"));
+	dataholders::DataManager::EVENT_DATA.publish(xml::bindString<dataholders::EventData>(context, "<timed_events/>"));
 	configs::main::GSConfig::ANALYZE_QUESTHANDLERS.store(true);
 	LogCapture capture("com.aionemu.gameserver.questEngine.QuestEngine");
+	LogCapture analysis("com.aionemu.gameserver.questEngine.QuestSpawnAnalyzer");
 	QUEST_TEST_SCOPE;
 	uint64_t partialsBefore = runtime::partialHitCount();
 	EXPECT_NO_THROW(QuestEngine::getInstance().init());
-	EXPECT_EQ(runtime::partialHitCount(), partialsBefore + 1) << "the spawn analysis only";
+	EXPECT_EQ(runtime::partialHitCount(), partialsBefore) << "no partial site: the spawn analysis is ported";
 	QuestEngine& qe = QuestEngine::getInstance();
-	EXPECT_EQ(qe.getQuestHandlerCount(), 2);
+	EXPECT_EQ(qe.getQuestHandlerCount(), 3);
 	EXPECT_TRUE(qe.isHaveHandler(1000));
 	EXPECT_TRUE(qe.isHaveHandler(1002));
+	EXPECT_TRUE(qe.isHaveHandler(1003));
 	EXPECT_TRUE(qe.getQuestNpc(700001)->getOnQuestStart().contains(1000)) << "ItemCollecting.register: the start npc offers the quest";
 	EXPECT_TRUE(qe.getQuestNpc(700002)->getOnQuestStart().contains(1002));
-	EXPECT_NE(capture.text().find("info|Loaded 2 quest handlers."), std::string::npos) << capture.text();
+	EXPECT_TRUE(qe.getQuestNpc(700002)->getOnQuestStart().contains(1003));
+	EXPECT_NE(capture.text().find("info|Loaded 3 quest handlers."), std::string::npos) << capture.text();
+	EXPECT_EQ(analysis.text(), "") << "the analysis waits for the long-running pool";
+
+	// QuestEngine.java:108, executeLongRunning: one task on the long-running pool and none on the instant pool (addMessageSendingTask's cron
+	// job is a timer, not due yet)
+	std::vector<runtime::FutureRef> pending = executor->pendingTasks();
+	EXPECT_EQ(std::ranges::count_if(pending, [](const runtime::FutureRef& task) { return task->getPool() == runtime::PoolKind::LONG_RUNNING; }), 1);
+	EXPECT_EQ(std::ranges::count_if(pending, [](const runtime::FutureRef& task) { return task->getPool() == runtime::PoolKind::INSTANT; }), 0);
+	pending.clear();
+	EXPECT_EQ(executor->runReady(), 1u) << "the analysis is the one task that is due";
+	// "\n" line ends (spdlog ends a line with "\r\n" on Windows), and the wall-clock time of the analysis as "#"
+	EXPECT_EQ(std::regex_replace(std::regex_replace(analysis.text(), std::regex("\r\n"), "\n"), std::regex("finished in [0-9]+ ms"),
+				  "finished in # ms"),
+		"info|Analyzing quest handlers (ignoreEventQuests=true)...\n"
+		"warning|Quest handler analysis finished in # ms. Found 1 missing quest npc spawns:\n\tNpc 700002 (quests: 1002)\n");
+}
+
+TEST_F(QuestEngineTest, InitLeavesTheSpawnAnalysisOutWhenItIsSwitchedOff) {
+	// gameserver.analysis.quest_handlers = false (QuestEngine.java:107): init reads the flag itself and submits nothing, so nothing is read or
+	// logged
+	xml::LoadContext context;
+	dataholders::DataManager::XML_QUESTS.resetForTests();
+	dataholders::DataManager::XML_QUESTS.publish(xml::bindString<dataholders::XMLQuests>(context,
+		R"(<quest_scripts><item_collecting id="1000" start_npc_ids="700001"/></quest_scripts>)"));
+	LogCapture analysis("com.aionemu.gameserver.questEngine.QuestSpawnAnalyzer");
+	QUEST_TEST_SCOPE;
+	EXPECT_NO_THROW(QuestEngine::getInstance().init());
+	std::vector<runtime::FutureRef> pending = executor->pendingTasks();
+	EXPECT_TRUE(std::ranges::all_of(pending, [](const runtime::FutureRef& task) { return task->getPool() == runtime::PoolKind::SCHEDULED; }))
+		<< "only addMessageSendingTask's cron timer is pending";
+	pending.clear();
+	EXPECT_EQ(executor->runReady(), 0u) << "no task was submitted";
+	EXPECT_EQ(analysis.text(), "") << "the holders the analysis reads are not even published here";
 }
 
 TEST_F(QuestEngineTest, QuestNpcsAreCreatedForLookupsAndKeptWhenRegistered) {
