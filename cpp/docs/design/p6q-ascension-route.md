@@ -410,9 +410,12 @@ Elyos); every engine-wide hook acts only on its own quest's state.
 2. 2911 is held back from quest_data.xml and the spawns, not from a dump of gs.scenario.ascension (a 15-minute gate).
 3. The Q10 hold-back is pinned by the golden table check, the drift test and the dump above; unlike Q03's `TravelArrivalTest` there is no
    engine-level unit case of the Asmodian's arrival.
-4. Landed with an unported engine body on the path (Q10.md): 2284, 2290 (`defaultStartFollowEvent`, M5d E-07), 2900 (StigmaService), 2985
-   (`WarehouseService::expand`, reported by the harness's `knownUnported`); 2222 waits for 2290 as well as for 2221. 4212 needs
-   `questEngine/task` (E-07).
+4. Landed with an unported engine body on the path (Q10.md): 2900 (StigmaService), 2985 (`WarehouseService::expand`, reported by the
+   harness's `knownUnported`). **Updated 2026-09-30:** 2284 and 2290 were listed here for `defaultStartFollowEvent`; M5d E-07 ported it and
+   `questEngine/task` (PR #12, fed04d229), so their escort now starts, but the escorted npc still has no `following` AI in C++ (it gets the
+   substitute AI), so it does not walk yet: they wait for `FollowingNpcAI`, like the 14 generated escort handlers of row B03 (m5d-plan.md
+   §21.1). 2222 waits for 2290 as well as for 2221. 4212 is still not in the tree: E-07 removed its `questEngine/task` blocker, and questgen
+   now refuses it only for missing API rows (`getAi`, `addTask`, `WalkManager.startWalking`, `getSpawn`, `new SM_NPC_INFO`; m5d-plan.md §21.1).
 5. The lanes' own gaps stand (Q03.md and Q10.md, "Left"): 26 oracle-refused Q03 hooks with no case, `dieObject` not modelled by the replay,
    2223's movie-end spawn outside the fixture's map, the L2 findings of `lint_concurrency` on generated constant arrays in the handler tree.
 
@@ -657,8 +660,7 @@ check, so no gate mutant was rerun; the gates were rerun clean (below).
 - `862bae46a`: gs.scenario.m5d / m5d_geo taught the prologue (below).
 
 Every gate server logs "Loaded 4362 quest handlers" (4,226 + the prologue's 4 + slice 2's 132). The 21 hold-backs of §8.1 stay out.
-§8.5 item 4's "`defaultStartFollowEvent`, M5d E-07" and "4212 needs `questEngine/task` (E-07)" are out of date on C++ (E-07 is in);
-not re-measured here.
+§8.5 item 4 said 2284/2290 and 4212 waited for M5d E-07; E-07 is in, and item 4 now says what each still waits for (updated 2026-09-30).
 
 **The M5d gate pair (owner answer 4).** The pair was written while the four first-login handlers were held back (§9.5's first finding).
 Unchanged, on the merged tree, both failed alike: C1-C3 "A enter world: ... up to packet #2 SM_QUEST_ACTION, where it expected

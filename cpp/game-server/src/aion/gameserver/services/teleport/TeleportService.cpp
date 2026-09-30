@@ -435,13 +435,38 @@ void TeleportService::spawnOnSameMap(model::gameobjects::player::Player& player)
 	player.setPortAnimation(model::animations::ArrivalAnimation::NONE);
 }
 
+// Java TeleportService.java:221-232
 void TeleportService::teleportTo(model::gameobjects::player::Player& player, world::WorldPosition& pos) {
-	AION_UNPORTED();
+	if (player.getWorldId() == pos.getMapId()) {
+		abortPlayerActions(player);
+		world::World::getInstance().setPosition(runtime::Ptr<model::gameobjects::VisibleObject>(player.getPet()), pos.getMapId(), pos.getInstanceId(),
+			pos.getX(), pos.getY(), pos.getZ(), pos.getHeading());
+		world::World::getInstance().setPosition(runtime::Ptr<model::gameobjects::VisibleObject>(player), pos.getMapId(), pos.getInstanceId(),
+			pos.getX(), pos.getY(), pos.getZ(), pos.getHeading());
+		spawnOnSameMap(player);
+	} else if (player.isDead()) {
+		teleportDeadTo(player, pos.getMapId(), pos.getInstanceId(), pos.getX(), pos.getY(), pos.getZ(), pos.getHeading());
+	} else {
+		teleportTo(player, pos.getMapId(), pos.getInstanceId(), pos.getX(), pos.getY(), pos.getZ(), pos.getHeading(),
+			model::animations::TeleportAnimation::NONE);
+	}
 }
 
+// Java TeleportService.java:234-247: the move of a player who stays dead (no revive, unlike the teleportTo overloads)
 void TeleportService::teleportDeadTo(model::gameobjects::player::Player& player, int32_t worldId, int32_t instanceId, float x, float y, float z,
 	int8_t heading) {
-	AION_UNPORTED();
+	if (player.getWorldId() != worldId || player.getInstanceId() != instanceId) {
+		conquerorAndProtectorSystem::ConquerorAndProtectorService::getInstance().onLeaveMap(player);
+		instance::InstanceService::onLeaveInstance(player);
+	}
+	world::World::getInstance().setPosition(runtime::Ptr<model::gameobjects::VisibleObject>(player), worldId, instanceId, x, y, z, heading);
+	utils::PacketSendUtility::sendPacket(player, network::aion::serverpackets::SM_CHANNEL_INFO(player.getPosition()));
+	utils::PacketSendUtility::sendPacket(player, network::aion::serverpackets::SM_PLAYER_SPAWN(player));
+	player.setPortAnimation(model::animations::ArrivalAnimation::LANDING);
+	utils::PacketSendUtility::sendPacket(player, network::aion::serverpackets::SM_PLAYER_INFO(player));
+
+	if (player.isLegionMember() && player.getLegionMember()->getWorldId() != worldId)
+		services::LegionService::getInstance().updateMemberInfo(player);
 }
 
 // Java TeleportService.java:249-251
