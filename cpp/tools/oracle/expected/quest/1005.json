@@ -128,6 +128,7 @@
     "env.getDialogActionId() not in [QUEST_SELECT, SETPRO1] -> true @44"
    ],
    "free": ["questState.vars.0"],
+   "dialogExcludes": [31, 10000],
    "effects": [],
    "returns": false
   },
@@ -232,6 +233,7 @@
     "env.getDialogActionId() not in [QUEST_SELECT, SETPRO2] -> true @58"
    ],
    "free": ["questState.vars.0"],
+   "dialogExcludes": [31, 10001],
    "effects": [],
    "returns": false
   },
@@ -341,6 +343,7 @@
     "env.getDialogActionId() not in [QUEST_SELECT, SETPRO3] -> true @72"
    ],
    "free": ["questState.vars.0"],
+   "dialogExcludes": [31, 10002],
    "effects": [],
    "returns": false
   },
@@ -455,6 +458,7 @@
     "env.getDialogActionId() not in [QUEST_SELECT, SETPRO4] -> true @86"
    ],
    "free": ["questState.vars.0"],
+   "dialogExcludes": [31, 10003],
    "effects": [],
    "returns": false
   },
@@ -574,6 +578,7 @@
     "env.getDialogActionId() not in [QUEST_SELECT, SETPRO5] -> true @100"
    ],
    "free": ["questState.vars.0"],
+   "dialogExcludes": [31, 10004],
    "effects": [],
    "returns": false
   },
@@ -816,6 +821,7 @@
     "env.getDialogActionId() == USE_OBJECT -> false @137"
    ],
    "free": ["questState.vars.0"],
+   "dialogExcludes": [-1],
    "effects": [{"call": "sendQuestEndDialog", "kind": "dialog", "args": [], "line": 141}],
    "returns": {"resultOf": 0}
   },

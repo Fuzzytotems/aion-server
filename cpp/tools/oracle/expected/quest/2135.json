@@ -55,6 +55,7 @@
     "env.getDialogActionId() == QUEST_SELECT -> false @39",
     "env.getDialogActionId() == QUEST_ACCEPT_1 -> false @41"
    ],
+   "dialogExcludes": [31, 1002],
    "effects": [{"call": "sendQuestStartDialog", "kind": "dialog", "args": [], "line": 47}],
    "returns": {"resultOf": 0}
   },
@@ -108,6 +109,7 @@
     "env.getDialogActionId() == QUEST_SELECT -> false @49",
     "env.getDialogActionId() == SELECT_QUEST_REWARD -> false @51"
    ],
+   "dialogExcludes": [31, 1009],
    "effects": [{"call": "sendQuestEndDialog", "kind": "dialog", "args": [], "line": 57}],
    "returns": {"resultOf": 0}
   },
@@ -208,6 +210,7 @@
     "env.getDialogActionId() == QUEST_SELECT -> false @63",
     "env.getDialogActionId() == SETPRO1 -> false @65"
    ],
+   "dialogExcludes": [31, 10000],
    "effects": [{"call": "sendQuestStartDialog", "kind": "dialog", "args": [], "line": 72}],
    "returns": {"resultOf": 0}
   },

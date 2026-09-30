@@ -36,6 +36,9 @@ Only these documented renames are applied (each undoes one emitter idiom of phas
 - hand-port spellings (P6-Q ascension route, integration of 2026-09-29): `push_back` is `add` (java.util.List on a local `std::vector`);
   a Java `new ArrayList<>()` with no argument is not a call (the default-constructed local; with an argument it stays a call); a Java
   anonymous `new Runnable() { ... run() ... }` is a C++ lambda, so its `Runnable` and the `run` it declares are not calls.
+- the enum-name spelling (P6-Q slice 2, integration of 2026-09-29): Java string concatenation with an enum (`"..." + x`, Enum.toString) is
+  C++ `std::string(enumName(x))` beside a `+`, so that `string` and its `enumName` are not calls (`_2900NoEscapingDestiny`); a bare
+  `enumName(x)`, a `std::string(y)` of anything else and a `std::string(enumName(x))` outside a `+` still are.
 
 Not caught by design: plain identifiers are not compared, so a swapped or substituted operand, local or receiver is at parity (Java
 `return var > targetId;` against C++ `return targetId > var;`, `qs.setQuestVarById(0, var + 1)` against

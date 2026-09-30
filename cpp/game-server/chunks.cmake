@@ -503,18 +503,25 @@ aion_gs_chunk(Q02 TARGET aion_gs_handlers_quest_q02 PHASE 6 ROOT handlers
 	GLOBS "aion/gameserver/handlers/quest/inggison/**"
 	JAVA "data/handlers/quest/inggison/**"
 	PCH "aion/gameserver/handlers/quest/QuestPrelude.h")
+# Q03's tests (P6-Q slice 2, 2026-09-29): tests/quest_handlers_q03, the unit cases of the two hand-ported Heiron quests (1643, 3200) and of
+# the generated hooks the golden oracle refuses, on the real engine and World, and the chunk's registration checks; the executable is
+# aion_gs_handlers_quest_q03_tests. The golden traces of the 72 generated files in the tree run in Q05's harness (tests/quest_handlers_golden),
+# which compiles them by #include; 4 more (14010, 1131, 1146, 1152) are held back for gs.scenario.travel; docs/deviations/Q03.md.
 aion_gs_chunk(Q03 TARGET aion_gs_handlers_quest_q03 PHASE 6 ROOT handlers
 	GLOBS "aion/gameserver/handlers/quest/{heiron,verteron}/**"
 	JAVA "data/handlers/quest/{heiron,verteron}/**"
-	PCH "aion/gameserver/handlers/quest/QuestPrelude.h")
+	PCH "aion/gameserver/handlers/quest/QuestPrelude.h"
+	TESTS quest_handlers_q03)
 aion_gs_chunk(Q04 TARGET aion_gs_handlers_quest_q04 PHASE 6 ROOT handlers
 	GLOBS "aion/gameserver/handlers/quest/{beluslan,brusthonin}/**"
 	JAVA "data/handlers/quest/{beluslan,brusthonin}/**"
 	PCH "aion/gameserver/handlers/quest/QuestPrelude.h")
 # Q05's test directory is the golden quest trace harness of the generated handlers (P6-Q ascension route, lane route-gen, 2026-09-29;
 # phase6-inventory.md §7.6 item 3 and §8.2): it drives every case of tools/oracle/expected/quest through the real engine. A handler target's
-# tests link only their own library, so the executable compiles the generated Q09 (ishalgen) and Q06 (ascension dispatch) files by #include, as
-# P5-05's tests do for the two quest npc AIs (the P5-05 LEASE row below); docs/deviations/Q05.md.
+# tests link only their own library, so the executable compiles the generated Q09 (ishalgen), Q06 (ascension dispatch), Q03 (verteron,
+# heiron) and Q10 (altgard, pandaemonium) files by #include, as P5-05's tests do for the two quest npc AIs (the P5-05 LEASE row below);
+# docs/deviations/Q05.md, Q03.md, Q10.md. P6-Q slice 2's lanes Q03 and Q10 added the hooks, helpers, registrations and overlays their files
+# need; Q03's LEASE row on this directory was released when slice 2 was integrated (docs/design/p6q-ascension-route.md, "Slice 2").
 aion_gs_chunk(Q05 TARGET aion_gs_handlers_quest_q05 PHASE 6 ROOT handlers
 	GLOBS "aion/gameserver/handlers/quest/{eltnen,poeta,oriel}/**"
 	JAVA "data/handlers/quest/{eltnen,poeta,oriel}/**"
@@ -548,10 +555,16 @@ aion_gs_chunk(Q09 TARGET aion_gs_handlers_quest_q09 PHASE 6 ROOT handlers
 # (TeleportService.java:304-333), which quest 2007's last step calls. Released when the lane merges.
 aion_gs_chunk(Q09 LEASE PHASE 6
 	GLOBS "aion/gameserver/services/teleport/TeleportService.cpp")
+# Q10's tests (P6-Q slice 2, 2026-09-29): tests/quest_handlers_asmodae, the unit cases of the five hand-ported altgard and pandaemonium quests
+# (2208, 2230, 2252, 24013, 2900) and of the generated path that kills its target (24012; 2223 is held back), on the fixture of
+# tests/quest_handlers (included by relative path, as Q05's golden harness does); the executable is aion_gs_handlers_quest_q10_tests. The
+# generated files' golden cases run in Q05's harness, which compiles them by #include (docs/deviations/Q10.md; 16 generated files are held
+# back since the integration of slice 2, its section "Held back").
 aion_gs_chunk(Q10 TARGET aion_gs_handlers_quest_q10 PHASE 6 ROOT handlers
 	GLOBS "aion/gameserver/handlers/quest/{pandaemonium,altgard}/**"
 	JAVA "data/handlers/quest/{pandaemonium,altgard}/**"
-	PCH "aion/gameserver/handlers/quest/QuestPrelude.h")
+	PCH "aion/gameserver/handlers/quest/QuestPrelude.h"
+	TESTS quest_handlers_asmodae)
 aion_gs_chunk(Q11 TARGET aion_gs_handlers_quest_q11 PHASE 6 ROOT handlers
 	GLOBS "aion/gameserver/handlers/quest/{daevanion,sanctum}/**"
 	JAVA "data/handlers/quest/{daevanion,sanctum}/**"

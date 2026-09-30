@@ -59,6 +59,12 @@ model/house/House.h model/templates/spawns/SpawnSearchResult.h instance/handlers
 # (the last line: types QuestPrelude.h re-exports that handlers declare locals of; without them such a local is refused as `type`, which
 # hides the API gap behind it: DataManager.SPAWNS_DATA, WorldMapInstance.getInstanceHandler, Player.getActiveHouse)
 
+# The complete types of the Ref<T> values a scanned member returns when T's own header is not scanned: a handler that calls the member
+# destroys the Ref in its translation unit (~Ref needs the complete T), so the emitter includes the header (P6-Q slice 2, lane Q03:
+# SkillEngine.applyEffectDirectly returns Ref<Effect>, whose value heiron/_18602 discards; lane Q10 needed the same rule for
+# altgard/_2213's `SkillEngine.getInstance().applyEffectDirectly(...)` as a statement, and the integration keeps this one table).
+OWNING_RETURN_HEADERS = {'Effect': G + 'skillengine/model/Effect.h'}
+
 # AbstractQuestHandler members that are not tier A (S2's classifier, phase6-inventory.md §7.1): they are API_TABLE rows
 SPAWN_HELPERS = frozenset('spawn spawnInFrontOf spawnForFiveMinutesInFrontOf spawnForFiveMinutesInFront spawnForFiveMinutes '
                           'spawnTemporarily'.split())

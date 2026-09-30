@@ -1,0 +1,11 @@
+{
+ "format": "aion-quest-trace",
+ "version": 1,
+ "questId": 1640,
+ "java": "heiron/_1640TeleporterRepairs.java",
+ "class": "_1640TeleporterRepairs",
+ "javaSha256": "7dac2a6550f590a0fa0a0b4d97fa680ace616d5f5db4ba6f799c27874f165115",
+ "register": [{"npc": 730033, "event": "addOnQuestStart", "args": [1640]}, {"npc": 730033, "event": "addOnTalkEvent", "args": [1640]}],
+ "hooks": [{"hook": "onDialogEvent", "line": 31, "unsupported": "call TeleportService.teleportTo"}],
+ "cases": []
+}
