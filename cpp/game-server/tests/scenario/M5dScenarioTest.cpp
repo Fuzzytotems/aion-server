@@ -114,6 +114,11 @@ using Packet = GameSession::Packet;
 
 /** the quiet period that ends a burst of server packets (m5a-plan.md §5.4) */
 constexpr std::chrono::milliseconds QUIET = 1000ms;
+/** How long collectBurst waits for the FIRST packet of an answer. The quiet period alone (QUIET) ended a burst before the server had
+ * answered at all when a loaded machine delayed a re-entry by a little over a second (gs.scenario.m5b K7b and m5c C9, 2026-09-29: "no
+ * packet after CM_ENTER_WORLD"). Nothing expects an empty burst, so the longer first wait changes no result, only the time an answer
+ * that never comes costs; after the first packet the quiet rule is unchanged. */
+constexpr std::chrono::milliseconds FIRST_REPLY_WAIT = 5000ms;
 constexpr std::chrono::milliseconds BURST_LIMIT = 90s;
 
 /** SM_CREATE_CHARACTER response codes (SM_CREATE_CHARACTER.java) */
@@ -561,7 +566,9 @@ std::vector<Packet> collectBurst(GameSession& session, const AsyncAllowed& async
 		const auto now = std::chrono::steady_clock::now();
 		if (now >= deadline)
 			break;
-		const auto quietLeft = std::chrono::duration_cast<std::chrono::milliseconds>(lastAwaited + quiet - now);
+		// until the first packet arrives the window is FIRST_REPLY_WAIT at least: a loaded server can answer later than `quiet` (see the constant)
+		const auto window = collected.empty() ? std::max(quiet, FIRST_REPLY_WAIT) : quiet;
+		const auto quietLeft = std::chrono::duration_cast<std::chrono::milliseconds>(lastAwaited + window - now);
 		if (quietLeft <= 0ms)
 			break;
 		std::optional<Packet> packet = session.next(std::min(quietLeft, std::chrono::duration_cast<std::chrono::milliseconds>(deadline - now)));
