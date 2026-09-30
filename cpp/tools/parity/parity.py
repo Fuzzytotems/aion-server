@@ -45,7 +45,11 @@ Documented renames (each undoes one emitter idiom of phase6-questgen-prototype.m
 - hand-port spellings (P6-Q ascension route, integration of 2026-09-29): C++ `push_back` is `add` (java.util.List on a local std::vector,
   like front/back/empty); a Java `new ArrayList<>()` with no argument is not a call (the C++ local std::vector is default-constructed; with
   an argument it stays a call); a Java anonymous `new Runnable() { ... public void run() ... }` is a C++ lambda, so its `Runnable` and the
-  `run` it declares are not calls (any other `run(...)` still is).
+  `run` it declares are not calls (any other `run(...)` still is);
+- the enum-name spelling (P6-Q slice 2, integration of 2026-09-29): Java string concatenation with an enum (`"..." + x`, the implicit
+  Enum.toString, which is name()) is C++ `std::string(enumName(x))` as an operand of `+` (the companion of aion/gameserver/xml, with or
+  without its qualifier), so that `string` and its `enumName` are not calls; a bare `enumName(x)`, a `std::string(y)` of anything else and a
+  `std::string(enumName(x))` outside a `+` still are (_2900NoEscapingDestiny).
 
     python parity.py pair JAVA CPP [--json]
     python parity.py tree --java-dir DIR --cpp-dir DIR [--only REL ...] [--json OUT] [--require-all]
@@ -169,7 +173,29 @@ IDIOMS = (
     'the class of a Java static import is dropped from the C++ qualified name',
     'workItems.getFirst()/getLast() are workItems.get(0)/get(workItems.size() - 1)',
     'push_back is add; Java new ArrayList<>() with no argument is not a call; an anonymous new Runnable() { run() } is a C++ lambda',
+    'std::string(enumName(x)) beside a + is Java string concatenation with an enum (Enum.toString): neither is a call',
 )
+
+
+def _string_of_enum_name(toks, i):
+    """toks[i] is a C++ `string` followed by '(': the index of the `enumName` token when the argument starts with a (qualified) enumName( call
+    and the `std::string(...)` is an operand of `+`, the hand-port spelling of Java's implicit Enum.toString in a string concatenation; else
+    None"""
+    n = len(toks)
+    first = i - 2 if i >= 2 and toks[i - 1].text == '::' and toks[i - 2].text == 'std' else i
+    before = toks[first - 1].text if first > 0 else None
+    close = _match(toks, i + 1)
+    after = toks[close + 1].text if close + 1 < n else None
+    if '+' not in (before, after):
+        return None
+    j = i + 2
+    if j < n and toks[j].text == '::':
+        j += 1
+    while j + 1 < n and toks[j].kind == 'ident' and toks[j + 1].text == '::':
+        j += 2
+    if j + 1 < n and toks[j].kind == 'ident' and toks[j].text == 'enumName' and toks[j + 1].text == '(':
+        return j
+    return None
 
 
 def _skip_type_args(toks, i, allow_numbers):
@@ -361,6 +387,7 @@ def facts(toks, cpp):
     f = Facts()
     n = len(toks)
     anonymous_runs = 0                              # anonymous Runnables whose declared run() is still ahead
+    enum_names = set()                              # C++ enumName tokens of a std::string(enumName(x)), the Java enum concatenation
     for i, t in enumerate(toks):
         prev = toks[i - 1] if i > 0 else None
         nxt = toks[i + 1] if i + 1 < n else None
@@ -404,6 +431,13 @@ def facts(toks, cpp):
                         continue
                 if not cpp and name == 'run' and anonymous_runs:
                     anonymous_runs -= 1             # the run() the anonymous Runnable declares, its first run( token
+                    continue
+                if cpp and name == 'string':
+                    k = _string_of_enum_name(toks, i)
+                    if k is not None:
+                        enum_names.add(k)           # std::string(enumName(x)) -> Java "..." + x (Enum.toString)
+                        continue
+                if cpp and i in enum_names:
                     continue
                 name = CALL_RENAMES.get(name, name)
                 if name in COMPANIONS:

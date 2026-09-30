@@ -1,0 +1,23 @@
+// The generated altgard handlers (chunk Q10, P6-Q slice 2) compiled into Q05's test executable by #include (GoldenHandlers.h says why). Only
+// the files the table names; the hand ports and held-back files of the directory are not generated (docs/deviations/Q10.md).
+
+// clang-format off
+#include "aion/gameserver/handlers/quest/altgard/_2216MuMuGrassKnot.cpp"
+#include "aion/gameserver/handlers/quest/altgard/_2222ManirsMessage.cpp"
+#include "aion/gameserver/handlers/quest/altgard/_2228AThornInItsSide.cpp"
+#include "aion/gameserver/handlers/quest/altgard/_2247TheGergersDisguise.cpp"
+#include "aion/gameserver/handlers/quest/altgard/_2263ShugoPotion.cpp"
+#include "aion/gameserver/handlers/quest/altgard/_2266ATrustworthyMessenger.cpp"
+#include "aion/gameserver/handlers/quest/altgard/_2271AurtrisLetter.cpp"
+#include "aion/gameserver/handlers/quest/altgard/_2278ASecretProposal.cpp"
+#include "aion/gameserver/handlers/quest/altgard/_2279SolidProof.cpp"
+#include "aion/gameserver/handlers/quest/altgard/_2284EscapingAsmodae.cpp"
+#include "aion/gameserver/handlers/quest/altgard/_2289RampagingMosbears.cpp"
+#include "aion/gameserver/handlers/quest/altgard/_2290GrokensEscape.cpp"
+#include "aion/gameserver/handlers/quest/altgard/_24011FunnyFloatingFungus.cpp"
+#include "aion/gameserver/handlers/quest/altgard/_24012AnOminousCrop.cpp"
+#include "aion/gameserver/handlers/quest/altgard/_24014StompOutThePlot.cpp"
+#include "aion/gameserver/handlers/quest/altgard/_24015TotemPlowed.cpp"
+#include "aion/gameserver/handlers/quest/altgard/_24016AStrangeNewThread.cpp"
+#include "aion/gameserver/handlers/quest/altgard/_24112NoLaissezFaireForLepharists.cpp"
+// clang-format on

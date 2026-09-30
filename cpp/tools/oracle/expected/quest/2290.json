@@ -1,0 +1,57 @@
+{
+ "format": "aion-quest-trace",
+ "version": 1,
+ "questId": 2290,
+ "java": "altgard/_2290GrokensEscape.java",
+ "class": "_2290GrokensEscape",
+ "javaSha256": "becade92f3dcb1d34e1d94939567bcb481a862a6e82abeeb51d0f653ef2e2774",
+ "register": [
+  {"npc": 203608, "event": "addOnQuestStart", "args": [2290]},
+  {"call": "registerOnLogOut", "args": [2290]},
+  {"npc": 203608, "event": "addOnTalkEvent", "args": [2290]},
+  {"npc": 700178, "event": "addOnTalkEvent", "args": [2290]},
+  {"npc": 203607, "event": "addOnTalkEvent", "args": [2290]},
+  {"call": "registerAddOnReachTargetEvent", "args": [2290]},
+  {"call": "registerAddOnLostTargetEvent", "args": [2290]}
+ ],
+ "hooks": [
+  {"hook": "onDialogEvent", "line": 36, "unsupported": "call defaultStartFollowEvent"},
+  {"hook": "onLogOutEvent", "line": 87, "cases": 4},
+  {"hook": "onNpcReachTargetEvent", "line": 100, "unsupported": "call defaultFollowEndEvent"},
+  {"hook": "onNpcLostTargetEvent", "line": 105, "unsupported": "call defaultFollowEndEvent"}
+ ],
+ "cases": [
+  {
+   "id": "onLogOutEvent#1",
+   "hook": "onLogOutEvent",
+   "given": {"questState": {"status": "START", "vars": {"0": 1}}},
+   "guards": ["qs != null -> true @90", "qs.getStatus() == QuestStatus.START -> true @90", "var == 1 -> true @92"],
+   "effects": [{"call": "changeQuestStep", "kind": "var", "args": [1, 0], "line": 93}],
+   "returns": false
+  },
+  {
+   "id": "onLogOutEvent#2",
+   "hook": "onLogOutEvent",
+   "given": {"questState": {"status": "START", "vars": {"0": 0}}},
+   "guards": ["qs != null -> true @90", "qs.getStatus() == QuestStatus.START -> true @90", "var == 1 -> false @92"],
+   "effects": [],
+   "returns": false
+  },
+  {
+   "id": "onLogOutEvent#3",
+   "hook": "onLogOutEvent",
+   "given": {"questState": {"status": "REWARD"}},
+   "guards": ["qs != null -> true @90", "qs.getStatus() == QuestStatus.START -> false @90"],
+   "effects": [],
+   "returns": false
+  },
+  {
+   "id": "onLogOutEvent#4",
+   "hook": "onLogOutEvent",
+   "given": {"questState": null},
+   "guards": ["qs != null -> false @90"],
+   "effects": [],
+   "returns": false
+  }
+ ]
+}

@@ -1,0 +1,56 @@
+{
+ "format": "aion-quest-trace",
+ "version": 1,
+ "questId": 1562,
+ "java": "heiron/_1562CrossedDestiny.java",
+ "class": "_1562CrossedDestiny",
+ "javaSha256": "12ff282e710546f0fafc279adf22e7b033ca68eb9a5bacf280eabe2577d90105",
+ "register": [
+  {"npc": 204589, "event": "addOnQuestStart", "args": [1562]},
+  {"call": "registerOnLogOut", "args": [1562]},
+  {"npc": 204589, "event": "addOnTalkEvent", "args": [1562]},
+  {"npc": 204616, "event": "addOnTalkEvent", "args": [1562]},
+  {"call": "registerAddOnReachTargetEvent", "args": [1562]},
+  {"call": "registerAddOnLostTargetEvent", "args": [1562]}
+ ],
+ "hooks": [
+  {"hook": "onDialogEvent", "line": 35, "unsupported": "call defaultStartFollowEvent"},
+  {"hook": "onLogOutEvent", "line": 91, "cases": 4},
+  {"hook": "onNpcReachTargetEvent", "line": 104, "unsupported": "call defaultFollowEndEvent"},
+  {"hook": "onNpcLostTargetEvent", "line": 109, "unsupported": "call defaultFollowEndEvent"}
+ ],
+ "cases": [
+  {
+   "id": "onLogOutEvent#1",
+   "hook": "onLogOutEvent",
+   "given": {"questState": {"status": "START", "vars": {"0": 2}}},
+   "guards": ["qs != null -> true @94", "qs.getStatus() == QuestStatus.START -> true @94", "var == 2 -> true @96"],
+   "effects": [{"call": "changeQuestStep", "kind": "var", "args": [2, 1], "line": 97}],
+   "returns": false
+  },
+  {
+   "id": "onLogOutEvent#2",
+   "hook": "onLogOutEvent",
+   "given": {"questState": {"status": "START", "vars": {"0": 0}}},
+   "guards": ["qs != null -> true @94", "qs.getStatus() == QuestStatus.START -> true @94", "var == 2 -> false @96"],
+   "effects": [],
+   "returns": false
+  },
+  {
+   "id": "onLogOutEvent#3",
+   "hook": "onLogOutEvent",
+   "given": {"questState": {"status": "REWARD"}},
+   "guards": ["qs != null -> true @94", "qs.getStatus() == QuestStatus.START -> false @94"],
+   "effects": [],
+   "returns": false
+  },
+  {
+   "id": "onLogOutEvent#4",
+   "hook": "onLogOutEvent",
+   "given": {"questState": null},
+   "guards": ["qs != null -> false @94"],
+   "effects": [],
+   "returns": false
+  }
+ ]
+}

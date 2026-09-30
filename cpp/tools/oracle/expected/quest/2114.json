@@ -117,6 +117,7 @@
     "qs == null -> true @41",
     "env.getDialogActionId() not in [QUEST_SELECT, SETPRO1, SETPRO2] -> true @42"
    ],
+   "dialogExcludes": [31, 10000, 10001],
    "effects": [],
    "returns": false
   },
@@ -259,6 +260,7 @@
     "qs.isStartable() [canRepeat] -> true @41",
     "env.getDialogActionId() not in [QUEST_SELECT, SETPRO1, SETPRO2] -> true @42"
    ],
+   "dialogExcludes": [31, 10000, 10001],
    "effects": [],
    "returns": false
   },

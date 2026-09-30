@@ -1,0 +1,166 @@
+{
+ "format": "aion-quest-trace",
+ "version": 1,
+ "questId": 14050,
+ "java": "heiron/_14050OrdersFromHeironFortress.java",
+ "class": "_14050OrdersFromHeironFortress",
+ "javaSha256": "9b734962ef9655558e6efe1e3d45ecd5fd4c302c3704365c971dc1679cd8af52",
+ "register": [
+  {"npc": 204500, "event": "addOnTalkEvent", "args": [14050]},
+  {"call": "registerOnEnterWorld", "args": [14050]},
+  {"call": "registerOnLevelChanged", "args": [14050]}
+ ],
+ "hooks": [
+  {"hook": "onDialogEvent", "line": 30, "cases": 8},
+  {"hook": "onEnterWorldEvent", "line": 58, "cases": 4},
+  {"hook": "onLevelChangedEvent", "line": 66, "unsupported": "call onEnterWorldEvent"}
+ ],
+ "cases": [
+  {
+   "id": "onDialogEvent#1",
+   "hook": "onDialogEvent",
+   "given": {"questState": null},
+   "guards": ["qs == null -> true @33"],
+   "effects": [],
+   "returns": false
+  },
+  {
+   "id": "onDialogEvent#2",
+   "hook": "onDialogEvent",
+   "given": {"target": {"kind": "none"}, "dialogAction": {"name": "USE_OBJECT", "id": -1}, "questState": {"status": "START"}},
+   "guards": ["qs == null -> false @33"],
+   "dialogExcludes": [],
+   "effects": [],
+   "returns": false
+  },
+  {
+   "id": "onDialogEvent#3",
+   "hook": "onDialogEvent",
+   "given": {"target": {"kind": "npc", "npcId": 200000}, "dialogAction": {"name": "USE_OBJECT", "id": -1}, "questState": {"status": "START"}},
+   "guards": ["qs == null -> false @33", "targetId != 204500 -> true @39"],
+   "dialogExcludes": [],
+   "effects": [],
+   "returns": false
+  },
+  {
+   "id": "onDialogEvent#4",
+   "hook": "onDialogEvent",
+   "given": {"target": {"kind": "npc", "npcId": 204500}, "dialogAction": {"name": "QUEST_SELECT", "id": 31}, "questState": {"status": "START"}},
+   "guards": [
+    "qs == null -> false @33",
+    "targetId != 204500 -> false @39",
+    "qs.getStatus() == QuestStatus.START -> true @42",
+    "dialogActionId == QUEST_SELECT -> true @43"
+   ],
+   "effects": [
+    {"call": "qs.setStatus", "kind": "status", "args": ["REWARD"], "line": 44},
+    {"call": "updateQuestStatus", "kind": "quest", "args": [], "line": 45},
+    {"call": "sendQuestDialog", "kind": "dialog", "args": [10002], "line": 46}
+   ],
+   "returns": {"resultOf": 2}
+  },
+  {
+   "id": "onDialogEvent#5",
+   "hook": "onDialogEvent",
+   "given": {
+    "target": {"kind": "npc", "npcId": 204500},
+    "dialogAction": {"name": "SELECT_QUEST_REWARD", "id": 1009},
+    "questState": {"status": "START"}
+   },
+   "guards": [
+    "qs == null -> false @33",
+    "targetId != 204500 -> false @39",
+    "qs.getStatus() == QuestStatus.START -> true @42",
+    "dialogActionId == QUEST_SELECT -> false @43",
+    "dialogActionId == SELECT_QUEST_REWARD -> true @47"
+   ],
+   "effects": [{"call": "sendQuestDialog", "kind": "dialog", "args": [5], "line": 48}],
+   "returns": {"resultOf": 0}
+  },
+  {
+   "id": "onDialogEvent#6",
+   "hook": "onDialogEvent",
+   "given": {"target": {"kind": "npc", "npcId": 204500}, "dialogAction": {"name": "USE_OBJECT", "id": -1}, "questState": {"status": "START"}},
+   "guards": [
+    "qs == null -> false @33",
+    "targetId != 204500 -> false @39",
+    "qs.getStatus() == QuestStatus.START -> true @42",
+    "dialogActionId == QUEST_SELECT -> false @43",
+    "dialogActionId == SELECT_QUEST_REWARD -> false @47"
+   ],
+   "dialogExcludes": [31, 1009],
+   "effects": [],
+   "returns": false
+  },
+  {
+   "id": "onDialogEvent#7",
+   "hook": "onDialogEvent",
+   "given": {"target": {"kind": "npc", "npcId": 204500}, "dialogAction": {"name": "USE_OBJECT", "id": -1}, "questState": {"status": "REWARD"}},
+   "guards": [
+    "qs == null -> false @33",
+    "targetId != 204500 -> false @39",
+    "qs.getStatus() == QuestStatus.START -> false @42",
+    "qs.getStatus() == QuestStatus.REWARD -> true @51"
+   ],
+   "dialogExcludes": [],
+   "effects": [{"call": "sendQuestEndDialog", "kind": "dialog", "args": [], "line": 52}],
+   "returns": {"resultOf": 0}
+  },
+  {
+   "id": "onDialogEvent#8",
+   "hook": "onDialogEvent",
+   "given": {"target": {"kind": "npc", "npcId": 204500}, "dialogAction": {"name": "USE_OBJECT", "id": -1}, "questState": {"status": "COMPLETE"}},
+   "guards": [
+    "qs == null -> false @33",
+    "targetId != 204500 -> false @39",
+    "qs.getStatus() == QuestStatus.START -> false @42",
+    "qs.getStatus() == QuestStatus.REWARD -> false @51"
+   ],
+   "dialogExcludes": [],
+   "effects": [],
+   "returns": false
+  },
+  {
+   "id": "onEnterWorldEvent#1",
+   "hook": "onEnterWorldEvent",
+   "given": {"player": {"worldId": 210040000}, "questState": {"status": "START"}},
+   "guards": ["player.getWorldId() == WorldMapType.HEIRON.getId() -> true @60", "player.getQuestStateList().hasQuest(questId) -> true @60"],
+   "effects": [],
+   "returns": false
+  },
+  {
+   "id": "onEnterWorldEvent#2",
+   "hook": "onEnterWorldEvent",
+   "given": {"player": {"worldId": 210040000}, "questState": null},
+   "guards": [
+    "player.getWorldId() == WorldMapType.HEIRON.getId() -> true @60",
+    "player.getQuestStateList().hasQuest(questId) -> false @60",
+    "QuestService.startQuest(env) -> true @61"
+   ],
+   "assume": [{"effect": 0, "returns": true}],
+   "effects": [{"call": "QuestService.startQuest", "kind": "quest", "args": [], "line": 61}],
+   "returns": true
+  },
+  {
+   "id": "onEnterWorldEvent#3",
+   "hook": "onEnterWorldEvent",
+   "given": {"player": {"worldId": 210040000}, "questState": null},
+   "guards": [
+    "player.getWorldId() == WorldMapType.HEIRON.getId() -> true @60",
+    "player.getQuestStateList().hasQuest(questId) -> false @60",
+    "QuestService.startQuest(env) -> false @61"
+   ],
+   "assume": [{"effect": 0, "returns": false}],
+   "effects": [{"call": "QuestService.startQuest", "kind": "quest", "args": [], "line": 61}],
+   "returns": false
+  },
+  {
+   "id": "onEnterWorldEvent#4",
+   "hook": "onEnterWorldEvent",
+   "given": {"player": {"worldId": 120010000}},
+   "guards": ["player.getWorldId() == WorldMapType.HEIRON.getId() -> false @60"],
+   "effects": [],
+   "returns": false
+  }
+ ]
+}

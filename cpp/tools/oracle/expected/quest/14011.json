@@ -1,0 +1,444 @@
+{
+ "format": "aion-quest-trace",
+ "version": 1,
+ "questId": 14011,
+ "java": "verteron/_14011FragmentsInTheSky.java",
+ "class": "_14011FragmentsInTheSky",
+ "javaSha256": "0b3399c2f0d0f7a56a58e63086d08848762fcf23b5159feac82ad8b8de75a0e5",
+ "register": [
+  {"npc": 700091, "event": "addOnKillEvent", "args": [14011]},
+  {"call": "registerOnQuestCompleted", "args": [14011]},
+  {"call": "registerOnLevelChanged", "args": [14011]},
+  {"npc": 203109, "event": "addOnTalkEvent", "args": [14011]},
+  {"npc": 203122, "event": "addOnTalkEvent", "args": [14011]}
+ ],
+ "hooks": [
+  {"hook": "onKillEvent", "line": 32, "cases": 6},
+  {"hook": "onDialogEvent", "line": 49, "cases": 18},
+  {"hook": "onQuestCompletedEvent", "line": 98, "cases": 1},
+  {"hook": "onLevelChangedEvent", "line": 103, "cases": 1}
+ ],
+ "cases": [
+  {
+   "id": "onKillEvent#1",
+   "hook": "onKillEvent",
+   "given": {"questState": {"status": "START", "vars": {"0": 2}}},
+   "guards": ["qs != null -> true @35", "qs.getStatus() == QuestStatus.START -> true @35", "var >= 2 -> true @37", "var < 4 -> true @37"],
+   "ranges": {"questState.vars.0": [2, 3]},
+   "effects": [{"call": "defaultOnKillEvent", "kind": "var", "args": [700091, 2, 4], "line": 38}],
+   "returns": {"resultOf": 0},
+   "atHigh": [
+    {
+     "input": "questState.vars.0",
+     "value": 3,
+     "given": {"questState": {"status": "START", "vars": {"0": 3}}},
+     "effects": [{"call": "defaultOnKillEvent", "kind": "var", "args": [700091, 2, 4], "line": 38}],
+     "returns": {"resultOf": 0}
+    }
+   ]
+  },
+  {
+   "id": "onKillEvent#2",
+   "hook": "onKillEvent",
+   "given": {"questState": {"status": "START", "vars": {"0": 4}}},
+   "guards": [
+    "qs != null -> true @35",
+    "qs.getStatus() == QuestStatus.START -> true @35",
+    "var >= 2 -> true @37",
+    "var < 4 -> false @37",
+    "var == 4 -> true @39"
+   ],
+   "effects": [
+    {"call": "qs.setStatus", "kind": "status", "args": ["REWARD"], "line": 40},
+    {"call": "updateQuestStatus", "kind": "quest", "args": [], "line": 41}
+   ],
+   "returns": true
+  },
+  {
+   "id": "onKillEvent#3",
+   "hook": "onKillEvent",
+   "given": {"questState": {"status": "START", "vars": {"0": 5}}},
+   "guards": [
+    "qs != null -> true @35",
+    "qs.getStatus() == QuestStatus.START -> true @35",
+    "var >= 2 -> true @37",
+    "var < 4 -> false @37",
+    "var == 4 -> false @39"
+   ],
+   "ranges": {"questState.vars.0": [5, 63]},
+   "effects": [],
+   "returns": false,
+   "atHigh": [
+    {
+     "input": "questState.vars.0",
+     "value": 63,
+     "given": {"questState": {"status": "START", "vars": {"0": 63}}},
+     "effects": [],
+     "returns": false
+    }
+   ]
+  },
+  {
+   "id": "onKillEvent#4",
+   "hook": "onKillEvent",
+   "given": {"questState": {"status": "START", "vars": {"0": 0}}},
+   "guards": ["qs != null -> true @35", "qs.getStatus() == QuestStatus.START -> true @35", "var >= 2 -> false @37", "var == 4 -> false @39"],
+   "ranges": {"questState.vars.0": [0, 1]},
+   "effects": [],
+   "returns": false,
+   "atHigh": [
+    {
+     "input": "questState.vars.0",
+     "value": 1,
+     "given": {"questState": {"status": "START", "vars": {"0": 1}}},
+     "effects": [],
+     "returns": false
+    }
+   ]
+  },
+  {
+   "id": "onKillEvent#5",
+   "hook": "onKillEvent",
+   "given": {"questState": {"status": "REWARD"}},
+   "guards": ["qs != null -> true @35", "qs.getStatus() == QuestStatus.START -> false @35"],
+   "effects": [],
+   "returns": false
+  },
+  {
+   "id": "onKillEvent#6",
+   "hook": "onKillEvent",
+   "given": {"questState": null},
+   "guards": ["qs != null -> false @35"],
+   "effects": [],
+   "returns": false
+  },
+  {
+   "id": "onDialogEvent#1",
+   "hook": "onDialogEvent",
+   "given": {"questState": null},
+   "guards": ["qs == null -> true @52"],
+   "effects": [],
+   "returns": false
+  },
+  {
+   "id": "onDialogEvent#2",
+   "hook": "onDialogEvent",
+   "given": {
+    "target": {"kind": "npc", "npcId": 203109},
+    "dialogAction": {"name": "QUEST_SELECT", "id": 31},
+    "questState": {"status": "START", "vars": {"0": 0}}
+   },
+   "guards": [
+    "qs == null -> false @52",
+    "env.getVisibleObject() instanceof Npc -> true @57",
+    "qs.getStatus() == QuestStatus.START -> true @60",
+    "targetId == 203109 -> true @61",
+    "env.getDialogActionId() == QUEST_SELECT -> true @62",
+    "var == 0 -> true @64"
+   ],
+   "effects": [{"call": "sendQuestDialog", "kind": "dialog", "args": [1011], "line": 65}],
+   "returns": {"resultOf": 0}
+  },
+  {
+   "id": "onDialogEvent#3",
+   "hook": "onDialogEvent",
+   "given": {
+    "target": {"kind": "npc", "npcId": 203109},
+    "dialogAction": {"name": "QUEST_SELECT", "id": 31},
+    "questState": {"status": "START", "vars": {"0": 5}}
+   },
+   "guards": [
+    "qs == null -> false @52",
+    "env.getVisibleObject() instanceof Npc -> true @57",
+    "qs.getStatus() == QuestStatus.START -> true @60",
+    "targetId == 203109 -> true @61",
+    "env.getDialogActionId() == QUEST_SELECT -> true @62",
+    "var == 0 -> false @64",
+    "var == 5 -> true @66"
+   ],
+   "effects": [{"call": "sendQuestDialog", "kind": "dialog", "args": [1693], "line": 67}],
+   "returns": {"resultOf": 0}
+  },
+  {
+   "id": "onDialogEvent#4",
+   "hook": "onDialogEvent",
+   "given": {
+    "target": {"kind": "npc", "npcId": 203109},
+    "dialogAction": {"name": "QUEST_SELECT", "id": 31},
+    "questState": {"status": "START", "vars": {"0": 1}}
+   },
+   "guards": [
+    "qs == null -> false @52",
+    "env.getVisibleObject() instanceof Npc -> true @57",
+    "qs.getStatus() == QuestStatus.START -> true @60",
+    "targetId == 203109 -> true @61",
+    "env.getDialogActionId() == QUEST_SELECT -> true @62",
+    "var == 0 -> false @64",
+    "var == 5 -> false @66"
+   ],
+   "effects": [],
+   "returns": false
+  },
+  {
+   "id": "onDialogEvent#5",
+   "hook": "onDialogEvent",
+   "given": {
+    "target": {"kind": "npc", "npcId": 203109},
+    "dialogAction": {"name": "SETPRO1", "id": 10000},
+    "questState": {"status": "START", "vars": {"0": 0}}
+   },
+   "guards": [
+    "qs == null -> false @52",
+    "env.getVisibleObject() instanceof Npc -> true @57",
+    "qs.getStatus() == QuestStatus.START -> true @60",
+    "targetId == 203109 -> true @61",
+    "env.getDialogActionId() == SETPRO1 -> true @62"
+   ],
+   "free": ["questState.vars.0"],
+   "effects": [{"call": "defaultCloseDialog", "kind": "dialog", "args": [0, 1], "line": 71}],
+   "returns": {"resultOf": 0}
+  },
+  {
+   "id": "onDialogEvent#6",
+   "hook": "onDialogEvent",
+   "given": {
+    "target": {"kind": "npc", "npcId": 203109},
+    "dialogAction": {"name": "USE_OBJECT", "id": -1},
+    "questState": {"status": "START", "vars": {"0": 0}}
+   },
+   "guards": [
+    "qs == null -> false @52",
+    "env.getVisibleObject() instanceof Npc -> true @57",
+    "qs.getStatus() == QuestStatus.START -> true @60",
+    "targetId == 203109 -> true @61",
+    "env.getDialogActionId() not in [QUEST_SELECT, SETPRO1] -> true @62"
+   ],
+   "free": ["questState.vars.0"],
+   "dialogExcludes": [31, 10000],
+   "effects": [],
+   "returns": false
+  },
+  {
+   "id": "onDialogEvent#7",
+   "hook": "onDialogEvent",
+   "given": {
+    "target": {"kind": "npc", "npcId": 203122},
+    "dialogAction": {"name": "QUEST_SELECT", "id": 31},
+    "questState": {"status": "START", "vars": {"0": 1}}
+   },
+   "guards": [
+    "qs == null -> false @52",
+    "env.getVisibleObject() instanceof Npc -> true @57",
+    "qs.getStatus() == QuestStatus.START -> true @60",
+    "targetId == 203109 -> false @61",
+    "targetId == 203122 -> true @73",
+    "env.getDialogActionId() == QUEST_SELECT -> true @74",
+    "var == 1 -> true @76"
+   ],
+   "effects": [{"call": "sendQuestDialog", "kind": "dialog", "args": [1352], "line": 77}],
+   "returns": {"resultOf": 0}
+  },
+  {
+   "id": "onDialogEvent#8",
+   "hook": "onDialogEvent",
+   "given": {
+    "target": {"kind": "npc", "npcId": 203122},
+    "dialogAction": {"name": "QUEST_SELECT", "id": 31},
+    "questState": {"status": "START", "vars": {"0": 0}}
+   },
+   "guards": [
+    "qs == null -> false @52",
+    "env.getVisibleObject() instanceof Npc -> true @57",
+    "qs.getStatus() == QuestStatus.START -> true @60",
+    "targetId == 203109 -> false @61",
+    "targetId == 203122 -> true @73",
+    "env.getDialogActionId() == QUEST_SELECT -> true @74",
+    "var == 1 -> false @76"
+   ],
+   "effects": [],
+   "returns": false
+  },
+  {
+   "id": "onDialogEvent#9",
+   "hook": "onDialogEvent",
+   "given": {
+    "target": {"kind": "npc", "npcId": 203122},
+    "dialogAction": {"name": "SETPRO2", "id": 10001},
+    "questState": {"status": "START", "vars": {"0": 0}}
+   },
+   "guards": [
+    "qs == null -> false @52",
+    "env.getVisibleObject() instanceof Npc -> true @57",
+    "qs.getStatus() == QuestStatus.START -> true @60",
+    "targetId == 203109 -> false @61",
+    "targetId == 203122 -> true @73",
+    "env.getDialogActionId() == SETPRO2 -> true @74"
+   ],
+   "free": ["questState.vars.0"],
+   "effects": [
+    {"call": "playQuestMovie", "kind": "movie", "args": [24], "line": 81},
+    {"call": "defaultCloseDialog", "kind": "dialog", "args": [1, 2], "line": 82}
+   ],
+   "returns": {"resultOf": 1}
+  },
+  {
+   "id": "onDialogEvent#10",
+   "hook": "onDialogEvent",
+   "given": {
+    "target": {"kind": "npc", "npcId": 203122},
+    "dialogAction": {"name": "USE_OBJECT", "id": -1},
+    "questState": {"status": "START", "vars": {"0": 0}}
+   },
+   "guards": [
+    "qs == null -> false @52",
+    "env.getVisibleObject() instanceof Npc -> true @57",
+    "qs.getStatus() == QuestStatus.START -> true @60",
+    "targetId == 203109 -> false @61",
+    "targetId == 203122 -> true @73",
+    "env.getDialogActionId() not in [QUEST_SELECT, SETPRO2] -> true @74"
+   ],
+   "free": ["questState.vars.0"],
+   "dialogExcludes": [31, 10001],
+   "effects": [],
+   "returns": false
+  },
+  {
+   "id": "onDialogEvent#11",
+   "hook": "onDialogEvent",
+   "given": {"target": {"kind": "npc", "npcId": 700091}, "questState": {"status": "START", "vars": {"0": 0}}},
+   "guards": [
+    "qs == null -> false @52",
+    "env.getVisibleObject() instanceof Npc -> true @57",
+    "qs.getStatus() == QuestStatus.START -> true @60",
+    "targetId == 203109 -> false @61",
+    "targetId == 203122 -> false @73"
+   ],
+   "free": ["questState.vars.0"],
+   "effects": [],
+   "returns": false
+  },
+  {
+   "id": "onDialogEvent#12",
+   "hook": "onDialogEvent",
+   "given": {
+    "target": {"kind": "npc", "npcId": 203109},
+    "dialogAction": {"name": "USE_OBJECT", "id": -1},
+    "questState": {"status": "REWARD", "vars": {"0": 0}}
+   },
+   "guards": [
+    "qs == null -> false @52",
+    "env.getVisibleObject() instanceof Npc -> true @57",
+    "qs.getStatus() == QuestStatus.START -> false @60",
+    "qs.getStatus() == QuestStatus.REWARD -> true @85",
+    "targetId == 203109 -> true @86",
+    "env.getDialogActionId() == USE_OBJECT -> true @87"
+   ],
+   "free": ["questState.vars.0"],
+   "effects": [{"call": "sendQuestDialog", "kind": "dialog", "args": [1693], "line": 88}],
+   "returns": {"resultOf": 0}
+  },
+  {
+   "id": "onDialogEvent#13",
+   "hook": "onDialogEvent",
+   "given": {
+    "target": {"kind": "npc", "npcId": 203109},
+    "dialogAction": {"name": "NULL", "id": 1},
+    "questState": {"status": "REWARD", "vars": {"0": 0}}
+   },
+   "guards": [
+    "qs == null -> false @52",
+    "env.getVisibleObject() instanceof Npc -> true @57",
+    "qs.getStatus() == QuestStatus.START -> false @60",
+    "qs.getStatus() == QuestStatus.REWARD -> true @85",
+    "targetId == 203109 -> true @86",
+    "env.getDialogActionId() == USE_OBJECT -> false @87"
+   ],
+   "free": ["questState.vars.0"],
+   "dialogExcludes": [-1],
+   "effects": [{"call": "sendQuestEndDialog", "kind": "dialog", "args": [], "line": 90}],
+   "returns": {"resultOf": 0}
+  },
+  {
+   "id": "onDialogEvent#14",
+   "hook": "onDialogEvent",
+   "given": {"target": {"kind": "npc", "npcId": 700091}, "questState": {"status": "REWARD", "vars": {"0": 0}}},
+   "guards": [
+    "qs == null -> false @52",
+    "env.getVisibleObject() instanceof Npc -> true @57",
+    "qs.getStatus() == QuestStatus.START -> false @60",
+    "qs.getStatus() == QuestStatus.REWARD -> true @85",
+    "targetId == 203109 -> false @86"
+   ],
+   "free": ["questState.vars.0"],
+   "effects": [],
+   "returns": false
+  },
+  {
+   "id": "onDialogEvent#15",
+   "hook": "onDialogEvent",
+   "given": {"target": {"kind": "npc", "npcId": 700091}, "questState": {"status": "COMPLETE", "vars": {"0": 0}}},
+   "guards": [
+    "qs == null -> false @52",
+    "env.getVisibleObject() instanceof Npc -> true @57",
+    "qs.getStatus() == QuestStatus.START -> false @60",
+    "qs.getStatus() == QuestStatus.REWARD -> false @85"
+   ],
+   "free": ["questState.vars.0"],
+   "effects": [],
+   "returns": false
+  },
+  {
+   "id": "onDialogEvent#16",
+   "hook": "onDialogEvent",
+   "given": {"target": {"kind": "none"}, "questState": {"status": "START", "vars": {"0": 0}}},
+   "guards": ["qs == null -> false @52", "env.getVisibleObject() instanceof Npc -> false @57", "qs.getStatus() == QuestStatus.START -> true @60"],
+   "free": ["questState.vars.0"],
+   "effects": [],
+   "returns": false
+  },
+  {
+   "id": "onDialogEvent#17",
+   "hook": "onDialogEvent",
+   "given": {"target": {"kind": "none"}, "questState": {"status": "REWARD", "vars": {"0": 0}}},
+   "guards": [
+    "qs == null -> false @52",
+    "env.getVisibleObject() instanceof Npc -> false @57",
+    "qs.getStatus() == QuestStatus.START -> false @60",
+    "qs.getStatus() == QuestStatus.REWARD -> true @85"
+   ],
+   "free": ["questState.vars.0"],
+   "effects": [],
+   "returns": false
+  },
+  {
+   "id": "onDialogEvent#18",
+   "hook": "onDialogEvent",
+   "given": {"target": {"kind": "none"}, "questState": {"status": "COMPLETE", "vars": {"0": 0}}},
+   "guards": [
+    "qs == null -> false @52",
+    "env.getVisibleObject() instanceof Npc -> false @57",
+    "qs.getStatus() == QuestStatus.START -> false @60",
+    "qs.getStatus() == QuestStatus.REWARD -> false @85"
+   ],
+   "free": ["questState.vars.0"],
+   "effects": [],
+   "returns": false
+  },
+  {
+   "id": "onQuestCompletedEvent#1",
+   "hook": "onQuestCompletedEvent",
+   "given": {},
+   "guards": [],
+   "effects": [{"call": "defaultOnQuestCompletedEvent", "kind": "quest", "args": [14010], "line": 99}],
+   "returns": null
+  },
+  {
+   "id": "onLevelChangedEvent#1",
+   "hook": "onLevelChangedEvent",
+   "given": {},
+   "guards": [],
+   "effects": [{"call": "defaultOnLevelChangedEvent", "kind": "quest", "args": [14010], "line": 104}],
+   "returns": null
+  }
+ ]
+}
