@@ -38,8 +38,8 @@ aion/gameserver/services/abyss/AbyssRankUpdateService.cpp:58
 # --- SECTION C - allowed, counted and printed, not pinned ---
 # =========================================================================================================================================
 
-# behind gameserver.analysis.quest_handlers, which the gate profile does not set
-aion/gameserver/questEngine/QuestEngine.cpp:115
+# HISTORY: QuestEngine.cpp:115, the quest spawn analysis behind gameserver.analysis.quest_handlers (which the gate profile does not set, so it
+# runs at every startup), was here until M5d's E-08 ported QuestSpawnAnalyzer (m5d-plan.md §21); the site no longer exists.
 # the PvP map instance stays partial by m5f-plan.md D6 (PvpMapHandler is M5j; init would create it at every startup)
 aion/gameserver/custom/pvpmap/PvpMapService.cpp:32
 # HISTORY: InstanceService.cpp:133 (personal instances) and :153 (the instance exit teleport), M5a AION_PARTIAL by plan W-03, were here

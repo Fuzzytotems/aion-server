@@ -7,7 +7,7 @@
 // "bigfoot kerubar" (:57863-57871), 217264 "loyal hetgolem" (:110796-110801) and 210165 "veteran tursin watcher" (:54701-54710), the <equipment>
 // of the two that have one left out (no case reads it); and the four quest items (item_templates.xml:876830-876832, :876940-876942,
 // :885993-885995, :884970-884972). The holder gives every <quest_drop> its quest's id while binding (QuestsData::afterUnmarshal, Java's
-// QuestEngine.java:89), and the drops are registered the way QuestEngine::init does (QuestEngine.cpp:84-90: every <quest_drop> of every quest
+// QuestEngine.java:89), and the drops are registered the way QuestEngine::init does (QuestEngine.cpp:86-92: every <quest_drop> of every quest
 // template, by npc id; one case runs init itself). No quest drop here has a chance attribute, so getChance() is 100 (QuestDrop.java:47-51)
 // and `Rnd.chance() >= 100` never skips a drop: the cases are deterministic.
 //
@@ -181,7 +181,7 @@ protected:
 		// the real holder: QuestsData::afterUnmarshal gives every <quest_drop> its quest's id (Java QuestEngine.java:89); the fixture sets none
 		dataholders::DataManager::QUEST_DATA.publish(xml::bindString<dataholders::QuestsData>(contexts.emplace_back(), QUESTS_XML));
 		dataholders::DataManager::ITEM_DATA.publish(xml::bindString<dataholders::ItemData>(contexts.emplace_back(), ITEMS_XML));
-		// QuestEngine::init's drop loop (QuestEngine.cpp:84-90)
+		// QuestEngine::init's drop loop (QuestEngine.cpp:86-92)
 		for (const model::templates::QuestTemplate* quest : dataholders::DataManager::QUEST_DATA->getQuestTemplates()) {
 			for (const model::templates::quest::QuestDrop& drop : quest->getQuestDrop())
 				QuestService::addQuestDrop(*drop.getNpcId(), &drop);
@@ -404,7 +404,7 @@ TEST_F(QuestDropTest, AMenteeQuestDropsNothingForAPlayerOutsideAGroup) {
 // The quest id of a drop, on the server's own path (the loot review's blocker, docs/deviations/P5-06.md): Java's QuestEngine.init sets it
 // (QuestEngine.java:89) and isQuestDrop unboxes it first thing (QuestService.java:755), on every kill of an npc that has a quest drop. C++
 // templates are const once published, so QuestsData::afterUnmarshal (P4-09) sets it while binding and QuestEngine::init only reads it
-// (QuestEngine.cpp:84-90). The fixture binds the shipped rows through that holder and sets no id itself; this case runs QuestEngine::init as
+// (QuestEngine.cpp:86-92). The fixture binds the shipped rows through that holder and sets no id itself; this case runs QuestEngine::init as
 // GameServer does and asks what it registered - then kills 210668 with a character who has not taken quest 1108: no quest drop, and no
 // NullPointerException (what a null quest id threw on every such kill).
 TEST_F(QuestDropTest, TheHolderGivesEveryQuestDropItsQuestIdAndInitRegistersItForTheKill) {

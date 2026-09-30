@@ -320,6 +320,24 @@ class Commands(unittest.TestCase):
         (self.tmp / 'x.cpp').write_text('namespace x {}\n', encoding='utf-8')
         self.assertEqual(self.run_main(['pair', str(self.jd / 'a/_1Good.java'), str(self.tmp / 'x.cpp')])[0], 2)   # no class
 
+    def test_spawn_analyzer_over_directories(self):
+        # QuestSpawnAnalyzer.loadNpcIdsSpawnedByHandlers: the pattern over every file of the directories (subdirectories included) whose name
+        # ends with a suffix (.java by default, the analyzer's filter); the union of the ids, ascending, after a count line
+        files = {'s/one/X.java': '\t// spawn(216239, player);\n\tsp(a ? 204001 : 204002, player);\n',
+                 's/one/deep/Y.cpp': '\tspawn(700001, *player);\n', 's/one/Z.h': 'sp(700002);\n', 's/one/N.txt': 'spawn(999999);\n',
+                 's/two/W.java': '\tspawn(204001);\n\tspawn(npcId, 205000);\n\trespawn(205001);\n'}
+        for rel, text in files.items():
+            (self.tmp / rel).parent.mkdir(parents=True, exist_ok=True)
+            (self.tmp / rel).write_text(text, encoding='utf-8')
+        one, two = str(self.tmp / 's/one'), str(self.tmp / 's/two')
+        self.assertEqual(parity.spawn_analyzer_dirs([one, two]), (2, {216239, 204001, 204002}))
+        self.assertEqual(parity.spawn_analyzer_dirs([one], ('.cpp', '.h')), (2, {700001, 700002}))
+        code, text = self.run_main(['spawn-analyzer', one, two])
+        self.assertEqual((code, text.splitlines()), (0, ['# 2 files, 3 npc ids', '204001', '204002', '216239']))
+        code, text = self.run_main(['spawn-analyzer', '--suffix', '.cpp', '--suffix', '.h', one])
+        self.assertEqual((code, text.splitlines()), (0, ['# 2 files, 2 npc ids', '700001', '700002']))
+        self.assertEqual(self.run_main(['spawn-analyzer', str(self.tmp / 's/missing')])[0], 2)
+
 
 if __name__ == '__main__':
     unittest.main()
