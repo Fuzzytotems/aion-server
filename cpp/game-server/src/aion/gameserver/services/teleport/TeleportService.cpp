@@ -460,12 +460,9 @@ void TeleportService::teleportTo(model::gameobjects::player::Player& player, int
 	teleportTo(player, worldId, player.getWorldId() != worldId ? 1 : player.getInstanceId(), x, y, z, h, animation);
 }
 
+// Java TeleportService.java:261-263 (DialogService's ENTER_PVP / LEAVE_PVP arms: the arena npcs of Sanctum, Pandaemonium and Eltnen)
 void TeleportService::teleportTo(model::gameobjects::player::Player& player, int32_t worldId, int32_t instanceId, float x, float y, float z) {
-	// Java TeleportService.java:261-263: teleportTo(player, worldId, instanceId, x, y, z, player.getHeading(), TeleportAnimation.NONE).
-	// Left unported by the ascension lane (m5f-plan.md §15.4 asc-teleport): its only callers are DialogService's ENTER_PVP/LEAVE_PVP arms,
-	// which DialogServiceTest.cpp:1072-1073 pin as throwing, and that test file is leased by M5c stage 2's craft lane tonight. It is one line
-	// for the integrator after M5c stage 2, together with those two rows (the ascension route does not call it).
-	AION_UNPORTED();
+	teleportTo(player, worldId, instanceId, x, y, z, player.getHeading(), model::animations::TeleportAnimation::NONE);
 }
 
 // Java TeleportService.java:265-267

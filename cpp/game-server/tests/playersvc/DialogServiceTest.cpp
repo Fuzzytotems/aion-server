@@ -1106,8 +1106,8 @@ TEST_F(DialogServiceTest, TheArmsOfOtherServicesReachTheirOwnUnportedBodies) {
 	const Row rows[] = {
 		{DialogAction::DISPERSE_LEGION, MINALINERK, "LegionService::requestDisbandLegion"},      // :120-122, P5-11
 		{DialogAction::RECREATE_LEGION, MINALINERK, "LegionService::recreateLegion"},           // :123-125, P5-11
-		{DialogAction::ENTER_PVP, EPEIOS, "TeleportService::teleportTo"},                       // :166-168, Sanctum's arena (W-29)
-		{DialogAction::LEAVE_PVP, NEPIS, "TeleportService::teleportTo"},                        // :179-181, out of Sanctum's arena (W-29)
+		// ENTER_PVP and LEAVE_PVP (:166-168, :179-181) left this table when TeleportService's (worldId, instanceId, x, y, z) overload was ported
+		// (play session 2026-09-29): see InstanceTeleportTest.TheFiveArgumentInstanceIdOverloadKeepsTheHeadingAndMovesAtOnce
 		// GATHER_SKILL_LEVELUP and COMBINE_SKILL_LEVELUP (:199-202) left this table with C-01 (m5c-plan.md stage 2): see TheCraftArms... below
 		// EXTEND_INVENTORY (:203-205) left this table with P-05 (m5c-plan.md stage 1, W-09): see TheCubeExpanderArm... below
 		{DialogAction::EXTEND_CHAR_WAREHOUSE, MINALINERK, "WarehouseService::expandWarehouse"},        // :206-208, P5-07

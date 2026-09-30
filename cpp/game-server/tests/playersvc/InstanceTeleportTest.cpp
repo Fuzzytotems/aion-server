@@ -185,6 +185,23 @@ TEST_F(InstanceTeleportTest, TheInstanceIdOverloadLandsInThatInstance) {
 	EXPECT_FALSE(actor.player->getController().hasTask(model::TaskId::TELEPORT)) << "NONE: no animation to wait for";
 }
 
+TEST_F(InstanceTeleportTest, TheFiveArgumentInstanceIdOverloadKeepsTheHeadingAndMovesAtOnce) {
+	world::World::getInstance().despawn(*actor.player);
+	world::World::getInstance().removeObject(*actor.player);
+	actor.player->setClientConnection(nullptr);
+	client.reset();
+	spawnActor(POETA, 1, 100.0f, 100.0f, 200.0f, int8_t{44}, model::Race::ELYOS);
+	runtime::Ptr<world::WorldMapInstance> instance = InstanceService::getNextAvailableInstance(KARAMATIS_B, *actor.player);
+
+	// TeleportService.java:261-263, (worldId, instanceId, x, y, z): player.getHeading() and TeleportAnimation.NONE. Its callers are
+	// DialogService's ENTER_PVP / LEAVE_PVP arms (DialogService.java:161-186), which the owner's client reached at Sanctum's arena npc Epeios.
+	TeleportService::teleportTo(*actor.player, KARAMATIS_B, instance->getInstanceId(), 71.0f, 191.0f, 229.0f);
+
+	expectAt(KARAMATIS_B, instance->getInstanceId(), 71.0f, 191.0f, 229.0f);
+	EXPECT_EQ(actor.player->getHeading(), 44) << "player.getHeading()";
+	EXPECT_FALSE(actor.player->getController().hasTask(model::TaskId::TELEPORT)) << "NONE: no animation to wait for";
+}
+
 TEST_F(InstanceTeleportTest, TheAnimatedInstanceOverloadWaitsForTheClient) {
 	runtime::Ptr<world::WorldMapInstance> instance = InstanceService::getNextAvailableInstance(KARAMATIS_B, *actor.player);
 
