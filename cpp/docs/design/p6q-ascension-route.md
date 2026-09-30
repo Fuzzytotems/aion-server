@@ -670,7 +670,7 @@ movie 1 played); C10 "npc 210133 did not die within 112009 ms"; C10b-C16e not ru
 | Where | Change | Java |
 |---|---|---|
 | `enterWorldPattern(true)` | `PROLOGUE_FIRST_ENTER_LEVEL_CHANGE`: the mission's SM_QUEST_ACTION before the level change's SM_NEARBY_QUESTS | PlayerEnterWorldService.java:204, `_1100KaliosCall.java:64-67`, `_2100OrderoftheCaptain.java:62-65`, AbstractQuestHandler.java:1026-1030 |
-| `levelReadyPattern()` (first enter only) | `PROLOGUE_LEVEL_READY` after the weather | CM_LEVEL_READY.java:93, `_1000Prologue.java:26-36`, `_2000Prologue.java:26-36` |
+| `levelReadyPattern()` (first enter only) | `PROLOGUE_LEVEL_READY` after the weather (the pattern cannot order it after the async SM_WEATHER; `expectPrologueStarted` does since the review below) | CM_LEVEL_READY.java:91-93, `_1000Prologue.java:26-36`, `_2000Prologue.java:26-36` |
 | C1-C3, C16a | `endPrologue` after the first level ready, before the first walk | SM_PLAY_MOVIE.java:28, CM_MOVE.java:159-161, CM_PLAY_MOVIE_END.java:33-52, `_1000Prologue.java:38-48` |
 | Y1 (C4), Y13 (C16a) | "no SM_QUEST_ACTION at the first enter world" is `expectPrologueMissionLocked` (1100 / 2100 ADD LOCKED, the quest list holds it alone) | as the first row |
 | the exp ledger (`scanExp`) | reads STR_GET_EXP2 (`params[0]`) too, so Y11's and C16d's `--exp` include the prologue's 1 | SM_SYSTEM_MESSAGE.java:16363-16365, PlayerCommonData.java:167-217 |
@@ -716,3 +716,29 @@ directories, PDBs and ILKs were deleted and rebuilt; no file of `build/msvc/game
 - **Checks** from `cpp/`: `census.py` exit 0 (1,230 `AION_UNPORTED` + 9 `AION_PARTIAL` sites); `census.py --self-check` 0 synthetic and 0
   live-tree failures; `lint_concurrency.py --werror --cycles=core game-server/src` 3,833 files, 0 errors, 0 warnings, 0 advisories;
   `chunks.py check` 71 chunks, 84 parts, 7,088 C++ files, 532 test files, 0 problems.
+
+**The review (2026-09-29, after the above).** No defect; four info-level findings, each closed:
+
+| # | Finding | Closed |
+|---|---|---|
+| 1 | Y1 and `enterWorldPattern(true)` back each other up against a duplicate mission SM_QUEST_ACTION: weakening both lets it through, either alone does not | Not a defect: two independent checks of the same Java burst, each killed alone by its own mutants (r2, r7); both stay |
+| 2 | `REGISTERED_JAVA_QUESTS` + 1000 / 1100 / 2000 / 2100 is an equivalent mutant (r19) | Not a defect, as recorded above: `oracle.py m5d-quests --no-profile` has 1111 as Poeta's only Java-only id and none in Ishalgen (r19b, dropping 1111, was killed) |
+| 3 | GoldenQuestTraceTest.cpp's header and its `player.worldId` setup name only 1100 and 2100 | Comments corrected: 14050 (HEIRON) and 18602 (Kromede's Trial's 300230000) of the table read it too, the held-back 14010 / 24010 (VERTERON / ALTGARD) as well. Comment only |
+| 4 | "After the weather" is not enforced: `AsyncAllowed::m5aDefault` lets SM_WEATHER through anywhere, so no level-ready pattern orders the prologue after it | `expectPrologueStarted` (so every gate that ends the prologue: m5a, m5b, m5b2, m5b3, m5c, m5d and their geo twins) now checks that the burst's first SM_WEATHER comes before the prologue's SM_QUEST_ACTION: CM_LEVEL_READY.java:91-93, loadWeather then QuestEngine.onEnterWorld; weather_table.xml has both start maps, so loadWeather always sends one, and a weather change broadcast later (WeatherService.java:62, :178) changes nothing. PrologueSupportTest: three deviation cases (the weather right after the start, after the movie, none) and the Java burst with a later weather change |
+
+The async set itself stays as it is: a weather change can reach any burst of any gate.
+
+**Mutation proof of finding 4 (`AION_SP_MUT`).** Schemata in CM_LEVEL_READY.cpp and PrologueSupport.cpp, after saving both and their
+sha256; the game server inherits the variable from the gate:
+
+| Id | Mutant | Killed by |
+|---|---|---|
+| w1 | CM_LEVEL_READY.cpp: `QuestEngine::onEnterWorld` before `loadWeather` | gs.scenario.m5a + m5d in one run (277 s): m5a case 4 "the prologue (1000): the start map's SM_WEATHER before the prologue's SM_QUEST_ACTION" (the burst ends "... SM_QUEST_ACTION, SM_NEARBY_QUESTS, SM_PLAY_MOVIE, SM_WEATHER, SM_ABNORMAL_STATE, SM_CUBE_UPDATE ..."); m5d C1-C3 ("C3 the prologue (1000)") and C16a ("C16a the prologue (2000)") and nothing else: both level-ready patterns passed with the weather after the movie, which is the finding |
+| w2 | the check skipped | PrologueSupportTest.EachStartCheckFailsAloneOnItsField: its three weather cases ("the failures were (none)") |
+| w3 | the check reads the burst's last SM_WEATHER | PrologueSupportTest.TheJavaFirstLevelReadyStartsTheQuestAndPlaysItsMovie: "1000 with a weather change", "2000 with a weather change" |
+
+With the switch unset PrologueSupportTest passed 6 of 6. The sources were restored from the saved copies (sha256 matched:
+CM_LEVEL_READY.cpp 706d0eac..., the committed file; PrologueSupport.cpp 76aa6625...). The objects of `aion_gs_login_slice` and
+`aion_gs_scenario_tests`, their compiler PDBs, the library and the four executables that held the strings (`aion_game_server`,
+`aion_gs_login_slice_tests`, `aion_gs_network_tests`, `aion_gs_scenario_tests`) with their PDBs and ILKs were deleted and rebuilt; no file
+under `build/msvc`, `game-server` or `tools` contains `AION_SP_MUT` or `aionSpMut`.
