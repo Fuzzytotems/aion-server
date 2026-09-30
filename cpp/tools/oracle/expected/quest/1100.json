@@ -12,8 +12,8 @@
  ],
  "hooks": [
   {"hook": "onDialogEvent", "line": 31, "cases": 7},
-  {"hook": "onEnterWorldEvent", "line": 56, "unsupported": "WorldMapType.POETA"},
-  {"hook": "onLevelChangedEvent", "line": 64, "unsupported": "WorldMapType.POETA"}
+  {"hook": "onEnterWorldEvent", "line": 56, "cases": 4},
+  {"hook": "onLevelChangedEvent", "line": 64, "cases": 2}
  ],
  "cases": [
   {
@@ -100,6 +100,64 @@
    "guards": ["qs == null -> false @34", "env.getVisibleObject() instanceof Npc -> false @38"],
    "effects": [],
    "returns": false
+  },
+  {
+   "id": "onEnterWorldEvent#1",
+   "hook": "onEnterWorldEvent",
+   "given": {"player": {"worldId": 210010000}, "questState": {"status": "START"}},
+   "guards": ["player.getWorldId() == WorldMapType.POETA.getId() -> true @58", "player.getQuestStateList().hasQuest(questId) -> true @58"],
+   "effects": [],
+   "returns": false
+  },
+  {
+   "id": "onEnterWorldEvent#2",
+   "hook": "onEnterWorldEvent",
+   "given": {"player": {"worldId": 210010000}, "questState": null},
+   "guards": [
+    "player.getWorldId() == WorldMapType.POETA.getId() -> true @58",
+    "player.getQuestStateList().hasQuest(questId) -> false @58",
+    "QuestService.startQuest(env) -> true @59"
+   ],
+   "assume": [{"effect": 0, "returns": true}],
+   "effects": [{"call": "QuestService.startQuest", "kind": "quest", "args": [], "line": 59}],
+   "returns": true
+  },
+  {
+   "id": "onEnterWorldEvent#3",
+   "hook": "onEnterWorldEvent",
+   "given": {"player": {"worldId": 210010000}, "questState": null},
+   "guards": [
+    "player.getWorldId() == WorldMapType.POETA.getId() -> true @58",
+    "player.getQuestStateList().hasQuest(questId) -> false @58",
+    "QuestService.startQuest(env) -> false @59"
+   ],
+   "assume": [{"effect": 0, "returns": false}],
+   "effects": [{"call": "QuestService.startQuest", "kind": "quest", "args": [], "line": 59}],
+   "returns": false
+  },
+  {
+   "id": "onEnterWorldEvent#4",
+   "hook": "onEnterWorldEvent",
+   "given": {"player": {"worldId": 120010000}},
+   "guards": ["player.getWorldId() == WorldMapType.POETA.getId() -> false @58"],
+   "effects": [],
+   "returns": false
+  },
+  {
+   "id": "onLevelChangedEvent#1",
+   "hook": "onLevelChangedEvent",
+   "given": {"player": {"worldId": 210010000}},
+   "guards": ["player.getWorldId() == WorldMapType.POETA.getId() -> true @65"],
+   "effects": [{"call": "defaultOnLevelChangedEvent", "kind": "quest", "args": [], "line": 66}],
+   "returns": null
+  },
+  {
+   "id": "onLevelChangedEvent#2",
+   "hook": "onLevelChangedEvent",
+   "given": {"player": {"worldId": 120010000}},
+   "guards": ["player.getWorldId() == WorldMapType.POETA.getId() -> false @65"],
+   "effects": [],
+   "returns": null
   }
  ]
 }

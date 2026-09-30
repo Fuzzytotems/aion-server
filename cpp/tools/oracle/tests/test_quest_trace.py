@@ -182,6 +182,7 @@ import com.aionemu.gameserver.questEngine.model.QuestEnv;
 import com.aionemu.gameserver.questEngine.model.QuestState;
 import com.aionemu.gameserver.questEngine.model.QuestStatus;
 import com.aionemu.gameserver.services.QuestService;
+import com.aionemu.gameserver.world.WorldMapType;
 
 public class _99100Trace extends AbstractQuestHandler {
 %s
@@ -545,6 +546,18 @@ class JavaSemanticsTest(unittest.TestCase):
 		logout = one(doc, "onLogOutEvent", lambda c: c["given"]["otherQuests"]["99098"] is not None)
 		self.assertEqual((calls(logout), logout["returns"]), ([("env.setQuestId", [99098]), ("sendQuestStartDialog", [])], True))
 
+	def test_world_map_ids_are_the_constructor_argument(self):
+		# WorldMapType.java: `POETA(210010000)`, `HOUSING_LC_LEGION(700020000, true)`; getId() returns worldId (:221-223). The map a guard
+		# excludes is replaced by the first declared constant it allows (PANDAEMONIUM 120010000, then MARCHUTAN 120020000)
+		doc = trace_text(handler(
+			hook("\t\tint map = env.getPlayer().getWorldId();\n\t\tif (map == WorldMapType.POETA.getId())\n\t\t\treturn sendQuestDialog(env, 1);\n"
+			     "\t\tif (map == WorldMapType.HOUSING_LC_LEGION.getId())\n\t\t\treturn sendQuestDialog(env, 2);\n"
+			     "\t\tif (map != WorldMapType.PANDAEMONIUM.getId())\n\t\t\treturn sendQuestDialog(env, 3);\n\t\treturn false;\n"),
+			hook("\t\treturn env.getPlayer().getWorldId() == WorldMapType.NO_SUCH_MAP.getId();\n", "boolean onEnterWorldEvent(QuestEnv env)")))
+		pages = {c["given"]["player"]["worldId"]: [a[0] for _, a in calls(c)] for c in self.cases(doc)}
+		self.assertEqual(pages, {210010000: [1], 700020000: [2], 120020000: [3], 120010000: []})
+		self.assertEqual(self.refusal(doc, "onEnterWorldEvent"), "WorldMapType.NO_SUCH_MAP")
+
 	def test_a_constant_plus_an_input_is_solved(self):
 		doc = trace_text(handler(hook(
 			QS + "\t\tif (qs == null)\n\t\t\treturn false;\n\t\tint var = qs.getQuestVarById(0);\n\t\tif (1 + var == 4) {\n"
@@ -725,10 +738,31 @@ class RouteSliceTest(unittest.TestCase):
 		for qid in (1205, 2132):                     # every hook refused: `new QuestEnv`, getStartingClass on a value; registration only
 			self.assertEqual((self.docs[qid]["cases"], [h for h in self.docs[qid]["hooks"] if "unsupported" not in h]), ([], []))
 			self.assertIsInstance(self.docs[qid]["register"], list)
-		for qid in (1100, 2100):                     # the enter-world and level hooks are refused (WorldMapType), the others traced
-			refused = sorted(h["hook"] for h in self.docs[qid]["hooks"] if "unsupported" in h)
-			self.assertEqual(refused, ["onEnterWorldEvent", "onLevelChangedEvent"])
-			self.assertTrue(self.docs[qid]["cases"])
+		for qid in (1100, 2100):                     # every hook traced since WorldMapType.X.getId() is a constant (P6-Q prologue)
+			self.assertEqual([h for h in self.docs[qid]["hooks"] if "unsupported" in h], [])
+			self.assertEqual(sorted(h["hook"] for h in self.docs[qid]["hooks"]), ["onDialogEvent", "onEnterWorldEvent", "onLevelChangedEvent"])
+
+	def test_1100_and_2100_start_in_their_own_map(self):
+		# _1100KaliosCall.java:56-67 and _2100OrderoftheCaptain.java:54-65: in Poeta (WorldMapType.POETA, 210010000) / Ishalgen (ISHALGEN,
+		# 220010000) a player without the quest starts it at enter world and the level hook runs defaultOnLevelChangedEvent with no pre-quest;
+		# anywhere else both do nothing (the other map picked is the first WorldMapType constant, PANDAEMONIUM 120010000)
+		for qid, own in ((1100, 210010000), (2100, 220010000)):
+			with self.subTest(quest=qid):
+				d = self.docs[qid]
+				started = one(d, "onEnterWorldEvent", lambda c: c.get("assume") == [{"effect": 0, "returns": True}])
+				self.assertEqual((started["given"], calls(started), started["returns"]),
+				                 ({"player": {"worldId": own}, "questState": None}, [("QuestService.startQuest", [])], True))
+				c = one(d, "onEnterWorldEvent", lambda c: c.get("assume") == [{"effect": 0, "returns": False}])
+				self.assertEqual((calls(c), c["returns"]), ([("QuestService.startQuest", [])], False))
+				c = one(d, "onEnterWorldEvent", player={"worldId": own}, questState={"status": "START"})
+				self.assertEqual((c["effects"], c["returns"]), ([], False))
+				c = one(d, "onEnterWorldEvent", player={"worldId": 120010000})
+				self.assertEqual((c["effects"], c["returns"]), ([], False))
+				c = one(d, "onLevelChangedEvent", player={"worldId": own})
+				self.assertEqual(calls(c), [("defaultOnLevelChangedEvent", [])])
+				c = one(d, "onLevelChangedEvent", player={"worldId": 120010000})
+				self.assertEqual(c["effects"], [])
+				self.assertEqual(len(d["cases"]), 13)
 
 	def test_1913_dispatch(self):
 		# _1913DispatchtoVerteron.java:21-25 (register) and :28-68 (onDialogEvent)

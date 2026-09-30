@@ -85,9 +85,10 @@ SLICE_TIER_A = (
 	'poeta/_1122DeliveringPernossRobe.java', 'poeta/_1123WheresTutty.java',
 )
 # The ascension route slice (P6-Q, 2026-09-29, lane route-gen): the other generated handlers of the route's three directories. 1100 and 2100
-# (tier B) keep their dialog and quest-completed hooks, their enter-world and level hooks are refused (WorldMapType); 1205 and 2132 have
-# every hook refused (`new QuestEnv`, getStartingClass on a value) and only their registration traced; the 12 dispatches of ascension/
-# are traced whole. The C++ harness (game-server/tests/quest_handlers_golden) drives every document of the directory.
+# (tier B) are traced whole since P6-Q prologue (2026-09-29: `WorldMapType.X.getId()` is the map id of WorldMapType.java, and
+# `player.getWorldId()` an input); 1205 and 2132 have every hook refused (`new QuestEnv`, getStartingClass on a value) and only their
+# registration traced; the 12 dispatches of ascension/ are traced whole. The C++ harness (game-server/tests/quest_handlers_golden) drives
+# every document of the directory.
 SLICE_ROUTE = (
 	'poeta/_1100KaliosCall.java', 'poeta/_1205ANewSkill.java', 'ishalgen/_2100OrderoftheCaptain.java', 'ishalgen/_2132ANewSkill.java',
 	'ascension/_1913DispatchtoVerteron.java', 'ascension/_1914DispatchtoVerteron.java', 'ascension/_1915DispatchtoVerteron.java',
@@ -371,6 +372,8 @@ class Tables:
 		for name, v in self.dialog.actions.items():
 			self.action_name.setdefault(v, name)
 		self.enums = {n: [c for c, _ in java_enum_constants(base / f, n)] for n, f in ENUM_FILES.items()}
+		# WorldMapType.X.getId() (WorldMapType.java:212-219, getId :221-223): the map id is the first constructor argument, in declaration order
+		self.world_maps = {c: int(a.split(',')[0]) for c, a in java_enum_constants(base / 'world' / 'WorldMapType.java', 'WorldMapType')}
 		cu = javasrc.parse_file(str(base / 'questEngine' / 'handlers' / 'AbstractQuestHandler.java'))
 		aqh = cu.types[0]
 		self.hooks = {m.name for m in aqh.methods if m.kind == 'method' and 'static' not in m.modifiers
@@ -1176,6 +1179,11 @@ class Extractor:
 			if page not in self.t.dialog.pages:
 				raise Unsupported(f'DialogPage.{page}')
 			return [(p, K(self.t.dialog.pages[page]))]
+		if isinstance(tgt, jast.FieldAccess) and isinstance(tgt.target, jast.Name) and tgt.target.name == 'WorldMapType' and name == 'getId' \
+				and tgt.target.name not in p.locals and not e.args:
+			if tgt.name not in self.t.world_maps:
+				raise Unsupported(f'WorldMapType.{tgt.name}')
+			return [(p, K(self.t.world_maps[tgt.name]))]
 		out = []
 		for q, recv in self.eval(tgt, p):
 			if isinstance(recv, RewardPage) and name == 'id':
@@ -1433,6 +1441,8 @@ class Extractor:
 				prefer = tuple(self.reg_items)
 			elif key == ('dialog',) and d.allowed is None:
 				prefer = tuple(self.t.dialog.actions.values())
+			elif key == ('player', 'worldId'):
+				prefer = tuple(self.t.world_maps.values())     # a map that exists (the first of WorldMapType the guards allow)
 			v = d.pick(prefer)
 			if v is _EMPTY:
 				raise OracleError(f'{self.rel}: an empty domain for {key} on a feasible path')

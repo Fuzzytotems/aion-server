@@ -12,8 +12,8 @@
  ],
  "hooks": [
   {"hook": "onDialogEvent", "line": 30, "cases": 7},
-  {"hook": "onEnterWorldEvent", "line": 54, "unsupported": "WorldMapType.ISHALGEN"},
-  {"hook": "onLevelChangedEvent", "line": 62, "unsupported": "WorldMapType.ISHALGEN"}
+  {"hook": "onEnterWorldEvent", "line": 54, "cases": 4},
+  {"hook": "onLevelChangedEvent", "line": 62, "cases": 2}
  ],
  "cases": [
   {
@@ -100,6 +100,64 @@
    "dialogExcludes": [],
    "effects": [],
    "returns": false
+  },
+  {
+   "id": "onEnterWorldEvent#1",
+   "hook": "onEnterWorldEvent",
+   "given": {"player": {"worldId": 220010000}, "questState": {"status": "START"}},
+   "guards": ["player.getWorldId() == WorldMapType.ISHALGEN.getId() -> true @56", "player.getQuestStateList().hasQuest(questId) -> true @56"],
+   "effects": [],
+   "returns": false
+  },
+  {
+   "id": "onEnterWorldEvent#2",
+   "hook": "onEnterWorldEvent",
+   "given": {"player": {"worldId": 220010000}, "questState": null},
+   "guards": [
+    "player.getWorldId() == WorldMapType.ISHALGEN.getId() -> true @56",
+    "player.getQuestStateList().hasQuest(questId) -> false @56",
+    "QuestService.startQuest(env) -> true @57"
+   ],
+   "assume": [{"effect": 0, "returns": true}],
+   "effects": [{"call": "QuestService.startQuest", "kind": "quest", "args": [], "line": 57}],
+   "returns": true
+  },
+  {
+   "id": "onEnterWorldEvent#3",
+   "hook": "onEnterWorldEvent",
+   "given": {"player": {"worldId": 220010000}, "questState": null},
+   "guards": [
+    "player.getWorldId() == WorldMapType.ISHALGEN.getId() -> true @56",
+    "player.getQuestStateList().hasQuest(questId) -> false @56",
+    "QuestService.startQuest(env) -> false @57"
+   ],
+   "assume": [{"effect": 0, "returns": false}],
+   "effects": [{"call": "QuestService.startQuest", "kind": "quest", "args": [], "line": 57}],
+   "returns": false
+  },
+  {
+   "id": "onEnterWorldEvent#4",
+   "hook": "onEnterWorldEvent",
+   "given": {"player": {"worldId": 120010000}},
+   "guards": ["player.getWorldId() == WorldMapType.ISHALGEN.getId() -> false @56"],
+   "effects": [],
+   "returns": false
+  },
+  {
+   "id": "onLevelChangedEvent#1",
+   "hook": "onLevelChangedEvent",
+   "given": {"player": {"worldId": 220010000}},
+   "guards": ["player.getWorldId() == WorldMapType.ISHALGEN.getId() -> true @63"],
+   "effects": [{"call": "defaultOnLevelChangedEvent", "kind": "quest", "args": [], "line": 64}],
+   "returns": null
+  },
+  {
+   "id": "onLevelChangedEvent#2",
+   "hook": "onLevelChangedEvent",
+   "given": {"player": {"worldId": 120010000}},
+   "guards": ["player.getWorldId() == WorldMapType.ISHALGEN.getId() -> false @63"],
+   "effects": [],
+   "returns": null
   }
  ]
 }

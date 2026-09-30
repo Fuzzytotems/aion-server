@@ -142,4 +142,25 @@ StatUpdateExp decodeStatUpdateExp(std::span<const uint8_t> body) {
 	return exp;
 }
 
+// ---- SM_PLAY_MOVIE ----------------------------------------------------------------------------------------------------------------------
+
+PlayMovie decodePlayMovie(std::span<const uint8_t> body) {
+	BodyReader reader(body, "SM_PLAY_MOVIE");
+	PlayMovie movie;
+	const uint8_t type = reader.C(); // SM_PLAY_MOVIE.java:29, writeC(isMovie ? 1 : 0)
+	if (type > 1)
+		reader.fail("the type byte is " + std::to_string(type) + ", but SM_PLAY_MOVIE.java:29 writes 0 or 1");
+	movie.cutsceneMovie = type == 1;
+	movie.objectId = reader.D();                // :30
+	movie.questId = reader.D();                 // :31
+	movie.movieId = reader.D();                 // :32
+	reader.expectC(0, "the unknown byte");      // :33, writeC(0)
+	const uint8_t cannotSkip = reader.C();      // :34, writeC(canSkip ? 0 : 1)
+	if (cannotSkip > 1)
+		reader.fail("the last byte is " + std::to_string(cannotSkip) + ", but SM_PLAY_MOVIE.java:34 writes 0 or 1");
+	movie.canSkip = cannotSkip == 0;
+	reader.expectFullyConsumed();
+	return movie;
+}
+
 } // namespace aion::gameserver::scenario::decoders

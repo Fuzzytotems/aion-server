@@ -6,7 +6,8 @@
 //
 // - the case's given becomes the fixture state: a quester of the quest's race (the case's, when it names one) and level, the handler's
 //   QuestState (status, var slots, reward group; canRepeat picks the complete count), the inventory counts, the target npc (an Npc of the
-//   template standing in the fixture's Poeta instance) and the dialog action of the QuestEnv;
+//   template standing in the fixture's Poeta instance), the dialog action of the QuestEnv and the quester's map id when the case names one
+//   (player.worldId: the enter-world and level hooks of 1100 and 2100 compare it with WorldMapType.POETA / ISHALGEN);
 // - ACTUAL: the case's hook of the generated handler runs on that state;
 // - EXPECTED: the same state is built again (same player object id, same npc) and the case's effects, the calls Java makes on that path in
 //   order, are replayed on the real helpers (AbstractQuestHandler through a PlainHandler of the quest, QuestService, the QuestState setters);
@@ -843,6 +844,13 @@ protected:
 		const json& given = c["given"];
 		Quester* quester = makeQuester(GOLDEN_PLAYER, "Golden", setup.race, std::max(setup.level + overlay.levelDelta, 1));
 		gameserver::model::gameobjects::player::Player& player = quester->player();
+		// the map the case names (extract.py: player.getWorldId(), compared with a WorldMapType id; 1100 and 2100): the quester stands in the
+		// fixture's region as before, under that map id, which is what VisibleObject::getWorldId answers
+		if (given.contains("player") && given["player"].contains("worldId")) {
+			player.setPosition(world::WorldPosition::create(given["player"]["worldId"].get<int32_t>(), 100.0f, 100.0f, 50.0f, int8_t{0},
+				mapInstance->getRegion(100.0f, 100.0f, 50.0f)));
+			player.getPosition()->setIsSpawned(true);
+		}
 		// the parts every loaded player has that a finish reaches (QuestTemplate1bTestSupport.h makePlayer): npc factions (finishQuest, a level
 		// change), an empty skill list and an empty recipe list
 		player.setNpcFactions(std::make_unique<gameserver::model::gameobjects::player::npcFaction::NpcFactions>(player));
@@ -1436,11 +1444,10 @@ const std::map<std::string, std::string>& knownVacuous() {
 		"defaultOnKillEvent)";
 	static const std::map<std::string, std::string> known = [] {
 		std::map<std::string, std::string> rows{
-		{"1100 onDialogEvent#4", IDLE_START}, // held back (GoldenHandlers.h): measured with the file compiled in, 2026-09-29, before the
-		                                      // accept overlays (the Q03 and Q10 reviews): measure it again when 1100 lands
+		{"1100 onDialogEvent#4", IDLE_START},
 		{"1107 onDialogEvent#4", IDLE_END},
 		{"1107 onDialogEvent#5", IDLE_END},
-		{"2100 onDialogEvent#5", IDLE_START}, // held back, as 1100
+		{"2100 onDialogEvent#5", IDLE_START},
 		{"2125 onDialogEvent#13", IDLE_END},
 		{"2125 onDialogEvent#14", IDLE_END},
 		{"2135 onDialogEvent#6", IDLE_END},

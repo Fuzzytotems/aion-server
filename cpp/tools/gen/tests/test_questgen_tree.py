@@ -21,14 +21,15 @@ from questgen import emit, paths  # noqa: E402
 HANDLER_QUEST_DIR = paths.CPP_GAME_SERVER / 'handlers' / 'aion' / 'gameserver' / 'handlers' / 'quest'
 HAVE_JAVA = paths.JAVA_QUEST_DIR.is_dir()
 
-# the ascension route's generated files in the tree (docs/deviations/Q05.md, Q09.md, Q06.md "Generated dispatches"): poeta 9, ishalgen 11,
+# the ascension route's generated files in the tree (docs/deviations/Q05.md, Q09.md, Q06.md "Generated dispatches"): poeta 11, ishalgen 13,
 # ascension 12
 ROUTE = {
-    'poeta': ('_1001TheKerubThreat', '_1003IllegalLogging', '_1004NeutralizingOdium', '_1005BarringtheGate', '_1107TheLostAxe',
-              '_1111InsomniaMedicine', '_1122DeliveringPernossRobe', '_1123WheresTutty', '_1205ANewSkill'),
-    'ishalgen': ('_2001ThinkingAhead', '_2003TreasureOfTheDeceased', '_2005TeachingaLesson', '_2006HitThemWhereitHurts',
-                 '_2106VanarsFlattery', '_2114TheInsectProblem', '_2122AshesToAshes', '_2123TheImprisonedGourmet',
-                 '_2125TheRobberyPlot', '_2132ANewSkill', '_2135ForLoveofNegi'),
+    'poeta': ('_1000Prologue', '_1001TheKerubThreat', '_1003IllegalLogging', '_1004NeutralizingOdium', '_1005BarringtheGate',
+              '_1100KaliosCall', '_1107TheLostAxe', '_1111InsomniaMedicine', '_1122DeliveringPernossRobe', '_1123WheresTutty',
+              '_1205ANewSkill'),
+    'ishalgen': ('_2000Prologue', '_2001ThinkingAhead', '_2003TreasureOfTheDeceased', '_2005TeachingaLesson', '_2006HitThemWhereitHurts',
+                 '_2100OrderoftheCaptain', '_2106VanarsFlattery', '_2114TheInsectProblem', '_2122AshesToAshes',
+                 '_2123TheImprisonedGourmet', '_2125TheRobberyPlot', '_2132ANewSkill', '_2135ForLoveofNegi'),
     'ascension': ('_1913DispatchtoVerteron', '_1914DispatchtoVerteron', '_1915DispatchtoVerteron', '_1916DispatchtoVerteron',
                   '_19070ADispatchtoVerteron', '_19071ADispatchtoVerteron', '_2901DispatchtoAltgard', '_2902DispatchtoAltgard',
                   '_2903DispatchtoAltgard', '_2904DispatchtoAltgard', '_29070ADispatchtoAltgard', '_29071ADispatchtoAltgard'),
@@ -61,9 +62,9 @@ Q10_HELD_BACK = (
     'pandaemonium/_2911SongOfBlessing.java', 'pandaemonium/_2917ArekedilsHeritage.java', 'pandaemonium/_2953DeliveringSupplyRequest.java',
     'pandaemonium/_29004VeldinaCall.java', 'pandaemonium/_29048SeriphimTeachings.java', 'pandaemonium/_4973MarraWorry.java',
 )
-# transliterated like the others but held out of the tree: they register onEnterWorld and start their quest at a character's first enter
-# world (Java behaviour), which turns gs.scenario.m5a, m5b and m5b2 red; they land when the gates' owners decide (docs/deviations/Q05.md)
-HELD_BACK = ('poeta/_1000Prologue.java', 'poeta/_1100KaliosCall.java', 'ishalgen/_2000Prologue.java', 'ishalgen/_2100OrderoftheCaptain.java')
+# the four that start their quest at a character's first enter world (Java behaviour): held back for their gate impact until the owner's answer
+# of 2026-09-29 ("A": land them and let gs.scenario.m5a, m5b and m5b2 expect the prologue traffic; docs/design/owner-decisions.md)
+ENTER_WORLD = ('poeta/_1000Prologue.java', 'poeta/_1100KaliosCall.java', 'ishalgen/_2000Prologue.java', 'ishalgen/_2100OrderoftheCaptain.java')
 
 
 def generated_files():
@@ -101,7 +102,7 @@ class CommittedTree(unittest.TestCase):
             for klass in classes:
                 with self.subTest(file=f'{directory}/{klass}'):
                     self.assertIn((directory, klass), found)
-        self.assertEqual(sum(len(v) for v in ROUTE.values()), 32)
+        self.assertEqual(sum(len(v) for v in ROUTE.values()), 36)
         for directory, classes in Q10.items():
             for klass in classes:
                 with self.subTest(file=f'{directory}/{klass}'):
@@ -109,13 +110,13 @@ class CommittedTree(unittest.TestCase):
         self.assertEqual((len(Q10['altgard']), len(Q10['pandaemonium'])), (18, 35))
         self.assertEqual(len(Q10_HELD_BACK), 16)
 
-    def test_the_held_back_files_transliterate_and_stay_out_of_the_tree(self):
-        for rel in HELD_BACK:
+    def test_the_enter_world_files_are_in_the_tree(self):
+        for rel in ENTER_WORLD:
             with self.subTest(file=rel):
                 r = self.tr.transliterate(paths.JAVA_QUEST_DIR / rel)
                 self.assertEqual(r.status, 'ok', r.reasons)
                 self.assertIn('qe.registerOnEnterWorld(questId);', r.cpp)
-                self.assertFalse((HANDLER_QUEST_DIR / rel).with_suffix('.cpp').exists())
+                self.assertEqual((HANDLER_QUEST_DIR / rel).with_suffix('.cpp').read_bytes(), r.cpp.encode('utf-8'))
 
     def test_the_q10_held_back_files_transliterate_and_stay_out_of_the_tree(self):
         # the integration of slice 2: each is questgen's output (the regenerate command lands it), none is in the tree or the table

@@ -12,10 +12,11 @@
 // compiled into this executable by #include as well (GoldenQ03Handlers.cpp); Q03's hand ports 1643 and 3200 have their own unit cases
 // (tests/quest_handlers_q03, docs/deviations/Q03.md).
 //
-// Held back (GOLDEN_HELD_BACK): 1000, 2000, 1100 and 2100 register onEnterWorld and start their quest at a character's first enter world
-// (Java behaviour), which turns gs.scenario.m5a, m5b and m5b2 red (docs/deviations/Q05.md, "Gate impact"). Their generated files are not in
-// the handler tree until the gates' owners decide; the harness passed all 30 of their cases with them in (the bytes the generator emits).
-// Q03's 14010, 1131, 1146 and 1152 are held back the same way (the review of 2026-09-29): gs.scenario.travel's level-10 Elyos Daeva arrives
+// 1000, 1100, 2000 and 2100 register onEnterWorld and start their quest at a character's first enter world (Java behaviour). They were held
+// back for their gate impact until the owner's answer of 2026-09-29 (owner-decisions.md: "A", land them and let gs.scenario.m5a, m5b and m5b2
+// expect the prologue traffic); they are in the table since (docs/deviations/Q05.md, "Gate impact").
+//
+// Held back (GOLDEN_HELD_BACK): Q03's 14010, 1131, 1146 and 1152 (the review of 2026-09-29): gs.scenario.travel's level-10 Elyos Daeva arrives
 // in Verteron, where 14010's onEnterWorldEvent starts its quest and the start npcs of 1131, 1146 and 1152 add their quests (min level 11-12,
 // grey) to the arrival's SM_NEARBY_QUESTS (docs/deviations/Q03.md, "Held back"); the harness passed all of their cases with them in.
 // The integration of slice 2 held 16 of Q10's generated handlers back the same way (docs/design/p6q-ascension-route.md, "Slice 2"):
@@ -33,19 +34,23 @@
 
 // clang-format off
 #define AION_GOLDEN_GENERATED_HANDLERS(X) \
+	X(poeta, _1000Prologue, 1000) \
 	X(poeta, _1001TheKerubThreat, 1001) \
 	X(poeta, _1003IllegalLogging, 1003) \
 	X(poeta, _1004NeutralizingOdium, 1004) \
 	X(poeta, _1005BarringtheGate, 1005) \
+	X(poeta, _1100KaliosCall, 1100) \
 	X(poeta, _1107TheLostAxe, 1107) \
 	X(poeta, _1111InsomniaMedicine, 1111) \
 	X(poeta, _1122DeliveringPernossRobe, 1122) \
 	X(poeta, _1123WheresTutty, 1123) \
 	X(poeta, _1205ANewSkill, 1205) \
+	X(ishalgen, _2000Prologue, 2000) \
 	X(ishalgen, _2001ThinkingAhead, 2001) \
 	X(ishalgen, _2003TreasureOfTheDeceased, 2003) \
 	X(ishalgen, _2005TeachingaLesson, 2005) \
 	X(ishalgen, _2006HitThemWhereitHurts, 2006) \
+	X(ishalgen, _2100OrderoftheCaptain, 2100) \
 	X(ishalgen, _2106VanarsFlattery, 2106) \
 	X(ishalgen, _2114TheInsectProblem, 2114) \
 	X(ishalgen, _2122AshesToAshes, 2122) \
@@ -202,8 +207,8 @@ AION_GOLDEN_GENERATED_HANDLERS(AION_GOLDEN_DECLARE_FACTORY)
 namespace aion::gameserver::questEngine::handlers::test::golden {
 
 /** The route's generated handlers kept out of the handler tree for their gate impact (see above) */
-inline constexpr int32_t GOLDEN_HELD_BACK[] = {1000, 1100, 2000, 2100, 1131, 1146, 1152, 14010, 2207, 2209, 2213, 2221, 2223, 2231, 2232,
-	2239, 2288, 24010, 2911, 2917, 2953, 29004, 29048, 4973};
+inline constexpr int32_t GOLDEN_HELD_BACK[] = {1131, 1146, 1152, 14010, 2207, 2209, 2213, 2221, 2223, 2231, 2232, 2239, 2288, 24010, 2911,
+	2917, 2953, 29004, 29048, 4973};
 
 struct GeneratedHandler {
 	std::string_view directory;
