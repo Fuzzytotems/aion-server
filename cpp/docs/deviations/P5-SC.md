@@ -458,3 +458,39 @@ value. On 2026-09-29 that file sets `gameserver.simple.secondclass.enable = true
 register only in `gs.scenario.ascension`, which pins the key to `false`; in `gs.scenario.travel` (and m5c) the seeded Daevas get no
 1007 / 2009 in the main tree, and do in a tree without the file (CI, a worktree). Both were measured on the travel gate, both pass
 (p6q-ascension-route.md §7). Recorded here, not changed: pinning the key in the travel gate is the owner's call (U1/U7).
+
+## The prologue traffic (P6-Q prologue, 2026-09-29)
+
+The four enter-world quest handlers `_1000Prologue`, `_1100KaliosCall`, `_2000Prologue` and `_2100OrderoftheCaptain` landed on the owner's
+answers 3 and 4 of 2026-09-29 (docs/design/owner-decisions.md, "2026-09-29 (answers)": U1/U7 amended for Java-faithful quest traffic, each
+gate change listed). A new character's first enter world in Poeta / Ishalgen now carries their Java traffic, and every gate of this
+directory that creates one and checks or walks after it was taught it instead of holding the handlers back, except the nightly stress run
+(below); nothing else in a gate changed. The shared pieces:
+
+| File | What |
+|---|---|
+| `PrologueSupport.h/.cpp` (new) | The §5.8 notation of the prologue's packets and three pure checks written from the Java: `expectPrologueMissionLocked` (the first CM_ENTER_WORLD's one SM_QUEST_ACTION adds 1100 / 2100 LOCKED, and SM_QUEST_LIST holds exactly that quest), `expectPrologueStarted` (the first CM_LEVEL_READY's one SM_QUEST_ACTION adds 1000 / 2000 START and its one SM_PLAY_MOVIE plays movie 1 / 2 as a skippable CutSceneMovie with no target) and `expectPrologueMovieEndAnswer` (SM_STATUPDATE_EXP with the reward's 1 exp, STR_GET_EXP2, SM_QUEST_ACTION UPDATE COMPLETE and SM_NEARBY_QUESTS); `endPrologue` runs the second, ends the movie with CM_PLAY_MOVIE_END echoing it and runs the third on the answer |
+| `PrologueSupportTest.cpp` (new) | The three checks on hand-built packets: the Java bursts of both races pass with no failure, and each assertion fails, alone, on a burst that differs from Java in exactly its field (35 deviation cases; p6q-ascension-route.md §8.5 has the 28 mutants they kill) |
+| `decoders/QuestDecoders.h/.cpp` | `decodePlayMovie` (SM_PLAY_MOVIE.java:27-35) and `decoders::Prologue` (the quest, movie, mission and map of each race, `PROLOGUE_EXP`, `PROLOGUE_EXP_MESSAGE`), with `QuestDecodersTest.PlayMovieIsFifteenBytes` and `ThePrologueQuestsAreTheJavaHandlers` |
+| `GameSession.h/.cpp` | `CM_PLAY_MOVIE_END` (packets[81]) and its builder (CM_PLAY_MOVIE_END.java:33-40), with `GameSessionTest.PlayMovieEndBody`. A real client sends it when a movie ends or is skipped; until then the server drops every CM_MOVE (SM_PLAY_MOVIE.java:28 sets WATCHING_CUTSCENE, CM_MOVE.java:159-161) |
+
+The gates (docs/design/p6q-ascension-route.md §8 has each failure and the Java lines): m5a / m5a_geo (the first-enter and level-ready
+sequences, V10's quest list, the prologue of the Warrior, the Mage and the geo Warrior), m5b / m5b_geo (the sequences, K2, K3, and R1's exp
+over the prologue's 1), m5b2 / m5b2_geo (the sequences, the Warrior's and the Mage's prologue), m5b3 / m5b3_geo (the sequences, C1-C3), m5c
+(C1's two characters, X15's exp over the prologue's 1) and the phase-6 gate ascension (E1: the mission START at level 9 and the prologue's
+movie ended before E2's walks). `gs.scenario.travel` passes unchanged.
+
+Not taught (p6q-ascension-route.md §8.5 has the detail):
+
+- **`gs.scenario.m5a_stress`** (nightly, DISABLED unless `AION_STRESS_NIGHTLY`). Its Elyos Warriors meet the prologue in each client's
+  first round. The run reads that level-ready burst up to SM_CUBE_UPDATE without checking it, so no expectation fails, but it never
+  sends CM_PLAY_MOVIE_END: that round's walk is dropped, and quest 1000 stays START. Later rounds get no movie (`_1000Prologue.java:28`
+  starts the quest only when the character does not have it) and walk as before. No assertion of the run reads the first walk (drift,
+  census, live counts and log scans), but that comes from reading the code, not from a run. The fix is to end the movie after the first
+  level ready and wait for the answer's SM_QUEST_ACTION before walking. It needs a stress run to verify, and a stress run needs the
+  owner's go-ahead (run-aion-cpp SKILL.md), so it waits for the next nightly.
+- **`gs.scenario.m5d` / `m5d_geo`** are on C++ (PR #10, lane G) but not in this change's base (`a72676184`). `M5dScenarioTest.cpp` is
+  built on the four handlers being held back, so it has to be taught when the two meet. The places are its header (:21), the
+  `REGISTERED_JAVA_QUESTS` filter of the Y1 / Y13 nearby sets (:143), `enterWorldPattern` (:665), `levelReadyPattern` (:682-688, asserted
+  :1028), Y13's empty SM_QUEST_LIST (:2234), and ending the movie before `walkTo` / `walkToTalk` (:1062, :1611). The file keeps its
+  own helpers on purpose (:35), so whether it includes PrologueSupport is decided in that merge.
