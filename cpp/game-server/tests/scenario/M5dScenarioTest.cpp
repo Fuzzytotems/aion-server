@@ -15,16 +15,25 @@
 // `--profile`, so the owner's `config/mygs.properties` never reaches an expectation.
 //
 // **What registers since the plan was written.** The phase-6 slice 1 (p6q-ascension-route.md §1) registers 42 Java quest handlers of Poeta,
-// Ishalgen and ascension/ beside the 4,184 XML quests; the plan's D9 ("until phase 6 the C++ registry has no Java quest") no longer holds.
-// The gate's subject stays the XML quests of §10, and it reads the Java handlers where they act on its path:
+// Ishalgen and ascension/ beside the 4,184 XML quests, P6-Q prologue (p6q §9) the four first-login handlers 1000, 1100, 2000 and 2100, and
+// P6-Q slice 2 (p6q §8) 132 handlers of Verteron, Heiron, Altgard and Pandaemonium; the plan's D9 ("until phase 6 the C++ registry has no
+// Java quest") no longer holds. The gate's subject stays the XML quests of §10, and it reads the Java handlers where they act on its path:
+//  - each new character's first enter world carries the prologue's Java traffic, which the owner's answer 4 of 2026-09-29 lets a phase-5
+//    gate expect (owner-decisions.md; the checks are tests/scenario/PrologueSupport.h's, shared with the other gates): the CM_ENTER_WORLD's
+//    onLevelChange(0, 1) adds the start map's mission 1100 / 2100 LOCKED (_1100KaliosCall.java:64-67, _2100OrderoftheCaptain.java:62-65),
+//    the first CM_LEVEL_READY starts 1000 / 2000 and plays its movie (_1000Prologue.java:26-36, _2000Prologue.java:26-36), and the client
+//    ends the movie (CM_PLAY_MOVIE_END; the server drops every CM_MOVE until then, CM_MOVE.java:159-161), which finishes the quest with its
+//    1 exp (_1000Prologue.java:38-48, with STR_GET_EXP2, which the exp ledger counts). So every later quest list and player_quests read holds
+//    1000 / 2000 COMPLETE and 1100 / 2100 LOCKED (Y9, Y12, Y13), and the exp shown after 1101's reward (Y6) is 1 higher;
 //  - the nearby-quest sets (Y1, Y13) are the oracle's `withJava` set restricted to the XML quests and the Java handlers the C++ tree
-//    registers (REGISTERED_JAVA_QUESTS; the four first-login handlers 1000, 1100, 2000 and 2100 are held back, p6q §5 item 1): for a level-1
-//    Elyos in Poeta that adds 1111 "Insomnia Medicine" (grey), for the Asmodian in Ishalgen nothing;
+//    registers (REGISTERED_JAVA_QUESTS): for a level-1 Elyos in Poeta that adds 1111 "Insomnia Medicine" (grey), for the Asmodian in
+//    Ishalgen nothing; the prologue's quests have no start npc and are in neither set;
 //  - the Elyos's level-up to 2 inside 1102's reward (Y11) runs the generated `_1205ANewSkill.onLevelChangedEvent`, which starts 1205 and
 //    puts it straight into REWARD with var 1 (_1205ANewSkill.java:40-65): two more SM_QUEST_ACTIONs and their SM_NEARBY_QUESTS in that burst,
-//    and 1205 in the quest list of every later enter world (Y12). No other registered handler starts anything on this path: the missions
-//    1001-1005 and 2001-2007 need 1100/2100, which never start (held back), 2132 needs level 3, and no Java handler names elpas, mires, asak,
-//    vandar or the four monsters' npc ids in a way that acts without a quest state (m5d-plan.md §18.4);
+//    and 1205 in the quest list of every later enter world (Y12). No other registered handler starts anything on this path: 1100's
+//    onLevelChangedEvent finds its quest LOCKED below minlevel_permitted 3 and changes nothing (AbstractQuestHandler.java:1026-1030), the
+//    missions 1001-1005 and 2001-2007 need 1100/2100 COMPLETE, 2132 needs level 3, no Java handler names elpas, mires, asak, vandar or the
+//    four monsters' npc ids in a way that acts without a quest state (m5d-plan.md §18.4), and slice 2's handlers act in their own maps;
 //  - `gameserver.simple.secondclass.enable` is pinned to false (§18.4, §18.7): a gate's server read the owner's mygs.properties, and the key
 //    decides whether 1006/2008/1007/2009 register. None of them acts at level 1-2. (Since 2026-09-29 no gate server reads that file:
 //    ScenarioServers passes main.cpp's test hook --ignore-mygs-properties; the key stays pinned.)
@@ -34,9 +43,11 @@
 //
 // **This file deliberately does not share the other gates' helpers** (M5b3ScenarioTest.cpp gives the reason: each gate owns one pair of
 // server processes and its helpers live in an anonymous namespace). What is duplicated is scaffolding - the case log, the burst collector, the
-// login conversation, the report readers - never an assertion. The kills fight through GameSession::fightUntil as M5b's do; FightSupport.h's
-// waitForRespawnAt is not used, because it knows one session's recording and a kill after a relog has to tell the corpses of the earlier
-// session's kills by their object ids (killAt).
+// login conversation, the report readers - never an assertion. The prologue's checks are the one thing shared (PrologueSupport.h, P6-Q
+// prologue): an assertion every gate that creates a character makes alike, holding no session state (it is given the session, the burst and
+// this file's collector). The kills fight through GameSession::fightUntil as M5b's do; FightSupport.h's waitForRespawnAt is not used,
+// because it knows one session's recording and a kill after a relog has to tell the corpses of the earlier session's kills by their object
+// ids (killAt).
 
 #include <gtest/gtest.h>
 
@@ -70,6 +81,7 @@
 #include "InventoryModel.h"
 #include "Oracle.h"
 #include "PacketSequence.h"
+#include "PrologueSupport.h"
 #include "ScenarioDatabase.h"
 #include "ScenarioServers.h"
 #include "decoders/CombatDecoders.h"
@@ -133,16 +145,19 @@ constexpr int32_t Q2103 = 2103;
 constexpr int32_t Q1205 = 1205;
 
 /**
- * The Java quest handlers the C++ registry holds (phase 6 slice 1, p6q-ascension-route.md §1; `AION_QUEST_HANDLER` in
- * game-server/handlers/aion/gameserver/handlers/quest/{poeta,ishalgen,ascension}): Q05 1001-1005, 1107, 1111, 1114, 1122, 1123, 1205; Q09
- * 2001-2007, 2106, 2114, 2122, 2123, 2125, 2132, 2135, 2136; Q06 1006, 1007, 1913-1916, 19070, 19071, 2008, 2009, 2901-2904, 29070, 29071.
- * The oracle's `withJava` sets model Java's whole registry (1,035 handlers); the gate's expectation keeps an id of it that is not an XML
- * quest only when it is here. A new phase-6 chunk whose handler starts on a start map at level 1 changes Y1 or Y13, and the failure names
- * the id: add it here with the chunk.
+ * The Java quest handlers of the start maps' zones and ascension/ the C++ registry holds (phase 6 slice 1, p6q-ascension-route.md §1, and
+ * P6-Q prologue, §9; `AION_QUEST_HANDLER` in game-server/handlers/aion/gameserver/handlers/quest/{poeta,ishalgen,ascension}): Q05 1000,
+ * 1001-1005, 1100, 1107, 1111, 1114, 1122, 1123, 1205; Q09 2000, 2001-2007, 2100, 2106, 2114, 2122, 2123, 2125, 2132, 2135, 2136; Q06 1006,
+ * 1007, 1913-1916, 19070, 19071, 2008, 2009, 2901-2904, 29070, 29071. The oracle's `withJava` sets model Java's whole registry (1,035
+ * handlers); the gate's expectation keeps an id of it that is not an XML quest only when it is here. P6-Q slice 2's 132 handlers (verteron,
+ * heiron, altgard, pandaemonium; §8) are registered too and not listed: the filter reads only the ids of a start map's `withJava` set, and
+ * m5d-quests puts none of theirs in either (2026-09-29: Poeta at level 1 is the XML set and 1111, Ishalgen the XML set). A new phase-6 chunk
+ * whose handler starts on a start map at level 1 changes Y1 or Y13, and the failure names the id: add it here with the chunk.
  */
-constexpr std::array<int32_t, 42> REGISTERED_JAVA_QUESTS{1001, 1002, 1003, 1004, 1005, 1107, 1111, 1114, 1122, 1123, 1205, 2001, 2002, 2003,
-                                                         2004, 2005, 2006, 2007, 2106, 2114, 2122, 2123, 2125, 2132, 2135, 2136, 1006, 1007,
-                                                         1913, 1914, 1915, 1916, 19070, 19071, 2008, 2009, 2901, 2902, 2903, 2904, 29070, 29071};
+constexpr std::array<int32_t, 46> REGISTERED_JAVA_QUESTS{1000, 1001, 1002, 1003, 1004, 1005, 1100, 1107, 1111, 1114, 1122, 1123, 1205, 2000,
+                                                         2001, 2002, 2003, 2004, 2005, 2006, 2007, 2100, 2106, 2114, 2122, 2123, 2125, 2132,
+                                                         2135, 2136, 1006, 1007, 1913, 1914, 1915, 1916, 19070, 19071, 2008, 2009, 2901, 2902,
+                                                         2903, 2904, 29070, 29071};
 
 /** DialogAction ids (model/DialogAction.java:38, 46, 123; the two 1000s ids are QUEST_ACCEPT_1 and SELECT_QUEST_REWARD) */
 constexpr uint16_t SELECTED_QUEST_NOREWARD = 23;
@@ -166,6 +181,7 @@ constexpr int32_t STR_GET_EXP = 1370000;
 constexpr uint16_t ACTION_ANIMATION_LEVEL_UP = 0;
 
 /** QuestStatus.value() of the player_quests enum (QuestStatus.java:11-14): the `status` column stores the name */
+constexpr std::string_view DB_LOCKED = "LOCKED";
 constexpr std::string_view DB_START = "START";
 constexpr std::string_view DB_REWARD = "REWARD";
 constexpr std::string_view DB_COMPLETE = "COMPLETE";
@@ -657,12 +673,13 @@ void expectSequence(const std::vector<Packet>& packets, std::string_view pattern
 /**
  * The CM_ENTER_WORLD part of m5a-plan.md §5.8, as M5b3ScenarioTest.cpp replays it (SM_INVENTORY_INFO and SM_WAREHOUSE_INFO as `+`). A
  * first enter carries the first-enter level change 0 -> 1 in front (PlayerEnterWorldService.java:204 -> PlayerController.onLevelChange:
- * SM_STATS_INFO, SM_ACTION_ANIMATION LEVEL_UP, SM_NEARBY_QUESTS), which is the first SM_NEARBY_QUESTS Y1 reads.
+ * SM_STATS_INFO, SM_ACTION_ANIMATION LEVEL_UP, SM_NEARBY_QUESTS), which is the first SM_NEARBY_QUESTS Y1 reads - with the prologue's
+ * SM_QUEST_ACTION before it (P6-Q prologue, PrologueSupport.h: the start map's mission added LOCKED by that onLevelChanged)
  */
 std::string enterWorldPattern(bool firstEnter) {
 	std::string pattern;
 	if (firstEnter)
-		pattern += "SM_STATS_INFO, SM_ACTION_ANIMATION, SM_NEARBY_QUESTS, ";
+		pattern += PROLOGUE_FIRST_ENTER_LEVEL_CHANGE;
 	pattern += "SM_HOUSE_SCRIPTS, SM_UNK_3_5_1, SM_ENTER_WORLD_CHECK, ";
 	pattern += "SM_SKILL_LIST+, [SM_SKILL_COOLDOWN], [SM_ITEM_COOLDOWN], ";
 	pattern += "SM_QUEST_COMPLETED_LIST+, SM_QUEST_LIST, SM_TITLE_INFO{2}, SM_MOTION, ";
@@ -678,14 +695,19 @@ std::string enterWorldPattern(bool firstEnter) {
 	return pattern;
 }
 
-/** The CM_LEVEL_READY part of m5a-plan.md §5.8 (#33 to #44); its SM_NEARBY_QUESTS is the second one Y1 reads (CM_LEVEL_READY.cpp:108) */
+/**
+ * The CM_LEVEL_READY part of m5a-plan.md §5.8 (#33 to #44); its SM_NEARBY_QUESTS is the second one Y1 reads (CM_LEVEL_READY.cpp:108). It is
+ * asserted for a first enter world only (levelReady), which since P6-Q prologue starts the prologue quest and plays its movie after the
+ * weather: QuestEngine.onEnterWorld runs there (CM_LEVEL_READY.java:91-93; PrologueSupport.h). The async set lets SM_WEATHER through
+ * anywhere, so this pattern does not order the prologue after it; endPrologue's expectPrologueStarted does (C1-C3, C16a)
+ */
 std::string levelReadyPattern() {
-	return "SM_PLAYER_INFO, SM_PLAYER_STATE, SM_ACCOUNT_PROPERTIES, SM_MOTION, "
-	       "SM_WINDSTREAM_ANNOUNCE*, "
-	       "(SM_NPC_INFO | SM_GATHERABLE_INFO)+, "
-	       "SM_RIFT_ANNOUNCE, "
-	       "SM_NEARBY_QUESTS, [SM_QUEST_REPEAT], [SM_WEATHER], "
-	       "SM_ABNORMAL_STATE, SM_CUBE_UPDATE";
+	return std::string("SM_PLAYER_INFO, SM_PLAYER_STATE, SM_ACCOUNT_PROPERTIES, SM_MOTION, "
+	                   "SM_WINDSTREAM_ANNOUNCE*, "
+	                   "(SM_NPC_INFO | SM_GATHERABLE_INFO)+, "
+	                   "SM_RIFT_ANNOUNCE, "
+	                   "SM_NEARBY_QUESTS, [SM_QUEST_REPEAT], [SM_WEATHER], ") +
+	       std::string(PROLOGUE_LEVEL_READY) + "SM_ABNORMAL_STATE, SM_CUBE_UPDATE";
 }
 
 // ---- the oracle answers this gate reads (tools/oracle/m5d/quests.py, m5a/spawns.py, m5b/monster.py) ----------------------------------------
@@ -895,8 +917,9 @@ struct ScenarioClient {
 	/** the npc labels of the SM_DIALOG_WINDOW tokens: object id -> "elpas" ... */
 	std::map<int32_t, std::string> labels;
 	/**
-	 * Every exp the character gained, in order, as STR_GET_EXP carried it (quest rewards and kills) - the "exp events recorded so far" the
-	 * oracle places the level-up with (§10.2 C0). expScanned is how far into this session's recording they were read.
+	 * Every exp the character gained, in order, as STR_GET_EXP carried it (quest rewards and kills) or STR_GET_EXP2 (an exp with no npc name:
+	 * on this path the prologue's movie end, P6-Q prologue) - the "exp events recorded so far" the oracle places the level-up with (§10.2 C0).
+	 * expScanned is how far into this session's recording they were read.
 	 */
 	std::vector<int64_t> expEvents;
 	size_t expScanned = 0;
@@ -915,7 +938,7 @@ struct ScenarioClient {
 				count += item.count;
 		return count;
 	}
-	/** reads the STR_GET_EXP of this session's recording that were not read yet into expEvents */
+	/** reads the STR_GET_EXP and STR_GET_EXP2 of this session's recording that were not read yet into expEvents */
 	void scanExp() {
 		if (!game)
 			return;
@@ -927,6 +950,9 @@ struct ScenarioClient {
 				const SystemMessage message = decodeSystemMessage(packets[expScanned].data);
 				if (message.messageId == STR_GET_EXP && message.params.size() >= 2)
 					expEvents.push_back(std::stoll(message.params[1]));
+				// STR_GET_EXP2(num0) (SM_SYSTEM_MESSAGE.java:16363-16365): PlayerCommonData.addExp with no npc name, the exp as params[0]
+				else if (message.messageId == decoders::PROLOGUE_EXP_MESSAGE && !message.params.empty())
+					expEvents.push_back(std::stoll(message.params[0]));
 			} catch (const std::exception&) {
 				// a message that does not decode is not an exp event; the row that reads it fails on its own
 			}
@@ -1814,6 +1840,11 @@ void runM5dGate(const GateVariant& variant) {
 		a.playerId = created.player->playerId;
 		enterWorld(a, true);
 		levelReady(a, true);
+		// P6-Q prologue: quest 1000 started with movie 1, which the client ends before C5's walk (CM_MOVE is dropped while it plays); the
+		// answer's 1 exp (STR_GET_EXP2) is the first of the exp ledger
+		endPrologue(*a.game, a.lastLevelReady, decoders::ELYOS_PROLOGUE, 0, a.async, [&] { return collectBurst(*a.game, a.async); },
+			"C3 the prologue (1000)");
+		a.model.sync();
 		EXPECT_EQ(a.kinah(), starterCount(elyos, KINAH_ITEM)) << "m5a-creation's starter kinah (the Y12 ledger starts here)";
 		elpasObject = npcAt(a, elpasSpot, "elpas");
 		miresObject = npcAt(a, miresSpot, "mires");
@@ -1834,9 +1865,9 @@ void runM5dGate(const GateVariant& variant) {
 		later.insert(later.end(), readyNearby.begin() + 1, readyNearby.end());
 		for (const Packet& packet : later)
 			expectNearbySet(decoders::decodeNearbyQuests(packet.data), poetaNearby, "Y1 (a later one)");
-		// no quest was started at the first enter world: the Java handlers of the map's level-1 hooks start nothing (header comment)
-		const QuestEvents enterEvents = eventsOf(a, a.lastEnterWorld, "Y1");
-		EXPECT_TRUE(enterEvents.actions.empty()) << "Y1: the first enter world sent SM_QUEST_ACTION: " << enterEvents.describe();
+		// no quest was started at the first enter world: its only SM_QUEST_ACTION is the mission 1100 added LOCKED, which SM_QUEST_LIST holds
+		// alone (P6-Q prologue: _1100KaliosCall.java:64-67 at onLevelChange(0, 1); no other Java handler of the map's level-1 hooks acts)
+		expectPrologueMissionLocked(a.lastEnterWorld, decoders::ELYOS_PROLOGUE, "Y1");
 	});
 
 	// ---- C5 / Y2: talk to elpas ----
@@ -1907,7 +1938,8 @@ void runM5dGate(const GateVariant& variant) {
 		                                                   windowToken("mires", quest1101.followUpWindow->page, quest1101.followUpWindow->questId)}))
 		  << "Y6: (23, 1101) answered " << reward.describe() << "; the oracle pays " << quest1101.kinah << " kinah and " << quest1101.exp << " exp";
 		if (!reward.exps.empty())
-			EXPECT_EQ(reward.exps.front().currentExp, quest1101.exp) << "Y6: the exp shown after the reward (level 1 starts at 0)";
+			EXPECT_EQ(reward.exps.front().currentExp, decoders::PROLOGUE_EXP + quest1101.exp)
+			  << "Y6: the exp shown after the reward (level 1 starts at 0; quest 1000's reward at the prologue's movie end, P6-Q prologue)";
 		if (!reward.nearby.empty()) {
 			EXPECT_TRUE(reward.nearby.front().contains(Q1102)) << "Y6: the SM_NEARBY_QUESTS after 1101's reward does not offer 1102";
 			EXPECT_FALSE(reward.nearby.front().contains(Q1101)) << "Y6: 1101 is still offered after its reward";
@@ -1962,17 +1994,24 @@ void runM5dGate(const GateVariant& variant) {
 	runCase("C11", "relog mid-quest: player_quests and the enter-world quest lists (Y9)", [&] {
 		disconnect(a);
 		const std::vector<QuestRow> rows = questRows(database, schema, a.playerId);
-		EXPECT_EQ(rows, (std::vector<QuestRow>{{Q1101, std::string(DB_COMPLETE), 0, 1}, {Q1102, std::string(DB_START), 1, 0}}))
+		// P6-Q prologue: 1000 finished at the movie's end (_1000Prologue.java:38-48), 1100 LOCKED since the first enter world
+		EXPECT_EQ(rows, (std::vector<QuestRow>{{decoders::ELYOS_PROLOGUE.quest, std::string(DB_COMPLETE), 0, 1},
+		                                        {decoders::ELYOS_PROLOGUE.mission, std::string(DB_LOCKED), 0, 0},
+		                                        {Q1101, std::string(DB_COMPLETE), 0, 1}, {Q1102, std::string(DB_START), 1, 0}}))
 		  << "Y9: player_quests holds " << describe(rows);
 		const auto [list, burst] = relogIn(servers, a);
 		EXPECT_EQ(list.characterCount, 1);
 		const EnterWorldQuests quests = enterWorldQuests(burst, "Y9");
 		ASSERT_TRUE(quests.list) << "Y9: no SM_QUEST_LIST after re-entry";
-		EXPECT_EQ(quests.list->quests, (std::vector<decoders::QuestEntry>{{Q1102, decoders::QUEST_STATUS_START, 1, 0}}))
+		// the quest id order of QuestStateList's TreeMap (QuestStateList.java:21); 1000's repeat flag is 1 as 1101's: max_repeat_count 1,
+		// completed once (SM_QUEST_COMPLETED_LIST.java:37, QuestState.canRepeat)
+		EXPECT_EQ(quests.list->quests, (std::vector<decoders::QuestEntry>{{decoders::ELYOS_PROLOGUE.mission, decoders::QUEST_STATUS_LOCKED, 0, 0},
+		                                                                   {Q1102, decoders::QUEST_STATUS_START, 1, 0}}))
 		  << "Y9: SM_QUEST_LIST " << describe(*quests.list);
 		decoders::QuestCompletedList completed;
 		completed.quests = quests.completed;
-		EXPECT_EQ(quests.completed, (std::vector<decoders::QuestCompletedEntry>{{Q1101, 1, 1}})) << "Y9: SM_QUEST_COMPLETED_LIST " << describe(completed);
+		EXPECT_EQ(quests.completed, (std::vector<decoders::QuestCompletedEntry>{{decoders::ELYOS_PROLOGUE.quest, 1, 1}, {Q1101, 1, 1}}))
+		  << "Y9: SM_QUEST_COMPLETED_LIST " << describe(completed);
 		elpasObject = npcAt(a, elpasSpot, "elpas");
 		miresObject = npcAt(a, miresSpot, "mires");
 	});
@@ -2054,18 +2093,21 @@ void runM5dGate(const GateVariant& variant) {
 	runCase("C15", "relog: player_quests, the quest lists, the kinah, elpas's page 1011 (Y12)", [&] {
 		disconnect(a);
 		const std::vector<QuestRow> rows = questRows(database, schema, a.playerId);
-		EXPECT_EQ(rows, (std::vector<QuestRow>{{Q1101, std::string(DB_COMPLETE), 0, 1}, {Q1102, std::string(DB_COMPLETE), 0, 1},
+		EXPECT_EQ(rows, (std::vector<QuestRow>{{decoders::ELYOS_PROLOGUE.quest, std::string(DB_COMPLETE), 0, 1},
+		                                        {decoders::ELYOS_PROLOGUE.mission, std::string(DB_LOCKED), 0, 0},
+		                                        {Q1101, std::string(DB_COMPLETE), 0, 1}, {Q1102, std::string(DB_COMPLETE), 0, 1},
 		                                        {Q1205, std::string(DB_REWARD), 1, 0}}))
-		  << "Y12: player_quests holds " << describe(rows) << " (1103 deleted, 1205 started by the level-up)";
+		  << "Y12: player_quests holds " << describe(rows) << " (1103 deleted, 1205 started by the level-up; 1000 and 1100 the prologue's)";
 		const auto [list, burst] = relogIn(servers, a);
 		const EnterWorldQuests quests = enterWorldQuests(burst, "Y12");
 		ASSERT_TRUE(quests.list);
-		EXPECT_EQ(quests.list->quests, (std::vector<decoders::QuestEntry>{{Q1205, decoders::QUEST_STATUS_REWARD, 1, 0}}))
-		  << "Y12: SM_QUEST_LIST " << describe(*quests.list) << " (no 1103; 1205 waits in REWARD)";
+		EXPECT_EQ(quests.list->quests, (std::vector<decoders::QuestEntry>{{decoders::ELYOS_PROLOGUE.mission, decoders::QUEST_STATUS_LOCKED, 0, 0},
+		                                                                   {Q1205, decoders::QUEST_STATUS_REWARD, 1, 0}}))
+		  << "Y12: SM_QUEST_LIST " << describe(*quests.list) << " (no 1103; 1205 waits in REWARD; 1100 stays LOCKED below its minlevel 3)";
 		std::set<int32_t> completedIds;
 		for (const decoders::QuestCompletedEntry& entry : quests.completed)
 			completedIds.insert(entry.questId);
-		EXPECT_EQ(completedIds, (std::set<int32_t>{Q1101, Q1102})) << "Y12: SM_QUEST_COMPLETED_LIST";
+		EXPECT_EQ(completedIds, (std::set<int32_t>{decoders::ELYOS_PROLOGUE.quest, Q1101, Q1102})) << "Y12: SM_QUEST_COMPLETED_LIST";
 		const int64_t kinah = enterWorldCount(burst, KINAH_ITEM, "Y12");
 		const QuestAnswer plan1102 = parseQuest(questOracle({"m5d-quest", "--quest", std::to_string(Q1102), "--completed", std::to_string(Q1101)}));
 		EXPECT_EQ(kinah, starterCount(elyos, KINAH_ITEM) + quest1101.kinah + plan1102.kinah)
@@ -2102,6 +2144,10 @@ void runM5dGate(const GateVariant& variant) {
 		b.playerId = created.player->playerId;
 		enterWorld(b, true);
 		levelReady(b, true);
+		// P6-Q prologue: quest 2000 started with movie 2, which the client ends before C16b's walk (CM_MOVE is dropped while it plays)
+		endPrologue(*b.game, b.lastLevelReady, decoders::ASMODIAN_PROLOGUE, 0, b.async, [&] { return collectBurst(*b.game, b.async); },
+			"C16a the prologue (2000)");
+		b.model.sync();
 		const std::vector<Packet> enterNearby = ofName(b.lastEnterWorld, "SM_NEARBY_QUESTS");
 		const std::vector<Packet> readyNearby = ofName(b.lastLevelReady, "SM_NEARBY_QUESTS");
 		ASSERT_GE(enterNearby.size(), 1u);
@@ -2115,10 +2161,9 @@ void runM5dGate(const GateVariant& variant) {
 		later.insert(later.end(), readyNearby.begin() + 1, readyNearby.end());
 		for (const Packet& packet : later)
 			expectNearbySet(decoders::decodeNearbyQuests(packet.data), ishalgenNearby, "Y13 (a later one)");
-		// and no quest was started at the first enter world (2000 and 2100 are held back, and no registered handler of Ishalgen
-		// starts anything at level 1: the header comment)
-		const QuestEvents enterEvents = eventsOf(b, b.lastEnterWorld, "Y13");
-		EXPECT_TRUE(enterEvents.actions.empty()) << "Y13: the first enter world sent SM_QUEST_ACTION: " << enterEvents.describe();
+		// and no quest was started at the first enter world: its only SM_QUEST_ACTION is the mission 2100 added LOCKED, which SM_QUEST_LIST
+		// holds alone (P6-Q prologue: _2100OrderoftheCaptain.java:62-65; no other registered handler of Ishalgen acts at level 1)
+		expectPrologueMissionLocked(b.lastEnterWorld, decoders::ASMODIAN_PROLOGUE, "Y13");
 		asakObject = npcAt(b, asakSpot, "asak");
 		vandarObject = npcAt(b, vandarSpot, "vandar");
 		EXPECT_EQ(b.countOf(BANDAGE), starterCount(asmodian, BANDAGE))
@@ -2223,7 +2268,10 @@ void runM5dGate(const GateVariant& variant) {
 	runCase("C16e", "account B relogs: the bandages and the kinah were saved (Y13)", [&] {
 		disconnect(b);
 		const std::vector<QuestRow> rows = questRows(database, schema, b.playerId);
-		EXPECT_EQ(rows, (std::vector<QuestRow>{{Q2101, std::string(DB_COMPLETE), 0, 1}, {Q2102, std::string(DB_COMPLETE), 0, 1}}))
+		// P6-Q prologue: 2000 finished at the movie's end (_2000Prologue.java:38-48), 2100 LOCKED since the first enter world
+		EXPECT_EQ(rows, (std::vector<QuestRow>{{decoders::ASMODIAN_PROLOGUE.quest, std::string(DB_COMPLETE), 0, 1},
+		                                        {decoders::ASMODIAN_PROLOGUE.mission, std::string(DB_LOCKED), 0, 0},
+		                                        {Q2101, std::string(DB_COMPLETE), 0, 1}, {Q2102, std::string(DB_COMPLETE), 0, 1}}))
 		  << "Y13: player_quests holds " << describe(rows);
 		const auto [list, burst] = relogIn(servers, b);
 		EXPECT_EQ(enterWorldCount(burst, BANDAGE, "Y13"), starterCount(asmodian, BANDAGE) + quest2102Plan.items.front().second)
@@ -2232,11 +2280,13 @@ void runM5dGate(const GateVariant& variant) {
 		  << "Y13: SM_INVENTORY_INFO's kinah (m5a-creation's starter + 2101's + 2102's)";
 		const EnterWorldQuests quests = enterWorldQuests(burst, "Y13");
 		ASSERT_TRUE(quests.list);
-		EXPECT_TRUE(quests.list->quests.empty()) << "Y13: SM_QUEST_LIST " << describe(*quests.list);
+		// P6-Q prologue: 2100 LOCKED is the one quest that is not COMPLETE (PlayerEnterWorldService.java:238)
+		EXPECT_EQ(quests.list->quests, (std::vector<decoders::QuestEntry>{{decoders::ASMODIAN_PROLOGUE.mission, decoders::QUEST_STATUS_LOCKED, 0, 0}}))
+		  << "Y13: SM_QUEST_LIST " << describe(*quests.list);
 		std::set<int32_t> completedIds;
 		for (const decoders::QuestCompletedEntry& entry : quests.completed)
 			completedIds.insert(entry.questId);
-		EXPECT_EQ(completedIds, (std::set<int32_t>{Q2101, Q2102})) << "Y13: SM_QUEST_COMPLETED_LIST";
+		EXPECT_EQ(completedIds, (std::set<int32_t>{decoders::ASMODIAN_PROLOGUE.quest, Q2101, Q2102})) << "Y13: SM_QUEST_COMPLETED_LIST";
 	});
 	cases.run("C16f", "account B disconnects", [&] { disconnect(b); });
 

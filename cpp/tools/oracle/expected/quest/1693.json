@@ -1,0 +1,60 @@
+{
+ "format": "aion-quest-trace",
+ "version": 1,
+ "questId": 1693,
+ "java": "heiron/_1693AreYouMyFather.java",
+ "class": "_1693AreYouMyFather",
+ "javaSha256": "8f2245fa1afb21ea6ea4e441ef3e408bb8218389c4884feb4c3cc1183fffda91",
+ "register": [
+  {"npc": 798386, "event": "addOnQuestStart", "args": [1693]},
+  {"npc": 798386, "event": "addOnTalkEvent", "args": [1693]},
+  {"npc": 204514, "event": "addOnTalkEvent", "args": [1693]},
+  {"npc": 798388, "event": "addOnTalkEvent", "args": [1693]},
+  {"npc": 203893, "event": "addOnTalkEvent", "args": [1693]},
+  {"call": "registerOnLogOut", "args": [1693]},
+  {"call": "registerOnEnterWorld", "args": [1693]},
+  {"call": "registerAddOnReachTargetEvent", "args": [1693]},
+  {"call": "registerAddOnLostTargetEvent", "args": [1693]}
+ ],
+ "hooks": [
+  {"hook": "onDialogEvent", "line": 37, "unsupported": "call TeleportService.teleportTo"},
+  {"hook": "onEnterWorldEvent", "line": 103, "unsupported": "call spawnForFiveMinutesInFrontOf"},
+  {"hook": "onLogOutEvent", "line": 116, "cases": 4},
+  {"hook": "onNpcReachTargetEvent", "line": 129, "unsupported": "call defaultFollowEndEvent"},
+  {"hook": "onNpcLostTargetEvent", "line": 134, "unsupported": "call defaultFollowEndEvent"}
+ ],
+ "cases": [
+  {
+   "id": "onLogOutEvent#1",
+   "hook": "onLogOutEvent",
+   "given": {"questState": {"status": "START", "vars": {"0": 2}}},
+   "guards": ["qs != null -> true @119", "qs.getStatus() == QuestStatus.START -> true @119", "var == 2 -> true @121"],
+   "effects": [{"call": "changeQuestStep", "kind": "var", "args": [2, 0], "line": 122}],
+   "returns": false
+  },
+  {
+   "id": "onLogOutEvent#2",
+   "hook": "onLogOutEvent",
+   "given": {"questState": {"status": "START", "vars": {"0": 0}}},
+   "guards": ["qs != null -> true @119", "qs.getStatus() == QuestStatus.START -> true @119", "var == 2 -> false @121"],
+   "effects": [],
+   "returns": false
+  },
+  {
+   "id": "onLogOutEvent#3",
+   "hook": "onLogOutEvent",
+   "given": {"questState": {"status": "REWARD"}},
+   "guards": ["qs != null -> true @119", "qs.getStatus() == QuestStatus.START -> false @119"],
+   "effects": [],
+   "returns": false
+  },
+  {
+   "id": "onLogOutEvent#4",
+   "hook": "onLogOutEvent",
+   "given": {"questState": null},
+   "guards": ["qs != null -> false @119"],
+   "effects": [],
+   "returns": false
+  }
+ ]
+}

@@ -1,0 +1,18 @@
+{
+ "format": "aion-quest-trace",
+ "version": 1,
+ "questId": 1647,
+ "java": "heiron/_1647DressingUpForBollvig.java",
+ "class": "_1647DressingUpForBollvig",
+ "javaSha256": "7927b3974ba6bc12073bd09203f11c5ae7769cf973971bbc43a4e24b7265f957",
+ "register": [
+  {"npc": 790019, "event": "addOnQuestStart", "args": [1647]},
+  {"npc": 790019, "event": "addOnTalkEvent", "args": [1647]},
+  {"npc": 700272, "event": "addOnTalkEvent", "args": [1647]}
+ ],
+ "hooks": [
+  {"hook": "onDialogEvent", "line": 28, "unsupported": "call player.getEquipment()"},
+  {"hook": "onMovieEndEvent", "line": 73, "unsupported": "call spawnForFiveMinutesInFrontOf"}
+ ],
+ "cases": []
+}

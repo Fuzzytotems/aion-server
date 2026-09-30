@@ -32,6 +32,7 @@
    "given": {"dialogAction": {"name": "USE_OBJECT", "id": -1}, "target": {"kind": "none"}, "questState": {"status": "START", "vars": {"0": 0}}},
    "guards": ["qs == null -> false @33", "qs.getStatus() == QuestStatus.START -> true @39"],
    "free": ["questState.vars.0"],
+   "dialogExcludes": [],
    "effects": [],
    "returns": false
   },
@@ -41,6 +42,7 @@
    "given": {"dialogAction": {"name": "USE_OBJECT", "id": -1}, "target": {"kind": "none"}, "questState": {"status": "REWARD", "vars": {"0": 0}}},
    "guards": ["qs == null -> false @33", "qs.getStatus() == QuestStatus.START -> false @39", "qs.getStatus() == QuestStatus.REWARD -> true @63"],
    "free": ["questState.vars.0"],
+   "dialogExcludes": [],
    "effects": [],
    "returns": false
   },
@@ -50,6 +52,7 @@
    "given": {"dialogAction": {"name": "USE_OBJECT", "id": -1}, "target": {"kind": "none"}, "questState": {"status": "COMPLETE", "vars": {"0": 0}}},
    "guards": ["qs == null -> false @33", "qs.getStatus() == QuestStatus.START -> false @39", "qs.getStatus() == QuestStatus.REWARD -> false @63"],
    "free": ["questState.vars.0"],
+   "dialogExcludes": [],
    "effects": [],
    "returns": false
   },
@@ -178,6 +181,7 @@
     "dialogActionId not in [QUEST_SELECT, SETPRO1, CHECK_USER_HAS_QUEST_ITEM, FINISH_DIALOG] -> true @42"
    ],
    "free": ["questState.vars.0"],
+   "dialogExcludes": [31, 39, 1008, 10000],
    "effects": [],
    "returns": false
   },
@@ -190,6 +194,7 @@
     "questState": {"status": "START", "vars": {"0": 1}}
    },
    "guards": ["qs == null -> false @33", "qs.getStatus() == QuestStatus.START -> true @39", "targetId == 700095 -> true @40", "var == 1 -> true @59"],
+   "dialogExcludes": [],
    "effects": [],
    "returns": true
   },
@@ -202,6 +207,7 @@
     "questState": {"status": "START", "vars": {"0": 0}}
    },
    "guards": ["qs == null -> false @33", "qs.getStatus() == QuestStatus.START -> true @39", "targetId == 700095 -> true @40", "var == 1 -> false @59"],
+   "dialogExcludes": [],
    "effects": [],
    "returns": false
   },
@@ -215,6 +221,7 @@
    },
    "guards": ["qs == null -> false @33", "qs.getStatus() == QuestStatus.START -> true @39", "targetId not in [203540, 700095] -> true @40"],
    "free": ["questState.vars.0"],
+   "dialogExcludes": [],
    "effects": [],
    "returns": false
   },
@@ -253,6 +260,7 @@
     "dialogActionId == USE_OBJECT -> false @65"
    ],
    "free": ["questState.vars.0"],
+   "dialogExcludes": [-1],
    "effects": [{"call": "sendQuestEndDialog", "kind": "dialog", "args": [], "line": 68}],
    "returns": {"resultOf": 0}
   },
@@ -271,6 +279,7 @@
     "targetId == 203516 -> false @64"
    ],
    "free": ["questState.vars.0"],
+   "dialogExcludes": [],
    "effects": [],
    "returns": false
   },
@@ -284,6 +293,7 @@
    },
    "guards": ["qs == null -> false @33", "qs.getStatus() == QuestStatus.START -> false @39", "qs.getStatus() == QuestStatus.REWARD -> false @63"],
    "free": ["questState.vars.0"],
+   "dialogExcludes": [],
    "effects": [],
    "returns": false
   },

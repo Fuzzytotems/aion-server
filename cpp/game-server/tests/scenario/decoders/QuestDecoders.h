@@ -3,11 +3,13 @@
 // The quest packets the M5d gate reads (m5d-plan.md §3.9, G-02; the §10.3 rows Y1, Y3, Y5-Y13): SM_QUEST_ACTION in all six of its action
 // types, SM_NEARBY_QUESTS (the quest markers) and SM_STATUPDATE_EXP, which the M5b gate (R1 (b)) and the M5c gate (X15, X19) had each
 // decoded in a file-local copy and which now lives here, once. SM_QUEST_LIST and SM_QUEST_COMPLETED_LIST are M5a's (PacketDecoders.h), the
-// dialog window M5c's (EconomyDecoders.h: decodeDialogWindow), and the item packets of a reward M5b-3's (ItemDecoders.h).
+// dialog window M5c's (EconomyDecoders.h: decodeDialogWindow), and the item packets of a reward M5b-3's (ItemDecoders.h). Since P6-Q prologue
+// also SM_PLAY_MOVIE and the Java constants of a new character's prologue quests (decoders::Prologue), which every gate that creates one reads.
 //
 // **m5a-plan.md D9:** every layout is written from the Java `writeImpl` under game-server/src/com/aionemu/gameserver/network/aion/serverpackets/
-// (SM_QUEST_ACTION.java, SM_NEARBY_QUESTS.java, SM_STATUPDATE_EXP.java), the status bytes from questEngine/model/QuestStatus.java and the
-// quest id range from data/static_data/quest_data/quest_data.xml. Nothing here includes, calls or mirrors a C++ serverpackets header.
+// (SM_QUEST_ACTION.java, SM_NEARBY_QUESTS.java, SM_STATUPDATE_EXP.java, SM_PLAY_MOVIE.java), the status bytes from
+// questEngine/model/QuestStatus.java and the quest id range from data/static_data/quest_data/quest_data.xml. Nothing here includes, calls or
+// mirrors a C++ serverpackets header.
 //
 // Every decode function consumes the body exactly and throws DecodeError otherwise; the Java constants that carry no data are verified.
 
@@ -149,5 +151,64 @@ struct StatUpdateExp {
 };
 
 StatUpdateExp decodeStatUpdateExp(std::span<const uint8_t> body);
+
+// ---- SM_PLAY_MOVIE (P6-Q prologue) ------------------------------------------------------------------------------------------------------
+
+/**
+ * SM_PLAY_MOVIE (SM_PLAY_MOVIE.java:27-35): writeC(isCutsceneMovie ? 1 : 0), writeD(objectId), writeD(questId), writeD(cutsceneId), writeC(0),
+ * writeC(canSkip ? 0 : 1), a 15-byte body. The decoder rejects a first or last byte other than 0 and 1 and an unknown byte other than 0.
+ * AionClientPacketFactory's answer is CM_PLAY_MOVIE_END (GameSession::buildCM_PLAY_MOVIE_END), with the same type, object, quest and movie.
+ */
+struct PlayMovie {
+	/** the first byte: 1 for a CutSceneMovie, 0 for a CutScene (:29) */
+	bool cutsceneMovie = false;
+	int32_t objectId = 0;
+	int32_t questId = 0;
+	int32_t movieId = 0;
+	/** the last byte is 0 (:34) */
+	bool canSkip = false;
+
+	bool operator==(const PlayMovie&) const = default;
+};
+
+PlayMovie decodePlayMovie(std::span<const uint8_t> body);
+
+// ---- the prologue of a new character (P6-Q prologue, owner answers 3 and 4 of 2026-09-29) ------------------------------------------------
+
+/**
+ * The quests of a new character's first enter world in its start map (Poeta 210010000 / Ishalgen 220010000), from their Java handlers:
+ *
+ * - CM_ENTER_WORLD: PlayerEnterWorldService.java:204 calls PlayerController.onLevelChange(0, 1), which runs QuestEngine.onLevelChanged and
+ *   then updateNearbyQuests (PlayerController.java: onLevelChange). _1100KaliosCall.java:64-67 / _2100OrderoftheCaptain.java:62-65 call
+ *   defaultOnLevelChangedEvent in their start map; the mission's minlevel_permitted is 3, a level-1 character is within its two levels
+ *   (AbstractQuestHandler.java:995-998), so it is added LOCKED (:1026-1030, QuestService.addOrUpdateQuest: SM_QUEST_ACTION ADD) before
+ *   SM_NEARBY_QUESTS, and SM_QUEST_LIST then holds it (PlayerEnterWorldService.java:238: every quest that is not COMPLETE). At level 3 the
+ *   same hook sets it START (:1033-1034).
+ * - CM_LEVEL_READY: QuestEngine.onEnterWorld (CM_LEVEL_READY.java:93) runs _1000Prologue.java:26-36 / _2000Prologue.java:26-36:
+ *   QuestService.startQuest (SM_QUEST_ACTION ADD START, then SM_NEARBY_QUESTS: QuestService.java:441-442) and playQuestMovie(env, 1 / 2, true),
+ *   SM_PLAY_MOVIE of a skippable CutSceneMovie with no target (AbstractQuestHandler.java:665-667).
+ * - CM_PLAY_MOVIE_END: onMovieEndEvent (_1000Prologue.java:38-48) sets REWARD and QuestService.finishQuest (QuestService.java:77-118) pays
+ *   reward group 0 of quest_data.xml's `<rewards exp="1"/>` (PlayerCommonData.addExp: SM_STATUPDATE_EXP, SM_SYSTEM_MESSAGE), then
+ *   SM_QUEST_ACTION UPDATE COMPLETE and SM_NEARBY_QUESTS.
+ */
+struct Prologue {
+	int32_t startMap = 0;
+	/** 1000 / 2000: started at the first CM_LEVEL_READY, finished at the end of its movie */
+	int32_t quest = 0;
+	/** 1 / 2 (_1000Prologue.java:31, _2000Prologue.java:31) */
+	int32_t movie = 0;
+	/** 1100 / 2100: LOCKED at the first CM_ENTER_WORLD of a character below level 3 in the start map */
+	int32_t mission = 0;
+};
+
+inline constexpr Prologue ELYOS_PROLOGUE{210010000, 1000, 1, 1100};
+inline constexpr Prologue ASMODIAN_PROLOGUE{220010000, 2000, 2, 2100};
+/** quest_data.xml 1000 and 2000: `<rewards exp="1"/>`, times gameserver.rates.xp.quest (config/main/rates.properties:59, 1.0 for membership 0) */
+inline constexpr int64_t PROLOGUE_EXP = 1;
+/**
+ * SM_SYSTEM_MESSAGE.STR_GET_EXP2 (SM_SYSTEM_MESSAGE.java:16363-16365, "You have gained %num1 XP."): the movie's end has no target, so
+ * QuestService.giveReward passes no npc name to PlayerCommonData.addExp, which then sends this variant (PlayerCommonData.java: addExp)
+ */
+inline constexpr int32_t PROLOGUE_EXP_MESSAGE = 1370002;
 
 } // namespace aion::gameserver::scenario::decoders

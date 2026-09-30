@@ -341,6 +341,10 @@ std::vector<uint8_t> GameSession::buildCM_DELETE_QUEST(int32_t questId) {
 	return PacketWriter().D(questId).data; // CM_DELETE_QUEST.java:24
 }
 
+std::vector<uint8_t> GameSession::buildCM_PLAY_MOVIE_END(uint8_t type, int32_t targetObjectId, int32_t questId, int32_t movieId) {
+	return PacketWriter().C(type).D(targetObjectId).D(questId).D(movieId).C(0).C(0).data; // CM_PLAY_MOVIE_END.java:34-39
+}
+
 namespace {
 
 /** the readUH count every M5c list packet starts with: more than 65535 entries cannot be written */

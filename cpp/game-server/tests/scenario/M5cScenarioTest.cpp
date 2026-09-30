@@ -58,6 +58,7 @@
 #include "GameSession.h"
 #include "InventoryModel.h"
 #include "Oracle.h"
+#include "PrologueSupport.h"
 #include "ScenarioDatabase.h"
 #include "ScenarioServers.h"
 #include "decoders/CombatDecoders.h"
@@ -755,6 +756,8 @@ struct ScenarioClient {
 	float x = 0, y = 0, z = 0;
 	/** the last enter-world burst */
 	std::vector<Packet> lastEnterWorld;
+	/** the last level-ready burst (P6-Q prologue: the first one starts quest 1000 and plays its movie) */
+	std::vector<Packet> lastLevelReady;
 
 	size_t mark() const { return game ? game->recorded().size() : 0; }
 	std::vector<Packet> since(size_t from) const { return game ? slice(*game, from) : std::vector<Packet>{}; }
@@ -861,6 +864,7 @@ std::vector<Packet> levelReady(ScenarioClient& client) {
 	if (burst.empty())
 		throw std::runtime_error(client.label + ": no packet after CM_LEVEL_READY");
 	client.model.sync();
+	client.lastLevelReady = burst;
 	return burst;
 }
 
@@ -1531,6 +1535,12 @@ void runM5cGate() {
 			EXPECT_TRUE(differences.empty()) << client->label << ": the enter-world SM_INVENTORY_INFO against m5a-creation (have/want): "
 			                                 << join(differences) << "; it lists " << client->model.describe();
 			EXPECT_TRUE(client->model.decodeFailures.empty()) << join(client->model.decodeFailures, "\n  ");
+			// P6-Q prologue: the first enter world of a new character in Poeta locks 1100 and the first level ready starts 1000 and plays its
+			// movie, which the client ends before C3's walk (CM_MOVE is dropped while it plays)
+			expectPrologueMissionLocked(burst, decoders::ELYOS_PROLOGUE, client->label + " C1 (P6-Q prologue)");
+			endPrologue(*client->game, client->lastLevelReady, decoders::ELYOS_PROLOGUE, 0, client->async,
+				[&] { return collectBurst(*client->game, client->async); }, client->label + " C1 the prologue (1000)");
+			client->model.sync();
 		}
 		a.drain();
 	});
@@ -2336,7 +2346,9 @@ void runM5cGate() {
 		// X15's persistence: the exp came back, nothing is recoverable any more
 		const auto aRow = database.queryRows(schema, "SELECT exp, recoverexp FROM players WHERE id = " + std::to_string(a.playerId), 2);
 		ASSERT_EQ(aRow.size(), 1u);
-		EXPECT_EQ(aRow[0][0].value_or(""), std::to_string(*economy.recovery->yesExpDelta)) << "X15: exp +1,000 over A's 0";
+		// P6-Q prologue: A holds quest 1000's reward from C1 (decoders::PROLOGUE_EXP) under the recovered exp
+		EXPECT_EQ(aRow[0][0].value_or(""), std::to_string(decoders::PROLOGUE_EXP + *economy.recovery->yesExpDelta))
+		  << "X15: exp +1,000 over A's prologue exp";
 		EXPECT_EQ(aRow[0][1].value_or(""), std::to_string(*economy.recovery->yesRecoverableExpAfter)) << "X15: players.recoverexp = 0";
 		ASSERT_NE(servers.gameServer(), nullptr);
 		std::vector<std::string> daoErrors;

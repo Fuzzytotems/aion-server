@@ -1,0 +1,77 @@
+{
+ "format": "aion-quest-trace",
+ "version": 1,
+ "questId": 14014,
+ "java": "verteron/_14014TurningTheIde.java",
+ "class": "_14014TurningTheIde",
+ "javaSha256": "bee720cb6d292f810970564d44e03047002e4a00d0bc55df6c54432c3e750bf7",
+ "register": [
+  {"call": "registerOnQuestCompleted", "args": [14014]},
+  {"call": "registerOnLevelChanged", "args": [14014]},
+  {"call": "registerQuestItem", "args": [182215314, 14014]},
+  {"npc": 203146, "event": "addOnTalkEvent", "args": [14014]},
+  {"npc": 203147, "event": "addOnTalkEvent", "args": [14014]},
+  {"npc": 802045, "event": "addOnTalkEvent", "args": [14014]},
+  {"npc": 203098, "event": "addOnTalkEvent", "args": [14014]},
+  {"npc": 210178, "event": "addOnKillEvent", "args": [14014]},
+  {"npc": 216892, "event": "addOnKillEvent", "args": [14014]}
+ ],
+ "hooks": [
+  {"hook": "onDialogEvent", "line": 40, "unsupported": "call ItemService.addItem"},
+  {"hook": "onKillEvent", "line": 104, "cases": 3},
+  {"hook": "onItemUseEvent", "line": 109, "unsupported": "call player.isInsideZone(ZoneName.get(\"TURSIN_OUTPOST_210030000\"))"},
+  {"hook": "onQuestCompletedEvent", "line": 121, "cases": 1},
+  {"hook": "onLevelChangedEvent", "line": 126, "cases": 1}
+ ],
+ "cases": [
+  {
+   "id": "onKillEvent#1",
+   "hook": "onKillEvent",
+   "given": {},
+   "guards": ["defaultOnKillEvent(env, mobs, 5, 7) -> true @105"],
+   "assume": [{"effect": 0, "returns": true}],
+   "effects": [{"call": "defaultOnKillEvent", "kind": "var", "args": [[210178, 216892], 5, 7], "line": 105}],
+   "returns": true
+  },
+  {
+   "id": "onKillEvent#2",
+   "hook": "onKillEvent",
+   "given": {},
+   "guards": ["defaultOnKillEvent(env, mobs, 5, 7) -> false @105", "defaultOnKillEvent(env, mobs, 7, true) -> true @105"],
+   "assume": [{"effect": 0, "returns": false}, {"effect": 1, "returns": true}],
+   "effects": [
+    {"call": "defaultOnKillEvent", "kind": "var", "args": [[210178, 216892], 5, 7], "line": 105},
+    {"call": "defaultOnKillEvent", "kind": "var", "args": [[210178, 216892], 7, true], "line": 105}
+   ],
+   "returns": true
+  },
+  {
+   "id": "onKillEvent#3",
+   "hook": "onKillEvent",
+   "given": {},
+   "guards": ["defaultOnKillEvent(env, mobs, 5, 7) -> false @105", "defaultOnKillEvent(env, mobs, 7, true) -> false @105"],
+   "assume": [{"effect": 0, "returns": false}, {"effect": 1, "returns": false}],
+   "effects": [
+    {"call": "defaultOnKillEvent", "kind": "var", "args": [[210178, 216892], 5, 7], "line": 105},
+    {"call": "defaultOnKillEvent", "kind": "var", "args": [[210178, 216892], 7, true], "line": 105}
+   ],
+   "returns": false
+  },
+  {
+   "id": "onQuestCompletedEvent#1",
+   "hook": "onQuestCompletedEvent",
+   "given": {},
+   "guards": [],
+   "effects": [{"call": "defaultOnQuestCompletedEvent", "kind": "quest", "args": [14010], "line": 122}],
+   "returns": null
+  },
+  {
+   "id": "onLevelChangedEvent#1",
+   "hook": "onLevelChangedEvent",
+   "given": {},
+   "guards": [],
+   "effects": [{"call": "defaultOnLevelChangedEvent", "kind": "quest", "args": [14010], "line": 127}],
+   "returns": null
+  }
+ ]
+}

@@ -14,7 +14,9 @@ rideAction) over questgen's jast statement trees and records every return leaf a
 - returns (the value, or {"resultOf": k} for a helper's result, or {"fromBoolean": ...}) or throws (a NullPointerException when the path
   dereferences an absent QuestState or target; the call's arguments are evaluated first, JLS 15.12.4);
 - ranges: the inputs a guard bounds on both ends, as [lo, hi]: both ends satisfy every guard of the path (a value a guard excludes is
-  skipped), given holds lo and a harness may check hi as well; rangeExcludes lists the values inside [lo, hi] a guard excludes.
+  skipped), given holds lo and a harness may check hi as well; rangeExcludes lists the values inside [lo, hi] a guard excludes;
+- dialogExcludes: when the path reads the dialog action only through `!=` guards, the action ids they exclude (given holds one action
+  outside them; any other outside them takes the same path with the same effects, Extractor.dialog_excludes).
 
 Each document also holds the registration trace (register(), in statement order, loops over constant arrays unrolled; the Python-only form
 of phase6-questgen-prototype.md §8.2) and the hooks with their case counts or the reason a hook is refused.
@@ -83,9 +85,10 @@ SLICE_TIER_A = (
 	'poeta/_1122DeliveringPernossRobe.java', 'poeta/_1123WheresTutty.java',
 )
 # The ascension route slice (P6-Q, 2026-09-29, lane route-gen): the other generated handlers of the route's three directories. 1100 and 2100
-# (tier B) keep their dialog and quest-completed hooks, their enter-world and level hooks are refused (WorldMapType); 1205 and 2132 have
-# every hook refused (`new QuestEnv`, getStartingClass on a value) and only their registration traced; the 12 dispatches of ascension/
-# are traced whole. The C++ harness (game-server/tests/quest_handlers_golden) drives every document of the directory.
+# (tier B) are traced whole since P6-Q prologue (2026-09-29: `WorldMapType.X.getId()` is the map id of WorldMapType.java, and
+# `player.getWorldId()` an input); 1205 and 2132 have every hook refused (`new QuestEnv`, getStartingClass on a value) and only their
+# registration traced; the 12 dispatches of ascension/ are traced whole. The C++ harness (game-server/tests/quest_handlers_golden) drives
+# every document of the directory.
 SLICE_ROUTE = (
 	'poeta/_1100KaliosCall.java', 'poeta/_1205ANewSkill.java', 'ishalgen/_2100OrderoftheCaptain.java', 'ishalgen/_2132ANewSkill.java',
 	'ascension/_1913DispatchtoVerteron.java', 'ascension/_1914DispatchtoVerteron.java', 'ascension/_1915DispatchtoVerteron.java',
@@ -93,7 +96,65 @@ SLICE_ROUTE = (
 	'ascension/_2901DispatchtoAltgard.java', 'ascension/_2902DispatchtoAltgard.java', 'ascension/_2903DispatchtoAltgard.java',
 	'ascension/_2904DispatchtoAltgard.java', 'ascension/_29070ADispatchtoAltgard.java', 'ascension/_29071ADispatchtoAltgard.java',
 )
-SLICE = SLICE_TIER_A + SLICE_ROUTE
+# P6-Q slice 2, chunk Q03 (2026-09-29): the 76 handlers of verteron/ and heiron/ that questgen transliterates (the zones the dispatches of
+# the route end in). The two it refuses, heiron/_1643TheStarOfHeiron and heiron/_3200PriceOfGoodwill (anonymous Runnables), are hand ports
+# with their own unit cases (game-server/tests/quest_handlers_q03), not in the slice. The C++ harness drives every document of the directory.
+SLICE_Q03 = (
+	'verteron/_1131UndeliveredArmor.java', 'verteron/_1141BelbuasTreasure.java', 'verteron/_1146DelicateMandrake.java',
+	'verteron/_1149MissingPoppy.java', 'verteron/_1152OdellaRecipe.java', 'verteron/_1156StolenVillageSeal.java',
+	'verteron/_1157GaphyrksLove.java', 'verteron/_1158VillageSealFound.java', 'verteron/_1162AltenosWeddingRing.java',
+	'verteron/_1163ArachnaAntidote.java', 'verteron/_1169LightningfootTuka.java', 'verteron/_1170HeadlessStoneStatue.java',
+	'verteron/_1183SpiritOfNature.java', 'verteron/_1192VerteronReinforcements.java', 'verteron/_1194ReducingTursinStrength.java',
+	'verteron/_1197KrallBook.java', 'verteron/_1198TheWritingOnTheWall.java', 'verteron/_1218NumonerksDemandNote.java',
+	'verteron/_1220ASecretDelivery.java', 'verteron/_14010TerrainOfTheVerteronFortress.java', 'verteron/_14011FragmentsInTheSky.java',
+	'verteron/_14012DukakiMischief.java', 'verteron/_14013AFrillOfAFuss.java', 'verteron/_14014TurningTheIde.java',
+	'verteron/_14015NotBlindedByVengeance.java', 'verteron/_14016AGateAgape.java', 'heiron/_14050OrdersFromHeironFortress.java',
+	'heiron/_14051RootOfTheProblem.java', 'heiron/_14052RestlessSouls.java', 'heiron/_14053DangerCubed.java',
+	'heiron/_14054KrallIngToKralltumagna.java', 'heiron/_1527RottenRotrons.java', 'heiron/_1528StrangeLeather.java',
+	'heiron/_1535TheColdColdGround.java', 'heiron/_1537FishOnTheLine.java', 'heiron/_1540BaittheHooks.java', 'heiron/_1548KlawControl.java',
+	'heiron/_1553MirrorMirror.java', 'heiron/_1559WhatsintheBox.java', 'heiron/_1560AJobForPobinerk.java', 'heiron/_1561TheMisersMap.java',
+	'heiron/_1562CrossedDestiny.java', 'heiron/_1563TheLegendofVindachinerk.java', 'heiron/_1573SomeTastyMushrooms.java',
+	'heiron/_1574AFeatForAVillage.java', 'heiron/_1578WhereDoRotronsComeFrom.java', 'heiron/_1582ThePriestsNightmare.java',
+	'heiron/_1604ToCatchASpy.java', 'heiron/_1605TheLepharistSituation.java', 'heiron/_1607MappingTheRevolutionaries.java',
+	'heiron/_1609MessageToArbolusHaven.java', 'heiron/_1612LepharistSecrets.java', 'heiron/_1614WheresBelbua.java',
+	'heiron/_1620StartSpreadingTheNews.java', 'heiron/_1626LightThePath.java', 'heiron/_1628MeteriasRegret.java',
+	'heiron/_1634TheWreckOfTheArgos.java', 'heiron/_1636AFluteForTheFixing.java', 'heiron/_1640TeleporterRepairs.java',
+	'heiron/_1644AVeryOldLetter.java', 'heiron/_1647DressingUpForBollvig.java', 'heiron/_1648UndeadWarAlert.java',
+	'heiron/_1661FindingTheForges.java', 'heiron/_1670InvisibleBridges.java', 'heiron/_1687TheTigrakiAgreement.java',
+	'heiron/_1691TheLittleLeatherSlipper.java', 'heiron/_1692ADayOlderAndDeeperInDebt.java', 'heiron/_1693AreYouMyFather.java',
+	'heiron/_18600ScoringSomeBadStigma.java', 'heiron/_18601NightmareonMyStreets.java', 'heiron/_18602NightmareinShiningArmor.java',
+	'heiron/_3502NereusNeedsYou.java', 'heiron/_80217ToDarkPoeta.java', 'heiron/_80218DarkPoetaEncore.java',
+	'heiron/_80219DarkPoetaFinale.java', 'heiron/_80220DarkPoetaFinale.java',
+)
+# P6-Q slice 2, chunk Q10 (2026-09-29): the handlers of altgard/ and pandaemonium/ that questgen transliterates (69 of 75; the other six are
+# hand ports or held back, docs/deviations/Q10.md). The C++ harness (game-server/tests/quest_handlers_golden) drives every document.
+SLICE_Q10 = (
+	'altgard/_2207ConversingWithaSkurv.java', 'altgard/_2209TheScribbler.java', 'altgard/_2213PoisonRootPotentFruit.java',
+	'altgard/_2216MuMuGrassKnot.java', 'altgard/_2221ManirsUncle.java', 'altgard/_2222ManirsMessage.java', 'altgard/_2223AMythicalMonster.java',
+	'altgard/_2228AThornInItsSide.java', 'altgard/_2231SiblingRivalry.java', 'altgard/_2232TheBrokenHoneyJar.java',
+	'altgard/_2239MalodorAntidote.java', 'altgard/_2247TheGergersDisguise.java', 'altgard/_2263ShugoPotion.java',
+	'altgard/_2266ATrustworthyMessenger.java', 'altgard/_2271AurtrisLetter.java', 'altgard/_2278ASecretProposal.java',
+	'altgard/_2279SolidProof.java', 'altgard/_2284EscapingAsmodae.java', 'altgard/_2288MoneyWhereYourMouthIs.java',
+	'altgard/_2289RampagingMosbears.java', 'altgard/_2290GrokensEscape.java', 'altgard/_24010SuthransOrders.java',
+	'altgard/_24011FunnyFloatingFungus.java', 'altgard/_24012AnOminousCrop.java', 'altgard/_24014StompOutThePlot.java',
+	'altgard/_24015TotemPlowed.java', 'altgard/_24016AStrangeNewThread.java', 'altgard/_24112NoLaissezFaireForLepharists.java',
+	'pandaemonium/_29004VeldinaCall.java', 'pandaemonium/_29048SeriphimTeachings.java', 'pandaemonium/_2911SongOfBlessing.java',
+	'pandaemonium/_2912FollowtheRibbon.java', 'pandaemonium/_2913AChainofDebt.java', 'pandaemonium/_2914ATokenofLostLove.java',
+	'pandaemonium/_2916ManInTheLongBlackRobe.java', 'pandaemonium/_2917ArekedilsHeritage.java', 'pandaemonium/_2918DeepMaternalLove.java',
+	'pandaemonium/_2919BookOfOblivion.java', 'pandaemonium/_2920ElementaryMyDearDaeva.java', 'pandaemonium/_2921LoveAtFirstSight.java',
+	'pandaemonium/_2922FascinatingGift.java', 'pandaemonium/_2925AHeartfeltConfession.java', 'pandaemonium/_2928PowerofLove.java',
+	'pandaemonium/_2937UnexpectedReward.java', 'pandaemonium/_2938SecretLibraryAccess.java', 'pandaemonium/_2948HuronsLetter.java',
+	'pandaemonium/_2952WinningVindachinerksFavor.java', 'pandaemonium/_2953DeliveringSupplyRequest.java',
+	'pandaemonium/_2954DeliveringOdellaJuice.java', 'pandaemonium/_2957FlowersForTheBanquet.java', 'pandaemonium/_2958LastMinuteWorries.java',
+	'pandaemonium/_2962JafnharWhereabouts.java', 'pandaemonium/_2963OnBehalfOfAFriend.java', 'pandaemonium/_2965AncientWeapons.java',
+	'pandaemonium/_2985AnExpertsReward.java', 'pandaemonium/_4210MissingHaorunerk.java', 'pandaemonium/_4905InterviewingTheVeterans.java',
+	'pandaemonium/_4906TalesOfHeroes.java', 'pandaemonium/_4920MakingTheActivatedSurkana.java', 'pandaemonium/_4966GrowthNinissFirstCharm.java',
+	'pandaemonium/_4967GrowthNinissSecondCharm.java', 'pandaemonium/_4968GrowthNinissThirdCharm.java',
+	'pandaemonium/_4969GrowthNinissFourthCharm.java', 'pandaemonium/_4970TheFashionistas.java', 'pandaemonium/_4971ProjectRunway.java',
+	'pandaemonium/_4972JudgeNot.java', 'pandaemonium/_4973MarraWorry.java', 'pandaemonium/_4974TheSecretOfHisSuccess.java',
+	'pandaemonium/_4976ASettlerAmbition.java',
+)
+SLICE = SLICE_TIER_A + SLICE_ROUTE + SLICE_Q03 + SLICE_Q10
 
 ENUM_FILES = {'QuestStatus': 'questEngine/model/QuestStatus.java', 'Race': 'model/Race.java', 'PlayerClass': 'model/PlayerClass.java',
               'Gender': 'model/Gender.java', 'HandlerResult': 'questEngine/handlers/HandlerResult.java', 'DialogPage': 'model/DialogPage.java',
@@ -311,6 +372,8 @@ class Tables:
 		for name, v in self.dialog.actions.items():
 			self.action_name.setdefault(v, name)
 		self.enums = {n: [c for c, _ in java_enum_constants(base / f, n)] for n, f in ENUM_FILES.items()}
+		# WorldMapType.X.getId() (WorldMapType.java:212-219, getId :221-223): the map id is the first constructor argument, in declaration order
+		self.world_maps = {c: int(a.split(',')[0]) for c, a in java_enum_constants(base / 'world' / 'WorldMapType.java', 'WorldMapType')}
 		cu = javasrc.parse_file(str(base / 'questEngine' / 'handlers' / 'AbstractQuestHandler.java'))
 		aqh = cu.types[0]
 		self.hooks = {m.name for m in aqh.methods if m.kind == 'method' and 'static' not in m.modifiers
@@ -379,6 +442,7 @@ class Extractor:
 		self.mode = 'hook'
 		self.leaves = []
 		self.reg_npcs = []
+		self.reg_items = []
 		self.qid = self.quest_id()
 		self.consts = {}
 		self.fields()
@@ -427,6 +491,9 @@ class Extractor:
 		except Unsupported as e:
 			reg = {'unsupported': str(e)}
 		self.reg_npcs = [r['npc'] for r in reg if 'npc' in r] if isinstance(reg, list) else []
+		# the quest items register() names (QuestEngine.registerQuestItem): the item of an item-use hook whose guards leave it free is one of
+		# them, the only items the engine hands the hook (P6-Q slice 2, Q03: _1561TheMisersMap removes the used item by its id)
+		self.reg_items = [r['args'][0] for r in reg if r.get('call') == 'registerQuestItem'] if isinstance(reg, list) else []
 		hooks, cases = [], []
 		for m in self.td.methods:
 			if m.kind != 'method' or m.name not in self.t.hooks or m.body is None:
@@ -1112,6 +1179,11 @@ class Extractor:
 			if page not in self.t.dialog.pages:
 				raise Unsupported(f'DialogPage.{page}')
 			return [(p, K(self.t.dialog.pages[page]))]
+		if isinstance(tgt, jast.FieldAccess) and isinstance(tgt.target, jast.Name) and tgt.target.name == 'WorldMapType' and name == 'getId' \
+				and tgt.target.name not in p.locals and not e.args:
+			if tgt.name not in self.t.world_maps:
+				raise Unsupported(f'WorldMapType.{tgt.name}')
+			return [(p, K(self.t.world_maps[tgt.name]))]
 		out = []
 		for q, recv in self.eval(tgt, p):
 			if isinstance(recv, RewardPage) and name == 'id':
@@ -1365,8 +1437,12 @@ class Extractor:
 			prefer = ()
 			if key == ('targetId',):
 				prefer = tuple(self.reg_npcs) + OTHER_NPCS
+			elif key == ('item', 'itemId'):
+				prefer = tuple(self.reg_items)
 			elif key == ('dialog',) and d.allowed is None:
 				prefer = tuple(self.t.dialog.actions.values())
+			elif key == ('player', 'worldId'):
+				prefer = tuple(self.t.world_maps.values())     # a map that exists (the first of WorldMapType the guards allow)
 			v = d.pick(prefer)
 			if v is _EMPTY:
 				raise OracleError(f'{self.rel}: an empty domain for {key} on a feasible path')
@@ -1410,7 +1486,10 @@ class Extractor:
 		the golden harness found the 9 such cases of the first slice). `assume` is otherwise free. giveQuestItem(env, itemId, itemCount) with
 		constants itemId != 0 and itemCount != 0 returns true on both of its paths (AbstractQuestHandler.java:626-641); QuestService.
 		collectItemCheck(env, true) returns false when the player has no QuestState of env's quest (QuestService.java:557-561), which a
-		path shows as that quest's status read as absent"""
+		path shows as that quest's status read as absent. removeQuestItem(env, itemId, itemCount) with constants itemId != 0 and itemCount > 0
+		returns true when the player holds at least itemCount of the item (AbstractQuestHandler.java:644-651, Storage.java:255-267:
+		decreaseByItemId takes the count from the stacks and answers count == 0), which a path shows as a guard that bounds the item's count
+		from below by itemCount (P6-Q slice 2, Q03: _1535TheColdColdGround's `count > 4 && removeQuestItem(env, id, 5)`)"""
 		values = None
 		for k, b in p.assume.items():
 			call, args, _kind, _line = p.effects[k]
@@ -1418,6 +1497,11 @@ class Extractor:
 			if call == 'giveQuestItem' and not b and len(args) == 2 and all(
 					isinstance(a, K) and isinstance(a.v, int) and not isinstance(a.v, bool) and a.v != 0 for a in args):
 				return True
+			if call == 'removeQuestItem' and not b and len(args) == 2 and all(
+					isinstance(a, K) and isinstance(a.v, int) and not isinstance(a.v, bool) for a in args) and args[0].v != 0 and args[1].v > 0:
+				d = p.dom.get(('inv', args[0].v))
+				if d is not None and d.lo >= args[1].v:
+					return True
 			if call == 'QuestService.collectItemCheck' and b and args == [K(True)]:
 				target = self.env_quest(p)
 				if values is None:
@@ -1437,6 +1521,9 @@ class Extractor:
 		free = self.free_vars(p, v)
 		if free:
 			c['free'] = free
+		excludes = self.dialog_excludes(p, v)
+		if excludes is not None:
+			c['dialogExcludes'] = excludes
 		if p.assume:
 			c['assume'] = [{'effect': k, 'returns': b} for k, b in sorted(p.assume.items())]
 		c.update(self.outcome(kind, p, v, values))
@@ -1459,6 +1546,26 @@ class Extractor:
 		"""the QuestVars slots the path reads with no guard on them and uses in no effect argument and not in the return value: any value
 		takes the same path with the same effects, so a harness may set one to what a helper the path calls reads (P6-Q, the route-gen review:
 		`checkQuestItems(env, 1, ...)` after an unguarded `int var = qs.getQuestVarById(0)` acts only at var 1, and given holds 0)"""
+		used = self.used_keys(p, v)
+		return [self.key_name(k) for k in p.reads if k[0] == 'var' and k not in p.dom and k not in used]
+
+	def dialog_excludes(self, p, v):
+		"""the dialog actions a path excludes when it reads the dialog action only through `!=` guards (the else branch of
+		`if (action == QUEST_SELECT) ... else return sendQuestStartDialog(env)`, a switch's default), sorted; None for any other path. given
+		holds one representative (the first action of the table the guards allow: USE_OBJECT), with which the start and end helpers do
+		nothing; any action outside the list takes the same path with the same effects when the path neither writes the dialog action nor
+		uses it in an effect argument or the return value, so a harness may run the case with the actions those helpers act on (P6-Q slice 2,
+		the Q10 review: `sendQuestStartDialog` was vacuous in 105 cases, and a start branch returning false passed)"""
+		key = ('dialog',)
+		if key not in p.reads or key in p.state or key in self.used_keys(p, v):
+			return None
+		d = self.dom_of(p, key)
+		if d.allowed is not None or d.lo != -INF or d.hi != INF:
+			return None
+		return sorted(x for x in d.excluded if isinstance(x, int) and not isinstance(x, bool))
+
+	def used_keys(self, p, v):
+		"""the inputs an effect argument or the return value of the path reads"""
 		used = set()
 
 		def walk(x):
@@ -1478,7 +1585,7 @@ class Extractor:
 		for _call, args, _kind, _line in p.effects:
 			walk(args)
 		walk(v)
-		return [self.key_name(k) for k in p.reads if k[0] == 'var' and k not in p.dom and k not in used]
+		return used
 
 	def outcome(self, kind, p, v, values):
 		"""the effects and the return value (or the exception) of the path, evaluated under the input values"""

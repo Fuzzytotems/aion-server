@@ -5,7 +5,10 @@
 // Each character is created through the client packets, then seeded while its account is disconnected (m5c0-client-session.md F-3) as a
 // level-9 Warrior with a full level-9 bar (players.exp = 126,069, the first exp of level 10, which a starting class holds at level 9) beside
 // the npc where the mission starts. The route, packet by packet as the client plays it:
-//   E1 enter world: 1006 / 2008 is started (PlayerEnterWorldService.onLevelChange -> defaultOnLevelChangedEvent)
+//   E1 enter world: 1006 / 2008 is started (PlayerEnterWorldService.onLevelChange -> defaultOnLevelChangedEvent), and so is the start map's
+//      mission 1100 / 2100; at CM_LEVEL_READY the prologue 1000 / 2000 starts and plays its movie, which the client ends before E2 (P6-Q
+//      prologue). Only the movie's id and quest are checked here: the character already holds the level-9 cap, where the prologue's 1 exp
+//      stops as 1006 / 2008's does in E5, so PrologueSupport's endPrologue, written for the phase-5 gates' level-1 characters, does not apply
 //   E2 the dialog steps with their pages and vars, the beam teleports (SM_TELEPORT_LOC with the handler's destination,
 //      CM_TELEPORT_ANIMATION_DONE), the item use in Cliona Lake's zone (1006) and the three cards (2008), the movies (SM_PLAY_MOVIE,
 //      CM_PLAY_MOVIE_END)
@@ -13,8 +16,8 @@
 //   E4 the flight (SM_EMOTION START_FLYTELEPORT, CM_MOVE_IN_AIR, CM_EMOTION LAND_FLYTELEPORT) and, 43 s after the talk, the four raiders /
 //      guardian assassins, fought with CM_ATTACK until each dies, then Orissan / Hellion, then the movie and Pernos / Munin inside
 //   E5 the class selection page and the Gladiator, the reward page, SELECTED_QUEST_NOREWARD: the beam out of the instance, 1006 / 2008
-//      COMPLETE and 1007 / 2009 started; the reward's 73,200 exp are lost (SM_STATUPDATE_EXP: still the full level-9 bar), Java's order kept
-//      (docs/deviations/Q06.md)
+//      COMPLETE and 1007 / 2009 started; the reward's 73,200 exp stop at the level-9 cap (SM_STATUPDATE_EXP: still the full level-9 bar), the
+//      retail design the owner confirmed on 2026-09-29 (docs/deviations/Q06.md)
 //   E6 1007 / 2009: the beam to Sanctum / Pandaemonium, the two npcs with their movies, the reward npc of a Warrior, COMPLETE with its 13,125
 //      exp, which lift the new Daeva to level 10 (SM_STATUPDATE_EXP: 13,125 above level 10's first exp)
 //   E7 a relog: the character list shows a level-10 Gladiator, and the quest rows are COMPLETE in the database
@@ -661,6 +664,14 @@ void playRoute(ScenarioServers& servers, Client& client, const Route& route, int
 			} catch (const DecodeError&) {
 			}
 		}
+	// P6-Q prologue (the owner's answers 3 and 4 of 2026-09-29): the first enter world of a new character in its home map also starts the
+	// start map's mission, START at level 9 (_1100KaliosCall.java:64-67 / _2100OrderoftheCaptain.java:62-65, AbstractQuestHandler.java:1033-1034),
+	// and at CM_LEVEL_READY the prologue quest with its movie (_1000Prologue.java / _2000Prologue.java:26-36, decoders::Prologue). The client
+	// ends the movie before E2's walks, as a real client does: the server drops every CM_MOVE while a movie plays
+	const decoders::Prologue& prologue = route.asmodian ? decoders::ASMODIAN_PROLOGUE : decoders::ELYOS_PROLOGUE;
+	EXPECT_TRUE(questIs(entered, prologue.mission, START, 0)) << who << " E1: the start map's mission: " << describeQuest(entered, prologue.mission);
+	EXPECT_TRUE(questIs(entered, prologue.quest, START, 0)) << who << " E1: the prologue quest: " << describeQuest(entered, prologue.quest);
+	watchMovie(client, entered, prologue.quest, prologue.movie, "E1 the prologue");
 	const int32_t startNpc = requireNpc(client, route.startNpc, route.startNpcAt, "E1");
 
 	// ---- E2: the steps in the home map ----
@@ -823,8 +834,9 @@ void playRoute(ScenarioServers& servers, Client& client, const Route& route, int
 	finished.insert(finished.end(), out.begin(), out.end());
 	EXPECT_TRUE(questIs(finished, mission, COMPLETE)) << who << " E5: the mission is COMPLETE: " << describeQuest(finished, mission);
 	EXPECT_TRUE(questIs(finished, route.ceremony, START, 0)) << who << " E5: the ceremony starts: " << describeQuest(finished, route.ceremony);
-	// Java's order, kept (docs/deviations/Q06.md): QuestService.finishQuest adds the reward's 73,200 exp before 1006 / 2008's completion event
-	// makes him a Daeva, so PlayerCommonData.setExp holds him at level 9 with the full bar (43,087 of 43,087 above level 9's first exp)
+	// Java's order, the retail design (docs/deviations/Q06.md): QuestService.finishQuest adds the reward's 73,200 exp before 1006 / 2008's
+	// completion event makes him a Daeva, so PlayerCommonData.setExp holds him at level 9 with the full bar (43,087 of 43,087 above level 9's
+	// first exp)
 	const std::optional<decoders::StatUpdateExp> missionExp = lastExpUpdate(finished);
 	EXPECT_TRUE(missionExp && missionExp->currentExp == FULL_LEVEL_9_BAR - LEVEL_9_START && missionExp->maxExp == FULL_LEVEL_9_BAR - LEVEL_9_START)
 	  << who << " E5: the reward's exp leaves the full level-9 bar: " << describeExp(missionExp);

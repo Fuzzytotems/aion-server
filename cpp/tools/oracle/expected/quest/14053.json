@@ -1,0 +1,37 @@
+{
+ "format": "aion-quest-trace",
+ "version": 1,
+ "questId": 14053,
+ "java": "heiron/_14053DangerCubed.java",
+ "class": "_14053DangerCubed",
+ "javaSha256": "7d49bba3e9e50acd8b14c4047e6ab5e9b0cb6488b162ab2e8e1a664312ebe5d4",
+ "register": [
+  {"call": "registerOnQuestCompleted", "args": [14053]},
+  {"call": "registerOnLevelChanged", "args": [14053]},
+  {"npc": 204020, "event": "addOnTalkEvent", "args": [14053]},
+  {"npc": 204602, "event": "addOnTalkEvent", "args": [14053]}
+ ],
+ "hooks": [
+  {"hook": "onQuestCompletedEvent", "line": 33, "cases": 1},
+  {"hook": "onLevelChangedEvent", "line": 38, "cases": 1},
+  {"hook": "onDialogEvent", "line": 43, "unsupported": "call TeleportService.teleportTo"}
+ ],
+ "cases": [
+  {
+   "id": "onQuestCompletedEvent#1",
+   "hook": "onQuestCompletedEvent",
+   "given": {},
+   "guards": [],
+   "effects": [{"call": "defaultOnQuestCompletedEvent", "kind": "quest", "args": [14050], "line": 34}],
+   "returns": null
+  },
+  {
+   "id": "onLevelChangedEvent#1",
+   "hook": "onLevelChangedEvent",
+   "given": {},
+   "guards": [],
+   "effects": [{"call": "defaultOnLevelChangedEvent", "kind": "quest", "args": [14050], "line": 39}],
+   "returns": null
+  }
+ ]
+}
