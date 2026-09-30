@@ -1,5 +1,13 @@
 # M5d work plan (quest engine)
 
+> **Status (2026-09-29, §21.3): M5d is complete.** Stage 3's two lanes are merged on `integ/m5d-stage-3` (local, not pushed): E-07
+> (`questEngine/task` and the follow family) and E-08 (`QuestSpawnAnalyzer`, the last `AION_PARTIAL` of P5-06). The census's M5d row is at
+> its end state (§18.2): 6 open bodies and no `AION_PARTIAL` (P5-06a 5: `QuestEngine::reload`, which stays with static data D3, and the
+> four enum bodies `EnumTraits` serves; P5-06b 0; P5-06c 1: `KillOperation`, which JAXB never builds), and D8 is closed (`task/**` by E-07,
+> the analyzer's Java-regex part by E-08). On the merged tree every target builds twice with no error or warning, the unit suite passes
+> (4,714 of 4,714) and so do all 17 gates, with empty censuses; no source changed at the merge. Not M5d's, and open: `FollowingNpcAI`
+> before the 14 generated escorts of row B03, and the other items §21.3 lists.
+>
 > **Status (2026-09-29, §21.2): stage 3's E-08 is done and committed on `m5d/stage-3-e08`, its review's findings closed (§21.2, "Review").**
 > `QuestSpawnAnalyzer` is ported and `QuestEngine::init` runs it on the long-running pool, so `QuestEngine.cpp:115` is gone and P5-06 has no
 > `AION_PARTIAL` left. D8's acceptance-row deviation is closed for its Java-regex part: the analyzer's handler npc ids equal the analyzer's
@@ -2403,3 +2411,37 @@ Results of the round, on the tree rebuilt after the mutation run:
 - For the integrator: E-07's branch edits the same status block, the §21 header, P5-06.md and P5-06a.md, so the merge conflicts there; the
   census figures of both branches are stale once both are in (expected: P5-06a 5 open, `reload` and the four enum bodies; P5-06b 0;
   P5-06c 1). Rerun `census.py` at the merge.
+
+### 21.3 The integration (2026-09-29)
+
+Branch `integ/m5d-stage-3` from `m5d/stage-3-e07` (`fed04d229`), with `m5d/stage-3-e08` (`2d3365506`) merged `--no-ff`. Both lanes
+finished. Only the docs conflicted: this plan's status block and §21's header, P5-06.md (the D8 row and the two lanes' sections) and
+P5-06a.md (the two lanes' sections). Both lanes' text is kept; P5-06.md's D8 row is closed by both (`task/**` by E-07, the analyzer's
+Java-regex part by E-08), and `reload` stays with static data D3. No source file conflicted, and the integration changed none.
+
+Build dir `cpp/build/msvc` (Debug, incremental), `--parallel 6 -- -p:CL_MPCount=3 -nr:false`. From 18:00 PDT the daytime limit held (two
+heavy processes), so the unit suite ran at `-j 2`, not 4.
+- **Build:** every target twice, 0 errors and 0 warnings (139 s with CMake's rerun for E-08's `CMakeLists.txt`, then 27 s).
+- **Unit suite** (`ctest -C Debug -j 2 -LE "scenario|geo|m4|nightly|stress|smoke" --no-tests=error --timeout 1800`): 4,714 of 4,714
+  passed (the five disabled cases not run), 2,314 s. Among them E-07's 29 follow cases and E-08's analyzer and engine cases.
+- **Gates** (`ctest -C Debug -j 2 -L "scenario|smoke|geo|m4" -E m5a_stress --no-tests=error`): 58 of 58 passed (the 14 discovered, disabled
+  `*Scenario.Run` cases not run), 2,208 s, all 17 gates in one batch with no rerun: m5a 54 s, m5a_geo 159, m5b 215, m5b_geo 334, m5b2 174,
+  m5b2_geo 309, m5b3 132, m5b3_geo 318, m5c 281, travel 40, ascension 871, m5d 232, m5d_geo 340, smoke.startup 28, startup_progress 27,
+  startup_geo 143, m4.check_static_data 144. Every census is empty. Every gate server logs "Loaded 4226 quest handlers"; all but M5d's
+  run the analysis ("Found 119 missing quest npc spawns", as in §21.2), and M5d's two log no "Analyzing quest handlers" line (C17). The
+  only ERROR lines are the ascension gate's ten expected `onDie()` lines. The M5c enter-world flake of §21.2 did not recur.
+- **Census** (`census.py`, clean): M5d's row 6 open (1 `AION_UNPORTED`, 0 `AION_PARTIAL`, 5 undeclared), P5-06a 5, P5-06b 0, P5-06c 1, as
+  §21.2 expected; phase 5 1,230 `AION_UNPORTED` + 9 `AION_PARTIAL` sites, 1,251 undeclared, 2,509 open. `census.py --self-check`: 0
+  synthetic and 0 live-tree failures (48 known answers and 6 aggregate checks).
+- **Checks:** `lint_concurrency.py --werror --cycles=core game-server/src` 3,833 files, 0 errors, 0 warnings, 0 advisories; `chunks.py
+  check` 71 chunks, 84 parts, 0 problems.
+
+**M5d is complete.** Its three stages are in: stage 1 (the engine, the handler base, every template and the D3 join), stage 2 (the gate)
+and stage 3 (E-07, E-08); the census's row is at the end state §18.2 planned, and the D8 deviation is closed. Left, none of it M5d's:
+- `FollowingNpcAI` (m5c-plan.md D2) before the 14 generated escorts of row B03 land (§21.1); the six other follow callers need only
+  questgen's API rows.
+- The owner's: `game-server/config/m5d.properties.example` (§20.1) and §13's real-client checklist; the integrator's slot rebalance (§20.1).
+- Offered, not done: the analyzer's 119-line output as a committed oracle (§21.2).
+- M5c's `enterWorld` still gives the first packet one second (§21.2); M5d's `collectAnswer` would fix it, chunk P5-SC.
+- §19.5's other items (m5d-m01, the lanes' named gaps) and §18.8's open questions stand. Next (§18.7): `CM_GATHER` (D13), M5j stage 0,
+  the phase-6 merges under §18.4, then M5e.
