@@ -7,7 +7,8 @@
 // - the case's given becomes the fixture state: a quester of the quest's race (the case's, when it names one) and level, the handler's
 //   QuestState (status, var slots, reward group; canRepeat picks the complete count), the inventory counts, the target npc (an Npc of the
 //   template standing in the fixture's Poeta instance), the dialog action of the QuestEnv and the quester's map id when the case names one
-//   (player.worldId: the enter-world and level hooks of 1100 and 2100 compare it with WorldMapType.POETA / ISHALGEN);
+//   (player.worldId: the enter-world and level hooks of 1100 and 2100 compare it with WorldMapType.POETA / ISHALGEN, the enter-world hooks
+//   of 14050 with HEIRON and of 18602 with Kromede's Trial's 300230000; the held-back 14010 and 24010 compare it with VERTERON / ALTGARD);
 // - ACTUAL: the case's hook of the generated handler runs on that state;
 // - EXPECTED: the same state is built again (same player object id, same npc) and the case's effects, the calls Java makes on that path in
 //   order, are replayed on the real helpers (AbstractQuestHandler through a PlainHandler of the quest, QuestService, the QuestState setters);
@@ -845,8 +846,8 @@ protected:
 		const json& given = c["given"];
 		Quester* quester = makeQuester(GOLDEN_PLAYER, "Golden", setup.race, std::max(setup.level + overlay.levelDelta, 1));
 		gameserver::model::gameobjects::player::Player& player = quester->player();
-		// the map the case names (extract.py: player.getWorldId(), compared with a WorldMapType id; 1100 and 2100): the quester stands in the
-		// fixture's region as before, under that map id, which is what VisibleObject::getWorldId answers
+		// the map the case names (extract.py: player.getWorldId(), compared with a WorldMapType id or a map id; 1100, 2100, 14050 and 18602 of
+		// the table): the quester stands in the fixture's region as before, under that map id, which is what VisibleObject::getWorldId answers
 		if (given.contains("player") && given["player"].contains("worldId")) {
 			player.setPosition(world::WorldPosition::create(given["player"]["worldId"].get<int32_t>(), 100.0f, 100.0f, 50.0f, int8_t{0},
 				mapInstance->getRegion(100.0f, 100.0f, 50.0f)));
