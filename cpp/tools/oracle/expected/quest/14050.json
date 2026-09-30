@@ -12,7 +12,7 @@
  ],
  "hooks": [
   {"hook": "onDialogEvent", "line": 30, "cases": 8},
-  {"hook": "onEnterWorldEvent", "line": 58, "unsupported": "WorldMapType.HEIRON"},
+  {"hook": "onEnterWorldEvent", "line": 58, "cases": 4},
   {"hook": "onLevelChangedEvent", "line": 66, "unsupported": "call onEnterWorldEvent"}
  ],
  "cases": [
@@ -117,6 +117,48 @@
     "qs.getStatus() == QuestStatus.REWARD -> false @51"
    ],
    "dialogExcludes": [],
+   "effects": [],
+   "returns": false
+  },
+  {
+   "id": "onEnterWorldEvent#1",
+   "hook": "onEnterWorldEvent",
+   "given": {"player": {"worldId": 210040000}, "questState": {"status": "START"}},
+   "guards": ["player.getWorldId() == WorldMapType.HEIRON.getId() -> true @60", "player.getQuestStateList().hasQuest(questId) -> true @60"],
+   "effects": [],
+   "returns": false
+  },
+  {
+   "id": "onEnterWorldEvent#2",
+   "hook": "onEnterWorldEvent",
+   "given": {"player": {"worldId": 210040000}, "questState": null},
+   "guards": [
+    "player.getWorldId() == WorldMapType.HEIRON.getId() -> true @60",
+    "player.getQuestStateList().hasQuest(questId) -> false @60",
+    "QuestService.startQuest(env) -> true @61"
+   ],
+   "assume": [{"effect": 0, "returns": true}],
+   "effects": [{"call": "QuestService.startQuest", "kind": "quest", "args": [], "line": 61}],
+   "returns": true
+  },
+  {
+   "id": "onEnterWorldEvent#3",
+   "hook": "onEnterWorldEvent",
+   "given": {"player": {"worldId": 210040000}, "questState": null},
+   "guards": [
+    "player.getWorldId() == WorldMapType.HEIRON.getId() -> true @60",
+    "player.getQuestStateList().hasQuest(questId) -> false @60",
+    "QuestService.startQuest(env) -> false @61"
+   ],
+   "assume": [{"effect": 0, "returns": false}],
+   "effects": [{"call": "QuestService.startQuest", "kind": "quest", "args": [], "line": 61}],
+   "returns": false
+  },
+  {
+   "id": "onEnterWorldEvent#4",
+   "hook": "onEnterWorldEvent",
+   "given": {"player": {"worldId": 120010000}},
+   "guards": ["player.getWorldId() == WorldMapType.HEIRON.getId() -> false @60"],
    "effects": [],
    "returns": false
   }

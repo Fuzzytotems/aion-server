@@ -25,7 +25,7 @@
   {
    "id": "onEnterWorldEvent#1",
    "hook": "onEnterWorldEvent",
-   "given": {"player": {"worldId": 0}, "questState": {"status": "START", "vars": {"0": 1}}},
+   "given": {"player": {"worldId": 120010000}, "questState": {"status": "START", "vars": {"0": 1}}},
    "guards": [
     "qs != null -> true @45",
     "qs.getStatus() == QuestStatus.START -> true @45",
@@ -39,7 +39,7 @@
     {
      "input": "questState.vars.0",
      "value": 63,
-     "given": {"player": {"worldId": 0}, "questState": {"status": "START", "vars": {"0": 63}}},
+     "given": {"player": {"worldId": 120010000}, "questState": {"status": "START", "vars": {"0": 63}}},
      "effects": [{"call": "changeQuestStep", "kind": "var", "args": [63, 0], "line": 49}],
      "returns": true
     }
@@ -48,7 +48,7 @@
   {
    "id": "onEnterWorldEvent#2",
    "hook": "onEnterWorldEvent",
-   "given": {"player": {"worldId": 0}, "questState": {"status": "START", "vars": {"0": 0}}},
+   "given": {"player": {"worldId": 120010000}, "questState": {"status": "START", "vars": {"0": 0}}},
    "guards": [
     "qs != null -> true @45",
     "qs.getStatus() == QuestStatus.START -> true @45",

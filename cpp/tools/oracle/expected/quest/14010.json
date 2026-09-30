@@ -6,7 +6,7 @@
  "class": "_14010TerrainOfTheVerteronFortress",
  "javaSha256": "1afc19b06e922e2f131e5b8e3978d98aa6dc3306c188fa6806e4372c0a8e20c9",
  "register": [{"npc": 203098, "event": "addOnTalkEvent", "args": [14010]}, {"call": "registerOnEnterWorld", "args": [14010]}],
- "hooks": [{"hook": "onDialogEvent", "line": 29, "cases": 7}, {"hook": "onEnterWorldEvent", "line": 53, "unsupported": "WorldMapType.VERTERON"}],
+ "hooks": [{"hook": "onDialogEvent", "line": 29, "cases": 7}, {"hook": "onEnterWorldEvent", "line": 53, "cases": 4}],
  "cases": [
   {
    "id": "onDialogEvent#1",
@@ -86,6 +86,48 @@
     "qs.getStatus() == QuestStatus.START -> false @39",
     "qs.getStatus() == QuestStatus.REWARD -> false @46"
    ],
+   "effects": [],
+   "returns": false
+  },
+  {
+   "id": "onEnterWorldEvent#1",
+   "hook": "onEnterWorldEvent",
+   "given": {"player": {"worldId": 210030000}, "questState": {"status": "START"}},
+   "guards": ["player.getWorldId() == WorldMapType.VERTERON.getId() -> true @55", "player.getQuestStateList().hasQuest(questId) -> true @55"],
+   "effects": [],
+   "returns": false
+  },
+  {
+   "id": "onEnterWorldEvent#2",
+   "hook": "onEnterWorldEvent",
+   "given": {"player": {"worldId": 210030000}, "questState": null},
+   "guards": [
+    "player.getWorldId() == WorldMapType.VERTERON.getId() -> true @55",
+    "player.getQuestStateList().hasQuest(questId) -> false @55",
+    "QuestService.startQuest(env) -> true @56"
+   ],
+   "assume": [{"effect": 0, "returns": true}],
+   "effects": [{"call": "QuestService.startQuest", "kind": "quest", "args": [], "line": 56}],
+   "returns": true
+  },
+  {
+   "id": "onEnterWorldEvent#3",
+   "hook": "onEnterWorldEvent",
+   "given": {"player": {"worldId": 210030000}, "questState": null},
+   "guards": [
+    "player.getWorldId() == WorldMapType.VERTERON.getId() -> true @55",
+    "player.getQuestStateList().hasQuest(questId) -> false @55",
+    "QuestService.startQuest(env) -> false @56"
+   ],
+   "assume": [{"effect": 0, "returns": false}],
+   "effects": [{"call": "QuestService.startQuest", "kind": "quest", "args": [], "line": 56}],
+   "returns": false
+  },
+  {
+   "id": "onEnterWorldEvent#4",
+   "hook": "onEnterWorldEvent",
+   "given": {"player": {"worldId": 120010000}},
+   "guards": ["player.getWorldId() == WorldMapType.VERTERON.getId() -> false @55"],
    "effects": [],
    "returns": false
   }
