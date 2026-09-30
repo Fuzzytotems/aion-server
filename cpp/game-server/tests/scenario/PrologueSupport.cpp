@@ -1,5 +1,6 @@
 #include "PrologueSupport.h"
 
+#include <algorithm>
 #include <string>
 
 #include <gtest/gtest.h>
@@ -53,6 +54,13 @@ std::optional<decoders::PlayMovie> expectPrologueStarted(const std::vector<Packe
 		EXPECT_EQ(started.questId, prologue.quest) << label;
 		EXPECT_EQ(started.status, decoders::QUEST_STATUS_START) << label;
 		EXPECT_EQ(started.questVarsAndFlags, 0) << label;
+		// CM_LEVEL_READY.java:91-93: loadWeather sends the map's weather (WeatherService.java:154-158; weather_table.xml has both start maps)
+		// before QuestEngine.onEnterWorld starts the prologue. The gates' level-ready patterns cannot see that order: SM_WEATHER is async
+		// anywhere (AsyncAllowed::m5aDefault), since a weather change reaches every player of the map at any moment (WeatherService.java:62, :178)
+		const auto weather = std::ranges::find(levelReadyBurst, std::string("SM_WEATHER"), &Packet::name);
+		const auto start = std::ranges::find(levelReadyBurst, std::string("SM_QUEST_ACTION"), &Packet::name);
+		EXPECT_TRUE(weather < start) << label << ": the start map's SM_WEATHER before the prologue's SM_QUEST_ACTION (CM_LEVEL_READY.java:91-93): "
+		                             << namesOf(levelReadyBurst);
 	}
 	const std::vector<Packet> movies = named(levelReadyBurst, "SM_PLAY_MOVIE");
 	if (movies.size() != 1u) {

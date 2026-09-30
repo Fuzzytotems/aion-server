@@ -26,7 +26,10 @@ namespace aion::gameserver::scenario {
 
 /** the §5.8 notation of the first enter world's level change, with the mission's SM_QUEST_ACTION */
 inline constexpr std::string_view PROLOGUE_FIRST_ENTER_LEVEL_CHANGE = "SM_STATS_INFO, SM_ACTION_ANIMATION, SM_QUEST_ACTION, SM_NEARBY_QUESTS, ";
-/** the §5.8 notation of the prologue's start in the first level-ready burst, after the weather */
+/**
+ * the §5.8 notation of the prologue's start in the first level-ready burst, after the weather; a pattern cannot check that order, since the
+ * async set lets SM_WEATHER through anywhere: expectPrologueStarted does
+ */
 inline constexpr std::string_view PROLOGUE_LEVEL_READY = "SM_QUEST_ACTION, SM_NEARBY_QUESTS, SM_PLAY_MOVIE, ";
 /** the §5.8 notation of the burst CM_PLAY_MOVIE_END answers */
 inline constexpr std::string_view PROLOGUE_MOVIE_END = "SM_STATUPDATE_EXP, SM_SYSTEM_MESSAGE, SM_QUEST_ACTION, SM_NEARBY_QUESTS";
@@ -40,9 +43,10 @@ void expectPrologueMissionLocked(const std::vector<GameSession::Packet>& enterBu
 
 /**
  * The quest half of the first CM_LEVEL_READY (_1000Prologue.java:26-36 / _2000Prologue.java:26-36): the level-ready burst's only
- * SM_QUEST_ACTION adds the prologue quest START with no var (QuestService.java:441), and its only SM_PLAY_MOVIE plays the movie as a
- * skippable CutSceneMovie with no target (AbstractQuestHandler.java:665-667). Returns that movie, or nothing when the burst holds no single
- * SM_PLAY_MOVIE (a failure already).
+ * SM_QUEST_ACTION adds the prologue quest START with no var (QuestService.java:441), after an SM_WEATHER (CM_LEVEL_READY.java:91-93: the
+ * start map's weather, then QuestEngine.onEnterWorld), and its only SM_PLAY_MOVIE plays the movie as a skippable CutSceneMovie with no
+ * target (AbstractQuestHandler.java:665-667). Returns that movie, or nothing when the burst holds no single SM_PLAY_MOVIE (a failure
+ * already).
  */
 std::optional<decoders::PlayMovie> expectPrologueStarted(const std::vector<GameSession::Packet>& levelReadyBurst,
 	const decoders::Prologue& prologue, std::string_view label);

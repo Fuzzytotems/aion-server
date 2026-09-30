@@ -11,6 +11,7 @@
 #include <gtest/gtest-spi.h>
 #include <gtest/gtest.h>
 
+#include <cstddef>
 #include <cstdint>
 #include <functional>
 #include <optional>
@@ -208,6 +209,11 @@ TEST(PrologueSupportTest, TheJavaFirstLevelReadyStartsTheQuestAndPlaysItsMovie) 
 		std::optional<decoders::PlayMovie> movie;
 		EXPECT_EQ(failuresOf([&] { movie = expectPrologueStarted(burst, prologue, "java"); }), std::vector<std::string>{}) << prologue.quest;
 		EXPECT_EQ(movie, javaMovie(prologue)) << "endPrologue echoes this movie in CM_PLAY_MOVIE_END";
+		// a weather change broadcast to the map (WeatherService.java:62, :178) may land anywhere in the burst too
+		std::vector<Packet> withChange = burst;
+		withChange.push_back(packet("SM_WEATHER"));
+		EXPECT_EQ(failuresOf([&] { expectPrologueStarted(withChange, prologue, "java"); }), std::vector<std::string>{})
+		  << prologue.quest << " with a weather change";
 	}
 }
 
@@ -220,6 +226,14 @@ TEST(PrologueSupportTest, EachStartCheckFailsAloneOnItsField) {
 		change(out);
 		return out;
 	};
+	// the Java burst with its SM_WEATHER (levelReadyBurst's first packet) moved to `at`, or dropped
+	const auto weatherAt = [&](std::optional<size_t> at) {
+		std::vector<Packet> burst = levelReadyBurst({started}, {movie});
+		burst.erase(burst.begin());
+		if (at)
+			burst.insert(burst.begin() + static_cast<std::ptrdiff_t>(*at), packet("SM_WEATHER"));
+		return burst;
+	};
 	const struct {
 		std::string_view deviation;
 		std::vector<Packet> burst;
@@ -231,6 +245,9 @@ TEST(PrologueSupportTest, EachStartCheckFailsAloneOnItsField) {
 		{"the mission instead of the prologue quest", levelReadyBurst({questAdd(p.mission, QUEST_STATUS_START)}, {movie}), "started.questId"},
 		{"LOCKED instead of START", levelReadyBurst({questAdd(p.quest, QUEST_STATUS_LOCKED)}, {movie}), "started.status"},
 		{"var 0 is 1", levelReadyBurst({questAdd(p.quest, QUEST_STATUS_START, 1)}, {movie}), "started.questVarsAndFlags"},
+		{"the weather right after the start", weatherAt(1), "weather < start"},
+		{"the weather after the movie", weatherAt(3), "weather < start"},
+		{"no SM_WEATHER", weatherAt(std::nullopt), "weather < start"},
 		{"no SM_PLAY_MOVIE", levelReadyBurst({started}, {}), "SM_PLAY_MOVIE in the level-ready burst, not one"},
 		{"two SM_PLAY_MOVIE", levelReadyBurst({started}, {movie, movie}), "SM_PLAY_MOVIE in the level-ready burst, not one"},
 		{"a CutScene", levelReadyBurst({started}, {changed([](auto& m) { m.cutsceneMovie = false; })}), "PlayMovie{"},

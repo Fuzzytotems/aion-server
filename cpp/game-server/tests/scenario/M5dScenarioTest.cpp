@@ -698,7 +698,8 @@ std::string enterWorldPattern(bool firstEnter) {
 /**
  * The CM_LEVEL_READY part of m5a-plan.md §5.8 (#33 to #44); its SM_NEARBY_QUESTS is the second one Y1 reads (CM_LEVEL_READY.cpp:108). It is
  * asserted for a first enter world only (levelReady), which since P6-Q prologue starts the prologue quest and plays its movie after the
- * weather: QuestEngine.onEnterWorld runs there (CM_LEVEL_READY.java:93; PrologueSupport.h)
+ * weather: QuestEngine.onEnterWorld runs there (CM_LEVEL_READY.java:91-93; PrologueSupport.h). The async set lets SM_WEATHER through
+ * anywhere, so this pattern does not order the prologue after it; endPrologue's expectPrologueStarted does (C1-C3, C16a)
  */
 std::string levelReadyPattern() {
 	return std::string("SM_PLAYER_INFO, SM_PLAYER_STATE, SM_ACCOUNT_PROPERTIES, SM_MOTION, "
