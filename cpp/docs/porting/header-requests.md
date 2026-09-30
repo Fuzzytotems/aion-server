@@ -845,3 +845,14 @@ table and one rule are kept (Q03's name, which its test pins), and the emitted c
 (insertions only) and changed no other document. The golden harness is the union of both lanes' overlays, replay overloads, hooks,
 registration checks and negative-control flips; the lists were measured again with it. `tools/parity` gained one hand-port spelling (the
 enum-name spelling, for 2900; the integrator decision Q10 asked for).
+
+## Play-session fix and diagnostics 2026-09-29 (branch `fix/equip-swap-message`)
+
+Report 3 of the 2026-09-28 session (the spurious "inventory is full" of a weapon swap) is fixed in `CM_EQUIP_ITEM.cpp` alone (P5-15.md), and
+the server packet trace for the Sanctum benches is `AionConnection.cpp`'s (P4-15.md). One existing header changes, additively, after the
+psf-2 precedent; the request is filed with the change applied on the branch, for the integrator to confirm at the merge.
+
+| Id | File | Change | Decision | Reason |
+|---|---|---|---|---|
+| psf-4 | `configs/network/NetworkConfig.h` (P4-01) | `static inline ConfigValue<std::set<std::string, std::less<>>> TRACE_SERVER_PACKETS;` after `TRACE_CLIENT_PACKETS`, with its doc | **filed, applied on the branch** (small and additive, the psf-2 precedent); the integrator confirms at the merge | The C++-only key `gameserver.network.trace.server_packets`, bound in `NetworkConfig.cpp` with the default `""` (docs/deviations/P4-01.md). Additive; `AionConnection.cpp` (P4-15) reads it |
+| (no request) | `network/aion/clientpackets/CM_EQUIP_ITEM.h` (P5-15), `network/aion/AionConnection.h` (P4-15) | none | **none filed** | The fix's `isStillEquipped` and the trace's `traceIfConfigured` are file-local functions of the `.cpp` files |

@@ -23,6 +23,7 @@ void NetworkConfig::bind(commons::configuration::ConfigurableProcessor& p) {
 	AION_BIND(p, "gameserver.network.logging.unknown_packets", LOG_UNKNOWN_PACKETS, "false");
 	AION_BIND(p, "gameserver.network.logging.ignored_packets", LOG_IGNORED_PACKETS, "false");
 	AION_BIND(p, "gameserver.network.trace.client_packets", TRACE_CLIENT_PACKETS, ""); // C++ only (docs/deviations/P4-01.md)
+	AION_BIND(p, "gameserver.network.trace.server_packets", TRACE_SERVER_PACKETS, ""); // C++ only (docs/deviations/P4-01.md)
 	AION_BIND(p, "gameserver.network.flood.connections", ENABLE_FLOOD_CONNECTIONS, "false");
 	AION_BIND(p, "gameserver.network.flood.tick", Flood_Tick, "1000");
 	AION_BIND(p, "gameserver.network.flood.short.warn", Flood_SWARN, "10");

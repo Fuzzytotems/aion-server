@@ -631,6 +631,8 @@ TEST_F(ConfigDefaultsTest, NetworkConfig) {
 	EXPECT_EQ(network::NetworkConfig::Flood_LTick.load(), 60);
 	EXPECT_TRUE(network::NetworkConfig::TRACE_CLIENT_PACKETS.get()->empty())
 		<< "C++-only key gameserver.network.trace.client_packets, off by default (docs/deviations/P4-01.md)";
+	EXPECT_TRUE(network::NetworkConfig::TRACE_SERVER_PACKETS.get()->empty())
+		<< "C++-only key gameserver.network.trace.server_packets, off by default (docs/deviations/P4-01.md)";
 }
 
 TEST(NetworkConfigTraceKeyTest, TheClientPacketTraceBindsATrimmedSetOfNames) {
@@ -644,6 +646,20 @@ TEST(NetworkConfigTraceKeyTest, TheClientPacketTraceBindsATrimmedSetOfNames) {
 	aion::commons::configuration::Properties empty;
 	aion::commons::configuration::ConfigurableProcessor::process(empty, {&network::NetworkConfig::bind});
 	EXPECT_TRUE(network::NetworkConfig::TRACE_CLIENT_PACKETS.get()->empty()) << "no key: the default, nothing traced";
+}
+
+TEST(NetworkConfigTraceKeyTest, TheServerPacketTraceBindsATrimmedSetOfNames) {
+	// C++ only (play-session diagnostics 2026-09-29, docs/deviations/P4-01.md): the same form as the client packet trace, a key of its own
+	aion::commons::configuration::Properties properties;
+	properties.setProperty("gameserver.network.trace.server_packets", " SM_GATHERABLE_INFO, SM_NPC_INFO ,SM_GATHERABLE_INFO");
+	std::set<std::string> unused = aion::commons::configuration::ConfigurableProcessor::process(properties, {&network::NetworkConfig::bind});
+	EXPECT_TRUE(unused.empty()) << "the key is bound by NetworkConfig";
+	EXPECT_EQ(*network::NetworkConfig::TRACE_SERVER_PACKETS.get(), (std::set<std::string, std::less<>>{"SM_GATHERABLE_INFO", "SM_NPC_INFO"}));
+	EXPECT_TRUE(network::NetworkConfig::TRACE_CLIENT_PACKETS.get()->empty()) << "the client packet trace is a key of its own";
+
+	aion::commons::configuration::Properties empty;
+	aion::commons::configuration::ConfigurableProcessor::process(empty, {&network::NetworkConfig::bind});
+	EXPECT_TRUE(network::NetworkConfig::TRACE_SERVER_PACKETS.get()->empty()) << "no key: the default, nothing traced";
 }
 
 TEST_F(ConfigDefaultsTest, PffConfig) {

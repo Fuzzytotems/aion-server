@@ -2,6 +2,10 @@
 
 #include <algorithm>
 #include <chrono>
+#include <functional>
+#include <memory>
+#include <set>
+#include <string>
 #include <typeinfo>
 #include <utility>
 
@@ -48,6 +52,20 @@ using model::gameobjects::player::Player;
 std::string packetNameOf(int32_t opCode) {
 	const ServerPacketsOpcodes::Entry* entry = ServerPacketsOpcodes::findByOpcode(opCode);
 	return commons::network::packet::BasePacket::toFormattedPacketNameString(3, opCode, entry != nullptr ? entry->name : "SM_CUSTOM_PACKET");
+}
+
+/**
+ * C++ only (gameserver.network.trace.server_packets, play-session diagnostics 2026-09-29, docs/deviations/P4-15.md): logs the packet at INFO with
+ * the name of the connection's player (the connection itself before a player entered the world) if the property names its class. sendPacket is
+ * the one place every server packet for a client passes (PacketSendUtility's sends and broadcasts end here), so a play session can time when the
+ * server sent a packet, e.g. SM_GATHERABLE_INFO against the CM_MOVEs of the client packet trace.
+ */
+void traceIfConfigured(AionConnection& connection, AionServerPacket& packet) {
+	const std::shared_ptr<const std::set<std::string, std::less<>>> traced = configs::network::NetworkConfig::TRACE_SERVER_PACKETS.get();
+	if (traced->empty() || !traced->contains(packet.getPacketName()))
+		return;
+	const runtime::Ptr<Player> player = connection.getActivePlayer();
+	log.info("Server packet trace: sent " + packet.toString() + " to " + (player ? player->getName() : connection.toString()));
 }
 
 } // namespace
@@ -136,6 +154,7 @@ void AionConnection::sendPacket(AionServerPacket& packet) {
 				return player ? player->toString() : std::string("null");
 			}() + " can read");
 	enqueue(std::move(body));
+	traceIfConfigured(*this, packet); // C++ only (see above)
 	// runtime-architecture.md §8.6: the packet name echo of Java's writeData runs at serialization
 	if (typeid(packet) != typeid(serverpackets::SM_MESSAGE))
 		sendPacketInfo(packet);
