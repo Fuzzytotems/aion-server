@@ -631,3 +631,88 @@ check, so no gate mutant was rerun; the gates were rerun clean (below).
   tree's gate was running when it started. Times (s): m5a 58, m5a_geo 162, m5b 221, m5b_geo 353, m5b2 204, m5b2_geo 340, m5b3 145, m5b3_geo 311,
   m5c 292. m5a_geo and m5b, §9.3's two flakes, both passed. gs.scenario.ascension was not rerun: its only change since §9.3's pass is
   the E1 header comment.
+
+## 10. Landed on C++ 51ef338e4 (branch `integ/slice2-prologue`, 2026-09-29)
+
+> Branch `integ/slice2-prologue` in `D:\aion-server` (build dir `cpp/build/msvc`, Debug, the test database environment of §3), from C++
+> `51ef338e4` (M5d complete, phase-6 slice 1, the travel core, lane H's hermetic gate servers). Local, not pushed. Daytime capacity (one
+> build or one ctest at a time, `-j 2`).
+
+**What.** Slice 2 (§8) and the prologue (§9), both based on `a72676184`, merged in that order, then three fixes:
+
+- `fd4815bf2`, `git merge --no-ff p6q/slice-2`: conflicts in this file (C++'s lane-H follow-up of §7 kept, §8 after it) and in
+  header-requests.md (lane H's section, then slice 2's).
+- `801aa4c37`, `git merge --no-ff p6q/prologue`: both branches had written a §8; slice 2 keeps it, the prologue's is §9 (§9.1-§9.5), and
+  its references here and in owner-decisions.md, P5-SC.md, Q05.md and Q06.md say §9. P5-SC.md keeps C++'s sections first. The golden
+  harness is the union: slice 2's overlays, lists and checks (its held-back table check too, which the prologue had dropped with its own
+  list), the prologue's four handlers in the table and its per-case `player.worldId`; `GOLDEN_HELD_BACK` keeps slice 2's 20 generated
+  hold-backs. `test_questgen_tree.py` is the union (Q10's lists and hold-backs, the 36 route files, the enter-world files in the tree).
+- `d5b787490` (tools/oracle): `quest-trace check` found four slice-2 documents stale under the prologue's extractor (WorldMapType ids):
+  14050 (landed) and 14010 / 24010 (held back) now trace `onEnterWorldEvent` (4 cases each; refused before), and three cases of 18602
+  take 120010000 as the unconstrained `player.worldId` (0 before). The other 177 documents regenerate byte for byte, 1100 / 2100 (the
+  prologue's, auto-merged with slice 2's `dialogExcludes`) among them.
+- `cd05d3683` (golden harness): 1100 #4 and 2100 #5 left `knownVacuous` (observable under slice 2's accept and free-dialog overlays, as
+  its note expected once 1100 landed); the negative control's `Flip::UNPORTED` reaches `WarehouseService::expand`, because M5d stage 3
+  E-07 (`fed04d229`) ported `defaultStartFollowEvent`, the body slice 2 used. Before: 164 of 167, after: 167 of 167.
+- `862bae46a`: gs.scenario.m5d / m5d_geo taught the prologue (below).
+
+Every gate server logs "Loaded 4362 quest handlers" (4,226 + the prologue's 4 + slice 2's 132). The 21 hold-backs of §8.1 stay out.
+§8.5 item 4's "`defaultStartFollowEvent`, M5d E-07" and "4212 needs `questEngine/task` (E-07)" are out of date on C++ (E-07 is in);
+not re-measured here.
+
+**The M5d gate pair (owner answer 4).** The pair was written while the four first-login handlers were held back (§9.5's first finding).
+Unchanged, on the merged tree, both failed alike: C1-C3 "A enter world: ... up to packet #2 SM_QUEST_ACTION, where it expected
+SM_NEARBY_QUESTS" and "A level ready: ... up to packet #39 SM_QUEST_ACTION"; C4 "Y1: the first enter world sent SM_QUEST_ACTION:
+[LEVEL_UP 1 | ADD 1100 s6 v0 | NEARBY]"; C5-C9 every talk answered STR_DIALOG_TOO_FAR_TO_TALK or nothing (the walks were dropped while
+movie 1 played); C10 "npc 210133 did not die within 112009 ms"; C10b-C16e not run. `M5dScenarioTest.cpp` now includes
+`PrologueSupport.h` (the one shared check, not a copy; its header says so) and changes, each for the Java lines named:
+
+| Where | Change | Java |
+|---|---|---|
+| `enterWorldPattern(true)` | `PROLOGUE_FIRST_ENTER_LEVEL_CHANGE`: the mission's SM_QUEST_ACTION before the level change's SM_NEARBY_QUESTS | PlayerEnterWorldService.java:204, `_1100KaliosCall.java:64-67`, `_2100OrderoftheCaptain.java:62-65`, AbstractQuestHandler.java:1026-1030 |
+| `levelReadyPattern()` (first enter only) | `PROLOGUE_LEVEL_READY` after the weather | CM_LEVEL_READY.java:93, `_1000Prologue.java:26-36`, `_2000Prologue.java:26-36` |
+| C1-C3, C16a | `endPrologue` after the first level ready, before the first walk | SM_PLAY_MOVIE.java:28, CM_MOVE.java:159-161, CM_PLAY_MOVIE_END.java:33-52, `_1000Prologue.java:38-48` |
+| Y1 (C4), Y13 (C16a) | "no SM_QUEST_ACTION at the first enter world" is `expectPrologueMissionLocked` (1100 / 2100 ADD LOCKED, the quest list holds it alone) | as the first row |
+| the exp ledger (`scanExp`) | reads STR_GET_EXP2 (`params[0]`) too, so Y11's and C16d's `--exp` include the prologue's 1 | SM_SYSTEM_MESSAGE.java:16363-16365, PlayerCommonData.java:167-217 |
+| Y6 (C9) | the exp after 1101's reward is `PROLOGUE_EXP` + 130 | QuestService.java:77-118 |
+| Y9 (C11), Y12 (C15), Y13 (C16e) | player_quests holds 1000 / 2000 COMPLETE (vars 0, count 1) and 1100 / 2100 LOCKED; SM_QUEST_LIST the LOCKED mission first; SM_QUEST_COMPLETED_LIST 1000 / 2000 (repeat flag 1) | QuestStateList.java:21 (TreeMap), PlayerEnterWorldService.java:238, SM_QUEST_COMPLETED_LIST.java:37 |
+| `REGISTERED_JAVA_QUESTS` | + 1000, 1100, 2000, 2100 (46). Neither start map's `withJava` set holds them or any of slice 2's 132 (m5d-quests), so the filter's result is unchanged: registry bookkeeping, not an assertion | - |
+
+**Slice 2 adds nothing to the pair's traffic:** every window's tokens, both start maps' nearby sets and the quest lists are compared
+exactly, and both gates pass with the 132 handlers in (the before-run could not show it: it stopped at C10).
+
+**Mutation proof (`AION_SP_MUT`).** Schemata after saving the eight files and their sha256: a private static switch in the handler
+files (the registry scan refuses an anonymous namespace there), a file-local one in the two tests; the game server inherits the variable
+from the gate. With the switch unset the golden harness passed 167 of 167. Each gate run is `gs.scenario.m5d` alone (151-242 s):
+
+| Ids (one run) | Mutant | Killed by |
+|---|---|---|
+| sp3 + sp4 | `_1000Prologue` / `_2000Prologue`: the movie end sets REWARD and does not finish | C3 / C16a `endPrologue`'s answer ("expected SM_STATUPDATE_EXP"); Y6 130 for 131; Y9, Y12, Y13: 1000 / 2000 REWARD in player_quests and SM_QUEST_LIST, missing from the completed list |
+| sp7 + sp8 | `_1100KaliosCall` / `_2100OrderoftheCaptain`: the level hook adds the mission START (not `defaultOnLevelChangedEvent`) | Y1 / Y13 `expectPrologueMissionLocked` (status 3 for 6, the quest list); Y9, Y12, Y13: 1100 / 2100 START in player_quests and SM_QUEST_LIST |
+| sp5 + sp6 | `_1000Prologue` / `_2000Prologue`: the enter-world hook starts nothing | both level-ready sequences ("up to packet #41 SM_ABNORMAL_STATE, where it expected ... SM_QUEST_ACTION"); `endPrologue`'s start (0 SM_QUEST_ACTION, 0 SM_PLAY_MOVIE); Y6; Y9, Y12, Y13: no 1000 / 2000 row, not completed |
+| sm1 + sp2 | the ledger ignores STR_GET_EXP2; `_2100OrderoftheCaptain`'s level hook does nothing | Y11: the exp at level 2 151 for 150 (the oracle's total one short); B's first enter-world sequence ("up to packet #2 SM_NEARBY_QUESTS, where it expected SM_QUEST_ACTION") and Y13's mission (fatal, as designed: C16b-C16e did not run) |
+| sp9, sp10, sg1 (golden, one run) | 14050's enter-world hook compares with Verteron; 18602's world test with 120010000; `heldBack` forgets 4973 | `14050 onEnterWorldEvent#2`, `#3`; `18602 onEnterWorldEvent#1` and its high end; "4973 has no handler" |
+
+The sources were then restored from the saved copies (sha256 matched: `_1000Prologue.cpp` 394104d2..., `_1100KaliosCall.cpp` 5be34a4a...,
+`_2000Prologue.cpp` 7db081aa..., `_2100OrderoftheCaptain.cpp` 37f596c5..., `_14050...` b40bd1c3..., `_18602...` 839f845e...,
+`M5dScenarioTest.cpp` 51a1d5d2..., `GoldenQuestTraceTest.cpp` edb2ce01...; `git status` clean). The six affected projects' object
+directories, PDBs and ILKs were deleted and rebuilt; no file of `build/msvc/game-server` contains `AION_SP_MUT` or `aionSpMut`.
+
+**Verification** (on the final tree):
+
+- **Tools** from `cpp/`: `python -m tools.gen.questgen --emit` over the 161 bannered files of the tree (route 36, Q03 72, Q10 53)
+  reproduces each byte for byte; `parity.py tree` over poeta, ishalgen, ascension, verteron, heiron, altgard, pandaemonium: 13 + 17 + 16 +
+  22 + 52 + 22 + 36 = 178 pairs, 0 with mismatches, and the 21 Java files without C++ are the hold-backs; `oracle.py quest-trace
+  generate` changes the four documents above and no other, `check` 0 problems; `test_quest_trace` and `test_quest_trace_q03` 63 of 63.
+- **Build**, every target: 0 errors, 0 warnings, and the next build compiled nothing (after the mutation proof's rebuild too).
+- **Unit suite** (`ctest -C Debug -j 2 -LE "scenario|geo|m4|nightly|stress|smoke" --no-tests=error --timeout 1800`, 20:25-21:12,
+  2,779 s): **4,922 of 4,922 passed** (4,927 entries, 5 disabled; 30 skip themselves as usual); tools.gen 596 s, tools.oracle 231 s,
+  tools.parity, tools.porting and tools.xmlgen passed; the golden harness 167 of 167.
+- **Gates** (`ctest -C Debug -j 2 -L "scenario|smoke|geo|m4" -E m5a_stress --no-tests=error`, 21:12-21:50, 2,242 s, nothing else
+  running): **58 of 58 passed** (14 disabled gate shadows). Times (s): smoke.startup 45, startup_progress 33, startup_geo 147,
+  m4.check_static_data 148, m5a 61, m5a_geo 159, m5b 219, m5b_geo 350, m5b2 177, m5b2_geo 316, m5b3 132, m5b3_geo 311, m5c 295, m5d 231,
+  m5d_geo 346, travel 40, ascension 877. No flake. Every gate's `census.txt` is the header alone, every `game_server.log` has "Ignoring
+  ./config/mygs.properties" and "Loaded 4362 quest handlers".
+- **Checks** from `cpp/`: `census.py` exit 0 (1,230 `AION_UNPORTED` + 9 `AION_PARTIAL` sites); `census.py --self-check` 0 synthetic and 0
+  live-tree failures; `lint_concurrency.py --werror --cycles=core game-server/src` 3,833 files, 0 errors, 0 warnings, 0 advisories;
+  `chunks.py check` 71 chunks, 84 parts, 7,088 C++ files, 532 test files, 0 problems.

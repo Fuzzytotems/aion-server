@@ -777,4 +777,8 @@ Not taught (p6q-ascension-route.md §9.5 has the detail):
   built on the four handlers being held back, so it has to be taught when the two meet. The places are its header (:21), the
   `REGISTERED_JAVA_QUESTS` filter of the Y1 / Y13 nearby sets (:143), `enterWorldPattern` (:665), `levelReadyPattern` (:682-688, asserted
   :1028), Y13's empty SM_QUEST_LIST (:2234), and ending the movie before `walkTo` / `walkToTalk` (:1062, :1611). The file keeps its
-  own helpers on purpose (:35), so whether it includes PrologueSupport is decided in that merge.
+  own helpers on purpose (:35), so whether it includes PrologueSupport is decided in that merge. **Taught at that merge** (branch
+  `integ/slice2-prologue` on C++ `51ef338e4`, 2026-09-29): the pair includes `PrologueSupport.h` (the one shared check), expects the
+  prologue's packets in both first-enter sequences, ends both characters' movies before the first walk, checks each mission LOCKED, counts
+  the prologue's STR_GET_EXP2 in its exp ledger, and reads 1000 / 2000 COMPLETE and 1100 / 2100 LOCKED in Y6, Y9, Y12 and Y13;
+  docs/design/p6q-ascension-route.md §10 has each change, the failure it answers and its mutants.
