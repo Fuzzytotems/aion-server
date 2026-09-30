@@ -78,6 +78,13 @@ struct NetworkConfig {
 	 */
 	static inline ConfigValue<std::set<std::string, std::less<>>> TRACE_CLIENT_PACKETS;
 
+	/**
+	 * C++ only (gameserver.network.trace.server_packets, play-session diagnostics 2026-09-29, docs/deviations/P4-01.md): the names of the server
+	 * packets (for example SM_GATHERABLE_INFO) whose every send AionConnection::sendPacket logs at INFO with the packet's toString() and the
+	 * receiving player's name, to time when the server sent them to a real client. Empty (the default): nothing is logged.
+	 */
+	static inline ConfigValue<std::set<std::string, std::less<>>> TRACE_SERVER_PACKETS;
+
 	static inline std::atomic<bool> ENABLE_FLOOD_CONNECTIONS{false};
 
 	static inline std::atomic<int32_t> Flood_Tick{0};

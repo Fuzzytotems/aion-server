@@ -9,7 +9,8 @@ on every path; the fixes were made on branch `fix/play-session-2026-09-28`.
 **None of the four bugs is a port difference.** On each path the port matches Java statement for statement, and no `AION_UNPORTED` or
 `AION_PARTIAL` body is on any of them. Reports 1, 2 and 4 are Java's own behaviour: Java HEAD (`024f4c0c8`, with #175 and #184) shows them
 too, so the owner may want to report them upstream. They are fixed in C++ after the owner's precedent for a Java bug (M5c D7,
-docs/design/owner-decisions.md: fix it and record the fix), each as a recorded deviation. Report 3 needs the client's packet sequence.
+docs/design/owner-decisions.md: fix it and record the fix), each as a recorded deviation. Report 3 needed the client's packet sequence; the
+owner captured it on 2026-09-29, and it is a Java bug as well, fixed the same way (R-3).
 
 ## The reports
 
@@ -17,7 +18,7 @@ docs/design/owner-decisions.md: fix it and record the fix), each as a recorded d
 |---|---|---|
 | 1 | Moving does not cancel a tuning (Rectangle) | **Java bug, fixed** (docs/deviations/P4-11b.md) |
 | 2 | With two weapons, using an ability no longer starts auto-attack (Rectangle) | **Java regression of #175, fixed** (P4-11b.md); it was not a charge skill |
-| 3 | Moving the sword from the main hand to the off hand works, but also says the inventory is full (Rectangle) | **Not reproduced yet**; a client packet trace was added to capture the sequence next session (P4-15.md, P4-01.md, P5-15.md) |
+| 3 | Moving the sword from the main hand to the off hand works, but also says the inventory is full (Rectangle) | **Java bug, fixed 2026-09-29** after the client packet trace captured the swap (P5-15.md; the trace: P4-15.md, P4-01.md) |
 | 4 | A second tuning can start while one runs; the first item stays greyed until a late "Canceled tuning of X" (Errant) | **Java bug, fixed** (P5-16.md) |
 | 5 | Charge skills still do not work (Zatsuko, Muse) | Known: `CM_USE_CHARGE_SKILL` is not ported (m5e-plan.md C-04) |
 | 6 | Circuit reached level 10 | **Confirmed**: finding F-1 of the 2026-09-25 session (m5c0-client-session.md) is fixed |
@@ -52,8 +53,24 @@ in the same process, so Rectangle never released a charge skill.
 3. unequip the old off-hand weapon: it is no longer equipped, the unequip fails, the message comes;
 4. equip the old off-hand weapon into the main hand.
 
-The swap ends correctly, with a spurious message, as Java would. It cannot be confirmed without the client's packets, so CM_EQUIP_ITEM's
-answer is **not changed yet**. Added instead: the C++-only config key `gameserver.network.trace.client_packets` (see "Next session").
+The swap ends correctly, with a spurious message, as Java would. It could not be confirmed without the client's packets, so CM_EQUIP_ITEM's
+answer was not changed then. Added instead: the C++-only config key `gameserver.network.trace.client_packets` (see "Next session").
+
+**R-3, understood and fixed (2026-09-29).** The owner played with the trace on and swapped Rectangle's two one-handed weapons twelve times
+(22:26-22:28). The client sends each swap as four CM_EQUIP_ITEMs within a few milliseconds: it unequips both weapons, then equips the new
+main-hand weapon (slot mask 1) and the new off-hand weapon (2). The order of the two unequips follows the drag (the weapon of the slot dropped
+on comes first, which fits the owner's report):
+- the off-hand weapon dropped on the main hand unequips the **main-hand** weapon first (10 of the 12 sequences). The retail-like rule moves
+  both weapons to the cube, the second unequip names an item that is no longer equipped, `unEquipItem` answers null, and CM_EQUIP_ITEM
+  answers that null with `STR_UI_INVENTORY_FULL`; the two equips then complete the swap. This is the owner's "every time";
+- the main-hand weapon dropped on the off hand unequips the **off-hand** weapon first (2 of 12): each unequip moves one weapon, no message.
+
+So the sequence differs from the guess above (two unequips first, then two equips), but the cause is the one named there. Java HEAD
+(`upstream/4.8`) has the same CM_EQUIP_ITEM.java and the same rule, so the owner may want to report it upstream. **Fix** (M5c D7's
+precedent, docs/deviations/P5-15.md): CM_EQUIP_ITEM sends `STR_UI_INVENTORY_FULL` only when the item is still equipped after the failed
+unequip, i.e. when the cube was the reason (a full cube, or fewer than two free slots for a main-hand weapon with a weapon in the off hand);
+an unequip of an item that is not equipped fails silently. Both captured forms are replayed by `WeaponSwapTest` (tests/cm_ak), and the two cube
+causes still answer with the message.
 
 **R-4. A second tuning starts while one runs.** `CM_TUNE` has no busy guard in Java. The second use's `addTask(ITEM_USE)` cancels the first
 task silently, the first item stays greyed, and the first use's observer stays attached. The next move, hit, equip or skill then aborts it,
@@ -88,6 +105,11 @@ experience gain. The owner decided: "Leave it as Java has it". The retail ascens
 
 ## Next session: what to capture for R-3
 
+(Done on 2026-09-29: the trace below captured the swap, and R-3 is fixed. The key stays available for later reports. A second C++-only key,
+`gameserver.network.trace.server_packets`, logs when the server sends a named server packet, e.g. `SM_GATHERABLE_INFO,SM_NPC_INFO`, as
+`Server packet trace: sent [017] SM_GATHERABLE_INFO to Rectangle`; with `CM_MOVE` in the client key it times the late Sanctum crafting benches
+of that session against the owner's movement (docs/deviations/P4-15.md, P4-01.md).)
+
 1. Play a build from `fix/play-session-2026-09-28` or later (the trace does not exist in `5bbd3551f`).
 2. Set this key in the game server's `config/mygs.properties` (C++ server only; no shipped properties file names it, because `config/`
    belongs to the Java tree; docs/deviations/P4-01.md documents it):
@@ -110,7 +132,8 @@ Remove the key afterwards. The empty default logs nothing.
 ## Verification of the fixes
 
 The tests, the mutation evidence and the header requests (`psf-1`..`psf-3`, docs/porting/header-requests.md) are in the "Play-session
-fixes 2026-09-28" sections of docs/deviations/P4-11b.md, P5-16.md, P4-15.md, P4-01.md, P5-15.md and P5-07.md. The first schemata build had
+fixes 2026-09-28" sections of docs/deviations/P4-11b.md, P5-16.md, P4-15.md, P4-01.md, P5-15.md and P5-07.md; R-3's fix of 2026-09-29 is in
+P5-15.md's "Play-session fix 2026-09-29" section (9 mutants, all killed). The first schemata build had
 12 mutants, all killed. The review's own run found 14 non-equivalent survivors, so the second build added six cases and 21 more mutants
 (`AION_PSF2_MUT`), all killed. It pins every notification the item-use observer still handles, a swing that enters combat, a refused
 swing that does not move the throttle, CM_TUNE's do-nothing paths, and the trace's place before `runImpl` and after `isValid`.

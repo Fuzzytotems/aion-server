@@ -814,3 +814,14 @@ comment), so each request was **approved by the integrator under the standing in
 | gh-2 | `CheckOutput.h` (P5-14) | comment only: `drainPools`' doc says that it waits for every task queued in the instant or the long-running pool and every task running on a pool thread when it starts (the queued half since the review fixes, which replaced the barrier tasks) | **approved by the integrator under the standing instruction** (comment only, the m5b3-i-1 / m5c-h07 precedent), applied | The body changed (docs/deviations/P5-14.md, "Lane H"); the old doc ("one barrier task per pool") described the defect |
 | (no request) | `runtime/base/ThreadContext.h` (P4-02a), `runtime/sched/ExecutorBackend.h`, `PoolBackends.h`, `utils/ThreadPoolManager.h` (P4-02b) | none | **none filed** | The drain reads what the kernel already publishes: `ThreadContext::forEach`, `threadName()` (the pool thread names are part of `ExecutorBackend`'s contract) and the `task()` snapshot (active, start of the outermost `TaskScope`), design §1.2 - the records the watchdog reads - and, since the review fixes, `ExecutorBackend::pendingTasks()` and `Future::getPool()` / `isDone()`, which `//debug tasks` and LeakCensus already use. No pool gains an "active tasks" API |
 | (no request) | `tests/scenario/ScenarioServers.h` (P5-SC) | `IGNORE_MYGS_PROPERTIES`, `loginServerOverrideFile()`, doc comments; since the review fixes the log lines `GAME_SERVER_PROFILE_IGNORED` / `_LOADED` and `LOGIN_SERVER_NO_PROFILE` and the checks `gameServerProfileProblem` / `loginServerProfileProblem` | none (the lane's own chunk) | – |
+
+## Play-session fix and diagnostics 2026-09-29 (branch `fix/equip-swap-message`)
+
+Report 3 of the 2026-09-28 session (the spurious "inventory is full" of a weapon swap) is fixed in `CM_EQUIP_ITEM.cpp` alone (P5-15.md), and
+the server packet trace for the Sanctum benches is `AionConnection.cpp`'s (P4-15.md). One existing header changes, additively, after the
+psf-2 precedent; the request is filed with the change applied on the branch, for the integrator to confirm at the merge.
+
+| Id | File | Change | Decision | Reason |
+|---|---|---|---|---|
+| psf-4 | `configs/network/NetworkConfig.h` (P4-01) | `static inline ConfigValue<std::set<std::string, std::less<>>> TRACE_SERVER_PACKETS;` after `TRACE_CLIENT_PACKETS`, with its doc | **filed, applied on the branch** (small and additive, the psf-2 precedent); the integrator confirms at the merge | The C++-only key `gameserver.network.trace.server_packets`, bound in `NetworkConfig.cpp` with the default `""` (docs/deviations/P4-01.md). Additive; `AionConnection.cpp` (P4-15) reads it |
+| (no request) | `network/aion/clientpackets/CM_EQUIP_ITEM.h` (P5-15), `network/aion/AionConnection.h` (P4-15) | none | **none filed** | The fix's `isStillEquipped` and the trace's `traceIfConfigured` are file-local functions of the `.cpp` files |
