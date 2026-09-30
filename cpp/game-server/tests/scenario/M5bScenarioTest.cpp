@@ -47,6 +47,7 @@
 #include "GameSession.h"
 #include "Oracle.h"
 #include "PacketSequence.h"
+#include "PrologueSupport.h"
 #include "ScenarioServers.h"
 #include "decoders/CombatDecoders.h"
 #include "decoders/PacketDecoders.h"
@@ -537,11 +538,14 @@ void expectSequence(const std::vector<Packet>& packets, std::string_view pattern
 	EXPECT_TRUE(result.matched) << result.message << "\n  expected: " << sequence.toString() << "\n  got (" << names.size() << "): " << join(names);
 }
 
-/** The CM_ENTER_WORLD part of m5a-plan.md §5.8 (#0 to #32); the M5b gate replays it unchanged, as §6.2 K1-K3 asks */
+/**
+ * The CM_ENTER_WORLD part of m5a-plan.md §5.8 (#0 to #32); the M5b gate replays it unchanged, as §6.2 K1-K3 asks - with the prologue's
+ * SM_QUEST_ACTION in a first enter world (P6-Q prologue, PrologueSupport.h: the mission added LOCKED by onLevelChange(0, 1))
+ */
 std::string enterWorldPattern(bool firstEnter, int32_t inventoryPackets) {
 	std::string pattern;
 	if (firstEnter)
-		pattern += "SM_STATS_INFO, SM_ACTION_ANIMATION, SM_NEARBY_QUESTS, ";
+		pattern += PROLOGUE_FIRST_ENTER_LEVEL_CHANGE;
 	pattern += "SM_HOUSE_SCRIPTS, SM_UNK_3_5_1, SM_ENTER_WORLD_CHECK, ";
 	pattern += "SM_SKILL_LIST+, [SM_SKILL_COOLDOWN], [SM_ITEM_COOLDOWN], ";
 	pattern += "SM_QUEST_COMPLETED_LIST+, SM_QUEST_LIST, SM_TITLE_INFO{2}, SM_MOTION, ";
@@ -557,14 +561,17 @@ std::string enterWorldPattern(bool firstEnter, int32_t inventoryPackets) {
 	return pattern;
 }
 
-/** The CM_LEVEL_READY part of m5a-plan.md §5.8 (#33 to #44) */
+/**
+ * The CM_LEVEL_READY part of m5a-plan.md §5.8 (#33 to #44) of the first enter world (K3), with the prologue's start and movie after the weather
+ * (P6-Q prologue, PrologueSupport.h)
+ */
 std::string levelReadyPattern() {
-	return "SM_PLAYER_INFO, SM_PLAYER_STATE, SM_ACCOUNT_PROPERTIES, SM_MOTION, "
-	       "SM_WINDSTREAM_ANNOUNCE*, "
-	       "(SM_NPC_INFO | SM_GATHERABLE_INFO)+, "
-	       "SM_RIFT_ANNOUNCE, "
-	       "SM_NEARBY_QUESTS, [SM_QUEST_REPEAT], [SM_WEATHER], "
-	       "SM_ABNORMAL_STATE, SM_CUBE_UPDATE";
+	return std::string("SM_PLAYER_INFO, SM_PLAYER_STATE, SM_ACCOUNT_PROPERTIES, SM_MOTION, "
+	                   "SM_WINDSTREAM_ANNOUNCE*, "
+	                   "(SM_NPC_INFO | SM_GATHERABLE_INFO)+, "
+	                   "SM_RIFT_ANNOUNCE, "
+	                   "SM_NEARBY_QUESTS, [SM_QUEST_REPEAT], [SM_WEATHER], ") +
+	       std::string(PROLOGUE_LEVEL_READY) + "SM_ABNORMAL_STATE, SM_CUBE_UPDATE";
 }
 
 // ---- the scenario client ---------------------------------------------------------------------------------------------------------------
@@ -1017,6 +1024,7 @@ void runM5bGate(const GateVariant& variant) {
 		ASSERT_FALSE(burst.empty()) << "no packet after CM_ENTER_WORLD";
 		const int32_t inventoryPackets = static_cast<int32_t>((elyos.items.size() + 9) / 10) + 1;
 		expectSequence(burst, enterWorldPattern(true, inventoryPackets), async);
+		expectPrologueMissionLocked(burst, decoders::ELYOS_PROLOGUE, "K2 (P6-Q prologue)");
 
 		const Packet* spawn = firstOfName(burst, "SM_PLAYER_SPAWN");
 		ASSERT_NE(spawn, nullptr);
@@ -1070,6 +1078,10 @@ void runM5bGate(const GateVariant& variant) {
 		EXPECT_EQ(monsterMaxHpAnnounced, monster.maxHp) << "SM_NPC_INFO announces a maxHp the npc template does not have";
 		std::cout << "K3: the gate's monster is object " << monsterObjectId << " (npc " << GATE_MONSTER_NPC_ID << ", maxHp "
 		          << monsterMaxHpAnnounced << ")" << std::endl;
+
+		// P6-Q prologue: quest 1000 and its movie, which the client ends before K4's walk (CM_MOVE is dropped while it plays); the quest's
+		// reward is the character's first exp, decoders::PROLOGUE_EXP, which R1 adds to the kill's
+		endPrologue(*a.game, burst, decoders::ELYOS_PROLOGUE, 0, async, [&] { return collectBurst(*a.game, async); }, "K3 the prologue (1000)");
 	});
 
 	/** walks the character from `fromX/Y/Z` to `toX/Y/Z` in 5 m steps and stops there (the §5.6 move shape, m5a-plan.md case 5) */
@@ -1566,7 +1578,8 @@ void runM5bGate(const GateVariant& variant) {
 			if (packets[i].name == "SM_STATUPDATE_EXP")
 				expUpdates.push_back(decoders::decodeStatUpdateExp(packets[i].data));
 		ASSERT_FALSE(expUpdates.empty()) << "R1 (b): no SM_STATUPDATE_EXP after the kill (PlayerCommonData::setExp sends one unconditionally)";
-		EXPECT_EQ(expUpdates.back().currentExp, monster.awarded) << "R1 (b): getExpShown() after the kill";
+		// P6-Q prologue: the character holds quest 1000's reward from K3 (decoders::PROLOGUE_EXP) before the kill
+		EXPECT_EQ(expUpdates.back().currentExp, decoders::PROLOGUE_EXP + monster.awarded) << "R1 (b): getExpShown() after the kill";
 		EXPECT_EQ(expUpdates.back().maxExp, monster.expNeed)
 		  << "R1 (b): getExpNeed() is getStartExpForLevel(level + 1) - getStartExpForLevel(level), and the table is 1-based (D7)";
 		EXPECT_EQ(expUpdates.back().recoverableExp, 0) << "R1 (b): a character that never died has no recoverable exp";
@@ -1720,9 +1733,9 @@ void runM5bGate(const GateVariant& variant) {
 		a.game->send(GameSession::CM_QUIT, GameSession::buildCM_QUIT(true));
 		waitFor(*a.game, "SM_QUIT_RESPONSE", 30s);
 		expAfterQuit = database.queryLong(schema, "SELECT exp FROM players WHERE id = " + player).value_or(-1);
-		EXPECT_EQ(expAfterQuit, monster.awarded)
-		  << "R1 (c): players.exp after the quit. A port that updates the packet but not PlayerCommonData.exp fails exactly here and nowhere "
-		     "else, because nothing writes the row while the character is online";
+		EXPECT_EQ(expAfterQuit, decoders::PROLOGUE_EXP + monster.awarded)
+		  << "R1 (c): players.exp after the quit (the prologue's exp and the kill's). A port that updates the packet but not "
+		     "PlayerCommonData.exp fails exactly here and nowhere else, because nothing writes the row while the character is online";
 		EXPECT_EQ(database.queryLong(schema, "SELECT COUNT(*) FROM abyss_rank WHERE player_id = " + player).value_or(0), 1)
 		  << "R2: the quit wrote no abyss_rank row, so the read below would pass for want of a row";
 		apBeforeQuit = database.queryLong(schema, "SELECT ap FROM abyss_rank WHERE player_id = " + player).value_or(-1);
@@ -1745,7 +1758,7 @@ void runM5bGate(const GateVariant& variant) {
 		ASSERT_FALSE(stats.empty());
 		const decoders::StatsInfo statsInfo = decoders::decodeStatsInfo(stats.back().data);
 		EXPECT_EQ(statsInfo.currentHp, 1) << "D12: the seeded 1 HP was not restored from the database";
-		EXPECT_EQ(statsInfo.expShown, monster.awarded) << "R1 (c): the stored experience came back with the character";
+		EXPECT_EQ(statsInfo.expShown, decoders::PROLOGUE_EXP + monster.awarded) << "R1 (c): the stored experience came back with the character";
 		a.game->send(GameSession::CM_LEVEL_READY, GameSession::buildCM_LEVEL_READY());
 		collectBurst(*a.game, async);
 	});

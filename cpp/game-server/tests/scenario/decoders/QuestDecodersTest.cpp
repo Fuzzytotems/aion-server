@@ -309,5 +309,52 @@ TEST(QuestDecodersTest, StatUpdateExpIsFiveLongs) {
 	EXPECT_THROW(decodeStatUpdateExp(std::span<const uint8_t>(body).first(32)), DecodeError) << "four longs";
 }
 
+// ---- SM_PLAY_MOVIE (P6-Q prologue) ------------------------------------------------------------------------------------------------------
+
+TEST(QuestDecodersTest, PlayMovieIsFifteenBytes) {
+	// 1000's prologue: _1000Prologue.java:31 playQuestMovie(env, 1, true) with no target, AbstractQuestHandler.java:665-667
+	// SM_PLAY_MOVIE(true, 0, 1000, 1, true)
+	const std::vector<uint8_t> body = {
+		0x01,                   // 0: writeC(isMovie ? 1 : 0)      (SM_PLAY_MOVIE.java:29)
+		0x00, 0x00, 0x00, 0x00, // 1: writeD(objectId) = 0          (:30)
+		0xE8, 0x03, 0x00, 0x00, // 5: writeD(questId) = 1000        (:31)
+		0x01, 0x00, 0x00, 0x00, // 9: writeD(cutsceneId) = 1        (:32)
+		0x00,                   // 13: writeC(0)                    (:33)
+		0x00,                   // 14: writeC(canSkip ? 0 : 1)      (:34)
+	};
+	ASSERT_EQ(body.size(), 15u);
+	EXPECT_EQ(decodePlayMovie(body), (PlayMovie{true, 0, 1000, 1, true}));
+
+	// the three ints are told apart, and the two flags are read from their own bytes
+	PacketWriter other;
+	other.C(0).D(0x01020304).D(2000).D(0x0A0B0C0D).C(0).C(1);
+	EXPECT_EQ(decodePlayMovie(other.data), (PlayMovie{false, 0x01020304, 2000, 0x0A0B0C0D, false}));
+
+	for (const size_t at : {size_t{0}, size_t{13}, size_t{14}}) {
+		std::vector<uint8_t> changed = body;
+		changed[at] = 2;
+		EXPECT_THROW(decodePlayMovie(changed), DecodeError) << "byte " << at << " is 2";
+	}
+	std::vector<uint8_t> trailing = body;
+	trailing.push_back(0);
+	EXPECT_THROW(decodePlayMovie(trailing), DecodeError);
+	EXPECT_THROW(decodePlayMovie(std::span<const uint8_t>(body).first(14)), DecodeError);
+}
+
+TEST(QuestDecodersTest, ThePrologueQuestsAreTheJavaHandlers) {
+	// _1000Prologue.java:17, :31; _1100KaliosCall.java:20; _2000Prologue.java:17, :31; _2100OrderoftheCaptain.java:19; WorldMapType.java: POETA
+	// (210010000), ISHALGEN (220010000); quest_data.xml 1000 / 2000 `<rewards exp="1"/>`
+	EXPECT_EQ(ELYOS_PROLOGUE.startMap, 210010000);
+	EXPECT_EQ(ELYOS_PROLOGUE.quest, 1000);
+	EXPECT_EQ(ELYOS_PROLOGUE.movie, 1);
+	EXPECT_EQ(ELYOS_PROLOGUE.mission, 1100);
+	EXPECT_EQ(ASMODIAN_PROLOGUE.startMap, 220010000);
+	EXPECT_EQ(ASMODIAN_PROLOGUE.quest, 2000);
+	EXPECT_EQ(ASMODIAN_PROLOGUE.movie, 2);
+	EXPECT_EQ(ASMODIAN_PROLOGUE.mission, 2100);
+	EXPECT_EQ(PROLOGUE_EXP, 1);
+	EXPECT_EQ(PROLOGUE_EXP_MESSAGE, 1370002) << "SM_SYSTEM_MESSAGE.java:16363-16365, STR_GET_EXP2";
+}
+
 } // namespace
 } // namespace aion::gameserver::scenario::decoders

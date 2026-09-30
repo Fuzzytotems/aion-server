@@ -6,7 +6,8 @@
 //
 // - the case's given becomes the fixture state: a quester of the quest's race (the case's, when it names one) and level, the handler's
 //   QuestState (status, var slots, reward group; canRepeat picks the complete count), the inventory counts, the target npc (an Npc of the
-//   template standing in the fixture's Poeta instance) and the dialog action of the QuestEnv;
+//   template standing in the fixture's Poeta instance), the dialog action of the QuestEnv and the quester's map id when the case names one
+//   (player.worldId: the enter-world and level hooks of 1100 and 2100 compare it with WorldMapType.POETA / ISHALGEN);
 // - ACTUAL: the case's hook of the generated handler runs on that state;
 // - EXPECTED: the same state is built again (same player object id, same npc) and the case's effects, the calls Java makes on that path in
 //   order, are replayed on the real helpers (AbstractQuestHandler through a PlainHandler of the quest, QuestService, the QuestState setters);
@@ -131,10 +132,6 @@ std::vector<int32_t> expectedQuestIds() {
 	}
 	std::sort(ids.begin(), ids.end());
 	return ids;
-}
-
-bool heldBack(int32_t questId) {
-	return std::find(std::begin(GOLDEN_HELD_BACK), std::end(GOLDEN_HELD_BACK), questId) != std::end(GOLDEN_HELD_BACK);
 }
 
 // --- the static data rows the cases need ----------------------------------------------------------------------------------------------
@@ -606,6 +603,13 @@ protected:
 		const json& given = c["given"];
 		Quester* quester = makeQuester(GOLDEN_PLAYER, "Golden", setup.race, std::max(setup.level + overlay.levelDelta, 1));
 		gameserver::model::gameobjects::player::Player& player = quester->player();
+		// the map the case names (extract.py: player.getWorldId(), compared with a WorldMapType id; 1100 and 2100): the quester stands in the
+		// fixture's region as before, under that map id, which is what VisibleObject::getWorldId answers
+		if (given.contains("player") && given["player"].contains("worldId")) {
+			player.setPosition(world::WorldPosition::create(given["player"]["worldId"].get<int32_t>(), 100.0f, 100.0f, 50.0f, int8_t{0},
+				mapInstance->getRegion(100.0f, 100.0f, 50.0f)));
+			player.getPosition()->setIsSpawned(true);
+		}
 		// the parts every loaded player has that a finish reaches (QuestTemplate1bTestSupport.h makePlayer): npc factions (finishQuest, a level
 		// change), an empty skill list and an empty recipe list
 		player.setNpcFactions(std::make_unique<gameserver::model::gameobjects::player::npcFaction::NpcFactions>(player));
@@ -1002,7 +1006,7 @@ const std::map<std::string, std::string>& knownVacuous() {
 	static const std::string NOT_STARTED = "QuestService.startQuest assumed false: it sends nothing then (QuestService.java:400-444)";
 	static const std::map<std::string, std::string> known{
 		{"1005 onDialogEvent#37", IDLE_END},
-		{"1100 onDialogEvent#4", IDLE_START}, // held back (GoldenHandlers.h): measured with the file compiled in, 2026-09-29
+		{"1100 onDialogEvent#4", IDLE_START},
 		{"1107 onDialogEvent#4", IDLE_END},
 		{"1107 onDialogEvent#5", IDLE_END},
 		{"1111 onDialogEvent#5", IDLE_START},
@@ -1014,7 +1018,7 @@ const std::map<std::string, std::string>& knownVacuous() {
 		{"1123 onDialogEvent#7", IDLE_END},
 		{"2001 onDialogEvent#18", IDLE_END},
 		{"2006 onDialogEvent#16", IDLE_END},
-		{"2100 onDialogEvent#5", IDLE_START}, // held back, as 1100
+		{"2100 onDialogEvent#5", IDLE_START},
 		{"2106 onDialogEvent#28", IDLE_END},
 		{"2114 onDialogEvent#3", NOT_STARTED},
 		{"2114 onDialogEvent#5", NOT_STARTED},
@@ -1041,8 +1045,7 @@ TEST_F(GoldenQuestTraceTest, EveryExpectedDocumentHasAGeneratedHandlerAndEveryHa
 	std::vector<int32_t> ids = expectedQuestIds();
 	ASSERT_FALSE(ids.empty()) << EXPECTED_DIR;
 	for (int32_t questId : ids)
-		EXPECT_NE(generatedHandler(questId) != nullptr, heldBack(questId))
-			<< questId << (heldBack(questId) ? " is held back but in the table" : " has no handler");
+		EXPECT_NE(generatedHandler(questId), nullptr) << questId << " has no handler";
 	for (const GeneratedHandler& handler : generatedHandlers())
 		EXPECT_TRUE(std::binary_search(ids.begin(), ids.end(), handler.questId)) << handler.javaClass << " has no expected trace in " << EXPECTED_DIR;
 }

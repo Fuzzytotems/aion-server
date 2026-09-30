@@ -7,9 +7,9 @@
 // (GoldenIshalgenHandlers.cpp, GoldenAscensionHandlers.cpp), the way P5-05's tests compile the two quest npc AIs (chunks.cmake, the P5-05 LEASE
 // row). The generated files themselves are never edited here.
 //
-// Held back (GOLDEN_HELD_BACK): 1000, 2000, 1100 and 2100 register onEnterWorld and start their quest at a character's first enter world
-// (Java behaviour), which turns gs.scenario.m5a, m5b and m5b2 red (docs/deviations/Q05.md, "Gate impact"). Their generated files are not in
-// the handler tree until the gates' owners decide; the harness passed all 30 of their cases with them in (the bytes the generator emits).
+// 1000, 1100, 2000 and 2100 register onEnterWorld and start their quest at a character's first enter world (Java behaviour). They were held
+// back for their gate impact until the owner's answer of 2026-09-29 (owner-decisions.md: "A", land them and let gs.scenario.m5a, m5b and m5b2
+// expect the prologue traffic); they are in the table since (docs/deviations/Q05.md, "Gate impact").
 
 #include <cstdint>
 #include <memory>
@@ -20,19 +20,23 @@
 
 // clang-format off
 #define AION_GOLDEN_GENERATED_HANDLERS(X) \
+	X(poeta, _1000Prologue, 1000) \
 	X(poeta, _1001TheKerubThreat, 1001) \
 	X(poeta, _1003IllegalLogging, 1003) \
 	X(poeta, _1004NeutralizingOdium, 1004) \
 	X(poeta, _1005BarringtheGate, 1005) \
+	X(poeta, _1100KaliosCall, 1100) \
 	X(poeta, _1107TheLostAxe, 1107) \
 	X(poeta, _1111InsomniaMedicine, 1111) \
 	X(poeta, _1122DeliveringPernossRobe, 1122) \
 	X(poeta, _1123WheresTutty, 1123) \
 	X(poeta, _1205ANewSkill, 1205) \
+	X(ishalgen, _2000Prologue, 2000) \
 	X(ishalgen, _2001ThinkingAhead, 2001) \
 	X(ishalgen, _2003TreasureOfTheDeceased, 2003) \
 	X(ishalgen, _2005TeachingaLesson, 2005) \
 	X(ishalgen, _2006HitThemWhereitHurts, 2006) \
+	X(ishalgen, _2100OrderoftheCaptain, 2100) \
 	X(ishalgen, _2106VanarsFlattery, 2106) \
 	X(ishalgen, _2114TheInsectProblem, 2114) \
 	X(ishalgen, _2122AshesToAshes, 2122) \
@@ -62,9 +66,6 @@ AION_GOLDEN_GENERATED_HANDLERS(AION_GOLDEN_DECLARE_FACTORY)
 #undef AION_GOLDEN_DECLARE_FACTORY
 
 namespace aion::gameserver::questEngine::handlers::test::golden {
-
-/** The route's generated handlers kept out of the handler tree for their gate impact (see above) */
-inline constexpr int32_t GOLDEN_HELD_BACK[] = {1000, 1100, 2000, 2100};
 
 struct GeneratedHandler {
 	std::string_view directory;

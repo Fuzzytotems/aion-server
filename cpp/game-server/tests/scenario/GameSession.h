@@ -126,6 +126,11 @@ public:
 
 	/** abandoning a quest (m5d-plan.md D-03, G-02): AionClientPacketFactory packets[80], "C_GIVE_UP_QUEST" (AionClientPacketFactory.java:108) */
 	static constexpr int32_t CM_DELETE_QUEST = 80;
+	/**
+	 * the end of a cutscene (P6-Q prologue, owner answer 4 of 2026-09-29): AionClientPacketFactory packets[81], "C_QUIT_CUTSCENE"
+	 * (AionClientPacketFactory.java:109)
+	 */
+	static constexpr int32_t CM_PLAY_MOVIE_END = 81;
 
 	/**
 	 * the stage-1 packets of M5c (m5c-plan.md K-01, K-02, G-02): the shop, the exchange, the private store, the mail and identification
@@ -489,6 +494,13 @@ public:
 	 * and calls QuestService.abandonQuest (:28-37) - the gate's `CM_DELETE_QUEST(1103)` (m5d-plan.md §10.2 C14)
 	 */
 	static std::vector<uint8_t> buildCM_DELETE_QUEST(int32_t questId);
+	/**
+	 * CM_PLAY_MOVIE_END.readImpl (CM_PLAY_MOVIE_END.java:33-40): readC type, readD targetObjectId, readD questId, readD movieId, readC (unknown),
+	 * readC (0: canSkip). A real client sends it with the fields of the SM_PLAY_MOVIE whose cutscene ended or was skipped (the last two bytes
+	 * written as 0). Until it arrives the server drops every CM_MOVE: SM_PLAY_MOVIE.java:28 sets WATCHING_CUTSCENE, CM_MOVE.java:159-161 drops
+	 * a move while it is set, and CM_PLAY_MOVIE_END.java:52 alone clears it
+	 */
+	static std::vector<uint8_t> buildCM_PLAY_MOVIE_END(uint8_t type, int32_t targetObjectId, int32_t questId, int32_t movieId);
 
 	// ---- M5c's stage-1 packets (m5c-plan.md K-01, K-02, G-02) and stage 2's crafting packets, each the Java readImpl field order ----
 	/** one entry of CM_BUY_ITEM (CM_BUY_ITEM.java:65-66): readD itemId (see TRADE_*), readQ count */

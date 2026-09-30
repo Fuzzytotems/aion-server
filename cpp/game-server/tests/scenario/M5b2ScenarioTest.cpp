@@ -61,6 +61,7 @@
 #include "GameSession.h"
 #include "Oracle.h"
 #include "PacketSequence.h"
+#include "PrologueSupport.h"
 #include "ScenarioServers.h"
 #include "decoders/CombatDecoders.h"
 #include "decoders/PacketDecoders.h"
@@ -446,11 +447,14 @@ void expectSequence(const std::vector<Packet>& packets, std::string_view pattern
 	EXPECT_TRUE(result.matched) << result.message << "\n  expected: " << sequence.toString() << "\n  got (" << names.size() << "): " << join(names);
 }
 
-/** The CM_ENTER_WORLD part of m5a-plan.md §5.8, as M5bScenarioTest.cpp replays it */
+/**
+ * The CM_ENTER_WORLD part of m5a-plan.md §5.8, as M5bScenarioTest.cpp replays it: a first enter world with the prologue's SM_QUEST_ACTION
+ * (P6-Q prologue, PrologueSupport.h: the mission added LOCKED by onLevelChange(0, 1))
+ */
 std::string enterWorldPattern(bool firstEnter, int32_t inventoryPackets) {
 	std::string pattern;
 	if (firstEnter)
-		pattern += "SM_STATS_INFO, SM_ACTION_ANIMATION, SM_NEARBY_QUESTS, ";
+		pattern += PROLOGUE_FIRST_ENTER_LEVEL_CHANGE;
 	pattern += "SM_HOUSE_SCRIPTS, SM_UNK_3_5_1, SM_ENTER_WORLD_CHECK, ";
 	pattern += "SM_SKILL_LIST+, [SM_SKILL_COOLDOWN], [SM_ITEM_COOLDOWN], ";
 	pattern += "SM_QUEST_COMPLETED_LIST+, SM_QUEST_LIST, SM_TITLE_INFO{2}, SM_MOTION, ";
@@ -470,14 +474,17 @@ std::string enterWorldPattern(bool firstEnter, int32_t inventoryPackets) {
  * The CM_LEVEL_READY part of m5a-plan.md §5.8 (#33 to #44), and after its SM_CUBE_UPDATE any number of SM_NPC_INFO / SM_GATHERABLE_INFO:
  * the burst is read until the connection has been quiet for a while, and an object that spawns or comes into view in that time is
  * announced by the known-list update, after the answer (m5b3-plan.md §18.5: the final run f2 failed S6 on one trailing SM_NPC_INFO - the Mage
- * enters 20-odd seconds after S5 killed monster A, whose respawnTime is 20 s). The order up to SM_CUBE_UPDATE is asserted as before.
+ * enters 20-odd seconds after S5 killed monster A, whose respawnTime is 20 s). The order up to SM_CUBE_UPDATE is asserted as before. The
+ * sequence is asserted for a first enter world only (S3, S6), which since P6-Q prologue starts the prologue quest and plays its movie after the
+ * weather (PrologueSupport.h)
  */
 std::string levelReadyPattern() {
-	return "SM_PLAYER_INFO, SM_PLAYER_STATE, SM_ACCOUNT_PROPERTIES, SM_MOTION, "
-	       "SM_WINDSTREAM_ANNOUNCE*, "
-	       "(SM_NPC_INFO | SM_GATHERABLE_INFO)+, "
-	       "SM_RIFT_ANNOUNCE, "
-	       "SM_NEARBY_QUESTS, [SM_QUEST_REPEAT], [SM_WEATHER], "
+	return std::string("SM_PLAYER_INFO, SM_PLAYER_STATE, SM_ACCOUNT_PROPERTIES, SM_MOTION, "
+	                   "SM_WINDSTREAM_ANNOUNCE*, "
+	                   "(SM_NPC_INFO | SM_GATHERABLE_INFO)+, "
+	                   "SM_RIFT_ANNOUNCE, "
+	                   "SM_NEARBY_QUESTS, [SM_QUEST_REPEAT], [SM_WEATHER], ") +
+	       std::string(PROLOGUE_LEVEL_READY) +
 	       "SM_ABNORMAL_STATE, SM_CUBE_UPDATE, "
 	       "(SM_NPC_INFO | SM_GATHERABLE_INFO)*";
 }
@@ -1088,6 +1095,8 @@ void runM5b2Gate(const GateVariant& variant) {
 			throw std::runtime_error("no packet after CM_ENTER_WORLD");
 		const int32_t inventoryPackets = static_cast<int32_t>((creation.items.size() + 9) / 10) + 1;
 		expectSequence(burst, enterWorldPattern(firstEnter, inventoryPackets), async);
+		if (firstEnter)
+			expectPrologueMissionLocked(burst, decoders::ELYOS_PROLOGUE, "the first enter world (P6-Q prologue)");
 		std::vector<std::string> sentSkills;
 		for (const Packet& packet : ofName(burst, "SM_SKILL_LIST"))
 			for (const decoders::SkillEntry& entry : decoders::decodeSkillList(packet.data).skills)
@@ -1285,7 +1294,10 @@ void runM5b2Gate(const GateVariant& variant) {
 	// ---- S3: level ready, and monster A ----
 	int32_t monsterA = 0;
 	runCase("S3", "level ready and monster A is announced", [&] {
-		levelReady(nullptr);
+		std::vector<Packet> ready;
+		levelReady(&ready);
+		// P6-Q prologue: quest 1000 and its movie, which the client ends before S4's walk (CM_MOVE is dropped while it plays)
+		endPrologue(*a.game, ready, decoders::ELYOS_PROLOGUE, 0, async, [&] { return collectBurst(*a.game, async); }, "S3 the prologue (1000)");
 		monsterA = objectAt(*spotA).value_or(0);
 		ASSERT_NE(monsterA, 0) << "no SM_NPC_INFO for npc " << GATE_MONSTER_NPC_ID << " at spot A (" << spotA->x << ", " << spotA->y << ", " << spotA->z << ")";
 	});
@@ -1641,7 +1653,10 @@ void runM5b2Gate(const GateVariant& variant) {
 		ASSERT_TRUE(mageCreation.mainHandPAttackBase && mageCreation.mainHandPAttackCurrent);
 		EXPECT_EQ(mageStats->baseMainHandPAttack, *mageCreation.mainHandPAttackBase) << "X1: a magical main hand has no physical attack";
 		EXPECT_EQ(mageStats->mainHandPAttack, *mageCreation.mainHandPAttackCurrent);
-		levelReady(nullptr);
+		std::vector<Packet> ready;
+		levelReady(&ready);
+		// P6-Q prologue: the Mage's own quest 1000 and movie, ended before S7's walk
+		endPrologue(*a.game, ready, decoders::ELYOS_PROLOGUE, 0, async, [&] { return collectBurst(*a.game, async); }, "S6 the prologue (1000)");
 	});
 
 	// ---- S7: the two monsters of the Mage ----

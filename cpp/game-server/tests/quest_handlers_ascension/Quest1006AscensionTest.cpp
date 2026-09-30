@@ -428,7 +428,7 @@ TEST_F(Quest1006Test, TheRewardBeamsHimToPoetaFinishesTheQuestMakesADaevaAndStar
 	EXPECT_FLOAT_EQ(player().getZ(), 100.35713f);
 	EXPECT_TRUE(player().getCommonData()->isDaeva()) << "onQuestCompletedEvent: updateDaeva";
 	// Java's order (QuestService.finishQuest:103-113): the reward's exp is added while he is no Daeva yet, so PlayerCommonData.setExp holds him at
-	// level 9 with the full bar and the 73,200 exp are lost; the Daeva status comes after it (docs/deviations/Q06.md, kept)
+	// level 9 with the full bar; the Daeva status comes after it. The retail design the owner confirmed (docs/deviations/Q06.md): 1007 lifts him
 	EXPECT_EQ(player().getCommonData()->getExp(), LEVEL_10_EXP);
 	EXPECT_EQ(player().getLevel(), 9);
 	// the next exp he earns as a Daeva lifts him to level 10

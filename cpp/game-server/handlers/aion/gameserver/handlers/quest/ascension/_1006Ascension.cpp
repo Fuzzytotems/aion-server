@@ -277,8 +277,9 @@ public:
 		defaultOnLevelChangedEvent(player);
 	}
 
-	// java-bug kept: QuestService.finishQuest gives the reward's 73,200 exp before this event makes him a Daeva, so a starting class at the
-	// level-9 cap loses it and stays level 9 with a full bar until his next exp (docs/deviations/Q06.md)
+	// Retail design, confirmed by the owner (2026-09-29: "the Ascension quest would basically put you at maximum EXP at level 9, and then
+	// the next quest would bump you over"): QuestService.finishQuest gives the reward's 73,200 exp before this event makes him a Daeva, so
+	// a starting class at the level-9 cap stays level 9 with a full bar, and 1007's exp lifts him to level 10 (docs/deviations/Q06.md)
 	void onQuestCompletedEvent(QuestEnv& env) override {
 		if (env.getQuestId() == questId) {
 			runtime::Ptr<Player> player = env.getPlayer();
