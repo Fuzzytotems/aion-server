@@ -51,10 +51,21 @@ hand-ported handler with an owner-approved deviation cannot pass until it exists
 ```
 python parity.py pair JAVA CPP [--json]
 python parity.py tree --java-dir DIR --cpp-dir DIR [--only REL ...] [--json OUT] [--require-all]
+python parity.py spawn-analyzer [--suffix SUFFIX ...] DIR...
 ```
 
 `tree` compares every `.java` below `--java-dir` with the `.cpp` at the same relative path below `--cpp-dir`; a Java file without its C++
 is counted, and is a failure only with `--require-all`. Exit 0 at parity, 1 on a mismatch, 2 on an input error.
+
+`spawn-analyzer` prints the npc id set `QuestSpawnAnalyzer.loadNpcIdsSpawnedByHandlers` finds below the directories, with the same
+regular expression as the `spawn-analyzer` check: a first line `# N files, M npc ids`, then the ids in ascending order. It reads the files
+whose names end with a `--suffix` (default `.java`, the analyzer's own filter); a missing directory exits 2. It is the oracle of the C++
+analyzer's set over the ported handlers (P5-06a's `QuestSpawnAnalyzerTest`, m5d-plan.md E-08: the build-time table of `aion_gs_regscan`
+against the pattern over `handlers/aion/gameserver/handlers/{ai,instance,quest}`, `.cpp` and `.h`):
+
+```
+python tools/parity/parity.py spawn-analyzer --suffix .cpp --suffix .h game-server/handlers/aion/gameserver/handlers/ai game-server/handlers/aion/gameserver/handlers/instance game-server/handlers/aion/gameserver/handlers/quest
+```
 
 The generator's output, from `cpp/`:
 

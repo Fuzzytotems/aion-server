@@ -8,7 +8,7 @@
 // 2017, whose <finished> chain hasAnyPreQuestFinished follows; 2911, a QUEST with six alternative conditions, and 3905, whose quest objects
 // drop three items each. The quest variables are six bits each (QuestVars.java): var1 = 1 is 64.
 //
-// Not here: defaultStartFollowEvent x2, which need questEngine/task (E-07, stage 3; docs/deviations/P5-06b.md).
+// Not here: defaultStartFollowEvent x2 and the follow end through the escort's check task: AbstractQuestHandlerFollowTest.cpp (E-07).
 
 #include "QuestHandlerTestSupport.h"
 

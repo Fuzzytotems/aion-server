@@ -17,11 +17,13 @@
 #include "aion/gameserver/dataholders/QuestsData.h"
 #include "aion/gameserver/dataholders/detail/JavaHashMapOrder.h"
 #include "aion/gameserver/dataholders/loadingutils/EnumTraits.h"
+#include "aion/gameserver/model/CreatureType.h"
 #include "aion/gameserver/model/DialogAction.h"
 #include "aion/gameserver/model/DialogPageInfo.h"
 #include "aion/gameserver/model/EmotionIdInfo.h"
 #include "aion/gameserver/model/EmotionType.h"
 #include "aion/gameserver/model/PlayerClass.h"
+#include "aion/gameserver/model/TaskId.h"
 #include "aion/gameserver/model/gameobjects/Creature.h"
 #include "aion/gameserver/model/gameobjects/Item.h"
 #include "aion/gameserver/model/gameobjects/Npc.h"
@@ -43,6 +45,7 @@
 #include "aion/gameserver/network/aion/serverpackets/SM_DIALOG_WINDOW.h"
 #include "aion/gameserver/network/aion/serverpackets/SM_EMOTION.h"
 #include "aion/gameserver/network/aion/serverpackets/SM_ITEM_USAGE_ANIMATION.h"
+#include "aion/gameserver/network/aion/serverpackets/SM_NPC_INFO.h"
 #include "aion/gameserver/network/aion/serverpackets/SM_PLAY_MOVIE.h"
 #include "aion/gameserver/network/aion/serverpackets/SM_QUEST_ACTION.h"
 #include "aion/gameserver/network/aion/serverpackets/SM_SYSTEM_MESSAGE.h"
@@ -52,9 +55,9 @@
 #include "aion/gameserver/questEngine/model/QuestState.h"
 #include "aion/gameserver/questEngine/model/QuestStatus.h"
 #include "aion/gameserver/questEngine/model/QuestVars.h"
+#include "aion/gameserver/questEngine/task/QuestTasks.h"
 #include "aion/gameserver/runtime/base/Exceptions.h"
 #include "aion/gameserver/runtime/collections/HashSet.h"
-#include "aion/gameserver/runtime/base/Unported.h"
 #include "aion/gameserver/services/QuestService.h"
 #include "aion/gameserver/services/item/ItemService.h"
 #include "aion/gameserver/spawnengine/SpawnEngine.h"
@@ -813,16 +816,34 @@ bool AbstractQuestHandler::defaultOnUseSkillEvent(model::QuestEnv& env, int32_t 
 	return false;
 }
 
-// The follow family needs questEngine/task (QuestTasks, FollowingNpcCheckTask and the destination checkers), which has no C++ file yet:
-// m5d-plan.md E-07 ports it in stage 3 as a phase-6 prerequisite (only Java quest handlers call these two, 14 files), docs/deviations/P5-06b.md.
 bool AbstractQuestHandler::defaultStartFollowEvent(model::QuestEnv& env, gameserver::model::gameobjects::Npc& follower, int32_t targetNpcId,
 	int32_t step, int32_t nextStep) {
-	AION_UNPORTED();
+	runtime::Ptr<Player> player = env.getPlayer();
+	if (!runtime::as<Npc>(env.getVisibleObject())) {
+		return false;
+	}
+	follower.overrideNpcType(gameserver::model::CreatureType::PEACE);
+	follower.getAi().onCreatureEvent(gameserver::ai::event::AIEventType::FOLLOW_ME, *player);
+	player->getController().addTask(gameserver::model::TaskId::QUEST_FOLLOW,
+		task::QuestTasks::newFollowingToTargetCheckTask(env, follower, targetNpcId));
+	return (step == 0 && nextStep == 0) || defaultCloseDialog(env, step, nextStep);
 }
 
 bool AbstractQuestHandler::defaultStartFollowEvent(model::QuestEnv& env, gameserver::model::gameobjects::Npc& follower, float x, float y, float z,
 	int32_t step, int32_t nextStep) {
-	AION_UNPORTED();
+	const runtime::Ptr<Player> player = env.getPlayer();
+	if (!runtime::as<Npc>(env.getVisibleObject())) {
+		return false;
+	}
+	PacketSendUtility::sendPacket(*player, network::aion::serverpackets::SM_NPC_INFO(follower, *player));
+	follower.getAi().onCreatureEvent(gameserver::ai::event::AIEventType::FOLLOW_ME, *player);
+	player->getController().addTask(gameserver::model::TaskId::QUEST_FOLLOW,
+		task::QuestTasks::newFollowingToTargetCheckTask(env, follower, x, y, z));
+	if (step == 0 && nextStep == 0) {
+		return true;
+	} else {
+		return defaultCloseDialog(env, step, nextStep);
+	}
 }
 
 bool AbstractQuestHandler::defaultFollowEndEvent(model::QuestEnv& env, int32_t step, int32_t nextStep, bool reward, int32_t movie) {

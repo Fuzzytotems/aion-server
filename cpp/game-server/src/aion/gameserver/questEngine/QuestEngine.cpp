@@ -30,6 +30,7 @@
 #include "aion/gameserver/model/templates/quest/QuestNpc.h"
 #include "aion/gameserver/network/aion/serverpackets/SM_QUEST_COMPLETED_LIST.h"
 #include "aion/gameserver/network/aion/serverpackets/SM_SYSTEM_MESSAGE.h"
+#include "aion/gameserver/questEngine/QuestSpawnAnalyzer.h"
 #include "aion/gameserver/questEngine/handlers/AbstractQuestHandler.h"
 #include "aion/gameserver/questEngine/handlers/HandlerResult.h"
 #include "aion/gameserver/questEngine/model/QuestEnv.h"
@@ -41,6 +42,7 @@
 #include "aion/gameserver/services/cron/CronService.h"
 #include "aion/gameserver/utils/PacketSendUtility.h"
 #include "aion/gameserver/utils/PositionUtil.h"
+#include "aion/gameserver/utils/ThreadPoolManager.h"
 #include "aion/gameserver/utils/collections/DynamicServerPacketBodySplitList.h"
 #include "aion/gameserver/utils/collections/ListPart.h"
 #include "aion/gameserver/utils/stats/AbyssRankEnum.h"
@@ -111,8 +113,11 @@ void QuestEngine::init() {
 		xmlQuest->register_(*this); // Java: xmlQuest.register(this)
 	log.info("Loaded " + std::to_string(questHandlers.size()) + " quest handlers.");
 	if (configs::main::GSConfig::ANALYZE_QUESTHANDLERS.load()) {
-		// Java: ThreadPoolManager.getInstance().executeLongRunning(() -> QuestSpawnAnalyzer.run(questHandlers.values(), questNpcs.values(), true))
-		AION_PARTIAL("QuestSpawnAnalyzer is not ported (gameserver.analysis.quest_handlers)");
+		// lambda at QuestEngine.java:108 (fieldmap key QuestEngine@L108): executeLongRunning, pin {this}. Java hands the analyzer the live
+		// values() views, read on the pool thread; C++ takes the snapshots there (the temporaries live until run returns)
+		utils::ThreadPoolManager::getInstance().executeLongRunning({this}, [this] {
+			QuestSpawnAnalyzer::run(questHandlers.values().toVector(), questNpcs.values().toVector(), true);
+		});
 	}
 	addMessageSendingTask();
 }

@@ -15,8 +15,8 @@
 
 # --- startup (measured in the stage-2 phase-1 startup runs of the app-gate and world-visibility lanes) ---
 # M5a ran without quests (plan W-02 "QuestEngine init (empty registry)"); QuestEngine.cpp:111 was here until M5d's D3 join (m5d-plan.md
-# I-05) registered the XML quests at every startup. The quest spawn analysis stays partial until M5d's E-08
-aion/gameserver/questEngine/QuestEngine.cpp:115
+# I-05) registered the XML quests at every startup, and QuestEngine.cpp:115 (the quest spawn analysis, on by default) until M5d's E-08
+# ported QuestSpawnAnalyzer (m5d-plan.md §21); neither site exists any more.
 # base locations are M5b (plan E1-06)
 aion/gameserver/services/BaseService.cpp:18
 # the PvP map instance stays partial by m5f-plan.md D6 (PvpMapHandler is M5j; init would create it at every startup)
