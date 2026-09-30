@@ -92,6 +92,7 @@
 #include "aion/gameserver/questEngine/model/QuestVars.h"
 #include "aion/gameserver/services/GameTimeService.h"
 #include "aion/gameserver/services/QuestService.h"
+#include "aion/gameserver/services/WarehouseService.h"
 #include "aion/gameserver/utils/PacketSendUtility.h"
 #include "aion/gameserver/utils/ThreadPoolManager.h"
 #include "aion/gameserver/world/zone/ZoneName.h"
@@ -1422,11 +1423,11 @@ const std::map<std::string, std::string>& knownVacuous() {
 	// helper does nothing; no overlay may change an input the path reads. The same helper is observable in other cases of its quest.
 	static const std::string IDLE_END = "sendQuestEndDialog: the status and the dialog action the path read are not REWARD with a reward, select or "
 																 "SET_SUCCEED action (AbstractQuestHandler.java:414-472)";
-	static const std::string IDLE_START =
-		"sendQuestStartDialog: no branch of its switch takes USE_OBJECT, which the path read (AbstractQuestHandler.java:373-397)";
-	// P6-Q slice 2. Both reviews of 2026-09-29 emptied IDLE_START for the cases the harness runs: Q03's accept overlay (the accept action the
-	// path's guards allow, overlaysFor) and Q10's free-dialog overlays (extract.py dialogExcludes: each action the start and end helpers act on)
-	// run those paths with an action the helper acts on; only the rows of the held-back 1100 and 2100, which no case runs, keep the reason. Q10's
+	// P6-Q slice 2. Both reviews of 2026-09-29 emptied the reason "sendQuestStartDialog: no branch of its switch takes USE_OBJECT, which the
+	// path read" (AbstractQuestHandler.java:373-397) for the cases the harness runs: Q03's accept overlay (the accept action the path's guards
+	// allow, overlaysFor) and Q10's free-dialog overlays (extract.py dialogExcludes: each action the start and end helpers act on) run those
+	// paths with an action the helper acts on. Its last two rows, 1100 #4 and 2100 #5, were measured before those overlays while 1100 and 2100
+	// were held back; with P6-Q prologue landed on slice 2 (C++ 51ef338e4) both are observable, so the reason is gone. Q10's
 	// overlays also made 7 slice-1 IDLE_END cases observable (1005 #37, 1111 #9, 1123 #7, 2001 #18, 2006 #16, 2106 #28, 2122 #27). The four
 	// 2114 cases "QuestService.startQuest assumed false" are observable since the start-condition overlay (both lanes found it): with the
 	// prerequisites finished only the quest-list-full setup still refuses the start, and the refusal's message is compared.
@@ -1444,10 +1445,8 @@ const std::map<std::string, std::string>& knownVacuous() {
 		"defaultOnKillEvent)";
 	static const std::map<std::string, std::string> known = [] {
 		std::map<std::string, std::string> rows{
-		{"1100 onDialogEvent#4", IDLE_START},
 		{"1107 onDialogEvent#4", IDLE_END},
 		{"1107 onDialogEvent#5", IDLE_END},
-		{"2100 onDialogEvent#5", IDLE_START},
 		{"2125 onDialogEvent#13", IDLE_END},
 		{"2125 onDialogEvent#14", IDLE_END},
 		{"2135 onDialogEvent#6", IDLE_END},
@@ -1658,7 +1657,8 @@ TEST_F(GoldenQuestTraceTest, HandTracesOfTheClassSkillQuests) {
  * What the negative control changes in its copy of _1111InsomniaMedicine. OPCODES and THROW (the Q03 review, 2026-09-29): a system message
  * (no key packet) and a NullPointerException before the QUEST_SELECT page. OPCODES_AFTER_STEP, THROW_AFTER_STEP and UNPORTED (the Q10
  * review, the same day): one more packet that is no key packet, a NullPointerException after the step's effects, and an unported engine
- * body reached (defaultStartFollowEvent, AION_UNPORTED until questEngine/task lands) that the tally must report
+ * body reached that the tally must report: WarehouseService::expand, the AION_UNPORTED body knownUnported's 2985 case reaches (the Q10
+ * review used defaultStartFollowEvent, which M5d stage 3 E-07 ported on C++, fed04d229, before slice 2 landed there)
  */
 enum class Flip { NONE, PAGE, VAR, REWARD_GROUP, ITEM, STATUS, RETURN, OPCODES, THROW, OPCODES_AFTER_STEP, THROW_AFTER_STEP, UNPORTED };
 
@@ -1737,8 +1737,10 @@ public:
 					utils::PacketSendUtility::sendPacket(*player, network::aion::serverpackets::SM_SYSTEM_MESSAGE::STR_CAN_NOT_GET_LORE_ITEM("flip"));
 				if (flip == Flip::THROW_AFTER_STEP)
 					throw runtime::NullPointerException("the negative control's flip");
-				if (flip == Flip::UNPORTED)
-					return defaultStartFollowEvent(env, *runtime::cast<gameserver::model::gameobjects::Npc>(env.getVisibleObject()), 203075, 0, 1);
+				if (flip == Flip::UNPORTED) {
+					services::WarehouseService::expand(*player, false);
+					return true;
+				}
 				return flip != Flip::RETURN;
 			} else if (env.getDialogActionId() == DA::SETPRO2 && qs->getStatus() != QuestStatus::COMPLETE) {
 				if (!giveQuestItem(env, 182200221, 1))
