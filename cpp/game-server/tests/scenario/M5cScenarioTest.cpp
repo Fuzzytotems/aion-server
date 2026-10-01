@@ -964,8 +964,13 @@ std::optional<int32_t> npcObject(const ScenarioClient& client, int32_t templateI
 	return found;
 }
 
-/** the object id of the static object of `templateId` and `staticId` (C19's oven), from every SM_GATHERABLE_INFO this session recorded */
-std::optional<int32_t> staticObject(const ScenarioClient& client, int32_t templateId, int32_t staticId) {
+/**
+ * The object id of the static object of `templateId` on the spawn spot `spot` (C19's oven), from every SM_GATHERABLE_INFO this session
+ * recorded: the spot's static id and its x, y and z exactly (Java writes the spawn's position, StaticObjectSpawnManager.bringIntoWorld; the
+ * oracle's spot is the same float of the same XML attribute). The decoder has checked the state (1: a static object is no door). A packet with
+ * the template and the static id at another position is reported and does not match.
+ */
+std::optional<int32_t> staticObject(const ScenarioClient& client, int32_t templateId, const EconomyTool& spot) {
 	if (!client.game)
 		return std::nullopt;
 	for (const Packet& packet : client.game->recorded()) {
@@ -973,8 +978,12 @@ std::optional<int32_t> staticObject(const ScenarioClient& client, int32_t templa
 			continue;
 		try {
 			const decoders::GatherableInfo object = decoders::decodeGatherableInfo(packet.data);
-			if (object.templateId == templateId && object.staticId == staticId)
+			if (object.templateId != templateId || object.staticId != spot.staticId)
+				continue;
+			if (object.x == spot.x && object.y == spot.y && object.z == spot.z)
 				return object.objectId;
+			ADD_FAILURE() << "the SM_GATHERABLE_INFO of template " << templateId << " and static id " << spot.staticId << " is at (" << object.x << ", "
+			              << object.y << ", " << object.z << "), not at its spawn spot (" << spot.x << ", " << spot.y << ", " << spot.z << ")";
 		} catch (const DecodeError&) {
 			// a packet that does not decode is not this object
 		}
@@ -2951,8 +2960,11 @@ void runM5cGate() {
 		}
 
 		// ---- X18: CM_CRAFT from 7 m (checkCraft refuses) and from 12 m (the packet returns) ----
-		const std::optional<int32_t> oven = staticObject(a, craft.toolTemplateId, craft.chosenToolStaticId);
-		ASSERT_TRUE(oven) << "A was never sent the SM_GATHERABLE_INFO of the oven with static id " << craft.chosenToolStaticId;
+		const auto chosenTool = std::ranges::find(craft.tools, craft.chosenToolStaticId, &EconomyTool::staticId);
+		ASSERT_NE(chosenTool, craft.tools.end()) << "the oracle's chosen oven " << craft.chosenToolStaticId << " is one of its tools";
+		const std::optional<int32_t> oven = staticObject(a, craft.toolTemplateId, *chosenTool);
+		ASSERT_TRUE(oven) << "A was never sent the SM_GATHERABLE_INFO of the oven with static id " << craft.chosenToolStaticId << " at ("
+		                  << chosenTool->x << ", " << chosenTool->y << ", " << chosenTool->z << ")";
 		std::vector<GameSession::CraftMaterial> materials;
 		for (const auto& [itemId, count] : craft.recipeComponents)
 			materials.push_back({itemId, count});

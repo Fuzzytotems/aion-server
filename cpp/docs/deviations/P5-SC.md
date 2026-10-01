@@ -782,3 +782,22 @@ Not taught (p6q-ascension-route.md §9.5 has the detail):
   prologue's packets in both first-enter sequences, ends both characters' movies before the first walk, checks each mission LOCKED, counts
   the prologue's STR_GET_EXP2 in its exp ledger, and reads 1000 / 2000 COMPLETE and 1100 / 2100 LOCKED in Y6, Y9, Y12 and Y13;
   docs/design/p6q-ascension-route.md §10 has each change, the failure it answers and its mutants.
+
+## Small tasks 2026-09-30 (branch `fix/small-quick-4`): the static objects of SM_GATHERABLE_INFO
+
+The owner saw Sanctum's crafting benches appear late in the play session of 2026-09-29; reading found `SM_GATHERABLE_INFO` identical to
+Java for a static object, and noted that the gate could not have told otherwise. Two checks are tighter now, and the packet has a byte test
+(`tests/sm_ak/StaticObjectGatherableInfoTest.cpp`, P4-16, label `realdata`: oven 104 and workbench 109 spawned by
+`StaticObjectSpawnManager::spawnTemplate` from the real world map, item and Statics rows, each body compared with constants taken from the
+data files with Java's `Float.parseFloat` bits, never from the port).
+
+| Area | As built | Reason |
+|---|---|---|
+| `decodeGatherableInfo`'s state | A body whose template id is 300001 must carry 9 or 10, every other body 1 (`decoders::STATIC_DOOR_TEMPLATE_ID`) | It accepted 1, 9 or 10 for any object. Java writes 9 / 10 only for a `StaticDoor` (SM_GATHERABLE_INFO.java:28-35), and a door's template is a `StaticDoorTemplate`, whose `getTemplateId()` is the constant 300001 (StaticDoorTemplate.java:55-57) that no gatherable or item template uses, so the decoder can tell a door from the bytes alone |
+| `M5cScenarioTest`'s `staticObject` | Matches C19's oven by template id, static id **and** the oracle's spawn spot (x, y and z exactly; `EconomyTool`); a packet with the template and static id elsewhere is reported (`ADD_FAILURE`) and does not match | It matched the template and static id only, so a static object written at a wrong position passed. The oracle's spot is the f32 of the same XML attribute the server parses (no double rounding for any Sanctum spot, checked) |
+
+Mutation proof (`AION_SQ4_GATHER_MUT`, one build; the two sources restored and sha256-checked, rebuilt, no mutant string left):
+`SM_GATHERABLE_INFO` writing the l10n as `2n+1`, the state 9 for a static object, the static id and template id swapped, or x + 1 each fail
+both byte cases (`StaticObjectGatherableInfoTest.cpp:253` and `:266`); the decoder accepting 9 for a non-door fails
+`VisibilityDecodersTest.GatherableInfo` (:175 and :177); x + 1 in a `gs.scenario.m5c` run fails C19 at the new position check
+(`M5cScenarioTest.cpp:985`, "is at (1850.788, ...), not at its spawn spot (1849.788, ...)") and then at `:2966`.
