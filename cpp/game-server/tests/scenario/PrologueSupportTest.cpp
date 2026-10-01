@@ -273,6 +273,16 @@ TEST(PrologueSupportTest, TheJavaMovieEndPaysTheExpAndCompletesTheQuest) {
 		withPong.insert(withPong.begin() + 2, packet("SM_PONG"));
 		EXPECT_EQ(failuresOf([&] { expectPrologueMovieEndAnswer(withPong, prologue, EXP_BEFORE, async, "java"); }), std::vector<std::string>{})
 		  << prologue.quest << " with an SM_PONG";
+		// an object coming into view (a respawn: gs.scenario.m5b2 S6, 2026-09-30) is announced anywhere in the burst, also after its end
+		for (const size_t at : {size_t{0}, size_t{2}, answer.size()}) {
+			for (const std::string_view announcement : {"SM_NPC_INFO", "SM_GATHERABLE_INFO"}) {
+				std::vector<Packet> withObject = answer;
+				withObject.insert(withObject.begin() + static_cast<std::ptrdiff_t>(at), packet(std::string(announcement)));
+				EXPECT_EQ(failuresOf([&] { expectPrologueMovieEndAnswer(withObject, prologue, EXP_BEFORE, async, "java"); }),
+					std::vector<std::string>{})
+				  << prologue.quest << " with an " << announcement << " at " << at;
+			}
+		}
 	}
 }
 

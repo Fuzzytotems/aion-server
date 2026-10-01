@@ -1,6 +1,7 @@
 #include "PrologueSupport.h"
 
 #include <algorithm>
+#include <functional>
 #include <string>
 
 #include <gtest/gtest.h>
@@ -80,7 +81,15 @@ void expectPrologueMovieEndAnswer(const std::vector<Packet>& ended, const decode
 	for (const Packet& packet : ended)
 		names.push_back(packet.name);
 	const PacketSequence sequence = PacketSequence::parse(PROLOGUE_MOVIE_END);
-	const PacketSequence::Result result = sequence.match(names, async.predicate(ended));
+	// An object that spawns or comes into view while this answer is read is announced by the known-list update, independently of the quest's
+	// answer, so SM_NPC_INFO and SM_GATHERABLE_INFO may arrive anywhere in it (gs.scenario.m5b2 S6, 2026-09-30: monster A's respawn arrived
+	// after the four packets; the level-ready patterns accept the same, m5b3-plan.md section 18.5). The names are tested first, so the async
+	// rules never decode them.
+	const std::function<bool(size_t)> base = async.predicate(ended);
+	const auto isAsync = [&](size_t index) {
+		return ended[index].name == "SM_NPC_INFO" || ended[index].name == "SM_GATHERABLE_INFO" || base(index);
+	};
+	const PacketSequence::Result result = sequence.match(names, isAsync);
 	EXPECT_TRUE(result.matched) << label << ": " << result.message << "\n  expected: " << sequence.toString() << "\n  got (" << names.size()
 	                            << "): " << namesOf(ended);
 	const std::vector<Packet> exp = named(ended, "SM_STATUPDATE_EXP");
