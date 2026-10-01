@@ -28,10 +28,9 @@
 #     and NioServer binds with SO_EXCLUSIVEADDRUSE, so a collision would fail a run loudly instead of mixing two runs' clients;
 #   - schemas: each run has its own pair, named after the hash of its output directory (the smoke and M4 schemas likewise), and holds an in-use
 #     marker on it for the whole run;
-#   - the working directory game-server/ itself: what a game server still writes there is ./log/stats/MethodStats.log at every orderly
-#     shutdown (RunnableStatsManager::dumpClassStats, whose ./log/stats is hard-coded as in Java and ignores --log-folder) - two shutdowns
-#     at the same moment interleave that diagnostic file, which no test reads - and, only on a watchdog stall, a minidump in ./log/dumps
-#     whose name carries the process id. Neither can fail a run; routing the first needs a production change (reported, not made here);
+#   - the working directory game-server/ itself: what a game server still writes there is, only on a watchdog stall, a minidump in
+#     ./log/dumps whose name carries the process id, which cannot fail a run. stats/MethodStats.log, which every orderly shutdown writes,
+#     follows --log-folder since 2026-09-30 (RunnableStatsManager::dumpClassStats takes Logging's log folder; Java hard-codes ./log/stats);
 #   - memory: a Debug game server with the geo data takes about 3.2 GB of private bytes, so two geo runs at once take about 6.4 GB beside
 #     whatever else the machine builds (measured peak of the two servers: 6,352 MB);
 #   - MariaDB: two game servers with at most 5 pool connections each, two login servers and the harness connections.

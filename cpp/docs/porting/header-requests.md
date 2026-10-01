@@ -856,3 +856,15 @@ psf-2 precedent; the request is filed with the change applied on the branch, for
 |---|---|---|---|---|
 | psf-4 | `configs/network/NetworkConfig.h` (P4-01) | `static inline ConfigValue<std::set<std::string, std::less<>>> TRACE_SERVER_PACKETS;` after `TRACE_CLIENT_PACKETS`, with its doc | **filed, applied on the branch** (small and additive, the psf-2 precedent); the integrator confirms at the merge | The C++-only key `gameserver.network.trace.server_packets`, bound in `NetworkConfig.cpp` with the default `""` (docs/deviations/P4-01.md). Additive; `AionConnection.cpp` (P4-15) reads it |
 | (no request) | `network/aion/clientpackets/CM_EQUIP_ITEM.h` (P5-15), `network/aion/AionConnection.h` (P4-15) | none | **none filed** | The fix's `isStillEquipped` and the trace's `traceIfConfigured` are file-local functions of the `.cpp` files |
+
+## Small tasks 2026-09-30 (branch `fix/small-quick-4`)
+
+Three small tasks of the owner's (the Sanctum benches' byte test and gate decoder, `MethodStats.log` and `--log-folder`, the GM login arm).
+One header outside the lane changes, additively, and one header's comments; each request was **approved by the integrator under the
+standing instruction** (small and additive) and applied with its call sites.
+
+| Id | File | Change | Decision | Reason |
+|---|---|---|---|---|
+| sq4-1 | commons `logging/Logging.h` | C++-only `std::filesystem::path getLogFolder();` before `archiveLogs`, with its doc; defined in `Logging.cpp` (the folder of the last `init` under the state's mutex, `log` before the first) | **approved by the integrator under the standing instruction** (small and additive), applied | `RunnableStatsManager::dumpClassStats(sortBy)` writes `stats/MethodStats.log` below it instead of the hard-coded `./log/stats`, so a game server started with `--log-folder` (every test server) no longer rewrites the working directory's file; production's folder stays `log` (DEVIATIONS.md, "commons / utils"; docs/deviations/P5-SC.md) |
+| sq4-2 | commons `utils/concurrent/RunnableStatsManager.h` | comments only: the class doc and both `dumpClassStats` docs name `<log folder>/stats/MethodStats.log` | **approved by the integrator under the standing instruction** (comment only) | The body changed (sq4-1) |
+| (no request) | `tests/scenario/decoders/PacketDecoders.h` (P5-SC) | `STATIC_DOOR_TEMPLATE_ID` and the `stateFlag` doc | none (test code of the gate harness) | `decodeGatherableInfo` tells a static door by its template id 300001 (docs/deviations/P5-SC.md, "Small tasks 2026-09-30") |

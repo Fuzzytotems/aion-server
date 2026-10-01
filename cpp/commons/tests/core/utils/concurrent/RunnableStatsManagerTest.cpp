@@ -6,9 +6,12 @@
 #include <thread>
 #include <vector>
 
+#include "aion/commons/logging/LoggerFactory.h"
+#include "aion/commons/logging/Logging.h"
 #include "aion/commons/utils/concurrent/RunnableStatsManager.h"
 
 using namespace aion::commons::utils::concurrent;
+using namespace aion::commons::logging;
 
 namespace {
 
@@ -18,6 +21,8 @@ struct BetaTask {};
 struct GammaTask {};
 struct ConcurrentTask {};
 struct DumpTask {};
+struct LogFolderDumpTask {};
+struct DefaultLogFolderDumpTask {};
 
 std::vector<std::string> linesContaining(const std::vector<std::string>& lines, std::string_view text) {
 	std::vector<std::string> result;
@@ -27,6 +32,39 @@ std::vector<std::string> linesContaining(const std::vector<std::string>& lines, 
 	}
 	return result;
 }
+
+std::vector<std::string> readLines(const std::filesystem::path& file) {
+	std::ifstream in(file);
+	std::vector<std::string> lines;
+	for (std::string line; std::getline(in, line);)
+		lines.push_back(line);
+	return lines;
+}
+
+/** Closes the log files of Logging::init and restores the default logging state, even if a test fails (as in LoggingTest) */
+struct LoggingGuard {
+	~LoggingGuard() {
+		Logging::shutdown();
+		LoggerFactory::setRootLevel(spdlog::level::info);
+	}
+};
+
+/** Makes `folder` the working directory for the scope */
+class WorkingDirectory {
+public:
+	explicit WorkingDirectory(const std::filesystem::path& folder) : previous(std::filesystem::current_path()) {
+		std::filesystem::current_path(folder);
+	}
+	~WorkingDirectory() {
+		std::error_code ignored;
+		std::filesystem::current_path(previous, ignored);
+	}
+	WorkingDirectory(const WorkingDirectory&) = delete;
+	WorkingDirectory& operator=(const WorkingDirectory&) = delete;
+
+private:
+	std::filesystem::path previous;
+};
 
 } // namespace
 
@@ -174,4 +212,47 @@ TEST(RunnableStatsManagerTest, DumpWritesFile) {
 	EXPECT_EQ(lines, RunnableStatsManager::getClassStatsLines(RunnableStatsManager::SortBy::COUNT));
 	in.close();
 	std::filesystem::remove_all(folder);
+}
+
+// C++ only: the file of dumpClassStats(sortBy) lies below the log folder Logging::init was given (the game server's --log-folder), like the
+// appenders' files, instead of Java's fixed ./log/stats, so a server started with its own log folder writes nothing into the working directory's
+TEST(RunnableStatsManagerTest, DumpWithoutAFileWritesIntoTheLogFolderOfLogging) {
+	RunnableStatsManager::clear(); // statistics are global and survive --gtest_repeat
+	RunnableStatsManager::handleStats(typeid(LogFolderDumpTask), 42);
+	const auto root = std::filesystem::temp_directory_path() / "aion_RunnableStatsManagerTest_logFolder";
+	std::filesystem::remove_all(root);
+	std::filesystem::create_directories(root / "work");
+	const auto logFolder = root / "gate" / "gs_log";
+	{
+		WorkingDirectory work(root / "work");
+		LoggingGuard guard;
+		Logging::init({.logFolder = logFolder, .console = false});
+		EXPECT_EQ(Logging::getLogFolder(), logFolder);
+
+		RunnableStatsManager::dumpClassStats(RunnableStatsManager::SortBy::COUNT);
+	}
+
+	EXPECT_EQ(readLines(logFolder / "stats" / "MethodStats.log"), RunnableStatsManager::getClassStatsLines(RunnableStatsManager::SortBy::COUNT));
+	EXPECT_FALSE(std::filesystem::exists(root / "work" / "log")) << "nothing below the working directory's ./log";
+	std::filesystem::remove_all(root);
+}
+
+// The default log folder ("log", logback.xml's logFolder) gives Java's ./log/stats/MethodStats.log below the working directory
+TEST(RunnableStatsManagerTest, DumpWithoutAFileUnderTheDefaultLogFolderWritesJavasLogStatsFile) {
+	RunnableStatsManager::clear();
+	RunnableStatsManager::handleStats(typeid(DefaultLogFolderDumpTask), 7);
+	const auto root = std::filesystem::temp_directory_path() / "aion_RunnableStatsManagerTest_defaultLogFolder";
+	std::filesystem::remove_all(root);
+	std::filesystem::create_directories(root);
+	{
+		WorkingDirectory work(root);
+		LoggingGuard guard;
+		Logging::init({.console = false});
+		EXPECT_EQ(Logging::getLogFolder(), std::filesystem::path("log"));
+
+		RunnableStatsManager::dumpClassStats(RunnableStatsManager::SortBy::NAME);
+	}
+
+	EXPECT_EQ(readLines(root / "log" / "stats" / "MethodStats.log"), RunnableStatsManager::getClassStatsLines(RunnableStatsManager::SortBy::NAME));
+	std::filesystem::remove_all(root);
 }
