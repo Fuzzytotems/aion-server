@@ -84,7 +84,7 @@ two concurrent runs still share and replaced it with two slots.
 | One slot per schema prefix | A gate and its geo variant share a slot; `LoginServerHarnessTest`, whose schema pair has the prefix `m5a`, shares the m5a gates' slot | `ScenarioDatabase::dropAbandonedSchemas` tests the in-use marker (`IS_FREE_LOCK`) before its `DROP`, not under it: two runs of one prefix that start together could drop the pair the other is recreating if a killed run left it behind. The smoke and M4 schemas are never swept |
 | Slot guard | `aion_gs_check_gate_slots`, deferred to the end of the game-server directory (`cmake_language(DEFER CALL)`), gives a `gs.scenario.*`, `gs.smoke.*` or `gs.m4.*` test that holds neither slot both slots and a configure warning | A gate registered without a slot would start a third server beside two others; with both it runs alone. Mutation-proven: `gs.scenario.m5a` without its lock configured with the warning and `RESOURCE_LOCK ['aion_game_server_log', 'aion_game_server_slot_2']` |
 | HTML cache | `ScenarioServers::gameServerArguments` passes `-Dgameserver.html.cache.file=<outputDir>/html.cache` and `startGameServer` removes that file first; `RunStartupSmoke.cmake` does the same with `<OUTPUT_DIR>/html.cache` and fails a run whose file survives the removal, and a started run that read a cache ("Cache[HTML]: Using cache file") or left no file at least as new as its own start | `HTMLCache::reload` writes `./cache/html.cache` below the shared working directory whenever the file is missing (HTMLCache.java:112-120). Today the write only fails because `game-server/cache` does not exist (a warning in every run); with the directory present, two servers starting together would truncate and read one file. The M4 check never creates `HTMLCache`. The checks are about what the start saw, not what is on disk afterwards (the stage-0 review's two surviving mutants: the harness removing the file only after "Game server started", and the smoke script without the removal and the override, which passed on the previous run's file). `StubGameServer.cmake` therefore does what `HTMLCache` does with the file - logs "Using cache file" for an existing one, writes a missing one and logs "Creating cache file" - and `EveryStartRemovesTheHtmlCacheTheRunBeforeLeft` asserts the second |
-| Not routed: `MethodStats.log` | Unchanged: every orderly shutdown writes `game-server/log/stats/MethodStats.log` | `RunnableStatsManager::dumpClassStats` hard-codes `./log/stats` (as Java does) and ignores `--log-folder`; routing it needs a production change in commons. Two shutdowns at the same moment interleave a diagnostic file no test reads |
+| `MethodStats.log` (routed on 2026-09-30) | Every orderly shutdown writes `<log folder>/stats/MethodStats.log`, i.e. into the run's own `--log-folder` | Until 2026-09-30 `RunnableStatsManager::dumpClassStats` hard-coded `./log/stats` (as Java does) and ignored `--log-folder`, so every gate rewrote `game-server/log/stats/MethodStats.log` and two shutdowns at once interleaved it. The commons change takes the folder `Logging::init` was given (`Logging::getLogFolder()`; default `log`, Java's `./log`): DEVIATIONS.md, "commons / utils", and the section "Small tasks 2026-09-30" below |
 | Unshared by construction | Log folders, check output, stop files, login-server working directories, oracle output (all below the run's output directory); ports (ephemeral; `NioServer` binds with `SO_EXCLUSIVEADDRUSE`, so a collision fails loudly); schemas (hash of the output directory, in-use marker); a watchdog minidump names its process id | Checked in the harness, `RunStartupSmoke.cmake`, `RunM4Check.cmake`, `tools/oracle` (writes only the paths it is given) and the production writers (`HTMLCache`, `RunnableStatsManager`, `Watchdog`, `Logging`) |
 | One ctest process | The slots are CTest resource locks, so they bound the server runs of one `ctest` invocation. Two build trees running their gate sets at once can reach four game servers (about 12.8 GB with geo), and the marker-before-`DROP` window of `dropAbandonedSchemas` is open between them | Operational rule, written into the slot table of `ScenarioTests.cmake`: one tree's gate set at a time. `RunStartupSmoke.cmake` already said so for its own lock ("CTest's RESOURCE_LOCK only serializes one ctest run") |
 | `RunStartupSmoke.cmake` is P5-14's file | Edited under this lane's lease; `P5-14.md`, section "M5c stage 0", has pointer rows for its lock (now slot 1) and the HTML cache checks, and the script's header names both documents | The comment at `cmake/AppTests.cmake:44-46` described the single lock; the stage-0 integration (2026-09-25) rewrote it to name gate slot 1 (P5-14's file, recorded in `P5-14.md`) |
@@ -559,7 +559,8 @@ The review of lane H requested changes: part 1 sound, part 2 incomplete. Per fin
    `recursive`) and d3 (`ls_run` without `logback.xml`) stay as they are: the login server's config is one directory level deep, which
    `std::filesystem::copy` copies without `recursive` too, and the C++ login server does not read `logback.xml` - equivalent.
 9. **info - the reviewer's mutant runs overwrote four output directories.** Reran on the restored build (measured below); the shared
-   `game-server/log/stats/MethodStats.log` that every gate run rewrites (it ignores `--log-folder`) is out of scope and unchanged.
+   `game-server/log/stats/MethodStats.log` that every gate run rewrites (it ignores `--log-folder`) is out of scope and unchanged (routed
+   through `--log-folder` on 2026-09-30, the section "Small tasks 2026-09-30" below).
 
 **Mutation of the review fixes** (switch `AION_GH_MUT`, ids r0-r26; schemata in `CheckOutput.cpp`, `configs/Config.cpp`, `main.cpp`,
 `ScenarioServers.cpp` and `tools/oracle/geo/m4.py`, one build of `aion_game_server`, `aion_gs_app_tests`, `aion_gs_configs_tests` and
@@ -782,3 +783,39 @@ Not taught (p6q-ascension-route.md §9.5 has the detail):
   prologue's packets in both first-enter sequences, ends both characters' movies before the first walk, checks each mission LOCKED, counts
   the prologue's STR_GET_EXP2 in its exp ledger, and reads 1000 / 2000 COMPLETE and 1100 / 2100 LOCKED in Y6, Y9, Y12 and Y13;
   docs/design/p6q-ascension-route.md §10 has each change, the failure it answers and its mutants.
+
+## Small tasks 2026-09-30 (branch `fix/small-quick-4`): the static objects of SM_GATHERABLE_INFO
+
+The owner saw Sanctum's crafting benches appear late in the play session of 2026-09-29; reading found `SM_GATHERABLE_INFO` identical to
+Java for a static object, and noted that the gate could not have told otherwise. Two checks are tighter now, and the packet has a byte test
+(`tests/sm_ak/StaticObjectGatherableInfoTest.cpp`, P4-16, label `realdata`: oven 104 and workbench 109 spawned by
+`StaticObjectSpawnManager::spawnTemplate` from the real world map, item and Statics rows, each body compared with constants taken from the
+data files with Java's `Float.parseFloat` bits, never from the port).
+
+| Area | As built | Reason |
+|---|---|---|
+| `decodeGatherableInfo`'s state | A body whose template id is 300001 must carry 9 or 10, every other body 1 (`decoders::STATIC_DOOR_TEMPLATE_ID`) | It accepted 1, 9 or 10 for any object. Java writes 9 / 10 only for a `StaticDoor` (SM_GATHERABLE_INFO.java:28-35), and a door's template is a `StaticDoorTemplate`, whose `getTemplateId()` is the constant 300001 (StaticDoorTemplate.java:55-57) that no gatherable or item template uses, so the decoder can tell a door from the bytes alone |
+| `M5cScenarioTest`'s `staticObject` | Matches C19's oven by template id, static id **and** the oracle's spawn spot (x, y and z exactly; `EconomyTool`); a packet with the template and static id elsewhere is reported (`ADD_FAILURE`) and does not match | It matched the template and static id only, so a static object written at a wrong position passed. The oracle's spot is the f32 of the same XML attribute the server parses (no double rounding for any Sanctum spot, checked) |
+
+Mutation proof (`AION_SQ4_GATHER_MUT`, one build; the two sources restored and sha256-checked, rebuilt, no mutant string left):
+`SM_GATHERABLE_INFO` writing the l10n as `2n+1`, the state 9 for a static object, the static id and template id swapped, or x + 1 each fail
+both byte cases (`StaticObjectGatherableInfoTest.cpp:253` and `:266`); the decoder accepting 9 for a non-door fails
+`VisibilityDecodersTest.GatherableInfo` (:175 and :177); x + 1 in a `gs.scenario.m5c` run fails C19 at the new position check
+(`M5cScenarioTest.cpp:985`, "is at (1850.788, ...), not at its spawn spot (1849.788, ...)") and then at `:2966`.
+
+### `MethodStats.log` follows `--log-folder` (the same small tasks)
+
+Every gate run rewrote `game-server/log/stats/MethodStats.log`: `RunnableStatsManager::dumpClassStats(sortBy)` (commons; the game server's
+`ShutdownHook` calls it at every orderly shutdown, Java ShutdownHook.java:74) hard-coded Java's `./log/stats` and ignored `--log-folder`.
+It now writes `<Logging::getLogFolder()>/stats/MethodStats.log`, the folder of the last `Logging::init`, which is where the appenders' files
+go and where `Logging::archiveLogs` already collects `stats/MethodStats.log`. Production passes no `--log-folder`, so its folder stays the
+default `log` and the file stays Java's `./log/stats/MethodStats.log` (DEVIATIONS.md, "commons / utils"; header request sq4-1 in
+docs/porting/header-requests.md for the new `Logging::getLogFolder()`).
+
+Tests: `RunnableStatsManagerTest.DumpWithoutAFileWritesIntoTheLogFolderOfLogging` (a log folder outside the working directory receives the
+file, the working directory gets no `./log`) and `DumpWithoutAFileUnderTheDefaultLogFolderWritesJavasLogStatsFile` (the default folder
+gives `./log/stats/MethodStats.log`). Mutation proof (`AION_SQ4_STATS_MUT`, schemata in `Logging.cpp` and `RunnableStatsManager.cpp`, one
+build, restored and sha256-checked, rebuilt, no mutant string left): the old hard-coded `./log/stats` fails `:235` and `:236`;
+`getLogFolder()` answering `log` whatever init was given fails `:230`, `:235`, `:236`; the file without its `stats` folder fails `:235` and
+`:256`; an absolute `getLogFolder()` fails `:251` (lines of `RunnableStatsManagerTest.cpp`). `gs.smoke.startup` on the rebuilt server passed and wrote
+`build/msvc/game-server/gs.smoke.startup/Debug/log/stats/MethodStats.log`; `game-server/log/stats/MethodStats.log` kept its time stamp.

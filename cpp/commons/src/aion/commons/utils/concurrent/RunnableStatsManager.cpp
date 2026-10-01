@@ -14,6 +14,7 @@
 #include <magic_enum/magic_enum.hpp>
 
 #include "aion/commons/logging/LoggerFactory.h"
+#include "aion/commons/logging/Logging.h"
 #include "aion/commons/utils/ClassName.h"
 #include "aion/commons/utils/Exception.h"
 #include "aion/commons/utils/StringUtils.h"
@@ -387,7 +388,10 @@ void dumpClassStats() {
 }
 
 void dumpClassStats(std::optional<SortBy> sortBy) {
-	dumpClassStats(sortBy, std::filesystem::path("./log/stats") / "MethodStats.log");
+	// Java: Paths.get("./log/stats"), the stats folder of logback's log folder "log". C++: below the log folder Logging::init was given, like the
+	// appenders' files (Logging::createFileAppender) - the default "log" is Java's ./log, and a game server started with --log-folder (every
+	// test server) no longer rewrites ./log/stats/MethodStats.log
+	dumpClassStats(sortBy, logging::Logging::getLogFolder() / "stats" / "MethodStats.log");
 }
 
 void dumpClassStats(std::optional<SortBy> sortBy, const std::filesystem::path& file) {

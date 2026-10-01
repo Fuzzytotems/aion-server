@@ -318,6 +318,8 @@ if(AION_BUILD_TESTS)
 		aion_set_discovered_test_properties(aion_gs_dataholders_tests REGEX "^(StaticDataRealDataTest|ConfigRootsRealDataTest)\\." ${gs_realdata})
 	endif()
 	aion_set_discovered_test_properties(aion_gs_world_tests REGEX "^WorldRealDataTest\\." ${gs_realdata})
+	# SM_GATHERABLE_INFO of Sanctum's crafting benches, spawned from the rows of world_maps.xml, item_templates.xml and the Sanctum Statics file
+	aion_set_discovered_test_properties(aion_gs_sm_ak_tests REGEX "^StaticObjectGatherableInfoTest\\." ${gs_realdata})
 	# DAO tests that read game-server/sql/aion_gs.sql (DaoSqlParityTest also reads the Java and C++ DAO sources)
 	aion_set_discovered_test_properties(aion_gs_dao_tests REGEX "^(ServerDataDaoTest|PlayerDaoTest|LegionHouseItemDaoTest|DaoSqlParityTest)\\." ${gs_realdata})
 

@@ -11,7 +11,7 @@
 /**
  * Java: com.aionemu.commons.utils.concurrent.RunnableStatsManager - collects execution time statistics (count, total, min, max) per class and
  * method, when commons.runnablestats.enable is set (see CommonsConfig::RUNNABLESTATS_ENABLE; the callers check the flag), and dumps them as
- * XML to log/stats/MethodStats.log.
+ * XML to stats/MethodStats.log in the log folder (Java: ./log/stats/MethodStats.log; C++: the folder Logging::init was given, "log" by default).
  * <p>
  * Classes are identified by their std::type_info (Java: Class), usually the dynamic type of the executed object:
  * <pre>
@@ -40,10 +40,14 @@ void handleStats(const std::type_info& type, std::string_view methodName, int64_
  */
 void handleStats(std::string_view key, std::string_view methodName, int64_t runTime);
 
-/** Writes the statistics of all methods executed at least once to ./log/stats/MethodStats.log, in unspecified order. */
+/** Writes the statistics of all methods executed at least once to <log folder>/stats/MethodStats.log, in unspecified order. */
 void dumpClassStats();
 
-/** Writes the statistics of all methods executed at least once to ./log/stats/MethodStats.log, sorted as specified (or unsorted if empty). */
+/**
+ * Writes the statistics of all methods executed at least once to <log folder>/stats/MethodStats.log, sorted as specified (or unsorted if
+ * empty). Java writes ./log/stats/MethodStats.log; C++ takes the log folder of Logging::init (Logging::getLogFolder(), default "log", so the
+ * same file), which the game server's --log-folder changes.
+ */
 void dumpClassStats(std::optional<SortBy> sortBy);
 
 /** Like dumpClassStats(sortBy), but writes to the given file. Errors are logged as warnings. */

@@ -1691,7 +1691,8 @@ plus `LoginServerHarnessTest` (3.8 s) and 33 harness cases labelled `scenario` (
 - **`CM_USE_ITEM`'s target-item lookup** (cube first, then the equipment) is observable now and untested at the packet level (P5-16, K-01/K-02's lane).
 - **The P4-11b stand-in** `detail::statEnumGetModifier` (`ControllerSupport.h:265`) can switch to `StatEnumInfo.h`'s `getModifier` (its owner, D8).
 - **A production request (commons):** `RunnableStatsManager::dumpClassStats` hard-codes `./log/stats/MethodStats.log` and ignores
-  `--log-folder`, as Java does; two gate shutdowns at once share the file (no test reads it).
+  `--log-folder`, as Java does; two gate shutdowns at once share the file (no test reads it). **Done 2026-09-30** (branch
+  `fix/small-quick-4`): the file follows `Logging::getLogFolder()` (DEVIATIONS.md, "commons / utils").
 - **Gate slots elsewhere:** the m5d..m5j plans still name the old shared lock; each new gate takes the slot with the smaller sum.
 - **A geo gate that fails only on its watchdog dump** (a 5-10 s `MapRegion::activate` on a loaded machine; seen twice on 2026-09-25 01:20-02:02,
   never since) is rerun alone before it is treated as a regression (P5-SC.md).

@@ -1109,7 +1109,7 @@ Every stage-0 body is still open, at the same place. No other milestone ported a
 
 | Item | Bodies today (census `a72676184`) | C++ site(s) | Changed since rev 1 |
 |---|---|---|---|
-| I-02 | `GMService::onPlayerLogin`'s staff arm, 1 (P4-05) | `GMService.cpp:65` (in `:59-69`); the call `PlayerEnterWorldService.cpp:562`, the catch `:344-351` | not landed (A-I4 is still open) |
+| I-02 | `GMService::onPlayerLogin`'s staff arm, 1 (P4-05) | `GMService.cpp:65` (in `:59-69`); the call `PlayerEnterWorldService.cpp:562`, the catch `:344-351` | not landed (A-I4 is still open). **Landed 2026-09-30** (branch `fix/small-quick-4`, docs/deviations/P4-05.md, tests `tests/cm_ak/GMServiceLoginTest.cpp`): A-I4 is met; the GM's Java effects still wait for K-01 and the four login commands (`//invis`, `//invul`, `//enemy`, `//see`) |
 | K-01 | `ChatCommand` 7, `AdminCommand` 2, `PlayerCommand` 2, `ConsoleCommand` 2: 13 (P5-14) | `ChatCommand.cpp:67-131`, `AdminCommand.cpp:20-26`, `PlayerCommand.cpp:14-20`, `ConsoleCommand.cpp:20-26`; declarations `ChatCommand.h:67-164` | no: `utils/chathandlers` is byte-identical to `760e8ab5c`; rev 1's `:62-143` cut the declaration range differently, nothing moved |
 | K-02 | the staff `VERSION_INFO` partial, 1 (P5-00) | `PlayerEnterWorldService.cpp:527`; `GameServer::versionInfo()` at `GameServer.h:49`, `GameServer.cpp:135` | no; no allow-list names `:527` (all six checked) |
 | K-03 | `PlayerRestrictions::canChat`, 1 (P5-13) | **`PlayerRestrictions.cpp:220-222`** (rev 1: `:196`); Java PlayerRestrictions.java:254-274 | line only |

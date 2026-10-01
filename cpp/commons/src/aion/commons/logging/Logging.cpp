@@ -133,6 +133,12 @@ std::string resolvePattern(std::string_view pattern) {
 	return utils::StringUtils::replace(resolved, "${consoleTime}", CONSOLE_TIME_PATTERN);
 }
 
+fs::path getLogFolder() {
+	State& s = state();
+	std::lock_guard lock(s.mutex);
+	return s.logFolder;
+}
+
 std::shared_ptr<FileAppender> createFileAppender(const fs::path& file, std::string_view pattern, std::optional<LevelFilter> filter, bool immediateFlush) {
 	State& s = state();
 	std::lock_guard lock(s.mutex);

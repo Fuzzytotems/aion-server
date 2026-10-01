@@ -9,9 +9,9 @@
 // Three things make a run survivable for everything around it:
 //   - Neither child writes a shared log directory: the game server gets --log-folder, and the login server - which has no such argument - gets
 //     a working directory of its own with a copy of its config (Logging::init archives and DELETES the log files it finds). The game server
-//     also gets its own HTML cache file (htmlCacheFile()). What it still writes below the shared game-server directory is
-//     ./log/stats/MethodStats.log (RunnableStatsManager::dumpClassStats, hard-coded like Java's) and, only on a watchdog stall, a minidump
-//     with the process id in its name in ./log/dumps - see ScenarioTests.cmake, "the two gate slots".
+//     also gets its own HTML cache file (htmlCacheFile()), and its stats/MethodStats.log follows --log-folder (RunnableStatsManager::
+//     dumpClassStats, since 2026-09-30). What it still writes below the shared game-server directory is, only on a watchdog stall, a
+//     minidump with the process id in its name in ./log/dumps - see ScenarioTests.cmake, "the two gate slots".
 //   - Both schemas carry an in-use marker (SchemaLease) for the whole run, and createSchemas() drops the schemas of runs that were killed
 //     before they could drop their own. A CTest TIMEOUT runs no destructor; the marker is a session lock, so it dies with the process.
 //   - stopProblems() collects what went wrong while stopping, and the destructor reports the list as a test failure unless a caller took
