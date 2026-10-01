@@ -11,7 +11,8 @@ freshly created QuestEnv), member access is `->` on pointers and `.` on referenc
 Java `==` on objects is identity, `x instanceof T` is `runtime::as<T>(x) != nullptr`, `(T) x` is `runtime::cast<T>(x)`, a primitive
 cast is static_cast (so `(float) 262.9` keeps Java's double-then-float rounding), `new int[] {...}` is a std::array, the varargs of
 defaultOnLevelChangedEvent are a braced list, enum methods are their companion functions (`getId(WorldMapType::X)`), `Integer` is
-std::optional<int32_t> and is unboxed with `.value()`.
+std::optional<int32_t> and is unboxed with `.value()`, and a String passed for a std::optional<std::string_view> parameter (the C++ spelling
+of a String parameter Java may pass null to: SpawnTemplate::setWalkerId) is passed as it is.
 
 Comments: a statement's own-line comments go before it and its trailing comment after it; so do the comments of case labels, of if/else
 and loop heads without braces, and the comments before a method (Javadoc or not). Comments inside an expression are dropped. A Java
@@ -1643,14 +1644,15 @@ class Transliterator:
             return None
         if kind == 'enum':
             return 0 if pk == 'enum' and p.name == name else None
+        string_optional = pk == 'optional' and p.elem is not None and p.elem.kind == 'string'
         if kind == 'strlit':
-            if pk == 'string':
-                return 3
+            if pk == 'string' or string_optional:
+                return 3            # std::optional's converting constructor is one user-defined conversion, as std::string_view's is
             if pk == 'prim' and p.name == 'bool':
                 return 2            # const char* -> bool beats const char* -> std::string_view
             return None
         if kind == 'string':
-            return 0 if pk == 'string' else None
+            return 0 if pk == 'string' else (3 if string_optional else None)
         if kind in ('lvalue', 'value'):
             if pk == 'obj' and p.ref in ('lref', 'clref'):
                 if kind == 'value' and p.ref == 'lref':
@@ -1821,6 +1823,8 @@ class Transliterator:
                 return 3
             if ak == 'prim' and a.ct.name == p.elem.name:
                 return 2
+            if ak == 'string' and p.elem.kind == 'string':
+                return 2                    # a Java String for the nullable String C++ spells std::optional<std::string_view>
             return None
         if pk == 'enum':
             return 3 if ak == 'enum' and a.ct.name == p.name else None

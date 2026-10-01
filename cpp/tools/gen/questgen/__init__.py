@@ -8,7 +8,7 @@ what the Java handler does (the read-only bonus reward list). Nothing is compile
     python -m tools.gen.questgen --dry-run [--emit DIR] [--only FILE...] [--json OUT] [--markdown OUT]
 
 Modules: paths (repository paths), cppdecl (C++ header declarations), jast (Java statement and expression trees over javasrc tokens),
-api (the vocabulary and the ~25-row API table, checked against the C++ headers), emit (the transliterator), mirror (Elyos/Asmodian twins
+api (the vocabulary and the ~30-row API table, checked against the C++ headers), emit (the transliterator), mirror (Elyos/Asmodian twins
 for G2), cli (the driver and the dry-run report). Design and measured coverage: docs/design/phase6-questgen-prototype.md.
 """
 from . import paths  # noqa: F401  (sets sys.path for javasrc, skeleton, dialogaction, census)

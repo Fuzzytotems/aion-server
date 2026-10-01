@@ -2248,11 +2248,21 @@ argument type fails with C2665, so the check is semantic). **None is landed.**
   m5j-plan.md A-C4). Landing them is phase 6's: each file into its Q chunk under §18.4's rules. Registering them changes `Loaded N quest
   handlers` and the nearby-quest sets on their start npcs' maps (Verteron, Altgard, Eltnen, Heiron, Morheim, Beluslan, Theobomos, Inggison,
   Reshanta), which the landing lane must check against the gates (`gs.scenario.travel` arrives in Verteron and Altgard); not measured here.
-- **The other six** callers of the follow helpers are refused for API rows the transliterator lacks, not for E-07: `beluslan/_24053`
+- **The other six** callers of the follow helpers were refused for API rows the transliterator lacked, not for E-07: `beluslan/_24053`
   (`Creature.getAi`, `CreatureController.addTask`), `beluslan/_2634` (also `new SM_NPC_INFO`), `morheim/_2333` and `morheim/_2394`
   (`WalkManager.startWalking`, `getAi`, `addTask`), `pandaemonium/_4212` and `sanctum/_3212` (`VisibleObject.getSpawn`, `startWalking`,
-  `addTask`). All six call `QuestTasks` directly; its four overloads are ported, and so are the C++ members they name, so each needs only its
-  rows in `tools/gen/questgen/api.py`.
+  `addTask`). All six call `QuestTasks` directly; its four overloads are ported, and so are the C++ members they name, so each needed only its
+  rows in `tools/gen/questgen/api.py`. **Closed 2026-09-30** (branch `tools/questgen-api-rows`, Python only): rows B26 (`getAi`,
+  `AbstractAI.onCreatureEvent`), B27 (`addTask`), B28 (`QuestTasks.newFollowingToTargetCheckTask`, gated like B03 on E-07), B29
+  (`startWalking`, `getSpawn`, `SpawnTemplate.setWalkerId`) and B30 (`new SM_NPC_INFO`), each on the C++ member the port calls the same way
+  (`defaultStartFollowEvent`; `*runtime::cast<NpcAI>(npc.getAi())` as in NpcMoveController.cpp), and one overload rule: a Java `String` fits
+  `setWalkerId`'s `std::optional<std::string_view>` (Java may pass null). The six transliterate (the dry run: 935 of 1,035, tier B 227; every
+  other emitted file byte-identical), `tools/parity` finds them at parity, and emitted outside the tree they compile against this tree's
+  headers (`cl /Zs /W4` with the Q chunks' flags: no error, no warning; five copies with one wrong argument each fail with C2440 or C2664).
+  Like B03's 14 they **must not land before `FollowingNpcAI`**; `tools/gen/tests/test_questgen_escorts.py` pins the rows and checks that the
+  six are not in the handler tree. Mutation proof (switch `AION_QGEN_ROWS_MUT`): 40 schemata in `api.py` and `emit.py`, all killed, each new
+  or changed assertion failing under at least one (the not-in-tree check under a copy of `_4212` put into the tree and removed again); the two
+  sources restored by sha256, no switch string left in a source. phase6-questgen-prototype.md has the coverage note.
 
 **The review's findings (2026-09-29)**, closed in the same commit (P5-06a.md and P5-06b.md, "The review's findings"). The mutation review
 (74 schemata of its own: 59 killed, 1 equivalent, 14 alive) and the Java review approved the ported code; what they found were holes in the

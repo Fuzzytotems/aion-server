@@ -23,6 +23,18 @@
 > the golden oracle (§8.3) has its first slice in `tools/oracle/expected/quest/`. New tests:
 > [`tools/gen/tests/test_questgen_p6t.py`](../../tools/gen/tests/test_questgen_p6t.py). Nothing was compiled.
 >
+> **API rows B26-B30, 2026-09-30** (m5d-plan.md §21.1, "The other six"): five rows for the six escorts that call `QuestTasks` themselves.
+> B26 `Creature.getAi`, `AbstractAI.onCreatureEvent`; B27 `CreatureController.addTask`; B28 `QuestTasks.newFollowingToTargetCheckTask` (M5d
+> stage 3 E-07); B29 `WalkManager.startWalking`, `VisibleObject.getSpawn`, `SpawnTemplate.setWalkerId`; B30 `new SM_NPC_INFO`. `api.HEADERS`
+> indexes their headers, and one overload rule is new: a Java `String` fits `SpawnTemplate::setWalkerId`'s `std::optional<std::string_view>`
+> (Java may pass null) and is passed as it is. The dry run transliterates **935 of 1,035** (tier A 708, tier B 227): `beluslan/_24053` and
+> `_2634`, `morheim/_2333` and `_2394`, `pandaemonium/_4212`, `sanctum/_3212`. The other 929 emitted files are byte-identical (the sorted
+> list of their sha256 hashes hashes to `d520466c8b5da07f…` before and after). Rows are not P6-T rules, so `--prototype-rules` gains the same
+> six (916; its 910 byte-identical, `63eac600f75ec71c…`). Two refused `tiamat_stronghold` files now name the API behind a `SpawnTemplate`
+> local instead of refusing the type. `tools/parity` finds all 935 at parity. The six, emitted outside the tree, compile against its headers
+> (`cl /Zs /W4` with a Q chunk's flags: no error, no warning). **None is landed**: their followers' AI "following" (FollowingNpcAI) has no
+> C++ file, as for B03's 14. Tests: [`tools/gen/tests/test_questgen_escorts.py`](../../tools/gen/tests/test_questgen_escorts.py).
+>
 > Code: [`tools/gen/questgen/`](../../tools/gen/questgen/__init__.py) (package), tests
 > [`tools/gen/tests/test_questgen.py`](../../tools/gen/tests/test_questgen.py) (40 tests, stdlib `unittest`, no compiler).
 > Java files are cited relative to `game-server/data/handlers/quest/` or `game-server/src/com/aionemu/gameserver/`; C++ files relative to
@@ -530,6 +542,7 @@ cd tools/gen && python -m unittest tests.test_questgen                       # 4
 ```
 
 Without `--prototype-rules` the driver adds the P6-T rules (the note at the top): 929 files, and `tests.test_questgen_p6t` checks them.
+Since rows B26-B30 (2026-09-30, the note at the top) both counts include the six escorts: 935 files, and 916 with `--prototype-rules`.
 
 The JSON has, for each file, the status, tier, quest id, refusal reasons, API-table rows, APIs called, planned declarations used, unported
 bodies reached and the Java-bug notes placed. It also has the full API and mirror tables.
