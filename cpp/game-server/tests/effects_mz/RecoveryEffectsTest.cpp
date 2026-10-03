@@ -14,20 +14,35 @@
 // `reserve * percent / 100` in int arithmetic.
 
 #include "EffectsMzTestSupport.h"
+#include "../economy/P5-09a/EconomyTestSupport.h"
 
+#include <algorithm>
 #include <cstdint>
 #include <string>
 #include <vector>
 
 #include "aion/gameserver/controllers/ObserveController.h"
+#include "aion/gameserver/dataholders/HouseData.bind.h"
+#include "aion/gameserver/dataholders/HouseData.h"
+#include "aion/gameserver/model/gameobjects/player/AbyssRank.h"
+#include "aion/gameserver/model/gameobjects/player/BlockList.h"
+#include "aion/gameserver/model/gameobjects/player/Friend.h"
+#include "aion/gameserver/model/gameobjects/player/FriendList.h"
+#include "aion/gameserver/model/gameobjects/player/PlayerSettings.h"
+#include "aion/gameserver/model/gameobjects/player/emotion/EmotionList.h"
+#include "aion/gameserver/model/gameobjects/player/motion/MotionList.h"
+#include "aion/gameserver/dataholders/PlayerInitialData.bind.h"
+#include "aion/gameserver/dataholders/PlayerInitialData.h"
 #include "aion/gameserver/controllers/PlayerController.h"
 #include "aion/gameserver/model/TaskId.h"
 #include "aion/gameserver/controllers/attack/AttackResult.h"
 #include "aion/gameserver/controllers/attack/AttackStatus.h"
 #include "aion/gameserver/network/aion/serverpackets/SM_ATTACK_STATUS.h"
 #include "aion/gameserver/network/aion/serverpackets/SM_RESURRECT.h"
+#include "aion/gameserver/network/aion/serverpackets/SM_SYSTEM_MESSAGE.h"
 #include "aion/gameserver/skillengine/effect/MPHealInstantEffect.h"
 #include "aion/gameserver/skillengine/effect/MPShieldEffect.h"
+#include "aion/gameserver/services/player/PlayerReviveService.h"
 #include "aion/gameserver/skillengine/effect/ResurrectBaseEffect.h"
 #include "aion/gameserver/skillengine/effect/ResurrectEffect.h"
 #include "aion/gameserver/skillengine/effect/SkillAtkDrainInstantEffect.h"
@@ -42,6 +57,7 @@ using controllers::attack::AttackStatus;
 using gameserver::model::PlayerClass;
 using network::aion::serverpackets::SM_ATTACK_STATUS;
 using network::aion::serverpackets::SM_RESURRECT;
+using network::aion::serverpackets::SM_SYSTEM_MESSAGE;
 
 // ------------------------------------------------------------------------------------------------------------------------- skill templates
 
@@ -161,6 +177,52 @@ protected:
 		EFFECT_TEST_SCOPE;
 		dataholders::DataManager::SKILL_DATA.resetForTests(); // the base published the lane's templates; the holder is immortal, only forgotten
 		publishSkillData(effectsMzSkills() + RECOVERY_SKILLS_XML);
+		// the revives' PlayerController.updateSoulSickness asks player.getActiveHouse(): HousingService's singleton reads HOUSE_DATA (empty: no
+		// houses) and loads the houses and the used player ids from the database - published once per process and never reset, as
+		// tests/instance/AscensionTestSupport.h does; the revive cases take the economy test database (ECONOMY_REQUIRE_DATABASE)
+		if (!dataholders::DataManager::HOUSE_DATA)
+			dataholders::DataManager::HOUSE_DATA.publish(xml::bindString<dataholders::HouseData>(houseContext(), "<house_lands/>"));
+		// bindRevive's TeleportService.moveToBindLocation: a player without a bind point goes to the race's spawn location
+		// (player_initial_data.xml cut to the two locations as tests/instance/AscensionTestData.h does; the Elyos one moved into this fixture's small
+		// Poeta map)
+		dataholders::DataManager::PLAYER_INITIAL_DATA.publish(xml::bindString<dataholders::PlayerInitialData>(initialDataContext,
+			R"(<player_initial_data><asmodian_spawn_location map_id="220010000" heading="32" x="571.0388" y="2787.3420" z="299.8750"/>)"
+			R"(<elyos_spawn_location map_id="210010000" heading="32" x="510" y="500" z="100"/></player_initial_data>)"));
+	}
+
+	void TearDown() override {
+		EffectsMzTest::TearDown();
+		dataholders::DataManager::PLAYER_INITIAL_DATA.resetForTests();
+	}
+
+	xml::LoadContext initialDataContext;
+
+	/**
+	 * The parts PlayerService.getPlayer gives a character that a revive's teleport reads (SM_PLAYER_INFO and the known lists' notifications),
+	 * as tests/cm_ak/InWorldPacketRunSupport.h's makePlayer sets them: settings, the abyss rank of a character without a row, the friend and
+	 * block lists, the emotions and the motions
+	 */
+	static void withCharacterParts(Player& p) {
+		namespace pl = gameserver::model::gameobjects::player;
+		p.setPlayerSettings(pl::PlayerSettings::create());
+		p.setAbyssRank(pl::AbyssRank::create(0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0));
+		p.setFriendList(std::make_unique<pl::FriendList>(p, std::vector<Ptr<pl::Friend>>{}));
+		p.setBlockList(pl::BlockList::create());
+		p.setEmotions(std::make_unique<pl::emotion::EmotionList>(p));
+		p.setMotions(std::make_unique<pl::motion::MotionList>(p));
+	}
+
+	/** @return false without the economy test database (ECONOMY_REQUIRE_DATABASE skips then); else recreates it once and initializes DatabaseFactory */
+	static bool requireDatabase() {
+		if (!economy::test::isDatabaseEnabled())
+			return false;
+		economy::test::setUpDatabaseOnce();
+		return true;
+	}
+
+	static xml::LoadContext& houseContext() {
+		static xml::LoadContext context; // outlives every case: HOUSE_DATA is never reset
+		return context;
 	}
 
 	/** The SM_ATTACK_STATUS packets the player was sent about `objectId`, without the natural regeneration a drop of HP or MP starts */
@@ -502,12 +564,45 @@ TEST_F(RecoveryEffectsTest, LightOfResurrectionOffersTheDeadPlayerARevive) {
 }
 
 /**
+ * PlayerReviveService.skillRevive (PlayerReviveService.java:42-62, CM_REVIVE's SKILL_REVIVE): the dead player accepts 1699's offer - revive at
+ * 35 % HP and MP and STR_REBIRTH_MASSAGE_ME. Without an offer (getResStatus false) it is an
+ * audited selfres hack and nothing happens. Not run here: the prison and ResPos arms (their teleports need the house data this fixture does not
+ * publish) and the flying-before-death arm.
+ */
+TEST_F(RecoveryEffectsTest, AcceptingTheResurrectionRevivesTheDeadPlayer) {
+	ECONOMY_REQUIRE_DATABASE();
+	EFFECT_TEST_SCOPE;
+	Ref<Player> cleric = player(7421, PlayerClass::PRIEST);
+	Ref<Player> dead = player(7422, PlayerClass::WARRIOR, 1, 505, 500, 100);
+	withCharacterParts(*dead);
+	dead->setLifeStats(std::make_unique<cp::DeadPlayerLifeStats>(*dead));
+	ASSERT_TRUE(dead->isDead());
+
+	services::player::PlayerReviveService::skillRevive(*dead);
+	EXPECT_TRUE(dead->isDead()) << "no offer: the selfres hack is refused";
+
+	applied(1699, *cleric, *dead);
+	ASSERT_TRUE(dead->getResStatus());
+	clearSent(*dead);
+	services::player::PlayerReviveService::skillRevive(*dead);
+	EXPECT_FALSE(dead->isDead());
+	EXPECT_EQ(dead->getLifeStats()->getCurrentHp(), dead->getLifeStats()->getMaxHp() * 35 / 100) << "revive(player, 35, 35, ...)";
+	EXPECT_EQ(dead->getLifeStats()->getCurrentMp(), dead->getLifeStats()->getMaxMp() * 35 / 100);
+	// revive(..., setSoulSickness true, ...) reaches PlayerController.updateSoulSickness, which is not asserted here: this binary loads no
+	// config, so gameserver.soulsickness.disable reads 0 and every membership has the permission that skips it
+	EXPECT_FALSE(dead->getResStatus()) << "revive: setPlayerResActivate(false)";
+	const std::vector<std::vector<uint8_t>> messages = sentTo<SM_SYSTEM_MESSAGE>(*dead);
+	EXPECT_EQ(std::count(messages.begin(), messages.end(), cp::serialized(SM_SYSTEM_MESSAGE::STR_REBIRTH_MASSAGE_ME(), &connection(*dead))), 1);
+}
+
+/**
  * ResurrectBaseEffect (ResurrectBaseEffect.java:22-37), 4144 Chain of Suffering: calculate is EffectTemplate.calculate (noresist: a success),
  * applyEffect puts the effect on the effected, and its end on a dead player schedules PlayerReviveService.scheduleReviveAtBase(player, 2500,
  * skillId) as the controller's TELEPORT task (PlayerReviveService.java:250-260); 2.5 s later the task removes itself and, outside an instance and
  * without a kisk, bindRevive revives the player (25 % HP). The end on a living player schedules nothing.
  */
 TEST_F(RecoveryEffectsTest, ChainOfSufferingRevivesTheDeadAtTheBindPointTwoAndAHalfSecondsLater) {
+	ECONOMY_REQUIRE_DATABASE();
 	EFFECT_TEST_SCOPE;
 	Ref<Player> cleric = player(7411, PlayerClass::PRIEST);
 	Ref<Player> living = player(7412, PlayerClass::WARRIOR, 1, 505, 500, 100);
@@ -523,6 +618,7 @@ TEST_F(RecoveryEffectsTest, ChainOfSufferingRevivesTheDeadAtTheBindPointTwoAndAH
 	onLiving->endEffect();
 	EXPECT_FALSE(living->getController().hasTask(gameserver::model::TaskId::TELEPORT)) << "a living player: no revive";
 
+	withCharacterParts(*dying);
 	Ref<Effect> onDying = calculated(4144, *cleric, *dying);
 	onDying->applyEffect();
 	dying->setLifeStats(std::make_unique<cp::DeadPlayerLifeStats>(*dying)); // dead without PlayerController.onDie's services
@@ -535,6 +631,7 @@ TEST_F(RecoveryEffectsTest, ChainOfSufferingRevivesTheDeadAtTheBindPointTwoAndAH
 	EXPECT_FALSE(dying->getController().hasTask(gameserver::model::TaskId::TELEPORT)) << "the task removes itself";
 	EXPECT_FALSE(dying->isDead()) << "bindRevive";
 	EXPECT_EQ(dying->getLifeStats()->getCurrentHp(), dying->getLifeStats()->getMaxHp() * 25 / 100);
+	EXPECT_FLOAT_EQ(dying->getX(), 510.0f) << "moveToBindLocation: the Elyos spawn location (no bind point) - the task ran to its end";
 }
 
 /**
