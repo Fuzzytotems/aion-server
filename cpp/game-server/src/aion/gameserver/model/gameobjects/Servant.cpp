@@ -5,6 +5,8 @@
 
 #include "aion/gameserver/controllers/NpcController.h"
 #include "aion/gameserver/controllers/effect/EffectController.h"
+#include "aion/gameserver/model/stats/container/NpcLifeStats.h"
+#include "aion/gameserver/model/stats/container/ServantGameStats.h"
 #include "aion/gameserver/model/templates/spawns/SpawnTemplate.h"
 #include "aion/gameserver/runtime/base/Unported.h"
 #include "aion/gameserver/world/knownlist/NpcKnownList.h"
@@ -22,9 +24,8 @@ Servant::Servant(CreateKey key, std::unique_ptr<controllers::NpcController> cont
 Servant::~Servant() = default;
 
 void Servant::setupStatContainers() {
-	// Java: setGameStats(new ServantGameStats(this)); setLifeStats(new NpcLifeStats(this)): stats/container/ServantGameStats.h has no declaration
-	// header yet (P5-01)
-	AION_UNPORTED();
+	setGameStats(std::make_unique<stats::container::ServantGameStats>(*this));
+	setLifeStats(std::make_unique<stats::container::NpcLifeStats>(*this));
 }
 
 NpcObjectType Servant::getNpcObjectType() {
@@ -32,8 +33,7 @@ NpcObjectType Servant::getNpcObjectType() {
 }
 
 void Servant::setUpStats() {
-	// Java: ((ServantGameStats) getGameStats()).setUpStats(): stats/container/ServantGameStats.h has no declaration header yet (P5-01)
-	AION_UNPORTED();
+	runtime::cast<stats::container::ServantGameStats>(getGameStats())->setUpStats();
 }
 
 std::optional<std::string> Servant::getMasterName() {

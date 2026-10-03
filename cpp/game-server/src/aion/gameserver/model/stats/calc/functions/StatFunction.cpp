@@ -1,5 +1,8 @@
 #include "aion/gameserver/model/stats/calc/functions/StatFunction.h"
 
+#include <string>
+
+#include "aion/gameserver/dataholders/loadingutils/EnumTraits.h"
 #include "aion/gameserver/runtime/base/Unported.h"
 #include "aion/gameserver/skillengine/condition/Condition.h"
 #include "aion/gameserver/skillengine/condition/Conditions.h"
@@ -66,7 +69,8 @@ void StatFunction::apply(Stat2& /*stat*/, const std::unordered_set<utils::stats:
 }
 
 std::string StatFunction::toString() {
-	AION_UNPORTED();
+	return "stat=" + (stat ? std::string(xml::enumName(*stat)) : std::string("null")) + ", bonus=" + (bonus ? "true" : "false") + ", value=" +
+		std::to_string(value) + ", priority=" + std::to_string(getPriority());
 }
 
 StatFunction& StatFunction::withConditions(const skillengine::condition::Conditions* conditionsValue) {
