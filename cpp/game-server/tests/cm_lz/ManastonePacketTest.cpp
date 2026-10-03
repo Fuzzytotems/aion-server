@@ -479,25 +479,27 @@ TEST_F(ManastoneRunTest, TheRemoveArmDoesNothingForAnotherNpcIdOrOutOfTalkRange)
 	EXPECT_EQ(runtime::unportedHitCount(), 0u);
 }
 
-TEST_F(ManastoneRunTest, AStigmaOnAStigmaIsChargedByTheUnportedChargeStigma) {
+TEST_F(ManastoneRunTest, AStigmaOnAnotherStigmaGoesToChargeStigmaWhichRefusesIt) {
 	// CM_MANASTONE.java:76-77: when the stone and the target are both stigmas, actions 1 and 2 charge the stigma (StigmaService.chargeStigma,
-	// M5c, AION_UNPORTED) and make no EnchantItemAction
+	// ported with M5e T-01) and make no EnchantItemAction; StigmaService.java:418 refuses two different stigmas (another item id) at once:
+	// nothing is used up and nothing is sent
 	stored(760018, SURE_STRIKE_STIGMA, 1);
 	stored(760019, SPITE_STRIKE_STIGMA, 1);
 
-	EXPECT_THROW(run(stoneBody(1, 0, 760018, 760019, 0)), runtime::UnportedException);
-	EXPECT_THROW(run(stoneBody(2, 0, 760018, 760019, 0)), runtime::UnportedException);
+	EXPECT_NO_THROW(run(stoneBody(1, 0, 760018, 760019, 0)));
+	EXPECT_NO_THROW(run(stoneBody(2, 0, 760018, 760019, 0)));
 
-	EXPECT_EQ(unportedHitsIn("StigmaService.cpp"), 2u);
 	EXPECT_EQ(unportedHitsIn("EnchantItemAction.cpp"), 0u);
-	EXPECT_EQ(runtime::unportedHitCount(), 2u);
+	EXPECT_EQ(runtime::unportedHitCount(), 0u);
 	EXPECT_TRUE(sent().empty());
+	EXPECT_EQ(storage(StorageType::CUBE).getItemByObjId(760018)->getItemCount(), 1);
+	EXPECT_EQ(storage(StorageType::CUBE).getItemByObjId(760019)->getItemCount(), 1);
 }
 
 TEST_F(ManastoneRunTest, AStigmaIsChargedOnlyWhenBothItemsAreStigmas) {
 	// :76 is `stone.isStigma() && targetItem.isStigma()`: a stigma stone on a sword and a manastone on a stigma both go to the EnchantItemAction,
 	// whose canAct refuses both without a message (EnchantItemAction.java:75-77: a stigma, 140xxxxxx, is neither a 166/167 stone nor a target
-	// below 120xxxxxx), so nothing happens and StigmaService's unported chargeStigma is not asked
+	// below 120xxxxxx), so nothing happens and StigmaService.chargeStigma is not asked
 	stored(760020, SPITE_STRIKE_STIGMA, 1);
 	stored(760021, TRAINING_SWORD, 1);
 	stored(760022, MANASTONE_HP_20, 1);
