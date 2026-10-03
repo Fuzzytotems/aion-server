@@ -15,6 +15,8 @@
 
 #include <gtest/gtest.h>
 
+#include "../../support/NetworkTestSupport.h"
+
 #include <atomic>
 #include <chrono>
 #include <cstdint>
@@ -31,12 +33,18 @@
 
 #include "aion/commons/network/NioServer.h"
 #include "aion/commons/network/ServerCfg.h"
+#include "aion/commons/utils/ByteBuffer.h"
+#include "aion/commons/utils/ByteBuffer.h"
 #include "aion/gameserver/configs/main/CraftConfig.h"
+#include "aion/gameserver/configs/main/LoggingConfig.h"
+#include "aion/gameserver/configs/main/PunishmentConfig.h"
 #include "aion/gameserver/controllers/GatherableController.h"
 #include "aion/gameserver/controllers/ObserveController.h"
 #include "aion/gameserver/dataholders/DataManager.h"
 #include "aion/gameserver/dataholders/GatherableData.bind.h"
 #include "aion/gameserver/dataholders/GatherableData.h"
+#include "aion/gameserver/dataholders/SkillData.bind.h"
+#include "aion/gameserver/dataholders/SkillData.h"
 #include "aion/gameserver/dataholders/loadingutils/LoadContext.h"
 #include "aion/gameserver/dataholders/loadingutils/StaticDataLoader.h"
 #include "aion/gameserver/model/PlayerClass.h"
@@ -56,6 +64,8 @@
 #include "aion/gameserver/model/skill/PlayerSkillEntry.h"
 #include "aion/gameserver/model/skill/PlayerSkillList.h"
 #include "aion/gameserver/network/aion/AionConnection.h"
+#include "aion/gameserver/network/aion/clientpackets/CM_GATHER.h"
+#include "aion/gameserver/network/aion/clientpackets/CM_GATHER.h"
 #include "aion/gameserver/model/templates/gather/GatherableTemplate.h"
 #include "aion/gameserver/model/templates/gather/Material.h"
 #include "aion/gameserver/model/templates/gather/Materials.h"
@@ -549,6 +559,114 @@ TEST_F(InteractionTaskTest, AThrowingOnInteractionStartLeavesTheTaskInTheField) 
 	task->stop(); // the cut
 	EXPECT_FALSE(f.player->getInteractionTask());
 	EXPECT_EQ(task->finishes, 1);
+}
+
+/**
+ * CM_GATHER (C_GATHER, CM_GATHER.java:26-50, P5-16): the client's start (action 0, or 128 from the /attack chat command) and cancel (-1) of a
+ * gathering, driven like the PacketProcessor does (read, then run) on the loopback connection, whose active player is the gatherer.
+ */
+class GatherPacket final : public network::aion::clientpackets::CM_GATHER {
+public:
+	GatherPacket() : CM_GATHER(19, network::aion::StateSet{network::aion::AionConnection_State::IN_GAME}) {} // ClientPacketInfo.gen.inc:35
+
+	void readAndRun(int32_t action, const std::shared_ptr<network::aion::AionConnection>& connection) {
+		std::vector<uint8_t> body = network::test::PacketWriter().D(action).data;
+		setBuffer(commons::utils::ByteBuffer::wrap(body));
+		setConnection(connection);
+		ASSERT_TRUE(read());
+		EXPECT_EQ(getRemainingBytes(), 0) << "the body is one D";
+		runImpl();
+	}
+};
+
+class GatherPacketTest : public InteractionTaskTest {
+protected:
+	void SetUp() override {
+		InteractionTaskTest::SetUp();
+		// AuditLogger's staff check (GMService) reads SKILL_DATA; an empty holder is enough (InWorldPacketTest's way)
+		dataholders::DataManager::SKILL_DATA.publish(xml::bindString<dataholders::SkillData>(skillContext, "<skill_data></skill_data>"));
+		scope = std::make_unique<runtime::TaskScope>(AION_TASK_INFO(runtime::TaskKind::TEST));
+		f = makePlayer(5110);
+		link = std::make_unique<TestClientLink>();
+		ASSERT_TRUE(link->connection());
+		link->connection()->setAccount(*f.account); // as Java's login left it on the connection (AionConnection::sendPacket reads it)
+		f.player->setClientConnection(link->connection());
+		ASSERT_TRUE(link->connection()->setActivePlayer(Ptr<Player>(*f.player)));
+	}
+
+	void TearDown() override {
+		if (f.player) {
+			if (Ptr<AbstractInteractionTask> task = f.player->getInteractionTask())
+				task->abort();
+			f.player->setTarget(nullptr);
+			f.player->setClientConnection(nullptr);
+		}
+		if (link) {
+			link->connection()->setActivePlayer(nullptr); // the connection closes without a player to log out (SilentTestConnection)
+			link.reset();
+		}
+		f = {};
+		scope.reset();
+		dataholders::DataManager::SKILL_DATA.resetForTests();
+		InteractionTaskTest::TearDown();
+	}
+
+	void gather(int32_t actionId) {
+		GatherPacket packet;
+		packet.readAndRun(actionId, link->connection());
+	}
+
+	std::unique_ptr<runtime::TaskScope> scope;
+	PlayerFixture f;
+	std::unique_ptr<TestClientLink> link;
+	xml::LoadContext skillContext;
+};
+
+TEST_F(GatherPacketTest, StartAndCancelTheGatheringOfTheTarget) {
+	for (const int32_t start : {0, 128}) {
+		SCOPED_TRACE("start action " + std::to_string(start));
+		Ref<gameserver::model::gameobjects::Gatherable> gatherable = makeGatherable();
+		f.player->setTarget(Ptr<gameserver::model::gameobjects::VisibleObject>(*gatherable));
+
+		gather(start); // CM_GATHER.java:34, 40-42: the target is a Gatherable - its controller starts the gathering
+
+		Ptr<AbstractInteractionTask> task = f.player->getInteractionTask();
+		ASSERT_TRUE(task);
+		EXPECT_TRUE(task->isInProgress());
+		EXPECT_EQ(gatherable->getController().getGatheringPlayerId(), f.player->getObjectId());
+
+		gather(-1); // :33, 47-49: the interaction task is a GatheringTask - it is aborted
+
+		EXPECT_FALSE(task->isInProgress());
+		EXPECT_FALSE(f.player->getInteractionTask());
+		EXPECT_FALSE(f.player->getObserveController()->hasObservers()) << "the abort removed the gatherer observer";
+		f.player->setTarget(nullptr);
+	}
+}
+
+TEST_F(GatherPacketTest, GatheringFromNothingOrFromAPlayerIsAudited) {
+	configs::main::PunishmentConfig::PUNISHMENT_ENABLE.store(false); // AuditLogger must not reach AutoBan
+	AtomicConfigScope<bool> auditLog(configs::main::LoggingConfig::LOG_AUDIT, true);
+	network::test::LogCapture audit({"AUDIT_LOG"}); // AuditLogger.cpp:22
+
+	gather(0); // :41-44 with no target: String.valueOf(null)
+	f.player->setTarget(Ptr<gameserver::model::gameobjects::VisibleObject>(*f.player));
+	gather(0); // a target that is no Gatherable
+
+	EXPECT_EQ(audit.count("tried to gather from null"), 1) << audit.dump();
+	EXPECT_EQ(audit.count("tried to gather from " + f.player->toString()), 1) << audit.dump();
+	EXPECT_FALSE(f.player->getInteractionTask());
+}
+
+TEST_F(GatherPacketTest, AnUnknownActionIsLoggedAndACancelWithoutAGatheringDoesNothing) {
+	network::test::LogCapture log({"com.aionemu.gameserver.network.aion.clientpackets.CM_GATHER"});
+
+	gather(-1); // :47-49: no interaction task - nothing to abort
+	gather(7);  // :36: the default arm warns
+
+	EXPECT_EQ(log.count("Unhandled gathering action ID 7 (sent by " + f.player->toString() + " at " + f.player->getPosition()->toString() + ")"), 1)
+		<< log.dump();
+	EXPECT_FALSE(f.player->getInteractionTask());
 }
 
 } // namespace
