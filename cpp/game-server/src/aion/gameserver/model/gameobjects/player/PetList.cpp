@@ -4,7 +4,7 @@
 #include "aion/gameserver/dao/PlayerPetsDAO.h"
 #include "aion/gameserver/model/gameobjects/player/PetCommonData.h"
 #include "aion/gameserver/model/gameobjects/player/Player.h"
-#include "aion/gameserver/runtime/base/Unported.h"
+#include "aion/gameserver/taskmanager/tasks/ExpireTimerTask.h"
 #include "aion/gameserver/utils/idfactory/IDFactory.h"
 
 namespace aion::gameserver::model::gameobjects::player {
@@ -21,11 +21,9 @@ std::vector<runtime::Ref<PetCommonData>> getPlayerPets(Player& player) {
 	return dao::PlayerPetsDAO::getPlayerPets(player);
 }
 
-/** Java ExpireTimerTask.getInstance().registerExpirable(expirable, player); the task manager (P5-14) has no C++ header yet */
+/** Java ExpireTimerTask.getInstance().registerExpirable(expirable, player) */
 void registerExpirable(PetCommonData& expirable, Player& player) {
-	static_cast<void>(expirable);
-	static_cast<void>(player);
-	AION_UNPORTED();
+	taskmanager::tasks::ExpireTimerTask::getInstance().registerExpirable(expirable, player);
 }
 
 } // namespace

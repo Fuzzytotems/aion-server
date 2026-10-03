@@ -7,18 +7,16 @@
 #include "aion/gameserver/model/gameobjects/player/emotion/Emotion.h"
 #include "aion/gameserver/model/templates/item/actions/EmotionLearnAction.h"
 #include "aion/gameserver/network/aion/serverpackets/SM_EMOTION_LIST.h"
-#include "aion/gameserver/runtime/base/Unported.h"
+#include "aion/gameserver/taskmanager/tasks/ExpireTimerTask.h"
 #include "aion/gameserver/utils/PacketSendUtility.h"
 
 namespace aion::gameserver::model::gameobjects::player::emotion {
 
 namespace {
 
-/** Java ExpireTimerTask.getInstance().registerExpirable(expirable, player); the task manager (P5-14) has no C++ header yet */
+/** Java ExpireTimerTask.getInstance().registerExpirable(expirable, player) */
 void registerExpirable(Emotion& expirable, Player& player) {
-	static_cast<void>(expirable);
-	static_cast<void>(player);
-	AION_UNPORTED();
+	taskmanager::tasks::ExpireTimerTask::getInstance().registerExpirable(expirable, player);
 }
 
 } // namespace

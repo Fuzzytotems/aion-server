@@ -6,7 +6,7 @@
 #include "aion/gameserver/model/gameobjects/player/Player.h"
 #include "aion/gameserver/model/gameobjects/player/motion/Motion.h"
 #include "aion/gameserver/network/aion/serverpackets/SM_MOTION.h"
-#include "aion/gameserver/runtime/base/Unported.h"
+#include "aion/gameserver/taskmanager/tasks/ExpireTimerTask.h"
 #include "aion/gameserver/utils/PacketSendUtility.h"
 
 namespace aion::gameserver::model::gameobjects::player::motion {
@@ -20,11 +20,9 @@ int32_t motionTypeOf(int32_t motionId) {
 	return Motion::motionType.at(motionId);
 }
 
-/** Java ExpireTimerTask.getInstance().registerExpirable(expirable, player); the task manager (P5-14) has no C++ header yet */
+/** Java ExpireTimerTask.getInstance().registerExpirable(expirable, player) */
 void registerExpirable(Motion& expirable, Player& player) {
-	static_cast<void>(expirable);
-	static_cast<void>(player);
-	AION_UNPORTED();
+	taskmanager::tasks::ExpireTimerTask::getInstance().registerExpirable(expirable, player);
 }
 
 } // namespace
