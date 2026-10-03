@@ -20,7 +20,7 @@ int32_t StatSetFunction::getPriority() const {
 }
 
 std::string StatSetFunction::toString() {
-	AION_UNPORTED();
+	return "StatSetFunction [" + StatFunction::toString() + "]";
 }
 
 } // namespace aion::gameserver::model::stats::calc::functions

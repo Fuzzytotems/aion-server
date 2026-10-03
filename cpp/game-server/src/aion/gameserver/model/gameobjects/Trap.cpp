@@ -23,6 +23,8 @@
 #include "aion/gameserver/model/skill/NpcSkillList.h"
 #include "aion/gameserver/model/stats/container/CreatureGameStats.h"
 #include "aion/gameserver/model/stats/container/CreatureLifeStats.h"
+#include "aion/gameserver/model/stats/container/NpcLifeStats.h"
+#include "aion/gameserver/model/stats/container/TrapGameStats.h"
 #include "aion/gameserver/model/templates/VisibleObjectTemplate.h"
 #include "aion/gameserver/model/templates/npc/NpcTemplate.h"
 #include "aion/gameserver/model/templates/spawns/SpawnTemplate.h"
@@ -55,9 +57,8 @@ Trap::Trap(CreateKey key, std::unique_ptr<controllers::NpcController> controller
 }
 
 void Trap::setupStatContainers() {
-	// Java: setGameStats(new TrapGameStats(this)); setLifeStats(new NpcLifeStats(this)): stats/container/TrapGameStats.h has no declaration header
-	// yet (P5-01)
-	AION_UNPORTED();
+	setGameStats(std::make_unique<stats::container::TrapGameStats>(*this));
+	setLifeStats(std::make_unique<stats::container::NpcLifeStats>(*this));
 }
 
 int8_t Trap::getLevel() {
