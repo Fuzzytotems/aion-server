@@ -14,13 +14,16 @@
 
 #include "../cm_ak/ItemPacketTestSupport.h"
 
+#include <chrono>
 #include <cstdint>
 #include <memory>
+#include <string>
 #include <string_view>
 #include <vector>
 
 #include "aion/commons/utils/ByteBuffer.h"
 #include "aion/commons/utils/TimeUtils.h"
+#include "aion/gameserver/configs/network/NetworkConfig.h"
 #include "aion/gameserver/controllers/ObserveController.h"
 #include "aion/gameserver/controllers/PlayerController.h"
 #include "aion/gameserver/controllers/observer/ItemUseObserver.h"
@@ -233,6 +236,64 @@ TEST_F(UseItemRunTest, AFoodItemIsUsedThroughItsSkillAndThenCoolsDown) {
 
 	EXPECT_EQ(sent(), exactly({message(SM_SYSTEM_MESSAGE::STR_ITEM_CANT_USE_UNTIL_DELAY_TIME())})) << "the second use is inside the 5 s delay";
 	EXPECT_EQ(juice.getItemCount(), 11);
+}
+
+/** Sets the C++-only instant item reply diagnostic for the scope and switches it off again (the executable loads no properties file) */
+class InstantItemReplyHoldScope {
+public:
+	explicit InstantItemReplyHoldScope(int32_t millis) { configs::network::NetworkConfig::DIAG_INSTANT_ITEM_REPLY_HOLD_MILLIS.store(millis); }
+	~InstantItemReplyHoldScope() { configs::network::NetworkConfig::DIAG_INSTANT_ITEM_REPLY_HOLD_MILLIS.store(0); }
+	InstantItemReplyHoldScope(const InstantItemReplyHoldScope&) = delete;
+	InstantItemReplyHoldScope& operator=(const InstantItemReplyHoldScope&) = delete;
+};
+
+TEST_F(UseItemRunTest, TheInstantItemReplyDiagnosticHoldsTheOwnReplyOfEverySecondUse) {
+	// C++ only (NetworkConfig::DIAG_INSTANT_ITEM_REPLY_HOLD_MILLIS, the potion / auto-attack report of 2026-10-01/02): the user's own
+	// SM_ITEM_USAGE_ANIMATION and STR_USE_ITEM of an instant item come 2000 ms late on alternate uses (an even count left in the stack: of 12,
+	// the first use leaves 11, the baseline, and the second 10, held); the cost and the cooldown do not wait
+	InstantItemReplyHoldScope hold(2000);
+	LogCapture diagnostic({"com.aionemu.gameserver.skillengine.model.Skill"});
+	Item& juice = stored(750006, MERCENARYS_FRUIT_JUICE, 12);
+	std::vector<std::vector<uint8_t>> baselineReply;
+	std::vector<std::vector<uint8_t>> heldReply;
+
+	for (int32_t round = 0; round < 2; round++) {
+		SCOPED_TRACE("use " + std::to_string(round + 1));
+		player().removeItemCoolDown(21); // the juice's use delay (usedelayid 21) would refuse the second use
+		clearSent();
+
+		use(750006);
+
+		const std::vector<std::vector<uint8_t>> atOnce = sent();
+		EXPECT_EQ(packetsOf(atOnce, SM_INVENTORY_UPDATE_ITEM_OPCODE).size(), 1u) << "the cost is paid at once";
+		EXPECT_TRUE(player().hasCooldown(juice)) << "the use delay starts at once";
+		const bool held = packetsOf(atOnce, SM_ITEM_USAGE_ANIMATION_OPCODE).empty();
+		EXPECT_EQ(packetsOf(atOnce, SM_SYSTEM_MESSAGE_OPCODE).empty(), held) << "the animation and STR_USE_ITEM are held together";
+		if (!held) {
+			for (const std::vector<uint8_t>& packet : atOnce) {
+				const std::vector<std::vector<uint8_t>> one{packet};
+				if (!packetsOf(one, SM_ITEM_USAGE_ANIMATION_OPCODE).empty() || !packetsOf(one, SM_SYSTEM_MESSAGE_OPCODE).empty())
+					baselineReply.push_back(packet);
+			}
+		}
+		clearSent();
+
+		executor->advance(std::chrono::milliseconds(1999));
+		EXPECT_TRUE(sent().empty()) << "nothing more before the hold ends";
+		executor->advance(std::chrono::milliseconds(1));
+
+		const std::vector<std::vector<uint8_t>> later = sent();
+		if (held)
+			heldReply = later;
+		else
+			EXPECT_TRUE(later.empty());
+	}
+
+	EXPECT_EQ(juice.getItemCount(), 10);
+	ASSERT_EQ(baselineReply.size(), 2u) << "one use was the baseline: its own animation and STR_USE_ITEM at once";
+	EXPECT_EQ(heldReply, baselineReply) << "the other use's reply came 2000 ms late, byte for byte the same and in the same order";
+	EXPECT_EQ(diagnostic.count("own reply held 2000 ms"), 1) << diagnostic.dump();
+	EXPECT_EQ(diagnostic.count("own reply not held (baseline)"), 1) << diagnostic.dump();
 }
 
 TEST_F(UseItemRunTest, AQuestItemWithoutActionsNoQuestHandlerAcceptsIsNotUsable) {

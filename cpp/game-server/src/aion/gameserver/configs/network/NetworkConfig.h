@@ -85,6 +85,15 @@ struct NetworkConfig {
 	 */
 	static inline ConfigValue<std::set<std::string, std::less<>>> TRACE_SERVER_PACKETS;
 
+	/**
+	 * C++ only (gameserver.network.diag.instant_item_reply_hold_ms, play-session diagnostics 2026-10-02, docs/deviations/P4-01.md): when above 0,
+	 * the user's own copy of the end-of-use reply to an instant item (SM_ITEM_USAGE_ANIMATION and STR_USE_ITEM, Skill::sendCastSpellEnd) is held
+	 * back this many milliseconds, on the uses that leave an even count in the stack (the others are the session's baseline); everything
+	 * else, onlookers' copies included, goes out at once. It tells whether that reply ends a 4.8 client's pending post-skill swing (the potion / auto-attack report).
+	 * 0 (the default): off, Java's behaviour.
+	 */
+	static inline std::atomic<int32_t> DIAG_INSTANT_ITEM_REPLY_HOLD_MILLIS{0};
+
 	static inline std::atomic<bool> ENABLE_FLOOD_CONNECTIONS{false};
 
 	static inline std::atomic<int32_t> Flood_Tick{0};
