@@ -52,6 +52,7 @@
 #include "aion/gameserver/dataholders/DataManager.h"
 #include "aion/gameserver/dataholders/NpcFactionsData.bind.h"
 #include "aion/gameserver/dataholders/PlayerExperienceTable.bind.h"
+#include "aion/gameserver/dataholders/TitleData.bind.h"
 #include "aion/gameserver/model/Gender.h"
 #include "aion/gameserver/model/PlayerClass.h"
 #include "aion/gameserver/model/account/CharacterBanInfo.h"
@@ -70,6 +71,8 @@
 #include "aion/gameserver/model/gameobjects/player/npcFaction/NpcFaction.h"
 #include "aion/gameserver/model/gameobjects/player/npcFaction/NpcFactions.h"
 #include "aion/gameserver/model/gameobjects/player/title/Title.h"
+#include "aion/gameserver/model/gameobjects/player/title/TitleList.h"
+#include "aion/gameserver/taskmanager/tasks/ExpireTimerTask.h"
 #include "aion/gameserver/model/items/ItemCooldown.h"
 #include "aion/gameserver/model/skill/PlayerSkillEntry.h"
 #include "aion/gameserver/model/skill/PlayerSkillList.h"
@@ -466,6 +469,35 @@ TEST_F(PlayerDaoTest, EmotionsMotionsAndTitles) {
 	EXPECT_EQ(queryLong("SELECT COUNT(*) FROM player_titles WHERE player_id = 84"), 1);
 	EXPECT_TRUE(PlayerTitleListDAO::removeTitle(84, 7)) << "the query's trailing ';' is accepted by the server";
 	EXPECT_EQ(queryLong("SELECT COUNT(*) FROM player_titles WHERE player_id = 84"), 0);
+}
+
+/**
+ * TitleList.addTitle, EmotionList.add and MotionList.add for a new entry register it with ExpireTimerTask and store it (TitleList.java:58-60,
+ * EmotionList.java:39-41, MotionList.java:52-54). Until 2026-10-03 the C++ registerExpirable of the four lists (and PetList.loadPets') was an
+ * AION_UNPORTED stub, so a quest's title reward threw after its items and exp were paid and before QuestService.finishQuest set COMPLETE: the
+ * quest stayed in REWARD and the owner could turn in quest 1002 "Request of the Elim" twice.
+ */
+TEST_F(PlayerDaoTest, ANewTitleEmotionOrMotionIsRegisteredForExpiryAndStored) {
+	insertPlayer(86, "Titled", 806);
+	auto f = makePlayer(86, 806, "Titled");
+	PublishedHolder titleData(dataholders::DataManager::TITLE_DATA, bindXml<dataholders::TitleData>(
+		R"(<player_titles><title id="7" nameId="1100906" desc="test title" race="PC_ALL"/><title id="8" nameId="1100907" desc="timed title" race="PC_ALL"/></player_titles>)"));
+
+	f.player->setTitleList(PlayerTitleListDAO::loadTitleList(86)); // PlayerService.getPlayer: the loaded list, bound to its owner
+	EXPECT_TRUE(f.player->getTitleList().addTitle(7, true, 0)) << "the quest reward arm";
+	EXPECT_TRUE(f.player->getTitleList().addTitle(8, false, 3600)) << "a timed title";
+	EXPECT_FALSE(f.player->getTitleList().addTitle(7, true, 0)) << "already learned";
+	EXPECT_EQ(queryLong("SELECT COUNT(*) FROM player_titles WHERE player_id = 86"), 2);
+
+	SKIP_IF_UNPORTED(PlayerEmotionListDAO::loadEmotions(*f.player));
+	f.player->getEmotions()->add(12, 0, true);
+	EXPECT_EQ(queryLong("SELECT COUNT(*) FROM player_emotions WHERE player_id = 86"), 1);
+
+	SKIP_IF_UNPORTED(MotionDAO::loadMotionList(*f.player));
+	f.player->getMotions().add(*model::gameobjects::player::motion::Motion::create(9, 100, false), true);
+	EXPECT_EQ(queryLong("SELECT COUNT(*) FROM player_motions WHERE player_id = 86"), 1);
+
+	taskmanager::tasks::ExpireTimerTask::getInstance().unregisterExpirables(*f.player);
 }
 
 TEST_F(PlayerDaoTest, NpcFactions) {

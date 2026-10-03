@@ -14,18 +14,16 @@
 #include "aion/gameserver/network/aion/serverpackets/SM_SYSTEM_MESSAGE.h"
 #include "aion/gameserver/network/aion/serverpackets/SM_TITLE_INFO.h"
 #include "aion/gameserver/runtime/base/Exceptions.h"
-#include "aion/gameserver/runtime/base/Unported.h"
+#include "aion/gameserver/taskmanager/tasks/ExpireTimerTask.h"
 #include "aion/gameserver/utils/PacketSendUtility.h"
 
 namespace aion::gameserver::model::gameobjects::player::title {
 
 namespace {
 
-/** Java ExpireTimerTask.getInstance().registerExpirable(expirable, player); the task manager (P5-14) has no C++ header yet */
+/** Java ExpireTimerTask.getInstance().registerExpirable(expirable, player) */
 void registerExpirable(Title& expirable, Player& player) {
-	static_cast<void>(expirable);
-	static_cast<void>(player);
-	AION_UNPORTED();
+	taskmanager::tasks::ExpireTimerTask::getInstance().registerExpirable(expirable, player);
 }
 
 } // namespace
