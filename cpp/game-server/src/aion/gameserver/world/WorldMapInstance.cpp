@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <memory>
 #include <string>
+#include <string_view>
 
 #include "aion/commons/logging/LoggerFactory.h"
 #include "aion/commons/utils/TimeUtils.h"
@@ -12,6 +13,7 @@
 #include "aion/gameserver/model/gameobjects/Npc.h"
 #include "aion/gameserver/model/gameobjects/StaticDoor.h"
 #include "aion/gameserver/model/gameobjects/player/Player.h"
+#include "aion/gameserver/model/instance/StageType.h"
 #include "aion/gameserver/model/team/GeneralTeam.h"
 #include "aion/gameserver/model/templates/VisibleObjectTemplate.h"
 #include "aion/gameserver/model/templates/quest/QuestNpc.h"
@@ -23,7 +25,6 @@
 #include "aion/gameserver/model/geometry/Area.h"
 #include "aion/gameserver/questEngine/QuestEngine.h"
 #include "aion/gameserver/runtime/base/Exceptions.h"
-#include "aion/gameserver/runtime/base/Unported.h"
 #include "aion/gameserver/utils/ThreadPoolManager.h"
 #include "aion/gameserver/utils/collections/CollectionUtil.h"
 #include "aion/gameserver/world/MapRegion.h"
@@ -38,6 +39,75 @@
 namespace aion::gameserver::world {
 
 static const auto log = commons::logging::LoggerFactory::getLogger("com.aionemu.gameserver.world.WorldMapInstance");
+
+namespace {
+
+using model::gameobjects::Creature;
+using model::gameobjects::Npc;
+using model::gameobjects::player::Player;
+
+/**
+ * C++ only (m5f-plan.md N-07; single-thread-synthesis.md:56, 272): the handler detachInstanceHandler installs in a destroyed instance, so the
+ * instance and its real handler (GeneralInstanceHandler.instance, a Ref) no longer keep each other alive (cycles.toml
+ * `WorldMapInstance.instanceHandler`). It holds no instance and is not reference counted: one leaked immortal object, whose retain()/release()
+ * are no-ops. Every void body is empty; every answer is what GeneralInstanceHandler answers inside an instance map (GeneralInstanceHandler.java:
+ * 87-276, and a destroyed instance is always an instance map: destroyInstance returns before detaching on any other map), without reading an
+ * instance. portToStartPosition throws as the base does. A recorded deviation (docs/deviations/P4-10.md "WorldMapInstance.detachInstanceHandler"):
+ * Java keeps calling the real handler of a destroyed instance until the collector takes it; the port answers with this one.
+ */
+class NoOpInstanceHandler final : public instance::handlers::InstanceHandler {
+public:
+	void onInstanceCreate() override {}
+	void onInstanceDestroy() override {}
+	void onPlayerLogin(Player&) override {}
+	void onPlayerLogout(Player&) override {}
+	void onEnterInstance(Player&) override {}
+	void leaveInstance(Player&) override {}
+	void onLeaveInstance(Player&) override {}
+	void onOpenDoor(int32_t) override {}
+	void onEnterZone(Player&, zone::ZoneInstance&) override {}
+	void onLeaveZone(Player&, zone::ZoneInstance&) override {}
+	void onPlayMovieEnd(Player&, int32_t) override {}
+	bool onReviveEvent(Player&) override { return false; }
+	void doReward(Player&) override {}
+	bool onDie(Player&, Creature&) override { return false; }
+	void onStopTraining(Player&) override {}
+	void onDespawn(Npc&) override {}
+	void onDie(Npc&) override {}
+	void onSpawn(model::gameobjects::VisibleObject&) override {}
+	void onChangeStage(model::instance::StageType) override {}
+	void onChangeStageList(model::instance::StageList) override {}
+	model::instance::StageType getStage() override { return model::instance::StageType::DEFAULT; }
+	void onDropRegistered(Npc&, int32_t) override {}
+	void onGather(Player&, model::gameobjects::Gatherable&) override {}
+	runtime::Ptr<model::instance::instancescore::InstanceScore> getInstanceScore() override { return nullptr; }
+	bool onPassFlyingRing(Player&, std::string_view) override { return false; }
+	void handleUseItemFinish(runtime::Ptr<Player>, Npc&) override {}
+	void onEndCastSkill(skillengine::model::Skill&) override {}
+	void onAggro(Npc&) override {}
+	void onStartEffect(runtime::Ptr<skillengine::model::Effect>) override {}
+	void onEndEffect(skillengine::model::Effect&) override {}
+	void onCreatureDetected(Npc&, Creature&) override {}
+	void onSpecialEvent(Npc&) override {}
+	void onBackHome(Npc&) override {}
+	void portToStartPosition(Player&) override { throw runtime::UnsupportedOperationException(""); } // Java: new UnsupportedOperationException()
+	bool canEnter(Player&) override { return true; }
+	float getExpMultiplier() override { return 1.5f; } // GeneralInstanceHandler: 1.5f on an instance map
+	float getApMultiplier() override { return 1.0f; }
+	bool allowSelfReviveBySkill() override { return true; }
+	bool allowSelfReviveByItem() override { return true; }
+	bool allowKiskRevive() override { return false; }	  // !isInstance()
+	bool allowInstanceRevive() override { return false; } // the base class inside an instance map
+	void retain() const noexcept override {}
+	void release() const noexcept override {}
+};
+
+NoOpInstanceHandler& noOpInstanceHandler() {
+	static auto* const handler = new NoOpInstanceHandler(); // leaked immortal: destroyed instances may answer through it until process exit
+	return *handler;
+}
+
+} // namespace
 
 int32_t WorldMapInstance::regionSize() {
 	static const int32_t value = configs::main::WorldConfig::WORLD_REGION_SIZE.load(); // Java: class initialization, after Config.load
@@ -163,8 +233,8 @@ runtime::Ptr<model::gameobjects::VisibleObject> WorldMapInstance::getObjectBySta
 }
 
 void WorldMapInstance::detachInstanceHandler() {
-	// C++ only: instanceHandler.set(<the no-op InstanceHandler>) (P5-13 with InstanceService.destroyInstance)
-	AION_UNPORTED();
+	// C++ only (cycles.toml `WorldMapInstance.instanceHandler`, called by InstanceService::destroyInstance after onInstanceDestroy())
+	instanceHandler.set(runtime::Ref<instance::handlers::InstanceHandler>(noOpInstanceHandler()));
 }
 
 void WorldMapInstance::releaseRegisteredTeam() noexcept {

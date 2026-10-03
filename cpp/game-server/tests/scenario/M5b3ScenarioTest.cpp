@@ -55,6 +55,7 @@
 #include "InventoryModel.h"
 #include "Oracle.h"
 #include "PacketSequence.h"
+#include "PrologueSupport.h"
 #include "ScenarioDatabase.h"
 #include "ScenarioServers.h"
 #include "decoders/CombatDecoders.h"
@@ -74,6 +75,11 @@ using Packet = GameSession::Packet;
 
 /** the quiet period that ends a burst of server packets (m5a-plan.md §5.4) */
 constexpr std::chrono::milliseconds QUIET = 1000ms;
+/** How long collectBurst waits for the FIRST packet of an answer. The quiet period alone (QUIET) ended a burst before the server had
+ * answered at all when a loaded machine delayed a re-entry by a little over a second (gs.scenario.m5b K7b and m5c C9, 2026-09-29: "no
+ * packet after CM_ENTER_WORLD"). Nothing expects an empty burst, so the longer first wait changes no result, only the time an answer
+ * that never comes costs; after the first packet the quiet rule is unchanged. */
+constexpr std::chrono::milliseconds FIRST_REPLY_WAIT = 5000ms;
 constexpr std::chrono::milliseconds BURST_LIMIT = 90s;
 
 /** SM_CREATE_CHARACTER response codes (SM_CREATE_CHARACTER.java) */
@@ -338,7 +344,9 @@ std::vector<Packet> collectBurst(GameSession& session, const AsyncAllowed& async
 		const auto now = std::chrono::steady_clock::now();
 		if (now >= deadline)
 			break;
-		const auto quietLeft = std::chrono::duration_cast<std::chrono::milliseconds>(lastAwaited + quiet - now);
+		// until the first packet arrives the window is FIRST_REPLY_WAIT at least: a loaded server can answer later than `quiet` (see the constant)
+		const auto window = collected.empty() ? std::max(quiet, FIRST_REPLY_WAIT) : quiet;
+		const auto quietLeft = std::chrono::duration_cast<std::chrono::milliseconds>(lastAwaited + window - now);
 		if (quietLeft <= 0ms)
 			break;
 		std::optional<Packet> packet = session.next(std::min(quietLeft, std::chrono::duration_cast<std::chrono::milliseconds>(deadline - now)));
@@ -428,12 +436,13 @@ void expectSequence(const std::vector<Packet>& packets, std::string_view pattern
 
 /**
  * The CM_ENTER_WORLD part of m5a-plan.md §5.8, as M5b2ScenarioTest.cpp replays it - with SM_INVENTORY_INFO and SM_WAREHOUSE_INFO as `+`: this
- * gate's cube and warehouse change between entries, and their CONTENT is what it asserts (Y12), not the packet count the M5a gate owns
+ * gate's cube and warehouse change between entries, and their CONTENT is what it asserts (Y12), not the packet count the M5a gate owns. A
+ * first enter world carries the prologue's SM_QUEST_ACTION (P6-Q prologue, PrologueSupport.h: the mission added LOCKED by onLevelChange(0, 1))
  */
 std::string enterWorldPattern(bool firstEnter) {
 	std::string pattern;
 	if (firstEnter)
-		pattern += "SM_STATS_INFO, SM_ACTION_ANIMATION, SM_NEARBY_QUESTS, ";
+		pattern += PROLOGUE_FIRST_ENTER_LEVEL_CHANGE;
 	pattern += "SM_HOUSE_SCRIPTS, SM_UNK_3_5_1, SM_ENTER_WORLD_CHECK, ";
 	pattern += "SM_SKILL_LIST+, [SM_SKILL_COOLDOWN], [SM_ITEM_COOLDOWN], ";
 	pattern += "SM_QUEST_COMPLETED_LIST+, SM_QUEST_LIST, SM_TITLE_INFO{2}, SM_MOTION, ";
@@ -449,14 +458,17 @@ std::string enterWorldPattern(bool firstEnter) {
 	return pattern;
 }
 
-/** The CM_LEVEL_READY part of m5a-plan.md §5.8 (#33 to #44) */
+/**
+ * The CM_LEVEL_READY part of m5a-plan.md §5.8 (#33 to #44), asserted for the first enter world only (C1-C3), which since P6-Q prologue starts
+ * the prologue quest and plays its movie after the weather (PrologueSupport.h)
+ */
 std::string levelReadyPattern() {
-	return "SM_PLAYER_INFO, SM_PLAYER_STATE, SM_ACCOUNT_PROPERTIES, SM_MOTION, "
-	       "SM_WINDSTREAM_ANNOUNCE*, "
-	       "(SM_NPC_INFO | SM_GATHERABLE_INFO)+, "
-	       "SM_RIFT_ANNOUNCE, "
-	       "SM_NEARBY_QUESTS, [SM_QUEST_REPEAT], [SM_WEATHER], "
-	       "SM_ABNORMAL_STATE, SM_CUBE_UPDATE";
+	return std::string("SM_PLAYER_INFO, SM_PLAYER_STATE, SM_ACCOUNT_PROPERTIES, SM_MOTION, "
+	                   "SM_WINDSTREAM_ANNOUNCE*, "
+	                   "(SM_NPC_INFO | SM_GATHERABLE_INFO)+, "
+	                   "SM_RIFT_ANNOUNCE, "
+	                   "SM_NEARBY_QUESTS, [SM_QUEST_REPEAT], [SM_WEATHER], ") +
+	       std::string(PROLOGUE_LEVEL_READY) + "SM_ABNORMAL_STATE, SM_CUBE_UPDATE";
 }
 
 // ---- the inventory model (InventoryModel.h) ------------------------------------------------------------------------------------------
@@ -1204,6 +1216,8 @@ void runM5b3Gate(const GateVariant& variant) {
 		if (burst.empty())
 			throw std::runtime_error("no packet after CM_ENTER_WORLD");
 		expectSequence(burst, enterWorldPattern(firstEnter), async);
+		if (firstEnter)
+			expectPrologueMissionLocked(burst, decoders::ELYOS_PROLOGUE, "the first enter world (P6-Q prologue)");
 		model.sync();
 		return burst;
 	};
@@ -1312,7 +1326,10 @@ void runM5b3Gate(const GateVariant& variant) {
 		a.warriorId = created.player->playerId;
 		model.follow(a.game.get());
 		enterWorld(true);
-		levelReady(true);
+		const std::vector<Packet> ready = levelReady(true);
+		// P6-Q prologue: quest 1000 and its movie, which the client ends before the first walk (CM_MOVE is dropped while it plays)
+		endPrologue(*a.game, ready, decoders::ELYOS_PROLOGUE, 0, async, [&] { return collectBurst(*a.game, async); }, "C3 the prologue (1000)");
+		model.sync();
 		// the model against the oracle's starter inventory: every m5a-creation item, equipped where it says so
 		std::vector<std::string> missing;
 		for (const OracleItem& item : creation.items) {

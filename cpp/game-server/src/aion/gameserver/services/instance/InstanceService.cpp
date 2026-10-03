@@ -1,32 +1,83 @@
 #include "aion/gameserver/services/instance/InstanceService.h"
 
+#include <algorithm>
 #include <memory>
 #include <optional>
 #include <string>
 #include <unordered_set>
+#include <vector>
 
 #include "aion/gameserver/runtime/base/Unported.h"
 #include "aion/commons/logging/LoggerFactory.h"
 #include "aion/commons/utils/TimeUtils.h"
+#include "aion/gameserver/configs/main/AutoGroupConfig.h"
 #include "aion/gameserver/configs/main/InstanceConfig.h"
 #include "aion/gameserver/configs/main/MembershipConfig.h"
+#include "aion/gameserver/controllers/VisibleObjectController.h"
+#include "aion/gameserver/dataholders/DataManager.h"
+#include "aion/gameserver/dataholders/InstanceCooltimeData.h"
+#include "aion/gameserver/instance/InstanceEngine.h"
 #include "aion/gameserver/instance/handlers/InstanceHandler.h"
+#include "aion/gameserver/model/gameobjects/VisibleObject.h"
 #include "aion/gameserver/model/gameobjects/player/Player.h"
 #include "aion/gameserver/model/gameobjects/player/PlayerCommonData.h"
+#include "aion/gameserver/model/team/GeneralTeam.h"
+#include "aion/gameserver/model/templates/event/EventTemplate.h"
 #include "aion/gameserver/model/templates/world/WorldMapTemplate.h"
+#include "aion/gameserver/network/aion/serverpackets/SM_SYSTEM_MESSAGE.h"
 #include "aion/gameserver/runtime/base/Exceptions.h"
+#include "aion/gameserver/runtime/collections/HashMap.h"
+#include "aion/gameserver/runtime/collections/Rc.h"
+#include "aion/gameserver/runtime/sched/Future.h"
+#include "aion/gameserver/runtime/sched/Pin.h"
 #include "aion/gameserver/services/AutoGroupService.h"
+#include "aion/gameserver/services/event/Event.h"
+#include "aion/gameserver/services/event/EventService.h"
 #include "aion/gameserver/services/instance/InstanceScaler.h"
+#include "aion/gameserver/services/teleport/TeleportService.h"
+#include "aion/gameserver/spawnengine/SpawnEngine.h"
+#include "aion/gameserver/spawnengine/TemporarySpawnEngine.h"
+#include "aion/gameserver/spawnengine/WalkerFormator.h"
+#include "aion/gameserver/utils/PacketSendUtility.h"
+#include "aion/gameserver/utils/ThreadPoolManager.h"
 #include "aion/gameserver/world/World.h"
 #include "aion/gameserver/world/WorldMap.h"
 #include "aion/gameserver/world/WorldMapInstance.h"
+#include "aion/gameserver/world/WorldMapInstanceFactory.h"
 #include "aion/gameserver/world/WorldMapType.h"
 #include "aion/gameserver/world/WorldMapTypeInfo.h"
 #include "aion/gameserver/world/WorldPosition.h"
+#include "aion/gameserver/world/WorldType.h"
+
+#include "aion/commons/utils/WindowsMacroGuard.h" // after all headers that may include windows.h
 
 namespace aion::gameserver::services::instance {
 
 static const auto log = commons::logging::LoggerFactory::getLogger("com.aionemu.gameserver.services.instance.InstanceService");
+
+namespace {
+
+/**
+ * The erase of D13 (docs/deviations/P5-13.md "InstanceScaler.scalings"): Java's WeakHashMap drops a destroyed instance by itself, the port's
+ * strong-keyed map must be told. `InstanceScaler::scalings` is private and InstanceScaler.h declares no erase (header request m5f-asc-1,
+ * docs/porting/header-requests.md), so this file reaches the map through the standard's explicit-instantiation rule: the names in an explicit
+ * instantiation are not access-checked ([temp.spec.general]/6), so instantiating ScalingsAccess with `&InstanceScaler::scalings` defines the
+ * friend `scalingsOf(ScalingsTag)` that hands the map's address out (the pattern of tests/effects_al/EffectTemplateTest.cpp:114-129). A renamed
+ * or retyped member stops compiling here instead of being skipped. Replaced by the requested `InstanceScaler::onInstanceDestroy` once applied.
+ */
+struct ScalingsTag {
+	using Type = runtime::HashMap<runtime::Ref<world::WorldMapInstance>, runtime::Ref<InstanceScaler::Scaling>>*;
+	friend Type scalingsOf(ScalingsTag);
+};
+
+template <class Tag, typename Tag::Type Member>
+struct ScalingsAccess {
+	friend typename Tag::Type scalingsOf(Tag) { return Member; }
+};
+
+template struct ScalingsAccess<ScalingsTag, &InstanceScaler::scalings>;
+
+} // namespace
 
 // Defined here (hub-headers.md §9.3): only InstanceService bodies use it. Scheduled at a fixed rate and kept in
 // WorldMapInstance.emptyInstanceTask, it reads its instance on the pool thread in every run, so it is K4 (fieldmap.toml [kinds]):
@@ -62,47 +113,130 @@ runtime::Ref<InstanceService::EmptyInstanceCheckerTask> InstanceService::EmptyIn
 	return runtime::makeRef<EmptyInstanceCheckerTask>(value);
 }
 
+// Java InstanceService.java:178-182
 bool InstanceService::EmptyInstanceCheckerTask::canDestroyInstance() {
-	AION_UNPORTED();
+	if (!worldMapInstance->getPlayersInside().empty())
+		return false;
+	return worldMapInstance->isPersonal() || isRegisteredTeamDisbanded() || commons::utils::currentTimeMillis() > calculateDestroyTime() - 1000;
 }
 
+// Java InstanceService.java:184-187
 bool InstanceService::EmptyInstanceCheckerTask::isRegisteredTeamDisbanded() {
-	AION_UNPORTED();
+	runtime::Ptr<model::team::GeneralTeam> registeredTeam = worldMapInstance->getRegisteredTeam();
+	return registeredTeam && registeredTeam->isDisbanded();
 }
 
+// Java InstanceService.java:189-192
 int64_t InstanceService::EmptyInstanceCheckerTask::calculateDestroyTime() {
-	AION_UNPORTED();
+	int64_t lastActivity = std::max(taskStartTime, worldMapInstance->getLastPlayerLeaveTime());
+	// Java `getDestroyDelaySeconds(worldMapInstance) * 1000` is an int product (it wraps past 24 days): spelled with the wrap, not C++'s UB
+	return lastActivity + static_cast<int32_t>(static_cast<uint32_t>(getDestroyDelaySeconds(*worldMapInstance)) * 1000u);
 }
 
+// Java InstanceService.java:194-198
 void InstanceService::EmptyInstanceCheckerTask::run() {
-	AION_UNPORTED();
+	if (canDestroyInstance())
+		destroyInstance(*worldMapInstance);
 }
 
+// Java InstanceService.java:39-62
 runtime::Ptr<world::WorldMapInstance> InstanceService::getNextAvailableInstance(int32_t worldId, int32_t ownerId, int8_t difficultyId, const std::function<runtime::Ref<gameserver::instance::handlers::InstanceHandler>(world::WorldMapInstance&)>& instanceHandlerSupplier, int32_t maxPlayers, bool autoDestroy) {
-	AION_UNPORTED();
+	runtime::Ptr<world::WorldMap> map = world::World::getInstance().getWorldMap(worldId); // Java: a map id World does not know is an NPE below
+
+	if (!map->isInstanceType() || (map->getWorldType() == world::WorldType::PANESTERRA && !map->getAvailableInstanceIds().empty()))
+		throw runtime::UnsupportedOperationException("Invalid call for next available instance  of " + std::to_string(worldId));
+
+	runtime::Ptr<world::WorldMapInstance> instance;
+	if (!instanceHandlerSupplier) { // Java: instanceHandlerSupplier == null
+		instance = world::WorldMapInstanceFactory::createWorldMapInstance(*map, ownerId,
+			[](world::WorldMapInstance& mapInstance) { return gameserver::instance::InstanceEngine::getInstance().getNewInstanceHandler(mapInstance); },
+			maxPlayers);
+		spawnengine::SpawnEngine::spawnInstance(*instance, difficultyId, ownerId);
+	} else {
+		instance = world::WorldMapInstanceFactory::createWorldMapInstance(*map, ownerId, instanceHandlerSupplier, maxPlayers);
+		// Java: getActiveEvents().stream().map(Event::getEventTemplate).filter(t -> t.getSpawns() != null).forEach(t -> spawnEventSpawns(...))
+		runtime::Ptr<runtime::RcHashSet<runtime::Ref<event::Event>>> activeEvents = event::EventService::getInstance().getActiveEvents();
+		for (runtime::Ptr<event::Event> activeEvent : *activeEvents) {
+			const model::templates::event::EventTemplate* eventTemplate = activeEvent->getEventTemplate();
+			if (eventTemplate->getSpawns() != nullptr)
+				spawnengine::SpawnEngine::spawnEventSpawns(*instance, difficultyId, ownerId, eventTemplate);
+		}
+	}
+	instance->getInstanceHandler()->onInstanceCreate();
+
+	// finally start the checker
+	if (autoDestroy) {
+		runtime::Ref<EmptyInstanceCheckerTask> checker = EmptyInstanceCheckerTask::create(*instance);
+		// Java: scheduleAtFixedRate(new EmptyInstanceCheckerTask(instance), 60000, 60000). The Pin keeps the task (and through it the instance) as
+		// Java's queued Runnable does, until destroyInstance cancels the future (cycles.toml EmptyInstanceCheckerTask.worldMapInstance).
+		instance->setEmptyInstanceTask(
+			utils::ThreadPoolManager::getInstance().scheduleAtFixedRate(runtime::Pin(checker), [task = checker.get()] { task->run(); }, 60000, 60000));
+	}
+
+	log.info("Created new instance: " + std::to_string(worldId) + " [" + std::to_string(instance->getInstanceId()) + "] owner:" +
+		std::to_string(ownerId) + " difficultyId:" + std::to_string(difficultyId));
+	return instance;
 }
 
+// Java InstanceService.java:64-66
 runtime::Ptr<world::WorldMapInstance> InstanceService::getNextAvailableInstance(int32_t worldId, int32_t ownerId, int8_t difficult, int32_t maxPlayers, bool autoDestroy) {
-	AION_UNPORTED();
+	return getNextAvailableInstance(worldId, ownerId, difficult, nullptr, maxPlayers, autoDestroy);
 }
 
+// Java InstanceService.java:68-73
 runtime::Ptr<world::WorldMapInstance> InstanceService::getNextAvailableInstance(int32_t worldId, model::gameobjects::player::Player& player) {
-	AION_UNPORTED();
+	int32_t maxPlayers = dataholders::DataManager::INSTANCE_COOLTIME_DATA->getMaxMemberCount(worldId, player.getRace());
+	runtime::Ptr<world::WorldMapInstance> instance = getNextAvailableInstance(worldId, 0, int8_t{0}, nullptr, maxPlayers, true);
+	instance->register_(player.getObjectId());
+	return instance;
 }
 
+// Java InstanceService.java:75-77
 runtime::Ptr<world::WorldMapInstance> InstanceService::getNextAvailableInstance(int32_t worldId, int8_t difficult, int32_t maxPlayers) {
-	AION_UNPORTED();
+	return getNextAvailableInstance(worldId, 0, difficult, nullptr, maxPlayers, true);
 }
 
+// Java InstanceService.java:82-107, then the C++ cycle breakers (cycles.toml "Instance destroy") and D13's scalings erase
 void InstanceService::destroyInstance(world::WorldMapInstance& instance) {
-	// TODO(P5-13): when this body is ported (wave 5b), erase the instance from InstanceScaler::scalings. Java's map is a WeakHashMap, so the
-	// entry disappears with the instance; the port uses strong keys (InstanceScaler.h, docs/deviations/P5-13.md "InstanceScaler.scalings"), so
-	// without the erase every scaled WorldMapInstance, its Scaling and its stat functions stay alive for the life of the process.
-	AION_UNPORTED();
+	if (runtime::Ptr<runtime::Future> emptyInstanceTask = instance.getEmptyInstanceTask())
+		emptyInstanceTask->cancel(false);
+
+	int32_t worldId = instance.getMapId();
+	runtime::Ptr<world::WorldMap> map = world::World::getInstance().getWorldMap(worldId);
+	if (!map->isInstanceType())
+		return;
+	int32_t instanceId = instance.getInstanceId();
+
+	map->removeWorldMapInstance(instanceId);
+
+	log.info("Destroying " + instance.toString());
+
+	spawnengine::TemporarySpawnEngine::onInstanceDestroy(instance); // first unregister all temporary spawns, then despawn mobs
+	for (runtime::Ptr<model::gameobjects::VisibleObject> obj : instance) {
+		if (runtime::Ptr<model::gameobjects::player::Player> player = runtime::as<model::gameobjects::player::Player>(obj)) {
+			utils::PacketSendUtility::sendPacket(*player, network::aion::serverpackets::SM_SYSTEM_MESSAGE::STR_MSG_LEAVE_INSTANCE_FORCE(0));
+			moveToExitPoint(*player);
+		} else {
+			obj->getController().delete_();
+		}
+	}
+	instance.getInstanceHandler()->onInstanceDestroy();
+	spawnengine::WalkerFormator::onInstanceDestroy(worldId, instanceId);
+
+	// C++ only (cycles.toml "Instance destroy"): Java lets the collector take the instance, its handler, its start position and its team
+	// together; the port cuts the three edges that would keep them alive through each other, then forgets the instance's scaling (D13).
+	instance.detachInstanceHandler();
+	instance.setStartPos(nullptr);
+	instance.releaseRegisteredTeam();
+	static_cast<void>(scalingsOf(ScalingsTag{})->remove(runtime::Ref<world::WorldMapInstance>(instance)));
 }
 
+// Java InstanceService.java:109-114
 runtime::Ptr<world::WorldMapInstance> InstanceService::getOrRegisterInstance(int32_t worldId, model::gameobjects::player::Player& player) {
-	AION_UNPORTED();
+	runtime::Ptr<world::WorldMapInstance> instance = getRegisteredInstance(worldId, player.getObjectId());
+	if (!instance)
+		instance = getNextAvailableInstance(worldId, player);
+	return instance;
 }
 
 runtime::Ptr<world::WorldMapInstance> InstanceService::getRegisteredInstance(int32_t worldId, int32_t objectId) {
@@ -129,9 +263,7 @@ runtime::Ptr<world::WorldMapInstance> InstanceService::getOrCreatePersonalInstan
 		if (instance->isPersonal() && instance->getOwnerId() == ownerId)
 			return instance;
 	}
-	// Java: return getNextAvailableInstance(worldId, ownerId, (byte) 0, 0, true);
-	AION_PARTIAL("personal instances are not created: InstanceService.getNextAvailableInstance is not ported (M5a)");
-	return nullptr;
+	return getNextAvailableInstance(worldId, ownerId, int8_t{0}, 0, true);
 }
 
 void InstanceService::onPlayerLogin(model::gameobjects::player::Player& player) {
@@ -147,10 +279,9 @@ void InstanceService::onPlayerLogin(model::gameobjects::player::Player& player) 
 	player.getWorldMapInstance()->getInstanceHandler()->onPlayerLogin(player);
 }
 
+// Java InstanceService.java:155-157
 void InstanceService::moveToExitPoint(model::gameobjects::player::Player& player) {
-	// Java: TeleportService.moveToInstanceExit(player, player.getWorldId(), player.getRace());
-	static_cast<void>(player);
-	AION_PARTIAL("players are not moved to the instance exit on login: TeleportService.moveToInstanceExit is not ported (M5a)");
+	teleport::TeleportService::moveToInstanceExit(player, player.getWorldId(), player.getRace());
 }
 
 bool InstanceService::instanceExists(int32_t worldId, int32_t instanceId) {
@@ -167,8 +298,22 @@ void InstanceService::onEnterInstance(model::gameobjects::player::Player& player
 	InstanceScaler::onEnterInstance(player);
 }
 
+// Java InstanceService.java:210-224
 void InstanceService::onLeaveInstance(model::gameobjects::player::Player& player) {
-	AION_UNPORTED();
+	using network::aion::serverpackets::SM_SYSTEM_MESSAGE;
+	runtime::Ptr<world::WorldMapInstance> instance = player.getWorldMapInstance();
+	instance->getInstanceHandler()->onLeaveInstance(player);
+	if (instance->getRegisteredCount() > 0) {
+		if (instance->getMaxPlayers() == 1) // solo instance
+			utils::PacketSendUtility::sendPacket(player, SM_SYSTEM_MESSAGE::STR_MSG_LEAVE_INSTANCE(getDestroyDelaySeconds(*instance) / 60));
+		else if (instance->getRegisteredTeam() && instance->getRegisteredTeam()->getMembers().empty())
+			utils::PacketSendUtility::sendPacket(player, SM_SYSTEM_MESSAGE::STR_MSG_LEAVE_INSTANCE_PARTY(0));
+		else if (instance->getPlayersInside().size() <= 1)
+			utils::PacketSendUtility::sendPacket(player, SM_SYSTEM_MESSAGE::STR_MSG_LEAVE_INSTANCE_PARTY(getDestroyDelaySeconds(*instance) / 60));
+	}
+
+	if (configs::main::AutoGroupConfig::AUTO_GROUP_ENABLE.load())
+		AutoGroupService::getInstance().onLeaveInstance(player);
 }
 
 void InstanceService::onEnterZone(model::gameobjects::player::Player& player, world::zone::ZoneInstance& zone) {

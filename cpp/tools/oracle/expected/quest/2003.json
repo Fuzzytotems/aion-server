@@ -29,6 +29,7 @@
    "hook": "onDialogEvent",
    "given": {"target": {"kind": "none"}, "questState": {"status": "START", "vars": {"0": 0}}},
    "guards": ["qs == null -> false @34", "qs.getStatus() == QuestStatus.START -> true @39"],
+   "free": ["questState.vars.0"],
    "effects": [],
    "returns": false
   },
@@ -37,6 +38,7 @@
    "hook": "onDialogEvent",
    "given": {"target": {"kind": "none"}, "questState": {"status": "REWARD", "vars": {"0": 0}}},
    "guards": ["qs == null -> false @34", "qs.getStatus() == QuestStatus.START -> false @39", "qs.getStatus() == QuestStatus.REWARD -> true @70"],
+   "free": ["questState.vars.0"],
    "effects": [],
    "returns": false
   },
@@ -45,6 +47,7 @@
    "hook": "onDialogEvent",
    "given": {"target": {"kind": "none"}, "questState": {"status": "COMPLETE", "vars": {"0": 0}}},
    "guards": ["qs == null -> false @34", "qs.getStatus() == QuestStatus.START -> false @39", "qs.getStatus() == QuestStatus.REWARD -> false @70"],
+   "free": ["questState.vars.0"],
    "effects": [],
    "returns": false
   },
@@ -118,6 +121,7 @@
     "targetId == 203539 -> true @40",
     "env.getDialogActionId() == SELECT1_1 -> true @41"
    ],
+   "free": ["questState.vars.0"],
    "effects": [{"call": "playQuestMovie", "kind": "movie", "args": [53], "line": 49}],
    "returns": false
   },
@@ -246,6 +250,8 @@
     "targetId == 203539 -> true @40",
     "env.getDialogActionId() not in [QUEST_SELECT, SELECT1_1, SETPRO1, CHECK_USER_HAS_QUEST_ITEM] -> true @41"
    ],
+   "free": ["questState.vars.0"],
+   "dialogExcludes": [31, 39, 1012, 10000],
    "effects": [],
    "returns": false
   },
@@ -254,6 +260,7 @@
    "hook": "onDialogEvent",
    "given": {"target": {"kind": "npc", "npcId": 200000}, "questState": {"status": "START", "vars": {"0": 0}}},
    "guards": ["qs == null -> false @34", "qs.getStatus() == QuestStatus.START -> true @39", "targetId == 203539 -> false @40"],
+   "free": ["questState.vars.0"],
    "effects": [],
    "returns": false
   },
@@ -267,6 +274,7 @@
     "qs.getStatus() == QuestStatus.REWARD -> true @70",
     "targetId == 203539 -> true @71"
    ],
+   "free": ["questState.vars.0"],
    "effects": [{"call": "sendQuestEndDialog", "kind": "dialog", "args": [], "line": 72}],
    "returns": {"resultOf": 0}
   },
@@ -280,6 +288,7 @@
     "qs.getStatus() == QuestStatus.REWARD -> true @70",
     "targetId == 203539 -> false @71"
    ],
+   "free": ["questState.vars.0"],
    "effects": [],
    "returns": false
   },
@@ -288,6 +297,7 @@
    "hook": "onDialogEvent",
    "given": {"target": {"kind": "npc", "npcId": 203539}, "questState": {"status": "COMPLETE", "vars": {"0": 0}}},
    "guards": ["qs == null -> false @34", "qs.getStatus() == QuestStatus.START -> false @39", "qs.getStatus() == QuestStatus.REWARD -> false @70"],
+   "free": ["questState.vars.0"],
    "effects": [],
    "returns": false
   },

@@ -532,7 +532,7 @@ now also covers `ProcAtkInstantEffect` and `PoisonEffect` (docs/deviations/P5-04
 | m5b3-p04-2 | `model/gameobjects/player/Equipment.h` (P4-12) | comment only: the class comment says the soul-bind callback structs are "defined in Equipment.cpp when soulBindItem is ported" | **approved** (2026-09-24, integrator): comment only; applied with m5b3-p04-1 | P-04 ported them in stage 1 |
 | m5b3-p01-1 | `restrictions/PlayerRestrictions.h` (P5-13) | comment only: the class comment says "The remaining bodies are AION_UNPORTED" after listing M5b-1's and M5b-2's | **approved** (2026-09-24, integrator): comment only; applied by the next lane that owns P5-13 | P-01 ported `canUseItem`, `canChangeEquip` and `canTrade`; `canChat` and the three `canInviteTo*` remain |
 | m5b3-e-1 | `skillengine/effect/FearEffect.h` (P5-03) | `friend struct FearEffect_ActionObserver;` (the `RootEffect.h` precedent) | **approved** (2026-09-24, integrator): additive, the RootEffect.h precedent; applied by the next lane that owns P5-03 | `FearEffect$1.attacked` reads the protected `resistchance`; meanwhile `startEffect` passes a copy into the observer (the template is immutable static data, so the value is the one Java reads; docs/deviations/P5-03.md) |
-| m5b3-i-1 | `CheckOutput.h` (P5-14) | comment only: `runFinalCensus`'s doc says it "runs Reclaimer::reclaimNow() twice and writes census.txt"; since the stage-1 integration it keeps scanning while a reported count is 0 or still changing, and writes a leak only when two checks in a row agree (docs/deviations/P5-14.md) | **approved** (2026-09-24, integrator): comment only; applied by the next lane that owns P5-14 | The integration fixed the census race `gs.scenario.m5b` hit twice in a row in `CheckOutput.cpp` alone; the header was left frozen |
+| m5b3-i-1 | `CheckOutput.h` (P5-14) | comment only: `runFinalCensus`'s doc says it "runs Reclaimer::reclaimNow() twice and writes census.txt"; since the stage-1 integration it keeps scanning while a reported count is 0 or still changing, and writes a leak only when two checks in a row agree (docs/deviations/P5-14.md) | **approved** (2026-09-24, integrator): comment only; applied by the next lane that owns P5-14 — **applied by the M5c stage-2 integration** with m5c-h07 (the stage-2 lane that owned P5-14 left the header frozen; "Wave 5c stage 2" below) | The integration fixed the census race `gs.scenario.m5b` hit twice in a row in `CheckOutput.cpp` alone; the header was left frozen |
 | m5b3-e-2 | `skillengine/effect/FearEffect.h` (P5-03) | a nested `struct FearTask;` (fieldmap.json's `cppName` is `FearEffect::FearTask`) | **approved** (2026-09-24, integrator): additive nested declaration; applied with m5b3-e-1, moving FearEffect_FearTask in unchanged | Java's nested `record FearTask`; meanwhile a file-local `FearEffect_FearTask` in `FearEffect.cpp` with a `// fieldmap-class:` marker, which moves there unchanged (docs/deviations/P5-03.md) |
 
 ## Wave 5c stage 0: the P5-09 split and the item-action, Profession and CraftingTask declarations (2026-09-24)
@@ -625,3 +625,248 @@ stage-0 section names (m5b3-h04 `SkillUseAction::isIneffectiveHealSkill` among t
 | (new file) | `taskmanager/tasks/TemporaryTradeTimeTask.{h,cpp}` (P5-07, P-04) | the class, drafted with `skeleton.py --draft` and its `fieldmap.toml` row `TemporaryTradeTimeTask.items` (`ConcurrentHashMap<Ref<Item>, Ref<RcHashSet<int32_t>>>`); `fieldmap.json` regenerated | no request (a new file) | two documented departures from the draft: `addTask(Item&, RcHashSet<int32_t>&)` keeps the caller's live set as Java keeps the reference (DropNpc.allowedLooters), and the singleton has no public `create()` (docs/deviations/P5-07.md); no `cycles.toml` row was needed |
 | (new files) | the 17 client packets of K-01/K-02 in `network/aion/clientpackets/` (P5-15: `CM_BUY_ITEM`, the six `CM_EXCHANGE_*`, `CM_CHECK_MAIL_LIST`, `CM_GET_MAIL_ATTACHMENT`, `CM_DELETE_MAIL`; P5-16: `CM_SEND_MAIL`, `CM_READ_MAIL`, `CM_PRIVATE_STORE`, `CM_PRIVATE_STORE_NAME`, `CM_TUNE`, `CM_TUNE_RESULT`, `CM_SELECT_DECOMPOSABLE`) | `.h` + `.cpp` each, registered with `AION_CLIENT_PACKET` (opcodes 51, 63, 64, 66-69, 119, 120, 132-134, 136, 137, 235, 236, 238); the `CM_EXCHANGE_REQUEST` answer handler is a struct in its `.cpp` | no request (new files); `skeleton.py --fwd --check` clean | |
 | (test support) | `tests/scenario/EconomyOracle.h` (P5-SC), `tests/cm_ak/EconomyPacketTestSupport.h`, `MailPacketTestSupport.h` (P5-15), `tests/economy/P5-09b/TradeTestSupport.h`, `P5-09c/MailTestSupport.h`, `tests/itemsvc/PlayerItemsTestSupport.h` | new test headers | not frozen (tests) | `tests/economy/P5-09a/EconomyTestSupport.h` was leased to the trade lane (m5c-plan.md §6) and left unchanged by every lane; the lease is released |
+
+## Wave 5c stage 2: crafting, the M5c gate part 1 (2026-09-27 to 2026-09-28)
+
+m5c-plan.md stage 2 (§5, §20.4, §21): the lanes craft (P5-09c, C-01), craft-task (P5-02a, C-02), craft-edges (P5-15, P5-16, P5-07; C-04,
+C-05) and gate-1 (P5-SC, P5-14; G-03 part 1, G-06, G-07). **Two requests, both comment only, both approved and applied by the integration
+step**; no lane needed a `.cpp`-local workaround for a missing declaration. C-01 ported m5c-h04's six `ProfessionInfo.h` stubs and C-02
+m5c-n01's nine `CraftingTask` stubs without touching either header. The approved-but-unapplied comment row m5b3-i-1 (`CheckOutput.h`,
+Wave 5b-3 stage 1) is applied in the same edit as m5c-h07, since both change that header's comments only.
+
+| Id | File | Change | Decision | Reason |
+|---|---|---|---|---|
+| m5c-h06 | `skillengine/task/CraftingTask.h` (P5-02a) | comment only: the class comment said "Every body is AION_UNPORTED until C-02."; it now says the bodies are C-02's, ported in M5c stage 2 (CraftingTask.java:31-173, docs/deviations/P5-02a.md) | **approved by the integrator under the standing instruction (phase5-roadmap.md) and applied** (2026-09-28): comment only, no signature or layout change | filed by the craft-task lane (C-02 ported all nine bodies; census P5-02a: 0 `AION_UNPORTED`) |
+| m5c-h07 | `CheckOutput.h` (P5-14) | comment only: `zeroLiveClasses()`'s doc said "The last seven entries ... are never created by the M5a scenario" and named no economy class; it now calls those seven the creature and task entries and adds a paragraph on the M5c transfer rows (G-06: `Exchange`, `ExchangeItem`, `TradeList`, `TradeItem`, `RepurchaseList`, `TradePSItem`, `Letter`, `CraftingTask`, the ported `<Service>_RequestResponseHandler` subclasses) and on why `PrivateStore` (an `OwnedPart`) and `RequestResponseHandler` (abstract; counters are per dynamic type) are not rows | **approved by the integrator under the standing instruction and applied** (2026-09-28), with m5b3-i-1's `runFinalCensus` doc (it now describes the stable-count loop of the M5b-3 stage-1 integration) | filed by the gate-1 lane (G-06 added the rows in `CheckOutput.cpp`, whose comment carried the reasons meanwhile) |
+| (new files) | `network/aion/clientpackets/CM_CRAFT.{h,cpp}` (P5-15), `CM_RECIPE_DELETE.{h,cpp}` (P5-16) | the two client packets of C-04, registered with `AION_CLIENT_PACKET` (opcode 141, wire 0x0150; opcode 89, wire 0x013C; both `IN_GAME`); members as `fieldmap.json` types them | no request (new files); `skeleton.py --fwd --check` clean (252 files, 0 problems) | `CM_GATHER` is not ported (owner decision D10) |
+| (test support) | `tests/economy/P5-09c/CraftTestSupport.h`, `tests/skills/P5-02a/CraftingTaskTestSupport.h`, `tests/cm_ak/CraftPacketTestSupport.h` (P5-15; `tests/cm_lz` includes it) | new test headers | not frozen (tests) | The stage's two leases were released at the merge (m5c-plan.md §6): `tests/economy/P5-09a/EconomyTestSupport.h` (P5-09a) was never changed (the craft fixture includes `MailTestSupport.h` instead), and `tests/playersvc/DialogServiceTest.cpp` (P5-08) was changed only as the lease allowed (the four `CraftSkillUpdateService` rows moved into two craft-arm cases, one header-comment sentence) |
+
+## Wave 5d stage 1a: the quest engine's header batch (2026-09-25)
+
+m5d-plan.md item **I-02**, the header batch of its §9 with the two shapes of D17, applied by the integrator's step of the M5d overlap (the
+M5d stage-1a engine work that does not depend on M5c, run beside M5c) in the worktree `D:/aion-server-wt/m5d` (branch `wip/m5d-engine` at
+`4dbbd119b`), together with I-01: D1's split of P5-06 into P5-06a (engine), P5-06b (handler base) and P5-06c (XML templates), D2's release
+of the P4-08 lease on `questEngine/**` and `tests/quest`, and the new test directories `tests/quest_handlers` and `tests/quest_templates`
+(`chunks.cmake`). **Declarations and `AION_UNPORTED` stubs only.** The one ported body the batch touches, `QuestEngine::onBonusApplyEvent`
+(`QuestEngine.cpp:617`), changes its parameter type and nothing else. D17's two integrator decisions are taken as the plan recommends: (a)
+H-06's spelling, `questEngine/handlers/HandlerResultInfo.h`; (b) the reward list as values.
+
+**Nothing becomes reachable and no reachable behaviour changes.** No running code calls a changed function: `getRewardItems`' only caller is
+`finishQuest` (unported, E-02), `getQuestBonus`'s only caller is `getRewardItems`, `QuestEngine::onBonusApplyEvent`'s only caller is
+`getRewardItems`, no C++ handler overrides the hook (the quest handler registry is empty), `fromBoolean` has no caller yet, and only the
+xmlQuest language (T-03, unported) calls the five xmlQuest methods, and it is registered only after the `QuestEngine.cpp:111` join (D3).
+`AION_UNPORTED(` sites in `game-server/src`: 1,697 → 1,703 (the P5-06 files: 159 → 165). `census.py --chunks P5-06a,P5-06b,P5-06c`: M5d
+stays at **269 open bodies**. Six bodies moved from undeclared to unported (`fromBoolean` and the five xmlQuest methods), so the totals are
+165 unported, 1 partial body (2 sites) and 103 undeclared. Per part: P5-06a 68 open (40 unported, 2 partial sites, 27 undeclared), P5-06b 89
+(89 unported), P5-06c 112 (36 unported, 76 undeclared).
+
+**The rows of §9 that need no request**, re-checked against the tree. The 17 template headers, `task/**` and `QuestSpawnAnalyzer.h` are new
+files their lanes write (§14 of hub-headers.md: a new file a chunk owns needs no request). `AbstractQuestHandler.h`, `QuestEngine.h`,
+`QuestState.h` and `QuestVars.h` need nothing beyond m5d-h01, because every Java method is declared. `QuestService.h`'s `getQuestDrop` was
+m5b3-h03, applied in M5b-3's stage 0. `DialogService.h`, the AI handlers, `AbyssPointsService.h`, `GloryPointsService.h` and
+`CubeExpandService.h` need none. `QuestStartAction.h`/`ReadAction.h`'s private `finishUse` is E-10's choice (an additive request or a
+file-local helper), and E-10 is not part of this overlap. The manifest row is I-01 (above) and I-04's file leases, which this overlap does
+not apply.
+
+| Id | File | Change | Decision | Reason |
+|---|---|---|---|---|
+| m5d-h01 | `questEngine/handlers/AbstractQuestHandler.h` (P5-06b), `questEngine/QuestEngine.h` and `.cpp` (P5-06a), `services/QuestService.h` and `.cpp` (P5-06a), `services/reward/BonusService.h` and `.cpp` (P5-09; P5-09a in M5c's manifest) | the reward list as values (m5d-plan.md D17(b)): `onBonusApplyEvent(model::QuestEnv& env, BonusType bonusType, std::vector<QuestItems>& rewardItems)` in the hook (its inline default still answers `UNKNOWN`) and in the engine (the ported dispatcher body unchanged but for the parameter); `std::vector<QuestItems> getRewardItems(...)` (stub); `std::optional<QuestItems> getQuestBonus(...)` (stub; `<optional>` added), empty for Java's `null`; a comment on each declaration. `QuestItems` stays forward-declared in the four headers (hub-headers.md §3.1); `QuestService.cpp` and `BonusService.cpp` include `QuestItems.h` for the complete return type | **approved by the integrator under the standing instruction, applied in the M5d overlap** (a signature change on two hub headers: hub-headers.md §14 asks for the reviewer, so the stage-1a review should look at this row); **the stage-1a review approved it** as that reviewer (2026-09-25) | **Signature.** Java builds the list and adds new items to it: `getRewardItems` creates it (QuestService.java:148), a handler may add `new QuestItems(188051106, 1)` (_80016EventSockHop.java:81, _80018EventSockItToEm.java:81), and `getQuestBonus` returns a new one (BonusService.java:36) that is added too (QuestService.java:201-203). A `const` reference cannot be appended to, and a `const QuestItems*` cannot own an item made at run time. `QuestItems` is a value type (`QuestItems.h:9-12`: `StaticTemplate`, not `RefCounted`), so the list holds copies. E-02 and E-09 need this whether or not a handler is ever generated. Checked by `QuestBonusApplyTest` (tests/quest: the dispatcher hands the caller's list to the handler, which adds to it) and `AbstractQuestHandlerTest` (tests/quest_handlers: the default hook), on the shipped rows of quests 80016 and 80018; the quest transliterator now refuses its two bonus handlers for the `List.add` idiom instead of the header signature (`tools/gen/tests/test_questgen.py`, rewritten) |
+| m5d-h02 | new `questEngine/handlers/HandlerResultInfo.h` (P5-06b), new `HandlerResultInfo.cpp` | `HandlerResult fromBoolean(std::optional<bool> value);`, a free function in `::aion::gameserver::questEngine::handlers`, the companion of the generated enum in the shape of `model/DialogPageInfo.h`; 1 `AION_UNPORTED` stub (H-06 ports it) | **approved by the integrator under the standing instruction, applied in the M5d overlap** (a new companion file needs no request, hub-headers.md §14; recorded because D17(a) fixes its spelling) | m5d-plan.md D17(a) and H-06: the spelling the quest transliterator emits in 60 generated handlers (`tools/gen/questgen/api.py` PLANNED; phase6-questgen-prototype.md §5.2 item 1). Java `HandlerResult.fromBoolean(Boolean)` (HandlerResult.java:11-17): null gives UNKNOWN, true SUCCESS, false FAILED; a Java `Boolean` that may be null is `std::optional<bool>` (hub-headers.md §5.1) |
+| m5d-h03 | `questEngine/handlers/models/xmlQuest/QuestDialog.h`, `QuestNpc.h`, `QuestVar.h`, `conditions/QuestConditions.h`, `operations/QuestOperations.h` (P5-06c), five new `.cpp` files | public, non-virtual, `const`: `bool operate(model::QuestEnv& env, runtime::Ptr<model::QuestState> qs) const;` in `QuestDialog`, `QuestNpc` and `QuestVar`; `bool checkConditionOfSet(model::QuestEnv& env) const;` in `QuestConditions`; `bool operate(model::QuestEnv& env) const;` in `QuestOperations`; each header includes `questEngine/model/fwd.h`, the three with a quest state also `runtime/lifetime/Ref.h`; 5 `AION_UNPORTED` stubs (T-03 ports them) | **approved (modified) by the integrator under the standing instruction, applied in the M5d overlap** (additive) | **Additive**: the five undeclared methods of m5d-plan.md §4.2 (QuestDialog.java:30, QuestNpc.java:28, QuestVar.java:27, QuestConditions.java:29, QuestOperations.java:40), non-virtual because Java overrides none of them, `const` because the models are static data. **Modified**: §9 wrote `model::QuestState&`, but the quest state is nullable (hub-headers.md §5.1 rule 2): QuestVar.java:29 compares it with null, OnTalkEvent.java:27 passes `getQuestState`, which is null for a quest the player does not hold, and QuestVar and QuestNpc hand it on (QuestVar.java:34, QuestNpc.java:35). So the three take `runtime::Ptr<model::QuestState>` |
+
+**Verified** in `D:/aion-server-wt/m5d/cpp/build/m5d-int` (Debug; configured with the `msvc` preset against the main tree's installed
+vcpkg packages, `VCPKG_MANIFEST_INSTALL=OFF`, `AION_BUILD_CHAT_SERVER=OFF`). All 137 game-server targets build with no error and no
+warning: `aion_game_server`, `aion_gs_header_check`, every chunk library, the registries and the 49 test executables. `aion_gs_quest_tests`
+passes (28 tests, also shuffled; 32 after the review fix below). The two new files `QuestBonusApplyTest.cpp` (tests/quest) and `AbstractQuestHandlerTest.cpp`
+(tests/quest_handlers) are among them, and `QuestModelsTest.cpp` and `QuestModelsRealDataTest.cpp` moved unchanged but for their first
+comment lines into tests/quest_templates. `aion_gs_objects_tests`' `SpinePrototypeHandlers` cases pass (the other test that includes
+`AbstractQuestHandler.h`). `tools.porting` passes (71 tests), and so does `census.py --self-check`. Its four live-tree failures, all on
+`SkillUseAction` and `NpcSkillTemplateEntry`, were there before this batch. `tools.gen` passes (354 tests). Its three compile tests
+look for vcpkg under `cpp/vcpkg_installed`, which a worktree does not have, so they were run again with that path set to the main tree's
+packages. `lint_concurrency.py --werror --cycles=core game-server/src` finds nothing in 3,718 files. `chunks.py check` and `verify-json`
+report 0 problems (69 chunks, 80 parts). `skeleton.py --fwd --check`, `--definitions` and `--guards` are clean. Each new assertion was
+watched failing on a mutant, and every mutant was restored byte for byte (sha256):
+- `QuestEngine.cpp` passes a copy of the list to the handler: `TheRegisteredHandlerAddsANewItemToTheCallersRewardList` fails (2 items, not
+  3).
+- It no longer sets the env's quest id: the same case fails.
+- It answers FAILED without a registered quest: `ABonusTypeWithoutARegisteredQuestAnswersUnknownAndLeavesTheListAlone` fails.
+- It ignores the bonus type: the same case fails on the env's quest id.
+- The hook's default answers SUCCESS and clears the list: `TheDefaultBonusHookAnswersUnknownAndLeavesTheRewardListAsItIs` fails.
+- The hook's old `const std::vector<const QuestItems*>&`: C2664 in `QuestEngine.cpp`.
+- The same old hook in the header: `test_questgen`'s rewritten case fails with the old `header-signature` refusal.
+- In the manifest, P5-06b's test directory renamed, the P4-08 questEngine lease restored, the `tests/quest` lease restored, or P5-06c
+  renamed back to P5-06: each makes a `test_chunks` case fail.
+- `census.py` without P5-06b's milestone: its new self-check fails.
+
+**Review fix (2026-09-25).** The stage-1a review approved I-01 and I-02 (and m5d-h01, as hub-headers.md §14's reviewer) and found three
+mutants of the dispatcher that `QuestBonusApplyTest` let pass: the handler's answer replaced by a constant SUCCESS, UNKNOWN at the first
+registered quest without a handler, and UNKNOWN from the catch. The test now has six cases on the shipped rows of quests 80016 and 80018
+(`aion_gs_quest_tests`: 32 tests, also shuffled and repeated). Each of eight `QuestEngine.cpp` mutants fails the cases named, and each was
+restored byte for byte (sha256):
+- a copy of the list goes to the handler: `TheRegisteredHandlerAddsANewItemToTheCallersRewardList`,
+  `ARegisteredQuestWithoutAHandlerIsSkippedForTheNextRegisteredOne` and `OnlyTheFirstRegisteredHandlerGetsTheEventWhateverTheEnvsQuest`
+  (2 items, not 3);
+- no `setQuestId`: five of the six cases;
+- FAILED when no registered quest has a handler: `ABonusTypeWithoutARegisteredQuestAnswersUnknownAndLeavesTheListAlone` and
+  `ARegisteredQuestWithoutAHandlerIsSkippedForTheNextRegisteredOne`;
+- the lookup ignores the bonus type: `ABonusTypeWithoutARegisteredQuestAnswersUnknownAndLeavesTheListAlone`;
+- the handler's answer ignored for a constant SUCCESS (the review's mutant a): `TheHandlersFailedIsTheEnginesAnswer`;
+- UNKNOWN at the first registered quest without a handler (mutant b): `ARegisteredQuestWithoutAHandlerIsSkippedForTheNextRegisteredOne`;
+- UNKNOWN from the catch (mutant c): `AHandlerThatThrowsMakesTheEngineAnswerFailed`;
+- every registered handler asked and the last answer returned: `OnlyTheFirstRegisteredHandlerGetsTheEventWhateverTheEnvsQuest`.
+
+The review's other findings: the parts write their deviations to the new `docs/deviations/P5-06a.md`, `P5-06b.md` and `P5-06c.md` (the
+P5-02a/P5-02b precedent), and the integrator edits the shared `P5-06.md` rows, which `chunks.cmake`'s comment now says; that comment's body
+count is ~264; this section says four headers and P5-09a. The questgen prototype's document (phase6-questgen-prototype.md §5.2 item 2 and its
+refusal table) and the comment at `tools/gen/questgen/emit.py:1194` still describe the header-signature refusal: left to the questgen lane.
+
+## M5f ascension subset, prepared ahead: the instance core (2026-09-28)
+
+The asc-instance worktree of m5f-plan.md §15.4 (branch `wip/m5f-instance`), prepared during M5c stage 2 and merged after it. **One request,
+pending**: the lane kept `InstanceScaler.h` frozen and uses the `.cpp`-local workaround below until the integrator decides at the merge.
+
+| Id | File | Change | Decision | Reason |
+|---|---|---|---|---|
+| m5f-asc-1 | `services/instance/InstanceScaler.h` (P5-13) | add `static void onInstanceDestroy(world::WorldMapInstance& instance);`, which removes the instance's entry from the private `scalings` | **pending** (integrator, at the merge) | The removal obligation of the wave 5a `InstanceScaler.scalings` row (docs/deviations/P5-13.md, D13): Java's `WeakHashMap` drops a destroyed instance by itself, the port's strong-keyed map must be told. Until then `InstanceService.cpp` (`destroyInstance`) and `tests/instance/InstanceLifecycleTest.cpp` reach the map through the explicit-instantiation access rule ([temp.spec.general]/6; the pattern of tests/effects_al/EffectTemplateTest.cpp); both are replaced when the request is applied |
+| (new files) | `network/aion/clientpackets/CM_TELEPORT_ANIMATION_DONE.{h,cpp}`, `CM_MOVE_IN_AIR.{h,cpp}`, `CM_PLAY_MOVIE_END.{h,cpp}` (P5-16) | `.h` + `.cpp` each, registered with `AION_CLIENT_PACKET` (opcodes 15, 49, 81) | no request (new files) | |
+| (test support) | `tests/instance/AscensionTestSupport.h`, `AscensionTestData.h` (P5-13), included by relative path from `tests/playersvc` and `tests/cm_lz` | new test headers | not frozen (tests) | |
+
+## Wave 5d stage 1: the last wave and the D3 join (2026-09-28)
+
+m5d-plan.md §18.5-§18.6: the lanes xml-templates (P5-06c), dialog-and-rewards (P5-08, P5-15, P5-16 with file leases on `BonusService.*`,
+`QuestStartAction.*`/`ReadAction.*` and `tests/economy/P5-09b/TradeServiceTest.cpp`), quest-npc-ais (P5-05 with an A1 file lease on
+`QuestItemNpcAI.*`) and gate-harness (P5-SC, `tools/oracle`), then the integrator's join (I-05). Decided by the integrator under the standing
+instruction (phase5-roadmap.md). **No frozen header changed in this wave**: every `.h` the wave adds is a new file its chunk owns (hub-headers.md
+§14), and the one existing header a lane could have asked to change it kept as it was.
+
+| Id | File | Change | Decision | Reason |
+|---|---|---|---|---|
+| (new files) | `questEngine/handlers/template/{CraftingRewards,FountainRewards,ItemOrders,KillInWorld,KillInZone,KillSpawned,MentorMonsterHunt,RelicRewards,SkillUse,WorkOrders,XmlQuest}.{h,cpp}` (P5-06c), `network/aion/clientpackets/{CM_DELETE_QUEST,CM_OBJECT_SEARCH}.{h,cpp}` (P5-15, P5-16), `handlers/ai/ActionItemNpcAI.{h,cpp}` (P5-05), `handlers/ai/quests/QuestItemNpcAI.{h,cpp}` (A1, under P5-05's lease) | new classes; the templates and the two packets were named in their directory's `fwd.h` already (the handler directories have none) | no request (new files) | |
+| (no request) | `model/templates/item/actions/QuestStartAction.h`, `ReadAction.h` (P5-07) | Java's private `finishUse` | **none filed**: E-10 kept it a file-local function of each `.cpp` (P5-07.md), the option §9 of the plan gave | The task that calls it reads the quest id from the pinned template; nothing outside the file needs it |
+| (no request) | `questEngine/handlers/models/xmlQuest/operations/StartQuestOperation.h` (P5-06c) | Java's `id` attribute (required by the XSD, never read) | **none filed** | No behaviour reads it (StartQuestOperation.java's `doOperate` is empty); the binding skips it |
+| (no request) | `questEngine/QuestEngine.h` (P5-06a) | a read of the private `questOnEnterWorld` for a test | **none filed** | `QuestTemplatesRealDataTest` observes the list through the quests an enter world starts (the ten stigma quests); the positions of the 16 invasion quests in it are a known limit (P5-06c.md) |
+| m5d-m01 | `game-server/cmake/AionChunks.cmake` (integrator) and the test directories of A1 and I1-I6 | the unit tests of the phase-6 AI handler targets (A1, I1-I6) also link `aion_gs_handlers_ai_core` (P5-05's library, which defines their superclasses), so that a test of an A1 AI need not `#include` its `.cpp` into P5-05's test executable | **approved by the integrator under the standing instruction; applied by the lane that next writes an A1 AI test** (the move of `AscensationNpcAiTest.cpp` and `QuestItemNpcAiTest.cpp` into A1's test directory goes with it). Until then the two tests keep the `#include` workaround, and the manifest records the lease they depend on: `aion_gs_chunk(P5-05 LEASE ... "aion/gameserver/handlers/ai/quests/{AscensationNpcAI,QuestItemNpcAI}.*")` (chunks.cmake, after A1) | P5-05.md's build notes (the ascension lane and the quest-npc-ais lane). A handler target's tests link only their own handler library (AionChunks.cmake), and A1's library cannot resolve P5-05's classes without it. Applying it in the integration step would have moved two test files and their support headers across chunk test directories on the day of the join, for no behaviour change |
+
+## Play-session fixes 2026-09-28
+
+The fixes of the owner's real-client session on build `5bbd3551f` (docs/design/m5d0-client-session.md): three Java bugs fixed as C++-only
+deviations after the owner's M5c D7 precedent, and a client packet trace for the fourth report. Three existing headers change; each request
+was **taken by the integrator under the standing instruction** (phase5-roadmap.md) and applied with its call sites. The observer fix needed no
+header: `ObserveController.h`, `ActionObserver.h`, `ItemUseObserver.h`, `ObserverTypeInfo.h` and the generated `ObserverType.h` stay as they
+were (docs/deviations/P4-11b.md says why).
+
+| Id | File | Change | Decision | Reason |
+|---|---|---|---|---|
+| psf-1 | `controllers/PlayerController.h` (P4-11b) | private C++-only `runtime::Field<int64_t> lastAutoAttackMillis{0};` after `stanceObserver`, with a comment naming the deviation | **approved, taken by the integrator under the standing instruction** (2026-09-28), applied | Report 2: `attackTarget`'s swing throttle reads its own timestamp instead of `lastAttackMillis`, which `enterCombat(true)` also writes for every hostile skill since Java #175 (PlayerController.java:420-428, Skill.java:650-651; docs/deviations/P4-11b.md). A layout change of a hub header (a new scalar member): every includer recompiles; no signature changes. A non-retaining scalar, so `lint_concurrency.py` L2 needs no fieldmap entry or waiver (checked: 0 findings) |
+| psf-2 | `configs/network/NetworkConfig.h` (P4-01) | `static inline ConfigValue<std::set<std::string, std::less<>>> TRACE_CLIENT_PACKETS;` after `LOG_IGNORED_PACKETS`, and the includes `<functional>`, `<set>` | **approved, taken by the integrator under the standing instruction** (2026-09-28), applied | Report 3: the C++-only key `gameserver.network.trace.client_packets`, bound in `NetworkConfig.cpp` with the default `""` (docs/deviations/P4-01.md). Additive; `AionClientPacket.cpp` (P4-15) reads it |
+| psf-3 | `network/aion/clientpackets/CM_EQUIP_ITEM.h` (P5-15) | public C++-only `std::string toString() const override;` and the include `<string>` | **approved, taken by the integrator under the standing instruction** (2026-09-28), applied | Report 3: the trace prints each traced packet's `toString()`, and Java's CM_EQUIP_ITEM prints only its name; the override shows action, slot and item object id in the form of Java's `CM_MOVE.toString` (docs/deviations/P5-15.md). Additive (a virtual that `BasePacket` declares) |
+
+## M5f travel core (early, 2026-09-29)
+
+The early travel slice of m5f-plan.md §16 (T-01, T-05, P-01, their tests and the travel gate). **No header of another chunk changes**, so no
+request is filed; the rows below record what was checked.
+
+| Id | File | Change | Decision | Reason |
+|---|---|---|---|---|
+| (no request) | `services/teleport/TeleportService.h` (P5-08), `services/SiegeService.h` (P5-12a) | none | – | every body the slice ports is declared (m5f-plan.md §7, measured again) |
+| (new files) | `network/aion/clientpackets/CM_TELEPORT_SELECT.{h,cpp}` (P5-16) | a new class, named in the directory's `fwd.h` already; its opcode is in `ClientPacketInfo.gen.inc:131` | no request (new files) | – |
+| (no request) | `tests/scenario/GameSession.h`, `tests/scenario/decoders/*` (P5-SC) | none | **none filed** | the gate's three client packet bodies (`CM_TELEPORT_SELECT`, `CM_MOVE_IN_AIR`, `CM_EMOTION(LAND_FLYTELEPORT)`) and its two decoders (`SM_TELEPORT_MAP`, `SM_TELEPORT_LOC`) are file-local in `TravelScenarioTest.cpp`; m5f-plan.md G-02 moves them into `decoders/TravelDecoders.{h,cpp}` and `GameSession` |
+| (manifest) | `game-server/chunks.cmake` | `aion_gs_chunk(P5-08 LEASE PHASE 5 GLOBS "aion/gameserver/services/SiegeService.cpp")` after P5-12a | **the lease I-01 names, approved by the integrator under the standing instruction**; released when the lane merges | T-05: the two siege bodies on the teleport path (D8) |
+
+## P6-Q ascension route (2026-09-29)
+
+Lane route-gen (the generated handlers of Q05, Q09 and Q06, the golden trace harness; docs/deviations/Q05.md). **No frozen header changed**: the
+lane adds generated `.cpp` files, one test directory and Python tools only.
+
+| Id | File | Change | Decision | Reason |
+|---|---|---|---|---|
+| p6q-m01 | `game-server/chunks.cmake` (integrator) | chunk Q05 owns the test directory `tests/quest_handlers_golden` (`TESTS quest_handlers_golden`), the golden quest trace harness (phase6-inventory.md §7.6 item 3), with a comment; its executable compiles the generated Q09 and Q06 files by `#include` (as P5-05's tests do under m5d-m01) | **approved by the integrator under the standing instruction** (small and additive: one `TESTS` keyword and a comment on Q05's row; applied in the lane's commit) | A handler target's tests link only their own library (AionChunks.cmake); the harness needs the three route directories in one executable. m5d-m01's AionChunks.cmake change (a handler target's tests also linking other handler libraries) would remove the `#include` files here too. No LEASE row: a lease moves ownership (P5-05 owns the two AIs it ported), while the Q09 and Q06 files stay their chunks' generated files, compiled into their own libraries; chunks.py has no keyword for "a test executable compiles another chunk's sources", so the comment on Q05's row records the dependency |
+| (no request) | `questEngine/QuestEngine.h` (P5-06a) | a read of the private `registerOn*` lists (`questOnEnterWorld`, `questOnCompleted`, `questOnLevelUp`, ...) for the C++ registration trace | **none filed** | Not needed: the harness reads the npc registrations through the public `getQuestNpc` and `isRegisteredQuestItem`, and observes every other registration by routing the engine's public events (`onQuestCompleted`, `onLevelChanged`, `onEnterWorld`, `onEnterZone`, `onItemUseEvent`, `onCanAct`) to a spy registered in the handler's place (review of 2026-09-29). Only the order of registrations to different lists inside one `register_()` stays unobservable; the emitter keeps Java's statement order and the drift test (`tools/gen/tests/test_questgen_tree.py`) pins it |
+
+Phase 6's ascension-route lanes (owner, 2026-09-29: spare night capacity to the retail Ascension route). The route-hand lane hand-ports the six
+starting-zone quests questgen refuses (Q05: 1002, 1114; Q09: 2002, 2004, 2007, 2136) and ports `TeleportService::teleportToNpc` under a file
+lease (chunks.cmake, the Q09 LEASE row; the body only). **No frozen header changed**: the six handlers are new `.cpp` files of their chunks,
+and the lease changes one `.cpp` body and its includes.
+
+| Id | File | Change | Decision | Reason |
+|---|---|---|---|---|
+| (lease) | `services/teleport/TeleportService.cpp` (P5-08) | the body of `teleportToNpc` (TeleportService.java:304-333), `AION_UNPORTED` before | **recorded as the Q09 LEASE row of chunks.cmake**; released when the lane merges | Quest 2007's last step calls it; the declaration was already in `TeleportService.h` |
+| p6q-rh-m01 | `game-server/cmake/AionChunks.cmake` or `game-server/CMakeLists.txt` (integrator) | Q09's test executable (`aion_gs_handlers_quest_q09_tests`, from `tests/quest_handlers_zones`) also links `aion_gs_handlers_quest_q05`, so that `PoetaHandPortsTest.cpp` need not `#include` the two Q05 handler `.cpp` files | **approved by the integrator under the standing instruction (small and additive, the m5d-m01 pattern); applied when the lanes merge**: the change that adds the link removes the two `#include` lines of `PoetaHandPortsTest.cpp` in the same commit, or the two `_questFactory` functions are defined twice | A handler target's tests link only their own handler library (AionChunks.cmake), and the lane's one test directory holds the tests of both chunks' hand ports. Until then the `#include` stands, as P5-05's does for the two quest npc AIs; no lease goes with it, since the two files are Q05's own and the test only compiles them |
+
+Integration (branch `p6q/ascension-route`, 2026-09-29): the three lanes (asc-hand, route-gen, route-hand) merged with no header change. The
+rows above stand as written. p6q-rh-m01 is approved but **not applied** in the integration: it needs a new link keyword in AionChunks.cmake
+(the m5d-m01 pattern, itself not applied yet), so `PoetaHandPortsTest.cpp` keeps its two `#include` lines and whoever applies m5d-m01 or
+p6q-rh-m01 removes them in the same commit. The Q09 lease of `TeleportService.cpp` stays as a row of chunks.cmake, as the P5-13 lease of
+`WorldMapInstance.cpp` does after its lane merged. The Q06 lease of `tests/scenario` is released (its row removed; the files are P5-SC's):
+the row turned the phase-5 test `tools.porting` red (`test_chunks.RealTreeTest.test_test_directories` pins P5-SC's test directory without a
+lease), so the lane's change is reverted rather than the test edited (U1/U7; docs/design/p6q-ascension-route.md).
+
+## Lane H: hermetic gate servers and the census drain (2026-09-29)
+
+Lane H (harness; branch `fix/gate-hermetic`) fixes the two harness defects of docs/design/p6q-ascension-route.md §7: every server a test starts
+read the owner's untracked `mygs.properties`, and the final census did not wait for a task already running on another pool thread
+(docs/deviations/P5-SC.md and P5-14.md, "Lane H"). Two headers of other chunks change, both small and additive (one C++-only test hook, one
+comment), so each request was **approved by the integrator under the standing instruction** and applied with its call sites.
+
+| Id | File | Change | Decision | Reason |
+|---|---|---|---|---|
+| gh-1 | `configs/Config.h` (P4-01) | public C++-only `static void setOverrideFileIgnored(bool ignored);` after `setLocalIPv4Finder`, with its doc; the class doc's source list and `loadLoggingConfig`'s doc say that `config/mygs.properties` is left out while it is on | **approved by the integrator under the standing instruction** (small and additive), applied | The test hook behind `aion_game_server --ignore-mygs-properties` (main.cpp, P5-14): `loadProperties` and `loadLoggingConfig` leave the operator's profile out and log "Ignoring ./config/mygs.properties (C++ test hook --ignore-mygs-properties)" in place of "Loading: ...". The default (off) is Java's behaviour; a production start never passes the switch. An atomic flag in `Config.cpp`, next to the other two C++ seams (`setEventConfigPropertiesProvider`, `setLocalIPv4Finder`). docs/deviations/P4-01.md, "Lane H" |
+| gh-2 | `CheckOutput.h` (P5-14) | comment only: `drainPools`' doc says that it waits for every task queued in the instant or the long-running pool and every task running on a pool thread when it starts (the queued half since the review fixes, which replaced the barrier tasks) | **approved by the integrator under the standing instruction** (comment only, the m5b3-i-1 / m5c-h07 precedent), applied | The body changed (docs/deviations/P5-14.md, "Lane H"); the old doc ("one barrier task per pool") described the defect |
+| (no request) | `runtime/base/ThreadContext.h` (P4-02a), `runtime/sched/ExecutorBackend.h`, `PoolBackends.h`, `utils/ThreadPoolManager.h` (P4-02b) | none | **none filed** | The drain reads what the kernel already publishes: `ThreadContext::forEach`, `threadName()` (the pool thread names are part of `ExecutorBackend`'s contract) and the `task()` snapshot (active, start of the outermost `TaskScope`), design §1.2 - the records the watchdog reads - and, since the review fixes, `ExecutorBackend::pendingTasks()` and `Future::getPool()` / `isDone()`, which `//debug tasks` and LeakCensus already use. No pool gains an "active tasks" API |
+| (no request) | `tests/scenario/ScenarioServers.h` (P5-SC) | `IGNORE_MYGS_PROPERTIES`, `loginServerOverrideFile()`, doc comments; since the review fixes the log lines `GAME_SERVER_PROFILE_IGNORED` / `_LOADED` and `LOGIN_SERVER_NO_PROFILE` and the checks `gameServerProfileProblem` / `loginServerProfileProblem` | none (the lane's own chunk) | – |
+
+## P6-Q slice 2 (2026-09-29)
+
+Lane Q10 (worktree `route-hand`, branch `p6q/q10`): the 75 handlers of `altgard` and `pandaemonium`, 69 generated, 5 hand-ported, 1 held back
+(docs/deviations/Q10.md). **No frozen header changed**: the lane adds `.cpp` files of chunk Q10, one test directory, Python tool changes
+(questgen's two include rules, the oracle's Q10 slice) and the golden harness's Q10 rows; no engine body was ported and no LEASE row added.
+
+| Id | File | Change | Decision | Reason |
+|---|---|---|---|---|
+| p6q-s2-q10-m01 | `game-server/chunks.cmake` (integrator) | chunk Q10 owns the test directory `tests/quest_handlers_asmodae` (`TESTS quest_handlers_asmodae` on Q10's row, with a comment); the comment on Q05's row names Q10 among the chunks whose generated files Q05's golden harness compiles by `#include` | **approved by the integrator under the standing instruction** (small and additive: one `TESTS` keyword and two comments; applied in the lane's changes) | The hand ports need unit cases in their own chunk's executable (U1: phase-6 handlers in their own chunks); the golden harness is the one place that drives generated files against the oracle, and a handler target's tests link only their own library (p6q-m01's reason). The new test directory includes `tests/quest_handlers/QuestHandlerTestSupport.h` (P5-06b's) by relative path, as Q05's harness does; no ownership changes |
+| (no request) | `tests/quest_handlers_golden/**` (Q05's test directory) | the Q10 rows of the harness: `GoldenHandlers.h` (69 table rows), `GoldenAltgardHandlers.cpp`, `GoldenPandaemoniumHandlers.cpp` (the `#include` lists), `GoldenKnownVacuousQ10.h`, and the harness's models of the helpers, hooks and registrations the Q10 traces use (docs/deviations/Q10.md, "Tests") | **none filed** | The lane task names the harness ("make the golden-trace harness drive them"); the files are test code of the phase-6 chunk Q05 under p6q-m01's arrangement, not a frozen header. Every slice-1 case still passes; four slice-1 vacuous entries (2114) left the list because a new overlay makes them observable |
+| (no request) | `tools/oracle/questtrace/extract.py` (P6-T's oracle), `tools/oracle/expected/quest/*.json`, `tests/quest_handlers_golden/**` | the review of 2026-09-29: the oracle writes `dialogExcludes` (the dialog actions a path excludes when it reads the action only through `!=` guards); regenerating added that field to 32 of the 36 slice-1 documents (and to the Q10 ones) and changed nothing else in them; the harness runs those cases with the actions the start and end helpers act on, compares the drop rows, reports a run that reaches `AION_UNPORTED`, has three more negative-control flips, and lists 142 fewer vacuous cases (docs/deviations/Q10.md, "Tests") | **none filed** | Additive tool and test code of the phase-6 lanes (the oracle has no owner chunk; the harness is Q05's test directory under p6q-m01's arrangement); every slice-1 case still passes, with 18 of its vacuous entries observable now |
+
+Lane Q03 (worktree `session`, branch `p6q/q03`): the 78 handlers of `verteron` and `heiron`, 72 generated and 2 hand-ported in the tree, 4
+generated ones held back for gs.scenario.travel (docs/deviations/Q03.md). **No frozen header changed**, no engine body was ported; the lane
+adds `.cpp` files of chunk Q03, one test directory, Python tool changes (questgen's empty-switch and owning-return rules, the oracle's Q03
+slice) and the golden harness's Q03 rows, the latter under a LEASE row of its own.
+
+| Id | File | Change | Decision | Reason |
+|---|---|---|---|---|
+| p6q-s2-q03-m01 | `game-server/chunks.cmake` (integrator) | chunk Q03 owns the test directory `tests/quest_handlers_q03` (`TESTS quest_handlers_q03` on Q03's row, with a comment) | **approved by the integrator under the standing instruction** (small and additive: one `TESTS` keyword and a comment; applied in the lane's changes) | As p6q-s2-q10-m01: the two hand ports and the oracle-refused generated hooks need unit cases in their own chunk's executable |
+| p6q-s2-q03-l01 | `game-server/chunks.cmake` | `aion_gs_chunk(Q03 LEASE PHASE 6 TEST_SUPPORT quest_handlers_golden)`: Q03's lease of Q05's harness directory for its rows | **released by the integrator** (the row and its comment removed when slice 2 was integrated, as the row's own comment asked; the Q05 row's comment now names Q03 and Q10) | Both lanes' harness edits are merged; Q10 edited the same directory with no lease (its "(no request)" row above), so after the merge the directory is Q05's again under p6q-m01's arrangement |
+
+**Integration of slice 2** (branch `p6q/slice-2` in the worktree `session`, docs/design/p6q-ascension-route.md, "Slice 2"): no frozen header and
+no engine body changed. The tool and test changes of the merge, none of which needs a request: questgen's two lanes had written the same
+owning-return include rule twice (`api.OWNING_RETURN_HEADERS` of Q03 and `api.OWNED_RESULT_HEADERS` of Q10, both `{'Effect': ...}`); one
+table and one rule are kept (Q03's name, which its test pins), and the emitted corpus is byte-identical either way. The oracle's slice is
+`SLICE_TIER_A + SLICE_ROUTE + SLICE_Q03 + SLICE_Q10`; regenerating with the merged extractor added `dialogExcludes` to 64 of Q03's documents
+(insertions only) and changed no other document. The golden harness is the union of both lanes' overlays, replay overloads, hooks,
+registration checks and negative-control flips; the lists were measured again with it. `tools/parity` gained one hand-port spelling (the
+enum-name spelling, for 2900; the integrator decision Q10 asked for).
+
+## Play-session fix and diagnostics 2026-09-29 (branch `fix/equip-swap-message`)
+
+Report 3 of the 2026-09-28 session (the spurious "inventory is full" of a weapon swap) is fixed in `CM_EQUIP_ITEM.cpp` alone (P5-15.md), and
+the server packet trace for the Sanctum benches is `AionConnection.cpp`'s (P4-15.md). One existing header changes, additively, after the
+psf-2 precedent; the request is filed with the change applied on the branch, for the integrator to confirm at the merge.
+
+| Id | File | Change | Decision | Reason |
+|---|---|---|---|---|
+| psf-4 | `configs/network/NetworkConfig.h` (P4-01) | `static inline ConfigValue<std::set<std::string, std::less<>>> TRACE_SERVER_PACKETS;` after `TRACE_CLIENT_PACKETS`, with its doc | **filed, applied on the branch** (small and additive, the psf-2 precedent); the integrator confirms at the merge | The C++-only key `gameserver.network.trace.server_packets`, bound in `NetworkConfig.cpp` with the default `""` (docs/deviations/P4-01.md). Additive; `AionConnection.cpp` (P4-15) reads it |
+| (no request) | `network/aion/clientpackets/CM_EQUIP_ITEM.h` (P5-15), `network/aion/AionConnection.h` (P4-15) | none | **none filed** | The fix's `isStillEquipped` and the trace's `traceIfConfigured` are file-local functions of the `.cpp` files |
+
+## Small tasks 2026-09-30 (branch `fix/small-quick-4`)
+
+Three small tasks of the owner's (the Sanctum benches' byte test and gate decoder, `MethodStats.log` and `--log-folder`, the GM login arm).
+One header outside the lane changes, additively, and one header's comments; each request was **approved by the integrator under the
+standing instruction** (small and additive) and applied with its call sites.
+
+| Id | File | Change | Decision | Reason |
+|---|---|---|---|---|
+| sq4-1 | commons `logging/Logging.h` | C++-only `std::filesystem::path getLogFolder();` before `archiveLogs`, with its doc; defined in `Logging.cpp` (the folder of the last `init` under the state's mutex, `log` before the first) | **approved by the integrator under the standing instruction** (small and additive), applied | `RunnableStatsManager::dumpClassStats(sortBy)` writes `stats/MethodStats.log` below it instead of the hard-coded `./log/stats`, so a game server started with `--log-folder` (every test server) no longer rewrites the working directory's file; production's folder stays `log` (DEVIATIONS.md, "commons / utils"; docs/deviations/P5-SC.md) |
+| sq4-2 | commons `utils/concurrent/RunnableStatsManager.h` | comments only: the class doc and both `dumpClassStats` docs name `<log folder>/stats/MethodStats.log` | **approved by the integrator under the standing instruction** (comment only) | The body changed (sq4-1) |
+| (no request) | `tests/scenario/decoders/PacketDecoders.h` (P5-SC) | `STATIC_DOOR_TEMPLATE_ID` and the `stateFlag` doc | none (test code of the gate harness) | `decodeGatherableInfo` tells a static door by its template id 300001 (docs/deviations/P5-SC.md, "Small tasks 2026-09-30") |
+| (no request) | `utils/audit/GMService.h` (P4-05), `utils/chathandlers/ChatProcessor.h` (P5-14) | none | **none filed** | The GM login arm (m5j-plan.md I-02) calls the public `ChatProcessor::handleChatCommand` that exists; only `GMService.cpp` changes (docs/deviations/P4-05.md) |
+| (no request) | `tests/cm_ak/GMServiceLoginTest.cpp` (P5-15's test directory) | a new test file of P4-05's `GMService` | none (a test file) | It needs a real Player with a real AionConnection in the World, the in-world fixture of `tests/cm_ak` (`InWorldPacketRunSupport.h`, `publishPoetaWorldDataOnce`). P4-05's own `tests/base` has no such fixture, and its `GMServiceTest.ConstructorFiltersGmSkillsOfTheSkillData` expects the singleton unconstructed when the executable runs whole, which a GM login case there would break |

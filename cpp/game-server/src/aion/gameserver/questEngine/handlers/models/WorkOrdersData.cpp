@@ -1,11 +1,15 @@
 #include "aion/gameserver/questEngine/handlers/models/WorkOrdersData.h"
 
-#include "aion/gameserver/runtime/base/Unported.h"
+#include <memory>
+
+#include "aion/gameserver/questEngine/QuestEngine.h"
+#include "aion/gameserver/questEngine/handlers/template/WorkOrders.h"
 
 namespace aion::gameserver::questEngine::handlers::models {
 
-void WorkOrdersData::register_(QuestEngine& /*questEngine*/) const {
-	AION_UNPORTED();
+void WorkOrdersData::register_(QuestEngine& questEngine) const {
+	// the handler keeps pointers to this data's <give_component> elements (Java: the same objects)
+	questEngine.addQuestHandler(std::make_unique<template_::WorkOrders>(id, startNpcIds, giveComponents, recipeId));
 }
 
 std::optional<std::unordered_set<int32_t>> WorkOrdersData::getAlternativeNpcs(int32_t npcId) const {

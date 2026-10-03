@@ -181,9 +181,11 @@ MILESTONES = [
 ]
 CHUNK_MILESTONE = {
     'P5-00': 'M5a', 'P5-01': 'M5b-2', 'P5-02a': 'M5b-2', 'P5-02b': 'M5b-2', 'P5-03': 'M5b-2', 'P5-04': 'M5b-2', 'P5-05': 'M5j',
-    'P5-06': 'M5d', 'P5-07': 'M5b-3', 'P5-08': 'M5j', 'P5-09a': 'M5b-3', 'P5-09b': 'M5c', 'P5-09c': 'M5c', 'P5-10': 'M5g', 'P5-11': 'M5h',
+    'P5-06a': 'M5d', 'P5-06b': 'M5d', 'P5-06c': 'M5d', 'P5-07': 'M5b-3', 'P5-08': 'M5j', 'P5-09a': 'M5b-3', 'P5-09b': 'M5c', 'P5-09c': 'M5c',
+    'P5-10': 'M5g', 'P5-11': 'M5h',
     'P5-12a': 'M5i', 'P5-12b': 'M5i', 'P5-13': 'M5f', 'P5-14': 'M5j', 'P5-15': 'CM', 'P5-16': 'CM', 'P5-SC': 'none',
 }
+# P5-06a/b/c: the engine, the handler base and the XML templates of the quest chunk, all three M5d (m5d-plan.md D1, item I-01)
 # (chunk, milestone, regex over the path relative to the package root without extension: 'services/drop/DropService'); the first match wins,
 # else CHUNK_MILESTONE. The same path serves the Java file, its C++ files and its generated files. P5-09 needs no row since its split into
 # P5-09a (drop, rewards, passport, bonus and faction packs, guide: M5b-3's side), P5-09b (trade and market) and P5-09c (mail and craft), the M5c
@@ -3177,6 +3179,9 @@ def self_check(tree=True):
                               milestone_of('P5-08', '5', 'services/DialogService'), milestone_of('P5-08', '5', 'services/DuelService'),
                               milestone_of('P4-12', '4', 'x'), milestone_of('Q01', '6', 'x')],
           ['M5b-3', 'M5c', 'M5c', 'M5f', 'M5e', 'M5j', 'phase 4', 'phase 6'])
+    check('milestone of the P5-06 parts', [milestone_of('P5-06a', '5', 'questEngine/QuestEngine'),
+                                           milestone_of('P5-06b', '5', 'questEngine/handlers/AbstractQuestHandler'),
+                                           milestone_of('P5-06c', '5', 'questEngine/handlers/template/ReportTo')], ['M5d', 'M5d', 'M5d'])
     check('package_relative', [package_relative('src/aion/gameserver/services/drop/DropService.cpp'),
                                package_relative('generated/aion/gameserver/model/X_Y.xml.inc'),
                                package_relative('data/handlers/ai/GeneralNpcAI.java')],

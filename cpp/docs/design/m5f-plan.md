@@ -19,6 +19,25 @@
 > **M5f starts after M5e, and M5b-3, M5c, M5d and M5e are all unbuilt today.** §0 states exactly what this plan assumes each delivers; every work
 > item, case and checklist step that stands on one of those assumptions carries its id (`A-01` … `A-11`), so the plan can be re-verified in
 > one pass at branch time.
+>
+> **Refresh 2026-09-28 (§15, docs only, nothing built):** the instance-and-teleport pieces of the retail ascension route re-measured at HEAD
+> `a75d281ff`, with chunks, leases, merge order, the earlier-gate impact and a mutation-proof test plan. The owner's 2026-09-27 answers are
+> applied where they sit: H-02 is required and names 1007/2009 (I-01, D5, §2.6, §6, §7, §9), `CM_PLAY_MOVIE_END` is required (§2.6, §2.10,
+> P-06, H-01), and G-05 cites the allow-list rows where they are.
+>
+> **The instance subset merged early, 2026-09-28**, at the owner's request ([owner-decisions.md](owner-decisions.md), 2026-09-28). It merged
+> after M5c stage 2 and the M5d/M5e ascension pieces, as one integration part (§15.4's commits A-D together). It holds N-01, N-02, N-07,
+> N-03, all 11 bodies of N-04, the T-02 subset, T-06, P-02, P-05 and `CM_PLAY_MOVIE_END` (P5-13.md, P5-08.md, P5-16.md, P4-10.md).
+> `InstanceService.cpp:133/:153` are closed, and their rows are gone from all five allow-lists (I-04). The `teleportTo(player, worldId,
+> instanceId, x, y, z)` overload stays unported, so `DialogServiceTest.cpp:1073-1074` still pin it. **m5c0-client-session.md F-2 (no bind
+> revive or Return across maps) is fixed in the tests.** `InstanceTeleportTest.WithoutAStartPositionInstanceReviveFallsBackToTheBindRevive`
+> runs F-2's chain: `bindRevive` → `moveToBindLocation` → `SpawnTask::run`'s cross-map arm → `onLeaveInstance`. It ends alive at the Poeta
+> bind point. A mutant that restores `onLeaveInstance`'s `AION_UNPORTED` on that move alone fails the case at exactly that stack. With
+> HEAD's whole body restored, 31 of the 72 instance, teleport and revive cases fail. No gate crosses maps, so the real client still has to
+> confirm F-2. All 13 gates passed two at a time with unchanged packet sequences, which confirms §15.5 (c).
+>
+> **The travel core landed early, 2026-09-29 (§16)**: T-01, T-05 (under the P5-12a lease), P-01, their T-08/P-07 tests and a gate of their
+> own, `gs.scenario.travel` (Sanctum -> Verteron, Pandaemonium -> Altgard, one flight in Verteron). The rest of stage 1 is listed in §16.4.
 
 ---
 
@@ -208,13 +227,13 @@ Daeva check** — a level-1 character can use it (§2.9).
 | `WorldMapInstance::detachInstanceHandler` + the no-op `InstanceHandler` it installs | P4-10 | 1 | 0 | **1 class, 43 overrides** (41 game methods + `retain`/`release`, `InstanceHandler.h:31-119`) | **1 + the class** (lease, N-02/N-07) |
 | `SiegeService::getSiegeIdByLocId`, `onEnterSiegeWorld` | P5-12a | 2 (of the chunk's 107) | 0 | – | **2** (lease) |
 | `CM_TELEPORT_SELECT`, `CM_TELEPORT_ANIMATION_DONE`, `CM_BIND_POINT_TELEPORT`, `CM_INSTANCE_LEAVE`, `CM_MOVE_IN_AIR` | P5-15/16 | – | – | 5 files, 15 bodies | **5** |
-| `CM_POSITION_SELF` ("C_BLINK", empty `runImpl`), `CM_CHANGE_CHANNEL`, `CM_PLAY_MOVIE_END` (if M5d did not) | P5-15/16 | – | – | 3 files, 9 bodies | **O** |
+| `CM_POSITION_SELF` ("C_BLINK", empty `runImpl`), `CM_CHANGE_CHANNEL`, `CM_PLAY_MOVIE_END` (if M5d did not) | P5-15/16 | – | – | 3 files, 9 bodies | **O**; **`CM_PLAY_MOVIE_END` R** (refresh 2026-09-28, §2.10, §15) |
 | `ResurrectAI` (P5-05), `PortalAI`, `PortalDialogAI` (A1) | P5-05, A1 | – | – | 3 files, 14 bodies | **3** |
 | `ActionItemNpcAI` (P5-05) | P5-05 | – | – | 1 file, 7 bodies | only if A-06 fails |
 | `MultiReturnAction`, `InstanceTimeClear` (P5-07), `ReturnPointEffect` (P5-04, 3 U) | P5-07, P5-04 | 3 | 0 | 8 bodies (m5c §3a) | **O** (A-03) |
 | `SpellAtkDrainInstantEffect` (P5-04) — Haramel's Kakiti (W-21) | P5-04 | 1 | 0 | – | **R** (X-05a, D15) unless M5e's optional T-02 took it |
 | The Eltnen/Morheim monster classes past A-10: P5-03 `DiseaseEffect` 4, `ConfuseEffect` 4, `FpAttackEffect` 2, `FearEffect` 4 (+1 inner), `DispelDebuffMentalEffect` 1, `CloseAerialEffect` 2, `DelayedFpAtkInstantEffect` 3 (+1 inner), `DispelBuffEffect` 1; P5-04 `MpAttackInstantEffect` 2, `ProtectEffect` 2 (+ its observer), `MagicCounterAtkEffect` 2 (+1 inner) (W-22) | P5-03, P5-04 | 27 | 0 | ~4-6 inner bodies | **O** (X-05b, D15) |
-| `HaramelInstance` (I1), `_1006Ascension` / `_2008Ascension` (Q06) | I1, Q06 | – | – | 2 + 19 bodies, 63 + 592 lines | **O** (D2, D5) |
+| `HaramelInstance` (I1), `_1006Ascension` / `_2008Ascension` (Q06); refresh 2026-09-28: **+ `_1007ACeremonyinSanctum` / `_2009ACeremonyinPandaemonium`** (Q06) | I1, Q06 | – | – | 2 + 19 bodies, 63 + 592 lines; **the four quests: 29 bodies, 970 lines** | **O** (`HaramelInstance`, D2); **R** (the four quests: D5 answered 2026-09-27, H-02) |
 
 ### 2.7 Lesson 1: the bodies no site count sees
 
@@ -239,7 +258,8 @@ against the names declared in the C++ `.h`/`.cpp`/generated headers:
 - **Whole classes with no C++ file on the path: 15, 66 bodies** — the 8 client packets of §2.10's R and O rows (24; 5 required), 4 AIs (21:
   `ResurrectAI` 4, `PortalAI` 5, `PortalDialogAI` 5 required, `ActionItemNpcAI` 7 by A-06), `HaramelInstance` (2), the two ascension quests
   (19). Plus `MultiReturnAction`/`InstanceTimeClear`, shells with no `.cpp` (8, m5c §3a): **17 classes, 74 bodies** (rev 1 printed "13, 81";
-  measured again with `javasrc.parse_file` for rev 2).
+  measured again with `javasrc.parse_file` for rev 2). *Refresh 2026-09-28:* H-02 now also takes 1007/2009 (10 bodies), so the ascension
+  quests are four classes and 29 bodies (§15).
 
 ### 2.8 Lesson 2: what M5f wakes
 
@@ -312,7 +332,7 @@ the M5f brief's 147 predate `CM_CASTSPELL` and `CM_REMOVE_ALTERED_STATE`; the M5
 | `CM_MOVE_IN_AIR` | 61 | P5-16 | **R** | the flight path; without it the server's position freezes for the whole flight |
 | `CM_POSITION_SELF` | 25 | P5-16 | O | "C_BLINK" (`ClientPacketInfo.gen.inc:33`); empty `runImpl`; only silences an unknown-packet line if the 4.8 client sends it |
 | `CM_CHANGE_CHANNEL` | 40 | P5-15 | O | channels: default `max.twincount.usual = 1` (world.properties:13) → one channel |
-| `CM_PLAY_MOVIE_END` | 57 | P5-16 | O | M5d's W; M5f needs it only for `HaramelInstance`'s movie 457 (H-01) |
+| `CM_PLAY_MOVIE_END` | 57 | P5-16 | **R** (refresh 2026-09-28; rev 2: O) | `SM_PLAY_MOVIE`'s `writeImpl` sets `WATCHING_CUTSCENE` (`SM_PLAY_MOVIE.cpp:18`) and `CM_MOVE` drops every move while it is set (`CM_MOVE.cpp:146-148`); only this packet clears it (CM_PLAY_MOVIE_END.java:52). So every movie needs it: the ascension route's eight (§15.3), the 28 XML quest rows with a `movie` in `sanctum.xml`/`pandaemonium.xml` once M5d's join registers them, `HaramelInstance`'s 457 (H-01). M5d's D-05 is the cheap place; P-06 if M5d did not |
 | `CM_WINDSTREAM` | 93 | P5-16 | **D** | no windstream on any map before level 45 (`windstreams.xml`: 900030000, 210050000, 220070000, 300020000, 300250000) → M5j |
 | `CM_RECALLED_BY_OTHER_ANSWER` | 38 | P5-16 | D | summon group member → M5g |
 | `CM_OPEN_STATICDOOR` | 35 | P5-16 | D | instance doors: no static door in Haramel (`staticdoor_templates.xml`, 0 rows for 300200000); group instances → M5g / phase 6 |
@@ -360,7 +380,7 @@ Decisions the integrator takes under the standing instruction (phase5-roadmap.md
 | **D2** | **No phase-6 instance handler is required. `GeneralInstanceHandler` is ported whole (11 bodies)** because it is the base of all 73 `@InstanceID` handlers (48 extend it directly). **`HaramelInstance` is optional (H-01, I1 lease)**: its only hook is the boss's `onDie` (chest per class, movie 457, the dimensional gate 700852, HaramelInstance.java:23-61), which the gate does not reach | a map without a handler gets `GeneralInstanceHandler` (InstanceEngine.java:49); the boss's AI (`summoner`) is unported anyway (W-11) |
 | **D3** | **The gate enters only solo (`maxPlayers` 1) and open (`maxPlayers` 0) destinations.** `PortalService`'s group, alliance and league arms are ported faithfully and unit-tested on the arms that need no team; **M5g's gate re-verifies them** (a `PlayerGroup` is P5-10, 294 U). The staff bypass (`AdminConfig.INSTANCE_ENTER_ALL`) is not used | groups come after M5f in the roadmap |
 | **D4** | **The gate seeds rather than plays what M5f does not own** (m5c D5 precedent, A-05): two Daeva **Templars** at level 16 (`player_class = TEMPLAR`, `player_quests (1006 \| 2008, COMPLETE)`, `exp = 844,378`), their kinah row and positions (one relog before the Haramel cases). **The level-1 character is not seeded at all**: the hotspot takes it from the spawn to Akarios (§2.9) | the Gladiator trap (W-14); walking 900 m of Verteron is not M5f's feature; ascension is a phase-6 quest |
-| **D5** | **user** — **The ascension quests `_1006Ascension` / `_2008Ascension` (592 Java lines, Q06) stay phase 6 by default; an optional stage-3 lane can pull them forward** (H-02). They need M5d's handler base, M5e's `ClassChangeService.setClass`, and M5f's instance creation (`getNextAvailableInstance(KARAMATIS_B, player)`, _1006Ascension.java:98-99), flight emotion (:157-161) and same-map beam teleports. The recommendation is **no**: the real client reaches Daeva through `gameserver.simple.secondclass.enable` (A-07) and the gate through the seed | this changes what the user plays at level 9, so it is the user's call |
+| **D5** | **user** — **The ascension quests `_1006Ascension` / `_2008Ascension` (592 Java lines, Q06) stay phase 6 by default; an optional stage-3 lane can pull them forward** (H-02). They need M5d's handler base, M5e's `ClassChangeService.setClass`, and M5f's instance creation (`getNextAvailableInstance(KARAMATIS_B, player)`, _1006Ascension.java:98-99), flight emotion (:157-161) and same-map beam teleports. The recommendation is **no**: the real client reaches Daeva through `gameserver.simple.secondclass.enable` (A-07) and the gate through the seed. **Answered 2026-09-27** (owner-decisions.md): stage 3 is **required** and also takes `_1007ACeremonyinSanctum` / `_2009ACeremonyinPandaemonium` (the four: 29 bodies, 970 Java lines). M5e keeps D1 (a), the simple class window. The play profile turns `gameserver.simple.secondclass.enable` off when the route lands, because all four handlers skip registration while it is on (_1006Ascension.java:49, _2008Ascension.java:43, _1007ACeremonyinSanctum.java:27, _2009ACeremonyinPandaemonium.java:28). §15 re-measures the instance-and-teleport pieces the route stands on | this changes what the user plays at level 9, so it is the user's call |
 | **D6** | **`PvpMapService.cpp:32` stays `AION_PARTIAL`** (its row stays in every allow-list); `PvpMapHandler` (39 U, 858 lines) and `CustomInstanceService` (13) go to M5j | closing it creates the PvP-map instance at every startup even when `pvpmap.enable = false` (PvpMapService.java:26-29, custom.properties:217) — a lesson-2 wake for a disabled custom feature |
 | **D7** | **Java's travel quirks are kept and named, not fixed**: the fly-path validator keyed by `locId` (§2.2 step 2); `CM_TELEPORT_SELECT` does not repeat the dialog's Daeva check (a crafted packet reaches Verteron from Poeta if it can pay — CM_TELEPORT_SELECT.java vs DialogService.java:188-195); `CM_INSTANCE_LEAVE` is a no-op for `GeneralInstanceHandler`; the hotspot takes `max(server, client)` price; the hotspot cooldown lives in memory (lost on restart); the double `SM_PLAYER_SPAWN` at a login into a destroyed instance (§2.5 step 10); `SM_CHANNEL_INFO` is always (1, 1) during a teleport because the player is not spawned yet (SM_CHANNEL_INFO.java constructor) | faithfulness beats a nicer engine (m5b2-plan.md D9); each quirk is a gate row or a checklist warning so it is visible |
 | **D8** | **The two siege bodies on the path are ported under a P5-12a lease** (T-05), not left loud | W-02 is on *every* npc teleport; W-03 on every siege-world arrival |
@@ -388,7 +408,7 @@ the §0 assumption an item stands on.
 
 | Id | What | Deps | Need | Eff | A |
 |---|---|---|---|---|---|
-| I-01 | **Leases** (one active per chunk, released at merge): A1 → `handlers/ai/portals/{PortalAI,PortalDialogAI}.*` (+ its tests: `tests/handlers_ai_core` under the lease, or the derived `tests/handlers_ai_world` — decide here); P4-10 → `world/WorldMapInstance.cpp` (one body **and the file-local no-op handler class**, N-02/N-07); P5-12a → `services/SiegeService.cpp` (two bodies); **P5-02a → `skillengine/model/Skill.cpp:858-860` (one caller line, T-07; dropped if A-08 held)**. Rev 1's P5-10 lease on `AutoGroupService.cpp` is gone (W-08). Optional: I1 → `handlers/instance/HaramelInstance.*`; Q06 → `handlers/quest/ascension/_1006*`, `_2008*` | – | R | S | A-06 (m5d's A1 lease released), A-08 |
+| I-01 | **Leases** (one active per chunk, released at merge): A1 → `handlers/ai/portals/{PortalAI,PortalDialogAI}.*` (+ its tests: `tests/handlers_ai_core` under the lease, or the derived `tests/handlers_ai_world` — decide here); P4-10 → `world/WorldMapInstance.cpp` (one body **and the file-local no-op handler class**, N-02/N-07); P5-12a → `services/SiegeService.cpp` (two bodies); **P5-02a → `skillengine/model/Skill.cpp:858-860` (one caller line, T-07; dropped if A-08 held)**. Rev 1's P5-10 lease on `AutoGroupService.cpp` is gone (W-08). Optional: I1 → `handlers/instance/HaramelInstance.*`. **Required since 2026-09-27 (H-02):** Q06 → `handlers/aion/gameserver/handlers/quest/ascension/{_1006Ascension,_2008Ascension,_1007ACeremonyinSanctum,_2009ACeremonyinPandaemonium}.*` (refresh 2026-09-28: rev 2 named only 1006/2008 and a path without the `aion/gameserver/handlers` part. Q06's ROOT is `handlers`, chunks.cmake:485-488, and `chunks.py owner` on that path answers Q06. The chunk also holds `quest/crafting/**`, so no generated crafting lane can run beside this one. Its derived test directory `tests/handlers_quest_q06` does not exist yet) | – | R | S | A-06 (m5d's A1 lease released), A-08 |
 | I-02 | Header requests of §7 (the m5b2-p2-9 signature if M5e did not apply it) | – | R | S | A-08 |
 | I-03 | `game-server/config/m5f.properties.example` in the Java tree (m5b-plan.md I-01's location) | – | R | S | – |
 | I-04 | Allow-list row deletions coordinated with G-05 (`InstanceService.cpp:133, 153` in every gate's list, in the commit that closes them) | N-03 | R | S | A-09 |
@@ -426,7 +446,7 @@ the §0 assumption an item stands on.
 | P-03 | `CM_BIND_POINT_TELEPORT` (`readC` action; action 1: `readD` locId, `readQ` kinah) | CM_BIND_POINT_TELEPORT.java:24-46 | T-04 | R | S |
 | P-04 | `CM_INSTANCE_LEAVE` | CM_INSTANCE_LEAVE.java:19-29 | – | R | S |
 | P-05 | `CM_MOVE_IN_AIR` (`readD` world, `readF` ×3, `readC` heading, `readD` distance) | CM_MOVE_IN_AIR.java:34-60 | – | R | S |
-| P-06 | O: `CM_POSITION_SELF`, `CM_CHANGE_CHANNEL` (+ WORLD_EMULATE_FASTTRACK arm), `CM_PLAY_MOVIE_END` if M5d did not | – | T-02 | O | S |
+| P-06 | O: `CM_POSITION_SELF`, `CM_CHANGE_CHANNEL` (+ WORLD_EMULATE_FASTTRACK arm). **R (refresh 2026-09-28): `CM_PLAY_MOVIE_END` if M5d's D-05 did not port it.** Every `SM_PLAY_MOVIE` leaves `CM_MOVE` dropped until it arrives (§2.10). It is needed no later than M5d's join, and its tests are §15.6's | CM_PLAY_MOVIE_END.java:33-56 | T-02 (the O part only) | O / **R** | S |
 | P-07 | Tests: `tests/cm_ak`, `tests/cm_lz` byte vectors per packet (every arm of `CM_BIND_POINT_TELEPORT`), the `AION_CLIENT_PACKET` markers, in-process run tests over `InWorldPacketRunSupport.h` (`CM_TELEPORT_ANIMATION_DONE` with no task, a done task and a throwing task; `CM_MOVE_IN_AIR` ignored when not `FLYING`) | – | P-01..P-05 | R | M |
 
 ### Stage 1, travel npcs (P5-05, + the A1 lease)
@@ -463,10 +483,10 @@ the §0 assumption an item stands on.
 |---|---|---|---|---|
 | **G-03** | `TEST(M5fScenario, Run)`: §10's cases, `<bin>/scenario/m5f`, schema pair `aion_{ls,gs}_test_m5f_<hash>`, the shared `RESOURCE_LOCK`, `tests/scenario/m5f_partial_allowlist.txt`, `gs.scenario.m5f` in `ScenarioTests.cmake` | stage 1, G-01, G-02 | R | L |
 | **G-04** | `gs.scenario.m5f_geo` (§10.5) and the `tests/geo` rows G2a-G2c | G-03 | R | M |
-| **G-05** | **Re-green** `gs.scenario.m5a` (+ `_geo`), `m5b` (+ `_geo`), `m5b2` (+ `_geo`), `m5b3`, `m5c`, `m5d`, M5e's: delete the `InstanceService.cpp:133, 153` rows (§C in m5a/m5b, `m5a_partial_allowlist.txt:38-40`, `m5b_partial_allowlist.txt:68-70`, and whichever later lists copied them); **flip m5c's W-08 expectation** (the flight master now answers `SM_TELEPORT_MAP`) wherever m5c's gate or checklist asserts it; record before/after counts in the wave report | G-03 | R | L |
+| **G-05** | **Re-green** `gs.scenario.m5a` (+ `_geo`), `m5b` (+ `_geo`), `m5b2` (+ `_geo`), `m5b3`, `m5c`, `m5d`, M5e's: delete the `InstanceService.cpp:133, 153` rows. Refresh 2026-09-28, measured at `a75d281ff`: they are `m5a_partial_allowlist.txt:39-40` (a list without sections; the comment is `:38`), and in §C `m5b_partial_allowlist.txt:67-68`, `m5b2_partial_allowlist.txt:51-52` and `m5b3_partial_allowlist.txt:42-43` (each with its comment on the line above). `m5c_partial_allowlist.txt` gets them too if M5c's gate-1 copies them when it writes that list. Rev 2 cited `:38-40` and `:68-70` and missed the m5b2 and m5b3 lists (§15.5); **flip m5c's W-08 expectation** (the flight master now answers `SM_TELEPORT_MAP`) wherever m5c's gate or checklist asserts it; record before/after counts in the wave report | G-03 | R | L |
 | G-06 | Fixups the gate names (owning chunks) | G-03 | R | – |
-| H-01 | `HaramelInstance` (I1 lease) + `CM_PLAY_MOVIE_END` (P-06); it makes `allowInstanceRevive()` true, so `CM_REVIVE(INSTANCE_REVIVE)` reaches T-06's (now required) `instanceRevive` | stage 1 | O | S |
-| H-02 | **user (D5)**: `_1006Ascension`, `_2008Ascension` (Q06 lease) | M5d handler base, A-07 | O | L |
+| H-01 | `HaramelInstance` (I1 lease). Its movie 457 needs `CM_PLAY_MOVIE_END`, which since 2026-09-28 is required on its own (P-06 / M5d D-05), not H-01's. It makes `allowInstanceRevive()` true, so `CM_REVIVE(INSTANCE_REVIVE)` reaches T-06's (now required) `instanceRevive` | stage 1 | O | S |
+| H-02 | **Required, D5 answered 2026-09-27**: `_1006Ascension`, `_2008Ascension`, **`_1007ACeremonyinSanctum`, `_2009ACeremonyinPandaemonium`** (Q06 lease, I-01; 29 bodies, 970 Java lines). 1007/2009 do not start at once; they start at the Daeva's next level change through their own `onLevelChangedEvent` (_1007ACeremonyinSanctum.java:176-179) | M5d handler base; A-07 (M5e C-01); §15's instance-and-teleport subset; M5d's `simple_abyssguard` (A-01 there); `AscensationNpcAI` and `WebRewardService::MaxLevelReward::isPendingAscension`, which have owners outside this plan (§15.1); the play profile's `gameserver.simple.secondclass.enable = false` | **R** | L |
 | G-07 | A proposal for the capacity session (not a lane): instance churn — N clients entering and leaving Haramel for 30 minutes under ASan, asserting 0 live `WorldMapInstance` beyond baseline and an empty census | G-03 | O | – |
 
 ### Deferred
@@ -499,7 +519,7 @@ At most six per stage; chunks disjoint within a stage (leases count as the leasi
 | 2 | **gate** | P5-SC | G-03, G-04 (+ `tests/geo` rows under a P4-04 test lease or in the geo owner's lane) | `gs.scenario.m5f`, `_geo` |
 | 2 | **regate** | P5-SC (second lease) *or* serialized in the gate lane | G-05 | the earlier gates |
 | 2 | fixups | whichever chunks the gate names | G-06 | owning tests |
-| 2/3 | *pull-forwards* (O) | I1, Q06 (leases), P5-16 | H-01, H-02 | owning tests |
+| 2/3 | *pull-forwards* (H-01 O; **H-02 R** since 2026-09-27) | I1, Q06 (leases), P5-16 | H-01, H-02 | owning tests (Q06's `tests/handlers_quest_q06` has to be created) |
 
 **Merge order in stage 1.** I-01..I-03 → **N-04 + N-03's `onLeaveInstance` and `getOrRegisterInstance`** (W-01: they unblock every
 cross-map teleport, including M5b-2's *Return* off-map) → T-05 → T-01/T-02 (T-02 after N-03's `getOrRegisterInstance`) and **T-06** (W-20)
@@ -524,7 +544,7 @@ Bodies never need a request (hub-headers.md §14); these are the declaration cha
 |---|---|---|
 | **None** for `TeleportService.h`, `PortalService.h`, `BindPointTeleportService.h`, `InstanceService.h`, `GeneralInstanceHandler.h`, `InstanceEngine.h`, `WorldMapInstance.h`, `PlayerReviveService.h`, `SpellAtkDrainInstantEffect.h` — every Java method is declared (measured, §2.7); the 3 anonymous bodies and the `Runnable`s are defined in the `.cpp`; **N-07's no-op handler is file-local to `WorldMapInstance.cpp`** (a header in `instance/handlers` would need a request and gains nothing) | – | T-*, N-*, X-05a |
 | `services/RecallService.h`: m5b2-p2-9 (`validateCast` takes `Ptr<VisibleObject>`), **if M5e did not apply it** — with its caller `Skill.cpp:858-860` (P5-02a, I-01's one-line lease) in the same commit | signature (approved already) | T-07 |
-| New files: 5 client packets (+ 3 optional), `ResurrectAI` (P5-05), `PortalAI`, `PortalDialogAI` (A1), optionally `HaramelInstance` (I1), the two ascension quests (Q06), `MultiReturnAction.cpp`, `InstanceTimeClear.cpp` | new files (no request); `fwd.h` regeneration where a directory gains a class | P-*, V-*, H-*, X-* |
+| New files: 5 client packets (+ 3 optional), `ResurrectAI` (P5-05), `PortalAI`, `PortalDialogAI` (A1), optionally `HaramelInstance` (I1), the four ascension quests (Q06; 1007/2009 added 2026-09-27), `MultiReturnAction.cpp`, `InstanceTimeClear.cpp` | new files (no request); `fwd.h` regeneration where a directory gains a class | P-*, V-*, H-*, X-* |
 | `MultiReturnAction`/`InstanceTimeClear` `canAct`/`act` overrides — **covered by M5b-3's h01 batch** if it declared them on every action shell | additive (A-03) | X-01, X-02 |
 | **Manifest**: the leases of I-01 (A1, P4-10, P5-12a, the one-line P5-02a; no P5-10 since rev 2); `tests/handlers_ai_world` if I-01 chooses it | build | I-01 |
 | `game-server/config/m5f.properties.example` (Java tree) | none | I-03 |
@@ -588,7 +608,7 @@ Ordered by what is most likely to go wrong, with the evidence.
 | 0 | leases, header requests, the profile | – |
 | **1** | the six lanes (five R, `effects-items` R for X-05a only): ~101 bodies + N-07's 43 one-line overrides | chunks are disjoint and the dependency chain is short (W-01 first) |
 | **2** | the gate, the geo gate, the regate, fixups; H-01 if taken | the gate needs every stage-1 lane; the regate needs the gate's findings |
-| 3 (O) | H-02 (ascension, **user**, D5) | only on the user's answer |
+| 3 (**R** since 2026-09-27) | H-02 (the four ascension quests, D5 answered) | the owner's answer (owner-decisions.md, 2026-09-27). The instance-and-teleport pieces it stands on may be prepared early and merged after M5c stage 2 (§15) |
 
 **Fallback if A-02 or A-04 is late** (risk 3): stage 1 lands unchanged (its unit tests need neither kinah packets nor dialogs — kinah changes
 are asserted on `Storage` directly, dialogs are driven through `NpcController::onDialogSelect` in-process), and G-03 is written in two parts.
@@ -903,3 +923,339 @@ exist now (A-11 records them as work in progress rather than absent).
 **The milestone after rev 2:** ~101 required bodies (+ N-07's 43 one-line overrides) over ~2,300 Java lines of files; six stage-1 lanes
 (teleport, instance-engine, packets, travel-npcs, gate-harness, effects-items) on disjoint chunks; stage 2 the gate (`gs.scenario.m5f`, ~24
 cases, three characters), the geo gate (`gs.scenario.m5f_geo`) and the regate; an optional stage 3 only on the user's answer to D5.
+
+---
+
+## 15. Ascension subset refresh, 2026-09-28
+
+> Docs only: nothing was compiled, built or run. Re-read at HEAD **`a75d281ff`** ("Phase 6 tooling P6-T…") in the worktree
+> `wip/m5f-instance`, which is clean. The census's header reads "HEAD a75d281ff + working tree", and no chunk is in flux. Measured with
+> `python tools/porting/census.py --chunks P5-13,P4-10,P5-08,P5-15,P5-16`, a grep of `AION_UNPORTED(`/`AION_PARTIAL(` per file,
+> `chunks.py owner` per path, and throw-away ElementTree and `tools/gen/javasrc.py` scripts over the Java tree (session scratchpad). The
+> input is the ascension-route analysis of the same night and owner-decisions.md (the 2026-09-27 rows). §15.8 separates what was measured
+> from what was inferred.
+
+### 15.1 Why, and what stays as it is
+
+- At 00:00 on 2026-09-28 the owner asked for the extra night build slots to go to the retail ascension route. The route is quests
+  1006/2008, then 1007/2009: the class change, the quest engine, the solo instances Karamatis B (310020000) and Ataxiar B (320020000), the
+  flights and the beam teleports. **The 2026-09-27 answers stand.** The route itself is M5f stage 3 (H-02, required now). M5e keeps D1 (a),
+  the simple class window. The pieces below are prepared early in worktrees and **merged only after M5c stage 2**.
+- **In scope:** N-01, N-02, N-07, N-03, the 3 of N-04's 11 bodies that every map change runs, T-02's instance subset, T-06, P-02, P-05 and
+  `CM_PLAY_MOVIE_END`.
+- **Out of scope; the route needs them, but other plans own them:**
+  - C-01 `ClassChangeService` (M5e; 7 U, P5-08);
+  - `simple_abyssguard` (M5d A-01);
+  - `AscensationNpcAI` (`ai="ascensationquestnpc"` on the raiders 211042/211043 and the guardians 205040/205041; A1, no file; the
+    analysis gives it to M5d-1b's lease);
+  - `WebRewardService::MaxLevelReward::isPendingAscension` (P5-09a, `services/reward/WebRewardService.cpp`);
+  - the four handlers (H-02, Q06).
+
+### 15.2 Re-measured
+
+**Chunk totals (census):**
+- P5-13: 115 U + 3 P (rev 2: 118; `PlayerRestrictions` went from 7 to 4).
+- P5-08: 158 U + 2 P (rev 2: 166; M5c stage 1 took `DialogService` from 7 to 1, and closed 2 more).
+- P4-10: 2 U: `ZoneService` 1, and the C++-only `WorldMapInstance::detachInstanceHandler`.
+- P5-15/16: `CM_INSTANCE_LEAVE`, `CM_TELEPORT_ANIMATION_DONE`, `CM_MOVE_IN_AIR` and `CM_PLAY_MOVIE_END` have no file (3 bodies each:
+  constructor, `readImpl`, `runImpl`). 117 of the 190 Java `CM_*` classes have no C++ file (rev 2: 146 of 188).
+
+**Per-type counts on the path are unchanged from rev 2:** `TeleportService` 21, `PortalService` 13, `BindPointTeleportService` 4,
+`InstanceService` 8 + 2 P, its `EmptyInstanceCheckerTask` 4, `GeneralInstanceHandler` 11, `InstanceEngine` 1, `PlayerReviveService` 9,
+`ClassChangeService` 7.
+
+| Item | C++ at `a75d281ff` | Java | Chunk (`chunks.py owner`) | Callees (status) | On the route |
+|---|---|---|---|---|---|
+| **N-01** | `InstanceService.cpp:65, 69, 73, 77` (the checker's `canDestroyInstance`, `isRegisteredTeamDisbanded`, `calculateDestroyTime`, `run`) and `:81, 85, 89, 93` (`getNextAvailableInstance` ×4): **8 U** | InstanceService.java:39-77, 167-198 | P5-13 | all ported: `WorldMapInstanceFactory`, `SpawnEngine::spawnInstance`/`spawnEventSpawns`, `EventService::getActiveEvents` (inline), `InstanceCooltimeData::getMaxMemberCount`, `WorldMap::isInstanceType`/`getAvailableInstanceIds`, `WorldMapInstance::register_`/`setEmptyInstanceTask`/`getLastPlayerLeaveTime`, `GeneralTeam::isDisbanded`; the K4 rows `fieldmap.toml:68`, `cycles.toml:268` | **blocking** (creation, the `(worldId, Player)` overload). The checker is not blocking, but without it every run and every death leaks an instance |
+| **N-02** | `InstanceService.cpp:97-102` (`destroyInstance`, U; D13's TODO at `:98-100`); `WorldMapInstance.cpp:165-168` (`detachInstanceHandler`, U) | :82-107 | P5-13; **P4-10** (lease) | all ported: `TemporarySpawnEngine`/`WalkerFormator::onInstanceDestroy`, `WorldMap::removeWorldMapInstance`, `setStartPos`, `releaseRegisteredTeam` (`WorldMapInstance.cpp:170-172`); the breakers' rows are at `cycles.toml:33-34, 355-358` (rev 2: 353-357) | not blocking; needed for fidelity |
+| **N-07** | no class: 43 pure virtuals in `InstanceHandler.h:31-119` (`= 0` counted: 43); in `src` the only implementor is `GeneralInstanceHandler` (and `PvpMapHandler` through it; `AutoInstance` implements the unrelated `AutoInstanceHandler`) | single-thread-synthesis.md:56, 272 | P4-10 (file-local in `WorldMapInstance.cpp`) | – | with N-02 |
+| **N-03** | `InstanceService.cpp:170` (`onLeaveInstance`, U), `:104` (`getOrRegisterInstance`, U), **P `:133`** (`getOrCreatePersonalInstance`'s call), **P `:153`** (`moveToExitPoint`); `:116` `getOrCreateHouseInstance` stays U (M5h) | :109-114, 137-161, 210-224 | P5-13 | N-04; the `AUTO_GROUP_ENABLE` arm reaches `AutoGroupService::onLeaveInstance` (U, P5-10), which is unreachable while autogroup is off (W-08) | **blocking** (`onLeaveInstance`: every map change, `TeleportService.cpp:117-122`); `:153` for a relog after destruction |
+| **N-04, 3 of 11** | `GeneralInstanceHandler.cpp:35` (`onLeaveInstance`), `:121` (`isRestrictedToInstance`), `:125` (`removeInstanceItems`) | GeneralInstanceHandler.java:64-68, 278-292 | P5-13 | all ported: `EffectController::removeInstanceEffects` (`EffectController.cpp:420-430`), `ItemTemplate::isItemRestrictedToWorld` (`ItemTemplate.cpp:221`), `Storage::decreaseByObjectId`, `Player::getPetBags` | **blocking**. The other 8 (`:39, 43, 48, 53, 57, 61, 65, 97`) have only phase-6 callers: optional in the same lane |
+| **T-02 subset** | `TeleportService.cpp:251, 255` (the `int instanceId` overloads), `:260, 264, 268` (the `WorldMapInstance` overloads), `:348` (`moveToInstanceExit`): **6 U** | TeleportService.java:261-279, 394-403 | P5-08 | all ported: the 8-argument `teleportTo` (`:274`), the 6-argument world-id overload (`:241`), `moveToBindLocation` (`:320`), `InstanceExitData`, `InstanceService::instanceExists` | **blocking:** `:268` (1006) and `:260` (2008). `:348` is needed for fidelity. `:251/:255/:264` complete the family; `DialogService`'s PvP arms use `:251` |
+| **T-06** | `PlayerReviveService.cpp:104, 108` (rev 2: 102/106) | PlayerReviveService.java:157-187 | P5-08 | ported: `revive`, `bindRevive`, the 5-argument `teleportTo` (`:236`), `SM_PLAYER_INFO`, `SM_MOTION`, `getStartPos`. The EVENT_MODE arm's `teleportToEvent` (`TeleportService.cpp:364`) stays U; it is not in the subset | not blocking; reached by a logout while dead inside the instance (`PlayerLeaveWorldService.cpp:119-120`) |
+| **P-02** | no file (`0x00D2`, `ClientPacketInfo.gen.inc:31`) | CM_TELEPORT_ANIMATION_DONE.java:30-50 | P5-16 | all ported: `CreatureController::getAndRemoveTask` (`:409`), `Future::isDone`/`runNowIfPending`/`get` (a `deferred` body stores its exception, and `get()` throws `ExecutionException`, `Future.h`), `SM_PLAYER_INFO`, `World::spawn` | **blocking** |
+| **P-05** | no file (`0x0114`, `:60`) | CM_MOVE_IN_AIR.java:34-60 | P5-16 | all ported: `World::updatePosition` (`World.h:83`), `FlightPath::setDistance`, `Player::isProtectionActive`, `PlayerController::stopProtectionActiveTask`, `PlayerMoveController::onMoveFromClient`, `PlayerController::onMove` | not blocking; needed for fidelity (§15.3) |
+| **`CM_PLAY_MOVIE_END`** | no file (`0x0134`, `:88`) | CM_PLAY_MOVIE_END.java:33-56 | P5-16 | all ported: `QuestEngine::onMovieEnd` (`QuestEngine.cpp:504`), `InstanceHandler::onPlayMovieEnd` (`GeneralInstanceHandler.h:74`, an inline no-op), `VisibleObject::isTargeting`, `AuditLogger::log` | **blocking** |
+
+**Subset size:** 32 bodies (N-01 8, N-02 2, N-03 2, N-04 3, T-02 6, T-06 2, the three packets 9), plus 2 partial closures, plus N-07's 43
+one-line overrides. N-04's other 8 bodies are optional. The analysis's "~35 + 43" counted about the same.
+
+**Line shifts since rev 2.** Lines are function-definition lines, as rev 2 cites them. The plan's other citations are rev 2's; since then
+only these moved:
+- `PlayerReviveService.cpp`: `instanceRevive` ×2 from `:102/106` to `:104/108`;
+- `cycles.toml`: the destroy breakers from `:353-357` to `:355-358`, and `GeneralInstanceHandler.instance` from `:121` to `:122`.
+
+These did not move:
+- `InstanceService.cpp:170` (`onLeaveInstance`), and the two partials at `:133` and `:153`;
+- `GeneralInstanceHandler.cpp:35/121/125`;
+- `PlayerLeaveWorldService.cpp:118-120` (`delete_()` at `:154`);
+- `WorldMapInstance.cpp:165-168`.
+
+### 15.3 What the route calls (read from the four handlers, not run)
+
+| Step | Where | What runs | Needs |
+|---|---|---|---|
+| **6 same-map beams** | _1006Ascension.java:95, :148; _2008Ascension.java:123, :176, :193, :210 | the 7-argument `teleportTo(…, FADE_OUT_BEAM)` (ported) → `sendLoc`: a despawn, `SM_TELEPORT_LOC` and a deferred `TELEPORT` task (`TeleportService.cpp:177-187`) | **P-02**: without it the player stays despawned on its own map. That is the analysis's correction; m5e-plan.md:261 says these teleports already work, and fixing that is m5e-plan's job |
+| **2 instance entries** | _1006Ascension.java:98-99 (`KARAMATIS_B`, the 7-argument `WorldMapInstance` overload, `NONE`); _2008Ascension.java:131-132 (`ATAXIAR_B`, the 5-argument one) | `getNextAvailableInstance(worldId, Player)`: `maxPlayers` comes from `instance_cooltimes.xml` ids 31/34 (`:298-307`, `:328-337`: `RELATIVE`, maxcount 1, 1 member for either race). The handler is a `GeneralInstanceHandler`, because no `@InstanceID` handler exists for either map. `spawnInstance` places **51 spots** (33 `aggressive`, 18 `general`) or **60 spots** (17 `aggressive`, 43 `general`), with no walker, no temporary spawn and no static id (ElementTree). Then `register(player)` and the checker. The `NONE` move runs `SpawnTask::run` at once; it leaves Poeta/Ishalgen through `onLeaveInstance`, and the arrival sends `STR_MSG_INSTANCE_DUNGEON_OPENED_FOR_SELF` (neither map is personal) | **N-01**, **T-02** (`:268`, `:260`), **N-03 + N-04's 3** |
+| **4 cross-map beams** | _1006Ascension.java:185 (310020000 → Poeta), _2008Ascension.java:248 (320020000 → Ishalgen), _1007ACeremonyinSanctum.java:65 (→ Sanctum), _2009ACeremonyinPandaemonium.java:71 (→ Pandaemonium) | as above, then `SpawnTask`'s cross-map arm → `onLeaveInstance`. Leaving the instance sends `STR_MSG_LEAVE_INSTANCE(600 / 60 = 10)` (solo, `instance.properties:22`) | **P-02**, **N-03**, **N-04's 3** |
+| **2 scripted flights** | _1006Ascension.java:157-175 (flight 1001, `flypath_template.xml:3`, 45 s); _2008Ascension.java:219-237 (3001, `:5`) | the FLYING state and `SM_EMOTION(START_FLYTELEPORT)` (ported). The client sends `CM_MOVE_IN_AIR` along the path and `CM_EMOTION(LAND_FLYTELEPORT)` at the end (ported, `CM_EMOTION.cpp:173-174`). At 43 s the handler spawns 4 raiders (:168-171) or 4 guardians (:230-233). They stand **147-164 m** (2D) from flypath 1's take-off point and **178-202 m** from flypath 3's, both beyond the 95-m sight range (`VisibleObject.h:177`) | **P-05**. Without it the server keeps the take-off position until the first `CM_MOVE` after landing, so the spawned mobs enter the player's known list late. This is inferred from `KnownList.update`, not run; what the mobs do meanwhile depends on `AscensationNpcAI` |
+| **8 movies** | 1006: 14, 151; 2008: 152, 57; 1007: 92, 91; 2009: 121, 122 | `playQuestMovie` → `SM_PLAY_MOVIE`, which sets `WATCHING_CUTSCENE` (`SM_PLAY_MOVIE.cpp:18`); `CM_MOVE` drops every move while it is set (`CM_MOVE.cpp:146-148`) | **`CM_PLAY_MOVIE_END`**. Nothing sends `SM_PLAY_MOVIE` at HEAD (`AbstractQuestHandler.cpp:196-202` are U). The M5d worktree ports `playQuestMovie`, and M5d's join registers the 28 XML quest rows with a `movie` (all in `sanctum.xml`/`pandaemonium.xml`), so the packet is needed **no later than M5d's join** |
+| **death inside** | `onDieEvent` (_1006Ascension.java:247, _2008Ascension.java:286) resets the step | `SM_DIE` offers `BIND_REVIVE`, because `allowInstanceRevive` is false for the base class (`GeneralInstanceHandler.cpp:112-119`). `bindRevive` makes a cross-map move to the bind point. A second talk to Pernos/Munin then creates a **new** instance | N-03 + N-04's 3. Without **N-01's checker + N-02**, the old instance leaks |
+| **logout while dead inside** | `PlayerLeaveWorldService.cpp:119-120` | `instanceRevive`. `startPos` is null: `getNextAvailableInstance(worldId, Player)` never sets it, only `PortalService.transfer` does. So it revives at 25 % and then calls `bindRevive`, which **revives a second time** (25 %, soul sickness again) and moves to the bind point. That is Java's behaviour, kept (D7) | **T-06** (+ N-03/N-04) |
+| **relog inside** | `onPlayerLogin` → registered → the same instance; `onEnterWorldEvent` sends `SM_ASCENSION_MORPH(1)` (_1006Ascension.java:265) | ported | – |
+| **relog after destruction** | `onPlayerLogin` → not registered → `moveToExitPoint` (P `:153`) → `moveToInstanceExit`. **`instance_exit.xml` has no row for 310020000 or 320020000** (137 rows), so Java logs the WARN "No instance exit found for race: …" and calls `moveToBindLocation` (TeleportService.java:394-403). The handler then resets the step (_1006Ascension.java:259-270) | – | **T-02's `:348`** + N-03's `:153` closure |
+
+**The effect boundary on these two maps (lesson 2, measured).**
+- The npc ids of both spawn files, plus the quest spawns 211042/211043/205040/205041/790001, have one npc skill between them: **16526**
+  (Orissan 211043, Hellion 205041).
+- Its only effect is `SkillAttackInstantEffect`, a data-only generated class (`SkillAttackInstantEffect.h`), counted as ported by §2.8's
+  rule.
+- So no monster skill on the route lies outside the ported set.
+- Method: `npc_skills/**` × `skill_templates.xml` × `Effects.java`'s bindings × `skillengine/effect/*.cpp`.
+
+### 15.4 Chunks, leases and the merge
+
+**What M5c stage 2 holds tonight** (m5c-plan.md §20.4; the main tree's working tree shows the same files):
+- craft: P5-09c, with test-file leases on `tests/economy/P5-09a/EconomyTestSupport.h` and **`tests/playersvc/DialogServiceTest.cpp`**;
+- craft-task: P5-02a;
+- craft-edges: **P5-15, P5-16**, P5-07;
+- gate-1: **P5-SC**, `tools/oracle`, P5-14.
+
+**Free:** P5-13, P4-10, and P5-08's source files. No M5d lane holds P5-13 or P4-10. M5j-0's gm-core lane takes P5-13
+(m5j-plan.md:703).
+
+| Lane (worktree) | Items | Chunks, leases | Tests | Tonight | Merge |
+|---|---|---|---|---|---|
+| **asc-instance** | N-04's 3 (all 11 if there is room), N-03, N-07, N-01, N-02 | P5-13, plus I-01's **P4-10 lease → `world/WorldMapInstance.cpp`** as a LEASE part in `chunks.cmake` (the P4-08 form, `:159-160`), plus the N-07 deviation row in `docs/deviations/P4-10.md` | `tests/instance` (P5-13) | **yes**, conflict-free | after M5c stage 2 (the allow-list edits are P5-SC's, I-04); **before M5j-0** |
+| **asc-teleport** | T-02 subset, T-06 | P5-08: only `TeleportService.cpp`, `PlayerReviveService.cpp` and new files in `tests/playersvc` | `tests/playersvc` | **prepared only**. Two pinned rows change with it, and both are in files other lanes hold tonight: `DialogServiceTest.cpp:1072-1073` (ENTER_PVP/LEAVE_PVP pin `TeleportService::teleportTo`, the `:251` overload; the craft lane's C-01 rewrites rows of the same table) and `RevivePacketTest.cpp:176` (pins `instanceRevive`; `tests/cm_lz` is P5-16) | after M5c stage 2, either as integrator commits before M5d-1a opens or as riders of M5d-1a's dialog-and-rewards lane, which owns P5-08, P5-15 and P5-16 (m5d-plan.md:698). If the DialogServiceTest coupling delays it, `:251/:255` can drop out of the subset; the route does not use them |
+| **asc-packets** | P-02, P-05, `CM_PLAY_MOVIE_END` | P5-16, new files only (`CM_TELEPORT_ANIMATION_DONE.*`, `CM_MOVE_IN_AIR.*`, `CM_PLAY_MOVIE_END.*`, and new test files in `tests/cm_lz`) | `tests/cm_lz` | **prepared only**. The files are new and disjoint from craft-edges' `CM_RECIPE_DELETE`, but the chunk is craft-edges' | as asc-teleport. `CM_PLAY_MOVIE_END` is also M5d's D-05 (now R); whichever lane lands first owns it |
+
+**Merge order (all after M5c stage 2):**
+1. N-04's 3 and N-03's `onLeaveInstance` (W-01/F-2: every cross-map move).
+2. P-02, after step 1. Otherwise a cross-map beam (a road today, §15.5) ends in `CM_TELEPORT_ANIMATION_DONE`'s catch: an ERROR,
+   `SM_PLAYER_INFO`, and a spawn at the old spot.
+3. N-07, then N-01 with the `:133` closure (N-01's bodies move `:133` anyway), then N-02.
+4. The T-02 subset with N-03's `:153` closure and I-04's allow-list deletions, in one commit (the M5b-2 D7 rule), with
+   `DialogServiceTest.cpp`'s two rows rewritten.
+5. T-06 with `RevivePacketTest.cpp:176`.
+6. P-05 and `CM_PLAY_MOVIE_END`, which are independent. `CM_PLAY_MOVIE_END` lands no later than M5d's join.
+
+If steps 3 and 4 cannot land together:
+- N-01's bodies move the `:153` partial to a new line. Its four rows then name a line with no partial, and the partial sits unlisted at its
+  new line.
+- No gate reaches it, so no gate fails. It still breaks D7's rule, so step 3's commit rewrites the four rows to the new line.
+
+**The allow-list edits are P5-SC files.** If M5c stage 3's regate lane holds P5-SC at merge time, the edits ride in that lane (it re-greens
+every gate anyway), or they take a test-file lease.
+
+**Builds:** about 2 night slots: the instance core with its tests, then the teleport and packet pieces together.
+
+**What the asc-instance worktree actually holds (review of 2026-09-28).** The night ran the three lanes of the table as one worktree
+(`wip/m5f-instance`), so it edited P5-08, P5-16 and P5-SC without a lease; only P5-13 and the declared P4-10 lease are its own. Nothing is
+committed. The integrator splits it by chunk after M5c stage 2, each part under its owner or a lease:
+
+| Commit | Chunk | Files |
+|---|---|---|
+| A | P5-08 (integrator commit, or an M5d-1a rider) | `TeleportService.cpp`, `PlayerReviveService.cpp`, `tests/playersvc/InstanceTeleportTest.cpp`, the comment of `TeleportStatementsTest.cpp:17-20`, `docs/deviations/P5-08.md` |
+| B | P5-13, with the P4-10 lease | `InstanceService.cpp`, `GeneralInstanceHandler.cpp`, `PvpMapService.cpp` (the partial's message), `world/WorldMapInstance.cpp` and its LEASE part in `chunks.cmake`, `tests/instance/*` (the fixture `AscensionTestSupport.h`, `AscensionTestData.h`, `InstanceLifecycleTest.cpp`), `docs/deviations/P5-13.md`, `P4-10.md`, header request m5f-asc-1 |
+| C | P5-SC, same commit as B's `:133`/`:153` closures (D7) | the m5a, m5b, m5b2, m5b3 partial allow-lists; **and the main tree's `m5c_partial_allowlist.txt`**, which copied the stale rows: delete `:44-45` (`InstanceService.cpp:133`/`:153`) and reword the PvpMapService comment at `:40` to D6's reason (read-only check, 2026-09-28) |
+| D | P5-16 (integrator commit, or an M5d-1a rider) | the three packet pairs, `tests/cm_lz/AscensionPacketsTest.cpp`, `RevivePacketTest.cpp`'s EVENT_MODE case, `docs/deviations/P5-16.md` |
+
+Order: A and B depend on each other through the tests (`InstanceLifecycleTest` enters and leaves instances with T-02's overloads and
+`moveToInstanceExit`; `InstanceTeleportTest` creates its instances with N-01), so they land together or A first with `InstanceTeleportTest`
+held back to B. D needs A and B (its fixture is B's). `tests/playersvc` and `tests/cm_lz` include B's `tests/instance/AscensionTestSupport.h`
+by relative path, which includes `tests/economy/P5-09a/EconomyTestSupport.h` (read only) and `tests/cm_ak/InWorldPacketRunSupport.h`.
+
+### 15.5 What changes for the earlier gates
+
+**(a) Every cross-map move.** A map change runs `SpawnTask::run`'s `currentWorldId != worldId || currentInstance != instanceId` arm
+(`TeleportService.cpp:117-122`), or `teleportDeadTo`, into `onLeaveInstance`, which throws today. After steps 1-2 these paths finish their
+move instead:
+- *Return* (`ReturnEffect.cpp:13`), Escape (`EscapeEffect.cpp:12`) and bind revive (`PlayerReviveService.cpp:91`), when the bind point is
+  on another map.
+- A logout while dead on a field map with the bind point elsewhere (`PlayerLeaveWorldService.cpp:122`). Today that throw skips `delete_()`
+  and leaves a ghost.
+- **Roads.** There are 8 in `roads.xml`, among them Verteron → Eltnen and Altgard → Morheim. `RoadService` starts at `GameServer.cpp:241`,
+  and `RoadObserver.cpp:38-45` teleports with `FADE_OUT_BEAM`. With no `CM_TELEPORT_ANIMATION_DONE` file, a real player who crosses one
+  **stays despawned until relog today**; with P-02 plus steps 1-2 he arrives.
+- The ENTER_PVP/LEAVE_PVP arms of `DialogService` (`DialogService.cpp:251-275`: Sanctum 203764/203875, Pandaemonium 204089/204087, Eltnen
+  203981/203982). They throw today; with the `:251` overload they move the player.
+
+On every map change, `GeneralInstanceHandler::onLeaveInstance` also removes NPC_BUFF-category effects and FORM1 transforms
+(`EffectController.cpp:420-430`), plus the items restricted to the map being left. That is Java's behaviour, new to the port.
+
+**(b) Animated teleports.** At HEAD the only animated teleport callers are `RoadObserver` and `HouseController` (M5h). Every later one
+(T-01's `JUMP_IN`, `PortalService`'s beams, the route) needs P-02.
+
+**(c) The gates at HEAD:** `gs.scenario.m5a`/`_geo`, `m5b`/`_geo`, `m5b2`/`_geo` and `m5b3`/`_geo`.
+- All stay on one map. Their bind revives (m5b P2, m5b2 S15) use `SpawnTask`'s same-map arm, which skips `onLeaveInstance`.
+- None produces `SM_TELEPORT_LOC`, and none sends `0x00D2`, `0x0114` or `0x0134` (grep of `tests/scenario`).
+- **Expected: every packet sequence unchanged** (inferred, §10.6 c).
+- Re-run all eight after steps 1-2 and again after step 4, two at a time (about 20 min each round), plus `gs.scenario.m5c` once M5c stage 2
+  has written it. Record before and after (G-05's rule).
+- Unit suites to re-run: `tests/instance`, `tests/world`, `tests/playersvc`, `tests/cm_lz`, `tests/cm_ak`, `tests/login_slice`.
+
+**(d) The allow-list rows these items close:** `InstanceService.cpp:133` and `:153`.
+- Where they are: `m5a_partial_allowlist.txt:39-40` (a list without sections; the comment is `:38`), and in §C of
+  `m5b_partial_allowlist.txt:67-68`, `m5b2_partial_allowlist.txt:51-52` and `m5b3_partial_allowlist.txt:42-43`.
+  `m5c_partial_allowlist.txt` gets them too if gate-1 copies them from m5b2/m5b3 (m5c-plan.md:898).
+- No gate hits either site: `:133` needs a character with a world owner on a personal map, and `:153` a login on an instance map. So the rows
+  are only ever printed as not hit, and none fails. I-04 deletes them in the commit that closes the site.
+- After N-01, the comments above the `PvpMapService.cpp:32` rows (m5a `:22`, m5b `:64`, m5b2 `:48`, m5b3 `:39`) and the partial's own
+  message both become wrong. The site stays partial for D6's reason; editing its message text does not move the line.
+
+**(e) Unit tests that pin today's throws.** These rows change with the subset:
+- `DialogServiceTest.TheArmsOfOtherServicesReachTheirOwnUnportedBodies`, `:1072-1073` (with the `:251` overload);
+- `ReviveRunTest.EveryOtherArmReachesItsOwnService`, `RevivePacketTest.cpp:176` (with T-06);
+- `TeleportStatementsTest.cpp:17-20` records the cross-map arm's first `setPortAnimation` as not covered; step 1 makes it coverable.
+
+A grep of `game-server/tests` for the subset's other names found no other pin. `InstanceServicesTest.cpp:141` pins `PvpMapService`'s
+partial, which stays.
+
+**(f) Census after the whole subset:**
+- P5-13: 115 → 101 U (93 with N-04's other 8), 3 → 1 P;
+- P4-10: 2 → 1;
+- P5-08: 158 → 150;
+- P5-16: 9 fewer bodies without a file.
+
+### 15.6 Test plan (every new or changed assertion mutate-fail-revert-pass)
+
+**As delivered (review of 2026-09-28):** the seven planned files are three, named in the table. The wall-clock rows of N-01 are no longer
+left to a gate (§15.5 (c): no gate leaves its map): one case waits 1.1 s twice and kills the leave-time `max` and the `* 1000`; `>` → `>=`
+stays unkilled (a 1 ms boundary on the wall clock). The fixture copies player_initial_data.xml:3-4 and the tribe rows verbatim and inits
+GeoService with geo data off; SM_NPC_INFO of the instance npcs still fails in KnownList's see notification (their 39 equipment items are
+not in the fixture, so NpcEquippedGear meets unresolved item references), recorded in docs/deviations/P5-13.md.
+
+**Rules:**
+- Fixtures copy the shipped rows verbatim, with `file:line` beside each:
+  - `world_maps.xml:113, :125` (the two instances), `:11` (Poeta), `:3` (Sanctum), `:48` (Taloc's Hollow), `:155` (720010000);
+  - `instance_cooltimes.xml:298-307, 328-337`;
+  - the two spawn files whole;
+  - `instance_exit.xml:16-17`;
+  - `item_templates.xml:823434-823439` (160001286 Taloc Fruit, `ownership_worlds="300190000"`);
+  - the handlers' coordinates.
+- A mutant lives in a schema or behind a sha256-verified restore, never across a long command.
+- Every row below names the mutants that must fail and says which survivors are recorded.
+
+| Item | File (chunk) | Cases | Mutants that must fail | Recorded as not killable |
+|---|---|---|---|---|
+| N-04's 3 | `tests/instance/InstanceLifecycleTest.cpp` (P5-13; planned as InstanceLeaveTest.cpp) | a player leaves a 300190000 instance with Taloc Fruit in the cube (a stack of 2) and in a pet bag: both are removed whole, and an unrestricted item stays; the same player leaving 310020000 keeps it; an NPC_BUFF effect and a FORM1 transform are removed, a normal buff stays | `isRestrictedToInstance` → false; the pet-bag loop skipped; decrease by 1 instead of the item count; `removeInstanceEffects` skipped | – |
+| N-03 | same file | a solo registered instance (from N-01): `STR_MSG_LEAVE_INSTANCE(10)`, and `(0)` with the delay at 1 s; a field map (registered count 0): no message; the party arms with `maxPlayers` 6 (no members → `…_PARTY(0)`; ≤ 1 inside → `…_PARTY(10)`); autogroup off → `AutoGroupService::onLeaveInstance` is not reached; `getOrRegisterInstance` returns the same instance when the player is registered and a new registered one when not; `:133` on 720010000 (`HOUSING_IDLF_PERSONAL`) creates a personal instance; the `SpawnTask` cross-map `setPortAnimation` (TeleportStatementsTest's gap) | `/ 60` dropped; `== 1` → `>= 1`; the registered-count guard dropped; the handler call skipped; the autogroup check dropped (it throws U); always create; the first `setPortAnimation` dropped | whether `spawnInstance(720010000)` reaches an unported body is **inferred**; if it does, `:133`'s case waits for M5h and is recorded |
+| N-01 | `tests/instance/InstanceLifecycleTest.cpp` (planned as InstanceCreateTest.cpp) | `getNextAvailableInstance(310020000, Elyos)`: a new id, `maxPlayers` 1, owner 0, the player registered, **51** npcs, a `GeneralInstanceHandler`, `onInstanceCreate` once, the log line "Created new instance: 310020000 [id] owner:0 difficultyId:0", and the checker due at 60 s and every 60 s after on a `DeterministicExecutor` (nothing at 59.999 s). 320020000 with an Asmodian gives 60 npcs. Poeta throws `UnsupportedOperationException` ("…  of 210010000", with Java's double space). The supplier arm uses the supplier's handler, calls no `spawnInstance` and spawns only event spawns. `autoDestroy` false leaves no checker. The checker: not destroyed while a player is inside; a personal instance is destroyed on the first run; with the delay at 1 s, destroyed on the first run once ≥ 5 ms have passed; with the delay at 600 s, not destroyed | `spawnInstance` skipped; `register` skipped; the checker's initial delay set to 0; `autoDestroy` ignored; the players-inside guard dropped; the personal arm dropped; the `− 1000` dropped (killed at 1 s); the supplier arm spawning | **the race swap in `getMaxMemberCount`**: no row of the 110 has light ≠ dark, so it is equivalent on shipped data. **The PANESTERRA clause**: no PANESTERRA map is an instance, so it is unreachable. **`>` → `>=` and `max` → `min` in the time test**: the checker reads the wall clock (`commons/…/TimeUtils.h:9-11`), not `ManualClock`, so they are killable only with ≥ 1 s waits and are left to the gate. **`isRegisteredTeamDisbanded`**: needs a `GeneralTeam` (P5-10 → M5g), as N-05 already says |
+| N-02 + N-07 | `tests/instance/InstanceLifecycleTest.cpp` (planned as InstanceDestroyTest.cpp) | `destroyInstance` on a Karamatis B instance: the checker cancelled; `instanceExists` false; the 51 npcs deleted; `getInstanceHandler()` non-null, not the old handler, and the same object for two destroyed instances; `startPos` and the registered team null; the `InstanceScaler` entry erased (scaling on, `maxPlayers` > 1, D13); after `Reclaimer::reclaimNow`, the live counts of `WorldMapInstance`, `GeneralInstanceHandler`, `Npc` and `EmptyInstanceCheckerTask` equal the baseline and `LeakCensus` is empty. A non-instance map only cancels. With a player inside: `STR_MSG_LEAVE_INSTANCE_FORCE(0)` + `moveToExitPoint` (after step 4). The no-op handler's answers, each one: `onReviveEvent` false, `onDie(Player&, Creature&)` false, `getStage` DEFAULT, `getInstanceScore` null, `onPassFlyingRing` false, `canEnter` true, `getExpMultiplier` 1.5f, `getApMultiplier` 1f, `allowSelfReviveBySkill`/`ByItem` true, `allowKiskRevive` false, `allowInstanceRevive` false; `portToStartPosition` throws `UnsupportedOperationException`; `retain`/`release` change no count | each breaker skipped (`detachInstanceHandler`, `setStartPos(nullptr)`, `releaseRegisteredTeam`, the scalings erase); the cancel skipped; `removeWorldMapInstance` skipped; the delete loop skipped; the no-op handler returning null, retaining the instance, answering 1.25f, or answering `allowKiskRevive` true | the team breaker's leak needs a `GeneralTeam` (M5g) |
+| T-02 subset | `tests/playersvc/InstanceTeleportTest.cpp` (P5-08) | 1006's entry verbatim (`:268`: 52, 174, 229, h 10, `NONE`): `SM_CHANNEL_INFO`, `SM_PLAYER_SPAWN(310020000, the new id)`, `STR_MSG_INSTANCE_DUNGEON_OPENED_FOR_SELF`. 2008's (`:260`: 457.65, 426.8, 230.4) keeps the player's heading. `:264`. `:251/:255` land in Sanctum's instance 1 with `NONE`. `moveToInstanceExit`: Haramel for an Elyos and for an Asmodian (`instance_exit.xml:16`/`:17`); 310020000 → the WARN plus the bind location or the race spawn; an exit row whose world has no instance 1 → the bind location without the WARN. `DialogServiceTest.cpp:1072-1073` become positive rows (the move to the arena point) | the heading default replaced by 0; the animation ignored (a `FADE_OUT_BEAM` case that must send `SM_TELEPORT_LOC`); the instance id replaced by 1; the race ignored (the Asmodian lands at the Elyos exit); the `instanceExists(exit, 1)` check dropped; the WARN dropped (checked in the log) | – |
+| T-06 | `tests/playersvc/InstanceTeleportTest.cpp` (P5-08; planned as InstanceReviveTest.cpp). The soul-sickness arms reach `HousingService`'s database (PlayerReviveServiceTest.cpp:10-13), so they use a database-backed fixture: a copy of the `EconomyTestSupport.h` pattern, one ctest process per case, the task's `AION_TEST_*` env | EVENT_MODE: 100 %, `STR_REBIRTH_MASSAGE_ME`, then `teleportToEvent`'s U, which pins the branch. A test handler derived from `GeneralInstanceHandler` whose `onReviveEvent` answers true: still dead, nothing sent. `startPos` set: 25 %, the rebirth message, `SM_STATS_INFO`, `SM_PLAYER_INFO`, `SM_MOTION`, then a same-map move to `startPos`. `startPos` null (the ascension case): the double revive and the move to the bind point. **A `leaveWorld` of a player dead inside a Karamatis B instance that completes**: `delete_()` ran, and the saved position is the bind point. `RevivePacketTest.cpp:176` becomes EVENT_MODE → `teleportToEvent` | the EVENT_MODE `return` dropped (HP 25 %, not 100 %); the `onReviveEvent` check dropped; the `startPos` move skipped; the `bindRevive` fallback skipped; `unsetResPosState` skipped | the null-map arm (a spawned player's map always exists): recorded, unless a position on an unloaded map id can be built |
+| P-02 | `tests/cm_lz/AscensionPacketsTest.cpp` (P5-16; planned as TeleportAnimationDonePacketTest.cpp) | an empty body, consumed. No `TELEPORT` task: nothing. 1006's same-map beam verbatim (210010000, 657, 1071, 99.375, h 72, `FADE_OUT_BEAM`), then the packet: the task is gone, the `spawnOnSameMap` burst (`SM_CHANNEL_INFO`, `SM_PLAYER_INFO`, `SM_STATS_INFO`, `SM_MOTION`) arrives at that point, and the player is spawned. 1006's exit beam from a Karamatis B instance (after step 1): `SM_CHANNEL_INFO`, `SM_PLAYER_SPAWN(210010000)`, `STR_MSG_LEAVE_INSTANCE(10)`. A done task is not re-run. A cancelled task: nothing. A throwing deferred task: ERROR, `SM_PLAYER_INFO`, spawned in place; the same when already spawned: no second spawn | `getAndRemoveTask` → a plain get (the task stays); `runNowIfPending` skipped (still despawned); `get()` skipped (no fallback); the `!isSpawned()` guard dropped; the `isDone` guard dropped (the cancelled case throws) | – |
+| P-05 | `tests/cm_lz/AscensionPacketsTest.cpp` (planned as MoveInAirPacketTest.cpp; the known-list case was not delivered, recorded in docs/deviations/P5-16.md) | the 21-byte body (D, F×3, C, D) consumed exactly. Not spawned: nothing. Not FLYING: the position is unchanged. FLYING with flight 1001 (as 1006 sets it): the distance lands on the `FlightPath`, the position is the new one, protection is stopped, an npc placed 150 m from flypath 1's start (the raider geometry) enters the known list after one packet within 95 m, and a `MOVE` observer fires | the FLYING guard dropped; `setDistance` skipped; `updatePosition(…, false)`; `stopProtectionActiveTask` skipped; `onMove` skipped | – |
+| `CM_PLAY_MOVIE_END` | `tests/cm_lz/AscensionPacketsTest.cpp` (planned as PlayMovieEndPacketTest.cpp) | the 15-byte body (C, D, D, D, C, C) consumed exactly. Round trip: a serialized `SM_PLAY_MOVIE` sets `WATCHING_CUTSCENE`, so `CM_MOVE` is dropped; then `CM_PLAY_MOVIE_END(0, target, 1006, 14)` clears the state, calls `QuestEngine::onMovieEnd` for quest 1006 and movie 14 (a test quest handler records it) and the instance handler's `onPlayMovieEnd(player, 14)` (a test handler), and the next `CM_MOVE` moves the player. Not watching: the audit line "sent CM_PLAY_MOVIE_END for cutscene 14 that wasn't sent by the server", and no quest call. Type 1 with quest 0 and movie 3, 4 or 5: no audit. Type 0 with movie 3: audit. A target that is not being targeted: null | the state not cleared (`CM_MOVE` still dropped); the guard inverted; the book ids applied to type 0; the instance-handler call skipped; the `isTargeting` check dropped | – |
+| gates | – | §15.5 (c): the eight gates twice, plus `gs.scenario.m5c` when it exists; expected unchanged; the allow-list deletions go in step 4's commit | – | the whole route, Karamatis B / Ataxiar B end to end, is H-02's case in M5f stage 3, not this section's |
+
+### 15.7 Plan errors corrected in place (the analysis's list, checked)
+
+| Where | Was | Now |
+|---|---|---|
+| H-02 (§5), I-01's Q06 lease, §2.6, §2.7, §6, §7, §9, D5 | 1006/2008 only; "user", optional; the lease path `handlers/quest/ascension/…` | the four quests (29 bodies, 970 lines), required since the 09-27 answer; the path `handlers/aion/gameserver/handlers/quest/ascension/…` (Q06 by `chunks.py owner`) |
+| §2.6, §2.10, P-06, H-01 | `CM_PLAY_MOVIE_END` optional, tied to H-01 | **required**, with the cutscene lock as the reason; M5d's D-05 or P-06 ports it, no later than M5d's join |
+| G-05 | `m5a_partial_allowlist.txt:38-40`, `m5b_partial_allowlist.txt:68-70`, "§C in m5a/m5b" | m5a `:39-40` (no sections), and in §C m5b `:67-68`, m5b2 `:51-52`, m5b3 `:42-43`; m5c's list too if gate-1 copies them |
+
+Not corrected here, because they sit in other plans:
+- m5e-plan.md:254: 1006 starts at level 9 (it is only added as locked at 7-8);
+- m5e-plan.md:261: same-map beam teleports need P-02;
+- m5d-plan.md D-05 lists `CM_PLAY_MOVIE_END` as "W/O"; it is R now.
+
+### 15.8 Measured and inferred
+
+**Measured:**
+- every count and line of §15.2 and the census chunk totals;
+- `chunks.py owner` for every file and test directory named;
+- the four handlers' calls (grep), their bodies (29) and their lines (970);
+- the spawn, cooltime, exit, flypath, road and item rows, and the raider distances;
+- the npc-skill boundary;
+- the pinned tests (grep of `game-server/tests`) and the allow-list rows;
+- that no scenario test sends the three packets;
+- that nothing sends `SM_PLAY_MOVIE` at HEAD, while the M5d worktree ports `playQuestMovie`;
+- the 28 XML movie rows.
+
+**Inferred** (a lane should confirm before relying on it):
+- that the earlier gates' packets do not change (§10.6 c);
+- what the raiders do while P-05 is missing;
+- that `spawnInstance` on 310020000, 320020000 and 720010000 reaches nothing unported at runtime (the data has no walker, no temporary
+  spawn and no static id);
+- the dates of M5c stage 2's merge and of M5d-1a's start, which decide when steps 1-6 can land.
+
+---
+
+## 16. Travel core, early (2026-09-29)
+
+> Built, tested and gated in the main tree on branch `m5f/travel-core` (from `7bb89eff0`), uncommitted, at the owner's request to have
+> Ascension playable soon: after 1007/2009 the dispatch quests send the new Daeva to Verteron/Altgard, which needs the npc teleporter and the
+> flight master. This section pulls that slice of stage 1 forward. It changes no plan decision.
+
+### 16.1 What landed
+
+| Item | What | Chunk | Where |
+|---|---|---|---|
+| **T-01** | `TeleportService`: `teleportToFirstTeleportLocation`, `teleport` (REGULAR and FLIGHT, with the fly-path validator and D7's quirk kept), `validateTeleporterAndGetTemplate`, `checkKinahForTransportation`, `showMap` | P5-08 | `services/teleport/TeleportService.cpp` |
+| **T-05** | `SiegeService::getSiegeIdByLocId`, `onEnterSiegeWorld` | P5-12a, under P5-08's lease (I-01; the LEASE row in `chunks.cmake`, released at merge) | `services/SiegeService.cpp` |
+| **P-01** | `CM_TELEPORT_SELECT` (new file, `AION_CLIENT_PACKET` marker; opcode 0x0177 was registered) | P5-16 | `network/aion/clientpackets/CM_TELEPORT_SELECT.{h,cpp}` |
+| T-08 (this slice) | the price table, HiPass, the kinah refusal, the required quest, `validateTeleporterAndGetTemplate`'s refusals and talk range, REGULAR (Java-byte `SM_TELEPORT_LOC`, the watcher's `SM_DELETE(11)`, the arrival after the animation) and FLIGHT (state, `SM_EMOTION(START_FLYTELEPORT, id)`, no `SM_TELEPORT_LOC`), the validator's three refusals, its accepting arm and 7 m threshold, REGULAR's instance arm, `SUPPORT` and the refusal order, the `DEC_KINAH_FLY` mask, `teleportToFirstTeleportLocation` (a `<locations/>` without a route is Java's NPE), `showMap`, `getSiegeIdByLocId` rows, `onEnterSiegeWorld` with sieges off and its world filter, and DialogService's `AIRLINE_SERVICE` (203194/203679 `NO_RIGHT` for a non-Daeva, the map for a Daeva, a flight master for anyone) | P5-08 | `tests/playersvc/TravelTeleportTest.cpp` (39), fixture `TravelTestSupport.h`; `DialogServiceTest.cpp`'s airline row flipped (W-08) |
+| P-07 (this slice) | `CM_TELEPORT_SELECT` byte vectors and run tests (dead, not in the known list, not an npc, unknown loc id, refused teleporter, good selection through the real `CM_TELEPORT_ANIMATION_DONE`, the statue animation, D7's missing Daeva check, a flight, a teleporter without a route) | P5-16 | `tests/cm_lz/TeleportSelectPacketTest.cpp` (13) |
+| gate | `gs.scenario.travel` (label `scenario`, gate slot 1): §16.3 | P5-SC | `tests/scenario/TravelScenarioTest.cpp`, `travel_partial_allowlist.txt`, `ScenarioTests.cmake` |
+
+The integrator splits the commit by chunk (P5-08 + the P5-12a lease; P5-16; P5-SC), the way §15.4 split the ascension worktree. The two new
+test files of P5-16 and P5-SC include P5-08's fixture `tests/playersvc/TravelTestSupport.h` by relative path (the precedent of
+`tests/cm_lz` including `tests/instance/AscensionTestSupport.h`). No header of another chunk changed (header-requests.md, "M5f travel core
+(early, 2026-09-29)"). Deviations: P5-08.md, P5-12a.md, P5-16.md, P5-SC.md.
+
+**Census:** P5-08 `TeleportService.cpp` 16 -> 11 `AION_UNPORTED` (the five T-01 bodies); P5-12a 2 fewer (`SiegeService.cpp` 26 -> 24);
+P5-16: one class fewer without a file.
+
+### 16.2 Tests and mutation proof
+
+- Unit: `tests/playersvc/TravelTeleportTest.cpp` (39 cases), `tests/cm_lz/TeleportSelectPacketTest.cpp` (13), the flipped
+  `DialogServiceTest.ThePoetaTeleporterRefusesAPlayerWhoIsNoDaevaAndShowsADaevaItsMap`. The affected executables (`aion_gs_playersvc_tests`,
+  `aion_gs_cm_lz_tests`, `aion_gs_siege_tests`: 413 ctest entries) pass.
+- Mutation (P5-08.md): 40 schemata switched by `AION_TRV_MUT` over `TeleportService.cpp`, `SiegeService.cpp`, `CM_TELEPORT_SELECT.cpp` and
+  `DialogService.cpp`; 39 killed by the unit tests. The survivor, M19 (REGULAR's instance id taken from the player for another map), was
+  first recorded as equivalent; it was only untested. After the mutation and faithfulness reviews (whose reviewer mutants left 9 alive) the
+  tests gained ten cases (nine in `TravelTeleportTest`, one in `TeleportSelectPacketTest`) and the `DEC_KINAH_FLY` mask, and a second round
+  of 14 schemata, M19's among them, was killed whole. Sources restored byte for byte (sha256),
+  rebuilt, no `AION_TRV_MUT` in a source or a binary.
+
+### 16.3 The gate `gs.scenario.travel`
+
+§16.1's gate (P5-SC.md): T1 Sanctum -> Verteron (Polyidus, loc 4, 706 kinah) through `CM_SHOW_DIALOG`, `CM_DIALOG_SELECT(44)`,
+`SM_TELEPORT_MAP`, `CM_TELEPORT_SELECT`, `SM_TELEPORT_LOC`, `CM_TELEPORT_ANIMATION_DONE`, `SM_PLAYER_SPAWN`, `CM_LEVEL_READY`; T2 a flight in
+Verteron (Mirdiena, loc 15, flight 7001, 565 kinah) with `SM_EMOTION(START_FLYTELEPORT)`, three `CM_MOVE_IN_AIR`, `CM_EMOTION(LAND_FLYTELEPORT)`
+and the stored position; T3 Pandaemonium -> Altgard (Doman, loc 9); T4 the Q8 bar. Passed in about 45 s (Debug). The characters are seeded
+level-10 Daevas (C19's recipe), not ascended: the route 1006/2008 -> 1007/2009 -> the dispatch quests is H-02's. Mutation: five of the
+schemata run against the gate (the game server inherits `AION_TRV_MUT`), all killed - the statue animation inverted (M33: T1, T3), the raw
+price (M06: T1, T2, T3), `ACTIVE` not unset (M13: T2), heading 0 (M17: T3), `FLYING` not set (M12: T2, whose `CM_MOVE_IN_AIR` then moves
+nothing, so the stored position fails as well).
+
+Integrated with the P6-Q route handlers on branch `integ/asc-travel` (docs/design/p6q-ascension-route.md §7): the gate moved nowhere (slot
+1; the ascension gate took slot 2) and passes with the 42 handlers loaded, in 38-39 s. Its Daevas get 1205 / 2132 at the enter world,
+and 1007 / 2009 as well where `gameserver.simple.secondclass.enable` is off: not in the main tree, whose untracked `mygs.properties` turns it
+on for every gate server that does not pin the key. Both profiles were measured; both pass.
+
+### 16.4 What is left of stage 1
+
+Measured in this tree after the slice (`grep -c "AION_UNPORTED()"`, the file lists):
+
+| Item | Left | Where |
+|---|---|---|
+| T-02 | 11 `TeleportService` bodies: `teleportTo(WorldPosition&)`, `teleportDeadTo`, the `(worldId, instanceId, x, y, z)` overload (with `DialogServiceTest.cpp`'s two ENTER_PVP/LEAVE_PVP rows), `teleportToPrison`, **`teleportToNpc`** (another lane may take it tonight), `moveToTargetWithDistance`, `useTeleportScroll`, `changeChannel`, `setEventPos`, `teleportToEvent`, `sendTeleportRequest` (+ the anonymous `acceptRequest`) | P5-08 |
+| T-03 | `PortalService`, 13 | P5-08 |
+| T-04 | `BindPointTeleportService`, 4 (+ the two anonymous `Runnable`s and their `cycles.toml` rows) | P5-08 |
+| T-07 | `RecallService::validateCast` takes a `Ptr` (m5b2-p2-9) with its caller | P5-08, P5-02a lease |
+| T-08 | the hotspot price and cooldown, `PortalService`'s decision table, `teleportToNpc`'s z fallback, the `cycles.toml` rows | P5-08 |
+| P-03, P-04 | `CM_BIND_POINT_TELEPORT`, `CM_INSTANCE_LEAVE` (no file); P-06's O packets | P5-15 |
+| P-07 | the byte vectors and run tests of P-03/P-04 | P5-15 |
+| V-01..V-05 | `ResurrectAI`, `PortalAI`, `PortalDialogAI` (no file) and their tests | P5-05, A1 lease |
+| G-01, G-02 | the `m5f-travel` oracle; `decoders/TravelDecoders` and the `GameSession` builders (the travel gate's file-local ones move there) | P5-SC, `tools/oracle` |
+| X-05a | `SpellAtkDrainInstantEffect`, 1 | P5-04 |
+| N-05 | the parts of the lifecycle test §15.6 left to a gate or recorded | P5-13 |
+| (S-05, m5i-plan) | `SiegeLocation::isCanTeleport`, which `teleport` reaches for a fortress route once sieges are on (every C++ profile runs with them off, where Java's `NullPointerException` comes first) | P5-12a |
+
+Stage 2 (G-03..G-07) and stage 3 (H-02) are unchanged. `gs.scenario.travel` stays a gate of its own until G-03 writes `gs.scenario.m5f`,
+which may absorb it.

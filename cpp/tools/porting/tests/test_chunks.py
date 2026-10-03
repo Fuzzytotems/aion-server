@@ -547,8 +547,9 @@ class RealTreeTest(unittest.TestCase):
         names = {p.name for p in self.manifest.parts}
         design = {f'P4-{n:02d}' for n in range(1, 18)} - {'P4-02', 'P4-07', 'P4-11'} | {'P4-02a', 'P4-02b', 'P4-07a', 'P4-07b', 'P4-11a', 'P4-11b',
                                                                                         'P4-15a'}
-        design |= {f'P5-{n:02d}' for n in range(0, 17)} - {'P5-02', 'P5-09', 'P5-12'} | {'P5-02a', 'P5-02b', 'P5-09a', 'P5-09b', 'P5-09c', 'P5-12a',
-                                                                                     'P5-12b', 'P5-SC'}
+        design |= {f'P5-{n:02d}' for n in range(0, 17)} - {'P5-02', 'P5-06', 'P5-09', 'P5-12'} | {'P5-02a', 'P5-02b', 'P5-06a', 'P5-06b', 'P5-06c',
+                                                                                              'P5-09a', 'P5-09b', 'P5-09c', 'P5-12a', 'P5-12b',
+                                                                                              'P5-SC'}
         design |= {f'Q{n:02d}' for n in range(1, 15)} | {'A1', 'Z1', 'C1', 'C2'} | {f'I{n}' for n in range(1, 7)} | {'T2', 'T2-gen'}
         self.assertEqual(names, design)
 
@@ -588,6 +589,22 @@ class RealTreeTest(unittest.TestCase):
         # the C-01 leases of wave 5a stage 2 (P4-16 on tests/cm_ak, P4-17 on tests/cm_lz) were released at M5c stage 1
         self.assertEqual(test_owner('tests/cm_ak/CM_CHAT_AUTHTest.cpp'), (['P5-15'], []))
         self.assertEqual(test_owner('tests/cm_lz/CM_MAY_QUITTest.cpp'), (['P5-16'], []))
+        # M5d (m5d-plan.md D1, D2; item I-01): the three parts of aion_gs_quest test in the directories D1 names, not quest/<chunk>, and the
+        # phase-4 lease on tests/quest and on the quest shells is gone
+        self.assertEqual((by_name[('P5-06a', 'aion_gs_quest')], by_name[('P5-06b', 'aion_gs_quest')], by_name[('P5-06c', 'aion_gs_quest')]),
+                         ('quest', 'quest_handlers', 'quest_templates'))
+        self.assertEqual(test_owner('tests/quest/QuestEngineTest.cpp'), (['P5-06a'], []))
+        self.assertEqual(test_owner('tests/quest_handlers/X.cpp'), (['P5-06b'], []))
+        self.assertEqual(test_owner('tests/quest_templates/QuestModelsTest.cpp'), (['P5-06c'], []))
+        self.assertEqual(test_owner('tests/skills/P5-02a/X.cpp'), (['P5-02a'], ['P4-08']))
+        q = 'src/aion/gameserver/questEngine/'
+        for path, owner in ((q + 'QuestEngine.cpp', 'P5-06a'), (q + 'fwd.h', 'P5-06a'), (q + 'model/QuestState.cpp', 'P5-06a'),
+                            (q + 'task/fwd.h', 'P5-06a'), ('src/aion/gameserver/services/QuestService.cpp', 'P5-06a'),
+                            (q + 'handlers/AbstractQuestHandler.cpp', 'P5-06b'), (q + 'handlers/fwd.h', 'P5-06b'),
+                            (q + 'handlers/HandlerResultInfo.h', 'P5-06b'), (q + 'handlers/template/fwd.h', 'P5-06c'),
+                            (q + 'handlers/models/ReportToData.cpp', 'P5-06c'), (q + 'handlers/models/xmlQuest/QuestVar.h', 'P5-06c')):
+            owners, leases = chunks.owners_of(self.manifest, path)
+            self.assertEqual(([p.name for p in owners], [p.name for p in leases]), ([owner], []), path)
 
     def test_c01_leases_released(self):
         # wave 5a stage 2's C-01 leases (P4-16, P4-17) were released at M5c stage 1: the seven packets belong to their chunks alone

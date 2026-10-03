@@ -842,6 +842,27 @@ class CommandLineTest(unittest.TestCase):
             shutil.rmtree(root, ignore_errors=True)
 
 
+class VcpkgIncludeTest(unittest.TestCase):
+    """The vcpkg include directory of the compile checks: the build's (AION_VCPKG_INCLUDE from CTest), else the tree's own vcpkg_installed."""
+
+    def test_environment_wins(self):
+        self.assertEqual(ss.vcpkg_include({'AION_VCPKG_INCLUDE': 'D:/main/cpp/vcpkg_installed/x64-windows/include'}, Path('D:/wt/cpp')),
+                         Path('D:/main/cpp/vcpkg_installed/x64-windows/include'))
+
+    def test_fallback_is_the_tree_own(self):
+        self.assertEqual(ss.vcpkg_include({}, Path('D:/wt/cpp')), Path('D:/wt/cpp/vcpkg_installed/x64-windows/include'))
+        self.assertEqual(ss.vcpkg_include({'AION_VCPKG_INCLUDE': ''}, Path('D:/wt/cpp')), Path('D:/wt/cpp/vcpkg_installed/x64-windows/include'))
+        self.assertEqual(ss.vcpkg_include({}), ss.CPP_ROOT / 'vcpkg_installed' / 'x64-windows' / 'include')
+
+    def test_module_value_follows_the_environment(self):
+        self.assertEqual(ss.VCPKG_INCLUDE, ss.vcpkg_include())
+
+    @unittest.skipUnless(os.environ.get('AION_VCPKG_INCLUDE'), 'AION_VCPKG_INCLUDE not set (not run by CTest)')
+    def test_ctest_directory_has_the_headers(self):
+        for header in ('spdlog/common.h', 'fmt/format.h'):
+            self.assertTrue((ss.VCPKG_INCLUDE / header).is_file(), f'{header} not under AION_VCPKG_INCLUDE={ss.VCPKG_INCLUDE}')
+
+
 @unittest.skipIf(os.environ.get('AION_SKELETON_SKIP_COMPILE') == '1', 'AION_SKELETON_SKIP_COMPILE=1')
 @unittest.skipIf(ss.find_cmake() is None or os.name != 'nt', 'needs CMake and MSVC')
 class FixtureCompileTest(unittest.TestCase):

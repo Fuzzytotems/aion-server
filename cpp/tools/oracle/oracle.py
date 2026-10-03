@@ -29,6 +29,7 @@
 	                    [--profile FILE | --no-profile]   (m5d/quests.py, m5d-plan.md G-01)
 	oracle.py m5d-quests --map ID [--race R] [--class C] [--level N] [--gender G] [--completed ID[:GROUP] ...] [--started ID ...]
 	                     [--inventory ITEM[:COUNT] ...] [--profile FILE | --no-profile]   (m5d/quests.py)
+	oracle.py m5d-quests (--registration-order [--npc ID] | --census)   the XML registry's lists and m5d-plan.md §2.3-§2.5 (m5d/registry.py)
 	oracle.py quest-trace generate [--out DIR] [--only REL ...] | check [--expected-dir DIR] [--only REL ...]   golden traces of the Java
 	                     quest handlers (questtrace/, phase6-inventory.md §7.6 item 3): expected/quest/<id>.json for the first slice (exit 1
 	                     on drift; with --only, only the named handlers are checked)
@@ -342,8 +343,24 @@ def cmd_m5d_quest(args):
 
 def cmd_m5d_quests(args):
 	from m5d.quests import map_report
-	report = map_report(_m5d_world(args), args.map, args.race, args.player_class, args.level, args.gender, _m5a_clock(args), args.completed or [],
-	                    args.started or [], args.inventory or [])
+	from m5d.registry import census_report, registration_order_report
+	if args.npc is not None and not args.registration_order:
+		raise OracleError("--npc goes with --registration-order")
+	if args.registration_order or args.census:
+		# the character and game-time options, None unless given (--class and --level default in the --map path only)
+		given = [flag for name, flag in (("race", "--race"), ("player_class", "--class"), ("level", "--level"), ("gender", "--gender"),
+		                                 ("completed", "--completed"), ("started", "--started"), ("inventory", "--inventory"),
+		                                 ("game_minutes", "--game-minutes"), ("game_hour", "--game-hour"), ("game_day", "--game-day"),
+		                                 ("game_month", "--game-month"), ("weekday", "--weekday")) if getattr(args, name) is not None]
+		if given:
+			raise OracleError(f"{given[0]} describes a character or the game time: --registration-order and --census have neither")
+		world = _m5d_world(args)
+		report = registration_order_report(world, args.npc) if args.registration_order else census_report(world)
+		sys.stdout.write(runner.dump_json(report))
+		return 0
+	report = map_report(_m5d_world(args), args.map, args.race, "WARRIOR" if args.player_class is None else args.player_class,
+	                    1 if args.level is None else args.level, args.gender, _m5a_clock(args), args.completed or [], args.started or [],
+	                    args.inventory or [])
 	sys.stdout.write(runner.dump_json(report))
 	return 0
 
@@ -645,11 +662,18 @@ def main(argv=None):
 	p = sub.add_parser("m5d-quests", help="the quests a character meets on a map and the SM_NEARBY_QUESTS set, XML-only registry marked "
 	                                      "(m5d-plan.md G-01, D9)")
 	m5d_args(p)
-	p.add_argument("--map", type=int, required=True)
-	p.add_argument("--level", type=int, default=1, help="the character level (default 1)")
+	mode = p.add_mutually_exclusive_group(required=True)
+	mode.add_argument("--map", type=int)
+	mode.add_argument("--registration-order", action="store_true", dest="registration_order",
+	                  help="QuestEngine.init's XML registration order and the lists it builds: questOnEnterWorld, questOnLevelUp and each npc's "
+	                       "onQuestStart/onTalkEvent/onKillEvent (m5d-plan.md T-04)")
+	mode.add_argument("--census", action="store_true", help="m5d-plan.md §2.3-§2.5: the handlers, where each XML quest starts, what "
+	                                                         "completing the reachable ones needs, E-09's reward bodies, the start zones")
+	p.add_argument("--npc", type=int, metavar="ID", help="with --registration-order: only this npc's lists, with their order flags")
+	p.add_argument("--level", type=int, help="the character level (default 1)")
 	p.add_argument("--started", nargs="+", action="extend", type=int, metavar="ID", help="quests the character has in START state")
 	clock_args(p)
-	p.set_defaults(fn=cmd_m5d_quests)
+	p.set_defaults(fn=cmd_m5d_quests, player_class=None)  # --class: WARRIOR in the --map path; the other modes refuse it
 
 	p = sub.add_parser("quest-trace", help="golden traces of the Java quest handlers: every return leaf of every hook as a case with its "
 	                                       "effects (questtrace/, phase6-inventory.md §7.6 item 3)")

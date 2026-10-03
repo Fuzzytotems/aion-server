@@ -1,5 +1,6 @@
 #pragma once
 
+#include <optional>
 #include <vector>
 
 #include "aion/gameserver/runtime/lifetime/Ref.h"
@@ -21,7 +22,11 @@ class BonusService {
 private:
 	BonusService() = delete;
 public:
-	static const model::templates::quest::QuestItems* getQuestBonus(model::gameobjects::player::Player& player, const model::templates::QuestTemplate* questTemplate);
+	/**
+	 * C++ (header request m5d-h01): a value, empty for Java's null. Java returns a new QuestItems of the chosen bonus item
+	 * (BonusService.java:27-37), which QuestService.getRewardItems adds to its reward list (QuestService.java:201-203).
+	 */
+	static std::optional<model::templates::quest::QuestItems> getQuestBonus(model::gameobjects::player::Player& player, const model::templates::QuestTemplate* questTemplate);
 	static std::vector<const model::templates::itemgroups::ItemRaceEntry*> getMatchingItemsOfRandomGroup(model::gameobjects::player::Player& player, const model::templates::QuestTemplate* questTemplate);
 private:
 	static std::vector<const model::templates::itemgroups::BonusItemGroup*> getBonusGroups(model::templates::rewards::BonusType type);

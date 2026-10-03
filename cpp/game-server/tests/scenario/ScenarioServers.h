@@ -9,14 +9,17 @@
 // Three things make a run survivable for everything around it:
 //   - Neither child writes a shared log directory: the game server gets --log-folder, and the login server - which has no such argument - gets
 //     a working directory of its own with a copy of its config (Logging::init archives and DELETES the log files it finds). The game server
-//     also gets its own HTML cache file (htmlCacheFile()). What it still writes below the shared game-server directory is
-//     ./log/stats/MethodStats.log (RunnableStatsManager::dumpClassStats, hard-coded like Java's) and, only on a watchdog stall, a minidump
-//     with the process id in its name in ./log/dumps - see ScenarioTests.cmake, "the two gate slots".
+//     also gets its own HTML cache file (htmlCacheFile()), and its stats/MethodStats.log follows --log-folder (RunnableStatsManager::
+//     dumpClassStats, since 2026-09-30). What it still writes below the shared game-server directory is, only on a watchdog stall, a
+//     minidump with the process id in its name in ./log/dumps - see ScenarioTests.cmake, "the two gate slots".
 //   - Both schemas carry an in-use marker (SchemaLease) for the whole run, and createSchemas() drops the schemas of runs that were killed
 //     before they could drop their own. A CTest TIMEOUT runs no destructor; the marker is a session lock, so it dies with the process.
 //   - stopProblems() collects what went wrong while stopping, and the destructor reports the list as a test failure unless a caller took
 //     responsibility for it with stopProblemsReported(), so no run passes with a hung game server or a killed login server.
 //   - A run drops its two schemas at the end, a failed one as well unless AION_SCENARIO_KEEP_SCHEMAS asks for a post mortem (dropSchemas()).
+//   - Neither child reads the operator's override file (the untracked config/mygs.properties and config/myls.properties the owner writes to
+//     play): the game server gets main.cpp's test hook --ignore-mygs-properties, the login server's copy of its config leaves myls.properties
+//     out. A key a gate does not pin takes the shipped default on every machine, not the owner's value in the main tree only.
 
 #include <chrono>
 #include <cstdint>
@@ -25,6 +28,7 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include "ChildProcess.h"
@@ -64,6 +68,37 @@ public:
 
 	/** The D1 profile and the scenario keys of m5a-plan.md §2 (-D key=value) */
 	static std::map<std::string, std::string> m5aProfile();
+
+	/**
+	 * main.cpp's C++ test hook (Config::setOverrideFileIgnored): the game server does not read config/mygs.properties, the operator's
+	 * untracked play profile. gameServerArguments() always passes it.
+	 */
+	static constexpr std::string_view IGNORE_MYGS_PROPERTIES = "--ignore-mygs-properties";
+
+	/**
+	 * The login server's override file relative to its working directory (Java: config/myls.properties, read over config/main and
+	 * config/network). The copy of its config that startLoginServer() builds leaves it out, in any letter case of its name (Windows opens
+	 * ./config/myls.properties whatever the case).
+	 */
+	static std::filesystem::path loginServerOverrideFile() { return std::filesystem::path("config") / "myls.properties"; }
+
+	/** The game server's log line when the test hook left config/mygs.properties out (Config.cpp, loadProperties) */
+	static constexpr std::string_view GAME_SERVER_PROFILE_IGNORED = "Ignoring ./config/mygs.properties (C++ test hook --ignore-mygs-properties)";
+	/** The game server's log line when it reads config/mygs.properties (Java Config.loadProperties) */
+	static constexpr std::string_view GAME_SERVER_PROFILE_LOADED = "Loading: ./config/mygs.properties";
+	/** The login server's log line when config/myls.properties is missing or empty (Java Config.loadProperties) */
+	static constexpr std::string_view LOGIN_SERVER_NO_PROFILE = "No override properties found";
+
+	/**
+	 * Whether a server's log shows that it left the operator's override file out: an empty string if it does, else what is wrong.
+	 * startGameServer() and startLoginServer() check it once the server is up and fail the start otherwise, so a harness path that drops
+	 * --ignore-mygs-properties (or copies myls.properties), or a server that stops honouring the switch, fails the gate instead of running it
+	 * with the owner's play profile (the review of lane H).
+	 * - game server: GAME_SERVER_PROFILE_IGNORED and no GAME_SERVER_PROFILE_LOADED
+	 * - login server: LOGIN_SERVER_NO_PROFILE
+	 */
+	static std::string gameServerProfileProblem(std::string_view log);
+	static std::string loginServerProfileProblem(std::string_view log);
 
 	/** A port that was free when it was checked (bound to 127.0.0.1:0 and released) */
 	static uint16_t freePort();
@@ -111,10 +146,16 @@ public:
 	 */
 	static bool keepSchemasOnFailure();
 
-	/** Starts the login server and waits until it listens for clients and game servers */
+	/**
+	 * Starts the login server and waits until it listens for clients and game servers.
+	 * @throws std::runtime_error if it does not, or if its log shows that it read an override file (loginServerProfileProblem)
+	 */
 	void startLoginServer();
 
-	/** Starts the game server and waits for "Game server started" and the authenticated login server link ("Gameserver #1 is now online") */
+	/**
+	 * Starts the game server and waits for "Game server started" and the authenticated login server link ("Gameserver #1 is now online").
+	 * @throws std::runtime_error if it does not, or if its log shows that it read config/mygs.properties (gameServerProfileProblem)
+	 */
 	void startGameServer();
 
 	/** @return true if the game server's client port accepts a connection within the timeout (§5.1 "Readiness") */
@@ -172,9 +213,10 @@ public:
 	 */
 	std::filesystem::path htmlCacheFile() const { return config.outputDir / "html.cache"; }
 	/**
-	 * The login server's working directory: a copy of its `config` directory, made by startLoginServer(). The login server has no
-	 * `--log-folder` of its own and resolves `./config` and `./log` against its working directory, so running it in the Java module directory
-	 * would write the shared `login-server/log` - which `Logging::init` archives and DELETES at startup.
+	 * The login server's working directory: a copy of its `config` directory without the override file (loginServerOverrideFile()), made by
+	 * startLoginServer(). The login server has no `--log-folder` of its own and resolves `./config` and `./log` against its working directory,
+	 * so running it in the Java module directory would write the shared `login-server/log` - which `Logging::init` archives and DELETES at
+	 * startup - and read the operator's myls.properties.
 	 */
 	std::filesystem::path loginServerWorkingDirectory() const { return config.outputDir / "ls_run"; }
 	/** the login server's own log directory (Logging::Config::logFolder is "log", relative to its working directory) */
@@ -195,7 +237,10 @@ public:
 	std::vector<std::string> readReportLines(std::string_view fileName) const;
 
 private:
-	/** Copies the login server's `config` directory into loginServerWorkingDirectory(), so its `./log` is the run's own */
+	/**
+	 * Copies the login server's `config` directory into loginServerWorkingDirectory(), so its `./log` is the run's own, leaving the override
+	 * file loginServerOverrideFile() out
+	 */
 	void prepareLoginServerDirectory() const;
 
 	Config config;

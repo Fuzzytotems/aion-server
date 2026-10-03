@@ -11,7 +11,8 @@ freshly created QuestEnv), member access is `->` on pointers and `.` on referenc
 Java `==` on objects is identity, `x instanceof T` is `runtime::as<T>(x) != nullptr`, `(T) x` is `runtime::cast<T>(x)`, a primitive
 cast is static_cast (so `(float) 262.9` keeps Java's double-then-float rounding), `new int[] {...}` is a std::array, the varargs of
 defaultOnLevelChangedEvent are a braced list, enum methods are their companion functions (`getId(WorldMapType::X)`), `Integer` is
-std::optional<int32_t> and is unboxed with `.value()`.
+std::optional<int32_t> and is unboxed with `.value()`, and a String passed for a std::optional<std::string_view> parameter (the C++ spelling
+of a String parameter Java may pass null to: SpawnTemplate::setWalkerId) is passed as it is.
 
 Comments: a statement's own-line comments go before it and its trailing comment after it; so do the comments of case labels, of if/else
 and loop heads without braces, and the comments before a method (Javadoc or not). Comments inside an expression are dropped. A Java
@@ -101,6 +102,11 @@ KNOWN_JAVA_BUGS = {
         70: 'tryDecreaseKinah on the line above already took the kinah (Storage.java:82-88); this takes it a second time'},
     'the_circle/_47106TurningUpTheAmplifiers.java': {
         31: 'registers kills of 217173 but counts (:36) and spawns (:62) 217175, so the quest cannot complete'},
+    # P6-Q (2026-09-29, the route-gen review)
+    'poeta/_1004NeutralizingOdium.java': {
+        69: 'the condition above is (targetId 700030 && var 1) || var 4: at var 4 any target enters'},
+    'poeta/_1111InsomniaMedicine.java': {
+        59: "qs is not null-checked here (:60, :62, :72, :81): Java's NullPointerException ends the talk"},
 }
 JAVA_BUG_MARK = '// java-bug kept (U3, phase6-inventory.md §11): '
 
@@ -1004,6 +1010,15 @@ class Transliterator:
             self.fail('string-switch', 'switch on a String', s.tok)
         if subj.ct.kind not in ('prim', 'enum'):
             self.fail('type', f'switch on {subj.ct}', s.tok)
+        if not s.groups:
+            # an empty Java switch only evaluates its selector; a C++ switch without a case label is warning C4060 (C4065 with a default
+            # label alone) under the /W4 the handler libraries build warning-free with
+            self.r.idioms['empty switch as its selector evaluated'] += 1
+            lines = [f'{ind}static_cast<void>({subj.text}); // Java: an empty switch' + self.trailing(self.cu.tokens.match[s.tok + 1] + 1)]
+            lines += self.leading(s.last, depth)
+            if self.trailing(s.last):
+                lines.append(ind + self.trailing(s.last).strip())
+            return lines
         # locals declared in one case group and used in a later one cannot be braced
         declared = []
         for labels, body, _ in s.groups:
@@ -1418,6 +1433,11 @@ class Transliterator:
 
     def ret_type(self, f):
         ct = self.cpp_type(f.ret or 'void')
+        if ct.kind == 'obj' and ct.ref == 'owning':
+            # a returned Ref<T> is destroyed in the handler's translation unit, even a discarded one, which needs the complete T (~Ref);
+            # api.OWNING_RETURN_HEADERS names T's header when HEADERS does not index it (P6-Q slice 2: lanes Q03 and Q10, the same rule)
+            self.need(ct.name)
+            self.includes_for_header(apimod.OWNING_RETURN_HEADERS.get(ct.name))
         return ct
 
     def static_call(self, cls, x, cname):
@@ -1624,14 +1644,15 @@ class Transliterator:
             return None
         if kind == 'enum':
             return 0 if pk == 'enum' and p.name == name else None
+        string_optional = pk == 'optional' and p.elem is not None and p.elem.kind == 'string'
         if kind == 'strlit':
-            if pk == 'string':
-                return 3
+            if pk == 'string' or string_optional:
+                return 3            # std::optional's converting constructor is one user-defined conversion, as std::string_view's is
             if pk == 'prim' and p.name == 'bool':
                 return 2            # const char* -> bool beats const char* -> std::string_view
             return None
         if kind == 'string':
-            return 0 if pk == 'string' else None
+            return 0 if pk == 'string' else (3 if string_optional else None)
         if kind in ('lvalue', 'value'):
             if pk == 'obj' and p.ref in ('lref', 'clref'):
                 if kind == 'value' and p.ref == 'lref':
@@ -1802,6 +1823,8 @@ class Transliterator:
                 return 3
             if ak == 'prim' and a.ct.name == p.elem.name:
                 return 2
+            if ak == 'string' and p.elem.kind == 'string':
+                return 2                    # a Java String for the nullable String C++ spells std::optional<std::string_view>
             return None
         if pk == 'enum':
             return 3 if ak == 'enum' and a.ct.name == p.name else None
@@ -1835,6 +1858,7 @@ class Transliterator:
         if p.kind == 'obj' and ek == 'obj':
             if p.ref in ('lref', 'clref') and e.ct.ref in ('ptr', 'owning', 'raw'):
                 self.r.idioms['pointer dereferenced for a T& parameter'] += 1
+                self.need(e.ct.name)        # Ptr<T>::operator* needs the complete T (P6-Q slice 2, Q10: *getWorldMapInstance())
                 return '*' + self.paren(e, 1)
             return e.text
         if p.kind == 'prim' and ek == 'optional':
@@ -2047,8 +2071,7 @@ class Transliterator:
         inc = sorted(self.includes)
         if inc:
             head += [f'#include "{h}"' for h in inc] + ['']
-        body = [f'namespace {"::".join(ns)} {{', '',
-                f'// Generated by cpp/tools/gen/questgen (prototype) from {rel_java}. Not compiled.', '']
+        body = [f'namespace {"::".join(ns)} {{', '', *banner(rel_java), '']
         doc = self.cu.tokens.docs.get(self.class_first_token(td))
         if doc:
             body += [ln.rstrip().replace('\t', '') if not ln.lstrip().startswith('*') else ' ' + ln.strip() for ln in doc.split('\n')]
@@ -2086,6 +2109,17 @@ class Transliterator:
         while i > 0 and T.text[i - 1] not in (';', '}', '{'):
             i -= 1
         return i
+
+
+BANNER_FIRST_LINE = '// Generated by cpp/tools/gen/questgen from '
+
+
+def banner(rel_java):
+    """the comment every emitted file carries after its namespace line (P6-Q, 2026-09-29; the prototype's said "(prototype) ... Not
+    compiled."). Emitted files land in the handler tree and are compiled into their Q chunk's library (cpp/game-server/chunks.cmake), so
+    the banner says so; tools/gen/tests/test_questgen_tree.py regenerates every tree file that carries it and compares the bytes."""
+    return [f'{BANNER_FIRST_LINE}{rel_java}.',
+            "// Compiled into its Q chunk's handler library (game-server/chunks.cmake). Do not edit: change the generator and regenerate."]
 
 
 def cppdecl_strip_first(f):

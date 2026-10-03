@@ -6,6 +6,7 @@
 #include <gtest/gtest.h>
 
 #include <algorithm>
+#include <array>
 #include <atomic>
 #include <chrono>
 #include <filesystem>
@@ -37,6 +38,9 @@
 #include "aion/gameserver/model/items/detail/StaticDataLookups.h"
 #include "aion/gameserver/model/templates/item/ItemTemplate.bind.h"
 #include "aion/gameserver/model/templates/item/ItemTemplate.h"
+#include "aion/gameserver/model/trade/RepurchaseList.h"
+#include "aion/gameserver/model/trade/TradeItem.h"
+#include "aion/gameserver/model/trade/TradeList.h"
 #include "aion/gameserver/runtime/base/Exceptions.h"
 #include "aion/gameserver/runtime/collections/Rc.h"
 #include "aion/gameserver/runtime/fields/Field.h"
@@ -45,8 +49,11 @@
 #include "aion/gameserver/runtime/lifetime/RefCounted.h"
 #include "aion/gameserver/runtime/lifetime/Reclaimer.h"
 #include "aion/gameserver/runtime/lifetime/TaskScope.h"
+#include "aion/gameserver/runtime/sched/Pin.h"
+#include "aion/gameserver/runtime/sched/PoolBackends.h"
 #include "aion/gameserver/runtime/services/LeakCensus.h"
 #include "aion/gameserver/services/drop/DropRegistrationService.h"
+#include "aion/gameserver/utils/ThreadPoolManager.h"
 #include "aion/gameserver/world/WorldPosition.h"
 #include "aion/gameserver/world/knownlist/KnownList.h"
 
@@ -517,6 +524,254 @@ TEST(CheckOutputTest, FinalCensusEndsWithTheZeroThresholdBreakerPass) {
 	census.uninstall();
 	census.configure(LeakCensus::Config{});
 	std::filesystem::remove_all(dir);
+}
+
+/**
+ * The real pools of ThreadPoolBackend (`instantThreads` instant and two scheduled threads, the cached long-running pool), forwarded as they are,
+ * with one addition for the order of a test: pendingTasks(), which drainPools calls first (its snapshot of the queued tasks, CheckOutput.cpp),
+ * sets `queuedSnapshotTaken` once it has copied the queues - only for the thread that created the backend, the test's: LeakCensus calls
+ * pendingTasks() from the reclaimer's thread as well.
+ */
+class ObservedPoolBackend final : public runtime::ExecutorBackend {
+public:
+	explicit ObservedPoolBackend(int32_t instantThreads) : pools(options(instantThreads)), drainThread(std::this_thread::get_id()) {}
+
+	const runtime::Clock& clock() const noexcept override { return pools.clock(); }
+	void execute(runtime::PoolKind kind, runtime::FutureRef task) override { pools.execute(kind, std::move(task)); }
+	void schedule(runtime::FutureRef task) override { pools.schedule(std::move(task)); }
+	bool shutdown(std::chrono::milliseconds awaitTermination) override { return pools.shutdown(awaitTermination); }
+	bool isShutdown() const noexcept override { return pools.isShutdown(); }
+	void retire() noexcept override { pools.retire(); }
+	bool isExecutorThread() const noexcept override { return pools.isExecutorThread(); }
+	bool runOneTask() override { return pools.runOneTask(); }
+	std::vector<std::string> getStats() const override { return pools.getStats(); }
+	std::vector<runtime::FutureRef> pendingTasks() const override {
+		std::vector<runtime::FutureRef> tasks = pools.pendingTasks();
+		if (std::this_thread::get_id() == drainThread)
+			queuedSnapshotTaken->store(true);
+		return tasks;
+	}
+
+	const std::shared_ptr<std::atomic<bool>> queuedSnapshotTaken = std::make_shared<std::atomic<bool>>(false);
+
+private:
+	static runtime::ThreadPoolBackend::Options options(int32_t instantThreads) {
+		runtime::ThreadPoolBackend::Options options;
+		options.instantThreads = instantThreads;
+		options.scheduledThreads = 2;
+		return options;
+	}
+
+	runtime::ThreadPoolBackend pools;
+	const std::thread::id drainThread;
+};
+
+/** Real pools for one test (ObservedPoolBackend, or the single executor of gameserver.debug.single_executor), the default ones after it. */
+class RealPools {
+public:
+	explicit RealPools(int32_t instantThreads = 4) {
+		auto backend = std::make_unique<ObservedPoolBackend>(instantThreads);
+		queuedSnapshotTaken = backend->queuedSnapshotTaken;
+		utils::ThreadPoolManager::installBackend(std::move(backend));
+	}
+	/** SingleExecutorBackend: one thread ("SingleExecutor") runs every pool */
+	struct SingleExecutor {};
+	explicit RealPools(SingleExecutor) { utils::ThreadPoolManager::installBackend(std::make_unique<runtime::SingleExecutorBackend>()); }
+	~RealPools() { utils::ThreadPoolManager::installBackend(nullptr); } // joins the threads: every task of the test has ended
+	RealPools(const RealPools&) = delete;
+	RealPools& operator=(const RealPools&) = delete;
+
+	/** ObservedPoolBackend::queuedSnapshotTaken (never set for the single executor) */
+	std::shared_ptr<std::atomic<bool>> queuedSnapshotTaken = std::make_shared<std::atomic<bool>>(false);
+};
+
+/** A task that runs `duration` on a pool thread and says when it started and when it is done. */
+struct LongTask {
+	std::shared_ptr<std::atomic<bool>> started = std::make_shared<std::atomic<bool>>(false);
+	std::shared_ptr<std::atomic<bool>> finished = std::make_shared<std::atomic<bool>>(false);
+
+	std::function<void()> body(std::chrono::milliseconds duration) const {
+		return [started = started, finished = finished, duration] {
+			started->store(true);
+			std::this_thread::sleep_for(duration);
+			finished->store(true);
+		};
+	}
+};
+
+/** drainPools(now + limit) on the calling thread; @return how long it took */
+std::chrono::milliseconds timedDrain(std::chrono::milliseconds limit) {
+	const auto begin = std::chrono::steady_clock::now();
+	CheckOutput::drainPools(begin + limit);
+	return std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - begin);
+}
+
+// p6q-ascension-route.md §7: gs.scenario.m5a_geo's final census reported `Player 103881 506` (2 of 7 loaded runs) because a 9 s
+// MapRegion::activate task, which fills the known lists, was still running on one instant pool thread when drainPools queued its barrier - and
+// another thread of that pool ran the barrier at once. The window here: a long task on one pool thread, the drain on the test thread, free
+// threads beside the task. Before lane H's fix drainPools returned after about 10 ms, while the task still ran. Each executor pool in turn:
+// instant, long-running and scheduled.
+TEST(CheckOutputTest, TheDrainWaitsForATaskThatIsAlreadyRunningOnAnotherPoolThread) {
+	RealPools pools;
+	utils::ThreadPoolManager& pool = utils::ThreadPoolManager::getInstance();
+	const std::vector<std::pair<std::string, std::function<void(const std::function<void()>&)>>> submitters = {
+		{"InstantPool", [&pool](const std::function<void()>& body) { pool.execute(runtime::Pin(), [body] { body(); }); }},
+		{"LongRunning", [&pool](const std::function<void()>& body) { pool.executeLongRunning(runtime::Pin(), [body] { body(); }); }},
+		{"ScheduledPool", [&pool](const std::function<void()>& body) { (void)pool.schedule(runtime::Pin(), [body] { body(); }, 0); }},
+	};
+	for (const auto& [name, submit] : submitters) {
+		SCOPED_TRACE(name);
+		LongTask task;
+		submit(task.body(std::chrono::milliseconds(700)));
+		ASSERT_TRUE(waitFor([&task] { return task.started->load(); })) << "the long task never started";
+		const std::chrono::milliseconds waited = timedDrain(std::chrono::seconds(10));
+		EXPECT_TRUE(task.finished->load()) << "drainPools returned after " << waited.count() << " ms while the task that was running on a "
+		                                   << name << " thread when it started still ran";
+		EXPECT_LT(waited, std::chrono::seconds(5)) << "the drain ends when the task ends, not at its deadline";
+	}
+}
+
+// The review of lane H: a task QUEUED when the drain starts must have ended too, whichever thread takes it. Lane H's drain queued one barrier
+// task per pool behind it; the queue is FIFO, but with two threads the one that is free first takes the task and the other one the barrier at
+// once, so the barrier ended while the task still ran. The reviewer's probe: two instant threads busy for 200 and 250 ms, a 1000 ms task queued
+// behind them, then the drain - lane H's drain returned after 250-273 ms in 5 of 5 runs, with the task running. The drain waits for the task's
+// future now. A scheduled task that is not due for a minute and a periodic one are pending as well, and it must not wait for them (a periodic
+// task is never done).
+TEST(CheckOutputTest, TheDrainWaitsForATaskThatWasQueuedWhenItStarted) {
+	RealPools pools(2);
+	utils::ThreadPoolManager& pool = utils::ThreadPoolManager::getInstance();
+	LongTask first;
+	LongTask second;
+	LongTask queued;
+	pool.execute(runtime::Pin(), [body = first.body(std::chrono::milliseconds(200))] { body(); });
+	pool.execute(runtime::Pin(), [body = second.body(std::chrono::milliseconds(250))] { body(); });
+	ASSERT_TRUE(waitFor([&first, &second] { return first.started->load() && second.started->load(); })) << "both instant threads are busy";
+	pool.execute(runtime::Pin(), [body = queued.body(std::chrono::milliseconds(1000))] { body(); });
+	const runtime::FutureRef later = pool.schedule(runtime::Pin(), [] {}, 60'000);
+	const runtime::FutureRef periodic = pool.scheduleAtFixedRate(runtime::Pin(), [] {}, 60'000, 60'000);
+	ASSERT_FALSE(queued.started->load()) << "the task must still be queued when the drain starts";
+	const std::chrono::milliseconds waited = timedDrain(std::chrono::seconds(10));
+	EXPECT_TRUE(queued.finished->load()) << "drainPools returned after " << waited.count()
+	                                     << " ms while the task that was queued when it started still ran";
+	EXPECT_LT(waited, std::chrono::seconds(5)) << "the drain waited for a scheduled task that is not due, or for a periodic one";
+	(void)later->cancel();
+	(void)periodic->cancel();
+}
+
+// gameserver.debug.single_executor: one thread ("SingleExecutor", ExecutorBackend.h) runs every pool. The drain waits for the task it runs, and
+// for a long-running task queued behind it: the queued tasks of the long-running pool are waited for like those of the instant pool.
+TEST(CheckOutputTest, TheDrainWaitsForTheSingleExecutorsTaskAndItsQueue) {
+	RealPools pools{RealPools::SingleExecutor{}};
+	utils::ThreadPoolManager& pool = utils::ThreadPoolManager::getInstance();
+	LongTask running;
+	pool.execute(runtime::Pin(), [body = running.body(std::chrono::milliseconds(500))] { body(); });
+	ASSERT_TRUE(waitFor([&running] { return running.started->load(); }));
+	std::chrono::milliseconds waited = timedDrain(std::chrono::seconds(10));
+	EXPECT_TRUE(running.finished->load()) << "drainPools returned after " << waited.count()
+	                                      << " ms while the SingleExecutor thread still ran the task it ran when the drain started";
+
+	LongTask first;
+	LongTask queued;
+	pool.execute(runtime::Pin(), [body = first.body(std::chrono::milliseconds(300))] { body(); });
+	ASSERT_TRUE(waitFor([&first] { return first.started->load(); }));
+	pool.executeLongRunning(runtime::Pin(), [body = queued.body(std::chrono::milliseconds(300))] { body(); });
+	waited = timedDrain(std::chrono::seconds(10));
+	EXPECT_TRUE(queued.finished->load()) << "drainPools returned after " << waited.count()
+	                                     << " ms while the long-running task that was queued when it started still ran";
+	EXPECT_LT(waited, std::chrono::seconds(5));
+}
+
+// The review of lane H (mutant h1): a long task that renews its scope id at quiescent points (quiescentPoint(), TaskScope.cpp: a new scope id,
+// the same start) is still the task the drain saw. The drain knows a running task by its thread and the start of its outermost TaskScope,
+// never by the scope id, or it would return at the task's first quiescent point.
+TEST(CheckOutputTest, TheDrainWaitsForALongTaskThroughItsQuiescentPoints) {
+	RealPools pools;
+	LongTask task;
+	utils::ThreadPoolManager::getInstance().execute(runtime::Pin(), [started = task.started, finished = task.finished] {
+		runtime::QuiescentScope quiescent;
+		started->store(true);
+		for (int32_t step = 0; step < 7; ++step) {
+			std::this_thread::sleep_for(std::chrono::milliseconds(100));
+			runtime::quiescentPoint();
+		}
+		finished->store(true);
+	});
+	ASSERT_TRUE(waitFor([&task] { return task.started->load(); }));
+	const std::chrono::milliseconds waited = timedDrain(std::chrono::seconds(10));
+	EXPECT_TRUE(task.finished->load()) << "drainPools returned after " << waited.count()
+	                                   << " ms while the task went on through its quiescent points";
+}
+
+// The review of lane H (mutant h3): both waits end at the deadline, so a hung pool task cannot hang the final census (nor runBreakerPass after
+// it). A 2.5 s task on the only instant thread and one queued behind it, a 300 ms deadline.
+TEST(CheckOutputTest, TheDrainGivesUpAtItsDeadline) {
+	RealPools pools(1);
+	utils::ThreadPoolManager& pool = utils::ThreadPoolManager::getInstance();
+	LongTask running;
+	LongTask queued;
+	pool.execute(runtime::Pin(), [body = running.body(std::chrono::milliseconds(2500))] { body(); });
+	ASSERT_TRUE(waitFor([&running] { return running.started->load(); }));
+	pool.execute(runtime::Pin(), [body = queued.body(std::chrono::milliseconds(10))] { body(); });
+	const std::chrono::milliseconds waited = timedDrain(std::chrono::milliseconds(300));
+	EXPECT_LT(waited, std::chrono::milliseconds(1500)) << "the drain waited past its deadline";
+	EXPECT_FALSE(running.finished->load());
+	EXPECT_FALSE(queued.started->load());
+}
+
+// The review of lane H (mutant h2): drainPools called inside a pool task does not wait for that task - it would until its deadline.
+TEST(CheckOutputTest, TheDrainDoesNotWaitForTheTaskThatCallsIt) {
+	RealPools pools;
+	auto waitedMillis = std::make_shared<std::atomic<int64_t>>(-1);
+	utils::ThreadPoolManager::getInstance().execute(runtime::Pin(),
+		[waitedMillis] { waitedMillis->store(timedDrain(std::chrono::seconds(3)).count()); });
+	ASSERT_TRUE(waitFor([&waitedMillis] { return waitedMillis->load() >= 0; }));
+	EXPECT_LT(waitedMillis->load(), 1500) << "the drain waited for the task it runs in";
+}
+
+// The other half of the same rule: the drain waits for what was queued or running when it started, not until the pools are idle. The world
+// keeps running during a census (npc tasks, the movement), so waiting for idle pools could last until the deadline and leave the census no time.
+// Here the running task starts a second one and ends; the drain returns with the first one while the second one still runs - on another thread
+// of a four-thread pool, and on the same thread of a one-thread pool, where the thread is busy again but no longer with the task the drain saw.
+// The order (the review of lane H): the second task is queued only after the drain copied the queues (ObservedPoolBackend), and 200 ms later,
+// so the drain's snapshot of the running tasks, which follows at once on the test thread, cannot hold it unless the test thread stalls for
+// 200 ms right there. Before, it was queued 300 ms after the first one started, so a test thread that stalled that long anywhere before the
+// drain began (ctest -j beside geo gates) saw it queued.
+TEST(CheckOutputTest, TheDrainDoesNotWaitForATaskThatStartedAfterIt) {
+	for (const int32_t instantThreads : {4, 1}) {
+		SCOPED_TRACE(std::to_string(instantThreads) + " instant pool threads");
+		RealPools pools(instantThreads);
+		utils::ThreadPoolManager& pool = utils::ThreadPoolManager::getInstance();
+		LongTask first;
+		LongTask late;
+		auto release = std::make_shared<std::atomic<bool>>(false);
+		const std::function<void()> lateBody = [started = late.started, finished = late.finished, release] {
+			started->store(true);
+			const auto limit = std::chrono::steady_clock::now() + std::chrono::seconds(8);
+			while (!release->load() && std::chrono::steady_clock::now() < limit)
+				std::this_thread::sleep_for(std::chrono::milliseconds(5));
+			finished->store(true);
+		};
+		pool.execute(runtime::Pin(), [started = first.started, finished = first.finished, lateBody, drained = pools.queuedSnapshotTaken] {
+			started->store(true);
+			const auto limit = std::chrono::steady_clock::now() + std::chrono::seconds(8);
+			while (!drained->load() && std::chrono::steady_clock::now() < limit) // the drain starts meanwhile
+				std::this_thread::sleep_for(std::chrono::milliseconds(1));
+			std::this_thread::sleep_for(std::chrono::milliseconds(200));
+			utils::ThreadPoolManager::getInstance().execute(runtime::Pin(), [lateBody] { lateBody(); });
+			std::this_thread::sleep_for(std::chrono::milliseconds(100)); // another thread picks it up meanwhile, if there is one
+			finished->store(true);
+		});
+		ASSERT_TRUE(waitFor([&first] { return first.started->load(); }));
+		const std::chrono::milliseconds waited = timedDrain(std::chrono::seconds(6));
+		EXPECT_TRUE(pools.queuedSnapshotTaken->load()) << "drainPools did not start with its snapshot of the queued tasks";
+		EXPECT_TRUE(first.finished->load()) << "the task that was running when the drain started";
+		EXPECT_TRUE(waitFor([&late] { return late.started->load(); }, std::chrono::seconds(2))) << "the second task runs";
+		EXPECT_FALSE(late.finished->load()) << "the drain waited for a task that started after it";
+		EXPECT_LT(waited, std::chrono::seconds(3)) << "the drain waited " << waited.count()
+		                                           << " ms: for a task that started after it, or for idle pools";
+		release->store(true);
+		EXPECT_TRUE(waitFor([&late] { return late.finished->load(); }));
+	}
 }
 
 // m5a-plan.md §10.1: Item is not a strict zero. A login loads the ACCOUNT warehouse (AccountService.cpp:98-104) and the logout only detaches its
@@ -997,6 +1252,121 @@ TEST(CheckOutputTest, TheDirectoryFormFillsTheLiveCountRowsFromTheProcessCounter
 	EXPECT_EQ(liveAfter, 0) << "and follow it back to 0 once the Reclaimer freed it: " << after;
 	EXPECT_EQ(createdAfter, created) << "while `created` stays - that is the half that makes the strict zero an assertion: " << after;
 	std::filesystem::remove_all(dir);
+}
+
+// ---------------------------------------------------------------------------------------------------------------------------------------
+// m5c-plan.md G-06 (X22 of §10.3): the transfer objects of the economy.
+// ---------------------------------------------------------------------------------------------------------------------------------------
+
+/** the transfer classes the M5c gate creates (or, CraftingTask and the craft handler, stage 3's C19 creates): strict zeros AND counted rows */
+constexpr std::array<std::string_view, 12> M5C_TRANSFER_CLASSES = {"model::trade::Exchange", "model::trade::ExchangeItem", "model::trade::TradeList",
+	"model::trade::TradeItem", "model::trade::RepurchaseList", "model::trade::TradePSItem", "model::gameobjects::Letter",
+	"skillengine::task::CraftingTask", "CM_EXCHANGE_REQUEST_RequestResponseHandler", "DialogService_RequestResponseHandler",
+	"CubeExpandService_RequestResponseHandler", "CraftSkillUpdateService_RequestResponseHandler"};
+
+/**
+ * Every class of X22 is a strict zero with a counted row, decided one by one as E-03 decided the combat classes. PrivateStore and the bare
+ * RequestResponseHandler are the two names of §10.3 no counter can see - an OwnedPart held by a unique_ptr, and an abstract base whose
+ * instances are counted under their dynamic types - so they are NOT rows (the DamageList precedent above: a row that can never fire reads as a
+ * pass forever); the handler rows name the subclasses instead, the five the gate never answers as guards only.
+ */
+TEST(CheckOutputTest, TheTransferClassesOfTheEconomyAreStrictZerosWithACountedRow) {
+	const auto strict = [](std::string_view name) { return std::ranges::count(CheckOutput::zeroLiveClasses(), name) == 1; };
+	const auto reported = [](std::string_view name) { return std::ranges::count(CheckOutput::summaryLiveClasses(), name) == 1; };
+	for (std::string_view name : M5C_TRANSFER_CLASSES) {
+		EXPECT_TRUE(strict(name)) << name << ": X22 asserts live 0 after every character logged out";
+		EXPECT_TRUE(reported(name)) << name << ": and needs the created half, which only a summary row shows";
+	}
+	for (std::string_view name : {"Equipment_RequestResponseHandler", "NpcFactions_RequestResponseHandler", "AIActions_RequestResponseHandler",
+			 "RVController_RequestResponseHandler", "RVController_RequestResponseHandler_2"}) {
+		EXPECT_TRUE(strict(name)) << name << ": a request handler goes with its Player's ResponseRequester";
+		EXPECT_FALSE(reported(name)) << name << ": no gate answers it, so a counted row would only print 0 0";
+	}
+	for (std::string_view name : {"model::gameobjects::player::PrivateStore", "PrivateStore", "model::gameobjects::player::RequestResponseHandler",
+			 "RequestResponseHandler"}) {
+		EXPECT_FALSE(strict(name)) << name << ": no counter can ever match it, so a strict row would be dead";
+		EXPECT_FALSE(reported(name)) << name << ": and a counted row would report 0 0 forever";
+	}
+}
+
+/**
+ * The strict rows against a run in which every transfer was reclaimed (the X22 bar), and one leak of each: the counters' spellings, an
+ * anonymous namespace's MSVC spelling included, must be matched by exactly the row they belong to, and TradePSItem must not be summed into
+ * TradeItem (nor RVController_RequestResponseHandler_2 into its prefix).
+ */
+TEST(CheckOutputTest, AnEconomyTransferObjectThatOutlivesTheLogoutIsALeak) {
+	LogCapture capture("com.aionemu.gameserver.CheckOutput");
+	const std::vector<LiveCount> gateRun{
+		{"aion::gameserver::model::trade::Exchange", 0, 8},
+		{"aion::gameserver::model::trade::ExchangeItem", 0, 3},
+		{"aion::gameserver::model::trade::TradeList", 0, 9},
+		{"aion::gameserver::model::trade::TradeItem", 0, 9},
+		{"aion::gameserver::model::trade::RepurchaseList", 0, 1},
+		{"aion::gameserver::model::trade::TradePSItem", 0, 3},
+		{"aion::gameserver::model::gameobjects::Letter", 0, 5},
+		{"aion::gameserver::network::aion::clientpackets::`anonymous namespace'::CM_EXCHANGE_REQUEST_RequestResponseHandler", 0, 4},
+		{"aion::gameserver::services::`anonymous namespace'::DialogService_RequestResponseHandler", 0, 1},
+		{"aion::gameserver::services::`anonymous namespace'::CubeExpandService_RequestResponseHandler", 0, 1},
+		{"aion::gameserver::controllers::`anonymous namespace'::RVController_RequestResponseHandler_2", 0, 0},
+		{"aion::gameserver::model::gameobjects::Npc", 82'126, 82'129},
+	};
+	EXPECT_TRUE(CheckOutput::checkLiveCounts(gateRun).empty()) << "every transfer object reclaimed is no leak";
+	for (size_t i = 0; i + 1 < gateRun.size(); i++) {
+		std::vector<LiveCount> leaked = gateRun;
+		leaked[i].live = 1;
+		const std::vector<LiveCount> leaks = CheckOutput::checkLiveCounts(leaked);
+		ASSERT_EQ(leaks.size(), 1u) << gateRun[i].className << " alive after the logout must be reported";
+		EXPECT_EQ(leaks[0].className, gateRun[i].className);
+	}
+	EXPECT_TRUE(capture.contains("error|Live instance leak: 1 of the 8 aion::gameserver::model::trade::Exchange instances")) << capture.str();
+
+	std::vector<LiveCount> storeItemAlive = gateRun;
+	storeItemAlive[5].live = 2;
+	const std::vector<LiveCount> rows = CheckOutput::summaryLiveCounts(storeItemAlive);
+	const auto row = [&rows](std::string_view name) {
+		auto it = std::ranges::find(rows, name, &LiveCount::className);
+		return it == rows.end() ? LiveCount{std::string(name), -1, 0} : *it;
+	};
+	EXPECT_EQ(row("model::trade::TradePSItem").live, 2);
+	EXPECT_EQ(row("model::trade::TradeItem").live, 0) << "a TradePSItem is not a TradeItem row: the rule matches on \"::\" + name";
+	EXPECT_EQ(row("model::trade::TradeItem").created, 9u);
+	EXPECT_EQ(row("CM_EXCHANGE_REQUEST_RequestResponseHandler").created, 4u) << "the anonymous namespace's spelling is matched by the bare name";
+	EXPECT_EQ(row("DialogService_RequestResponseHandler").created, 1u);
+	EXPECT_EQ(row("model::gameobjects::Letter").created, 5u);
+	EXPECT_EQ(row("skillengine::task::CraftingTask").created, 0u) << "no counter: 0 0 (part 1 of the gate runs no craft)";
+}
+
+/** The rows read the real counters of the real classes: a TradeList with its TradeItem and a RepurchaseList alive are three leaks, then none */
+TEST(CheckOutputTest, TheEconomyRowsReadTheCountersOfTheRealTradeClasses) {
+	if (!runtime::LIVE_COUNTS_ENABLED)
+		GTEST_SKIP() << "release build: makeRef and the Reclaimer count nothing (AION_CHECKED off)";
+	LogCapture capture("com.aionemu.gameserver.CheckOutput");
+	const auto tradeLeaks = [] {
+		std::vector<LiveCount> leaks;
+		for (const LiveCount& leak : CheckOutput::checkLiveCounts())
+			if (leak.className.find("::model::trade::") != std::string::npos)
+				leaks.push_back(leak);
+		return leaks;
+	};
+	EXPECT_TRUE(tradeLeaks().empty()) << "nothing of the trade classes is alive before the test creates one";
+	{
+		runtime::TaskScope scope(AION_TASK_INFO(runtime::TaskKind::TEST));
+		runtime::Ref<model::trade::TradeList> tradeList = model::trade::TradeList::create(4711);
+		runtime::Ref<model::trade::TradeItem> tradeItem = model::trade::TradeItem::create(162000052, 2);
+		runtime::Ref<model::trade::RepurchaseList> repurchase = model::trade::RepurchaseList::create(4711);
+		std::vector<LiveCount> leaks = tradeLeaks();
+		std::ranges::sort(leaks, {}, &LiveCount::className);
+		ASSERT_EQ(leaks.size(), 3u) << "each class is its own counter, and each is a strict row";
+		EXPECT_EQ(leaks[0].className, "aion::gameserver::model::trade::RepurchaseList");
+		EXPECT_EQ(leaks[1].className, "aion::gameserver::model::trade::TradeItem");
+		EXPECT_EQ(leaks[2].className, "aion::gameserver::model::trade::TradeList");
+		const std::vector<LiveCount> rows = CheckOutput::summaryLiveCounts(runtime::liveCounts());
+		const auto it = std::ranges::find(rows, std::string("model::trade::TradeList"), &LiveCount::className);
+		ASSERT_NE(it, rows.end());
+		EXPECT_GE(it->live, 1);
+	}
+	runtime::Reclaimer::getInstance().drain();
+	EXPECT_TRUE(tradeLeaks().empty()) << "and none once the Reclaimer freed them";
 }
 
 } // namespace

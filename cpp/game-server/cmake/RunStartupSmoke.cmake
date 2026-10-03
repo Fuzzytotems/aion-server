@@ -237,6 +237,10 @@ if(EXISTS "${html_cache_file}")
 	fail("${test_name}: could not remove the previous run's ${html_cache_file}, so this start would read it instead of writing its own")
 endif()
 list(APPEND arguments "-Dgameserver.html.cache.file=${html_cache_file}")
+# The operator's play profile stays out (main.cpp --ignore-mygs-properties, a C++ test hook): the working directory is the Java module directory,
+# whose untracked config/mygs.properties the owner writes to play. Without the switch a key this profile does not pin took the owner's value in
+# the main tree and the shipped default in CI and in a worktree (docs/deviations/P5-14.md, "hermetic test servers"). Checked after the run.
+list(APPEND arguments "--ignore-mygs-properties")
 # the start of the run in seconds since the epoch: the cache file the server writes must be newer than this (see the check after the run)
 string(TIMESTAMP run_start_epoch "%s" UTC)
 
@@ -285,6 +289,12 @@ foreach(line IN LISTS step_lines)
 endforeach()
 if(step_count EQUAL 0)
 	fail("${test_name}: no startup step was logged (exit code '${result}')")
+endif()
+# --ignore-mygs-properties: Config.load (startup step 1, logged above) read the shipped defaults and the -D keys only, never the operator's profile
+set(ignored_profile "Ignoring \\./config/mygs\\.properties \\(C\\+\\+ test hook --ignore-mygs-properties\\)")
+if(NOT log MATCHES "${ignored_profile}" OR log MATCHES "Loading: \\./config/mygs\\.properties")
+	fail("${test_name}: the server did not leave config/mygs.properties out (--ignore-mygs-properties was not honoured), so this run's properties "
+		"depend on the operator's untracked play profile")
 endif()
 # --log-folder: the run's log files are its own, so no other server process archives or deletes them (and this one archives none of theirs)
 if(NOT EXISTS "${OUTPUT_DIR}/log/server_console.log")

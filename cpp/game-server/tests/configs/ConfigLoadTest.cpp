@@ -78,6 +78,7 @@ protected:
 	void TearDown() override {
 		Config::setEventConfigPropertiesProvider(nullptr);
 		Config::setLocalIPv4Finder(nullptr);
+		Config::setOverrideFileIgnored(false);
 	}
 
 	/** Config::load(allowedConfigs) in the temp directory, capturing the Config logger */
@@ -440,6 +441,57 @@ TEST_F(ConfigLoadTest, LoggingConfigFromGameserverLoggingAndMygsProperties) {
 	config = Config::loadLoggingConfig();
 	EXPECT_EQ(config.timeZone, nullptr); // shipped gameserver.timezone is empty: system default
 	EXPECT_EQ(config.statusDiscordWebhookUrl, "");
+}
+
+// The C++ test hook of every game server a test starts (Config::setOverrideFileIgnored, main.cpp --ignore-mygs-properties): the operator's
+// untracked mygs.properties is left out of Config.load and of the logging settings alike, the log says so in place of "Loading: ...", and with
+// the hook off (the default, a production start) the same file is read again, like Java.
+TEST_F(ConfigLoadTest, TheTestHookLeavesMygsPropertiesOutOfTheConfigAndTheLoggingSettings) {
+	writeMygs("gameserver.players.max.level = 66\n"
+	          "gameserver.timezone = Europe/Berlin\n"
+	          "gameserver.log.status.discord.webhook_url = https://example.invalid/hook\n");
+	Config::setOverrideFileIgnored(true);
+	std::string log = load();
+	aion::commons::logging::Logging::Config logging;
+	{
+		ScopedCurrentPath cwd(dir.path);
+		logging = Config::loadLoggingConfig();
+	}
+	EXPECT_NE(log.find("info|Ignoring ./config/mygs.properties (C++ test hook --ignore-mygs-properties)\n"), std::string::npos) << log;
+	EXPECT_EQ(log.find("Loading: ./config/mygs.properties"), std::string::npos) << log;
+	EXPECT_EQ(main::GSConfig::PLAYER_MAX_LEVEL.load(), 65) << "config/main/gameserver.properties' value, not the profile's 66";
+	EXPECT_EQ(main::GSConfig::TIME_ZONE_ID.load(), std::chrono::current_zone()) << "the shipped empty value, not the profile's zone";
+	EXPECT_EQ(DatabaseConfig::DATABASE_URL, "jdbc:mysql://localhost:3306/aion_gs?serverTimezone=&characterEncoding=UTF-8");
+	EXPECT_EQ(logging.timeZone, nullptr) << "the logging settings leave the profile out as well";
+	EXPECT_EQ(logging.statusDiscordWebhookUrl, "");
+
+	Config::setOverrideFileIgnored(false);
+	log = load();
+	{
+		ScopedCurrentPath cwd(dir.path);
+		logging = Config::loadLoggingConfig();
+	}
+	EXPECT_NE(log.find("info|Loading: ./config/mygs.properties\n"), std::string::npos) << log;
+	EXPECT_EQ(log.find("Ignoring ./config/mygs.properties"), std::string::npos) << log;
+	EXPECT_EQ(main::GSConfig::PLAYER_MAX_LEVEL.load(), 66);
+	EXPECT_EQ(main::GSConfig::TIME_ZONE_ID.load(), std::chrono::locate_zone("Europe/Berlin"));
+	EXPECT_EQ(logging.timeZone, std::chrono::locate_zone("Europe/Berlin"));
+	EXPECT_EQ(logging.statusDiscordWebhookUrl, "https://example.invalid/hook");
+}
+
+// The review of lane H (mutant a3): with the hook on, the logging settings still read logback.xml's other two property files,
+// config/main/gameserver.properties and config/main/logging.properties; only the operator's profile is left out. The shipped values of the
+// three keys are empty, so the test writes its own into its copy of the config.
+TEST_F(ConfigLoadTest, TheTestHookKeepsTheShippedLoggingFiles) {
+	dir.write("config/main/gameserver.properties", "gameserver.timezone = Europe/Berlin\n");
+	dir.write("config/main/logging.properties", "gameserver.log.status.discord.avatar_url = https://example.invalid/avatar\n");
+	writeMygs("gameserver.timezone = Asia/Tokyo\n"
+	          "gameserver.log.status.discord.avatar_url = https://example.invalid/profile\n");
+	Config::setOverrideFileIgnored(true);
+	ScopedCurrentPath cwd(dir.path);
+	const aion::commons::logging::Logging::Config logging = Config::loadLoggingConfig();
+	EXPECT_EQ(logging.timeZone, std::chrono::locate_zone("Europe/Berlin")) << "config/main/gameserver.properties";
+	EXPECT_EQ(logging.statusDiscordAvatarUrl, "https://example.invalid/avatar") << "config/main/logging.properties";
 }
 
 TEST(ConfigClassesTest, AllConfigClasses) {

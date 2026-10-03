@@ -1,12 +1,16 @@
 #include "aion/gameserver/CheckOutput.h"
 
 #include <algorithm>
+#include <chrono>
+#include <cstdint>
 #include <fstream>
 #include <initializer_list>
 #include <optional>
+#include <string>
 #include <string_view>
 #include <thread>
 #include <unordered_set>
+#include <vector>
 
 #include "aion/commons/logging/LoggerFactory.h"
 #include "aion/commons/utils/Exception.h"
@@ -17,6 +21,7 @@
 #include "aion/gameserver/model/gameobjects/DropNpc.h"
 #include "aion/gameserver/model/gameobjects/VisibleObject.h"
 #include "aion/gameserver/runtime/base/TaskInfo.h"
+#include "aion/gameserver/runtime/base/ThreadContext.h"
 #include "aion/gameserver/runtime/base/Unported.h"
 #include "aion/gameserver/runtime/lifetime/LiveInstanceCounters.h"
 #include "aion/gameserver/runtime/lifetime/Reclaimer.h"
@@ -242,6 +247,88 @@ void writeHeldDrops(std::ostream& out, const std::optional<HeldDrops>& held) {
 	out << "dropItemsHeld " << value(&HeldDrops::dropItems) << '\n';
 }
 
+/**
+ * The threads of the executor pools, by the names ExecutorBackend.h makes part of its contract ("ScheduledPool-1", "InstantPool-1",
+ * "LongRunning-1"; the debug backend's one "SingleExecutor"). The rejection threads of a full instant queue ("Thread-n") are left out: their
+ * name is a generic one, and they only exist while 100,000 tasks are queued.
+ */
+bool isPoolThread(std::string_view name) {
+	return name.starts_with("InstantPool-") || name.starts_with("LongRunning-") || name.starts_with("ScheduledPool-") || name == "SingleExecutor";
+}
+
+/**
+ * A task that ran on a pool thread when drainPools started, identified by its thread (ThreadContext::threadId, never reused) and the start of
+ * its outermost TaskScope. Not by the scope id: quiescentPoint() gives a long task a new one at every step and keeps its start (TaskScope.cpp).
+ */
+struct RunningPoolTask {
+	uint64_t threadId = 0;
+	int64_t startNanos = 0;
+	runtime::TaskInfo info{};
+	const char* threadName = ""; // interned, never freed (ThreadContext::threadName)
+};
+
+/**
+ * the tasks running on pool threads now, except on the calling thread: drainPools called inside a pool task would otherwise wait for itself
+ * until its deadline (the census and the breaker pass run on the shutdown thread; CheckOutputTest calls it inside a task)
+ */
+std::vector<RunningPoolTask> runningPoolTasks() {
+	const runtime::ThreadContext* self = runtime::ThreadContext::currentIfRegistered();
+	std::vector<RunningPoolTask> tasks;
+	runtime::ThreadContext::forEach([self, &tasks](const runtime::ThreadContext& context) {
+		if (&context == self || !isPoolThread(context.threadName()))
+			return;
+		const runtime::ThreadContext::TaskSnapshot task = context.task();
+		if (task.active)
+			tasks.push_back(RunningPoolTask{context.threadId(), task.startNanos, task.info, context.threadName()});
+	});
+	return tasks;
+}
+
+/**
+ * true while the task's thread still runs it: the thread's record is still its own (a record is recycled only after its thread ended) and
+ * runs a task that started when this one did. A thread that is idle, runs another task or ended has left it.
+ */
+bool stillRunning(const RunningPoolTask& task) {
+	bool running = false;
+	runtime::ThreadContext::forEach([&task, &running](const runtime::ThreadContext& context) {
+		if (context.threadId() != task.threadId)
+			return;
+		const runtime::ThreadContext::TaskSnapshot snapshot = context.task();
+		running = snapshot.active && snapshot.startNanos == task.startNanos;
+	});
+	return running;
+}
+
+/**
+ * The tasks queued in the instant and the long-running pool now (ExecutorBackend::pendingTasks: not taken by a worker yet), as their futures.
+ * Tasks of the scheduled pool are left out: one that is not due yet, or a periodic one (never done), is no work the census waits for.
+ * ThreadPoolManager::getInstance() creates the default pools if there are none yet, as the barrier tasks drainPools queued before did: the
+ * zombie breakers' bodies that runBreakerPass waits for are posted with submitIfInstalled, which never creates them (CheckOutputTest's
+ * FinalCensusEndsWithTheZeroThresholdBreakerPass runs in a process without pools until runFinalCensus' first drain).
+ */
+std::vector<runtime::FutureRef> queuedPoolTasks() {
+	std::vector<runtime::FutureRef> tasks;
+	for (runtime::FutureRef& task : utils::ThreadPoolManager::getInstance().backend().pendingTasks())
+		if (task->getPool() == runtime::PoolKind::INSTANT || task->getPool() == runtime::PoolKind::LONG_RUNNING)
+			tasks.push_back(std::move(task));
+	return tasks;
+}
+
+/** "file:line kind" (the census.txt form of a call site) */
+std::string callSite(const runtime::TaskInfo& info) {
+	return std::string(fileName(info.where.file_name())) + ":" + std::to_string(info.where.line()) + " " + (info.kind != nullptr ? info.kind : "");
+}
+
+/** "thread file:line kind" per running task, then "queued file:line kind" per queued one, separated by "; " */
+std::string describe(const std::vector<RunningPoolTask>& running, const std::vector<runtime::FutureRef>& queued) {
+	std::string text;
+	for (const RunningPoolTask& task : running)
+		text += (text.empty() ? "" : "; ") + std::string(task.threadName) + " " + callSite(task.info);
+	for (const runtime::FutureRef& task : queued)
+		text += (text.empty() ? "" : "; ") + std::string("queued ") + callSite(task->getTaskInfo());
+	return text;
+}
+
 } // namespace
 
 void CheckOutput::writeUnportedTrace(const std::filesystem::path& dir) {
@@ -336,19 +423,44 @@ void CheckOutput::runBreakerPass() {
 }
 
 void CheckOutput::drainPools(std::chrono::steady_clock::time_point deadline) {
-	// The plan's "drain the pools" step of F-07. There is no pool-wide quiesce call, so one barrier task per pool is queued behind everything
-	// that was queued before it: when the barriers ran, no logout task of the network shutdown is still pending and pinning its Player. Periodic
-	// tasks are untouched (RuntimeLifecycle::shutdown cancels them afterwards).
-	utils::ThreadPoolManager& pool = utils::ThreadPoolManager::getInstance();
-	std::vector<runtime::FutureRef> barriers;
-	barriers.push_back(pool.submit([] {}));
-	barriers.push_back(pool.submitLongRunning([] {}));
-	for (const runtime::FutureRef& barrier : barriers) {
-		if (!barrier) // the pools are already shut down: nothing is queued
-			continue;
-		while (!barrier->isDone() && std::chrono::steady_clock::now() < deadline)
-			std::this_thread::sleep_for(std::chrono::milliseconds(10));
+	// The plan's "drain the pools" step of F-07: when it returns, every task that was queued in or running on an executor pool when it started
+	// has ended, unless `deadline` came first. There is no pool-wide quiesce call, so the drain takes two snapshots and waits for what they hold.
+	// 1. The tasks QUEUED in the instant and the long-running pool (queuedPoolTasks), as their futures: a future is done when its body has run
+	//    and ended, whichever thread took it. So no logout task of the network shutdown is still pending and pinning its Player. A barrier task
+	//    queued behind them was not enough (the review of lane H): the queue is FIFO, but a pool with more than one thread takes a task on one
+	//    thread and the barrier on another at once, and the barrier ended while the task still ran; the long-running pool even starts a thread
+	//    per queued task.
+	// 2. The tasks RUNNING on a pool thread. Nothing that is queued waits for them: gs.scenario.m5a_geo's census reported `Player 103881 506` in
+	//    2 of 7 loaded runs because a 9 s MapRegion::activate task, which fills the known lists, still ran on one instant pool thread while
+	//    another one ran the barrier of the time (p6q-ascension-route.md §7). Every thread of the executor pools publishes the task it runs in
+	//    its ThreadContext (design §1.2, the record the watchdog reads): the drain takes a snapshot of them and waits until each of those threads
+	//    has left that task. Taken after 1., so a task a worker takes from its queue in between is in this one. Neither holds a task a worker
+	//    took from its queue before 1. and has not published yet when 2. reads its thread - the few instructions between the pop and
+	//    runFromExecutor's TaskScope, so the worker would have to be descheduled right there.
+	// Tasks queued or started later are not waited for: the world keeps running during a census, and waiting for idle pools would wait for it
+	// until the deadline. Nor are the scheduled pool's pending tasks, which are not due yet or periodic (RuntimeLifecycle::shutdown cancels them
+	// afterwards); one that runs on a ScheduledPool thread is (2.).
+	const auto start = std::chrono::steady_clock::now();
+	std::vector<runtime::FutureRef> queued = queuedPoolTasks();
+	std::vector<RunningPoolTask> running = runningPoolTasks();
+	const size_t queuedAtStart = queued.size();
+	const size_t runningAtStart = running.size();
+	for (;;) {
+		std::erase_if(queued, [](const runtime::FutureRef& task) { return task->isDone(); });
+		std::erase_if(running, [](const RunningPoolTask& task) { return !stillRunning(task); });
+		if ((queued.empty() && running.empty()) || std::chrono::steady_clock::now() >= deadline)
+			break;
+		std::this_thread::sleep_for(std::chrono::milliseconds(10));
 	}
+	// a post mortem of a census wants to know that the drain waited for a long task, or gave up on one; a short wait is the normal case
+	const auto waited = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start).count();
+	if (!queued.empty() || !running.empty())
+		log().info("Pool drain: at its deadline ({} ms) {} of the {} task(s) running on pool threads when it started still run and {} of the {} "
+		           "queued one(s) have not ended: {}",
+			waited, running.size(), runningAtStart, queued.size(), queuedAtStart, describe(running, queued));
+	else if (waited >= 100)
+		log().info("Pool drain: waited {} ms for the {} task(s) running on pool threads and the {} queued one(s) when it started", waited,
+			runningAtStart, queuedAtStart);
 }
 
 void CheckOutput::writeCensus(std::ostream& out, const std::vector<runtime::LeakCensus::LeakReport>& leaks) {
@@ -427,6 +539,40 @@ const std::vector<std::string>& CheckOutput::zeroLiveClasses() {
 		// (m5b3-plan.md D5, G-06): a corpse with an unlooted drop keeps its DropNpc for 300 s, in Java too, so it is bounded by what
 		// DropRegistrationService holds (heldDrops above, the dropNpcsHeld row) instead of zero.
 		"controllers::attack::AttackResult",
+		// m5c-plan.md G-06: the transfer objects of the economy (stage 1's trade, exchange, private store and mail, stage 2's crafting). Each one
+		// lives for one packet or one transaction of a character that is online: CM_BUY_ITEM's TradeList and its TradeItems (CM_BUY_ITEM.java's
+		// readImpl) or RepurchaseList, the Exchange pair and its ExchangeItems from registerExchange to cleanUpExchanges (ExchangeService.java),
+		// the store's TradePSItems (the store is the Player's own part), a Letter from the send to the mailbox that holds it, the CraftingTask
+		// from startCrafting to its finish or abort - so nothing of them may outlive the logout of every character (X22 of m5c-plan.md §10.3). The
+		// economy objects no gate before M5c creates: in every earlier gate and smoke run live_counts.txt has no row of them at all.
+		// Two of §10.3's names cannot be rows, the precedent of DamageList (the header's "Deliberately NOT here"):
+		// - PrivateStore is an OwnedPart the Player owns through a unique_ptr (PrivateStoreService.cpp, Player::setStore), not a makeRef'd
+		//   RefCounted, so no counter ever sees one; it dies with its Player (a strict row above), and its items are the TradePSItem row;
+		// - RequestResponseHandler is abstract: a counter is kept per DYNAMIC type (LiveInstanceCounters.h), and every handler is the
+		//   anonymous-namespace subclass of the Java anonymous class, whose counted name ends in "::<Service>_RequestResponseHandler" - a
+		//   "RequestResponseHandler" row would match none of them. The nine subclasses of the tree are listed instead: a request a character
+		//   never answered goes with its ResponseRequester, i.e. with its Player. Java has more anonymous handlers that are not ported yet
+		//   (DuelService, LegionService, WarehouseService, ItemChargeService, TeleportService, CM_FRIEND_ADD, Invasion; the handler scripts
+		//   PortalRequestAI, GateRepairAI and the Buy command), so the lane that ports one adds its "<Service>_RequestResponseHandler" row here
+		//   (and to summaryLiveClasses if a gate answers it).
+		// The CraftingTask row joins the AbstractInteractionTask guard above, which for the same reason can match nothing (an abstract class).
+		"model::trade::Exchange",
+		"model::trade::ExchangeItem",
+		"model::trade::TradeList",
+		"model::trade::TradeItem",
+		"model::trade::RepurchaseList",
+		"model::trade::TradePSItem",
+		"model::gameobjects::Letter",
+		"skillengine::task::CraftingTask",
+		"CM_EXCHANGE_REQUEST_RequestResponseHandler",
+		"DialogService_RequestResponseHandler",
+		"CubeExpandService_RequestResponseHandler",
+		"CraftSkillUpdateService_RequestResponseHandler",
+		"Equipment_RequestResponseHandler",
+		"NpcFactions_RequestResponseHandler",
+		"AIActions_RequestResponseHandler",
+		"RVController_RequestResponseHandler",
+		"RVController_RequestResponseHandler_2",
 	};
 	return *classes;
 }
@@ -462,6 +608,21 @@ const std::vector<std::string>& CheckOutput::summaryLiveClasses() {
 		"skillengine::effect::RootEffect_ActionObserver",
 		"skillengine::effect::AlwaysDodgeEffect_AttackStatusObserver",
 		"skillengine::effect::AlwaysResistEffect_AttackStatusObserver",
+		// m5c-plan.md G-06: the created half of the economy's strict rows (zeroLiveClasses above), which only these rows can show - "0 live" of
+		// an Exchange that was never created is a guard, not X22's assertion. The request handlers are the four the M5c gate answers: the
+		// exchange question (C8-C9), the soul healing (C13), the cube expansion (C17) and, in stage 3's C19, the craft skill.
+		"model::trade::Exchange",
+		"model::trade::ExchangeItem",
+		"model::trade::TradeList",
+		"model::trade::TradeItem",
+		"model::trade::RepurchaseList",
+		"model::trade::TradePSItem",
+		"model::gameobjects::Letter",
+		"skillengine::task::CraftingTask",
+		"CM_EXCHANGE_REQUEST_RequestResponseHandler",
+		"DialogService_RequestResponseHandler",
+		"CubeExpandService_RequestResponseHandler",
+		"CraftSkillUpdateService_RequestResponseHandler",
 	};
 	return *classes;
 }

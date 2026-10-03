@@ -15,14 +15,14 @@
 # §10.1 expected section A to be "nearly empty" and section B to hold CumulativeResist and the damage modifiers if K-03/K-04 stayed W. Both
 # were ported in part 2 without a partial, and M5b-2 closed every skill-engine partial it owned (O-09, D3, D14's createCriticalProcEffect, the
 # PlayerRestrictions::canUseSkill of C-01), so no row below belongs to the skill engine at all. Stage 2 closed the npc side as well (N-01,
-# N-02): no row below belongs to the npc AI either, and section B is empty.
+# N-02): no row below belongs to the npc AI either. Section B holds only the two AbyssRankUpdateService cron rows since M5c stage 2 (G-07).
 
 # =========================================================================================================================================
 # --- SECTION A - hit at least once, asserted ---
 # =========================================================================================================================================
 
-# every startup: the gates run without quests (m5a-plan.md W-02) and without base locations (E1-06)
-aion/gameserver/questEngine/QuestEngine.cpp:111
+# every startup: the gates run without base locations (E1-06). HISTORY: QuestEngine.cpp:111 (no XML quest registered, m5a-plan.md W-02)
+# was here until M5d's D3 join (m5d-plan.md I-05) registered them at every startup; the site no longer exists.
 aion/gameserver/services/BaseService.cpp:18
 # HISTORY: M5b-3's drop registration (m5b-plan.md D5), DropRegistrationService.cpp:43, was here - the Warrior kills monster A in S5 and the
 # kerub in S5b, the Mage kills A's respawn in S10 - until M5b-3 closed registerDrop (m5b3-plan.md L-01); the site no longer exists. X12's drop
@@ -37,21 +37,24 @@ aion/gameserver/services/BaseService.cpp:18
 # SkillAttackManager (m5b2-plan.md N-01, SkillAttackManager.java:35-213); the sites no longer exist, and X9 (S5b) now asserts the skill path
 # the rows stood for: npc 210133 casts 16419 at the character.
 
+# AbyssRankUpdateService's two cron jobs, the rank update (daily 00:00) and the GP loss (daily 12:00): section C rows until M5c stage 2 ("a
+# property of the run's LENGTH"), but they fire at a time of day. ScenarioServers::m5aProfile sets both keys past every gate run
+# (m5c-plan.md G-07), so a hit means a key no longer reaches the server (the m5b and m5c lists have the same two rows here).
+aion/gameserver/services/abyss/AbyssRankUpdateService.cpp:37
+aion/gameserver/services/abyss/AbyssRankUpdateService.cpp:58
+
 # =========================================================================================================================================
 # --- SECTION C - allowed, counted and printed, not pinned ---
 # =========================================================================================================================================
 
 # HISTORY: m5b-plan.md D4's row, GeneralNpcAI.cpp:122 ("npc skill attacks are not chosen yet"), was here (section C, so that the gate held on
 # both sides of the join) until stage 2 closed it (m5b2-plan.md N-02, GeneralNpcAI.java:130-138); the site no longer exists.
-# behind gameserver.analysis.quest_handlers, which the gate profile does not set
-aion/gameserver/questEngine/QuestEngine.cpp:115
-# the PvP map instance needs InstanceService::getNextAvailableInstance (m5a-plan.md W-03)
+# HISTORY: QuestEngine.cpp:115, the quest spawn analysis behind gameserver.analysis.quest_handlers (which the gate profile does not set, so it
+# runs at every startup), was here until M5d's E-08 ported QuestSpawnAnalyzer (m5d-plan.md §21); the site no longer exists.
+# the PvP map instance stays partial by m5f-plan.md D6 (PvpMapHandler is M5j; init would create it at every startup)
 aion/gameserver/custom/pvpmap/PvpMapService.cpp:32
-# personal instances and the instance exit teleport are M5a AION_PARTIAL by plan W-03
-aion/gameserver/services/instance/InstanceService.cpp:133
-aion/gameserver/services/instance/InstanceService.cpp:153
+# HISTORY: InstanceService.cpp:133 (personal instances) and :153 (the instance exit teleport), M5a AION_PARTIAL by plan W-03, were here
+# until the ascension lane closed them (m5f-plan.md §15, N-01 and T-02 moveToInstanceExit, I-04); both sites no longer exist.
 # EMOTIONS_ALL is off by default, so this is only reached with the config the real-client checklist uses
 aion/gameserver/services/player/PlayerService.cpp:268
-# AbyssRankUpdateService's periodic tasks: a property of the run's LENGTH, not of its script (the M5b-1 list's reason)
-aion/gameserver/services/abyss/AbyssRankUpdateService.cpp:37
-aion/gameserver/services/abyss/AbyssRankUpdateService.cpp:58
+# HISTORY: AbyssRankUpdateService.cpp:37 and :58 were here ("a property of the run's LENGTH"); section B rows since M5c stage 2 (G-07).

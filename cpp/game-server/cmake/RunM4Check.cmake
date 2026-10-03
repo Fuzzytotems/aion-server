@@ -24,6 +24,9 @@
 # and both server logs stay in OUTPUT_DIR). The server logs are OUTPUT_DIR/id_factory.log and OUTPUT_DIR/check.log, the report files
 # OUTPUT_DIR/empty and OUTPUT_DIR/full. Each server run gets its own log directory (--log-folder=OUTPUT_DIR/<name>_log) instead of the shared
 # <WORKING_DIRECTORY>/log, so a game server of another build directory cannot make the log archiving of this run fail.
+# Both server runs get the C++ test hook --ignore-mygs-properties (main.cpp) and m4-compare gets --no-profile: the working directory's untracked
+# config/mygs.properties is the operator's play profile, so the server and the geo/world prediction read the shipped defaults only, on every
+# machine (docs/deviations/P5-14.md, "hermetic test servers"). Each run's log must say so, and m4-compare's output must name the profile it left out.
 
 set(test_name gs.m4.check_static_data)
 
@@ -127,7 +130,7 @@ function(m4_server name out_log)
 	execute_process(
 		# --log-folder: the run's own log directory, never the shared <WORKING_DIRECTORY>/log (Logging::init archives and deletes the *.log
 		# files it finds there, so two server processes in one log directory fail each other's archiving; RunStartupSmoke.cmake does the same)
-		COMMAND "${EXECUTABLE}" ${ARGN} ${database_arguments} "--log-folder=${OUTPUT_DIR}/${name}_log"
+		COMMAND "${EXECUTABLE}" ${ARGN} ${database_arguments} "--log-folder=${OUTPUT_DIR}/${name}_log" --ignore-mygs-properties
 		WORKING_DIRECTORY "${WORKING_DIRECTORY}"
 		OUTPUT_FILE "${OUTPUT_DIR}/${name}.log"
 		ERROR_FILE "${OUTPUT_DIR}/${name}.stderr.log"
@@ -154,6 +157,11 @@ function(m4_server name out_log)
 	if(log MATCHES "is unknown and therefore ignored")
 		m4_fail("item 1" "Config.load warned about unknown properties (the predicted set is empty)")
 	endif()
+	set(ignored "Ignoring \\./config/mygs\\.properties \\(C\\+\\+ test hook --ignore-mygs-properties\\)")
+	if(NOT log MATCHES "${ignored}" OR log MATCHES "Loading: \\./config/mygs\\.properties")
+		m4_fail("${name}" "the server did not leave config/mygs.properties out (--ignore-mygs-properties was not honoured), so its properties "
+			"depend on the operator's untracked play profile")
+	endif()
 	# a newline in front, so an ERROR on the very first log line is found as well
 	set(scan "\n${log}")
 	if(scan MATCHES "\n[0-9:]+ ERROR ([^\n]*)")
@@ -172,6 +180,7 @@ function(m4_python item)
 	if(NOT result STREQUAL "0")
 		m4_fail("${item}" "python ${ARGN} failed (${result})")
 	endif()
+	set(m4_python_output "${output}" PARENT_SCOPE)
 endfunction()
 
 function(m4_summary dir key out_value)
@@ -222,7 +231,11 @@ m4_database(online "online players 0")
 
 # 6-7: the oracles
 m4_python("item 4" oracle.py compare-counts --log "${full}/static_data_counts.txt")
-m4_python("items 5 and 6" -m geo m4-compare --dir "${full}")
+m4_python("items 5 and 6" -m geo m4-compare --dir "${full}" --no-profile)
+# the prediction read what the server read: the shipped defaults, without the operator's profile (see the header)
+if(NOT m4_python_output MATCHES "mygs\\.properties not read \\(--no-profile\\)")
+	m4_fail("items 5 and 6" "m4-compare did not say that it left mygs.properties out, so its prediction may read a profile the server did not")
+endif()
 
 set_property(GLOBAL PROPERTY m4_database_created FALSE)
 m4_database(drop "dropped ${database}")

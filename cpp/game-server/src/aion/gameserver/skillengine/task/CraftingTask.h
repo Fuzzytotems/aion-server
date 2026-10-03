@@ -18,7 +18,8 @@ namespace aion::gameserver::skillengine::task {
  * <p>
  * The shell of m5c-plan.md I-02, drafted with tools/gen/skeleton.py --draft from the fieldmap.json row, so that CraftService (C-01, which
  * constructs one, CraftService.java:123) and this class's bodies (C-02) compile against the same header. RefCounted (fieldmap K4, the class
- * tree of AbstractInteractionTask: held by `Player::interactionTask`), created with create(). Every body is AION_UNPORTED until C-02.
+ * tree of AbstractInteractionTask: held by `Player::interactionTask`), created with create(). The bodies are C-02's, ported in M5c stage 2
+ * (CraftingTask.java:31-173; docs/deviations/P5-02a.md).
  *
  * @author Mr. Poke, synchro2, Yeats
  */

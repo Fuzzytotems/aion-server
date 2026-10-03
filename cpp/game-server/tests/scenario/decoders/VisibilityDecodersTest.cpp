@@ -165,10 +165,16 @@ TEST(VisibilityDecodersTest, GatherableInfo) {
 	EXPECT_EQ(info.l10nId, 400037);
 	EXPECT_FLOAT_EQ(info.x, 1200.5f);
 
-	// a static door writes 9 (open) or 10 (closed) instead of 1
-	EXPECT_EQ(decodeGatherableInfo(gatherableInfoBytes(2, 3, 0, 0, 0, 9)).stateFlag, 9);
-	EXPECT_EQ(decodeGatherableInfo(gatherableInfoBytes(2, 3, 0, 0, 0, 10)).stateFlag, 10);
+	// a static door (template 300001, StaticDoorTemplate.getTemplateId) writes 9 (open) or 10 (closed) instead of 1, and nothing else does
+	EXPECT_EQ(decodeGatherableInfo(gatherableInfoBytes(2, STATIC_DOOR_TEMPLATE_ID, 0, 0, 0, 9)).stateFlag, 9);
+	EXPECT_EQ(decodeGatherableInfo(gatherableInfoBytes(2, STATIC_DOOR_TEMPLATE_ID, 0, 0, 0, 10)).stateFlag, 10);
+	EXPECT_THROW(decodeGatherableInfo(gatherableInfoBytes(2, STATIC_DOOR_TEMPLATE_ID, 0, 0, 0, 1)), DecodeError) << "a door never writes 1";
 	EXPECT_THROW(decodeGatherableInfo(gatherableInfoBytes(2, 3, 0, 0, 0, 2)), DecodeError);
+	// a StaticObject (an item template, e.g. Sanctum's oven 150000009) or a gatherable always writes 1
+	EXPECT_EQ(decodeGatherableInfo(gatherableInfoBytes(2, 150000009, 0, 0, 0, 1)).stateFlag, 1);
+	EXPECT_THROW(decodeGatherableInfo(gatherableInfoBytes(2, 150000009, 0, 0, 0, 9)), DecodeError) << "9 is a door's state, not a static object's";
+	EXPECT_THROW(decodeGatherableInfo(gatherableInfoBytes(2, 150000009, 0, 0, 0, 10)), DecodeError) << "10 is a door's state";
+	EXPECT_THROW(decodeGatherableInfo(gatherableInfoBytes(2, 400030, 0, 0, 0, 9)), DecodeError) << "a gatherable writes 1";
 	std::vector<uint8_t> changedTrailer = body;
 	changedTrailer.back() = 99; // Java writes the constant 100
 	EXPECT_THROW(decodeGatherableInfo(changedTrailer), DecodeError);

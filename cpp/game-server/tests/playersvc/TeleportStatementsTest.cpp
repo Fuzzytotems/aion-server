@@ -15,9 +15,9 @@
 //   therefore a no-op in every in-process arrangement, and deleting it changes nothing a test can see. It needs RecallService::requestSummon
 //   (P5-08, the summon skill) before it can be asserted - recorded as a request in the wave report.
 // - SpawnTask::run's first `setPortAnimation(getDefaultArrivalAnimation(animation))` (TeleportService.java:522). It is observable only when
-//   spawnOnSameMap does NOT run - i.e. on the cross-map arm - and that arm reaches
-//   `InstanceService::onLeaveInstance`, which is AION_UNPORTED (InstanceService.cpp:170-172) and throws before the assignment. The second
-//   setPortAnimation, in spawnOnSameMap, is covered below.
+//   spawnOnSameMap does NOT run - i.e. on the cross-map arm, which calls InstanceService::onLeaveInstance. Since the M5f ascension lane
+//   ported that body, the arm completes, and tests/cm_lz/AscensionPacketsTest.cpp (The1006ExitBeamLeavesKaramatisBForPoeta) asserts the
+//   FADE_IN_BEAM it leaves after a beam out of Karamatis B. The second setPortAnimation, in spawnOnSameMap, is covered below.
 
 #include "../cm_ak/InWorldPacketRunSupport.h"
 #include "../world/WorldTestSupport.h"

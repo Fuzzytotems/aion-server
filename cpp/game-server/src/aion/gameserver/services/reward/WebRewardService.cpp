@@ -1,5 +1,6 @@
 #include "aion/gameserver/services/reward/WebRewardService.h"
 
+#include "aion/gameserver/model/gameobjects/player/Player.h"
 #include "aion/gameserver/runtime/base/Unported.h"
 #include "aion/commons/logging/LoggerFactory.h"
 
@@ -7,8 +8,9 @@ namespace aion::gameserver::services::reward {
 
 static const auto log = commons::logging::LoggerFactory::getLogger("WEB_REWARDS_LOG");
 
+// Java WebRewardService.java:102-104
 bool WebRewardService::MaxLevelReward::isPendingAscension(model::gameobjects::player::Player& player) {
-	AION_UNPORTED();
+	return pendingAscension.contains(player.getObjectId());
 }
 
 bool WebRewardService::MaxLevelReward::reward(model::gameobjects::player::Player& player) {

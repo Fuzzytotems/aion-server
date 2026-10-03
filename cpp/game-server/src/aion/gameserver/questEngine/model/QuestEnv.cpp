@@ -1,10 +1,10 @@
 #include "aion/gameserver/questEngine/model/QuestEnv.h"
 
 #include "aion/gameserver/runtime/base/Exceptions.h"
-#include "aion/gameserver/runtime/base/Unported.h"
 #include "aion/gameserver/model/DialogAction.h"
 #include "aion/gameserver/model/gameobjects/VisibleObject.h"
 #include "aion/gameserver/model/gameobjects/player/Player.h"
+#include "aion/gameserver/model/templates/VisibleObjectTemplate.h"
 
 namespace aion::gameserver::questEngine::model {
 
@@ -46,7 +46,13 @@ void QuestEnv::setQuestId(std::optional<int32_t> value) {
 }
 
 int32_t QuestEnv::getTargetId() {
-	AION_UNPORTED();
+	runtime::Ptr<gameserver::model::gameobjects::VisibleObject> target = visibleObject.get();
+	if (!target)
+		return 0;
+	const gameserver::model::templates::VisibleObjectTemplate* objectTemplate = target->getObjectTemplate();
+	if (objectTemplate == nullptr) // Java: getObjectTemplate().getTemplateId() on a null template
+		throw runtime::NullPointerException("QuestEnv.getTargetId: the visible object has no template");
+	return objectTemplate->getTemplateId();
 }
 
 } // namespace aion::gameserver::questEngine::model

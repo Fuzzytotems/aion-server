@@ -43,8 +43,10 @@
 #include "GameSession.h"
 #include "Oracle.h"
 #include "PacketSequence.h"
+#include "PrologueSupport.h"
 #include "ScenarioServers.h"
 #include "decoders/PacketDecoders.h"
+#include "decoders/QuestDecoders.h"
 
 #include "aion/commons/utils/WindowsMacroGuard.h" // after all headers that may include windows.h
 
@@ -57,6 +59,11 @@ using Packet = GameSession::Packet;
 
 /** the quiet period that ends a burst of server packets (§5.4 "collect until 1 s passes with no packet") */
 constexpr std::chrono::milliseconds QUIET = 1000ms;
+/** How long collectBurst waits for the FIRST packet of an answer. The quiet period alone (QUIET) ended a burst before the server had
+ * answered at all when a loaded machine delayed a re-entry by a little over a second (gs.scenario.m5b K7b and m5c C9, 2026-09-29: "no
+ * packet after CM_ENTER_WORLD"). Nothing expects an empty burst, so the longer first wait changes no result, only the time an answer
+ * that never comes costs; after the first packet the quiet rule is unchanged. */
+constexpr std::chrono::milliseconds FIRST_REPLY_WAIT = 5000ms;
 /** the upper bound of one burst */
 constexpr std::chrono::milliseconds BURST_LIMIT = 90s;
 
@@ -753,7 +760,9 @@ std::vector<Packet> collectBurst(GameSession& session, const AsyncAllowed& async
 		const auto now = std::chrono::steady_clock::now();
 		if (now >= deadline)
 			break;
-		const auto quietLeft = std::chrono::duration_cast<std::chrono::milliseconds>(lastAwaited + quiet - now);
+		// until the first packet arrives the window is FIRST_REPLY_WAIT at least: a loaded server can answer later than `quiet` (see the constant)
+		const auto window = collected.empty() ? std::max(quiet, FIRST_REPLY_WAIT) : quiet;
+		const auto quietLeft = std::chrono::duration_cast<std::chrono::milliseconds>(lastAwaited + window - now);
 		if (quietLeft <= 0ms)
 			break;
 		std::optional<Packet> packet = session.next(std::min(quietLeft, std::chrono::duration_cast<std::chrono::milliseconds>(deadline - now)));
@@ -1040,8 +1049,9 @@ std::vector<std::pair<std::string, int64_t>> expectedAppearanceRow(const Charact
  */
 std::string enterWorldPattern(bool firstEnter, int32_t inventoryPackets) {
 	std::string pattern;
+	// P6-Q prologue: the SM_QUEST_ACTION is the start map's mission added LOCKED by onLevelChange(0, 1) (PrologueSupport.h)
 	if (firstEnter)
-		pattern += "SM_STATS_INFO, SM_ACTION_ANIMATION, SM_NEARBY_QUESTS, ";
+		pattern += PROLOGUE_FIRST_ENTER_LEVEL_CHANGE;
 	pattern += "SM_HOUSE_SCRIPTS, SM_UNK_3_5_1, SM_ENTER_WORLD_CHECK, ";
 	pattern += "SM_SKILL_LIST+, [SM_SKILL_COOLDOWN], [SM_ITEM_COOLDOWN], ";
 	// SM_TITLE_INFO twice: PlayerEnterWorldService.java:239 sends SM_TITLE_INFO(pcd.getTitleId()), and lines 240-242 then run
@@ -1061,14 +1071,17 @@ std::string enterWorldPattern(bool firstEnter, int32_t inventoryPackets) {
 	return pattern;
 }
 
-/** The CM_LEVEL_READY part of §5.8 (#33 to #44) */
+/**
+ * The CM_LEVEL_READY part of §5.8 (#33 to #44). A first enter world (every caller's) now starts the prologue quest and plays its movie
+ * between the weather and SM_ABNORMAL_STATE: QuestEngine.onEnterWorld runs there (CM_LEVEL_READY.java:93; P6-Q prologue, PrologueSupport.h)
+ */
 std::string levelReadyPattern() {
-	return "SM_PLAYER_INFO, SM_PLAYER_STATE, SM_ACCOUNT_PROPERTIES, SM_MOTION, "
-	       "SM_WINDSTREAM_ANNOUNCE*, "
-	       "(SM_NPC_INFO | SM_GATHERABLE_INFO)+, "
-	       "SM_RIFT_ANNOUNCE, "
-	       "SM_NEARBY_QUESTS, [SM_QUEST_REPEAT], [SM_WEATHER], "
-	       "SM_ABNORMAL_STATE, SM_CUBE_UPDATE";
+	return std::string("SM_PLAYER_INFO, SM_PLAYER_STATE, SM_ACCOUNT_PROPERTIES, SM_MOTION, "
+	                   "SM_WINDSTREAM_ANNOUNCE*, "
+	                   "(SM_NPC_INFO | SM_GATHERABLE_INFO)+, "
+	                   "SM_RIFT_ANNOUNCE, "
+	                   "SM_NEARBY_QUESTS, [SM_QUEST_REPEAT], [SM_WEATHER], ") +
+	       std::string(PROLOGUE_LEVEL_READY) + "SM_ABNORMAL_STATE, SM_CUBE_UPDATE";
 }
 
 // ---- the check output reports (§5.7 Q8) -------------------------------------------------------------------------------------------------
@@ -1617,10 +1630,9 @@ TEST(M5aScenario, Run) {
 		EXPECT_GT(statsInfo.attackSpeed, 0) << "V9: attack speed";
 		EXPECT_GT(statsInfo.castingSpeed, 0.0f) << "V9: casting speed";
 
-		// V10: the quest lists are empty, the warehouses and macros decode as empty
-		const Packet* questList = firstOfName(enterBurst, "SM_QUEST_LIST");
-		ASSERT_NE(questList, nullptr);
-		EXPECT_TRUE(decoders::decodeQuestList(questList->data).quests.empty());
+		// V10: the quest list holds the start map's mission, LOCKED (P6-Q prologue: _1100KaliosCall.java:64-67 at onLevelChange(0, 1); it was
+		// empty before the four enter-world quest handlers landed), the completed list is empty, the warehouses and macros decode as empty
+		expectPrologueMissionLocked(enterBurst, decoders::ELYOS_PROLOGUE, "V10");
 		for (const Packet& packet : ofName(enterBurst, "SM_QUEST_COMPLETED_LIST"))
 			EXPECT_TRUE(decoders::decodeQuestCompletedList(packet.data).quests.empty());
 		const std::vector<Packet> warehouses = ofName(enterBurst, "SM_WAREHOUSE_INFO");
@@ -1664,6 +1676,10 @@ TEST(M5aScenario, Run) {
 
 		spawns = oracle->spawns(elyos.mapId, elyos.x, elyos.y, elyos.z, gameHour);
 		checkVisibility(levelReadyBurst, spawns, "V1-V4 (Warrior on 210010000)");
+
+		// P6-Q prologue: quest 1000 started, its movie ended by the client (case 5's CM_MOVE would be dropped until then), the quest finished
+		endPrologue(*a.game, levelReadyBurst, decoders::ELYOS_PROLOGUE, 0, async, [&] { return collectBurst(*a.game, async); },
+			"case 4 the prologue (1000)");
 	});
 
 	// ---- case 4b: the in-world client packets a real client sends by itself (item C-01) ----
@@ -1922,6 +1938,7 @@ TEST(M5aScenario, Run) {
 		const std::vector<Packet> burst = collectBurst(*b.game, shutdownAsync);
 		const int32_t inventoryPackets = static_cast<int32_t>((asmodian.items.size() + 9) / 10) + 1;
 		expectSequence(burst, enterWorldPattern(true, inventoryPackets), shutdownAsync);
+		expectPrologueMissionLocked(burst, decoders::ASMODIAN_PROLOGUE, "case 7 (Mage on 220010000)");
 		const auto askedB = std::chrono::steady_clock::now();
 		b.game->send(GameSession::CM_LEVEL_READY, GameSession::buildCM_LEVEL_READY());
 		const std::vector<Packet> ready = collectBurst(*b.game, shutdownAsync);
@@ -1938,6 +1955,9 @@ TEST(M5aScenario, Run) {
 		  static_cast<int32_t>(time->data[0] | time->data[1] << 8 | time->data[2] << 16 | static_cast<uint32_t>(time->data[3]) << 24);
 		const OracleSpawns mageSpawns = oracle->spawns(asmodian.mapId, asmodian.x, asmodian.y, asmodian.z, gameHourOf(minutes));
 		checkVisibility(ready, mageSpawns, "V5 (Mage on 220010000)");
+		// P6-Q prologue: quest 2000 and its movie, ended before the moves to P (CM_MOVE is dropped while the movie plays)
+		endPrologue(*b.game, ready, decoders::ASMODIAN_PROLOGUE, 0, shutdownAsync, [&] { return collectBurst(*b.game, shutdownAsync); },
+			"case 7 the prologue (2000)");
 
 		// three moves to P, then the shutdown with B online
 		shutdownX = asmodian.x;
@@ -2337,6 +2357,7 @@ TEST(M5aScenarioGeo, Run) {
 		const int32_t inventoryPackets = static_cast<int32_t>((elyos.items.size() + 9) / 10) + 1;
 		// the §5.8 order must be the same with geo on: an extra or missing packet here would be a geo-only wire difference
 		expectSequence(enterBurst, enterWorldPattern(true, inventoryPackets), async);
+		expectPrologueMissionLocked(enterBurst, decoders::ELYOS_PROLOGUE, "geo 2");
 
 		const Packet* check = firstOfName(enterBurst, "SM_ENTER_WORLD_CHECK");
 		ASSERT_NE(check, nullptr);
@@ -2382,6 +2403,9 @@ TEST(M5aScenarioGeo, Run) {
 		// is on none of its oracle spots, in a run where the geo-off gate stays green.
 		const OracleSpawns spawns = oracle->spawns(elyos.mapId, elyos.x, elyos.y, elyos.z, gameHour);
 		checkVisibility(levelReadyBurst, spawns, "geo V1-V4 (Warrior on 210010000, geodata enabled)");
+		// P6-Q prologue: as case 4 (geo 4's walk needs the movie ended)
+		endPrologue(*a.game, levelReadyBurst, decoders::ELYOS_PROLOGUE, 0, async, [&] { return collectBurst(*a.game, async); },
+			"geo 3 the prologue (1000)");
 	});
 
 	runCase("geo 4", "the client-driven zone revalidation and a region move", [&] {

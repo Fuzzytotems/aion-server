@@ -4,6 +4,7 @@
 #include <chrono>
 #include <optional>
 #include <unordered_map>
+#include <vector>
 
 #include "aion/commons/logging/LoggerFactory.h"
 #include "aion/commons/utils/TimeUtils.h"
@@ -21,8 +22,11 @@
 #include "aion/gameserver/model/siege/OutpostLocation.h"
 #include "aion/gameserver/model/siege/SiegeLocation.h"
 #include "aion/gameserver/model/templates/spawns/SpawnTemplate.h"
+#include "aion/gameserver/network/aion/serverpackets/SM_ABYSS_ARTIFACT_INFO3.h"
+#include "aion/gameserver/network/aion/serverpackets/SM_SHIELD_EFFECT.h"
 #include "aion/gameserver/runtime/base/Unported.h"
 #include "aion/gameserver/services/siege/Siege.h"
+#include "aion/gameserver/utils/PacketSendUtility.h"
 
 namespace aion::gameserver::services {
 
@@ -277,16 +281,110 @@ void SiegeService::onPlayerLogin(model::gameobjects::player::Player& player) {
 	}
 }
 
+// Java SiegeService.java:590-605. Reached from CM_LEVEL_READY on every arrival in a siege world (Inggison, Gelkmaros, Reshanta), with no
+// siege-config guard: with sieges disabled both maps are empty and the two packets are sent empty (m5f-plan.md W-03).
 void SiegeService::onEnterSiegeWorld(model::gameobjects::player::Player& player) {
-	AION_UNPORTED();
+	// Second part only for siege world
+	// Java: two LinkedHashMaps keyed by location id, filled in the iteration order of the service's maps; put() of a present key replaces the
+	// value in place. The C++ source maps are runtime::HashMaps (docs/deviations/P5-12a.md, the location-map rows), so the order differs.
+	std::vector<int32_t> worldLocationIds;
+	std::vector<runtime::Ptr<model::siege::SiegeLocation>> worldLocations;
+	std::vector<int32_t> worldArtifactIds;
+	std::vector<runtime::Ptr<model::siege::ArtifactLocation>> worldArtifacts;
+
+	for (const runtime::Ptr<model::siege::SiegeLocation>& location : getSiegeLocations().values())
+		if (location->getWorldId() == player.getWorldId()) {
+			auto it = std::find(worldLocationIds.begin(), worldLocationIds.end(), location->getLocationId());
+			if (it == worldLocationIds.end()) {
+				worldLocationIds.push_back(location->getLocationId());
+				worldLocations.push_back(location);
+			} else {
+				worldLocations[static_cast<size_t>(it - worldLocationIds.begin())] = location;
+			}
+		}
+
+	for (const runtime::Ptr<model::siege::ArtifactLocation>& artifact : getArtifacts().values())
+		if (artifact->getWorldId() == player.getWorldId()) {
+			auto it = std::find(worldArtifactIds.begin(), worldArtifactIds.end(), artifact->getLocationId());
+			if (it == worldArtifactIds.end()) {
+				worldArtifactIds.push_back(artifact->getLocationId());
+				worldArtifacts.push_back(artifact);
+			} else {
+				worldArtifacts[static_cast<size_t>(it - worldArtifactIds.begin())] = artifact;
+			}
+		}
+
+	utils::PacketSendUtility::sendPacket(player, network::aion::serverpackets::SM_SHIELD_EFFECT(worldLocations));
+	utils::PacketSendUtility::sendPacket(player, network::aion::serverpackets::SM_ABYSS_ARTIFACT_INFO3(worldArtifacts));
 }
 
 void SiegeService::onAbyssPointsAdded(model::gameobjects::player::Player& player, model::gameobjects::VisibleObject& obj, int32_t abyssPoints) {
 	AION_UNPORTED();
 }
 
+// Java SiegeService.java:612-674. The first call of every npc teleport (TeleportService.java:81, m5f-plan.md W-02).
 int32_t SiegeService::getSiegeIdByLocId(int32_t locId) {
-	AION_UNPORTED();
+	switch (locId) {
+		case 49:
+		case 61:
+			return 1011; // Divine Fortress
+		case 36:
+		case 54:
+			return 1131; // Siel's Western Fortress
+		case 37:
+		case 55:
+			return 1132; // Siel's Eastern Fortress
+		case 39:
+		case 56:
+			return 1141; // Sulfur Archipelago
+		case 44:
+		case 62:
+			return 1211; // Roah Fortress
+		case 45:
+		case 57:
+		case 72:
+		case 75:
+			return 1221; // Krotan Refuge
+		case 46:
+		case 58:
+		case 73:
+		case 76:
+			return 1231; // Kysis Fortress
+		case 47:
+		case 59:
+		case 74:
+		case 77:
+			return 1241; // Miren Fortress
+		case 48:
+		case 60:
+			return 1251; // Asteria Fortress
+		case 90:
+			return 2011; // Temple of Scales
+		case 91:
+			return 2021; // Altar of Avarice
+		case 93:
+			return 3011; // Vorgaltem Citadel
+		case 94:
+			return 3021; // Crimson Temple
+		case 322:
+		case 323:
+		case 358:
+		case 359:
+			return 7011; // Wealhtheow Fortress
+		case 316:
+		case 317:
+		case 368:
+		case 369:
+			return 7012; // Hero's Fall Artifact
+		case 370:
+		case 371:
+			return 7013; // Ashen Glade Artifact
+		case 372:
+		case 373:
+			return 7014; // Molten Cliffs Artifact
+		default:
+			return 0;
+	}
 }
 
 void SiegeService::checkRvrEventPlayer(runtime::Ptr<model::gameobjects::player::Player> player) {

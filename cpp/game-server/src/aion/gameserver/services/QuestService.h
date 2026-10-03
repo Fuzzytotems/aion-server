@@ -36,7 +36,12 @@ public:
 	 */
 	static void validateAndFixRewardGroup(runtime::Ptr<questEngine::model::QuestState> qs, int32_t questId);
 private:
-	static std::vector<const model::templates::quest::QuestItems*> getRewardItems(questEngine::model::QuestEnv& env,
+	/**
+	 * C++ (header request m5d-h01): the list holds values. Java builds a new list, adds the template's items and hands it to
+	 * QuestEngine.onBonusApplyEvent, whose handler may add a new QuestItems, then adds BonusService.getQuestBonus's new one
+	 * (QuestService.java:144-209).
+	 */
+	static std::vector<model::templates::quest::QuestItems> getRewardItems(questEngine::model::QuestEnv& env,
 		const model::templates::QuestTemplate* template_, bool extended, std::optional<int32_t> rewardGroup);
 public:
 	/** Converts the dialog action ID to the corresponding reward ID. */

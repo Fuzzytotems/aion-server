@@ -33,6 +33,8 @@
    "hook": "onDialogEvent",
    "given": {"target": {"kind": "none"}, "dialogAction": {"name": "USE_OBJECT", "id": -1}, "questState": {"status": "START", "vars": {"0": 0}}},
    "guards": ["qs == null -> false @37", "qs.getStatus() == QuestStatus.START -> true @43"],
+   "free": ["questState.vars.0"],
+   "dialogExcludes": [],
    "effects": [],
    "returns": false
   },
@@ -41,6 +43,8 @@
    "hook": "onDialogEvent",
    "given": {"target": {"kind": "none"}, "dialogAction": {"name": "USE_OBJECT", "id": -1}, "questState": {"status": "REWARD", "vars": {"0": 0}}},
    "guards": ["qs == null -> false @37", "qs.getStatus() == QuestStatus.START -> false @43", "qs.getStatus() == QuestStatus.REWARD -> true @70"],
+   "free": ["questState.vars.0"],
+   "dialogExcludes": [],
    "effects": [],
    "returns": false
   },
@@ -49,6 +53,8 @@
    "hook": "onDialogEvent",
    "given": {"target": {"kind": "none"}, "dialogAction": {"name": "USE_OBJECT", "id": -1}, "questState": {"status": "COMPLETE", "vars": {"0": 0}}},
    "guards": ["qs == null -> false @37", "qs.getStatus() == QuestStatus.START -> false @43", "qs.getStatus() == QuestStatus.REWARD -> false @70"],
+   "free": ["questState.vars.0"],
+   "dialogExcludes": [],
    "effects": [],
    "returns": false
   },
@@ -143,6 +149,7 @@
     "targetId == 203518 -> true @44",
     "dialogActionId == SELECT1_1 -> true @45"
    ],
+   "free": ["questState.vars.0"],
    "effects": [
     {"call": "playQuestMovie", "kind": "movie", "args": [51], "line": 56},
     {"call": "sendQuestDialog", "kind": "dialog", "args": [1012], "line": 57}
@@ -163,6 +170,7 @@
     "targetId == 203518 -> true @44",
     "dialogActionId == SETPRO1 -> true @45"
    ],
+   "free": ["questState.vars.0"],
    "effects": [{"call": "defaultCloseDialog", "kind": "dialog", "args": [0, 1], "line": 59}],
    "returns": {"resultOf": 0}
   },
@@ -180,6 +188,7 @@
     "targetId == 203518 -> true @44",
     "dialogActionId == SETPRO3 -> true @45"
    ],
+   "free": ["questState.vars.0"],
    "effects": [{"call": "defaultCloseDialog", "kind": "dialog", "args": [2, 3], "line": 61}],
    "returns": {"resultOf": 0}
   },
@@ -197,6 +206,7 @@
     "targetId == 203518 -> true @44",
     "dialogActionId == CHECK_USER_HAS_QUEST_ITEM -> true @45"
    ],
+   "free": ["questState.vars.0"],
    "effects": [{"call": "checkQuestItems", "kind": "item", "args": [1, 2, false, 1694, 1693], "line": 63}],
    "returns": {"resultOf": 0}
   },
@@ -214,6 +224,7 @@
     "targetId == 203518 -> true @44",
     "dialogActionId == FINISH_DIALOG -> true @45"
    ],
+   "free": ["questState.vars.0"],
    "effects": [{"call": "sendQuestSelectionDialog", "kind": "dialog", "args": [], "line": 65}],
    "returns": {"resultOf": 0}
   },
@@ -231,6 +242,8 @@
     "targetId == 203518 -> true @44",
     "dialogActionId not in [QUEST_SELECT, SELECT1_1, SETPRO1, SETPRO3, CHECK_USER_HAS_QUEST_ITEM, FINISH_DIALOG] -> true @45"
    ],
+   "free": ["questState.vars.0"],
+   "dialogExcludes": [31, 39, 1008, 1012, 10000, 10002],
    "effects": [],
    "returns": false
   },
@@ -248,6 +261,8 @@
     "targetId == 203518 -> false @44",
     "targetId == 700093 -> true @67"
    ],
+   "free": ["questState.vars.0"],
+   "dialogExcludes": [],
    "effects": [],
    "returns": true
   },
@@ -265,6 +280,8 @@
     "targetId == 203518 -> false @44",
     "targetId == 700093 -> false @67"
    ],
+   "free": ["questState.vars.0"],
+   "dialogExcludes": [],
    "effects": [],
    "returns": false
   },
@@ -283,6 +300,7 @@
     "targetId == 203518 -> true @71",
     "dialogActionId == USE_OBJECT -> true @72"
    ],
+   "free": ["questState.vars.0"],
    "effects": [{"call": "sendQuestDialog", "kind": "dialog", "args": [2034], "line": 73}],
    "returns": {"resultOf": 0}
   },
@@ -301,6 +319,8 @@
     "targetId == 203518 -> true @71",
     "dialogActionId == USE_OBJECT -> false @72"
    ],
+   "free": ["questState.vars.0"],
+   "dialogExcludes": [-1],
    "effects": [{"call": "sendQuestEndDialog", "kind": "dialog", "args": [], "line": 75}],
    "returns": {"resultOf": 0}
   },
@@ -318,6 +338,8 @@
     "qs.getStatus() == QuestStatus.REWARD -> true @70",
     "targetId == 203518 -> false @71"
    ],
+   "free": ["questState.vars.0"],
+   "dialogExcludes": [],
    "effects": [],
    "returns": false
   },
@@ -330,6 +352,8 @@
     "questState": {"status": "COMPLETE", "vars": {"0": 0}}
    },
    "guards": ["qs == null -> false @37", "qs.getStatus() == QuestStatus.START -> false @43", "qs.getStatus() == QuestStatus.REWARD -> false @70"],
+   "free": ["questState.vars.0"],
+   "dialogExcludes": [],
    "effects": [],
    "returns": false
   },
@@ -348,7 +372,16 @@
    "guards": ["qs == null -> false @86", "var >= 3 -> true @89", "var < 8 -> true @89"],
    "ranges": {"questState.vars.0": [3, 7]},
    "effects": [{"call": "defaultOnKillEvent", "kind": "var", "args": [[210369, 210368], 3, 8], "line": 90}],
-   "returns": {"resultOf": 0}
+   "returns": {"resultOf": 0},
+   "atHigh": [
+    {
+     "input": "questState.vars.0",
+     "value": 7,
+     "given": {"questState": {"status": "START", "vars": {"0": 7}}},
+     "effects": [{"call": "defaultOnKillEvent", "kind": "var", "args": [[210369, 210368], 3, 8], "line": 90}],
+     "returns": {"resultOf": 0}
+    }
+   ]
   },
   {
    "id": "onKillEvent#3",
@@ -365,7 +398,16 @@
    "guards": ["qs == null -> false @86", "var >= 3 -> true @89", "var < 8 -> false @89", "var == 8 -> false @91"],
    "ranges": {"questState.vars.0": [9, 63]},
    "effects": [],
-   "returns": false
+   "returns": false,
+   "atHigh": [
+    {
+     "input": "questState.vars.0",
+     "value": 63,
+     "given": {"questState": {"status": "START", "vars": {"0": 63}}},
+     "effects": [],
+     "returns": false
+    }
+   ]
   },
   {
    "id": "onKillEvent#5",
@@ -374,7 +416,16 @@
    "guards": ["qs == null -> false @86", "var >= 3 -> false @89", "var == 8 -> false @91"],
    "ranges": {"questState.vars.0": [0, 2]},
    "effects": [],
-   "returns": false
+   "returns": false,
+   "atHigh": [
+    {
+     "input": "questState.vars.0",
+     "value": 2,
+     "given": {"questState": {"status": "START", "vars": {"0": 2}}},
+     "effects": [],
+     "returns": false
+    }
+   ]
   },
   {
    "id": "onQuestCompletedEvent#1",

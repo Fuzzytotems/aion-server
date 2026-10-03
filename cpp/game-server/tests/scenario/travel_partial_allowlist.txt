@@ -1,0 +1,48 @@
+# The AION_PARTIAL sites the travel-core gate accepts (gs.scenario.travel, m5f-plan.md §16). One site per line, whose file paths are relative
+# to the compiling target's source root - game-server/src for the server itself (e.g. "aion/gameserver/GameServer.cpp:129") and
+# game-server/handlers for a registered handler. An entry WITH a line number must match the whole site; an entry without one is an explicit
+# whole-file wildcard. Lines starting with '#' and empty lines are ignored.
+#
+# A SEPARATE list from the M5a-M5c lists (m5b-plan.md D9): each gate's scripted path reaches its own set, and the lists must be able to
+# disagree. THE LIST IS IN THREE SECTIONS AND TravelScenarioTest.cpp's T4 READS ALL THREE, with the markers and meanings of the M5c list:
+#   SECTION A  the gate asserts the row was hit at least once
+#   SECTION B  the gate asserts the row was hit EXACTLY ZERO times
+#   SECTION C  the row is allowed and its hit count is printed but not pinned
+#
+# Copied on 2026-09-29 from m5c_partial_allowlist.txt (HEAD 7bb89eff0): the startup row of §A, the wall-clock cron rows of §B and the §C rows.
+# The travel slice (T-01, T-05, P-01) adds no AION_PARTIAL.
+
+# =========================================================================================================================================
+# --- SECTION A - hit at least once, asserted ---
+# =========================================================================================================================================
+
+# every startup: the gates run without base locations (E1-06). HISTORY: QuestEngine.cpp:111 (no XML quest registered, m5a-plan.md W-02)
+# was here until M5d's D3 join (m5d-plan.md I-05) registered them at every startup; the site no longer exists.
+aion/gameserver/services/BaseService.cpp:18
+
+# =========================================================================================================================================
+# --- SECTION B - hit exactly zero times, asserted ---
+# =========================================================================================================================================
+
+# m5c-plan.md G-07 (the stage-2 review): the wall-clock cron jobs whose schedules ScenarioServers::m5aProfile moves past every gate run
+# (ScenarioServers.cpp's census). Only their cron reaches these sites, so a hit means a gate key no longer reaches the server. The rank
+# update and the GP loss were §C rows ("a property of the run's LENGTH", the M5b-1 list): they fire at 00:00 and 12:00 daily, whatever the
+# run's length; the auction end (Sunday 12:00) and the auto fill (Monday 00:00) were in no list, so a run at those times failed X22.
+aion/gameserver/services/abyss/AbyssRankUpdateService.cpp:37
+aion/gameserver/services/abyss/AbyssRankUpdateService.cpp:58
+aion/gameserver/taskmanager/tasks/housing/AuctionEndTask.cpp:81
+aion/gameserver/taskmanager/tasks/housing/AuctionAutoFillTask.cpp:38
+
+# =========================================================================================================================================
+# --- SECTION C - allowed, counted and printed, not pinned ---
+# =========================================================================================================================================
+
+# HISTORY: QuestEngine.cpp:115, the quest spawn analysis behind gameserver.analysis.quest_handlers (which the gate profile does not set, so it
+# runs at every startup), was here until M5d's E-08 ported QuestSpawnAnalyzer (m5d-plan.md §21); the site no longer exists.
+# the PvP map instance stays partial by m5f-plan.md D6 (PvpMapHandler is M5j; init would create it at every startup)
+aion/gameserver/custom/pvpmap/PvpMapService.cpp:32
+# HISTORY: InstanceService.cpp:133 (personal instances) and :153 (the instance exit teleport), M5a AION_PARTIAL by plan W-03, were here
+# until the ascension lane closed them (m5f-plan.md §15, N-01 and T-02 moveToInstanceExit, I-04); both sites no longer exist.
+# EMOTIONS_ALL is off by default, so this is only reached with the config the real-client checklist uses
+aion/gameserver/services/player/PlayerService.cpp:268
+# (AbyssRankUpdateService.cpp:37 and :58, M5b-3's former last two rows, are §B rows above since G-07)

@@ -8,7 +8,8 @@ Two layers, as docs/design/phase6-inventory.md §7.1 describes them:
   PacketSendUtility.sendPacket with SM_DIALOG_WINDOW (the close-dialog idiom). Keyed by the C++ class that declares the member (a call on
   a Player to getObjectId is AionObject.getObjectId).
 - API_TABLE: the tier-B rows, ported or declared non-quest APIs with a receiver kind: teleports, the spawn and follow helpers, timers,
-  kinah and item counts, zone checks, crafting checks, instance creation, flight state, skills, system messages, enum companions.
+  kinah and item counts, zone checks, crafting checks, instance creation, flight state, skills, system messages, enum companions, and the
+  escorts' own calls (npc AI events, creature tasks, QuestTasks, walking, SM_NPC_INFO).
 
 Everything else is refused as "api-missing: Class.method". A member the table allows but the C++ headers do not declare is still
 transliterated when PLANNED gives its C++ spelling (HandlerResult.fromBoolean: m5d-plan H-06); the report lists such files as blocked on a
@@ -55,9 +56,21 @@ network/aion/serverpackets/SM_ITEM_USAGE_ANIMATION.h network/aion/serverpackets/
 world/zone/ZoneName.h world/WorldMapType.h world/WorldMapTypeInfo.h world/WorldMapInstance.h world/WorldPosition.h
 utils/stats/AbyssRankEnum.h model/templates/rewards/BonusType.h
 model/house/House.h model/templates/spawns/SpawnSearchResult.h instance/handlers/InstanceHandler.h
+ai/AI.h ai/AbstractAI.h ai/NpcAI.h ai/event/AIEventType.h ai/manager/WalkManager.h model/TaskId.h questEngine/task/QuestTasks.h
+network/aion/serverpackets/SM_NPC_INFO.h model/templates/spawns/SpawnTemplate.h
 '''.split()] + ['aion/commons/utils/Rnd.h']
-# (the last line: types QuestPrelude.h re-exports that handlers declare locals of; without them such a local is refused as `type`, which
-# hides the API gap behind it: DataManager.SPAWNS_DATA, WorldMapInstance.getInstanceHandler, Player.getActiveHouse)
+# (the line `model/house/House.h ...`: types QuestPrelude.h re-exports that handlers declare locals of; without them such a local is refused
+# as `type`, which hides the API gap behind it: DataManager.SPAWNS_DATA, WorldMapInstance.getInstanceHandler, Player.getActiveHouse)
+# (the last two lines, rows B26-B30, 2026-09-30: what the six escorts of m5d-plan.md §21.1 "The other six" call. AbstractAI, whose
+# onCreatureEvent getAi() reaches, with its base AI; NpcAI, the class `(NpcAI) npc.getAi()` names (its base AITemplate<Npc> is a class
+# template, which cppdecl does not index: nothing needs NpcAI's bases); the generated enums AIEventType and TaskId, for their constants;
+# WalkManager, QuestTasks and SM_NPC_INFO; the SpawnTemplate that VisibleObject::getSpawn returns)
+
+# The complete types of the Ref<T> values a scanned member returns when T's own header is not scanned: a handler that calls the member
+# destroys the Ref in its translation unit (~Ref needs the complete T), so the emitter includes the header (P6-Q slice 2, lane Q03:
+# SkillEngine.applyEffectDirectly returns Ref<Effect>, whose value heiron/_18602 discards; lane Q10 needed the same rule for
+# altgard/_2213's `SkillEngine.getInstance().applyEffectDirectly(...)` as a statement, and the integration keeps this one table).
+OWNING_RETURN_HEADERS = {'Effect': G + 'skillengine/model/Effect.h'}
 
 # AbstractQuestHandler members that are not tier A (S2's classifier, phase6-inventory.md §7.1): they are API_TABLE rows
 SPAWN_HELPERS = frozenset('spawn spawnInFrontOf spawnForFiveMinutesInFrontOf spawnForFiveMinutesInFront spawnForFiveMinutes '
@@ -167,6 +180,19 @@ API_TABLE = (
         (('Creature', 'isDead'), ('VisibleObject', 'getTarget'), ('Creature', 'getTarget'), ('VisibleObject', 'isSpawned'),
          ('Creature', 'getMoveController'), ('Player', 'getMoveController'), ('CreatureMoveController', 'abortMove')), 'ported'),
     Row('B25', 'divine power: PlayerCommonData.getDp/setDp', (('PlayerCommonData', 'getDp'), ('PlayerCommonData', 'setDp')), 'ported'),
+    # B26-B30 (2026-09-30): the escorts that call QuestTasks themselves instead of defaultStartFollowEvent (m5d-plan.md §21.1, "The other
+    # six": beluslan/_24053 and _2634, morheim/_2333 and _2394, pandaemonium/_4212, sanctum/_3212), each Java member on the C++ member of
+    # the same name that the C++ port calls the same way (AbstractQuestHandler::defaultStartFollowEvent: `follower.getAi().onCreatureEvent`,
+    # `player->getController().addTask(TaskId::QUEST_FOLLOW, QuestTasks::newFollowingToTargetCheckTask(...))`; NpcMoveController:
+    # `*runtime::cast<ai::NpcAI>(npc.getAi())`). Their follower's AI "following" has no C++ file yet, so they are not landed (§21.1)
+    Row('B26', 'npc AI events: Creature.getAi, AbstractAI.onCreatureEvent', (('Creature', 'getAi'), ('AbstractAI', 'onCreatureEvent')),
+        'ported'),
+    Row('B27', 'creature tasks: CreatureController.addTask', (('CreatureController', 'addTask'),), 'ported'),
+    Row('B28', 'escort checks: QuestTasks.newFollowingToTargetCheckTask (npc, npc id, point and zone overloads)',
+        (('QuestTasks', 'newFollowingToTargetCheckTask'),), 'M5d stage 3 E-07'),
+    Row('B29', 'walking: WalkManager.startWalking, VisibleObject.getSpawn, SpawnTemplate.setWalkerId',
+        (('WalkManager', 'startWalking'), ('VisibleObject', 'getSpawn'), ('SpawnTemplate', 'setWalkerId')), 'ported'),
+    Row('B30', 'npc info packet: new SM_NPC_INFO', (('SM_NPC_INFO', '<init>'),), 'ported'),
 )
 
 # Members the table allows although no C++ header declares them yet: their C++ spelling (a callable, `{args}` filled in), the header that
@@ -187,13 +213,14 @@ PLANNED = {
 
 # Java classes whose static members a handler may name, mapped to the C++ class or enum of the same role
 STATIC_CLASSES = {'QuestService', 'TeleportService', 'PacketSendUtility', 'PositionUtil', 'ItemService', 'InstanceService', 'SkillEngine',
-                  'CraftSkillUpdateService', 'ZoneName', 'HandlerResult', 'SM_SYSTEM_MESSAGE', 'Rnd', 'EventService'}
+                  'CraftSkillUpdateService', 'ZoneName', 'HandlerResult', 'SM_SYSTEM_MESSAGE', 'Rnd', 'EventService', 'WalkManager',
+                  'QuestTasks'}
 # Java classes of static methods that C++ ports as a namespace of free functions
 STATIC_NAMESPACES = {'Rnd': ('aion', 'commons', 'utils', 'Rnd')}
 # Java enums the handlers name (the C++ enum class has the same simple name)
 ENUMS = {'QuestStatus', 'Race', 'PlayerClass', 'DialogPage', 'HandlerResult', 'WorldMapType', 'EmotionId', 'EmotionType', 'CreatureState',
          'QuestActionType', 'AbyssRankEnum', 'BonusType', 'Gender', 'ItemAddType', 'ItemUpdateType', 'TeleportAnimation', 'AIState',
-         'TaskId'}
+         'TaskId', 'AIEventType'}
 # Java nested type spelling -> C++ simple name
 NESTED = {'ItemPacketService.ItemAddType': 'ItemPacketService_ItemAddType', 'ItemAddType': 'ItemPacketService_ItemAddType',
           'ItemPacketService.ItemUpdateType': 'ItemPacketService_ItemUpdateType', 'ItemUpdateType': 'ItemPacketService_ItemUpdateType'}

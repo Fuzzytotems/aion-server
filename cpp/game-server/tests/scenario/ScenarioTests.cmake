@@ -28,10 +28,9 @@
 #     and NioServer binds with SO_EXCLUSIVEADDRUSE, so a collision would fail a run loudly instead of mixing two runs' clients;
 #   - schemas: each run has its own pair, named after the hash of its output directory (the smoke and M4 schemas likewise), and holds an in-use
 #     marker on it for the whole run;
-#   - the working directory game-server/ itself: what a game server still writes there is ./log/stats/MethodStats.log at every orderly
-#     shutdown (RunnableStatsManager::dumpClassStats, whose ./log/stats is hard-coded as in Java and ignores --log-folder) - two shutdowns
-#     at the same moment interleave that diagnostic file, which no test reads - and, only on a watchdog stall, a minidump in ./log/dumps
-#     whose name carries the process id. Neither can fail a run; routing the first needs a production change (reported, not made here);
+#   - the working directory game-server/ itself: what a game server still writes there is, only on a watchdog stall, a minidump in
+#     ./log/dumps whose name carries the process id, which cannot fail a run. stats/MethodStats.log, which every orderly shutdown writes,
+#     follows --log-folder since 2026-09-30 (RunnableStatsManager::dumpClassStats takes Logging's log folder; Java hard-codes ./log/stats);
 #   - memory: a Debug game server with the geo data takes about 3.2 GB of private bytes, so two geo runs at once take about 6.4 GB beside
 #     whatever else the machine builds (measured peak of the two servers: 6,352 MB);
 #   - MariaDB: two game servers with at most 5 pool connections each, two login servers and the harness connections.
@@ -42,12 +41,31 @@
 # left it behind. One slot per prefix rules that out inside a ctest run; LoginServerHarnessTest, whose pair also has the prefix m5a, holds the
 # m5a slot for the same reason. The smoke and M4 schemas are never swept.
 #
-# The slots are balanced by the runtimes of a Debug tree, each run alone (seconds, 2026-09-24; gs.smoke.startup_progress ~ gs.smoke.startup):
+# The slots are balanced by the runtimes of a Debug tree, each run alone unless its entry says otherwise (seconds, 2026-09-24 unless dated;
+# gs.smoke.startup_progress ~ gs.smoke.startup):
 #   slot 1  gs.smoke.startup 34, gs.smoke.startup_progress 34, gs.smoke.startup_geo 150, gs.m4.check_static_data 149,
 #           gs.scenario.m5a 65, gs.scenario.m5a_geo 170, gs.scenario.m5b3 146, gs.scenario.m5b3_geo 314            = 1062
-#   slot 2  gs.scenario.m5b 227, gs.scenario.m5b_geo 351, gs.scenario.m5b2 172, gs.scenario.m5b2_geo 301           = 1051
-# The balance holds for the full set above. `ctest -L scenario` alone leaves the smoke and M4 tests out, so slot 1 is then m5a, m5a_geo, m5b3 and
-# m5b3_geo (about 695 s plus LoginServerHarnessTest) against slot 2's 1051 s: correct, just a longer wall clock for that label.
+#           + gs.scenario.travel 45 (m5f-plan.md §16; 2026-09-29 in a Debug tree, no geo variant)                  = 1107
+#           + gs.scenario.m5b 227, gs.scenario.m5b_geo 351 (slot 2 until the integration of the ascension gate,    = 1685
+#             2026-09-29: see below)
+#           + gs.scenario.m5c 289 (m5c-plan.md §10.5; 225 s for part 1, 265-289 s alone since C19 joined it in stage 3,
+#             2026-09-28 in a Debug tree, the review's fix included; it has no geo variant; slot 2 until 2026-09-30)     = 1974
+#   slot 2  gs.scenario.m5b2 172, gs.scenario.m5b2_geo 301                                                         =  473
+#           + gs.scenario.ascension 880 (lane P6-Q asc-hand, docs/deviations/Q06.md; 866-904 s alone, 2026-09-29 in a Debug
+#             tree: two races' 43 s waits and auto-attack fights; it has no geo variant)                             = 1353
+#           + gs.scenario.m5d 257, gs.scenario.m5d_geo 485 (m5d-plan.md §20; 2026-09-29 in a Debug tree, NOT alone:
+#             beside another tree's gates, so both overstate a run alone; m5d took 218-396 s over its lane's 21 runs,
+#             220-286 s in its review's, m5d_geo 358-485 s; m5d_geo's startup alone 172 s)                           = 2095
+# The balance held for the full set above before M5c; the plan put the M5c gate into slot 2 (§10.1: the smaller sum then, and a prefix of its
+# own), which then led slot 1 by about 280 s, so the travel gate joined slot 1. The ascension gate joined slot 1 as well in its own lane (it
+# would have led slot 2 by about 600 s); at the integration of the two (2026-09-29) it went to slot 2 instead, and the M5b pair (m5b and
+# m5b_geo, one prefix, moved together) to slot 1: 1685 s against 1642 s, where the ascension gate beside the travel gate in slot 1 would have
+# been 1987 s against 1340 s. No other placement of the pairs that moves only one of them does better (the best one, 21 s apart, moves three).
+# The M5d pair joined slot 2, the smaller sum then (1642 s against 1685 s), which then led slot 1 by about 700 s. The rebalance of 2026-09-30
+# moved the M5c gate (one prefix, no geo variant) to slot 1: in the full gate run of 2026-09-30 00:21 (slot 1 1662 s, slot 2 2254 s measured)
+# that gives about 1974 s against 1942 s, the best single move (the m5b2 pair would give 2138 s against 1778 s). `ctest -L scenario`
+# alone leaves the smoke and M4 tests out, so slot 1 is then m5a, m5a_geo, m5b, m5b_geo, m5b3, m5b3_geo and travel (about 1320 s plus
+# LoginServerHarnessTest) against slot 2's 2384 s: correct, just a longer wall clock for that label.
 # The slots count inside ONE ctest process. Two build trees running their gates at the same time can reach four servers (about 12.8 GB with
 # geo), and the marker-before-DROP window of dropAbandonedSchemas is open between them again: run one tree's gate set at a time.
 # Slot 1 keeps the historical name aion_game_server_log because cmake/AppTests.cmake (chunk P5-14) registers the three smoke tests and the M4
@@ -94,7 +112,10 @@ if(TARGET aion_gs_scenario_tests)
 		AION_SCENARIO_PARTIAL_ALLOWLIST="${CMAKE_CURRENT_SOURCE_DIR}/tests/scenario/m5a_partial_allowlist.txt"
 		AION_SCENARIO_M5B_PARTIAL_ALLOWLIST="${CMAKE_CURRENT_SOURCE_DIR}/tests/scenario/m5b_partial_allowlist.txt"
 		AION_SCENARIO_M5B2_PARTIAL_ALLOWLIST="${CMAKE_CURRENT_SOURCE_DIR}/tests/scenario/m5b2_partial_allowlist.txt"
-		AION_SCENARIO_M5B3_PARTIAL_ALLOWLIST="${CMAKE_CURRENT_SOURCE_DIR}/tests/scenario/m5b3_partial_allowlist.txt")
+		AION_SCENARIO_M5B3_PARTIAL_ALLOWLIST="${CMAKE_CURRENT_SOURCE_DIR}/tests/scenario/m5b3_partial_allowlist.txt"
+		AION_SCENARIO_M5C_PARTIAL_ALLOWLIST="${CMAKE_CURRENT_SOURCE_DIR}/tests/scenario/m5c_partial_allowlist.txt"
+		AION_SCENARIO_TRAVEL_PARTIAL_ALLOWLIST="${CMAKE_CURRENT_SOURCE_DIR}/tests/scenario/travel_partial_allowlist.txt"
+		AION_SCENARIO_M5D_PARTIAL_ALLOWLIST="${CMAKE_CURRENT_SOURCE_DIR}/tests/scenario/m5d_partial_allowlist.txt")
 
 	# the oracle answers are JSON (Oracle.cpp); commons finds the same package in its own directory scope
 	find_package(nlohmann_json CONFIG REQUIRED)
@@ -106,6 +127,10 @@ if(TARGET aion_gs_scenario_tests)
 	# starts the real login server; since stage 3 it writes its own log directory (ScenarioServers::loginLogFolder) and binds ephemeral ports.
 	# It holds the slot of the two m5a gates because its schema pair carries their prefix m5a (see "the two gate slots" above).
 	aion_set_discovered_test_properties(aion_gs_scenario_tests REGEX "^LoginServerHarnessTest\\."
+		PROPERTIES LABELS "scenario;realdata" RESOURCE_LOCK "${AION_GS_GATE_SLOT_1}" TIMEOUT 300)
+	# start the real game and login servers in module directories of their own, up to their database step (a few seconds each, no schema), to
+	# show that a gate server does not read the operator's override files (ScenarioServersTest.cpp, "hermetic servers"); a server run holds a slot
+	aion_set_discovered_test_properties(aion_gs_scenario_tests REGEX "^HermeticServersTest\\."
 		PROPERTIES LABELS "scenario;realdata" RESOURCE_LOCK "${AION_GS_GATE_SLOT_1}" TIMEOUT 300)
 	# OracleRunTest runs tools/oracle/oracle.py m5b2-skills over the real static data through Oracle::skills (OracleTest.cpp), with the
 	# interpreter CMake found handed over the way the gates below get theirs; without one the case skips itself.
@@ -126,6 +151,18 @@ if(TARGET aion_gs_scenario_tests)
 		LABELS "scenario;realdata")
 	# and for the M5b-3 gates (m5b3-plan.md G-03/G-04)
 	aion_set_discovered_test_properties(aion_gs_scenario_tests REGEX "^M5b3Scenario(Geo)?\\." PROPERTIES DISABLED TRUE
+		LABELS "scenario;realdata")
+	# and for the M5c gate (m5c-plan.md G-03, §10.5; no geo variant, D12)
+	aion_set_discovered_test_properties(aion_gs_scenario_tests REGEX "^M5cScenario\\." PROPERTIES DISABLED TRUE
+		LABELS "scenario;realdata")
+	# and for the travel-core gate (m5f-plan.md §16)
+	aion_set_discovered_test_properties(aion_gs_scenario_tests REGEX "^TravelScenario\\." PROPERTIES DISABLED TRUE
+		LABELS "scenario;realdata")
+	# and for the ascension route (lane P6-Q asc-hand, chunk Q06; its lease of this directory released at integration; docs/deviations/Q06.md)
+	aion_set_discovered_test_properties(aion_gs_scenario_tests REGEX "^AscensionScenario\\." PROPERTIES DISABLED TRUE
+		LABELS "scenario;realdata")
+	# and for the M5d gates (m5d-plan.md G-03/G-04)
+	aion_set_discovered_test_properties(aion_gs_scenario_tests REGEX "^M5dScenario(Geo)?\\." PROPERTIES DISABLED TRUE
 		LABELS "scenario;realdata")
 
 	# F-06: the M5a gate (§5.10). The oracle needs a Python interpreter; without it the test prints "gs.scenario.m5a: skipped".
@@ -176,14 +213,15 @@ if(TARGET aion_gs_scenario_tests)
 	#
 	# gs.scenario.m5b: the scripted fight of §6.2 - approach, target, an out-of-range shot, the kill, the reward, the respawn, the character's
 	# own death and its bind revive - in the same binary, with its own output directory <bin>/scenario/m5b, its own schema pair
-	# (aion_gs_test_m5b_<hash>, ScenarioServers::Config::schemaPrefix) and its own AION_PARTIAL allow-list. It holds gate slot 2, together with
-	# its geo variant (one slot per schema prefix) and the two M5b-2 gates: the user works at this machine, and a third geo-capable server beside
-	# two others is what the slots prevent (§8 risk 15). TIMEOUT 900 like gs.scenario.m5a; the run itself is budgeted at 60-90 s, of which K7's
+	# (aion_gs_test_m5b_<hash>, ScenarioServers::Config::schemaPrefix) and its own AION_PARTIAL allow-list. It holds gate slot 1, together with
+	# its geo variant (one slot per schema prefix): slot 2 with the two M5b-2 gates until the integration of the ascension gate moved the pair
+	# (2026-09-29, "the two gate slots" above). The user works at this machine, and a third geo-capable server beside two others is what the
+	# slots prevent (§8 risk 15). TIMEOUT 900 like gs.scenario.m5a; the run itself is budgeted at 60-90 s, of which K7's
 	# respawn assertion alone costs the spawn's 20 s respawn time and K8's death costs the monster's attack tempo.
 	add_test(NAME gs.scenario.m5b COMMAND "$<TARGET_FILE:aion_gs_scenario_tests>" --gtest_filter=M5bScenario.Run
 		WORKING_DIRECTORY "${scenario_work_dir}")
 	set_tests_properties(gs.scenario.m5b PROPERTIES LABELS "scenario;realdata" TIMEOUT 900
-		RESOURCE_LOCK "${AION_GS_GATE_SLOT_2}" SKIP_REGULAR_EXPRESSION "gs\\.scenario\\.m5b: skipped")
+		RESOURCE_LOCK "${AION_GS_GATE_SLOT_1}" SKIP_REGULAR_EXPRESSION "gs\\.scenario\\.m5b: skipped")
 	if(Python3_Interpreter_FOUND)
 		set_property(TEST gs.scenario.m5b APPEND PROPERTY ENVIRONMENT_MODIFICATION "AION_TEST_PYTHON=set:${Python3_EXECUTABLE}")
 	endif()
@@ -199,7 +237,7 @@ if(TARGET aion_gs_scenario_tests)
 	add_test(NAME gs.scenario.m5b_geo COMMAND "$<TARGET_FILE:aion_gs_scenario_tests>" --gtest_filter=M5bScenarioGeo.Run
 		WORKING_DIRECTORY "${scenario_work_dir}")
 	set_tests_properties(gs.scenario.m5b_geo PROPERTIES LABELS "scenario;realdata;geo" TIMEOUT 2700
-		RESOURCE_LOCK "${AION_GS_GATE_SLOT_2}" SKIP_REGULAR_EXPRESSION "gs\\.scenario\\.m5b_geo: skipped")
+		RESOURCE_LOCK "${AION_GS_GATE_SLOT_1}" SKIP_REGULAR_EXPRESSION "gs\\.scenario\\.m5b_geo: skipped")
 	if(Python3_Interpreter_FOUND)
 		set_property(TEST gs.scenario.m5b_geo APPEND PROPERTY ENVIRONMENT_MODIFICATION "AION_TEST_PYTHON=set:${Python3_EXECUTABLE}")
 	endif()
@@ -213,7 +251,8 @@ if(TARGET aion_gs_scenario_tests)
 	# npc's skill cast at the Warrior (X9), the cast bar with its MP cost and its interruption, a 20-second debuff on a monster, a two-template
 	# self-buff, a heal, the enter-world passives,
 	# the revive debuff and the saved effect and cooldown of a quit - in the same binary, with its own output directory <bin>/scenario/m5b2, its
-	# own schema pair (aion_gs_test_m5b2_<hash>) and its own AION_PARTIAL allow-list, in gate slot 2 with its geo variant and the M5b gates.
+	# own schema pair (aion_gs_test_m5b2_<hash>) and its own AION_PARTIAL allow-list, in gate slot 2 with its geo variant, the M5c gate and the
+	# ascension gate (the M5b gates were beside it until 2026-09-29, "the two gate slots" above).
 	# TIMEOUT 900 like gs.scenario.m5b: the run is budgeted at three to four minutes, of which the Root's lifetime and the cooldowns are a
 	# minute of deliberate waiting.
 	add_test(NAME gs.scenario.m5b2 COMMAND "$<TARGET_FILE:aion_gs_scenario_tests>" --gtest_filter=M5b2Scenario.Run
@@ -247,8 +286,8 @@ if(TARGET aion_gs_scenario_tests)
 	# two 210663 corpses and a 210133 corpse empty, kinah included, unequips and re-equips its sword, sockets a seeded godstone and sees it proc,
 	# drinks a potion, moves, splits, destroys and swaps items and reads its inventory back from the database after a quit - in the same binary,
 	# with its own output directory <bin>/scenario/m5b3, its own schema pair (aion_gs_test_m5b3_<hash>) and its own AION_PARTIAL allow-list,
-	# in gate slot 1 with its geo variant, the M5a gates and the smoke and M4 tests. TIMEOUT 900 like gs.scenario.m5b2: the run is budgeted at
-	# four to six minutes, of which three fights, three relogs and the oracle's cube budgets are most.
+	# in gate slot 1 with its geo variant, the M5a and M5b gates, the travel gate and the smoke and M4 tests. TIMEOUT 900 like gs.scenario.m5b2:
+	# the run is budgeted at four to six minutes, of which three fights, three relogs and the oracle's cube budgets are most.
 	add_test(NAME gs.scenario.m5b3 COMMAND "$<TARGET_FILE:aion_gs_scenario_tests>" --gtest_filter=M5b3Scenario.Run
 		WORKING_DIRECTORY "${scenario_work_dir}")
 	set_tests_properties(gs.scenario.m5b3 PROPERTIES LABELS "scenario;realdata" TIMEOUT 900
@@ -271,5 +310,90 @@ if(TARGET aion_gs_scenario_tests)
 	endif()
 	if(AION_SCENARIO_REQUIRE OR NOT AION_GS_ALLOW_MILESTONE_SKIP)
 		set_property(TEST gs.scenario.m5b3_geo APPEND PROPERTY ENVIRONMENT_MODIFICATION "AION_SCENARIO_REQUIRE=set:1")
+	endif()
+
+	# ---- the M5c gate (m5c-plan.md G-03, §10) ----------------------------------------------------------------------------------------------
+	#
+	# gs.scenario.m5c: the economy of §10.2 on two accounts at once - an Elyos Warrior (A) and an Elyos Mage (B) at Akarios village: talking to
+	# the merchant, the postbox and the function npcs, buying, selling and buying back, an exchange, a cancelled one and one whose partner quits,
+	# a private store, mail online and offline, soul healing, the database after both quit, identification, a manastone socketed and removed, the
+	# cube expansion, an extraction and an enchantment - in the same binary, with its own output directory <bin>/scenario/m5c, its own schema
+	# pair (aion_gs_test_m5c_<hash>) and its own AION_PARTIAL allow-list. Part 1 (stage 2) runs C0-C18 and C20; C19, the crafting, is stage 3's
+	# (G-03 part 2). No geo variant (D12). Gate slot 2, the slot with the smaller sum (see "the two gate slots" above). TIMEOUT 2700 (§10.5).
+	add_test(NAME gs.scenario.m5c COMMAND "$<TARGET_FILE:aion_gs_scenario_tests>" --gtest_filter=M5cScenario.Run
+		WORKING_DIRECTORY "${scenario_work_dir}")
+	set_tests_properties(gs.scenario.m5c PROPERTIES LABELS "scenario;realdata" TIMEOUT 2700
+		RESOURCE_LOCK "${AION_GS_GATE_SLOT_1}" SKIP_REGULAR_EXPRESSION "gs\\.scenario\\.m5c: skipped")
+	if(Python3_Interpreter_FOUND)
+		set_property(TEST gs.scenario.m5c APPEND PROPERTY ENVIRONMENT_MODIFICATION "AION_TEST_PYTHON=set:${Python3_EXECUTABLE}")
+	endif()
+	if(AION_SCENARIO_REQUIRE OR NOT AION_GS_ALLOW_MILESTONE_SKIP)
+		set_property(TEST gs.scenario.m5c APPEND PROPERTY ENVIRONMENT_MODIFICATION "AION_SCENARIO_REQUIRE=set:1")
+	endif()
+
+	# ---- the travel-core gate (m5f-plan.md §16, the early travel slice of T-01, T-05 and P-01) ------------------------------------------
+	#
+	# gs.scenario.travel: an Elyos Daeva seeded in Sanctum takes Polyidus' route to Verteron and flies with the flight master beside the
+	# arrival, and an Asmodian Daeva seeded in Pandaemonium takes Doman's route to Altgard - talk, map, price, jump, CM_TELEPORT_ANIMATION_DONE,
+	# SM_PLAYER_SPAWN, CM_LEVEL_READY, CM_MOVE_IN_AIR and the landing - in the same binary, with its own output directory <bin>/scenario/travel,
+	# its own schema pair (aion_gs_test_travel_<hash>) and its own AION_PARTIAL allow-list. It needs no oracle (no Python). A gate of its own
+	# because no plan names an existing gate for it (m5f-plan.md G-03's gs.scenario.m5f is stage 2's). Gate slot 1, the slot with the smaller
+	# sum (see "the two gate slots" above; the run is a few minutes in a Debug tree). No geo variant.
+	add_test(NAME gs.scenario.travel COMMAND "$<TARGET_FILE:aion_gs_scenario_tests>" --gtest_filter=TravelScenario.Run
+		WORKING_DIRECTORY "${scenario_work_dir}")
+	set_tests_properties(gs.scenario.travel PROPERTIES LABELS "scenario;realdata" TIMEOUT 1800
+		RESOURCE_LOCK "${AION_GS_GATE_SLOT_1}" SKIP_REGULAR_EXPRESSION "gs\\.scenario\\.travel: skipped")
+	if(AION_SCENARIO_REQUIRE OR NOT AION_GS_ALLOW_MILESTONE_SKIP)
+		set_property(TEST gs.scenario.travel APPEND PROPERTY ENVIRONMENT_MODIFICATION "AION_SCENARIO_REQUIRE=set:1")
+	endif()
+
+	# ---- the retail ascension route (lane P6-Q asc-hand, chunk Q06; docs/deviations/Q06.md) ------------------------------------------------
+	#
+	# gs.scenario.ascension: an Elyos Warrior and an Asmodian Warrior, each seeded at level 9 with a full bar, play 1006 / 2008 from the enter
+	# world to the Gladiator and 1007 / 2009 to level 10 (AscensionScenarioTest.cpp: E1-E7), with gameserver.simple.secondclass.enable off so
+	# that the four hand-ported handlers register - in the same binary, with its own output directory <bin>/scenario/ascension and its own schema
+	# pair (aion_gs_test_asc_<hash>). No oracle, no AION_PARTIAL allow-list, no geo variant (each geo gate costs minutes of Debug startup).
+	# Gate slot 2: it joined slot 1 in its lane, and the integration with the travel gate (2026-09-29) gave it slot 2 and moved the M5b pair to
+	# slot 1 (the table above). Each race waits 43 s for its raiders and fights its boss (1,461 HP) with auto-attacks for minutes; TIMEOUT 2700
+	# like gs.scenario.m5c.
+	add_test(NAME gs.scenario.ascension COMMAND "$<TARGET_FILE:aion_gs_scenario_tests>" --gtest_filter=AscensionScenario.Run
+		WORKING_DIRECTORY "${scenario_work_dir}")
+	set_tests_properties(gs.scenario.ascension PROPERTIES LABELS "scenario;realdata" TIMEOUT 2700
+		RESOURCE_LOCK "${AION_GS_GATE_SLOT_2}" SKIP_REGULAR_EXPRESSION "gs\\.scenario\\.ascension: skipped")
+	if(AION_SCENARIO_REQUIRE OR NOT AION_GS_ALLOW_MILESTONE_SKIP)
+		set_property(TEST gs.scenario.ascension APPEND PROPERTY ENVIRONMENT_MODIFICATION "AION_SCENARIO_REQUIRE=set:1")
+	endif()
+
+	# ---- the M5d gate (m5d-plan.md G-03/G-04, §10) ----------------------------------------------------------------------------------------
+	#
+	# gs.scenario.m5d: the quest path of §10.2 on two accounts - an Elyos Warrior plays 1101 (elpas -> mires), 1102 (three kerubs, the
+	# level-up inside the reward) and accepts and abandons 1103; an Asmodian Warrior plays 2101 (asak -> vandar) and 2102 (four sprigg
+	# workers and a fifth, the bandage reward) - with the markers, the dialogs, the journal's refused report, two relogs and the database - in
+	# the same binary, with its own output directory <bin>/scenario/m5d, its own schema pair (aion_gs_test_m5d_<hash>) and its own
+	# AION_PARTIAL allow-list. Gate slot 2 with its geo variant, the slot with the smaller sum when it joined (see "the two gate slots"
+	# above). TIMEOUT 1800: two characters, eight kills (one in C10, two in C12, five in C16c) and three relogs, a few minutes in a Debug tree.
+	add_test(NAME gs.scenario.m5d COMMAND "$<TARGET_FILE:aion_gs_scenario_tests>" --gtest_filter=M5dScenario.Run
+		WORKING_DIRECTORY "${scenario_work_dir}")
+	set_tests_properties(gs.scenario.m5d PROPERTIES LABELS "scenario;realdata" TIMEOUT 1800
+		RESOURCE_LOCK "${AION_GS_GATE_SLOT_2}" SKIP_REGULAR_EXPRESSION "gs\\.scenario\\.m5d: skipped")
+	if(Python3_Interpreter_FOUND)
+		set_property(TEST gs.scenario.m5d APPEND PROPERTY ENVIRONMENT_MODIFICATION "AION_TEST_PYTHON=set:${Python3_EXECUTABLE}")
+	endif()
+	if(AION_SCENARIO_REQUIRE OR NOT AION_GS_ALLOW_MILESTONE_SKIP)
+		set_property(TEST gs.scenario.m5d APPEND PROPERTY ENVIRONMENT_MODIFICATION "AION_SCENARIO_REQUIRE=set:1")
+	endif()
+
+	# gs.scenario.m5d_geo (G-04, §10.5): the same script with -Dgameserver.geodata.enable=true. Geo changes nothing on the quest path itself
+	# (isInTalkRange has no geo test, no zone-triggered quest is on the start maps), so this is a re-run whose value is the walks and the fights
+	# under geo heights; the comment above TEST(M5dScenarioGeo, Run) says so. TIMEOUT 2700 for the geo startup, as the other geo gates.
+	add_test(NAME gs.scenario.m5d_geo COMMAND "$<TARGET_FILE:aion_gs_scenario_tests>" --gtest_filter=M5dScenarioGeo.Run
+		WORKING_DIRECTORY "${scenario_work_dir}")
+	set_tests_properties(gs.scenario.m5d_geo PROPERTIES LABELS "scenario;realdata;geo" TIMEOUT 2700
+		RESOURCE_LOCK "${AION_GS_GATE_SLOT_2}" SKIP_REGULAR_EXPRESSION "gs\\.scenario\\.m5d_geo: skipped")
+	if(Python3_Interpreter_FOUND)
+		set_property(TEST gs.scenario.m5d_geo APPEND PROPERTY ENVIRONMENT_MODIFICATION "AION_TEST_PYTHON=set:${Python3_EXECUTABLE}")
+	endif()
+	if(AION_SCENARIO_REQUIRE OR NOT AION_GS_ALLOW_MILESTONE_SKIP)
+		set_property(TEST gs.scenario.m5d_geo APPEND PROPERTY ENVIRONMENT_MODIFICATION "AION_SCENARIO_REQUIRE=set:1")
 	endif()
 endif()

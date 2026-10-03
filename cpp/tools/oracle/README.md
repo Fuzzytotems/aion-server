@@ -619,13 +619,17 @@ Stage 1 (harness-b) added the rest of G-01 (`m5c/sanctum.py` for the C19 blocks;
   master chosen: Luelas 203785, 140 for two Salt) and the seed items no vendor sells (one Inina), `exactKinah` (3,640), a `seedSpot` beside
   the master, and the tool's static objects (every spot of the STATIC group, the one nearest the master chosen: Oven static id 103) with the
   spots at each `--craft-distance` along `--direction`, checked against CM_CRAFT's centre-to-centre 10 and checkCraft's 5 plus both bound
-  radii (m5c-craft's `craft.station`): 3 m crafts, 7 m answers STR_COMBINE_TOO_FAR_FROM_TOOL, 12 m nothing.
+  radii (m5c-craft's `craft.station`): 3 m crafts, 7 m answers STR_COMBINE_TOO_FAR_FROM_TOOL, 12 m nothing. Since the review of the gate-2
+  lane (2026-09-28) `craft.recipe` also carries every analyze tick's `executionSpeed` and `showBarDelay` (the product bar's, 900 and 1200 at
+  the level difference 0) and m5c-craft's SM_CRAFT_UPDATE rows of the start pair, the end and sendCancelCraft (`updates`: speed 0, delay 0),
+  and the SM_ACTION_ANIMATION(CRAFT_LEVEL_UP) of the craft's level-up (`skillUpAnimations`, none for level 2) and of the learn
+  (`learn.yes.animations`: onLearnSkill's level 1 of a crafting skill; the id is ActionAnimation's, 4).
 
 The C19 blocks need the m5c-craft context over the same data and profile (the command builds it); their own Java members (setExp,
 updateDaeva, the experience table, PlayerSkillList.addSkill/removeSkill, RecipeList.addRecipe, SkillLearnTemplate.getSkillLevel, the
 COMBINE_SKILL_LEVELUP arm, Profession.getClientName, SpawnEngine.spawnInstance, StaticObjectSpawnManager, PlayerController.see,
 SM_GATHERABLE_INFO) are fingerprinted like the rest, and the literals (the quest ids, the level cap, the Daeva swap, the dialog action, the
-question id, the learn level) are read. Exit 2 also for a starting class for `--daeva`, an old level outside 1..9, a recipe of another race
+question id, the learn level, ActionAnimation.CRAFT_LEVEL_UP's id) are read. Exit 2 also for a starting class for `--daeva`, an old level outside 1..9, a recipe of another race
 or of the morph skill, no master or no tool spot on the map, a tool group with a pool, an enchantment stone for `--manastone`.
 
 Tests: `tests/test_m5c_sanctum.py` (the level at load and the row filter alone, the C19 literals today and 12 edited copies refused, the
@@ -644,7 +648,11 @@ python oracle.py m5d-quest --quest 1101 [--race R] [--class C] [--level N] [--ex
                            [--inventory ITEM[:COUNT] ...]
 python oracle.py m5d-quests --map 210010000 [--race R] [--class C] [--level N] [--gender G] [--completed ID[:GROUP] ...] [--started ID ...]
                             [--inventory ITEM[:COUNT] ...] [--game-hour H ...]
-    (both: [--java-src game-server/src] [--java-handlers data/handlers/quest] [--config config] [--profile FILE | --no-profile])
+python oracle.py m5d-quests --registration-order [--npc ID]
+python oracle.py m5d-quests --census
+    (all: [--java-src game-server/src] [--java-handlers data/handlers/quest] [--config config] [--profile FILE | --no-profile]; the last
+     two take no character or game-time option: --race, --class, --level, --gender, --completed, --started, --inventory and --game-*/--weekday
+     are refused, exit 2)
 ```
 
 The list options take several values after one flag or the flag again: `--completed 1101 1102` is `--completed 1101 --completed 1102`.
@@ -690,6 +698,37 @@ instance's ConcurrentHashMap key set order) is not modelled, so the whole order 
 a game time not given, or a quest giver comes from a timed event or a service spawn (siege, base, rift, vortex, mercenary, ahserion, town) -
 those are listed under `notModelled`.
 
+`m5d-quests --registration-order [--npc ID]` (`aion-m5d-registration-order`, `m5d/registry.py`, for T-04's case): the XML-only registry (D9)
+as `QuestEngine.init` builds it. `order` is the registration order, the iteration order of `XMLQuests.questsById` (a `new HashMap<>()` filled in
+document order); `questOnEnterWorld` and `questOnLevelUp` (per race: a quest without race_permitted is in both, a PC_ALL quest in a PC_ALL list
+nobody reads) are the engine's lists; per npc `onTalkEvent` and `onKillEvent` are in registration order and `onQuestStart` is the
+`HashSet<>(0)`'s iteration order. Without `--npc` every npc's three lists; with it that npc's lists, each with `...Flags` (whether it is also
+the ascending or the document order, and for the start set its insertion order: such a list cannot tell a sorted container, an
+insertion-ordered registry filled in document order or an insertion-ordered set from Java's), the set's insertion order and the Java
+handlers that start there (not in the C++ registry). `talkLists` and `killLists` count the npcs whose list is neither ascending nor in
+document order and name them, `startLists` the npcs whose set is none of the three orders. On the data: `questOnEnterWorld`'s 26 ids are
+neither; mires 203057's talk list `[1101, 1102, 1103, 1104]` is ascending, but its start set `[1104, 1102, 1103]` is none of the three (the
+insertion order is `[1102, 1103, 1104]`, the order of the C++ runtime::HashSet, which iterates in insertion order); 137 talk lists, 51 kill
+lists (of 136 not ascending) and 386 start sets (of 447 not in insertion order) tell the orders apart.
+
+`m5d-quests --census` (`aion-m5d-census`): m5d-plan.md §2.3-§2.5 re-derived. The templates and the handlers by category; where each XML quest
+starts, a partition (`start`, first match): minlevel 99, no start npc, a start npc spawned at startup (a regular spawn of an open-world map,
+difficulty 0, no handler, an Npc with a template) with a talking ai (general, aggressive), `simple_abyssguard` or another ai, each talking row
+split by a Java-handled `<finished>`/`<acquired>` precondition that leaves fewer passing groups than required; spawned only by a service
+(siege, instance, base, vortex, ahserion, rift, mercenary); never spawned, split into town spawns (TownService spawns them at startup at the
+town's level), house spawns (HousingService spawns every house of an open-world map but the studios at startup, and each house its land's
+manager, teleport and sign npcs per house_npcs), timed-event spawns, inert spawns (static, another handler, another difficulty, no template,
+no spots, no world map) and `noSpawnData` (no spawn, town, house or event data: Java code spawns the npc or nothing does), whose `namedInJava`
+is a text scan of the Java sources for the start npc id as an int literal - a name, not a proof of a spawn: outside data/handlers/quest
+(instance and ai handlers, game-server/src), only in data/handlers/quest (phase 6), or nowhere. Then what completing the reachable quests
+needs (dialogs and kills, quest loot, crafting, items from elsewhere, quest objects, turn-ins, skill use, PvP kills), E-09's reward bodies
+(bonus, AP, GP, cube, warehouse) over all XML quests and over the reachable ones, the CHALLENGE_TASK quests by row and the Poeta and Ishalgen
+quests by handler. On the data it gives §2.4's 2,072 / 439 / 270 + 37 / 322 / 498 / 415 / 126 / 5 and 2,511 reachable. It also splits the
+498 "never spawned" quests: TownService spawns the givers of 54 at startup, all of them at a town level above 1, the houses the butlers of 2
+(18829, 28829), timed events the givers of 240, and 202 are in no spawn data - 24 of those start at an npc an instance or ai handler names
+(16991 at 802048, IlluminaryObeliskInstance; 30225 at 216527, BeshmundirInstance; ...), 5 at one only phase-6 quest handlers name, 173 at
+one no Java file names.
+
 The cube of both commands is the new character's (m5a-creation, the items that are not equipped). A quest of the list may have changed it:
 a COMPLETE quest paid its reward items (any group, selectable, extended, class lists, a random `<bonus>` item) and work order components and
 took its collect items, work items and report_to_many start item; a START quest holds its work items, start item, components, quest drops
@@ -713,7 +752,10 @@ class above level 9 or a daeva class below 10, an `--exp` that is not an exp of 
 Tests: `tests/test_m5d.py` (the var arithmetic of the handlers alone, Java's HashMap order and buckets and the Java text readers, the Java
 tables today and on an edited copy, the whole report on a small static_data tree with a fixture Java handler and config, one fixture quest per
 QuestService rule with every rate apart and a profile, and on the real data 1101 -> 1102 -> 1103 in Poeta, 2101 and 2102 in Ishalgen, both
-start maps' marker sets and wire orders, and the float rounding of 21040's exp).
+start maps' marker sets and wire orders, and the float rounding of 21040's exp); `tests/test_m5d_registry.py` (the registration order and
+every list on eight fixture quests whose HashMap order is neither ascending nor in document order, the flags and list summaries on six more
+where they differ, one fixture quest per census rule including the house, inert-spawn and Java-scan rules, the command line and its
+refusals, and on the real data the whole order, mires' lists, `questOnEnterWorld`, the list summaries and the census against §2.3-§2.5).
 
 ## Phase-6 golden quest traces (`questtrace/`, `docs/design/phase6-inventory.md` §7.6 item 3)
 
@@ -737,6 +779,8 @@ case in `expected/quest/<questId>.json` (`format` `aion-quest-trace`, `version` 
 | `guards` | the Java text of every condition taken, its outcome and its line, in order |
 | `ranges` | an input an ordering guard bounded on both ends, `[lo, hi]`. Both ends satisfy every guard: an end a `!=` guard excludes moves inward (`!(var >= 1 && var < 10) && var != 10` is `[11, 63]`), so `given` holds `lo` and a harness can check `hi` too |
 | `rangeExcludes` | the values inside `[lo, hi]` a guard excludes (none in the corpus today) |
+| `free` | the QuestVars slots the path reads with no guard on them and uses in no effect argument and not in the return value (`"questState.vars.0"`): any value takes the same path with the same effects, so a harness may set one to what a helper the path calls reads (`checkQuestItems(env, 1, ...)` acts only at var 1). P6-Q, 2026-09-29 |
+| `atHigh` | per ranged input, the same path with that input at the high end of its range and the others as given: `input`, `value`, `given`, `effects` and `returns` (or `throws`) evaluated there. `given` holds the low end, so a boundary moved by one (`var < 6` read as `var < 5`) or an expression replaced by its low-end constant (`var + 1` read as 2) fails the high end. P6-Q, 2026-09-29 |
 | `effects` | the calls with side effects in order, arguments evaluated under `given`: the AbstractQuestHandler helpers (`sendQuestDialog` with its page, `changeQuestStep`, `giveQuestItem`, `removeQuestItem`, `playQuestMovie`, ...), `qs.setQuestVarById`/`setQuestVar`/`setStatus`/`setRewardGroup`, `QuestService.*`, `PacketSendUtility.sendPacket` with the packet built, `env.setQuestId`. The hook's own `env` and `player` arguments are left out; a varargs `int[]` is spread |
 | `returns` / `throws` | the value (`true`, `"FAILED"`, `{resultOf: k}` for effect k's result, `{fromBoolean: ...}`), or `NullPointerException` when the path dereferences an absent QuestState or target (after the call's arguments are evaluated, JLS 15.12.4, so their effects are in the case) |
 
@@ -746,7 +790,8 @@ phase6-questgen-prototype.md §8.2) and `hooks` (each hook with its case count, 
 The cases are call traces. A helper call is an effect with its arguments, not expanded into what it sends: a recording double of
 AbstractQuestHandler/QuestState (the link seam of §7.6 item 3) returns the assumed results and compares the calls; a harness on the real
 engine after M5d compares the observable subset (dialog pages, var and status writes, items, movies) and lets the ported helpers run.
-Assumed helper results are not checked against the helper's own logic (collectItemCheck with no QuestState cannot return true in Java).
+Assumed helper results are not checked against the helper's own logic, except the two results `dead_assumption` knows Java cannot return
+(below).
 
 Guards are equalities, set membership, ranges and their negations over single inputs (a linear offset such as `var + 1 == 3` is solved),
 so a satisfying value is picked directly and an infeasible branch is dropped. Each label of a multi-label `case` is its own case. State
@@ -760,12 +805,21 @@ test.
 
 The input model has limits a harness should know. The visible object is an Npc or nothing: `QuestEnv.getTargetId` (QuestEnv.java:94-96)
 also returns the template id of a visible object that is not an Npc (a gatherable, a static object), which makes `instanceof Npc` false
-with a non-zero target id, and no case has such a target. The assumed results of helpers are not checked against the helpers.
+with a non-zero target id, and no case has such a target. The assumed results of helpers are not checked against the helpers (but for `dead_assumption`'s two rules).
 
-The first slice is `questtrace.extract.SLICE`: the 20 Poeta and Ishalgen handlers questgen transliterates in tier A with its P6-T rules
-(`tools/gen/tests/test_questgen_p6t.py` keeps the two lists equal): 515 cases, every hook traced. Over all 1,035 handlers the extractor
+The first slice is `questtrace.extract.SLICE_TIER_A`: the 20 Poeta and Ishalgen handlers questgen transliterates in tier A with its P6-T
+rules (`tools/gen/tests/test_questgen_p6t.py` keeps the two lists equal): 506 cases (515 before `dead_assumption`, below), every hook
+traced. The ascension route slice
+`SLICE_ROUTE` (P6-Q, 2026-09-29) adds the route's other generated handlers: 1100 and 2100 (their enter-world and level hooks refused:
+`WorldMapType`), 1205 and 2132 (every hook refused, registration only) and the 12 dispatches of `ascension/` (17 cases each): 16 documents,
+218 cases. `SLICE` is both. The C++ harness `game-server/tests/quest_handlers_golden` drives every document of `expected/quest` through the real
+engine with the generated handler (docs/deviations/Q05.md). Its first run found 9 cases no state reproduces: paths that assume a helper
+result the helper's Java cannot return. `dead_assumption` drops them since (`giveQuestItem` of a non-zero constant item and count
+"-> false", AbstractQuestHandler.java:626-641; `QuestService.collectItemCheck(env, true)` "-> true" without a QuestState,
+QuestService.java:557-561), so the first slice has 506 cases. Over all 1,035 handlers the extractor
 writes 972 documents (the other 63 contain Java the shared parser refuses: a lambda, an anonymous class, `new ArrayList<>`, a switch
-expression) with 18,970 cases; 637 of them have every hook traced (17,013 cases; 26 of those with a `register()` it does not follow). The
+expression) with 18,861 cases (109 dead paths dropped; 422 high ends); 637 of them have every hook traced (16,904 cases; 26 of those with a
+`register()` it does not follow). Measured 2026-09-29. The
 most common refusals are crafting calls, the follow helpers, teleports and the packed `getQuestVars().getQuestVars()`.
 
 ```
@@ -778,5 +832,5 @@ With `--only`, `check` compares the named handlers only (the other documents in 
 Tests: `tests/test_quest_trace.py` (the input domains, a synthetic handler through every modelled construct and the refused ones, one
 small handler per Java rule above with its values worked out by hand, the parser precedence the oracle relies on, the range ends, the
 mutation standard - a changed page id, var write or guard in the Java changes the expected case -, hand-derived cases of 1000, 1001, 1005 and
-2122, the committed traces against a regeneration, `OTHER_NPCS` against `npc_templates.xml`, the command line, and the independence from
-the generator).
+2122, the high ends and free var slots of 1001 and 2001, the route slice and 1913, the dead paths, the committed traces against a
+regeneration, `OTHER_NPCS` against `npc_templates.xml`, the command line, and the independence from the generator).

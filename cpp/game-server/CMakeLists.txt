@@ -100,6 +100,38 @@ aion_gs_add_registries(aion_gs_registry
 	HANDLER_LIBRARIES ${AION_GS_HANDLER_TARGETS} aion_gs_login_slice aion_gs_cm_ak aion_gs_cm_lz
 )
 
+# QuestSpawnAnalyzer (chunk P5-06a, m5d-plan.md E-08 and D8): the quest tests link the real npcids table in place of its empty variant; the
+# other six tables stay empty. QuestSpawnAnalyzerRealDataTest compares QuestSpawnAnalyzer::loadNpcIdsSpawnedByHandlers(), which copies the
+# table aion_game_server links, with Java's pattern over the ported handler sources (tools/parity spawn-analyzer): the P5-06 acceptance row
+# "QuestSpawnAnalyzer output equals the Java-regex expectation on the ported set" (handlers-and-porting-plan.md §3). The tests link
+# aion_gs_registry_npcids_table: the generated source of aion_gs_registry_npcids compiled again, without the handler libraries that library
+# links PUBLIC for the server (the table references no handler symbol). So the quest tests wait for the scan only, not for every handler
+# library, and link no handler object.
+if(TARGET aion_gs_quest_tests)
+	get_filename_component(gs_registry_dir "${aion_gs_registry_REPORT}" DIRECTORY)
+	add_library(aion_gs_registry_npcids_table STATIC "${gs_registry_dir}/Registry.npcids.gen.cpp")
+	add_dependencies(aion_gs_registry_npcids_table aion_gs_registry_scan)
+	target_link_libraries(aion_gs_registry_npcids_table PUBLIC aion_gs_handler_registry)
+	get_target_property(gs_quest_test_links aion_gs_quest_tests LINK_LIBRARIES)
+	list(FIND gs_quest_test_links aion_gs_registry_empty gs_quest_registry_index)
+	if(gs_quest_registry_index EQUAL -1)
+		message(FATAL_ERROR "aion_gs_quest_tests does not link aion_gs_registry_empty any more (cmake/AionChunks.cmake): link the real npcids "
+			"table and the six empty tables anew")
+	endif()
+	list(REMOVE_AT gs_quest_test_links ${gs_quest_registry_index})
+	foreach(registry IN LISTS AION_GS_REGISTRY_NAMES)
+		if(registry STREQUAL "npcids")
+			list(INSERT gs_quest_test_links ${gs_quest_registry_index} aion_gs_registry_npcids_table)
+		else()
+			list(INSERT gs_quest_test_links ${gs_quest_registry_index} aion_gs_registry_${registry}_empty)
+		endif()
+	endforeach()
+	set_property(TARGET aion_gs_quest_tests PROPERTY LINK_LIBRARIES "${gs_quest_test_links}")
+elseif(AION_BUILD_TESTS)
+	message(FATAL_ERROR "aion_gs_quest_tests does not exist before this point any more (cmake/AionChunks.cmake): the QuestSpawnAnalyzer tests "
+		"need the real npcids table linked here")
+endif()
+
 # The server: every core library, every handler library (through the registries) and main.cpp (MAIN of chunk P5-14).
 add_executable(aion_game_server ${AION_GS_MAIN_SOURCES})
 source_group(TREE "${GS_SRC}" FILES ${AION_GS_MAIN_SOURCES})
@@ -251,6 +283,13 @@ if(AION_BUILD_TESTS)
 		"Let the milestone tests (gs.scenario.m5a, gs.m4.check_static_data, gs.smoke.startup*) skip themselves when a prerequisite is missing"
 		OFF)
 
+	# The runtime kernel's tests (PCT schedules, real thread pools, lifetime protocols) wait on other threads with deadlines: label runtime, so a
+	# small machine can run them one at a time after the rest (the C++-staging CI does; on its 4-vCPU runner, 4 at once missed the deadlines of
+	# a PCT schedule and a periodic task in run 36542435827). Labels add up: the realdata test of CronExpressionTest carries both.
+	foreach(gs_runtime_tests IN ITEMS base sync lifetime fields collections sched services stress)
+		aion_set_discovered_test_properties(aion_gs_runtime_${gs_runtime_tests}_tests REGEX "." PROPERTIES LABELS runtime)
+	endforeach()
+
 	# Tests that read the Java tree (config/, src/, data/): label realdata, and pass the tree's location in the environment as well
 	set(gs_realdata PROPERTIES LABELS realdata ENVIRONMENT "AION_GAMESERVER_JAVA_DIR=${GS_JAVA_DIR}")
 	aion_set_discovered_test_properties(aion_gs_configs_tests REGEX "^(ConfigLoadTest|JavaAnnotationsTest)\\." ${gs_realdata})
@@ -262,7 +301,15 @@ if(AION_BUILD_TESTS)
 	aion_set_discovered_test_properties(aion_gs_geo_tests REGEX "^GeoRealDataTest\\." ${gs_realdata})
 	aion_set_discovered_test_properties(aion_gs_templates_tests REGEX "^(TemplatesRealDataTest|TemplatesBRealDataTest)\\." ${gs_realdata})
 	aion_set_discovered_test_properties(aion_gs_skills_tests REGEX "^SkillShellsRealDataTest\\." ${gs_realdata})
-	aion_set_discovered_test_properties(aion_gs_quest_tests REGEX "^QuestModelsRealDataTest\\." ${gs_realdata})
+	aion_set_discovered_test_properties(aion_gs_quest_tests REGEX "^(QuestModelsRealDataTest|QuestTemplatesRealDataTest)\\." ${gs_realdata})
+	# the spawn analyzer's handler npc ids against tools/parity over the ported handler sources (m5d-plan.md E-08; the npcids table above). The
+	# test fails without an interpreter: AION_TEST_PYTHON names the configure-time one
+	if(Python3_Interpreter_FOUND)
+		aion_set_discovered_test_properties(aion_gs_quest_tests REGEX "^QuestSpawnAnalyzerRealDataTest\\." ${gs_realdata}
+			ENVIRONMENT_MODIFICATION "AION_TEST_PYTHON=set:${Python3_EXECUTABLE}")
+	else()
+		aion_set_discovered_test_properties(aion_gs_quest_tests REGEX "^QuestSpawnAnalyzerRealDataTest\\." ${gs_realdata})
+	endif()
 	# the whole static data load (M4); with AION_TEST_PYTHON the test also runs tools/oracle/oracle.py compare-counts/compare-totals
 	if(Python3_Interpreter_FOUND)
 		aion_set_discovered_test_properties(aion_gs_dataholders_tests REGEX "^(StaticDataRealDataTest|ConfigRootsRealDataTest)\\." ${gs_realdata}
@@ -271,6 +318,8 @@ if(AION_BUILD_TESTS)
 		aion_set_discovered_test_properties(aion_gs_dataholders_tests REGEX "^(StaticDataRealDataTest|ConfigRootsRealDataTest)\\." ${gs_realdata})
 	endif()
 	aion_set_discovered_test_properties(aion_gs_world_tests REGEX "^WorldRealDataTest\\." ${gs_realdata})
+	# SM_GATHERABLE_INFO of Sanctum's crafting benches, spawned from the rows of world_maps.xml, item_templates.xml and the Sanctum Statics file
+	aion_set_discovered_test_properties(aion_gs_sm_ak_tests REGEX "^StaticObjectGatherableInfoTest\\." ${gs_realdata})
 	# DAO tests that read game-server/sql/aion_gs.sql (DaoSqlParityTest also reads the Java and C++ DAO sources)
 	aion_set_discovered_test_properties(aion_gs_dao_tests REGEX "^(ServerDataDaoTest|PlayerDaoTest|LegionHouseItemDaoTest|DaoSqlParityTest)\\." ${gs_realdata})
 

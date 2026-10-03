@@ -92,6 +92,13 @@ void init(const Config& config = {});
 void shutdown();
 
 /**
+ * C++ only: the log folder of the last init (Config::logFolder, "log" before the first init), which createFileAppender resolves relative files
+ * against. Files the servers write below the log folder without an appender (RunnableStatsManager's stats/MethodStats.log) use it too, so a
+ * server started with another folder (the game server's --log-folder) writes nothing into ./log.
+ */
+std::filesystem::path getLogFolder();
+
+/**
  * Moves the *.log files of the log folder (including subfolders) of the previous run into a ZIP archive
  * "&lt;log folder&gt;/archived/&lt;last start&gt; to &lt;last modification&gt;.zip" (dates as "yyyy-MM-dd HH.mm", or "Unknown" if the
  * start marker file "[server_start_marker]" did not exist) and updates the start marker to the start time of this process.

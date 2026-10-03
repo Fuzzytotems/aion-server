@@ -14,12 +14,12 @@
 # stage 2 phase 4: every deterministic gather spot within 90 m must be announced, so a world without gatherables fails V4 on its own.
 
 # --- startup (measured in the stage-2 phase-1 startup runs of the app-gate and world-visibility lanes) ---
-# M5a runs without quests (plan W-02 "QuestEngine init (empty registry)")
-aion/gameserver/questEngine/QuestEngine.cpp:111
-aion/gameserver/questEngine/QuestEngine.cpp:115
+# M5a ran without quests (plan W-02 "QuestEngine init (empty registry)"); QuestEngine.cpp:111 was here until M5d's D3 join (m5d-plan.md
+# I-05) registered the XML quests at every startup, and QuestEngine.cpp:115 (the quest spawn analysis, on by default) until M5d's E-08
+# ported QuestSpawnAnalyzer (m5d-plan.md §21); neither site exists any more.
 # base locations are M5b (plan E1-06)
 aion/gameserver/services/BaseService.cpp:18
-# the PvP map instance needs InstanceService.getNextAvailableInstance (plan W-03, explicitly AION_PARTIAL there)
+# the PvP map instance stays partial by m5f-plan.md D6 (PvpMapHandler is M5j; init would create it at every startup)
 aion/gameserver/custom/pvpmap/PvpMapService.cpp:32
 
 # --- the three root AI handlers of m5b-plan.md A-06, registered in the M5b-1 stage-1 wave (D2: a registered handler cannot be turned off by
@@ -35,6 +35,5 @@ aion/gameserver/custom/pvpmap/PvpMapService.cpp:32
 # closed it (m5b2-plan.md D2, D11); the enter-world passives apply now.
 # EMOTIONS_ALL is off by default, so this is only reached with the config the real-client checklist uses
 aion/gameserver/services/player/PlayerService.cpp:268
-# personal instances and the instance exit teleport are M5a AION_PARTIAL by plan W-03
-aion/gameserver/services/instance/InstanceService.cpp:133
-aion/gameserver/services/instance/InstanceService.cpp:153
+# HISTORY: InstanceService.cpp:133 (personal instances) and :153 (the instance exit teleport), M5a AION_PARTIAL by plan W-03, were here
+# until the ascension lane closed them (m5f-plan.md §15, N-01 and T-02 moveToInstanceExit, I-04); both sites no longer exist.

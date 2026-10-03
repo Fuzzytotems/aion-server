@@ -4,15 +4,23 @@
 #include <typeinfo>
 #include <vector>
 
-#include "aion/gameserver/runtime/base/Unported.h"
 #include "aion/commons/logging/LoggerFactory.h"
+#include "aion/gameserver/controllers/NpcController.h"
+#include "aion/gameserver/controllers/effect/PlayerEffectController.h"
 #include "aion/gameserver/dataholders/DataManager.h"
 #include "aion/gameserver/dataholders/WorldMapsData.h"
+#include "aion/gameserver/model/gameobjects/Item.h"
 #include "aion/gameserver/model/gameobjects/Npc.h"
 #include "aion/gameserver/model/gameobjects/player/Player.h"
+#include "aion/gameserver/model/items/storage/Storage.h"
+#include "aion/gameserver/model/templates/item/ItemTemplate.h"
 #include "aion/gameserver/model/templates/npc/NpcRating.h"
+#include "aion/gameserver/model/templates/spawns/SpawnTemplate.h"
 #include "aion/gameserver/model/templates/world/WorldMapTemplate.h"
+#include "aion/gameserver/network/aion/serverpackets/SM_SYSTEM_MESSAGE.h"
 #include "aion/gameserver/runtime/base/Exceptions.h"
+#include "aion/gameserver/spawnengine/SpawnEngine.h"
+#include "aion/gameserver/utils/PacketSendUtility.h"
 #include "aion/gameserver/world/WorldMap.h"
 #include "aion/gameserver/world/WorldMapInstance.h"
 #include "aion/gameserver/world/WorldPosition.h"
@@ -32,38 +40,52 @@ runtime::Ref<GeneralInstanceHandler> GeneralInstanceHandler::create(world::World
 	return runtime::makeRef<GeneralInstanceHandler>(instanceValue);
 }
 
+// Java GeneralInstanceHandler.java:64-68
 void GeneralInstanceHandler::onLeaveInstance(model::gameobjects::player::Player& player) {
-	AION_UNPORTED();
+	player.getEffectController()->removeInstanceEffects();
+	removeInstanceItems(player);
 }
 
+// Java GeneralInstanceHandler.java:90-93
 runtime::Ptr<model::gameobjects::VisibleObject> GeneralInstanceHandler::spawn(int32_t npcId, float x, float y, float z, int8_t heading) {
-	AION_UNPORTED();
+	runtime::Ref<model::templates::spawns::SpawnTemplate> template_ = spawnengine::SpawnEngine::newSingleTimeSpawn(mapId, npcId, x, y, z, heading);
+	return spawnengine::SpawnEngine::spawnObject(*template_, instance->getInstanceId());
 }
 
+// Java GeneralInstanceHandler.java:95-99
 runtime::Ptr<model::gameobjects::VisibleObject> GeneralInstanceHandler::spawn(int32_t npcId, float x, float y, float z, int8_t heading,
 	int32_t staticId) {
-	AION_UNPORTED();
+	runtime::Ref<model::templates::spawns::SpawnTemplate> template_ = spawnengine::SpawnEngine::newSingleTimeSpawn(mapId, npcId, x, y, z, heading);
+	template_->setStaticId(staticId);
+	return spawnengine::SpawnEngine::spawnObject(*template_, instance->getInstanceId());
 }
 
+// Java GeneralInstanceHandler.java:101-104
 runtime::Ptr<model::gameobjects::VisibleObject> GeneralInstanceHandler::spawnAndSetRespawn(int32_t npcId, float x, float y, float z, int8_t heading,
 	int32_t respawnTime) {
-	AION_UNPORTED();
+	runtime::Ref<model::templates::spawns::SpawnTemplate> template_ = spawnengine::SpawnEngine::newSpawn(mapId, npcId, x, y, z, heading, respawnTime);
+	return spawnengine::SpawnEngine::spawnObject(*template_, instance->getInstanceId());
 }
 
+// Java GeneralInstanceHandler.java:106-108
 runtime::Ptr<model::gameobjects::Npc> GeneralInstanceHandler::getNpc(int32_t npcId) {
-	AION_UNPORTED();
+	return instance->getNpc(npcId);
 }
 
+// Java GeneralInstanceHandler.java:110-112
 void GeneralInstanceHandler::deleteAliveNpcs(std::initializer_list<int32_t> npcIds) {
-	AION_UNPORTED();
+	for (const runtime::Ptr<model::gameobjects::Npc>& n : instance->getNpcs(npcIds))
+		n->getController().deleteIfAliveOrCancelRespawn();
 }
 
+// Java GeneralInstanceHandler.java:117-119
 void GeneralInstanceHandler::sendMsg(network::aion::serverpackets::SM_SYSTEM_MESSAGE& msg) {
-	AION_UNPORTED();
+	sendMsg(msg, 0);
 }
 
+// Java GeneralInstanceHandler.java:124-126 (the delayed broadcast holds its own copy of the packet; Java shares the one object)
 void GeneralInstanceHandler::sendMsg(network::aion::serverpackets::SM_SYSTEM_MESSAGE& msg, int32_t delay) {
-	AION_UNPORTED();
+	utils::PacketSendUtility::broadcastToMap(*instance, msg, delay);
 }
 
 void GeneralInstanceHandler::onDespawn(model::gameobjects::Npc& npc) {
@@ -94,9 +116,9 @@ bool GeneralInstanceHandler::isBoss(model::gameobjects::Npc& npc) {
 	return npc.getLevel() >= 60 && (npc.getRating() == NpcRating::HERO || npc.getRating() == NpcRating::LEGENDARY);
 }
 
+// Java GeneralInstanceHandler.java:239-241
 void GeneralInstanceHandler::portToStartPosition(model::gameobjects::player::Player& player) {
-	// Java: throw new UnsupportedOperationException();
-	AION_UNPORTED();
+	throw runtime::UnsupportedOperationException(""); // Java: throw new UnsupportedOperationException();
 }
 
 float GeneralInstanceHandler::getExpMultiplier() {
@@ -118,12 +140,21 @@ bool GeneralInstanceHandler::allowInstanceRevive() {
 		instance->getTemplate()->getWorldType() == world::WorldType::PANESTERRA;
 }
 
+// Java GeneralInstanceHandler.java:278-280
 bool GeneralInstanceHandler::isRestrictedToInstance(model::gameobjects::Item& item) {
-	AION_UNPORTED();
+	return item.getItemTemplate()->isItemRestrictedToWorld(instance->getMapId());
 }
 
+// Java GeneralInstanceHandler.java:282-292
 void GeneralInstanceHandler::removeInstanceItems(model::gameobjects::player::Player& player) {
-	AION_UNPORTED();
+	for (const runtime::Ptr<model::gameobjects::Item>& item : player.getInventory().getItems())
+		if (isRestrictedToInstance(*item))
+			player.getInventory().decreaseByObjectId(item->getObjectId(), item->getItemCount());
+	for (const runtime::Ptr<model::items::storage::Storage>& storage : player.getPetBags()) {
+		for (const runtime::Ptr<model::gameobjects::Item>& item : storage->getItems())
+			if (isRestrictedToInstance(*item))
+				storage->decreaseByObjectId(item->getObjectId(), item->getItemCount());
+	}
 }
 
 } // namespace aion::gameserver::instance::handlers

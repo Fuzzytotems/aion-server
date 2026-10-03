@@ -12,11 +12,15 @@
 
 #include "../cm_ak/EconomyPacketTestSupport.h"
 
+#include <chrono>
 #include <cstdint>
 #include <memory>
 #include <string>
 #include <vector>
 
+#include "aion/gameserver/controllers/ObserveController.h"
+#include "aion/gameserver/dataholders/ItemRandomBonusData.bind.h"
+#include "aion/gameserver/dataholders/ItemRandomBonusData.h"
 #include "aion/gameserver/model/items/PendingTuneResult.h"
 #include "aion/gameserver/network/aion/clientpackets/CM_TUNE.h"
 #include "aion/gameserver/network/aion/clientpackets/CM_TUNE_RESULT.h"
@@ -45,6 +49,7 @@ struct CM_TUNE_RESULTTestAccess {
 namespace testing::items {
 namespace {
 
+using namespace std::chrono_literals;
 using model::items::PendingTuneResult;
 using network::test::LogCapture;
 using serverpackets::SM_INVENTORY_UPDATE_ITEM;
@@ -59,6 +64,7 @@ constexpr int32_t WEAPON_SCROLL = 900002; // Mythic Weapon Tuning Scroll
 constexpr int32_t ARMOR_SCROLL = 900003;  // Mythic Armor Tuning Scroll
 constexpr int32_t POTION = 900004;        // Minor Life Potion: actions without a tuning
 constexpr int32_t FRAGMENT = 900005;      // Sparkie Carapace Fragment: no actions
+constexpr int32_t SECOND_SWORD = 900006;  // another Modor's Sword
 
 TEST(TunePacketsReadTest, TuneReadsTheItemAndTheScroll) {
 	int32_t unread = -1;
@@ -93,7 +99,28 @@ TEST(TunePacketsReadTest, TheMarkersRegisterTheClassesUnderTheirJavaOpcodes) {
 
 class TunePacketsTest : public EconomyPacketTest {
 protected:
+	void SetUp() override {
+		EconomyPacketTest::SetUp();
+		// the 5 s tasks roll a stat bonus (TuningAction.getRandomStatBonusIdFor): the holder has no set of Modor's Sword (rnd_bonus 119), so it is 0.
+		// The XSD asks for one set: an unused id
+		if (!dataholders::DataManager::ITEM_RANDOM_BONUSES) {
+			xml::LoadContext context;
+			dataholders::DataManager::ITEM_RANDOM_BONUSES.publish(xml::bindString<dataholders::ItemRandomBonusData>(context,
+				R"(<random_bonuses><random_bonus type="INVENTORY" id="999999"><modifiers chance="1.0">)"
+				R"(<add name="MAXHP" value="1" bonus="true"/></modifiers></random_bonus></random_bonuses>)"));
+			publishedRandomBonuses = true;
+		}
+	}
+
+	void TearDown() override {
+		EconomyPacketTest::TearDown();
+		if (publishedRandomBonuses)
+			dataholders::DataManager::ITEM_RANDOM_BONUSES.resetForTests();
+	}
+
 	void tune(int32_t item, int32_t scroll) { readAndRun<CM_TUNE>(CM_TUNE_OPCODE, PacketWriter().D(item).D(scroll).data); }
+
+	bool publishedRandomBonuses = false;
 
 	void answer(int32_t item, int32_t accepted) { readAndRun<CM_TUNE_RESULT>(CM_TUNE_RESULT_OPCODE, PacketWriter().D(item).C(accepted).data); }
 
@@ -202,6 +229,122 @@ TEST_F(TunePacketsTest, WithoutAPlayerNothingIsTuned) {
 
 	EXPECT_NO_THROW(packet.runNow());
 	EXPECT_TRUE(sent().empty());
+}
+
+// Deviation (play-session fixes 2026-09-28, docs/deviations/P5-16.md): a CM_TUNE while an item use runs aborts that use before it starts the new
+// one (cancelUseItem, as CM_CASTSPELL and CM_EQUIP_ITEM do). Java starts the second use over the first: addTask(ITEM_USE) cancels the first task
+// silently, the first item stays greyed, and the first use's observer stays attached until a later move reports "Canceled tuning of" it.
+TEST_F(TunePacketsTest, ASecondIdentificationCancelsTheRunningOneFirst) {
+	Item& first = storedTuned(SWORD, MODORS_SWORD, -1);
+	Item& second = storedTuned(SECOND_SWORD, MODORS_SWORD, -1);
+	tune(SWORD, 0);
+	executor->advance(1000ms);
+	clearSent();
+
+	tune(SECOND_SWORD, 0);
+
+	// the first use's abort (ItemActionService.java:28-34): its message and its cancel animation (11) un-grey the first item at once
+	EXPECT_EQ(sent(), exactly({message(SM_SYSTEM_MESSAGE::STR_MSG_ITEM_IDENTIFY_CANCELED(first.getL10n())),
+						  usageAnimation(player().getObjectId(), SWORD, MODORS_SWORD, 0, 11, 0),
+						  usageAnimation(player().getObjectId(), SECOND_SWORD, MODORS_SWORD, 5000, 9, 0)}));
+	executor->advance(5000ms);
+	EXPECT_TRUE(second.isIdentified()) << "the second identification completes";
+	EXPECT_FALSE(first.isIdentified());
+	clearSent();
+
+	player().getObserveController()->notifyMoveObservers();
+	EXPECT_TRUE(sent().empty()) << "no observer of the first use is left to report a late cancel";
+	EXPECT_FALSE(first.isIdentified());
+}
+
+TEST_F(TunePacketsTest, ASecondTuningCancelsTheRunningOneFirst) {
+	Item& first = storedTuned(SWORD, MODORS_SWORD, 0);
+	Item& second = storedTuned(SECOND_SWORD, MODORS_SWORD, 0);
+	Item& scroll = stored(WEAPON_SCROLL, MYTHIC_WEAPON_TUNING_SCROLL, 2);
+	tune(SWORD, WEAPON_SCROLL);
+	executor->advance(1000ms);
+	clearSent();
+
+	tune(SECOND_SWORD, WEAPON_SCROLL);
+
+	// the first tuning's abort (TuningAction.java:69-76): REIDENTIFY_CANCELED of its target and the failure animation (14) of the scroll
+	EXPECT_EQ(sent(), exactly({message(SM_SYSTEM_MESSAGE::STR_MSG_ITEM_REIDENTIFY_CANCELED(first.getL10n())),
+						  usageAnimation(player().getObjectId(), WEAPON_SCROLL, MYTHIC_WEAPON_TUNING_SCROLL, 0, 14, 0),
+						  usageAnimation(player().getObjectId(), WEAPON_SCROLL, MYTHIC_WEAPON_TUNING_SCROLL, 5000, 12, 0)}));
+	executor->advance(5000ms);
+	EXPECT_TRUE(second.getPendingTuneResult()) << "the second tuning completes";
+	EXPECT_EQ(second.getTuneCount(), 1);
+	EXPECT_FALSE(first.getPendingTuneResult());
+	EXPECT_EQ(first.getTuneCount(), 0);
+	EXPECT_EQ(scroll.getItemCount(), 1) << "one scroll used, by the second tuning";
+	clearSent();
+
+	player().getObserveController()->notifyMoveObservers();
+	EXPECT_TRUE(sent().empty()) << "no observer of the first use is left to report a late cancel";
+}
+
+// only a scroll canAct accepts cancels the running use: a refused one answers with canAct's message and nothing else
+TEST_F(TunePacketsTest, ARefusedScrollLeavesTheRunningTuningAlone) {
+	Item& sword = storedTuned(SWORD, MODORS_SWORD, 0);
+	Item& scroll = stored(WEAPON_SCROLL, MYTHIC_WEAPON_TUNING_SCROLL, 2);
+	Item& armorScroll = stored(ARMOR_SCROLL, MYTHIC_ARMOR_TUNING_SCROLL, 1);
+	tune(SWORD, WEAPON_SCROLL);
+	executor->advance(1000ms);
+	clearSent();
+
+	tune(SWORD, ARMOR_SCROLL);
+
+	EXPECT_EQ(sent(), exactly({message(SM_SYSTEM_MESSAGE::STR_MSG_ITEM_REIDENTIFY_WRONG_SELECT(armorScroll.getL10n(), sword.getL10n()))}));
+	executor->advance(4000ms);
+	EXPECT_TRUE(sword.getPendingTuneResult()) << "the running tuning completes";
+	EXPECT_EQ(sword.getTuneCount(), 1);
+	EXPECT_EQ(scroll.getItemCount(), 1);
+	EXPECT_EQ(armorScroll.getItemCount(), 1);
+}
+
+// and no CM_TUNE that starts nothing cancels it: an item not in the cube (:36-38), a scroll not in the cube (:43-45), a scroll whose actions hold
+// no tuning (:47-48), a scroll without actions (:47, Java's NullPointerException) and an identified item without a scroll (:50-51, the audit)
+// each leave the running identification alone, as in Java
+TEST_F(TunePacketsTest, APacketThatStartsNothingLeavesTheRunningIdentificationAlone) {
+	constexpr int32_t NOT_IN_THE_CUBE = 900099;
+	Item& sword = storedTuned(SWORD, MODORS_SWORD, -1);
+	storedTuned(SECOND_SWORD, MODORS_SWORD, 0);
+	stored(POTION, MINOR_LIFE_POTION, 1);
+	stored(FRAGMENT, SPARKIE_CARAPACE_FRAGMENT, 1);
+	tune(SWORD, 0);
+	executor->advance(1000ms);
+	clearSent();
+	LogCapture audit({AUDIT_LOGGER});
+
+	{
+		SCOPED_TRACE("an item not in the cube");
+		tune(NOT_IN_THE_CUBE, 0);
+		EXPECT_TRUE(sent().empty());
+	}
+	{
+		SCOPED_TRACE("a scroll not in the cube");
+		tune(SECOND_SWORD, WEAPON_SCROLL);
+		EXPECT_TRUE(sent().empty());
+	}
+	{
+		SCOPED_TRACE("a scroll whose actions hold no tuning");
+		tune(SECOND_SWORD, POTION);
+		EXPECT_TRUE(sent().empty());
+	}
+	{
+		SCOPED_TRACE("a scroll without actions");
+		EXPECT_THROW(tune(SECOND_SWORD, FRAGMENT), runtime::NullPointerException);
+		EXPECT_TRUE(sent().empty());
+	}
+	{
+		SCOPED_TRACE("an identified item without a scroll");
+		tune(SECOND_SWORD, 0);
+		EXPECT_TRUE(audit.contains("attempted to tune an already identified item without tuning scroll.")) << audit.dump();
+		EXPECT_TRUE(sent().empty());
+	}
+
+	executor->advance(4000ms);
+	EXPECT_TRUE(sword.isIdentified()) << "the running identification completes";
 }
 
 // CM_TUNE_RESULT.java:39-43, :48: yes applies the pending result (ItemActionService.applyTuneResult), tells the player and updates the item

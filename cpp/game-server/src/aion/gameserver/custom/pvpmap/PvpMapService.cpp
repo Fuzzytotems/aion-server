@@ -29,7 +29,7 @@ void PvpMapService::init() {
 	// Java:
 	//   WorldMapInstance instance = InstanceService.getNextAvailableInstance(301220000, 0, (byte) 0, PvpMapHandler::new, 0, false);
 	//   handler = (PvpMapHandler) instance.getInstanceHandler();
-	AION_PARTIAL("the PvP map instance is not created: InstanceService.getNextAvailableInstance is not ported (M5a)");
+	AION_PARTIAL("the PvP map instance is not created: PvpMapHandler is not ported (M5j, m5f-plan.md D6)");
 }
 
 void PvpMapService::onLogin(model::gameobjects::player::Player& player) {

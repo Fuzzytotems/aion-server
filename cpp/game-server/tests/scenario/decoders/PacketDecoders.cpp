@@ -810,9 +810,13 @@ GatherableInfo decodeGatherableInfo(std::span<const uint8_t> body) {
 	info.objectId = reader.D();
 	info.staticId = reader.D();
 	info.templateId = reader.D();
-	info.stateFlag = reader.H(); // 1, or 9 / 10 for an open / closed static door
-	if (info.stateFlag != 1 && info.stateFlag != 9 && info.stateFlag != 10)
-		reader.fail("unexpected state flag " + std::to_string(info.stateFlag));
+	info.stateFlag = reader.H();
+	// Java: a StaticDoor writes 9 (open) or 10 (closed), every other object 1. A door's template is a StaticDoorTemplate, whose getTemplateId()
+	// is the constant 300001 (StaticDoorTemplate.java:55-57) that no gatherable or item template uses, so the template id tells a door apart
+	const bool door = info.templateId == STATIC_DOOR_TEMPLATE_ID;
+	if (door ? info.stateFlag != 9 && info.stateFlag != 10 : info.stateFlag != 1)
+		reader.fail("unexpected state flag " + std::to_string(info.stateFlag) + " for template " + std::to_string(info.templateId) +
+			(door ? " (a static door writes 9 or 10)" : " (every object but a static door writes 1)"));
 	info.heading = reader.C();
 	info.l10nId = reader.D();
 	reader.expectH(0, "the first unknown short");

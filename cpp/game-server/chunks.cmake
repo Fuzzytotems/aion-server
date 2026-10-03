@@ -155,13 +155,15 @@ aion_gs_chunk(P4-07b TARGET aion_gs_templates PHASE 4
 # the P5 chunks at the end of phase 4 by removing this call. XMLGEN_SHELLS restricts the globs to behaviour class shells: X.h/X.cpp whose
 # generated/<same path>/X.xml.inc exists.
 # M5b-2 (2026-09-23): the skillengine half of this lease is released - phase 4 ended long ago and the abilities milestone is now writing the
-# behaviour of these shells, so P5-02a/b, P5-03 and P5-04 own them outright. The questEngine half stays until phase 6 takes the quest shells.
-aion_gs_chunk(P4-08 LEASE PHASE 4 XMLGEN_SHELLS
-	GLOBS "aion/gameserver/questEngine/**")
-# The shell tests link the libraries the shells compile into, so they live in the test directories of P5-02 (tests/skills) and P5-06
-# (tests/quest); P4-08 leases both during phase 4 (header request shells-5).
+# behaviour of these shells, so P5-02a/b, P5-03 and P5-04 own them outright.
+# M5d (2026-09-25, m5d-plan.md D2, item I-01): the questEngine half is released too, and with it the lease on tests/quest. The comment above
+# said it stayed "until phase 6 takes the quest shells", but the quest shells are not phase 6's: their behaviour (the *Data register_ bodies,
+# the xmlQuest conditions' doCheck, the operations' doOperate, the events' operate) is P5-06c's M5d work, and phase 6's quest handlers live in
+# handlers/quest/**, another tree. The lease covered 74 of P5-06's files, which would have spanned all three parts of D1's split below.
+# The shell tests link the libraries the shells compile into, so they live in the test directory of P5-02 (tests/skills); P4-08 leases it
+# during phase 4 (header request shells-5).
 aion_gs_chunk(P4-08 LEASE PHASE 4
-	TEST_SUPPORT skills quest)
+	TEST_SUPPORT skills)
 
 # P4-09: the 97 holders, StaticData, DataManager, and the JAXB roots of config/ingameshop and config/schedule (they need the static data runtime)
 aion_gs_chunk(P4-09 TARGET aion_gs_dataholders PHASE 4
@@ -297,11 +299,34 @@ aion_gs_chunk(P5-05 TARGET aion_gs_handlers_ai_core PHASE 5 ROOT handlers
 	JAVA "data/handlers/ai/*"
 	PCH "aion/gameserver/handlers/ai/AiPrelude.h")
 
-# P5-06: questEngine, QuestService, QuestSpawnAnalyzer
-aion_gs_chunk(P5-06 TARGET aion_gs_quest PHASE 5
-	GLOBS "aion/gameserver/questEngine/**" "aion/gameserver/services/QuestService.*"
-	JAVA "src/com/aionemu/gameserver/questEngine/**" "src/com/aionemu/gameserver/services/QuestService.java"
-	JAVA_EXCLUDE "src/com/aionemu/gameserver/questEngine/handlers/QuestHandlerLoader.java")
+# P5-06a / P5-06b / P5-06c: questEngine, QuestService, QuestSpawnAnalyzer - three parts of one target, split for M5d (m5d-plan.md D1, item
+# I-01). As one chunk P5-06 was one lane of ~264 bodies (159 AION_UNPORTED sites and 105 bodies with no C++ file or declaration at HEAD), the
+# critical path of the whole milestone. The seams are the ones the code already has: the engine routes and stores (P5-06a: QuestEngine,
+# QuestSpawnAnalyzer, QuestService, model/ - QuestState, QuestVars, QuestEnv - and task/), the handler base provides the helpers every
+# handler calls (P5-06b: AbstractQuestHandler, the HandlerResult companion and the directory's fwd.h; every file directly in handlers/),
+# and the XML templates are the 4,184 XML quests (P5-06c: the 17 classes of handlers/template/ and the models they are built from,
+# handlers/models/, whose register_ constructs a template - so models and templates are one part). Three parts of one target is the
+# pattern P5-02a/P5-02b use for aion_gs_skills. QuestHandlerLoader.java stays P4-02b's (the handler registry replaces it).
+# The tests follow the seam, each part into a test directory of its own name rather than tests/quest/<chunk> (D1 names them): tests/quest
+# stays the engine's (the engine, QuestService and the quest drops), tests/quest_handlers is new, and tests/quest_templates is new and takes
+# the xmlgen shell tests of the models. All three build into the one executable aion_gs_quest_tests, whose include directories they all are.
+# The deviations follow it too, as P5-02a/P5-02b's did: each part writes docs/deviations/P5-06a.md, P5-06b.md or P5-06c.md, and the shared
+# P5-06.md keeps the rows of wave 5a and M5b-3. check-ownership allows a chunk only its own deviations file, so the integrator edits the
+# shared rows (E-01's closure of the isQuestDrop collecting-step row, D8's acceptance-row deviation at I-05).
+aion_gs_chunk(P5-06a TARGET aion_gs_quest PHASE 5
+	GLOBS "aion/gameserver/questEngine/*" "aion/gameserver/questEngine/{model,task}/**" "aion/gameserver/services/QuestService.*"
+	JAVA "src/com/aionemu/gameserver/questEngine/*" "src/com/aionemu/gameserver/questEngine/{model,task}/**"
+		"src/com/aionemu/gameserver/services/QuestService.java"
+	TESTS quest)
+aion_gs_chunk(P5-06b TARGET aion_gs_quest PHASE 5
+	GLOBS "aion/gameserver/questEngine/handlers/*"
+	JAVA "src/com/aionemu/gameserver/questEngine/handlers/*"
+	JAVA_EXCLUDE "src/com/aionemu/gameserver/questEngine/handlers/QuestHandlerLoader.java"
+	TESTS quest_handlers)
+aion_gs_chunk(P5-06c TARGET aion_gs_quest PHASE 5
+	GLOBS "aion/gameserver/questEngine/handlers/{models,template}/**"
+	JAVA "src/com/aionemu/gameserver/questEngine/handlers/{models,template}/**"
+	TESTS quest_templates)
 
 # P5-07: services.item, item actions, Enchant/Armsfusion/Stigma/Warehouse/CubeExpand/Repurchase/LimitedItemTrade/UpgradeArcade
 aion_gs_chunk(P5-07 TARGET aion_gs_itemsvc PHASE 5
@@ -373,6 +398,10 @@ aion_gs_chunk(P5-12a TARGET aion_gs_siege PHASE 5
 	GLOBS "aion/gameserver/services/siege/**" "aion/gameserver/services/{SiegeService,ShieldService}.*" "aion/gameserver/model/siege/**"
 	JAVA "src/com/aionemu/gameserver/services/siege/**" "src/com/aionemu/gameserver/services/{SiegeService,ShieldService}.java"
 		"src/com/aionemu/gameserver/model/siege/**")
+# The early travel slice of M5f (m5f-plan.md §16, item T-05, I-01's P5-12a lease): P5-08 leases services/SiegeService.cpp from P5-12a for the
+# two bodies on every npc teleport and siege-world arrival, getSiegeIdByLocId and onEnterSiegeWorld (D8). Released when the lane merges.
+aion_gs_chunk(P5-08 LEASE PHASE 5
+	GLOBS "aion/gameserver/services/SiegeService.cpp")
 
 # P5-12b: base, rift, vortex, world raid, panesterra, conqueror/protector, events
 aion_gs_chunk(P5-12b TARGET aion_gs_worldevents PHASE 5
@@ -388,6 +417,10 @@ aion_gs_chunk(P5-13 TARGET aion_gs_instance PHASE 5
 	JAVA "src/com/aionemu/gameserver/{instance,custom,restrictions}/**" "src/com/aionemu/gameserver/services/{instance,transfers}/**"
 		"src/com/aionemu/gameserver/model/instance/**"
 	JAVA_EXCLUDE "src/com/aionemu/gameserver/instance/InstanceHandlerClassListener.java")
+# The ascension lane of M5f (m5f-plan.md §15.4, item I-01): P5-13 leases world/WorldMapInstance.cpp from P4-10 for detachInstanceHandler and
+# the file-local no-op InstanceHandler it installs (N-02, N-07). Released when the lane merges.
+aion_gs_chunk(P5-13 LEASE PHASE 5
+	GLOBS "aion/gameserver/world/WorldMapInstance.cpp")
 
 # P5-14: remaining services, taskmanager, chathandlers framework (ChatProcessor, ChatUtil), CommandsAccessService, AdminService; aion_gs_app:
 # GameServer (main complete), ShutdownHook coordinator, and the executable's main.cpp (MAIN: compiled into aion_game_server, not the library);
@@ -470,22 +503,37 @@ aion_gs_chunk(Q02 TARGET aion_gs_handlers_quest_q02 PHASE 6 ROOT handlers
 	GLOBS "aion/gameserver/handlers/quest/inggison/**"
 	JAVA "data/handlers/quest/inggison/**"
 	PCH "aion/gameserver/handlers/quest/QuestPrelude.h")
+# Q03's tests (P6-Q slice 2, 2026-09-29): tests/quest_handlers_q03, the unit cases of the two hand-ported Heiron quests (1643, 3200) and of
+# the generated hooks the golden oracle refuses, on the real engine and World, and the chunk's registration checks; the executable is
+# aion_gs_handlers_quest_q03_tests. The golden traces of the 72 generated files in the tree run in Q05's harness (tests/quest_handlers_golden),
+# which compiles them by #include; 4 more (14010, 1131, 1146, 1152) are held back for gs.scenario.travel; docs/deviations/Q03.md.
 aion_gs_chunk(Q03 TARGET aion_gs_handlers_quest_q03 PHASE 6 ROOT handlers
 	GLOBS "aion/gameserver/handlers/quest/{heiron,verteron}/**"
 	JAVA "data/handlers/quest/{heiron,verteron}/**"
-	PCH "aion/gameserver/handlers/quest/QuestPrelude.h")
+	PCH "aion/gameserver/handlers/quest/QuestPrelude.h"
+	TESTS quest_handlers_q03)
 aion_gs_chunk(Q04 TARGET aion_gs_handlers_quest_q04 PHASE 6 ROOT handlers
 	GLOBS "aion/gameserver/handlers/quest/{beluslan,brusthonin}/**"
 	JAVA "data/handlers/quest/{beluslan,brusthonin}/**"
 	PCH "aion/gameserver/handlers/quest/QuestPrelude.h")
+# Q05's test directory is the golden quest trace harness of the generated handlers (P6-Q ascension route, lane route-gen, 2026-09-29;
+# phase6-inventory.md §7.6 item 3 and §8.2): it drives every case of tools/oracle/expected/quest through the real engine. A handler target's
+# tests link only their own library, so the executable compiles the generated Q09 (ishalgen), Q06 (ascension dispatch), Q03 (verteron,
+# heiron) and Q10 (altgard, pandaemonium) files by #include, as P5-05's tests do for the two quest npc AIs (the P5-05 LEASE row below);
+# docs/deviations/Q05.md, Q03.md, Q10.md. P6-Q slice 2's lanes Q03 and Q10 added the hooks, helpers, registrations and overlays their files
+# need; Q03's LEASE row on this directory was released when slice 2 was integrated (docs/design/p6q-ascension-route.md, "Slice 2").
 aion_gs_chunk(Q05 TARGET aion_gs_handlers_quest_q05 PHASE 6 ROOT handlers
 	GLOBS "aion/gameserver/handlers/quest/{eltnen,poeta,oriel}/**"
 	JAVA "data/handlers/quest/{eltnen,poeta,oriel}/**"
-	PCH "aion/gameserver/handlers/quest/QuestPrelude.h")
+	PCH "aion/gameserver/handlers/quest/QuestPrelude.h"
+	TESTS quest_handlers_golden)
+# Q06's tests (lane P6-Q asc-hand, 2026-09-29): tests/quest_handlers_ascension, the unit cases of the four hand-ported ascension quests
+# (1006, 2008, 1007, 2009) on the real engine and the verbatim data rows of the route; the executable is aion_gs_handlers_quest_q06_tests.
 aion_gs_chunk(Q06 TARGET aion_gs_handlers_quest_q06 PHASE 6 ROOT handlers
 	GLOBS "aion/gameserver/handlers/quest/{crafting,ascension}/**"
 	JAVA "data/handlers/quest/{crafting,ascension}/**"
-	PCH "aion/gameserver/handlers/quest/QuestPrelude.h")
+	PCH "aion/gameserver/handlers/quest/QuestPrelude.h"
+	TESTS quest_handlers_ascension)
 aion_gs_chunk(Q07 TARGET aion_gs_handlers_quest_q07 PHASE 6 ROOT handlers
 	GLOBS "aion/gameserver/handlers/quest/{beshmundir,abyss_entry,silentera_canyon}/**"
 	JAVA "data/handlers/quest/{beshmundir,abyss_entry,silentera_canyon}/**"
@@ -494,14 +542,29 @@ aion_gs_chunk(Q08 TARGET aion_gs_handlers_quest_q08 PHASE 6 ROOT handlers
 	GLOBS "aion/gameserver/handlers/quest/{gelkmaros,enshar}/**"
 	JAVA "data/handlers/quest/{gelkmaros,enshar}/**"
 	PCH "aion/gameserver/handlers/quest/QuestPrelude.h")
+# Q09's tests (phase 6, route-hand lane, 2026-09-29): tests/quest_handlers_zones holds the tests of the six hand-ported starting-zone quests
+# of Poeta (Q05: 1002, 1114) and Ishalgen (Q09: 2002, 2004, 2007, 2136). The executable links Q09's library only; its test file for the two
+# Poeta quests compiles their .cpp files by #include, the workaround P5-05's lease row below describes for the two quest npc AIs (no lease
+# here: the two files are Q05's own and the test only compiles them) until manifest request p6q-rh-m01 links Q05's library.
 aion_gs_chunk(Q09 TARGET aion_gs_handlers_quest_q09 PHASE 6 ROOT handlers
 	GLOBS "aion/gameserver/handlers/quest/{morheim,ishalgen,pernon}/**"
 	JAVA "data/handlers/quest/{morheim,ishalgen,pernon}/**"
-	PCH "aion/gameserver/handlers/quest/QuestPrelude.h")
+	PCH "aion/gameserver/handlers/quest/QuestPrelude.h"
+	TESTS quest_handlers_zones)
+# The route-hand lane (phase 6, 2026-09-29): Q09 leases services/teleport/TeleportService.cpp from P5-08 for the body of teleportToNpc
+# (TeleportService.java:304-333), which quest 2007's last step calls. Released when the lane merges.
+aion_gs_chunk(Q09 LEASE PHASE 6
+	GLOBS "aion/gameserver/services/teleport/TeleportService.cpp")
+# Q10's tests (P6-Q slice 2, 2026-09-29): tests/quest_handlers_asmodae, the unit cases of the five hand-ported altgard and pandaemonium quests
+# (2208, 2230, 2252, 24013, 2900) and of the generated path that kills its target (24012; 2223 is held back), on the fixture of
+# tests/quest_handlers (included by relative path, as Q05's golden harness does); the executable is aion_gs_handlers_quest_q10_tests. The
+# generated files' golden cases run in Q05's harness, which compiles them by #include (docs/deviations/Q10.md; 16 generated files are held
+# back since the integration of slice 2, its section "Held back").
 aion_gs_chunk(Q10 TARGET aion_gs_handlers_quest_q10 PHASE 6 ROOT handlers
 	GLOBS "aion/gameserver/handlers/quest/{pandaemonium,altgard}/**"
 	JAVA "data/handlers/quest/{pandaemonium,altgard}/**"
-	PCH "aion/gameserver/handlers/quest/QuestPrelude.h")
+	PCH "aion/gameserver/handlers/quest/QuestPrelude.h"
+	TESTS quest_handlers_asmodae)
 aion_gs_chunk(Q11 TARGET aion_gs_handlers_quest_q11 PHASE 6 ROOT handlers
 	GLOBS "aion/gameserver/handlers/quest/{daevanion,sanctum}/**"
 	JAVA "data/handlers/quest/{daevanion,sanctum}/**"
@@ -538,6 +601,13 @@ aion_gs_chunk(A1 TARGET aion_gs_handlers_ai_world PHASE 6 ROOT handlers
 	GLOBS "aion/gameserver/handlers/ai/{worlds,siege,portals,events,quests,classNpc,walkers}/**"
 	JAVA "data/handlers/ai/{worlds,siege,portals,events,quests,classNpc,walkers}/**"
 	PCH "aion/gameserver/handlers/ai/AiPrelude.h")
+# M5d (m5d-plan.md D5, I-04, §18.8 item 5): P5-05 leases the two quest npc AIs of A1 that phase 5 ported because the quest engine needs them,
+# AscensationNpcAI.* (the ascension lane, merged with A-01 in 819b84116) and QuestItemNpcAI.* (M5d stage 1's quest-npc-ais lane, A-03). Both
+# lanes held the lease in the plan only; this row records it. It stays while P5-05's test executable compiles the two .cpp files by #include
+# (A1's library is not linked into aion_gs_handlers_ai_core_tests, and A1's own tests would miss P5-05's superclasses, docs/deviations/P5-05.md).
+# Manifest request m5d-m01 (docs/porting/header-requests.md, "Wave 5d stage 1") removes that workaround; its lane releases this lease.
+aion_gs_chunk(P5-05 LEASE PHASE 5 ROOT handlers
+	GLOBS "aion/gameserver/handlers/ai/quests/{AscensationNpcAI,QuestItemNpcAI}.*")
 
 # I1-I6: vertical instance slices, each @InstanceID handler with its ai/instance directory (bin-packed to about 6-8k Java lines; handlers without
 # an AI directory go to I1). I1 owns the instance prelude.

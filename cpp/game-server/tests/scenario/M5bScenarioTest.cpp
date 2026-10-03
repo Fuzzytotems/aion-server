@@ -43,12 +43,15 @@
 
 #include "AsyncAllowed.h"
 #include "FakeLoginClient.h"
+#include "FightSupport.h"
 #include "GameSession.h"
 #include "Oracle.h"
 #include "PacketSequence.h"
+#include "PrologueSupport.h"
 #include "ScenarioServers.h"
 #include "decoders/CombatDecoders.h"
 #include "decoders/PacketDecoders.h"
+#include "decoders/QuestDecoders.h"
 
 #include "aion/commons/utils/WindowsMacroGuard.h" // after all headers that may include windows.h
 
@@ -61,6 +64,11 @@ using Packet = GameSession::Packet;
 
 /** the quiet period that ends a burst of server packets (m5a-plan.md §5.4) */
 constexpr std::chrono::milliseconds QUIET = 1000ms;
+/** How long collectBurst waits for the FIRST packet of an answer. The quiet period alone (QUIET) ended a burst before the server had
+ * answered at all when a loaded machine delayed a re-entry by a little over a second (gs.scenario.m5b K7b and m5c C9, 2026-09-29: "no
+ * packet after CM_ENTER_WORLD"). Nothing expects an empty burst, so the longer first wait changes no result, only the time an answer
+ * that never comes costs; after the first packet the quiet rule is unchanged. */
+constexpr std::chrono::milliseconds FIRST_REPLY_WAIT = 5000ms;
 constexpr std::chrono::milliseconds BURST_LIMIT = 90s;
 
 /** SM_CREATE_CHARACTER response codes (SM_CREATE_CHARACTER.java) */
@@ -182,12 +190,13 @@ int64_t millisBetween(const Packet& earlier, const Packet& later) {
 	return std::chrono::duration_cast<std::chrono::milliseconds>(later.receivedAt - earlier.receivedAt).count();
 }
 
-// ---- four decoders this gate needs and decoders/ does not have yet ----------------------------------------------------------------------
+// ---- three decoders this gate needs and decoders/ does not have yet ---------------------------------------------------------------------
 //
-// G-04's brief is the seven combat packets (CombatDecoders.h). §6.3 T1, R1 (a) and R1 (b) read three more - SM_TARGET_SELECTED,
-// SM_TARGET_UPDATE, SM_SYSTEM_MESSAGE's parameter list and SM_STATUPDATE_EXP - and the M5a decoders only reach SM_SYSTEM_MESSAGE's message
-// id. They are written here to the same rule as everything in decoders/ (m5a-plan.md D9): from the Java writeImpl alone, never from a C++
-// serverpackets header, and each consumes the body exactly. They belong in decoders/ and are a request to the G-04 lane, not a new rule.
+// G-04's brief is the seven combat packets (CombatDecoders.h). §6.3 T1, R1 (a) and R1 (b) read more - SM_TARGET_SELECTED, SM_TARGET_UPDATE,
+// SM_SYSTEM_MESSAGE's parameter list and SM_STATUPDATE_EXP - and the M5a decoders only reach SM_SYSTEM_MESSAGE's message id. They are written
+// here to the same rule as everything in decoders/ (m5a-plan.md D9): from the Java writeImpl alone, never from a C++ serverpackets header, and
+// each consumes the body exactly. They belong in decoders/ and are a request to the G-04 lane, not a new rule. SM_STATUPDATE_EXP, the fourth,
+// moved to decoders/QuestDecoders.h (m5d-plan.md G-02).
 
 /** SM_TARGET_SELECTED (SM_TARGET_SELECTED.java:33-40), a 22-byte body */
 struct TargetSelected {
@@ -222,23 +231,6 @@ TargetUpdate decodeTargetUpdate(std::span<const uint8_t> body) {
 	update.targetObjectId = reader.D();
 	reader.expectFullyConsumed();
 	return update;
-}
-
-/** SM_STATUPDATE_EXP (SM_STATUPDATE_EXP.java:33-40), five writeQ */
-struct StatUpdateExp {
-	int64_t currentExp = 0, recoverableExp = 0, maxExp = 0, currentBoostExp = 0, maxBoostExp = 0;
-};
-
-StatUpdateExp decodeStatUpdateExp(std::span<const uint8_t> body) {
-	decoders::BodyReader reader(body, "SM_STATUPDATE_EXP");
-	StatUpdateExp exp;
-	exp.currentExp = reader.Q();
-	exp.recoverableExp = reader.Q();
-	exp.maxExp = reader.Q();
-	exp.currentBoostExp = reader.Q();
-	exp.maxBoostExp = reader.Q();
-	reader.expectFullyConsumed();
-	return exp;
 }
 
 /**
@@ -416,7 +408,9 @@ std::vector<Packet> collectBurst(GameSession& session, const AsyncAllowed& async
 		const auto now = std::chrono::steady_clock::now();
 		if (now >= deadline)
 			break;
-		const auto quietLeft = std::chrono::duration_cast<std::chrono::milliseconds>(lastAwaited + quiet - now);
+		// until the first packet arrives the window is FIRST_REPLY_WAIT at least: a loaded server can answer later than `quiet` (see the constant)
+		const auto window = collected.empty() ? std::max(quiet, FIRST_REPLY_WAIT) : quiet;
+		const auto quietLeft = std::chrono::duration_cast<std::chrono::milliseconds>(lastAwaited + window - now);
 		if (quietLeft <= 0ms)
 			break;
 		std::optional<Packet> packet = session.next(std::min(quietLeft, std::chrono::duration_cast<std::chrono::milliseconds>(deadline - now)));
@@ -551,11 +545,14 @@ void expectSequence(const std::vector<Packet>& packets, std::string_view pattern
 	EXPECT_TRUE(result.matched) << result.message << "\n  expected: " << sequence.toString() << "\n  got (" << names.size() << "): " << join(names);
 }
 
-/** The CM_ENTER_WORLD part of m5a-plan.md §5.8 (#0 to #32); the M5b gate replays it unchanged, as §6.2 K1-K3 asks */
+/**
+ * The CM_ENTER_WORLD part of m5a-plan.md §5.8 (#0 to #32); the M5b gate replays it unchanged, as §6.2 K1-K3 asks - with the prologue's
+ * SM_QUEST_ACTION in a first enter world (P6-Q prologue, PrologueSupport.h: the mission added LOCKED by onLevelChange(0, 1))
+ */
 std::string enterWorldPattern(bool firstEnter, int32_t inventoryPackets) {
 	std::string pattern;
 	if (firstEnter)
-		pattern += "SM_STATS_INFO, SM_ACTION_ANIMATION, SM_NEARBY_QUESTS, ";
+		pattern += PROLOGUE_FIRST_ENTER_LEVEL_CHANGE;
 	pattern += "SM_HOUSE_SCRIPTS, SM_UNK_3_5_1, SM_ENTER_WORLD_CHECK, ";
 	pattern += "SM_SKILL_LIST+, [SM_SKILL_COOLDOWN], [SM_ITEM_COOLDOWN], ";
 	pattern += "SM_QUEST_COMPLETED_LIST+, SM_QUEST_LIST, SM_TITLE_INFO{2}, SM_MOTION, ";
@@ -571,14 +568,17 @@ std::string enterWorldPattern(bool firstEnter, int32_t inventoryPackets) {
 	return pattern;
 }
 
-/** The CM_LEVEL_READY part of m5a-plan.md §5.8 (#33 to #44) */
+/**
+ * The CM_LEVEL_READY part of m5a-plan.md §5.8 (#33 to #44) of the first enter world (K3), with the prologue's start and movie after the weather
+ * (P6-Q prologue, PrologueSupport.h)
+ */
 std::string levelReadyPattern() {
-	return "SM_PLAYER_INFO, SM_PLAYER_STATE, SM_ACCOUNT_PROPERTIES, SM_MOTION, "
-	       "SM_WINDSTREAM_ANNOUNCE*, "
-	       "(SM_NPC_INFO | SM_GATHERABLE_INFO)+, "
-	       "SM_RIFT_ANNOUNCE, "
-	       "SM_NEARBY_QUESTS, [SM_QUEST_REPEAT], [SM_WEATHER], "
-	       "SM_ABNORMAL_STATE, SM_CUBE_UPDATE";
+	return std::string("SM_PLAYER_INFO, SM_PLAYER_STATE, SM_ACCOUNT_PROPERTIES, SM_MOTION, "
+	                   "SM_WINDSTREAM_ANNOUNCE*, "
+	                   "(SM_NPC_INFO | SM_GATHERABLE_INFO)+, "
+	                   "SM_RIFT_ANNOUNCE, "
+	                   "SM_NEARBY_QUESTS, [SM_QUEST_REPEAT], [SM_WEATHER], ") +
+	       std::string(PROLOGUE_LEVEL_READY) + "SM_ABNORMAL_STATE, SM_CUBE_UPDATE";
 }
 
 // ---- the scenario client ---------------------------------------------------------------------------------------------------------------
@@ -759,94 +759,7 @@ void finishRun(ScenarioServers& servers, const std::filesystem::path& outputDir,
 	}
 }
 
-// ---- the fight recording ----------------------------------------------------------------------------------------------------------------
-
-/**
- * One pass over a slice of the session's recording, decoded with the independent combat decoders. Every §6.3 attack assertion reads this
- * structure instead of the raw packets, so that the decode happens once and a body that does not decode is a failure of the case that
- * collected it rather than of the assertion that happens to look first.
- */
-struct FightRecording {
-	struct AttackPacket {
-		size_t index = 0;
-		decoders::Attack attack;
-		int32_t totalDamage = 0;
-		std::chrono::steady_clock::time_point at;
-	};
-	struct StatusPacket {
-		size_t index = 0;
-		decoders::AttackStatusUpdate status;
-		std::chrono::steady_clock::time_point at;
-	};
-	struct HpPacket {
-		size_t index = 0;
-		decoders::StatUpdateHp hp;
-		std::chrono::steady_clock::time_point at;
-	};
-
-	std::vector<AttackPacket> attacks;
-	std::vector<StatusPacket> statuses;
-	std::vector<HpPacket> hpUpdates;
-	std::vector<std::pair<size_t, decoders::AttackResponse>> responses;
-	std::vector<std::pair<size_t, decoders::Emotion>> emotions;
-	/** the decode failures, so a §6.3 assertion never silently sees a shorter stream than the run produced */
-	std::vector<std::string> decodeFailures;
-
-	std::vector<AttackPacket> attacksBy(int32_t attackerObjectId) const {
-		std::vector<AttackPacket> result;
-		for (const AttackPacket& attack : attacks)
-			if (attack.attack.attackerObjectId == attackerObjectId)
-				result.push_back(attack);
-		return result;
-	}
-
-	std::vector<AttackPacket> attacksBetween(int32_t attackerObjectId, int32_t targetObjectId) const {
-		std::vector<AttackPacket> result;
-		for (const AttackPacket& attack : attacks)
-			if (attack.attack.attackerObjectId == attackerObjectId && attack.attack.targetObjectId == targetObjectId)
-				result.push_back(attack);
-		return result;
-	}
-
-	std::vector<StatusPacket> statusesOf(int32_t creatureObjectId) const {
-		std::vector<StatusPacket> result;
-		for (const StatusPacket& status : statuses)
-			if (status.status.creatureObjectId == creatureObjectId)
-				result.push_back(status);
-		return result;
-	}
-};
-
-/** Decodes the packets [from, end) of the session's recording into a FightRecording */
-FightRecording recordFight(const GameSession& session, size_t from) {
-	FightRecording recording;
-	const std::vector<Packet>& packets = session.recorded();
-	for (size_t i = from; i < packets.size(); i++) {
-		const Packet& packet = packets[i];
-		try {
-			if (packet.name == "SM_ATTACK") {
-				FightRecording::AttackPacket attack;
-				attack.index = i;
-				attack.at = packet.receivedAt;
-				attack.attack = decoders::decodeAttack(packet.data);
-				for (const decoders::AttackResultEntry& entry : attack.attack.results)
-					attack.totalDamage += entry.damage;
-				recording.attacks.push_back(attack);
-			} else if (packet.name == "SM_ATTACK_STATUS") {
-				recording.statuses.push_back({i, decoders::decodeAttackStatus(packet.data), packet.receivedAt});
-			} else if (packet.name == "SM_STATUPDATE_HP") {
-				recording.hpUpdates.push_back({i, decoders::decodeStatUpdateHp(packet.data), packet.receivedAt});
-			} else if (packet.name == "SM_ATTACK_RESPONSE") {
-				recording.responses.emplace_back(i, decoders::decodeAttackResponse(packet.data));
-			} else if (packet.name == "SM_EMOTION") {
-				recording.emotions.emplace_back(i, decoders::decodeEmotion(packet.data));
-			}
-		} catch (const DecodeError& error) {
-			recording.decodeFailures.push_back(packet.name + " at " + std::to_string(i) + ": " + error.what());
-		}
-	}
-	return recording;
-}
+// The fight recording (FightRecording, recordFight) was written here and is FightSupport.h's since m5d-plan.md G-02 lifted it for the M5d gate.
 
 // ---- the gate ---------------------------------------------------------------------------------------------------------------------------
 
@@ -923,9 +836,10 @@ void runM5bGate(const GateVariant& variant) {
 	//    bindRevive -> updateSoulSickness would have thrown out of K8's revive. M5b-2 ported the cast engine and StatdownEffect, so K8's revive
 	//    takes Java's real path: `!player.hasPermission(MembershipConfig.DISABLE_SOULSICKNESS)` with the @Property default 10
 	//    (MembershipConfig.java:37-38) exempts no scenario account, and skill 8291 is cast at the new death count. The default is STATED and
-	//    not left out, because the game server also reads the Java tree's untracked config/mygs.properties - the user's local play profile -
-	//    and the M5b-1 one carries `gameserver.soulsickness.disable = 0`: a gate that only dropped the key ran with the soul sickness off
-	//    (measured by gs.scenario.m5b2's first run). P2 below asserts what the real path does to the revive burst.
+	//    not left out, because the game server also read the Java tree's untracked config/mygs.properties - the user's local play profile -
+	//    and the M5b-1 one carried `gameserver.soulsickness.disable = 0`: a gate that only dropped the key ran with the soul sickness off
+	//    (measured by gs.scenario.m5b2's first run). Since 2026-09-29 no gate server reads that file (ScenarioServers passes main.cpp's test
+	//    hook --ignore-mygs-properties); the key stays stated. P2 below asserts what the real path does to the revive burst.
 	//  - rates.drop=0 (m5b3-plan.md D4, G-05; m5b.properties.example's M5b-3 block): no drop rule ever fires, because Rates.get(killer,
 	//    DROP_RATES) multiplies every global and custom rule's chance (DropRegistrationService.java:218, DropModifiers.java:53-57,
 	//    DropGroup.java:64) and a rule fires unless `Rnd.chance() >= chance`. registerDrop still runs to its end - the DropNpc, the
@@ -1118,6 +1032,7 @@ void runM5bGate(const GateVariant& variant) {
 		ASSERT_FALSE(burst.empty()) << "no packet after CM_ENTER_WORLD";
 		const int32_t inventoryPackets = static_cast<int32_t>((elyos.items.size() + 9) / 10) + 1;
 		expectSequence(burst, enterWorldPattern(true, inventoryPackets), async);
+		expectPrologueMissionLocked(burst, decoders::ELYOS_PROLOGUE, "K2 (P6-Q prologue)");
 
 		const Packet* spawn = firstOfName(burst, "SM_PLAYER_SPAWN");
 		ASSERT_NE(spawn, nullptr);
@@ -1171,6 +1086,10 @@ void runM5bGate(const GateVariant& variant) {
 		EXPECT_EQ(monsterMaxHpAnnounced, monster.maxHp) << "SM_NPC_INFO announces a maxHp the npc template does not have";
 		std::cout << "K3: the gate's monster is object " << monsterObjectId << " (npc " << GATE_MONSTER_NPC_ID << ", maxHp "
 		          << monsterMaxHpAnnounced << ")" << std::endl;
+
+		// P6-Q prologue: quest 1000 and its movie, which the client ends before K4's walk (CM_MOVE is dropped while it plays); the quest's
+		// reward is the character's first exp, decoders::PROLOGUE_EXP, which R1 adds to the kill's
+		endPrologue(*a.game, burst, decoders::ELYOS_PROLOGUE, 0, async, [&] { return collectBurst(*a.game, async); }, "K3 the prologue (1000)");
 	});
 
 	/** walks the character from `fromX/Y/Z` to `toX/Y/Z` in 5 m steps and stops there (the §5.6 move shape, m5a-plan.md case 5) */
@@ -1662,12 +1581,13 @@ void runM5bGate(const GateVariant& variant) {
 		  << "); a port that drops Math.min awards " << monster.experienceReward << ", and one that drops Math.round truncates";
 
 		// ---- R1 (b): SM_STATUPDATE_EXP ----
-		std::vector<StatUpdateExp> expUpdates;
+		std::vector<decoders::StatUpdateExp> expUpdates;
 		for (size_t i = killWindowStart; i < packets.size(); i++)
 			if (packets[i].name == "SM_STATUPDATE_EXP")
-				expUpdates.push_back(decodeStatUpdateExp(packets[i].data));
+				expUpdates.push_back(decoders::decodeStatUpdateExp(packets[i].data));
 		ASSERT_FALSE(expUpdates.empty()) << "R1 (b): no SM_STATUPDATE_EXP after the kill (PlayerCommonData::setExp sends one unconditionally)";
-		EXPECT_EQ(expUpdates.back().currentExp, monster.awarded) << "R1 (b): getExpShown() after the kill";
+		// P6-Q prologue: the character holds quest 1000's reward from K3 (decoders::PROLOGUE_EXP) before the kill
+		EXPECT_EQ(expUpdates.back().currentExp, decoders::PROLOGUE_EXP + monster.awarded) << "R1 (b): getExpShown() after the kill";
 		EXPECT_EQ(expUpdates.back().maxExp, monster.expNeed)
 		  << "R1 (b): getExpNeed() is getStartExpForLevel(level + 1) - getStartExpForLevel(level), and the table is 1-based (D7)";
 		EXPECT_EQ(expUpdates.back().recoverableExp, 0) << "R1 (b): a character that never died has no recoverable exp";
@@ -1821,9 +1741,9 @@ void runM5bGate(const GateVariant& variant) {
 		a.game->send(GameSession::CM_QUIT, GameSession::buildCM_QUIT(true));
 		waitFor(*a.game, "SM_QUIT_RESPONSE", 30s);
 		expAfterQuit = database.queryLong(schema, "SELECT exp FROM players WHERE id = " + player).value_or(-1);
-		EXPECT_EQ(expAfterQuit, monster.awarded)
-		  << "R1 (c): players.exp after the quit. A port that updates the packet but not PlayerCommonData.exp fails exactly here and nowhere "
-		     "else, because nothing writes the row while the character is online";
+		EXPECT_EQ(expAfterQuit, decoders::PROLOGUE_EXP + monster.awarded)
+		  << "R1 (c): players.exp after the quit (the prologue's exp and the kill's). A port that updates the packet but not "
+		     "PlayerCommonData.exp fails exactly here and nowhere else, because nothing writes the row while the character is online";
 		EXPECT_EQ(database.queryLong(schema, "SELECT COUNT(*) FROM abyss_rank WHERE player_id = " + player).value_or(0), 1)
 		  << "R2: the quit wrote no abyss_rank row, so the read below would pass for want of a row";
 		apBeforeQuit = database.queryLong(schema, "SELECT ap FROM abyss_rank WHERE player_id = " + player).value_or(-1);
@@ -1846,7 +1766,7 @@ void runM5bGate(const GateVariant& variant) {
 		ASSERT_FALSE(stats.empty());
 		const decoders::StatsInfo statsInfo = decoders::decodeStatsInfo(stats.back().data);
 		EXPECT_EQ(statsInfo.currentHp, 1) << "D12: the seeded 1 HP was not restored from the database";
-		EXPECT_EQ(statsInfo.expShown, monster.awarded) << "R1 (c): the stored experience came back with the character";
+		EXPECT_EQ(statsInfo.expShown, decoders::PROLOGUE_EXP + monster.awarded) << "R1 (c): the stored experience came back with the character";
 		a.game->send(GameSession::CM_LEVEL_READY, GameSession::buildCM_LEVEL_READY());
 		collectBurst(*a.game, async);
 	});

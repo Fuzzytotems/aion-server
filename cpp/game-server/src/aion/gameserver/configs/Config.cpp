@@ -120,6 +120,11 @@ runtime::Monitor loadLock{AION_LOCK_CLASS(Config::load)};
 
 std::atomic<std::shared_ptr<const Config::EventConfigPropertiesProvider>> eventConfigPropertiesProvider;
 std::atomic<std::shared_ptr<const Config::LocalIPv4Finder>> localIPv4Finder;
+/** the C++ test hook of setOverrideFileIgnored: true leaves ./config/mygs.properties out of loadProperties and loadLoggingConfig */
+std::atomic<bool> overrideFileIgnored{false};
+
+/** the operator's override file (Java: Config.loadProperties, logback.xml) */
+constexpr const char* OVERRIDE_FILE = "./config/mygs.properties";
 
 } // namespace
 
@@ -183,6 +188,10 @@ void Config::setLocalIPv4Finder(LocalIPv4Finder finder) {
 	localIPv4Finder.store(finder ? std::make_shared<const LocalIPv4Finder>(std::move(finder)) : nullptr);
 }
 
+void Config::setOverrideFileIgnored(bool ignored) {
+	overrideFileIgnored.store(ignored, std::memory_order_release);
+}
+
 Properties Config::loadProperties() {
 	auto defaults = std::make_shared<Properties>();
 	try {
@@ -190,8 +199,13 @@ Properties Config::loadProperties() {
 			logger().info("Loading default configuration values from: " + std::string(configDir) + "/*");
 			PropertiesUtils::loadFromDirectory(*defaults, configDir, false);
 		}
-		logger().info("Loading: ./config/mygs.properties");
-		Properties properties = PropertiesUtils::load("./config/mygs.properties", defaults);
+		if (overrideFileIgnored.load(std::memory_order_acquire)) {
+			// C++ test hook (Config.h): the shipped defaults only, whatever the operator's untracked profile says
+			logger().info(std::string("Ignoring ") + OVERRIDE_FILE + " (C++ test hook --ignore-mygs-properties)");
+			return Properties(defaults);
+		}
+		logger().info(std::string("Loading: ") + OVERRIDE_FILE);
+		Properties properties = PropertiesUtils::load(OVERRIDE_FILE, defaults);
 		if (properties.isEmpty())
 			logger().info("No override properties found");
 		return properties;
@@ -204,7 +218,10 @@ Logging::Config Config::loadLoggingConfig() {
 	Properties merged;
 	// logback.xml: <property file="config/main/gameserver.properties" /> <property file="config/main/logging.properties" />
 	// <property file="config/mygs.properties" />
+	const bool withOverrideFile = !overrideFileIgnored.load(std::memory_order_acquire); // the C++ test hook (Config.h) leaves the last one out
 	for (const char* file : {"config/main/gameserver.properties", "config/main/logging.properties", "config/mygs.properties"}) {
+		if (!withOverrideFile && std::string_view(file) == "config/mygs.properties")
+			continue;
 		try {
 			merged.putAll(PropertiesUtils::load(file));
 		} catch (const std::exception& e) {

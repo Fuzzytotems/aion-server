@@ -27,7 +27,10 @@ Java rules, each with the method it comes from (game-server/src/com/aionemu/game
 - the master (`craft.master`): CraftSkillUpdateService.learnSkill (DialogService's COMBINE_SKILL_LEVELUP arm): nothing below level 10, else the
   question SM_QUESTION_WINDOW(STR_CRAFT_ADDSKILL_CONFIRM, 0, 0, professionName, String.valueOf(price)) whose name is the skill template's l10n
   (Profession.getClientName() for a skill not learned yet, ChatUtil.l10n: "$" and the two chars of `nameId << 1 | 1`); yes pays the price and
-  adds the skill at level 1, whose onLearnSkill teaches the level-1 autolearn recipes of the race;
+  adds the skill at level 1, whose onLearnSkill broadcasts SM_ACTION_ANIMATION(player, CRAFT_LEVEL_UP) (level 1 of a crafting skill; the id is
+  ActionAnimation's) and teaches the level-1 autolearn recipes of the race;
+- the craft's SM_CRAFT_UPDATEs (`craft.recipe`): every analyze tick carries the product bar's executionSpeed and showBarDelay
+  (CraftingTask.sendInteractionUpdate), the start pair, the end and sendCancelCraft's update what m5c-craft's `packets` state;
 - the tool (`craft.tool`): SpawnEngine.spawnInstance hands a handler="STATIC" group to StaticObjectSpawnManager.spawnTemplate, which spawns a
   StaticObject on EVERY spot of a group without a pool (a pool, a difficult id or a temporary spawn is refused here) with the ITEM template of the
   group's npc_id (none without one); a player sees it as SM_GATHERABLE_INFO, which carries the object id, the spot's static id and the template id
@@ -95,7 +98,7 @@ C19_STATEMENTS = (
 
 C19_SOURCES = tuple(sorted({relative for relative, _, _ in C19_MEMBERS} | {relative for relative, _ in C19_STATEMENTS} | {
 	"model/DialogAction.java", "network/aion/serverpackets/SM_QUESTION_WINDOW.java", "services/SkillLearnService.java",
-	"services/craft/CraftSkillUpdateService.java"}))
+	"services/craft/CraftSkillUpdateService.java", "model/animations/ActionAnimation.java"}))
 
 DEFAULT_DISTANCES = (3.0, 7.0, 12.0)  # m5c-plan.md C19: CM_CRAFT from 7 m, from 12 m, then from 3 m
 
@@ -109,6 +112,7 @@ class JavaC19Rules:
 	combine_action: int               # DialogAction.COMBINE_SKILL_LEVELUP
 	question_id: int                  # SM_QUESTION_WINDOW.STR_CRAFT_ADDSKILL_CONFIRM
 	learn_min_level: int              # CraftSkillUpdateService.learnSkill: nothing below this level
+	craft_level_up_animation: int     # ActionAnimation.CRAFT_LEVEL_UP's id, the one SM_ACTION_ANIMATION writes (SM_ACTION_ANIMATION.writeImpl)
 
 	@staticmethod
 	def read(java_src: Path) -> "JavaC19Rules":
@@ -141,8 +145,10 @@ class JavaC19Rules:
 		minimum = int(_search(_strip_comments(texts["services/craft/CraftSkillUpdateService.java"]),
 		                      r"public\s+void\s+learnSkill\(Player\s+player,\s*Npc\s+npc\)\s*\{\s*if\s*\(player\.getLevel\(\)\s*<\s*(\d+)\)\s*return;",
 		                      "learnSkill's level check").group(1))
+		animation = int(_search(_strip_comments(texts["model/animations/ActionAnimation.java"]), r"\bCRAFT_LEVEL_UP\s*\(\s*(\d+)\s*\)",
+		                        "ActionAnimation.CRAFT_LEVEL_UP").group(1))
 		return JavaC19Rules(quests, int(cap.group(1)), int(cap.group(2)), (int(swap.group(1)), int(swap.group(2)), int(swap.group(3))), action,
-		                    question, minimum)
+		                    question, minimum, animation)
 
 
 # ---- the Daeva --------------------------------------------------------------------------------------------------------------------------
@@ -295,6 +301,26 @@ def _talk(ctx: EconomyContext, npc_id: int, rows: list[dict], reference, far: fl
 	return block
 
 
+def _craft_level_up(rules: JavaC19Rules) -> dict:
+	"""SkillLearnService.onLearnSkill's SM_ACTION_ANIMATION(player, CRAFT_LEVEL_UP), broadcast to the player too; the two-argument constructor
+	writes 0 last (SM_ACTION_ANIMATION.java)"""
+	return {"packet": "SM_ACTION_ANIMATION", "to": "everyone, the player too", "animation": "CRAFT_LEVEL_UP", "id": rules.craft_level_up_animation,
+	        "levelOrObjectId": 0}
+
+
+def _learn_animations(rules: JavaC19Rules, craft_ctx: CraftContext, skill_id: int) -> list[dict]:
+	"""onLearnSkill (pinned by craft_java) for the learn's level 1: the animation at a profession skill's animation levels, level 1 only for a
+	crafting skill - the rule m5c-craft's skill_up_packets applies to a level-up"""
+	s = craft_ctx.rules.skill
+	crafting = craft_ctx.skill_kind(skill_id) == "crafting"
+	return [_craft_level_up(rules)] if 1 in s["levelUpAnimation"] and (1 != s["levelUpAnimationCraftingOnly"] or crafting) else []
+
+
+def _craft_update(row: dict) -> dict:
+	"""the SM_CRAFT_UPDATE fields m5c-craft states for one of the task's own updates (a bar it leaves out is not modelled)"""
+	return {key: row[key] for key in ("action", "success", "failure", "executionSpeed", "delay") if key in row}
+
+
 def craft_block(ctx: EconomyContext, rules: JavaC19Rules, craft_ctx: CraftContext, java_src: Path, recipe_id: int, map_id: int, tool_id: int,
                 distances: tuple[float, ...], direction: float, race: str, far: float, handlers_dir: Path | None) -> dict:
 	recipes = craft_ctx.recipes
@@ -334,7 +360,8 @@ def craft_block(ctx: EconomyContext, rules: JavaC19Rules, craft_ctx: CraftContex
 		# SM_QUESTION_WINDOW(STR_CRAFT_ADDSKILL_CONFIRM, 0, 0, professionName, price): the name is ChatUtil.l10n(nameId), "$" and two chars
 		"question": {"id": rules.question_id, "params": [{"l10nId": names["nameId"], "utf16": [36, name_code & 0xFFFF, (name_code >> 16) & 0xFFFF]},
 		                                                 str(cost), ""], "senderId": 0, "range": 0},
-		"yes": {"kinahDelta": -cost, "skill": {"skillId": skill_id, "level": 1}, "learnedRecipes": learned_on_learn},
+		"yes": {"kinahDelta": -cost, "skill": {"skillId": skill_id, "level": 1}, "learnedRecipes": learned_on_learn,
+		        "animations": _learn_animations(rules, craft_ctx, skill_id)},
 		"notEnoughKinah": "STR_NOT_ENOUGH_MONEY",
 	}
 	# the vendors of the components: m5c-trade's kinah for the quantity, the vendor nearest the master
@@ -399,12 +426,25 @@ def craft_block(ctx: EconomyContext, rules: JavaC19Rules, craft_ctx: CraftContex
 	bar = craft["bars"][0]
 	outcome = craft["outcomes"][0]
 	skill_up = recipe_rep["skillUp"]
+	packets = craft["packets"]
+	started = [_craft_update(p) for p in packets["start"] if p.get("packet") == "SM_CRAFT_UPDATE"]
+	ended = [_craft_update(p) for p in packets["success"] if p.get("packet") == "SM_CRAFT_UPDATE"]
+	refused = [_craft_update(p) for p in packets["refused"] if p.get("packet") == "SM_CRAFT_UPDATE"]
+	if (len(started), len(ended), len(refused)) != (2, 1, 1):
+		raise OracleError(f"m5c-craft's packets for recipe {recipe_id}: {len(started)} start, {len(ended)} success and {len(refused)} refusal "
+		                  "SM_CRAFT_UPDATEs, not the 2, 1 and 1 this block names")
 	return {
 		"map": map_id,
 		"recipe": {"id": recipe_id, "skillId": skill_id, "skillpoint": recipe.skillpoint, "components": [list(c) for c in alternative],
 		           "product": recipe_rep["recipe"]["product"], "comboProducts": recipe_rep["recipe"]["comboProducts"],
 		           "timing": craft["timing"], "steps": bar["steps"], "finishMillis": outcome["finishMillis"],
+		           # every analyze tick's SM_CRAFT_UPDATE carries the product bar's speed and delay (CraftingTask.sendInteractionUpdate); the
+		           # task's other updates carry what m5c-craft's packets say (the start pair, the end, sendCancelCraft's)
+		           "executionSpeed": bar["executionSpeed"], "showBarDelay": bar["showBarDelay"],
+		           "updates": {"init": started[0], "start": started[1], "success": ended[0], "cancel": refused[0]},
 		           "xpReward": skill_up["xpReward"], "skillLevelAfter": skill_up["levelAfter"], "playerExp": skill_up["playerExp"]["reward"],
+		           # onLearnSkill's animation on the craft's level-up, where m5c-craft's skillUp.packets name one
+		           "skillUpAnimations": [_craft_level_up(rules) for p in skill_up["packets"] if p.get("packet") == "SM_ACTION_ANIMATION"],
 		           "cmCraftMaterials": {str(item_id): quantity for item_id, quantity in alternative}},
 		"master": {"npcId": master_id, "masters": upgrade["masters"], "talk": master},
 		"learn": learn,

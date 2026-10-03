@@ -1,7 +1,9 @@
 #include "aion/gameserver/utils/audit/GMService.h"
 
 #include <algorithm>
+#include <memory>
 #include <string>
+#include <vector>
 
 #include "aion/commons/logging/Logger.h"
 #include "aion/commons/logging/LoggerFactory.h"
@@ -14,13 +16,13 @@
 #include "aion/gameserver/model/gameobjects/player/FriendList.h"
 #include "aion/gameserver/model/gameobjects/player/Player.h"
 #include "aion/gameserver/network/aion/serverpackets/SM_SYSTEM_MESSAGE.h"
-#include "aion/gameserver/runtime/base/Unported.h"
 #include "aion/gameserver/runtime/sched/Pin.h"
 #include "aion/gameserver/services/SkillLearnService.h"
 #include "aion/gameserver/skillengine/model/SkillTemplate.h"
 #include "aion/gameserver/utils/ChatUtil.h"
 #include "aion/gameserver/utils/PacketSendUtility.h"
 #include "aion/gameserver/utils/ThreadPoolManager.h"
+#include "aion/gameserver/utils/chathandlers/ChatProcessor.h"
 
 namespace aion::gameserver::utils::audit {
 
@@ -58,12 +60,11 @@ std::vector<runtime::Ptr<Player>> GMService::getAvailableStaffMembers() {
 
 void GMService::onPlayerLogin(Player& player) {
 	if (player.isStaff()) {
-		auto loginExecuteCommands = configs::administration::AdminConfig::LOGIN_EXECUTE_COMMANDS.get();
-		if (!loginExecuteCommands->empty()) {
-			// Java: AdminConfig.LOGIN_EXECUTE_COMMANDS.forEach(cmd -> ChatProcessor.getInstance().handleChatCommand(player, cmd));
-			// utils/chathandlers/ChatProcessor.h (P5-14) does not exist yet
-			AION_UNPORTED();
-		}
+		// Java: AdminConfig.LOGIN_EXECUTE_COMMANDS.forEach(cmd -> ChatProcessor.getInstance().handleChatCommand(player, cmd)); the snapshot is
+		// kept in a local, so a config reload during the loop cannot free the list (ConfigValue.h)
+		std::shared_ptr<const std::vector<std::string>> loginExecuteCommands = configs::administration::AdminConfig::LOGIN_EXECUTE_COMMANDS.get();
+		for (const std::string& cmd : *loginExecuteCommands)
+			chathandlers::ChatProcessor::getInstance().handleChatCommand(player, cmd);
 		staffMembers.put(player.getObjectId(), runtime::Ref<Player>(player));
 		scheduleBroadcastLogin(player);
 	}

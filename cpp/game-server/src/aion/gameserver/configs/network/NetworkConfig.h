@@ -2,6 +2,8 @@
 
 #include <atomic>
 #include <cstdint>
+#include <functional>
+#include <set>
 #include <string>
 
 #include "aion/commons/utils/InetSocketAddress.h"
@@ -68,6 +70,20 @@ struct NetworkConfig {
 
 	/** If ignored aion client packets (due to invalid connection state) should be logged. */
 	static inline std::atomic<bool> LOG_IGNORED_PACKETS{false};
+
+	/**
+	 * C++ only (gameserver.network.trace.client_packets, play-session fixes 2026-09-28, docs/deviations/P4-01.md): the names of the client packets
+	 * (for example CM_EQUIP_ITEM) whose every run AionClientPacket::run logs at INFO with the player's name and the packet's toString(), to capture
+	 * a real client's packet sequence. Empty (the default): nothing is logged.
+	 */
+	static inline ConfigValue<std::set<std::string, std::less<>>> TRACE_CLIENT_PACKETS;
+
+	/**
+	 * C++ only (gameserver.network.trace.server_packets, play-session diagnostics 2026-09-29, docs/deviations/P4-01.md): the names of the server
+	 * packets (for example SM_GATHERABLE_INFO) whose every send AionConnection::sendPacket logs at INFO with the packet's toString() and the
+	 * receiving player's name, to time when the server sent them to a real client. Empty (the default): nothing is logged.
+	 */
+	static inline ConfigValue<std::set<std::string, std::less<>>> TRACE_SERVER_PACKETS;
 
 	static inline std::atomic<bool> ENABLE_FLOOD_CONNECTIONS{false};
 

@@ -421,13 +421,16 @@ struct NpcInfo {
 	int32_t townId = 0;
 };
 
+/** StaticDoorTemplate.getTemplateId() (StaticDoorTemplate.java:55-57): the template id of every static door */
+inline constexpr int32_t STATIC_DOOR_TEMPLATE_ID = 300001;
+
 /** SM_GATHERABLE_INFO (V4) */
 struct GatherableInfo {
 	float x = 0, y = 0, z = 0;
 	int32_t objectId = 0;
 	int32_t staticId = 0;
 	int32_t templateId = 0;
-	/** 1 for a gatherable, 9 (open) or 10 (closed) for a static door */
+	/** 9 (open) or 10 (closed) for a static door (STATIC_DOOR_TEMPLATE_ID), 1 for every other object; the decoder refuses anything else */
 	uint16_t stateFlag = 0;
 	uint8_t heading = 0;
 	int32_t l10nId = 0;

@@ -10,6 +10,7 @@
 
 #include "../cm_ak/InWorldPacketRunSupport.h"
 
+#include <algorithm>
 #include <cstdint>
 #include <memory>
 #include <string>
@@ -24,6 +25,7 @@
 #include "aion/gameserver/network/aion/clientpackets/CM_REJECT_REVIVE.h"
 #include "aion/gameserver/network/aion/clientpackets/CM_REVIVE.h"
 #include "aion/gameserver/network/aion/serverpackets/SM_MOTION.h"
+#include "aion/gameserver/network/aion/serverpackets/SM_SYSTEM_MESSAGE.h"
 #include "aion/gameserver/runtime/base/Exceptions.h"
 #include "aion/gameserver/runtime/base/Unported.h"
 
@@ -173,7 +175,18 @@ TEST_F(ReviveRunTest, EveryOtherArmReachesItsOwnService) {
 	EXPECT_NE(unportedArm(2).find("itemSelfRevive"), std::string::npos) << unportedArm(2);
 	EXPECT_NE(unportedArm(3).find("skillRevive"), std::string::npos) << unportedArm(3);
 	EXPECT_NE(unportedArm(4).find("kiskRevive"), std::string::npos) << unportedArm(4);
-	EXPECT_NE(unportedArm(6).find("instanceRevive"), std::string::npos) << unportedArm(6);
+}
+
+TEST_F(ReviveRunTest, InstanceReviveTakesItsEventModeArm) {
+	// INSTANCE_REVIVE (CM_REVIVE.java:59-61) reaches instanceRevive, ported by the ascension lane (m5f-plan.md §15, T-06); its EVENT_MODE arm
+	// (PlayerReviveService.java:162-168) is the one this fixture can follow to an unported body, TeleportService::teleportToEvent. bindRevive's
+	// EVENT_MODE arm ends there too, so the rebirth message tells them apart: instanceRevive sends it always, bindRevive only for a skill > 0.
+	die();
+	actor.player->setCustomState(CustomPlayerState::EVENT_MODE);
+	EXPECT_NE(unportedArm(6).find("teleportToEvent"), std::string::npos);
+	std::vector<std::vector<uint8_t>> sent = (*client)->sentBytes();
+	EXPECT_NE(std::find(sent.begin(), sent.end(), serialized(serverpackets::SM_SYSTEM_MESSAGE::STR_REBIRTH_MASSAGE_ME(), client->con())), sent.end());
+	EXPECT_FALSE(actor.player->isDead()) << "revived at 100 % before the teleport";
 }
 
 TEST_F(ReviveRunTest, AnUnknownReviveIdThrowsLikeJava) {

@@ -32,7 +32,13 @@ Only these documented renames are applied (each undoes one emitter idiom of phas
   `size()`; `get`, `at` and a Java index that is not an int literal are one name;
 - the class of a Java static import is dropped from the C++ qualified name (`SM_SYSTEM_MESSAGE::STR_X`);
 - `workItems.getFirst()`/`getLast()` are compared as `workItems.get(0)` / `workItems.get(workItems.size() - 1)`, the C++ spelling of
-  questgen's work-items rule.
+  questgen's work-items rule;
+- hand-port spellings (P6-Q ascension route, integration of 2026-09-29): `push_back` is `add` (java.util.List on a local `std::vector`);
+  a Java `new ArrayList<>()` with no argument is not a call (the default-constructed local; with an argument it stays a call); a Java
+  anonymous `new Runnable() { ... run() ... }` is a C++ lambda, so its `Runnable` and the `run` it declares are not calls.
+- the enum-name spelling (P6-Q slice 2, integration of 2026-09-29): Java string concatenation with an enum (`"..." + x`, Enum.toString) is
+  C++ `std::string(enumName(x))` beside a `+`, so that `string` and its `enumName` are not calls (`_2900NoEscapingDestiny`); a bare
+  `enumName(x)`, a `std::string(y)` of anything else and a `std::string(enumName(x))` outside a `+` still are.
 
 Not caught by design: plain identifiers are not compared, so a swapped or substituted operand, local or receiver is at parity (Java
 `return var > targetId;` against C++ `return targetId > var;`, `qs.setQuestVarById(0, var + 1)` against
@@ -48,10 +54,21 @@ hand-ported handler with an owner-approved deviation cannot pass until it exists
 ```
 python parity.py pair JAVA CPP [--json]
 python parity.py tree --java-dir DIR --cpp-dir DIR [--only REL ...] [--json OUT] [--require-all]
+python parity.py spawn-analyzer [--suffix SUFFIX ...] DIR...
 ```
 
 `tree` compares every `.java` below `--java-dir` with the `.cpp` at the same relative path below `--cpp-dir`; a Java file without its C++
 is counted, and is a failure only with `--require-all`. Exit 0 at parity, 1 on a mismatch, 2 on an input error.
+
+`spawn-analyzer` prints the npc id set `QuestSpawnAnalyzer.loadNpcIdsSpawnedByHandlers` finds below the directories, with the same
+regular expression as the `spawn-analyzer` check: a first line `# N files, M npc ids`, then the ids in ascending order. It reads the files
+whose names end with a `--suffix` (default `.java`, the analyzer's own filter); a missing directory exits 2. It is the oracle of the C++
+analyzer's set over the ported handlers (P5-06a's `QuestSpawnAnalyzerTest`, m5d-plan.md E-08: the build-time table of `aion_gs_regscan`
+against the pattern over `handlers/aion/gameserver/handlers/{ai,instance,quest}`, `.cpp` and `.h`):
+
+```
+python tools/parity/parity.py spawn-analyzer --suffix .cpp --suffix .h game-server/handlers/aion/gameserver/handlers/ai game-server/handlers/aion/gameserver/handlers/instance game-server/handlers/aion/gameserver/handlers/quest
+```
 
 The generator's output, from `cpp/`:
 

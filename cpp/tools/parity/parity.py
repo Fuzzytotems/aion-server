@@ -41,12 +41,23 @@ Documented renames (each undoes one emitter idiom of phase6-questgen-prototype.m
   one name (`a[i]` -> `a.at(i)`, `list.get(i)` -> `list.at(i)`);
 - the class qualifier of a Java static import (`import static ...SM_SYSTEM_MESSAGE.STR_X;`) is dropped from the C++ `SM_SYSTEM_MESSAGE::STR_X`;
 - Java `workItems.getFirst()` / `workItems.getLast()` are compared as `workItems.get(0)` / `workItems.get(workItems.size() - 1)`, the C++
-  spelling of the P6-T emitter rule (`Rc<ArrayList>` has get and size, not getFirst and getLast).
+  spelling of the P6-T emitter rule (`Rc<ArrayList>` has get and size, not getFirst and getLast);
+- hand-port spellings (P6-Q ascension route, integration of 2026-09-29): C++ `push_back` is `add` (java.util.List on a local std::vector,
+  like front/back/empty); a Java `new ArrayList<>()` with no argument is not a call (the C++ local std::vector is default-constructed; with
+  an argument it stays a call); a Java anonymous `new Runnable() { ... public void run() ... }` is a C++ lambda, so its `Runnable` and the
+  `run` it declares are not calls (any other `run(...)` still is);
+- the enum-name spelling (P6-Q slice 2, integration of 2026-09-29): Java string concatenation with an enum (`"..." + x`, the implicit
+  Enum.toString, which is name()) is C++ `std::string(enumName(x))` as an operand of `+` (the companion of aion/gameserver/xml, with or
+  without its qualifier), so that `string` and its `enumName` are not calls; a bare `enumName(x)`, a `std::string(y)` of anything else and a
+  `std::string(enumName(x))` outside a `+` still are (_2900NoEscapingDestiny).
 
     python parity.py pair JAVA CPP [--json]
     python parity.py tree --java-dir DIR --cpp-dir DIR [--only REL ...] [--json OUT] [--require-all]
+    python parity.py spawn-analyzer [--suffix SUFFIX ...] DIR...
 
 Exit 0 when every compared pair is at parity, 1 when a pair is not, 2 on a usage or input error. Standard library only.
+`spawn-analyzer` compares nothing: it prints the npc id set of QuestSpawnAnalyzer.loadNpcIdsSpawnedByHandlers over the directories (the
+oracle of QuestSpawnAnalyzerTest, P5-06a, over the ported handler set) and exits 0, or 2 on an input error.
 """
 from __future__ import annotations
 
@@ -141,7 +152,10 @@ OPERAND_END_WORDS = frozenset(('this', 'true', 'false', 'null', 'nullptr'))
 NOT_OPERAND_WORDS = frozenset('''return case new throw else do instanceof delete sizeof co_return co_yield goto'''.split())
 # calls whose argument order moves in C++ (an enum method becomes a companion free function taking the enum first)
 COMPANIONS = frozenset(('getId', 'id', 'getRewardPageByIndex', 'getStartingClass', 'isStartingClass'))
-CALL_RENAMES = {'front': 'getFirst', 'back': 'getLast', 'empty': 'isEmpty', 'at': 'get', 'super': 'AbstractQuestHandler'}
+CALL_RENAMES = {'front': 'getFirst', 'back': 'getLast', 'empty': 'isEmpty', 'at': 'get', 'super': 'AbstractQuestHandler',
+                'push_back': 'add'}
+# Java collections a hand port declares as a default-constructed local std::vector: `new ArrayList<>()` with no argument is not a call
+JAVA_DEFAULT_CONSTRUCTED = frozenset(('ArrayList',))
 BINARY_OPS = frozenset('== != < > <= >= && || + - * / % & | ^ << >> >>> ?'.split())
 COMPOUND = {'+=': '+', '-=': '-', '*=': '*', '/=': '/', '%=': '%', '&=': '&', '|=': '|', '^=': '^', '<<=': '<<', '>>=': '>>', '>>>=': '>>>'}
 DECLARATOR_FOLLOW = frozenset(') , = ; { : ['.split())
@@ -158,7 +172,30 @@ IDIOMS = (
     'AbstractQuestHandler constructor; arr.length is size(); get, at and a non-literal index are one name',
     'the class of a Java static import is dropped from the C++ qualified name',
     'workItems.getFirst()/getLast() are workItems.get(0)/get(workItems.size() - 1)',
+    'push_back is add; Java new ArrayList<>() with no argument is not a call; an anonymous new Runnable() { run() } is a C++ lambda',
+    'std::string(enumName(x)) beside a + is Java string concatenation with an enum (Enum.toString): neither is a call',
 )
+
+
+def _string_of_enum_name(toks, i):
+    """toks[i] is a C++ `string` followed by '(': the index of the `enumName` token when the argument starts with a (qualified) enumName( call
+    and the `std::string(...)` is an operand of `+`, the hand-port spelling of Java's implicit Enum.toString in a string concatenation; else
+    None"""
+    n = len(toks)
+    first = i - 2 if i >= 2 and toks[i - 1].text == '::' and toks[i - 2].text == 'std' else i
+    before = toks[first - 1].text if first > 0 else None
+    close = _match(toks, i + 1)
+    after = toks[close + 1].text if close + 1 < n else None
+    if '+' not in (before, after):
+        return None
+    j = i + 2
+    if j < n and toks[j].text == '::':
+        j += 1
+    while j + 1 < n and toks[j].kind == 'ident' and toks[j + 1].text == '::':
+        j += 2
+    if j + 1 < n and toks[j].kind == 'ident' and toks[j].text == 'enumName' and toks[j + 1].text == '(':
+        return j
+    return None
 
 
 def _skip_type_args(toks, i, allow_numbers):
@@ -277,6 +314,21 @@ def spawn_analyzer_ids(text):
     return {int(g) for m in SPAWN_ANALYZER.finditer(text) for g in m.groups() if g is not None}
 
 
+def spawn_analyzer_dirs(dirs, suffixes=('.java',)):
+    """QuestSpawnAnalyzer.loadNpcIdsSpawnedByHandlers over directories (QuestSpawnAnalyzer.java:99-123): (files read, npc ids), the union of
+    spawn_analyzer_ids over every file below each directory whose name ends with one of the suffixes (Java: Files.walk and
+    `p.toString().endsWith(".java")`; the C++ handlers are .cpp and .h). A missing directory is an error, as Files.walk's IOException is."""
+    files, ids = 0, set()
+    for d in map(Path, dirs):
+        if not d.is_dir():
+            raise ParityError(f'{d}: not a directory')
+        for p in sorted(d.rglob('*')):
+            if p.is_file() and p.name.endswith(tuple(suffixes)):
+                files += 1
+                ids |= spawn_analyzer_ids(p.read_text(encoding='utf-8-sig'))
+    return files, ids
+
+
 # --- facts -------------------------------------------------------------------------------------------------------------------------
 
 @dataclass
@@ -334,6 +386,8 @@ def facts(toks, cpp):
     toks = _drop_templates(toks, cpp)
     f = Facts()
     n = len(toks)
+    anonymous_runs = 0                              # anonymous Runnables whose declared run() is still ahead
+    enum_names = set()                              # C++ enumName tokens of a std::string(enumName(x)), the Java enum concatenation
     for i, t in enumerate(toks):
         prev = toks[i - 1] if i > 0 else None
         nxt = toks[i + 1] if i + 1 < n else None
@@ -368,6 +422,22 @@ def facts(toks, cpp):
                 if name in NOT_CALLS:
                     continue
                 if not cpp and name == 'new':
+                    continue
+                if not cpp and prev is not None and prev.text == 'new':
+                    if name in JAVA_DEFAULT_CONSTRUCTED and i + 2 < n and toks[i + 2].text == ')':
+                        continue                    # new ArrayList<>() -> a default-constructed local std::vector
+                    if name == 'Runnable':
+                        anonymous_runs += 1         # new Runnable() { ... } (an interface: always anonymous) -> a C++ lambda
+                        continue
+                if not cpp and name == 'run' and anonymous_runs:
+                    anonymous_runs -= 1             # the run() the anonymous Runnable declares, its first run( token
+                    continue
+                if cpp and name == 'string':
+                    k = _string_of_enum_name(toks, i)
+                    if k is not None:
+                        enum_names.add(k)           # std::string(enumName(x)) -> Java "..." + x (Enum.toString)
+                        continue
+                if cpp and i in enum_names:
                     continue
                 name = CALL_RENAMES.get(name, name)
                 if name in COMPANIONS:
@@ -509,8 +579,19 @@ def main(argv=None):
     p.add_argument('--only', nargs='+', metavar='REL')
     p.add_argument('--json', metavar='OUT', help='write the report as JSON')
     p.add_argument('--require-all', action='store_true', help='a Java file without its C++ file is a failure')
+    p = sub.add_parser('spawn-analyzer', help='the npc ids QuestSpawnAnalyzer.loadNpcIdsSpawnedByHandlers finds below the directories: a '
+                                              'first line "# N files, M npc ids", then the ids in ascending order, one per line')
+    p.add_argument('dirs', nargs='+', metavar='DIR')
+    p.add_argument('--suffix', action='append', metavar='SUFFIX',
+                   help="read the files whose name ends with SUFFIX (repeatable; default .java, the analyzer's own filter)")
     args = ap.parse_args(argv)
     try:
+        if args.cmd == 'spawn-analyzer':
+            files, ids = spawn_analyzer_dirs(args.dirs, args.suffix or ('.java',))
+            print(f'# {files} files, {len(ids)} npc ids')
+            for npc_id in sorted(ids):
+                print(npc_id)
+            return 0
         if args.cmd == 'pair':
             ms = compare_files(args.java, args.cpp)
             if args.json:

@@ -451,7 +451,7 @@ class Corpus(unittest.TestCase):
     def test_every_transliterated_file_is_at_parity_with_its_java(self):
         # phase6-inventory.md §7.6 items 1 and 4: literal multisets and the ordered literals, calls, operators and constants
         ok = [r for r in self.p6t.values() if r.status == 'ok']
-        self.assertGreaterEqual(len(ok), 929)
+        self.assertGreaterEqual(len(ok), 935)       # 929, and the six escorts of rows B26-B30 (2026-09-30, tests.test_questgen_escorts)
         bad = {}
         for r in ok:
             ms = parity.compare((QUEST / r.rel).read_text(encoding='utf-8-sig'), r.cpp)
@@ -466,12 +466,14 @@ class Corpus(unittest.TestCase):
             if r.status == 'ok':
                 with self.subTest(rel=rel):
                     self.assertEqual(self.p6t[rel].cpp, r.cpp)                   # byte for byte the prototype's output
-        self.assertEqual(sum(1 for r in self.proto.values() if r.status == 'ok'), 910)
+        # the prototype's 910 and the six escorts rows B26-B30 admit (2026-09-30): API rows are not P6-T rules, so both sets gain them
+        self.assertEqual(sum(1 for r in self.proto.values() if r.status == 'ok'), 916)
 
     def test_the_oracle_slice_is_tier_a(self):
         # tools/oracle/questtrace/extract.py SLICE: the Poeta and Ishalgen files questgen emits in tier A (phase6-inventory.md §9.3 item 1)
         tree = ast.parse((paths.CPP_ROOT / 'tools' / 'oracle' / 'questtrace' / 'extract.py').read_text(encoding='utf-8'))
-        slice_ = next(ast.literal_eval(n.value) for n in tree.body if isinstance(n, ast.Assign) and getattr(n.targets[0], 'id', '') == 'SLICE')
+        slice_ = next(ast.literal_eval(n.value) for n in tree.body
+                      if isinstance(n, ast.Assign) and getattr(n.targets[0], 'id', '') == 'SLICE_TIER_A')
         expected = sorted(rel for rel, r in self.p6t.items() if rel.startswith(('poeta/', 'ishalgen/')) and r.status == 'ok' and r.tier == 'A')
         self.assertEqual(sorted(slice_), expected)
 

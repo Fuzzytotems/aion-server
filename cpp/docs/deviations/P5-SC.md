@@ -84,7 +84,7 @@ two concurrent runs still share and replaced it with two slots.
 | One slot per schema prefix | A gate and its geo variant share a slot; `LoginServerHarnessTest`, whose schema pair has the prefix `m5a`, shares the m5a gates' slot | `ScenarioDatabase::dropAbandonedSchemas` tests the in-use marker (`IS_FREE_LOCK`) before its `DROP`, not under it: two runs of one prefix that start together could drop the pair the other is recreating if a killed run left it behind. The smoke and M4 schemas are never swept |
 | Slot guard | `aion_gs_check_gate_slots`, deferred to the end of the game-server directory (`cmake_language(DEFER CALL)`), gives a `gs.scenario.*`, `gs.smoke.*` or `gs.m4.*` test that holds neither slot both slots and a configure warning | A gate registered without a slot would start a third server beside two others; with both it runs alone. Mutation-proven: `gs.scenario.m5a` without its lock configured with the warning and `RESOURCE_LOCK ['aion_game_server_log', 'aion_game_server_slot_2']` |
 | HTML cache | `ScenarioServers::gameServerArguments` passes `-Dgameserver.html.cache.file=<outputDir>/html.cache` and `startGameServer` removes that file first; `RunStartupSmoke.cmake` does the same with `<OUTPUT_DIR>/html.cache` and fails a run whose file survives the removal, and a started run that read a cache ("Cache[HTML]: Using cache file") or left no file at least as new as its own start | `HTMLCache::reload` writes `./cache/html.cache` below the shared working directory whenever the file is missing (HTMLCache.java:112-120). Today the write only fails because `game-server/cache` does not exist (a warning in every run); with the directory present, two servers starting together would truncate and read one file. The M4 check never creates `HTMLCache`. The checks are about what the start saw, not what is on disk afterwards (the stage-0 review's two surviving mutants: the harness removing the file only after "Game server started", and the smoke script without the removal and the override, which passed on the previous run's file). `StubGameServer.cmake` therefore does what `HTMLCache` does with the file - logs "Using cache file" for an existing one, writes a missing one and logs "Creating cache file" - and `EveryStartRemovesTheHtmlCacheTheRunBeforeLeft` asserts the second |
-| Not routed: `MethodStats.log` | Unchanged: every orderly shutdown writes `game-server/log/stats/MethodStats.log` | `RunnableStatsManager::dumpClassStats` hard-codes `./log/stats` (as Java does) and ignores `--log-folder`; routing it needs a production change in commons. Two shutdowns at the same moment interleave a diagnostic file no test reads |
+| `MethodStats.log` (routed on 2026-09-30) | Every orderly shutdown writes `<log folder>/stats/MethodStats.log`, i.e. into the run's own `--log-folder` | Until 2026-09-30 `RunnableStatsManager::dumpClassStats` hard-coded `./log/stats` (as Java does) and ignored `--log-folder`, so every gate rewrote `game-server/log/stats/MethodStats.log` and two shutdowns at once interleaved it. The commons change takes the folder `Logging::init` was given (`Logging::getLogFolder()`; default `log`, Java's `./log`): DEVIATIONS.md, "commons / utils", and the section "Small tasks 2026-09-30" below |
 | Unshared by construction | Log folders, check output, stop files, login-server working directories, oracle output (all below the run's output directory); ports (ephemeral; `NioServer` binds with `SO_EXCLUSIVEADDRUSE`, so a collision fails loudly); schemas (hash of the output directory, in-use marker); a watchdog minidump names its process id | Checked in the harness, `RunStartupSmoke.cmake`, `RunM4Check.cmake`, `tools/oracle` (writes only the paths it is given) and the production writers (`HTMLCache`, `RunnableStatsManager`, `Watchdog`, `Logging`) |
 | One ctest process | The slots are CTest resource locks, so they bound the server runs of one `ctest` invocation. Two build trees running their gate sets at once can reach four game servers (about 12.8 GB with geo), and the marker-before-`DROP` window of `dropAbandonedSchemas` is open between them | Operational rule, written into the slot table of `ScenarioTests.cmake`: one tree's gate set at a time. `RunStartupSmoke.cmake` already said so for its own lock ("CTest's RESOURCE_LOCK only serializes one ctest run") |
 | `RunStartupSmoke.cmake` is P5-14's file | Edited under this lane's lease; `P5-14.md`, section "M5c stage 0", has pointer rows for its lock (now slot 1) and the HTML cache checks, and the script's header names both documents | The comment at `cmake/AppTests.cmake:44-46` described the single lock; the stage-0 integration (2026-09-25) rewrote it to name gate slot 1 (P5-14's file, recorded in `P5-14.md`) |
@@ -170,3 +170,652 @@ CronJobService.java:62 schedules it whatever `gameserver.siege.enable` says), an
 not measured). A gate that fails its unported or ERROR bar on one of these three sites at one of these times is rerun before it is read as a
 regression. A durable fix - the gate profiles moving the two configurable schedules out of any run, and a seam for the hard-coded one - is
 left to the next P5-SC lane (m5c-plan.md §19.7).
+
+## M5c stage 2 (gate-1 lane): the M5c gate part 1, G-06, G-07
+
+m5c-plan.md G-03 part 1 (C0-C18, C20; C19 is stage 3's part 2), G-06 (P5-14, recorded in `P5-14.md`) and G-07, on harness-b's committed
+decoders, builders, `InventoryModel` and `EconomyOracle`. Test infrastructure only, no Java counterpart; the rows say where the gate reads the
+plan's §10 differently and why.
+
+| Area | As built | Reason |
+|---|---|---|
+| `gs.scenario.m5c` (`M5cScenarioTest.cpp`) | `M5cScenario.Run`: S-0, C0-C18, C20a, C20 on two accounts online at once (A an Elyos Warrior, B an Elyos Mage), its own output directory `<bin>/scenario/m5c`, schema pair `aion_{gs,ls}_test_m5c_<hash>`, allow-list `m5c_partial_allowlist.txt`. Registered in `ScenarioTests.cmake` on gate slot 2, `LABELS "scenario;realdata"`, `TIMEOUT 2700`, the discovered case DISABLED as for every gate, no geo variant (D12). 206-225 s alone in a Debug tree (2026-09-28), of which S-0 is ~30 s and C0's eight oracle runs ~20-25 s | §10.5 |
+| The expectations | `oracle.py m5c-economy` through `EconomyOracle.h` (the talk spots with `--direction 270`, windows, soul healing, cube, Seril's price, the mail commission, identification, extraction, socketing, the equip facts of the seeded items); `oracle.py m5c-trade --npc 798007 --item ID --count N` for SM_PRICES, the two windows, the buy prices, sell rewards, buy-back price and the refusals' message names (parsed file-locally: the accessor has no `m5c-trade` binding); `m5a-creation` for both starter inventories; `m5b3-item` for the TRADEABLE masks. `m5c-economy` and `m5c-trade` run with `--no-profile` and the server's own properties (`m5aProfile()` under the gate's keys) as `--set`, so the owner's `mygs.properties` never reaches their expectations; `m5a-creation` and `m5b3-item` take no profile flag and read no property. The game server itself still loads `./config/mygs.properties` (the harness's behaviour for every gate, "Loading: ./config/mygs.properties" in the gate log): today every key there but `gameserver.network.client.connect_address` (which no expectation reads) is also a `-D` of the gate, but a key the owner adds later would reach the server and not the oracles (left for integration). The system-message ids the oracles do not carry are `SM_SYSTEM_MESSAGE.java`'s, cited at the constant | the plan's "every case's expectations come from oracle.py m5c-economy / m5c-trade" |
+| Seeds at the X2 spot | Both characters are created, then their accounts DISCONNECT (`CM_QUIT(0)` at the character list), the band spot is written into `players.x/y/z`, and both log in again (M5a's Q5 relogin: `CM_MAY_LOGIN_INTO_GAME`, 1.5 s for the re-entry time, `CM_ENTER_WORLD`). C13's `recoverexp` and C14's `exp` seeds are written the same way; inventory rows (C14's items, B's kinah, `tune_count = -1`) are read fresh at enter world and only need the character out of the world | m5c0-client-session.md F-3: the account's `players` rows are loaded at connect and saved back at logout, so a seed written at the character list is lost |
+| Kinah rows are deltas | X5, X7, X8, X10, X12-X15, X25, X26 compare the kinah update with the kinah the client was last told plus the row's own delta; only X27 ("leaving 0") and X16 (the ledger) are absolute | §10.4's "must stay green" half: with absolute amounts a wrong price in C5 failed every later kinah row. `getTaxes` truncated fails X1, X5, X25, X27 (and X16) and leaves X7, X8, X13, X15, X26 green, as §10.4 lists |
+| X16's ledger | Per character and per item id, from `m5a-creation`'s starter items plus every buy, sale, buy-back, exchange, store sale, mail and commission with the oracles' prices; compared with the clients' models before C14's quit, with the `inventory` rows after it (per character and summed over both), with the re-entry's `SM_INVENTORY_INFO`, and again after C20a's quit ("and every later quit", C15-C18 included). The disjointness of the two clients' models is checked after every step of C8-C13 | §10.3 X16 |
+| X16's disjointness cannot fire on this script | Every transfer of C8-C13 moves a PART of a stack (10 of 100 potions, 5 of B's bandages, the store's 3 + 2 of 100, 5 mailed potions), and a part becomes a new object id (`ItemFactory.newItem`: ExchangeService.java:139-143, TradeService.java:236, MailService.java:135; the store's `ItemService.addItem(buyer, item, count)` adds by item id, PrivateStoreService.java:165), so no mutant can put one object id into both models. The row is kept (it costs nothing and would catch a whole-stack path); the duplication mutants §10.3 attributes to it are caught by the per-id ledger instead (the review's `x10`, the exchange keeping the giver's potions: X16 fails with `162000002: 210/200`) | the review of 2026-09-28; a whole-stack exchange would change X9-X11's expectations and is left to a later lane if the row is meant to prove anything |
+| Two of §10.3's "mutation it kills" entries the gate cannot kill deterministically | X23's "the sockets rolled from `max_enchant_bonus`": the Plainsman's Tunic (item_templates.xml:189490) has `option_slot_bonus` 1 and no `max_enchant_bonus`, so that mutant always rolls 0 sockets, inside the accepted [0, 1] (the review's `x23`: the whole gate passed, 210 s). X27's "the armour count range [1, 3] used for a weapon": `EnchantService.cpp:399` would then give 1-3 stones, and X27's [2, 5] fails only when a 1 is rolled, about one run in three. Both belong to the unit tests of the identification and the extraction (P-07 / E-01); m5c-plan.md §10.3 is corrected at integration | the review of 2026-09-28 |
+| X3 and X15 are non-fatal; X8's count from the model | X3's "one `SM_MAIL_SERVICE`" and X15's "an `SM_STATUPDATE_EXP`" were fatal `ASSERT`s, so their mutants skipped C12-C18 (C14-C18) and X22 then failed on the handlers' `created 0`, a cascade into unrelated rows. Both are `EXPECT`s with a guarded read now, as the delta rows are. X8's "the stack back to 100" compared with a literal while C0 only asserts the starter stack holds at least 100; it now compares with the stack's count in A's model before C6's sale | the review of 2026-09-28; the CaseLog note (non-fatal failures keep the later rows running, §10.4's "must stay green" half) |
+| X10 reads the removals themselves | Besides the model's counts, A's stack and B's stack must each get a `DEC_ITEM_USE` (0x16) update to the exchanged count - `Storage.decreaseItemCount` of `removeItemsFromInventory` - anywhere in the exchange | `addItem`'s fake `PUT_TO_EXCHANGE` (0x25) update already shows 90 and 15, so a trade that skips the giver's removal left the models right and only X16 failed; with the removal packet X10 fails (mutant `exchange-no-removal`) |
+| X2 "and nothing else" | The window's packets outside the async set, an announced npc's `SM_LOOKATOBJECT` (whatever it looks at) and the other character's own `SM_MOVE`/`SM_EMOTION`/`SM_PLAYER_STATE` must be exactly the one `SM_DIALOG_WINDOW` | Java's `onSimpleTalk` sets the dialog npc's target, and `NpcController.onTargetChanged` broadcasts `SM_LOOKATOBJECT(npc, talker)` (NpcController.java:78-93), which the M5a async set only allows with an npc or no target |
+| X15's exp | `STR_GET_EXP2` then `STR_SUCCESS_RECOVER_EXPERIENCE` (in order), the kinah, `SM_STATUPDATE_EXP`'s recoverable exp 0 (decoded in the gate file from SM_STATUPDATE_EXP.java:32-38), and after C14's quit `players.exp` = 1,000 and `recoverexp` = 0 | A at level 1 levels up on the 1,000 exp, so the wire's exp is shown within the new level; the stored total is the oracle's delta |
+| C12 | B quits to the character list (`CM_QUIT(1)`), not disconnected; the unread flag is read from a new `CM_CHARACTER_LIST` | `getOrLoadPlayerCommonData(name)` loads a fresh copy for a character that is not in the world (PlayerService.java:242-247), so the offline path is taken; `haveUnread` is a query at list time |
+| C20a always runs | `cases.run`, not `runCase`: both characters quit (fully) even after a fatal failure, and the rows of the last quit (X16, X23, X26, X28) are read only when the script got there | X22 asserts nobody is online at the end (the per-connection classes bounded by 0, `Item` a strict zero) |
+| X22's transfer rows | `m5a_summary.txt`'s rows of `Exchange`, `ExchangeItem`, `TradeList`, `TradeItem`, `RepurchaseList`, `TradePSItem`, `Letter` and the three request handlers the gate answers: live 0 AND created > 0; `CraftingTask` live 0 only (part 1 runs no craft); `PrivateStore` and the bare `RequestResponseHandler` are no rows | G-06, `P5-14.md` "M5c stage 2": an `OwnedPart` and an abstract base are invisible to the counters; `TradePSItem` and `Player` bound the store |
+| X23 before identification | The seeded tunic must load unidentified (`EnchantInfoBlobEntry` writes -1 for its sockets and bonus); the equip before identification is not tried | §10.2 C15 equips only after; the refusal (Equipment.java:163-167) is P-07's unit test |
+| G-07: the configurable wall-clock cron jobs | The census of every cron job a gate's server schedules (the review of 2026-09-28 found two the lane had missed): six configurable schedules fire into unported code or into the world - the Ahserion raid (Sunday 18:50, `AION_UNPORTED`), the Moltenus spawn (Sunday 22:00, a boss in Reshanta), the housing `AuctionEndTask` (Sunday 12:00, `AION_PARTIAL` at `AuctionEndTask.cpp:81`) and `AuctionAutoFillTask` (Monday 00:00, `AuctionAutoFillTask.cpp:38`, as `gameserver.housing.auction.enable` is true), `AbyssRankUpdateService`'s rank update (daily 00:00, `:37`) and GP loss (daily 12:00, `:58`). `ScenarioServers::m5aProfile` sets all six keys (`gameserver.siege.panesterra.ahserion.time`, `gameserver.moltenus.time`, `gameserver.housing.auction.end_time`, `gameserver.housing.auction.auto_fill.time`, `gameserver.topranking.updaterule`, `gameserver.topranking.daily.gploss.time`) to `0 0 0 1 1 ? 2000,2100,2101`, so every scenario gate inherits them. The lane's `0 0 0 1 1 ? 2100` was replaced: the housing keys are read by `AbstractCronTask`, whose constructor needs the fire time after the next one and a fire time before now (`findLastPlannedRun`, AbstractCronTask.java:108-118) - a single year throws a NullPointerException in `AuctionEndTask.getInstance()` and the server does not start (the gate's `g07-single-year` run below), and a schedule with no past fire time never leaves that loop. `ScenarioServersTest.TheWallClockWorldEventsAreScheduledPastEveryGateRun` pins the six `-D` flags, that a gate's own value still wins, that `CronExpression` accepts the expression with its next fire time decades away and every year inside Quartz's current year + 100; `TheHousingCronTasksAcceptTheWallClockSchedule` builds an `AbstractCronTask` from each housing key and asserts its next run decades ahead and its last planned run decades back (so neither `shouldRunOnStart` runs the task at startup). Not in `m5c.properties.example` or any Java-tree profile | §20.4: a past-only year is refused at startup ("the given trigger will never fire"); the example's lines are what the owner copies into `mygs.properties` to play |
+| G-07: the hard-coded jobs, and the rerun rule | No seam: the gate records its server's wall-clock window and, when a hit of `LegionDominionService` is in the unported trace and the window contains a Wednesday 09:00 local time, its failure message names the hit as the hard-coded cron's (`CronJobService.cpp:185-187`) and says to rerun. The failure stays. The census's other jobs no key moves reach no unported code: `QuestEngine`'s reset notice and `AtreianPassportService`'s stamp reset (both daily 09:00) only send packets to the online players, `MaintenanceTask` (Monday 00:00) reaches its `AION_PARTIAL` only for an owned house (no gate owns one), `LimitedItemTradeService`'s jobs reset counters, `PlayerLimitService`'s clears a map, `EventService` checks every 5 minutes with every event disabled. **The rerun rule** of "M5c stage 1 integration" therefore reads: a gate that fails its unported bar on `LegionDominionService` with its server up at Wednesday 09:00, or a packet-exact row with its server up at 09:00 (the two daily notices), is rerun before it is read as a regression; the Ahserion, Moltenus, auction and rank sites no longer fire in a gate run | §20.7 item 2: a production seam would be a deviation only the owner can decide |
+| Allow-list | `m5c_partial_allowlist.txt`: §A `QuestEngine.cpp:111`, `BaseService.cpp:18`; §B the four sites of G-07's moved cron jobs (`AbyssRankUpdateService.cpp:37`, `:58`, `AuctionEndTask.cpp:81`, `AuctionAutoFillTask.cpp:38`: only their cron reaches them, so a hit means a profile key no longer reaches the server); §C M5b-3's rows but the two rank rows (all eleven name an `AION_PARTIAL` line) | §10.1 copied the m5b2/m5b3 lists' §A; stages 0-1 added no partial. "§B nothing new" and "§C M5b-3's" are the plan's; the four §B rows are G-07's (the review of 2026-09-28): the rank rows were §C as "a property of the run's LENGTH", but they fire at 00:00 and 12:00 whatever the length (M5a's list has neither, so an M5a run at those times failed) |
+| Slot table | `gs.scenario.m5c` 225 s joins slot 2 (1,276 s against slot 1's 1,062 s). The fix round's three runs took 249.0 s (C0's oracles 48 s on a loaded machine), 217.3 s and 210.7 s | §10.1/§10.5 put it in slot 2; the next gate joins slot 1 |
+
+**Mutation proof (§10.4)**, mutant schemata switched by `AION_M5C_MUTANT` in the production files, built once into `build/c2-gate`'s server and
+the sources restored by sha256 right after each build (no schema survives in the tree or the final binaries). One gate run per mutant:
+
+| Mutant | Failed | Stayed green | Note |
+|---|---|---|---|
+| `PricesService::getTaxes` truncates (113 → 112) | X1, X5, X25, X27, X16 | X7, X8, X13, X15, X26 | as §10.4 |
+| `TradeList::calculateBuyListPrice` `>=` → `>` | X27 | X5, X6 | |
+| `SM_TRADELIST`/`SM_SELL_ITEM` write the ordinal | X4 | X2 | |
+| `isInTalkRange` without the "+ 1" | X2 | X1 and every other row | the band spot is refused with STR_DIALOG_TOO_FAR_TO_TALK |
+| `Npc::canSell` → false | X4 (and X5, X6, X27, X16: nothing can be bought) | X2 | |
+| `isInteractionAllowed` → false | X2 (page 1011), X4 | X1 | the later npc rows cannot run |
+| `identifyItem` without the tune count | X23 (the blob's -1s, the equip, `tune_count`) | X24 | |
+| `removeManastone` skips `storeManaStones` | X25 (the row survives) | X24 | |
+| `breakItem` keeps the weapon | X27, X16 (the last quit) | X26 | |
+| the cube's npc expansion not counted | X26 (`SM_CUBE_UPDATE`, `npc_expands`) | X25 | |
+| `performSellToShop` deletes every sold stack | X7, X8 | X5 | X16 stays green: the buy-back returns the whole deleted stack, so the counts are restored |
+| `ExchangeService::addItem` without the tradeable check | X9, X16 | X10 | |
+| `removeItemsFromInventory` skips the removal | X10, X16 (and X11) | X9 | caught by X10 only since the removal-packet check above |
+| `confirmExchange` trades without the partner check | X9 | X10, X11 | |
+| `getAttachments` leaves the item on the letter | X13 | X14 | X16 stays green: the letter is deleted with its reference, the item is B's |
+| `updateRecipientMailbox` skips `updateOfflineMailCounter` | X14 | X13 | |
+| `cleanUpExchanges` removes nothing | X22 (`Exchange 2 2`, the census, the ERROR bar), X11 | X10 | |
+| "an Exchange kept in `exchanges`" on the trade's path only | **nothing** | all | Java heals it: `CM_QUESTION_RESPONSE` cancels a trading responder's exchange before answering (CM_QUESTION_RESPONSE.java:39-44), which cleans both partners' entries, so X11's next request opens and nothing survives to X22. Only a leak that survives both logouts reaches X22 (the mutant above) |
+| (G-06) `zeroLiveClasses` without `Exchange`; with `PrivateStore`; `summaryLiveClasses` without the exchange handler | `CheckOutputTest` (the new cases) | the rest of `CheckOutputTest` | |
+| (G-07) the profile without `moltenus.time`; both keys in the year 2000 | `ScenarioServersTest.TheWallClockWorldEventsAreScheduledPastEveryGateRun` | the other 13 `ScenarioServersTest` cases | the lane's two keys; the fix round's six below |
+| (review `x6`) `validateBuyItems` returns true | X6 (:1501, message 1300759 instead of 1300335) | every other row | run by the review of 2026-09-28 (`AION_REVIEW_G1_MUTANT`), recorded here |
+| (review `x12`) the emptied store is not closed | X12 (:1867, no `EMOTION_CLOSE_PRIVATESHOP` for A, seen by A and by B) | every other row | the review's run |
+| (review `x24`) `socketManastoneAct` does not consume the stone | X24 (:2305, the stone not deleted), X16 (the last quit, `167000226: 1/0`) | every other row | the review's run |
+| (review `x28`) `enchantItemAct` does not consume the stone | X28 (:2498), X16 (the last quit, `166000191: 5/4`) | every other row | the review's run |
+| (review `x23`) the sockets rolled from `max_enchant_bonus` | **nothing** (210 s) | all | not killable by the gate: the tunic has no `max_enchant_bonus` (the row above) |
+
+**The review's fix round** (2026-09-28): schemata switched by `AION_M5C_MUTANT` in `DialogService.cpp`, `RepurchaseService.cpp` and
+`ScenarioServers.cpp`, built once into `build/c2-gate`, the sources restored by sha256 right after the build (no schema in the tree or in the
+final binaries). One gate run per mutant:
+
+| Mutant | Failed | Stayed green | Note |
+|---|---|---|---|
+| `x3`: `onCloseDialog` does not close the mailbox state | X3 only (C11 :2016, two `SM_MAIL_SERVICE`) | C12-C18, C20a, C20 (X22's handler rows included) | the review's run had skipped C12-C18 at the fatal `ASSERT` and failed X22 |
+| `x15`: `resetRecoverableExp` skipped | X15 only (C13 :2107, no `SM_STATUPDATE_EXP`; C14 :2161-2162, `players.exp` 0 and `recoverexp` 1,000) | C14's X16 and C15-C18, C20a, C20 | the review's run had skipped C14-C18 |
+| `x8`: the buy-back adds one potion fewer | X8 (C7 :1583 and the stack count at :1587, 99 against the model's 100), X16 (C14 and the last quit) | every other row | X8 now compares with the stack's count before C6's sale |
+| `g07-now`: the auction end, auto fill, rank update and GP loss every minute (seconds 0, 15, 30, 45) | X22 only: the four §B rows hit (`:37` 4 times, `:58`, `AuctionEndTask.cpp:81` and `AuctionAutoFillTask.cpp:38` 3 times each) | S-0 and C0-C20a | the census's jobs do fire into those sites, and the profile keys govern them |
+| `g07-single-year`: the housing keys at the lane's `0 0 0 1 1 ? 2100` (the review's suggested fix) | S-0: the game server does not start (`startup step 22: AuctionEndTask.getInstance()`, `NullPointerException: Cron expression has no next fire time`) | – | why FAR_FUTURE_CRON has three years |
+| (unit) `g07-no-auction-end`, `g07-no-gploss`, `g07-single-year`, `g07-now` | `TheWallClockWorldEventsAreScheduledPastEveryGateRun` (all four), `TheHousingCronTasksAcceptTheWallClockSchedule` (all but `g07-no-gploss`; `g07-single-year`: "the housing task's constructor throws ... Cron expression has no next fire time") | the other 13 `ScenarioServersTest` cases | |
+
+C19 (X17-X21a, X22's `CraftingTask` created > 0) and §10.4's craft rows are part 2's (stage 3).
+
+## M5c stage 2 integration (2026-09-28)
+
+m5c-plan.md §21. The lane's leftover for the earlier lists is applied: `AbyssRankUpdateService.cpp:37` and `:58` move from section C to
+section B of `m5b_partial_allowlist.txt`, `m5b2_partial_allowlist.txt` and `m5b3_partial_allowlist.txt`, as in the m5c list, and their
+"property of the run's LENGTH" comments become HISTORY lines (the jobs fire at 00:00 and 12:00 daily, and G-07's keys move both past every
+gate run; M5a's flat list has neither row). All 45 rows of the five lists still name an `AION_PARTIAL(` line (checked by a script); stage 2
+added and removed no `AION_PARTIAL`, so no row shifted.
+
+| Mutant | Failed | Stayed green | Note |
+|---|---|---|---|
+| `rank-now`: a schema of `ScenarioServers.cpp` (switched by `AION_C2I_MUTANT`, built once into `build/msvc`'s `aion_gs_scenario_tests`, the file restored by sha256 right after the build) sets `gameserver.topranking.updaterule` and `gameserver.topranking.daily.gploss.time` to `0/15 * * ? * *` | `gs.scenario.m5b` Q1 (both rows hit 12 times), `gs.scenario.m5b2` X12 (11 times), `gs.scenario.m5b3` Y13 (7 times): the six section-B `EXPECT_EQ`s and nothing else | every other row of the three gates | revert: the rebuilt clean binary (no schema string) passes all three gates and `ScenarioServersTest` (18 of 18); the clean two-at-a-time run before it passed them as well (m5c-plan.md §21.6) |
+
+The two-at-a-time run of every gate (§21.6) logged `Scheduled AuctionEndTask with cron expression: 0 0 0 1 1 ? 2000,2100,2101` and the
+same expression for the ranking update in every scenario gate, and the shipped schedules in the three smoke tests, as G-07 intends.
+
+## M5c stage 3 (gate-2 lane): the M5c gate part 2, C19
+
+m5c-plan.md G-03 part 2 (§10.2 C19, §10.3 X17-X21a and X22's craft rows, §10.4's craft mutants) on HEAD `5cccfd6a4`, where the M5d engine's
+`QuestState` restore (m5c0-client-session.md F-1) and C-01 are merged. Test infrastructure only: `M5cScenarioTest.cpp` and the slot table's
+comment in `ScenarioTests.cmake`. No production file and no oracle file changed: `oracle.py m5c-economy`'s `--daeva` and `--craft-*` blocks
+(`m5c/sanctum.py`, stage 1) answer every field C19 reads, and `EconomyOracle.h` parses all of them but `craft.learn.yes`. (The review below
+added fields to `m5c/sanctum.py`'s blocks, which the gate reads file-locally too; `EconomyOracle.h` is still unchanged.)
+
+| Area | As built | Reason |
+|---|---|---|
+| C19 | Between C18 and C20a: A disconnects (`CM_QUIT(0)`), `players.old_level` is read, `m5c-economy` runs with the gate's properties (`--no-profile`, `--set`), `--race ELYOS --direction 45 --daeva GLADIATOR --daeva-old-level <old> --craft-recipe 155001381 --craft-tool 150000009 --craft-distance 3/7/12`; the seed is written with the account disconnected - `player_class`, `exp` 126,069, `world_id` 110010000 at the oracle's `seedSpot` (Hestia's near spot), a `player_quests` row (1006, COMPLETE, `complete_count` 1), the kinah row set to `exactKinah` 3,640 and one Inina (two since the review below: the recipe's one and `SURPLUS_ININA`) through `seedInventoryItem`; A logs in again (M5a's Q5) into Sanctum, talks to Hestia, `CM_DIALOG_SELECT(46)`, answers 900852 yes, walks to Luelas' near spot, opens BUY and buys 2 Salt, sends `CM_CRAFT(0, 150000009, 155001381, oven, {152001001: 1, 169400096: 2}, 0)` from 7 m, 12 m and 3 m, waits for the end, sends `CM_RECIPE_DELETE(155001381)`, disconnects and reads the rows. 56-64 s of the run; `gs.scenario.m5c` takes 265-283 s alone (four runs), the slot table says 283 (since the review's fix: 60-71 s and 265-289 s, the slot table says 289) | §10.2 C19; F-3 (the account's `players` rows are loaded at connect and saved at logout) |
+| The old level | Read after the disconnect and handed to `--daeva-old-level`, so the learn list is the oracle's for the level the enter world really starts from (`PlayerLeaveWorldService.java:148` stores it, `PlayerEnterWorldService.java:204` reads it). It is 2 in every run: A levels up on C13's 1,000 exp | the oracle's default (1) would name the level-2 Warrior skills A already has |
+| `--direction 45` | The craft spots of the oracle lie along `--direction`; along 45 degrees the 7 m and 12 m spots are in no other oven's `checkCraft` range, the default 0 leaves oven 104 in range of the 7 m spot. The 3 m spot has oven 104 in range along every direction tried (0-315 by 45); `CM_CRAFT` names its target, so that does not matter | the `otherToolsInCheckCraftRange` field is there for this choice |
+| `craft.learn.yes` | Read file-locally (`parseLearnYes`, from the same JSON text `parseEconomy` reads): the yes's kinah delta (-3,500) and the skill and level it teaches (40001 at 1). `EconomyOracle.h` is not changed | its parser and its test fixture are harness-b's; the gate reads two more fields |
+| X21a | The level of the enter world's last `SM_STATS_INFO` against the oracle's 10; the union of the burst's full `SM_SKILL_LIST`s (message 0) against the oracle's 41 skills as sets (missing and extra named), the swap (30001 out, 30002 in) and every level-10 skill named on its own; the burst's `SM_LEARN_RECIPE`s sorted against the three morph recipes, the union of its `SM_RECIPE_LIST`s as a set; `player_recipes` after the quit equal to those three | a Java HashSet's order is not asserted (m5c-plan.md §7); the message-0 filter leaves out a one-skill update |
+| X17 | Hestia's window (one `SM_DIALOG_WINDOW`, page not asserted: a quest handler may answer first since M5d, and the oracle does not model it); the question's id, its three parameters - the profession's `ChatUtil.l10n` name compared as the oracle's three UTF-16 code units converted to UTF-8, as the decoder returns them -, sender and range; the yes: one kinah update of the oracle's delta, one one-skill `SM_SKILL_LIST` (40001 at 1, message 1330061, SkillLearnService.java:49), `SM_LEARN_RECIPE`s equal to the oracle's `[155001381]`; the kinah left is exactly the Salt's price; the Salt: one kinah update to **0** and one `SM_INVENTORY_ADD_ITEM` of 2 | §10.3 X17 |
+| X18 | 7 m: `STR_COMBINE_TOO_FAR_FROM_TOOL` (1330040), exactly one `SM_CRAFT_UPDATE` (action 4, the skill and the product), exactly `SM_CRAFT_ANIMATION(A, oven, 0, 2)`, no item packet and the component counts unchanged; 12 m: no `SM_CRAFT_UPDATE`, `SM_CRAFT_ANIMATION`, system message or item packet, counts unchanged | §10.3 X18; `CraftService.sendCancelCraft` |
+| X19 | The window from `CM_CRAFT` to 1.5 s after `SM_CRAFT_UPDATE(5)`: the first update INIT (skill, product, bars 1000/1000), the second NORMAL with empty bars, the last SUCCESS with a full bar; exactly the three animations (…, 40001, 0), (…, 40001, 1), (…, 0, 2); both component stacks deleted and the counts 0 (since the review below: the Salt's deleted, the Inina's updated to the surplus 1); one `SM_INVENTORY_ADD_ITEM` of 2 Roast Inina; one one-skill `SM_SKILL_LIST` (40001 at 2, message 1330064); the shown exp +141 over the last shown value (the level-10 bar starts at 0) and `players.exp` 126,069 + 141 after the quit | §10.3 X19 |
+| X20 | Between the start pair and the end: 4-14 progress updates (the oracle's), each NORMAL or CRIT_BLUE with a growing success bar and failure 0, the last one full; the time from `SM_CRAFT_UPDATE(0)` to `(5)` is `firstTickDelay + n x interval` +-750 ms (since the review below: each gap and the total +-250 ms) and within the oracle's 11-36 s (9-12 updates in 23.5-31.0 s in the runs). The gate waits for the end up to five times the oracle's longest craft plus 15 s, so that a craft that runs long is counted by X20 instead of being cut off by the wait | §10.3 X20; the min-step mutant needs about 35 ticks on average (43 in its run, 108.5 s) |
+| X21 | `SM_RECIPE_DELETE(155001381)`; after the quit no 155001381 in `player_recipes` and `player_skills` 40001 at the oracle's level 2 | §10.3 X21 |
+| X16 for A | The ledger goes on: the seed (kinah set to 3,640, +1 Inina; +2 since the review below), the learn, the Salt, the craft; compared with the Sanctum enter world's `SM_INVENTORY_INFO`, A's model before C19's quit and C20a's `inventory` rows | §10.3 X16 "and every later quit" |
+| X22 | `CraftingTask` and `CraftSkillUpdateService_RequestResponseHandler` join the rows that must be live 0 with created > 0 (`0 1` in every run); part 1's guard (`CraftingTask` live 0 only) is gone | G-03 part 2 |
+| The first automated Sanctum entry (W-16) | 362 objects spawned in 110010000 at startup; A's enter world, the talk, the purchase, the three crafts and the quit reached no `AION_UNPORTED` site and no new `AION_PARTIAL` site (the allow-list is unchanged), wrote no ERROR line, and `CheckOutput`'s census and live counts stayed clean | m5c-plan.md §21.2 |
+
+**Mutation proof (§10.4)**, production schemata switched by `AION_M5C_MUTANT` (`c19-*`), built in two batches into `build/c3-gate`'s server
+only (the test binary was not rebuilt), the sources restored by sha256 right after each build; one gate run per mutant. The rebuilt clean
+binaries hold no schema string.
+
+| Mutant | Failed | Stayed green | Note |
+|---|---|---|---|
+| `c19-daeva`: `PlayerCommonData::updateDaeva` ignores the quest list | X21a (`SM_STATS_INFO` level 9; skills missing 169, 246, 249, 348, 519, 758, 769, 2891, 2981, 30002, 30003, 40009, extra 30001; no `SM_LEARN_RECIPE`; empty `SM_RECIPE_LIST`), X17 (no question: its fatal row ends C19), X22 (`CraftingTask 0 0`, `CraftSkillUpdateService_RequestResponseHandler 0 0`) | S-0, C0-C18 (X1-X16, X23-X28), C20a | as §10.4 |
+| `c19-morph`: `SkillLearnService::onLearnSkill` without `isMorphSkill()` | X21a only (`SM_LEARN_RECIPE`, `SM_RECIPE_LIST`, `player_recipes`) | X17, X18-X21, X22 | as §10.4 |
+| `c19-consume-first`: `checkCraft` consumes the materials before its checks | X18 (two `SM_DELETE_ITEM` at 7 m; the counts at 7 m and 12 m), X19 (the 3 m craft is refused for want of components: its fatal row ends C19), X22 (`CraftingTask` created 0) | X17, X21a, part 1 | **§10.4 lists X19 as green; it cannot be with the exact seed** - the refused 7 m craft took the only Inina and Salt (with the review's surplus Inina the only Salt: rerun as `c3f-consume-first` below) |
+| `c19-min-step`: `analyzeInteraction` without the 70 minimum | X20 (43 progress updates, 108,502 ms against 36,750) | X19 (product, level, exp), X21, X21a, X22 | as §10.4 |
+| `c19-race`: `getAutolearnRecipes` without the race filter (C++ keeps Java's filter in `RecipeData`) | X17 (`SM_LEARN_RECIPE` 155001381 and 155006386), X21a (six morph recipes; `SM_RECIPE_LIST`; `player_recipes`) | X19, X20 | as §10.4 (plus X21a, which §10.3 names) |
+| `c19-del-recipe`: `RecipeList::deleteRecipe` without `PlayerRecipesDAO::delRecipe` | X21 (155001381 still stored; the stored set) | X19; `SM_RECIPE_DELETE` is still sent | §10.3 X21 |
+| `c19-interval`: cooking gets the morph's interval 200 | X20 (10 updates and the end in 3,001 ms against 26,000; below 11 s) | X19 | §10.3 X20 |
+| `c19-taxes`: `getTaxes` truncates (113 -> 112) | X1, X5, X25, X27, X16 as in stage 2, X17 (the Salt costs 138, 2 kinah left), X16 for A after C19 and at the last quit (`182400001: 2/0`) | X19-X21a; X7, X8, X13, X15, X26 | as §10.4 |
+| `c19-kinah-gt`: `>=` -> `>` in `calculateBuyListPrice` | X27 (fatal at C18: C19 does not run) | – | the plan's X17 half is hidden behind part 1's fatal row, hence the two targeted mutants below |
+| `c19-kinah-gt-sanctum`: the same, for a buyer in 110010000 only | X17 (the Salt refused), then X18/X19 (no Salt, no craft) and X22 (created 0) | part 1, X21a | the exact-kinah purchase kills it |
+| `c19-trydecrease-gt-sanctum`: `Storage::tryDecreaseKinah` `>=` -> `>`, for an actor in 110010000 | X17 (no kinah update, no Salt), then X18/X19 and X22 | part 1, X21a, the learn (3,640 > 3,500) | §10.4 "or `Storage::tryDecreaseKinah`" |
+| `c19-combo-product`: `finishCrafting` adds the combo product | X19 (160001051 added), X16 (`160001001: 0/2, 160001051: 2/0`, before the quit and at the last quit) | X20, X21, X21a | the INIT update carries the task's template, still the base product |
+| `c19-skill-threshold`: `addSkillXp`'s threshold doubled | X19 (no level-up `SM_SKILL_LIST`), X21 (`skill_level` 1) | X20, X21a | §10.3 X19 "the level-up threshold" |
+| `c19-no-exp`: `finishCrafting` without `addExp` | X19 (no `SM_STATUPDATE_EXP`; `players.exp`) | X20, X21 | |
+| test side, `AION_M5C_TEST_MUTANT=c19-expectations` in the gate source (removed after its build, the file restored by sha256): every C19 expectation no production mutant above kills, shifted by one or negated - the oracle premises, the spawn, the Sanctum ledger, Hestia's window, the question, the learn's packets, the Salt's addition, the component counts, X18's cancel packets and the 12 m silence, X19's INIT/start/end updates, the progress bars, the animations, the deleted stacks, the product, the level-up and `SM_RECIPE_DELETE` | all 65 of those assertion lines, nothing else | S-0, C0-C18, C20a, C20 | |
+
+The clean binaries then passed `gs.scenario.m5c` three times in a row (279.5 s, 270.6 s, 265.0 s; the first run of the lane, with the same
+gate less the X20 time bounds and the long wait, 282.7 s): 23 of 23 cases each time, `CraftingTask 0 1`, the unported trace empty.
+
+### The review of the gate-2 lane (2026-09-28) and its fix
+
+The review (approve-with-changes) ran 9 mutants of its own (`AION_C3R_MUTANT`, one build into `build/c3-gate`'s server, the sources restored
+and the server rebuilt clean). Three of them are §10.3 C19 mutants the lane had not run, and the gate killed them: `c3r-5m` (the 5 m check
+dropped: X18 - no 1330040, three `SM_CRAFT_UPDATE`, two `SM_DELETE_ITEM`, the counts 0 - then X19), `c3r-cost` (the price 3,500 -> 3,400: X17
+- the parameter "3400", kinah {240}, the Salt leaving 100 - and X16 in C19 and C20a) and `c3r-swap-skip` (X21a: 30002 missing, 30001 extra).
+Six passed: `c3r-consume-twice`, `c3r-delay`, `c3r-speed`, `c3r-cancel-bars`, `c3r-swap-level` and `c3r-learn-anim`. The fix tightens the
+gate so that each of these is killed. The table below lists the changes to `M5cScenarioTest.cpp` and `m5c/sanctum.py`.
+
+| Area | As built | Reason |
+|---|---|---|
+| X20's timing | Checked gap by gap: from the start pair to the first progress update is `firstTickDelay`, and every later gap, including the one to the end, is `interval`. Each gap must be within 250 ms (`TICK_TOLERANCE_MS`). The total `firstTickDelay + n x interval` must also be within 250 ms, and the oracle's 11-36 s bounds get the same 250 ms. In the clean runs and the non-timing mutant runs, no gap was off by more than 2 ms | Review medium 1: 750 ms on the total let a first tick 600 ms late pass |
+| The surplus Inina | C19 seeds the recipe's Inina plus `SURPLUS_ININA` (1). X18's counts are 2 Inina and 2 Salt. X19 wants the Salt's stack deleted and the Inina's stack kept: no `SM_DELETE_ITEM` for it, and its last `SM_INVENTORY_UPDATE_ITEM` at count 1. X19's counts are then 1 and 0, and the X16 ledger carries the extra Inina to C20a's rows | Review medium 2: with the exact seed a second consumption finds nothing to take, so §10.3 X19's "materials consumed twice" was an equivalent mutant. This departs from §10.1's exact seed for Inina only. The kinah stays exact, so X17's `>=` rows are unchanged |
+| `SM_CRAFT_UPDATE`'s speed, delay and bars | m5c-economy's `craft.recipe` now carries `executionSpeed` and `showBarDelay` (900 and 1200), and `updates`: m5c-craft's rows for the start pair, the end and `sendCancelCraft`. X20 checks every progress update's speed and delay. X19 checks the action, bars, speed and delay of the INIT, start and SUCCESS updates (speed 0, delay 0). X18 checks the same for the cancel update (bars 0 and 0) | Review low 4 |
+| X21a's levels and `SM_SKILL_REMOVE` | The oracle's `daeva.enterWorld.skillLevels` and `daevaSwap.smSkillRemove`, read file-locally. Every skill in the burst's message-0 `SM_SKILL_LIST` must be at the oracle's level as the packet shows it: 1 for a normal skill (SkillEntryWriter.java:27), the real level for 30002, 30003 and 40009. There must be exactly one `SM_SKILL_REMOVE(30001, 1, 0)`, where 1 is a tapping skill's `getProfessionFlag()`. After the quit, `player_skills` must equal the oracle's 41 levels plus Cooking at 2. That row catches the normal skills' stored levels, which the packet hides (169, 2865, 2878 and 2891 are at 2) | Review low 5 |
+| The CRAFT_LEVEL_UP animation | The yes window's `SM_ACTION_ANIMATION`s must equal the oracle's `learn.yes.animations`: one, `(A, 4, 0)`. X19's window must equal `recipe.skillUpAnimations`: none, because level 2 is not an animation level | Review low 6 |
+| The old level | A's level is taken from the last `SM_STATS_INFO` of its connection before C19's quit, and `players.old_level` must equal it (-1 if the connection had none) | Review low 7: the oracle models the stored skills from this value, so a store that was lower, or missing, passed X21a unseen |
+| The oracle | `m5c/sanctum.py`: `JavaC19Rules.craft_level_up_animation`, read from ActionAnimation.java, and the new fields above. `tests/test_m5c_sanctum.py` has 27 tests, one of them new (`test_the_craft_updates`), plus new rows in `test_today`, `test_literals_are_read`, the fixture's question test and the real-data tests. The README section is updated | Every number comes from the oracle. `EconomyOracle.h` is untouched, because its parser and fixture are harness-b's; `parseC19Extras` reads the new fields file-locally, as `parseLearnYes` does |
+
+**Mutation proof.** The 12 production schemata are switched by `AION_C3F_MUTANT` (`c3f-*`). They were built in one batch into
+`build/c3-gate`'s server only. Right after the build the five sources were restored with Edit and matched their sha256. The server was then
+rebuilt clean, with no `AION_C3F` string in the exe. Each mutant had one gate run, with the final test binary less the two guard edits
+described under the test-side run below.
+
+| Mutant | Failed | Stayed green |
+|---|---|---|
+| `c3f-delay`: `AbstractInteractionTask::start` schedules the first tick 600 ms late (the review's `c3r-delay`) | X20: the first gap (1,601 ms) and the total (29,100 ms against 28,500) | Every later gap; C0-C18, C20a, C20 |
+| `c3f-interval`: the craft interval +300 ms | X20: all 11 later gaps (2,799-2,801 ms) and the total (31,801 against 28,500) | The first gap; the rest |
+| `c3f-consume-twice`: `checkCraft`'s consume loop runs twice (the review's `c3r-consume-twice`) | X19: the Inina stack deleted, the counts (0 and 0 against 1 and 0); X16 before C19's quit and at C20a's last quit | X17, X18, X20, X21, X21a; X19's update row for the Inina stack (the first decrease sends count 1 before the second deletes the stack; the test side proves that row) |
+| `c3f-consume-first`: `checkCraft` consumes before its checks (the lane's `c19-consume-first`, rerun with the surplus) | X18: the item packets at 7 m, and the counts at 7 m and 12 m; X19: the 3 m craft is refused for want of Salt, a fatal row that ends C19; X22: `CraftingTask 0 0` | X17, X21a, part 1. With the surplus, X19 still cannot stay green, because the refused 7 m craft takes the only Salt |
+| `c3f-speed`: `analyzeInteraction` sets 300 and 500 (the review's `c3r-speed`) | X20: all 9 progress updates' speed and delay | X19, X21 |
+| `c3f-cancel-bars`: `sendCancelCraft` with bars 1000 and 1000 (the review's `c3r-cancel-bars`) | X18: the cancel update's success and failure bars | The rest |
+| `c3f-swap-level`: 30002 at 30001's level + 1 (the review's `c3r-swap-level`) | X21a: 30002 shown at 2, and `player_skills` | X17-X21 |
+| `c3f-no-skill-remove`: the swap without `SM_SKILL_REMOVE` | X21a: no `SM_SKILL_REMOVE` | The rest |
+| `c3f-autolearn-level1`: `autoLearnSkills` adds every skill at level 1 | X21a: `player_skills` (169, 2865, 2878 and 2891 at 1). The packet shows every normal skill as 1 anyway | The level shown for 30002, 30003 and 40009 (all at lvl 1) |
+| `c3f-learn-anim`: `onLearnSkill` without CRAFT_LEVEL_UP (the review's `c3r-learn-anim`) | X17: no `SM_ACTION_ANIMATION` | The rest |
+| `c3f-anim-every-level`: CRAFT_LEVEL_UP at every level of a crafting skill | X19: `SM_ACTION_ANIMATION(A, 4, 0)` at level 2 | X17 |
+| `c3f-old-level`: `storeOldCharacterLevel` stores level - 1 | X21a: `old_level` 1 against the 2 A had. X21a's skills and recipes stay green, as the review predicted: the oracle, asked with 1, names the same list | The rest |
+
+**Test side.** `AION_C3F_TEST_MUTANT=c3f-expectations` is an env-guarded schema in the gate source. It was built into the test binary, then
+removed with Edit, and the source matched its sha256 again. It shifts every C19 expectation this fix added or changed:
+
+- the old level, the `skillLevels` premise and the shown levels;
+- the `SM_SKILL_REMOVE` premise and packet;
+- both animation rows;
+- X18's component premise;
+- the five fields `expectCraftUpdate` compares (action, the two bars, speed and delay), which cover X18's cancel and X19's start pair and end;
+- X20's speed and delay, the first gap, the later gaps, the total and the 11-36 s bounds;
+- X19's three stack rows (the branch swapped);
+- `player_skills`.
+
+All 24 of those assertion lines failed, and nothing else did: C19 alone failed, while S-0, C0-C18, C20a and C20 passed. Before that build,
+the two guards this fix had added as `ASSERT`s became non-fatal rows, so no mutant can end C19 early: A's level (`value_or(-1)`) and the
+oracle's `smSkillRemove`. Both are among the 24.
+
+**For the plan's owner** (m5c-plan.md is not this lane's to change). §10.3 X19 "materials consumed twice" is proven only with the surplus
+Inina, which is a §10.1 seed change. §10.4's consume-first row still cannot keep X19 green (see `c3f-consume-first`). The review's two info
+findings are not closed; they are recorded here instead:
+
+- (a) §10.3 X18's "Proves both range checks" is coarser than X2's band spots. With spots at 3, 7 and 12 m, any `checkCraft` range in
+  [3, 6.75), a centre-to-centre `checkCraft`, or any `CM_CRAFT` range in [7, 12) keeps X18 and X19 green. A band spot (5.1 m, in range only
+  with the radii) was not added. This belongs in X18's "cannot prove".
+- (b) At the level difference 0, the interval `2500 - 60 x diff`, its 1200 cap, `lvlBoni`, and the speed and delay difference terms are all
+  constants. A mutant of any of them is equivalent here, so they belong in §10.3 X20's "cannot prove". P5-02a's unit tests own that
+  arithmetic.
+
+**Runs.** The fixed gate passed on the clean binaries once before the mutants (275.0 s; the gate then lacked the gap statistics in C19's
+log line and the two guard edits), and three times in a row after them (288.6 s,
+270.9 s and 271.8 s): 23 of 23 cases each time. C19 took 60-71 s, with 10-13 progress updates, and no gap was off by more than 2 ms.
+Together with the lane's and the review's runs, the gate takes 265-289 s alone, so the slot table in `ScenarioTests.cmake` now says 289
+(slot 2 sums 1,340 s). This answers the review's info finding: the review's 284.2 s was already above the 283 the lane had recorded.
+
+## M5c stage 3 integration (2026-09-28)
+
+m5c-plan.md §22. The items the lane and the fix left for the plan's owner are applied in m5c-plan.md §10.1-§10.5, §11 and §13 (§22.3 lists
+them): the surplus Inina in §10.1's seeds, C19 as built, the "as built" and "cannot prove" halves of X17-X22 (X18's range edges, X20's
+level-difference terms at Δ 0), and §10.4's consume-first, `>=` → `>` and race-filter rows. Two harness items of the lane:
+
+| Area | As built | Reason |
+|---|---|---|
+| `OracleRunTest`'s work directories | The skills case (`OracleTest.cpp`) writes its answers to `selftest/oracle-skills`, the economy case (`EconomyOracleTest.cpp`) to `selftest/oracle-economy`. Both used `selftest/oracle` before, and each `Oracle` names its answers `oracle1.json`, `oracle2.json`, … from its own counter (`Oracle::run`), so the two processes `ctest -j` may start together wrote one file. No assertion changed | The lane saw `TheEconomyBindingAsksTheRealOracleWhatItWasGiven` fail with a JSON parse error under `-j 4`. Measured here on the old sources: `ctest -R "^OracleRunTest\." -j 2 --repeat until-fail:4` failed the economy case in its second round (`parse error at line 1999, column 1: … unexpected '{'`, two answers in one file). With the change, `--repeat until-fail:6` passed 12 of 12 |
+| `getenv` in the gate sources | Unchanged. `lint_concurrency.py --werror --cycles=core game-server/tests/scenario` reports L8 (`getenv`) in every gate source (M5a, M5b, M5b-2, M5b-3, M5c, the stress run) and in `Oracle.cpp`, `ScenarioDatabase.cpp` and `ScenarioServers.cpp`, and L6/L11 rows elsewhere in the harness | Pre-existing at HEAD (M5c's one call, `AION_SCENARIO_REQUIRE`, has the other gates' shape). The registered lint, `gs.lint.concurrency`, covers `game-server/src` only, which is clean |
+
+The lane's build tree `build/c3-gate` was already gone when this step began; its configure log `build/c3-gate-configure.log` is deleted.
+The unit suite and every gate, run two at a time on the integrated tree, are in m5c-plan.md §22.4-§22.5.
+
+## M5d stage 1 (gate-harness lane): the quest decoders, `talk()`, the lifted kill helpers
+
+m5d-plan.md G-02's rest (§18.3). M5c had landed the three dialog builders, the `SM_DIALOG_WINDOW` decoder and `InventoryModel`; this is
+what the M5d gate (G-03) still needed. No gate reads the new decoders or `talk()` yet. The M5b, M5b-2 and M5c gates now use the moved
+code, with no assertion changed.
+
+| Area | As built | Reason |
+|---|---|---|
+| `decoders/QuestDecoders.{h,cpp}` | `SM_QUEST_ACTION` in all six types (ADD 14 bytes, UPDATE 13, ABANDON 9, TIMER 10, SHARE 13, UNK 9) and the **empty body** of an `extra_category` quest, which decodes as `QuestAction::empty` (SM_QUEST_ACTION.java:69-71; §11 risk 9: 111 quests, 1209 the first). The literals are verified: the zero byte after the status, ADD's and UPDATE's `writeH(0)`, ADD's last `writeC(0)`, ABANDON's `writeD(0)`, UNK's `writeH(1)`, `writeH(0)`. So are the Java invariants: TIMER's byte must be `timer > 0 ? 1 : 0`, SHARE's int 0 or 1, and the status one of `QuestStatus.value()` 3-6. A type outside 1-6 is refused. The vars-and-flags int is kept raw (`questVarsAndFlags`), with `var(i)` and `highByte()` | The six 6-bit vars take 36 bits and `step \| flags << 24` overlays vars 4-5 with the flags (QuestVars.java:37-47), so the decoder cannot split them. A status check of 3-6 catches a port that writes the ordinal (0-2), which Y3 names as a mutation |
+| `SM_NEARBY_QUESTS` | `writeC(0)` is verified. The count is read negated (`-size & 0xFFFF`), and the entries are kept in wire order with the marker bit split off (`ids()`, `notYetAvailableIds()`, `wireValues()`). The decoder refuses a quest id twice (the entries are a `Map`'s keys) and a wire int that is negative or at or above 2^18 | quest_data.xml's highest id is 99002 < 2^17, so any bit above the marker bit 17 means a corrupted body, not a quest. The oracle lists `nearby.xmlOnlyWire` **sorted**, so `wireValues()` equals it only once sorted, and Y1 compares the two as sets; the wire order is the oracle's `nearby.xmlOnlyWireOrder.buckets` (exact for a level-1 Elyos in Poeta: 1105, 132180, 132181, 132199, 132184, 1101) |
+| `SM_STATUPDATE_EXP` | Moved out of `M5bScenarioTest.cpp` and `M5cScenarioTest.cpp`, which had one copy each, into `QuestDecoders.h`. The fields keep the Java packet's names (`curBoostExp`, `maxBoostExp`). M5b's copy had called the fourth `currentBoostExp`. No gate read either of the last two | G-02; m5e-plan.md A-04c expects the decoder from here |
+| `GameSession` | `CM_DELETE_QUEST` (80) and `buildCM_DELETE_QUEST` (readD questId). `talk(npc, action, questId, quiet = 1 s, limit = 10 s)` sends `CM_DIALOG_SELECT(npc, action, 0, 0, questId)` and returns `TalkOutcome` (`firstPacket`, the burst up to the first gap of `quiet`, `closed`). Target 0 is the journal's form (C10b) | DialogService answers a quest action inside runImpl, so the answer arrives as one burst in the server's order. That is what the Y3/Y5/Y6/Y11/Y13 patterns read. `extendedRewardIndex` and `lastPage` stay 0 as the gate sends them; a reward beyond 15 would need `buildCM_DIALOG_SELECT` directly |
+| `FightSupport.{h,cpp}` | `FightRecording`/`recordFight` moved out of `M5bScenarioTest.cpp`. `waitForRespawnAt` moved out of `M5b2ScenarioTest.cpp`, where it was a lambda. The logic is unchanged. The lambda's captures became parameters (`session`, `templateId`), and the two M5b-2 call sites pass `*a.game` and `GATE_MONSTER_NPC_ID`, the default they used before. The file-local `readUntil` the lambda called is copied into `FightSupport.cpp`'s anonymous namespace. The gates keep their own copies for everything else | G-02: the M5d gate's kerub and sprigg kills (C10, C12, C16) use the same helpers as M5b and M5b-2 |
+
+## M5f travel core, early (2026-09-29): the travel gate `gs.scenario.travel` (m5f-plan.md §16)
+
+A gate of its own (no plan names an existing gate for the slice; G-03's `gs.scenario.m5f` is stage 2's), in the same binary, `TEST(TravelScenario,
+Run)` in `TravelScenarioTest.cpp`, output `<bin>/scenario/travel`, schema pair `aion_gs_test_travel_<hash>`, its own allow-list
+`travel_partial_allowlist.txt` (copied from m5c's: §A the BaseService startup row, §B the four wall-clock cron rows, §C the rest),
+`AION_SCENARIO_TRAVEL_PARTIAL_ALLOWLIST`, gate slot 1 (ScenarioTests.cmake's sums updated), labels `scenario;realdata`, TIMEOUT 1800, no Python.
+
+| Case | What |
+|---|---|
+| S-0 | the servers start (the M5a profile plus `npcshouts.enable=false`, `rates.drop=0`) |
+| T1 | A (Elyos) is created, disconnected and seeded as C19 seeds (m5c-plan.md): `player_class GLADIATOR`, `exp 126069` (level 10), `player_quests (1006, COMPLETE)`, 5000 kinah, 1.5 m from Polyidus (203726) in Sanctum; enters Sanctum; `CM_SHOW_DIALOG` -> `SM_DIALOG_WINDOW`; `CM_DIALOG_SELECT(44)` -> `SM_TELEPORT_MAP(npc, 1)`; `CM_TELEPORT_SELECT(npc, 4)` -> `SM_TELEPORT_LOC(3, Verteron, Verteron, 1640.76, 1500.32, 119.70999, 0)`, the kinah down by `getPriceForService(500) = 706`, no `SM_PLAYER_SPAWN` yet; `CM_TELEPORT_ANIMATION_DONE` -> `SM_CHANNEL_INFO`, `SM_PLAYER_SPAWN(Verteron, loc 4)`; `CM_LEVEL_READY` announces Verteron's npcs around the arrival |
+| T2 | A opens Mirdiena's (203120, 1.9 m from the arrival) map (`SM_TELEPORT_MAP(npc, 105)`) and selects loc 15: `SM_EMOTION(START_FLYTELEPORT, 7001)` from himself with `FLYING` set and `ACTIVE` unset, 565 kinah (400), no `SM_TELEPORT_LOC`; three `CM_MOVE_IN_AIR` (no `SM_MOVE` of his own); `CM_EMOTION(LAND_FLYTELEPORT)` -> `SM_EMOTION(LAND_FLYTELEPORT)` with `ACTIVE` and without `FLYING`; after the quit `players` holds Verteron at the last `CM_MOVE_IN_AIR` point and `inventory` 5000 - 706 - 565 |
+| T3 | B, the Asmodian mirror: quest 2008, Doman (204191) in Pandaemonium, teleportId 50, loc 9 -> Altgard (heading 60), 706 kinah; `players.world_id` 220030000 after the quit |
+| T4 | both quit, the servers stop: exit codes, no `AION_UNPORTED`, every `AION_PARTIAL` hit in the allow-list (§A hit, §B not), no ERROR line, empty census, lockdep and watchdog reports, `liveLeaks 0`, no unported client packet |
+
+The numbers are the data rows through the Java arithmetic, not an oracle's (m5f-plan.md G-01, the `m5f-travel` oracle, is stage 1's
+gate-harness item). The three client packet bodies and the two decoders (`SM_TELEPORT_MAP`, `SM_TELEPORT_LOC`, from their Java writeImpl) are
+file-local; G-02 moves them into `GameSession` and `decoders/TravelDecoders`. Run in this tree (Debug, 2026-09-29): passed in about 45 s.
+The first run failed T2's "no SM_MOVE" row on the SM_MOVE of the npcs walking around the arrival; the row now reads only his own object id.
+**Mutation** (the `AION_TRV_MUT` schemata of P5-08.md, one build of `aion_game_server`, which inherits the variable from the gate): five
+mutants, all killed - M33 (the statue animation inverted: T1 and T3 read animation 4), M06 (the raw price: T1, T2 and T3's kinah and the
+stored `inventory` row), M13 (`ACTIVE` not unset: T2's take-off state), M17 (heading 0: T3's `SM_TELEPORT_LOC` and `SM_PLAYER_SPAWN`), M12
+(`FLYING` not set: T2's take-off state, and `CM_MOVE_IN_AIR` then moves nothing, so the stored position is the arrival's). Sources restored
+byte for byte (sha256), rebuilt, no `AION_TRV_MUT` in a source or a binary; the gate passes again on the rebuilt server.
+
+## The travel and ascension gates integrated (2026-09-29): the gate slots
+
+Branch `integ/asc-travel` (docs/design/p6q-ascension-route.md §7) merges `m5f/travel-core` and `p6q/ascension-route`, which had each put
+their gate into slot 1 (`gs.scenario.travel` 45 s, `gs.scenario.ascension` 880 s: 1,987 s against slot 2's 1,340 s together). The merge
+rebalances `ScenarioTests.cmake` by its slot table:
+
+| Change | Why |
+|---|---|
+| `gs.scenario.ascension`: slot 1 -> slot 2 | the long gate goes to the other slot |
+| `gs.scenario.m5b`, `gs.scenario.m5b_geo`: slot 2 -> slot 1, together | one schema prefix, one slot (the sweep rule); 578 s |
+| `gs.scenario.travel`: stays in slot 1 | |
+
+Sums: slot 1 1,685 s (smoke and M4 367, m5a pair 235, m5b3 pair 460, m5b pair 578, travel 45), slot 2 1,642 s (m5b2 pair 473, m5c 289,
+ascension 880). No placement that moves a single pair does better; the best one (21 s apart) moves three. Moving m5b away from m5b2 is safe
+for the schema sweep: `dropAbandonedSchemas`'s `LIKE 'aion_gs_test_m5b_%'` also lists m5b2's and m5b3's schemas (`_` is a wildcard), but
+`isScenarioSchemaName` decides on the exact prefix and the 8 hex digits (ScenarioDatabase.cpp:24-31), which is why m5b and m5b3 could already
+sit in different slots. The next gate joins slot 2. The whole gate set then ran 52 of 52 green in 1,643 s (p6q-ascension-route.md §7).
+
+**What every gate server of the main tree also reads.** The game server loads the Java tree's untracked `config/mygs.properties` after
+`config/main/*` (the log line "Loading: ./config/mygs.properties"), so a key a gate does not pass on the command line takes the owner's play
+value. On 2026-09-29 that file sets `gameserver.simple.secondclass.enable = true`, so the four ascension handlers (1006, 2008, 1007, 2009)
+register only in `gs.scenario.ascension`, which pins the key to `false`; in `gs.scenario.travel` (and m5c) the seeded Daevas get no
+1007 / 2009 in the main tree, and do in a tree without the file (CI, a worktree). Both were measured on the travel gate, both pass
+(p6q-ascension-route.md §7). Recorded here, not changed: pinning the key in the travel gate is the owner's call (U1/U7).
+
+## Lane H (harness, 2026-09-29): hermetic gate servers and the census drain
+
+Branch `fix/gate-hermetic`, from C++ `a72676184`: the two harness defects of docs/design/p6q-ascension-route.md §7. The game server's test
+hook and the drain are rows of P4-01.md and P5-14.md, section "Lane H"; the header requests gh-1 and gh-2 are in header-requests.md.
+
+**1. The operator's play profile never reaches a test server.** Every server a test started in the Java module directory read its untracked
+override file (`game-server/config/mygs.properties`: "Loading: ./config/mygs.properties" in every gate log), so a key a gate does not pin took
+the owner's value in the main tree and the shipped default in CI and in a worktree (the section "What every gate server of the main tree also
+reads" above, and the m5c row's "a key the owner adds later would reach the server and not the oracles (left for integration)"). Now:
+
+| Area | As built | Reason |
+|---|---|---|
+| `ScenarioServers::gameServerArguments` | Always adds `--ignore-mygs-properties` (`ScenarioServers::IGNORE_MYGS_PROPERTIES`), main.cpp's C++-only test hook: the game server's log says "Ignoring ./config/mygs.properties (C++ test hook --ignore-mygs-properties)" in place of "Loading: ...". Every gate and the stress run build their arguments here | A test-only command line switch keeps the production server exactly Java-faithful (it never passes it) and needs no second working directory: the game server reads `./data` below the module directory too |
+| `ScenarioServers::prepareLoginServerDirectory` | The login server's working directory (`ls_run`) is built entry by entry from the module's `config` and leaves `config/myls.properties` (`ScenarioServers::loginServerOverrideFile()`) out, in any letter case of its name (review fix: `std::filesystem::path` compares case-sensitively, Windows opens the file whatever its case); the module directory is only read | The login server already ran in a copy of its config (stage 3), which copied the operator's `myls.properties` along. With the file left out it logs "No override properties found" |
+| `startGameServer()` / `startLoginServer()` check the servers' logs (review fix) | Once the server is up, `gameServerProfileProblem` requires "Ignoring ./config/mygs.properties (C++ test hook --ignore-mygs-properties)" and no "Loading: ./config/mygs.properties" in the game server's log, `loginServerProfileProblem` "No override properties found" in the login server's; otherwise the start throws and the gate fails. The stub game server (`StubGameServer.cmake`) logs the line `aion_game_server` would, and with `-Dgameserver.stub.profile=read` reads the file although it got the switch | The review of lane H: nothing in a gate checked its own hermeticity - a harness that dropped the switch for the geo gates (mutant c1) passed `gs.scenario.m5a_geo` with the owner's profile read. Now that gate fails at its start under the same mutant (r19, below) |
+| The chat server | Unchanged: `ChatServerProcessTest` (chat-server/tests/e2e) writes its own `config/mycs.properties` over its copy of the module's config, so an operator's file never reached the server; a comment there says so now | Hermetic by construction |
+| The smoke tests and the M4 check | `--ignore-mygs-properties` on every server run, and the M4 check's `m4-compare --no-profile` (P5-14.md, "Lane H") | The same profile, read by the other test servers of the tree |
+| `HermeticServersTest` (in `ScenarioServersTest.cpp`) | Two cases on the REAL servers, in module directories of their own below the test's output directory: `config` holds a copy of the module's `administration`/`main`/`network` folders (never the owner's override file) and an override file the test writes itself with a value the server cannot load (`gameserver.timezone = Mygs/NoSuchZone`; `loginserver.network.client.logintrybeforeban = mylsNotANumber`). The gate's server (`startGameServer()` / `startLoginServer()` with the offline environment) gets past its configuration to its database step (the game server logs the "Ignoring ..." line and "startup step 2: DatabaseFactory.init()", the login server "No override properties found" and "Failed to initialize pool"; `ls_run` has no `myls.properties`, the module's file is still there); the control - the same arguments without the switch in the same directory, and the login server started in the module directory itself - stops at the value ("Unknown time-zone ID: Mygs/NoSuchZone", "Error parsing \"mylsNotANumber\" as int"), which shows the file was there to be read. No database: 3-5 s per case. Registered like LoginServerHarnessTest: `scenario;realdata`, gate slot 1, TIMEOUT 300 (`ScenarioTests.cmake`) | The task's proof that a gate server does not see a `my*.properties` value, without ever writing into the owner's real config directory. A server run holds a slot (the rule of "the two gate slots") |
+| `ScenarioServersTest.TheGameServerGetsTheM5aProfileAndTheScenarioArguments` | Also asserts `--ignore-mygs-properties` exactly once, in main.cpp's spelling | – |
+| The gates in the main tree | They now see what CI and a worktree saw: of the owner's profile of 2026-09-29 two keys differ from that, `gameserver.simple.secondclass.enable` (`true` there, the shipped `false` now: the four ascension handlers 1006, 2008, 1007 and 2009 register in every gate, p6q-ascension-route.md §7's second row for the travel gate) and `gameserver.network.client.connect_address` (`127.0.0.1:7777` there, the play server's port, which every gate's login server handed its fake client; now the shipped `${gameserver.network.client.socket_address}`, the gate's own client address). Its other keys equal the shipped defaults or are pinned by `m5aProfile()` or the gate. No gate expectation changed: the whole gate set had already run without the file in the verify worktree, 51 run, 50 passed at once and m5a_geo on its rerun (the census flake that part 2 fixes; p6q-ascension-route.md §3) | – |
+| Comments | `M5bScenarioTest.cpp` and `M5b2ScenarioTest.cpp` explained their stated `gameserver.soulsickness.disable = 10` with the profile the server read; now in the past tense, the keys stay | – |
+
+**2. The census drain waits for the tasks already running.** `CheckOutput::drainPools` (P5-14.md, "Lane H") now waits until every pool
+thread that ran a task when the drain started has left it, and (since the review fixes below) until every task queued in the instant or the
+long-running pool then is done, in place of its barrier tasks; tasks queued or started later are not waited for. The window of
+`Player 103881 506` - a 9 s `MapRegion::activate` on one instant pool thread while another one ran the barrier - is the unit case
+`CheckOutputTest.TheDrainWaitsForATaskThatIsAlreadyRunningOnAnotherPoolThread`, which failed before the fix (mutant m10 below).
+
+**Measured** (build dir `cpp/build/msvc`, Debug, the test database environment; the owner's `mygs.properties` in place and untouched):
+
+- `gs.scenario.m5a_geo` beside `gs.scenario.m5b2_geo` (`ctest -j 2 -R "^gs\.scenario\.(m5a_geo|m5b2_geo)$"`), twice: **both passed both
+  times** (m5a_geo 153 s and 156 s, m5b2_geo 298 s and 282 s), every `census.txt` empty (the header line alone). No drain logged a wait (no
+  "Pool drain" line: none of the four censuses met a task running 100 ms or longer).
+- `gs.smoke.startup` 30 s, `gs.smoke.startup_progress` 29 s, `gs.m4.check_static_data` 141 s: passed. `gs.scenario.m5a` 61 s,
+  `gs.scenario.travel` 40 s, `gs.scenario.m5c` 282 s and `LoginServerHarnessTest` (`-j 2`): passed, censuses empty. Every gate server's log
+  has the "Ignoring ./config/mygs.properties ..." line and no "Loading: ./config/mygs.properties", every login server's log "No override
+  properties found"; the M4 check's servers now discover the machine's IPv4 for the shipped wildcard connect address ("No IP for Aion client
+  advertisement configured, using ...", as in CI), where the owner's profile had set `127.0.0.1:7777`.
+- The harness cases (`ctest -L scenario -E "^gs\."`: 39 run, 12 disabled gate shadows), `ChildProcessTest.*` and `ScenarioServersTest.*`,
+  `ChatServerProcessTest.*`, `ConfigLoadTest.*`, `CheckOutputTest.*`, `aion_gs_configs_tests` (55) and `aion_gs_app_tests` (40) each in one
+  process, `tools.porting` (71) and `test_geo_oracle` (19): passed.
+
+**Mutation** (switch `AION_GH_MUT`: schemata in `configs/Config.cpp`, `main.cpp`, `ScenarioServers.cpp`, `CheckOutput.cpp`, the login server's
+`configs/Config.cpp`, `RunStartupSmoke.cmake`, `RunM4Check.cmake` and `tools/oracle/geo/m4.py`, one build; every server and CMake script
+inherits the variable from ctest). Every mutant was killed:
+
+| Mutant | What it breaks | Killed by |
+|---|---|---|
+| m1 | `loadProperties` reads `mygs.properties` although the hook is on | `ConfigLoadTest.TheTestHookLeaves...`, `HermeticServersTest.TheGameServerOfAGate...` (the gate's server stops at the profile's zone) |
+| m2 | `loadLoggingConfig` reads it although the hook is on | the same two |
+| m3 | main.cpp parses `--ignore-mygs-properties` but does not apply it | `HermeticServersTest.TheGameServerOfAGate...`, `gs.smoke.startup` ("the server did not leave config/mygs.properties out") |
+| m4 | `gameServerArguments` leaves the switch out | `ScenarioServersTest.TheGameServerGetsTheM5aProfileAndTheScenarioArguments`, `HermeticServersTest.TheGameServerOfAGate...` |
+| m5 | the login server's config copy keeps `myls.properties` | `HermeticServersTest.TheLoginServerOfAGate...` (the file in `ls_run`, no "No override properties found", the value in the log) |
+| m6 | `RunStartupSmoke.cmake` leaves the switch out | `gs.smoke.startup` |
+| m7 | `RunM4Check.cmake` leaves the switch out | `gs.m4.check_static_data` ("id_factory: the server did not leave config/mygs.properties out", 3 s) |
+| m8 | `RunM4Check.cmake` leaves `m4-compare --no-profile` out | `gs.m4.check_static_data` ("items 5 and 6: m4-compare did not say that it left mygs.properties out", 142 s) |
+| m9 | `m4.py` reads the profile although `--no-profile` | `test_geo_oracle.M4CompareTest.test_no_profile_leaves_mygs_properties_out` |
+| m10 | `drainPools` does not wait for running tasks (the code before the fix) | both drain cases of `CheckOutputTest` |
+| m11 | `drainPools` waits until no pool thread runs a task (idle pools) | `CheckOutputTest.TheDrainDoesNotWaitForATaskThatStartedAfterIt` (it waited to its 6 s deadline) |
+| m12 | the "LongRunning-" threads are not tracked | `CheckOutputTest.TheDrainWaitsForATaskThatIsAlreadyRunningOnAnotherPoolThread` (the LongRunning case) |
+| m13 | the "ScheduledPool-" threads are not tracked | the same case (the ScheduledPool case) |
+| m14 | a thread counts as still running its task while it runs any task | `TheDrainDoesNotWaitForATaskThatStartedAfterIt` (the one-thread pool) |
+| m16 | `loadProperties` never reads `mygs.properties` | `ConfigLoadTest.TheTestHookLeaves...` (its hook-off half) and six older `ConfigLoadTest` cases |
+| m17 | the login server never reads `myls.properties` | `HermeticServersTest.TheLoginServerOfAGate...` (its control) |
+| m18 | the game server never reads `mygs.properties` (both loaders) | `HermeticServersTest.TheGameServerOfAGate...` (its control) |
+
+(m15 was not used.) Sources restored byte for byte from saved copies (sha256 checked for all eight files), the stale `m4.cpython-312.pyc` of
+m9 removed, everything rebuilt; no `AION_GH_MUT` string is in a source, in `tools/oracle` or in the five rebuilt executables, and the tests
+pass again on the rebuilt binaries.
+
+### Review fixes (2026-09-29)
+
+The review of lane H requested changes: part 1 sound, part 2 incomplete. Per finding:
+
+1. **medium - the drain returned while a task queued before it still ran** (another pool thread took the task just before the barrier; the
+   reviewer's probe failed 5 of 5). Fixed: the drain waits for the futures of the tasks queued in the instant and long-running pools when it
+   starts (`ExecutorBackend::pendingTasks`), then for the running tasks as before; the barriers are gone. The code comment, `CheckOutput.h`
+   (gh-2) and P5-14.md say what it guarantees now, and what it cannot see (a task popped before the queue snapshot and not yet published when
+   the thread snapshot reads its thread: the few instructions before `runFromExecutor`'s `TaskScope`). `TheDrainWaitsForATaskThatWasQueuedWhenItStarted`
+   is the reviewer's probe; it fails on lane H's drain (r0: "drainPools returned after 254 ms", 255 and 257 ms in three runs).
+2. **low - h1, the start-not-scope-id identity untested.** Fixed: `TheDrainWaitsForALongTaskThroughItsQuiescentPoints` (r7).
+3. **low - h3, the deadline of the running-task wait untested.** Fixed: `TheDrainGivesUpAtItsDeadline`, a running and a queued task (r8).
+4. **low - m4-compare: what compare() reads untested; the M4 check checks a note line only.** Fixed: the note is derived from the list of
+   files `compare()` read (`property_files`), and `compare()` and `main()` are tested with a profile that changes a predicted instance count
+   (r23-r26; P5-14.md, the M4 row).
+5. **low - the gates did not check their own hermeticity.** Fixed: `startGameServer()` / `startLoginServer()` check the servers' logs (table
+   above); `gs.scenario.m5a_geo` under the reviewer's c1 (r19) now fails at its start; `TheGeoGateTurnsTheGeoDataOn...` also counts the switch.
+6. **low - `TheDrainDoesNotWaitForATaskThatStartedAfterIt` could fail on a loaded machine.** Fixed as far as a test without a hook in
+   `drainPools` can: the test's backend (`ObservedPoolBackend`, a forwarder of `ThreadPoolBackend`) tells when the drain has copied the queues,
+   and the running task queues the second one only then and 200 ms later. Before, the second task was queued 300 ms after the first started,
+   so a test thread that stalled that long anywhere before the drain began (a sleep in `waitFor`, a busy machine) saw it queued; now it would
+   have to stall 200 ms inside the few instructions between the two snapshots. A timing test: no mutant can show it.
+7. **low - the login config copy compared the file name case-sensitively.** Fixed (table above); `HermeticServersTest.TheLoginServerOfAGate...`
+   now names the module's file `MyLS.properties`, which the control run of the login server reads; r18 (the old comparison) fails it.
+8. **info - surviving reviewer mutants judged equivalent or log-only.** h2 (the calling thread not skipped) and a3 (the hook also drops
+   `logging.properties`) and b3 (the switch also reported as unknown) are killed now by `TheDrainDoesNotWaitForTheTaskThatCallsIt` (r9),
+   `ConfigLoadTest.TheTestHookKeepsTheShippedLoggingFiles` (r20, r21) and `HermeticServersTest.TheGameServerOfAGate...` (r22). d1 (the copy without
+   `recursive`) and d3 (`ls_run` without `logback.xml`) stay as they are: the login server's config is one directory level deep, which
+   `std::filesystem::copy` copies without `recursive` too, and the C++ login server does not read `logback.xml` - equivalent.
+9. **info - the reviewer's mutant runs overwrote four output directories.** Reran on the restored build (measured below); the shared
+   `game-server/log/stats/MethodStats.log` that every gate run rewrites (it ignores `--log-folder`) is out of scope and unchanged (routed
+   through `--log-folder` on 2026-09-30, the section "Small tasks 2026-09-30" below).
+
+**Mutation of the review fixes** (switch `AION_GH_MUT`, ids r0-r26; schemata in `CheckOutput.cpp`, `configs/Config.cpp`, `main.cpp`,
+`ScenarioServers.cpp` and `tools/oracle/geo/m4.py`, one build of `aion_game_server`, `aion_gs_app_tests`, `aion_gs_configs_tests` and
+`aion_gs_scenario_tests`; the whole `CheckOutputTest`, `ConfigLoadTest`, `ScenarioServersTest` or `test_geo_oracle` suite run per mutant):
+
+| Mutant | What it breaks | Killed by |
+|---|---|---|
+| r0 | lane H's drain: one barrier per pool, no wait for the queued tasks | `CheckOutputTest.TheDrainWaitsForATaskThatWasQueuedWhenItStarted` ("returned after 254 ms") |
+| r1 | the queued tasks are not waited for (no barriers either) | the same, and `TheDrainWaitsForTheSingleExecutorsTaskAndItsQueue` |
+| r2 | the long-running pool's queued tasks are left out | `TheDrainWaitsForTheSingleExecutorsTaskAndItsQueue` |
+| r3 | the instant pool's queued tasks are left out | `TheDrainWaitsForATaskThatWasQueuedWhenItStarted` |
+| r4 | the scheduled pool's pending tasks are waited for too | the same (it waited to its 10 s deadline for the not-due and the periodic task) |
+| r5 | `installedBackend()` in place of `getInstance()`: the drain no longer creates the pools | `FinalCensusEndsWithTheZeroThresholdBreakerPass` (no breaker body runs) |
+| r6 | "SingleExecutor" is no pool thread | `TheDrainWaitsForTheSingleExecutorsTaskAndItsQueue` |
+| r7 | a running task is identified by its scope id (the reviewer's h1) | `TheDrainWaitsForALongTaskThroughItsQuiescentPoints` |
+| r8 | no deadline in the wait (h3) | `TheDrainGivesUpAtItsDeadline` |
+| r9 | the calling thread is not skipped (h2) | `TheDrainDoesNotWaitForTheTaskThatCallsIt` (it waited 3 s, its deadline) |
+| r11 | the drain waits for idle pools (m11 on the new code) | `TheDrainDoesNotWaitForATaskThatStartedAfterIt` |
+| r12 | a thread counts as running its task while it runs any task (m14 on the new code) | the same |
+| r13 | `startGameServer()` does not check the log | `ScenarioServersTest.AGameServerThatReadsTheOperatorsProfileFailsTheStart` |
+| r14 | `gameServerProfileProblem` ignores "Loading: ./config/mygs.properties" | `TheProfileChecksReadWhatTheServersLogged`, `AGameServerThatReadsTheOperatorsProfileFailsTheStart` |
+| r15 | `gameServerProfileProblem` does not require the "Ignoring" line | `TheProfileChecksReadWhatTheServersLogged` |
+| r16 | `loginServerProfileProblem` never reports | the same |
+| r17 | `startLoginServer()` does not check the log | **survives** (`ScenarioServersTest`, `HermeticServersTest`, `LoginServerHarnessTest`): the check can only fire when `ls_run` holds an override file, which the copy never puts there (m5, r18 kill the copy's defects); it guards a later change of the copy |
+| r18 | the copy compares the file name case-sensitively (lane H's code) | `HermeticServersTest.TheLoginServerOfAGateDoesNotReadTheOperatorsProfile` |
+| r19 | a geo gate's server does not get the switch (the reviewer's c1) | `ScenarioServersTest.TheGeoGateTurnsTheGeoDataOnThroughTheSamePropertyOverride`; and `gs.scenario.m5a_geo` itself now fails at its start |
+| r20 | with the hook on, the logging settings leave `logging.properties` out (a3) | `ConfigLoadTest.TheTestHookKeepsTheShippedLoggingFiles` |
+| r21 | the same for `gameserver.properties` | the same |
+| r22 | main.cpp also reports the switch as an unknown argument (b3) | `HermeticServersTest.TheGameServerOfAGateDoesNotReadTheOperatorsProfile` |
+| r23 | `compare()` reads the profile whatever its flag (the reviewer's g1) | `test_geo_oracle.M4CompareTest.test_compare_predicts_from_the_properties_it_read`, `test_main_passes_no_profile_to_compare` |
+| r24 | `main()` ignores `--no-profile` (g2) | `test_main_passes_no_profile_to_compare` |
+| r25 | `main()` never reads the profile (g3: the flag's default inverted) | the same |
+| r26 | `profile_note` follows the flag, not the files read | `test_no_profile_leaves_mygs_properties_out` |
+
+(r10 was not used.) Under r19, the reviewer's c1, the real `gs.scenario.m5a_geo` now fails at its start (180 s: "geo 0 ... the game server
+read the operator's config/mygs.properties (its log says 'Loading: ./config/mygs.properties')"), where lane H's harness passed it. The five
+files were restored byte for byte from saved copies (sha256 checked), the `m4.cpython-312.pyc` of the mutant run removed, the whole tree
+rebuilt; no `AION_GH_MUT` or `ghMut` string is in a source, in `tools/oracle`, in `aion_game_server`, `aion_gs_scenario_tests`,
+`aion_gs_app_tests`, `aion_gs_configs_tests` or in `aion_gs_app.lib` / `aion_gs_configs.lib`.
+
+**Measured on the restored build** (build dir `cpp/build/msvc`, Debug, the test database environment; the owner's `mygs.properties` in
+place and untouched): `aion_gs_app_tests` (45), `aion_gs_configs_tests` (56), `ScenarioServersTest.*` and `ChildProcessTest.*` (23),
+`test_geo_oracle` (21) each in one process; `ctest -L scenario -E "^gs\."` 41 run, 12 disabled gate shadows, all passed (HermeticServersTest
+and LoginServerHarnessTest with the new log checks among them); `tools.porting`, `tools.oracle` (the whole suite, 279 s) and
+`gs.chunks.consistency` passed. Gates and server tests, one `ctest -j 2`, all passed: `gs.smoke.startup_geo` 155 s, `gs.scenario.travel`
+44 s, `gs.scenario.m5a` 56 s, `gs.smoke.startup` 28 s, `gs.smoke.startup_progress` 29 s, `gs.m4.check_static_data` 147 s,
+`gs.scenario.m5a_geo` 170 s. The three gates' `census.txt` are empty, each `game_server.log` has the "Ignoring ..." line and no "Loading:
+./config/mygs.properties", each `login_server.log` "No override properties found", and no drain logged a wait. These runs also rewrite the
+four output directories the reviewer's mutant runs had left (`scenario\Debug\m5a_geo`, `m4\Debug`, `gs.smoke.startup\Debug`,
+`gs.smoke.startup_progress\Debug`). Not run: `gs.scenario.ascension`, `m5b`, `m5b_geo`, `m5b2`, `m5b2_geo`, `m5b3`, `m5b3_geo`, `m5c` and the
+whole unit suite; every gate starts its servers through the same `startGameServer()` / `startLoginServer()` checks the runs above passed.
+
+## M5d stage 2 (lane G): the M5d gate `gs.scenario.m5d` and `gs.scenario.m5d_geo` (m5d-plan.md G-03, G-04, §10)
+
+`TEST(M5dScenario, Run)` and `TEST(M5dScenarioGeo, Run)` in `M5dScenarioTest.cpp`, one shared body; output `<bin>/scenario/m5d` and
+`<bin>/scenario/m5d_geo`, schema pairs `aion_{gs,ls}_test_m5d_<hash>` and `..._m5dgeo_<hash>`, the allow-list `m5d_partial_allowlist.txt`
+(`AION_SCENARIO_M5D_PARTIAL_ALLOWLIST`), labels `scenario;realdata` (`;geo`), TIMEOUT 1800 / 2700, both in **gate slot 2** (the smaller sum,
+1,642 s against slot 1's 1,685 s, ScenarioTests.cmake's table; the discovered cases are DISABLED as for every gate). Test infrastructure only,
+no Java counterpart; the rows say where the gate reads the plan's §10 differently and why.
+
+| Area | As built | Reason |
+|---|---|---|
+| The cases | S-0, C0 (the oracles), C1-C3 + C4 (Y1), C5 (Y2), C6 (Y3), C7 (Y4), C8 (Y5), C9 (Y6, Y7), C10 (Y8), C10b (Y7b), C11 (Y9), C12 (Y10), C13 (Y11), C14 (Y12's abandon), C15 (Y12's relog and elpas's page 1011), then account B: C16a (Y13's markers, and no quest action at the first enter world, as C4), C16b (2101), C16c (2102's four kills and a fifth), C16d (2102's reward), C16e (Y13's relog), and C17 (Y14) after both disconnected and the servers stopped. The case log is M5b-3's: a non-fatal row failure lets every later case run, so a mutant shows its own rows red and the others green | §10.2-§10.3 |
+| The expectations | Every number is an oracle's: `m5d-quests --map M --race R --level 1` (the nearby sets and their grey bits), `m5d-quest --quest ID [--completed ...] [--exp X]` (the page each step answers each action with, the kill run and its count, the first completion's payments, the follow-up window at the end npc and `levelsSinceEnterWorld`), `m5a-creation` (the spawns, and the starter kinah and bandages the Y12 and Y13 ledgers begin with, 1,000 and 20 today: `starterCount`), `m5a-spawns` (where elpas, mires, asak and vandar stand), `m5b-monster` (the kerubs' and sprigg workers' fixed plain spots, level 1's and level 2's exp need). The m5d oracles run with `--profile <output>/m5d_oracle_profile.properties`, which the gate writes from the server's own `-D` keys (`m5aProfile()` under the gate's keys), so the owner's `mygs.properties` reaches no expectation (M5c's `--set`, in the form m5d's CLI takes) | "every number comes from the oracle" (§10.1) |
+| The profile | `m5aProfile()` (G-07's wall-clock keys included), M5b-2's keys (`npcshouts.enable=false`, `rates.xp.solo`, `soulsickness.disable`, `rates.drop=0`), and M5d's: `rates.xp.quest` and `rates.kinah.quest` written out at their defaults (`1.0, 2.0`), `analysis.quest_handlers=false`, **`simple.secondclass.enable=false`**; `character.creation.mode` stays 0 (D15). `game-server/config/m5d.properties.example` is **not** written: it is a file of the Java tree's config directory, which this lane may not touch; the profile lives in the gate and here | §10.1, §18.4, §18.7 |
+| The Java handlers now registered | Phase 6's slice 1 registers 42 Java handlers (p6q-ascension-route.md §1), so D9's "no Java quest until phase 6" is gone. The expected nearby set is the oracle's `withJava` set restricted to the XML quests and the ids of `REGISTERED_JAVA_QUESTS` (the 42; the held-back 1000, 1100, 2000, 2100 are not in it): for a level-1 Elyos in Poeta that adds 1111 (grey), in Ishalgen nothing. The Elyos's level-up to 2 inside 1102's reward runs the generated `_1205ANewSkill.onLevelChangedEvent`: Y11's pattern holds `ADD 1205 s3`, `NEARBY`, `UPDATE 1205 s4 v1`, `NEARBY` between `LEVEL_UP 2` and onLevelChange's own `NEARBY`, and Y12's quest list after the relog is `{1205: REWARD, var 1}` (player_quests likewise). m5e-plan.md W-24 predicted exactly this `SM_QUEST_ACTION` in the M5d gate | "adapt the gate's cases to what now registers" |
+| The order patterns | Each talk's answer is reduced to quest tokens in arrival order (`ADD/UPDATE <quest> s<status> v<vars>`, `ABANDON`, `NEARBY`, `DW <npc> <page> <quest>`, `EXP`, `GET_EXP <n>`, `MSG <id>`, `ITEM <template>x<count>`, `LEVEL_UP <level>`) and compared with the whole expected list, after the async set and the talked npc's `SM_LOOKATOBJECT` are taken out. The level-up's stats, skills and animations are not tokens, so Y11 pins the quest packets' order around them without the M5e skill list. `SM_INVENTORY_UPDATE_ITEM` names the object only; its template is the inventory model's | §10.3's "in Java's order" rows, stated once |
+| The talk windows | Read with the gate's own burst collector (quiet measured from the last packet the async set does not explain), not `GameSession::talk`, whose `collectUntilQuiet` ends at the first quiet second of all traffic: beside Ishalgen's walkers every talk ran into its 10 s limit (the first run: 36 s for C16b). The packet is the same `CM_DIALOG_SELECT(npc, action, 0, 0, questId)` | measured, 2026-09-29 |
+| The kills | `killAt` rotates over the three fixed plain spots of the kill targets nearest the end npc (kerubs 21-45 m from mires, sprigg workers 28-41 m from vandar): it takes the npc of the first spot whose latest `SM_NPC_INFO` names an object the gate has not killed, and waits for a respawn only when all three are dead. A corpse keeps its object id, a respawn is a new one, and the set of killed ids works across a relog, which `FightSupport`'s `waitForRespawnAt` (one session's recording index) cannot. The HP is logged before each kill and a Warrior below 60 % rests (reads packets) up to 60 s; no run needed it (the Elyos ended each fight at 281-284 of 284 HP, the Asmodian above 230 of 284) | C16c took 94 s waiting at one spot, 57 s rotating |
+| C7's range | The character stands 15 m from mires on the line from elpas; the row wants exactly `STR_DIALOG_TOO_FAR_TO_TALK` (1300346) and no window | Y4 |
+| Relogs | C11, C15 and C16e disconnect (`CM_QUIT(0)`), read `player_quests`, and log in again; only a first enter asserts the level-ready §5.8 sequence, because a relog near the monster spots reads a decaying corpse's `SM_DELETE` in that burst (the first run's C16e) | not the quest engine's |
+| Allow-list | `m5d_partial_allowlist.txt`: §A `BaseService.cpp:18`; §B `QuestEngine.cpp:115` (the profile turns the analysis off) and G-07's four cron rows; §C `PvpMapService.cpp:32`, `PlayerService.cpp:268`. `QuestEngine.cpp:111` no longer exists (I-05) | §10.1, §19.5 |
+| Y14 | Beside the Q8 bar: `live_counts.txt`'s `QuestEnv`, `QuestState`, `QuestVars`, `QuestStateList` and `Player` rows live 0 with created > 0 | §10.3 Y14 |
+
+**Mutation proof (§10.4)**, schemata switched by `AION_M5DG_MUT` in nine production files (`QuestEngine.cpp`, `QuestService.cpp`,
+`AbstractQuestHandler.cpp`, `DialogService.cpp`, `MonsterHunt.cpp`, `QuestState.cpp`, `DialogPageInfo.cpp`, `PositionUtil.cpp`,
+`SM_QUEST_ACTION.cpp`), built once into `build/v`'s `aion_game_server` (the gate's server inherits the variable), the sources restored right
+after the build and checked by sha256 (all nine OK), then the whole tree rebuilt clean: no `AION_M5DG_MUT` in a source or in the final
+binaries. One `gs.scenario.m5d` run per mutant, 220-380 s each; the case log shows every row:
+
+| Mutant (§10.4 row) | Failed | Stayed green | Note |
+|---|---|---|---|
+| `no-registration`: `QuestEngine::init` skips the XML registration (the old `:111`) | **Y1** (both sets are `{1111}`, the one Java handler of the map), **Y2** (page 1011), and every later row that reads a quest: Y3, Y5-Y14 | Y4 | 55 assertions |
+| `xp-hunting`: `giveReward` pays exp with `Rates::XP_HUNTING` | **Y6** (`GET_EXP 80`, the exp shown 80), Y11 (80; 3 × 80 + 80 still reaches 400, so the level-up stays in the reward), Y13 (2101's 80) | Y3, Y5 and the rest | |
+| `no-follow-up`: `sendQuestEndDialog` without the follow-up loop | **Y6**, **Y11**, **Y13** (`DW mires 10 0` / `DW vandar 10 0` instead of 1011 1102, 1011 1103, 1011 2103) | Y7 and the rest | |
+| `finish-without-guard`: `finishQuest` without `status != REWARD` | **Y7b** (`UPDATE 1102 s5 v0`, `NEARBY`, then the sentinel: 1102 silently completed, no payment), then Y9-Y12, which read 1102 | Y6, Y7, Y13 | as §10.3 Y7b predicted, packet for packet |
+| `no-next-page`: `handleQuestDialogueOrSendNextPage` without its window | **Y7** (the replay answered by nothing), **Y8** (no `DW mires 1009 1102`) | Y6 and the rest | |
+| `count-past-end`: `MonsterHunt::onKillEvent` without `total <= endVar` | **Y13** (the fifth kill: `UPDATE 2102 s3 v5`; the report then `s4 v5`) | Y8, Y10 | |
+| `follow-up-ignores-finished`: the follow-up takes the first startable, acceptable quest whatever its `<finished>` | **Y13** (`DW vandar 1011 2102` after 2101) | Y6, Y11 | |
+| `report-without-kills`: `MonsterHunt::onDialogEvent` without the kill-total check | **Y8** (`UPDATE 1102 s4 v1`, page 5 after one kill), then Y7b (the journal now finishes the REWARD quest, which is right), Y9-Y11 | Y1-Y7, Y12-Y14 | Y10 cannot stay green: 1102 is finished before C12's kills. The first run of this mutant also lost C11's re-entry ("no packet after CM_ENTER_WORLD": the first packet came later than the burst's quiet second); `enterWorld` and `levelReady` now wait up to 30 s for the first packet (`collectAnswer`), and the rerun re-entered |
+| `persistent-new-kept`: `setPersistentState(UPDATED)` keeps NEW | **Y12** (C15: 1102 still START in `player_quests`, no 1205 row), **Y14** (`Failed to insert new quests for player ...`: the second store INSERTs again) | Y9 (the first store is the INSERT) | There is no player cache: every enter world builds a new Player and loads its quest list from the database (`PlayerService.cpp:208`, PlayerService.java:102-135). The mutated `setPersistentState(UPDATED)` is also the call `PlayerQuestListDAO::load` makes on every row it loads (`PlayerQuestListDAO.cpp:70`), so after C11's relog the loaded states stay NEW, and C15's quit INSERTs 1101 and 1102 again (the duplicate key) instead of updating them. That is why §10.4's Y9 stays green: C11 reads the first store, which INSERTs either way |
+| `abandon-keeps-row`: `abandonQuest` without `deleteQuest` | **Y12** (no 1103 in the nearby set after the abandon; `player_quests` and `SM_QUEST_LIST` keep 1103 START) | Y3 | |
+| `race-ignored`: `checkStartConditions` without the `race_permitted` check | **nothing in the gate** | all | Not killable here, against §10.4: no quest a start-map npc starts is of the other race (`m5d-quests` for an Asmodian in Poeta and an Elyos in Ishalgen: both sets empty), and the level-change lists are per race, so the Elyos 1205 never runs for the Asmodian. The unit case `QuestItemActionsTest.ARestrictedQuestIsWarnedAboutBeforeTheUseMessage` (E-10, `:482-483`) kills it: the same schemata built into `aion_gs_itemsvc_tests`, run with the variable, fail that case alone of the suite's 13 (without the variable 13 of 13 pass) |
+| `no-quest-interaction`: `getStartPageId` without `hasQuestInteraction` | **Y2** (`DW elpas 1011 0`), and the other first talks: Y5's mires, Y7b's sentinel, Y13's asak | Y12's final page 1011 | |
+| `questenv-static`: `QuestEngine::onDialog` keeps its `QuestEnv` for ever | **Y14** (`QuestEnv` 28 live, the census names the Player, the leak ERROR lines) | Y1-Y13 | |
+| `talk-range`: `isInTalkRange` always true | **Y4** (`DW mires 10 0` from 15 m) | every other row | |
+| `status-ordinal`: `SM_QUEST_ACTION` writes the ordinal | **Y3** (the decoder refuses status 0), and every row with a quest action: Y5, Y6, Y8, Y10-Y13 | Y1, Y2, Y4, Y7, Y7b, Y9, Y14 | |
+
+The four rows §10.4 sends elsewhere (`sendQuestEndDialog`'s own guard: H-07; the var shift: E-06; `XMLQuests` order: T-04; the skipped
+reward-group check: E-06) were not run: the gate cannot see them by construction, as §10.4 says.
+
+**G-02's quest decoders, the list and the proof §19.5 left open.** The stage-1 harness's cases: `QuestDecodersTest` (7:
+`QuestActionAddIsFourteenBytes`, `QuestActionUpdateIsThirteenBytesAndCarriesTheVarsAndFlags`, `QuestActionAbandonTimerShareAndUnk`,
+`QuestActionOfAnExtraCategoryQuestIsEmpty`, `NearbyQuestsOfALevelOneElyosInPoeta`, `NearbyQuestsEmptyAndMalformed`,
+`StatUpdateExpIsFiveLongs`), `FightSupportTest` (3) and `GameSessionTalkTest` (4). This gate is the decoders' first reader. Six schemata in
+`decoders/QuestDecoders.cpp` (switched by `AION_M5DG_MUT`, built once into `aion_gs_scenario_tests`, the file restored by sha256 right after
+the build, the tree rebuilt, no schema string left), `QuestDecodersTest` run per mutant: the status range dropped (killed by the Add and Update
+cases, `:54`: statuses 0, 1, 2 and 7 must throw); ADD's last byte not read (the Add case); TIMER's `timer > 0 ? 1 : 0` byte not checked
+(`:175`, `:178`); `SM_NEARBY_QUESTS`' count read un-negated (`:269` and the Poeta case); the marker bit kept in the id (`:242-253`, `:276-284`);
+`SM_STATUPDATE_EXP`'s recoverable and max exp swapped (`:299`, `:304`). All six killed; the unmutated binary passes 7 of 7. The gate's own
+`status-ordinal` mutant is the same refusal end to end (Y3). `FightSupportTest` and `GameSessionTalkTest` were not mutated here: the gate uses
+neither `waitForRespawnAt` nor `talk()` (the rows above say why).
+
+**Runs** (build/v, Debug, 2026-09-29, beside another tree's gates): `gs.scenario.m5d` passed in 257 s and `gs.scenario.m5d_geo` in 485 s
+(one ctest, the slot runs them one after the other; the geo startup 172 s), each with an empty census, no ERROR line and the allow-list's §A
+row hit once and every §B row 0 times; a last run on the final binary (a comment, an unused helper and two unused variables apart) passed in 396 s, its
+startup and oracles slowed by the other tree's gates. Both game servers logged "Loaded 4226 quest handlers" (4,184 XML + 42 Java). The harness's unit cases
+(the decoders, `GameSession*`, `FightSupport`, `PacketSequence`, `Oracle*`, `InventoryModel`, `AsyncAllowed`, `Scenario*Test`,
+`LoginServerHarnessTest`), `QuestItemActionsTest`, `tools.porting` and `gs.chunks.consistency`: 227 of 227 at `-j 4`.
+
+**The review's findings (2026-09-29), closed in the same tree.** The review approved the gate with its own fifteen mutants
+(`AION_M5DG_MUT_R`, all killed) and four findings:
+1. **`persistent-new-kept`'s cause** (low): the table's row is corrected. There is no player cache: the mutated `setPersistentState(UPDATED)`
+   is also what `PlayerQuestListDAO::load` calls on every row it loads, so C11's re-entry holds NEW states and C15's quit INSERTs 1101 and
+   1102 again. The kill and its rows were right and stay.
+2. **The starter kinah and bandages** (low): C1-C3, C15 (Y12), C16a and C16e (Y13) compared with the literals 1,000 and 20, while the
+   header, the expectations row above and §10.3's Y13 refresh say those numbers are `m5a-creation`'s. They now read
+   `starterCount(creation, itemId)` over C0's two `OracleCreation` answers (the Elyos's for account A, the Asmodian's for B), and C0 logs
+   them. Two schemata switched by `AION_M5DG_MUT` in `PlayerService::newPlayer` (7 more kinah, 3 fewer Bandages for a new character), the
+   first one also in `tools/oracle/m5a/creation.py`:
+   - `starter-data-shift` stands for a change of `player_initial_data.xml` as both independent readers would see it. **Before:** the lane's
+     gate failed at exactly its five literal assertions (C1-C3: 1,007 kinah, not 1,000; C15: 1,527, not 1,520; C16a: 17 Bandages, not 20;
+     C16e: 27, not 30, and 1,207, not 1,200), every other case green (234 s). **After:** the new gate passes (236 s, and 292 s in a verbose
+     rerun whose C0 logged "Elyos Warrior 1007 kinah; Asmodian Warrior 1007 kinah, 17 x 169300002").
+   - `starter-server-shift` (the server alone): the new gate fails at the five changed assertions (1,007 against the oracle's 1,000, 1,527
+     against 1,520, 17 against 20, 27 against 30, 1,207 against 1,200) and nowhere else (241 s).
+3. **Comments** (low): `ScenarioTests.cmake`'s M5d block says eight kills (one in C10, two in C12, five in C16c), not nine; the slot table's
+   header says its runtimes are alone unless an entry says otherwise, and the M5d entry says it was measured beside another tree's gates
+   (with the review's 220-286 s and 358 s); m5d-plan.md §19.5 points at §20.1 (slot 2, `:115` in §B).
+4. **Coverage** (info):
+   - C16a now asserts for the Asmodian what C4 asserts for the Elyos: no `SM_QUEST_ACTION` in the first `CM_ENTER_WORLD` burst, and any
+     later `SM_NEARBY_QUESTS` of the two first-enter bursts (§10.6 (d)) decodes to the Ishalgen set. C4 and C16a log the bursts' counts: 1
+     and 1 for both races in every run without a quest-start mutant. The schema `min-level-ignored` (`QuestService::checkStartConditions`
+     without its min-level test) kills both new assertions (294 s; a first run before the later clause was added, 270 s, killed the first): the Asmodian's first `CM_ENTER_WORLD` burst held
+     `ADD 2008 s6`, `ADD 2132 s3`, `UPDATE 2132 s4 v1` and `ADD 23830`-`23834 s4` with 8 `SM_NEARBY_QUESTS`, Ishalgen's own handlers, which C4
+     (the Elyos's 1006, 1205 and 13830-13834) cannot see. C4, C11 (Y9), C13 (Y11), C15 (Y12) and C16e went red with it.
+   - Not changed, because they are not defects: no run kills 210134 or 210363, since the kill spots are the three fixed plain spots nearest
+     the end npc that `m5b-monster` names (all 210133 and 210364); `MonsterHunt::onKillEvent`'s `containsId` is exercised at the first id
+     of 1102's list (210133) and the second of 2102's (210364), and a kill of the other two runs the same membership test.
+     `player_quests` is compared on `quest_id`, `status`, `quest_vars` and `complete_count`, the columns Y9, Y12 and Y13 name; `reward` is
+     the group `validateAndFixRewardGroup` sets (0 for these single-group quests), whose effect the payments of Y6, Y11 and Y13 assert, and
+     whose skipped check §10.4 gives to E-06; the times are wall-clock values. `game-server/config/m5d.properties.example` stays unwritten
+     (the Java tree's config is off limits; §20.1).
+
+The two production files and the oracle file were restored and checked by sha256 after the mutation runs, the tree was rebuilt, and no
+`AION_M5DG_MUT` string is left in a source, a binary or a `__pycache__` file. On the rebuilt binaries (build/v, Debug, 2026-09-29): `gs.scenario.m5d` passed in 241 s and
+`gs.scenario.m5d_geo` in 348 s in one ctest, each with an empty census, no ERROR line, §A hit once and every §B row 0 times; C0 logged
+1,000 kinah for both Warriors and 20 Bandages for the Asmodian, and both first-enter bursts of both races held one `SM_NEARBY_QUESTS` each.
+The harness's unit cases, `QuestItemActionsTest`, `tools.porting` and `gs.chunks.consistency`: 225 of 225 at `-j 4`. `lint_concurrency.py
+--werror --cycles=core game-server/src`: 3,819 files, 0 errors, 0 warnings, 0 advisories; `chunks.py check`: 71 chunks, 0 problems.
+
+## The day lanes H and G integrated (2026-09-29)
+
+Branch `integ/day-0929`: `fix/gate-hermetic` (lane H, `6ffcdb187`) with `m5d/stage-2` (lane G, `1a72cf0d4`) merged in, both from C++
+`a72676184`. `ScenarioTests.cmake` merged without a conflict (lane H's `HermeticServersTest` registration in slot 1, lane G's two gates and
+slot-table entry in slot 2); this file conflicted only because both lanes appended a section here, and both are kept, lane H's first. One
+integration fix: `M5dScenarioTest.cpp`'s header still said in the present tense that a gate's server reads the owner's `mygs.properties`,
+which lane H ended for every gate (the same comment edit lane H made in the M5b and M5b-2 gates); comment only, the key stays pinned. The
+header requests gh-1 (`Config.h`, one static setter) and gh-2 (`CheckOutput.h`, comment only) are small and additive, as recorded.
+
+Measured on the integrated tree (build dir `cpp/build/msvc`, Debug, the test database environment, beside other trees' runs): every target
+built twice with 0 errors and 0 warnings (the second build compiled nothing); the unit suite (`-j 4 -LE
+"scenario|geo|m4|nightly|stress|smoke"`) 4,677 of 4,677 in 1,558 s (5 disabled, 30 skipped); the gates and server tests (`-j 2 -L
+"scenario|smoke|geo|m4" -E m5a_stress`) 58 of 58 in 2,256 s (14 disabled gate shadows), `gs.scenario.m5d` 233 s, `m5d_geo` 364 s, `travel`
+58 s, `ascension` 877 s. Every gate's `census.txt` is the header alone, every `game_server.log` has the "Ignoring ./config/mygs.properties"
+line and no "Loading: ./config/mygs.properties", every `login_server.log` "No override properties found". The ascension gate's ten
+"onDie() exception" lines are `AbyssPointsService::addAp`'s `AION_UNPORTED` (Q06.md), as before.
+
+**The slots, not rebalanced here.** In that run slot 2 (m5b2 pair, m5c, ascension, m5d pair) summed 2,246 s and slot 1 1,736 s, so slot 2
+set the wall clock. The best single move is the M5c gate (its own prefix, no geo variant) to slot 1: about 2,017 s against 1,965 s; moving
+the m5b2 pair instead gives about 2,226 s against 1,756 s. Left to the owner (the slot table above and ScenarioTests.cmake still say "the
+next gate joins slot 1").
+
+## The prologue traffic (P6-Q prologue, 2026-09-29)
+
+The four enter-world quest handlers `_1000Prologue`, `_1100KaliosCall`, `_2000Prologue` and `_2100OrderoftheCaptain` landed on the owner's
+answers 3 and 4 of 2026-09-29 (docs/design/owner-decisions.md, "2026-09-29 (answers)": U1/U7 amended for Java-faithful quest traffic, each
+gate change listed). A new character's first enter world in Poeta / Ishalgen now carries their Java traffic, and every gate of this
+directory that creates one and checks or walks after it was taught it instead of holding the handlers back, except the nightly stress run
+(below); nothing else in a gate changed. The shared pieces:
+
+| File | What |
+|---|---|
+| `PrologueSupport.h/.cpp` (new) | The §5.8 notation of the prologue's packets and three pure checks written from the Java: `expectPrologueMissionLocked` (the first CM_ENTER_WORLD's one SM_QUEST_ACTION adds 1100 / 2100 LOCKED, and SM_QUEST_LIST holds exactly that quest), `expectPrologueStarted` (the first CM_LEVEL_READY's one SM_QUEST_ACTION adds 1000 / 2000 START and its one SM_PLAY_MOVIE plays movie 1 / 2 as a skippable CutSceneMovie with no target) and `expectPrologueMovieEndAnswer` (SM_STATUPDATE_EXP with the reward's 1 exp, STR_GET_EXP2, SM_QUEST_ACTION UPDATE COMPLETE and SM_NEARBY_QUESTS); `endPrologue` runs the second, ends the movie with CM_PLAY_MOVIE_END echoing it and runs the third on the answer |
+| `PrologueSupportTest.cpp` (new) | The three checks on hand-built packets: the Java bursts of both races pass with no failure, and each assertion fails, alone, on a burst that differs from Java in exactly its field (35 deviation cases; p6q-ascension-route.md §9.5 has the 28 mutants they kill) |
+| `decoders/QuestDecoders.h/.cpp` | `decodePlayMovie` (SM_PLAY_MOVIE.java:27-35) and `decoders::Prologue` (the quest, movie, mission and map of each race, `PROLOGUE_EXP`, `PROLOGUE_EXP_MESSAGE`), with `QuestDecodersTest.PlayMovieIsFifteenBytes` and `ThePrologueQuestsAreTheJavaHandlers` |
+| `GameSession.h/.cpp` | `CM_PLAY_MOVIE_END` (packets[81]) and its builder (CM_PLAY_MOVIE_END.java:33-40), with `GameSessionTest.PlayMovieEndBody`. A real client sends it when a movie ends or is skipped; until then the server drops every CM_MOVE (SM_PLAY_MOVIE.java:28 sets WATCHING_CUTSCENE, CM_MOVE.java:159-161) |
+
+The gates (docs/design/p6q-ascension-route.md §9 has each failure and the Java lines): m5a / m5a_geo (the first-enter and level-ready
+sequences, V10's quest list, the prologue of the Warrior, the Mage and the geo Warrior), m5b / m5b_geo (the sequences, K2, K3, and R1's exp
+over the prologue's 1), m5b2 / m5b2_geo (the sequences, the Warrior's and the Mage's prologue), m5b3 / m5b3_geo (the sequences, C1-C3), m5c
+(C1's two characters, X15's exp over the prologue's 1) and the phase-6 gate ascension (E1: the mission START at level 9 and the prologue's
+movie ended before E2's walks). `gs.scenario.travel` passes unchanged.
+
+Not taught (p6q-ascension-route.md §9.5 has the detail):
+
+- **`gs.scenario.m5a_stress`** (nightly, DISABLED unless `AION_STRESS_NIGHTLY`). Its Elyos Warriors meet the prologue in each client's
+  first round. The run reads that level-ready burst up to SM_CUBE_UPDATE without checking it, so no expectation fails, but it never
+  sends CM_PLAY_MOVIE_END: that round's walk is dropped, and quest 1000 stays START. Later rounds get no movie (`_1000Prologue.java:28`
+  starts the quest only when the character does not have it) and walk as before. No assertion of the run reads the first walk (drift,
+  census, live counts and log scans), but that comes from reading the code, not from a run. The fix is to end the movie after the first
+  level ready and wait for the answer's SM_QUEST_ACTION before walking. It needs a stress run to verify, and a stress run needs the
+  owner's go-ahead (run-aion-cpp SKILL.md), so it waits for the next nightly.
+- **`gs.scenario.m5d` / `m5d_geo`** are on C++ (PR #10, lane G) but not in this change's base (`a72676184`). `M5dScenarioTest.cpp` is
+  built on the four handlers being held back, so it has to be taught when the two meet. The places are its header (:21), the
+  `REGISTERED_JAVA_QUESTS` filter of the Y1 / Y13 nearby sets (:143), `enterWorldPattern` (:665), `levelReadyPattern` (:682-688, asserted
+  :1028), Y13's empty SM_QUEST_LIST (:2234), and ending the movie before `walkTo` / `walkToTalk` (:1062, :1611). The file keeps its
+  own helpers on purpose (:35), so whether it includes PrologueSupport is decided in that merge. **Taught at that merge** (branch
+  `integ/slice2-prologue` on C++ `51ef338e4`, 2026-09-29): the pair includes `PrologueSupport.h` (the one shared check), expects the
+  prologue's packets in both first-enter sequences, ends both characters' movies before the first walk, checks each mission LOCKED, counts
+  the prologue's STR_GET_EXP2 in its exp ledger, and reads 1000 / 2000 COMPLETE and 1100 / 2100 LOCKED in Y6, Y9, Y12 and Y13;
+  docs/design/p6q-ascension-route.md §10 has each change, the failure it answers and its mutants.
+
+## Small tasks 2026-09-30 (branch `fix/small-quick-4`): the static objects of SM_GATHERABLE_INFO
+
+The owner saw Sanctum's crafting benches appear late in the play session of 2026-09-29; reading found `SM_GATHERABLE_INFO` identical to
+Java for a static object, and noted that the gate could not have told otherwise. Two checks are tighter now, and the packet has a byte test
+(`tests/sm_ak/StaticObjectGatherableInfoTest.cpp`, P4-16, label `realdata`: oven 104 and workbench 109 spawned by
+`StaticObjectSpawnManager::spawnTemplate` from the real world map, item and Statics rows, each body compared with constants taken from the
+data files with Java's `Float.parseFloat` bits, never from the port).
+
+| Area | As built | Reason |
+|---|---|---|
+| `decodeGatherableInfo`'s state | A body whose template id is 300001 must carry 9 or 10, every other body 1 (`decoders::STATIC_DOOR_TEMPLATE_ID`) | It accepted 1, 9 or 10 for any object. Java writes 9 / 10 only for a `StaticDoor` (SM_GATHERABLE_INFO.java:28-35), and a door's template is a `StaticDoorTemplate`, whose `getTemplateId()` is the constant 300001 (StaticDoorTemplate.java:55-57) that no gatherable or item template uses, so the decoder can tell a door from the bytes alone |
+| `M5cScenarioTest`'s `staticObject` | Matches C19's oven by template id, static id **and** the oracle's spawn spot (x, y and z exactly; `EconomyTool`); a packet with the template and static id elsewhere is reported (`ADD_FAILURE`) and does not match | It matched the template and static id only, so a static object written at a wrong position passed. The oracle's spot is the f32 of the same XML attribute the server parses (no double rounding for any Sanctum spot, checked) |
+
+Mutation proof (`AION_SQ4_GATHER_MUT`, one build; the two sources restored and sha256-checked, rebuilt, no mutant string left):
+`SM_GATHERABLE_INFO` writing the l10n as `2n+1`, the state 9 for a static object, the static id and template id swapped, or x + 1 each fail
+both byte cases (`StaticObjectGatherableInfoTest.cpp:253` and `:266`); the decoder accepting 9 for a non-door fails
+`VisibilityDecodersTest.GatherableInfo` (:175 and :177); x + 1 in a `gs.scenario.m5c` run fails C19 at the new position check
+(`M5cScenarioTest.cpp:985`, "is at (1850.788, ...), not at its spawn spot (1849.788, ...)") and then at `:2966`.
+
+### `MethodStats.log` follows `--log-folder` (the same small tasks)
+
+Every gate run rewrote `game-server/log/stats/MethodStats.log`: `RunnableStatsManager::dumpClassStats(sortBy)` (commons; the game server's
+`ShutdownHook` calls it at every orderly shutdown, Java ShutdownHook.java:74) hard-coded Java's `./log/stats` and ignored `--log-folder`.
+It now writes `<Logging::getLogFolder()>/stats/MethodStats.log`, the folder of the last `Logging::init`, which is where the appenders' files
+go and where `Logging::archiveLogs` already collects `stats/MethodStats.log`. Production passes no `--log-folder`, so its folder stays the
+default `log` and the file stays Java's `./log/stats/MethodStats.log` (DEVIATIONS.md, "commons / utils"; header request sq4-1 in
+docs/porting/header-requests.md for the new `Logging::getLogFolder()`).
+
+Tests: `RunnableStatsManagerTest.DumpWithoutAFileWritesIntoTheLogFolderOfLogging` (a log folder outside the working directory receives the
+file, the working directory gets no `./log`) and `DumpWithoutAFileUnderTheDefaultLogFolderWritesJavasLogStatsFile` (the default folder
+gives `./log/stats/MethodStats.log`). Mutation proof (`AION_SQ4_STATS_MUT`, schemata in `Logging.cpp` and `RunnableStatsManager.cpp`, one
+build, restored and sha256-checked, rebuilt, no mutant string left): the old hard-coded `./log/stats` fails `:235` and `:236`;
+`getLogFolder()` answering `log` whatever init was given fails `:230`, `:235`, `:236`; the file without its `stats` folder fails `:235` and
+`:256`; an absolute `getLogFolder()` fails `:251` (lines of `RunnableStatsManagerTest.cpp`). `gs.smoke.startup` on the rebuilt server passed and wrote
+`build/msvc/game-server/gs.smoke.startup/Debug/log/stats/MethodStats.log`; `game-server/log/stats/MethodStats.log` kept its time stamp.
