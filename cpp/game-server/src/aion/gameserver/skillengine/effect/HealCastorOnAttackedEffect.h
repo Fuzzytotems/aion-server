@@ -9,6 +9,9 @@ namespace aion::gameserver::skillengine::effect {
 class HealCastorOnAttackedEffect : public ::aion::gameserver::skillengine::effect::EffectTemplate {
 #include "aion/gameserver/skillengine/effect/HealCastorOnAttackedEffect.xml.inc"
 public:
+	friend struct HealCastorOnAttackedEffect_ActionObserver; // C++ only: HealCastorOnAttackedEffect$1 (HealCastorOnAttackedEffect.cpp) reads the
+	                                                       // protected range like Java's inner class
+
 	void applyEffect(model::Effect& effect) const override;
 
 	void startEffect(model::Effect& effect) const override;
