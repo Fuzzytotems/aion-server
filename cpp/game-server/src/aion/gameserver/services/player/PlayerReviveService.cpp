@@ -8,6 +8,8 @@
 #include "aion/gameserver/controllers/effect/PlayerEffectController.h"
 #include "aion/gameserver/instance/handlers/InstanceHandler.h"
 #include "aion/gameserver/model/EmotionType.h"
+#include "aion/gameserver/model/TaskId.h"
+#include "aion/gameserver/model/gameobjects/Kisk.h"
 #include "aion/gameserver/model/gameobjects/VisibleObject.h"
 #include "aion/gameserver/model/gameobjects/player/CustomPlayerState.h"
 #include "aion/gameserver/model/gameobjects/player/Player.h"
@@ -33,6 +35,7 @@
 #include "aion/gameserver/services/vortex/DimensionalVortex.h"
 #include "aion/gameserver/skillengine/model/Effect.h"
 #include "aion/gameserver/utils/PacketSendUtility.h"
+#include "aion/gameserver/utils/ThreadPoolManager.h"
 #include "aion/gameserver/world/World.h"
 #include "aion/gameserver/world/WorldMap.h"
 #include "aion/gameserver/world/WorldMapInstance.h"
@@ -102,12 +105,29 @@ void PlayerReviveService::bindRevive(model::gameobjects::player::Player& player,
 	player.unsetResPosState();
 }
 
+// Java PlayerReviveService.java:135-137
 void PlayerReviveService::kiskRevive(model::gameobjects::player::Player& player) {
-	AION_UNPORTED();
+	kiskRevive(player, 0);
 }
 
+// Java PlayerReviveService.java:139-155
 void PlayerReviveService::kiskRevive(model::gameobjects::player::Player& player, int32_t skillId) {
-	AION_UNPORTED();
+	using model::gameobjects::player::CustomPlayerState;
+	if (player.isInPrison())
+		teleport::TeleportService::teleportToPrison(player);
+	else if (player.isInCustomState(CustomPlayerState::EVENT_MODE))
+		teleport::TeleportService::teleportToEvent(player);
+
+	runtime::Ptr<model::gameobjects::Kisk> kisk = player.getKisk();
+	if (kisk && kisk->isActive()) {
+		kisk->resurrectionUsed();
+		if (skillId > 0)
+			utils::PacketSendUtility::sendPacket(player, network::aion::serverpackets::SM_SYSTEM_MESSAGE::STR_REBIRTH_MASSAGE_ME());
+		revive(player, 30, 30, false, skillId);
+		player.getGameStats()->updateStatsAndSpeedVisually();
+		player.unsetResPosState();
+		teleport::TeleportService::teleportTo(player, *kisk->getPosition());
+	}
 }
 
 // Java PlayerReviveService.java:157-159
@@ -194,8 +214,19 @@ void PlayerReviveService::itemSelfRevive(model::gameobjects::player::Player& pla
 	AION_UNPORTED();
 }
 
+// Java PlayerReviveService.java:250-260. The lambda (fieldmap callback PlayerReviveService@L251:92) captures the player and the skill id; it is
+// pinned to the player until it has run, and stored as the controller's TELEPORT task as Java stores its Future (TeleportService.cpp's
+// deferred spawn task is the same pair)
 void PlayerReviveService::scheduleReviveAtBase(model::gameobjects::player::Player& player, int32_t delayMillis, int32_t skillId) {
-	AION_UNPORTED();
+	player.getController().addTask(model::TaskId::TELEPORT, utils::ThreadPoolManager::getInstance().schedule({&player}, [&player, skillId] {
+		player.getController().getAndRemoveTask(model::TaskId::TELEPORT); // remove manually as it won't get removed automatically
+		if (player.isInInstance())
+			PlayerReviveService::instanceRevive(player, skillId);
+		else if (player.getKisk())
+			PlayerReviveService::kiskRevive(player, skillId);
+		else
+			PlayerReviveService::bindRevive(player, skillId);
+	}, delayMillis));
 }
 
 } // namespace aion::gameserver::services::player
