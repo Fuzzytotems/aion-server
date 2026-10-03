@@ -4,6 +4,7 @@
 #include <cmath>
 #include <limits>
 #include <optional>
+#include <string>
 
 #include "aion/commons/logging/LoggerFactory.h"
 #include "aion/commons/utils/Rnd.h"
@@ -17,6 +18,7 @@
 #include "aion/gameserver/configs/main/CustomConfig.h"
 #include "aion/gameserver/configs/main/GSConfig.h"
 #include "aion/gameserver/configs/main/SecurityConfig.h"
+#include "aion/gameserver/configs/network/NetworkConfig.h"
 #include "aion/gameserver/controllers/CreatureController.h"
 #include "aion/gameserver/controllers/ObserveController.h"
 #include "aion/gameserver/controllers/PlayerController.h"
@@ -863,11 +865,55 @@ bool Skill::isHostile() {
 	return subType == SkillSubType::ATTACK || subType == SkillSubType::DEBUFF;
 }
 
+namespace {
+
+/**
+ * C++ only (NetworkConfig::DIAG_INSTANT_ITEM_REPLY_HOLD_MILLIS): how long the user's own end-of-use reply to this instant item is held, 0 for not at
+ * all. A use that leaves an even count in the stack (none left counts as even) is held and one that leaves an odd count is not, so the uses of
+ * one stack alternate and one play session gives the held arm and its baseline without any state; each is logged at INFO.
+ */
+int64_t instantItemReplyHoldMillis(Player& user, int32_t itemObjectId, int32_t itemId) {
+	const int32_t holdMillis = configs::network::NetworkConfig::DIAG_INSTANT_ITEM_REPLY_HOLD_MILLIS.load();
+	if (holdMillis <= 0)
+		return 0;
+	const Ptr<Item> item = user.getInventory().getItemByObjId(itemObjectId); // the cost is paid before the end of the cast (Skill::endCast)
+	const int64_t left = item ? item->getItemCount() : 0;
+	const bool hold = left % 2 == 0;
+	log.info("Instant item reply diagnostic: " + user.getName() + " used item " + std::to_string(itemId) + " (" + std::to_string(left) +
+		" left), own reply " + (hold ? "held " + std::to_string(holdMillis) + " ms" : "not held (baseline)"));
+	return hold ? holdMillis : 0;
+}
+
+/** Sends the held reply after the delay; the task pins the user and builds both packets from values, so the Skill is not needed then */
+void sendHeldInstantItemReply(Player& user, int32_t targetObjectId, int32_t itemObjectId, int32_t itemId, std::string l10n, int64_t holdMillis) {
+	utils::ThreadPoolManager::getInstance().schedule(runtime::Pin(&user),
+		[&user, targetObjectId, itemObjectId, itemId, l10n = std::move(l10n)] {
+			PacketSendUtility::sendPacket(user, SM_ITEM_USAGE_ANIMATION(user.getObjectId(), targetObjectId, itemObjectId, itemId, 0, 1, 0));
+			PacketSendUtility::sendPacket(user, SM_SYSTEM_MESSAGE::STR_USE_ITEM(l10n));
+		},
+		holdMillis);
+}
+
+} // namespace
+
 bool Skill::sendCastSpellEnd(int32_t dashStatus, const std::vector<runtime::Ref<Effect>>& effects) {
 	bool sentCastSpellPacket = false;
+	Ptr<Player> user = runtime::as<Player>(effector);
+	// C++ only (NetworkConfig::DIAG_INSTANT_ITEM_REPLY_HOLD_MILLIS, default 0 = off): the user's own end-of-use reply to an instant item is held
+	const int64_t holdMillis = user && skillMethod.get() == SkillMethod::ITEM && itemTemplate != nullptr && !itemTemplate->isCombatActivated() &&
+			castDuration.get() == 0
+		? instantItemReplyHoldMillis(*user, itemObjectId.get(), itemTemplate->getTemplateId())
+		: 0;
 	if (itemTemplate != nullptr && !itemTemplate->isCombatActivated()) {
-		PacketSendUtility::broadcastPacketAndReceive(*effector, SM_ITEM_USAGE_ANIMATION(effector->getObjectId(), firstTarget->getObjectId(), itemObjectId.get(),
-			itemTemplate->getTemplateId(), 0, 1, 0));
+		if (holdMillis > 0) {
+			PacketSendUtility::broadcastPacket(*user, SM_ITEM_USAGE_ANIMATION(user->getObjectId(), firstTarget->getObjectId(), itemObjectId.get(),
+				itemTemplate->getTemplateId(), 0, 1, 0), false);
+			sendHeldInstantItemReply(*user, firstTarget->getObjectId(), itemObjectId.get(), itemTemplate->getTemplateId(), getItemTemplate()->getL10n(),
+				holdMillis);
+		} else {
+			PacketSendUtility::broadcastPacketAndReceive(*effector, SM_ITEM_USAGE_ANIMATION(effector->getObjectId(), firstTarget->getObjectId(),
+				itemObjectId.get(), itemTemplate->getTemplateId(), 0, 1, 0));
+		}
 	} else {
 		std::optional<ai::event::AIEventType> et =
 			skillTemplate->getSubType() == SkillSubType::ATTACK ? std::optional(ai::event::AIEventType::CREATURE_NEEDS_HELP) : std::nullopt;
@@ -885,8 +931,8 @@ bool Skill::sendCastSpellEnd(int32_t dashStatus, const std::vector<runtime::Ref<
 				break;
 		}
 	}
-	if (Ptr<Player> player = runtime::as<Player>(effector); skillMethod.get() == SkillMethod::ITEM && player)
-		PacketSendUtility::sendPacket(*player, SM_SYSTEM_MESSAGE::STR_USE_ITEM(getItemTemplate()->getL10n()));
+	if (skillMethod.get() == SkillMethod::ITEM && user && holdMillis == 0)
+		PacketSendUtility::sendPacket(*user, SM_SYSTEM_MESSAGE::STR_USE_ITEM(getItemTemplate()->getL10n()));
 	return sentCastSpellPacket;
 }
 
