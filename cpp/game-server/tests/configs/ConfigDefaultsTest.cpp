@@ -633,6 +633,8 @@ TEST_F(ConfigDefaultsTest, NetworkConfig) {
 		<< "C++-only key gameserver.network.trace.client_packets, off by default (docs/deviations/P4-01.md)";
 	EXPECT_TRUE(network::NetworkConfig::TRACE_SERVER_PACKETS.get()->empty())
 		<< "C++-only key gameserver.network.trace.server_packets, off by default (docs/deviations/P4-01.md)";
+	EXPECT_EQ(network::NetworkConfig::DIAG_INSTANT_ITEM_REPLY_HOLD_MILLIS.load(), 0)
+		<< "C++-only key gameserver.network.diag.instant_item_reply_hold_ms, off by default (docs/deviations/P4-01.md)";
 }
 
 TEST(NetworkConfigTraceKeyTest, TheClientPacketTraceBindsATrimmedSetOfNames) {
