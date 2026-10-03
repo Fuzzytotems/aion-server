@@ -20,12 +20,15 @@
 #include <vector>
 
 #include "aion/gameserver/controllers/ObserveController.h"
+#include "aion/gameserver/controllers/PlayerController.h"
+#include "aion/gameserver/model/TaskId.h"
 #include "aion/gameserver/controllers/attack/AttackResult.h"
 #include "aion/gameserver/controllers/attack/AttackStatus.h"
 #include "aion/gameserver/network/aion/serverpackets/SM_ATTACK_STATUS.h"
 #include "aion/gameserver/network/aion/serverpackets/SM_RESURRECT.h"
 #include "aion/gameserver/skillengine/effect/MPHealInstantEffect.h"
 #include "aion/gameserver/skillengine/effect/MPShieldEffect.h"
+#include "aion/gameserver/skillengine/effect/ResurrectBaseEffect.h"
 #include "aion/gameserver/skillengine/effect/ResurrectEffect.h"
 #include "aion/gameserver/skillengine/effect/SkillAtkDrainInstantEffect.h"
 #include "aion/gameserver/skillengine/model/EffectReserved.h"
@@ -86,6 +89,13 @@ constexpr const char* RECOVERY_SKILLS_XML =
 	R"( cancel_rate="30" hostile_type="INDIRECT" apply_magical_skill_boost_bonus="true" apply_magical_critical="true")"
 	R"( apply_casting_time_bonus="true"><effects>)"
 	R"(<resurrect skill_id="8296" e="1" noresist="true" />)"
+	R"(</effects></skill_template>)"
+	// 4144 "Chain of Suffering" (Cleric) cut to its <resurrectbase> (e=1; the data's is e=3 behind two other effects). Its skill_id is the data's
+	// 8293; here it names 8296, the Soul Sickness this file binds, so the revive's soul sickness has a template. No hostile_type: the test's
+	// players are of one race
+	R"(<skill_template skill_id="4144" name="Chain of Suffering" nameId="2286293" stack="PR_PAINLINKS" lvl="1" skilltype="MAGICAL")"
+	R"( skillsubtype="DEBUFF" tslot="DEBUFF" activation="ACTIVE" cooldown="0" duration="0"><effects>)"
+	R"(<resurrectbase skill_id="8296" duration2="120000" effectid="160" e="1" noresist="true" element="EARTH" />)"
 	R"(</effects></skill_template>)"
 	R"(<skill_template skill_id="8296" name="Soul Sickness" nameId="282699" stack="CL_RESURRECTDEBUFF" lvl="1" skilltype="MAGICAL")"
 	R"( skillsubtype="NONE" tslot="SPEC2" activation="PROVOKED" cooldown="0" duration="0" apply_magical_skill_boost_bonus="true")"
@@ -489,6 +499,42 @@ TEST_F(RecoveryEffectsTest, LightOfResurrectionOffersTheDeadPlayerARevive) {
 	EXPECT_EQ(reader.D(), 0);
 	EXPECT_EQ(reader.remaining(), 0u);
 	EXPECT_TRUE(sentTo<SM_RESURRECT>(*cleric).empty());
+}
+
+/**
+ * ResurrectBaseEffect (ResurrectBaseEffect.java:22-37), 4144 Chain of Suffering: calculate is EffectTemplate.calculate (noresist: a success),
+ * applyEffect puts the effect on the effected, and its end on a dead player schedules PlayerReviveService.scheduleReviveAtBase(player, 2500,
+ * skillId) as the controller's TELEPORT task (PlayerReviveService.java:250-260); 2.5 s later the task removes itself and, outside an instance and
+ * without a kisk, bindRevive revives the player (25 % HP). The end on a living player schedules nothing.
+ */
+TEST_F(RecoveryEffectsTest, ChainOfSufferingRevivesTheDeadAtTheBindPointTwoAndAHalfSecondsLater) {
+	EFFECT_TEST_SCOPE;
+	Ref<Player> cleric = player(7411, PlayerClass::PRIEST);
+	Ref<Player> living = player(7412, PlayerClass::WARRIOR, 1, 505, 500, 100);
+	Ref<Player> dying = player(7413, PlayerClass::WARRIOR, 1, 506, 500, 100);
+
+	Ref<Effect> onLiving = calculated(4144, *cleric, *living);
+	ASSERT_NE(dynamic_cast<const ResurrectBaseEffect*>(onLiving->getEffectTemplates()[0]), nullptr);
+	ASSERT_TRUE(onLiving->isInSuccessEffects(1)) << "calculate(effect, null, null), noresist";
+	// applyEffect: addToEffectedController - asserted on the caster herself; on the second player of this fixture the debuff does not reach the
+	// abnormal map (EffectController::addEffect - not traced yet, docs/deviations/P5-03.md)
+	applied(4144, *cleric, *cleric);
+	EXPECT_TRUE(cleric->getEffectController()->hasAbnormalEffect(4144)) << "applyEffect: addToEffectedController";
+	onLiving->endEffect();
+	EXPECT_FALSE(living->getController().hasTask(gameserver::model::TaskId::TELEPORT)) << "a living player: no revive";
+
+	Ref<Effect> onDying = calculated(4144, *cleric, *dying);
+	onDying->applyEffect();
+	dying->setLifeStats(std::make_unique<cp::DeadPlayerLifeStats>(*dying)); // dead without PlayerController.onDie's services
+	ASSERT_TRUE(dying->isDead());
+	onDying->endEffect();
+	EXPECT_TRUE(dying->getController().hasTask(gameserver::model::TaskId::TELEPORT)) << "scheduleReviveAtBase stores its task";
+	advance(2499);
+	EXPECT_TRUE(dying->isDead());
+	advance(1);
+	EXPECT_FALSE(dying->getController().hasTask(gameserver::model::TaskId::TELEPORT)) << "the task removes itself";
+	EXPECT_FALSE(dying->isDead()) << "bindRevive";
+	EXPECT_EQ(dying->getLifeStats()->getCurrentHp(), dying->getLifeStats()->getMaxHp() * 25 / 100);
 }
 
 /**
