@@ -13,6 +13,7 @@
 
 #include "aion/gameserver/configs/main/CustomConfig.h"
 #include "aion/gameserver/configs/main/GeoDataConfig.h"
+#include "aion/gameserver/configs/main/MembershipConfig.h"
 #include "aion/gameserver/configs/main/PricesConfig.h"
 #include "aion/gameserver/configs/main/WorldConfig.h"
 #include "aion/gameserver/controllers/ObserveController.h"
@@ -416,21 +417,18 @@ TEST_F(ItemSocketAndActionsTest, AStigmaOfAnotherNameCannotReplaceTheEquippedOne
 	EXPECT_EQ(kinah.getItemCount(), 100000);
 	EXPECT_TRUE(sent().empty());
 
-	// a free regular stigma slot counts the sockets first (:57-61), before any kinah is charged (:79): StigmaService.getPossibleStigmaCount
-	// (:274) is still unported (M5c), so the call ends there - the only unported site reached, the kinah untouched and no packet sent. The
-	// prices are Java's defaults (PricesConfig.java:13-25, config/main/prices.properties: 100 each), so a charge would not be 0
+	// a free regular stigma slot counts the sockets first (:57-61), before any kinah is charged (:79): getPossibleStigmaCount (ported with M5e
+	// T-01) answers 0 for the level-1 Looter without the stigma quest 1929 and below membership STIGMA_SLOT_QUEST, which is not above the one
+	// equipped regular stigma - the audited refusal, the kinah untouched and no packet sent. The prices are Java's defaults
+	// (PricesConfig.java:13-25, config/main/prices.properties: 100 each), so a charge would not be 0
 	AtomicConfigScope<int32_t> prices(configs::main::PricesConfig::DEFAULT_PRICES, 100);
 	AtomicConfigScope<int32_t> modifier(configs::main::PricesConfig::DEFAULT_MODIFIER, 100);
 	AtomicConfigScope<int32_t> taxes(configs::main::PricesConfig::DEFAULT_TAXES, 100);
+	// the shipped gameserver.quest.stigma.slot (MembershipConfig.java: 10): this binary loads no config, and 0 would give every membership the slots
+	AtomicConfigScope<int8_t> stigmaSlotQuest(configs::main::MembershipConfig::STIGMA_SLOT_QUEST, 10);
 	runtime::resetUnportedHitsForTests();
-	EXPECT_THROW(StigmaService::notifyEquipAction(player(), flameCage, STIGMA2), runtime::UnportedException);
-	std::vector<runtime::UnportedHit> hits;
-	for (const runtime::UnportedHit& hit : runtime::unportedHits()) {
-		if (hit.hits > 0)
-			hits.push_back(hit);
-	}
-	ASSERT_EQ(hits.size(), 1u);
-	EXPECT_NE(hits[0].function.find("StigmaService::getPossibleStigmaCount"), std::string::npos) << hits[0].function;
+	EXPECT_FALSE(StigmaService::notifyEquipAction(player(), flameCage, STIGMA2)) << "tried to equip stigma, exceeding the socket limit";
+	EXPECT_EQ(runtime::unportedHitCount(), 0u);
 	EXPECT_EQ(kinah.getItemCount(), 100000);
 	EXPECT_TRUE(sent().empty());
 }
