@@ -10,6 +10,8 @@ namespace aion::gameserver::skillengine::effect {
 class CaseHealEffect : public ::aion::gameserver::skillengine::effect::AbstractHealEffect {
 #include "aion/gameserver/skillengine/effect/CaseHealEffect.xml.inc"
 public:
+	friend struct CaseHealEffect_ActionObserver; // C++ only: CaseHealEffect$1 (CaseHealEffect.cpp) calls the private tryHeal like Java's inner class
+
 	using AbstractHealEffect::applyEffect; // C++ name hiding by the declaration below (hub-headers.md §9.1)
 
 	void applyEffect(model::Effect& effect) const override;

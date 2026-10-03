@@ -1,11 +1,11 @@
 #include "aion/gameserver/skillengine/effect/BuffBindEffect.h"
 
-#include "aion/gameserver/runtime/base/Unported.h"
+#include "aion/gameserver/skillengine/model/Effect.h"
 
 namespace aion::gameserver::skillengine::effect {
 
-void BuffBindEffect::calculate(model::Effect& /*effect*/) const {
-	AION_UNPORTED();
+void BuffBindEffect::calculate(model::Effect& effect) const {
+	effect.addSuccessEffect(this);
 }
 
 } // namespace aion::gameserver::skillengine::effect

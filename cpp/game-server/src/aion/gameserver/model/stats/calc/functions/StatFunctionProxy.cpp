@@ -1,5 +1,10 @@
 #include "aion/gameserver/model/stats/calc/functions/StatFunctionProxy.h"
 
+#include <cstdint>
+#include <sstream>
+#include <string>
+
+#include "aion/gameserver/dataholders/loadingutils/EnumTraits.h"
 #include "aion/gameserver/model/stats/calc/StatOwner.h"
 #include "aion/gameserver/model/stats/calc/functions/StatFunction.h"
 #include "aion/gameserver/runtime/base/Exceptions.h"
@@ -50,7 +55,14 @@ bool StatFunctionProxy::hasConditions() {
 }
 
 std::string StatFunctionProxy::toString() {
-	AION_UNPORTED();
+	// Java appends `owner` with Object.toString (ClassName@identityHash; no StatOwner overrides it): the C++ form names the identity the same way
+	std::ostringstream ownerText;
+	if (owner)
+		ownerText << "StatOwner@" << std::hex << reinterpret_cast<std::uintptr_t>(&*owner);
+	else
+		ownerText << "null";
+	return "Proxy [name=" + std::string(xml::enumName(proxiedFunction->getName())) + ", bonus=" + (isBonus() ? "true" : "false") + ", value=" +
+		std::to_string(getValue()) + ", priority=" + std::to_string(getPriority()) + ", owner=" + ownerText.str() + "]";
 }
 
 } // namespace aion::gameserver::model::stats::calc::functions

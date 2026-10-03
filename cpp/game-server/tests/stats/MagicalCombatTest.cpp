@@ -420,13 +420,9 @@ TEST_F(MagicalCombatTest, MagicalResistRateAnswersAThousandForAnAlwaysResistTarg
 	EXPECT_EQ(StatFunctions::calculateMagicalResistRate(*mage.player, *warded, 0, SkillElement::NONE), 36) << "and it is the observer, not the npc";
 
 	// Arm 2 (StatFunctions.java:612-613), `element != SkillElement.NONE && attacked instanceof Summon summon && element ==
-	// summon.getAlwaysResistElement()`, **has no unit coverage in this wave and that is a real gap, not an oversight**. A live `Summon` cannot be
-	// built in a test today: `Summon::postConstruct` installs `SummonLifeStats`, whose constructor reads `getMaxHp()` through
-	// `SummonGameStats::getStatsTemplate`, which is `AION_UNPORTED` (`model/stats/container/SummonGameStats.cpp:37`, P5-01 but not one of stage
-	// 0's four bodies), so `VisibleObject::create<Summon>` throws before the object exists. The case below is what *is* reachable: the arm must
-	// not fire for a creature that is no Summon, whatever element is passed.
-	//
-	// The lane that ports SummonGameStats owns the missing case; it is recorded in docs/deviations/P5-01.md.
+	// summon.getAlwaysResistElement()`: it fires for a live Summon in tests/effects_al/SummonedObjectStatsTest.cpp
+	// (AFireSpiritAlwaysResistsFireMagic, since SummonGameStats was ported). Here: it must not fire for a creature that is no Summon, whatever
+	// element is passed.
 	EXPECT_EQ(StatFunctions::calculateMagicalResistRate(*mage.player, *warded, 0, SkillElement::FIRE), 36)
 		<< "an ordinary npc is not a Summon, so an element changes nothing";
 	EXPECT_EQ(StatFunctions::calculateMagicalResistRate(*mage.player, *warded, 0, SkillElement::WATER), 36);

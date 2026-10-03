@@ -1,7 +1,12 @@
 #include "aion/gameserver/model/stats/calc/Stat2.h"
 
-#include "aion/gameserver/runtime/base/Unported.h"
+#include <string>
+
+#include "aion/gameserver/dataholders/loadingutils/EnumTraits.h"
+#include "aion/gameserver/geoEngine/math/JavaFloat.h"
+#include "aion/gameserver/model/stats/container/StatEnum.h"
 #include "aion/gameserver/model/templates/detail/JavaCasts.h"
+#include "aion/gameserver/runtime/base/Unported.h"
 
 namespace aion::gameserver::model::stats::calc {
 
@@ -39,7 +44,8 @@ float Stat2::getExactCurrentWithoutFixedBonus() {
 }
 
 std::string Stat2::toString() const {
-	AION_UNPORTED();
+	return "[" + std::string(xml::enumName(stat)) + " base=" + geoEngine::math::JavaFloat::toString(base) + ", bonus=" +
+		geoEngine::math::JavaFloat::toString(bonus) + "]";
 }
 
 } // namespace aion::gameserver::model::stats::calc

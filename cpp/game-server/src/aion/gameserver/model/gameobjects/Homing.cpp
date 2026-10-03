@@ -6,6 +6,8 @@
 #include "aion/gameserver/controllers/NpcController.h"
 #include "aion/gameserver/controllers/effect/EffectController.h"
 #include "aion/gameserver/model/gameobjects/NpcObjectType.h"
+#include "aion/gameserver/model/stats/container/HomingGameStats.h"
+#include "aion/gameserver/model/stats/container/NpcLifeStats.h"
 #include "aion/gameserver/model/templates/item/ItemAttackType.h"
 #include "aion/gameserver/model/templates/spawns/SpawnTemplate.h"
 #include "aion/gameserver/runtime/base/Unported.h"
@@ -25,9 +27,8 @@ Homing::Homing(CreateKey key, std::unique_ptr<controllers::NpcController> contro
 Homing::~Homing() = default;
 
 void Homing::setupStatContainers() {
-	// Java: setGameStats(new HomingGameStats(this)); setLifeStats(new NpcLifeStats(this)): stats/container/HomingGameStats.h has no declaration
-	// header yet (P5-01)
-	AION_UNPORTED();
+	setGameStats(std::make_unique<stats::container::HomingGameStats>(*this));
+	setLifeStats(std::make_unique<stats::container::NpcLifeStats>(*this));
 }
 
 NpcObjectType Homing::getNpcObjectType() {
