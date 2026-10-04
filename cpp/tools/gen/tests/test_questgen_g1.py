@@ -1,7 +1,9 @@
 """questgen's G1-lane rules (docs/design/phase6-transliterator.md §2; emit.G1_RULES and API rows B31-B38): the closure parser of jast (opt in,
 so tools/oracle's extractor keeps its refusals), the scheduled-closure rule on the real handlers it exists for and on synthetic ones (the
 captures lint L5 accepts, the refusals), the rows B32-B38 and the configuration flag rule on their real files, the driver's default rule set,
-and the whole corpus (the rules only add files, every transliterated file at parity). Nothing is compiled.
+the whole corpus (the rules only add files, every transliterated file at parity), compilecheck's diagnostics parser, and, where MSVC and
+the vcpkg headers are found, compilecheck itself on two emitted files (cl with a Q chunk's flags and the prelude PCH, about 10 s;
+AION_QUESTGEN_COMPILE_CHECK=0 skips it).
 
 Run from cpp/tools/gen: python -m unittest tests.test_questgen_g1
 """
@@ -20,7 +22,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2] / 'parity'))
 sys.dont_write_bytecode = True
 
 import parity  # noqa: E402  (tools/parity)
-from questgen import cli, emit, jast, paths  # noqa: E402
+from questgen import cli, compilecheck, emit, jast, paths  # noqa: E402
 from tests.test_questgen_p6t import Synthetic, parse_body, source, transliterator  # noqa: E402
 
 QUEST = paths.JAVA_QUEST_DIR
@@ -331,6 +333,45 @@ class Corpus(unittest.TestCase):
             for c, d in self.all[rel].reasons:
                 if c in ('lambda', 'anonymous-class'):
                     self.assertIn('a closure outside ThreadPoolManager.getInstance().schedule', d, rel)
+
+
+class CompileCheckParser(unittest.TestCase):
+    def test_diagnostics(self):
+        out = ('_1361FindingDrinkingWater.cpp\n'
+               r'C:\s\src\aion\x\_1.cpp(70,12): error C2039: ' + "'getStatusX': is not a member of 'QuestState'\n"
+               r'C:\s\src\aion\x\_1.cpp(71): warning C4189: ' + "'x': local variable is initialized but not referenced\n"
+               r'D:\h\Ref.h(10): fatal error C1083: Cannot open include file' + "\n")
+        d = compilecheck.parse_diagnostics(out)
+        self.assertEqual([(x['kind'], x['code'], x['line']) for x in d], [('error', 'C2039', 70), ('warning', 'C4189', 71),
+                                                                           ('fatal error', 'C1083', 10)])
+        self.assertEqual(compilecheck.first_error_class({'errors': d[:1]}), "C2039: '…': is not a member of '…'")
+        self.assertEqual(compilecheck.first_error_class({'errors': []}), 'no diagnostic (exit code)')
+
+    def test_the_stage_must_lie_outside_the_repository(self):
+        with self.assertRaises(SystemExit), contextlib.redirect_stderr(io.StringIO()) as err:
+            compilecheck.main(['--stage', str(paths.CPP_ROOT / 'build' / 'qg-stage'), '--only', '_1361FindingDrinkingWater'])
+        self.assertIn('inside the repository', err.getvalue())
+        self.assertFalse((paths.CPP_ROOT / 'build' / 'qg-stage').exists())
+
+
+def have_msvc():
+    try:
+        compilecheck.find_vcvars()
+        compilecheck.vcpkg_include()
+        return True
+    except SystemExit:
+        return False
+
+
+@unittest.skipUnless(HAVE_JAVA and have_msvc() and os.environ.get('AION_QUESTGEN_COMPILE_CHECK') != '0',
+                     'needs MSVC (vcvars64.bat) and vcpkg headers; AION_QUESTGEN_COMPILE_CHECK=0 turns it off')
+class CompileCheck(unittest.TestCase):
+    def test_a_closure_file_and_a_config_file_compile_clean(self):
+        with tempfile.TemporaryDirectory(prefix='qgcc') as stage, contextlib.redirect_stdout(io.StringIO()) as out:
+            rc = compilecheck.main(['--stage', stage, '--jobs', '2', '--only', 'eltnen/_1361FindingDrinkingWater.java',
+                                    'ascension/_1007ACeremonyinSanctum.java'])
+        self.assertEqual(rc, 0, out.getvalue())
+        self.assertIn('clean 2, warnings 0, errors 0', out.getvalue())
 
 
 if __name__ == '__main__':
