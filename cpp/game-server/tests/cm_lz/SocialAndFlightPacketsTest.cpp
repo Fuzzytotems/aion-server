@@ -308,9 +308,10 @@ TEST_F(SocialAndFlightPacketsTest, AnUnknownWindstreamStateIsLogged) {
 
 /**
  * The owner's bug report of 2026-10-03: glide, click a spot on the ground, land - and the flight time kept burning while the character walked
- * on. Java ends a glide only on a FALL or an IMMEDIATE (arrived) packet; the walk to the clicked spot is POSITION|MANUAL|ABSOLUTE (0xE0) packets
- * without GLIDE. The correction: a new move command without the GLIDE flag ends the glide. A glide packet keeps it, and so does a packet that is
- * no new move command (the continuation of a move, 0x20).
+ * on. Java ends a glide only on a FALL or an IMMEDIATE (arrived) packet. The packet types are the owner's traced session (10:31:46-10:31:50,
+ * Fuzzytotem): in the air a click is 228 (POSITION|MANUAL|ABSOLUTE|GLIDE) and its continuation 164 (POSITION|ABSOLUTE|GLIDE); after landing
+ * the walk on to the clicked spot is 160 (POSITION|ABSOLUTE) - no MANUAL, no GLIDE. The correction: a position packet without the GLIDE flag
+ * ends the glide; a glide packet keeps it.
  */
 TEST_F(SocialAndFlightPacketsTest, ALandedGliderWhoWalksOnToAClickedSpotStopsGliding) {
 	LogCapture log({"com.aionemu.gameserver.network.aion.clientpackets.CM_MOVE"});
@@ -325,17 +326,26 @@ TEST_F(SocialAndFlightPacketsTest, ALandedGliderWhoWalksOnToAClickedSpotStopsGli
 			body.C(0);
 		run<CM_MOVE>(CM_MOVE_OPCODE, body.data);
 	};
+	auto glide = [&] {
+		move(0xC4); // POSITION|MANUAL|GLIDE: switchToGliding
+		ASSERT_TRUE(player().isInGlidingState());
+		move(0x84); // the traced in-air packets
+		move(0xE4);
+		move(0xA4);
+		EXPECT_TRUE(player().isInGlidingState()) << "every glide packet keeps the glide";
+	};
 
-	move(0xE4); // POSITION|MANUAL|ABSOLUTE|GLIDE: switchToGliding
-	ASSERT_TRUE(player().isInGlidingState());
-	move(0x24); // a glide continuation
-	move(0x20); // a move continuation without GLIDE: no new move command, the glide goes on
-	EXPECT_TRUE(player().isInGlidingState());
+	glide();
 	EXPECT_EQ(log.count("ended by a move without the glide flag"), 0) << log.dump();
-
-	move(0xE0); // landed, walking on to the clicked spot: POSITION|MANUAL|ABSOLUTE without GLIDE or FALL
+	move(0xA0); // landed, the click-to-move walking on: POSITION|ABSOLUTE without GLIDE (the traced 160)
 	EXPECT_FALSE(player().isInGlidingState()) << "FlyController.onStopGliding: the flight time is restored, not burnt";
-	EXPECT_EQ(log.count("ended by a move without the glide flag (type=224)"), 1) << log.dump();
+	EXPECT_EQ(log.count("ended by a move without the glide flag (type=160)"), 1) << log.dump();
+
+	player().setFlyReuseTime(0); // FlyController.switchToGliding from walking: the fly reuse time of the first glide
+	glide();
+	move(0xC0); // landed and moved on with the keys (the traced 192)
+	EXPECT_FALSE(player().isInGlidingState());
+	EXPECT_EQ(log.count("ended by a move without the glide flag (type=192)"), 1) << log.dump();
 }
 
 } // namespace
