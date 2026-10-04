@@ -551,10 +551,8 @@ aion_gs_chunk(Q09 TARGET aion_gs_handlers_quest_q09 PHASE 6 ROOT handlers
 	JAVA "data/handlers/quest/{morheim,ishalgen,pernon}/**"
 	PCH "aion/gameserver/handlers/quest/QuestPrelude.h"
 	TESTS quest_handlers_zones)
-# The route-hand lane (phase 6, 2026-09-29): Q09 leases services/teleport/TeleportService.cpp from P5-08 for the body of teleportToNpc
-# (TeleportService.java:304-333), which quest 2007's last step calls. Released when the lane merges.
-aion_gs_chunk(Q09 LEASE PHASE 6
-	GLOBS "aion/gameserver/services/teleport/TeleportService.cpp")
+# The route-hand lane's Q09 lease of services/teleport/TeleportService.cpp (teleportToNpc, 2026-09-29) was released when M5f stage 1's
+# lane 2 took the file back for the rest of TeleportService (m5f-plan.md §16.4, T-02): teleportToNpc had landed.
 # Q10's tests (P6-Q slice 2, 2026-09-29): tests/quest_handlers_asmodae, the unit cases of the five hand-ported altgard and pandaemonium quests
 # (2208, 2230, 2252, 24013, 2900) and of the generated path that kills its target (24012; 2223 is held back), on the fixture of
 # tests/quest_handlers (included by relative path, as Q05's golden harness does); the executable is aion_gs_handlers_quest_q10_tests. The
