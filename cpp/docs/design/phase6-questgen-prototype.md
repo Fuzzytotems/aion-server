@@ -35,6 +35,11 @@
 > (`cl /Zs /W4` with a Q chunk's flags: no error, no warning). **None is landed**: their followers' AI "following" (FollowingNpcAI) has no
 > C++ file, as for B03's 14. Tests: [`tools/gen/tests/test_questgen_escorts.py`](../../tools/gen/tests/test_questgen_escorts.py).
 >
+> **G1 lane, 2026-10-04:** the production status is [phase6-transliterator.md](phase6-transliterator.md): rule `scheduled-closure` and rows
+> B31-B38 (972 of 1,035, tier A 708, tier B 264; the 935 files above byte-identical), the compile check this document could not run (all 972
+> compile with no error and no warning; `tools/gen/questgen/compilecheck.py`), and golden traces of 620 more generated handlers in a scratch
+> build of the harness.
+>
 > Code: [`tools/gen/questgen/`](../../tools/gen/questgen/__init__.py) (package), tests
 > [`tools/gen/tests/test_questgen.py`](../../tools/gen/tests/test_questgen.py) (40 tests, stdlib `unittest`, no compiler).
 > Java files are cited relative to `game-server/data/handlers/quest/` or `game-server/src/com/aionemu/gameserver/`; C++ files relative to
