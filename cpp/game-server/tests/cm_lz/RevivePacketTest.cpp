@@ -173,7 +173,9 @@ TEST_F(ReviveRunTest, EveryOtherArmReachesItsOwnService) {
 	die();
 	EXPECT_NE(unportedArm(1).find("rebirthRevive"), std::string::npos) << unportedArm(1);
 	EXPECT_NE(unportedArm(2).find("itemSelfRevive"), std::string::npos) << unportedArm(2);
-	EXPECT_NE(unportedArm(3).find("skillRevive"), std::string::npos) << unportedArm(3);
+	// SKILL_REVIVE reaches skillRevive, ported (P5-08, C-02): without a resurrection offer it audits and returns (PlayerReviveService.java:42-46)
+	EXPECT_EQ(unportedArm(3), "<did not throw>");
+	EXPECT_TRUE(actor.player->isDead());
 	// KISK_REVIVE reaches kiskRevive, ported (P5-08): without a bound kisk it does nothing (PlayerReviveService.java:139-155)
 	EXPECT_EQ(unportedArm(4), "<did not throw>");
 	EXPECT_TRUE(actor.player->isDead());

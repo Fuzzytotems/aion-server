@@ -34,6 +34,7 @@
 #include "aion/gameserver/model/gameobjects/PetEmoteInfo.h"
 #include "aion/gameserver/model/gameobjects/PetSpecialFunctionInfo.h"
 #include "aion/gameserver/model/gameobjects/detail/ObjectsData.h"
+#include "aion/gameserver/model/summons/UnsummonTypeInfo.h"
 #include "aion/gameserver/model/gameobjects/findGroup/GroupRecruitment.h"
 #include "aion/gameserver/model/gameobjects/state/CreatureSeeStateInfo.h"
 #include "aion/gameserver/model/gameobjects/state/CreatureStateInfo.h"
@@ -478,12 +479,17 @@ TEST_F(GameObjectsModelTest, AssembledNpcKeepsItsPartsInOrder) {
 TEST_F(GameObjectsModelTest, ChunkPrivateDataMatchesTheJavaTables) {
 	TEST_SCOPE;
 	using summons::UnsummonType;
-	// UnsummonType: COMMAND(3000, true) and SKILL_ORDER(3000, false) are delayed, every other constant has delayMillis 0
+	// UnsummonType (now its companion UnsummonTypeInfo.h): COMMAND(3000, true) and SKILL_ORDER(3000, false) are delayed, every other
+	// constant is (0, false)
 	for (UnsummonType type : {UnsummonType::LOGOUT, UnsummonType::DISTANCE, UnsummonType::SUMMON_DEATH, UnsummonType::MASTER_DEATH,
-			 UnsummonType::UNSPECIFIED, UnsummonType::PET_ORDER_UNSUMMON_EFFECT})
-		EXPECT_TRUE(detail::isInstant(type)) << static_cast<int>(type);
-	EXPECT_FALSE(detail::isInstant(UnsummonType::COMMAND));
-	EXPECT_FALSE(detail::isInstant(UnsummonType::SKILL_ORDER));
+			 UnsummonType::UNSPECIFIED, UnsummonType::PET_ORDER_UNSUMMON_EFFECT}) {
+		EXPECT_TRUE(summons::isInstant(type)) << static_cast<int>(type);
+		EXPECT_FALSE(summons::isCancelableByMaster(type)) << static_cast<int>(type);
+	}
+	EXPECT_EQ(summons::getDelayMillis(UnsummonType::COMMAND), 3000);
+	EXPECT_TRUE(summons::isCancelableByMaster(UnsummonType::COMMAND));
+	EXPECT_EQ(summons::getDelayMillis(UnsummonType::SKILL_ORDER), 3000);
+	EXPECT_FALSE(summons::isCancelableByMaster(UnsummonType::SKILL_ORDER));
 
 	// StaticDoorState: NONE(0), OPENED(1 << 0), CLICKABLE(1 << 1), CLOSEABLE(1 << 2), ONEWAY(1 << 3); setStates skips NONE
 	using templates::staticdoor::StaticDoorState;
