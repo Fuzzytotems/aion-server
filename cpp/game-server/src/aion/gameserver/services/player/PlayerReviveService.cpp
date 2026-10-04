@@ -3,6 +3,7 @@
 #include <optional>
 #include <unordered_map>
 
+#include "aion/gameserver/controllers/FlyController.h"
 #include "aion/gameserver/controllers/PlayerController.h"
 #include "aion/gameserver/controllers/attack/AggroList.h"
 #include "aion/gameserver/controllers/effect/PlayerEffectController.h"
@@ -36,6 +37,7 @@
 #include "aion/gameserver/skillengine/model/Effect.h"
 #include "aion/gameserver/utils/PacketSendUtility.h"
 #include "aion/gameserver/utils/ThreadPoolManager.h"
+#include "aion/gameserver/utils/audit/AuditLogger.h"
 #include "aion/gameserver/world/World.h"
 #include "aion/gameserver/world/WorldMap.h"
 #include "aion/gameserver/world/WorldMapInstance.h"
@@ -55,8 +57,28 @@ void PlayerReviveService::duelRevive(model::gameobjects::player::Player& player)
 	AION_UNPORTED();
 }
 
+// Java PlayerReviveService.java:42-62
 void PlayerReviveService::skillRevive(model::gameobjects::player::Player& player) {
-	AION_UNPORTED();
+	if (!player.getResStatus()) {
+		utils::audit::AuditLogger::log(player, "possibly tried to use a selfres hack (accepted missing res by another player)");
+		return;
+	}
+	revive(player, 35, 35, true, player.getResurrectionSkill());
+	utils::PacketSendUtility::sendPacket(player, network::aion::serverpackets::SM_SYSTEM_MESSAGE::STR_REBIRTH_MASSAGE_ME());
+	// if player was flying before res, start flying
+	if (player.getIsFlyingBeforeDeath()) {
+		player.getFlyController().startFly(true, true);
+	} else {
+		player.getGameStats()->updateStatsAndSpeedVisually();
+	}
+
+	if (player.isInPrison())
+		teleport::TeleportService::teleportToPrison(player);
+	else if (player.isInResPostState())
+		teleport::TeleportService::teleportTo(player, player.getWorldId(), player.getInstanceId(), player.getResPosX(), player.getResPosY(),
+			player.getResPosZ());
+	player.unsetResPosState();
+	player.setIsFlyingBeforeDeath(false);
 }
 
 void PlayerReviveService::rebirthRevive(model::gameobjects::player::Player& player) {
