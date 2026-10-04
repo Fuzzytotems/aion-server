@@ -452,6 +452,30 @@ std::vector<uint8_t> GameSession::buildCM_RECIPE_DELETE(int32_t recipeId) {
 	return PacketWriter().D(recipeId).data; // CM_RECIPE_DELETE.java:22
 }
 
+std::vector<uint8_t> GameSession::buildCM_MOVE_GLIDE(float x, float y, float z, int8_t heading, int8_t extraType, uint8_t glideFlag) {
+	// MovementMask POSITION 0x80, MANUAL 0x40, VEHICLE 0x10 (MovementMask.java:26-41): the POSITION|MANUAL pair would add a target point,
+	// VEHICLE five more fields (CM_MOVE.java:48-73); GlideFlag.GEYSER 0x80 (GlideFlag.java:12) adds readUC geyserLocationId (:64-65)
+	constexpr uint8_t POSITION_MANUAL = 0xC0, VEHICLE = 0x10;
+	const uint8_t type = static_cast<uint8_t>(MOVE_GLIDE | extraType);
+	if ((type & POSITION_MANUAL) == POSITION_MANUAL || (type & VEHICLE) != 0)
+		throw std::invalid_argument("buildCM_MOVE_GLIDE: type " + std::to_string(type) + " reads more fields than this builder writes");
+	if (glideFlag == 0x80)
+		throw std::invalid_argument("buildCM_MOVE_GLIDE: GlideFlag.GEYSER reads a windstream location id");
+	return PacketWriter().F(x).F(y).F(z).C(heading).C(type).C(glideFlag).data; // CM_MOVE.java:41-46, 63
+}
+
+std::vector<uint8_t> GameSession::buildCM_TOGGLE_SKILL_DEACTIVATE(uint16_t skillId) {
+	return PacketWriter().H(skillId).H(0).H(0).data; // CM_TOGGLE_SKILL_DEACTIVATE.java:25-27
+}
+
+std::vector<uint8_t> GameSession::buildCM_USE_CHARGE_SKILL() {
+	return {}; // CM_USE_CHARGE_SKILL.java:20-21: readImpl reads nothing
+}
+
+std::vector<uint8_t> GameSession::buildCM_SUMMON_COMMAND(uint8_t mode, int32_t targetObjectId) {
+	return PacketWriter().C(mode).D(0).D(0).D(targetObjectId).data; // CM_SUMMON_COMMAND.java:27-30
+}
+
 GameSession::CastOutcome GameSession::castAndWait(int32_t casterObjectId, const CastRequest& request, std::chrono::milliseconds timeout,
 	const std::optional<CastInterruption>& interruption) {
 	CastOutcome outcome;
