@@ -1,7 +1,7 @@
 """The generated quest handlers committed to the handler tree (P6-Q ascension route, 2026-09-29, lane route-gen).
 
 Every .cpp below cpp/game-server/handlers/aion/gameserver/handlers/quest that carries questgen's banner (emit.banner) is regenerated from the
-Java file its banner names, with the driver's rules (emit.P6T_RULES), and must equal the committed file byte for byte: a hand edit, a stale
+Java file its banner names, with the driver's rules (emit.ALL_RULES), and must equal the committed file byte for byte: a hand edit, a stale
 file after a generator change or a file emitted with other rules shows up here. The route's files are pinned by name, so a file that loses
 its banner or goes missing fails too. Nothing is compiled; the C++ side is game-server/tests/quest_handlers_golden.
 """
@@ -94,7 +94,7 @@ class CommittedTree(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.files = generated_files()
-        cls.tr = emit.Transliterator(rules=emit.P6T_RULES)
+        cls.tr = emit.Transliterator(rules=emit.ALL_RULES)
 
     def test_the_route_files_are_committed_with_the_banner(self):
         found = {(f.parent.name, f.stem) for f, _ in self.files}

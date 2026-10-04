@@ -215,7 +215,7 @@ class TheSixEscorts(unittest.TestCase):
 
     def test_the_report_counts_the_rows_files(self):
         _results, rep = cli.run([QUEST / rel for rel in SIX], pairs=False)
-        used = {rid: v['files'] for rid, v in rep['apiRowsUsed'].items() if rid >= 'B26'}
+        used = {rid: v['files'] for rid, v in rep['apiRowsUsed'].items() if 'B26' <= rid <= 'B30'}
         self.assertEqual(used, {'B26': 6, 'B27': 6, 'B28': 6, 'B29': 4, 'B30': 1})
 
     def test_they_are_not_in_the_handler_tree(self):

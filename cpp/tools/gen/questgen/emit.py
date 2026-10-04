@@ -28,6 +28,13 @@ The P6-T rules (P6T_RULES; phase6-questgen-prototype.md §5.2 items 3-4 and §8.
 emits `return switch`, `T x = switch` and `x = switch` as a C++ switch with returns or assignments, and a switch statement with rule arms
 (`case A -> ...`) without fall-through; 'nested-array' makes `int[][]` and `String[]` constants nested std::arrays. A bare
 Transliterator() keeps the prototype's output (rev 2), which tools/gen/tests/test_questgen.py pins.
+
+The G1 lane's rule (G1_RULES, docs/design/phase6-transliterator.md §2; on in the driver beside the P6-T rules, ALL_RULES):
+'scheduled-closure' parses closures (jast closures=True) and emits a lambda or an anonymous Runnable passed to
+ThreadPoolManager.getInstance().schedule(task, delay) as the pinned schedule form of utils/ThreadPoolManager.h (scheduled_closure); any
+other closure refuses the file as the parser did ('lambda', 'anonymous-class'), recorded when its method is parsed (misplaced_closures).
+Configuration flags (`CustomConfig.X`, row B36) are read through the C++ class's static std::atomic of the same name (config_flag); that is
+vocabulary, not a rule, like the other API rows.
 """
 from __future__ import annotations
 
@@ -112,6 +119,11 @@ JAVA_BUG_MARK = '// java-bug kept (U3, phase6-inventory.md §11): '
 
 # the P6-T emitter rules (see the module docstring); the driver turns all of them on
 P6T_RULES = frozenset(('varargs-inline', 'work-items', 'switch-expression', 'nested-array'))
+# the G1 lane's rules (phase6-transliterator.md §2): 'scheduled-closure' emits a lambda or an anonymous Runnable passed to
+# ThreadPoolManager.getInstance().schedule(task, delay) as a pinned C++ lambda; the driver turns them on beside P6T_RULES
+G1_RULES = frozenset(('scheduled-closure',))
+ALL_RULES = P6T_RULES | G1_RULES
+THREAD_POOL_HEADER = 'aion/gameserver/utils/ThreadPoolManager.h'
 # the text an inlined varargs array stands for until the call it is passed to consumes it; left in a method, it refuses the file
 INLINE_MARK = '\x00INLINE\x00'
 
@@ -199,9 +211,9 @@ class Transliterator:
     """transliterate(path) -> FileResult; one instance serves every file (the Api is loaded once)"""
 
     def __init__(self, api=None, quest_dir=None, rules=frozenset()):
-        unknown = set(rules) - P6T_RULES
+        unknown = set(rules) - ALL_RULES
         if unknown:
-            raise ValueError(f'unknown emitter rules {sorted(unknown)}; known: {sorted(P6T_RULES)}')
+            raise ValueError(f'unknown emitter rules {sorted(unknown)}; known: {sorted(ALL_RULES)}')
         self.rules = frozenset(rules)
         self.api = api or apimod.Api()
         self.ix = self.api.index
@@ -232,7 +244,8 @@ class Transliterator:
             self.r.reasons.append(('java-syntax', str(e)))
             return self.r
         self.cu = cu
-        self.p = jast.Parser(cu, switch_expressions='switch-expression' in self.rules)
+        self.p = jast.Parser(cu, switch_expressions='switch-expression' in self.rules, closures='scheduled-closure' in self.rules)
+        self.cur_depth = 1
         self.src = cu.tokens.source
         self.r.lines = self.src.count('\n') + (0 if self.src.endswith('\n') else 1)
         self.r.package = cu.package or ''
@@ -609,6 +622,7 @@ class Transliterator:
         body_open = m.body.start
         stmts = self.parse_block(m.body.start)
         self.method_stmts = stmts
+        self.misplaced_closures(stmts)
         lines = [head + ' {' + self.trailing(body_open)]
         lines += self.stmts(stmts, 1)
         lines += self.leading(self.cu.tokens.match[body_open], 1)
@@ -672,6 +686,7 @@ class Transliterator:
 
     def stmt(self, s, depth, top=False):
         ind = '\t' * depth
+        self.cur_depth = depth
         tr = self.trailing(s.last)
         if isinstance(s, jast.If):
             return self.if_(s, depth, ind, hoist=top)
@@ -1212,6 +1227,8 @@ class Transliterator:
             return self.assign(x)
         if isinstance(x, jast.SwitchExpr):
             self.fail('switch-expression', 'a switch expression inside a larger expression', x.tok)
+        if isinstance(x, jast.Closure):
+            raise Cascade()         # misplaced_closures() recorded it when the method was parsed
         if isinstance(x, jast.InstanceOf):
             if x.binding:
                 if getattr(x, 'hoisted', False):
@@ -1292,11 +1309,29 @@ class Transliterator:
                 return E(f'{self.api.cpp_name(cls)}::{x.name}', CT('enum', cls))
             if (cls + '.' + x.name) in apimod.NESTED:
                 return E(apimod.NESTED[cls + '.' + x.name], CT('class', apimod.NESTED[cls + '.' + x.name]))
+            if cls in apimod.CONFIG_HEADERS:
+                return self.config_flag(cls, x)
             self.fail('api-missing', f'{cls}.{x.name}', x.tok)
         if t.ct.kind == 'array' and x.name == 'length':
             self.r.idioms['array length'] += 1
             return E(f'static_cast<int32_t>({self.postfix(t)}.size())', INT)
         self.fail('field-access', f'{t.ct}.{x.name}', x.tok)
+
+    def config_flag(self, cls, x):
+        """row B36: a Java configuration field (`CustomConfig.ENABLE_SIMPLE_2NDCLASS`) is the C++ class's public static std::atomic<T> of
+        the same name (configs/main/<Class>.h), read through its implicit conversion as the hand ports do (`if
+        (CustomConfig::ENABLE_SIMPLE_2NDCLASS)`). Only bool and integral flags; a write is refused (it is not an lvalue here)"""
+        header = apimod.CONFIG_HEADERS[cls]
+        text = self.api.index.read(header) or ''
+        m = re.search(r'static\s+inline\s+std::atomic<(bool|int32_t|int64_t)>\s+' + re.escape(x.name) + r'\s*\{', text)
+        if m is None:
+            self.fail('api-missing', f'{cls}.{x.name}', x.tok)
+        self.includes_for_header(header)
+        row = self.api.row_of[(cls, '*')]
+        self.record_api(cls, x.name, row)
+        self.r.api_status.setdefault(f'{cls}.{x.name}', set()).add('ported')
+        self.r.idioms['configuration flag read through its std::atomic'] += 1
+        return E(f'{self.api.cpp_name(cls)}::{x.name}', CT('prim', m.group(1)))
 
     # -- calls ------------------------------------------------------------------------------------------------------------------------
     def call(self, x):
@@ -1322,6 +1357,8 @@ class Transliterator:
             return self.member_call('AbstractQuestHandler', None, x, cname, implicit=True, qualifier='AbstractQuestHandler::')
         if 'work-items' in self.rules and isinstance(tgt, jast.Name) and tgt.name == 'workItems' and self.lookup_var('workItems') is None:
             return self.work_items(x)
+        if 'scheduled-closure' in self.rules and self.is_schedule_call(x) and self.lookup_var('ThreadPoolManager') is None:
+            return self.scheduled_closure(x)
         t = self.expr(tgt)
         if t.ct.kind == 'class':
             return self.static_call(t.ct.name, x, cname)
@@ -1381,6 +1418,141 @@ class Transliterator:
         self.need('QuestItems')
         self.r.idioms['workItems through its Rc<ArrayList> (get, size)'] += 1
         return e
+
+    def scheduled_closure(self, x):
+        """rule scheduled-closure (phase6-transliterator.md §2.2): `ThreadPoolManager.getInstance().schedule(task, delay)` where task is
+        a lambda without parameters or an anonymous Runnable (run() only) becomes the pinned form of utils/ThreadPoolManager.h,
+        `ThreadPoolManager::getInstance().schedule({this, &env}, [this, &env, player = runtime::Ref<Player>(player), id] {...}, delay)`.
+        Java captures effectively final locals by value (a reference for an object); C++ captures them so that lint L5 accepts the task:
+        a primitive, enum, Integer or std::array by copy; a Ptr<T> local (a borrow that ends with the task scope) as a Ref<T> init-capture,
+        which keeps the object alive as Java's reference does (a null one throws NullPointerException on use, as in Java); a T& (the hook's
+        QuestEnv& env, Item& item, a part accessor local) by reference, pinned. `this` (the handler, an Immortal) is always pinned, and
+        captured when the body reaches a member or a helper. Refused: a String, raw pointer or value capture, a closure with parameters, an
+        anonymous class other than Runnable.run, `this` inside an anonymous class (Java's this is the Runnable), more than four pinned
+        references (Pin::MAX_OWNERS), the Future used as a value."""
+        clo, delay = x.args
+        line = self.cu.tokens.loc(clo.tok)[0]
+        if clo.params:
+            self.fail(clo.kind, f'line {line}: a scheduled closure with parameters', clo.tok)
+        if clo.kind == 'anonymous-class' and (clo.iface != 'Runnable' or clo.method != 'run'):
+            self.fail('anonymous-class', f'line {line}: new {clo.iface}() {{ {clo.method}() }} is not a Runnable', clo.tok)
+        body = clo.body if clo.body is not None else [jast.ExprStmt(clo.expr.tok, clo.last, clo.expr)]
+        inner = set()
+        for st in self.walk_stmts(body):
+            if isinstance(st, jast.Local):
+                inner.update(n for n, *_ in st.decls)
+            elif isinstance(st, jast.ForEach):
+                inner.add(st.name)
+        names = []
+        needs_this = False
+        for e in jast.walk_exprs(body):
+            if isinstance(e, jast.InstanceOf) and e.binding:
+                inner.add(e.binding)
+            if isinstance(e, jast.Call) and (e.target is None or (isinstance(e.target, jast.Name) and e.target.name in ('this', 'super'))):
+                needs_this = True
+            if isinstance(e, jast.Name):
+                if e.name in ('this', 'super'):
+                    if clo.kind == 'anonymous-class':
+                        self.fail('anonymous-class', f'line {line}: `{e.name}` inside an anonymous class is the Runnable', e.tok)
+                    needs_this = True
+                elif e.name not in inner and e.name not in names:
+                    names.append(e.name)
+        caps, pins, scope = [], ['this'], {}
+        for n in names:
+            v = self.lookup_var(n)
+            if v is None:
+                continue
+            if v.kind == 'member':
+                needs_this = True
+                continue
+            if v.kind not in ('local', 'param'):
+                if v.kind == 'inline':
+                    self.fail('closure-capture', f'line {line}: the varargs array {n} captured by a closure', clo.tok)
+                continue
+            if v.ct.kind == 'unknown':
+                raise Cascade()
+            v.used = True
+            ct = v.ct
+            if ct.kind in ('prim', 'enum', 'optional', 'array'):
+                caps.append(v.cpp)
+                scope[n] = Var(n, v.cpp, ct, 'local', True)
+            elif ct.kind == 'obj' and ct.ref == 'ptr':
+                cls = self.api.cpp_name(ct.name)
+                self.need(ct.name)
+                caps.append(f'{v.cpp} = runtime::Ref<{cls}>({v.cpp})')
+                scope[n] = Var(n, v.cpp, CT('obj', ct.name, 'owning'), 'local', True)
+            elif ct.kind == 'obj' and ct.ref == 'owning':
+                caps.append(v.cpp)
+                scope[n] = Var(n, v.cpp, ct, 'local', True)
+            elif ct.kind == 'obj' and ct.ref in ('lref', 'clref'):
+                caps.append('&' + v.cpp)
+                pins.append('&' + v.cpp)
+                scope[n] = Var(n, v.cpp, ct, 'local', True)
+            else:
+                self.fail('closure-capture', f'line {line}: {n} of type {ct} captured by a scheduled closure', clo.tok)
+        if len(pins) - 1 > 4:
+            self.fail('closure-capture', f'line {line}: {len(pins) - 1} references to pin (Pin::MAX_OWNERS is 4)', clo.tok)
+        if needs_this:
+            caps.insert(0, 'this')
+        d = self.cur_depth
+        dl = self.expr(delay)
+        if dl.ct.kind != 'prim' or dl.ct.name not in ('int32_t', 'int64_t', 'int16_t', 'int8_t'):
+            self.fail('type', f'schedule delay of {dl.ct}', delay.tok)
+        saved_ret = self.method_ret
+        self.method_ret = VOID
+        self.local_scope.append(scope)
+        try:
+            lines = self.stmts(body, d + 1)
+            if clo.body is not None:
+                body_close = clo.last if clo.kind == 'lambda' else clo.last - 1
+                lines += self.leading(body_close, d + 1)
+        finally:
+            self.local_scope.pop()
+            self.method_ret, self.cur_depth = saved_ret, d
+        self.includes_for_header(THREAD_POOL_HEADER)
+        self.record_api('ThreadPoolManager', 'schedule', self.api.row_of[('ThreadPoolManager', 'schedule')])
+        self.r.api_status.setdefault('ThreadPoolManager.schedule', set()).add('ported')
+        self.r.idioms[f'scheduled {"lambda" if clo.kind == "lambda" else "anonymous Runnable"} as a pinned C++ lambda'] += 1
+        ind = '\t' * d
+        text = (f'ThreadPoolManager::getInstance().schedule({{{", ".join(pins)}}}, [{", ".join(caps)}] {{\n' + '\n'.join(lines) + '\n'
+                + f'{ind}}}, {dl.text})')
+        return E(text, VOID)
+
+    def is_schedule_call(self, c):
+        """`ThreadPoolManager.getInstance().schedule(<closure>, delay)`: the one place rule scheduled-closure admits a closure"""
+        t = c.target
+        return c.name == 'schedule' and len(c.args) == 2 and isinstance(c.args[0], jast.Closure) and isinstance(t, jast.Call) \
+            and t.name == 'getInstance' and not t.args and isinstance(t.target, jast.Name) and t.target.name == 'ThreadPoolManager'
+
+    def misplaced_closures(self, stmts):
+        """rule scheduled-closure parses every closure; one that is not the task of a schedule call is refused here, when its method is
+        parsed, as the parser refused it before ('lambda', 'anonymous-class'), whether or not the statement holding it is reached (a
+        refused statement before it would hide it: the mentor dailies' `anyMatch(member -> ...)` sits in an `if (player.isInGroup())`)"""
+        allowed = {id(c.args[0]) for c in jast.walk_exprs(stmts) if isinstance(c, jast.Call) and self.is_schedule_call(c)}
+        for x in jast.walk_exprs(stmts):
+            if isinstance(x, jast.Closure) and id(x) not in allowed:
+                line = self.cu.tokens.loc(x.tok)[0]
+                self.refuse(Unsupported(x.kind, f'line {line}: a closure outside ThreadPoolManager.getInstance().schedule(task, delay)',
+                                        x.tok))
+
+    def walk_stmts(self, stmts):
+        """every statement under a list of statements, pre-order (closure bodies inside expressions are not entered)"""
+        for st in stmts:
+            if st is None:
+                continue
+            yield st
+            for f in getattr(st, '__dataclass_fields__', {}):
+                v = getattr(st, f)
+                if isinstance(v, jast.Stmt):
+                    yield from self.walk_stmts([v])
+                elif isinstance(v, list):
+                    for it in v:
+                        if isinstance(it, jast.Stmt):
+                            yield from self.walk_stmts([it])
+                        elif isinstance(it, tuple):
+                            for y in it:
+                                if isinstance(y, list):
+                                    yield from self.walk_stmts([z for z in y if isinstance(z, jast.Stmt)])
 
     def pick_own(self, sigs, x):
         fits = [s for s in sigs if len(s.params) == len(x.args)]

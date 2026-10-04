@@ -9,6 +9,11 @@ Parser(cu, switch_expressions=True) (the P6-T switch rule of phase6-questgen-pro
 are `case A, B -> expr;` (SwitchExpr; a block arm with `yield` stays refused) and a switch statement with rule arms `case A -> stmt`
 (Switch.rules). The default keeps the prototype's refusals.
 
+Parser(cu, closures=True) (the G1 rule 'scheduled-closure', phase6-transliterator.md §2.2) parses a lambda (`() -> {...}`, `x -> expr`,
+untyped parameters only) and an anonymous class that overrides exactly one method (`new Runnable() { @Override public void run() {...} }`)
+as a Closure node instead of refusing them; the emitter decides where a closure may stand and refuses it everywhere else with the same
+categories ('lambda', 'anonymous-class'). The default keeps the refusals (tools/oracle's quest-trace extractor parses with the default).
+
 Every node keeps `tok`, the index of its first token; statements also keep `last`, the index of their last token, which the emitter
 uses to carry the Java comments along (comments(), trailing_comment()).
 """
@@ -135,6 +140,17 @@ class Paren(Expr):
 
 
 @dataclass
+class Closure(Expr):
+    kind: str            # 'lambda' | 'anonymous-class'
+    params: list         # parameter names (a lambda's; an anonymous class's method takes none here)
+    body: list | None    # the statements of a block body
+    expr: 'Expr | None'  # the expression of a lambda's expression body
+    last: int            # the closure's last token ('}' of the body or of the class, or the expression's last token)
+    iface: str = ''      # anonymous class: the type it implements (Runnable)
+    method: str = ''     # anonymous class: the one method it overrides (run)
+
+
+@dataclass
 class SwitchExpr(Expr):
     expr: Expr
     arms: list           # [([label Expr | None (default)], value Expr, label token, ';' token)]
@@ -253,9 +269,10 @@ ASSIGN_OPS = frozenset(('=', '+=', '-=', '*=', '/=', '%=', '&=', '|=', '^=', '<<
 class Parser:
     """Parser over the tokens of one CompilationUnit."""
 
-    def __init__(self, cu, switch_expressions=False):
+    def __init__(self, cu, switch_expressions=False, closures=False):
         self.cu = cu
         self.switch_expressions = switch_expressions
+        self.closures = closures
         self.label_mode = False      # parsing a rule arm's case labels: `X ->` is not a lambda
         T = cu.tokens
         self.kind = T.kind
@@ -625,6 +642,8 @@ class Parser:
 
     def assignment(self, i):
         if not self.label_mode:
+            if self.closures and self.is_lambda(i):
+                return self.lambda_(i)
             self.check_lambda(i)
         left, j = self.conditional(i)
         op = self.t(j)
@@ -636,10 +655,51 @@ class Parser:
         return left, j
 
     def check_lambda(self, i):
+        if self.closures and self.is_lambda(i):
+            return
         if self.kind[i] == IDENT and self.t(i + 1) == '->':
             self.fail('lambda', i)
         if self.t(i) == '(' and self.t(self.match[i] + 1) == '->':
             self.fail('lambda', i)
+
+    def is_lambda(self, i):
+        return (self.kind[i] == IDENT and self.t(i + 1) == '->') or (self.t(i) == '(' and self.t(self.match[i] + 1) == '->')
+
+    def lambda_(self, i):
+        """a lambda with untyped parameters (closures=True): `x -> e`, `(a, b) -> e`, `() -> { ... }`"""
+        if self.kind[i] == IDENT:
+            params, j = [self.t(i)], i + 2
+        else:
+            close = self.match[i]
+            params = []
+            for a, b in self.split_top(i + 1, close):
+                if b != a + 1 or self.kind[a] != IDENT:
+                    self.fail('lambda', i, 'a lambda with typed or declared parameters')
+                params.append(self.t(a))
+            j = close + 2
+        if self.t(j) == '{':
+            close = self.match[j]
+            return Closure(i, 'lambda', params, self.block_stmts(j), None, close), close + 1
+        e, k = self.assignment(j)
+        return Closure(i, 'lambda', params, None, e, k - 1), k
+
+    def anonymous_class(self, i, ty, open_i):
+        """`new T() { [@Override] [public] void m() { ... } }` (closures=True): one method without parameters, nothing else"""
+        close = self.match[open_i]
+        j = open_i + 1
+        while self.t(j) == '@':
+            j += 2
+            if self.t(j) == '(':
+                j = self.match[j] + 1
+        while self.t(j) in ('public', 'final'):
+            j += 1
+        if self.t(j) != 'void' or self.kind[j + 1] != IDENT or self.t(j + 2) != '(' or self.t(j + 3) != ')' or self.t(j + 4) != '{':
+            self.fail('anonymous-class', i, f'new {ty.name}() {{...}}: not a single void method without parameters')
+        name = self.t(j + 1)
+        body_close = self.match[j + 4]
+        if body_close + 1 != close:
+            self.fail('anonymous-class', i, f'new {ty.name}() {{...}}: more than one member')
+        return Closure(i, 'anonymous-class', [], self.block_stmts(j + 4), None, close, ty.name, name), close + 1
 
     def conditional(self, i):
         c, j = self.binary(i, 0)
@@ -846,6 +906,8 @@ class Parser:
             self.fail('syntax', j, 'expected ( after new T')
         args, k = self.args(j)
         if self.t(k) == '{':
+            if self.closures and not args:
+                return self.anonymous_class(i, ty2, k)
             self.fail('anonymous-class', i, f'new {ty.name}() {{...}}')
         return New(i, ty2, args), k
 

@@ -58,10 +58,12 @@ utils/stats/AbyssRankEnum.h model/templates/rewards/BonusType.h
 model/house/House.h model/templates/spawns/SpawnSearchResult.h instance/handlers/InstanceHandler.h
 ai/AI.h ai/AbstractAI.h ai/NpcAI.h ai/event/AIEventType.h ai/manager/WalkManager.h model/TaskId.h questEngine/task/QuestTasks.h
 network/aion/serverpackets/SM_NPC_INFO.h model/templates/spawns/SpawnTemplate.h
+controllers/attack/AggroList.h model/gameobjects/player/title/TitleList.h
 '''.split()] + ['aion/commons/utils/Rnd.h']
 # (the line `model/house/House.h ...`: types QuestPrelude.h re-exports that handlers declare locals of; without them such a local is refused
 # as `type`, which hides the API gap behind it: DataManager.SPAWNS_DATA, WorldMapInstance.getInstanceHandler, Player.getActiveHouse)
-# (the last two lines, rows B26-B30, 2026-09-30: what the six escorts of m5d-plan.md §21.1 "The other six" call. AbstractAI, whose
+# (`controllers/attack/AggroList.h ...`: rows B37 and B38 of the G1 lane, 2026-10-04)
+# (the two lines before it, rows B26-B30, 2026-09-30: what the six escorts of m5d-plan.md §21.1 "The other six" call. AbstractAI, whose
 # onCreatureEvent getAi() reaches, with its base AI; NpcAI, the class `(NpcAI) npc.getAi()` names (its base AITemplate<Npc> is a class
 # template, which cppdecl does not index: nothing needs NpcAI's bases); the generated enums AIEventType and TaskId, for their constants;
 # WalkManager, QuestTasks and SM_NPC_INFO; the SpawnTemplate that VisibleObject::getSpawn returns)
@@ -193,7 +195,24 @@ API_TABLE = (
     Row('B29', 'walking: WalkManager.startWalking, VisibleObject.getSpawn, SpawnTemplate.setWalkerId',
         (('WalkManager', 'startWalking'), ('VisibleObject', 'getSpawn'), ('SpawnTemplate', 'setWalkerId')), 'ported'),
     Row('B30', 'npc info packet: new SM_NPC_INFO', (('SM_NPC_INFO', '<init>'),), 'ported'),
+    # B31 (G1 lane, rule scheduled-closure): a closure scheduled on the thread pool, emitted as the pinned schedule form of
+    # utils/ThreadPoolManager.h (the call is spelled by the rule, not resolved against the header: schedule is a member template)
+    Row('B31', 'delayed tasks: ThreadPoolManager.getInstance().schedule(closure, delay)', (('ThreadPoolManager', 'schedule'),), 'ported'),
+    # B32-B38 (G1 lane, 2026-10-04): single members the C++ side declares that the refused files call (phase6-transliterator.md §2.3);
+    # each row's body status is the census report's, per file
+    Row('B32', 'teleport to an npc: TeleportService.teleportToNpc', (('TeleportService', 'teleportToNpc'),),
+        'ported (P6-Q route-hand, Q09 lease)'),
+    Row('B33', 'npc lookup: WorldMapInstance.getNpc', (('WorldMapInstance', 'getNpc'),), 'ported'),
+    Row('B34', 'special cube check: Storage.isFullSpecialCube', (('Storage', 'isFullSpecialCube'),), 'M5b-3'),
+    Row('B35', 'groups: Player.isInGroup', (('Player', 'isInGroup'),), 'ported'),
+    Row('B36', 'configuration flags: CustomConfig.X, GroupConfig.X (static std::atomic members, read)',
+        (('CustomConfig', '*'), ('GroupConfig', '*')), 'ported (configs/main)'),
+    Row('B37', 'aggro: Creature.getAggroList, AggroList.addHate', (('Creature', 'getAggroList'), ('AggroList', 'addHate')), 'ported'),
+    Row('B38', 'titles: Player.getTitleList, TitleList.addTitle', (('Player', 'getTitleList'), ('TitleList', 'addTitle')), 'ported'),
 )
+
+# configuration classes whose public static std::atomic<T> members a handler reads (row B36): Java class -> C++ header
+CONFIG_HEADERS = {'CustomConfig': G + 'configs/main/CustomConfig.h', 'GroupConfig': G + 'configs/main/GroupConfig.h'}
 
 # Members the table allows although no C++ header declares them yet: their C++ spelling (a callable, `{args}` filled in), the header that
 # will declare them, the return type (C++ text) and the owner that adds the declaration.
