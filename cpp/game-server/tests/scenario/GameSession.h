@@ -154,6 +154,10 @@ public:
 	static constexpr int32_t CM_GET_MAIL_ATTACHMENT = 136;
 	static constexpr int32_t CM_DELETE_MAIL = 137;
 	static constexpr int32_t CM_CRAFT = 141;
+	/** M5e's packets (m5e-plan.md G-02; AionClientPacketFactory.java:62, 149, 262) */
+	static constexpr int32_t CM_TOGGLE_SKILL_DEACTIVATE = 34;
+	static constexpr int32_t CM_SUMMON_COMMAND = 121;
+	static constexpr int32_t CM_USE_CHARGE_SKILL = 234;
 	static constexpr int32_t CM_TUNE = 235;
 	static constexpr int32_t CM_SELECT_DECOMPOSABLE = 236;
 	static constexpr int32_t CM_TUNE_RESULT = 238;
@@ -578,6 +582,36 @@ public:
 		std::span<const CraftMaterial> materials, uint8_t craftType = 0);
 	/** CM_RECIPE_DELETE.readImpl (CM_RECIPE_DELETE.java:21-23): readD recipeId */
 	static std::vector<uint8_t> buildCM_RECIPE_DELETE(int32_t recipeId);
+
+	// ---- M5e's progression packets (m5e-plan.md §2.11, G-02), each the Java readImpl field order ----
+	/** MovementMask.GLIDE and FALL (MovementMask.java:16, 21): what buildCM_MOVE_GLIDE writes, GlideFlag.NONE (0) its default flag */
+	static constexpr int8_t MOVE_GLIDE = 0x04;
+	static constexpr int8_t MOVE_FALL = 0x08;
+	/**
+	 * CM_MOVE with the glide bit (CM_MOVE.java:40-66): x, y, z, heading, type = GLIDE | `extraType`, then - type has no POSITION|MANUAL pair,
+	 * so no target point - readC glideFlag (and readUC geyserLocationId only for GlideFlag.GEYSER, which this builder refuses: a geyser is a
+	 * windstream). runImpl calls FlyController.switchToGliding (CM_MOVE.java:95-98), which refuses a non-Daeva with STR_GLIDE_ONLY_DEVA_CAN
+	 * (FlyController.java:137-141); a later move with the FALL bit ends the glide (onStopGliding, :157-159)
+	 * @throws std::invalid_argument for a type carrying POSITION and MANUAL or VEHICLE, or a geyser flag
+	 */
+	static std::vector<uint8_t> buildCM_MOVE_GLIDE(float x, float y, float z, int8_t heading, int8_t extraType = 0, uint8_t glideFlag = 0);
+	/**
+	 * CM_TOGGLE_SKILL_DEACTIVATE.readImpl (CM_TOGGLE_SKILL_DEACTIVATE.java:24-28): readUH skillId, then two readH the server drops (written 0).
+	 * runImpl removes the effect of a toggle or a stance and audits anything else (:31-42)
+	 */
+	static std::vector<uint8_t> buildCM_TOGGLE_SKILL_DEACTIVATE(uint16_t skillId);
+	/**
+	 * CM_USE_CHARGE_SKILL.readImpl reads nothing (CM_USE_CHARGE_SKILL.java:20-21): an empty body. runImpl releases the casting charge skill
+	 * with the time since its cast started (:24-31)
+	 */
+	static std::vector<uint8_t> buildCM_USE_CHARGE_SKILL();
+	/** SummonMode ids (SummonMode.java:8-11): what CM_SUMMON_COMMAND's mode byte selects */
+	static constexpr uint8_t SUMMON_ATTACK = 0;
+	static constexpr uint8_t SUMMON_GUARD = 1;
+	static constexpr uint8_t SUMMON_REST = 2;
+	static constexpr uint8_t SUMMON_RELEASE = 3;
+	/** CM_SUMMON_COMMAND.readImpl (CM_SUMMON_COMMAND.java:26-31): readUC mode, two readD the server drops (written 0), readD targetObjId */
+	static std::vector<uint8_t> buildCM_SUMMON_COMMAND(uint8_t mode, int32_t targetObjectId = 0);
 
 	network::test::FakeGameClient client;
 

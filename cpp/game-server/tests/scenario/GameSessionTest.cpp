@@ -353,6 +353,42 @@ TEST(GameSessionTest, PlayMovieEndBody) {
 	EXPECT_EQ(other.D(), 0x0A0B0C0D);
 }
 
+// m5e-plan.md G-02: the glide, the toggle, the charge release and the summon order, read back in the order of their Java readImpl
+TEST(GameSessionTest, ProgressionBodies) {
+	EXPECT_EQ(GameSession::CM_TOGGLE_SKILL_DEACTIVATE, 34) << "AionClientPacketFactory.java:62, packets[34]";
+	EXPECT_EQ(GameSession::CM_SUMMON_COMMAND, 121) << "AionClientPacketFactory.java:149, packets[121]";
+	EXPECT_EQ(GameSession::CM_USE_CHARGE_SKILL, 234) << "AionClientPacketFactory.java:262, packets[234]";
+
+	// CM_MOVE with GLIDE: x, y, z, heading, type, then readC glideFlag (CM_MOVE.java:41-46, 62-63) - no target point without POSITION|MANUAL
+	PacketReader glide(GameSession::buildCM_MOVE_GLIDE(1.0f, 2.0f, 3.0f, 30));
+	EXPECT_EQ(std::bit_cast<float>(static_cast<uint32_t>(glide.D())), 1.0f);
+	glide.D();
+	EXPECT_EQ(std::bit_cast<float>(static_cast<uint32_t>(glide.D())), 3.0f);
+	EXPECT_EQ(glide.C(), 30);
+	EXPECT_EQ(glide.C(), 0x04) << "MovementMask.GLIDE";
+	EXPECT_EQ(glide.C(), 0) << "GlideFlag.NONE";
+	EXPECT_EQ(glide.remaining(), 0u);
+	const std::vector<uint8_t> landing = GameSession::buildCM_MOVE_GLIDE(1.0f, 2.0f, 3.0f, 0, GameSession::MOVE_FALL);
+	EXPECT_EQ(landing.size(), 15u);
+	EXPECT_EQ(landing[13], 0x0C) << "GLIDE | FALL";
+	EXPECT_THROW(GameSession::buildCM_MOVE_GLIDE(0, 0, 0, 0, static_cast<int8_t>(0xC0)), std::invalid_argument) << "POSITION|MANUAL reads x2/y2/z2";
+	EXPECT_THROW(GameSession::buildCM_MOVE_GLIDE(0, 0, 0, 0, 0x10), std::invalid_argument) << "VEHICLE reads five more fields";
+	EXPECT_THROW(GameSession::buildCM_MOVE_GLIDE(0, 0, 0, 0, 0, 0x80), std::invalid_argument) << "GEYSER reads a location id";
+
+	// CM_TOGGLE_SKILL_DEACTIVATE: readUH skillId, readH, readH (CM_TOGGLE_SKILL_DEACTIVATE.java:25-27) - the Celerity Mantra of X14
+	EXPECT_EQ(GameSession::buildCM_TOGGLE_SKILL_DEACTIVATE(1809), (std::vector<uint8_t>{0x11, 0x07, 0x00, 0x00, 0x00, 0x00}));
+	// CM_USE_CHARGE_SKILL reads nothing (CM_USE_CHARGE_SKILL.java:20-21)
+	EXPECT_TRUE(GameSession::buildCM_USE_CHARGE_SKILL().empty());
+	// CM_SUMMON_COMMAND: readUC mode, readD, readD, readD targetObjId (CM_SUMMON_COMMAND.java:27-30) - X17's attack order
+	PacketReader order(GameSession::buildCM_SUMMON_COMMAND(GameSession::SUMMON_ATTACK, 0x01020304));
+	EXPECT_EQ(order.C(), 0) << "SummonMode.ATTACK";
+	EXPECT_EQ(order.D(), 0);
+	EXPECT_EQ(order.D(), 0);
+	EXPECT_EQ(order.D(), 0x01020304);
+	EXPECT_EQ(order.remaining(), 0u);
+	EXPECT_EQ(GameSession::buildCM_SUMMON_COMMAND(GameSession::SUMMON_RELEASE).front(), 3) << "SummonMode.RELEASE";
+}
+
 TEST(GameSessionTest, ShopAndExchangeBodies) {
 	// the opcodes, AionClientPacketFactory.java:79, 91-92, 94-97 (no packets[65]: C_REMOVE_XCHG is commented out at :93)
 	EXPECT_EQ(GameSession::CM_BUY_ITEM, 51);
