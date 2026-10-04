@@ -3,7 +3,6 @@
 #include <memory>
 #include <string>
 
-#include "aion/commons/logging/LoggerFactory.h"
 #include "aion/gameserver/controllers/FlyController.h"
 #include "aion/gameserver/controllers/PlayerController.h"
 #include "aion/gameserver/controllers/effect/PlayerEffectController.h"
@@ -27,9 +26,6 @@
 #include "aion/commons/utils/WindowsMacroGuard.h" // after all headers that may include windows.h
 
 namespace aion::gameserver::network::aion::clientpackets {
-
-/** Logger */
-static const auto log = commons::logging::LoggerFactory::getLogger("com.aionemu.gameserver.network.aion.clientpackets.CM_MOVE");
 
 using controllers::movement::GlideFlag;
 using controllers::movement::MovementMask;
@@ -143,17 +139,6 @@ void CM_MOVE::runImpl() {
 		player->getFlyController().onStopGliding();
 		m->updateFalling(z);
 	} else {
-		// Correction of the Java code (owner's bug report 2026-10-03, docs/deviations/P5-00.md; C++ branch only): a glider who lands while a
-		// click-to-move destination is pending walks on with position packets that carry neither GLIDE nor FALL, and is never IMMEDIATE until he
-		// arrives - Java ends the glide only on FALL or IMMEDIATE, so the server kept him gliding and burning flight time on foot. The owner's
-		// traced session shows the packets: in the air 196/132 (POSITION[|MANUAL]|GLIDE) and 228/164 (a click: POSITION|MANUAL|ABSOLUTE|GLIDE,
-		// then POSITION|ABSOLUTE|GLIDE); after landing 160 (POSITION|ABSOLUTE, the click-to-move walking on, no MANUAL) or 192/128 (keys).
-		// Every position packet sent while gliding carries GLIDE, so a position packet without it ends the glide.
-		if ((type & MovementMask::GLIDE) != MovementMask::GLIDE && (type & MovementMask::POSITION) == MovementMask::POSITION &&
-			player->isInGlidingState()) {
-			log.info("Glide of " + player->getName() + " ended by a move without the glide flag (type=" + std::to_string(type & 0xFF) + ")");
-			player->getFlyController().onStopGliding();
-		}
 		m->stopFalling(z);
 	}
 }
