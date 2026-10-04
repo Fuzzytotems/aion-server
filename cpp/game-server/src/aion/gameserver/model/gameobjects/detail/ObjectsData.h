@@ -5,7 +5,6 @@
 #include <cstddef>
 #include <cstdint>
 
-#include "aion/gameserver/model/summons/UnsummonType.h"
 #include "aion/gameserver/model/templates/staticdoor/StaticDoorState.h"
 #include "aion/gameserver/utils/stats/AbyssRankEnum.h"
 
@@ -14,7 +13,7 @@ namespace aion::gameserver::model::gameobjects::detail {
 /**
  * C++ only, private to P4-11a: constructor data and static methods of Java enums and constant classes of other chunks that have no companion
  * header yet, plus the server-day arithmetic of UseableItemObject, as pure functions the tests check against the Java tables. Replace each part
- * by the owner's companion once it exists (ItemMask: P4-13, UnsummonType: P5-08, StaticDoorState: P4-07b, AbyssRankEnum: P5-01, ServerTime
+ * by the owner's companion once it exists (ItemMask: P4-13, StaticDoorState: P4-07b, AbyssRankEnum: P5-01, ServerTime
  * with(LocalTime): P4-05).
  */
 
@@ -30,23 +29,6 @@ inline constexpr int32_t REMODELABLE = 1 << 12;
 inline constexpr int32_t CAN_AP_EXTRACT = 1 << 16;
 inline constexpr int32_t LEGION_TRADEABLE = 1 << 18;
 } // namespace item_mask
-
-/** Java UnsummonType constructor argument delayMillis, in ordinal order */
-inline constexpr std::array<int32_t, 8> UNSUMMON_DELAY_MILLIS{
-	0,    // LOGOUT
-	0,    // DISTANCE
-	3000, // COMMAND
-	0,    // SUMMON_DEATH
-	0,    // MASTER_DEATH
-	0,    // UNSPECIFIED
-	3000, // SKILL_ORDER
-	0,    // PET_ORDER_UNSUMMON_EFFECT
-};
-
-/** Java UnsummonType.isInstant(): delayMillis == 0 */
-constexpr bool isInstant(summons::UnsummonType type) noexcept {
-	return UNSUMMON_DELAY_MILLIS[static_cast<size_t>(type)] == 0;
-}
 
 /** Java StaticDoorState constructor argument flag, in ordinal order */
 inline constexpr std::array<int32_t, 5> STATIC_DOOR_STATE_FLAGS{0, 1 << 0, 1 << 1, 1 << 2, 1 << 3};

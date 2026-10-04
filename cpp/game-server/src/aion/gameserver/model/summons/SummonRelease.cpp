@@ -2,7 +2,7 @@
 
 #include <utility>
 
-#include "aion/gameserver/runtime/base/Unported.h"
+#include "aion/gameserver/model/summons/UnsummonTypeInfo.h"
 
 namespace aion::gameserver::model::summons {
 
@@ -20,11 +20,14 @@ void SummonRelease::setTask(runtime::FutureRef value) {
 }
 
 bool SummonRelease::isCancelableByMaster() {
-	AION_UNPORTED();
+	return !started.get() && summons::isCancelableByMaster(unsummonType);
 }
 
 bool SummonRelease::cancel() {
-	AION_UNPORTED();
+	if (started.get())
+		return false;
+	runtime::Ptr<runtime::Future> pending = task.get();
+	return !pending || pending->cancel(false);
 }
 
 } // namespace aion::gameserver::model::summons
