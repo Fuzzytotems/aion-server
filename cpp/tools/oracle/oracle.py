@@ -30,6 +30,11 @@
 	oracle.py m5d-quests --map ID [--race R] [--class C] [--level N] [--gender G] [--completed ID[:GROUP] ...] [--started ID ...]
 	                     [--inventory ITEM[:COUNT] ...] [--profile FILE | --no-profile]   (m5d/quests.py)
 	oracle.py m5d-quests (--registration-order [--npc ID] | --census)   the XML registry's lists and m5d-plan.md §2.3-§2.5 (m5d/registry.py)
+	oracle.py m5e-progression --race R --class C [--level N] [--daeva] [--known-skills FILE] [--step STEP ...] [--skill ID ...]
+	                     [--weapon ID ...] [--dp N] [--robot] [--chain-after CATEGORY] [--target-kind PC|NPC]   (m5e/progression.py,
+	                     m5e-plan.md G-01): the experience table, the class change's pages and actions, the class master, the skills a
+	                     sequence of steps (create, enter:L, level:L, class:C, action:ID, quit, book:ITEM) teaches with their message ids, the
+	                     base max HP / MP after each step, and the constants and conditions of the gate's casts and weapons
 	oracle.py quest-trace generate [--out DIR] [--only REL ...] | check [--expected-dir DIR] [--only REL ...]   golden traces of the Java
 	                     quest handlers (questtrace/, phase6-inventory.md §7.6 item 3): expected/quest/<id>.json for the first slice (exit 1
 	                     on drift; with --only, only the named handlers are checked)
@@ -365,6 +370,26 @@ def cmd_m5d_quests(args):
 	return 0
 
 
+def cmd_m5e_progression(args):
+	from m5a.data import StaticData
+	from m5e.progression import progression_report
+	data_dir = _data_dir(args)
+	java_src = Path(args.java_src) if args.java_src else data_dir.parent.parent / "src"
+	handlers = Path(args.java_handlers) if args.java_handlers else data_dir.parent / "handlers" / "quest"
+	character = {"dp": args.dp, "robot": args.robot}
+	if args.chain_after is not None:
+		character["chainAfter"] = args.chain_after
+	if args.target_kind is not None:
+		character["targetKind"] = args.target_kind
+	if args.weapon_group is not None:
+		character["weaponGroup"] = args.weapon_group
+	report = progression_report(StaticData(data_dir), java_src, handlers, args.race, args.player_class, args.level, args.step or [],
+	                            Path(args.known_skills) if args.known_skills else None, args.daeva, args.skill or [], args.weapon or [],
+	                            character)
+	sys.stdout.write(runner.dump_json(report))
+	return 0
+
+
 def cmd_quest_trace(args):
 	from questtrace import extract
 	rels = extract.SLICE if not args.only else tuple(args.only)
@@ -674,6 +699,28 @@ def main(argv=None):
 	p.add_argument("--started", nargs="+", action="extend", type=int, metavar="ID", help="quests the character has in START state")
 	clock_args(p)
 	p.set_defaults(fn=cmd_m5d_quests, player_class=None)  # --class: WARRIOR in the --map path; the other modes refuse it
+
+	p = sub.add_parser("m5e-progression", help="levels, the class change, the skills each step teaches with their message ids, and the gate's "
+	                                           "casts and weapons (m5e-plan.md G-01)")
+	data_args(p, country=False)
+	p.add_argument("--java-src", help="game-server/src (default: two levels above the static data directory, then src)")
+	p.add_argument("--java-handlers", help="game-server/data/handlers/quest (default: beside static_data)")
+	p.add_argument("--race", required=True, choices=("ELYOS", "ASMODIANS"))
+	p.add_argument("--class", dest="player_class", required=True, help="the character's class at the first step")
+	p.add_argument("--level", type=int, default=1, help="the character's level at the first step (default 1)")
+	p.add_argument("--daeva", action="store_true", help="the character is a Daeva at the first step")
+	p.add_argument("--known-skills", dest="known_skills", metavar="FILE",
+	               help="the skill list at the first step: JSON [{skillId, level}] or `id[:level]` tokens (e.g. the enter world's SM_SKILL_LIST)")
+	p.add_argument("--step", nargs="+", action="extend", metavar="STEP", help="create, enter:L, level:L, class:CLASS, action:ID, quit, book:ITEM")
+	p.add_argument("--skill", nargs="+", action="extend", type=int, metavar="ID", help="skills whose constants and conditions to report")
+	p.add_argument("--weapon", nargs="+", action="extend", type=int, metavar="ID",
+	               help="weapons (item ids): item group, required skills, robot id; the first is the main hand of the condition check")
+	p.add_argument("--weapon-group", dest="weapon_group", help="the main hand's item group for the conditions (default: the first --weapon)")
+	p.add_argument("--dp", type=int, default=0, help="the character's DP for DpCondition (default 0)")
+	p.add_argument("--robot", action="store_true", help="the character rides a robot (RideRobotCondition)")
+	p.add_argument("--chain-after", dest="chain_after", metavar="CATEGORY", help="the chain category the last chain skill left (ChainCondition)")
+	p.add_argument("--target-kind", dest="target_kind", choices=("PC", "NPC"), help="what the first target is (TargetCondition)")
+	p.set_defaults(fn=cmd_m5e_progression)
 
 	p = sub.add_parser("quest-trace", help="golden traces of the Java quest handlers: every return leaf of every hook as a case with its "
 	                                       "effects (questtrace/, phase6-inventory.md §7.6 item 3)")
