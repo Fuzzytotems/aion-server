@@ -13,7 +13,6 @@
 #include "aion/gameserver/model/SkillElement.h"
 #include "aion/gameserver/model/TribeClass.h"
 #include "aion/gameserver/model/gameobjects/NpcObjectType.h"
-#include "aion/gameserver/model/gameobjects/detail/ObjectsData.h"
 #include "aion/gameserver/model/gameobjects/player/Player.h"
 #include "aion/gameserver/model/stats/container/SummonGameStats.h"
 #include "aion/gameserver/model/stats/container/SummonLifeStats.h"
@@ -21,6 +20,7 @@
 #include "aion/gameserver/model/summons/SummonMode.h"
 #include "aion/gameserver/model/summons/SummonRelease.h"
 #include "aion/gameserver/model/summons/UnsummonType.h"
+#include "aion/gameserver/model/summons/UnsummonTypeInfo.h"
 #include "aion/gameserver/model/templates/npc/NpcTemplate.h"
 #include "aion/gameserver/model/templates/npc/NpcTemplateType.h"
 #include "aion/gameserver/model/templates/spawns/SpawnTemplate.h"
@@ -158,7 +158,7 @@ bool Summon::registerRelease(summons::SummonRelease& release) {
 	// java-race: check-then-act on pendingRelease without a lock, as in Java (SummonsService calls it from the master's and the summon's tasks)
 	runtime::Ptr<summons::SummonRelease> pending = pendingRelease.get();
 	if (pending) {
-		if (pending->hasStarted() || !detail::isInstant(release.getUnsummonType()))
+		if (pending->hasStarted() || !summons::isInstant(release.getUnsummonType()))
 			return false;
 		pending->cancel();
 	}
