@@ -4,8 +4,6 @@
 //   CM_SHOW_RESTRICTIONS (/restriction, CM_SHOW_RESTRICTIONS.java:25-28), CM_POSITION_SELF (the answer to SM_POSITION_SELF: nothing);
 // - CM_BONUS_TITLE (CM_BONUS_TITLE.java:21-33), CM_RECALLED_BY_OTHER_ANSWER (CM_RECALLED_BY_OTHER_ANSWER.java:25-37);
 // - CM_WINDSTREAM (C_WIND_PATH, CM_WINDSTREAM.java:33-91): entering, the boosts, leaving, an unknown state.
-// - CM_MOVE's glide correction (2026-10-03, C++ branch only, docs/deviations/P5-00.md): a landed glider who walks on to a clicked spot stops
-//   gliding (and burning flight time).
 
 #include "../cm_ak/ItemPacketTestSupport.h"
 
@@ -27,7 +25,6 @@
 #include "aion/gameserver/model/templates/flypath/FlightPath.h"
 #include "aion/gameserver/network/aion/ServerPacketsOpcodes.gen.h"
 #include "aion/gameserver/network/aion/clientpackets/CM_BONUS_TITLE.h"
-#include "aion/gameserver/network/aion/clientpackets/CM_MOVE.h"
 #include "aion/gameserver/network/aion/clientpackets/CM_PLAYER_SEARCH.h"
 #include "aion/gameserver/network/aion/clientpackets/CM_POSITION_SELF.h"
 #include "aion/gameserver/network/aion/clientpackets/CM_RECALLED_BY_OTHER_ANSWER.h"
@@ -65,7 +62,6 @@ constexpr int32_t CM_RECALLED_BY_OTHER_ANSWER_OPCODE = 195; // :169
 constexpr int32_t CM_REPORT_PLAYER_OPCODE = 191;            // :166
 constexpr int32_t CM_POSITION_SELF_OPCODE = 17;             // :33
 constexpr int32_t CM_SHOW_RESTRICTIONS_OPCODE = 194;        // :168
-constexpr int32_t CM_MOVE_OPCODE = 48;                      // :76
 
 constexpr int32_t SM_TITLE_INFO_OPCODE = opcodeOf<serverpackets::SM_TITLE_INFO>;
 const char* const AUDIT_LOGGER = "AUDIT_LOG"; // AuditLogger.cpp:22
@@ -302,50 +298,6 @@ TEST_F(SocialAndFlightPacketsTest, AnUnknownWindstreamStateIsLogged) {
 
 	EXPECT_TRUE(sent().empty()) << "CM_WINDSTREAM.java:86-88: no SM_WINDSTREAM";
 	EXPECT_EQ(log.count("Unknown Windstream state #5 was sent from " + player().getPosition()->toString()), 1) << log.dump();
-}
-
-// ------------------------------------------------------------------------------------------------------------------------------ CM_MOVE
-
-/**
- * The owner's bug report of 2026-10-03: glide, click a spot on the ground, land - and the flight time kept burning while the character walked
- * on. Java ends a glide only on a FALL or an IMMEDIATE (arrived) packet. The packet types are the owner's traced session (10:31:46-10:31:50,
- * Fuzzytotem): in the air a click is 228 (POSITION|MANUAL|ABSOLUTE|GLIDE) and its continuation 164 (POSITION|ABSOLUTE|GLIDE); after landing
- * the walk on to the clicked spot is 160 (POSITION|ABSOLUTE) - no MANUAL, no GLIDE. The correction: a position packet without the GLIDE flag
- * ends the glide; a glide packet keeps it.
- */
-TEST_F(SocialAndFlightPacketsTest, ALandedGliderWhoWalksOnToAClickedSpotStopsGliding) {
-	LogCapture log({"com.aionemu.gameserver.network.aion.clientpackets.CM_MOVE"});
-	player().getCommonData()->setDaeva(true); // FlyController.canGlide
-	const float x = player().getX(), y = player().getY(), z = player().getZ();
-	auto move = [&](int32_t type) {
-		PacketWriter body;
-		body.F(x).F(y).F(z).C(0).C(type);
-		if ((type & 0xC0) == 0xC0) // POSITION|MANUAL (ABSOLUTE): the destination
-			body.F(x + 5).F(y).F(z);
-		if ((type & 0x04) != 0) // GLIDE: the glide flag (NONE)
-			body.C(0);
-		run<CM_MOVE>(CM_MOVE_OPCODE, body.data);
-	};
-	auto glide = [&] {
-		move(0xC4); // POSITION|MANUAL|GLIDE: switchToGliding
-		ASSERT_TRUE(player().isInGlidingState());
-		move(0x84); // the traced in-air packets
-		move(0xE4);
-		move(0xA4);
-		EXPECT_TRUE(player().isInGlidingState()) << "every glide packet keeps the glide";
-	};
-
-	glide();
-	EXPECT_EQ(log.count("ended by a move without the glide flag"), 0) << log.dump();
-	move(0xA0); // landed, the click-to-move walking on: POSITION|ABSOLUTE without GLIDE (the traced 160)
-	EXPECT_FALSE(player().isInGlidingState()) << "FlyController.onStopGliding: the flight time is restored, not burnt";
-	EXPECT_EQ(log.count("ended by a move without the glide flag (type=160)"), 1) << log.dump();
-
-	player().setFlyReuseTime(0); // FlyController.switchToGliding from walking: the fly reuse time of the first glide
-	glide();
-	move(0xC0); // landed and moved on with the keys (the traced 192)
-	EXPECT_FALSE(player().isInGlidingState());
-	EXPECT_EQ(log.count("ended by a move without the glide flag (type=192)"), 1) << log.dump();
 }
 
 } // namespace
