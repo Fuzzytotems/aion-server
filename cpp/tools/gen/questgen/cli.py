@@ -1,6 +1,7 @@
 """cli: the driver of the quest transliterator prototype and its dry-run report.
 
-    python -m tools.gen.questgen --dry-run [--emit DIR] [--only FILE...] [--json OUT] [--markdown OUT] [--quiet] [--prototype-rules]
+    python -m tools.gen.questgen --dry-run [--emit DIR] [--only FILE...] [--json OUT] [--markdown OUT] [--quiet]
+                                 [--prototype-rules | --p6t-rules]
 
 --dry-run   transliterate every Java quest handler (or the --only files) in memory and print the report: files transliterated (tier A:
             core vocabulary only; tier B: at least one API_TABLE row), files refused grouped by their primary reason, the API calls
@@ -15,6 +16,8 @@
 --prototype-rules
             leave out the P6-T emitter rules (emit.P6T_RULES: varargs-inline, work-items, switch-expression, nested-array) and reproduce
             the prototype's rev-2 output (phase6-questgen-prototype.md §3).
+--p6t-rules leave out the G1 lane's rules (emit.G1_RULES: scheduled-closure): the P6-T output plus what API rows added since (943
+            files; 935 on 2026-09-30 before rows B32-B38; phase6-transliterator.md §3).
 """
 from __future__ import annotations
 
@@ -54,7 +57,7 @@ def find_files(only=None, quest_dir=None):
     return sorted(set(out))
 
 
-def run(files, emit_dir=None, tr=None, pairs=True, rules=emit.P6T_RULES):
+def run(files, emit_dir=None, tr=None, pairs=True, rules=emit.ALL_RULES):
     tr = tr or emit.Transliterator(rules=rules)
     results = []
     for f in files:
@@ -243,6 +246,7 @@ def main(argv=None):
     ap.add_argument('--verbose', '-v', action='store_true', help='list every refused file with its reasons')
     ap.add_argument('--quiet', '-q', action='store_true', help='print only the coverage line')
     ap.add_argument('--prototype-rules', action='store_true', help="the prototype's rules only (rev 2): no P6-T emitter rule")
+    ap.add_argument('--p6t-rules', action='store_true', help='the P6-T rules only (no G1 rule: emit.G1_RULES)')
     args = ap.parse_args(argv)
     emit_dir = None
     if args.emit:
@@ -254,7 +258,7 @@ def main(argv=None):
             pass
     t0 = time.time()
     files = find_files(args.only)
-    rules = frozenset() if args.prototype_rules else emit.P6T_RULES
+    rules = frozenset() if args.prototype_rules else (emit.P6T_RULES if args.p6t_rules else emit.ALL_RULES)
     _results, rep = run(files, emit_dir, pairs=not args.no_pairs, rules=rules)
     rep['seconds'] = round(time.time() - t0, 1)
     if args.json:
