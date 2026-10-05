@@ -999,3 +999,30 @@ gate mutant (17), one run of the named unit suite per unit mutant (5): **all kil
   48 under the database lock. `tools/oracle`: 569 OK, 1 skipped.
 - Static checks: `lint_concurrency.py --werror --cycles=core game-server/src` 3,894 files, 0 errors / warnings / advisories;
   `chunks.py check` 71 chunks, 0 problems; `census.py --self-check` 0 failures.
+## M5g party gate (lane B, 2026-10-05): `gs.scenario.m5g` (m5g-plan.md G-01, H-01..H-03, §10.1-§10.4)
+
+`TEST(M5gScenario, Run)` in `M5gScenarioTest.cpp`. The output goes to `<bin>/scenario/m5g`, with the schema pair `aion_{gs,ls}_test_m5g_<hash>`
+and the allow-list `m5g_partial_allowlist.txt` (`AION_SCENARIO_M5G_PARTIAL_ALLOWLIST`, a copy of M5e's: the two startup partials).
+- Labels: `scenario;realdata`. TIMEOUT 1800. Gate slot 2. No geo variant (m5g-plan.md D12).
+- Four accounts online at once: an Elyos Warrior A (the leader), a Mage B, a Priest C and a Scout D beside Poeta's sparkies (210663).
+- The profile is `game-server/config/m5g.properties.example` (I-04). The gate passes M5e's keys, `rates.drop = 1000000`, `rates.xp.group =
+  "1.5, 3.0"` and the group and alliance `removetime` at 5 s (GP20's offline timeout in one run).
+- The oracle is `oracle.py m5g-team` (H-01, `tools/oracle/m5g/team.py`, `tests/test_m5g.py`): the D8 levels (A = B = 3, C = 4, searched so
+  that C's share differs from A's and nobody is capped), the exact shares of the three kills, and the loot, team, event, command, message and
+  question constants.
+- The decoders are `decoders/TeamDecoders.{h,cpp}` with `TeamDecodersTest.cpp` (H-02), each from the Java writeImpl (D9). H-03 is inside the
+  gate (`drainAll`, `until` over the four clients).
+
+This is test infrastructure only, with no Java counterpart. In every row, the gate follows what Java does.
+
+| Area | As built | Reason |
+|---|---|---|
+| Rows scripted | GP1-GP4, GP5b, GP6 (the BUFF slot of 8998), GP8's move half, GP9-GP17, GP17b, GP18-GP23 | §10.2 |
+| Rows not scripted | GP5 and GP5c (party chat and its flood rule: `CM_CHAT_MESSAGE_PUBLIC`, `canChat`, `PlayerChatService` are lane A's), GP6b (the aura arm), GP7 (a group buff), GP11b, GP13b (the recall accept), GP15b (a quest share accepted: `checkStartConditions` reads the database in the unit fixture and the gate has no quest of a fitting level beside the sparkies). Their ports are covered by unit tests (`PartyPacketsLzTest`, `RecallServiceTest`) | open, m5g-plan.md §15 |
+| The cube | Every character is seeded with `npc_expands = 5`. A, B and C loot three corpses of ten entries before C13, and A's cube of 27 slots filled: the roll winner got `STR_MSG_DICE_INVEN_ERROR`, the corpse kept two entries and its `DropNpc` held A and B at the stop (two Player leaks) | measured, run 3 |
+| C13 (GP13, GP14) | The default quality rules (`{0, 2, 2, 2, 2, 2}`); C stands beyond 100 m. The first roll entry is rolled by A and B (the winner is the strictly greater roll, A's on a tie), the second is left to `setPlayersInRoll`'s 17 s pass, measured from the `CM_LOOT_ITEM` that opened the roll (the drain after the prompt made it 16.45 s once), every later one is passed by both. An entry nobody won is free for all: the looter takes it, and the corpse must be deleted at the end | measured, run 2 |
+| C19b (GP17b) | B, a Mage seeded with 1 HP, has regenerated a few HP when the case starts (6 of 194 measured). One `CM_ATTACK` did not kill him; the case now fights with `fightUntil` as M5e's X13, up to four sparkies, until B dies | measured, run 2 |
+
+**Runs** (build/msvc, Debug, 2026-10-05): the first runs failed on the rows above (C13's cube and timing, C19b's single attack, and
+C20-C23 after them); run 4 passed in 271.8 s with an empty census, no ERROR line, the two startup partials of the allow-list, and
+`PlayerGroup`, `PlayerGroupMember`, `PlayerGroupInvite`, `GroupRecruitment`, `Player` and `DropNpc` at 0 live.
