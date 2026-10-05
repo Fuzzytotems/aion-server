@@ -9,7 +9,7 @@
 namespace aion::gameserver::model::team::league {
 
 League::League(LeagueMember& value)
-	: GeneralTeam(int32_t{}, bool{}), lootGroupRules(common::legacy::LootGroupRules::create()) {
+	: GeneralTeam(int32_t{}, bool{}, teamlock::OfLeague{}), lootGroupRules(common::legacy::LootGroupRules::create()) {
 	// Java: super(IDFactory.getInstance().nextId(), true); setLeader(leader); super(...) arguments
 	AION_UNPORTED();
 }

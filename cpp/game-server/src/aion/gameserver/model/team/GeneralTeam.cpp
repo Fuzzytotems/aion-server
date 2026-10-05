@@ -18,7 +18,21 @@ std::string TeamEvent::toString() {
 	return utils::simpleClassName(typeid(*this));
 }
 
-GeneralTeam::GeneralTeam(int32_t objId, bool autoReleaseObjectId) : AionObject(objId, autoReleaseObjectId) {
+// C++ (m5g-1): one constructor per team kind, each naming its lock class in the member-initializer list (lint L1 / RR-16 reads it there)
+GeneralTeam::GeneralTeam(int32_t objId, bool autoReleaseObjectId, teamlock::OfPlayerGroup)
+	: AionObject(objId, autoReleaseObjectId), teamLock{AION_LOCK_CLASS(PlayerGroup::teamLock)} {
+}
+
+GeneralTeam::GeneralTeam(int32_t objId, bool autoReleaseObjectId, teamlock::OfPlayerAlliance)
+	: AionObject(objId, autoReleaseObjectId), teamLock{AION_LOCK_CLASS(PlayerAlliance::teamLock)} {
+}
+
+GeneralTeam::GeneralTeam(int32_t objId, bool autoReleaseObjectId, teamlock::OfPlayerAllianceGroup)
+	: AionObject(objId, autoReleaseObjectId), teamLock{AION_LOCK_CLASS(PlayerAllianceGroup::teamLock)} {
+}
+
+GeneralTeam::GeneralTeam(int32_t objId, bool autoReleaseObjectId, teamlock::OfLeague)
+	: AionObject(objId, autoReleaseObjectId), teamLock{AION_LOCK_CLASS(League::teamLock)} {
 }
 
 GeneralTeam::~GeneralTeam() = default;
