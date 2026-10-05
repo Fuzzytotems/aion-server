@@ -464,6 +464,34 @@ std::vector<uint8_t> GameSession::buildCM_MOVE_GLIDE(float x, float y, float z, 
 	return PacketWriter().F(x).F(y).F(z).C(heading).C(type).C(glideFlag).data; // CM_MOVE.java:41-46, 63
 }
 
+std::vector<uint8_t> GameSession::buildCM_TELEPORT_SELECT(int32_t targetObjectId, int32_t locId) {
+	return PacketWriter().D(targetObjectId).D(locId).H(0).data; // CM_TELEPORT_SELECT.java:39-42
+}
+
+std::vector<uint8_t> GameSession::buildCM_TELEPORT_ANIMATION_DONE() {
+	return {}; // CM_TELEPORT_ANIMATION_DONE.java: readImpl reads nothing
+}
+
+std::vector<uint8_t> GameSession::buildCM_INSTANCE_LEAVE() {
+	return {}; // CM_INSTANCE_LEAVE.java: "nothing to read"
+}
+
+std::vector<uint8_t> GameSession::buildCM_MOVE_IN_AIR(int32_t worldId, float x, float y, float z, int8_t heading, int32_t distance) {
+	return PacketWriter().D(worldId).F(x).F(y).F(z).C(heading).D(distance).data; // CM_MOVE_IN_AIR.java:35-41
+}
+
+std::vector<uint8_t> GameSession::buildCM_EMOTION(uint8_t emotionType) {
+	return PacketWriter().C(emotionType).data; // CM_EMOTION.java:53, readUC; the arms the gate sends read nothing more
+}
+
+std::vector<uint8_t> GameSession::buildCM_BIND_POINT_TELEPORT(uint8_t action, int32_t locId, int64_t kinah) {
+	PacketWriter writer;
+	writer.C(action); // CM_BIND_POINT_TELEPORT.java:26, readC
+	if (action == BIND_POINT_TELEPORT_CAST)
+		writer.D(locId).Q(kinah); // :28-29, readD locId, readQ kinah
+	return writer.data;
+}
+
 std::vector<uint8_t> GameSession::buildCM_TOGGLE_SKILL_DEACTIVATE(uint16_t skillId) {
 	return PacketWriter().H(skillId).H(0).H(0).data; // CM_TOGGLE_SKILL_DEACTIVATE.java:25-27
 }
