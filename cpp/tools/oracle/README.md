@@ -763,7 +763,7 @@ refusals, and on the real data the whole order, mires' lists, `questOnEnterWorld
 python oracle.py m5e-progression --race ELYOS --class WARRIOR [--level N] [--daeva] [--known-skills FILE]
                                  [--step create enter:1 level:2 quit enter:8 level:9 class:GLADIATOR level:10 ...]
                                  [--skill 769 758 519 ...] [--weapon 100900038 ...] [--weapon-group G] [--dp N] [--robot]
-                                 [--chain-after CATEGORY] [--target-kind PC|NPC]
+                                 [--chain-after CATEGORY] [--target-kind PC|NPC] [--stigma ITEM ... [--profile FILE | --no-profile] [--config DIR]]
     ([--java-src game-server/src] [--java-handlers data/handlers/quest])
 ```
 
@@ -774,7 +774,7 @@ flag, the base max HP / MP of the class template (m5a's `stats_info_base_max_hp`
 send none), and every `removeSkill` (`SM_SKILL_REMOVE`; the Daeva's 30001 -> 30002). The steps: `create` (learnNewSkills(1, 1)), `enter:L`
 (onLevelChange from the level stored at the last `quit` - `players.old_level` - before the spawn), `level:L` (online), `class:CLASS` /
 `action:ID` (the simple class change, `changeClassToSelection` with validate and the Daeva update; `accepted`, the `sendMessage` text of a
-refusal), `quit`, `book:ITEM` (SkillLearnAction.canAct's refusal and learnSkillBook). `isNew` is PlayerSkillList.addSkill's walk:
+refusal), `quit`, `seed:CLASS` (the offline Daeva seed of a gate: the class and the ascension quest, nothing learned), `book:ITEM` (SkillLearnAction.canAct's refusal and learnSkillBook). `isNew` is PlayerSkillList.addSkill's walk:
 `SkillTreeData.getSkillsForSkill` from the top of the skill's stack for the player's class at the time of the add, the recursion filtered by
 the top template's own class and race, ported exactly (`getHighestSkill`, `createSkillTree`, `getTemplatesForSkill`). `--known-skills` seeds
 the list (e.g. from the enter world's `SM_SKILL_LIST`) instead of an assumed history.
@@ -786,15 +786,19 @@ starting class, read from `_1205ANewSkill` / `_2132ANewSkill`), `messages` (send
 cooldown, duration, effects with their percentages, durations and launched skills, the costs, every condition and the refusals of the ones a
 gate's cast meets - weapon group, DP, chain precategory, robot, target kind - and the `skill_charge.xml` entry of a charge skill),
 `launched` (the same for every skill they launch) and `weapons` (item group, `ItemGroup`'s required skills and whether one is known after
-the steps, the robot id). Exit code 2 for an unknown class or step, an online step of a character not in the world, a skill or item without
-a template, or Java text whose shape the readers do not recognise.
+the steps, the robot id), and `stigmas` (per `--stigma`: the stone equipped after the steps into an empty regular slot -
+StigmaService.notifyEquipAction's kinah, the base of the stone's quality read from the Java through PricesService.getPriceForService with
+the profile's prices, m5c's `service_price` and `race_prices`, and addStigmaSkills' temporary skills with their message ids). Exit code 2
+for an unknown class or step, an online step of a character not in the world, a skill or item without a template, an item without
+`<stigma>` given as `--stigma`, a siege-enabled profile for `--stigma` (the influence is database state), or Java text whose shape the
+readers do not recognise.
 
 Not modelled: stats beyond the class template's base (passives, gear), cast speed factors other than 1 in the charge selection
 (`charged_skill` takes the factor), the npc and spot side (the gate reads `m5a-spawns` and `m5b-monster` for those).
 
 Tests: `tests/test_m5e.py` (the charge loop and the skill-tree walk on hand-made rows; on the real data the Warrior's path from creation to
 level 10 and 15 with every message id of m5e-plan.md §2.1 / §2.3 / X7, the class change tables of both races, the class master, the casts,
-the chain follower after its opener, a skill book learned and refused, the weapons, a seeded skill list and the command line).
+the chain follower after its opener, a skill book learned and refused, the weapons, a seeded skill list, a seeded Daeva's enter world, a stigma stone and the command line).
 
 ## Phase-6 golden quest traces (`questtrace/`, `docs/design/phase6-inventory.md` §7.6 item 3)
 
