@@ -860,6 +860,7 @@ every row, the gate follows what Java does.
 | C0 (since the review) | C0 fails when the oracle refuses any cast of B's characters (1699, 1809, 1685, 2767, 2606, 1417, 3706) | G-01 |
 | C21 (since the review) | The stop file is written **with A1 online**, as §10.2 C21 has it; B logs out first. After the stop, A1's `players.online` must be 0 | §10.2 |
 | X20 (since the review) | The G-07 relation rows, as M5b2's X13 compares them: `live Effect == effectsHeld`, `Effect created > effectsHeld`, `live Skill == skillsHeld`, `live EffectReserved <= effectReservedCapacity` (from `m5a_summary.txt`), plus `Summon` live 0 with `created > 0` and `Player` live 0. Before the review the comment said the census covered the relation rows; it did not | §10.3 X20 |
+| C12's rounds (since the review) | A replayed 769 / 758 round waits out 758's 40 s cooldown (skill_templates.xml: `cooldown="400"`) and, like every 758 after 769, 3 s for 769's animation (`player.getNextSkillUse`, CM_CASTSPELL.java:99-105); both refusals (`STR_SKILL_NOT_READY`) were measured. A 758 drain that only reached the max HP (after a replay's minute of regeneration) replays the round. 2981 refused with `STR_SKILL_OBSTACLE` on the geo gate is cast at the next target, three at most. A cast retried after "too far" waits for the target's arrival again before it counts a stumble as measurable (a run's only 519 stumble was lost to it) | measured on the review's runs |
 | C20's seed | `player_quests(1929, COMPLETE)` is an upsert (`ON DUPLICATE KEY UPDATE`): once 1929's handler is ported (M5f D13), the level-20 enter world may write the row first | review |
 | Allow-list | §A `BaseService.cpp:18`; §B G-07's four cron rows; §C `PvpMapService.cpp:32`, `PlayerService.cpp:268`. The milestone leaves no partial of its own on the path | §10.1 |
 
@@ -897,6 +898,15 @@ There was one `gs.scenario.m5e` run per mutant, in three batches. Batches 1 and 
 | `asmo-select7-swap` | **nothing in the gate**, as §10.4 says | `aion_gs_playersvc_tests` with the variable fails `ClassChangeServiceTest.TheAsmodianPagesAreShiftedByOneAndCarryTheEngineersAndArtistsOnTheirOwnActions` alone; without it, every case that ran passed (140 passed, 56 skipped without a database) |
 | `hostileup-no-hate` | **nothing in the gate**, as §10.4 says | `aion_gs_effects_al_tests` with the variable fails four `DaevaEffectsTest` cases: `InciteRageAddsTemporaryHateForFiveSeconds`, `TheEffectorsDeathCancelsTheTemporaryHatesRemoval`, `TauntAddsItsHateWithoutATask` and `MockingBlastAddsItsTemporaryHateWithoutTheEffectHate` (169 of 173 pass; without it, 173 of 173) |
 
+**The review's mutants (2026-10-05).** Switched by `AION_M5E_REVIEW_MUT` in `StumbleEffect.cpp` and `Effect.cpp`, built once into
+`aion_game_server`, the sources restored at once and checked by sha256 (2 of 2 OK), then the whole tree rebuilt; the string is in no binary.
+
+| Mutant | Gate | Failed |
+|---|---|---|
+| `stumble-origin`: the stumble ends where the target stood (`getClosestCollision` answering the start point) | `m5e_geo` | **X9g**: moved 0 m against the lower bound 1.1 m on open ground |
+| `stumble-nogeo`: the 2 m point with z unchanged (a port that ignores geo) | `m5e_geo` | C12 before X9g: no 519 stumble in that run, and a replayed 758 refused with `STR_SKILL_NOT_READY` (the gate's own replay bug, fixed since). Not a measurement of X9g's z row. The z row can only see it where the terrain slopes: the measured open-ground stumbles changed z by 0 to 0.19 m (118.875 → 119.066), and a flat end (0.000-0.005 m) passes it |
+| `effect-leak`: `Effect::endEffect` retains the ended Effect | `m5e` | **X20**: `live Effect` 663 against `effectsHeld` 309, `live Skill` 315 against `skillsHeld` 309; also X19 (census, ERROR lines, "removed from the world still alive") |
+
 **Findings.**
 - **A lock-order inversion inherited from Java.** **Corrected by PR #77** (`CondSkillLauncherEffect.cpp`, the owner's decision of 2026-10-04, both branches; docs/deviations/P5-03.md "CondSkillLauncherEffect: the lock-order correction"). A level-15 Gladiator with 563 *Determination* (`CondSkillLauncherEffect`) was revived by C15. lockdep reported an inversion, with ERROR lines:
   - One path: the `CondSkillLauncherEffect` action observer → `Effect.endEffect` (`synchronized (this)`, Effect.java:712).
@@ -904,6 +914,17 @@ There was one `gs.scenario.m5e` run per mutant, in three batches. Batches 1 and 
 
   Java nests the same monitors, so this is a potential deadlock of Java's. The gate still runs C15 before C13; with #77 that is no longer needed for the deadlock.
 - **The census of two failed mutant runs** listed a `Player` alive at the stop: `offline-daeva-ignores-quests`, and `hostileup-no-hate` on the final gate. In each, a case before C21 ended fatally, with A1 online in a fight or dead. No passing run shows it. It is not investigated here.
+
+**The review's runs** (build/msvc, Debug, 2026-10-05; the gate changed between them, as the C12 rounds row says):
+- On the final commit: `gs.scenario.m5e` passed in 338 s, 360 s and 373 s and failed once on X19's watchdog (below); `gs.scenario.m5e_geo` passed in 494 s and 487 s.
+- Before it: m5e passed 4 times (413, 367, 351, 339 s) and failed 3 times: once on X19's watchdog (below), once on X9g (the lost 519
+  stumble), and once, the first, on the watchdog while the oracle suite ran beside it; m5e_geo passed 5 times (499, 479, 496, 483, 479 s)
+  and failed twice on C12's replay path (fixed since).
+- **Open: X19's watchdog on the plain gate.** In every `gs.scenario.m5e` run the server logs `MapRegion::activate` instant tasks of 5-9 s
+  (MapRegion.cpp:141) at the enter worlds in Poeta; when one runs past the watchdog's sampling, `watchdog.txt` has a SLOW_TASK and X19
+  fails. The geo gate's runs log none. Nothing of the review touches the server; it is not investigated here.
+- X9g's measured stumble was 519's in every passing run (1-19 s after C12's first cast); the implied position was 0.002-0.05 m from the
+  broadcast one.
 
 **Runs** (build/msvc, Debug, 2026-10-04):
 - The geo gates of the earlier milestones (G-05), one run each on this tree: m5a_geo 150 s, m5b_geo 344 s, m5b2_geo 314 s, m5b3_geo 321 s, m5d_geo 376 s; all passed.
