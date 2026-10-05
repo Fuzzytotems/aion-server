@@ -124,11 +124,7 @@ void ResurrectAI::handleDialogStart(Player& player) {
 // Java ResurrectAI.java:75-107
 void ResurrectAI::bindHere(Player& player, const BindPointTemplate* bindPointTemplate) {
 	runtime::Ref<ResurrectAI_AIRequest> request = ResurrectAI_AIRequest::create(bindPointTemplate);
-	// Java passes the Integer price as the request's one parameter. The variadic addRequest of AIActions.h cannot be instantiated (it calls
-	// SM_QUESTION_WINDOW::toParam, which is private), so the parameter is formatted here with the packet's public String.valueOf(int) and passed
-	// through the std::vector<std::string> overload - the same string.
-	AIActions::addRequest(*this, player, SM_QUESTION_WINDOW::STR_ASK_REGISTER_RESURRECT_POINT, *request,
-		std::vector<std::string>{SM_QUESTION_WINDOW::toJavaString(bindPointTemplate->getPrice())});
+	AIActions::addRequest(*this, player, SM_QUESTION_WINDOW::STR_ASK_REGISTER_RESURRECT_POINT, *request, bindPointTemplate->getPrice());
 }
 
 } // namespace aion::gameserver::handlers::ai
