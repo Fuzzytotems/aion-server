@@ -128,6 +128,8 @@
 #include "aion/gameserver/skillengine/model/SkillTemplate.h"
 #include "aion/gameserver/skillengine/model/Skill_SkillMethod.h"
 #include "aion/gameserver/taskmanager/tasks/PlayerMoveTaskManager.h"
+#include "aion/gameserver/taskmanager/tasks/TeamMoveUpdater.h"
+#include "aion/gameserver/taskmanager/tasks/TeamStatUpdater.h"
 #include "aion/gameserver/utils/PacketSendUtility.h"
 #include "aion/gameserver/utils/PositionUtil.h"
 #include "aion/gameserver/utils/ThreadPoolManager.h"
@@ -595,7 +597,7 @@ void PlayerController::onStartMove() {
 void PlayerController::onMove() {
 	CreatureController::onMove();
 	if (getOwner().isInTeam())
-		standins::teamMoveUpdaterAdd(getOwner());
+		taskmanager::tasks::TeamMoveUpdater::getInstance().add(getOwner());
 }
 
 void PlayerController::onStopMove() {
@@ -713,7 +715,7 @@ void PlayerController::upgradePlayer() {
 	player.getGameStats()->updateStatsVisually();
 
 	if (player.isInTeam()) // SM_GROUP_MEMBER_INFO / SM_ALLIANCE_MEMBER_INFO task
-		standins::teamStatUpdaterAdd(player);
+		taskmanager::tasks::TeamStatUpdater::getInstance().add(player);
 
 	if (player.isLegionMember()) // SM_LEGION_UPDATE_MEMBER
 		services::LegionService::getInstance().updateMemberInfo(player);

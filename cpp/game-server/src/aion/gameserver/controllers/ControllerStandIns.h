@@ -4,10 +4,8 @@
 
 #include "aion/gameserver/runtime/lifetime/Ref.h"
 #include "aion/gameserver/runtime/sched/Future.h"
-#include "aion/gameserver/controllers/attack/fwd.h"
 #include "aion/gameserver/model/Race.h"
 #include "aion/gameserver/instance/handlers/fwd.h"
-#include "aion/gameserver/model/team/fwd.h"
 #include "aion/gameserver/model/gameobjects/fwd.h"
 #include "aion/gameserver/model/gameobjects/player/fwd.h"
 #include "aion/gameserver/services/rift/fwd.h"
@@ -52,26 +50,10 @@ runtime::FutureRef followStartServiceNewFollowingToTargetCheckTask(model::gameob
 
 // --------------------------------------------------------------------------------------------------------------- P5-10 (aion_gs_team)
 
-/**
- * Java: PlayerTeamDistributionService.doReward(team, damagePercent, owner, winner, damageList)
- * <p>
- * **Closed by P5-10** (m5b-plan.md E-01b): the whole `services/teleport`-sibling team package is unported. `NpcController::doReward` reaches it
- * only for a `TemporaryPlayerTeam` attacker, which needs a group or an alliance; a solo character never makes one.
- */
-void playerTeamDistributionServiceDoReward(model::team::TemporaryPlayerTeam& team, float damagePercent, model::gameobjects::Npc& owner,
-	model::gameobjects::AionObject& winner, attack::TeamDamageList& damageList);
-
-/** Java: PlayerGroupService.removePlayer(player) */
-void playerGroupServiceRemovePlayer(model::gameobjects::player::Player& player);
-
-/** Java: PlayerAllianceService.removePlayer(player) */
-void playerAllianceServiceRemovePlayer(model::gameobjects::player::Player& player);
-
-/** Java: TeamMoveUpdater.getInstance().add(player) */
-void teamMoveUpdaterAdd(model::gameobjects::player::Player& player);
-
-/** Java: TeamStatUpdater.getInstance().add(player) */
-void teamStatUpdaterAdd(model::gameobjects::player::Player& player);
+// m5g parties lane (m5g-plan.md W-04, header request m5g-10): the five team stand-ins are gone - `playerTeamDistributionServiceDoReward`,
+// `playerGroupServiceRemovePlayer`, `playerAllianceServiceRemovePlayer`, `teamMoveUpdaterAdd`, `teamStatUpdaterAdd`. NpcController::doReward,
+// PlayerController::onMove and upgradePlayer and the rift accept arm of RVController call PlayerTeamDistributionService, TeamMoveUpdater,
+// TeamStatUpdater, PlayerGroupService and PlayerAllianceService the way Java writes them. No stand-in of this section is left.
 
 // ---------------------------------------------------------------------------------------------------------------- P5-14 (aion_gs_app)
 
