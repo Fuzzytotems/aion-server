@@ -1,0 +1,16 @@
+{
+ "format": "aion-quest-trace",
+ "version": 1,
+ "questId": 21105,
+ "java": "gelkmaros/_21105CoweringRefugee.java",
+ "class": "_21105CoweringRefugee",
+ "javaSha256": "aee416458a922d02726406578f0e419e81094f78bccfa1ea480cbef72c3c5f20",
+ "register": [
+  {"npc": 799276, "event": "addOnQuestStart", "args": [21105]},
+  {"npc": 799276, "event": "addOnTalkEvent", "args": [21105]},
+  {"npc": 700812, "event": "addOnTalkEvent", "args": [21105]},
+  {"npc": 799366, "event": "addOnTalkEvent", "args": [21105]}
+ ],
+ "hooks": [{"hook": "onDialogEvent", "line": 31, "unsupported": "call npc.getController()"}],
+ "cases": []
+}

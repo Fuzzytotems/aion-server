@@ -156,7 +156,33 @@ SLICE_Q10 = (
 	'pandaemonium/_4972JudgeNot.java', 'pandaemonium/_4973MarraWorry.java', 'pandaemonium/_4974TheSecretOfHisSuccess.java',
 	'pandaemonium/_4976ASettlerAmbition.java',
 )
-SLICE = SLICE_TIER_A + SLICE_ROUTE + SLICE_Q03 + SLICE_Q10
+# Phase 6 step 2, chunk Q08 (lane C, 2026-10-05; docs/deviations/Q08.md): the 63 handlers of gelkmaros/ and enshar/ that questgen
+# transliterates (all but gelkmaros/_20034RescuetheReians: DataManager.QUEST_DATA, QuestTemplate.getName). The C++ harness drives every
+# document.
+SLICE_Q08 = (
+	'gelkmaros/_20031GotoGelkmaros.java', 'gelkmaros/_20032AllAboutAbnormalAether.java', 'gelkmaros/_20033DranaSolution.java',
+	'gelkmaros/_20035SilenteraSupport.java', 'gelkmaros/_21004VillageStatusReport.java', 'gelkmaros/_21027FearlessKantele.java',
+	'gelkmaros/_21033ExorcisingInfisto.java', 'gelkmaros/_21036DeliveryofAetherSample.java', 'gelkmaros/_21051TroubleinStone.java',
+	'gelkmaros/_21052DragonHuntin.java', 'gelkmaros/_21053DramataDrama.java', 'gelkmaros/_21054MissionofDestiny.java',
+	'gelkmaros/_21056FundinOrders.java', 'gelkmaros/_21057FundinOldGrudge.java', 'gelkmaros/_21058KirhuaSpecialOrder.java',
+	'gelkmaros/_21059ShiningScroll.java', 'gelkmaros/_21060EliminatePadmarashka.java', 'gelkmaros/_21061NewOrder.java',
+	'gelkmaros/_21062TheDramataWrath.java', 'gelkmaros/_21063VanquishVeille.java', 'gelkmaros/_21068TheGameIsAfoot.java',
+	'gelkmaros/_21070TheSummation.java', 'gelkmaros/_21071MissingBard.java', 'gelkmaros/_21073ListentoMySongStrigiks.java',
+	'gelkmaros/_21075FatedHeartbreak.java', 'gelkmaros/_21080MessageInAWindstream.java', 'gelkmaros/_21081A_Helping_Hand.java',
+	'gelkmaros/_21105CoweringRefugee.java', 'gelkmaros/_21106TheRealRhonnam.java', 'gelkmaros/_21111TestYourMight.java',
+	'gelkmaros/_21114PoisonedFungi.java', 'gelkmaros/_21125MysteryBlueprint.java', 'gelkmaros/_21135VellunRequest.java',
+	'gelkmaros/_21136InSearchOfAWitness.java', 'gelkmaros/_21137BerokinImageMarble.java', 'gelkmaros/_21138OddStrigik.java',
+	'gelkmaros/_21217NewResearchPlan.java', 'gelkmaros/_21221RustyRelic.java', 'gelkmaros/_21244SearchForTheBiolab.java',
+	'gelkmaros/_21249TheInvincibleStarket.java', 'gelkmaros/_21296PadmarashkaLegacy.java', 'gelkmaros/_21455IngredientsForTheAntidote.java',
+	'gelkmaros/_21458PracticalResearch.java', 'gelkmaros/_21460AShulacksStory.java', 'enshar/_20500EnsharExpedition.java',
+	'enshar/_20501WhattheRuinsSay.java', 'enshar/_20502EvolvingMysteries.java', 'enshar/_20503AncientEvilPlans.java',
+	'enshar/_20504TiamatsShadow.java', 'enshar/_20505AncientCrystal.java', 'enshar/_20506MuscleOverMind.java',
+	'enshar/_20507ItsWorseThanWeThought.java', 'enshar/_25022SoupDeCure.java', 'enshar/_25023SproutingDevelopments.java',
+	'enshar/_25030CluesFromTheUndead.java', 'enshar/_25031TheTejhiGhost.java', 'enshar/_25032AvengeVarnur.java',
+	'enshar/_25050TreasureInTheDeepSea.java', 'enshar/_25051TreasureOfAncientKings.java', 'enshar/_25052AnOfferingPeace.java',
+	'enshar/_25062OminousAdvice.java', 'enshar/_25070TruthOfTheCrystal.java', 'enshar/_25073NoRevivalForTheBalaur.java',
+)
+SLICE = SLICE_TIER_A + SLICE_ROUTE + SLICE_Q03 + SLICE_Q10 + SLICE_Q08
 
 ENUM_FILES = {'QuestStatus': 'questEngine/model/QuestStatus.java', 'Race': 'model/Race.java', 'PlayerClass': 'model/PlayerClass.java',
               'Gender': 'model/Gender.java', 'HandlerResult': 'questEngine/handlers/HandlerResult.java', 'DialogPage': 'model/DialogPage.java',

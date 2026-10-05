@@ -1725,6 +1725,11 @@ const std::set<std::string>& knownNotReproducible() {
 		"80220 onDialogEvent#9",
 		"24012 onDialogEvent#12",
 		"24012 onDialogEvent#12@questState.vars.0=4",
+		// Phase 6 step 2, chunk Q08 (lane C, 2026-10-05): _21460AShulacksStory.java:65 `if (removeQuestItem(env, 182209520, 1))` at
+		// SELECT_QUEST_REWARD: the path reads no count of the item (the oracle's given holds none), so removeQuestItem cannot answer true in a
+		// setup of the case as given; the overlay that holds the item (overlaysFor, "the items the helpers remove or count held") runs and
+		// compares the path, which does not count as reproducing the case as given
+		"21460 onDialogEvent#20",
 	};
 	return known;
 }
@@ -1756,6 +1761,8 @@ const std::map<std::string, std::string>& knownVacuous() {
 		"only, which the oracle satisfies with no target): no npc of its list is the target, nothing changes (AbstractQuestHandler.java:726-747)";
 	static const std::string STEP_NOT_MET = "defaultCloseDialog at a var the path read that is not the helper's step: it does nothing then "
 		"(AbstractQuestHandler.java:486-529)";
+	static const std::string REMOVE_FALSE_REWARD_PAGE = "removeQuestItem assumed false changes nothing (AbstractQuestHandler.java:644-659), and "
+		"sendQuestDialog of the reward page 5 outside REWARD sends nothing (AbstractQuestHandler.java:330-340)";
 	static const std::string KILLS_ASSUMED_FALSE = "every kill helper of the path assumed false: it changes nothing then (AbstractQuestHandler.java "
 		"defaultOnKillEvent)";
 	static const std::map<std::string, std::string> known = [] {
@@ -1805,6 +1812,9 @@ const std::map<std::string, std::string>& knownVacuous() {
 		{"14014 onKillEvent#3", KILL_FALSE},
 		{"14050 onDialogEvent#5", REWARD_PAGE},
 		{"14054 onKillEvent#3", KILL_FALSE},
+		// Phase 6 step 2, chunk Q08 (lane C, 2026-10-05): _21460AShulacksStory.java:65-67 in START, removeQuestItem assumed false and the
+		// reward page 5 outside REWARD (Java's own path: the dialog stays silent)
+		{"21460 onDialogEvent#21", REMOVE_FALSE_REWARD_PAGE},
 		};
 		// P6-Q slice 2 (Q10): the altgard and pandaemonium traces (GoldenKnownVacuousQ10.h)
 		for (const auto& [key, kind] : Q10_VACUOUS) {
@@ -1834,9 +1844,12 @@ const std::map<std::string, std::string>& knownUnported() {
  * P6-Q slice 2 (Q03): 1640 (TeleportService.teleportTo), 1647 (player.getEquipment, spawnForFiveMinutesInFrontOf). P6-Q slice 2 (Q10):
  * 2925 (getEquipment), 2938 (TeleportService.teleportTo), 2952 (the whole var field), 4966-4969 (tryDecreaseKinah); their registration traces
  * are checked, their hooks only by parity, the drift test and the chunks' unit cases. (Q10's 2213, getEffectController and SkillEngine, is
- * held back since the integration of slice 2: GoldenHandlers.h)
+ * held back since the integration of slice 2: GoldenHandlers.h).
+ * Phase 6 step 2, chunk Q08 (lane C): gelkmaros 21004, 21027, 21033, 21036, 21071 (a status read after sendQuestNoneDialog), 21105, 21249
+ * (npc.getController()), enshar 25052 (spawnForFiveMinutes)
  */
-constexpr int32_t ORACLE_REFUSES_EVERY_HOOK[] = {1205, 2132, 1640, 1647, 2925, 2938, 2952, 4966, 4967, 4968, 4969};
+constexpr int32_t ORACLE_REFUSES_EVERY_HOOK[] = {1205, 2132, 1640, 1647, 2925, 2938, 2952, 4966, 4967, 4968, 4969, 21004, 21027, 21033, 21036,
+	21071, 21105, 21249, 25052};
 
 TEST_F(GoldenQuestTraceTest, EveryExpectedDocumentHasAGeneratedHandlerAndEveryHandlerADocument) {
 	std::vector<int32_t> ids = expectedQuestIds();
