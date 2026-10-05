@@ -1357,7 +1357,10 @@ to kill is killed** (17 gate runs), and the "nothing in the gate" rows are kille
 | `EmptyInstanceCheckerTask` ignores `isRegisteredTeamDisbanded` | **not built**: needs a `GeneralTeam` (M5g, D3), as §15.6 recorded |
 
 Runs (Debug, `build/msvc`, 2026-10-05): `gs.scenario.m5f` passed in 198 s and `gs.scenario.m5f_geo` in 325 s in one ctest, on the gate as
-committed. The regate (G-05, §10.6) is in docs/deviations/P5-SC.md, "M5f gate".
+committed. **The regate (G-05, §10.6)**: every `gs.scenario.*` gate in one ctest on the final tree, after the mutation proof: 16 of 17
+passed (m5f 283 s, m5f_geo 359 s); `gs.scenario.travel` failed once at the login server before any game packet and passed alone right
+after (P5-SC.md, "M5f gate", has the times and the message). The earlier gates are unmodified, so their packet sequences did not change
+(§10.6 c).
 
 ### 17.5 Not built, open
 
