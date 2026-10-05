@@ -5,7 +5,7 @@
 namespace aion::gameserver::handlers::admincommands {
 
 /**
- * /time: changes the game time.
+ * //time: changes the game time.
  */
 class Time : public AdminCommand {
 public:

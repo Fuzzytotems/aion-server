@@ -5,16 +5,13 @@
 namespace aion::gameserver::handlers::admincommands {
 
 /**
- * //zone: shows zone information.
+ * //morph: morphs a player into any NPC.
  */
-class Zone : public AdminCommand {
+class Morph : public AdminCommand {
 public:
-	Zone();
+	Morph();
 
 	void execute(Player& player, std::span<const std::string> params) override;
-
-private:
-	std::vector<runtime::Ptr<ZoneInstance>> findZones(Creature& creature, std::optional<std::string_view> zoneNameFilter);
 };
 
 } // namespace aion::gameserver::handlers::admincommands

@@ -5,16 +5,13 @@
 namespace aion::gameserver::handlers::admincommands {
 
 /**
- * //zone: shows zone information.
+ * //addexp: increases/decreases a player's experience points.
  */
-class Zone : public AdminCommand {
+class AddExp : public AdminCommand {
 public:
-	Zone();
+	AddExp();
 
 	void execute(Player& player, std::span<const std::string> params) override;
-
-private:
-	std::vector<runtime::Ptr<ZoneInstance>> findZones(Creature& creature, std::optional<std::string_view> zoneNameFilter);
 };
 
 } // namespace aion::gameserver::handlers::admincommands

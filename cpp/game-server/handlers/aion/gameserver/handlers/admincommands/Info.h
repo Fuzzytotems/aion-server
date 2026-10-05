@@ -5,7 +5,7 @@
 namespace aion::gameserver::handlers::admincommands {
 
 /**
- * /info: shows information about your target.
+ * //info: shows information about your target.
  */
 class Info : public AdminCommand {
 public:

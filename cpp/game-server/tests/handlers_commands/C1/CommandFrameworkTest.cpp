@@ -152,6 +152,10 @@ TEST_F(CommandFrameworkTest, ANumberFormatErrorIsAnInvalidNumber) {
 	command.action = [] { throw commons::utils::NumberFormatException("Cannot parse null string: null"); };
 	EXPECT_TRUE(command.process(gm, args({})));
 	EXPECT_EQ(client()->sentBytes(), info("Invalid number."));
+	client()->clearSent();
+	command.action = [] { throw commons::utils::NumberFormatException(""); };
+	EXPECT_TRUE(command.process(gm, args({})));
+	EXPECT_EQ(client()->sentBytes(), info("Invalid number.")) << "no message (Java null or \"\") is still a number error, not the syntax";
 }
 
 TEST_F(CommandFrameworkTest, AnUnknownEnumConstantListsThePossibleValues) {

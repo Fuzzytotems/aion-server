@@ -5,16 +5,13 @@
 namespace aion::gameserver::handlers::admincommands {
 
 /**
- * //zone: shows zone information.
+ * //heal: restores HP, MP, DP, flight time and energy of repose.
  */
-class Zone : public AdminCommand {
+class Heal : public AdminCommand {
 public:
-	Zone();
+	Heal();
 
 	void execute(Player& player, std::span<const std::string> params) override;
-
-private:
-	std::vector<runtime::Ptr<ZoneInstance>> findZones(Creature& creature, std::optional<std::string_view> zoneNameFilter);
 };
 
 } // namespace aion::gameserver::handlers::admincommands
