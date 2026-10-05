@@ -1414,3 +1414,4 @@ P5-SC.md has the table.
 - **Mutants**: `stumble-origin` fails X9g on the geo gate; `effect-leak` fails X20's relation rows (P5-SC.md has the table). X9g's z row
   sees a geo-ignoring port only where the terrain slopes at the stumble.
 - **Open**: the plain gate's X19 watchdog row fails when a 5-9 s `MapRegion::activate` task is sampled (P5-SC.md "The review's runs").
+  Fixed on fix/region-activate: the Debug lock-order validator's edge cache (DEVIATIONS.md, runtime kernel).

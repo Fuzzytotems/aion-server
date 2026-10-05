@@ -87,6 +87,12 @@ public:
 	void setFailOnReport(bool failOnReport) noexcept;
 	bool isFailOnReport() const noexcept;
 
+	/**
+	 * C++ only (diagnostics and tests): how many beforeAcquire calls of the calling thread missed its edge cache, i.e. met an edge, same-class
+	 * nesting or self-lock the thread had not cached yet and asked the graph (0 in release builds).
+	 */
+	uint64_t threadCacheMissCount() const noexcept;
+
 	/** `//debug locks`: edge count, classes, reports and blocking-under-monitor sites as display lines. */
 	std::vector<std::string> describe() const;
 
