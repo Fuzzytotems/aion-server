@@ -1,8 +1,8 @@
 // The M5e scenario gate (m5e-plan.md G-03, G-04, M-06, T-03, §10): one login server and one game server as child processes on their own test
 // schemas, two accounts, and a character's progression from level 1 to the Daeva and the Daeva's first skills - an Elyos Warrior (A1, account
 // A) meets its class master at level 2 (the "A New Skill" quest 1205), learns levels 3-8 offline and 9 online, hits the level-9 wall, changes
-// class through the simple class window (`gameserver.simple.secondclass.enable`, D1 (a)) - a wrong choice, the change, a second change -
-// becomes a Daeva at level 10, survives a relog, uses the Gladiator's level-10 kit with a greatsword, enters at level 15 with its first
+// class through the simple class window (`gameserver.simple.secondclass.enable`, the gate's way to seed a class change: D1) - a wrong choice,
+// the change, a second change - becomes a Daeva at level 10, survives a relog, uses the Gladiator's level-10 kit with a greatsword, enters at level 15 with its first
 // condskilllauncher passive, enters Verteron and fights a monster with a skill of the M5e effect set, and is resurrected by a Cleric; five
 // Elyos characters of account B (B1 Cleric, B2 Chanter, B3 Aethertech, B4 Sorcerer, B5 Spiritmaster, seeded as Daevas after a first enter
 // world at level 1, D8) watch the class change (B1, the observer O), resurrect A1 (B1), toggle a mantra beside A1 (B2), ride a robot and
@@ -28,10 +28,12 @@
 // alternative page is asteros 203058's, not Pernos's (1123 starts at Pernos since its phase-6 handler registered, so Pernos answers 10); the
 // level-ups of C4-C10 kill the 2-HP junk monster 210340 beside asteros (one exp crosses a seeded threshold; Pernos's level-7 monsters killed
 // a level-8 Warrior); C15, the resurrection, runs before C13, while A1 is a level-10 Gladiator without 563's condskilllauncher (at 15 its
-// revive drove a lock-order inversion inherited from Java, which the report names); C12, the Gladiator's kit, runs after C13 at level 15,
+// revive drove CondSkillLauncherEffect's lock-order inversion inherited from Java; PR #77 corrects it, the owner's decision of 2026-10-04,
+// so the order is no longer needed for that and is kept as it was measured); C12, the Gladiator's kit, runs after C13 at level 15,
 // where the junk monster no longer aggroes A1 and so stands where its last SM_MOVE took it (X9g), and 769 is cast again while a dodge or a
-// resist blocks its chain (Skill.java:598-606); X9g bounds the stumble by 2 m +- 0.9 m, the uncertainty of the target's broadcast position;
-// 1699 on a living target is refused before the cast (STR_SKILL_TARGET_IS_NOT_VALID), not answered with status 16; the summon's hit is the
+// resist blocks its chain (Skill.java:599-607); X9g bounds the stumble by 2 m +- 0.9 m, the uncertainty of the target's broadcast position,
+// and with geo compares its z with m5e-stumble's GeoMap.getZ on open ground; 1699 on a living target is refused before the cast
+// (STR_SKILL_TARGET_IS_NOT_VALID, PlayerRestrictions.canUseSkill), not answered with status 16; the summon's hit is the
 // client's CM_SUMMON_ATTACK after the attack order.
 //
 // It holds TWO gates: M5eScenario.Run (gs.scenario.m5e, geo off) and M5eScenarioGeo.Run (gs.scenario.m5e_geo, geo on), the same script through
@@ -51,6 +53,7 @@
 #include <cstdint>
 #include <cstdlib>
 #include <filesystem>
+#include <format>
 #include <fstream>
 #include <functional>
 #include <iostream>
@@ -1314,9 +1317,12 @@ void runM5eGate(const GateVariant& variant) {
 	} printer{cases, variant.testName};
 
 	// ---- §10.1 processes, databases and profile (m5e.properties.example, D9) ----
-	// The M5a set comes from ScenarioServers::m5aProfile; then the M5b-1 / M5b-2 / M5b-3 keys and M5d's (the quest rates written out at their
-	// defaults, the quest spawn analysis off) and what M5e adds: the simple class window ON (D1 (a)), and the quest experience rate pinned
-	// (D9: X1's 275 exp is exact for a membership-0 account). Geodata separates the variants.
+	// The M5a set comes from ScenarioServers::m5aProfile; then exactly the keys the M5d gate passes (M5dScenarioTest.cpp's gateKeys): M5b-1's
+	// shouts off and solo rate, M5b-2's soul sickness, the drop rate 0 of the M5b-3 profile (none of its other keys, and none of M5c's: the
+	// path crafts, sockets and loots nothing), M5d's quest rates written out at their defaults and the quest spawn analysis off - and what
+	// M5e changes: the simple class window ON, which the gate keeps only to seed a class change (D1 answered 2026-10-04: play runs with it
+	// off and the retail ascension route), with the quest experience rate pinned (D9: X1's 275 exp is exact for a membership-0 account).
+	// Geodata separates the variants.
 	std::map<std::string, std::string> gateKeys;
 	gateKeys["gameserver.geodata.enable"] = variant.geodata ? "true" : "false";
 	gateKeys["gameserver.npcshouts.enable"] = "false";
@@ -1478,12 +1484,17 @@ void runM5eGate(const GateVariant& variant) {
 				arguments.push_back(argument);
 			daevas[character->daevaClass] = progression(arguments);
 		}
+		// G-01: every cast of C15-C19 checked against its conditions for the seeded Daeva; a refusal fails the oracle's answer, here
+		for (const auto& [daevaClass, arguments] : casts)
+			for (const auto& [skillId, skill] : daevas.at(daevaClass).skills)
+				EXPECT_TRUE(skill.accepted) << "C0: the oracle refuses " << daevaClass << "'s cast " << skillId << ": " << join(skill.refusals);
+		EXPECT_TRUE(daevas.at("CHANTER").step("enter:10").skills.contains(NOT_A_TOGGLE)) << "C16 casts 1685 before its audit";
+		EXPECT_EQ(daevas.at("CHANTER").skills.at(NOT_A_TOGGLE).tslot, "BUFF") << "1685 is shown (C16's audit reads its SM_ABNORMAL_STATE)";
 		EXPECT_TRUE(daevas.at("CLERIC").step("enter:10").skills.contains(LIGHT_OF_RESURRECTION));
 		EXPECT_EQ(daevas.at("CLERIC").skills.at(LIGHT_OF_RESURRECTION).launches, std::vector<int32_t>{SOUL_SICKNESS}) << "X13: 1699 -> 8296";
 		EXPECT_TRUE(daevas.at("CHANTER").step("enter:10").skills.contains(CELERITY_MANTRA));
 		EXPECT_EQ(daevas.at("CHANTER").skills.at(CELERITY_MANTRA).launches, std::vector<int32_t>{CELERITY_MANTRA_EFFECT}) << "X14: 1809 -> 8998";
 		EXPECT_TRUE(daevas.at("RIDER").step("enter:10").skills.contains(EMBARK));
-		EXPECT_TRUE(daevas.at("RIDER").skills.at(KINETIC_SLAM).accepted) << join(daevas.at("RIDER").skills.at(KINETIC_SLAM).refusals);
 		EXPECT_TRUE(daevas.at("SORCERER").step("enter:10").skills.contains(CURSE_OF_ROOTS));
 		EXPECT_TRUE(daevas.at("SPIRIT_MASTER").step("enter:10").skills.contains(SUMMON_FIRE_SPIRIT));
 
@@ -2072,25 +2083,34 @@ void runM5eGate(const GateVariant& variant) {
 		b.labels[a1.playerId] = "A1";
 		enterAs(servers, a, a1);
 		a.labels[a1.playerId] = "A1";
-		// A1 dies: it attacks the nearest monster, which hits back (1 HP)
-		const int32_t monster = engage(a, MELEE_DISTANCE, 45.0, {PERNOS_MONSTERS.begin(), PERNOS_MONSTERS.end()});
-		const std::optional<decoders::StatsInfo> stats = a.lastStats();
-		ASSERT_TRUE(stats);
-		bool died = false;
-		a.game->fightUntil(
-		  monster, std::chrono::milliseconds(stats->attackSpeed),
-		  [&](const Packet& packet) {
-			  if (packet.name != "SM_EMOTION")
-				  return false;
-			  try {
-				  const decoders::Emotion emotion = decoders::decodeEmotion(packet.data);
-				  died = died || (emotion.emotionType == decoders::EMOTION_DIE && emotion.senderObjectId == a1.playerId);
-			  } catch (const DecodeError&) {
-			  }
-			  return died;
-		  },
-		  90s, 60);
-		ASSERT_TRUE(died) << "X13: A1 (1 HP) did not die";
+		// A1 dies: it attacks the nearest monster, which hits back (1 HP). The death is read from the whole recording since before the walk:
+		// an aggressive monster may kill A1 on the way, before fightUntil reads anything (and then the engage may find no answer)
+		const size_t deathFrom = a.mark();
+		const auto isDeathOfA1 = [&](const Packet& packet) {
+			if (packet.name != "SM_EMOTION")
+				return false;
+			try {
+				const decoders::Emotion emotion = decoders::decodeEmotion(packet.data);
+				return emotion.emotionType == decoders::EMOTION_DIE && emotion.senderObjectId == a1.playerId;
+			} catch (const DecodeError&) {
+				return false;
+			}
+		};
+		const auto diedSince = [&] { return std::ranges::any_of(a.since(deathFrom), isDeathOfA1); };
+		std::optional<int32_t> monster;
+		try {
+			monster = engage(a, MELEE_DISTANCE, 45.0, {PERNOS_MONSTERS.begin(), PERNOS_MONSTERS.end()});
+		} catch (const std::exception& exception) {
+			if (!diedSince())
+				throw;
+			std::cout << "X13: A1 died before its target was selected (" << exception.what() << ")" << std::endl;
+		}
+		if (monster && !diedSince()) {
+			const std::optional<decoders::StatsInfo> stats = a.lastStats();
+			ASSERT_TRUE(stats);
+			a.game->fightUntil(*monster, std::chrono::milliseconds(stats->attackSpeed), isDeathOfA1, 90s, 60);
+		}
+		ASSERT_TRUE(diedSince()) << "X13: A1 (1 HP) did not die";
 		collectFor(*a.game, 1s);
 		// B1 selects A1's body and casts 1699 (a 6 s cast with cancel_rate 30: a hit may interrupt it, so up to three tries)
 		b.game->send(GameSession::CM_TARGET_SELECT, GameSession::buildCM_TARGET_SELECT(a1.playerId));
@@ -2117,6 +2137,13 @@ void runM5eGate(const GateVariant& variant) {
 		const decoders::StatUpdateHp first = decoders::decodeStatUpdateHp(hp->data);
 		EXPECT_EQ(first.currentHp, static_cast<int32_t>(static_cast<int64_t>(first.maxHp) * 35 / 100))
 		  << "X13: revive(35, 35): setCurrentHpPercent(35) of the max in force (CreatureLifeStats.java:339-341)";
+		// the MP the same way: setCurrentMpPercent(35) (PlayerReviveService.java:197, CreatureLifeStats.java:382-384), whose change sends
+		// SM_STATUPDATE_MP (CreatureLifeStats.java:373-375); A1 died with more than 35 % of its MP, so the value changes
+		const Packet* mp = firstOfName(revived, "SM_STATUPDATE_MP");
+		ASSERT_NE(mp, nullptr) << "X13: no SM_STATUPDATE_MP after CM_REVIVE";
+		const decoders::StatUpdateMp firstMp = decoders::decodeStatUpdateMp(mp->data);
+		EXPECT_EQ(firstMp.currentMp, static_cast<int32_t>(static_cast<int64_t>(firstMp.maxMp) * 35 / 100))
+		  << "X13: revive(35, 35): setCurrentMpPercent(35) of the max in force (" << firstMp.currentMp << " / " << firstMp.maxMp << ")";
 		EXPECT_TRUE(reviveEvents.has("MSG " + std::to_string(STR_REBIRTH_MASSAGE_ME))) << "X13: STR_REBIRTH_MASSAGE_ME: " << reviveEvents.describe();
 		bool sickness = false;
 		for (const Packet& packet : ofName(revived, "SM_ABNORMAL_STATE"))
@@ -2130,10 +2157,15 @@ void runM5eGate(const GateVariant& variant) {
 			EXPECT_LT(*lastMax, first.maxHp) << "X13: 8296 lowers the max HP (MAXHP PERCENT -30 on the base; the bonus of the passives stays)";
 		(void)before;
 		(void)aFrom;
-		// 1699 on a living target: refused before the cast. TargetRangeProperty.checkCommonRequirements keeps only dead creatures for a skill
-		// with a resurrect effect (TargetRangeProperty.java:100-103), so Skill.validateEffectedList finds the list empty and sends
-		// STR_SKILL_TARGET_IS_NOT_VALID (Skill.java:208-212): no SM_CASTSPELL, no SM_CASTSPELL_RESULT, no offer. (The plan's "status 16" was
-		// inferred; ResurrectEffect.calculate's own isDead guard is not reached from a living target on this path.)
+		// 1699 on a living target: refused before the cast. revive cleared B1's target (every player of A1's known list that targeted A1,
+		// PlayerReviveService.java:190-193), and CM_CASTSPELL casts at the server-side target (PlayerController.useSkill, :460), so B1 selects
+		// A1 again first; then PlayerRestrictions.canUseSkill refuses a skill with a resurrect effect on a living player
+		// (PlayerRestrictions.java:105, 110-113, from PlayerController.java:474) with STR_SKILL_TARGET_IS_NOT_VALID: no SM_CASTSPELL, no
+		// SM_CASTSPELL_RESULT, no offer. Without the new selection the refusal would be canUseSkill's other branch, the target that is no
+		// player (:106-108). (The plan's "status 16" was inferred; ResurrectEffect.calculate's own isDead guard is not reached from a living
+		// target on this path.)
+		b.game->send(GameSession::CM_TARGET_SELECT, GameSession::buildCM_TARGET_SELECT(a1.playerId));
+		waitFor(*b.game, "SM_TARGET_SELECTED", 10s);
 		const size_t livingFrom = a.mark();
 		const size_t bLivingFrom = b.mark();
 		const GameSession::CastOutcome refusedOutcome = cast(b, LIGHT_OF_RESURRECTION, a1.playerId, 4s);
@@ -2171,6 +2203,8 @@ void runM5eGate(const GateVariant& variant) {
 			/** the cast came 1 s after the target's arrival at its last broadcast position (KnownNpcs::Npc::arrivalAt): it stood there */
 			bool settled = false;
 			std::chrono::steady_clock::time_point castAt{};
+			/** the geo run: m5e-stumble's answer for its segment (open, groundZ, reason) */
+			std::optional<json> geo;
 		};
 		std::vector<Stumble> stumbles;
 		/** casts `skill` at the current target and records its result's stumbles with the effected npcs' positions before the cast */
@@ -2213,13 +2247,19 @@ void runM5eGate(const GateVariant& variant) {
 		/**
 		 * X9's drain: per effect of the result, ⌊d × p / 100⌋ of its HP reserve d (SkillAtkDrainInstantEffect.java:26-35), 1 s later. The
 		 * update carries what the HP rose by, newHp - previousHp with newHp capped at the max HP (CreatureLifeStats.java:185, 191): an update
-		 * whose HP percentage is 100 may be less than its drain, any other must be exactly one
+		 * whose HP percentage is 100 may be less than its drain, any other must be exactly one. A dodged, resisted or conflicting effect has
+		 * no success effect, so Effect.applyEffect returns before SkillAtkDrainInstantEffect schedules the drain (Effect.java:545-563,
+		 * 596-600): no update at all is expected for it, not one of 0 (an applied effect whose reserve is 0 does send 0: increaseHp sends
+		 * for any skill id, CreatureLifeStats.java:190-191)
 		 */
 		const auto expectDrains = [&](const decoders::CastSpellResult& result, size_t from, uint16_t skill, int32_t percent, std::string_view row) {
 			collectFor(*a.game, 3000ms);
 			std::multiset<int32_t> expected;
 			for (const decoders::CastResultEffect& effect : result.effects) {
 				if (effect.effectedObjectId == a1.playerId)
+					continue;
+				if (effect.effectResult == decoders::EFFECT_RESULT_DODGE || effect.effectResult == decoders::EFFECT_RESULT_RESIST ||
+				    effect.effectResult == decoders::EFFECT_RESULT_CONFLICT)
 					continue;
 				int32_t damage = 0;
 				for (const decoders::CastResultReserved& reserved : effect.reserved)
@@ -2288,33 +2328,49 @@ void runM5eGate(const GateVariant& variant) {
 		show("X9 519", rageEvents);
 		EXPECT_TRUE(rageEvents.has("DP 0")) << "X9: DpUseAction takes exactly 2,000 of the seeded 2,000 (SM_STATUPDATE_DP 0): " << rageEvents.describe();
 
-		// 769, then 758 after its result: the chain, each with its drain
-		if (const auto npc = a.npcs.get(target); !npc || npc->dead)
-			target = engage(a, MELEE_DISTANCE);
-		// chain_skill_prob 100 opens the chain unless every effected resisted or dodged (blockedChain, Skill.java:598-606, 628-633): a blocked
-		// 769 is cast again after its 10 s cooldown, four times at most
-		std::optional<decoders::CastSpellResult> fury;
-		for (int32_t attempt = 0; attempt < 4 && (!fury || fury->chainStatus != decoders::CAST_RESULT_CHAIN_SUCCESS); attempt++) {
+		// 769, then 758 after its result: the chain, each with its drain. chain_skill_prob 100 opens the chain unless every effected resisted
+		// or dodged (blockedChain, Skill.java:599-607, 628-631): a blocked 769 is cast again after its 10 s cooldown. A 758 whose every effect
+		// was dodged or resisted drains nothing (expectDrains), so its round is played again; four 769s at most
+		const auto applied = [](const decoders::CastSpellResult& result) {
+			return std::ranges::any_of(result.effects, [](const decoders::CastResultEffect& effect) {
+				return effect.effectResult != decoders::EFFECT_RESULT_DODGE && effect.effectResult != decoders::EFFECT_RESULT_RESIST &&
+				       effect.effectResult != decoders::EFFECT_RESULT_CONFLICT;
+			});
+		};
+		bool hackMeasured = false, furyMeasured = false;
+		for (int32_t attempt = 0; attempt < 4 && !hackMeasured; attempt++) {
 			if (attempt > 0) {
 				collectFor(*a.game, 10500ms);
 				target = engage(a, MELEE_DISTANCE);
+			} else if (const auto npc = a.npcs.get(target); !npc || npc->dead) {
+				target = engage(a, MELEE_DISTANCE);
 			}
 			from = a.mark();
-			fury = castRecorded(ABSORBING_FURY, target).second;
+			const std::optional<decoders::CastSpellResult> fury = castRecorded(ABSORBING_FURY, target).second;
 			ASSERT_TRUE(fury) << "X9: 769 was refused: " << a.events(from).describe();
-			if (fury->chainStatus != decoders::CAST_RESULT_CHAIN_SUCCESS)
+			if (fury->chainStatus != decoders::CAST_RESULT_CHAIN_SUCCESS) {
 				std::cout << "X9: 769's chain was blocked (chain status " << +fury->chainStatus << "), cast again" << std::endl;
+				continue;
+			}
+			if (!furyMeasured)
+				expectDrains(*fury, from, ABSORBING_FURY, 10, "X9 769");
+			furyMeasured = true;
+			from = a.mark();
+			const int32_t hackTarget = [&] {
+				const auto npc = a.npcs.get(target);
+				return npc && !npc->dead ? target : engage(a, MELEE_DISTANCE);
+			}();
+			auto [hackOutcome, hack] = castRecorded(ROILING_HACK, hackTarget);
+			ASSERT_TRUE(hack) << "X9: 758 after 769 was refused (ChainCondition, ChainCondition.java:39-48): " << a.events(from).describe();
+			if (!applied(*hack)) {
+				std::cout << "X9: every effect of 758 was dodged or resisted (no drain is scheduled), the round is played again" << std::endl;
+				continue;
+			}
+			expectDrains(*hack, from, ROILING_HACK, 30, "X9 758");
+			hackMeasured = true;
 		}
-		ASSERT_EQ(fury->chainStatus, decoders::CAST_RESULT_CHAIN_SUCCESS) << "X9: 769's chain_skill_prob is 100 (Skill.java:627-637)";
-		expectDrains(*fury, from, ABSORBING_FURY, 10, "X9 769");
-		from = a.mark();
-		const int32_t hackTarget = [&] {
-			const auto npc = a.npcs.get(target);
-			return npc && !npc->dead ? target : engage(a, MELEE_DISTANCE);
-		}();
-		auto [hackOutcome, hack] = castRecorded(ROILING_HACK, hackTarget);
-		ASSERT_TRUE(hack) << "X9: 758 after 769 was refused (ChainCondition, ChainCondition.java:39-48): " << a.events(from).describe();
-		expectDrains(*hack, from, ROILING_HACK, 30, "X9 758");
+		ASSERT_TRUE(furyMeasured) << "X9: 769's chain never opened in four casts (chain_skill_prob 100, Skill.java:627-637)";
+		ASSERT_TRUE(hackMeasured) << "X9: no 758 after 769 whose effect was applied in four rounds";
 
 		// 2981 on a live target: an effect list (status not 16)
 		target = engage(a, MELEE_DISTANCE);
@@ -2323,23 +2379,45 @@ void runM5eGate(const GateVariant& variant) {
 		ASSERT_TRUE(taunt) << "X9: 2981 was refused: " << a.events(from).describe();
 		EXPECT_NE(taunt->chainStatus, decoders::CAST_RESULT_NO_EFFECT) << "X9: Taunt applied its effects (HostileUpEffect)";
 
-		// X9g: more of the chain until a stumble (769's 10 s cooldown, X12's rule for the budget)
+		// X9g: more of the chain until a stumble the row can measure. Without geo that is any stumble of a target that stood still (settled);
+		// with geo, one whose segment tools/oracle's m5e-stumble finds open in the geo data (no geometry crosses getClosestCollision's ray,
+		// the ground stays below it), so that Java's end is (x + 2 cos, y + 2 sin, getZ there) and nothing else (GeoMap.java:137-148).
+		// The budget is a FIXED 240 s, not derived from X12's 10^-4 rule: a stumble comes from 519's subeffect 8218 (once per DP seed) and
+		// from the critical proc of 769 / 758 (10 % of a critical, Effect.java:533), and the critical rate is a stat of the character the
+		// oracle does not model. 240 s is about 20 rounds of 769 (10 s cooldown) and 758; P5-SC.md "M5e gate" lists when the measured
+		// stumble came in the runs
 		const auto stumbleDeadline = std::chrono::steady_clock::now() + 240s;
-		while (stumbles.empty() && std::chrono::steady_clock::now() < stumbleDeadline) {
+		const auto c12Start = std::chrono::steady_clock::now();
+		size_t judged = 0;
+		/** with geo: asks m5e-stumble about every settled stumble not yet judged */
+		const auto judgeStumbles = [&] {
+			for (; judged < stumbles.size(); judged++) {
+				Stumble& stumble = stumbles[judged];
+				if (!stumble.settled || !variant.geodata)
+					continue;
+				const std::string segment = std::format("{},{},{},{},{}", stumble.before.x, stumble.before.y, stumble.before.z, stumble.at.x, stumble.at.y);
+				const json answer = json::parse(oracle->run({"m5e-stumble", "--map", std::to_string(POETA), "--stumble", segment}));
+				stumble.geo = answer.at("stumbles").at(0);
+			}
+		};
+		const auto measured = [&](const Stumble& s) { return s.settled && (!variant.geodata || (s.geo && s.geo->at("open").get<bool>())); };
+		const auto measuredStumble = [&] {
+			judgeStumbles();
+			return std::ranges::any_of(stumbles, measured);
+		};
+		while (!measuredStumble() && std::chrono::steady_clock::now() < stumbleDeadline) {
 			collectFor(*a.game, 10500ms);
 			target = engage(a, MELEE_DISTANCE);
 			auto [again, againResult] = castRecorded(ABSORBING_FURY, target);
 			if (againResult && againResult->chainStatus == decoders::CAST_RESULT_CHAIN_SUCCESS)
 				castRecorded(ROILING_HACK, target);
 		}
-		const auto settledStumble = [&] { return std::ranges::any_of(stumbles, [](const Stumble& s) { return s.settled; }); };
-		while (!settledStumble() && std::chrono::steady_clock::now() < stumbleDeadline) {
-			collectFor(*a.game, 10500ms);
-			target = engage(a, MELEE_DISTANCE);
-			castRecorded(ABSORBING_FURY, target);
-		}
-		ASSERT_TRUE(settledStumble()) << "X9g: no stumble of a target that stood still in 240 s of 519 / 769 / 758 (" << stumbles.size()
-		                              << " of a walking one)";
+		if (const auto first = std::ranges::find_if(stumbles, measured); first != stumbles.end())
+			std::cout << "X9g: " << stumbles.size() << " stumble(s); the first measurable one (" << first->skillId << ") came "
+			          << std::chrono::duration_cast<std::chrono::seconds>(first->castAt - c12Start).count() << " s into C12" << std::endl;
+		ASSERT_TRUE(measuredStumble()) << "X9g: no stumble the row can measure in 240 s of 519 / 769 / 758 (" << stumbles.size()
+		                               << " stumble(s): a target that may still have been walking"
+		                               << (variant.geodata ? ", or a segment m5e-stumble does not find open" : "") << ")";
 		for (const Stumble& stumble : stumbles) {
 			if (!stumble.settled) {
 				std::cout << "X9g: " << stumble.skillId << " stumbled a target that may still have been walking: not measured" << std::endl;
@@ -2368,15 +2446,34 @@ void runM5eGate(const GateVariant& variant) {
 				          << " m from its broadcast position" << std::endl;
 			}
 			// The npc's position before the hit is known only from the server's broadcasts (SM_NPC_INFO, the destination of its last SM_MOVE).
-			// Once the cast waits for the arrival there, the point the stumble implies was 0.002-0.05 m from it (three runs, the diagnostics
-			// above); before that, a monster that ran to A1 had stopped up to 0.6 m short. The row keeps a band of 2 m +- 0.9 m rather than
-			// pinning the 2 m point: a stumble that moved nothing (getClosestCollision answering the origin) or twice as far is outside it.
+			// Once the cast waits for the arrival there, the point the stumble implies was 0.002-0.05 m from it (the diagnostics above); before
+			// that, a monster that ran to A1 had stopped up to 0.6 m short. So the distance is a band of 2 m +- 0.9 m, not the exact 2 m point:
+			// a stumble that moved nothing (getClosestCollision answering the origin) or twice as far is outside it.
 			constexpr double POSITION_UNCERTAINTY = 0.9;
 			EXPECT_LE(moved, 2.0 + POSITION_UNCERTAINTY) << "X9g: StumbleEffect moves at most 2 m (StumbleEffect.java:66-70)";
 			EXPECT_GT(fromCasterAfter, fromCasterBefore - POSITION_UNCERTAINTY) << "X9g: away from A1";
 			if (!variant.geodata) {
+				// no geo: GeoMap.getClosestCollision finds no collision and getZ no surface, so the end is the 2 m point with z unchanged
 				EXPECT_GE(moved, 2.0 - POSITION_UNCERTAINTY) << "X9g: without geo, the whole 2 m (no collision is found)";
 				EXPECT_NEAR(stumble.at.z, stumble.before.z, 0.5) << "X9g: without geo, z unchanged";
+				continue;
+			}
+			// geo: on a segment m5e-stumble finds open, the whole 2 m (no collision) and z = GeoMap.getZ(x, y, z + 1, z - 2) at the end
+			// (GeoMap.java:141-147), from the float32 emulation of tools/oracle/geo. The window starts at the npc's server z, which the gate
+			// knows from its broadcast, so z is compared within 0.01 m. On any other segment only the bound and the direction above hold
+			if (!stumble.geo || !stumble.geo->at("open").get<bool>()) {
+				std::cout << "X9g:   geo: not measured - " << (stumble.geo ? stumble.geo->at("reason").dump() : std::string("no oracle answer")) << std::endl;
+				continue;
+			}
+			EXPECT_GE(moved, 2.0 - POSITION_UNCERTAINTY) << "X9g: open ground in the geo data, so the whole 2 m (GeoMap.java:141-148)";
+			const json& groundZ = stumble.geo->at("groundZ");
+			if (groundZ.is_number()) {
+				std::cout << "X9g:   geo: open ground; GeoMap.getZ at the end " << groundZ.get<double>() << ", the npc stood at z " << stumble.before.z
+				          << std::endl;
+				EXPECT_NEAR(stumble.at.z, groundZ.get<double>(), 0.01)
+				  << "X9g: the stumble's z is GeoMap.getZ at its end (atNearGroundZ, GeoMap.java:143-146): the geo read on the path (W-27)";
+			} else {
+				EXPECT_NEAR(stumble.at.z, stumble.before.z, 0.01) << "X9g: no surface within [z - 2, z + 1] at the end: z unchanged (GeoMap.java:145)";
 			}
 		}
 	});
@@ -2512,11 +2609,23 @@ void runM5eGate(const GateVariant& variant) {
 		EXPECT_TRUE(mantraPeriodic) << "X14: A1's SM_MANTRA_EFFECTs 6.5 ± 0.5 s apart";
 		EXPECT_FALSE(lateMantra) << "X14: an SM_MANTRA_EFFECT after the toggle-off";
 		EXPECT_EQ(ofName(b.since(bFrom), "SM_MANTRA_EFFECT").size(), 0u) << "X14: the caster never receives its own mantra (AuraEffect.java:67)";
-		// a skill that is no toggle: the packet's audit, no change
+		// a skill that is no toggle: CM_TOGGLE_SKILL_DEACTIVATE only audits it and returns (CM_TOGGLE_SKILL_DEACTIVATE.java:34-37). For "changes
+		// nothing" to be observable, B2 first casts 1685 Protectorate's Prayer on itself - a Chanter's level-10 skill (C0's oracle), ACTIVE,
+		// a one-hour BUFF that is shown (tslot BUFF) - so a port that skips the guard and calls removeEffect(1685) sends an SM_ABNORMAL_STATE
+		// without it
+		const size_t buffFrom = b.mark();
+		ASSERT_TRUE(castResultOf(b, cast(b, NOT_A_TOGGLE, b2.playerId))) << "X14: 1685 was refused: " << b.events(buffFrom).describe();
+		collectFor(*b.game, 1500ms);
+		bool buffed = false;
+		for (const Packet& packet : ofName(b.since(buffFrom), "SM_ABNORMAL_STATE"))
+			for (const decoders::AbnormalEntry& entry : decoders::decodeAbnormalState(packet.data).effects)
+				buffed = buffed || entry.skillId == NOT_A_TOGGLE;
+		ASSERT_TRUE(buffed) << "X14: no SM_ABNORMAL_STATE lists 1685 after its cast";
 		const size_t auditFrom = b.mark();
 		b.game->send(GameSession::CM_TOGGLE_SKILL_DEACTIVATE, GameSession::buildCM_TOGGLE_SKILL_DEACTIVATE(NOT_A_TOGGLE));
 		collectFor(*b.game, 2s);
-		EXPECT_EQ(ofName(b.since(auditFrom), "SM_ABNORMAL_STATE").size(), 0u) << "X14: CM_TOGGLE_SKILL_DEACTIVATE(1685) changed an effect";
+		EXPECT_EQ(ofName(b.since(auditFrom), "SM_ABNORMAL_STATE").size(), 0u) << "X14: CM_TOGGLE_SKILL_DEACTIVATE(1685) changed an effect: "
+		                                                                     << b.events(auditFrom).describe();
 	});
 
 	runCase("C17", "the robot and a charge: Embark with a keyblade, Kinetic Slam released twice, Embark off (X15)", [&] {
@@ -2738,13 +2847,19 @@ void runM5eGate(const GateVariant& variant) {
 	});
 
 	// ---- C21: the reports (X19, X20) ----
-	cases.run("C21a", "the characters leave", [&] {
-		disconnect(a);
+	// §10.2 C21: the stop file is written WITH a character online, as the M5a gate's case 7 does - A1, in the world since C20's relog; B
+	// logs out first. The shutdown logs A1 out (the leave world stores it), and X20's rows read the counts after that
+	bool a1OnlineAtStop = false;
+	cases.run("C21a", "B leaves; A1 stays online for the stop", [&] {
 		disconnect(b);
+		a1OnlineAtStop = a.game != nullptr && !a.game->client.socket.isClosed();
+		EXPECT_TRUE(a1OnlineAtStop) << "C21: A1 is not online for the stop (an earlier case ended it)";
 	});
 	std::optional<int32_t> gameServerExit;
 	if (servers.gameServer() != nullptr)
 		gameServerExit = servers.stopGameServer();
+	if (a.game)
+		a.game->waitClosed(60s);
 	const std::optional<int32_t> loginServerExit = servers.loginServer() != nullptr ? servers.stopLoginServer() : std::nullopt;
 
 	cases.run("C21", "reports: the Q8 bar, the allow-list, the live counts (X19, X20)", [&] {
@@ -2760,6 +2875,9 @@ void runM5eGate(const GateVariant& variant) {
 		}
 		ASSERT_TRUE(std::filesystem::is_regular_file(servers.checkOutputDir() / "m5a_summary.txt"))
 		  << "X19: the game server wrote no check output in " << servers.checkOutputDir();
+		if (a1OnlineAtStop)
+			EXPECT_EQ(database.queryLong(schema, "SELECT online FROM players WHERE id = " + std::to_string(a1.playerId)).value_or(-1), 0)
+			  << "C21: A1, online at the stop, is still marked online: the shutdown did not log it out";
 
 		EXPECT_TRUE(servers.readReportLines("unported_trace.txt").empty()) << "X19: AION_UNPORTED sites were reached on the progression path:\n"
 		                                                                   << join(servers.readReportLines("unported_trace.txt"), "\n");
@@ -2831,7 +2949,53 @@ void runM5eGate(const GateVariant& variant) {
 		EXPECT_TRUE(servers.gameServer()->findLogLines("objects removed from the world are still alive", 5).empty())
 		  << "X19: " << join(servers.gameServer()->findLogLines("objects removed from the world are still alive", 5), "\n");
 
-		// X20: the relation rows of M5b-2's G-07 (CheckOutput.cpp) are the census above; here the rows M5e reads directly
+		// X20 (§10.3, refreshed): M5b-2's G-07 relation rows (CheckOutput.cpp heldEffects), compared as M5b2ScenarioTest.cpp's X13 does.
+		// Every spawn's post-spawn buffs keep Effects and Skills alive at the stop, so neither is a zero row: what a leak of this gate's casts
+		// breaks - a mantra task not cancelled, a drain, a soul sickness or a summon's effect kept past its end - is the equality between
+		// what is alive and what the creatures still in the world hold. The summary writes both sides
+		const auto liveCount = [&](std::string_view qualified) -> std::optional<LiveCount> {
+			const auto rows = summary.find("liveCount");
+			if (rows == summary.end())
+				return std::nullopt;
+			for (const std::string& line : rows->second) {
+				std::istringstream in(line);
+				std::string name;
+				LiveCount count;
+				if (!(in >> name >> count.live >> count.created) || name != qualified)
+					continue;
+				count.line = line;
+				return count;
+			}
+			return std::nullopt;
+		};
+		const auto held = [&](std::string_view key) -> std::optional<int64_t> {
+			try {
+				return std::stoll(value(key));
+			} catch (const std::exception&) {
+				return std::nullopt;
+			}
+		};
+		const std::optional<LiveCount> effect = liveCount("skillengine::model::Effect");
+		const std::optional<LiveCount> reserved = liveCount("skillengine::model::EffectReserved");
+		const std::optional<LiveCount> skill = liveCount("skillengine::model::Skill");
+		const std::optional<int64_t> effectsHeld = held("effectsHeld");
+		const std::optional<int64_t> skillsHeld = held("skillsHeld");
+		const std::optional<int64_t> reservedCapacity = held("effectReservedCapacity");
+		ASSERT_TRUE(effect && reserved && skill) << "X20: m5a_summary.txt lacks a liveCount row of the skill classes (CheckOutput G-07)";
+		ASSERT_TRUE(effectsHeld && skillsHeld && reservedCapacity)
+		  << "X20: m5a_summary.txt has no effectsHeld/skillsHeld/effectReservedCapacity number: '" << value("effectsHeld") << "', '"
+		  << value("skillsHeld") << "', '" << value("effectReservedCapacity") << "'";
+		EXPECT_EQ(effect->live, *effectsHeld) << "X20: " << effect->line << " against " << *effectsHeld
+		                                      << " Effects held by the creatures of the world: an Effect that ended and is still retained";
+		EXPECT_GT(effect->created, *effectsHeld) << "X20: the gate's own effects ended; created must exceed what is still held";
+		EXPECT_EQ(skill->live, *skillsHeld) << "X20: " << skill->line << " against " << *skillsHeld
+		                                    << " Skills the held Effects and the casting creatures reference: a Skill kept past its cast";
+		EXPECT_LE(reserved->live, *reservedCapacity) << "X20: " << reserved->line << " against a capacity of " << *reservedCapacity
+		                                             << ": an EffectReserved kept past its Effect";
+		std::cout << "X20: " << effect->line << " / effectsHeld " << *effectsHeld << "; " << skill->line << " / skillsHeld " << *skillsHeld << "; "
+		          << reserved->line << " / capacity " << *reservedCapacity << std::endl;
+
+		// and the zero rows of live_counts.txt M5e reads directly
 		std::map<std::string, LiveCount> counts;
 		for (const auto& [name, count] : readLiveCounts(servers, "live_counts.txt"))
 			counts[name] = count;
@@ -2848,6 +3012,7 @@ void runM5eGate(const GateVariant& variant) {
 		const std::optional<LiveCount> summons = row("Summon");
 		ASSERT_TRUE(summons) << "X20: live_counts.txt has no Summon row";
 		EXPECT_EQ(summons->live, 0) << "X20: " << summons->line;
+		EXPECT_GT(summons->created, 0) << "X20: C19's spirit was created: " << summons->line;
 		std::cout << "X20: " << effects->line << "; " << players->line << "; " << summons->line << std::endl;
 	});
 
@@ -2865,10 +3030,13 @@ TEST(M5eScenario, Run) {
 
 /**
  * `gs.scenario.m5e_geo` (G-04, §10.5): the same script with `gameserver.geodata.enable=true`, its own output directory, schema pair and CTest
- * entry, in the same gate slot. Its one row of its own is X9g: 519's subeffect 8218 and a greatsword's critical proc stumble the target
- * through StumbleEffect.calculate -> GeoService.getClosestCollision (StumbleEffect.java:66-70, W-27); without geo the stumbled position is
- * exactly 2 m along the heading from A1 to the target with z unchanged, with geo it is at most that far (a wall stops it) and z follows the
- * terrain, which only a geo server computes.
+ * entry, in the same gate slot. Its one row of its own is X9g: 519's subeffect 8218 and the critical proc of 769 / 758 stumble the target
+ * through StumbleEffect.calculate -> GeoService.getClosestCollision (StumbleEffect.java:66-70, W-27). What each run checks of a stumble of a
+ * target that stood still: at most 2 m + 0.9 m from where the target stood and away from A1; without geo also at least 2 m - 0.9 m and z
+ * unchanged (within 0.5 m); with geo, for each stumble whose segment tools/oracle's m5e-stumble finds open in the geo data (at least one
+ * must be found within the budget), also at least 2 m - 0.9 m and z equal to the oracle's GeoMap.getZ at the stumble's end (within 0.01 m),
+ * which a port that ignores geo (z unchanged) or whose collision answers the origin (no move) fails. A stumble against a wall is not
+ * measured.
  */
 TEST(M5eScenarioGeo, Run) {
 	runM5eGate({true, "gs.scenario.m5e_geo", "m5e_geo", "m5egeo", "m5eg"});
