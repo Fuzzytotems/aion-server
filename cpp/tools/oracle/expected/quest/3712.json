@@ -1,0 +1,25 @@
+{
+ "format": "aion-quest-trace",
+ "version": 1,
+ "questId": 3712,
+ "java": "reshanta/_3712DredgionPrisonBreak.java",
+ "class": "_3712DredgionPrisonBreak",
+ "javaSha256": "62c7cf83b2955f4497bb882b3b78d859ceb7325611dc9395ab6f91f6ff355827",
+ "register": [
+  {"npc": 279045, "event": "addOnQuestStart", "args": [3712]},
+  {"npc": 279045, "event": "addOnTalkEvent", "args": [3712]},
+  {"npc": 798323, "event": "addOnTalkEvent", "args": [3712]},
+  {"npc": 798326, "event": "addOnTalkEvent", "args": [3712]}
+ ],
+ "hooks": [{"hook": "onDialogEvent", "line": 30, "unsupported": "call npc.getController()"}, {"hook": "onKillEvent", "line": 68, "cases": 1}],
+ "cases": [
+  {
+   "id": "onKillEvent#1",
+   "hook": "onKillEvent",
+   "given": {},
+   "guards": [],
+   "effects": [{"call": "defaultOnKillEvent", "kind": "var", "args": [214823, 2, true], "line": 69}],
+   "returns": {"resultOf": 0}
+  }
+ ]
+}
