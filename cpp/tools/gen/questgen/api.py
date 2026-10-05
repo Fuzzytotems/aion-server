@@ -59,6 +59,7 @@ model/house/House.h model/templates/spawns/SpawnSearchResult.h instance/handlers
 ai/AI.h ai/AbstractAI.h ai/NpcAI.h ai/event/AIEventType.h ai/manager/WalkManager.h model/TaskId.h questEngine/task/QuestTasks.h
 network/aion/serverpackets/SM_NPC_INFO.h model/templates/spawns/SpawnTemplate.h
 controllers/attack/AggroList.h model/gameobjects/player/title/TitleList.h
+dataholders/DataManager.h dataholders/QuestsData.h model/templates/QuestTemplate.h
 '''.split()] + ['aion/commons/utils/Rnd.h']
 # (the line `model/house/House.h ...`: types QuestPrelude.h re-exports that handlers declare locals of; without them such a local is refused
 # as `type`, which hides the API gap behind it: DataManager.SPAWNS_DATA, WorldMapInstance.getInstanceHandler, Player.getActiveHouse)
@@ -209,7 +210,14 @@ API_TABLE = (
         (('CustomConfig', '*'), ('GroupConfig', '*')), 'ported (configs/main)'),
     Row('B37', 'aggro: Creature.getAggroList, AggroList.addHate', (('Creature', 'getAggroList'), ('AggroList', 'addHate')), 'ported'),
     Row('B38', 'titles: Player.getTitleList, TitleList.addTitle', (('Player', 'getTitleList'), ('TitleList', 'addTitle')), 'ported'),
+    # B39 (phase 6 step 2, chunk Q08 follow-up, lane C, 2026-10-05): the quest's own template name (docs/deviations/Q08.md, 20034)
+    Row('B39', 'static data holders: DataManager.QUEST_DATA (read), QuestsData.getQuestById, QuestTemplate.getName',
+        (('DataManager', 'QUEST_DATA'), ('QuestsData', 'getQuestById'), ('QuestTemplate', 'getName')), 'ported'),
 )
+
+# the static data holders of DataManager a handler reads (row B39): Java field -> (the C++ class it holds, its header). The C++ field is a
+# HolderRef (dataholders/loadingutils/HolderRef.h) whose `->` reaches the published holder, as `DataManager.X.` does in Java
+HOLDERS = {'QUEST_DATA': ('QuestsData', G + 'dataholders/QuestsData.h')}
 
 # configuration classes whose public static std::atomic<T> members a handler reads (row B36): Java class -> C++ header
 CONFIG_HEADERS = {'CustomConfig': G + 'configs/main/CustomConfig.h', 'GroupConfig': G + 'configs/main/GroupConfig.h'}
