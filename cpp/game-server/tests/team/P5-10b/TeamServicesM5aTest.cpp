@@ -6,7 +6,7 @@
 
 #include <gtest/gtest.h>
 
-#include "../playersvc/PlayerEventsTestSupport.h"
+#include "../../playersvc/PlayerEventsTestSupport.h"
 #include "aion/gameserver/model/team/alliance/PlayerAlliance.h"
 #include "aion/gameserver/model/team/alliance/PlayerAllianceService.h"
 #include "aion/gameserver/model/team/group/PlayerGroup.h"

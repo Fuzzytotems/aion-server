@@ -376,13 +376,31 @@ aion_gs_chunk(P5-09c TARGET aion_gs_economy PHASE 5
 	JAVA "src/com/aionemu/gameserver/services/{mail,craft}/**" "src/com/aionemu/gameserver/model/craft/**"
 		"src/com/aionemu/gameserver/services/RecipeService.java")
 
-# P5-10: model.team, autogroup, findgroup, challenge tasks, team task updaters
-aion_gs_chunk(P5-10 TARGET aion_gs_team PHASE 5
-	GLOBS "aion/gameserver/model/{team,autogroup,challenge}/**" "aion/gameserver/services/{autogroup,findgroup}/**"
-		"aion/gameserver/services/{AutoGroupService,ChallengeTaskService}.*" "aion/gameserver/taskmanager/tasks/{TeamMoveUpdater,TeamStatUpdater}.*"
-	JAVA "src/com/aionemu/gameserver/model/{team,autogroup,challenge}/**" "src/com/aionemu/gameserver/services/{autogroup,findgroup}/**"
-		"src/com/aionemu/gameserver/services/{AutoGroupService,ChallengeTaskService}.java"
-		"src/com/aionemu/gameserver/taskmanager/tasks/{TeamMoveUpdater,TeamStatUpdater}.java")
+# P5-10a..P5-10f: model.team, autogroup, findgroup, challenge tasks, team task updaters - six parts of one target, split for M5g (m5g-plan.md D1,
+# header request m5g-15; the names are final, m5h-plan.md A-18 adopts them). P5-10 held 294 unported sites plus ~226 bodies of classes without a
+# file in ONE chunk, a chunk is the unit of ownership, and only 158 + 167 of them are M5g's. P5-10a is the team core (model/team/*, common/**),
+# P5-10b the parties and the two team updaters, P5-10c the alliances, P5-10d the leagues, P5-10e find group and instance matchmaking (M5j takes
+# the matchmaking, D16), P5-10f the legion model and the challenges (M5h's). The tests follow into tests/team/P5-10a..f, as tests/skills/P5-02a/b.
+aion_gs_chunk(P5-10a TARGET aion_gs_team PHASE 5
+	GLOBS "aion/gameserver/model/team/*" "aion/gameserver/model/team/common/**"
+	JAVA "src/com/aionemu/gameserver/model/team/*" "src/com/aionemu/gameserver/model/team/common/**")
+aion_gs_chunk(P5-10b TARGET aion_gs_team PHASE 5
+	GLOBS "aion/gameserver/model/team/group/**" "aion/gameserver/taskmanager/tasks/{TeamMoveUpdater,TeamStatUpdater}.*"
+	JAVA "src/com/aionemu/gameserver/model/team/group/**" "src/com/aionemu/gameserver/taskmanager/tasks/{TeamMoveUpdater,TeamStatUpdater}.java")
+aion_gs_chunk(P5-10c TARGET aion_gs_team PHASE 5
+	GLOBS "aion/gameserver/model/team/alliance/**"
+	JAVA "src/com/aionemu/gameserver/model/team/alliance/**")
+aion_gs_chunk(P5-10d TARGET aion_gs_team PHASE 5
+	GLOBS "aion/gameserver/model/team/league/**"
+	JAVA "src/com/aionemu/gameserver/model/team/league/**")
+aion_gs_chunk(P5-10e TARGET aion_gs_team PHASE 5
+	GLOBS "aion/gameserver/model/autogroup/**" "aion/gameserver/services/{autogroup,findgroup}/**" "aion/gameserver/services/AutoGroupService.*"
+	JAVA "src/com/aionemu/gameserver/model/autogroup/**" "src/com/aionemu/gameserver/services/{autogroup,findgroup}/**"
+		"src/com/aionemu/gameserver/services/AutoGroupService.java")
+aion_gs_chunk(P5-10f TARGET aion_gs_team PHASE 5
+	GLOBS "aion/gameserver/model/team/legion/**" "aion/gameserver/model/challenge/**" "aion/gameserver/services/ChallengeTaskService.*"
+	JAVA "src/com/aionemu/gameserver/model/team/legion/**" "src/com/aionemu/gameserver/model/challenge/**"
+		"src/com/aionemu/gameserver/services/ChallengeTaskService.java")
 
 # P5-11: LegionService, Housing(+Bid), Town, LegionDominion, model.house/town/legionDominion, housing tasks
 aion_gs_chunk(P5-11 TARGET aion_gs_legionhouse PHASE 5

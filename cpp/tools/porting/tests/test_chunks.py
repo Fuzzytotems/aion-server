@@ -547,9 +547,9 @@ class RealTreeTest(unittest.TestCase):
         names = {p.name for p in self.manifest.parts}
         design = {f'P4-{n:02d}' for n in range(1, 18)} - {'P4-02', 'P4-07', 'P4-11'} | {'P4-02a', 'P4-02b', 'P4-07a', 'P4-07b', 'P4-11a', 'P4-11b',
                                                                                         'P4-15a'}
-        design |= {f'P5-{n:02d}' for n in range(0, 17)} - {'P5-02', 'P5-06', 'P5-09', 'P5-12'} | {'P5-02a', 'P5-02b', 'P5-06a', 'P5-06b', 'P5-06c',
-                                                                                              'P5-09a', 'P5-09b', 'P5-09c', 'P5-12a', 'P5-12b',
-                                                                                              'P5-SC'}
+        design |= {f'P5-{n:02d}' for n in range(0, 17)} - {'P5-02', 'P5-06', 'P5-09', 'P5-10', 'P5-12'} | {
+            'P5-02a', 'P5-02b', 'P5-06a', 'P5-06b', 'P5-06c', 'P5-09a', 'P5-09b', 'P5-09c', 'P5-12a', 'P5-12b', 'P5-SC'}
+        design |= {f'P5-10{x}' for x in 'abcdef'}  # m5g-plan.md D1
         design |= {f'Q{n:02d}' for n in range(1, 15)} | {'A1', 'Z1', 'C1', 'C2'} | {f'I{n}' for n in range(1, 7)} | {'T2', 'T2-gen'}
         self.assertEqual(names, design)
 
