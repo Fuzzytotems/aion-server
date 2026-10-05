@@ -61,10 +61,12 @@
 #include "PrologueSupport.h"
 #include "ScenarioDatabase.h"
 #include "ScenarioServers.h"
+#include "../support/NetworkTestSupport.h" // the little endian PacketWriter (C2b)
 #include "decoders/CombatDecoders.h"
 #include "decoders/EconomyDecoders.h"
 #include "decoders/ItemDecoders.h"
 #include "decoders/PacketDecoders.h"
+#include "decoders/ProgressionDecoders.h" // SM_MESSAGE (C2b)
 #include "decoders/QuestDecoders.h" // SM_STATUPDATE_EXP (m5d-plan.md G-02 moved it there)
 
 #include "aion/commons/utils/StringUtils.h"
@@ -1572,6 +1574,37 @@ void runM5cGate() {
 			EXPECT_EQ(prices[0].globalPricesModifier, want[1]) << "X1 (" << client->label << "): getGlobalPricesModifier";
 			EXPECT_EQ(prices[0].taxes, want[2]) << "X1 (" << client->label << "): getTaxes";
 		}
+	});
+
+	// ---- C2b: chat (lane A's chat job, 2026-10-05; m5j-plan.md §3.7): A and B stand together after the enter world ----
+	// CM_CHAT_MESSAGE_PUBLIC NORMAL reaches the sender and the one beside him; a whisper between two level-1 characters is refused by
+	// gameserver.chat.whisper.level (10, custom.properties:20: a non-Daeva is capped at 9, m5j-plan.md §3.6), and a whisper to a name that is
+	// not online answers STR_NO_SUCH_USER first. Written from the Java (CM_CHAT_MESSAGE_PUBLIC.java:43-97, 110-113;
+	// CM_CHAT_MESSAGE_WHISPER.java:58-76; SM_MESSAGE.java:135-149 through decoders::decodeMessage). No later case depends on it.
+	runCase("C2b", "chat: A says hello to B; A cannot whisper B below the whisper level; a whisper to a name not online", [&] {
+		constexpr int32_t CM_CHAT_MESSAGE_PUBLIC = 27;       // ClientPacketInfo.gen.inc:39
+		constexpr int32_t CM_CHAT_MESSAGE_WHISPER = 28;      // :40
+		constexpr uint8_t CHAT_NORMAL = 0;                   // ChatType.java
+		constexpr int32_t STR_NO_SUCH_USER = 1300627;        // SM_SYSTEM_MESSAGE.java:12191-12192
+		constexpr int32_t STR_CANT_WHISPER_LEVEL = 1310004;  // :15249-15250
+		a.game->send(CM_CHAT_MESSAGE_PUBLIC, network::test::PacketWriter().C(CHAT_NORMAL).S("Hello there").data);
+		for (ScenarioClient* client : {&a, &b}) {
+			const decoders::Message said = decoders::decodeMessage(waitFor(*client->game, "SM_MESSAGE").data);
+			EXPECT_EQ(said.chatType, CHAT_NORMAL) << client->label;
+			EXPECT_EQ(said.senderRace, 1) << client->label << ": an Elyos sender (race id 0 + 1), neither side staff";
+			EXPECT_EQ(said.senderObjectId, a.playerId) << client->label;
+			EXPECT_EQ(said.senderName, a.name) << client->label;
+			EXPECT_EQ(said.message, "Hello there") << client->label;
+		}
+		const size_t bBefore = b.mark();
+		a.game->send(CM_CHAT_MESSAGE_WHISPER, network::test::PacketWriter().S(b.name).S("psst").data);
+		EXPECT_EQ(decoders::decodeSystemMessageId(waitFor(*a.game, "SM_SYSTEM_MESSAGE").data), STR_CANT_WHISPER_LEVEL)
+		  << "sender level 1 < 10 and the receiver is no staff";
+		a.game->send(CM_CHAT_MESSAGE_WHISPER, network::test::PacketWriter().S("Nobodyhere").S("psst").data);
+		EXPECT_EQ(decoders::decodeSystemMessageId(waitFor(*a.game, "SM_SYSTEM_MESSAGE").data), STR_NO_SUCH_USER);
+		b.drain(1s);
+		EXPECT_TRUE(ofName(b.since(bBefore), "SM_MESSAGE").empty()) << "B was whispered nothing";
+		a.drain();
 	});
 
 	// object ids of the npcs, from the SM_NPC_INFO the clients were sent
