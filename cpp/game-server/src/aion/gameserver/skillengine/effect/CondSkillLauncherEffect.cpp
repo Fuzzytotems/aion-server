@@ -57,6 +57,8 @@ struct CondSkillLauncherEffect_ActionObserver final : controllers::observer::Act
 	// C++ only, the lock-order correction below: whether a thread is running reports, and the reports other threads left meanwhile
 	runtime::Field<bool> running{};
 	runtime::ArrayDeque<int8_t> pendingReports{AION_LOCK_CLASS(CondSkillLauncherEffect_ActionObserver::pendingReports)};
+	// C++ only (owner's decision 2026-10-04, the review of #77): set by onRemoved; a stale report after it launches nothing
+	runtime::Field<bool> removed{};
 	const int32_t skillId; // fieldmap: C++ only, condSkillLauncherEffect->skillId (protected, no friend line), immutable static data
 
 	static Ref<CondSkillLauncherEffect_ActionObserver> create(const CondSkillLauncherEffect& condSkillLauncherEffect, int32_t skillId,
@@ -124,15 +126,21 @@ struct CondSkillLauncherEffect_ActionObserver final : controllers::observer::Act
 	}
 
 	void onRemoved() override {
+		removed.set(true);
 		// Java reads the field twice outside the monitor; one read here, so a concurrent reset between the test and the call is no null call
 		if (Ptr<model::Effect> conditional = conditionalEffect.get())
 			conditional->endEffect();
 	}
 
 private:
-	/** The body of Java's synchronized block (CondSkillLauncherEffect.java:43-50), statement for statement, without the monitor */
+	/**
+	 * The body of Java's synchronized block (CondSkillLauncherEffect.java:43-50), statement for statement, without the monitor - and one guard
+	 * Java does not have (owner's decision 2026-10-04, the review of #77): a report reaching the observer after its removal (a notification
+	 * already in flight when the passive ended) launches nothing. Java launches an effect nobody ends; it shares its id with the next
+	 * observer's effect, so its end could take the successor's buff with it.
+	 */
 	void report(bool hpAtOrBelowThreshold) {
-		if (hpAtOrBelowThreshold && !conditionalEffect.get()) {
+		if (hpAtOrBelowThreshold && !conditionalEffect.get() && !removed.get()) {
 			bool permanent = effect->getSkillTemplate()->getActivationAttribute() == model::ActivationAttribute::PASSIVE;
 			// passive skills like Determination have no time limit
 			std::optional<int32_t> duration = permanent ? std::optional<int32_t>(0) : std::nullopt;
