@@ -1194,3 +1194,73 @@ and chat rows (their GP rows are not scripted), `>=` in `distributeLoot` and `di
   compares object ids, and `PlayerConnectedEvent`'s leader test holds for the reconnected Player. The port uses `equals` as Java does.
 - E-12 holds as written; `PlayerAllianceService::onPlayerLogin` still calls the unported `PlayerAlliance::getMember`, which no party path
   reaches (no alliance can be formed before the alliance lane).
+
+## 16. Plan: the alliances lane (lane B, written 2026-10-05, branch `lane-b/m5g-alliances` from `lane-b/m5g-parties`)
+
+Read-only measurement at `68c4f3426` (the parties lane's HEAD). It refines §5's AL-01..AL-05 for one lane. Leagues (LG-*), the league half of
+D4 and stage 3's group-instance cases (GA12-GA14) are **not** in this lane.
+
+### 16.1 What is left (measured)
+
+| File | `AION_UNPORTED` | Java lines | Notes |
+|---|---|---|---|
+| `alliance/PlayerAlliance.cpp` | 18 | 144 | `getMember` is called today by `PlayerAllianceService::onPlayerLogin` (E-12); `getOpenAllianceGroup` takes the alliance lock |
+| `alliance/PlayerAllianceGroup.cpp` | 10 | 55 | a `TemporaryPlayerTeam<PlayerAllianceMember>` of 6 whose loot rules are the alliance's |
+| `alliance/PlayerAllianceService.cpp` | 20 | 285 | incl. `PlayerAllianceChecker::run` (the offline check) and `disband` with its two league calls |
+| `alliance/events/*` | **no files** | 693 (12 classes) | `AllianceDisbandEvent`, `AssignViceCaptainEvent`, `ChangeAllianceLeaderEvent`, `ChangeAllianceLootRulesEvent`, `ChangeMemberGroupEvent`, `CheckAllianceReadyEvent`, `PlayerAllianceEnteredEvent`, `PlayerAllianceInvite`, `PlayerAllianceLeavedEvent`, `PlayerAllianceUpdateEvent`, `PlayerConnectedEvent`, `PlayerDisconnectedEvent` |
+| `PlayerAllianceMember.cpp` | 0 | 33 | ported by the parties lane |
+| `SM_ALLIANCE_INFO.cpp`, `SM_ALLIANCE_MEMBER_INFO.cpp` | 1 each | – | AL-04: both read `LeagueMember` (ported, accessors) and the league position |
+| `SM_ALLIANCE_READY_CHECK.cpp` | 0 | – | ready |
+
+**The callers are already wired** (the parties lane ported them): `CM_INVITE_TO_GROUP`, `CM_PLAYER_STATUS_INFO`, `CM_DISTRIBUTION_SETTINGS`,
+`CM_GROUP_DISTRIBUTION`, `CM_GROUP_DATA_EXCHANGE`, `PlayerTeamCommandService`, `PlayerRestrictions.canInviteToAlliance`, `PlayerEnterWorldService`,
+`PlayerLeaveWorldService`, `PlayerReviveService`, `RVController`, `PlayerEffectController`, `TeamMoveUpdater`, `TeamStatUpdater`, `FindGroupService`,
+`PortalService`, `DropRegistrationService`. Today they reach the 48 `AION_UNPORTED` bodies above as soon as an alliance is invited.
+Outside this lane: `CM_CHAT_MESSAGE_PUBLIC`'s alliance channel (lane A), `AutoGroupService`/`AutoPvpInstance` (M5j), `Invasion` (M5i),
+`SiegeRaceCounter` (M5h).
+
+### 16.2 A finding that moves m5g-1 forward
+
+§15 left m5g-1 (D4(a), a lock class per team kind) to the league lane because no party path nests two team locks. **Alliances do**: the
+alliance events run under `PlayerAlliance`'s lock (`GeneralTeam.onEvent`) and walk or change `PlayerAllianceGroup`s, whose `forEach`,
+`applyOnMembers`, `addMember`/`removeMember` take the group's own `teamLock`. With one class (`GeneralTeam::teamLock`, `GeneralTeam.h:37`) the
+validator reports `SAME_CLASS_NESTING(GeneralTeam::teamLock)` on the first alliance invite, and the gate asserts `lockdep.txt` empty.
+**So the lane's first commit applies m5g-1**: `GeneralTeam`'s constructor takes the lock class, `PlayerGroup`, `PlayerAlliance`,
+`PlayerAllianceGroup` and `League` pass `…::teamLock` of their own (a hub-header change to `GeneralTeam.h`/`TemporaryPlayerTeam.h`, recorded in
+header-requests.md m5g-1). The order PlayerAlliance → PlayerAllianceGroup is then an ordinary recorded edge, never reversed in Java (no
+group event takes the alliance lock; to be checked per event while porting). header-requests.md's m5g-1 row ("a group's events lock only
+their own group") is right for groups and needs this sentence for alliances.
+
+**The mechanism is still open.** `teamLock` is declared `Monitor teamLock{AION_LOCK_CLASS(GeneralTeam::teamLock)}` (`GeneralTeam.h:37`), and
+lint L1 (RR-16, `lint_concurrency.py` `_l1_lock_class`) accepts only an initializer that *starts with* `AION_LOCK_CLASS(` in the
+declaration, a constructor's member-initializer list or a static definition — a lock class handed in as a constructor parameter
+(`teamLock{lockClass}`) fails `--werror`. The options, to settle in commit 1: (a) a protected `GeneralTeam` constructor per kind whose
+initializer list spells `teamLock{AION_LOCK_CLASS(PlayerAlliance::teamLock)}` etc. (four constructors in the hub, lint-clean, the kind
+named in the hub); (b) teach L1 a `// lock-class: from the constructor` tag (a tool change with its unit test); (c) `Monitor::lock(const
+LockClass&)`'s dynamic attribution, which applies only to a Monitor without a static class, so (c) needs (b) as well. (a) is the smallest.
+
+### 16.3 Work, in commit order
+
+| # | Item | What | Tests |
+|---|---|---|---|
+| 1 | m5g-1 | per-kind lock classes (§16.2); parties' gate and team tests re-run | `tests/team/P5-10a`, P5-10b |
+| 2 | AL-01 | `PlayerAlliance` 18 (**`getMember` first**, E-12), `PlayerAllianceGroup` 10 | `tests/team/P5-10c` (new): groups 1000-1003 created, `getOpenAllianceGroup` filling, captain/vice rules, min/max exp level |
+| 3 | AL-02 | `PlayerAllianceService` 20 incl. the offline checker and **the `disband` breaker** (`cycles.toml:199`, `PlayerAlliance.groups`: clear `groups` after `AllianceDisbandEvent`; `PlayerAllianceGroup.alliance` ↔ `PlayerAlliance.groups` is a Ref cycle). `disband`'s two league calls ported as Java with D4's suppression and marker (reached only when a league exists) | service flows over the TeamTest fixture |
+| 4 | AL-03 | the 12 events (35 bodies), incl. `PlayerAllianceInvite`'s group dissolution; the six event-side D4 sites ported with their `LockdepSuppression` and `java-race` marker as D4(c) says (they only matter with a league, but the code is Java's either way) | per event, as GR-01..GR-04 did for parties |
+| 5 | AL-04 | `SM_ALLIANCE_INFO`'s `leaguePosition`, `SM_ALLIANCE_MEMBER_INFO`'s constructor (P4-16 lease). `LeagueMember` is already ported; `League` (LG-01) is not, so the league block reads a `League` only when one exists | packet golden bytes |
+| 6 | AL-05 | the remaining unit cases of §5 (conversion both ways, the redirect to a leader, the swap/move, ready-check states, the four groups reclaimed after disband, a solo login while an alliance exists); GR-05-style mutants | `tests/team/P5-10c` |
+| 7 | gate | `gs.scenario.m5g_alliance` **alliance part only**: GA1-GA4, GA6, GA10, GA11 (GA5 without its chat row, which waits for lane A). GA7-GA9 (league), GA12-GA14 (group instance) stay for the league lane / stage 3. Its own output dir, schema pair, allow-list, gate slot, mutation proof (§10.4's alliance rows) | the gate |
+
+Oracle: `m5g-team` already answers the alliance share for GA6 (the same `doReward`); the alliance info words (group ids 1000-1003, loot
+words) are constants it lists. Decoders needed: `SM_ALLIANCE_INFO`, `SM_ALLIANCE_MEMBER_INFO`, `SM_ALLIANCE_READY_CHECK` (H-02's alliance half).
+
+### 16.4 Risks and questions
+
+- **Ref cycles.** `PlayerAlliance.groups` → `PlayerAllianceGroup` → `alliance`, and `PlayerAllianceMember` → its `PlayerAllianceGroup`: the
+  disband breaker plus the parties lane's last-leave breaker (`GeneralTeam::removeMember`) must leave all four groups at 0 live (GA11).
+- **The offline checker** for auto alliances runs at 60 s (`OfflinePlayerAllianceChecker`); the gate shortens the remove time as for parties.
+- **Estimate**: §8 gives the alliance lane 9.5 days with the gate excluded; with the callers and `PlayerAllianceMember` already done,
+  about 7-8 days for items 1-6 and 3-4 for item 7.
+- The alliance-only gate (item 7) is the integrator's recommendation to the owner (2026-10-05); the league rows are a later extension of
+  the same gate. m5g-1 (item 1) is a hub-header change pending the owner's approval: if the owner picks the lint tag instead, commit 1 is
+  replaced and the rest stands.
