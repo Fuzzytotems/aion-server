@@ -38,6 +38,8 @@
    kinds and `registerOnKillRanked`, and runs the oracle's scheduled tasks; the sample is a committed tool (`goldensample.py`). Over the 649
    transliterated files outside the tree that have a case: **19,499 variants pass, 0 fail** (17,908 and 114 before), no quest stops, the
    registration trace has no finding.
+9. **Step 2, chunk Q08 landed (lane C, 2026-10-05, §8):** the 63 generated gelkmaros and enshar handlers are in the tree, with their golden
+   traces (1,366 variants pass, 0 fail) and docs/deviations/Q08.md; `gelkmaros/_20034` stays out (a header gap).
 
 ---
 
@@ -460,7 +462,7 @@ to the 649 sample files; "Waiting" less "Sample" is the files without a case and
 
 | Chunk | Directories | Waiting | Sample (with a case) | No finding | Findings | Variants | Every hook traced |
 |---|---|---|---|---|---|---|---|
-| Q08 | gelkmaros, enshar | 63 | 55 | 54 | 1 | 1,366 | 40 |
+| Q08 (**landed, §8**) | gelkmaros, enshar | 63 | 55 | 54 | 1 | 1,366 | 40 |
 | Q11 | daevanion, sanctum | 72 | 50 | 41 | 9 | 1,604 | 48 |
 | Q01 | reshanta | 77 | 76 | 65 | 11 | 1,450 | 61 |
 | Q02 | inggison | 57 | 53 | 44 | 9 | 1,411 | 43 |
@@ -537,3 +539,26 @@ inline task fail `timeline`, an extra task fails `pendingTasks`, the right one p
 
 No new failure: the stricter checks found no generator bug, harness limit or Java difference in the 650 files. The ctest of the tree:
 `ctest -R Golden` 192 of 192.
+
+## 8. Phase 6 step 2: chunk Q08 landed (lane C, 2026-10-05)
+
+Branch `lane-c/p6-q08`, stacked on `lane-c/p6-harness` (§7). The first chunk of §7.5's order, landed the slice-2 way (p6q-ascension-route.md
+§8); the record is docs/deviations/Q08.md.
+
+- **In the tree:** the 63 files questgen transliterates of `gelkmaros/` (44) and `enshar/` (19), its output unedited, in
+  `aion_gs_handlers_quest_q08`; the drift test's `Q08` table pins them. `gelkmaros/_20034RescuetheReians` is refused by questgen
+  (`DataManager.QUEST_DATA.getQuestById(questId).getName()`: the C++ `QuestTemplate` declares no `getName()`), so it is not in the tree, and
+  the landed 20035 cannot start until it is (its chain helpers name 20034).
+- **Golden traces:** `SLICE_Q08`, 63 documents, 1,344 cases; the in-tree harness compiles the 63 in (`GoldenQ08Handlers.cpp`): **1,366
+  variants pass, 0 fail**, 7,685 runs compared; listed: 21460 onDialogEvent#20 not reproducible, #21 vacuous; 8 quests with every hook
+  refused by the oracle (`ORACLE_REFUSES_EVERY_HOOK`). The registration trace passes for the 63. `ctest -R Golden`: 230 of 230.
+- **Parity** 63 pairs, 0 mismatches (the whole handler tree: 241 pairs, 0); **compile check** 63 clean, 0 warnings, 0 errors, regscan 0
+  errors; the full Debug build has no new warning.
+- **Gate impact:** none expected (Q08.md, "Gate impact": every quest needs level 50+, no gate npc or item is registered). **Gates:** `ctest
+  -C Debug -j 2 -L "scenario|smoke|geo|m4" -E m5a_stress` under the test-database lock (`gate_lock.py lane-C`), the full Debug build of this
+  branch: **60 of 60 passed** (2,854 s; 16 disabled entries not run), every gate server logged "Loaded 4425 quest handlers" (63 more than
+  before the chunk); no ERROR line beyond the known ones (gs.scenario.ascension's `onDie()` exceptions of the unported
+  `AbyssPointsService::addAp`, the scenario self-tests' deliberate start-up failures). No gate expectation was changed.
+- **Not held back:** none. **Generator changes:** none. **Java bugs found:** none.
+- **Tool tests:** `tools.oracle` 552, `tools.gen` 430 (the drift test with the 63), `tools.parity` 36: all pass. Static checks:
+  `lint_concurrency --werror` 0 errors, `chunks.py check` 0 problems, `census --self-check` 0 failures.
