@@ -604,8 +604,10 @@ aion_gs_chunk(A1 TARGET aion_gs_handlers_ai_world PHASE 6 ROOT handlers
 # lanes held the lease in the plan only; this row records it. It stays while P5-05's test executable compiles the two .cpp files by #include
 # (A1's library is not linked into aion_gs_handlers_ai_core_tests, and A1's own tests would miss P5-05's superclasses, docs/deviations/P5-05.md).
 # Manifest request m5d-m01 (docs/porting/header-requests.md, "Wave 5d stage 1") removes that workaround; its lane releases this lease.
+# M5f stage 1 (m5f-plan.md I-01, V-02/V-03): the lease also takes A1's PortalAI.* and PortalDialogAI.* (the two portal AIs of the travel and
+# instance paths), compiled by #include into P5-05's test executable for the same reason (tests/handlers_ai_core/TravelAiHandlersTest.cpp).
 aion_gs_chunk(P5-05 LEASE PHASE 5 ROOT handlers
-	GLOBS "aion/gameserver/handlers/ai/quests/{AscensationNpcAI,QuestItemNpcAI}.*")
+	GLOBS "aion/gameserver/handlers/ai/quests/{AscensationNpcAI,QuestItemNpcAI}.*" "aion/gameserver/handlers/ai/portals/{PortalAI,PortalDialogAI}.*")
 
 # I1-I6: vertical instance slices, each @InstanceID handler with its ai/instance directory (bin-packed to about 6-8k Java lines; handlers without
 # an AI directory go to I1). I1 owns the instance prelude.
