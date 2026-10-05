@@ -2318,6 +2318,7 @@ void runM5eGate(const GateVariant& variant) {
 		seed(a1, "dp = 2000");
 		database.setLifeStatHp(schema, a1.playerId, warrior.step("enter:15").baseMaxHp / 4);
 		enterAs(servers, a, a1);
+		const auto c12Start = std::chrono::steady_clock::now(); // X9g's report: when the measured stumble came
 		// 519 first, while the seeded DP is still exactly 2,000
 		int32_t target = engage(a, MELEE_DISTANCE);
 		size_t from = a.mark();
@@ -2387,7 +2388,6 @@ void runM5eGate(const GateVariant& variant) {
 		// oracle does not model. 240 s is about 20 rounds of 769 (10 s cooldown) and 758; P5-SC.md "M5e gate" lists when the measured
 		// stumble came in the runs
 		const auto stumbleDeadline = std::chrono::steady_clock::now() + 240s;
-		const auto c12Start = std::chrono::steady_clock::now();
 		size_t judged = 0;
 		/** with geo: asks m5e-stumble about every settled stumble not yet judged */
 		const auto judgeStumbles = [&] {
@@ -2414,7 +2414,7 @@ void runM5eGate(const GateVariant& variant) {
 		}
 		if (const auto first = std::ranges::find_if(stumbles, measured); first != stumbles.end())
 			std::cout << "X9g: " << stumbles.size() << " stumble(s); the first measurable one (" << first->skillId << ") came "
-			          << std::chrono::duration_cast<std::chrono::seconds>(first->castAt - c12Start).count() << " s into C12" << std::endl;
+			          << std::chrono::duration_cast<std::chrono::seconds>(first->castAt - c12Start).count() << " s after C12's first cast" << std::endl;
 		ASSERT_TRUE(measuredStumble()) << "X9g: no stumble the row can measure in 240 s of 519 / 769 / 758 (" << stumbles.size()
 		                               << " stumble(s): a target that may still have been walking"
 		                               << (variant.geodata ? ", or a segment m5e-stumble does not find open" : "") << ")";
