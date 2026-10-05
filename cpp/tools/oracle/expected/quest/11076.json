@@ -1,0 +1,101 @@
+{
+ "format": "aion-quest-trace",
+ "version": 1,
+ "questId": 11076,
+ "java": "inggison/_11076ProofOfTalent.java",
+ "class": "_11076ProofOfTalent",
+ "javaSha256": "75f4a30ab898351d050d134ad5266365dbd60295b4b0687325d4e9b43dc73b01",
+ "register": [
+  {"npc": 799025, "event": "addOnQuestStart", "args": [11076]},
+  {"npc": 799084, "event": "addOnTalkEvent", "args": [11076]},
+  {"npc": 799025, "event": "addOnTalkEvent", "args": [11076]},
+  {"call": "registerOnEnterWindStream", "args": [11076]}
+ ],
+ "hooks": [
+  {"hook": "onDialogEvent", "line": 31, "unsupported": "call TeleportService.teleportTo"},
+  {"hook": "onEnterWindStreamEvent", "line": 67, "cases": 7}
+ ],
+ "cases": [
+  {
+   "id": "onEnterWindStreamEvent#1",
+   "hook": "onEnterWindStreamEvent",
+   "given": {"player": {"worldId": 210050000}, "args": {"teleportId": 152001}, "questState": {"status": "START"}},
+   "guards": [
+    "qs != null -> true @70",
+    "qs.getStatus() == QuestStatus.START -> true @70",
+    "player.getWorldId() == 210050000 -> true @71",
+    "teleportId == 152001 -> true @72"
+   ],
+   "effects": [{"call": "changeQuestStep", "kind": "var", "args": [0, 1], "line": 73}],
+   "returns": true
+  },
+  {
+   "id": "onEnterWindStreamEvent#2",
+   "hook": "onEnterWindStreamEvent",
+   "given": {"player": {"worldId": 210050000}, "args": {"teleportId": 153001}, "questState": {"status": "START"}},
+   "guards": [
+    "qs != null -> true @70",
+    "qs.getStatus() == QuestStatus.START -> true @70",
+    "player.getWorldId() == 210050000 -> true @71",
+    "teleportId == 152001 -> false @72",
+    "teleportId == 153001 -> true @74"
+   ],
+   "effects": [{"call": "changeQuestStep", "kind": "var", "args": [1, 2], "line": 75}],
+   "returns": true
+  },
+  {
+   "id": "onEnterWindStreamEvent#3",
+   "hook": "onEnterWindStreamEvent",
+   "given": {"player": {"worldId": 210050000}, "args": {"teleportId": 154001}, "questState": {"status": "START"}},
+   "guards": [
+    "qs != null -> true @70",
+    "qs.getStatus() == QuestStatus.START -> true @70",
+    "player.getWorldId() == 210050000 -> true @71",
+    "teleportId == 152001 -> false @72",
+    "teleportId == 153001 -> false @74",
+    "teleportId == 154001 -> true @76"
+   ],
+   "effects": [{"call": "changeQuestStep", "kind": "var", "args": [2, 3], "line": 77}],
+   "returns": true
+  },
+  {
+   "id": "onEnterWindStreamEvent#4",
+   "hook": "onEnterWindStreamEvent",
+   "given": {"player": {"worldId": 210050000}, "args": {"teleportId": 0}, "questState": {"status": "START"}},
+   "guards": [
+    "qs != null -> true @70",
+    "qs.getStatus() == QuestStatus.START -> true @70",
+    "player.getWorldId() == 210050000 -> true @71",
+    "teleportId == 152001 -> false @72",
+    "teleportId == 153001 -> false @74",
+    "teleportId == 154001 -> false @76"
+   ],
+   "effects": [],
+   "returns": true
+  },
+  {
+   "id": "onEnterWindStreamEvent#5",
+   "hook": "onEnterWindStreamEvent",
+   "given": {"player": {"worldId": 120010000}, "questState": {"status": "START"}},
+   "guards": ["qs != null -> true @70", "qs.getStatus() == QuestStatus.START -> true @70", "player.getWorldId() == 210050000 -> false @71"],
+   "effects": [],
+   "returns": false
+  },
+  {
+   "id": "onEnterWindStreamEvent#6",
+   "hook": "onEnterWindStreamEvent",
+   "given": {"questState": {"status": "REWARD"}},
+   "guards": ["qs != null -> true @70", "qs.getStatus() == QuestStatus.START -> false @70"],
+   "effects": [],
+   "returns": false
+  },
+  {
+   "id": "onEnterWindStreamEvent#7",
+   "hook": "onEnterWindStreamEvent",
+   "given": {"questState": null},
+   "guards": ["qs != null -> false @70"],
+   "effects": [],
+   "returns": false
+  }
+ ]
+}

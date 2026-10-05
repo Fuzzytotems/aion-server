@@ -98,6 +98,23 @@ Q01 = {
         '_3712DredgionPrisonBreak', '_3718DredgingTheDredgion', '_4205SmackTheShulack', '_4702GeneralDeath', '_4711TheDredgionCaptain',
         '_4712EscapeFromTheDredgion', '_4718PressingTheAttack'),
 }
+# Phase 6 step 2, chunk Q02 (lane C, 2026-10-05; docs/deviations/Q02.md): the 59 inggison files, all transliterated and in the tree
+Q02 = {
+    'inggison': (
+        '_10031ARiskfortheObelisk', '_10032HelpintheHollow', '_10033PetrifiedSubside', '_10034FoundUnderground', '_10035SoartotheCorridor',
+        '_11000WisplightMoralTour', '_11001KindMeira', '_11003MaintainingtheIllusion', '_11005TheLimitsofGenius', '_11006TestingTheWaters',
+        '_11008LetterOfEncouragement', '_11009MeiriaFriendlySuggestion', '_11010AngelToTheWounded', '_11012PracticalNursing',
+        '_11026SolidEvidence', '_11031CanIEatIt', '_11032EverythingsBetterWithTentacles', '_11033YouMakeMeSick', '_11036UncommonRecipe',
+        '_11040SquampOnTheCookingPlate', '_11046BoxPickedUpInTheForest', '_11053TheseShoesAreMadeForStalking', '_11056EliminationOrder',
+        '_11057StanisSecretOrder', '_11058TemenosSecretOrder', '_11060TheOrbsOrders', '_11061TwilightOfRagnarok', '_11062PadmarashkaWrath',
+        '_11063QuellMastarius', '_11068AMysteriousWind', '_11069MookieTravelTips', '_11070CraftyMessenger', '_11072DelusCulinaryVictim',
+        '_11076ProofOfTalent', '_11077AWeaponOfWorth', '_11103FiniteWalk', '_11105WifesNagging', '_11106RewritingHistory',
+        '_11107ComfortisaBox', '_11109TheNegotiators', '_11110KillingTime', '_11116MunchingMookiePickles', '_11117MedicationforSetzkiki',
+        '_11118MakingSetzkikiLaugh', '_11123SuspiciousBook', '_11139TheBadNews', '_11143BabyShulackJourney', '_11147CuteBeadyEyes',
+        '_11149TheLadyLayout', '_11212BalaurRecords', '_11227EasyAs', '_11228HeNeverReturned', '_11233SuleionTreasure',
+        '_11289VeillesGift', '_11294SpawningInvestigation', '_11304TheRemainingFaithful', '_11455WhentheTimeisRipe', '_11458AdiassReport',
+        '_11460TheShulackofTaloc'),
+}
 # held back at the integration of slice 2 (docs/deviations/Q10.md, "Held back"): transliterated like the others, but kept out of the
 # tree because gs.scenario.travel's (and gs.scenario.ascension's) Asmodian would see them: 24010's onEnterWorldEvent starts it at the
 # Altgard arrival, and the others' start npcs put them in his SM_NEARBY_QUESTS in Pandaemonium or Altgard
@@ -168,6 +185,10 @@ class CommittedTree(unittest.TestCase):
         hand_port = (HANDLER_QUEST_DIR / 'reshanta' / '_2759TenaciousGuardian.cpp').read_text(encoding='utf-8')
         self.assertNotIn(emit.banner('game-server/data/handlers/quest/reshanta/_2759TenaciousGuardian.java')[0], hand_port)
         self.assertNotIn(('reshanta', '_2759TenaciousGuardian'), found)
+        for klass in Q02['inggison']:
+            with self.subTest(file=f'inggison/{klass}'):
+                self.assertIn(('inggison', klass), found)
+        self.assertEqual(len(Q02['inggison']), 59)
         self.assertEqual(len(Q10_HELD_BACK), 16)
 
     def test_the_enter_world_files_are_in_the_tree(self):
