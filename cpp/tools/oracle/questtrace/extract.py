@@ -182,9 +182,8 @@ SLICE_Q08 = (
 	'enshar/_25050TreasureInTheDeepSea.java', 'enshar/_25051TreasureOfAncientKings.java', 'enshar/_25052AnOfferingPeace.java',
 	'enshar/_25062OminousAdvice.java', 'enshar/_25070TruthOfTheCrystal.java', 'enshar/_25073NoRevivalForTheBalaur.java',
 )
-# Phase 6 step 2, chunk Q01 (lane C, 2026-10-05; docs/deviations/Q01.md): the 80 reshanta handlers questgen transliterates (all but
-# _24043LazyLanguageLessons, DataManager.SPAWNS_DATA, and _2759TenaciousGuardian, a List<Integer> field). The C++ harness drives every
-# document.
+# Phase 6 step 2, chunk Q01 (lane C, 2026-10-05; docs/deviations/Q01.md): the 81 reshanta handlers questgen transliterates (all but
+# _2759TenaciousGuardian, a List<Integer> field). The C++ harness drives every document.
 SLICE_Q01 = (
 	'reshanta/_14040OrdersFromReshanta.java', 'reshanta/_14041AbyssalAbilities.java', 'reshanta/_14042ARescueOperation.java',
 	'reshanta/_14043DrawlingBalaur.java', 'reshanta/_14044ShardsOfMemory.java', 'reshanta/_14045RumorsOnWings.java',
@@ -201,7 +200,7 @@ SLICE_Q01 = (
 	'reshanta/_1800JaiorunerksTombstone.java', 'reshanta/_1845OpeningDoors.java', 'reshanta/_1846PaperTrail.java',
 	'reshanta/_1847AStrangeSoul.java', 'reshanta/_1851UnchartedIslands.java', 'reshanta/_1853OfficerOusting.java',
 	'reshanta/_1854GeneralPurge.java', 'reshanta/_24040VotansOrders.java', 'reshanta/_24041TrainingInTheAbyss.java',
-	'reshanta/_24042AReadyRescue.java', 'reshanta/_24044ChangeTheFuture.java', 'reshanta/_24045ASpeedyErrand.java',
+	'reshanta/_24042AReadyRescue.java', 'reshanta/_24043LazyLanguageLessons.java', 'reshanta/_24044ChangeTheFuture.java', 'reshanta/_24045ASpeedyErrand.java',
 	'reshanta/_24046TheShadowCalls.java', 'reshanta/_2701TheGovernorsSummons.java', 'reshanta/_2702Defeat9thRankElyosSoldiers.java',
 	'reshanta/_2703Defeat8thRankElyosSoldiers.java', 'reshanta/_2704Defeat7thRankElyosSoldiers.java',
 	'reshanta/_2705Defeat6thRankElyosSoldiers.java', 'reshanta/_2706Defeat5thRankElyosSoldiers.java',

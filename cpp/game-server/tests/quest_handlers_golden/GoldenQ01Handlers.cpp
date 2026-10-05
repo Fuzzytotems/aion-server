@@ -1,5 +1,5 @@
 // The generated reshanta handlers (chunk Q01, phase 6 step 2, lane C) compiled into Q05's test executable by #include (GoldenHandlers.h
-// says why). _24043LazyLanguageLessons and _2759TenaciousGuardian are not generated (docs/deviations/Q01.md).
+// says why). _2759TenaciousGuardian is not generated (docs/deviations/Q01.md).
 
 // clang-format off
 #include "aion/gameserver/handlers/quest/reshanta/_14040OrdersFromReshanta.cpp"
@@ -43,6 +43,7 @@
 #include "aion/gameserver/handlers/quest/reshanta/_24040VotansOrders.cpp"
 #include "aion/gameserver/handlers/quest/reshanta/_24041TrainingInTheAbyss.cpp"
 #include "aion/gameserver/handlers/quest/reshanta/_24042AReadyRescue.cpp"
+#include "aion/gameserver/handlers/quest/reshanta/_24043LazyLanguageLessons.cpp"
 #include "aion/gameserver/handlers/quest/reshanta/_24044ChangeTheFuture.cpp"
 #include "aion/gameserver/handlers/quest/reshanta/_24045ASpeedyErrand.cpp"
 #include "aion/gameserver/handlers/quest/reshanta/_24046TheShadowCalls.cpp"

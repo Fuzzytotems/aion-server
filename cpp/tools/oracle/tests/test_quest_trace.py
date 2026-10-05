@@ -655,10 +655,9 @@ class Q01SliceTest(unittest.TestCase):
 	def test_the_q01_slice(self):
 		java = sorted(f"reshanta/{f.name}" for f in (extract.QUEST_DIR / "reshanta").glob("*.java"))
 		self.assertEqual(len(java), 82)
-		# questgen refuses two (DataManager.SPAWNS_DATA; a List<Integer> field): not in the tree, not in the slice
-		self.assertEqual(sorted(extract.SLICE_Q01),
-		                 sorted(set(java) - {"reshanta/_24043LazyLanguageLessons.java", "reshanta/_2759TenaciousGuardian.java"}))
-		self.assertEqual(len(self.docs), 80)
+		# questgen refuses one (a List<Integer> field): not in the tree, not in the slice
+		self.assertEqual(sorted(extract.SLICE_Q01), sorted(set(java) - {"reshanta/_2759TenaciousGuardian.java"}))
+		self.assertEqual(len(self.docs), 81)
 		self.assertEqual(set(extract.SLICE_Q01) & set(extract.SLICE_TIER_A + extract.SLICE_ROUTE + extract.SLICE_Q03 + extract.SLICE_Q10 +
 		                                              extract.SLICE_Q08), set())
 		self.assertEqual(sorted(q for q, d in self.docs.items() if not d["cases"]), [2798])
