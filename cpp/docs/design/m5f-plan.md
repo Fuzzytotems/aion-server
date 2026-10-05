@@ -38,6 +38,10 @@
 >
 > **The travel core landed early, 2026-09-29 (§16)**: T-01, T-05 (under the P5-12a lease), P-01, their T-08/P-07 tests and a gate of their
 > own, `gs.scenario.travel` (Sanctum -> Verteron, Pandaemonium -> Altgard, one flight in Verteron). The rest of stage 1 is listed in §16.4.
+>
+> **Stage 2 built, 2026-10-05 (§17)**: stage 1 measured closed (PR #73 and the earlier merges), the oracle `m5f-travel`, the travel decoders,
+> `gs.scenario.m5f` and `gs.scenario.m5f_geo` green, every §10.4 mutant killed, the earlier gates re-run. Open: G2a and G2b's geo-on half
+> (§17.5); stage 3 (H-02) is the ascension route's.
 
 ---
 
@@ -1259,3 +1263,107 @@ Measured in this tree after the slice (`grep -c "AION_UNPORTED()"`, the file lis
 
 Stage 2 (G-03..G-07) and stage 3 (H-02) are unchanged. `gs.scenario.travel` stays a gate of its own until G-03 writes `gs.scenario.m5f`,
 which may absorb it.
+
+*(2026-10-05: this list is superseded by §17.1 - PR #73 landed T-02, T-03, T-04, T-07, P-03, P-04 and V-01..V-05.)*
+
+---
+
+## 17. Status, 2026-10-05: stage 1 measured closed, stage 2 built (G-01..G-05, I-03)
+
+Lane A, branch `lane-a/m5f-gate` on `C++` (from `bef516884`). docs/deviations/P5-SC.md, "M5f gate (lane A, 2026-10-05)", has the as-built
+table, the mutation table and the runs.
+
+### 17.1 Stage 1, measured before the gate was written
+
+§16.4's list is stale: PR #73 ("M5f stage 1") landed T-02, T-03, T-04, T-07, P-03, P-04 and V-01..V-05, and the earlier merges landed the
+rest. Measured at `bef516884` (`grep -c "AION_UNPORTED("`, the file lists, `census.py --chunks P5-13,P4-10,P5-08,P5-15,P5-16`):
+
+| Item | Status |
+|---|---|
+| T-01..T-07 | `TeleportService.cpp`, `PortalService.cpp`, `BindPointTeleportService.cpp`: 0 `AION_UNPORTED`; `RecallService::validateCast` takes a `Ptr`; `instanceRevive` ported (`PlayerReviveService.cpp` keeps 3 U, none of them M5f's: `duelRevive`, `rebirthRevive`, `itemSelfRevive`) |
+| N-01..N-04, N-07 | `InstanceService.cpp` 1 U (`getOrCreateHouseInstance`, **W**, M5h), `InstanceEngine.cpp` 1 U (`addInstanceHandlerClass`, D10), `GeneralInstanceHandler.cpp` and `WorldMapInstance.cpp` 0; both M5a partials closed |
+| P-01..P-06 | `CM_TELEPORT_SELECT`, `CM_TELEPORT_ANIMATION_DONE`, `CM_BIND_POINT_TELEPORT`, `CM_INSTANCE_LEAVE`, `CM_MOVE_IN_AIR`, `CM_PLAY_MOVIE_END`, `CM_POSITION_SELF` have files |
+| V-01..V-04 | `ResurrectAI`, `PortalAI`, `PortalDialogAI`, `ActionItemNpcAI` have files |
+| X-05a, X-04 | `SpellAtkDrainInstantEffect.cpp` and `CondSkillLauncherEffect.cpp`: 0 U. **W-14 and W-21 are closed**: G-01's census finds no unported class in any class's level-16 passives and none in Haramel's monster skills (on a mock tree with only those two classes unported it reproduces the plan's GLADIATOR/563 and Kakiti/19214 findings) |
+| X-01..X-03 (O) | still open: `MultiReturnAction.cpp` 2 U, `ReturnPointEffect.cpp` 3 U |
+| T-08 / N-05 / P-07 / V-05 | the unit suites of PR #73 and of the ascension merge; this lane adds the hotspot's float-distance vector (`BindPointTeleportTest.ThePriceUsesJavasFloatDistance`, §10.4's double-distance row) and G2c |
+
+### 17.2 Stage 2, as built
+
+| Item | As built |
+|---|---|
+| **G-01** | `oracle.py m5f-travel` (`tools/oracle/m5f/{travel,census,geocheck}.py`; `tests/test_m5f.py`, 25 cases; the whole oracle suite 569 OK, 1 skipped): `--npc` (spots, `daevaOnly` parsed from DialogService.java's AIRLINE_SERVICE arm, the locations with `getPriceForService` over m5c's `race_prices`), `--hotspot --from` (float distance; the double price too, for the mutation proof), `--obelisk`, `--portal --race [--now-ms]` (the paths with `selected`, the cooltime row, the reuse time, the exit), `--instance-exit`, `--instance-spawns` (`spawnInstance`'s set), `--exp-for-level`, `--census` (W-14, W-21), `--geo-check` (G3). Every number of §2.9 reproduces. Found: a float/double hotspot vector (1153.55, 2559.78, 172.46 → hotspot 13: 103 against 104); Haramel holds 117 npc spots of 42 ids **plus 17 gatherable spots of 5 ids** (W-11 counted the npcs only); G3's full run lists no destination with \|dz\| > 1 |
+| **G-02** | `decoders/TravelDecoders.{h,cpp}` (10 packets, from `writeImpl`, no `serverpackets/` include) and `TravelDecodersTest` (10 cases); `GameSession` opcodes and builders for `CM_TELEPORT_SELECT`, `CM_TELEPORT_ANIMATION_DONE`, `CM_INSTANCE_LEAVE`, `CM_MOVE_IN_AIR`, `CM_EMOTION`, `CM_BIND_POINT_TELEPORT`. The travel gate keeps its file-local copies (each gate owns its scaffolding) |
+| **G-03** | `gs.scenario.m5f`: `M5fScenarioTest.cpp`, C0-C23 in §10.2's run order, `m5f_partial_allowlist.txt` (copied from M5e's: §A `BaseService.cpp:18`, §B the four cron rows, §C `PvpMapService.cpp:32`, `PlayerService.cpp:268`; no `InstanceService` row, no `QuestEngine.cpp:111` row), gate slot 2. `gs.scenario.travel` stays as it is (level-10 Daevas on the capital routes) |
+| **G-04** | `gs.scenario.m5f_geo`: the same script with geo on (G1 is the script's own exact-position rows) plus G2's `TerrainZoneCollisionMaterialActor` row; **G2c** is `AscensionPacketsTest.ATeleportResetsTheClientPositionACollisionObserverStartsFrom` in `tests/cm_lz` (not `tests/geo`: no fixture there has a Player); **G2a and G2b's geo-on half are not built** (§17.5); G3 is G-01's `--geo-check` |
+| **G-05** | every `gs.scenario.*` gate re-run on the final tree in one ctest (§17.4) |
+| I-03 | `game-server/config/m5f.properties.example`: the M5e profile plus `destroy_delay_seconds = 600` (play) and the fly-path validator off; the gate passes 1 (D11) |
+| H-01 (O), H-02 (R, stage 3) | not this lane's |
+
+### 17.3 Rows of §10 the gate reads differently (Java measured)
+
+1. **The seeds also finish the prologue quests** (1000 / 2000): an Elyos without 1000 gets its movie at every enter world (_1000Prologue.java:
+   26-36), and the movie drops every `CM_MOVE` until it ends. E1 plays its prologue as the earlier gates do (PrologueSupport.h). Every level
+   ready ends a movie a quest plays, as a client does (none was played on the measured runs).
+2. **E2 is seeded 1.5 m off flypath 6's start** at Melponeh, E1 lands at flypath 5's end; **C6's `CM_MOVE` goes 2 m towards the obelisk**:
+   ResurrectAI's accept refuses a player more than 5 m from it (ResurrectAI.java:85-87); the first run's move away measured 5.07 m.
+3. **T5's post-landing rows** assert that E2 gets no `SM_DELETE(E1)`, E1 no `SM_DELETE(E2)`, and Kustanon and Daines are not announced to E1
+   again, rather than "no `SM_DELETE` and no npc announce at all": Melponeh's walking npcs come and go on their own. The mutant that moves
+   E1 630 m fails all three. The flight is 20 `CM_MOVE_IN_AIR` steps, a count chosen so that no step lies within 2 m of E2's 95 m; the
+   measured first step in range is 17 of 20.
+4. **T10's "nothing else until the animation is done"** asserts no `SM_PLAYER_SPAWN` and no `SM_CHANNEL_INFO`, and prints what did arrive.
+5. **The arrival npc sets** (T10, T11, T19) are m5a's V1 and V3 over `m5a-spawns`; T13's is the same over `m5f-travel --instance-spawns`,
+   without the gatherables. Measured: Verteron 72 npcs / 57 checked spots, Sanctum 18 / 16, Morheim 65 / 46, Haramel 19 / 15.
+6. **T13's `STR_MSG_INSTANCE_DUNGEON_OPENED_FOR_SELF`** carries the world id and follows `SM_PLAYER_SPAWN`, so it is read after the level
+   ready.
+7. **T18**: the gate does not race the checker. Before E2 first leaves Haramel (C18) it makes sure 50 s are left in the current 60-s window,
+   waiting out a checker run with E2 inside otherwise; T18 then asserts the destruction lands on a checker run (60 s × n after the creation,
+   ± 5 s) instead of "60-75 s". The measured runs destroyed it at the first run after the quit (C21 took 44 s).
+8. **T20's live counts** name the concrete classes: `WorldMap2DInstance` + `WorldMap3DInstance` (back at the baseline, created more),
+   `GeneralInstanceHandler` (the same), `EmptyInstanceCheckerTask` and `TeleportService::SpawnTask` (0 live, created > 0), `Player` 0.
+9. **T8 cannot fail for the obelisk-position mutant**: T8 compares with T6's own `SM_BIND_POINT_INFO`, which that mutant moves too; T6
+   fails it (the packet and the `player_bind_point` row).
+
+### 17.4 Mutation proof (§10.4) and runs
+
+22 schemata switched by `AION_M5FG_MUT` in 13 production files, built once into `aion_game_server` and the three unit-test executables, the
+sources restored at once and checked by sha256 (13 of 13), the tree rebuilt; the string is in no executable. **Every row §10.4 asks the gate
+to kill is killed** (17 gate runs), and the "nothing in the gate" rows are killed by unit cases:
+
+| Mutant (§10.4 row) | Killed by |
+|---|---|
+| `sendLoc` runs the `SpawnTask` at once | **T10** (C12 throws: the arrival does not wait) |
+| `sendLoc` skips `World.despawn` | **T1** first: the hotspot's same-map move never happens (SpawnTask.run returns for a spawned player, TeleportService.java:502), so the run stops before T10 |
+| `notSee` without the not-spawned guard | **T10** (E2 receives `SM_DELETE`s); T5 green |
+| `FADE_OUT` for `JUMP_IN` | **T10** (animation 1, not 11) |
+| `SpawnTask::run` skips `onLeaveInstance` | **T15** (no leave message); also T20 (a `WorldMapInstance` alive: 162 against 161) |
+| the hotspot charges at the cast | **T1** (937 kinah before the task) |
+| `SM_EMOTION` with another id | **T5**, **T7** (13 / 12 for 5001 / 6001) |
+| `CM_MOVE_IN_AIR` without the `FLYING` check | **T5** (both sides delete each other; Kustanon and Daines announced again) |
+| `CM_MOVE_IN_AIR` without the known-list update | **T5** (E2 never sees the flying E1) |
+| `ResurrectAI` stores the obelisk's position | **T6** (the packet and the `player_bind_point` row 1.06 m off); T8 cannot (§17.3 row 9) |
+| `moveToBindLocation` ignores the bind point | **T8** (E1 at the Elyos spawn) |
+| `transfer` adds the cooldown on re-entry | **T16** (`SM_INSTANCE_INFO`, entry count 2), T18 (offset −2) |
+| `getNextAvailableInstance` skips `spawnInstance` | **T13** (no npc) |
+| `destroyInstance` skips `detachInstanceHandler` | **T20** (`GeneralInstanceHandler` 162 live against 161) |
+| `moveToExitPoint` left partial | **T18** (one `SM_PLAYER_SPAWN`) |
+| `PricesService` without taxes | **T4**, T5, T7, T10, T10b, T11, T19 |
+| `onLogin` not called at the enter world | **T9** |
+| the hotspot distance in double | `BindPointTeleportTest.ThePriceUsesJavasFloatDistance` (new) |
+| `removeInstanceItems` removes nothing | `InstanceLifecycleTest` (2 cases) |
+| N-07's handler answers 1.25f | `InstanceLifecycleTest.TheDetachedHandlerAnswersLikeTheBaseHandlerInsideAnInstance` |
+| `instanceRevive` skips the `startPos` move | `InstanceTeleportTest.InstanceReviveMovesToTheStartPosition` |
+| `Player::setPosition` keeps the client position | **G2c** (new) |
+| `EmptyInstanceCheckerTask` ignores `isRegisteredTeamDisbanded` | **not built**: needs a `GeneralTeam` (M5g, D3), as §15.6 recorded |
+
+Runs (Debug, `build/msvc`, 2026-10-05): `gs.scenario.m5f` passed in 198 s and `gs.scenario.m5f_geo` in 325 s in one ctest, on the gate as
+committed. The regate (G-05, §10.6) is in docs/deviations/P5-SC.md, "M5f gate".
+
+### 17.5 Not built, open
+
+- **G2a** (a Player spawned at Morheim's loc 10 carries a `TerrainZoneCollisionMaterialActor`, deterministically) and **G2b's geo-on half**
+  (`teleportToNpc`'s z equals the geo oracle's `getZ`) need a Player in a world with the geo meshes loaded; no unit fixture has both. The geo
+  gate's G2 row covers G2a by count; G2b's geo-off half is `TeleportServiceRestTest`'s `teleportToNpc` case. Proposed for whoever next owns
+  P4-04's tests.
+- §11's real-client checklist is unchanged and still the user's.
+- H-02 (stage 3, the four ascension quests) merged on its own route (p6q-ascension-route.md); H-01 and X-01..X-03 stay optional.
