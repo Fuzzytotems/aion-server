@@ -313,14 +313,15 @@ TEST_F(DaevaEffectsTest, DeterminationLaunchesAPermanentBuffAtTenPercentHpAndEnd
 
 /**
  * The lock-order correction of CondSkillLauncherEffect's observer (owner's decision 2026-10-04; docs/deviations/P5-03.md). Java launches and
- * ends 8930 inside the observer's monitor, so a launch records "observer, then Effect"; a buff that changes the max HP records "Effect, then
- * observer" (Effect.startEffect -> checkMaxHPChanged -> hpChanged). Together they are the cycle the M5e gate's lockdep reported (a revived
- * Gladiator with 563). The case takes both orders on one thread: with the correction the observer holds no monitor while it calls the
- * Effect, and lockdep reports no cycle. The outcome is Java's: 8930 is launched once and stays while the HP stays below the threshold.
+ * ends 8930 inside the observer's monitor, so a launch or an end records "observer, then Effect"; a buff that changes the max HP records
+ * "Effect, then observer" (Effect.startEffect -> checkMaxHPChanged -> hpChanged). Together they are the cycle the M5e gate's lockdep reported (a
+ * revived Gladiator with 563). The case takes every order on one thread - the launch, a max-HP buff, the end - and lockdep reports no cycle;
+ * the outcome is Java's: 8930 is launched once, kept below the threshold and ended above it. Lockdep only runs in checked builds.
  */
-TEST_F(DaevaEffectsTest, DeterminationsLaunchAndAMaxHpBuffTakeTheMonitorsInOneOrder) {
+TEST_F(DaevaEffectsTest, DeterminationsLaunchEndAndAMaxHpBuffTakeTheMonitorsInOneOrder) {
 	EFFECT_TEST_SCOPE;
-	ASSERT_TRUE(runtime::LockOrderValidator::getInstance().isEnabled()) << "lock-order validation runs in checked builds";
+	if (!runtime::LockOrderValidator::getInstance().isEnabled())
+		GTEST_SKIP() << "lock-order validation runs in checked builds only";
 	auto cycles = [] {
 		size_t count = 0;
 		for (const runtime::LockOrderValidator::Report& report : runtime::LockOrderValidator::getInstance().getReports())
@@ -336,21 +337,22 @@ TEST_F(DaevaEffectsTest, DeterminationsLaunchAndAMaxHpBuffTakeTheMonitorsInOneOr
 		R"(<skill_template skill_id="7564" name="max hp buff" nameId="1" stack="EFFECTS_AL_DAEVA_MAXHP" lvl="1" skilltype="MAGICAL")"
 		R"( skillsubtype="BUFF" tslot="BUFF" activation="ACTIVE" duration="0"><effects><statboost duration2="10000" e="1" noresist="true">)"
 		R"(<change stat="MAXHP" func="ADD" value="100"/></statboost></effects></skill_template>)");
-	const int32_t threshold = 10 * gladiator->getLifeStats()->getMaxHp() / 100;
 
 	Ref<Effect> passive = SkillEngine::getInstance().applyEffectDirectly(determination, 1, *gladiator, *gladiator);
-	gladiator->getLifeStats()->setCurrentHp(threshold);
+	gladiator->getLifeStats()->setCurrentHp(10 * gladiator->getLifeStats()->getMaxHp() / 100);
 	Ptr<Effect> launched = gladiator->getEffectController()->findBySkillId(8930);
 	ASSERT_TRUE(launched) << "the launch: the observer calls into an Effect";
 
 	Ref<Effect> buff = SkillEngine::getInstance().applyEffectDirectly(maxHpBuff, 1, *gladiator, *gladiator);
 	ASSERT_TRUE(gladiator->getEffectController()->findBySkillId(7564)) << "the buff: Effect.startEffect reaches the observer";
-
-	EXPECT_EQ(cycles(), cyclesBefore) << "no lock-order cycle between the Effect and the observer";
 	EXPECT_EQ(gladiator->getEffectController()->findBySkillId(8930), launched) << "still below the threshold: launched once, kept";
+
+	gladiator->getLifeStats()->setCurrentHp(10 * gladiator->getLifeStats()->getMaxHp() / 100 + 1);
+	EXPECT_FALSE(gladiator->getEffectController()->findBySkillId(8930)) << "the end: the observer calls into the Effect again";
+
+	EXPECT_EQ(cycles(), cyclesBefore) << "no lock-order cycle between the Effects and the observer";
 	buff->endEffect();
 	passive->endEffect();
-	EXPECT_FALSE(gladiator->getEffectController()->findBySkillId(8930));
 }
 
 /**
