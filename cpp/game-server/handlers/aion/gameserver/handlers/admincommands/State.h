@@ -5,16 +5,17 @@
 namespace aion::gameserver::handlers::admincommands {
 
 /**
- * //zone: shows zone information.
+ * //state: views and adjusts your target's creature states.
  */
-class Zone : public AdminCommand {
+class State : public AdminCommand {
 public:
-	Zone();
+	State();
 
 	void execute(Player& player, std::span<const std::string> params) override;
 
 private:
-	std::vector<runtime::Ptr<ZoneInstance>> findZones(Creature& creature, std::optional<std::string_view> zoneNameFilter);
+	std::string getStateDescription(int32_t state);
+	std::string findStateName(int32_t creatureStateId, std::string_view defaultName);
 };
 
 } // namespace aion::gameserver::handlers::admincommands

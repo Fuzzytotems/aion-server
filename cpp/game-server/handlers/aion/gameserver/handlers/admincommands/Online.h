@@ -5,7 +5,7 @@
 namespace aion::gameserver::handlers::admincommands {
 
 /**
- * /online: shows the number of online players.
+ * //online: shows the number of online players.
  */
 class Online : public AdminCommand {
 public:

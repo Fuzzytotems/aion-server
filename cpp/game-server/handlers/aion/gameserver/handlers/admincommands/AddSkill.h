@@ -5,16 +5,15 @@
 namespace aion::gameserver::handlers::admincommands {
 
 /**
- * //zone: shows zone information.
+ * //addskill: adds a skill to your target.
  */
-class Zone : public AdminCommand {
+class AddSkill : public AdminCommand {
 public:
-	Zone();
+	AddSkill();
 
 	void execute(Player& player, std::span<const std::string> params) override;
 
-private:
-	std::vector<runtime::Ptr<ZoneInstance>> findZones(Creature& creature, std::optional<std::string_view> zoneNameFilter);
+	void info(Player& player, std::optional<std::string_view> message) override;
 };
 
 } // namespace aion::gameserver::handlers::admincommands

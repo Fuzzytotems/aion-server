@@ -193,8 +193,8 @@ int8_t ChatCommand::getLevel() {
 // "Could not get enum values" and lists nothing too.
 std::optional<std::string> ChatCommand::toErrorMessage(const runtime::IllegalArgumentException& e) {
 	std::string msg = e.what();
-	if (msg.empty())
-		return std::nullopt;
+	if (msg.empty()) // Java null (or ""): a NumberFormatException still answers "Invalid number."
+		return dynamic_cast<const commons::utils::NumberFormatException*>(&e) ? std::optional<std::string>("Invalid number.") : std::nullopt;
 	if (msg.starts_with("No enum constant ")) { // "No enum constant com.aionemu.gameserver.model.siege.SiegeRace.invalidName"
 		std::vector<std::string> enumParts = splitDots(std::string_view(msg).substr(17));
 		std::string enumName = enumParts.size() >= 2 ? enumParts[enumParts.size() - 2] : enumParts.back(); // -> "SiegeRace"
