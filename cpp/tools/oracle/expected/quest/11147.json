@@ -1,0 +1,75 @@
+{
+ "format": "aion-quest-trace",
+ "version": 1,
+ "questId": 11147,
+ "java": "inggison/_11147CuteBeadyEyes.java",
+ "class": "_11147CuteBeadyEyes",
+ "javaSha256": "4f9460bda5c24a218ddf97b9f2e3312a3565bb8f0b3c3f174c472d9c23d44c18",
+ "register": [
+  {"npc": 798997, "event": "addOnQuestStart", "args": [11147]},
+  {"npc": 798997, "event": "addOnTalkEvent", "args": [11147]},
+  {"npc": 799079, "event": "addOnTalkEvent", "args": [11147]},
+  {"npc": 799081, "event": "addOnTalkEvent", "args": [11147]},
+  {"call": "registerOnEnterZone", "args": ["KLAWNICKTS_CAVE_210050000", 11147]}
+ ],
+ "hooks": [
+  {"hook": "onDialogEvent", "line": 32, "unsupported": "call spawnForFiveMinutesInFrontOf"},
+  {"hook": "onEnterZoneEvent", "line": 92, "cases": 5}
+ ],
+ "cases": [
+  {
+   "id": "onEnterZoneEvent#1",
+   "hook": "onEnterZoneEvent",
+   "given": {"args": {"zoneName": "KLAWNICKTS_CAVE_210050000"}, "questState": {"status": "START", "vars": {"0": 4}}},
+   "guards": [
+    "zoneName == ZoneName.get(\"KLAWNICKTS_CAVE_210050000\") -> true @93",
+    "qs != null -> true @98",
+    "qs.getStatus() == QuestStatus.START -> true @98",
+    "var == 4 -> true @100"
+   ],
+   "effects": [{"call": "changeQuestStep", "kind": "var", "args": [4, 4, true], "line": 101}],
+   "returns": true
+  },
+  {
+   "id": "onEnterZoneEvent#2",
+   "hook": "onEnterZoneEvent",
+   "given": {"args": {"zoneName": "KLAWNICKTS_CAVE_210050000"}, "questState": {"status": "START", "vars": {"0": 0}}},
+   "guards": [
+    "zoneName == ZoneName.get(\"KLAWNICKTS_CAVE_210050000\") -> true @93",
+    "qs != null -> true @98",
+    "qs.getStatus() == QuestStatus.START -> true @98",
+    "var == 4 -> false @100"
+   ],
+   "effects": [],
+   "returns": false
+  },
+  {
+   "id": "onEnterZoneEvent#3",
+   "hook": "onEnterZoneEvent",
+   "given": {"args": {"zoneName": "KLAWNICKTS_CAVE_210050000"}, "questState": {"status": "REWARD"}},
+   "guards": [
+    "zoneName == ZoneName.get(\"KLAWNICKTS_CAVE_210050000\") -> true @93",
+    "qs != null -> true @98",
+    "qs.getStatus() == QuestStatus.START -> false @98"
+   ],
+   "effects": [],
+   "returns": false
+  },
+  {
+   "id": "onEnterZoneEvent#4",
+   "hook": "onEnterZoneEvent",
+   "given": {"args": {"zoneName": "KLAWNICKTS_CAVE_210050000"}, "questState": null},
+   "guards": ["zoneName == ZoneName.get(\"KLAWNICKTS_CAVE_210050000\") -> true @93", "qs != null -> false @98"],
+   "effects": [],
+   "returns": false
+  },
+  {
+   "id": "onEnterZoneEvent#5",
+   "hook": "onEnterZoneEvent",
+   "given": {"args": {"zoneName": {"anyExcept": ["KLAWNICKTS_CAVE_210050000"]}}},
+   "guards": ["zoneName == ZoneName.get(\"KLAWNICKTS_CAVE_210050000\") -> false @93"],
+   "effects": [],
+   "returns": false
+  }
+ ]
+}

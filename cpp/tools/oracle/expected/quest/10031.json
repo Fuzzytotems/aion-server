@@ -1,0 +1,120 @@
+{
+ "format": "aion-quest-trace",
+ "version": 1,
+ "questId": 10031,
+ "java": "inggison/_10031ARiskfortheObelisk.java",
+ "class": "_10031ARiskfortheObelisk",
+ "javaSha256": "39e6a69947760e3bee57e5759ce2327b4ffa4f1887ad7ad2cbde875dccaf599d",
+ "register": [
+  {"call": "registerOnLevelChanged", "args": [10031]},
+  {"npc": 215504, "event": "addOnKillEvent", "args": [10031]},
+  {"npc": 215505, "event": "addOnKillEvent", "args": [10031]},
+  {"npc": 215516, "event": "addOnKillEvent", "args": [10031]},
+  {"npc": 215517, "event": "addOnKillEvent", "args": [10031]},
+  {"npc": 215518, "event": "addOnKillEvent", "args": [10031]},
+  {"npc": 215519, "event": "addOnKillEvent", "args": [10031]},
+  {"npc": 216463, "event": "addOnKillEvent", "args": [10031]},
+  {"npc": 216464, "event": "addOnKillEvent", "args": [10031]},
+  {"npc": 216647, "event": "addOnKillEvent", "args": [10031]},
+  {"npc": 216648, "event": "addOnKillEvent", "args": [10031]},
+  {"npc": 216691, "event": "addOnKillEvent", "args": [10031]},
+  {"npc": 216692, "event": "addOnKillEvent", "args": [10031]},
+  {"npc": 216782, "event": "addOnKillEvent", "args": [10031]},
+  {"npc": 216783, "event": "addOnKillEvent", "args": [10031]},
+  {"npc": 215508, "event": "addOnKillEvent", "args": [10031]},
+  {"npc": 215509, "event": "addOnKillEvent", "args": [10031]},
+  {"npc": 203700, "event": "addOnTalkEvent", "args": [10031]},
+  {"npc": 702662, "event": "addOnTalkEvent", "args": [10031]},
+  {"npc": 730224, "event": "addOnTalkEvent", "args": [10031]},
+  {"npc": 798408, "event": "addOnTalkEvent", "args": [10031]},
+  {"npc": 798600, "event": "addOnTalkEvent", "args": [10031]},
+  {"npc": 798926, "event": "addOnTalkEvent", "args": [10031]},
+  {"npc": 798927, "event": "addOnTalkEvent", "args": [10031]},
+  {"npc": 799052, "event": "addOnTalkEvent", "args": [10031]},
+  {"call": "registerOnEnterWorld", "args": [10031]}
+ ],
+ "hooks": [
+  {"hook": "onDialogEvent", "line": 50, "unsupported": "a symbolic qs.setQuestVar(Ar(op='+', a=In(key=('var', 10031, 0)), b=K(v=1)))"},
+  {"hook": "onKillEvent", "line": 166, "unsupported": "reads status/10031 after defaultOnKillEvent, which may have written it"},
+  {"hook": "onItemUseEvent", "line": 191, "unsupported": "call player.isInsideZone(ZoneName.get(\"DF4_ITEMUSEAREA_Q20031_220070000\"))"},
+  {"hook": "onEnterWorldEvent", "line": 207, "cases": 5},
+  {"hook": "onMovieEndEvent", "line": 224, "cases": 2},
+  {"hook": "onLevelChangedEvent", "line": 230, "cases": 1}
+ ],
+ "cases": [
+  {
+   "id": "onEnterWorldEvent#1",
+   "hook": "onEnterWorldEvent",
+   "given": {"player": {"worldId": 210050000}, "questState": {"status": "START", "vars": {"0": 3}}},
+   "guards": [
+    "player.getWorldId() == 210050000 -> true @211",
+    "qs != null -> true @212",
+    "qs.getStatus() == QuestStatus.START -> true @212",
+    "var == 3 -> true @214"
+   ],
+   "effects": [{"call": "playQuestMovie", "kind": "movie", "args": [501], "line": 215}],
+   "returns": true
+  },
+  {
+   "id": "onEnterWorldEvent#2",
+   "hook": "onEnterWorldEvent",
+   "given": {"player": {"worldId": 210050000}, "questState": {"status": "START", "vars": {"0": 0}}},
+   "guards": [
+    "player.getWorldId() == 210050000 -> true @211",
+    "qs != null -> true @212",
+    "qs.getStatus() == QuestStatus.START -> true @212",
+    "var == 3 -> false @214"
+   ],
+   "effects": [],
+   "returns": false
+  },
+  {
+   "id": "onEnterWorldEvent#3",
+   "hook": "onEnterWorldEvent",
+   "given": {"player": {"worldId": 210050000}, "questState": {"status": "REWARD"}},
+   "guards": ["player.getWorldId() == 210050000 -> true @211", "qs != null -> true @212", "qs.getStatus() == QuestStatus.START -> false @212"],
+   "effects": [],
+   "returns": false
+  },
+  {
+   "id": "onEnterWorldEvent#4",
+   "hook": "onEnterWorldEvent",
+   "given": {"player": {"worldId": 210050000}, "questState": null},
+   "guards": ["player.getWorldId() == 210050000 -> true @211", "qs != null -> false @212"],
+   "effects": [],
+   "returns": false
+  },
+  {
+   "id": "onEnterWorldEvent#5",
+   "hook": "onEnterWorldEvent",
+   "given": {"player": {"worldId": 120010000}},
+   "guards": ["player.getWorldId() == 210050000 -> false @211"],
+   "effects": [],
+   "returns": false
+  },
+  {
+   "id": "onMovieEndEvent#1",
+   "hook": "onMovieEndEvent",
+   "given": {"args": {"movieId": 501}},
+   "guards": ["movieId == 501 -> true @225"],
+   "effects": [{"call": "changeQuestStep", "kind": "var", "args": [3, 4], "line": 226}],
+   "returns": null
+  },
+  {
+   "id": "onMovieEndEvent#2",
+   "hook": "onMovieEndEvent",
+   "given": {"args": {"movieId": 0}},
+   "guards": ["movieId == 501 -> false @225"],
+   "effects": [],
+   "returns": null
+  },
+  {
+   "id": "onLevelChangedEvent#1",
+   "hook": "onLevelChangedEvent",
+   "given": {},
+   "guards": [],
+   "effects": [{"call": "defaultOnLevelChangedEvent", "kind": "quest", "args": [], "line": 231}],
+   "returns": null
+  }
+ ]
+}

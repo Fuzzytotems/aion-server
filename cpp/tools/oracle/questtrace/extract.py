@@ -217,7 +217,31 @@ SLICE_Q01 = (
 	'reshanta/_4702GeneralDeath.java', 'reshanta/_4711TheDredgionCaptain.java', 'reshanta/_4712EscapeFromTheDredgion.java',
 	'reshanta/_4718PressingTheAttack.java',
 )
-SLICE = SLICE_TIER_A + SLICE_ROUTE + SLICE_Q03 + SLICE_Q10 + SLICE_Q08 + SLICE_Q01
+# Phase 6 step 2, chunk Q02 (lane C, 2026-10-05; docs/deviations/Q02.md): the 59 inggison handlers, all of which questgen transliterates
+# (two since rows B43-B44). The C++ harness drives every document.
+SLICE_Q02 = (
+	'inggison/_10031ARiskfortheObelisk.java', 'inggison/_10032HelpintheHollow.java', 'inggison/_10033PetrifiedSubside.java',
+	'inggison/_10034FoundUnderground.java', 'inggison/_10035SoartotheCorridor.java', 'inggison/_11000WisplightMoralTour.java',
+	'inggison/_11001KindMeira.java', 'inggison/_11003MaintainingtheIllusion.java', 'inggison/_11005TheLimitsofGenius.java',
+	'inggison/_11006TestingTheWaters.java', 'inggison/_11008LetterOfEncouragement.java', 'inggison/_11009MeiriaFriendlySuggestion.java',
+	'inggison/_11010AngelToTheWounded.java', 'inggison/_11012PracticalNursing.java', 'inggison/_11026SolidEvidence.java',
+	'inggison/_11031CanIEatIt.java', 'inggison/_11032EverythingsBetterWithTentacles.java', 'inggison/_11033YouMakeMeSick.java',
+	'inggison/_11036UncommonRecipe.java', 'inggison/_11040SquampOnTheCookingPlate.java', 'inggison/_11046BoxPickedUpInTheForest.java',
+	'inggison/_11053TheseShoesAreMadeForStalking.java', 'inggison/_11056EliminationOrder.java', 'inggison/_11057StanisSecretOrder.java',
+	'inggison/_11058TemenosSecretOrder.java', 'inggison/_11060TheOrbsOrders.java', 'inggison/_11061TwilightOfRagnarok.java',
+	'inggison/_11062PadmarashkaWrath.java', 'inggison/_11063QuellMastarius.java', 'inggison/_11068AMysteriousWind.java',
+	'inggison/_11069MookieTravelTips.java', 'inggison/_11070CraftyMessenger.java', 'inggison/_11072DelusCulinaryVictim.java',
+	'inggison/_11076ProofOfTalent.java', 'inggison/_11077AWeaponOfWorth.java', 'inggison/_11103FiniteWalk.java',
+	'inggison/_11105WifesNagging.java', 'inggison/_11106RewritingHistory.java', 'inggison/_11107ComfortisaBox.java',
+	'inggison/_11109TheNegotiators.java', 'inggison/_11110KillingTime.java', 'inggison/_11116MunchingMookiePickles.java',
+	'inggison/_11117MedicationforSetzkiki.java', 'inggison/_11118MakingSetzkikiLaugh.java', 'inggison/_11123SuspiciousBook.java',
+	'inggison/_11139TheBadNews.java', 'inggison/_11143BabyShulackJourney.java', 'inggison/_11147CuteBeadyEyes.java',
+	'inggison/_11149TheLadyLayout.java', 'inggison/_11212BalaurRecords.java', 'inggison/_11227EasyAs.java',
+	'inggison/_11228HeNeverReturned.java', 'inggison/_11233SuleionTreasure.java', 'inggison/_11289VeillesGift.java',
+	'inggison/_11294SpawningInvestigation.java', 'inggison/_11304TheRemainingFaithful.java', 'inggison/_11455WhentheTimeisRipe.java',
+	'inggison/_11458AdiassReport.java', 'inggison/_11460TheShulackofTaloc.java',
+)
+SLICE = SLICE_TIER_A + SLICE_ROUTE + SLICE_Q03 + SLICE_Q10 + SLICE_Q08 + SLICE_Q01 + SLICE_Q02
 
 ENUM_FILES = {'QuestStatus': 'questEngine/model/QuestStatus.java', 'Race': 'model/Race.java', 'PlayerClass': 'model/PlayerClass.java',
               'Gender': 'model/Gender.java', 'HandlerResult': 'questEngine/handlers/HandlerResult.java', 'DialogPage': 'model/DialogPage.java',
