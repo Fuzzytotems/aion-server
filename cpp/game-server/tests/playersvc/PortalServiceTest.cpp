@@ -16,7 +16,7 @@
 // player without a team (checkPlayerSize) are covered; the INSTANCE_ENTER_ALL access level and the MembershipConfig permissions (an
 // account's access level and membership, which the fixture's accounts do not have: every check runs).
 
-#include "../instance/AscensionTestSupport.h"
+#include "TravelTestSupport.h"
 
 #include <atomic>
 #include <chrono>
@@ -172,12 +172,8 @@ protected:
 		dataholders::DataManager::NPC_DATA.publish(xml::bindString<dataholders::NpcData>(contexts.emplace_back(), npcRows));
 		// the DAILY entrance cooltime is computed in server time (InstanceCooltimeData -> ServerTime, gameserver.timezone)
 		savedZone = configs::main::GSConfig::TIME_ZONE_ID.exchange(std::chrono::locate_zone("Europe/Berlin"));
-		// the shipped defaults (AdminConfig.java:49-50, MembershipConfig.java:13-29, InstanceConfig.java:11-12): an ordinary account (access
-		// level 0, membership 0) is checked; the test binary loads no configuration, whose zero values would let every account skip the checks
-		savedEnterAll = configs::administration::AdminConfig::INSTANCE_ENTER_ALL.exchange(2);
-		for (std::atomic<int8_t>* membership : membershipRequirements())
-			savedMemberships.push_back(membership->exchange(10));
-		savedCooldownRate = configs::main::InstanceConfig::INSTANCE_COOLDOWN_RATE.exchange(1);
+		// the shipped instance-entry defaults (TravelTestSupport.h): an ordinary account (access level 0, membership 0) is checked
+		shippedInstanceConfig.emplace();
 		publishCooltimes("");
 		// player_experience_table.xml:3-23, levels 0-20 (the base fixture's table stops at 15; Haramel needs 16)
 		dataholders::DataManager::PLAYER_EXPERIENCE_TABLE.resetForTests();
@@ -204,11 +200,7 @@ protected:
 			dataholders::DataManager::ITEM_DATA.resetForTests();
 			dataholders::DataManager::ITEM_CLEAN_UP.resetForTests();
 			configs::main::GSConfig::TIME_ZONE_ID.store(savedZone);
-			configs::main::InstanceConfig::INSTANCE_COOLDOWN_RATE.store(savedCooldownRate);
-			for (size_t i = 0; i < savedMemberships.size(); i++)
-				membershipRequirements()[i]->store(savedMemberships[i]);
-			savedMemberships.clear();
-			configs::administration::AdminConfig::INSTANCE_ENTER_ALL.store(savedEnterAll);
+			shippedInstanceConfig.reset();
 		}
 		inst::AscensionWorldTest::TearDown();
 	}
@@ -340,16 +332,8 @@ protected:
 	std::vector<runtime::Ref<Npc>> npcs;
 	std::vector<runtime::Ref<model::templates::spawns::SpawnGroup>> spawnGroups;
 	std::vector<runtime::Ref<model::gameobjects::Item>> items;
-	static std::vector<std::atomic<int8_t>*> membershipRequirements() {
-		using configs::main::MembershipConfig;
-		return {&MembershipConfig::INSTANCES_TITLE_REQ, &MembershipConfig::INSTANCES_RACE_REQ, &MembershipConfig::INSTANCES_LEVEL_REQ,
-			&MembershipConfig::INSTANCES_GROUP_REQ, &MembershipConfig::INSTANCES_QUEST_REQ, &MembershipConfig::INSTANCES_COOLDOWN};
-	}
-
 	const std::chrono::time_zone* savedZone = nullptr;
-	int8_t savedEnterAll = 0;
-	std::vector<int8_t> savedMemberships;
-	int32_t savedCooldownRate = 0;
+	std::optional<ShippedInstanceConfig> shippedInstanceConfig;
 	std::deque<xml::LoadContext> contexts; // one per bound document (the fixture's context holds its npc ids already)
 };
 

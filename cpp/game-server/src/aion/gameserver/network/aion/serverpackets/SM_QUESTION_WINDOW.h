@@ -84,7 +84,11 @@ private:
 	int32_t rangeOrCooldownSeconds{};
 	std::vector<std::string> params{}; // fieldmap.toml: Java Object[], formatted into Java strings at construction (hub-headers.md §7.4)
 
-	/** Java String.valueOf of one `Object...` parameter (strings as they are, numbers through toJavaString) */
+public:
+	/**
+	 * Java String.valueOf of one `Object...` parameter (strings as they are, numbers through toJavaString). Public since header request
+	 * m5f-l2-1 (2026-10-04): AIActions::addRequest's variadic form formats its parameters through it (AIActions.h).
+	 */
 	template <class Param>
 	static std::string toParam(Param&& param) {
 		if constexpr (std::is_convertible_v<Param, std::string_view>)
@@ -93,7 +97,6 @@ private:
 			return toJavaString(std::forward<Param>(param));
 	}
 
-public:
 	/** Java String.valueOf(int) */
 	static std::string toJavaString(int32_t value);
 	/** Java String.valueOf(long) */

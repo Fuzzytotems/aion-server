@@ -19,6 +19,7 @@
 
 #include "../instance/AscensionTestSupport.h"
 
+#include <atomic>
 #include <cstdint>
 #include <memory>
 #include <optional>
@@ -27,7 +28,10 @@
 #include <utility>
 #include <vector>
 
+#include "aion/gameserver/configs/administration/AdminConfig.h"
+#include "aion/gameserver/configs/main/InstanceConfig.h"
 #include "aion/gameserver/configs/main/LoggingConfig.h"
+#include "aion/gameserver/configs/main/MembershipConfig.h"
 #include "aion/gameserver/configs/main/PricesConfig.h"
 #include "aion/gameserver/configs/main/SecurityConfig.h"
 #include "aion/gameserver/controllers/NpcController.h"
@@ -61,6 +65,45 @@
 namespace aion::gameserver::services::teleport::test {
 
 namespace cptest = network::aion::clientpackets::testing;
+
+/**
+ * The shipped defaults of the instance-entry configuration, for the scope of a test (owner's decision 2026-10-04, lane 2's question 4).
+ * A test binary loads no configuration, so these keys stay at zero, and zero lets every account skip the checks they gate: access level 0
+ * would have INSTANCE_ENTER_ALL, membership 0 every MembershipConfig.INSTANCES_* privilege, and a cooldown rate of 0 no cooldown at all. The
+ * values are the Java field initializers: AdminConfig.java:49-50 (INSTANCE_ENTER_ALL 2), MembershipConfig.java:13-29 (the six INSTANCES_*
+ * 10) and InstanceConfig.java:11-12 (INSTANCE_COOLDOWN_RATE 1). The destructor restores what the scope found.
+ */
+class ShippedInstanceConfig {
+public:
+	ShippedInstanceConfig() {
+		savedEnterAll = configs::administration::AdminConfig::INSTANCE_ENTER_ALL.exchange(2);
+		for (std::atomic<int8_t>* membership : membershipRequirements())
+			savedMemberships.push_back(membership->exchange(10));
+		savedCooldownRate = configs::main::InstanceConfig::INSTANCE_COOLDOWN_RATE.exchange(1);
+	}
+
+	~ShippedInstanceConfig() {
+		configs::main::InstanceConfig::INSTANCE_COOLDOWN_RATE.store(savedCooldownRate);
+		const std::vector<std::atomic<int8_t>*> memberships = membershipRequirements();
+		for (size_t i = 0; i < savedMemberships.size(); i++)
+			memberships[i]->store(savedMemberships[i]);
+		configs::administration::AdminConfig::INSTANCE_ENTER_ALL.store(savedEnterAll);
+	}
+
+	ShippedInstanceConfig(const ShippedInstanceConfig&) = delete;
+	ShippedInstanceConfig& operator=(const ShippedInstanceConfig&) = delete;
+
+	static std::vector<std::atomic<int8_t>*> membershipRequirements() {
+		using configs::main::MembershipConfig;
+		return {&MembershipConfig::INSTANCES_TITLE_REQ, &MembershipConfig::INSTANCES_RACE_REQ, &MembershipConfig::INSTANCES_LEVEL_REQ,
+			&MembershipConfig::INSTANCES_GROUP_REQ, &MembershipConfig::INSTANCES_QUEST_REQ, &MembershipConfig::INSTANCES_COOLDOWN};
+	}
+
+private:
+	int8_t savedEnterAll = 0;
+	std::vector<int8_t> savedMemberships;
+	decltype(configs::main::InstanceConfig::INSTANCE_COOLDOWN_RATE.load()) savedCooldownRate{};
+};
 using ::aion::gameserver::instance::test::ALTGARD;
 using ::aion::gameserver::instance::test::ISHALGEN;
 using ::aion::gameserver::instance::test::KARAMATIS_B;

@@ -400,10 +400,10 @@ aion_gs_chunk(P5-12a TARGET aion_gs_siege PHASE 5
 		"src/com/aionemu/gameserver/model/siege/**")
 # The early travel slice of M5f (m5f-plan.md §16, item T-05, I-01's P5-12a lease): P5-08 leases services/SiegeService.cpp from P5-12a for the
 # two bodies on every npc teleport and siege-world arrival, getSiegeIdByLocId and onEnterSiegeWorld (D8). Released when the lane merges.
-# M5f stage 1 (m5f-plan.md I-01, T-07): the one-line P5-02a lease of skillengine/model/Skill.cpp, the caller of RecallService::validateCast
-# whose parameter became a Ptr (header request m5b2-p2-9). Released when the lane merges.
+# M5f stage 1 (m5f-plan.md I-01, T-07) leased skillengine/model/Skill.cpp from P5-02a for the one-line caller of RecallService::validateCast
+# (header request m5b2-p2-9); released at the lane's merge (owner, 2026-10-04).
 aion_gs_chunk(P5-08 LEASE PHASE 5
-	GLOBS "aion/gameserver/services/SiegeService.cpp" "aion/gameserver/skillengine/model/Skill.cpp")
+	GLOBS "aion/gameserver/services/SiegeService.cpp")
 
 # P5-12b: base, rift, vortex, world raid, panesterra, conqueror/protector, events
 aion_gs_chunk(P5-12b TARGET aion_gs_worldevents PHASE 5
