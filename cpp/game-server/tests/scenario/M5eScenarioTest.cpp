@@ -2339,9 +2339,15 @@ void runM5eGate(const GateVariant& variant) {
 			});
 		};
 		bool hackMeasured = false, furyMeasured = false;
+		// a replayed round waits out 758's own cooldown too (skill_templates.xml 758: cooldown 400, i.e. 40 s; 769's is 10 s), or the
+		// second 758 is refused with STR_SKILL_NOT_READY (measured on a run whose first 758 was dodged)
+		std::optional<std::chrono::steady_clock::time_point> hackCastAt;
+		constexpr auto HACK_COOLDOWN = 41s;
 		for (int32_t attempt = 0; attempt < 4 && !hackMeasured; attempt++) {
 			if (attempt > 0) {
 				collectFor(*a.game, 10500ms);
+				while (hackCastAt && std::chrono::steady_clock::now() < *hackCastAt + HACK_COOLDOWN)
+					collectFor(*a.game, 500ms);
 				target = engage(a, MELEE_DISTANCE);
 			} else if (const auto npc = a.npcs.get(target); !npc || npc->dead) {
 				target = engage(a, MELEE_DISTANCE);
@@ -2361,6 +2367,7 @@ void runM5eGate(const GateVariant& variant) {
 				const auto npc = a.npcs.get(target);
 				return npc && !npc->dead ? target : engage(a, MELEE_DISTANCE);
 			}();
+			hackCastAt = std::chrono::steady_clock::now();
 			auto [hackOutcome, hack] = castRecorded(ROILING_HACK, hackTarget);
 			ASSERT_TRUE(hack) << "X9: 758 after 769 was refused (ChainCondition, ChainCondition.java:39-48): " << a.events(from).describe();
 			if (!applied(*hack)) {
