@@ -219,13 +219,14 @@ TEST_F(ReviveTest, BindReviveInEventModeRevivesToFullAndTeleportsToTheEvent) {
 	actor.player->getLifeStats()->setCurrentHp(1);
 	runtime::resetUnportedHitsForTests();
 
-	// Java bindRevive: EVENT_MODE takes revive(player, 100, 100, false, skillId) and then TeleportService.teleportToEvent(player), which is
-	// still AION_UNPORTED (P5-08, no event location at M5b-1). The throw is what proves the branch, and every statement before it ran.
+	// Java bindRevive: EVENT_MODE takes revive(player, 100, 100, false, skillId) and then TeleportService.teleportToEvent(player) (ported in
+	// M5f): without an event position it moves him to his bind location, and that teleport needs the World this fixture does not build - its
+	// NullPointerException (WorldMapsData) is what proves the branch, and every statement before it ran
 	try {
 		PlayerReviveService::bindRevive(*actor.player, 0);
-		FAIL() << "teleportToEvent is unported";
-	} catch (const runtime::UnportedException& unported) {
-		EXPECT_NE(std::string(unported.what()).find("teleportToEvent"), std::string::npos) << unported.what();
+		FAIL() << "the move to the bind location needs the World";
+	} catch (const runtime::NullPointerException& missing) {
+		EXPECT_NE(std::string(missing.what()).find("WorldMapsData"), std::string::npos) << missing.what();
 	}
 	EXPECT_EQ(actor.player->getLifeStats()->getCurrentHp(), maxHp()) << "EVENT_MODE revives to 100 %, not to 25 %";
 	EXPECT_EQ(actor.player->getLifeStats()->getCurrentMp(), maxMp());
@@ -236,7 +237,7 @@ TEST_F(ReviveTest, BindReviveWithASkillIdSendsTheRebirthMessage) {
 	actor.player->getLifeStats()->setCurrentHp(1);
 	(*client)->clearSent();
 
-	EXPECT_THROW(PlayerReviveService::bindRevive(*actor.player, 7), runtime::UnportedException);
+	EXPECT_THROW(PlayerReviveService::bindRevive(*actor.player, 7), runtime::NullPointerException) << "teleportToEvent's move (see above)";
 
 	// Java: `if (skillId > 0) sendPacket(STR_REBIRTH_MASSAGE_ME())`, after revive and before the teleport branch
 	const std::vector<uint8_t> rebirth = serialized(SM_SYSTEM_MESSAGE::STR_REBIRTH_MASSAGE_ME(), client->con());
@@ -249,7 +250,7 @@ TEST_F(ReviveTest, BindReviveUpdatesTheStatsVisuallyBeforeItTeleports) {
 	actor.player->getLifeStats()->setCurrentHp(1);
 	(*client)->clearSent();
 
-	EXPECT_THROW(PlayerReviveService::bindRevive(*actor.player, 0), runtime::UnportedException);
+	EXPECT_THROW(PlayerReviveService::bindRevive(*actor.player, 0), runtime::NullPointerException) << "teleportToEvent's move (see above)";
 
 	// Java: player.getGameStats().updateStatsAndSpeedVisually() (PlayerReviveService.java:112), between the revive and the teleport branch.
 	// PlayerGameStats::updateStatsAndSpeedVisually -> onStatsChange(null) -> updateStatsVisually -> updateStatInfo ->
@@ -277,7 +278,7 @@ TEST_F(ReviveTest, BindReviveWithoutASkillIdSendsNoRebirthMessage) {
 	actor.player->getLifeStats()->setCurrentHp(1);
 	(*client)->clearSent();
 
-	EXPECT_THROW(PlayerReviveService::bindRevive(*actor.player, 0), runtime::UnportedException);
+	EXPECT_THROW(PlayerReviveService::bindRevive(*actor.player, 0), runtime::NullPointerException) << "teleportToEvent's move (see above)";
 
 	const std::vector<uint8_t> rebirth = serialized(SM_SYSTEM_MESSAGE::STR_REBIRTH_MASSAGE_ME(), client->con());
 	const std::vector<std::vector<uint8_t>> sent = (*client)->sentBytes();
