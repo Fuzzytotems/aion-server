@@ -21,6 +21,17 @@
 namespace aion::gameserver::model::team {
 
 /**
+ * C++ (m5g-plan.md D4, header request m5g-1): the constructor tags that name a team's kind, so that its teamLock reports a lock class of its
+ * own - an alliance locks its alliance groups under its own lock, which one shared class would report as SAME_CLASS_NESTING (m5g-plan.md §16.2).
+ */
+namespace teamlock {
+struct OfPlayerGroup {};
+struct OfPlayerAlliance {};
+struct OfPlayerAllianceGroup {};
+struct OfLeague {};
+} // namespace teamlock
+
+/**
  * C++: Java `GeneralTeam<M extends AionObject, TM extends TeamMember<M>>` is one non-template class (docs/design/hub-headers.md §8.1): M is
  * spelled AionObject, TM TeamMember. The ReentrantLock teamLock is a Monitor. Written with the S0b objects group because TemporaryPlayerTeam
  * (a hub) derives it.
@@ -40,7 +51,11 @@ private:
 	runtime::Field<runtime::Ref<TeamMember>> leader{};
 
 protected:
-	GeneralTeam(int32_t objId, bool autoReleaseObjectId);
+	/** Java GeneralTeam(int objId, boolean autoReleaseObjectId); the tag picks teamLock's lock class (m5g-1, the namespace comment) */
+	GeneralTeam(int32_t objId, bool autoReleaseObjectId, teamlock::OfPlayerGroup);
+	GeneralTeam(int32_t objId, bool autoReleaseObjectId, teamlock::OfPlayerAlliance);
+	GeneralTeam(int32_t objId, bool autoReleaseObjectId, teamlock::OfPlayerAllianceGroup);
+	GeneralTeam(int32_t objId, bool autoReleaseObjectId, teamlock::OfLeague);
 	~GeneralTeam() override;
 
 public:

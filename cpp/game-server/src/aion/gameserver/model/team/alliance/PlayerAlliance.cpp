@@ -11,7 +11,7 @@
 namespace aion::gameserver::model::team::alliance {
 
 PlayerAlliance::PlayerAlliance(PlayerAllianceMember& value, TeamType typeValue)
-	: TemporaryPlayerTeam(int32_t{}, bool{}), type(typeValue) {
+	: TemporaryPlayerTeam(int32_t{}, bool{}, teamlock::OfPlayerAlliance{}), type(typeValue) {
 	// Java: super(IDFactory.getInstance().nextId(), true); setLeader(leader); for (int groupId = 1000; groupId <= 1003; groupId++) {
 	// groups.put(groupId, new PlayerAllianceGroup(this, groupId)); }; super(...) arguments
 	AION_UNPORTED();

@@ -8,7 +8,7 @@
 namespace aion::gameserver::model::team::group {
 
 PlayerGroup::PlayerGroup(PlayerGroupMember& leader, TeamType typeValue, int32_t id)
-	: TemporaryPlayerTeam(id == 0 ? utils::idfactory::IDFactory::getInstance().nextId() : id, id == 0),
+	: TemporaryPlayerTeam(id == 0 ? utils::idfactory::IDFactory::getInstance().nextId() : id, id == 0, teamlock::OfPlayerGroup{}),
 	  playerGroupStats(std::make_unique<PlayerGroupStats>(*this)), type(typeValue) {
 	setLeader(leader);
 }

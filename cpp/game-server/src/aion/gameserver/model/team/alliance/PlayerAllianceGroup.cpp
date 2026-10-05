@@ -5,7 +5,7 @@
 
 namespace aion::gameserver::model::team::alliance {
 
-PlayerAllianceGroup::PlayerAllianceGroup(PlayerAlliance& allianceValue, int32_t objId) : TemporaryPlayerTeam(objId, false), alliance(allianceValue) {
+PlayerAllianceGroup::PlayerAllianceGroup(PlayerAlliance& allianceValue, int32_t objId) : TemporaryPlayerTeam(objId, false, teamlock::OfPlayerAllianceGroup{}), alliance(allianceValue) {
 }
 
 PlayerAllianceGroup::~PlayerAllianceGroup() = default;

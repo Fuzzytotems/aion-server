@@ -33,7 +33,10 @@ private:
 protected:
 	runtime::ConcurrentHashMap<int32_t, int32_t> targetIdsByBrandId{AION_LOCK_CLASS(TemporaryPlayerTeam::targetIdsByBrandId#stripe)};
 
-	TemporaryPlayerTeam(int32_t objId, bool autoReleaseObjectId);
+	/** Java TemporaryPlayerTeam(int objId, boolean autoReleaseObjectId); the tag picks the lock class (GeneralTeam.h, m5g-1) */
+	TemporaryPlayerTeam(int32_t objId, bool autoReleaseObjectId, teamlock::OfPlayerGroup kind);
+	TemporaryPlayerTeam(int32_t objId, bool autoReleaseObjectId, teamlock::OfPlayerAlliance kind);
+	TemporaryPlayerTeam(int32_t objId, bool autoReleaseObjectId, teamlock::OfPlayerAllianceGroup kind);
 	~TemporaryPlayerTeam() override;
 
 public:
