@@ -275,3 +275,66 @@ cd tools/gen && python -m unittest tests.test_questgen_g1                       
 
 The golden sample of §3.5 was a scratch build (its driver script is not committed: it patches a copy of the harness by text and depends on
 the build directory's link line); its method is the paragraph "The build" above, and the harness extension of §5 makes it a committed test.
+
+
+---
+
+## 7. Phase 6 step 1: the harness extension (lane C, 2026-10-05)
+
+> Branch `lane-c/p6-harness`, based on C++ `bef516884` (the merge of PR #77). Scope: `tools/oracle`, `tools/gen`, the golden harness
+> (`game-server/tests/quest_handlers_golden`) and this document. No file under `game-server/src` or `game-server/handlers` changes, no hub
+> header, and no generated handler joins the tree (that is step 2).
+
+### 7.1 The state before (measured on `bef516884`, before any change)
+
+The measurement script runs `tools/oracle/questtrace` over the 972 files questgen transliterates (`--dry-run`, driver default rules) and
+compares the hooks they override and the registrations they make with what the harness drives (`GoldenQuestTraceTest.cpp`: `callHook` and
+`RegistrationTraceMatchesJavaRegister`).
+
+**Hooks.** The corpus overrides 27 hooks; the harness drove 13 (`onDialogEvent`, `onKillEvent`, `onItemUseEvent`, `onLevelChangedEvent`,
+`onQuestCompletedEvent`, `onEnterWorldEvent`, `onGetItemEvent`, `onLogOutEvent`, `onEnterZoneEvent`, `onMovieEndEvent`, `onDieEvent`,
+`onQuestTimerEndEvent`, `onAtDistanceEvent`) and threw "hook X is not driven by the harness" for any other. The undriven ones:
+
+| Hook | Files | Cases | Hooks the oracle refuses | Note |
+|---|---|---|---|---|
+| `onKillRankedEvent` | 26 | 26 | 0 | the 26 `reshanta` kill-ranked quests; never reached: their `register()` is refused (below), so the document's `register` is an object and `runDoc` stopped on it (§3.5's "26 kill-ranked quests") |
+| `onUseSkillEvent` | 2 | 36 | 0 | talocs_hollow 11468, 21468 |
+| `onDredgionRewardEvent` | 4 | 16 | 0 | 3718, 3725, 4718, 4725 |
+| `onFailCraftEvent` | 2 | 14 | 0 | crafting 19038, 29038 |
+| `onEnterWindStreamEvent` | 1 | 7 | 0 | inggison 11076 |
+| `onInvisibleTimerEndEvent` | 4 | 6 | 2 | 20504, 25051 traced; 10506, 25050 refused (a symbolic `setQuestVar`) |
+| `onKillInWorldEvent` | 6 | 6 | 4 | 18212, 28212 traced; 13745, 23745, 30051, 30151 refused (`instanceof Player`, a guard over two levels) |
+| `onLeaveZoneEvent` | 1 | 5 | 0 | reshanta 24046 |
+| `onNpcReachTargetEvent`, `onNpcLostTargetEvent` | 20 each | 0 | 20 each | `defaultFollowEndEvent` |
+| `onBonusApplyEvent` | 11 | 0 | 11 | the `List<QuestItems>` parameter |
+| `onCanAct`, `onAttackEvent`, `onPassFlyingRingEvent` | 5, 4, 2 | 0 | all | |
+
+So §3.5's "7 hooks" are the first seven rows below `onKillRankedEvent`; the eighth was hidden behind the registration refusal.
+
+**Registration kinds.** The trace modelled 19 kinds (the npc events `addOnQuestStart`, `addOnTalkEvent`, `addOnKillEvent`,
+`addOnAttackEvent`, `addOnAtDistanceEvent`, `addOnAddAggroListEvent` and `registerQuestItem`, `registerOnLevelChanged`,
+`registerOnQuestCompleted`, `registerOnEnterWorld`, `registerOnGetItem`, `registerOnLogOut`, `registerOnEnterZone`,
+`registerAddOnReachTargetEvent`, `registerAddOnLostTargetEvent`, `registerOnDie`, `registerOnQuestTimerEnd`, `registerCanAct`,
+`addHandlerSideQuestDrop`) and reported any other as "the registration trace does not model". Not modelled: the nine of §3.5 -
+`registerOnBonusApply` (11 files), `registerOnKillInWorld` (6), `registerOnDredgionReward` (4), `registerOnInvisibleTimerEnd` (4),
+`registerOnPassFlyingRings` (2), `registerOnFailCraft` (2), `registerQuestSkill` (2), `registerOnEnterWindStream` (1),
+`registerOnLeaveZone` (1) - and `registerOnKillRanked` (26), which the oracle did not trace at all (`AbyssRankEnum.X` was not one of its
+enum tables: the whole `register()` refused). The two `CustomConfig.ENABLE_SIMPLE_2NDCLASS` registers (1007, 2009) are hand ports in the
+tree and out of scope.
+
+**Closures in the oracle.** The extractor parsed with jast's default parser, which raises on a lambda, an anonymous class or a switch
+expression; `trace_file` turned that into an `OracleError` for the **whole file**: no document, no `register`, no case, even for hooks
+without a closure. Over the 972 files: **33 raised** (24 anonymous `Runnable`s, 6 lambdas, 3 switch expressions), among them the 29 files of
+questgen's rule `scheduled-closure` (§2.2) and `_30211`. The oracle had no notion of `ThreadPoolManager.schedule` or of work that runs after
+the hook, and the harness never advanced its clock ("the fixture's ManualClock, which nothing advances"). Documents with at least one case:
+792 of 972 (18,795 cases), 623 of them for files outside the tree.
+
+**The sample run, reproduced.** `tools/gen/questgen/goldensample.py` (§7.2) run with the harness of `bef516884` (only the two sample hooks
+added and the registration trace made to go on after one handler's exception, as the G1 lane's scratch copy did) and the documents of the
+unchanged oracle gives §3.5's numbers again: 620 sample files, **17,908 variants passed, 114 failed in 14 quests, every one in the 7 hooks**
+(`onUseSkillEvent` 54 variants, `onDredgionRewardEvent` 24, `onFailCraftEvent` 14, `onEnterWindStreamEvent` 7, `onInvisibleTimerEndEvent`
+6, `onLeaveZoneEvent` 5, `onKillInWorldEvent` 4); 247 variants not reproducible and 232 cases vacuous (unlisted); 1 run reaching
+`AION_UNPORTED` (1987); **34 quests stopped** (26 kill-ranked: `[json.exception.type_error.306]` on the refused `register`; 8 with
+`minlevel_permitted="99"` in quest_data.xml: 16940, 18910, 26940, 28910, 38006, 38007, 48006, 48007, "The given level is higher than possible
+max"); the registration trace: 54 "does not model" findings over the nine kinds plus the refused and stopped quests. The failures match
+§3.5 in count, quests and hooks; the passed count is higher than §3.5's 14,304 (its scratch run counted differently; not investigated).
