@@ -133,12 +133,18 @@ protected:
 		packet.readAndRun(PacketWriter().C(reviveId).data, client->get());
 	}
 
-	/** Runs one CM_REVIVE and returns the name of the service body it reached, from the UnportedException it threw */
+	/**
+	 * Runs one CM_REVIVE and returns the name of the service body it reached, from the UnportedException it threw - or, for the EVENT_MODE
+	 * arms, the NullPointerException of the holder this fixture does not publish: TeleportService::teleportToEvent (ported in M5f) moves a
+	 * player without an event position to his bind location, whose fallback reads PlayerInitialData
+	 */
 	std::string unportedArm(int32_t reviveId) {
 		try {
 			revive(reviveId);
 		} catch (const runtime::UnportedException& unported) {
 			return unported.what();
+		} catch (const runtime::NullPointerException& missing) {
+			return missing.what();
 		}
 		return "<did not throw>";
 	}
@@ -162,11 +168,12 @@ TEST_F(ReviveRunTest, BindAndObeliskReviveBothReachBindRevive) {
 	die();
 	actor.player->setCustomState(CustomPlayerState::EVENT_MODE); // the only bindRevive arm a unit test can follow (see PlayerReviveServiceTest)
 
-	// BIND_REVIVE and OBELISK_REVIVE share the switch arm (CM_REVIVE.java:47-50); both end in TeleportService::teleportToEvent here
-	EXPECT_NE(unportedArm(0).find("teleportToEvent"), std::string::npos) << unportedArm(0);
+	// BIND_REVIVE and OBELISK_REVIVE share the switch arm (CM_REVIVE.java:47-50); both end in TeleportService::teleportToEvent here, whose
+	// bind fallback (no event position) reads the PlayerInitialData this fixture does not publish
+	EXPECT_NE(unportedArm(0).find("PlayerInitialData"), std::string::npos) << unportedArm(0);
 	die(); // bindRevive revived him, so the guard needs a fresh corpse
 	actor.player->setCustomState(CustomPlayerState::EVENT_MODE);
-	EXPECT_NE(unportedArm(8).find("teleportToEvent"), std::string::npos) << unportedArm(8);
+	EXPECT_NE(unportedArm(8).find("PlayerInitialData"), std::string::npos) << unportedArm(8);
 }
 
 TEST_F(ReviveRunTest, EveryOtherArmReachesItsOwnService) {
@@ -183,11 +190,11 @@ TEST_F(ReviveRunTest, EveryOtherArmReachesItsOwnService) {
 
 TEST_F(ReviveRunTest, InstanceReviveTakesItsEventModeArm) {
 	// INSTANCE_REVIVE (CM_REVIVE.java:59-61) reaches instanceRevive, ported by the ascension lane (m5f-plan.md §15, T-06); its EVENT_MODE arm
-	// (PlayerReviveService.java:162-168) is the one this fixture can follow to an unported body, TeleportService::teleportToEvent. bindRevive's
+	// (PlayerReviveService.java:162-168) is the one this fixture can follow, to TeleportService::teleportToEvent's bind fallback. bindRevive's
 	// EVENT_MODE arm ends there too, so the rebirth message tells them apart: instanceRevive sends it always, bindRevive only for a skill > 0.
 	die();
 	actor.player->setCustomState(CustomPlayerState::EVENT_MODE);
-	EXPECT_NE(unportedArm(6).find("teleportToEvent"), std::string::npos);
+	EXPECT_NE(unportedArm(6).find("PlayerInitialData"), std::string::npos) << "teleportToEvent -> moveToBindLocation";
 	std::vector<std::vector<uint8_t>> sent = (*client)->sentBytes();
 	EXPECT_NE(std::find(sent.begin(), sent.end(), serialized(serverpackets::SM_SYSTEM_MESSAGE::STR_REBIRTH_MASSAGE_ME(), client->con())), sent.end());
 	EXPECT_FALSE(actor.player->isDead()) << "revived at 100 % before the teleport";

@@ -855,9 +855,9 @@ bool Skill::isInvalidRecall() {
 	if (!skillTemplate->hasRecallInstant())
 		return false;
 	Ptr<Player> caster = runtime::as<Player>(effector);
-	// Java passes the nullable first target to validateCast, which answers "not valid" for a non-player; the C++ signature takes a reference
-	// (services/RecallService.h), so a null first target dereferences here
-	return caster && !services::RecallService::validateCast(*caster, *firstTarget.get());
+	// Java passes the nullable first target to validateCast, which answers "not valid" for a non-player (header request m5b2-p2-9: the
+	// C++ parameter is a Ptr since M5f, so a null first target is passed on as in Java)
+	return caster && !services::RecallService::validateCast(*caster, firstTarget.get());
 }
 
 bool Skill::isHostile() {

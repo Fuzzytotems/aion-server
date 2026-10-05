@@ -400,6 +400,8 @@ aion_gs_chunk(P5-12a TARGET aion_gs_siege PHASE 5
 		"src/com/aionemu/gameserver/model/siege/**")
 # The early travel slice of M5f (m5f-plan.md §16, item T-05, I-01's P5-12a lease): P5-08 leases services/SiegeService.cpp from P5-12a for the
 # two bodies on every npc teleport and siege-world arrival, getSiegeIdByLocId and onEnterSiegeWorld (D8). Released when the lane merges.
+# M5f stage 1 (m5f-plan.md I-01, T-07) leased skillengine/model/Skill.cpp from P5-02a for the one-line caller of RecallService::validateCast
+# (header request m5b2-p2-9); released at the lane's merge (owner, 2026-10-04).
 aion_gs_chunk(P5-08 LEASE PHASE 5
 	GLOBS "aion/gameserver/services/SiegeService.cpp")
 
@@ -551,10 +553,8 @@ aion_gs_chunk(Q09 TARGET aion_gs_handlers_quest_q09 PHASE 6 ROOT handlers
 	JAVA "data/handlers/quest/{morheim,ishalgen,pernon}/**"
 	PCH "aion/gameserver/handlers/quest/QuestPrelude.h"
 	TESTS quest_handlers_zones)
-# The route-hand lane (phase 6, 2026-09-29): Q09 leases services/teleport/TeleportService.cpp from P5-08 for the body of teleportToNpc
-# (TeleportService.java:304-333), which quest 2007's last step calls. Released when the lane merges.
-aion_gs_chunk(Q09 LEASE PHASE 6
-	GLOBS "aion/gameserver/services/teleport/TeleportService.cpp")
+# The route-hand lane's Q09 lease of services/teleport/TeleportService.cpp (teleportToNpc, 2026-09-29) was released when M5f stage 1's
+# lane 2 took the file back for the rest of TeleportService (m5f-plan.md §16.4, T-02): teleportToNpc had landed.
 # Q10's tests (P6-Q slice 2, 2026-09-29): tests/quest_handlers_asmodae, the unit cases of the five hand-ported altgard and pandaemonium quests
 # (2208, 2230, 2252, 24013, 2900) and of the generated path that kills its target (24012; 2223 is held back), on the fixture of
 # tests/quest_handlers (included by relative path, as Q05's golden harness does); the executable is aion_gs_handlers_quest_q10_tests. The
@@ -606,8 +606,10 @@ aion_gs_chunk(A1 TARGET aion_gs_handlers_ai_world PHASE 6 ROOT handlers
 # lanes held the lease in the plan only; this row records it. It stays while P5-05's test executable compiles the two .cpp files by #include
 # (A1's library is not linked into aion_gs_handlers_ai_core_tests, and A1's own tests would miss P5-05's superclasses, docs/deviations/P5-05.md).
 # Manifest request m5d-m01 (docs/porting/header-requests.md, "Wave 5d stage 1") removes that workaround; its lane releases this lease.
+# M5f stage 1 (m5f-plan.md I-01, V-02/V-03): the lease also takes A1's PortalAI.* and PortalDialogAI.* (the two portal AIs of the travel and
+# instance paths), compiled by #include into P5-05's test executable for the same reason (tests/handlers_ai_core/TravelAiHandlersTest.cpp).
 aion_gs_chunk(P5-05 LEASE PHASE 5 ROOT handlers
-	GLOBS "aion/gameserver/handlers/ai/quests/{AscensationNpcAI,QuestItemNpcAI}.*")
+	GLOBS "aion/gameserver/handlers/ai/quests/{AscensationNpcAI,QuestItemNpcAI}.*" "aion/gameserver/handlers/ai/portals/{PortalAI,PortalDialogAI}.*")
 
 # I1-I6: vertical instance slices, each @InstanceID handler with its ai/instance directory (bin-packed to about 6-8k Java lines; handlers without
 # an AI directory go to I1). I1 owns the instance prelude.
