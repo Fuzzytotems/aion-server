@@ -3005,7 +3005,9 @@ LIVE_CHECKS = [
     ('network/aion/AionClientPacketFactory.java', 'AionClientPacketFactory.PacketInfo', 'PacketInfo', 3, None, 'trivial', 'aggregate'),
     ('geoEngine/math/Vector3f.java', 'Vector3f', 'Vector3f', 1, 109, 'trivial', 'implicitCopy'),
     ('dataholders/WorldMapsData.java', 'WorldMapsData', 'iterator', 0, None, 'ported', None),
-    ('model/summons/SummonMode.java', 'SummonMode', 'getId', 0, None, 'standIn', 'standIn'),
+    # ported since M5e M-05 (model/summons/SummonModeInfo.h, the companion of the generated enum); the 2026-09-23 answer was the stand-in
+    # summonModeId of serverpackets/detail/PacketSupport.h
+    ('model/summons/SummonMode.java', 'SummonMode', 'getId', 0, None, 'ported', ''),
     ('model/team/legion/LegionRank.java', 'LegionRank', 'getRankId', 0, None, 'standIn', 'standIn'),
     ('network/aion/clientpackets/AbstractGmCommandPacket.java', 'AbstractGmCommandPacket', 'replaceUnsupportedCommandChars', 1, None,
      'standIn', 'standIn'),
