@@ -209,6 +209,30 @@ class Renames(unittest.TestCase):
         self.assertEqual(checks(java('		return x.getRace();'), cpp('		return std::string(enumName(x->getRace()));')),
                          ['calls-multiset', 'calls-order'])
 
+    def test_the_scheduled_closure_capture_spelling(self):
+        # G1 lane (2026-10-04): questgen's rule scheduled-closure captures a Ptr<T> local as `name = runtime::Ref<T>(name)` (lint L5)
+        jf, cf = self.at_parity(
+            java('\t\tfinal Player player = env.getPlayer();\n\t\tfinal int id = 7;\n'
+                 '\t\tThreadPoolManager.getInstance().schedule(new Runnable() {\n\n\t\t\t@Override\n\t\t\tpublic void run() {\n'
+                 '\t\t\t\tplayer.getInventory().decreaseByItemId(id, 1);\n\t\t\t\tupdateQuestStatus(env);\n\t\t\t}\n\t\t}, 3000);\n\t\treturn true;'),
+            cpp('\t\truntime::Ptr<Player> player = env.getPlayer();\n\t\tint32_t id = 7;\n'
+                '\t\tThreadPoolManager::getInstance().schedule({this, &env}, [this, player = runtime::Ref<Player>(player), id, &env] {\n'
+                '\t\t\tplayer->getInventory().decreaseByItemId(id, 1);\n\t\t\tupdateQuestStatus(env);\n\t\t}, 3000);\n\t\treturn true;'))
+        self.assertEqual(cf.calls, ['onDialogEvent', 'getPlayer', 'getInstance', 'schedule', 'getInventory', 'decreaseByItemId',
+                                    'updateQuestStatus'])
+        self.assertEqual(jf.calls, cf.calls)
+
+    def test_the_scheduled_closure_capture_spelling_is_narrow(self):
+        # a Ref made of another name, and one outside a capture list, stay calls
+        self.assertEqual(checks(java('\t\treturn true;'),
+                                cpp('\t\tf([player = runtime::Ref<Player>(other)] {\n\t\t});\n\t\treturn true;')),
+                         ['calls-multiset', 'calls-order'])
+        self.assertEqual(checks(java('\t\treturn true;'), cpp('\t\tx = runtime::Ref<Player>(x);\n\t\treturn true;')),
+                         ['calls-multiset', 'calls-order'])
+        self.assertEqual(checks(java('\t\tf(player);\n\t\treturn true;'),
+                                cpp('\t\tf(player = runtime::Ref<Player>(player));\n\t\treturn true;')),
+                         ['calls-multiset', 'calls-order'])
+
     def test_annotations_are_not_code(self):
         _, cf = self.at_parity(java('\t\treturn true;', head='\t@SuppressWarnings("unused")\n\t@Override\n\tpublic void register() {\n\t}'),
                                cpp('\t\treturn true;', head='\tvoid register_() override {\n\t}'))

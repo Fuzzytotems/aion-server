@@ -50,6 +50,9 @@ Documented renames (each undoes one emitter idiom of phase6-questgen-prototype.m
   Enum.toString, which is name()) is C++ `std::string(enumName(x))` as an operand of `+` (the companion of aion/gameserver/xml, with or
   without its qualifier), so that `string` and its `enumName` are not calls; a bare `enumName(x)`, a `std::string(y)` of anything else and a
   `std::string(enumName(x))` outside a `+` still are (_2900NoEscapingDestiny).
+- the capture spelling of questgen's scheduled-closure rule (G1 lane, phase6-transliterator.md §2.2): in a lambda capture list,
+  `name = runtime::Ref<T>(name)` (the Ptr<T> local captured as the Ref<T> lint L5 asks for) is the captured `name`, not a call; a
+  `runtime::Ref<T>(x)` anywhere else, or whose argument is not the captured name, still is.
 
     python parity.py pair JAVA CPP [--json]
     python parity.py tree --java-dir DIR --cpp-dir DIR [--only REL ...] [--json OUT] [--require-all]
@@ -174,6 +177,7 @@ IDIOMS = (
     'workItems.getFirst()/getLast() are workItems.get(0)/get(workItems.size() - 1)',
     'push_back is add; Java new ArrayList<>() with no argument is not a call; an anonymous new Runnable() { run() } is a C++ lambda',
     'std::string(enumName(x)) beside a + is Java string concatenation with an enum (Enum.toString): neither is a call',
+    'a lambda init-capture name = runtime::Ref<T>(name) (questgen rule scheduled-closure) is the captured name, not a call',
 )
 
 
@@ -300,9 +304,46 @@ def _cpp_rewrites(toks, static_imports):
         if t.kind == 'ident' and i + 2 < len(toks) and toks[i + 1].text == '::' and (t.text, toks[i + 2].text) in static_imports:
             i += 2
             continue
+        k = _ref_init_capture(toks, i)
+        if k is not None:
+            out.append(t)                       # `[..., name = runtime::Ref<T>(name), ...]` is the capture of `name`
+            i = k
+            continue
         out.append(t)
         i += 1
     return out
+
+
+def _ref_init_capture(toks, i):
+    """toks[i] starts `name = runtime::Ref<T>(name)` followed by ',' or ']' inside a capture list (the token before is '[' or ','): the
+    index after its ')', else None (questgen's scheduled-closure rule)"""
+    n = len(toks)
+    if toks[i].kind != 'ident' or i == 0 or toks[i - 1].text not in ('[', ',') or i + 6 >= n:
+        return None
+    if [toks[i + j].text for j in range(1, 6)] != ['=', 'runtime', '::', 'Ref', '<']:
+        return None
+    k = _skip_type_args(toks, i + 5, allow_numbers=True)
+    if k is None or k + 3 >= n or toks[k].text != '(' or toks[k + 1].text != toks[i].text or toks[k + 2].text != ')' \
+            or toks[k + 3].text not in (',', ']'):
+        return None
+    j = i - 1
+    depth = 0
+    while j >= 0:                               # the enclosing '[' must open a capture list: `[` ... `] {` or `] (`
+        tx = toks[j].text
+        if tx in (')', ']', '}'):
+            depth += 1
+        elif tx in ('(', '{'):
+            if depth == 0:
+                return None
+            depth -= 1
+        elif tx == '[':
+            if depth == 0:
+                break
+            depth -= 1
+        j -= 1
+    if j < 0:
+        return None
+    return k + 3
 
 
 # QuestSpawnAnalyzer.java:101, with Java's ASCII \d
