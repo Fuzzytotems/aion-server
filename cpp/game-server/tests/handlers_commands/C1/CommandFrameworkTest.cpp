@@ -7,8 +7,7 @@
 // per ChatUtil.split part, compared with the server's serialization of that packet (as GMServiceLoginTest does); the texts are the Java
 // literals. The access levels are set per case (CommandsConfig.ACCESS_LEVELS, the commands.properties map) and restored.
 
-#include "../../cm_ak/InWorldPacketRunSupport.h"
-#include "../../cm_ak/ItemPacketTestSupport.h"
+#include "CommandTestSupport.h"
 
 #include <map>
 #include <memory>
@@ -49,9 +48,7 @@ namespace aion::gameserver::network::aion::clientpackets::testing {
 namespace {
 
 using model::gameobjects::player::CustomPlayerState;
-using model::gameobjects::player::Player;
 using model::gameobjects::state::CreatureVisualState;
-using serverpackets::SM_MESSAGE;
 using serverpackets::SM_SYSTEM_MESSAGE;
 
 /** A command whose execute does what the case asks (throws, records) */
@@ -87,86 +84,8 @@ public:
 	std::vector<std::string> executed;
 };
 
-/** SM_PLAYER_INFO's two reads of services these tests have not got (HousingService loads from the database), as TravelTestSupport.h stubs them */
-runtime::Ptr<model::house::House> noHouse(Player&) {
-	return nullptr;
-}
+class CommandFrameworkTest : public CommandTest {};
 
-runtime::Ptr<services::conquerorAndProtectorSystem::CPInfo> noCpInfo(Player&) {
-	return nullptr;
-}
-
-class CommandFrameworkTest : public InWorldPacketTest {
-protected:
-	void SetUp() override {
-		InWorldPacketTest::SetUp();
-		items::publishPoetaWorldDataOnce();
-		previousLevels = configs::administration::CommandsConfig::ACCESS_LEVELS.get();
-		std::map<std::string, int8_t, std::less<>> levels(*previousLevels);
-		// commands.properties' levels of the four T0 aliases are 3 (invis, invul, enemy, see); the scripted ones 3, 2 and 3
-		for (const char* alias : {"invis", "invul", "enemy", "see", "fwtest", "fwconsole"})
-			levels[alias] = 3;
-		levels["fwplayer"] = 2;
-		configs::administration::CommandsConfig::ACCESS_LEVELS.set(levels);
-		previousGmAudit = configs::main::LoggingConfig::LOG_GMAUDIT.load();
-		configs::main::LoggingConfig::LOG_GMAUDIT.store(true);
-		lookups.activeHouseOfPlayer = &noHouse;
-		lookups.cpInfoForCurrentMap = &noCpInfo;
-		serverpackets::detail::setPacketLookupsForTests(&lookups);
-	}
-
-	void TearDown() override {
-		serverpackets::detail::setPacketLookupsForTests(nullptr);
-		for (PlayerFixture& fixture : players)
-			fixture.player->setClientConnection(nullptr);
-		clients.clear();
-		players.clear();
-		configs::administration::CommandsConfig::ACCESS_LEVELS.set(*previousLevels);
-		configs::main::LoggingConfig::LOG_GMAUDIT.store(previousGmAudit);
-		InWorldPacketTest::TearDown();
-	}
-
-	/** A connected character of an account with `accessLevel` (and `membership`) */
-	Player& connected(int32_t objectId, std::string_view name, int8_t accessLevel, int8_t membership = 0) {
-		PlayerFixture& fixture = players.emplace_back(makePlayer(objectId, objectId + 1000, name));
-		fixture.account->setAccessLevel(accessLevel);
-		fixture.account->setMembership(membership);
-		fixture.player->setMotions(std::make_unique<model::gameobjects::player::motion::MotionList>(*fixture.player)); // SM_PLAYER_INFO
-		TestClient& client = *clients.emplace_back(std::make_unique<TestClient>());
-		client.enterWorld(fixture);
-		client->clearSent();
-		return *fixture.player;
-	}
-
-	TestClient& client(size_t index = 0) { return *clients[index]; }
-
-	/** PacketSendUtility.sendMessage(player, text): SM_MESSAGE(0, null, text, GOLDEN_YELLOW) */
-	std::vector<uint8_t> message(std::string_view text, size_t index = 0) {
-		return serialized(SM_MESSAGE(0, "", text, model::ChatType::GOLDEN_YELLOW), client(index).con());
-	}
-
-	/** what sendInfo(player, text) sends: one message per ChatUtil.split part */
-	std::vector<std::vector<uint8_t>> info(std::string_view text, size_t index = 0) {
-		std::vector<std::vector<uint8_t>> packets;
-		for (const std::string& part : utils::ChatUtil::split(text))
-			packets.push_back(message(part, index));
-		return packets;
-	}
-
-	/** the first packet the client was sent (an Enemy arm's message; onChangedPlayerAttributes' packets follow it) */
-	std::vector<uint8_t> firstSent() {
-		const std::vector<std::vector<uint8_t>> sent = client()->sentBytes();
-		return sent.empty() ? std::vector<uint8_t>{} : sent.front();
-	}
-
-	static std::vector<std::string> args(std::initializer_list<std::string_view> values) { return {values.begin(), values.end()}; }
-
-	std::vector<PlayerFixture> players;
-	std::vector<std::unique_ptr<TestClient>> clients;
-	std::shared_ptr<const std::map<std::string, int8_t, std::less<>>> previousLevels;
-	bool previousGmAudit = false;
-	serverpackets::detail::PacketLookupsForTests lookups;
-};
 
 // ---- AdminCommand.validateAccess / process (AdminCommand.java:37-58) -------------------------------------------------------------------------
 

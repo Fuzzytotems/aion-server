@@ -4,6 +4,7 @@
 #include <charconv>
 #include <cmath>
 #include <cstdlib>
+#include <limits>
 #include <string_view>
 #include <system_error>
 
@@ -28,19 +29,20 @@ void splitScientific(std::string_view text, std::string& digits, int32_t& expone
 	std::from_chars(exp.data(), exp.data() + exp.size(), exponent);
 }
 
-} // namespace
 
-std::string JavaFloat::toString(float value) {
+/** Java Float.toString / Double.toString (the same algorithm, see JavaFloat::toString) */
+template <typename T>
+std::string toJavaString(T value) {
 	if (value != value)
 		return "NaN";
-	if (value == std::numeric_limits<float>::infinity())
+	if (value == std::numeric_limits<T>::infinity())
 		return "Infinity";
-	if (value == -std::numeric_limits<float>::infinity())
+	if (value == -std::numeric_limits<T>::infinity())
 		return "-Infinity";
-	if (value == 0.0f)
+	if (value == T(0))
 		return std::signbit(value) ? "-0.0" : "0.0";
 
-	const float magnitude = std::fabs(value);
+	const T magnitude = std::fabs(value);
 	std::array<char, 64> buffer{};
 	// shortest round-trip digits; among several shortest candidates the closest one (std::to_chars guarantees both)
 	auto result = std::to_chars(buffer.data(), buffer.data() + buffer.size(), magnitude, std::chars_format::scientific);
@@ -56,7 +58,7 @@ std::string JavaFloat::toString(float value) {
 		digits.pop_back();
 
 	std::string out;
-	if (value < 0.0f)
+	if (value < T(0))
 		out.push_back('-');
 	if (magnitude >= 1e-3 && magnitude < 1e7) {
 		if (exponent >= 0) {
@@ -84,6 +86,16 @@ std::string JavaFloat::toString(float value) {
 		out.append(std::to_string(exponent));
 	}
 	return out;
+}
+
+} // namespace
+
+std::string JavaFloat::toString(float value) {
+	return toJavaString(value);
+}
+
+std::string JavaFloat::doubleToString(double value) {
+	return toJavaString(value);
 }
 
 } // namespace aion::gameserver::geoEngine::math
