@@ -1,0 +1,75 @@
+{
+ "format": "aion-quest-trace",
+ "version": 1,
+ "questId": 14043,
+ "java": "reshanta/_14043DrawlingBalaur.java",
+ "class": "_14043DrawlingBalaur",
+ "javaSha256": "fbd1613febf54561793373709b230a9bfe006b64812975787d66b4967f284397",
+ "register": [
+  {"call": "registerOnQuestCompleted", "args": [14043]},
+  {"call": "registerOnLevelChanged", "args": [14043]},
+  {"call": "registerQuestItem", "args": [182215351, 14043]},
+  {"npc": 278532, "event": "addOnTalkEvent", "args": [14043]},
+  {"npc": 798026, "event": "addOnTalkEvent", "args": [14043]},
+  {"npc": 798025, "event": "addOnTalkEvent", "args": [14043]},
+  {"npc": 279019, "event": "addOnTalkEvent", "args": [14043]}
+ ],
+ "hooks": [
+  {"hook": "onQuestCompletedEvent", "line": 41, "cases": 1},
+  {"hook": "onLevelChangedEvent", "line": 46, "cases": 1},
+  {"hook": "onDialogEvent", "line": 51, "unsupported": "call GameTimeService.getInstance"},
+  {"hook": "onItemUseEvent", "line": 180, "cases": 3}
+ ],
+ "cases": [
+  {
+   "id": "onQuestCompletedEvent#1",
+   "hook": "onQuestCompletedEvent",
+   "given": {},
+   "guards": [],
+   "effects": [{"call": "defaultOnQuestCompletedEvent", "kind": "quest", "args": [14040], "line": 42}],
+   "returns": null
+  },
+  {
+   "id": "onLevelChangedEvent#1",
+   "hook": "onLevelChangedEvent",
+   "given": {},
+   "guards": [],
+   "effects": [{"call": "defaultOnLevelChangedEvent", "kind": "quest", "args": [14040], "line": 47}],
+   "returns": null
+  },
+  {
+   "id": "onItemUseEvent#1",
+   "hook": "onItemUseEvent",
+   "given": {"item": {"itemId": 0}},
+   "guards": ["id != 182215351 -> true @185"],
+   "effects": [],
+   "returns": "UNKNOWN"
+  },
+  {
+   "id": "onItemUseEvent#2",
+   "hook": "onItemUseEvent",
+   "given": {"item": {"itemId": 182215351}, "questState": null},
+   "guards": ["id != 182215351 -> false @185", "qs == null -> true @188"],
+   "effects": [],
+   "returns": "FAILED"
+  },
+  {
+   "id": "onItemUseEvent#3",
+   "hook": "onItemUseEvent",
+   "given": {"item": {"itemId": 182215351}, "questState": {"status": "START", "vars": {"0": 0}}},
+   "guards": ["id != 182215351 -> false @185", "qs == null -> false @188"],
+   "effects": [
+    {
+     "call": "PacketSendUtility.broadcastPacket",
+     "kind": "packet",
+     "args": [{"new": "SM_ITEM_USAGE_ANIMATION", "args": ["$playerObjectId", "$itemObjectId", 182215351, 1, 1, 0]}, true],
+     "line": 191
+    },
+    {"call": "removeQuestItem", "kind": "item", "args": [182215351, 1], "line": 192},
+    {"call": "qs.setQuestVarById", "kind": "var", "args": [0, 1], "line": 193},
+    {"call": "updateQuestStatus", "kind": "quest", "args": [], "line": 194}
+   ],
+   "returns": "SUCCESS"
+  }
+ ]
+}

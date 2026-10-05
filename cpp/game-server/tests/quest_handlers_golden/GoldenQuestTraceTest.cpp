@@ -1730,6 +1730,18 @@ const std::set<std::string>& knownNotReproducible() {
 		// setup of the case as given; the overlay that holds the item (overlaysFor, "the items the helpers remove or count held") runs and
 		// compares the path, which does not count as reproducing the case as given
 		"21460 onDialogEvent#20",
+		// Chunk Q01 (lane C, 2026-10-05): a COMPLETE state whose canRepeat is false, which these templates cannot make (max_repeat_count
+		// 255, quest_data.xml; QuestState.java canRepeat), as 1687 above: paths Java cannot take for these quests
+		"1718 onDialogEvent#7",
+		"1718 onDialogEvent#30",
+		"1718 onItemUseEvent#3",
+		"2718 onDialogEvent#7",
+		"2718 onDialogEvent#50",
+		"2718 onItemUseEvent#3",
+		"3718 onDialogEvent#3",
+		"3718 onDialogEvent#13",
+		"4718 onDialogEvent#3",
+		"4718 onDialogEvent#13",
 	};
 	return known;
 }
@@ -1815,6 +1827,19 @@ const std::map<std::string, std::string>& knownVacuous() {
 		// Phase 6 step 2, chunk Q08 (lane C, 2026-10-05): _21460AShulacksStory.java:65-67 in START, removeQuestItem assumed false and the
 		// reward page 5 outside REWARD (Java's own path: the dialog stays silent)
 		{"21460 onDialogEvent#21", REMOVE_FALSE_REWARD_PAGE},
+		// chunk Q01 (lane C, 2026-10-05): sendQuestEndDialog in a COMPLETE or START state the path read (IDLE_END), and 24040's reward page 5
+		// in START (_24040VotansOrders.java:47-48)
+		{"1799 onDialogEvent#22", IDLE_END},
+		{"1799 onDialogEvent#23", IDLE_END},
+		{"1845 onDialogEvent#12", IDLE_END},
+		{"1845 onDialogEvent#13", IDLE_END},
+		{"2721 onDialogEvent#22", IDLE_END},
+		{"2721 onDialogEvent#23", IDLE_END},
+		{"2724 onDialogEvent#22", IDLE_END},
+		{"2724 onDialogEvent#23", IDLE_END},
+		{"2727 onDialogEvent#23", IDLE_END},
+		{"2767 onDialogEvent#8", IDLE_END},
+		{"24040 onDialogEvent#4", REWARD_PAGE},
 		};
 		// P6-Q slice 2 (Q10): the altgard and pandaemonium traces (GoldenKnownVacuousQ10.h)
 		for (const auto& [key, kind] : Q10_VACUOUS) {
@@ -1846,10 +1871,10 @@ const std::map<std::string, std::string>& knownUnported() {
  * are checked, their hooks only by parity, the drift test and the chunks' unit cases. (Q10's 2213, getEffectController and SkillEngine, is
  * held back since the integration of slice 2: GoldenHandlers.h).
  * Phase 6 step 2, chunk Q08 (lane C): gelkmaros 21004, 21027, 21033, 21036, 21071 (a status read after sendQuestNoneDialog), 21105, 21249
- * (npc.getController()), enshar 25052 (spawnForFiveMinutes)
+ * (npc.getController()), enshar 25052 (spawnForFiveMinutes). Chunk Q01 (lane C): reshanta 2798 (a status read after sendQuestNoneDialog)
  */
 constexpr int32_t ORACLE_REFUSES_EVERY_HOOK[] = {1205, 2132, 1640, 1647, 2925, 2938, 2952, 4966, 4967, 4968, 4969, 21004, 21027, 21033, 21036,
-	21071, 21105, 21249, 25052};
+	21071, 21105, 21249, 25052, 2798};
 
 TEST_F(GoldenQuestTraceTest, EveryExpectedDocumentHasAGeneratedHandlerAndEveryHandlerADocument) {
 	std::vector<int32_t> ids = expectedQuestIds();

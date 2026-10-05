@@ -9,7 +9,8 @@
 // five hand ports and the held-back 4212 are not generated, docs/deviations/Q10.md). The generated files themselves are never edited here.
 //
 // Phase 6 step 2, chunk Q08 (lane C, 2026-10-05): the 64 generated gelkmaros and enshar handlers, compiled in by #include as well
-// (GoldenQ08Handlers.cpp; docs/deviations/Q08.md).
+// (GoldenQ08Handlers.cpp; docs/deviations/Q08.md); chunk Q01 (the same lane and day): the 80 generated reshanta handlers
+// (GoldenQ01Handlers.cpp; docs/deviations/Q01.md). Q01 is the library aion_gs_handlers_quest_reshanta, which this executable does not link.
 //
 // P6-Q slice 2, chunk Q03 (2026-09-29): the 72 generated verteron and heiron handlers in the tree (the zones the route's dispatches end in),
 // compiled into this executable by #include as well (GoldenQ03Handlers.cpp); Q03's hand ports 1643 and 3200 have their own unit cases
@@ -261,7 +262,87 @@
 	X(enshar, _25052AnOfferingPeace, 25052) \
 	X(enshar, _25062OminousAdvice, 25062) \
 	X(enshar, _25070TruthOfTheCrystal, 25070) \
-	X(enshar, _25073NoRevivalForTheBalaur, 25073)
+	X(enshar, _25073NoRevivalForTheBalaur, 25073) \
+	X(reshanta, _14040OrdersFromReshanta, 14040) \
+	X(reshanta, _14041AbyssalAbilities, 14041) \
+	X(reshanta, _14042ARescueOperation, 14042) \
+	X(reshanta, _14043DrawlingBalaur, 14043) \
+	X(reshanta, _14044ShardsOfMemory, 14044) \
+	X(reshanta, _14045RumorsOnWings, 14045) \
+	X(reshanta, _14046PiecingTheMemory, 14046) \
+	X(reshanta, _14047ChainingMemories, 14047) \
+	X(reshanta, _1701GovernorsDirective, 1701) \
+	X(reshanta, _1702Defeat9thRankAsmodianSoldiers, 1702) \
+	X(reshanta, _1703Defeat8thRankAsmodianSoldiers, 1703) \
+	X(reshanta, _1704Defeat7thRankAsmodianSoldiers, 1704) \
+	X(reshanta, _1705Defeat6thRankAsmodianSoldiers, 1705) \
+	X(reshanta, _1706Defeat5thRankAsmodianSoldiers, 1706) \
+	X(reshanta, _1707Defeat4thRankAsmodianSoldiers, 1707) \
+	X(reshanta, _1708Defeat3thRankAsmodianSoldiers, 1708) \
+	X(reshanta, _1709Defeat2thRankAsmodianSoldiers, 1709) \
+	X(reshanta, _1710Defeat1thRankAsmodianSoldiers, 1710) \
+	X(reshanta, _1718TradingDown, 1718) \
+	X(reshanta, _1719ConfrontAsmodianOfficers, 1719) \
+	X(reshanta, _1720ConfrontAsmodianGenerals, 1720) \
+	X(reshanta, _1721MeetingwiththeBrigadeGeneral, 1721) \
+	X(reshanta, _1722RastinsHomesickness, 1722) \
+	X(reshanta, _1724ReaperExpertise, 1724) \
+	X(reshanta, _1725CenturionsForgetfulness, 1725) \
+	X(reshanta, _1726ScoutingtheLake, 1726) \
+	X(reshanta, _1727RecruitsforNezekansShield, 1727) \
+	X(reshanta, _1761SohonerkWish, 1761) \
+	X(reshanta, _1777CalloftheGovernor, 1777) \
+	X(reshanta, _1798JakurerksShotattheBigTime, 1798) \
+	X(reshanta, _1799PupilsDiary, 1799) \
+	X(reshanta, _1800JaiorunerksTombstone, 1800) \
+	X(reshanta, _1845OpeningDoors, 1845) \
+	X(reshanta, _1846PaperTrail, 1846) \
+	X(reshanta, _1847AStrangeSoul, 1847) \
+	X(reshanta, _1851UnchartedIslands, 1851) \
+	X(reshanta, _1853OfficerOusting, 1853) \
+	X(reshanta, _1854GeneralPurge, 1854) \
+	X(reshanta, _24040VotansOrders, 24040) \
+	X(reshanta, _24041TrainingInTheAbyss, 24041) \
+	X(reshanta, _24042AReadyRescue, 24042) \
+	X(reshanta, _24044ChangeTheFuture, 24044) \
+	X(reshanta, _24045ASpeedyErrand, 24045) \
+	X(reshanta, _24046TheShadowCalls, 24046) \
+	X(reshanta, _2701TheGovernorsSummons, 2701) \
+	X(reshanta, _2702Defeat9thRankElyosSoldiers, 2702) \
+	X(reshanta, _2703Defeat8thRankElyosSoldiers, 2703) \
+	X(reshanta, _2704Defeat7thRankElyosSoldiers, 2704) \
+	X(reshanta, _2705Defeat6thRankElyosSoldiers, 2705) \
+	X(reshanta, _2706Defeat5thRankElyosSoldiers, 2706) \
+	X(reshanta, _2707Defeat4thRankElyosSoldiers, 2707) \
+	X(reshanta, _2708Defeat3thRankElyosSoldiers, 2708) \
+	X(reshanta, _2709Defeat2thRankElyosSoldiers, 2709) \
+	X(reshanta, _2710Defeat1thRankElyosSoldiers, 2710) \
+	X(reshanta, _2718TradingDown, 2718) \
+	X(reshanta, _2719ChallengeElyosOfficers, 2719) \
+	X(reshanta, _2720ChallengeElyosGenerals, 2720) \
+	X(reshanta, _2721MeetingWithTheBrigadeGeneral, 2721) \
+	X(reshanta, _2722TheComfortsofHome, 2722) \
+	X(reshanta, _2724MissingInAction, 2724) \
+	X(reshanta, _2727TransparentMotives, 2727) \
+	X(reshanta, _2758CarryTheFlame, 2758) \
+	X(reshanta, _2767AFruitfulPartnership, 2767) \
+	X(reshanta, _2798SignontheDottedLine, 2798) \
+	X(reshanta, _2841CleansingtheAsteriaChamber, 2841) \
+	X(reshanta, _2842BalaurintheUndergroundFortress, 2842) \
+	X(reshanta, _2843OperationAnnihilate, 2843) \
+	X(reshanta, _2850OfficerObliteration, 2850) \
+	X(reshanta, _2851GeneralMassacre, 2851) \
+	X(reshanta, _3205FortheBlackCloudTraders, 3205) \
+	X(reshanta, _3701TeachThemaLesson, 3701) \
+	X(reshanta, _3702GeneralDestruction, 3702) \
+	X(reshanta, _3711ToKillACaptain, 3711) \
+	X(reshanta, _3712DredgionPrisonBreak, 3712) \
+	X(reshanta, _3718DredgingTheDredgion, 3718) \
+	X(reshanta, _4205SmackTheShulack, 4205) \
+	X(reshanta, _4702GeneralDeath, 4702) \
+	X(reshanta, _4711TheDredgionCaptain, 4711) \
+	X(reshanta, _4712EscapeFromTheDredgion, 4712) \
+	X(reshanta, _4718PressingTheAttack, 4718)
 // clang-format on
 
 // Lane C, phase 6 step 1 (2026-10-05): the out-of-tree golden sample (tools/gen/questgen/goldensample.py, phase6-transliterator.md §7) compiles
