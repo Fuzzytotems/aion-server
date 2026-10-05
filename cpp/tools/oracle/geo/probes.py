@@ -136,7 +136,8 @@ class MapScene:
 				raise Ambiguous("two collisions at nearly the same distance")
 		return best[1], best[2]
 
-	def _collide_geometry(self, indexed: IndexedGeometry, origin, direction, limit, theme_id, hits, through_map: bool = True):
+	def _collide_geometry(self, indexed: IndexedGeometry, origin, direction, limit, theme_id, hits, through_map: bool = True,
+	                      intentions: int = PHYSICAL):
 		"""the collisions of one geometry with the ray. `through_map` False is a direct Geometry.collideWith on the geometry itself - what
 		AbstractCollisionObserver's TOUCH check does with a material zone's geometry (m5b3/materials.py stand_report) - which asks neither the
 		node's type nor any intention (Geometry.java:118-131, Mesh.java:102-109); True is the map's collideWith of getZ, which does"""
@@ -148,7 +149,9 @@ class MapScene:
 					return
 			elif node_type != 0 and node_type != 3:  # not HOUSE: inactive until setActive (instances start empty)
 				return
-			if geometry.node_intentions & PHYSICAL == 0 or geometry.mesh.intentions & PHYSICAL == 0:
+			# Node.collideWith / its Geometry children: (collisionIntentions & results.getIntentions()) != 0 (Node.java:341, 355); getZ asks
+			# PHYSICAL, getClosestCollision CollisionIntention.DEFAULT_COLLISIONS
+			if geometry.node_intentions & intentions == 0 or geometry.mesh.intentions & intentions == 0:
 				return
 		if not box_intersects_ray(indexed.center, indexed.extents, origin, direction):
 			return

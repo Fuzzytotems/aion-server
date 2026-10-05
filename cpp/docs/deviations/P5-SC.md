@@ -819,3 +819,131 @@ build, restored and sha256-checked, rebuilt, no mutant string left): the old har
 `getLogFolder()` answering `log` whatever init was given fails `:230`, `:235`, `:236`; the file without its `stats` folder fails `:235` and
 `:256`; an absolute `getLogFolder()` fails `:251` (lines of `RunnableStatsManagerTest.cpp`). `gs.smoke.startup` on the rebuilt server passed and wrote
 `build/msvc/game-server/gs.smoke.startup/Debug/log/stats/MethodStats.log`; `game-server/log/stats/MethodStats.log` kept its time stamp.
+
+## M5e gate (lane 1, 2026-10-04): `gs.scenario.m5e` and `gs.scenario.m5e_geo` (m5e-plan.md G-01..G-05, I-02, M-06, T-03, §10)
+
+`TEST(M5eScenario, Run)` and `TEST(M5eScenarioGeo, Run)` in `M5eScenarioTest.cpp`, one shared body. The output goes to `<bin>/scenario/m5e`
+and `<bin>/scenario/m5e_geo`, with the schema pairs `aion_{gs,ls}_test_m5e_<hash>` and the allow-list `m5e_partial_allowlist.txt`
+(`AION_SCENARIO_M5E_PARTIAL_ALLOWLIST`).
+- Labels: `scenario;realdata` (`;geo`). TIMEOUT: 2700 / 3600.
+- Both tests are in **gate slot 1**. The slot table adds their measured runtimes, which make slot 1's sum 2,801 s.
+- The discovered cases are DISABLED (`^M5eScenario(Geo)?\.`).
+- The profile is `game-server/config/m5e.properties.example` (I-02). It holds M5d's keys and `rates.xp.quest` pinned at its default, with
+  `gameserver.simple.secondclass.enable = false` for play (D1, answered 2026-10-04: the retail ascension route). The gate passes the M5d
+  gate's keys and `gameserver.simple.secondclass.enable = true`, its only way to seed a class change.
+
+This is test infrastructure only, with no Java counterpart. The rows below say where the gate reads the plan's §10 differently and why. In
+every row, the gate follows what Java does.
+
+| Area | As built | Reason |
+|---|---|---|
+| The oracle (G-01) | `oracle.py m5e-progression` answers for the gate (since the review, `level:L` caps a non-Daeva at 9 as `setExp` does and `create` leaves `old_level` at 0; `m5e-stumble` answers X9g's geo row). **Per step** (`create`, `enter:L`, `level:L`, `class:C`, `action:ID`, `quit`, `seed:CLASS`, `book:ITEM`), it gives the level, the exp thresholds, each skill with its `SM_SKILL_LIST` message id (`addSkill`'s `isNew` walk over the skill tree, SkillTreeData.java:94-162), the 30001 → 30002 swap, the class-change pages and actions, and the base max HP. **Per cast** (`--skill`), it gives the conditions evaluated against the seeded character (weapon, DP, `ride_robot`, the chain, the target), and the charge window (`skill_charge.xml`, `useChargeSkill`). **Per item**, it gives a weapon's group, equip skill and robot id, and a stigma stone's skill and price (`--stigma`: `PricesService.getPriceForService` over m5c's trade config). The npc spots come from `m5b-monster` and `m5a-spawns`, not the plan's `--npc`/`--map`. A book's skill comes from the `book:` step, not `--item`. `tests/test_m5e.py`: 27 cases | G-01, §10.1 |
+| The Daeva's alternative page | **asteros 203058**, not Pernos 790001. `DialogPage.getStartPageId`: `hasQuestInteraction` (page 10) wins over the Daeva branch (DialogPage.java:113-126). Pernos is the start npc of 1123 from level 7, since `_1123WheresTutty` registered in phase 6, so he answers 10 both before and after the class change. asteros starts no quest (m5d-quests), so it answers 1011 before and 1352 after | measured on the first run |
+| The level-ups | C4-C10 kill the 2-HP junk monster 210340 beside asteros. Each kill gives one exp, which crosses a seeded threshold (`startExp(L) - 1`). Pernos's level-7 monsters (747 HP) killed a level-8 Warrior. A target that walked off ("too far", 1402920) is approached again | measured |
+| X2's comparison | The full `SM_SKILL_LIST` is compared by **skill id sets**. `SkillEntryWriter` writes level 1 for every normal skill (SkillEntryWriter.java:27), so a level comparison would compare nothing | Java |
+| B's Daevas | B1-B5 are created, enter once at level 1 (X3: no class window), and are then seeded offline. The seed sets the class, `exp = startExp(10)`, `player_quests(1006, COMPLETE)` and the stand. Their first enter world as level 10 runs the load path's `updateDaeva` over the quest list (PlayerCommonData.java:276, 588-610). The seed also sets `inventory.item_skin` together with `item_id`, because `RideRobotEffect` reads the robot id through `Item.getItemSkinTemplate`. The first run, which kept the old skin, answered robot 0 | D8, measured |
+| C15 before C13 | The resurrection runs while A1 is a level-10 Gladiator without 563. At level 15, A1's revive drove the lock-order inversion of the findings below (lockdep and ERROR lines). PR #77 corrects it (`CondSkillLauncherEffect.cpp`, the owner's decision of 2026-10-04), so the order is no longer needed for the deadlock; it is kept as the order the gate was measured in | Java's inversion, corrected by #77 |
+| 1699 on the living | It is **refused before any cast**: `STR_SKILL_TARGET_IS_NOT_VALID` (1300013). It is not answered with status 16. The revive clears B1's target (PlayerReviveService.java:190-193) and the cast uses the server-side target (PlayerController.java:460), so B1 selects A1 again first (since the review; before it the refusal seen was canUseSkill's "no player target" branch, PlayerRestrictions.java:106-108). Then `PlayerRestrictions.canUseSkill` refuses a skill with a resurrect effect on a living player (PlayerRestrictions.java:105, 110-113, from PlayerController.java:474), so `ResurrectEffect.calculate`'s `isDead` guard is never reached. **§10.4's `resurrect-no-dead-guard` row therefore cannot fail in the gate.** The mutant run (before the review) was green | Java |
+| X13's max HP | After the soul sickness, the gate asserts that A1's max HP is **lower** than before, not "the oracle's 70 %". The 8296 penalty's stat functions apply over the gear and passives, which the oracle does not model | measured |
+| C12 at level 15 | C12 runs **after C13**. A1 relogs at the village with DP 2,000 and HP at a quarter of the level-15 base max. A run that seeded half had reached the max HP by 758. At a level difference of 10, the junk monster no longer aggroes A1 (CreatureEventHandler.java:107-110), so it does not run at A1 between casts (X9g) | measured |
+| The chain (X9) | 769 is cast again, after its 10 s cooldown and up to four times, while its chain status is not success. A dodged or resisted 769 blocks the chain even at `chain_skill_prob` 100 (Skill.java:599-607, 628-631). A 758 whose every effect was dodged or resisted is played again in a new round (since the review) | Java |
+| The drains (X9) | Each drain update must be exactly ⌊d × p / 100⌋ of a hit. An update whose HP byte is 100 % may be less, because the update carries `newHp - previousHp` capped at the max HP (CreatureLifeStats.java:185, 191). At least one drain of each skill must come in below the max, so the drain is really measured. **A dodged, resisted or conflicting effect expects no update** (since the review): it has no success effect, so `Effect.applyEffect` returns before the drain is scheduled (Effect.java:545-563, 597-600) | Java; seen in a mutant run and a clean run |
+| X9g | The plan says the stumble ends exactly 2 m along the heading without geo. The gate measures it against the target's last **broadcast** position, which is exact only once the npc stands. **The npc goes where its last packet points:** the target of an `SM_MOVE`, or the move controller's target that `SM_NPC_INFO` carries for an npc seen while it walks (SM_NPC_INFO.java:110-112, `NpcMoveController.getTargetX2`). It arrives at the junk monster's walk speed (0.408 m/s, `npc_templates.xml`, only a wait). The cast waits until 1 s after that arrival, 30 s at most. A stumble result moves the npc in the gate's model, because the server sends no `SM_MOVE` for it (StumbleEffect.java:41). The row asserts ≤ 2 m + 0.9 m and "away from A1" (−0.9 m). Without geo it also asserts ≥ 2 m − 0.9 m and z within 0.5 m. **With geo (since the review)** it asserts, for each stumble whose segment `oracle.py m5e-stumble` finds open in the geo data, ≥ 2 m − 0.9 m and z = the oracle's `GeoMap.getZ(x, y, z + 1, z − 2)` at the end within 0.01 m (GeoMap.java:141-147); at least one such stumble must come. "Open" is conservative: no geometry with a `DEFAULT_COLLISIONS` intention crosses the ray of `getClosestCollision` (triangle tests against the geometries whose bounds hold a point of the segment), and the topmost surface stays 0.3 m below the ray at 0.1 m samples. A stumble of a target that may still have been walking, or (geo) on a segment that is not open, is logged, not measured. The budget is a **fixed** 240 s, not derived from X12's 10^-4 rule: a stumble comes from 519's subeffect (once per DP seed) and from the critical proc of 769 / 758 (10 % of a critical, Effect.java:533), and the critical rate is a stat the oracle does not model; the runs below give when the measured stumble came. Each stumble also logs the point it implies: 2 m short of the end, on the line from A1, where `getHeadingTowards` put it | measured: a monster that ran to A1 stops up to 0.6 m short of its `SM_MOVE` target. Before the `SM_NPC_INFO` target was read, a monster first seen mid-walk stood 1.32 m from its broadcast position, and a stumble measured 3.04 m |
+| The robot and charge (X15) | Before the charge, B3 is put 4 m from a target. A start refused as too far is retried on a target up to three times. The releases are at 700 ms (2606) and 3,500 ms (2608), the oracle's window | measured |
+| The book's cast (X16) | 1417 is cast at a target 6 m away. A refused cast is retried on the next target, three targets at most. Once, on the geo run, 1417 was refused at 10 m | measured |
+| The summon (X17) | After `CM_SUMMON_COMMAND(ATTACK, target)`, the gate sends `CM_SUMMON_ATTACK(summon, target, time)` (opcode 203, G-02's builder). The ATTACK command only sets the mode (SummonController). The hit is the client's packet | Java |
+| The stigma (X18) | The stone is 140001109 *Crippling Cut* (a RARE Gladiator stone of level 20). The kinah comes from `--stigma`: 25,000 for RARE, through `PricesService`. The slot is STIGMA1 (`1L << 30`). The refusal without 1929 is asserted first, then the equip with `player_quests(1929, COMPLETE)` seeded | §10.3 X18 |
+| X14 and X7 | The X7 `SM_FLY_TIME` rows and X14's "no 8998 after the toggle-off" window are EXPECTs, so a mutant shows every row it breaks | the case log |
+| X14's non-toggle (since the review) | B2 first casts **1685** *Protectorate's Prayer* on itself (a Chanter's level-10 skill, ACTIVE, a shown one-hour BUFF; C0 checks the oracle has it), and the gate checks an `SM_ABNORMAL_STATE` lists it. Then `CM_TOGGLE_SKILL_DEACTIVATE(1685)` must send no `SM_ABNORMAL_STATE` in 2 s. A port that skipped the toggle guard (CM_TOGGLE_SKILL_DEACTIVATE.java:34-37) would remove the buff and send one. Before, B2 had never cast 1685, so the row could not fail | §10.3 X14 |
+| X13's MP (since the review) | The first `SM_STATUPDATE_MP` after the revive carries 35 % of the max MP (`setCurrentMpPercent(35)`, PlayerReviveService.java:197) | §10.3 X13 |
+| C15's death (since the review) | A1's death is read from the recording since before the walk to the monster, so a death before `fightUntil` reads (or one that makes the target selection go unanswered) is not missed | measured risk |
+| C0 (since the review) | C0 fails when the oracle refuses any cast of B's characters (1699, 1809, 1685, 2767, 2606, 1417, 3706) | G-01 |
+| C21 (since the review) | The stop file is written **with A1 online**, as §10.2 C21 has it; B logs out first. After the stop, A1's `players.online` must be 0 | §10.2 |
+| X20 (since the review) | The G-07 relation rows, as M5b2's X13 compares them: `live Effect == effectsHeld`, `Effect created > effectsHeld`, `live Skill == skillsHeld`, `live EffectReserved <= effectReservedCapacity` (from `m5a_summary.txt`), plus `Summon` live 0 with `created > 0` and `Player` live 0. Before the review the comment said the census covered the relation rows; it did not | §10.3 X20 |
+| C12's rounds (since the review) | A replayed 769 / 758 round waits out 758's 40 s cooldown (skill_templates.xml: `cooldown="400"`) and, like every 758 after 769, 3 s for 769's animation (`player.getNextSkillUse`, CM_CASTSPELL.java:99-105); both refusals (`STR_SKILL_NOT_READY`) were measured. A 758 drain that only reached the max HP (after a replay's minute of regeneration) replays the round. 2981 refused with `STR_SKILL_OBSTACLE` on the geo gate is cast at the next target, three at most. A cast retried after "too far" waits for the target's arrival again before it counts a stumble as measurable (a run's only 519 stumble was lost to it) | measured on the review's runs |
+| C20's seed | `player_quests(1929, COMPLETE)` is an upsert (`ON DUPLICATE KEY UPDATE`): once 1929's handler is ported (M5f D13), the level-20 enter world may write the row first | review |
+| Allow-list | §A `BaseService.cpp:18`; §B G-07's four cron rows; §C `PvpMapService.cpp:32`, `PlayerService.cpp:268`. The milestone leaves no partial of its own on the path | §10.1 |
+
+**Mutation proof (§10.4).** The schemata are switched by `AION_M5EG_MUT` in 14 production files: `ClassChangeService.cpp`,
+`PlayerCommonData.cpp`, `PlayerController.cpp`, `PlayerSkillList.cpp`, `CondSkillLauncherEffect.cpp`, `CM_TOGGLE_SKILL_DEACTIVATE.cpp`,
+`Effect.cpp`, `ResurrectEffect.cpp`, `PlayerReviveService.cpp`, `RideRobotEffect.cpp`, `SkillLearnAction.cpp`, `_1205ANewSkill.cpp`,
+`SummonsService.cpp` and `HostileUpEffect.cpp`.
+1. The schemata were built once into `aion_game_server`. The gate's server inherits the variable.
+2. The sources were restored right after the build and checked by sha256: 14 of 14 OK, twice (after the gate build, and again after the unit-test build below).
+3. The tree was then rebuilt clean.
+
+There was one `gs.scenario.m5e` run per mutant, in three batches. Batches 1 and 2 ran on the gate as first committed, batch 3 on the final gate. The case log shows every row.
+
+| Mutant (§10.4 row) | Failed | Note |
+|---|---|---|
+| `skip-update-daeva`: `setClass` without `updateDaeva` | **X7** (no level 10, no Daeva skills, the glide refused, page 1011) | X8 green in its rerun, as §10.4 predicts: the load path promotes. The first run also failed C12 on the chain, before the chain retry existed |
+| `offline-daeva-ignores-quests`: `updateDaeva` ignores the loaded quest list | **X8** (the glide refused with 1301059, asteros 1011) | It cascades: B's seeded Daevas are no Daevas either, so B1 cannot resurrect (X13) |
+| `learn-from-10`: `learnNewSkills(10, level)` in `setClass` | **X5** (no level-9 passives) | C12's 519 was then refused: no greatsword skill |
+| `player-info-to-self` | **X5** only (A1 receives an `SM_PLAYER_INFO`) | |
+| `no-learn-on-level`: `onLevelChange` without `learnNewSkills` | **X2**, X5, X7 | |
+| `no-class-range-check` | **X4** (A1 became a Sorcerer; O saw class 7), X5, X7, X8 | |
+| `dialog-without-level` | **X3** (A1 at level 1 and all five B characters got a class window: pages 2375, 3398, 3398, 3739, 3057, 3057) | |
+| `max-level-for-all` | **X3** (level 10 without the class), X4, X5, X7 | |
+| `is-new-always` | **X5**, **X7** (1300050 for the skills with a known pre-skill) | X2 green, as predicted |
+| `cond-launcher-unported` | **X10** (`SM_ENTER_WORLD_CHECK` 2 at level 15), X19 (unported trace, ERROR, census) | |
+| `toggle-no-remove` | **X14** (8998 and `SM_MANTRA_EFFECT` after the toggle-off), **X15**'s last step (no robot 0) | final gate: no other row |
+| `aura-task-kept`: `Effect::stopTasks` keeps 1809's task | **X14**, X19/X20 census (the leaked Effect keeps its Player) | |
+| `resurrect-no-dead-guard` | **nothing** | Expected: the target filter refuses first (the 1699 row above). On the final gate, its only red row was an X9 drain update capped at the max HP and an X9g walk, both fixed since |
+| `revive-skill-zero` | **X13** (no 8296 in SPEC2) | |
+| `robot-zero` | **X15** (`SM_RIDE_ROBOT` with robot 0, then no release) | final gate |
+| `book-known-ignored` | **X16** (the second book used up) | |
+| `no-1205` | **X1** | |
+| `release-keeps-summon` | **X19/X20** census (the Summon and its Player kept) | |
+| `elyos-select5-swap` | **X5** (O saw class 2), X7, X8 | |
+| `asmo-select7-swap` | **nothing in the gate**, as §10.4 says | `aion_gs_playersvc_tests` with the variable fails `ClassChangeServiceTest.TheAsmodianPagesAreShiftedByOneAndCarryTheEngineersAndArtistsOnTheirOwnActions` alone; without it, every case that ran passed (140 passed, 56 skipped without a database) |
+| `hostileup-no-hate` | **nothing in the gate**, as §10.4 says | `aion_gs_effects_al_tests` with the variable fails four `DaevaEffectsTest` cases: `InciteRageAddsTemporaryHateForFiveSeconds`, `TheEffectorsDeathCancelsTheTemporaryHatesRemoval`, `TauntAddsItsHateWithoutATask` and `MockingBlastAddsItsTemporaryHateWithoutTheEffectHate` (169 of 173 pass; without it, 173 of 173) |
+
+**The review's mutants (2026-10-05).** Switched by `AION_M5E_REVIEW_MUT` in `StumbleEffect.cpp` and `Effect.cpp`, built once into
+`aion_game_server`, the sources restored at once and checked by sha256 (2 of 2 OK), then the whole tree rebuilt; the string is in no binary.
+
+| Mutant | Gate | Failed |
+|---|---|---|
+| `stumble-origin`: the stumble ends where the target stood (`getClosestCollision` answering the start point) | `m5e_geo` | **X9g**: moved 0 m against the lower bound 1.1 m on open ground |
+| `stumble-nogeo`: the 2 m point with z unchanged (a port that ignores geo) | `m5e_geo` | C12 before X9g: no 519 stumble in that run, and a replayed 758 refused with `STR_SKILL_NOT_READY` (the gate's own replay bug, fixed since). Not a measurement of X9g's z row. The z row can only see it where the terrain slopes: the measured open-ground stumbles changed z by 0 to 0.19 m (118.875 → 119.066), and a flat end (0.000-0.005 m) passes it |
+| `effect-leak`: `Effect::endEffect` retains the ended Effect | `m5e` | **X20**: `live Effect` 663 against `effectsHeld` 309, `live Skill` 315 against `skillsHeld` 309; also X19 (census, ERROR lines, "removed from the world still alive") |
+
+**Findings.**
+- **A lock-order inversion inherited from Java.** **Corrected by PR #77** (`CondSkillLauncherEffect.cpp`, the owner's decision of 2026-10-04, both branches; docs/deviations/P5-03.md "CondSkillLauncherEffect: the lock-order correction"). A level-15 Gladiator with 563 *Determination* (`CondSkillLauncherEffect`) was revived by C15. lockdep reported an inversion, with ERROR lines:
+  - One path: the `CondSkillLauncherEffect` action observer → `Effect.endEffect` (`synchronized (this)`, Effect.java:712).
+  - The other path: `Effect.startEffect` (`synchronized (this)`, Effect.java:653) → `CreatureGameStats.checkMaxHPChanged` (`synchronized`, CreatureGameStats.java:371) → the observer (`CondSkillLauncherEffect$1`, `synchronized (this)`).
+
+  Java nests the same monitors, so this is a potential deadlock of Java's. The gate still runs C15 before C13; with #77 that is no longer needed for the deadlock.
+- **The census of two failed mutant runs** listed a `Player` alive at the stop: `offline-daeva-ignores-quests`, and `hostileup-no-hate` on the final gate. In each, a case before C21 ended fatally, with A1 online in a fight or dead. No passing run shows it. It is not investigated here.
+
+**The review's runs** (build/msvc, Debug, 2026-10-05; the gate changed between them, as the C12 rounds row says):
+- On the final commit: `gs.scenario.m5e` passed in 338 s, 360 s and 373 s and failed once on X19's watchdog (below); `gs.scenario.m5e_geo` passed in 494 s and 487 s.
+- Before it: m5e passed 4 times (413, 367, 351, 339 s) and failed 3 times: once on X19's watchdog (below), once on X9g (the lost 519
+  stumble), and once, the first, on the watchdog while the oracle suite ran beside it; m5e_geo passed 5 times (499, 479, 496, 483, 479 s)
+  and failed twice on C12's replay path (fixed since).
+- **Open: X19's watchdog on the plain gate.** In every `gs.scenario.m5e` run the server logs `MapRegion::activate` instant tasks of 5-9 s
+  (MapRegion.cpp:141) at the enter worlds in Poeta; when one runs past the watchdog's sampling, `watchdog.txt` has a SLOW_TASK and X19
+  fails. The geo gate's runs log none. Nothing of the review touches the server; it is not investigated here.
+  **Since (fix/region-activate, 2026-10-05):** not every run. The review's archived logs have all activations of a run slow (5.7 s mean) in
+  3 of 11 runs and all fast (0.12-0.13 s mean) in the others. The cause is the Debug lock-order validator's thread edge cache, not the
+  port of MapRegion (it does Java's work): DEVIATIONS.md, runtime kernel, "Lock-order validator edge cache".
+- X9g's measured stumble was 519's in every passing run (1-19 s after C12's first cast); the implied position was 0.002-0.05 m from the
+  broadcast one.
+
+**Runs** (build/msvc, Debug, 2026-10-04):
+- The geo gates of the earlier milestones (G-05), one run each on this tree: m5a_geo 150 s, m5b_geo 344 s, m5b2_geo 314 s, m5b3_geo 321 s, m5d_geo 376 s; all passed.
+- The final gate ran on binaries rebuilt clean after the mutation proof; no `AION_M5EG_MUT` is in the server, the scenario tests, the two unit-test executables, or any `.lib`:
+  - `gs.scenario.m5e` passed in 342.6 s and `gs.scenario.m5e_geo` in 483.8 s, in one ctest. `gs.scenario.m5e` passed again in 342.2 s.
+  - Each run had an empty census, no ERROR line, §A hit once, every §B row hit 0 times, and §C's PvpMapService once.
+  - X9g's implied position was 0.002-0.05 m from the broadcast one in six measured stumbles (four runs). The geo run's stumble changed z with the terrain (118.875 → 118.976).
+- Earlier runs, before the last fixes of this lane:
+  - The gate as first committed: 328 s and 482 s.
+  - With the arrival rule but the half-HP seed: m5e 365 s and 379 s, m5e_geo 481 s.
+  - Failing runs, each fixed: X9g 3.04-3.24 m, from a monster seen mid-walk; 1417 refused once on the geo run; a 758 drain capped at the max HP.
+- Other checks:
+  - The harness's unit cases (GameSession*, ProgressionDecoders*, QuestDecoders*, SkillDecoders*, CombatDecoders*): 86 of 86.
+  - `tools/oracle` `tests.test_m5e`: 22 of 22. The whole oracle suite (539, 1 skipped) passed at G-01's commit.
+  - `lint_concurrency.py --werror --cycles=core game-server/src`: 3,892 files, 0 errors, 0 warnings, 0 advisories.
+  - `chunks.py check`: 71 chunks, 0 problems.
+  - `census.py --self-check`: 0 failures, after `SummonMode.getId`'s known answer was updated.
+
+  The batch-3 mutant runs used the gate before the arrival rule, the quarter-HP seed and the capped-drain rule. The mutants were not re-run on the final gate; its changes make the harness wait for the target and measure it more exactly. One rule is looser: an update at 100 % HP may be below its drain, which is what Java sends. One row is new: at least one drain must be measured below the max.
