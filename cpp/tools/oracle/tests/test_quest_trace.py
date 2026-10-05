@@ -618,9 +618,9 @@ class Q08SliceTest(unittest.TestCase):
 	def test_the_q08_slice(self):
 		java = sorted(f"{d}/{f.name}" for d in ("gelkmaros", "enshar") for f in (extract.QUEST_DIR / d).glob("*.java"))
 		self.assertEqual(len(java), 64)
-		# questgen refuses one (DataManager.QUEST_DATA, QuestTemplate.getName): not in the tree, not in the slice
-		self.assertEqual(sorted(extract.SLICE_Q08), sorted(set(java) - {"gelkmaros/_20034RescuetheReians.java"}))
-		self.assertEqual(len(self.docs), 63)
+		# all 64 since the Q08 follow-up (row B39: gelkmaros/_20034RescuetheReians)
+		self.assertEqual(sorted(extract.SLICE_Q08), java)
+		self.assertEqual(len(self.docs), 64)
 		self.assertEqual(set(extract.SLICE_Q08) & set(extract.SLICE_TIER_A + extract.SLICE_ROUTE + extract.SLICE_Q03 + extract.SLICE_Q10), set())
 		# every hook refused in eight (the golden harness's ORACLE_REFUSES_EVERY_HOOK); their registration is traced
 		empty = sorted(q for q, d in self.docs.items() if not d["cases"])

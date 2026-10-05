@@ -1,10 +1,11 @@
 // The generated gelkmaros and enshar handlers (chunk Q08, phase 6 step 2, lane C) compiled into Q05's test executable by #include
-// (GoldenHandlers.h says why). gelkmaros/_20034RescuetheReians is not generated (docs/deviations/Q08.md).
+// (GoldenHandlers.h says why): all 64 (gelkmaros/_20034RescuetheReians since the Q08 follow-up; docs/deviations/Q08.md).
 
 // clang-format off
 #include "aion/gameserver/handlers/quest/gelkmaros/_20031GotoGelkmaros.cpp"
 #include "aion/gameserver/handlers/quest/gelkmaros/_20032AllAboutAbnormalAether.cpp"
 #include "aion/gameserver/handlers/quest/gelkmaros/_20033DranaSolution.cpp"
+#include "aion/gameserver/handlers/quest/gelkmaros/_20034RescuetheReians.cpp"
 #include "aion/gameserver/handlers/quest/gelkmaros/_20035SilenteraSupport.cpp"
 #include "aion/gameserver/handlers/quest/gelkmaros/_21004VillageStatusReport.cpp"
 #include "aion/gameserver/handlers/quest/gelkmaros/_21027FearlessKantele.cpp"

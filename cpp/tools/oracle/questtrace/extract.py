@@ -156,12 +156,11 @@ SLICE_Q10 = (
 	'pandaemonium/_4972JudgeNot.java', 'pandaemonium/_4973MarraWorry.java', 'pandaemonium/_4974TheSecretOfHisSuccess.java',
 	'pandaemonium/_4976ASettlerAmbition.java',
 )
-# Phase 6 step 2, chunk Q08 (lane C, 2026-10-05; docs/deviations/Q08.md): the 63 handlers of gelkmaros/ and enshar/ that questgen
-# transliterates (all but gelkmaros/_20034RescuetheReians: DataManager.QUEST_DATA, QuestTemplate.getName). The C++ harness drives every
-# document.
+# Phase 6 step 2, chunk Q08 (lane C, 2026-10-05; docs/deviations/Q08.md): the 64 handlers of gelkmaros/ and enshar/, all of which questgen
+# transliterates (gelkmaros/_20034RescuetheReians since row B39, the Q08 follow-up). The C++ harness drives every document.
 SLICE_Q08 = (
 	'gelkmaros/_20031GotoGelkmaros.java', 'gelkmaros/_20032AllAboutAbnormalAether.java', 'gelkmaros/_20033DranaSolution.java',
-	'gelkmaros/_20035SilenteraSupport.java', 'gelkmaros/_21004VillageStatusReport.java', 'gelkmaros/_21027FearlessKantele.java',
+	'gelkmaros/_20034RescuetheReians.java', 'gelkmaros/_20035SilenteraSupport.java', 'gelkmaros/_21004VillageStatusReport.java', 'gelkmaros/_21027FearlessKantele.java',
 	'gelkmaros/_21033ExorcisingInfisto.java', 'gelkmaros/_21036DeliveryofAetherSample.java', 'gelkmaros/_21051TroubleinStone.java',
 	'gelkmaros/_21052DragonHuntin.java', 'gelkmaros/_21053DramataDrama.java', 'gelkmaros/_21054MissionofDestiny.java',
 	'gelkmaros/_21056FundinOrders.java', 'gelkmaros/_21057FundinOldGrudge.java', 'gelkmaros/_21058KirhuaSpecialOrder.java',
