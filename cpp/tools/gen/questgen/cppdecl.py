@@ -331,6 +331,13 @@ class _Scanner:
         while self.t(j) == '[' or self.t(j).startswith('alignas'):
             j = self.match.get(j, j) + 1
         name = self.t(j) if re.fullmatch(r'[A-Za-z_]\w*', self.t(j)) and self.t(j) not in ('final',) else ''
+        # `class A::B : ... {`, the out-of-line definition of a nested class: the class is B, inside A (it must not replace A by its simple
+        # name: dataholders/SpawnsData.h defines SpawnsData::UnprocessedSpawns after SpawnsData; phase 6 step 2, chunk Q01)
+        enclosing = ()
+        while name and self.t(j + 1) == '::' and re.fullmatch(r'[A-Za-z_]\w*', self.t(j + 2)):
+            enclosing += (name,)
+            j += 2
+            name = self.t(j)
         # find '{' or ';' of this declaration
         k = j
         while k < end and self.t(k) not in ('{', ';'):
@@ -341,7 +348,7 @@ class _Scanner:
             # forward declaration, or a variable of an elaborated type
             return k + 1
         close = self.match.get(k, end)
-        outer = cls.qual if cls is not None else ns
+        outer = (cls.qual if cls is not None else ns) + enclosing
         if kind == 'enum':
             consts = []
             m = k + 1
