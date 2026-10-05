@@ -618,7 +618,7 @@ Decisions the integrator takes under the standing instruction unless marked **us
 | **D6** | **Stigma's service and its 10 stigma-only effect classes are an optional stage-3 lane; recommended taken.** Its gameplay reaches a real player only after M5f (quests 1929 / 2900 in the capitals, D13); the gate seeds the quest (D8). **Refresh:** the lane is now `StigmaService` 11 + 2 inner (with `chargeStigma`, §2.7) and 10 classes, 21 sites + 5 inner (`OpenAerialEffect` in, `MpAttackInstantEffect` out), 39 bodies; the recommendation stands. Equipping a stone already reaches the unported slot count on a real client (W-20, live), and charging one reaches `chargeStigma` (W-28, live) | the lanes that port the classes are open anyway; deferring spreads P5-03 / P5-04 work over two more milestones |
 | **D7** | **Commit order** (the M5b-2 D11 rule: every commit green): (1) E-01 / E-02 before any gate profile turns the key on or seeds a Daeva ≥ 15 — **`CondSkillLauncherEffect` is a blocker, not a feature**; (2) C-01 may land at any time, because the key is off in every existing profile; (3) **C-05's two `AION_QUEST_HANDLER` entries are written and unit-tested in stage 1 but held out of the stage-1 merges; the integrator merges them in stage 2, in one commit with G-03 (whose X1 needs them) and G-05 (the re-green of every gate whose characters change level, W-24)**, as m5d-plan.md D3 did for the XML registration. Rev 1 put C-05 in stage 1 and "last, with G-05", which made stage 1 unable to close before stage 2 ended. **Refresh:** E-01 and E-02 stand only on A-01 and A-02c, both met at HEAD `5fbb03a08`, and touch no file M5c or M5d touches; with the user's approval of 2026-09-24 they are ported ahead of M5c / M5d in a separate worktree (`wip/m5e-effects` at `5fbb03a08`). They still merge `CondSkillLauncherEffect` first, and before any profile turns the key on; their `cycles.toml` rows **and `fieldmap.{json,toml}` overrides** go to the integrator (I-04), which merges them after M5c's commits, because none of the three files has a chunk owner (`chunks.py owner`: "no owner") and M5c's uncommitted work in the main tree already changes both `fieldmap` files (+10 `DecomposeAction` rows at `fieldmap.toml:249-258`, which move HEAD's `:266` to `:276` there) and may add `cycles.toml` rows too | W-07, W-24 |
 | **D8** | **The gate seeds what M5e does not own**, with `ScenarioDatabase::execute` while the character is offline: `players.exp` (**`players.old_level` is left as the server stored it at leave world**, §2.1), `players.player_class` + a `player_quests(1006, 'COMPLETE')` row for the B-account Daevas (m5c-plan.md D5's recipe), `players.dp`, `player_life_stat.hp`, a `player_quests(1929, 'COMPLETE')` row for stigma; **positions** (`players.x/y/z/world_id`), all chosen by the oracle: beside **kunandes** 203087 (Poeta spawn file :759-760, 840.494 / 1217.09) for C4, beside **Pernos** 790001 (:926-927, 241.094 / 1639.46) for C6-C11 — both within talk range, which `CM_SHOW_DIALOG` and `CM_DIALOG_SELECT` check (NpcController.java:254, 267) — the observer's spot beside A1 (C6-C10, C16), Verteron; **item rows** above `gameserver.idfactory.wrap_at` (a book, a stigma stone, Odella powder) and **two equipped weapons**: for A1, after C8, a **greatsword** in the main hand in place of the Training Sword's equipped row (its equip skill 51 comes with the class change; without it `Equipment.onLoadHandler` puts the weapon back into the cube, Equipment.java:303-314, 436-440; ItemGroup.java:17), and for B3 a **keyblade** in place of the Pistol for Training (its equip skill 112 is an ENGINEER level-1 skill, `skill_tree.xml:112`; ItemGroup.java:29). The oracle names both item ids and B3's robot id. | levelling to 20, travel, the capital quests and equipping by packet (A-02d) are other milestones' features; the precedents are m5b-plan.md D12, m5b2-plan.md D3, m5c-plan.md D5 |
-| **D9** | **Gate profile** = the M5d profile + `gameserver.simple.secondclass.enable = true` + **`gameserver.rates.xp.quest = 1.0, 2.0` pinned** (the default, RatesConfig.java:36; applied without a cap by `Rates.XP_QUEST`, Rates.java:29-33, from QuestService.java:224-226, so X1's reward is exact for a membership-0 account), written as `game-server/config/m5e.properties.example` in the Java tree, as `m5b.properties.example:52-54` pins the solo rate. | D1 (a); X1 |
+| **D9** | **Gate profile** = the M5d profile + `gameserver.simple.secondclass.enable = true` + **`gameserver.rates.xp.quest = 1.0, 2.0` pinned** (the default, RatesConfig.java:36; applied without a cap by `Rates.XP_QUEST`, Rates.java:29-33, from QuestService.java:224-226, so X1's reward is exact for a membership-0 account), written as `game-server/config/m5e.properties.example` in the Java tree, as `m5b.properties.example:52-54` pins the solo rate. **Since D1's answer (2026-10-04) the file holds the key off for play; only the gate passes it on, to seed a class change.** | D1; X1 |
 | **D10** | **Exact assertions**: levels, exp values and thresholds, skill ids, message ids, page ids, action ids, class ids, quest status bytes, DP cost, kinah cost, the toggle's tick period (6,500 ms), the charge thresholds (`skill_charge.xml`). **Bounds**: damage, heal, drain, the npc cast's probability. | m5b2-plan.md D8's split |
 | **D11** | **The simple route's missing level check is ported as Java has it** and recorded in `docs/deviations/P5-08.md` as Java behaviour; a unit test names it. | faithfulness (m5b2-plan.md D9); W-25 |
 | **D12** | **New gate `gs.scenario.m5e`** (+ `_geo`, which has a row of its own, X9g: the gate's 519 and its greatsword criticals stumble the target through the geo-reading `StumbleEffect`, W-27) in the same binary and under the same `RESOURCE_LOCK`; every earlier gate is kept and re-run. | the M5b-2 D10 argument; rev 1 thought nothing on the path read geo |
@@ -831,7 +831,7 @@ Ordered by what is most likely to go wrong, with the evidence for each.
 | Schemas | `aion_ls_test_m5e_<hash>` / `aion_gs_test_m5e_<hash>`, same `SchemaLease` and sweep |
 | Output | `<bin>/scenario/m5e`, its own `gs_log` and `ls_run` |
 | `RESOURCE_LOCK` | the same `"aion_game_server_log;aion_login_server_log"` |
-| Profile | `m5e.properties.example` = the M5d profile + `gameserver.simple.secondclass.enable = true` + the quest-XP pin (D9) |
+| Profile | `m5e.properties.example` = the M5d profile + the quest-XP pin (D9), the key off for play (D1, answered 2026-10-04); **the gate passes `gameserver.simple.secondclass.enable = true`**, its only way to seed a class change |
 | Allow-list | `tests/scenario/m5e_partial_allowlist.txt`: §A the startup rows of the earlier gates that remain; §B the partials the milestone leaves (none planned); §C the timing rows |
 | Accounts | **A**: an Elyos Warrior **A1** (created in the run). **B**: Elyos **B1** PRIEST → CLERIC, **B2** PRIEST → CHANTER, **B3** ENGINEER → RIDER, **B4** MAGE → SORCERER; stage 3: **B5** MAGE → SPIRIT_MASTER. B's characters are created as starting classes, then seeded offline to the advanced class + `player_quests(1006, 'COMPLETE')` + level 10 (D8); their first enter world at level 10 starts 1205 at REWARD (W-24), which no row asserts against |
 | **Observers** (rev 2) | **Some packets never reach the character they are about** — `SM_PLAYER_INFO` of a class change (ClassChangeService.java:76) and `SM_MANTRA_EFFECT` (AuraEffect.java:67) go to the known list only (PacketSendUtility.java:98-100). They are asserted at **a character of the other account in sight**: **O = B1** beside A1 at Pernos for C6-C10 (it enters after the seed, and the gate waits until O has seen A1's visibility `SM_PLAYER_INFO` before C7), and **A1** beside B2 in C16 |
@@ -927,8 +927,9 @@ C1-C3 are M5a cases 1-4 replayed (login, create, enter, level ready) for A1 and 
 
 ## 11. Real-client checklist (user, after stage 2; steps 11-12 after stage 3)
 
-Prerequisites as m5b-plan.md §10 steps 1-6, with `mygs.properties` from `m5e.properties.example` (**the key must be on**, D1). The M5b-3, M5c
-and M5d checklists are assumed done.
+Prerequisites as m5b-plan.md §10 steps 1-6, with `mygs.properties` from `m5e.properties.example` as it is: **the key
+`gameserver.simple.secondclass.enable` stays off** (D1, answered 2026-10-04: players change class through the retail ascension route; only
+the gate turns the key on, to seed a class change). The M5b-3, M5c and M5d checklists are assumed done.
 
 1. Make an Elyos Warrior. At level 2 the journal shows **"A New Skill"** ready to report; talk to **Kunandes** (the Warrior master in Poeta):
    a class page opens; take the reward (+275 exp). Make an Asmodian on a second account and do the same at level 3 (2132).
@@ -936,10 +937,12 @@ and M5d checklists are assumed done.
    for new skills; the level-up effect plays.
 3. At 9 with a full bar, kill once more: **the bar stays full, the level stays 9**, a message says the ascension quest is not finished. Try to
    glide (jump + glide key): "only Daevas can glide".
-4. **Log out and back in: a class-selection window opens** (Gladiator / Templar for a Warrior). **Write down whether it appears at all** —
-   risk 8. Pick one: the class-change effect plays, new passive skills appear; **a second account standing nearby sees the new class**. Java
-   sends the class change's `SM_PLAYER_INFO` to the others only (§2.3 S7), so **write down whether your own class icon changes before the next
-   relog** — that is the 4.8 client's behaviour against Java's packets, not a port bug.
+4. **The class change (D1: the retail route).** With the key off, a class changes through the ascension mission 1006 (Elyos) / 2008
+   (Asmodian) and its ceremony, which M5f ports (D13); until then the mission does not start (step 13) and **no class-selection window
+   opens**. Make the character a Daeva by SQL while it is logged out: `player_class` (e.g. `GLADIATOR`), `old_level = 1` (so that the enter
+   world's `onLevelChange(1, 9)` teaches the new class's skills up to 9) and `INSERT INTO player_quests (player_id, quest_id, status) VALUES
+   (<id>, 1006, 'COMPLETE');` (2008 for an Asmodian; the status by name, step 8). Log in: the class is the new one, with its level-9
+   passives; the bar is still full at 9.
 5. Kill a monster: **level 10**; a batch of new skills; the gathering skill becomes the Daeva version; **a DP bar appears**.
 6. Glide: it works now and the flight-time bar drains. Talk to **Pernos**: a different dialog page than before (1352).
 7. Use the new skills. *Absorbing Fury* and *Roiling Hack* need a **greatsword or polearm** (the Training Sword will not do; buy one from an
@@ -1349,14 +1352,14 @@ m5a_stress`): 46 of 46 in 1,291 s, while M5c stage 1's first two lanes were comp
 
 ## 17. Status, 2026-10-04: the gate built (G-01..G-05, I-02, M-06, T-03)
 
-Lane 1 built the milestone's scenario gate on top of the 4.8 merges up to #56. It is on branch `worktree-agent-abf82242af811ae22` and is not yet merged. docs/deviations/P5-SC.md, "M5e gate (lane 1, 2026-10-04)", has the as-built table, the mutation table and the runs.
+Lane 1 built the milestone's scenario gate on top of the 4.8 merges up to #56. It is PR #75, branch `feat/cpp-m5e-gate` on `C++` (`feat/m5e-gate` on `4.8`), with the review's fixes of 2026-10-05 (§17.5). docs/deviations/P5-SC.md, "M5e gate (lane 1, 2026-10-04)", has the as-built table, the mutation table and the runs.
 
 ### 17.1 What landed
 
 | Item | As built |
 |---|---|
-| G-01 | `tools/oracle` `m5e-progression` (`m5e/progression.py`, 22 cases in `tests/test_m5e.py`). It covers the steps `create`, `enter:L`, `level:L`, `class:C`, `action:ID`, `quit`, `seed:CLASS` and `book:ITEM`, and gives per step the skills with their message ids (the `isNew` walk). It also gives the casts' conditions (`--skill`, `--weapon`, `--dp`, `--robot`, `--chain-after`, `--target-kind`), the charge window, and the stigma stones' skill and price (`--stigma`). Not built: the plan's `--npc`/`--map`/`--item`. The spots come from `m5b-monster`/`m5a-spawns`, a book from `book:`, a stone from `--stigma` |
-| G-02 | `GameSession` builders for `CM_MOVE` with the glide bit, `CM_TOGGLE_SKILL_DEACTIVATE`, `CM_USE_CHARGE_SKILL`, `CM_SUMMON_COMMAND` and `CM_SUMMON_ATTACK`. `ProgressionDecoders.{h,cpp}` covers 13 packets, written from `writeImpl` with no `serverpackets/` include. `ProgressionDecodersTest` has 13 cases |
+| G-01 | `tools/oracle` `m5e-progression` (`m5e/progression.py`) and, since the review, `m5e-stumble` (`m5e/stumble.py`, X9g's geo row); 27 cases in `tests/test_m5e.py`. It covers the steps `create`, `enter:L`, `level:L`, `class:C`, `action:ID`, `quit`, `seed:CLASS` and `book:ITEM`, and gives per step the skills with their message ids (the `isNew` walk). It also gives the casts' conditions (`--skill`, `--weapon`, `--dp`, `--robot`, `--chain-after`, `--target-kind`), the charge window, and the stigma stones' skill and price (`--stigma`). Not built: the plan's `--npc`/`--map`/`--item`. The spots come from `m5b-monster`/`m5a-spawns`, a book from `book:`, a stone from `--stigma` |
+| G-02 | `GameSession` builders for `CM_MOVE` with the glide bit, `CM_TOGGLE_SKILL_DEACTIVATE`, `CM_USE_CHARGE_SKILL`, `CM_SUMMON_COMMAND` and `CM_SUMMON_ATTACK`. `ProgressionDecoders.{h,cpp}` covers 13 packets, written from `writeImpl` with no `serverpackets/` include. `ProgressionDecodersTest` has 12 cases |
 | G-03, G-04 | `gs.scenario.m5e` and `gs.scenario.m5e_geo`, both in gate slot 1, with `m5e_partial_allowlist.txt` |
 | G-05 | The earlier geo gates were run once on this tree: m5a_geo, m5b_geo, m5b2_geo, m5b3_geo and m5d_geo all passed. The plain m5a-m5d gates were **not** re-run by this lane |
 | I-02 | `game-server/config/m5e.properties.example` |
@@ -1367,10 +1370,10 @@ Lane 1 built the milestone's scenario gate on top of the 4.8 merges up to #56. I
 1. **The Daeva's alternative page is asteros 203058's, not Pernos's** (§10.1 "Targets", X3, X7, X8). Since `_1123WheresTutty` registered, Pernos starts 1123 from level 7, and `hasQuestInteraction` wins over the Daeva branch (DialogPage.java:113-126). So Pernos answers 10 both before and after.
 2. **The level-ups kill the 2-HP junk monster 210340**, not "a Poeta kill target at A1's level". Pernos's level-7 monsters killed a level-8 Warrior.
 3. **X2 compares skill id sets.** `SkillEntryWriter` writes level 1 for normal skills.
-4. **C15 runs before C13.** At level 15, the revive of a Gladiator with 563 runs into a lock-order inversion inherited from Java (§17.4).
+4. **C15 runs before C13.** At level 15, the revive of a Gladiator with 563 ran into a lock-order inversion inherited from Java (§17.4). PR #77 corrects it (`CondSkillLauncherEffect.cpp`, the owner's decision of 2026-10-04), so the order is no longer needed for the deadlock; it is kept as the order the gate was measured in.
 5. **C12 runs after C13, at level 15.** At a level difference of 10 the junk monster does not aggro, so X9g's target stands still. 769 is retried while a dodge or resist blocks its chain (Skill.java:598-606). A drain update capped at the max HP may be less than ⌊d × p / 100⌋ (CreatureLifeStats.java:185, 191).
-6. **X9g is a band, not the exact 2 m point.** The gate knows the target's position only from broadcasts. The cast waits for the target's arrival where its last `SM_MOVE`, or its `SM_NPC_INFO` if it was seen walking, points, at the walk speed. The band is 2 m ± 0.9 m; a monster stops up to 0.6 m short of its `SM_MOVE` target.
-7. **X13: 1699 on a living target is refused before the cast** (`STR_SKILL_TARGET_IS_NOT_VALID`, `TargetRangeProperty`), not answered with status 16. So §10.4's `isDead`-guard row **cannot fail in the gate**; it belongs to E-02's unit case. The max HP after the soul sickness is asserted lower, not "70 %".
+6. **X9g is a band, not the exact 2 m point.** The gate knows the target's position only from broadcasts. The cast waits for the target's arrival where its last `SM_MOVE`, or its `SM_NPC_INFO` if it was seen walking, points, at the walk speed. The band is 2 m ± 0.9 m; a monster stops up to 0.6 m short of its `SM_MOVE` target. **Geo on** (since the review): the band's lower bound too, and z = `GeoMap.getZ` at the end within 0.01 m, for each stumble whose segment the new `oracle.py m5e-stumble` finds open in the geo data; at least one such stumble must come within the budget. The budget is a fixed 240 s, not derived from X12's 10^-4 rule (the critical rate is a stat the oracle does not model).
+7. **X13: 1699 on a living target is refused before the cast** (`STR_SKILL_TARGET_IS_NOT_VALID` from `PlayerRestrictions.canUseSkill`: a skill with a resurrect effect on a living player, PlayerRestrictions.java:105, 110-113, called from PlayerController.java:474), not answered with status 16. The revive clears B1's target (PlayerReviveService.java:190-193), so B1 selects A1 again before the cast. §10.4's `isDead`-guard row **cannot fail in the gate**; it belongs to E-02's unit case. The max HP after the soul sickness is asserted lower, not "70 %".
 8. **X15: the seed sets `item_skin` with `item_id`.** `RideRobotEffect` reads the robot through `getItemSkinTemplate`.
 9. **X17: the summon hits only after the client's `CM_SUMMON_ATTACK`.** The ATTACK command sets the mode.
 10. **X18: the stone is 140001109** *Crippling Cut*. The price is 25,000 for RARE, through `PricesService`.
@@ -1386,6 +1389,23 @@ P5-SC.md has the table.
 
 ### 17.4 Findings for the owner
 
-- **A Java-inherited lock-order inversion**: `Effect.startEffect` (`synchronized`) → `CreatureGameStats.checkMaxHPChanged` (`synchronized`) → `CondSkillLauncherEffect`'s observer (`synchronized`) → `Effect.endEffect` (`synchronized`). It is the same nesting as Effect.java:653, 712, CreatureGameStats.java:371 and `CondSkillLauncherEffect$1`. lockdep reports it on a level-15 Gladiator's revive. It was not corrected (bug-fix policy).
+- **A Java-inherited lock-order inversion**: `Effect.startEffect` (`synchronized`) → `CreatureGameStats.checkMaxHPChanged` (`synchronized`) → `CondSkillLauncherEffect`'s observer (`synchronized`) → `Effect.endEffect` (`synchronized`). It is the same nesting as Effect.java:653, 712, CreatureGameStats.java:371 and `CondSkillLauncherEffect$1`. lockdep reported it on a level-15 Gladiator's revive. **It is corrected by PR #77** (`CondSkillLauncherEffect.cpp`, the owner's decision of 2026-10-04, both branches; docs/deviations/P5-03.md "CondSkillLauncherEffect: the lock-order correction"). The gate keeps C15 before C13, which is no longer needed for it.
 - No C++ port bug was found on the gate's path. `census.py`'s known answer for `SummonMode.getId` (moved by M-05) was updated.
-- D1 (the key's production value) is still the owner's.
+- D1 is answered (2026-10-04): players change class through the retail ascension route; play runs with `gameserver.simple.secondclass.enable = false` (`m5e.properties.example`, §11); the gate keeps `true` only to seed a class change.
+
+### 17.5 The review of PR #75 (2026-10-05)
+
+- **X9g with geo** checks the band's lower bound and the stumble's z against `GeoMap.getZ` on open ground (§17.2 row 6); `oracle.py
+  m5e-stumble` (`m5e/stumble.py`) decides "open" conservatively: no geometry with a `DEFAULT_COLLISIONS` intention crosses
+  `getClosestCollision`'s ray, and the ground stays 0.3 m below it.
+- **X20** asserts the G-07 relation rows (`live Effect == effectsHeld`, `live Skill == skillsHeld`, `live EffectReserved <=
+  effectReservedCapacity`) as M5b2's X13 does, and `Summon` 0 with `created > 0`.
+- **C15** selects A1 again after the revive, so the living-target refusal is `canUseSkill`'s living branch (§17.2 row 7); it asserts the 35 %
+  MP; A1's death is read from the recording since before the walk.
+- **C16** casts 1685 (a shown one-hour BUFF of the Chanter) before the toggle packet, so "changes nothing" is observable.
+- **C0** fails on any of B's casts the oracle refuses.
+- **C20** seeds 1929 with an upsert (its handler may write the row first once M5f ports it).
+- **C21** writes the stop file with A1 online, as §10.2 has it.
+- **X9's drains** expect no update for a dodged, resisted or conflicting effect (Java schedules none); a 758 with no applied effect is cast
+  again.
+- **The oracle**: `level:L` caps a non-Daeva at 9 (setExp), and `create` leaves `old_level` at 0.
