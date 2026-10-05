@@ -3014,8 +3014,9 @@ LIVE_CHECKS = [
     # summonModeId of serverpackets/detail/PacketSupport.h
     ('model/summons/SummonMode.java', 'SummonMode', 'getId', 0, None, 'ported', ''),
     ('model/team/legion/LegionRank.java', 'LegionRank', 'getRankId', 0, None, 'standIn', 'standIn'),
+    # ported since M5j K-06 (network/aion/clientpackets/AbstractGmCommandPacket.cpp); ChatUtil.cpp's stand-in is gone
     ('network/aion/clientpackets/AbstractGmCommandPacket.java', 'AbstractGmCommandPacket', 'replaceUnsupportedCommandChars', 1, None,
-     'standIn', 'standIn'),
+     'ported', None),
     ('network/aion/instanceinfo/ArenaScoreWriter.java', 'ArenaScoreWriter', 'ArenaScoreWriter', 3, None, 'unported', None),
     ('ai/AIEngine.java', 'AIEngine', 'findDefaultOwnerType', 1, None, 'omitted', None),
     ('geoEngine/math/Matrix4f.java', 'Matrix4f', 'set', 1, 426, 'omitted', None),
