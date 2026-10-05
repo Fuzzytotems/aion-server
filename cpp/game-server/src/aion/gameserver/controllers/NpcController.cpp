@@ -37,6 +37,7 @@
 #include "aion/gameserver/model/stats/container/NpcGameStats.h"
 #include "aion/gameserver/model/stats/container/NpcLifeStats.h"
 #include "aion/gameserver/model/team/TemporaryPlayerTeam.h"
+#include "aion/gameserver/model/team/common/service/PlayerTeamDistributionService.h"
 #include "aion/gameserver/model/templates/npc/NpcTemplate.h"
 #include "aion/gameserver/model/templates/spawns/SpawnTemplate.h"
 #include "aion/gameserver/network/aion/serverpackets/SM_LOOKATOBJECT.h"
@@ -244,7 +245,7 @@ void NpcController::doReward() {
 		Ptr<AionObject> attacker = info.getAttacker();
 		float percentage = static_cast<float>(info.getDamage()) / static_cast<float>(finalList.getTotalDamage());
 		if (Ptr<model::team::TemporaryPlayerTeam> tmpPlayerTeam = runtime::as<model::team::TemporaryPlayerTeam>(attacker)) {
-			standins::playerTeamDistributionServiceDoReward(*tmpPlayerTeam, percentage, getOwner(), *winner, finalList);
+			model::team::common::service::PlayerTeamDistributionService::doReward(*tmpPlayerTeam, percentage, getOwner(), *winner, finalList);
 		} else if (Ptr<Player> player = runtime::as<Player>(attacker)) {
 			if (!player->isDead()) {
 				// Reward init
