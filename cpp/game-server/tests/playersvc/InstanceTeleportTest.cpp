@@ -356,7 +356,11 @@ TEST_F(InstanceTeleportTest, InEventModeInstanceReviveRevivesFullyAndGoesToTheEv
 	actor.player->setCustomState(model::gameobjects::player::CustomPlayerState::EVENT_MODE);
 	runtime::resetUnportedHitsForTests();
 
-	EXPECT_THROW(PlayerReviveService::instanceRevive(*actor.player), runtime::UnportedException) << "TeleportService.teleportToEvent";
+	// TeleportService.teleportToEvent (ported in M5f) without an event position: the move to the bind location, the Elyos spawn in Poeta
+	PlayerReviveService::instanceRevive(*actor.player);
+
+	EXPECT_EQ(actor.player->getWorldId(), POETA) << "teleportToEvent -> moveToBindLocation";
+	EXPECT_FLOAT_EQ(actor.player->getX(), ELYOS_SPAWN_X);
 
 	EXPECT_EQ(actor.player->getLifeStats()->getHpPercentage(), 100) << "revive(player, 100, 100, false, skillId)";
 	const int rebirth = indexOf(cptest::serialized(SM_SYSTEM_MESSAGE::STR_REBIRTH_MASSAGE_ME(), client->con()));
