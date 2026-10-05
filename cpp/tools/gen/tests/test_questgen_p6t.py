@@ -424,14 +424,14 @@ class Driver(unittest.TestCase):
         rels = [rel for rels in UNBLOCKED.values() for rel in rels]
         files = [QUEST / rel for rel in rels]
         results, rep = cli.run(files, pairs=False)
-        self.assertEqual(rep['rules'], sorted(RULES))
+        self.assertEqual(rep['rules'], sorted(emit.ALL_RULES))     # the P6-T rules and, since the G1 lane, emit.G1_RULES
         self.assertEqual(rep['coverage']['transliterated'], len(rels))
         results, rep = cli.run(files, pairs=False, rules=frozenset())
         self.assertEqual((rep['rules'], rep['coverage']['transliterated']), ([], 0))
         with contextlib.redirect_stdout(io.StringIO()) as out:
             cli.main(['--dry-run', '--no-pairs', '--only', 'poeta/_1005BarringtheGate.java'])
         self.assertIn('1 of 1 transliterated', out.getvalue())
-        self.assertIn('emitter rules: nested-array, switch-expression, varargs-inline, work-items', out.getvalue())
+        self.assertIn('emitter rules: nested-array, scheduled-closure, switch-expression, varargs-inline, work-items', out.getvalue())
         with contextlib.redirect_stdout(io.StringIO()) as out:
             cli.main(['--dry-run', '--no-pairs', '--prototype-rules', '--only', 'poeta/_1005BarringtheGate.java'])
         self.assertIn('0 of 1 transliterated', out.getvalue())
@@ -461,13 +461,18 @@ class Corpus(unittest.TestCase):
 
     def test_the_rules_only_add_files(self):
         added = sorted(rel for rel, r in self.p6t.items() if r.status == 'ok' and self.proto[rel].status != 'ok')
-        self.assertEqual(added, sorted(rel for rels in UNBLOCKED.values() for rel in rels))
+        # and two files of the G1 lane's rows that need a P6-T rule as well (2026-10-04, tests.test_questgen_g1: B37 and a switch rule in
+        # _24030, B32 and a varargs array in _2007)
+        self.assertEqual(added, sorted([rel for rels in UNBLOCKED.values() for rel in rels]
+                                       + ['clash_of_destiny/_24030ShowdownWithDestiny.java', 'ishalgen/_2007WheresRaeThisTime.java']))
         for rel, r in self.proto.items():
             if r.status == 'ok':
                 with self.subTest(rel=rel):
                     self.assertEqual(self.p6t[rel].cpp, r.cpp)                   # byte for byte the prototype's output
-        # the prototype's 910 and the six escorts rows B26-B30 admit (2026-09-30): API rows are not P6-T rules, so both sets gain them
-        self.assertEqual(sum(1 for r in self.proto.values() if r.status == 'ok'), 916)
+        # the prototype's 910 and the six escorts rows B26-B30 admit (2026-09-30): API rows are not P6-T rules, so both sets gain them; and
+        # six of the ten files of the G1 lane's rows B32-B38 (2026-10-04, tests.test_questgen_g1; two need a P6-T rule, two rule
+        # scheduled-closure)
+        self.assertEqual(sum(1 for r in self.proto.values() if r.status == 'ok'), 922)
 
     def test_the_oracle_slice_is_tier_a(self):
         # tools/oracle/questtrace/extract.py SLICE: the Poeta and Ishalgen files questgen emits in tier A (phase6-inventory.md §9.3 item 1)
