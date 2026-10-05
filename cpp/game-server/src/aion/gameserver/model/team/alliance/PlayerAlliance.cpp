@@ -126,6 +126,10 @@ runtime::Ptr<common::legacy::LootGroupRules> PlayerAlliance::getLootGroupRules()
 	return !current ? TemporaryPlayerTeam::getLootGroupRules() : current->getLootGroupRules();
 }
 
+void PlayerAlliance::releaseGroups() {
+	groups.clear();
+}
+
 PlayerAlliance::~PlayerAlliance() = default;
 
 runtime::Ptr<PlayerAllianceMember> PlayerAlliance::getMember(int32_t value) {
