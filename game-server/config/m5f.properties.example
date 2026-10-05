@@ -1,0 +1,103 @@
+# M5f profile of the C++ game server (cpp/docs/design/m5f-plan.md §10.1, §11, decisions D7 and D11): travel and the first instance - the
+# hotspots, the teleporters and the flight masters, the obelisks and Return, the portals and Haramel, its entrance cooldown and its
+# destruction.
+#
+# It is the M5e profile (m5e.properties.example) with what M5f adds (below); nothing of M5f reads the M5b-M5e keys, and they stay so that one
+# file plays every milestone so far. Keep the files in sync: M5f adds to M5e, M5d, M5c, M5b-3, M5b-2, M5b-1 and M5a.
+#
+# The scenario gate (gs.scenario.m5f) does NOT pass this whole file: it passes the M5a profile (ScenarioServers::m5aProfile) and the keys of
+# M5fScenarioTest.cpp's gateKeys as -D arguments - and turns ONE key the other way: gameserver.instance.solo.destroy_delay_seconds = 1
+# (D11), so that the first checker run, 60 s after Haramel's creation, destroys the empty instance; the real-client session keeps the
+# default of 600 (§11 steps 14-15 are written for it).
+#
+# TO PLAY with a real 4.8 client (m5f-plan.md §11): copy these lines into config/mygs.properties, as they are, with your usual geo setting
+# (on). A Daeva comes from the retail ascension route (1006 / 2008, M5f stage 3, H-02) or, until then, from the SQL of m5e-plan.md §11
+# step 4 - a Templar, not a Gladiator at 15+ (W-14 is closed since PR #77, but the gate measured the Templar).
+#
+# Not read by the servers: only config/mygs.properties is loaded.
+
+# --- the M5a profile, unchanged ------------------------------------------------------------------------------------------------------------
+
+# C++ only: NPCs whose AI handler is not ported yet get a dummy AI with a warning instead of failing the spawn (fail = default)
+gameserver.dev.missing_ai_handlers = warn
+
+# systems whose services are not part of M5a; the siege off also fixes the prices (m5c-plan.md §2.10), which a stigma's kinah goes through
+# (StigmaService.notifyEquipAction -> PricesService.getPriceForService, X18)
+gameserver.siege.enable = false
+gameserver.autogroup.enable = false
+gameserver.rift.enable = false
+gameserver.vortex.enable = false
+gameserver.worldraid.enable = false
+gameserver.cp.enable = false
+gameserver.limits.enable = false
+# every event off, including the date-less "Beyond Aion Server Buffs" of custom_events.xml
+gameserver.event.service.disabled_events = *
+
+# the address the login server lists for this game server (the default 0.0.0.0 is not reachable by the client)
+gameserver.network.client.connect_address = 127.0.0.1:7777
+
+# --- the M5b-1 profile, unchanged --------------------------------------------------------------------------------------------------------
+
+# the shout service; false is already the default (AIConfig.cpp:14), written out (m5b-plan.md D1)
+gameserver.npcshouts.enable = false
+
+# the solo experience rates (m5b-plan.md D7); "1.0, 2.0" is the default (RatesConfig.java:30). M5e's kills level a character, and the gate's
+# thresholds come from the oracle's experience table, not from a kill's exp
+gameserver.rates.xp.solo = 1.0, 2.0
+
+# --- the M5b-2 profile, unchanged (D5 of m5b2-plan.md) -------------------------------------------------------------------------------------
+
+# Soul sickness ON: the retail default, written out. M5e's resurrection (X13) gives 1699's own 8296, which this key does not change
+gameserver.soulsickness.disable = 10
+
+# --- the M5b-3 profile, with the drop rate of the gates other than M5b-3's own (m5b3-plan.md D4) ------------------------------------------
+
+gameserver.rates.drop = 0
+gameserver.items.ignore_potions_at_full_health = false
+gameserver.rates.godstone.activation.rate = 1.0
+gameserver.rates.godstone.evaluation.cooldown_millis = 750
+gameserver.drop.announce_quality = MYTHIC
+
+# --- the M5c profile, unchanged (m5c-plan.md D6) -------------------------------------------------------------------------------------------
+
+gameserver.craft.fail.chance = 0
+gameserver.rates.crafting.crit_chances = 0, 0
+gameserver.rates.manastone_chances = 200, 200
+
+# --- what the M5d gate passes (M5dScenarioTest.cpp's gate keys; m5d-plan.md D7, §10.1) ------------------------------------------------------
+
+# the quest kinah rate at its default, written out: membership 0 -> 1.0 (RatesConfig.java:78)
+gameserver.rates.kinah.quest = 1.0, 2.0
+# the quest spawn analysis off at startup (GSConfig.java:80, default true): it changes no quest, it only costs startup time
+gameserver.analysis.quest_handlers = false
+
+# --- what M5e adds (m5e-plan.md D1, D9) ----------------------------------------------------------------------------------------------------
+
+# D1, answered 2026-10-04: the retail route. OFF for play (the Java default, CustomConfig.java:68, config/main/custom.properties:32): the
+# class change is the ascension mission 1006 / 2008 (Karamatis B / Ataxiar B), which registers only with the key off
+# (_1006Ascension.java:48-50). The scenario gate passes true instead, only to seed a class change: then a starting class of level 9 or more
+# gets SM_DIALOG_WINDOW(0, its selection page, 1006 / 2008) at every enter world (PlayerEnterWorldService.java:320-321,
+# ClassChangeService.showClassChangeDialog), and the client's CM_DIALOG_SELECT(0, action, ..., 1006 / 2008) changes its class
+# (CM_DIALOG_SELECT.java:105-106, ClassChangeService.changeClassToSelection).
+gameserver.simple.secondclass.enable = false
+
+# D9: the quest experience rate pinned at its default (RatesConfig.java:36), applied without a cap by Rates.XP_QUEST (Rates.java:29-33): the
+# class master's 275 exp of quest 1205 (X1) is exact for a membership-0 account
+gameserver.rates.xp.quest = 1.0, 2.0
+
+# --- what M5f adds (m5f-plan.md §10.1, D7, D11) ----------------------------------------------------------------------------------------
+
+# D11: how long a solo instance waits after its last player left before the once-a-minute checker destroys it (InstanceService.java:177-191,
+# instance.properties:22). The default 600, written out: the real-client checklist's "the instance will be destroyed in 10 minutes" (§11
+# step 14) and its 12-minute wait (step 15). The scenario gate passes 1 instead (above).
+gameserver.instance.solo.destroy_delay_seconds = 600
+
+# D7: the fly-path validator stays OFF (the Java default, SecurityConfig.java:69-70). It looks the fly path up by the teleport location's id,
+# and loc ids and fly-path ids are different number spaces, so turning it on refuses every flight transport - Java's quirk, kept and named.
+gameserver.security.validation.flypath = false
+
+# Only in the scenario gate, not for play (geo data stays on with the real client; the gate also passes
+# gameserver.instance.solo.destroy_delay_seconds = 1, above):
+# gameserver.geodata.enable = false
+# gameserver.character.reentry.time = 1
+# gameserver.shutdown.delay = 2
