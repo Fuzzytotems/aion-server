@@ -2228,6 +2228,11 @@ void runM5eGate(const GateVariant& variant) {
 					break;
 				const std::array<float, 3> at = pointNear(npc->x, npc->y, npc->z, MELEE_DISTANCE - 0.5, a.x, a.y);
 				walkTo(a, at[0], at[1], at[2]);
+				// the arrival again, 15 s at most: a stumble of a cast that went off while the target still walked is not measurable (a
+				// run whose 519, the one stumble a DP seed buys, was refused as too far and recast at once stumbled a walking target)
+				const auto retryDeadline = std::chrono::steady_clock::now() + 15s;
+				while (std::chrono::steady_clock::now() < retryDeadline && !arrived())
+					collectFor(*a.game, 250ms);
 				before = a.npcs.all();
 				castAt = std::chrono::steady_clock::now();
 				outcome = cast(a, skill, target, 4s);
@@ -2416,8 +2421,12 @@ void runM5eGate(const GateVariant& variant) {
 			collectFor(*a.game, 10500ms);
 			target = engage(a, MELEE_DISTANCE);
 			auto [again, againResult] = castRecorded(ABSORBING_FURY, target);
-			if (againResult && againResult->chainStatus == decoders::CAST_RESULT_CHAIN_SUCCESS)
+			// 758 only off its 40 s cooldown: a refused 758 would spend the round on castRecorded's retries
+			if (againResult && againResult->chainStatus == decoders::CAST_RESULT_CHAIN_SUCCESS &&
+			    (!hackCastAt || std::chrono::steady_clock::now() >= *hackCastAt + HACK_COOLDOWN)) {
+				hackCastAt = std::chrono::steady_clock::now();
 				castRecorded(ROILING_HACK, target);
+			}
 		}
 		if (const auto first = std::ranges::find_if(stumbles, measured); first != stumbles.end())
 			std::cout << "X9g: " << stumbles.size() << " stumble(s); the first measurable one (" << first->skillId << ") came "
