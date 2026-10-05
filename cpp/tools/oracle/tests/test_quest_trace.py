@@ -605,6 +605,43 @@ class JavaSemanticsTest(unittest.TestCase):
 
 
 @unittest.skipUnless(HAVE_JAVA_TREE, "Java tree not present")
+class Q08SliceTest(unittest.TestCase):
+	"""the gelkmaros and enshar slice (SLICE_Q08, phase 6 step 2, lane C, 2026-10-05; docs/deviations/Q08.md)"""
+
+	@classmethod
+	def setUpClass(cls):
+		cls.docs = {}
+		for rel in extract.SLICE_Q08:
+			d = extract.trace_file(tables(), extract.QUEST_DIR / rel, rel)
+			cls.docs[d["questId"]] = d
+
+	def test_the_q08_slice(self):
+		java = sorted(f"{d}/{f.name}" for d in ("gelkmaros", "enshar") for f in (extract.QUEST_DIR / d).glob("*.java"))
+		self.assertEqual(len(java), 64)
+		# questgen refuses one (DataManager.QUEST_DATA, QuestTemplate.getName): not in the tree, not in the slice
+		self.assertEqual(sorted(extract.SLICE_Q08), sorted(set(java) - {"gelkmaros/_20034RescuetheReians.java"}))
+		self.assertEqual(len(self.docs), 63)
+		self.assertEqual(set(extract.SLICE_Q08) & set(extract.SLICE_TIER_A + extract.SLICE_ROUTE + extract.SLICE_Q03 + extract.SLICE_Q10), set())
+		# every hook refused in eight (the golden harness's ORACLE_REFUSES_EVERY_HOOK); their registration is traced
+		empty = sorted(q for q, d in self.docs.items() if not d["cases"])
+		self.assertEqual(empty, [21004, 21027, 21033, 21036, 21071, 21105, 21249, 25052])
+		for d in self.docs.values():
+			self.assertIsInstance(d["register"], list)
+		self.assertEqual(extract.check(rels=extract.SLICE_Q08, extra=False), [])
+
+	def test_20500_starts_in_enshar_only(self):
+		# _20500EnsharExpedition.java:75-80: onEnterWorldEvent starts the quest in Enshar (WorldMapType.ENSHAR) without one, else false
+		d = self.docs[20500]
+		world = [c for c in d["cases"] if c["hook"] == "onEnterWorldEvent"]
+		started = [c for c in world if c["effects"]]
+		self.assertTrue(started)
+		for c in started:
+			self.assertEqual(c["effects"][0]["call"], "QuestService.startQuest")
+			self.assertEqual(c["given"]["player"]["worldId"], extract.Tables().world_maps["ENSHAR"])
+		self.assertTrue(all(not c["effects"] and c["returns"] is False for c in world if c not in started))
+
+
+@unittest.skipUnless(HAVE_JAVA_TREE, "Java tree not present")
 class ScheduledTaskTest(unittest.TestCase):
 	"""lane C (phase 6 step 1, phase6-transliterator.md §7): closures (jast's closures=True), the task of ThreadPoolManager.schedule run after the
 	hook, the item-use packets and removal around it, a bounded symbolic setQuestVar, AbyssRankEnum, and parser refusals per hook"""

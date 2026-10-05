@@ -1,0 +1,114 @@
+{
+ "format": "aion-quest-trace",
+ "version": 1,
+ "questId": 21056,
+ "java": "gelkmaros/_21056FundinOrders.java",
+ "class": "_21056FundinOrders",
+ "javaSha256": "d41ea3bbd48149e005d9fca575a9898e3d83cbd8ade09c8aa0030a394ff64c4d",
+ "register": [
+  {"call": "registerQuestItem", "args": [182207845, 21056]},
+  {"npc": 799354, "event": "addOnTalkEvent", "args": [21056]},
+  {"npc": 296489, "event": "addOnKillEvent", "args": [21056]},
+  {"npc": 296490, "event": "addOnKillEvent", "args": [21056]},
+  {"npc": 296491, "event": "addOnKillEvent", "args": [21056]}
+ ],
+ "hooks": [
+  {"hook": "onDialogEvent", "line": 33, "unsupported": "call player.getInventory().getKinah()"},
+  {"hook": "onKillEvent", "line": 67, "cases": 6},
+  {"hook": "onItemUseEvent", "line": 83, "cases": 4}
+ ],
+ "cases": [
+  {
+   "id": "onKillEvent#1",
+   "hook": "onKillEvent",
+   "given": {"questState": {"status": "START", "vars": {"0": 0}}},
+   "guards": ["qs != null -> true @70", "qs.getStatus() == QuestStatus.START -> true @70", "var == 0 -> true @72"],
+   "effects": [{"call": "defaultOnKillEvent", "kind": "var", "args": [296489, 0, 1], "line": 73}],
+   "returns": {"resultOf": 0}
+  },
+  {
+   "id": "onKillEvent#2",
+   "hook": "onKillEvent",
+   "given": {"questState": {"status": "START", "vars": {"0": 1}}},
+   "guards": ["qs != null -> true @70", "qs.getStatus() == QuestStatus.START -> true @70", "var == 0 -> false @72", "var == 1 -> true @74"],
+   "effects": [{"call": "defaultOnKillEvent", "kind": "var", "args": [296490, 1, 2], "line": 75}],
+   "returns": {"resultOf": 0}
+  },
+  {
+   "id": "onKillEvent#3",
+   "hook": "onKillEvent",
+   "given": {"questState": {"status": "START", "vars": {"0": 2}}},
+   "guards": [
+    "qs != null -> true @70",
+    "qs.getStatus() == QuestStatus.START -> true @70",
+    "var == 0 -> false @72",
+    "var == 1 -> false @74",
+    "var == 2 -> true @76"
+   ],
+   "effects": [{"call": "defaultOnKillEvent", "kind": "var", "args": [296491, 2, true], "line": 77}],
+   "returns": {"resultOf": 0}
+  },
+  {
+   "id": "onKillEvent#4",
+   "hook": "onKillEvent",
+   "given": {"questState": {"status": "START", "vars": {"0": 3}}},
+   "guards": [
+    "qs != null -> true @70",
+    "qs.getStatus() == QuestStatus.START -> true @70",
+    "var == 0 -> false @72",
+    "var == 1 -> false @74",
+    "var == 2 -> false @76"
+   ],
+   "effects": [],
+   "returns": false
+  },
+  {
+   "id": "onKillEvent#5",
+   "hook": "onKillEvent",
+   "given": {"questState": {"status": "REWARD"}},
+   "guards": ["qs != null -> true @70", "qs.getStatus() == QuestStatus.START -> false @70"],
+   "effects": [],
+   "returns": false
+  },
+  {
+   "id": "onKillEvent#6",
+   "hook": "onKillEvent",
+   "given": {"questState": null},
+   "guards": ["qs != null -> false @70"],
+   "effects": [],
+   "returns": false
+  },
+  {
+   "id": "onItemUseEvent#1",
+   "hook": "onItemUseEvent",
+   "given": {"questState": null},
+   "guards": ["qs == null -> true @86"],
+   "effects": [{"call": "sendQuestDialog", "kind": "dialog", "args": [4], "line": 87}],
+   "returns": {"fromBoolean": {"resultOf": 0}}
+  },
+  {
+   "id": "onItemUseEvent#2",
+   "hook": "onItemUseEvent",
+   "given": {"questState": {"status": "COMPLETE", "canRepeat": true}},
+   "guards": ["qs == null -> false @86", "qs.isStartable() [status == COMPLETE] -> true @86", "qs.isStartable() [canRepeat] -> true @86"],
+   "effects": [{"call": "sendQuestDialog", "kind": "dialog", "args": [4], "line": 87}],
+   "returns": {"fromBoolean": {"resultOf": 0}}
+  },
+  {
+   "id": "onItemUseEvent#3",
+   "hook": "onItemUseEvent",
+   "given": {"questState": {"status": "COMPLETE", "canRepeat": false}},
+   "guards": ["qs == null -> false @86", "qs.isStartable() [status == COMPLETE] -> true @86", "qs.isStartable() [canRepeat] -> false @86"],
+   "effects": [],
+   "returns": "FAILED"
+  },
+  {
+   "id": "onItemUseEvent#4",
+   "hook": "onItemUseEvent",
+   "given": {"questState": {"status": "START"}},
+   "guards": ["qs == null -> false @86", "qs.isStartable() [status == COMPLETE] -> false @86"],
+   "effects": [],
+   "returns": "FAILED"
+  }
+ ]
+}

@@ -1,0 +1,15 @@
+{
+ "format": "aion-quest-trace",
+ "version": 1,
+ "questId": 21033,
+ "java": "gelkmaros/_21033ExorcisingInfisto.java",
+ "class": "_21033ExorcisingInfisto",
+ "javaSha256": "0a480584e44f2c79d0065df7b750a02964cde0d8210159aab15e114d9a96a0a7",
+ "register": [
+  {"npc": 799256, "event": "addOnTalkEvent", "args": [21033]},
+  {"npc": 204734, "event": "addOnTalkEvent", "args": [21033]},
+  {"npc": 799256, "event": "addOnQuestStart", "args": [21033]}
+ ],
+ "hooks": [{"hook": "onDialogEvent", "line": 28, "unsupported": "reads status/21033 after sendQuestNoneDialog, which may have written it"}],
+ "cases": []
+}
