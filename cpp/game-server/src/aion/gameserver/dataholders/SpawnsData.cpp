@@ -2,11 +2,13 @@
 
 #include <algorithm>
 #include <string>
+#include <typeinfo>
 
 #include "aion/gameserver/dataholders/DataManager.h"
 #include "aion/gameserver/dataholders/WorldMapsData.h"
 #include "aion/gameserver/dataholders/loadingutils/EnumTraits.h"
 #include "aion/gameserver/model/Race.h"
+#include "aion/gameserver/model/gameobjects/VisibleObject.h"
 #include "aion/gameserver/model/gameobjects/player/Player.h"
 #include "aion/gameserver/model/templates/event/EventTemplate.h"
 #include "aion/gameserver/model/templates/spawns/Spawn.h"
@@ -209,7 +211,20 @@ const model::templates::spawns::mercenaries::MercenarySpawn* SpawnsData::getMerc
 	return it != mercenarySpawns.end() ? it->second : nullptr;
 }
 
-bool SpawnsData::saveSpawn(model::gameobjects::VisibleObject& /*visibleObject*/, bool /*delete_*/) {
+// Java SpawnsData.java:205-214 (the guard prefix, m5j K-10); the file-I/O tail stays unported (m5j D7/D14)
+// lint: L7 Java synchronized guards the spawn files; the ported guard only reads the object's own spawn template, the monitor comes with the tail
+bool SpawnsData::saveSpawn(model::gameobjects::VisibleObject& visibleObject, bool /*delete_*/) {
+	// Java: synchronized. The guard reads only the object's own spawn template; the monitor comes with the tail, which writes the files
+	runtime::Ptr<model::templates::spawns::SpawnTemplate> spawn = visibleObject.getSpawn();
+	if (spawn == nullptr) // some objects like house objects have no spawn template
+		return false;
+	if (typeid(*spawn) != typeid(model::templates::spawns::SpawnTemplate)) // do not save special/temporary spawns (siege, base, rift spawn, ...) as world spawns
+		return false;
+	if (spawn->getRespawnTime() <= 0) // do not save single time spawns (world raid, handler spawn, ...) as world spawns
+		return false;
+	if (spawn->isTemporarySpawn()) // spawn start and end times of temporary world spawns (shugos, agrints, ...) would get lost
+		return false;
+
 	// the //spawn admin write-back: reads and writes spawn XML files with JAXBUtil and the XSD (static-data.md §3.6 item 7, after the load path)
 	AION_UNPORTED();
 }
