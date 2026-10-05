@@ -34,6 +34,8 @@
 #include "aion/gameserver/network/aion/serverpackets/SM_SYSTEM_MESSAGE.h"
 #include "aion/gameserver/runtime/base/Unported.h"
 #include "aion/gameserver/skillengine/effect/AbnormalState.h"
+#include "aion/gameserver/services/ban/ChatBanService.h"
+#include "aion/gameserver/services/player/PlayerChatService.h"
 #include "aion/gameserver/skillengine/model/Skill.h"
 #include "aion/gameserver/skillengine/model/SkillTemplate.h"
 #include "aion/gameserver/skillengine/model/SkillType.h"
@@ -217,8 +219,30 @@ bool PlayerRestrictions::canTrade(runtime::Ptr<Player> player) {
 	return true;
 }
 
+// Java PlayerRestrictions.java:254-275
 bool PlayerRestrictions::canChat(runtime::Ptr<Player> player) {
-	AION_UNPORTED();
+	if (!player || !player->isOnline())
+		return false;
+
+	if (player->isInPrison()) {
+		utils::PacketSendUtility::sendPacket(*player,
+			network::aion::serverpackets::SM_SYSTEM_MESSAGE::STR_INGAME_BLOCK_IN_NO_CHAT(player->getPrisonDurationSeconds() / 60 + 1));
+		return false;
+	}
+
+	if (services::ban::ChatBanService::isBanned(*player)) {
+		utils::PacketSendUtility::sendPacket(*player,
+			network::aion::serverpackets::SM_SYSTEM_MESSAGE::STR_INGAME_BLOCK_IN_NO_CHAT(services::ban::ChatBanService::getBanMinutes(*player)));
+		return false;
+	}
+
+	if (services::player::PlayerChatService::isFlooding(*player)) {
+		services::ban::ChatBanService::banPlayer(*player, 2 * 60 * 1000);
+		utils::PacketSendUtility::sendPacket(*player, network::aion::serverpackets::SM_SYSTEM_MESSAGE::STR_FLOODING());
+		return false;
+	}
+
+	return true;
 }
 
 // Java PlayerRestrictions.java:277-369 (m5b3-plan.md P-01): the restriction step of CM_USE_ITEM, after the item-use observers were notified
