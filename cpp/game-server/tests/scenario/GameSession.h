@@ -157,6 +157,7 @@ public:
 	/** M5e's packets (m5e-plan.md G-02; AionClientPacketFactory.java:62, 149, 262) */
 	static constexpr int32_t CM_TOGGLE_SKILL_DEACTIVATE = 34;
 	static constexpr int32_t CM_SUMMON_COMMAND = 121;
+	static constexpr int32_t CM_SUMMON_ATTACK = 203;
 	static constexpr int32_t CM_USE_CHARGE_SKILL = 234;
 	static constexpr int32_t CM_TUNE = 235;
 	static constexpr int32_t CM_SELECT_DECOMPOSABLE = 236;
@@ -612,6 +613,12 @@ public:
 	static constexpr uint8_t SUMMON_RELEASE = 3;
 	/** CM_SUMMON_COMMAND.readImpl (CM_SUMMON_COMMAND.java:26-31): readUC mode, two readD the server drops (written 0), readD targetObjId */
 	static std::vector<uint8_t> buildCM_SUMMON_COMMAND(uint8_t mode, int32_t targetObjectId = 0);
+	/**
+	 * CM_SUMMON_ATTACK.readImpl (CM_SUMMON_ATTACK.java:30-36): readD summonObjId, readD targetObjId, readC unk1, readUH time, readC unk3 (both
+	 * unknowns written 0). A summon is driven by its master's client: SummonsService.doMode's ATTACK only sets the mode
+	 * (SummonController.attackMode), each hit is one of these, which runImpl turns into the summon's attackTarget(target, time) (:39-50)
+	 */
+	static std::vector<uint8_t> buildCM_SUMMON_ATTACK(int32_t summonObjectId, int32_t targetObjectId, uint16_t time = 0);
 
 	network::test::FakeGameClient client;
 
