@@ -12,9 +12,9 @@
 // - ACTUAL: the case's hook of the generated handler runs on that state;
 // - EXPECTED: the same state is built again (same player object id, same npc) and the case's effects, the calls Java makes on that path in
 //   order, are replayed on the real helpers (AbstractQuestHandler through a PlainHandler of the quest, QuestService, the QuestState setters);
-// - both runs are compared: the SM_DIALOG_WINDOW, SM_QUEST_ACTION and SM_PLAY_MOVIE packets byte for byte, the opcode sequence of every packet
-//   sent, every QuestState of the player afterwards (status, vars, reward group, complete count), the inventory (item id -> count) and the
-//   return value (a helper's result where Java returns it) or the NullPointerException Java throws.
+// - both runs are compared: the SM_DIALOG_WINDOW, SM_QUEST_ACTION, SM_PLAY_MOVIE (and since lane C SM_ITEM_USAGE_ANIMATION) packets byte
+//   for byte, the opcode sequence of every packet sent, every QuestState of the player afterwards (status, vars, reward group, complete
+//   count), the inventory (item id -> count) and the return value (a helper's result where Java returns it) or the NullPointerException Java throws.
 //
 // A case whose guards assumed a helper result (`if (QuestService.startQuest(env))`) needs a state in which the real helper returns it. The harness
 // tries a short list of setups (the quest's own race and minimum level; that plus its finished prerequisites; level 1; the other race) and uses the
@@ -47,9 +47,18 @@
 //
 // P6-Q slice 2, chunk Q03 (2026-09-29): the 76 generated verteron and heiron handlers joined the table (GoldenHandlers.h), and with them
 // the hooks, helper overloads, registrations and overlays they need (each marked "P6-Q slice 2 (Q03)" below; docs/deviations/Q03.md, Tests).
+//
+// Lane C, phase 6 step 1 (2026-10-05; phase6-transliterator.md §7): the harness drives the eight hooks the generated corpus overrides that it did
+// not drive (onKillRankedEvent, onKillInWorldEvent, onDredgionRewardEvent, onInvisibleTimerEndEvent, onUseSkillEvent, onFailCraftEvent,
+// onEnterWindStreamEvent, onLeaveZoneEvent), the registration trace models the ten registration kinds it did not (registerOnKillRanked and the
+// nine of §3.5 there), and a case whose path schedules a task (ThreadPoolManager.schedule; the oracle runs the task after the hook and marks its
+// effects with `task`) runs it in both runs: the generated handler's task by advancing the fixture's clock past the longest delay, the replay's
+// by scheduling the task's effects with the same delay. AION_GOLDEN_EXPECTED_DIR and AION_GOLDEN_SAMPLE_TABLE (GoldenHandlers.h) build the
+// out-of-tree sample of tools/gen/questgen/goldensample.py from these sources.
 
 #include <algorithm>
 #include <array>
+#include <chrono>
 #include <cstdint>
 #include <filesystem>
 #include <fstream>
@@ -87,15 +96,19 @@
 #include "aion/gameserver/model/templates/quest/QuestNpc.h"
 #include "aion/gameserver/model/templates/quest/HandlerSideDrop.h"
 #include "aion/gameserver/network/aion/serverpackets/SM_DIALOG_WINDOW.h"
+#include "aion/gameserver/network/aion/serverpackets/SM_ITEM_USAGE_ANIMATION.h"
 #include "aion/gameserver/network/aion/serverpackets/SM_SYSTEM_MESSAGE.h"
 #include "aion/gameserver/questEngine/model/QuestActionType.h"
 #include "aion/gameserver/runtime/base/Unported.h"
 #include "aion/gameserver/questEngine/model/QuestVars.h"
+#include "aion/gameserver/model/templates/quest/QuestItems.h"
+#include "aion/gameserver/model/templates/rewards/BonusType.h"
 #include "aion/gameserver/services/GameTimeService.h"
 #include "aion/gameserver/services/QuestService.h"
 #include "aion/gameserver/services/WarehouseService.h"
 #include "aion/gameserver/utils/PacketSendUtility.h"
 #include "aion/gameserver/utils/ThreadPoolManager.h"
+#include "aion/gameserver/utils/stats/AbyssRankEnum.h"
 #include "aion/gameserver/world/zone/ZoneName.h"
 
 #include "aion/commons/utils/WindowsMacroGuard.h" // after all headers that may include windows.h
@@ -108,7 +121,11 @@ namespace fs = std::filesystem;
 namespace DA = ::aion::gameserver::model::DialogAction;
 
 const fs::path JAVA_DIR = fs::path(AION_GAMESERVER_JAVA_DIR);
+#ifdef AION_GOLDEN_EXPECTED_DIR
+const fs::path EXPECTED_DIR = fs::path(AION_GOLDEN_EXPECTED_DIR); // the out-of-tree sample (GoldenHandlers.h)
+#else
 const fs::path EXPECTED_DIR = JAVA_DIR / "../cpp/tools/oracle/expected/quest";
+#endif
 const fs::path STATIC_DATA = JAVA_DIR / "data/static_data";
 
 /** tools/oracle/questtrace/extract.py OTHER_NPCS: the target of a case whose guards exclude every registered npc */
@@ -342,7 +359,7 @@ struct Outcome {
 	json returned;                                              // bool, null (void hook) or a HandlerResult name
 	std::vector<bool> helperResults;                            // replay: the result of each effect
 	std::vector<int32_t> opcodes;                               // every packet sent to the quester
-	std::vector<std::vector<uint8_t>> keyPackets;               // SM_DIALOG_WINDOW, SM_QUEST_ACTION, SM_PLAY_MOVIE
+	std::vector<std::vector<uint8_t>> keyPackets;               // SM_DIALOG_WINDOW, SM_QUEST_ACTION, SM_PLAY_MOVIE, SM_ITEM_USAGE_ANIMATION
 	std::map<int32_t, QuestStateRow> questStates;
 	std::map<int32_t, int64_t> inventory;                       // item id -> count
 	bool observable = false;                                    // a packet was sent, or a QuestState or the inventory changed
@@ -589,12 +606,19 @@ std::vector<Overlay> overlaysFor(int32_t questId, const json& c) {
 			continue;
 		// useQuestObject acts at its step like the others (AbstractQuestHandler.java useQuestObject: `var == step`; P6-Q slice 2, Q03 and Q10)
 		if (call != "defaultCloseDialog" && call != "checkQuestItems" && call != "checkQuestItemsSimple" && call != "changeQuestStep" &&
-			call != "useQuestObject" && call != "defaultOnGetItemEvent" && call != "defaultOnKillEvent")
+			call != "useQuestObject" && call != "defaultOnGetItemEvent" && call != "defaultOnKillEvent" && call != "defaultOnKillRankedEvent")
 			continue;
 		Overlay o;
 		o.name = "var 0 at the step of " + call + " (" + a[stepAt].dump() + ")";
 		o.questVar0 = a[stepAt].get<int32_t>();
 		out.push_back(o);
+		// lane C: the kill-ranked helper (startVar, endVar) also acts at endVar - 1, its finishing kill (AbstractQuestHandler.java:772-778)
+		if (call == "defaultOnKillRankedEvent" && a.size() >= 2 && a[1].is_number_integer() && a[1].get<int32_t>() - 1 > a[0].get<int32_t>()) {
+			Overlay last;
+			last.name = "var 0 at the last kill of " + call + " (" + std::to_string(a[1].get<int32_t>() - 1) + ")";
+			last.questVar0 = a[1].get<int32_t>() - 1;
+			out.push_back(std::move(last));
+		}
 		// and one step past it, where the helper answers false (P6-Q slice 2, Q03: _1559's `if (!changeQuestStep(env, 0, 1))` with var 0 free)
 		Overlay past;
 		past.name = "var 0 past the step of " + call + " (" + a[stepAt].dump() + ")";
@@ -628,12 +652,20 @@ std::vector<Overlay> overlaysFor(int32_t questId, const json& c) {
 			const json& a = e["args"];
 			size_t stepAt = call == "defaultOnKillEvent" ? 1 : 0;
 			bool stepHelper = call == "defaultCloseDialog" || call == "checkQuestItems" || call == "checkQuestItemsSimple" || call == "changeQuestStep" ||
-				call == "useQuestObject" || call == "defaultOnGetItemEvent" || (call == "defaultOnKillEvent" && given.contains("target"));
+				call == "useQuestObject" || call == "defaultOnGetItemEvent" || (call == "defaultOnKillEvent" && given.contains("target")) ||
+				call == "defaultOnKillRankedEvent";
 			if (stepHelper && a.size() > stepAt && a[stepAt].is_number_integer()) {
 				Overlay o;
 				o.name = "the quest started at the step of " + call + " (" + a[stepAt].dump() + ")";
 				o.startVar0 = a[stepAt].get<int32_t>();
 				out.push_back(std::move(o));
+				// lane C: and at the kill-ranked helper's finishing kill, endVar - 1 (AbstractQuestHandler.java:772-778)
+				if (call == "defaultOnKillRankedEvent" && a.size() >= 2 && a[1].is_number_integer() && a[1].get<int32_t>() - 1 > a[0].get<int32_t>()) {
+					Overlay last;
+					last.name = "the quest started at the last kill of " + call + " (" + std::to_string(a[1].get<int32_t>() - 1) + ")";
+					last.startVar0 = a[1].get<int32_t>() - 1;
+					out.push_back(std::move(last));
+				}
 			} else if (call == "QuestService.finishQuest") {
 				Overlay o;
 				o.name = "the quest in REWARD for QuestService.finishQuest";
@@ -779,13 +811,20 @@ protected:
 			own = given["player"]["race"] == "ASMODIANS" ? gameserver::model::Race::ASMODIANS : gameserver::model::Race::ELYOS;
 		gameserver::model::Race other = own == gameserver::model::Race::ELYOS ? gameserver::model::Race::ASMODIANS : gameserver::model::Race::ELYOS;
 		int32_t level = std::max(row.minLevel, 1);
+		// lane C: a path that reads the quester's level has it in its given (extract.py player.level): every setup takes that level
+		bool levelGiven = given.contains("player") && given["player"].contains("level");
+		if (levelGiven)
+			level = given["player"]["level"].get<int32_t>();
+		// lane C: a quester exists only up to the experience table's last level (65: PlayerExperienceTable.getLevelForExp); the quests of
+		// quest_data.xml with minlevel_permitted 99 (16940, 18910, 26940, 28910, 38006, 38007, 48006, 48007: not reachable in 4.8) run at it
+		level = std::min(level, dataholders::DataManager::PLAYER_EXPERIENCE_TABLE->getMaxLevel() - 1);
 		bool prerequisites = !row.finishedPrerequisites.empty();
 		std::vector<CaseSetup> setups{{"own race, minimum level", own, level}};
 		if (prerequisites)
 			setups.push_back({"own race, minimum level, prerequisites finished", own, level, true});
 		if (!row.collectItems.empty())
 			setups.push_back({"own race, minimum level, prerequisites finished, collect items held", own, level, prerequisites, true});
-		if (level > 1)
+		if (level > 1 && !levelGiven)
 			setups.push_back({"own race, level 1", own, 1});
 		if (!raceGiven)
 			setups.push_back({"other race", other, level});
@@ -838,7 +877,8 @@ protected:
 	/**
 	 * One run of a case: `replay` false runs the handler's hook, true replays the Java effects on the real helpers. The quester is created for
 	 * the run and dropped after it, so both runs start from the same state and write the same object ids into their packets; the thread's Rnd
-	 * is reseeded (RUN_SEED) and the clock is the fixture's ManualClock, which nothing advances.
+	 * is reseeded (RUN_SEED) and the clock is the fixture's ManualClock, which only a case that schedules a task advances (lane C: by its
+	 * longest delay, in both runs).
 	 */
 	Outcome run(AbstractQuestHandler& handler, int32_t questId, const json& c, const CaseSetup& setup, const Overlay& overlay,
 		const Ref<gameserver::model::gameobjects::Npc>& npc, bool replay) {
@@ -945,6 +985,10 @@ protected:
 		} catch (const std::exception& e) {
 			out.thrown = std::string("C++: ") + e.what();
 		}
+		// lane C: the tasks the generated hook scheduled run when the clock has passed the longest delay of the case's schedules (the replay
+		// advanced the clock the same way, replayEffects); a task's exception is the pool's (ThreadPoolManager logs it), as in Java
+		if (int64_t delay = longestTaskDelay(c); !replay && out.replayError.empty() && delay >= 0)
+			executor->advance(std::chrono::milliseconds(delay));
 		if (runtime::unportedHitCount() != unportedBefore) {
 			for (const auto& [site, hits] : unportedSites()) {
 				auto before = sitesBefore.find(site);
@@ -955,7 +999,8 @@ protected:
 		for (const std::vector<uint8_t>& packet : quester->sent()) {
 			int32_t opcode = items::javaOpcodeOf(packet);
 			out.opcodes.push_back(opcode);
-			if (opcode == OPCODE_DIALOG || opcode == OPCODE_QUEST_ACTION || opcode == OPCODE_MOVIE)
+			// lane C: the item use animation of the item-use hooks and their tasks too (its object ids are the same in both runs)
+			if (opcode == OPCODE_DIALOG || opcode == OPCODE_QUEST_ACTION || opcode == OPCODE_MOVIE || opcode == items::SM_ITEM_USAGE_ANIMATION_OPCODE)
 				out.keyPackets.push_back(packet);
 		}
 		out.questStates = questStatesOf(player);
@@ -963,6 +1008,54 @@ protected:
 		out.observable = !out.opcodes.empty() || out.questStates != statesBefore || out.inventory != inventoryBefore;
 		dropQuester(quester);
 		return out;
+	}
+
+	/**
+	 * The zone argument of a zone hook: the case's, or (a path that reads no zone, P6-Q slice 2, Q03: _1607's var guard comes first) another.
+	 * Lane C: the case's one zone argument whatever the Java parameter is called (`zoneName`, beluslan/_24051's `name`)
+	 */
+	static const world::zone::ZoneName* zoneArg(const json& args) {
+		const std::string zone = zoneNameArg(args);
+		return !zone.empty() ? world::zone::ZoneName::get(zone) : world::zone::ZoneName::createOrGet("GOLDEN_OTHER_ZONE");
+	}
+
+	/** The zone a case's arguments name (a string; `{anyExcept: [...]}` names none), else "" */
+	static std::string zoneNameArg(const json& args) {
+		for (const auto& [name, value] : args.items()) {
+			if (value.is_string())
+				return value.get<std::string>();
+		}
+		return "";
+	}
+
+	/** The longest delay of the case's ThreadPoolManager.schedule effects (lane C), -1 without one */
+	static int64_t longestTaskDelay(const json& c) {
+		int64_t longest = -1;
+		for (const json& e : c["effects"]) {
+			if (e["call"] == "ThreadPoolManager.schedule" && e["args"].size() == 1 && e["args"][0].is_number_integer())
+				longest = std::max(longest, e["args"][0].get<int64_t>());
+		}
+		return longest;
+	}
+
+	/** An object id of the oracle's effects (lane C): the quester's, the used item's (callHook's item), the target's, or a number */
+	static int32_t objectIdOf(const json& v, QuestEnv& env, gameserver::model::gameobjects::player::Player& player) {
+		if (v == "$playerObjectId")
+			return player.getObjectId();
+		if (v == "$itemObjectId")
+			return GOLDEN_ITEM_BASE + 900;
+		if (v == "$targetObjectId")
+			return env.getVisibleObject()->getObjectId();
+		return v.get<int32_t>();
+	}
+
+	/** The int argument of a hook (lane C): the case's one int argument, else 0 */
+	static int32_t intArg(const json& args) {
+		for (const auto& [name, value] : args.items()) {
+			if (value.is_number_integer())
+				return value.get<int32_t>();
+		}
+		return 0;
 	}
 
 	json callHook(AbstractQuestHandler& handler, const json& c, QuestEnv& env, gameserver::model::gameobjects::player::Player& player) {
@@ -986,13 +1079,28 @@ protected:
 			handler.onLevelChangedEvent(player);
 			return nullptr;
 		}
-		if (hook == "onEnterZoneEvent") {
-			// a path that reads no zone (P6-Q slice 2, Q03: _1607's var guard comes first) gets the other zone as well
-			const json zone = args.contains("zoneName") ? args["zoneName"] : json();
-			const world::zone::ZoneName* zoneName =
-				zone.is_string() ? world::zone::ZoneName::get(zone.get<std::string>()) : world::zone::ZoneName::createOrGet("GOLDEN_OTHER_ZONE");
-			return handler.onEnterZoneEvent(env, zoneName);
-		}
+		if (hook == "onEnterZoneEvent")
+			return handler.onEnterZoneEvent(env, zoneArg(args));
+		// lane C (phase 6 step 1): the hooks of the corpus the harness did not drive (AbstractQuestHandler.java: onLeaveZoneEvent :127,
+		// onUseSkillEvent :143, onInvisibleTimerEndEvent :196, onKillRankedEvent :204, onKillInWorldEvent :208, onFailCraftEvent :216,
+		// onEnterWindStreamEvent :265, onDredgionRewardEvent :273). An int argument is the case's one hook argument, whatever the Java parameter is
+		// called (skillUsedId, itemId, teleportId); a path that reads none gets 0, which no guard names
+		if (hook == "onLeaveZoneEvent")
+			return handler.onLeaveZoneEvent(env, zoneArg(args));
+		if (hook == "onKillRankedEvent")
+			return handler.onKillRankedEvent(env);
+		if (hook == "onKillInWorldEvent")
+			return handler.onKillInWorldEvent(env);
+		if (hook == "onDredgionRewardEvent")
+			return handler.onDredgionRewardEvent(env);
+		if (hook == "onInvisibleTimerEndEvent")
+			return handler.onInvisibleTimerEndEvent(env);
+		if (hook == "onUseSkillEvent")
+			return handler.onUseSkillEvent(env, intArg(args));
+		if (hook == "onFailCraftEvent")
+			return handler.onFailCraftEvent(env, intArg(args));
+		if (hook == "onEnterWindStreamEvent")
+			return handler.onEnterWindStreamEvent(env, intArg(args));
 		// P6-Q slice 2 (Q03, Q10): the hooks the chunks' handlers add; each takes the env only (AbstractQuestHandler.java)
 		if (hook == "onLogOutEvent")
 			return handler.onLogOutEvent(env);
@@ -1022,11 +1130,19 @@ protected:
 		throw std::runtime_error("hook " + hook + " is not driven by the harness");
 	}
 
-	/** The Java effects of the case, in order, on the real helpers */
+	/**
+	 * The Java effects of the case, in order, on the real helpers. Lane C (phase 6 step 1): an effect with `task` k belongs to the task the
+	 * ThreadPoolManager.schedule effect k scheduled (extract.py run_tasks); the tasks run after the hook's own effects, in the order of their
+	 * delays, each when the fixture's clock has advanced by its delay, as the generated handler's tasks do (run: advanceTasks)
+	 */
 	void replayEffects(int32_t questId, const json& c, QuestEnv& env, gameserver::model::gameobjects::player::Player& player, Outcome& out) {
 		PlainHandler plain(questId);
 		auto qs = [&] { return player.getQuestStateList()->getQuestState(questId); };
-		for (const json& e : c["effects"]) {
+		const json& effects = c["effects"];
+		out.helperResults.assign(effects.size(), false);
+		std::vector<std::pair<int64_t, size_t>> tasks; // delay, the schedule effect's index
+		auto replay = [&](size_t k) -> bool {
+			const json& e = effects[k];
 			const std::string call = e["call"];
 			const json& a = e["args"];
 			bool result = false;
@@ -1080,11 +1196,11 @@ protected:
 			} else if (call == "defaultOnKillEvent" && a.size() == 3 && a[0].is_array()) {
 				std::vector<int32_t> npcIds = a[0].get<std::vector<int32_t>>();
 				result = plain.defaultOnKillEvent(env, std::span<const int32_t>(npcIds), a[1].get<int32_t>(), a[2].get<int32_t>());
-			} else if (call == "defaultOnQuestCompletedEvent" && a.size() <= 6) {
+			} else if (call == "defaultOnQuestCompletedEvent" && a.size() <= 8) {
 				// Java varargs; the C++ helper takes an initializer_list (AbstractQuestHandler.h)
 				std::vector<int32_t> q = a.get<std::vector<int32_t>>();
 				size_t n = q.size();
-				q.resize(6, 0);
+				q.resize(8, 0);
 				switch (n) {
 					case 0: result = plain.defaultOnQuestCompletedEvent(env); break;
 					case 1: result = plain.defaultOnQuestCompletedEvent(env, {q[0]}); break;
@@ -1092,12 +1208,15 @@ protected:
 					case 3: result = plain.defaultOnQuestCompletedEvent(env, {q[0], q[1], q[2]}); break;
 					case 4: result = plain.defaultOnQuestCompletedEvent(env, {q[0], q[1], q[2], q[3]}); break;
 					case 5: result = plain.defaultOnQuestCompletedEvent(env, {q[0], q[1], q[2], q[3], q[4]}); break;
-					default: result = plain.defaultOnQuestCompletedEvent(env, {q[0], q[1], q[2], q[3], q[4], q[5]}); break;
+					case 6: result = plain.defaultOnQuestCompletedEvent(env, {q[0], q[1], q[2], q[3], q[4], q[5]}); break;
+					// lane C: the corpus outside the tree has lists of 7 (ishalgen/_2007) and up to 8
+					case 7: result = plain.defaultOnQuestCompletedEvent(env, {q[0], q[1], q[2], q[3], q[4], q[5], q[6]}); break;
+					default: result = plain.defaultOnQuestCompletedEvent(env, {q[0], q[1], q[2], q[3], q[4], q[5], q[6], q[7]}); break;
 				}
-			} else if (call == "defaultOnLevelChangedEvent" && a.size() <= 6) {
+			} else if (call == "defaultOnLevelChangedEvent" && a.size() <= 8) {
 				std::vector<int32_t> q = a.get<std::vector<int32_t>>();
 				size_t n = q.size();
-				q.resize(6, 0);
+				q.resize(8, 0);
 				switch (n) {
 					case 0: result = plain.defaultOnLevelChangedEvent(player); break;
 					case 1: result = plain.defaultOnLevelChangedEvent(player, {q[0]}); break;
@@ -1105,7 +1224,10 @@ protected:
 					case 3: result = plain.defaultOnLevelChangedEvent(player, {q[0], q[1], q[2]}); break;
 					case 4: result = plain.defaultOnLevelChangedEvent(player, {q[0], q[1], q[2], q[3]}); break;
 					case 5: result = plain.defaultOnLevelChangedEvent(player, {q[0], q[1], q[2], q[3], q[4]}); break;
-					default: result = plain.defaultOnLevelChangedEvent(player, {q[0], q[1], q[2], q[3], q[4], q[5]}); break;
+					case 6: result = plain.defaultOnLevelChangedEvent(player, {q[0], q[1], q[2], q[3], q[4], q[5]}); break;
+					// lane C: the corpus outside the tree has lists of 7 (ishalgen/_2007) and up to 8
+					case 7: result = plain.defaultOnLevelChangedEvent(player, {q[0], q[1], q[2], q[3], q[4], q[5], q[6]}); break;
+					default: result = plain.defaultOnLevelChangedEvent(player, {q[0], q[1], q[2], q[3], q[4], q[5], q[6], q[7]}); break;
 				}
 			}
 			// P6-Q slice 2: the helper overloads the verteron and heiron handlers (Q03) and the altgard and pandaemonium ones (Q10) add, picked by the
@@ -1156,7 +1278,7 @@ protected:
 				// dieObject: `npc.getController().die(player)` on the target (AbstractQuestHandler.java:911-916). The fixture's npc is not spawned
 				// (no map region: NpcController.onDie throws), and both runs share it, so the second run would find it dead: not modelled
 				out.replayError = "the replay does not model useQuestObject's dieObject on the fixture's unspawned npc " + a.dump();
-				return;
+				return false;
 			}
 			else if (call == "useQuestObject" && a.size() == 4)
 				result = plain.useQuestObject(env, a[0].get<int32_t>(), a[1].get<int32_t>(), a[2].get<bool>(), a[3].get<int32_t>());
@@ -1170,11 +1292,56 @@ protected:
 				int32_t targetObjectId =
 					p[0] == "$targetObjectId" ? env.getVisibleObject()->getObjectId() : p[0].get<int32_t>();
 				utils::PacketSendUtility::sendPacket(player, network::aion::serverpackets::SM_DIALOG_WINDOW(targetObjectId, p[1].get<int32_t>()));
-			} else {
-				out.replayError = "the replay does not model " + call + " " + a.dump();
-				return;
 			}
-			out.helperResults.push_back(result);
+			// lane C (phase 6 step 1): the effects of the hooks and closures the harness drives since (extract.py: ThreadPoolManager.schedule,
+			// PacketSendUtility.broadcastPacket, inventory.decreaseByObjectId), the kill-ranked helper (AbstractQuestHandler.java:749-787) and the
+			// helper overloads of the corpus outside the tree (sendQuestRewardDialog :1151, checkItemExistence :576-609, defaultCloseDialog with
+			// a given item, the chain helpers' longer pre-quest lists)
+			else if (call == "ThreadPoolManager.schedule" && a.size() == 1 && a[0].is_number_integer()) {
+				tasks.emplace_back(a[0].get<int64_t>(), k);
+				result = true;
+			} else if (call == "PacketSendUtility.broadcastPacket" && a.size() == 2 && a[0].value("new", std::string()) == "SM_ITEM_USAGE_ANIMATION" &&
+				a[0]["args"].size() == 6) {
+				const json& p = a[0]["args"];
+				utils::PacketSendUtility::broadcastPacket(player,
+					network::aion::serverpackets::SM_ITEM_USAGE_ANIMATION(objectIdOf(p[0], env, player), objectIdOf(p[1], env, player), p[2].get<int32_t>(),
+						p[3].get<int32_t>(), p[4].get<int32_t>(), p[5].get<int32_t>()),
+					a[1].get<bool>());
+			} else if (call == "inventory.decreaseByObjectId" && a.size() == 2)
+				result = player.getInventory().decreaseByObjectId(objectIdOf(a[0], env, player), a[1].get<int64_t>());
+			else if (call == "defaultOnKillRankedEvent" && a.size() == 3)
+				result = plain.defaultOnKillRankedEvent(env, a[0].get<int32_t>(), a[1].get<int32_t>(), a[2].get<bool>());
+			else if (call == "defaultOnKillRankedEvent" && a.size() == 4)
+				result = plain.defaultOnKillRankedEvent(env, a[0].get<int32_t>(), a[1].get<int32_t>(), a[2].get<bool>(), a[3].get<bool>());
+			else if (call == "sendQuestRewardDialog" && a.size() == 2)
+				result = plain.sendQuestRewardDialog(env, a[0].get<int32_t>(), a[1].get<int32_t>());
+			else if (call == "checkItemExistence" && a.size() == 3)
+				result = plain.checkItemExistence(env, a[0].get<int32_t>(), a[1].get<int32_t>(), a[2].get<bool>());
+			else if (call == "checkItemExistence" && a.size() == 10)
+				result = plain.checkItemExistence(env, a[0].get<int32_t>(), a[1].get<int32_t>(), a[2].get<bool>(), a[3].get<int32_t>(), a[4].get<int32_t>(),
+					a[5].get<bool>(), a[6].get<int32_t>(), a[7].get<int32_t>(), a[8].get<int32_t>(), a[9].get<int32_t>());
+			else if (call == "defaultCloseDialog" && a.size() == 4 && a[2].is_number_integer())
+				result = plain.defaultCloseDialog(env, a[0].get<int32_t>(), a[1].get<int32_t>(), a[2].get<int32_t>(), a[3].get<int64_t>());
+			else {
+				out.replayError = "the replay does not model " + call + " " + a.dump();
+				return false;
+			}
+			out.helperResults[k] = result;
+			return true;
+		};
+		for (size_t k = 0; k < effects.size(); k++) {
+			if (!effects[k].contains("task") && !replay(k))
+				return;
+		}
+		std::stable_sort(tasks.begin(), tasks.end(), [](const auto& x, const auto& y) { return x.first < y.first; });
+		int64_t elapsed = 0;
+		for (const auto& [delay, scheduled] : tasks) {
+			executor->advance(std::chrono::milliseconds(delay - elapsed));
+			elapsed = delay;
+			for (size_t k = 0; k < effects.size(); k++) {
+				if (effects[k].value("task", -1) == static_cast<int64_t>(scheduled) && !replay(k))
+					return;
+			}
 		}
 		if (c.contains("returns"))
 			out.returned = expectedReturn(c["returns"], out.helperResults);
@@ -1242,18 +1409,21 @@ protected:
 		Tally tally;
 		// P6-Q slice 2 (Q03): the zones the document names exist before the handler registers, as the server's zone data makes them
 		// (ZoneName.get answers NONE for a name no zone created, so _1607's four `zoneName == ZoneName.get(...)` would all hold)
-		for (const json& reg : doc["register"]) {
-			if (reg.value("call", std::string()) == "registerOnEnterZone" && reg["args"][0].is_string())
+		// lane C: a register() the oracle refuses is an object with the reason ({"unsupported": ...}), no list
+		const json registrations = doc["register"].is_array() ? doc["register"] : json::array();
+		for (const json& reg : registrations) {
+			const std::string call = reg.value("call", std::string());
+			if ((call == "registerOnEnterZone" || call == "registerOnLeaveZone") && reg["args"][0].is_string())
 				world::zone::ZoneName::createOrGet(reg["args"][0].get<std::string>());
 		}
 		for (const json& c : doc["cases"]) {
 			const json& given = c["given"];
-			if (given.contains("args") && given["args"].contains("zoneName") && given["args"]["zoneName"].is_string())
-				world::zone::ZoneName::createOrGet(given["args"]["zoneName"].get<std::string>());
+			if (given.contains("args") && !zoneNameArg(given["args"]).empty())
+				world::zone::ZoneName::createOrGet(zoneNameArg(given["args"]));
 		}
 		AbstractQuestHandler& handler = registerGenerated(questId, factory);
 		registeredQuestItem = 0;
-		for (const json& reg : doc["register"]) {
+		for (const json& reg : registrations) {
 			if (reg.value("call", std::string()) == "registerQuestItem")
 				registeredQuestItem = reg["args"][0].get<int32_t>();
 		}
@@ -1811,6 +1981,11 @@ TEST_F(GoldenQuestTraceTest, EveryRunStartsFromTheSameRandomStateOnTheManualCloc
 
 // --- the registration trace (phase6-inventory.md §7.6 item 2) ------------------------------------------------------------------------------
 
+/** A Java string literal of the registration trace as written (extract.py keeps the quotes) without its quotes */
+std::string unquoted(const std::string& literal) {
+	return literal.size() >= 2 && literal.front() == '"' && literal.back() == '"' ? literal.substr(1, literal.size() - 2) : literal;
+}
+
 /** For one npc registration of the Java trace, how often the quest id sits in the QuestNpc's list of that event */
 int32_t registeredCount(int32_t npcId, const std::string& event, int32_t questId) {
 	Ref<gameserver::model::templates::quest::QuestNpc> npc = QuestEngine::getInstance().getQuestNpc(npcId);
@@ -1960,6 +2135,54 @@ public:
 		events.push_back("onNpcLostTargetEvent");
 		return false;
 	}
+	// lane C (phase 6 step 1): the ten registration kinds the trace did not model (QuestEngine.java registerOnKillRanked, registerOnKillInWorld,
+	// registerOnLeaveZone, registerOnPassFlyingRings, registerOnInvisibleTimerEnd, registerQuestSkill, registerOnFailCraft,
+	// registerOnDredgionReward, registerOnBonusApply, registerOnEnterWindStream). A hook that gets no argument naming what fired it records the
+	// test's `firing` text (the rank or the map the test fires)
+	bool onKillRankedEvent(QuestEnv&) override {
+		events.push_back("onKillRankedEvent " + firing);
+		return false;
+	}
+	bool onKillInWorldEvent(QuestEnv&) override {
+		events.push_back("onKillInWorldEvent " + firing);
+		return false;
+	}
+	bool onLeaveZoneEvent(QuestEnv&, const world::zone::ZoneName* zoneName) override {
+		events.push_back("onLeaveZoneEvent " + zoneName->name());
+		return false;
+	}
+	bool onPassFlyingRingEvent(QuestEnv&, std::string_view flyingRing) override {
+		events.push_back("onPassFlyingRingEvent " + std::string(flyingRing));
+		return false;
+	}
+	bool onInvisibleTimerEndEvent(QuestEnv&) override {
+		events.push_back("onInvisibleTimerEndEvent");
+		return false;
+	}
+	bool onUseSkillEvent(QuestEnv&, int32_t skillId) override {
+		events.push_back("onUseSkillEvent " + std::to_string(skillId));
+		return false;
+	}
+	bool onFailCraftEvent(QuestEnv&, int32_t itemId) override {
+		events.push_back("onFailCraftEvent " + std::to_string(itemId));
+		return false;
+	}
+	bool onDredgionRewardEvent(QuestEnv&) override {
+		events.push_back("onDredgionRewardEvent");
+		return false;
+	}
+	HandlerResult onBonusApplyEvent(QuestEnv&, gameserver::model::templates::rewards::BonusType bonusType,
+		std::vector<gameserver::model::templates::quest::QuestItems>&) override {
+		events.push_back("onBonusApplyEvent " + std::string(xml::EnumTraits<gameserver::model::templates::rewards::BonusType>::names[
+			static_cast<size_t>(bonusType)]));
+		return HandlerResult::UNKNOWN;
+	}
+	bool onEnterWindStreamEvent(QuestEnv&, int32_t) override {
+		events.push_back("onEnterWindStreamEvent");
+		return false;
+	}
+
+	static inline std::string firing;
 
 private:
 	std::unique_ptr<AbstractQuestHandler> inner;
@@ -1971,15 +2194,31 @@ TEST_F(GoldenQuestTraceTest, RegistrationTraceMatchesJavaRegister) {
 	// as the Java register() adds it and in no other npc's list, and every other registration routes exactly the engine events it names. A
 	// can-act registration also comes from the first kill, talk, aggro or distance registration of the quest at an npc (QuestNpc.java:59-95),
 	// and registerCanAct keeps only an npc whose template's AI is quest_use_item (QuestEngine.java registerCanAct)
-	std::set<std::string> zones;
-	std::set<int32_t> questItems, canActNpcs, allNpcs, getItems;
+	std::set<std::string> zones, leaveZones, rings, bonusTypes;
+	std::set<int32_t> questItems, canActNpcs, allNpcs, getItems, killWorlds, skills, failCraftItems;
 	auto usesQuestItemAi = [](int32_t npcId) {
 		const gameserver::model::templates::npc::NpcTemplate* template_ = dataholders::DataManager::NPC_DATA->getNpcTemplate(npcId);
 		return template_ != nullptr && template_->getAiName() == "quest_use_item";
 	};
 	for (int32_t questId : expectedQuestIds()) {
 		json doc = readJson(EXPECTED_DIR / (std::to_string(questId) + ".json"));
+		if (!doc["register"].is_array())
+			continue; // a register() the oracle refuses: reported per handler below
 		for (const json& reg : doc["register"]) {
+			// lane C: the arguments of the kinds the trace models since
+			const std::string kind = reg.value("call", std::string());
+			if (kind == "registerOnLeaveZone")
+				leaveZones.insert(reg["args"][0].get<std::string>());
+			else if (kind == "registerOnKillInWorld")
+				killWorlds.insert(reg["args"][0].get<int32_t>());
+			else if (kind == "registerOnPassFlyingRings")
+				rings.insert(unquoted(reg["args"][0].get<std::string>()));
+			else if (kind == "registerQuestSkill")
+				skills.insert(reg["args"][0].get<int32_t>());
+			else if (kind == "registerOnFailCraft")
+				failCraftItems.insert(reg["args"][0].get<int32_t>());
+			else if (kind == "registerOnBonusApply")
+				bonusTypes.insert(reg["args"][1].get<std::string>());
 			if (reg.contains("npc"))
 				allNpcs.insert(reg["npc"].get<int32_t>());
 			else if (reg.value("call", std::string()) == "registerOnEnterZone")
@@ -1998,11 +2237,20 @@ TEST_F(GoldenQuestTraceTest, RegistrationTraceMatchesJavaRegister) {
 	// would find it only when an earlier handler's events had created it)
 	for (const std::string& zone : zones)
 		world::zone::ZoneName::createOrGet(zone);
+	for (const std::string& zone : leaveZones)
+		world::zone::ZoneName::createOrGet(zone);
+	const auto& rankNames = xml::EnumTraits<utils::stats::AbyssRankEnum>::names;
+	const auto& bonusNames = xml::EnumTraits<gameserver::model::templates::rewards::BonusType>::names;
 	int32_t checked = 0;
 	for (const GeneratedHandler& generated : generatedHandlers()) {
 		SCOPED_TRACE(std::string(generated.javaClass));
 		json doc = readJson(EXPECTED_DIR / (std::to_string(generated.questId) + ".json"));
-		ASSERT_TRUE(doc["register"].is_array()) << generated.questId << ": " << doc["register"].dump();
+		// lane C: a register() the oracle refuses fails this handler and the trace goes on with the next (the sample of goldensample.py
+		// registers hundreds; in the tree every register() is traced)
+		if (!doc["register"].is_array()) {
+			ADD_FAILURE() << "the oracle refuses the register() of " << generated.questId << ": " << doc["register"].dump();
+			continue;
+		}
 		QuestEngine::getInstance().clear();
 		std::vector<std::string> events;
 		// addHandlerSideQuestDrop adds to QuestService's static drop table, which QuestEngine::clear keeps: the drops the registration adds, per
@@ -2062,6 +2310,37 @@ TEST_F(GoldenQuestTraceTest, RegistrationTraceMatchesJavaRegister) {
 				expectedEvents.push_back("onNpcReachTargetEvent");
 			else if (call == "registerAddOnLostTargetEvent")
 				expectedEvents.push_back("onNpcLostTargetEvent");
+			// lane C (phase 6 step 1). registerOnKillRanked(rank): every rank whose id is at least the rank's (QuestEngine.java:792-798; the ids
+			// grow in declaration order, AbyssRankEnum.java). registerOnKillInWorld, registerOnLeaveZone, registerOnPassFlyingRings,
+			// registerQuestSkill: per map, zone, ring and skill; registerOnFailCraft(item): the first quest of the item (putIfAbsent), when the
+			// quester holds none of it (QuestEngine.java onFailCraft); registerOnBonusApply(quest, type): per bonus type;
+			// registerOnInvisibleTimerEnd, registerOnDredgionReward, registerOnEnterWindStream: engine-wide lists
+			else if (call == "registerOnKillRanked") {
+				auto at = std::find(rankNames.begin(), rankNames.end(), reg["args"][0].get<std::string>());
+				if (at == rankNames.end())
+					ADD_FAILURE() << "no AbyssRankEnum " << reg["args"][0];
+				for (auto rank = at; rank != rankNames.end(); ++rank)
+					expectedEvents.push_back("onKillRankedEvent " + std::string(*rank));
+			} else if (call == "registerOnKillInWorld")
+				expectedEvents.push_back("onKillInWorldEvent " + std::to_string(reg["args"][0].get<int32_t>()));
+			else if (call == "registerOnLeaveZone")
+				expectedEvents.push_back("onLeaveZoneEvent " + reg["args"][0].get<std::string>());
+			else if (call == "registerOnPassFlyingRings")
+				expectedEvents.push_back("onPassFlyingRingEvent " + unquoted(reg["args"][0].get<std::string>()));
+			else if (call == "registerQuestSkill")
+				expectedEvents.push_back("onUseSkillEvent " + std::to_string(reg["args"][0].get<int32_t>()));
+			else if (call == "registerOnFailCraft") {
+				std::string event = "onFailCraftEvent " + std::to_string(reg["args"][0].get<int32_t>());
+				if (std::find(expectedEvents.begin(), expectedEvents.end(), event) == expectedEvents.end())
+					expectedEvents.push_back(event);
+			} else if (call == "registerOnBonusApply")
+				expectedEvents.push_back("onBonusApplyEvent " + reg["args"][1].get<std::string>());
+			else if (call == "registerOnInvisibleTimerEnd")
+				expectedEvents.push_back("onInvisibleTimerEndEvent");
+			else if (call == "registerOnDredgionReward")
+				expectedEvents.push_back("onDredgionRewardEvent");
+			else if (call == "registerOnEnterWindStream")
+				expectedEvents.push_back("onEnterWindStreamEvent");
 			else if (call == "addHandlerSideQuestDrop")
 				continue; // counted above
 			else
@@ -2086,7 +2365,9 @@ TEST_F(GoldenQuestTraceTest, RegistrationTraceMatchesJavaRegister) {
 		// fire every event the documents name, once each
 		const QuestRow& row = goldenData().quests.at(generated.questId);
 		gameserver::model::Race race = row.race == "ASMODIANS" ? gameserver::model::Race::ASMODIANS : gameserver::model::Race::ELYOS;
-		Quester* quester = makeQuester(GOLDEN_PLAYER, "Golden", race, std::max(row.minLevel, 1));
+		// lane C: at most the experience table's last level (setupsFor: the quests of minlevel_permitted 99)
+		Quester* quester = makeQuester(GOLDEN_PLAYER, "Golden", race,
+			std::clamp(row.minLevel, 1, dataholders::DataManager::PLAYER_EXPERIENCE_TABLE->getMaxLevel() - 1));
 		gameserver::model::gameobjects::player::Player& player = quester->player();
 		QuestEngine::getInstance().onQuestCompleted(player, 1);
 		QuestEngine::getInstance().onLevelChanged(player);
@@ -2105,6 +2386,37 @@ TEST_F(GoldenQuestTraceTest, RegistrationTraceMatchesJavaRegister) {
 		QuestEngine::getInstance().onNpcLostTarget(*QuestEnv::create(nullptr, player, 0));
 		for (int32_t itemId : getItems)
 			QuestEngine::getInstance().onItemGet(player, itemId);
+		// lane C: the events of the kinds above, once each (the kill-ranked one per rank, the kill-in-world one per map)
+		for (size_t rank = 0; rank < rankNames.size(); rank++) {
+			RoutingSpy::firing = std::string(rankNames[rank]);
+			QuestEngine::getInstance().onKillRanked(*QuestEnv::create(nullptr, player, 0), static_cast<utils::stats::AbyssRankEnum>(rank));
+		}
+		for (int32_t worldId : killWorlds) {
+			RoutingSpy::firing = std::to_string(worldId);
+			QuestEngine::getInstance().onKillInWorld(*QuestEnv::create(nullptr, player, 0), worldId);
+		}
+		RoutingSpy::firing.clear();
+		for (const std::string& zone : leaveZones)
+			QuestEngine::getInstance().onLeaveZone(*QuestEnv::create(nullptr, player, 0), world::zone::ZoneName::createOrGet(zone));
+		for (const std::string& ring : rings)
+			QuestEngine::getInstance().onPassFlyingRing(*QuestEnv::create(nullptr, player, 0), ring);
+		for (int32_t skillId : skills)
+			QuestEngine::getInstance().onUseSkill(*QuestEnv::create(nullptr, player, 0), skillId);
+		for (int32_t itemId : failCraftItems)
+			QuestEngine::getInstance().onFailCraft(*QuestEnv::create(nullptr, player, 0), itemId);
+		for (const std::string& type : bonusTypes) {
+			auto at = std::find(bonusNames.begin(), bonusNames.end(), type);
+			if (at == bonusNames.end()) {
+				ADD_FAILURE() << "no BonusType " << type;
+				continue;
+			}
+			std::vector<gameserver::model::templates::quest::QuestItems> rewardItems;
+			QuestEngine::getInstance().onBonusApplyEvent(*QuestEnv::create(nullptr, player, 0),
+				static_cast<gameserver::model::templates::rewards::BonusType>(at - bonusNames.begin()), rewardItems);
+		}
+		QuestEngine::getInstance().onInvisibleTimerEnd(*QuestEnv::create(nullptr, player, 0));
+		QuestEngine::getInstance().onDredgionReward(*QuestEnv::create(nullptr, player, 0));
+		QuestEngine::getInstance().onEnterWindStream(*QuestEnv::create(nullptr, player, 0), 0);
 		for (int32_t npcId : allNpcs) {
 			if (!canActNpcs.contains(npcId) && !usesQuestItemAi(npcId))
 				continue;
