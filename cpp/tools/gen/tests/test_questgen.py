@@ -256,9 +256,10 @@ class RealQuests(unittest.TestCase):
         self.assertEqual(list(rep['refusedByPrimaryReason']), r.reason_keys())
 
     def test_types_the_prelude_exports_are_indexed(self):
-        # House, SpawnSearchResult and InstanceHandler have headers (QuestPrelude.h re-exports them): the gap is the API behind them
-        for rel, key in (('reshanta/_24043LazyLanguageLessons.java', 'api-missing: DataManager.SPAWNS_DATA'),
-                         ('inggison/_10034FoundUnderground.java', 'api-missing: WorldMapInstance.getInstanceHandler'),
+        # House, SpawnSearchResult and InstanceHandler have headers (QuestPrelude.h re-exports them): the gap is the API behind them. Since
+        # row B42 (chunk Q01, 2026-10-05) _24043LazyLanguageLessons, the SpawnSearchResult case, transliterates (tests.test_questgen_g1)
+        self.assertEqual(self.run_file('reshanta/_24043LazyLanguageLessons.java').status, 'ok')
+        for rel, key in (('inggison/_10034FoundUnderground.java', 'api-missing: WorldMapInstance.getInstanceHandler'),
                          ('oriel/_18830MovingIn.java', 'api-missing: Player.getActiveHouse')):
             with self.subTest(rel=rel):
                 keys = self.run_file(rel).reason_keys()
