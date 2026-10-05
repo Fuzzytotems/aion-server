@@ -476,9 +476,9 @@ the §0 assumption an item stands on.
 |---|---|---|---|---|
 | **X-05a** | **`SpellAtkDrainInstantEffect`** (P5-04, 1 site, 40 Java lines) — Haramel's Kakiti (W-21, D15); dropped if M5e's optional T-02 ported it. Test in `tests/effects_mz` on M5b-2's `EffectClassTestSupport.h` (the drain arithmetic, mutation-proven) | **R** | S | A-10 |
 | X-05b | **The 11 Eltnen/Morheim classes past A-10** (W-22, D15): P5-03 `DiseaseEffect`, `ConfuseEffect`, `FpAttackEffect`, `FearEffect`, `DispelDebuffMentalEffect`, `CloseAerialEffect`, `DelayedFpAtkInstantEffect`, `DispelBuffEffect`; P5-04 `MpAttackInstantEffect`, `ProtectEffect`, `MagicCounterAtkEffect` — 27 sites + ~5 inner bodies, 574 Java lines; minus whatever M5e's optional T-02 took (`DispelBuffEffect`, `MagicCounterAtkEffect`). Tests in `tests/effects_al`/`effects_mz` | O | L | A-10 |
-| X-01 | `MultiReturnAction` (canAct, act, the observer's abort, the task) | O | S | A-03 |
+| X-01 | `MultiReturnAction` (canAct, act, the observer's abort, the task) — **done 2026-10-05** (lane A, `lane-a/teleport-scrolls`; deviations/P5-07.md) | O | S | A-03 |
 | X-02 | `InstanceTimeClear` (canAct, act, abort, run) | O | S | A-03 |
-| X-03 | `ReturnPointEffect` (3 U) + `useTeleportScroll` (T-02) | O | S | A-01 |
+| X-03 | `ReturnPointEffect` (3 U) + `useTeleportScroll` (T-02) — **done 2026-10-05** (lane A; deviations/P5-04.md) | O | S | A-01 |
 | X-04 | `CondSkillLauncherEffect` (2 U) — **only if M5e did not port it** (W-14) | O | S | – |
 
 ### Stage 2
