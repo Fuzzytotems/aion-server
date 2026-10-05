@@ -18,10 +18,12 @@
 #include "aion/gameserver/handlers/admincommands/Dispel.h"
 #include "aion/gameserver/handlers/admincommands/Heal.h"
 #include "aion/gameserver/handlers/admincommands/Morph.h"
+#include "aion/gameserver/handlers/admincommands/RemoveCd.h"
 #include "aion/gameserver/handlers/admincommands/Set.h"
 #include "aion/gameserver/handlers/admincommands/Speed.h"
 #include "aion/gameserver/handlers/admincommands/Stat.h"
 #include "aion/gameserver/handlers/admincommands/State.h"
+#include "aion/gameserver/handlers/consolecommands/Clearusercoolt.h"
 #include "aion/gameserver/handlers/consolecommands/Leveldown.h"
 #include "aion/gameserver/handlers/consolecommands/Levelup.h"
 #include "aion/gameserver/model/gameobjects/player/PlayerCommonData.h"
@@ -29,6 +31,7 @@
 #include "aion/gameserver/model/stats/calc/Stat2.h"
 #include "aion/gameserver/model/stats/container/PlayerGameStats.h"
 #include "aion/gameserver/model/stats/container/StatEnum.h"
+#include "aion/gameserver/network/aion/serverpackets/SM_SYSTEM_MESSAGE.h"
 #include "aion/gameserver/utils/ChatUtil.h"
 #include "aion/gameserver/utils/JavaColor.h"
 #include "aion/gameserver/world/World.h"
@@ -39,6 +42,7 @@ namespace aion::gameserver::network::aion::clientpackets::testing {
 namespace {
 
 using model::stats::container::StatEnum;
+using serverpackets::SM_SYSTEM_MESSAGE;
 
 class CharacterCommandsTest : public CommandTest {
 protected:
@@ -316,6 +320,35 @@ TEST_F(CharacterCommandsTest, StateSetsAddsAndRemoves) {
 	EXPECT_TRUE(state.process(gm, args({"sleepy"})));
 	EXPECT_EQ(client()->sentBytes(), info("Invalid number: \"sleepy\""));
 	EXPECT_EQ(gm.getState(), 4);
+}
+
+// ---- //removecd, ///clearusercoolt --------------------------------------------------------------------------------------------------------
+
+TEST_F(CharacterCommandsTest, RemoveCdAndClearusercoolt) {
+	Player& gm = online(730110, "Warden", 3);
+	handlers::admincommands::RemoveCd removeCd;
+	EXPECT_TRUE(removeCd.process(gm, args({})));
+	EXPECT_TRUE(sent(info("Your item and skill cooldowns were removed.")[0]));
+
+	client()->clearSent();
+	EXPECT_TRUE(removeCd.process(gm, args({"INSTANCE", "all"})));
+	EXPECT_EQ(client()->sentBytes(), exactly({message("You have no instance cooldowns to remove.")})) << "Clearusercoolt's sendMessage";
+
+	client()->clearSent();
+	EXPECT_TRUE(removeCd.process(gm, args({"instance", "1234"})));
+	EXPECT_EQ(client()->sentBytes(), info("You have no cooldown on 1234.")) << "an unknown world is named by its ID";
+
+	client()->clearSent();
+	EXPECT_TRUE(removeCd.process(gm, args({"instance"})));
+	EXPECT_EQ(client()->sentBytes(), info(removeCd.getSyntaxInfo()));
+
+	handlers::consolecommands::Clearusercoolt clear;
+	client()->clearSent();
+	EXPECT_TRUE(clear.process(gm, args({"Nobody"})));
+	EXPECT_EQ(client()->sentBytes(), exactly({serialized(SM_SYSTEM_MESSAGE::STR_NO_SUCH_USER("Nobody"), client().con())}));
+	client()->clearSent();
+	EXPECT_TRUE(clear.process(gm, args({"warden"})));
+	EXPECT_EQ(client()->sentBytes(), exactly({message("You have no instance cooldowns to remove.")})) << "the name is normalized";
 }
 
 } // namespace

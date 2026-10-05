@@ -57,7 +57,7 @@ protected:
 		std::map<std::string, int8_t, std::less<>> levels(*previousLevels);
 		// commands.properties' levels of the stage-0 admin aliases (3 for the GM tools); the framework's scripted commands 3, 2 and 3
 		for (const char* alias : {"invis", "invul", "enemy", "see", "coords", "info", "zone", "online", "time", "weather", "addexp", "set", "addskill",
-				 "delskill", "addtitle", "heal", "speed", "dispel", "morph", "state", "stat", "levelup", "leveldown", "fwtest", "fwconsole"})
+				 "delskill", "addtitle", "heal", "speed", "dispel", "morph", "state", "stat", "levelup", "leveldown", "removecd", "clearusercoolt", "fwtest", "fwconsole"})
 			levels[alias] = 3;
 		levels["fwplayer"] = 2;
 		configs::administration::CommandsConfig::ACCESS_LEVELS.set(levels);
