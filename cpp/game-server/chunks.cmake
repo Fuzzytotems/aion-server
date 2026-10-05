@@ -540,8 +540,8 @@ aion_gs_chunk(Q07 TARGET aion_gs_handlers_quest_q07 PHASE 6 ROOT handlers
 	GLOBS "aion/gameserver/handlers/quest/{beshmundir,abyss_entry,silentera_canyon}/**"
 	JAVA "data/handlers/quest/{beshmundir,abyss_entry,silentera_canyon}/**"
 	PCH "aion/gameserver/handlers/quest/QuestPrelude.h")
-# Q08 (phase 6 step 2, lane C, 2026-10-05): the 63 generated gelkmaros and enshar handlers (questgen's output, bannered, drift-tested by
-# tools/gen/tests/test_questgen_tree.py); gelkmaros/_20034RescuetheReians is refused by questgen and not in the tree. Their golden traces run
+# Q08 (phase 6 step 2, lane C, 2026-10-05): the 64 generated gelkmaros and enshar handlers (questgen's output, bannered, drift-tested by
+# tools/gen/tests/test_questgen_tree.py; gelkmaros/_20034RescuetheReians since the Q08 follow-up, row B39). Their golden traces run
 # in Q05's harness (tests/quest_handlers_golden, GoldenQ08Handlers.cpp compiles them by #include); docs/deviations/Q08.md.
 aion_gs_chunk(Q08 TARGET aion_gs_handlers_quest_q08 PHASE 6 ROOT handlers
 	GLOBS "aion/gameserver/handlers/quest/{gelkmaros,enshar}/**"

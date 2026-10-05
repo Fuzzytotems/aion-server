@@ -8,7 +8,7 @@
 // row), and so are the altgard and pandaemonium handlers of P6-Q slice 2 (Q10: GoldenAltgardHandlers.cpp, GoldenPandaemoniumHandlers.cpp; the
 // five hand ports and the held-back 4212 are not generated, docs/deviations/Q10.md). The generated files themselves are never edited here.
 //
-// Phase 6 step 2, chunk Q08 (lane C, 2026-10-05): the 63 generated gelkmaros and enshar handlers, compiled in by #include as well
+// Phase 6 step 2, chunk Q08 (lane C, 2026-10-05): the 64 generated gelkmaros and enshar handlers, compiled in by #include as well
 // (GoldenQ08Handlers.cpp; docs/deviations/Q08.md).
 //
 // P6-Q slice 2, chunk Q03 (2026-09-29): the 72 generated verteron and heiron handlers in the tree (the zones the route's dispatches end in),
@@ -201,6 +201,7 @@
 	X(gelkmaros, _20031GotoGelkmaros, 20031) \
 	X(gelkmaros, _20032AllAboutAbnormalAether, 20032) \
 	X(gelkmaros, _20033DranaSolution, 20033) \
+	X(gelkmaros, _20034RescuetheReians, 20034) \
 	X(gelkmaros, _20035SilenteraSupport, 20035) \
 	X(gelkmaros, _21004VillageStatusReport, 21004) \
 	X(gelkmaros, _21027FearlessKantele, 21027) \

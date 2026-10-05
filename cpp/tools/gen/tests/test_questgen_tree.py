@@ -53,10 +53,10 @@ Q10 = {
         '_4976ASettlerAmbition'),
 }
 # Phase 6 step 2, chunk Q08 (lane C, 2026-10-05; docs/deviations/Q08.md): the gelkmaros and enshar files questgen transliterates, all in the
-# tree (44 + 19 of 45 + 19; gelkmaros/_20034RescuetheReians is refused and not in the tree)
+# tree (45 + 19; gelkmaros/_20034RescuetheReians since the Q08 follow-up, row B39)
 Q08 = {
     'gelkmaros': (
-        '_20031GotoGelkmaros', '_20032AllAboutAbnormalAether', '_20033DranaSolution', '_20035SilenteraSupport',
+        '_20031GotoGelkmaros', '_20032AllAboutAbnormalAether', '_20033DranaSolution', '_20034RescuetheReians', '_20035SilenteraSupport',
         '_21004VillageStatusReport', '_21027FearlessKantele', '_21033ExorcisingInfisto', '_21036DeliveryofAetherSample',
         '_21051TroubleinStone', '_21052DragonHuntin', '_21053DramataDrama', '_21054MissionofDestiny', '_21056FundinOrders',
         '_21057FundinOldGrudge', '_21058KirhuaSpecialOrder', '_21059ShiningScroll', '_21060EliminatePadmarashka', '_21061NewOrder',
@@ -133,8 +133,8 @@ class CommittedTree(unittest.TestCase):
             for klass in classes:
                 with self.subTest(file=f'{directory}/{klass}'):
                     self.assertIn((directory, klass), found)
-        self.assertEqual((len(Q08['gelkmaros']), len(Q08['enshar'])), (44, 19))
-        self.assertFalse((HANDLER_QUEST_DIR / 'gelkmaros' / '_20034RescuetheReians.cpp').exists())
+        self.assertEqual((len(Q08['gelkmaros']), len(Q08['enshar'])), (45, 19))
+        self.assertTrue((HANDLER_QUEST_DIR / 'gelkmaros' / '_20034RescuetheReians.cpp').exists())
         self.assertEqual(len(Q10_HELD_BACK), 16)
 
     def test_the_enter_world_files_are_in_the_tree(self):
