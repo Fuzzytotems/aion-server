@@ -1,7 +1,9 @@
 #include "aion/gameserver/model/team/alliance/PlayerAllianceGroup.h"
 
+#include "aion/gameserver/model/gameobjects/player/Player.h"
 #include "aion/gameserver/model/team/alliance/PlayerAlliance.h"
-#include "aion/gameserver/runtime/base/Unported.h"
+#include "aion/gameserver/model/team/alliance/PlayerAllianceMember.h"
+#include "aion/gameserver/model/team/common/legacy/LootGroupRules.h"
 
 namespace aion::gameserver::model::team::alliance {
 
@@ -15,47 +17,46 @@ runtime::Ref<PlayerAllianceGroup> PlayerAllianceGroup::create(PlayerAlliance& al
 }
 
 void PlayerAllianceGroup::addMember(TeamMember& member) {
-	AION_UNPORTED();
+	PlayerAllianceMember& allianceMember = *runtime::cast<PlayerAllianceMember>(member);
+	TemporaryPlayerTeam::addMember(allianceMember);
+	allianceMember.setPlayerAllianceGroup(runtime::Ptr<PlayerAllianceGroup>(*this));
+	allianceMember.setAllianceId(getTeamId());
 }
 
 void PlayerAllianceGroup::onRemoveMember(TeamMember& member) {
-	AION_UNPORTED();
+	runtime::cast<PlayerAllianceMember>(member)->setPlayerAllianceGroup(nullptr);
 }
 
 int32_t PlayerAllianceGroup::getMaxMemberCount() {
-	AION_UNPORTED();
+	return 6;
 }
 
 int32_t PlayerAllianceGroup::getMinExpPlayerLevel() {
-	AION_UNPORTED();
+	return 0;
 }
 
 int32_t PlayerAllianceGroup::getMaxExpPlayerLevel() {
-	AION_UNPORTED();
+	return 0;
 }
 
 runtime::Ptr<common::legacy::LootGroupRules> PlayerAllianceGroup::getLootGroupRules() {
-	AION_UNPORTED();
+	return alliance->getLootGroupRules();
 }
 
 runtime::Ptr<PlayerAllianceMember> PlayerAllianceGroup::getMember(int32_t value) {
-	// port: runtime::cast<PlayerAllianceMember> of the TemporaryPlayerTeam result, once model/team/alliance/PlayerAllianceMember.h exists
-	AION_UNPORTED();
+	return runtime::cast<PlayerAllianceMember>(TemporaryPlayerTeam::getMember(value));
 }
 
 runtime::Ptr<PlayerAllianceMember> PlayerAllianceGroup::removeMember(TeamMember& member) {
-	// port: runtime::cast<PlayerAllianceMember> of the TemporaryPlayerTeam result, once model/team/alliance/PlayerAllianceMember.h exists
-	AION_UNPORTED();
+	return runtime::cast<PlayerAllianceMember>(TemporaryPlayerTeam::removeMember(member));
 }
 
 runtime::Ptr<PlayerAllianceMember> PlayerAllianceGroup::removeMember(int32_t value) {
-	// port: runtime::cast<PlayerAllianceMember> of the TemporaryPlayerTeam result, once model/team/alliance/PlayerAllianceMember.h exists
-	AION_UNPORTED();
+	return runtime::cast<PlayerAllianceMember>(TemporaryPlayerTeam::removeMember(value));
 }
 
 runtime::Ptr<PlayerAllianceMember> PlayerAllianceGroup::getLeader() const {
-	// port: runtime::cast<PlayerAllianceMember> of the TemporaryPlayerTeam result, once model/team/alliance/PlayerAllianceMember.h exists
-	AION_UNPORTED();
+	return runtime::cast<PlayerAllianceMember>(TemporaryPlayerTeam::getLeader());
 }
 
 } // namespace aion::gameserver::model::team::alliance
