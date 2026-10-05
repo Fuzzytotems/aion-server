@@ -1409,3 +1409,8 @@ P5-SC.md has the table.
 - **X9's drains** expect no update for a dodged, resisted or conflicting effect (Java schedules none); a 758 with no applied effect is cast
   again.
 - **The oracle**: `level:L` caps a non-Daeva at 9 (setExp), and `create` leaves `old_level` at 0.
+- **C12's rounds** (measured on the review's runs): a replayed round waits out 758's 40 s cooldown and 769's animation, replays a 758
+  drain that only reached the max HP, and 2981 refused by an obstacle tries the next target.
+- **Mutants**: `stumble-origin` fails X9g on the geo gate; `effect-leak` fails X20's relation rows (P5-SC.md has the table). X9g's z row
+  sees a geo-ignoring port only where the terrain slopes at the stumble.
+- **Open**: the plain gate's X19 watchdog row fails when a 5-9 s `MapRegion::activate` task is sampled (P5-SC.md "The review's runs").
