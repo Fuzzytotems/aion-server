@@ -2015,9 +2015,11 @@ void runM5eGate(const GateVariant& variant) {
 
 	/** the nearest live monster of `templates` (the village's junk monster by default) within `range`, selected (CM_TARGET_SELECT), after a
 	 * walk to `distance` */
-	const auto engage = [&](ScenarioClient& client, double distance, double range = 45.0, std::vector<int32_t> templates = {JUNK_MONSTER}) -> int32_t {
-		// a target whose selection the server does not answer (it died or left the knownlist on the way) is skipped, three times at most
-		std::set<int32_t> skipped;
+	const auto engage = [&](ScenarioClient& client, double distance, double range = 45.0, std::vector<int32_t> templates = {JUNK_MONSTER},
+	                        const std::set<int32_t>& exclude = {}) -> int32_t {
+		// a target whose selection the server does not answer (it died or left the knownlist on the way) is skipped, three times at most;
+		// `exclude` names targets the caller does not want (a cast at them was refused)
+		std::set<int32_t> skipped = exclude;
 		for (int32_t attempt = 0; attempt < 3; attempt++) {
 			std::optional<std::pair<int32_t, KnownNpcs::Npc>> best;
 			double bestDistance = range;
@@ -2307,10 +2309,11 @@ void runM5eGate(const GateVariant& variant) {
 				std::cout << row << ": A1's SM_ATTACK_STATUS in the window: " << join(own) << std::endl;
 			}
 			EXPECT_FALSE(expected.empty()) << row << ": the cast hit nothing";
-			EXPECT_FALSE(seen.empty()) << row << ": no drain below A1's max HP, so none was measured";
 			EXPECT_TRUE(seen.size() + capped.size() == expected.size() && unmatched.empty() && cappedFit)
 			  << row << ": the ABSORBED_HP updates of A1 (" << joinNumbers(seen) << "; at the max HP: " << joinNumbers(capped) << ") against ⌊d × "
 			  << percent << " / 100⌋ of each hit (" << joinNumbers(expected) << ")";
+			// whether a drain came in below the max HP, so that it was really measured (the caller asserts it, or plays the round again)
+			return !seen.empty();
 		};
 
 		// At level 15 (after C13): the junk monster no longer aggroes A1 (a level difference of 10, CreatureEventHandler.java:107-110), so
@@ -2367,7 +2370,7 @@ void runM5eGate(const GateVariant& variant) {
 			// expectDrains reads 3 s; a replayed round waits as long, because a cast before the previous skill's animation has ended is
 			// refused with STR_SKILL_NOT_READY (player.getNextSkillUse, CM_CASTSPELL.java:99-105) - measured on a replayed 758
 			if (!furyMeasured)
-				expectDrains(*fury, from, ABSORBING_FURY, 10, "X9 769");
+				EXPECT_TRUE(expectDrains(*fury, from, ABSORBING_FURY, 10, "X9 769")) << "X9 769: no drain below A1's max HP, so none was measured";
 			else
 				collectFor(*a.game, 3000ms);
 			furyMeasured = true;
@@ -2383,17 +2386,30 @@ void runM5eGate(const GateVariant& variant) {
 				std::cout << "X9: every effect of 758 was dodged or resisted (no drain is scheduled), the round is played again" << std::endl;
 				continue;
 			}
-			expectDrains(*hack, from, ROILING_HACK, 30, "X9 758");
-			hackMeasured = true;
+			// a replayed round comes after A1 regenerated for a minute: a drain that only reached the max HP measured nothing, so the round
+			// is played again (measured on the geo gate)
+			hackMeasured = expectDrains(*hack, from, ROILING_HACK, 30, "X9 758");
+			if (!hackMeasured)
+				std::cout << "X9: 758's drain reached A1's max HP only, the round is played again" << std::endl;
 		}
 		ASSERT_TRUE(furyMeasured) << "X9: 769's chain never opened in four casts (chain_skill_prob 100, Skill.java:627-637)";
-		ASSERT_TRUE(hackMeasured) << "X9: no 758 after 769 whose effect was applied in four rounds";
+		ASSERT_TRUE(hackMeasured) << "X9: no 758 after 769 whose effect was applied and whose drain came in below A1's max HP, in four rounds";
 
-		// 2981 on a live target: an effect list (status not 16)
-		target = engage(a, MELEE_DISTANCE);
-		from = a.mark();
-		auto [tauntOutcome, taunt] = castRecorded(TAUNT, target);
-		ASSERT_TRUE(taunt) << "X9: 2981 was refused: " << a.events(from).describe();
+		// 2981 on a live target: an effect list (status not 16). With geo a slope or a fence can stand between A1 and the junk monster it
+		// picks (STR_SKILL_OBSTACLE, FirstTargetRangeProperty's canSee - measured on the geo gate): a refused cast is cast at the next
+		// target, three targets at most, as C18 does
+		std::optional<decoders::CastSpellResult> taunt;
+		std::set<int32_t> refusedTargets;
+		for (int32_t attempt = 0; attempt < 3 && !taunt; attempt++) {
+			target = engage(a, MELEE_DISTANCE, 45.0, {JUNK_MONSTER}, refusedTargets);
+			from = a.mark();
+			taunt = castRecorded(TAUNT, target).second;
+			if (!taunt) {
+				show("X9 2981 refused", a.events(from));
+				refusedTargets.insert(target);
+			}
+		}
+		ASSERT_TRUE(taunt) << "X9: 2981 was refused on three targets: " << a.events(from).describe();
 		EXPECT_NE(taunt->chainStatus, decoders::CAST_RESULT_NO_EFFECT) << "X9: Taunt applied its effects (HostileUpEffect)";
 
 		// X9g: more of the chain until a stumble the row can measure. Without geo that is any stumble of a target that stood still (settled);
