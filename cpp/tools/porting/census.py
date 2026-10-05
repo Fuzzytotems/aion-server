@@ -3036,7 +3036,7 @@ LIVE_CHECKS = [
 LIVE_INITIALIZERS = [
     ('model/house/PlayerScript.java', 'PlayerScript', ['partial']),        # `null until CompressUtil is ported`
     ('model/ChatType.java', 'ChatType', ['ported']),                      # the ChatTypeInfo.h lookup replaces the map
-    ('model/team/common/events/TeamCommand.java', 'TeamCommand', ['undeclared']),   # no companion yet
+    ('model/team/common/events/TeamCommand.java', 'TeamCommand', ['ported']),       # TeamCommandInfo.h's lookup replaces the map (M5g)
 ]
 
 
@@ -3234,7 +3234,9 @@ def live_checks(check):
                                                           if m.status != 'ported'), 0)
     kinds = {where.split(' ', 1)[1]: kind for _, where, kind, _ in ms.helper_list()}
     for name, kind in (('standins::followStartServiceNewFollowingToTargetCheckTask', 'stale'),
-                       ('standins::playerGroupServiceRemovePlayer', 'standIn'), ('PlayerGroup::getMember', 'inherited'),
+                       # M5g parties (2026-10-05) ported the team stand-ins and PlayerGroup::getMember: no 'standIn' helper is left;
+                       # the alliance's inherited accessors remain until the alliance lane
+                       ('standins::riftEnumData', 'own'), ('PlayerAlliance::getMember', 'inherited'),
                        ('<anon>::unportedScoreBase', 'taken')):
         check(f'live helper {name}', kinds.get(name), kind)
 
