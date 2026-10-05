@@ -883,3 +883,12 @@ standing instruction** (small and additive) and applied with its call sites.
 |---|---|---|---|---|
 | gm-1 | `geoEngine/math/JavaFloat.h` (P1 geomath) | C++-only `static std::string doubleToString(double value);` after `toString(float)`, with its doc; `JavaFloat.cpp` runs both through one template (the same JDK 19+ algorithm); `tests/geomath/JavaFloatTest.cpp` gains `DoubleToStringMatchesJava` | **filed, applied on the branch** (small and additive, the psf-2 precedent); the integrator confirms at the merge | Java `Double.toString`: `//info` prints `Npc.getDistanceToSpawnLocation()` (a double) in a string concatenation, and no Java double formatter existed |
 | (no request) | `tests/handlers_commands/C1/CommandTestSupport.h` | new test support: the fixture of `CommandFrameworkTest` moved out, so every command family's test file shares it | none (test code) | One fixture for the stage-0 command tests |
+
+## M5g parties, lane B (2026-10-05, branch `lane-b/m5g-parties`)
+
+Stage 0 and stage 1 of m5g-plan.md for the party path, done by one lane that also does M5g's stage-0 items it needs (I-01, I-02a). Every row
+is **filed, applied on the branch**; the integrator confirms at the merge.
+
+| Id | File | Change | Decision | Reason |
+|---|---|---|---|---|
+| m5g-15 | `game-server/chunks.cmake` | P5-10 split into P5-10a (team core), P5-10b (parties, the two team updaters), P5-10c (alliances), P5-10d (leagues), P5-10e (find group, matchmaking), P5-10f (legion model, challenges), all on `aion_gs_team`; `tests/team/TeamServicesM5aTest.cpp` moves to `tests/team/P5-10b`; `tools/porting/census.py` maps the parts (P5-10e's autogroup half to M5j, P5-10f to M5h) and `tests/test_chunks.py` knows the six names | **filed, applied on the branch** | m5g-plan.md D1 / I-01; the names are final (m5h-plan.md A-18). A-15 holds: no P5-10 lease is open at `origin/C++` (M5f's N-06 lease was released, c0e76427f) |
