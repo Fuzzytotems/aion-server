@@ -191,7 +191,7 @@ runtime::Ptr<model::autogroup::AutoInstance> AutoGroupService::getAutoInstance(m
 }
 
 bool AutoGroupService::isInAutoInstance(model::gameobjects::player::Player& player) {
-	AION_UNPORTED();
+	return autoInstances.containsKey(worldMapInstanceKey(player));
 }
 
 } // namespace aion::gameserver::services
