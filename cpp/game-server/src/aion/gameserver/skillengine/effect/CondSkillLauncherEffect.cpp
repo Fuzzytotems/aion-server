@@ -48,6 +48,10 @@ struct CondSkillLauncherEffect_ActionObserver final : controllers::observer::Act
 	const CondSkillLauncherEffect* condSkillLauncherEffect; // captured this CondSkillLauncherEffect this (line 41), immortal static data
 	const Ref<model::Effect> effect;						// captured param Effect effect (line 41)
 	runtime::Field<Ref<model::Effect>> conditionalEffect{}; // Effect conditionalEffect (line 37)
+	// C++ only, the lock-order correction below: a launch in progress, the last report's side of the threshold, the observer's removal
+	runtime::Field<bool> launching{};
+	runtime::Field<bool> lastReportAtOrBelow{};
+	runtime::Field<bool> removed{};
 	const int32_t skillId; // fieldmap: C++ only, condSkillLauncherEffect->skillId (protected, no friend line), immutable static data
 
 	static Ref<CondSkillLauncherEffect_ActionObserver> create(const CondSkillLauncherEffect& condSkillLauncherEffect, int32_t skillId,
@@ -55,26 +59,62 @@ struct CondSkillLauncherEffect_ActionObserver final : controllers::observer::Act
 		return runtime::makeRef<CondSkillLauncherEffect_ActionObserver>(condSkillLauncherEffect, skillId, effect);
 	}
 
+	/**
+	 * Correction of the Java code (owner's decision 2026-10-04, both branches; docs/deviations/P5-03.md): Java applies and ends the conditional
+	 * effect inside `synchronized (this)` (CondSkillLauncherEffect.java:42-56), i.e. it takes an Effect's monitor while holding the observer's
+	 * (Effect.startEffect / endEffect are synchronized), while every effect that changes the effected's max HP takes them in the opposite order
+	 * (Effect.startEffect -> CreatureGameStats.checkMaxHPChanged -> notifyHPChangeObservers -> this). Two threads doing both at once deadlock;
+	 * lockdep reported the cycle in the M5e gate (a Gladiator with 563 Determination revived by a Cleric). Here the decision is taken under the
+	 * observer's monitor and the effect calls run after it is released. For one thread the outcome is Java's; between threads, a launch in
+	 * progress keeps a second report from launching again, and a launch that finishes after a report above the threshold, or after the
+	 * observer's removal, ends the effect it just applied.
+	 */
+	// lint: L7 the owner's lock-order correction (above): one monitor section to decide, one to record the launch, the Effect calls between them
 	void hpChanged(int32_t hpValue) override {
 		// Java int arithmetic: value * maxHp wraps, the division truncates toward zero
 		bool hpAtOrBelowThreshold = hpValue <= mulInt(condSkillLauncherEffect->getValue(), effect->getEffected()->getLifeStats()->getMaxHp()) / 100;
+		bool launch = false;
+		Ref<model::Effect> toEnd;
 		SYNCHRONIZED(*this) {
-			if (hpAtOrBelowThreshold && !conditionalEffect.get()) {
-				bool permanent = effect->getSkillTemplate()->getActivationAttribute() == model::ActivationAttribute::PASSIVE;
-				// passive skills like Determination have no time limit
-				std::optional<int32_t> duration = permanent ? std::optional<int32_t>(0) : std::nullopt;
-				conditionalEffect.set(
-					SkillEngine::getInstance().applyEffectDirectly(skillId, *effect->getEffected(), *effect->getEffected(), duration, nullptr));
+			lastReportAtOrBelow.set(hpAtOrBelowThreshold);
+			if (hpAtOrBelowThreshold && !conditionalEffect.get() && !launching.get()) {
+				launching.set(true);
+				launch = true;
 			} else if (!hpAtOrBelowThreshold && conditionalEffect.get()) {
-				conditionalEffect.get()->endEffect();
+				toEnd = conditionalEffect.get();
 				conditionalEffect.set(nullptr);
 			}
 		}
+		if (toEnd)
+			toEnd->endEffect();
+		if (launch) {
+			bool permanent = effect->getSkillTemplate()->getActivationAttribute() == model::ActivationAttribute::PASSIVE;
+			// passive skills like Determination have no time limit
+			std::optional<int32_t> duration = permanent ? std::optional<int32_t>(0) : std::nullopt;
+			Ref<model::Effect> launched(
+				SkillEngine::getInstance().applyEffectDirectly(skillId, *effect->getEffected(), *effect->getEffected(), duration, nullptr));
+			SYNCHRONIZED(*this) {
+				launching.set(false);
+				if (lastReportAtOrBelow.get() && !removed.get()) {
+					conditionalEffect.set(launched);
+					launched = nullptr;
+				}
+			}
+			if (launched)
+				launched->endEffect();
+		}
 	}
 
+	// lint: L7 the owner's lock-order correction (P5-03.md): the removal is noted under the monitor for a launch in progress, which Java has no field for
 	void onRemoved() override {
-		// Java reads the field twice outside the monitor; one read here, so a concurrent reset between the test and the call is no null call
-		if (Ptr<model::Effect> conditional = conditionalEffect.get())
+		// Java reads the field twice outside the monitor; here it is taken under the monitor (with the removal noted for a launch in progress)
+		// and ended after it, as hpChanged does
+		Ref<model::Effect> conditional;
+		SYNCHRONIZED(*this) {
+			removed.set(true);
+			conditional = conditionalEffect.get();
+		}
+		if (conditional)
 			conditional->endEffect();
 	}
 
