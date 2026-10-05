@@ -2719,8 +2719,11 @@ void runM5eGate(const GateVariant& variant) {
 		EXPECT_EQ(refused.count("SKILL "), 0u) << "X18: getPossibleStigmaCount is 0 without 1929 (StigmaService.java:274-290)";
 		EXPECT_EQ(a.model.kinah(), KINAH) << "X18: the kinah is unchanged";
 		disconnect(a);
+		// an upsert: once 1929's handler is ported (M5f D13), the level-20 enter world above may already have written its row (the key is
+		// player_id, quest_id), and the seed must then turn that row COMPLETE instead of failing on the primary key
 		database.execute(schema, "INSERT INTO player_quests (player_id, quest_id, status, complete_count) VALUES (" + std::to_string(a1.playerId) + ", " +
-		                           std::to_string(Q1929) + ", '" + std::string(DB_COMPLETE) + "', 1)");
+		                           std::to_string(Q1929) + ", '" + std::string(DB_COMPLETE) +
+		                           "', 1) ON DUPLICATE KEY UPDATE status = VALUES(status), complete_count = VALUES(complete_count)");
 		enterAs(servers, a, a1);
 		const Events equipped =
 		  eventsOf(exchange(a, GameSession::CM_EQUIP_ITEM, GameSession::buildCM_EQUIP_ITEM(GameSession::EQUIP, STIGMA_SLOT_1, stoneObject)), a.playerId(),
