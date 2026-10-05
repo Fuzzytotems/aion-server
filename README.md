@@ -9,6 +9,8 @@
 
 # Aion 4.8 Server Emulator
 
+This is currently a non-functioning C++ port of Beyond-Aion's server. Please use their repo and their server. This one is mostly a meme project by me for now.
+
 This is the server for the MMORPG *Aion: The Tower of Eternity* that we host for our players.  
 Our server emulator is intended to be faithful to the original experience of the official servers of the time, but a few custom features have also been implemented to meet the needs of our community.  
 You can read more about it here:
