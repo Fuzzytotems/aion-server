@@ -1346,3 +1346,46 @@ m5a_stress`): 46 of 46 in 1,291 s, while M5c stage 1's first two lanes were comp
 - The monster-only classes (§15.4: Crouch, Crash, Death Curse, Virago's FP attack, the tursin spin) are live for every npc that casts them.
 - Stage 1 (the class change, C-01..C-05) has not started; **D1 is still the user's**. Without a class change, a player reaches the new Daeva
   effect classes only through a character seeded as a Daeva.
+
+## 17. Status, 2026-10-04: the gate built (G-01..G-05, I-02, M-06, T-03)
+
+Lane 1 built the milestone's scenario gate on top of the 4.8 merges up to #56. It is on branch `worktree-agent-abf82242af811ae22` and is not yet merged. docs/deviations/P5-SC.md, "M5e gate (lane 1, 2026-10-04)", has the as-built table, the mutation table and the runs.
+
+### 17.1 What landed
+
+| Item | As built |
+|---|---|
+| G-01 | `tools/oracle` `m5e-progression` (`m5e/progression.py`, 22 cases in `tests/test_m5e.py`). It covers the steps `create`, `enter:L`, `level:L`, `class:C`, `action:ID`, `quit`, `seed:CLASS` and `book:ITEM`, and gives per step the skills with their message ids (the `isNew` walk). It also gives the casts' conditions (`--skill`, `--weapon`, `--dp`, `--robot`, `--chain-after`, `--target-kind`), the charge window, and the stigma stones' skill and price (`--stigma`). Not built: the plan's `--npc`/`--map`/`--item`. The spots come from `m5b-monster`/`m5a-spawns`, a book from `book:`, a stone from `--stigma` |
+| G-02 | `GameSession` builders for `CM_MOVE` with the glide bit, `CM_TOGGLE_SKILL_DEACTIVATE`, `CM_USE_CHARGE_SKILL`, `CM_SUMMON_COMMAND` and `CM_SUMMON_ATTACK`. `ProgressionDecoders.{h,cpp}` covers 13 packets, written from `writeImpl` with no `serverpackets/` include. `ProgressionDecodersTest` has 13 cases |
+| G-03, G-04 | `gs.scenario.m5e` and `gs.scenario.m5e_geo`, both in gate slot 1, with `m5e_partial_allowlist.txt` |
+| G-05 | The earlier geo gates were run once on this tree: m5a_geo, m5b_geo, m5b2_geo, m5b3_geo and m5d_geo all passed. The plain m5a-m5d gates were **not** re-run by this lane |
+| I-02 | `game-server/config/m5e.properties.example` |
+| M-06, T-03 | C19 (X17) and C20 (X18) in the gate |
+
+### 17.2 Rows of §10 changed, and why (Java measured)
+
+1. **The Daeva's alternative page is asteros 203058's, not Pernos's** (§10.1 "Targets", X3, X7, X8). Since `_1123WheresTutty` registered, Pernos starts 1123 from level 7, and `hasQuestInteraction` wins over the Daeva branch (DialogPage.java:113-126). So Pernos answers 10 both before and after.
+2. **The level-ups kill the 2-HP junk monster 210340**, not "a Poeta kill target at A1's level". Pernos's level-7 monsters killed a level-8 Warrior.
+3. **X2 compares skill id sets.** `SkillEntryWriter` writes level 1 for normal skills.
+4. **C15 runs before C13.** At level 15, the revive of a Gladiator with 563 runs into a lock-order inversion inherited from Java (§17.4).
+5. **C12 runs after C13, at level 15.** At a level difference of 10 the junk monster does not aggro, so X9g's target stands still. 769 is retried while a dodge or resist blocks its chain (Skill.java:598-606). A drain update capped at the max HP may be less than ⌊d × p / 100⌋ (CreatureLifeStats.java:185, 191).
+6. **X9g is a band, not the exact 2 m point.** The gate knows the target's position only from broadcasts. The cast waits for the target's arrival where its last `SM_MOVE`, or its `SM_NPC_INFO` if it was seen walking, points, at the walk speed. The band is 2 m ± 0.9 m; a monster stops up to 0.6 m short of its `SM_MOVE` target.
+7. **X13: 1699 on a living target is refused before the cast** (`STR_SKILL_TARGET_IS_NOT_VALID`, `TargetRangeProperty`), not answered with status 16. So §10.4's `isDead`-guard row **cannot fail in the gate**; it belongs to E-02's unit case. The max HP after the soul sickness is asserted lower, not "70 %".
+8. **X15: the seed sets `item_skin` with `item_id`.** `RideRobotEffect` reads the robot through `getItemSkinTemplate`.
+9. **X17: the summon hits only after the client's `CM_SUMMON_ATTACK`.** The ATTACK command sets the mode.
+10. **X18: the stone is 140001109** *Crippling Cut*. The price is 25,000 for RARE, through `PricesService`.
+
+### 17.3 Mutation proof (§10.4)
+
+21 schemata were switched by `AION_M5EG_MUT` in 14 production files and restored by sha256; the tree was rebuilt clean, and no schema string is left in a binary. Every row §10.4 says the gate must kill is killed at its named row. There are three exceptions:
+- `resurrect-no-dead-guard`: green, as row 7 above explains.
+- `asmo-select7-swap`: green in the gate, as §10.4 says. `ClassChangeServiceTest` kills it.
+- `hostileup-no-hate`: green in the gate, as §10.4 says. Four `DaevaEffectsTest` cases kill it.
+
+P5-SC.md has the table.
+
+### 17.4 Findings for the owner
+
+- **A Java-inherited lock-order inversion**: `Effect.startEffect` (`synchronized`) → `CreatureGameStats.checkMaxHPChanged` (`synchronized`) → `CondSkillLauncherEffect`'s observer (`synchronized`) → `Effect.endEffect` (`synchronized`). It is the same nesting as Effect.java:653, 712, CreatureGameStats.java:371 and `CondSkillLauncherEffect$1`. lockdep reports it on a level-15 Gladiator's revive. It was not corrected (bug-fix policy).
+- No C++ port bug was found on the gate's path. `census.py`'s known answer for `SummonMode.getId` (moved by M-05) was updated.
+- D1 (the key's production value) is still the owner's.
