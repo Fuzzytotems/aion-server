@@ -39,7 +39,7 @@ const commons::logging::Logger ResurrectAI::log = commons::logging::LoggerFactor
 struct ResurrectAI_AIRequest final : AIRequest {
 	AION_MAKE_REF_FRIEND
 
-	const BindPointTemplate* const bindPointTemplate; // captured param BindPointTemplate bindPointTemplate (line 83)
+	const BindPointTemplate* bindPointTemplate; // captured param BindPointTemplate bindPointTemplate (line 83)
 
 	static runtime::Ref<ResurrectAI_AIRequest> create(const BindPointTemplate* bindPointTemplate) {
 		return runtime::makeRef<ResurrectAI_AIRequest>(bindPointTemplate);
