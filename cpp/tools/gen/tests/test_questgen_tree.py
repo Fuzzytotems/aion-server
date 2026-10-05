@@ -73,8 +73,8 @@ Q08 = {
         '_25051TreasureOfAncientKings', '_25052AnOfferingPeace', '_25062OminousAdvice', '_25070TruthOfTheCrystal',
         '_25073NoRevivalForTheBalaur',),
 }
-# Phase 6 step 2, chunk Q01 (lane C, 2026-10-05; docs/deviations/Q01.md): the reshanta files questgen transliterates, all in the tree (80 of
-# 82: _24043LazyLanguageLessons and _2759TenaciousGuardian are refused and not in the tree)
+# Phase 6 step 2, chunk Q01 (lane C, 2026-10-05; docs/deviations/Q01.md): the reshanta files questgen transliterates, all in the tree (81 of
+# 82: _2759TenaciousGuardian is refused and not in the tree)
 Q01 = {
     'reshanta': (
         '_14040OrdersFromReshanta', '_14041AbyssalAbilities', '_14042ARescueOperation', '_14043DrawlingBalaur', '_14044ShardsOfMemory',
@@ -87,7 +87,7 @@ Q01 = {
         '_1727RecruitsforNezekansShield', '_1761SohonerkWish', '_1777CalloftheGovernor', '_1798JakurerksShotattheBigTime',
         '_1799PupilsDiary', '_1800JaiorunerksTombstone', '_1845OpeningDoors', '_1846PaperTrail', '_1847AStrangeSoul',
         '_1851UnchartedIslands', '_1853OfficerOusting', '_1854GeneralPurge', '_24040VotansOrders', '_24041TrainingInTheAbyss',
-        '_24042AReadyRescue', '_24044ChangeTheFuture', '_24045ASpeedyErrand', '_24046TheShadowCalls', '_2701TheGovernorsSummons',
+        '_24042AReadyRescue', '_24043LazyLanguageLessons', '_24044ChangeTheFuture', '_24045ASpeedyErrand', '_24046TheShadowCalls', '_2701TheGovernorsSummons',
         '_2702Defeat9thRankElyosSoldiers', '_2703Defeat8thRankElyosSoldiers', '_2704Defeat7thRankElyosSoldiers',
         '_2705Defeat6thRankElyosSoldiers', '_2706Defeat5thRankElyosSoldiers', '_2707Defeat4thRankElyosSoldiers',
         '_2708Defeat3thRankElyosSoldiers', '_2709Defeat2thRankElyosSoldiers', '_2710Defeat1thRankElyosSoldiers', '_2718TradingDown',
@@ -163,9 +163,8 @@ class CommittedTree(unittest.TestCase):
         for klass in Q01['reshanta']:
             with self.subTest(file=f'reshanta/{klass}'):
                 self.assertIn(('reshanta', klass), found)
-        self.assertEqual(len(Q01['reshanta']), 80)
-        for rel in ('reshanta/_24043LazyLanguageLessons.java', 'reshanta/_2759TenaciousGuardian.java'):
-            self.assertFalse((HANDLER_QUEST_DIR / rel).with_suffix('.cpp').exists())
+        self.assertEqual(len(Q01['reshanta']), 81)
+        self.assertFalse((HANDLER_QUEST_DIR / 'reshanta' / '_2759TenaciousGuardian.cpp').exists())
         self.assertEqual(len(Q10_HELD_BACK), 16)
 
     def test_the_enter_world_files_are_in_the_tree(self):

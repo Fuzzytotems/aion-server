@@ -9,7 +9,7 @@
 // five hand ports and the held-back 4212 are not generated, docs/deviations/Q10.md). The generated files themselves are never edited here.
 //
 // Phase 6 step 2, chunk Q08 (lane C, 2026-10-05): the 64 generated gelkmaros and enshar handlers, compiled in by #include as well
-// (GoldenQ08Handlers.cpp; docs/deviations/Q08.md); chunk Q01 (the same lane and day): the 80 generated reshanta handlers
+// (GoldenQ08Handlers.cpp; docs/deviations/Q08.md); chunk Q01 (the same lane and day): the 81 generated reshanta handlers
 // (GoldenQ01Handlers.cpp; docs/deviations/Q01.md). Q01 is the library aion_gs_handlers_quest_reshanta, which this executable does not link.
 //
 // P6-Q slice 2, chunk Q03 (2026-09-29): the 72 generated verteron and heiron handlers in the tree (the zones the route's dispatches end in),
@@ -304,6 +304,7 @@
 	X(reshanta, _24040VotansOrders, 24040) \
 	X(reshanta, _24041TrainingInTheAbyss, 24041) \
 	X(reshanta, _24042AReadyRescue, 24042) \
+	X(reshanta, _24043LazyLanguageLessons, 24043) \
 	X(reshanta, _24044ChangeTheFuture, 24044) \
 	X(reshanta, _24045ASpeedyErrand, 24045) \
 	X(reshanta, _24046TheShadowCalls, 24046) \
