@@ -44,6 +44,8 @@
 10. **Step 2, chunk Q01 landed (lane C, 2026-10-05, §9):** 81 of the 82 reshanta handlers are in the tree generated, with their golden traces
    (1,493 variants pass, 0 fail) and docs/deviations/Q01.md; questgen gained rows B40-B42 and two fixes (979 of 1,035 transliterated);
    `reshanta/_2759` is a hand port with a per-player kill record (the owner's correction of 2026-10-05, docs/deviations/Q01.md).
+11. **Step 2, chunk Q02 landed (lane C, 2026-10-05, §10):** all 59 inggison handlers are in the tree, generated, with their golden traces
+   (1,417 variants pass, 0 fail) and docs/deviations/Q02.md; questgen gained rows B43-B44 (981 of 1,035 transliterated).
 
 ---
 
@@ -469,7 +471,7 @@ to the 649 sample files; "Waiting" less "Sample" is the files without a case and
 | Q08 (**landed, §8**) | gelkmaros, enshar | 63 | 55 | 54 | 1 | 1,366 | 40 |
 | Q11 | daevanion, sanctum | 72 | 50 | 41 | 9 | 1,604 | 48 |
 | Q01 (**landed, §9**) | reshanta | 77 | 76 | 65 | 11 | 1,450 | 61 |
-| Q02 | inggison | 57 | 53 | 44 | 9 | 1,411 | 43 |
+| Q02 (**landed, §10**) | inggison | 57 | 53 | 44 | 9 | 1,411 | 43 |
 | Q13 | instances A-K, kaisinel_academy | 84 | 76 | 55 | 21 | 1,753 | 56 |
 | Q14 | instances K-W | 73 | 63 | 55 | 8 | 1,591 | 48 |
 | Q05 | eltnen, poeta, oriel (rest) | 52 | 46 | 31 | 15 | 1,092 | 35 |
@@ -597,3 +599,21 @@ docs/deviations/Q01.md.
   the two chunks); no "QE: exception" line. gs.scenario.ascension's routes talk to Pernos and 203550 and m5e's to Pernos: the talk
   registrations of 14044, 24044 and 24046 change nothing there, as reasoned above. No gate expectation was changed.
 - **Not held back:** none. **Java bugs found:** none.
+
+## 10. Phase 6 step 2: chunk Q02 landed (lane C, 2026-10-05)
+
+Branch `lane-c/p6-q02`, stacked on `lane-c/p6-q01` (§9). The third chunk of §7.5's order; the record is docs/deviations/Q02.md.
+
+- **In the tree:** all 59 inggison handlers, questgen's output unedited, in `aion_gs_handlers_quest_q02`; the drift test's `Q02` table pins
+  them.
+- **Generator:** API rows B43 (`WorldMapInstance.getInstanceHandler`, `InstanceHandler.handleUseItemFinish`) and B44
+  (`ItemTemplate.getUseArea`) for 10034 and 11118: **981 of 1,035** transliterated, the other 979 files byte-identical.
+- **Golden traces:** `SLICE_Q02`, 59 documents, 1,407 cases: **1,417 variants pass, 0 fail**, 6,533 runs compared; listed: 7 not
+  reproducible, 11 vacuous; 5 quests with every hook refused. The registration trace passes for the 59. `ctest -R GoldenQuest`: 371 of 371.
+- **Java bug kept:** 11001 and 11008 name themselves as the pre-quest of their level hook, which therefore never starts them (Q02.md; both
+  start at their npc). Proposed correction for the owner.
+- **Parity** 59 pairs, 0 mismatches (the handler tree: 382 pairs, 0); **compile check** 981 clean, 0 warnings, regscan 0 errors; the full
+  Debug build has no new warning.
+- **Gate impact:** none expected (Q02.md: every quest needs level 50+; 11116's talk registrations at 203784 and 203785, which m5c's economy
+  oracle names, answer false without its quest state). **Gates:** WIP - the gs.scenario.* run under the lock was in progress at the handoff (Q02.md).
+- **Not held back:** none. **Not in the tree:** none.
