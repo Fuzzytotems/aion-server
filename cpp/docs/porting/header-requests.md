@@ -877,3 +877,9 @@ standing instruction** (small and additive) and applied with its call sites.
 | Id | File | Change | Decision | Reason |
 |---|---|---|---|---|
 | p6q08-1 | `model/templates/QuestTemplate.h` (static data, a shared header) | `getName()` (Java QuestTemplate.java:244-246) | **approved** by the owner (2026-10-05, option A of docs/deviations/Q08.md), **not applied: not needed**. The member is already declared, `const std::string& getName() const { return name; }`, in the generated `model/templates/QuestTemplate.xml.inc:47`, which `QuestTemplate.h` includes in its class body | Lane C reported it missing when questgen refused `gelkmaros/_20034RescuetheReians` (it read `QuestTemplate.h` and missed the `.inc`). The refusal was questgen's own gap, no rule for the static data holder `DataManager.QUEST_DATA`, now its API row B39 (docs/deviations/Q08.md). No header changes |
+## GM commands, M5j stage 0 (branch `lane-a/gm-commands`)
+
+| Id | File | Change | Decision | Reason |
+|---|---|---|---|---|
+| gm-1 | `geoEngine/math/JavaFloat.h` (P1 geomath) | C++-only `static std::string doubleToString(double value);` after `toString(float)`, with its doc; `JavaFloat.cpp` runs both through one template (the same JDK 19+ algorithm); `tests/geomath/JavaFloatTest.cpp` gains `DoubleToStringMatchesJava` | **filed, applied on the branch** (small and additive, the psf-2 precedent); the integrator confirms at the merge | Java `Double.toString`: `//info` prints `Npc.getDistanceToSpawnLocation()` (a double) in a string concatenation, and no Java double formatter existed |
+| (no request) | `tests/handlers_commands/C1/CommandTestSupport.h` | new test support: the fixture of `CommandFrameworkTest` moved out, so every command family's test file shares it | none (test code) | One fixture for the stage-0 command tests |
