@@ -522,8 +522,8 @@ aion_gs_chunk(Q04 TARGET aion_gs_handlers_quest_q04 PHASE 6 ROOT handlers
 # phase6-inventory.md §7.6 item 3 and §8.2): it drives every case of tools/oracle/expected/quest through the real engine. A handler target's
 # tests link only their own library, so the executable compiles the generated Q09 (ishalgen), Q06 (ascension dispatch), Q03 (verteron,
 # heiron) and Q10 (altgard, pandaemonium) files by #include, as P5-05's tests do for the two quest npc AIs (the P5-05 LEASE row below);
-# docs/deviations/Q05.md, Q03.md, Q10.md. P6-Q slice 2's lanes Q03 and Q10 added the hooks, helpers, registrations and overlays their files
-# need; Q03's LEASE row on this directory was released when slice 2 was integrated (docs/design/p6q-ascension-route.md, "Slice 2").
+# docs/deviations/Q05.md, Q03.md, Q10.md; since phase 6 step 2 also Q08 (gelkmaros, enshar; Q08.md). P6-Q slice 2's lanes Q03 and Q10
+# added the hooks, helpers, registrations and overlays their files need; Q03's LEASE row on this directory was released when slice 2 was integrated (docs/design/p6q-ascension-route.md, "Slice 2").
 aion_gs_chunk(Q05 TARGET aion_gs_handlers_quest_q05 PHASE 6 ROOT handlers
 	GLOBS "aion/gameserver/handlers/quest/{eltnen,poeta,oriel}/**"
 	JAVA "data/handlers/quest/{eltnen,poeta,oriel}/**"
@@ -540,6 +540,9 @@ aion_gs_chunk(Q07 TARGET aion_gs_handlers_quest_q07 PHASE 6 ROOT handlers
 	GLOBS "aion/gameserver/handlers/quest/{beshmundir,abyss_entry,silentera_canyon}/**"
 	JAVA "data/handlers/quest/{beshmundir,abyss_entry,silentera_canyon}/**"
 	PCH "aion/gameserver/handlers/quest/QuestPrelude.h")
+# Q08 (phase 6 step 2, lane C, 2026-10-05): the 63 generated gelkmaros and enshar handlers (questgen's output, bannered, drift-tested by
+# tools/gen/tests/test_questgen_tree.py); gelkmaros/_20034RescuetheReians is refused by questgen and not in the tree. Their golden traces run
+# in Q05's harness (tests/quest_handlers_golden, GoldenQ08Handlers.cpp compiles them by #include); docs/deviations/Q08.md.
 aion_gs_chunk(Q08 TARGET aion_gs_handlers_quest_q08 PHASE 6 ROOT handlers
 	GLOBS "aion/gameserver/handlers/quest/{gelkmaros,enshar}/**"
 	JAVA "data/handlers/quest/{gelkmaros,enshar}/**"
