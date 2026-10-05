@@ -60,6 +60,9 @@ ROW_FILES = {
     # row B42 (chunk Q01): DataManager.SPAWNS_DATA and its std::optional<SpawnSearchResult>; two event quests of Q12 need it too
     'B42': ('reshanta/_24043LazyLanguageLessons.java', 'event_quests/_50008SoloriusShugoSlackers.java',
             'event_quests/_51008NonHelpingHands.java'),
+    # rows B43-B44 (chunk Q02, lane C, 2026-10-05; docs/deviations/Q02.md)
+    'B43': ('inggison/_10034FoundUnderground.java',),
+    'B44': ('inggison/_11118MakingSetzkikiLaugh.java',),
 }
 
 ITEM_USE = source('_99101Closures', 99101, '''
@@ -316,9 +319,9 @@ class Corpus(unittest.TestCase):
                     self.assertEqual(self.all[rel].cpp, r.cpp)
         # the P6-T output (935 files on 2026-09-30) and eight of the ten files of rows B32-B38; with rule scheduled-closure the 27 closure
         # files and the other two (B33). Row B39 (the Q08 follow-up, 2026-10-05) adds its file to both, rows B40-B42 (chunk Q01, the
-        # same day) their six
-        self.assertEqual(sum(1 for r in self.p6t.values() if r.status == 'ok'), 950)
-        self.assertEqual(sum(1 for r in self.all.values() if r.status == 'ok'), 979)
+        # same day) their six, rows B43-B44 (chunk Q02) their two
+        self.assertEqual(sum(1 for r in self.p6t.values() if r.status == 'ok'), 952)
+        self.assertEqual(sum(1 for r in self.all.values() if r.status == 'ok'), 981)
         for rid, rels in ROW_FILES.items():
             for rel in rels:
                 self.assertIn(rid, self.all[rel].api_rows)
