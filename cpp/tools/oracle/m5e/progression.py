@@ -447,6 +447,7 @@ STEP_HELP = """steps, applied in order to one character:
   class:CLASS       CM_DIALOG_SELECT(0, the action of CLASS, ..., 1006 / 2008) with the simple class change: changeClassToSelection
   action:ID         the same with a raw dialog action id (getSelectedPlayerClass; an id it does not know selects no class)
   quit              leave world: players.old_level = level, the character is no longer spawned
+  seed:CLASS        while logged out, players.player_class = CLASS and the ascension quest COMPLETE (a Daeva for an advanced class)
   book:ITEM         CM_USE_ITEM of a skill book: SkillLearnAction.canAct, then learnSkillBook"""
 
 
@@ -533,6 +534,16 @@ class StepRunner:
 		elif kind == "quit":
 			ch.spawned = False
 			self.old_level = ch.level
+		elif kind == "seed":
+			# the gate's offline seed of a Daeva (m5e-plan.md D8, m5c-plan.md D5's recipe): players.player_class and a player_quests row of
+			# 1006 / 2008 COMPLETE, written while the character is logged out - nothing is learned; the next enter world's
+			# PlayerCommonData.setExp finds the quest through updateDaeva (PlayerCommonData.java:276, 588-610)
+			if ch.spawned:
+				raise OracleError(f"{step}: a seed is written while the character is logged out")
+			if arg not in self.p.enums.classes:
+				raise OracleError(f"{step}: unknown player class {arg}")
+			ch.player_class = arg
+			ch.daeva = not self.p.is_starting(arg)
 		elif kind == "book":
 			book = _book_action(self.data, int(arg))
 			report["book"] = book
@@ -707,10 +718,63 @@ def weapon_report(data: StaticData, rules: ProgressionRules, item_id: int, known
 	raise OracleError(f"item {item_id} has no template")
 
 
+# ---- a stigma stone ------------------------------------------------------------------------------------------------------------------------
+
+def _stigma_prices(java_src: Path) -> dict[str, int]:
+	"""StigmaService.notifyEquipAction's base kinah (StigmaService.java:69-77): 25,000, 50,000 for LEGEND, 100,000 for UNIQUE"""
+	text = _strip_comments(_read(java_src / "com" / "aionemu" / "gameserver" / "services" / "StigmaService.java"))
+	body = _method(text, r"public static boolean notifyEquipAction\(", "StigmaService")
+	base = re.search(r"long kinahcount = (\d+);", body)
+	legend = re.search(r"ItemQuality\.LEGEND\)\)\s*kinahcount = (\d+);", body)
+	unique = re.search(r"ItemQuality\.UNIQUE\)\)\s*kinahcount = (\d+);", body)
+	if not (base and legend and unique):
+		raise OracleError("StigmaService.notifyEquipAction: the kinah counts could not be read")
+	return {"default": int(base.group(1)), "LEGEND": int(legend.group(1)), "UNIQUE": int(unique.group(1))}
+
+
+def stigma_report(data: StaticData, java_src: Path, progression: Progression, ch: Character, item_id: int, prices: dict | None) -> dict:
+	"""
+	One stigma stone equipped by `ch` in an empty regular slot: StigmaService.notifyEquipAction's kinah (PricesService.getPriceForService over
+	the base of the stone's quality, m5c's service_price with the profile's prices) and addStigmaSkills (StigmaService.java:423-429): every
+	skill template of each gain_skill_group (SkillData.getSkillTemplatesByGroup, document order), each SkillTreeData.getTemplatesForSkill of
+	the class and race with minLevel <= level, learned as a temporary skill at the stone's enchant level + 1 (1), with addSkill's isNew and
+	sendPacket's message id (1300401 for a new stigma skill).
+	"""
+	stone = None
+	for element in data.stream("item_templates", "item_template"):
+		if java_int(element.get("id"), "item id") == item_id:
+			stigma = element.find("stigma")
+			stone = {"itemId": item_id, "name": element.get("name"), "quality": element.get("quality", "COMMON"),
+			         "level": java_int(element.get("level"), "level", 0), "itemGroup": element.get("item_group"),
+			         "groups": [g for g in (stigma.get("gain_skill_group1"), stigma.get("gain_skill_group2")) if g] if stigma is not None else []}
+			break
+	if stone is None:
+		raise OracleError(f"item {item_id} has no template")
+	if not stone["groups"]:
+		raise OracleError(f"item {item_id} is no stigma stone (no <stigma>)")
+	by_group: dict[str, list[int]] = {}
+	for element in data.stream("skill_data", "skill_template"):
+		group = element.get("group")
+		if group in stone["groups"]:
+			by_group.setdefault(group, []).append(java_int(element.get("skill_id"), "skill_id"))
+	bases = _stigma_prices(java_src)
+	base = bases.get(stone["quality"], bases["default"])
+	events: list[dict] = []
+	learner = Character(ch.race, ch.player_class, ch.level, ch.daeva, True, dict(ch.skills), dict(ch.skill_types))
+	for group in stone["groups"]:
+		for skill_id in by_group.get(group, []):
+			for template in progression.data.templates_for_skill(skill_id, ch.player_class, ch.race):
+				if ch.level >= template.min_level:
+					progression.add_skill(learner, template.skill_id, 1, events)
+	from m5c.economy import service_price
+	return {**stone, "basePrice": base, "price": service_price(base, prices) if prices is not None else None, "events": events}
+
+
 # ---- the report --------------------------------------------------------------------------------------------------------------------------
 
 def progression_report(data: StaticData, java_src: Path, handlers: Path, race: str, player_class: str, level: int, steps: list[str],
-                       known_file: Path | None, daeva: bool, skills: list[int], weapons: list[int], character: dict) -> dict:
+                       known_file: Path | None, daeva: bool, skills: list[int], weapons: list[int], character: dict,
+                       stigmas: list[int] = (), prices: dict | None = None) -> dict:
 	if race not in RACES:
 		raise OracleError(f"race must be one of {RACES}")
 	enums = JavaEnums(java_src)
@@ -774,6 +838,8 @@ def progression_report(data: StaticData, java_src: Path, handlers: Path, race: s
 		"skills": skill_reports,
 		"launched": launched,
 		"weapons": weapon_reports,
+		# per --stigma: the stone equipped by the character after the steps (stigma_report)
+		"stigmas": [stigma_report(data, java_src, progression, ch, s, prices) for s in stigmas],
 	}
 
 

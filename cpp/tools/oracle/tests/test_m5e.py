@@ -222,6 +222,30 @@ class M5eRealDataTest(unittest.TestCase):
 			self.assertEqual(oracle.main(["m5e-progression", "--race", "ELYOS", "--class", "WARRIOR", "--step", "level:2"]), 2,
 			                 "an online level change of a character that is not in the world is refused")
 
+	def test_a_seeded_daeva_learns_at_its_enter_world(self):
+		report = progression_report(self.data, JAVA_SRC, JAVA_QUEST_HANDLERS, "ELYOS", "PRIEST", 1,
+		                            ["create", "enter:1", "quit", "seed:CLERIC", "enter:10"], None, False, [], [], {})
+		enter = report["steps"][-1]
+		self.assertEqual((enter["playerClass"], enter["daeva"], enter["level"]), ("CLERIC", True, 10))
+		self.assertIn(1699, {s["skillId"] for s in enter["skills"]}, "Light of Resurrection, a Cleric's level-10 skill")
+		self.assertNotIn(30001, {s["skillId"] for s in enter["skills"]}, "a Daeva's 30001 became 30002")
+		self.assertIn(30002, {s["skillId"] for s in enter["skills"]})
+		with self.assertRaises(OracleError):
+			progression_report(self.data, JAVA_SRC, JAVA_QUEST_HANDLERS, "ELYOS", "PRIEST", 1, ["create", "enter:1", "seed:CLERIC"], None,
+			                   False, [], [], {})
+
+	def test_a_stigma_stone(self):
+		# Crippling Cut, a level-20 Gladiator stone (RARE): StigmaService.notifyEquipAction's 25,000 and addStigmaSkills' new stigma skill
+		report = progression_report(self.data, JAVA_SRC, JAVA_QUEST_HANDLERS, "ELYOS", "GLADIATOR", 20, [], None, True, [], [], {},
+		                            [140001109], {"globalPrices": 100, "globalPricesModifier": 100, "taxes": 100})
+		stone = report["stigmas"][0]
+		self.assertEqual((stone["quality"], stone["basePrice"], stone["price"]), ("RARE", 25000, 25000))
+		self.assertEqual(len(stone["events"]), 1)
+		self.assertEqual(stone["events"][0]["messageId"], 1300401, "a new stigma skill (SkillLearnService.java:52)")
+		self.assertEqual(stone["events"][0]["level"], 1, "the stone's enchant level + 1")
+		with self.assertRaises(OracleError):
+			progression_report(self.data, JAVA_SRC, JAVA_QUEST_HANDLERS, "ELYOS", "GLADIATOR", 20, [], None, True, [], [], {}, [100900038])
+
 	def test_unknown_step(self):
 		with self.assertRaises(OracleError):
 			progression_report(self.data, JAVA_SRC, JAVA_QUEST_HANDLERS, "ELYOS", "WARRIOR", 1, ["fly"], None, False, [], [], {})

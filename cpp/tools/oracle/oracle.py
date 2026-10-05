@@ -33,7 +33,7 @@
 	oracle.py m5e-progression --race R --class C [--level N] [--daeva] [--known-skills FILE] [--step STEP ...] [--skill ID ...]
 	                     [--weapon ID ...] [--dp N] [--robot] [--chain-after CATEGORY] [--target-kind PC|NPC]   (m5e/progression.py,
 	                     m5e-plan.md G-01): the experience table, the class change's pages and actions, the class master, the skills a
-	                     sequence of steps (create, enter:L, level:L, class:C, action:ID, quit, book:ITEM) teaches with their message ids, the
+	                     sequence of steps (create, enter:L, level:L, class:C, action:ID, quit, seed:C, book:ITEM) teaches with their message ids, the
 	                     base max HP / MP after each step, and the constants and conditions of the gate's casts and weapons
 	oracle.py quest-trace generate [--out DIR] [--only REL ...] | check [--expected-dir DIR] [--only REL ...]   golden traces of the Java
 	                     quest handlers (questtrace/, phase6-inventory.md §7.6 item 3): expected/quest/<id>.json for the first slice (exit 1
@@ -383,9 +383,18 @@ def cmd_m5e_progression(args):
 		character["targetKind"] = args.target_kind
 	if args.weapon_group is not None:
 		character["weaponGroup"] = args.weapon_group
+	prices = None
+	if args.stigma:
+		# StigmaService's kinah goes through PricesService.getPriceForService: the profile's price keys, as m5c-trade reads them
+		from m5c.trade import race_prices
+		from m5c.trade_config import load_config
+		config_dir = Path(args.config) if args.config else java_src.parent / "config"
+		profile = None if args.no_profile else Path(args.profile) if args.profile else config_dir / "mygs.properties"
+		config = load_config(java_src, config_dir, profile, [], require_profile=bool(args.profile) and not args.no_profile)
+		prices = race_prices(config, args.race, None)
 	report = progression_report(StaticData(data_dir), java_src, handlers, args.race, args.player_class, args.level, args.step or [],
 	                            Path(args.known_skills) if args.known_skills else None, args.daeva, args.skill or [], args.weapon or [],
-	                            character)
+	                            character, args.stigma or [], prices)
 	sys.stdout.write(runner.dump_json(report))
 	return 0
 
@@ -711,7 +720,7 @@ def main(argv=None):
 	p.add_argument("--daeva", action="store_true", help="the character is a Daeva at the first step")
 	p.add_argument("--known-skills", dest="known_skills", metavar="FILE",
 	               help="the skill list at the first step: JSON [{skillId, level}] or `id[:level]` tokens (e.g. the enter world's SM_SKILL_LIST)")
-	p.add_argument("--step", nargs="+", action="extend", metavar="STEP", help="create, enter:L, level:L, class:CLASS, action:ID, quit, book:ITEM")
+	p.add_argument("--step", nargs="+", action="extend", metavar="STEP", help="create, enter:L, level:L, class:CLASS, action:ID, quit, seed:CLASS, book:ITEM")
 	p.add_argument("--skill", nargs="+", action="extend", type=int, metavar="ID", help="skills whose constants and conditions to report")
 	p.add_argument("--weapon", nargs="+", action="extend", type=int, metavar="ID",
 	               help="weapons (item ids): item group, required skills, robot id; the first is the main hand of the condition check")
@@ -720,6 +729,12 @@ def main(argv=None):
 	p.add_argument("--robot", action="store_true", help="the character rides a robot (RideRobotCondition)")
 	p.add_argument("--chain-after", dest="chain_after", metavar="CATEGORY", help="the chain category the last chain skill left (ChainCondition)")
 	p.add_argument("--target-kind", dest="target_kind", choices=("PC", "NPC"), help="what the first target is (TargetCondition)")
+	p.add_argument("--stigma", nargs="+", action="extend", type=int, metavar="ITEM",
+	               help="stigma stones equipped after the steps: their kinah price and the skills addStigmaSkills teaches")
+	p.add_argument("--config", help="game-server/config, for the prices of --stigma (default: beside src)")
+	p.add_argument("--profile", help="the override file over config/{administration,main,network} for --stigma's prices (default: "
+	                                 "<config>/mygs.properties when it exists; a file named here must exist)")
+	p.add_argument("--no-profile", action="store_true", dest="no_profile", help="read no override file for --stigma's prices")
 	p.set_defaults(fn=cmd_m5e_progression)
 
 	p = sub.add_parser("quest-trace", help="golden traces of the Java quest handlers: every return leaf of every hook as a case with its "
