@@ -9,7 +9,6 @@
 #include <unordered_map>
 
 #include "aion/gameserver/runtime/base/Exceptions.h"
-#include "aion/gameserver/runtime/base/Unported.h"
 #include "aion/gameserver/runtime/lifetime/RefCounted.h"
 #include "aion/gameserver/runtime/sched/Future.h"
 #include "aion/gameserver/runtime/sched/Pin.h"
@@ -23,6 +22,8 @@
 #include "aion/gameserver/dataholders/InstanceExitData.h"
 #include "aion/gameserver/dataholders/NpcData.h"
 #include "aion/gameserver/dataholders/PlayerInitialData.h"
+#include "aion/gameserver/dataholders/Portal2Data.h"
+#include "aion/gameserver/dataholders/PortalLocData.h"
 #include "aion/gameserver/dataholders/SpawnsData.h"
 #include "aion/gameserver/dataholders/TeleLocationData.h"
 #include "aion/gameserver/dataholders/TeleporterData.h"
@@ -30,6 +31,7 @@
 #include "aion/gameserver/dataholders/loadingutils/EnumTraits.h"
 #include "aion/gameserver/model/CreatureType.h"
 #include "aion/gameserver/model/EmotionType.h"
+#include "aion/gameserver/model/Race.h"
 #include "aion/gameserver/model/TaskId.h"
 #include "aion/gameserver/model/actions/PlayerMode.h"
 #include "aion/gameserver/model/animations/ArrivalAnimation.h"
@@ -40,6 +42,8 @@
 #include "aion/gameserver/model/gameobjects/Pet.h"
 #include "aion/gameserver/model/gameobjects/player/BindPointPosition.h"
 #include "aion/gameserver/model/gameobjects/player/Player.h"
+#include "aion/gameserver/model/gameobjects/player/RequestResponseHandler.h"
+#include "aion/gameserver/model/gameobjects/player/ResponseRequester.h"
 #include "aion/gameserver/model/gameobjects/player/motion/Motion.h"
 #include "aion/gameserver/model/gameobjects/player/motion/MotionList.h"
 #include "aion/gameserver/model/gameobjects/state/CreatureState.h"
@@ -50,6 +54,9 @@
 #include "aion/gameserver/model/templates/flypath/FlyPathEntry.h"
 #include "aion/gameserver/model/templates/npc/NpcTemplate.h"
 #include "aion/gameserver/model/templates/portal/InstanceExit.h"
+#include "aion/gameserver/model/templates/portal/PortalLoc.h"
+#include "aion/gameserver/model/templates/portal/PortalPath.h"
+#include "aion/gameserver/model/templates/portal/PortalScroll.h"
 #include "aion/gameserver/model/templates/spawns/SpawnSearchResult.h"
 #include "aion/gameserver/model/templates/spawns/SpawnSpotTemplate.h"
 #include "aion/gameserver/model/templates/teleport/TeleLocIdData.h"
@@ -63,6 +70,7 @@
 #include "aion/gameserver/network/aion/serverpackets/SM_MOTION.h"
 #include "aion/gameserver/network/aion/serverpackets/SM_PLAYER_INFO.h"
 #include "aion/gameserver/network/aion/serverpackets/SM_PLAYER_SPAWN.h"
+#include "aion/gameserver/network/aion/serverpackets/SM_QUESTION_WINDOW.h"
 #include "aion/gameserver/network/aion/serverpackets/SM_STATS_INFO.h"
 #include "aion/gameserver/network/aion/serverpackets/SM_SYSTEM_MESSAGE.h"
 #include "aion/gameserver/network/aion/serverpackets/SM_TELEPORT_LOC.h"
@@ -530,11 +538,15 @@ void TeleportService::showMap(model::gameobjects::player::Player& player, model:
 		utils::PacketSendUtility::sendPacket(player, network::aion::serverpackets::SM_TELEPORT_MAP(npc.getObjectId(), template_->getTeleportId()));
 }
 
+// Java TeleportService.java:297-302
 void TeleportService::teleportToPrison(model::gameobjects::player::Player& player) {
-	AION_UNPORTED();
+	if (player.getRace() == model::Race::ELYOS)
+		teleportTo(player, world::getId(world::WorldMapType::LF_PRISON), 275, 239, 49);
+	else if (player.getRace() == model::Race::ASMODIANS)
+		teleportTo(player, world::getId(world::WorldMapType::DF_PRISON), 275, 239, 49);
 }
 
-// Java TeleportService.java:304-333. Ported by phase 6's route-hand lane under a lease of this file (chunks.cmake, Q09 LEASE): quest 2007's
+// Java TeleportService.java:304-333. Ported by phase 6's route-hand lane under a lease of this file (Q09, since released): quest 2007's
 // last step calls it (_2007WheresRaeThisTime.java:130). A cross-map arm goes through InstanceService::getOrRegisterInstance or the main
 // instance of the npc's map, as Java does.
 void TeleportService::teleportToNpc(model::gameobjects::player::Player& player, int32_t npcId) {
@@ -618,9 +630,15 @@ void TeleportService::moveToBindLocation(model::gameobjects::player::Player& pla
 	teleportTo(player, worldId, x, y, z, h);
 }
 
+// Java TeleportService.java:385-392
 void TeleportService::moveToTargetWithDistance(model::gameobjects::VisibleObject& object, model::gameobjects::player::Player& player,
 	int32_t direction, int32_t distance) {
-	AION_UNPORTED();
+	double radian = utils::PositionUtil::convertHeadingToAngle(object.getHeading()) * 0.017453292519943295; // Java: Math.toRadians (JDK 9+)
+	float x0 = object.getX();
+	float y0 = object.getY();
+	float x1 = static_cast<float>(std::cos(3.141592653589793 * direction + radian) * distance); // Java: Math.PI
+	float y1 = static_cast<float>(std::sin(3.141592653589793 * direction + radian) * distance);
+	teleportTo(player, object.getWorldId(), x0 + x1, y0 + y1, object.getZ());
 }
 
 // Java TeleportService.java:394-403
@@ -635,24 +653,120 @@ void TeleportService::moveToInstanceExit(model::gameobjects::player::Player& pla
 	}
 }
 
+// Java TeleportService.java:405-424
 void TeleportService::useTeleportScroll(model::gameobjects::player::Player& player, std::string_view portalName, int32_t worldId) {
-	AION_UNPORTED();
+	const model::templates::portal::PortalScroll* template_ = dataholders::DataManager::PORTAL2_DATA->getPortalScroll(portalName);
+	if (template_ == nullptr) {
+		log.warn("No portal template found for: " + std::string(portalName) + " " + std::to_string(worldId));
+		return;
+	}
+
+	model::Race playerRace = player.getRace();
+	const model::templates::portal::PortalPath* portalPath = template_->getPortalPath();
+	if (portalPath == nullptr) {
+		log.warn("No portal scroll for " + std::string(xml::enumName(playerRace)) + " on: " + std::string(portalName) + " " + std::to_string(worldId));
+		return;
+	}
+	const model::templates::portal::PortalLoc* loc = dataholders::DataManager::PORTAL_LOC_DATA->getPortalLoc(portalPath->getLocId());
+	if (loc == nullptr) {
+		log.warn("No portal loc for locId " + std::to_string(portalPath->getLocId()));
+		return;
+	}
+	teleportTo(player, worldId, loc->getX(), loc->getY(), loc->getZ());
 }
 
+// Java TeleportService.java:426-432
 void TeleportService::changeChannel(model::gameobjects::player::Player& player, int32_t channel) {
-	AION_UNPORTED();
+	world::World::getInstance().setPosition(runtime::Ptr<model::gameobjects::VisibleObject>(player), player.getWorldId(), channel + 1, player.getX(),
+		player.getY(), player.getZ(), player.getHeading());
+	player.getController().startProtectionActiveTask();
+	utils::PacketSendUtility::sendPacket(player, network::aion::serverpackets::SM_CHANNEL_INFO(player.getPosition()));
+	utils::PacketSendUtility::sendPacket(player, network::aion::serverpackets::SM_PLAYER_SPAWN(player));
+	utils::PacketSendUtility::sendPacket(player, network::aion::serverpackets::SM_SYSTEM_MESSAGE::STR_MSG_TELEPORT_ZONECHANNEL(channel));
 }
 
+// Java TeleportService.java:434-445. The log lines print the array's doubles as Java's string concatenation does (Double.toString), the
+// instance id as (int) and the heading as (byte) of the stored double. The Asmodian arm takes the map id of its array from the position's map
+// instance (a NullPointerException without one), the Elyos arm from the position - Java's difference, kept.
 void TeleportService::setEventPos(world::WorldPosition& pos, model::Race race) {
-	AION_UNPORTED();
+	if (race == model::Race::ELYOS) {
+		eventPosElyos.set(runtime::Array<double>::of({static_cast<double>(pos.getMapId()), static_cast<double>(pos.getInstanceId()),
+			static_cast<double>(pos.getX()), static_cast<double>(pos.getY()), static_cast<double>(pos.getZ()), static_cast<double>(pos.getHeading())}));
+		runtime::Ptr<runtime::Array<double>> eventPos = eventPosElyos.get();
+		log.info("elyos: mapId: " + std::to_string(pos.getMapId()) + ", instanceId: " + std::to_string(static_cast<int32_t>(eventPos->get(1)))
+				 + ", X: " + javaDoubleToString(eventPos->get(2)) + ", Y: " + javaDoubleToString(eventPos->get(3)) + ", Z: "
+				 + javaDoubleToString(eventPos->get(4)) + ", H: " + std::to_string(static_cast<int8_t>(static_cast<int32_t>(eventPos->get(5)))));
+	} else if (race == model::Race::ASMODIANS) {
+		// WorldPosition::getWorldMapInstance throws the NullPointerException of a position without a region itself (WorldPosition.cpp)
+		runtime::Ptr<world::WorldMapInstance> mapInstance = pos.getWorldMapInstance();
+		eventPosAsmodians.set(runtime::Array<double>::of({static_cast<double>(mapInstance->getMapId()), static_cast<double>(pos.getInstanceId()),
+			static_cast<double>(pos.getX()), static_cast<double>(pos.getY()), static_cast<double>(pos.getZ()), static_cast<double>(pos.getHeading())}));
+		runtime::Ptr<runtime::Array<double>> eventPos = eventPosAsmodians.get();
+		log.info("asmo: mapId: " + std::to_string(pos.getMapId()) + ", instanceId: " + std::to_string(static_cast<int32_t>(eventPos->get(1)))
+				 + ", X: " + javaDoubleToString(eventPos->get(2)) + ", Y: " + javaDoubleToString(eventPos->get(3)) + ", Z: "
+				 + javaDoubleToString(eventPos->get(4)) + ", H: " + std::to_string(static_cast<int8_t>(static_cast<int32_t>(eventPos->get(5)))));
+	}
 }
 
+// Java TeleportService.java:447-458
 void TeleportService::teleportToEvent(model::gameobjects::player::Player& player) {
-	AION_UNPORTED();
+	runtime::Ptr<runtime::Array<double>> pos;
+	if (player.getRace() == model::Race::ELYOS)
+		pos = eventPosElyos.get();
+	else if (player.getRace() == model::Race::ASMODIANS)
+		pos = eventPosAsmodians.get();
+
+	if (!pos)
+		moveToBindLocation(player);
+	else
+		teleportTo(player, static_cast<int32_t>(pos->get(0)), static_cast<int32_t>(pos->get(1)), static_cast<float>(pos->get(2)),
+			static_cast<float>(pos->get(3)), static_cast<float>(pos->get(4)), static_cast<int8_t>(static_cast<int32_t>(pos->get(5))),
+			model::animations::TeleportAnimation::FADE_OUT_BEAM);
 }
 
+namespace {
+
+/**
+ * Java: the anonymous RequestResponseHandler<Creature> of sendTeleportRequest (TeleportService.java:467-473, fieldmap key TeleportService$1,
+ * K4), created without a requester and stored in the player's ResponseRequester until he answers question 905097. It captures the npc id.
+ */
+class TeleportService_RequestResponseHandler final : public model::gameobjects::player::RequestResponseHandler {
+	AION_MAKE_REF_FRIEND
+public:
+	const int32_t npcId; // captured param int npcId (line 471) [captured variable: final scalar]
+
+	static runtime::Ref<TeleportService_RequestResponseHandler> create(int32_t npcIdValue) {
+		return runtime::makeRef<TeleportService_RequestResponseHandler>(npcIdValue);
+	}
+
+	// Java TeleportService.java:469-472
+	// the parameter is renamed (MSVC C4458: it would hide RequestResponseHandler::requester; CONVENTIONS.md)
+	void acceptRequest(runtime::Ptr<model::gameobjects::Creature> value, model::gameobjects::player::Player& responder) override {
+		static_cast<void>(value);
+		TeleportService::teleportToNpc(responder, npcId);
+	}
+
+protected:
+	explicit TeleportService_RequestResponseHandler(int32_t npcIdValue)
+		: RequestResponseHandler(runtime::Ptr<model::gameobjects::Creature>()), npcId(npcIdValue) {}
+	~TeleportService_RequestResponseHandler() override = default;
+};
+
+} // namespace
+
+// Java TeleportService.java:465-479
 bool TeleportService::sendTeleportRequest(model::gameobjects::player::Player& player, int32_t npcId) {
-	AION_UNPORTED();
+	int32_t questionMsgId = 905097; // You will be teleported to %0 Continue?
+	runtime::Ref<TeleportService_RequestResponseHandler> handler = TeleportService_RequestResponseHandler::create(npcId);
+
+	if (!player.getResponseRequester().putRequest(questionMsgId, handler))
+		return false;
+	// Java `DataManager.NPC_DATA.getNpcTemplate(npcId).getL10n()`: an unknown npc id is a NullPointerException, after the request was put
+	const model::templates::npc::NpcTemplate* npcTemplate = dataholders::DataManager::NPC_DATA->getNpcTemplate(npcId);
+	if (npcTemplate == nullptr)
+		throw runtime::NullPointerException("NpcData.getNpcTemplate(" + std::to_string(npcId) + ")");
+	utils::PacketSendUtility::sendPacket(player, network::aion::serverpackets::SM_QUESTION_WINDOW(questionMsgId, 0, 0, npcTemplate->getL10n()));
+	return true;
 }
 
 } // namespace aion::gameserver::services::teleport

@@ -63,7 +63,7 @@ private:
 	runtime::Ptr<RecallService::Request> remove(model::gameobjects::player::Player& summoned);
 public:
 	/** Checks everything a summon skill needs before it may be cast and tells the caster why it failed. */
-	static bool validateCast(model::gameobjects::player::Player& caster, model::gameobjects::VisibleObject& target);
+	static bool validateCast(model::gameobjects::player::Player& caster, runtime::Ptr<model::gameobjects::VisibleObject> target);
 	static bool canBeSummoned(model::gameobjects::Creature& caster, model::gameobjects::Creature& summoned);
 	static bool canRecallAt(model::gameobjects::player::Player& caster);
 };
