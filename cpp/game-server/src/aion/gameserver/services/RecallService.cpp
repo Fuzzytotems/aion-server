@@ -84,7 +84,7 @@ runtime::Ptr<RecallService::Request> RecallService::remove(model::gameobjects::p
 	return request;
 }
 
-bool RecallService::validateCast(model::gameobjects::player::Player& caster, model::gameobjects::VisibleObject& target) {
+bool RecallService::validateCast(model::gameobjects::player::Player& caster, runtime::Ptr<model::gameobjects::VisibleObject> target) {
 	AION_UNPORTED();
 }
 
