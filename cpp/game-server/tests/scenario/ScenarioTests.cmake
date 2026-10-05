@@ -50,8 +50,9 @@
 #             2026-09-29: see below)
 #           + gs.scenario.m5c 289 (m5c-plan.md §10.5; 225 s for part 1, 265-289 s alone since C19 joined it in stage 3,
 #             2026-09-28 in a Debug tree, the review's fix included; it has no geo variant; slot 2 until 2026-09-30)     = 1974
-#           + gs.scenario.m5e 328, gs.scenario.m5e_geo 482 (m5e-plan.md §10; 2026-10-04 in a Debug tree, one after the other in one
-#             ctest, beside two other agents' builds; slot 1 had the smaller sum before them, 1974 s against 2095 s)          = 2784
+#           + gs.scenario.m5e 343, gs.scenario.m5e_geo 484 (m5e-plan.md §10; 2026-10-04 in a Debug tree, one after the other in one
+#             ctest, beside two other agents' builds; m5e 340-379 s over its last five runs; slot 1 had the smaller sum before
+#             them, 1974 s against 2095 s)                                                                                = 2801
 #   slot 2  gs.scenario.m5b2 172, gs.scenario.m5b2_geo 301                                                         =  473
 #           + gs.scenario.ascension 880 (lane P6-Q asc-hand, docs/deviations/Q06.md; 866-904 s alone, 2026-09-29 in a Debug
 #             tree: two races' 43 s waits and auto-attack fights; it has no geo variant)                             = 1353

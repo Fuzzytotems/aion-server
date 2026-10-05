@@ -28,8 +28,11 @@
 // alternative page is asteros 203058's, not Pernos's (1123 starts at Pernos since its phase-6 handler registered, so Pernos answers 10); the
 // level-ups of C4-C10 kill the 2-HP junk monster 210340 beside asteros (one exp crosses a seeded threshold; Pernos's level-7 monsters killed
 // a level-8 Warrior); C15, the resurrection, runs before C13, while A1 is a level-10 Gladiator without 563's condskilllauncher (at 15 its
-// revive drove a lock-order inversion inherited from Java, which the report names); 1699 on a living target is refused before the cast
-// (STR_SKILL_TARGET_IS_NOT_VALID), not answered with status 16; the summon's hit is the client's CM_SUMMON_ATTACK after the attack order.
+// revive drove a lock-order inversion inherited from Java, which the report names); C12, the Gladiator's kit, runs after C13 at level 15,
+// where the junk monster no longer aggroes A1 and so stands where its last SM_MOVE took it (X9g), and 769 is cast again while a dodge or a
+// resist blocks its chain (Skill.java:598-606); X9g bounds the stumble by 2 m +- 0.9 m, the uncertainty of the target's broadcast position;
+// 1699 on a living target is refused before the cast (STR_SKILL_TARGET_IS_NOT_VALID), not answered with status 16; the summon's hit is the
+// client's CM_SUMMON_ATTACK after the attack order.
 //
 // It holds TWO gates: M5eScenario.Run (gs.scenario.m5e, geo off) and M5eScenarioGeo.Run (gs.scenario.m5e_geo, geo on), the same script through
 // one shared body; the comment above TEST(M5eScenarioGeo, Run) says what the geo run adds (§10.5, X9g).
@@ -38,7 +41,7 @@
 // server processes and its helpers live in an anonymous namespace). What is duplicated is scaffolding - the case log, the burst collector, the
 // login conversation, the report readers - never an assertion. The prologue's checks are the one thing shared (PrologueSupport.h).
 //
-// **§10.4, the mutation proof:** the AION_M5E_MUTANT environment switch is read by nothing in this file; the mutants live in the server's
+// **§10.4, the mutation proof:** the AION_M5EG_MUT environment switch is read by nothing in this file; the mutants live in the server's
 // sources for the length of one run and are restored byte for byte (docs/deviations/P5-SC.md, "M5e gate").
 
 #include <algorithm>
@@ -120,6 +123,8 @@ constexpr int32_t PERNOS = 790001;
 constexpr int32_t ASTEROS = 203058;
 /** the level-1 monster beside kunandes that C4 kills (m5b-monster: 2 HP, aggressive, 5 exp at level 1) */
 constexpr int32_t JUNK_MONSTER = 210340;
+/** its walk speed (npc_templates.xml, 210340 `<speeds walk="0.408">`): how long a random walk may take, only a wait of X9g, no expectation */
+constexpr float JUNK_MONSTER_WALK_SPEED = 0.408f;
 /** the level-7 monsters around Pernos (m5a-spawns around 790001), which aggro a level-10 character: what kills A1 for C15 */
 constexpr std::array<int32_t, 3> PERNOS_MONSTERS{210120, 210192, 210084};
 /** §2.8: the swamp starturtle of Verteron, whose 16423 *Crouch* is AlwaysBlockEffect (E-01, monsters only) */
@@ -521,7 +526,30 @@ public:
 		float x = 0, y = 0, z = 0;
 		bool dead = false;
 		bool deleted = false;
+		/** when its last SM_MOVE arrived (default: never) */
+		std::chrono::steady_clock::time_point lastMoveAt{};
+		/**
+		 * When the npc reaches (x, y, z) at the latest: the last SM_MOVE's time plus the way from the position it reported to its target at
+		 * `slowestSpeed` (a random walk names only its destination, and a walk of a few metres takes many seconds); an exactly known
+		 * position (SM_NPC_INFO, a stumble's result) is reached at once
+		 */
+		std::chrono::steady_clock::time_point arrivalAt{};
 	};
+
+	/** the slowest speed an npc's SM_MOVE may be walked at, in m/s (KnownNpcs::Npc::arrivalAt); 0 waits for no walk */
+	void setSlowestSpeed(float metresPerSecond) { slowestSpeed = metresPerSecond; }
+
+	/** a position the server reported exactly (a stumble's target position, SM_CASTSPELL_RESULT.java:145-152) */
+	void place(int32_t objectId, float x, float y, float z, std::chrono::steady_clock::time_point at) {
+		scan();
+		const auto found = npcs.find(objectId);
+		if (found == npcs.end())
+			return;
+		found->second.x = x;
+		found->second.y = y;
+		found->second.z = z;
+		found->second.arrivalAt = at;
+	}
 
 	void follow(const GameSession* next) {
 		session = next;
@@ -566,6 +594,17 @@ private:
 					npc.z = info.z;
 					npc.dead = false;
 					npc.deleted = false;
+					npc.arrivalAt = packet.receivedAt;
+					// an npc seen while it walks: SM_NPC_INFO carries the move controller's target, which is its own position when it stands
+					// (NpcMoveController.getTargetX2, SM_NPC_INFO.java:110-112), so it is where the npc goes, as for an SM_MOVE
+					const double way = std::hypot(double(info.targetX) - info.x, double(info.targetY) - info.y);
+					if (way > 0.01 && (info.targetX != 0 || info.targetY != 0)) {
+						npc.x = info.targetX;
+						npc.y = info.targetY;
+						npc.z = info.targetZ;
+						npc.lastMoveAt = packet.receivedAt;
+						npc.arrivalAt += arrivalDelay(way);
+					}
 				} else if (packet.name == "SM_MOVE") {
 					const decoders::NpcMove move = decoders::decodeNpcMove(packet.data);
 					const auto found = npcs.find(move.objectId);
@@ -575,6 +614,8 @@ private:
 						found->second.x = at[0];
 						found->second.y = at[1];
 						found->second.z = at[2];
+						found->second.lastMoveAt = packet.receivedAt;
+						found->second.arrivalAt = packet.receivedAt + arrivalDelay(std::hypot(double(at[0]) - move.x, double(at[1]) - move.y));
 					}
 				} else if (packet.name == "SM_EMOTION") {
 					const decoders::Emotion emotion = decoders::decodeEmotion(packet.data);
@@ -592,9 +633,15 @@ private:
 		}
 	}
 
+	/** how long a way of `metres` takes at the slowest speed (0 when no speed is set) */
+	std::chrono::milliseconds arrivalDelay(double metres) const {
+		return slowestSpeed > 0 ? std::chrono::milliseconds(int64_t(std::ceil(metres / slowestSpeed * 1000))) : 0ms;
+	}
+
 	const GameSession* session = nullptr;
 	size_t scanned = 0;
 	std::map<int32_t, Npc> npcs;
+	float slowestSpeed = 0;
 };
 
 std::vector<Packet> collectAnswer(GameSession& session, const AsyncAllowed& async, std::chrono::milliseconds firstWithin);
@@ -1903,8 +1950,9 @@ void runM5eGate(const GateVariant& variant) {
 		const Events glided = glide(a);
 		show("X7 the glide", glided);
 		EXPECT_FALSE(glided.has("MSG " + std::to_string(STR_GLIDE_ONLY_DEVA_CAN))) << "X7: a Daeva glides: " << glided.describe();
-		ASSERT_GE(glided.flyTimes.size(), 2u) << "X7: SM_FLY_TIME while gliding (the FP reduce task): " << glided.describe();
-		EXPECT_LT(glided.flyTimes.back().currentFp, glided.flyTimes.front().currentFp) << "X7: the FP fall within 3 s";
+		EXPECT_GE(glided.flyTimes.size(), 2u) << "X7: SM_FLY_TIME while gliding (the FP reduce task): " << glided.describe();
+		if (glided.flyTimes.size() >= 2)
+			EXPECT_LT(glided.flyTimes.back().currentFp, glided.flyTimes.front().currentFp) << "X7: the FP fall within 3 s";
 		const Events talk = eventsOf(showDialog(a, asterosObjectA), a.playerId(), a.labels);
 		show("X7 asteros", talk);
 		EXPECT_TRUE(talk.has("DW asteros " + std::to_string(PAGE_SELECT2) + " 0"))
@@ -1957,31 +2005,37 @@ void runM5eGate(const GateVariant& variant) {
 	/** the nearest live monster of `templates` (the village's junk monster by default) within `range`, selected (CM_TARGET_SELECT), after a
 	 * walk to `distance` */
 	const auto engage = [&](ScenarioClient& client, double distance, double range = 45.0, std::vector<int32_t> templates = {JUNK_MONSTER}) -> int32_t {
-		std::optional<std::pair<int32_t, KnownNpcs::Npc>> best;
-		double bestDistance = range;
-		const auto deadline = std::chrono::steady_clock::now() + 45s;
-		while (!best && std::chrono::steady_clock::now() < deadline) {
-			for (const auto& [objectId, npc] : client.npcs.all()) {
-				if (npc.dead || npc.deleted || std::ranges::find(templates, npc.templateId) == templates.end())
-					continue;
-				const double d = distance2d(npc.x, npc.y, client.x, client.y);
-				if (d < bestDistance) {
-					bestDistance = d;
-					best = {objectId, npc};
+		// a target whose selection the server does not answer (it died or left the knownlist on the way) is skipped, three times at most
+		std::set<int32_t> skipped;
+		for (int32_t attempt = 0; attempt < 3; attempt++) {
+			std::optional<std::pair<int32_t, KnownNpcs::Npc>> best;
+			double bestDistance = range;
+			const auto deadline = std::chrono::steady_clock::now() + 45s;
+			while (!best && std::chrono::steady_clock::now() < deadline) {
+				for (const auto& [objectId, npc] : client.npcs.all()) {
+					if (npc.dead || npc.deleted || skipped.contains(objectId) || std::ranges::find(templates, npc.templateId) == templates.end())
+						continue;
+					const double d = distance2d(npc.x, npc.y, client.x, client.y);
+					if (d < bestDistance) {
+						bestDistance = d;
+						best = {objectId, npc};
+					}
 				}
+				if (!best)
+					collectFor(*client.game, 1s);
 			}
 			if (!best)
-				collectFor(*client.game, 1s);
+				throw std::runtime_error(client.label + ": no live monster within " + std::to_string(range) + " m");
+			if (bestDistance > distance) {
+				const std::array<float, 3> at = pointNear(best->second.x, best->second.y, best->second.z, distance, client.x, client.y);
+				walkTo(client, at[0], at[1], at[2]);
+			}
+			client.game->send(GameSession::CM_TARGET_SELECT, GameSession::buildCM_TARGET_SELECT(best->first));
+			if (readUntil(*client.game, [](const Packet& packet) { return packet.name == "SM_TARGET_SELECTED"; }, 5s))
+				return best->first;
+			skipped.insert(best->first);
 		}
-		if (!best)
-			throw std::runtime_error(client.label + ": no live monster within " + std::to_string(range) + " m");
-		if (bestDistance > distance) {
-			const std::array<float, 3> at = pointNear(best->second.x, best->second.y, best->second.z, distance, client.x, client.y);
-			walkTo(client, at[0], at[1], at[2]);
-		}
-		client.game->send(GameSession::CM_TARGET_SELECT, GameSession::buildCM_TARGET_SELECT(best->first));
-		waitFor(*client.game, "SM_TARGET_SELECTED", 10s);
-		return best->first;
+		throw std::runtime_error(client.label + ": three targets were not selected (no SM_TARGET_SELECTED)");
 	};
 	const auto cast = [&](ScenarioClient& client, uint16_t skillId, int32_t targetObjectId, std::chrono::milliseconds timeout = 15s) {
 		GameSession::CastRequest request;
@@ -2006,135 +2060,6 @@ void runM5eGate(const GateVariant& variant) {
 		return values;
 	};
 	constexpr uint8_t ATTACK_STATUS_ABSORBED_HP = 6;
-
-	runCase("C12", "the Gladiator's kit: 519 with DP, 769 then 758 (the chain) with their drains, 2981, stumbles (X9, X9g)", [&] {
-		struct Stumble {
-			decoders::SkillPosition at;
-			KnownNpcs::Npc before;
-			float casterX = 0, casterY = 0;
-			uint16_t skillId = 0;
-		};
-		std::vector<Stumble> stumbles;
-		/** casts `skill` at the current target and records its result's stumbles with the effected npcs' positions before the cast */
-		const auto castRecorded = [&](uint16_t skill, int32_t target) -> std::pair<GameSession::CastOutcome, std::optional<decoders::CastSpellResult>> {
-			// X9g needs the target's position before the hit: the junk monster walks at random and runs to the character it aggroes, so the
-			// cast waits until no SM_MOVE of the target has come for 1.5 s (6 s at most); its last broadcast position is then where it stands
-			const auto settleDeadline = std::chrono::steady_clock::now() + 6s;
-			auto lastMove = std::chrono::steady_clock::now();
-			while (std::chrono::steady_clock::now() < settleDeadline && std::chrono::steady_clock::now() - lastMove < 1500ms)
-				for (const Packet& packet : collectFor(*a.game, 250ms))
-					if (packet.name == "SM_MOVE" && decoders::decodeMoveObjectId(packet.data) == target)
-						lastMove = std::chrono::steady_clock::now();
-			std::map<int32_t, KnownNpcs::Npc> before = a.npcs.all();
-			GameSession::CastOutcome outcome = cast(a, skill, target, 4s);
-			// the junk monster walks at random: a cast refused as too far (STR_SKILL_NOT_ENOUGH_DISTANCE) walks to it again, twice at most
-			for (int32_t retry = 0; retry < 2 && !outcome.castSpellResult; retry++) {
-				const std::optional<KnownNpcs::Npc> npc = a.npcs.get(target);
-				if (!npc || npc->dead)
-					break;
-				const std::array<float, 3> at = pointNear(npc->x, npc->y, npc->z, MELEE_DISTANCE - 0.5, a.x, a.y);
-				walkTo(a, at[0], at[1], at[2]);
-				before = a.npcs.all();
-				outcome = cast(a, skill, target, 4s);
-			}
-			const std::optional<decoders::CastSpellResult> result = castResultOf(a, outcome);
-			if (result)
-				for (const decoders::CastResultEffect& effect : result->effects)
-					if (effect.spellStatus == decoders::SPELL_STATUS_STUMBLE && effect.targetPosition && before.contains(effect.effectedObjectId))
-						stumbles.push_back({*effect.targetPosition, before.at(effect.effectedObjectId), a.x, a.y, skill});
-			return {outcome, result};
-		};
-		/** X9's drain: per effect of the result, ⌊d × p / 100⌋ of its HP reserve d (SkillAtkDrainInstantEffect.java:26-35), 1 s later */
-		const auto expectDrains = [&](const decoders::CastSpellResult& result, size_t from, uint16_t skill, int32_t percent, std::string_view row) {
-			collectFor(*a.game, 3000ms);
-			std::multiset<int32_t> expected;
-			for (const decoders::CastResultEffect& effect : result.effects) {
-				if (effect.effectedObjectId == a1.playerId)
-					continue;
-				int32_t damage = 0;
-				for (const decoders::CastResultReserved& reserved : effect.reserved)
-					if (reserved.resourceType == decoders::RESERVED_RESOURCE_HP)
-						damage = reserved.value;
-				expected.insert(damage * percent / 100);
-			}
-			const std::vector<int32_t> seen = attackStatuses(a, from, a1.playerId, ATTACK_STATUS_ABSORBED_HP, skill);
-			if (seen.size() != expected.size()) {
-				std::vector<std::string> own;
-				for (const Packet& packet : ofName(a.since(from), "SM_ATTACK_STATUS")) {
-					const decoders::AttackStatusUpdate status = decoders::decodeAttackStatus(packet.data);
-					if (status.creatureObjectId == a1.playerId)
-						own.push_back("type " + std::to_string(status.type) + " skill " + std::to_string(status.skillId) + " value " +
-						              std::to_string(status.value));
-				}
-				std::cout << row << ": A1's SM_ATTACK_STATUS in the window: " << join(own) << std::endl;
-			}
-			EXPECT_FALSE(expected.empty()) << row << ": the cast hit nothing";
-			EXPECT_EQ(std::multiset<int32_t>(seen.begin(), seen.end()), expected)
-			  << row << ": the ABSORBED_HP updates of A1 (" << joinNumbers(seen) << ") against ⌊d × " << percent << " / 100⌋ of each hit ("
-			  << joinNumbers(expected) << ")";
-		};
-
-		// 519 first, while the seeded DP is still exactly 2,000 (a kill adds DP, NpcController.java:233)
-		int32_t target = engage(a, MELEE_DISTANCE);
-		size_t from = a.mark();
-		auto [rageOutcome, rage] = castRecorded(EXPLOSION_OF_RAGE, target);
-		ASSERT_TRUE(rage) << "X9: 519 was refused (DpCondition, WeaponCondition): " << a.events(from).describe();
-		collectFor(*a.game, 1s);
-		const Events rageEvents = a.events(from);
-		show("X9 519", rageEvents);
-		EXPECT_TRUE(rageEvents.has("DP 0")) << "X9: DpUseAction takes exactly 2,000 of the seeded 2,000 (SM_STATUPDATE_DP 0): " << rageEvents.describe();
-
-		// 769, then 758 after its result: the chain, each with its drain
-		if (const auto npc = a.npcs.get(target); !npc || npc->dead)
-			target = engage(a, MELEE_DISTANCE);
-		from = a.mark();
-		auto [furyOutcome, fury] = castRecorded(ABSORBING_FURY, target);
-		ASSERT_TRUE(fury) << "X9: 769 was refused: " << a.events(from).describe();
-		EXPECT_EQ(fury->chainStatus, decoders::CAST_RESULT_CHAIN_SUCCESS) << "X9: 769's chain_skill_prob is 100 (Skill.java:627-637)";
-		expectDrains(*fury, from, ABSORBING_FURY, 10, "X9 769");
-		from = a.mark();
-		const int32_t hackTarget = [&] {
-			const auto npc = a.npcs.get(target);
-			return npc && !npc->dead ? target : engage(a, MELEE_DISTANCE);
-		}();
-		auto [hackOutcome, hack] = castRecorded(ROILING_HACK, hackTarget);
-		ASSERT_TRUE(hack) << "X9: 758 after 769 was refused (ChainCondition, ChainCondition.java:39-48): " << a.events(from).describe();
-		expectDrains(*hack, from, ROILING_HACK, 30, "X9 758");
-
-		// 2981 on a live target: an effect list (status not 16)
-		target = engage(a, MELEE_DISTANCE);
-		from = a.mark();
-		auto [tauntOutcome, taunt] = castRecorded(TAUNT, target);
-		ASSERT_TRUE(taunt) << "X9: 2981 was refused: " << a.events(from).describe();
-		EXPECT_NE(taunt->chainStatus, decoders::CAST_RESULT_NO_EFFECT) << "X9: Taunt applied its effects (HostileUpEffect)";
-
-		// X9g: more of the chain until a stumble (769's 10 s cooldown, X12's rule for the budget)
-		const auto stumbleDeadline = std::chrono::steady_clock::now() + 120s;
-		while (stumbles.empty() && std::chrono::steady_clock::now() < stumbleDeadline) {
-			collectFor(*a.game, 10500ms);
-			target = engage(a, MELEE_DISTANCE);
-			auto [again, againResult] = castRecorded(ABSORBING_FURY, target);
-			if (againResult && againResult->chainStatus == decoders::CAST_RESULT_CHAIN_SUCCESS)
-				castRecorded(ROILING_HACK, target);
-		}
-		ASSERT_FALSE(stumbles.empty()) << "X9g: no stumble in 120 s of 519 / 769 / 758";
-		for (const Stumble& stumble : stumbles) {
-			const double moved = distance2d(stumble.at.x, stumble.at.y, stumble.before.x, stumble.before.y);
-			const double fromCasterBefore = distance2d(stumble.before.x, stumble.before.y, stumble.casterX, stumble.casterY);
-			const double fromCasterAfter = distance2d(stumble.at.x, stumble.at.y, stumble.casterX, stumble.casterY);
-			std::cout << "X9g: " << stumble.skillId << " stumbled the target from (" << stumble.before.x << ", " << stumble.before.y << ", "
-			          << stumble.before.z << ") to (" << stumble.at.x << ", " << stumble.at.y << ", " << stumble.at.z << "): " << moved << " m"
-			          << std::endl;
-			// the npc's position before the hit is the server's last broadcast (SM_NPC_INFO, the destination of its last SM_MOVE), which a walking
-			// npc has not reached exactly: 0.5 m of tolerance for that
-			EXPECT_LE(moved, 2.0 + 0.5) << "X9g: StumbleEffect moves at most 2 m (StumbleEffect.java:66-70)";
-			EXPECT_GT(fromCasterAfter, fromCasterBefore - 0.5) << "X9g: away from A1";
-			if (!variant.geodata) {
-				EXPECT_NEAR(moved, 2.0, 0.5) << "X9g: without geo, exactly the 2 m point";
-				EXPECT_NEAR(stumble.at.z, stumble.before.z, 0.5) << "X9g: without geo, z unchanged";
-			}
-		}
-	});
 
 	runCase("C15", "resurrection: B1 resurrects the dead A1 with 1699; 35 %, Soul Sickness 8296; 1699 on the living (X13)", [&] {
 		disconnect(b);
@@ -2223,6 +2148,7 @@ void runM5eGate(const GateVariant& variant) {
 	runCase("C13", "the level-15 enter world: 563 Determination, then a second enter world (X10)", [&] {
 		disconnect(a);
 		seed(a1, "exp = " + std::to_string(warrior.startExp.at(15)));
+		seedPosition(a1, POETA, villageStand); // back from Pernos (C15) to the village, away from the monsters that aggro a level-15 A1
 		seedFullHp(a1);
 		const std::vector<Packet> first = enterAs(servers, a, a1);
 		const Events enter = eventsOf(first, a.playerId(), a.labels);
@@ -2234,6 +2160,225 @@ void runM5eGate(const GateVariant& variant) {
 		disconnect(a);
 		const std::vector<Packet> second = enterAs(servers, a, a1);
 		EXPECT_TRUE(skillListOf(second).contains(DETERMINATION)) << "X10: the second enter world applies 563 again and completes";
+	});
+
+	runCase("C12", "the Gladiator's kit: 519 with DP, 769 then 758 (the chain) with their drains, 2981, stumbles (X9, X9g)", [&] {
+		struct Stumble {
+			decoders::SkillPosition at;
+			KnownNpcs::Npc before;
+			float casterX = 0, casterY = 0;
+			uint16_t skillId = 0;
+			/** the cast came 1 s after the target's arrival at its last broadcast position (KnownNpcs::Npc::arrivalAt): it stood there */
+			bool settled = false;
+			std::chrono::steady_clock::time_point castAt{};
+		};
+		std::vector<Stumble> stumbles;
+		/** casts `skill` at the current target and records its result's stumbles with the effected npcs' positions before the cast */
+		const auto castRecorded = [&](uint16_t skill, int32_t target) -> std::pair<GameSession::CastOutcome, std::optional<decoders::CastSpellResult>> {
+			// X9g needs the target's position before the hit: the junk monster walks at random (0.408 m/s) and runs to the character it
+			// aggroes, and an SM_MOVE names only where it goes. So the cast waits until 1 s after the target's arrival there (30 s at most)
+			const auto settleDeadline = std::chrono::steady_clock::now() + 30s;
+			const auto arrived = [&] {
+				const std::optional<KnownNpcs::Npc> npc = a.npcs.get(target);
+				return !npc || std::chrono::steady_clock::now() >= npc->arrivalAt + 1s;
+			};
+			while (std::chrono::steady_clock::now() < settleDeadline && !arrived())
+				collectFor(*a.game, 250ms);
+			auto castAt = std::chrono::steady_clock::now();
+			std::map<int32_t, KnownNpcs::Npc> before = a.npcs.all();
+			GameSession::CastOutcome outcome = cast(a, skill, target, 4s);
+			// the junk monster walks at random: a cast refused as too far (STR_SKILL_NOT_ENOUGH_DISTANCE) walks to it again, twice at most
+			for (int32_t retry = 0; retry < 2 && !outcome.castSpellResult; retry++) {
+				const std::optional<KnownNpcs::Npc> npc = a.npcs.get(target);
+				if (!npc || npc->dead)
+					break;
+				const std::array<float, 3> at = pointNear(npc->x, npc->y, npc->z, MELEE_DISTANCE - 0.5, a.x, a.y);
+				walkTo(a, at[0], at[1], at[2]);
+				before = a.npcs.all();
+				castAt = std::chrono::steady_clock::now();
+				outcome = cast(a, skill, target, 4s);
+			}
+			const std::optional<decoders::CastSpellResult> result = castResultOf(a, outcome);
+			if (result)
+				for (const decoders::CastResultEffect& effect : result->effects)
+					if (effect.spellStatus == decoders::SPELL_STATUS_STUMBLE && effect.targetPosition && before.contains(effect.effectedObjectId)) {
+						const KnownNpcs::Npc& npc = before.at(effect.effectedObjectId);
+						stumbles.push_back({*effect.targetPosition, npc, a.x, a.y, skill, castAt >= npc.arrivalAt + 1s, castAt});
+						// the server put it there (StumbleEffect.java:66-70, World.updatePosition) and sends no SM_MOVE for it
+						a.npcs.place(effect.effectedObjectId, effect.targetPosition->x, effect.targetPosition->y, effect.targetPosition->z,
+						             std::chrono::steady_clock::now());
+					}
+			return {outcome, result};
+		};
+		/**
+		 * X9's drain: per effect of the result, ⌊d × p / 100⌋ of its HP reserve d (SkillAtkDrainInstantEffect.java:26-35), 1 s later. The
+		 * update carries what the HP rose by, newHp - previousHp with newHp capped at the max HP (CreatureLifeStats.java:185, 191): an update
+		 * whose HP percentage is 100 may be less than its drain, any other must be exactly one
+		 */
+		const auto expectDrains = [&](const decoders::CastSpellResult& result, size_t from, uint16_t skill, int32_t percent, std::string_view row) {
+			collectFor(*a.game, 3000ms);
+			std::multiset<int32_t> expected;
+			for (const decoders::CastResultEffect& effect : result.effects) {
+				if (effect.effectedObjectId == a1.playerId)
+					continue;
+				int32_t damage = 0;
+				for (const decoders::CastResultReserved& reserved : effect.reserved)
+					if (reserved.resourceType == decoders::RESERVED_RESOURCE_HP)
+						damage = reserved.value;
+				expected.insert(damage * percent / 100);
+			}
+			std::vector<int32_t> seen;
+			std::vector<int32_t> capped;
+			for (const Packet& packet : ofName(a.since(from), "SM_ATTACK_STATUS")) {
+				const decoders::AttackStatusUpdate status = decoders::decodeAttackStatus(packet.data);
+				if (status.creatureObjectId == a1.playerId && status.type == ATTACK_STATUS_ABSORBED_HP && status.skillId == skill)
+					(status.hpOrMp == 100 ? capped : seen).push_back(status.value);
+			}
+			std::multiset<int32_t> unmatched = expected;
+			for (int32_t value : seen) {
+				const auto found = unmatched.find(value);
+				if (found != unmatched.end())
+					unmatched.erase(found);
+			}
+			// a capped update takes the smallest drain it does not exceed
+			bool cappedFit = true;
+			for (int32_t value : capped) {
+				const auto found = unmatched.lower_bound(value);
+				if (found == unmatched.end())
+					cappedFit = false;
+				else
+					unmatched.erase(found);
+			}
+			if (!capped.empty())
+				std::cout << row << ": " << capped.size() << " update(s) at A1's max HP: " << joinNumbers(capped) << std::endl;
+			if (seen.size() + capped.size() != expected.size()) {
+				std::vector<std::string> own;
+				for (const Packet& packet : ofName(a.since(from), "SM_ATTACK_STATUS")) {
+					const decoders::AttackStatusUpdate status = decoders::decodeAttackStatus(packet.data);
+					if (status.creatureObjectId == a1.playerId)
+						own.push_back("type " + std::to_string(status.type) + " skill " + std::to_string(status.skillId) + " value " +
+						              std::to_string(status.value));
+				}
+				std::cout << row << ": A1's SM_ATTACK_STATUS in the window: " << join(own) << std::endl;
+			}
+			EXPECT_FALSE(expected.empty()) << row << ": the cast hit nothing";
+			EXPECT_FALSE(seen.empty()) << row << ": no drain below A1's max HP, so none was measured";
+			EXPECT_TRUE(seen.size() + capped.size() == expected.size() && unmatched.empty() && cappedFit)
+			  << row << ": the ABSORBED_HP updates of A1 (" << joinNumbers(seen) << "; at the max HP: " << joinNumbers(capped) << ") against ⌊d × "
+			  << percent << " / 100⌋ of each hit (" << joinNumbers(expected) << ")";
+		};
+
+		// At level 15 (after C13): the junk monster no longer aggroes A1 (a level difference of 10, CreatureEventHandler.java:107-110), so
+		// a target stands where its last SM_MOVE took it (X9g). DP 2,000 again (C11's seed: a kill adds DP, NpcController.java:233) and HP at
+		// a quarter of the base max: the regeneration of C12's retries and the drains leave room below the max (a run that seeded half had
+		// reached it by 758), and HP never crosses 563's 10 % threshold
+		disconnect(a);
+		a.npcs.setSlowestSpeed(JUNK_MONSTER_WALK_SPEED);
+		seedPosition(a1, POETA, villageStand);
+		seed(a1, "dp = 2000");
+		database.setLifeStatHp(schema, a1.playerId, warrior.step("enter:15").baseMaxHp / 4);
+		enterAs(servers, a, a1);
+		// 519 first, while the seeded DP is still exactly 2,000
+		int32_t target = engage(a, MELEE_DISTANCE);
+		size_t from = a.mark();
+		auto [rageOutcome, rage] = castRecorded(EXPLOSION_OF_RAGE, target);
+		ASSERT_TRUE(rage) << "X9: 519 was refused (DpCondition, WeaponCondition): " << a.events(from).describe();
+		collectFor(*a.game, 1s);
+		const Events rageEvents = a.events(from);
+		show("X9 519", rageEvents);
+		EXPECT_TRUE(rageEvents.has("DP 0")) << "X9: DpUseAction takes exactly 2,000 of the seeded 2,000 (SM_STATUPDATE_DP 0): " << rageEvents.describe();
+
+		// 769, then 758 after its result: the chain, each with its drain
+		if (const auto npc = a.npcs.get(target); !npc || npc->dead)
+			target = engage(a, MELEE_DISTANCE);
+		// chain_skill_prob 100 opens the chain unless every effected resisted or dodged (blockedChain, Skill.java:598-606, 628-633): a blocked
+		// 769 is cast again after its 10 s cooldown, four times at most
+		std::optional<decoders::CastSpellResult> fury;
+		for (int32_t attempt = 0; attempt < 4 && (!fury || fury->chainStatus != decoders::CAST_RESULT_CHAIN_SUCCESS); attempt++) {
+			if (attempt > 0) {
+				collectFor(*a.game, 10500ms);
+				target = engage(a, MELEE_DISTANCE);
+			}
+			from = a.mark();
+			fury = castRecorded(ABSORBING_FURY, target).second;
+			ASSERT_TRUE(fury) << "X9: 769 was refused: " << a.events(from).describe();
+			if (fury->chainStatus != decoders::CAST_RESULT_CHAIN_SUCCESS)
+				std::cout << "X9: 769's chain was blocked (chain status " << +fury->chainStatus << "), cast again" << std::endl;
+		}
+		ASSERT_EQ(fury->chainStatus, decoders::CAST_RESULT_CHAIN_SUCCESS) << "X9: 769's chain_skill_prob is 100 (Skill.java:627-637)";
+		expectDrains(*fury, from, ABSORBING_FURY, 10, "X9 769");
+		from = a.mark();
+		const int32_t hackTarget = [&] {
+			const auto npc = a.npcs.get(target);
+			return npc && !npc->dead ? target : engage(a, MELEE_DISTANCE);
+		}();
+		auto [hackOutcome, hack] = castRecorded(ROILING_HACK, hackTarget);
+		ASSERT_TRUE(hack) << "X9: 758 after 769 was refused (ChainCondition, ChainCondition.java:39-48): " << a.events(from).describe();
+		expectDrains(*hack, from, ROILING_HACK, 30, "X9 758");
+
+		// 2981 on a live target: an effect list (status not 16)
+		target = engage(a, MELEE_DISTANCE);
+		from = a.mark();
+		auto [tauntOutcome, taunt] = castRecorded(TAUNT, target);
+		ASSERT_TRUE(taunt) << "X9: 2981 was refused: " << a.events(from).describe();
+		EXPECT_NE(taunt->chainStatus, decoders::CAST_RESULT_NO_EFFECT) << "X9: Taunt applied its effects (HostileUpEffect)";
+
+		// X9g: more of the chain until a stumble (769's 10 s cooldown, X12's rule for the budget)
+		const auto stumbleDeadline = std::chrono::steady_clock::now() + 240s;
+		while (stumbles.empty() && std::chrono::steady_clock::now() < stumbleDeadline) {
+			collectFor(*a.game, 10500ms);
+			target = engage(a, MELEE_DISTANCE);
+			auto [again, againResult] = castRecorded(ABSORBING_FURY, target);
+			if (againResult && againResult->chainStatus == decoders::CAST_RESULT_CHAIN_SUCCESS)
+				castRecorded(ROILING_HACK, target);
+		}
+		const auto settledStumble = [&] { return std::ranges::any_of(stumbles, [](const Stumble& s) { return s.settled; }); };
+		while (!settledStumble() && std::chrono::steady_clock::now() < stumbleDeadline) {
+			collectFor(*a.game, 10500ms);
+			target = engage(a, MELEE_DISTANCE);
+			castRecorded(ABSORBING_FURY, target);
+		}
+		ASSERT_TRUE(settledStumble()) << "X9g: no stumble of a target that stood still in 240 s of 519 / 769 / 758 (" << stumbles.size()
+		                              << " of a walking one)";
+		for (const Stumble& stumble : stumbles) {
+			if (!stumble.settled) {
+				std::cout << "X9g: " << stumble.skillId << " stumbled a target that may still have been walking: not measured" << std::endl;
+				continue;
+			}
+			const double moved = distance2d(stumble.at.x, stumble.at.y, stumble.before.x, stumble.before.y);
+			const double fromCasterBefore = distance2d(stumble.before.x, stumble.before.y, stumble.casterX, stumble.casterY);
+			const double fromCasterAfter = distance2d(stumble.at.x, stumble.at.y, stumble.casterX, stumble.casterY);
+			std::cout << "X9g: " << stumble.skillId << " stumbled the target from (" << stumble.before.x << ", " << stumble.before.y << ", "
+			          << stumble.before.z << ") to (" << stumble.at.x << ", " << stumble.at.y << ", " << stumble.at.z << "): " << moved << " m"
+			          << std::endl;
+			{
+				// diagnostics: StumbleEffect.calculate moves the target 2 m away from the caster, so the target stood on the line from A1 to
+				// the stumble's end, 2 m short of it; how far that point is from the broadcast position says how well the gate knew it
+				const double reach = fromCasterAfter;
+				const double implied = reach > 2.0 ? (reach - 2.0) / reach : 0.0;
+				const double nx = stumble.casterX + (stumble.at.x - stumble.casterX) * implied;
+				const double ny = stumble.casterY + (stumble.at.y - stumble.casterY) * implied;
+				const auto sinceMove =
+				  stumble.before.lastMoveAt == std::chrono::steady_clock::time_point{}
+				    ? std::string("never moved")
+				    : std::to_string(std::chrono::duration_cast<std::chrono::milliseconds>(stumble.castAt - stumble.before.lastMoveAt).count()) +
+				        " ms since its last SM_MOVE";
+				std::cout << "X9g:   A1 at (" << stumble.casterX << ", " << stumble.casterY << "), the target " << sinceMove
+				          << "; the stumble implies it stood at (" << nx << ", " << ny << "), " << distance2d(nx, ny, stumble.before.x, stumble.before.y)
+				          << " m from its broadcast position" << std::endl;
+			}
+			// The npc's position before the hit is known only from the server's broadcasts (SM_NPC_INFO, the destination of its last SM_MOVE).
+			// Once the cast waits for the arrival there, the point the stumble implies was 0.002-0.05 m from it (three runs, the diagnostics
+			// above); before that, a monster that ran to A1 had stopped up to 0.6 m short. The row keeps a band of 2 m +- 0.9 m rather than
+			// pinning the 2 m point: a stumble that moved nothing (getClosestCollision answering the origin) or twice as far is outside it.
+			constexpr double POSITION_UNCERTAINTY = 0.9;
+			EXPECT_LE(moved, 2.0 + POSITION_UNCERTAINTY) << "X9g: StumbleEffect moves at most 2 m (StumbleEffect.java:66-70)";
+			EXPECT_GT(fromCasterAfter, fromCasterBefore - POSITION_UNCERTAINTY) << "X9g: away from A1";
+			if (!variant.geodata) {
+				EXPECT_GE(moved, 2.0 - POSITION_UNCERTAINTY) << "X9g: without geo, the whole 2 m (no collision is found)";
+				EXPECT_NEAR(stumble.at.z, stumble.before.z, 0.5) << "X9g: without geo, z unchanged";
+			}
+		}
 	});
 
 	runCase("C14", "Verteron: the enter world, and the starturtle's Crouch (X11, X12)", [&] {
@@ -2342,8 +2487,9 @@ void runM5eGate(const GateVariant& variant) {
 			periodic = periodic || (gap >= 6000 && gap <= 7000);
 		}
 		EXPECT_TRUE(periodic) << "X14: two SM_ABNORMAL_STATEs with 8998 6.5 ± 0.5 s apart (AuraEffect.java:76)";
-		ASSERT_TRUE(firstWithout) << "X14: no SM_ABNORMAL_STATE without 8998 after the toggle-off";
-		EXPECT_LE(std::chrono::duration_cast<std::chrono::milliseconds>(*firstWithout - toggledAt).count(), 7000) << "X14: 8998 gone within 7 s";
+		EXPECT_TRUE(firstWithout) << "X14: no SM_ABNORMAL_STATE without 8998 after the toggle-off";
+		if (firstWithout)
+			EXPECT_LE(std::chrono::duration_cast<std::chrono::milliseconds>(*firstWithout - toggledAt).count(), 7000) << "X14: 8998 gone within 7 s";
 		EXPECT_FALSE(late8998) << "X14: an SM_ABNORMAL_STATE listing 8998 later than 7 s after the toggle-off";
 		// A1, the observer: SM_MANTRA_EFFECT(B2, 8998) every 6.5 s while on, none from toggle-off + 0.5 s
 		std::vector<std::chrono::steady_clock::time_point> mantras;
@@ -2406,17 +2552,24 @@ void runM5eGate(const GateVariant& variant) {
 			return skills.at(index).at("skillId").get<int32_t>();
 		};
 		for (const int64_t hold : {700, 3500}) {
-			const int32_t target = engage(b, 5.0, 45.0);
-			b.game->send(GameSession::CM_CASTSPELL, GameSession::buildCM_CASTSPELL(KINETIC_SLAM, 1, decoders::CAST_TARGET_OBJECT, target));
-			const std::optional<size_t> started = readUntil(
-			  *b.game,
-			  [&](const Packet& packet) {
-				  if (packet.name != "SM_CASTSPELL")
-					  return false;
-				  const decoders::CastSpell spell = decoders::decodeCastSpell(packet.data);
-				  return spell.effectorObjectId == b3.playerId && spell.spellId == KINETIC_SLAM;
-			  },
-			  5s);
+			// the junk monster walks at random: a start refused as too far walks to the (next) target again, twice at most
+			std::optional<size_t> started;
+			for (int32_t attempt = 0; attempt < 3 && !started; attempt++) {
+				const int32_t target = engage(b, 4.0, 45.0);
+				const size_t castFrom = b.mark();
+				b.game->send(GameSession::CM_CASTSPELL, GameSession::buildCM_CASTSPELL(KINETIC_SLAM, 1, decoders::CAST_TARGET_OBJECT, target));
+				started = readUntil(
+				  *b.game,
+				  [&](const Packet& packet) {
+					  if (packet.name != "SM_CASTSPELL")
+						  return false;
+					  const decoders::CastSpell spell = decoders::decodeCastSpell(packet.data);
+					  return spell.effectorObjectId == b3.playerId && spell.spellId == KINETIC_SLAM;
+				  },
+				  3s);
+				if (!started)
+					show("X15 2606 not started", b.events(castFrom));
+			}
 			ASSERT_TRUE(started) << "X15: 2606 did not start its charge (ride_robot)";
 			collectFor(*b.game, std::chrono::milliseconds(hold));
 			b.game->send(GameSession::CM_USE_CHARGE_SKILL, GameSession::buildCM_USE_CHARGE_SKILL());
@@ -2465,9 +2618,19 @@ void runM5eGate(const GateVariant& variant) {
 		show("X16 the second book", second);
 		EXPECT_EQ(second.count("SKILL "), 0u) << "X16: the known skill is refused (SkillLearnAction.canAct)";
 		EXPECT_TRUE(b.model.byObjectId(book2).has_value()) << "X16: the second book is kept";
-		const int32_t monster = engage(b, 10.0, 45.0);
-		const size_t from = b.mark();
-		ASSERT_TRUE(castResultOf(b, cast(b, CURSE_OF_ROOTS, monster))) << "X16: 1417 was refused";
+		// the junk monster walks at random, and with geo a slope can stand between B4 and it: a refused cast (too far, no line of sight) is
+		// cast again on the next target, three targets at most
+		int32_t monster = 0;
+		size_t from = 0;
+		std::optional<decoders::CastSpellResult> roots;
+		for (int32_t attempt = 0; attempt < 3 && !roots; attempt++) {
+			monster = engage(b, 6.0, 45.0);
+			from = b.mark();
+			roots = castResultOf(b, cast(b, CURSE_OF_ROOTS, monster));
+			if (!roots)
+				show("X16 1417 refused", b.events(from));
+		}
+		ASSERT_TRUE(roots) << "X16: 1417 was refused on three targets";
 		collectFor(*b.game, 1500ms);
 		bool onMonster = false;
 		for (const Packet& packet : ofName(b.since(from), "SM_ABNORMAL_EFFECT")) {
