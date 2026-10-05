@@ -988,6 +988,13 @@ gate mutant (17), one run of the named unit suite per unit mutant (5): **all kil
   it arrived.
 - Final gate: `gs.scenario.m5f` passed in 198 s and `gs.scenario.m5f_geo` in 325 s in one ctest. Each: an empty census, no ERROR line, §A
   hit once, every §B row 0, §C's `PvpMapService.cpp:32` once.
+- **G-05, the regate** (§10.6), on the final tree after the mutation proof, one `ctest -R '^gs\.scenario\.' -LE stress -j 2` (2,796 s):
+  16 of 17 passed - m5a 70 s, m5a_geo 171, m5b 271, m5b_geo 370, m5b2 201, m5b2_geo 304, m5b3 216, m5b3_geo 321, m5c 290, m5d 270, m5d_geo
+  365, m5e 486, m5e_geo 536, ascension 924, m5f 283, m5f_geo 359. `gs.scenario.travel` failed in T3 at the **login server** ("CM_LOGIN:
+  expected opcode 3, got opcode 1 with reason 16777223", account B refused before any game-server packet) and passed alone right after
+  (44 s). Nothing of this lane touches the login server or the travel gate; recorded, not investigated. §10.6 (b)-(d): no earlier gate
+  asserted W-08's loud flight master any more (the travel core flipped `DialogServiceTest`'s row), and the earlier gates' packet sequences
+  are unchanged (they all pass unmodified).
 - Unit: `TravelDecodersTest` 10, `GameSession*`, `AscensionPacketsTest` (with G2c), `BindPointTeleportTest` (with the float vector): 48 of
   48 under the database lock. `tools/oracle`: 569 OK, 1 skipped.
 - Static checks: `lint_concurrency.py --werror --cycles=core game-server/src` 3,894 files, 0 errors / warnings / advisories;
