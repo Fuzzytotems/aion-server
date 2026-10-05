@@ -225,6 +225,11 @@ API_TABLE = (
     Row('B42', 'spawn lookup: DataManager.SPAWNS_DATA (read), SpawnsData.getFirstSpawnByNpcId, SpawnSearchResult.getSpot, SpawnSpotTemplate.getX/Y/Z',
         (('DataManager', 'SPAWNS_DATA'), ('SpawnsData', 'getFirstSpawnByNpcId'), ('SpawnSearchResult', 'getSpot'), ('SpawnSpotTemplate', 'getX'),
          ('SpawnSpotTemplate', 'getY'), ('SpawnSpotTemplate', 'getZ')), 'ported'),
+    # B43-B44 (phase 6 step 2, chunk Q02, lane C, 2026-10-05): members the C++ side declares that two inggison quests call
+    # (docs/deviations/Q02.md)
+    Row('B43', 'instance handlers: WorldMapInstance.getInstanceHandler, InstanceHandler.handleUseItemFinish',
+        (('WorldMapInstance', 'getInstanceHandler'), ('InstanceHandler', 'handleUseItemFinish')), 'ported'),
+    Row('B44', 'item use areas: ItemTemplate.getUseArea', (('ItemTemplate', 'getUseArea'),), 'ported'),
 )
 
 # the static data holders of DataManager a handler reads (row B39): Java field -> (the C++ class it holds, its header). The C++ field is a
