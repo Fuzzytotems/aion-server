@@ -527,6 +527,17 @@ def cmd_m5f_travel(args):
 		geo_dir = Path(args.geo_dir) if args.geo_dir else data_dir.parent / "geo"
 		result["geoCheck"] = geo_check(td, geo_dir, data_dir / "world_maps.xml", args.geo_map)
 	sys.stdout.write(runner.dump_json(result))
+def cmd_m5g_team(args):
+	from m5a.data import StaticData
+	from m5g.team import team_report
+	data_dir = _data_dir(args)
+	java_src = Path(args.java_src) if args.java_src else data_dir.parent.parent / "src"
+	kills = None
+	if args.kill:
+		kills = [[flag == "1" for flag in kill] for kill in args.kill]
+	report = team_report(StaticData(data_dir), java_src, args.npc_id, args.levels, kills, args.xp_group_rate, args.xp_solo_rate, args.message or [],
+	                     args.question or [], args.max_level)
+	sys.stdout.write(runner.dump_json(report))
 	return 0
 
 
@@ -911,6 +922,20 @@ def main(argv=None):
 	p.add_argument("--geo-dir", dest="geo_dir", help="game-server/data/geo for --geo-check (default: beside the static data directory)")
 	p.add_argument("--geo-map", type=int, action="append", dest="geo_map", metavar="ID", help="limit --geo-check to these maps; repeatable")
 	p.set_defaults(fn=cmd_m5f_travel)
+	p = sub.add_parser("m5g-team", help="a team kill's experience shares in the gate's kill order, the level search of D8 and the team "
+	                                    "constants (m5g-plan.md H-01)")
+	data_args(p, country=False)
+	p.add_argument("--java-src", help="game-server/src (default: two levels above the static data directory, then src)")
+	p.add_argument("--npc-id", type=int, required=True, dest="npc_id")
+	p.add_argument("--levels", type=int, nargs="+", help="the members' levels (default: search the smallest A = B < C of D8)")
+	p.add_argument("--kill", nargs="+", action="extend", metavar="FLAGS",
+	               help="one kill per value: a 0/1 string, member i counted (online and within range) when its character i is 1")
+	p.add_argument("--xp-group-rate", type=float, default=1.0, dest="xp_group_rate", help="RatesConfig.XP_GROUP_RATES[0]")
+	p.add_argument("--xp-solo-rate", type=float, default=1.0, dest="xp_solo_rate", help="RatesConfig.XP_SOLO_RATES[0]")
+	p.add_argument("--max-level", type=int, default=20, dest="max_level", help="the level search's bound (default 20)")
+	p.add_argument("--message", nargs="+", action="extend", metavar="NAME", help="SM_SYSTEM_MESSAGE ids to look up by name")
+	p.add_argument("--question", nargs="+", action="extend", metavar="NAME", help="SM_QUESTION_WINDOW ids to look up by name")
+	p.set_defaults(fn=cmd_m5g_team)
 
 	p = sub.add_parser("quest-trace", help="golden traces of the Java quest handlers: every return leaf of every hook as a case with its "
 	                                       "effects (questtrace/, phase6-inventory.md §7.6 item 3)")
