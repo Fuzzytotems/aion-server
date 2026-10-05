@@ -17,6 +17,7 @@
 #include "aion/gameserver/model/gameobjects/VisibleObject.h"
 #include "aion/gameserver/model/gameobjects/player/Player.h"
 #include "aion/gameserver/model/templates/VisibleObjectTemplate.h"
+#include "aion/gameserver/network/aion/clientpackets/AbstractGmCommandPacket.h"
 #include "aion/gameserver/network/aion/serverpackets/SM_MESSAGE.h"
 #include "aion/gameserver/runtime/base/Unported.h"
 #include "aion/gameserver/utils/Util.h"
@@ -31,28 +32,7 @@ namespace {
 
 namespace StringUtils = commons::utils::StringUtils;
 
-/** Java: AbstractGmCommandPacket.UNSUPPORTED_COMMAND_CHAR_PLACEHOLDER (P5-15; the header does not exist yet) */
-constexpr std::u16string_view UNSUPPORTED_COMMAND_CHAR_PLACEHOLDER = u"?";
-
-/**
- * Java: AbstractGmCommandPacket.replaceUnsupportedCommandChars - every code point outside U+0000..U+013E becomes "?" (P5-15; stands in until it
- * exists). The Java regex character class matches code points: a surrogate pair is one match and one "?", a lone surrogate one match as well.
- */
-std::u16string replaceUnsupportedCommandChars(std::u16string_view input) {
-	std::u16string result;
-	result.reserve(input.size());
-	for (size_t i = 0; i < input.size(); ++i) {
-		char16_t c = input[i];
-		if (c <= 0x013E) {
-			result += c;
-			continue;
-		}
-		result += UNSUPPORTED_COMMAND_CHAR_PLACEHOLDER;
-		if (c >= 0xD800 && c <= 0xDBFF && i + 1 < input.size() && input[i + 1] >= 0xDC00 && input[i + 1] <= 0xDFFF)
-			++i; // the low surrogate belongs to the same code point
-	}
-	return result;
-}
+using network::aion::clientpackets::AbstractGmCommandPacket;
 
 /** Java: \h (horizontal whitespace) of java.util.regex */
 bool isHorizontalWhitespace(char16_t c) noexcept {
@@ -364,7 +344,7 @@ std::string ChatUtil::getRealCharName(std::string_view nameValue, bool nameIsFro
 	if (!nameValue.empty() && std::all_of(nameValue.begin(), nameValue.end(), isAsciiLetter)) // Java: name.matches("^[A-Za-z]+$")
 		return Util::convertName(nameValue);
 	std::u16string name = StringUtils::toUtf16(nameValue);
-	bool replaceUnsupportedChars = nameIsFromGMCommand && name.find(UNSUPPORTED_COMMAND_CHAR_PLACEHOLDER) != std::u16string::npos;
+	bool replaceUnsupportedChars = nameIsFromGMCommand && name.find(AbstractGmCommandPacket::UNSUPPORTED_COMMAND_CHAR_PLACEHOLDER) != std::u16string::npos;
 	if (name.empty())
 		throw runtime::IndexOutOfBoundsException("Index 0 out of bounds for length 0"); // Java: name.charAt(0)
 	char16_t firstChar = name[0];
@@ -380,8 +360,8 @@ std::string ChatUtil::getRealCharName(std::string_view nameValue, bool nameIsFro
 		std::u16string namePrefix = nameFormat.substr(0, flagIndex);
 		std::u16string nameSuffix = nameFormat.substr(flagIndex + nameFlag.size());
 		if (replaceUnsupportedChars) {
-			namePrefix = replaceUnsupportedCommandChars(namePrefix);
-			nameSuffix = replaceUnsupportedCommandChars(nameSuffix);
+			namePrefix = AbstractGmCommandPacket::replaceUnsupportedCommandChars(namePrefix);
+			nameSuffix = AbstractGmCommandPacket::replaceUnsupportedCommandChars(nameSuffix);
 		}
 		if ((namePrefix + nameSuffix).size() > 0 && name.starts_with(namePrefix) && name.ends_with(nameSuffix)) {
 			size_t suffixIndex = name.find(nameSuffix);
