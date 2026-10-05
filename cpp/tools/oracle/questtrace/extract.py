@@ -160,7 +160,8 @@ SLICE_Q10 = (
 # transliterates (gelkmaros/_20034RescuetheReians since row B39, the Q08 follow-up). The C++ harness drives every document.
 SLICE_Q08 = (
 	'gelkmaros/_20031GotoGelkmaros.java', 'gelkmaros/_20032AllAboutAbnormalAether.java', 'gelkmaros/_20033DranaSolution.java',
-	'gelkmaros/_20034RescuetheReians.java', 'gelkmaros/_20035SilenteraSupport.java', 'gelkmaros/_21004VillageStatusReport.java', 'gelkmaros/_21027FearlessKantele.java',
+	'gelkmaros/_20034RescuetheReians.java', 'gelkmaros/_20035SilenteraSupport.java', 'gelkmaros/_21004VillageStatusReport.java',
+	'gelkmaros/_21027FearlessKantele.java',
 	'gelkmaros/_21033ExorcisingInfisto.java', 'gelkmaros/_21036DeliveryofAetherSample.java', 'gelkmaros/_21051TroubleinStone.java',
 	'gelkmaros/_21052DragonHuntin.java', 'gelkmaros/_21053DramataDrama.java', 'gelkmaros/_21054MissionofDestiny.java',
 	'gelkmaros/_21056FundinOrders.java', 'gelkmaros/_21057FundinOldGrudge.java', 'gelkmaros/_21058KirhuaSpecialOrder.java',
