@@ -605,6 +605,119 @@ class JavaSemanticsTest(unittest.TestCase):
 
 
 @unittest.skipUnless(HAVE_JAVA_TREE, "Java tree not present")
+class ScheduledTaskTest(unittest.TestCase):
+	"""lane C (phase 6 step 1, phase6-transliterator.md §7): closures (jast's closures=True), the task of ThreadPoolManager.schedule run after the
+	hook, the item-use packets and removal around it, a bounded symbolic setQuestVar, AbyssRankEnum, and parser refusals per hook"""
+
+	USE = "HandlerResult onItemUseEvent(final QuestEnv env, Item item)"
+
+	def cases(self, doc, name):
+		return [c for c in doc["cases"] if c["hook"] == name]
+
+	def refusal(self, doc, name):
+		return next(h for h in doc["hooks"] if h["hook"] == name).get("unsupported")
+
+	def task_hook(self, task, before="", after="\t\treturn HandlerResult.SUCCESS;\n"):
+		return hook(
+			"\t\tfinal QuestState qs = env.getPlayer().getQuestStateList().getQuestState(questId);\n\t\tif (qs == null)\n"
+			"\t\t\treturn HandlerResult.FAILED;\n\t\tfinal int itemObjId = item.getObjectId();\n" + before +
+			"\t\tThreadPoolManager.getInstance().schedule(" + task + ", 3000);\n" + after, self.USE)
+
+	def test_an_anonymous_runnable_runs_after_the_hook(self):
+		# ThreadPoolManager.schedule (ThreadPoolManager.java): the task runs on a pool thread after its delay, when the hook has returned; it
+		# reads the QuestState then (the hook's own write before it is read back) and its effects carry the index of their schedule effect
+		doc = trace_text(handler(self.task_hook(
+			"new Runnable() {\n\n\t\t\t@Override\n\t\t\tpublic void run() {\n"
+			"\t\t\t\tPacketSendUtility.broadcastPacket(env.getPlayer(), new SM_ITEM_USAGE_ANIMATION(env.getPlayer().getObjectId(), itemObjId, "
+			"182200001, 0, 1, 0), true);\n\t\t\t\tenv.getPlayer().getInventory().decreaseByObjectId(itemObjId, 1);\n"
+			"\t\t\t\tif (qs.getQuestVarById(0) == 2)\n\t\t\t\t\treturn;\n\t\t\t\tqs.setQuestVarById(0, qs.getQuestVarById(0) + 1);\n"
+			"\t\t\t\tupdateQuestStatus(env);\n\t\t\t}\n\t\t}",
+			before="\t\tplayQuestMovie(env, 7);\n", after="\t\tplayQuestMovie(env, 8);\n\t\treturn HandlerResult.SUCCESS;\n")))
+		got = {json.dumps(c["given"].get("questState"), sort_keys=True): ([(e["call"], e["args"], e.get("task")) for e in c["effects"]],
+		                                                                c["returns"]) for c in self.cases(doc, "onItemUseEvent")}
+		head = [("playQuestMovie", [7], None), ("ThreadPoolManager.schedule", [3000], None), ("playQuestMovie", [8], None),
+		        ("PacketSendUtility.broadcastPacket", [{"new": "SM_ITEM_USAGE_ANIMATION", "args": ["$playerObjectId", "$itemObjectId", 182200001, 0,
+		                                                                                         1, 0]}, True], 1),
+		        ("inventory.decreaseByObjectId", ["$itemObjectId", 1], 1)]
+		self.assertEqual(got, {
+			"null": ([], "FAILED"),
+			json.dumps({"status": "START", "vars": {"0": 2}}, sort_keys=True): (head, "SUCCESS"),
+			json.dumps({"status": "START", "vars": {"0": 0}}, sort_keys=True):
+				(head + [("qs.setQuestVarById", [0, 1], 1), ("updateQuestStatus", [], 1)], "SUCCESS")})
+
+	def test_tasks_run_in_the_order_of_their_delays_on_the_locals_they_captured(self):
+		# two lambdas: the longer delay first in the source, the shorter runs first; each sees the local it captured (effectively final)
+		doc = trace_text(handler(hook(
+			"\t\tfinal int a = 4;\n\t\tThreadPoolManager.getInstance().schedule(() -> playQuestMovie(env, a), 5000);\n\t\tfinal int b = 5;\n"
+			"\t\tThreadPoolManager.getInstance().schedule(() -> {\n\t\t\tplayQuestMovie(env, b);\n\t\t}, 1000);\n\t\treturn true;\n")))
+		(c,) = self.cases(doc, "onKillEvent")
+		self.assertEqual([(e["call"], e["args"], e.get("task")) for e in c["effects"]],
+		                 [("ThreadPoolManager.schedule", [5000], None), ("ThreadPoolManager.schedule", [1000], None), ("playQuestMovie", [5], 1),
+		                  ("playQuestMovie", [4], 0)])
+		self.assertEqual(c["returns"], True)
+
+	def test_closures_the_oracle_does_not_model_refuse_the_hook_not_the_file(self):
+		doc = trace_text(handler(
+			hook("\t\tThreadPoolManager.getInstance().schedule(() -> playQuestMovie(env, 1), 1000);\n\t\treturn true;\n"),
+			hook("\t\tRunnable r = () -> playQuestMovie(env, 1);\n\t\tr.run();\n\t\treturn true;\n", "boolean onAttackEvent(QuestEnv env)"),
+			hook(QS + "\t\tThreadPoolManager.getInstance().schedule(() -> playQuestMovie(env, qs.getQuestVarById(0)), 1000);\n\t\treturn true;\n",
+			     "boolean onDieEvent(QuestEnv env)"),
+			hook("\t\tint x = switch (env.getDialogActionId()) {\n\t\t\tcase 1 -> 2;\n\t\t\tdefault -> 3;\n\t\t};\n\t\treturn true;\n",
+			     "boolean onDialogEvent(QuestEnv env)")))
+		self.assertEqual(len(self.cases(doc, "onKillEvent")), 1)
+		self.assertEqual(self.refusal(doc, "onAttackEvent"), "call r.run() on a value")
+		# the task dereferences a QuestState the hook never checked: Java's pool logs that NullPointerException after the hook returned
+		self.assertEqual(self.refusal(doc, "onDieEvent"), "a NullPointerException with a scheduled task")
+		self.assertTrue(self.refusal(doc, "onDialogEvent").startswith("switch-expression"))      # jast refuses it: the hook, not the file
+		self.assertIsInstance(doc["register"], list)
+
+	def test_a_bounded_symbolic_set_quest_var_is_slot_0(self):
+		# QuestVars.setVar (QuestVars.java:52-58): a value in 0..63 is slot 0 and the other slots 0; an unbounded one is refused
+		doc = trace_text(handler(
+			hook(QS + "\t\tif (qs == null)\n\t\t\treturn false;\n\t\tqs.setQuestVarById(1, 9);\n\t\tint var = qs.getQuestVarById(0);\n"
+			     "\t\tif (var >= 2 && var < 5) {\n\t\t\tqs.setQuestVar(var + 1);\n\t\t\treturn sendQuestDialog(env, qs.getQuestVarById(0) * 10 + "
+			     "qs.getQuestVarById(1));\n\t\t}\n\t\treturn false;\n"),
+			hook(QS + "\t\tif (qs == null)\n\t\t\treturn false;\n\t\tqs.setQuestVar(qs.getQuestVarById(0) + 1);\n\t\treturn true;\n",
+			     "boolean onDieEvent(QuestEnv env)")))
+		c = next(c for c in self.cases(doc, "onKillEvent") if c["effects"])
+		self.assertEqual(calls(c), [("qs.setQuestVarById", [1, 9]), ("qs.setQuestVar", [3]), ("sendQuestDialog", [30])])
+		self.assertEqual([(h["value"], [e["args"] for e in h["effects"]]) for h in c["atHigh"]], [(4, [[1, 9], [5], [50]])])
+		self.assertTrue(self.refusal(doc, "onDieEvent").startswith("a symbolic qs.setQuestVar"))
+
+	def test_kill_ranked_registration_names_the_rank(self):
+		text = handler(hook("\t\treturn defaultOnKillRankedEvent(env, 0, 10, true);\n", "boolean onKillRankedEvent(QuestEnv env)"))
+		text = text.replace("qe.registerQuestNpc(203001).addOnTalkEvent(questId);",
+		                    "qe.registerQuestNpc(203001).addOnTalkEvent(questId);\n\t\tqe.registerOnKillRanked(AbyssRankEnum.STAR1_OFFICER, questId);")
+		doc = trace_text(text)
+		self.assertEqual(doc["register"][-1], {"call": "registerOnKillRanked", "args": ["STAR1_OFFICER", 99100]})
+		(c,) = self.cases(doc, "onKillRankedEvent")
+		self.assertEqual((calls(c), c["returns"]), ([("defaultOnKillRankedEvent", [0, 10, True])], {"resultOf": 0}))
+
+	def test_the_closure_handlers_are_traced(self):
+		# every handler that schedules a task raised before (the default parser refuses closures): each has a document now (the 29 files of
+		# questgen's rule scheduled-closure among them, phase6-transliterator.md §2.2)
+		rels = sorted(f.relative_to(extract.QUEST_DIR).as_posix() for f in extract.QUEST_DIR.rglob("*.java")
+		              if "ThreadPoolManager.getInstance().schedule(" in f.read_text(encoding="utf-8", errors="replace"))
+		self.assertGreaterEqual(len(rels), 29)
+		for rel in rels:
+			with self.subTest(rel=rel):
+				try:
+					doc = extract.trace_file(tables(), extract.QUEST_DIR / rel, rel)
+				except extract.OracleError as e:
+					self.assertNotIn("lambda", str(e))
+					self.assertNotIn("anonymous-class", str(e))
+					continue
+				self.assertIsInstance(doc["hooks"], list)
+		doc = extract.trace_file(tables(), extract.QUEST_DIR / "altgard/_2208MauInTenMinutesADay.java", "altgard/_2208MauInTenMinutesADay.java")
+		c = next(c for c in self.cases(doc, "onItemUseEvent") if any("task" in e for e in c["effects"]))
+		# _2208MauInTenMinutesADay.java:85-97: the start animation, the schedule, then in the task the end animation, the removal, var 1
+		self.assertEqual([(e["call"], e.get("task")) for e in c["effects"]],
+		                 [("PacketSendUtility.broadcastPacket", None), ("ThreadPoolManager.schedule", None),
+		                  ("PacketSendUtility.broadcastPacket", 1), ("inventory.decreaseByObjectId", 1), ("qs.setQuestVarById", 1),
+		                  ("updateQuestStatus", 1)])
+
+
+@unittest.skipUnless(HAVE_JAVA_TREE, "Java tree not present")
 class RealSliceTest(unittest.TestCase):
 	"""the Poeta and Ishalgen slice; each case below derived by hand from the handler's Java"""
 
