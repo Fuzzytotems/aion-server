@@ -923,6 +923,9 @@ There was one `gs.scenario.m5e` run per mutant, in three batches. Batches 1 and 
 - **Open: X19's watchdog on the plain gate.** In every `gs.scenario.m5e` run the server logs `MapRegion::activate` instant tasks of 5-9 s
   (MapRegion.cpp:141) at the enter worlds in Poeta; when one runs past the watchdog's sampling, `watchdog.txt` has a SLOW_TASK and X19
   fails. The geo gate's runs log none. Nothing of the review touches the server; it is not investigated here.
+  **Since (fix/region-activate, 2026-10-05):** not every run. The review's archived logs have all activations of a run slow (5.7 s mean) in
+  3 of 11 runs and all fast (0.12-0.13 s mean) in the others. The cause is the Debug lock-order validator's thread edge cache, not the
+  port of MapRegion (it does Java's work): DEVIATIONS.md, runtime kernel, "Lock-order validator edge cache".
 - X9g's measured stumble was 519's in every passing run (1-19 s after C12's first cast); the implied position was 0.002-0.05 m from the
   broadcast one.
 

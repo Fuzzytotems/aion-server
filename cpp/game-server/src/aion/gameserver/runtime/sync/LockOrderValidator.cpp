@@ -21,13 +21,26 @@
 // - Edge keys are (from class id << 32 | to class id); class ids start at 1, so 0 marks an empty cache slot. Markers for same-class nesting
 //   and self-deadlock reports use the top bits.
 // - Symbolizing a std::stacktrace (DbgHelp) is slow and happens only for new reports, outside the graph mutex.
+// - The thread's edge cache is open-addressed (EDGE_CACHE_PROBES slots from the key's home slot) and keeps every edge the thread has met
+//   unless EDGE_CACHE_PROBES keys share a window. It was direct-mapped with 256 slots: two hot edges of one thread that shared a slot evicted
+//   each other on every acquisition, and every eviction took the slow path below. Which edges share a slot depends on the class ids, which
+//   are handed out in the order the classes are first used (a different order in every run of the multi-threaded startup), so a run either
+//   had such a pair on a hot path or not: in the runs that had one, every MapRegion::activate of the M5e gate (Debug, ~500 known-list adds
+//   of 20-60 npcs) took 5-9 s instead of 0.1-0.2 s, and the watchdog sampled it (2026-10-05, DEVIATIONS.md "game-server / runtime kernel").
+// - A cache miss asks the graph first and captures the acquisition's stack (the expensive step: ~0.5 ms in Debug) only for an edge the graph
+//   has not recorded yet or a nesting report not made yet; an edge another thread recorded, or one evicted from this thread's cache, costs a
+//   lookup under the graph mutex.
 
 namespace aion::gameserver::runtime {
 
 namespace {
 
 constexpr uint32_t MAX_TRACKED = 64;
-constexpr size_t EDGE_CACHE_SIZE = 256;
+/** slots of the thread's edge cache (a power of two; 32 KiB per thread that takes game-level locks, checked builds only) */
+constexpr uint32_t EDGE_CACHE_BITS = 12;
+constexpr size_t EDGE_CACHE_SIZE = size_t{1} << EDGE_CACHE_BITS;
+/** slots probed from a key's home slot; a key is inserted into the first free one, or replaces the home slot's key if all are taken */
+constexpr size_t EDGE_CACHE_PROBES = 32;
 constexpr uint64_t SAME_CLASS_MARKER = 1ull << 63;
 constexpr uint64_t SELF_LOCK_MARKER = 1ull << 62;
 
@@ -45,6 +58,8 @@ struct ThreadState {
 	uint32_t count = 0;
 	std::array<uint64_t, EDGE_CACHE_SIZE> edgeCache{};
 	uint64_t cacheGeneration = 0;
+	/** beforeAcquire calls that missed the edge cache (LockOrderValidator::threadCacheMissCount) */
+	uint64_t cacheMisses = 0;
 };
 
 thread_local ThreadState threadState;
@@ -79,16 +94,36 @@ uint64_t edgeKey(const LockClass& from, const LockClass& to) noexcept {
 	return (static_cast<uint64_t>(from.id()) << 32) | to.id();
 }
 
+/** the key's home slot (Fibonacci hashing over the whole key) */
 size_t cacheSlot(uint64_t key) noexcept {
-	return static_cast<size_t>((key * 0x9E3779B97F4A7C15ull) >> 56) % EDGE_CACHE_SIZE;
+	return static_cast<size_t>((key * 0x9E3779B97F4A7C15ull) >> (64 - EDGE_CACHE_BITS));
 }
 
+/** Slots are never emptied except by syncCacheGeneration (all of them), so a probe can stop at the first free slot. */
 bool cacheContains(const ThreadState& state, uint64_t key) noexcept {
-	return state.edgeCache[cacheSlot(key)] == key;
+	size_t home = cacheSlot(key);
+	for (size_t i = 0; i < EDGE_CACHE_PROBES; ++i) {
+		uint64_t slot = state.edgeCache[(home + i) & (EDGE_CACHE_SIZE - 1)];
+		if (slot == key)
+			return true;
+		if (slot == 0)
+			return false;
+	}
+	return false;
 }
 
 void cacheInsert(ThreadState& state, uint64_t key) noexcept {
-	state.edgeCache[cacheSlot(key)] = key;
+	size_t home = cacheSlot(key);
+	for (size_t i = 0; i < EDGE_CACHE_PROBES; ++i) {
+		uint64_t& slot = state.edgeCache[(home + i) & (EDGE_CACHE_SIZE - 1)];
+		if (slot == key)
+			return;
+		if (slot == 0) {
+			slot = key;
+			return;
+		}
+	}
+	state.edgeCache[home] = key; // the window is full: the key evicts the home slot's (that edge takes the slow path once more)
 }
 
 void syncCacheGeneration(ThreadState& state) noexcept {
@@ -204,13 +239,33 @@ void LockOrderValidator::beforeAcquire(const LockClass& lockClass, uintptr_t loc
 	}
 	if (newEdgeCount == 0 && !sameClass && !selfLock)
 		return;
+	++state.cacheMisses;
 
 	try {
-		std::stacktrace stack = std::stacktrace::current(1);
 		const char* threadName = context.threadName();
 		std::vector<PendingReport> pending;
 		Graph& g = graph();
+		// the edges and nesting reports another thread (or this one, before an eviction) recorded need no stack: count and cache them
+		bool recordedBefore = true;
 		{
+			std::scoped_lock lock(g.mutex);
+			for (uint32_t i = 0; i < newEdgeCount && recordedBefore; ++i)
+				recordedBefore = g.edges.contains(edgeKey(*newEdges[i], lockClass));
+			std::string sameClassKey = reportKey(ReportKind::SAME_CLASS_NESTING, lockClass, lockClass);
+			if (recordedBefore && sameClass)
+				recordedBefore = g.reportIndex.contains(sameClassKey);
+			if (recordedBefore && selfLock)
+				recordedBefore = g.reportIndex.contains(sameClassKey + ":self");
+			if (recordedBefore) {
+				if (sameClass)
+					++g.reports[g.reportIndex.at(sameClassKey)].occurrences;
+				if (selfLock)
+					++g.reports[g.reportIndex.at(sameClassKey + ":self")].occurrences;
+			}
+		}
+		std::stacktrace stack;
+		if (!recordedBefore) {
+			stack = std::stacktrace::current(1);
 			std::scoped_lock lock(g.mutex);
 			g.classes.emplace(lockClass.id(), &lockClass);
 			for (uint32_t i = 0; i < newEdgeCount; ++i) {
@@ -419,6 +474,10 @@ void LockOrderValidator::clearReports(bool resetGraph) {
 		g.classes.clear();
 		g.generation.fetch_add(1, std::memory_order_acq_rel);
 	}
+}
+
+uint64_t LockOrderValidator::threadCacheMissCount() const noexcept {
+	return threadState.cacheMisses;
 }
 
 void LockOrderValidator::setFailOnReport(bool value) noexcept {

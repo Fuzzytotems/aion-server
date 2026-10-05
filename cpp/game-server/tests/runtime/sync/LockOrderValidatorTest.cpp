@@ -4,9 +4,11 @@
 #include <gtest/gtest.h>
 
 #include <chrono>
-
+#include <cstdint>
+#include <memory>
 #include <string>
 #include <thread>
+#include <vector>
 
 #include "LockdepTestSupport.h"
 #include "SyncTestSupport.h"
@@ -238,4 +240,47 @@ TEST_F(LockOrderValidatorTest, DescribeAndDisable) {
 	lockInOrder(b, a);
 	validator().setEnabled(true);
 	EXPECT_EQ(validator().reportCount(Kind::CYCLE), 0u);
+}
+
+// Regression (2026-10-05, the M5e gate's 5-9 s MapRegion::activate in Debug): the thread's edge cache was direct-mapped with 256 slots, so
+// two hot edges that shared a slot evicted each other on every acquisition and every acquisition captured a stack (~0.5 ms). A thread that
+// meets more edges than that, again and again, must miss each edge once only.
+TEST_F(LockOrderValidatorTest, AThreadMissesEachEdgeOnceEvenWithMoreEdgesThanTheOldCacheHadSlots) {
+	constexpr int INNER = 600;
+	Monitor outer{AION_LOCK_CLASS(LockdepTest::cacheOuter)};
+	std::vector<std::unique_ptr<Monitor>> inner;
+	for (int i = 0; i < INNER; ++i)
+		inner.push_back(std::make_unique<Monitor>(LockClass::named("LockdepTest::cacheInner" + std::to_string(i))));
+	uint64_t firstPass = 0;
+	uint64_t secondPass = 0;
+	uint64_t thirdPass = 0;
+	auto pass = [&] {
+		uint64_t before = validator().threadCacheMissCount();
+		SYNCHRONIZED(outer) {
+			for (const std::unique_ptr<Monitor>& monitor : inner) {
+				SYNCHRONIZED(*monitor) {
+				}
+			}
+		}
+		return validator().threadCacheMissCount() - before;
+	};
+	std::thread([&] {
+		firstPass = pass();
+		secondPass = pass();
+		thirdPass = pass();
+	}).join();
+	EXPECT_EQ(firstPass, static_cast<uint64_t>(INNER)) << "each new edge outer -> inner[i] misses once";
+	EXPECT_EQ(secondPass, 0u);
+	EXPECT_EQ(thirdPass, 0u);
+
+	// another thread meets the edges the graph has already recorded: one miss each (no report, the graph is asked), then none
+	uint64_t otherFirst = 0;
+	uint64_t otherSecond = 0;
+	std::thread([&] {
+		otherFirst = pass();
+		otherSecond = pass();
+	}).join();
+	EXPECT_EQ(otherFirst, static_cast<uint64_t>(INNER));
+	EXPECT_EQ(otherSecond, 0u);
+	EXPECT_TRUE(validator().getReports().empty());
 }
