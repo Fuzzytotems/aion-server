@@ -73,6 +73,31 @@ Q08 = {
         '_25051TreasureOfAncientKings', '_25052AnOfferingPeace', '_25062OminousAdvice', '_25070TruthOfTheCrystal',
         '_25073NoRevivalForTheBalaur',),
 }
+# Phase 6 step 2, chunk Q01 (lane C, 2026-10-05; docs/deviations/Q01.md): the reshanta files questgen transliterates, all in the tree (80 of
+# 82: _24043LazyLanguageLessons and _2759TenaciousGuardian are refused and not in the tree)
+Q01 = {
+    'reshanta': (
+        '_14040OrdersFromReshanta', '_14041AbyssalAbilities', '_14042ARescueOperation', '_14043DrawlingBalaur', '_14044ShardsOfMemory',
+        '_14045RumorsOnWings', '_14046PiecingTheMemory', '_14047ChainingMemories', '_1701GovernorsDirective',
+        '_1702Defeat9thRankAsmodianSoldiers', '_1703Defeat8thRankAsmodianSoldiers', '_1704Defeat7thRankAsmodianSoldiers',
+        '_1705Defeat6thRankAsmodianSoldiers', '_1706Defeat5thRankAsmodianSoldiers', '_1707Defeat4thRankAsmodianSoldiers',
+        '_1708Defeat3thRankAsmodianSoldiers', '_1709Defeat2thRankAsmodianSoldiers', '_1710Defeat1thRankAsmodianSoldiers',
+        '_1718TradingDown', '_1719ConfrontAsmodianOfficers', '_1720ConfrontAsmodianGenerals', '_1721MeetingwiththeBrigadeGeneral',
+        '_1722RastinsHomesickness', '_1724ReaperExpertise', '_1725CenturionsForgetfulness', '_1726ScoutingtheLake',
+        '_1727RecruitsforNezekansShield', '_1761SohonerkWish', '_1777CalloftheGovernor', '_1798JakurerksShotattheBigTime',
+        '_1799PupilsDiary', '_1800JaiorunerksTombstone', '_1845OpeningDoors', '_1846PaperTrail', '_1847AStrangeSoul',
+        '_1851UnchartedIslands', '_1853OfficerOusting', '_1854GeneralPurge', '_24040VotansOrders', '_24041TrainingInTheAbyss',
+        '_24042AReadyRescue', '_24044ChangeTheFuture', '_24045ASpeedyErrand', '_24046TheShadowCalls', '_2701TheGovernorsSummons',
+        '_2702Defeat9thRankElyosSoldiers', '_2703Defeat8thRankElyosSoldiers', '_2704Defeat7thRankElyosSoldiers',
+        '_2705Defeat6thRankElyosSoldiers', '_2706Defeat5thRankElyosSoldiers', '_2707Defeat4thRankElyosSoldiers',
+        '_2708Defeat3thRankElyosSoldiers', '_2709Defeat2thRankElyosSoldiers', '_2710Defeat1thRankElyosSoldiers', '_2718TradingDown',
+        '_2719ChallengeElyosOfficers', '_2720ChallengeElyosGenerals', '_2721MeetingWithTheBrigadeGeneral', '_2722TheComfortsofHome',
+        '_2724MissingInAction', '_2727TransparentMotives', '_2758CarryTheFlame', '_2767AFruitfulPartnership', '_2798SignontheDottedLine',
+        '_2841CleansingtheAsteriaChamber', '_2842BalaurintheUndergroundFortress', '_2843OperationAnnihilate', '_2850OfficerObliteration',
+        '_2851GeneralMassacre', '_3205FortheBlackCloudTraders', '_3701TeachThemaLesson', '_3702GeneralDestruction', '_3711ToKillACaptain',
+        '_3712DredgionPrisonBreak', '_3718DredgingTheDredgion', '_4205SmackTheShulack', '_4702GeneralDeath', '_4711TheDredgionCaptain',
+        '_4712EscapeFromTheDredgion', '_4718PressingTheAttack'),
+}
 # held back at the integration of slice 2 (docs/deviations/Q10.md, "Held back"): transliterated like the others, but kept out of the
 # tree because gs.scenario.travel's (and gs.scenario.ascension's) Asmodian would see them: 24010's onEnterWorldEvent starts it at the
 # Altgard arrival, and the others' start npcs put them in his SM_NEARBY_QUESTS in Pandaemonium or Altgard
@@ -135,6 +160,12 @@ class CommittedTree(unittest.TestCase):
                     self.assertIn((directory, klass), found)
         self.assertEqual((len(Q08['gelkmaros']), len(Q08['enshar'])), (45, 19))
         self.assertTrue((HANDLER_QUEST_DIR / 'gelkmaros' / '_20034RescuetheReians.cpp').exists())
+        for klass in Q01['reshanta']:
+            with self.subTest(file=f'reshanta/{klass}'):
+                self.assertIn(('reshanta', klass), found)
+        self.assertEqual(len(Q01['reshanta']), 80)
+        for rel in ('reshanta/_24043LazyLanguageLessons.java', 'reshanta/_2759TenaciousGuardian.java'):
+            self.assertFalse((HANDLER_QUEST_DIR / rel).with_suffix('.cpp').exists())
         self.assertEqual(len(Q10_HELD_BACK), 16)
 
     def test_the_enter_world_files_are_in_the_tree(self):
