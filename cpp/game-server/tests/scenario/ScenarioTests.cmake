@@ -59,6 +59,8 @@
 #           + gs.scenario.m5d 257, gs.scenario.m5d_geo 485 (m5d-plan.md §20; 2026-09-29 in a Debug tree, NOT alone:
 #             beside another tree's gates, so both overstate a run alone; m5d took 218-396 s over its lane's 21 runs,
 #             220-286 s in its review's, m5d_geo 358-485 s; m5d_geo's startup alone 172 s)                           = 2095
+#           + gs.scenario.m5f 198, gs.scenario.m5f_geo 325 (m5f-plan.md §10, §17; 2026-10-05 in a Debug tree, one after the
+#             other in one ctest, beside other lanes' builds; slot 2 had the smaller sum, 2095 s against 2801 s)       = 2618
 # The balance held for the full set above before M5c; the plan put the M5c gate into slot 2 (§10.1: the smaller sum then, and a prefix of its
 # own), which then led slot 1 by about 280 s, so the travel gate joined slot 1. The ascension gate joined slot 1 as well in its own lane (it
 # would have led slot 2 by about 600 s); at the integration of the two (2026-09-29) it went to slot 2 instead, and the M5b pair (m5b and

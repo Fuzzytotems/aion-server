@@ -947,3 +947,48 @@ There was one `gs.scenario.m5e` run per mutant, in three batches. Batches 1 and 
   - `census.py --self-check`: 0 failures, after `SummonMode.getId`'s known answer was updated.
 
   The batch-3 mutant runs used the gate before the arrival rule, the quarter-HP seed and the capped-drain rule. The mutants were not re-run on the final gate; its changes make the harness wait for the target and measure it more exactly. One rule is looser: an update at 100 % HP may be below its drain, which is what Java sends. One row is new: at least one drain must be measured below the max.
+
+## M5f gate (lane A, 2026-10-05): `gs.scenario.m5f` and `gs.scenario.m5f_geo` (m5f-plan.md G-01..G-05, I-03, §10, §17)
+
+`TEST(M5fScenario, Run)` and `TEST(M5fScenarioGeo, Run)` in `M5fScenarioTest.cpp`, one shared body. The output goes to `<bin>/scenario/m5f`
+and `<bin>/scenario/m5f_geo`, with the schema pairs `aion_{gs,ls}_test_m5f_<hash>` / `..._m5fgeo_<hash>` and the allow-list
+`m5f_partial_allowlist.txt` (`AION_SCENARIO_M5F_PARTIAL_ALLOWLIST`).
+- Labels: `scenario;realdata` (`;geo`). TIMEOUT: 2700 / 3600. Both tests are in **gate slot 2** (the smaller sum: 2,095 s against
+  2,801 s); with them slot 2's sum is 2,618 s. The discovered cases are DISABLED (`^M5fScenario(Geo)?\.`).
+- The profile is `game-server/config/m5f.properties.example` (I-03, the play values). The gate passes the M5a profile plus
+  `gameserver.instance.solo.destroy_delay_seconds = 1` (D11), the fly-path validator off, `gameserver.simple.secondclass.enable = false`
+  and geodata per variant.
+- The oracle is `oracle.py m5f-travel` (G-01, `tools/oracle/m5f`), the decoders `decoders/TravelDecoders.{h,cpp}` (G-02).
+
+This is test infrastructure only, with no Java counterpart. m5f-plan.md §17.3 lists the rows the gate reads differently from §10 and why;
+in every row the gate follows what Java does. Two placements differ from the plan:
+
+| Area | As built | Reason |
+|---|---|---|
+| G2c | `tests/cm_lz/AscensionPacketsTest.cpp`, `ATeleportResetsTheClientPositionACollisionObserverStartsFrom`, beside the `CM_MOVE_IN_AIR` case that records the client position (P5-16's directory, the ascension lane's file), not `tests/geo` | no fixture of `tests/geo` (P4-04) has a Player; the case needs one with a move controller |
+| G2a, G2b (geo on) | not built | both need a Player in a world with the geo meshes loaded, which no unit fixture provides; the geo gate's G2 row counts the material actor, and G2b's geo-off half is `TeleportServiceRestTest`'s `teleportToNpc` case |
+
+**Mutation proof (§10.4).** 22 schemata switched by `AION_M5FG_MUT` in 13 production files (`TeleportService.cpp`,
+`PlayerController.cpp`, `BindPointTeleportService.cpp`, `PlayerEnterWorldService.cpp`, `CM_MOVE_IN_AIR.cpp`, `ResurrectAI.cpp`,
+`PortalService.cpp`, `InstanceService.cpp`, `PricesService.cpp`, `GeneralInstanceHandler.cpp`, `PlayerReviveService.cpp`,
+`WorldMapInstance.cpp`, `Player.cpp`; a handler file takes the switch as an expression, since a handler may have no anonymous namespace).
+Built once into `aion_game_server`, `aion_gs_playersvc_tests`, `aion_gs_instance_tests` and `aion_gs_cm_lz_tests`; the sources restored at
+once and checked by sha256 (13 of 13 OK, twice); the tree rebuilt; `AION_M5FG_MUT` is in no executable. One `gs.scenario.m5f` run per
+gate mutant (17), one run of the named unit suite per unit mutant (5): **all killed** at the rows of m5f-plan.md §17.4's table. Notes:
+- `skip-despawn` is killed by **T1** before T10 is reached: without the despawn `SpawnTask.run` returns for the spawned player
+  (TeleportService.java:502), so even the hotspot's same-map move never happens.
+- `bind-obelisk-position` fails **T6** only: T8 compares with T6's own packet, which the mutant moves as well.
+- A mutant that ends a case fatally also fails T20's "Haramel was created" rows (the run never reached Haramel); `skip-leave-instance`
+  additionally leaves one `WorldMapInstance` alive (162 against the baseline 161), which T20 sees.
+- `EmptyInstanceCheckerTask` ignoring `isRegisteredTeamDisbanded` is not built (a `GeneralTeam` is M5g's, D3).
+
+**Runs** (`build/msvc`, Debug, 2026-10-05):
+- Development runs, each fixed: C0's parse of the oracle's null heading of a hotspot; C7's accept refused at 5.07 m (the post-landing move
+  went away from the obelisk); T20's live-count row names (`WorldMap2DInstance` / `WorldMap3DInstance`); T13's opening message read before
+  it arrived.
+- Final gate: `gs.scenario.m5f` passed in 198 s and `gs.scenario.m5f_geo` in 325 s in one ctest. Each: an empty census, no ERROR line, §A
+  hit once, every §B row 0, §C's `PvpMapService.cpp:32` once.
+- Unit: `TravelDecodersTest` 10, `GameSession*`, `AscensionPacketsTest` (with G2c), `BindPointTeleportTest` (with the float vector): 48 of
+  48 under the database lock. `tools/oracle`: 569 OK, 1 skipped.
+- Static checks: `lint_concurrency.py --werror --cycles=core game-server/src` 3,894 files, 0 errors / warnings / advisories;
+  `chunks.py check` 71 chunks, 0 problems; `census.py --self-check` 0 failures.
