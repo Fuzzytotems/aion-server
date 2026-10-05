@@ -19,6 +19,7 @@
 #include "aion/gameserver/runtime/base/Unported.h"
 #include "aion/gameserver/services/abyss/AbyssService.h"
 #include "aion/gameserver/utils/PacketSendUtility.h"
+#include "aion/gameserver/utils/collections/Predicates.h"
 
 namespace aion::gameserver::services {
 
@@ -69,10 +70,11 @@ void PvpService::doReward(Player& victim, float apWinMulti) {
 		runtime::Ptr<model::team::TemporaryPlayerTeam> team = victim.getCurrentTeam();
 		if (team) {
 			// Java: team.sendPacket(Predicates.Players.allExcept(victim), SM_SYSTEM_MESSAGE.STR_MSG_COMBAT_FRIENDLY_DEATH(victim.getName()))
-			// (PvpService.java:104). TemporaryPlayerTeam::sendPacket is AION_UNPORTED (model/team/TemporaryPlayerTeam.cpp:32-35, chunk P5-10),
-			// so the unported call sits inside the arm a solo character never enters, exactly as PlayerLifeStats::sendGroupPacketUpdate does
-			// (m5b-plan.md B-07). M5b-2 / P5-10 closes it, together with the team packet updaters.
-			AION_UNPORTED();
+			// (PvpService.java:104); closed by the M5g parties lane (m5g-plan.md D11, W-03)
+			const auto allExcept = utils::collections::Predicates::Players::allExcept(victim);
+			SM_SYSTEM_MESSAGE friendlyDeath = SM_SYSTEM_MESSAGE::STR_MSG_COMBAT_FRIENDLY_DEATH(victim.getName());
+			team->sendPacket([&allExcept](model::gameobjects::AionObject& member) { return allExcept(*runtime::cast<Player>(member)); },
+				{friendlyDeath});
 		}
 		abyss::AbyssService::announceHighRankedDeath(victim);
 		return;
