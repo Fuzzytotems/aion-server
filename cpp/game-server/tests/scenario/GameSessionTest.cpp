@@ -387,6 +387,15 @@ TEST(GameSessionTest, ProgressionBodies) {
 	EXPECT_EQ(order.D(), 0x01020304);
 	EXPECT_EQ(order.remaining(), 0u);
 	EXPECT_EQ(GameSession::buildCM_SUMMON_COMMAND(GameSession::SUMMON_RELEASE).front(), 3) << "SummonMode.RELEASE";
+	// CM_SUMMON_ATTACK: readD summonObjId, readD targetObjId, readC, readUH time, readC (CM_SUMMON_ATTACK.java:31-35)
+	EXPECT_EQ(GameSession::CM_SUMMON_ATTACK, 203) << "AionClientPacketFactory.java:231, packets[203]";
+	PacketReader hit(GameSession::buildCM_SUMMON_ATTACK(0x0A0B0C0D, 0x01020304, 1500));
+	EXPECT_EQ(hit.D(), 0x0A0B0C0D);
+	EXPECT_EQ(hit.D(), 0x01020304);
+	EXPECT_EQ(hit.C(), 0);
+	EXPECT_EQ(hit.H(), 1500);
+	EXPECT_EQ(hit.C(), 0);
+	EXPECT_EQ(hit.remaining(), 0u);
 }
 
 TEST(GameSessionTest, ShopAndExchangeBodies) {

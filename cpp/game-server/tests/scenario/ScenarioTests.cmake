@@ -50,6 +50,8 @@
 #             2026-09-29: see below)
 #           + gs.scenario.m5c 289 (m5c-plan.md §10.5; 225 s for part 1, 265-289 s alone since C19 joined it in stage 3,
 #             2026-09-28 in a Debug tree, the review's fix included; it has no geo variant; slot 2 until 2026-09-30)     = 1974
+#           + gs.scenario.m5e 328, gs.scenario.m5e_geo 482 (m5e-plan.md §10; 2026-10-04 in a Debug tree, one after the other in one
+#             ctest, beside two other agents' builds; slot 1 had the smaller sum before them, 1974 s against 2095 s)          = 2784
 #   slot 2  gs.scenario.m5b2 172, gs.scenario.m5b2_geo 301                                                         =  473
 #           + gs.scenario.ascension 880 (lane P6-Q asc-hand, docs/deviations/Q06.md; 866-904 s alone, 2026-09-29 in a Debug
 #             tree: two races' 43 s waits and auto-attack fights; it has no geo variant)                             = 1353
@@ -115,7 +117,8 @@ if(TARGET aion_gs_scenario_tests)
 		AION_SCENARIO_M5B3_PARTIAL_ALLOWLIST="${CMAKE_CURRENT_SOURCE_DIR}/tests/scenario/m5b3_partial_allowlist.txt"
 		AION_SCENARIO_M5C_PARTIAL_ALLOWLIST="${CMAKE_CURRENT_SOURCE_DIR}/tests/scenario/m5c_partial_allowlist.txt"
 		AION_SCENARIO_TRAVEL_PARTIAL_ALLOWLIST="${CMAKE_CURRENT_SOURCE_DIR}/tests/scenario/travel_partial_allowlist.txt"
-		AION_SCENARIO_M5D_PARTIAL_ALLOWLIST="${CMAKE_CURRENT_SOURCE_DIR}/tests/scenario/m5d_partial_allowlist.txt")
+		AION_SCENARIO_M5D_PARTIAL_ALLOWLIST="${CMAKE_CURRENT_SOURCE_DIR}/tests/scenario/m5d_partial_allowlist.txt"
+		AION_SCENARIO_M5E_PARTIAL_ALLOWLIST="${CMAKE_CURRENT_SOURCE_DIR}/tests/scenario/m5e_partial_allowlist.txt")
 
 	# the oracle answers are JSON (Oracle.cpp); commons finds the same package in its own directory scope
 	find_package(nlohmann_json CONFIG REQUIRED)
@@ -163,6 +166,9 @@ if(TARGET aion_gs_scenario_tests)
 		LABELS "scenario;realdata")
 	# and for the M5d gates (m5d-plan.md G-03/G-04)
 	aion_set_discovered_test_properties(aion_gs_scenario_tests REGEX "^M5dScenario(Geo)?\\." PROPERTIES DISABLED TRUE
+		LABELS "scenario;realdata")
+	# and for the M5e gates (m5e-plan.md G-03/G-04)
+	aion_set_discovered_test_properties(aion_gs_scenario_tests REGEX "^M5eScenario(Geo)?\\." PROPERTIES DISABLED TRUE
 		LABELS "scenario;realdata")
 
 	# F-06: the M5a gate (§5.10). The oracle needs a Python interpreter; without it the test prints "gs.scenario.m5a: skipped".
@@ -395,5 +401,39 @@ if(TARGET aion_gs_scenario_tests)
 	endif()
 	if(AION_SCENARIO_REQUIRE OR NOT AION_GS_ALLOW_MILESTONE_SKIP)
 		set_property(TEST gs.scenario.m5d_geo APPEND PROPERTY ENVIRONMENT_MODIFICATION "AION_SCENARIO_REQUIRE=set:1")
+	endif()
+
+	# ---- the M5e gate (m5e-plan.md G-03/G-04, M-06, T-03, §10) ----------------------------------------------------------------------------
+	#
+	# gs.scenario.m5e: the progression of §10.2 on two accounts - an Elyos Warrior from level 1 to its class master, the level-9 wall, the
+	# simple class window (gameserver.simple.secondclass.enable, D1 (a)), the Gladiator of level 10 with a greatsword, the enter world at 15,
+	# Verteron, a resurrection; five Daevas of account B (Cleric, Chanter, Aethertech, Sorcerer, Spiritmaster) seeded after one enter world at
+	# level 1, which watch the class change, resurrect, toggle a mantra, ride a robot and release a charge skill, learn a skill book and summon
+	# a spirit; a stigma at level 20 - in the same binary, with its own output directory <bin>/scenario/m5e, its own schema pair
+	# (aion_gs_test_m5e_<hash>) and its own AION_PARTIAL allow-list. Gate slot 1 with its geo variant, the slot with the smaller sum when it
+	# joined (see "the two gate slots" above). TIMEOUT 2700: thirteen enter worlds, about a dozen kills and three timed watches.
+	add_test(NAME gs.scenario.m5e COMMAND "$<TARGET_FILE:aion_gs_scenario_tests>" --gtest_filter=M5eScenario.Run
+		WORKING_DIRECTORY "${scenario_work_dir}")
+	set_tests_properties(gs.scenario.m5e PROPERTIES LABELS "scenario;realdata" TIMEOUT 2700
+		RESOURCE_LOCK "${AION_GS_GATE_SLOT_1}" SKIP_REGULAR_EXPRESSION "gs\\.scenario\\.m5e: skipped")
+	if(Python3_Interpreter_FOUND)
+		set_property(TEST gs.scenario.m5e APPEND PROPERTY ENVIRONMENT_MODIFICATION "AION_TEST_PYTHON=set:${Python3_EXECUTABLE}")
+	endif()
+	if(AION_SCENARIO_REQUIRE OR NOT AION_GS_ALLOW_MILESTONE_SKIP)
+		set_property(TEST gs.scenario.m5e APPEND PROPERTY ENVIRONMENT_MODIFICATION "AION_SCENARIO_REQUIRE=set:1")
+	endif()
+
+	# gs.scenario.m5e_geo (G-04, §10.5): the same script with -Dgameserver.geodata.enable=true and its own row X9g - the stumbled target's
+	# position, which StumbleEffect computes through GeoService.getClosestCollision (W-27). TIMEOUT 3600: the geo startup, as the other geo
+	# gates, on top of the run.
+	add_test(NAME gs.scenario.m5e_geo COMMAND "$<TARGET_FILE:aion_gs_scenario_tests>" --gtest_filter=M5eScenarioGeo.Run
+		WORKING_DIRECTORY "${scenario_work_dir}")
+	set_tests_properties(gs.scenario.m5e_geo PROPERTIES LABELS "scenario;realdata;geo" TIMEOUT 3600
+		RESOURCE_LOCK "${AION_GS_GATE_SLOT_1}" SKIP_REGULAR_EXPRESSION "gs\\.scenario\\.m5e_geo: skipped")
+	if(Python3_Interpreter_FOUND)
+		set_property(TEST gs.scenario.m5e_geo APPEND PROPERTY ENVIRONMENT_MODIFICATION "AION_TEST_PYTHON=set:${Python3_EXECUTABLE}")
+	endif()
+	if(AION_SCENARIO_REQUIRE OR NOT AION_GS_ALLOW_MILESTONE_SKIP)
+		set_property(TEST gs.scenario.m5e_geo APPEND PROPERTY ENVIRONMENT_MODIFICATION "AION_SCENARIO_REQUIRE=set:1")
 	endif()
 endif()

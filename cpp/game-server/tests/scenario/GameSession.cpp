@@ -476,6 +476,10 @@ std::vector<uint8_t> GameSession::buildCM_SUMMON_COMMAND(uint8_t mode, int32_t t
 	return PacketWriter().C(mode).D(0).D(0).D(targetObjectId).data; // CM_SUMMON_COMMAND.java:27-30
 }
 
+std::vector<uint8_t> GameSession::buildCM_SUMMON_ATTACK(int32_t summonObjectId, int32_t targetObjectId, uint16_t time) {
+	return PacketWriter().D(summonObjectId).D(targetObjectId).C(0).H(time).C(0).data; // CM_SUMMON_ATTACK.java:31-35
+}
+
 GameSession::CastOutcome GameSession::castAndWait(int32_t casterObjectId, const CastRequest& request, std::chrono::milliseconds timeout,
 	const std::optional<CastInterruption>& interruption) {
 	CastOutcome outcome;
