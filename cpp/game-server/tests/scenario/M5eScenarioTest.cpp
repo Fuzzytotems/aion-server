@@ -2344,8 +2344,8 @@ void runM5eGate(const GateVariant& variant) {
 			});
 		};
 		bool hackMeasured = false, furyMeasured = false;
-		// a replayed round waits out 758's own cooldown too (skill_templates.xml 758: cooldown 400, i.e. 40 s; 769's is 10 s), or the
-		// second 758 is refused with STR_SKILL_NOT_READY (measured on a run whose first 758 was dodged)
+		// a replayed round waits out 758's own cooldown too (skill_templates.xml 758: cooldown 400, i.e. 40 s, Skill.java:320-327; 769's is
+		// 10 s), or the second 758 is refused as disabled (Player.isSkillDisabled, STR_SKILL_NOT_READY)
 		std::optional<std::chrono::steady_clock::time_point> hackCastAt;
 		constexpr auto HACK_COOLDOWN = 41s;
 		for (int32_t attempt = 0; attempt < 4 && !hackMeasured; attempt++) {
@@ -2364,8 +2364,12 @@ void runM5eGate(const GateVariant& variant) {
 				std::cout << "X9: 769's chain was blocked (chain status " << +fury->chainStatus << "), cast again" << std::endl;
 				continue;
 			}
+			// expectDrains reads 3 s; a replayed round waits as long, because a cast before the previous skill's animation has ended is
+			// refused with STR_SKILL_NOT_READY (player.getNextSkillUse, CM_CASTSPELL.java:99-105) - measured on a replayed 758
 			if (!furyMeasured)
 				expectDrains(*fury, from, ABSORBING_FURY, 10, "X9 769");
+			else
+				collectFor(*a.game, 3000ms);
 			furyMeasured = true;
 			from = a.mark();
 			const int32_t hackTarget = [&] {
@@ -2424,6 +2428,7 @@ void runM5eGate(const GateVariant& variant) {
 			// 758 only off its 40 s cooldown: a refused 758 would spend the round on castRecorded's retries
 			if (againResult && againResult->chainStatus == decoders::CAST_RESULT_CHAIN_SUCCESS &&
 			    (!hackCastAt || std::chrono::steady_clock::now() >= *hackCastAt + HACK_COOLDOWN)) {
+				collectFor(*a.game, 3000ms); // after 769's animation (CM_CASTSPELL.java:99-105)
 				hackCastAt = std::chrono::steady_clock::now();
 				castRecorded(ROILING_HACK, target);
 			}
