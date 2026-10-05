@@ -8,6 +8,7 @@
 #include <vector>
 
 #include "aion/commons/logging/LoggerFactory.h"
+#include "aion/commons/utils/TimeUtils.h"
 #include "aion/gameserver/configs/detail/ConfigEnums.h"
 #include "aion/gameserver/configs/main/DropConfig.h"
 #include "aion/gameserver/configs/main/GroupConfig.h"
@@ -50,6 +51,7 @@
 #include "aion/gameserver/services/drop/DropRegistrationService.h"
 #include "aion/gameserver/services/item/ItemService.h"
 #include "aion/gameserver/services/toypet/PetService.h"
+#include "aion/gameserver/taskmanager/tasks/TemporaryTradeTimeTask.h"
 #include "aion/gameserver/utils/ChatUtil.h"
 #include "aion/gameserver/utils/PacketSendUtility.h"
 #include "aion/gameserver/utils/PositionUtil.h"
@@ -118,7 +120,15 @@ runtime::Ref<DropService::TempTradeDropPredicate> DropService::TempTradeDropPred
 }
 
 bool DropService::TempTradeDropPredicate::changeItem(model::gameobjects::Item& input) {
-	AION_UNPORTED();
+	if (dropNpc->getAllowedLooters()->size() > 1) {
+		const model::templates::item::ItemTemplate* itemTemplate = input.getItemTemplate();
+		if (itemTemplate->getTempExchangeTime() != 0) {
+			input.setTemporaryExchangeTime(static_cast<int32_t>(commons::utils::currentTimeMillis() / 1000) + (itemTemplate->getTempExchangeTime() * 60));
+			taskmanager::tasks::TemporaryTradeTimeTask::getInstance().addTask(input, *dropNpc->getAllowedLooters());
+		}
+		return true;
+	}
+	return false;
 }
 
 DropService::TempTradeDropPredicate::~TempTradeDropPredicate() = default;
