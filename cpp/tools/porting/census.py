@@ -2975,7 +2975,8 @@ public class Bar {
 # arity, Java line or None, status, via or None). The tree moves: a failure here can mean the port changed, not the census.
 LIVE_CHECKS = [
     ('services/player/PlayerEnterWorldService.java', 'PlayerEnterWorldService', 'enterWorld', 2, 89, 'ported', None),
-    ('services/player/PlayerEnterWorldService.java', 'PlayerEnterWorldService', 'enterWorld', 2, 181, 'partial', None),
+    # was 'partial' until m5j-plan.md K-02 ported the staff VERSION_INFO message (2026-10-05)
+    ('services/player/PlayerEnterWorldService.java', 'PlayerEnterWorldService', 'enterWorld', 2, 181, 'ported', None),
     ('services/teleport/TeleportService.java', 'TeleportService', 'teleportTo', 5, 249, 'ported', None),
     ('services/teleport/TeleportService.java', 'TeleportService', 'teleportTo', 6, 253, 'ported', None),
     ('services/teleport/TeleportService.java', 'TeleportService', 'teleportTo', 7, 257, 'ported', None),

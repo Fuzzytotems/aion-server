@@ -16,6 +16,8 @@
 #include "aion/gameserver/configs/main/AutoGroupConfig.h"
 #include "aion/gameserver/configs/main/CraftConfig.h"
 #include "aion/gameserver/configs/main/CustomConfig.h"
+#include "aion/commons/utils/info/VersionInfo.h"
+#include "aion/gameserver/GameServer.h"
 #include "aion/gameserver/configs/main/GSConfig.h"
 #include "aion/gameserver/configs/main/HTMLConfig.h"
 #include "aion/gameserver/configs/main/MembershipConfig.h"
@@ -522,9 +524,12 @@ void PlayerEnterWorldService::enterWorld(AionConnection* client, Player& player)
 	// ----------------------------- Retail sequence -----------------------------
 
 	if (player.hasAccess(configs::administration::AdminConfig::REVISION_INFO_ON_LOGIN.load())) {
-		// Java: PacketSendUtility.sendMessage(player, VERSION_INFO, ChatType.WHITE) with VERSION_INFO = "Server " +
-		// GameServer.versionInfo.getBuildInfo(GSConfig.TIME_ZONE_ID); GameServer.versionInfo belongs to P5-14 (GameServer.h, stage 2)
-		AION_PARTIAL("VERSION_INFO for staff logins needs GameServer.versionInfo (m5a-plan.md O-03)");
+		// Java: PacketSendUtility.sendMessage(player, VERSION_INFO, ChatType.WHITE) with the class constant VERSION_INFO = "Server " +
+		// GameServer.versionInfo.getBuildInfo(GSConfig.TIME_ZONE_ID) (PlayerEnterWorldService.java:86, :294-295; m5j-plan.md K-02). C++ builds the
+		// text at each staff login: the version and the time zone are fixed for the process, so it is the same text
+		static const std::string versionInfoText =
+			"Server " + GameServer::versionInfo().getBuildInfo(configs::main::GSConfig::TIME_ZONE_ID.load());
+		utils::PacketSendUtility::sendMessage(player, versionInfoText, model::ChatType::WHITE);
 	}
 
 	if (std::shared_ptr<const std::vector<std::string>> membershipTypes = configs::main::MembershipConfig::MEMBERSHIP_TYPES.get();
