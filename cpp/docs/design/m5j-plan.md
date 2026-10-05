@@ -477,6 +477,47 @@ the receiver's block list → `STR_YOU_EXCLUDED`; different races, factions not 
 `maxLevel` is 10 unless Daeva, and the level shown is `maxLevel - 1`), so **no starting-class character can whisper a non-staff player** — only
 staff. The gate and the checklist are built around that (Z2, §13).
 
+### 3.7 Chat ported ahead of stage 0 (lane A, 2026-10-05)
+
+At the coordinator's request, chat was ported before the GM commands, on its own branch (`lane-a/chat`, from `C++` at `bef516884`). It takes
+**K-03, K-04 and the CM_CHAT_MESSAGE_PUBLIC / CM_CHAT_MESSAGE_WHISPER half of K-05**. These are also m5g-plan.md's K-04 (the chat half),
+W-01's `canChat` and W-03's `ChatBanService` / `PlayerChatService`; lane B (M5g parties) left them to this lane.
+
+**Measured first** (at `bef516884`):
+- `ChatProcessor` was already ported (D4), including `handleChatCommand`, the `//` and `.` prefix dispatch.
+- `SM_MESSAGE`, `NameRestrictionService::filterMessage`, `ChatUtil::getRealCharName`, `World::getPlayer(name)`, `BlockList`,
+  `Player::setLastMessageTime` / `floodMsgCount`, the prison time, the `broadcastPacket` overload with `toSelf` and a filter,
+  `broadcastToLegion`, `ChatServer::sendPlayerGagPacket` and every `SM_SYSTEM_MESSAGE` of the path were ported.
+- Still open: `PlayerRestrictions::canChat` (1 U), `PlayerChatService` (4 U), `ChatBanService` (5 U), and no file for the two packets.
+
+| Item | As built |
+|---|---|
+| K-03 | `PlayerRestrictions::canChat`: online, prison (`STR_INGAME_BLOCK_IN_NO_CHAT(seconds / 60 + 1)`), the chat ban (its minutes), the flood check (a 2-minute ban and `STR_FLOODING`) |
+| K-04 | `PlayerChatService`: `isFlooding`, `logWhisper`, both `logMessage`. `ChatBanService`: all five bodies. The GAG runnable (`ChatBanService$1`) is a pinned lambda stored as the player's `TaskId::GAG` task, so `unbanPlayer` and `cancelAllTasks` cut it, as Java's `Future` |
+| K-05 (part) | `CM_CHAT_MESSAGE_PUBLIC` and `CM_CHAT_MESSAGE_WHISPER` (P5-15, `AION_CLIENT_PACKET`). Their whole `runImpl`, with Java's order. The command hook is the ported `ChatProcessor::handleChatCommand`; with no command registered (K-01 and K-07, the GM-commands job) a `//text` line is plain chat, as in Java with an unknown alias |
+| not here | `CM_CHAT_GROUP_INFO` (waits for groups, M5g), the command framework K-01, the GM commands. The GROUP / ALLIANCE / GROUP_LEADER / LEAGUE / LEAGUE_ALERT arms keep Java's calls, `getCurrentGroup()->sendPackets`, `getPlayerAlliance()->sendPackets` and `getLeague()->sendPackets`: unreachable without a team on this base, and live once M5g's teams are merged (`TemporaryPlayerTeam::sendPackets` is lane B's) |
+
+**Tests:**
+- `tests/cm_ak/ChatPacketsTest.cpp` (P5-15, on P5-08's `TravelTestSupport.h`), byte vectors from the Java `writeImpl`:
+  - the reads, including an unknown chat type as a failed read;
+  - NORMAL to the sender and the one beside him, SHOUT with the position;
+  - the block list, and a staff sender passing it;
+  - the forbidden word starred after an unfiltered log;
+  - the team arms without a team, COMMAND without a commander, a system type staff only;
+  - an unknown `//` alias as chat, a prisoner, the eighth quick message flooding and the ban after it;
+  - every whisper refusal in Java's order, the other race with and without `SPEAKING_BETWEEN_FACTIONS`, a banned sender stopped after the
+    receiver checks;
+  - the CHAT_LOG / ADMINAUDIT_LOG lines.
+- `tests/playersvc/ChatBanServiceTest.cpp` (P5-08): the minutes rounded up, the GAG task's unban and its `STR_CAN_CHAT_NOW`, an expired ban
+  lifted by the query, a missing GAG task registered again.
+- `gs.scenario.m5c` gains C2b: A's NORMAL line reaches A and B; A's whisper to B is refused by the whisper level (both are level 1); a
+  whisper to a name that is not online answers `STR_NO_SUCH_USER`.
+
+**Java behaviour kept, proposed for correction (owner):**
+- `CM_CHAT_MESSAGE_PUBLIC` logs before its LEGION arm checks `isLegionMember`. With `gameserver.log.chats.private = true` (default false), a
+  legionless player's LEGION line throws `NullPointerException` in `PlayerChatService.logMessage` (`sender.getLegion().getName()`).
+  The port throws the same (docs/deviations/P5-08.md, "Chat").
+
 ---
 
 ## 4. What M5j turns on, and what it wakes (lesson 2)
