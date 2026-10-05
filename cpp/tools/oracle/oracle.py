@@ -399,6 +399,23 @@ def cmd_m5e_progression(args):
 	return 0
 
 
+def cmd_m5e_stumble(args):
+	from m5e.stumble import stumble_report
+	data_dir = _data_dir(args)
+	geo_dir = Path(args.geo_dir) if args.geo_dir else data_dir.parent / "geo"
+	stumbles = []
+	for text in args.stumble:
+		try:
+			values = tuple(float(v) for v in text.split(","))
+		except ValueError as e:
+			raise OracleError(f"--stumble {text}: not FX,FY,FZ,TX,TY") from e
+		if len(values) != 5:
+			raise OracleError(f"--stumble {text}: not FX,FY,FZ,TX,TY")
+		stumbles.append(values)
+	sys.stdout.write(runner.dump_json(stumble_report(geo_dir, data_dir / "world_maps.xml", args.map, stumbles)))
+	return 0
+
+
 def cmd_quest_trace(args):
 	from questtrace import extract
 	rels = extract.SLICE if not args.only else tuple(args.only)
@@ -736,6 +753,15 @@ def main(argv=None):
 	                                 "<config>/mygs.properties when it exists; a file named here must exist)")
 	p.add_argument("--no-profile", action="store_true", dest="no_profile", help="read no override file for --stigma's prices")
 	p.set_defaults(fn=cmd_m5e_progression)
+
+	p = sub.add_parser("m5e-stumble", help="whether a stumble's segment is open ground in the geo data and, if so, the z GeoMap.getClosestCollision "
+	                                       "gives its end (m5e-plan.md X9g)")
+	data_args(p, country=False)
+	p.add_argument("--geo-dir", dest="geo_dir", help="game-server/data/geo (default: beside the static data directory)")
+	p.add_argument("--map", type=int, required=True, metavar="ID")
+	p.add_argument("--stumble", action="append", required=True, metavar="FX,FY,FZ,TX,TY",
+	               help="the npc's position before the hit and the stumble's end x, y; repeatable")
+	p.set_defaults(fn=cmd_m5e_stumble)
 
 	p = sub.add_parser("quest-trace", help="golden traces of the Java quest handlers: every return leaf of every hook as a case with its "
 	                                       "effects (questtrace/, phase6-inventory.md §7.6 item 3)")

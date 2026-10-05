@@ -16,8 +16,12 @@ from pathlib import Path
 
 from m5a.data import StaticData
 from m5e.progression import Character, LearnRow, ProgressionData, SkillInfo, charged_skill, progression_report
+from m5e.stumble import load_scene, stumble_end
 from staticdata_oracle import OracleError
 from staticdata_oracle import run as runner
+
+from geo import run as geo_run
+from geo.javamath import add, f32, sub
 
 import oracle
 
@@ -272,6 +276,40 @@ class M5eRealDataTest(unittest.TestCase):
 	def test_unknown_step(self):
 		with self.assertRaises(OracleError):
 			progression_report(self.data, JAVA_SRC, JAVA_QUEST_HANDLERS, "ELYOS", "WARRIOR", 1, ["fly"], None, False, [], [], {})
+
+
+@unittest.skipUnless(geo_run.DEFAULT_GEO_DIR.is_dir() and geo_run.DEFAULT_WORLD_MAPS.is_file(), "the Java tree's geo data is not present")
+class M5eStumbleTest(unittest.TestCase):
+	"""m5e-stumble (X9g): GeoMap.getClosestCollision's end on open ground, from the Poeta geo data"""
+
+	@classmethod
+	def setUpClass(cls):
+		cls.scene = load_scene(geo_run.DEFAULT_GEO_DIR, geo_run.DEFAULT_WORLD_MAPS, 210010000)
+
+	def test_open_ground_gives_getz_at_the_end(self):
+		# kunandes's spot (Poeta spawn file), 2 m east: terrain only; the end's z is getZ(x, y, z + 1, z - 2) (GeoMap.java:142-147)
+		end = stumble_end(self.scene, 840.494, 1217.09, 119.068, 842.494, 1217.09)
+		self.assertTrue(end["open"], end["reason"])
+		self.assertEqual(end["groundSource"], "terrain")
+		self.assertEqual(end["groundZ"], self.scene.get_z(f32(842.494), f32(1217.09), add(f32(119.068), 1.0), sub(f32(119.068), 2.0))[0])
+		self.assertNotEqual(end["groundZ"], f32(119.068), "the terrain is not flat there: a port that ignores geo keeps the start z")
+
+	def test_a_mesh_on_the_segment_is_not_open(self):
+		# a building of Akarios village: the ray at z + 1 hits it 1.68 m from its origin
+		end = stumble_end(self.scene, 830.0, 1210.0, 119.0, 832.0, 1210.0)
+		self.assertFalse(end["open"])
+		self.assertIsNone(end["groundZ"])
+		self.assertIn("geometry crosses the ray", end["reason"])
+
+	def test_the_command_line(self):
+		out = io.StringIO()
+		with contextlib.redirect_stdout(out):
+			code = oracle.main(["m5e-stumble", "--map", "210010000", "--stumble", "840.494,1217.09,119.068,842.494,1217.09"])
+		self.assertEqual(code, 0)
+		answer = json.loads(out.getvalue())
+		self.assertEqual((answer["format"], len(answer["stumbles"]), answer["stumbles"][0]["open"]), ("aion-m5e-stumble", 1, True))
+		with contextlib.redirect_stderr(io.StringIO()):
+			self.assertEqual(oracle.main(["m5e-stumble", "--map", "210010000", "--stumble", "1,2,3"]), 2, "not FX,FY,FZ,TX,TY")
 
 
 if __name__ == "__main__":
