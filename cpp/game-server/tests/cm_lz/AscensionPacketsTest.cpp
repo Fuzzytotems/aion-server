@@ -26,7 +26,10 @@
 #include "aion/gameserver/controllers/ObserveController.h"
 #include "aion/gameserver/controllers/PlayerController.h"
 #include "aion/gameserver/controllers/movement/PlayerMoveController.h"
+#include "aion/gameserver/controllers/observer/AbstractCollisionObserver.h"
 #include "aion/gameserver/controllers/observer/ActionObserver.h"
+#include "aion/gameserver/geoEngine/math/Vector3f.h"
+#include "aion/gameserver/geoEngine/scene/Node.h"
 #include "aion/gameserver/controllers/observer/ObserverType.h"
 #include "aion/gameserver/dataholders/QuestsData.bind.h"
 #include "aion/gameserver/dataholders/QuestsData.h"
@@ -393,6 +396,52 @@ TEST_F(AscensionPacketsTest, TheScriptedFlightFollowsTheClient) {
 	EXPECT_EQ(fromClient->getHeading(), 20);
 	EXPECT_GT(actor.player->getMoveController()->getLastPositionFromClientMillis(), 0);
 	actor.player->getObserveController()->removeObserver(*moves);
+}
+
+/**
+ * m5f-plan.md §10.5 G2c: Player.setPosition resets the last position from the client (Player.java:1592-1600, "material collision handlers
+ * (such as shields) affect you on teleport"), so a collision observer created after a teleport takes the NEW position as its oldPos
+ * (AbstractCollisionObserver.java:33-37) - not the point the client last reported before the teleport, which would make the observer's first
+ * ray run from there across the whole map. Neither gate can see this row (§10.4's last row); it lives here, beside the CM_MOVE_IN_AIR case
+ * that sets the client position, and not in tests/geo as the plan placed it (no fixture there has a Player; docs/deviations/P5-SC.md).
+ */
+class OldPositionProbe final : public controllers::observer::AbstractCollisionObserver {
+	AION_MAKE_REF_FRIEND
+public:
+	explicit OldPositionProbe(model::gameobjects::Creature& creature)
+		: AbstractCollisionObserver(creature, geoEngine::scene::Node::create(), 0, CheckType::TOUCH) {}
+
+	static runtime::Ref<OldPositionProbe> create(model::gameobjects::Creature& creature) { return runtime::makeRef<OldPositionProbe>(creature); }
+
+	geoEngine::math::Vector3f oldPosition() const { return oldPos.get(); }
+	void onMoved(geoEngine::collision::CollisionResults&) override {}
+
+protected:
+	~OldPositionProbe() override = default;
+};
+
+TEST_F(AscensionPacketsTest, ATeleportResetsTheClientPositionACollisionObserverStartsFrom) {
+	actor.player->setState(CreatureState::FLYING);
+	actor.player->setFlightPath(
+		model::templates::flypath::FlightPath::create(model::templates::flypath::FlightPath::Type::FLIGHT_TRANSPORTER, 1001, 0));
+	moveInAir(POETA, 650.0f, 1050.0f, 150.0f, int8_t{20}, 37);
+	ASSERT_TRUE(actor.player->getMoveController()->getLastPositionFromClient()) << "CM_MOVE_IN_AIR recorded the client's position";
+	{
+		const geoEngine::math::Vector3f before = OldPositionProbe::create(*actor.player)->oldPosition();
+		EXPECT_FLOAT_EQ(before.getX(), 650.0f) << "without a teleport the observer starts from the client's last position";
+	}
+	actor.player->unsetState(CreatureState::FLYING);
+	actor.player->setFlightPath(nullptr);
+
+	// a same-map teleport with no animation: sendLoc -> SpawnTask.run -> World.setPosition -> Player.setPosition
+	TeleportService::teleportTo(*actor.player, POETA, 900.0f, 1300.0f, 120.0f, int8_t{0}, TeleportAnimation::NONE);
+	ASSERT_TRUE(actor.player->isSpawned());
+	expectAt(POETA, 900.0f, 1300.0f, 120.0f);
+	EXPECT_FALSE(actor.player->getMoveController()->getLastPositionFromClient()) << "Player.setPosition resets it";
+	const geoEngine::math::Vector3f after = OldPositionProbe::create(*actor.player)->oldPosition();
+	EXPECT_FLOAT_EQ(after.getX(), 900.0f) << "G2c: oldPos is the new position, not the client's pre-teleport point";
+	EXPECT_FLOAT_EQ(after.getY(), 1300.0f);
+	EXPECT_FLOAT_EQ(after.getZ(), 120.0f);
 }
 
 // ---- CM_PLAY_MOVIE_END ---------------------------------------------------------------------------------------------------------------------
