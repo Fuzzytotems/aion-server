@@ -246,6 +246,29 @@ class M5eRealDataTest(unittest.TestCase):
 		with self.assertRaises(OracleError):
 			progression_report(self.data, JAVA_SRC, JAVA_QUEST_HANDLERS, "ELYOS", "GLADIATOR", 20, [], None, True, [], [], {}, [100900038])
 
+	def test_a_new_characters_old_level_is_0(self):
+		# PlayerService.newPlayer writes no old_level, so the column's default 0 (aion_gs.sql:911) is what the first enter world reads
+		# (PlayerEnterWorldService.java:204): onLevelChange(0, 1), which learns level 1 again and adds nothing
+		create, enter = self.warrior["steps"][0], self.warrior["steps"][1]
+		self.assertEqual(enter["step"], "enter:1")
+		self.assertEqual(enter["levelChange"], [0, 1])
+		self.assertEqual(enter["events"], [], "level 1's skills are known since create")
+		self.assertEqual(enter["skills"], create["skills"])
+
+	def test_an_online_level_change_caps_a_non_daeva_at_9(self):
+		# PlayerCommonData.setExp online: maxLevel 10 for a non-Daeva, level = min(levelForExp, maxLevel - 1) (PlayerCommonData.java:276, 281)
+		report = progression_report(self.data, JAVA_SRC, JAVA_QUEST_HANDLERS, "ELYOS", "WARRIOR", 1, ["create", "enter:8", "level:12"], None,
+		                            False, [], [], {})
+		capped = report["steps"][-1]
+		self.assertEqual((capped["level"], capped["levelChange"], capped["levelCapped"], capped["daeva"]), (9, [8, 9], 12, False))
+		self.assertEqual({e["skillId"] for e in capped["events"] if e["op"] == "add"}, {138}, "only level 9's skill: nothing of 10-12")
+		stays = progression_report(self.data, JAVA_SRC, JAVA_QUEST_HANDLERS, "ELYOS", "WARRIOR", 1, ["create", "enter:9", "level:10"], None,
+		                           False, [], [], {})["steps"][-1]
+		self.assertEqual((stays["level"], stays["levelChange"], stays["events"]), (9, [9, 9], []), "the wall: a level-9 Warrior stays 9")
+		# a Daeva is not capped: the warrior's level:10 after its class change (test_the_first_daeva_level)
+		self.assertEqual(self.step("level:10")["level"], 10)
+		self.assertNotIn("levelCapped", self.step("level:10"))
+
 	def test_unknown_step(self):
 		with self.assertRaises(OracleError):
 			progression_report(self.data, JAVA_SRC, JAVA_QUEST_HANDLERS, "ELYOS", "WARRIOR", 1, ["fly"], None, False, [], [], {})

@@ -440,10 +440,12 @@ class Progression:
 # ---- steps -----------------------------------------------------------------------------------------------------------------------------
 
 STEP_HELP = """steps, applied in order to one character:
-  create            PlayerService.newPlayer: learnNewSkills(1, 1) before the character has an effect controller (no packet)
+  create            PlayerService.newPlayer: learnNewSkills(1, 1) before the character has an effect controller (no packet); old_level
+                    stays 0, so the first enter world is onLevelChange(0, L)
   enter:L           an enter world at level L after the last level stored at leave world (players.old_level): onLevelChange(old, L)
                     runs before the spawn, so it sends no SM_SKILL_LIST; the character is spawned afterwards
-  level:L           an online level change to L (a kill, a quest reward): onLevelChange(level, L) with the packets
+  level:L           an online level change to L (a kill, a quest reward): onLevelChange(level, L) with the packets; a non-Daeva stops
+                    at 9 (setExp's cap; the step then reports levelCapped = L)
   class:CLASS       CM_DIALOG_SELECT(0, the action of CLASS, ..., 1006 / 2008) with the simple class change: changeClassToSelection
   action:ID         the same with a raw dialog action id (getSelectedPlayerClass; an id it does not know selects no class)
   quit              leave world: players.old_level = level, the character is no longer spawned
@@ -481,6 +483,10 @@ def _book_action(data: StaticData, item_id: int) -> dict:
 	raise OracleError(f"item {item_id} has no template")
 
 
+# PlayerCommonData.setExp's maxLevel of a non-Daeva (PlayerCommonData.java:276): it reaches maxLevel - 1 = 9
+NON_DAEVA_MAX_LEVEL = 10
+
+
 class StepRunner:
 	def __init__(self, progression: Progression, ch: Character, data: StaticData):
 		self.p = progression
@@ -500,7 +506,9 @@ class StepRunner:
 		if kind == "create":
 			ch.spawned = False
 			self.p.learn_new_skills(ch, 1, 1, events)
-			self.old_level = ch.level
+			# PlayerService.newPlayer stores no old_level: the column keeps its default 0 (aion_gs.sql:911), which the first enter world reads
+			# (PlayerDAO.getOldCharacterLevel, PlayerEnterWorldService.java:204): onLevelChange(0, 1) learns level 1 again (nothing new)
+			self.old_level = 0
 		elif kind == "enter":
 			level = int(arg)
 			ch.spawned = False
@@ -512,6 +520,11 @@ class StepRunner:
 			level = int(arg)
 			if not ch.spawned:
 				raise OracleError(f"{step}: the character is not in the world")
+			if not ch.daeva and level >= NON_DAEVA_MAX_LEVEL:
+				# PlayerCommonData.setExp online: maxLevel is 10 for a non-Daeva and the level min(levelForExp, maxLevel - 1)
+				# (PlayerCommonData.java:276, 281), so a starting class stops at 9 with the full bar (X3)
+				report["levelCapped"] = level
+				level = NON_DAEVA_MAX_LEVEL - 1
 			report["levelChange"] = [ch.level, level]
 			self.p.level_change(ch, ch.level, level, events)
 		elif kind in ("class", "action"):
