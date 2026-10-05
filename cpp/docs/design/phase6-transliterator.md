@@ -38,8 +38,9 @@
    kinds and `registerOnKillRanked`, and runs the oracle's scheduled tasks; the sample is a committed tool (`goldensample.py`). Over the 649
    transliterated files outside the tree that have a case: **19,499 variants pass, 0 fail** (17,908 and 114 before), no quest stops, the
    registration trace has no finding.
-9. **Step 2, chunk Q08 landed (lane C, 2026-10-05, §8):** the 63 generated gelkmaros and enshar handlers are in the tree, with their golden
-   traces (1,366 variants pass, 0 fail) and docs/deviations/Q08.md; `gelkmaros/_20034` stays out (a header gap).
+9. **Step 2, chunk Q08 landed (lane C, 2026-10-05, §8):** the 64 generated gelkmaros and enshar handlers are in the tree (63 at the
+   landing, `gelkmaros/_20034` by the follow-up and API row B39), with their golden traces (1,368 variants pass, 0 fail) and
+   docs/deviations/Q08.md.
 
 ---
 
@@ -562,3 +563,7 @@ Branch `lane-c/p6-q08`, stacked on `lane-c/p6-harness` (§7). The first chunk of
 - **Not held back:** none. **Generator changes:** none. **Java bugs found:** none.
 - **Tool tests:** `tools.oracle` 552, `tools.gen` 430 (the drift test with the 63), `tools.parity` 36: all pass. Static checks:
   `lint_concurrency --werror` 0 errors, `chunks.py check` 0 problems, `census --self-check` 0 failures.
+- **Follow-up (2026-10-05):** `gelkmaros/_20034RescuetheReians` landed. The header gap reported above was not one (`QuestTemplate::getName()`
+  is declared in the generated `QuestTemplate.xml.inc`); the gap was questgen's: API row B39 reads `DataManager.QUEST_DATA` through its
+  `HolderRef`. 973 of 1,035 transliterated, the other files byte-identical; 20034's 2 golden cases pass, the registration trace too; the
+  harness 231 of 231. docs/deviations/Q08.md, "Follow-up"; header request p6q08-1 (approved, not needed).
