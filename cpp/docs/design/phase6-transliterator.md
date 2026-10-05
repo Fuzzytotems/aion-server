@@ -41,6 +41,9 @@
 9. **Step 2, chunk Q08 landed (lane C, 2026-10-05, §8):** the 64 generated gelkmaros and enshar handlers are in the tree (63 at the
    landing, `gelkmaros/_20034` by the follow-up and API row B39), with their golden traces (1,368 variants pass, 0 fail) and
    docs/deviations/Q08.md.
+10. **Step 2, chunk Q01 landed (lane C, 2026-10-05, §9):** 81 of the 82 generated reshanta handlers are in the tree, with their golden traces
+   (1,493 variants pass, 0 fail) and docs/deviations/Q01.md; questgen gained rows B40-B42 and two fixes (979 of 1,035 transliterated);
+   `reshanta/_2759` waits for an owner decision.
 
 ---
 
@@ -465,7 +468,7 @@ to the 649 sample files; "Waiting" less "Sample" is the files without a case and
 |---|---|---|---|---|---|---|---|
 | Q08 (**landed, §8**) | gelkmaros, enshar | 63 | 55 | 54 | 1 | 1,366 | 40 |
 | Q11 | daevanion, sanctum | 72 | 50 | 41 | 9 | 1,604 | 48 |
-| Q01 | reshanta | 77 | 76 | 65 | 11 | 1,450 | 61 |
+| Q01 (**landed, §9**) | reshanta | 77 | 76 | 65 | 11 | 1,450 | 61 |
 | Q02 | inggison | 57 | 53 | 44 | 9 | 1,411 | 43 |
 | Q13 | instances A-K, kaisinel_academy | 84 | 76 | 55 | 21 | 1,753 | 56 |
 | Q14 | instances K-W | 73 | 63 | 55 | 8 | 1,591 | 48 |
@@ -567,3 +570,29 @@ Branch `lane-c/p6-q08`, stacked on `lane-c/p6-harness` (§7). The first chunk of
   is declared in the generated `QuestTemplate.xml.inc`); the gap was questgen's: API row B39 reads `DataManager.QUEST_DATA` through its
   `HolderRef`. 973 of 1,035 transliterated, the other files byte-identical; 20034's 2 golden cases pass, the registration trace too; the
   harness 231 of 231. docs/deviations/Q08.md, "Follow-up"; header request p6q08-1 (approved, not needed).
+
+## 9. Phase 6 step 2: chunk Q01 landed (lane C, 2026-10-05)
+
+Branch `lane-c/p6-q01`, stacked on `lane-c/p6-q08` (§8 and its 20034 follow-up). The second chunk of §7.5's order; the record is
+docs/deviations/Q01.md.
+
+- **In the tree:** 81 of the 82 reshanta handlers, questgen's output unedited, in `aion_gs_handlers_quest_reshanta`; the drift test's `Q01`
+  table pins them. `_2759TenaciousGuardian` (a written `List<Integer>` field: per-player state shared in the singleton, Java's race) waits
+  for the owner's decision.
+- **Generator:** API rows B40 (`broadcastPacketAndReceive`), B41 (`GameTimeService` / `GameTime.getHour`), B42 (`DataManager.SPAWNS_DATA`,
+  the spawn lookup), a `cppdecl` fix (an out-of-line nested class `class A::B` replaced A in the index: dataholders/SpawnsData.h) and an emitter
+  rule (a nullable value result kept in a local is a `std::optional` local, its calls through `.value()`). **979 of 1,035** transliterated;
+  the other 973 files byte-identical; two event quests of Q12 (50008, 51008) are among the new ones and land with Q12.
+- **Golden traces:** `SLICE_Q01`, 81 documents, 1,494 cases: **1,493 variants pass, 0 fail**, 7,143 runs compared; listed: 10 not
+  reproducible (canRepeat false on templates that always repeat: 1718, 2718, 3718, 4718), 11 vacuous (IDLE_END in 1799, 1845, 2721, 2724,
+  2727, 2767; 24040's reward page); 2798 with every hook refused. The 26 kill-ranked quests are traced and pass. The registration trace
+  passes for the 81. `ctest -R GoldenQuest`: 312 of 312.
+- **Parity** 81 pairs, 0 mismatches (the handler tree: 323 pairs, 0); **compile check** 979 clean, 0 warnings, regscan 0 errors; the full
+  Debug build has no new warning.
+- **Gate impact:** none expected (Q01.md: every quest needs level 25+, the two enter-world starts only in Reshanta, the talk registrations
+  at Pernos and 203550 answer false without their quest state). **Gates:** every gs.scenario.* gate, one at a time (`ctest -j 1 -R ^gs\.scenario\.`) under the test-database lock (`gate_lock.py lane-C`), on the
+  full Debug build of this branch: **15 of 15 passed** (4,461 s; m5a, m5b, m5b2, m5b3 and their geo variants, m5c, travel, ascension 857 s,
+  m5d, m5d_geo, m5e, m5e_geo); every gate server logged "Loaded 4507 quest handlers" (Q08 and its follow-up 64, Q01 81 more than before
+  the two chunks); no "QE: exception" line. gs.scenario.ascension's routes talk to Pernos and 203550 and m5e's to Pernos: the talk
+  registrations of 14044, 24044 and 24046 change nothing there, as reasoned above. No gate expectation was changed.
+- **Not held back:** none. **Java bugs found:** none.
