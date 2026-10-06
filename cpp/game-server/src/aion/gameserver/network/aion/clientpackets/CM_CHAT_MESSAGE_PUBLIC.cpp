@@ -47,6 +47,12 @@ void CM_CHAT_MESSAGE_PUBLIC::runImpl() {
 	if (!restrictions::PlayerRestrictions::canChat(player))
 		return;
 
+	// Correction of the Java code (owner's decision 2026-10-05, both branches; docs/deviations/P5-08.md, "Chat"): Java logs before its LEGION
+	// arm checks isLegionMember (CM_CHAT_MESSAGE_PUBLIC.java:51-60), and logMessage's LEGION line then throws for a legionless player. Such a
+	// legion chat is neither logged nor sent: the arm's own check, made before the log.
+	if (type == ChatType::LEGION && !player->isLegionMember())
+		return;
+
 	services::player::PlayerChatService::logMessage(*player, type, message);
 	message = services::NameRestrictionService::filterMessage(message);
 

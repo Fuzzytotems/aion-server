@@ -267,6 +267,17 @@ TEST_F(ChatPacketsTest, TeamChatWithoutATeamSendsNothing) {
 	}
 }
 
+// the owner's correction of 2026-10-05 (docs/deviations/P5-08.md, "Chat"): Java threw logMessage's NullPointerException here
+TEST_F(ChatPacketsTest, ALegionlessLegionChatIsNeitherLoggedNorSent) {
+	spawnActor(0);
+	configs::main::LoggingConfig::LOG_PRIVATE_CHATS.store(true);
+	network::test::LogCapture capture({"CHAT_LOG"}, spdlog::level::info);
+	EXPECT_NO_THROW(say(LEGION, "anyone?"));
+	EXPECT_FALSE(capture.contains("anyone?")) << capture.dump();
+	EXPECT_TRUE(sent().empty());
+	EXPECT_TRUE(watcherSent().empty());
+}
+
 TEST_F(ChatPacketsTest, CommandChatNeedsACommander) {
 	spawnActor(0);
 	say(COMMAND, "charge");

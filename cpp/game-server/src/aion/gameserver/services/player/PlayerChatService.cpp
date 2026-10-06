@@ -76,9 +76,9 @@ void PlayerChatService::logMessage(model::gameobjects::player::Player& sender, m
 			log->info("[" + typeName + "] <" + std::to_string(sender.getCurrentTeamId()) + "> - [" + sender.getName() + "]: " + std::string(message));
 			break;
 		case ChatType::LEGION:
-			// Java: sender.getLegion().getName() - a NullPointerException for a player without a legion. CM_CHAT_MESSAGE_PUBLIC logs BEFORE its
-			// LEGION arm checks isLegionMember (CM_CHAT_MESSAGE_PUBLIC.java:46-56), so with gameserver.log.chats.private on (default off) a
-			// legionless player's legion chat throws here - kept (docs/deviations/P5-15.md, chat)
+			// Java: sender.getLegion().getName() - a NullPointerException for a player without a legion. Since the owner's correction of
+			// 2026-10-05 CM_CHAT_MESSAGE_PUBLIC checks isLegionMember before it logs, so its LEGION chat never gets here without a legion
+			// (docs/deviations/P5-08.md, "Chat"); another caller would still get Java's exception
 			if (runtime::Ptr<model::team::legion::Legion> legion = sender.getLegion())
 				log->info("[" + typeName + "] <" + legion->getName() + "> - [" + sender.getName() + "]: " + std::string(message));
 			else
