@@ -7,9 +7,13 @@
 //   GA5  B casts Focused Evasion: UPDATE_EFFECTS to the others, never to B; A's group data (groupType 1) reaches A's alliance group only
 //        (the alliance chat row of §10.5 GA5 waits for CM_CHAT_MESSAGE_PUBLIC, lane A's)
 //   GA6  the round robin without quality rolls; A kills a sparkie with all four in range: each gets the oracle's alliance share
-//   GA10 B quits and stays out: LEAVE_TIMEOUT within 40 s; C leaves (14); D leaves: the alliance of two is disbanded
-//   GA11 A invites D again (a live alliance at the stop); the reports: the Q8 bar, the allow-list, the alliance classes at 0 live
-// The league cases GA7-GA9 and the group-instance cases GA12-GA14 are the league lane's and stage 3's (m5g-plan.md §16.3).
+//   GA7  C and D leave; C forms alliance 2 with D; A invites C to a league (CM_INVITE_TO_GROUP 28): both alliances see the league of two,
+//        positions 0 and 1, and the league's loot rules FREEFORALL 0 0 2 2 2 2 2
+//   GA8  A moves the alliances (31) and back: the position messages; A makes B his alliance's leader (17): the other alliance is told
+//   GA9  B, now the league captain, expels alliance 2 (30): LEAGUE_EXPELLED to it, LEAGUE_EXPEL and the league of one's LEAGUE_DISPERSED to his
+//   GA10 B quits and stays out: LEAVE_TIMEOUT within 40 s disbands alliance 1; C leaves alliance 2, which disbands
+//   GA11 A invites D (a live alliance at the stop); the reports: the Q8 bar, the allow-list, the alliance and league classes at 0 live
+// The group-instance cases GA12-GA14 are stage 3's (m5g-plan.md §16.3).
 //
 // Built from M5gScenarioTest.cpp's scaffolding (the helpers, the oracle case C0, the characters of C1) and its kill and loot helpers; every
 // expectation is derived from the Java sources named at each case or from the oracle (m5g-team), never from the C++ port.
@@ -1276,10 +1280,11 @@ void runM5gAllianceGate() {
 	  "STR_PARTY_IS_DISPERSED", "STR_MSG_SPLIT_ME_TO_B", "STR_MSG_SPLIT_B_TO_ME", "STR_MSG_COMBAT_FRIENDLY_DEATH", "STR_MSG_COMBAT_MY_DEATH",
 	  "STR_MSG_GET_ITEM_PARTYNOTICE", "STR_MSG_DICE_RESULT_ME", "STR_MSG_DICE_RESULT_OTHER", "STR_MSG_DICE_GIVEUP_ME", "STR_MSG_PAY_ALL_GIVEUP",
 	  "STR_FORCE_INVITED_HIM", "STR_FORCE_ENTERED_FORCE", "STR_FORCE_HE_ENTERED_FORCE", "STR_FORCE_LEAVE_HIM", "STR_FORCE_HE_BECOME_OFFLINE",
-	  "STR_PARTY_ALLIANCE_HE_LEAVED_PARTY_OFFLINE_TIMEOUT", "STR_PARTY_ALLIANCE_DISPERSED"};
+	  "STR_PARTY_ALLIANCE_HE_LEAVED_PARTY_OFFLINE_TIMEOUT", "STR_PARTY_ALLIANCE_DISPERSED", "STR_UNION_INVITE_HIM", "STR_UNION_CHANGE_FORCE_NUMBER_ME",
+	  "STR_UNION_CHANGE_FORCE_NUMBER_HIM", "STR_UNION_CHANGE_LEADER_TIMEOUT", "STR_UNION_YOU_BECOME_NEW_LEADER_TIMEOUT"};
 	runCase("C0", "the oracles answer: m5g-team (D8's levels, the shares, the constants), m5a-creation, m5b-monster", [&] {
 		std::vector<std::string> arguments{"m5g-team", "--npc-id", std::to_string(SPARKIE), "--xp-group-rate", "1.5", "--xp-solo-rate", "1.0", "--question",
-		                                   "STR_PARTY_DO_YOU_ACCEPT_INVITATION", "STR_PARTY_ALLIANCE_DO_YOU_ACCEPT_HIS_INVITATION", "--message"};
+		                                   "STR_PARTY_DO_YOU_ACCEPT_INVITATION", "STR_PARTY_ALLIANCE_DO_YOU_ACCEPT_HIS_INVITATION", "STR_MSGBOX_UNION_INVITE_ME", "--message"};
 		for (const std::string& name : messageNames)
 			arguments.push_back(name);
 		team = parseTeam(oracle->run(arguments));
@@ -1747,25 +1752,114 @@ void runM5gAllianceGate() {
 		walkTo(a, stands[0][0], stands[0][1], stands[0][2]);
 	});
 
-	runCase("GA10", "B quits and stays out (LEAVE_TIMEOUT); C leaves; D leaves and the alliance of two disbands (PlayerAllianceLeavedEvent.java)", [&] {
+	// SM_ALLIANCE_INFO's league message ids (SM_ALLIANCE_INFO.java's constants)
+	constexpr int32_t LEAGUE_ALLIANCE_ENTERED = 1400560, LEAGUE_JOINED_ALLIANCE = 1400561, LEAGUE_EXPEL = 1400574, LEAGUE_EXPELLED = 1400576,
+	                  LEAGUE_DISPERSED = 1400579;
+	int32_t allianceOne = 0, allianceTwo = 0;
+	const auto lastAllianceInfo = [&](const ScenarioClient& client, const std::array<size_t, 4>& from) -> std::optional<decoders::AllianceInfo> {
+		const std::vector<decoders::AllianceInfo> infos = allianceInfosOf(windowOf(client, from));
+		return infos.empty() ? std::nullopt : std::optional<decoders::AllianceInfo>(infos.back());
+	};
+	const auto hasInfoMessage = [&](const ScenarioClient& client, const std::array<size_t, 4>& from, int32_t messageId, const std::string& text) {
+		for (const decoders::AllianceInfo& info : allianceInfosOf(windowOf(client, from)))
+			if (info.messageId == messageId && info.message == text)
+				return true;
+		return false;
+	};
+
+	runCase("GA7", "C and D leave; C forms alliance 2 with D; A invites C to a league (LeagueService.java:30-93, LeagueJoinEvent)", [&] {
+		auto from = marks();
+		send(c, GameSession::CM_PLAYER_STATUS_INFO, GameSession::buildCM_PLAYER_STATUS_INFO(command("ALLIANCE_LEAVE"), 0));
+		drainAll(1500ms);
+		send(d, GameSession::CM_PLAYER_STATUS_INFO, GameSession::buildCM_PLAYER_STATUS_INFO(command("ALLIANCE_LEAVE"), 0));
+		drainAll(1500ms);
+		EXPECT_EQ(countMessage(windowOf(a, from), msg("STR_FORCE_LEAVE_HIM"), {cc.name}), 1u);
+		EXPECT_EQ(countMessage(windowOf(a, from), msg("STR_FORCE_LEAVE_HIM"), {cd.name}), 1u);
+		inviteToAlliance(c, d, cd);
+		from = marks();
+		send(a, GameSession::CM_INVITE_TO_GROUP, GameSession::buildCM_INVITE_TO_GROUP(28, cc.name));
+		ASSERT_TRUE(until(10s, [&] { return !ofName(windowOf(c, from), "SM_QUESTION_WINDOW").empty(); })) << "GA7: C was not asked";
+		const int32_t questionLeague = team.questions.at("STR_MSGBOX_UNION_INVITE_ME");
+		EXPECT_EQ(decoders::decodeQuestionWindow(ofName(windowOf(c, from), "SM_QUESTION_WINDOW")[0].data).code, questionLeague);
+		EXPECT_EQ(countMessage(windowOf(a, from), msg("STR_UNION_INVITE_HIM"), {cc.name, "2"}), 1u);
+		send(c, GameSession::CM_QUESTION_RESPONSE, GameSession::buildCM_QUESTION_RESPONSE(questionLeague, GameSession::ANSWER_YES));
+		drainAll(2s);
+		const std::optional<decoders::AllianceInfo> infoA = lastAllianceInfo(a, from), infoC = lastAllianceInfo(c, from);
+		ASSERT_TRUE(infoA && infoC) << "GA7: no SM_ALLIANCE_INFO after the league was formed";
+		allianceOne = infoA->allianceId;
+		allianceTwo = infoC->allianceId;
+		for (ScenarioClient* member : all) {
+			const std::optional<decoders::AllianceInfo> info = lastAllianceInfo(*member, from);
+			ASSERT_TRUE(info) << "GA7: " << member->label;
+			EXPECT_EQ(info->leagueAlliances, 2) << "GA7: " << member->label;
+			EXPECT_NE(info->leagueId, 0);
+			EXPECT_EQ(info->leagueId, infoA->leagueId) << member->label;
+			EXPECT_EQ(info->lootWords, (std::vector<int32_t>{0, 0, 0, 2, 2, 2, 2, 2})) << "GA7: the league's rules (LeagueService.java:88), " << member->label;
+			for (const decoders::LeagueAllianceInfo& alliance : info->league)
+				EXPECT_EQ(alliance.position, alliance.allianceObjectId == allianceOne ? 0 : 1) << member->label;
+		}
+		for (ScenarioClient* member : {&a, &b})
+			EXPECT_TRUE(hasInfoMessage(*member, from, LEAGUE_JOINED_ALLIANCE, cc.name)) << "GA7: " << member->label;
+		for (ScenarioClient* member : {&c, &d})
+			EXPECT_TRUE(hasInfoMessage(*member, from, LEAGUE_ALLIANCE_ENTERED, ca.name)) << "GA7: " << member->label;
+	});
+
+	runCase("GA8", "A moves the alliances and back (LeagueMoveEvent); A makes B his alliance's leader: the league is told (ChangeAllianceLeaderEvent:51-75)",
+	  [&] {
+		  auto from = marks();
+		  send(a, GameSession::CM_PLAYER_STATUS_INFO, GameSession::buildCM_PLAYER_STATUS_INFO(command("LEAGUE_ALLIANCE_MOVE"), allianceOne, allianceTwo));
+		  drainAll(2s);
+		  for (ScenarioClient* member : {&a, &b}) {
+			  EXPECT_EQ(countMessage(windowOf(*member, from), msg("STR_UNION_CHANGE_FORCE_NUMBER_ME"), {"1"}), 1u) << "GA8: " << member->label;
+			  EXPECT_EQ(countMessage(windowOf(*member, from), msg("STR_UNION_CHANGE_FORCE_NUMBER_HIM"), {cc.name, "0"}), 1u) << member->label;
+		  }
+		  for (ScenarioClient* member : {&c, &d}) {
+			  EXPECT_EQ(countMessage(windowOf(*member, from), msg("STR_UNION_CHANGE_FORCE_NUMBER_ME"), {"0"}), 1u) << "GA8: " << member->label;
+			  EXPECT_EQ(countMessage(windowOf(*member, from), msg("STR_UNION_CHANGE_FORCE_NUMBER_HIM"), {ca.name, "1"}), 1u) << member->label;
+		  }
+		  // back: a leader's alliance off position 0 makes a later reorganize call changeLeader on the leader, which throws (Java too)
+		  send(a, GameSession::CM_PLAYER_STATUS_INFO, GameSession::buildCM_PLAYER_STATUS_INFO(command("LEAGUE_ALLIANCE_MOVE"), allianceOne, allianceTwo));
+		  drainAll(1500ms);
+		  from = marks();
+		  send(a, GameSession::CM_PLAYER_STATUS_INFO, GameSession::buildCM_PLAYER_STATUS_INFO(command("ALLIANCE_SET_CAPTAIN"), ids(1)));
+		  drainAll(2s);
+		  for (ScenarioClient* member : {&a, &c, &d})
+			  EXPECT_EQ(countMessage(windowOf(*member, from), msg("STR_UNION_CHANGE_LEADER_TIMEOUT"), {cb.name}), 1u) << "GA8: " << member->label;
+		  EXPECT_EQ(countMessage(windowOf(b, from), msg("STR_UNION_CHANGE_LEADER_TIMEOUT")), 0u) << "GA8: allExcept(B)";
+		  EXPECT_EQ(countMessage(windowOf(b, from), msg("STR_UNION_YOU_BECOME_NEW_LEADER_TIMEOUT")), 1u);
+	  });
+
+	runCase("GA9", "B, the league captain, expels alliance 2: LEAGUE_EXPELLED; the league of one disbands (LeagueLeftEvent.java)", [&] {
+		const auto from = marks();
+		send(b, GameSession::CM_PLAYER_STATUS_INFO, GameSession::buildCM_PLAYER_STATUS_INFO(command("LEAGUE_EXPEL"), allianceTwo));
+		drainAll(2s);
+		for (ScenarioClient* member : {&c, &d})
+			EXPECT_TRUE(hasInfoMessage(*member, from, LEAGUE_EXPELLED, cb.name)) << "GA9: " << member->label;
+		for (ScenarioClient* member : {&a, &b}) {
+			EXPECT_TRUE(hasInfoMessage(*member, from, LEAGUE_EXPEL, cc.name)) << "GA9: " << member->label;
+			EXPECT_TRUE(hasInfoMessage(*member, from, LEAGUE_DISPERSED, "")) << "GA9: the league of one, " << member->label;
+		}
+		for (ScenarioClient* member : all) {
+			const std::optional<decoders::AllianceInfo> info = lastAllianceInfo(*member, from);
+			ASSERT_TRUE(info) << member->label;
+			EXPECT_EQ(info->leagueAlliances, 0) << "GA9: " << member->label << " still sees a league";
+		}
+	});
+
+	runCase("GA10", "B quits and stays out: LEAVE_TIMEOUT disbands alliance 1; C leaves alliance 2, which disbands (PlayerAllianceLeavedEvent.java)", [&] {
 		auto from = marks();
 		disconnect(b);
-		const auto timedOut = [&](const ScenarioClient& member) {
-			return countMessage(windowOf(member, from), msg("STR_PARTY_ALLIANCE_HE_LEAVED_PARTY_OFFLINE_TIMEOUT"), {cb.name}) == 1;
-		};
-		EXPECT_TRUE(until(40s, [&] { return timedOut(a) && timedOut(c) && timedOut(d); })) << "GA10: no LEAVE_TIMEOUT for B within 40 s";
-		for (ScenarioClient* member : {&a, &c, &d})
-			EXPECT_EQ(countMessage(windowOf(*member, from), msg("STR_FORCE_HE_BECOME_OFFLINE"), {cb.name}), 1u) << member->label;
+		EXPECT_TRUE(until(40s, [&] {
+			return countMessage(windowOf(a, from), msg("STR_PARTY_ALLIANCE_HE_LEAVED_PARTY_OFFLINE_TIMEOUT"), {cb.name}) == 1;
+		})) << "GA10: no LEAVE_TIMEOUT for B within 40 s";
+		drainAll(1s);
+		EXPECT_EQ(countMessage(windowOf(a, from), msg("STR_FORCE_HE_BECOME_OFFLINE"), {cb.name}), 1u);
+		EXPECT_EQ(countMessage(windowOf(a, from), msg("STR_PARTY_ALLIANCE_DISPERSED")), 1u) << "GA10: alliance 1 of one was not disbanded";
 		from = marks();
 		send(c, GameSession::CM_PLAYER_STATUS_INFO, GameSession::buildCM_PLAYER_STATUS_INFO(command("ALLIANCE_LEAVE"), 0));
 		drainAll(2s);
-		for (ScenarioClient* member : {&a, &d})
-			EXPECT_EQ(countMessage(windowOf(*member, from), msg("STR_FORCE_LEAVE_HIM"), {cc.name}), 1u) << "GA10: " << member->label;
-		from = marks();
-		send(d, GameSession::CM_PLAYER_STATUS_INFO, GameSession::buildCM_PLAYER_STATUS_INFO(command("ALLIANCE_LEAVE"), 0));
-		drainAll(2s);
-		EXPECT_EQ(countMessage(windowOf(a, from), msg("STR_FORCE_LEAVE_HIM"), {cd.name}), 1u);
-		EXPECT_EQ(countMessage(windowOf(a, from), msg("STR_PARTY_ALLIANCE_DISPERSED")), 1u) << "GA10: the alliance of two was not disbanded";
+		EXPECT_EQ(countMessage(windowOf(d, from), msg("STR_FORCE_LEAVE_HIM"), {cc.name}), 1u);
+		EXPECT_EQ(countMessage(windowOf(d, from), msg("STR_PARTY_ALLIANCE_DISPERSED")), 1u) << "GA10: alliance 2 of one was not disbanded";
 	});
 
 	bool liveAllianceAtStop = false;
@@ -1837,8 +1931,8 @@ void runM5gAllianceGate() {
 			const auto found = counts.find(std::string(name));
 			return found == counts.end() ? std::nullopt : std::optional<LiveCount>(found->second);
 		};
-		for (const char* name : {"PlayerAlliance", "PlayerAllianceGroup", "PlayerAllianceMember", "PlayerAllianceInvite", "PlayerGroup",
-		                         "PlayerGroupMember", "Player", "DropNpc"}) {
+		for (const char* name : {"PlayerAlliance", "PlayerAllianceGroup", "PlayerAllianceMember", "PlayerAllianceInvite", "League", "LeagueMember",
+		                         "LeagueInviteEvent", "PlayerGroup", "PlayerGroupMember", "Player", "DropNpc"}) {
 			const std::optional<LiveCount> count = row(name);
 			if (!count) {
 				ADD_FAILURE() << "GA11: live_counts.txt has no " << name << " row";
@@ -1850,6 +1944,9 @@ void runM5gAllianceGate() {
 		const std::optional<LiveCount> alliances = row("PlayerAlliance");
 		if (alliances)
 			EXPECT_GE(alliances->created, 2) << "GA11: " << alliances->line;
+		const std::optional<LiveCount> leagues = row("League");
+		if (leagues)
+			EXPECT_GE(leagues->created, 1) << "GA11: " << leagues->line;
 		const std::optional<LiveCount> allianceGroups = row("PlayerAllianceGroup");
 		if (allianceGroups)
 			EXPECT_GE(allianceGroups->created, 8) << "GA11: four groups per alliance: " << allianceGroups->line;

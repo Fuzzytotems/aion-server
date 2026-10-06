@@ -34,14 +34,16 @@ AllianceInfo decodeAllianceInfo(std::span<const uint8_t> body) {
 	if (reader.remaining() > 0) { // the league block: writeH(leagueData.size()), the league's loot words, 0x02, then each alliance
 		info.leagueAlliances = reader.H();
 		for (int i = 0; i < 8; i++)
-			reader.D();
+			info.leagueLootWords.push_back(reader.D());
 		reader.expectD(0x02, "SM_ALLIANCE_INFO league writeD(0x02)");
 		for (int32_t i = 0; i < info.leagueAlliances; i++) {
-			reader.D(); // alliance position
-			reader.D(); // alliance object id
-			reader.D(); // member count
-			reader.S(); // captain name
-			reader.D(); // captain world id
+			LeagueAllianceInfo alliance;
+			alliance.position = reader.D();
+			alliance.allianceObjectId = reader.D();
+			alliance.memberCount = reader.D();
+			alliance.captainName = reader.S();
+			alliance.captainWorldId = reader.D();
+			info.league.push_back(alliance);
 		}
 	}
 	reader.expectFullyConsumed();
