@@ -19,8 +19,11 @@
 #include "aion/gameserver/network/aion/serverpackets/SM_ATREIAN_PASSPORT.h"
 #include "aion/gameserver/network/aion/serverpackets/SM_SYSTEM_MESSAGE.h"
 #include "aion/gameserver/runtime/base/Exceptions.h"
-#include "aion/gameserver/runtime/base/Unported.h"
 #include "aion/gameserver/services/cron/CronService.h"
+#include "aion/gameserver/services/item/ItemPacketService.h"
+#include "aion/gameserver/services/item/ItemService.h"
+#include "aion/gameserver/model/items/storage/Storage.h"
+#include "aion/gameserver/utils/audit/AuditLogger.h"
 #include "aion/gameserver/utils/PacketSendUtility.h"
 #include "aion/gameserver/utils/time/ServerTime.h"
 #include "aion/gameserver/world/World.h"
@@ -153,8 +156,73 @@ std::optional<std::chrono::local_time<std::chrono::milliseconds>> AtreianPasspor
 	return LocalDateTime(day + std::chrono::days(1) - std::chrono::milliseconds(1)) + std::chrono::days(14);
 }
 
+// Java AtreianPassportService.java:93-145. C++: Java iterates its HashMap/HashSet; the C++ caller hands unordered containers, iterated here in
+// ascending order (docs/deviations/P5-09a.md) - the order shows only when the cube fills up in the middle of a claim
 void AtreianPassportService::takeReward(model::gameobjects::player::Player& player, const std::unordered_map<int32_t, std::unordered_set<int32_t>>& passports) {
-	AION_UNPORTED();
+	if (isAtreianPassportDisabled()) {
+		return;
+	}
+	std::vector<runtime::Ref<Passport>> toRemove; // C++: Refs - a removed passport leaves the list before it is stored
+	PassportsList& ppl = *player.getAccount()->getPassportsList();
+	std::vector<int32_t> passIds;
+	for (const auto& entry : passports)
+		passIds.push_back(entry.first);
+	std::ranges::sort(passIds);
+	for (int32_t passId : passIds) {
+		std::vector<int32_t> times(passports.at(passId).begin(), passports.at(passId).end());
+		std::ranges::sort(times);
+		for (int32_t time : times) {
+			runtime::Ptr<Passport> passport = ppl.getPassport(passId, time);
+			if (passport == nullptr) {
+				utils::audit::AuditLogger::log(player,
+					"tried to get non-existing passport (ID: " + std::to_string(passId) + ", time: " + std::to_string(time) + ").");
+				continue;
+			}
+			if (passport->isRewarded() || passport->getPersistentState() == model::gameobjects::Persistable::PersistentState::DELETED) {
+				utils::audit::AuditLogger::log(player, "tried to get passport which is already rewarded (ID: " + std::to_string(passId) + ").");
+				continue;
+			}
+			if (player.getInventory().isFull()) {
+				PacketSendUtility::sendPacket(player, SM_SYSTEM_MESSAGE::STR_WAREHOUSE_FULL_INVENTORY());
+				break; // Java: breaks the inner loop only
+			}
+			const model::templates::event::AtreianPassport* atp = dataholders::DataManager::ATREIAN_PASSPORT_DATA->getAtreianPassportId(passId);
+			if (atp == nullptr) // Java: atp.getRewardPermitLevel() on null
+				throw runtime::NullPointerException("AtreianPassportData.getAtreianPassportId(" + std::to_string(passId) + ")");
+			int32_t minLevel = atp->getRewardPermitLevel();
+			if (minLevel > 0 && player.getLevel() < minLevel) {
+				std::string itemName;
+				const model::templates::item::ItemTemplate* itemTemplate = dataholders::DataManager::ITEM_DATA->getItemTemplate(atp->getRewardItemId());
+				if (itemTemplate != nullptr)
+					itemName = itemTemplate->getL10n();
+				PacketSendUtility::sendPacket(player, SM_SYSTEM_MESSAGE::STR_MSG_ATTEND_REWARD_INVALID_LEVEL(minLevel, itemName));
+				continue;
+			}
+			int32_t expireMin = atp->getRewardExpireMinutes();
+			if (expireMin > 0) {
+				std::optional<Timestamp> arriveDate = passport->getArriveDate();
+				if (!arriveDate) // Java: passport.getArriveDate().toInstant() on null
+					throw runtime::NullPointerException("Passport.getArriveDate()");
+				const Timestamp deadline = *arriveDate + std::chrono::seconds(expireMin * 60LL);
+				if (std::chrono::time_point_cast<std::chrono::milliseconds>(std::chrono::system_clock::now()) > deadline) {
+					passport->setPersistentState(model::gameobjects::Persistable::PersistentState::DELETED);
+					ppl.removePassport(*passport);
+					toRemove.emplace_back(*passport);
+					continue;
+				}
+			}
+			item::ItemService::addItem(player, atp->getRewardItemId(), atp->getRewardItemCount(), true,
+				*item::ItemService::ItemUpdatePredicate::create(item::ItemPacketService_ItemAddType::ITEM_COLLECT,
+					item::ItemPacketService_ItemUpdateType::INC_PASSPORT_ADD));
+			passport->setRewarded(true);
+			passport->setPersistentState(model::gameobjects::Persistable::PersistentState::UPDATE_REQUIRED);
+			toRemove.emplace_back(*passport);
+		}
+	}
+	if (!toRemove.empty()) {
+		dao::AccountPassportsDAO::storePassportList(player.getAccount()->getId(), std::vector<runtime::Ptr<Passport>>(toRemove.begin(), toRemove.end()));
+	}
+	onLogin(player);
 }
 
 void AtreianPassportService::onLogin(model::gameobjects::player::Player& player) {
