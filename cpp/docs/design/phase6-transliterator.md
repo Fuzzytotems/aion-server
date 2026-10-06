@@ -41,9 +41,9 @@
 9. **Step 2, chunk Q08 landed (lane C, 2026-10-05, §8):** the 64 generated gelkmaros and enshar handlers are in the tree (63 at the
    landing, `gelkmaros/_20034` by the follow-up and API row B39), with their golden traces (1,368 variants pass, 0 fail) and
    docs/deviations/Q08.md.
-10. **Step 2, chunk Q01 landed (lane C, 2026-10-05, §9):** 81 of the 82 generated reshanta handlers are in the tree, with their golden traces
+10. **Step 2, chunk Q01 landed (lane C, 2026-10-05, §9):** 81 of the 82 reshanta handlers are in the tree generated, with their golden traces
    (1,493 variants pass, 0 fail) and docs/deviations/Q01.md; questgen gained rows B40-B42 and two fixes (979 of 1,035 transliterated);
-   `reshanta/_2759` waits for an owner decision.
+   `reshanta/_2759` is a hand port with a per-player kill record (the owner's correction of 2026-10-05, docs/deviations/Q01.md).
 
 ---
 
@@ -577,8 +577,9 @@ Branch `lane-c/p6-q01`, stacked on `lane-c/p6-q08` (§8 and its 20034 follow-up)
 docs/deviations/Q01.md.
 
 - **In the tree:** 81 of the 82 reshanta handlers, questgen's output unedited, in `aion_gs_handlers_quest_reshanta`; the drift test's `Q01`
-  table pins them. `_2759TenaciousGuardian` (a written `List<Integer>` field: per-player state shared in the singleton, Java's race) waits
-  for the owner's decision.
+  table pins them. `_2759TenaciousGuardian` (a written `List<Integer>` field: per-player state shared in the singleton, Java's race) is a
+  hand port since the owner's decision of 2026-10-05: a correction of the Java code, each player's kill record in the quest's var slot 1
+  (docs/deviations/Q01.md; hand-written cases in `ReshantaHandPortsTest.cpp`).
 - **Generator:** API rows B40 (`broadcastPacketAndReceive`), B41 (`GameTimeService` / `GameTime.getHour`), B42 (`DataManager.SPAWNS_DATA`,
   the spawn lookup), a `cppdecl` fix (an out-of-line nested class `class A::B` replaced A in the index: dataholders/SpawnsData.h) and an emitter
   rule (a nullable value result kept in a local is a `std::optional` local, its calls through `.value()`). **979 of 1,035** transliterated;
