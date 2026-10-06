@@ -20,6 +20,9 @@ public:
 
 	void act(gameobjects::player::Player& player, runtime::Ptr<gameobjects::Item> parentItem, runtime::Ptr<gameobjects::Item> targetItem,
 		std::initializer_list<std::any> params = {}) const override;
+
+	/** Java DecorateAction.getTemplateId(): the part id, 0 when the attribute is missing (addons missing in the client) */
+	int32_t getTemplateId() const;
 };
 
 } // namespace aion::gameserver::model::templates::item::actions
