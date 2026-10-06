@@ -1026,3 +1026,27 @@ This is test infrastructure only, with no Java counterpart. In every row, the ga
 **Runs** (build/msvc, Debug, 2026-10-05): the first runs failed on the rows above (C13's cube and timing, C19b's single attack, and
 C20-C23 after them); run 4 passed in 271.8 s with an empty census, no ERROR line, the two startup partials of the allow-list, and
 `PlayerGroup`, `PlayerGroupMember`, `PlayerGroupInvite`, `GroupRecruitment`, `Player` and `DropNpc` at 0 live.
+
+## M5g alliance gate (lane B, 2026-10-05): `gs.scenario.m5g_alliance` (m5g-plan.md §16.3 item 7, the alliance part of §10.5)
+
+`TEST(M5gAllianceScenario, Run)` in `M5gAllianceScenarioTest.cpp`, generated once from `M5gScenarioTest.cpp`: its scaffolding (helpers, C0,
+C1), its kill and loot helpers (`killNearest`, `teamKill`, `lootEmpty`) and its reports, with the alliance cases in between. Output
+`<bin>/scenario/m5g_alliance`, schema prefix `m5ga`, the M5g allow-list, gate slot 2 with `gs.scenario.m5g`, TIMEOUT 1800. The decoders are
+`decoders/AllianceDecoders.{h,cpp}` (`SM_ALLIANCE_INFO`, `SM_ALLIANCE_MEMBER_INFO`, `SM_ALLIANCE_READY_CHECK`, each from the Java writeImpl)
+with `AllianceDecodersTest.cpp`.
+
+| Area | As built | Reason |
+|---|---|---|
+| Cases | GA0 (A and B group), GA1 (A invites C: the group dissolves, all three in group 1000), GA2 (B to 1001), GA3 (C vice captain, C invites D), GA4 (the ready-check sequence), GA5 (B's buff: UPDATE_EFFECTS to the others; A's group data to group 1000 only), GA6 (the oracle's four-member share; the corpse looted empty), GA10 (B's timeout, C's leave, D's leave disbands), GA11a (a live alliance at the stop), GA11 (reports) | §10.5 without the league and group-instance rows |
+| Not scripted | GA5's alliance chat (lane A's `CM_CHAT_MESSAGE_PUBLIC`), GA7-GA9 (leagues), GA12-GA14 (the group instance) | the league lane and stage 3 |
+| The kill helpers | `teamKill` no longer requires D to get no experience, and `lootEmpty`'s party-notice and kinah checks cover all four clients | D is an alliance member here |
+| GA6's oracle | a second `m5g-team` call with the four members' levels and one kill of all four in range | the parties' C0 answers three members |
+| `MEMBER_GROUP_CHANGE` | told from `JOIN` (both id 5) by the body: the name and nothing after it | SM_ALLIANCE_MEMBER_INFO.java's switch |
+
+**Runs** (build/msvc, Debug, 2026-10-05, branch `lane-b/m5g-alliances`): `gs.scenario.m5g` passed in 275.1 s and `gs.scenario.m5g_alliance`
+in 141.9 s in one ctest under the lock (an earlier attempt failed before starting: the ctest listing collided with a concurrent test-target
+build). The alliance run: an empty census, lockdep, watchdog and unported trace, no ERROR line; `PlayerAlliance` 2 created, `PlayerAllianceGroup`
+8, `PlayerAllianceMember` 8, `PlayerAllianceInvite` 3, all 0 live at the stop. **Mutation proof** (each mutant in the server source, `aion_game_server` rebuilt, the gate under the lock, the source restored): the
+inviter's group not dissolved - killed (GA1, then GA3, GA11a, GA11); the group move without its MEMBER_GROUP_CHANGE - killed (GA2 only); the
+ready check's START counting the starter - killed (GA4 only); `disband` without the group breaker - killed (GA11 only: `PlayerAllianceGroup`
+live).
