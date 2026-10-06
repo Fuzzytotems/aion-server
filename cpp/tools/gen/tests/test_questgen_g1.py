@@ -52,6 +52,8 @@ ROW_FILES = {
     'B36': ('ascension/_1007ACeremonyinSanctum.java', 'ascension/_2009ACeremonyinPandaemonium.java'),
     'B37': ('clash_of_destiny/_24030ShowdownWithDestiny.java',),
     'B38': ('morheim/_24022SneakBehindtheIceClaw.java',),
+    # the Q08 follow-up (lane C, 2026-10-05): DataManager.QUEST_DATA (docs/deviations/Q08.md)
+    'B39': ('gelkmaros/_20034RescuetheReians.java',),
 }
 
 ITEM_USE = source('_99101Closures', 99101, '''
@@ -307,9 +309,9 @@ class Corpus(unittest.TestCase):
                 with self.subTest(rel=rel):
                     self.assertEqual(self.all[rel].cpp, r.cpp)
         # the P6-T output (935 files on 2026-09-30) and eight of the ten files of rows B32-B38; with rule scheduled-closure the 27 closure
-        # files and the other two (B33)
-        self.assertEqual(sum(1 for r in self.p6t.values() if r.status == 'ok'), 943)
-        self.assertEqual(sum(1 for r in self.all.values() if r.status == 'ok'), 972)
+        # files and the other two (B33). Row B39 (the Q08 follow-up, 2026-10-05) adds its file to both
+        self.assertEqual(sum(1 for r in self.p6t.values() if r.status == 'ok'), 944)
+        self.assertEqual(sum(1 for r in self.all.values() if r.status == 'ok'), 973)
         for rid, rels in ROW_FILES.items():
             for rel in rels:
                 self.assertIn(rid, self.all[rel].api_rows)

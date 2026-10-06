@@ -134,6 +134,8 @@ constexpr int32_t OTHER_NPCS[] = {200000, 200001, 201000};
 constexpr int32_t OTHER_ITEM = 182200201;
 constexpr int32_t GOLDEN_PLAYER = 830001;
 constexpr int32_t GOLDEN_ITEM_BASE = 840001;
+/** The object id of the item an item-use case uses (callHook; the review of #79, item 2: held in the inventory) */
+constexpr int32_t USED_ITEM_OBJECT = GOLDEN_ITEM_BASE + 900;
 constexpr int32_t OPCODE_DIALOG = SM_DIALOG_WINDOW_OPCODE;
 constexpr int32_t OPCODE_QUEST_ACTION = SM_QUEST_ACTION_OPCODE;
 constexpr int32_t OPCODE_MOVIE = SM_PLAY_MOVIE_OPCODE;
@@ -353,11 +355,27 @@ const GoldenData& goldenData() {
 
 using QuestStateRow = std::tuple<int32_t, int32_t, int32_t, int32_t>; // status, vars, reward group (-1: none), complete count
 
+/**
+ * What a run looks like at one instant of its task timeline (the review of #79, item 1): the packets sent so far, every QuestState and the
+ * inventory. Taken after the hook, then one millisecond before and at each delay of the case's ThreadPoolManager.schedule effects
+ */
+struct Snapshot {
+	int64_t at = 0;                                             // ms after the hook
+	std::vector<int32_t> opcodes;
+	std::map<int32_t, QuestStateRow> questStates;
+	std::map<int32_t, int64_t> inventory;
+	bool operator==(const Snapshot&) const = default;
+};
+
 struct Outcome {
 	std::string thrown;                                         // "" or the Java exception name
 	std::string thrownDetail;                                   // the exception's message (for the failure report)
 	json returned;                                              // bool, null (void hook) or a HandlerResult name
-	std::vector<bool> helperResults;                            // replay: the result of each effect
+	// replay: the result of each effect, 1 true, 0 false, -1 the effect never ran or threw (the review of #79, item 5: an effect that did not
+	// run must not satisfy an assumed false)
+	std::vector<int8_t> helperResults;
+	std::vector<Snapshot> timeline;                             // the review of #79, item 1
+	int64_t pendingTasks = 0;                                   // tasks the run added to the executor and left after the case's last delay
 	std::vector<int32_t> opcodes;                               // every packet sent to the quester
 	std::vector<std::vector<uint8_t>> keyPackets;               // SM_DIALOG_WINDOW, SM_QUEST_ACTION, SM_PLAY_MOVIE, SM_ITEM_USAGE_ANIMATION
 	std::map<int32_t, QuestStateRow> questStates;
@@ -547,6 +565,57 @@ std::vector<Overlay> overlaysFor(int32_t questId, const json& c) {
 	}
 	if (!held.items.empty() || held.collectItems)
 		out.push_back(std::move(held));
+	// the review of #79, item 3: the success branches of two helpers the case's given does not reach. checkItemExistence (AbstractQuestHandler.java
+	// :576-609: `getItemCountByItemId(itemId) >= itemCount`, the 10-argument form at var 0 == step) runs with the item held in exactly its count
+	// and one short of it, so that a changed count, nextStep or checkOkId shows; sendQuestRewardDialog (:1151-1163) runs in REWARD with its
+	// reward npc as the target when the path's guards never name the target (the given then holds none or an npc no guard read)
+	const json& stateGiven = given.contains("questState") ? given["questState"] : json();
+	const bool slot0Free = stateGiven.is_object() &&
+		(!stateGiven.contains("vars") || !stateGiven["vars"].contains("0") ||
+			(c.contains("free") && std::find(c["free"].begin(), c["free"].end(), "questState.vars.0") != c["free"].end()));
+	bool targetGuarded = false;
+	for (const json& g : c["guards"]) {
+		const std::string text = g.get<std::string>();
+		if (text.find("arget") != std::string::npos || text.find("VisibleObject") != std::string::npos)
+			targetGuarded = true;
+	}
+	for (const json& e : c["effects"]) {
+		const std::string call = e["call"];
+		const json& a = e["args"];
+		if (call == "checkItemExistence" && (a.size() == 3 || a.size() == 10)) {
+			size_t at = a.size() == 3 ? 0 : 3;
+			if (!a[at].is_number_integer() || !a[at + 1].is_number_integer() || namedItem(a[at].get<int32_t>()))
+				continue;
+			int32_t itemId = a[at].get<int32_t>();
+			int64_t count = a[at + 1].get<int64_t>();
+			for (int64_t heldCount : {count, count - 1}) {
+				if (heldCount <= 0)
+					continue;
+				Overlay o;
+				o.name = "the item of checkItemExistence held: " + std::to_string(heldCount) + " of " + std::to_string(itemId) +
+					(heldCount == count ? "" : " (one short)");
+				o.items.emplace_back(itemId, heldCount);
+				if (a.size() == 10 && a[0].is_number_integer()) {
+					if (slot0Free)
+						o.questVar0 = a[0].get<int32_t>();
+					else if (!given.contains("questState"))
+						o.startVar0 = a[0].get<int32_t>();
+					o.name += ", var 0 at its step " + a[0].dump();
+				}
+				out.push_back(std::move(o));
+			}
+		} else if (call == "sendQuestRewardDialog" && a.size() == 2 && a[0].is_number_integer() && !targetGuarded) {
+			Overlay o;
+			o.name = "the reward npc of sendQuestRewardDialog (" + a[0].dump() + ") as the target";
+			o.targetNpcId = a[0].get<int32_t>();
+			if (!given.contains("questState")) {
+				o.startVar0 = 0;
+				o.seedStatus = "REWARD";
+				o.name += ", the quest in REWARD";
+			}
+			out.push_back(std::move(o));
+		}
+	}
 	if (!given.contains("target")) {
 		for (const json& e : c["effects"]) {
 			if (e["call"] == "defaultOnKillEvent" && !e["args"].empty() && e["args"][0].is_array()) {
@@ -877,8 +946,10 @@ protected:
 	/**
 	 * One run of a case: `replay` false runs the handler's hook, true replays the Java effects on the real helpers. The quester is created for
 	 * the run and dropped after it, so both runs start from the same state and write the same object ids into their packets; the thread's Rnd
-	 * is reseeded (RUN_SEED) and the clock is the fixture's ManualClock, which only a case that schedules a task advances (lane C: by its
-	 * longest delay, in both runs).
+	 * is reseeded (RUN_SEED) and the clock is the fixture's ManualClock, which only a case that schedules a task advances. The review of #79
+	 * (item 1): both runs step the clock through each delay of the case's schedules, with a snapshot after the hook, one millisecond before
+	 * and at each delay (the timeline the runs compare), count the tasks still pending after the last delay (compared too: a task where Java
+	 * schedules none stays pending), then drain the executor so that no task of this run reaches a later one.
 	 */
 	Outcome run(AbstractQuestHandler& handler, int32_t questId, const json& c, const CaseSetup& setup, const Overlay& overlay,
 		const Ref<gameserver::model::gameobjects::Npc>& npc, bool replay) {
@@ -941,12 +1012,21 @@ protected:
 			if (!named(itemId))
 				holdItem(*quester, itemObjId++, itemId, count);
 		}
+		// the review of #79, item 2: the item an item-use hook is called with is in the inventory, as in Java (an item can only be used from the
+		// inventory), under the object id callHook hands the hook: the given stack of its item id, else one of its own
+		const int32_t usedItem = c["hook"] == "onItemUseEvent" ? usedItemId(c) : 0;
+		bool usedHeld = false;
 		if (given.contains("inventory")) {
 			for (const auto& [item, count] : given["inventory"].items()) {
-				if (count.get<int64_t>() > 0)
-					holdItem(*quester, itemObjId++, std::stoi(item), count.get<int64_t>());
+				if (count.get<int64_t>() > 0) {
+					bool used = std::stoi(item) == usedItem && !usedHeld;
+					holdItem(*quester, used ? USED_ITEM_OBJECT : itemObjId++, std::stoi(item), count.get<int64_t>());
+					usedHeld = usedHeld || used;
+				}
 			}
 		}
+		if (usedItem != 0 && !usedHeld && !named(usedItem)) // a given count 0 of the used item: a path Java cannot take with it held
+			holdItem(*quester, USED_ITEM_OBJECT, usedItem, 1);
 		Ptr<gameserver::model::gameobjects::VisibleObject> target = npc;
 		if (target)
 			player.setTarget(target);
@@ -972,10 +1052,13 @@ protected:
 		// passes; runDoc reports such a run instead (knownUnported)
 		uint64_t unportedBefore = runtime::unportedHitCount();
 		std::map<std::string, uint64_t> sitesBefore = unportedBefore == 0 ? std::map<std::string, uint64_t>() : unportedSites();
+		out.helperResults.assign(c["effects"].size(), int8_t{-1});
+		// tasks of the fixture or of an earlier run's quester that the drain left (a delay above an hour) are not this run's
+		const int64_t pendingBefore = static_cast<int64_t>(executor->pendingTaskCount());
 		try {
 			if (out.replayError.empty()) { // else the state cannot hold the case: nothing runs
 				if (replay)
-					replayEffects(questId, c, *env, player, out);
+					replayEffects(questId, c, *env, player, out, -1);
 				else
 					out.returned = callHook(handler, c, *env, player);
 			}
@@ -985,10 +1068,41 @@ protected:
 		} catch (const std::exception& e) {
 			out.thrown = std::string("C++: ") + e.what();
 		}
-		// lane C: the tasks the generated hook scheduled run when the clock has passed the longest delay of the case's schedules (the replay
-		// advanced the clock the same way, replayEffects); a task's exception is the pool's (ThreadPoolManager logs it), as in Java
-		if (int64_t delay = longestTaskDelay(c); !replay && out.replayError.empty() && delay >= 0)
-			executor->advance(std::chrono::milliseconds(delay));
+		// lane C, and the review of #79 (items 1 and 6): the tasks run when the clock reaches their delays. The generated hook's are the
+		// executor's; the replay runs the effects of each task (`task`) when the clock reaches its delay. A task's exception is the pool's in
+		// both runs (ThreadPoolManager logs it, as Java's pool does): the task stops, the run goes on
+		const auto snapshot = [&](int64_t at) {
+			Snapshot shot{at, {}, questStatesOf(player), inventoryOf(player)};
+			for (const std::vector<uint8_t>& packet : quester->sent())
+				shot.opcodes.push_back(items::javaOpcodeOf(packet));
+			out.timeline.push_back(std::move(shot));
+		};
+		if (out.replayError.empty()) {
+			snapshot(0);
+			int64_t elapsed = 0;
+			for (const auto& [delay, schedules] : taskDelays(c)) {
+				if (delay > 0) {
+					if (delay - 1 > elapsed)
+						executor->advance(std::chrono::milliseconds(delay - 1 - elapsed));
+					snapshot(delay - 1);
+					executor->advance(std::chrono::milliseconds(1));
+				} else {
+					executor->runReady();
+				}
+				elapsed = std::max<int64_t>(elapsed, delay);
+				if (replay) {
+					for (size_t scheduled : schedules) {
+						try {
+							replayEffects(questId, c, *env, player, out, static_cast<int64_t>(scheduled));
+						} catch (const std::exception&) {
+							// the pool's: the task stops at its exception (ThreadPoolManager, Java's ThreadPoolManager log and drop it)
+						}
+					}
+				}
+				snapshot(delay);
+			}
+			out.pendingTasks = static_cast<int64_t>(executor->pendingTaskCount()) - pendingBefore;
+		}
 		if (runtime::unportedHitCount() != unportedBefore) {
 			for (const auto& [site, hits] : unportedSites()) {
 				auto before = sitesBefore.find(site);
@@ -1006,8 +1120,27 @@ protected:
 		out.questStates = questStatesOf(player);
 		out.inventory = inventoryOf(player);
 		out.observable = !out.opcodes.empty() || out.questStates != statesBefore || out.inventory != inventoryBefore;
+		drainTasks();
 		dropQuester(quester);
 		return out;
+	}
+
+	/**
+	 * The review of #79, item 1: runs every task left in the executor (in due order, at most an hour of clock and 1,000 steps: a periodic task
+	 * stops there), after the run's outcome was taken and before its quester is dropped, so that no task of one run reaches a later run
+	 */
+	void drainTasks() {
+		for (int32_t step = 0; step < 1000 && executor->pendingTaskCount() > 0; step++) {
+			std::optional<std::chrono::steady_clock::time_point> next = executor->nextDueTime();
+			if (!next) {
+				executor->runReady();
+				break;
+			}
+			auto wait = std::chrono::duration_cast<std::chrono::milliseconds>(*next - clock.now());
+			if (wait > std::chrono::hours(1))
+				break;
+			executor->advance(std::max(wait, std::chrono::milliseconds(0)));
+		}
 	}
 
 	/**
@@ -1028,14 +1161,30 @@ protected:
 		return "";
 	}
 
-	/** The longest delay of the case's ThreadPoolManager.schedule effects (lane C), -1 without one */
-	static int64_t longestTaskDelay(const json& c) {
-		int64_t longest = -1;
-		for (const json& e : c["effects"]) {
+	/** The delays of the case's ThreadPoolManager.schedule effects in order, each with its schedule effects in schedule order (lane C) */
+	static std::map<int64_t, std::vector<size_t>> taskDelays(const json& c) {
+		std::map<int64_t, std::vector<size_t>> out;
+		const json& effects = c["effects"];
+		for (size_t k = 0; k < effects.size(); k++) {
+			const json& e = effects[k];
 			if (e["call"] == "ThreadPoolManager.schedule" && e["args"].size() == 1 && e["args"][0].is_number_integer())
-				longest = std::max(longest, e["args"][0].get<int64_t>());
+				out[e["args"][0].get<int64_t>()].push_back(k);
 		}
-		return longest;
+		return out;
+	}
+
+	/** The item id an item-use case uses: the item its path reads, else (0) one no guard names, else the quest's registered item */
+	int32_t usedItemId(const json& c) const {
+		const json& args = c["given"].contains("args") ? c["given"]["args"] : json::object();
+		int32_t itemId = args.value("itemId", 0);
+		// P6-Q slice 2 (Q03, Q10): a hook that reads the item's id has it as given.item.itemId (extract.py); 0 is an item no guard names
+		// (Q03 used the fixture's kinah for it, Q10 OTHER_ITEM; such a path has no effect in either chunk's traces)
+		if (c["given"].contains("item")) {
+			itemId = c["given"]["item"].value("itemId", 0);
+			if (itemId == 0)
+				itemId = OTHER_ITEM;
+		}
+		return itemId != 0 ? itemId : registeredQuestItem;
 	}
 
 	/** An object id of the oracle's effects (lane C): the quester's, the used item's (callHook's item), the target's, or a number */
@@ -1043,7 +1192,7 @@ protected:
 		if (v == "$playerObjectId")
 			return player.getObjectId();
 		if (v == "$itemObjectId")
-			return GOLDEN_ITEM_BASE + 900;
+			return USED_ITEM_OBJECT;
 		if (v == "$targetObjectId")
 			return env.getVisibleObject()->getObjectId();
 		return v.get<int32_t>();
@@ -1113,34 +1262,25 @@ protected:
 		if (hook == "onDieEvent")
 			return handler.onDieEvent(env);
 		if (hook == "onItemUseEvent") {
-			int32_t itemId = args.value("itemId", 0);
-			// P6-Q slice 2 (Q03, Q10): a hook that reads the item's id has it as given.item.itemId (extract.py); 0 is an item no guard names
-			// (Q03 used the fixture's kinah for it, Q10 OTHER_ITEM; such a path has no effect in either chunk's traces)
-			if (c["given"].contains("item")) {
-				itemId = c["given"]["item"].value("itemId", 0);
-				if (itemId == 0)
-					itemId = OTHER_ITEM;
-			}
-			if (itemId == 0)
-				itemId = registeredQuestItem;
+			// the review of #79, item 2: the item held in the inventory (run), else (a given count 0 of it) one outside it
+			if (Ptr<gameserver::model::gameobjects::Item> held = player.getInventory().getItemByObjId(USED_ITEM_OBJECT))
+				return std::string(resultName(handler.onItemUseEvent(env, *held)));
 			Ref<gameserver::model::gameobjects::Item> item =
-				items::loadedItem(GOLDEN_ITEM_BASE + 900, itemId, 1, gameserver::model::items::storage::StorageType::CUBE);
+				items::loadedItem(USED_ITEM_OBJECT, usedItemId(c), 1, gameserver::model::items::storage::StorageType::CUBE);
 			return std::string(resultName(handler.onItemUseEvent(env, *item)));
 		}
 		throw std::runtime_error("hook " + hook + " is not driven by the harness");
 	}
 
 	/**
-	 * The Java effects of the case, in order, on the real helpers. Lane C (phase 6 step 1): an effect with `task` k belongs to the task the
-	 * ThreadPoolManager.schedule effect k scheduled (extract.py run_tasks); the tasks run after the hook's own effects, in the order of their
-	 * delays, each when the fixture's clock has advanced by its delay, as the generated handler's tasks do (run: advanceTasks)
+	 * The Java effects of the case, in order, on the real helpers: the hook's own (`task` -1), or those of the task the ThreadPoolManager.schedule
+	 * effect `task` scheduled (lane C; extract.py run_tasks marks them with `task`), which run() replays when the clock reaches the task's delay
 	 */
-	void replayEffects(int32_t questId, const json& c, QuestEnv& env, gameserver::model::gameobjects::player::Player& player, Outcome& out) {
+	void replayEffects(int32_t questId, const json& c, QuestEnv& env, gameserver::model::gameobjects::player::Player& player, Outcome& out,
+		int64_t task) {
 		PlainHandler plain(questId);
 		auto qs = [&] { return player.getQuestStateList()->getQuestState(questId); };
 		const json& effects = c["effects"];
-		out.helperResults.assign(effects.size(), false);
-		std::vector<std::pair<int64_t, size_t>> tasks; // delay, the schedule effect's index
 		auto replay = [&](size_t k) -> bool {
 			const json& e = effects[k];
 			const std::string call = e["call"];
@@ -1298,8 +1438,7 @@ protected:
 			// helper overloads of the corpus outside the tree (sendQuestRewardDialog :1151, checkItemExistence :576-609, defaultCloseDialog with
 			// a given item, the chain helpers' longer pre-quest lists)
 			else if (call == "ThreadPoolManager.schedule" && a.size() == 1 && a[0].is_number_integer()) {
-				tasks.emplace_back(a[0].get<int64_t>(), k);
-				result = true;
+				result = true; // run() replays the task's effects at its delay
 			} else if (call == "PacketSendUtility.broadcastPacket" && a.size() == 2 && a[0].value("new", std::string()) == "SM_ITEM_USAGE_ANIMATION" &&
 				a[0]["args"].size() == 6) {
 				const json& p = a[0]["args"];
@@ -1326,31 +1465,23 @@ protected:
 				out.replayError = "the replay does not model " + call + " " + a.dump();
 				return false;
 			}
-			out.helperResults[k] = result;
+			out.helperResults[k] = result ? 1 : 0;
 			return true;
 		};
 		for (size_t k = 0; k < effects.size(); k++) {
-			if (!effects[k].contains("task") && !replay(k))
+			if (effects[k].value("task", int64_t{-1}) == task && !replay(k))
 				return;
 		}
-		std::stable_sort(tasks.begin(), tasks.end(), [](const auto& x, const auto& y) { return x.first < y.first; });
-		int64_t elapsed = 0;
-		for (const auto& [delay, scheduled] : tasks) {
-			executor->advance(std::chrono::milliseconds(delay - elapsed));
-			elapsed = delay;
-			for (size_t k = 0; k < effects.size(); k++) {
-				if (effects[k].value("task", -1) == static_cast<int64_t>(scheduled) && !replay(k))
-					return;
-			}
-		}
-		if (c.contains("returns"))
+		if (task < 0 && c.contains("returns"))
 			out.returned = expectedReturn(c["returns"], out.helperResults);
 	}
 
-	static json expectedReturn(const json& returns, const std::vector<bool>& results) {
+	static json expectedReturn(const json& returns, const std::vector<int8_t>& results) {
 		if (returns.is_object() && returns.contains("resultOf")) {
 			size_t k = returns["resultOf"].get<size_t>();
-			return k < results.size() ? json(results[k]) : json("resultOf out of range");
+			if (k >= results.size())
+				return json("resultOf out of range");
+			return results[k] < 0 ? json("resultOf an effect that did not run") : json(results[k] == 1);
 		}
 		if (returns.is_object() && returns.contains("fromBoolean")) {
 			json inner = expectedReturn(returns["fromBoolean"], results);
@@ -1392,7 +1523,7 @@ protected:
 		int32_t overlaysSkipped = 0;              // overlay runs no setup reproduces (not a failure; the case as given is compared)
 		std::vector<std::string> unsatisfiable;
 		std::vector<std::string> vacuous;         // cases with effects whose runs never changed anything observable
-		std::set<std::string> failedChecks;       // "thrown" "returned" "packets" "opcodes" "questStates" "inventory"
+		std::set<std::string> failedChecks;       // "thrown" "returned" "packets" "opcodes" "questStates" "inventory" "timeline" "pendingTasks"
 		std::map<std::string, std::set<std::string>> unported; // variant id -> the AION_UNPORTED sites a compared run of it reached
 	};
 
@@ -1460,7 +1591,8 @@ protected:
 						if (c.contains("assume")) {
 							for (const json& assumption : c["assume"]) {
 								size_t k = assumption["effect"].get<size_t>();
-								if (k >= replayed.helperResults.size() || replayed.helperResults[k] != assumption["returns"].get<bool>())
+								// the review of #79, item 5: an effect that threw or never ran (-1) satisfies neither result
+								if (k >= replayed.helperResults.size() || replayed.helperResults[k] != (assumption["returns"].get<bool>() ? 1 : 0))
 									holds = false;
 							}
 						}
@@ -1484,27 +1616,39 @@ protected:
 					tally.runs++;
 					anyObservable = anyObservable || expected.observable;
 					Outcome actual = run(handler, questId, c, *chosen, overlay, npc, false);
+					// a pending-task count that differs once may be an engine singleton's first use (its periodic task starts in whichever run
+					// reaches it first: the first item given in a process): the pair runs again, and the second pair is the one compared
+					if (actual.pendingTasks != expected.pendingTasks) {
+						expected = run(handler, questId, c, *chosen, overlay, npc, true);
+						actual = run(handler, questId, c, *chosen, overlay, npc, false);
+					}
 					// Java's exception on the path, else one a helper throws in this state (the replay runs the helpers: sendQuestEndDialog's
 					// `(Npc) env.getVisibleObject()` after a finish with no target, AbstractQuestHandler.java:423-424)
 					std::string expectedThrow = c.contains("throws") ? c["throws"].get<std::string>() : expected.thrown;
 					std::string where = std::to_string(questId) + " " + id + " (setup: " + chosen->name +
 						(overlay.name.empty() ? "" : "; overlay: " + overlay.name) + "): ";
+					// each failure names its check in brackets (goldensample.py counts them by name; the review of #79, item 9)
 					auto check = [&](bool condition, const std::string& name, const std::string& what) {
 						if (!condition) {
 							ok = false;
 							tally.failedChecks.insert(name);
 							if (report)
-								ADD_FAILURE() << where << what;
+								ADD_FAILURE() << where << "[" << name << "] " << what;
 						}
 					};
 					check(actual.thrown == expectedThrow, "thrown",
 						"thrown '" + actual.thrown + "' (" + actual.thrownDetail + "), Java '" + expectedThrow + "'");
 					if (expectedThrow.empty())
 						check(actual.returned == expected.returned, "returned", "returned " + actual.returned.dump() + ", Java " + expected.returned.dump());
-					check(actual.keyPackets == expected.keyPackets, "packets", "the dialog, quest action and movie packets differ");
+					check(actual.keyPackets == expected.keyPackets, "packets", "the dialog, quest action, movie and item use packets differ");
 					check(actual.opcodes == expected.opcodes, "opcodes", "the packet opcode sequence differs");
 					check(actual.questStates == expected.questStates, "questStates", "the quest states afterwards differ");
 					check(actual.inventory == expected.inventory, "inventory", "the inventory afterwards differs");
+					// the review of #79, item 1: what each run looked like before and at each task delay, and the tasks left after the last one
+					check(actual.timeline == expected.timeline, "timeline",
+						"the task timeline differs (a task ran before or after its delay, or the hook ran it inline)");
+					check(actual.pendingTasks == expected.pendingTasks, "pendingTasks",
+						"tasks left after the last delay: " + std::to_string(actual.pendingTasks) + ", Java " + std::to_string(expected.pendingTasks));
 					if (!expected.unported.empty() || !actual.unported.empty()) {
 						std::set<std::string>& sites = tally.unported[id];
 						sites.insert(expected.unported.begin(), expected.unported.end());
@@ -1581,6 +1725,11 @@ const std::set<std::string>& knownNotReproducible() {
 		"80220 onDialogEvent#9",
 		"24012 onDialogEvent#12",
 		"24012 onDialogEvent#12@questState.vars.0=4",
+		// Phase 6 step 2, chunk Q08 (lane C, 2026-10-05): _21460AShulacksStory.java:65 `if (removeQuestItem(env, 182209520, 1))` at
+		// SELECT_QUEST_REWARD: the path reads no count of the item (the oracle's given holds none), so removeQuestItem cannot answer true in a
+		// setup of the case as given; the overlay that holds the item (overlaysFor, "the items the helpers remove or count held") runs and
+		// compares the path, which does not count as reproducing the case as given
+		"21460 onDialogEvent#20",
 	};
 	return known;
 }
@@ -1612,6 +1761,8 @@ const std::map<std::string, std::string>& knownVacuous() {
 		"only, which the oracle satisfies with no target): no npc of its list is the target, nothing changes (AbstractQuestHandler.java:726-747)";
 	static const std::string STEP_NOT_MET = "defaultCloseDialog at a var the path read that is not the helper's step: it does nothing then "
 		"(AbstractQuestHandler.java:486-529)";
+	static const std::string REMOVE_FALSE_REWARD_PAGE = "removeQuestItem assumed false changes nothing (AbstractQuestHandler.java:644-659), and "
+		"sendQuestDialog of the reward page 5 outside REWARD sends nothing (AbstractQuestHandler.java:330-340)";
 	static const std::string KILLS_ASSUMED_FALSE = "every kill helper of the path assumed false: it changes nothing then (AbstractQuestHandler.java "
 		"defaultOnKillEvent)";
 	static const std::map<std::string, std::string> known = [] {
@@ -1661,6 +1812,9 @@ const std::map<std::string, std::string>& knownVacuous() {
 		{"14014 onKillEvent#3", KILL_FALSE},
 		{"14050 onDialogEvent#5", REWARD_PAGE},
 		{"14054 onKillEvent#3", KILL_FALSE},
+		// Phase 6 step 2, chunk Q08 (lane C, 2026-10-05): _21460AShulacksStory.java:65-67 in START, removeQuestItem assumed false and the
+		// reward page 5 outside REWARD (Java's own path: the dialog stays silent)
+		{"21460 onDialogEvent#21", REMOVE_FALSE_REWARD_PAGE},
 		};
 		// P6-Q slice 2 (Q10): the altgard and pandaemonium traces (GoldenKnownVacuousQ10.h)
 		for (const auto& [key, kind] : Q10_VACUOUS) {
@@ -1690,9 +1844,12 @@ const std::map<std::string, std::string>& knownUnported() {
  * P6-Q slice 2 (Q03): 1640 (TeleportService.teleportTo), 1647 (player.getEquipment, spawnForFiveMinutesInFrontOf). P6-Q slice 2 (Q10):
  * 2925 (getEquipment), 2938 (TeleportService.teleportTo), 2952 (the whole var field), 4966-4969 (tryDecreaseKinah); their registration traces
  * are checked, their hooks only by parity, the drift test and the chunks' unit cases. (Q10's 2213, getEffectController and SkillEngine, is
- * held back since the integration of slice 2: GoldenHandlers.h)
+ * held back since the integration of slice 2: GoldenHandlers.h).
+ * Phase 6 step 2, chunk Q08 (lane C): gelkmaros 21004, 21027, 21033, 21036, 21071 (a status read after sendQuestNoneDialog), 21105, 21249
+ * (npc.getController()), enshar 25052 (spawnForFiveMinutes)
  */
-constexpr int32_t ORACLE_REFUSES_EVERY_HOOK[] = {1205, 2132, 1640, 1647, 2925, 2938, 2952, 4966, 4967, 4968, 4969};
+constexpr int32_t ORACLE_REFUSES_EVERY_HOOK[] = {1205, 2132, 1640, 1647, 2925, 2938, 2952, 4966, 4967, 4968, 4969, 21004, 21027, 21033, 21036,
+	21071, 21105, 21249, 25052};
 
 TEST_F(GoldenQuestTraceTest, EveryExpectedDocumentHasAGeneratedHandlerAndEveryHandlerADocument) {
 	std::vector<int32_t> ids = expectedQuestIds();
@@ -1959,6 +2116,99 @@ TEST_F(GoldenQuestTraceTest, TheHarnessFailsDeliberatelyWrongHandlers) {
 	}
 }
 
+/** How TaskHandler schedules its task (the review of #79, items 1 and 6) */
+enum class TaskMode { RIGHT, SHORTER, ZERO, LONGER, INLINE, EXTRA, THROWS };
+
+/**
+ * Quest 1111's dialog hook as a handler with a scheduled task: at the npc 203075, a task 100 ms later sends page 1011 (TaskMode::RIGHT), or
+ * the same task with another delay, run inline, followed by a second task the trace does not have, or (THROWS) followed in the task by a
+ * NullPointerException, as Java's `qs.setQuestVar(1)` on the null QuestState throws; at any other npc it schedules a task only with
+ * TaskMode::EXTRA. Driven against the hand trace of taskTrace()
+ */
+class TaskHandler final : public AbstractQuestHandler {
+public:
+	static inline TaskMode mode = TaskMode::RIGHT;
+
+	TaskHandler() : AbstractQuestHandler(1111) {}
+
+	void register_() override { qe.registerQuestNpc(203075)->addOnTalkEvent(questId); }
+
+	bool onDialogEvent(QuestEnv& env) override {
+		if (env.getTargetId() != 203075) {
+			if (mode == TaskMode::EXTRA)
+				utils::ThreadPoolManager::getInstance().schedule({this, &env}, [this, &env] { sendQuestDialog(env, 1012); }, 100);
+			return false;
+		}
+		if (mode == TaskMode::INLINE) {
+			sendQuestDialog(env, 1011);
+			return true;
+		}
+		int64_t delay = mode == TaskMode::SHORTER ? 99 : mode == TaskMode::ZERO ? 0 : mode == TaskMode::LONGER ? 101 : 100;
+		utils::ThreadPoolManager::getInstance().schedule({this, &env}, [this, &env] {
+			sendQuestDialog(env, 1011);
+			if (mode == TaskMode::THROWS)
+				env.getPlayer()->getQuestStateList()->getQuestState(questId)->setQuestVar(1);
+		}, delay);
+		return true;
+	}
+};
+
+std::unique_ptr<AbstractQuestHandler> taskHandler() {
+	return std::make_unique<TaskHandler>();
+}
+
+/**
+ * The hand trace TaskHandler is driven against (extract.py's form): at 203075 without a QuestState, a task of 100 ms that sends page 1011, and
+ * with `throws`, then sets the var on the null QuestState (its NullPointerException is the pool's: the hook returned true); at the npc
+ * 200000 nothing
+ */
+json taskTrace(bool throws) {
+	json task = json::array({{{"call", "ThreadPoolManager.schedule"}, {"kind", "task"}, {"args", {100}}},
+		{{"call", "sendQuestDialog"}, {"kind", "dialog"}, {"args", {1011}}, {"task", 0}}});
+	if (throws)
+		task.push_back({{"call", "qs.setQuestVar"}, {"kind", "var"}, {"args", {1}}, {"task", 0}});
+	json cases = json::array({
+		{{"id", "task#1"}, {"hook", "onDialogEvent"}, {"given", {{"target", {{"kind", "npc"}, {"npcId", 203075}}}, {"questState", nullptr}}},
+			{"guards", json::array()}, {"effects", task}, {"returns", true}},
+		{{"id", "task#2"}, {"hook", "onDialogEvent"}, {"given", {{"target", {{"kind", "npc"}, {"npcId", 200000}}}, {"questState", nullptr}}},
+			{"guards", json::array()}, {"effects", json::array()}, {"returns", false}},
+	});
+	return json{{"register", json::array()}, {"cases", cases}};
+}
+
+TEST_F(GoldenQuestTraceTest, TheTaskTimelineFailsATaskAtTheWrongTimeOrWhereJavaHasNone) {
+	// the review of #79, item 1: a task 1 ms early, at once, 1 ms late or inline fails the timeline; a task scheduled where the trace has none
+	// stays pending (pendingTasks: the tasks a run added and left after the case's last delay); the right handler passes
+	const std::pair<TaskMode, const char*> modes[] = {{TaskMode::RIGHT, ""}, {TaskMode::SHORTER, "timeline"}, {TaskMode::ZERO, "timeline"},
+		{TaskMode::LONGER, "timeline"}, {TaskMode::INLINE, "timeline"}, {TaskMode::EXTRA, "pendingTasks"}};
+	for (const auto& [mode, check] : modes) {
+		SCOPED_TRACE("mode " + std::to_string(static_cast<int>(mode)));
+		QuestEngine::getInstance().clear();
+		TaskHandler::mode = mode;
+		Tally tally = runDoc(1111, taskTrace(false), &taskHandler, false);
+		TaskHandler::mode = TaskMode::RIGHT;
+		EXPECT_EQ(tally.passed + tally.failed, 2);
+		if (mode == TaskMode::RIGHT) {
+			EXPECT_EQ(tally.failed, 0) << "the right task fails";
+		} else {
+			EXPECT_GT(tally.failed, 0) << "the harness passes a wrong task";
+			EXPECT_TRUE(tally.failedChecks.contains(check)) << "the " << check << " comparison did not fail";
+		}
+	}
+}
+
+TEST_F(GoldenQuestTraceTest, ATaskExceptionIsThePoolsInBothRuns) {
+	// the review of #79, item 6: the task's NullPointerException after page 1011 stops the task in both runs (the pool logs it, Java's and
+	// ThreadPoolManager's); neither run throws, and both sent the page
+	QuestEngine::getInstance().clear();
+	TaskHandler::mode = TaskMode::THROWS;
+	Tally tally = runDoc(1111, taskTrace(true), &taskHandler, true);
+	TaskHandler::mode = TaskMode::RIGHT;
+	EXPECT_EQ(tally.failed, 0);
+	EXPECT_EQ(tally.passed, 2);
+	EXPECT_TRUE(tally.unsatisfiable.empty()) << tally.unsatisfiable.front();
+}
+
 /** A handler whose dialog hook sends a page drawn from the thread's Rnd: both runs of a case must draw the same one */
 class RandomPageHandler final : public AbstractQuestHandler {
 public:
@@ -1968,8 +2218,8 @@ public:
 };
 
 TEST_F(GoldenQuestTraceTest, EveryRunStartsFromTheSameRandomStateOnTheManualClock) {
-	// phase6-inventory.md §7.6 item 3: ManualClock and a seeded Rnd. The fixture's DeterministicExecutor runs on its ManualClock, which nothing
-	// advances; each run reseeds the thread's Rnd
+	// phase6-inventory.md §7.6 item 3: ManualClock and a seeded Rnd. The fixture's DeterministicExecutor runs on its ManualClock, which only a
+	// case with scheduled tasks advances (run(): its timeline, then the drain); each run reseeds the thread's Rnd
 	EXPECT_EQ(&utils::ThreadPoolManager::clock(), static_cast<const runtime::Clock*>(&clock));
 	RandomPageHandler handler;
 	json c = {{"id", "random"}, {"hook", "onDialogEvent"}, {"given", json::object()}, {"effects", json::array()}};
@@ -2333,14 +2583,19 @@ TEST_F(GoldenQuestTraceTest, RegistrationTraceMatchesJavaRegister) {
 				std::string event = "onFailCraftEvent " + std::to_string(reg["args"][0].get<int32_t>());
 				if (std::find(expectedEvents.begin(), expectedEvents.end(), event) == expectedEvents.end())
 					expectedEvents.push_back(event);
-			} else if (call == "registerOnBonusApply")
-				expectedEvents.push_back("onBonusApplyEvent " + reg["args"][1].get<std::string>());
-			else if (call == "registerOnInvisibleTimerEnd")
-				expectedEvents.push_back("onInvisibleTimerEndEvent");
-			else if (call == "registerOnDredgionReward")
-				expectedEvents.push_back("onDredgionRewardEvent");
-			else if (call == "registerOnEnterWindStream")
-				expectedEvents.push_back("onEnterWindStreamEvent");
+			}
+			// the review of #79, item 9: as Java. registerOnInvisibleTimerEnd, registerOnDredgionReward and registerOnEnterWindStream keep a quest
+			// once (`if (!list.contains(questId)) add`, QuestEngine.java:813-816, :843-846, :862-865); registerOnBonusApply adds it each time, but
+			// onBonusApplyEvent returns after the first handler of the type (QuestEngine.java onBonusApplyEvent): one event per type either way
+			else if (call == "registerOnBonusApply" || call == "registerOnInvisibleTimerEnd" || call == "registerOnDredgionReward" ||
+				call == "registerOnEnterWindStream") {
+				std::string event = call == "registerOnBonusApply"           ? "onBonusApplyEvent " + reg["args"][1].get<std::string>()
+					: call == "registerOnInvisibleTimerEnd" ? std::string("onInvisibleTimerEndEvent")
+					: call == "registerOnDredgionReward"    ? std::string("onDredgionRewardEvent")
+																									: std::string("onEnterWindStreamEvent");
+				if (std::find(expectedEvents.begin(), expectedEvents.end(), event) == expectedEvents.end())
+					expectedEvents.push_back(event);
+			}
 			else if (call == "addHandlerSideQuestDrop")
 				continue; // counted above
 			else

@@ -472,7 +472,8 @@ class Corpus(unittest.TestCase):
         # the prototype's 910 and the six escorts rows B26-B30 admit (2026-09-30): API rows are not P6-T rules, so both sets gain them; and
         # six of the ten files of the G1 lane's rows B32-B38 (2026-10-04, tests.test_questgen_g1; two need a P6-T rule, two rule
         # scheduled-closure)
-        self.assertEqual(sum(1 for r in self.proto.values() if r.status == 'ok'), 922)
+        # row B39 (the Q08 follow-up, lane C, 2026-10-05) adds gelkmaros/_20034
+        self.assertEqual(sum(1 for r in self.proto.values() if r.status == 'ok'), 923)
 
     def test_the_oracle_slice_is_tier_a(self):
         # tools/oracle/questtrace/extract.py SLICE: the Poeta and Ishalgen files questgen emits in tier A (phase6-inventory.md §9.3 item 1)

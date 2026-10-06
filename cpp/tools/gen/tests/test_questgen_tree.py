@@ -52,6 +52,27 @@ Q10 = {
         '_4969GrowthNinissFourthCharm', '_4970TheFashionistas', '_4971ProjectRunway', '_4972JudgeNot', '_4974TheSecretOfHisSuccess',
         '_4976ASettlerAmbition'),
 }
+# Phase 6 step 2, chunk Q08 (lane C, 2026-10-05; docs/deviations/Q08.md): the gelkmaros and enshar files questgen transliterates, all in the
+# tree (45 + 19; gelkmaros/_20034RescuetheReians since the Q08 follow-up, row B39)
+Q08 = {
+    'gelkmaros': (
+        '_20031GotoGelkmaros', '_20032AllAboutAbnormalAether', '_20033DranaSolution', '_20034RescuetheReians', '_20035SilenteraSupport',
+        '_21004VillageStatusReport', '_21027FearlessKantele', '_21033ExorcisingInfisto', '_21036DeliveryofAetherSample',
+        '_21051TroubleinStone', '_21052DragonHuntin', '_21053DramataDrama', '_21054MissionofDestiny', '_21056FundinOrders',
+        '_21057FundinOldGrudge', '_21058KirhuaSpecialOrder', '_21059ShiningScroll', '_21060EliminatePadmarashka', '_21061NewOrder',
+        '_21062TheDramataWrath', '_21063VanquishVeille', '_21068TheGameIsAfoot', '_21070TheSummation', '_21071MissingBard',
+        '_21073ListentoMySongStrigiks', '_21075FatedHeartbreak', '_21080MessageInAWindstream', '_21081A_Helping_Hand',
+        '_21105CoweringRefugee', '_21106TheRealRhonnam', '_21111TestYourMight', '_21114PoisonedFungi', '_21125MysteryBlueprint',
+        '_21135VellunRequest', '_21136InSearchOfAWitness', '_21137BerokinImageMarble', '_21138OddStrigik', '_21217NewResearchPlan',
+        '_21221RustyRelic', '_21244SearchForTheBiolab', '_21249TheInvincibleStarket', '_21296PadmarashkaLegacy',
+        '_21455IngredientsForTheAntidote', '_21458PracticalResearch', '_21460AShulacksStory',),
+    'enshar': (
+        '_20500EnsharExpedition', '_20501WhattheRuinsSay', '_20502EvolvingMysteries', '_20503AncientEvilPlans', '_20504TiamatsShadow',
+        '_20505AncientCrystal', '_20506MuscleOverMind', '_20507ItsWorseThanWeThought', '_25022SoupDeCure', '_25023SproutingDevelopments',
+        '_25030CluesFromTheUndead', '_25031TheTejhiGhost', '_25032AvengeVarnur', '_25050TreasureInTheDeepSea',
+        '_25051TreasureOfAncientKings', '_25052AnOfferingPeace', '_25062OminousAdvice', '_25070TruthOfTheCrystal',
+        '_25073NoRevivalForTheBalaur',),
+}
 # held back at the integration of slice 2 (docs/deviations/Q10.md, "Held back"): transliterated like the others, but kept out of the
 # tree because gs.scenario.travel's (and gs.scenario.ascension's) Asmodian would see them: 24010's onEnterWorldEvent starts it at the
 # Altgard arrival, and the others' start npcs put them in his SM_NEARBY_QUESTS in Pandaemonium or Altgard
@@ -108,6 +129,12 @@ class CommittedTree(unittest.TestCase):
                 with self.subTest(file=f'{directory}/{klass}'):
                     self.assertIn((directory, klass), found)
         self.assertEqual((len(Q10['altgard']), len(Q10['pandaemonium'])), (18, 35))
+        for directory, classes in Q08.items():
+            for klass in classes:
+                with self.subTest(file=f'{directory}/{klass}'):
+                    self.assertIn((directory, klass), found)
+        self.assertEqual((len(Q08['gelkmaros']), len(Q08['enshar'])), (45, 19))
+        self.assertTrue((HANDLER_QUEST_DIR / 'gelkmaros' / '_20034RescuetheReians.cpp').exists())
         self.assertEqual(len(Q10_HELD_BACK), 16)
 
     def test_the_enter_world_files_are_in_the_tree(self):

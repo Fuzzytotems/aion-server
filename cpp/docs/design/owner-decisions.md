@@ -3,6 +3,12 @@
 The owner's answers to the open decisions of the milestone plans, newest first. Each plan applies its answer at its next refresh; until
 then this file wins over a plan's "until the user answers" default.
 
+## 2026-10-05
+
+| Decision | Answer | What it changes |
+|---|---|---|
+| `gelkmaros/_20034RescuetheReians` (phase 6 step 2, chunk Q08): add `QuestTemplate::getName()` to the C++ header (option A of docs/deviations/Q08.md) | **"A"** (approved) | Header request p6q08-1 (docs/porting/header-requests.md). Not applied: the member was already declared (the generated `QuestTemplate.xml.inc`); questgen's API row B39 (`DataManager.QUEST_DATA`) lands 20034 generated, with no header change |
+
 ## 2026-09-29
 
 | Decision | Answer | What it changes |

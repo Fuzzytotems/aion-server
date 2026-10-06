@@ -8,6 +8,9 @@
 // row), and so are the altgard and pandaemonium handlers of P6-Q slice 2 (Q10: GoldenAltgardHandlers.cpp, GoldenPandaemoniumHandlers.cpp; the
 // five hand ports and the held-back 4212 are not generated, docs/deviations/Q10.md). The generated files themselves are never edited here.
 //
+// Phase 6 step 2, chunk Q08 (lane C, 2026-10-05): the 64 generated gelkmaros and enshar handlers, compiled in by #include as well
+// (GoldenQ08Handlers.cpp; docs/deviations/Q08.md).
+//
 // P6-Q slice 2, chunk Q03 (2026-09-29): the 72 generated verteron and heiron handlers in the tree (the zones the route's dispatches end in),
 // compiled into this executable by #include as well (GoldenQ03Handlers.cpp); Q03's hand ports 1643 and 3200 have their own unit cases
 // (tests/quest_handlers_q03, docs/deviations/Q03.md).
@@ -194,7 +197,71 @@
 	X(pandaemonium, _4971ProjectRunway, 4971) \
 	X(pandaemonium, _4972JudgeNot, 4972) \
 	X(pandaemonium, _4974TheSecretOfHisSuccess, 4974) \
-	X(pandaemonium, _4976ASettlerAmbition, 4976)
+	X(pandaemonium, _4976ASettlerAmbition, 4976) \
+	X(gelkmaros, _20031GotoGelkmaros, 20031) \
+	X(gelkmaros, _20032AllAboutAbnormalAether, 20032) \
+	X(gelkmaros, _20033DranaSolution, 20033) \
+	X(gelkmaros, _20034RescuetheReians, 20034) \
+	X(gelkmaros, _20035SilenteraSupport, 20035) \
+	X(gelkmaros, _21004VillageStatusReport, 21004) \
+	X(gelkmaros, _21027FearlessKantele, 21027) \
+	X(gelkmaros, _21033ExorcisingInfisto, 21033) \
+	X(gelkmaros, _21036DeliveryofAetherSample, 21036) \
+	X(gelkmaros, _21051TroubleinStone, 21051) \
+	X(gelkmaros, _21052DragonHuntin, 21052) \
+	X(gelkmaros, _21053DramataDrama, 21053) \
+	X(gelkmaros, _21054MissionofDestiny, 21054) \
+	X(gelkmaros, _21056FundinOrders, 21056) \
+	X(gelkmaros, _21057FundinOldGrudge, 21057) \
+	X(gelkmaros, _21058KirhuaSpecialOrder, 21058) \
+	X(gelkmaros, _21059ShiningScroll, 21059) \
+	X(gelkmaros, _21060EliminatePadmarashka, 21060) \
+	X(gelkmaros, _21061NewOrder, 21061) \
+	X(gelkmaros, _21062TheDramataWrath, 21062) \
+	X(gelkmaros, _21063VanquishVeille, 21063) \
+	X(gelkmaros, _21068TheGameIsAfoot, 21068) \
+	X(gelkmaros, _21070TheSummation, 21070) \
+	X(gelkmaros, _21071MissingBard, 21071) \
+	X(gelkmaros, _21073ListentoMySongStrigiks, 21073) \
+	X(gelkmaros, _21075FatedHeartbreak, 21075) \
+	X(gelkmaros, _21080MessageInAWindstream, 21080) \
+	X(gelkmaros, _21081A_Helping_Hand, 21081) \
+	X(gelkmaros, _21105CoweringRefugee, 21105) \
+	X(gelkmaros, _21106TheRealRhonnam, 21106) \
+	X(gelkmaros, _21111TestYourMight, 21111) \
+	X(gelkmaros, _21114PoisonedFungi, 21114) \
+	X(gelkmaros, _21125MysteryBlueprint, 21125) \
+	X(gelkmaros, _21135VellunRequest, 21135) \
+	X(gelkmaros, _21136InSearchOfAWitness, 21136) \
+	X(gelkmaros, _21137BerokinImageMarble, 21137) \
+	X(gelkmaros, _21138OddStrigik, 21138) \
+	X(gelkmaros, _21217NewResearchPlan, 21217) \
+	X(gelkmaros, _21221RustyRelic, 21221) \
+	X(gelkmaros, _21244SearchForTheBiolab, 21244) \
+	X(gelkmaros, _21249TheInvincibleStarket, 21249) \
+	X(gelkmaros, _21296PadmarashkaLegacy, 21296) \
+	X(gelkmaros, _21455IngredientsForTheAntidote, 21455) \
+	X(gelkmaros, _21458PracticalResearch, 21458) \
+	X(gelkmaros, _21460AShulacksStory, 21460) \
+	X(enshar, _20500EnsharExpedition, 20500) \
+	X(enshar, _20501WhattheRuinsSay, 20501) \
+	X(enshar, _20502EvolvingMysteries, 20502) \
+	X(enshar, _20503AncientEvilPlans, 20503) \
+	X(enshar, _20504TiamatsShadow, 20504) \
+	X(enshar, _20505AncientCrystal, 20505) \
+	X(enshar, _20506MuscleOverMind, 20506) \
+	X(enshar, _20507ItsWorseThanWeThought, 20507) \
+	X(enshar, _25022SoupDeCure, 25022) \
+	X(enshar, _25023SproutingDevelopments, 25023) \
+	X(enshar, _25030CluesFromTheUndead, 25030) \
+	X(enshar, _25031TheTejhiGhost, 25031) \
+	X(enshar, _25032AvengeVarnur, 25032) \
+	X(enshar, _25050TreasureInTheDeepSea, 25050) \
+	X(enshar, _25051TreasureOfAncientKings, 25051) \
+	X(enshar, _25052AnOfferingPeace, 25052) \
+	X(enshar, _25062OminousAdvice, 25062) \
+	X(enshar, _25070TruthOfTheCrystal, 25070) \
+	X(enshar, _25073NoRevivalForTheBalaur, 25073)
 // clang-format on
 
 // Lane C, phase 6 step 1 (2026-10-05): the out-of-tree golden sample (tools/gen/questgen/goldensample.py, phase6-transliterator.md §7) compiles
