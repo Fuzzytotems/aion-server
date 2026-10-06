@@ -662,14 +662,31 @@ class ScheduledTaskTest(unittest.TestCase):
 			hook("\t\tRunnable r = () -> playQuestMovie(env, 1);\n\t\tr.run();\n\t\treturn true;\n", "boolean onAttackEvent(QuestEnv env)"),
 			hook(QS + "\t\tThreadPoolManager.getInstance().schedule(() -> playQuestMovie(env, qs.getQuestVarById(0)), 1000);\n\t\treturn true;\n",
 			     "boolean onDieEvent(QuestEnv env)"),
-			hook("\t\tint x = switch (env.getDialogActionId()) {\n\t\t\tcase 1 -> 2;\n\t\t\tdefault -> 3;\n\t\t};\n\t\treturn true;\n",
+			hook("\t\ttry {\n\t\t\treturn sendQuestDialog(env, 1011);\n\t\t} catch (RuntimeException e) {\n\t\t\treturn false;\n\t\t}\n",
 			     "boolean onDialogEvent(QuestEnv env)")))
 		self.assertEqual(len(self.cases(doc, "onKillEvent")), 1)
 		self.assertEqual(self.refusal(doc, "onAttackEvent"), "call r.run() on a value")
 		# the task dereferences a QuestState the hook never checked: Java's pool logs that NullPointerException after the hook returned
 		self.assertEqual(self.refusal(doc, "onDieEvent"), "a NullPointerException with a scheduled task")
-		self.assertTrue(self.refusal(doc, "onDialogEvent").startswith("switch-expression"))      # jast refuses it: the hook, not the file
+		self.assertTrue(self.refusal(doc, "onDialogEvent").startswith("try"))      # jast refuses it: the hook, not the file
 		self.assertIsInstance(doc["register"], list)
+
+	def test_switch_expressions_and_switch_rules(self):
+		# the review of #79, item 9: JLS 15.28 (a switch expression's value is its matching arm's, else default's) and JLS 14.11.2 (a rule arm
+		# never falls through)
+		doc = trace_text(handler(hook(
+			"\t\tint page = switch (env.getDialogActionId()) {\n\t\t\tcase QUEST_SELECT -> 1011;\n\t\t\tcase SETPRO1, SETPRO2 -> 1352;\n"
+			"\t\t\tdefault -> 0;\n\t\t};\n\t\tswitch (page) {\n\t\t\tcase 1011 -> playQuestMovie(env, 1);\n\t\t\tcase 1352 -> "
+			"playQuestMovie(env, 2);\n\t\t\tdefault -> playQuestMovie(env, 3);\n\t\t}\n\t\treturn sendQuestDialog(env, page);\n",
+			"boolean onDialogEvent(QuestEnv env)")))
+		got = sorted((c["given"]["dialogAction"]["name"], [(e["call"], e["args"]) for e in c["effects"]]) for c in self.cases(doc, "onDialogEvent"))
+		self.assertEqual(got, [("QUEST_SELECT", [("playQuestMovie", [1]), ("sendQuestDialog", [1011])]),
+		                       ("SETPRO1", [("playQuestMovie", [2]), ("sendQuestDialog", [1352])]),
+		                       ("SETPRO2", [("playQuestMovie", [2]), ("sendQuestDialog", [1352])]),
+		                       ("USE_OBJECT", [("playQuestMovie", [3]), ("sendQuestDialog", [0])])])
+		# _30211's switch rules and its lambda: traced now (its refusal said `expected ':'` before)
+		rel = "beshmundir/_30211GroupTheRodandtheOrb.java"
+		self.assertTrue(extract.trace_file(tables(), extract.QUEST_DIR / rel, rel)["cases"])
 
 	def test_a_bounded_symbolic_set_quest_var_is_slot_0(self):
 		# QuestVars.setVar (QuestVars.java:52-58): a value in 0..63 is slot 0 and the other slots 0; an unbounded one is refused

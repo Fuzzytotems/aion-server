@@ -455,8 +455,10 @@ class Extractor:
 			raise OracleError(f'{rel}: not one top-level class')
 		self.td = self.cu.types[0]
 		# closures=True (lane C, phase 6 step 1): a lambda or an anonymous Runnable is a jast.Closure node, so a closure refuses the hook that
-		# builds it (or is modelled: the task of ThreadPoolManager.schedule, run_tasks) instead of the whole file
-		self.p = jast.Parser(self.cu, closures=True)
+		# builds it (or is modelled: the task of ThreadPoolManager.schedule, run_tasks) instead of the whole file. switch_expressions=True (the
+		# review of #79, item 9): a switch expression (SwitchExpr, eval) and a switch statement with rule arms (Switch.rules, exec_switch) are
+		# modelled too, as the generator's P6-T rule parses them
+		self.p = jast.Parser(self.cu, switch_expressions=True, closures=True)
 		self.mode = 'hook'
 		self.leaves = []
 		self.reg_npcs = []
@@ -664,7 +666,8 @@ class Extractor:
 		raise Unsupported(f'{type(s).__name__} statement at line {self.line(s)}')
 
 	def exec_switch(self, s, p):
-		"""Java switch: the group whose label equals the subject, else default; statements run on through later groups until a break"""
+		"""Java switch: the group whose label equals the subject, else default; statements run on through later groups until a break. With
+		rule arms (`case A -> stmt`, Switch.rules; JLS 14.11.2) an arm never falls through to the next"""
 		out = []
 		for q, subj in self.eval(s.expr, p):
 			labels = []                     # per group: [(value, label text)], (None, None) for default
@@ -675,12 +678,29 @@ class Extractor:
 			text = self.jtext(s.expr)
 			for g, vals in enumerate(labels):
 				for r in self.select(q, subj, vals, every, text, self.line(s)):
-					stmts = [st for _l, body, _t in s.groups[g:] for st in body]
+					stmts = [st for _l, body, _t in (s.groups[g:g + 1] if getattr(s, 'rules', False) else s.groups[g:]) for st in body]
 					for kind, r2, v in self.exec_stmts(stmts, r):
 						out.append(('normal', r2, None) if kind == 'break' else (kind, r2, v))
 			if not has_default:
 				for r in self.select(q, subj, [(None, None)], every, text, self.line(s)):
 					out.append(('normal', r, None))
+		return out
+
+	def switch_expr(self, e, p):
+		"""a switch expression (`switch (x) { case A, B -> v; default -> w; }`, JLS 15.28): the value of the arm whose label equals the subject,
+		else of default; one path per arm the subject can take"""
+		out = []
+		for q, subj in self.eval(e.expr, p):
+			labels = [[(None, None) if lab is None else (self.label_value(lab, subj), self.jtext(lab)) for lab in lab_exprs]
+			          for lab_exprs, _v, _t, _s in e.arms]
+			every = [(v, t) for vals in labels for v, t in vals if t is not None]
+			has_default = any(t is None for vals in labels for _v, t in vals)
+			if not has_default:
+				raise Unsupported('a switch expression without default')
+			text = self.jtext(e.expr)
+			for g, vals in enumerate(labels):
+				for r in self.select(q, subj, vals, every, text, self.line(e)):
+					out += self.eval(e.arms[g][1], r)
 		return out
 
 	def label_value(self, lab, subj):
@@ -973,6 +993,8 @@ class Extractor:
 			return out
 		if isinstance(e, jast.Assign):
 			return self.assign(e, p)
+		if isinstance(e, jast.SwitchExpr):
+			return self.switch_expr(e, p)
 		if isinstance(e, jast.Closure):
 			if e.params:
 				raise Unsupported(f'a {e.kind} with parameters')
@@ -1449,7 +1471,7 @@ class Extractor:
 		if cls == 'ThreadPoolManager' and name == 'getInstance' and not e.args:
 			return [(p, O('threadPool'))]
 		if cls == 'PacketSendUtility' and name == 'broadcastPacket':
-			# PacketSendUtility.broadcastPacket(player, packet, toSelf) (PacketSendUtility.java:68-75): the player's known players and, with
+			# PacketSendUtility.broadcastPacket(player, packet, toSelf) (PacketSendUtility.java:88-93): the player's known players and, with
 			# toSelf, the player; the quester has no other player in sight in a harness, so only toSelf shows
 			def broadcast(q, args):
 				if len(args) != 3 or args[0] != O('player') or not isinstance(args[1], New) or not isinstance(args[2], K):

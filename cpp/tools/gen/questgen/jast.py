@@ -12,7 +12,9 @@ are `case A, B -> expr;` (SwitchExpr; a block arm with `yield` stays refused) an
 Parser(cu, closures=True) (the G1 rule 'scheduled-closure', phase6-transliterator.md §2.2) parses a lambda (`() -> {...}`, `x -> expr`,
 untyped parameters only) and an anonymous class that overrides exactly one method (`new Runnable() { @Override public void run() {...} }`)
 as a Closure node instead of refusing them; the emitter decides where a closure may stand and refuses it everywhere else with the same
-categories ('lambda', 'anonymous-class'). The default keeps the refusals (tools/oracle's quest-trace extractor parses with the default).
+categories ('lambda', 'anonymous-class'). The default keeps the refusals. tools/oracle's quest-trace extractor parses with both options
+since lane C (phase6-transliterator.md §7; the review of #79): it models the task of ThreadPoolManager.schedule, switch expressions and
+switch rules, and refuses the hook of any other closure.
 
 Every node keeps `tok`, the index of its first token; statements also keep `last`, the index of their last token, which the emitter
 uses to carry the Java comments along (comments(), trailing_comment()).
