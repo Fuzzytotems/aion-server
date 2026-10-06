@@ -663,6 +663,13 @@ Effort is **size, not time** (m5c-plan.md §5's classes): **S** ≤ 10 bodies or
 
 ### Stage 0 — GM toolkit and in-game chat (after M5b-2 by D1)
 
+> **Progress (2026-10-05, lane A, branch `lane-a/gm-commands`):** K-01 (the framework), K-02 (VERSION_INFO), K-07 (T0) done; of K-08 the info
+> family (//coords, //info, //zone, //online, //time, //weather) and the character family (//addexp, //set, //addskill, //delskill,
+> //addtitle, //heal, //speed, //dispel, //morph, //state) done; of K-08b //stat, //removecd, ///levelup, ///leveldown and
+> ///clearusercoolt done. Open: the monsters family (//spawn, //delete with K-10's `saveSpawn` guard, //kill, //damage, //ai, //npcskill,
+> //useskill), the talking family (//announce, //say, //whisper, //kick, //gag — `ChatBanService` comes with the chat branch, K-04 —,
+> //movie), the player commands (.help, .id, .gmlist), K-06 and the gates. Deviations: docs/deviations/C1.md, C2.md, P5-14.md.
+
 | Id | What | Java refs | Deps | Need | Eff |
 |---|---|---|---|---|---|
 | K-01 | The command framework: `ChatCommand` 7, `AdminCommand` 2, `PlayerCommand` 2, `ConsoleCommand` 2 (P5-14). `toErrorMessage`'s enum arm uses `utils::enumValueOf`'s `EnumConstantException` (handlers-and-porting-plan.md:308). | ChatCommand.java:60-248; AdminCommand.java:38-58; PlayerCommand.java:28-44; ConsoleCommand.java:41-62 | – | R | S |

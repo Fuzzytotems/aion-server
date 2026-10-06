@@ -74,6 +74,12 @@ struct JavaFloat final {
 	 * exist; when a single digit is enough, the closest two-digit decimal is used instead ("1.4E-45" for Float.MIN_VALUE).
 	 */
 	static std::string toString(float value);
+
+	/**
+	 * Java: Double.toString - the same algorithm and format as toString(float) with the digits of the double (e.g. "33.37964495744432",
+	 * "1.0E-5"). Used for the double values that commands print (Npc.getDistanceToSpawnLocation in //info).
+	 */
+	static std::string doubleToString(double value);
 };
 
 } // namespace aion::gameserver::geoEngine::math
