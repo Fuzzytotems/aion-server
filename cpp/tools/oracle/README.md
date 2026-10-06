@@ -848,8 +848,10 @@ for-each over a constant array, `QuestVars.setVar`'s six 6-bit slots and `Dialog
 test.
 
 Lane C (phase 6 step 1, 2026-10-05; `docs/design/phase6-transliterator.md` §7). The extractor parses with jast's `closures=True`, so a
-lambda or an anonymous `Runnable` refuses the hook that builds it, not the whole file, and a construct the parser refuses (a switch
-expression, a method reference) refuses its hook only. One closure is modelled: the task of `ThreadPoolManager.getInstance().schedule(task,
+lambda or an anonymous `Runnable` refuses the hook that builds it, not the whole file, and a construct the parser refuses (a method
+reference) refuses its hook only. Since the review of #79 it parses with `switch_expressions=True` too: a switch expression has the value
+of the arm whose label equals the subject, else of `default` (JLS 15.28; one without `default` is refused), and a switch statement with
+rule arms (`case A -> ...`) never falls through (JLS 14.11.2). One closure is modelled: the task of `ThreadPoolManager.getInstance().schedule(task,
 delay)` (ThreadPoolManager.java) with a constant delay. The call is an effect `ThreadPoolManager.schedule` with the delay; the task runs when
 the hook has returned (Java runs it on a pool thread after the delay), in the order of the delays (equal delays in schedule order), on the
 locals it captured (Java captures effectively final locals, so their values at the schedule), reading the state the hook left; its effects
@@ -861,7 +863,9 @@ result is the helper's, which may write the inventory). `AbyssRankEnum` is one o
 questId)` is traced. `qs.setQuestVar(v)` with a symbolic v that the path bounds to 0..63 (`int var = qs.getQuestVarById(0); if (var == 2)
 qs.setQuestVar(var + 1)`) writes v to slot 0 and 0 to the other five slots (QuestVars.java:52-58); an unbounded one is still refused. The
 committed documents are unchanged by all of this (`quest-trace check`); over the 972 files questgen transliterates the extractor raises on
-none (33 before: 30 closures, 3 switch expressions) and writes cases for 826 (792 before), 19,727 cases (18,795 before).
+none (33 before: 30 closures, 3 switch expressions) and writes cases for 826 (792 before), 19,727 cases (18,795 before); with switch
+expressions, 827 files and 19,799 cases (`_30211`'s dialog hook is traced now, 22 cases, and `_18035`'s and `_28035`'s, 25 each; `_1917`'s is
+refused further on, after `sendQuestNoneDialog`).
 
 The input model has limits a harness should know. The visible object is an Npc or nothing: `QuestEnv.getTargetId` (QuestEnv.java:94-96)
 also returns the template id of a visible object that is not an Npc (a gatherable, a static object), which makes `instanceof Npc` false
