@@ -1,0 +1,39 @@
+{
+ "format": "aion-quest-trace",
+ "version": 1,
+ "questId": 14044,
+ "java": "reshanta/_14044ShardsOfMemory.java",
+ "class": "_14044ShardsOfMemory",
+ "javaSha256": "bb49208ebe30379726937adca27515e8da4316bc07761ab6aa8d5f4b6a5b33b3",
+ "register": [
+  {"call": "registerOnQuestCompleted", "args": [14044]},
+  {"call": "registerOnLevelChanged", "args": [14044]},
+  {"npc": 279029, "event": "addOnTalkEvent", "args": [14044]},
+  {"npc": 278501, "event": "addOnTalkEvent", "args": [14044]},
+  {"npc": 790001, "event": "addOnTalkEvent", "args": [14044]},
+  {"npc": 700355, "event": "addOnTalkEvent", "args": [14044]}
+ ],
+ "hooks": [
+  {"hook": "onDialogEvent", "line": 36, "unsupported": "call TeleportService.teleportTo"},
+  {"hook": "onQuestCompletedEvent", "line": 116, "cases": 1},
+  {"hook": "onLevelChangedEvent", "line": 121, "cases": 1}
+ ],
+ "cases": [
+  {
+   "id": "onQuestCompletedEvent#1",
+   "hook": "onQuestCompletedEvent",
+   "given": {},
+   "guards": [],
+   "effects": [{"call": "defaultOnQuestCompletedEvent", "kind": "quest", "args": [14040], "line": 117}],
+   "returns": null
+  },
+  {
+   "id": "onLevelChangedEvent#1",
+   "hook": "onLevelChangedEvent",
+   "given": {},
+   "guards": [],
+   "effects": [{"call": "defaultOnLevelChangedEvent", "kind": "quest", "args": [14040], "line": 122}],
+   "returns": null
+  }
+ ]
+}

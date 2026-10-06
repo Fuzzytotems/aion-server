@@ -1,0 +1,27 @@
+{
+ "format": "aion-quest-trace",
+ "version": 1,
+ "questId": 4712,
+ "java": "reshanta/_4712EscapeFromTheDredgion.java",
+ "class": "_4712EscapeFromTheDredgion",
+ "javaSha256": "c8f93754955caf3e881a3ac416f7f5728620786b5ea80edd5c2887b064994d0c",
+ "register": [
+  {"npc": 279042, "event": "addOnQuestStart", "args": [4712]},
+  {"npc": 279042, "event": "addOnTalkEvent", "args": [4712]},
+  {"npc": 798327, "event": "addOnTalkEvent", "args": [4712]},
+  {"npc": 798328, "event": "addOnTalkEvent", "args": [4712]},
+  {"npc": 798329, "event": "addOnTalkEvent", "args": [4712]},
+  {"npc": 798330, "event": "addOnTalkEvent", "args": [4712]}
+ ],
+ "hooks": [{"hook": "onDialogEvent", "line": 32, "unsupported": "call npc.getController()"}, {"hook": "onKillEvent", "line": 70, "cases": 1}],
+ "cases": [
+  {
+   "id": "onKillEvent#1",
+   "hook": "onKillEvent",
+   "given": {},
+   "guards": [],
+   "effects": [{"call": "defaultOnKillEvent", "kind": "var", "args": [214823, 2, true], "line": 71}],
+   "returns": {"resultOf": 0}
+  }
+ ]
+}

@@ -54,6 +54,12 @@ ROW_FILES = {
     'B38': ('morheim/_24022SneakBehindtheIceClaw.java',),
     # the Q08 follow-up (lane C, 2026-10-05): DataManager.QUEST_DATA (docs/deviations/Q08.md)
     'B39': ('gelkmaros/_20034RescuetheReians.java',),
+    # phase 6 step 2, chunk Q01 (lane C, 2026-10-05): the reshanta campaign missions of rows B40-B41 (docs/deviations/Q01.md)
+    'B40': ('reshanta/_14045RumorsOnWings.java', 'reshanta/_24045ASpeedyErrand.java'),
+    'B41': ('reshanta/_14043DrawlingBalaur.java',),
+    # row B42 (chunk Q01): DataManager.SPAWNS_DATA and its std::optional<SpawnSearchResult>; two event quests of Q12 need it too
+    'B42': ('reshanta/_24043LazyLanguageLessons.java', 'event_quests/_50008SoloriusShugoSlackers.java',
+            'event_quests/_51008NonHelpingHands.java'),
 }
 
 ITEM_USE = source('_99101Closures', 99101, '''
@@ -309,9 +315,10 @@ class Corpus(unittest.TestCase):
                 with self.subTest(rel=rel):
                     self.assertEqual(self.all[rel].cpp, r.cpp)
         # the P6-T output (935 files on 2026-09-30) and eight of the ten files of rows B32-B38; with rule scheduled-closure the 27 closure
-        # files and the other two (B33). Row B39 (the Q08 follow-up, 2026-10-05) adds its file to both
-        self.assertEqual(sum(1 for r in self.p6t.values() if r.status == 'ok'), 944)
-        self.assertEqual(sum(1 for r in self.all.values() if r.status == 'ok'), 973)
+        # files and the other two (B33). Row B39 (the Q08 follow-up, 2026-10-05) adds its file to both, rows B40-B42 (chunk Q01, the
+        # same day) their six
+        self.assertEqual(sum(1 for r in self.p6t.values() if r.status == 'ok'), 950)
+        self.assertEqual(sum(1 for r in self.all.values() if r.status == 'ok'), 979)
         for rid, rels in ROW_FILES.items():
             for rel in rels:
                 self.assertIn(rid, self.all[rel].api_rows)
@@ -375,6 +382,27 @@ class CompileCheck(unittest.TestCase):
         self.assertEqual(rc, 0, out.getvalue())
         self.assertIn('clean 2, warnings 0, errors 0', out.getvalue())
 
+
+
+@unittest.skipUnless(HAVE_JAVA, 'the Java tree is not available')
+class RowB42(unittest.TestCase):
+    """chunk Q01 (lane C, 2026-10-05): the declaration reader keeps a class whose nested class is defined out of line (`class A::B`), and a
+    nullable value result kept in a local of its class is a std::optional local whose calls go through .value()"""
+
+    def test_an_out_of_line_nested_class_does_not_replace_its_outer_class(self):
+        from questgen import cppdecl
+        ix = cppdecl.HeaderIndex()
+        ix.scan('aion/gameserver/dataholders/SpawnsData.h')
+        self.assertIn('getFirstSpawnByNpcId', ix.classes['SpawnsData'].methods)
+        self.assertEqual(ix.classes['UnprocessedSpawns'].qual[-2:], ('SpawnsData', 'UnprocessedSpawns'))
+
+    def test_the_spawn_lookup_of_24043(self):
+        r = transliterator(ALL).transliterate(QUEST / 'reshanta/_24043LazyLanguageLessons.java')
+        self.assertEqual(r.status, 'ok', r.reasons)
+        self.assertIn('std::optional<SpawnSearchResult> searchResult = DataManager::SPAWNS_DATA->getFirstSpawnByNpcId(npc->getWorldId(), '
+                      '278086);', r.cpp)
+        self.assertIn('searchResult.value().getSpot().getX()', r.cpp)
+        self.assertIn('B42', r.api_rows)
 
 if __name__ == '__main__':
     unittest.main()

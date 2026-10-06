@@ -497,6 +497,10 @@ aion_gs_chunk(P5-16 TARGET aion_gs_cm_lz PHASE 5
 # Phase 6 (§2.10): handler libraries (ROOT handlers). Category preludes are the PCH; a prelude shared by several chunks is owned by one of them.
 # ---------------------------------------------------------------------------------------------------------------------------------------------
 
+# Q01 (phase 6 step 2, lane C, 2026-10-05): the 81 generated reshanta handlers (questgen's output, bannered, drift-tested by
+# tools/gen/tests/test_questgen_tree.py); _2759TenaciousGuardian is refused by questgen and hand-ported (the owner's correction of 2026-10-05).
+# Their golden traces run in Q05's harness (tests/quest_handlers_golden, GoldenQ01Handlers.cpp compiles them by #include);
+# docs/deviations/Q01.md.
 aion_gs_chunk(Q01 TARGET aion_gs_handlers_quest_reshanta PHASE 6 ROOT handlers
 	GLOBS "aion/gameserver/handlers/quest/reshanta/**" "aion/gameserver/handlers/quest/QuestPrelude.h"
 	JAVA "data/handlers/quest/reshanta/**"
@@ -522,8 +526,9 @@ aion_gs_chunk(Q04 TARGET aion_gs_handlers_quest_q04 PHASE 6 ROOT handlers
 # phase6-inventory.md §7.6 item 3 and §8.2): it drives every case of tools/oracle/expected/quest through the real engine. A handler target's
 # tests link only their own library, so the executable compiles the generated Q09 (ishalgen), Q06 (ascension dispatch), Q03 (verteron,
 # heiron) and Q10 (altgard, pandaemonium) files by #include, as P5-05's tests do for the two quest npc AIs (the P5-05 LEASE row below);
-# docs/deviations/Q05.md, Q03.md, Q10.md; since phase 6 step 2 also Q08 (gelkmaros, enshar; Q08.md). P6-Q slice 2's lanes Q03 and Q10
-# added the hooks, helpers, registrations and overlays their files need; Q03's LEASE row on this directory was released when slice 2 was integrated (docs/design/p6q-ascension-route.md, "Slice 2").
+# docs/deviations/Q05.md, Q03.md, Q10.md; since phase 6 step 2 also Q08 (gelkmaros, enshar; Q08.md) and Q01 (reshanta; Q01.md). P6-Q
+# slice 2's lanes Q03 and Q10 added the hooks, helpers, registrations and overlays their files need; Q03's LEASE row on this directory was
+# released when slice 2 was integrated (docs/design/p6q-ascension-route.md, "Slice 2").
 aion_gs_chunk(Q05 TARGET aion_gs_handlers_quest_q05 PHASE 6 ROOT handlers
 	GLOBS "aion/gameserver/handlers/quest/{eltnen,poeta,oriel}/**"
 	JAVA "data/handlers/quest/{eltnen,poeta,oriel}/**"

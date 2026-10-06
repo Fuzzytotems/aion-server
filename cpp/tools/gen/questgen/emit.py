@@ -876,6 +876,13 @@ class Transliterator:
                     ct = e.ct
                     if ct.kind == 'obj' and ct.ref in ('lref', 'clref', 'value'):
                         ct = CT('obj', ct.name, 'ptr')
+                if ct.kind == 'obj' and e.ct.kind == 'optional' and e.ct.elem is not None and e.ct.elem.kind == 'obj' \
+                        and e.ct.elem.name == ct.name:
+                    # a nullable value result (`std::optional<SpawnSearchResult> SpawnsData::getFirstSpawnByNpcId`) kept in a local of its
+                    # class: the local is the std::optional, and a call on it goes through .value() (Java's null is std::nullopt; a call on it
+                    # throws std::bad_optional_access where Java throws NullPointerException: phase6-questgen-prototype.md §9, row B42)
+                    ct = e.ct
+                    self.r.idioms['nullable value result kept in a std::optional local'] += 1
                 if ct.kind == 'obj':
                     if e.ct.kind == 'obj' and e.ct.ref in ('lref', 'clref') and self.bindable_to_reference(name) \
                             and self.ix.is_subclass(e.ct.name, ct.name):
@@ -1386,6 +1393,9 @@ class Transliterator:
             return self.member_call(t.ct.name, t, x, cname)
         if t.ct.kind == 'optional' and name == 'intValue':
             return E(self.postfix(t) + '.value()', t.ct.elem)
+        if t.ct.kind == 'optional' and t.ct.elem is not None and t.ct.elem.kind == 'obj':
+            # a call on a std::optional local of a class (local(): row B42's SpawnSearchResult): through .value()
+            return self.member_call(t.ct.elem.name, E(self.postfix(t) + '.value()', CT('obj', t.ct.elem.name, 'clref')), x, cname)
         if t.ct.kind == 'vector':
             self.r.idioms['java.util.List methods on std::vector'] += 1
             if name == 'isEmpty' and not x.args:
