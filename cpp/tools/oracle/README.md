@@ -825,6 +825,7 @@ case in `expected/quest/<questId>.json` (`format` `aion-quest-trace`, `version` 
 | `free` | the QuestVars slots the path reads with no guard on them and uses in no effect argument and not in the return value (`"questState.vars.0"`): any value takes the same path with the same effects, so a harness may set one to what a helper the path calls reads (`checkQuestItems(env, 1, ...)` acts only at var 1). P6-Q, 2026-09-29 |
 | `atHigh` | per ranged input, the same path with that input at the high end of its range and the others as given: `input`, `value`, `given`, `effects` and `returns` (or `throws`) evaluated there. `given` holds the low end, so a boundary moved by one (`var < 6` read as `var < 5`) or an expression replaced by its low-end constant (`var + 1` read as 2) fails the high end. P6-Q, 2026-09-29 |
 | `effects` | the calls with side effects in order, arguments evaluated under `given`: the AbstractQuestHandler helpers (`sendQuestDialog` with its page, `changeQuestStep`, `giveQuestItem`, `removeQuestItem`, `playQuestMovie`, ...), `qs.setQuestVarById`/`setQuestVar`/`setStatus`/`setRewardGroup`, `QuestService.*`, `PacketSendUtility.sendPacket` with the packet built, `env.setQuestId`. The hook's own `env` and `player` arguments are left out; a varargs `int[]` is spread |
+| `task` (on an effect) | the index of the `ThreadPoolManager.schedule` effect whose task made this effect (lane C, 2026-10-05): the task runs after the hook, below |
 | `returns` / `throws` | the value (`true`, `"FAILED"`, `{resultOf: k}` for effect k's result, `{fromBoolean: ...}`), or `NullPointerException` when the path dereferences an absent QuestState or target (after the call's arguments are evaluated, JLS 15.12.4, so their effects are in the case) |
 
 A document also holds `register` (the registration trace of `register()`, loops over constant arrays unrolled: the Python-only form of
@@ -845,6 +846,22 @@ nothing, true sets START on `env.getQuestId()`, which is the handler's quest unl
 (32-bit wrap, `/` and `%` toward zero), casts (JLS 5.1.3), `++`/`--`, compound assignment, switch fall-through, `break`/`continue` in a
 for-each over a constant array, `QuestVars.setVar`'s six 6-bit slots and `DialogPage.getRewardPageByIndex` are modelled, each pinned by a
 test.
+
+Lane C (phase 6 step 1, 2026-10-05; `docs/design/phase6-transliterator.md` §7). The extractor parses with jast's `closures=True`, so a
+lambda or an anonymous `Runnable` refuses the hook that builds it, not the whole file, and a construct the parser refuses (a switch
+expression, a method reference) refuses its hook only. One closure is modelled: the task of `ThreadPoolManager.getInstance().schedule(task,
+delay)` (ThreadPoolManager.java) with a constant delay. The call is an effect `ThreadPoolManager.schedule` with the delay; the task runs when
+the hook has returned (Java runs it on a pool thread after the delay), in the order of the delays (equal delays in schedule order), on the
+locals it captured (Java captures effectively final locals, so their values at the schedule), reading the state the hook left; its effects
+follow the hook's, each with `task` naming its schedule effect, and its `return` ends it. A task that would throw (Java's pool logs that
+exception after the hook returned), a task scheduling another one and a hook that throws after a schedule are refused. The item-use
+handlers around such tasks need `PacketSendUtility.broadcastPacket(player, packet, toSelf)` (an effect with the packet and the flag; `new
+SM_ITEM_USAGE_ANIMATION(...)` is a packet like `SM_DIALOG_WINDOW`) and `inventory.decreaseByObjectId(objId, count)` (an `item` effect whose
+result is the helper's, which may write the inventory). `AbyssRankEnum` is one of the enum tables, so `registerOnKillRanked(AbyssRankEnum.X,
+questId)` is traced. `qs.setQuestVar(v)` with a symbolic v that the path bounds to 0..63 (`int var = qs.getQuestVarById(0); if (var == 2)
+qs.setQuestVar(var + 1)`) writes v to slot 0 and 0 to the other five slots (QuestVars.java:52-58); an unbounded one is still refused. The
+committed documents are unchanged by all of this (`quest-trace check`); over the 972 files questgen transliterates the extractor raises on
+none (33 before: 30 closures, 3 switch expressions) and writes cases for 826 (792 before), 19,727 cases (18,795 before).
 
 The input model has limits a harness should know. The visible object is an Npc or nothing: `QuestEnv.getTargetId` (QuestEnv.java:94-96)
 also returns the template id of a visible object that is not an Npc (a gatherable, a static object), which makes `instanceof Npc` false

@@ -29,7 +29,9 @@ an infeasible branch is dropped.
 
 A hook is refused (listed with its reason, no cases) when it does something this extractor does not model: a call outside the helper
 table, a read of state that an unmodelled helper may have written (`changeQuestStep` then `qs.getQuestVarById`), a loop that is not over
-a constant array, a guard over two inputs, floating-point arithmetic. Semantics are taken from the Java sources named at each rule.
+a constant array, a guard over two inputs, floating-point arithmetic, a closure other than the task of ThreadPoolManager.schedule (which runs
+after the hook, run_tasks; lane C, phase6-transliterator.md §7), a construct the shared parser refuses. Semantics are taken from the Java
+sources named at each rule.
 
 Limits of the input model: the visible object is an Npc or nothing. QuestEnv.getTargetId (QuestEnv.java:94-96) also returns the template
 id of a visible object that is not an Npc (a gatherable, a static object), which makes `instanceof Npc` false with a non-zero target id;
@@ -158,7 +160,7 @@ SLICE = SLICE_TIER_A + SLICE_ROUTE + SLICE_Q03 + SLICE_Q10
 
 ENUM_FILES = {'QuestStatus': 'questEngine/model/QuestStatus.java', 'Race': 'model/Race.java', 'PlayerClass': 'model/PlayerClass.java',
               'Gender': 'model/Gender.java', 'HandlerResult': 'questEngine/handlers/HandlerResult.java', 'DialogPage': 'model/DialogPage.java',
-              'BonusType': 'model/templates/rewards/BonusType.java'}
+              'BonusType': 'model/templates/rewards/BonusType.java', 'AbyssRankEnum': 'utils/stats/AbyssRankEnum.java'}
 
 
 class Unsupported(Exception):
@@ -340,8 +342,18 @@ _EMPTY = object()
 
 # --- a symbolic path ------------------------------------------------------------------------------------------------------------------------
 
+class Task:
+	"""a closure (jast.Closure) the path built: its node and the locals it captured (Java captures effectively final locals, so their
+	values when the closure is built are the values it reads)"""
+	__slots__ = ('node', 'locals')
+
+	def __init__(self, node, locals_):
+		self.node = node
+		self.locals = locals_
+
+
 class SPath:
-	__slots__ = ('dom', 'state', 'clobbered', 'locals', 'effects', 'assume', 'guards', 'reads')
+	__slots__ = ('dom', 'state', 'clobbered', 'locals', 'effects', 'assume', 'guards', 'reads', 'deferred', 'task', 'task_of')
 
 	def __init__(self):
 		self.dom = {}           # input key -> Dom
@@ -352,11 +364,15 @@ class SPath:
 		self.assume = {}        # effect index -> bool
 		self.guards = []        # [(line, text, outcome)]
 		self.reads = []         # input keys, in first-read order
+		self.deferred = []      # [(Task, delay, effect index of its schedule)]: the tasks the hook scheduled, run after it returns
+		self.task = None        # while a scheduled task runs: the effect index of its schedule
+		self.task_of = {}       # effect index -> the effect index of the schedule whose task made it
 
 	def fork(self):
 		p = SPath.__new__(SPath)
 		p.dom, p.state, p.clobbered, p.locals = dict(self.dom), dict(self.state), dict(self.clobbered), dict(self.locals)
 		p.effects, p.assume, p.guards, p.reads = list(self.effects), dict(self.assume), list(self.guards), list(self.reads)
+		p.deferred, p.task, p.task_of = list(self.deferred), self.task, dict(self.task_of)
 		return p
 
 
@@ -438,7 +454,9 @@ class Extractor:
 		if len(self.cu.types) != 1 or self.cu.types[0].kind != 'class':
 			raise OracleError(f'{rel}: not one top-level class')
 		self.td = self.cu.types[0]
-		self.p = jast.Parser(self.cu)
+		# closures=True (lane C, phase 6 step 1): a lambda or an anonymous Runnable is a jast.Closure node, so a closure refuses the hook that
+		# builds it (or is modelled: the task of ThreadPoolManager.schedule, run_tasks) instead of the whole file
+		self.p = jast.Parser(self.cu, closures=True)
 		self.mode = 'hook'
 		self.leaves = []
 		self.reg_npcs = []
@@ -488,7 +506,7 @@ class Extractor:
 	def trace(self):
 		try:
 			reg = self.register_trace()
-		except Unsupported as e:
+		except (Unsupported, jast.Unsupported) as e:
 			reg = {'unsupported': str(e)}
 		self.reg_npcs = [r['npc'] for r in reg if 'npc' in r] if isinstance(reg, list) else []
 		# the quest items register() names (QuestEngine.registerQuestItem): the item of an item-use hook whose guards leave it free is one of
@@ -501,7 +519,8 @@ class Extractor:
 			try:
 				leaves = self.run_hook(m)
 				mine = [self.case(m, kind, p, v) for kind, p, v in leaves if not self.dead_assumption(p)]
-			except Unsupported as e:
+			except (Unsupported, jast.Unsupported) as e:
+				# jast.Unsupported: a construct the parser refuses (a switch expression, a method reference) refuses the hook, not the file
 				hooks.append({'hook': m.name, 'line': self.cu.tokens.loc(m.index)[0], 'unsupported': str(e)})
 				continue
 			for n, c in enumerate(mine, 1):
@@ -539,8 +558,38 @@ class Extractor:
 		for kind, q, v in self.exec_stmts(stmts, p):
 			if kind in ('break', 'continue'):
 				raise Unsupported(f'{kind} outside a loop or switch')
-			self.leaves.append(('return', q, v if kind == 'return' else None))
+			for r in self.run_tasks(q):
+				self.leaves.append(('return', r, v if kind == 'return' else None))
 		return self.leaves
+
+	def run_tasks(self, p):
+		"""[path]: the path with the tasks the hook scheduled run after it returned (ThreadPoolManager.schedule: the task runs on a pool
+		thread after its delay, ThreadPoolManager.java schedule; the hook has returned by then). The tasks run in the order of their delays,
+		equal delays in the order they were scheduled; each runs on the locals it captured, its `return` ends it. A harness runs them by
+		advancing its clock past the longest delay (the effects of a task carry the index of their schedule effect, `task`)"""
+		if not p.deferred:
+			return [p]
+		tasks = sorted(p.deferred, key=lambda t: t[1])            # sorted() is stable: equal delays keep their order
+		p.deferred = []
+		paths = [p]
+		for task, _delay, k in tasks:
+			nxt = []
+			for q in paths:
+				saved = q.locals
+				q.locals = dict(task.locals)
+				q.task = k
+				node = task.node
+				outs = self.exec_stmts(node.body, q) if node.body is not None else [('normal', r, None) for r, _v in self.eval(node.expr, q)]
+				for kind, r, _v in outs:
+					if kind in ('break', 'continue'):
+						raise Unsupported(f'{kind} outside a loop in a scheduled task')
+					if r.deferred:
+						raise Unsupported('a task scheduled by a scheduled task')
+					r.locals, r.task = saved, None
+					nxt.append(r)
+			paths = nxt
+			self.budget(len(paths))
+		return paths
 
 	def param_value(self, prm):
 		t = prm.type.name
@@ -924,6 +973,12 @@ class Extractor:
 			return out
 		if isinstance(e, jast.Assign):
 			return self.assign(e, p)
+		if isinstance(e, jast.Closure):
+			if e.params:
+				raise Unsupported(f'a {e.kind} with parameters')
+			if e.kind == 'anonymous-class' and (e.iface, e.method) != ('Runnable', 'run'):
+				raise Unsupported(f'an anonymous {e.iface}')
+			return [(p, Task(e, dict(p.locals)))]
 		if isinstance(e, jast.InstanceOf):
 			if e.binding:
 				raise Unsupported('instanceof pattern')
@@ -1154,6 +1209,9 @@ class Extractor:
 		return [p]
 
 	def throw(self, p, exc):
+		if p.task is not None or p.deferred:
+			# Java: the pool logs a task's exception (the hook has returned), and a hook that throws after a schedule still runs the task
+			raise Unsupported(f'a {exc} with a scheduled task')
 		self.leaves.append(('throw', p, exc))
 		self.budget(0)
 
@@ -1263,6 +1321,21 @@ class Extractor:
 				return self.quest_state(o[1], 'setQuestVarById', args, p, e)
 		if o == 'inventory' and name == 'getItemCountByItemId':
 			return [(p, self.read(p, ('inv', self.const_int(args[0], 'an item id'))))]
+		if o == 'inventory' and name == 'decreaseByObjectId' and len(args) == 2:
+			# Storage.decreaseByObjectId(itemObjId, count) (Storage.java): the item of that object id, when the inventory holds it
+			k = self.effect(p, 'inventory.decreaseByObjectId', args, 'item', e)
+			self.clobber(p, 'inventory.decreaseByObjectId', ('inventory',))
+			return [(p, Res(k))]
+		if o == 'threadPool' and name == 'schedule':
+			# ThreadPoolManager.schedule(Runnable, long delay) (ThreadPoolManager.java): the task runs after the hook (run_tasks); the effect
+			# records the delay, the task's effects carry its index
+			if len(args) != 2 or not isinstance(args[0], Task) or not isinstance(args[1], K) or not isinstance(args[1].v, int):
+				raise Unsupported(f'call {self.jtext(e)}')
+			if p.task is not None:
+				raise Unsupported('a task scheduled by a scheduled task')
+			k = self.effect(p, 'ThreadPoolManager.schedule', [args[1]], 'task', e)
+			p.deferred.append((args[0], args[1].v, k))
+			return [(p, Opaque('$future'))]
 		if o in ('target', 'npc'):
 			if name == 'getObjectId':
 				return [(p, Opaque('$targetObjectId'))]
@@ -1316,8 +1389,17 @@ class Extractor:
 			# QuestVars.setVar (QuestVars.java:52-58): the six 6-bit slots of the packed value
 			self.effect(p, 'qs.setQuestVar', args, 'var', e)
 			v = args[0]
+			if not isinstance(v, K):
+				# lane C (phase 6 step 1): a symbolic value the path bounds to one slot's range (`int var = qs.getQuestVarById(0); if (var == 2)
+				# qs.setQuestVar(var + 1)`) is slot 0, the other five slots 0; later guards only narrow the bounds
+				lo, hi = self.bounds(v, p)
+				if not (0 <= lo and hi <= 63):
+					self.unknown(f'qs.setQuestVar({v})')
+				for slot in range(6):
+					self.write(p, ('var', q, slot), v if slot == 0 else K(0))
+				return [(p, K(None))]
 			for slot in range(6):
-				self.write(p, ('var', q, slot), K((v.v >> (6 * slot)) & 0x3F) if isinstance(v, K) else self.unknown(f'qs.setQuestVar({v})'))
+				self.write(p, ('var', q, slot), K((v.v >> (6 * slot)) & 0x3F))
 			return [(p, K(None))]
 		if name == 'setStatus':
 			self.effect(p, 'qs.setStatus', args, 'status', e)
@@ -1328,6 +1410,21 @@ class Extractor:
 			self.write(p, ('rewardGroup', q), args[0])
 			return [(p, K(None))]
 		raise Unsupported(f'QuestState.{name}')
+
+	def bounds(self, v, p):
+		"""(lo, hi) of an int value on the path: a constant, an input's domain, or + and - of those (inf when unbounded)"""
+		if isinstance(v, K) and isinstance(v.v, int) and not isinstance(v.v, bool):
+			return v.v, v.v
+		if isinstance(v, In):
+			d = self.dom_of(p, v.key)
+			if d.allowed is not None:
+				ints = [x for x in d.allowed if isinstance(x, int) and not isinstance(x, bool) and d.ok(x)]
+				return (min(ints), max(ints)) if ints else (-INF, INF)
+			return d.lo, d.hi
+		if isinstance(v, Ar) and v.op in ('+', '-'):
+			(alo, ahi), (blo, bhi) = self.bounds(v.a, p), self.bounds(v.b, p)
+			return (alo + blo, ahi + bhi) if v.op == '+' else (alo - bhi, ahi - blo)
+		return -INF, INF
 
 	@staticmethod
 	def unknown(what):
@@ -1349,11 +1446,22 @@ class Extractor:
 			return self.after_args(e, p, lambda q, a: [(q, K(Enum('ZoneName', str(a[0].v).strip('"'))))])
 		if cls == 'DialogPage' and name == 'getRewardPageByIndex':
 			return self.after_args(e, p, lambda q, a: [(q, RewardPage(a[0]))])
+		if cls == 'ThreadPoolManager' and name == 'getInstance' and not e.args:
+			return [(p, O('threadPool'))]
+		if cls == 'PacketSendUtility' and name == 'broadcastPacket':
+			# PacketSendUtility.broadcastPacket(player, packet, toSelf) (PacketSendUtility.java:68-75): the player's known players and, with
+			# toSelf, the player; the quester has no other player in sight in a harness, so only toSelf shows
+			def broadcast(q, args):
+				if len(args) != 3 or args[0] != O('player') or not isinstance(args[1], New) or not isinstance(args[2], K):
+					raise Unsupported(f'call {self.jtext(e)}')
+				self.effect(q, 'PacketSendUtility.broadcastPacket', args[1:], 'packet', e)
+				return [(q, K(None))]
+			return self.after_args(e, p, broadcast)
 		raise Unsupported(f'call {cls}.{name}')
 
 	def new(self, e, p):
 		cls = e.type.name
-		if cls in ('SM_DIALOG_WINDOW', 'SM_PLAY_MOVIE', 'SM_EMOTION', 'SM_QUEST_ACTION'):
+		if cls in ('SM_DIALOG_WINDOW', 'SM_PLAY_MOVIE', 'SM_EMOTION', 'SM_QUEST_ACTION', 'SM_ITEM_USAGE_ANIMATION'):
 			return self.after_args(e, p, lambda q, a: [(q, New(cls, tuple(a)))])
 		raise Unsupported(f'new {cls}')
 
@@ -1390,6 +1498,8 @@ class Extractor:
 
 	def effect(self, p, call, args, kind, e):
 		p.effects.append((call, list(args), kind, self.line(e)))
+		if p.task is not None:
+			p.task_of[len(p.effects) - 1] = p.task
 		return len(p.effects) - 1
 
 	def inline(self, m, e, p):
@@ -1589,8 +1699,9 @@ class Extractor:
 
 	def outcome(self, kind, p, v, values):
 		"""the effects and the return value (or the exception) of the path, evaluated under the input values"""
-		o = {'effects': [{'call': call, 'kind': kd, 'args': [self.render(a, values, p) for a in args if a not in IMPLICIT], 'line': ln}
-		                 for call, args, kd, ln in p.effects]}
+		o = {'effects': [{'call': call, 'kind': kd, 'args': [self.render(a, values, p) for a in args if a not in IMPLICIT], 'line': ln,
+		                  **({'task': p.task_of[k]} if k in p.task_of else {})}
+		                 for k, (call, args, kd, ln) in enumerate(p.effects)]}
 		if kind == 'throw':
 			o['throws'] = v
 		else:
