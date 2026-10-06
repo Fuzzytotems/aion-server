@@ -313,6 +313,9 @@ TEST_F(ChatPacketsTest, TheSeventhQuickMessageIsFloodingAndBansForTwoMinutes) {
 	clearSent();
 	say(NORMAL, "still?");
 	EXPECT_EQ(sent(), cptest::exactly({systemMessage(STR_INGAME_BLOCK_IN_NO_CHAT, {"2"})})) << "the ban's minutes left, rounded up";
+	// ChatBanService's map is static and the next case's actor has the same object id: lift the ban, or every later chat of the suite is
+	// refused by canChat (the whisper cases failed after this one)
+	ban::ChatBanService::unbanPlayer(player());
 }
 
 // ---- CM_CHAT_MESSAGE_WHISPER ---------------------------------------------------------------------------------------------------------------
