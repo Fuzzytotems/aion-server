@@ -5,6 +5,14 @@
  "java": "inggison/_11008LetterOfEncouragement.java",
  "class": "_11008LetterOfEncouragement",
  "javaSha256": "ac7ad351457644acf2f4f91765a2d99db5d2aac980674f05fc4393c17ea6bfeb",
+ "corrections": [
+  {
+   "line": 100,
+   "java": "defaultOnLevelChangedEvent(player, 11008);",
+   "traced": "defaultOnLevelChangedEvent(player);",
+   "why": "named the quest itself as its pre-quest (owner's decision 2026-10-05)"
+  }
+ ],
  "register": [
   {"npc": 798927, "event": "addOnQuestStart", "args": [11008]},
   {"npc": 798927, "event": "addOnTalkEvent", "args": [11008]},
@@ -321,7 +329,7 @@
    "hook": "onLevelChangedEvent",
    "given": {},
    "guards": [],
-   "effects": [{"call": "defaultOnLevelChangedEvent", "kind": "quest", "args": [11008], "line": 100}],
+   "effects": [{"call": "defaultOnLevelChangedEvent", "kind": "quest", "args": [], "line": 100}],
    "returns": null
   }
  ]

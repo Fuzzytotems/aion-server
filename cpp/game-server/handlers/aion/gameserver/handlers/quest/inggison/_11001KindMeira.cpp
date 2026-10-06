@@ -127,7 +127,8 @@ public:
 	}
 
 	void onLevelChangedEvent(Player& player) override {
-		defaultOnLevelChangedEvent(player, {11001});
+		// correction of the Java code: Java :129 named the quest itself as its pre-quest (owner's decision 2026-10-05)
+		defaultOnLevelChangedEvent(player);
 	}
 };
 AION_QUEST_HANDLER(_11001KindMeira, 11001);

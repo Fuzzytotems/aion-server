@@ -927,6 +927,11 @@ none (33 before: 30 closures, 3 switch expressions) and writes cases for 826 (79
 expressions, 827 files and 19,799 cases (`_30211`'s dialog hook is traced now, 22 cases, and `_18035`'s and `_28035`'s, 25 each; `_1917`'s is
 refused further on, after `sendQuestNoneDialog`).
 
+The owner's corrections of the Java code (lane C, 2026-10-05; docs/design/owner-decisions.md): `OWNER_CORRECTIONS` names a Java line,
+its text and the corrected text the trace follows instead, a copy of questgen's table of the same name (the oracle does not import the
+generator; a test requires the two to be equal). Such a document has a `corrections` member (line, Java text, traced text, why) and its
+`javaSha256` is still the Java file's. The first rows: 11001 and 11008, whose level hook named the quest itself as its pre-quest.
+
 The input model has limits a harness should know. The visible object is an Npc or nothing: `QuestEnv.getTargetId` (QuestEnv.java:94-96)
 also returns the template id of a visible object that is not an Npc (a gatherable, a static object), which makes `instanceof Npc` false
 with a non-zero target id, and no case has such a target. The assumed results of helpers are not checked against the helpers (but for `dead_assumption`'s two rules).

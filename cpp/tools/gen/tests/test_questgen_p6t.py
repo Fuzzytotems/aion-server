@@ -454,7 +454,9 @@ class Corpus(unittest.TestCase):
         self.assertGreaterEqual(len(ok), 935)       # 929, and the six escorts of rows B26-B30 (2026-09-30, tests.test_questgen_escorts)
         bad = {}
         for r in ok:
-            ms = parity.compare((QUEST / r.rel).read_text(encoding='utf-8-sig'), r.cpp)
+            # an owner's correction (emit.OWNER_CORRECTIONS) is compared with the corrected Java the emitter read
+            java = emit.corrected_source((QUEST / r.rel).read_text(encoding='utf-8-sig'), emit.OWNER_CORRECTIONS.get(r.rel, {}), r.rel)
+            ms = parity.compare(java, r.cpp)
             if ms:
                 bad[r.rel] = [str(m) for m in ms][:2]
         self.assertEqual(bad, {})

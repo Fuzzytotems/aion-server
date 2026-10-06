@@ -5,6 +5,14 @@
  "java": "inggison/_11001KindMeira.java",
  "class": "_11001KindMeira",
  "javaSha256": "0d7fbf4f673a3045a59055d9bb4a170d713283ddfae5de7a1c65ccafa3a4c6d7",
+ "corrections": [
+  {
+   "line": 129,
+   "java": "defaultOnLevelChangedEvent(player, 11001);",
+   "traced": "defaultOnLevelChangedEvent(player);",
+   "why": "named the quest itself as its pre-quest (owner's decision 2026-10-05)"
+  }
+ ],
  "register": [
   {"npc": 798945, "event": "addOnQuestStart", "args": [11001]},
   {"npc": 798945, "event": "addOnTalkEvent", "args": [11001]},
@@ -448,7 +456,7 @@
    "hook": "onLevelChangedEvent",
    "given": {},
    "guards": [],
-   "effects": [{"call": "defaultOnLevelChangedEvent", "kind": "quest", "args": [11001], "line": 129}],
+   "effects": [{"call": "defaultOnLevelChangedEvent", "kind": "quest", "args": [], "line": 129}],
    "returns": null
   }
  ]
