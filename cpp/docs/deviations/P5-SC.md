@@ -1050,3 +1050,22 @@ build). The alliance run: an empty census, lockdep, watchdog and unported trace,
 inviter's group not dissolved - killed (GA1, then GA3, GA11a, GA11); the group move without its MEMBER_GROUP_CHANGE - killed (GA2 only); the
 ready check's START counting the starter - killed (GA4 only); `disband` without the group breaker - killed (GA11 only: `PlayerAllianceGroup`
 live).
+
+### GA7-GA9 (the league lane, 2026-10-05, branch `lane-b/m5g-leagues`)
+
+The league cases of §10.5 join the alliance gate: after GA6, C and D leave and form alliance 2; A invites C to a league (GA7: both
+alliances see the league of two, positions 0 and 1, and the league's rules FREEFORALL 0 0 2 2 2 2 2); A moves the alliances and back and
+makes B his alliance's leader (GA8: the position messages, `STR_UNION_CHANGE_LEADER_TIMEOUT` to every member but B); B expels alliance 2
+(GA9: `LEAGUE_EXPELLED` to it, `LEAGUE_EXPEL` and the league of one's `LEAGUE_DISPERSED` to his). GA10 becomes B's timeout disbanding
+alliance 1 and C's leave disbanding alliance 2; the reports add `League`, `LeagueMember` and `LeagueInviteEvent` at 0 live. The
+`SM_ALLIANCE_INFO` decoder now keeps the league block (positions, alliance ids, captains) and its test covers it.
+
+| Area | As built | Reason |
+|---|---|---|
+| GA8's move | moved and moved back | a leader's alliance off position 0 makes a later `reorganize` throw, in Java too (docs/deviations/P5-10d.md, proposed correction 2) |
+| GA8's leader change | the alliance leader's (17), not the league's (32) | 32 for the league leader's own alliance throws (proposed correction 3); §10.5's GA8 names 17 |
+
+**Runs**: `gs.scenario.m5g_alliance` with GA7-GA9 passed in 140.1 s (one ctest with `gs.scenario.m5g`). In the same ctest
+`gs.scenario.m5g` failed once at C12: B got no experience from kill 3 (GP11), which every earlier run counted. The re-run passed in
+258.1 s. Nothing on the branch touches the party reward path; the cause (B dead or out of range at that kill) is open. **Mutation proof**: `LeagueMoveEvent` without its position messages - killed (GA8 only); an expel that leaves the league of one alive -
+killed (GA9, and GA11: `League` live at the stop).
