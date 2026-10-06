@@ -14,7 +14,7 @@
 #include "aion/gameserver/network/aion/serverpackets/SM_STATUPDATE_HP.h"
 #include "aion/gameserver/network/aion/serverpackets/SM_STATUPDATE_MP.h"
 #include "aion/gameserver/runtime/base/Exceptions.h"
-#include "aion/gameserver/runtime/base/Unported.h"
+#include "aion/gameserver/taskmanager/tasks/TeamStatUpdater.h"
 #include "aion/gameserver/services/LifeStatsRestoreService.h"
 #include "aion/gameserver/utils/PacketSendUtility.h"
 
@@ -66,8 +66,7 @@ void PlayerLifeStats::onMpChanged(int32_t previousMp, int32_t newMp) {
 
 void PlayerLifeStats::sendGroupPacketUpdate() {
 	if (getOwner().isInTeam()) {
-		// Java: TeamStatUpdater.getInstance().add(owner) - taskmanager/tasks/TeamStatUpdater.h (P5-10) does not exist yet; no team at M5a
-		AION_UNPORTED();
+		taskmanager::tasks::TeamStatUpdater::getInstance().add(getOwner());
 	}
 }
 

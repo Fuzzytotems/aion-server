@@ -16,10 +16,12 @@
 // 70 ms, so the headroom is large, but a 1 s stall on a loaded machine truncates the burst, and the gate then fails with a sequence error that
 // looks like a port defect.
 
+#include <array>
 #include <chrono>
 #include <cstdint>
 #include <functional>
 #include <optional>
+#include <span>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -513,6 +515,46 @@ public:
 	 * a move while it is set, and CM_PLAY_MOVIE_END.java:52 alone clears it
 	 */
 	static std::vector<uint8_t> buildCM_PLAY_MOVIE_END(uint8_t type, int32_t targetObjectId, int32_t questId, int32_t movieId);
+
+	// ---- M5g's party packets (m5g-plan.md H-02), each the Java readImpl field order ----
+	/** the party packets of M5g: AionClientPacketFactory packets[77], [79], [96], [97], [108], [164], [181], [184] and [185] */
+	static constexpr int32_t CM_FIND_GROUP = 77;
+	static constexpr int32_t CM_GROUP_DATA_EXCHANGE = 79;
+	static constexpr int32_t CM_PLAYER_STATUS_INFO = 96;
+	static constexpr int32_t CM_INVITE_TO_GROUP = 97;
+	static constexpr int32_t CM_GROUP_DISTRIBUTION = 108;
+	static constexpr int32_t CM_QUEST_SHARE = 164;
+	static constexpr int32_t CM_SHOW_BRAND = 181;
+	static constexpr int32_t CM_GROUP_LOOT = 184;
+	static constexpr int32_t CM_DISTRIBUTION_SETTINGS = 185;
+	/** CM_INVITE_TO_GROUP.readImpl (CM_INVITE_TO_GROUP.java:30-33): readUC inviteType (0 group, 12 alliance, 28 league), readS playerName */
+	static std::vector<uint8_t> buildCM_INVITE_TO_GROUP(uint8_t inviteType, std::string_view playerName);
+	/** CM_PLAYER_STATUS_INFO.readImpl (CM_PLAYER_STATUS_INFO.java:31-36): readUC commandCode, readD selectedObjectId, allianceGroupId, secondObjectId */
+	static std::vector<uint8_t> buildCM_PLAYER_STATUS_INFO(uint8_t commandCode, int32_t selectedObjectId, int32_t allianceGroupId = 0,
+		int32_t secondObjectId = 0);
+	/**
+	 * CM_DISTRIBUTION_SETTINGS.readImpl (CM_DISTRIBUTION_SETTINGS.java:41-60): readD isLeague, lootRule, misc, the six quality words, then a
+	 * readD unk
+	 */
+	static std::vector<uint8_t> buildCM_DISTRIBUTION_SETTINGS(int32_t lootRule, int32_t misc, std::array<int32_t, 6> qualityWords);
+	/** CM_GROUP_DISTRIBUTION.readImpl (CM_GROUP_DISTRIBUTION.java:29-32): readQ amount, readC partyType */
+	static std::vector<uint8_t> buildCM_GROUP_DISTRIBUTION(int64_t amount, uint8_t partyType);
+	/** CM_SHOW_BRAND.readImpl (CM_SHOW_BRAND.java:31-35): readD action, brandId, targetObjectId */
+	static std::vector<uint8_t> buildCM_SHOW_BRAND(int32_t action, int32_t brandId, int32_t targetObjectId);
+	/**
+	 * CM_GROUP_DATA_EXCHANGE.readImpl (CM_GROUP_DATA_EXCHANGE.java:36-44): readUC action; for action != 1 readUC groupType and readUC unk2; then
+	 * readD size and readB data
+	 */
+	static std::vector<uint8_t> buildCM_GROUP_DATA_EXCHANGE(uint8_t action, uint8_t groupType, uint8_t unk2, std::span<const uint8_t> data);
+	/** CM_FIND_GROUP.readImpl action 0 (CM_FIND_GROUP.java:41-43): the recruitment list */
+	static std::vector<uint8_t> buildCM_FIND_GROUP_LIST();
+	/** CM_FIND_GROUP.readImpl action 2 (:53-57): readD playerOrTeamId, readS message, readUC groupType */
+	static std::vector<uint8_t> buildCM_FIND_GROUP_OFFER(int32_t playerOrTeamId, std::string_view message, uint8_t groupType);
+	/** CM_GROUP_LOOT.readImpl (CM_GROUP_LOOT.java:44-56) */
+	static std::vector<uint8_t> buildCM_GROUP_LOOT(int32_t groupId, int32_t index, int32_t itemId, int32_t npcObjId, uint8_t distributionMode,
+		int32_t roll, int64_t bid);
+	/** CM_QUEST_SHARE.readImpl (CM_QUEST_SHARE.java:39-41): readD questId */
+	static std::vector<uint8_t> buildCM_QUEST_SHARE(int32_t questId);
 
 	// ---- M5c's stage-1 packets (m5c-plan.md K-01, K-02, G-02) and stage 2's crafting packets, each the Java readImpl field order ----
 	/** one entry of CM_BUY_ITEM (CM_BUY_ITEM.java:65-66): readD itemId (see TRADE_*), readQ count */

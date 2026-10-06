@@ -12,7 +12,9 @@
 #include "aion/gameserver/model/gameobjects/player/RequestResponseHandler.h"
 #include "aion/gameserver/model/gameobjects/player/ResponseRequester.h"
 #include "aion/gameserver/model/team/TemporaryPlayerTeam.h"
+#include "aion/gameserver/model/team/alliance/PlayerAllianceService.h"
 #include "aion/gameserver/model/team/group/PlayerGroup.h"
+#include "aion/gameserver/model/team/group/PlayerGroupService.h"
 #include "aion/gameserver/model/templates/spawns/SpawnTemplate.h"
 #include "aion/gameserver/model/vortex/VortexLocation.h"
 #include "aion/gameserver/network/aion/serverpackets/SM_QUESTION_WINDOW.h"
@@ -68,9 +70,9 @@ public:
 		if (controller.onAccept(responder)) {
 			if (responder.isInTeam()) {
 				if (runtime::as<model::team::group::PlayerGroup>(responder.getCurrentTeam())) {
-					standins::playerGroupServiceRemovePlayer(responder);
+					model::team::group::PlayerGroupService::removePlayer(responder);
 				} else {
-					standins::playerAllianceServiceRemovePlayer(responder);
+					model::team::alliance::PlayerAllianceService::removePlayer(responder);
 				}
 			}
 

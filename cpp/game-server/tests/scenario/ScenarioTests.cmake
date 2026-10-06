@@ -122,7 +122,8 @@ if(TARGET aion_gs_scenario_tests)
 		AION_SCENARIO_TRAVEL_PARTIAL_ALLOWLIST="${CMAKE_CURRENT_SOURCE_DIR}/tests/scenario/travel_partial_allowlist.txt"
 		AION_SCENARIO_M5D_PARTIAL_ALLOWLIST="${CMAKE_CURRENT_SOURCE_DIR}/tests/scenario/m5d_partial_allowlist.txt"
 		AION_SCENARIO_M5E_PARTIAL_ALLOWLIST="${CMAKE_CURRENT_SOURCE_DIR}/tests/scenario/m5e_partial_allowlist.txt"
-		AION_SCENARIO_M5F_PARTIAL_ALLOWLIST="${CMAKE_CURRENT_SOURCE_DIR}/tests/scenario/m5f_partial_allowlist.txt")
+		AION_SCENARIO_M5F_PARTIAL_ALLOWLIST="${CMAKE_CURRENT_SOURCE_DIR}/tests/scenario/m5f_partial_allowlist.txt"
+		AION_SCENARIO_M5G_PARTIAL_ALLOWLIST="${CMAKE_CURRENT_SOURCE_DIR}/tests/scenario/m5g_partial_allowlist.txt")
 
 	# the oracle answers are JSON (Oracle.cpp); commons finds the same package in its own directory scope
 	find_package(nlohmann_json CONFIG REQUIRED)
@@ -478,5 +479,23 @@ if(TARGET aion_gs_scenario_tests)
 	endif()
 	if(AION_SCENARIO_REQUIRE OR NOT AION_GS_ALLOW_MILESTONE_SKIP)
 		set_property(TEST gs.scenario.m5f_geo APPEND PROPERTY ENVIRONMENT_MODIFICATION "AION_SCENARIO_REQUIRE=set:1")
+	endif()
+
+	# ---- the M5g party gate (m5g-plan.md G-01, §10) ----------------------------------------------------------------------------------------
+	#
+	# gs.scenario.m5g: four accounts online at once - an Elyos Warrior (the leader), a Mage, a Priest and a Scout - beside Poeta's juvenile
+	# sparkies: invites, refusals, the party UI data, member icons, the move updater, loot rules, brands, shared experience and the round robin,
+	# the kinah split, leader change, kick, find group, disconnect and reconnect, a member's death and revive, the offline timeout, the last
+	# leave's disband and a live group at the stop. Its own output directory <bin>/scenario/m5g, schema pair (aion_gs_test_m5g_<hash>) and
+	# AION_PARTIAL allow-list. Gate slot 2 (the M5e pair joined slot 1). No geo variant (m5g-plan.md D12). TIMEOUT 1800 (§10.7).
+	add_test(NAME gs.scenario.m5g COMMAND "$<TARGET_FILE:aion_gs_scenario_tests>" --gtest_filter=M5gScenario.Run
+		WORKING_DIRECTORY "${scenario_work_dir}")
+	set_tests_properties(gs.scenario.m5g PROPERTIES LABELS "scenario;realdata" TIMEOUT 1800
+		RESOURCE_LOCK "${AION_GS_GATE_SLOT_2}" SKIP_REGULAR_EXPRESSION "gs\\.scenario\\.m5g: skipped")
+	if(Python3_Interpreter_FOUND)
+		set_property(TEST gs.scenario.m5g APPEND PROPERTY ENVIRONMENT_MODIFICATION "AION_TEST_PYTHON=set:${Python3_EXECUTABLE}")
+	endif()
+	if(AION_SCENARIO_REQUIRE OR NOT AION_GS_ALLOW_MILESTONE_SKIP)
+		set_property(TEST gs.scenario.m5g APPEND PROPERTY ENVIRONMENT_MODIFICATION "AION_SCENARIO_REQUIRE=set:1")
 	endif()
 endif()
