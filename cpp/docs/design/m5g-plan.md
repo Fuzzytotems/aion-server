@@ -1264,3 +1264,21 @@ words) are constants it lists. Decoders needed: `SM_ALLIANCE_INFO`, `SM_ALLIANCE
 - The alliance-only gate (item 7) is the integrator's recommendation to the owner (2026-10-05); the league rows are a later extension of
   the same gate. m5g-1 (item 1) is a hub-header change pending the owner's approval: if the owner picks the lint tag instead, commit 1 is
   replaced and the rest stands.
+
+### 16.5 Status (2026-10-05, end of the lane's day)
+
+| Item | State | Where |
+|---|---|---|
+| 1 m5g-1 | **done, pending the owner's approval** (four tagged `GeneralTeam` constructors) | header-requests.md m5g-1 |
+| 2 AL-01 | **done**: `PlayerAlliance` 18, `PlayerAllianceGroup` 10, plus the C++ `releaseGroups()` breaker | tests/team/P5-10c/PlayerAllianceModelTest (9) |
+| 3 AL-02 | **done**: `PlayerAllianceService` 20; the vortex arms and the two `LeagueLeftEvent` calls stay `AION_UNPORTED` (M5i, LG-03) | docs/deviations/P5-10c.md |
+| 4 AL-03 | **done** with AL-02 (the service builds the events): the 12 events, D4's six event-side suppressions | tests/team/P5-10c/AllianceLifecycleTest (17) |
+| 5 AL-04 | **done**: `SM_ALLIANCE_MEMBER_INFO`'s constructor, `SM_ALLIANCE_INFO`'s league position | – |
+| 6 AL-05 | **done**: 26 alliance unit cases; 10 unit mutants, all killed (invite without the dissolution, disband without the breaker, the open group ignoring `isFull`, the leader change ignoring vice captains, five vice captains, the update to the actor, the ready count, one lock class, no offline check, the reconnect keeping the member) | – |
+| 7 gate | **done**: `gs.scenario.m5g_alliance` green in 141.9 s, `gs.scenario.m5g` green in 275.1 s on this branch; 4 gate mutants killed (GA1, GA2, GA4, GA11) | docs/deviations/P5-SC.md "M5g alliance gate" |
+
+Also: the full Debug build, and every non-database unit test (4,565) pass on the branch; `PartyPacketsTest.InviteTypeTwelveReachesTheAllianceService`
+now expects the alliance question instead of `AION_UNPORTED`.
+
+**Left for the alliances**: GA5's chat row (lane A), the league rows GA7-GA9 (the league lane: `League`, `LeagueService`, the nine league
+events, LG-04's lock-order test), the group-instance rows GA12-GA14 (stage 3), and the owner's answers on m5g-1 and the gate scope.
