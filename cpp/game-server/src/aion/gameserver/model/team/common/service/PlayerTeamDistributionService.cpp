@@ -42,6 +42,8 @@ using gameobjects::player::Player;
 class PlayerTeamDistributionService::PlayerTeamRewardStats {
 public:
 	std::vector<runtime::Ptr<Player>> players;
+	/** C++ correction (owner's decision 2026-10-05): the members QuestEngine.onKill is called for after the team lock is released */
+	std::vector<runtime::Ref<Player>> questKillers;
 	const bool disableRangeChecks;
 	int32_t partyLvlSum = 0;
 	int32_t highestLevel = 0;
@@ -55,8 +57,10 @@ public:
 		if (member.isOnline() &&
 			utils::PositionUtil::isInRange(member, *owner,
 				static_cast<float>(disableRangeChecks ? 9999 : configs::main::GroupConfig::GROUP_MAX_DISTANCE.load()))) {
-			runtime::Ref<questEngine::model::QuestEnv> env = questEngine::model::QuestEnv::create(*owner, member, 0);
-			questEngine::QuestEngine::getInstance().onKill(*env);
+			// Java: QuestEngine.getInstance().onKill(new QuestEnv(owner, member, 0)) here, under the team lock (PlayerTeamDistributionService.java:122).
+			// Corrected (owner's decision 2026-10-05, both branches; docs/deviations/P5-10a.md): the member is collected and doReward calls onKill
+			// once the forEach released the lock - quest handlers take other locks and may reach the team again
+			questKillers.emplace_back(member);
 
 			if (member.isMentor()) {
 				mentorCount++;
@@ -85,6 +89,11 @@ void PlayerTeamDistributionService::doReward(TemporaryPlayerTeam& team, float da
 			runtime::cast<alliance::PlayerAlliance>(a)->forEach(accept);
 	} else {
 		team.forEach(accept);
+	}
+	// C++ correction (owner's decision 2026-10-05): the quest kills of the members accept collected, outside the team lock, in the same order
+	for (const runtime::Ref<Player>& member : filteredStats.questKillers) {
+		runtime::Ref<questEngine::model::QuestEnv> env = questEngine::model::QuestEnv::create(owner, *member, 0);
+		questEngine::QuestEngine::getInstance().onKill(*env);
 	}
 
 	// All non-mentors are not nearby or dead
