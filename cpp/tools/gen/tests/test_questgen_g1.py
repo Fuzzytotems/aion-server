@@ -1,9 +1,9 @@
-"""questgen's G1-lane rules (docs/design/phase6-transliterator.md §2; emit.G1_RULES and API rows B31-B38): the closure parser of jast (opt in,
-so tools/oracle's extractor keeps its refusals), the scheduled-closure rule on the real handlers it exists for and on synthetic ones (the
-captures lint L5 accepts, the refusals), the rows B32-B38 and the configuration flag rule on their real files, the driver's default rule set,
-the whole corpus (the rules only add files, every transliterated file at parity), compilecheck's diagnostics parser, and, where MSVC and
-the vcpkg headers are found, compilecheck itself on two emitted files (cl with a Q chunk's flags and the prelude PCH, about 10 s;
-AION_QUESTGEN_COMPILE_CHECK=0 skips it).
+"""questgen's G1-lane rules (docs/design/phase6-transliterator.md §2; emit.G1_RULES and API rows B31-B38): the closure parser of jast (opt in;
+tools/oracle's extractor opts in too since lane C, phase6-transliterator.md §7), the scheduled-closure rule on the real handlers it exists
+for and on synthetic ones (the captures lint L5 accepts, the refusals), the rows B32-B38 and the configuration flag rule on their real
+files, the driver's default rule set, the whole corpus (the rules only add files, every transliterated file at parity), compilecheck's
+diagnostics parser, and, where MSVC and the vcpkg headers are found, compilecheck itself on two emitted files (cl with a Q chunk's flags and
+the prelude PCH, about 10 s; AION_QUESTGEN_COMPILE_CHECK=0 skips it).
 
 Run from cpp/tools/gen: python -m unittest tests.test_questgen_g1
 """

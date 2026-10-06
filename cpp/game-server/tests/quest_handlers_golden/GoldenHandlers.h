@@ -197,11 +197,22 @@
 	X(pandaemonium, _4976ASettlerAmbition, 4976)
 // clang-format on
 
+// Lane C, phase 6 step 1 (2026-10-05): the out-of-tree golden sample (tools/gen/questgen/goldensample.py, phase6-transliterator.md §7) compiles
+// this harness with AION_GOLDEN_SAMPLE_TABLE naming a header that defines AION_GOLDEN_SAMPLE_HANDLERS(X) with the staged generated handlers it
+// adds, and AION_GOLDEN_EXPECTED_DIR naming a directory with their oracle documents. The tree's build defines neither: the table is the one
+// above.
+#ifdef AION_GOLDEN_SAMPLE_TABLE
+#include AION_GOLDEN_SAMPLE_TABLE
+#else
+#define AION_GOLDEN_SAMPLE_HANDLERS(X)
+#endif
+
 #define AION_GOLDEN_DECLARE_FACTORY(dir, Class, questId)                                                                                       \
 	namespace aion::gameserver::handlers::quest::dir {                                                                                           \
 	::std::unique_ptr<::aion::gameserver::questEngine::handlers::AbstractQuestHandler> Class##_questFactory();                                  \
 	}
 AION_GOLDEN_GENERATED_HANDLERS(AION_GOLDEN_DECLARE_FACTORY)
+AION_GOLDEN_SAMPLE_HANDLERS(AION_GOLDEN_DECLARE_FACTORY)
 #undef AION_GOLDEN_DECLARE_FACTORY
 
 namespace aion::gameserver::questEngine::handlers::test::golden {
@@ -221,7 +232,8 @@ struct GeneratedHandler {
  * order inside a directory) */
 inline const std::vector<GeneratedHandler>& generatedHandlers() {
 #define AION_GOLDEN_ENTRY(dir, Class, questId) GeneratedHandler{#dir, #Class, questId, &::aion::gameserver::handlers::quest::dir::Class##_questFactory},
-	static const std::vector<GeneratedHandler> table{AION_GOLDEN_GENERATED_HANDLERS(AION_GOLDEN_ENTRY)};
+	static const std::vector<GeneratedHandler> table{
+		AION_GOLDEN_GENERATED_HANDLERS(AION_GOLDEN_ENTRY) AION_GOLDEN_SAMPLE_HANDLERS(AION_GOLDEN_ENTRY)};
 #undef AION_GOLDEN_ENTRY
 	return table;
 }
