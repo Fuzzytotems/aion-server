@@ -13,6 +13,7 @@
 #include "aion/gameserver/ai/AbstractAI.h"
 #include "aion/gameserver/configs/main/AIConfig.h"
 #include "aion/gameserver/controllers/NpcController.h"
+#include "aion/gameserver/controllers/StaticObjectController.h"
 #include "aion/gameserver/controllers/effect/EffectController.h"
 #include "aion/gameserver/dataholders/DataManager.h"
 #include "aion/gameserver/dataholders/GatherableData.bind.h"
@@ -31,6 +32,7 @@
 #include "aion/gameserver/handlers/admincommands/SpawnNpc.h"
 #include "aion/gameserver/handlers/admincommands/UseSkill.h"
 #include "aion/gameserver/model/gameobjects/Npc.h"
+#include "aion/gameserver/model/gameobjects/StaticObject.h"
 #include "aion/gameserver/model/stats/container/NpcLifeStats.h"
 #include "aion/gameserver/model/templates/spawns/SpawnGroup.h"
 #include "aion/gameserver/model/templates/spawns/SpawnTemplate.h"
@@ -343,6 +345,15 @@ TEST_F(MonsterCommandsTest, AiArms) {
 	client()->clearSent();
 	EXPECT_TRUE(ai.process(admin, args({"event2", "attacked"})));
 	EXPECT_EQ(client()->sentBytes(), info("Please provide a valid creature object ID"));
+
+	// the owner's correction of 2026-10-05: a visible object that is no creature (Java: ClassCastException, the error line)
+	runtime::Ref<model::gameobjects::StaticObject> object = model::gameobjects::VisibleObject::create<model::gameobjects::StaticObject>(
+		std::make_unique<controllers::StaticObjectController>(), *npc.getSpawn(), nullptr);
+	world::World::getInstance().storeObject(*object);
+	client()->clearSent();
+	EXPECT_TRUE(ai.process(admin, args({"event2", "attacked", std::to_string(object->getObjectId())})));
+	EXPECT_EQ(client()->sentBytes(), info("Please provide a valid creature object ID"));
+	world::World::getInstance().removeObject(*object);
 	client()->clearSent();
 	EXPECT_TRUE(ai.process(admin, args({"state", "dizzy"})));
 	EXPECT_NE(client()->sentBytes(), info(ai.getSyntaxInfo()));

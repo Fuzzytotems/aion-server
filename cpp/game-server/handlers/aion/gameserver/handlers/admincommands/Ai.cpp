@@ -1,7 +1,6 @@
 #include "aion/gameserver/handlers/admincommands/Ai.h"
 
 #include <memory>
-#include <typeinfo>
 
 #include "aion/commons/logging/LoggerFactory.h"
 #include "aion/commons/utils/Numbers.h"
@@ -100,10 +99,9 @@ void Ai::execute(Player& admin, std::span<const std::string> params) {
 			} else if (equalsIgnoreCase(params[0], "event2")) {
 				runtime::Ptr<Creature> creature;
 				if (params.size() >= 3) {
-					runtime::Ptr<VisibleObject> object = World::getInstance().findVisibleObject(commons::utils::parseInt(params[2]));
-					creature = runtime::as<Creature>(object);
-					if (object != nullptr && creature == nullptr) // Java: the (Creature) cast of another visible object
-						throw runtime::ClassCastException("class " + utils::simpleClassName(typeid(*object)) + " cannot be cast to class Creature");
+					// Correction of the Java code (owner's decision 2026-10-05, both branches; docs/deviations/C2.md): an object that is no
+					// creature is answered like an unknown ID (Java's (Creature) cast threw ClassCastException)
+					creature = runtime::as<Creature>(World::getInstance().findVisibleObject(commons::utils::parseInt(params[2])));
 				}
 				if (creature == nullptr)
 					sendInfo(admin, "Please provide a valid creature object ID");
