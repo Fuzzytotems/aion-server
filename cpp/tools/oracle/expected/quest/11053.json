@@ -1,0 +1,11 @@
+{
+ "format": "aion-quest-trace",
+ "version": 1,
+ "questId": 11053,
+ "java": "inggison/_11053TheseShoesAreMadeForStalking.java",
+ "class": "_11053TheseShoesAreMadeForStalking",
+ "javaSha256": "89e4d3f3ec85ba564e70c27ec27ff6f9ea90d726d776943703f077e59db60514",
+ "register": [{"npc": 799015, "event": "addOnQuestStart", "args": [11053]}, {"npc": 799015, "event": "addOnTalkEvent", "args": [11053]}],
+ "hooks": [{"hook": "onDialogEvent", "line": 27, "unsupported": "call player.getInventory().tryDecreaseKinah(50000)"}],
+ "cases": []
+}
