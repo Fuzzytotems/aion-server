@@ -1,6 +1,6 @@
 // M5c P-05 (m5c-plan.md §5, P5-07, W-09): CubeExpandService (the cube expander's question and its RequestResponseHandler, the three expansion
-// kinds, the ticket and total limits) and ExpandInventoryAction (the cube tickets; the warehouse arm calls WarehouseService, group K, still
-// AION_UNPORTED), against CubeExpandService.java:29-125 and ExpandInventoryAction.java:29-55. Tests of P-06.
+// kinds, the ticket and total limits) and ExpandInventoryAction (the cube tickets; the warehouse arm calls WarehouseService, ported with the
+// M5b-3 leftovers), against CubeExpandService.java:29-125 and ExpandInventoryAction.java:29-55. Tests of P-06.
 //
 // Expectations: tools/oracle `oracle.py m5c-economy --no-profile --set gameserver.siege.enable=false --npc 798008` (and `--map 400010000 --npc
 // 279022`) with `--npc-expands`, `--quest-expands`, `--item-expands` and `--set gameserver.npcexpands.limit=4` gives each answer below: the question
@@ -13,6 +13,7 @@
 
 #include "PlayerItemsTestSupport.h"
 
+#include <algorithm>
 #include <cstdint>
 #include <string>
 #include <vector>
@@ -271,14 +272,25 @@ TEST_F(CubeExpandServiceTest, ATicketThatIsNotInTheCubeDoesNothing) {
 	EXPECT_EQ(player().getItemExpands(), 0);
 }
 
-TEST_F(CubeExpandServiceTest, TheWarehouseTicketReachesTheUnportedWarehouseService) {
-	// ExpandInventoryAction.java:33, :51-52: the WAREHOUSE arm calls WarehouseService (m5c-plan.md D2, group K: no start-map source of a
-	// warehouse ticket), still AION_UNPORTED: canAct throws its UnportedException, act uses the ticket up first (Java's order) and then throws
+TEST_F(CubeExpandServiceTest, TheWarehouseTicketExpandsTheWarehouseOnce) {
+	// ExpandInventoryAction.java:33, :51-52: the WAREHOUSE arm calls WarehouseService (ported with the M5b-3 leftovers, CP3):
+	// canExpandByTicket allows a level-1 ticket to a character without bonus expansions (WarehouseService.java:87-95), act uses the ticket
+	// up and expand(player, false) adds a bonus expansion with STR_EXTEND_CHAR_WAREHOUSE_SIZE_EXTENDED(8) (WarehouseService.java:72-85)
 	Item& ticket = inCube(960901, EXPAND_WAREHOUSE_TICKET_1, 1);
 	const ExpandInventoryAction& action = onlyActionOf<ExpandInventoryAction>(EXPAND_WAREHOUSE_TICKET_1);
-	EXPECT_THROW(action.canAct(player(), Ptr<Item>(ticket), nullptr), runtime::UnportedException);
-	EXPECT_THROW(action.act(player(), Ptr<Item>(ticket), nullptr), runtime::UnportedException);
+	runtime::resetUnportedHitsForTests();
+	EXPECT_TRUE(action.canAct(player(), Ptr<Item>(ticket), nullptr));
+	clearSent();
+	action.act(player(), Ptr<Item>(ticket), nullptr);
 	EXPECT_FALSE(player().getInventory().getItemByObjId(960901));
+	EXPECT_EQ(player().getWhBonusExpands(), 1);
+	const std::vector<std::vector<uint8_t>> packets = sent();
+	EXPECT_EQ(std::count(packets.begin(), packets.end(), systemMessage(SM_SYSTEM_MESSAGE::STR_EXTEND_CHAR_WAREHOUSE_SIZE_EXTENDED(8))), 1);
+	EXPECT_EQ(runtime::unportedHitCount(), 0u);
+	Item& second = inCube(960902, EXPAND_WAREHOUSE_TICKET_1, 1);
+	clearSent();
+	EXPECT_FALSE(action.canAct(player(), Ptr<Item>(second), nullptr)) << "1 bonus expansion - 0 warehouse quests >= ticket level 1";
+	EXPECT_EQ(sent(), cp::exactly({systemMessage(SM_SYSTEM_MESSAGE::STR_EXTEND_CHAR_WAREHOUSE_CANT_EXTEND_MORE())}));
 }
 
 } // namespace

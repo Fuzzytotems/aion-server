@@ -13,6 +13,11 @@
 #include "aion/gameserver/dataholders/DataManager.h"
 #include "aion/gameserver/dataholders/HouseData.bind.h"
 #include "aion/gameserver/dataholders/HouseData.h"
+#include "aion/gameserver/dataholders/HousingObjectData.bind.h"
+#include "aion/gameserver/dataholders/HousingObjectData.h"
+#include "aion/gameserver/model/gameobjects/ChairObject.h"
+#include "aion/gameserver/model/gameobjects/PassiveObject.h"
+#include "aion/gameserver/services/item/HouseObjectFactory.h"
 #include "aion/gameserver/model/gameobjects/Persistable.h"
 #include "aion/gameserver/model/house/House.h"
 #include "aion/gameserver/model/house/HouseBids.h"
@@ -138,6 +143,24 @@ TEST_F(HouseModelTest, PersistentStateAndOwnerStates) {
 	EXPECT_EQ(house->getDefaultAuctionPrice(), 1000000000) << "the land's gold price for a HOUSE without configured minimum bid";
 	AtomicConfigScope<int32_t> houseMinBid(configs::main::HousingConfig::HOUSE_MIN_BID, 5000);
 	EXPECT_EQ(house->getDefaultAuctionPrice(), 5000);
+}
+
+TEST_F(HouseModelTest, TheHouseObjectFactoryBuildsTheObjectKindOfTheTemplate) {
+	// HouseObjectFactory.java:42-66 (P5-07, M5b-3 leftovers CP3): an instanceof chain over the placeable template's kind, PassiveObject
+	// otherwise; housing_objects.xml :3 (a passive carpet) and :6 (a chair)
+	PublishedHolder<dataholders::HousingObjectData> objects(dataholders::DataManager::HOUSING_OBJECT_DATA, bindXml<dataholders::HousingObjectData>(R"(<housing_objects>
+    <passive area="INTERIOR" location="FLOOR" use_days="1" id="3000001" name_id="360001" category="CARPET" quality="COMMON" talking_distance="5.0" can_dye="true"/>
+    <chair area="INTERIOR" location="FLOOR" use_days="1" id="3000004" name_id="360004" category="CHAIR" quality="COMMON" talking_distance="5.0" can_dye="true"/>
+</housing_objects>)"));
+	runtime::Ref<House> house = model::gameobjects::VisibleObject::create<House>(address(10001), 0);
+	runtime::Ref<model::house::HouseRegistry> registry = model::house::HouseRegistry::create(*house);
+	runtime::Ref<model::gameobjects::HouseObject> chair = services::item::HouseObjectFactory::createNew(*registry, 7001, 3000004);
+	EXPECT_TRUE(dynamic_cast<model::gameobjects::ChairObject*>(chair.get()));
+	EXPECT_EQ(chair->getObjectId(), 7001);
+	runtime::Ref<model::gameobjects::HouseObject> carpet = services::item::HouseObjectFactory::createNew(*registry, 7002, 3000001);
+	EXPECT_TRUE(dynamic_cast<model::gameobjects::PassiveObject*>(carpet.get()));
+	EXPECT_FALSE(dynamic_cast<model::gameobjects::ChairObject*>(carpet.get()));
+	EXPECT_THROW(services::item::HouseObjectFactory::createNew(*registry, 7003, 3999999), runtime::NullPointerException) << "no template";
 }
 
 TEST_F(HouseModelTest, RegistryWithoutObjects) {
