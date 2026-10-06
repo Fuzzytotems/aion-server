@@ -73,7 +73,8 @@ std::string toUpperCase(std::string text) {
  */
 void finishUse(int32_t id, Player& player, Item& item, MultiReturnAction_ItemUseObserver& observer, int32_t indexReturn) {
 	// Java: DataManager.MULTIRETURN_DATA.getReturnLocListById(id).get(indexReturn) - a NullPointerException for an id without a list and an
-	// IndexOutOfBoundsException for an index the client sent outside it, both kept
+	// IndexOutOfBoundsException for an index outside it. Since the owner's correction canAct refuses both before CM_USE_ITEM calls act, so
+	// only a direct caller of act that skips canAct still gets Java's exceptions here
 	const std::vector<ReturnLocList>* list = dataholders::DataManager::MULTIRETURN_DATA->getReturnLocListById(id);
 	if (list == nullptr)
 		throw runtime::NullPointerException("MultiReturnItemData.getReturnLocListById(" + std::to_string(id) + ")");
@@ -94,10 +95,18 @@ void finishUse(int32_t id, Player& player, Item& item, MultiReturnAction_ItemUse
 
 } // namespace
 
-// Java MultiReturnAction.java:30-33
+// Java MultiReturnAction.java:30-33 (`return true`), with the owner's correction of 2026-10-05 (both branches; docs/deviations/P5-07.md,
+// "MultiReturnAction: correction of the Java code"): the client's index must name an entry of the action's return list, or the scroll cannot
+// act - CM_USE_ITEM then drops the use silently, as it drops its other bad input, and the scroll stays. Java let act's task throw instead.
 bool MultiReturnAction::canAct(gameobjects::player::Player& /*player*/, runtime::Ptr<gameobjects::Item> /*item*/,
-	runtime::Ptr<gameobjects::Item> /*targetItem*/, std::initializer_list<std::any> /*params*/) const {
-	return true;
+	runtime::Ptr<gameobjects::Item> /*targetItem*/, std::initializer_list<std::any> params) const {
+	if (params.size() == 0)
+		return false;
+	const int32_t* indexReturn = std::any_cast<int32_t>(&params.begin()[0]);
+	if (indexReturn == nullptr)
+		return false;
+	const std::vector<ReturnLocList>* list = dataholders::DataManager::MULTIRETURN_DATA->getReturnLocListById(id);
+	return list != nullptr && *indexReturn >= 0 && static_cast<size_t>(*indexReturn) < list->size();
 }
 
 // Java MultiReturnAction.java:35-67
