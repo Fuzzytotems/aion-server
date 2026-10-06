@@ -25,6 +25,7 @@
 #include "aion/gameserver/model/team/common/legacy/LootGroupRules.h"
 #include "aion/gameserver/model/team/group/PlayerGroup.h"
 #include "aion/gameserver/model/team/league/League.h"
+#include "aion/gameserver/model/team/league/events/LeagueLeftEvent.h"
 #include "aion/gameserver/network/aion/serverpackets/SM_QUESTION_WINDOW.h"
 #include "aion/gameserver/network/aion/serverpackets/SM_SYSTEM_MESSAGE.h"
 #include "aion/gameserver/restrictions/PlayerRestrictions.h"
@@ -222,8 +223,8 @@ void PlayerAllianceService::disband(PlayerAlliance& alliance, bool onBefore) {
 		// java-race: alliance → league here; league → alliance in every league event (m5g-plan.md §2.11 item 3)
 		// lockdep: Java takes the league, and through it the other alliances, under this alliance's lock
 		runtime::LockdepSuppression suppression("Java takes the league, and through it the other alliances, under this alliance's lock (m5g-plan.md D4)");
-		// Java: league.onEvent(new LeagueLeftEvent(league, alliance)) - the league events are the league lane's (m5g-plan.md LG-03)
-		AION_UNPORTED();
+		league::events::LeagueLeftEvent event(*league, alliance);
+		league->onEvent(event);
 	}
 	{
 		events::AllianceDisbandEvent event(alliance);
@@ -236,8 +237,8 @@ void PlayerAllianceService::disband(PlayerAlliance& alliance, bool onBefore) {
 		// java-race: alliance → league here; league → alliance in every league event (m5g-plan.md §2.11 item 3)
 		// lockdep: Java takes the league, and through it the other alliances, under this alliance's lock
 		runtime::LockdepSuppression suppression("Java takes the league, and through it the other alliances, under this alliance's lock (m5g-plan.md D4)");
-		// Java: league.onEvent(new LeagueLeftEvent(league, alliance)) - the league events are the league lane's (m5g-plan.md LG-03)
-		AION_UNPORTED();
+		league::events::LeagueLeftEvent event(*league, alliance);
+		league->onEvent(event);
 	}
 }
 

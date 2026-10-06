@@ -1282,3 +1282,20 @@ now expects the alliance question instead of `AION_UNPORTED`.
 
 **Left for the alliances**: GA5's chat row (lane A), the league rows GA7-GA9 (the league lane: `League`, `LeagueService`, the nine league
 events, LG-04's lock-order test), the group-instance rows GA12-GA14 (stage 3), and the owner's answers on m5g-1 and the gate scope.
+
+### 16.6 The league lane (2026-10-05, branch `lane-b/m5g-leagues` from `lane-b/m5g-alliances`)
+
+| Item | State | Where |
+|---|---|---|
+| LG-01 | **done**: `League` 21 | – |
+| LG-02 | **done**: `LeagueService` 12; `PlayerAllianceService.disband`'s two `LeagueLeftEvent` calls no longer `AION_UNPORTED` | – |
+| LG-03 | **done**: the nine league events | docs/deviations/P5-10d.md |
+| LG-04 | **done**: `tests/team/P5-10d/LeagueLifecycleTest` (9), the lock-order case included: no report with D4's six alliance-side suppressions; each removed alone gives a `CYCLE`, a shared League / PlayerAlliance lock class fails all nine (7 mutants, all killed) | – |
+| GA7-GA9 | **done** in `gs.scenario.m5g_alliance`: the league of two alliances (positions, the league's loot rules), the move and its messages, the leader change told to the other alliance, the expel and the league of one's disband; GA10 reworked for two alliances; the reports add `League`, `LeagueMember`, `LeagueInviteEvent` at 0 live | docs/deviations/P5-SC.md |
+| Find group | **nothing left to port**: `FindGroupService`, the four find-group model classes and both packets have no `AION_UNPORTED`; every Java caller's C++ counterpart is ported (`PlayerAllianceService`'s was the last) | – |
+
+Three Java behaviours of the league code are pinned and proposed as corrections (docs/deviations/P5-10d.md): `LeagueChangeLeaderEvent`
+swaps no positions; a leader's alliance off position 0 makes `reorganize` call `changeLeader` on the leader, which throws; a leader change to
+the leading alliance throws. The tests and the gate move the alliances back before a leave.
+
+**Left for M5g**: GA5's chat row (lane A), GA12-GA14 (stage 3's group instance), and the owner's answers on m5g-1 and the gate scope.

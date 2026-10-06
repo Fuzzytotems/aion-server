@@ -3235,9 +3235,9 @@ def live_checks(check):
                                                           if m.status != 'ported'), 0)
     kinds = {where.split(' ', 1)[1]: kind for _, where, kind, _ in ms.helper_list()}
     for name, kind in (('standins::followStartServiceNewFollowingToTargetCheckTask', 'stale'),
-                       # M5g parties (2026-10-05) ported the team stand-ins and PlayerGroup::getMember: no 'standIn' helper is left;
-                       # the league's inherited accessors remain until the league lane (the alliance lane ported PlayerAlliance's)
-                       ('standins::riftEnumData', 'own'), ('League::getMember', 'inherited'),
+                       # M5g (2026-10-05) ported the team stand-ins and the last inherited accessors (PlayerGroup's, PlayerAlliance's,
+                       # League's): no 'standIn' or 'inherited' helper is left in the tree; the synthetic checks still cover both kinds
+                       ('standins::riftEnumData', 'own'),
                        ('<anon>::unportedScoreBase', 'taken')):
         check(f'live helper {name}', kinds.get(name), kind)
 

@@ -22,7 +22,16 @@ inline constexpr uint8_t ALLIANCE_EVENT_ENTER_OFFLINE = 7;
 inline constexpr uint8_t ALLIANCE_EVENT_ENTER = 13;
 inline constexpr uint8_t ALLIANCE_EVENT_UPDATE_EFFECTS = 65;
 
-/** SM_ALLIANCE_INFO.java writeImpl; the league block (present only in a league) is read as its count */
+/** one alliance of SM_ALLIANCE_INFO's league block */
+struct LeagueAllianceInfo {
+	int32_t position = 0;
+	int32_t allianceObjectId = 0;
+	int32_t memberCount = 0;
+	std::string captainName;
+	int32_t captainWorldId = 0;
+};
+
+/** SM_ALLIANCE_INFO.java writeImpl; the league block is present only in a league */
 struct AllianceInfo {
 	int32_t groupSize = 0;
 	int32_t allianceId = 0;
@@ -36,6 +45,8 @@ struct AllianceInfo {
 	int32_t messageId = 0;
 	std::string message;
 	int32_t leagueAlliances = 0; // 0 without a league block
+	std::vector<int32_t> leagueLootWords; // the league block's loot rule id, misc and six quality words
+	std::vector<LeagueAllianceInfo> league;
 };
 AllianceInfo decodeAllianceInfo(std::span<const uint8_t> body);
 
