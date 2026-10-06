@@ -615,5 +615,5 @@ Branch `lane-c/p6-q02`, stacked on `lane-c/p6-q01` (§9). The third chunk of §7
 - **Parity** 59 pairs, 0 mismatches (the handler tree: 382 pairs, 0); **compile check** 981 clean, 0 warnings, regscan 0 errors; the full
   Debug build has no new warning.
 - **Gate impact:** none expected (Q02.md: every quest needs level 50+; 11116's talk registrations at 203784 and 203785, which m5c's economy
-  oracle names, answer false without its quest state). **Gates:** WIP - the gs.scenario.* run under the lock was in progress at the handoff (Q02.md).
+  oracle names, answer false without its quest state). **Gates:** all 15 pass, "Loaded 4566 quest handlers"; m5e_geo needed a rerun after the oracle's Python process failed to start (Q02.md).
 - **Not held back:** none. **Not in the tree:** none.
