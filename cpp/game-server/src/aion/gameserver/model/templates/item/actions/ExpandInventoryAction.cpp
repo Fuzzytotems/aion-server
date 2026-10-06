@@ -34,7 +34,7 @@ bool ExpandInventoryAction::canAct(gameobjects::player::Player& player, runtime:
 		case StorageType::CUBE:
 			return services::CubeExpandService::canExpandByTicket(player, level);
 		case StorageType::WAREHOUSE:
-			return services::WarehouseService::canExpandByTicket(player, level); // group K (m5c-plan.md D2): still AION_UNPORTED, loud
+			return services::WarehouseService::canExpandByTicket(player, level);
 	}
 	throw runtime::IllegalStateException("unknown StorageType"); // unreachable: the switch covers the enum
 }
@@ -55,7 +55,7 @@ void ExpandInventoryAction::act(gameobjects::player::Player& player, runtime::Pt
 			services::CubeExpandService::itemExpand(player);
 			break;
 		case StorageType::WAREHOUSE:
-			services::WarehouseService::expand(player, false); // group K (m5c-plan.md D2): still AION_UNPORTED, loud
+			services::WarehouseService::expand(player, false);
 			break;
 	}
 }

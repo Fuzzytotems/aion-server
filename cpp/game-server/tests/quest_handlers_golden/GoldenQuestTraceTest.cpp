@@ -105,7 +105,7 @@
 #include "aion/gameserver/model/templates/rewards/BonusType.h"
 #include "aion/gameserver/services/GameTimeService.h"
 #include "aion/gameserver/services/QuestService.h"
-#include "aion/gameserver/services/WarehouseService.h"
+#include "aion/gameserver/services/BrokerService.h"
 #include "aion/gameserver/utils/PacketSendUtility.h"
 #include "aion/gameserver/utils/ThreadPoolManager.h"
 #include "aion/gameserver/utils/stats/AbyssRankEnum.h"
@@ -1882,10 +1882,9 @@ const std::map<std::string, std::string>& knownVacuous() {
  * a case listed here must keep reaching it, and no other case may (docs/deviations/Q10.md, "Landed with an unported engine body on the path").
  */
 const std::map<std::string, std::string>& knownUnported() {
-	static const std::map<std::string, std::string> known{
-		{"2985 onDialogEvent#18", "the finish overlays (SELECTED_QUEST_NOREWARD) reward extend_inventory 2 (quest_data.xml), QuestService.giveReward's "
-			"WarehouseService.expand: AION_UNPORTED (WarehouseService.cpp)"},
-	};
+	// "2985 onDialogEvent#18" (QuestService.giveReward's WarehouseService.expand) left this list when the M5b-3 leftovers (CP3) ported
+	// WarehouseService
+	static const std::map<std::string, std::string> known{};
 	return known;
 }
 
@@ -2037,8 +2036,8 @@ TEST_F(GoldenQuestTraceTest, HandTracesOfTheClassSkillQuests) {
  * What the negative control changes in its copy of _1111InsomniaMedicine. OPCODES and THROW (the Q03 review, 2026-09-29): a system message
  * (no key packet) and a NullPointerException before the QUEST_SELECT page. OPCODES_AFTER_STEP, THROW_AFTER_STEP and UNPORTED (the Q10
  * review, the same day): one more packet that is no key packet, a NullPointerException after the step's effects, and an unported engine
- * body reached that the tally must report: WarehouseService::expand, the AION_UNPORTED body knownUnported's 2985 case reaches (the Q10
- * review used defaultStartFollowEvent, which M5d stage 3 E-07 ported on C++, fed04d229, before slice 2 landed there)
+ * body reached that the tally must report: BrokerService::showRegisteredItems (parked, D2; WarehouseService::expand until the M5b-3
+ * leftovers ported it) (the Q10 review used defaultStartFollowEvent, which M5d stage 3 E-07 ported on C++, fed04d229, before slice 2 landed there)
  */
 enum class Flip { NONE, PAGE, VAR, REWARD_GROUP, ITEM, STATUS, RETURN, OPCODES, THROW, OPCODES_AFTER_STEP, THROW_AFTER_STEP, UNPORTED };
 
@@ -2118,7 +2117,7 @@ public:
 				if (flip == Flip::THROW_AFTER_STEP)
 					throw runtime::NullPointerException("the negative control's flip");
 				if (flip == Flip::UNPORTED) {
-					services::WarehouseService::expand(*player, false);
+					services::BrokerService::getInstance().showRegisteredItems(*player); // parked (owner's D2): stays AION_UNPORTED
 					return true;
 				}
 				return flip != Flip::RETURN;
