@@ -156,7 +156,33 @@ SLICE_Q10 = (
 	'pandaemonium/_4972JudgeNot.java', 'pandaemonium/_4973MarraWorry.java', 'pandaemonium/_4974TheSecretOfHisSuccess.java',
 	'pandaemonium/_4976ASettlerAmbition.java',
 )
-SLICE = SLICE_TIER_A + SLICE_ROUTE + SLICE_Q03 + SLICE_Q10
+# Phase 6 step 2, chunk Q08 (lane C, 2026-10-05; docs/deviations/Q08.md): the 64 handlers of gelkmaros/ and enshar/, all of which questgen
+# transliterates (gelkmaros/_20034RescuetheReians since row B39, the Q08 follow-up). The C++ harness drives every document.
+SLICE_Q08 = (
+	'gelkmaros/_20031GotoGelkmaros.java', 'gelkmaros/_20032AllAboutAbnormalAether.java', 'gelkmaros/_20033DranaSolution.java',
+	'gelkmaros/_20034RescuetheReians.java', 'gelkmaros/_20035SilenteraSupport.java', 'gelkmaros/_21004VillageStatusReport.java',
+	'gelkmaros/_21027FearlessKantele.java',
+	'gelkmaros/_21033ExorcisingInfisto.java', 'gelkmaros/_21036DeliveryofAetherSample.java', 'gelkmaros/_21051TroubleinStone.java',
+	'gelkmaros/_21052DragonHuntin.java', 'gelkmaros/_21053DramataDrama.java', 'gelkmaros/_21054MissionofDestiny.java',
+	'gelkmaros/_21056FundinOrders.java', 'gelkmaros/_21057FundinOldGrudge.java', 'gelkmaros/_21058KirhuaSpecialOrder.java',
+	'gelkmaros/_21059ShiningScroll.java', 'gelkmaros/_21060EliminatePadmarashka.java', 'gelkmaros/_21061NewOrder.java',
+	'gelkmaros/_21062TheDramataWrath.java', 'gelkmaros/_21063VanquishVeille.java', 'gelkmaros/_21068TheGameIsAfoot.java',
+	'gelkmaros/_21070TheSummation.java', 'gelkmaros/_21071MissingBard.java', 'gelkmaros/_21073ListentoMySongStrigiks.java',
+	'gelkmaros/_21075FatedHeartbreak.java', 'gelkmaros/_21080MessageInAWindstream.java', 'gelkmaros/_21081A_Helping_Hand.java',
+	'gelkmaros/_21105CoweringRefugee.java', 'gelkmaros/_21106TheRealRhonnam.java', 'gelkmaros/_21111TestYourMight.java',
+	'gelkmaros/_21114PoisonedFungi.java', 'gelkmaros/_21125MysteryBlueprint.java', 'gelkmaros/_21135VellunRequest.java',
+	'gelkmaros/_21136InSearchOfAWitness.java', 'gelkmaros/_21137BerokinImageMarble.java', 'gelkmaros/_21138OddStrigik.java',
+	'gelkmaros/_21217NewResearchPlan.java', 'gelkmaros/_21221RustyRelic.java', 'gelkmaros/_21244SearchForTheBiolab.java',
+	'gelkmaros/_21249TheInvincibleStarket.java', 'gelkmaros/_21296PadmarashkaLegacy.java', 'gelkmaros/_21455IngredientsForTheAntidote.java',
+	'gelkmaros/_21458PracticalResearch.java', 'gelkmaros/_21460AShulacksStory.java', 'enshar/_20500EnsharExpedition.java',
+	'enshar/_20501WhattheRuinsSay.java', 'enshar/_20502EvolvingMysteries.java', 'enshar/_20503AncientEvilPlans.java',
+	'enshar/_20504TiamatsShadow.java', 'enshar/_20505AncientCrystal.java', 'enshar/_20506MuscleOverMind.java',
+	'enshar/_20507ItsWorseThanWeThought.java', 'enshar/_25022SoupDeCure.java', 'enshar/_25023SproutingDevelopments.java',
+	'enshar/_25030CluesFromTheUndead.java', 'enshar/_25031TheTejhiGhost.java', 'enshar/_25032AvengeVarnur.java',
+	'enshar/_25050TreasureInTheDeepSea.java', 'enshar/_25051TreasureOfAncientKings.java', 'enshar/_25052AnOfferingPeace.java',
+	'enshar/_25062OminousAdvice.java', 'enshar/_25070TruthOfTheCrystal.java', 'enshar/_25073NoRevivalForTheBalaur.java',
+)
+SLICE = SLICE_TIER_A + SLICE_ROUTE + SLICE_Q03 + SLICE_Q10 + SLICE_Q08
 
 ENUM_FILES = {'QuestStatus': 'questEngine/model/QuestStatus.java', 'Race': 'model/Race.java', 'PlayerClass': 'model/PlayerClass.java',
               'Gender': 'model/Gender.java', 'HandlerResult': 'questEngine/handlers/HandlerResult.java', 'DialogPage': 'model/DialogPage.java',
@@ -455,8 +481,10 @@ class Extractor:
 			raise OracleError(f'{rel}: not one top-level class')
 		self.td = self.cu.types[0]
 		# closures=True (lane C, phase 6 step 1): a lambda or an anonymous Runnable is a jast.Closure node, so a closure refuses the hook that
-		# builds it (or is modelled: the task of ThreadPoolManager.schedule, run_tasks) instead of the whole file
-		self.p = jast.Parser(self.cu, closures=True)
+		# builds it (or is modelled: the task of ThreadPoolManager.schedule, run_tasks) instead of the whole file. switch_expressions=True (the
+		# review of #79, item 9): a switch expression (SwitchExpr, eval) and a switch statement with rule arms (Switch.rules, exec_switch) are
+		# modelled too, as the generator's P6-T rule parses them
+		self.p = jast.Parser(self.cu, switch_expressions=True, closures=True)
 		self.mode = 'hook'
 		self.leaves = []
 		self.reg_npcs = []
@@ -664,7 +692,8 @@ class Extractor:
 		raise Unsupported(f'{type(s).__name__} statement at line {self.line(s)}')
 
 	def exec_switch(self, s, p):
-		"""Java switch: the group whose label equals the subject, else default; statements run on through later groups until a break"""
+		"""Java switch: the group whose label equals the subject, else default; statements run on through later groups until a break. With
+		rule arms (`case A -> stmt`, Switch.rules; JLS 14.11.2) an arm never falls through to the next"""
 		out = []
 		for q, subj in self.eval(s.expr, p):
 			labels = []                     # per group: [(value, label text)], (None, None) for default
@@ -675,12 +704,29 @@ class Extractor:
 			text = self.jtext(s.expr)
 			for g, vals in enumerate(labels):
 				for r in self.select(q, subj, vals, every, text, self.line(s)):
-					stmts = [st for _l, body, _t in s.groups[g:] for st in body]
+					stmts = [st for _l, body, _t in (s.groups[g:g + 1] if getattr(s, 'rules', False) else s.groups[g:]) for st in body]
 					for kind, r2, v in self.exec_stmts(stmts, r):
 						out.append(('normal', r2, None) if kind == 'break' else (kind, r2, v))
 			if not has_default:
 				for r in self.select(q, subj, [(None, None)], every, text, self.line(s)):
 					out.append(('normal', r, None))
+		return out
+
+	def switch_expr(self, e, p):
+		"""a switch expression (`switch (x) { case A, B -> v; default -> w; }`, JLS 15.28): the value of the arm whose label equals the subject,
+		else of default; one path per arm the subject can take"""
+		out = []
+		for q, subj in self.eval(e.expr, p):
+			labels = [[(None, None) if lab is None else (self.label_value(lab, subj), self.jtext(lab)) for lab in lab_exprs]
+			          for lab_exprs, _v, _t, _s in e.arms]
+			every = [(v, t) for vals in labels for v, t in vals if t is not None]
+			has_default = any(t is None for vals in labels for _v, t in vals)
+			if not has_default:
+				raise Unsupported('a switch expression without default')
+			text = self.jtext(e.expr)
+			for g, vals in enumerate(labels):
+				for r in self.select(q, subj, vals, every, text, self.line(e)):
+					out += self.eval(e.arms[g][1], r)
 		return out
 
 	def label_value(self, lab, subj):
@@ -973,6 +1019,8 @@ class Extractor:
 			return out
 		if isinstance(e, jast.Assign):
 			return self.assign(e, p)
+		if isinstance(e, jast.SwitchExpr):
+			return self.switch_expr(e, p)
 		if isinstance(e, jast.Closure):
 			if e.params:
 				raise Unsupported(f'a {e.kind} with parameters')
@@ -1449,7 +1497,7 @@ class Extractor:
 		if cls == 'ThreadPoolManager' and name == 'getInstance' and not e.args:
 			return [(p, O('threadPool'))]
 		if cls == 'PacketSendUtility' and name == 'broadcastPacket':
-			# PacketSendUtility.broadcastPacket(player, packet, toSelf) (PacketSendUtility.java:68-75): the player's known players and, with
+			# PacketSendUtility.broadcastPacket(player, packet, toSelf) (PacketSendUtility.java:88-93): the player's known players and, with
 			# toSelf, the player; the quester has no other player in sight in a harness, so only toSelf shows
 			def broadcast(q, args):
 				if len(args) != 3 or args[0] != O('player') or not isinstance(args[1], New) or not isinstance(args[2], K):

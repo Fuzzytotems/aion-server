@@ -1311,11 +1311,27 @@ class Transliterator:
                 return E(apimod.NESTED[cls + '.' + x.name], CT('class', apimod.NESTED[cls + '.' + x.name]))
             if cls in apimod.CONFIG_HEADERS:
                 return self.config_flag(cls, x)
+            if cls == 'DataManager' and x.name in apimod.HOLDERS:
+                return self.data_holder(cls, x)
             self.fail('api-missing', f'{cls}.{x.name}', x.tok)
         if t.ct.kind == 'array' and x.name == 'length':
             self.r.idioms['array length'] += 1
             return E(f'static_cast<int32_t>({self.postfix(t)}.size())', INT)
         self.fail('field-access', f'{t.ct}.{x.name}', x.tok)
+
+    def data_holder(self, cls, x):
+        """row B39: a Java static data holder (`DataManager.QUEST_DATA`) is the C++ DataManager's HolderRef of the same name, whose `->`
+        reaches the published holder (dataholders/DataManager.h); only a holder apimod.HOLDERS names, and only read"""
+        held, header = apimod.HOLDERS[x.name]
+        tier = self.api.tier(cls, x.name)
+        if tier is None:
+            self.fail('api-missing', f'{cls}.{x.name}', x.tok)
+        self.need(cls)
+        self.includes_for_header(header)
+        self.record_api(cls, x.name, tier)
+        self.r.api_status.setdefault(f'{cls}.{x.name}', set()).add('ported')
+        self.r.idioms['static data holder read through its HolderRef'] += 1
+        return E(f'{self.api.cpp_name(cls)}::{x.name}', CT('obj', held, 'raw'))
 
     def config_flag(self, cls, x):
         """row B36: a Java configuration field (`CustomConfig.ENABLE_SIMPLE_2NDCLASS`) is the C++ class's public static std::atomic<T> of

@@ -1,0 +1,15 @@
+{
+ "format": "aion-quest-trace",
+ "version": 1,
+ "questId": 21249,
+ "java": "gelkmaros/_21249TheInvincibleStarket.java",
+ "class": "_21249TheInvincibleStarket",
+ "javaSha256": "ca88e7643a0884fe7f92da4ebaf0e7ecc4cc9d493ad376d4e309f75df8b6fa70",
+ "register": [
+  {"npc": 799416, "event": "addOnQuestStart", "args": [21249]},
+  {"npc": 799529, "event": "addOnTalkEvent", "args": [21249]},
+  {"npc": 799417, "event": "addOnTalkEvent", "args": [21249]}
+ ],
+ "hooks": [{"hook": "onDialogEvent", "line": 29, "unsupported": "call npc.getController()"}],
+ "cases": []
+}

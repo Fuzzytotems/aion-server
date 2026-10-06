@@ -1,0 +1,16 @@
+{
+ "format": "aion-quest-trace",
+ "version": 1,
+ "questId": 21004,
+ "java": "gelkmaros/_21004VillageStatusReport.java",
+ "class": "_21004VillageStatusReport",
+ "javaSha256": "0da52c541ce5271c41072c10ba0a7831ee914d51fbef469a8bf2d1764c44e69f",
+ "register": [
+  {"npc": 799227, "event": "addOnTalkEvent", "args": [21004]},
+  {"npc": 799268, "event": "addOnTalkEvent", "args": [21004]},
+  {"npc": 799269, "event": "addOnTalkEvent", "args": [21004]},
+  {"npc": 799227, "event": "addOnQuestStart", "args": [21004]}
+ ],
+ "hooks": [{"hook": "onDialogEvent", "line": 28, "unsupported": "reads status/21004 after sendQuestNoneDialog, which may have written it"}],
+ "cases": []
+}

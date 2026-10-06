@@ -38,6 +38,9 @@
    kinds and `registerOnKillRanked`, and runs the oracle's scheduled tasks; the sample is a committed tool (`goldensample.py`). Over the 649
    transliterated files outside the tree that have a case: **19,499 variants pass, 0 fail** (17,908 and 114 before), no quest stops, the
    registration trace has no finding.
+9. **Step 2, chunk Q08 landed (lane C, 2026-10-05, §8):** the 64 generated gelkmaros and enshar handlers are in the tree (63 at the
+   landing, `gelkmaros/_20034` by the follow-up and API row B39), with their golden traces (1,368 variants pass, 0 fail) and
+   docs/deviations/Q08.md.
 
 ---
 
@@ -404,7 +407,7 @@ The sample (every transliterated handler outside the tree that has a case):
 
 | | Before (§7.1) | After |
 |---|---|---|
-| sample files | 620 | **649** (+29: the closure files and the kill-ranked quests the oracle traces now, less those whose C++ file is in the tree) |
+| sample files | 620 | **649** (+29, below) |
 | documents run (sample and tree) | 781, 34 stopped | **810, 0 stopped** |
 | variants passed | 17,908 | **19,499** |
 | **variants failed** | **114 in 14 quests** (7 hooks) | **0** |
@@ -414,6 +417,13 @@ The sample (every transliterated handler outside the tree that has a case):
 | reaches `AION_UNPORTED` | 1 (1987) | 1 (1987, `WarehouseService::expand`, as 2985 in the tree) |
 | registration trace | 54 "does not model" findings and the stopped quests | **0 findings** |
 | quests without any finding | 552 | 622 |
+
+The +29 sample files (none left the sample) are files that had no case before: 16 raised in the oracle (12 anonymous `Runnable`s: beluslan
+24051, 24052, 2620, brusthonin 4082, cygnea 10501, 10503, 10505, eltnen 1361, 1466, gelkmaros 20033, morheim 2393, talocs_hollow 11466; 2
+lambdas: enshar 20506, 25023; 2 switch expressions: the_eternal_bastion 18035, 28035, whose item-use hook has a case since the parse no
+longer fails the file), and 13 had their only traced hook refused for a symbolic `setQuestVar` (enshar 25022, 25030, 25031, 25032, 25050,
+25062, 25070, 25073, inggison 11012, sanctum 3966-3969). The 26 kill-ranked quests were in the sample before: their documents were
+written with the refused `register` object and stopped (§7.1).
 
 All 114 variants of §7.1 pass now, and so do the 26 kill-ranked and the 8 level-99 quests. The newly driven hooks' quests and the task
 cases, for instance: 3718 (dredgion) 30 variants, 11468 (use skill) 43, 19038 (fail craft) 7, 11076 (wind stream) 7, 20504 (invisible
@@ -442,17 +452,18 @@ the first extended run (24051 `onEnterZoneEvent#1`) was the harness's zone argum
   `onCanAct`, `onAttackEvent`, and the other refusal reasons of §2.4's style (crafting calls 44 hooks, teleports 32, spawns, quest timers,
   kinah, `getQuestVars().getQuestVars()`), plus 3 tasks that would throw (inggison 11031-11033);
 - the 3 switch-expression files have their other hooks traced now, but not the hook with the switch (the oracle does not evaluate a switch
-  expression);
+  expression; since the review of #79 it does, §7.6);
 - `useQuestItem` (7 variants), the canRepeat paths, and the 15 assumed results above.
 
 ### 7.5 Proposed order for step 2 (landing the remaining chunks)
 
 The 802 transliterated files without a C++ file in the tree, by Q chunk (`chunks.cmake`), with the sample's result (a "finding" is an
-unlisted unreproducible or vacuous case, which the chunk must list when it lands; no chunk has a failed variant):
+unlisted unreproducible or vacuous case, which the chunk must list when it lands; no chunk has a failed variant). The sample column sums
+to the 649 sample files; "Waiting" less "Sample" is the files without a case and the 20 held-back files (`GOLDEN_HELD_BACK`):
 
 | Chunk | Directories | Waiting | Sample (with a case) | No finding | Findings | Variants | Every hook traced |
 |---|---|---|---|---|---|---|---|
-| Q08 | gelkmaros, enshar | 63 | 55 | 54 | 1 | 1,366 | 40 |
+| Q08 (**landed, §8**) | gelkmaros, enshar | 63 | 55 | 54 | 1 | 1,366 | 40 |
 | Q11 | daevanion, sanctum | 72 | 50 | 41 | 9 | 1,604 | 48 |
 | Q01 | reshanta | 77 | 76 | 65 | 11 | 1,450 | 61 |
 | Q02 | inggison | 57 | 53 | 44 | 9 | 1,411 | 43 |
@@ -463,13 +474,96 @@ unlisted unreproducible or vacuous case, which the chunk must list when it lands
 | Q07 | beshmundir, abyss_entry, silentera_canyon | 64 | 58 | 30 | 28 | 1,560 | 49 |
 | Q12 | theobomos, event_quests, cygnea | 70 | 61 | 26 | 35 | 1,483 | 42 |
 | Q04 | beluslan, brusthonin | 69 | 62 | 26 | 36 | 1,515 | 52 |
-| Q06 | crafting, ascension (rest) | 52 | 5 | 5 | 0 | 94 | 3 |
-| Q10, Q03 | the held-back files | 17, 4 | - | - | - | - | - |
+| Q06 | crafting (ascension: none waiting) | 52 | 5 | 5 | 0 | 94 | 3 |
+| Q10 | altgard, pandaemonium (rest) | 17 | 1 | 1 | 0 | 8 | 13 |
+| Q03 | verteron, heiron (rest) | 4 | 0 | - | - | - | 3 |
 
-Proposed order: **Q08, Q01, Q02, Q14, Q13, Q11, Q05, Q09, Q07, Q12, Q04**, then Q06 and the held-back files. The reasoning: fewest findings
+Proposed order: **Q08, Q01, Q02, Q14, Q13, Q11, Q05, Q09, Q07, Q12, Q04**, then Q06, pandaemonium's 4212 (Q10's one waiting file that is not held
+back: 8 variants, no finding) and the held-back files. The reasoning: fewest findings
 per file first, and high-level zones before the zones the gates' characters stand in. Q01, Q02, Q08 and the instance chunks Q13/Q14 are far
 from the level-10 Daevas of `gs.scenario.travel` and `gs.scenario.ascension`; Q11 (sanctum) is the Elyos capital, where the ascension gate's
 Daeva may stand, so its gate traffic needs the slice-2 measurement before it lands, and Q05 (eltnen) and Q09 (morheim) are the next zones
-after the route's (level 20 and up, but their start npcs may appear in a gate's SM_NEARBY_QUESTS). Q06's crafting files are 47 of its 52
-waiting files and have no case (the oracle refuses `CraftSkillUpdateService`): land them by parity and compile check only, or after an
-oracle row for crafting. The held-back Q03/Q10 files wait for the owner's gate decisions as before (p6q-ascension-route.md §8.3).
+after the route's (level 20 and up, but their start npcs may appear in a gate's SM_NEARBY_QUESTS). Q06's 52 waiting files are all crafting
+(its 16 ascension files are 14 in the tree and 2 questgen refuses); 47 of them have no case (the oracle refuses
+`CraftSkillUpdateService.getInstance` in 42, `player.getSkillList()` in 4 and `isFullSpecialCube` in 1) and 5 have (19000, 19002, 19038,
+29002, 29038): land the 47 by parity and compile check only, or after an oracle row for crafting. The held-back files (16 of Q10's 17
+waiting, Q03's 4) wait for the owner's gate decisions as before (p6q-ascension-route.md §8.3).
+
+### 7.6 The owner's review of #79 (2026-10-05)
+
+Nine items, fixed as new commits on `lane-c/p6-harness`; §7.3 and §7.5 above carry item 8's corrected counts.
+
+| Item | What changed |
+|---|---|
+| 1. task timing, leftover tasks | each run records a timeline: a snapshot (opcodes, quest states, inventory) after the hook and, for every task delay d of the case, at d - 1 and at d (the clock steps there; the replay replays the task's effects at d). Check `timeline`: a task that runs early, late or inline fails. Check `pendingTasks`: the tasks a run added to the executor and left after its last delay, against Java's run (the replay schedules nothing itself, so Java's count is 0 unless a helper starts an engine task, which then does so in both runs). A count that differs once re-runs the pair: an engine singleton's periodic task (the first item given in a process) starts in whichever run reaches it first. The executor is drained after each run |
+| 2. the used item | an item-use case's item is held under one object id (`$itemObjectId`), so `decreaseByObjectId` removes it and the inventory check sees the difference |
+| 3. success overlays | `checkItemExistence` (3 and 10 arguments): the item held in its exact count and in count - 1 (the 10-argument form with var 0 at its step); `sendQuestRewardDialog`: the reward npc as the target, with a REWARD state when the path has none |
+| 4. goldensample's result | the exit code is kept; a missing, unreadable or partial gtest report is a crash, named with the test that was running; the other failures (SEH among them) are printed; `main()` returns 1 on any failure, finding or crash (a sample always has unlisted vacuous cases, so a sample run exits 1: read the summary) |
+| 5. an unknown helper result | `helperResults` is 1, 0 or -1 (did not run, or threw): an assumed false needs a 0 |
+| 6. task exceptions | swallowed in both runs as the pool does; test `ATaskExceptionIsThePoolsInBothRuns` |
+| 7. `--stage` | refused when the directory holds files and no `.goldensample-stage` marker, unless `--force` |
+| 8. doc counts | §7.3's +29, §7.5's sample column (it sums to 649 with Q10's 4212) and the Q06 split |
+| 9. nits | the oracle parses switch expressions and switch rules (`_30211`, `_18035`, `_28035` traced; README); `PacketSendUtility.java:88-93`; the jast docstring and the harness's stale texts; each failure names its check (`[timeline] ...`) and goldensample counts all eight by name; the engine-wide registration kinds (bonus apply, invisible timer end, dredgion reward, wind stream) deduplicate as Java's lists do |
+
+**The mutants** (`goldensample --only ... --edit`, `--allow-tree` for the tree's 2208; four runs, each file mutated once per run; the
+unmutated five files as the control: 0 failed):
+
+| Mutant | Caught by |
+|---|---|
+| 24051 task delay 10000 -> 1000 | `onEnterZoneEvent#1` [timeline] |
+| 24051 delay -> 0 | `onEnterZoneEvent#1` [timeline] |
+| 24051 the task run inline | `onEnterZoneEvent#1` [timeline] |
+| 24051 without the `var == 5` guard (a task where Java schedules none) | `onEnterZoneEvent#2` [pendingTasks] 1, Java 0 |
+| 2208 without `decreaseByObjectId` | `onItemUseEvent#3` [inventory] [opcodes] [timeline] |
+| 3938 `checkItemExistence` nextStep 8 -> 9 | `onDialogEvent#48` with the item held [packets] [questStates] |
+| 3938 checkOkId 10000 -> 10002 | `onDialogEvent#48` with the item held [packets] |
+| 3938 count 1 -> 2 | `onDialogEvent#48` with the item held [packets] [opcodes] [questStates] [inventory] |
+| 18405 reward npc + 1 | `onDialogEvent#5` with the reward npc as the target, `#16` |
+| 28405 reward npc + 1 | `onDialogEvent#5` with the reward npc as the target, `#16` |
+| 18405 reward index 0 -> 1 | `onDialogEvent#5` with the reward npc as the target [packets] [questStates] |
+
+11 of 11 caught. The harness's own mutants (`TheTaskTimelineFailsATaskAtTheWrongTimeOrWhereJavaHasNone`): a shorter, zero, longer and
+inline task fail `timeline`, an extra task fails `pendingTasks`, the right one passes.
+
+**The sample again** (the same command, the stricter harness):
+
+| | Step 1 (§7.3) | After the review |
+|---|---|---|
+| sample files | 649 | 650 (+`_30211`, traced now) |
+| documents run | 810 | 811 |
+| variants passed | 19,499 | **19,571** (+72: `_30211` 22, `_18035` and `_28035` 25 each) |
+| variants failed | 0 | **0** |
+| runs compared | 96,841 | 97,350 (the success overlays) |
+| not reproducible, unlisted | 149 (53 quests) | 149 (53) |
+| vacuous, unlisted | 328 (147) | 324 (146): 2477 #19, 4937 #41, 18405 #5 and 28405 #5 run with the new overlays |
+| other failures (SEH), crashes | not reported | 0, none |
+
+No new failure: the stricter checks found no generator bug, harness limit or Java difference in the 650 files. The ctest of the tree:
+`ctest -R Golden` 192 of 192.
+
+## 8. Phase 6 step 2: chunk Q08 landed (lane C, 2026-10-05)
+
+Branch `lane-c/p6-q08`, stacked on `lane-c/p6-harness` (§7). The first chunk of §7.5's order, landed the slice-2 way (p6q-ascension-route.md
+§8); the record is docs/deviations/Q08.md.
+
+- **In the tree:** the 63 files questgen transliterates of `gelkmaros/` (44) and `enshar/` (19), its output unedited, in
+  `aion_gs_handlers_quest_q08`; the drift test's `Q08` table pins them. `gelkmaros/_20034RescuetheReians` is refused by questgen
+  (`DataManager.QUEST_DATA.getQuestById(questId).getName()`: the C++ `QuestTemplate` declares no `getName()`), so it is not in the tree, and
+  the landed 20035 cannot start until it is (its chain helpers name 20034).
+- **Golden traces:** `SLICE_Q08`, 63 documents, 1,344 cases; the in-tree harness compiles the 63 in (`GoldenQ08Handlers.cpp`): **1,366
+  variants pass, 0 fail**, 7,685 runs compared; listed: 21460 onDialogEvent#20 not reproducible, #21 vacuous; 8 quests with every hook
+  refused by the oracle (`ORACLE_REFUSES_EVERY_HOOK`). The registration trace passes for the 63. `ctest -R Golden`: 230 of 230.
+- **Parity** 63 pairs, 0 mismatches (the whole handler tree: 241 pairs, 0); **compile check** 63 clean, 0 warnings, 0 errors, regscan 0
+  errors; the full Debug build has no new warning.
+- **Gate impact:** none expected (Q08.md, "Gate impact": every quest needs level 50+, no gate npc or item is registered). **Gates:** `ctest
+  -C Debug -j 2 -L "scenario|smoke|geo|m4" -E m5a_stress` under the test-database lock (`gate_lock.py lane-C`), the full Debug build of this
+  branch: **60 of 60 passed** (2,854 s; 16 disabled entries not run), every gate server logged "Loaded 4425 quest handlers" (63 more than
+  before the chunk); no ERROR line beyond the known ones (gs.scenario.ascension's `onDie()` exceptions of the unported
+  `AbyssPointsService::addAp`, the scenario self-tests' deliberate start-up failures). No gate expectation was changed.
+- **Not held back:** none. **Generator changes:** none. **Java bugs found:** none.
+- **Tool tests:** `tools.oracle` 552, `tools.gen` 430 (the drift test with the 63), `tools.parity` 36: all pass. Static checks:
+  `lint_concurrency --werror` 0 errors, `chunks.py check` 0 problems, `census --self-check` 0 failures.
+- **Follow-up (2026-10-05):** `gelkmaros/_20034RescuetheReians` landed. The header gap reported above was not one (`QuestTemplate::getName()`
+  is declared in the generated `QuestTemplate.xml.inc`); the gap was questgen's: API row B39 reads `DataManager.QUEST_DATA` through its
+  `HolderRef`. 973 of 1,035 transliterated, the other files byte-identical; 20034's 2 golden cases pass, the registration trace too; the
+  harness 231 of 231. docs/deviations/Q08.md, "Follow-up"; header request p6q08-1 (approved, not needed).

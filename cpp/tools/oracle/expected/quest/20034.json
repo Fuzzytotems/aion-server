@@ -1,0 +1,52 @@
+{
+ "format": "aion-quest-trace",
+ "version": 1,
+ "questId": 20034,
+ "java": "gelkmaros/_20034RescuetheReians.java",
+ "class": "_20034RescuetheReians",
+ "javaSha256": "08e85741f4208ac6f851d69a9d2d5f146debaec2aadd95e560a3c59587830800",
+ "register": [
+  {"call": "registerOnDie", "args": [20034]},
+  {"call": "registerOnLogOut", "args": [20034]},
+  {"call": "registerOnLevelChanged", "args": [20034]},
+  {"npc": 216592, "event": "addOnKillEvent", "args": [20034]},
+  {"call": "registerOnEnterWorld", "args": [20034]},
+  {"call": "registerOnQuestCompleted", "args": [20034]},
+  {"npc": 730243, "event": "addOnTalkEvent", "args": [20034]},
+  {"npc": 799295, "event": "addOnTalkEvent", "args": [20034]},
+  {"npc": 799297, "event": "addOnTalkEvent", "args": [20034]},
+  {"npc": 799341, "event": "addOnTalkEvent", "args": [20034]},
+  {"npc": 799513, "event": "addOnTalkEvent", "args": [20034]},
+  {"npc": 799514, "event": "addOnTalkEvent", "args": [20034]},
+  {"npc": 799515, "event": "addOnTalkEvent", "args": [20034]},
+  {"npc": 799516, "event": "addOnTalkEvent", "args": [20034]}
+ ],
+ "hooks": [
+  {"hook": "onEnterWorldEvent", "line": 53, "unsupported": "call SM_SYSTEM_MESSAGE.STR_QUEST_SYSTEMMSG_GIVEUP_QUEST"},
+  {"hook": "onDieEvent", "line": 82, "unsupported": "call qs.getQuestVars().getQuestVars()"},
+  {"hook": "onLogOutEvent", "line": 100, "unsupported": "call SM_SYSTEM_MESSAGE.STR_QUEST_SYSTEMMSG_GIVEUP_QUEST"},
+  {"hook": "onDialogEvent", "line": 114, "unsupported": "call player.getTarget()"},
+  {"hook": "onKillEvent", "line": 228, "unsupported": "call spawnForFiveMinutes"},
+  {"hook": "onMovieEndEvent", "line": 248, "unsupported": "call spawnForFiveMinutes"},
+  {"hook": "onQuestCompletedEvent", "line": 254, "cases": 1},
+  {"hook": "onLevelChangedEvent", "line": 259, "cases": 1}
+ ],
+ "cases": [
+  {
+   "id": "onQuestCompletedEvent#1",
+   "hook": "onQuestCompletedEvent",
+   "given": {},
+   "guards": [],
+   "effects": [{"call": "defaultOnQuestCompletedEvent", "kind": "quest", "args": [20031], "line": 255}],
+   "returns": null
+  },
+  {
+   "id": "onLevelChangedEvent#1",
+   "hook": "onLevelChangedEvent",
+   "given": {},
+   "guards": [],
+   "effects": [{"call": "defaultOnLevelChangedEvent", "kind": "quest", "args": [20031], "line": 260}],
+   "returns": null
+  }
+ ]
+}
