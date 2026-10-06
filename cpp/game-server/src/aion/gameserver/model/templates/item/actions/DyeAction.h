@@ -4,6 +4,7 @@
 
 #include <any>
 #include <initializer_list>
+#include <optional>
 
 #include "aion/gameserver/model/gameobjects/fwd.h"
 #include "aion/gameserver/model/gameobjects/player/fwd.h"
@@ -27,6 +28,13 @@ public:
 
 	void act(gameobjects::player::Player& player, runtime::Ptr<gameobjects::Item> parentItem, runtime::Ptr<gameobjects::Item> targetItem,
 		std::initializer_list<std::any> params = {}) const override;
+
+	/** Java getColor(): null (std::nullopt) for "no", else Integer.parseInt(color, 16) */
+	std::optional<int32_t> getColor() const;
+
+private:
+	void dyeItem(gameobjects::player::Player& player, gameobjects::Item& parentItem, gameobjects::Item& targetItem) const;
+	void dyeHouseObject(gameobjects::player::Player& player, gameobjects::Item& dyeItem, gameobjects::HouseObject& houseObject) const;
 };
 
 } // namespace aion::gameserver::model::templates::item::actions

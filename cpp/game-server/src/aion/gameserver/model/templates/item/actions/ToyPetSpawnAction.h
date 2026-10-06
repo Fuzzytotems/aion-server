@@ -20,6 +20,9 @@ public:
 
 	void act(gameobjects::player::Player& player, runtime::Ptr<gameobjects::Item> parentItem, runtime::Ptr<gameobjects::Item> targetItem,
 		std::initializer_list<std::any> params = {}) const override;
+
+private:
+	void finishUse(gameobjects::player::Player& player, gameobjects::Item& parentItem) const;
 };
 
 } // namespace aion::gameserver::model::templates::item::actions
