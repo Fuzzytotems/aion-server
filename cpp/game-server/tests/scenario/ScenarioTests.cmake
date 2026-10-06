@@ -59,6 +59,8 @@
 #           + gs.scenario.m5d 257, gs.scenario.m5d_geo 485 (m5d-plan.md §20; 2026-09-29 in a Debug tree, NOT alone:
 #             beside another tree's gates, so both overstate a run alone; m5d took 218-396 s over its lane's 21 runs,
 #             220-286 s in its review's, m5d_geo 358-485 s; m5d_geo's startup alone 172 s)                           = 2095
+#           + gs.scenario.m5f 198, gs.scenario.m5f_geo 325 (m5f-plan.md §10, §17; 2026-10-05 in a Debug tree, one after the
+#             other in one ctest, beside other lanes' builds; slot 2 had the smaller sum, 2095 s against 2801 s)       = 2618
 # The balance held for the full set above before M5c; the plan put the M5c gate into slot 2 (§10.1: the smaller sum then, and a prefix of its
 # own), which then led slot 1 by about 280 s, so the travel gate joined slot 1. The ascension gate joined slot 1 as well in its own lane (it
 # would have led slot 2 by about 600 s); at the integration of the two (2026-09-29) it went to slot 2 instead, and the M5b pair (m5b and
@@ -119,7 +121,8 @@ if(TARGET aion_gs_scenario_tests)
 		AION_SCENARIO_M5C_PARTIAL_ALLOWLIST="${CMAKE_CURRENT_SOURCE_DIR}/tests/scenario/m5c_partial_allowlist.txt"
 		AION_SCENARIO_TRAVEL_PARTIAL_ALLOWLIST="${CMAKE_CURRENT_SOURCE_DIR}/tests/scenario/travel_partial_allowlist.txt"
 		AION_SCENARIO_M5D_PARTIAL_ALLOWLIST="${CMAKE_CURRENT_SOURCE_DIR}/tests/scenario/m5d_partial_allowlist.txt"
-		AION_SCENARIO_M5E_PARTIAL_ALLOWLIST="${CMAKE_CURRENT_SOURCE_DIR}/tests/scenario/m5e_partial_allowlist.txt")
+		AION_SCENARIO_M5E_PARTIAL_ALLOWLIST="${CMAKE_CURRENT_SOURCE_DIR}/tests/scenario/m5e_partial_allowlist.txt"
+		AION_SCENARIO_M5F_PARTIAL_ALLOWLIST="${CMAKE_CURRENT_SOURCE_DIR}/tests/scenario/m5f_partial_allowlist.txt")
 
 	# the oracle answers are JSON (Oracle.cpp); commons finds the same package in its own directory scope
 	find_package(nlohmann_json CONFIG REQUIRED)
@@ -170,6 +173,9 @@ if(TARGET aion_gs_scenario_tests)
 		LABELS "scenario;realdata")
 	# and for the M5e gates (m5e-plan.md G-03/G-04)
 	aion_set_discovered_test_properties(aion_gs_scenario_tests REGEX "^M5eScenario(Geo)?\\." PROPERTIES DISABLED TRUE
+		LABELS "scenario;realdata")
+	# and for the M5f gates (m5f-plan.md G-03/G-04)
+	aion_set_discovered_test_properties(aion_gs_scenario_tests REGEX "^M5fScenario(Geo)?\\." PROPERTIES DISABLED TRUE
 		LABELS "scenario;realdata")
 
 	# F-06: the M5a gate (§5.10). The oracle needs a Python interpreter; without it the test prints "gs.scenario.m5a: skipped".
@@ -436,5 +442,41 @@ if(TARGET aion_gs_scenario_tests)
 	endif()
 	if(AION_SCENARIO_REQUIRE OR NOT AION_GS_ALLOW_MILESTONE_SKIP)
 		set_property(TEST gs.scenario.m5e_geo APPEND PROPERTY ENVIRONMENT_MODIFICATION "AION_SCENARIO_REQUIRE=set:1")
+	endif()
+
+	# ---- the M5f gate (m5f-plan.md G-03/G-04, §10) ----------------------------------------------------------------------------------------
+	#
+	# gs.scenario.m5f: travel and the first instance of §10.2 on three accounts - a fresh Elyos Warrior takes the Akarios hotspot, is refused
+	# Daines' map, flies to Melponeh while a Daeva watches, binds at the obelisk, flies back, casts Return and relogs; an Elyos Templar Daeva
+	# of level 16 flies, jumps to Verteron while the Warrior watches, quits during a jump, jumps to Sanctum, casts Return there, enters
+	# Haramel, leaves it, re-enters, relogs inside and relogs after the checker destroyed it; an Asmodian Templar Daeva makes two map changes
+	# in a row (Altgard, Morheim) - in the same binary, with its own output directory <bin>/scenario/m5f, its own schema pair
+	# (aion_gs_test_m5f_<hash>) and its own AION_PARTIAL allow-list. Gate slot 2 with its geo variant, the slot with the smaller sum when it
+	# joined (2095 s against 2801 s, "the two gate slots" above). TIMEOUT 2700: three characters, a dozen relogs and the instance checker's
+	# 60-s schedule.
+	add_test(NAME gs.scenario.m5f COMMAND "$<TARGET_FILE:aion_gs_scenario_tests>" --gtest_filter=M5fScenario.Run
+		WORKING_DIRECTORY "${scenario_work_dir}")
+	set_tests_properties(gs.scenario.m5f PROPERTIES LABELS "scenario;realdata" TIMEOUT 2700
+		RESOURCE_LOCK "${AION_GS_GATE_SLOT_2}" SKIP_REGULAR_EXPRESSION "gs\\.scenario\\.m5f: skipped")
+	if(Python3_Interpreter_FOUND)
+		set_property(TEST gs.scenario.m5f APPEND PROPERTY ENVIRONMENT_MODIFICATION "AION_TEST_PYTHON=set:${Python3_EXECUTABLE}")
+	endif()
+	if(AION_SCENARIO_REQUIRE OR NOT AION_GS_ALLOW_MILESTONE_SKIP)
+		set_property(TEST gs.scenario.m5f APPEND PROPERTY ENVIRONMENT_MODIFICATION "AION_SCENARIO_REQUIRE=set:1")
+	endif()
+
+	# gs.scenario.m5f_geo (G-04, §10.5): the same script with -Dgameserver.geodata.enable=true. 4.8 snaps no arrival z to the geo terrain
+	# except teleportToNpc's, so every arrival must still equal the data xyz (G1), and S1's arrival on Morheim - the only field map with a
+	# terrain-material image - runs the player-side material path (G2). TIMEOUT 3600: the geo startup, as the other geo gates, on top of the
+	# run.
+	add_test(NAME gs.scenario.m5f_geo COMMAND "$<TARGET_FILE:aion_gs_scenario_tests>" --gtest_filter=M5fScenarioGeo.Run
+		WORKING_DIRECTORY "${scenario_work_dir}")
+	set_tests_properties(gs.scenario.m5f_geo PROPERTIES LABELS "scenario;realdata;geo" TIMEOUT 3600
+		RESOURCE_LOCK "${AION_GS_GATE_SLOT_2}" SKIP_REGULAR_EXPRESSION "gs\\.scenario\\.m5f_geo: skipped")
+	if(Python3_Interpreter_FOUND)
+		set_property(TEST gs.scenario.m5f_geo APPEND PROPERTY ENVIRONMENT_MODIFICATION "AION_TEST_PYTHON=set:${Python3_EXECUTABLE}")
+	endif()
+	if(AION_SCENARIO_REQUIRE OR NOT AION_GS_ALLOW_MILESTONE_SKIP)
+		set_property(TEST gs.scenario.m5f_geo APPEND PROPERTY ENVIRONMENT_MODIFICATION "AION_SCENARIO_REQUIRE=set:1")
 	endif()
 endif()

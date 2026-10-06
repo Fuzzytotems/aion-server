@@ -35,6 +35,10 @@
 	                     m5e-plan.md G-01): the experience table, the class change's pages and actions, the class master, the skills a
 	                     sequence of steps (create, enter:L, level:L, class:C, action:ID, quit, seed:C, book:ITEM) teaches with their message ids, the
 	                     base max HP / MP after each step, and the constants and conditions of the gate's casts and weapons
+	oracle.py m5f-travel [--npc ID ...] [--race R] [--hotspot ID ... --from X,Y,Z ...] [--obelisk NPCID ...] [--portal NPCID ... [--now-ms MS] [--tz Z]]
+	                     [--instance-exit WORLD ...] [--instance-spawns WORLD ... --near X,Y,Z --radius R [--difficulty N] [--game-hour H]]
+	                     [--exp-for-level L] [--census [--cpp-src DIR]] [--geo-check [--geo-map ID ...]] [--profile FILE | --no-profile]
+	                     (m5f/, m5f-plan.md G-01): travel destinations, prices, portals, instance cooltimes/exits/spawns, the M5f census
 	oracle.py quest-trace generate [--out DIR] [--only REL ...] | check [--expected-dir DIR] [--only REL ...]   golden traces of the Java
 	                     quest handlers (questtrace/, phase6-inventory.md §7.6 item 3): expected/quest/<id>.json for the first slice (exit 1
 	                     on drift; with --only, only the named handlers are checked)
@@ -416,6 +420,116 @@ def cmd_m5e_stumble(args):
 	return 0
 
 
+def _xyz(text: str, option: str) -> tuple[float, float, float]:
+	try:
+		values = tuple(float(v) for v in text.split(","))
+	except ValueError as e:
+		raise OracleError(f"{option} {text}: not X,Y,Z") from e
+	if len(values) != 3:
+		raise OracleError(f"{option} {text}: not X,Y,Z")
+	return values
+
+
+def _paired(values: list, count: int, option: str, owner: str) -> list:
+	"""one value per selector: as many as the selectors, or one shared by all"""
+	if count == 0:
+		return []
+	if len(values) == count:
+		return values
+	if len(values) == 1:
+		return values * count
+	raise OracleError(f"{option}: give it once, or once per {owner} ({count}), not {len(values)} times")
+
+
+def _m5f_timezone(args, config_dir: Path, profile: Path | None) -> str:
+	"""--tz, else gameserver.timezone of the profile or config/main (GSConfig.TIME_ZONE_ID; empty = the system zone, ZoneIdTransformer)"""
+	if args.tz:
+		return args.tz
+	from m5c.trade_config import _read_properties_file
+	value = None
+	main = config_dir / "main"
+	if main.is_dir():
+		for path in sorted(main.glob("*.properties")):
+			for key, v in _read_properties_file(path):
+				if key == "gameserver.timezone":
+					value = v
+	if profile is not None and profile.is_file():
+		for key, v in _read_properties_file(profile):
+			if key == "gameserver.timezone":
+				value = v
+	return value.strip() if value and value.strip() else "local"
+
+
+def cmd_m5f_travel(args):
+	import time as _time
+	from m5a.data import StaticData
+	from m5f import travel
+	data_dir = _data_dir(args)
+	java_src = Path(args.java_src) if args.java_src else data_dir.parent.parent / "src"
+	config_dir = Path(args.config) if args.config else java_src.parent / "config"
+	profile = None if args.no_profile else Path(args.profile) if args.profile else config_dir / "mygs.properties"
+	if args.profile and not args.no_profile and not Path(args.profile).is_file():
+		raise OracleError(f"--profile {args.profile}: no such file (only the default config/mygs.properties may be missing)")
+	td = travel.TravelData(StaticData(data_dir), java_src)
+	selectors = (args.npc, args.hotspot, args.obelisk, args.portal, args.instance_exit, args.instance_spawns)
+	if not any(selectors) and args.exp_for_level is None and not args.census and not args.geo_check:
+		raise OracleError("m5f-travel: give at least one selector (--npc, --hotspot, --obelisk, --portal, --instance-exit, --instance-spawns, "
+		                  "--exp-for-level, --census, --geo-check)")
+	result = {"format": "aion-m5f-travel", "version": 1, "npcs": [], "hotspots": [], "obelisks": [], "portals": [], "instanceExits": [],
+	          "instanceSpawns": [], "exp": None, "census": None, "geoCheck": None}
+
+	prices_cache = {}
+
+	def prices_for(race):
+		if race not in prices_cache:
+			prices_cache[race] = travel.load_prices(java_src, config_dir, profile, bool(args.profile) and not args.no_profile, race)
+		return prices_cache[race]
+
+	if args.npc:
+		daeva_only = travel.daeva_only_npcs(java_src)
+		result["npcs"] = [travel.npc_report(td, npc, args.race, prices_for, daeva_only) for npc in args.npc]
+	if args.hotspot:
+		if not args.origin:
+			raise OracleError("--hotspot needs --from X,Y,Z (the player's position)")
+		origins = _paired(args.origin, len(args.hotspot), "--from", "--hotspot")
+		result["hotspots"] = [travel.hotspot_report(td, h, _xyz(o, "--from")) for h, o in zip(args.hotspot, origins)]
+	if args.obelisk:
+		result["obelisks"] = [travel.obelisk_report(td, npc) for npc in args.obelisk]
+	if (args.portal or args.instance_exit) and not args.race:
+		raise OracleError("--portal and --instance-exit need --race ELYOS|ASMODIANS")
+	if args.portal:
+		now_ms = args.now_ms if args.now_ms is not None else int(_time.time() * 1000)
+		zone = travel.Zone(_m5f_timezone(args, config_dir, profile))
+		result["portals"] = [travel.portal_report(td, npc, args.race, now_ms, zone) for npc in args.portal]
+	if args.instance_exit:
+		result["instanceExits"] = [travel.instance_exit_report(td, w, args.race) for w in args.instance_exit]
+	if args.instance_spawns:
+		from m5a.spawns import GameClock
+		count = len(args.instance_spawns)
+		if not args.near or args.radius is None:
+			raise OracleError("--instance-spawns needs --near X,Y,Z and --radius R")
+		nears = _paired(args.near, count, "--near", "--instance-spawns")
+		if args.game_minutes is not None:
+			clock = GameClock.from_minutes(args.game_minutes, args.weekday)
+		else:
+			clock = GameClock(args.game_hour, args.game_day, args.game_month, args.weekday)
+		result["instanceSpawns"] = [travel.instance_spawns_report(td, w, args.difficulty, _xyz(n, "--near"), args.radius, clock)
+		                            for w, n in zip(args.instance_spawns, nears)]
+	if args.exp_for_level is not None:
+		result["exp"] = travel.exp_report(td, args.exp_for_level)
+	if args.census:
+		from m5f.census import census_report
+		cpp_dir = Path(args.cpp_src) if args.cpp_src else data_dir.parents[2] / "cpp" / "game-server"
+		handlers = Path(args.java_handlers) if args.java_handlers else data_dir.parent / "handlers" / "quest"
+		result["census"] = census_report(td.data, java_src, handlers, cpp_dir, td.spawn_groups())
+	if args.geo_check:
+		from m5f.geocheck import geo_check
+		geo_dir = Path(args.geo_dir) if args.geo_dir else data_dir.parent / "geo"
+		result["geoCheck"] = geo_check(td, geo_dir, data_dir / "world_maps.xml", args.geo_map)
+	sys.stdout.write(runner.dump_json(result))
+	return 0
+
+
 def cmd_quest_trace(args):
 	from questtrace import extract
 	rels = extract.SLICE if not args.only else tuple(args.only)
@@ -762,6 +876,41 @@ def main(argv=None):
 	p.add_argument("--stumble", action="append", required=True, metavar="FX,FY,FZ,TX,TY",
 	               help="the npc's position before the hit and the stumble's end x, y; repeatable")
 	p.set_defaults(fn=cmd_m5e_stumble)
+
+	p = sub.add_parser("m5f-travel", help="teleporters, flight masters, hotspots, obelisks, portals, instance cooltimes, exits and spawns, the "
+	                                      "experience table, the M5f census and the destinations' geo check (m5f-plan.md G-01)")
+	data_args(p, country=False)
+	p.add_argument("--java-src", help="game-server/src (default: two levels above the static data directory, then src)")
+	p.add_argument("--java-handlers", help="game-server/data/handlers/quest, for --census's class change rules (default: beside static_data)")
+	p.add_argument("--config", help="game-server/config, whose administration, main and network folders give the defaults (default: beside --java-src)")
+	p.add_argument("--profile", help="the override file Config.loadProperties reads (default: <config>/mygs.properties; a missing file is no error)")
+	p.add_argument("--no-profile", action="store_true", dest="no_profile", help="read no override file: the default folders only")
+	p.add_argument("--npc", type=int, action="append", metavar="ID", help="a teleporter or flight master: spots, Daeva gate, locations and prices; repeatable")
+	p.add_argument("--race", choices=("ELYOS", "ASMODIANS"), help="the player's race: --npc's prices (default: the npc's race), --portal, --instance-exit")
+	p.add_argument("--hotspot", type=int, action="append", metavar="ID", help="a hotspot (CM_BIND_POINT_TELEPORT): price from --from; repeatable")
+	p.add_argument("--from", dest="origin", action="append", metavar="X,Y,Z", help="the player's position for --hotspot (once, or once per --hotspot)")
+	p.add_argument("--obelisk", type=int, action="append", metavar="NPCID", help="a bind point npc: spots and bind_points price; repeatable")
+	p.add_argument("--portal", type=int, action="append", metavar="NPCID", help="a portal npc: use bar, paths, cooltime, reuse time, exit; repeatable")
+	p.add_argument("--now-ms", type=int, dest="now_ms", metavar="EPOCH_MS", help="the server clock for --portal's reuse time (default: now)")
+	p.add_argument("--tz", help="the server zone for --portal: local, UTC, +HH:MM or a zone name (default: gameserver.timezone, empty = local)")
+	p.add_argument("--instance-exit", type=int, action="append", dest="instance_exit", metavar="WORLD", help="instance_exit of WORLD for --race; repeatable")
+	p.add_argument("--instance-spawns", type=int, action="append", dest="instance_spawns", metavar="WORLD",
+	               help="the spots SpawnEngine.spawnInstance places in WORLD within --radius of --near; repeatable")
+	p.add_argument("--difficulty", type=int, default=0, help="spawnInstance's difficultId (default 0)")
+	p.add_argument("--near", action="append", metavar="X,Y,Z", help="the center for --instance-spawns (once, or once per --instance-spawns)")
+	p.add_argument("--radius", type=float, help="the radius for --instance-spawns (PositionUtil.isInRange: strictly inside)")
+	p.add_argument("--game-minutes", type=int, dest="game_minutes", help="SM_GAME_TIME minutes for the temporary spawns of --instance-spawns")
+	p.add_argument("--game-hour", type=int, dest="game_hour")
+	p.add_argument("--game-day", type=int, dest="game_day")
+	p.add_argument("--game-month", type=int, dest="game_month")
+	p.add_argument("--weekday", choices=("MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY", "SUNDAY"))
+	p.add_argument("--exp-for-level", type=int, dest="exp_for_level", metavar="L", help="PlayerExperienceTable.getStartExpForLevel(L)")
+	p.add_argument("--census", action="store_true", help="W-14 (level-16 passives per class) and W-21 (Haramel's npc skills) vs the C++ tree")
+	p.add_argument("--cpp-src", dest="cpp_src", metavar="DIR", help="cpp/game-server (or its src) for --census (default: the repository's)")
+	p.add_argument("--geo-check", action="store_true", dest="geo_check", help="§10.5 G3: the destinations' data z vs the geo data's getZ")
+	p.add_argument("--geo-dir", dest="geo_dir", help="game-server/data/geo for --geo-check (default: beside the static data directory)")
+	p.add_argument("--geo-map", type=int, action="append", dest="geo_map", metavar="ID", help="limit --geo-check to these maps; repeatable")
+	p.set_defaults(fn=cmd_m5f_travel)
 
 	p = sub.add_parser("quest-trace", help="golden traces of the Java quest handlers: every return leaf of every hook as a case with its "
 	                                       "effects (questtrace/, phase6-inventory.md §7.6 item 3)")

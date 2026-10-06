@@ -162,6 +162,13 @@ public:
 	static constexpr int32_t CM_TUNE = 235;
 	static constexpr int32_t CM_SELECT_DECOMPOSABLE = 236;
 	static constexpr int32_t CM_TUNE_RESULT = 238;
+	/** M5f's packets (m5f-plan.md G-02; ClientPacketInfo.gen.inc:31, 54, 57, 60, 131, 201) */
+	static constexpr int32_t CM_TELEPORT_ANIMATION_DONE = 15;
+	static constexpr int32_t CM_EMOTION = 43;
+	static constexpr int32_t CM_INSTANCE_LEAVE = 46;
+	static constexpr int32_t CM_MOVE_IN_AIR = 49;
+	static constexpr int32_t CM_TELEPORT_SELECT = 148;
+	static constexpr int32_t CM_BIND_POINT_TELEPORT = 244;
 
 	/**
 	 * CM_BUY_ITEM's tradeActionId (CM_BUY_ITEM.java:75-88): what the entries' ids mean - a private store's INDEX (0), an inventory object id to
@@ -583,6 +590,29 @@ public:
 		std::span<const CraftMaterial> materials, uint8_t craftType = 0);
 	/** CM_RECIPE_DELETE.readImpl (CM_RECIPE_DELETE.java:21-23): readD recipeId */
 	static std::vector<uint8_t> buildCM_RECIPE_DELETE(int32_t recipeId);
+
+	// ---- M5f's travel packets (m5f-plan.md §2.10, G-02), each the Java readImpl field order ----
+	/** CM_TELEPORT_SELECT.readImpl (CM_TELEPORT_SELECT.java:38-43): readD targetObjId, readD locId, readH (dropped, written 0) */
+	static std::vector<uint8_t> buildCM_TELEPORT_SELECT(int32_t targetObjectId, int32_t locId);
+	/** CM_TELEPORT_ANIMATION_DONE.readImpl reads nothing: an empty body */
+	static std::vector<uint8_t> buildCM_TELEPORT_ANIMATION_DONE();
+	/** CM_INSTANCE_LEAVE.readImpl reads nothing ("nothing to read"): an empty body */
+	static std::vector<uint8_t> buildCM_INSTANCE_LEAVE();
+	/** CM_MOVE_IN_AIR.readImpl (CM_MOVE_IN_AIR.java:34-42): readD worldId, readF x/y/z, readC heading, readD distance */
+	static std::vector<uint8_t> buildCM_MOVE_IN_AIR(int32_t worldId, float x, float y, float z, int8_t heading, int32_t distance);
+	/** EmotionType START_FLYTELEPORT (6) and LAND_FLYTELEPORT (7), EmotionType.java */
+	static constexpr uint8_t EMOTION_START_FLYTELEPORT = 6;
+	static constexpr uint8_t EMOTION_LAND_FLYTELEPORT = 7;
+	/**
+	 * CM_EMOTION.readImpl (CM_EMOTION.java:52-60) for an emotion type that reads nothing more (LAND_FLYTELEPORT and the other arms without
+	 * fields): readUC emotionType
+	 */
+	static std::vector<uint8_t> buildCM_EMOTION(uint8_t emotionType);
+	/** CM_BIND_POINT_TELEPORT's actions (CM_BIND_POINT_TELEPORT.java:27, "1 casting, 2 cancel, 3 done") */
+	static constexpr uint8_t BIND_POINT_TELEPORT_CAST = 1;
+	static constexpr uint8_t BIND_POINT_TELEPORT_CANCEL = 2;
+	/** CM_BIND_POINT_TELEPORT.readImpl (CM_BIND_POINT_TELEPORT.java:25-31): readC action; action 1 only: readD locId, readQ kinah */
+	static std::vector<uint8_t> buildCM_BIND_POINT_TELEPORT(uint8_t action, int32_t locId = 0, int64_t kinah = 0);
 
 	// ---- M5e's progression packets (m5e-plan.md §2.11, G-02), each the Java readImpl field order ----
 	/** MovementMask.GLIDE and FALL (MovementMask.java:16, 21): what buildCM_MOVE_GLIDE writes, GlideFlag.NONE (0) its default flag */
