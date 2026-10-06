@@ -81,7 +81,8 @@ class SummaryTest(unittest.TestCase):
         unrep = 'D:\\a.cpp(1): error: Value of: x\nnot reproducible and not listed: 1361 onDialogEvent#9: the replay does not model useQuestItem []\n'
         vac = 'D:\\a.cpp(1): error: Value of: x\nvacuous and not listed: 1361 onDialogEvent#4\n'
         stopped = 'unknown file: error: C++ exception with description "The given level is higher than possible max" thrown in the test body.\n'
-        s = goldensample.classify(self.report({1361: [fail, fail2, fail3, unrep, vac], 2900: [stopped]}), stdout)
+        summary = 'D:\\GoldenQuestTraceTest.cpp(1889): error: Expected equality of these values:\n  tally.failed\n    Which is: 3\n  0\n'
+        s = goldensample.classify(self.report({1361: [fail, fail2, fail3, unrep, vac, summary], 2900: [stopped]}), stdout)
         self.assertEqual(s['failed'], {'1361': ['onDialogEvent#2', 'onItemUseEvent#3', 'onItemUseEvent#3@questState.vars.0=4']})
         self.assertEqual(s['failedByHook'], {'onItemUseEvent': {'variants': 2, 'quests': [1361]},
                                              'onDialogEvent': {'variants': 1, 'quests': [1361]}})
@@ -91,6 +92,7 @@ class SummaryTest(unittest.TestCase):
         self.assertIn('higher than possible max', s['stopped']['2900'])
         self.assertEqual((s['ran'], s['variantsPassed'], s['runsCompared'], s['questsWithoutFinding']), (2, 13, 49, 1))
         self.assertEqual(len(s['registration']), 1)
+        self.assertEqual(s['other'], {})       # the quest's EXPECT_EQ(tally.failed, 0) counts its failed variants again: not an other failure
         # the review of #79, item 9: each check by its name
         self.assertEqual(s['failedChecks'], {'1361': {'returned': 1, 'questStates': 1, 'opcodes': 1}})
         s['exitCode'] = 1
