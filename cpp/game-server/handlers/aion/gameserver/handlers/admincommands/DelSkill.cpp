@@ -43,7 +43,11 @@ void DelSkill::execute(Player& admin, std::span<const std::string> params) {
 				PacketSendUtility::sendMessage(admin, "Param 1 must be an integer or <all>.");
 				return;
 			}
-			if (!check(admin, *player, skillId))
+			// Correction of the Java code (owner's decision 2026-10-05, both branches; docs/deviations/C1.md): skill ID 0 is apply's "all"
+			// arm, so it skips the presence and stigma checks (Java's getSkillEntry(0).isStigmaSkill() threw) and takes the skill list
+			if (skillId == 0)
+				playerSkillList = player->getSkillList();
+			else if (!check(admin, *player, skillId))
 				return;
 		}
 		apply(admin, *player, skillId, playerSkillList);
@@ -60,7 +64,11 @@ void DelSkill::execute(Player& admin, std::span<const std::string> params) {
 				PacketSendUtility::sendMessage(admin, "Param 0 must be an integer or <all>.");
 				return;
 			}
-			if (!check(admin, *player, skillId))
+			// Correction of the Java code (owner's decision 2026-10-05, both branches; docs/deviations/C1.md): skill ID 0 is apply's "all"
+			// arm, so it skips the presence and stigma checks (Java's getSkillEntry(0).isStigmaSkill() threw) and takes the skill list
+			if (skillId == 0)
+				playerSkillList = player->getSkillList();
+			else if (!check(admin, *player, skillId))
 				return;
 		}
 		apply(admin, *player, skillId, playerSkillList);
@@ -74,7 +82,7 @@ bool DelSkill::check(Player& admin, Player& player, int32_t skillId) {
 		return false;
 	}
 	runtime::Ptr<model::skill::PlayerSkillEntry> skillEntry = player.getSkillList()->getSkillEntry(skillId);
-	if (skillEntry == nullptr) // Java: NullPointerException for skill ID 0 (getSkillEntry(0) is null; proposed correction in docs/deviations/C1.md)
+	if (skillEntry == nullptr) // Java's NullPointerException; execute no longer calls check for skill ID 0 (the owner's correction, C1.md)
 		throw runtime::NullPointerException("Cannot invoke \"PlayerSkillEntry.isStigmaSkill()\" because the return value of \"getSkillEntry(int)\" is null");
 	if (skillEntry->isStigmaSkill()) {
 		PacketSendUtility::sendMessage(admin, "You can't remove stigma skill.");
