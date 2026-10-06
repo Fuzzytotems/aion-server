@@ -336,13 +336,20 @@ TEST_F(SimpleItemActionsTest, ACosmeticChecksRaceAndGender) {
 	EXPECT_EQ(sent(), cp::exactly({serialized(SM_SYSTEM_MESSAGE::STR_CANNOT_USE_ITEM_INVALID_RACE())})) << "the race comes first";
 }
 
-// java-bug kept (proposed correction): act deletes targetItem, which CM_USE_ITEM leaves null for a plain use
-TEST_F(SimpleItemActionsTest, ACosmeticWithoutATargetItemIsJavasNullPointerExceptionAfterTheAppearanceChanged) {
+// correction of the Java code (owner's decision 2026-10-05, both branches): act deletes the used coupon (parentItem); Java deleted targetItem,
+// which CM_USE_ITEM leaves null for a plain use, and threw a NullPointerException with the coupon kept (CosmeticItemAction.java:84)
+TEST_F(SimpleItemActionsTest, ACosmeticIsUsedUpAfterTheAppearanceChanged) {
 	const auto& cosmetic = actionOf<model::templates::item::actions::CosmeticItemAction>(COSMETIC_HAIR);
 	Item& item = stored(ITEM, COSMETIC_HAIR, 1);
-	EXPECT_THROW(cosmetic.act(player(), Ptr<Item>(item), nullptr), runtime::NullPointerException);
-	EXPECT_EQ(player().getPlayerAppearance()->getHair(), 1) << "hair_type 1 was set before the delete";
-	EXPECT_TRUE(player().getInventory().getItemByObjId(ITEM)) << "the item stays";
+	try {
+		cosmetic.act(player(), Ptr<Item>(item), nullptr);
+	} catch (const runtime::NullPointerException& e) {
+		// the last statement, onChangedPlayerAttributes, sends the player info packets, which ask HousingService for the player's house (the
+		// house data and a database this fixture lacks); Java's Storage.delete(null) threw before the delete instead
+		EXPECT_NE(std::string_view(e.what()).find("HouseData"), std::string_view::npos) << e.what();
+	}
+	EXPECT_EQ(player().getPlayerAppearance()->getHair(), 1) << "hair_type 1";
+	EXPECT_FALSE(player().getInventory().getItemByObjId(ITEM)) << "the coupon is used up";
 }
 
 // ---- PolishAction (PolishAction.java:34-101) ------------------------------------------------------------------------------------------------
