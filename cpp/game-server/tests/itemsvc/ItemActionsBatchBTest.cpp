@@ -607,6 +607,16 @@ TEST_F(ItemActionsBatchBTest, TheFirstTamperingIsSafeAndRaisesTheLevel) {
 	EXPECT_FALSE(tampering.canAct(player(), Ptr<Item>(tool), Ptr<Item>(earring))) << "at max_tampering 5";
 }
 
+// correction of the Java code (owner's decision 2026-10-05, both branches): Java's canAct threw a NullPointerException for a use without a
+// target (TamperingAction.java:34); it cannot act, as ApExtract and Pack
+TEST_F(ItemActionsBatchBTest, ATamperingWithoutATargetCannotAct) {
+	const auto& tampering = actionOf<model::templates::item::actions::TamperingAction>(TAMPERING_TOOL);
+	Item& tool = stored(ITEM, TAMPERING_TOOL, 1);
+	clearSent();
+	EXPECT_FALSE(tampering.canAct(player(), Ptr<Item>(tool), nullptr));
+	EXPECT_TRUE(sent().empty());
+}
+
 TEST_F(ItemActionsBatchBTest, APlumeAboveFourGainsARandomBonusPerLevelAndLosesItBelow) {
 	Item& earring = stored(ITEM, PLUME_EARRING, 1);
 	earring.setTempering(4);
