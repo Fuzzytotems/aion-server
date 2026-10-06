@@ -87,7 +87,8 @@ void CosmeticItemAction::act(gameobjects::player::Player& player, runtime::Ptr<g
 		playerAppearance->setEyeRGB(preset->getEyeColor());
 		playerAppearance->setLipRGB(preset->getLipColor());
 		playerAppearance->setHairRGB(preset->getHairColor());
-		playerAppearance->setSkinRGB(preset->getEyeColor()); // java-bug kept: the eye colour (proposed correction: getSkinColor)
+		// correction of the Java code (owner's decision 2026-10-05, both branches): Java sets the eye colour here (CosmeticItemAction.java:70)
+		playerAppearance->setSkinRGB(preset->getSkinColor());
 		playerAppearance->setHair(preset->getHairType());
 		playerAppearance->setFace(preset->getFaceType());
 		playerAppearance->setHeight(preset->getScale());
