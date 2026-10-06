@@ -91,3 +91,20 @@ TEST(JavaFloatTest, ToStringMatchesJava) {
 	EXPECT_EQ(JavaFloat::toString(std::numeric_limits<float>::denorm_min()), "1.4E-45");
 	EXPECT_EQ(JavaFloat::toString(7 * std::numeric_limits<float>::denorm_min()), "9.8E-45");
 }
+
+// Java Double.toString (JDK 19+): the shortest digits of the double, the same format as Float.toString
+TEST(JavaFloatTest, DoubleToStringMatchesJava) {
+	EXPECT_EQ(JavaFloat::doubleToString(0.0), "0.0");
+	EXPECT_EQ(JavaFloat::doubleToString(-0.0), "-0.0");
+	EXPECT_EQ(JavaFloat::doubleToString(1.0), "1.0");
+	EXPECT_EQ(JavaFloat::doubleToString(0.1), "0.1");
+	EXPECT_EQ(JavaFloat::doubleToString(0.1f), "0.10000000149011612");
+	EXPECT_EQ(JavaFloat::doubleToString(100.0), "100.0");
+	EXPECT_EQ(JavaFloat::doubleToString(1.0e7), "1.0E7");
+	EXPECT_EQ(JavaFloat::doubleToString(1.0e-5), "1.0E-5");
+	EXPECT_EQ(JavaFloat::doubleToString(0.001), "0.001");
+	EXPECT_EQ(JavaFloat::doubleToString(-12.5), "-12.5");
+	EXPECT_EQ(JavaFloat::doubleToString(4.9e-324), "4.9E-324");
+	EXPECT_EQ(JavaFloat::doubleToString(1.7976931348623157e308), "1.7976931348623157E308");
+	EXPECT_EQ(JavaFloat::doubleToString(2.0e23), "2.0E23");
+}
