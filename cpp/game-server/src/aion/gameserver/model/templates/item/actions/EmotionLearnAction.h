@@ -4,6 +4,7 @@
 
 #include <any>
 #include <initializer_list>
+#include <vector>
 
 #include "aion/gameserver/model/gameobjects/fwd.h"
 #include "aion/gameserver/model/gameobjects/player/fwd.h"
@@ -32,6 +33,9 @@ public:
 	 * @return True if there exists a learn template for given emotion. False means it's either a default or an invalid emotion.
 	 */
 	static bool isLearnable(int32_t emotionId);
+
+	/** Java: the learnable ids, sorted (LEARNABLE_IDS.stream().sorted().toList()) */
+	static std::vector<int32_t> getLearnableEmotionIds();
 };
 
 } // namespace aion::gameserver::model::templates::item::actions

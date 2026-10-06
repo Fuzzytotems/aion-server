@@ -27,6 +27,9 @@ public:
 
 	void act(gameobjects::player::Player& player, runtime::Ptr<gameobjects::Item> item, runtime::Ptr<gameobjects::Item> targetItem,
 		std::initializer_list<std::any> params = {}) const override;
+
+	/** Java MegaphoneAction.getColor(): Integer.parseInt(color, 16) */
+	int32_t getColor() const;
 };
 
 } // namespace aion::gameserver::model::templates::item::actions
