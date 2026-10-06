@@ -79,6 +79,13 @@ public:
 
 	runtime::Ptr<common::legacy::LootGroupRules> getLootGroupRules() override;
 
+	/**
+	 * C++ cycle breaker (cycles.toml PlayerAlliance.groups cpp-breaker; PlayerAllianceGroup.h class comment): drops the four alliance groups,
+	 * which hold this alliance back. PlayerAllianceService::disband calls it after the AllianceDisbandEvent removed every member; Java leaves
+	 * the groups to the garbage collector.
+	 */
+	void releaseGroups();
+
 protected:
 	~PlayerAlliance() override;
 

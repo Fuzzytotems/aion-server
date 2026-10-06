@@ -8,11 +8,11 @@
 #include "aion/gameserver/model/team/common/legacy/LootGroupRules.h"
 #include "aion/gameserver/model/team/common/legacy/LootRuleType.h"
 #include "aion/gameserver/model/team/league/League.h"
+#include "aion/gameserver/model/team/league/LeagueMember.h"
 #include "aion/gameserver/network/aion/AionConnection.h"
 #include "aion/gameserver/network/aion/ServerPacketsOpcodes.gen.h"
 #include "aion/gameserver/network/aion/serverpackets/detail/PacketSupport.h"
 #include "aion/gameserver/runtime/base/Exceptions.h"
-#include "aion/gameserver/runtime/base/Unported.h"
 
 #include "aion/commons/utils/WindowsMacroGuard.h" // after all headers that may include windows.h
 
@@ -20,11 +20,12 @@ namespace aion::gameserver::network::aion::serverpackets {
 
 namespace {
 
-/** Java: league.getMember(allianceObjectId).getLeaguePosition() - LeagueMember.h (P5-10) is not written yet */
+/** Java: league.getMember(allianceObjectId).getLeaguePosition() (SM_ALLIANCE_INFO.java:118); a missing member is Java's NullPointerException */
 int32_t leaguePosition(model::team::league::League& league, int32_t allianceObjectId) {
-	static_cast<void>(league);
-	static_cast<void>(allianceObjectId);
-	AION_UNPORTED();
+	runtime::Ptr<model::team::league::LeagueMember> member = league.getMember(allianceObjectId);
+	if (!member)
+		throw runtime::NullPointerException("League.getMember(" + std::to_string(allianceObjectId) + ")");
+	return member->getLeaguePosition();
 }
 
 } // namespace

@@ -5,11 +5,12 @@
 #include "aion/gameserver/model/gameobjects/player/Player.h"
 #include "aion/gameserver/model/gameobjects/player/PlayerCommonData.h"
 #include "aion/gameserver/model/stats/container/PlayerLifeStats.h"
+#include "aion/gameserver/model/team/alliance/PlayerAllianceMember.h"
+#include "aion/gameserver/controllers/effect/PlayerEffectController.h"
 #include "aion/gameserver/model/team/common/legacy/PlayerAllianceEvent.h"
 #include "aion/gameserver/network/aion/ServerPacketsOpcodes.gen.h"
 #include "aion/gameserver/network/aion/serverpackets/detail/PacketSupport.h"
 #include "aion/gameserver/runtime/base/Exceptions.h"
-#include "aion/gameserver/runtime/base/Unported.h"
 #include "aion/gameserver/skillengine/model/Effect.h"
 #include "aion/gameserver/skillengine/model/SkillTargetSlot.h"
 #include "aion/gameserver/world/WorldPosition.h"
@@ -30,26 +31,34 @@ int32_t allianceEventId(model::team::common::legacy::PlayerAllianceEvent event) 
 
 SM_ALLIANCE_MEMBER_INFO::SM_ALLIANCE_MEMBER_INFO(model::team::alliance::PlayerAllianceMember& member,
 	model::team::common::legacy::PlayerAllianceEvent eventValue, int32_t slotValue)
-	: AionServerPacket(opcodeOf<SM_ALLIANCE_MEMBER_INFO>) {
-	// Java: member.getObject(), member.getAllianceId(), member.getObjectId() and the player's abnormal effects. PlayerAllianceMember.h (P5-10) is
-	// not written yet, so the member cannot be read.
-	static_cast<void>(member);
-	static_cast<void>(eventValue);
-	static_cast<void>(slotValue);
-	AION_UNPORTED();
+	: AionServerPacket(opcodeOf<SM_ALLIANCE_MEMBER_INFO>), player(member.getPlayer()), event(eventValue), allianceId(member.getAllianceId()),
+	  objectId(member.getObjectId()), slot(slotValue) {
+	using model::team::common::legacy::PlayerAllianceEvent;
+	switch (event) {
+		case PlayerAllianceEvent::JOIN:
+		case PlayerAllianceEvent::ENTER:
+		case PlayerAllianceEvent::ENTER_OFFLINE:
+		case PlayerAllianceEvent::UPDATE:
+		case PlayerAllianceEvent::RECONNECT:
+		case PlayerAllianceEvent::APPOINT_VICE_CAPTAIN: // Unused maybe...
+		case PlayerAllianceEvent::DEMOTE_VICE_CAPTAIN:
+		case PlayerAllianceEvent::APPOINT_CAPTAIN:
+			for (runtime::Ptr<skillengine::model::Effect> effect : player->getEffectController()->getAbnormalEffectsToShow())
+				abnormalEffects.emplace_back(effect);
+			break;
+		case PlayerAllianceEvent::UPDATE_EFFECTS:
+			for (runtime::Ptr<skillengine::model::Effect> effect : player->getEffectController()->getAbnormalEffectsToTargetSlot(slot))
+				abnormalEffects.emplace_back(effect);
+			break;
+		default:
+			break;
+	}
 }
 
-#ifdef _MSC_VER
-#pragma warning(push)
-#pragma warning(disable : 4702) // the delegated-to constructor never returns until PlayerAllianceMember.h (P5-10) exists
-#endif
 SM_ALLIANCE_MEMBER_INFO::SM_ALLIANCE_MEMBER_INFO(model::team::alliance::PlayerAllianceMember& member,
 	model::team::common::legacy::PlayerAllianceEvent eventValue)
 	: SM_ALLIANCE_MEMBER_INFO(member, eventValue, 0) {
 }
-#ifdef _MSC_VER
-#pragma warning(pop)
-#endif
 
 SM_ALLIANCE_MEMBER_INFO::~SM_ALLIANCE_MEMBER_INFO() = default;
 

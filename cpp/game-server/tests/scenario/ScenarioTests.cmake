@@ -498,4 +498,19 @@ if(TARGET aion_gs_scenario_tests)
 	if(AION_SCENARIO_REQUIRE OR NOT AION_GS_ALLOW_MILESTONE_SKIP)
 		set_property(TEST gs.scenario.m5g APPEND PROPERTY ENVIRONMENT_MODIFICATION "AION_SCENARIO_REQUIRE=set:1")
 	endif()
+
+	# gs.scenario.m5g_alliance (m5g-plan.md §16.3 item 7, the alliance part of §10.5): the same four accounts form an alliance from a group,
+	# move a member between alliance groups, appoint a vice captain who invites, run the ready check, share a kill and its loot, time a member
+	# out, leave and disband, and keep a live alliance at the stop. Its own output directory <bin>/scenario/m5g_alliance and schema pair
+	# (prefix m5ga); the M5g allow-list. Gate slot 2 with gs.scenario.m5g. TIMEOUT 1800.
+	add_test(NAME gs.scenario.m5g_alliance COMMAND "$<TARGET_FILE:aion_gs_scenario_tests>" --gtest_filter=M5gAllianceScenario.Run
+		WORKING_DIRECTORY "${scenario_work_dir}")
+	set_tests_properties(gs.scenario.m5g_alliance PROPERTIES LABELS "scenario;realdata" TIMEOUT 1800
+		RESOURCE_LOCK "${AION_GS_GATE_SLOT_2}" SKIP_REGULAR_EXPRESSION "gs\\.scenario\\.m5g_alliance: skipped")
+	if(Python3_Interpreter_FOUND)
+		set_property(TEST gs.scenario.m5g_alliance APPEND PROPERTY ENVIRONMENT_MODIFICATION "AION_TEST_PYTHON=set:${Python3_EXECUTABLE}")
+	endif()
+	if(AION_SCENARIO_REQUIRE OR NOT AION_GS_ALLOW_MILESTONE_SKIP)
+		set_property(TEST gs.scenario.m5g_alliance APPEND PROPERTY ENVIRONMENT_MODIFICATION "AION_SCENARIO_REQUIRE=set:1")
+	endif()
 endif()

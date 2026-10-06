@@ -20,8 +20,16 @@ using network::aion::serverpackets::SM_SYSTEM_MESSAGE;
 using utils::PacketSendUtility;
 using utils::collections::Predicates;
 
-TemporaryPlayerTeam::TemporaryPlayerTeam(int32_t objId, bool autoReleaseObjectId)
-	: GeneralTeam(objId, autoReleaseObjectId), lootGroupRules(common::legacy::LootGroupRules::create()) {
+TemporaryPlayerTeam::TemporaryPlayerTeam(int32_t objId, bool autoReleaseObjectId, teamlock::OfPlayerGroup kind)
+	: GeneralTeam(objId, autoReleaseObjectId, kind), lootGroupRules(common::legacy::LootGroupRules::create()) {
+}
+
+TemporaryPlayerTeam::TemporaryPlayerTeam(int32_t objId, bool autoReleaseObjectId, teamlock::OfPlayerAlliance kind)
+	: GeneralTeam(objId, autoReleaseObjectId, kind), lootGroupRules(common::legacy::LootGroupRules::create()) {
+}
+
+TemporaryPlayerTeam::TemporaryPlayerTeam(int32_t objId, bool autoReleaseObjectId, teamlock::OfPlayerAllianceGroup kind)
+	: GeneralTeam(objId, autoReleaseObjectId, kind), lootGroupRules(common::legacy::LootGroupRules::create()) {
 }
 
 TemporaryPlayerTeam::~TemporaryPlayerTeam() = default;
