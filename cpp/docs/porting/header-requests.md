@@ -906,3 +906,8 @@ is **filed, applied on the branch**; the integrator confirms at the merge.
 | m5g-12 | `model/team/league/{LeagueMember,LeagueService}.{h,cpp}` (P5-10d) | new: `LeagueMember` ported (accessors), `LeagueService` an `AION_UNPORTED` shell | **filed, applied on the branch** (new files, I-02a) | the league events (I-02b) and `LeagueService`'s bodies are the league lane's (LG-02) |
 | m5g-13 | `generated/concurrency/{fieldmap,cycles}.toml` | none needed | **none filed** | the new classes match `fieldmap.py --class` (lint L1/L2 clean); every new capture is a Ref in a `bindTask` (INSTANCE_KICK, setPlayersInRoll, the recall timeout - cycles.toml's `RecallService@L61:62#request` row stands) |
 | (no request) | the client packets `CM_INVITE_TO_GROUP`, `CM_DISTRIBUTION_SETTINGS`, `CM_GROUP_LOOT`, `CM_GROUP_DISTRIBUTION`, `CM_FIND_GROUP`, `CM_GROUP_DATA_EXCHANGE` (P5-15), `CM_PLAYER_STATUS_INFO`, `CM_SHOW_BRAND`, `CM_QUEST_SHARE` (P5-16) | new files | none (m5f-plan.md:488 precedent) | `CM_CHAT_MESSAGE_PUBLIC` is lane A's |
+## M5b-3 leftovers (branch `lane-a/m5b3-leftovers`)
+
+| Id | File | Change | Decision | Reason |
+|---|---|---|---|---|
+| m5b3l-1 | `model/templates/item/actions/{DecorateAction,MegaphoneAction,EmotionLearnAction,AnimationAddAction}.h` (P5-07) | `int32_t getTemplateId() const;` (Decorate), `int32_t getColor() const;` (Megaphone), `static std::vector<int32_t> getLearnableEmotionIds();` (EmotionLearn), private `void finishUse(Player&, Item&) const;` (AnimationAdd) | **filed, applied on the branch** (additive, the psf-2 precedent); the integrator confirms at the merge | The Java methods the census lists as undeclared; `finishUse` reads the action's motion attributes |
