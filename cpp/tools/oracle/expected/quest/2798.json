@@ -1,0 +1,23 @@
+{
+ "format": "aion-quest-trace",
+ "version": 1,
+ "questId": 2798,
+ "java": "reshanta/_2798SignontheDottedLine.java",
+ "class": "_2798SignontheDottedLine",
+ "javaSha256": "c052f921d248dbe920e6e05a014857e7d062a5289c1720c426b3f2fedb109bba",
+ "register": [
+  {"npc": 279007, "event": "addOnTalkEvent", "args": [2798]},
+  {"npc": 263569, "event": "addOnTalkEvent", "args": [2798]},
+  {"npc": 263267, "event": "addOnTalkEvent", "args": [2798]},
+  {"npc": 264769, "event": "addOnTalkEvent", "args": [2798]},
+  {"npc": 271054, "event": "addOnTalkEvent", "args": [2798]},
+  {"npc": 266554, "event": "addOnTalkEvent", "args": [2798]},
+  {"npc": 270152, "event": "addOnTalkEvent", "args": [2798]},
+  {"npc": 269252, "event": "addOnTalkEvent", "args": [2798]},
+  {"npc": 268052, "event": "addOnTalkEvent", "args": [2798]},
+  {"npc": 260236, "event": "addOnTalkEvent", "args": [2798]},
+  {"npc": 279007, "event": "addOnQuestStart", "args": [2798]}
+ ],
+ "hooks": [{"hook": "onDialogEvent", "line": 25, "unsupported": "reads status/2798 after sendQuestNoneDialog, which may have written it"}],
+ "cases": []
+}

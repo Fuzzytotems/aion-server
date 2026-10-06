@@ -464,7 +464,9 @@ class Corpus(unittest.TestCase):
         # and two files of the G1 lane's rows that need a P6-T rule as well (2026-10-04, tests.test_questgen_g1: B37 and a switch rule in
         # _24030, B32 and a varargs array in _2007)
         self.assertEqual(added, sorted([rel for rels in UNBLOCKED.values() for rel in rels]
-                                       + ['clash_of_destiny/_24030ShowdownWithDestiny.java', 'ishalgen/_2007WheresRaeThisTime.java']))
+                                       + ['clash_of_destiny/_24030ShowdownWithDestiny.java', 'ishalgen/_2007WheresRaeThisTime.java',
+                                          # row B39 (chunk Q01, 2026-10-05) and a varargs array (rule varargs-inline)
+                                          'reshanta/_14045RumorsOnWings.java']))
         for rel, r in self.proto.items():
             if r.status == 'ok':
                 with self.subTest(rel=rel):
@@ -472,8 +474,9 @@ class Corpus(unittest.TestCase):
         # the prototype's 910 and the six escorts rows B26-B30 admit (2026-09-30): API rows are not P6-T rules, so both sets gain them; and
         # six of the ten files of the G1 lane's rows B32-B38 (2026-10-04, tests.test_questgen_g1; two need a P6-T rule, two rule
         # scheduled-closure)
-        # row B39 (the Q08 follow-up, lane C, 2026-10-05) adds gelkmaros/_20034
-        self.assertEqual(sum(1 for r in self.proto.values() if r.status == 'ok'), 923)
+        # row B39 (the Q08 follow-up, lane C, 2026-10-05) adds gelkmaros/_20034, rows B40-B42 (chunk Q01) 14043, 24045, 24043, 50008
+        # and 51008; 14045 also needs a P6-T rule
+        self.assertEqual(sum(1 for r in self.proto.values() if r.status == 'ok'), 928)
 
     def test_the_oracle_slice_is_tier_a(self):
         # tools/oracle/questtrace/extract.py SLICE: the Poeta and Ishalgen files questgen emits in tier A (phase6-inventory.md §9.3 item 1)

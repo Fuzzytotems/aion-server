@@ -37,7 +37,8 @@ class Q03SliceTest(unittest.TestCase):
 		self.assertEqual(set(extract.SLICE_Q03) & set(extract.SLICE_TIER_A + extract.SLICE_ROUTE), set())
 		# the integration of slice 2 (p6q-ascension-route.md, "Slice 2"): Q10's altgard/pandaemonium slice follows, then (phase 6 step 2,
 		# lane C) Q08's gelkmaros/enshar slice
-		self.assertEqual(extract.SLICE, extract.SLICE_TIER_A + extract.SLICE_ROUTE + extract.SLICE_Q03 + extract.SLICE_Q10 + extract.SLICE_Q08)
+		self.assertEqual(extract.SLICE, extract.SLICE_TIER_A + extract.SLICE_ROUTE + extract.SLICE_Q03 + extract.SLICE_Q10 + extract.SLICE_Q08 +
+		                 extract.SLICE_Q01)
 		# every hook refused in two of them (the golden harness's ORACLE_REFUSES_EVERY_HOOK): 1640 TeleportService.teleportTo, 1647
 		# player.getEquipment and spawnForFiveMinutesInFrontOf
 		for qid in (1640, 1647):

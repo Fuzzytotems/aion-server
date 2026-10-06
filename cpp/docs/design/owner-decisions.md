@@ -7,6 +7,7 @@ then this file wins over a plan's "until the user answers" default.
 
 | Decision | Answer | What it changes |
 |---|---|---|
+| `reshanta/_2759TenaciousGuardian` (phase 6 step 2, chunk Q01): Java's shared `killedMobs` list (`_2759TenaciousGuardian.java:19`, `:57`, `:76-94`) | **Correction of the Java code, both branches**: a hand port with a per-player kill record, no blocking between players, no double credit | Hand port in the tree (docs/deviations/Q01.md, "_2759TenaciousGuardian"): the record is the quest's var slot 1; cases in `tests/quest_handlers_golden/ReshantaHandPortsTest.cpp` |
 | `gelkmaros/_20034RescuetheReians` (phase 6 step 2, chunk Q08): add `QuestTemplate::getName()` to the C++ header (option A of docs/deviations/Q08.md) | **"A"** (approved) | Header request p6q08-1 (docs/porting/header-requests.md). Not applied: the member was already declared (the generated `QuestTemplate.xml.inc`); questgen's API row B39 (`DataManager.QUEST_DATA`) lands 20034 generated, with no header change |
 | Java correction: the legion chat log `NullPointerException` (lane A's chat, PRs #89/#90) | **Correct it, on both branches (C++ and 4.8)** | `CM_CHAT_MESSAGE_PUBLIC` checks `isLegionMember()` before it logs a LEGION chat, so a legionless player's legion chat is neither logged nor sent and no longer throws with `gameserver.log.chats.private` on (docs/deviations/P5-08.md, "Legion chat log: correction of the Java code") |
 

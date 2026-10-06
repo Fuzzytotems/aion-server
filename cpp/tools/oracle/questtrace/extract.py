@@ -182,7 +182,42 @@ SLICE_Q08 = (
 	'enshar/_25050TreasureInTheDeepSea.java', 'enshar/_25051TreasureOfAncientKings.java', 'enshar/_25052AnOfferingPeace.java',
 	'enshar/_25062OminousAdvice.java', 'enshar/_25070TruthOfTheCrystal.java', 'enshar/_25073NoRevivalForTheBalaur.java',
 )
-SLICE = SLICE_TIER_A + SLICE_ROUTE + SLICE_Q03 + SLICE_Q10 + SLICE_Q08
+# Phase 6 step 2, chunk Q01 (lane C, 2026-10-05; docs/deviations/Q01.md): the 81 reshanta handlers questgen transliterates (all but
+# _2759TenaciousGuardian, a List<Integer> field). The C++ harness drives every document.
+SLICE_Q01 = (
+	'reshanta/_14040OrdersFromReshanta.java', 'reshanta/_14041AbyssalAbilities.java', 'reshanta/_14042ARescueOperation.java',
+	'reshanta/_14043DrawlingBalaur.java', 'reshanta/_14044ShardsOfMemory.java', 'reshanta/_14045RumorsOnWings.java',
+	'reshanta/_14046PiecingTheMemory.java', 'reshanta/_14047ChainingMemories.java', 'reshanta/_1701GovernorsDirective.java',
+	'reshanta/_1702Defeat9thRankAsmodianSoldiers.java', 'reshanta/_1703Defeat8thRankAsmodianSoldiers.java',
+	'reshanta/_1704Defeat7thRankAsmodianSoldiers.java', 'reshanta/_1705Defeat6thRankAsmodianSoldiers.java',
+	'reshanta/_1706Defeat5thRankAsmodianSoldiers.java', 'reshanta/_1707Defeat4thRankAsmodianSoldiers.java',
+	'reshanta/_1708Defeat3thRankAsmodianSoldiers.java', 'reshanta/_1709Defeat2thRankAsmodianSoldiers.java',
+	'reshanta/_1710Defeat1thRankAsmodianSoldiers.java', 'reshanta/_1718TradingDown.java', 'reshanta/_1719ConfrontAsmodianOfficers.java',
+	'reshanta/_1720ConfrontAsmodianGenerals.java', 'reshanta/_1721MeetingwiththeBrigadeGeneral.java',
+	'reshanta/_1722RastinsHomesickness.java', 'reshanta/_1724ReaperExpertise.java', 'reshanta/_1725CenturionsForgetfulness.java',
+	'reshanta/_1726ScoutingtheLake.java', 'reshanta/_1727RecruitsforNezekansShield.java', 'reshanta/_1761SohonerkWish.java',
+	'reshanta/_1777CalloftheGovernor.java', 'reshanta/_1798JakurerksShotattheBigTime.java', 'reshanta/_1799PupilsDiary.java',
+	'reshanta/_1800JaiorunerksTombstone.java', 'reshanta/_1845OpeningDoors.java', 'reshanta/_1846PaperTrail.java',
+	'reshanta/_1847AStrangeSoul.java', 'reshanta/_1851UnchartedIslands.java', 'reshanta/_1853OfficerOusting.java',
+	'reshanta/_1854GeneralPurge.java', 'reshanta/_24040VotansOrders.java', 'reshanta/_24041TrainingInTheAbyss.java',
+	'reshanta/_24042AReadyRescue.java', 'reshanta/_24043LazyLanguageLessons.java', 'reshanta/_24044ChangeTheFuture.java', 'reshanta/_24045ASpeedyErrand.java',
+	'reshanta/_24046TheShadowCalls.java', 'reshanta/_2701TheGovernorsSummons.java', 'reshanta/_2702Defeat9thRankElyosSoldiers.java',
+	'reshanta/_2703Defeat8thRankElyosSoldiers.java', 'reshanta/_2704Defeat7thRankElyosSoldiers.java',
+	'reshanta/_2705Defeat6thRankElyosSoldiers.java', 'reshanta/_2706Defeat5thRankElyosSoldiers.java',
+	'reshanta/_2707Defeat4thRankElyosSoldiers.java', 'reshanta/_2708Defeat3thRankElyosSoldiers.java',
+	'reshanta/_2709Defeat2thRankElyosSoldiers.java', 'reshanta/_2710Defeat1thRankElyosSoldiers.java', 'reshanta/_2718TradingDown.java',
+	'reshanta/_2719ChallengeElyosOfficers.java', 'reshanta/_2720ChallengeElyosGenerals.java',
+	'reshanta/_2721MeetingWithTheBrigadeGeneral.java', 'reshanta/_2722TheComfortsofHome.java', 'reshanta/_2724MissingInAction.java',
+	'reshanta/_2727TransparentMotives.java', 'reshanta/_2758CarryTheFlame.java', 'reshanta/_2767AFruitfulPartnership.java',
+	'reshanta/_2798SignontheDottedLine.java', 'reshanta/_2841CleansingtheAsteriaChamber.java',
+	'reshanta/_2842BalaurintheUndergroundFortress.java', 'reshanta/_2843OperationAnnihilate.java',
+	'reshanta/_2850OfficerObliteration.java', 'reshanta/_2851GeneralMassacre.java', 'reshanta/_3205FortheBlackCloudTraders.java',
+	'reshanta/_3701TeachThemaLesson.java', 'reshanta/_3702GeneralDestruction.java', 'reshanta/_3711ToKillACaptain.java',
+	'reshanta/_3712DredgionPrisonBreak.java', 'reshanta/_3718DredgingTheDredgion.java', 'reshanta/_4205SmackTheShulack.java',
+	'reshanta/_4702GeneralDeath.java', 'reshanta/_4711TheDredgionCaptain.java', 'reshanta/_4712EscapeFromTheDredgion.java',
+	'reshanta/_4718PressingTheAttack.java',
+)
+SLICE = SLICE_TIER_A + SLICE_ROUTE + SLICE_Q03 + SLICE_Q10 + SLICE_Q08 + SLICE_Q01
 
 ENUM_FILES = {'QuestStatus': 'questEngine/model/QuestStatus.java', 'Race': 'model/Race.java', 'PlayerClass': 'model/PlayerClass.java',
               'Gender': 'model/Gender.java', 'HandlerResult': 'questEngine/handlers/HandlerResult.java', 'DialogPage': 'model/DialogPage.java',

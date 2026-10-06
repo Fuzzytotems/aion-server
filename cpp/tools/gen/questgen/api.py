@@ -60,7 +60,10 @@ ai/AI.h ai/AbstractAI.h ai/NpcAI.h ai/event/AIEventType.h ai/manager/WalkManager
 network/aion/serverpackets/SM_NPC_INFO.h model/templates/spawns/SpawnTemplate.h
 controllers/attack/AggroList.h model/gameobjects/player/title/TitleList.h
 dataholders/DataManager.h dataholders/QuestsData.h model/templates/QuestTemplate.h
+services/GameTimeService.h utils/time/gametime/GameTime.h
+dataholders/SpawnsData.h model/templates/spawns/SpawnSpotTemplate.h
 '''.split()] + ['aion/commons/utils/Rnd.h']
+# (`dataholders/DataManager.h ...`: row B39 of the Q08 follow-up; `services/GameTimeService.h ...`: rows B40-B41 of chunk Q01, 2026-10-05)
 # (the line `model/house/House.h ...`: types QuestPrelude.h re-exports that handlers declare locals of; without them such a local is refused
 # as `type`, which hides the API gap behind it: DataManager.SPAWNS_DATA, WorldMapInstance.getInstanceHandler, Player.getActiveHouse)
 # (`controllers/attack/AggroList.h ...`: rows B37 and B38 of the G1 lane, 2026-10-04)
@@ -213,11 +216,20 @@ API_TABLE = (
     # B39 (phase 6 step 2, chunk Q08 follow-up, lane C, 2026-10-05): the quest's own template name (docs/deviations/Q08.md, 20034)
     Row('B39', 'static data holders: DataManager.QUEST_DATA (read), QuestsData.getQuestById, QuestTemplate.getName',
         (('DataManager', 'QUEST_DATA'), ('QuestsData', 'getQuestById'), ('QuestTemplate', 'getName')), 'ported'),
+    # B40-B41 (phase 6 step 2, chunk Q01, lane C, 2026-10-05): members the C++ side declares that reshanta's Elyos and Asmodian campaign
+    # missions call (docs/deviations/Q01.md)
+    Row('B40', 'broadcasts to the player too: PacketSendUtility.broadcastPacketAndReceive',
+        (('PacketSendUtility', 'broadcastPacketAndReceive'),), 'ported'),
+    Row('B41', 'the game clock: GameTimeService.getInstance().getGameTime(), GameTime.getHour',
+        (('GameTimeService', 'getInstance'), ('GameTimeService', 'getGameTime'), ('GameTime', 'getHour')), 'ported'),
+    Row('B42', 'spawn lookup: DataManager.SPAWNS_DATA (read), SpawnsData.getFirstSpawnByNpcId, SpawnSearchResult.getSpot, SpawnSpotTemplate.getX/Y/Z',
+        (('DataManager', 'SPAWNS_DATA'), ('SpawnsData', 'getFirstSpawnByNpcId'), ('SpawnSearchResult', 'getSpot'), ('SpawnSpotTemplate', 'getX'),
+         ('SpawnSpotTemplate', 'getY'), ('SpawnSpotTemplate', 'getZ')), 'ported'),
 )
 
 # the static data holders of DataManager a handler reads (row B39): Java field -> (the C++ class it holds, its header). The C++ field is a
 # HolderRef (dataholders/loadingutils/HolderRef.h) whose `->` reaches the published holder, as `DataManager.X.` does in Java
-HOLDERS = {'QUEST_DATA': ('QuestsData', G + 'dataholders/QuestsData.h')}
+HOLDERS = {'QUEST_DATA': ('QuestsData', G + 'dataholders/QuestsData.h'), 'SPAWNS_DATA': ('SpawnsData', G + 'dataholders/SpawnsData.h')}
 
 # configuration classes whose public static std::atomic<T> members a handler reads (row B36): Java class -> C++ header
 CONFIG_HEADERS = {'CustomConfig': G + 'configs/main/CustomConfig.h', 'GroupConfig': G + 'configs/main/GroupConfig.h'}
@@ -241,7 +253,7 @@ PLANNED = {
 # Java classes whose static members a handler may name, mapped to the C++ class or enum of the same role
 STATIC_CLASSES = {'QuestService', 'TeleportService', 'PacketSendUtility', 'PositionUtil', 'ItemService', 'InstanceService', 'SkillEngine',
                   'CraftSkillUpdateService', 'ZoneName', 'HandlerResult', 'SM_SYSTEM_MESSAGE', 'Rnd', 'EventService', 'WalkManager',
-                  'QuestTasks'}
+                  'QuestTasks', 'GameTimeService'}
 # Java classes of static methods that C++ ports as a namespace of free functions
 STATIC_NAMESPACES = {'Rnd': ('aion', 'commons', 'utils', 'Rnd')}
 # Java enums the handlers name (the C++ enum class has the same simple name)
