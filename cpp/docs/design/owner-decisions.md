@@ -7,6 +7,7 @@ then this file wins over a plan's "until the user answers" default.
 
 | Decision | Answer | What it changes |
 |---|---|---|
+| `reshanta/_2759TenaciousGuardian` (phase 6 step 2, chunk Q01): Java's shared `killedMobs` list (`_2759TenaciousGuardian.java:19`, `:57`, `:76-94`) | **Correction of the Java code, both branches**: a hand port with a per-player kill record, no blocking between players, no double credit | Hand port in the tree (docs/deviations/Q01.md, "_2759TenaciousGuardian"): the record is the quest's var slot 1; cases in `tests/quest_handlers_golden/ReshantaHandPortsTest.cpp` |
 | `gelkmaros/_20034RescuetheReians` (phase 6 step 2, chunk Q08): add `QuestTemplate::getName()` to the C++ header (option A of docs/deviations/Q08.md) | **"A"** (approved) | Header request p6q08-1 (docs/porting/header-requests.md). Not applied: the member was already declared (the generated `QuestTemplate.xml.inc`); questgen's API row B39 (`DataManager.QUEST_DATA`) lands 20034 generated, with no header change |
 
 ## 2026-09-29

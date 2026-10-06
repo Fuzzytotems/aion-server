@@ -498,7 +498,7 @@ aion_gs_chunk(P5-16 TARGET aion_gs_cm_lz PHASE 5
 # ---------------------------------------------------------------------------------------------------------------------------------------------
 
 # Q01 (phase 6 step 2, lane C, 2026-10-05): the 81 generated reshanta handlers (questgen's output, bannered, drift-tested by
-# tools/gen/tests/test_questgen_tree.py); _2759TenaciousGuardian is refused by questgen and not in the tree.
+# tools/gen/tests/test_questgen_tree.py); _2759TenaciousGuardian is refused by questgen and hand-ported (the owner's correction of 2026-10-05).
 # Their golden traces run in Q05's harness (tests/quest_handlers_golden, GoldenQ01Handlers.cpp compiles them by #include);
 # docs/deviations/Q01.md.
 aion_gs_chunk(Q01 TARGET aion_gs_handlers_quest_reshanta PHASE 6 ROOT handlers

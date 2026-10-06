@@ -1,5 +1,5 @@
 // The generated reshanta handlers (chunk Q01, phase 6 step 2, lane C) compiled into Q05's test executable by #include (GoldenHandlers.h
-// says why). _2759TenaciousGuardian is not generated (docs/deviations/Q01.md).
+// says why). _2759TenaciousGuardian is a hand port with its own cases: ReshantaHandPortsTest.cpp (docs/deviations/Q01.md).
 
 // clang-format off
 #include "aion/gameserver/handlers/quest/reshanta/_14040OrdersFromReshanta.cpp"

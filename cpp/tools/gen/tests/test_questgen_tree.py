@@ -74,7 +74,7 @@ Q08 = {
         '_25073NoRevivalForTheBalaur',),
 }
 # Phase 6 step 2, chunk Q01 (lane C, 2026-10-05; docs/deviations/Q01.md): the reshanta files questgen transliterates, all in the tree (81 of
-# 82: _2759TenaciousGuardian is refused and not in the tree)
+# 82: _2759TenaciousGuardian is refused; a hand port in the tree since the owner's decision of 2026-10-05)
 Q01 = {
     'reshanta': (
         '_14040OrdersFromReshanta', '_14041AbyssalAbilities', '_14042ARescueOperation', '_14043DrawlingBalaur', '_14044ShardsOfMemory',
@@ -164,7 +164,10 @@ class CommittedTree(unittest.TestCase):
             with self.subTest(file=f'reshanta/{klass}'):
                 self.assertIn(('reshanta', klass), found)
         self.assertEqual(len(Q01['reshanta']), 81)
-        self.assertFalse((HANDLER_QUEST_DIR / 'reshanta' / '_2759TenaciousGuardian.cpp').exists())
+        # _2759 is a hand port since the owner's decision of 2026-10-05 (docs/deviations/Q01.md): in the tree, without questgen's banner
+        hand_port = (HANDLER_QUEST_DIR / 'reshanta' / '_2759TenaciousGuardian.cpp').read_text(encoding='utf-8')
+        self.assertNotIn(emit.banner('game-server/data/handlers/quest/reshanta/_2759TenaciousGuardian.java')[0], hand_port)
+        self.assertNotIn(('reshanta', '_2759TenaciousGuardian'), found)
         self.assertEqual(len(Q10_HELD_BACK), 16)
 
     def test_the_enter_world_files_are_in_the_tree(self):
