@@ -1789,8 +1789,6 @@ const std::map<std::string, std::string>& knownVacuous() {
 	// chunk Q02: _11001KindMeira.java:129 and _11008LetterOfEncouragement.java:100 name their own quest as the pre-quest, which must be
 	// COMPLETE while the quest has no state (a non-mission returns at once, AbstractQuestHandler.java:988-1004): the level hook never starts
 	// them (a Java bug kept, docs/deviations/Q02.md)
-	static const std::string SELF_PREQUEST = "defaultOnLevelChangedEvent with the quest itself as its pre-quest: it never starts the quest "
-		"(AbstractQuestHandler.java:988-1004)";
 	static const std::string ITEM_CHECK_FALSE = "checkItemExistence assumed false changes nothing (AbstractQuestHandler.java:576-609)";
 	static const std::string KILLS_ASSUMED_FALSE = "every kill helper of the path assumed false: it changes nothing then (AbstractQuestHandler.java "
 		"defaultOnKillEvent)";
@@ -1864,8 +1862,6 @@ const std::map<std::string, std::string>& knownVacuous() {
 		{"11008 onDialogEvent#10", IDLE_END},
 		{"11046 onDialogEvent#4", IDLE_END},
 		{"11046 onDialogEvent#5", IDLE_END},
-		{"11001 onLevelChangedEvent#1", SELF_PREQUEST},
-		{"11008 onLevelChangedEvent#1", SELF_PREQUEST},
 		{"11227 onKillEvent#5", KILLS_ASSUMED_FALSE},
 		{"11289 onDialogEvent#15", ITEM_CHECK_FALSE},
 		{"11460 onDialogEvent#21", REMOVE_FALSE_REWARD_PAGE},
@@ -2263,6 +2259,32 @@ TEST_F(GoldenQuestTraceTest, ATaskExceptionIsThePoolsInBothRuns) {
 	EXPECT_EQ(tally.failed, 0);
 	EXPECT_EQ(tally.passed, 2);
 	EXPECT_TRUE(tally.unsatisfiable.empty()) << tally.unsatisfiable.front();
+}
+
+TEST_F(GoldenQuestTraceTest, TheCorrectedLevelHooksOf11001And11008StartTheQuest) {
+	// chunk Q02, the owner's correction of 2026-10-05 (docs/deviations/Q02.md): Java's level hooks name the quest itself as its pre-quest
+	// (_11001KindMeira.java:129, _11008LetterOfEncouragement.java:100), so defaultOnLevelChangedEvent never started them; the generated
+	// handlers call it without one (questgen's OWNER_CORRECTIONS). An Elyos at the quest's level gets the quest on a level change; one level
+	// below, or an Asmodian, does not
+	for (int32_t questId : {11001, 11008}) {
+		AbstractQuestHandler& handler = registerGenerated(questId);
+		const QuestRow& row = goldenData().quests.at(questId);
+		Quester* below = makeQuester(GOLDEN_PLAYER, "Golden", gameserver::model::Race::ELYOS, row.minLevel - 1);
+		handler.onLevelChangedEvent(below->player());
+		EXPECT_EQ(below->player().getQuestStateList()->getQuestState(questId), nullptr) << questId << " one level below";
+		dropQuester(below);
+		Quester* other = makeQuester(GOLDEN_PLAYER, "Golden", gameserver::model::Race::ASMODIANS, row.minLevel);
+		handler.onLevelChangedEvent(other->player());
+		EXPECT_EQ(other->player().getQuestStateList()->getQuestState(questId), nullptr) << questId << " the other race";
+		dropQuester(other);
+		Quester* quester = makeQuester(GOLDEN_PLAYER, "Golden", gameserver::model::Race::ELYOS, row.minLevel);
+		handler.onLevelChangedEvent(quester->player());
+		Ptr<QuestState> qs = quester->player().getQuestStateList()->getQuestState(questId);
+		ASSERT_NE(qs, nullptr) << questId;
+		EXPECT_EQ(qs->getStatus(), QuestStatus::START) << questId;
+		dropQuester(quester);
+		QuestEngine::getInstance().clear();
+	}
 }
 
 /** A handler whose dialog hook sends a page drawn from the thread's Rnd: both runs of a case must draw the same one */

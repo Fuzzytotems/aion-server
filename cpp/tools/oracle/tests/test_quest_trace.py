@@ -767,6 +767,22 @@ class ScheduledTaskTest(unittest.TestCase):
 		self.assertTrue(self.refusal(doc, "onDialogEvent").startswith("try"))      # jast refuses it: the hook, not the file
 		self.assertIsInstance(doc["register"], list)
 
+	def test_the_owners_corrections_are_traced_and_equal_to_questgens(self):
+		# the owner's decision of 2026-10-05 (docs/deviations/Q02.md): 11001 and 11008 name themselves as their level hook's pre-quest; the
+		# document traces the corrected call, says so, and the oracle's table is questgen's (each tool keeps its own copy)
+		from questgen import emit
+		self.assertEqual(extract.OWNER_CORRECTIONS, emit.OWNER_CORRECTIONS)
+		for rel, line in (("inggison/_11001KindMeira.java", 129), ("inggison/_11008LetterOfEncouragement.java", 100)):
+			doc = extract.trace_file(tables(), extract.QUEST_DIR / rel, rel)
+			self.assertEqual([c["line"] for c in doc["corrections"]], [line])
+			level = [c for c in doc["cases"] if c["hook"] == "onLevelChangedEvent"]
+			self.assertEqual([c["effects"] for c in level], [[{"call": "defaultOnLevelChangedEvent", "kind": "quest", "args": [], "line": line}]])
+		# a file without a correction has no member, and a correction whose Java text is not on its line is refused
+		rel = "inggison/_10031ARiskfortheObelisk.java"
+		self.assertNotIn("corrections", extract.trace_file(tables(), extract.QUEST_DIR / rel, rel))
+		with self.assertRaises(extract.OracleError):
+			extract.corrected_source("a\nb\n", {2: ("c", "d", "why")}, "x.java")
+
 	def test_switch_expressions_and_switch_rules(self):
 		# the review of #79, item 9: JLS 15.28 (a switch expression's value is its matching arm's, else default's) and JLS 14.11.2 (a rule arm
 		# never falls through)

@@ -149,6 +149,19 @@ class RealQuests(unittest.TestCase):
     def run_file(self, rel):
         return self.tr.transliterate(QUEST / rel)
 
+    def test_the_owners_corrections_are_transliterated_and_marked(self):
+        # OWNER_CORRECTIONS (the owner's decision of 2026-10-05, docs/deviations/Q02.md): the corrected line, marked; nothing else changes
+        for rel, line, quest in (('inggison/_11001KindMeira.java', 129, 11001), ('inggison/_11008LetterOfEncouragement.java', 100, 11008)):
+            with self.subTest(rel=rel):
+                r = self.run_file(rel)
+                self.assertEqual(r.status, 'ok', r.reasons)
+                self.assertIn(f"\t\t{emit.CORRECTION_MARK}Java :{line} named the quest itself as its pre-quest (owner's decision 2026-10-05)\n"
+                              '\t\tdefaultOnLevelChangedEvent(player);\n', r.cpp)
+                self.assertNotIn('{' + str(quest) + '}', r.cpp)
+                self.assertFalse(any('NOT PLACED' in n for n in r.java_bugs), r.java_bugs)
+        with self.assertRaises(ValueError):
+            emit.corrected_source('a\nb\n', {2: ('c', 'd', 'why')}, 'x.java')
+
     def test_talk_chain_tier_a(self):
         r = self.run_file('eltnen/_1363ThankingMabangtah.java')
         self.assertEqual((r.status, r.tier, r.quest_id), ('ok', 'A', 1363), r.reasons)

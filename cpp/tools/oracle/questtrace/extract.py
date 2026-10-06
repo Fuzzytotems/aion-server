@@ -529,13 +529,46 @@ def category(key):
 	return (head,)
 
 
+# --- the owner's corrections of the Java code -------------------------------------------------------------------------------------
+
+# rel -> {Java line: (the Java text on that line, the corrected text the trace follows, why)}: the corrections the owner approved
+# (docs/design/owner-decisions.md). The oracle's own copy of questgen's OWNER_CORRECTIONS (tools/gen/questgen/emit.py; the oracle never imports
+# the generator, tests/test_quest_trace.py requires the two tables to be equal): the document traces the corrected line, so the golden harness
+# compares the generated handler with the corrected behaviour, and names each correction in its "corrections" member.
+OWNER_CORRECTIONS = {
+	# the owner's decision of 2026-10-05 (both branches; docs/deviations/Q02.md): the level hook names the quest itself as its own pre-quest,
+	# so defaultOnLevelChangedEvent (AbstractQuestHandler.java:1001-1008) never finds it COMPLETE and never starts the quest
+	'inggison/_11001KindMeira.java': {
+		129: ('defaultOnLevelChangedEvent(player, 11001);', 'defaultOnLevelChangedEvent(player);',
+		      "named the quest itself as its pre-quest (owner's decision 2026-10-05)")},
+	'inggison/_11008LetterOfEncouragement.java': {
+		100: ('defaultOnLevelChangedEvent(player, 11008);', 'defaultOnLevelChangedEvent(player);',
+		      "named the quest itself as its pre-quest (owner's decision 2026-10-05)")},
+}
+
+
+def corrected_source(text, corrections, rel=''):
+	"""the Java text with each correction's line rewritten (its Java text must occur exactly once on that line)"""
+	lines = text.split('\n')
+	for line, (java, corrected, _why) in sorted(corrections.items()):
+		if lines[line - 1].count(java) != 1:
+			raise OracleError(f'{rel}:{line}: the correction expects {java!r} once on the line, found {lines[line - 1]!r}')
+		lines[line - 1] = lines[line - 1].replace(java, corrected)
+	return '\n'.join(lines)
+
+
 # --- the extractor -----------------------------------------------------------------------------------------------------------------
 
 class Extractor:
 	def __init__(self, tables, path, rel):
 		self.t = tables
 		self.rel = rel
-		self.cu = javasrc.parse_file(str(path))
+		self.corrections = OWNER_CORRECTIONS.get(rel, {})
+		if self.corrections:
+			self.cu = javasrc.parse_source(corrected_source(Path(path).read_bytes().decode('utf-8'), self.corrections, rel),
+			                               str(path).replace('\\', '/'))
+		else:
+			self.cu = javasrc.parse_file(str(path))
 		if len(self.cu.types) != 1 or self.cu.types[0].kind != 'class':
 			raise OracleError(f'{rel}: not one top-level class')
 		self.td = self.cu.types[0]
@@ -1954,8 +1987,13 @@ def trace_file(tables, path, rel=None):
 		reg, hooks, cases = ex.trace()
 	except (jast.Unsupported, javasrc.JavaSyntaxError) as e:
 		raise OracleError(f'{rel}: {e}') from e
-	return {'format': FORMAT, 'version': VERSION, 'questId': ex.qid, 'java': rel, 'class': ex.td.name,
-	        'javaSha256': hashlib.sha256(path.read_bytes()).hexdigest(), 'register': reg, 'hooks': hooks, 'cases': cases}
+	doc = {'format': FORMAT, 'version': VERSION, 'questId': ex.qid, 'java': rel, 'class': ex.td.name,
+	       'javaSha256': hashlib.sha256(path.read_bytes()).hexdigest()}
+	if ex.corrections:
+		doc['corrections'] = [{'line': line, 'java': java, 'traced': corrected, 'why': why}
+		                      for line, (java, corrected, why) in sorted(ex.corrections.items())]
+	doc.update(register=reg, hooks=hooks, cases=cases)
+	return doc
 
 
 WIDTH = 140

@@ -330,7 +330,9 @@ class Corpus(unittest.TestCase):
         bad = {}
         for r in self.all.values():
             if r.status == 'ok':
-                ms = parity.compare((QUEST / r.rel).read_text(encoding='utf-8-sig'), r.cpp)
+                # an owner's correction (emit.OWNER_CORRECTIONS) is compared with the corrected Java the emitter read
+                java = emit.corrected_source((QUEST / r.rel).read_text(encoding='utf-8-sig'), emit.OWNER_CORRECTIONS.get(r.rel, {}), r.rel)
+                ms = parity.compare(java, r.cpp)
                 if ms:
                     bad[r.rel] = [str(m) for m in ms][:2]
         self.assertEqual(bad, {})

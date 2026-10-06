@@ -94,7 +94,8 @@ public:
 	}
 
 	void onLevelChangedEvent(Player& player) override {
-		defaultOnLevelChangedEvent(player, {11008});
+		// correction of the Java code: Java :100 named the quest itself as its pre-quest (owner's decision 2026-10-05)
+		defaultOnLevelChangedEvent(player);
 	}
 };
 AION_QUEST_HANDLER(_11008LetterOfEncouragement, 11008);

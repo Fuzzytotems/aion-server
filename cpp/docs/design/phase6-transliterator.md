@@ -610,9 +610,11 @@ Branch `lane-c/p6-q02`, stacked on `lane-c/p6-q01` (§9). The third chunk of §7
   (`ItemTemplate.getUseArea`) for 10034 and 11118: **981 of 1,035** transliterated, the other 979 files byte-identical.
 - **Golden traces:** `SLICE_Q02`, 59 documents, 1,407 cases: **1,417 variants pass, 0 fail**, 6,533 runs compared; listed: 7 not
   reproducible, 11 vacuous; 5 quests with every hook refused. The registration trace passes for the 59. `ctest -R GoldenQuest`: 371 of 371.
-- **Java bug kept:** 11001 and 11008 name themselves as the pre-quest of their level hook, which therefore never starts them (Q02.md; both
-  start at their npc). Proposed correction for the owner.
-- **Parity** 59 pairs, 0 mismatches (the handler tree: 382 pairs, 0); **compile check** 981 clean, 0 warnings, regscan 0 errors; the full
+- **Owner's correction (2026-10-05):** 11001 and 11008 named themselves as the pre-quest of their level hook, which therefore never
+  started them; questgen's correction table `OWNER_CORRECTIONS` (and the oracle's copy) emit and trace `defaultOnLevelChangedEvent(player)`
+  instead, so both stay generated (Q02.md). Their level cases pass as real cases.
+- **Parity** 59 pairs, 57 without a mismatch, 11001 and 11008 with the corrected literal (the handler tree: 383 pairs, 3 with mismatches,
+  the owner's corrections); **compile check** 981 clean, 0 warnings, regscan 0 errors; the full
   Debug build has no new warning.
 - **Gate impact:** none expected (Q02.md: every quest needs level 50+; 11116's talk registrations at 203784 and 203785, which m5c's economy
   oracle names, answer false without its quest state). **Gates:** all 15 pass, "Loaded 4566 quest handlers"; m5e_geo needed a rerun after the oracle's Python process failed to start (Q02.md).
