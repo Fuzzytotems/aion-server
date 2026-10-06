@@ -17,9 +17,15 @@ transliterated handlers that are not in the tree added to its table, and runs it
    must have built that target);
 5. runs the executable and summarizes its report by quest, case variant and hook (DIR/summary.json, or --json).
 
-Nothing in the repository is written. The summary separates failed case variants (a comparison of a compared run failed), cases no setup
-reproduces and vacuous cases (which the tree's harness requires to be listed; a sample has no list), runs that reach an unported body, and
-quests whose run stopped on an exception (a fixture limit or an untraced document), and the registration trace's findings per quest.
+Nothing in the repository is written. The summary separates failed case variants (a comparison of a compared run failed, counted by
+the check's name), cases no setup reproduces and vacuous cases (which the tree's harness requires to be listed; a sample has no list),
+runs that reach an unported body, quests whose run stopped on an exception (a fixture limit or an untraced document), the registration
+trace's findings per quest, other failures (an SEH exception among them), and a crash: the executable's exit code, a missing or partial
+gtest report, the test that was running. The exit code is 1 when the run failed, crashed or found a failure of any kind (the review of #79,
+item 4), so that a mutant that crashes the run does not look like a mutant that survived.
+
+DIR must not hold anything but a former stage (the marker file .goldensample-stage), unless --force: the tool deletes its src, expected,
+harness and obj subdirectories (the review of #79, item 7).
 """
 from __future__ import annotations
 
@@ -41,6 +47,8 @@ GOLDEN = paths.CPP_GAME_SERVER / 'tests' / 'quest_handlers_golden'
 COMMITTED_DOCS = paths.CPP_ROOT / 'tools' / 'oracle' / 'expected' / 'quest'
 TREE_QUEST = paths.CPP_GAME_SERVER / 'handlers' / 'aion' / 'gameserver' / 'handlers' / 'quest'
 BATCH = 40
+STAGE_MARKER = '.goldensample-stage'
+CHECK = re.compile(r'^\[(?P<name>\w+)\] ')
 
 # the harness's report lines (GoldenQuestTraceTest.cpp): a failed comparison, an unlisted unreproducible or vacuous case, an unported reach
 FAILED = re.compile(r'^(?P<quest>\d+) (?P<id>[A-Za-z]+#\d+(?:@\S+)?) \(setup: [^;)]*(?:; overlay: .*)?\): (?P<what>.*)$')
@@ -118,7 +126,8 @@ def classify(report_text, stdout):
                         hit = True
                         if sink is None:
                             failed[quest].add(m['id'])
-                            failed_checks[quest][m['what'].split(' ')[0]] += 1
+                            named = CHECK.match(m['what'])
+                            failed_checks[quest][named['name'] if named else 'unnamed'] += 1
                         else:
                             sink[quest].append(m['id'] + (': ' + m['why'] if 'why' in m.groupdict() and m['why'] else ''))
                         break
@@ -172,6 +181,55 @@ def print_summary(s, out=sys.stdout):
     p(f"  registration trace: {len(s['registration'])} findings")
     for r in s['registration'][:20]:
         p('    ' + ' | '.join(ln.strip() for ln in r.splitlines() if ln.strip())[:300])
+    checks = Counter()
+    for c in s['failedChecks'].values():
+        checks.update(c)
+    if checks:
+        p(f'  failed checks: {dict(checks.most_common())}')
+    p(f"  other failures (SEH exceptions among them): {sum(len(v) for v in s['other'].values())}")
+    for name, texts in list(s['other'].items())[:20]:
+        p(f'    {name}: ' + ' | '.join(ln.strip() for ln in texts[0].splitlines() if ln.strip())[:300])
+    if s.get('crash'):
+        p(f"  CRASH: {s['crash']}")
+    for problem in problems(s):
+        p(f'  FAILED: {problem}')
+
+
+def crash_of(report_text, stdout, exit_code):
+    """'' when the run ended in order, else what went wrong: a non-zero exit code with no failure in the report, a missing or unreadable
+    report, or a report with fewer tests than the run started (the test that was running when the process ended)"""
+    started = [ln.split('] ', 1)[1].split(' ')[0] for ln in stdout.splitlines() if ln.startswith('[ RUN      ]')]
+    ended = {ln.split('] ', 1)[1].split(' ')[0] for ln in stdout.splitlines() if ln.startswith(('[       OK ]', '[  FAILED  ]', '[  SKIPPED ]'))}
+    running = [t for t in started if t not in ended]
+    where = f' (running: {running[-1]})' if running else ''
+    try:
+        rep = json.loads(report_text) if report_text else None
+    except json.JSONDecodeError:
+        return f'the gtest report is not JSON, exit code {exit_code}{where}'
+    if rep is None:
+        return f'no gtest report, exit code {exit_code}{where}'
+    if rep.get('tests', 0) < len(started):
+        return f"a partial gtest report ({rep.get('tests', 0)} of {len(started)} tests), exit code {exit_code}{where}"
+    if exit_code != 0 and rep.get('failures', 0) == 0 and rep.get('errors', 0) == 0:
+        return f'exit code {exit_code} with no failure in the report{where}'
+    return ''
+
+
+def problems(s):
+    """every reason the run is not clean: the summary's failures of any kind, a crash, a non-zero exit code"""
+    out = []
+    if s.get('crash'):
+        out.append('the run crashed: ' + s['crash'])
+    elif s.get('exitCode', 0) != 0:
+        out.append(f"exit code {s['exitCode']}")
+    for key, what in (('failed', 'quests with a failed variant'), ('notReproducible', 'quests with an unlisted unreproducible case'),
+                      ('vacuous', 'quests with an unlisted vacuous case'), ('unported', 'quests reaching AION_UNPORTED'),
+                      ('stopped', 'quests stopped by an exception'), ('other', 'other failures')):
+        if s.get(key):
+            out.append(f'{len(s[key])} {what}')
+    if s.get('registration'):
+        out.append(f"{len(s['registration'])} registration trace findings")
+    return out
 
 
 def flags(stage, build_dir, java_dir, table, expected):
@@ -227,6 +285,9 @@ def main(argv=None):
     ap.add_argument('--jobs', '-j', type=int, default=4)
     ap.add_argument('--edit', nargs=3, action='append', default=[], metavar=('FILE', 'OLD', 'NEW'),
                     help='replace OLD (once) by NEW in the emitted C++ of FILE: a mutant, which the run must fail')
+    ap.add_argument('--allow-tree', action='store_true',
+                    help='with --only: also files whose C++ is in the tree (a mutant of a hand-ported or tree file: compiled from the stage)')
+    ap.add_argument('--force', action='store_true', help='use DIR even if it holds other files than a former stage')
     ap.add_argument('--no-run', action='store_true', help='build only')
     ap.add_argument('--json', metavar='OUT', help='the summary (default DIR/summary.json)')
     args = ap.parse_args(argv)
@@ -237,7 +298,11 @@ def main(argv=None):
     except ValueError:
         pass
     build_dir, harness = Path(args.build_dir).resolve(), Path(args.harness).resolve()
+    if not stage_is_ours(stage) and not args.force:
+        ap.error(f'--stage {stage} holds files and is no former stage (no {STAGE_MARKER}): name an empty or new directory, or pass --force')
     t0 = time.time()
+    stage.mkdir(parents=True, exist_ok=True)
+    (stage / STAGE_MARKER).write_text('goldensample.py stage: its src, expected, harness and obj are rewritten by every run\n', encoding='utf-8')
     for d in ('src', 'expected', 'harness', 'obj'):
         shutil.rmtree(stage / d, ignore_errors=True)
         (stage / d).mkdir(parents=True)
@@ -263,7 +328,8 @@ def main(argv=None):
     for f in COMMITTED_DOCS.glob('*.json'):
         shutil.copy(f, expected / f.name)
     text = (harness / 'GoldenHandlers.h').read_text(encoding='utf-8')
-    sample = pick_sample(docs, table_rows(text, 'AION_GOLDEN_GENERATED_HANDLERS'), held_back(text))
+    sample = pick_sample(docs, table_rows(text, 'AION_GOLDEN_GENERATED_HANDLERS'), held_back(text),
+                         tree_quest=Path(args.stage) / 'no-tree' if args.allow_tree and args.only else TREE_QUEST)
     if args.limit:
         sample = sample[:args.limit]
     keep = {f'{q}.json' for _r, q in sample} | {f.name for f in COMMITTED_DOCS.glob('*.json')}
@@ -318,14 +384,24 @@ def main(argv=None):
     with open(stage / 'stdout.txt', 'w', encoding='utf-8', errors='replace') as out:
         rc = subprocess.run([str(exe), f'--gtest_output=json:{report}', '--gtest_filter=*GoldenQuestCases*:*RegistrationTrace*'], stdout=out,
                             stderr=subprocess.STDOUT, env=run_env, cwd=stage).returncode
-    summary = classify(report.read_text(encoding='utf-8') if report.is_file() else '',
-                       (stage / 'stdout.txt').read_text(encoding='utf-8', errors='replace'))
+    report_text = report.read_text(encoding='utf-8', errors='replace') if report.is_file() else ''
+    stdout = (stage / 'stdout.txt').read_text(encoding='utf-8', errors='replace')
+    try:
+        summary = classify(report_text, stdout)
+    except json.JSONDecodeError:
+        summary = classify('', stdout)
     summary['exitCode'] = rc
+    summary['crash'] = crash_of(report_text, stdout, rc)
     summary['sampleFiles'] = len(sample)
     summary['seconds'] = round(time.time() - t0)
     Path(args.json or stage / 'summary.json').write_text(json.dumps(summary, indent=1), encoding='utf-8')
     print_summary(summary)
-    return 0
+    return 1 if problems(summary) else 0
+
+
+def stage_is_ours(stage):
+    """a stage the tool may rewrite: missing, empty, or marked by an earlier run"""
+    return not stage.exists() or (stage.is_dir() and (not any(stage.iterdir()) or (stage / STAGE_MARKER).is_file()))
 
 
 if __name__ == '__main__':

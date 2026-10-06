@@ -6,6 +6,8 @@ Run from cpp/tools/gen: python -m unittest tests.test_goldensample
 """
 from __future__ import annotations
 
+import contextlib
+import io
 import json
 import os
 import sys
@@ -72,10 +74,10 @@ class SummaryTest(unittest.TestCase):
                   'runs not reproducible, 1 vacuous\n'
                   '[golden] quest 3718: 3 passed, 0 failed, 0 not reproducible of 3 cases and their high ends; 9 runs compared, 0 overlay runs '
                   'not reproducible, 0 vacuous\n')
-        fail = 'D:\\GoldenQuestTraceTest.cpp(1400): error: Failed\n1361 onItemUseEvent#3 (setup: own race, minimum level): returned "x", Java "y"\n'
+        fail = 'D:\\GoldenQuestTraceTest.cpp(1400): error: Failed\n1361 onItemUseEvent#3 (setup: own race, minimum level): [returned] returned "x", Java "y"\n'
         fail2 = ('D:\\GoldenQuestTraceTest.cpp(1400): error: Failed\n1361 onItemUseEvent#3@questState.vars.0=4 (setup: own race, minimum '
-                 'level; overlay: var 0 at the step of changeQuestStep (1)): the quest states afterwards differ\n')
-        fail3 = 'D:\\a.cpp(9): error: Failed\n1361 onDialogEvent#2 (setup: other race): the packet opcode sequence differs\n'
+                 'level; overlay: var 0 at the step of changeQuestStep (1)): [questStates] the quest states afterwards differ\n')
+        fail3 = 'D:\\a.cpp(9): error: Failed\n1361 onDialogEvent#2 (setup: other race): [opcodes] the packet opcode sequence differs\n'
         unrep = 'D:\\a.cpp(1): error: Value of: x\nnot reproducible and not listed: 1361 onDialogEvent#9: the replay does not model useQuestItem []\n'
         vac = 'D:\\a.cpp(1): error: Value of: x\nvacuous and not listed: 1361 onDialogEvent#4\n'
         stopped = 'unknown file: error: C++ exception with description "The given level is higher than possible max" thrown in the test body.\n'
@@ -89,6 +91,61 @@ class SummaryTest(unittest.TestCase):
         self.assertIn('higher than possible max', s['stopped']['2900'])
         self.assertEqual((s['ran'], s['variantsPassed'], s['runsCompared'], s['questsWithoutFinding']), (2, 13, 49, 1))
         self.assertEqual(len(s['registration']), 1)
+        # the review of #79, item 9: each check by its name
+        self.assertEqual(s['failedChecks'], {'1361': {'returned': 1, 'questStates': 1, 'opcodes': 1}})
+        s['exitCode'] = 1
+        self.assertEqual(goldensample.problems(s)[:2], ['exit code 1', '1 quests with a failed variant'])
+
+
+class CrashTest(unittest.TestCase):
+    """the review of #79, item 4: a crashed or failed run is never a clean one"""
+
+    STDOUT = ('[ RUN      ] Generated/GoldenQuestCases.EveryCaseMatchesTheJavaTrace/Quest1001\n'
+              '[       OK ] Generated/GoldenQuestCases.EveryCaseMatchesTheJavaTrace/Quest1001 (10 ms)\n'
+              '[ RUN      ] Generated/GoldenQuestCases.EveryCaseMatchesTheJavaTrace/Quest1003\n')
+
+    def test_a_crash_without_a_report_names_the_running_test(self):
+        crash = goldensample.crash_of('', self.STDOUT, 3)
+        self.assertEqual(crash, 'no gtest report, exit code 3 (running: Generated/GoldenQuestCases.EveryCaseMatchesTheJavaTrace/Quest1003)')
+        s = goldensample.classify('', self.STDOUT)
+        s.update(exitCode=3, crash=crash)
+        self.assertEqual(goldensample.problems(s), ['the run crashed: ' + crash])
+
+    def test_a_partial_or_broken_report_and_an_exit_code_without_failures(self):
+        self.assertIn('a partial gtest report (1 of 2 tests)',
+                      goldensample.crash_of(json.dumps({'tests': 1, 'failures': 0, 'testsuites': []}), self.STDOUT, 0))
+        self.assertIn('not JSON', goldensample.crash_of('{"tests": 2, "testsu', self.STDOUT, 3))
+        done = self.STDOUT + '[  FAILED  ] Generated/GoldenQuestCases.EveryCaseMatchesTheJavaTrace/Quest1003 (1 ms)\n'
+        self.assertEqual(goldensample.crash_of(json.dumps({'tests': 2, 'failures': 1, 'testsuites': []}), done, 1), '')
+        self.assertIn('exit code 5 with no failure',
+                      goldensample.crash_of(json.dumps({'tests': 2, 'failures': 0, 'testsuites': []}), done, 5))
+
+    def test_an_seh_exception_is_an_other_failure(self):
+        seh = 'unknown file: error: SEH exception with code 0xc0000005 thrown in the test body.\n'
+        rep = json.dumps({'testsuites': [{'name': 'Generated/GoldenQuestCases', 'testsuite': [
+            {'name': 'EveryCaseMatchesTheJavaTrace/Quest1001', 'failures': [{'failure': seh}]}]}]})
+        s = goldensample.classify(rep, '')
+        self.assertEqual(list(s['other']), ['Quest1001'])
+        self.assertIn('1 other failures', goldensample.problems(s))
+
+
+class StageTest(unittest.TestCase):
+    """the review of #79, item 7: a directory that holds other files is no stage without --force"""
+
+    def test_only_a_new_empty_or_marked_directory_is_a_stage(self):
+        tmp = Path(tempfile.mkdtemp())
+        self.assertTrue(goldensample.stage_is_ours(tmp / 'new'))
+        self.assertTrue(goldensample.stage_is_ours(tmp))
+        (tmp / 'src').mkdir()
+        self.assertFalse(goldensample.stage_is_ours(tmp))
+        (tmp / goldensample.STAGE_MARKER).write_text('', encoding='utf-8')
+        self.assertTrue(goldensample.stage_is_ours(tmp))
+        other = Path(tempfile.mkdtemp())
+        (other / 'keep.txt').write_text('mine', encoding='utf-8')
+        (other / 'src').mkdir()
+        with contextlib.redirect_stderr(io.StringIO()), self.assertRaises(SystemExit):
+            goldensample.main(['--stage', str(other), '--no-run'])
+        self.assertTrue((other / 'keep.txt').is_file() and (other / 'src').is_dir())
 
 
 if __name__ == '__main__':
