@@ -312,7 +312,13 @@ TEST_F(CharacterCommandsTest, StateSetsAddsAndRemoves) {
 
 	client()->clearSent();
 	EXPECT_TRUE(state.process(gm, args({"remove", "-1"})));
-	EXPECT_EQ(client()->sentBytes(), info("Out of range state ID.")) << "the syntax's -1 is refused (proposed correction)";
+	EXPECT_EQ(gm.getState(), 0) << "the owner's correction of 2026-10-05: -1 removes all states (Java: \"Out of range state ID.\")";
+	EXPECT_TRUE(sent(info("[charname:Warden;1 1 1]'s state changed to 0")[0]));
+	client()->clearSent();
+	EXPECT_TRUE(state.process(gm, args({"add", "-1"})));
+	EXPECT_EQ(client()->sentBytes(), info("Out of range state ID.")) << "only remove takes -1, as the syntax says";
+	EXPECT_EQ(gm.getState(), 0);
+	EXPECT_TRUE(state.process(gm, args({"4"})));
 	client()->clearSent();
 	EXPECT_TRUE(state.process(gm, args({"add"})));
 	EXPECT_EQ(client()->sentBytes(), info("Please provide a state name or ID."));
