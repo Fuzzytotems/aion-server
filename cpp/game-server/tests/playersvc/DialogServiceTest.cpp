@@ -52,6 +52,8 @@
 #include "aion/gameserver/dataholders/NpcFactionsData.h"
 #include "aion/gameserver/dataholders/PlayerExperienceTable.bind.h"
 #include "aion/gameserver/dataholders/PlayerExperienceTable.h"
+#include "aion/gameserver/dataholders/WarehouseExpandData.bind.h"
+#include "aion/gameserver/dataholders/WarehouseExpandData.h"
 #include "aion/gameserver/dataholders/TeleporterData.bind.h"
 #include "aion/gameserver/dataholders/TeleporterData.h"
 #include "aion/gameserver/dataholders/TradeListData.bind.h"
@@ -1110,7 +1112,7 @@ TEST_F(DialogServiceTest, TheArmsOfOtherServicesReachTheirOwnUnportedBodies) {
 		// (play session 2026-09-29): see InstanceTeleportTest.TheFiveArgumentInstanceIdOverloadKeepsTheHeadingAndMovesAtOnce
 		// GATHER_SKILL_LEVELUP and COMBINE_SKILL_LEVELUP (:199-202) left this table with C-01 (m5c-plan.md stage 2): see TheCraftArms... below
 		// EXTEND_INVENTORY (:203-205) left this table with P-05 (m5c-plan.md stage 1, W-09): see TheCubeExpanderArm... below
-		{DialogAction::EXTEND_CHAR_WAREHOUSE, MINALINERK, "WarehouseService::expandWarehouse"},        // :206-208, P5-07
+		// EXTEND_CHAR_WAREHOUSE (:206-208) left this table with WarehouseService (M5b-3 leftovers CP3): see TheWarehouseExpanderArm... below
 		{DialogAction::OPEN_LEGION_WAREHOUSE, PAUTON, "LegionService::openLegionWarehouse"},           // :209-211, P5-11
 		// CHARGE_ITEM_MULTI and CHARGE_ITEM_MULTI2 (:241-243, :267-269) left this table with ItemChargeService (M5b-3 leftovers): see TheChargeArms...
 		// GIVEUP_CRAFT_EXPERT and GIVEUP_CRAFT_MASTER (:255-260) left this table with C-01 (m5c-plan.md stage 2): see TheCraftArms... below
@@ -1277,6 +1279,35 @@ TEST_F(DialogServiceTest, TheCubeExpanderArmAsksTheExpansionQuestionOfTheNpc) {
 	EXPECT_TRUE(sent().empty());
 	EXPECT_EQ(cubeLog.count("Cube expansion template could not be found for"), 1) << cubeLog.dump();
 	player().getResponseRequester().denyAll(); // the pending question holds Baevrunerk
+}
+
+TEST_F(DialogServiceTest, TheWarehouseExpanderArmAsksTheExpansionQuestionOfTheNpc) {
+	// :206-208 -> WarehouseService.expandWarehouse (WarehouseService.java:34-70; M5b-3 leftovers CP3): the first level's price of
+	// warehouse_expander.xml's first block (1,200 kinah, :3-4) asks STR_WAREHOUSE_EXPAND_WARNING for a character without expansions. Synthetic:
+	// the block is given Minalinerk's id (the fixture spawns no warehouse npc); an npc without a template (Pauton) only logs a warning
+	struct WarehouseExpanderScope {
+		WarehouseExpanderScope() {
+			xml::LoadContext context;
+			dataholders::DataManager::WAREHOUSEEXPANDER_DATA.publish(xml::bindString<dataholders::WarehouseExpandData>(context, R"xml(<warehouse_expander>
+	<expansion_npc ids="798007">
+		<expand level="1" price="1200" />
+		<expand level="2" price="24000" />
+	</expansion_npc>
+</warehouse_expander>)xml"));
+		}
+		~WarehouseExpanderScope() { dataholders::DataManager::WAREHOUSEEXPANDER_DATA.resetForTests(); }
+	} warehouseExpander;
+	runtime::resetUnportedHitsForTests();
+	select(DialogAction::EXTEND_CHAR_WAREHOUSE, npc(MINALINERK));
+	EXPECT_EQ(sent(), exactly({serializedFor(SM_QUESTION_WINDOW(SM_QUESTION_WINDOW::STR_WAREHOUSE_EXPAND_WARNING, 0, 0, std::string("1200")))}));
+	EXPECT_EQ(runtime::unportedHitCount(), 0u);
+
+	clearSent();
+	LogCapture warehouseLog({"com.aionemu.gameserver.services.WarehouseService"});
+	select(DialogAction::EXTEND_CHAR_WAREHOUSE, npc(PAUTON));
+	EXPECT_TRUE(sent().empty());
+	EXPECT_EQ(warehouseLog.count("Warehouse expansion template could not be found for"), 1) << warehouseLog.dump();
+	player().getResponseRequester().denyAll(); // the pending question holds Minalinerk
 }
 
 TEST_F(DialogServiceTest, ThePvpArmsTeleportOnlyFromTheirArenaNpcs) {
