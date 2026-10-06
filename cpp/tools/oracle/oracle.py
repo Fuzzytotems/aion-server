@@ -527,6 +527,9 @@ def cmd_m5f_travel(args):
 		geo_dir = Path(args.geo_dir) if args.geo_dir else data_dir.parent / "geo"
 		result["geoCheck"] = geo_check(td, geo_dir, data_dir / "world_maps.xml", args.geo_map)
 	sys.stdout.write(runner.dump_json(result))
+	return 0
+
+
 def cmd_m5g_team(args):
 	from m5a.data import StaticData
 	from m5g.team import team_report
