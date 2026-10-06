@@ -132,6 +132,8 @@ def classify(report_text, stdout):
                             sink[quest].append(m['id'] + (': ' + m['why'] if 'why' in m.groupdict() and m['why'] else ''))
                         break
                 if not hit:
+                    if re.search(r'^\s*tally\.failed\s*$', text, re.M) and quest in failed:
+                        continue                   # EXPECT_EQ(tally.failed, 0): the quest's failed variants, counted above
                     if 'C++ exception' in text:
                         m = re.search(r'C\+\+ exception with description "(.*)" thrown', text)
                         stopped[quest] = (m[1] if m else body.strip())[:300]
