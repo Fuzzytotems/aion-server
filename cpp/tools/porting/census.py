@@ -182,7 +182,7 @@ MILESTONES = [
 CHUNK_MILESTONE = {
     'P5-00': 'M5a', 'P5-01': 'M5b-2', 'P5-02a': 'M5b-2', 'P5-02b': 'M5b-2', 'P5-03': 'M5b-2', 'P5-04': 'M5b-2', 'P5-05': 'M5j',
     'P5-06a': 'M5d', 'P5-06b': 'M5d', 'P5-06c': 'M5d', 'P5-07': 'M5b-3', 'P5-08': 'M5j', 'P5-09a': 'M5b-3', 'P5-09b': 'M5c', 'P5-09c': 'M5c',
-    'P5-10': 'M5g', 'P5-11': 'M5h',
+    'P5-10a': 'M5g', 'P5-10b': 'M5g', 'P5-10c': 'M5g', 'P5-10d': 'M5g', 'P5-10e': 'M5g', 'P5-10f': 'M5h', 'P5-11': 'M5h',
     'P5-12a': 'M5i', 'P5-12b': 'M5i', 'P5-13': 'M5f', 'P5-14': 'M5j', 'P5-15': 'CM', 'P5-16': 'CM', 'P5-SC': 'none',
 }
 # P5-06a/b/c: the engine, the handler base and the XML templates of the quest chunk, all three M5d (m5d-plan.md D1, item I-01)
@@ -196,6 +196,8 @@ MILESTONE_SPLITS = [
     # roadmap M5e: "P5-08 (skill learn, class change, dialog)"; M5f: "P5-08 (teleport)"; the rest of P5-08 has no milestone named: M5j
     ('P5-08', 'M5e', r'^services/(SkillLearnService|ClassChangeService|DialogService)(_\w+|Info)?$'),
     ('P5-08', 'M5f', r'^services/teleport/'),
+    # m5g-plan.md D16: instance matchmaking (P5-10e's autogroup half) is M5j's; find group stays M5g's
+    ('P5-10e', 'M5j', r'^(services/autogroup/|services/AutoGroupService$|model/autogroup/)'),
 ]
 CHUNK_NOTES = {
     'P5-01': 'whole under M5b-2: the roadmap gives M5b-2 "the magical half"; the physical half was M5b, so what is left is reported there',
@@ -208,6 +210,8 @@ CHUNK_NOTES = {
     'P5-09b': 'whole under M5c: trade and market (m5c-plan D1); the broker is reported here although m5c-plan D2 offers it to a later milestone',
     'P5-09c': 'whole under M5c: mail and craft (m5c-plan D1); express mail and MailFormatter\'s siege-mail enums are reported here although '
               'm5c-plan D2/D9 leave them to later milestones',
+    'P5-10e': 'split: find group -> M5g, instance matchmaking (autogroup) -> M5j (m5g-plan D16)',
+    'P5-10f': 'whole under M5h: the legion model and the challenges (m5g-plan D1, m5h-plan A-18)',
     'P5-13': 'split: restrictions -> M5b-3, the instance engine and the rest -> M5f',
     'P5-15': 'own row CM: each milestone pulls in its packets, the leftovers are M5j',
     'P5-16': 'own row CM: as P5-15',
@@ -3032,7 +3036,7 @@ LIVE_CHECKS = [
 LIVE_INITIALIZERS = [
     ('model/house/PlayerScript.java', 'PlayerScript', ['partial']),        # `null until CompressUtil is ported`
     ('model/ChatType.java', 'ChatType', ['ported']),                      # the ChatTypeInfo.h lookup replaces the map
-    ('model/team/common/events/TeamCommand.java', 'TeamCommand', ['undeclared']),   # no companion yet
+    ('model/team/common/events/TeamCommand.java', 'TeamCommand', ['ported']),       # TeamCommandInfo.h's lookup replaces the map (M5g)
 ]
 
 
@@ -3230,7 +3234,9 @@ def live_checks(check):
                                                           if m.status != 'ported'), 0)
     kinds = {where.split(' ', 1)[1]: kind for _, where, kind, _ in ms.helper_list()}
     for name, kind in (('standins::followStartServiceNewFollowingToTargetCheckTask', 'stale'),
-                       ('standins::playerGroupServiceRemovePlayer', 'standIn'), ('PlayerGroup::getMember', 'inherited'),
+                       # M5g parties (2026-10-05) ported the team stand-ins and PlayerGroup::getMember: no 'standIn' helper is left;
+                       # the alliance's inherited accessors remain until the alliance lane
+                       ('standins::riftEnumData', 'own'), ('PlayerAlliance::getMember', 'inherited'),
                        ('<anon>::unportedScoreBase', 'taken')):
         check(f'live helper {name}', kinds.get(name), kind)
 

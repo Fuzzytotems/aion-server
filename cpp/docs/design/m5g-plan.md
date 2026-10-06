@@ -1,5 +1,8 @@
 # M5g work plan (groups: parties, alliances, leagues, find group)
 
+> **Implementation:** the parties part (stage 0, stage 1 and the party gate `gs.scenario.m5g`) was done by lane B on 2026-10-05,
+> branch `lane-b/m5g-parties`; alliances and leagues are not started. **§15 says which items are done, how, and what is open.**
+>
 > **Status:** plan **rev 2**, 2026-09-23 — rev 1 revised after its adversarial review (13 findings: 3 high, 6 medium, 4 low; §14 lists them
 > and what changed). A **read-only** analysis. Rev 1 read HEAD `c1edb0afb`; rev 2 re-checked every cited C++ site at HEAD **`760e8ab5c`**
 > ("M5b-2 stage 1 part 3: the effect classes"), whose working tree modifies only `AggroList.cpp`, `DuelService.cpp`, `CMakeLists.txt` and
@@ -1104,3 +1107,90 @@ Java and C++ sources, the data and the sibling plans; all were confirmed, two wi
 **Not changed, and why.** Nothing was rejected outright. Two resolutions differ from the review's suggestion: finding 9 (M5h already adopted
 M5g's names, so M5g keeps them) and finding 2's matchmaking point (M5g names M5j as the owner instead of taking it). This plan cannot edit the
 sibling plans; the edits they need are listed in §3.1 for the integrator: m5j A-G1 and J1, m5f O-03, m5h D3/I-01/lanes.
+
+---
+
+## 15. Status: the parties lane (lane B, 2026-10-05, branch `lane-b/m5g-parties`)
+
+One lane did the party part of stage 0 and stage 1 and the party gate of stage 2, on `origin/C++` at `bef516884` (M5e merged, M5f stage 1
+merged). Alliances and leagues (stage 2's AL-*, LG-*, stage 3) are not started. **Read this section before §5-§10**: it says which items are
+done, which are done differently, and which are open.
+
+### 15.1 §0 at branch time (I-05)
+
+| Row | Found | Consequence |
+|---|---|---|
+| A-03 / A-04 | `DropRegistrationService` 0 `AION_UNPORTED`, `DropService` 1 (`TempTradeDropPredicate::changeItem`) | L-02 shrank to `changeItem`; the team branches of `initDropNpc` and `requestDropItem` and the helpers were ported by M5b-3 |
+| A-05 | `CM_QUESTION_RESPONSE` exists | K-05 not needed |
+| A-06, A-07 | `canTrade` ported; `TemporaryTradeTimeTask` exists | W-01's `canTrade`, L-03 not needed |
+| A-09 | `QuestService` 0 `AION_UNPORTED` | the quest-drop arms need nothing |
+| A-11 | `AuraEffect`, `HealCastorOnAttackedEffect` 0 `AION_UNPORTED`, `CM_TOGGLE_SKILL_DEACTIVATE` exists | E-26/E-27 closed by C-02's `getOnlineMembers` |
+| A-12 | `TeleportService` 0 `AION_UNPORTED`; m5b2-p2-9 applied by M5f (`validateCast(Player&, Ptr<VisibleObject>)`) | W-06 needed no `Skill.cpp` lease |
+| A-14 | `CM_CHAT_MESSAGE_PUBLIC` absent | **K-04's chat half, `canChat` and the chat ban / flood bodies are lane A's** (the brief): not ported here; GP5/GP5c wait for it |
+| A-15 | no P5-10 lease open | I-01 ran |
+
+### 15.2 Items
+
+| Item | State | Where |
+|---|---|---|
+| I-01 | **done**: P5-10a..f in `chunks.cmake`, `tests/team/P5-10a..`, `census.py`, `test_chunks.py`; header request m5g-15 | commit "M5g I-01" |
+| I-02a | **done** for what the party path names: the P5-10a/b files, `PlayerAllianceMember` and `LeagueMember` (ported, accessors only), `LeagueService` (shell). I-02b (alliance and league events) is the alliance and league lanes' | header-requests.md "M5g parties, lane B" |
+| I-03 | not needed: each commit touches only its own chunk's files (no lease rows) | – |
+| I-04 | **done**: `game-server/config/m5g.properties.example` | – |
+| C-01..C-08 | **done**; m5g-1 (per-kind lock classes, D4) **not applied** - no party path nests two team locks; left to the league lane (header-requests.md) | docs/deviations/P5-10a.md |
+| C-09 | **partly**: onEvent's skip path, nested events under the reentrant lock, applyOnMembers, getOnlineMembers, the kinah remainder, the command lookup, LootGroupRules, the last-leave breaker (in P5-10b's lifecycle test). **Open**: `PlayerTeamDistributionService` golden vectors in a unit test (an Npc with a template and the drop registration in-process) - the share arithmetic is covered by `tools/oracle` m5g-team's tests and the gate's GP11 | tests/team/P5-10a |
+| GR-01..GR-05 | **done** (GR-05's mutation proof: see §15.3) | tests/team/P5-10b, docs/deviations/P5-10b.md |
+| L-01, L-02 | **done** (`DropDistributionService` 4, `changeItem`) | – |
+| L-04 | **partly**: the pass paths (both members pass a roll, a bid above the bidder's kinah is a pass, an unknown corpse or mode does nothing) with a corpse registered by hand. **Open**: the winner path in-process (it needs the item path, a database test) - the gate's C13 covers it (GP13); the strict `>` of a tie stays unchecked | tests/economy/P5-09a/DropDistributionServiceTest |
+| K-01..K-03 | **done** (9 packets, `FindGroupService` 19, `isInAutoInstance`) | tests/cm_ak/PartyPacketsTest, tests/cm_lz/PartyPacketsLzTest |
+| K-04 | `CM_QUEST_SHARE` **done**; `CM_CHAT_MESSAGE_PUBLIC` **lane A's** | – |
+| W-01 | invite checks **done**; `canChat` lane A's | tests/instance/PartyInviteRestrictionsTest |
+| W-02, W-04, W-06 | **done** | tests/playersvc/RecallServiceTest |
+| W-03 | `PvpService`'s team arm **done**; `ChatBanService`, `PlayerChatService` lane A's | – |
+| H-01 | **done** (m5g-team); the stage-3 portal spots are not in it | tools/oracle/m5g |
+| H-02 | **done** (9 decoders, 9 builders) | tests/scenario/decoders/TeamDecoders* |
+| H-03 | **done inside the gate** (drainAll / until over four clients), not as a separate helper with self-tests | M5gScenarioTest.cpp |
+| G-01 | **done**: see §15.3 | tests/scenario/M5gScenarioTest.cpp |
+| G-02 | not needed: CheckOutput's live counts list every RefCounted class (the gate reads `PlayerGroup`, `PlayerGroupMember`, `PlayerGroupInvite`, `GroupRecruitment` from `live_counts.txt`) | – |
+| G-03 | not run by this lane (the integrator's re-green) | – |
+
+### 15.3 The party gate `gs.scenario.m5g`
+
+`M5gScenarioTest.cpp`, gate slot 2, TIMEOUT 1800; docs/deviations/P5-SC.md "M5g party gate" has the as-built rows. **Green** under the
+test-database lock on 2026-10-05: 271.8 s, empty census, no ERROR line, the two startup partials of the allow-list only, `PlayerGroup`,
+`PlayerGroupMember`, `PlayerGroupInvite`, `GroupRecruitment`, `Player` and `DropNpc` at 0 live.
+
+- **Scripted**: C2-C22 for GP1-GP4, GP5b, GP6 (the BUFF slot), GP8's move half, GP9-GP17, GP17b, GP18-GP23. C13 is the roll (GP13) and the
+  17 s automatic pass (GP14).
+- **Not scripted**: GP5 and GP5c (chat, lane A's), GP6b, GP7, GP8's stat half, GP11b, GP13b, GP15b. Their ports have unit tests
+  (`PartyPacketsLzTest`, `RecallServiceTest`) or wait for their callers.
+- **Fixes the first runs needed** (gate only, no port change): every character gets `npc_expands = 5` (A's cube filled after three corpses
+  and the roll winner got `STR_MSG_DICE_INVEN_ERROR`; the corpse kept two entries and its `DropNpc` held two Players at the stop); GP14 is
+  measured from the `CM_LOOT_ITEM` that opens the roll; C19b fights with `fightUntil`, up to four sparkies, until B (6 HP regenerated) dies.
+
+**Mutation proof** (§10.4; each mutant applied to the server source, `aion_game_server` rebuilt, the gate run under the lock, the source
+restored):
+
+| Mutant | Killed by | Cases failed |
+|---|---|---|
+| `doReward`: share by member count, not by level | GP11 | C12 only |
+| `PlayerTeamRewardStats.accept`: no 100 m range check | GP11 (C gets kill-3 exp) | C12, then C13 and the cascade |
+| `setPlayersInRoll` never scheduled | GP14 (GP13 stayed green) | C13 (and C19b, C22 after it) |
+| `PlayerDisconnectedEvent` without `ChangeGroupLeaderEvent` | GP17 | C19 (and C22a, C22) |
+| `initializeOfflineCheck` no-op | GP20 | C20, C21, C22 |
+| `canInviteToTeam` without the leader check | GP4 | C5, C18, C22 |
+| `FindGroupService::onJoinedTeam` no-op | GP19 | C18 only |
+
+GR-05's unit mutants (`aion_gs_team_tests`, each test run alone), all 8 killed: `PlayerGroupUpdateEvent` sends to the actor too,
+`ChangeGroupLeaderEvent` skips `changeLeader`, `GroupDisbandEvent` does not nest the leaves, `PlayerConnectedEvent` skips the member
+replacement, `initializeOfflineCheck` no-op, `onRemoveMember` forgets `setPlayerGroup(null)`, `TeamKinahDistributionEvent` skips the giver,
+`GeneralTeam.onEvent` ignores the condition. Not run on the gate: the solo rate (`XP_HUNTING`; the share
+mutant shows GP11 reads exact values), the kinah giver (killed by the unit tests), the AuraEffect, `updateGroupEffects`, `CM_QUEST_SHARE`
+and chat rows (their GP rows are not scripted), `>=` in `distributeLoot` and `distributeEqually` (§10.4: not reliable in the gate).
+
+### 15.4 Corrections to this plan found while porting
+
+- §2.11 item 8 is wrong: `AionObject` overrides `equals` (object ids, AionObject.java:52-64), so every `player.equals(member)` of the events
+  compares object ids, and `PlayerConnectedEvent`'s leader test holds for the reconnected Player. The port uses `equals` as Java does.
+- E-12 holds as written; `PlayerAllianceService::onPlayerLogin` still calls the unported `PlayerAlliance::getMember`, which no party path
+  reaches (no alliance can be formed before the alliance lane).

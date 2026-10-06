@@ -44,6 +44,12 @@ public:
 	int32_t getMinExpPlayerLevel() const { return minExpPlayerLevel.get(); }
 
 	int32_t getMaxExpPlayerLevel() const { return maxExpPlayerLevel.get(); }
+
+	/**
+	 * C++-only cycle breaker (m5g-plan.md D7, header request m5g-8): PlayerGroup::onRemoveMember calls it when the last member left, so a holder
+	 * that outlives the group (a corpse's DropNpc.lootingTeam) keeps no Player through the stats. Java keeps them until the group is collected.
+	 */
+	void releasePlayers() noexcept;
 };
 
 } // namespace aion::gameserver::model::team::group

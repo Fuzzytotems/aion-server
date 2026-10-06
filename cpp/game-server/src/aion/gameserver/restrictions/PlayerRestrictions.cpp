@@ -4,6 +4,7 @@
 #include <string>
 
 #include "aion/gameserver/GameServer.h"
+#include "aion/gameserver/configs/main/GroupConfig.h"
 #include "aion/gameserver/controllers/PlayerController.h"
 #include "aion/gameserver/controllers/effect/EffectController.h"
 #include "aion/gameserver/controllers/effect/PlayerEffectController.h"
@@ -19,8 +20,13 @@
 #include "aion/gameserver/model/gameobjects/TransformModel.h"
 #include "aion/gameserver/model/gameobjects/VisibleObject.h"
 #include "aion/gameserver/model/gameobjects/player/Player.h"
+#include "aion/gameserver/model/gameobjects/player/CustomPlayerState.h"
 #include "aion/gameserver/model/gameobjects/player/PlayerCommonData.h"
 #include "aion/gameserver/model/gameobjects/player/PrivateStore.h"
+#include "aion/gameserver/model/team/TeamTypeInfo.h"
+#include "aion/gameserver/model/team/TemporaryPlayerTeam.h"
+#include "aion/gameserver/model/team/alliance/PlayerAlliance.h"
+#include "aion/gameserver/model/team/group/PlayerGroup.h"
 #include "aion/gameserver/model/templates/item/ItemTemplate.h"
 #include "aion/gameserver/model/templates/item/ItemUseLimits.h"
 #include "aion/gameserver/model/templates/item/actions/ItemActions.h"
@@ -33,6 +39,8 @@
 #include "aion/gameserver/network/aion/serverpackets/SM_ATTACK_RESPONSE.h"
 #include "aion/gameserver/network/aion/serverpackets/SM_SYSTEM_MESSAGE.h"
 #include "aion/gameserver/runtime/base/Unported.h"
+#include "aion/gameserver/services/AutoGroupService.h"
+#include "aion/gameserver/services/VortexService.h"
 #include "aion/gameserver/skillengine/effect/AbnormalState.h"
 #include "aion/gameserver/services/ban/ChatBanService.h"
 #include "aion/gameserver/services/player/PlayerChatService.h"
@@ -154,17 +162,106 @@ bool PlayerRestrictions::canUseSkill(Player& player, skillengine::model::Skill& 
 	return true;
 }
 
+// Java PlayerRestrictions.java:118-120
 bool PlayerRestrictions::canInviteToGroup(Player& player, Player& target) {
-	AION_UNPORTED();
+	return canInviteToTeam(player, runtime::Ptr<Player>(target), false, player.getPlayerGroup());
 }
 
+// Java PlayerRestrictions.java:122-124
 bool PlayerRestrictions::canInviteToAlliance(Player& player, Player& target) {
-	AION_UNPORTED();
+	return canInviteToTeam(player, runtime::Ptr<Player>(target), true, player.getPlayerAlliance());
 }
 
+// Java PlayerRestrictions.java:126-205
 bool PlayerRestrictions::canInviteToTeam(Player& player, runtime::Ptr<Player> target, bool isAlliance,
 	runtime::Ptr<model::team::TemporaryPlayerTeam> team) {
-	AION_UNPORTED();
+	using model::gameobjects::player::CustomPlayerState;
+	if (player.isDead()) {
+		PacketSendUtility::sendPacket(player, isAlliance ? SM_SYSTEM_MESSAGE::STR_FORCE_CANT_INVITE_WHEN_DEAD() : SM_SYSTEM_MESSAGE::STR_PARTY_CANT_INVITE_WHEN_DEAD());
+		return false;
+	}
+	if (player.isInPrison()) {
+		PacketSendUtility::sendPacket(player, SM_SYSTEM_MESSAGE::STR_MSG_INSTANCE_CANT_INVITE_PARTY_COMMAND());
+		return false;
+	}
+	if (!target) {
+		PacketSendUtility::sendPacket(player, isAlliance ? SM_SYSTEM_MESSAGE::STR_FORCE_NO_USER_TO_INVITE() : SM_SYSTEM_MESSAGE::STR_PARTY_NO_USER_TO_INVITE());
+		return false;
+	}
+	if ((target->isInCustomState(CustomPlayerState::ENEMY_OF_ALL_PLAYERS) && !target->isInFfaTeamMode()) ||
+		(player.isInCustomState(CustomPlayerState::ENEMY_OF_ALL_PLAYERS) && !player.isInFfaTeamMode())) {
+		PacketSendUtility::sendPacket(player, SM_SYSTEM_MESSAGE::STR_MSG_DISABLE("FFA mode"));
+		return false;
+	}
+	if (services::AutoGroupService::getInstance().isInAutoInstance(player) || services::AutoGroupService::getInstance().isInAutoInstance(*target)) {
+		PacketSendUtility::sendPacket(player, SM_SYSTEM_MESSAGE::STR_MSG_INSTANCE_CANT_INVITE_PARTY_COMMAND());
+		return false;
+	}
+	if (team) {
+		runtime::Ptr<model::team::alliance::PlayerAlliance> alliance = runtime::as<model::team::alliance::PlayerAlliance>(team);
+		if (!team->isLeader(player) && (!alliance || !alliance->isViceCaptain(player))) {
+			PacketSendUtility::sendPacket(player,
+				isAlliance ? SM_SYSTEM_MESSAGE::STR_FORCE_ONLY_LEADER_CAN_INVITE() : SM_SYSTEM_MESSAGE::STR_PARTY_ONLY_LEADER_CAN_INVITE());
+			return false;
+		}
+		if (team->isFull()) {
+			PacketSendUtility::sendPacket(player, isAlliance ? SM_SYSTEM_MESSAGE::STR_FORCE_CANT_ADD_NEW_MEMBER() : SM_SYSTEM_MESSAGE::STR_PARTY_CANT_ADD_NEW_MEMBER());
+			return false;
+		}
+	}
+	if (target->equals(player)) {
+		PacketSendUtility::sendPacket(player, isAlliance ? SM_SYSTEM_MESSAGE::STR_FORCE_CAN_NOT_INVITE_SELF() : SM_SYSTEM_MESSAGE::STR_PARTY_CAN_NOT_INVITE_SELF());
+		return false;
+	}
+	if (target->getRace() != player.getRace() &&
+		(isAlliance ? !configs::main::GroupConfig::ALLIANCE_INVITEOTHERFACTION.load() : !configs::main::GroupConfig::GROUP_INVITEOTHERFACTION.load())) {
+		PacketSendUtility::sendPacket(player, SM_SYSTEM_MESSAGE::STR_PARTY_CANT_INVITE_OTHER_RACE());
+		return false;
+	}
+	if (target->isDead()) {
+		PacketSendUtility::sendPacket(player, SM_SYSTEM_MESSAGE::STR_UI_PARTY_DEAD());
+		return false;
+	}
+	runtime::Ptr<model::team::TemporaryPlayerTeam> targetTeam = target->getCurrentTeam();
+	if (targetTeam) {
+		if (targetTeam.rawPointer() == team.rawPointer()) { // Java: targetTeam == team (identity)
+			PacketSendUtility::sendPacket(player, isAlliance ? SM_SYSTEM_MESSAGE::STR_FORCE_HE_IS_ALREADY_MEMBER_OF_OUR_FORCE(target->getName())
+															 : SM_SYSTEM_MESSAGE::STR_PARTY_HE_IS_ALREADY_MEMBER_OF_OUR_PARTY(target->getName()));
+			return false;
+		}
+		runtime::Ptr<model::team::group::PlayerGroup> targetGroup = runtime::as<model::team::group::PlayerGroup>(targetTeam);
+		if (isAlliance && targetGroup) {
+			if (team && targetGroup->size() + team->size() > team->getMaxMemberCount()) {
+				PacketSendUtility::sendPacket(player, SM_SYSTEM_MESSAGE::STR_FORCE_INVITE_FAILED_NOT_ENOUGH_SLOT());
+				return false;
+			}
+		} else {
+			PacketSendUtility::sendPacket(player, runtime::as<model::team::alliance::PlayerAlliance>(targetTeam)
+													  ? SM_SYSTEM_MESSAGE::STR_FORCE_ALREADY_OTHER_FORCE(target->getName())
+													  : SM_SYSTEM_MESSAGE::STR_PARTY_HE_IS_ALREADY_MEMBER_OF_OTHER_PARTY(target->getName()));
+			return false;
+		}
+	}
+	runtime::Ptr<model::team::alliance::PlayerAlliance> alliance = runtime::as<model::team::alliance::PlayerAlliance>(team);
+	if (alliance && model::team::isDefence(alliance->getTeamType())) {
+		if (targetTeam) {
+			for (const runtime::Ptr<model::gameobjects::AionObject>& object : targetTeam->getMembers()) {
+				Player& tm = *runtime::cast<Player>(object);
+				if (tm.isInInstance()) {
+					PacketSendUtility::sendPacket(player, SM_SYSTEM_MESSAGE::STR_FORCE_CANT_INVITE_WHEN_HE_IS_IN_INSTANCE());
+					return false;
+				} else if (!services::VortexService::getInstance().isInsideVortexZone(tm)) {
+					// TODO: chk on retail
+					PacketSendUtility::sendPacket(player, SM_SYSTEM_MESSAGE::STR_PARTY_ALLIANCE_CANT_INVITE_WHEN_HE_IS_ASKED_QUESTION(tm.getName()));
+					return false;
+				}
+			}
+		} else if (!services::VortexService::getInstance().isInsideVortexZone(*target)) {
+			PacketSendUtility::sendPacket(player, SM_SYSTEM_MESSAGE::STR_MSG_CANNOT_INVITE_DEFENSE_FORCE());
+			return false;
+		}
+	}
+	return true;
 }
 
 // Java PlayerRestrictions.java:206-238

@@ -345,6 +345,57 @@ std::vector<uint8_t> GameSession::buildCM_PLAY_MOVIE_END(uint8_t type, int32_t t
 	return PacketWriter().C(type).D(targetObjectId).D(questId).D(movieId).C(0).C(0).data; // CM_PLAY_MOVIE_END.java:34-39
 }
 
+std::vector<uint8_t> GameSession::buildCM_INVITE_TO_GROUP(uint8_t inviteType, std::string_view playerName) {
+	return PacketWriter().C(inviteType).S(playerName).data; // CM_INVITE_TO_GROUP.java:31-32
+}
+
+std::vector<uint8_t> GameSession::buildCM_PLAYER_STATUS_INFO(uint8_t commandCode, int32_t selectedObjectId, int32_t allianceGroupId,
+	int32_t secondObjectId) {
+	return PacketWriter().C(commandCode).D(selectedObjectId).D(allianceGroupId).D(secondObjectId).data; // CM_PLAYER_STATUS_INFO.java:32-35
+}
+
+std::vector<uint8_t> GameSession::buildCM_DISTRIBUTION_SETTINGS(int32_t lootRule, int32_t misc, std::array<int32_t, 6> qualityWords) {
+	PacketWriter writer;
+	writer.D(0).D(lootRule).D(misc); // CM_DISTRIBUTION_SETTINGS.java:42-50: isLeague, lootRule, misc
+	for (int32_t word : qualityWords)
+		writer.D(word); // :51-56
+	return writer.D(0).data; // :57 unk
+}
+
+std::vector<uint8_t> GameSession::buildCM_GROUP_DISTRIBUTION(int64_t amount, uint8_t partyType) {
+	return PacketWriter().Q(amount).C(partyType).data; // CM_GROUP_DISTRIBUTION.java:30-31
+}
+
+std::vector<uint8_t> GameSession::buildCM_SHOW_BRAND(int32_t action, int32_t brandId, int32_t targetObjectId) {
+	return PacketWriter().D(action).D(brandId).D(targetObjectId).data; // CM_SHOW_BRAND.java:32-34
+}
+
+std::vector<uint8_t> GameSession::buildCM_GROUP_DATA_EXCHANGE(uint8_t action, uint8_t groupType, uint8_t unk2, std::span<const uint8_t> data) {
+	PacketWriter writer;
+	writer.C(action); // CM_GROUP_DATA_EXCHANGE.java:37
+	if (action != 1)
+		writer.C(groupType).C(unk2); // :38-41
+	return writer.D(static_cast<int32_t>(data.size())).B(data).data; // :42-43
+}
+
+std::vector<uint8_t> GameSession::buildCM_FIND_GROUP_LIST() {
+	return PacketWriter().C(0).data; // CM_FIND_GROUP.java:40-43
+}
+
+std::vector<uint8_t> GameSession::buildCM_FIND_GROUP_OFFER(int32_t playerOrTeamId, std::string_view message, uint8_t groupType) {
+	return PacketWriter().C(2).D(playerOrTeamId).S(message).C(groupType).data; // CM_FIND_GROUP.java:53-57
+}
+
+std::vector<uint8_t> GameSession::buildCM_GROUP_LOOT(int32_t groupId, int32_t index, int32_t itemId, int32_t npcObjId, uint8_t distributionMode,
+	int32_t roll, int64_t bid) {
+	// CM_GROUP_LOOT.java:45-55: groupId, index, unk1, itemId, unk2, unk3, unk4, npcObjId, distributionMode, roll, bid
+	return PacketWriter().D(groupId).D(index).D(0).D(itemId).C(0).C(0).C(0).D(npcObjId).C(distributionMode).D(roll).Q(bid).data;
+}
+
+std::vector<uint8_t> GameSession::buildCM_QUEST_SHARE(int32_t questId) {
+	return PacketWriter().D(questId).data; // CM_QUEST_SHARE.java:40
+}
+
 namespace {
 
 /** the readUH count every M5c list packet starts with: more than 65535 entries cannot be written */
