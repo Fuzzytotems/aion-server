@@ -117,6 +117,32 @@ KNOWN_JAVA_BUGS = {
 }
 JAVA_BUG_MARK = '// java-bug kept (U3, phase6-inventory.md §11): '
 
+# The corrections of the Java code the owner approved (docs/design/owner-decisions.md), the other side of KNOWN_JAVA_BUGS: rel -> {Java line:
+# (the Java text on that line, its corrected text, why)}. The emitter transliterates the corrected line and marks the statement with
+# CORRECTION_MARK; nothing else of the file changes. tools/oracle/questtrace keeps its own copy of this table (the oracle never imports the
+# generator) and traces the same corrected line; tools/oracle/tests/test_quest_trace.py requires the two to be equal.
+OWNER_CORRECTIONS = {
+    # the owner's decision of 2026-10-05 (both branches; docs/deviations/Q02.md): the level hook names the quest itself as its own
+    # pre-quest, so defaultOnLevelChangedEvent (AbstractQuestHandler.java:1001-1008) never finds it COMPLETE and never starts the quest
+    'inggison/_11001KindMeira.java': {
+        129: ('defaultOnLevelChangedEvent(player, 11001);', 'defaultOnLevelChangedEvent(player);',
+              "named the quest itself as its pre-quest (owner's decision 2026-10-05)")},
+    'inggison/_11008LetterOfEncouragement.java': {
+        100: ('defaultOnLevelChangedEvent(player, 11008);', 'defaultOnLevelChangedEvent(player);',
+              "named the quest itself as its pre-quest (owner's decision 2026-10-05)")},
+}
+CORRECTION_MARK = '// correction of the Java code: '
+
+
+def corrected_source(text, corrections, rel=''):
+    """the Java text with each OWNER_CORRECTIONS line rewritten (the Java text must occur exactly once on its line)"""
+    lines = text.split('\n')
+    for line, (java, corrected, _why) in sorted(corrections.items()):
+        if lines[line - 1].count(java) != 1:
+            raise ValueError(f'{rel}:{line}: the correction expects {java!r} once on the line, found {lines[line - 1]!r}')
+        lines[line - 1] = lines[line - 1].replace(java, corrected)
+    return '\n'.join(lines)
+
 # the P6-T emitter rules (see the module docstring); the driver turns all of them on
 P6T_RULES = frozenset(('varargs-inline', 'work-items', 'switch-expression', 'nested-array'))
 # the G1 lane's rules (phase6-transliterator.md §2): 'scheduled-closure' emits a lambda or an anonymous Runnable passed to
@@ -238,8 +264,14 @@ class Transliterator:
         self.consts = []
         self.java_bugs = KNOWN_JAVA_BUGS.get(rel, {})
         self.java_bugs_placed = set()
+        self.corrections = OWNER_CORRECTIONS.get(rel, {})
+        self.corrections_placed = set()
         try:
-            cu = javasrc.parse_file(str(path))
+            if self.corrections:
+                cu = javasrc.parse_source(corrected_source(path.read_bytes().decode('utf-8'), self.corrections, rel),
+                                          str(path).replace('\\', '/'))
+            else:
+                cu = javasrc.parse_file(str(path))
         except javasrc.JavaSyntaxError as e:
             self.r.reasons.append(('java-syntax', str(e)))
             return self.r
@@ -264,13 +296,22 @@ class Transliterator:
             self.r.cpp = text
             for line in sorted(set(self.java_bugs) - self.java_bugs_placed):
                 self.r.java_bugs.append(f'line {line}: NOT PLACED (no statement starts on that line): {self.java_bugs[line]}')
+            for line in sorted(set(self.corrections) - self.corrections_placed):
+                self.r.java_bugs.append(f'line {line}: CORRECTION NOT PLACED (no statement starts on that line)')
         return self.r
 
     def java_bug_note(self, s, depth):
-        """the `// java-bug kept` line before statement s when KNOWN_JAVA_BUGS names the Java line it starts on"""
-        if not self.java_bugs:
+        """the `// java-bug kept` line before statement s when KNOWN_JAVA_BUGS names the Java line it starts on, or the
+        `// correction of the Java code` line when OWNER_CORRECTIONS does"""
+        if not self.java_bugs and not self.corrections:
             return []
         line = self.cu.tokens.loc(s.tok)[0]
+        if line in self.corrections and line not in self.corrections_placed:
+            self.corrections_placed.add(line)
+            _java, _corrected, why = self.corrections[line]
+            return ['\t' * depth + CORRECTION_MARK + f'Java :{line} {why}']
+        if not self.java_bugs:
+            return []
         note = self.java_bugs.get(line)
         if note is None or line in self.java_bugs_placed:
             return []

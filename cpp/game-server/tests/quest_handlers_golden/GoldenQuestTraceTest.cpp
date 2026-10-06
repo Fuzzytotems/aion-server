@@ -1742,6 +1742,17 @@ const std::set<std::string>& knownNotReproducible() {
 		"3718 onDialogEvent#13",
 		"4718 onDialogEvent#3",
 		"4718 onDialogEvent#13",
+		// Chunk Q02 (lane C, 2026-10-05). 11006 onItemUseEvent#1 #2: useQuestItem, which the replay does not model (its Runnable needs the
+		// used item in the inventory and a delay of its own). 11289 #5 #13 and onItemUseEvent#4: canRepeat false, which the template cannot
+		// make (as above). 11289 #14 and 11460 #20: a helper assumed true (checkItemExistence, removeQuestItem) that needs an item the path's
+		// given does not hold (as 21460 #20); the overlay that holds it runs and compares the path
+		"11006 onItemUseEvent#1",
+		"11006 onItemUseEvent#2",
+		"11289 onDialogEvent#5",
+		"11289 onDialogEvent#13",
+		"11289 onItemUseEvent#4",
+		"11289 onDialogEvent#14",
+		"11460 onDialogEvent#20",
 	};
 	return known;
 }
@@ -1775,6 +1786,10 @@ const std::map<std::string, std::string>& knownVacuous() {
 		"(AbstractQuestHandler.java:486-529)";
 	static const std::string REMOVE_FALSE_REWARD_PAGE = "removeQuestItem assumed false changes nothing (AbstractQuestHandler.java:644-659), and "
 		"sendQuestDialog of the reward page 5 outside REWARD sends nothing (AbstractQuestHandler.java:330-340)";
+	// chunk Q02: _11001KindMeira.java:129 and _11008LetterOfEncouragement.java:100 name their own quest as the pre-quest, which must be
+	// COMPLETE while the quest has no state (a non-mission returns at once, AbstractQuestHandler.java:988-1004): the level hook never starts
+	// them (a Java bug kept, docs/deviations/Q02.md)
+	static const std::string ITEM_CHECK_FALSE = "checkItemExistence assumed false changes nothing (AbstractQuestHandler.java:576-609)";
 	static const std::string KILLS_ASSUMED_FALSE = "every kill helper of the path assumed false: it changes nothing then (AbstractQuestHandler.java "
 		"defaultOnKillEvent)";
 	static const std::map<std::string, std::string> known = [] {
@@ -1840,6 +1855,16 @@ const std::map<std::string, std::string>& knownVacuous() {
 		{"2727 onDialogEvent#23", IDLE_END},
 		{"2767 onDialogEvent#8", IDLE_END},
 		{"24040 onDialogEvent#4", REWARD_PAGE},
+		// chunk Q02 (lane C, 2026-10-05)
+		{"11000 onDialogEvent#19", IDLE_END},
+		{"11001 onDialogEvent#6", IDLE_END},
+		{"11005 onDialogEvent#16", IDLE_END},
+		{"11008 onDialogEvent#10", IDLE_END},
+		{"11046 onDialogEvent#4", IDLE_END},
+		{"11046 onDialogEvent#5", IDLE_END},
+		{"11227 onKillEvent#5", KILLS_ASSUMED_FALSE},
+		{"11289 onDialogEvent#15", ITEM_CHECK_FALSE},
+		{"11460 onDialogEvent#21", REMOVE_FALSE_REWARD_PAGE},
 		};
 		// P6-Q slice 2 (Q10): the altgard and pandaemonium traces (GoldenKnownVacuousQ10.h)
 		for (const auto& [key, kind] : Q10_VACUOUS) {
@@ -1871,10 +1896,12 @@ const std::map<std::string, std::string>& knownUnported() {
  * are checked, their hooks only by parity, the drift test and the chunks' unit cases. (Q10's 2213, getEffectController and SkillEngine, is
  * held back since the integration of slice 2: GoldenHandlers.h).
  * Phase 6 step 2, chunk Q08 (lane C): gelkmaros 21004, 21027, 21033, 21036, 21071 (a status read after sendQuestNoneDialog), 21105, 21249
- * (npc.getController()), enshar 25052 (spawnForFiveMinutes). Chunk Q01 (lane C): reshanta 2798 (a status read after sendQuestNoneDialog)
+ * (npc.getController()), enshar 25052 (spawnForFiveMinutes). Chunk Q01 (lane C): reshanta 2798 (a status read after sendQuestNoneDialog).
+ * Chunk Q02 (lane C): inggison 11031-11033 (a scheduled task that would throw; a status read after sendQuestNoneDialog), 11053
+ * (tryDecreaseKinah), 11118 (getUseArea in the oracle; a status read after sendQuestNoneDialog)
  */
 constexpr int32_t ORACLE_REFUSES_EVERY_HOOK[] = {1205, 2132, 1640, 1647, 2925, 2938, 2952, 4966, 4967, 4968, 4969, 21004, 21027, 21033, 21036,
-	21071, 21105, 21249, 25052, 2798};
+	21071, 21105, 21249, 25052, 2798, 11031, 11032, 11033, 11053, 11118};
 
 TEST_F(GoldenQuestTraceTest, EveryExpectedDocumentHasAGeneratedHandlerAndEveryHandlerADocument) {
 	std::vector<int32_t> ids = expectedQuestIds();
@@ -2232,6 +2259,32 @@ TEST_F(GoldenQuestTraceTest, ATaskExceptionIsThePoolsInBothRuns) {
 	EXPECT_EQ(tally.failed, 0);
 	EXPECT_EQ(tally.passed, 2);
 	EXPECT_TRUE(tally.unsatisfiable.empty()) << tally.unsatisfiable.front();
+}
+
+TEST_F(GoldenQuestTraceTest, TheCorrectedLevelHooksOf11001And11008StartTheQuest) {
+	// chunk Q02, the owner's correction of 2026-10-05 (docs/deviations/Q02.md): Java's level hooks name the quest itself as its pre-quest
+	// (_11001KindMeira.java:129, _11008LetterOfEncouragement.java:100), so defaultOnLevelChangedEvent never started them; the generated
+	// handlers call it without one (questgen's OWNER_CORRECTIONS). An Elyos at the quest's level gets the quest on a level change; one level
+	// below, or an Asmodian, does not
+	for (int32_t questId : {11001, 11008}) {
+		AbstractQuestHandler& handler = registerGenerated(questId);
+		const QuestRow& row = goldenData().quests.at(questId);
+		Quester* below = makeQuester(GOLDEN_PLAYER, "Golden", gameserver::model::Race::ELYOS, row.minLevel - 1);
+		handler.onLevelChangedEvent(below->player());
+		EXPECT_EQ(below->player().getQuestStateList()->getQuestState(questId), nullptr) << questId << " one level below";
+		dropQuester(below);
+		Quester* other = makeQuester(GOLDEN_PLAYER, "Golden", gameserver::model::Race::ASMODIANS, row.minLevel);
+		handler.onLevelChangedEvent(other->player());
+		EXPECT_EQ(other->player().getQuestStateList()->getQuestState(questId), nullptr) << questId << " the other race";
+		dropQuester(other);
+		Quester* quester = makeQuester(GOLDEN_PLAYER, "Golden", gameserver::model::Race::ELYOS, row.minLevel);
+		handler.onLevelChangedEvent(quester->player());
+		Ptr<QuestState> qs = quester->player().getQuestStateList()->getQuestState(questId);
+		ASSERT_NE(qs, nullptr) << questId;
+		EXPECT_EQ(qs->getStatus(), QuestStatus::START) << questId;
+		dropQuester(quester);
+		QuestEngine::getInstance().clear();
+	}
 }
 
 /** A handler whose dialog hook sends a page drawn from the thread's Rnd: both runs of a case must draw the same one */

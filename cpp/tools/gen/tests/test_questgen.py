@@ -149,6 +149,19 @@ class RealQuests(unittest.TestCase):
     def run_file(self, rel):
         return self.tr.transliterate(QUEST / rel)
 
+    def test_the_owners_corrections_are_transliterated_and_marked(self):
+        # OWNER_CORRECTIONS (the owner's decision of 2026-10-05, docs/deviations/Q02.md): the corrected line, marked; nothing else changes
+        for rel, line, quest in (('inggison/_11001KindMeira.java', 129, 11001), ('inggison/_11008LetterOfEncouragement.java', 100, 11008)):
+            with self.subTest(rel=rel):
+                r = self.run_file(rel)
+                self.assertEqual(r.status, 'ok', r.reasons)
+                self.assertIn(f"\t\t{emit.CORRECTION_MARK}Java :{line} named the quest itself as its pre-quest (owner's decision 2026-10-05)\n"
+                              '\t\tdefaultOnLevelChangedEvent(player);\n', r.cpp)
+                self.assertNotIn('{' + str(quest) + '}', r.cpp)
+                self.assertFalse(any('NOT PLACED' in n for n in r.java_bugs), r.java_bugs)
+        with self.assertRaises(ValueError):
+            emit.corrected_source('a\nb\n', {2: ('c', 'd', 'why')}, 'x.java')
+
     def test_talk_chain_tier_a(self):
         r = self.run_file('eltnen/_1363ThankingMabangtah.java')
         self.assertEqual((r.status, r.tier, r.quest_id), ('ok', 'A', 1363), r.reasons)
@@ -257,10 +270,11 @@ class RealQuests(unittest.TestCase):
 
     def test_types_the_prelude_exports_are_indexed(self):
         # House, SpawnSearchResult and InstanceHandler have headers (QuestPrelude.h re-exports them): the gap is the API behind them. Since
-        # row B42 (chunk Q01, 2026-10-05) _24043LazyLanguageLessons, the SpawnSearchResult case, transliterates (tests.test_questgen_g1)
+        # row B42 (chunk Q01, 2026-10-05) _24043LazyLanguageLessons, the SpawnSearchResult case, and since row B43 (chunk Q02)
+        # _10034FoundUnderground, the InstanceHandler case, transliterate (tests.test_questgen_g1)
         self.assertEqual(self.run_file('reshanta/_24043LazyLanguageLessons.java').status, 'ok')
-        for rel, key in (('inggison/_10034FoundUnderground.java', 'api-missing: WorldMapInstance.getInstanceHandler'),
-                         ('oriel/_18830MovingIn.java', 'api-missing: Player.getActiveHouse')):
+        self.assertEqual(self.run_file('inggison/_10034FoundUnderground.java').status, 'ok')
+        for rel, key in (('oriel/_18830MovingIn.java', 'api-missing: Player.getActiveHouse'),):
             with self.subTest(rel=rel):
                 keys = self.run_file(rel).reason_keys()
                 self.assertIn(key, keys)

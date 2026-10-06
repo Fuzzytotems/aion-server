@@ -1,0 +1,18 @@
+{
+ "format": "aion-quest-trace",
+ "version": 1,
+ "questId": 11033,
+ "java": "inggison/_11033YouMakeMeSick.java",
+ "class": "_11033YouMakeMeSick",
+ "javaSha256": "d61980c13aa6cf2753cc3f7331086a912c08c0c5251f0ba8559be849cd7dc52b",
+ "register": [
+  {"npc": 798959, "event": "addOnTalkEvent", "args": [11033]},
+  {"call": "registerQuestItem", "args": [182206728, 11033]},
+  {"npc": 798959, "event": "addOnQuestStart", "args": [11033]}
+ ],
+ "hooks": [
+  {"hook": "onDialogEvent", "line": 37, "unsupported": "reads status/11033 after sendQuestNoneDialog, which may have written it"},
+  {"hook": "onItemUseEvent", "line": 94, "unsupported": "a NullPointerException with a scheduled task"}
+ ],
+ "cases": []
+}

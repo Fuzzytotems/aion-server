@@ -681,6 +681,26 @@ class Q01SliceTest(unittest.TestCase):
 
 
 @unittest.skipUnless(HAVE_JAVA_TREE, "Java tree not present")
+class Q02SliceTest(unittest.TestCase):
+	"""the inggison slice (SLICE_Q02, phase 6 step 2, lane C, 2026-10-05; docs/deviations/Q02.md)"""
+
+	def test_the_q02_slice(self):
+		java = sorted(f"inggison/{f.name}" for f in (extract.QUEST_DIR / "inggison").glob("*.java"))
+		self.assertEqual(len(java), 59)
+		self.assertEqual(sorted(extract.SLICE_Q02), java)
+		self.assertEqual(set(extract.SLICE_Q02) & set(extract.SLICE_TIER_A + extract.SLICE_ROUTE + extract.SLICE_Q03 + extract.SLICE_Q10 +
+		                                              extract.SLICE_Q08 + extract.SLICE_Q01), set())
+		docs = {}
+		for rel in extract.SLICE_Q02:
+			d = extract.trace_file(tables(), extract.QUEST_DIR / rel, rel)
+			docs[d["questId"]] = d
+		# every hook refused in five (the golden harness's ORACLE_REFUSES_EVERY_HOOK); their registration is traced
+		self.assertEqual(sorted(q for q, d in docs.items() if not d["cases"]), [11031, 11032, 11033, 11053, 11118])
+		self.assertTrue(all(isinstance(d["register"], list) for d in docs.values()))
+		self.assertEqual(extract.check(rels=extract.SLICE_Q02, extra=False), [])
+
+
+@unittest.skipUnless(HAVE_JAVA_TREE, "Java tree not present")
 class ScheduledTaskTest(unittest.TestCase):
 	"""lane C (phase 6 step 1, phase6-transliterator.md §7): closures (jast's closures=True), the task of ThreadPoolManager.schedule run after the
 	hook, the item-use packets and removal around it, a bounded symbolic setQuestVar, AbyssRankEnum, and parser refusals per hook"""
@@ -746,6 +766,22 @@ class ScheduledTaskTest(unittest.TestCase):
 		self.assertEqual(self.refusal(doc, "onDieEvent"), "a NullPointerException with a scheduled task")
 		self.assertTrue(self.refusal(doc, "onDialogEvent").startswith("try"))      # jast refuses it: the hook, not the file
 		self.assertIsInstance(doc["register"], list)
+
+	def test_the_owners_corrections_are_traced_and_equal_to_questgens(self):
+		# the owner's decision of 2026-10-05 (docs/deviations/Q02.md): 11001 and 11008 name themselves as their level hook's pre-quest; the
+		# document traces the corrected call, says so, and the oracle's table is questgen's (each tool keeps its own copy)
+		from questgen import emit
+		self.assertEqual(extract.OWNER_CORRECTIONS, emit.OWNER_CORRECTIONS)
+		for rel, line in (("inggison/_11001KindMeira.java", 129), ("inggison/_11008LetterOfEncouragement.java", 100)):
+			doc = extract.trace_file(tables(), extract.QUEST_DIR / rel, rel)
+			self.assertEqual([c["line"] for c in doc["corrections"]], [line])
+			level = [c for c in doc["cases"] if c["hook"] == "onLevelChangedEvent"]
+			self.assertEqual([c["effects"] for c in level], [[{"call": "defaultOnLevelChangedEvent", "kind": "quest", "args": [], "line": line}]])
+		# a file without a correction has no member, and a correction whose Java text is not on its line is refused
+		rel = "inggison/_10031ARiskfortheObelisk.java"
+		self.assertNotIn("corrections", extract.trace_file(tables(), extract.QUEST_DIR / rel, rel))
+		with self.assertRaises(extract.OracleError):
+			extract.corrected_source("a\nb\n", {2: ("c", "d", "why")}, "x.java")
 
 	def test_switch_expressions_and_switch_rules(self):
 		# the review of #79, item 9: JLS 15.28 (a switch expression's value is its matching arm's, else default's) and JLS 14.11.2 (a rule arm

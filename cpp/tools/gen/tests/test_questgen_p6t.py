@@ -454,7 +454,9 @@ class Corpus(unittest.TestCase):
         self.assertGreaterEqual(len(ok), 935)       # 929, and the six escorts of rows B26-B30 (2026-09-30, tests.test_questgen_escorts)
         bad = {}
         for r in ok:
-            ms = parity.compare((QUEST / r.rel).read_text(encoding='utf-8-sig'), r.cpp)
+            # an owner's correction (emit.OWNER_CORRECTIONS) is compared with the corrected Java the emitter read
+            java = emit.corrected_source((QUEST / r.rel).read_text(encoding='utf-8-sig'), emit.OWNER_CORRECTIONS.get(r.rel, {}), r.rel)
+            ms = parity.compare(java, r.cpp)
             if ms:
                 bad[r.rel] = [str(m) for m in ms][:2]
         self.assertEqual(bad, {})
@@ -475,8 +477,8 @@ class Corpus(unittest.TestCase):
         # six of the ten files of the G1 lane's rows B32-B38 (2026-10-04, tests.test_questgen_g1; two need a P6-T rule, two rule
         # scheduled-closure)
         # row B39 (the Q08 follow-up, lane C, 2026-10-05) adds gelkmaros/_20034, rows B40-B42 (chunk Q01) 14043, 24045, 24043, 50008
-        # and 51008; 14045 also needs a P6-T rule
-        self.assertEqual(sum(1 for r in self.proto.values() if r.status == 'ok'), 928)
+        # and 51008, rows B43-B44 (chunk Q02) 10034 and 11118; 14045 also needs a P6-T rule
+        self.assertEqual(sum(1 for r in self.proto.values() if r.status == 'ok'), 930)
 
     def test_the_oracle_slice_is_tier_a(self):
         # tools/oracle/questtrace/extract.py SLICE: the Poeta and Ishalgen files questgen emits in tier A (phase6-inventory.md §9.3 item 1)

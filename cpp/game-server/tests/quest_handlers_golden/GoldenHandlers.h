@@ -11,6 +11,7 @@
 // Phase 6 step 2, chunk Q08 (lane C, 2026-10-05): the 64 generated gelkmaros and enshar handlers, compiled in by #include as well
 // (GoldenQ08Handlers.cpp; docs/deviations/Q08.md); chunk Q01 (the same lane and day): the 81 generated reshanta handlers
 // (GoldenQ01Handlers.cpp; docs/deviations/Q01.md). Q01 is the library aion_gs_handlers_quest_reshanta, which this executable does not link.
+// Chunk Q02 (the same lane and day): the 59 generated inggison handlers (GoldenQ02Handlers.cpp; docs/deviations/Q02.md).
 //
 // P6-Q slice 2, chunk Q03 (2026-09-29): the 72 generated verteron and heiron handlers in the tree (the zones the route's dispatches end in),
 // compiled into this executable by #include as well (GoldenQ03Handlers.cpp); Q03's hand ports 1643 and 3200 have their own unit cases
@@ -343,7 +344,66 @@
 	X(reshanta, _4702GeneralDeath, 4702) \
 	X(reshanta, _4711TheDredgionCaptain, 4711) \
 	X(reshanta, _4712EscapeFromTheDredgion, 4712) \
-	X(reshanta, _4718PressingTheAttack, 4718)
+	X(reshanta, _4718PressingTheAttack, 4718) \
+	X(inggison, _10031ARiskfortheObelisk, 10031) \
+	X(inggison, _10032HelpintheHollow, 10032) \
+	X(inggison, _10033PetrifiedSubside, 10033) \
+	X(inggison, _10034FoundUnderground, 10034) \
+	X(inggison, _10035SoartotheCorridor, 10035) \
+	X(inggison, _11000WisplightMoralTour, 11000) \
+	X(inggison, _11001KindMeira, 11001) \
+	X(inggison, _11003MaintainingtheIllusion, 11003) \
+	X(inggison, _11005TheLimitsofGenius, 11005) \
+	X(inggison, _11006TestingTheWaters, 11006) \
+	X(inggison, _11008LetterOfEncouragement, 11008) \
+	X(inggison, _11009MeiriaFriendlySuggestion, 11009) \
+	X(inggison, _11010AngelToTheWounded, 11010) \
+	X(inggison, _11012PracticalNursing, 11012) \
+	X(inggison, _11026SolidEvidence, 11026) \
+	X(inggison, _11031CanIEatIt, 11031) \
+	X(inggison, _11032EverythingsBetterWithTentacles, 11032) \
+	X(inggison, _11033YouMakeMeSick, 11033) \
+	X(inggison, _11036UncommonRecipe, 11036) \
+	X(inggison, _11040SquampOnTheCookingPlate, 11040) \
+	X(inggison, _11046BoxPickedUpInTheForest, 11046) \
+	X(inggison, _11053TheseShoesAreMadeForStalking, 11053) \
+	X(inggison, _11056EliminationOrder, 11056) \
+	X(inggison, _11057StanisSecretOrder, 11057) \
+	X(inggison, _11058TemenosSecretOrder, 11058) \
+	X(inggison, _11060TheOrbsOrders, 11060) \
+	X(inggison, _11061TwilightOfRagnarok, 11061) \
+	X(inggison, _11062PadmarashkaWrath, 11062) \
+	X(inggison, _11063QuellMastarius, 11063) \
+	X(inggison, _11068AMysteriousWind, 11068) \
+	X(inggison, _11069MookieTravelTips, 11069) \
+	X(inggison, _11070CraftyMessenger, 11070) \
+	X(inggison, _11072DelusCulinaryVictim, 11072) \
+	X(inggison, _11076ProofOfTalent, 11076) \
+	X(inggison, _11077AWeaponOfWorth, 11077) \
+	X(inggison, _11103FiniteWalk, 11103) \
+	X(inggison, _11105WifesNagging, 11105) \
+	X(inggison, _11106RewritingHistory, 11106) \
+	X(inggison, _11107ComfortisaBox, 11107) \
+	X(inggison, _11109TheNegotiators, 11109) \
+	X(inggison, _11110KillingTime, 11110) \
+	X(inggison, _11116MunchingMookiePickles, 11116) \
+	X(inggison, _11117MedicationforSetzkiki, 11117) \
+	X(inggison, _11118MakingSetzkikiLaugh, 11118) \
+	X(inggison, _11123SuspiciousBook, 11123) \
+	X(inggison, _11139TheBadNews, 11139) \
+	X(inggison, _11143BabyShulackJourney, 11143) \
+	X(inggison, _11147CuteBeadyEyes, 11147) \
+	X(inggison, _11149TheLadyLayout, 11149) \
+	X(inggison, _11212BalaurRecords, 11212) \
+	X(inggison, _11227EasyAs, 11227) \
+	X(inggison, _11228HeNeverReturned, 11228) \
+	X(inggison, _11233SuleionTreasure, 11233) \
+	X(inggison, _11289VeillesGift, 11289) \
+	X(inggison, _11294SpawningInvestigation, 11294) \
+	X(inggison, _11304TheRemainingFaithful, 11304) \
+	X(inggison, _11455WhentheTimeisRipe, 11455) \
+	X(inggison, _11458AdiassReport, 11458) \
+	X(inggison, _11460TheShulackofTaloc, 11460)
 // clang-format on
 
 // Lane C, phase 6 step 1 (2026-10-05): the out-of-tree golden sample (tools/gen/questgen/goldensample.py, phase6-transliterator.md §7) compiles
