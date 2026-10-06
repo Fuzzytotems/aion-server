@@ -110,6 +110,22 @@ TEST_F(BindPointTeleportTest, ThePriceAddsTheTruncatedDistanceCost) {
 	EXPECT_FALSE(capture.contains("prices don't match")) << capture.dump();
 }
 
+/**
+ * m5f-plan.md §10.4: "distance in double instead of float - nothing in the gate (63 either way), T-08's unit vector must catch it". This is
+ * that vector, found by G-01's oracle (`oracle.py m5f-travel --hotspot 13 --from ...`, tools/oracle/tests/test_m5f.py): from this point Java's
+ * float distance gives 44 + (long) 59.97... = 103, a double distance 104.
+ */
+TEST_F(BindPointTeleportTest, ThePriceUsesJavasFloatDistance) {
+	spawnActor(1000, model::Race::ELYOS, POETA, Spot{1153.5513916015625f, 2559.78173828125f, 172.45616149902344f, int8_t{0}}, false);
+	network::test::LogCapture capture({HOTSPOT_LOGGER}, spdlog::level::info);
+
+	BindPointTeleportService::teleport(player(), 13, 103);
+	advance(10500); // the charge; the move 1 s later is not this case's
+
+	EXPECT_EQ(kinah(), 1000 - 103) << "the float distance (a double one gives 104)";
+	EXPECT_FALSE(capture.contains("prices don't match")) << capture.dump();
+}
+
 TEST_F(BindPointTeleportTest, ANearerHotspotCostsLess) {
 	spawnActor(1000);
 

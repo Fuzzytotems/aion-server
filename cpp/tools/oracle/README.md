@@ -800,6 +800,66 @@ Tests: `tests/test_m5e.py` (the charge loop and the skill-tree walk on hand-made
 level 10 and 15 with every message id of m5e-plan.md §2.1 / §2.3 / X7, the class change tables of both races, the class master, the casts,
 the chain follower after its opener, a skill book learned and refused, the weapons, a seeded skill list, a seeded Daeva's enter world, a stigma stone and the command line).
 
+## M5f travel oracle (`m5f/`, `docs/design/m5f-plan.md` G-01)
+
+```
+python oracle.py m5f-travel [--npc ID ...] [--race ELYOS|ASMODIANS] [--profile FILE | --no-profile] [--config DIR]
+                            [--hotspot ID ... --from X,Y,Z ...] [--obelisk NPCID ...]
+                            [--portal NPCID ... --race R [--now-ms EPOCH_MS] [--tz local|UTC|+HH:MM|ZONE]] [--instance-exit WORLD ... --race R]
+                            [--instance-spawns WORLD ... --near X,Y,Z --radius R [--difficulty N] [--game-hour H | --game-minutes M] [--weekday D]]
+                            [--exp-for-level L] [--census [--cpp-src cpp/game-server]] [--geo-check [--geo-map ID ...] [--geo-dir DIR]]
+    ([--java-src game-server/src] [--java-handlers data/handlers/quest])
+```
+
+Every selector is repeatable and they combine in one call. The answer (`aion-m5f-travel`) always has the keys `npcs`, `hotspots`,
+`obelisks`, `portals`, `instanceExits`, `instanceSpawns` (lists, one entry per selector, `[]` when not asked) and `exp`, `census`,
+`geoCheck` (objects, `null` when not asked). `--from` / `--near` are given once (shared) or once per `--hotspot` / `--instance-spawns`.
+Floats are the Java float values of the XML decimals; headings are the template's int (`headingByte` = the `(byte)` `sendLoc` writes).
+
+- `npcs[]`: `npc`, `name`, `ai`, `race`, `tribe`, `talkDistance`, `spots` (`map`, `x`, `y`, `z`, `heading`, `staticId` and the group flags,
+  every spawn map), `daevaOnly` (DialogService's AIRLINE_SERVICE NO_RIGHT ids, read from DialogService.java:187-197), `teleporter`
+  (`teleportId`, `type`) or null, `locations` in npc_teleporter.xml order: `locId`, `type`, `teleportId` (the location's `teleportid`, the
+  flight id; 0 if none), `price`, `pricePvp`, `servicePrice` (PricesService.getPriceForService(price, race) with the profile's prices and
+  sieges off - m5c's `race_prices` / `service_price`; what checkKinahForTransportation takes), `requiredQuest`, `map`, `x`, `y`, `z`,
+  `heading`, `headingByte`, `name`, `hasPosition` (false for a FLIGHT location: the client flies the path). `--race` defaults to the npc's.
+- `hotspots[]`: `hotspot`, `map`, `race`, `x`, `y`, `z`, `heading` (null: the player keeps its own, TeleportService.java:249-251),
+  `basePrice`, `from`, `distance` (PositionUtil.getDistance: float differences, squares and sum, then Math.sqrt), `price`
+  (`max(1, base + (long) (base * distance / 1000d))`), `doublePrice` (the same with a double distance: what a port must not do).
+- `obelisks[]`: `npc`, `spots`, `bindPoint` (`id`, `name`, `price` raw - ResurrectAI uses no PricesService - `race`, `tribe`).
+- `portals[]`: `npc`, `ai`, `spots`, `talkDelayMs` (talk_info delay in seconds * 1000, ActionItemNpcAI.getTalkDelayInMs), `talkDistance`,
+  `talkRange` (+1), `paths` (every portal_use path with `selected` = Portal2Data.getPortalUsePath's choice for `--race`, the portal_path
+  fields, the portal_loc `map`, `x`, `y`, `z`, `heading`, `instance` (world_maps), `maxPlayers`, `enterMinLevel` / `enterMaxLevel` as
+  PortalService.checkEnterLevel computes them), `dialogPaths`, `cooltime` (the instance_cooltime row of the selected path's world) or null,
+  `nowMs`, `timeZone`, `reuseTimeMs` (InstanceCooltimeData.calculateInstanceEntranceCooltime: DAILY/WEEKLY at `ent_cool_time` HHMM in the
+  server zone, the next day once now is after it, WEEKLY to the next `typevalue` day; RELATIVE now + minutes in int arithmetic; the
+  membership rate taken as 1), `reuseRemainingSeconds` (what SM_INSTANCE_INFO writes), `exit` (InstanceExitData.getInstanceExit) or null.
+  The zone: `--tz`, else `gameserver.timezone` of the profile / config/main, empty = the machine's (`local`, through time.localtime: Windows
+  has no zoneinfo database, so a zone name works only where Python has one).
+- `instanceExits[]`: `world`, `race`, `exit` (`instance`, `map`, `race`, `x`, `y`, `z`, `heading`) or null.
+- `instanceSpawns[]`: SpawnEngine.spawnInstance with m5a-spawns' rules, a group of `difficult_id` = `--difficulty` counted as the
+  instance's: `spots` within `--radius` of `--near` (nearest first) with `npcId`, `name`, `x`, `y`, `z`, `heading`, `ai` (the spot's
+  override or the template's), `spawned` (true / false / null = random or unknown time), `fixed` (spawned, no walker, no random walk),
+  `temporary`, `pool`, `walker`, `staticId`, `distance`; `total` over the whole instance.
+- `exp`: `level`, `exp` (PlayerExperienceTable.getStartExpForLevel), `maxLevel`.
+- `census` (the only part that reads the C++ tree): `w14` per advanced class seeded at level 16 (the m5e progression model's
+  learnNewSkills(1, 16)): `passives`, their `effectClasses` and the `unported` ones (`skillengine/effect/<Class>.cpp` with
+  `AION_UNPORTED(`, or no source and no header in src or generated/ - a generated data-only class counts as ported), `partial`,
+  `unportedBases`, `unportedBySkill`; `haramel`: the npcs of 300200000's spawn map, their npc_skills, the effect classes, and
+  `unportedEffectClasses` / `unportedBy` (`npcId`, `skillId`). Launched skills are not followed.
+- `geoCheck` (§10.5 G3): every destination of §2.9 (the REGULAR locations of 203194, 203679, 203091, 203581, 203726, 204191, every hotspot
+  of the four start maps, Haramel's portal loc and exits) with `geoZ` = GeoService.getZ(x, y, z) (z + 2 .. z - 2, else a z +- 50 probe) and
+  `dz`; `outside` lists |dz| > 1 or no surface; `notModelled` the flight locations (no data position) and what the emulation calls
+  ambiguous. A point on a terrain cell border (every hotspot at whole coordinates) is probed 1 cm away and marked `nudged`. The whole
+  check loads 19 maps (~1.5 min); `--geo-map` narrows it.
+
+Exit code 2 for an npc without a template, a raceless npc's prices without `--race`, a portal or exit without `--race`, an unknown hotspot,
+an obelisk without a bind point, a level above the experience table, a zone Python cannot resolve, or Java text of an unknown shape.
+
+Tests: `tests/test_m5f.py` (the price truncations, a hotspot vector where the float and the double distance give different prices, the
+cooltime around 09:00 in UTC, a fixed offset and the local zone, WEEKLY and RELATIVE; on the real data m5f-plan.md §2.9's numbers - Daines,
+Kustanon, Aero, Urakron, Osmar, Ukin, the obelisks, hotspot 13 from the Elyos spawn, Haramel's portal, cooltime, reuse time, exit and
+spawnInstance set, the level-16 exp; the census on a mock C++ tree that reproduces W-14 and W-21, and the geo check on Poeta and Haramel).
+
 ## Phase-6 golden quest traces (`questtrace/`, `docs/design/phase6-inventory.md` §7.6 item 3)
 
 `questtrace/extract.py` turns a Java quest handler into its expected behaviour, written from Java only: from the handler source,
