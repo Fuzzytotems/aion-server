@@ -97,11 +97,14 @@ TEST_F(PartyPacketsTest, InviteTypeZeroAsksTheInvitedPlayerUnlessHeDeniesGroups)
 	EXPECT_EQ(b.count(SM_QUESTION_WINDOW_OPCODE), 0);
 }
 
-/** m5g-plan.md D10: the alliance arm reaches PlayerAllianceService, whose body the alliance lane ports - it fails loudly until then */
+/** CM_INVITE_TO_GROUP.java:61-63: invite type 12 reaches PlayerAllianceService.inviteToAlliance - the alliance question to a solo player
+ * (PlayerAllianceService.java:42-62; ported by the alliance lane, m5g-plan.md §16) */
 TEST_F(PartyPacketsTest, InviteTypeTwelveReachesTheAllianceService) {
 	Member& a = addStoredMember("Alpha");
-	addStoredMember("Bravo");
-	EXPECT_THROW(run<CM_INVITE_TO_GROUP>(CM_INVITE_TO_GROUP_OPCODE, a, PacketWriter().C(12).S("Bravo")), runtime::UnportedException);
+	Member& b = addStoredMember("Bravo");
+	run<CM_INVITE_TO_GROUP>(CM_INVITE_TO_GROUP_OPCODE, a, PacketWriter().C(12).S("Bravo"));
+	EXPECT_EQ(b.count(SM_QUESTION_WINDOW(SM_QUESTION_WINDOW::STR_PARTY_ALLIANCE_DO_YOU_ACCEPT_HIS_INVITATION, 0, 0, std::string("Alpha"))), 1);
+	EXPECT_EQ(a.count(SM_SYSTEM_MESSAGE::STR_FORCE_INVITED_HIM("Bravo")), 1);
 }
 
 /** CM_DISTRIBUTION_SETTINGS.java:63-71: any member sets new rules, every member receives SM_GROUP_INFO */
