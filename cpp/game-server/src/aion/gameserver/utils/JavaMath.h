@@ -43,6 +43,17 @@ public:
 		return doubleToLong(a);
 	}
 
+	/** Java: (long) a - NaN 0, saturating */
+	static constexpr int64_t doubleToLong(double a) noexcept {
+		if (a != a)
+			return 0;
+		if (a >= 9223372036854775808.0)
+			return std::numeric_limits<int64_t>::max();
+		if (a <= -9223372036854775808.0)
+			return std::numeric_limits<int64_t>::min();
+		return static_cast<int64_t>(a);
+	}
+
 private:
 	/** Java: (int) a - NaN 0, saturating */
 	static constexpr int32_t floatToInt(float a) noexcept {
@@ -53,17 +64,6 @@ private:
 		if (a <= -2147483648.0f)
 			return std::numeric_limits<int32_t>::min();
 		return static_cast<int32_t>(a);
-	}
-
-	/** Java: (long) a - NaN 0, saturating */
-	static constexpr int64_t doubleToLong(double a) noexcept {
-		if (a != a)
-			return 0;
-		if (a >= 9223372036854775808.0)
-			return std::numeric_limits<int64_t>::max();
-		if (a <= -9223372036854775808.0)
-			return std::numeric_limits<int64_t>::min();
-		return static_cast<int64_t>(a);
 	}
 };
 

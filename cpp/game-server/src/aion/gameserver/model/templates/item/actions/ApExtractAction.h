@@ -20,6 +20,12 @@ public:
 
 	void act(gameobjects::player::Player& player, runtime::Ptr<gameobjects::Item> parentItem, runtime::Ptr<gameobjects::Item> targetItem,
 		std::initializer_list<std::any> params = {}) const override;
+
+private:
+	/** Java private finishUse(Player, Item, Item) (ApExtractAction.java:151-157) */
+	void finishUse(gameobjects::player::Player& player, gameobjects::Item& parentItem, gameobjects::Item& targetItem) const;
+	/** Java private extractAp(Player, Item, Item) (ApExtractAction.java:159-175) */
+	bool extractAp(gameobjects::player::Player& player, gameobjects::Item& parentItem, gameobjects::Item& targetItem) const;
 };
 
 } // namespace aion::gameserver::model::templates::item::actions
