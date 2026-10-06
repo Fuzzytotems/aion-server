@@ -377,7 +377,8 @@ TEST_F(MonsterCommandsTest, UseSkillRefusals) {
 	EXPECT_EQ(client()->sentBytes(), info("Invalid skill ID.")) << "the fixture's empty skill data";
 	client()->clearSent();
 	EXPECT_TRUE(useSkill.process(admin, args({"ME"})));
-	EXPECT_EQ(client()->sentBytes(), info("<Error while executing command>")) << "Java: params[1] is out of bounds";
+	EXPECT_EQ(client()->sentBytes(), info(useSkill.getSyntaxInfo()))
+		<< "the owner's correction of 2026-10-05: no skill ID after the target mode is the syntax (Java: params[1] out of bounds)";
 }
 
 } // namespace

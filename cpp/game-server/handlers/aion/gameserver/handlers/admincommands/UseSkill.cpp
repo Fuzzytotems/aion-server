@@ -40,6 +40,12 @@ void UseSkill::execute(Player& admin, std::span<const std::string> params) {
 			i++;
 		else
 			targetMode = std::nullopt;
+		// Correction of the Java code (owner's decision 2026-10-05, both branches; docs/deviations/C1.md): a target mode without a skill ID
+		// shows the syntax (Java's params[i++] threw ArrayIndexOutOfBoundsException)
+		if (params.size() <= i) {
+			sendInfo(admin);
+			return;
+		}
 		const SkillTemplate* template_ = DataManager::SKILL_DATA->getSkillTemplate(commons::utils::parseInt(param(i++)));
 		if (template_ != nullptr) {
 			int32_t skillLevel = params.size() > i && params[i] != "f" ? commons::utils::parseInt(params[i++]) : template_->getLvl();
