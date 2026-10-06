@@ -23,6 +23,7 @@ then this file wins over a plan's "until the user answers" default.
 | Java correction: a cosmetic preset's skin colour taken from its eye colour (lane A's M5b-3 leftovers, CP1) | **Correct it, on both branches (C++ and 4.8)** | The preset sets `getSkinColor()` as the skin colour (docs/deviations/P5-07.md) |
 | Java correction: TamperingAction.canAct's null `targetItem` (lane A's M5b-3 leftovers, CP2) | **Correct it, on both branches (C++ and 4.8)** | A tampering use without a target cannot act instead of throwing (docs/deviations/P5-07.md) |
 | Java correction: ChargeAction's cancel animation ends with the success type (lane A's M5b-3 leftovers, CP2) | **Correct it, on both branches (C++ and 4.8)** | A cancelled conditioning bar ends with type 2, like the other cancelled item-on-item bars (docs/deviations/P5-07.md) |
+| Java correction: ItemPurificationService never takes the kinah (lane A's M5b-3 leftovers, CP3) | **Correct it, on both branches (C++ and 4.8)** | A purification takes its `necessary_kinah` (docs/deviations/P5-07.md) |
 
 ## 2026-09-29
 
