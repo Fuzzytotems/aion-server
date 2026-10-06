@@ -9,6 +9,10 @@
 #include "aion/gameserver/model/gameobjects/player/fwd.h"
 #include "aion/gameserver/runtime/lifetime/Ref.h"
 
+namespace aion::gameserver::model::templates::ride {
+class RideInfo;
+} // namespace aion::gameserver::model::templates::ride
+
 namespace aion::gameserver::model::templates::item::actions {
 
 /** Java com.aionemu.gameserver.model.templates.item.actions.RideAction. @author Rolandas, ginho1 */
@@ -20,6 +24,12 @@ public:
 
 	void act(gameobjects::player::Player& player, runtime::Ptr<gameobjects::Item> parentItem, runtime::Ptr<gameobjects::Item> targetItem,
 		std::initializer_list<std::any> params = {}) const override;
+
+	/** Java getRideInfo(): DataManager.RIDE_DATA.getRideInfo(npcId), nullptr (Java null) for an unknown npc */
+	const ride::RideInfo* getRideInfo() const;
+
+private:
+	void finishUse(gameobjects::player::Player& player, gameobjects::Item& parentItem) const;
 };
 
 } // namespace aion::gameserver::model::templates::item::actions

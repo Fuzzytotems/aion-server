@@ -1112,9 +1112,8 @@ TEST_F(DialogServiceTest, TheArmsOfOtherServicesReachTheirOwnUnportedBodies) {
 		// EXTEND_INVENTORY (:203-205) left this table with P-05 (m5c-plan.md stage 1, W-09): see TheCubeExpanderArm... below
 		{DialogAction::EXTEND_CHAR_WAREHOUSE, MINALINERK, "WarehouseService::expandWarehouse"},        // :206-208, P5-07
 		{DialogAction::OPEN_LEGION_WAREHOUSE, PAUTON, "LegionService::openLegionWarehouse"},           // :209-211, P5-11
-		{DialogAction::CHARGE_ITEM_MULTI, MINALINERK, "ItemChargeService::startChargingEquippedItems"}, // :241-243, P5-07
+		// CHARGE_ITEM_MULTI and CHARGE_ITEM_MULTI2 (:241-243, :267-269) left this table with ItemChargeService (M5b-3 leftovers): see TheChargeArms...
 		// GIVEUP_CRAFT_EXPERT and GIVEUP_CRAFT_MASTER (:255-260) left this table with C-01 (m5c-plan.md stage 2): see TheCraftArms... below
-		{DialogAction::CHARGE_ITEM_MULTI2, MINALINERK, "ItemChargeService::startChargingEquippedItems"}, // :267-269, P5-07
 	};
 	for (const Row& row : rows) {
 		SCOPED_TRACE(std::string(DialogAction::nameOf(row.action).value_or("?")) + " at " + std::to_string(row.npcId));
@@ -1126,6 +1125,20 @@ TEST_F(DialogServiceTest, TheArmsOfOtherServicesReachTheirOwnUnportedBodies) {
 		EXPECT_EQ(runtime::unportedHitCount(), 1u);
 		EXPECT_TRUE(sent().empty());
 	}
+}
+
+TEST_F(DialogServiceTest, TheChargeArmsFindNoChargeableEquipmentOnACharacterWithoutIt) {
+	// :241-243 and :267-269 -> ItemChargeService.startChargingEquippedItems(player, npc, way) (ItemChargeService.java:34-43): nothing equipped
+	// can be conditioned (way 1) or augmented (way 2), so each arm answers its way's message and asks no question
+	Npc& merchant = npc(MINALINERK);
+	runtime::resetUnportedHitsForTests();
+	clearSent();
+	EXPECT_NO_THROW(select(DialogAction::CHARGE_ITEM_MULTI, merchant));
+	EXPECT_EQ(sent(), exactly({serializedFor(SM_SYSTEM_MESSAGE::STR_MSG_ITEM_CHARGE_ALL_FAIL_NO_CHARGEABLE_EQUIPMENT())}));
+	clearSent();
+	EXPECT_NO_THROW(select(DialogAction::CHARGE_ITEM_MULTI2, merchant));
+	EXPECT_EQ(sent(), exactly({serializedFor(SM_SYSTEM_MESSAGE::STR_MSG_ITEM_CHARGE2_ALL_FAIL_NO_CHARGEABLE_EQUIPMENT())}));
+	EXPECT_EQ(runtime::unportedHitCount(), 0u);
 }
 
 TEST_F(DialogServiceTest, TheCraftArmsDoNothingAtAnNpcThatTeachesNoProfession) {

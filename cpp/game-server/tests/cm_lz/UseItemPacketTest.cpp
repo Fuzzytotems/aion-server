@@ -9,6 +9,9 @@
 // M5b-2 ported): the cast pays one item and starts the item's cooldown. Of the three actions that take a parameter, MultiReturnAction is ported
 // since 2026-10-05 (its index is driven end to end by tests/playersvc/TeleportScrollTest.cpp); DyeAction and InstanceTimeClear stay AION_UNPORTED
 // (m5b3-plan.md D6), so the parameter those two receive is not observable yet; neither is the house-object
+// M5b-2 ported): the cast pays one item and starts the item's cooldown. The three actions that take a parameter (DyeAction, MultiReturnAction,
+// InstanceTimeClear) were AION_UNPORTED here (m5b3-plan.md D6); the M5b-3 leftovers ported DyeAction and InstanceTimeClear, whose parameter
+// ItemActionsBatchBTest.cpp passes the way runImpl does (the Ref<HouseObject>, the int32_t sync id). Not observable here: the house-object
 // lookup of a target id found in no storage, which asks Player.getActiveHouse and so the database (HousingService). The target item itself -
 // the cube first, then the equipment (CM_USE_ITEM.java:67-70) - became observable when M5c stage 0 ported ExtractAction's canAct:
 // UseItemTargetLookupTest.cpp covers it (M5c stage 1). The two uncovered parts are named here so their absence is not mistaken for coverage.
