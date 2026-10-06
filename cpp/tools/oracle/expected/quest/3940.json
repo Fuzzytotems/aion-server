@@ -1,0 +1,26 @@
+{
+ "format": "aion-quest-trace",
+ "version": 1,
+ "questId": 3940,
+ "java": "miragent_holy_templar/_3940Loyalty.java",
+ "class": "_3940Loyalty",
+ "javaSha256": "287ffc3f8bbb9587c56c795e075e5e91b7e6535f675e00a3403521379059ecb6",
+ "register": [
+  {"npc": 203701, "event": "addOnQuestStart", "args": [3940]},
+  {"npc": 203701, "event": "addOnTalkEvent", "args": [3940]},
+  {"npc": 203752, "event": "addOnTalkEvent", "args": [3940]},
+  {"npc": 251002, "event": "addOnKillEvent", "args": [3940]},
+  {"npc": 251021, "event": "addOnKillEvent", "args": [3940]},
+  {"npc": 251018, "event": "addOnKillEvent", "args": [3940]},
+  {"npc": 251039, "event": "addOnKillEvent", "args": [3940]},
+  {"npc": 251033, "event": "addOnKillEvent", "args": [3940]},
+  {"npc": 251036, "event": "addOnKillEvent", "args": [3940]},
+  {"npc": 214823, "event": "addOnKillEvent", "args": [3940]},
+  {"npc": 216850, "event": "addOnKillEvent", "args": [3940]}
+ ],
+ "hooks": [
+  {"hook": "onDialogEvent", "line": 41, "unsupported": "call qs.getQuestVars().getQuestVars()"},
+  {"hook": "onKillEvent", "line": 120, "unsupported": "call qs.getQuestVars().getQuestVars()"}
+ ],
+ "cases": []
+}
