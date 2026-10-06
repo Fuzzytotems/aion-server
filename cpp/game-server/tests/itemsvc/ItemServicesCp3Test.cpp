@@ -176,17 +176,18 @@ TEST_F(ItemServicesCp3Test, PurificationChecksEnchantApKinahAndMaterialsInJavasO
 	EXPECT_EQ(sent(), cp::exactly({serialized(SM_SYSTEM_MESSAGE::STR_ITEM_UPGRADE_MSG_UPGRADE_SUCCESS(sword.getL10n(), training->getL10n()))}));
 }
 
-// java-bug kept (proposed correction): decreaseKinah(-necessaryKinah) takes nothing
-TEST_F(ItemServicesCp3Test, PurificationTakesTheMaterialsAndApButNotTheKinah) {
+// correction of the Java code (owner's decision 2026-10-05, both branches): the kinah is taken; Java's decreaseKinah(-necessaryKinah) took
+// nothing (ItemPurificationService.java:90)
+TEST_F(ItemServicesCp3Test, PurificationTakesTheMaterialsApAndKinah) {
 	Item& sword = stored(ITEM, TAHABATA_SWORD, 1);
-	Item& kinah = stored(ITEM + 1, KINAH, 1000);
+	Item& kinah = stored(ITEM + 1, KINAH, 1250);
 	Item& potions = stored(ITEM + 2, MINOR_LIFE_POTION, 3);
 	player().getAbyssRank()->addAp(150);
 	const int32_t apBefore = player().getAbyssRank()->getAp();
 	EXPECT_TRUE(ItemPurificationService::decreaseMaterials(player(), sword, TRAINING_SWORD));
 	EXPECT_EQ(potions.getItemCount(), 1);
 	EXPECT_EQ(apBefore - player().getAbyssRank()->getAp(), 100);
-	EXPECT_EQ(kinah.getItemCount(), 1000) << "Java's decreaseKinah of a negative amount";
+	EXPECT_EQ(kinah.getItemCount(), 250) << "necessary_kinah 1000";
 	EXPECT_FALSE(player().getInventory().getItemByObjId(ITEM)) << "the base item is used up";
 }
 
