@@ -198,10 +198,20 @@ protected:
 
 // ---- MultiReturnAction (MultiReturnAction.java:30-81) ---------------------------------------------------------------------------------------
 
-TEST_F(TeleportScrollTest, AMultiReturnScrollCanAlwaysAct) {
+TEST_F(TeleportScrollTest, AMultiReturnScrollCanActForAnEntryOfItsList) {
 	spawnActor(0);
 	runtime::Ref<model::gameobjects::Item> scroll = giveScroll(MULTI_RETURN_SCROLL, 2);
-	EXPECT_TRUE(multiReturn(MULTI_RETURN_SCROLL).canAct(player(), scroll, nullptr, {std::any(int32_t{4})}));
+	EXPECT_TRUE(multiReturn(MULTI_RETURN_SCROLL).canAct(player(), scroll, nullptr, {std::any(int32_t{0})}));
+	EXPECT_TRUE(multiReturn(MULTI_RETURN_SCROLL).canAct(player(), scroll, nullptr, {std::any(int32_t{4})})) << "the last of the five entries";
+}
+
+// the owner's correction of 2026-10-05 (docs/deviations/P5-07.md, "MultiReturnAction: correction of the Java code"): Java answered true and
+// let the task throw
+TEST_F(TeleportScrollTest, AnIndexOutsideTheListCannotAct) {
+	spawnActor(0);
+	runtime::Ref<model::gameobjects::Item> scroll = giveScroll(MULTI_RETURN_SCROLL, 2);
+	for (int32_t index : {5, -1, 1000})
+		EXPECT_FALSE(multiReturn(MULTI_RETURN_SCROLL).canAct(player(), scroll, nullptr, {std::any(index)})) << index;
 }
 
 TEST_F(TeleportScrollTest, TheCastBarEndsInTheChosenEntrysWorldWithTheAliasUpperCased) {
@@ -253,13 +263,18 @@ TEST_F(TeleportScrollTest, WithoutACastingDelayTheTeleportIsImmediate) {
 	EXPECT_EQ(scroll->getItemCount(), 0);
 }
 
-TEST_F(TeleportScrollTest, AnIndexOutsideTheListIsJavasIndexOutOfBoundsException) {
+/** The owner's correction of 2026-10-05: a client index outside the list is refused by canAct, CM_USE_ITEM drops the use, the scroll stays */
+TEST_F(TeleportScrollTest, CmUseItemWithAnIndexOutsideTheListKeepsTheScroll) {
 	spawnActor(0);
 	runtime::Ref<model::gameobjects::Item> scroll = giveScroll(QUICK_MULTI_RETURN_SCROLL, 1);
-	// List.get(5) of the five entries of return_item 1 (MultiReturnAction.java:70): the client's index is not checked
-	EXPECT_THROW(multiReturn(QUICK_MULTI_RETURN_SCROLL).act(player(), scroll, nullptr, {std::any(int32_t{5})}), runtime::IndexOutOfBoundsException);
+	clearSent();
+	cptest::Driver<network::aion::clientpackets::CM_USE_ITEM> packet(37); // AionClientPacketFactory packets[37]
+	EXPECT_NO_THROW(packet.readAndRun(PacketWriter().D(scroll->getObjectId()).C(6).D(5).data, actorClient->get()))
+		<< "Java: List.get(5) of the five entries of return_item 1 threw (MultiReturnAction.java:70)";
 	EXPECT_EQ(player().getWorldId(), POETA);
 	EXPECT_EQ(scroll->getItemCount(), 1);
+	EXPECT_FALSE(player().getController().hasTask(model::TaskId::ITEM_USE)) << "no cast bar";
+	EXPECT_TRUE(watcherSent().empty()) << "no SM_ITEM_USAGE_ANIMATION";
 }
 
 /**
