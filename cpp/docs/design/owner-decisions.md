@@ -20,6 +20,7 @@ then this file wins over a plan's "until the user answers" default.
 | Java correction: `//state remove -1` (lane A, GM commands, PRs #102/#103) | **Correct it, on both branches (C++ and 4.8)** | `remove -1` removes all states (0xFFFF), as the help text promises (docs/deviations/C1.md, "//state remove -1: correction of the Java code") |
 | Java correction: `//delskill 0` (lane A, GM commands, PRs #102/#103) | **Correct it, on both branches (C++ and 4.8)** | Skill ID 0 skips the presence and stigma check and deletes all non-stigma skills, as "all" does (docs/deviations/C1.md, "//delskill 0: correction of the Java code") |
 | Java correction: CosmeticItemAction deletes the null `targetItem` (lane A's M5b-3 leftovers, CP1) | **Correct it, on both branches (C++ and 4.8)** | A cosmetic coupon deletes itself (`parentItem`): the coupon is consumed and onChangedPlayerAttributes runs (docs/deviations/P5-07.md, "corrections of the Java code") |
+| Java correction: a cosmetic preset's skin colour taken from its eye colour (lane A's M5b-3 leftovers, CP1) | **Correct it, on both branches (C++ and 4.8)** | The preset sets `getSkinColor()` as the skin colour (docs/deviations/P5-07.md) |
 
 ## 2026-09-29
 
