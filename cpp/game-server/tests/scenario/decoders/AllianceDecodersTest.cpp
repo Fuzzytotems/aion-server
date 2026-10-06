@@ -44,6 +44,27 @@ TEST(AllianceDecodersTest, AllianceInfoWithoutALeague) {
 	EXPECT_THROW(decodeAllianceInfo(bad.data), DecodeError) << "the literal group ids 1000-1003";
 }
 
+/** the league block of SM_ALLIANCE_INFO.writeImpl: the count, the league's loot words, 0x02, then position, id, count, captain, world */
+TEST(AllianceDecodersTest, AllianceInfoWithALeague) {
+	PacketWriter w;
+	w.H(4).D(5005).D(2002).D(210010000).D(0).D(0).D(0).D(0);
+	w.D(0).D(0).D(0).D(2).D(2).D(2).D(2).D(2).D(0x02).C(0).D(0x3F).D(0).D(9009);
+	for (int32_t a = 0; a < 4; a++)
+		w.D(a).D(1000 + a);
+	w.D(1400560).S("Alpha");
+	w.H(2).D(0).D(0).D(0).D(2).D(2).D(2).D(2).D(2).D(0x02);
+	w.D(0).D(5005).D(2).S("Alpha").D(210010000);
+	w.D(1).D(6006).D(2).S("Charlie").D(210010000);
+	const AllianceInfo info = decodeAllianceInfo(w.data);
+	EXPECT_EQ(info.leagueId, 9009);
+	EXPECT_EQ(info.leagueAlliances, 2);
+	EXPECT_EQ(info.leagueLootWords, (std::vector<int32_t>{0, 0, 0, 2, 2, 2, 2, 2}));
+	ASSERT_EQ(info.league.size(), 2u);
+	EXPECT_EQ(info.league[1].position, 1);
+	EXPECT_EQ(info.league[1].allianceObjectId, 6006);
+	EXPECT_EQ(info.league[1].captainName, "Charlie");
+}
+
 /** the common head of SM_ALLIANCE_MEMBER_INFO.writeImpl */
 void memberHead(PacketWriter& w, int32_t objectId, uint8_t event) {
 	w.D(1001).D(objectId).D(100).D(90).D(50).D(40).D(60).D(60).D(0).D(210010000).D(210010000).F(1.5f).F(2.5f).F(3.5f).C(0).C(1).C(3);
