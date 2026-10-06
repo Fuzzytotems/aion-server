@@ -4,6 +4,7 @@
 
 #include <any>
 #include <initializer_list>
+#include <cstdint>
 
 #include "aion/gameserver/model/gameobjects/fwd.h"
 #include "aion/gameserver/model/gameobjects/player/fwd.h"
@@ -26,6 +27,9 @@ public:
 
 	void act(gameobjects::player::Player& player, runtime::Ptr<gameobjects::Item> parentItem, runtime::Ptr<gameobjects::Item> targetItem,
 		std::initializer_list<std::any> params = {}) const override;
+
+private:
+	void finishUse(gameobjects::player::Player& player, gameobjects::Item& parentItem, int32_t syncId) const;
 };
 
 } // namespace aion::gameserver::model::templates::item::actions
