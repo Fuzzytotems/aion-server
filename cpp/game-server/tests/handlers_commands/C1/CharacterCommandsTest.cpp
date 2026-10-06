@@ -181,8 +181,8 @@ TEST_F(CharacterCommandsTest, AddSkillAndDelSkillRefusals) {
 	EXPECT_EQ(client()->sentBytes(), exactly({message("Player dont have this skill.")}));
 	client()->clearSent();
 	EXPECT_TRUE(delSkill.process(gm, args({"0"})));
-	EXPECT_EQ(client()->sentBytes(), info("<Error while executing command>"))
-		<< "Java: skill ID 0 skips the presence check and getSkillEntry(0).isStigmaSkill() throws (proposed correction)";
+	EXPECT_EQ(client()->sentBytes(), exactly({message("You have success delete All skills.")}))
+		<< "the owner's correction of 2026-10-05: skill ID 0 deletes all (Java threw getSkillEntry(0).isStigmaSkill()'s NullPointerException)";
 }
 
 // ---- //heal ---------------------------------------------------------------------------------------------------------------------------------
