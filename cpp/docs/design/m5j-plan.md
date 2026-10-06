@@ -669,6 +669,9 @@ Effort is **size, not time** (m5c-plan.md §5's classes): **S** ≤ 10 bodies or
 > ///clearusercoolt done. Open: the monsters family (//spawn, //delete with K-10's `saveSpawn` guard, //kill, //damage, //ai, //npcskill,
 > //useskill), the talking family (//announce, //say, //whisper, //kick, //gag — `ChatBanService` comes with the chat branch, K-04 —,
 > //movie), the player commands (.help, .id, .gmlist), K-06 and the gates. Deviations: docs/deviations/C1.md, C2.md, P5-14.md.
+> **Part 2 (2026-10-05):** K-10's `saveSpawn` guard, the monsters family (//spawn, //delete, //kill, //damage, //ai, //npcskill, //useskill),
+> the player commands (.help, .id, .gmlist) and K-06 (AbstractGmCommandPacket, CM_BUILDER_COMMAND, CM_BUILDER_CONTROL, CM_DEBUG_COMMAND)
+> done. Open: the talking family (waits for the chat PR's ChatBanService) and the gates.
 
 | Id | What | Java refs | Deps | Need | Eff |
 |---|---|---|---|---|---|
