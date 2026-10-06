@@ -2384,3 +2384,6 @@ manastone key, and geo on. There is **no broker step** (D2, "later"). What the s
   that `CheckOutput.cpp` lists; the gate's server still loads `./config/mygs.properties`; the concurrency lint's L8 (`getenv`) and
   L6/L11 rows in `game-server/tests/scenario`, outside the registered lint (P5-SC.md "M5c stage 3 integration").
 - **Other plans' refresh notes** (§20.7 items 3 and 5): m5j-plan.md's A-C4 (a) and m5d-plan.md's dialog-and-rewards lane.
+- **Leftovers closed (2026-10-05, lane A):** the census's M5c row had 22 open items; the mail half (11: `MailFormatter`'s six senders,
+  `AbyssSiegeLevel`'s three and `SiegeResult`'s two undeclared) is ported (docs/deviations/P5-09c.md, "M5c leftovers, mail"). The 11 left are
+  `BrokerService`'s, for the capital-economy milestone (D2).
