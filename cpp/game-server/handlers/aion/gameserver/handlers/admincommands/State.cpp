@@ -58,6 +58,10 @@ void State::execute(Player& admin, std::span<const std::string> params) {
 			stateId = getId(utils::enumValueOf<CreatureState>(commons::utils::StringUtils::toUpperCase(params[stateIndex])));
 		} catch (const commons::utils::IllegalArgumentException&) {
 			stateId = commons::utils::parseInt(params[stateIndex]);
+			// Correction of the Java code (owner's decision 2026-10-05, both branches; docs/deviations/C1.md): the syntax promises
+			// "remove <state> ... Use -1 to remove all states", which Java's range check refused
+			if (stateId == -1 && commons::utils::StringUtils::equalsIgnoreCase("remove", params[0]))
+				stateId = 0xFFFF;
 			if (stateId < 0 || stateId > 0xFFFF) {
 				sendInfo(admin, "Out of range state ID.");
 				return;
