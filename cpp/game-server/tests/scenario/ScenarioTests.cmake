@@ -122,7 +122,7 @@ if(TARGET aion_gs_scenario_tests)
 		AION_SCENARIO_TRAVEL_PARTIAL_ALLOWLIST="${CMAKE_CURRENT_SOURCE_DIR}/tests/scenario/travel_partial_allowlist.txt"
 		AION_SCENARIO_M5D_PARTIAL_ALLOWLIST="${CMAKE_CURRENT_SOURCE_DIR}/tests/scenario/m5d_partial_allowlist.txt"
 		AION_SCENARIO_M5E_PARTIAL_ALLOWLIST="${CMAKE_CURRENT_SOURCE_DIR}/tests/scenario/m5e_partial_allowlist.txt"
-		AION_SCENARIO_M5F_PARTIAL_ALLOWLIST="${CMAKE_CURRENT_SOURCE_DIR}/tests/scenario/m5f_partial_allowlist.txt")
+		AION_SCENARIO_M5F_PARTIAL_ALLOWLIST="${CMAKE_CURRENT_SOURCE_DIR}/tests/scenario/m5f_partial_allowlist.txt"
 		AION_SCENARIO_M5G_PARTIAL_ALLOWLIST="${CMAKE_CURRENT_SOURCE_DIR}/tests/scenario/m5g_partial_allowlist.txt")
 
 	# the oracle answers are JSON (Oracle.cpp); commons finds the same package in its own directory scope
@@ -479,6 +479,8 @@ if(TARGET aion_gs_scenario_tests)
 	endif()
 	if(AION_SCENARIO_REQUIRE OR NOT AION_GS_ALLOW_MILESTONE_SKIP)
 		set_property(TEST gs.scenario.m5f_geo APPEND PROPERTY ENVIRONMENT_MODIFICATION "AION_SCENARIO_REQUIRE=set:1")
+	endif()
+
 	# ---- the M5g party gate (m5g-plan.md G-01, §10) ----------------------------------------------------------------------------------------
 	#
 	# gs.scenario.m5g: four accounts online at once - an Elyos Warrior (the leader), a Mage, a Priest and a Scout - beside Poeta's juvenile
