@@ -1007,3 +1007,22 @@ the player's publication and the checked server aborted at a legion member's log
 
 **C10 (lane B, 2026-10-08)**: legion chat scripted (CM_CHAT_MESSAGE_PUBLIC is on origin/C++, #89/#90): B's LEGION message reaches A and B,
 not C of the other legion; the oracle answers ChatType's ids. Its mutant (the message to the sender only) is killed by C10.
+
+### 14.2 The studio (housing) stage, measured (lane B, 2026-10-08)
+
+Measured with `census.py` on lane B's stack (lane-b/m5h-c10 over origin/C++ 1d62761a5). Already ported since the plan was written: H-04
+(`HouseObjectFactory`, `SummonHouseObjectAction`, `DecorateAction` with its template id), `HousingService` (26 bodies), `HouseController`,
+`PlayerRegisteredItemsDAO`, every SM_HOUSE_* packet but SM_HOUSE_BIDS' partial `writeImpl`, `ActionItemNpcAI` (A-11), the instance teleports
+and `CM_TELEPORT_ANIMATION_DONE` (A-14), `GeneralInstanceHandler` (A-24), `CM_SHOW_DIALOG`/`CM_DIALOG_SELECT` (A-06; DialogService's one
+open site is the autogroup arm, off in every profile).
+
+| Stage | Items | Open bodies | Chunks (leases) |
+|---|---|---|---|
+| **HS-1** | P-02: `CM_HOUSE_EDIT` (4), `CM_HOUSE_DECORATE`, `CM_HOUSE_SETTINGS`, `CM_HOUSE_SCRIPT`, `CM_HOUSE_KICK` (3 each, P5-15), `CM_USE_HOUSE_OBJECT`, `CM_RELEASE_OBJECT` (3 each, P5-16); H-05: `UseableItemObject`'s `placementLimitOf` (P4-11a lease) and the dead `HouseObject.getPlacementLimit(bool)` | 22 + 2 | P5-15, P5-16 (+ P4-11a) |
+| **HS-2** | H-01: `ButlerAI` (4), `HouseSignAI` (2) (P5-05); H-02: `StudioPortalAI` (3, A1 lease); H-06: `InstanceService.getOrCreateHouseInstance` (1, P5-13 lease) | 10 | P5-05 (+ A1, P5-13) |
+| **HS-3** | H-03: `_18832`, `_18802` (Q05), `_28832`, `_28802` (Q09), 3 bodies each | 12 | Q05, Q09 leases - **only if lane C (phase 6 quests) does not hold Q05/Q09** |
+| **HS-4** | G-03's studio cases C13-C20 in `gs.scenario.m5h` (studio by quest, by fee, enter, decorate, use, configure, leave and destroy, the member list) | - | P5-SC |
+
+Each stage is a checkpoint: unit tests (H-07's rows for its items), a lock-order test for any new monitor nesting, a mutation proof; HS-4 the
+gate. Not in M5h: `CM_HOUSE_TELEPORT(_BACK)`, `CM_HOUSE_OPEN_DOOR`, `CM_HOUSE_PAY_RENT`, `CM_GET_HOUSE_BIDS`, `CM_REGISTER_HOUSE`, `HouseGateAI`,
+`_18847`/`_28821`/`_1987`, `HouseCommand` (land houses, M5h-2 and the GM lane).
