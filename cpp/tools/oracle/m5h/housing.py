@@ -6,6 +6,7 @@
   price and house npc ids (manager = the butler, teleport = the relationship crystal) and the house_npcs.xml spots of the address;
 - the furniture the gate places: an item's <houseobject id>/<housedeco id> (item_templates.xml) and the house object's template
   (housing_objects.xml: its kind, use_days, and for a use_item its delay, cd, limit, talking_distance and reward);
+- HouseOwnerState's ids (SM_HOUSE_OWNER_INFO's state byte);
 - PartType's line numbers (PartType.java: the decor ids SM_HOUSE_RENDER writes, room by room) and HouseDoorState's ids;
 - SM_SYSTEM_MESSAGE ids by name (m5h.legion.message_ids).
 """
@@ -161,6 +162,16 @@ def door_states(java_src: Path) -> dict:
 	return {name: int(args.strip()) for name, args in enum_constants(base / "model" / "house" / "HouseDoorState.java", "HouseDoorState")}
 
 
+def house_owner_states(java_src: Path) -> dict:
+	"""HouseOwnerState's ids (HouseOwnerState(int id), written as 1 << n): the state byte of SM_HOUSE_OWNER_INFO."""
+	base = Path(java_src) / "com" / "aionemu" / "gameserver"
+	states = {}
+	for name, args in enum_constants(base / "model" / "gameobjects" / "player" / "HouseOwnerState.java", "HouseOwnerState"):
+		shift = re.fullmatch(r"\s*(\d+)\s*<<\s*(\d+)\s*", args)
+		states[name] = int(shift.group(1)) << int(shift.group(2)) if shift else int(args.strip(), 0)
+	return states
+
+
 def script_limits(java_src: Path) -> dict:
 	text = _read(Path(java_src) / "com" / "aionemu" / "gameserver" / "network" / "aion" / "serverpackets" / "SM_HOUSE_SCRIPTS.java")
 	padding = re.search(r"SCRIPT_PADDING\s*=\s*(?:new\s+byte\[\]\s*)?\{([^}]*)\}", text)
@@ -182,5 +193,6 @@ def housing_report(data_dir: Path, java_src: Path, messages: list[str], npc_spot
 		"items": items(data_dir, item_ids),
 		"partTypes": part_types(java_src),
 		"doorStates": door_states(java_src),
+		"houseOwnerStates": house_owner_states(java_src),
 		"scripts": script_limits(java_src),
 	}
