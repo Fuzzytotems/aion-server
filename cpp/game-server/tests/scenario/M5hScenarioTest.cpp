@@ -3,17 +3,21 @@
 // level 3): create and its refusals, invite (accepted, the own-member and other-legion refusals), the announcement (the volunteer's refusal,
 // the 256-character cut, the notice), ranks, permissions, the self introduction and the nickname, the level-up refused for money, a member's
 // relog (the logout's store, the login's notice), the history pages, the seeded legion's emblem (a predefined one, a 9,000-byte upload in two
-// chunks, B reading it with and without its data), leave and kick; then the reports the server writes at shutdown.
+// chunks, B reading it with and without its data), leave and kick; the studio (bought at Parrine, entered through the use bar and the beam,
+// decorated, used, configured, left, destroyed and saved, re-entered, quit inside and logged into again, seen in the member list); then the
+// reports the server writes at shutdown.
 //
 // **What this gate covers of §10.2, and what not** (docs/design/m5h-plan.md §14): the legion cases C0-C8, C10, C11, C12 and
-// C21 without their dialog arms. Not scripted: C8's kill (a member's level-up is LegionService.updateMemberInfo, which C8's relog already
-// drives), C9's warehouse and C22's disband (both open through DialogService's npc dialogs, m5h-plan.md A-06, and the warehouse's items
-// through CM_MOVE_ITEM, A-03) and the studio cases C13-C20 (the studio lane). Their unit tests
-// stand (tests/legionhouse/LegionServiceTest.cpp: the lazy disband, the warehouse rules) and the rows are the plan's open items.
+// C21 without their dialog arms, and the studio cases C14-C20 (HS-4). Not scripted: C8's kill (a member's level-up is
+// LegionService.updateMemberInfo, which C8's relog already drives), C9's warehouse and C22's disband (both open through DialogService's npc
+// dialogs, m5h-plan.md A-06, and the warehouse's items through CM_MOVE_ITEM, A-03), and C13, the studio by quest 18802 (lane C's studio
+// quests, HS-3): until they land A buys its studio the paid way in C14 as C does, a stand-in C13 replaces. Their unit tests stand
+// (tests/legionhouse/LegionServiceTest.cpp: the lazy disband, the warehouse rules) and the rows are the plan's open items.
 //
 // Every expectation is independent of the C++ server code, as in the earlier gates: server packets are read by name and SM_SYSTEM_MESSAGE /
 // SM_QUESTION_WINDOW with the decoders of tests/scenario/decoders, and every id and Java constant comes from `tools/oracle/oracle.py
-// m5h-legion` (the message and question ids, the legion enums, LegionService's emblem chunk and notice limit) or from the Java method an
+// m5h-legion` (the message and question ids, the legion enums, LegionService's emblem chunk and notice limit), `oracle.py m5h-housing` (the
+// studio path's npc spots and talk delays, the Elyos studio, the furniture templates, PartType, HouseDoorState) or from the Java method an
 // assertion is about, cited at the line.
 //
 // **Three clients, read in turn**, as the M5g gate reads four: every step drains every client (drainAll) and then reads each one to an empty
@@ -24,6 +28,7 @@
 
 #include <algorithm>
 #include <array>
+#include <bit>
 #include <chrono>
 #include <cmath>
 #include <cstdint>
@@ -61,12 +66,14 @@
 #include "ScenarioServers.h"
 #include "decoders/CombatDecoders.h"
 #include "decoders/EconomyDecoders.h"
+#include "decoders/HousingDecoders.h"
 #include "decoders/ItemDecoders.h"
 #include "decoders/PacketDecoders.h"
 #include "decoders/ProgressionDecoders.h"
 #include "decoders/QuestDecoders.h"
 #include "decoders/SkillDecoders.h"
 #include "decoders/TeamDecoders.h"
+#include "decoders/TravelDecoders.h"
 
 namespace aion::gameserver::scenario {
 namespace {
@@ -1026,6 +1033,182 @@ size_t countMessage(const std::vector<Packet>& packets, int32_t id, const std::v
 	return n;
 }
 
+// ---- the studio cases (m5h-plan.md §10.2 C14-C20, HS-4) ----------------------------------------------------------------------------------
+
+/** the client packet ids of ClientPacketInfo.gen.inc for the studio cases */
+constexpr int32_t CM_HOUSE_SCRIPT = 30;
+constexpr int32_t CM_HOUSE_KICK = 72;
+constexpr int32_t CM_HOUSE_SETTINGS = 73;
+constexpr int32_t CM_HOUSE_DECORATE = 75;
+constexpr int32_t CM_HOUSE_EDIT = 82;
+constexpr int32_t CM_USE_HOUSE_OBJECT = 224;
+constexpr int32_t CM_RELEASE_OBJECT = 225;
+/** the npcs of the studio path (m5h-plan.md §2.7 rows 2-4, 9): Parrine (the paid studio), the studio entrance in Oriel, the studio exit */
+constexpr int32_t PARRINE = 830069;
+constexpr int32_t STUDIO_ENTRANCE = 730517;
+constexpr int32_t STUDIO_EXIT = 830229;
+constexpr int32_t ORIEL = 700010000;
+constexpr int32_t STUDIO_MAP = 720010000;
+/** DialogAction.HOUSING_RECREATE_PERSONAL_INS (DialogAction.java:111), DialogService's paid studio arm (DialogService.java:270-272) */
+constexpr int32_t HOUSING_RECREATE_PERSONAL_INS = 96;
+/** the furniture (m5h-plan.md §10.1 "Seeds"): a bed (a chair template), the cake (a use_item with the COOKING limit) and a wallpaper */
+constexpr int32_t BED_ITEM = 170120000;
+constexpr int32_t CAKE_ITEM = 170190034;
+constexpr int32_t WALLPAPER_ITEM = 171110000;
+/** SM_USE_OBJECT's action types of UseableItemObject.onUse (UseableItemObject.java: 8 the use bar, 9 its end or cancel) */
+constexpr uint8_t USE_OBJECT_HOUSE_USE = 8;
+constexpr uint8_t USE_OBJECT_HOUSE_END = 9;
+/** EmotionType START_QUESTLOOT (42) and END_QUESTLOOT (43), EmotionType.java:50-51: the use bar of ActionItemNpcAI */
+constexpr uint8_t EMOTION_START_QUESTLOOT = 42;
+constexpr uint8_t EMOTION_END_QUESTLOOT = 43;
+
+/** the gate's oracle answer of m5h-housing */
+struct HousingAnswer {
+	struct Spot {
+		int32_t map = 0;
+		float x = 0, y = 0, z = 0;
+		int32_t talkDelayMs = 0;
+	};
+	struct Furniture {
+		std::optional<int32_t> houseObject, decoration;
+		std::string kind;
+		int32_t useDays = 0, delayMs = 0, cooldownSeconds = 0;
+		std::optional<int32_t> rewardId;
+	};
+	std::map<std::string, int32_t> messages;
+	std::map<int32_t, Spot> npcs;
+	int32_t address = 0, studioMap = 0, building = 0, managerNpc = 0, teleportNpc = 0;
+	int64_t goldPrice = 0;
+	float x = 0, y = 0, z = 0;
+	int32_t exitMap = 0;
+	float exitX = 0, exitY = 0, exitZ = 0;
+	std::map<std::string, std::array<float, 3>> houseNpcs;
+	std::map<int32_t, Furniture> items;
+	/** the decor slot of a PartType's room in SM_HOUSE_RENDER (writeCommonInfo's order) and the CM_HOUSE_DECORATE line of its first room */
+	std::map<std::string, std::pair<size_t, int32_t>> partSlots;
+	std::map<std::string, int32_t> doorStates;
+	size_t scriptPadding = 0;
+
+	int32_t message(const std::string& name) const {
+		const auto found = messages.find(name);
+		if (found == messages.end())
+			throw std::runtime_error("m5h-housing: no message " + name);
+		return found->second;
+	}
+	const Spot& npc(int32_t id) const {
+		const auto found = npcs.find(id);
+		if (found == npcs.end())
+			throw std::runtime_error("m5h-housing: no npc " + std::to_string(id));
+		return found->second;
+	}
+	const Furniture& item(int32_t id) const {
+		const auto found = items.find(id);
+		if (found == items.end())
+			throw std::runtime_error("m5h-housing: no item " + std::to_string(id));
+		return found->second;
+	}
+};
+
+HousingAnswer parseHousing(const std::string& text) {
+	const json answer = json::parse(text);
+	HousingAnswer housing;
+	for (const auto& [name, id] : answer.at("messages").items())
+		housing.messages[name] = id.get<int32_t>();
+	for (const auto& [id, npc] : answer.at("npcs").items())
+		housing.npcs[std::stoi(id)] = {npc.at("map").get<int32_t>(), npc.at("x").get<float>(), npc.at("y").get<float>(), npc.at("z").get<float>(),
+		                               npc.at("talkDelayMs").get<int32_t>()};
+	const json& studio = answer.at("studio");
+	housing.address = studio.at("address").get<int32_t>();
+	housing.studioMap = studio.at("map").get<int32_t>();
+	housing.x = studio.at("x").get<float>();
+	housing.y = studio.at("y").get<float>();
+	housing.z = studio.at("z").get<float>();
+	housing.exitMap = studio.at("exitMap").get<int32_t>();
+	housing.exitX = studio.at("exitX").get<float>();
+	housing.exitY = studio.at("exitY").get<float>();
+	housing.exitZ = studio.at("exitZ").get<float>();
+	housing.building = studio.at("building").get<int32_t>();
+	housing.goldPrice = studio.at("goldPrice").get<int64_t>();
+	housing.managerNpc = studio.at("managerNpc").get<int32_t>();
+	housing.teleportNpc = studio.at("teleportNpc").get<int32_t>();
+	for (const auto& [type, spot] : studio.at("houseNpcs").items())
+		housing.houseNpcs[type] = {spot.at("x").get<float>(), spot.at("y").get<float>(), spot.at("z").get<float>()};
+	for (const auto& [id, item] : answer.at("items").items()) {
+		HousingAnswer::Furniture furniture;
+		if (!item.at("houseObject").is_null())
+			furniture.houseObject = item.at("houseObject").get<int32_t>();
+		if (!item.at("decoration").is_null())
+			furniture.decoration = item.at("decoration").get<int32_t>();
+		if (item.contains("template")) {
+			const json& t = item.at("template");
+			furniture.kind = t.at("kind").get<std::string>();
+			furniture.useDays = t.at("useDays").get<int32_t>();
+			furniture.delayMs = t.value("delayMs", 0);
+			furniture.cooldownSeconds = t.value("cooldownSeconds", 0);
+			if (t.contains("rewardId") && !t.at("rewardId").is_null())
+				furniture.rewardId = t.at("rewardId").get<int32_t>();
+		}
+		housing.items[std::stoi(id)] = furniture;
+	}
+	size_t slot = 0;
+	for (const json& part : answer.at("partTypes")) {
+		housing.partSlots[part.at("name").get<std::string>()] = {slot, part.at("startLine").get<int32_t>()};
+		slot += part.at("rooms").get<size_t>();
+	}
+	for (const auto& [name, id] : answer.at("doorStates").items())
+		housing.doorStates[name] = id.get<int32_t>();
+	housing.scriptPadding = answer.at("scripts").at("padding").size();
+	return housing;
+}
+
+/** RFC 1950's Adler-32 of `data` */
+uint32_t adler32(const std::vector<uint8_t>& data) {
+	uint32_t a = 1, b = 0;
+	for (uint8_t byte : data) {
+		a = (a + byte) % 65521;
+		b = (b + a) % 65521;
+	}
+	return (b << 16) | a;
+}
+
+/**
+ * A house script as the client sends it (PlayerScripts.decompressAndValidate: CompressUtil.decompress, java.util.zip.Inflater, then a UTF-16LE
+ * string of exactly the announced size): the XML's UTF-16LE bytes in a zlib stream of one stored deflate block (RFC 1950/1951 - the gate
+ * needs no compressor for Inflater to accept it). @return {compressed, uncompressed size}
+ */
+std::pair<std::vector<uint8_t>, int32_t> houseScript(std::string_view xml) {
+	std::vector<uint8_t> raw;
+	for (char c : xml) {
+		raw.push_back(static_cast<uint8_t>(c));
+		raw.push_back(0);
+	}
+	std::vector<uint8_t> zlib{0x78, 0x01, 0x01}; // CMF/FLG (deflate, 32K window, check bits), then BFINAL=1 BTYPE=00 (stored)
+	const uint16_t length = static_cast<uint16_t>(raw.size());
+	zlib.push_back(static_cast<uint8_t>(length));
+	zlib.push_back(static_cast<uint8_t>(length >> 8));
+	zlib.push_back(static_cast<uint8_t>(~length));
+	zlib.push_back(static_cast<uint8_t>(static_cast<uint16_t>(~length) >> 8));
+	zlib.insert(zlib.end(), raw.begin(), raw.end());
+	const uint32_t check = adler32(raw);
+	for (int shift = 24; shift >= 0; shift -= 8)
+		zlib.push_back(static_cast<uint8_t>(check >> shift));
+	return {zlib, static_cast<int32_t>(raw.size())};
+}
+
+/** PositionUtil.getHeadingTowards(x, y, x2, y2) (PositionUtil.java:104-107, 129-131, 137-139): the angle in degrees normalized to [0, 360), / 3 */
+int8_t headingTowards(float x, float y, float x2, float y2) {
+	float angle = static_cast<float>(std::atan2(static_cast<double>(y2 - y), static_cast<double>(x2 - x)) * 180.0 / 3.14159265358979323846);
+	if (angle < 0)
+		angle += 360;
+	return static_cast<int8_t>(angle / 3);
+}
+
+/** the instance id of a personal world's SM_PLAYER_SPAWN: worldChannel = -(worldId + instanceId - 1) (PacketDecoders.h PlayerSpawn) */
+int32_t instanceOf(const decoders::PlayerSpawn& spawn) {
+	const int32_t channel = spawn.worldChannel < 0 ? -spawn.worldChannel : spawn.worldChannel;
+	return channel - spawn.worldId + 1;
+}
+
 // ---- the legion gate --------------------------------------------------------------------------------------------------------------------
 
 /** PlayerClass.PRIEST's id (PlayerClass.java) */
@@ -1542,6 +1725,605 @@ void runM5hGate() {
 		ASSERT_TRUE(until(10s, [&] { return !ofName(windowOf(b, from), "SM_LEGION_SEND_EMBLEM").empty(); }));
 		settle();
 		EXPECT_TRUE(ofName(windowOf(b, from), "SM_LEGION_SEND_EMBLEM_DATA").empty()) << "the info only";
+	});
+
+	// ======================================================================================================================================
+	// The studio cases C14-C20 (m5h-plan.md §10.2, §10.3 Y13-Y19; HS-4). C13 (the studio by quest 18802) waits for lane C's studio quests: until
+	// they land, A buys its studio the paid way as C does (DialogService's HOUSING_RECREATE_PERSONAL_INS), a stand-in the C13 case replaces.
+	// ======================================================================================================================================
+
+	HousingAnswer housing;
+	runCase("C0h", "the oracle answers: m5h-housing (the studio npcs, the Elyos studio, the furniture, PartType, the door states, the messages)", [&] {
+		std::vector<std::string> arguments{"m5h-housing", "--npc", std::to_string(ORIEL) + ":" + std::to_string(PARRINE),
+			std::to_string(ORIEL) + ":" + std::to_string(STUDIO_ENTRANCE), std::to_string(STUDIO_MAP) + ":" + std::to_string(STUDIO_EXIT), "--item",
+			std::to_string(BED_ITEM), std::to_string(CAKE_ITEM), std::to_string(WALLPAPER_ITEM), "--message"};
+		for (const char* name : {"STR_MSG_HOUSING_INS_OWN_SUCCESS", "STR_MSG_HOUSING_INS_CANT_OWN_MORE_HOUSE", "STR_MSG_HOUSING_OBJECT_USE",
+		         "STR_MSG_HOUSING_OBJECT_REWARD_ITEM", "STR_MSG_HOUSING_CANNOT_USE_FLOWERPOT_COOLTIME", "STR_MSG_CANNOT_USE_ALREADY_HAVE_REWARD_ITEM",
+		         "STR_MSG_HOUSING_OBJECT_CANCEL_USE", "STR_MSG_HOUSING_ORDER_OUT_ALL", "STR_MSG_HOUSING_ORDER_CLOSE_DOOR_ALL",
+		         "STR_MSG_HOUSING_ORDER_OUT_WITHOUT_FRIENDS", "STR_MSG_INSTANCE_DUNGEON_OPENED_FOR_SELF", "STR_MSG_LEAVE_INSTANCE"})
+			arguments.push_back(name);
+		housing = parseHousing(oracle->run(arguments));
+		EXPECT_EQ(housing.address, 2001) << "HouseData.getStudioAddress(ELYOS)";
+		EXPECT_EQ(housing.studioMap, STUDIO_MAP);
+		EXPECT_EQ(housing.exitMap, ORIEL);
+		EXPECT_EQ(housing.npc(STUDIO_ENTRANCE).talkDelayMs, 2000);
+		EXPECT_EQ(housing.item(CAKE_ITEM).kind, "use_item");
+		EXPECT_EQ(housing.item(CAKE_ITEM).rewardId, 160010196);
+		EXPECT_EQ(housing.item(WALLPAPER_ITEM).decoration, 3554000);
+		EXPECT_EQ(housing.doorStates.at("CLOSED"), 3);
+	});
+	const auto hmsg = [&](const std::string& name) { return housing.message(name); };
+
+	// ---- the studio helpers ----
+	const auto seedPosition = [&](const Character& character, int32_t map, float x, float y, float z) {
+		database.execute(schema, "UPDATE players SET world_id = " + std::to_string(map) + ", x = " + std::to_string(x) + ", y = " + std::to_string(y) +
+		                           ", z = " + std::to_string(z) + " WHERE id = " + std::to_string(character.playerId));
+	};
+	/** the object id of the npc of `templateId` this client was shown nearest to (x, y) */
+	const auto requireNpc = [&](ScenarioClient& client, int32_t templateId, float x, float y) {
+		std::optional<int32_t> found;
+		until(10s, [&] { return (found = npcObject(client, templateId, x, y)).has_value(); });
+		if (!found)
+			throw std::runtime_error(client.label + ": no SM_NPC_INFO of " + std::to_string(templateId) + " near " + std::to_string(x) + ", " +
+			                         std::to_string(y));
+		return *found;
+	};
+	const auto houseEdits = [&](const std::vector<Packet>& packets) {
+		std::vector<decoders::HouseEdit> edits;
+		for (const Packet& packet : ofName(packets, "SM_HOUSE_EDIT"))
+			edits.push_back(decoders::decodeHouseEdit(packet.data));
+		return edits;
+	};
+	const auto useObjects = [&](const std::vector<Packet>& packets) {
+		std::vector<decoders::UseObject> uses;
+		for (const Packet& packet : ofName(packets, "SM_USE_OBJECT"))
+			uses.push_back(decoders::decodeUseObject(packet.data));
+		return uses;
+	};
+	const auto emotionsOf = [&](const std::vector<Packet>& packets, int32_t sender, uint8_t type) {
+		size_t n = 0;
+		for (const Packet& packet : ofName(packets, "SM_EMOTION")) {
+			try {
+				const decoders::Emotion emotion = decoders::decodeEmotion(packet.data);
+				n += emotion.senderObjectId == sender && emotion.emotionType == type;
+			} catch (const DecodeError&) {
+			}
+		}
+		return n;
+	};
+	const auto studioScripts = [&](const std::vector<Packet>& packets) {
+		std::vector<decoders::HouseScripts> found;
+		for (const Packet& packet : ofName(packets, "SM_HOUSE_SCRIPTS")) {
+			const decoders::HouseScripts scripts = decoders::decodeHouseScripts(packet.data, housing.scriptPadding);
+			if (scripts.address == housing.address)
+				found.push_back(scripts);
+		}
+		return found;
+	};
+	const auto legionUpdatesOf = [&](const std::vector<Packet>& packets, int32_t memberId) {
+		std::vector<decoders::LegionUpdateMember> found;
+		for (const Packet& packet : ofName(packets, "SM_LEGION_UPDATE_MEMBER")) {
+			const decoders::LegionUpdateMember update = decoders::decodeLegionUpdateMember(packet.data);
+			if (update.objectId == memberId)
+				found.push_back(update);
+		}
+		return found;
+	};
+	/**
+	 * A talk to a studio portal (StudioPortalAI over ActionItemNpcAI, ActionItemNpcAI.java:36-80): CM_SHOW_DIALOG, the use bar with its two
+	 * SM_USE_OBJECT and SM_EMOTION, then SM_TELEPORT_LOC (FADE_OUT_BEAM) and nothing more until CM_TELEPORT_ANIMATION_DONE; then the arrival's
+	 * SM_CHANNEL_INFO + SM_PLAYER_SPAWN and CM_LEVEL_READY. @return {the teleport, the spawn, the mark before the animation done}
+	 */
+	struct PortalTrip {
+		decoders::TeleportLoc loc;
+		decoders::PlayerSpawn spawn;
+		size_t from = 0, done = 0;
+	};
+	const auto takePortal = [&](ScenarioClient& client, int32_t portalObject, int32_t talkDelayMs, std::string_view label) {
+		PortalTrip trip;
+		trip.from = client.mark();
+		client.game->send(GameSession::CM_SHOW_DIALOG, GameSession::buildCM_SHOW_DIALOG(portalObject));
+		const Packet start = waitFor(*client.game, "SM_USE_OBJECT", 10s);
+		const decoders::UseObject startBar = decoders::decodeUseObject(start.data);
+		EXPECT_EQ(startBar.playerObjectId, client.playerId()) << label;
+		EXPECT_EQ(startBar.targetObjectId, portalObject) << label;
+		EXPECT_EQ(startBar.time, talkDelayMs) << label << ": the npc's talk delay in ms";
+		EXPECT_EQ(startBar.actionType, decoders::USE_OBJECT_START_BAR) << label;
+		const Packet end = waitFor(*client.game, "SM_USE_OBJECT", std::chrono::milliseconds(talkDelayMs) + 5s);
+		const decoders::UseObject endBar = decoders::decodeUseObject(end.data);
+		EXPECT_EQ(endBar.actionType, decoders::USE_OBJECT_CANCEL_BAR) << label << ": the task's own SM_USE_OBJECT(..., 2)";
+		const double barMs = std::chrono::duration<double, std::milli>(end.receivedAt - start.receivedAt).count();
+		EXPECT_NEAR(barMs, talkDelayMs, 500.0) << label;
+		const Packet locPacket = waitFor(*client.game, "SM_TELEPORT_LOC", 10s);
+		trip.loc = decoders::decodeTeleportLoc(locPacket.data);
+		EXPECT_EQ(trip.loc.animation, decoders::TELEPORT_ANIMATION_FADE_OUT_BEAM) << label << ": TeleportAnimation.FADE_OUT_BEAM";
+		const std::vector<Packet> waiting = collectFor(*client.game, 1s);
+		EXPECT_TRUE(ofName(waiting, "SM_PLAYER_SPAWN").empty()) << label << ": the arrival waits for CM_TELEPORT_ANIMATION_DONE";
+		const std::vector<Packet> bar = client.since(trip.from);
+		EXPECT_EQ(emotionsOf(bar, client.playerId(), EMOTION_START_QUESTLOOT), 1u) << label << ": SM_EMOTION(START_QUESTLOOT)";
+		EXPECT_EQ(emotionsOf(bar, client.playerId(), EMOTION_END_QUESTLOOT), 1u) << label << ": SM_EMOTION(END_QUESTLOOT)";
+		trip.done = client.mark();
+		client.game->send(GameSession::CM_TELEPORT_ANIMATION_DONE, GameSession::buildCM_TELEPORT_ANIMATION_DONE());
+		trip.spawn = decoders::decodePlayerSpawn(waitFor(*client.game, "SM_PLAYER_SPAWN", 15s).data);
+		client.x = trip.spawn.x;
+		client.y = trip.spawn.y;
+		client.z = trip.spawn.z;
+		levelReady(client);
+		return trip;
+	};
+	/** decoration mode's add + spawn of one inventory item (CM_HOUSE_EDIT 3 then 5). @return {the SM_HOUSE_EDIT(3), the SM_HOUSE_EDIT(5)} */
+	const auto placeItem = [&](ScenarioClient& client, int32_t itemObjectId, float x, float y, float z, int32_t rotation, std::string_view label) {
+		auto from = client.mark();
+		client.game->send(CM_HOUSE_EDIT, Body().C(3).D(itemObjectId).data);
+		if (!until(10s, [&] { return !houseEdits(client.since(from)).empty(); }))
+			throw std::runtime_error(std::string(label) + ": no SM_HOUSE_EDIT(3)");
+		const decoders::HouseEdit added = houseEdits(client.since(from))[0];
+		EXPECT_EQ(added.action, 3) << label;
+		from = client.mark();
+		const auto bits = [](float value) { return static_cast<int32_t>(std::bit_cast<uint32_t>(value)); };
+		client.game->send(CM_HOUSE_EDIT, Body().C(5).D(added.objectId).D(bits(x)).D(bits(y)).D(bits(z)).H(rotation).data);
+		if (!until(10s, [&] { return houseEdits(client.since(from)).size() >= 2 && !ofName(client.since(from), "SM_HOUSE_OBJECT").empty(); }))
+			throw std::runtime_error(std::string(label) + ": the spawn's SM_HOUSE_EDIT(5) + SM_HOUSE_OBJECT + SM_HOUSE_EDIT(4) did not arrive");
+		const std::vector<decoders::HouseEdit> edits = houseEdits(client.since(from));
+		EXPECT_EQ(edits[0].action, 5) << label;
+		EXPECT_EQ(edits[1].action, 4) << label << ": CM_HOUSE_EDIT.java:59, SM_HOUSE_EDIT(4, 1, objId) after the spawn";
+		EXPECT_EQ(edits[1].objectId, added.objectId) << label;
+		return std::make_pair(added, edits[0]);
+	};
+
+	const auto itemCount = [&](ScenarioClient& client, int32_t itemId) {
+		client.model.sync();
+		int64_t n = 0;
+		for (const ModelItem& item : client.model.byItemId(itemId))
+			n += item.count;
+		return n;
+	};
+	int32_t aBed = 0, aCake = 0, aWallpaper = 0, cCake = 0;
+	const std::string studioAddress = std::to_string(2001);
+
+	// ---- C14 (with C13's stand-in) ----
+	runCase("C14", "studio by fee: A (C13's stand-in) and C buy the studio at Parrine (dialog 96); A asks again and is refused", [&] {
+		disconnect(a);
+		disconnect(c);
+		const HousingAnswer::Spot& parrine = housing.npc(PARRINE);
+		const HousingAnswer::Spot& entrance = housing.npc(STUDIO_ENTRANCE);
+		const std::array<float, 3> spot = pointNear(parrine.x, parrine.y, parrine.z, TALK_DISTANCE, entrance.x, entrance.y);
+		seedPosition(ca, ORIEL, spot[0], spot[1], spot[2]);
+		seedPosition(cc, ORIEL, spot[0] + 1.0f, spot[1], spot[2]);
+		seedKinah(ca.playerId, housing.goldPrice);
+		seedKinah(cc.playerId, housing.goldPrice);
+		aBed = database.seedInventoryItem(schema, {ca.playerId, BED_ITEM, 1, 0, 65535});
+		aCake = database.seedInventoryItem(schema, {ca.playerId, CAKE_ITEM, 1, 0, 65535});
+		aWallpaper = database.seedInventoryItem(schema, {ca.playerId, WALLPAPER_ITEM, 1, 0, 65535});
+		cCake = database.seedInventoryItem(schema, {cc.playerId, CAKE_ITEM, 1, 0, 65535});
+		enterAs(servers, a, ca);
+		enterAs(servers, c, cc);
+		settle();
+		ASSERT_EQ(a.model.kinah(), housing.goldPrice);
+		for (ScenarioClient* buyer : {&a, &c}) {
+			const int32_t parrineObject = requireNpc(*buyer, PARRINE, parrine.x, parrine.y);
+			buyer->game->send(GameSession::CM_SHOW_DIALOG, GameSession::buildCM_SHOW_DIALOG(parrineObject));
+			settle();
+			const auto from = marks();
+			buyer->game->send(GameSession::CM_DIALOG_SELECT, GameSession::buildCM_DIALOG_SELECT(parrineObject, HOUSING_RECREATE_PERSONAL_INS));
+			ASSERT_TRUE(until(10s, [&] { return countMessage(windowOf(*buyer, from), hmsg("STR_MSG_HOUSING_INS_OWN_SUCCESS")) == 1; }))
+			  << buyer->label << ": no STR_MSG_HOUSING_INS_OWN_SUCCESS";
+			settle();
+			const std::vector<Packet> window = windowOf(*buyer, from);
+			const std::vector<Packet> acquires = ofName(window, "SM_HOUSE_ACQUIRE");
+			ASSERT_EQ(acquires.size(), 1u) << buyer->label << ": notifyAboutOwnerChange's SM_HOUSE_ACQUIRE (HousingService.java:113-127)";
+			const decoders::HouseAcquire acquire = decoders::decodeHouseAcquire(acquires[0].data);
+			EXPECT_EQ(acquire.playerId, buyer->playerId());
+			EXPECT_EQ(acquire.address, housing.address);
+			EXPECT_EQ(acquire.acquire, 1);
+			EXPECT_EQ(buyer->model.kinah(), 0) << buyer->label << ": the land's gold price, exactly (HousingService.createStudio)";
+			EXPECT_EQ(count("SELECT COUNT(*) FROM houses WHERE address = " + studioAddress + " AND building_id = " + std::to_string(housing.building) +
+			                " AND player_id = " + std::to_string(buyer->playerId())),
+				1)
+			  << buyer->label << ": changeOwner's house.save()";
+		}
+		const auto from = marks();
+		a.game->send(GameSession::CM_DIALOG_SELECT,
+			GameSession::buildCM_DIALOG_SELECT(requireNpc(a, PARRINE, parrine.x, parrine.y), HOUSING_RECREATE_PERSONAL_INS));
+		ASSERT_TRUE(until(10s, [&] { return countMessage(windowOf(a, from), hmsg("STR_MSG_HOUSING_INS_CANT_OWN_MORE_HOUSE")) == 1; }));
+		settle();
+		EXPECT_TRUE(ofName(windowOf(a, from), "SM_HOUSE_ACQUIRE").empty()) << "the refusal before the charge (HousingService.java:281-284)";
+		EXPECT_EQ(count("SELECT COUNT(*) FROM houses WHERE address = " + studioAddress), 2) << "A's and C's studio";
+	});
+
+	// ---- C15: enter ----
+	std::map<int32_t, int32_t> studioInstance; // player id -> instance id
+	runCase("C15", "enter: A and C walk to the studio entrance, take the 2-s bar and the beam into their own studios", [&] {
+		const HousingAnswer::Spot& entrance = housing.npc(STUDIO_ENTRANCE);
+		const std::array<float, 3> crystal = housing.houseNpcs.at("TELEPORT");
+		const int8_t heading = headingTowards(housing.x, housing.y, crystal[0], crystal[1]);
+		for (ScenarioClient* owner : {&a, &c}) {
+			const std::string label = "C15 " + owner->label;
+			const std::array<float, 3> at = pointNear(entrance.x, entrance.y, entrance.z, TALK_DISTANCE, owner->x, owner->y);
+			walkTo(*owner, at[0], at[1], at[2]);
+			const int32_t portal = requireNpc(*owner, STUDIO_ENTRANCE, entrance.x, entrance.y);
+			const auto from = marks();
+			const PortalTrip trip = takePortal(*owner, portal, entrance.talkDelayMs, label);
+			EXPECT_EQ(trip.loc.mapId, STUDIO_MAP) << label;
+			EXPECT_GE(trip.loc.mapOrInstanceId, 2) << label << ": a personal instance, not the main one";
+			EXPECT_FLOAT_EQ(trip.loc.x, housing.x) << label << ": the address point (StudioPortalAI.java:52-55)";
+			EXPECT_FLOAT_EQ(trip.loc.y, housing.y) << label;
+			EXPECT_FLOAT_EQ(trip.loc.z, housing.z) << label;
+			EXPECT_EQ(static_cast<int8_t>(trip.loc.heading), heading) << label << ": House.getTeleportHeading, towards the relationship crystal";
+			EXPECT_EQ(trip.spawn.worldId, STUDIO_MAP) << label;
+			EXPECT_TRUE(trip.spawn.personal) << label;
+			studioInstance[owner->playerId()] = trip.loc.mapOrInstanceId;
+			EXPECT_FALSE(servers.gameServer()->findLogLines("Created new instance: " + std::to_string(STUDIO_MAP) + " [" +
+			                                                 std::to_string(trip.loc.mapOrInstanceId) + "] owner:" + std::to_string(owner->playerId()), 5).empty())
+			  << label << ": InstanceService.getOrCreatePersonalInstance's log line";
+			// the studio, its two npcs and the butler's scripts (ButlerAI.handleCreatureSee -> House.sendScripts)
+			ASSERT_TRUE(until(15s, [&] { return !studioScripts(owner->since(trip.done)).empty(); })) << label << ": the butler's SM_HOUSE_SCRIPTS(2001)";
+			settle();
+			const std::vector<Packet> arrival = owner->since(trip.done);
+			EXPECT_EQ(countMessage(arrival, hmsg("STR_MSG_INSTANCE_DUNGEON_OPENED_FOR_SELF")), 0u) << label << ": a personal map (TeleportService.java:531-532)";
+			size_t renders = 0;
+			for (const Packet& packet : ofName(arrival, "SM_HOUSE_RENDER")) {
+				const decoders::HouseInfo info = decoders::decodeHouseRender(packet.data);
+				if (info.address != housing.address)
+					continue;
+				renders++;
+				EXPECT_EQ(info.ownerId, owner->playerId()) << label;
+				EXPECT_EQ(info.buildingId, housing.building) << label;
+			}
+			EXPECT_EQ(renders, 1u) << label << ": exactly one SM_HOUSE_RENDER of the studio";
+			const std::array<float, 3> manager = housing.houseNpcs.at("MANAGER");
+			EXPECT_TRUE(npcObject(*owner, housing.managerNpc, manager[0], manager[1])) << label << ": the butler at house_npcs.xml's MANAGER spot";
+			EXPECT_TRUE(npcObject(*owner, housing.teleportNpc, crystal[0], crystal[1])) << label << ": the crystal at the TELEPORT spot";
+			const std::vector<decoders::HouseScripts> scripts = studioScripts(arrival);
+			ASSERT_FALSE(scripts.empty());
+			EXPECT_EQ(scripts[0].scripts.size(), 8u) << label << ": PlayerScripts.SCRIPT_LIMIT slots";
+			for (const decoders::HouseScript& script : scripts[0].scripts)
+				EXPECT_FALSE(script.hasData) << label << ": a new studio has no scripts";
+			owner->model.sync();
+		}
+		EXPECT_NE(studioInstance[ca.playerId], studioInstance[cc.playerId]) << "one personal instance per owner";
+		// the map change's LegionService.updateMemberInfo: A's legion mate B is told A's new map; C's legion is C alone
+		std::vector<decoders::LegionUpdateMember> toB;
+		until(5s, [&] {
+			toB.clear();
+			for (const decoders::LegionUpdateMember& update : legionUpdatesOf(b.since(0), ca.playerId))
+				if (update.worldId == STUDIO_MAP)
+					toB.push_back(update);
+			return !toB.empty();
+		});
+		EXPECT_FALSE(toB.empty()) << "B: SM_LEGION_UPDATE_MEMBER(A) with map 720010000";
+	});
+
+	// ---- C16: decorate ----
+	int32_t bedObject = 0, cakeObject = 0, decorObject = 0;
+	std::array<float, 4> bedMoved{363.0f, 297.5f, 0, 90};
+	runCase("C16", "decorate: A enters the decoration mode, places the bed and the cake, puts up the wallpaper and moves the bed", [&] {
+		auto from = a.mark();
+		a.game->send(CM_HOUSE_EDIT, Body().C(1).data);
+		ASSERT_TRUE(until(10s, [&] { return ofName(a.since(from), "SM_HOUSE_REGISTRY").size() == 2; })) << "SM_HOUSE_REGISTRY(1) and (2)";
+		ASSERT_EQ(houseEdits(a.since(from)).size(), 1u);
+		EXPECT_EQ(houseEdits(a.since(from))[0].action, 1);
+		const float z = a.z;
+		bedMoved[2] = z;
+		// the bed: a chair template (type 5), no use_days
+		const auto [bedAdded, bedSpawned] = placeItem(a, aBed, 364.0f, 293.0f, z, 0, "C16 bed");
+		bedObject = bedAdded.objectId;
+		EXPECT_EQ(bedAdded.storeId, 1);
+		EXPECT_EQ(bedAdded.templateId, *housing.item(BED_ITEM).houseObject);
+		EXPECT_EQ(bedAdded.secondsUntilExpiration, 0) << "no use_days";
+		EXPECT_FALSE(bedAdded.usage);
+		EXPECT_EQ(bedSpawned.x, 364.0f) << "the floats as sent";
+		EXPECT_EQ(bedSpawned.y, 293.0f);
+		EXPECT_EQ(bedSpawned.address, housing.address);
+		EXPECT_EQ(bedSpawned.playerId, ca.playerId);
+		// the cake: a use_item (type 1, the usage block), 30 use_days; at A's own position, inside its 3.25-m use range
+		const auto [cakeAdded, cakeSpawned] = placeItem(a, aCake, a.x + 0.5f, a.y, z, 0, "C16 cake");
+		cakeObject = cakeAdded.objectId;
+		EXPECT_EQ(cakeAdded.templateId, *housing.item(CAKE_ITEM).houseObject);
+		EXPECT_EQ(cakeAdded.typeId, decoders::HOUSE_OBJECT_TYPE_USE_ITEM);
+		EXPECT_EQ(cakeAdded.userId, ca.playerId) << "SM_HOUSE_EDIT.java:74-78";
+		EXPECT_TRUE(cakeAdded.usage);
+		EXPECT_NEAR(cakeAdded.secondsUntilExpiration, housing.item(CAKE_ITEM).useDays * 86400, 120) << "HouseObjectFactory: now + use_days";
+		EXPECT_TRUE(cakeSpawned.usage) << "SM_HOUSE_EDIT.java:99-102";
+		bool cakeShown = false;
+		for (const Packet& packet : ofName(a.since(from), "SM_HOUSE_OBJECT")) {
+			const decoders::HouseObjectInfo info = decoders::decodeHouseObject(packet.data);
+			if (info.objectId == cakeObject) {
+				cakeShown = true;
+				EXPECT_EQ(info.typeId, decoders::HOUSE_OBJECT_TYPE_USE_ITEM);
+				EXPECT_TRUE(info.usage) << "SM_HOUSE_OBJECT.java:50-56";
+				EXPECT_EQ(info.ownerId, ca.playerId);
+			}
+		}
+		EXPECT_TRUE(cakeShown) << "obj.spawn: the cake's SM_HOUSE_OBJECT";
+		// the wallpaper: a decoration (store 2), applied to the first inner-wall room
+		from = a.mark();
+		a.game->send(CM_HOUSE_EDIT, Body().C(3).D(aWallpaper).data);
+		ASSERT_TRUE(until(10s, [&] { return !houseEdits(a.since(from)).empty(); }));
+		const decoders::HouseEdit decor = houseEdits(a.since(from))[0];
+		decorObject = decor.objectId;
+		EXPECT_EQ(decor.storeId, 2);
+		EXPECT_EQ(decor.templateId, *housing.item(WALLPAPER_ITEM).decoration) << "DecorateAction.getTemplateId";
+		from = a.mark();
+		const auto [inwallSlot, inwallLine] = housing.partSlots.at("INWALL_ANY");
+		a.game->send(CM_HOUSE_DECORATE, Body().D(decorObject).D(*housing.item(WALLPAPER_ITEM).decoration).H(inwallLine).data);
+		ASSERT_TRUE(until(10s, [&] { return !ofName(a.since(from), "SM_HOUSE_UPDATE").empty(); })) << "updateAppearance's SM_HOUSE_UPDATE";
+		settle();
+		const std::vector<decoders::HouseEdit> applied = houseEdits(a.since(from));
+		EXPECT_EQ(applied.size(), 2u) << "SM_HOUSE_EDIT(4, 2, decor) twice (CM_HOUSE_DECORATE.java: 'yes, in retail it's sent twice')";
+		const decoders::HouseInfo updated = decoders::decodeHouseUpdate(ofName(a.since(from), "SM_HOUSE_UPDATE")[0].data);
+		EXPECT_EQ(updated.decorIds.at(inwallSlot), *housing.item(WALLPAPER_ITEM).decoration) << "the first inner-wall room";
+		// the move: despawn notice, SM_DELETE_HOUSE_OBJECT, the new place, the new SM_HOUSE_OBJECT
+		from = a.mark();
+		const auto bits = [](float value) { return static_cast<int32_t>(std::bit_cast<uint32_t>(value)); };
+		a.game->send(CM_HOUSE_EDIT, Body().C(6).D(bedObject).D(bits(bedMoved[0])).D(bits(bedMoved[1])).D(bits(bedMoved[2])).H(90).data);
+		ASSERT_TRUE(until(10s, [&] { return !ofName(a.since(from), "SM_HOUSE_OBJECT").empty(); }));
+		settle();
+		const std::vector<decoders::HouseEdit> moved = houseEdits(a.since(from));
+		ASSERT_EQ(moved.size(), 2u);
+		EXPECT_EQ(moved[0].action, 7);
+		EXPECT_EQ(moved[1].action, 5);
+		EXPECT_EQ(moved[1].x, bedMoved[0]);
+		EXPECT_EQ(moved[1].y, bedMoved[1]);
+		EXPECT_EQ(moved[1].rotation, 90);
+		ASSERT_EQ(ofName(a.since(from), "SM_DELETE_HOUSE_OBJECT").size(), 1u);
+		EXPECT_EQ(decoders::decodeDeleteHouseObject(ofName(a.since(from), "SM_DELETE_HOUSE_OBJECT")[0].data), bedObject);
+		from = a.mark();
+		a.game->send(CM_HOUSE_EDIT, Body().C(2).data);
+		ASSERT_TRUE(until(10s, [&] { return !houseEdits(a.since(from)).empty(); }));
+		EXPECT_EQ(houseEdits(a.since(from))[0].action, 2);
+	});
+
+	// ---- C17: use ----
+	runCase("C17", "use: A uses the cake (reward), again at once (cooldown), after 10 s (COOKING); C cancels its cake's use after 1 s", [&] {
+		const int32_t reward = *housing.item(CAKE_ITEM).rewardId;
+		auto from = a.mark();
+		a.game->send(CM_USE_HOUSE_OBJECT, Body().D(cakeObject).data);
+		ASSERT_TRUE(until(10s, [&] { return countMessage(a.since(from), hmsg("STR_MSG_HOUSING_OBJECT_USE")) == 1; }));
+		ASSERT_TRUE(until(10s, [&] { return countMessage(a.since(from), hmsg("STR_MSG_HOUSING_OBJECT_REWARD_ITEM")) == 1; }));
+		settle();
+		std::vector<decoders::UseObject> uses = useObjects(a.since(from));
+		ASSERT_EQ(uses.size(), 2u);
+		EXPECT_EQ(uses[0].targetObjectId, cakeObject);
+		EXPECT_EQ(uses[0].time, housing.item(CAKE_ITEM).delayMs);
+		EXPECT_EQ(uses[0].actionType, USE_OBJECT_HOUSE_USE);
+		EXPECT_EQ(uses[1].time, 0);
+		EXPECT_EQ(uses[1].actionType, USE_OBJECT_HOUSE_END);
+		const std::vector<Packet> useWindow = a.since(from);
+		const auto useStart = ofName(useWindow, "SM_USE_OBJECT")[0].receivedAt, useEnd = ofName(useWindow, "SM_USE_OBJECT")[1].receivedAt;
+		EXPECT_GE(std::chrono::duration_cast<std::chrono::milliseconds>(useEnd - useStart).count(), housing.item(CAKE_ITEM).delayMs - 100)
+		  << "the HOUSE_OBJECT_USE task after the template's delay";
+		EXPECT_EQ(itemCount(a, reward), 1) << "ItemService.addItem(reward)";
+		ASSERT_EQ(ofName(useWindow, "SM_OBJECT_USE_UPDATE").size(), 1u);
+		const decoders::ObjectUseUpdate update = decoders::decodeObjectUseUpdate(ofName(useWindow, "SM_OBJECT_USE_UPDATE")[0].data);
+		EXPECT_EQ(update.userId, ca.playerId);
+		EXPECT_EQ(update.ownerId, ca.playerId);
+		EXPECT_EQ(update.objectId, cakeObject);
+		EXPECT_EQ(update.useCount, 1);
+		from = a.mark();
+		a.game->send(CM_USE_HOUSE_OBJECT, Body().D(cakeObject).data);
+		ASSERT_TRUE(until(10s, [&] { return countMessage(a.since(from), hmsg("STR_MSG_HOUSING_CANNOT_USE_FLOWERPOT_COOLTIME")) == 1; }))
+		  << "the 10-s cooldown (cd)";
+		drainAll(std::chrono::milliseconds(housing.item(CAKE_ITEM).cooldownSeconds * 1000 + 500));
+		from = a.mark();
+		a.game->send(CM_USE_HOUSE_OBJECT, Body().D(cakeObject).data);
+		ASSERT_TRUE(until(10s, [&] { return countMessage(a.since(from), hmsg("STR_MSG_CANNOT_USE_ALREADY_HAVE_REWARD_ITEM")) == 1; }))
+		  << "the COOKING limit (placementLimitOf)";
+		settle();
+		EXPECT_EQ(itemCount(a, reward), 1) << "no second reward";
+
+		// C places its cake at its own position and cancels the use after 1 s
+		from = c.mark();
+		c.game->send(CM_HOUSE_EDIT, Body().C(1).data);
+		ASSERT_TRUE(until(10s, [&] { return ofName(c.since(from), "SM_HOUSE_REGISTRY").size() == 2; }));
+		const auto [cakeAdded, cakeSpawned] = placeItem(c, cCake, c.x + 0.5f, c.y, c.z, 0, "C17 C's cake");
+		static_cast<void>(cakeSpawned);
+		c.game->send(CM_HOUSE_EDIT, Body().C(2).data);
+		settle();
+		from = c.mark();
+		c.game->send(CM_USE_HOUSE_OBJECT, Body().D(cakeAdded.objectId).data);
+		ASSERT_TRUE(until(5s, [&] { return countMessage(c.since(from), hmsg("STR_MSG_HOUSING_OBJECT_USE")) == 1; }));
+		collectFor(*c.game, 1s);
+		c.game->send(CM_RELEASE_OBJECT, Body().D(cakeAdded.objectId).data);
+		ASSERT_TRUE(until(5s, [&] { return countMessage(c.since(from), hmsg("STR_MSG_HOUSING_OBJECT_CANCEL_USE")) == 1; }));
+		drainAll(3500ms);
+		catchUp();
+		uses = useObjects(c.since(from));
+		ASSERT_EQ(uses.size(), 2u) << "the bar and its cancel";
+		EXPECT_EQ(uses[1].playerObjectId, cc.playerId);
+		EXPECT_EQ(uses[1].time, 0);
+		EXPECT_EQ(uses[1].actionType, USE_OBJECT_HOUSE_END);
+		EXPECT_EQ(countMessage(c.since(from), hmsg("STR_MSG_HOUSING_OBJECT_REWARD_ITEM")), 0u) << "the cancelled task gives nothing";
+		EXPECT_EQ(itemCount(c, reward), 0);
+	});
+
+	// ---- C18: configure ----
+	const std::string notice = "keep out";
+	const std::string script1 = "<scripts><script id=\"0\">hello</script></scripts>";
+	const auto [script1Bytes, script1Size] = houseScript(script1);
+	runCase("C18", "configure: A closes the door with a notice, stores script 0, sends a foreign address's script, kicks the visitors", [&] {
+		auto from = a.mark();
+		a.game->send(CM_HOUSE_SETTINGS, Body().C(housing.doorStates.at("CLOSED")).C(0).S(notice).data);
+		ASSERT_TRUE(until(10s, [&] { return countMessage(a.since(from), hmsg("STR_MSG_HOUSING_ORDER_CLOSE_DOOR_ALL")) == 1; }));
+		settle();
+		// Java's order (CM_HOUSE_SETTINGS.java:57-67; HouseController.kickVisitors): acquire, update, OUT_ALL, CLOSE_DOOR_ALL
+		std::vector<std::string> order;
+		for (const Packet& packet : a.since(from)) {
+			if (packet.name == "SM_HOUSE_ACQUIRE" || packet.name == "SM_HOUSE_UPDATE")
+				order.push_back(packet.name);
+			else if (packet.name == "SM_SYSTEM_MESSAGE") {
+				const int32_t id = decodeSystemMessage(packet.data).messageId;
+				if (id == hmsg("STR_MSG_HOUSING_ORDER_OUT_ALL"))
+					order.push_back("OUT_ALL");
+				else if (id == hmsg("STR_MSG_HOUSING_ORDER_CLOSE_DOOR_ALL"))
+					order.push_back("CLOSE_DOOR_ALL");
+			}
+		}
+		EXPECT_EQ(join(order), "SM_HOUSE_ACQUIRE, SM_HOUSE_UPDATE, OUT_ALL, CLOSE_DOOR_ALL");
+		const std::vector<Packet> updates = ofName(a.since(from), "SM_HOUSE_UPDATE");
+		ASSERT_FALSE(updates.empty());
+		const decoders::HouseInfo info = decoders::decodeHouseUpdate(updates[0].data);
+		EXPECT_EQ(info.doorState, housing.doorStates.at("CLOSED"));
+		EXPECT_EQ(info.signNotice, notice);
+		EXPECT_EQ(info.showOwnerName, 0);
+
+		from = a.mark();
+		a.game->send(CM_HOUSE_SCRIPT, Body()
+		                                  .D(housing.address)
+		                                  .C(0)
+		                                  .H(8 + static_cast<int32_t>(script1Bytes.size()))
+		                                  .D(static_cast<int32_t>(script1Bytes.size()))
+		                                  .D(script1Size)
+		                                  .B(script1Bytes)
+		                                  .data);
+		const auto [script2Bytes, script2Size] = houseScript("<scripts><script id=\"1\">foreign</script></scripts>");
+		a.game->send(CM_HOUSE_SCRIPT, Body()
+		                                  .D(3001)
+		                                  .C(1)
+		                                  .H(8 + static_cast<int32_t>(script2Bytes.size()))
+		                                  .D(static_cast<int32_t>(script2Bytes.size()))
+		                                  .D(script2Size)
+		                                  .B(script2Bytes)
+		                                  .data);
+		settle();
+		EXPECT_TRUE(studioScripts(a.since(from)).empty()) << "the broadcast goes to the players who know A, not to A (CM_HOUSE_SCRIPT.java:62)";
+		const std::string houseOfA = "(SELECT id FROM houses WHERE address = " + studioAddress + " AND player_id = " + std::to_string(ca.playerId) + ")";
+		const auto rows = database.queryRows(schema, "SELECT script_id, script FROM house_scripts WHERE house_id = " + houseOfA, 2);
+		ASSERT_EQ(rows.size(), 1u) << "PlayerScripts.set stores at once (PlayerScripts.java:50-55); the foreign address is refused";
+		EXPECT_EQ(rows[0][0].value_or(""), "0");
+		EXPECT_EQ(rows[0][1].value_or(""), script1);
+		EXPECT_EQ(count("SELECT COUNT(*) FROM house_scripts WHERE script_id = 1"), 0) << "the audit guard (CM_HOUSE_SCRIPT.java)";
+
+		from = a.mark();
+		a.game->send(CM_HOUSE_KICK, Body().C(1).H(0).data);
+		ASSERT_TRUE(until(10s, [&] { return countMessage(a.since(from), hmsg("STR_MSG_HOUSING_ORDER_OUT_WITHOUT_FRIENDS")) == 1; }));
+	});
+
+	// ---- C19: leave, destroy, re-enter, persist, re-login ----
+	runCase("C19", "leave, destroy, re-enter, persist, re-login: A leaves its studio, the instance is destroyed and saved, A returns and quits inside", [&] {
+		const HousingAnswer::Spot& exit = housing.npc(STUDIO_EXIT);
+		const HousingAnswer::Spot& entrance = housing.npc(STUDIO_ENTRANCE);
+		auto from = a.mark();
+		const std::array<float, 3> exitSpot = pointNear(exit.x, exit.y, exit.z, TALK_DISTANCE, a.x, a.y);
+		walkTo(a, exitSpot[0], exitSpot[1], a.z);
+		EXPECT_TRUE(useObjects(a.since(from)).empty()) << "the entrance's use-bar observer was removed when its task ran (ActionItemNpcAI.java:68)";
+		EXPECT_EQ(emotionsOf(a.since(from), ca.playerId, EMOTION_END_QUESTLOOT), 0u);
+		const int32_t exitObject = requireNpc(a, STUDIO_EXIT, exit.x, exit.y);
+		const auto legionFrom = marks();
+		const PortalTrip out = takePortal(a, exitObject, exit.talkDelayMs, "C19 exit");
+		EXPECT_EQ(out.loc.mapId, housing.exitMap);
+		EXPECT_FLOAT_EQ(out.loc.x, housing.exitX);
+		EXPECT_FLOAT_EQ(out.loc.y, housing.exitY);
+		EXPECT_FLOAT_EQ(out.loc.z, housing.exitZ);
+		EXPECT_EQ(out.spawn.worldId, housing.exitMap);
+		EXPECT_EQ(countMessage(a.since(out.from), hmsg("STR_MSG_LEAVE_INSTANCE")), 0u) << "no registration (InstanceService.java:213)";
+		bool told = false;
+		until(5s, [&] {
+			for (const decoders::LegionUpdateMember& update : legionUpdatesOf(windowOf(b, legionFrom), ca.playerId))
+				told |= update.worldId == housing.exitMap;
+			return told;
+		});
+		EXPECT_TRUE(told) << "B: SM_LEGION_UPDATE_MEMBER(A) with map 700010000";
+
+		// the destroy: EmptyInstanceCheckerTask runs every 60 s
+		const std::string destroying = "Destroying WorldMapInstance " + std::to_string(STUDIO_MAP) + " [" + std::to_string(studioInstance[ca.playerId]) + "]";
+		ASSERT_TRUE(until(75s, [&] { return !servers.gameServer()->findLogLines(destroying, 1).empty(); })) << "C19: no '" << destroying << "' within 75 s";
+		std::vector<std::vector<std::optional<std::string>>> registered;
+		until(5s, [&] {
+			registered = database.queryRows(schema,
+				"SELECT item_unique_id, x, y, area FROM player_registered_items WHERE player_id = " + std::to_string(ca.playerId) +
+					" ORDER BY item_unique_id",
+				4);
+			return registered.size() == 3;
+		});
+		ASSERT_EQ(registered.size(), 3u) << "HouseController.onDespawn saved the registry: the bed, the cake and the wallpaper";
+		for (const auto& row : registered) {
+			const int32_t id = std::stoi(row[0].value_or("0"));
+			if (id == bedObject) {
+				EXPECT_NEAR(std::stod(row[1].value_or("0")), bedMoved[0], 0.01) << "the bed where it was moved";
+				EXPECT_NEAR(std::stod(row[2].value_or("0")), bedMoved[1], 0.01);
+			} else if (id == decorObject) {
+				EXPECT_EQ(row[3].value_or(""), "DECOR");
+			} else {
+				EXPECT_EQ(id, cakeObject);
+			}
+		}
+
+		// re-entry: a new instance, the bed at its new place, the cake, the wallpaper and script 0 (the butler)
+		const std::array<float, 3> at = pointNear(entrance.x, entrance.y, entrance.z, TALK_DISTANCE, a.x, a.y);
+		walkTo(a, at[0], at[1], at[2]);
+		const PortalTrip back = takePortal(a, requireNpc(a, STUDIO_ENTRANCE, entrance.x, entrance.y), entrance.talkDelayMs, "C19 re-entry");
+		EXPECT_EQ(back.loc.mapId, STUDIO_MAP);
+		EXPECT_NE(back.loc.mapOrInstanceId, studioInstance[ca.playerId]) << "the destroyed instance is gone";
+		EXPECT_GE(back.loc.mapOrInstanceId, 2);
+		ASSERT_TRUE(until(15s, [&] { return !studioScripts(a.since(back.done)).empty(); }));
+		settle();
+		const std::vector<Packet> arrival = a.since(back.done);
+		bool bedSeen = false, cakeSeen = false;
+		for (const Packet& packet : ofName(arrival, "SM_HOUSE_OBJECT")) {
+			const decoders::HouseObjectInfo info = decoders::decodeHouseObject(packet.data);
+			if (info.objectId == bedObject) {
+				bedSeen = true;
+				EXPECT_EQ(info.x, bedMoved[0]);
+				EXPECT_EQ(info.y, bedMoved[1]);
+			}
+			cakeSeen |= info.objectId == cakeObject;
+		}
+		EXPECT_TRUE(bedSeen) << "the bed re-spawned from the in-memory registry";
+		EXPECT_TRUE(cakeSeen);
+		bool wallpaper = false;
+		for (const Packet& packet : ofName(arrival, "SM_HOUSE_RENDER")) {
+			const decoders::HouseInfo info = decoders::decodeHouseRender(packet.data);
+			if (info.address == housing.address)
+				wallpaper |= info.decorIds.at(housing.partSlots.at("INWALL_ANY").first) == *housing.item(WALLPAPER_ITEM).decoration;
+		}
+		EXPECT_TRUE(wallpaper) << "the wallpaper in SM_HOUSE_RENDER";
+		const decoders::HouseScripts scripts = studioScripts(arrival)[0];
+		ASSERT_EQ(scripts.scripts.size(), 8u);
+		EXPECT_TRUE(scripts.scripts[0].hasData) << "script 0 reaches its owner through the butler";
+		EXPECT_EQ(scripts.scripts[0].compressed, script1Bytes) << "the compressed bytes as A sent them";
+		EXPECT_EQ(scripts.scripts[0].uncompressedSize, script1Size);
+		EXPECT_EQ(scripts.scripts[0].padding.size(), housing.scriptPadding);
+		EXPECT_FALSE(scripts.scripts[1].hasData);
+
+		// A quits inside the studio: the logout's store
+		disconnect(a);
+		settle();
+		const std::string houseOfA = "address = " + studioAddress + " AND player_id = " + std::to_string(ca.playerId);
+		EXPECT_EQ(database.queryRows(schema, "SELECT sign_notice FROM houses WHERE " + houseOfA, 1).at(0).at(0).value_or(""), notice);
+		EXPECT_EQ(count("SELECT COUNT(*) FROM house_scripts WHERE house_id = (SELECT id FROM houses WHERE " + houseOfA + ")"), 1);
+		EXPECT_EQ(count("SELECT COUNT(*) FROM house_object_cooldowns WHERE player_id = " + std::to_string(ca.playerId)), 0)
+		  << "the cake's 10-s cooldown ran out long before the quit: HouseObjectCooldownsDAO.storeHouseObjectCooldowns skips an expired reuse time";
+		for (int32_t item : {aBed, aCake, aWallpaper})
+			EXPECT_EQ(count("SELECT COUNT(*) FROM inventory WHERE item_unique_id = " + std::to_string(item)), 0)
+			  << "C16's ItemDeleteType.REGISTER deletes, stored with the inventory at the logout";
+		EXPECT_EQ(count("SELECT world_id FROM players WHERE id = " + std::to_string(ca.playerId)), STUDIO_MAP);
+
+		// re-login (A-15): A lands in its studio
+		const std::vector<Packet> burst = enterAs(servers, a, ca);
+		const Packet* spawn = firstOfName(burst, "SM_PLAYER_SPAWN");
+		ASSERT_NE(spawn, nullptr);
+		const decoders::PlayerSpawn spawned = decoders::decodePlayerSpawn(spawn->data);
+		EXPECT_EQ(spawned.worldId, STUDIO_MAP) << "PlayerEnterWorldService: the personal arm of HousingService.onPlayerLogin";
+		EXPECT_NE(instanceOf(spawned), 1) << "not the main instance";
+		ASSERT_TRUE(until(15s, [&] { return !ofName(a.since(0), "SM_HOUSE_OBJECT").empty(); })) << "the studio re-rendered after the login";
+		settle();
+	});
+
+	// ---- C20: the member list sees the studio ----
+	runCase("C20", "member list: B relogs; its SM_LEGION_MEMBERLIST entry for A carries the studio address and the closed door", [&] {
+		disconnect(b);
+		enterAs(servers, b, cb);
+		settle();
+		std::optional<decoders::LegionMemberEntry> entry;
+		for (const Packet& packet : ofName(b.since(0), "SM_LEGION_MEMBERLIST"))
+			for (const decoders::LegionMemberEntry& member : decoders::decodeLegionMemberList(packet.data).members)
+				if (member.objectId == ca.playerId)
+					entry = member;
+		ASSERT_TRUE(entry) << "B's member list names A";
+		EXPECT_EQ(entry->houseAddress, housing.address) << "SM_LEGION_MEMBERLIST.java:46-48, HousingService.findActiveHouse";
+		EXPECT_EQ(entry->houseDoorState, housing.doorStates.at("CLOSED"));
+		EXPECT_EQ(entry->worldId, STUDIO_MAP);
 	});
 
 	// ---- C21: leave and kick ----

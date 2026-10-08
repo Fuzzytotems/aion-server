@@ -538,6 +538,18 @@ def cmd_m5h_legion(args):
 	return 0
 
 
+def cmd_m5h_housing(args):
+	from m5h.housing import housing_report
+	data_dir = _data_dir(args)
+	java_src = Path(args.java_src) if args.java_src else data_dir.parent.parent / "src"
+	spots = []
+	for spec in args.npc or []:
+		map_id, npc_id = spec.split(":")
+		spots.append((int(map_id), int(npc_id)))
+	sys.stdout.write(runner.dump_json(housing_report(data_dir, java_src, args.message or [], spots, args.item or [])))
+	return 0
+
+
 def cmd_m5g_team(args):
 	from m5a.data import StaticData
 	from m5g.team import team_report
@@ -954,6 +966,14 @@ def main(argv=None):
 	p.add_argument("--message", nargs="+", action="extend", metavar="NAME", help="SM_SYSTEM_MESSAGE ids to look up by name")
 	p.add_argument("--question", nargs="+", action="extend", metavar="NAME", help="SM_QUESTION_WINDOW ids to look up by name")
 	p.set_defaults(fn=cmd_m5h_legion)
+	p = sub.add_parser("m5h-housing", help="the studio cases' constants: npc spots and talk info, the Elyos studio, furniture templates, PartType, "
+	                                       "HouseDoorState and message ids (m5h-plan.md G-01)")
+	data_args(p, country=False)
+	p.add_argument("--java-src", help="game-server/src (default: two levels above the static data directory, then src)")
+	p.add_argument("--message", nargs="+", action="extend", metavar="NAME", help="SM_SYSTEM_MESSAGE ids to look up by name")
+	p.add_argument("--npc", nargs="+", action="extend", metavar="MAP:NPC", help="an npc's first spawn spot on a map and its talk info")
+	p.add_argument("--item", nargs="+", action="extend", type=int, metavar="ITEM", help="a furniture item and its house object template")
+	p.set_defaults(fn=cmd_m5h_housing)
 
 	p = sub.add_parser("quest-trace", help="golden traces of the Java quest handlers: every return leaf of every hook as a case with its "
 	                                       "effects (questtrace/, phase6-inventory.md §7.6 item 3)")
