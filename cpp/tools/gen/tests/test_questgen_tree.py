@@ -116,7 +116,8 @@ Q02 = {
         '_11460TheShulackofTaloc'),
 }
 # Phase 6 step 2, chunk Q14 (lane C, 2026-10-05; docs/deviations/Q14.md): the files of the instance directories K-W that questgen
-# transliterates, all in the tree (74 of 95; the 21 refused are not)
+# transliterates, all in the tree (74 of 95 at the landing; the owner's decisions of 2026-10-07 added the 15 mentor dailies, rule
+# stream-any-match, and pangaea 14220/24220, rule constant-list: 91; the 4 still refused are not)
 Q14 = {
     'kaldor': (
         '_13817TheFuryWithin', '_23817WeeklyFreeSpirit',),
@@ -128,14 +129,17 @@ Q14 = {
     'linkgate_foundry': (
         '_16940DiarySecrets', '_26940RaidtheLinkgateFoundry',),
     'marchutan_priory': (
-        '_48006TheMarchutanPrioryBeckons',),
+        '_47000AltgardOrbIt', '_47003AGlobalProblem', '_47006AmplifiersWithIssues', '_48006TheMarchutanPrioryBeckons',),
     'miragent_holy_templar': (
         '_19064TemplarOfConstruction', '_3933ClassPreceptorConsent', '_3934TheQuestForTemplars', '_3935ShoulderTheBurden',
         '_3936DecorationsOfSanctum', '_3937GroupTheDecorationsofSanctum', '_3938WellRounded', '_3939PersistenceAndLuck', '_3940Loyalty',),
     'nightmare_circus': (
         '_80341EventAHallowedEve',),
     'orichalcum_key': (
-        '_38007AKeyMessage',),
+        '_37100MutantNinjaIninas', '_37103CamoAndCarnage', '_37106AsmoHunt', '_37107CoolBlueWater', '_37110MyYoungApprentice',
+        '_37113AsmoICU', '_38007AKeyMessage',),
+    'pangaea': (
+        '_14220NewZoneNewRules', '_24220WelcometoPanesterra',),
     'radiant_ops': (
         '_38001RadiantOpsRecruitment',),
     'rentus_base': (
@@ -154,7 +158,8 @@ Q14 = {
     'terath_dredgion': (
         '_30600FightOfTheNavigators', '_30610TheGoodNewsAndBad',),
     'the_circle': (
-        '_48007JoiningTheCircle',),
+        '_47100WardsAndWardOrbs', '_47103AGlobeTrottingLesson', '_47106TurningUpTheAmplifiers', '_47107WardsAndWardOrbs',
+        '_47110AGlobeTrottingLesson', '_47113TurningUpTheAmplifiers', '_48007JoiningTheCircle',),
     'the_eternal_bastion': (
         '_18035ShebasSurveillance', '_18036BastionsAreEternal', '_28035TrustInNoneButVerify', '_28036InterrogateKvash',),
     'tiamat_stronghold': (
@@ -244,7 +249,7 @@ class CommittedTree(unittest.TestCase):
             for klass in classes:
                 with self.subTest(file=f'{directory}/{klass}'):
                     self.assertIn((directory, klass), found)
-        self.assertEqual(sum(len(classes) for classes in Q14.values()), 74)
+        self.assertEqual(sum(len(classes) for classes in Q14.values()), 91)
         self.assertEqual(len(Q10_HELD_BACK), 16)
 
     def test_the_enter_world_files_are_in_the_tree(self):

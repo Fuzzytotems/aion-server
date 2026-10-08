@@ -431,7 +431,7 @@ class Driver(unittest.TestCase):
         with contextlib.redirect_stdout(io.StringIO()) as out:
             cli.main(['--dry-run', '--no-pairs', '--only', 'poeta/_1005BarringtheGate.java'])
         self.assertIn('1 of 1 transliterated', out.getvalue())
-        self.assertIn('emitter rules: nested-array, scheduled-closure, switch-expression, varargs-inline, work-items', out.getvalue())
+        self.assertIn('emitter rules: constant-list, nested-array, scheduled-closure, stream-any-match, switch-expression, varargs-inline, work-items', out.getvalue())
         with contextlib.redirect_stdout(io.StringIO()) as out:
             cli.main(['--dry-run', '--no-pairs', '--prototype-rules', '--only', 'poeta/_1005BarringtheGate.java'])
         self.assertIn('0 of 1 transliterated', out.getvalue())

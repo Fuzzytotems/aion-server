@@ -277,6 +277,17 @@ SLICE_Q14 = (
 	'udas_temple/_30005HealMeKillMe.java', 'udas_temple/_30011Arachnophobia.java', 'udas_temple/_30103LairOfTheDragonbound.java',
 	'udas_temple/_30111CenterOfTheWeb.java', 'wisplight_abbey/_19600WelcometoWisplightAbbey.java',
 )
+# The owner's decisions of 2026-10-07 on Q14's refused files (docs/deviations/Q14.md, "Owner's decisions"): the 15 mentor dailies (questgen
+# rule stream-any-match; here the inputs player.inGroup and player.mentorInRange, mentor_search) and pangaea's two quests (questgen rule
+# constant-list; here constant_list and list_contains)
+SLICE_Q14 += (
+	'marchutan_priory/_47000AltgardOrbIt.java', 'marchutan_priory/_47003AGlobalProblem.java', 'marchutan_priory/_47006AmplifiersWithIssues.java',
+	'orichalcum_key/_37100MutantNinjaIninas.java', 'orichalcum_key/_37103CamoAndCarnage.java', 'orichalcum_key/_37106AsmoHunt.java',
+	'orichalcum_key/_37107CoolBlueWater.java', 'orichalcum_key/_37110MyYoungApprentice.java', 'orichalcum_key/_37113AsmoICU.java',
+	'the_circle/_47100WardsAndWardOrbs.java', 'the_circle/_47103AGlobeTrottingLesson.java', 'the_circle/_47106TurningUpTheAmplifiers.java',
+	'the_circle/_47107WardsAndWardOrbs.java', 'the_circle/_47110AGlobeTrottingLesson.java', 'the_circle/_47113TurningUpTheAmplifiers.java',
+	'pangaea/_14220NewZoneNewRules.java', 'pangaea/_24220WelcometoPanesterra.java',
+)
 SLICE = SLICE_TIER_A + SLICE_ROUTE + SLICE_Q03 + SLICE_Q10 + SLICE_Q08 + SLICE_Q01 + SLICE_Q02 + SLICE_Q14
 
 ENUM_FILES = {'QuestStatus': 'questEngine/model/QuestStatus.java', 'Race': 'model/Race.java', 'PlayerClass': 'model/PlayerClass.java',
@@ -645,6 +656,10 @@ class Extractor:
 				out[f.name] = Unsupported(f'field {f.name} is written or has no initializer')
 				continue
 			s = f.initializer.start
+			lst = self.constant_list(f)
+			if lst is not None:
+				out[f.name] = K(lst)
+				continue
 			init = self.p.array_init(s)[0] if self.cu.tokens.text[s] == '{' else self.p.expr_span(s, f.initializer.end)
 			try:
 				vals = self.eval(init, SPath())
@@ -655,6 +670,28 @@ class Extractor:
 				out[f.name] = Unsupported(f'field {f.name} is not a constant')
 				continue
 			out[f.name] = vals[0][1]
+
+	def constant_list(self, f):
+		"""the owner's decision of 2026-10-07 on pangaea 14220/24220: a `static final List<Integer> X = new ArrayList<>(Arrays.asList(<int
+		literals>))` the file only iterates (`for (int x : X)`) and asks `X.contains(v)` is a constant tuple (nothing changes it); None
+		otherwise (written by the extractor from the tokens: the shared parser refuses `new ArrayList<>`)"""
+		mods = set(f.modifiers)
+		if not {'static', 'final'} <= mods or f.type.name != 'List' or f.type.dims or not f.type.args or len(f.type.args) != 1 				or getattr(f.type.args[0], 'name', None) != 'Integer':
+			return None
+		tx = self.cu.tokens.text
+		toks = [tx[i] for i in range(f.initializer.start, f.initializer.end)]
+		head = ['new', 'ArrayList', '<', '>', '(', 'Arrays', '.', 'asList', '(']
+		if toks[:len(head)] != head or toks[-2:] != [')', ')']:
+			return None
+		items = toks[len(head):-2]
+		if len(items) % 2 != 1 or any(not v.isdigit() for v in items[0::2]) or any(c != ',' for c in items[1::2]):
+			return None
+		for i, x in enumerate(tx):
+			if x != f.name or f.index <= i < f.initializer.end:
+				continue
+			if tx[i - 1] == '.' or not (tx[i + 1:i + 4] == ['.', 'contains', '('] or (tx[i - 1] == ':' and tx[i + 1] == ')')):
+				return None
+		return tuple(int(v) for v in items[0::2])
 
 	def line(self, node):
 		return self.cu.tokens.loc(node.tok)[0]
@@ -1025,7 +1062,7 @@ class Extractor:
 			return Dom(lo=0, hi=63)                 # QuestVars: six 6-bit slots (QuestVars.java:22-58)
 		if head in ('inv', 'completeCount'):
 			return Dom(lo=0)
-		if head in ('canRepeat',) or key in (('env', 'continuation'), ('player', 'mentor')):
+		if head in ('canRepeat',) or key in (('env', 'continuation'), ('player', 'mentor'), ('player', 'inGroup'), ('player', 'mentorInRange')):
 			return Dom((True, False))
 		if key == ('player', 'race'):
 			return Dom(tuple(Enum('Race', n) for n in ('ELYOS', 'ASMODIANS')))
@@ -1382,6 +1419,20 @@ class Extractor:
 				return []
 			p.dom[key] = d2
 			return [p]
+		if obj.name == 'group':
+			# Player.getPlayerGroup() is null unless the player is in a group: a NullPointerException there
+			key = ('player', 'inGroup')
+			self.read_input(p, key)
+			d = self.dom_of(p, key)
+			if d.restrict('==', False).sat():
+				q = p.fork()
+				q.dom[key] = d.restrict('==', False)
+				self.throw(q, 'NullPointerException')
+			d2 = d.restrict('==', True)
+			if not d2.sat():
+				return []
+			p.dom[key] = d2
+			return [p]
 		return [p]
 
 	def throw(self, p, exc):
@@ -1401,6 +1452,9 @@ class Extractor:
 				return self.after_args(e, p, lambda q, a: [(q, K(self.qid))])
 			if name in HELPERS:
 				return self.helper(name, e, p)
+			if name.startswith('STR_') and not e.args and name in self.sysmsg_imports():
+				# a system message factory without parameters, imported statically (`import static ...SM_SYSTEM_MESSAGE.STR_X`): the packet
+				return [(p, New(f'SM_SYSTEM_MESSAGE.{name}', ()))]
 			raise Unsupported(f'call {name}')
 		if isinstance(tgt, jast.Name) and tgt.name == 'super':
 			if name == 'onDialogEvent':
@@ -1418,6 +1472,10 @@ class Extractor:
 			if tgt.name not in self.t.world_maps:
 				raise Unsupported(f'WorldMapType.{tgt.name}')
 			return [(p, K(self.t.world_maps[tgt.name]))]
+		if name == 'anyMatch' and self.is_mentor_search(e):
+			return self.mentor_search(e, p)
+		if name == 'contains' and len(e.args) == 1 and isinstance(tgt, jast.Name) and tgt.name not in p.locals 				and isinstance(self.consts.get(tgt.name), K) and isinstance(self.consts[tgt.name].v, tuple):
+			return self.list_contains(self.consts[tgt.name].v, e, p)
 		out = []
 		for q, recv in self.eval(tgt, p):
 			if isinstance(recv, RewardPage) and name == 'id':
@@ -1429,6 +1487,50 @@ class Extractor:
 			for r, args in self.eval_args(e.args, q):
 				for s in self.deref(r, recv):
 					out += self.method(recv, name, args, s, e)
+		return out
+
+	def list_contains(self, values, e, p):
+		"""`X.contains(v)` of a constant list (constant_list; List.contains is Integer.equals, value equality): a path per element where v
+		equals it, and one where v equals none"""
+		text, line = self.jtext(e), self.line(e)
+		out = []
+		for q, a in self.eval(e.args[0], p):
+			for x in values:
+				r = q.fork()
+				if self.constrain(r, a, '==', x):
+					r.guards.append((line, f'{text} [== {x}]', True))
+					out.append((r, K(True)))
+			r = q.fork()
+			if all(self.constrain(r, a, '!=', x) for x in values):
+				r.guards.append((line, text, False))
+				out.append((r, K(False)))
+		return out
+
+	def sysmsg_imports(self):
+		return {imp.name.rpartition('.')[2] for imp in self.cu.imports
+		        if imp.static and not imp.wildcard and imp.name.rpartition('.')[0].endswith('.SM_SYSTEM_MESSAGE')}
+
+	MENTOR_PREDICATE = 'member.isMentor() && PositionUtil.isInRange(player, member, GroupConfig.GROUP_MAX_DISTANCE)'
+
+	def is_mentor_search(self, e):
+		"""the mentor dailies' `group.getMembers().stream().anyMatch(member -> <MENTOR_PREDICATE>)` (marchutan_priory, orichalcum_key,
+		the_circle, kaisinel_academy), word for word"""
+		t = e.target
+		clo = e.args[0] if len(e.args) == 1 else None
+		return isinstance(clo, jast.Closure) and clo.kind == 'lambda' and clo.params == ['member'] and clo.expr is not None 			and ' '.join(self.jtext(clo.expr).split()) == self.MENTOR_PREDICATE and isinstance(t, jast.Call) and t.name == 'stream' 			and not t.args and isinstance(t.target, jast.Call) and t.target.name == 'getMembers' and not t.target.args
+
+	def mentor_search(self, e, p):
+		"""Java: true when a member of the player's group (the player included) is a mentor within GroupConfig.GROUP_MAX_DISTANCE of the
+		player (PositionUtil.isInRange, centre to centre): one input, ('player', 'mentorInRange'), which only a path in a group reads. The
+		closure's `player` must be the hook's player."""
+		if p.locals.get('player') != O('player'):
+			raise Unsupported('the mentor search with a player that is not the hook player')
+		out = []
+		for q, recv in self.eval(e.target.target.target, p):
+			if recv != O('group'):
+				raise Unsupported(f'call {self.jtext(e)}')
+			for r in self.deref(q, recv):
+				out.append((r, self.read_input(r, ('player', 'mentorInRange'))))
 		return out
 
 	def after_args(self, e, p, fn):
@@ -1482,6 +1584,12 @@ class Extractor:
 				return [(p, self.read_input(p, ('player', attr)))]
 			if name == 'getObjectId':
 				return [(p, Opaque('$playerObjectId'))]
+			# the owner's decision of 2026-10-07 on Q14's mentor dailies: Player.isInGroup (Player.java: playerGroup != null) is an input, and
+			# getPlayerGroup the group, null outside one (deref)
+			if name == 'isInGroup' and not args:
+				return [(p, self.read_input(p, ('player', 'inGroup')))]
+			if name == 'getPlayerGroup' and not args:
+				return [(p, O('group'))]
 		if o == 'qsl':
 			q_id = self.const_int(args[0], 'a quest id')
 			if name == 'getQuestState':
