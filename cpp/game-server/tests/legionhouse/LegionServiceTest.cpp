@@ -26,6 +26,9 @@
 #include "aion/gameserver/services/LegionDominionService.h"
 #include "aion/commons/utils/TimeUtils.h"
 #include "aion/gameserver/configs/main/LegionConfig.h"
+#include "aion/gameserver/model/items/storage/Storage.h"
+#include "aion/gameserver/model/items/storage/StorageType.h"
+#include "aion/gameserver/model/items/storage/StorageTypeInfo.h"
 #include "aion/gameserver/model/team/legion/Legion.h"
 #include "aion/gameserver/model/team/legion/LegionEmblem.h"
 #include "aion/gameserver/model/team/legion/LegionMember.h"
@@ -284,6 +287,21 @@ TEST_F(LegionServiceTest, EmblemDataIsSentIn7993ByteChunks) {
 		EXPECT_EQ(a.count(opcodeOf<serverpackets::SM_LEGION_SEND_EMBLEM>), 1) << length;
 		EXPECT_EQ(a.count(opcodeOf<serverpackets::SM_LEGION_SEND_EMBLEM_DATA>), chunks) << length << " bytes";
 	}
+}
+
+TEST_F(LegionServiceTest, AMembersLegionWarehouseProxyIsCreatedForThePublishedPlayer) {
+	LEGION_REQUIRE_DATABASE();
+	// the M5h gate's C8 (2026-10-08): the logout's store asked a published legion member for his LEGION_WAREHOUSE storage, whose proxy bound
+	// its owner after publication (AION_CHECKED C11); the proxy now takes its owner at construction
+	Member& a = online("Alpha", 25000);
+	Legion& legion = created(a);
+	const int32_t legionWarehouse = model::items::storage::getId(model::items::storage::StorageType::LEGION_WAREHOUSE);
+	runtime::Ptr<model::items::storage::Storage> first = a.player().getStorage(legionWarehouse);
+	ASSERT_TRUE(first);
+	EXPECT_EQ(first->getStorageType(), model::items::storage::StorageType::LEGION_WAREHOUSE);
+	runtime::Ptr<model::items::storage::Storage> second = a.player().getStorage(legionWarehouse);
+	EXPECT_TRUE(second) << "a second proxy replaces the first in the slot";
+	static_cast<void>(legion);
 }
 
 TEST_F(LegionServiceTest, AnExpiredDisbandTimeDisbandsTheLegionOnTheNextLookup) {
