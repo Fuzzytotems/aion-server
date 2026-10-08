@@ -1,7 +1,7 @@
 #include "aion/gameserver/model/challenge/ChallengeQuest.h"
 
-#include "aion/gameserver/runtime/base/Unported.h"
 #include "aion/gameserver/model/templates/challenge/ChallengeQuestTemplate.h"
+#include "aion/gameserver/runtime/sync/Monitor.h"
 
 namespace aion::gameserver::model::challenge {
 
@@ -14,23 +14,28 @@ runtime::Ref<ChallengeQuest> ChallengeQuest::create(const templates::challenge::
 }
 
 int32_t ChallengeQuest::getQuestId() {
-	AION_UNPORTED();
+	return template_->getId();
 }
 
 int32_t ChallengeQuest::getMaxRepeats() {
-	AION_UNPORTED();
+	return template_->getRepeatCount();
 }
 
 int32_t ChallengeQuest::getScorePerQuest() {
-	AION_UNPORTED();
+	return template_->getScore();
 }
 
 void ChallengeQuest::increaseCompleteCount() {
-	AION_UNPORTED();
+	SYNCHRONIZED(*this) { // Java: public synchronized void increaseCompleteCount()
+		this->completeCount.set(this->completeCount.get() + 1);
+		setPersistentState(gameobjects::Persistable::PersistentState::UPDATE_REQUIRED);
+	}
 }
 
 void ChallengeQuest::setPersistentState(gameobjects::Persistable::PersistentState value) {
-	AION_UNPORTED();
+	if (this->persistentState.get() == gameobjects::Persistable::PersistentState::NEW && value == gameobjects::Persistable::PersistentState::UPDATE_REQUIRED)
+		return;
+	this->persistentState.set(value);
 }
 
 ChallengeQuest::~ChallengeQuest() = default;

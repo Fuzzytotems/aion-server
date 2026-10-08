@@ -3013,7 +3013,9 @@ LIVE_CHECKS = [
     # ported since M5e M-05 (model/summons/SummonModeInfo.h, the companion of the generated enum); the 2026-09-23 answer was the stand-in
     # summonModeId of serverpackets/detail/PacketSupport.h
     ('model/summons/SummonMode.java', 'SummonMode', 'getId', 0, None, 'ported', ''),
-    ('model/team/legion/LegionRank.java', 'LegionRank', 'getRankId', 0, None, 'standIn', 'standIn'),
+    # ported since M5h F1 (model/team/legion/LegionRankInfo.h, the companion of the generated enum); the earlier answer was the stand-in
+    # legionRankId of serverpackets/detail/PacketSupport.h
+    ('model/team/legion/LegionRank.java', 'LegionRank', 'getRankId', 0, None, 'ported', ''),
     # ported since M5j K-06 (network/aion/clientpackets/AbstractGmCommandPacket.cpp); ChatUtil.cpp's stand-in is gone
     ('network/aion/clientpackets/AbstractGmCommandPacket.java', 'AbstractGmCommandPacket', 'replaceUnsupportedCommandChars', 1, None,
      'ported', None),
