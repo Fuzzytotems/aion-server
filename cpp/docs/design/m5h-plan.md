@@ -996,3 +996,11 @@ S-07's first part is `tests/legionhouse/LegionServiceTest.cpp` (database tests u
 disbanding winner, the rewards by rank). The reward mails reach `SystemMailService::sendMail` with the shipped item ids; the cases bind no item
 templates, so sendMail answers false there and the mail itself is SystemMailService's to test. Java's `dominionRewards.get(i + 1)` is null for
 a rank without rewards (a NullPointerException, kept).
+
+**The legion gate, first cut (lane B, 2026-10-08)**: `gs.scenario.m5h` (`tests/scenario/M5hScenarioTest.cpp`, `tools/oracle m5h-legion`,
+`m5h_partial_allowlist.txt`) scripts §10.2's legion cases C0-C8, C11, C12 and C21 with three Elyos accounts (C's legion seeded at level 3):
+create and its refusal order, invite, the notice cut at 256, ranks, permissions, intro and nickname, the level-up refused for money, a member's
+relog, the history pages, a predefined emblem and a 9,000-byte upload read back with and without its data, leave and kick; C23 the reports.
+Not scripted yet, with the reason: C8's kill, C9 and C22 (the npc dialogs of DialogService, A-06, and CM_MOVE_ITEM, A-03), C10 (legion chat,
+lane A's CM_CHAT_MESSAGE_PUBLIC), the studio cases C13-C20. The gate found a port bug on its first run - LegionStorageProxy bound its owner after
+the player's publication and the checked server aborted at a legion member's logout; fixed in its own commit (P4-13 lease, header request m5h-g1).
