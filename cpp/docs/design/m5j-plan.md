@@ -1562,3 +1562,30 @@ Java behaviour the gate pins and that goes to the owner as proposed corrections 
 milliseconds; the gate sees its immediate STR_CAN_CHAT_NOW), and a friend's enter-world SM_FRIEND_UPDATE whose status byte reads OFFLINE when
 the packet is written before World.storeObject (PlayerEnterWorldService.java:191 before :197). Stage 2 (ride, kisk, toy pets) re-runs these
 cases and adds Z9-Z11.
+
+### 18.3 Stage 2, measured (2026-10-08, lane A, over `lane-a/m5j-s1-cp5`)
+
+`AION_UNPORTED` sites and missing C++ files of §7 "Stage 2" as they stand (grep of the C++ files, the client packets and command handlers
+without a C++ file; `tools/porting/census.py` for the totals):
+
+| Item | Open now | Note |
+|---|---|---|
+| E-01 toy pets | `PetService` 10, `PetAdoptionService` 4, `PetFeedCalculator` 4, `PetFeedProgress` 7, `PetMoodService` 4, `PetSpawnService` 1 (~810 Java lines) | the model (`Pet`, `PetCommonData`, `PetList`, `PetController`), `PlayerPetsDAO`, `SM_PET`, `SM_PET_EMOTE` are ported |
+| E-02 item actions | **none**: `AdoptPetAction`, `RideAction`, `ExpExtractAction` were ported by M5b-3 leftovers CP2 (`d38cec7ec`) | |
+| E-03 packets | `CM_PET`, `CM_PET_EMOTE`, `CM_APPEARANCE`, `CM_UPGRADE_ARCADE` have no file | `UpgradeArcadeService` is ported (M5b-3 leftovers CP3, `584a3f6a4`): D12's question is now only whether the event is switched on |
+| E-05 kisks | `KiskService` 2 (`removeKisk`, `onBind`), `KiskAI`, `InvisiblekiskAI` have no file | `ToyPetSpawnAction`, `kiskRevive` and `allowKiskRevive` are ported |
+| E-06 arcade | ported (above) | the packet is in E-03 |
+| E-07 commands | the item and pet commands without a file: `//add`, `//addset`, `//addcube`, `//remove`, `//equip`, `//dye`, `//pet`, `//megaphone`, `//rename`, `//res`, `.preview`, `.nomorph`, `.noexp`, `.del`, `.decompose` | `.buy`, `.easter`, `.symphony` are event content (D12); the system commands stay stage 4 |
+| E-09 group K (A-C4) | the services are ported (`ArmsfusionService`, `ItemPurificationService`, `ItemRemodelService`, `ItemChargeService`, `WarehouseService`, `TradeService.tradeIn`, `CompositionAction`); left are the packets `CM_CHARGE_ITEM`, `CM_ITEM_PURIFICATION`, `CM_ITEM_REMODEL`, `CM_FUSION_WEAPONS`, `CM_BREAK_WEAPONS`, `CM_COMPOSITE_STONES`, `CM_BUY_TRADE_IN_TRADE`, `CM_READ_EXPRESS_MAIL` and the postman AIs `DeliveryManAI`, `FollowingNpcAI` | M5b-3's leftovers took the services, so the remaining bodies are thin and M5j takes them (D15) |
+| E-10 stigma | **none**: `StigmaService` ported by M5e T-01 (`a0d8694cd`) | |
+| Stage-0 rest | `CM_CHAT_GROUP_INFO` (K-05) and `CM_TIME_CHECK_QUIT` have no file | taken with E-03 |
+| Not M5j stage 2 | `CM_LEGION*`, `CM_HOUSE*`, `CM_*BROKER*`, `CM_PLACE_BID`, `CM_GET_HOUSE_BIDS`, `CM_REGISTER_HOUSE`, `CM_USE_HOUSE_OBJECT`, `CM_RELEASE_OBJECT`, `CM_CHALLENGE_LIST`, `CM_LEGION_DOMINION_REQUEST_RANKING` (lane B, M5h); `CM_AUTO_GROUP` (stage 4, X-01); `CM_GODSTONE_SOCKET` (commented out of the 4.8 factory) | |
+
+**Checkpoints** (each with unit tests in the owning chunk's test directory, a mutation proof, and the stage-2 gate cases that cover it):
+1. **CP1 toy pets**: E-01, `CM_PET`, `CM_PET_EMOTE`, `//pet`; the pet feed arithmetic against golden vectors computed from the Java formulas.
+2. **CP2 kisks**: E-05's `KiskService` bodies, `KiskAI`, `InvisiblekiskAI`.
+3. **CP3 the remaining packets**: `CM_APPEARANCE`, `CM_UPGRADE_ARCADE`, `CM_CHAT_GROUP_INFO`, `CM_TIME_CHECK_QUIT`, E-09's eight packets and the two postman AIs.
+4. **CP4 commands**: E-07.
+5. **CP5 the gate**: H-21 (`oracle.py m5j-items`, the pet, ride and kisk decoders), G-21 (`gs.scenario.m5j` Z9-Z11 with the stage-1 cases re-run).
+
+> **Progress:** CP1 done (branch `lane-a/m5j-s2-cp1`): the six toy pet services, `CM_PET`, `CM_PET_EMOTE`, `//pet` (P5-08.md, P5-16.md, C1.md).
