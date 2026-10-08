@@ -24,7 +24,7 @@ void Say::execute(Player& admin, std::span<const std::string> params) {
 		return;
 	}
 
-	PacketSendUtility::broadcastPacket(admin, SM_MESSAGE(*npc, join(params, 0), ChatType::NORMAL), true); // Java: String.join(" ", params)
+	PacketSendUtility::broadcastPacket(admin, SM_MESSAGE(*npc, join(params, 0), ChatType::NORMAL), true); // parity= PacketSendUtility.broadcastPacket(admin, new SM_MESSAGE(npc, String.join(" ", params), ChatType.NORMAL), true);
 }
 
 } // namespace aion::gameserver::handlers::admincommands

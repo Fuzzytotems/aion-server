@@ -18,9 +18,9 @@ Enemy::Enemy()
 }
 
 /** Java String.equalsIgnoreCase (ASCII); a private static member: handler files have no anonymous namespace (unity builds) */
-bool Enemy::equalsIgnoreCase(std::string_view a, std::string_view b) {
-	return a.size() == b.size() &&
-		   std::ranges::equal(a, b, [](unsigned char x, unsigned char y) { return std::tolower(x) == std::tolower(y); });
+bool Enemy::equalsIgnoreCase(std::string_view a, std::string_view b) { // parity: Java String.equalsIgnoreCase, spelled out (the comment above)
+	return a.size() == b.size() && // parity: (continued)
+		   std::ranges::equal(a, b, [](unsigned char x, unsigned char y) { return std::tolower(x) == std::tolower(y); }); // parity: (continued)
 }
 
 // Java Enemy.java:22-74

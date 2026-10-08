@@ -42,8 +42,8 @@ void Kill::execute(Player& player, std::span<const std::string> params) {
 	}
 
 	if (params.empty()) {
-		if (runtime::Ptr<Creature> creature = runtime::as<Creature>(target)) {
-			std::string targetInfo = commons::utils::StringUtils::toLowerCase(utils::simpleClassName(typeid(*target))) + ": ";
+		if (runtime::Ptr<Creature> creature = runtime::as<Creature>(target)) { // parity= if (target instanceof Creature creature) {
+			std::string targetInfo = commons::utils::StringUtils::toLowerCase(utils::simpleClassName(typeid(*target))) + ": "; // parity= String targetInfo = target.getClass().getSimpleName().toLowerCase() + ": ";
 			if (runtime::as<Npc>(target) != nullptr)
 				targetInfo += ChatUtil::path(*target, true);
 			else
@@ -56,9 +56,9 @@ void Kill::execute(Player& player, std::span<const std::string> params) {
 			PacketSendUtility::sendPacket(player, SM_SYSTEM_MESSAGE::STR_INVALID_TARGET());
 		}
 	} else {
-		std::function<bool(Creature&)> filter;
+		std::function<bool(Creature&)> filter; // parity= Predicate<Creature> filter;
 		if (equalsIgnoreCase(params[0], "all")) {
-			filter = [](Creature&) { return true; };
+			filter = [](Creature&) { return true; }; // parity= filter = _ -> true;
 		} else {
 			float range = commons::configuration::transformers::NumberParser::parseFloat(params[0]); // Java: Float.parseFloat
 			if (range < 0) {
@@ -67,32 +67,32 @@ void Kill::execute(Player& player, std::span<const std::string> params) {
 			}
 			// if input was integer, add 0.999 so it matches the client's displayed target distance (client doesn't round up at .5)
 			// Java: range == Math.round(range) (Math.round(float): floor(x + 0.5) narrowed to int, compared as float)
-			float rounded = static_cast<float>(geoEngine::math::JavaFloat::doubleToInt(std::floor(static_cast<double>(range) + 0.5)));
-			float finalRange = range == rounded ? range + 0.999f : range;
+			float rounded = static_cast<float>(geoEngine::math::JavaFloat::doubleToInt(std::floor(static_cast<double>(range) + 0.5))); // parity: the Math.round(range) of the next line
+			float finalRange = range == rounded ? range + 0.999f : range; // parity= float finalRange = range == Math.round(range) ? range + 0.999f : range;
 			filter = [&player, finalRange](Creature& creature) { return PositionUtil::isInRange(player, creature, finalRange); };
 		}
 		if (params.size() == 2) {
-			std::function<bool(Creature&)> base = filter;
+			std::function<bool(Creature&)> base = filter; // parity: the previous filter, which Java's Predicate.and keeps
 			if (equalsIgnoreCase(params[1], "neutral")) {
-				filter = [base, &player](Creature& creature) { return base(creature) && !player.isEnemy(creature); };
+				filter = [base, &player](Creature& creature) { return base(creature) && !player.isEnemy(creature); }; // parity= filter = filter.and(creature -> !player.isEnemy(creature));
 			} else if (equalsIgnoreCase(params[1], "enemy")) {
-				filter = [base, &player](Creature& creature) { return base(creature) && player.isEnemy(creature); };
+				filter = [base, &player](Creature& creature) { return base(creature) && player.isEnemy(creature); }; // parity= filter = filter.and(player::isEnemy);
 			} else {
 				int32_t npcId = commons::utils::parseInt(params[1]);
-				filter = [base, npcId](Creature& creature) { return base(creature) && creature.getObjectTemplate()->getTemplateId() == npcId; };
+				filter = [base, npcId](Creature& creature) { return base(creature) && creature.getObjectTemplate()->getTemplateId() == npcId; }; // parity= filter = filter.and(creature -> creature.getObjectTemplate().getTemplateId() == npcId);
 			}
 		}
-		int32_t count = 0; // Java: AtomicInteger
-		for (const runtime::Ptr<world::knownlist::KnownObject>& o : player.getKnownList().stream()) {
-			runtime::Ptr<Creature> creature = runtime::as<Creature>(o->get());
-			if (creature == nullptr || runtime::as<Player>(creature) != nullptr)
-				continue;
-			if (!filter(*creature))
-				continue;
+		int32_t count = 0; // parity= AtomicInteger count = new AtomicInteger();
+		for (const runtime::Ptr<world::knownlist::KnownObject>& o : player.getKnownList().stream()) { // parity= player.getKnownList().stream().filter(obj -> obj.get() instanceof Creature creature && !(creature instanceof Player)).map(o -> (Creature) o.get()).filter(filter).forEach(creature -> {
+			runtime::Ptr<Creature> creature = runtime::as<Creature>(o->get()); // parity: (continued)
+			if (creature == nullptr || runtime::as<Player>(creature) != nullptr) // parity: (continued)
+				continue; // parity: (continued)
+			if (!filter(*creature)) // parity: (continued)
+				continue; // parity: (continued)
 			if (kill(player, *creature))
-				count++;
+				count++; // parity= count.incrementAndGet();
 		}
-		sendInfo(player, std::to_string(count) + " NPC(s) were killed.");
+		sendInfo(player, std::to_string(count) + " NPC(s) were killed."); // parity= sendInfo(player, count + " NPC(s) were killed.");
 	}
 }
 

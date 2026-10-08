@@ -30,7 +30,7 @@ void Invis::execute(Player& player, std::span<const std::string> /*params*/) {
 	}
 	PacketSendUtility::broadcastPacket(player, SM_PLAYER_STATE(player), true);
 	// required because without a skill this isn't sent automatically (outdated abnormals can cause issues when opening a private store for example)
-	PacketSendUtility::sendPacket(player, SM_ABNORMAL_STATE({}, player.getEffectController()->getAbnormals(), 0));
+	PacketSendUtility::sendPacket(player, SM_ABNORMAL_STATE({}, player.getEffectController()->getAbnormals(), 0)); // parity= PacketSendUtility.sendPacket(player, new SM_ABNORMAL_STATE(Collections.emptyList(), player.getEffectController().getAbnormals(), 0));
 }
 
 } // namespace aion::gameserver::handlers::admincommands
