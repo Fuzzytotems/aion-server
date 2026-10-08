@@ -408,6 +408,53 @@ std::vector<uint8_t> GameSession::buildCM_BUILDER_COMMAND(std::string_view comma
 	return PacketWriter().S(command).data; // AbstractGmCommandPacket.java:28
 }
 
+std::vector<uint8_t> GameSession::buildCM_SET_NOTE(std::string_view note) {
+	return PacketWriter().S(note).data; // CM_SET_NOTE.readImpl: readS note
+}
+
+std::vector<uint8_t> GameSession::buildCM_VIEW_PLAYER_DETAILS(int32_t targetObjectId) {
+	return PacketWriter().D(targetObjectId).data; // CM_VIEW_PLAYER_DETAILS.readImpl: readD targetObjectId
+}
+
+std::vector<uint8_t> GameSession::buildCM_FRIEND_ADD(std::string_view targetName, std::string_view message) {
+	return PacketWriter().S(targetName).S(message).data; // CM_FRIEND_ADD.readImpl: readS targetName, readS message
+}
+
+std::vector<uint8_t> GameSession::buildCM_FRIEND_DEL(std::string_view targetName) {
+	return PacketWriter().S(targetName).data; // CM_FRIEND_DEL.readImpl: readS targetName
+}
+
+std::vector<uint8_t> GameSession::buildCM_DUEL_REQUEST(int32_t objectId) {
+	return PacketWriter().D(objectId).data; // CM_DUEL_REQUEST.readImpl: readD objectId
+}
+
+std::vector<uint8_t> GameSession::buildCM_TITLE_SET(uint16_t titleId) {
+	return PacketWriter().H(titleId).data; // CM_TITLE_SET.readImpl: readUH titleId
+}
+
+std::vector<uint8_t> GameSession::buildCM_PLAYER_SEARCH(std::string_view name, int32_t region, int32_t classMask, uint8_t minLevel,
+	uint8_t maxLevel, uint8_t lfgOnly) {
+	constexpr size_t NAME_CHARACTERS = 25; // CM_PLAYER_SEARCH.readImpl: readS(25)
+	const size_t length = commons::utils::StringUtils::toUtf16(name).size();
+	if (length > NAME_CHARACTERS)
+		throw std::invalid_argument("CM_PLAYER_SEARCH: a name of " + std::to_string(length) + " UTF-16 units does not fit readS(25)");
+	PacketWriter writer;
+	writer.S(name).zeros((NAME_CHARACTERS - length) * 2); // AionClientPacket.readS(int): readS(), then readB((count - length) * 2)
+	return writer.D(region).D(classMask).C(minLevel).C(maxLevel).C(lfgOnly).C(0).data; // readD, readD, readUC, readUC, readUC, readC
+}
+
+std::vector<uint8_t> GameSession::buildCM_BLOCK_ADD(std::string_view targetName, std::string_view reason) {
+	return PacketWriter().S(targetName).S(reason).data; // CM_BLOCK_ADD.readImpl: readS targetName, readS reason
+}
+
+std::vector<uint8_t> GameSession::buildCM_MACRO_CREATE(uint8_t position, std::string_view xml) {
+	return PacketWriter().C(position).S(xml).data; // CM_MACRO_CREATE.java:41-42
+}
+
+std::vector<uint8_t> GameSession::buildCM_ABYSS_RANKING_PLAYERS(uint8_t raceId) {
+	return PacketWriter().C(raceId).data; // CM_ABYSS_RANKING_PLAYERS.readImpl: readC raceId
+}
+
 namespace {
 
 /** the readUH count every M5c list packet starts with: more than 65535 entries cannot be written */
