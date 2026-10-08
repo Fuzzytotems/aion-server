@@ -1500,3 +1500,49 @@ was taken; none was rejected outright, and two were taken in part.
 | 11 | low | Shared artefacts: the command smoke has no owner; one header-request section for all lanes; C1 and C2 share one library, its preludes and its unity batches | **holds** (unity batches are per directory, `AionChunks.cmake:600-607`) | K-09: the smoke is commands-c1's; header requests in a subsection per lane; §17.7's paragraph on the shared library (frozen preludes, the regscan unity rules, the 0.1b combined build) |
 | 12 | low | G-02 omits `gs.scenario.m5a_stress` | **holds in part**: it is registered but disabled unless `AION_STRESS_NIGHTLY=ON` | G-02 says the list leaves it out and why |
 | 13 | nit | Five slips: who added `CM_PLAY_MOVIE_END` and its two siblings; "line only" for a byte-identical `ChatCommand.h`; three K-10 ranges one line short; the slot rule's line; the body arithmetic against rev 1 | **all hold** | §17.1, §17.2 (K-01, K-10 and the total), §17.8's slot bullet |
+
+## 18. Stage 0 closed (2026-10-08, lane A, branch `lane-a/m5j-stage0-gate`)
+
+What landed for the stage-0 items, after the chat lane (K-01..K-06), the command lanes (K-07..K-10, the 41 commands of §17.4, the last six
+being the talking family of `lane-a/gm-talk`) and I-02 had merged:
+
+| Item | State | Where |
+|---|---|---|
+| **H-03** | done: `tools/parity` reads chat commands (the region after the `AION_*_COMMAND` marker, `super(...)` as the base initializer, text blocks and adjacent literals as values, the command rewrites) and has the per-line waiver of handlers-and-porting-plan.md §3.1 item 2 in two forms, `// parity: <reason>` and `// parity= <Java>` (read with the Java rules). 41 of 41 command files at parity; no real divergence found (one ASCII-only `equalsIgnoreCase` edge in //enemy noted) | `tools/parity` (README, 41 tests), docs/deviations/C1.md |
+| **H-02** | done: the GM account seed (`account_data.access_level` in the gate's login schema, after the accounts' autocreating first login), `GameSession::buildCM_CHAT_MESSAGE_PUBLIC` / `buildGmCommand` / `buildCM_CHAT_MESSAGE_WHISPER` / `buildCM_BUILDER_COMMAND`; the `SM_MESSAGE` decoder already existed (M5c) | `tests/scenario/GmScenarioTest.cpp`, `GameSession.h` |
+| **G-01** (`gs.scenario.gm`) | done, narrowed: X1, X3, X4/X5 (P's side), X6, X7, X8 as one command per family, X10; X2 waits for H-01's oracle; X8b, X8c and X11 are part 0.2's | docs/deviations/P5-SC.md, "M5j stage-0 GM gate" |
+| **H-01** (`oracle.py m5j-commands`) | done (2026-10-08, branch `lane-a/m5j-stage0-rest`): levels, aliases keyed with their prefix, help after ChatUtil.split, access text, ChatType ids, l10n, whisper level, non-Daeva cap; the gate's X2 (every stage-0 command's help, 41 of 41 equal) and X3 read it | `tools/oracle/m5j/commands.py`, tools/oracle/README.md |
+| **C-03** (`gs.scenario.chat`) and I-03 | done (2026-10-08, `lane-a/m5j-stage0-rest`): Y1-Y7 green, 7 of 7 mutants killed; I-03's three lines are in `game-server/CMakeLists.txt` for the integrator to take or redo; `game-server/config/m5j.properties.example` | docs/deviations/P5-SC.md, "M5j stage-0 chat gate" |
+| **G-02** (every gate re-greened) | the integrator's, at the merge | |
+
+§17.11 item 6 (the four first-login quest handlers) did not block X1: they are still held back, and X1 asserts the login commands' answers by
+presence in the enter-world burst.
+
+### 18.1 Stage 1, measured (2026-10-08, lane A, read-only over `lane-a/m5j-stage0-rest`)
+
+The census (`tools/porting/census.py`) counts **371 open items in M5j** (P5-05, P5-08, P5-10e, P5-14: 138 `AION_UNPORTED`, 2 `AION_PARTIAL`,
+198 undeclared, 36 Java files without a C++ file, ~3,470 Java lines) and **216 more in the client packets** P5-15/16 (70 CM packets without a
+C++ file). Stage 1's items (§7 "Stage 1") as they stand, `AION_UNPORTED` sites per C++ file:
+
+| Item | Open now | Note |
+|---|---|---|
+| S-01 SocialService | 6 | |
+| S-02 DuelService, revives | 10 + PlayerReviveService 3 | the draw task pins both players: a `cycles.toml` row |
+| S-03 PunishmentService | 5 | prison needs TeleportService (A-F1, met) |
+| S-04 abyss | AbyssRankUpdateService 4, AbyssService 1, PvpService's headhunting part of 9 | |
+| S-07 P5-14 residue | NpcShoutsService 6, StaticDoorService 4, DatabaseCleaningService 8 | |
+| S-08 residue | PlayerService 2, CAPTCHAUtil 1, PlayerTransferService 6; AtreianPassportService and AdventService are closed by M5b-3 CP4 (#132/#133) | |
+| S-09 item actions | P5-07's open item actions | |
+| S-11 recall | **done** (M5g W-06, `7ec54c005`) | |
+| S-12 PvP half | PvpService's rest, StatFunctions PvP 5, ConquerorAndProtectorService 12 | P5-12b: check M5i's lane before taking it |
+| S-13 Legion Dominion | LegionDominionService 6, LegionDominionLocation 6 | **P5-11 is lane B's (M5h legion and housing)**: not taken without the integrator's word |
+| S-05/S-06 packets | the J4/J5 packets of the items above (friend, block, duel, macro, search, ranking, windstream, static door ...) | ported with the item that needs them |
+| S-10 commands | the administrative and social commands of §5.4 | after the services they call |
+
+**Checkpoints** (each with unit tests in the owning chunk's test directory, a mutation proof, and the stage-1 gate cases that cover it):
+1. **CP1 social and duel**: S-01, S-02 (+ the friend/block/duel packets of S-05/S-06, `SocialDecoders`, H-11's builders).
+2. **CP2 punishment and abyss**: S-03, S-04 (+ the ranking packets), the oracle's PvP AP formulas (`m5j-social`, H-11).
+3. **CP3 residue**: S-07, S-08, S-09.
+4. **CP4 the PvP half**: S-12, if no other lane holds P5-12b.
+5. **CP5 commands and the gate**: S-10, the rest of S-05/S-06, G-11 (`gs.scenario.m5j` stage-1 cases, §10.4).
+S-13 waits for the integrator (lane B's chunk).
