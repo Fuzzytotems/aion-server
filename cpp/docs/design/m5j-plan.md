@@ -1588,4 +1588,4 @@ without a C++ file; `tools/porting/census.py` for the totals):
 4. **CP4 commands**: E-07.
 5. **CP5 the gate**: H-21 (`oracle.py m5j-items`, the pet, ride and kisk decoders), G-21 (`gs.scenario.m5j` Z9-Z11 with the stage-1 cases re-run).
 
-> **Progress:** CP1 done (branch `lane-a/m5j-s2-cp1`): the six toy pet services, `CM_PET`, `CM_PET_EMOTE`, `//pet` (P5-08.md, P5-16.md, C1.md). CP2 done (`lane-a/m5j-s2-cp2`): `KiskService.removeKisk`/`onBind`, `KiskAI`, `InvisiblekiskAI` (P5-05.md, P5-08.md).
+> **Progress:** CP1 done (branch `lane-a/m5j-s2-cp1`): the six toy pet services, `CM_PET`, `CM_PET_EMOTE`, `//pet` (P5-08.md, P5-16.md, C1.md). CP2 done (`lane-a/m5j-s2-cp2`): `KiskService.removeKisk`/`onBind`, `KiskAI`, `InvisiblekiskAI` (P5-05.md, P5-08.md). CP3 done (`lane-a/m5j-s2-cp3`, two commits: the four packets of E-03/stage 0, then group K - the eight packets and the postman AIs - separately).

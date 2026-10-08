@@ -10,11 +10,20 @@
 #include <type_traits>
 #include <vector>
 
+#include "aion/gameserver/configs/main/LoggingConfig.h"
 #include "aion/gameserver/configs/main/NameConfig.h"
 #include "aion/gameserver/network/aion/clientpackets/CM_APPEARANCE.h"
+#include "aion/gameserver/network/aion/clientpackets/CM_BREAK_WEAPONS.h"
+#include "aion/gameserver/network/aion/clientpackets/CM_BUY_TRADE_IN_TRADE.h"
+#include "aion/gameserver/network/aion/clientpackets/CM_CHARGE_ITEM.h"
 #include "aion/gameserver/network/aion/clientpackets/CM_CHAT_GROUP_INFO.h"
+#include "aion/gameserver/network/aion/clientpackets/CM_COMPOSITE_STONES.h"
+#include "aion/gameserver/network/aion/clientpackets/CM_FUSION_WEAPONS.h"
+#include "aion/gameserver/network/aion/clientpackets/CM_ITEM_PURIFICATION.h"
+#include "aion/gameserver/network/aion/clientpackets/CM_ITEM_REMODEL.h"
 #include "aion/gameserver/network/aion/clientpackets/CM_TIME_CHECK_QUIT.h"
 #include "aion/gameserver/network/aion/serverpackets/SM_CHAT_WINDOW.h"
+#include "aion/gameserver/runtime/base/Exceptions.h"
 #include "aion/gameserver/world/World.h"
 
 #include "aion/commons/utils/WindowsMacroGuard.h" // after all headers that may include windows.h
@@ -78,6 +87,53 @@ TEST_F(StageTwoPacketsTest, ChatGroupInfoAnswersTheWindowOrNoSuchUser) {
 	EXPECT_EQ(a.count(SM_SYSTEM_MESSAGE::STR_NO_SUCH_USER("Nobody")), 1);
 	run<CM_CHAT_GROUP_INFO>(a, CM_CHAT_GROUP_INFO_OPCODE, PacketWriter().S("Bravo").D(0).data);
 	EXPECT_EQ(a.count(serverpackets::SM_CHAT_WINDOW(b.player(), true)), 1);
+}
+
+
+// ---- group K (m5j-plan.md §18.3 E-09; a commit of its own) -----------------------------------------------------------------------------------
+
+/** AionClientPacketFactory packets[78], [88], [90], [206], [207], [208], [247] (ClientPacketInfo.gen.inc:85, :91, :93, :177-179, :203) */
+constexpr int32_t CM_CHARGE_ITEM_OPCODE = 78;
+constexpr int32_t CM_BUY_TRADE_IN_TRADE_OPCODE = 88;
+constexpr int32_t CM_ITEM_REMODEL_OPCODE = 90;
+constexpr int32_t CM_FUSION_WEAPONS_OPCODE = 206;
+constexpr int32_t CM_BREAK_WEAPONS_OPCODE = 207;
+constexpr int32_t CM_COMPOSITE_STONES_OPCODE = 208;
+constexpr int32_t CM_ITEM_PURIFICATION_OPCODE = 247;
+
+/**
+ * CM_FUSION_WEAPONS.java:31-38, CM_BREAK_WEAPONS.java:29-36: without targeting an armsfusion officer the attempt is audited and nothing else
+ * happens; CM_CHARGE_ITEM.java:37-41: without targeting the npc nothing happens
+ */
+TEST_F(StageTwoPacketsTest, TheArmsfusionAndChargePacketsNeedTheirNpc) {
+	Member& a = addMember("Alpha");
+	ConfigScope<bool> logAudit(configs::main::LoggingConfig::LOG_AUDIT, true); // AuditLogger.log writes AUDIT_LOG with LOG_AUDIT
+	network::test::LogCapture audit({"AUDIT_LOG"});
+	run<CM_FUSION_WEAPONS>(a, CM_FUSION_WEAPONS_OPCODE, PacketWriter().D(555).D(1).D(2).data);
+	EXPECT_EQ(audit.count("tried to fuse weapons without targeting an armsfusion officer"), 1) << audit.dump();
+	run<CM_BREAK_WEAPONS>(a, CM_BREAK_WEAPONS_OPCODE, PacketWriter().D(555).D(1).data);
+	EXPECT_EQ(audit.count("tried to defuse a weapon without targeting an armsfusion officer"), 1) << audit.dump();
+	run<CM_CHARGE_ITEM>(a, CM_CHARGE_ITEM_OPCODE, PacketWriter().D(555).C(1).H(2).D(10).D(11).data);
+	EXPECT_TRUE(a.sent().empty());
+}
+
+/**
+ * CM_BUY_TRADE_IN_TRADE.java:40-46: a count below 1 does nothing; CM_COMPOSITE_STONES.java:43-75 and CM_ITEM_REMODEL.java:30-34: items the
+ * player does not have do nothing; CM_ITEM_PURIFICATION.java:41-56: a base item the player does not have is Java's NullPointerException
+ */
+TEST_F(StageTwoPacketsTest, TheItemPacketsWithoutTheirItems) {
+	Member& a = addMember("Alpha");
+	run<CM_BUY_TRADE_IN_TRADE>(a, CM_BUY_TRADE_IN_TRADE_OPCODE, PacketWriter().D(555).C(0).D(100000001).D(0).H(1).D(10).data);
+	run<CM_COMPOSITE_STONES>(a, CM_COMPOSITE_STONES_OPCODE, PacketWriter().D(1).D(2).D(3).data);
+	run<CM_ITEM_REMODEL>(a, CM_ITEM_REMODEL_OPCODE, PacketWriter().D(555).D(1).D(2).D(0).data);
+	EXPECT_TRUE(a.sent().empty());
+
+	Driver<CM_ITEM_PURIFICATION> packet(CM_ITEM_PURIFICATION_OPCODE);
+	std::vector<uint8_t> body = PacketWriter().D(1).D(4711).D(100000001).D(0).D(0).D(0).D(0).D(0).data;
+	packet.setBuffer(commons::utils::ByteBuffer::wrap(body));
+	packet.setConnection(a.client->get());
+	ASSERT_TRUE(packet.read());
+	EXPECT_THROW(packet.runNow(), runtime::NullPointerException);
 }
 
 } // namespace
