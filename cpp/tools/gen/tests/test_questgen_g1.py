@@ -78,6 +78,8 @@ MENTOR_FILES = tuple(f'{d}/{f}.java' for d, fs in (
                     '_47110AGlobeTrottingLesson', '_47113TurningUpTheAmplifiers'))) for f in fs)
 CONSTANT_LIST_FILES = ('pangaea/_14220NewZoneNewRules.java', 'pangaea/_24220WelcometoPanesterra.java')
 ROW_FILES['B46'] = MENTOR_FILES
+# row B47 (chunk Q05's rest, lane C, 2026-10-08): the studio of the housing quests (lane B's M5h studio cases)
+ROW_FILES['B47'] = ('oriel/_18802AndAHomeforEveryDaeva.java', 'pernon/_28802BeItEverSoHumble.java')
 
 ITEM_USE = source('_99101Closures', 99101, '''
 	@Override
@@ -334,9 +336,10 @@ class Corpus(unittest.TestCase):
         # the P6-T output (935 files on 2026-09-30) and eight of the ten files of rows B32-B38; with rule scheduled-closure the 27 closure
         # files and the other two (B33). Row B39 (the Q08 follow-up, 2026-10-05) adds its file to both, rows B40-B42 (chunk Q01, the
         # same day) their six, rows B43-B44 (chunk Q02) their two, row B45 (chunk Q14) its one; rules stream-any-match (row B46) and
-        # constant-list (the owner's decisions on Q14, 2026-10-07) their 18 and 2, with the G1 rules only
-        self.assertEqual(sum(1 for r in self.p6t.values() if r.status == 'ok'), 953)
-        self.assertEqual(sum(1 for r in self.all.values() if r.status == 'ok'), 1002)
+        # constant-list (the owner's decisions on Q14, 2026-10-07) their 18 and 2, with the G1 rules only; row B47 (chunk Q05's rest,
+        # 2026-10-08) its two, in both sets
+        self.assertEqual(sum(1 for r in self.p6t.values() if r.status == 'ok'), 955)
+        self.assertEqual(sum(1 for r in self.all.values() if r.status == 'ok'), 1004)
         for rid, rels in ROW_FILES.items():
             for rel in rels:
                 self.assertIn(rid, self.all[rel].api_rows)

@@ -138,6 +138,24 @@ Q11 = {
         '_3964GrowthFlorasFourthCharm', '_3965TotheGalleriaofGrandeur', '_3966SaluteANewUniform', '_3967AndusDyeBox',
         '_3968PalentinesRequest', '_3969SexiestManAlive', '_3970KinahDiggingDaughter',),
 }
+# Phase 6 step 2, chunk Q05 (lane C, 2026-10-08; docs/deviations/Q05.md): the rest of eltnen and oriel that questgen transliterates
+Q05 = {
+    'eltnen': (
+        '_1311AGermOfHope', '_1314Anelimoutofwater', '_1319PrioritesMoney', '_1322ALeafFromLodas', '_1324ConfidentialOrders',
+        '_1336ScoutingForDemokritos', '_1345BearerOfBadNews', '_1351EarningMaranasRespect', '_1361FindingDrinkingWater',
+        '_1363ThankingMabangtah', '_1364JourneytoAgairon', '_1371FlowersForIsson', '_1373WaterTherapy', '_1376AMountaineOfTrouble',
+        '_1385RescuingGriffo', '_1393NewFlightPath', '_1394ReportingtheNewFlightPath', '_14020OrdersFromEltnen', '_14021ToCureACurse',
+        '_14022TheTestOfTheHeart', '_14023PlayingAroundAtTheTemple', '_14024AKrallIngSuspicion', '_14025CookingUpDisasters',
+        '_1414OperationWindmill', '_1422ABetterSword', '_1423ExpertAdvice', '_1430ATeleportationExperiment', '_1452DoubtfulCharacters',
+        '_1463MessageToASpy', '_1464AGiftofLove', '_1466RespectForDeltras', '_1467TheFourLeaders', '_1468HannetsLostLove',
+        '_1469FindingDenlavis', '_1470HannetsVengeance', '_1471FakeStigma', '_1472GanimerksEspionage', '_1479HelpingMemnes',
+        '_1482ATeleportationAdventure', '_1483HarumonerksRequest', '_1484ChiyorinrinerksRequest', '_3319AnOrderforGojirunerk',
+        '_3326TheShugoMenace', '_3329DinnersonMe',),
+    'oriel': (
+        '_18802AndAHomeforEveryDaeva',
+        '_18805GoingThrifting', '_18807BlessedBeThyHame', '_18808FoolproofPackaging', '_18809DaevaontheRide', '_18826TodaysFind',
+        '_18832ImaginingAQuietLife', '_18847Housewarming', '_50009TisTheSeason',),
+}
 # Phase 6 step 2, chunk Q13 (lane C, 2026-10-07; docs/deviations/Q13.md): the files of the instance directories A-K that questgen
 # transliterates, all in the tree (87 of 87; kaisinel_academy's three mentor dailies by rule stream-any-match)
 Q13 = {
@@ -338,6 +356,11 @@ class CommittedTree(unittest.TestCase):
                 with self.subTest(file=f'{directory}/{klass}'):
                     self.assertIn((directory, klass), found)
         self.assertEqual(sum(len(classes) for classes in Q11.values()), 71)
+        for directory, classes in Q05.items():
+            for klass in classes:
+                with self.subTest(file=f'{directory}/{klass}'):
+                    self.assertIn((directory, klass), found)
+        self.assertEqual(sum(len(classes) for classes in Q05.values()), 53)
         self.assertEqual(len(Q10_HELD_BACK), 16)
 
     def test_the_enter_world_files_are_in_the_tree(self):
