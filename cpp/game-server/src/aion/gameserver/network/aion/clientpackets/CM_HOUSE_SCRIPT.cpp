@@ -59,7 +59,8 @@ void CM_HOUSE_SCRIPT::runImpl() {
 			(*content)[i] = static_cast<int8_t>(scriptContent[static_cast<size_t>(i)]);
 		scripts->set(scriptId, content, uncompressedSize);
 	}
-	utils::PacketSendUtility::broadcastPacket(*player, SM_HOUSE_SCRIPTS(address, scripts->get(scriptId)), true);
+	// Java PacketSendUtility.broadcastPacket(VisibleObject, packet): the players who know the sender, not the sender (the M5h gate's C18)
+	utils::PacketSendUtility::broadcastPacket(static_cast<model::gameobjects::VisibleObject&>(*player), SM_HOUSE_SCRIPTS(address, scripts->get(scriptId)));
 }
 
 AION_CLIENT_PACKET(CM_HOUSE_SCRIPT);

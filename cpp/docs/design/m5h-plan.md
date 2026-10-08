@@ -1041,3 +1041,13 @@ the portal's entering arms (refusal; the `FADE_OUT_BEAM` teleport to the address
 its leaving arm for an instance whose owner has no studio, and `getOrCreateHouseInstance`'s position and `NullPointerException` arms. The portal
 cases use the DAO tests' database (HousingService starts from it). Left to the gate: leaving an existing studio (World.getWorldMap of the exit
 map, C19) and creating a studio's personal instance (C15). 16 of 16 mutants killed.
+
+**HS-4 part 1 (lane B, 2026-10-08)**: `gs.scenario.m5h` scripts the quest-free studio cases C14-C20 between C12 and C21, with the new
+`oracle.py m5h-housing` (tools/oracle/m5h/housing.py: the studio path's npc spots and talk delays, the Elyos studio, the furniture templates,
+PartType, HouseDoorState, the message ids) and the decoders of `tests/scenario/decoders/HousingDecoders.h` (written from the Java `writeImpl`,
+with their byte tests). **C13 waits for lane C's studio quests**: until they land, A buys its studio in C14 the paid way as C does (dialog 96 at
+Parrine), a stand-in that C13 replaces; C14's refusal (A asks again: `STR_MSG_HOUSING_INS_CANT_OWN_MORE_HOUSE`) stands either way. Two
+expectations follow Java where §10.3 said otherwise: the cake's 10-s cooldown has run out at A's quit, so `house_object_cooldowns` holds no row
+(HouseObjectCooldownsDAO skips an expired reuse time), and C16's registered items leave `inventory` at the logout's store, not at once. The run
+found one port defect of HS-1: CM_HOUSE_SCRIPT broadcast the script to its sender too (`toSelf`), where Java's
+`broadcastPacket(VisibleObject, packet)` sends only to the players who know him (Y17) - fixed. 9 of 9 server mutants turn the gate red.
