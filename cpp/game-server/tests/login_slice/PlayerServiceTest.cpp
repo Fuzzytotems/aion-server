@@ -14,6 +14,12 @@
 #include "SliceDbTest.h"
 #include "aion/commons/utils/TimeUtils.h"
 #include "aion/gameserver/configs/main/CustomConfig.h"
+#include "aion/gameserver/configs/main/MembershipConfig.h"
+#include "aion/gameserver/dataholders/loadingutils/LoadContext.h"
+#include "aion/gameserver/dataholders/loadingutils/StaticDataLoader.h"
+#include "aion/gameserver/model/gameobjects/player/emotion/EmotionList.h"
+#include "aion/gameserver/model/templates/item/actions/EmotionLearnAction.bind.h"
+#include "aion/gameserver/model/templates/item/actions/EmotionLearnAction.h"
 #include "aion/gameserver/configs/main/NameConfig.h"
 #include "aion/gameserver/model/Gender.h"
 #include "aion/gameserver/model/PlayerClass.h"
@@ -237,6 +243,58 @@ TEST_F(PlayerServiceTest, StorePlayerWritesThePosition) {
 	EXPECT_EQ(queryLong("SELECT heading FROM players WHERE id = 2051"), 12);
 	EXPECT_EQ(queryLong("SELECT CAST(ROUND(x * 100) AS SIGNED) FROM players WHERE id = 2051"), 60050);
 	EXPECT_EQ(queryLong("SELECT CAST(ROUND(y * 100) AS SIGNED) FROM players WHERE id = 2051"), 280025);
+}
+
+/**
+ * PlayerService.java:172-175 (M5j stage 1 CP3): a character of an account whose membership reaches gameserver.emotions.all knows every
+ * learnable emotion on load, without storing them (EmotionList.add(id, 0, false)); below it, only his own
+ */
+TEST_F(PlayerServiceTest, TheEmotionsAllMembershipKnowsEveryLearnableEmotion) {
+	xml::LoadContext context;
+	// an emotion card's action: afterUnmarshal registers its emotion as learnable (EmotionLearnAction.java:33-36)
+	std::unique_ptr<model::templates::item::actions::EmotionLearnAction> card =
+		xml::bindString<model::templates::item::actions::EmotionLearnAction>(context, R"(<learnemotion emotionid="64" minutes="10"/>)");
+	NewCharacter c = newCharacter(2061, "Dancer", model::Race::ELYOS, model::PlayerClass::WARRIOR);
+	Ref<Player> player;
+	SLICE_SKIP_IF_UNPORTED(player = PlayerService::newPlayer(*c.accountData, *c.account));
+	ASSERT_TRUE(PlayerService::storeNewPlayer(*player, c.account->getName(), c.account->getId()));
+
+	Ref<Account> account = services::AccountService::loadAccount(21);
+	{
+		AtomicConfigScope<int8_t> everyone(configs::main::MembershipConfig::EMOTIONS_ALL, 0);
+		Ref<Player> loaded = PlayerService::getPlayer(2061, account);
+		EXPECT_TRUE(loaded->getEmotions()->contains(64));
+		EXPECT_EQ(queryLong("SELECT COUNT(*) FROM player_emotions WHERE player_id = 2061"), 0) << "not stored";
+		model::gameobjects::player::LogoutBreakers::run(*loaded);
+	}
+	{
+		AtomicConfigScope<int8_t> premium(configs::main::MembershipConfig::EMOTIONS_ALL, 10);
+		account = services::AccountService::loadAccount(21);
+		Ref<Player> loaded = PlayerService::getPlayer(2061, account);
+		EXPECT_FALSE(loaded->getEmotions()->contains(64)) << "membership 0 below 10";
+		model::gameobjects::player::LogoutBreakers::run(*loaded);
+	}
+}
+
+/** PlayerService.java:331-351: a new macro is inserted, an existing one updated, a removed one deleted; removing a missing one does nothing */
+TEST_F(PlayerServiceTest, MacrosAreAddedUpdatedAndRemoved) {
+	NewCharacter c = newCharacter(2071, "Macro", model::Race::ELYOS, model::PlayerClass::WARRIOR);
+	Ref<Player> player;
+	SLICE_SKIP_IF_UNPORTED(player = PlayerService::newPlayer(*c.accountData, *c.account));
+	ASSERT_TRUE(PlayerService::storeNewPlayer(*player, c.account->getName(), c.account->getId()));
+	Ref<Player> loaded = PlayerService::getPlayer(2071, services::AccountService::loadAccount(21));
+
+	PlayerService::addMacro(*loaded, 3, "<macro>one</macro>");
+	EXPECT_EQ(queryString("SELECT macro FROM player_macrosses WHERE player_id = 2071 AND `order` = 3"), std::optional<std::string>("<macro>one</macro>"));
+	PlayerService::addMacro(*loaded, 3, "<macro>two</macro>");
+	EXPECT_EQ(queryString("SELECT macro FROM player_macrosses WHERE player_id = 2071 AND `order` = 3"), std::optional<std::string>("<macro>two</macro>"));
+	EXPECT_EQ(queryLong("SELECT COUNT(*) FROM player_macrosses WHERE player_id = 2071"), 1) << "updated, not inserted again";
+	PlayerService::addMacro(*loaded, 4, "<macro>four</macro>");
+	PlayerService::removeMacro(*loaded, 3);
+	PlayerService::removeMacro(*loaded, 9);
+	EXPECT_EQ(queryLong("SELECT COUNT(*) FROM player_macrosses WHERE player_id = 2071"), 1);
+	EXPECT_EQ(queryLong("SELECT `order` FROM player_macrosses WHERE player_id = 2071"), 4);
+	model::gameobjects::player::LogoutBreakers::run(*loaded);
 }
 
 } // namespace
