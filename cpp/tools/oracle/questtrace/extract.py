@@ -359,7 +359,28 @@ SLICE_Q11 = (
 	'sanctum/_3965TotheGalleriaofGrandeur.java', 'sanctum/_3966SaluteANewUniform.java', 'sanctum/_3967AndusDyeBox.java',
 	'sanctum/_3968PalentinesRequest.java', 'sanctum/_3969SexiestManAlive.java', 'sanctum/_3970KinahDiggingDaughter.java',
 )
-SLICE = SLICE_TIER_A + SLICE_ROUTE + SLICE_Q03 + SLICE_Q10 + SLICE_Q08 + SLICE_Q01 + SLICE_Q02 + SLICE_Q14 + SLICE_Q13 + SLICE_Q11
+# Phase 6 step 2, chunk Q05 (lane C, 2026-10-08; docs/deviations/Q05.md): the rest of eltnen and oriel that questgen transliterates
+SLICE_Q05 = (
+	'oriel/_18802AndAHomeforEveryDaeva.java',
+	'eltnen/_1311AGermOfHope.java', 'eltnen/_1314Anelimoutofwater.java', 'eltnen/_1319PrioritesMoney.java',
+	'eltnen/_1322ALeafFromLodas.java', 'eltnen/_1324ConfidentialOrders.java', 'eltnen/_1336ScoutingForDemokritos.java',
+	'eltnen/_1345BearerOfBadNews.java', 'eltnen/_1351EarningMaranasRespect.java', 'eltnen/_1361FindingDrinkingWater.java',
+	'eltnen/_1363ThankingMabangtah.java', 'eltnen/_1364JourneytoAgairon.java', 'eltnen/_1371FlowersForIsson.java',
+	'eltnen/_1373WaterTherapy.java', 'eltnen/_1376AMountaineOfTrouble.java', 'eltnen/_1385RescuingGriffo.java',
+	'eltnen/_1393NewFlightPath.java', 'eltnen/_1394ReportingtheNewFlightPath.java', 'eltnen/_14020OrdersFromEltnen.java',
+	'eltnen/_14021ToCureACurse.java', 'eltnen/_14022TheTestOfTheHeart.java', 'eltnen/_14023PlayingAroundAtTheTemple.java',
+	'eltnen/_14024AKrallIngSuspicion.java', 'eltnen/_14025CookingUpDisasters.java', 'eltnen/_1414OperationWindmill.java',
+	'eltnen/_1422ABetterSword.java', 'eltnen/_1423ExpertAdvice.java', 'eltnen/_1430ATeleportationExperiment.java',
+	'eltnen/_1452DoubtfulCharacters.java', 'eltnen/_1463MessageToASpy.java', 'eltnen/_1464AGiftofLove.java',
+	'eltnen/_1466RespectForDeltras.java', 'eltnen/_1467TheFourLeaders.java', 'eltnen/_1468HannetsLostLove.java',
+	'eltnen/_1469FindingDenlavis.java', 'eltnen/_1470HannetsVengeance.java', 'eltnen/_1471FakeStigma.java',
+	'eltnen/_1472GanimerksEspionage.java', 'eltnen/_1479HelpingMemnes.java', 'eltnen/_1482ATeleportationAdventure.java',
+	'eltnen/_1483HarumonerksRequest.java', 'eltnen/_1484ChiyorinrinerksRequest.java', 'eltnen/_3319AnOrderforGojirunerk.java',
+	'eltnen/_3326TheShugoMenace.java', 'eltnen/_3329DinnersonMe.java', 'oriel/_18805GoingThrifting.java',
+	'oriel/_18807BlessedBeThyHame.java', 'oriel/_18808FoolproofPackaging.java', 'oriel/_18809DaevaontheRide.java',
+	'oriel/_18826TodaysFind.java', 'oriel/_18832ImaginingAQuietLife.java', 'oriel/_18847Housewarming.java', 'oriel/_50009TisTheSeason.java',
+)
+SLICE = SLICE_TIER_A + SLICE_ROUTE + SLICE_Q03 + SLICE_Q10 + SLICE_Q08 + SLICE_Q01 + SLICE_Q02 + SLICE_Q14 + SLICE_Q13 + SLICE_Q11 + SLICE_Q05
 
 ENUM_FILES = {'QuestStatus': 'questEngine/model/QuestStatus.java', 'Race': 'model/Race.java', 'PlayerClass': 'model/PlayerClass.java',
               'Gender': 'model/Gender.java', 'HandlerResult': 'questEngine/handlers/HandlerResult.java', 'DialogPage': 'model/DialogPage.java',
@@ -1681,6 +1702,10 @@ class Extractor:
 			k = self.effect(p, 'inventory.decreaseByObjectId', args, 'item', e)
 			self.clobber(p, 'inventory.decreaseByObjectId', ('inventory',))
 			return [(p, Res(k))]
+		if o == 'housing' and name == 'registerPlayerStudio' and len(args) == 1 and args[0] == O('player'):
+			# HousingService.registerPlayerStudio(player) (HousingService.java: createStudio(player, false)): an effect the replay calls
+			self.effect(p, 'HousingService.registerPlayerStudio', [], 'housing', e)
+			return [(p, K(None))]
 		if o == 'threadPool' and name == 'schedule':
 			# ThreadPoolManager.schedule(Runnable, long delay) (ThreadPoolManager.java): the task runs after the hook (run_tasks); the effect
 			# records the delay, the task's effects carry its index
@@ -1803,6 +1828,8 @@ class Extractor:
 			return self.after_args(e, p, lambda q, a: [(q, RewardPage(a[0]))])
 		if cls == 'ThreadPoolManager' and name == 'getInstance' and not e.args:
 			return [(p, O('threadPool'))]
+		if cls == 'HousingService' and name == 'getInstance' and not e.args:
+			return [(p, O('housing'))]                  # the studio quests 18802 / 28802 (chunk Q05's rest, row B47 of questgen)
 		if cls == 'PacketSendUtility' and name == 'broadcastPacket':
 			# PacketSendUtility.broadcastPacket(player, packet, toSelf) (PacketSendUtility.java:88-93): the player's known players and, with
 			# toSelf, the player; the quester has no other player in sight in a harness, so only toSelf shows

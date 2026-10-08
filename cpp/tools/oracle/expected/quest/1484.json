@@ -1,0 +1,18 @@
+{
+ "format": "aion-quest-trace",
+ "version": 1,
+ "questId": 1484,
+ "java": "eltnen/_1484ChiyorinrinerksRequest.java",
+ "class": "_1484ChiyorinrinerksRequest",
+ "javaSha256": "d05e81ea67e1c09330c698c94a472fdb27741db6d50578a405bb54c47d79a89a",
+ "register": [
+  {"npc": 798127, "event": "addOnQuestStart", "args": [1484]},
+  {"npc": 798127, "event": "addOnTalkEvent", "args": [1484]},
+  {"npc": 204045, "event": "addOnTalkEvent", "args": [1484]},
+  {"npc": 204048, "event": "addOnTalkEvent", "args": [1484]},
+  {"npc": 204011, "event": "addOnTalkEvent", "args": [1484]},
+  {"npc": 798126, "event": "addOnTalkEvent", "args": [1484]}
+ ],
+ "hooks": [{"hook": "onDialogEvent", "line": 34, "unsupported": "call workItems.getFirst"}],
+ "cases": []
+}

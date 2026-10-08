@@ -757,6 +757,30 @@ class Q14SliceTest(unittest.TestCase):
 
 
 @unittest.skipUnless(HAVE_JAVA_TREE, "Java tree not present")
+class Q05RestSliceTest(unittest.TestCase):
+	"""the rest of eltnen and oriel (SLICE_Q05, phase 6 step 2, lane C, 2026-10-08; docs/deviations/Q05.md, "Phase 6 step 2")"""
+
+	# questgen refuses these seven (docs/deviations/Q05.md)
+	REFUSED = {"eltnen/_1354PraticalAerobatics.java", "eltnen/_1367MabangtahsFeast.java", "eltnen/_14026ALoneDefense.java",
+	           "oriel/_18806HeartofRock.java", "oriel/_18821AlmostForgotMyBlessings.java",
+	           "oriel/_18828UserFriendly.java", "oriel/_18830MovingIn.java"}
+
+	def test_the_q05_rest_slice(self):
+		java = {f"{d}/{f.name}" for d in ("eltnen", "oriel") for f in (extract.QUEST_DIR / d).glob("*.java")}
+		earlier = set(extract.SLICE_TIER_A + extract.SLICE_ROUTE + extract.SLICE_Q03 + extract.SLICE_Q10 + extract.SLICE_Q08 + extract.SLICE_Q01 +
+		              extract.SLICE_Q02 + extract.SLICE_Q14 + extract.SLICE_Q13 + extract.SLICE_Q11)
+		self.assertEqual(set(extract.SLICE_Q05) & earlier, set())
+		self.assertEqual(len(extract.SLICE_Q05), 53)
+		self.assertTrue(set(extract.SLICE_Q05) <= java - self.REFUSED)
+		docs = {}
+		for rel in extract.SLICE_Q05:
+			d = extract.trace_file(tables(), extract.QUEST_DIR / rel, rel)
+			docs[d["questId"]] = d
+		self.assertEqual(sorted(q for q, d in docs.items() if not d["cases"]), [1430, 1463, 1468, 1482, 1483, 1484])
+		self.assertEqual(extract.check(rels=extract.SLICE_Q05, extra=False), [])
+
+
+@unittest.skipUnless(HAVE_JAVA_TREE, "Java tree not present")
 class Q11SliceTest(unittest.TestCase):
 	"""daevanion and sanctum (SLICE_Q11, phase 6 step 2, lane C, 2026-10-08; docs/deviations/Q11.md): every file but the two questgen refuses"""
 

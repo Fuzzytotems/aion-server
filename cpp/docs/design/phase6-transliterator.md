@@ -59,6 +59,9 @@
 15. **Step 2, chunk Q11 landed (lane C, 2026-10-08, §14):** 71 of daevanion's and sanctum's 74 handlers are in the tree, generated,
    with their golden traces (1,596 variants pass, 0 fail) and docs/deviations/Q11.md; Sanctum's gate traffic was measured before landing:
    the only change is 8 more quests in SM_NEARBY_QUESTS, Java's, and no gate expectation changed. All 19 gates pass, "Loaded 4816 quest handlers".
+16. **Step 2, chunk Q05's rest landed (lane C, 2026-10-08, §15):** 53 of the 60 eltnen and oriel handlers not in the tree, generated,
+   with their golden traces (1,117 variants pass, 0 fail); API row B47 (the housing studio of 18802 and 28802, for lane B's M5h):
+   **1,004 of 1,035** transliterated. All 19 gates pass, "Loaded 4869 quest handlers".
 
 ---
 
@@ -725,3 +728,17 @@ Branch `lane-c/p6-q11`, stacked on `lane-c/p6-q13` (§13). The sixth chunk of §
   registrations, as in Java. Every quest action, dialog page and quest list is the same. No gate expectation or seeded state was changed;
   nothing is held back for a gate. **Gates:** 19 of 19, the lock taken per gate, "Loaded 4816 quest
   handlers" (4745 + 71), no "QE: exception" line.
+
+## 15. Phase 6 step 2: chunk Q05's rest landed (lane C, 2026-10-08)
+
+Branch `lane-c/p6-q05`, stacked on `lane-c/p6-q11` (§14); the record is docs/deviations/Q05.md, "Phase 6 step 2".
+
+- **In the tree:** 53 of the 60 eltnen and oriel handlers that were not (poeta has none left), questgen's output unedited, in
+  `aion_gs_handlers_quest_q05`; the drift test's `Q05` table pins them. Refused (7): 1354 (`Player.getLifeStats`), 1367 (per-player
+  fields), 14026 (`Arrays.stream`), the butler quests 18806, 18821, 18828, 18830 (static initializers, `Player.getActiveHouse`).
+- **Generator:** API row B47, `HousingService.getInstance().registerPlayerStudio` (declared and ported): the studio quests 18802 and
+  28802 that lane B's M5h needs. **1,004 of 1,035**, the other 1,002 byte-identical; `--p6t-rules` 955, `--prototype-rules` 933.
+- **Golden traces:** `SLICE_Q05`, 53 documents, 1,090 cases: **1,117 variants pass, 0 fail**, 5,570 runs; 6 not reproducible, 18
+  vacuous (18802's studio case: the golden fixture has no housing data), 6 with every hook refused. `ctest -R "Golden|ReshantaHandPorts"`:
+  703 of 703. **Parity** 53 pairs, 0 mismatches; **compile check** 1,004 clean, 0 warnings.
+- **Gates:** no gate goes to Eltnen or Oriel; 19 of 19, "Loaded 4869 quest handlers" (4816 + 53), no "QE: exception" line.
