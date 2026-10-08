@@ -860,6 +860,18 @@ cooltime around 09:00 in UTC, a fixed offset and the local zone, WEEKLY and RELA
 Kustanon, Aero, Urakron, Osmar, Ukin, the obelisks, hotspot 13 from the Elyos spawn, Haramel's portal, cooltime, reuse time, exit and
 spawnInstance set, the level-16 exp; the census on a mock C++ tree that reproduces W-14 and W-21, and the geo check on Poeta and Haramel).
 
+## M5j command oracle (`m5j/commands.py`, `docs/design/m5j-plan.md` H-01)
+
+`oracle.py m5j-commands [--alias //kill .help levelup ...] [--l10n ID ...]` reads the chat commands as the Java server builds them: the
+access levels of `config/administration/commands.properties` (152 aliases); each command's alias, description and syntax info from its own
+constructor's `super(...)` (string literals, text blocks and `+` concatenations of them; a command with a computed part is listed under
+`unresolved` with the expression, e.g. `Bookmark_add`'s `ALIAS` and `Easter`'s `ChatUtil.item(...)`), keyed by the alias WITH its prefix
+(`//`, `.`, or none for a console command) as ChatProcessor.registerCommand keys it; the parsed syntax info (ChatCommand.parseSyntaxInfo),
+the `help` answer as the parts of ChatUtil.split (UTF-16 code units, the l10n and link estimates of findSplitIndex), the access message
+(AdminCommand.validateAccess), the ChatType ids, ChatUtil.l10n as UTF-16 code units, the whisper level (custom.properties) and the
+non-Daeva level cap (PlayerCommonData.setExp). `gs.scenario.gm`'s X2 compares every stage-0 command's help with it, and X3 takes its access
+text from it. Tests: `tests/test_m5j.py`.
+
 ## Phase-6 golden quest traces (`questtrace/`, `docs/design/phase6-inventory.md` §7.6 item 3)
 
 `questtrace/extract.py` turns a Java quest handler into its expected behaviour, written from Java only: from the handler source,
