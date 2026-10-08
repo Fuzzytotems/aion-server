@@ -961,7 +961,7 @@ P5-10f was ported by another lane (`git log origin/C++` has no legion or challen
 | `ChallengeQuest` 5, `ChallengeTask` 7, `ChallengeTaskService` 8 | 20 | – | 20 (X-08, M5h-2) | **pulled into stage F2**: `QuestService.cpp:238, 582` already call `onChallengeQuestFinish` and `onAcceptTask`, so every finished or accepted challenge quest of the phase-6 quest lane reaches an `AION_UNPORTED` today; every dependency (`TownService`, `ChallengeTasksDAO`, `SystemMailService`, `TownDAO`, `SM_CHALLENGE_LIST`) is ported |
 | **total** | **86** | 2 undeclared + 7 stand-in | 86 + 5 | 88 open bodies, 614 open Java lines |
 
-**Status (2026-10-08):** F1 and F2a ported (78 bodies + the 4 companions), F2b drafted, not committed.
+**Status (2026-10-08):** F1 and F2a ported (78 bodies + the 4 companions); F2b ported (8 bodies) with its database tests - P5-10f is closed. The town arm of F2b (`onCityTaskFinish`, `getChallengeTask`, `onAcceptTask`'s town lookup) is compiled and reviewed but has no unit test: it needs TownService's town data, which M5h-2 brings.
 
 **Stages of the lane** (each a checkpoint: unit tests, a lock-order test for any new monitor nesting, a mutation proof, the report):
 
