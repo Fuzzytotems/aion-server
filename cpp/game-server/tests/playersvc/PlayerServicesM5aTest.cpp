@@ -259,11 +259,15 @@ TEST_F(PlayerServicesM5aTest, StartupSchedulesOfLimitsAndAbyssRanks) {
 	EXPECT_THROW(services::abyss::AbyssRankUpdateService::scheduleUpdate(), runtime::NullPointerException);
 }
 
-TEST_F(PlayerServicesM5aTest, TheRankUpdateJobsAreWarnStubs) {
+// M5j stage 1 CP2 ported the rank update (the former AION_PARTIAL stub): the cron job schedules it a second later (AbyssRankUpdateService.java:40,
+// :68); its body is driven against the DAO test database by PunishmentAbyssServiceTest.TheRankUpdateHandsOutTheGpRanksByQuota
+TEST_F(PlayerServicesM5aTest, TheRankUpdateJobSchedulesTheUpdate) {
 	runtime::resetPartialHitsForTests();
 	runtime::resetUnportedHitsForTests();
+	const size_t before = executor->pendingTaskCount();
 	services::abyss::AbyssRankUpdateService::performUpdate();
-	EXPECT_EQ(runtime::partialHitCount(), 1u) << "AION_PARTIAL, the cron job must not throw";
+	EXPECT_EQ(executor->pendingTaskCount(), before + 1);
+	EXPECT_EQ(runtime::partialHitCount(), 0u);
 	EXPECT_EQ(runtime::unportedHitCount(), 0u);
 }
 
