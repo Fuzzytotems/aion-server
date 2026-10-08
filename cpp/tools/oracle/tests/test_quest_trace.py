@@ -757,6 +757,30 @@ class Q14SliceTest(unittest.TestCase):
 
 
 @unittest.skipUnless(HAVE_JAVA_TREE, "Java tree not present")
+class Q09RestSliceTest(unittest.TestCase):
+	"""the rest of morheim and pernon (SLICE_Q09, phase 6 step 2, lane C, 2026-10-08; docs/deviations/Q09.md, "Phase 6 step 2")"""
+
+	# questgen refuses five; the escorts 2333 and 2394 wait for FollowingNpcAI (m5d-plan.md §21.1)
+	LEFT_OUT = {"morheim/_24026AHandfromEachSide.java", "pernon/_28806WiltingFlowersFallingTears.java", "pernon/_28821YourButlerGift.java",
+	            "pernon/_28828TheManyFacetsOfFriendship.java", "pernon/_28830InteriorDecorator.java", "morheim/_2333ARibbitOutOfWater.java",
+	            "morheim/_2394ADyingWish.java"}
+
+	def test_the_q09_rest_slice(self):
+		java = {f"{d}/{f.name}" for d in ("morheim", "pernon") for f in (extract.QUEST_DIR / d).glob("*.java")}
+		earlier = set(extract.SLICE_TIER_A + extract.SLICE_ROUTE + extract.SLICE_Q03 + extract.SLICE_Q10 + extract.SLICE_Q08 + extract.SLICE_Q01 +
+		              extract.SLICE_Q02 + extract.SLICE_Q14 + extract.SLICE_Q13 + extract.SLICE_Q11 + extract.SLICE_Q05)
+		self.assertEqual(set(extract.SLICE_Q09) & earlier, set())
+		self.assertEqual(len(extract.SLICE_Q09), 47)
+		self.assertTrue(set(extract.SLICE_Q09) <= java - self.LEFT_OUT)
+		docs = {}
+		for rel in extract.SLICE_Q09:
+			d = extract.trace_file(tables(), extract.QUEST_DIR / rel, rel)
+			docs[d["questId"]] = d
+		self.assertEqual(sorted(q for q, d in docs.items() if not d["cases"]), [2422, 2423, 2430, 2443, 2493])
+		self.assertEqual(extract.check(rels=extract.SLICE_Q09, extra=False), [])
+
+
+@unittest.skipUnless(HAVE_JAVA_TREE, "Java tree not present")
 class Q05RestSliceTest(unittest.TestCase):
 	"""the rest of eltnen and oriel (SLICE_Q05, phase 6 step 2, lane C, 2026-10-08; docs/deviations/Q05.md, "Phase 6 step 2")"""
 
