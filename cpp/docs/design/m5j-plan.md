@@ -1512,7 +1512,7 @@ being the talking family of `lane-a/gm-talk`) and I-02 had merged:
 | **H-02** | done: the GM account seed (`account_data.access_level` in the gate's login schema, after the accounts' autocreating first login), `GameSession::buildCM_CHAT_MESSAGE_PUBLIC` / `buildGmCommand` / `buildCM_CHAT_MESSAGE_WHISPER` / `buildCM_BUILDER_COMMAND`; the `SM_MESSAGE` decoder already existed (M5c) | `tests/scenario/GmScenarioTest.cpp`, `GameSession.h` |
 | **G-01** (`gs.scenario.gm`) | done, narrowed: X1, X3, X4/X5 (P's side), X6, X7, X8 as one command per family, X10; X2 waits for H-01's oracle; X8b, X8c and X11 are part 0.2's | docs/deviations/P5-SC.md, "M5j stage-0 GM gate" |
 | **H-01** (`oracle.py m5j-commands`) | done (2026-10-08, branch `lane-a/m5j-stage0-rest`): levels, aliases keyed with their prefix, help after ChatUtil.split, access text, ChatType ids, l10n, whisper level, non-Daeva cap; the gate's X2 (every stage-0 command's help, 41 of 41 equal) and X3 read it | `tools/oracle/m5j/commands.py`, tools/oracle/README.md |
-| **C-03** (`gs.scenario.chat`) and I-03 | **open** (part 0.2; the chat server link) | |
+| **C-03** (`gs.scenario.chat`) and I-03 | done (2026-10-08, `lane-a/m5j-stage0-rest`): Y1-Y7 green, 7 of 7 mutants killed; I-03's three lines are in `game-server/CMakeLists.txt` for the integrator to take or redo; `game-server/config/m5j.properties.example` | docs/deviations/P5-SC.md, "M5j stage-0 chat gate" |
 | **G-02** (every gate re-greened) | the integrator's, at the merge | |
 
 §17.11 item 6 (the four first-login quest handlers) did not block X1: they are still held back, and X1 asserts the login commands' answers by
