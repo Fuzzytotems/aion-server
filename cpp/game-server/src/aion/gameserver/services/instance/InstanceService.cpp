@@ -25,6 +25,10 @@
 #include "aion/gameserver/model/templates/event/EventTemplate.h"
 #include "aion/gameserver/model/templates/world/WorldMapTemplate.h"
 #include "aion/gameserver/network/aion/serverpackets/SM_SYSTEM_MESSAGE.h"
+#include "aion/gameserver/model/house/House.h"
+#include "aion/gameserver/model/templates/housing/Building.h"
+#include "aion/gameserver/model/templates/housing/BuildingType.h"
+#include "aion/gameserver/model/templates/housing/HouseAddress.h"
 #include "aion/gameserver/runtime/base/Exceptions.h"
 #include "aion/gameserver/runtime/collections/HashMap.h"
 #include "aion/gameserver/runtime/collections/Rc.h"
@@ -248,7 +252,14 @@ runtime::Ptr<world::WorldMapInstance> InstanceService::getRegisteredInstance(int
 }
 
 runtime::Ptr<world::WorldMapInstance> InstanceService::getOrCreateHouseInstance(model::house::House& house) {
-	AION_UNPORTED();
+	// M5h HS-2 under a P5-11 lease (m5h-plan.md 14.2)
+	runtime::Ptr<world::WorldMapInstance> instance = !house.getPosition() ? nullptr : house.getPosition()->getWorldMapInstance();
+	if (!instance && house.getBuilding()->getType() == model::templates::housing::BuildingType::PERSONAL_INS) { // studio
+		instance = getOrCreatePersonalInstance(house.getAddress()->getMapId(), house.getOwnerId());
+	}
+	if (!instance) // should never happen since only studios are spawned on demand
+		throw runtime::NullPointerException(house.toString() + " has no instance");
+	return instance;
 }
 
 runtime::Ptr<world::WorldMapInstance> InstanceService::getOrCreatePersonalInstance(int32_t worldId, int32_t ownerId) {
