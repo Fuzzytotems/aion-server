@@ -74,7 +74,7 @@ void SpawnNpc::spawnHouseObject(Player& admin, int32_t itemId) {
 		sendInfo(admin, "Item is not a spawnable house item.");
 		return;
 	}
-	runtime::Ref<DummyHouseObject> houseObject = VisibleObject::create<DummyHouseObject>(action->getTemplateId());
+	runtime::Ref<DummyHouseObject> houseObject = VisibleObject::create<DummyHouseObject>(action->getTemplateId()); // parity= HouseObject<PlaceableHouseObject> houseObject = new DummyHouseObject(action.getTemplateId());
 	houseObject->setPosition(
 		World::getInstance().createPosition(admin.getWorldId(), admin.getX(), admin.getY(), admin.getZ(), admin.getHeading(), admin.getInstanceId()));
 	SpawnEngine::bringIntoWorld(*houseObject);
@@ -83,7 +83,7 @@ void SpawnNpc::spawnHouseObject(Player& admin, int32_t itemId) {
 // ---- DummyHouseObject (SpawnNpc.java:82-111) ---------------------------------------------------------------------------------------------
 
 SpawnNpc::DummyHouseObject::DummyHouseObject(CreateKey key, int32_t templateId)
-	: HouseObject(key, runtime::Ptr<model::house::HouseRegistry>(nullptr), IDFactory::getInstance().nextId(), templateId, true) {
+	: HouseObject(key, runtime::Ptr<model::house::HouseRegistry>(nullptr), IDFactory::getInstance().nextId(), templateId, true) { // parity= super(null, IDFactory.getInstance().nextId(), templateId, true);
 }
 
 float SpawnNpc::DummyHouseObject::getX() {

@@ -33,16 +33,16 @@ void Clearusercoolt::execute(Player& admin, std::span<const std::string> params)
 // Java Clearusercoolt.java:42-59
 void Clearusercoolt::clearAllInstanceCooldowns(Player& admin, Player& player) {
 	if (player.getPortalCooldownList().getPortalCoolDowns() == nullptr) {
-		PacketSendUtility::sendMessage(admin, (player.equals(admin) ? std::string("You have") : name(player) + " has") + " no instance cooldowns to remove.");
+		PacketSendUtility::sendMessage(admin, (player.equals(admin) ? std::string("You have") : name(player) + " has") + " no instance cooldowns to remove."); // parity= PacketSendUtility.sendMessage(admin, (player.equals(admin) ? "You have" : name(player) + " has") + " no instance cooldowns to remove.");
 		return;
 	}
 
-	std::vector<int32_t> worldIds;
-	for (const auto& entry : player.getPortalCooldownList().getPortalCoolDowns()->snapshot())
-		worldIds.push_back(entry.getKey());
+	std::vector<int32_t> worldIds; // parity= List<Integer> worldIds = player.getPortalCooldownList().getPortalCoolDowns().keySet().stream().toList();
+	for (const auto& entry : player.getPortalCooldownList().getPortalCoolDowns()->snapshot()) // parity: (continued)
+		worldIds.push_back(entry.getKey()); // parity: (continued)
 	player.getPortalCooldownList().setPortalCoolDowns(nullptr);
-	for (int32_t worldId : worldIds)
-		player.getPortalCooldownList().sendEntryInfo(worldId);
+	for (int32_t worldId : worldIds) // parity= worldIds.forEach(player.getPortalCooldownList()::sendEntryInfo);
+		player.getPortalCooldownList().sendEntryInfo(worldId); // parity: (continued)
 
 	if (player.equals(admin)) {
 		PacketSendUtility::sendMessage(admin, "Your instance cooldowns were removed.");

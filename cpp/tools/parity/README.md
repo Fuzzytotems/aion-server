@@ -48,8 +48,28 @@ Not caught by design: plain identifiers are not compared, so a swapped or substi
 `T* name` declarator and a `a * b` followed by `)` look alike on both sides). Behaviour is the golden trace's job
 (`tools/oracle/questtrace`).
 
-Not implemented yet: the per-line waiver `// parity: <reason>` of handlers-and-porting-plan.md §3.1 item 2. Comments are dropped, so a
-hand-ported handler with an owner-approved deviation cannot pass until it exists (phase6-inventory.md, the P6-T row).
+- the chat command spellings (M5j H-03, 2026-10-07): a command's `.cpp` has no class (the class is in its header), so its region is
+  everything after its `AION_ADMIN_COMMAND(X);` (`AION_PLAYER_COMMAND`, `AION_CONSOLE_COMMAND`) marker; the Java constructor's
+  `super(...)` is the C++ base initializer (`AdminCommand(...)`); a Java text block is the string literal of its value (indentation
+  stripped, line ends `
+`) and C++ adjacent literals `"a
+" "b
+"` are one literal; and, for a command only (questgen spells these
+  differently), `params.length == 0` is `params.empty()` (`!= 0` and `> 0` its negation) and `!(x instanceof T name)` is
+  `x == nullptr`. On both sides `a.equals(b)` is `==`; C++ `to_string` (Java's implicit string conversion) is not a call; a C++
+  subscript with an index that is not an int literal is `get`, as Java's (`std::span` has no `at`).
+
+The per-line waiver of handlers-and-porting-plan.md §3.1 item 2 (H-03): a C++ line whose comment starts with `parity:` is not compared
+(`throw runtime::NullPointerException(...); // parity: Java's NPE, explicit`), and a C++ line whose comment starts with `parity=` is
+compared as the Java statement after the `=` (`banPlayer(*player, n * 60000); // parity= ChatBanService.banPlayer(player,
+Duration.ofMinutes(n).toMillis());`), so a Java library call spelled another way keeps its Java as the reference. The Java after the `=` is
+read with the Java rules (instanceof, `arr.length`, `new`, the command rewrites), and a comment after it is a comment.
+
+The ported chat commands, from `cpp/`:
+
+```
+python tools/parity/parity.py tree --java-dir ../game-server/data/handlers --cpp-dir game-server/handlers/aion/gameserver/handlers --only admincommands/Announce.java ...
+```
 
 ## Commands
 

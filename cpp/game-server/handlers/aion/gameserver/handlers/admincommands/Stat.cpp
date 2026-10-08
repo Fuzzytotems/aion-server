@@ -45,7 +45,7 @@ void Stat::execute(Player& admin, std::span<const std::string> params) {
 		return;
 	}
 
-	runtime::Ptr<VisibleObject> target = admin.getTarget() == nullptr ? runtime::Ptr<VisibleObject>(&admin) : admin.getTarget();
+	runtime::Ptr<VisibleObject> target = admin.getTarget() == nullptr ? runtime::Ptr<VisibleObject>(&admin) : admin.getTarget(); // parity= VisibleObject target = admin.getTarget() == null ? admin : admin.getTarget();
 	runtime::Ptr<Creature> creature = runtime::as<Creature>(target);
 	if (creature == nullptr) {
 		PacketSendUtility::sendPacket(admin, SM_SYSTEM_MESSAGE::STR_INVALID_TARGET());
@@ -66,8 +66,8 @@ void Stat::execute(Player& admin, std::span<const std::string> params) {
 			sendInfo(admin, "Invalid stat set ID.");
 			return;
 		}
-		for (const std::unique_ptr<model::stats::calc::functions::StatFunction>& m : template_->getModifiers())
-			applyStatFunction(*creature, *m);
+		for (const std::unique_ptr<model::stats::calc::functions::StatFunction>& m : template_->getModifiers()) // parity= template.getModifiers().forEach(m -> applyStatFunction(creature, m));
+			applyStatFunction(*creature, *m); // parity: (continued)
 		sendInfo(admin, "Applied absolute stats to " + name(*creature) + ".");
 	} else {
 		sendInfo(admin);
@@ -77,7 +77,7 @@ void Stat::execute(Player& admin, std::span<const std::string> params) {
 // Java Stat.java:88-92
 void Stat::showStatFunctions(Player& admin, Creature& target, std::string_view searchStat) {
 	std::optional<StatEnum> stat = findStat(admin, searchStat);
-	if (stat)
+	if (stat) // parity= if (stat != null)
 		showActiveStatFunctions(admin, target, *stat);
 }
 
@@ -87,9 +87,9 @@ std::optional<StatEnum> Stat::findStat(Player& admin, std::string_view searchSta
 	if (stats.size() != 1) {
 		std::string message = "There is no stat with that name.";
 		if (!stats.empty()) {
-			message += " Possible matches:\n\t";
-			for (size_t i = 0; i < stats.size(); i++)
-				message += (i == 0 ? "" : "\n\t") + std::string(xml::enumName(stats[i]));
+			message += " Possible matches:\n\t"; // parity= message += " Possible matches:\n\t" + stats.stream().map(Enum::name).collect(Collectors.joining("\n\t"));
+			for (size_t i = 0; i < stats.size(); i++) // parity: (continued)
+				message += (i == 0 ? "" : "\n\t") + std::string(xml::enumName(stats[i])); // parity: (continued)
 		}
 		sendInfo(admin, message);
 		return std::nullopt;
@@ -101,19 +101,19 @@ std::optional<StatEnum> Stat::findStat(Player& admin, std::string_view searchSta
 std::vector<StatEnum> Stat::findPossibleMatches(std::string_view searchStatParam) {
 	using commons::utils::StringUtils::replace;
 	using commons::utils::StringUtils::toLowerCase;
-	if (commons::utils::StringUtils::utf16Length(searchStatParam) < 2)
-		return {};
+	if (commons::utils::StringUtils::utf16Length(searchStatParam) < 2) // parity= if (searchStat.length() < 2)
+		return {}; // parity= return List.of();
 	std::vector<StatEnum> possibleMatches;
 	std::string searchStat = toLowerCase(searchStatParam);
 	std::string searchStatShort = replace(searchStat, "_", "");
-	const auto& names = xml::EnumTraits<StatEnum>::names;
-	for (size_t ordinal = 0; ordinal < names.size(); ordinal++) {
-		StatEnum stat = static_cast<StatEnum>(ordinal);
-		std::string statName = toLowerCase(names[ordinal]);
+	const auto& names = xml::EnumTraits<StatEnum>::names; // parity: the names the next loop iterates (StatEnum.values() in ordinal order)
+	for (size_t ordinal = 0; ordinal < names.size(); ordinal++) { // parity= for (StatEnum stat : StatEnum.values()) {
+		StatEnum stat = static_cast<StatEnum>(ordinal); // parity: (continued)
+		std::string statName = toLowerCase(names[ordinal]); // parity= String statName = stat.name().toLowerCase();
 		std::string statNameShort = replace(statName, "_", "");
 		if (searchStatShort == statNameShort)
-			return {stat};
-		if (statNameShort.starts_with(searchStatShort) || statName.find(searchStat) != std::string::npos) {
+			return {stat}; // parity= return List.of(stat);
+		if (statNameShort.starts_with(searchStatShort) || statName.find(searchStat) != std::string::npos) { // parity= if (statNameShort.startsWith(searchStatShort) || statName.contains(searchStat)) {
 			possibleMatches.push_back(stat);
 		}
 	}
@@ -124,53 +124,53 @@ std::vector<StatEnum> Stat::findPossibleMatches(std::string_view searchStatParam
 void Stat::showActiveStatFunctions(Player& admin, Creature& target, StatEnum stat) {
 	std::vector<runtime::Ptr<model::stats::calc::functions::IStatFunction>> stats = target.getGameStats()->getStatsSorted(stat);
 	std::string targetInfo = admin.equals(target) ? "You currently have " : name(target) + " currently has ";
-	std::string statName = ChatUtil::color(xml::enumName(stat), utils::JavaColor::WHITE);
+	std::string statName = ChatUtil::color(xml::enumName(stat), utils::JavaColor::WHITE); // parity= String statName = ChatUtil.color(stat.name(), Color.WHITE);
 	if (stats.empty()) {
 		sendInfo(admin, targetInfo + "no active " + statName + " functions.");
 		return;
 	}
 	sendInfo(admin, targetInfo + std::to_string(stats.size()) + " active " + statName + " function(s):");
 	// Java: Collectors.groupingBy(f -> f, LinkedHashMap::new, Collectors.counting()) - the first-seen order, equal infos counted together
-	std::vector<std::pair<StatFunctionInfo, int64_t>> counted;
-	for (const runtime::Ptr<model::stats::calc::functions::IStatFunction>& function : stats) {
-		StatFunctionInfo info(*function);
-		auto it = std::ranges::find_if(counted, [&info](const auto& entry) { return entry.first == info; });
-		if (it != counted.end())
-			it->second++;
-		else
-			counted.emplace_back(std::move(info), 1);
-	}
-	for (const auto& [info, count] : counted)
-		sendInfo(admin, ChatUtil::leftPad(count, 3) + "x " + info.toString());
+	std::vector<std::pair<StatFunctionInfo, int64_t>> counted; // parity= stats.stream().map(StatFunctionInfo::new).collect(Collectors.groupingBy(f -> f, LinkedHashMap::new, Collectors.counting())).forEach((info, count) -> sendInfo(admin, ChatUtil.leftPad(count, 3) + "x " + info));
+	for (const runtime::Ptr<model::stats::calc::functions::IStatFunction>& function : stats) { // parity: (continued)
+		StatFunctionInfo info(*function); // parity: (continued)
+		auto it = std::ranges::find_if(counted, [&info](const auto& entry) { return entry.first == info; }); // parity: (continued)
+		if (it != counted.end()) // parity: (continued)
+			it->second++; // parity: (continued)
+		else // parity: (continued)
+			counted.emplace_back(std::move(info), 1); // parity: (continued)
+	} // parity: (continued)
+	for (const auto& [info, count] : counted) // parity: (continued)
+		sendInfo(admin, ChatUtil::leftPad(count, 3) + "x " + info.toString()); // parity: (continued)
 }
 
 // Java Stat.java:139-142
 void Stat::listStats(Player& admin) {
-	std::string stats;
-	const auto& names = xml::EnumTraits<StatEnum>::names;
-	for (size_t ordinal = 0; ordinal < names.size(); ordinal++)
-		stats += (ordinal == 0 ? "" : "\n\t") + std::string(names[ordinal]);
+	std::string stats; // parity= String stats = Arrays.stream(StatEnum.values()).map(Enum::name).collect(Collectors.joining("\n\t"));
+	const auto& names = xml::EnumTraits<StatEnum>::names; // parity: (continued)
+	for (size_t ordinal = 0; ordinal < names.size(); ordinal++) // parity: (continued)
+		stats += (ordinal == 0 ? "" : "\n\t") + std::string(names[ordinal]); // parity: (continued)
 	sendInfo(admin, "List of stats:\n\t" + stats);
 }
 
 // Java Stat.java:144-151
 void Stat::setStat(Player& admin, Creature& target, std::string_view searchStat, int32_t value) {
 	std::optional<StatEnum> stat = findStat(admin, searchStat);
-	if (!stat)
+	if (!stat) // parity= if (stat == null)
 		return;
-	runtime::Ref<model::stats::calc::functions::RcStatFunction<CommandStatFunction>> function =
-		model::stats::calc::functions::RcStatFunction<CommandStatFunction>::create(*stat, value);
-	applyStatFunction(target, *function);
+	runtime::Ref<model::stats::calc::functions::RcStatFunction<CommandStatFunction>> function = // parity: the new CommandStatFunction(stat, value) of the next line (RcStatFunction, docs/deviations/C2.md)
+		model::stats::calc::functions::RcStatFunction<CommandStatFunction>::create(*stat, value); // parity: (continued)
+	applyStatFunction(target, *function); // parity= applyStatFunction(target, new CommandStatFunction(stat, value));
 	std::string targetInfo = admin.equals(target) ? "Your " : name(target) + "'s ";
-	sendInfo(admin, targetInfo + ChatUtil::color(xml::enumName(*stat), utils::JavaColor::WHITE) + " is now set to " + std::to_string(value) + ".");
+	sendInfo(admin, targetInfo + ChatUtil::color(xml::enumName(*stat), utils::JavaColor::WHITE) + " is now set to " + std::to_string(value) + "."); // parity= sendInfo(admin, targetInfo + ChatUtil.color(stat.name(), Color.WHITE) + " is now set to " + value + ".");
 }
 
 // Java Stat.java:153-157
 void Stat::applyStatFunction(Creature& creature, model::stats::calc::functions::StatFunction& statFunction) {
 	model::stats::calc::StatOwner& statOwner = CommandStatOwner::get(statFunction.getName());
 	creature.getGameStats()->endEffect(statOwner);
-	creature.getGameStats()->addEffect(runtime::Ptr<model::stats::calc::StatOwner>(&statOwner),
-		{runtime::Ptr<model::stats::calc::functions::IStatFunction>(&statFunction)});
+	creature.getGameStats()->addEffect(runtime::Ptr<model::stats::calc::StatOwner>(&statOwner), // parity= creature.getGameStats().addEffect(statOwner, List.of(statFunction));
+		{runtime::Ptr<model::stats::calc::functions::IStatFunction>(&statFunction)}); // parity: (continued)
 }
 
 // Java Stat.java:159-163
@@ -182,11 +182,11 @@ void Stat::cancelStatOverrides(Player& admin, Creature& target) {
 
 // ---- CommandStatFunction (Stat.java:165-183) ----------------------------------------------------------------------------------------------
 
-Stat::CommandStatFunction::CommandStatFunction(StatEnum name, int32_t value) : StatFunction(name, value, true) {
+Stat::CommandStatFunction::CommandStatFunction(StatEnum name, int32_t value) : StatFunction(name, value, true) { // parity= public CommandStatFunction(StatEnum name, int value) { super(name, value, true);
 }
 
 // C++: the parameter is stat2 (Java: stat), which would hide StatFunction::stat
-void Stat::CommandStatFunction::apply(model::stats::calc::Stat2& stat2, const std::unordered_set<CalculationType>& /*calculationTypes*/) {
+void Stat::CommandStatFunction::apply(model::stats::calc::Stat2& stat2, const std::unordered_set<CalculationType>& /*calculationTypes*/) { // parity= public void apply(Stat2 stat, Set<CalculationType> calculationTypes) {
 	stat2.setBonusRate(1.0f);
 	stat2.setFinalRate(1.0f);
 	stat2.setBonus(static_cast<float>(getValue()) - stat2.getExactCurrentWithoutBonus());
@@ -203,47 +203,47 @@ int32_t Stat::CommandStatFunction::getPriority() const {
  * together on first use (a function-local static, thread-safe), immortal; forEach visits every one. Ending an owner that never added a function
  * changes nothing (CreatureGameStats.endEffect removes nothing and does not call onStatsChange), so visiting the unused ones is invisible.
  */
-model::stats::calc::StatOwner& Stat::CommandStatOwner::get(StatEnum stat) {
-	static const std::vector<std::unique_ptr<CommandStatOwner>>* const owners = [] {
-		auto* created = new std::vector<std::unique_ptr<CommandStatOwner>>(); // immortal, like the Java static map
-		for (size_t ordinal = 0; ordinal < xml::EnumTraits<StatEnum>::names.size(); ordinal++)
-			created->push_back(std::make_unique<CommandStatOwner>(static_cast<StatEnum>(ordinal)));
-		return created;
-	}();
-	return *(*owners)[static_cast<size_t>(stat)];
+model::stats::calc::StatOwner& Stat::CommandStatOwner::get(StatEnum stat) { // parity= record CommandStatOwner(StatEnum stat) implements StatOwner { static final Map<StatEnum, StatOwner> statOwnerByStat = new EnumMap<>(StatEnum.class); static StatOwner get(StatEnum stat) { // the record header and its field (Stat.java:172-174) live in Stat.h
+	static const std::vector<std::unique_ptr<CommandStatOwner>>* const owners = [] { // parity= return statOwnerByStat.computeIfAbsent(stat, CommandStatOwner::new); // all owners created on first use, docs/deviations/C2.md
+		auto* created = new std::vector<std::unique_ptr<CommandStatOwner>>(); // parity: (continued; immortal, like the Java static map)
+		for (size_t ordinal = 0; ordinal < xml::EnumTraits<StatEnum>::names.size(); ordinal++) // parity: (continued)
+			created->push_back(std::make_unique<CommandStatOwner>(static_cast<StatEnum>(ordinal))); // parity: (continued)
+		return created; // parity: (continued)
+	}(); // parity: (continued)
+	return *(*owners)[static_cast<size_t>(stat)]; // parity: (continued)
 }
 
-void Stat::CommandStatOwner::forEach(const std::function<void(model::stats::calc::StatOwner&)>& consumer) {
-	for (size_t ordinal = 0; ordinal < xml::EnumTraits<StatEnum>::names.size(); ordinal++)
-		consumer(get(static_cast<StatEnum>(ordinal)));
+void Stat::CommandStatOwner::forEach(const std::function<void(model::stats::calc::StatOwner&)>& consumer) { // parity= static void forEach(Consumer<StatOwner> consumer) {
+	for (size_t ordinal = 0; ordinal < xml::EnumTraits<StatEnum>::names.size(); ordinal++) // parity= statOwnerByStat.values().forEach(consumer);
+		consumer(get(static_cast<StatEnum>(ordinal))); // parity: (continued)
 }
 
 // ---- StatFunctionInfo (Stat.java:198-229) -------------------------------------------------------------------------------------------------
 
-Stat::StatFunctionInfo::StatFunctionInfo(model::stats::calc::functions::IStatFunction& f)
-	: value(f.getValue()), bonus(f.isBonus()), priority(f.getPriority()), owner(f.getOwner()), type([&f] {
-		  auto* proxy = dynamic_cast<model::stats::calc::functions::StatFunctionProxy*>(&f);
-		  return statFunctionClassName(proxy != nullptr ? *proxy->getProxiedFunction() : f);
-	  }()) {
+Stat::StatFunctionInfo::StatFunctionInfo(model::stats::calc::functions::IStatFunction& f) // parity= record StatFunctionInfo(int value, boolean bonus, int priority, StatOwner owner, String type) { StatFunctionInfo(IStatFunction f) { // the record header (Stat.java:185) lives in Stat.h
+	: value(f.getValue()), bonus(f.isBonus()), priority(f.getPriority()), owner(f.getOwner()), type([&f] { // parity= this(f.getValue(), f.isBonus(), f.getPriority(), f.getOwner(), (f instanceof StatFunctionProxy p ? p.getProxiedFunction() : f).getClass().getSimpleName());
+		  auto* proxy = dynamic_cast<model::stats::calc::functions::StatFunctionProxy*>(&f); // parity: (continued)
+		  return statFunctionClassName(proxy != nullptr ? *proxy->getProxiedFunction() : f); // parity: (continued)
+	  }()) { // parity: (continued)
 }
 
-bool Stat::StatFunctionInfo::operator==(const StatFunctionInfo& other) const {
-	if (value != other.value || bonus != other.bonus || priority != other.priority || type != other.type)
-		return false;
+bool Stat::StatFunctionInfo::operator==(const StatFunctionInfo& other) const { // parity: Java's implicit record equality (Objects.equals of each component), docs/deviations/C2.md
+	if (value != other.value || bonus != other.bonus || priority != other.priority || type != other.type) // parity: (the same)
+		return false; // parity: (the same)
 	// Java Objects.equals of the owners: identity, except AionObject (an Item) equals by object id
-	if (owner.get() == other.owner.get())
-		return true;
-	const auto* objectA = dynamic_cast<const model::gameobjects::AionObject*>(owner.get());
-	const auto* objectB = dynamic_cast<const model::gameobjects::AionObject*>(other.owner.get());
-	return objectA != nullptr && objectB != nullptr && objectA->equals(*objectB);
+	if (owner.get() == other.owner.get()) // parity: (the same)
+		return true; // parity: (the same)
+	const auto* objectA = dynamic_cast<const model::gameobjects::AionObject*>(owner.get()); // parity: (the same)
+	const auto* objectB = dynamic_cast<const model::gameobjects::AionObject*>(other.owner.get()); // parity: (the same)
+	return objectA != nullptr && objectB != nullptr && objectA->equals(*objectB); // parity: (the same)
 }
 
 std::string Stat::StatFunctionInfo::toString() const {
-	std::string info = isOverrideFunction() ? "=" + std::to_string(value) : value >= 0 ? "+" + std::to_string(value) : std::to_string(value);
-	if (type == "CommandStatFunction") {
+	std::string info = isOverrideFunction() ? "=" + std::to_string(value) : value >= 0 ? "+" + std::to_string(value) : std::to_string(value); // parity= String info = isOverrideFunction() ? "=" + value : value >= 0 ? "+" + value : "" + value;
+	if (type == "CommandStatFunction") { // parity= if (type.equals(CommandStatFunction.class.getSimpleName())) {
 		info = ChatUtil::color(info, utils::JavaColor::CYAN);
 	} else {
-		if (type == "StatRateFunction")
+		if (type == "StatRateFunction") // parity= if (type.equals(StatRateFunction.class.getSimpleName()))
 			info += "%";
 		info = ChatUtil::color(info, value < 0 ? utils::JavaColor::RED : bonus ? utils::JavaColor::GREEN : utils::JavaColor::WHITE);
 		if (bonus)
@@ -251,31 +251,31 @@ std::string Stat::StatFunctionInfo::toString() const {
 	}
 	info += ", priority: " + std::to_string(priority);
 	info += ", type: " + type;
-	info += ", owner: " + (owner == nullptr ? std::string("none") : utils::simpleClassName(typeid(*owner)));
-	if (auto* effect = dynamic_cast<Effect*>(owner.get()))
+	info += ", owner: " + (owner == nullptr ? std::string("none") : utils::simpleClassName(typeid(*owner))); // parity= info += ", owner: " + (owner == null ? "none" : owner.getClass().getSimpleName());
+	if (auto* effect = dynamic_cast<Effect*>(owner.get())) // parity= if (owner instanceof Effect effect)
 		info += " (skill ID " + std::to_string(effect->getSkillId()) + ": " + effect->getSkillTemplate()->getL10n() + ")";
 	// Java: enchantEffect.getItemSlot() != null - the C++ EnchantEffect has MAIN_HAND where Java has null (docs/deviations/C2.md)
-	else if (auto* enchantEffect = dynamic_cast<EnchantEffect*>(owner.get()))
+	else if (auto* enchantEffect = dynamic_cast<EnchantEffect*>(owner.get())) // parity= else if (owner instanceof EnchantEffect enchantEffect && enchantEffect.getItemSlot() != null)
 		info += " (" + std::string(xml::enumName(enchantEffect->getItemSlot())) + ")";
-	else if (auto* l10n = dynamic_cast<L10n*>(owner.get()))
+	else if (auto* l10n = dynamic_cast<L10n*>(owner.get())) // parity= else if (owner instanceof L10n l10n)
 		info += " (" + l10n->getL10n() + ")";
 	return info;
 }
 
 bool Stat::StatFunctionInfo::isOverrideFunction() const {
-	return type == "CommandStatFunction" || type == "StatAbsFunction" || type == "StatSetFunction";
+	return type == "CommandStatFunction" || type == "StatAbsFunction" || type == "StatSetFunction"; // parity= return type.equals(CommandStatFunction.class.getSimpleName()) || type.equals(StatAbsFunction.class.getSimpleName()) || type.equals(StatSetFunction.class.getSimpleName());
 }
 
-std::string Stat::statFunctionClassName(model::stats::calc::functions::IStatFunction& f) {
-	std::string name = commons::utils::getSimpleClassName(typeid(f));
+std::string Stat::statFunctionClassName(model::stats::calc::functions::IStatFunction& f) { // parity: Java's getClass().getSimpleName() of a StatFunction, unwrapping RcStatFunction<T> (docs/deviations/C2.md)
+	std::string name = commons::utils::getSimpleClassName(typeid(f)); // parity: (the same)
 	// RcStatFunction<aion::...::StatAddFunction> -> StatAddFunction (Java creates the subclass itself)
-	if (name.starts_with("RcStatFunction<") && name.ends_with(">")) {
-		name = name.substr(std::string_view("RcStatFunction<").size(), name.size() - std::string_view("RcStatFunction<").size() - 1);
-		if (size_t scope = name.rfind("::"); scope != std::string::npos)
-			name = name.substr(scope + 2);
-		return name;
+	if (name.starts_with("RcStatFunction<") && name.ends_with(">")) { // parity: (the same)
+		name = name.substr(std::string_view("RcStatFunction<").size(), name.size() - std::string_view("RcStatFunction<").size() - 1); // parity: (the same)
+		if (size_t scope = name.rfind("::"); scope != std::string::npos) // parity: (the same)
+			name = name.substr(scope + 2); // parity: (the same)
+		return name; // parity: (the same)
 	}
-	return utils::simpleClassName(typeid(f));
+	return utils::simpleClassName(typeid(f)); // parity: (the same)
 }
 
 } // namespace aion::gameserver::handlers::admincommands
