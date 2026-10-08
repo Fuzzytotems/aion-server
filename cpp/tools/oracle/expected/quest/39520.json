@@ -1,0 +1,25 @@
+{
+ "format": "aion-quest-trace",
+ "version": 1,
+ "questId": 39520,
+ "java": "black_cloud_traders/_39520VilmanerkVersusDragonbound.java",
+ "class": "_39520VilmanerkVersusDragonbound",
+ "javaSha256": "e26e0c08d11eb1d986c23f069a8fc397934f6d3880bc9b8ca85a97258a237a93",
+ "register": [
+  {"npc": 205885, "event": "addOnTalkEvent", "args": [39520]},
+  {"npc": 205984, "event": "addOnTalkEvent", "args": [39520]},
+  {"npc": 218387, "event": "addOnKillEvent", "args": [39520]},
+  {"npc": 218389, "event": "addOnKillEvent", "args": [39520]},
+  {"npc": 218391, "event": "addOnKillEvent", "args": [39520]},
+  {"npc": 218393, "event": "addOnKillEvent", "args": [39520]},
+  {"npc": 218395, "event": "addOnKillEvent", "args": [39520]},
+  {"npc": 218397, "event": "addOnKillEvent", "args": [39520]},
+  {"npc": 218399, "event": "addOnKillEvent", "args": [39520]},
+  {"npc": 218401, "event": "addOnKillEvent", "args": [39520]}
+ ],
+ "hooks": [
+  {"hook": "onDialogEvent", "line": 35, "unsupported": "call env.getVisibleObject().getController()"},
+  {"hook": "onKillEvent", "line": 85, "unsupported": "call Rnd.chance"}
+ ],
+ "cases": []
+}

@@ -1,0 +1,16 @@
+{
+ "format": "aion-quest-trace",
+ "version": 1,
+ "questId": 2493,
+ "java": "morheim/_2493BringingUpTayga.java",
+ "class": "_2493BringingUpTayga",
+ "javaSha256": "af60582916a63bfbeb95654c129eac84c3e0097003063f81a490b7cbe24cc978",
+ "register": [
+  {"npc": 204325, "event": "addOnQuestStart", "args": [2493]},
+  {"call": "registerOnLogOut", "args": [2493]},
+  {"npc": 204325, "event": "addOnTalkEvent", "args": [2493]},
+  {"npc": 204435, "event": "addOnTalkEvent", "args": [2493]}
+ ],
+ "hooks": [{"hook": "onDialogEvent", "line": 29, "unsupported": "call env.getVisibleObject().getController()"}],
+ "cases": []
+}

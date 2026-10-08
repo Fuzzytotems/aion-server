@@ -1,0 +1,11 @@
+{
+ "format": "aion-quest-trace",
+ "version": 1,
+ "questId": 2443,
+ "java": "morheim/_2443TaisanMessage.java",
+ "class": "_2443TaisanMessage",
+ "javaSha256": "8d581b6b48219c91828dede5be604533116c717ec6185f566231905d38822828",
+ "register": [{"npc": 204403, "event": "addOnQuestStart", "args": [2443]}, {"npc": 790016, "event": "addOnTalkEvent", "args": [2443]}],
+ "hooks": [{"hook": "onDialogEvent", "line": 32, "unsupported": "CreatureState.FLYING"}],
+ "cases": []
+}
