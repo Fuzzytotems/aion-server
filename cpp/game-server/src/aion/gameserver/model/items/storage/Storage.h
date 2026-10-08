@@ -49,6 +49,12 @@ protected:
 	/** @param withDeletedItems Java leaves the deleted items queue null when false (LegionStorageProxy); the C++ queue always exists */
 	Storage(StorageType storageType, bool withDeletedItems);
 
+	/**
+	 * C++ only: a storage whose owner is known at construction (OwnedPart's pattern 1, Parts.h) - LegionStorageProxy, which Player.getStorage
+	 * creates per call for an already published player, where bindOwner (pattern 3, before publication) is not allowed
+	 */
+	Storage(StorageType storageType, bool withDeletedItems, const runtime::RefCounted& owner);
+
 public:
 	~Storage() override;
 

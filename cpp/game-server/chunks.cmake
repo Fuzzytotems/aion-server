@@ -429,6 +429,12 @@ aion_gs_chunk(P5-12a TARGET aion_gs_siege PHASE 5
 aion_gs_chunk(P5-08 LEASE PHASE 5
 	GLOBS "aion/gameserver/services/SiegeService.cpp")
 
+# The legion gate of M5h (granted 2026-10-08): P5-11 leases model/items/storage/Storage.{h,cpp} and LegionStorageProxy.cpp from P4-13 for the
+# owner-at-construction storage constructor that LegionStorageProxy needs (header request m5h-g1; docs/DEVIATIONS.md, item model). Released
+# when the lane merges.
+aion_gs_chunk(P5-11 LEASE PHASE 5
+	GLOBS "aion/gameserver/model/items/storage/{Storage,LegionStorageProxy}.cpp" "aion/gameserver/model/items/storage/Storage.h")
+
 # P5-12b: base, rift, vortex, world raid, panesterra, conqueror/protector, events
 aion_gs_chunk(P5-12b TARGET aion_gs_worldevents PHASE 5
 	GLOBS "aion/gameserver/services/{rift,vortex,worldraid,panesterra,event,conquerorAndProtectorSystem}/**"

@@ -79,6 +79,11 @@ Storage::Storage(StorageType storageTypeValue, bool withDeletedItems)
 	static_cast<void>(withDeletedItems); // Java: deletedItems = withDeletedItems ? new ConcurrentLinkedQueue<>() : null (the C++ queue always exists)
 }
 
+Storage::Storage(StorageType storageTypeValue, bool withDeletedItems, const runtime::RefCounted& owner)
+	: OwnedPart(owner), itemStorage(ItemStorage::create(storageTypeValue)), storageType(storageTypeValue) {
+	static_cast<void>(withDeletedItems); // Java: deletedItems = withDeletedItems ? new ConcurrentLinkedQueue<>() : null (the C++ queue always exists)
+}
+
 Storage::~Storage() = default;
 
 int64_t Storage::getKinah() {
