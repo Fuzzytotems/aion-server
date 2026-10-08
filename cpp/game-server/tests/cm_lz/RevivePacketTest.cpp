@@ -17,6 +17,7 @@
 #include <vector>
 
 #include "aion/commons/utils/ByteBuffer.h"
+#include "aion/gameserver/configs/administration/AdminConfig.h"
 #include "aion/gameserver/model/gameobjects/player/CustomPlayerState.h"
 #include "aion/gameserver/model/gameobjects/player/ReviveType.h"
 #include "aion/gameserver/model/gameobjects/player/ReviveTypeInfo.h"
@@ -178,14 +179,22 @@ TEST_F(ReviveRunTest, BindAndObeliskReviveBothReachBindRevive) {
 
 TEST_F(ReviveRunTest, EveryOtherArmReachesItsOwnService) {
 	die();
-	EXPECT_NE(unportedArm(1).find("rebirthRevive"), std::string::npos) << unportedArm(1);
-	EXPECT_NE(unportedArm(2).find("itemSelfRevive"), std::string::npos) << unportedArm(2);
+	// gameserver.administration.auto_res: Java's default is 1 (AdminConfig.java:45), which this fixture's account (level 0) is below; the C++
+	// atomic starts at 0 until a config is loaded, which would let every character take rebirthRevive's AUTO_RES arm
+	const int8_t autoRes = configs::administration::AdminConfig::AUTO_RES.exchange(1);
+	// REBIRTH_REVIVE reaches rebirthRevive, ported (M5j S-02): without a rebirth effect it audits and returns (PlayerReviveService.java:64-68)
+	EXPECT_EQ(unportedArm(1), "<did not throw>");
+	EXPECT_TRUE(actor.player->isDead());
+	// ITEM_SELF_REVIVE reaches itemSelfRevive, ported (M5j S-02): without a self-res stone it audits and returns (:215-220)
+	EXPECT_EQ(unportedArm(2), "<did not throw>");
+	EXPECT_TRUE(actor.player->isDead());
 	// SKILL_REVIVE reaches skillRevive, ported (P5-08, C-02): without a resurrection offer it audits and returns (PlayerReviveService.java:42-46)
 	EXPECT_EQ(unportedArm(3), "<did not throw>");
 	EXPECT_TRUE(actor.player->isDead());
 	// KISK_REVIVE reaches kiskRevive, ported (P5-08): without a bound kisk it does nothing (PlayerReviveService.java:139-155)
 	EXPECT_EQ(unportedArm(4), "<did not throw>");
 	EXPECT_TRUE(actor.player->isDead());
+	configs::administration::AdminConfig::AUTO_RES.store(autoRes);
 }
 
 TEST_F(ReviveRunTest, InstanceReviveTakesItsEventModeArm) {
