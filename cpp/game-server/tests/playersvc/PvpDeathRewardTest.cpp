@@ -12,8 +12,8 @@
 // What this file reaches and what it cannot:
 // - the PvE arm of doReward - no most-damage attacker, or one that is not a Player - runs end to end, driven through the real death path
 //   (CreatureController::die -> reduceHp -> onHpChanged -> PlayerController::onDie -> doReward).
-// - the PvP arm below the early return stays AION_UNPORTED (m5b-plan.md C-04 keeps it W). `TheDeathOfAPlayerKilledByAPlayerIsStillUnported`
-//   pins that by the function name in the UnportedException, so the day somebody ports it the test says where to look.
+// - the PvP arm below the early return is ported since M5j stage 1 CP4 (m5j-plan.md S-12): the PvpKillTest cases at the end drive it with an
+//   Asmodian killer of the victim's level, and pin StatFunctions' PvP formulas.
 // - the team arm inside the early return is an AION_UNPORTED behind `if (team)` (the B-07 pattern). A solo character never enters it; a test
 //   would need P5-10's PlayerGroup, which is not ported.
 // - one term of the broadcast predicate has no case here and is stated rather than left to the reader: `!p.isInInstance()`
@@ -25,12 +25,19 @@
 #include "../world/WorldTestSupport.h"
 
 #include <algorithm>
+#include <atomic>
 #include <cstdint>
 #include <memory>
 #include <optional>
 #include <string>
 #include <vector>
 
+#include "aion/gameserver/configs/main/CustomConfig.h"
+#include "aion/gameserver/configs/main/GroupConfig.h"
+#include "aion/gameserver/model/PlayerClass.h"
+#include "aion/gameserver/model/gameobjects/player/PlayerCommonData.h"
+#include "aion/gameserver/model/stats/container/PlayerGameStats.h"
+#include "aion/gameserver/utils/stats/StatFunctions.h"
 #include "aion/gameserver/controllers/NpcController.h"
 #include "aion/gameserver/controllers/PlayerController.h"
 #include "aion/gameserver/controllers/attack/AggroList.h"
@@ -275,23 +282,137 @@ TEST_F(PvpDeathRewardTest, PlayerControllerDoRewardReachesThePvEArm) {
 	EXPECT_EQ(runtime::unportedHitCount(), 0u);
 }
 
-/**
- * The PvP half below the early return is deliberately not ported (m5b-plan.md C-04, need W). This case pins that decision: the day a player can
- * kill a player, doReward must be finished, and the failure names the body.
- */
-TEST_F(PvpDeathRewardTest, ADeathWhoseMostDamageAttackerIsAPlayerIsStillUnported) {
-	watcher = makePlayer(430002, 9602, "Killer");
-	placeInWorld(*watcher.player, world::test::POETA, 305.0f, 300.0f, 10.0f);
-	beatenBy(*watcher.player, 150);
-	runtime::resetUnportedHitsForTests();
+// ---- the PvP half (PvpService.java:111-176, M5j stage 1 CP4) ----------------------------------------------------------------------------------
 
-	try {
-		PvpService::getInstance().doReward(*victim.player);
-		FAIL() << "the PvP arm of PvpService::doReward is not ported yet";
-	} catch (const runtime::UnportedException& unported) {
-		EXPECT_NE(std::string(unported.what()).find("doReward"), std::string::npos) << unported.what();
+/** Sets an atomic configuration value for the scope and restores it (the test process binds no properties) */
+template <class T>
+class ConfigScope {
+public:
+	ConfigScope(std::atomic<T>& config, T value) : config_(config), previous_(config.load()) { config.store(value); }
+	~ConfigScope() { config_.store(previous_); }
+
+private:
+	std::atomic<T>& config_;
+	const T previous_;
+};
+
+class PvpKillTest : public PvpDeathRewardTest {
+protected:
+	/** an Asmodian GLADIATOR (not a starting class: DP counts) of the victim's level 10, online, 5 m from the victim, with 150 damage dealt */
+	void killerOf(model::Race race) {
+		watcher = makePlayer(430002, 9602, "Killer", race);
+		watcher.commonData->setPlayerClass(model::PlayerClass::GLADIATOR);
+		watcher.commonData->setLevel(10);
+		victim.commonData->setLevel(10);
+		placeInWorld(*watcher.player, world::test::POETA, 305.0f, 300.0f, 10.0f);
+		killerClient = std::make_unique<TestClient>();
+		killerClient->enterWorld(watcher);
+		victim.player->setAbyssRank(model::gameobjects::player::AbyssRank::create(0, 0, 1000, GRADE9_SOLDIER_ID, 0, 0, 0, GRADE9_SOLDIER_ID, 0, 0, 0,
+			0, 0, 0, 0));
+		beatenBy(*watcher.player, 150);
+		(*killerClient)->clearSent();
+		(*client)->clearSent();
 	}
-	EXPECT_FALSE(sent(myDeath())) << "a player killer must not take the early return";
+
+	bool killerSent(SM_SYSTEM_MESSAGE&& packet) {
+		const std::vector<uint8_t> expected = serialized(std::move(packet), killerClient->con());
+		const std::vector<std::vector<uint8_t>> bytes = (*killerClient)->sentBytes();
+		return std::find(bytes.begin(), bytes.end(), expected) != bytes.end();
+	}
+
+	void TearDown() override {
+		killerClient.reset();
+		PvpDeathRewardTest::TearDown();
+	}
+
+	std::unique_ptr<TestClient> killerClient;
+	ConfigScope<int32_t> distance{configs::main::GroupConfig::GROUP_MAX_DISTANCE, 100};
+};
+
+/**
+ * PvpService.java:111-176, :214-260: an Asmodian kills an Elyos GRADE9_SOLDIER of his level alone. The killer's kill counter, 300 AP
+ * (AbyssRankEnum GRADE9 pointsGained), 5000 XP and 1064 DP (StatFunctions.java:147-262, the rates at 1 without a config); the victim loses 90 AP
+ * (pointsLost) for the whole damage; the two death messages of a kill outside instances, not the PvE one
+ */
+TEST_F(PvpKillTest, APlayerKillPaysTheKillerAndChargesTheVictim) {
+	ConfigScope<int32_t> dailyKills(configs::main::CustomConfig::MAX_DAILY_PVP_KILLS, 15);
+	killerOf(model::Race::ASMODIANS);
+	const int64_t expBefore = watcher.commonData->getExp();
+	const int32_t maxDp = watcher.player->getGameStats()->getMaxDp()->getCurrent();
+
+	PvpService::getInstance().doReward(*victim.player);
+
+	EXPECT_EQ(watcher.player->getAbyssRank()->getAllKill(), 1);
+	EXPECT_EQ(watcher.player->getAbyssRank()->getAp(), 300);
+	EXPECT_EQ(watcher.commonData->getExp() - expBefore, 5000);
+	EXPECT_EQ(watcher.commonData->getDp(), std::min(1064, maxDp));
+	EXPECT_EQ(victim.player->getAbyssRank()->getAp(), 910);
+	EXPECT_TRUE(sent(serialized(SM_SYSTEM_MESSAGE::STR_MSG_COMBAT_MY_DEATH_TO_B("Killer"), client->con())));
+	EXPECT_FALSE(sent(myDeath())) << "a player killer does not take the early return";
+	EXPECT_TRUE(killerSent(SM_SYSTEM_MESSAGE::STR_MSG_COMBAT_HOSTILE_DEATH_TO_ME("Victim")));
+}
+
+/** PvpService.java:236: beyond the daily kills of the same victim each reward is 1 */
+TEST_F(PvpKillTest, TheDailyKillLimitPaysOnePoint) {
+	ConfigScope<int32_t> dailyKills(configs::main::CustomConfig::MAX_DAILY_PVP_KILLS, 1);
+	killerOf(model::Race::ASMODIANS);
+	const int64_t expBefore = watcher.commonData->getExp();
+	PvpService::getInstance().doReward(*victim.player);
+	EXPECT_EQ(watcher.player->getAbyssRank()->getAp(), 1);
+	EXPECT_EQ(watcher.commonData->getExp() - expBefore, 1);
+}
+
+/** PvpService.java:179-188, :146-154: a killer of the victim's race counts no kill and earns nothing; the victim loses no AP */
+TEST_F(PvpKillTest, AKillerOfTheSameRaceEarnsNothing) {
+	ConfigScope<int32_t> dailyKills(configs::main::CustomConfig::MAX_DAILY_PVP_KILLS, 15);
+	killerOf(model::Race::ELYOS);
+	PvpService::getInstance().doReward(*victim.player);
+	EXPECT_EQ(watcher.player->getAbyssRank()->getAllKill(), 0);
+	EXPECT_EQ(watcher.player->getAbyssRank()->getAp(), 0);
+	EXPECT_EQ(victim.player->getAbyssRank()->getAp(), 1000) << "no AP-relevant damage";
+	EXPECT_TRUE(sent(serialized(SM_SYSTEM_MESSAGE::STR_MSG_COMBAT_MY_DEATH_TO_B("Killer"), client->con())));
+}
+
+/** StatFunctions.java:128-262, the PvP formulas (a GRADE9 victim of level 10: 300 points gained, 90 lost) */
+TEST_F(PvpKillTest, ThePvpFormulasFollowTheLevelAndRankDifferences) {
+	using utils::stats::StatFunctions;
+	killerOf(model::Race::ASMODIANS);
+	model::gameobjects::player::Player& v = *victim.player;
+	model::gameobjects::player::Player& w = *watcher.player;
+	const int32_t L = v.getLevel();
+	auto winnerAbove = [&](int32_t levels) {
+		watcher.commonData->setLevel(static_cast<int32_t>(L + levels));
+		return w.getLevel() - L;
+	};
+	ASSERT_EQ(winnerAbove(0), 0);
+	EXPECT_EQ(StatFunctions::calculatePvPApLost(v, w), 90);
+	ASSERT_EQ(winnerAbove(3), 3);
+	EXPECT_EQ(StatFunctions::calculatePvPApLost(v, w), 77) << "3 levels: Math.round(90 * 0.85f)";
+	ASSERT_EQ(winnerAbove(4), 4);
+	EXPECT_EQ(StatFunctions::calculatePvPApLost(v, w), 58) << "4 levels: Math.round(90 * 0.65f), 58.499996f";
+	ASSERT_EQ(winnerAbove(5), 5);
+	EXPECT_EQ(StatFunctions::calculatePvPApLost(v, w), 9) << "5 levels and more";
+
+	EXPECT_EQ(StatFunctions::calculatePvpApGained(v, 1, L), 300);
+	EXPECT_EQ(StatFunctions::calculatePvpApGained(v, 1, L + 3), 255);
+	EXPECT_EQ(StatFunctions::calculatePvpApGained(v, 1, L + 4), 195);
+	EXPECT_EQ(StatFunctions::calculatePvpApGained(v, 1, L + 5), 30);
+	EXPECT_EQ(StatFunctions::calculatePvpApGained(v, 1, L - 2), 330);
+	EXPECT_EQ(StatFunctions::calculatePvpApGained(v, 1, L - 3), 360);
+	EXPECT_EQ(StatFunctions::calculatePvpApGained(v, 1, L - 4), 390);
+	EXPECT_EQ(StatFunctions::calculatePvpApGained(v, 5, L), 240) << "4 ranks above: 20 % less";
+	EXPECT_EQ(StatFunctions::calculatePvpApGained(v, 8, L), 300) << "no rank penalty above rank 7";
+	EXPECT_EQ(StatFunctions::calculatePvpXpGained(v, 1, L), 5000);
+	EXPECT_EQ(StatFunctions::calculatePvpXpGained(v, 5, L), 4000);
+	EXPECT_EQ(StatFunctions::calculatePvpXpGained(v, 1, L + 5), 500);
+	EXPECT_EQ(StatFunctions::calculatePvpDpGained(v, 3, L), 950) << "(1 - 3) * 57 + 1064";
+
+	EXPECT_EQ(StatFunctions::adjustPvpDpGained(1000, 10, 10), 1000);
+	EXPECT_EQ(StatFunctions::adjustPvpDpGained(1000, 10, 13), 700);
+	EXPECT_EQ(StatFunctions::adjustPvpDpGained(1000, 10, 20), 0);
+	EXPECT_EQ(StatFunctions::adjustPvpDpGained(1000, 10, 21), 0) << "10 levels and more: 0, not 1000 - 1100";
+	EXPECT_EQ(StatFunctions::adjustPvpDpGained(1000, 15, 10), 1050);
+	EXPECT_EQ(StatFunctions::adjustPvpDpGained(1000, 30, 10), 1100);
 }
 
 /** AbyssService.java:17 - the rank gate. A GRADE9_SOLDIER on a kill-announce map is announced to nobody. */
