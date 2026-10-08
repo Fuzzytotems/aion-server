@@ -60,6 +60,21 @@ TEST(HousingDecodersTest, HouseAcquireOfAsStudio) {
 	expectExactLength(w.data, [](std::span<const uint8_t> b) { return decodeHouseAcquire(b); }, "SM_HOUSE_ACQUIRE");
 }
 
+TEST(HousingDecodersTest, HouseOwnerInfoBeforeAndAfterTheStudio) {
+	PacketWriter before;
+	before.D(0).D(0).C(2).C(0).D(0).D(0).D(0).D(0);
+	const HouseOwnerInfo none = decodeHouseOwnerInfo(before.data);
+	EXPECT_EQ(none.address, 0);
+	EXPECT_EQ(none.ownerState, 2);
+	PacketWriter after;
+	after.D(2001).D(355000).C(5).C(0).D(0).D(0).D(0).D(0);
+	const HouseOwnerInfo owner = decodeHouseOwnerInfo(after.data);
+	EXPECT_EQ(owner.address, 2001);
+	EXPECT_EQ(owner.buildingId, 355000);
+	EXPECT_EQ(owner.ownerState, 5);
+	expectExactLength(after.data, [](std::span<const uint8_t> b) { return decodeHouseOwnerInfo(b); }, "SM_HOUSE_OWNER_INFO");
+}
+
 TEST(HousingDecodersTest, HouseRenderAndUpdateCarryTheCommonInfo) {
 	PacketWriter render;
 	commonInfo(render);

@@ -53,6 +53,21 @@ HouseAcquire decodeHouseAcquire(std::span<const uint8_t> body) {
 	return acquire;
 }
 
+HouseOwnerInfo decodeHouseOwnerInfo(std::span<const uint8_t> body) {
+	BodyReader reader(body, "SM_HOUSE_OWNER_INFO");
+	HouseOwnerInfo info;
+	info.address = reader.D();              // SM_HOUSE_OWNER_INFO.java writeImpl, writeD(activeHouse address or 0)
+	info.buildingId = reader.D();           // writeD(activeHouse building or 0)
+	info.ownerState = reader.C();           // writeC(playerHouseOwnerState)
+	info.townLevel = reader.C();            // writeC(town level)
+	info.weeksUntilNextPay = reader.D();    // writeD(calculateWeeksUntilNextPay())
+	info.inactiveAddress = reader.D();      // writeD(inactiveHouse address or 0)
+	info.inactiveBuildingId = reader.D();   // writeD(inactiveHouse building or 0)
+	info.secondsUntilGraceEnd = reader.D(); // writeD(inactiveHouse.secondsUntilGraceEnd() or 0)
+	reader.expectFullyConsumed();
+	return info;
+}
+
 HouseInfo decodeHouseRender(std::span<const uint8_t> body) {
 	BodyReader reader(body, "SM_HOUSE_RENDER");
 	HouseInfo info;
