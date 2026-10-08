@@ -53,6 +53,8 @@
 #           + gs.scenario.m5e 343, gs.scenario.m5e_geo 484 (m5e-plan.md §10; 2026-10-04 in a Debug tree, one after the other in one
 #             ctest, beside two other agents' builds; m5e 340-379 s over its last five runs; slot 1 had the smaller sum before
 #             them, 1974 s against 2095 s)                                                                                = 2801
+#           + gs.scenario.gm GM_SECONDS (m5j-plan.md §17.8; 2026-10-07 in a Debug tree, no geo variant; slot 2 has the M5f
+#             pair and since M5g the two M5g gates, whose runtimes the M5g lane did not add here, so slot 1 is taken as the smaller)
 #   slot 2  gs.scenario.m5b2 172, gs.scenario.m5b2_geo 301                                                         =  473
 #           + gs.scenario.ascension 880 (lane P6-Q asc-hand, docs/deviations/Q06.md; 866-904 s alone, 2026-09-29 in a Debug
 #             tree: two races' 43 s waits and auto-attack fights; it has no geo variant)                             = 1353
@@ -123,7 +125,8 @@ if(TARGET aion_gs_scenario_tests)
 		AION_SCENARIO_M5D_PARTIAL_ALLOWLIST="${CMAKE_CURRENT_SOURCE_DIR}/tests/scenario/m5d_partial_allowlist.txt"
 		AION_SCENARIO_M5E_PARTIAL_ALLOWLIST="${CMAKE_CURRENT_SOURCE_DIR}/tests/scenario/m5e_partial_allowlist.txt"
 		AION_SCENARIO_M5F_PARTIAL_ALLOWLIST="${CMAKE_CURRENT_SOURCE_DIR}/tests/scenario/m5f_partial_allowlist.txt"
-		AION_SCENARIO_M5G_PARTIAL_ALLOWLIST="${CMAKE_CURRENT_SOURCE_DIR}/tests/scenario/m5g_partial_allowlist.txt")
+		AION_SCENARIO_M5G_PARTIAL_ALLOWLIST="${CMAKE_CURRENT_SOURCE_DIR}/tests/scenario/m5g_partial_allowlist.txt"
+		AION_SCENARIO_GM_PARTIAL_ALLOWLIST="${CMAKE_CURRENT_SOURCE_DIR}/tests/scenario/gm_partial_allowlist.txt")
 
 	# the oracle answers are JSON (Oracle.cpp); commons finds the same package in its own directory scope
 	find_package(nlohmann_json CONFIG REQUIRED)
@@ -177,6 +180,9 @@ if(TARGET aion_gs_scenario_tests)
 		LABELS "scenario;realdata")
 	# and for the M5f gates (m5f-plan.md G-03/G-04)
 	aion_set_discovered_test_properties(aion_gs_scenario_tests REGEX "^M5fScenario(Geo)?\\." PROPERTIES DISABLED TRUE
+		LABELS "scenario;realdata")
+	# and for the M5j stage-0 GM gate (m5j-plan.md §17.8)
+	aion_set_discovered_test_properties(aion_gs_scenario_tests REGEX "^GmScenario\\." PROPERTIES DISABLED TRUE
 		LABELS "scenario;realdata")
 
 	# F-06: the M5a gate (§5.10). The oracle needs a Python interpreter; without it the test prints "gs.scenario.m5a: skipped".
@@ -512,5 +518,20 @@ if(TARGET aion_gs_scenario_tests)
 	endif()
 	if(AION_SCENARIO_REQUIRE OR NOT AION_GS_ALLOW_MILESTONE_SKIP)
 		set_property(TEST gs.scenario.m5g_alliance APPEND PROPERTY ENVIRONMENT_MODIFICATION "AION_SCENARIO_REQUIRE=set:1")
+	endif()
+
+	# ---- the M5j stage-0 GM gate (m5j-plan.md §10.2 as refreshed by §17.8) ---------------------------------------------------------------
+	#
+	# gs.scenario.gm: three Elyos accounts on Poeta - G (access level 9, seeded into the login schema's account_data before its first enter
+	# world, H-02), L (access level 1) and P (0): the default login commands, the access text, a player's command as a chat line with the race
+	# byte, whispers, the gag and its removal, and one command of each stage-0 family (//online, //announce, the console's levelup through
+	# CM_BUILDER_COMMAND, //addexp, .gmlist, //spawn and //kill). Its own output directory <bin>/scenario/gm, schema pair
+	# (aion_gs_test_gm_<hash>) and AION_PARTIAL allow-list. Gate slot 1 (see "the two gate slots" above). No geo variant (§10.1).
+	add_test(NAME gs.scenario.gm COMMAND "$<TARGET_FILE:aion_gs_scenario_tests>" --gtest_filter=GmScenario.Run
+		WORKING_DIRECTORY "${scenario_work_dir}")
+	set_tests_properties(gs.scenario.gm PROPERTIES LABELS "scenario;realdata" TIMEOUT 1800
+		RESOURCE_LOCK "${AION_GS_GATE_SLOT_1}" SKIP_REGULAR_EXPRESSION "gs\\.scenario\\.gm: skipped")
+	if(AION_SCENARIO_REQUIRE OR NOT AION_GS_ALLOW_MILESTONE_SKIP)
+		set_property(TEST gs.scenario.gm APPEND PROPERTY ENVIRONMENT_MODIFICATION "AION_SCENARIO_REQUIRE=set:1")
 	endif()
 endif()
