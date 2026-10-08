@@ -22,10 +22,9 @@ void Movie::execute(Player& player, std::span<const std::string> params) {
 		return;
 	}
 	bool isCutsceneMovie = commons::utils::StringUtils::equalsIgnoreCase("m", params[0]);
-	const size_t index = isCutsceneMovie ? 1 : 0;
-	if (index >= params.size()) // Java: params[1] of "//movie m" throws ArrayIndexOutOfBoundsException (ChatCommand.run logs it)
-		throw runtime::ArrayIndexOutOfBoundsException("Index " + std::to_string(index) + " out of bounds for length " + std::to_string(params.size()));
-	int32_t cutsceneId = commons::utils::parseInt(params[index]);
+	if (params.size() < (isCutsceneMovie ? 2u : 1u)) // parity: Java's ArrayIndexOutOfBoundsException of params[1] ("//movie m"), explicit
+		throw runtime::ArrayIndexOutOfBoundsException("Index 1 out of bounds for length 1"); // parity: (the same; ChatCommand.run logs it)
+	int32_t cutsceneId = commons::utils::parseInt(params[isCutsceneMovie ? 1 : 0]);
 	PacketSendUtility::sendPacket(player, SM_PLAY_MOVIE(isCutsceneMovie, 0, 0, cutsceneId, true));
 }
 

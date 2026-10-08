@@ -24,7 +24,7 @@ void Kick::execute(Player& admin, std::span<const std::string> params) {
 		return;
 	}
 
-	if (params[0] == "ALL") { // Java: "ALL".equals(params[0])
+	if ("ALL" == params[0]) { // Java: "ALL".equals(params[0])
 		if (World::getInstance().getAllPlayers().size() == 1) {
 			sendInfo(admin, "There is nobody online to kick.");
 			return;
@@ -32,8 +32,8 @@ void Kick::execute(Player& admin, std::span<const std::string> params) {
 		World::getInstance().forEachPlayer([&admin](Player& player) {
 			if (!player.equals(admin)) {
 				std::shared_ptr<AionConnection> connection = player.getClientConnection();
-				if (connection == nullptr) // Java: player.getClientConnection().close(...) on null
-					throw runtime::NullPointerException("Player.getClientConnection()");
+				if (connection == nullptr) // parity: Java's NullPointerException of player.getClientConnection().close(...), explicit
+					throw runtime::NullPointerException("Player.getClientConnection()"); // parity: (the same)
 				connection->close(SM_SYSTEM_MESSAGE::STR_KICK_CHARACTER());
 				PacketSendUtility::sendPacket(admin, SM_SYSTEM_MESSAGE::STR_USER_KICKED(player.getName()));
 			}
@@ -45,8 +45,8 @@ void Kick::execute(Player& admin, std::span<const std::string> params) {
 			return;
 		}
 		std::shared_ptr<AionConnection> connection = player->getClientConnection();
-		if (connection == nullptr) // Java: player.getClientConnection().close(...) on null
-			throw runtime::NullPointerException("Player.getClientConnection()");
+		if (connection == nullptr) // parity: Java's NullPointerException of player.getClientConnection().close(...), explicit
+			throw runtime::NullPointerException("Player.getClientConnection()"); // parity: (the same)
 		connection->close(SM_SYSTEM_MESSAGE::STR_KICK_CHARACTER());
 		PacketSendUtility::sendPacket(admin, SM_SYSTEM_MESSAGE::STR_USER_KICKED(player->getName()));
 	}

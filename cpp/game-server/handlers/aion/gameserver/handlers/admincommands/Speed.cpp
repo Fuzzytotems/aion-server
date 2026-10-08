@@ -31,14 +31,14 @@ void Speed::execute(Player& admin, std::span<const std::string> params) {
 		sendInfo(admin, "Your regular speed has been restored.");
 		return;
 	}
-	int32_t speed = geoEngine::math::JavaFloat::doubleToInt(parameter * 1000); // Java: (int) (parameter * 1000)
+	int32_t speed = geoEngine::math::JavaFloat::doubleToInt(parameter * 1000); // parity= int speed = (int) (parameter * 1000);
 	// the Refs keep the new functions alive until addEffect stores its own
-	runtime::Ref<RcStatFunction<Stat::CommandStatFunction>> speedFunction = RcStatFunction<Stat::CommandStatFunction>::create(StatEnum::SPEED, speed);
-	runtime::Ref<RcStatFunction<Stat::CommandStatFunction>> flySpeedFunction =
-		RcStatFunction<Stat::CommandStatFunction>::create(StatEnum::FLY_SPEED, speed);
-	std::vector<runtime::Ptr<IStatFunction>> functions{speedFunction, flySpeedFunction};
-	admin.getGameStats()->addEffect(runtime::Ptr<model::stats::calc::StatOwner>(this), functions);
-	sendInfo(admin, "Your speed is now fixed at " + geoEngine::math::JavaFloat::toString(parameter) + ".");
+	runtime::Ref<RcStatFunction<Stat::CommandStatFunction>> speedFunction = RcStatFunction<Stat::CommandStatFunction>::create(StatEnum::SPEED, speed); // parity= List<IStatFunction> functions = List.of(new CommandStatFunction(StatEnum.SPEED, speed), new CommandStatFunction(StatEnum.FLY_SPEED, speed));
+	runtime::Ref<RcStatFunction<Stat::CommandStatFunction>> flySpeedFunction = // parity: (continued)
+		RcStatFunction<Stat::CommandStatFunction>::create(StatEnum::FLY_SPEED, speed); // parity: (continued)
+	std::vector<runtime::Ptr<IStatFunction>> functions{speedFunction, flySpeedFunction}; // parity: (continued)
+	admin.getGameStats()->addEffect(runtime::Ptr<model::stats::calc::StatOwner>(this), functions); // parity= admin.getGameStats().addEffect(this, functions);
+	sendInfo(admin, "Your speed is now fixed at " + geoEngine::math::JavaFloat::toString(parameter) + "."); // parity= sendInfo(admin, "Your speed is now fixed at " + parameter + ".");
 }
 
 } // namespace aion::gameserver::handlers::admincommands

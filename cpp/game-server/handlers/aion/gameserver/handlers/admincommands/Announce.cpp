@@ -24,7 +24,7 @@ void Announce::execute(Player& admin, std::span<const std::string> params) {
 		return;
 	}
 	std::string message;
-	std::optional<Race> allowedRace; // Java: Race allowedRace = null
+	std::optional<Race> allowedRace = std::nullopt; // Java: Race allowedRace = null
 	if (equalsIgnoreCase("n", params[0])) {
 		message = name(admin) + ": ";
 	} else if (equalsIgnoreCase("a", params[0])) {
@@ -41,7 +41,7 @@ void Announce::execute(Player& admin, std::span<const std::string> params) {
 	}
 	message += join(params, 1);
 	for (const runtime::Ptr<Player>& player : World::getInstance().getAllPlayers())
-		if (!allowedRace || player->getRace() == *allowedRace || validateAccess(*player))
+		if (allowedRace == std::nullopt || player->getRace() == *allowedRace || validateAccess(*player))
 			PacketSendUtility::sendMessage(*player, message, ChatType::BRIGHT_YELLOW_CENTER);
 }
 
