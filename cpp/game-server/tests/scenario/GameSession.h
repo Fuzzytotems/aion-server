@@ -575,6 +575,47 @@ public:
 	/** CM_BUILDER_COMMAND, AbstractGmCommandPacket.readImpl (AbstractGmCommandPacket.java:27-29): readS command (a console command line) */
 	static std::vector<uint8_t> buildCM_BUILDER_COMMAND(std::string_view command);
 
+	// ---- M5j stage 1's social packets (m5j-plan.md §10.4, §18.1 CP1 "H-11's builders"), each the Java readImpl field order ----
+	/**
+	 * AionClientPacketFactory packets[58], [100], [111], [112], [114], [139], [159], [166], [175] and [188] (AionClientPacketFactory.java:86,
+	 * 128, 139, 140, 142, 167, 187, 194, 203, 216)
+	 */
+	static constexpr int32_t CM_SET_NOTE = 58;
+	static constexpr int32_t CM_VIEW_PLAYER_DETAILS = 100;
+	static constexpr int32_t CM_FRIEND_ADD = 111;
+	static constexpr int32_t CM_FRIEND_DEL = 112;
+	static constexpr int32_t CM_DUEL_REQUEST = 114;
+	static constexpr int32_t CM_TITLE_SET = 139;
+	static constexpr int32_t CM_PLAYER_SEARCH = 159;
+	static constexpr int32_t CM_BLOCK_ADD = 166;
+	static constexpr int32_t CM_MACRO_CREATE = 175;
+	static constexpr int32_t CM_ABYSS_RANKING_PLAYERS = 188;
+	/** CM_SET_NOTE.readImpl (CM_SET_NOTE.java): readS note */
+	static std::vector<uint8_t> buildCM_SET_NOTE(std::string_view note);
+	/** CM_VIEW_PLAYER_DETAILS.readImpl: readD targetObjectId */
+	static std::vector<uint8_t> buildCM_VIEW_PLAYER_DETAILS(int32_t targetObjectId);
+	/** CM_FRIEND_ADD.readImpl: readS targetName, readS message */
+	static std::vector<uint8_t> buildCM_FRIEND_ADD(std::string_view targetName, std::string_view message);
+	/** CM_FRIEND_DEL.readImpl: readS targetName */
+	static std::vector<uint8_t> buildCM_FRIEND_DEL(std::string_view targetName);
+	/** CM_DUEL_REQUEST.readImpl: readD objectId */
+	static std::vector<uint8_t> buildCM_DUEL_REQUEST(int32_t objectId);
+	/** CM_TITLE_SET.readImpl: readUH titleId (0xFFFF takes the title off) */
+	static std::vector<uint8_t> buildCM_TITLE_SET(uint16_t titleId);
+	/**
+	 * CM_PLAYER_SEARCH.readImpl: readS(25) name - AionClientPacket.readS(int): the string with its NUL char, then (25 - length) * 2 bytes of
+	 * padding -, readD region, readD classMask, readUC minLevel, readUC maxLevel, readUC lfgOnly, readC. 0xFF levels are "any"
+	 * @throws std::invalid_argument for a name of more than 25 UTF-16 units (the client field holds no more)
+	 */
+	static std::vector<uint8_t> buildCM_PLAYER_SEARCH(std::string_view name, int32_t region = 0, int32_t classMask = 0, uint8_t minLevel = 0xFF,
+		uint8_t maxLevel = 0xFF, uint8_t lfgOnly = 0);
+	/** CM_BLOCK_ADD.readImpl: readS targetName, readS reason */
+	static std::vector<uint8_t> buildCM_BLOCK_ADD(std::string_view targetName, std::string_view reason);
+	/** CM_MACRO_CREATE.readImpl (CM_MACRO_CREATE.java:40-43): readUC macroPosition, readS macroXML */
+	static std::vector<uint8_t> buildCM_MACRO_CREATE(uint8_t position, std::string_view xml);
+	/** CM_ABYSS_RANKING_PLAYERS.readImpl: readC raceId (0 Elyos, 1 Asmodians) */
+	static std::vector<uint8_t> buildCM_ABYSS_RANKING_PLAYERS(uint8_t raceId);
+
 	// ---- M5c's stage-1 packets (m5c-plan.md K-01, K-02, G-02) and stage 2's crafting packets, each the Java readImpl field order ----
 	/** one entry of CM_BUY_ITEM (CM_BUY_ITEM.java:65-66): readD itemId (see TRADE_*), readQ count */
 	struct BuyItemEntry {

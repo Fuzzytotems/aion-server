@@ -1133,3 +1133,38 @@ behind `AION_CHATMUT` in the game server (SM_VERSION_CHECK announcing no chat se
 login request dropped; the gag packet dropped; the logout packet dropped; the authenticated reconnect after 1 s; the refused connect's retry
 after 1 s), **7 of 7 killed** (A0 by the malformed announcement, Y2, Y3, Y5, Y7a, Y6, Y6), one gate_lock call per run. Sources restored
 (sha256, 2 files), rebuilt, the switch absent from the build tree, the gate green again.
+
+## M5j stage-1 gate (lane A, 2026-10-08): `gs.scenario.m5j` (m5j-plan.md §10.4, §18.1 CP5, G-11)
+
+`tests/scenario/M5jScenarioTest.cpp`, its allow-list `m5j_partial_allowlist.txt` (the startup set; S-04 removed the two cron partials of
+AbyssRankUpdateService, so §10.4 Z8's "rows gone" holds by their absence) and the registration in `ScenarioTests.cmake` (gate slot 2,
+TIMEOUT 1800, no geo variant, the discovered case DISABLED). New harness parts (§18.1 CP1's "SocialDecoders" and "H-11's builders", built
+here with the gate): `decoders/SocialDecoders.{h,cpp}` (SM_FRIEND_RESPONSE, SM_FRIEND_LIST, SM_FRIEND_UPDATE, SM_FRIEND_NOTIFY,
+SM_BLOCK_RESPONSE, SM_BLOCK_LIST, SM_UPDATE_NOTE, SM_TITLE_INFO, SM_PLAYER_SEARCH, SM_VIEW_PLAYER_DETAILS' head, SM_DUEL, SM_ABYSS_RANK,
+SM_ABYSS_RANKING_PLAYERS; SM_MACRO_LIST is PacketDecoders' V10 decoder) with `SocialDecodersTest.cpp` (11 cases), ten `GameSession` builders
+(CM_SET_NOTE, CM_VIEW_PLAYER_DETAILS, CM_FRIEND_ADD, CM_FRIEND_DEL, CM_DUEL_REQUEST, CM_TITLE_SET, CM_PLAYER_SEARCH with readS(25)'s
+padding, CM_BLOCK_ADD, CM_MACRO_CREATE, CM_ABYSS_RANKING_PLAYERS) with `GameSessionSocialTest.cpp` (3 cases), and the oracle
+`oracle.py m5j-social` (`tools/oracle/m5j/social.py`, 9 tests): message and question ids, the whisper and search levels, titles, the Daeva
+seeds, AbyssRankEnum and one solo PvP kill's AP in Java float arithmetic. The oracles read the server's own keys as a profile file (the M5d
+pattern), never config/mygs.properties.
+
+| Area | As built | Reason |
+|---|---|---|
+| Accounts | G (9, Elyos), A, B (Elyos; B a seeded level-10 Gladiator, quest 1006, 1 m from A), C (Asmodian, Ishalgen), G2 (9, Asmodian, a seeded level-13 Gladiator, quest 2008, 1 m from A on Poeta) | §10.4; G2 at 13 so that the level difference 3 has an arm in both PvP formulas |
+| Order | Z1, Z3, Z4, Z2, Z5, Z6, Z7, Z8, Z14 | Z3's note needs the friendship of Z1; Z2 deletes it (a friend cannot be blocked: STR_BLOCKLIST_NO_BUDDY, asserted); the prison moves B to his bind point, so the duel comes first |
+| Z1 / Z3 status byte | the SM_FRIEND_UPDATE of a friend's enter world is asserted by name (and note), not by status | FriendList.setStatus(ONLINE) runs before World.storeObject (PlayerEnterWorldService.java:191, :197) and Friend.getStatus answers OFFLINE while World.getPlayer does not find the friend; the byte depends on when the packet is written. Java's behaviour |
+| Z1 lastOnline | not asserted | an offline friend's lastOnline is the pcd's loaded `last_online` (null for a character that never left the world: 0), set only after setStatus(OFFLINE) (PlayerLeaveWorldService.java:83, :132) |
+| Z6 | B (the level-10 Daeva) attacks A (level 1) until A would die | §10.4 has A fight B; a level-1 A cannot bring a level-10 Daeva down within the gate's time. The loser is the case's subject either way: no SM_DIE, `(int) ((long) maxHp * 33 / 100)` exactly, the lost / won results (about 22 attacks, 26-29 s) |
+| Z7 | `//sprison B 1 test` | SPrison.java reads params[2] unguarded: `//sprison B 1` answers the syntax (§10.4's form). The prison's chat gag is 1 ms (CP2's proposed correction: minutes passed as milliseconds), so its GAG task unbans B at once with STR_CAN_CHAT_NOW, and //rprison finds no ban to announce; the gate pins both (Java's behaviour). The chat refusal comes from canChat's prison arm, STR_INGAME_BLOCK_IN_NO_CHAT(1) |
+| Z8 | four requests around `//ranking update` | with no ranked player the list is no packet at all (AbyssRankingCache.getPlayerRankListPackets of an empty list); the short answer (page 0, no rows) proves the flag, and its absence after the update proves resetAbyssRankListUpdated. The update is awaited by its log line |
+| Z14 | A relogs as a level-10 Gladiator with 1000 AP; A steps once before the //kill | CM_LEVEL_READY starts the 60 s protection (BLINKING) under which PlayerController.onAttack returns at once; a move ends it (CM_MOVE.java:140-141). The oracle's kill: A 1000 -> 923 (77 lost), G2 0 -> 255 (STR_MSG_USE_ABYSSPOINT(77), STR_MSG_COMBAT_MY_ABYSS_POINT_GAIN(255), allKill 1) |
+| Z13a | G2 logs out after its login announcement answered; G stays 2 s after A's logout | GMService.scheduleBroadcastLogin's 15 s task holds G2 until it ran. A logs out dead: with the stop right after the last logout the final census names A (refcount 1, no pending task), with 3 s between the logouts it is empty, and an A revived before his logout is never named (measured, three runs). The holder is inferred, not traced: the short-lived queue of spawnOnSameMap's updateZone (ZoneUpdateService, 500 ms) after leaveWorld's bindRevive |
+| Not run | Z15 (S-13, lane B's chunk) | §18.1 |
+
+**Runs**: the first run ended in an access violation (a FriendEntry pointer into a temporary list, the test's own); then Z1's status byte and
+lastOnline, the unowned title (the broadcast of the owned one arrived after the mark), Z7's STR_CAN_CHAT_NOW (the 1 ms gag), Z14's protection
+and the two shutdown timings above. Then green in 133.7 s. **Mutation proof**: 10 mutants behind `AION_M5JGATEMUT` in the game server
+(makeFriends storing one row; public chat ignoring the block list; the whisper's level arm dropped; a macro not stored; an unowned title
+displayed; the duel arm of PlayerController.onDie skipped; the prison without its teleport; the ranking flags not reset by the update;
+rewardPlayerTeam not called; calculatePvPApLost's level arm of 3 dropped), **10 of 10 killed** (Z1; Z2; Z2; Z3; Z3; Z6; Z7; Z8; Z14; Z14),
+one gate_lock call per run. Sources restored and sha256-checked (10 files), rebuilt, the switch absent from the sources and the build tree.

@@ -1546,3 +1546,19 @@ C++ file). Stage 1's items (§7 "Stage 1") as they stand, `AION_UNPORTED` sites 
 4. **CP4 the PvP half**: S-12, if no other lane holds P5-12b.
 5. **CP5 commands and the gate**: S-10, the rest of S-05/S-06, G-11 (`gs.scenario.m5j` stage-1 cases, §10.4).
 S-13 waits for the integrator (lane B's chunk).
+
+### 18.2 Stage 1 closed (2026-10-08, lane A, branches `lane-a/m5j-s1-cp2` .. `lane-a/m5j-s1-cp5`)
+
+| Checkpoint | State | Where |
+|---|---|---|
+| CP1 social and duel | done (`a6135f74c`): SocialService, DuelService, the duel/rebirth/item revives and their packets; `SocialDecoders` and H-11's builders came with the gate (CP5) | P5-08.md, P5-15/16.md |
+| CP2 punishment and abyss | done (#164/#165): PunishmentService, the headhunting registry, the abyss skill announcement, AbyssRankUpdateService | P5-08.md |
+| CP3 residue | done (#169/#170): npc shouts, static doors, database cleaning, macros, EMOTIONS_ALL, the captcha image, the player transfer | P5-14.md, P5-13.md |
+| CP4 the PvP half | done (#172/#173): PvpService's PvP half, StatFunctions' PvP formulas, the kill variant of addAp, the ConquerorAndProtectorService PvP bodies, CM_SHOW_MAP | P5-08.md, P5-12b |
+| CP5 commands, packets, gate | done: S-10's administrative and social commands (C1.md; //headhunting not ported, D12), the remaining stage-1 packets (P5-15/16.md), and G-11: `gs.scenario.m5j` with Z1-Z8, Z14 and Z13 green, 10 of 10 gate mutants killed; `oracle.py m5j-social` | P5-SC.md "M5j stage-1 gate" |
+| S-13 / Z15 | lane B's (P5-11) | §18.1 |
+
+Java behaviour the gate pins and that goes to the owner as proposed corrections (none applied): CP2's prison gag of 1 ms (minutes passed as
+milliseconds; the gate sees its immediate STR_CAN_CHAT_NOW), and a friend's enter-world SM_FRIEND_UPDATE whose status byte reads OFFLINE when
+the packet is written before World.storeObject (PlayerEnterWorldService.java:191 before :197). Stage 2 (ride, kisk, toy pets) re-runs these
+cases and adds Z9-Z11.
