@@ -982,3 +982,11 @@ added before `addUploadedSize` throws `ArrayIndexOutOfBoundsException` (the call
 keep "the ones on the first page", the code trims every year-old REWARD/WAREHOUSE entry; `ChallengeTaskService.onLegionTaskFinish` hands one
 reward per member while `rewardsAdded <= number` (one more than `number` per tier) and passes `PlayerService.getPlayerName`'s null for a deleted
 member to `SystemMailService.sendMail`, which dereferences it.
+
+**Legion-service lane (lane B, 2026-10-08).** S-01 (the 18 restrictions), S-02, S-03, S-04 and S-05 ported in one pass on `lane-b/m5h-legion-service`
+(55 bodies of LegionService.java and its five anonymous RequestResponseHandlers; `tryRename` - only CM_APPEARANCE, M5j - and
+`joinLegionDominion` - M5i - stay unported). **S-06 under I-02's leases**, granted 2026-10-08 and recorded in `chunks.cmake` as
+`aion_gs_chunk(P5-11 LEASE ...)`: `SiegeService::cleanLegionId` (P5-12a) and `ConquerorAndProtectorService::onLeaveLegion` /
+`resetLegionDominionRank` (P5-12b). `resetLegionDominionRank` reaches `updateBuffAndNotifyNearbyPlayers` only for a protector with a legion
+dominion rank, which only `onEnterZone` in an occupied dominion zone creates (M5i); that body stays P5-12b's. Released when the lane merges.
+S-07's first part is `tests/legionhouse/LegionServiceTest.cpp` (database tests under gate_lock); S-08 and the packets (P-01) are next.
