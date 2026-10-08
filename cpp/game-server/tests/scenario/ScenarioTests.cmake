@@ -181,9 +181,11 @@ if(TARGET aion_gs_scenario_tests)
 	# and for the M5f gates (m5f-plan.md G-03/G-04)
 	aion_set_discovered_test_properties(aion_gs_scenario_tests REGEX "^M5fScenario(Geo)?\\." PROPERTIES DISABLED TRUE
 		LABELS "scenario;realdata")
-	# and for the M5j stage-0 GM gate (m5j-plan.md §17.8)
+	# and for the M5j stage-0 GM gate (m5j-plan.md §17.8) and chat gate (§17.9)
 	aion_set_discovered_test_properties(aion_gs_scenario_tests REGEX "^GmScenario\\." PROPERTIES DISABLED TRUE
 		LABELS "scenario;realdata")
+	aion_set_discovered_test_properties(aion_gs_scenario_tests REGEX "^ChatScenario\\." PROPERTIES DISABLED TRUE
+		LABELS "scenario;chatserver;realdata")
 
 	# F-06: the M5a gate (§5.10). The oracle needs a Python interpreter; without it the test prints "gs.scenario.m5a: skipped".
 	set(scenario_work_dir "${CMAKE_CURRENT_BINARY_DIR}/test_work/aion_gs_scenario_tests")
@@ -537,5 +539,22 @@ if(TARGET aion_gs_scenario_tests)
 	endif()
 	if(AION_SCENARIO_REQUIRE OR NOT AION_GS_ALLOW_MILESTONE_SKIP)
 		set_property(TEST gs.scenario.gm APPEND PROPERTY ENVIRONMENT_MODIFICATION "AION_SCENARIO_REQUIRE=set:1")
+	endif()
+
+	# ---- the M5j stage-0 chat gate (m5j-plan.md §10.3 as refreshed by §17.9, chat-server-port.md's three-server gate) ----------------------
+	#
+	# gs.scenario.chat: the login, chat and game servers; the link and its announcement, the chat token and a fake chat client's channel
+	# message, a gag reaching the chat server, the reconnect delays and the logout. Its own output directory <bin>/scenario/chat, schema pair
+	# (prefix chat) and chat schema per run (aion_cs_test_chat_<hash> on AION_TEST_CS_DATABASE_URL's server, §17.9: never aion_cs_test and
+	# its named lock). A tree built without the chat server (AION_BUILD_CHAT_SERVER=OFF) does not register it. Gate slot 2 (§17.9: the slot
+	# with the smaller sum after gs.scenario.gm took slot 1). No geo variant.
+	if(TARGET aion_chat_server)
+		add_test(NAME gs.scenario.chat COMMAND "$<TARGET_FILE:aion_gs_scenario_tests>" --gtest_filter=ChatScenario.Run
+			WORKING_DIRECTORY "${scenario_work_dir}")
+		set_tests_properties(gs.scenario.chat PROPERTIES LABELS "scenario;chatserver;realdata" TIMEOUT 1800
+			RESOURCE_LOCK "${AION_GS_GATE_SLOT_2}" SKIP_REGULAR_EXPRESSION "gs\\.scenario\\.chat: skipped")
+		if(AION_SCENARIO_REQUIRE OR NOT AION_GS_ALLOW_MILESTONE_SKIP)
+			set_property(TEST gs.scenario.chat APPEND PROPERTY ENVIRONMENT_MODIFICATION "AION_SCENARIO_REQUIRE=set:1")
+		endif()
 	endif()
 endif()

@@ -339,6 +339,16 @@ if(AION_BUILD_TESTS)
 			AION_LOGIN_SERVER_EXECUTABLE="$<TARGET_FILE:aion_login_server>" AION_LOGINSERVER_JAVA_DIR="${gs_ls_java_dir}"
 			AION_SCENARIO_OUTPUT_DIR="${CMAKE_CURRENT_BINARY_DIR}/scenario/$<CONFIG>")
 		add_dependencies(aion_gs_scenario_tests aion_game_server aion_login_server)
+		# m5j-plan.md I-03 (§17.6): gs.scenario.chat starts the chat server too. Its executable and Java module directory (config, sql) come in
+		# as defines, as chat-server/CMakeLists.txt gives them to its e2e test, and its tests' header-only peers (support/FakePeers.h,
+		# support/ChatServerTestDatabase.h) are included the way login-server/tests/support is above
+		if(TARGET aion_chat_server)
+			get_filename_component(gs_cs_java_dir "${CMAKE_CURRENT_SOURCE_DIR}/../../chat-server" ABSOLUTE)
+			target_include_directories(aion_gs_scenario_tests PRIVATE "${CMAKE_SOURCE_DIR}/chat-server/tests")
+			target_compile_definitions(aion_gs_scenario_tests PRIVATE AION_CHAT_SERVER_EXECUTABLE="$<TARGET_FILE:aion_chat_server>"
+				AION_CHATSERVER_JAVA_DIR="${gs_cs_java_dir}")
+			add_dependencies(aion_gs_scenario_tests aion_chat_server)
+		endif()
 	endif()
 	if(EXISTS "${GS_TESTS}/scenario/ScenarioTests.cmake")
 		include("${GS_TESTS}/scenario/ScenarioTests.cmake")
