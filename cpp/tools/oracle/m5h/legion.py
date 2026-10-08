@@ -5,7 +5,8 @@
 - the legion enums' constructor data: LegionRank's client ids (LegionRank.java), LegionHistoryAction's ids and types (LegionHistoryAction.java)
   and LegionPermissionsMask's bits (LegionPermissionsMask.java);
 - the emblem chunk size of LegionService.sendEmblemData (`int maxSize = 7993;`) and the announcement limit of changeAnnouncement
-  (`message.length() > 256`).
+  (`message.length() > 256`);
+- ChatType's ids (ChatType.java), for the legion chat of CM_CHAT_MESSAGE_PUBLIC.
 """
 
 from __future__ import annotations
@@ -57,6 +58,8 @@ def legion_report(java_src: Path, messages: list[str], questions: list[str]) -> 
 		action_id, action_type = [a.strip() for a in args.split(",")]
 		actions[name] = {"id": java_int(action_id, f"LegionHistoryAction.{name}"), "type": action_type.split(".")[-1]}
 	masks = {name: int(args.strip(), 0) for name, args in enum_constants(legion_dir / "LegionPermissionsMask.java", "LegionPermissionsMask")}
+	# ChatType(int id) or ChatType(int id, boolean sysMsg): the first argument is the id
+	chat_types = {name: int(args.split(",")[0].strip(), 0) for name, args in enum_constants(base / "model" / "ChatType.java", "ChatType")}
 	service = _read(base / "services" / "LegionService.java")
 	chunk = re.search(r"int\s+maxSize\s*=\s*(\d+)\s*;", service)
 	limit = re.search(r"message\.length\(\)\s*>\s*(\d+)", service)
@@ -68,6 +71,7 @@ def legion_report(java_src: Path, messages: list[str], questions: list[str]) -> 
 		"ranks": ranks,
 		"historyActions": actions,
 		"permissionMasks": masks,
+		"chatTypes": chat_types,
 		"emblemChunkSize": int(chunk.group(1)),
 		"announcementLimit": int(limit.group(1)),
 	}
