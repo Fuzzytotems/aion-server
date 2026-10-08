@@ -16,7 +16,8 @@
 // 91 since the owner's decisions of 2026-10-07 (the 15 mentor dailies and pangaea 14220/24220).
 // Chunk Q13 (lane C, 2026-10-07): the 87 generated handlers of the instance directories A-K (GoldenQ13Handlers.cpp; docs/deviations/Q13.md).
 // Chunk Q11 (lane C, 2026-10-08): 71 generated handlers of daevanion and sanctum (GoldenQ11Handlers.cpp; docs/deviations/Q11.md).
-// Chunk Q05, the rest (lane C, 2026-10-08): 52 generated handlers of eltnen and oriel (GoldenQ05Handlers.cpp; docs/deviations/Q05.md).
+// Chunk Q05, the rest (lane C, 2026-10-08): 53 generated handlers of eltnen and oriel (GoldenQ05Handlers.cpp; docs/deviations/Q05.md).
+// Chunk Q09, the rest (lane C, 2026-10-08): 47 generated handlers of morheim and pernon (GoldenQ09Handlers.cpp; docs/deviations/Q09.md).
 //
 // P6-Q slice 2, chunk Q03 (2026-09-29): the 72 generated verteron and heiron handlers in the tree (the zones the route's dispatches end in),
 // compiled into this executable by #include as well (GoldenQ03Handlers.cpp); Q03's hand ports 1643 and 3200 have their own unit cases
@@ -600,6 +601,44 @@
 	X(miragent_holy_templar, _3938WellRounded, 3938) \
 	X(miragent_holy_templar, _3939PersistenceAndLuck, 3939) \
 	X(miragent_holy_templar, _3940Loyalty, 3940) \
+	X(morheim, _2303DaevaWheresMyHerb, 2303) \
+	X(morheim, _2307IrresistibleSoup, 2307) \
+	X(morheim, _2316VivisBook, 2316) \
+	X(morheim, _2321SpyTheSpiritsLetter, 2321) \
+	X(morheim, _2324TheSpiritsNotebook, 2324) \
+	X(morheim, _2332MeatyTreats, 2332) \
+	X(morheim, _2343AncientGinseng, 2343) \
+	X(morheim, _2345OrashunerkSpecialOrder, 2345) \
+	X(morheim, _2367APrizedPossession, 2367) \
+	X(morheim, _2392BeautifulFeather, 2392) \
+	X(morheim, _2393TheLoveOfAFather, 2393) \
+	X(morheim, _24020AegirsOrders, 24020) \
+	X(morheim, _24021GhostsintheDesert, 24021) \
+	X(morheim, _24022SneakBehindtheIceClaw, 24022) \
+	X(morheim, _24023ABlazingRescue, 24023) \
+	X(morheim, _24024ANepraProtector, 24024) \
+	X(morheim, _24025CrisisinMorheim, 24025) \
+	X(morheim, _2409Propaganda, 2409) \
+	X(morheim, _2411EarthSpiritWaterSpirit, 2411) \
+	X(morheim, _2421AsgeirrsRequest, 2421) \
+	X(morheim, _2422LiquorThatMakesYouVanish, 2422) \
+	X(morheim, _2423ThereAndBackAgain, 2423) \
+	X(morheim, _2428TheAbsolutelyEssentialBook, 2428) \
+	X(morheim, _2430SecretInformation, 2430) \
+	X(morheim, _2435TheBlueVineNecklace, 2435) \
+	X(morheim, _2436LookingForBuBuPat, 2436) \
+	X(morheim, _2443TaisanMessage, 2443) \
+	X(morheim, _2448ChaomirkSendsForHelp, 2448) \
+	X(morheim, _2449ExtricatingChaomirk, 2449) \
+	X(morheim, _2458RoastGadillForAFriend, 2458) \
+	X(morheim, _2477ADishForDukar, 2477) \
+	X(morheim, _2480ElimOfElysea, 2480) \
+	X(morheim, _2482CaryatidOfAbyss, 2482) \
+	X(morheim, _2484OurManInElysea, 2484) \
+	X(morheim, _2486AStrangeCreature, 2486) \
+	X(morheim, _2488PretorsInBeluslan, 2488) \
+	X(morheim, _2493BringingUpTayga, 2493) \
+	X(morheim, _2498TheSoddenScroll, 2498) \
 	X(nightmare_circus, _80341EventAHallowedEve, 80341) \
 	X(orichalcum_key, _37100MutantNinjaIninas, 37100) \
 	X(orichalcum_key, _37103CamoAndCarnage, 37103) \
@@ -619,6 +658,15 @@
 	X(oriel, _50009TisTheSeason, 50009) \
 	X(pangaea, _14220NewZoneNewRules, 14220) \
 	X(pangaea, _24220WelcometoPanesterra, 24220) \
+	X(pernon, _28802BeItEverSoHumble, 28802) \
+	X(pernon, _28805SomethingOldSomethingNew, 28805) \
+	X(pernon, _28807BlessingsofaGreenThumb, 28807) \
+	X(pernon, _28808OpenSaysMe, 28808) \
+	X(pernon, _28809FirstClassorCoach, 28809) \
+	X(pernon, _28826FreetoaGoodHome, 28826) \
+	X(pernon, _28832TakingtheTour, 28832) \
+	X(pernon, _28847AHomeThatsYourOwn, 28847) \
+	X(pernon, _51009TheGiftOfCharity, 51009) \
 	X(radiant_ops, _38001RadiantOpsRecruitment, 38001) \
 	X(rentus_base, _30500Desperation, 30500) \
 	X(rentus_base, _30503RodelionRescue, 30503) \

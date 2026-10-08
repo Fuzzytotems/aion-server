@@ -1,0 +1,19 @@
+{
+ "format": "aion-quest-trace",
+ "version": 1,
+ "questId": 2430,
+ "java": "morheim/_2430SecretInformation.java",
+ "class": "_2430SecretInformation",
+ "javaSha256": "3ce3a58ce1f75c71ec0d85e4da1836dba577fa3358a3c89d94bc65f05dfe149e",
+ "register": [
+  {"npc": 204327, "event": "addOnQuestStart", "args": [2430]},
+  {"npc": 204327, "event": "addOnTalkEvent", "args": [2430]},
+  {"npc": 204377, "event": "addOnTalkEvent", "args": [2430]},
+  {"npc": 205244, "event": "addOnTalkEvent", "args": [2430]},
+  {"npc": 798081, "event": "addOnTalkEvent", "args": [2430]},
+  {"npc": 798082, "event": "addOnTalkEvent", "args": [2430]},
+  {"npc": 204300, "event": "addOnTalkEvent", "args": [2430]}
+ ],
+ "hooks": [{"hook": "onDialogEvent", "line": 31, "unsupported": "call player.getInventory().getKinah()"}],
+ "cases": []
+}
