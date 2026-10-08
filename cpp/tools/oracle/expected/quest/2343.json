@@ -1,0 +1,48 @@
+{
+ "format": "aion-quest-trace",
+ "version": 1,
+ "questId": 2343,
+ "java": "morheim/_2343AncientGinseng.java",
+ "class": "_2343AncientGinseng",
+ "javaSha256": "cdea2b11e8dbfcf67042499238061f32591e2acd53398673e031d6d1e51ed612",
+ "register": [
+  {"call": "registerQuestItem", "args": [182204134, 2343]},
+  {"npc": 700243, "event": "addOnTalkEvent", "args": [2343]},
+  {"call": "registerCanAct", "args": [2343, 700243]}
+ ],
+ "hooks": [{"hook": "onDialogEvent", "line": 31, "unsupported": "call spawnForFiveMinutes"}, {"hook": "onItemUseEvent", "line": 57, "cases": 4}],
+ "cases": [
+  {
+   "id": "onItemUseEvent#1",
+   "hook": "onItemUseEvent",
+   "given": {"questState": null},
+   "guards": ["qs == null -> true @60"],
+   "effects": [{"call": "sendQuestDialog", "kind": "dialog", "args": [4], "line": 61}],
+   "returns": {"fromBoolean": {"resultOf": 0}}
+  },
+  {
+   "id": "onItemUseEvent#2",
+   "hook": "onItemUseEvent",
+   "given": {"questState": {"status": "COMPLETE", "canRepeat": true}},
+   "guards": ["qs == null -> false @60", "qs.isStartable() [status == COMPLETE] -> true @60", "qs.isStartable() [canRepeat] -> true @60"],
+   "effects": [{"call": "sendQuestDialog", "kind": "dialog", "args": [4], "line": 61}],
+   "returns": {"fromBoolean": {"resultOf": 0}}
+  },
+  {
+   "id": "onItemUseEvent#3",
+   "hook": "onItemUseEvent",
+   "given": {"questState": {"status": "COMPLETE", "canRepeat": false}},
+   "guards": ["qs == null -> false @60", "qs.isStartable() [status == COMPLETE] -> true @60", "qs.isStartable() [canRepeat] -> false @60"],
+   "effects": [],
+   "returns": "FAILED"
+  },
+  {
+   "id": "onItemUseEvent#4",
+   "hook": "onItemUseEvent",
+   "given": {"questState": {"status": "START"}},
+   "guards": ["qs == null -> false @60", "qs.isStartable() [status == COMPLETE] -> false @60"],
+   "effects": [],
+   "returns": "FAILED"
+  }
+ ]
+}

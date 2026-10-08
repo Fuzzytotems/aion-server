@@ -1,0 +1,11 @@
+{
+ "format": "aion-quest-trace",
+ "version": 1,
+ "questId": 2423,
+ "java": "morheim/_2423ThereAndBackAgain.java",
+ "class": "_2423ThereAndBackAgain",
+ "javaSha256": "7845a7086c67c95d81c42243f853245bb84a64fe07d44ef82ff2ea61c82946dc",
+ "register": [{"npc": 204326, "event": "addOnQuestStart", "args": [2423]}, {"npc": 204375, "event": "addOnTalkEvent", "args": [2423]}],
+ "hooks": [{"hook": "onDialogEvent", "line": 30, "unsupported": "call TeleportService.teleportTo"}],
+ "cases": []
+}

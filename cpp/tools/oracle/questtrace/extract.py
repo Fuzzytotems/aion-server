@@ -380,7 +380,26 @@ SLICE_Q05 = (
 	'oriel/_18807BlessedBeThyHame.java', 'oriel/_18808FoolproofPackaging.java', 'oriel/_18809DaevaontheRide.java',
 	'oriel/_18826TodaysFind.java', 'oriel/_18832ImaginingAQuietLife.java', 'oriel/_18847Housewarming.java', 'oriel/_50009TisTheSeason.java',
 )
-SLICE = SLICE_TIER_A + SLICE_ROUTE + SLICE_Q03 + SLICE_Q10 + SLICE_Q08 + SLICE_Q01 + SLICE_Q02 + SLICE_Q14 + SLICE_Q13 + SLICE_Q11 + SLICE_Q05
+# Phase 6 step 2, chunk Q09 (lane C, 2026-10-08; docs/deviations/Q09.md): the rest of morheim and pernon that questgen transliterates
+SLICE_Q09 = (
+	'morheim/_2303DaevaWheresMyHerb.java', 'morheim/_2307IrresistibleSoup.java', 'morheim/_2316VivisBook.java',
+	'morheim/_2321SpyTheSpiritsLetter.java', 'morheim/_2324TheSpiritsNotebook.java', 'morheim/_2332MeatyTreats.java',
+	'morheim/_2343AncientGinseng.java', 'morheim/_2345OrashunerkSpecialOrder.java', 'morheim/_2367APrizedPossession.java',
+	'morheim/_2392BeautifulFeather.java', 'morheim/_2393TheLoveOfAFather.java', 'morheim/_24020AegirsOrders.java',
+	'morheim/_24021GhostsintheDesert.java', 'morheim/_24022SneakBehindtheIceClaw.java', 'morheim/_24023ABlazingRescue.java',
+	'morheim/_24024ANepraProtector.java', 'morheim/_24025CrisisinMorheim.java', 'morheim/_2409Propaganda.java',
+	'morheim/_2411EarthSpiritWaterSpirit.java', 'morheim/_2421AsgeirrsRequest.java', 'morheim/_2422LiquorThatMakesYouVanish.java',
+	'morheim/_2423ThereAndBackAgain.java', 'morheim/_2428TheAbsolutelyEssentialBook.java', 'morheim/_2430SecretInformation.java',
+	'morheim/_2435TheBlueVineNecklace.java', 'morheim/_2436LookingForBuBuPat.java', 'morheim/_2443TaisanMessage.java',
+	'morheim/_2448ChaomirkSendsForHelp.java', 'morheim/_2449ExtricatingChaomirk.java', 'morheim/_2458RoastGadillForAFriend.java',
+	'morheim/_2477ADishForDukar.java', 'morheim/_2480ElimOfElysea.java', 'morheim/_2482CaryatidOfAbyss.java',
+	'morheim/_2484OurManInElysea.java', 'morheim/_2486AStrangeCreature.java', 'morheim/_2488PretorsInBeluslan.java',
+	'morheim/_2493BringingUpTayga.java', 'morheim/_2498TheSoddenScroll.java', 'pernon/_28802BeItEverSoHumble.java',
+	'pernon/_28805SomethingOldSomethingNew.java', 'pernon/_28807BlessingsofaGreenThumb.java', 'pernon/_28808OpenSaysMe.java',
+	'pernon/_28809FirstClassorCoach.java', 'pernon/_28826FreetoaGoodHome.java', 'pernon/_28832TakingtheTour.java',
+	'pernon/_28847AHomeThatsYourOwn.java', 'pernon/_51009TheGiftOfCharity.java',
+)
+SLICE = SLICE_TIER_A + SLICE_ROUTE + SLICE_Q03 + SLICE_Q10 + SLICE_Q08 + SLICE_Q01 + SLICE_Q02 + SLICE_Q14 + SLICE_Q13 + SLICE_Q11 + SLICE_Q05 + SLICE_Q09
 
 ENUM_FILES = {'QuestStatus': 'questEngine/model/QuestStatus.java', 'Race': 'model/Race.java', 'PlayerClass': 'model/PlayerClass.java',
               'Gender': 'model/Gender.java', 'HandlerResult': 'questEngine/handlers/HandlerResult.java', 'DialogPage': 'model/DialogPage.java',

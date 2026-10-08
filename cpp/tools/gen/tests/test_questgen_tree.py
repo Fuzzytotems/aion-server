@@ -156,6 +156,21 @@ Q05 = {
         '_18805GoingThrifting', '_18807BlessedBeThyHame', '_18808FoolproofPackaging', '_18809DaevaontheRide', '_18826TodaysFind',
         '_18832ImaginingAQuietLife', '_18847Housewarming', '_50009TisTheSeason',),
 }
+# Phase 6 step 2, chunk Q09 (lane C, 2026-10-08; docs/deviations/Q09.md): the rest of morheim and pernon that questgen transliterates
+Q09 = {
+    'morheim': (
+        '_2303DaevaWheresMyHerb', '_2307IrresistibleSoup', '_2316VivisBook', '_2321SpyTheSpiritsLetter', '_2324TheSpiritsNotebook',
+        '_2332MeatyTreats', '_2343AncientGinseng', '_2345OrashunerkSpecialOrder', '_2367APrizedPossession', '_2392BeautifulFeather',
+        '_2393TheLoveOfAFather', '_24020AegirsOrders', '_24021GhostsintheDesert', '_24022SneakBehindtheIceClaw', '_24023ABlazingRescue',
+        '_24024ANepraProtector', '_24025CrisisinMorheim', '_2409Propaganda', '_2411EarthSpiritWaterSpirit', '_2421AsgeirrsRequest',
+        '_2422LiquorThatMakesYouVanish', '_2423ThereAndBackAgain', '_2428TheAbsolutelyEssentialBook', '_2430SecretInformation',
+        '_2435TheBlueVineNecklace', '_2436LookingForBuBuPat', '_2443TaisanMessage', '_2448ChaomirkSendsForHelp',
+        '_2449ExtricatingChaomirk', '_2458RoastGadillForAFriend', '_2477ADishForDukar', '_2480ElimOfElysea', '_2482CaryatidOfAbyss',
+        '_2484OurManInElysea', '_2486AStrangeCreature', '_2488PretorsInBeluslan', '_2493BringingUpTayga', '_2498TheSoddenScroll',),
+    'pernon': (
+        '_28802BeItEverSoHumble', '_28805SomethingOldSomethingNew', '_28807BlessingsofaGreenThumb', '_28808OpenSaysMe',
+        '_28809FirstClassorCoach', '_28826FreetoaGoodHome', '_28832TakingtheTour', '_28847AHomeThatsYourOwn', '_51009TheGiftOfCharity',),
+}
 # Phase 6 step 2, chunk Q13 (lane C, 2026-10-07; docs/deviations/Q13.md): the files of the instance directories A-K that questgen
 # transliterates, all in the tree (87 of 87; kaisinel_academy's three mentor dailies by rule stream-any-match)
 Q13 = {
@@ -361,6 +376,11 @@ class CommittedTree(unittest.TestCase):
                 with self.subTest(file=f'{directory}/{klass}'):
                     self.assertIn((directory, klass), found)
         self.assertEqual(sum(len(classes) for classes in Q05.values()), 53)
+        for directory, classes in Q09.items():
+            for klass in classes:
+                with self.subTest(file=f'{directory}/{klass}'):
+                    self.assertIn((directory, klass), found)
+        self.assertEqual(sum(len(classes) for classes in Q09.values()), 47)
         self.assertEqual(len(Q10_HELD_BACK), 16)
 
     def test_the_enter_world_files_are_in_the_tree(self):

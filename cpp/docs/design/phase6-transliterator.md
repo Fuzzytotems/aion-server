@@ -62,6 +62,9 @@
 16. **Step 2, chunk Q05's rest landed (lane C, 2026-10-08, §15):** 53 of the 60 eltnen and oriel handlers not in the tree, generated,
    with their golden traces (1,117 variants pass, 0 fail); API row B47 (the housing studio of 18802 and 28802, for lane B's M5h):
    **1,004 of 1,035** transliterated. All 19 gates pass, "Loaded 4869 quest handlers".
+17. **Step 2, chunk Q09's rest landed (lane C, 2026-10-08, §16):** 47 of the 54 morheim and pernon handlers not in the tree, generated,
+   with their golden traces (973 variants pass, 0 fail); the four studio quests lane B's M5h needs (18802, 18832, 28802, 28832) are all in
+   the tree. All 19 gates pass, "Loaded 4916 quest handlers".
 
 ---
 
@@ -742,3 +745,17 @@ Branch `lane-c/p6-q05`, stacked on `lane-c/p6-q11` (§14); the record is docs/de
   vacuous (18802's studio case: the golden fixture has no housing data), 6 with every hook refused. `ctest -R "Golden|ReshantaHandPorts"`:
   703 of 703. **Parity** 53 pairs, 0 mismatches; **compile check** 1,004 clean, 0 warnings.
 - **Gates:** no gate goes to Eltnen or Oriel; 19 of 19, "Loaded 4869 quest handlers" (4816 + 53), no "QE: exception" line.
+
+## 16. Phase 6 step 2: chunk Q09's rest landed (lane C, 2026-10-08)
+
+Branch `lane-c/p6-q09`, stacked on `lane-c/p6-q05` (§15); the record is docs/deviations/Q09.md, "Phase 6 step 2".
+
+- **In the tree:** 47 of the 54 morheim and pernon handlers that were not (ishalgen has none left), questgen's output unedited; the drift
+  test's `Q09` table pins them. Left out: 24026 (a per-player field, `WorldMapInstance.getNpcs`), the butler quests 28806, 28821, 28828,
+  28830, and the escorts 2333 and 2394 (FollowingNpcAI, m5d-plan.md §21.1).
+- **Generator:** none (row B47 of §15 generates 28802). The corpus stays at 1,004 of 1,035.
+- **Golden traces:** `SLICE_Q09`, 47 documents, 976 cases: **973 variants pass, 0 fail**, 5,300 runs; 4 not reproducible, 16 vacuous (a
+  new reason, COLLECT_FALSE), 5 with every hook refused. `ctest -R "Golden|ReshantaHandPorts"`: 750 of 750. **Parity** 47 pairs, 0
+  mismatches.
+- **Gate traffic:** m5f / m5f_geo's level-16 Asmodian enters Morheim; measured with the client dump as for Q11: no quest packet differs.
+  **Gates:** 19 of 19, the lock taken per gate, "Loaded 4916 quest handlers" (4869 + 47), no "QE: exception" line.
