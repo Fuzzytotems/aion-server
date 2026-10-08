@@ -13,11 +13,11 @@ Dispel::Dispel() : AdminCommand("dispel", "Removes all effects including transfo
 void Dispel::execute(Player& admin, std::span<const std::string> /*params*/) {
 	runtime::Ptr<VisibleObject> target = admin.getTarget();
 	if (target == nullptr)
-		target = runtime::Ptr<VisibleObject>(&admin);
-	if (runtime::Ptr<Creature> creature = runtime::as<Creature>(target)) {
+		target = runtime::Ptr<VisibleObject>(&admin); // parity= target = admin;
+	if (runtime::Ptr<Creature> creature = runtime::as<Creature>(target)) { // parity= if (target instanceof Creature creature) {
 		creature->getEffectController()->removeAllEffects();
 		creature->getEffectController()->removeTransformEffects();
-		sendInfo(admin, "Removed all effects of " + target->toString() + ".");
+		sendInfo(admin, "Removed all effects of " + target->toString() + "."); // parity= sendInfo(admin, "Removed all effects of " + target + ".");
 	}
 }
 

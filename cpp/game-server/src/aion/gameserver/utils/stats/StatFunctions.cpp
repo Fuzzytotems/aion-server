@@ -47,7 +47,11 @@
 #include "aion/gameserver/skillengine/effect/EffectTemplate.h"
 #include "aion/gameserver/skillengine/effect/NoReduceSpellATKInstantEffect.h"
 #include "aion/gameserver/skillengine/model/HitType.h"
+#include <limits>
+#include <cstdlib>
 #include "aion/gameserver/utils/JavaMath.h"
+#include "aion/gameserver/model/gameobjects/player/AbyssRank.h"
+#include "aion/gameserver/utils/stats/AbyssRankEnumInfo.h"
 #include "aion/gameserver/utils/stats/CalculationType.h"
 #include "aion/gameserver/utils/stats/XPRewardEnumInfo.h"
 #include "aion/gameserver/world/WorldMap.h"
@@ -191,24 +195,143 @@ int32_t StatFunctions::calculatePvEApGained(model::gameobjects::player::Player& 
 	return calcResult(model::gameobjects::player::Rates::AP_PVE, player, model::templates::detail::floatToInt(std::floor(15 * apNpcRate)));
 }
 
+// Java StatFunctions.java:128-142: Points Lost in PvP Death
 int32_t StatFunctions::calculatePvPApLost(model::gameobjects::player::Player& defeated, model::gameobjects::player::Player& winner) {
-	AION_UNPORTED();
+	int32_t pointsLost = utils::stats::pointsLost(nonNull(defeated.getAbyssRank(), "defeated.getAbyssRank()").getRank());
+
+	// Level penalty calculation
+	int32_t difference = winner.getLevel() - defeated.getLevel();
+
+	if (difference >= 5)
+		pointsLost = utils::JavaMath::round(static_cast<float>(pointsLost) * 0.1f);
+	else if (difference == 4)
+		pointsLost = utils::JavaMath::round(static_cast<float>(pointsLost) * 0.65f);
+	else if (difference == 3)
+		pointsLost = utils::JavaMath::round(static_cast<float>(pointsLost) * 0.85f);
+
+	return calcResult(model::gameobjects::player::Rates::AP_PVP_LOST, defeated, pointsLost);
 }
 
+// Java StatFunctions.java:147-185: Points Gained in PvP Kill
 int32_t StatFunctions::calculatePvpApGained(model::gameobjects::player::Player& defeated, int32_t winnerAbyssRank, int32_t maxLevel) {
-	AION_UNPORTED();
+	int32_t pointsGained = utils::stats::pointsGained(nonNull(defeated.getAbyssRank(), "defeated.getAbyssRank()").getRank());
+
+	// Level penalty calculation
+	int32_t difference = maxLevel - defeated.getLevel();
+
+	if (difference > 4) {
+		pointsGained = utils::JavaMath::round(static_cast<float>(pointsGained) * 0.1f);
+	} else if (difference < -3) {
+		pointsGained = utils::JavaMath::round(static_cast<float>(pointsGained) * 1.3f);
+	} else {
+		switch (difference) {
+			case 3:
+				pointsGained = utils::JavaMath::round(static_cast<float>(pointsGained) * 0.85f);
+				break;
+			case 4:
+				pointsGained = utils::JavaMath::round(static_cast<float>(pointsGained) * 0.65f);
+				break;
+			case -2:
+				pointsGained = utils::JavaMath::round(static_cast<float>(pointsGained) * 1.1f);
+				break;
+			case -3:
+				pointsGained = utils::JavaMath::round(static_cast<float>(pointsGained) * 1.2f);
+				break;
+		}
+	}
+
+	// Abyss rank penalty calculation
+	int32_t defeatedAbyssRank = utils::stats::id(nonNull(defeated.getAbyssRank(), "defeated.getAbyssRank()").getRank());
+	int32_t abyssRankDifference = winnerAbyssRank - defeatedAbyssRank;
+
+	if (winnerAbyssRank <= 7 && abyssRankDifference > 0) {
+		float penaltyPercent = static_cast<float>(abyssRankDifference) * 0.05f;
+
+		pointsGained -= utils::JavaMath::round(static_cast<float>(pointsGained) * penaltyPercent);
+	}
+
+	return pointsGained;
 }
 
+// Java StatFunctions.java:190-228: XP Points Gained in PvP Kill (Java: "TODO: Find the correct formula.")
 int32_t StatFunctions::calculatePvpXpGained(model::gameobjects::player::Player& defeated, int32_t winnerAbyssRank, int32_t maxLevel) {
-	AION_UNPORTED();
+	int32_t pointsGained = 5000;
+
+	// Level penalty calculation
+	int32_t difference = maxLevel - defeated.getLevel();
+
+	if (difference > 4) {
+		pointsGained = utils::JavaMath::round(static_cast<float>(pointsGained) * 0.1f);
+	} else if (difference < -3) {
+		pointsGained = utils::JavaMath::round(static_cast<float>(pointsGained) * 1.3f);
+	} else {
+		switch (difference) {
+			case 3:
+				pointsGained = utils::JavaMath::round(static_cast<float>(pointsGained) * 0.85f);
+				break;
+			case 4:
+				pointsGained = utils::JavaMath::round(static_cast<float>(pointsGained) * 0.65f);
+				break;
+			case -2:
+				pointsGained = utils::JavaMath::round(static_cast<float>(pointsGained) * 1.1f);
+				break;
+			case -3:
+				pointsGained = utils::JavaMath::round(static_cast<float>(pointsGained) * 1.2f);
+				break;
+		}
+	}
+
+	// Abyss rank penalty calculation
+	int32_t defeatedAbyssRank = utils::stats::id(nonNull(defeated.getAbyssRank(), "defeated.getAbyssRank()").getRank());
+	int32_t abyssRankDifference = winnerAbyssRank - defeatedAbyssRank;
+
+	if (winnerAbyssRank <= 7 && abyssRankDifference > 0) {
+		float penaltyPercent = static_cast<float>(abyssRankDifference) * 0.05f;
+
+		pointsGained -= utils::JavaMath::round(static_cast<float>(pointsGained) * penaltyPercent);
+	}
+
+	return pointsGained;
 }
 
+// Java StatFunctions.java:230-244
 int32_t StatFunctions::calculatePvpDpGained(model::gameobjects::player::Player& defeated, int32_t maxRank, int32_t maxLevel) {
-	AION_UNPORTED();
+	int32_t pointsGained;
+
+	// base values
+	int32_t baseDp = 1064;
+	int32_t dpPerRank = 57;
+
+	// adjust by rank
+	pointsGained = addInt(mulInt(utils::stats::id(nonNull(defeated.getAbyssRank(), "defeated.getAbyssRank()").getRank()) - maxRank, dpPerRank), baseDp);
+
+	// adjust by level
+	pointsGained = StatFunctions::adjustPvpDpGained(pointsGained, defeated.getLevel(), maxLevel);
+
+	return pointsGained;
 }
 
+// Java StatFunctions.java:246-262. The compound assignments with a double right side are Java's implicit narrowing (int) casts of the double
+// result (saturating, JavaMath::doubleToLong then the int range)
 int32_t StatFunctions::adjustPvpDpGained(int32_t points, int32_t defeatedLvl, int32_t killerLvl) {
-	AION_UNPORTED();
+	auto toInt = [](double value) {
+		int64_t l = utils::JavaMath::doubleToLong(value);
+		return static_cast<int32_t>(std::clamp<int64_t>(l, std::numeric_limits<int32_t>::min(), std::numeric_limits<int32_t>::max()));
+	};
+	int32_t pointsGained = points;
+
+	int32_t difference = killerLvl - defeatedLvl;
+	// adjust by level
+	if (difference >= 10)
+		pointsGained = 0;
+	else if (difference >= 0)
+		pointsGained = toInt(pointsGained - mulInt(pointsGained, difference) * 0.1);
+	else if (difference <= -10)
+		pointsGained = toInt(pointsGained * 1.1);
+	else
+		pointsGained = toInt(pointsGained + mulInt(pointsGained, std::abs(difference)) * 0.01);
+
+	return pointsGained;
 }
 
 int32_t StatFunctions::calculateHate(model::gameobjects::Creature& creature, int32_t value) {
