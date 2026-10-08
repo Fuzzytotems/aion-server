@@ -57,6 +57,7 @@ class HousingReportTest(unittest.TestCase):
 		self.assertEqual(sum(p["rooms"] for p in report["partTypes"]), 19)
 		self.assertEqual(report["doorStates"], {"OPEN": 1, "CLOSED_EXCEPT_FRIENDS": 2, "CLOSED": 3})
 		self.assertEqual(report["scripts"]["padding"], [205] * 8)
+		self.assertEqual(report["houseOwnerStates"], {"HAS_OWNER": 1, "SINGLE_HOUSE": 2, "BIDDING_ALLOWED": 4})
 
 	def test_an_npc_without_spawn_on_the_map_is_an_error(self):
 		with self.assertRaises(OracleError):
