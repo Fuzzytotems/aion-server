@@ -59,6 +59,7 @@ constexpr int32_t MEGAPHONE = 188910000;
 constexpr int32_t NINJA_SET = 188500000;
 constexpr int32_t ABRASIVE = 166050000;
 constexpr int32_t COSMETIC_HAIR = 169800001;
+constexpr int32_t COSMETIC_PRESET = 169890001;
 constexpr int32_t EMOTION_CARD = 169620999; // synthetic: the 4.8 item rows have no <learnemotion>
 constexpr int32_t ADOPT_EGG = 190020001;    // synthetic rows of the two Java no-op actions
 constexpr int32_t HOUSE_DECO = 190020002;
@@ -98,6 +99,13 @@ constexpr std::string_view ACTION_ROWS = R"xml(
 			<polish set_id="2"/>
 		</actions>
 	</item_template>
+	<!-- :861704 -->
+	<item_template id="169890001" name="Test_Elyos_Male_Preset_001" level="1" cName="test_item_preset_type_li_m_01a" casting_delay="5000" mask="4222" quality="COMMON" price="5" race="ELYOS" desc="746566">
+		<actions>
+			<cosmetic name="test_preset_type_li_m_01a"/>
+		</actions>
+		<uselimits gender="MALE"/>
+	</item_template>
 	<!-- :859312 -->
 	<item_template id="169800001" name="Test_Elyos_Male_Head_001" level="1" cName="test_item_hair_type_li_m_01a" casting_delay="5000" mask="4222" quality="COMMON" price="5" race="ELYOS" desc="746510">
 		<actions>
@@ -133,9 +141,20 @@ constexpr std::string_view TITLES_XML = R"xml(<player_titles>
 	</title>
 </player_titles>)xml";
 
-/** cosmetic_items.xml :3 */
+/** cosmetic_items.xml :3 and :337-347 */
 constexpr std::string_view COSMETICS_XML = R"xml(<cosmetic_items>
 	<cosmetic_item type="hair_type" cosmetic_name="test_hair_type_li_m_01a" id="1" race="ELYOS" gender_permitted="MALE"/>
+	<cosmetic_item type="preset_name" cosmetic_name="test_preset_type_li_m_01a" race="ELYOS" gender_permitted="MALE">
+		<preset>
+			<scale>1.000000</scale>
+			<hair_type>1</hair_type>
+			<face_type>0</face_type>
+			<hair_color>1515812</hair_color>
+			<lip_color>10660564</lip_color>
+			<eye_color>5402006</eye_color>
+			<skin_color>13228789</skin_color>
+		</preset>
+	</cosmetic_item>
 </cosmetic_items>)xml";
 
 /** item_random_bonuses.xml :20550-20560 (the abrasive's set 2) */
@@ -336,13 +355,34 @@ TEST_F(SimpleItemActionsTest, ACosmeticChecksRaceAndGender) {
 	EXPECT_EQ(sent(), cp::exactly({serialized(SM_SYSTEM_MESSAGE::STR_CANNOT_USE_ITEM_INVALID_RACE())})) << "the race comes first";
 }
 
-// java-bug kept (proposed correction): act deletes targetItem, which CM_USE_ITEM leaves null for a plain use
-TEST_F(SimpleItemActionsTest, ACosmeticWithoutATargetItemIsJavasNullPointerExceptionAfterTheAppearanceChanged) {
+// correction of the Java code (owner's decision 2026-10-05, both branches): act deletes the used coupon (parentItem); Java deleted targetItem,
+// which CM_USE_ITEM leaves null for a plain use, and threw a NullPointerException with the coupon kept (CosmeticItemAction.java:84)
+TEST_F(SimpleItemActionsTest, ACosmeticIsUsedUpAfterTheAppearanceChanged) {
 	const auto& cosmetic = actionOf<model::templates::item::actions::CosmeticItemAction>(COSMETIC_HAIR);
 	Item& item = stored(ITEM, COSMETIC_HAIR, 1);
-	EXPECT_THROW(cosmetic.act(player(), Ptr<Item>(item), nullptr), runtime::NullPointerException);
-	EXPECT_EQ(player().getPlayerAppearance()->getHair(), 1) << "hair_type 1 was set before the delete";
-	EXPECT_TRUE(player().getInventory().getItemByObjId(ITEM)) << "the item stays";
+	try {
+		cosmetic.act(player(), Ptr<Item>(item), nullptr);
+	} catch (const runtime::NullPointerException& e) {
+		// the last statement, onChangedPlayerAttributes, sends the player info packets, which ask HousingService for the player's house (the
+		// house data and a database this fixture lacks); Java's Storage.delete(null) threw before the delete instead
+		EXPECT_NE(std::string_view(e.what()).find("HouseData"), std::string_view::npos) << e.what();
+	}
+	EXPECT_EQ(player().getPlayerAppearance()->getHair(), 1) << "hair_type 1";
+	EXPECT_FALSE(player().getInventory().getItemByObjId(ITEM)) << "the coupon is used up";
+}
+
+// correction of the Java code (owner's decision 2026-10-05, both branches): the preset's skin colour is its skin_color; Java set the eye
+// colour as the skin colour (CosmeticItemAction.java:70)
+TEST_F(SimpleItemActionsTest, ACosmeticPresetSetsItsOwnSkinColour) {
+	const auto& cosmetic = actionOf<model::templates::item::actions::CosmeticItemAction>(COSMETIC_PRESET);
+	Item& item = stored(ITEM, COSMETIC_PRESET, 1);
+	try {
+		cosmetic.act(player(), Ptr<Item>(item), nullptr);
+	} catch (const runtime::NullPointerException& e) { // onChangedPlayerAttributes' house lookup, as above
+		EXPECT_NE(std::string_view(e.what()).find("HouseData"), std::string_view::npos) << e.what();
+	}
+	EXPECT_EQ(player().getPlayerAppearance()->getSkinRGB(), 13228789) << "skin_color, not eye_color 5402006";
+	EXPECT_EQ(player().getPlayerAppearance()->getEyeRGB(), 5402006);
 }
 
 // ---- PolishAction (PolishAction.java:34-101) ------------------------------------------------------------------------------------------------

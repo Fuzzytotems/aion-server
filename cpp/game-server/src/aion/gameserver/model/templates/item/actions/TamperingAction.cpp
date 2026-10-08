@@ -84,6 +84,9 @@ float calculateChance(Player& player, Item& item) {
 // Java TamperingAction.java:37-44
 bool TamperingAction::canAct(gameobjects::player::Player& /*player*/, runtime::Ptr<gameobjects::Item> /*parentItem*/,
 	runtime::Ptr<gameobjects::Item> targetItem, std::initializer_list<std::any> /*params*/) const {
+	// correction of the Java code (owner's decision 2026-10-05, both branches): Java dereferences a null target (TamperingAction.java:34)
+	if (targetItem == nullptr)
+		return false;
 	int32_t maxTemp = targetItem->getItemTemplate()->getMaxTampering();
 	if (!(maxTemp > 0) || targetItem->getTempering() >= maxTemp) {
 		return false;

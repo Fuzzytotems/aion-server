@@ -59,7 +59,9 @@ struct ChargeAction_ItemUseObserver final : controllers::observer::ItemUseObserv
 			PacketSendUtility::sendPacket(*player, SM_SYSTEM_MESSAGE::STR_MSG_ITEM_CHARGE_CANCELED());
 		else
 			PacketSendUtility::sendPacket(*player, SM_SYSTEM_MESSAGE::STR_MSG_ITEM_CHARGE2_CANCELED());
-		PacketSendUtility::broadcastPacket(*player, SM_ITEM_USAGE_ANIMATION(player->getObjectId(), parentItem->getObjectId(), parentItem->getItemId(), 0, 1, 0),
+		// correction of the Java code (owner's decision 2026-10-05, both branches): Java ends the cancelled bar with type 1, the success end
+		// (ChargeAction.java:86-87); 2 is finishUse's own failure end and the cancel end of the other item-on-item bars (ApExtract, Polish)
+		PacketSendUtility::broadcastPacket(*player, SM_ITEM_USAGE_ANIMATION(player->getObjectId(), parentItem->getObjectId(), parentItem->getItemId(), 0, 2, 0),
 			true);
 		player->getObserveController()->removeObserver(*this);
 	}

@@ -414,6 +414,22 @@ TEST_F(ItemActionsBatchBTest, AConditionerChargesTheTargetToItsCapacityAfterTheB
 	EXPECT_EQ(sent(), cp::exactly({serialized(SM_SYSTEM_MESSAGE::STR_MSG_ITEM_CHARGE_FAIL_ALREADY_CHARGED(sword.getL10n(), "1"))}));
 }
 
+// correction of the Java code (owner's decision 2026-10-05, both branches): the cancelled bar ends with type 2, not Java's success type 1
+// (ChargeAction.java:86-87)
+TEST_F(ItemActionsBatchBTest, MovingDuringTheConditioningBarCancelsItWithTheFailureEnd) {
+	const auto& charge = actionOf<model::templates::item::actions::ChargeAction>(CONDITIONER_1);
+	Item& conditioner = stored(ITEM, CONDITIONER_1, 1);
+	Item& sword = stored(ITEM + 1, CHARGEABLE_SWORD, 1);
+	charge.act(player(), Ptr<Item>(conditioner), Ptr<Item>(sword));
+	clearSent();
+	player().getController().onMove();
+	EXPECT_EQ(sent(), cp::exactly({serialized(SM_SYSTEM_MESSAGE::STR_MSG_ITEM_CHARGE_CANCELED()),
+						  serialized(SM_ITEM_USAGE_ANIMATION(player().getObjectId(), ITEM, CONDITIONER_1, 0, 2, 0))}));
+	executor->advance(3000ms);
+	EXPECT_EQ(sword.getChargePoints(), 0) << "nothing charged";
+	EXPECT_EQ(conditioner.getItemCount(), 1);
+}
+
 TEST_F(ItemActionsBatchBTest, TheChargePriceFollowsTheImprovementsTwoPrices) {
 	// ItemChargeService.java:136-163 with price1 10000, price2 200000: firstLevel 5000, updateLevel round(5000 + 95000) = 100000
 	Item& sword = stored(ITEM, CHARGEABLE_SWORD, 1);
@@ -605,6 +621,16 @@ TEST_F(ItemActionsBatchBTest, TheFirstTamperingIsSafeAndRaisesTheLevel) {
 	EXPECT_EQ(count(packets, serialized(SM_ITEM_USAGE_ANIMATION(player().getObjectId(), ITEM, TAMPERING_TOOL, 0, 1, 0))), 1);
 	earring.setTempering(5);
 	EXPECT_FALSE(tampering.canAct(player(), Ptr<Item>(tool), Ptr<Item>(earring))) << "at max_tampering 5";
+}
+
+// correction of the Java code (owner's decision 2026-10-05, both branches): Java's canAct threw a NullPointerException for a use without a
+// target (TamperingAction.java:34); it cannot act, as ApExtract and Pack
+TEST_F(ItemActionsBatchBTest, ATamperingWithoutATargetCannotAct) {
+	const auto& tampering = actionOf<model::templates::item::actions::TamperingAction>(TAMPERING_TOOL);
+	Item& tool = stored(ITEM, TAMPERING_TOOL, 1);
+	clearSent();
+	EXPECT_FALSE(tampering.canAct(player(), Ptr<Item>(tool), nullptr));
+	EXPECT_TRUE(sent().empty());
 }
 
 TEST_F(ItemActionsBatchBTest, APlumeAboveFourGainsARandomBonusPerLevelAndLosesItBelow) {
