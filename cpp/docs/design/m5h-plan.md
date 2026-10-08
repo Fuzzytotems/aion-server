@@ -1004,3 +1004,6 @@ relog, the history pages, a predefined emblem and a 9,000-byte upload read back 
 Not scripted yet, with the reason: C8's kill, C9 and C22 (the npc dialogs of DialogService, A-06, and CM_MOVE_ITEM, A-03), C10 (legion chat,
 lane A's CM_CHAT_MESSAGE_PUBLIC), the studio cases C13-C20. The gate found a port bug on its first run - LegionStorageProxy bound its owner after
 the player's publication and the checked server aborted at a legion member's logout; fixed in its own commit (P4-13 lease, header request m5h-g1).
+
+**C10 (lane B, 2026-10-08)**: legion chat scripted (CM_CHAT_MESSAGE_PUBLIC is on origin/C++, #89/#90): B's LEGION message reaches A and B,
+not C of the other legion; the oracle answers ChatType's ids. Its mutant (the message to the sender only) is killed by C10.

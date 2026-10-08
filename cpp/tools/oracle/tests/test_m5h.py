@@ -23,6 +23,7 @@ class LegionReportTest(unittest.TestCase):
 		self.assertEqual(report["permissionMasks"]["WH_DEPOSIT"], 0x1000)
 		self.assertEqual(report["emblemChunkSize"], 7993)
 		self.assertEqual(report["announcementLimit"], 256)
+		self.assertEqual(report["chatTypes"]["LEGION"], 10)
 
 	def test_an_unknown_name_is_an_error(self):
 		with self.assertRaises(OracleError):
