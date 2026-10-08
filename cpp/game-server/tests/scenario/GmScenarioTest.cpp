@@ -14,9 +14,10 @@
 //       `levelup 1`, and a name no console command has), character (//addexp), player (.gmlist from P), monsters (//spawn 210663, then
 //       //kill on it);
 //   X10 the reports (the M5a Q8 bar), with no Player left alive after the three logouts.
-// Rows of §10.2 not run here: X2 (`help` of every command: H-01's oracle renders the texts; not built), X8b (//addtitle, //delete) and X8c,
-// X9's `levelup` is X8's console row, X11 (K-11's riders, part 0.2). §17.10 keeps the oracle (H-01) out of stage 0's gate: every text below
-// is a Java literal or a Java computation of the class named beside it, never the port's.
+//   X2  every stage-0 command's `help`: the SM_MESSAGE parts equal `oracle.py m5j-commands`' rendering after ChatUtil.split (H-01).
+// Rows of §10.2 not run here: X8b (//addtitle, //delete) and X8c, X9's `levelup` is X8's console row, X11 (K-11's riders, part 0.2). The
+// help texts and X3's access level come from the oracle (H-01); every other text below is a Java literal or a Java computation of the class
+// named beside it, never the port's.
 //
 // Every expectation is independent of the C++ server code, as in the earlier gates: server packets are read with the decoders of
 // tests/scenario/decoders (written from the Java writeImpl methods, m5a-plan.md D9).
@@ -47,10 +48,13 @@
 #include <thread>
 #include <vector>
 
+#include <nlohmann/json.hpp>
+
 #include "AsyncAllowed.h"
 #include "ChildProcess.h"
 #include "FakeLoginClient.h"
 #include "GameSession.h"
+#include "Oracle.h"
 #include "ScenarioDatabase.h"
 #include "ScenarioServers.h"
 #include "decoders/CombatDecoders.h"
@@ -95,8 +99,15 @@ constexpr int32_t STR_CAN_CHAT_NOW = 1300644;
 constexpr int32_t STR_INGAME_BLOCK_ENABLE_NO_CHAT = 1300808;
 constexpr int32_t STR_INGAME_BLOCK_IN_NO_CHAT = 1300814;
 
-/** game-server/config/administration/commands.properties:56 `kill = 7` */
-constexpr int32_t KILL_LEVEL = 7;
+/**
+ * The stage-0 command set (m5j-plan.md §17.4, the 41 commands the C++ registers with AION_ADMIN_COMMAND, AION_PLAYER_COMMAND and
+ * AION_CONSOLE_COMMAND): X2 asks each for its help through the channel a client uses for it
+ */
+constexpr std::string_view STAGE0_ADMIN[] = {"addexp", "addskill", "addtitle", "ai", "announce", "coords", "damage", "delskill", "delete",
+	"dispel", "enemy", "gag", "heal", "info", "invis", "invul", "kick", "kill", "morph", "movie", "npcskill", "online", "removecd", "say", "see",
+	"set", "spawn", "speed", "stat", "state", "time", "useskill", "weather", "whisper", "zone"};
+constexpr std::string_view STAGE0_PLAYER[] = {"gmlist", "help", "id"};
+constexpr std::string_view STAGE0_CONSOLE[] = {"clearusercoolt", "leveldown", "levelup"};
 /** the juvenile sparkie of npc_templates.xml:57809 (level 2): no REWARD_AP, so the kill reaches no unported AP variant (m5j-plan.md §17.8 X8) */
 constexpr int32_t SPARKIE = 210663;
 
@@ -705,6 +716,24 @@ void runGmGate() {
 		return;
 	}
 	const std::filesystem::path outputDir = std::filesystem::path(AION_SCENARIO_OUTPUT_DIR) / "gm";
+	std::optional<Oracle> oracle = Oracle::fromEnvironment(outputDir / "oracle");
+	if (!oracle) {
+		if (required)
+			ADD_FAILURE() << testName << " was not configured and AION_SCENARIO_REQUIRE is set: no Python interpreter for tools/oracle (AION_TEST_PYTHON)";
+		else
+			GTEST_SKIP() << testName << ": skipped (no Python interpreter for tools/oracle: set AION_TEST_PYTHON)";
+		return;
+	}
+	// H-01: the commands' levels, aliases, help parts and access texts as the Java builds them
+	std::vector<std::string> oracleArguments{"m5j-commands", "--alias"};
+	for (std::string_view alias : STAGE0_ADMIN)
+		oracleArguments.push_back("//" + std::string(alias));
+	for (std::string_view alias : STAGE0_PLAYER)
+		oracleArguments.push_back("." + std::string(alias));
+	for (std::string_view alias : STAGE0_CONSOLE)
+		oracleArguments.emplace_back(alias);
+	const nlohmann::json commandsReport = nlohmann::json::parse(oracle->run(oracleArguments));
+	const nlohmann::json& commands = commandsReport.at("commands");
 
 	CaseLog cases;
 	struct ReportPrinter {
@@ -791,12 +820,50 @@ void runGmGate() {
 			EXPECT_FALSE(text.starts_with("<Error while executing command>")) << "a login command failed: " << text;
 	});
 
+	// ---- X2: every stage-0 command's help ----
+	runCase("X2", "G asks every stage-0 command for `help`: the messages are the oracle's parts after ChatUtil.split", [&] {
+		const auto ask = [&](const std::string& aliasWithPrefix, const std::function<void()>& send) {
+			const nlohmann::json& command = commands.at(aliasWithPrefix);
+			std::vector<std::string> expected;
+			for (const auto& part : command.at("help"))
+				expected.push_back(part.get<std::string>());
+			ASSERT_FALSE(expected.empty()) << aliasWithPrefix;
+			const size_t from = g.mark();
+			send();
+			// the parts are GOLDEN_YELLOW sendMessage texts in order; other messages (the login announcement) may be interleaved
+			const auto deadline = std::chrono::steady_clock::now() + 10s;
+			std::vector<std::string> got;
+			while (std::chrono::steady_clock::now() < deadline) {
+				got.clear();
+				bool started = false;
+				for (const std::string& text : infoTexts(g.since(from))) {
+					if (!started && !text.starts_with("Command: "))
+						continue;
+					started = true;
+					got.push_back(text);
+				}
+				if (got.size() >= expected.size())
+					break;
+				collectFor(*g.game, 200ms);
+			}
+			got.resize(std::min(got.size(), expected.size()));
+			EXPECT_EQ(got, expected) << command.at("aliasWithPrefix").get<std::string>() << " help (" << command.at("javaFile").get<std::string>() << ")";
+		};
+		for (std::string_view alias : STAGE0_ADMIN)
+			ask("//" + std::string(alias), [&] { g.say("//" + std::string(alias) + " help"); });
+		for (std::string_view alias : STAGE0_PLAYER)
+			ask("." + std::string(alias), [&] { g.say("." + std::string(alias) + " help"); });
+		for (std::string_view alias : STAGE0_CONSOLE)
+			ask(std::string(alias), [&] { g.game->send(GameSession::CM_BUILDER_COMMAND, GameSession::buildCM_BUILDER_COMMAND(std::string(alias) + " help")); });
+	});
+
 	// ---- X3: an access level below the command's ----
 	runCase("X3", "L (access level 1) types //kill: the access text with kill's level 7, nothing else happens", [&] {
 		enterGame(servers, l);
 		const size_t from = l.mark();
 		l.say("//kill");
-		const std::string expected = "<You need access level " + std::to_string(KILL_LEVEL) + " or higher to use //kill>"; // AdminCommand.java:40-41
+		// AdminCommand.java:40-41 with commands.properties' level of kill, both from the oracle (H-01)
+		const std::string expected = commands.at("//kill").at("accessMessage").get<std::string>();
 		const std::optional<decoders::Message> answer = waitForMessage(*l.game, [&](const decoders::Message& m) {
 			return m.chatType == CHAT_GOLDEN_YELLOW && m.senderObjectId == 0 && m.message == expected;
 		});

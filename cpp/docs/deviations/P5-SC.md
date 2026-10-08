@@ -1094,3 +1094,13 @@ refused command swallowed; the staff reader given the race byte; canChat ignorin
 killed** (X1; X3 and X4; X4; X4; X7; X7; X8c; X8a; X8b; X8d; X8e; X8f), each by one gate run; the access mutant first slipped through X3
 (the access text is sent before the mutated return) and X3 now also asserts that //kill did not run (no syntax answer). Sources restored
 and sha256-checked (10 files), rebuilt, the switch string absent from the build tree, the gate green again.
+
+### `gs.scenario.gm` with the command oracle (H-01, 2026-10-08, branch `lane-a/m5j-stage0-rest`)
+
+X2 asks every one of the 41 stage-0 commands for `help` through the channel a client uses for it (`//x help`, `.x help`, and
+CM_BUILDER_COMMAND `x help` for the console commands) and compares the GOLDEN_YELLOW parts with `oracle.py m5j-commands` (41 of 41 equal;
+`//ai`'s help is two parts after ChatUtil.split); X3's access text comes from the oracle too. The first run found the oracle keyed by the
+bare alias, where the admin //addskill and the console addskill are two commands (ChatProcessor keys by the alias with its prefix); the
+oracle now keys by alias with prefix. The gate takes AION_TEST_PYTHON. Green in 59.7 s. Mutation proof for X2: ChatUtil.split never
+splitting, and parseSyntaxInfo without its square-bracket note, **2 of 2 killed** by X2 alone; sources restored (sha256), rebuilt, the
+switch absent from the build tree.
