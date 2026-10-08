@@ -1,0 +1,40 @@
+{
+ "format": "aion-quest-trace",
+ "version": 1,
+ "questId": 24021,
+ "java": "morheim/_24021GhostsintheDesert.java",
+ "class": "_24021GhostsintheDesert",
+ "javaSha256": "2d65610e7e18c372761dc1fcd186236e006bf77af1d37d666cd68c1bd21ee8aa",
+ "register": [
+  {"call": "registerOnQuestCompleted", "args": [24021]},
+  {"call": "registerOnLevelChanged", "args": [24021]},
+  {"call": "registerQuestItem", "args": [182215363, 24021]},
+  {"npc": 204302, "event": "addOnTalkEvent", "args": [24021]},
+  {"npc": 204329, "event": "addOnTalkEvent", "args": [24021]},
+  {"npc": 802046, "event": "addOnTalkEvent", "args": [24021]}
+ ],
+ "hooks": [
+  {"hook": "onQuestCompletedEvent", "line": 36, "cases": 1},
+  {"hook": "onLevelChangedEvent", "line": 41, "cases": 1},
+  {"hook": "onDialogEvent", "line": 46, "unsupported": "call player.getInventory().isFullSpecialCube()"},
+  {"hook": "onItemUseEvent", "line": 126, "unsupported": "call player.isInsideItemUseZone(ZoneName.get(\"DF2_ITEMUSEAREA_Q2032\"))"}
+ ],
+ "cases": [
+  {
+   "id": "onQuestCompletedEvent#1",
+   "hook": "onQuestCompletedEvent",
+   "given": {},
+   "guards": [],
+   "effects": [{"call": "defaultOnQuestCompletedEvent", "kind": "quest", "args": [24020], "line": 37}],
+   "returns": null
+  },
+  {
+   "id": "onLevelChangedEvent#1",
+   "hook": "onLevelChangedEvent",
+   "given": {},
+   "guards": [],
+   "effects": [{"call": "defaultOnLevelChangedEvent", "kind": "quest", "args": [24020], "line": 42}],
+   "returns": null
+  }
+ ]
+}

@@ -1,0 +1,51 @@
+{
+ "format": "aion-quest-trace",
+ "version": 1,
+ "questId": 2498,
+ "java": "morheim/_2498TheSoddenScroll.java",
+ "class": "_2498TheSoddenScroll",
+ "javaSha256": "2a4138ec28d15f08e0e31ec8072e2a4817f5f839aabd9bab5dbc05455e1bb82b",
+ "register": [
+  {"call": "registerQuestItem", "args": [182204232, 2498]},
+  {"npc": 798125, "event": "addOnTalkEvent", "args": [2498]},
+  {"npc": 700302, "event": "addOnTalkEvent", "args": [2498]}
+ ],
+ "hooks": [
+  {"hook": "onDialogEvent", "line": 31, "unsupported": "call env.getVisibleObject().getController()"},
+  {"hook": "onItemUseEvent", "line": 69, "cases": 4}
+ ],
+ "cases": [
+  {
+   "id": "onItemUseEvent#1",
+   "hook": "onItemUseEvent",
+   "given": {"questState": null},
+   "guards": ["qs == null -> true @72"],
+   "effects": [{"call": "sendQuestDialog", "kind": "dialog", "args": [4], "line": 73}],
+   "returns": {"fromBoolean": {"resultOf": 0}}
+  },
+  {
+   "id": "onItemUseEvent#2",
+   "hook": "onItemUseEvent",
+   "given": {"questState": {"status": "COMPLETE", "canRepeat": true}},
+   "guards": ["qs == null -> false @72", "qs.isStartable() [status == COMPLETE] -> true @72", "qs.isStartable() [canRepeat] -> true @72"],
+   "effects": [{"call": "sendQuestDialog", "kind": "dialog", "args": [4], "line": 73}],
+   "returns": {"fromBoolean": {"resultOf": 0}}
+  },
+  {
+   "id": "onItemUseEvent#3",
+   "hook": "onItemUseEvent",
+   "given": {"questState": {"status": "COMPLETE", "canRepeat": false}},
+   "guards": ["qs == null -> false @72", "qs.isStartable() [status == COMPLETE] -> true @72", "qs.isStartable() [canRepeat] -> false @72"],
+   "effects": [],
+   "returns": "FAILED"
+  },
+  {
+   "id": "onItemUseEvent#4",
+   "hook": "onItemUseEvent",
+   "given": {"questState": {"status": "START"}},
+   "guards": ["qs == null -> false @72", "qs.isStartable() [status == COMPLETE] -> false @72"],
+   "effects": [],
+   "returns": "FAILED"
+  }
+ ]
+}
