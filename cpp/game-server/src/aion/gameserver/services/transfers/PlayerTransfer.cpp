@@ -1,6 +1,8 @@
 #include "aion/gameserver/services/transfers/PlayerTransfer.h"
 
-#include "aion/gameserver/runtime/base/Unported.h"
+#include <iterator>
+
+#include "aion/gameserver/runtime/base/Exceptions.h"
 
 namespace aion::gameserver::services::transfers {
 
@@ -37,8 +39,20 @@ void PlayerTransfer::setData(runtime::Ptr<runtime::Array<int8_t>> value) {
 	data.set(value);
 }
 
+// Java PlayerTransfer.java:85-97: the six arrays in this order (getX().length of a null array: NullPointerException); the C++ returns the
+// bytes, which CMT_CHARACTER_INFORMATION wraps into its little-endian buffer
 std::vector<uint8_t> PlayerTransfer::getDB() {
-	AION_UNPORTED();
+	const runtime::Ptr<runtime::Array<int8_t>> parts[] = {getCommonData(), getItemsData(), getData(), getSkillData(), getRecipeData(), getQuestData()};
+	const char* const names[] = {"getCommonData()", "getItemsData()", "getData()", "getSkillData()", "getRecipeData()", "getQuestData()"};
+	std::vector<uint8_t> buffer;
+	for (size_t i = 0; i < std::size(parts); ++i) {
+		if (parts[i] == nullptr)
+			throw runtime::NullPointerException(names[i]);
+	}
+	for (const runtime::Ptr<runtime::Array<int8_t>>& part : parts)
+		for (int8_t b : part->snapshot())
+			buffer.push_back(static_cast<uint8_t>(b));
+	return buffer;
 }
 
 PlayerTransfer::~PlayerTransfer() = default;
