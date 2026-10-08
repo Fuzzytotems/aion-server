@@ -1517,3 +1517,32 @@ being the talking family of `lane-a/gm-talk`) and I-02 had merged:
 
 §17.11 item 6 (the four first-login quest handlers) did not block X1: they are still held back, and X1 asserts the login commands' answers by
 presence in the enter-world burst.
+
+### 18.1 Stage 1, measured (2026-10-08, lane A, read-only over `lane-a/m5j-stage0-rest`)
+
+The census (`tools/porting/census.py`) counts **371 open items in M5j** (P5-05, P5-08, P5-10e, P5-14: 138 `AION_UNPORTED`, 2 `AION_PARTIAL`,
+198 undeclared, 36 Java files without a C++ file, ~3,470 Java lines) and **216 more in the client packets** P5-15/16 (70 CM packets without a
+C++ file). Stage 1's items (§7 "Stage 1") as they stand, `AION_UNPORTED` sites per C++ file:
+
+| Item | Open now | Note |
+|---|---|---|
+| S-01 SocialService | 6 | |
+| S-02 DuelService, revives | 10 + PlayerReviveService 3 | the draw task pins both players: a `cycles.toml` row |
+| S-03 PunishmentService | 5 | prison needs TeleportService (A-F1, met) |
+| S-04 abyss | AbyssRankUpdateService 4, AbyssService 1, PvpService's headhunting part of 9 | |
+| S-07 P5-14 residue | NpcShoutsService 6, StaticDoorService 4, DatabaseCleaningService 8 | |
+| S-08 residue | PlayerService 2, CAPTCHAUtil 1, PlayerTransferService 6; AtreianPassportService and AdventService are closed by M5b-3 CP4 (#132/#133) | |
+| S-09 item actions | P5-07's open item actions | |
+| S-11 recall | **done** (M5g W-06, `7ec54c005`) | |
+| S-12 PvP half | PvpService's rest, StatFunctions PvP 5, ConquerorAndProtectorService 12 | P5-12b: check M5i's lane before taking it |
+| S-13 Legion Dominion | LegionDominionService 6, LegionDominionLocation 6 | **P5-11 is lane B's (M5h legion and housing)**: not taken without the integrator's word |
+| S-05/S-06 packets | the J4/J5 packets of the items above (friend, block, duel, macro, search, ranking, windstream, static door ...) | ported with the item that needs them |
+| S-10 commands | the administrative and social commands of §5.4 | after the services they call |
+
+**Checkpoints** (each with unit tests in the owning chunk's test directory, a mutation proof, and the stage-1 gate cases that cover it):
+1. **CP1 social and duel**: S-01, S-02 (+ the friend/block/duel packets of S-05/S-06, `SocialDecoders`, H-11's builders).
+2. **CP2 punishment and abyss**: S-03, S-04 (+ the ranking packets), the oracle's PvP AP formulas (`m5j-social`, H-11).
+3. **CP3 residue**: S-07, S-08, S-09.
+4. **CP4 the PvP half**: S-12, if no other lane holds P5-12b.
+5. **CP5 commands and the gate**: S-10, the rest of S-05/S-06, G-11 (`gs.scenario.m5j` stage-1 cases, §10.4).
+S-13 waits for the integrator (lane B's chunk).
