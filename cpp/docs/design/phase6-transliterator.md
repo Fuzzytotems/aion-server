@@ -46,6 +46,10 @@
    `reshanta/_2759` is a hand port with a per-player kill record (the owner's correction of 2026-10-05, docs/deviations/Q01.md).
 11. **Step 2, chunk Q02 landed (lane C, 2026-10-05, §10):** all 59 inggison handlers are in the tree, generated, with their golden traces
    (1,417 variants pass, 0 fail) and docs/deviations/Q02.md; questgen gained rows B43-B44 (981 of 1,035 transliterated).
+12. **Step 2, chunk Q14 landed (lane C, 2026-10-05/07, §11):** 74 of the 95 handlers of the instance directories K-W are in the tree,
+   generated, with their golden traces (1,641 variants pass, 0 fail) and docs/deviations/Q14.md; questgen gained row B45 (982 of 1,035
+   transliterated). 21 files stayed out for owner decisions and API gaps. All 15 gates pass, "Loaded 4641 quest handlers": the first gate
+   run of the 2759 hand port and of the 11001/11008 correction.
 
 ---
 
@@ -619,3 +623,34 @@ Branch `lane-c/p6-q02`, stacked on `lane-c/p6-q01` (§9). The third chunk of §7
 - **Gate impact:** none expected (Q02.md: every quest needs level 50+; 11116's talk registrations at 203784 and 203785, which m5c's economy
   oracle names, answer false without its quest state). **Gates:** all 15 pass, "Loaded 4566 quest handlers"; m5e_geo needed a rerun after the oracle's Python process failed to start (Q02.md).
 - **Not held back:** none. **Not in the tree:** none.
+
+## 11. Phase 6 step 2: chunk Q14 landed (lane C, 2026-10-05/07)
+
+Branch `lane-c/p6-q14-final`: the three commits of `lane-c/p6-q14` (row B45, the chunk, its docs) cherry-picked onto origin/C++ `1d62761a5`
+(the merge of #122), where the harness, Q08, Q01 and Q02 are merged. The fourth chunk of §7.5's order; the record is
+docs/deviations/Q14.md.
+
+- **In the tree:** 74 of the 95 handlers of the 21 instance directories K-W (kaldor to wisplight_abbey; 20 directories, pangaea has none),
+  questgen's output unedited, in `aion_gs_handlers_quest_q14`; the drift test's `Q14` table pins them.
+- **Generator:** API row B45 (`QuestService.checkStartConditions`, declared in services/QuestService.h) for steel_rake/_3208: **982 of
+  1,035** transliterated, the other 981 files byte-identical; `--p6t-rules` 953, `--prototype-rules` 931.
+- **Golden traces:** `SLICE_Q14`, 74 documents, 1,637 cases: **1,641 variants pass, 0 fail**, 9,795 runs compared; listed: 20 not
+  reproducible (11 COMPLETE states with canRepeat false that no setup makes; 9 dead paths of 80341 where the oracle assumes
+  `sendQuestDialog(2375)` false), 0 vacuous; 11 quests with every hook refused by the oracle. The registration trace passes for the 74.
+  On the rebased branch `ctest -R "Golden|ReshantaHandPorts"`: **475 of 475**.
+- **Parity** 74 pairs, 0 mismatches (the handler tree: 457 pairs, 3 with mismatches, the owner's corrections 2759, 11001 and 11008);
+  **compile check** 982 clean, 0 warnings, regscan 0 errors; the full Debug build has no new warning.
+- **Not in the tree (21):** 15 mentor dailies of marchutan_priory, orichalcum_key and the_circle (`stream().anyMatch` over a `PlayerGroup`;
+  Q14.md first counted them as 13, its list names 15), pangaea 14220/24220 (`List<Integer>` fields), levinshor 13744/23744 (SiegeService),
+  tiamat_stronghold 30721/30771 (spawn geometry: `Math`, `Vector3f`, `GeoService`). The owner's decisions of 2026-10-07 on them are §12.
+- **Gate impact:** none expected (Q14.md, "Gate impact": the start npcs need level 30+, the gates' npcs 203752 and 203784 answer false
+  without the quest state, the level-99 quests are never offered). **Gates:** every gs.scenario.* gate, one at a time (`ctest -j 1 -R
+  ^gs\.scenario\.`, m5a_stress excluded) under the test-database lock (`gate_lock.py lane-C`), on the full Debug build of `lane-c/p6-q14`
+  (before the cherry-pick): **15 of 15 passed** (4,434 s); every gate server logged "Loaded 4641 quest handlers" (4567 before Q14, which
+  counts Q01's hand-ported 2759, plus Q14's 74); no "QE: exception" line. No gate expectation was changed.
+- **First gate run of the 2759 hand port and the 11001/11008 correction.** Both landed after Q02's gate run (§10: 4566 handlers, without
+  the hand-ported 2759), so this run is the first with them registered. Neither changes a gate: 2759 is a Reshanta quest of level 25 or
+  more, and 11001/11008 start on a level change to level 50 or more in Inggison; no gate character reaches those levels or maps. The
+  handler count includes them: 4,641 = 4,566 + 1 (2759) + 74.
+- **Not held back:** none. **Java bugs found:** none new (`_47106TurningUpTheAmplifiers`' kill-id bug, a mentor daily, is already in
+  questgen's KNOWN_JAVA_BUGS).
