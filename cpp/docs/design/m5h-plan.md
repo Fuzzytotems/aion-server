@@ -1026,3 +1026,9 @@ open site is the autogroup arm, off in every profile).
 Each stage is a checkpoint: unit tests (H-07's rows for its items), a lock-order test for any new monitor nesting, a mutation proof; HS-4 the
 gate. Not in M5h: `CM_HOUSE_TELEPORT(_BACK)`, `CM_HOUSE_OPEN_DOOR`, `CM_HOUSE_PAY_RENT`, `CM_GET_HOUSE_BIDS`, `CM_REGISTER_HOUSE`, `HouseGateAI`,
 `_18847`/`_28821`/`_1987`, `HouseCommand` (land houses, M5h-2 and the GM lane).
+
+**HS-1 (lane B, 2026-10-08)**: the seven studio packets and `placementLimitOf` (P4-11a lease) ported. Tests: read cases in
+`tests/cm_ak/HousePacketsTest.cpp` and `tests/cm_lz/HouseObjectPacketsTest.cpp`; the run arms a player without a house reaches in
+`tests/legionhouse/HousePacketRunTest.cpp` (Player.getActiveHouse constructs HousingService, which reads the database). Every SM_HOUSE_EDIT and
+SM_HOUSE_REGISTRY reads the active house in writeImpl, so the decoration mode arms are the gate's (C16); `placementLimitOf` is reached by
+`UseableItemObject.onUse` (the gate's C17). 8 of 8 mutants killed.
