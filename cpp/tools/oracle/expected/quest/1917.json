@@ -1,0 +1,15 @@
+{
+ "format": "aion-quest-trace",
+ "version": 1,
+ "questId": 1917,
+ "java": "sanctum/_1917ALingeringMystery.java",
+ "class": "_1917ALingeringMystery",
+ "javaSha256": "e12555da356f23b0bd0bb03ad7a91c3261de6641acea82df656e117e7013e425",
+ "register": [
+  {"npc": 203835, "event": "addOnQuestStart", "args": [1917]},
+  {"npc": 203835, "event": "addOnTalkEvent", "args": [1917]},
+  {"npc": 203075, "event": "addOnTalkEvent", "args": [1917]}
+ ],
+ "hooks": [{"hook": "onDialogEvent", "line": 30, "unsupported": "reads status/1917 after sendQuestNoneDialog, which may have written it"}],
+ "cases": []
+}

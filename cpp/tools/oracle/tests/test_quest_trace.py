@@ -757,6 +757,32 @@ class Q14SliceTest(unittest.TestCase):
 
 
 @unittest.skipUnless(HAVE_JAVA_TREE, "Java tree not present")
+class Q11SliceTest(unittest.TestCase):
+	"""daevanion and sanctum (SLICE_Q11, phase 6 step 2, lane C, 2026-10-08; docs/deviations/Q11.md): every file but the two questgen refuses"""
+
+	# refused by questgen (API gaps), and the escort 3212 held back for FollowingNpcAI (m5d-plan.md §21.1)
+	REFUSED = {"daevanion/_1990ASagesGift.java", "sanctum/_1929ASliverofDarkness.java", "sanctum/_3212TheMissingCubeCraftsman.java"}
+
+	def test_the_q11_slice(self):
+		java = sorted(f"{d}/{f.name}" for d in ("daevanion", "sanctum") for f in (extract.QUEST_DIR / d).glob("*.java"))
+		self.assertEqual(len(java), 74)
+		self.assertEqual(sorted(extract.SLICE_Q11), sorted(set(java) - self.REFUSED))
+		self.assertEqual(set(extract.SLICE_Q11) & set(extract.SLICE_TIER_A + extract.SLICE_ROUTE + extract.SLICE_Q03 + extract.SLICE_Q10 +
+		                                              extract.SLICE_Q08 + extract.SLICE_Q01 + extract.SLICE_Q02 + extract.SLICE_Q14 +
+		                                              extract.SLICE_Q13), set())
+		docs = {}
+		for rel in extract.SLICE_Q11:
+			d = extract.trace_file(tables(), extract.QUEST_DIR / rel, rel)
+			docs[d["questId"]] = d
+		# no case in 22 (the golden harness's ORACLE_REFUSES_EVERY_HOOK); their registration is traced
+		self.assertEqual(sorted(q for q, d in docs.items() if not d["cases"]),
+		                 [1900, 1901, 1917, 1926, 1932, 1938, 1947, 1963, 1964, 1989, 1993, 1994, 2989, 2993, 2994, 3908, 3961, 3962, 3963, 3964,
+		                  80291, 80295])
+		self.assertTrue(all(isinstance(d["register"], list) for d in docs.values()))
+		self.assertEqual(extract.check(rels=extract.SLICE_Q11, extra=False), [])
+
+
+@unittest.skipUnless(HAVE_JAVA_TREE, "Java tree not present")
 class Q13SliceTest(unittest.TestCase):
 	"""the instance directories A-K (SLICE_Q13, phase 6 step 2, lane C, 2026-10-07; docs/deviations/Q13.md): every file of the 20 directories"""
 
