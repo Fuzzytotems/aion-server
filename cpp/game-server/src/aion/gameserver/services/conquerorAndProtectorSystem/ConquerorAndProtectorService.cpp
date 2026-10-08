@@ -1,5 +1,6 @@
 #include "aion/gameserver/services/conquerorAndProtectorSystem/ConquerorAndProtectorService.h"
 
+#include <algorithm>
 #include <memory>
 #include <optional>
 #include <string>
@@ -12,7 +13,20 @@
 #include "aion/gameserver/model/gameobjects/player/Player.h"
 #include "aion/gameserver/model/templates/cp/CPType.h"
 #include "aion/gameserver/network/aion/serverpackets/SM_CONQUEROR_PROTECTOR.h"
+#include "aion/commons/utils/StringUtils.h"
+#include "aion/gameserver/dataholders/ConquerorAndProtectorData.h"
+#include "aion/gameserver/dataholders/DataManager.h"
+#include "aion/gameserver/model/geometry/Area.h"
+#include "aion/gameserver/model/legionDominion/LegionDominionLocation.h"
+#include "aion/gameserver/model/team/legion/Legion.h"
+#include "aion/gameserver/model/templates/cp/CPRank.h"
+#include "aion/gameserver/network/aion/serverpackets/SM_SYSTEM_MESSAGE.h"
+#include "aion/gameserver/runtime/base/Exceptions.h"
 #include "aion/gameserver/runtime/base/Unported.h"
+#include "aion/gameserver/services/LegionDominionService.h"
+#include "aion/gameserver/utils/PositionUtil.h"
+#include "aion/gameserver/world/World.h"
+#include "aion/gameserver/world/zone/ZoneName.h"
 #include "aion/gameserver/services/conquerorAndProtectorSystem/CPBuff.h"
 #include "aion/gameserver/services/conquerorAndProtectorSystem/CPInfo.h"
 #include "aion/gameserver/utils/PacketSendUtility.h"
@@ -106,9 +120,15 @@ void ConquerorAndProtectorService::onEnterZone(model::gameobjects::player::Playe
 	if (!configs::main::CustomConfig::CONQUEROR_AND_PROTECTOR_SYSTEM_ENABLED.load())
 		return;
 	if (zone.isDominionZone() && isOccupiedLegionDominionZone(player, zone)) {
-		// M5a (plan E1-07): the Legion Dominion protector rank (CPInfo.setLDRank, CPBuff.applyEffect, SM_CONQUEROR_PROTECTOR) is ported with the
-		// conqueror and protector system
-		AION_UNPORTED();
+		// Java ConquerorAndProtectorService.java:107-112
+		using model::templates::cp::CPType;
+		runtime::Ptr<CPInfo> cpInfo = protectors.computeIfAbsent(player.getObjectId(), [&player] { return CPInfo::create(CPType::PROTECTOR, player); });
+		if (cpInfo->getLDRank() == 0) {
+			cpInfo->setLDRank(3);
+			cpInfo->getBuff()->applyEffect(player, cpInfo->getType(), 3);
+			utils::PacketSendUtility::sendPacket(player,
+				network::aion::serverpackets::SM_CONQUEROR_PROTECTOR(7, cpInfo->getLDRank(), getOrRemoveCooldown(player.getObjectId())));
+		}
 	}
 }
 
@@ -128,28 +148,94 @@ void ConquerorAndProtectorService::resetLegionDominionRank(model::gameobjects::p
 	AION_UNPORTED();
 }
 
+// Java ConquerorAndProtectorService.java:139-144
 bool ConquerorAndProtectorService::isOccupiedLegionDominionZone(model::gameobjects::player::Player& player, world::zone::ZoneInstance& zone) {
-	AION_UNPORTED();
+	runtime::Ptr<model::team::legion::Legion> legion = player.getLegion();
+	if (legion == nullptr)
+		return false;
+	runtime::Ptr<model::legionDominion::LegionDominionLocation> loc =
+		LegionDominionService::getInstance().getLegionDominionLoc(legion->getOccupiedLegionDominion());
+	if (loc == nullptr)
+		return false;
+	const world::zone::ZoneName* zoneName = zone.getAreaTemplate()->getZoneName();
+	if (zoneName == nullptr) // Java: getZoneName().name() on null
+		throw runtime::NullPointerException("Area.getZoneName()");
+	return commons::utils::StringUtils::equalsIgnoreCase(loc->getZoneNameAsString(), zoneName->name());
 }
 
+// Java ConquerorAndProtectorService.java:146-163
 void ConquerorAndProtectorService::onKill(model::gameobjects::player::Player& killer, model::gameobjects::player::Player& victim) {
-	AION_UNPORTED();
+	using model::templates::cp::CPType;
+	using network::aion::serverpackets::SM_SYSTEM_MESSAGE;
+	if (!configs::main::CustomConfig::CONQUEROR_AND_PROTECTOR_SYSTEM_ENABLED.load())
+		return;
+	if (handledWorlds.containsKey(victim.getWorldId())) {
+		if (killer.getLevel() - victim.getLevel() <= configs::main::CustomConfig::CONQUEROR_AND_PROTECTOR_LEVEL_DIFF.load()) {
+			runtime::Ptr<CPInfo> killerInfo = getCPInfoForCurrentMap(killer, true);
+			runtime::Ptr<CPInfo> victimInfo = getCPInfoForCurrentMap(victim);
+
+			if (victimInfo != nullptr && victimInfo->getType() == CPType::CONQUEROR && victimInfo->getRank() == 3) {
+				SM_SYSTEM_MESSAGE msg = killer.getRace() == model::Race::ASMODIANS
+					? SM_SYSTEM_MESSAGE::STR_MSG_SLAYER_LIGHT_DEATH_TO_B(killer.getName(), victim.getName())
+					: SM_SYSTEM_MESSAGE::STR_MSG_SLAYER_DARK_DEATH_TO_B(killer.getName(), victim.getName());
+				utils::PacketSendUtility::broadcastToMap(victim, msg);
+			}
+			if (killerInfo == nullptr) // Java: addVictims(killer, null, 1) reads info.getVictims() (a killer on a map without a type)
+				throw runtime::NullPointerException("CPInfo");
+			addVictims(runtime::Ptr<model::gameobjects::player::Player>(killer), *killerInfo, 1);
+		}
+	}
 }
 
+// Java ConquerorAndProtectorService.java:165-170
 void ConquerorAndProtectorService::sendDetectCooldown(model::gameobjects::player::Player& player) {
-	AION_UNPORTED();
+	runtime::Ptr<CPInfo> cpInfo = getCPInfoForCurrentMap(player);
+	if (cpInfo == nullptr)
+		return;
+	utils::PacketSendUtility::sendPacket(player,
+		network::aion::serverpackets::SM_CONQUEROR_PROTECTOR(7, cpInfo->getLDRank(), getOrRemoveCooldown(player.getObjectId())));
 }
 
-void ConquerorAndProtectorService::addVictims(runtime::Ptr<model::gameobjects::player::Player> player, CPInfo& info, int32_t value) {
-	AION_UNPORTED();
+// Java ConquerorAndProtectorService.java:172-185
+void ConquerorAndProtectorService::addVictims(runtime::Ptr<model::gameobjects::player::Player> player, CPInfo& info, int32_t count) {
+	using model::templates::cp::CPType;
+	int32_t newVictims = std::min(std::max(info.getVictims() + count, 0), configs::main::CustomConfig::CONQUEROR_AND_PROTECTOR_KILLS_RANK3.load());
+	info.setVictims(newVictims);
+	int32_t newRank = getRank(info.getVictims());
+	if (info.getRank() != newRank) {
+		info.setRank(newRank);
+		if (info.getRank() == 0 && info.getLDRank() == 0)
+			(info.getType() == CPType::CONQUEROR ? conquerors : protectors).remove(info.getPlayerId());
+		if (player == nullptr)
+			player = world::World::getInstance().getPlayer(info.getPlayerId());
+		if (player != nullptr)
+			updateBuffAndNotifyNearbyPlayers(*player, info);
+	}
 }
 
+// Java ConquerorAndProtectorService.java:187-196
 void ConquerorAndProtectorService::updateBuffAndNotifyNearbyPlayers(model::gameobjects::player::Player& player, CPInfo& cpInfo) {
-	AION_UNPORTED();
+	using model::templates::cp::CPType;
+	if (cpInfo.getLDRank() == 0) { // not inside a legion dominion zone
+		if (getCPTypeForCurrentMap(player) == cpInfo.getType())
+			cpInfo.getBuff()->applyEffect(player, cpInfo.getType(), cpInfo.getRank());
+		else
+			cpInfo.getBuff()->endEffect(player);
+		utils::PacketSendUtility::sendPacket(player,
+			network::aion::serverpackets::SM_CONQUEROR_PROTECTOR(cpInfo.getType() == CPType::CONQUEROR ? 1 : 8, cpInfo.getRank()));
+		utils::PacketSendUtility::broadcastPacket(player,
+			network::aion::serverpackets::SM_CONQUEROR_PROTECTOR(cpInfo.getType() == CPType::CONQUEROR ? 6 : 9, player));
+	}
 }
 
+// Java ConquerorAndProtectorService.java:198-205
 void ConquerorAndProtectorService::intruderScan(model::gameobjects::player::Player& player) {
-	AION_UNPORTED();
+	if (getCPTypeForCurrentMap(player) != model::templates::cp::CPType::PROTECTOR)
+		return;
+	if (getOrRemoveCooldown(player.getObjectId()) > 0)
+		return;
+	intruderScanCooldowns.put(player.getObjectId(), commons::utils::currentTimeMillis() + 180 * 1000);
+	utils::PacketSendUtility::sendPacket(player, network::aion::serverpackets::SM_CONQUEROR_PROTECTOR(findIntruders(player), true));
 }
 
 int32_t ConquerorAndProtectorService::getOrRemoveCooldown(int32_t objectId) {
@@ -165,16 +251,40 @@ int32_t ConquerorAndProtectorService::getOrRemoveCooldown(int32_t objectId) {
 	return 0;
 }
 
+// Java ConquerorAndProtectorService.java:220-233
 std::vector<runtime::Ptr<model::gameobjects::player::Player>> ConquerorAndProtectorService::findIntruders(model::gameobjects::player::Player& player) {
-	AION_UNPORTED();
+	runtime::Ptr<CPInfo> protector = protectors.get(player.getObjectId());
+	std::vector<runtime::Ptr<model::gameobjects::player::Player>> intruders;
+	if (protector != nullptr) {
+		for (const runtime::Ptr<CPInfo>& conqueror : conquerors.values()) {
+			if (canSee(*protector, *conqueror)) {
+				runtime::Ptr<model::gameobjects::player::Player> intruder = world::World::getInstance().getPlayer(conqueror->getPlayerId());
+				if (intruder != nullptr && intruder->getRace() != player.getRace() && utils::PositionUtil::isInRange(*intruder, player, 500))
+					intruders.push_back(intruder);
+			}
+		}
+	}
+	return intruders;
 }
 
+// Java ConquerorAndProtectorService.java:238-242: true if the protector has the required rank to detect the intruders position on the map
 bool ConquerorAndProtectorService::canSee(CPInfo& protector, CPInfo& intruder) {
-	AION_UNPORTED();
+	int32_t rank = std::max(protector.getLDRank(), protector.getRank());
+	const model::templates::cp::CPRank* cpRank =
+		dataholders::DataManager::CONQUEROR_AND_PROTECTOR_DATA->getRank(model::templates::cp::CPType::PROTECTOR, rank);
+	return cpRank != nullptr && cpRank->getVisibleIntruderMinRank() != 0 && cpRank->getVisibleIntruderMinRank() >= intruder.getRank();
 }
 
+// Java ConquerorAndProtectorService.java:244-252
 int32_t ConquerorAndProtectorService::getRank(int32_t kills) {
-	AION_UNPORTED();
+	using configs::main::CustomConfig;
+	if (kills >= CustomConfig::CONQUEROR_AND_PROTECTOR_KILLS_RANK3.load())
+		return 3;
+	if (kills >= CustomConfig::CONQUEROR_AND_PROTECTOR_KILLS_RANK2.load())
+		return 2;
+	if (kills >= CustomConfig::CONQUEROR_AND_PROTECTOR_KILLS_RANK1.load())
+		return 1;
+	return 0;
 }
 
 std::optional<model::templates::cp::CPType> ConquerorAndProtectorService::getCPTypeForCurrentMap(model::gameobjects::player::Player& player) {
