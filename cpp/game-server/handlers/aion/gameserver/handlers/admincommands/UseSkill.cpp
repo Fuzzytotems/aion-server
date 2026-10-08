@@ -28,36 +28,36 @@ void UseSkill::execute(Player& admin, std::span<const std::string> params) {
 	}
 
 	// Java: params[i] past the end throws ArrayIndexOutOfBoundsException (not caught here: ChatCommand.run logs it)
-	auto param = [&params](size_t index) -> const std::string& {
-		if (index >= params.size())
-			throw runtime::ArrayIndexOutOfBoundsException("Index " + std::to_string(index) + " out of bounds for length " + std::to_string(params.size()));
-		return params[index];
+	auto param = [&params](size_t index) -> const std::string& { // parity: Java's implicit ArrayIndexOutOfBoundsException of params[i], explicit (the comment above)
+		if (index >= params.size()) // parity: (the same)
+			throw runtime::ArrayIndexOutOfBoundsException("Index " + std::to_string(index) + " out of bounds for length " + std::to_string(params.size())); // parity: (the same)
+		return params[index]; // parity: (the same)
 	};
 	try {
 		std::optional<std::string> targetMode = commons::utils::StringUtils::toLowerCase(params[0]);
 		size_t i = 0;
-		if (*targetMode == "me" || *targetMode == "self" || *targetMode == "target")
+		if (*targetMode == "me" || *targetMode == "self" || *targetMode == "target") // parity= switch (targetMode) { case "me": case "self": case "target":
 			i++;
 		else
 			targetMode = std::nullopt;
 		// Correction of the Java code (owner's decision 2026-10-05, both branches; docs/deviations/C1.md): a target mode without a skill ID
 		// shows the syntax (Java's params[i++] threw ArrayIndexOutOfBoundsException)
-		if (params.size() <= i) {
-			sendInfo(admin);
+		if (params.size() <= i) { // parity: the owner's correction of 2026-10-05 above (a target mode without a skill ID)
+			sendInfo(admin); // parity: (continued)
 			return;
 		}
-		const SkillTemplate* template_ = DataManager::SKILL_DATA->getSkillTemplate(commons::utils::parseInt(param(i++)));
+		const SkillTemplate* template_ = DataManager::SKILL_DATA->getSkillTemplate(commons::utils::parseInt(param(i++))); // parity= SkillTemplate template = DataManager.SKILL_DATA.getSkillTemplate(Integer.parseInt(params[i++]));
 		if (template_ != nullptr) {
-			int32_t skillLevel = params.size() > i && params[i] != "f" ? commons::utils::parseInt(params[i++]) : template_->getLvl();
+			int32_t skillLevel = params.size() > i && params[i] != "f" ? commons::utils::parseInt(params[i++]) : template_->getLvl(); // parity= int skillLevel = params.length > i && !params[i].equals("f") ? Integer.parseInt(params[i++]) : template.getLvl();
 			bool forceUse = params.size() > i && params[i] == "f";
 			if (useSkill(admin, *template_, skillLevel, targetMode, forceUse))
 				sendInfo(admin, "Used skill: " + template_->getL10n());
 			else
-				sendInfo(admin, "Could not use skill (" + std::string(forceUse ? "missing preconditions" : "add parameter 'f' to force use") + ").");
+				sendInfo(admin, "Could not use skill (" + std::string(forceUse ? "missing preconditions" : "add parameter 'f' to force use") + ")."); // parity= sendInfo(admin, "Could not use skill (" + (forceUse ? "missing preconditions" : "add parameter 'f' to force use") + ").");
 		} else {
 			sendInfo(admin, "Invalid skill ID.");
 		}
-	} catch (const commons::utils::NumberFormatException&) {
+	} catch (const commons::utils::NumberFormatException&) { // parity= } catch (NumberFormatException _) {
 		sendInfo(admin, "Invalid skill ID or level.");
 	}
 }
@@ -66,7 +66,7 @@ void UseSkill::execute(Player& admin, std::span<const std::string> params) {
 bool UseSkill::useSkill(Player& player, const SkillTemplate& template_, int32_t skillLevel, std::optional<std::string_view> targetMode, bool forceUse) {
 	runtime::Ptr<Creature> effector;
 	runtime::Ptr<VisibleObject> target;
-	if (targetMode) {
+	if (targetMode) { // parity= if (targetMode != null) {
 		runtime::Ptr<Creature> creatureTarget = runtime::as<Creature>(player.getTarget());
 		if (creatureTarget == nullptr) {
 			PacketSendUtility::sendPacket(player, SM_SYSTEM_MESSAGE::STR_INVALID_TARGET());
@@ -75,24 +75,24 @@ bool UseSkill::useSkill(Player& player, const SkillTemplate& template_, int32_t 
 		effector = creatureTarget;
 		target = getTarget(player, *targetMode);
 	} else {
-		effector = runtime::Ptr<Creature>(&player);
+		effector = runtime::Ptr<Creature>(&player); // parity= effector = player;
 		target = player.getTarget();
 	}
 	runtime::Ref<Skill> skill = SkillEngine::getInstance().getSkill(*effector, template_.getSkillId(), skillLevel, target);
-	if (skill)
+	if (skill) // parity= if (skill != null)
 		return forceUse ? skill->useWithoutPropSkill() : skill->useNoAnimationSkill();
 	return false;
 }
 
 // Java UseSkill.java:84-91
 runtime::Ptr<VisibleObject> UseSkill::getTarget(Player& player, std::string_view targetMode) {
-	if (targetMode == "me")
-		return runtime::Ptr<VisibleObject>(&player);
-	if (targetMode == "self")
-		return player.getTarget();
-	if (targetMode == "target")
-		return player.getTarget() == nullptr ? nullptr : player.getTarget()->getTarget();
-	return nullptr;
+	if (targetMode == "me") // parity= return switch (targetMode) { case "me" -> player;
+		return runtime::Ptr<VisibleObject>(&player); // parity: (continued)
+	if (targetMode == "self") // parity= case "self" -> player.getTarget();
+		return player.getTarget(); // parity: (continued)
+	if (targetMode == "target") // parity= case "target" -> player.getTarget() == null ? null : player.getTarget().getTarget();
+		return player.getTarget() == nullptr ? nullptr : player.getTarget()->getTarget(); // parity: (continued)
+	return nullptr; // parity= default -> null;
 }
 
 } // namespace aion::gameserver::handlers::admincommands

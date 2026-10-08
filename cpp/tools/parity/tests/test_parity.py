@@ -385,5 +385,132 @@ class Commands(unittest.TestCase):
         self.assertEqual(self.run_main(['spawn-analyzer', str(self.tmp / 's/missing')])[0], 2)
 
 
+# ---- chat commands (M5j H-03) ----------------------------------------------------------------------------------------------------------
+
+COMMAND_JAVA = '''package admincommands;
+
+import com.aionemu.gameserver.utils.chathandlers.AdminCommand;
+
+public class Movie extends AdminCommand {
+
+	public Movie() {
+		super("movie", "Plays movies/cutscenes.", """
+			<cutscene ID> - Plays the "given" cutscene.
+			m <movie ID> - Plays the given movie cutscene.
+			""");
+	}
+
+	@Override
+	public void execute(Player player, String... params) {
+		if (params.length == 0) {
+			sendInfo(player);
+			return;
+		}
+		if (!(player.getTarget() instanceof Npc npc)) {
+			return;
+		}
+		if (!player.equals(npc))
+			sendInfo(player, "x" + params.length);
+		boolean isCutsceneMovie = "m".equalsIgnoreCase(params[0]);
+		int cutsceneId = Integer.parseInt(params[isCutsceneMovie ? 1 : 0]);
+		ChatBanService.banPlayer(player, Duration.ofMinutes(cutsceneId).toMillis());
+	}
+}
+'''
+
+COMMAND_CPP = '''#include "aion/gameserver/handlers/admincommands/Movie.h"
+
+namespace aion::gameserver::handlers::admincommands {
+
+AION_ADMIN_COMMAND(Movie);
+
+Movie::Movie()
+	: AdminCommand("movie", "Plays movies/cutscenes.",
+		  "<cutscene ID> - Plays the \\"given\\" cutscene.\\n"
+		  "m <movie ID> - Plays the given movie cutscene.\\n") {
+}
+
+void Movie::execute(Player& player, std::span<const std::string> params) {
+	if (params.empty()) {
+		sendInfo(player);
+		return;
+	}
+	runtime::Ptr<Npc> npc = runtime::as<Npc>(player.getTarget());
+	if (npc == nullptr) {
+		return;
+	}
+	if (!player.equals(*npc))
+		sendInfo(player, "x" + std::to_string(params.size()));
+	bool isCutsceneMovie = commons::utils::StringUtils::equalsIgnoreCase("m", params[0]);
+	if (params.size() < (isCutsceneMovie ? 2u : 1u)) // parity: Java's ArrayIndexOutOfBoundsException, explicit
+		throw runtime::ArrayIndexOutOfBoundsException("Index 1 out of bounds for length 1"); // parity: (the same)
+	int32_t cutsceneId = commons::utils::parseInt(params[isCutsceneMovie ? 1 : 0]);
+	ChatBanService::banPlayer(player, cutsceneId * 60000LL); // parity= ChatBanService.banPlayer(player, Duration.ofMinutes(cutsceneId).toMillis());
+}
+
+} // namespace aion::gameserver::handlers::admincommands
+'''
+
+
+class Commands(unittest.TestCase):
+    """the chat command spellings: the region after the marker, super, text blocks, adjacent literals, the command rewrites, the waivers"""
+
+    def test_a_ported_command_is_at_parity(self):
+        self.assertEqual(checks(COMMAND_JAVA, COMMAND_CPP), [])
+
+    def test_the_text_block_is_the_literal_of_its_value(self):
+        block = '"""\n\t\t\tone "two"\n\t\t\t  three  \n\t\t\t"""'
+        self.assertEqual(parity.text_block_literal(block), '"one \\"two\\"\\n  three\\n"')
+        self.assertEqual(parity.text_block_literal('"""\n  a\n    b"""'), '"a\\n  b"')   # the closing delimiter on the last line
+        self.assertEqual([t.kind for t in parity.tokenize('x("""\n  a\n  """, 1)')], ['ident', 'op', 'string', 'op', 'number', 'op'])
+
+    def test_adjacent_cpp_literals_are_one(self):
+        toks = parity.join_adjacent_strings(parity.tokenize('f("a\\n" "b" u8"c", "d")'))
+        self.assertEqual([t.text for t in toks if t.kind == 'string'], ['"a\\nbc"', '"d"'])
+
+    def test_the_region_of_a_command_starts_after_its_marker(self):
+        toks = parity.cpp_region('namespace x { static int y = 7; AION_PLAYER_COMMAND(Id); Id::Id() : PlayerCommand("id") {} }')
+        self.assertEqual(toks[0].text, 'Id')
+        with self.assertRaises(parity.ParityError):
+            parity.cpp_region('namespace x { int y; }')
+
+    def test_a_changed_command_is_caught(self):
+        self.assertIn('literals-multiset', checks(COMMAND_JAVA, COMMAND_CPP.replace('Plays the given movie', 'Plays a movie')))
+        self.assertIn('operators-order', checks(COMMAND_JAVA, COMMAND_CPP.replace('if (npc == nullptr)', 'if (npc != nullptr)')))
+        self.assertIn('calls-multiset', checks(COMMAND_JAVA, COMMAND_CPP.replace('params[isCutsceneMovie ? 1 : 0]', 'params.back()')))
+        self.assertIn('operators-order', checks(COMMAND_JAVA, COMMAND_CPP.replace('if (params.empty())', 'if (!params.empty())')))
+        # a waived line is not compared, but the substitution keeps its Java: a different Java there is a mismatch
+        self.assertIn('calls-multiset', checks(COMMAND_JAVA, COMMAND_CPP.replace('Duration.ofMinutes(cutsceneId).toMillis()', 'cutsceneId')))
+        # without the waiver the explicit exception is compared
+        self.assertIn('calls-multiset', checks(COMMAND_JAVA, COMMAND_CPP.replace('// parity: (the same)', '')))
+
+    def test_a_substitution_is_read_with_the_java_rules(self):
+        # `parity=` Java: instanceof is != null, arr.length is size, `X.class` starts no class region, `new` is no call
+        j = COMMAND_JAVA.replace('\t\tif (!player.equals(npc))',
+                                 '\t\tObject o = Foo.class;\n\t\tif (player instanceof Npc n && params.length > 1)\n\t\t\tsendInfo(player, new String("y"));\n'
+                                 '\t\tif (!player.equals(npc))')
+        c = COMMAND_CPP.replace('\tif (!player.equals(*npc))',
+                                '\tauto o = 1; // parity= Object o = Foo.class;\n'
+                                '\tif (runtime::Ptr<Npc> n = runtime::as<Npc>(&player); n && params.size() > 1) // parity= if (player instanceof Npc n && params.length > 1)\n'
+                                '\t\tsendInfo(player, std::string("y")); // parity= sendInfo(player, new String("y"));\n'
+                                '\tif (!player.equals(*npc))')
+        self.assertEqual(checks(j, c), [])
+        self.assertIn('operators-order', checks(j, c.replace('params.length > 1)\n', 'params.length < 1)\n')))
+
+    def test_only_the_commands_own_super_is_its_base(self):
+        j = COMMAND_JAVA.replace('\t@Override\n\tpublic void execute', '\tstatic class Inner extends Base {\n\t\tInner() {\n\t\t\tsuper(1);\n\t\t}\n\t}\n\n'
+                                 '\t@Override\n\tpublic void execute', 1)
+        toks, _ = parity.java_region(j)
+        names = [t.text for t in parity._command_super(toks)]
+        self.assertEqual(names.count('AdminCommand'), 2)      # `extends AdminCommand` and the constructor's super(
+        self.assertEqual(names.count('super'), 1)             # Inner's super( stays
+
+    def test_the_command_rewrites_stay_off_for_a_quest(self):
+        # questgen spells `!(x instanceof T)` as `!(runtime::as<T>(x) != nullptr)` and keeps `size() == 0`
+        j = java('\t\tif (!(env.getVisibleObject() instanceof Npc))\n\t\t\treturn false;\n\t\treturn true;')
+        c = cpp('\t\tif (!(runtime::as<Npc>(env.getVisibleObject()) != nullptr))\n\t\t\treturn false;\n\t\treturn true;')
+        self.assertEqual(checks(j, c), [])
+
+
 if __name__ == '__main__':
     unittest.main()
