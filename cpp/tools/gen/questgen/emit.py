@@ -147,7 +147,11 @@ def corrected_source(text, corrections, rel=''):
 P6T_RULES = frozenset(('varargs-inline', 'work-items', 'switch-expression', 'nested-array'))
 # the G1 lane's rules (phase6-transliterator.md §2): 'scheduled-closure' emits a lambda or an anonymous Runnable passed to
 # ThreadPoolManager.getInstance().schedule(task, delay) as a pinned C++ lambda; the driver turns them on beside P6T_RULES
-G1_RULES = frozenset(('scheduled-closure',))
+G1_RULES = frozenset(('scheduled-closure', 'stream-any-match', 'constant-list'))
+# rule stream-any-match (phase 6 step 2, lane C, 2026-10-07; phase6-transliterator.md §12): (C++ class of the receiver, member) -> the Java
+# element type of a List the C++ declaration erases. Java GeneralTeam<M, TM>.getMembers() is List<M>; C++ spells M as AionObject
+# (model/team/TemporaryPlayerTeam.h: "PlayerGroup and PlayerAlliance cast the members to Player")
+NARROWED_ELEMENTS = {('PlayerGroup', 'getMembers'): 'Player'}
 ALL_RULES = P6T_RULES | G1_RULES
 THREAD_POOL_HEADER = 'aion/gameserver/utils/ThreadPoolManager.h'
 # the text an inlined varargs array stands for until the call it is passed to consumes it; left in a method, it refuses the file
@@ -427,6 +431,8 @@ class Transliterator:
             self.fail('mutable-field', f'{f.type} {name} (written by a method: per-player state in the singleton handler)', f.index)
         jt = jast.JType(f.type.name, f.type.dims, None if f.type.args is None else 'x', f.index)
         if f.type.args is not None:
+            if 'constant-list' in self.rules and self.constant_list(f, mods):
+                return
             self.fail('generic-type', f'field {f.type} {name}', f.index)
         s = f.initializer.start
         if self.cu.tokens.text[s] == '{':
@@ -455,6 +461,45 @@ class Transliterator:
         comment = self.trailing(f.initializer.end)
         self.members[name] = Var(name, cpp, ct, 'const')
         self.consts.append((name, decl + comment, f.index, f.initializer.text.strip()))
+
+    def constant_list(self, f, mods):
+        """rule constant-list (phase6-transliterator.md §12): a `private static final List<Integer> X = new ArrayList<>(Arrays.asList(1,
+        2, ...))` of int literals that the file only iterates (`for (int x : X)`) and asks `X.contains(v)` is a constant: nothing can change
+        it, so it is `static constexpr std::array<int32_t, N> X{...}` and `X.contains(v)` is `std::ranges::contains(X, v)` (List.contains
+        unboxes nothing here: Integer.equals of the boxed int, value equality). Anything else (a mutator, the list passed on, read by
+        index, another initializer) keeps the 'generic-type' refusal: the shape of reshanta/_2759's per-player list. True when emitted."""
+        name = f.name
+        if not {'static', 'final'} <= mods or f.type.name != 'List' or f.type.dims or len(f.type.args) != 1 \
+                or getattr(f.type.args[0], 'name', None) != 'Integer' or getattr(f.type.args[0], 'args', None):
+            return False
+        tx = self.cu.tokens.text
+        s, end = f.initializer.start, f.initializer.end
+        toks = [tx[i] for i in range(s, end)]
+        head = ['new', 'ArrayList', '<', '>', '(', 'Arrays', '.', 'asList', '(']
+        if toks[:len(head)] != head or toks[-2:] != [')', ')']:
+            return False
+        items = toks[len(head):-2]
+        values = items[0::2]
+        if not values or any(not re.fullmatch(r'\d+', v) for v in values) or any(c != ',' for c in items[1::2]) or len(items) % 2 != 1:
+            return False
+        # every other use of the name: `X.contains(` or the iterable of a for-each (`: X )`)
+        for i, t in enumerate(tx):
+            if t != name or f.index <= i < end:
+                continue
+            if tx[i - 1] == '.':
+                return False
+            contains = tx[i + 1:i + 4] == ['.', 'contains', '(']
+            iterated = tx[i - 1] == ':' and tx[i + 1] == ')'
+            if not (contains or iterated):
+                return False
+        cpp = cpp_ident(name)
+        self.std_includes.add('array')
+        decl = f'static constexpr std::array<int32_t, {len(values)}> {cpp}{{{", ".join(values)}}};'
+        ct = CT('array', 'int32_t', size=len(values))
+        self.members[name] = Var(name, cpp, ct, 'const', origin='constant-list')
+        self.consts.append((name, decl + self.trailing(end), f.index, f.initializer.text.strip()))
+        self.r.idioms['constant List<Integer> as a std::array'] += 1
+        return True
 
     def is_constant(self, e):
         if isinstance(e, jast.Lit):
@@ -1423,6 +1468,8 @@ class Transliterator:
             return self.work_items(x)
         if 'scheduled-closure' in self.rules and self.is_schedule_call(x) and self.lookup_var('ThreadPoolManager') is None:
             return self.scheduled_closure(x)
+        if 'stream-any-match' in self.rules and self.is_any_match_call(x):
+            return self.stream_any_match(x)
         t = self.expr(tgt)
         if t.ct.kind == 'class':
             return self.static_call(t.ct.name, x, cname)
@@ -1452,6 +1499,12 @@ class Transliterator:
                 # the C++ hook hands the list over read-only (onBonusApplyEvent: AbstractQuestHandler.h:144-145) where Java lets the
                 # handler add to it: no API row can close that, only a changed hook signature (a header request)
                 self.fail('header-signature', f'{v.origin}; Java List.{name} mutates it', x.tok)
+        if t.ct.kind == 'array' and name == 'contains' and len(x.args) == 1 and isinstance(tgt, jast.Name) \
+                and getattr(self.lookup_var(tgt.name), 'origin', '') == 'constant-list':
+            v = self.expr(x.args[0])
+            self.std_includes.add('algorithm')
+            self.r.idioms['constant List<Integer>.contains as std::ranges::contains'] += 1
+            return E(f'std::ranges::contains({t.text}, {self.convert(v, INT)})', BOOL, 0)
         if t.ct.kind == 'string' and name == 'equals' and len(x.args) == 1:
             a = self.expr(x.args[0])
             return E(f'{self.paren(t, 5)} == {self.paren(a, 5)}', BOOL, 6)
@@ -1591,11 +1644,68 @@ class Transliterator:
         return c.name == 'schedule' and len(c.args) == 2 and isinstance(c.args[0], jast.Closure) and isinstance(t, jast.Call) \
             and t.name == 'getInstance' and not t.args and isinstance(t.target, jast.Name) and t.target.name == 'ThreadPoolManager'
 
+    @staticmethod
+    def is_any_match_call(c):
+        """`<list>.stream().anyMatch(<name> -> <expression>)`: the other place a closure is admitted (rule stream-any-match)"""
+        t = c.target
+        clo = c.args[0] if len(c.args) == 1 else None
+        return c.name == 'anyMatch' and isinstance(clo, jast.Closure) and clo.kind == 'lambda' and len(clo.params) == 1 \
+            and clo.body is None and clo.expr is not None and isinstance(t, jast.Call) and t.name == 'stream' and not t.args \
+            and t.target is not None
+
+    def stream_any_match(self, x):
+        """rule stream-any-match (phase6-transliterator.md §12): `list.stream().anyMatch(e -> predicate)` over a List the C++ side returns
+        as a std::vector is `std::ranges::any_of(list, [&](const runtime::Ptr<T>& e) { return predicate; })`. The predicate runs before
+        anyMatch returns (Java's stream is sequential and short-circuits on the first match, as any_of does), so the closure captures by
+        reference: nothing outlives the call. Where the C++ declaration erases the Java element type (GeneralTeam::getMembers returns
+        AionObject for the Java `List<M>`; on a PlayerGroup M is Player: model/team/TemporaryPlayerTeam.h), NARROWED_ELEMENTS gives the
+        Java type and the parameter is cast to it (runtime::cast, which cannot fail where Java's generic type holds). Refused: a block
+        body, a parameter name the hook already uses, an element that is not a class pointer."""
+        clo = x.args[0]
+        stream = x.target
+        line = self.cu.tokens.loc(clo.tok)[0]
+        lst = self.expr(stream.target)
+        if lst.ct.kind != 'vector' or lst.ct.elem is None or lst.ct.elem.kind != 'obj' or lst.ct.elem.ref != 'ptr':
+            self.fail('type', f'line {line}: stream().anyMatch over {lst.ct}', x.tok)
+        name = clo.params[0]
+        if self.lookup_var(name) is not None or self.lookup_var(name + 'Object') is not None:
+            self.fail('lambda', f'line {line}: the anyMatch parameter {name} shadows a name of the hook', clo.tok)
+        elem = lst.ct.elem.name
+        java_elem = elem
+        src = stream.target
+        if isinstance(src, jast.Call) and isinstance(src.target, jast.Name):
+            recv = self.lookup_var(src.target.name)        # the receiver is a local (`group.getMembers()`): its type, not evaluated twice
+            if recv is not None and recv.ct.kind == 'obj':
+                java_elem = NARROWED_ELEMENTS.get((recv.ct.name, src.name), elem)
+        self.need(elem)
+        cpp = cpp_ident(name)
+        if java_elem != elem:
+            self.need(java_elem)
+            param = cpp + 'Object'
+            head = (f'[&](const runtime::Ptr<{self.api.cpp_name(elem)}>& {param}) {{ runtime::Ptr<{self.api.cpp_name(java_elem)}> {cpp} = '
+                    f'runtime::cast<{self.api.cpp_name(java_elem)}>({param}); ')
+        else:
+            head = f'[&](const runtime::Ptr<{self.api.cpp_name(elem)}>& {cpp}) {{ '
+        saved_ret = self.method_ret
+        self.local_scope.append({name: Var(name, cpp, CT('obj', java_elem, 'ptr'), 'local', True)})
+        try:
+            pred = self.expr(clo.expr)
+            body = self.convert(pred, BOOL)
+        finally:
+            self.local_scope.pop()
+            self.method_ret = saved_ret
+        self.std_includes.add('algorithm')
+        self.r.idioms['stream().anyMatch(lambda) as std::ranges::any_of'] += 1
+        return E(f'std::ranges::any_of({lst.text}, {head}return {body}; }})', BOOL, 0)
+
     def misplaced_closures(self, stmts):
         """rule scheduled-closure parses every closure; one that is not the task of a schedule call is refused here, when its method is
         parsed, as the parser refused it before ('lambda', 'anonymous-class'), whether or not the statement holding it is reached (a
-        refused statement before it would hide it: the mentor dailies' `anyMatch(member -> ...)` sits in an `if (player.isInGroup())`)"""
+        refused statement before it would hide it: the mentor dailies' `anyMatch(member -> ...)` sat in an `if (player.isInGroup())` before rule
+        stream-any-match admitted it)"""
         allowed = {id(c.args[0]) for c in jast.walk_exprs(stmts) if isinstance(c, jast.Call) and self.is_schedule_call(c)}
+        if 'stream-any-match' in self.rules:
+            allowed |= {id(c.args[0]) for c in jast.walk_exprs(stmts) if isinstance(c, jast.Call) and self.is_any_match_call(c)}
         for x in jast.walk_exprs(stmts):
             if isinstance(x, jast.Closure) and id(x) not in allowed:
                 line = self.cu.tokens.loc(x.tok)[0]
@@ -2105,6 +2215,12 @@ class Transliterator:
             return self.postfix(e) + '.value()'
         if p.kind == 'prim' and p.name == 'bool' and ek == 'obj':
             self.fail('type', f'{e.ct} used as boolean')
+        if p.kind == 'prim' and p.name in ('float', 'double') and ek == 'prim' and e.ct.name in ('int32_t', 'int64_t') \
+                and any(re.fullmatch(rf'(?:[\w:]*::)?{c}::\w+', e.text) for c in apimod.CONFIG_HEADERS):
+            # an int configuration flag (row B36) for a float parameter: Java's widening, spelled out (its std::atomic's conversion to int
+            # and then to float is warning C4244 at /W4; the mentor dailies' GroupConfig.GROUP_MAX_DISTANCE for PositionUtil.isInRange)
+            self.r.idioms['int configuration flag widened to a float parameter'] += 1
+            return f'static_cast<{p.name}>({e.text})'
         return e.text
 
     def unbox(self, e):
