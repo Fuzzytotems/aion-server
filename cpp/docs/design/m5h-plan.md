@@ -1032,3 +1032,12 @@ gate. Not in M5h: `CM_HOUSE_TELEPORT(_BACK)`, `CM_HOUSE_OPEN_DOOR`, `CM_HOUSE_PA
 `tests/legionhouse/HousePacketRunTest.cpp` (Player.getActiveHouse constructs HousingService, which reads the database). Every SM_HOUSE_EDIT and
 SM_HOUSE_REGISTRY reads the active house in writeImpl, so the decoration mode arms are the gate's (C16); `placementLimitOf` is reached by
 `UseableItemObject.onUse` (the gate's C17). 8 of 8 mutants killed.
+
+**HS-2 (lane B, 2026-10-08)**: `ButlerAI` ("butler") and `HouseSignAI` ("housesign") added to P5-05, `StudioPortalAI` ("studioportal", A1) and
+`InstanceService.getOrCreateHouseInstance` (P5-13) ported under P5-11's leases (chunks.cmake). Registering `butler` and `housesign` makes every
+house butler and owned-house sign a live AI at startup (§9's startup row). Tests: `tests/handlers_ai_core/HouseAiHandlersTest.cpp` - the pages of
+both AIs, the butler's `handleCreatureSee` (the 8 empty script slots; nothing for an npc, for a butler without house, for unloaded scripts),
+the portal's entering arms (refusal; the `FADE_OUT_BEAM` teleport to the address point with the heading towards the relationship crystal) and
+its leaving arm for an instance whose owner has no studio, and `getOrCreateHouseInstance`'s position and `NullPointerException` arms. The portal
+cases use the DAO tests' database (HousingService starts from it). Left to the gate: leaving an existing studio (World.getWorldMap of the exit
+map, C19) and creating a studio's personal instance (C15). 16 of 16 mutants killed.
