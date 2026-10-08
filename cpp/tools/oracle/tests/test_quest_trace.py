@@ -757,6 +757,30 @@ class Q14SliceTest(unittest.TestCase):
 
 
 @unittest.skipUnless(HAVE_JAVA_TREE, "Java tree not present")
+class Q13SliceTest(unittest.TestCase):
+	"""the instance directories A-K (SLICE_Q13, phase 6 step 2, lane C, 2026-10-07; docs/deviations/Q13.md): every file of the 20 directories"""
+
+	DIRS = ("abyssal_splinter", "alabaster_order", "aturam_sky_fortress", "bare_truth", "black_cloud_traders", "blood_crusade", "chantra_dredgion",
+	        "charlirunerks_daemons", "clash_of_destiny", "danuar_sanctuary", "empyrean_crucible", "esoterrace", "fatebound_abbey", "fenris_fang",
+	        "field_wardens", "fortuneers", "greater_stigma", "haramel", "iron_wall_warfront", "kaisinel_academy")
+
+	def test_the_q13_slice(self):
+		java = sorted(f"{d}/{f.name}" for d in self.DIRS for f in (extract.QUEST_DIR / d).glob("*.java"))
+		self.assertEqual(len(java), 87)
+		self.assertEqual(sorted(extract.SLICE_Q13), java)
+		self.assertEqual(set(extract.SLICE_Q13) & set(extract.SLICE_TIER_A + extract.SLICE_ROUTE + extract.SLICE_Q03 + extract.SLICE_Q10 +
+		                                              extract.SLICE_Q08 + extract.SLICE_Q01 + extract.SLICE_Q02 + extract.SLICE_Q14), set())
+		docs = {}
+		for rel in extract.SLICE_Q13:
+			d = extract.trace_file(tables(), extract.QUEST_DIR / rel, rel)
+			docs[d["questId"]] = d
+		# no case in eight (the golden harness's ORACLE_REFUSES_EVERY_HOOK); their registration is traced
+		self.assertEqual(sorted(q for q, d in docs.items() if not d["cases"]), [4943, 4944, 30217, 30317, 39505, 39510, 39515, 39520])
+		self.assertTrue(all(isinstance(d["register"], list) for d in docs.values()))
+		self.assertEqual(extract.check(rels=extract.SLICE_Q13, extra=False), [])
+
+
+@unittest.skipUnless(HAVE_JAVA_TREE, "Java tree not present")
 class ScheduledTaskTest(unittest.TestCase):
 	"""lane C (phase 6 step 1, phase6-transliterator.md §7): closures (jast's closures=True), the task of ThreadPoolManager.schedule run after the
 	hook, the item-use packets and removal around it, a bounded symbolic setQuestVar, AbyssRankEnum, and parser refusals per hook"""
