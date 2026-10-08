@@ -1,0 +1,21 @@
+{
+ "format": "aion-quest-trace",
+ "version": 1,
+ "questId": 3208,
+ "java": "steel_rake/_3208ThePuzzlingBlueprint.java",
+ "class": "_3208ThePuzzlingBlueprint",
+ "javaSha256": "5c5c2fd0371727d275fe1a4780beb49b754f20db664597af3474b7494b7806cb",
+ "register": [
+  {"npc": 730195, "event": "addOnQuestStart", "args": [3208]},
+  {"npc": 730195, "event": "addOnTalkEvent", "args": [3208]},
+  {"npc": 798026, "event": "addOnTalkEvent", "args": [3208]},
+  {"npc": 203830, "event": "addOnTalkEvent", "args": [3208]},
+  {"npc": 798320, "event": "addOnTalkEvent", "args": [3208]},
+  {"call": "registerCanAct", "args": [3208, 730195]}
+ ],
+ "hooks": [
+  {"hook": "onDialogEvent", "line": 33, "unsupported": "call QuestService.checkStartConditions"},
+  {"hook": "onCanAct", "line": 75, "unsupported": "hook parameter Object objects"}
+ ],
+ "cases": []
+}

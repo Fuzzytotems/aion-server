@@ -1,0 +1,15 @@
+{
+ "format": "aion-quest-trace",
+ "version": 1,
+ "questId": 3962,
+ "java": "sanctum/_3962GrowthFlorasSecondCharm.java",
+ "class": "_3962GrowthFlorasSecondCharm",
+ "javaSha256": "21571b8261db0541fc54d092129ea6b73e0deef16089ee86cd80f7b5640030a6",
+ "register": [
+  {"npc": 798384, "event": "addOnQuestStart", "args": [3962]},
+  {"npc": 798384, "event": "addOnTalkEvent", "args": [3962]},
+  {"npc": 203740, "event": "addOnTalkEvent", "args": [3962]}
+ ],
+ "hooks": [{"hook": "onDialogEvent", "line": 31, "unsupported": "call player.getInventory().tryDecreaseKinah(50000)"}],
+ "cases": []
+}

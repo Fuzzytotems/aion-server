@@ -431,7 +431,7 @@ class Driver(unittest.TestCase):
         with contextlib.redirect_stdout(io.StringIO()) as out:
             cli.main(['--dry-run', '--no-pairs', '--only', 'poeta/_1005BarringtheGate.java'])
         self.assertIn('1 of 1 transliterated', out.getvalue())
-        self.assertIn('emitter rules: nested-array, scheduled-closure, switch-expression, varargs-inline, work-items', out.getvalue())
+        self.assertIn('emitter rules: constant-list, nested-array, scheduled-closure, stream-any-match, switch-expression, varargs-inline, work-items', out.getvalue())
         with contextlib.redirect_stdout(io.StringIO()) as out:
             cli.main(['--dry-run', '--no-pairs', '--prototype-rules', '--only', 'poeta/_1005BarringtheGate.java'])
         self.assertIn('0 of 1 transliterated', out.getvalue())
@@ -477,8 +477,9 @@ class Corpus(unittest.TestCase):
         # six of the ten files of the G1 lane's rows B32-B38 (2026-10-04, tests.test_questgen_g1; two need a P6-T rule, two rule
         # scheduled-closure)
         # row B39 (the Q08 follow-up, lane C, 2026-10-05) adds gelkmaros/_20034, rows B40-B42 (chunk Q01) 14043, 24045, 24043, 50008
-        # and 51008, rows B43-B44 (chunk Q02) 10034 and 11118; 14045 also needs a P6-T rule
-        self.assertEqual(sum(1 for r in self.proto.values() if r.status == 'ok'), 930)
+        # and 51008, rows B43-B44 (chunk Q02) 10034 and 11118, row B45 (chunk Q14) 3208, row B47 (chunk Q05's rest) 18802 and 28802;
+        # 14045 also needs a P6-T rule
+        self.assertEqual(sum(1 for r in self.proto.values() if r.status == 'ok'), 933)
 
     def test_the_oracle_slice_is_tier_a(self):
         # tools/oracle/questtrace/extract.py SLICE: the Poeta and Ishalgen files questgen emits in tier A (phase6-inventory.md §9.3 item 1)

@@ -1,0 +1,48 @@
+{
+ "format": "aion-quest-trace",
+ "version": 1,
+ "questId": 1373,
+ "java": "eltnen/_1373WaterTherapy.java",
+ "class": "_1373WaterTherapy",
+ "javaSha256": "9093d1963193c7bc049832b9a29b5b30c46b3d6707d5b536f846b6bd6f13f040",
+ "register": [
+  {"npc": 203949, "event": "addOnQuestStart", "args": [1373]},
+  {"npc": 203949, "event": "addOnTalkEvent", "args": [1373]},
+  {"call": "registerQuestItem", "args": [182201372, 1373]},
+  {"call": "registerOnQuestTimerEnd", "args": [1373]}
+ ],
+ "hooks": [
+  {"hook": "onItemUseEvent", "line": 34, "unsupported": "call player.isInsideItemUseZone(ZoneName.get(\"LF2_ITEMUSEAREA_Q1373\"))"},
+  {"hook": "onDialogEvent", "line": 49, "unsupported": "call QuestService.questTimerEnd"},
+  {"hook": "onQuestTimerEndEvent", "line": 91, "cases": 3}
+ ],
+ "cases": [
+  {
+   "id": "onQuestTimerEndEvent#1",
+   "hook": "onQuestTimerEndEvent",
+   "given": {"questState": {"status": "START"}},
+   "guards": ["qs != null -> true @94", "qs.getStatus() == QuestStatus.START -> true @94"],
+   "effects": [
+    {"call": "removeQuestItem", "kind": "item", "args": [182201373, 1], "line": 95},
+    {"call": "QuestService.abandonQuest", "kind": "quest", "args": [1373], "line": 96}
+   ],
+   "returns": true
+  },
+  {
+   "id": "onQuestTimerEndEvent#2",
+   "hook": "onQuestTimerEndEvent",
+   "given": {"questState": {"status": "REWARD"}},
+   "guards": ["qs != null -> true @94", "qs.getStatus() == QuestStatus.START -> false @94"],
+   "effects": [],
+   "returns": false
+  },
+  {
+   "id": "onQuestTimerEndEvent#3",
+   "hook": "onQuestTimerEndEvent",
+   "given": {"questState": null},
+   "guards": ["qs != null -> false @94"],
+   "effects": [],
+   "returns": false
+  }
+ ]
+}

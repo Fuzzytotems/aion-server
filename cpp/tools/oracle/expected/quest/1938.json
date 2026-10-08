@@ -1,0 +1,16 @@
+{
+ "format": "aion-quest-trace",
+ "version": 1,
+ "questId": 1938,
+ "java": "sanctum/_1938BlackCloudFakery.java",
+ "class": "_1938BlackCloudFakery",
+ "javaSha256": "17b8575234be33065db814c6dabc6a01cb2f24a48b5089e01c25394b1bc27461",
+ "register": [
+  {"npc": 203703, "event": "addOnQuestStart", "args": [1938]},
+  {"npc": 203703, "event": "addOnTalkEvent", "args": [1938]},
+  {"npc": 279001, "event": "addOnTalkEvent", "args": [1938]},
+  {"npc": 279008, "event": "addOnTalkEvent", "args": [1938]}
+ ],
+ "hooks": [{"hook": "onDialogEvent", "line": 30, "unsupported": "reads status/1938 after sendQuestNoneDialog, which may have written it"}],
+ "cases": []
+}

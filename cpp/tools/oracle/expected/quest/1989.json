@@ -1,0 +1,20 @@
+{
+ "format": "aion-quest-trace",
+ "version": 1,
+ "questId": 1989,
+ "java": "daevanion/_1989ASagesTeachings.java",
+ "class": "_1989ASagesTeachings",
+ "javaSha256": "81a99a3d691a0db99913e659f8900355be01870a00bcbdfd6e0be0f9f484f1cc",
+ "register": [
+  {"npc": 203771, "event": "addOnQuestStart", "args": [1989]},
+  {"npc": 203771, "event": "addOnTalkEvent", "args": [1989]},
+  {"npc": 203704, "event": "addOnTalkEvent", "args": [1989]},
+  {"npc": 203705, "event": "addOnTalkEvent", "args": [1989]},
+  {"npc": 203706, "event": "addOnTalkEvent", "args": [1989]},
+  {"npc": 203707, "event": "addOnTalkEvent", "args": [1989]},
+  {"npc": 801214, "event": "addOnTalkEvent", "args": [1989]},
+  {"npc": 801215, "event": "addOnTalkEvent", "args": [1989]}
+ ],
+ "hooks": [{"hook": "onDialogEvent", "line": 37, "unsupported": "call player.getCommonData().getDp()"}],
+ "cases": []
+}

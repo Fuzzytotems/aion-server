@@ -1,0 +1,17 @@
+{
+ "format": "aion-quest-trace",
+ "version": 1,
+ "questId": 1483,
+ "java": "eltnen/_1483HarumonerksRequest.java",
+ "class": "_1483HarumonerksRequest",
+ "javaSha256": "8b1218ceab8a5664eb7f2a56aa822f24acf9e788931dcfa23c057d781accf7e6",
+ "register": [
+  {"npc": 798126, "event": "addOnQuestStart", "args": [1483]},
+  {"npc": 798126, "event": "addOnTalkEvent", "args": [1483]},
+  {"npc": 203940, "event": "addOnTalkEvent", "args": [1483]},
+  {"npc": 203944, "event": "addOnTalkEvent", "args": [1483]},
+  {"npc": 798127, "event": "addOnTalkEvent", "args": [1483]}
+ ],
+ "hooks": [{"hook": "onDialogEvent", "line": 31, "unsupported": "call workItems.getFirst"}],
+ "cases": []
+}
