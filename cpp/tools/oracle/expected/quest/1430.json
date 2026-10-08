@@ -1,0 +1,15 @@
+{
+ "format": "aion-quest-trace",
+ "version": 1,
+ "questId": 1430,
+ "java": "eltnen/_1430ATeleportationExperiment.java",
+ "class": "_1430ATeleportationExperiment",
+ "javaSha256": "33c14778f5883f881c89aab70f15bd2cd0af0edd57a526270e4813d0d8f201b8",
+ "register": [
+  {"npc": 203919, "event": "addOnQuestStart", "args": [1430]},
+  {"npc": 203919, "event": "addOnTalkEvent", "args": [1430]},
+  {"npc": 203337, "event": "addOnTalkEvent", "args": [1430]}
+ ],
+ "hooks": [{"hook": "onDialogEvent", "line": 31, "unsupported": "call TeleportService.teleportTo"}],
+ "cases": []
+}

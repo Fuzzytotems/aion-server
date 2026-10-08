@@ -16,6 +16,7 @@
 // 91 since the owner's decisions of 2026-10-07 (the 15 mentor dailies and pangaea 14220/24220).
 // Chunk Q13 (lane C, 2026-10-07): the 87 generated handlers of the instance directories A-K (GoldenQ13Handlers.cpp; docs/deviations/Q13.md).
 // Chunk Q11 (lane C, 2026-10-08): 71 generated handlers of daevanion and sanctum (GoldenQ11Handlers.cpp; docs/deviations/Q11.md).
+// Chunk Q05, the rest (lane C, 2026-10-08): 52 generated handlers of eltnen and oriel (GoldenQ05Handlers.cpp; docs/deviations/Q05.md).
 //
 // P6-Q slice 2, chunk Q03 (2026-09-29): the 72 generated verteron and heiron handlers in the tree (the zones the route's dispatches end in),
 // compiled into this executable by #include as well (GoldenQ03Handlers.cpp); Q03's hand ports 1643 and 3200 have their own unit cases
@@ -482,6 +483,50 @@
 	X(danuar_sanctuary, _16987SeekOuttheCorridor, 16987) \
 	X(danuar_sanctuary, _26985GraveyardTreasure, 26985) \
 	X(danuar_sanctuary, _26987ExploretheElyosCorridor, 26987) \
+	X(eltnen, _1311AGermOfHope, 1311) \
+	X(eltnen, _1314Anelimoutofwater, 1314) \
+	X(eltnen, _1319PrioritesMoney, 1319) \
+	X(eltnen, _1322ALeafFromLodas, 1322) \
+	X(eltnen, _1324ConfidentialOrders, 1324) \
+	X(eltnen, _1336ScoutingForDemokritos, 1336) \
+	X(eltnen, _1345BearerOfBadNews, 1345) \
+	X(eltnen, _1351EarningMaranasRespect, 1351) \
+	X(eltnen, _1361FindingDrinkingWater, 1361) \
+	X(eltnen, _1363ThankingMabangtah, 1363) \
+	X(eltnen, _1364JourneytoAgairon, 1364) \
+	X(eltnen, _1371FlowersForIsson, 1371) \
+	X(eltnen, _1373WaterTherapy, 1373) \
+	X(eltnen, _1376AMountaineOfTrouble, 1376) \
+	X(eltnen, _1385RescuingGriffo, 1385) \
+	X(eltnen, _1393NewFlightPath, 1393) \
+	X(eltnen, _1394ReportingtheNewFlightPath, 1394) \
+	X(eltnen, _14020OrdersFromEltnen, 14020) \
+	X(eltnen, _14021ToCureACurse, 14021) \
+	X(eltnen, _14022TheTestOfTheHeart, 14022) \
+	X(eltnen, _14023PlayingAroundAtTheTemple, 14023) \
+	X(eltnen, _14024AKrallIngSuspicion, 14024) \
+	X(eltnen, _14025CookingUpDisasters, 14025) \
+	X(eltnen, _1414OperationWindmill, 1414) \
+	X(eltnen, _1422ABetterSword, 1422) \
+	X(eltnen, _1423ExpertAdvice, 1423) \
+	X(eltnen, _1430ATeleportationExperiment, 1430) \
+	X(eltnen, _1452DoubtfulCharacters, 1452) \
+	X(eltnen, _1463MessageToASpy, 1463) \
+	X(eltnen, _1464AGiftofLove, 1464) \
+	X(eltnen, _1466RespectForDeltras, 1466) \
+	X(eltnen, _1467TheFourLeaders, 1467) \
+	X(eltnen, _1468HannetsLostLove, 1468) \
+	X(eltnen, _1469FindingDenlavis, 1469) \
+	X(eltnen, _1470HannetsVengeance, 1470) \
+	X(eltnen, _1471FakeStigma, 1471) \
+	X(eltnen, _1472GanimerksEspionage, 1472) \
+	X(eltnen, _1479HelpingMemnes, 1479) \
+	X(eltnen, _1482ATeleportationAdventure, 1482) \
+	X(eltnen, _1483HarumonerksRequest, 1483) \
+	X(eltnen, _1484ChiyorinrinerksRequest, 1484) \
+	X(eltnen, _3319AnOrderforGojirunerk, 3319) \
+	X(eltnen, _3326TheShugoMenace, 3326) \
+	X(eltnen, _3329DinnersonMe, 3329) \
 	X(empyrean_crucible, _18208IllusionOrInfiltration, 18208) \
 	X(empyrean_crucible, _18209ARiftInTheSpaceTwineContinuum, 18209) \
 	X(empyrean_crucible, _18212FirstBlood, 18212) \
@@ -563,6 +608,15 @@
 	X(orichalcum_key, _37110MyYoungApprentice, 37110) \
 	X(orichalcum_key, _37113AsmoICU, 37113) \
 	X(orichalcum_key, _38007AKeyMessage, 38007) \
+	X(oriel, _18802AndAHomeforEveryDaeva, 18802) \
+	X(oriel, _18805GoingThrifting, 18805) \
+	X(oriel, _18807BlessedBeThyHame, 18807) \
+	X(oriel, _18808FoolproofPackaging, 18808) \
+	X(oriel, _18809DaevaontheRide, 18809) \
+	X(oriel, _18826TodaysFind, 18826) \
+	X(oriel, _18832ImaginingAQuietLife, 18832) \
+	X(oriel, _18847Housewarming, 18847) \
+	X(oriel, _50009TisTheSeason, 50009) \
 	X(pangaea, _14220NewZoneNewRules, 14220) \
 	X(pangaea, _24220WelcometoPanesterra, 24220) \
 	X(radiant_ops, _38001RadiantOpsRecruitment, 38001) \

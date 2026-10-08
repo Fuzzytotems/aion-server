@@ -63,7 +63,9 @@ dataholders/DataManager.h dataholders/QuestsData.h model/templates/QuestTemplate
 services/GameTimeService.h utils/time/gametime/GameTime.h
 dataholders/SpawnsData.h model/templates/spawns/SpawnSpotTemplate.h
 model/team/GeneralTeam.h model/team/TemporaryPlayerTeam.h model/team/group/PlayerGroup.h
+services/HousingService.h
 '''.split()] + ['aion/commons/utils/Rnd.h']
+# (`services/HousingService.h`: row B47 of chunk Q05's rest, 2026-10-08: the studio quests 18802/28802)
 # (`model/team/GeneralTeam.h ...`: row B46 of chunk Q14's follow-up, 2026-10-07: the mentor dailies' PlayerGroup local and its members)
 # (`dataholders/DataManager.h ...`: row B39 of the Q08 follow-up; `services/GameTimeService.h ...`: rows B40-B41 of chunk Q01, 2026-10-05)
 # (the line `model/house/House.h ...`: types QuestPrelude.h re-exports that handlers declare locals of; without them such a local is refused
@@ -238,6 +240,10 @@ API_TABLE = (
     # members, which the dailies search with stream().anyMatch (emit rule stream-any-match; docs/deviations/Q14.md)
     Row('B46', 'groups: Player.getPlayerGroup, GeneralTeam.getMembers', (('Player', 'getPlayerGroup'), ('GeneralTeam', 'getMembers')),
         'ported'),
+    # B47 (phase 6 step 2, chunk Q05's rest, lane C, 2026-10-08): the studio of the housing quests oriel/_18802 and pernon/_28802 (lane B's
+    # M5h studio cases need them; docs/deviations/Q05.md)
+    Row('B47', 'housing: HousingService.getInstance().registerPlayerStudio', (('HousingService', 'getInstance'),
+        ('HousingService', 'registerPlayerStudio')), 'ported'),
 )
 
 # the static data holders of DataManager a handler reads (row B39): Java field -> (the C++ class it holds, its header). The C++ field is a
@@ -266,7 +272,7 @@ PLANNED = {
 # Java classes whose static members a handler may name, mapped to the C++ class or enum of the same role
 STATIC_CLASSES = {'QuestService', 'TeleportService', 'PacketSendUtility', 'PositionUtil', 'ItemService', 'InstanceService', 'SkillEngine',
                   'CraftSkillUpdateService', 'ZoneName', 'HandlerResult', 'SM_SYSTEM_MESSAGE', 'Rnd', 'EventService', 'WalkManager',
-                  'QuestTasks', 'GameTimeService'}
+                  'QuestTasks', 'GameTimeService', 'HousingService'}
 # Java classes of static methods that C++ ports as a namespace of free functions
 STATIC_NAMESPACES = {'Rnd': ('aion', 'commons', 'utils', 'Rnd')}
 # Java enums the handlers name (the C++ enum class has the same simple name)

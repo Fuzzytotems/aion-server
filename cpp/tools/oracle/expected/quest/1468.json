@@ -1,0 +1,17 @@
+{
+ "format": "aion-quest-trace",
+ "version": 1,
+ "questId": 1468,
+ "java": "eltnen/_1468HannetsLostLove.java",
+ "class": "_1468HannetsLostLove",
+ "javaSha256": "cc699974b278754656ac2fc0fcdae93160a5268cc9144230fd1a2789ee71a5f7",
+ "register": [
+  {"npc": 790004, "event": "addOnQuestStart", "args": [1468]},
+  {"npc": 790004, "event": "addOnTalkEvent", "args": [1468]},
+  {"npc": 203184, "event": "addOnTalkEvent", "args": [1468]},
+  {"npc": 204007, "event": "addOnTalkEvent", "args": [1468]},
+  {"npc": 203969, "event": "addOnTalkEvent", "args": [1468]}
+ ],
+ "hooks": [{"hook": "onDialogEvent", "line": 32, "unsupported": "EmotionId.STAND"}],
+ "cases": []
+}
