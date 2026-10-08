@@ -1753,6 +1753,32 @@ const std::set<std::string>& knownNotReproducible() {
 		"11289 onItemUseEvent#4",
 		"11289 onDialogEvent#14",
 		"11460 onDialogEvent#20",
+		// Chunk Q14 (lane C, 2026-10-05). A COMPLETE state with canRepeat false, which the harness's setups do not make: max_repeat_count
+		// 255 (QuestState.canRepeat true, as 1687's rows above) for 13745, 23745, 3936, 3937, 30005; 13817 and 23817 also repeat weekly
+		// (repeat_cycle SAT), and no setup sets a completion inside the current cycle
+		"13817 onDialogEvent#3",
+		"13817 onDialogEvent#15",
+		"23817 onDialogEvent#3",
+		"23817 onDialogEvent#15",
+		"13745 onEnterWorldEvent#5",
+		"23745 onEnterWorldEvent#5",
+		"3936 onDialogEvent#3",
+		"3936 onDialogEvent#13",
+		"3937 onDialogEvent#3",
+		"3937 onDialogEvent#13",
+		"30005 onDialogEvent#9",
+		// 80341 (nightmare_circus/_80341EventAHallowedEve.java:67, `return var == 0 && sendQuestDialog(env, 2375)` in each of its nine npc
+		// branches): the path assumes sendQuestDialog false, which Java never returns for a page that is no reward window
+		// (AbstractQuestHandler.java:330-343): a dead path the oracle's dead_assumption does not drop
+		"80341 onDialogEvent#13",
+		"80341 onDialogEvent#25",
+		"80341 onDialogEvent#37",
+		"80341 onDialogEvent#49",
+		"80341 onDialogEvent#61",
+		"80341 onDialogEvent#73",
+		"80341 onDialogEvent#85",
+		"80341 onDialogEvent#97",
+		"80341 onDialogEvent#109",
 	};
 	return known;
 }
@@ -1897,10 +1923,12 @@ const std::map<std::string, std::string>& knownUnported() {
  * Phase 6 step 2, chunk Q08 (lane C): gelkmaros 21004, 21027, 21033, 21036, 21071 (a status read after sendQuestNoneDialog), 21105, 21249
  * (npc.getController()), enshar 25052 (spawnForFiveMinutes). Chunk Q01 (lane C): reshanta 2798 (a status read after sendQuestNoneDialog).
  * Chunk Q02 (lane C): inggison 11031-11033 (a scheduled task that would throw; a status read after sendQuestNoneDialog), 11053
- * (tryDecreaseKinah), 11118 (getUseArea in the oracle; a status read after sendQuestNoneDialog)
+ * (tryDecreaseKinah), 11118 (getUseArea in the oracle; a status read after sendQuestNoneDialog). Chunk Q14 (lane C): steel_rake 3208
+ * (QuestService.checkStartConditions; onCanAct's Object parameter), 3217, 3219, 3220, 4208, 4217, 4219, 4220 (an empty register(), no hook),
+ * miragent_holy_templar 3939 (tryDecreaseKinah), 3940 (the packed getQuestVars().getQuestVars()), rentus_base 30553 (npc.getController())
  */
 constexpr int32_t ORACLE_REFUSES_EVERY_HOOK[] = {1205, 2132, 1640, 1647, 2925, 2938, 2952, 4966, 4967, 4968, 4969, 21004, 21027, 21033, 21036,
-	21071, 21105, 21249, 25052, 2798, 11031, 11032, 11033, 11053, 11118};
+	21071, 21105, 21249, 25052, 2798, 11031, 11032, 11033, 11053, 11118, 3208, 3217, 3219, 3220, 4208, 4217, 4219, 4220, 3939, 3940, 30553};
 
 TEST_F(GoldenQuestTraceTest, EveryExpectedDocumentHasAGeneratedHandlerAndEveryHandlerADocument) {
 	std::vector<int32_t> ids = expectedQuestIds();
