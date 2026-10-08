@@ -1259,6 +1259,24 @@ void runM5gGate() {
 		}
 		return true;
 	};
+	/**
+	 * reads each client until one 20 ms read comes back empty, `limit` at most: drainAll reads one packet of each client per turn, and walkTo,
+	 * killNearest and lootEmpty read only the acting client, so a member left unread during another member's walk and fight holds a backlog
+	 * that drainAll's window may not reach (C12's kill-3 miss, 2026-10-07). @return the packets read per client
+	 */
+	const auto catchUp = [&](std::chrono::milliseconds limit) {
+		std::array<size_t, 4> read{};
+		const auto deadline = std::chrono::steady_clock::now() + limit;
+		for (size_t i = 0; i < all.size(); i++) {
+			ScenarioClient& client = *all[i];
+			if (!client.game || client.game->client.socket.isClosed())
+				continue;
+			while (std::chrono::steady_clock::now() < deadline && client.game->next(20ms))
+				read[i]++;
+			client.model.sync();
+		}
+		return read;
+	};
 	const auto marks = [&] {
 		std::array<size_t, 4> m{};
 		for (size_t i = 0; i < all.size(); i++)
@@ -1691,6 +1709,17 @@ void runM5gGate() {
 	};
 
 	// ---- C12: the kills ----
+	/** where the kills of C12 began: a member's death since then (SM_EMOTION DIE, or an HP update at 0) - nobody is revived before C19 */
+	std::array<size_t, 4> killsFrom{};
+	const auto deadSinceKillsBegan = [&](const ScenarioClient& member) {
+		for (const Packet& packet : ofName(windowOf(member, killsFrom), "SM_EMOTION")) {
+			const decoders::Emotion emotion = decoders::decodeEmotion(packet.data);
+			if (emotion.emotionType == decoders::EMOTION_DIE && emotion.senderObjectId == member.playerId())
+				return true;
+		}
+		const std::optional<decoders::StatUpdateHp> hp = member.lastHp();
+		return hp && hp->currentHp == 0;
+	};
 	const auto teamKill = [&](int32_t killIndex, std::array<bool, 3> counted) -> TeamKill {
 		TeamKill record;
 		record.from = marks();
@@ -1706,6 +1735,17 @@ void runM5gGate() {
 		};
 		until(5s, [&] { return std::ranges::any_of(all, [&](ScenarioClient* client) { return enabled(*client); }); });
 		drainAll(1500ms);
+		// every member's backlog read before the experience is checked: what drainAll's window reached, and what the catch-up added
+		std::array<std::vector<int64_t>, 4> drained;
+		for (size_t m = 0; m < all.size(); m++)
+			drained[m] = expGains(windowOf(*all[m], record.from));
+		const std::array<size_t, 4> backlog = catchUp(10s);
+		std::cout << "GP11 kill " << killIndex + 1 << ": the catch-up read A " << backlog[0] << ", B " << backlog[1] << ", C " << backlog[2] << ", D "
+		          << backlog[3] << " packets" << std::endl;
+		for (size_t m = 0; m < all.size(); m++)
+			if (expGains(windowOf(*all[m], record.from)) != drained[m])
+				std::cout << "GP11 kill " << killIndex + 1 << ": " << all[m]->label << "'s experience came in the catch-up, not in drainAll's window"
+				          << std::endl;
 		for (ScenarioClient* client : all)
 			if (enabled(*client))
 				record.enabledFor.push_back(client->label);
@@ -1716,7 +1756,38 @@ void runM5gGate() {
 			if (counted[m]) {
 				if (!expected)
 					throw std::runtime_error("m5g-team counts no share of member " + std::to_string(m) + " in kill " + std::to_string(killIndex + 1));
+				// Java: a counted member who is dead takes part in the level sum but gets no share ("dead players shouldn't receive AP/EP/DP",
+				// PlayerTeamDistributionService.java:56-58). A looter walking to a corpse at the sparkie spot can be killed by an aggressive
+				// sparkie before the next kill (1 run in 11, 2026-10-05: B after looting kill 2) - the other members' shares do not change
+				if (deadSinceKillsBegan(*all[m])) {
+					std::cout << "GP11: " << all[m]->label << " is dead at kill " << killIndex + 1 << ": counted, no share (Java)" << std::endl;
+					EXPECT_TRUE(gains.empty()) << "GP11 kill " << killIndex + 1 << ": the dead " << all[m]->label << " got " << joinNumbers(gains);
+					continue;
+				}
 				EXPECT_EQ(gains, std::vector<int64_t>{*expected}) << "GP11 kill " << killIndex + 1 << ": " << all[m]->label << "'s experience";
+				if (gains != std::vector<int64_t>{*expected}) {
+					// the evidence of a missed share: alive (the last HP update, any death in the window), and where, against the 100 m range
+					const ScenarioClient& member = *all[m];
+					const std::optional<decoders::StatUpdateHp> hp = member.lastHp();
+					size_t deaths = 0;
+					for (const Packet& packet : ofName(windowOf(member, record.from), "SM_EMOTION")) {
+						const decoders::Emotion emotion = decoders::decodeEmotion(packet.data);
+						deaths += emotion.emotionType == decoders::EMOTION_DIE && emotion.senderObjectId == member.playerId() ? 1 : 0;
+					}
+					const std::optional<KnownNpcs::Npc> npc = a.npcs.get(corpse);
+					std::cout << "GP11 diag: " << member.label << " HP " << (hp ? std::to_string(hp->currentHp) + "/" + std::to_string(hp->maxHp) : "?")
+					          << ", deaths in the window " << deaths << ", at (" << member.x << ", " << member.y << ")";
+					if (npc)
+						std::cout << ", " << distance2d(member.x, member.y, npc->x, npc->y) << " m from the corpse";
+					std::cout << std::endl;
+					for (const SystemMessage& message : messagesOf(windowOf(member, record.from)))
+						std::cout << "GP11 diag: message " << message.messageId << " (" << join(message.params, ", ") << ")" << std::endl;
+					std::map<std::string, int32_t> names;
+					for (const Packet& packet : windowOf(member, record.from))
+						names[packet.name]++;
+					for (const auto& [name, count] : names)
+						std::cout << "GP11 diag: " << name << " x" << count << std::endl;
+				}
 			} else {
 				EXPECT_TRUE(gains.empty()) << "GP11 kill " << killIndex + 1 << ": " << all[m]->label << " is out of range and got " << joinNumbers(gains);
 			}
@@ -1792,6 +1863,7 @@ void runM5gGate() {
 	};
 	runCase("C12", "shared experience and the round robin: two kills with A, B, C in range, a third with C beyond 100 m (GP11, GP12, GP15)", [&] {
 		auto from = marks();
+		killsFrom = from;
 		send(a, GameSession::CM_DISTRIBUTION_SETTINGS, GameSession::buildCM_DISTRIBUTION_SETTINGS(1, 0, {0, 0, 0, 0, 0, 0}));
 		drainAll(1500ms);
 		const TeamKill first = teamKill(0, {true, true, true});
