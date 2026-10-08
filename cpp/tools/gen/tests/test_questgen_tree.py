@@ -115,6 +115,62 @@ Q02 = {
         '_11289VeillesGift', '_11294SpawningInvestigation', '_11304TheRemainingFaithful', '_11455WhentheTimeisRipe', '_11458AdiassReport',
         '_11460TheShulackofTaloc'),
 }
+# Phase 6 step 2, chunk Q14 (lane C, 2026-10-05; docs/deviations/Q14.md): the files of the instance directories K-W that questgen
+# transliterates, all in the tree (74 of 95 at the landing; the owner's decisions of 2026-10-07 added the 15 mentor dailies, rule
+# stream-any-match, and pangaea 14220/24220, rule constant-list: 91; the 4 still refused are not)
+Q14 = {
+    'kaldor': (
+        '_13817TheFuryWithin', '_23817WeeklyFreeSpirit',),
+    'kromedes_trial': (
+        '_18604MeetingWithRotan', '_28604RecoveringRotan',),
+    'levinshor': (
+        '_13704FonasQuickFix', '_13708ProximityProtect', '_13745EljersRequest', '_23704LoudNoises', '_23708SoundtheAlarm',
+        '_23745NoMoreinLevinshor',),
+    'linkgate_foundry': (
+        '_16940DiarySecrets', '_26940RaidtheLinkgateFoundry',),
+    'marchutan_priory': (
+        '_47000AltgardOrbIt', '_47003AGlobalProblem', '_47006AmplifiersWithIssues', '_48006TheMarchutanPrioryBeckons',),
+    'miragent_holy_templar': (
+        '_19064TemplarOfConstruction', '_3933ClassPreceptorConsent', '_3934TheQuestForTemplars', '_3935ShoulderTheBurden',
+        '_3936DecorationsOfSanctum', '_3937GroupTheDecorationsofSanctum', '_3938WellRounded', '_3939PersistenceAndLuck', '_3940Loyalty',),
+    'nightmare_circus': (
+        '_80341EventAHallowedEve',),
+    'orichalcum_key': (
+        '_37100MutantNinjaIninas', '_37103CamoAndCarnage', '_37106AsmoHunt', '_37107CoolBlueWater', '_37110MyYoungApprentice',
+        '_37113AsmoICU', '_38007AKeyMessage',),
+    'pangaea': (
+        '_14220NewZoneNewRules', '_24220WelcometoPanesterra',),
+    'radiant_ops': (
+        '_38001RadiantOpsRecruitment',),
+    'rentus_base': (
+        '_30500Desperation', '_30503RodelionRescue', '_30504TheSearchforPaios', '_30550MomentOfCrisis', '_30553ComradesInArms',
+        '_30554SavingPrivatePaios',),
+    'sauro_supply_base': (
+        '_18910TheSauroSupplyBase', '_28910AStabbingInSauro',),
+    'shugo_imperial_tomb': (
+        '_80275EventEmpiresPast',),
+    'steel_rake': (
+        '_3208ThePuzzlingBlueprint', '_3217ImprisonedGuardian', '_3219KeyItemHiddenQuest01', '_3220KeyItemHiddenQuest02',
+        '_4208TruthOfTheBookmark', '_4217TheImprisonedExecutor', '_4219KeyItemHiddenQuest01', '_4220KeyItemHiddenQuest02',),
+    'talocs_hollow': (
+        '_11465MysteriousSeed', '_11466AHardSeedtoCrack', '_11467DeathToTheQueen', '_11468WithFriendsLikeThese', '_21465MysteriousSeed',
+        '_21467SpawningTheSapSuckers', '_21468TheStruggleWithin',),
+    'terath_dredgion': (
+        '_30600FightOfTheNavigators', '_30610TheGoodNewsAndBad',),
+    'the_circle': (
+        '_47100WardsAndWardOrbs', '_47103AGlobeTrottingLesson', '_47106TurningUpTheAmplifiers', '_47107WardsAndWardOrbs',
+        '_47110AGlobeTrottingLesson', '_47113TurningUpTheAmplifiers', '_48007JoiningTheCircle',),
+    'the_eternal_bastion': (
+        '_18035ShebasSurveillance', '_18036BastionsAreEternal', '_28035TrustInNoneButVerify', '_28036InterrogateKvash',),
+    'tiamat_stronghold': (
+        '_30700RaceForTheRelics', '_30701TheLordOfIllusion', '_30708SuramaTheBetrayer', '_30709SoulSearching', '_30710TheGreatRelease',
+        '_30722CheckTheGate', '_30750AttackOnTiamatStronghold', '_30751DeathToTheDragonLord', '_30758SuramaTheBitter',
+        '_30759CountingStatues', '_30760PetrifiedHeroOfTheAsmodians', '_30772InvestigateTheGate',),
+    'udas_temple': (
+        '_30003SecretOfTheUdasTemple', '_30005HealMeKillMe', '_30011Arachnophobia', '_30103LairOfTheDragonbound', '_30111CenterOfTheWeb',),
+    'wisplight_abbey': (
+        '_19600WelcometoWisplightAbbey',),
+}
 # held back at the integration of slice 2 (docs/deviations/Q10.md, "Held back"): transliterated like the others, but kept out of the
 # tree because gs.scenario.travel's (and gs.scenario.ascension's) Asmodian would see them: 24010's onEnterWorldEvent starts it at the
 # Altgard arrival, and the others' start npcs put them in his SM_NEARBY_QUESTS in Pandaemonium or Altgard
@@ -189,6 +245,11 @@ class CommittedTree(unittest.TestCase):
             with self.subTest(file=f'inggison/{klass}'):
                 self.assertIn(('inggison', klass), found)
         self.assertEqual(len(Q02['inggison']), 59)
+        for directory, classes in Q14.items():
+            for klass in classes:
+                with self.subTest(file=f'{directory}/{klass}'):
+                    self.assertIn((directory, klass), found)
+        self.assertEqual(sum(len(classes) for classes in Q14.values()), 91)
         self.assertEqual(len(Q10_HELD_BACK), 16)
 
     def test_the_enter_world_files_are_in_the_tree(self):

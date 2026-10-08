@@ -85,6 +85,7 @@
 
 #include "aion/commons/utils/Rnd.h"
 #include "aion/gameserver/configs/main/CustomConfig.h"
+#include "aion/gameserver/configs/main/GroupConfig.h"
 #include "aion/gameserver/configs/main/MembershipConfig.h"
 #include "aion/gameserver/dataholders/SkillTreeData.bind.h"
 #include "aion/gameserver/dataholders/SkillTreeData.h"
@@ -92,6 +93,9 @@
 #include "aion/gameserver/model/gameobjects/player/RecipeList.h"
 #include "aion/gameserver/model/gameobjects/player/npcFaction/NpcFactions.h"
 #include "aion/gameserver/model/skill/PlayerSkillList.h"
+#include "aion/gameserver/model/team/TeamType.h"
+#include "aion/gameserver/model/team/group/PlayerGroup.h"
+#include "aion/gameserver/model/team/group/PlayerGroupMember.h"
 #include "aion/gameserver/model/templates/quest/QuestDrop.h"
 #include "aion/gameserver/model/templates/quest/QuestNpc.h"
 #include "aion/gameserver/model/templates/quest/HandlerSideDrop.h"
@@ -134,6 +138,10 @@ constexpr int32_t OTHER_NPCS[] = {200000, 200001, 201000};
 constexpr int32_t OTHER_ITEM = 182200201;
 constexpr int32_t GOLDEN_PLAYER = 830001;
 constexpr int32_t GOLDEN_ITEM_BASE = 840001;
+// the owner's decision of 2026-10-07 (Q14's mentor dailies): the quester's group mates and the group's id (run, given player.inGroup)
+constexpr int32_t GOLDEN_MATE = 830002;
+constexpr int32_t GOLDEN_MENTOR = 830003;
+constexpr int32_t GOLDEN_GROUP = 850001;
 /** The object id of the item an item-use case uses (callHook; the review of #79, item 2: held in the inventory) */
 constexpr int32_t USED_ITEM_OBJECT = GOLDEN_ITEM_BASE + 900;
 constexpr int32_t OPCODE_DIALOG = SM_DIALOG_WINDOW_OPCODE;
@@ -979,6 +987,33 @@ protected:
 			quester->f.commonData->setPlayerClass(static_cast<gameserver::model::PlayerClass>(it - names.begin()));
 		}
 		configs::main::CustomConfig::BASIC_QUEST_SIZE_LIMIT.store(setup.questListFull ? 0 : 40);
+		// the owner's decision of 2026-10-07 on Q14's mentor dailies (extract.py mentor_search): a case in a group has the quester in a group of
+		// three, formed as PlayerGroupService.createGroup and addPlayer form one (PlayerGroup and its members, without the packets): a mate
+		// who is no mentor 50 m away, and a mentor 50 m away (player.mentorInRange) or 200 m away; GroupConfig.GROUP_MAX_DISTANCE is its
+		// property default, 100. So the search must look at both conditions of every member to answer as Java does
+		std::vector<Quester*> mates;
+		Ref<gameserver::model::team::group::PlayerGroup> group;
+		const int32_t groupDistanceBefore = configs::main::GroupConfig::GROUP_MAX_DISTANCE.load();
+		if (given.contains("player") && given["player"].value("inGroup", false)) {
+			using gameserver::model::team::group::PlayerGroupMember;
+			configs::main::GroupConfig::GROUP_MAX_DISTANCE.store(100);
+			const bool mentorInRange = given["player"].value("mentorInRange", false);
+			const auto place = [&](Quester& mate, float x) {
+				mate.player().setPosition(world::WorldPosition::create(player.getWorldId(), x, 100.0f, 50.0f, int8_t{0},
+					mapInstance->getRegion(x, 100.0f, 50.0f)));
+				mate.player().getPosition()->setIsSpawned(true);
+			};
+			mates.push_back(makeQuester(GOLDEN_MATE, "GoldenMate", setup.race, std::max(setup.level, 1)));
+			place(*mates.back(), 150.0f);
+			mates.push_back(makeQuester(GOLDEN_MENTOR, "GoldenMentor", setup.race, std::max(setup.level, 1)));
+			place(*mates.back(), mentorInRange ? 150.0f : 300.0f);
+			mates.back()->player().setMentor(true);
+			group = gameserver::model::team::group::PlayerGroup::create(*PlayerGroupMember::create(player),
+				gameserver::model::team::TeamType::GROUP, GOLDEN_GROUP);
+			group->addMember(*PlayerGroupMember::create(player));
+			for (Quester* mate : mates)
+				group->addMember(*PlayerGroupMember::create(mate->player()));
+		}
 		// the states the case names first: a prerequisite or an overlay never replaces one
 		if (given.contains("questState"))
 			seedQuestState(*quester, questId, given["questState"]);
@@ -1121,6 +1156,15 @@ protected:
 		out.inventory = inventoryOf(player);
 		out.observable = !out.opcodes.empty() || out.questStates != statesBefore || out.inventory != inventoryBefore;
 		drainTasks();
+		if (group) {
+			for (Quester* mate : mates)
+				group->removeMember(mate->player().getObjectId());
+			group->removeMember(player.getObjectId());
+			group = nullptr;
+			for (Quester* mate : mates)
+				dropQuester(mate);
+		}
+		configs::main::GroupConfig::GROUP_MAX_DISTANCE.store(groupDistanceBefore);
 		dropQuester(quester);
 		return out;
 	}
@@ -1433,6 +1477,14 @@ protected:
 					p[0] == "$targetObjectId" ? env.getVisibleObject()->getObjectId() : p[0].get<int32_t>();
 				utils::PacketSendUtility::sendPacket(player, network::aion::serverpackets::SM_DIALOG_WINDOW(targetObjectId, p[1].get<int32_t>()));
 			}
+			// the owner's decision of 2026-10-07 on Q14's mentor dailies: the message to a quester whose group has no mentor in range
+			// (extract.py: a system message factory imported statically, without parameters)
+			else if (call == "PacketSendUtility.sendPacket" && a.size() == 1 &&
+				a[0].value("new", std::string()) == "SM_SYSTEM_MESSAGE.STR_MSG_DailyQuest_Ask_Mentor" && a[0]["args"].empty())
+				utils::PacketSendUtility::sendPacket(player, network::aion::serverpackets::SM_SYSTEM_MESSAGE::STR_MSG_DailyQuest_Ask_Mentor());
+			else if (call == "PacketSendUtility.sendPacket" && a.size() == 1 &&
+				a[0].value("new", std::string()) == "SM_SYSTEM_MESSAGE.STR_MSG_DailyQuest_Ask_Mentee" && a[0]["args"].empty())
+				utils::PacketSendUtility::sendPacket(player, network::aion::serverpackets::SM_SYSTEM_MESSAGE::STR_MSG_DailyQuest_Ask_Mentee());
 			// lane C (phase 6 step 1): the effects of the hooks and closures the harness drives since (extract.py: ThreadPoolManager.schedule,
 			// PacketSendUtility.broadcastPacket, inventory.decreaseByObjectId), the kill-ranked helper (AbstractQuestHandler.java:749-787) and the
 			// helper overloads of the corpus outside the tree (sendQuestRewardDialog :1151, checkItemExistence :576-609, defaultCloseDialog with
@@ -1753,6 +1805,68 @@ const std::set<std::string>& knownNotReproducible() {
 		"11289 onItemUseEvent#4",
 		"11289 onDialogEvent#14",
 		"11460 onDialogEvent#20",
+		// Chunk Q14 (lane C, 2026-10-05). A COMPLETE state with canRepeat false, which the harness's setups do not make: max_repeat_count
+		// 255 (QuestState.canRepeat true, as 1687's rows above) for 13745, 23745, 3936, 3937, 30005; 13817 and 23817 also repeat weekly
+		// (repeat_cycle SAT), and no setup sets a completion inside the current cycle
+		"13817 onDialogEvent#3",
+		"13817 onDialogEvent#15",
+		"23817 onDialogEvent#3",
+		"23817 onDialogEvent#15",
+		"13745 onEnterWorldEvent#5",
+		"23745 onEnterWorldEvent#5",
+		"3936 onDialogEvent#3",
+		"3936 onDialogEvent#13",
+		"3937 onDialogEvent#3",
+		"3937 onDialogEvent#13",
+		"30005 onDialogEvent#9",
+		// 80341 (nightmare_circus/_80341EventAHallowedEve.java:67, `return var == 0 && sendQuestDialog(env, 2375)` in each of its nine npc
+		// branches): the path assumes sendQuestDialog false, which Java never returns for a page that is no reward window
+		// (AbstractQuestHandler.java:330-343): a dead path the oracle's dead_assumption does not drop
+		"80341 onDialogEvent#13",
+		"80341 onDialogEvent#25",
+		"80341 onDialogEvent#37",
+		"80341 onDialogEvent#49",
+		"80341 onDialogEvent#61",
+		"80341 onDialogEvent#73",
+		"80341 onDialogEvent#85",
+		"80341 onDialogEvent#97",
+		"80341 onDialogEvent#109",
+		// The owner's decisions of 2026-10-07 on Q14, the five mentor dailies whose dialog hook the oracle traces (the other ten stop at
+		// `npc.getController()`): their templates are npc faction quests (npcfaction_id 9, 10, 11) of minlevel_permitted 99, so
+		// QuestService.startQuest's faction check (QuestService.java startQuest: the faction of the template active with this quest) holds in
+		// no setup of the fixture, whose quester has joined no npc faction: #1 #2 #4 #5 assume startQuest true or false (QUEST_ACCEPT_1 without
+		// a target); #7 #13 a COMPLETE state with canRepeat false, which max_repeat_count 255 never gives (as 1687's rows). The cases in a
+		// group (player.inGroup, player.mentorInRange: run() forms the group) all pass
+		"37100 onDialogEvent#1",
+		"37100 onDialogEvent#2",
+		"37100 onDialogEvent#4",
+		"37100 onDialogEvent#5",
+		"37100 onDialogEvent#7",
+		"37100 onDialogEvent#13",
+		"37107 onDialogEvent#1",
+		"37107 onDialogEvent#2",
+		"37107 onDialogEvent#4",
+		"37107 onDialogEvent#5",
+		"37107 onDialogEvent#7",
+		"37107 onDialogEvent#13",
+		"47000 onDialogEvent#1",
+		"47000 onDialogEvent#2",
+		"47000 onDialogEvent#4",
+		"47000 onDialogEvent#5",
+		"47000 onDialogEvent#7",
+		"47000 onDialogEvent#13",
+		"47100 onDialogEvent#1",
+		"47100 onDialogEvent#2",
+		"47100 onDialogEvent#4",
+		"47100 onDialogEvent#5",
+		"47100 onDialogEvent#7",
+		"47100 onDialogEvent#13",
+		"47107 onDialogEvent#1",
+		"47107 onDialogEvent#2",
+		"47107 onDialogEvent#4",
+		"47107 onDialogEvent#5",
+		"47107 onDialogEvent#7",
+		"47107 onDialogEvent#13",
 	};
 	return known;
 }
@@ -1897,10 +2011,12 @@ const std::map<std::string, std::string>& knownUnported() {
  * Phase 6 step 2, chunk Q08 (lane C): gelkmaros 21004, 21027, 21033, 21036, 21071 (a status read after sendQuestNoneDialog), 21105, 21249
  * (npc.getController()), enshar 25052 (spawnForFiveMinutes). Chunk Q01 (lane C): reshanta 2798 (a status read after sendQuestNoneDialog).
  * Chunk Q02 (lane C): inggison 11031-11033 (a scheduled task that would throw; a status read after sendQuestNoneDialog), 11053
- * (tryDecreaseKinah), 11118 (getUseArea in the oracle; a status read after sendQuestNoneDialog)
+ * (tryDecreaseKinah), 11118 (getUseArea in the oracle; a status read after sendQuestNoneDialog). Chunk Q14 (lane C): steel_rake 3208
+ * (QuestService.checkStartConditions; onCanAct's Object parameter), 3217, 3219, 3220, 4208, 4217, 4219, 4220 (an empty register(), no hook),
+ * miragent_holy_templar 3939 (tryDecreaseKinah), 3940 (the packed getQuestVars().getQuestVars()), rentus_base 30553 (npc.getController())
  */
 constexpr int32_t ORACLE_REFUSES_EVERY_HOOK[] = {1205, 2132, 1640, 1647, 2925, 2938, 2952, 4966, 4967, 4968, 4969, 21004, 21027, 21033, 21036,
-	21071, 21105, 21249, 25052, 2798, 11031, 11032, 11033, 11053, 11118};
+	21071, 21105, 21249, 25052, 2798, 11031, 11032, 11033, 11053, 11118, 3208, 3217, 3219, 3220, 4208, 4217, 4219, 4220, 3939, 3940, 30553};
 
 TEST_F(GoldenQuestTraceTest, EveryExpectedDocumentHasAGeneratedHandlerAndEveryHandlerADocument) {
 	std::vector<int32_t> ids = expectedQuestIds();
