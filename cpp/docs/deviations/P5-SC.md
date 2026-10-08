@@ -1104,3 +1104,32 @@ bare alias, where the admin //addskill and the console addskill are two commands
 oracle now keys by alias with prefix. The gate takes AION_TEST_PYTHON. Green in 59.7 s. Mutation proof for X2: ChatUtil.split never
 splitting, and parseSyntaxInfo without its square-bracket note, **2 of 2 killed** by X2 alone; sources restored (sha256), rebuilt, the
 switch absent from the build tree.
+
+## M5j stage-0 chat gate (lane A, 2026-10-08): `gs.scenario.chat` (m5j-plan.md §10.3 / §17.9, C-03, I-03)
+
+`tests/scenario/ChatScenarioTest.cpp`, registered in `ScenarioTests.cmake` when the chat server target exists (gate slot 2, TIMEOUT 1800,
+labels `scenario;chatserver;realdata`, the discovered case DISABLED). Three processes: the login and game servers of the harness and
+`aion_chat_server` as a `ChildProcess` in `<bin>/scenario/chat/chat_server`, a copy of `chat-server/config` with the gate's own
+`mycs.properties` (ports from `ScenarioServers::reservePorts`, the test password, the chat log to the database). Its database is its own per
+run, `aion_cs_test_chat_<hash>` on the server of `AION_TEST_CS_DATABASE_URL`, created from `chat-server/sql/aion_cs.sql` under the harness's
+schema lease and dropped at the end (§17.9: never `aion_cs_test` and never `ChatServerTestDatabase.h`'s named lock).
+`ScenarioDatabase::checkTestName` now also accepts `aion_cs_test_*` (not `aion_cs_test` itself; `ScenarioDatabaseTest.OnlyTestSchemasAreChanged`
+pins both). **I-03** (`game-server/CMakeLists.txt`): under `if(TARGET aion_chat_server)` the scenario tests depend on the chat server and get
+`AION_CHAT_SERVER_EXECUTABLE`, `AION_CHATSERVER_JAVA_DIR` and the include directory `chat-server/tests` for `support/FakePeers.h` - m5j-plan.md
+§17.6 gives I-03 to the integrator at checkpoint 0.1b; it is here so the gate builds, for the integrator to take or redo.
+
+| Case | As built |
+|---|---|
+| Y1 | "Gameserver #1 is now online" (chat server) and "Connected to chat server" (game server) before the first client |
+| Y2 | SM_VERSION_CHECK decoded from its Java writeImpl: one chat server, 127.0.0.1, the chat client port, the channel-chat level 10. The gate's clients send CM_VERSION_CHECK with INTERNAL_VERSION 207: with the harness's 206 the server answers answerID 1 and writes nothing more (SM_VERSION_CHECK.java:70-77) |
+| Y3 | CM_CHAT_AUTH -> SM_CHAT_INIT with 48 bytes; `FakeChatClient::login` with "<name>@AION" and the account name |
+| Y4 | A and B join `public_poeta` of game server 1, race 0; A's line reaches both as `expectedChannelMessage` (Java's bytes); the `chatlog` row |
+| Y5 | G's `//gag A 1 test` -> the chat server logs "was gagged for 1 minutes" (the duration of D9); `remove` -> "for 0 minutes" |
+| Y6 | drop + restart after 1 s: online again in [4.5 s, 9 s]; drop + 12 s down: "trying again in 10s" and online in [14.5 s, 19 s]; the slack is 4 s for a Debug server |
+| Y7 | B's logout closes his chat connection ("Player[id] logged out"); all three exit 0; no reconnect after the game server's stop; no unported hit, no ERROR in any log, the census and live counts clean |
+
+**Runs**: the first runs found the checkTestName refusal and the version 206 answer; then green in 73.6 s. **Mutation proof**: 7 mutants
+behind `AION_CHATMUT` in the game server (SM_VERSION_CHECK announcing no chat server; the channel-chat level a constant 20; CM_CHAT_AUTH's
+login request dropped; the gag packet dropped; the logout packet dropped; the authenticated reconnect after 1 s; the refused connect's retry
+after 1 s), **7 of 7 killed** (A0 by the malformed announcement, Y2, Y3, Y5, Y7a, Y6, Y6), one gate_lock call per run. Sources restored
+(sha256, 2 files), rebuilt, the switch absent from the build tree, the gate green again.

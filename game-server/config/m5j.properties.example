@@ -1,0 +1,70 @@
+# M5j stage-0 profile of the C++ game server (cpp/docs/design/m5j-plan.md §10.2, §10.3, §17.8, §17.9, C-03): the GM toolkit (the stage-0 chat
+# commands) and the chat server link.
+#
+# It is the M5g profile (m5g.properties.example) without M5g's gate-only keys, plus the keys §17.8 pins for the GM commands and the chat link
+# of §17.9. Keep the files in sync: M5j adds to M5g, M5e, M5d, M5c, M5b-3, M5b-2, M5b-1 and M5a.
+#
+# The scenario gates (gs.scenario.gm, gs.scenario.chat) do NOT pass this whole file: they pass the M5a profile and the keys of their own case
+# lists as -D arguments (GmScenarioTest.cpp, ChatScenarioTest.cpp).
+#
+# TO PLAY with real 4.8 clients: copy these lines into config/mygs.properties. A staff account needs its access level set in the login
+# server's database (account_data.access_level, e.g. 9) while it is logged out. The chat server (cpp/chat-server, aion_chat_server) must run
+# with the game server password below in its mycs.properties (chatserver.network.gameserver.password) and the address below as its game
+# server socket address; without it, set gameserver.chatserver.enable = false.
+#
+# Not read by the servers: only config/mygs.properties is loaded.
+
+# --- the M5a profile, unchanged ------------------------------------------------------------------------------------------------------------
+
+gameserver.dev.missing_ai_handlers = warn
+gameserver.siege.enable = false
+gameserver.autogroup.enable = false
+gameserver.rift.enable = false
+gameserver.vortex.enable = false
+gameserver.worldraid.enable = false
+gameserver.cp.enable = false
+gameserver.limits.enable = false
+gameserver.event.service.disabled_events = *
+gameserver.network.client.connect_address = 127.0.0.1:7777
+
+# --- the M5b-1 and M5b-2 profiles, unchanged -----------------------------------------------------------------------------------------------
+
+gameserver.npcshouts.enable = false
+gameserver.rates.xp.solo = 1.0, 2.0
+gameserver.soulsickness.disable = 10
+
+# --- the M5b-3 profile, with M5g's drop rate (D9) ------------------------------------------------------------------------------------------
+
+# every rule of a corpse drops (m5b3-plan.md §2.4): a team kill's SM_LOOT_STATUS shows the round-robin looter, and every corpse is looted
+# empty, because a corpse with drops keeps its team and its in-range members for 300 s (m5g-plan.md §2.11 item 5)
+gameserver.rates.drop = 1000000
+gameserver.items.ignore_potions_at_full_health = false
+gameserver.rates.godstone.activation.rate = 1.0
+gameserver.rates.godstone.evaluation.cooldown_millis = 750
+gameserver.drop.announce_quality = MYTHIC
+
+# --- the M5c profile, unchanged ------------------------------------------------------------------------------------------------------------
+
+gameserver.craft.fail.chance = 0
+gameserver.rates.crafting.crit_chances = 0, 0
+gameserver.rates.manastone_chances = 200, 200
+
+# --- the M5d and M5e keys, unchanged -------------------------------------------------------------------------------------------------------
+
+gameserver.rates.kinah.quest = 1.0, 2.0
+gameserver.analysis.quest_handlers = false
+gameserver.simple.secondclass.enable = false
+gameserver.rates.xp.quest = 1.0, 2.0
+
+# --- what M5j stage 0 adds (m5j-plan.md §17.8, §17.9) -------------------------------------------------------------------------------------
+
+# §17.8: the keys the GM gate's assertions read, at their Java defaults (admin.properties:101, :105; custom.properties:16, :20)
+gameserver.administration.login.execute_commands = //invis, //invul, //enemy none, //see
+gameserver.administration.login.print_revision = 9
+gameserver.chat.factions.enable = false
+gameserver.chat.whisper.level = 10
+# §17.9: the chat server link (gameserver.properties:22, :26; network.properties:31, :34)
+gameserver.chatserver.enable = true
+gameserver.chatserver.min_level = 10
+gameserver.network.chat.address = 127.0.0.1:9021
+gameserver.network.chat.password = changeme
