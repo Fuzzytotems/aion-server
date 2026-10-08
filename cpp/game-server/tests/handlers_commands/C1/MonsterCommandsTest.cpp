@@ -1,4 +1,4 @@
-// The stage-0 monster commands (m5j-plan.md §5.2): //spawn, //delete, //kill, //damage, //ai, //npcskill, //useskill (data/handlers/admincommands)
+// The stage-0 monster commands (m5j-plan.md §5.2): //spawn, //delete, //kill, //damage, //ai, //npcskill, //useskill, //say (data/handlers/admincommands)
 // and K-10's guard prefix of SpawnsData.saveSpawn (SpawnsData.java:205-214), on a real Player with a real AionConnection (CommandTestSupport.h)
 // and npcs built as tests/cm_ak/EconomyPacketTestSupport.h builds them. The texts are the Java literals.
 
@@ -11,6 +11,7 @@
 
 #include "aion/gameserver/ai/AISubState.h"
 #include "aion/gameserver/ai/AbstractAI.h"
+#include "aion/gameserver/configs/administration/CommandsConfig.h"
 #include "aion/gameserver/configs/main/AIConfig.h"
 #include "aion/gameserver/controllers/NpcController.h"
 #include "aion/gameserver/controllers/StaticObjectController.h"
@@ -29,6 +30,7 @@
 #include "aion/gameserver/handlers/admincommands/Delete.h"
 #include "aion/gameserver/handlers/admincommands/Kill.h"
 #include "aion/gameserver/handlers/admincommands/NpcSkill.h"
+#include "aion/gameserver/handlers/admincommands/Say.h"
 #include "aion/gameserver/handlers/admincommands/SpawnNpc.h"
 #include "aion/gameserver/handlers/admincommands/UseSkill.h"
 #include "aion/gameserver/model/gameobjects/Npc.h"
@@ -36,6 +38,7 @@
 #include "aion/gameserver/model/stats/container/NpcLifeStats.h"
 #include "aion/gameserver/model/templates/spawns/SpawnGroup.h"
 #include "aion/gameserver/model/templates/spawns/SpawnTemplate.h"
+#include "aion/gameserver/network/aion/serverpackets/SM_MESSAGE.h"
 #include "aion/gameserver/network/aion/serverpackets/SM_SYSTEM_MESSAGE.h"
 #include "aion/gameserver/runtime/base/Unported.h"
 #include "aion/gameserver/utils/ChatUtil.h"
@@ -390,6 +393,30 @@ TEST_F(MonsterCommandsTest, UseSkillRefusals) {
 	EXPECT_TRUE(useSkill.process(admin, args({"ME"})));
 	EXPECT_EQ(client()->sentBytes(), info(useSkill.getSyntaxInfo()))
 		<< "the owner's correction of 2026-10-05: no skill ID after the target mode is the syntax (Java: params[1] out of bounds)";
+}
+
+// ---- //say (Say.java:22-35) ----------------------------------------------------------------------------------------------------------------
+
+TEST_F(MonsterCommandsTest, SayLetsTheNpcTargetSpeak) {
+	std::map<std::string, int8_t, std::less<>> levels(*configs::administration::CommandsConfig::ACCESS_LEVELS.get());
+	levels["say"] = 3; // the GM tools' level (CommandTest restores the levels)
+	configs::administration::CommandsConfig::ACCESS_LEVELS.set(levels);
+	Player& admin = gm(730209);
+	handlers::admincommands::Say say;
+	EXPECT_TRUE(say.process(admin, args({})));
+	EXPECT_EQ(client()->sentBytes(), info(say.getSyntaxInfo()));
+	client()->clearSent();
+	EXPECT_TRUE(say.process(admin, args({"hello"})));
+	EXPECT_EQ(client()->sentBytes(), exactly({invalidTarget()})) << "no target";
+	target(admin, admin);
+	EXPECT_TRUE(say.process(admin, args({"hello"})));
+	EXPECT_EQ(client()->sentBytes(), exactly({invalidTarget()})) << "a player target";
+
+	Npc& npc = npcAt(admin, 101.0f);
+	target(admin, npc);
+	EXPECT_TRUE(say.process(admin, args({"hello", "there"})));
+	EXPECT_EQ(client()->sentBytes(), exactly({serialized(SM_MESSAGE(npc, "hello there", model::ChatType::NORMAL), client().con())}))
+		<< "broadcast to the GM himself (toSelf)";
 }
 
 } // namespace
