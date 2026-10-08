@@ -872,6 +872,16 @@ the `help` answer as the parts of ChatUtil.split (UTF-16 code units, the l10n an
 non-Daeva level cap (PlayerCommonData.setExp). `gs.scenario.gm`'s X2 compares every stage-0 command's help with it, and X3 takes its access
 text from it. Tests: `tests/test_m5j.py`.
 
+## M5j social oracle (`m5j/social.py`, `docs/design/m5j-plan.md` §10.4, §18.1)
+
+`oracle.py m5j-social [--profile FILE | --no-profile] [--set KEY=VALUE ...] [--message NAME ...] [--question NAME ...] [--daeva-level N ...]
+[--pvp-kill VICTIM_AP,VICTIM_LEVEL,WINNER_AP,WINNER_LEVEL] [--membership M]` gives what `gs.scenario.m5j` asserts: SM_SYSTEM_MESSAGE and
+SM_QUESTION_WINDOW ids by name; the whisper and search levels, the search's faction and GM switches, the PvP kill limit, the AP cap switch and
+the PvP AP rates (Config.loadProperties' layering, m5c/trade_config); the first titles of each race (player_titles.xml); AbyssRankEnum; the
+Daeva seed of a level (the ascension quests and exp of m5c/sanctum); and one solo PvP kill's AP - StatFunctions.calculatePvPApLost and
+calculatePvpApGained in Java float arithmetic, Rates.AP_PVP_LOST / AP_PVP with the membership's rate, AbyssRank.addAp's floor and the rank
+after. The arithmetic's Java statements are checked in the source first (a change fails the oracle). Tests: `tests/test_m5j_social.py`.
+
 ## Phase-6 golden quest traces (`questtrace/`, `docs/design/phase6-inventory.md` §7.6 item 3)
 
 `questtrace/extract.py` turns a Java quest handler into its expected behaviour, written from Java only: from the handler source,
