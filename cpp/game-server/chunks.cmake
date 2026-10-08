@@ -547,8 +547,8 @@ aion_gs_chunk(Q04 TARGET aion_gs_handlers_quest_q04 PHASE 6 ROOT handlers
 # phase6-inventory.md §7.6 item 3 and §8.2): it drives every case of tools/oracle/expected/quest through the real engine. A handler target's
 # tests link only their own library, so the executable compiles the generated Q09 (ishalgen), Q06 (ascension dispatch), Q03 (verteron,
 # heiron) and Q10 (altgard, pandaemonium) files by #include, as P5-05's tests do for the two quest npc AIs (the P5-05 LEASE row below);
-# docs/deviations/Q05.md, Q03.md, Q10.md; since phase 6 step 2 also Q08 (gelkmaros, enshar; Q08.md), Q01 (reshanta; Q01.md) and Q02
-# (inggison; Q02.md). P6-Q
+# docs/deviations/Q05.md, Q03.md, Q10.md; since phase 6 step 2 also Q08 (gelkmaros, enshar; Q08.md), Q01 (reshanta; Q01.md), Q02
+# (inggison; Q02.md) and Q14 (the instance directories K-W; Q14.md). P6-Q
 # slice 2's lanes Q03 and Q10 added the hooks, helpers, registrations and overlays their files need; Q03's LEASE row on this directory was
 # released when slice 2 was integrated (docs/design/p6q-ascension-route.md, "Slice 2").
 aion_gs_chunk(Q05 TARGET aion_gs_handlers_quest_q05 PHASE 6 ROOT handlers
@@ -595,6 +595,10 @@ aion_gs_chunk(Q10 TARGET aion_gs_handlers_quest_q10 PHASE 6 ROOT handlers
 	JAVA "data/handlers/quest/{pandaemonium,altgard}/**"
 	PCH "aion/gameserver/handlers/quest/QuestPrelude.h"
 	TESTS quest_handlers_asmodae)
+# Q11 (phase 6 step 2, lane C, 2026-10-08): 71 generated handlers of daevanion and sanctum (questgen's output, bannered, drift-tested by
+# tools/gen/tests/test_questgen_tree.py; _1990ASagesGift and _1929ASliverofDarkness are refused, the escort _3212 waits for
+# FollowingNpcAI). Their golden traces run in Q05's harness
+# (tests/quest_handlers_golden, GoldenQ11Handlers.cpp compiles them by #include); docs/deviations/Q11.md.
 aion_gs_chunk(Q11 TARGET aion_gs_handlers_quest_q11 PHASE 6 ROOT handlers
 	GLOBS "aion/gameserver/handlers/quest/{daevanion,sanctum}/**"
 	JAVA "data/handlers/quest/{daevanion,sanctum}/**"
@@ -605,6 +609,9 @@ aion_gs_chunk(Q12 TARGET aion_gs_handlers_quest_q12 PHASE 6 ROOT handlers
 	PCH "aion/gameserver/handlers/quest/QuestPrelude.h")
 # Q13/Q14: the remaining small directories, split alphabetically (about 7.8k Java lines each). A new quest directory fails the ownership check
 # until it is added here.
+# Q13 (phase 6 step 2, lane C, 2026-10-07): all 87 handlers of its 20 directories, questgen's output (bannered, drift-tested by
+# tools/gen/tests/test_questgen_tree.py; kaisinel_academy's mentor dailies by rule stream-any-match). Their golden traces run in Q05's
+# harness (tests/quest_handlers_golden, GoldenQ13Handlers.cpp compiles them by #include); docs/deviations/Q13.md.
 aion_gs_chunk(Q13 TARGET aion_gs_handlers_quest_q13 PHASE 6 ROOT handlers
 	GLOBS "aion/gameserver/handlers/quest/{abyssal_splinter,alabaster_order,aturam_sky_fortress,bare_truth,black_cloud_traders,blood_crusade}/**"
 		"aion/gameserver/handlers/quest/{chantra_dredgion,charlirunerks_daemons,clash_of_destiny,danuar_sanctuary,empyrean_crucible,esoterrace}/**"
@@ -615,6 +622,10 @@ aion_gs_chunk(Q13 TARGET aion_gs_handlers_quest_q13 PHASE 6 ROOT handlers
 		"data/handlers/quest/{fatebound_abbey,fenris_fang,field_wardens,fortuneers,greater_stigma,haramel,iron_wall_warfront}/**"
 		"data/handlers/quest/kaisinel_academy/**"
 	PCH "aion/gameserver/handlers/quest/QuestPrelude.h")
+# Q14 (phase 6 step 2, lane C, 2026-10-05): the 74 generated handlers of the instance directories K-W (questgen's output, bannered,
+# drift-tested by tools/gen/tests/test_questgen_tree.py; the 21 it refused are not in the tree; the owner's decisions of 2026-10-07 added
+# 17 of them, rules stream-any-match and constant-list: 91, 4 left out). Their golden traces run in Q05's harness
+# (tests/quest_handlers_golden, GoldenQ14Handlers.cpp compiles them by #include); docs/deviations/Q14.md.
 aion_gs_chunk(Q14 TARGET aion_gs_handlers_quest_q14 PHASE 6 ROOT handlers
 	GLOBS "aion/gameserver/handlers/quest/{kaldor,kromedes_trial,levinshor,linkgate_foundry,marchutan_priory,miragent_holy_templar}/**"
 		"aion/gameserver/handlers/quest/{nightmare_circus,orichalcum_key,pangaea,radiant_ops,rentus_base,sauro_supply_base,shugo_imperial_tomb}/**"

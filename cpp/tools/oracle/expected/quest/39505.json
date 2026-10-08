@@ -1,0 +1,23 @@
+{
+ "format": "aion-quest-trace",
+ "version": 1,
+ "questId": 39505,
+ "java": "black_cloud_traders/_39505BackbitingBotheration.java",
+ "class": "_39505BackbitingBotheration",
+ "javaSha256": "28f60e33b19e41144cbc4fd68fec38cd143f412528d07bbde80ac242ae700c88",
+ "register": [
+  {"npc": 205628, "event": "addOnTalkEvent", "args": [39505]},
+  {"npc": 701153, "event": "addOnTalkEvent", "args": [39505]},
+  {"npc": 218600, "event": "addOnKillEvent", "args": [39505]},
+  {"npc": 218602, "event": "addOnKillEvent", "args": [39505]},
+  {"npc": 218023, "event": "addOnKillEvent", "args": [39505]},
+  {"npc": 218024, "event": "addOnKillEvent", "args": [39505]},
+  {"npc": 218025, "event": "addOnKillEvent", "args": [39505]},
+  {"npc": 218022, "event": "addOnKillEvent", "args": [39505]}
+ ],
+ "hooks": [
+  {"hook": "onDialogEvent", "line": 35, "unsupported": "call ((Npc) env.getVisibleObject()).getController()"},
+  {"hook": "onKillEvent", "line": 85, "unsupported": "call Rnd.chance"}
+ ],
+ "cases": []
+}

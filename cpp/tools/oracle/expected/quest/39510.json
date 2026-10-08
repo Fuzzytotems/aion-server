@@ -1,0 +1,20 @@
+{
+ "format": "aion-quest-trace",
+ "version": 1,
+ "questId": 39510,
+ "java": "black_cloud_traders/_39510ZorinerkVersusTheShulacks.java",
+ "class": "_39510ZorinerkVersusTheShulacks",
+ "javaSha256": "bf4758546db4ff4e6a8e83d6c3febea93074c1e252dd8e0d3afe5fd54efbda69",
+ "register": [
+  {"npc": 205629, "event": "addOnTalkEvent", "args": [39510]},
+  {"npc": 205983, "event": "addOnTalkEvent", "args": [39510]},
+  {"npc": 218053, "event": "addOnKillEvent", "args": [39510]},
+  {"npc": 218055, "event": "addOnKillEvent", "args": [39510]},
+  {"npc": 218057, "event": "addOnKillEvent", "args": [39510]}
+ ],
+ "hooks": [
+  {"hook": "onDialogEvent", "line": 35, "unsupported": "call env.getVisibleObject().getController()"},
+  {"hook": "onKillEvent", "line": 85, "unsupported": "call Rnd.chance"}
+ ],
+ "cases": []
+}

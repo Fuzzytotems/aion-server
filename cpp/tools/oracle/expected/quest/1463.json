@@ -1,0 +1,16 @@
+{
+ "format": "aion-quest-trace",
+ "version": 1,
+ "questId": 1463,
+ "java": "eltnen/_1463MessageToASpy.java",
+ "class": "_1463MessageToASpy",
+ "javaSha256": "73073079c597956bec93f70582aff2659e0f649a67e32acec76ef64732ecc9bf",
+ "register": [
+  {"npc": 203940, "event": "addOnQuestStart", "args": [1463]},
+  {"npc": 203940, "event": "addOnTalkEvent", "args": [1463]},
+  {"npc": 203903, "event": "addOnTalkEvent", "args": [1463]},
+  {"npc": 204424, "event": "addOnTalkEvent", "args": [1463]}
+ ],
+ "hooks": [{"hook": "onDialogEvent", "line": 32, "unsupported": "reads inv/182201383 after removeQuestItem, which may have written it"}],
+ "cases": []
+}

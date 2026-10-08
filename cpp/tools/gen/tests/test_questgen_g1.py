@@ -63,7 +63,23 @@ ROW_FILES = {
     # rows B43-B44 (chunk Q02, lane C, 2026-10-05; docs/deviations/Q02.md)
     'B43': ('inggison/_10034FoundUnderground.java',),
     'B44': ('inggison/_11118MakingSetzkikiLaugh.java',),
+    # row B45 (chunk Q14, lane C, 2026-10-05; docs/deviations/Q14.md)
+    'B45': ('steel_rake/_3208ThePuzzlingBlueprint.java',),
 }
+# the owner's decisions of 2026-10-07 on chunk Q14's refused files (docs/deviations/Q14.md, phase6-transliterator.md §12): the mentor
+# dailies' `group.getMembers().stream().anyMatch(member -> ...)` (rule stream-any-match, row B46; kaisinel_academy's three are Q13's) and
+# pangaea's constant `List<Integer>` fields (rule constant-list)
+MENTOR_FILES = tuple(f'{d}/{f}.java' for d, fs in (
+    ('kaisinel_academy', ('_37000ToxicInstruction', '_37003CamouflageKillers', '_37006NowYouSeeThem')),
+    ('marchutan_priory', ('_47000AltgardOrbIt', '_47003AGlobalProblem', '_47006AmplifiersWithIssues')),
+    ('orichalcum_key', ('_37100MutantNinjaIninas', '_37103CamoAndCarnage', '_37106AsmoHunt', '_37107CoolBlueWater',
+                        '_37110MyYoungApprentice', '_37113AsmoICU')),
+    ('the_circle', ('_47100WardsAndWardOrbs', '_47103AGlobeTrottingLesson', '_47106TurningUpTheAmplifiers', '_47107WardsAndWardOrbs',
+                    '_47110AGlobeTrottingLesson', '_47113TurningUpTheAmplifiers'))) for f in fs)
+CONSTANT_LIST_FILES = ('pangaea/_14220NewZoneNewRules.java', 'pangaea/_24220WelcometoPanesterra.java')
+ROW_FILES['B46'] = MENTOR_FILES
+# row B47 (chunk Q05's rest, lane C, 2026-10-08): the studio of the housing quests (lane B's M5h studio cases)
+ROW_FILES['B47'] = ('oriel/_18802AndAHomeforEveryDaeva.java', 'pernon/_28802BeItEverSoHumble.java')
 
 ITEM_USE = source('_99101Closures', 99101, '''
 	@Override
@@ -160,7 +176,7 @@ REFUSED = {
 	@Override
 	public boolean onKillEvent(QuestEnv env) {
 		if (env.getPlayer().isUnknownMember())
-			return env.getPlayer().getKnownList().stream().anyMatch(o -> o == null);
+			return env.getPlayer().getKnownList().stream().allMatch(o -> o == null);
 		return true;
 	}
 ''', 'lambda'),
@@ -312,16 +328,18 @@ class Corpus(unittest.TestCase):
     def test_the_g1_rules_only_add_files(self):
         added = sorted(rel for rel, r in self.all.items() if r.status == 'ok' and self.p6t[rel].status != 'ok')
         # the closure files, and the two files of row B33 whose use-bar Runnable needs the rule as well
-        self.assertEqual(added, sorted(CLOSURE_FILES + ROW_FILES['B33']))
+        self.assertEqual(added, sorted(CLOSURE_FILES + ROW_FILES['B33'] + MENTOR_FILES + CONSTANT_LIST_FILES))
         for rel, r in self.p6t.items():
             if r.status == 'ok':
                 with self.subTest(rel=rel):
                     self.assertEqual(self.all[rel].cpp, r.cpp)
         # the P6-T output (935 files on 2026-09-30) and eight of the ten files of rows B32-B38; with rule scheduled-closure the 27 closure
         # files and the other two (B33). Row B39 (the Q08 follow-up, 2026-10-05) adds its file to both, rows B40-B42 (chunk Q01, the
-        # same day) their six, rows B43-B44 (chunk Q02) their two
-        self.assertEqual(sum(1 for r in self.p6t.values() if r.status == 'ok'), 952)
-        self.assertEqual(sum(1 for r in self.all.values() if r.status == 'ok'), 981)
+        # same day) their six, rows B43-B44 (chunk Q02) their two, row B45 (chunk Q14) its one; rules stream-any-match (row B46) and
+        # constant-list (the owner's decisions on Q14, 2026-10-07) their 18 and 2, with the G1 rules only; row B47 (chunk Q05's rest,
+        # 2026-10-08) its two, in both sets
+        self.assertEqual(sum(1 for r in self.p6t.values() if r.status == 'ok'), 955)
+        self.assertEqual(sum(1 for r in self.all.values() if r.status == 'ok'), 1004)
         for rid, rels in ROW_FILES.items():
             for rel in rels:
                 self.assertIn(rid, self.all[rel].api_rows)
@@ -339,10 +357,10 @@ class Corpus(unittest.TestCase):
 
     def test_the_closures_left_are_the_misplaced_ones(self):
         # with the rule, a closure refuses a file only where it is not the task of a schedule call (the mentor dailies' anyMatch, forEachNpc,
-        # findObject, Arrays.stream): 22 files; the scheduled closures of the other refused files are transliterated and checked, so those
+        # findObject, Arrays.stream): 22 files until rule stream-any-match took the 18 mentor dailies, 4 since; the scheduled closures of the other refused files are transliterated and checked, so those
         # files now list the API gaps the parser's refusal used to hide (phase6-questgen-prototype.md §4.1, "reason lists are lower bounds")
         lam = {rel for rel, r in self.all.items() if r.status != 'ok' and {'lambda', 'anonymous-class'} & {c for c, _d in r.reasons}}
-        self.assertEqual(len(lam), 22)
+        self.assertEqual(len(lam), 4)
         for rel in lam:
             for c, d in self.all[rel].reasons:
                 if c in ('lambda', 'anonymous-class'):
@@ -408,6 +426,52 @@ class RowB42(unittest.TestCase):
                       '278086);', r.cpp)
         self.assertIn('searchResult.value().getSpot().getX()', r.cpp)
         self.assertIn('B42', r.api_rows)
+
+
+@unittest.skipUnless(HAVE_JAVA, 'the Java tree is not available')
+class OwnerDecisionsQ14(unittest.TestCase):
+    """the owner's decisions of 2026-10-07 on chunk Q14's refused files: rules stream-any-match and constant-list"""
+
+    def test_the_mentor_search_is_any_of_over_the_members_cast_to_player(self):
+        r = transliterator(ALL).transliterate(QUEST / 'marchutan_priory/_47000AltgardOrbIt.java')
+        self.assertEqual(r.status, 'ok', r.reasons)
+        self.assertIn('runtime::Ptr<PlayerGroup> group = player->getPlayerGroup();', r.cpp)
+        self.assertIn('if (std::ranges::any_of(group->getMembers(), [&](const runtime::Ptr<::aion::gameserver::model::gameobjects::AionObject>& '
+                      'memberObject) { runtime::Ptr<Player> member = runtime::cast<Player>(memberObject); return member->isMentor() && '
+                      'PositionUtil::isInRange(*player, *member, static_cast<float>(GroupConfig::GROUP_MAX_DISTANCE)); }))', r.cpp)
+        self.assertIn('#include <algorithm>', r.cpp)
+        self.assertIn('B46', r.api_rows)
+        off = transliterator(P6T).transliterate(QUEST / 'marchutan_priory/_47000AltgardOrbIt.java')
+        self.assertEqual(off.status, 'refused')
+
+    def test_a_block_lambda_or_another_stream_call_stays_refused(self):
+        src = source('_99102AnyMatch', 99102, '''
+	public boolean onDialogEvent(QuestEnv env) {
+		Player player = env.getPlayer();
+		if (player.isInGroup()) {
+			PlayerGroup group = player.getPlayerGroup();
+			return group.getMembers().stream().allMatch(member -> member.isMentor());
+		}
+		return false;
+	}
+''')
+        r = Synthetic('test/_99102AnyMatch.java', src, rules=ALL).r
+        self.assertEqual(r.status, 'refused')
+        self.assertIn('lambda', {c for c, _d in r.reasons})
+
+    def test_constant_lists_are_std_arrays(self):
+        r = transliterator(ALL).transliterate(QUEST / 'pangaea/_14220NewZoneNewRules.java')
+        self.assertEqual(r.status, 'ok', r.reasons)
+        self.assertIn('static constexpr std::array<int32_t, 5> belusNpcIds{802544, 804080, 804081, 804082, 804689};', r.cpp)
+        self.assertIn('for (int32_t belusNpcId : belusNpcIds)', r.cpp)
+        self.assertIn('if (std::ranges::contains(belusNpcIds, targetId)) {', r.cpp)
+
+    def test_a_list_the_handler_writes_stays_refused(self):
+        # reshanta/_2759's killedMobs (a hand port since the owner's decision of 2026-10-05)
+        r = transliterator(ALL).transliterate(QUEST / 'reshanta/_2759TenaciousGuardian.java')
+        self.assertEqual(r.status, 'refused')
+        self.assertIn('generic-type', {c for c, _d in r.reasons})
+
 
 if __name__ == '__main__':
     unittest.main()
