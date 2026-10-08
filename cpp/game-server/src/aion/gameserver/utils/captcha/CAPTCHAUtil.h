@@ -12,9 +12,9 @@
 namespace aion::gameserver::utils::captcha {
 
 /**
- * C++: a static-only class (fieldmap K5). The word generation is ported; the image needs java.awt text rendering (bold 25 pt Verdana with
- * antialiasing on a 160x80 image), which the port has no replacement for yet (Deviation), so createImage stays unported and createCAPTCHA throws
- * through it (DEVIATIONS); DDSConverter, which turns the image into the DXT1 texture the client shows, is ported.
+ * C++: a static-only class (fieldmap K5). The image is java.awt text rendering in Java (bold 25 pt Verdana with antialiasing on a 160x80
+ * image); the port draws it with GDI on Windows (Deviation: GDI's glyph pixels) and, without GDI, takes Java's catch path (a log line and null);
+ * DDSConverter turns the image into the DXT1 texture the client shows.
  *
  * @author Cura
  */

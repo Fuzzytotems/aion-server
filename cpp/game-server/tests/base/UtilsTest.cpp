@@ -12,6 +12,7 @@
 #include <fstream>
 #include <limits>
 #include <random>
+#include <algorithm>
 #include <span>
 #include <stdexcept>
 #include <string>
@@ -594,8 +595,50 @@ TEST(CAPTCHAUtilTest, RandomWords) {
 	ASSERT_EQ(word.size(), 6u);
 	for (char c : word)
 		EXPECT_NE(std::string_view("ABCDEFGHIJKLMNOPQRSTUVWXYZ123456789").find(c), std::string_view::npos);
-	EXPECT_THROW(captcha::CAPTCHAUtil::createCAPTCHA(word), runtime::UnportedException); // java.awt text rendering
 }
+
+#if defined(_WIN32)
+/**
+ * CAPTCHAUtil.java:36-84: the 160x80 black image with the word in white at x = 10 + 25 i, baseline 52 +/- 4, as a DXT1 texture of 40 x 20
+ * tiles (8 bytes each after the 128-byte header). The glyph pixels are GDI's (the port draws without java.awt), so the case checks where the
+ * ink is, not its pixels: the margins are black tiles, each character's columns hold ink, and the texture is a function of the word.
+ */
+TEST(CAPTCHAUtilTest, TheCaptchaShowsTheWord) {
+	std::optional<commons::utils::ByteBuffer> texture = captcha::CAPTCHAUtil::createCAPTCHA("ABC123");
+	ASSERT_TRUE(texture.has_value());
+	std::span<const uint8_t> bytes = texture->span();
+	ASSERT_EQ(bytes.size(), 128u + 40u * 20u * 8u);
+	EXPECT_EQ(bytes[12], 80);  // height
+	EXPECT_EQ(bytes[16], 160); // width
+	auto black = [&bytes](int tileX, int tileY) {
+		const size_t at = 128u + (static_cast<size_t>(tileY) * 40u + static_cast<size_t>(tileX)) * 8u;
+		for (size_t i = at; i < at + 8; ++i)
+			if (bytes[i] != 0)
+				return false;
+		return true;
+	};
+	for (int tileX = 0; tileX < 40; ++tileX) {
+		for (int tileY = 0; tileY < 5; ++tileY)
+			EXPECT_TRUE(black(tileX, tileY)) << "above the glyphs: " << tileX << "," << tileY;
+		for (int tileY = 16; tileY < 20; ++tileY)
+			EXPECT_TRUE(black(tileX, tileY)) << "below the baselines: " << tileX << "," << tileY;
+	}
+	for (int tileY = 0; tileY < 20; ++tileY)
+		EXPECT_TRUE(black(0, tileY) && black(1, tileY)) << "left of x = 10: " << tileY;
+	for (int i = 0; i < 6; ++i) {
+		bool ink = false;
+		for (int tileX = (10 + 25 * i) / 4; tileX <= (10 + 25 * i + 15) / 4; ++tileX)
+			for (int tileY = 5; tileY < 16; ++tileY)
+				ink = ink || !black(tileX, tileY);
+		EXPECT_TRUE(ink) << "character " << i;
+	}
+	std::optional<commons::utils::ByteBuffer> again = captcha::CAPTCHAUtil::createCAPTCHA("ABC123");
+	std::optional<commons::utils::ByteBuffer> other = captcha::CAPTCHAUtil::createCAPTCHA("XYZ789");
+	ASSERT_TRUE(again.has_value() && other.has_value());
+	EXPECT_TRUE(std::ranges::equal(again->span(), bytes));
+	EXPECT_FALSE(std::ranges::equal(other->span(), bytes));
+}
+#endif
 
 // ------------------------------------------------------------------------------------------------------------------------ XmlUtil, HTMLCache
 
