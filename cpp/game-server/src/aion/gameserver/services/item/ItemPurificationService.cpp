@@ -115,10 +115,10 @@ bool ItemPurificationService::decreaseMaterials(model::gameobjects::player::Play
 	if (purificationResult->getNecessaryAbyssPoints() > 0)
 		abyss::AbyssPointsService::addAp(player, -purificationResult->getNecessaryAbyssPoints());
 
-	// java-bug kept (docs/deviations/P5-07.md, proposed correction): decreaseKinah of a negative amount does nothing (Storage.decreaseKinah
-	// decreases only amount > 0), so the purification never takes its kinah
+	// correction of the Java code (owner's decision 2026-10-05, both branches): Java passes -necessaryKinah (ItemPurificationService.java:90),
+	// which Storage.decreaseKinah ignores (it decreases only amount > 0), so the purification never took its kinah
 	if (purificationResult->getNecessaryKinah() > 0)
-		player.getInventory().decreaseKinah(-purificationResult->getNecessaryKinah());
+		player.getInventory().decreaseKinah(purificationResult->getNecessaryKinah());
 
 	player.getInventory().decreaseByObjectId(baseItem.getObjectId(), 1);
 

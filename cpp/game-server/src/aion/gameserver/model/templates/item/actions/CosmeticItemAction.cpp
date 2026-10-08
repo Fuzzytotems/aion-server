@@ -51,11 +51,11 @@ bool CosmeticItemAction::canAct(gameobjects::player::Player& player, runtime::Pt
 	return true;
 }
 
-// Java CosmeticItemAction.java:54-86. Kept as in Java (proposed corrections, docs/deviations/P5-07.md): the preset arm sets the skin colour to
-// the preset's eye colour, and the item deleted is targetItem (CM_USE_ITEM's target, null for a plain use: Storage.delete(null) throws after
-// the new appearance was stored, so the item stays and onChangedPlayerAttributes is not called)
-void CosmeticItemAction::act(gameobjects::player::Player& player, runtime::Ptr<gameobjects::Item> /*parentItem*/,
-	runtime::Ptr<gameobjects::Item> targetItem, std::initializer_list<std::any> /*params*/) const {
+// Java CosmeticItemAction.java:54-86. Correction of the Java code (owner's decision 2026-10-05, both branches; docs/deviations/P5-07.md): the
+// item deleted is parentItem, the used coupon (Java deletes targetItem, null for a plain use, so Storage.delete(null) threw before
+// onChangedPlayerAttributes; CosmeticItemAction.java:84)
+void CosmeticItemAction::act(gameobjects::player::Player& player, runtime::Ptr<gameobjects::Item> parentItem,
+	runtime::Ptr<gameobjects::Item> /*targetItem*/, std::initializer_list<std::any> /*params*/) const {
 	const cosmeticitems::CosmeticItemTemplate* template_ = dataholders::DataManager::COSMETIC_ITEMS_DATA->getCosmeticItemsTemplate(cosmeticName);
 	if (template_ == nullptr) // Java: template.getType() on null
 		throw runtime::NullPointerException("CosmeticItemsData.getCosmeticItemsTemplate(" + cosmeticName + ")");
@@ -87,7 +87,8 @@ void CosmeticItemAction::act(gameobjects::player::Player& player, runtime::Ptr<g
 		playerAppearance->setEyeRGB(preset->getEyeColor());
 		playerAppearance->setLipRGB(preset->getLipColor());
 		playerAppearance->setHairRGB(preset->getHairColor());
-		playerAppearance->setSkinRGB(preset->getEyeColor()); // java-bug kept: the eye colour (proposed correction: getSkinColor)
+		// correction of the Java code (owner's decision 2026-10-05, both branches): Java sets the eye colour here (CosmeticItemAction.java:70)
+		playerAppearance->setSkinRGB(preset->getSkinColor());
 		playerAppearance->setHair(preset->getHairType());
 		playerAppearance->setFace(preset->getFaceType());
 		playerAppearance->setHeight(preset->getScale());
@@ -99,9 +100,9 @@ void CosmeticItemAction::act(gameobjects::player::Player& player, runtime::Ptr<g
 		return;
 	}
 	dao::PlayerAppearanceDAO::store(player);
-	if (targetItem == nullptr) // java-bug kept: Storage.delete(null) (proposed correction: delete parentItem)
+	if (parentItem == nullptr) // Storage.delete(null)
 		throw runtime::NullPointerException("Storage.delete(null)");
-	player.getInventory().delete_(*targetItem);
+	player.getInventory().delete_(*parentItem);
 	player.getController().onChangedPlayerAttributes();
 }
 
