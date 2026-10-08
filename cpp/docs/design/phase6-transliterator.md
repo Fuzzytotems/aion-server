@@ -53,6 +53,9 @@
 13. **The owner's decisions on Q14 (lane C, 2026-10-07, §12):** questgen rules stream-any-match (the 15 mentor dailies, row B46) and
    constant-list (pangaea 14220/24220, whose lists turned out to be constants, not per-player state): 91 of Q14's 95 files generated,
    **1,002 of 1,035** transliterated, the other 982 byte-identical; all 19 gates pass, "Loaded 4658 quest handlers".
+14. **Step 2, chunk Q13 landed (lane C, 2026-10-07, §13):** all 87 handlers of the instance directories A-K are in the tree, generated,
+   with their golden traces (1,774 variants pass, 0 fail) and docs/deviations/Q13.md; no generator change (kaisinel_academy's mentor
+   dailies by rule stream-any-match). All 19 gates pass, "Loaded 4745 quest handlers".
 
 ---
 
@@ -681,3 +684,22 @@ is docs/deviations/Q14.md, "The owner's decisions of 2026-10-07".
   `ctest -R "Golden|ReshantaHandPorts"` 492 of 492.
 - **Gates:** 19 of 19 (5,428 s), "Loaded 4658 quest handlers" (4641 + 17). Still out: levinshor 13744/23744 (SiegeService),
   tiamat_stronghold 30721/30771 (`Math`, `Vector3f`, `GeoService`, `SpawnEngine`: not one contained row).
+
+## 13. Phase 6 step 2: chunk Q13 landed (lane C, 2026-10-07)
+
+Branch `lane-c/p6-q13`, stacked on `lane-c/p6-q14-decisions` (§12). The fifth chunk of §7.5's order; the record is
+docs/deviations/Q13.md.
+
+- **In the tree:** all 87 handlers of the 20 directories abyssal_splinter to kaisinel_academy, questgen's output unedited, in
+  `aion_gs_handlers_quest_q13`; the drift test's `Q13` table pins them.
+- **Generator:** none; the corpus stays at 1,002 of 1,035. kaisinel_academy's three mentor dailies need rule stream-any-match (§12).
+- **Golden traces:** `SLICE_Q13`, 87 documents, 1,760 cases: **1,774 variants pass, 0 fail**, 9,889 runs compared; listed: 36 not
+  reproducible (COMPLETE with canRepeat false under max_repeat_count 255; 37000's npc-faction start; useQuestObject's kill; useQuestItem;
+  an item check the given does not hold), 19 vacuous (two new reasons: KILL_OTHER_TARGET, REWARD_DIALOG_IDLE); 8 quests with every hook
+  refused. The registration trace passes for the 87. `ctest -R "Golden|ReshantaHandPorts"`: 579 of 579.
+- **Parity** 87 pairs, 0 mismatches (the handler tree: 561 pairs, 3 with mismatches, the owner's corrections); **compile check** 1,002
+  clean, 0 warnings, regscan 0 errors; the full Debug build has no new warning.
+- **Gate impact:** none expected (Q13.md: the gates' npcs 790001, 203058, 203550, 205020 answer false without the quest state, 38006 at
+  203726 is a level-99 quest, the level hooks need level 30 or more). **Gates:** 19 of 19 under the lock, one at a time (7,999 s, about 2,500 s of
+  it waiting for the lock), "Loaded 4745 quest handlers" (4658 + 87), no "QE: exception" line; no gate expectation was changed.
+- **Not held back:** none. **Not in the tree:** none. **Java bugs found:** none.

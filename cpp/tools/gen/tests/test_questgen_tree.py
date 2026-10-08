@@ -115,6 +115,61 @@ Q02 = {
         '_11289VeillesGift', '_11294SpawningInvestigation', '_11304TheRemainingFaithful', '_11455WhentheTimeisRipe', '_11458AdiassReport',
         '_11460TheShulackofTaloc'),
 }
+# Phase 6 step 2, chunk Q13 (lane C, 2026-10-07; docs/deviations/Q13.md): the files of the instance directories A-K that questgen
+# transliterates, all in the tree (87 of 87; kaisinel_academy's three mentor dailies by rule stream-any-match)
+Q13 = {
+    'abyssal_splinter': (
+        '_30255TheLastCrusade', '_30261WeirdFragment', '_30263DaevasFearToTread', '_30264ANecklacewithHistory',
+        '_30265APolearmWalksintoaBar', '_30355TheProtectorsMadness', '_30361StrangeFragment', '_30363FoolsRushIn',
+        '_30364RemembranceOfSpiritsPast', '_30365ARayOfHope',),
+    'alabaster_order': (
+        '_38000CallOfTheAlabasterOrder',),
+    'aturam_sky_fortress': (
+        '_18300FloatingDeath', '_18301MyPrecHious', '_18302FirstPriority', '_18303MakingASurCantA', '_28300FloatingDoom', '_28301PowerOn',
+        '_28302DocumentSaved', '_28303JustAnIsland',),
+    'bare_truth': (
+        '_14030RetrievedMemory', '_14031AHyperVention',),
+    'black_cloud_traders': (
+        '_39505BackbitingBotheration', '_39510ZorinerkVersusTheShulacks', '_39515UntruthUpset', '_39520VilmanerkVersusDragonbound',),
+    'blood_crusade': (
+        '_48001CallOfTheCrusade',),
+    'chantra_dredgion': (
+        '_3721DisarmTheChantraDredgion', '_3722MyNewToy', '_3725MyLuckyNumber', '_4721RiseOfChantraDredgion', '_4722NewWeaponTest',
+        '_4725CeaselessAttack',),
+    'charlirunerks_daemons': (
+        '_48002CharlirunerksDaemonsWantYou',),
+    'clash_of_destiny': (
+        '_24030ShowdownWithDestiny', '_24031EnemyAtTheDoorstep',),
+    'danuar_sanctuary': (
+        '_16985ChirTreasureRobbers', '_16987SeekOuttheCorridor', '_26985GraveyardTreasure', '_26987ExploretheElyosCorridor',),
+    'empyrean_crucible': (
+        '_18208IllusionOrInfiltration', '_18209ARiftInTheSpaceTwineContinuum', '_18212FirstBlood', '_18213TheChillingTruth',
+        '_28208ARiftAdrift', '_28209CatchingTheRift', '_28212ATestOfBlood', '_28213TheColiseumSecret',),
+    'esoterrace': (
+        '_18400TheVanishings', '_18402GroupRootingOutCorruption', '_18405MemoriesInTheCornerOfHisMind', '_18406PlayingToTheHilt',
+        '_18407GroupDrakanJournalism', '_18409GroupTiamatsPowerUnleashed', '_18410PursuingthePrisoners', '_28400InspecttheInspectors',
+        '_28402GroupSavingDalia', '_28405KexkrasPast', '_28406FindersFee', '_28407GroupTheGathering', '_28409GroupMaketheBladeComplete',
+        '_28410FortressUnsecured',),
+    'fatebound_abbey': (
+        '_29600WelcomeBack',),
+    'fenris_fang': (
+        '_29064FangOfConstruction', '_4937RecognitionOfThePreceptors', '_4938WorkOfTheFenrisFangs', '_4939ProvingGround',
+        '_4940DecorationsofPandaemonium', '_4941GroupPandaemoniumHonors', '_4942ProvingProficiency', '_4943LuckandPersistence',
+        '_4944LoyaltyAndAffableness',),
+    'field_wardens': (
+        '_48000SummonsFromTheWardens',),
+    'fortuneers': (
+        '_38002FortuneersCallToArms',),
+    'greater_stigma': (
+        '_30217GroupStigmasScars', '_30317GroupSpiritsandStigmaSlots',),
+    'haramel': (
+        '_18500BigKinah', '_18510MurderMyShugo', '_18511OutOfThePast', '_28500OdellaOdellaWhereArtThou',
+        '_28510DestroytheHaramelFacilities', '_28511TheSoupNutsy',),
+    'iron_wall_warfront': (
+        '_16960FacetheCommander', '_26960FacetheCommander',),
+    'kaisinel_academy': (
+        '_37000ToxicInstruction', '_37003CamouflageKillers', '_37006NowYouSeeThem', '_38006MatriculationDay',),
+}
 # Phase 6 step 2, chunk Q14 (lane C, 2026-10-05; docs/deviations/Q14.md): the files of the instance directories K-W that questgen
 # transliterates, all in the tree (74 of 95 at the landing; the owner's decisions of 2026-10-07 added the 15 mentor dailies, rule
 # stream-any-match, and pangaea 14220/24220, rule constant-list: 91; the 4 still refused are not)
@@ -250,6 +305,11 @@ class CommittedTree(unittest.TestCase):
                 with self.subTest(file=f'{directory}/{klass}'):
                     self.assertIn((directory, klass), found)
         self.assertEqual(sum(len(classes) for classes in Q14.values()), 91)
+        for directory, classes in Q13.items():
+            for klass in classes:
+                with self.subTest(file=f'{directory}/{klass}'):
+                    self.assertIn((directory, klass), found)
+        self.assertEqual(sum(len(classes) for classes in Q13.values()), 87)
         self.assertEqual(len(Q10_HELD_BACK), 16)
 
     def test_the_enter_world_files_are_in_the_tree(self):
