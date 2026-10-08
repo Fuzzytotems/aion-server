@@ -544,6 +544,35 @@ def cmd_m5g_team(args):
 	return 0
 
 
+def cmd_m5j_commands(args):
+	from m5j.commands import commands_report
+	game_server = Path(args.game_server) if args.game_server else _data_dir(args).parent.parent
+	report = commands_report(game_server, args.alias or None, args.l10n or [])
+	sys.stdout.write(runner.dump_json(report))
+	return 0
+
+
+def cmd_m5j_social(args):
+	from m5a.data import StaticData
+	from m5j.social import social_report
+	data_dir = _data_dir(args)
+	java_src = Path(args.java_src) if args.java_src else data_dir.parent.parent / "src"
+	config_dir = Path(args.config) if args.config else java_src.parent / "config"
+	profile = None if args.no_profile else Path(args.profile) if args.profile else config_dir / "mygs.properties"
+	kill = None
+	if args.pvp_kill:
+		try:
+			kill = tuple(int(v) for v in args.pvp_kill.split(","))
+		except ValueError as e:
+			raise OracleError(f"--pvp-kill {args.pvp_kill}: not VICTIM_AP,VICTIM_LEVEL,WINNER_AP,WINNER_LEVEL") from e
+		if len(kill) != 4:
+			raise OracleError(f"--pvp-kill {args.pvp_kill}: not VICTIM_AP,VICTIM_LEVEL,WINNER_AP,WINNER_LEVEL")
+	report = social_report(StaticData(data_dir), java_src, config_dir, profile, args.set or [], args.message or [], args.question or [],
+	                       args.daeva_level or [], kill, args.membership, require_profile=bool(args.profile) and not args.no_profile)
+	sys.stdout.write(runner.dump_json(report))
+	return 0
+
+
 def cmd_quest_trace(args):
 	from questtrace import extract
 	rels = extract.SLICE if not args.only else tuple(args.only)
@@ -939,6 +968,32 @@ def main(argv=None):
 	p.add_argument("--message", nargs="+", action="extend", metavar="NAME", help="SM_SYSTEM_MESSAGE ids to look up by name")
 	p.add_argument("--question", nargs="+", action="extend", metavar="NAME", help="SM_QUESTION_WINDOW ids to look up by name")
 	p.set_defaults(fn=cmd_m5g_team)
+
+	p = sub.add_parser("m5j-commands", help="the chat commands: access levels, aliases, descriptions and syntax from the Java constructors, the "
+	                                        "rendered help after ChatUtil.split, the access message, ChatType ids, l10n code units, the whisper "
+	                                        "level and the non-Daeva level cap (m5j-plan.md H-01)")
+	data_args(p, country=False)
+	p.add_argument("--game-server", dest="game_server", help="the Java game-server directory (default: two levels above the static data)")
+	p.add_argument("--alias", nargs="+", action="extend", help="only these aliases WITH their prefix (//kill, .help, levelup); one no constructor yields is an error")
+	p.add_argument("--l10n", type=int, nargs="+", action="extend", help="ChatUtil.l10n ids to render as UTF-16 code units")
+	p.set_defaults(fn=cmd_m5j_commands)
+
+	p = sub.add_parser("m5j-social", help="the M5j stage-1 gate's social and PvP values: message and question ids, the whisper and search levels, "
+	                                      "titles, the Daeva seed, AbyssRankEnum and one solo PvP kill's AP (m5j-plan.md §10.4, §18.1)")
+	data_args(p, country=False)
+	p.add_argument("--java-src", help="game-server/src (default: two levels above the static data directory, then src)")
+	p.add_argument("--config", help="game-server/config, whose administration, main and network folders give the defaults (default: beside --java-src)")
+	p.add_argument("--profile", help="the override file Config.loadProperties reads (default: <config>/mygs.properties, which may be missing; a file "
+	                                 "named here must exist)")
+	p.add_argument("--no-profile", action="store_true", dest="no_profile", help="read no override file: the default folders and --set only")
+	p.add_argument("--set", action="append", metavar="KEY=VALUE", help="a property read as one line of the profile; repeatable")
+	p.add_argument("--message", nargs="+", action="extend", metavar="NAME", help="SM_SYSTEM_MESSAGE ids to look up by name")
+	p.add_argument("--question", nargs="+", action="extend", metavar="NAME", help="SM_QUESTION_WINDOW ids to look up by name")
+	p.add_argument("--daeva-level", type=int, nargs="+", action="extend", dest="daeva_level", help="Daeva levels to give the seed exp of")
+	p.add_argument("--pvp-kill", dest="pvp_kill", metavar="VICTIM_AP,VICTIM_LEVEL,WINNER_AP,WINNER_LEVEL",
+	               help="one solo PvP kill: the victim's AP lost and the winner's AP gained")
+	p.add_argument("--membership", type=int, default=0, help="the accounts' membership (Rates.get's index, default 0)")
+	p.set_defaults(fn=cmd_m5j_social)
 
 	p = sub.add_parser("quest-trace", help="golden traces of the Java quest handlers: every return leaf of every hook as a case with its "
 	                                       "effects (questtrace/, phase6-inventory.md §7.6 item 3)")

@@ -5,7 +5,7 @@
 #include <string>
 #include <vector>
 
-#include "aion/gameserver/runtime/base/Unported.h"
+#include "aion/gameserver/runtime/base/Exceptions.h"
 #include "aion/commons/utils/TimeUtils.h"
 #include "aion/gameserver/configs/main/CustomConfig.h"
 #include "aion/gameserver/configs/main/EventsConfig.h"
@@ -61,6 +61,7 @@
 #include "aion/gameserver/model/gameobjects/player/RecipeList.h"
 #include "aion/gameserver/model/gameobjects/player/BlockList.h"
 #include "aion/gameserver/model/gameobjects/player/emotion/EmotionList.h"
+#include "aion/gameserver/model/templates/item/actions/EmotionLearnAction.h"
 #include "aion/gameserver/model/gameobjects/player/title/TitleList.h"
 #include "aion/gameserver/model/house/House.h"
 #include "aion/gameserver/model/items/ItemSlotInfo.h"
@@ -261,11 +262,12 @@ Ref<Player> PlayerService::getPlayer(int32_t playerObjId, Ptr<Account> account) 
 	dao::PlayerLifeStatsDAO::loadPlayerLifeStat(*player);
 	dao::PlayerEmotionListDAO::loadEmotions(*player);
 	if (player->hasPermission(configs::main::MembershipConfig::EMOTIONS_ALL.load())) {
-		// Java: for (int emotionId : EmotionLearnAction.getLearnableEmotionIds()) player.getEmotions().add(emotionId, 0, false);
-		// TODO(header-request): request slice-1 asks P5-07 for EmotionLearnAction::getLearnableEmotionIds() (docs/deviations/P5-00.md; the
-		// granted request player-7 covers only isLearnable(int32_t)); only accounts with the EMOTIONS_ALL membership (default 10) reach this
-		// branch, so nothing on the M5a path is blocked
-		AION_PARTIAL("EmotionLearnAction.getLearnableEmotionIds is not declared yet: EMOTIONS_ALL accounts get no extra emotions");
+		// Java PlayerService.java:172-175 (getLearnableEmotionIds: header request m5b3l-1). PlayerEmotionListDAO.loadEmotions just set the list
+		runtime::Ptr<model::gameobjects::player::emotion::EmotionList> emotions = player->getEmotions();
+		if (emotions == nullptr) // Java: player.getEmotions().add on null
+			throw runtime::NullPointerException("Player.getEmotions()");
+		for (int32_t emotionId : model::templates::item::actions::EmotionLearnAction::getLearnableEmotionIds())
+			emotions->add(emotionId, 0, false);
 	}
 
 	breakers.dismiss();
@@ -379,12 +381,26 @@ void PlayerService::storeCreationTime(int32_t objectId, std::optional<commons::d
 	dao::PlayerDAO::storeCreationTime(objectId, creationDate);
 }
 
+// Java PlayerService.java:331-337
 void PlayerService::addMacro(Player& player, int32_t macroOrder, std::string_view macroXML) {
-	AION_UNPORTED();
+	runtime::Ptr<model::gameobjects::player::Macros> macros = player.getMacros();
+	if (macros == nullptr) // Java: player.getMacros().add on null
+		throw runtime::NullPointerException("Player.getMacros()");
+	if (macros->add(macroOrder, macroXML)) {
+		dao::PlayerMacrosDAO::addMacro(player.getObjectId(), macroOrder, macroXML);
+	} else {
+		dao::PlayerMacrosDAO::updateMacro(player.getObjectId(), macroOrder, macroXML);
+	}
 }
 
+// Java PlayerService.java:347-351
 void PlayerService::removeMacro(Player& player, int32_t macroOrder) {
-	AION_UNPORTED();
+	runtime::Ptr<model::gameobjects::player::Macros> macros = player.getMacros();
+	if (macros == nullptr) // Java: player.getMacros().remove on null
+		throw runtime::NullPointerException("Player.getMacros()");
+	if (macros->remove(macroOrder)) {
+		dao::PlayerMacrosDAO::deleteMacro(player.getObjectId(), macroOrder);
+	}
 }
 
 std::optional<std::string> PlayerService::getPlayerName(int32_t objectId) {
