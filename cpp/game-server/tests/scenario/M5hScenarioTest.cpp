@@ -5,10 +5,10 @@
 // relog (the logout's store, the login's notice), the history pages, the seeded legion's emblem (a predefined one, a 9,000-byte upload in two
 // chunks, B reading it with and without its data), leave and kick; then the reports the server writes at shutdown.
 //
-// **What this gate covers of §10.2, and what not** (docs/design/m5h-plan.md §14): the legion cases C0-C8, C11, C12 and C21 without their
-// dialog arms. Not scripted: C8's kill (a member's level-up is LegionService.updateMemberInfo, which C8's relog already drives), C9's
-// warehouse and C22's disband (both open through DialogService's npc dialogs, m5h-plan.md A-06, and the warehouse's items through
-// CM_MOVE_ITEM, A-03), C10's legion chat (CM_CHAT_MESSAGE_PUBLIC, lane A's) and the studio cases C13-C20 (the studio lane). Their unit tests
+// **What this gate covers of §10.2, and what not** (docs/design/m5h-plan.md §14): the legion cases C0-C8, C10, C11, C12 and
+// C21 without their dialog arms. Not scripted: C8's kill (a member's level-up is LegionService.updateMemberInfo, which C8's relog already
+// drives), C9's warehouse and C22's disband (both open through DialogService's npc dialogs, m5h-plan.md A-06, and the warehouse's items
+// through CM_MOVE_ITEM, A-03) and the studio cases C13-C20 (the studio lane). Their unit tests
 // stand (tests/legionhouse/LegionServiceTest.cpp: the lazy disband, the warehouse rules) and the rows are the plan's open items.
 //
 // Every expectation is independent of the C++ server code, as in the earlier gates: server packets are read by name and SM_SYSTEM_MESSAGE /
@@ -1033,6 +1033,7 @@ constexpr int32_t CLASS_PRIEST = 9;
 constexpr int32_t KINAH_ITEM = 182400001;
 /** the client packet ids of ClientPacketInfo.gen.inc (the internal opcodes GameSession sends) */
 constexpr int32_t CM_LEGION_SEND_EMBLEM_INFO = 16;
+constexpr int32_t CM_CHAT_MESSAGE_PUBLIC = 27;
 constexpr int32_t CM_LEGION = 45;
 constexpr int32_t CM_LEGION_SEND_EMBLEM = 47;
 constexpr int32_t CM_LEGION_HISTORY = 55;
@@ -1078,6 +1079,7 @@ struct LegionAnswer {
 	std::map<std::string, int32_t> questions;
 	std::map<std::string, int32_t> ranks;
 	std::map<std::string, int32_t> historyTypes; // the type ordinal of CM_LEGION_HISTORY: LEGION 0, REWARD 1, WAREHOUSE 2
+	std::map<std::string, int32_t> chatTypes;
 	int32_t emblemChunkSize = 0;
 	int32_t announcementLimit = 0;
 
@@ -1099,6 +1101,8 @@ LegionAnswer parseLegion(const std::string& text) {
 	for (const auto& [name, id] : answer.at("ranks").items())
 		legion.ranks[name] = id.get<int32_t>();
 	legion.historyTypes = {{"LEGION", 0}, {"REWARD", 1}, {"WAREHOUSE", 2}}; // LegionHistoryAction.Type's ordinals (LegionHistoryAction.java:39)
+	for (const auto& [name, id] : answer.at("chatTypes").items())
+		legion.chatTypes[name] = id.get<int32_t>();
 	legion.emblemChunkSize = answer.at("emblemChunkSize").get<int32_t>();
 	legion.announcementLimit = answer.at("announcementLimit").get<int32_t>();
 	return legion;
@@ -1260,6 +1264,7 @@ void runM5hGate() {
 		EXPECT_EQ(legion.emblemChunkSize, 7993);
 		EXPECT_EQ(legion.announcementLimit, 256);
 		EXPECT_EQ(legion.ranks.at("CENTURION"), 2);
+		EXPECT_EQ(legion.chatTypes.at("LEGION"), 10);
 	});
 	const auto msg = [&](const std::string& name) { return legion.message(name); };
 
@@ -1456,6 +1461,34 @@ void runM5hGate() {
 		settle();
 		EXPECT_FALSE(ofName(b.since(0), "SM_LEGION_INFO").empty() && ofName(burst, "SM_LEGION_INFO").empty()) << "C8: B's login sent no SM_LEGION_INFO";
 		EXPECT_EQ(countMessage(windowOf(a, from), msg("STR_MSG_NOTIFY_LOGIN_GUILD"), {cb.name}), 1u);
+	});
+
+	// ---- C10: legion chat ----
+	runCase("C10", "legion chat: B CM_CHAT_MESSAGE_PUBLIC(LEGION, text); A and B read it, C (another legion) does not", [&] {
+		const std::string text = "legion business";
+		const auto from = marks();
+		b.game->send(CM_CHAT_MESSAGE_PUBLIC, Body().C(legion.chatTypes.at("LEGION")).S(text).data);
+		const auto legionMessages = [&](const ScenarioClient& client) {
+			std::vector<decoders::Message> found;
+			for (const Packet& packet : ofName(windowOf(client, from), "SM_MESSAGE")) {
+				const decoders::Message message = decoders::decodeMessage(packet.data);
+				if (message.chatType == legion.chatTypes.at("LEGION"))
+					found.push_back(message);
+			}
+			return found;
+		};
+		ASSERT_TRUE(until(10s, [&] { return !legionMessages(a).empty(); })) << "C10: A was not told B's legion message";
+		settle();
+		// CM_CHAT_MESSAGE_PUBLIC.broadcastToLegionMembers: PacketSendUtility.broadcastToLegion(legion, new SM_MESSAGE(player, message, type)) - every
+		// online member, the sender included
+		for (ScenarioClient* member : {&a, &b}) {
+			const std::vector<decoders::Message> messages = legionMessages(*member);
+			ASSERT_EQ(messages.size(), 1u) << member->label;
+			EXPECT_EQ(messages[0].senderObjectId, cb.playerId) << member->label;
+			EXPECT_EQ(messages[0].senderName, cb.name) << member->label;
+			EXPECT_EQ(messages[0].message, text) << member->label;
+		}
+		EXPECT_TRUE(legionMessages(c).empty()) << "C10: C is in another legion";
 	});
 
 	// ---- C11: history ----
