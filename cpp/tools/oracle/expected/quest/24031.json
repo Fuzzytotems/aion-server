@@ -1,0 +1,48 @@
+{
+ "format": "aion-quest-trace",
+ "version": 1,
+ "questId": 24031,
+ "java": "clash_of_destiny/_24031EnemyAtTheDoorstep.java",
+ "class": "_24031EnemyAtTheDoorstep",
+ "javaSha256": "20d69c87a83243aed724ae70c647b0eb407dc8f75bece752b04c01d84b8d41a8",
+ "register": [
+  {"call": "registerOnQuestCompleted", "args": [24031]},
+  {"call": "registerOnLevelChanged", "args": [24031]},
+  {"call": "registerOnEnterWorld", "args": [24031]},
+  {"call": "registerQuestItem", "args": [182215394, 24031]},
+  {"call": "registerQuestItem", "args": [182215395, 24031]},
+  {"call": "registerQuestItem", "args": [182215396, 24031]},
+  {"npc": 233879, "event": "addOnKillEvent", "args": [24031]},
+  {"npc": 204052, "event": "addOnTalkEvent", "args": [24031]},
+  {"npc": 801224, "event": "addOnTalkEvent", "args": [24031]},
+  {"npc": 203550, "event": "addOnTalkEvent", "args": [24031]},
+  {"npc": 203654, "event": "addOnTalkEvent", "args": [24031]},
+  {"npc": 204369, "event": "addOnTalkEvent", "args": [24031]}
+ ],
+ "hooks": [
+  {"hook": "onDialogEvent", "line": 39, "unsupported": "call env.getVisibleObject().getController()"},
+  {"hook": "onItemUseEvent", "line": 152, "unsupported": "call player.isInsideItemUseZone(ZoneName.get(\"DF1_ITEMUSEAREA_Q24031\"))"},
+  {"hook": "onEnterWorldEvent", "line": 177, "unsupported": "call qs.getQuestVars().getQuestVars()"},
+  {"hook": "onKillEvent", "line": 191, "unsupported": "call env.getVisibleObject().getController()"},
+  {"hook": "onLevelChangedEvent", "line": 203, "cases": 1},
+  {"hook": "onQuestCompletedEvent", "line": 208, "cases": 1}
+ ],
+ "cases": [
+  {
+   "id": "onLevelChangedEvent#1",
+   "hook": "onLevelChangedEvent",
+   "given": {},
+   "guards": [],
+   "effects": [{"call": "defaultOnLevelChangedEvent", "kind": "quest", "args": [24030], "line": 204}],
+   "returns": null
+  },
+  {
+   "id": "onQuestCompletedEvent#1",
+   "hook": "onQuestCompletedEvent",
+   "given": {},
+   "guards": [],
+   "effects": [{"call": "defaultOnQuestCompletedEvent", "kind": "quest", "args": [24030], "line": 209}],
+   "returns": null
+  }
+ ]
+}

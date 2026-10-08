@@ -46,6 +46,19 @@
    `reshanta/_2759` is a hand port with a per-player kill record (the owner's correction of 2026-10-05, docs/deviations/Q01.md).
 11. **Step 2, chunk Q02 landed (lane C, 2026-10-05, §10):** all 59 inggison handlers are in the tree, generated, with their golden traces
    (1,417 variants pass, 0 fail) and docs/deviations/Q02.md; questgen gained rows B43-B44 (981 of 1,035 transliterated).
+12. **Step 2, chunk Q14 landed (lane C, 2026-10-05/07, §11):** 74 of the 95 handlers of the instance directories K-W are in the tree,
+   generated, with their golden traces (1,641 variants pass, 0 fail) and docs/deviations/Q14.md; questgen gained row B45 (982 of 1,035
+   transliterated). 21 files stayed out for owner decisions and API gaps. All 15 gates pass, "Loaded 4641 quest handlers": the first gate
+   run of the 2759 hand port and of the 11001/11008 correction.
+13. **The owner's decisions on Q14 (lane C, 2026-10-07, §12):** questgen rules stream-any-match (the 15 mentor dailies, row B46) and
+   constant-list (pangaea 14220/24220, whose lists turned out to be constants, not per-player state): 91 of Q14's 95 files generated,
+   **1,002 of 1,035** transliterated, the other 982 byte-identical; all 19 gates pass, "Loaded 4658 quest handlers".
+14. **Step 2, chunk Q13 landed (lane C, 2026-10-07, §13):** all 87 handlers of the instance directories A-K are in the tree, generated,
+   with their golden traces (1,774 variants pass, 0 fail) and docs/deviations/Q13.md; no generator change (kaisinel_academy's mentor
+   dailies by rule stream-any-match). All 19 gates pass, "Loaded 4745 quest handlers".
+15. **Step 2, chunk Q11 landed (lane C, 2026-10-08, §14):** 71 of daevanion's and sanctum's 74 handlers are in the tree, generated,
+   with their golden traces (1,596 variants pass, 0 fail) and docs/deviations/Q11.md; Sanctum's gate traffic was measured before landing:
+   the only change is 8 more quests in SM_NEARBY_QUESTS, Java's, and no gate expectation changed. All 19 gates pass, "Loaded 4816 quest handlers".
 
 ---
 
@@ -619,3 +632,96 @@ Branch `lane-c/p6-q02`, stacked on `lane-c/p6-q01` (§9). The third chunk of §7
 - **Gate impact:** none expected (Q02.md: every quest needs level 50+; 11116's talk registrations at 203784 and 203785, which m5c's economy
   oracle names, answer false without its quest state). **Gates:** all 15 pass, "Loaded 4566 quest handlers"; m5e_geo needed a rerun after the oracle's Python process failed to start (Q02.md).
 - **Not held back:** none. **Not in the tree:** none.
+
+## 11. Phase 6 step 2: chunk Q14 landed (lane C, 2026-10-05/07)
+
+Branch `lane-c/p6-q14-final`: the three commits of `lane-c/p6-q14` (row B45, the chunk, its docs) cherry-picked onto origin/C++ `1d62761a5`
+(the merge of #122), where the harness, Q08, Q01 and Q02 are merged. The fourth chunk of §7.5's order; the record is
+docs/deviations/Q14.md.
+
+- **In the tree:** 74 of the 95 handlers of the 21 instance directories K-W (kaldor to wisplight_abbey; 20 directories, pangaea has none),
+  questgen's output unedited, in `aion_gs_handlers_quest_q14`; the drift test's `Q14` table pins them.
+- **Generator:** API row B45 (`QuestService.checkStartConditions`, declared in services/QuestService.h) for steel_rake/_3208: **982 of
+  1,035** transliterated, the other 981 files byte-identical; `--p6t-rules` 953, `--prototype-rules` 931.
+- **Golden traces:** `SLICE_Q14`, 74 documents, 1,637 cases: **1,641 variants pass, 0 fail**, 9,795 runs compared; listed: 20 not
+  reproducible (11 COMPLETE states with canRepeat false that no setup makes; 9 dead paths of 80341 where the oracle assumes
+  `sendQuestDialog(2375)` false), 0 vacuous; 11 quests with every hook refused by the oracle. The registration trace passes for the 74.
+  On the rebased branch `ctest -R "Golden|ReshantaHandPorts"`: **475 of 475**.
+- **Parity** 74 pairs, 0 mismatches (the handler tree: 457 pairs, 3 with mismatches, the owner's corrections 2759, 11001 and 11008);
+  **compile check** 982 clean, 0 warnings, regscan 0 errors; the full Debug build has no new warning.
+- **Not in the tree (21):** 15 mentor dailies of marchutan_priory, orichalcum_key and the_circle (`stream().anyMatch` over a `PlayerGroup`;
+  Q14.md first counted them as 13, its list names 15), pangaea 14220/24220 (`List<Integer>` fields), levinshor 13744/23744 (SiegeService),
+  tiamat_stronghold 30721/30771 (spawn geometry: `Math`, `Vector3f`, `GeoService`). The owner's decisions of 2026-10-07 on them are §12.
+- **Gate impact:** none expected (Q14.md, "Gate impact": the start npcs need level 30+, the gates' npcs 203752 and 203784 answer false
+  without the quest state, the level-99 quests are never offered). **Gates:** every gs.scenario.* gate, one at a time (`ctest -j 1 -R
+  ^gs\.scenario\.`, m5a_stress excluded) under the test-database lock (`gate_lock.py lane-C`), on the full Debug build of `lane-c/p6-q14`
+  (before the cherry-pick): **15 of 15 passed** (4,434 s); every gate server logged "Loaded 4641 quest handlers" (4567 before Q14, which
+  counts Q01's hand-ported 2759, plus Q14's 74); no "QE: exception" line. No gate expectation was changed.
+- **First gate run of the 2759 hand port and the 11001/11008 correction.** Both landed after Q02's gate run (§10: 4566 handlers, without
+  the hand-ported 2759), so this run is the first with them registered. Neither changes a gate: 2759 is a Reshanta quest of level 25 or
+  more, and 11001/11008 start on a level change to level 50 or more in Inggison; no gate character reaches those levels or maps. The
+  handler count includes them: 4,641 = 4,566 + 1 (2759) + 74.
+- **Not held back:** none. **Java bugs found:** none new (`_47106TurningUpTheAmplifiers`' kill-id bug, a mentor daily, is already in
+  questgen's KNOWN_JAVA_BUGS).
+
+## 12. Phase 6 step 2: the owner's decisions on Q14 (lane C, 2026-10-07)
+
+Branch `lane-c/p6-q14-decisions`, stacked on `lane-c/p6-q14-final` (§11). The answers are in owner-decisions.md (2026-10-07); the record
+is docs/deviations/Q14.md, "The owner's decisions of 2026-10-07".
+
+- **Rule stream-any-match** (`emit.G1_RULES`): `list.stream().anyMatch(e -> predicate)` (one parameter, an expression body) over a List the
+  C++ side returns as a `std::vector` is `std::ranges::any_of(list, [&](const runtime::Ptr<T>& e) { return predicate; })`; the predicate
+  runs inside the call, so the lambda captures by reference. `emit.NARROWED_ELEMENTS` gives the Java element type where the C++
+  declaration erases it (`PlayerGroup.getMembers`: `AionObject` in C++, `Player` in Java) and the lambda casts its parameter. Row B46:
+  `Player.getPlayerGroup`, `GeneralTeam.getMembers` (questgen scans the three team headers). An int configuration flag passed for a float
+  parameter is spelled `static_cast<float>(...)` (C4244 otherwise). Unblocks the 18 mentor dailies (15 of Q14, 3 of Q13).
+- **Rule constant-list** (`emit.G1_RULES`): a `static final List<Integer>` built from `new ArrayList<>(Arrays.asList(<int literals>))`
+  that the file only iterates or asks `contains` is `static constexpr std::array<int32_t, N>` and `std::ranges::contains`. Unblocks
+  pangaea 14220/24220. The owner had chosen per-player state "as 2759"; the lists are never written, so there is no state: they are
+  constants, Java's behaviour, and the owner is asked to confirm.
+- **Corpus:** 1,002 of 1,035 (982 before); the other 982 emitted files byte-identical; `--p6t-rules` 953, `--prototype-rules` 931.
+  Refused closures outside a schedule: 4 files (1006, 2008, 14026, 1114).
+- **Oracle:** `player.inGroup` and `player.mentorInRange` inputs, `getPlayerGroup` null outside a group, the daily-quest messages
+  imported statically as packets, constant lists as tuples (`contains` forks per element). **Harness:** a case in a group forms a group
+  of three (a mate, a mentor in or out of `GROUP_MAX_DISTANCE`). **Parity:** the two renames. The 17: 203 variants pass, 0 fail;
+  `ctest -R "Golden|ReshantaHandPorts"` 492 of 492.
+- **Gates:** 19 of 19 (5,428 s), "Loaded 4658 quest handlers" (4641 + 17). Still out: levinshor 13744/23744 (SiegeService),
+  tiamat_stronghold 30721/30771 (`Math`, `Vector3f`, `GeoService`, `SpawnEngine`: not one contained row).
+
+## 13. Phase 6 step 2: chunk Q13 landed (lane C, 2026-10-07)
+
+Branch `lane-c/p6-q13`, stacked on `lane-c/p6-q14-decisions` (§12). The fifth chunk of §7.5's order; the record is
+docs/deviations/Q13.md.
+
+- **In the tree:** all 87 handlers of the 20 directories abyssal_splinter to kaisinel_academy, questgen's output unedited, in
+  `aion_gs_handlers_quest_q13`; the drift test's `Q13` table pins them.
+- **Generator:** none; the corpus stays at 1,002 of 1,035. kaisinel_academy's three mentor dailies need rule stream-any-match (§12).
+- **Golden traces:** `SLICE_Q13`, 87 documents, 1,760 cases: **1,774 variants pass, 0 fail**, 9,889 runs compared; listed: 36 not
+  reproducible (COMPLETE with canRepeat false under max_repeat_count 255; 37000's npc-faction start; useQuestObject's kill; useQuestItem;
+  an item check the given does not hold), 19 vacuous (two new reasons: KILL_OTHER_TARGET, REWARD_DIALOG_IDLE); 8 quests with every hook
+  refused. The registration trace passes for the 87. `ctest -R "Golden|ReshantaHandPorts"`: 579 of 579.
+- **Parity** 87 pairs, 0 mismatches (the handler tree: 561 pairs, 3 with mismatches, the owner's corrections); **compile check** 1,002
+  clean, 0 warnings, regscan 0 errors; the full Debug build has no new warning.
+- **Gate impact:** none expected (Q13.md: the gates' npcs 790001, 203058, 203550, 205020 answer false without the quest state, 38006 at
+  203726 is a level-99 quest, the level hooks need level 30 or more). **Gates:** 19 of 19 under the lock, one at a time (7,999 s, about 2,500 s of
+  it waiting for the lock), "Loaded 4745 quest handlers" (4658 + 87), no "QE: exception" line; no gate expectation was changed.
+- **Not held back:** none. **Not in the tree:** none. **Java bugs found:** none.
+
+## 14. Phase 6 step 2: chunk Q11 landed (lane C, 2026-10-08)
+
+Branch `lane-c/p6-q11`, stacked on `lane-c/p6-q13` (§13). The sixth chunk of §7.5's order; the record is docs/deviations/Q11.md.
+
+- **In the tree:** 71 of the 74 handlers of daevanion and sanctum, questgen's output unedited, in `aion_gs_handlers_quest_q11`; the drift
+  test's `Q11` table pins them. Not in the tree: daevanion/_1990 and sanctum/_1929 (questgen refuses them: `PlayerGameStats.getMaxDp`,
+  `Equipment.getEquippedItemsAllStigma`/`unEquipItem`, API gaps for later rows) and sanctum/_3212 (an escort that waits for FollowingNpcAI,
+  m5d-plan.md §21.1, as pandaemonium/_4212).
+- **Generator:** none; the corpus stays at 1,002 of 1,035.
+- **Golden traces:** `SLICE_Q11`, 71 documents, 1,424 cases: **1,596 variants pass, 0 fail**, 6,938 runs compared; 0 not reproducible,
+  24 vacuous (IDLE_END, KILLS_ASSUMED_FALSE); 22 quests with every hook refused. The registration trace passes for the 71.
+- **Parity** 71 pairs, 0 mismatches (the tree 632, 3: the owner's corrections); the full Debug build has no new warning.
+- **Gate traffic, measured first** (§7.5): a temporary dump of every scenario client's packets, on the seven gates whose characters stand
+  in Sanctum, with and without the chunk, under the lock. The only quest-packet change: Sanctum's SM_NEARBY_QUESTS names 8 more quests
+  (1900, 1901, 1909, 1963, 3965, 3968, 19004, 19048) in travel, ascension, m5c, m5f and m5f_geo, from the handlers' start-npc
+  registrations, as in Java. Every quest action, dialog page and quest list is the same. No gate expectation or seeded state was changed;
+  nothing is held back for a gate. **Gates:** 19 of 19, the lock taken per gate, "Loaded 4816 quest
+  handlers" (4745 + 71), no "QE: exception" line.

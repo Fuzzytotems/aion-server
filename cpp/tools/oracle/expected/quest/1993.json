@@ -1,0 +1,11 @@
+{
+ "format": "aion-quest-trace",
+ "version": 1,
+ "questId": 1993,
+ "java": "daevanion/_1993AnotherBeginning.java",
+ "class": "_1993AnotherBeginning",
+ "javaSha256": "1a576a533761a5fc14dbe6a39df480e6e51ee22f94ddd4830a5f7013513db218",
+ "register": [{"npc": 203753, "event": "addOnQuestStart", "args": [1993]}, {"npc": 203753, "event": "addOnTalkEvent", "args": [1993]}],
+ "hooks": [{"hook": "onDialogEvent", "line": 39, "unsupported": "For statement at line 57"}],
+ "cases": []
+}

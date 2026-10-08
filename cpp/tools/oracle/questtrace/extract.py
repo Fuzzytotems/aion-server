@@ -241,7 +241,125 @@ SLICE_Q02 = (
 	'inggison/_11294SpawningInvestigation.java', 'inggison/_11304TheRemainingFaithful.java', 'inggison/_11455WhentheTimeisRipe.java',
 	'inggison/_11458AdiassReport.java', 'inggison/_11460TheShulackofTaloc.java',
 )
-SLICE = SLICE_TIER_A + SLICE_ROUTE + SLICE_Q03 + SLICE_Q10 + SLICE_Q08 + SLICE_Q01 + SLICE_Q02
+# Phase 6 step 2, chunk Q14 (lane C, 2026-10-05; docs/deviations/Q14.md): the 74 handlers of the instance directories K-W that questgen
+# transliterates (one since row B45). The C++ harness drives every document.
+SLICE_Q14 = (
+	'kaldor/_13817TheFuryWithin.java', 'kaldor/_23817WeeklyFreeSpirit.java', 'kromedes_trial/_18604MeetingWithRotan.java',
+	'kromedes_trial/_28604RecoveringRotan.java', 'levinshor/_13704FonasQuickFix.java', 'levinshor/_13708ProximityProtect.java',
+	'levinshor/_13745EljersRequest.java', 'levinshor/_23704LoudNoises.java', 'levinshor/_23708SoundtheAlarm.java',
+	'levinshor/_23745NoMoreinLevinshor.java', 'linkgate_foundry/_16940DiarySecrets.java',
+	'linkgate_foundry/_26940RaidtheLinkgateFoundry.java', 'marchutan_priory/_48006TheMarchutanPrioryBeckons.java',
+	'miragent_holy_templar/_19064TemplarOfConstruction.java', 'miragent_holy_templar/_3933ClassPreceptorConsent.java',
+	'miragent_holy_templar/_3934TheQuestForTemplars.java', 'miragent_holy_templar/_3935ShoulderTheBurden.java',
+	'miragent_holy_templar/_3936DecorationsOfSanctum.java', 'miragent_holy_templar/_3937GroupTheDecorationsofSanctum.java',
+	'miragent_holy_templar/_3938WellRounded.java', 'miragent_holy_templar/_3939PersistenceAndLuck.java',
+	'miragent_holy_templar/_3940Loyalty.java', 'nightmare_circus/_80341EventAHallowedEve.java', 'orichalcum_key/_38007AKeyMessage.java',
+	'radiant_ops/_38001RadiantOpsRecruitment.java', 'rentus_base/_30500Desperation.java', 'rentus_base/_30503RodelionRescue.java',
+	'rentus_base/_30504TheSearchforPaios.java', 'rentus_base/_30550MomentOfCrisis.java', 'rentus_base/_30553ComradesInArms.java',
+	'rentus_base/_30554SavingPrivatePaios.java', 'sauro_supply_base/_18910TheSauroSupplyBase.java',
+	'sauro_supply_base/_28910AStabbingInSauro.java', 'shugo_imperial_tomb/_80275EventEmpiresPast.java',
+	'steel_rake/_3208ThePuzzlingBlueprint.java', 'steel_rake/_3217ImprisonedGuardian.java', 'steel_rake/_3219KeyItemHiddenQuest01.java',
+	'steel_rake/_3220KeyItemHiddenQuest02.java', 'steel_rake/_4208TruthOfTheBookmark.java', 'steel_rake/_4217TheImprisonedExecutor.java',
+	'steel_rake/_4219KeyItemHiddenQuest01.java', 'steel_rake/_4220KeyItemHiddenQuest02.java', 'talocs_hollow/_11465MysteriousSeed.java',
+	'talocs_hollow/_11466AHardSeedtoCrack.java', 'talocs_hollow/_11467DeathToTheQueen.java',
+	'talocs_hollow/_11468WithFriendsLikeThese.java', 'talocs_hollow/_21465MysteriousSeed.java',
+	'talocs_hollow/_21467SpawningTheSapSuckers.java', 'talocs_hollow/_21468TheStruggleWithin.java',
+	'terath_dredgion/_30600FightOfTheNavigators.java', 'terath_dredgion/_30610TheGoodNewsAndBad.java',
+	'the_circle/_48007JoiningTheCircle.java', 'the_eternal_bastion/_18035ShebasSurveillance.java',
+	'the_eternal_bastion/_18036BastionsAreEternal.java', 'the_eternal_bastion/_28035TrustInNoneButVerify.java',
+	'the_eternal_bastion/_28036InterrogateKvash.java', 'tiamat_stronghold/_30700RaceForTheRelics.java',
+	'tiamat_stronghold/_30701TheLordOfIllusion.java', 'tiamat_stronghold/_30708SuramaTheBetrayer.java',
+	'tiamat_stronghold/_30709SoulSearching.java', 'tiamat_stronghold/_30710TheGreatRelease.java',
+	'tiamat_stronghold/_30722CheckTheGate.java', 'tiamat_stronghold/_30750AttackOnTiamatStronghold.java',
+	'tiamat_stronghold/_30751DeathToTheDragonLord.java', 'tiamat_stronghold/_30758SuramaTheBitter.java',
+	'tiamat_stronghold/_30759CountingStatues.java', 'tiamat_stronghold/_30760PetrifiedHeroOfTheAsmodians.java',
+	'tiamat_stronghold/_30772InvestigateTheGate.java', 'udas_temple/_30003SecretOfTheUdasTemple.java',
+	'udas_temple/_30005HealMeKillMe.java', 'udas_temple/_30011Arachnophobia.java', 'udas_temple/_30103LairOfTheDragonbound.java',
+	'udas_temple/_30111CenterOfTheWeb.java', 'wisplight_abbey/_19600WelcometoWisplightAbbey.java',
+)
+# The owner's decisions of 2026-10-07 on Q14's refused files (docs/deviations/Q14.md, "Owner's decisions"): the 15 mentor dailies (questgen
+# rule stream-any-match; here the inputs player.inGroup and player.mentorInRange, mentor_search) and pangaea's two quests (questgen rule
+# constant-list; here constant_list and list_contains)
+SLICE_Q14 += (
+	'marchutan_priory/_47000AltgardOrbIt.java', 'marchutan_priory/_47003AGlobalProblem.java', 'marchutan_priory/_47006AmplifiersWithIssues.java',
+	'orichalcum_key/_37100MutantNinjaIninas.java', 'orichalcum_key/_37103CamoAndCarnage.java', 'orichalcum_key/_37106AsmoHunt.java',
+	'orichalcum_key/_37107CoolBlueWater.java', 'orichalcum_key/_37110MyYoungApprentice.java', 'orichalcum_key/_37113AsmoICU.java',
+	'the_circle/_47100WardsAndWardOrbs.java', 'the_circle/_47103AGlobeTrottingLesson.java', 'the_circle/_47106TurningUpTheAmplifiers.java',
+	'the_circle/_47107WardsAndWardOrbs.java', 'the_circle/_47110AGlobeTrottingLesson.java', 'the_circle/_47113TurningUpTheAmplifiers.java',
+	'pangaea/_14220NewZoneNewRules.java', 'pangaea/_24220WelcometoPanesterra.java',
+)
+# Phase 6 step 2, chunk Q13 (lane C, 2026-10-07; docs/deviations/Q13.md): the 87 handlers of the instance directories A-K
+# (abyssal_splinter to kaisinel_academy), all of which questgen transliterates (kaisinel_academy's mentor dailies by rule stream-any-match)
+SLICE_Q13 = (
+	'abyssal_splinter/_30255TheLastCrusade.java', 'abyssal_splinter/_30261WeirdFragment.java',
+	'abyssal_splinter/_30263DaevasFearToTread.java', 'abyssal_splinter/_30264ANecklacewithHistory.java',
+	'abyssal_splinter/_30265APolearmWalksintoaBar.java', 'abyssal_splinter/_30355TheProtectorsMadness.java',
+	'abyssal_splinter/_30361StrangeFragment.java', 'abyssal_splinter/_30363FoolsRushIn.java',
+	'abyssal_splinter/_30364RemembranceOfSpiritsPast.java', 'abyssal_splinter/_30365ARayOfHope.java',
+	'alabaster_order/_38000CallOfTheAlabasterOrder.java', 'aturam_sky_fortress/_18300FloatingDeath.java',
+	'aturam_sky_fortress/_18301MyPrecHious.java', 'aturam_sky_fortress/_18302FirstPriority.java',
+	'aturam_sky_fortress/_18303MakingASurCantA.java', 'aturam_sky_fortress/_28300FloatingDoom.java',
+	'aturam_sky_fortress/_28301PowerOn.java', 'aturam_sky_fortress/_28302DocumentSaved.java', 'aturam_sky_fortress/_28303JustAnIsland.java',
+	'bare_truth/_14030RetrievedMemory.java', 'bare_truth/_14031AHyperVention.java', 'black_cloud_traders/_39505BackbitingBotheration.java',
+	'black_cloud_traders/_39510ZorinerkVersusTheShulacks.java', 'black_cloud_traders/_39515UntruthUpset.java',
+	'black_cloud_traders/_39520VilmanerkVersusDragonbound.java', 'blood_crusade/_48001CallOfTheCrusade.java',
+	'chantra_dredgion/_3721DisarmTheChantraDredgion.java', 'chantra_dredgion/_3722MyNewToy.java',
+	'chantra_dredgion/_3725MyLuckyNumber.java', 'chantra_dredgion/_4721RiseOfChantraDredgion.java',
+	'chantra_dredgion/_4722NewWeaponTest.java', 'chantra_dredgion/_4725CeaselessAttack.java',
+	'charlirunerks_daemons/_48002CharlirunerksDaemonsWantYou.java', 'clash_of_destiny/_24030ShowdownWithDestiny.java',
+	'clash_of_destiny/_24031EnemyAtTheDoorstep.java', 'danuar_sanctuary/_16985ChirTreasureRobbers.java',
+	'danuar_sanctuary/_16987SeekOuttheCorridor.java', 'danuar_sanctuary/_26985GraveyardTreasure.java',
+	'danuar_sanctuary/_26987ExploretheElyosCorridor.java', 'empyrean_crucible/_18208IllusionOrInfiltration.java',
+	'empyrean_crucible/_18209ARiftInTheSpaceTwineContinuum.java', 'empyrean_crucible/_18212FirstBlood.java',
+	'empyrean_crucible/_18213TheChillingTruth.java', 'empyrean_crucible/_28208ARiftAdrift.java',
+	'empyrean_crucible/_28209CatchingTheRift.java', 'empyrean_crucible/_28212ATestOfBlood.java',
+	'empyrean_crucible/_28213TheColiseumSecret.java', 'esoterrace/_18400TheVanishings.java',
+	'esoterrace/_18402GroupRootingOutCorruption.java', 'esoterrace/_18405MemoriesInTheCornerOfHisMind.java',
+	'esoterrace/_18406PlayingToTheHilt.java', 'esoterrace/_18407GroupDrakanJournalism.java',
+	'esoterrace/_18409GroupTiamatsPowerUnleashed.java', 'esoterrace/_18410PursuingthePrisoners.java',
+	'esoterrace/_28400InspecttheInspectors.java', 'esoterrace/_28402GroupSavingDalia.java', 'esoterrace/_28405KexkrasPast.java',
+	'esoterrace/_28406FindersFee.java', 'esoterrace/_28407GroupTheGathering.java', 'esoterrace/_28409GroupMaketheBladeComplete.java',
+	'esoterrace/_28410FortressUnsecured.java', 'fatebound_abbey/_29600WelcomeBack.java', 'fenris_fang/_29064FangOfConstruction.java',
+	'fenris_fang/_4937RecognitionOfThePreceptors.java', 'fenris_fang/_4938WorkOfTheFenrisFangs.java', 'fenris_fang/_4939ProvingGround.java',
+	'fenris_fang/_4940DecorationsofPandaemonium.java', 'fenris_fang/_4941GroupPandaemoniumHonors.java',
+	'fenris_fang/_4942ProvingProficiency.java', 'fenris_fang/_4943LuckandPersistence.java', 'fenris_fang/_4944LoyaltyAndAffableness.java',
+	'field_wardens/_48000SummonsFromTheWardens.java', 'fortuneers/_38002FortuneersCallToArms.java',
+	'greater_stigma/_30217GroupStigmasScars.java', 'greater_stigma/_30317GroupSpiritsandStigmaSlots.java', 'haramel/_18500BigKinah.java',
+	'haramel/_18510MurderMyShugo.java', 'haramel/_18511OutOfThePast.java', 'haramel/_28500OdellaOdellaWhereArtThou.java',
+	'haramel/_28510DestroytheHaramelFacilities.java', 'haramel/_28511TheSoupNutsy.java', 'iron_wall_warfront/_16960FacetheCommander.java',
+	'iron_wall_warfront/_26960FacetheCommander.java', 'kaisinel_academy/_37000ToxicInstruction.java',
+	'kaisinel_academy/_37003CamouflageKillers.java', 'kaisinel_academy/_37006NowYouSeeThem.java',
+	'kaisinel_academy/_38006MatriculationDay.java',
+)
+# Phase 6 step 2, chunk Q11 (lane C, 2026-10-08; docs/deviations/Q11.md): the 71 handlers of daevanion and sanctum in the tree
+# (daevanion/_1990ASagesGift and sanctum/_1929ASliverofDarkness are refused: API gaps; sanctum/_3212, an escort, waits for FollowingNpcAI)
+SLICE_Q11 = (
+	'daevanion/_19631CoastalCrush.java', 'daevanion/_19632CascadeCritters.java', 'daevanion/_19633AlisaryAssistance.java',
+	'daevanion/_19634FurtherAidforAlisary.java', 'daevanion/_19635SouthernQuell.java', 'daevanion/_19636FinalStabilization.java',
+	'daevanion/_19637OnboardforOne.java', 'daevanion/_19638TroublewithTwos.java', 'daevanion/_19639TreesandThrees.java',
+	'daevanion/_19640FlyingthroughFour.java', 'daevanion/_19641FidgetyFives.java', 'daevanion/_19642SuccessforSix.java',
+	'daevanion/_1988AMeetingWithASage.java', 'daevanion/_1989ASagesTeachings.java', 'daevanion/_1993AnotherBeginning.java',
+	'daevanion/_1994ANewChoice.java', 'daevanion/_29631GlugGlugGlug.java', 'daevanion/_29632SweepingNahorLake.java',
+	'daevanion/_29633StabilizetheSaplands.java', 'daevanion/_29634ScaredSkurvs.java', 'daevanion/_29635BeachDay.java',
+	'daevanion/_29636BacktoSurt.java', 'daevanion/_29637TroubleNotTrivial.java', 'daevanion/_29638NotSoSweet.java',
+	'daevanion/_29639MonstersUnholy.java', 'daevanion/_29640FinalKrugClearing.java', 'daevanion/_29641MoveAlongNow.java',
+	'daevanion/_29642GoodOnGelkmaros.java', 'daevanion/_2988TheWiseInDisguise.java', 'daevanion/_2989CeremonyOfTheWise.java',
+	'daevanion/_2990MakingTheDaevanionWeapon.java', 'daevanion/_2993AnotherBeginning.java', 'daevanion/_2994ANewChoice.java',
+	'daevanion/_80291DurableDaevanionWeapon.java', 'daevanion/_80295DurableDaevanionWeapon.java', 'sanctum/_19004PeriklessInsight.java',
+	'sanctum/_1900RingImbuedAether.java', 'sanctum/_1901KrallicPotion.java', 'sanctum/_19047JustBetweenMeAndFasimedes.java',
+	'sanctum/_19048AndreasTeachings.java', 'sanctum/_1908UlaguruSpeaks.java', 'sanctum/_1909ASongOfPraise.java',
+	'sanctum/_1917ALingeringMystery.java', 'sanctum/_1918AnAxForNamus.java', 'sanctum/_1926SecretLibraryAccess.java',
+	'sanctum/_1928ChasingaCriminal.java', 'sanctum/_1932AMatterOfReputation.java', 'sanctum/_1935TissueIDontEvenKnowYou.java',
+	'sanctum/_1936WhatNerisonSaw.java', 'sanctum/_1937ALepharistMonstrosity.java', 'sanctum/_1938BlackCloudFakery.java',
+	'sanctum/_1940WingsofMastery.java', 'sanctum/_1947ALuckyDay.java', 'sanctum/_1948WheresVindachinerk.java',
+	'sanctum/_1963DeliveryfortheOuterPort.java', 'sanctum/_1964ASouvenirForNoris.java', 'sanctum/_1987ABiggerWarehouse.java',
+	'sanctum/_3210RescueHaorunerk.java', 'sanctum/_3908ToMastertheDragon.java',
+	'sanctum/_3913ASecretSummons.java', 'sanctum/_3920TheSecretOfSurkana.java', 'sanctum/_3961GrowthFlorasFirstCharm.java',
+	'sanctum/_3962GrowthFlorasSecondCharm.java', 'sanctum/_3963GrowthFlorasThirdCharm.java', 'sanctum/_3964GrowthFlorasFourthCharm.java',
+	'sanctum/_3965TotheGalleriaofGrandeur.java', 'sanctum/_3966SaluteANewUniform.java', 'sanctum/_3967AndusDyeBox.java',
+	'sanctum/_3968PalentinesRequest.java', 'sanctum/_3969SexiestManAlive.java', 'sanctum/_3970KinahDiggingDaughter.java',
+)
+SLICE = SLICE_TIER_A + SLICE_ROUTE + SLICE_Q03 + SLICE_Q10 + SLICE_Q08 + SLICE_Q01 + SLICE_Q02 + SLICE_Q14 + SLICE_Q13 + SLICE_Q11
 
 ENUM_FILES = {'QuestStatus': 'questEngine/model/QuestStatus.java', 'Race': 'model/Race.java', 'PlayerClass': 'model/PlayerClass.java',
               'Gender': 'model/Gender.java', 'HandlerResult': 'questEngine/handlers/HandlerResult.java', 'DialogPage': 'model/DialogPage.java',
@@ -609,6 +727,10 @@ class Extractor:
 				out[f.name] = Unsupported(f'field {f.name} is written or has no initializer')
 				continue
 			s = f.initializer.start
+			lst = self.constant_list(f)
+			if lst is not None:
+				out[f.name] = K(lst)
+				continue
 			init = self.p.array_init(s)[0] if self.cu.tokens.text[s] == '{' else self.p.expr_span(s, f.initializer.end)
 			try:
 				vals = self.eval(init, SPath())
@@ -619,6 +741,28 @@ class Extractor:
 				out[f.name] = Unsupported(f'field {f.name} is not a constant')
 				continue
 			out[f.name] = vals[0][1]
+
+	def constant_list(self, f):
+		"""the owner's decision of 2026-10-07 on pangaea 14220/24220: a `static final List<Integer> X = new ArrayList<>(Arrays.asList(<int
+		literals>))` the file only iterates (`for (int x : X)`) and asks `X.contains(v)` is a constant tuple (nothing changes it); None
+		otherwise (written by the extractor from the tokens: the shared parser refuses `new ArrayList<>`)"""
+		mods = set(f.modifiers)
+		if not {'static', 'final'} <= mods or f.type.name != 'List' or f.type.dims or not f.type.args or len(f.type.args) != 1 				or getattr(f.type.args[0], 'name', None) != 'Integer':
+			return None
+		tx = self.cu.tokens.text
+		toks = [tx[i] for i in range(f.initializer.start, f.initializer.end)]
+		head = ['new', 'ArrayList', '<', '>', '(', 'Arrays', '.', 'asList', '(']
+		if toks[:len(head)] != head or toks[-2:] != [')', ')']:
+			return None
+		items = toks[len(head):-2]
+		if len(items) % 2 != 1 or any(not v.isdigit() for v in items[0::2]) or any(c != ',' for c in items[1::2]):
+			return None
+		for i, x in enumerate(tx):
+			if x != f.name or f.index <= i < f.initializer.end:
+				continue
+			if tx[i - 1] == '.' or not (tx[i + 1:i + 4] == ['.', 'contains', '('] or (tx[i - 1] == ':' and tx[i + 1] == ')')):
+				return None
+		return tuple(int(v) for v in items[0::2])
 
 	def line(self, node):
 		return self.cu.tokens.loc(node.tok)[0]
@@ -989,7 +1133,7 @@ class Extractor:
 			return Dom(lo=0, hi=63)                 # QuestVars: six 6-bit slots (QuestVars.java:22-58)
 		if head in ('inv', 'completeCount'):
 			return Dom(lo=0)
-		if head in ('canRepeat',) or key in (('env', 'continuation'), ('player', 'mentor')):
+		if head in ('canRepeat',) or key in (('env', 'continuation'), ('player', 'mentor'), ('player', 'inGroup'), ('player', 'mentorInRange')):
 			return Dom((True, False))
 		if key == ('player', 'race'):
 			return Dom(tuple(Enum('Race', n) for n in ('ELYOS', 'ASMODIANS')))
@@ -1346,6 +1490,20 @@ class Extractor:
 				return []
 			p.dom[key] = d2
 			return [p]
+		if obj.name == 'group':
+			# Player.getPlayerGroup() is null unless the player is in a group: a NullPointerException there
+			key = ('player', 'inGroup')
+			self.read_input(p, key)
+			d = self.dom_of(p, key)
+			if d.restrict('==', False).sat():
+				q = p.fork()
+				q.dom[key] = d.restrict('==', False)
+				self.throw(q, 'NullPointerException')
+			d2 = d.restrict('==', True)
+			if not d2.sat():
+				return []
+			p.dom[key] = d2
+			return [p]
 		return [p]
 
 	def throw(self, p, exc):
@@ -1365,6 +1523,9 @@ class Extractor:
 				return self.after_args(e, p, lambda q, a: [(q, K(self.qid))])
 			if name in HELPERS:
 				return self.helper(name, e, p)
+			if name.startswith('STR_') and not e.args and name in self.sysmsg_imports():
+				# a system message factory without parameters, imported statically (`import static ...SM_SYSTEM_MESSAGE.STR_X`): the packet
+				return [(p, New(f'SM_SYSTEM_MESSAGE.{name}', ()))]
 			raise Unsupported(f'call {name}')
 		if isinstance(tgt, jast.Name) and tgt.name == 'super':
 			if name == 'onDialogEvent':
@@ -1382,6 +1543,10 @@ class Extractor:
 			if tgt.name not in self.t.world_maps:
 				raise Unsupported(f'WorldMapType.{tgt.name}')
 			return [(p, K(self.t.world_maps[tgt.name]))]
+		if name == 'anyMatch' and self.is_mentor_search(e):
+			return self.mentor_search(e, p)
+		if name == 'contains' and len(e.args) == 1 and isinstance(tgt, jast.Name) and tgt.name not in p.locals 				and isinstance(self.consts.get(tgt.name), K) and isinstance(self.consts[tgt.name].v, tuple):
+			return self.list_contains(self.consts[tgt.name].v, e, p)
 		out = []
 		for q, recv in self.eval(tgt, p):
 			if isinstance(recv, RewardPage) and name == 'id':
@@ -1393,6 +1558,50 @@ class Extractor:
 			for r, args in self.eval_args(e.args, q):
 				for s in self.deref(r, recv):
 					out += self.method(recv, name, args, s, e)
+		return out
+
+	def list_contains(self, values, e, p):
+		"""`X.contains(v)` of a constant list (constant_list; List.contains is Integer.equals, value equality): a path per element where v
+		equals it, and one where v equals none"""
+		text, line = self.jtext(e), self.line(e)
+		out = []
+		for q, a in self.eval(e.args[0], p):
+			for x in values:
+				r = q.fork()
+				if self.constrain(r, a, '==', x):
+					r.guards.append((line, f'{text} [== {x}]', True))
+					out.append((r, K(True)))
+			r = q.fork()
+			if all(self.constrain(r, a, '!=', x) for x in values):
+				r.guards.append((line, text, False))
+				out.append((r, K(False)))
+		return out
+
+	def sysmsg_imports(self):
+		return {imp.name.rpartition('.')[2] for imp in self.cu.imports
+		        if imp.static and not imp.wildcard and imp.name.rpartition('.')[0].endswith('.SM_SYSTEM_MESSAGE')}
+
+	MENTOR_PREDICATE = 'member.isMentor() && PositionUtil.isInRange(player, member, GroupConfig.GROUP_MAX_DISTANCE)'
+
+	def is_mentor_search(self, e):
+		"""the mentor dailies' `group.getMembers().stream().anyMatch(member -> <MENTOR_PREDICATE>)` (marchutan_priory, orichalcum_key,
+		the_circle, kaisinel_academy), word for word"""
+		t = e.target
+		clo = e.args[0] if len(e.args) == 1 else None
+		return isinstance(clo, jast.Closure) and clo.kind == 'lambda' and clo.params == ['member'] and clo.expr is not None 			and ' '.join(self.jtext(clo.expr).split()) == self.MENTOR_PREDICATE and isinstance(t, jast.Call) and t.name == 'stream' 			and not t.args and isinstance(t.target, jast.Call) and t.target.name == 'getMembers' and not t.target.args
+
+	def mentor_search(self, e, p):
+		"""Java: true when a member of the player's group (the player included) is a mentor within GroupConfig.GROUP_MAX_DISTANCE of the
+		player (PositionUtil.isInRange, centre to centre): one input, ('player', 'mentorInRange'), which only a path in a group reads. The
+		closure's `player` must be the hook's player."""
+		if p.locals.get('player') != O('player'):
+			raise Unsupported('the mentor search with a player that is not the hook player')
+		out = []
+		for q, recv in self.eval(e.target.target.target, p):
+			if recv != O('group'):
+				raise Unsupported(f'call {self.jtext(e)}')
+			for r in self.deref(q, recv):
+				out.append((r, self.read_input(r, ('player', 'mentorInRange'))))
 		return out
 
 	def after_args(self, e, p, fn):
@@ -1446,6 +1655,12 @@ class Extractor:
 				return [(p, self.read_input(p, ('player', attr)))]
 			if name == 'getObjectId':
 				return [(p, Opaque('$playerObjectId'))]
+			# the owner's decision of 2026-10-07 on Q14's mentor dailies: Player.isInGroup (Player.java: playerGroup != null) is an input, and
+			# getPlayerGroup the group, null outside one (deref)
+			if name == 'isInGroup' and not args:
+				return [(p, self.read_input(p, ('player', 'inGroup')))]
+			if name == 'getPlayerGroup' and not args:
+				return [(p, O('group'))]
 		if o == 'qsl':
 			q_id = self.const_int(args[0], 'a quest id')
 			if name == 'getQuestState':

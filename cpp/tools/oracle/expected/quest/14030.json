@@ -1,0 +1,145 @@
+{
+ "format": "aion-quest-trace",
+ "version": 1,
+ "questId": 14030,
+ "java": "bare_truth/_14030RetrievedMemory.java",
+ "class": "_14030RetrievedMemory",
+ "javaSha256": "9e8a4bb3888ef7217c7af0038d8b545d7b34090190629260c1b32a7331ebd6d9",
+ "register": [
+  {"call": "registerOnLevelChanged", "args": [14030]},
+  {"call": "registerOnEnterWorld", "args": [14030]},
+  {"npc": 790001, "event": "addOnTalkEvent", "args": [14030]},
+  {"npc": 700551, "event": "addOnTalkEvent", "args": [14030]},
+  {"npc": 205119, "event": "addOnTalkEvent", "args": [14030]},
+  {"npc": 700552, "event": "addOnTalkEvent", "args": [14030]},
+  {"npc": 203700, "event": "addOnTalkEvent", "args": [14030]},
+  {"npc": 211043, "event": "addOnKillEvent", "args": [14030]},
+  {"npc": 214578, "event": "addOnKillEvent", "args": [14030]},
+  {"npc": 215396, "event": "addOnKillEvent", "args": [14030]},
+  {"npc": 215397, "event": "addOnKillEvent", "args": [14030]},
+  {"npc": 215398, "event": "addOnKillEvent", "args": [14030]},
+  {"npc": 215399, "event": "addOnKillEvent", "args": [14030]},
+  {"npc": 215400, "event": "addOnKillEvent", "args": [14030]}
+ ],
+ "hooks": [
+  {"hook": "onDialogEvent", "line": 46, "unsupported": "call TeleportService.teleportTo"},
+  {"hook": "onKillEvent", "line": 144, "unsupported": "call spawn"},
+  {"hook": "onEnterWorldEvent", "line": 165, "cases": 6},
+  {"hook": "onLevelChangedEvent", "line": 182, "cases": 1}
+ ],
+ "cases": [
+  {
+   "id": "onEnterWorldEvent#1",
+   "hook": "onEnterWorldEvent",
+   "given": {"player": {"worldId": 120010000}, "questState": {"status": "START", "vars": {"0": 5}}},
+   "guards": [
+    "env.getPlayer().getWorldId() != WorldMapType.IDAB_PRO_L3.getId() -> true @166",
+    "qs != null -> true @169",
+    "qs.getStatus() == QuestStatus.START -> true @169",
+    "var0 > 4 -> true @171",
+    "var0 <= 56 -> true @171"
+   ],
+   "ranges": {"questState.vars.0": [5, 56]},
+   "effects": [
+    {"call": "qs.setQuestVarById", "kind": "var", "args": [0, 4], "line": 172},
+    {"call": "updateQuestStatus", "kind": "quest", "args": [], "line": 173}
+   ],
+   "returns": true,
+   "atHigh": [
+    {
+     "input": "questState.vars.0",
+     "value": 56,
+     "given": {"player": {"worldId": 120010000}, "questState": {"status": "START", "vars": {"0": 56}}},
+     "effects": [
+      {"call": "qs.setQuestVarById", "kind": "var", "args": [0, 4], "line": 172},
+      {"call": "updateQuestStatus", "kind": "quest", "args": [], "line": 173}
+     ],
+     "returns": true
+    }
+   ]
+  },
+  {
+   "id": "onEnterWorldEvent#2",
+   "hook": "onEnterWorldEvent",
+   "given": {"player": {"worldId": 120010000}, "questState": {"status": "START", "vars": {"0": 57}}},
+   "guards": [
+    "env.getPlayer().getWorldId() != WorldMapType.IDAB_PRO_L3.getId() -> true @166",
+    "qs != null -> true @169",
+    "qs.getStatus() == QuestStatus.START -> true @169",
+    "var0 > 4 -> true @171",
+    "var0 <= 56 -> false @171"
+   ],
+   "ranges": {"questState.vars.0": [57, 63]},
+   "effects": [],
+   "returns": false,
+   "atHigh": [
+    {
+     "input": "questState.vars.0",
+     "value": 63,
+     "given": {"player": {"worldId": 120010000}, "questState": {"status": "START", "vars": {"0": 63}}},
+     "effects": [],
+     "returns": false
+    }
+   ]
+  },
+  {
+   "id": "onEnterWorldEvent#3",
+   "hook": "onEnterWorldEvent",
+   "given": {"player": {"worldId": 120010000}, "questState": {"status": "START", "vars": {"0": 0}}},
+   "guards": [
+    "env.getPlayer().getWorldId() != WorldMapType.IDAB_PRO_L3.getId() -> true @166",
+    "qs != null -> true @169",
+    "qs.getStatus() == QuestStatus.START -> true @169",
+    "var0 > 4 -> false @171"
+   ],
+   "ranges": {"questState.vars.0": [0, 4]},
+   "effects": [],
+   "returns": false,
+   "atHigh": [
+    {
+     "input": "questState.vars.0",
+     "value": 4,
+     "given": {"player": {"worldId": 120010000}, "questState": {"status": "START", "vars": {"0": 4}}},
+     "effects": [],
+     "returns": false
+    }
+   ]
+  },
+  {
+   "id": "onEnterWorldEvent#4",
+   "hook": "onEnterWorldEvent",
+   "given": {"player": {"worldId": 120010000}, "questState": {"status": "REWARD"}},
+   "guards": [
+    "env.getPlayer().getWorldId() != WorldMapType.IDAB_PRO_L3.getId() -> true @166",
+    "qs != null -> true @169",
+    "qs.getStatus() == QuestStatus.START -> false @169"
+   ],
+   "effects": [],
+   "returns": false
+  },
+  {
+   "id": "onEnterWorldEvent#5",
+   "hook": "onEnterWorldEvent",
+   "given": {"player": {"worldId": 120010000}, "questState": null},
+   "guards": ["env.getPlayer().getWorldId() != WorldMapType.IDAB_PRO_L3.getId() -> true @166", "qs != null -> false @169"],
+   "effects": [],
+   "returns": false
+  },
+  {
+   "id": "onEnterWorldEvent#6",
+   "hook": "onEnterWorldEvent",
+   "given": {"player": {"worldId": 310120000}},
+   "guards": ["env.getPlayer().getWorldId() != WorldMapType.IDAB_PRO_L3.getId() -> false @166"],
+   "effects": [],
+   "returns": false
+  },
+  {
+   "id": "onLevelChangedEvent#1",
+   "hook": "onLevelChangedEvent",
+   "given": {},
+   "guards": [],
+   "effects": [{"call": "defaultOnLevelChangedEvent", "kind": "quest", "args": [], "line": 183}],
+   "returns": null
+  }
+ ]
+}

@@ -3,6 +3,15 @@
 The owner's answers to the open decisions of the milestone plans, newest first. Each plan applies its answer at its next refresh; until
 then this file wins over a plan's "until the user answers" default.
 
+## 2026-10-07
+
+| Decision | Answer | What it changes |
+|---|---|---|
+| The 15 mentor dailies of chunk Q14 (marchutan_priory 47000/47003/47006, orichalcum_key 37100-37113, the_circle 47100-47113; questgen refused `group.getMembers().stream().anyMatch(member -> ...)`) | **"Either is fine"**: an emitter rule or 15 hand ports | An emitter rule (lane C, docs/deviations/Q14.md, "Owner's decisions of 2026-10-07"): questgen rule stream-any-match and API row B46; the 15 are generated and drift-tested, the other 982 emitted files byte-identical; kaisinel_academy's three mentor dailies (Q13) transliterate too and land with Q13 |
+| `pangaea/_14220NewZoneNewRules`, `_24220WelcometoPanesterra` (four `List<Integer>` fields each) | **Per-player state, as 2759** | **Not applied as worded; awaiting the owner's confirmation.** Reading the files found no state: the four lists are `private static final`, filled by their initializers and never written (the handler only iterates them in `register()` and asks `contains(targetId)`), so there is nothing per player to record and nothing to correct. They are generated as constants (questgen rule constant-list: `static constexpr std::array`), which is Java's behaviour; no hand port, no correction entry (docs/deviations/Q14.md) |
+| levinshor 13744/23744 (SiegeService) | **Stay out** until the siege milestone | Not in the tree |
+| tiamat_stronghold 30721/30771 (spawn on a circle: `Math`, `Vector3f`) | **Stay out** unless the rows are small and contained | Not in the tree: they need `Math.toRadians/cos/sin`, `Rnd.nextFloat`, `GeoService.getClosestCollision` (whose header questgen does not scan) returning a `Vector3f`, `SpawnEngine.newSingleTimeSpawn/spawnObject` and an `(Npc)` cast of its result: five rows or more, and Java's `Math.cos` is not bit-for-bit C's `std::cos` (docs/deviations/Q14.md) |
+
 ## 2026-10-05
 
 | Decision | Answer | What it changes |
