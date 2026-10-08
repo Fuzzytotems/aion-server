@@ -3,15 +3,14 @@
 // level 3): create and its refusals, invite (accepted, the own-member and other-legion refusals), the announcement (the volunteer's refusal,
 // the 256-character cut, the notice), ranks, permissions, the self introduction and the nickname, the level-up refused for money, a member's
 // relog (the logout's store, the login's notice), the history pages, the seeded legion's emblem (a predefined one, a 9,000-byte upload in two
-// chunks, B reading it with and without its data), leave and kick; the studio (bought at Parrine, entered through the use bar and the beam,
+// chunks, B reading it with and without its data), leave and kick; the studio (by quest and by fee at Parrine, entered through the use bar and the beam,
 // decorated, used, configured, left, destroyed and saved, re-entered, quit inside and logged into again, seen in the member list); then the
 // reports the server writes at shutdown.
 //
 // **What this gate covers of §10.2, and what not** (docs/design/m5h-plan.md §14): the legion cases C0-C8, C10, C11, C12 and
-// C21 without their dialog arms, and the studio cases C14-C20 (HS-4). Not scripted: C8's kill (a member's level-up is
-// LegionService.updateMemberInfo, which C8's relog already drives), C9's warehouse and C22's disband (both open through DialogService's npc
-// dialogs, m5h-plan.md A-06, and the warehouse's items through CM_MOVE_ITEM, A-03), and C13, the studio by quest 18802 (lane C's studio
-// quests, HS-3): until they land A buys its studio the paid way in C14 as C does, a stand-in C13 replaces. Their unit tests stand
+// C21 without their dialog arms, and the studio cases C13-C20 (HS-4; C13 needs lane C's quest 18802). Not scripted: C8's kill (a member's
+// level-up is LegionService.updateMemberInfo, which C8's relog and C13's quest experience drive), C9's warehouse and C22's disband (both open
+// through DialogService's npc dialogs, m5h-plan.md A-06, and the warehouse's items through CM_MOVE_ITEM, A-03). Their unit tests stand
 // (tests/legionhouse/LegionServiceTest.cpp: the lazy disband, the warehouse rules) and the rows are the plan's open items.
 //
 // Every expectation is independent of the C++ server code, as in the earlier gates: server packets are read by name and SM_SYSTEM_MESSAGE /
@@ -1051,6 +1050,10 @@ constexpr int32_t ORIEL = 700010000;
 constexpr int32_t STUDIO_MAP = 720010000;
 /** DialogAction.HOUSING_RECREATE_PERSONAL_INS (DialogAction.java:111), DialogService's paid studio arm (DialogService.java:270-272) */
 constexpr int32_t HOUSING_RECREATE_PERSONAL_INS = 96;
+/** DialogAction.SELECTED_QUEST_NOREWARD (DialogAction.java:38): the finish of a quest without a selectable reward */
+constexpr int32_t SELECTED_QUEST_NOREWARD = 23;
+/** [Housing] And A Home for Every Daeva, the Elyos studio quest (_18802AndAHomeforEveryDaeva.java; HousingService.canOwnHouse) */
+constexpr int32_t STUDIO_QUEST = 18802;
 /** the furniture (m5h-plan.md §10.1 "Seeds"): a bed (a chair template), the cake (a use_item with the COOKING limit) and a wallpaper */
 constexpr int32_t BED_ITEM = 170120000;
 constexpr int32_t CAKE_ITEM = 170190034;
@@ -1087,6 +1090,7 @@ struct HousingAnswer {
 	/** the decor slot of a PartType's room in SM_HOUSE_RENDER (writeCommonInfo's order) and the CM_HOUSE_DECORATE line of its first room */
 	std::map<std::string, std::pair<size_t, int32_t>> partSlots;
 	std::map<std::string, int32_t> doorStates;
+	std::map<std::string, int32_t> houseOwnerStates;
 	size_t scriptPadding = 0;
 
 	int32_t message(const std::string& name) const {
@@ -1157,6 +1161,8 @@ HousingAnswer parseHousing(const std::string& text) {
 	}
 	for (const auto& [name, id] : answer.at("doorStates").items())
 		housing.doorStates[name] = id.get<int32_t>();
+	for (const auto& [name, id] : answer.at("houseOwnerStates").items())
+		housing.houseOwnerStates[name] = id.get<int32_t>();
 	housing.scriptPadding = answer.at("scripts").at("padding").size();
 	return housing;
 }
@@ -1728,8 +1734,7 @@ void runM5hGate() {
 	});
 
 	// ======================================================================================================================================
-	// The studio cases C14-C20 (m5h-plan.md §10.2, §10.3 Y13-Y19; HS-4). C13 (the studio by quest 18802) waits for lane C's studio quests: until
-	// they land, A buys its studio the paid way as C does (DialogService's HOUSING_RECREATE_PERSONAL_INS), a stand-in the C13 case replaces.
+	// The studio cases C13-C20 (m5h-plan.md §10.2, §10.3 Y12-Y19; HS-4): A's studio by quest 18802 (lane C's generated handler), C's by fee.
 	// ======================================================================================================================================
 
 	HousingAnswer housing;
@@ -1881,53 +1886,111 @@ void runM5hGate() {
 	int32_t aBed = 0, aCake = 0, aWallpaper = 0, cCake = 0;
 	const std::string studioAddress = std::to_string(2001);
 
-	// ---- C14 (with C13's stand-in) ----
-	runCase("C14", "studio by fee: A (C13's stand-in) and C buy the studio at Parrine (dialog 96); A asks again and is refused", [&] {
+	// ---- C13: the studio by quest ----
+	const HousingAnswer::Spot& parrine = housing.npc(PARRINE);
+	const std::array<float, 3> parrineSpot = pointNear(parrine.x, parrine.y, parrine.z, TALK_DISTANCE, housing.npc(STUDIO_ENTRANCE).x,
+		housing.npc(STUDIO_ENTRANCE).y);
+	const auto ownerInfos = [&](const std::vector<Packet>& packets) {
+		std::vector<decoders::HouseOwnerInfo> infos;
+		for (const Packet& packet : ofName(packets, "SM_HOUSE_OWNER_INFO"))
+			infos.push_back(decoders::decodeHouseOwnerInfo(packet.data));
+		return infos;
+	};
+	runCase("C13", "studio by quest: A, with 18802 at REWARD, selects the no-reward finish at Parrine (registerPlayerStudio, free)", [&] {
 		disconnect(a);
-		disconnect(c);
-		const HousingAnswer::Spot& parrine = housing.npc(PARRINE);
-		const HousingAnswer::Spot& entrance = housing.npc(STUDIO_ENTRANCE);
-		const std::array<float, 3> spot = pointNear(parrine.x, parrine.y, parrine.z, TALK_DISTANCE, entrance.x, entrance.y);
-		seedPosition(ca, ORIEL, spot[0], spot[1], spot[2]);
-		seedPosition(cc, ORIEL, spot[0] + 1.0f, spot[1], spot[2]);
-		seedKinah(ca.playerId, housing.goldPrice);
-		seedKinah(cc.playerId, housing.goldPrice);
+		seedPosition(ca, ORIEL, parrineSpot[0], parrineSpot[1], parrineSpot[2]);
+		database.execute(schema, "INSERT INTO player_quests (player_id, quest_id, status) VALUES (" + std::to_string(ca.playerId) + ", " +
+		                           std::to_string(STUDIO_QUEST) + ", 'REWARD')");
 		aBed = database.seedInventoryItem(schema, {ca.playerId, BED_ITEM, 1, 0, 65535});
 		aCake = database.seedInventoryItem(schema, {ca.playerId, CAKE_ITEM, 1, 0, 65535});
 		aWallpaper = database.seedInventoryItem(schema, {ca.playerId, WALLPAPER_ITEM, 1, 0, 65535});
+		const std::vector<Packet> burst = enterAs(servers, a, ca);
+		settle();
+		// before: no house, 18802 not COMPLETE - SINGLE_HOUSE only (SM_HOUSE_OWNER_INFO.java:24-38, HousingService.canOwnHouse)
+		const std::vector<decoders::HouseOwnerInfo> before = ownerInfos(burst);
+		ASSERT_FALSE(before.empty()) << "the enter world's SM_HOUSE_OWNER_INFO";
+		EXPECT_EQ(before.back().address, 0);
+		EXPECT_EQ(before.back().buildingId, 0);
+		EXPECT_EQ(before.back().ownerState, housing.houseOwnerStates.at("SINGLE_HOUSE"));
+		const int64_t kinahBefore = a.model.kinah();
+		const int32_t parrineObject = requireNpc(a, PARRINE, parrine.x, parrine.y);
+		a.game->send(GameSession::CM_SHOW_DIALOG, GameSession::buildCM_SHOW_DIALOG(parrineObject));
+		settle();
+		const auto from = marks();
+		a.game->send(GameSession::CM_DIALOG_SELECT, GameSession::buildCM_DIALOG_SELECT(parrineObject, SELECTED_QUEST_NOREWARD, 0, 0, STUDIO_QUEST));
+		ASSERT_TRUE(until(10s, [&] { return countMessage(windowOf(a, from), hmsg("STR_MSG_HOUSING_INS_OWN_SUCCESS")) == 1; }))
+		  << "C13: no STR_MSG_HOUSING_INS_OWN_SUCCESS (_18802AndAHomeforEveryDaeva: registerPlayerStudio)";
+		settle();
+		const std::vector<Packet> window = windowOf(a, from);
+		// notifyAboutOwnerChange's order for a new owner (HousingService.java:137-145): SM_HOUSE_OWNER_INFO, then SM_HOUSE_ACQUIRE(true)
+		const std::vector<decoders::HouseOwnerInfo> after = ownerInfos(window);
+		ASSERT_FALSE(after.empty()) << "notifyAboutOwnerChange's SM_HOUSE_OWNER_INFO";
+		EXPECT_EQ(after.front().address, housing.address);
+		EXPECT_EQ(after.front().buildingId, housing.building);
+		EXPECT_EQ(after.front().ownerState, housing.houseOwnerStates.at("HAS_OWNER") | housing.houseOwnerStates.at("BIDDING_ALLOWED"));
+		const std::vector<Packet> acquires = ofName(window, "SM_HOUSE_ACQUIRE");
+		ASSERT_EQ(acquires.size(), 1u);
+		const decoders::HouseAcquire acquire = decoders::decodeHouseAcquire(acquires[0].data);
+		EXPECT_EQ(acquire.playerId, ca.playerId);
+		EXPECT_EQ(acquire.address, housing.address);
+		EXPECT_EQ(acquire.acquire, 1);
+		size_t ownerInfoAt = 0, acquireAt = 0;
+		for (size_t i = 0; i < window.size(); i++) {
+			if (window[i].name == "SM_HOUSE_OWNER_INFO" && ownerInfoAt == 0)
+				ownerInfoAt = i + 1;
+			if (window[i].name == "SM_HOUSE_ACQUIRE")
+				acquireAt = i + 1;
+		}
+		EXPECT_LT(ownerInfoAt, acquireAt) << "SM_HOUSE_OWNER_INFO before SM_HOUSE_ACQUIRE";
+		EXPECT_EQ(a.model.kinah(), kinahBefore) << "registerPlayerStudio is free (createStudio(player, false))";
+		EXPECT_EQ(count("SELECT COUNT(*) FROM houses WHERE address = " + studioAddress + " AND building_id = " + std::to_string(housing.building) +
+		                " AND player_id = " + std::to_string(ca.playerId)),
+			1);
+		// the quest's experience levels A up: B, A's legion mate, is told the new level (LegionService.updateMemberInfo)
+		std::optional<int32_t> levelToB;
+		until(5s, [&] {
+			for (const decoders::LegionUpdateMember& update : legionUpdatesOf(windowOf(b, from), ca.playerId))
+				if (update.level > 1)
+					levelToB = update.level;
+			return levelToB.has_value();
+		});
+		EXPECT_TRUE(levelToB) << "B: SM_LEGION_UPDATE_MEMBER(A) with A's new level";
+	});
+
+	// ---- C14: the studio by fee ----
+	runCase("C14", "studio by fee: C buys the studio at Parrine (dialog 96) with exactly the price; A, who owns one, is refused before the charge", [&] {
+		disconnect(c);
+		seedPosition(cc, ORIEL, parrineSpot[0] + 1.0f, parrineSpot[1], parrineSpot[2]);
+		seedKinah(cc.playerId, housing.goldPrice);
 		cCake = database.seedInventoryItem(schema, {cc.playerId, CAKE_ITEM, 1, 0, 65535});
-		enterAs(servers, a, ca);
 		enterAs(servers, c, cc);
 		settle();
-		ASSERT_EQ(a.model.kinah(), housing.goldPrice);
-		for (ScenarioClient* buyer : {&a, &c}) {
-			const int32_t parrineObject = requireNpc(*buyer, PARRINE, parrine.x, parrine.y);
-			buyer->game->send(GameSession::CM_SHOW_DIALOG, GameSession::buildCM_SHOW_DIALOG(parrineObject));
-			settle();
-			const auto from = marks();
-			buyer->game->send(GameSession::CM_DIALOG_SELECT, GameSession::buildCM_DIALOG_SELECT(parrineObject, HOUSING_RECREATE_PERSONAL_INS));
-			ASSERT_TRUE(until(10s, [&] { return countMessage(windowOf(*buyer, from), hmsg("STR_MSG_HOUSING_INS_OWN_SUCCESS")) == 1; }))
-			  << buyer->label << ": no STR_MSG_HOUSING_INS_OWN_SUCCESS";
-			settle();
-			const std::vector<Packet> window = windowOf(*buyer, from);
-			const std::vector<Packet> acquires = ofName(window, "SM_HOUSE_ACQUIRE");
-			ASSERT_EQ(acquires.size(), 1u) << buyer->label << ": notifyAboutOwnerChange's SM_HOUSE_ACQUIRE (HousingService.java:113-127)";
-			const decoders::HouseAcquire acquire = decoders::decodeHouseAcquire(acquires[0].data);
-			EXPECT_EQ(acquire.playerId, buyer->playerId());
-			EXPECT_EQ(acquire.address, housing.address);
-			EXPECT_EQ(acquire.acquire, 1);
-			EXPECT_EQ(buyer->model.kinah(), 0) << buyer->label << ": the land's gold price, exactly (HousingService.createStudio)";
-			EXPECT_EQ(count("SELECT COUNT(*) FROM houses WHERE address = " + studioAddress + " AND building_id = " + std::to_string(housing.building) +
-			                " AND player_id = " + std::to_string(buyer->playerId())),
-				1)
-			  << buyer->label << ": changeOwner's house.save()";
-		}
-		const auto from = marks();
+		ASSERT_EQ(c.model.kinah(), housing.goldPrice);
+		const int32_t parrineObject = requireNpc(c, PARRINE, parrine.x, parrine.y);
+		c.game->send(GameSession::CM_SHOW_DIALOG, GameSession::buildCM_SHOW_DIALOG(parrineObject));
+		settle();
+		auto from = marks();
+		c.game->send(GameSession::CM_DIALOG_SELECT, GameSession::buildCM_DIALOG_SELECT(parrineObject, HOUSING_RECREATE_PERSONAL_INS));
+		ASSERT_TRUE(until(10s, [&] { return countMessage(windowOf(c, from), hmsg("STR_MSG_HOUSING_INS_OWN_SUCCESS")) == 1; }))
+		  << "C: no STR_MSG_HOUSING_INS_OWN_SUCCESS";
+		settle();
+		const std::vector<Packet> acquires = ofName(windowOf(c, from), "SM_HOUSE_ACQUIRE");
+		ASSERT_EQ(acquires.size(), 1u) << "notifyAboutOwnerChange's SM_HOUSE_ACQUIRE (HousingService.java:137-145)";
+		const decoders::HouseAcquire acquire = decoders::decodeHouseAcquire(acquires[0].data);
+		EXPECT_EQ(acquire.playerId, cc.playerId);
+		EXPECT_EQ(acquire.address, housing.address);
+		EXPECT_EQ(acquire.acquire, 1);
+		EXPECT_EQ(c.model.kinah(), 0) << "the land's gold price, exactly (HousingService.createStudio)";
+		EXPECT_EQ(count("SELECT COUNT(*) FROM houses WHERE address = " + studioAddress + " AND player_id = " + std::to_string(cc.playerId)), 1);
+
+		const int64_t aKinah = a.model.kinah();
+		from = marks();
 		a.game->send(GameSession::CM_DIALOG_SELECT,
 			GameSession::buildCM_DIALOG_SELECT(requireNpc(a, PARRINE, parrine.x, parrine.y), HOUSING_RECREATE_PERSONAL_INS));
 		ASSERT_TRUE(until(10s, [&] { return countMessage(windowOf(a, from), hmsg("STR_MSG_HOUSING_INS_CANT_OWN_MORE_HOUSE")) == 1; }));
 		settle();
 		EXPECT_TRUE(ofName(windowOf(a, from), "SM_HOUSE_ACQUIRE").empty()) << "the refusal before the charge (HousingService.java:281-284)";
+		EXPECT_EQ(a.model.kinah(), aKinah) << "A's kinah unchanged";
 		EXPECT_EQ(count("SELECT COUNT(*) FROM houses WHERE address = " + studioAddress), 2) << "A's and C's studio";
 	});
 
@@ -2298,6 +2361,10 @@ void runM5hGate() {
 			EXPECT_EQ(count("SELECT COUNT(*) FROM inventory WHERE item_unique_id = " + std::to_string(item)), 0)
 			  << "C16's ItemDeleteType.REGISTER deletes, stored with the inventory at the logout";
 		EXPECT_EQ(count("SELECT world_id FROM players WHERE id = " + std::to_string(ca.playerId)), STUDIO_MAP);
+		EXPECT_EQ(count("SELECT COUNT(*) FROM player_quests WHERE status = 'COMPLETE' AND quest_id = " + std::to_string(STUDIO_QUEST) +
+		                " AND player_id = " + std::to_string(ca.playerId)),
+			1)
+		  << "C13's sendQuestEndDialog finished 18802, stored with the quest list at the logout";
 
 		// re-login (A-15): A lands in its studio
 		const std::vector<Packet> burst = enterAs(servers, a, ca);
