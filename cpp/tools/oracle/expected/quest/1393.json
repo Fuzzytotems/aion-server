@@ -1,0 +1,40 @@
+{
+ "format": "aion-quest-trace",
+ "version": 1,
+ "questId": 1393,
+ "java": "eltnen/_1393NewFlightPath.java",
+ "class": "_1393NewFlightPath",
+ "javaSha256": "b9c60f8b04e120bec696190ceb23f12976fe79a84d3fc658f1a7ae45069e6e39",
+ "register": [
+  {"npc": 204041, "event": "addOnQuestStart", "args": [1393]},
+  {"npc": 204041, "event": "addOnTalkEvent", "args": [1393]},
+  {"call": "registerOnEnterZone", "args": ["LEPHARIST_BASTION_210020000", 1393]}
+ ],
+ "hooks": [{"hook": "onDialogEvent", "line": 34, "unsupported": "CreatureState.FLYING"}, {"hook": "onEnterZoneEvent", "line": 84, "cases": 3}],
+ "cases": [
+  {
+   "id": "onEnterZoneEvent#1",
+   "hook": "onEnterZoneEvent",
+   "given": {"questState": {"status": "START"}},
+   "guards": ["qs != null -> true @87", "qs.getStatus() == QuestStatus.START -> true @87"],
+   "effects": [{"call": "changeQuestStep", "kind": "var", "args": [0, 0, true], "line": 88}],
+   "returns": true
+  },
+  {
+   "id": "onEnterZoneEvent#2",
+   "hook": "onEnterZoneEvent",
+   "given": {"questState": {"status": "REWARD"}},
+   "guards": ["qs != null -> true @87", "qs.getStatus() == QuestStatus.START -> false @87"],
+   "effects": [],
+   "returns": false
+  },
+  {
+   "id": "onEnterZoneEvent#3",
+   "hook": "onEnterZoneEvent",
+   "given": {"questState": null},
+   "guards": ["qs != null -> false @87"],
+   "effects": [],
+   "returns": false
+  }
+ ]
+}

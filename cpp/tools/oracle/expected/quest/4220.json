@@ -1,0 +1,11 @@
+{
+ "format": "aion-quest-trace",
+ "version": 1,
+ "questId": 4220,
+ "java": "steel_rake/_4220KeyItemHiddenQuest02.java",
+ "class": "_4220KeyItemHiddenQuest02",
+ "javaSha256": "1ea9ad97ad881d500c87660f9235950acb0d33a7cd4ad26b5f4c76440a34d516",
+ "register": [],
+ "hooks": [],
+ "cases": []
+}

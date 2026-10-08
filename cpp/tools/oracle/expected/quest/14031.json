@@ -1,0 +1,48 @@
+{
+ "format": "aion-quest-trace",
+ "version": 1,
+ "questId": 14031,
+ "java": "bare_truth/_14031AHyperVention.java",
+ "class": "_14031AHyperVention",
+ "javaSha256": "9c13293ebd74a3f3cc6a25e025129cc552b96e8c72283c0e514f07f5e5ba342b",
+ "register": [
+  {"call": "registerOnQuestCompleted", "args": [14031]},
+  {"call": "registerOnLevelChanged", "args": [14031]},
+  {"call": "registerOnEnterWorld", "args": [14031]},
+  {"call": "registerQuestItem", "args": [182215388, 14031]},
+  {"call": "registerQuestItem", "args": [182215389, 14031]},
+  {"call": "registerQuestItem", "args": [182215390, 14031]},
+  {"npc": 233878, "event": "addOnKillEvent", "args": [14031]},
+  {"npc": 203700, "event": "addOnTalkEvent", "args": [14031]},
+  {"npc": 801216, "event": "addOnTalkEvent", "args": [14031]},
+  {"npc": 790001, "event": "addOnTalkEvent", "args": [14031]},
+  {"npc": 203183, "event": "addOnTalkEvent", "args": [14031]},
+  {"npc": 203989, "event": "addOnTalkEvent", "args": [14031]}
+ ],
+ "hooks": [
+  {"hook": "onDialogEvent", "line": 44, "unsupported": "call InstanceService.getNextAvailableInstance"},
+  {"hook": "onItemUseEvent", "line": 160, "unsupported": "call player.isInsideItemUseZone(ZoneName.get(\"LF1_ITEMUSEAREA_Q14031\"))"},
+  {"hook": "onEnterWorldEvent", "line": 186, "unsupported": "call qs.getQuestVars().getQuestVars()"},
+  {"hook": "onKillEvent", "line": 208, "unsupported": "call env.getVisibleObject().getController()"},
+  {"hook": "onLevelChangedEvent", "line": 220, "cases": 1},
+  {"hook": "onQuestCompletedEvent", "line": 225, "cases": 1}
+ ],
+ "cases": [
+  {
+   "id": "onLevelChangedEvent#1",
+   "hook": "onLevelChangedEvent",
+   "given": {},
+   "guards": [],
+   "effects": [{"call": "defaultOnLevelChangedEvent", "kind": "quest", "args": [14030], "line": 221}],
+   "returns": null
+  },
+  {
+   "id": "onQuestCompletedEvent#1",
+   "hook": "onQuestCompletedEvent",
+   "given": {},
+   "guards": [],
+   "effects": [{"call": "defaultOnQuestCompletedEvent", "kind": "quest", "args": [14030], "line": 226}],
+   "returns": null
+  }
+ ]
+}

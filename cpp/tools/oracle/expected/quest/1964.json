@@ -1,0 +1,15 @@
+{
+ "format": "aion-quest-trace",
+ "version": 1,
+ "questId": 1964,
+ "java": "sanctum/_1964ASouvenirForNoris.java",
+ "class": "_1964ASouvenirForNoris",
+ "javaSha256": "0dbcd4a9e7c3bea6a777e32f6976c8565780ff80693119daff614cfa976c25a8",
+ "register": [
+  {"npc": 203726, "event": "addOnQuestStart", "args": [1964]},
+  {"npc": 203726, "event": "addOnTalkEvent", "args": [1964]},
+  {"npc": 203776, "event": "addOnTalkEvent", "args": [1964]}
+ ],
+ "hooks": [{"hook": "onDialogEvent", "line": 25, "unsupported": "reads status/1964 after sendQuestNoneDialog, which may have written it"}],
+ "cases": []
+}
