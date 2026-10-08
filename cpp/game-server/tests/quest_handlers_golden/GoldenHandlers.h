@@ -12,6 +12,9 @@
 // (GoldenQ08Handlers.cpp; docs/deviations/Q08.md); chunk Q01 (the same lane and day): the 81 generated reshanta handlers
 // (GoldenQ01Handlers.cpp; docs/deviations/Q01.md). Q01 is the library aion_gs_handlers_quest_reshanta, which this executable does not link.
 // Chunk Q02 (the same lane and day): the 59 generated inggison handlers (GoldenQ02Handlers.cpp; docs/deviations/Q02.md).
+// Chunk Q14 (the same lane and day): the 74 generated handlers of the instance directories K-W (GoldenQ14Handlers.cpp; docs/deviations/Q14.md),
+// 91 since the owner's decisions of 2026-10-07 (the 15 mentor dailies and pangaea 14220/24220).
+// Chunk Q13 (lane C, 2026-10-07): the 87 generated handlers of the instance directories A-K (GoldenQ13Handlers.cpp; docs/deviations/Q13.md).
 //
 // P6-Q slice 2, chunk Q03 (2026-09-29): the 72 generated verteron and heiron handlers in the tree (the zones the route's dispatches end in),
 // compiled into this executable by #include as well (GoldenQ03Handlers.cpp); Q03's hand ports 1643 and 3200 have their own unit cases
@@ -403,7 +406,185 @@
 	X(inggison, _11304TheRemainingFaithful, 11304) \
 	X(inggison, _11455WhentheTimeisRipe, 11455) \
 	X(inggison, _11458AdiassReport, 11458) \
-	X(inggison, _11460TheShulackofTaloc, 11460)
+	X(inggison, _11460TheShulackofTaloc, 11460) \
+	X(abyssal_splinter, _30255TheLastCrusade, 30255) \
+	X(abyssal_splinter, _30261WeirdFragment, 30261) \
+	X(abyssal_splinter, _30263DaevasFearToTread, 30263) \
+	X(abyssal_splinter, _30264ANecklacewithHistory, 30264) \
+	X(abyssal_splinter, _30265APolearmWalksintoaBar, 30265) \
+	X(abyssal_splinter, _30355TheProtectorsMadness, 30355) \
+	X(abyssal_splinter, _30361StrangeFragment, 30361) \
+	X(abyssal_splinter, _30363FoolsRushIn, 30363) \
+	X(abyssal_splinter, _30364RemembranceOfSpiritsPast, 30364) \
+	X(abyssal_splinter, _30365ARayOfHope, 30365) \
+	X(alabaster_order, _38000CallOfTheAlabasterOrder, 38000) \
+	X(aturam_sky_fortress, _18300FloatingDeath, 18300) \
+	X(aturam_sky_fortress, _18301MyPrecHious, 18301) \
+	X(aturam_sky_fortress, _18302FirstPriority, 18302) \
+	X(aturam_sky_fortress, _18303MakingASurCantA, 18303) \
+	X(aturam_sky_fortress, _28300FloatingDoom, 28300) \
+	X(aturam_sky_fortress, _28301PowerOn, 28301) \
+	X(aturam_sky_fortress, _28302DocumentSaved, 28302) \
+	X(aturam_sky_fortress, _28303JustAnIsland, 28303) \
+	X(bare_truth, _14030RetrievedMemory, 14030) \
+	X(bare_truth, _14031AHyperVention, 14031) \
+	X(black_cloud_traders, _39505BackbitingBotheration, 39505) \
+	X(black_cloud_traders, _39510ZorinerkVersusTheShulacks, 39510) \
+	X(black_cloud_traders, _39515UntruthUpset, 39515) \
+	X(black_cloud_traders, _39520VilmanerkVersusDragonbound, 39520) \
+	X(blood_crusade, _48001CallOfTheCrusade, 48001) \
+	X(chantra_dredgion, _3721DisarmTheChantraDredgion, 3721) \
+	X(chantra_dredgion, _3722MyNewToy, 3722) \
+	X(chantra_dredgion, _3725MyLuckyNumber, 3725) \
+	X(chantra_dredgion, _4721RiseOfChantraDredgion, 4721) \
+	X(chantra_dredgion, _4722NewWeaponTest, 4722) \
+	X(chantra_dredgion, _4725CeaselessAttack, 4725) \
+	X(charlirunerks_daemons, _48002CharlirunerksDaemonsWantYou, 48002) \
+	X(clash_of_destiny, _24030ShowdownWithDestiny, 24030) \
+	X(clash_of_destiny, _24031EnemyAtTheDoorstep, 24031) \
+	X(danuar_sanctuary, _16985ChirTreasureRobbers, 16985) \
+	X(danuar_sanctuary, _16987SeekOuttheCorridor, 16987) \
+	X(danuar_sanctuary, _26985GraveyardTreasure, 26985) \
+	X(danuar_sanctuary, _26987ExploretheElyosCorridor, 26987) \
+	X(empyrean_crucible, _18208IllusionOrInfiltration, 18208) \
+	X(empyrean_crucible, _18209ARiftInTheSpaceTwineContinuum, 18209) \
+	X(empyrean_crucible, _18212FirstBlood, 18212) \
+	X(empyrean_crucible, _18213TheChillingTruth, 18213) \
+	X(empyrean_crucible, _28208ARiftAdrift, 28208) \
+	X(empyrean_crucible, _28209CatchingTheRift, 28209) \
+	X(empyrean_crucible, _28212ATestOfBlood, 28212) \
+	X(empyrean_crucible, _28213TheColiseumSecret, 28213) \
+	X(esoterrace, _18400TheVanishings, 18400) \
+	X(esoterrace, _18402GroupRootingOutCorruption, 18402) \
+	X(esoterrace, _18405MemoriesInTheCornerOfHisMind, 18405) \
+	X(esoterrace, _18406PlayingToTheHilt, 18406) \
+	X(esoterrace, _18407GroupDrakanJournalism, 18407) \
+	X(esoterrace, _18409GroupTiamatsPowerUnleashed, 18409) \
+	X(esoterrace, _18410PursuingthePrisoners, 18410) \
+	X(esoterrace, _28400InspecttheInspectors, 28400) \
+	X(esoterrace, _28402GroupSavingDalia, 28402) \
+	X(esoterrace, _28405KexkrasPast, 28405) \
+	X(esoterrace, _28406FindersFee, 28406) \
+	X(esoterrace, _28407GroupTheGathering, 28407) \
+	X(esoterrace, _28409GroupMaketheBladeComplete, 28409) \
+	X(esoterrace, _28410FortressUnsecured, 28410) \
+	X(fatebound_abbey, _29600WelcomeBack, 29600) \
+	X(fenris_fang, _29064FangOfConstruction, 29064) \
+	X(fenris_fang, _4937RecognitionOfThePreceptors, 4937) \
+	X(fenris_fang, _4938WorkOfTheFenrisFangs, 4938) \
+	X(fenris_fang, _4939ProvingGround, 4939) \
+	X(fenris_fang, _4940DecorationsofPandaemonium, 4940) \
+	X(fenris_fang, _4941GroupPandaemoniumHonors, 4941) \
+	X(fenris_fang, _4942ProvingProficiency, 4942) \
+	X(fenris_fang, _4943LuckandPersistence, 4943) \
+	X(fenris_fang, _4944LoyaltyAndAffableness, 4944) \
+	X(field_wardens, _48000SummonsFromTheWardens, 48000) \
+	X(fortuneers, _38002FortuneersCallToArms, 38002) \
+	X(greater_stigma, _30217GroupStigmasScars, 30217) \
+	X(greater_stigma, _30317GroupSpiritsandStigmaSlots, 30317) \
+	X(haramel, _18500BigKinah, 18500) \
+	X(haramel, _18510MurderMyShugo, 18510) \
+	X(haramel, _18511OutOfThePast, 18511) \
+	X(haramel, _28500OdellaOdellaWhereArtThou, 28500) \
+	X(haramel, _28510DestroytheHaramelFacilities, 28510) \
+	X(haramel, _28511TheSoupNutsy, 28511) \
+	X(iron_wall_warfront, _16960FacetheCommander, 16960) \
+	X(iron_wall_warfront, _26960FacetheCommander, 26960) \
+	X(kaisinel_academy, _37000ToxicInstruction, 37000) \
+	X(kaisinel_academy, _37003CamouflageKillers, 37003) \
+	X(kaisinel_academy, _37006NowYouSeeThem, 37006) \
+	X(kaisinel_academy, _38006MatriculationDay, 38006) \
+	X(kaldor, _13817TheFuryWithin, 13817) \
+	X(kaldor, _23817WeeklyFreeSpirit, 23817) \
+	X(kromedes_trial, _18604MeetingWithRotan, 18604) \
+	X(kromedes_trial, _28604RecoveringRotan, 28604) \
+	X(levinshor, _13704FonasQuickFix, 13704) \
+	X(levinshor, _13708ProximityProtect, 13708) \
+	X(levinshor, _13745EljersRequest, 13745) \
+	X(levinshor, _23704LoudNoises, 23704) \
+	X(levinshor, _23708SoundtheAlarm, 23708) \
+	X(levinshor, _23745NoMoreinLevinshor, 23745) \
+	X(linkgate_foundry, _16940DiarySecrets, 16940) \
+	X(linkgate_foundry, _26940RaidtheLinkgateFoundry, 26940) \
+	X(marchutan_priory, _47000AltgardOrbIt, 47000) \
+	X(marchutan_priory, _47003AGlobalProblem, 47003) \
+	X(marchutan_priory, _47006AmplifiersWithIssues, 47006) \
+	X(marchutan_priory, _48006TheMarchutanPrioryBeckons, 48006) \
+	X(miragent_holy_templar, _19064TemplarOfConstruction, 19064) \
+	X(miragent_holy_templar, _3933ClassPreceptorConsent, 3933) \
+	X(miragent_holy_templar, _3934TheQuestForTemplars, 3934) \
+	X(miragent_holy_templar, _3935ShoulderTheBurden, 3935) \
+	X(miragent_holy_templar, _3936DecorationsOfSanctum, 3936) \
+	X(miragent_holy_templar, _3937GroupTheDecorationsofSanctum, 3937) \
+	X(miragent_holy_templar, _3938WellRounded, 3938) \
+	X(miragent_holy_templar, _3939PersistenceAndLuck, 3939) \
+	X(miragent_holy_templar, _3940Loyalty, 3940) \
+	X(nightmare_circus, _80341EventAHallowedEve, 80341) \
+	X(orichalcum_key, _37100MutantNinjaIninas, 37100) \
+	X(orichalcum_key, _37103CamoAndCarnage, 37103) \
+	X(orichalcum_key, _37106AsmoHunt, 37106) \
+	X(orichalcum_key, _37107CoolBlueWater, 37107) \
+	X(orichalcum_key, _37110MyYoungApprentice, 37110) \
+	X(orichalcum_key, _37113AsmoICU, 37113) \
+	X(orichalcum_key, _38007AKeyMessage, 38007) \
+	X(pangaea, _14220NewZoneNewRules, 14220) \
+	X(pangaea, _24220WelcometoPanesterra, 24220) \
+	X(radiant_ops, _38001RadiantOpsRecruitment, 38001) \
+	X(rentus_base, _30500Desperation, 30500) \
+	X(rentus_base, _30503RodelionRescue, 30503) \
+	X(rentus_base, _30504TheSearchforPaios, 30504) \
+	X(rentus_base, _30550MomentOfCrisis, 30550) \
+	X(rentus_base, _30553ComradesInArms, 30553) \
+	X(rentus_base, _30554SavingPrivatePaios, 30554) \
+	X(sauro_supply_base, _18910TheSauroSupplyBase, 18910) \
+	X(sauro_supply_base, _28910AStabbingInSauro, 28910) \
+	X(shugo_imperial_tomb, _80275EventEmpiresPast, 80275) \
+	X(steel_rake, _3208ThePuzzlingBlueprint, 3208) \
+	X(steel_rake, _3217ImprisonedGuardian, 3217) \
+	X(steel_rake, _3219KeyItemHiddenQuest01, 3219) \
+	X(steel_rake, _3220KeyItemHiddenQuest02, 3220) \
+	X(steel_rake, _4208TruthOfTheBookmark, 4208) \
+	X(steel_rake, _4217TheImprisonedExecutor, 4217) \
+	X(steel_rake, _4219KeyItemHiddenQuest01, 4219) \
+	X(steel_rake, _4220KeyItemHiddenQuest02, 4220) \
+	X(talocs_hollow, _11465MysteriousSeed, 11465) \
+	X(talocs_hollow, _11466AHardSeedtoCrack, 11466) \
+	X(talocs_hollow, _11467DeathToTheQueen, 11467) \
+	X(talocs_hollow, _11468WithFriendsLikeThese, 11468) \
+	X(talocs_hollow, _21465MysteriousSeed, 21465) \
+	X(talocs_hollow, _21467SpawningTheSapSuckers, 21467) \
+	X(talocs_hollow, _21468TheStruggleWithin, 21468) \
+	X(terath_dredgion, _30600FightOfTheNavigators, 30600) \
+	X(terath_dredgion, _30610TheGoodNewsAndBad, 30610) \
+	X(the_circle, _47100WardsAndWardOrbs, 47100) \
+	X(the_circle, _47103AGlobeTrottingLesson, 47103) \
+	X(the_circle, _47106TurningUpTheAmplifiers, 47106) \
+	X(the_circle, _47107WardsAndWardOrbs, 47107) \
+	X(the_circle, _47110AGlobeTrottingLesson, 47110) \
+	X(the_circle, _47113TurningUpTheAmplifiers, 47113) \
+	X(the_circle, _48007JoiningTheCircle, 48007) \
+	X(the_eternal_bastion, _18035ShebasSurveillance, 18035) \
+	X(the_eternal_bastion, _18036BastionsAreEternal, 18036) \
+	X(the_eternal_bastion, _28035TrustInNoneButVerify, 28035) \
+	X(the_eternal_bastion, _28036InterrogateKvash, 28036) \
+	X(tiamat_stronghold, _30700RaceForTheRelics, 30700) \
+	X(tiamat_stronghold, _30701TheLordOfIllusion, 30701) \
+	X(tiamat_stronghold, _30708SuramaTheBetrayer, 30708) \
+	X(tiamat_stronghold, _30709SoulSearching, 30709) \
+	X(tiamat_stronghold, _30710TheGreatRelease, 30710) \
+	X(tiamat_stronghold, _30722CheckTheGate, 30722) \
+	X(tiamat_stronghold, _30750AttackOnTiamatStronghold, 30750) \
+	X(tiamat_stronghold, _30751DeathToTheDragonLord, 30751) \
+	X(tiamat_stronghold, _30758SuramaTheBitter, 30758) \
+	X(tiamat_stronghold, _30759CountingStatues, 30759) \
+	X(tiamat_stronghold, _30760PetrifiedHeroOfTheAsmodians, 30760) \
+	X(tiamat_stronghold, _30772InvestigateTheGate, 30772) \
+	X(udas_temple, _30003SecretOfTheUdasTemple, 30003) \
+	X(udas_temple, _30005HealMeKillMe, 30005) \
+	X(udas_temple, _30011Arachnophobia, 30011) \
+	X(udas_temple, _30103LairOfTheDragonbound, 30103) \
+	X(udas_temple, _30111CenterOfTheWeb, 30111) \
+	X(wisplight_abbey, _19600WelcometoWisplightAbbey, 19600)
 // clang-format on
 
 // Lane C, phase 6 step 1 (2026-10-05): the out-of-tree golden sample (tools/gen/questgen/goldensample.py, phase6-transliterator.md §7) compiles

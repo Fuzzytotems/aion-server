@@ -115,6 +115,117 @@ Q02 = {
         '_11289VeillesGift', '_11294SpawningInvestigation', '_11304TheRemainingFaithful', '_11455WhentheTimeisRipe', '_11458AdiassReport',
         '_11460TheShulackofTaloc'),
 }
+# Phase 6 step 2, chunk Q13 (lane C, 2026-10-07; docs/deviations/Q13.md): the files of the instance directories A-K that questgen
+# transliterates, all in the tree (87 of 87; kaisinel_academy's three mentor dailies by rule stream-any-match)
+Q13 = {
+    'abyssal_splinter': (
+        '_30255TheLastCrusade', '_30261WeirdFragment', '_30263DaevasFearToTread', '_30264ANecklacewithHistory',
+        '_30265APolearmWalksintoaBar', '_30355TheProtectorsMadness', '_30361StrangeFragment', '_30363FoolsRushIn',
+        '_30364RemembranceOfSpiritsPast', '_30365ARayOfHope',),
+    'alabaster_order': (
+        '_38000CallOfTheAlabasterOrder',),
+    'aturam_sky_fortress': (
+        '_18300FloatingDeath', '_18301MyPrecHious', '_18302FirstPriority', '_18303MakingASurCantA', '_28300FloatingDoom', '_28301PowerOn',
+        '_28302DocumentSaved', '_28303JustAnIsland',),
+    'bare_truth': (
+        '_14030RetrievedMemory', '_14031AHyperVention',),
+    'black_cloud_traders': (
+        '_39505BackbitingBotheration', '_39510ZorinerkVersusTheShulacks', '_39515UntruthUpset', '_39520VilmanerkVersusDragonbound',),
+    'blood_crusade': (
+        '_48001CallOfTheCrusade',),
+    'chantra_dredgion': (
+        '_3721DisarmTheChantraDredgion', '_3722MyNewToy', '_3725MyLuckyNumber', '_4721RiseOfChantraDredgion', '_4722NewWeaponTest',
+        '_4725CeaselessAttack',),
+    'charlirunerks_daemons': (
+        '_48002CharlirunerksDaemonsWantYou',),
+    'clash_of_destiny': (
+        '_24030ShowdownWithDestiny', '_24031EnemyAtTheDoorstep',),
+    'danuar_sanctuary': (
+        '_16985ChirTreasureRobbers', '_16987SeekOuttheCorridor', '_26985GraveyardTreasure', '_26987ExploretheElyosCorridor',),
+    'empyrean_crucible': (
+        '_18208IllusionOrInfiltration', '_18209ARiftInTheSpaceTwineContinuum', '_18212FirstBlood', '_18213TheChillingTruth',
+        '_28208ARiftAdrift', '_28209CatchingTheRift', '_28212ATestOfBlood', '_28213TheColiseumSecret',),
+    'esoterrace': (
+        '_18400TheVanishings', '_18402GroupRootingOutCorruption', '_18405MemoriesInTheCornerOfHisMind', '_18406PlayingToTheHilt',
+        '_18407GroupDrakanJournalism', '_18409GroupTiamatsPowerUnleashed', '_18410PursuingthePrisoners', '_28400InspecttheInspectors',
+        '_28402GroupSavingDalia', '_28405KexkrasPast', '_28406FindersFee', '_28407GroupTheGathering', '_28409GroupMaketheBladeComplete',
+        '_28410FortressUnsecured',),
+    'fatebound_abbey': (
+        '_29600WelcomeBack',),
+    'fenris_fang': (
+        '_29064FangOfConstruction', '_4937RecognitionOfThePreceptors', '_4938WorkOfTheFenrisFangs', '_4939ProvingGround',
+        '_4940DecorationsofPandaemonium', '_4941GroupPandaemoniumHonors', '_4942ProvingProficiency', '_4943LuckandPersistence',
+        '_4944LoyaltyAndAffableness',),
+    'field_wardens': (
+        '_48000SummonsFromTheWardens',),
+    'fortuneers': (
+        '_38002FortuneersCallToArms',),
+    'greater_stigma': (
+        '_30217GroupStigmasScars', '_30317GroupSpiritsandStigmaSlots',),
+    'haramel': (
+        '_18500BigKinah', '_18510MurderMyShugo', '_18511OutOfThePast', '_28500OdellaOdellaWhereArtThou',
+        '_28510DestroytheHaramelFacilities', '_28511TheSoupNutsy',),
+    'iron_wall_warfront': (
+        '_16960FacetheCommander', '_26960FacetheCommander',),
+    'kaisinel_academy': (
+        '_37000ToxicInstruction', '_37003CamouflageKillers', '_37006NowYouSeeThem', '_38006MatriculationDay',),
+}
+# Phase 6 step 2, chunk Q14 (lane C, 2026-10-05; docs/deviations/Q14.md): the files of the instance directories K-W that questgen
+# transliterates, all in the tree (74 of 95 at the landing; the owner's decisions of 2026-10-07 added the 15 mentor dailies, rule
+# stream-any-match, and pangaea 14220/24220, rule constant-list: 91; the 4 still refused are not)
+Q14 = {
+    'kaldor': (
+        '_13817TheFuryWithin', '_23817WeeklyFreeSpirit',),
+    'kromedes_trial': (
+        '_18604MeetingWithRotan', '_28604RecoveringRotan',),
+    'levinshor': (
+        '_13704FonasQuickFix', '_13708ProximityProtect', '_13745EljersRequest', '_23704LoudNoises', '_23708SoundtheAlarm',
+        '_23745NoMoreinLevinshor',),
+    'linkgate_foundry': (
+        '_16940DiarySecrets', '_26940RaidtheLinkgateFoundry',),
+    'marchutan_priory': (
+        '_47000AltgardOrbIt', '_47003AGlobalProblem', '_47006AmplifiersWithIssues', '_48006TheMarchutanPrioryBeckons',),
+    'miragent_holy_templar': (
+        '_19064TemplarOfConstruction', '_3933ClassPreceptorConsent', '_3934TheQuestForTemplars', '_3935ShoulderTheBurden',
+        '_3936DecorationsOfSanctum', '_3937GroupTheDecorationsofSanctum', '_3938WellRounded', '_3939PersistenceAndLuck', '_3940Loyalty',),
+    'nightmare_circus': (
+        '_80341EventAHallowedEve',),
+    'orichalcum_key': (
+        '_37100MutantNinjaIninas', '_37103CamoAndCarnage', '_37106AsmoHunt', '_37107CoolBlueWater', '_37110MyYoungApprentice',
+        '_37113AsmoICU', '_38007AKeyMessage',),
+    'pangaea': (
+        '_14220NewZoneNewRules', '_24220WelcometoPanesterra',),
+    'radiant_ops': (
+        '_38001RadiantOpsRecruitment',),
+    'rentus_base': (
+        '_30500Desperation', '_30503RodelionRescue', '_30504TheSearchforPaios', '_30550MomentOfCrisis', '_30553ComradesInArms',
+        '_30554SavingPrivatePaios',),
+    'sauro_supply_base': (
+        '_18910TheSauroSupplyBase', '_28910AStabbingInSauro',),
+    'shugo_imperial_tomb': (
+        '_80275EventEmpiresPast',),
+    'steel_rake': (
+        '_3208ThePuzzlingBlueprint', '_3217ImprisonedGuardian', '_3219KeyItemHiddenQuest01', '_3220KeyItemHiddenQuest02',
+        '_4208TruthOfTheBookmark', '_4217TheImprisonedExecutor', '_4219KeyItemHiddenQuest01', '_4220KeyItemHiddenQuest02',),
+    'talocs_hollow': (
+        '_11465MysteriousSeed', '_11466AHardSeedtoCrack', '_11467DeathToTheQueen', '_11468WithFriendsLikeThese', '_21465MysteriousSeed',
+        '_21467SpawningTheSapSuckers', '_21468TheStruggleWithin',),
+    'terath_dredgion': (
+        '_30600FightOfTheNavigators', '_30610TheGoodNewsAndBad',),
+    'the_circle': (
+        '_47100WardsAndWardOrbs', '_47103AGlobeTrottingLesson', '_47106TurningUpTheAmplifiers', '_47107WardsAndWardOrbs',
+        '_47110AGlobeTrottingLesson', '_47113TurningUpTheAmplifiers', '_48007JoiningTheCircle',),
+    'the_eternal_bastion': (
+        '_18035ShebasSurveillance', '_18036BastionsAreEternal', '_28035TrustInNoneButVerify', '_28036InterrogateKvash',),
+    'tiamat_stronghold': (
+        '_30700RaceForTheRelics', '_30701TheLordOfIllusion', '_30708SuramaTheBetrayer', '_30709SoulSearching', '_30710TheGreatRelease',
+        '_30722CheckTheGate', '_30750AttackOnTiamatStronghold', '_30751DeathToTheDragonLord', '_30758SuramaTheBitter',
+        '_30759CountingStatues', '_30760PetrifiedHeroOfTheAsmodians', '_30772InvestigateTheGate',),
+    'udas_temple': (
+        '_30003SecretOfTheUdasTemple', '_30005HealMeKillMe', '_30011Arachnophobia', '_30103LairOfTheDragonbound', '_30111CenterOfTheWeb',),
+    'wisplight_abbey': (
+        '_19600WelcometoWisplightAbbey',),
+}
 # held back at the integration of slice 2 (docs/deviations/Q10.md, "Held back"): transliterated like the others, but kept out of the
 # tree because gs.scenario.travel's (and gs.scenario.ascension's) Asmodian would see them: 24010's onEnterWorldEvent starts it at the
 # Altgard arrival, and the others' start npcs put them in his SM_NEARBY_QUESTS in Pandaemonium or Altgard
@@ -189,6 +300,16 @@ class CommittedTree(unittest.TestCase):
             with self.subTest(file=f'inggison/{klass}'):
                 self.assertIn(('inggison', klass), found)
         self.assertEqual(len(Q02['inggison']), 59)
+        for directory, classes in Q14.items():
+            for klass in classes:
+                with self.subTest(file=f'{directory}/{klass}'):
+                    self.assertIn((directory, klass), found)
+        self.assertEqual(sum(len(classes) for classes in Q14.values()), 91)
+        for directory, classes in Q13.items():
+            for klass in classes:
+                with self.subTest(file=f'{directory}/{klass}'):
+                    self.assertIn((directory, klass), found)
+        self.assertEqual(sum(len(classes) for classes in Q13.values()), 87)
         self.assertEqual(len(Q10_HELD_BACK), 16)
 
     def test_the_enter_world_files_are_in_the_tree(self):

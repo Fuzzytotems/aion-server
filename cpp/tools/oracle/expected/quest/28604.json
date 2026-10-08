@@ -1,0 +1,117 @@
+{
+ "format": "aion-quest-trace",
+ "version": 1,
+ "questId": 28604,
+ "java": "kromedes_trial/_28604RecoveringRotan.java",
+ "class": "_28604RecoveringRotan",
+ "javaSha256": "49574b225ab9d8d8b3d3249d0944aa32010fa586f33252e518ac356ad8738fc1",
+ "register": [{"call": "registerOnEnterZone", "args": ["GRAND_CAVERN_300230000", 28604]}, {"npc": 700961, "event": "addOnTalkEvent", "args": [28604]}],
+ "hooks": [
+  {"hook": "onDialogEvent", "line": 34, "unsupported": "call SM_SYSTEM_MESSAGE.STR_MSG_IDCROMEDE_SKILL_01"},
+  {"hook": "onCanAct", "line": 74, "unsupported": "hook parameter Object objects"},
+  {"hook": "onEnterZoneEvent", "line": 80, "cases": 7}
+ ],
+ "cases": [
+  {
+   "id": "onEnterZoneEvent#1",
+   "hook": "onEnterZoneEvent",
+   "given": {"args": {"zoneName": {"anyExcept": ["GRAND_CAVERN_300230000"]}}},
+   "guards": ["zoneName != ZoneName.get(\"GRAND_CAVERN_300230000\") -> true @81"],
+   "effects": [],
+   "returns": false
+  },
+  {
+   "id": "onEnterZoneEvent#2",
+   "hook": "onEnterZoneEvent",
+   "given": {"args": {"zoneName": "GRAND_CAVERN_300230000"}, "questState": null},
+   "guards": [
+    "zoneName != ZoneName.get(\"GRAND_CAVERN_300230000\") -> false @81",
+    "qs == null -> true @86",
+    "QuestService.startQuest(env) -> true @88"
+   ],
+   "assume": [{"effect": 1, "returns": true}],
+   "effects": [
+    {"call": "env.setQuestId", "kind": "env", "args": [28604], "line": 87},
+    {"call": "QuestService.startQuest", "kind": "quest", "args": [], "line": 88}
+   ],
+   "returns": true
+  },
+  {
+   "id": "onEnterZoneEvent#3",
+   "hook": "onEnterZoneEvent",
+   "given": {"args": {"zoneName": "GRAND_CAVERN_300230000"}, "questState": null},
+   "guards": [
+    "zoneName != ZoneName.get(\"GRAND_CAVERN_300230000\") -> false @81",
+    "qs == null -> true @86",
+    "QuestService.startQuest(env) -> false @88"
+   ],
+   "assume": [{"effect": 1, "returns": false}],
+   "effects": [
+    {"call": "env.setQuestId", "kind": "env", "args": [28604], "line": 87},
+    {"call": "QuestService.startQuest", "kind": "quest", "args": [], "line": 88}
+   ],
+   "returns": false
+  },
+  {
+   "id": "onEnterZoneEvent#4",
+   "hook": "onEnterZoneEvent",
+   "given": {"args": {"zoneName": "GRAND_CAVERN_300230000"}, "questState": {"status": "COMPLETE", "canRepeat": true}},
+   "guards": [
+    "zoneName != ZoneName.get(\"GRAND_CAVERN_300230000\") -> false @81",
+    "qs == null -> false @86",
+    "qs.isStartable() [status == COMPLETE] -> true @86",
+    "qs.isStartable() [canRepeat] -> true @86",
+    "QuestService.startQuest(env) -> true @88"
+   ],
+   "assume": [{"effect": 1, "returns": true}],
+   "effects": [
+    {"call": "env.setQuestId", "kind": "env", "args": [28604], "line": 87},
+    {"call": "QuestService.startQuest", "kind": "quest", "args": [], "line": 88}
+   ],
+   "returns": true
+  },
+  {
+   "id": "onEnterZoneEvent#5",
+   "hook": "onEnterZoneEvent",
+   "given": {"args": {"zoneName": "GRAND_CAVERN_300230000"}, "questState": {"status": "COMPLETE", "canRepeat": true}},
+   "guards": [
+    "zoneName != ZoneName.get(\"GRAND_CAVERN_300230000\") -> false @81",
+    "qs == null -> false @86",
+    "qs.isStartable() [status == COMPLETE] -> true @86",
+    "qs.isStartable() [canRepeat] -> true @86",
+    "QuestService.startQuest(env) -> false @88"
+   ],
+   "assume": [{"effect": 1, "returns": false}],
+   "effects": [
+    {"call": "env.setQuestId", "kind": "env", "args": [28604], "line": 87},
+    {"call": "QuestService.startQuest", "kind": "quest", "args": [], "line": 88}
+   ],
+   "returns": false
+  },
+  {
+   "id": "onEnterZoneEvent#6",
+   "hook": "onEnterZoneEvent",
+   "given": {"args": {"zoneName": "GRAND_CAVERN_300230000"}, "questState": {"status": "COMPLETE", "canRepeat": false}},
+   "guards": [
+    "zoneName != ZoneName.get(\"GRAND_CAVERN_300230000\") -> false @81",
+    "qs == null -> false @86",
+    "qs.isStartable() [status == COMPLETE] -> true @86",
+    "qs.isStartable() [canRepeat] -> false @86"
+   ],
+   "effects": [],
+   "returns": false
+  },
+  {
+   "id": "onEnterZoneEvent#7",
+   "hook": "onEnterZoneEvent",
+   "given": {"args": {"zoneName": "GRAND_CAVERN_300230000"}, "questState": {"status": "START"}},
+   "guards": [
+    "zoneName != ZoneName.get(\"GRAND_CAVERN_300230000\") -> false @81",
+    "qs == null -> false @86",
+    "qs.isStartable() [status == COMPLETE] -> false @86"
+   ],
+   "effects": [],
+   "returns": false
+  }
+ ]
+}

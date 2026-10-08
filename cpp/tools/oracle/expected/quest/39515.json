@@ -1,0 +1,22 @@
+{
+ "format": "aion-quest-trace",
+ "version": 1,
+ "questId": 39515,
+ "java": "black_cloud_traders/_39515UntruthUpset.java",
+ "class": "_39515UntruthUpset",
+ "javaSha256": "ca908376e6f4854fc874ca06f109a3d7595cbaf11447a2e97a5067aa1a7f1f72",
+ "register": [
+  {"npc": 205884, "event": "addOnTalkEvent", "args": [39515]},
+  {"npc": 701154, "event": "addOnTalkEvent", "args": [39515]},
+  {"npc": 218307, "event": "addOnKillEvent", "args": [39515]},
+  {"npc": 218309, "event": "addOnKillEvent", "args": [39515]},
+  {"npc": 218311, "event": "addOnKillEvent", "args": [39515]},
+  {"npc": 218313, "event": "addOnKillEvent", "args": [39515]},
+  {"npc": 218315, "event": "addOnKillEvent", "args": [39515]}
+ ],
+ "hooks": [
+  {"hook": "onDialogEvent", "line": 35, "unsupported": "call npc.getController()"},
+  {"hook": "onKillEvent", "line": 89, "unsupported": "call Rnd.chance"}
+ ],
+ "cases": []
+}
