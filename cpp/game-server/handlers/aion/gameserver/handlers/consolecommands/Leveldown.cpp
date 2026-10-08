@@ -23,7 +23,7 @@ void Leveldown::execute(Player& admin, std::span<const std::string> params) {
 	runtime::Ptr<Player> target = runtime::as<Player>(admin.getTarget());
 	Player& player = target != nullptr ? *target : admin;
 	int32_t newLevel = player.getLevel() - commons::utils::parseInt(params[0]);
-	if (newLevel < 1 || newLevel > GSConfig::PLAYER_MAX_LEVEL.load()) {
+	if (newLevel < 1 || newLevel > GSConfig::PLAYER_MAX_LEVEL.load()) { // parity= if (newLevel < 1 || newLevel > GSConfig.PLAYER_MAX_LEVEL) {
 		sendInfo(admin, "Invalid level.");
 		return;
 	}
