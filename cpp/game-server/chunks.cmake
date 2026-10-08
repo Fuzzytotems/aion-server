@@ -440,6 +440,11 @@ aion_gs_chunk(P5-11 LEASE PHASE 5
 aion_gs_chunk(P5-11 LEASE PHASE 5
 	GLOBS "aion/gameserver/model/gameobjects/UseableItemObject.cpp")
 
+# HS-2 of M5h (granted 2026-10-08): P5-11 leases services/instance/InstanceService.cpp from P5-13 for getOrCreateHouseInstance (H-06).
+# Released when the lane merges. (The AIs of HS-2 are leased at A1 below.)
+aion_gs_chunk(P5-11 LEASE PHASE 5
+	GLOBS "aion/gameserver/services/instance/InstanceService.cpp")
+
 # P5-12b: base, rift, vortex, world raid, panesterra, conqueror/protector, events
 aion_gs_chunk(P5-12b TARGET aion_gs_worldevents PHASE 5
 	GLOBS "aion/gameserver/services/{rift,vortex,worldraid,panesterra,event,conquerorAndProtectorSystem}/**"
@@ -657,6 +662,11 @@ aion_gs_chunk(A1 TARGET aion_gs_handlers_ai_world PHASE 6 ROOT handlers
 # instance paths), compiled by #include into P5-05's test executable for the same reason (tests/handlers_ai_core/TravelAiHandlersTest.cpp).
 aion_gs_chunk(P5-05 LEASE PHASE 5 ROOT handlers
 	GLOBS "aion/gameserver/handlers/ai/quests/{AscensationNpcAI,QuestItemNpcAI}.*" "aion/gameserver/handlers/ai/portals/{PortalAI,PortalDialogAI}.*")
+# HS-2 of M5h (m5h-plan.md 14.2, granted 2026-10-08): P5-11 leases A1's handlers/ai/portals/StudioPortalAI.* (H-02) and adds P5-05's two house
+# npc AIs ButlerAI.* and HouseSignAI.* (H-01). P5-05's test executable compiles StudioPortalAI.cpp by #include, as it does PortalDialogAI.cpp
+# (tests/handlers_ai_core/HouseAiHandlersTest.cpp). Released when the lane merges.
+aion_gs_chunk(P5-11 LEASE PHASE 5 ROOT handlers
+	GLOBS "aion/gameserver/handlers/ai/portals/StudioPortalAI.*" "aion/gameserver/handlers/ai/{ButlerAI,HouseSignAI}.*")
 
 # I1-I6: vertical instance slices, each @InstanceID handler with its ai/instance directory (bin-packed to about 6-8k Java lines; handlers without
 # an AI directory go to I1). I1 owns the instance prelude.
