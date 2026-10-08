@@ -701,6 +701,40 @@ class Q02SliceTest(unittest.TestCase):
 
 
 @unittest.skipUnless(HAVE_JAVA_TREE, "Java tree not present")
+class Q14SliceTest(unittest.TestCase):
+	"""the instance directories K-W (SLICE_Q14, phase 6 step 2, lane C, 2026-10-05; docs/deviations/Q14.md)"""
+
+	# the 21 Q14 files questgen refuses (docs/deviations/Q14.md, "Not in the tree")
+	REFUSED = {
+		"levinshor/_13744AgentinNeed.java", "levinshor/_23744EffectElyosElimination.java", "pangaea/_14220NewZoneNewRules.java",
+		"pangaea/_24220WelcometoPanesterra.java", "tiamat_stronghold/_30721OminousDebrisEnergy.java",
+		"tiamat_stronghold/_30771ImpendingDebrisEnergy.java", "marchutan_priory/_47000AltgardOrbIt.java", "marchutan_priory/_47003AGlobalProblem.java",
+		"marchutan_priory/_47006AmplifiersWithIssues.java", "orichalcum_key/_37100MutantNinjaIninas.java", "orichalcum_key/_37103CamoAndCarnage.java",
+		"orichalcum_key/_37106AsmoHunt.java", "orichalcum_key/_37107CoolBlueWater.java", "orichalcum_key/_37110MyYoungApprentice.java",
+		"orichalcum_key/_37113AsmoICU.java", "the_circle/_47100WardsAndWardOrbs.java", "the_circle/_47103AGlobeTrottingLesson.java",
+		"the_circle/_47106TurningUpTheAmplifiers.java", "the_circle/_47107WardsAndWardOrbs.java", "the_circle/_47110AGlobeTrottingLesson.java",
+		"the_circle/_47113TurningUpTheAmplifiers.java"}
+
+	def test_the_q14_slice(self):
+		dirs = sorted({rel.split("/")[0] for rel in extract.SLICE_Q14} | {rel.split("/")[0] for rel in self.REFUSED})
+		java = sorted(f"{d}/{f.name}" for d in dirs for f in (extract.QUEST_DIR / d).glob("*.java"))
+		self.assertEqual(len(java), 95)
+		self.assertEqual(sorted(extract.SLICE_Q14), sorted(set(java) - self.REFUSED))
+		self.assertEqual(len(extract.SLICE_Q14), 74)
+		self.assertEqual(set(extract.SLICE_Q14) & set(extract.SLICE_TIER_A + extract.SLICE_ROUTE + extract.SLICE_Q03 + extract.SLICE_Q10 +
+		                                              extract.SLICE_Q08 + extract.SLICE_Q01 + extract.SLICE_Q02), set())
+		docs = {}
+		for rel in extract.SLICE_Q14:
+			d = extract.trace_file(tables(), extract.QUEST_DIR / rel, rel)
+			docs[d["questId"]] = d
+		# no case in eleven (the golden harness's ORACLE_REFUSES_EVERY_HOOK); their registration is traced
+		self.assertEqual(sorted(q for q, d in docs.items() if not d["cases"]),
+		                 [3208, 3217, 3219, 3220, 3939, 3940, 4208, 4217, 4219, 4220, 30553])
+		self.assertTrue(all(isinstance(d["register"], list) for d in docs.values()))
+		self.assertEqual(extract.check(rels=extract.SLICE_Q14, extra=False), [])
+
+
+@unittest.skipUnless(HAVE_JAVA_TREE, "Java tree not present")
 class ScheduledTaskTest(unittest.TestCase):
 	"""lane C (phase 6 step 1, phase6-transliterator.md §7): closures (jast's closures=True), the task of ThreadPoolManager.schedule run after the
 	hook, the item-use packets and removal around it, a bounded symbolic setQuestVar, AbyssRankEnum, and parser refusals per hook"""

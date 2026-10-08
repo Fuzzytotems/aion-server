@@ -1,0 +1,73 @@
+{
+ "format": "aion-quest-trace",
+ "version": 1,
+ "questId": 11467,
+ "java": "talocs_hollow/_11467DeathToTheQueen.java",
+ "class": "_11467DeathToTheQueen",
+ "javaSha256": "c576ff09b1c2aa542c55b3858629badd07fe2abef3cc07159e856cd035961206",
+ "register": [
+  {"call": "registerOnDie", "args": [11467]},
+  {"call": "registerOnLogOut", "args": [11467]},
+  {"call": "registerOnQuestTimerEnd", "args": [11467]},
+  {"npc": 799527, "event": "addOnQuestStart", "args": [11467]},
+  {"npc": 799503, "event": "addOnTalkEvent", "args": [11467]},
+  {"npc": 215480, "event": "addOnKillEvent", "args": [11467]}
+ ],
+ "hooks": [
+  {"hook": "onDialogEvent", "line": 32, "unsupported": "call QuestService.questTimerStart"},
+  {"hook": "onKillEvent", "line": 62, "unsupported": "call QuestService.questTimerEnd"},
+  {"hook": "onQuestTimerEndEvent", "line": 78, "unsupported": "call QuestService.questTimerStart"},
+  {"hook": "onDieEvent", "line": 98, "cases": 3},
+  {"hook": "onLogOutEvent", "line": 109, "cases": 3}
+ ],
+ "cases": [
+  {
+   "id": "onDieEvent#1",
+   "hook": "onDieEvent",
+   "given": {"questState": {"status": "START"}},
+   "guards": ["qs != null -> true @101", "qs.getStatus() == QuestStatus.START -> true @101"],
+   "effects": [{"call": "QuestService.abandonQuest", "kind": "quest", "args": [11467], "line": 102}],
+   "returns": true
+  },
+  {
+   "id": "onDieEvent#2",
+   "hook": "onDieEvent",
+   "given": {"questState": {"status": "REWARD"}},
+   "guards": ["qs != null -> true @101", "qs.getStatus() == QuestStatus.START -> false @101"],
+   "effects": [],
+   "returns": false
+  },
+  {
+   "id": "onDieEvent#3",
+   "hook": "onDieEvent",
+   "given": {"questState": null},
+   "guards": ["qs != null -> false @101"],
+   "effects": [],
+   "returns": false
+  },
+  {
+   "id": "onLogOutEvent#1",
+   "hook": "onLogOutEvent",
+   "given": {"questState": {"status": "START"}},
+   "guards": ["qs != null -> true @112", "qs.getStatus() == QuestStatus.START -> true @112"],
+   "effects": [{"call": "QuestService.abandonQuest", "kind": "quest", "args": [11467], "line": 113}],
+   "returns": false
+  },
+  {
+   "id": "onLogOutEvent#2",
+   "hook": "onLogOutEvent",
+   "given": {"questState": {"status": "REWARD"}},
+   "guards": ["qs != null -> true @112", "qs.getStatus() == QuestStatus.START -> false @112"],
+   "effects": [],
+   "returns": false
+  },
+  {
+   "id": "onLogOutEvent#3",
+   "hook": "onLogOutEvent",
+   "given": {"questState": null},
+   "guards": ["qs != null -> false @112"],
+   "effects": [],
+   "returns": false
+  }
+ ]
+}
