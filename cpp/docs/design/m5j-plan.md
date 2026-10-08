@@ -1500,3 +1500,20 @@ was taken; none was rejected outright, and two were taken in part.
 | 11 | low | Shared artefacts: the command smoke has no owner; one header-request section for all lanes; C1 and C2 share one library, its preludes and its unity batches | **holds** (unity batches are per directory, `AionChunks.cmake:600-607`) | K-09: the smoke is commands-c1's; header requests in a subsection per lane; §17.7's paragraph on the shared library (frozen preludes, the regscan unity rules, the 0.1b combined build) |
 | 12 | low | G-02 omits `gs.scenario.m5a_stress` | **holds in part**: it is registered but disabled unless `AION_STRESS_NIGHTLY=ON` | G-02 says the list leaves it out and why |
 | 13 | nit | Five slips: who added `CM_PLAY_MOVIE_END` and its two siblings; "line only" for a byte-identical `ChatCommand.h`; three K-10 ranges one line short; the slot rule's line; the body arithmetic against rev 1 | **all hold** | §17.1, §17.2 (K-01, K-10 and the total), §17.8's slot bullet |
+
+## 18. Stage 0 closed (2026-10-08, lane A, branch `lane-a/m5j-stage0-gate`)
+
+What landed for the stage-0 items, after the chat lane (K-01..K-06), the command lanes (K-07..K-10, the 41 commands of §17.4, the last six
+being the talking family of `lane-a/gm-talk`) and I-02 had merged:
+
+| Item | State | Where |
+|---|---|---|
+| **H-03** | done: `tools/parity` reads chat commands (the region after the `AION_*_COMMAND` marker, `super(...)` as the base initializer, text blocks and adjacent literals as values, the command rewrites) and has the per-line waiver of handlers-and-porting-plan.md §3.1 item 2 in two forms, `// parity: <reason>` and `// parity= <Java>` (read with the Java rules). 41 of 41 command files at parity; no real divergence found (one ASCII-only `equalsIgnoreCase` edge in //enemy noted) | `tools/parity` (README, 41 tests), docs/deviations/C1.md |
+| **H-02** | done: the GM account seed (`account_data.access_level` in the gate's login schema, after the accounts' autocreating first login), `GameSession::buildCM_CHAT_MESSAGE_PUBLIC` / `buildGmCommand` / `buildCM_CHAT_MESSAGE_WHISPER` / `buildCM_BUILDER_COMMAND`; the `SM_MESSAGE` decoder already existed (M5c) | `tests/scenario/GmScenarioTest.cpp`, `GameSession.h` |
+| **G-01** (`gs.scenario.gm`) | done, narrowed: X1, X3, X4/X5 (P's side), X6, X7, X8 as one command per family, X10; X2 waits for H-01's oracle; X8b, X8c and X11 are part 0.2's | docs/deviations/P5-SC.md, "M5j stage-0 GM gate" |
+| **H-01** (`oracle.py m5j-commands`) | **open**: the gate's texts are Java literals and Java computations named at each assertion | |
+| **C-03** (`gs.scenario.chat`) and I-03 | **open** (part 0.2; the chat server link) | |
+| **G-02** (every gate re-greened) | the integrator's, at the merge | |
+
+§17.11 item 6 (the four first-login quest handlers) did not block X1: they are still held back, and X1 asserts the login commands' answers by
+presence in the enter-world burst.

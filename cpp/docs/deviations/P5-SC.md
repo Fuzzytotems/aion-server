@@ -1069,3 +1069,28 @@ alliance 1 and C's leave disbanding alliance 2; the reports add `League`, `Leagu
 `gs.scenario.m5g` failed once at C12: B got no experience from kill 3 (GP11), which every earlier run counted. The re-run passed in
 258.1 s. Nothing on the branch touches the party reward path; the cause (B dead or out of range at that kill) is open. **Mutation proof**: `LeagueMoveEvent` without its position messages - killed (GA8 only); an expel that leaves the league of one alive -
 killed (GA9, and GA11: `League` live at the stop).
+
+## M5j stage-0 GM gate (lane A, 2026-10-08): `gs.scenario.gm` (m5j-plan.md §10.2 / §17.8, H-02)
+
+`tests/scenario/GmScenarioTest.cpp`, its allow-list `gm_partial_allowlist.txt` (the startup set of the travel list) and the registration in
+`ScenarioTests.cmake` (gate slot 1, TIMEOUT 1800, no geo variant, the discovered case DISABLED). `GameSession` gains the chat and GM
+builders of H-02: `CM_CHAT_MESSAGE_PUBLIC` (27), `CM_CHAT_MESSAGE_WHISPER` (28), `CM_BUILDER_COMMAND` (41) and `buildGmCommand(text)`, a
+NORMAL chat line, which is how the client sends a chat command. The `SM_MESSAGE` decoder already existed (`decoders::decodeMessage`,
+M5c's C2b). Three Elyos accounts: G (access level 9), L (1), P (0). The access levels are written into the login schema's
+`account_data.access_level` after the accounts' first login (they are created there by autocreate) and before the first enter world.
+
+| Area | As built | Reason |
+|---|---|---|
+| §10.2's rows | X1, X3, X4 (with X5's race bytes of P), X6, X7, X8 as one command per family (//online, //announce, CM_BUILDER_COMMAND `levelup 1` and an unknown name, //addexp, .gmlist, //spawn 210663 and //kill), X10 | X2 renders every command's `help` from H-01's oracle (not built); X8b, X8c and X11 are the riders' and part 0.2's; Q (the Asmodian of X5) is left out: P's echo and G's reading pin both ends of the race byte that matter (0 for staff, id + 1 for a player) |
+| Texts | Java literals and Java computations named at each assertion (ChatUtil.l10n, ChatUtil.charName with the access level's custom tag of admin.properties:18) | §17.10: no oracle yet; nothing comes from the port |
+| X1's texts | asserted by presence in the enter-world burst | the login announcement (GMService.scheduleBroadcastLogin, 15 s) and the revision text add messages around them |
+| Profile | the keys of §17.8 pinned (`login.execute_commands`, `print_revision`, `chat.factions.enable`, `chat.whisper.level`, `chatserver.enable`, `simple.secondclass.enable`) | §17.8 |
+
+**Runs**: the first run failed X8c, X8d and X8e on the test's own text: G's name carries the access-level tag of
+`gameserver.administration.customtags` (Player.getName(true)); the expectation now builds it from the Java default. Then green in 55.5 s.
+**Mutation proof**: 12 mutants behind `AION_GMGATEMUT` in the server (the login commands not run; access granted to everyone; a player's
+refused command swallowed; the staff reader given the race byte; canChat ignoring the ban; the ban never stored; no console command found;
+//online's plural; //announce as a plain message; //addexp adding twice; no GM available; //kill refusing every target), **12 of 12
+killed** (X1; X3 and X4; X4; X4; X7; X7; X8c; X8a; X8b; X8d; X8e; X8f), each by one gate run; the access mutant first slipped through X3
+(the access text is sent before the mutated return) and X3 now also asserts that //kill did not run (no syntax answer). Sources restored
+and sha256-checked (10 files), rebuilt, the switch string absent from the build tree, the gate green again.
