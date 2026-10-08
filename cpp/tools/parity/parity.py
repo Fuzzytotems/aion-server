@@ -53,6 +53,10 @@ Documented renames (each undoes one emitter idiom of phase6-questgen-prototype.m
 - the capture spelling of questgen's scheduled-closure rule (G1 lane, phase6-transliterator.md §2.2): in a lambda capture list,
   `name = runtime::Ref<T>(name)` (the Ptr<T> local captured as the Ref<T> lint L5 asks for) is the captured `name`, not a call; a
   `runtime::Ref<T>(x)` anywhere else, or whose argument is not the captured name, still is.
+- questgen's rules of the owner's decisions on Q14 (lane C, 2026-10-07; phase6-transliterator.md §12): Java `x.stream().anyMatch(` is C++
+  `std::ranges::any_of(x, ` (the `stream()` is not a call, `any_of` is `anyMatch`); a Java constant list
+  `new ArrayList<>(Arrays.asList(a, b))` is the C++ `std::array` initialiser `{a, b}` (neither `ArrayList` nor `asList` is a call, the
+  literals stay); any other `stream()`, `asList` or `new ArrayList<>(x)` still is a call.
 
     python parity.py pair JAVA CPP [--json]
     python parity.py tree --java-dir DIR --cpp-dir DIR [--only REL ...] [--json OUT] [--require-all]
@@ -156,7 +160,7 @@ NOT_OPERAND_WORDS = frozenset('''return case new throw else do instanceof delete
 # calls whose argument order moves in C++ (an enum method becomes a companion free function taking the enum first)
 COMPANIONS = frozenset(('getId', 'id', 'getRewardPageByIndex', 'getStartingClass', 'isStartingClass'))
 CALL_RENAMES = {'front': 'getFirst', 'back': 'getLast', 'empty': 'isEmpty', 'at': 'get', 'super': 'AbstractQuestHandler',
-                'push_back': 'add'}
+                'push_back': 'add', 'any_of': 'anyMatch'}
 # Java collections a hand port declares as a default-constructed local std::vector: `new ArrayList<>()` with no argument is not a call
 JAVA_DEFAULT_CONSTRUCTED = frozenset(('ArrayList',))
 BINARY_OPS = frozenset('== != < > <= >= && || + - * / % & | ^ << >> >>> ?'.split())
@@ -178,6 +182,7 @@ IDIOMS = (
     'push_back is add; Java new ArrayList<>() with no argument is not a call; an anonymous new Runnable() { run() } is a C++ lambda',
     'std::string(enumName(x)) beside a + is Java string concatenation with an enum (Enum.toString): neither is a call',
     'a lambda init-capture name = runtime::Ref<T>(name) (questgen rule scheduled-closure) is the captured name, not a call',
+    'x.stream().anyMatch( is std::ranges::any_of(x, ; new ArrayList<>(Arrays.asList(a, b)) is the std::array initialiser {a, b}',
 )
 
 
@@ -270,11 +275,34 @@ def _match(toks, i):
 
 
 def _java_rewrites(toks):
-    """Java spellings rewritten into the C++ shape of an emitter rule (the workItems accessor rule)"""
+    """Java spellings rewritten into the C++ shape of an emitter rule (the workItems accessor rule; rules stream-any-match and
+    constant-list)"""
     out = []
     i = 0
+    closers = set()
     while i < len(toks):
         t = toks[i]
+        if t.text == 'stream' and [x.text for x in toks[i + 1:i + 6]] == ['(', ')', '.', 'anyMatch', '('] and out and out[-1].text == '.':
+            out.pop()                           # x.stream().anyMatch( -> anyMatch(x, : the C++ any_of(x, ...) order; stream is not a call
+            start = _receiver_start(out)
+            out[start:start] = [Tok('ident', 'anyMatch'), Tok('op', '(')]
+            out.append(Tok('op', ','))
+            i += 6
+            continue
+        if t.text == 'new' and [x.text for x in toks[i + 1:i + 9]] == ['ArrayList', '<', '>', '(', 'Arrays', '.', 'asList', '(']:
+            outer = _match(toks, i + 4)
+            inner = _match(toks, i + 8)
+            if outer == inner + 1:              # new ArrayList<>(Arrays.asList(...)) -> { ... }
+                out.append(Tok('op', '{'))
+                closers.add(inner)
+                closers.add(outer)
+                i += 9
+                continue
+        if i in closers:
+            if toks[i - 1].text != ')' or i - 1 not in closers:
+                out.append(Tok('op', '}'))
+            i += 1
+            continue
         if t.text == 'workItems' and i + 4 < len(toks) and toks[i + 1].text == '.' and toks[i + 2].text in ('getFirst', 'getLast') \
                 and toks[i + 3].text == '(' and toks[i + 4].text == ')':
             out += [t, Tok('op', '.'), Tok('ident', 'get'), Tok('op', '(')]
@@ -289,6 +317,30 @@ def _java_rewrites(toks):
         out.append(t)
         i += 1
     return out
+
+
+def _receiver_start(out):
+    """the index in out where the postfix chain ending out (`a.b(c).d`) starts"""
+    j = len(out) - 1
+    while j >= 0:
+        if out[j].text == ')':
+            depth = 0
+            while j >= 0:
+                if out[j].text == ')':
+                    depth += 1
+                elif out[j].text == '(':
+                    depth -= 1
+                    if depth == 0:
+                        break
+                j -= 1
+            j -= 1
+        if j < 0 or out[j].kind != 'ident':
+            return j + 1
+        if j > 0 and out[j - 1].text == '.':
+            j -= 2
+            continue
+        return j
+    return 0
 
 
 def _cpp_rewrites(toks, static_imports):
