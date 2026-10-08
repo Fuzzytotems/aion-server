@@ -35,8 +35,10 @@ void AbyssService::announceHighRankedDeath(Player& victim) {
 		[&victim](Player& p) { return &p != &victim && victim.getWorldType() == p.getWorldType() && !p.isInInstance(); });
 }
 
+// Java AbyssService.java:33-36. `p != player` is a reference comparison (the addresses), as announceHighRankedDeath's
 void AbyssService::announceAbyssSkillUsage(model::gameobjects::player::Player& player, std::string_view skillL10n) {
-	AION_UNPORTED();
+	utils::PacketSendUtility::broadcastToWorld(SM_SYSTEM_MESSAGE::STR_SKILL_ABYSS_SKILL_IS_FIRED(player, skillL10n),
+		[&player](Player& p) { return &p != &player && player.getWorldType() == p.getWorldType() && !p.isInInstance(); });
 }
 
 } // namespace aion::gameserver::services::abyss
