@@ -990,3 +990,9 @@ member to `SystemMailService.sendMail`, which dereferences it.
 `resetLegionDominionRank` (P5-12b). `resetLegionDominionRank` reaches `updateBuffAndNotifyNearbyPlayers` only for a protector with a legion
 dominion rank, which only `onEnterZone` in an occupied dominion zone creates (M5i); that body stays P5-12b's. Released when the lane merges.
 S-07's first part is `tests/legionhouse/LegionServiceTest.cpp` (database tests under gate_lock); S-08 and the packets (P-01) are next.
+
+**S-08 (lane B, 2026-10-08)**: `startWeeklyCalculation`, `updateLegionOccupation`, `getLegionRanking`, `getRewards`, `reset` ported on
+`lane-b/m5h-s08`; `LegionDominionWeeklyTest` (4 database cases: no participants, the ranked winner with the previous occupier cleared, a
+disbanding winner, the rewards by rank). The reward mails reach `SystemMailService::sendMail` with the shipped item ids; the cases bind no item
+templates, so sendMail answers false there and the mail itself is SystemMailService's to test. Java's `dominionRewards.get(i + 1)` is null for
+a rank without rewards (a NullPointerException, kept).
