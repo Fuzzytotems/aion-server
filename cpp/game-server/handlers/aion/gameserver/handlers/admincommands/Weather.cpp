@@ -26,8 +26,8 @@ void Weather::execute(Player& admin, std::span<const std::string> params) {
 		sendInfo(admin);
 		return;
 	}
-	const std::string command = commons::utils::StringUtils::toLowerCase(params[0]);
-	if (command == "info") {
+	const std::string command = commons::utils::StringUtils::toLowerCase(params[0]); // parity= switch (params[0].toLowerCase()) {
+	if (command == "info") { // parity= case "info":
 		for (const runtime::Ptr<ZoneInstance>& regionZone : admin.findZones()) {
 			if (regionZone->getZoneTemplate()->getZoneType() == ZoneClassName::WEATHER) {
 				int32_t weatherZoneId = DataManager::ZONE_DATA->getWeatherZoneId(*regionZone->getZoneTemplate());
@@ -39,7 +39,7 @@ void Weather::execute(Player& admin, std::span<const std::string> params) {
 					} else {
 						if (weatherEntry->getZoneId() > 0)
 							info += "\n\tzone: " + std::to_string(weatherEntry->getZoneId());
-						if (!weatherEntry->getWeatherName().empty()) // Java: getWeatherName() != null (C++: an absent name is empty)
+						if (!weatherEntry->getWeatherName().empty()) // parity= if (weatherEntry.getWeatherName() != null) // C++: an absent name is empty (docs/deviations/C1.md)
 							info += "\n\tname: " + weatherEntry->getWeatherName();
 						info += "\n\tcode: " + std::to_string(weatherEntry->getCode());
 					}
@@ -51,7 +51,7 @@ void Weather::execute(Player& admin, std::span<const std::string> params) {
 		sendInfo(admin, "No weather found for this region.");
 		return;
 	}
-	if (command == "set" || command == "next") {
+	if (command == "set" || command == "next") { // parity= case "set": case "next":
 		int32_t weatherCode;
 		if (commons::utils::StringUtils::equalsIgnoreCase(params[0], "next")) {
 			if (params.size() != 1) {
@@ -69,7 +69,7 @@ void Weather::execute(Player& admin, std::span<const std::string> params) {
 		if (WeatherService::getInstance().changeWeather(admin.getWorldId(), weatherCode)) {
 			// findWeatherEntry never returns null (it falls back to WeatherEntry.NONE); an absent name is empty (Java null)
 			const std::string& weatherName = WeatherService::getInstance().findWeatherEntry(admin)->getWeatherName();
-			sendInfo(admin, "Changed the weather" + (weatherName.empty() ? std::string(".") : " to " + weatherName + "."));
+			sendInfo(admin, "Changed the weather" + (weatherName.empty() ? std::string(".") : " to " + weatherName + ".")); // parity= sendInfo(admin, "Changed the weather" + (weatherName == null ? "." : " to " + weatherName + "."));
 		} else {
 			sendInfo(admin, "This region has no weather defined.");
 		}
