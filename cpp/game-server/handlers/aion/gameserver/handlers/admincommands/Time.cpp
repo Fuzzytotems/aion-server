@@ -64,7 +64,7 @@ void Time::execute(Player& admin, std::span<const std::string> params) {
 	}
 	gameTime->addMinutes(minutesToAdd);
 	PacketSendUtility::broadcastToWorld(SM_GAME_TIME());
-	sendInfo(admin, "You changed the time to " + std::to_string(gameTime->getHour()) + ":" + std::format("{:02d}", gameTime->getMinute()) + ".");
+	sendInfo(admin, "You changed the time to " + std::to_string(gameTime->getHour()) + ":" + std::format("{:02d}", gameTime->getMinute()) + "."); // parity= sendInfo(admin, "You changed the time to " + gameTime.getHour() + ":" + String.format("%02d", gameTime.getMinute()) + ".");
 }
 
 } // namespace aion::gameserver::handlers::admincommands
