@@ -108,6 +108,7 @@
 #include "aion/gameserver/model/templates/quest/QuestItems.h"
 #include "aion/gameserver/model/templates/rewards/BonusType.h"
 #include "aion/gameserver/services/GameTimeService.h"
+#include "aion/gameserver/services/HousingService.h"
 #include "aion/gameserver/services/QuestService.h"
 #include "aion/gameserver/services/BrokerService.h"
 #include "aion/gameserver/utils/PacketSendUtility.h"
@@ -1485,6 +1486,9 @@ protected:
 			else if (call == "PacketSendUtility.sendPacket" && a.size() == 1 &&
 				a[0].value("new", std::string()) == "SM_SYSTEM_MESSAGE.STR_MSG_DailyQuest_Ask_Mentee" && a[0]["args"].empty())
 				utils::PacketSendUtility::sendPacket(player, network::aion::serverpackets::SM_SYSTEM_MESSAGE::STR_MSG_DailyQuest_Ask_Mentee());
+			// chunk Q05's rest (lane C, 2026-10-08): the studio of the housing quests 18802 / 28802 (extract.py, questgen row B47)
+			else if (call == "HousingService.registerPlayerStudio" && a.empty())
+				::aion::gameserver::services::HousingService::getInstance().registerPlayerStudio(player);
 			// lane C (phase 6 step 1): the effects of the hooks and closures the harness drives since (extract.py: ThreadPoolManager.schedule,
 			// PacketSendUtility.broadcastPacket, inventory.decreaseByObjectId), the kill-ranked helper (AbstractQuestHandler.java:749-787) and the
 			// helper overloads of the corpus outside the tree (sendQuestRewardDialog :1151, checkItemExistence :576-609, defaultCloseDialog with
@@ -1875,6 +1879,14 @@ const std::set<std::string>& knownNotReproducible() {
 		// that holds it runs and compares the path
 		"4937 onDialogEvent#37",
 		"4937 onDialogEvent#46",
+		// Chunk Q05, the rest (lane C, 2026-10-08). A COMPLETE state with canRepeat false, which max_repeat_count 255 never gives (as 1687's
+		// rows): 18826, 3326, 50009
+		"18826 onDialogEvent#3",
+		"18826 onDialogEvent#21",
+		"3326 onDialogEvent#7",
+		"3326 onDialogEvent#19",
+		"50009 onDialogEvent#3",
+		"50009 onDialogEvent#33",
 		// The owner's decisions of 2026-10-07 on Q14, the five mentor dailies whose dialog hook the oracle traces (the other ten stop at
 		// `npc.getController()`): their templates are npc faction quests (npcfaction_id 9, 10, 11) of minlevel_permitted 99, so
 		// QuestService.startQuest's faction check (QuestService.java startQuest: the faction of the template active with this quest) holds in
@@ -1953,6 +1965,10 @@ const std::map<std::string, std::string>& knownVacuous() {
 		"changes nothing then (AbstractQuestHandler.java:726-747)";
 	static const std::string REWARD_DIALOG_IDLE = "sendQuestRewardDialog outside REWARD or at another npc than its reward npc: it does "
 		"nothing then (AbstractQuestHandler.java:1151-1164)";
+	// chunk Q05's rest (lane C, 2026-10-08): the studio of 18802 (28802 with Q09's rest)
+	static const std::string STUDIO_NO_HOUSE_DATA = "HousingService.registerPlayerStudio needs the housing static data (HOUSE_DATA), which the golden "
+		"fixture does not load, so it adds nothing observable in either run; then sendQuestEndDialog with SELECTED_QUEST_NOREWARD does nothing "
+		"(AbstractQuestHandler.java:414-472). Lane B's M5h studio cases run it on the real data";
 	static const std::string KILLS_ASSUMED_FALSE = "every kill helper of the path assumed false: it changes nothing then (AbstractQuestHandler.java "
 		"defaultOnKillEvent)";
 	static const std::map<std::string, std::string> known = [] {
@@ -2074,6 +2090,26 @@ const std::map<std::string, std::string>& knownVacuous() {
 		{"3968 onDialogEvent#9", IDLE_END},
 		{"3968 onDialogEvent#11", IDLE_END},
 		{"3210 onKillEvent#3", KILLS_ASSUMED_FALSE},
+		// chunk Q05, the rest (lane C, 2026-10-08): sendQuestEndDialog in a state or with an action it does not act on, and 1376's and
+		// 3329's kill helpers assumed false
+		{"1311 onDialogEvent#15", IDLE_END},
+		{"1314 onDialogEvent#13", IDLE_END},
+		{"1314 onDialogEvent#14", IDLE_END},
+		{"1322 onDialogEvent#8", IDLE_END},
+		{"1324 onDialogEvent#16", IDLE_END},
+		{"1324 onDialogEvent#17", IDLE_END},
+		{"1363 onDialogEvent#8", IDLE_END},
+		{"1422 onDialogEvent#5", IDLE_END},
+		{"1452 onDialogEvent#16", IDLE_END},
+		{"1452 onDialogEvent#17", IDLE_END},
+		{"1466 onDialogEvent#12", IDLE_END},
+		{"1466 onDialogEvent#13", IDLE_END},
+		{"1469 onDialogEvent#8", IDLE_END},
+		{"3319 onDialogEvent#13", IDLE_END},
+		{"3329 onDialogEvent#9", IDLE_END},
+		{"1376 onKillEvent#3", KILLS_ASSUMED_FALSE},
+		{"3329 onKillEvent#3", KILLS_ASSUMED_FALSE},
+		{"18802 onDialogEvent#22", STUDIO_NO_HOUSE_DATA},
 		};
 		// P6-Q slice 2 (Q10): the altgard and pandaemonium traces (GoldenKnownVacuousQ10.h)
 		for (const auto& [key, kind] : Q10_VACUOUS) {
@@ -2113,12 +2149,15 @@ const std::map<std::string, std::string>& knownUnported() {
  * (spawnForFiveMinutesInFrontOf), black_cloud_traders 39505, 39510, 39515, 39520 (getController(); Rnd.chance in the kill hook).
  * Chunk Q11 (lane C): sanctum 1900, 1917, 1932, 1938, 1963, 1964 (a status read after sendQuestNoneDialog), 1901, 3961-3964
  * (tryDecreaseKinah), 1926 (TeleportService.teleportTo), 1947 (the packed getQuestVars().getQuestVars()), 3908 (spawn), 80291, 80295
- * (getEquipment); daevanion 1989, 2989 (PlayerCommonData.getDp), 1993, 1994, 2993, 2994 (a for loop the oracle does not unroll)
+ * (getEquipment); daevanion 1989, 2989 (PlayerCommonData.getDp), 1993, 1994, 2993, 2994 (a for loop the oracle does not unroll).
+ * Chunk Q05, the rest (lane C): eltnen 1430, 1482 (TeleportService.teleportTo), 1463 (an item count read after removeQuestItem), 1468
+ * (EmotionId.STAND), 1483, 1484 (workItems.getFirst)
  */
 constexpr int32_t ORACLE_REFUSES_EVERY_HOOK[] = {1205, 2132, 1640, 1647, 2925, 2938, 2952, 4966, 4967, 4968, 4969, 21004, 21027, 21033, 21036,
 	21071, 21105, 21249, 25052, 2798, 11031, 11032, 11033, 11053, 11118, 3208, 3217, 3219, 3220, 4208, 4217, 4219, 4220, 3939, 3940, 30553,
 	4943, 4944, 30217, 30317, 39505, 39510, 39515, 39520,
-	1900, 1901, 1917, 1926, 1932, 1938, 1947, 1963, 1964, 1989, 1993, 1994, 2989, 2993, 2994, 3908, 3961, 3962, 3963, 3964, 80291, 80295};
+	1900, 1901, 1917, 1926, 1932, 1938, 1947, 1963, 1964, 1989, 1993, 1994, 2989, 2993, 2994, 3908, 3961, 3962, 3963, 3964, 80291, 80295,
+	1430, 1463, 1468, 1482, 1483, 1484};
 
 TEST_F(GoldenQuestTraceTest, EveryExpectedDocumentHasAGeneratedHandlerAndEveryHandlerADocument) {
 	std::vector<int32_t> ids = expectedQuestIds();
