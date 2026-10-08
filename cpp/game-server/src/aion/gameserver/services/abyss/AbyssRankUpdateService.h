@@ -31,7 +31,8 @@ private:
 	 *          the race that will be updated
 	 */
 	static void updateQuotaRanksForRace(model::Race race, utils::stats::AbyssRankEnum minRank);
-	static int32_t selectAndUpdateQuotaRank(utils::stats::AbyssRankEnum rank, const std::vector<dao::AbyssRankDAO::RankingListPlayerGp>& rankingList, int32_t usedQuota);
+	/** C++: the list by non-const reference (header request m5j-s1-02): Java's iterator.remove() takes the ranked players out of the caller's list */
+	static int32_t selectAndUpdateQuotaRank(utils::stats::AbyssRankEnum rank, std::vector<dao::AbyssRankDAO::RankingListPlayerGp>& rankingList, int32_t usedQuota);
 	static void updateToNoQuotaRank(const std::unordered_map<int32_t, int32_t>& apByPlayerId);
 	static void updateRankTo(utils::stats::AbyssRankEnum newRank, int32_t playerId, int32_t rankingPosition);
 	static void updateDailyGpLoss();

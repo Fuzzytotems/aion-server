@@ -5,6 +5,13 @@
 #include <utility>
 
 #include "aion/commons/logging/LoggerFactory.h"
+#include "aion/commons/utils/Rnd.h"
+#include "aion/commons/utils/TimeUtils.h"
+#include "aion/gameserver/model/Race.h"
+#include "aion/gameserver/model/templates/bounty/BountyTemplate.h"
+#include "aion/gameserver/runtime/base/Exceptions.h"
+#include "aion/gameserver/runtime/sync/Monitor.h"
+#include "aion/gameserver/services/item/ItemService.h"
 #include "aion/gameserver/controllers/attack/AggroList.h"
 #include "aion/gameserver/controllers/attack/DamageInfo.h"
 #include "aion/gameserver/controllers/attack/DamageList.h"
@@ -43,20 +50,46 @@ PvpService& PvpService::getInstance() {
 	return instance;
 }
 
+// Java PvpService.java:68-84
 void PvpService::sendBountyReward(model::gameobjects::player::Player& player, model::templates::bounty::BountyType type, int32_t killScore) {
-	AION_UNPORTED();
+	for (const model::templates::bounty::KillBountyTemplate* template_ : killBounties) {
+		if (template_->getBountyType() != type || template_->getKillCount() != killScore)
+			continue;
+		if (template_->getRaceCondition() != model::Race::PC_ALL && template_->getRaceCondition() != player.getRace())
+			continue;
+		std::vector<const model::templates::bounty::BountyTemplate*> bounties;
+		if (template_->isRandomReward())
+			bounties.push_back(commons::utils::Rnd::get(template_->getBounties())); // Java: Rnd.get(list), null for an empty list
+		else
+			for (const model::templates::bounty::BountyTemplate& bounty : template_->getBounties())
+				bounties.push_back(&bounty);
+
+		for (const model::templates::bounty::BountyTemplate* bounty : bounties) {
+			if (bounty == nullptr) // Java: bounty.getItemId() on the null of an empty random list
+				throw runtime::NullPointerException("BountyTemplate");
+			item::ItemService::addItem(player, bounty->getItemId(), bounty->getCount(), true,
+				*item::ItemService::ItemUpdatePredicate::create(item::ItemPacketService_ItemAddType::ITEM_COLLECT,
+					item::ItemPacketService_ItemUpdateType::INC_CASH_ITEM));
+		}
+	}
 }
 
+// Java PvpService.java:86-88
 void PvpService::finalizeHeadhuntingSeason() {
-	AION_UNPORTED();
+	headhunters.clear();
 }
 
 void PvpService::doReward(Player& victim) {
 	doReward(victim, 1);
 }
 
+// Java PvpService.java:94-97 (synchronized)
 runtime::Ptr<model::event::Headhunter> PvpService::getHeadhunterById(int32_t objId) {
-	AION_UNPORTED();
+	SYNCHRONIZED(*this) {
+		runtime::Ptr<model::event::Headhunter> headhunter = headhunters.putIfAbsent(objId,
+			model::event::Headhunter::create(objId, 0, commons::utils::currentTimeMillis(), model::gameobjects::Persistable::PersistentState::UPDATE_REQUIRED));
+		return headhunter != nullptr ? headhunter : headhunters.get(objId);
+	}
 }
 
 void PvpService::doReward(Player& victim, float apWinMulti) {
@@ -107,8 +140,9 @@ void PvpService::updateKillQuests(const std::vector<runtime::Ptr<model::gameobje
 	AION_UNPORTED();
 }
 
+// Java PvpService.java:276-278
 runtime::Ptr<model::event::Headhunter> PvpService::getHeadhunter(int32_t hunterId) {
-	AION_UNPORTED();
+	return headhunters.get(hunterId);
 }
 
 } // namespace aion::gameserver::services
