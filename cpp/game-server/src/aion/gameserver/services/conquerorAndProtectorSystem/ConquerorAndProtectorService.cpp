@@ -121,11 +121,20 @@ void ConquerorAndProtectorService::onLeaveZone(model::gameobjects::player::Playe
 }
 
 void ConquerorAndProtectorService::onLeaveLegion(model::gameobjects::player::Player& player) {
-	AION_UNPORTED();
+	// P5-11 lease (m5h-plan.md I-02, S-06)
+	if (configs::main::CustomConfig::CONQUEROR_AND_PROTECTOR_SYSTEM_ENABLED.load())
+		resetLegionDominionRank(player);
 }
 
 void ConquerorAndProtectorService::resetLegionDominionRank(model::gameobjects::player::Player& player) {
-	AION_UNPORTED();
+	// P5-11 lease (m5h-plan.md I-02, S-06); updateBuffAndNotifyNearbyPlayers stays P5-12b's (unported)
+	runtime::Ptr<CPInfo> cpInfo = protectors.get(player.getObjectId());
+	if (cpInfo && cpInfo->getLDRank() > 0) {
+		cpInfo->setLDRank(0);
+		updateBuffAndNotifyNearbyPlayers(player, *cpInfo);
+		if (cpInfo->getRank() == 0)
+			protectors.remove(player.getObjectId());
+	}
 }
 
 bool ConquerorAndProtectorService::isOccupiedLegionDominionZone(model::gameobjects::player::Player& player, world::zone::ZoneInstance& zone) {
