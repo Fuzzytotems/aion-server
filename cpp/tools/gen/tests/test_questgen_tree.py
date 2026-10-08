@@ -115,6 +115,29 @@ Q02 = {
         '_11289VeillesGift', '_11294SpawningInvestigation', '_11304TheRemainingFaithful', '_11455WhentheTimeisRipe', '_11458AdiassReport',
         '_11460TheShulackofTaloc'),
 }
+# Phase 6 step 2, chunk Q11 (lane C, 2026-10-08; docs/deviations/Q11.md): the files of daevanion and sanctum that questgen
+# transliterates, in the tree but for the escort _3212 (71 of 74; 1990 and 1929 are refused for API gaps; docs/deviations/Q11.md)
+Q11 = {
+    'daevanion': (
+        '_19631CoastalCrush', '_19632CascadeCritters', '_19633AlisaryAssistance', '_19634FurtherAidforAlisary', '_19635SouthernQuell',
+        '_19636FinalStabilization', '_19637OnboardforOne', '_19638TroublewithTwos', '_19639TreesandThrees', '_19640FlyingthroughFour',
+        '_19641FidgetyFives', '_19642SuccessforSix', '_1988AMeetingWithASage', '_1989ASagesTeachings', '_1993AnotherBeginning',
+        '_1994ANewChoice', '_29631GlugGlugGlug', '_29632SweepingNahorLake', '_29633StabilizetheSaplands', '_29634ScaredSkurvs',
+        '_29635BeachDay', '_29636BacktoSurt', '_29637TroubleNotTrivial', '_29638NotSoSweet', '_29639MonstersUnholy',
+        '_29640FinalKrugClearing', '_29641MoveAlongNow', '_29642GoodOnGelkmaros', '_2988TheWiseInDisguise', '_2989CeremonyOfTheWise',
+        '_2990MakingTheDaevanionWeapon', '_2993AnotherBeginning', '_2994ANewChoice', '_80291DurableDaevanionWeapon',
+        '_80295DurableDaevanionWeapon',),
+    'sanctum': (
+        '_19004PeriklessInsight', '_1900RingImbuedAether', '_1901KrallicPotion', '_19047JustBetweenMeAndFasimedes',
+        '_19048AndreasTeachings', '_1908UlaguruSpeaks', '_1909ASongOfPraise', '_1917ALingeringMystery', '_1918AnAxForNamus',
+        '_1926SecretLibraryAccess', '_1928ChasingaCriminal', '_1932AMatterOfReputation', '_1935TissueIDontEvenKnowYou',
+        '_1936WhatNerisonSaw', '_1937ALepharistMonstrosity', '_1938BlackCloudFakery', '_1940WingsofMastery', '_1947ALuckyDay',
+        '_1948WheresVindachinerk', '_1963DeliveryfortheOuterPort', '_1964ASouvenirForNoris', '_1987ABiggerWarehouse',
+        '_3210RescueHaorunerk', '_3908ToMastertheDragon', '_3913ASecretSummons',
+        '_3920TheSecretOfSurkana', '_3961GrowthFlorasFirstCharm', '_3962GrowthFlorasSecondCharm', '_3963GrowthFlorasThirdCharm',
+        '_3964GrowthFlorasFourthCharm', '_3965TotheGalleriaofGrandeur', '_3966SaluteANewUniform', '_3967AndusDyeBox',
+        '_3968PalentinesRequest', '_3969SexiestManAlive', '_3970KinahDiggingDaughter',),
+}
 # Phase 6 step 2, chunk Q13 (lane C, 2026-10-07; docs/deviations/Q13.md): the files of the instance directories A-K that questgen
 # transliterates, all in the tree (87 of 87; kaisinel_academy's three mentor dailies by rule stream-any-match)
 Q13 = {
@@ -310,6 +333,11 @@ class CommittedTree(unittest.TestCase):
                 with self.subTest(file=f'{directory}/{klass}'):
                     self.assertIn((directory, klass), found)
         self.assertEqual(sum(len(classes) for classes in Q13.values()), 87)
+        for directory, classes in Q11.items():
+            for klass in classes:
+                with self.subTest(file=f'{directory}/{klass}'):
+                    self.assertIn((directory, klass), found)
+        self.assertEqual(sum(len(classes) for classes in Q11.values()), 71)
         self.assertEqual(len(Q10_HELD_BACK), 16)
 
     def test_the_enter_world_files_are_in_the_tree(self):

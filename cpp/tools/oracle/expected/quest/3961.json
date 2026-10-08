@@ -1,0 +1,15 @@
+{
+ "format": "aion-quest-trace",
+ "version": 1,
+ "questId": 3961,
+ "java": "sanctum/_3961GrowthFlorasFirstCharm.java",
+ "class": "_3961GrowthFlorasFirstCharm",
+ "javaSha256": "26176dc0c257bce1b8f03fdce9ac46ef84c2a2b38fce64b94111e4d48b0ff815",
+ "register": [
+  {"npc": 798384, "event": "addOnQuestStart", "args": [3961]},
+  {"npc": 798384, "event": "addOnTalkEvent", "args": [3961]},
+  {"npc": 203740, "event": "addOnTalkEvent", "args": [3961]}
+ ],
+ "hooks": [{"hook": "onDialogEvent", "line": 31, "unsupported": "call player.getInventory().tryDecreaseKinah(40000)"}],
+ "cases": []
+}
