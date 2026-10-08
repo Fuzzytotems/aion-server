@@ -43,6 +43,7 @@
 #include "aion/gameserver/network/aion/serverpackets/SM_LEGION_SEND_EMBLEM_DATA.h"
 #include "aion/gameserver/network/aion/serverpackets/SM_LEGION_UPDATE_MEMBER.h"
 #include "aion/gameserver/network/aion/serverpackets/SM_QUESTION_WINDOW.h"
+#include "aion/gameserver/network/aion/serverpackets/SM_RENAME.h"
 #include "aion/gameserver/services/LegionService.h"
 #include "aion/gameserver/utils/idfactory/IDFactory.h"
 #include "aion/gameserver/world/World.h"
@@ -315,6 +316,40 @@ TEST_F(LegionServiceTest, AnExpiredDisbandTimeDisbandsTheLegionOnTheNextLookup) 
 	EXPECT_EQ(a.count(serverpackets::SM_LEGION_LEAVE_MEMBER(1300302, 0, "Founders")), 1);
 	EXPECT_FALSE(a.player().getLegionMember());
 	EXPECT_EQ(count("SELECT COUNT(*) FROM legions WHERE id = " + std::to_string(legionId)), 0);
+}
+
+// tryRename (LegionService.java:1119-1146), the legion-name-change ticket of CM_APPEARANCE: the refusals in Java's order, the ticket check, the rename
+TEST_F(LegionServiceTest, TryRenameRefusesInJavasOrderThenRenamesStoresAndTellsTheWorld) {
+	LEGION_REQUIRE_DATABASE();
+	Member& a = online("Alpha", 25000);
+	Legion& legion = created(a);
+	LegionService& service = LegionService::getInstance();
+	lh::execute("INSERT INTO legions (id, name) VALUES (777, 'Taken')");
+	a.clearSent();
+	EXPECT_FALSE(service.tryRename(legion, "Founders", a.player(), std::nullopt));
+	EXPECT_EQ(a.count(SM_SYSTEM_MESSAGE::STR_MSG_EDIT_GUILD_NAME_ERROR_SAME_YOUR_NAME()), 1);
+	EXPECT_FALSE(service.tryRename(legion, "x1", a.player(), std::nullopt));
+	EXPECT_EQ(a.count(SM_SYSTEM_MESSAGE::STR_MSG_EDIT_GUILD_NAME_ERROR_WRONG_INPUT()), 1) << "isValidLegionName";
+	EXPECT_FALSE(service.tryRename(legion, "Taken", a.player(), std::nullopt));
+	EXPECT_EQ(a.count(SM_SYSTEM_MESSAGE::STR_MSG_EDIT_GUILD_NAME_ALREADY_EXIST()), 1) << "LegionDAO.isNameUsed";
+	legion.setDisbandTime(static_cast<int32_t>(commons::utils::currentTimeMillis() / 1000) + 3600);
+	EXPECT_FALSE(service.tryRename(legion, "Renamed", a.player(), std::nullopt));
+	EXPECT_EQ(a.count(SM_SYSTEM_MESSAGE::STR_MSG_EDIT_GUILD_NAME_CANT_FOR_DISPERSING_GUILD()), 1);
+	legion.setDisbandTime(0);
+	EXPECT_FALSE(service.tryRename(legion, "Renamed", a.player(), 4242)) << "no ticket with that object id: AuditLogger, refused";
+	runtime::Ref<model::gameobjects::Item> juice = items::loadedItem(910001, items::MERCENARYS_FRUIT_JUICE, 5, model::items::storage::StorageType::CUBE);
+	a.player().getStorage(model::items::storage::getId(model::items::storage::StorageType::CUBE))->onLoadHandler(*juice);
+	EXPECT_FALSE(service.tryRename(legion, "Renamed", a.player(), 910001)) << "an item that is no ticket 169680000/169680001";
+	EXPECT_EQ(a.player().getInventory().getItemCountByItemId(items::MERCENARYS_FRUIT_JUICE), 5) << "nothing taken from it";
+	EXPECT_EQ(legion.getName(), "Founders");
+	EXPECT_EQ(a.count(opcodeOf<serverpackets::SM_RENAME>), 0);
+
+	EXPECT_TRUE(service.tryRename(legion, "Renamed", a.player(), std::nullopt));
+	EXPECT_EQ(legion.getName(), "Renamed");
+	EXPECT_EQ(count("SELECT COUNT(*) FROM legions WHERE name = 'Renamed' AND id = " + std::to_string(legion.getLegionId())), 1) << "LegionDAO.storeLegion";
+	EXPECT_EQ(count("SELECT COUNT(*) FROM legion_history WHERE history_type = 'LEGION_RENAME' AND name = 'Founders' AND description = 'Renamed'"), 1)
+	  << "addHistory(legion, oldName, LEGION_RENAME, name)";
+	EXPECT_EQ(a.count(serverpackets::SM_RENAME(legion, "Founders")), 1) << "broadcastToWorld";
 }
 
 // ---- S-08: the Legion Dominion weekly calculation (LegionDominionService.java:84-164, LegionDominionLocation.java:83-96, 129-131) ----

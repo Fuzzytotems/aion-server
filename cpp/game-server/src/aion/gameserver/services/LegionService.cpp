@@ -63,6 +63,7 @@
 #include "aion/gameserver/network/aion/serverpackets/SM_LEGION_UPDATE_SELF_INTRO.h"
 #include "aion/gameserver/network/aion/serverpackets/SM_LEGION_UPDATE_TITLE.h"
 #include "aion/gameserver/network/aion/serverpackets/SM_QUESTION_WINDOW.h"
+#include "aion/gameserver/network/aion/serverpackets/SM_RENAME.h"
 #include "aion/gameserver/network/aion/serverpackets/SM_WAREHOUSE_INFO.h"
 #include "aion/gameserver/runtime/fields/Array.h"
 #include "aion/gameserver/services/SiegeService.h"
@@ -1241,8 +1242,34 @@ void LegionService::updateLegionMemberList(runtime::Ptr<model::gameobjects::play
 	}
 }
 
+// Java LegionService.java:1119-1146
 bool LegionService::tryRename(model::team::legion::Legion& legion, std::string_view name, model::gameobjects::player::Player& player, std::optional<int32_t> legionNameChangeTicketItemObjId) {
-	AION_UNPORTED();
+	if (legion.getName() == name) {
+		utils::PacketSendUtility::sendPacket(player, SM_SYSTEM_MESSAGE::STR_MSG_EDIT_GUILD_NAME_ERROR_SAME_YOUR_NAME());
+		return false;
+	} else if (!NameRestrictionService::isValidLegionName(name) || NameRestrictionService::isForbidden(name)) {
+		utils::PacketSendUtility::sendPacket(player, SM_SYSTEM_MESSAGE::STR_MSG_EDIT_GUILD_NAME_ERROR_WRONG_INPUT());
+		return false;
+	} else if (dao::LegionDAO::isNameUsed(name)) {
+		utils::PacketSendUtility::sendPacket(player, SM_SYSTEM_MESSAGE::STR_MSG_EDIT_GUILD_NAME_ALREADY_EXIST());
+		return false;
+	} else if (legion.isDisbanding()) {
+		utils::PacketSendUtility::sendPacket(player, SM_SYSTEM_MESSAGE::STR_MSG_EDIT_GUILD_NAME_CANT_FOR_DISPERSING_GUILD());
+		return false;
+	} else if (legionNameChangeTicketItemObjId) {
+		runtime::Ptr<model::gameobjects::Item> item = player.getInventory().getItemByObjId(*legionNameChangeTicketItemObjId);
+		if (!item || (item->getItemId() != 169680000 && item->getItemId() != 169680001) ||
+			!player.getInventory().decreaseByObjectId(*legionNameChangeTicketItemObjId, 1)) {
+			utils::audit::AuditLogger::log(player, "tried to rename legion without coupon.");
+			return false;
+		}
+	}
+	std::string oldName = legion.getName();
+	legion.setName(name);
+	dao::LegionDAO::storeLegion(legion);
+	addHistory(legion, oldName, LegionHistoryAction::LEGION_RENAME, name);
+	utils::PacketSendUtility::broadcastToWorld(network::aion::serverpackets::SM_RENAME(legion, oldName)); // broadcast to world to update all keeps, member's tags, etc.
+	return true;
 }
 
 void LegionService::joinLegionDominion(model::gameobjects::player::Player& player, int32_t locId) {
