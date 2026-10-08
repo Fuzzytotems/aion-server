@@ -1,0 +1,11 @@
+{
+ "format": "aion-quest-trace",
+ "version": 1,
+ "questId": 80295,
+ "java": "daevanion/_80295DurableDaevanionWeapon.java",
+ "class": "_80295DurableDaevanionWeapon",
+ "javaSha256": "79edb8c1c8b933b050947dd88e1145abc8717e72f7c1a3307531ba9ef2ec50a4",
+ "register": [{"npc": 831387, "event": "addOnQuestStart", "args": [80295]}, {"npc": 831387, "event": "addOnTalkEvent", "args": [80295]}],
+ "hooks": [{"hook": "onDialogEvent", "line": 25, "unsupported": "call player.getEquipment()"}],
+ "cases": []
+}

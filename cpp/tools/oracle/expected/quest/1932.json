@@ -1,0 +1,15 @@
+{
+ "format": "aion-quest-trace",
+ "version": 1,
+ "questId": 1932,
+ "java": "sanctum/_1932AMatterOfReputation.java",
+ "class": "_1932AMatterOfReputation",
+ "javaSha256": "4b26924f7b82543becf6830fd57a9585986775ba660d68b00f9114261f004cac",
+ "register": [
+  {"npc": 203893, "event": "addOnQuestStart", "args": [1932]},
+  {"npc": 203893, "event": "addOnTalkEvent", "args": [1932]},
+  {"npc": 203946, "event": "addOnTalkEvent", "args": [1932]}
+ ],
+ "hooks": [{"hook": "onDialogEvent", "line": 30, "unsupported": "reads status/1932 after sendQuestNoneDialog, which may have written it"}],
+ "cases": []
+}

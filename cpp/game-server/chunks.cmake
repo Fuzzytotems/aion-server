@@ -595,6 +595,10 @@ aion_gs_chunk(Q10 TARGET aion_gs_handlers_quest_q10 PHASE 6 ROOT handlers
 	JAVA "data/handlers/quest/{pandaemonium,altgard}/**"
 	PCH "aion/gameserver/handlers/quest/QuestPrelude.h"
 	TESTS quest_handlers_asmodae)
+# Q11 (phase 6 step 2, lane C, 2026-10-08): 71 generated handlers of daevanion and sanctum (questgen's output, bannered, drift-tested by
+# tools/gen/tests/test_questgen_tree.py; _1990ASagesGift and _1929ASliverofDarkness are refused, the escort _3212 waits for
+# FollowingNpcAI). Their golden traces run in Q05's harness
+# (tests/quest_handlers_golden, GoldenQ11Handlers.cpp compiles them by #include); docs/deviations/Q11.md.
 aion_gs_chunk(Q11 TARGET aion_gs_handlers_quest_q11 PHASE 6 ROOT handlers
 	GLOBS "aion/gameserver/handlers/quest/{daevanion,sanctum}/**"
 	JAVA "data/handlers/quest/{daevanion,sanctum}/**"

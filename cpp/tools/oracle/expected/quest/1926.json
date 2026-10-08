@@ -1,0 +1,15 @@
+{
+ "format": "aion-quest-trace",
+ "version": 1,
+ "questId": 1926,
+ "java": "sanctum/_1926SecretLibraryAccess.java",
+ "class": "_1926SecretLibraryAccess",
+ "javaSha256": "dfef4495c2d5ebd2991aac28446354545cfab99111016eb0135d4a438a59c7c8",
+ "register": [
+  {"npc": 203894, "event": "addOnQuestStart", "args": [1926]},
+  {"npc": 203894, "event": "addOnTalkEvent", "args": [1926]},
+  {"npc": 203701, "event": "addOnTalkEvent", "args": [1926]}
+ ],
+ "hooks": [{"hook": "onDialogEvent", "line": 43, "unsupported": "call TeleportService.teleportTo"}],
+ "cases": []
+}
