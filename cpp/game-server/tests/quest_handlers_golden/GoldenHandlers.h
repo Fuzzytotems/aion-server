@@ -12,7 +12,8 @@
 // (GoldenQ08Handlers.cpp; docs/deviations/Q08.md); chunk Q01 (the same lane and day): the 81 generated reshanta handlers
 // (GoldenQ01Handlers.cpp; docs/deviations/Q01.md). Q01 is the library aion_gs_handlers_quest_reshanta, which this executable does not link.
 // Chunk Q02 (the same lane and day): the 59 generated inggison handlers (GoldenQ02Handlers.cpp; docs/deviations/Q02.md).
-// Chunk Q14 (the same lane and day): the 74 generated handlers of the instance directories K-W (GoldenQ14Handlers.cpp; docs/deviations/Q14.md).
+// Chunk Q14 (the same lane and day): the 74 generated handlers of the instance directories K-W (GoldenQ14Handlers.cpp; docs/deviations/Q14.md),
+// 91 since the owner's decisions of 2026-10-07 (the 15 mentor dailies and pangaea 14220/24220).
 //
 // P6-Q slice 2, chunk Q03 (2026-09-29): the 72 generated verteron and heiron handlers in the tree (the zones the route's dispatches end in),
 // compiled into this executable by #include as well (GoldenQ03Handlers.cpp); Q03's hand ports 1643 and 3200 have their own unit cases
@@ -417,6 +418,9 @@
 	X(levinshor, _23745NoMoreinLevinshor, 23745) \
 	X(linkgate_foundry, _16940DiarySecrets, 16940) \
 	X(linkgate_foundry, _26940RaidtheLinkgateFoundry, 26940) \
+	X(marchutan_priory, _47000AltgardOrbIt, 47000) \
+	X(marchutan_priory, _47003AGlobalProblem, 47003) \
+	X(marchutan_priory, _47006AmplifiersWithIssues, 47006) \
 	X(marchutan_priory, _48006TheMarchutanPrioryBeckons, 48006) \
 	X(miragent_holy_templar, _19064TemplarOfConstruction, 19064) \
 	X(miragent_holy_templar, _3933ClassPreceptorConsent, 3933) \
@@ -428,7 +432,15 @@
 	X(miragent_holy_templar, _3939PersistenceAndLuck, 3939) \
 	X(miragent_holy_templar, _3940Loyalty, 3940) \
 	X(nightmare_circus, _80341EventAHallowedEve, 80341) \
+	X(orichalcum_key, _37100MutantNinjaIninas, 37100) \
+	X(orichalcum_key, _37103CamoAndCarnage, 37103) \
+	X(orichalcum_key, _37106AsmoHunt, 37106) \
+	X(orichalcum_key, _37107CoolBlueWater, 37107) \
+	X(orichalcum_key, _37110MyYoungApprentice, 37110) \
+	X(orichalcum_key, _37113AsmoICU, 37113) \
 	X(orichalcum_key, _38007AKeyMessage, 38007) \
+	X(pangaea, _14220NewZoneNewRules, 14220) \
+	X(pangaea, _24220WelcometoPanesterra, 24220) \
 	X(radiant_ops, _38001RadiantOpsRecruitment, 38001) \
 	X(rentus_base, _30500Desperation, 30500) \
 	X(rentus_base, _30503RodelionRescue, 30503) \
@@ -456,6 +468,12 @@
 	X(talocs_hollow, _21468TheStruggleWithin, 21468) \
 	X(terath_dredgion, _30600FightOfTheNavigators, 30600) \
 	X(terath_dredgion, _30610TheGoodNewsAndBad, 30610) \
+	X(the_circle, _47100WardsAndWardOrbs, 47100) \
+	X(the_circle, _47103AGlobeTrottingLesson, 47103) \
+	X(the_circle, _47106TurningUpTheAmplifiers, 47106) \
+	X(the_circle, _47107WardsAndWardOrbs, 47107) \
+	X(the_circle, _47110AGlobeTrottingLesson, 47110) \
+	X(the_circle, _47113TurningUpTheAmplifiers, 47113) \
 	X(the_circle, _48007JoiningTheCircle, 48007) \
 	X(the_eternal_bastion, _18035ShebasSurveillance, 18035) \
 	X(the_eternal_bastion, _18036BastionsAreEternal, 18036) \

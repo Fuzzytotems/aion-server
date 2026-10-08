@@ -616,7 +616,8 @@ aion_gs_chunk(Q13 TARGET aion_gs_handlers_quest_q13 PHASE 6 ROOT handlers
 		"data/handlers/quest/kaisinel_academy/**"
 	PCH "aion/gameserver/handlers/quest/QuestPrelude.h")
 # Q14 (phase 6 step 2, lane C, 2026-10-05): the 74 generated handlers of the instance directories K-W (questgen's output, bannered,
-# drift-tested by tools/gen/tests/test_questgen_tree.py; the 21 it refuses are not in the tree). Their golden traces run in Q05's harness
+# drift-tested by tools/gen/tests/test_questgen_tree.py; the 21 it refused are not in the tree; the owner's decisions of 2026-10-07 added
+# 17 of them, rules stream-any-match and constant-list: 91, 4 left out). Their golden traces run in Q05's harness
 # (tests/quest_handlers_golden, GoldenQ14Handlers.cpp compiles them by #include); docs/deviations/Q14.md.
 aion_gs_chunk(Q14 TARGET aion_gs_handlers_quest_q14 PHASE 6 ROOT handlers
 	GLOBS "aion/gameserver/handlers/quest/{kaldor,kromedes_trial,levinshor,linkgate_foundry,marchutan_priory,miragent_holy_templar}/**"

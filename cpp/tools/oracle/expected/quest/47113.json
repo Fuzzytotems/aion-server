@@ -1,0 +1,24 @@
+{
+ "format": "aion-quest-trace",
+ "version": 1,
+ "questId": 47113,
+ "java": "the_circle/_47113TurningUpTheAmplifiers.java",
+ "class": "_47113TurningUpTheAmplifiers",
+ "javaSha256": "91490b4cc4be2b27551bea5c397038bc6a415b936d49d2e5ce81c757d34b88c9",
+ "register": [
+  {"npc": 700972, "event": "addOnTalkEvent", "args": [47113]},
+  {"npc": 799921, "event": "addOnTalkEvent", "args": [47113]},
+  {"npc": 217176, "event": "addOnKillEvent", "args": [47113]}
+ ],
+ "hooks": [{"hook": "onKillEvent", "line": 35, "cases": 1}, {"hook": "onDialogEvent", "line": 40, "unsupported": "call npc.getController()"}],
+ "cases": [
+  {
+   "id": "onKillEvent#1",
+   "hook": "onKillEvent",
+   "given": {},
+   "guards": [],
+   "effects": [{"call": "defaultOnKillEvent", "kind": "var", "args": [217176, 0, 5], "line": 36}],
+   "returns": {"resultOf": 0}
+  }
+ ]
+}
