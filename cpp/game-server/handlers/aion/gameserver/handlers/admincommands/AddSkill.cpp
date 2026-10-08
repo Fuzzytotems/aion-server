@@ -26,7 +26,7 @@ void AddSkill::execute(Player& player, std::span<const std::string> params) {
 	try {
 		skillId = commons::utils::parseInt(params[0]);
 		skillLevel = commons::utils::parseInt(params[1]);
-	} catch (const commons::utils::NumberFormatException&) {
+	} catch (const commons::utils::NumberFormatException&) { // parity= } catch (NumberFormatException e) {
 		PacketSendUtility::sendMessage(player, "Parameters need to be an integer.");
 		return;
 	}

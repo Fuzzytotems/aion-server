@@ -20,9 +20,12 @@ tokenizes instead of matching regular expressions (the spawn analyzer check asid
 multisets, the constants and the spawn ids.
 
 Not compared: plain identifiers (locals, receivers, operands) and plain `=`. `return var > targetId;` against `return targetId > var;` or
-a changed receiver is at parity; the golden trace (tools/oracle/questtrace) is the behaviour check. There is no waiver yet: the per-line
-`// parity: <reason>` of handlers-and-porting-plan.md §3.1 item 2 is not implemented, so a hand port with an owner-approved deviation
-cannot pass (comments are dropped).
+a changed receiver is at parity; the golden trace (tools/oracle/questtrace) is the behaviour check. The waiver is the per-line
+`// parity: <reason>` of handlers-and-porting-plan.md §3.1 item 2 (H-03, 2026-10-07): a C++ line whose comment starts with `parity:` is not
+compared, so a deviation the port documents (an explicit Java exception, an owner-approved correction) names its reason where it stands;
+a C++ line whose comment starts with `parity=` is compared as the Java statement that follows it (`// parity= x.toMillis();`), for a Java
+library call the port spells another way (Duration, String.join): the line's Java stays the reference instead of disappearing. The
+substituted Java is read with the Java rules (instanceof, arr.length, new, the command rewrites).
 
 Documented renames (each undoes one emitter idiom of phase6-questgen-prototype.md §2 or one C++ spelling; see IDIOMS):
 
@@ -53,6 +56,13 @@ Documented renames (each undoes one emitter idiom of phase6-questgen-prototype.m
 - the capture spelling of questgen's scheduled-closure rule (G1 lane, phase6-transliterator.md §2.2): in a lambda capture list,
   `name = runtime::Ref<T>(name)` (the Ptr<T> local captured as the Ref<T> lint L5 asks for) is the captured `name`, not a call; a
   `runtime::Ref<T>(x)` anywhere else, or whose argument is not the captured name, still is.
+- the chat command spellings (M5j H-03, 2026-10-07; data/handlers/{admin,player,console}commands against their C++): a command .cpp has no
+  class (it is in the header), so its region is everything after its `AION_ADMIN_COMMAND(X);` (or PLAYER, CONSOLE) marker; the Java
+  constructor's `super(...)` is the C++ base initializer (`AdminCommand(...)`); a Java text block is the string literal of its value, and
+  C++ adjacent literals `"a\n" "b\n"` are one literal; Java `params.length == 0` is C++ `params.empty()` (and `!= 0`, `> 0` its negation);
+  Java `!(x instanceof T [name])` is C++ `== nullptr`; `a.equals(b)` is `==` on the C++ side too (AionObject::equals); C++ `to_string`
+  (Java's implicit string conversion in a concatenation) is not a call; a C++ subscript with an index that is not an int literal is `get`,
+  as Java's (a `std::span` has no `at`).
 
     python parity.py pair JAVA CPP [--json]
     python parity.py tree --java-dir DIR --cpp-dir DIR [--only REL ...] [--json OUT] [--require-all]
@@ -77,6 +87,7 @@ from pathlib import Path
 _TOKEN = re.compile(r'''
     (?P<ws>\s+)
   | (?P<comment>//[^\n]*|/\*[\s\S]*?\*/)
+  | (?P<textblock>"""[ \t\f]*\r?\n[\s\S]*?(?<!\\)""")
   | (?P<string>(?:u8|u|U|L)?"(?:\\.|[^"\\\n])*")
   | (?P<char>(?:u8|u|U|L)?'(?:\\.|[^'\\\n])+')
   | (?P<number>0[xX][0-9a-fA-F_]+[lLuU]*|0[bB][01_]+[lLuU]*|(?:\d[\d_]*(?:\.[\d_]*)?|\.\d[\d_]*)(?:[eE][+-]?\d+)?[fFdDlLuU]*)
@@ -89,6 +100,7 @@ _TOKEN = re.compile(r'''
 class Tok:
     kind: str       # string char number ident op
     text: str
+    java: bool = False  # a token of a `parity=` substitution: Java, read with the Java rules inside a C++ region
 
 
 class ParityError(Exception):
@@ -104,9 +116,43 @@ def tokenize(text):
         if m is None:
             raise ParityError(f'cannot tokenize at offset {pos}: {text[pos:pos + 20]!r}')
         kind = m.lastgroup
-        if kind not in ('ws', 'comment'):
+        if kind == 'textblock':
+            out.append(Tok('string', text_block_literal(m.group(0))))
+        elif kind not in ('ws', 'comment'):
             out.append(Tok(kind, m.group(0)))
         pos = m.end()
+    return out
+
+
+def text_block_literal(block):
+    r"""a Java text block (JLS 3.10.6) as the one-line string literal of the same value, escapes left as written: the content after the
+    opening line, the incidental indentation stripped (the closing delimiter's line counts when it is blank), the trailing spaces of each
+    line dropped, every line terminator written `\n`, a bare `"` escaped. Its value is the C++ spelling `"a\n" "b\n"` of adjacent literals,
+    which cpp_region joins into one (H-03: a command's syntax info)."""
+    body = block[3:-3]
+    body = body[body.index('\n') + 1:].replace('\r\n', '\n')
+    lines = body.split('\n')
+    closing_alone = lines[-1].strip() == ''
+    significant = [ln for ln in lines[:-1] if ln.strip()] + [lines[-1]]
+    indent = min((len(ln) - len(ln.lstrip(' \t')) for ln in significant), default=0)
+    stripped = [ln[indent:].rstrip(' \t') for ln in lines]
+    if closing_alone:
+        value = ''.join(ln + '\\n' for ln in stripped[:-1])
+    else:
+        value = '\\n'.join(stripped)
+    value = re.sub(r'(?<!\\)"', r'\\"', value)
+    return '"' + value + '"'
+
+
+def join_adjacent_strings(toks):
+    """C++ adjacent string literals `"a" "b"` as the one literal `"ab"` they are (translation phase 6)"""
+    out = []
+    for t in toks:
+        if t.kind == 'string' and out and out[-1].kind == 'string':
+            prev = out[-1].text
+            out[-1] = Tok('string', prev[:-1] + t.text[t.text.index('"') + 1:])
+            continue
+        out.append(t)
     return out
 
 
@@ -123,17 +169,58 @@ def java_region(text):
 
 
 _MARKER = re.compile(r'\bAION_\w+_HANDLER$')
+# the chat command markers (HandlerRegistry.h): a command's class is in its header, its .cpp has the marker and then the bodies (H-03)
+_COMMAND_MARKER = re.compile(r'^AION_(?:ADMIN|PLAYER|CONSOLE)_COMMAND$')
+# the per-line waiver of handlers-and-porting-plan.md §3.1 item 2: a C++ line whose `//` comment starts with `parity:` is not compared
+# (`parity:`, the line dropped) and its substitution form (`parity= <Java>`, the line read as that Java)
+WAIVER = re.compile(r'^[^\n]*//[ \t]*parity(?::[^\n]*|=([^\n]*))$', re.M)
+# the bases of the chat commands: Java `super(...)` in a command's constructor is the C++ base initializer
+COMMAND_BASES = frozenset(('AdminCommand', 'PlayerCommand', 'ConsoleCommand', 'ChatCommand'))
 
 
 def cpp_region(text):
-    """the tokens from the handler's `class` to its AION_*_HANDLER marker (preprocessor lines dropped)"""
+    """the tokens from the handler's `class` to its AION_*_HANDLER marker; for a chat command's .cpp, which has no class, the tokens after
+    its `AION_*_COMMAND(Name);` (the constructor and the methods). Preprocessor lines are dropped."""
     text = re.sub(r'^[ \t]*#[^\n]*', '', text, flags=re.M)
+    substitutions = []
+
+    def waive(m):
+        if m.group(1) is None:
+            return ''                           # `parity:`: the line is not compared
+        substitutions.append(m.group(1))        # `parity=`: the line is its Java, read below with the Java rules
+        return f' {_SUBSTITUTION}{len(substitutions) - 1} '
+
+    text = WAIVER.sub(waive, text)
     toks = tokenize(text)
-    start = next((i for i, t in enumerate(toks) if t.kind == 'ident' and t.text == 'class'), None)
+    start = next((i for i, t in enumerate(toks) if t.kind == 'ident' and t.text == 'class' and (i == 0 or toks[i - 1].text != '.')), None)
     if start is None:
-        raise ParityError('no class in the C++ file')
+        marker = next((i for i, t in enumerate(toks) if t.kind == 'ident' and _COMMAND_MARKER.match(t.text)), None)
+        if marker is None:
+            raise ParityError('no class and no command marker in the C++ file')
+        end = next((i for i in range(marker, len(toks)) if toks[i].text == ';'), None)
+        if end is None:
+            raise ParityError('unterminated command marker')
+        return _expand_substitutions(toks[end + 1:], substitutions, command=True)
     end = next((i for i in range(start, len(toks)) if toks[i].kind == 'ident' and _MARKER.search(toks[i].text)), len(toks))
-    return toks[start:end]
+    return _expand_substitutions(toks[start:end], substitutions, command=False)
+
+
+_SUBSTITUTION = '__parity_java_'
+
+
+def _expand_substitutions(toks, substitutions, command):
+    """each `parity=` placeholder replaced by the tokens of its Java, rewritten as the Java side is (the command rewrites for a command) and
+    marked `java`, so that facts() reads them with the Java rules (instanceof, arr.length, new, an index that is not an int literal)"""
+    out = []
+    for t in toks:
+        if t.kind == 'ident' and t.text.startswith(_SUBSTITUTION):
+            java = _drop_annotations(tokenize(substitutions[int(t.text[len(_SUBSTITUTION):])]))
+            if command:
+                java = _command_rewrites(java)
+            out += [Tok(j.kind, j.text, True) for j in _java_rewrites(java)]
+        else:
+            out.append(t)
+    return out
 
 
 # --- normalisation -----------------------------------------------------------------------------------------------------------------
@@ -146,7 +233,7 @@ switch template this thread_local throw true try typedef typeid typename union u
 xor_eq'''.split())
 # statement keywords and other names that are followed by '(' without being a call
 NOT_CALLS = frozenset('''if for while switch return catch synchronized sizeof alignof decltype typeid static_cast dynamic_cast const_cast
-reinterpret_cast cast as value intValue string_view noexcept requires'''.split())
+reinterpret_cast cast as value intValue string_view noexcept requires to_string'''.split())
 # names after which a '<' opens a template argument list in C++ (plus any capitalised type name, on both sides)
 TEMPLATES = frozenset('''static_cast dynamic_cast const_cast reinterpret_cast cast as Ptr Ref array optional vector initializer_list span
 unique_ptr shared_ptr function pair tuple set map unordered_map unordered_set Field Borrowed'''.split())
@@ -267,6 +354,58 @@ def _match(toks, i):
             if depth == 0:
                 return j
     raise ParityError(f'unbalanced {o!r}')
+
+
+def _negated_instanceof(toks, i):
+    """toks[i] is '!' before '(' whose group is `x instanceof T [name]` (one instanceof, no other operator at its depth): (index of the
+    instanceof, index of the ')'), else None"""
+    if i + 1 >= len(toks) or toks[i + 1].text != '(':
+        return None
+    close = _match(toks, i + 1)
+    depth = 0
+    inst = None
+    for j in range(i + 2, close):
+        tx = toks[j].text
+        if tx in ('(', '[', '{'):
+            depth += 1
+        elif tx in (')', ']', '}'):
+            depth -= 1
+        elif depth == 0 and tx == 'instanceof':
+            if inst is not None:
+                return None
+            inst = j
+        elif depth == 0 and toks[j].kind == 'op' and tx not in ('.',):
+            return None
+    return (inst, close) if inst is not None else None
+
+
+def _command_rewrites(toks):
+    """Java spellings of a chat command rewritten into the C++ shape of its hand port (H-03; questgen spells both differently, so they
+    apply to a command only): `x.length == 0` is `x.isEmpty()`, `x.length != 0` / `> 0` is `!x.isEmpty()`, `!(x instanceof T name)` is
+    `(x == null)`"""
+    out = []
+    i = 0
+    while i < len(toks):
+        t = toks[i]
+        if t.kind == 'ident' and i + 4 < len(toks) and toks[i + 1].text == '.' and toks[i + 2].text == 'length' \
+                and toks[i + 3].text in ('==', '!=', '>') and toks[i + 4].text == '0' and (i == 0 or toks[i - 1].text != '.'):
+            if toks[i + 3].text != '==':
+                out.append(Tok('op', '!'))
+            out += [t, Tok('op', '.'), Tok('ident', 'isEmpty'), Tok('op', '('), Tok('op', ')')]
+            i += 5
+            continue
+        if t.text == '!' and t.kind == 'op':
+            hit = _negated_instanceof(toks, i)
+            if hit is not None:
+                inst, close = hit
+                out.append(Tok('op', '('))
+                out += _command_rewrites(toks[i + 2:inst])
+                out += [Tok('op', '=='), Tok('ident', 'null'), Tok('op', ')')]
+                i = close + 1
+                continue
+        out.append(t)
+        i += 1
+    return out
 
 
 def _java_rewrites(toks):
@@ -430,55 +569,56 @@ def facts(toks, cpp):
     anonymous_runs = 0                              # anonymous Runnables whose declared run() is still ahead
     enum_names = set()                              # C++ enumName tokens of a std::string(enumName(x)), the Java enum concatenation
     for i, t in enumerate(toks):
+        cpp_t = cpp and not t.java                   # a `parity=` token is Java
         prev = toks[i - 1] if i > 0 else None
         nxt = toks[i + 1] if i + 1 < n else None
         k, x = t.kind, t.text
         if k == 'number':
-            f.literals.append(_number(x, cpp))
+            f.literals.append(_number(x, cpp_t))
         elif k == 'string':
             f.literals.append(('string', x[x.index('"'):]))
         elif k == 'char':
             f.literals.append(_char(x))
         elif k == 'ident':
-            name = _unescape_ident(x) if cpp else x
+            name = _unescape_ident(x) if cpp_t else x
             if name in ('true', 'false'):
                 f.literals.append(('bool', name))
                 continue
             if name in ('null', 'nullptr', 'nullopt'):
                 f.literals.append(('null', ''))
                 continue
-            if name == 'instanceof' and not cpp:
+            if name == 'instanceof' and not cpp_t:
                 f.operators.append('!=')
                 f.literals.append(('null', ''))
                 continue
             if CONSTANT.match(name) and len(name) > 1:
                 f.constants.append(name)
-            if not cpp and name == 'length' and prev is not None and prev.text == '.' and (nxt is None or nxt.text != '('):
+            if not cpp_t and name == 'length' and prev is not None and prev.text == '.' and (nxt is None or nxt.text != '('):
                 f.calls.append('size')
                 continue
             if nxt is not None and nxt.text == '(':
-                if not cpp and name == 'equals' and prev is not None and prev.text == '.':
+                if name == 'equals' and prev is not None and prev.text in ('.', '->'):
                     f.operators.append('==')
                     continue
                 if name in NOT_CALLS:
                     continue
-                if not cpp and name == 'new':
+                if not cpp_t and name == 'new':
                     continue
-                if not cpp and prev is not None and prev.text == 'new':
+                if not cpp_t and prev is not None and prev.text == 'new':
                     if name in JAVA_DEFAULT_CONSTRUCTED and i + 2 < n and toks[i + 2].text == ')':
                         continue                    # new ArrayList<>() -> a default-constructed local std::vector
                     if name == 'Runnable':
                         anonymous_runs += 1         # new Runnable() { ... } (an interface: always anonymous) -> a C++ lambda
                         continue
-                if not cpp and name == 'run' and anonymous_runs:
+                if not cpp_t and name == 'run' and anonymous_runs:
                     anonymous_runs -= 1             # the run() the anonymous Runnable declares, its first run( token
                     continue
-                if cpp and name == 'string':
+                if cpp_t and name == 'string':
                     k = _string_of_enum_name(toks, i)
                     if k is not None:
                         enum_names.add(k)           # std::string(enumName(x)) -> Java "..." + x (Enum.toString)
                         continue
-                if cpp and i in enum_names:
+                if cpp_t and i in enum_names:
                     continue
                 name = CALL_RENAMES.get(name, name)
                 if name in COMPANIONS:
@@ -486,9 +626,10 @@ def facts(toks, cpp):
                 else:
                     f.calls.append(name)
                 if name.startswith('spawn') and i + 3 < n and toks[i + 2].kind == 'number' and toks[i + 3].text in (',', ')'):
-                    f.spawn_ids[_number(toks[i + 2].text, cpp)[1]] += 1
+                    f.spawn_ids[_number(toks[i + 2].text, cpp_t)[1]] += 1
         elif k == 'op':
-            if x == '[' and _operand_end(prev) and nxt is not None and nxt.text != ']' and not cpp:
+            if x == '[' and _operand_end(prev) and nxt is not None and nxt.text != ']' and (not cpp_t or prev.kind != 'ident'
+                                                                                          or prev.text not in CPP_KEYWORDS):
                 close = _match(toks, i)
                 if not (close == i + 2 and nxt.kind == 'number'):
                     f.calls.append('get')           # a[i] -> a.at(i): the emitter keeps [] only for an int literal in range
@@ -510,13 +651,28 @@ def facts(toks, cpp):
     return f
 
 
+def _command_super(toks):
+    """a chat command (`class X extends AdminCommand`): its constructor's `super(...)` is the C++ base initializer `AdminCommand(...)`,
+    and the command rewrites apply"""
+    if len(toks) > 3 and toks[2].text == 'extends' and toks[3].text in COMMAND_BASES:
+        base, name = toks[3].text, toks[1].text
+        out = list(toks)
+        ctor = next((i for i in range(4, len(out) - 1) if out[i].text == name and out[i + 1].text == '('), None)
+        if ctor is not None:                    # the first super( after `public Name(`; a nested class's super( stays
+            k = next((i for i in range(ctor, len(out) - 1) if out[i].text == 'super' and out[i + 1].text == '('), None)
+            if k is not None:
+                out[k] = Tok('ident', base)
+        return _command_rewrites(out)
+    return toks
+
+
 def java_facts(text):
     toks, imports = java_region(text)
-    return facts(_java_rewrites(_drop_annotations(toks)), cpp=False), imports
+    return facts(_java_rewrites(_command_super(_drop_annotations(toks))), cpp=False), imports
 
 
 def cpp_facts(text, static_imports=frozenset()):
-    return facts(_cpp_rewrites(cpp_region(text), static_imports), cpp=True)
+    return facts(_cpp_rewrites(join_adjacent_strings(cpp_region(text)), static_imports), cpp=True)
 
 
 # --- comparison --------------------------------------------------------------------------------------------------------------------
