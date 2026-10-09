@@ -1,3 +1,4 @@
+#include "aion/gameserver/model/team/legion/LegionRankInfo.h"
 #include "aion/gameserver/network/aion/serverpackets/SM_GM_SHOW_LEGION_MEMBERLIST.h"
 
 #include "aion/gameserver/model/GenderInfo.h"
@@ -21,7 +22,7 @@ void SM_GM_SHOW_LEGION_MEMBERLIST::writeLegionMember(model::team::legion::Legion
 	writeC(model::getClassId(legionMember.getPlayerClass()));
 	writeC(model::getGenderId(services::player::PlayerService::getOrLoadPlayerCommonData(legionMember.getObjectId())->getGender()));
 	writeD(legionMember.getLevel());
-	writeC(detail::legionRankId(legionMember.getRank()));
+	writeC(model::team::legion::getRankId(legionMember.getRank()));
 	writeD(legionMember.getWorldId());
 	writeC(legionMember.isOnline() ? 1 : 0);
 	writeS(legionMember.getSelfIntro());

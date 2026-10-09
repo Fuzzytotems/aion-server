@@ -1,3 +1,4 @@
+#include "aion/gameserver/model/team/legion/LegionRankInfo.h"
 #include "aion/gameserver/network/aion/serverpackets/SM_LEGION_MEMBERLIST.h"
 
 #include "aion/gameserver/configs/network/NetworkConfig.h"
@@ -36,7 +37,7 @@ void SM_LEGION_MEMBERLIST::writeLegionMember(model::team::legion::LegionMember& 
 	writeS(legionMember.getName());
 	writeC(model::getClassId(legionMember.getPlayerClass()));
 	writeD(legionMember.getLevel());
-	writeC(detail::legionRankId(legionMember.getRank()));
+	writeC(model::team::legion::getRankId(legionMember.getRank()));
 	writeD(legionMember.getWorldId());
 	writeC(legionMember.isOnline() ? 1 : 0);
 	writeS(legionMember.getSelfIntro());

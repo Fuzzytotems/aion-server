@@ -1,3 +1,4 @@
+#include "aion/gameserver/model/team/legion/LegionEmblemTypeInfo.h"
 #include "aion/gameserver/network/aion/serverpackets/AbstractHouseInfoPacket.h"
 
 #include <cstddef>
@@ -59,7 +60,7 @@ void AbstractHouseInfoPacket::writeCommonInfo() {
 		writeB(std::vector<uint8_t>(6));
 	} else {
 		writeC(emblem->getEmblemId());
-		writeC(detail::legionEmblemTypeValue(emblem->getEmblemType()));
+		writeC(model::team::legion::getValue(emblem->getEmblemType()));
 		writeC(emblem->getColor_a());
 		writeC(emblem->getColor_r());
 		writeC(emblem->getColor_g());

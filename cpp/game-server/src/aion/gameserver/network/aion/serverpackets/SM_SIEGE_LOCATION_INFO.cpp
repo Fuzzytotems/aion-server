@@ -1,3 +1,4 @@
+#include "aion/gameserver/model/team/legion/LegionEmblemTypeInfo.h"
 #include "aion/gameserver/network/aion/serverpackets/SM_SIEGE_LOCATION_INFO.h"
 
 #include "aion/gameserver/configs/main/SiegeConfig.h"
@@ -52,7 +53,7 @@ void SM_SIEGE_LOCATION_INFO::writeImpl(AionConnection* con) {
 		if (legionId != 0 && detail::getLegion(legionId) != nullptr) // can be null if legion got deleted
 			emblem = runtime::Ref<model::team::legion::LegionEmblem>(detail::getLegion(legionId)->getLegionEmblem());
 		writeC(emblem->getEmblemId());
-		writeC(detail::legionEmblemTypeValue(emblem->getEmblemType()));
+		writeC(model::team::legion::getValue(emblem->getEmblemType()));
 		writeH(0);
 		writeC(emblem->getColor_a());
 		writeC(emblem->getColor_r());
