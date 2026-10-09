@@ -19,6 +19,7 @@
 #include "aion/gameserver/runtime/base/Exceptions.h"
 #include "aion/gameserver/services/toypet/PetFeedProgress.h"
 #include "aion/gameserver/services/toypet/PetHungryLevel.h"
+#include "aion/gameserver/services/toypet/PetHungryLevelInfo.h"
 
 namespace aion::gameserver::dao {
 
@@ -26,18 +27,6 @@ using commons::database::DatabaseFactory;
 using model::gameobjects::player::PetCommonData;
 
 static const auto log = commons::logging::LoggerFactory::getLogger("com.aionemu.gameserver.dao.PlayerPetsDAO");
-
-namespace {
-
-/** Java PetHungryLevel.fromId(value): values()[value] */
-services::toypet::PetHungryLevel petHungryLevelFromId(int32_t value) {
-	constexpr int32_t count = 4; // HUNGRY, CONTENT, SEMIFULL, FULL
-	if (value < 0 || value >= count)
-		throw runtime::ArrayIndexOutOfBoundsException("Index " + std::to_string(value) + " out of bounds for length " + std::to_string(count));
-	return static_cast<services::toypet::PetHungryLevel>(value);
-}
-
-} // namespace
 
 void PlayerPetsDAO::saveFeedStatus(int32_t petObjectId, int32_t hungryLevel, int32_t feedProgress, int64_t reuseTime) {
 	try {
@@ -122,7 +111,7 @@ std::vector<runtime::Ref<model::gameobjects::player::PetCommonData>> PlayerPetsD
 			petCommonData->setName(rs->getString("name"));
 			petCommonData->setDecoration(rs->getInt("decoration"));
 			if (petCommonData->getFeedProgress()) {
-				petCommonData->getFeedProgress()->setHungryLevel(petHungryLevelFromId(rs->getInt("hungry_level")));
+				petCommonData->getFeedProgress()->setHungryLevel(services::toypet::petHungryLevelFromId(rs->getInt("hungry_level")));
 				petCommonData->getFeedProgress()->setData(rs->getInt("feed_progress"));
 				petCommonData->setRefeedTime(rs->getLong("reuse_time"));
 			}
