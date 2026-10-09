@@ -1060,3 +1060,15 @@ unchanged, the `houses` row, and B told A's new level (the quest's experience); 
 this branch with lane C's stack, it passes, and 2 of 2 server mutants (the quest charging through `recreatePlayerStudio`, no
 `SM_HOUSE_ACQUIRE` for a new owner) turn C13 red. Lane C's golden trace lists 18802's studio arm as vacuous (no housing data in its fixture), so
 C13 is that arm's test.
+
+**HS-4 part 3, H-07 (lane B, 2026-10-08)**: `tests/legionhouse/StudioHouseTest.cpp` (P5-11's own test directory, so no test lease was
+needed; the granted P4-11b test lease is unused) - the studio of each race (`getStudioAddress`: 2001 and **the Asmodian 3001**) and a second
+studio refused; `HouseObjectFactory` over every element HousingObjectData binds (chair, bed-as-chair, jukebox, moviejukebox, move_item, npc,
+picture, postbox, storage, use_item, emblem, the passive fallback, the missing template's NPE); an item's object with the `use_days` expiry,
+none without, the decoration item's missing `SummonHouseObjectAction`; the bare `<housedeco/>` whose `DecorateAction::getTemplateId` is 0; the
+`PlayerRegisteredItemsDAO` store -> load round trip through `createNew` (the restart path: position, rotation, expiry, the chair class, the
+used wallpaper); `HouseController.onDespawn` of a reusable studio (saved, position released, spawns cleared). 6 of 6 mutants killed. Left to
+the gate as planned: `UseableItemObject.onUse` (C17) and the decoration mode (C16). **§9 risk 3, the destroyed studio instance**: Java's
+retention is kept - the registry objects' positions name the destroyed instance until the owner's next entry re-spawns them; there is no
+cycle (cycles.toml `VisibleObject.position`: accepted, cut elsewhere), and C23's census and live counts are clean after C19's destroy. **H-05's
+`HouseObject.getPlacementLimit(bool)` stays unported**: Java never calls it.
