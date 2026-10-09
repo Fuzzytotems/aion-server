@@ -210,7 +210,13 @@ runtime::Ref<siege::Siege> SiegeService::newSiege(int32_t siegeLocationId) {
 }
 
 void SiegeService::cleanLegionId(int32_t legionId) {
-	AION_UNPORTED();
+	// P5-11 lease (m5h-plan.md I-02, S-06)
+	for (const runtime::Ref<model::siege::SiegeLocation>& loc : getSiegeLocations().values()) {
+		if (loc->getLegionId() == legionId) {
+			loc->setLegionId(0);
+			dao::SiegeDAO::updateSiegeLocation(*loc);
+		}
+	}
 }
 
 void SiegeService::updateOutpostSiegeState(model::siege::FortressLocation& fortressLoc) {
