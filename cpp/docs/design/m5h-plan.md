@@ -942,3 +942,57 @@ and the ≤ 60-s destroy wait (risk 10).
 (legion-model, legion-service, client-packets, studio, gate-harness) with the legion-service lane as a 9-12 agent-day critical path; stage 2 the
 gate `gs.scenario.m5h` (C0-C23, Y1-Y23) with a geo re-run, the re-greens and the census; M5h-2 (land houses, visiting, towns, ~72 bodies) straight
 after. The studio half still has no fallback inside M5h for M5f's personal instances, instance teleport and leave hooks (A-14, A-15, A-24).
+
+---
+
+## 14. P5-10f, the legion model and the challenges: measured and staged (lane B, 2026-10-08)
+
+Measured on `origin/C++` (after the M5g parties, alliances and leagues merges) with `tools/porting/census.py --chunks P5-10f`; nothing of
+P5-10f was ported by another lane (`git log origin/C++` has no legion or challenge commit; lanes A and C work in M5b-3 and phase 6).
+
+| Type | Unported sites | Other open | Plan (§2.8, §2.9) | Status |
+|---|---|---|---|---|
+| `Legion` | 27 | – | 27 | as planned |
+| `LegionWarehouse` | 28 | – | 28 | as planned |
+| `LegionEmblem` | 6 | – | 6 | as planned |
+| `LegionMember` | 5 | – | 5 | as planned |
+| `LegionRank`, `LegionHistoryAction`, `LegionEmblemType` | 0 | 7 stand-in credits (`PacketSupport.h:44-58`, `LegionDAO.cpp:57-75`) | 5 companion bodies | the companions replace the stand-ins' credit; the stand-ins themselves stay until their lessors move the call sites (L-05's leases) |
+| `LegionPermissionsMask` | 0 | 2 undeclared (the constructor data, `can`) | in the 5 | as planned |
+| `ChallengeQuest` 5, `ChallengeTask` 7, `ChallengeTaskService` 8 | 20 | – | 20 (X-08, M5h-2) | **pulled into stage F2**: `QuestService.cpp:238, 582` already call `onChallengeQuestFinish` and `onAcceptTask`, so every finished or accepted challenge quest of the phase-6 quest lane reaches an `AION_UNPORTED` today; every dependency (`TownService`, `ChallengeTasksDAO`, `SystemMailService`, `TownDAO`, `SM_CHALLENGE_LIST`) is ported |
+| **total** | **86** | 2 undeclared + 7 stand-in | 86 + 5 | 88 open bodies, 614 open Java lines |
+
+**Status (2026-10-08):** F1 and F2a ported (78 bodies + the 4 companions); F2b ported (8 bodies) with its database tests - P5-10f is closed. The town arm of F2b (`onCityTaskFinish`, `getChallengeTask`, `onAcceptTask`'s town lookup) is compiled and reviewed but has no unit test: it needs TownService's town data, which M5h-2 brings.
+
+**Stages of the lane** (each a checkpoint: unit tests, a lock-order test for any new monitor nesting, a mutation proof, the report):
+
+| Stage | Items | Bodies | Tests | New monitor nesting |
+|---|---|---|---|---|
+| **F1** | L-05 (the four companions, new files only — the stand-in deletions and the 12 call-site moves wait for the P4-14/P4-16/P4-17 leases, I-02), L-02 `LegionMember`, L-03 `LegionEmblem`, L-04 `LegionWarehouse`, L-01 `Legion`, L-06 | 66 + 2 + companions | `tests/team/P5-10f/LegionModelTest.cpp` | none: `getHistory`/`addHistory` take only the history list's own monitor (`Legion::history`, the shim's monitor, as Java's `synchronized (history)`), `addBonus`/`removeBonus` hold no lock while sending |
+| **F2a** | X-08's model: `ChallengeQuest`, `ChallengeTask` | 12 | `tests/team/P5-10f/ChallengeModelTest.cpp` | `ChallengeQuest` and `ChallengeTask` object monitors (Java `synchronized` methods), leaves: nothing but field writes under them |
+| **F2b** | X-08's service: `ChallengeTaskService` | 8 | DAO-backed cases under the test-database lock (`ChallengeTasksDAO.load`/`storeTask`), the task list and the legion reward order | none (the service takes no monitor; the maps are ConcurrentHashMaps, as Java's) |
+| gate | the legion cases of `gs.scenario.m5h` (C2-C12, C21-C22) stand on the legion-service lane's S-01..S-05 too; P5-10f has no gate stage of its own | – | – | – |
+
+**Deviations taken in F1** (all statement-for-statement otherwise): `LegionWarehouse::increaseKinah(long)` calls `Storage::increaseKinah(amount,
+actor)` itself instead of building a `LegionStorageProxy`, which is what the proxy's body does (the C++ proxy is a part of a non-null acting
+player, Java passes a null player when nobody uses the warehouse); `Legion::setHistory` copies each list (the frozen signature passes vectors);
+`ArrayList.addFirst/getLast/removeLast` (Java 21 `List` defaults) are written as `add(0, e)`, `get(size() - 1)`, `removeAt(size() - 1)`.
+
+**Java behaviour kept, proposed corrections for the owner**: `LegionEmblem.addUploadData` sizes the new buffer by `uploadedSize`, so a chunk
+added before `addUploadedSize` throws `ArrayIndexOutOfBoundsException` (the caller orders them right); `Legion.addHistory`'s comment promises to
+keep "the ones on the first page", the code trims every year-old REWARD/WAREHOUSE entry; `ChallengeTaskService.onLegionTaskFinish` hands one
+reward per member while `rewardsAdded <= number` (one more than `number` per tier) and passes `PlayerService.getPlayerName`'s null for a deleted
+member to `SystemMailService.sendMail`, which dereferences it.
+
+**Legion-service lane (lane B, 2026-10-08).** S-01 (the 18 restrictions), S-02, S-03, S-04 and S-05 ported in one pass on `lane-b/m5h-legion-service`
+(55 bodies of LegionService.java and its five anonymous RequestResponseHandlers; `tryRename` - only CM_APPEARANCE, M5j - and
+`joinLegionDominion` - M5i - stay unported). **S-06 under I-02's leases**, granted 2026-10-08 and recorded in `chunks.cmake` as
+`aion_gs_chunk(P5-11 LEASE ...)`: `SiegeService::cleanLegionId` (P5-12a) and `ConquerorAndProtectorService::onLeaveLegion` /
+`resetLegionDominionRank` (P5-12b). `resetLegionDominionRank` reaches `updateBuffAndNotifyNearbyPlayers` only for a protector with a legion
+dominion rank, which only `onEnterZone` in an occupied dominion zone creates (M5i); that body stays P5-12b's. Released when the lane merges.
+S-07's first part is `tests/legionhouse/LegionServiceTest.cpp` (database tests under gate_lock); S-08 and the packets (P-01) are next.
+
+**S-08 (lane B, 2026-10-08)**: `startWeeklyCalculation`, `updateLegionOccupation`, `getLegionRanking`, `getRewards`, `reset` ported on
+`lane-b/m5h-s08`; `LegionDominionWeeklyTest` (4 database cases: no participants, the ranked winner with the previous occupier cleared, a
+disbanding winner, the rewards by rank). The reward mails reach `SystemMailService::sendMail` with the shipped item ids; the cases bind no item
+templates, so sendMail answers false there and the mail itself is SystemMailService's to test. Java's `dominionRewards.get(i + 1)` is null for
+a rank without rewards (a NullPointerException, kept).
