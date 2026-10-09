@@ -410,6 +410,12 @@ aion_gs_chunk(P5-11 TARGET aion_gs_legionhouse PHASE 5
 	JAVA "src/com/aionemu/gameserver/services/{LegionService,HousingService,HousingBidService,TownService,LegionDominionService}.java"
 		"src/com/aionemu/gameserver/model/{house,town,legionDominion}/**" "src/com/aionemu/gameserver/taskmanager/tasks/housing/**"
 		"src/com/aionemu/gameserver/taskmanager/tasks/LegionDominionIntruderUpdateTask.java")
+# The legion-service lane of M5h (m5h-plan.md I-02, S-06; granted 2026-10-08): P5-11 leases services/SiegeService.cpp from P5-12a for
+# cleanLegionId and services/conquerorAndProtectorSystem/ConquerorAndProtectorService.cpp from P5-12b for onLeaveLegion and
+# resetLegionDominionRank - the three bodies LegionService reaches on every disband and every leave or kick of an online member. Released when
+# the lane merges.
+aion_gs_chunk(P5-11 LEASE PHASE 5
+	GLOBS "aion/gameserver/services/SiegeService.cpp" "aion/gameserver/services/conquerorAndProtectorSystem/ConquerorAndProtectorService.cpp")
 
 # P5-12a: siege + SiegeService + model.siege (+ ShieldService)
 aion_gs_chunk(P5-12a TARGET aion_gs_siege PHASE 5
@@ -422,6 +428,17 @@ aion_gs_chunk(P5-12a TARGET aion_gs_siege PHASE 5
 # (header request m5b2-p2-9); released at the lane's merge (owner, 2026-10-04).
 aion_gs_chunk(P5-08 LEASE PHASE 5
 	GLOBS "aion/gameserver/services/SiegeService.cpp")
+
+# The legion gate of M5h (granted 2026-10-08): P5-11 leases model/items/storage/Storage.{h,cpp} and LegionStorageProxy.cpp from P4-13 for the
+# owner-at-construction storage constructor that LegionStorageProxy needs (header request m5h-g1; docs/DEVIATIONS.md, item model). Released
+# when the lane merges.
+aion_gs_chunk(P5-11 LEASE PHASE 5
+	GLOBS "aion/gameserver/model/items/storage/{Storage,LegionStorageProxy}.cpp" "aion/gameserver/model/items/storage/Storage.h")
+
+# The studio stage of M5h (m5h-plan.md 14.2, granted 2026-10-08): P5-11 leases model/gameobjects/UseableItemObject.cpp from P4-11a for
+# placementLimitOf (H-05). Released when the lane merges.
+aion_gs_chunk(P5-11 LEASE PHASE 5
+	GLOBS "aion/gameserver/model/gameobjects/UseableItemObject.cpp")
 
 # P5-12b: base, rift, vortex, world raid, panesterra, conqueror/protector, events
 aion_gs_chunk(P5-12b TARGET aion_gs_worldevents PHASE 5
