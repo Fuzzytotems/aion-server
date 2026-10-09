@@ -7,7 +7,7 @@
 // **m5a-plan.md D9:** every layout is written from the Java `writeImpl` under game-server/src/com/aionemu/gameserver/network/aion/serverpackets/
 // (SM_HOUSE_ACQUIRE.java, SM_HOUSE_OWNER_INFO.java, AbstractHouseInfoPacket.java with SM_HOUSE_RENDER.java and SM_HOUSE_UPDATE.java, SM_HOUSE_SCRIPTS.java,
 // SM_HOUSE_OBJECT.java, SM_HOUSE_EDIT.java, SM_DELETE_HOUSE_OBJECT.java, SM_OBJECT_USE_UPDATE.java, SM_LEGION_MEMBERLIST.java,
-// SM_LEGION_UPDATE_MEMBER.java) and the helpers they call (AionServerPacket.writeS(text, fixedLength) and writeDyeInfo,
+// SM_LEGION_UPDATE_MEMBER.java, SM_LEGION_EDIT.java, SM_LEGION_HISTORY.java) and the helpers they call (AionServerPacket.writeS(text, fixedLength) and writeDyeInfo,
 // UseableItemObject.UseDataWriter.writeMe). Nothing here includes, calls or mirrors a C++ serverpackets header.
 //
 // Every decode function consumes the body exactly and throws DecodeError otherwise; the Java constants that carry no data are verified.
@@ -214,5 +214,36 @@ struct LegionUpdateMember {
 };
 
 LegionUpdateMember decodeLegionUpdateMember(std::span<const uint8_t> body);
+
+// ---- SM_LEGION_EDIT / SM_LEGION_HISTORY (the legion warehouse and disband cases C9, C22) ------------------------------------------------
+
+/** SM_LEGION_EDIT.writeImpl: writeC(type), then 0x00 writeC(level), 0x02 four writeH, 0x03/0x04 writeQ, 0x05 writeS + writeD, 0x06 writeD */
+struct LegionEdit {
+	uint8_t type = 0;
+	int64_t value = 0;            // 0x00 the level, 0x01 the ranking position, 0x03 the contribution points, 0x04 the warehouse kinah, 0x06 the time
+	std::vector<int32_t> masks;   // 0x02
+	std::string announcement;     // 0x05
+	int32_t unixTime = 0;         // 0x05, 0x06
+};
+
+LegionEdit decodeLegionEdit(std::span<const uint8_t> body);
+
+/** One SM_LEGION_HISTORY entry: writeD(time), writeC(action id), writeC(0), writeS(name, 32), writeS(description, 32), writeH(0) */
+struct LegionHistoryEntry {
+	int32_t epochSeconds = 0;
+	uint8_t actionId = 0;
+	std::string name;
+	std::string description;
+};
+
+/** SM_LEGION_HISTORY.writeImpl: writeD(total), writeD(page), writeD(page entries), the entries, writeH(type.ordinal()) */
+struct LegionHistory {
+	int32_t total = 0;
+	int32_t page = 0;
+	std::vector<LegionHistoryEntry> entries;
+	uint16_t type = 0;
+};
+
+LegionHistory decodeLegionHistory(std::span<const uint8_t> body);
 
 } // namespace aion::gameserver::scenario::decoders
