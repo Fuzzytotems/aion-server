@@ -616,6 +616,21 @@ public:
 	/** CM_ABYSS_RANKING_PLAYERS.readImpl: readC raceId (0 Elyos, 1 Asmodians) */
 	static std::vector<uint8_t> buildCM_ABYSS_RANKING_PLAYERS(uint8_t raceId);
 
+	// ---- M5j stage 2's toy pet packet (m5j-plan.md §10.4 Z11, §18.3 CP5), the Java readImpl field order ----
+	/** AionClientPacketFactory packets[22] (ClientPacketInfo.gen.inc:37) */
+	static constexpr int32_t CM_PET = 22;
+	/** PetAction ids of CM_PET (PetAction.java:11-14) */
+	static constexpr uint16_t PET_ADOPT = 1;
+	static constexpr uint16_t PET_SPAWN = 3;
+	static constexpr uint16_t PET_DISMISS = 4;
+	/**
+	 * CM_PET.readImpl ADOPT (CM_PET.java:52-61): readUH action, readD eggObjId, readD templateId, readUC unk2, readD unk3, readD decorationId,
+	 * readD unk5, readD unk6, readS petName
+	 */
+	static std::vector<uint8_t> buildCM_PET_ADOPT(int32_t eggObjectId, int32_t templateId, int32_t decorationId, std::string_view petName);
+	/** CM_PET.readImpl SURRENDER, SPAWN and DISMISS (CM_PET.java:62-66): readUH action, readD templateId */
+	static std::vector<uint8_t> buildCM_PET(uint16_t action, int32_t templateId);
+
 	// ---- M5c's stage-1 packets (m5c-plan.md K-01, K-02, G-02) and stage 2's crafting packets, each the Java readImpl field order ----
 	/** one entry of CM_BUY_ITEM (CM_BUY_ITEM.java:65-66): readD itemId (see TRADE_*), readQ count */
 	struct BuyItemEntry {
