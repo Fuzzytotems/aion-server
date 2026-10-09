@@ -53,6 +53,8 @@
 #           + gs.scenario.m5e 343, gs.scenario.m5e_geo 484 (m5e-plan.md §10; 2026-10-04 in a Debug tree, one after the other in one
 #             ctest, beside two other agents' builds; m5e 340-379 s over its last five runs; slot 1 had the smaller sum before
 #             them, 1974 s against 2095 s)                                                                                = 2801
+#           + gs.scenario.gm GM_SECONDS (m5j-plan.md §17.8; 2026-10-07 in a Debug tree, no geo variant; slot 2 has the M5f
+#             pair and since M5g the two M5g gates, whose runtimes the M5g lane did not add here, so slot 1 is taken as the smaller)
 #   slot 2  gs.scenario.m5b2 172, gs.scenario.m5b2_geo 301                                                         =  473
 #           + gs.scenario.ascension 880 (lane P6-Q asc-hand, docs/deviations/Q06.md; 866-904 s alone, 2026-09-29 in a Debug
 #             tree: two races' 43 s waits and auto-attack fights; it has no geo variant)                             = 1353
@@ -61,6 +63,8 @@
 #             220-286 s in its review's, m5d_geo 358-485 s; m5d_geo's startup alone 172 s)                           = 2095
 #           + gs.scenario.m5f 198, gs.scenario.m5f_geo 325 (m5f-plan.md §10, §17; 2026-10-05 in a Debug tree, one after the
 #             other in one ctest, beside other lanes' builds; slot 2 had the smaller sum, 2095 s against 2801 s)       = 2618
+#           + gs.scenario.m5j 151 (m5j-plan.md §10.4 stages 1 and 2; 2026-10-08 in a Debug tree, no geo variant; slot 2
+#             beside the chat gate, whose runtime its lane did not add here either; stage 1 alone was 134)            = 2769
 # The balance held for the full set above before M5c; the plan put the M5c gate into slot 2 (§10.1: the smaller sum then, and a prefix of its
 # own), which then led slot 1 by about 280 s, so the travel gate joined slot 1. The ascension gate joined slot 1 as well in its own lane (it
 # would have led slot 2 by about 600 s); at the integration of the two (2026-09-29) it went to slot 2 instead, and the M5b pair (m5b and
@@ -123,7 +127,9 @@ if(TARGET aion_gs_scenario_tests)
 		AION_SCENARIO_M5D_PARTIAL_ALLOWLIST="${CMAKE_CURRENT_SOURCE_DIR}/tests/scenario/m5d_partial_allowlist.txt"
 		AION_SCENARIO_M5E_PARTIAL_ALLOWLIST="${CMAKE_CURRENT_SOURCE_DIR}/tests/scenario/m5e_partial_allowlist.txt"
 		AION_SCENARIO_M5F_PARTIAL_ALLOWLIST="${CMAKE_CURRENT_SOURCE_DIR}/tests/scenario/m5f_partial_allowlist.txt"
-		AION_SCENARIO_M5G_PARTIAL_ALLOWLIST="${CMAKE_CURRENT_SOURCE_DIR}/tests/scenario/m5g_partial_allowlist.txt")
+		AION_SCENARIO_M5G_PARTIAL_ALLOWLIST="${CMAKE_CURRENT_SOURCE_DIR}/tests/scenario/m5g_partial_allowlist.txt"
+		AION_SCENARIO_GM_PARTIAL_ALLOWLIST="${CMAKE_CURRENT_SOURCE_DIR}/tests/scenario/gm_partial_allowlist.txt"
+		AION_SCENARIO_M5J_PARTIAL_ALLOWLIST="${CMAKE_CURRENT_SOURCE_DIR}/tests/scenario/m5j_partial_allowlist.txt")
 
 	# the oracle answers are JSON (Oracle.cpp); commons finds the same package in its own directory scope
 	find_package(nlohmann_json CONFIG REQUIRED)
@@ -177,6 +183,14 @@ if(TARGET aion_gs_scenario_tests)
 		LABELS "scenario;realdata")
 	# and for the M5f gates (m5f-plan.md G-03/G-04)
 	aion_set_discovered_test_properties(aion_gs_scenario_tests REGEX "^M5fScenario(Geo)?\\." PROPERTIES DISABLED TRUE
+		LABELS "scenario;realdata")
+	# and for the M5j stage-0 GM gate (m5j-plan.md §17.8) and chat gate (§17.9)
+	aion_set_discovered_test_properties(aion_gs_scenario_tests REGEX "^GmScenario\\." PROPERTIES DISABLED TRUE
+		LABELS "scenario;realdata")
+	aion_set_discovered_test_properties(aion_gs_scenario_tests REGEX "^ChatScenario\\." PROPERTIES DISABLED TRUE
+		LABELS "scenario;chatserver;realdata")
+	# and for the M5j stage-1 gate (m5j-plan.md §10.4)
+	aion_set_discovered_test_properties(aion_gs_scenario_tests REGEX "^M5jScenario\\." PROPERTIES DISABLED TRUE
 		LABELS "scenario;realdata")
 
 	# F-06: the M5a gate (§5.10). The oracle needs a Python interpreter; without it the test prints "gs.scenario.m5a: skipped".
@@ -512,5 +526,61 @@ if(TARGET aion_gs_scenario_tests)
 	endif()
 	if(AION_SCENARIO_REQUIRE OR NOT AION_GS_ALLOW_MILESTONE_SKIP)
 		set_property(TEST gs.scenario.m5g_alliance APPEND PROPERTY ENVIRONMENT_MODIFICATION "AION_SCENARIO_REQUIRE=set:1")
+	endif()
+
+	# ---- the M5j stage-0 GM gate (m5j-plan.md §10.2 as refreshed by §17.8) ---------------------------------------------------------------
+	#
+	# gs.scenario.gm: three Elyos accounts on Poeta - G (access level 9, seeded into the login schema's account_data before its first enter
+	# world, H-02), L (access level 1) and P (0): the default login commands, the access text, a player's command as a chat line with the race
+	# byte, whispers, the gag and its removal, and one command of each stage-0 family (//online, //announce, the console's levelup through
+	# CM_BUILDER_COMMAND, //addexp, .gmlist, //spawn and //kill). Its own output directory <bin>/scenario/gm, schema pair
+	# (aion_gs_test_gm_<hash>) and AION_PARTIAL allow-list. Gate slot 1 (see "the two gate slots" above). No geo variant (§10.1).
+	add_test(NAME gs.scenario.gm COMMAND "$<TARGET_FILE:aion_gs_scenario_tests>" --gtest_filter=GmScenario.Run
+		WORKING_DIRECTORY "${scenario_work_dir}")
+	set_tests_properties(gs.scenario.gm PROPERTIES LABELS "scenario;realdata" TIMEOUT 1800
+		RESOURCE_LOCK "${AION_GS_GATE_SLOT_1}" SKIP_REGULAR_EXPRESSION "gs\\.scenario\\.gm: skipped")
+	# the help texts and X3's access level come from tools/oracle/oracle.py m5j-commands (m5j-plan.md H-01)
+	if(Python3_Interpreter_FOUND)
+		set_property(TEST gs.scenario.gm APPEND PROPERTY ENVIRONMENT_MODIFICATION "AION_TEST_PYTHON=set:${Python3_EXECUTABLE}")
+	endif()
+	if(AION_SCENARIO_REQUIRE OR NOT AION_GS_ALLOW_MILESTONE_SKIP)
+		set_property(TEST gs.scenario.gm APPEND PROPERTY ENVIRONMENT_MODIFICATION "AION_SCENARIO_REQUIRE=set:1")
+	endif()
+
+	# ---- the M5j gate, stages 1 and 2 (m5j-plan.md §10.4, §18.1 CP5, §18.3 CP5) ---------------------------------------------------------
+	#
+	# gs.scenario.m5j: G (access level 9) and A, B (a seeded level-10 Daeva) on Poeta, C on Ishalgen, G2 (access level 9, Asmodian, a seeded
+	# level-13 Daeva beside A): friends, note, macro and title, search and details, blocks and the whisper arms, the duel and its 33 % floor,
+	# prison, the abyss ranking with //ranking update, and a PvP kill's AP (oracle.py m5j-social); stage 2: a ride, a toy pet and a kisk
+	# (oracle.py m5j-items). Its own output directory <bin>/scenario/m5j,
+	# schema pair (aion_gs_test_m5j_<hash>) and AION_PARTIAL allow-list. Gate slot 2 (slot 1 took gs.scenario.gm; slot 2's chat gate starts
+	# one game server like any other). No geo variant (§10.1).
+	add_test(NAME gs.scenario.m5j COMMAND "$<TARGET_FILE:aion_gs_scenario_tests>" --gtest_filter=M5jScenario.Run
+		WORKING_DIRECTORY "${scenario_work_dir}")
+	set_tests_properties(gs.scenario.m5j PROPERTIES LABELS "scenario;realdata" TIMEOUT 1800
+		RESOURCE_LOCK "${AION_GS_GATE_SLOT_2}" SKIP_REGULAR_EXPRESSION "gs\\.scenario\\.m5j: skipped")
+	# the ids, levels, titles, Daeva seeds and the kill's AP come from tools/oracle/oracle.py m5j-social, the equipped items from m5a-creation
+	if(Python3_Interpreter_FOUND)
+		set_property(TEST gs.scenario.m5j APPEND PROPERTY ENVIRONMENT_MODIFICATION "AION_TEST_PYTHON=set:${Python3_EXECUTABLE}")
+	endif()
+	if(AION_SCENARIO_REQUIRE OR NOT AION_GS_ALLOW_MILESTONE_SKIP)
+		set_property(TEST gs.scenario.m5j APPEND PROPERTY ENVIRONMENT_MODIFICATION "AION_SCENARIO_REQUIRE=set:1")
+	endif()
+
+	# ---- the M5j stage-0 chat gate (m5j-plan.md §10.3 as refreshed by §17.9, chat-server-port.md's three-server gate) ----------------------
+	#
+	# gs.scenario.chat: the login, chat and game servers; the link and its announcement, the chat token and a fake chat client's channel
+	# message, a gag reaching the chat server, the reconnect delays and the logout. Its own output directory <bin>/scenario/chat, schema pair
+	# (prefix chat) and chat schema per run (aion_cs_test_chat_<hash> on AION_TEST_CS_DATABASE_URL's server, §17.9: never aion_cs_test and
+	# its named lock). A tree built without the chat server (AION_BUILD_CHAT_SERVER=OFF) does not register it. Gate slot 2 (§17.9: the slot
+	# with the smaller sum after gs.scenario.gm took slot 1). No geo variant.
+	if(TARGET aion_chat_server)
+		add_test(NAME gs.scenario.chat COMMAND "$<TARGET_FILE:aion_gs_scenario_tests>" --gtest_filter=ChatScenario.Run
+			WORKING_DIRECTORY "${scenario_work_dir}")
+		set_tests_properties(gs.scenario.chat PROPERTIES LABELS "scenario;chatserver;realdata" TIMEOUT 1800
+			RESOURCE_LOCK "${AION_GS_GATE_SLOT_2}" SKIP_REGULAR_EXPRESSION "gs\\.scenario\\.chat: skipped")
+		if(AION_SCENARIO_REQUIRE OR NOT AION_GS_ALLOW_MILESTONE_SKIP)
+			set_property(TEST gs.scenario.chat APPEND PROPERTY ENVIRONMENT_MODIFICATION "AION_SCENARIO_REQUIRE=set:1")
+		endif()
 	endif()
 endif()

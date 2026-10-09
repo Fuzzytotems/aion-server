@@ -860,6 +860,40 @@ cooltime around 09:00 in UTC, a fixed offset and the local zone, WEEKLY and RELA
 Kustanon, Aero, Urakron, Osmar, Ukin, the obelisks, hotspot 13 from the Elyos spawn, Haramel's portal, cooltime, reuse time, exit and
 spawnInstance set, the level-16 exp; the census on a mock C++ tree that reproduces W-14 and W-21, and the geo check on Poeta and Haramel).
 
+## M5j command oracle (`m5j/commands.py`, `docs/design/m5j-plan.md` H-01)
+
+`oracle.py m5j-commands [--alias //kill .help levelup ...] [--l10n ID ...]` reads the chat commands as the Java server builds them: the
+access levels of `config/administration/commands.properties` (152 aliases); each command's alias, description and syntax info from its own
+constructor's `super(...)` (string literals, text blocks and `+` concatenations of them; a command with a computed part is listed under
+`unresolved` with the expression, e.g. `Bookmark_add`'s `ALIAS` and `Easter`'s `ChatUtil.item(...)`), keyed by the alias WITH its prefix
+(`//`, `.`, or none for a console command) as ChatProcessor.registerCommand keys it; the parsed syntax info (ChatCommand.parseSyntaxInfo),
+the `help` answer as the parts of ChatUtil.split (UTF-16 code units, the l10n and link estimates of findSplitIndex), the access message
+(AdminCommand.validateAccess), the ChatType ids, ChatUtil.l10n as UTF-16 code units, the whisper level (custom.properties) and the
+non-Daeva level cap (PlayerCommonData.setExp). `gs.scenario.gm`'s X2 compares every stage-0 command's help with it, and X3 takes its access
+text from it. Tests: `tests/test_m5j.py`.
+
+## M5j social oracle (`m5j/social.py`, `docs/design/m5j-plan.md` §10.4, §18.1)
+
+`oracle.py m5j-social [--profile FILE | --no-profile] [--set KEY=VALUE ...] [--message NAME ...] [--question NAME ...] [--daeva-level N ...]
+[--pvp-kill VICTIM_AP,VICTIM_LEVEL,WINNER_AP,WINNER_LEVEL] [--membership M]` gives what `gs.scenario.m5j` asserts: SM_SYSTEM_MESSAGE and
+SM_QUESTION_WINDOW ids by name; the whisper and search levels, the search's faction and GM switches, the PvP kill limit, the AP cap switch and
+the PvP AP rates (Config.loadProperties' layering, m5c/trade_config); the first titles of each race (player_titles.xml); AbyssRankEnum; the
+Daeva seed of a level (the ascension quests and exp of m5c/sanctum); and one solo PvP kill's AP - StatFunctions.calculatePvPApLost and
+calculatePvpApGained in Java float arithmetic, Rates.AP_PVP_LOST / AP_PVP with the membership's rate, AbyssRank.addAp's floor and the rank
+after. The arithmetic's Java statements are checked in the source first (a change fails the oracle). Tests: `tests/test_m5j_social.py`.
+
+## M5j items oracle (`m5j/items.py`, `docs/design/m5j-plan.md` §10.4 Z9-Z11, §18.3 H-21)
+
+`oracle.py m5j-items [--profile FILE | --no-profile] [--set KEY=VALUE ...] [--class C] [--race R] [--level N] [--map ID] [--message NAME ...]
+[--question NAME ...]` gives what `gs.scenario.m5j`'s stage-2 cases use: of the items a character of the class, race and level may use
+(PlayerRestrictions.canUseItem's template checks), the ride item with the lowest required level (its casting delay, ride npc and ride_info),
+the kisk item whose kisk has resurrections and a bind dialog (members > 1; KiskStatsTemplate's defaults for absent attributes), and the
+non-expiring pet egg whose pet has a pet_feed.xml flavour for its FOOD function (PetCommonData's constructor dereferences it: the NCSoft test
+flavours 1-6 are absent) and at most two of the specialties SM_PET writes; the map's zones with ZoneInstance.canPutKisk / canRide (a zone
+without flags takes the map's); the EmotionType and PetFunctionType ids; the ride and kisk restriction keys and the pet save period. A profile
+that leaves the ride restriction on for a map with zones that refuse riding, or a map with a zone that refuses a kisk, is refused (the spot's
+zones are not modelled). The Java statements the rules were written against are checked first. Tests: `tests/test_m5j_items.py`.
+
 ## Phase-6 golden quest traces (`questtrace/`, `docs/design/phase6-inventory.md` §7.6 item 3)
 
 `questtrace/extract.py` turns a Java quest handler into its expected behaviour, written from Java only: from the handler source,
