@@ -46,10 +46,11 @@ const templates::item::ItemTemplate* findItemTemplate(int32_t itemId) {
 	return dataholders::DataManager::ITEM_DATA->getItemTemplate(itemId);
 }
 
-/** Java `PlaceableHouseObject.getPlacementLimit()`: the shell declares no accessor for the `limit` attribute yet (P4-07b) */
+/** Java `getObjectTemplate().getPlacementLimit()` (PlaceableHouseObject.java:48-52: NONE without a limit; M5h HS-1, a P5-11 lease) */
 templates::housing::LimitType placementLimitOf(const templates::housing::HousingUseableItem* template_) {
-	static_cast<void>(template_);
-	AION_UNPORTED();
+	if (!template_) // Java: getPlacementLimit() on a null template
+		throw runtime::NullPointerException("the useable item has no template");
+	return template_->getPlacementLimit();
 }
 
 /** Java auto-unboxing of a null Integer: NullPointerException */

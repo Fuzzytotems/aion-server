@@ -18,6 +18,12 @@
 
 namespace aion::gameserver::services {
 
+class LegionService_DisbandResponseHandler;
+class LegionService_InviteResponseHandler;
+class LegionService_ChangeProcessResponseHandler;
+class LegionService_AppointResponseHandler;
+class LegionService_RecreateResponseHandler;
+
 /**
  * This class is designed to do all the work related with loading/storing legions and their members.
  * <p>
@@ -28,6 +34,13 @@ namespace aion::gameserver::services {
  * @author Simple, cura, Source, Neon
  */
 class LegionService : public runtime::Immortal {
+	// the anonymous RequestResponseHandlers of requestDisbandLegion, invitePlayerToLegion, startBrigadeGeneralChangeProcess,
+	// appointBrigadeGeneral and recreateLegion (Java inner classes reach the private members of LegionService)
+	friend class LegionService_DisbandResponseHandler;
+	friend class LegionService_InviteResponseHandler;
+	friend class LegionService_ChangeProcessResponseHandler;
+	friend class LegionService_AppointResponseHandler;
+	friend class LegionService_RecreateResponseHandler;
 private:
 	/**
 	 * This class contains all restrictions for legion features
