@@ -1500,3 +1500,92 @@ was taken; none was rejected outright, and two were taken in part.
 | 11 | low | Shared artefacts: the command smoke has no owner; one header-request section for all lanes; C1 and C2 share one library, its preludes and its unity batches | **holds** (unity batches are per directory, `AionChunks.cmake:600-607`) | K-09: the smoke is commands-c1's; header requests in a subsection per lane; §17.7's paragraph on the shared library (frozen preludes, the regscan unity rules, the 0.1b combined build) |
 | 12 | low | G-02 omits `gs.scenario.m5a_stress` | **holds in part**: it is registered but disabled unless `AION_STRESS_NIGHTLY=ON` | G-02 says the list leaves it out and why |
 | 13 | nit | Five slips: who added `CM_PLAY_MOVIE_END` and its two siblings; "line only" for a byte-identical `ChatCommand.h`; three K-10 ranges one line short; the slot rule's line; the body arithmetic against rev 1 | **all hold** | §17.1, §17.2 (K-01, K-10 and the total), §17.8's slot bullet |
+
+## 18. Stage 0 closed (2026-10-08, lane A, branch `lane-a/m5j-stage0-gate`)
+
+What landed for the stage-0 items, after the chat lane (K-01..K-06), the command lanes (K-07..K-10, the 41 commands of §17.4, the last six
+being the talking family of `lane-a/gm-talk`) and I-02 had merged:
+
+| Item | State | Where |
+|---|---|---|
+| **H-03** | done: `tools/parity` reads chat commands (the region after the `AION_*_COMMAND` marker, `super(...)` as the base initializer, text blocks and adjacent literals as values, the command rewrites) and has the per-line waiver of handlers-and-porting-plan.md §3.1 item 2 in two forms, `// parity: <reason>` and `// parity= <Java>` (read with the Java rules). 41 of 41 command files at parity; no real divergence found (one ASCII-only `equalsIgnoreCase` edge in //enemy noted) | `tools/parity` (README, 41 tests), docs/deviations/C1.md |
+| **H-02** | done: the GM account seed (`account_data.access_level` in the gate's login schema, after the accounts' autocreating first login), `GameSession::buildCM_CHAT_MESSAGE_PUBLIC` / `buildGmCommand` / `buildCM_CHAT_MESSAGE_WHISPER` / `buildCM_BUILDER_COMMAND`; the `SM_MESSAGE` decoder already existed (M5c) | `tests/scenario/GmScenarioTest.cpp`, `GameSession.h` |
+| **G-01** (`gs.scenario.gm`) | done, narrowed: X1, X3, X4/X5 (P's side), X6, X7, X8 as one command per family, X10; X2 waits for H-01's oracle; X8b, X8c and X11 are part 0.2's | docs/deviations/P5-SC.md, "M5j stage-0 GM gate" |
+| **H-01** (`oracle.py m5j-commands`) | done (2026-10-08, branch `lane-a/m5j-stage0-rest`): levels, aliases keyed with their prefix, help after ChatUtil.split, access text, ChatType ids, l10n, whisper level, non-Daeva cap; the gate's X2 (every stage-0 command's help, 41 of 41 equal) and X3 read it | `tools/oracle/m5j/commands.py`, tools/oracle/README.md |
+| **C-03** (`gs.scenario.chat`) and I-03 | done (2026-10-08, `lane-a/m5j-stage0-rest`): Y1-Y7 green, 7 of 7 mutants killed; I-03's three lines are in `game-server/CMakeLists.txt` for the integrator to take or redo; `game-server/config/m5j.properties.example` | docs/deviations/P5-SC.md, "M5j stage-0 chat gate" |
+| **G-02** (every gate re-greened) | the integrator's, at the merge | |
+
+§17.11 item 6 (the four first-login quest handlers) did not block X1: they are still held back, and X1 asserts the login commands' answers by
+presence in the enter-world burst.
+
+### 18.1 Stage 1, measured (2026-10-08, lane A, read-only over `lane-a/m5j-stage0-rest`)
+
+The census (`tools/porting/census.py`) counts **371 open items in M5j** (P5-05, P5-08, P5-10e, P5-14: 138 `AION_UNPORTED`, 2 `AION_PARTIAL`,
+198 undeclared, 36 Java files without a C++ file, ~3,470 Java lines) and **216 more in the client packets** P5-15/16 (70 CM packets without a
+C++ file). Stage 1's items (§7 "Stage 1") as they stand, `AION_UNPORTED` sites per C++ file:
+
+| Item | Open now | Note |
+|---|---|---|
+| S-01 SocialService | 6 | |
+| S-02 DuelService, revives | 10 + PlayerReviveService 3 | the draw task pins both players: a `cycles.toml` row |
+| S-03 PunishmentService | 5 | prison needs TeleportService (A-F1, met) |
+| S-04 abyss | AbyssRankUpdateService 4, AbyssService 1, PvpService's headhunting part of 9 | |
+| S-07 P5-14 residue | NpcShoutsService 6, StaticDoorService 4, DatabaseCleaningService 8 | |
+| S-08 residue | PlayerService 2, CAPTCHAUtil 1, PlayerTransferService 6; AtreianPassportService and AdventService are closed by M5b-3 CP4 (#132/#133) | |
+| S-09 item actions | P5-07's open item actions | |
+| S-11 recall | **done** (M5g W-06, `7ec54c005`) | |
+| S-12 PvP half | PvpService's rest, StatFunctions PvP 5, ConquerorAndProtectorService 12 | P5-12b: check M5i's lane before taking it |
+| S-13 Legion Dominion | LegionDominionService 6, LegionDominionLocation 6 | **P5-11 is lane B's (M5h legion and housing)**: not taken without the integrator's word |
+| S-05/S-06 packets | the J4/J5 packets of the items above (friend, block, duel, macro, search, ranking, windstream, static door ...) | ported with the item that needs them |
+| S-10 commands | the administrative and social commands of §5.4 | after the services they call |
+
+**Checkpoints** (each with unit tests in the owning chunk's test directory, a mutation proof, and the stage-1 gate cases that cover it):
+1. **CP1 social and duel**: S-01, S-02 (+ the friend/block/duel packets of S-05/S-06, `SocialDecoders`, H-11's builders).
+2. **CP2 punishment and abyss**: S-03, S-04 (+ the ranking packets), the oracle's PvP AP formulas (`m5j-social`, H-11).
+3. **CP3 residue**: S-07, S-08, S-09.
+4. **CP4 the PvP half**: S-12, if no other lane holds P5-12b.
+5. **CP5 commands and the gate**: S-10, the rest of S-05/S-06, G-11 (`gs.scenario.m5j` stage-1 cases, §10.4).
+S-13 waits for the integrator (lane B's chunk).
+
+### 18.2 Stage 1 closed (2026-10-08, lane A, branches `lane-a/m5j-s1-cp2` .. `lane-a/m5j-s1-cp5`)
+
+| Checkpoint | State | Where |
+|---|---|---|
+| CP1 social and duel | done (`a6135f74c`): SocialService, DuelService, the duel/rebirth/item revives and their packets; `SocialDecoders` and H-11's builders came with the gate (CP5) | P5-08.md, P5-15/16.md |
+| CP2 punishment and abyss | done (#164/#165): PunishmentService, the headhunting registry, the abyss skill announcement, AbyssRankUpdateService | P5-08.md |
+| CP3 residue | done (#169/#170): npc shouts, static doors, database cleaning, macros, EMOTIONS_ALL, the captcha image, the player transfer | P5-14.md, P5-13.md |
+| CP4 the PvP half | done (#172/#173): PvpService's PvP half, StatFunctions' PvP formulas, the kill variant of addAp, the ConquerorAndProtectorService PvP bodies, CM_SHOW_MAP | P5-08.md, P5-12b |
+| CP5 commands, packets, gate | done: S-10's administrative and social commands (C1.md; //headhunting not ported, D12), the remaining stage-1 packets (P5-15/16.md), and G-11: `gs.scenario.m5j` with Z1-Z8, Z14 and Z13 green, 10 of 10 gate mutants killed; `oracle.py m5j-social` | P5-SC.md "M5j stage-1 gate" |
+| S-13 / Z15 | lane B's (P5-11) | §18.1 |
+
+Java behaviour the gate pins and that goes to the owner as proposed corrections (none applied): CP2's prison gag of 1 ms (minutes passed as
+milliseconds; the gate sees its immediate STR_CAN_CHAT_NOW), and a friend's enter-world SM_FRIEND_UPDATE whose status byte reads OFFLINE when
+the packet is written before World.storeObject (PlayerEnterWorldService.java:191 before :197). Stage 2 (ride, kisk, toy pets) re-runs these
+cases and adds Z9-Z11.
+
+### 18.3 Stage 2, measured (2026-10-08, lane A, over `lane-a/m5j-s1-cp5`)
+
+`AION_UNPORTED` sites and missing C++ files of §7 "Stage 2" as they stand (grep of the C++ files, the client packets and command handlers
+without a C++ file; `tools/porting/census.py` for the totals):
+
+| Item | Open now | Note |
+|---|---|---|
+| E-01 toy pets | `PetService` 10, `PetAdoptionService` 4, `PetFeedCalculator` 4, `PetFeedProgress` 7, `PetMoodService` 4, `PetSpawnService` 1 (~810 Java lines) | the model (`Pet`, `PetCommonData`, `PetList`, `PetController`), `PlayerPetsDAO`, `SM_PET`, `SM_PET_EMOTE` are ported |
+| E-02 item actions | **none**: `AdoptPetAction`, `RideAction`, `ExpExtractAction` were ported by M5b-3 leftovers CP2 (`d38cec7ec`) | |
+| E-03 packets | `CM_PET`, `CM_PET_EMOTE`, `CM_APPEARANCE`, `CM_UPGRADE_ARCADE` have no file | `UpgradeArcadeService` is ported (M5b-3 leftovers CP3, `584a3f6a4`): D12's question is now only whether the event is switched on |
+| E-05 kisks | `KiskService` 2 (`removeKisk`, `onBind`), `KiskAI`, `InvisiblekiskAI` have no file | `ToyPetSpawnAction`, `kiskRevive` and `allowKiskRevive` are ported |
+| E-06 arcade | ported (above) | the packet is in E-03 |
+| E-07 commands | the item and pet commands without a file: `//add`, `//addset`, `//addcube`, `//remove`, `//equip`, `//dye`, `//pet`, `//megaphone`, `//rename`, `//res`, `.preview`, `.nomorph`, `.noexp`, `.del`, `.decompose` | `.buy`, `.easter`, `.symphony` are event content (D12); the system commands stay stage 4 |
+| E-09 group K (A-C4) | the services are ported (`ArmsfusionService`, `ItemPurificationService`, `ItemRemodelService`, `ItemChargeService`, `WarehouseService`, `TradeService.tradeIn`, `CompositionAction`); left are the packets `CM_CHARGE_ITEM`, `CM_ITEM_PURIFICATION`, `CM_ITEM_REMODEL`, `CM_FUSION_WEAPONS`, `CM_BREAK_WEAPONS`, `CM_COMPOSITE_STONES`, `CM_BUY_TRADE_IN_TRADE`, `CM_READ_EXPRESS_MAIL` and the postman AIs `DeliveryManAI`, `FollowingNpcAI` | M5b-3's leftovers took the services, so the remaining bodies are thin and M5j takes them (D15) |
+| E-10 stigma | **none**: `StigmaService` ported by M5e T-01 (`a0d8694cd`) | |
+| Stage-0 rest | `CM_CHAT_GROUP_INFO` (K-05) and `CM_TIME_CHECK_QUIT` have no file | taken with E-03 |
+| Not M5j stage 2 | `CM_LEGION*`, `CM_HOUSE*`, `CM_*BROKER*`, `CM_PLACE_BID`, `CM_GET_HOUSE_BIDS`, `CM_REGISTER_HOUSE`, `CM_USE_HOUSE_OBJECT`, `CM_RELEASE_OBJECT`, `CM_CHALLENGE_LIST`, `CM_LEGION_DOMINION_REQUEST_RANKING` (lane B, M5h); `CM_AUTO_GROUP` (stage 4, X-01); `CM_GODSTONE_SOCKET` (commented out of the 4.8 factory) | |
+
+**Checkpoints** (each with unit tests in the owning chunk's test directory, a mutation proof, and the stage-2 gate cases that cover it):
+1. **CP1 toy pets**: E-01, `CM_PET`, `CM_PET_EMOTE`, `//pet`; the pet feed arithmetic against golden vectors computed from the Java formulas.
+2. **CP2 kisks**: E-05's `KiskService` bodies, `KiskAI`, `InvisiblekiskAI`.
+3. **CP3 the remaining packets**: `CM_APPEARANCE`, `CM_UPGRADE_ARCADE`, `CM_CHAT_GROUP_INFO`, `CM_TIME_CHECK_QUIT`, E-09's eight packets and the two postman AIs.
+4. **CP4 commands**: E-07.
+5. **CP5 the gate**: H-21 (`oracle.py m5j-items`, the pet, ride and kisk decoders), G-21 (`gs.scenario.m5j` Z9-Z11 with the stage-1 cases re-run).
+
+> **Progress:** CP1 done (branch `lane-a/m5j-s2-cp1`): the six toy pet services, `CM_PET`, `CM_PET_EMOTE`, `//pet` (P5-08.md, P5-16.md, C1.md). CP2 done (`lane-a/m5j-s2-cp2`): `KiskService.removeKisk`/`onBind`, `KiskAI`, `InvisiblekiskAI` (P5-05.md, P5-08.md). CP3 done (`lane-a/m5j-s2-cp3`, two commits: the four packets of E-03/stage 0, then group K - the eight packets and the postman AIs - separately). CP4 done (`lane-a/m5j-s2-cp4`): the 14 item commands of E-07 (C1.md, C2.md for //dye). CP5 done (`lane-a/m5j-s2-cp5`): H-21 (`oracle.py m5j-items`, the SM_PET and SM_KISK_UPDATE decoders, the CM_PET builders) and G-21 (`gs.scenario.m5j` Z9-Z11 green with every stage-1 case; P5-SC.md "M5j stage-2 gate"). **Stage 2 is closed.**

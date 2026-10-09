@@ -16,6 +16,8 @@
 #include "aion/gameserver/model/gameobjects/Npc.h"
 #include "aion/gameserver/model/gameobjects/player/Player.h"
 #include "aion/gameserver/model/gameobjects/siege/SiegeNpc.h"
+#include "aion/gameserver/model/siege/SiegeModType.h"
+#include "aion/gameserver/model/templates/spawns/siegespawns/SiegeSpawnTemplate.h"
 #include "aion/gameserver/model/siege/AgentLocation.h"
 #include "aion/gameserver/model/siege/ArtifactLocation.h"
 #include "aion/gameserver/model/siege/FortressLocation.h"
@@ -318,8 +320,13 @@ void SiegeService::onEnterSiegeWorld(model::gameobjects::player::Player& player)
 	utils::PacketSendUtility::sendPacket(player, network::aion::serverpackets::SM_ABYSS_ARTIFACT_INFO3(worldArtifacts));
 }
 
+// Java SiegeService.java:607-610 (M5j stage 1 CP4, under P5-08's lease of this file: AbyssPointsService's kill variant calls it)
 void SiegeService::onAbyssPointsAdded(model::gameobjects::player::Player& player, model::gameobjects::VisibleObject& obj, int32_t abyssPoints) {
-	AION_UNPORTED();
+	runtime::Ptr<model::gameobjects::siege::SiegeNpc> siegeNpc = runtime::as<model::gameobjects::siege::SiegeNpc>(obj);
+	if (runtime::as<model::gameobjects::player::Player>(obj) != nullptr ||
+		siegeNpc != nullptr && siegeNpc->getSpawn()->getSiegeModType() != model::siege::SiegeModType::PEACE)
+		for (const runtime::Ref<siege::Siege>& a : activeSieges.values())
+			a->onAbyssPointsAdded(player, abyssPoints);
 }
 
 // Java SiegeService.java:612-674. The first call of every npc teleport (TeleportService.java:81, m5f-plan.md W-02).

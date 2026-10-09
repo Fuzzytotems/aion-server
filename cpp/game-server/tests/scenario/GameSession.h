@@ -556,6 +556,81 @@ public:
 	/** CM_QUEST_SHARE.readImpl (CM_QUEST_SHARE.java:39-41): readD questId */
 	static std::vector<uint8_t> buildCM_QUEST_SHARE(int32_t questId);
 
+	// ---- M5j stage 0's chat and GM packets (m5j-plan.md H-02), each the Java readImpl field order ----
+	/** AionClientPacketFactory packets[27], [28] and [41] (ClientPacketInfo.gen.inc:39, :40, :52) */
+	static constexpr int32_t CM_CHAT_MESSAGE_PUBLIC = 27;
+	static constexpr int32_t CM_CHAT_MESSAGE_WHISPER = 28;
+	static constexpr int32_t CM_BUILDER_COMMAND = 41;
+	/** ChatType NORMAL (ChatType.java: id 0), the type a chat line and a typed chat command go out with */
+	static constexpr uint8_t CHAT_NORMAL = 0;
+	/**
+	 * CM_CHAT_MESSAGE_PUBLIC.readImpl (CM_CHAT_MESSAGE_PUBLIC.java:38-41): readC chat type, readS message. A chat command is such a line:
+	 * runImpl hands it to ChatProcessor.handleChatCommand first (:47-48), so `//kill` typed by a player who may not use it goes out as chat
+	 */
+	static std::vector<uint8_t> buildCM_CHAT_MESSAGE_PUBLIC(uint8_t chatType, std::string_view message);
+	/** a chat command as the client sends it: a NORMAL CM_CHAT_MESSAGE_PUBLIC line (`//announce a hi`, `.gmlist`) */
+	static std::vector<uint8_t> buildGmCommand(std::string_view text) { return buildCM_CHAT_MESSAGE_PUBLIC(CHAT_NORMAL, text); }
+	/** CM_CHAT_MESSAGE_WHISPER.readImpl (CM_CHAT_MESSAGE_WHISPER.java:44-47): readS name, readS message */
+	static std::vector<uint8_t> buildCM_CHAT_MESSAGE_WHISPER(std::string_view name, std::string_view message);
+	/** CM_BUILDER_COMMAND, AbstractGmCommandPacket.readImpl (AbstractGmCommandPacket.java:27-29): readS command (a console command line) */
+	static std::vector<uint8_t> buildCM_BUILDER_COMMAND(std::string_view command);
+
+	// ---- M5j stage 1's social packets (m5j-plan.md §10.4, §18.1 CP1 "H-11's builders"), each the Java readImpl field order ----
+	/**
+	 * AionClientPacketFactory packets[58], [100], [111], [112], [114], [139], [159], [166], [175] and [188] (AionClientPacketFactory.java:86,
+	 * 128, 139, 140, 142, 167, 187, 194, 203, 216)
+	 */
+	static constexpr int32_t CM_SET_NOTE = 58;
+	static constexpr int32_t CM_VIEW_PLAYER_DETAILS = 100;
+	static constexpr int32_t CM_FRIEND_ADD = 111;
+	static constexpr int32_t CM_FRIEND_DEL = 112;
+	static constexpr int32_t CM_DUEL_REQUEST = 114;
+	static constexpr int32_t CM_TITLE_SET = 139;
+	static constexpr int32_t CM_PLAYER_SEARCH = 159;
+	static constexpr int32_t CM_BLOCK_ADD = 166;
+	static constexpr int32_t CM_MACRO_CREATE = 175;
+	static constexpr int32_t CM_ABYSS_RANKING_PLAYERS = 188;
+	/** CM_SET_NOTE.readImpl (CM_SET_NOTE.java): readS note */
+	static std::vector<uint8_t> buildCM_SET_NOTE(std::string_view note);
+	/** CM_VIEW_PLAYER_DETAILS.readImpl: readD targetObjectId */
+	static std::vector<uint8_t> buildCM_VIEW_PLAYER_DETAILS(int32_t targetObjectId);
+	/** CM_FRIEND_ADD.readImpl: readS targetName, readS message */
+	static std::vector<uint8_t> buildCM_FRIEND_ADD(std::string_view targetName, std::string_view message);
+	/** CM_FRIEND_DEL.readImpl: readS targetName */
+	static std::vector<uint8_t> buildCM_FRIEND_DEL(std::string_view targetName);
+	/** CM_DUEL_REQUEST.readImpl: readD objectId */
+	static std::vector<uint8_t> buildCM_DUEL_REQUEST(int32_t objectId);
+	/** CM_TITLE_SET.readImpl: readUH titleId (0xFFFF takes the title off) */
+	static std::vector<uint8_t> buildCM_TITLE_SET(uint16_t titleId);
+	/**
+	 * CM_PLAYER_SEARCH.readImpl: readS(25) name - AionClientPacket.readS(int): the string with its NUL char, then (25 - length) * 2 bytes of
+	 * padding -, readD region, readD classMask, readUC minLevel, readUC maxLevel, readUC lfgOnly, readC. 0xFF levels are "any"
+	 * @throws std::invalid_argument for a name of more than 25 UTF-16 units (the client field holds no more)
+	 */
+	static std::vector<uint8_t> buildCM_PLAYER_SEARCH(std::string_view name, int32_t region = 0, int32_t classMask = 0, uint8_t minLevel = 0xFF,
+		uint8_t maxLevel = 0xFF, uint8_t lfgOnly = 0);
+	/** CM_BLOCK_ADD.readImpl: readS targetName, readS reason */
+	static std::vector<uint8_t> buildCM_BLOCK_ADD(std::string_view targetName, std::string_view reason);
+	/** CM_MACRO_CREATE.readImpl (CM_MACRO_CREATE.java:40-43): readUC macroPosition, readS macroXML */
+	static std::vector<uint8_t> buildCM_MACRO_CREATE(uint8_t position, std::string_view xml);
+	/** CM_ABYSS_RANKING_PLAYERS.readImpl: readC raceId (0 Elyos, 1 Asmodians) */
+	static std::vector<uint8_t> buildCM_ABYSS_RANKING_PLAYERS(uint8_t raceId);
+
+	// ---- M5j stage 2's toy pet packet (m5j-plan.md §10.4 Z11, §18.3 CP5), the Java readImpl field order ----
+	/** AionClientPacketFactory packets[22] (ClientPacketInfo.gen.inc:37) */
+	static constexpr int32_t CM_PET = 22;
+	/** PetAction ids of CM_PET (PetAction.java:11-14) */
+	static constexpr uint16_t PET_ADOPT = 1;
+	static constexpr uint16_t PET_SPAWN = 3;
+	static constexpr uint16_t PET_DISMISS = 4;
+	/**
+	 * CM_PET.readImpl ADOPT (CM_PET.java:52-61): readUH action, readD eggObjId, readD templateId, readUC unk2, readD unk3, readD decorationId,
+	 * readD unk5, readD unk6, readS petName
+	 */
+	static std::vector<uint8_t> buildCM_PET_ADOPT(int32_t eggObjectId, int32_t templateId, int32_t decorationId, std::string_view petName);
+	/** CM_PET.readImpl SURRENDER, SPAWN and DISMISS (CM_PET.java:62-66): readUH action, readD templateId */
+	static std::vector<uint8_t> buildCM_PET(uint16_t action, int32_t templateId);
+
 	// ---- M5c's stage-1 packets (m5c-plan.md K-01, K-02, G-02) and stage 2's crafting packets, each the Java readImpl field order ----
 	/** one entry of CM_BUY_ITEM (CM_BUY_ITEM.java:65-66): readD itemId (see TRADE_*), readQ count */
 	struct BuyItemEntry {

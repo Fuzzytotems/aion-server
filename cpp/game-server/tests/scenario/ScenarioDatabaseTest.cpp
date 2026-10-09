@@ -63,6 +63,9 @@ TEST(ScenarioDatabaseTest, OnlyTestSchemasAreChanged) {
 	ScenarioDatabase database("jdbc:mysql://127.0.0.1:1/aion_cpp_test", "root", "");
 	EXPECT_THROW(database.drop("aion_gs"), std::invalid_argument);
 	EXPECT_THROW(database.recreate("aion_ls", "unused.sql"), std::invalid_argument);
+	// the chat gate's own schema is aion_cs_test_<...>; the shared aion_cs_test of the chat server tests is never changed (m5j-plan.md §17.9)
+	EXPECT_THROW(database.drop("aion_cs_test"), std::invalid_argument);
+	EXPECT_THROW(database.recreate("aion_cs", "unused.sql"), std::invalid_argument);
 }
 
 TEST(ScenarioDatabaseTest, CreatesAGameServerSchemaFromTheJavaScript) {

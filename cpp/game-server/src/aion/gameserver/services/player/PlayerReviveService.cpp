@@ -3,6 +3,9 @@
 #include <optional>
 #include <unordered_map>
 
+#include "aion/commons/logging/LoggerFactory.h"
+#include "aion/commons/utils/TimeUtils.h"
+#include "aion/gameserver/configs/administration/AdminConfig.h"
 #include "aion/gameserver/controllers/FlyController.h"
 #include "aion/gameserver/controllers/PlayerController.h"
 #include "aion/gameserver/controllers/attack/AggroList.h"
@@ -10,6 +13,7 @@
 #include "aion/gameserver/instance/handlers/InstanceHandler.h"
 #include "aion/gameserver/model/EmotionType.h"
 #include "aion/gameserver/model/TaskId.h"
+#include "aion/gameserver/model/gameobjects/Item.h"
 #include "aion/gameserver/model/gameobjects/Kisk.h"
 #include "aion/gameserver/model/gameobjects/VisibleObject.h"
 #include "aion/gameserver/model/gameobjects/player/CustomPlayerState.h"
@@ -24,11 +28,17 @@
 #include "aion/gameserver/model/team/common/legacy/PlayerAllianceEvent.h"
 #include "aion/gameserver/model/team/group/PlayerGroupService.h"
 #include "aion/gameserver/model/vortex/VortexLocation.h"
+#include "aion/gameserver/model/items/storage/Storage.h"
+#include "aion/gameserver/model/templates/item/ItemTemplate.h"
+#include "aion/gameserver/model/templates/item/ItemUseLimits.h"
 #include "aion/gameserver/network/aion/serverpackets/SM_EMOTION.h"
+#include "aion/gameserver/network/aion/serverpackets/SM_ITEM_USAGE_ANIMATION.h"
 #include "aion/gameserver/network/aion/serverpackets/SM_MOTION.h"
 #include "aion/gameserver/network/aion/serverpackets/SM_PLAYER_INFO.h"
 #include "aion/gameserver/network/aion/serverpackets/SM_SYSTEM_MESSAGE.h"
+#include "aion/gameserver/runtime/base/Exceptions.h"
 #include "aion/gameserver/runtime/base/Unported.h"
+#include "aion/gameserver/skillengine/effect/RebirthEffect.h"
 #include "aion/gameserver/runtime/lifetime/Ref.h"
 #include "aion/gameserver/services/VortexService.h"
 #include "aion/gameserver/services/panesterra/PanesterraService.h"
@@ -53,8 +63,11 @@ namespace aion::gameserver::services::player {
 // `python tools/gen/fieldmap.py --class <key>` prints.
 //   com.aionemu.gameserver.services.player.PlayerReviveService@L251:92
 
+// Java PlayerReviveService.java:36-40
 void PlayerReviveService::duelRevive(model::gameobjects::player::Player& player) {
-	AION_UNPORTED();
+	revive(player, 30, 30, false, 0);
+	player.getGameStats()->updateStatsAndSpeedVisually();
+	player.unsetResPosState();
 }
 
 // Java PlayerReviveService.java:42-62
@@ -81,8 +94,44 @@ void PlayerReviveService::skillRevive(model::gameobjects::player::Player& player
 	player.setIsFlyingBeforeDeath(false);
 }
 
+// Java PlayerReviveService.java:64-98
 void PlayerReviveService::rebirthRevive(model::gameobjects::player::Player& player) {
-	AION_UNPORTED();
+	if (!player.canUseRebirthRevive()) {
+		utils::audit::AuditLogger::log(player, "possibly tried to use a selfres hack (no rebirth effect present)");
+		return;
+	}
+
+	bool soulSickness = true;
+	int32_t rebirthResurrectPercent, rebirthSkillId;
+	if (player.hasAccess(configs::administration::AdminConfig::AUTO_RES.load())) {
+		rebirthSkillId = 0;
+		rebirthResurrectPercent = 100;
+		soulSickness = false;
+	} else {
+		const skillengine::effect::RebirthEffect* rebirthEffect = player.getRebirthEffect();
+		if (rebirthEffect == nullptr) // Java: player.getRebirthEffect().getSkillId() on null (canUseRebirthRevive checks it)
+			throw runtime::NullPointerException("Player.getRebirthEffect()");
+		rebirthSkillId = rebirthEffect->getSkillId();
+		rebirthResurrectPercent = rebirthEffect->getResurrectPercent();
+		if (rebirthResurrectPercent <= 0) {
+			commons::logging::LoggerFactory::getLogger("com.aionemu.gameserver.services.player.PlayerReviveService").warn("Rebirth effect missing percent.");
+			rebirthResurrectPercent = 5;
+		}
+	}
+
+	revive(player, rebirthResurrectPercent, rebirthResurrectPercent, soulSickness, rebirthSkillId);
+	utils::PacketSendUtility::sendPacket(player, network::aion::serverpackets::SM_SYSTEM_MESSAGE::STR_REBIRTH_MASSAGE_ME());
+	// if player was flying before res, start flying
+	if (player.getIsFlyingBeforeDeath()) {
+		player.getFlyController().startFly(true, true);
+	} else {
+		player.getGameStats()->updateStatsAndSpeedVisually();
+	}
+
+	if (player.isInPrison())
+		teleport::TeleportService::teleportToPrison(player);
+	player.unsetResPosState();
+	player.setIsFlyingBeforeDeath(false);
 }
 
 // Java PlayerReviveService.java:100-102
@@ -232,8 +281,41 @@ void PlayerReviveService::revive(model::gameobjects::player::Player& player, int
 		network::aion::serverpackets::SM_EMOTION(player, model::EmotionType::RESURRECT), true);
 }
 
+// Java PlayerReviveService.java:215-248
 void PlayerReviveService::itemSelfRevive(model::gameobjects::player::Player& player) {
-	AION_UNPORTED();
+	runtime::Ptr<model::gameobjects::Item> item = player.getSelfRezStone();
+	if (item == nullptr) {
+		utils::audit::AuditLogger::log(player, "tried to use selfres without having the required selfres stone");
+		return;
+	}
+
+	// Add Cooldown and use item
+	const model::templates::item::ItemUseLimits* useLimits = item->getItemTemplate()->getUseLimits();
+	if (useLimits == nullptr) // Java: useLimits.getDelayTime() on null
+		throw runtime::NullPointerException("ItemTemplate.getUseLimits()");
+	int32_t useDelay = useLimits->getDelayTime();
+	player.addItemCoolDown(useLimits->getDelayId(), commons::utils::currentTimeMillis() + useDelay, useDelay / 1000);
+	player.getController().cancelUseItem();
+	utils::PacketSendUtility::broadcastPacket(player,
+		network::aion::serverpackets::SM_ITEM_USAGE_ANIMATION(player.getObjectId(), item->getObjectId(), item->getItemTemplate()->getTemplateId()), true);
+	if (!player.getInventory().decreaseByObjectId(item->getObjectId(), 1)) {
+		utils::audit::AuditLogger::log(player, "tried to use selfres without having the required selfres stone");
+		return;
+	}
+	// Tombstone Self-Rez retail verified 15%
+	revive(player, 15, 15, true, player.getResurrectionSkill());
+	utils::PacketSendUtility::sendPacket(player, network::aion::serverpackets::SM_SYSTEM_MESSAGE::STR_REBIRTH_MASSAGE_ME());
+	// if player was flying before res, start flying
+	if (player.getIsFlyingBeforeDeath()) {
+		player.getFlyController().startFly(true, true);
+	} else {
+		player.getGameStats()->updateStatsAndSpeedVisually();
+	}
+
+	if (player.isInPrison())
+		teleport::TeleportService::teleportToPrison(player);
+	player.unsetResPosState();
+	player.setIsFlyingBeforeDeath(false);
 }
 
 // Java PlayerReviveService.java:250-260. The lambda (fieldmap callback PlayerReviveService@L251:92) captures the player and the skill id; it is
