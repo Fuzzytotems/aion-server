@@ -1,3 +1,4 @@
+#include "aion/gameserver/model/team/legion/LegionEmblemTypeInfo.h"
 #include "aion/gameserver/network/aion/serverpackets/SM_PLAYER_INFO.h"
 
 #include <string>
@@ -83,7 +84,7 @@ void SM_PLAYER_INFO::writeImpl(AionConnection* con) {
 		runtime::Ptr<model::team::legion::Legion> legion = player->getLegion(); // Java calls getLegion() for each field
 		writeD(legion->getLegionId());
 		writeC(legion->getLegionEmblem()->getEmblemId());
-		writeC(detail::legionEmblemTypeValue(legion->getLegionEmblem()->getEmblemType()));
+		writeC(model::team::legion::getValue(legion->getLegionEmblem()->getEmblemType()));
 		writeC(legion->getLegionEmblem()->getColor_a());
 		writeC(legion->getLegionEmblem()->getColor_r());
 		writeC(legion->getLegionEmblem()->getColor_g());
