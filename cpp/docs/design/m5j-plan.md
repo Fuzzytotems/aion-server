@@ -1589,3 +1589,29 @@ without a C++ file; `tools/porting/census.py` for the totals):
 5. **CP5 the gate**: H-21 (`oracle.py m5j-items`, the pet, ride and kisk decoders), G-21 (`gs.scenario.m5j` Z9-Z11 with the stage-1 cases re-run).
 
 > **Progress:** CP1 done (branch `lane-a/m5j-s2-cp1`): the six toy pet services, `CM_PET`, `CM_PET_EMOTE`, `//pet` (P5-08.md, P5-16.md, C1.md). CP2 done (`lane-a/m5j-s2-cp2`): `KiskService.removeKisk`/`onBind`, `KiskAI`, `InvisiblekiskAI` (P5-05.md, P5-08.md). CP3 done (`lane-a/m5j-s2-cp3`, two commits: the four packets of E-03/stage 0, then group K - the eight packets and the postman AIs - separately). CP4 done (`lane-a/m5j-s2-cp4`): the 14 item commands of E-07 (C1.md, C2.md for //dye). CP5 done (`lane-a/m5j-s2-cp5`): H-21 (`oracle.py m5j-items`, the SM_PET and SM_KISK_UPDATE decoders, the CM_PET builders) and G-21 (`gs.scenario.m5j` Z9-Z11 green with every stage-1 case; P5-SC.md "M5j stage-2 gate"). **Stage 2 is closed.**
+
+### 18.4 Stage 3, measured (2026-10-08, lane A, over `lane-a/m5j-s2-cp5`)
+
+`tools/porting/census.py --chunks P5-01,P5-03,P5-04,P5-05,P5-08,P5-15,P5-16` and the root AI files without a C++ file:
+
+| Item | Open now | Note |
+|---|---|---|
+| N-01 root AIs (P5-05) | 28 root AIs without a C++ file (130 undeclared bodies, 1,069 open Java lines). **Out of M5j**: `ArtifactAI`, `FlagNpcAI`, `RiftProtectorAI` (M5i, A-I1), `ButlerAI`, `HouseSignAI` (M5h, A-H1). **M5j's 23**: `AggressiveBossSummonNpcAI`, `AggressiveNoLootNpcAI`, `BombAI`, `BookAI`, `BubblegutAI`, `ChestAI`, the four `ConquestOffering*AI` (A-I3: no siege or dominion code, they spawn and buff), `FirecrackerAI`, `HiddenTeleportNpcAI`, `NeutralGuardAI`, `NoDmgNoActionAI`, `NoInteractionAI`, `OneDmgAI`, `OneDmgNoActionAI`, `PlatinumFountainAI`, `ShifterAI`, `SkillCooltimeResetAI`, `SpeakerAI` (reads `SiegeService.isSiegeInProgress`/`getSiegeLocation`, both ported; no siege work), `SummonerAI`, `UseSkillAndDieAI` | `SkillAreaNpcAI` exists (M5e) |
+| N-03 effects A-L (P5-03) | **0** open | the effect tail was closed by M5b-2, M5e and the M5b-3 leftovers |
+| N-04 effects M-Z (P5-04) | 4 `AION_UNPORTED` sites: `PetOrderUnSummonEffect`, `SummonFunctionalNpcEffect`, `SummonGroupGateEffect`, `TargetTeleportEffect` (170 Java lines) | `SummonSkillAreaEffect` is ported (M5e T-02) |
+| N-05 `oracle.py m5j-effects --census` | **superseded**: the census measures the work list directly (above: 0 + 4 sites); an oracle of reachable classes would only order an empty list | |
+| N-06 summon stat residue (P5-01) | **0** open: `HomingGameStats`, `ServantGameStats`, `TrapGameStats` were ported (M5e) | |
+| P5-08 rest | `DialogService` 1 site (the autogroup arm of MATCH_MAKER: stage 4, X-01); `PetHungryLevel`'s three methods (`getValue`, `getNextValue`, `fromId`) have no companion (callers spell them inline) | the companion is taken with CP1 |
+| P5-15 / P5-16 | 35 packets without a C++ file, none of stage 3: the broker (A-C4 a), legion and housing (lane B, M5h), `CM_LEGION_DOMINION_REQUEST_RANKING`, `CM_CHALLENGE_LIST` (M5h), `CM_AUTO_GROUP` (stage 4), `CM_GODSTONE_SOCKET` (commented out of the factory) | |
+
+**Checkpoints** (each with unit tests in the owning chunk's test directory and a mutation proof):
+1. **CP1 the small AIs**: `AggressiveNoLootNpcAI`, `BookAI`, `BubblegutAI`, `FirecrackerAI`, `NeutralGuardAI`, `NoDmgNoActionAI`,
+   `NoInteractionAI`, `OneDmgAI`, `OneDmgNoActionAI`, `ShifterAI`, `AggressiveBossSummonNpcAI`, `UseSkillAndDieAI`, `BombAI`,
+   `PlatinumFountainAI`, `SpeakerAI`; the `PetHungryLevel` companion.
+2. **CP2 the larger AIs**: `ChestAI`, `HiddenTeleportNpcAI`, `SummonerAI`, `SkillCooltimeResetAI` (its `GeoService.canSee` against the
+   `tests/geo` fixtures, N-02), the four `ConquestOffering*AI`.
+3. **CP3 the effect residue and the AI smoke**: the four P5-04 effects; N-02's smoke over every ported root AI (`tests/handlers_ai_core`,
+   `ManualClock`: SPAWNED, CREATURE_SEE, ATTACKED, DIED, DESPAWNED, all timers, 0 exceptions, 0 unported hits).
+4. **CP4 the gate**: G-31, `gs.scenario.m5j` Z12 with the stage-1 and stage-2 cases re-run.
+
+> **Progress:** CP1 done (`lane-a/m5j-s3-cp1`): the 15 small root AIs and the PetHungryLevel companion (P5-05.md, P5-08.md).

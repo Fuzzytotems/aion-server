@@ -22,9 +22,9 @@ struct KiskAI_AIRequest final : AIRequest {
 	AION_MAKE_REF_FRIEND
 
 	runtime::Field<bool> decisionTaken{false}; // private boolean decisionTaken (KiskAI.java:59)
-	const runtime::Ref<Kisk> kisk;             // captured this KiskAI (line 65): its getOwner()
+	const runtime::Ref<KiskAI> kiskAI;         // captured this KiskAI (line 65), whose getOwner() is the kisk
 
-	static runtime::Ref<KiskAI_AIRequest> create(Kisk& kiskValue) { return runtime::makeRef<KiskAI_AIRequest>(kiskValue); }
+	static runtime::Ref<KiskAI_AIRequest> create(KiskAI& kiskAIValue) { return runtime::makeRef<KiskAI_AIRequest>(kiskAIValue); }
 
 	// Java KiskAI.java:61-71
 	void acceptRequest(runtime::Ptr<Creature> requester, Player& responder, int32_t requestId) override {
@@ -32,11 +32,11 @@ struct KiskAI_AIRequest final : AIRequest {
 		static_cast<void>(requestId);
 		if (!decisionTaken.get()) {
 			// Check again if it's full (If they waited to press OK)
-			if (!kisk->canBind(responder)) {
+			if (!kiskAI->getKiskOwner().canBind(responder)) {
 				PacketSendUtility::sendPacket(responder, SM_SYSTEM_MESSAGE::STR_CANNOT_REGISTER_BINDSTONE_HAVE_NO_AUTHORITY());
 				return;
 			}
-			KiskService::getInstance().onBind(*kisk, responder);
+			KiskService::getInstance().onBind(kiskAI->getKiskOwner(), responder);
 		}
 	}
 
@@ -48,7 +48,7 @@ struct KiskAI_AIRequest final : AIRequest {
 	}
 
 protected:
-	explicit KiskAI_AIRequest(Kisk& kiskValue) : kisk(kiskValue) {}
+	explicit KiskAI_AIRequest(KiskAI& kiskAIValue) : kiskAI(kiskAIValue) {}
 	~KiskAI_AIRequest() override = default;
 };
 
@@ -88,7 +88,7 @@ void KiskAI::handleDialogStart(Player& player) {
 	}
 
 	if (getKiskOwner().canBind(player)) {
-		runtime::Ref<KiskAI_AIRequest> request = KiskAI_AIRequest::create(getKiskOwner());
+		runtime::Ref<KiskAI_AIRequest> request = KiskAI_AIRequest::create(*this);
 		AIActions::addRequest(*this, player, SM_QUESTION_WINDOW::STR_ASK_REGISTER_BINDSTONE, *request);
 	} else if (getKiskOwner().getCurrentMemberCount() >= getKiskOwner().getMaxMembers())
 		PacketSendUtility::sendPacket(player, SM_SYSTEM_MESSAGE::STR_CANNOT_REGISTER_BINDSTONE_FULL());
