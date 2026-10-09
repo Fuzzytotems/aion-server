@@ -25,6 +25,7 @@
 // open blocker of the gate's R1.
 
 #include "ControllersTestSupport.h"
+#include "aion/gameserver/model/gameobjects/player/AbyssRank.h"
 
 #include <cstdint>
 #include <deque>
@@ -550,29 +551,27 @@ TEST_F(AttackSeamTest, DoRewardTakesItsExperienceFromTheRealStatFunctions) {
 
 /**
  * NpcController.doReward -> StatFunctions.calculatePvEApGained (NpcController.java:236), the third StatFunctions call and the only one behind a
- * question: `if (getOwner().getAi().ask(AIQuestion.REWARD_AP))`. m5b-plan.md D16 leaves AbyssPointsService.addAp AION_UNPORTED on purpose, so a
- * `true` answer throws - and *which* function the throw names is the assertion: `addAp` means calculatePvEApGained ran and returned a positive
- * number, `statFunctionsCalculatePvEApGained` would mean the stand-in is back one line earlier.
+ * question: `if (getOwner().getAi().ask(AIQuestion.REWARD_AP))`. Since M5j stage 1 CP4 AbyssPointsService.addAp(player, npc, ap) is ported
+ * (AbyssPointsService.java:25-31): the player's AP grows by exactly the real calculatePvEApGained of the single attacker (share 1.0).
  */
-TEST_F(AttackSeamTest, DoRewardReachesTheRealPvEApGainedBeforeTheUnportedAbyssPointsService) {
+TEST_F(AttackSeamTest, DoRewardPaysTheRealPvEApGained) {
 	CONTROLLERS_TEST_SCOPE;
 	Ref<ControllersTestNpc> npc = createFighter(fighterTemplate);
 	place(*npc, 500.0f, 500.0f, 10.0f);
 	npcAi->answeredTrue.insert(ai::poll::AIQuestion::REWARD_AP); // Java NpcAI.ask answers this false on an ELYSEA map (D16); forced here
 	Ref<SeamPlayer> player = createPlayer(100022, 9022);
 	player->getCommonData()->setLevel(10);
+	// the abyss rank PlayerService.getPlayer loads (AbyssRankDAO.loadAbyssRank); this fixture's player has none
+	player->setAbyssRank(model::gameobjects::player::AbyssRank::create(0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0));
 	place(*player, 502.0f, 500.0f, 10.0f);
 	ASSERT_TRUE(KnownListPairing::pair(*npc, *player));
 	npc->getAggroList().addDamage(*player, 150, true, skillengine::model::HopType::DAMAGE);
 
-	ASSERT_GT(utils::stats::StatFunctions::calculatePvEApGained(*player, *npc), 0) << "so `rewardAp >= 1` and addAp is reached";
-	try {
-		npc->recordingController().doReward();
-		FAIL() << "AbyssPointsService::addAp is AION_UNPORTED (m5b-plan.md C-04/D16) and must throw";
-	} catch (const runtime::UnportedException& unported) {
-		EXPECT_NE(std::string(unported.what()).find("addAp"), std::string::npos)
-			<< "the throw must come from AbyssPointsService, i.e. after the real calculatePvEApGained answered: " << unported.what();
-	}
+	const int32_t ap = utils::stats::StatFunctions::calculatePvEApGained(*player, *npc);
+	ASSERT_GT(ap, 0) << "so `rewardAp >= 1` and addAp is reached";
+	const int32_t before = player->getAbyssRank()->getAp();
+	npc->recordingController().doReward();
+	EXPECT_EQ(player->getAbyssRank()->getAp() - before, ap);
 }
 
 } // namespace
