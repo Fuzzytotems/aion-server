@@ -1,3 +1,4 @@
+#include "aion/gameserver/model/team/legion/LegionRankInfo.h"
 #include "aion/gameserver/network/aion/serverpackets/SM_LEGION_ADD_MEMBER.h"
 
 #include "aion/gameserver/configs/network/NetworkConfig.h"
@@ -21,7 +22,7 @@ SM_LEGION_ADD_MEMBER::~SM_LEGION_ADD_MEMBER() = default;
 void SM_LEGION_ADD_MEMBER::writeImpl(AionConnection* con) {
 	writeD(player->getObjectId());
 	writeS(player->getName());
-	writeC(detail::legionRankId(player->getLegionMember()->getRank()));
+	writeC(model::team::legion::getRankId(player->getLegionMember()->getRank()));
 	writeC(isMember ? 0x01 : 0x00); // is New Member?
 	writeC(model::getClassId(player->getCommonData()->getPlayerClass()));
 	writeC(player->getLevel());
