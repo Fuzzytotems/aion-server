@@ -942,3 +942,102 @@ and the ≤ 60-s destroy wait (risk 10).
 (legion-model, legion-service, client-packets, studio, gate-harness) with the legion-service lane as a 9-12 agent-day critical path; stage 2 the
 gate `gs.scenario.m5h` (C0-C23, Y1-Y23) with a geo re-run, the re-greens and the census; M5h-2 (land houses, visiting, towns, ~72 bodies) straight
 after. The studio half still has no fallback inside M5h for M5f's personal instances, instance teleport and leave hooks (A-14, A-15, A-24).
+
+---
+
+## 14. P5-10f, the legion model and the challenges: measured and staged (lane B, 2026-10-08)
+
+Measured on `origin/C++` (after the M5g parties, alliances and leagues merges) with `tools/porting/census.py --chunks P5-10f`; nothing of
+P5-10f was ported by another lane (`git log origin/C++` has no legion or challenge commit; lanes A and C work in M5b-3 and phase 6).
+
+| Type | Unported sites | Other open | Plan (§2.8, §2.9) | Status |
+|---|---|---|---|---|
+| `Legion` | 27 | – | 27 | as planned |
+| `LegionWarehouse` | 28 | – | 28 | as planned |
+| `LegionEmblem` | 6 | – | 6 | as planned |
+| `LegionMember` | 5 | – | 5 | as planned |
+| `LegionRank`, `LegionHistoryAction`, `LegionEmblemType` | 0 | 7 stand-in credits (`PacketSupport.h:44-58`, `LegionDAO.cpp:57-75`) | 5 companion bodies | the companions replace the stand-ins' credit; the stand-ins themselves stay until their lessors move the call sites (L-05's leases) |
+| `LegionPermissionsMask` | 0 | 2 undeclared (the constructor data, `can`) | in the 5 | as planned |
+| `ChallengeQuest` 5, `ChallengeTask` 7, `ChallengeTaskService` 8 | 20 | – | 20 (X-08, M5h-2) | **pulled into stage F2**: `QuestService.cpp:238, 582` already call `onChallengeQuestFinish` and `onAcceptTask`, so every finished or accepted challenge quest of the phase-6 quest lane reaches an `AION_UNPORTED` today; every dependency (`TownService`, `ChallengeTasksDAO`, `SystemMailService`, `TownDAO`, `SM_CHALLENGE_LIST`) is ported |
+| **total** | **86** | 2 undeclared + 7 stand-in | 86 + 5 | 88 open bodies, 614 open Java lines |
+
+**Status (2026-10-08):** F1 and F2a ported (78 bodies + the 4 companions); F2b ported (8 bodies) with its database tests - P5-10f is closed. The town arm of F2b (`onCityTaskFinish`, `getChallengeTask`, `onAcceptTask`'s town lookup) is compiled and reviewed but has no unit test: it needs TownService's town data, which M5h-2 brings.
+
+**Stages of the lane** (each a checkpoint: unit tests, a lock-order test for any new monitor nesting, a mutation proof, the report):
+
+| Stage | Items | Bodies | Tests | New monitor nesting |
+|---|---|---|---|---|
+| **F1** | L-05 (the four companions, new files only — the stand-in deletions and the 12 call-site moves wait for the P4-14/P4-16/P4-17 leases, I-02), L-02 `LegionMember`, L-03 `LegionEmblem`, L-04 `LegionWarehouse`, L-01 `Legion`, L-06 | 66 + 2 + companions | `tests/team/P5-10f/LegionModelTest.cpp` | none: `getHistory`/`addHistory` take only the history list's own monitor (`Legion::history`, the shim's monitor, as Java's `synchronized (history)`), `addBonus`/`removeBonus` hold no lock while sending |
+| **F2a** | X-08's model: `ChallengeQuest`, `ChallengeTask` | 12 | `tests/team/P5-10f/ChallengeModelTest.cpp` | `ChallengeQuest` and `ChallengeTask` object monitors (Java `synchronized` methods), leaves: nothing but field writes under them |
+| **F2b** | X-08's service: `ChallengeTaskService` | 8 | DAO-backed cases under the test-database lock (`ChallengeTasksDAO.load`/`storeTask`), the task list and the legion reward order | none (the service takes no monitor; the maps are ConcurrentHashMaps, as Java's) |
+| gate | the legion cases of `gs.scenario.m5h` (C2-C12, C21-C22) stand on the legion-service lane's S-01..S-05 too; P5-10f has no gate stage of its own | – | – | – |
+
+**Deviations taken in F1** (all statement-for-statement otherwise): `LegionWarehouse::increaseKinah(long)` calls `Storage::increaseKinah(amount,
+actor)` itself instead of building a `LegionStorageProxy`, which is what the proxy's body does (the C++ proxy is a part of a non-null acting
+player, Java passes a null player when nobody uses the warehouse); `Legion::setHistory` copies each list (the frozen signature passes vectors);
+`ArrayList.addFirst/getLast/removeLast` (Java 21 `List` defaults) are written as `add(0, e)`, `get(size() - 1)`, `removeAt(size() - 1)`.
+
+**Java behaviour kept, proposed corrections for the owner**: `LegionEmblem.addUploadData` sizes the new buffer by `uploadedSize`, so a chunk
+added before `addUploadedSize` throws `ArrayIndexOutOfBoundsException` (the caller orders them right); `Legion.addHistory`'s comment promises to
+keep "the ones on the first page", the code trims every year-old REWARD/WAREHOUSE entry; `ChallengeTaskService.onLegionTaskFinish` hands one
+reward per member while `rewardsAdded <= number` (one more than `number` per tier) and passes `PlayerService.getPlayerName`'s null for a deleted
+member to `SystemMailService.sendMail`, which dereferences it.
+
+**Legion-service lane (lane B, 2026-10-08).** S-01 (the 18 restrictions), S-02, S-03, S-04 and S-05 ported in one pass on `lane-b/m5h-legion-service`
+(55 bodies of LegionService.java and its five anonymous RequestResponseHandlers; `tryRename` - only CM_APPEARANCE, M5j - and
+`joinLegionDominion` - M5i - stay unported). **S-06 under I-02's leases**, granted 2026-10-08 and recorded in `chunks.cmake` as
+`aion_gs_chunk(P5-11 LEASE ...)`: `SiegeService::cleanLegionId` (P5-12a) and `ConquerorAndProtectorService::onLeaveLegion` /
+`resetLegionDominionRank` (P5-12b). `resetLegionDominionRank` reaches `updateBuffAndNotifyNearbyPlayers` only for a protector with a legion
+dominion rank, which only `onEnterZone` in an occupied dominion zone creates (M5i); that body stays P5-12b's. Released when the lane merges.
+S-07's first part is `tests/legionhouse/LegionServiceTest.cpp` (database tests under gate_lock); S-08 and the packets (P-01) are next.
+
+**S-08 (lane B, 2026-10-08)**: `startWeeklyCalculation`, `updateLegionOccupation`, `getLegionRanking`, `getRewards`, `reset` ported on
+`lane-b/m5h-s08`; `LegionDominionWeeklyTest` (4 database cases: no participants, the ranked winner with the previous occupier cleared, a
+disbanding winner, the rewards by rank). The reward mails reach `SystemMailService::sendMail` with the shipped item ids; the cases bind no item
+templates, so sendMail answers false there and the mail itself is SystemMailService's to test. Java's `dominionRewards.get(i + 1)` is null for
+a rank without rewards (a NullPointerException, kept).
+
+**The legion gate, first cut (lane B, 2026-10-08)**: `gs.scenario.m5h` (`tests/scenario/M5hScenarioTest.cpp`, `tools/oracle m5h-legion`,
+`m5h_partial_allowlist.txt`) scripts §10.2's legion cases C0-C8, C11, C12 and C21 with three Elyos accounts (C's legion seeded at level 3):
+create and its refusal order, invite, the notice cut at 256, ranks, permissions, intro and nickname, the level-up refused for money, a member's
+relog, the history pages, a predefined emblem and a 9,000-byte upload read back with and without its data, leave and kick; C23 the reports.
+Not scripted yet, with the reason: C8's kill, C9 and C22 (the npc dialogs of DialogService, A-06, and CM_MOVE_ITEM, A-03), C10 (legion chat,
+lane A's CM_CHAT_MESSAGE_PUBLIC), the studio cases C13-C20. The gate found a port bug on its first run - LegionStorageProxy bound its owner after
+the player's publication and the checked server aborted at a legion member's logout; fixed in its own commit (P4-13 lease, header request m5h-g1).
+
+**C10 (lane B, 2026-10-08)**: legion chat scripted (CM_CHAT_MESSAGE_PUBLIC is on origin/C++, #89/#90): B's LEGION message reaches A and B,
+not C of the other legion; the oracle answers ChatType's ids. Its mutant (the message to the sender only) is killed by C10.
+
+### 14.2 The studio (housing) stage, measured (lane B, 2026-10-08)
+
+Measured with `census.py` on lane B's stack (lane-b/m5h-c10 over origin/C++ 1d62761a5). Already ported since the plan was written: H-04
+(`HouseObjectFactory`, `SummonHouseObjectAction`, `DecorateAction` with its template id), `HousingService` (26 bodies), `HouseController`,
+`PlayerRegisteredItemsDAO`, every SM_HOUSE_* packet but SM_HOUSE_BIDS' partial `writeImpl`, `ActionItemNpcAI` (A-11), the instance teleports
+and `CM_TELEPORT_ANIMATION_DONE` (A-14), `GeneralInstanceHandler` (A-24), `CM_SHOW_DIALOG`/`CM_DIALOG_SELECT` (A-06; DialogService's one
+open site is the autogroup arm, off in every profile).
+
+| Stage | Items | Open bodies | Chunks (leases) |
+|---|---|---|---|
+| **HS-1** | P-02: `CM_HOUSE_EDIT` (4), `CM_HOUSE_DECORATE`, `CM_HOUSE_SETTINGS`, `CM_HOUSE_SCRIPT`, `CM_HOUSE_KICK` (3 each, P5-15), `CM_USE_HOUSE_OBJECT`, `CM_RELEASE_OBJECT` (3 each, P5-16); H-05: `UseableItemObject`'s `placementLimitOf` (P4-11a lease) and the dead `HouseObject.getPlacementLimit(bool)` | 22 + 2 | P5-15, P5-16 (+ P4-11a) |
+| **HS-2** | H-01: `ButlerAI` (4), `HouseSignAI` (2) (P5-05); H-02: `StudioPortalAI` (3, A1 lease); H-06: `InstanceService.getOrCreateHouseInstance` (1, P5-13 lease) | 10 | P5-05 (+ A1, P5-13) |
+| **HS-3** | H-03: `_18832`, `_18802` (Q05), `_28832`, `_28802` (Q09), 3 bodies each | 12 | Q05, Q09 leases - **only if lane C (phase 6 quests) does not hold Q05/Q09** |
+| **HS-4** | G-03's studio cases C13-C20 in `gs.scenario.m5h` (studio by quest, by fee, enter, decorate, use, configure, leave and destroy, the member list) | - | P5-SC |
+
+Each stage is a checkpoint: unit tests (H-07's rows for its items), a lock-order test for any new monitor nesting, a mutation proof; HS-4 the
+gate. Not in M5h: `CM_HOUSE_TELEPORT(_BACK)`, `CM_HOUSE_OPEN_DOOR`, `CM_HOUSE_PAY_RENT`, `CM_GET_HOUSE_BIDS`, `CM_REGISTER_HOUSE`, `HouseGateAI`,
+`_18847`/`_28821`/`_1987`, `HouseCommand` (land houses, M5h-2 and the GM lane).
+
+**HS-1 (lane B, 2026-10-08)**: the seven studio packets and `placementLimitOf` (P4-11a lease) ported. Tests: read cases in
+`tests/cm_ak/HousePacketsTest.cpp` and `tests/cm_lz/HouseObjectPacketsTest.cpp`; the run arms a player without a house reaches in
+`tests/legionhouse/HousePacketRunTest.cpp` (Player.getActiveHouse constructs HousingService, which reads the database). Every SM_HOUSE_EDIT and
+SM_HOUSE_REGISTRY reads the active house in writeImpl, so the decoration mode arms are the gate's (C16); `placementLimitOf` is reached by
+`UseableItemObject.onUse` (the gate's C17). 8 of 8 mutants killed.
+
+**HS-2 (lane B, 2026-10-08)**: `ButlerAI` ("butler") and `HouseSignAI` ("housesign") added to P5-05, `StudioPortalAI` ("studioportal", A1) and
+`InstanceService.getOrCreateHouseInstance` (P5-13) ported under P5-11's leases (chunks.cmake). Registering `butler` and `housesign` makes every
+house butler and owned-house sign a live AI at startup (§9's startup row). Tests: `tests/handlers_ai_core/HouseAiHandlersTest.cpp` - the pages of
+both AIs, the butler's `handleCreatureSee` (the 8 empty script slots; nothing for an npc, for a butler without house, for unloaded scripts),
+the portal's entering arms (refusal; the `FADE_OUT_BEAM` teleport to the address point with the heading towards the relationship crystal) and
+its leaving arm for an instance whose owner has no studio, and `getOrCreateHouseInstance`'s position and `NullPointerException` arms. The portal
+cases use the DAO tests' database (HousingService starts from it). Left to the gate: leaving an existing studio (World.getWorldMap of the exit
+map, C19) and creating a studio's personal instance (C15). 16 of 16 mutants killed.

@@ -123,7 +123,8 @@ if(TARGET aion_gs_scenario_tests)
 		AION_SCENARIO_M5D_PARTIAL_ALLOWLIST="${CMAKE_CURRENT_SOURCE_DIR}/tests/scenario/m5d_partial_allowlist.txt"
 		AION_SCENARIO_M5E_PARTIAL_ALLOWLIST="${CMAKE_CURRENT_SOURCE_DIR}/tests/scenario/m5e_partial_allowlist.txt"
 		AION_SCENARIO_M5F_PARTIAL_ALLOWLIST="${CMAKE_CURRENT_SOURCE_DIR}/tests/scenario/m5f_partial_allowlist.txt"
-		AION_SCENARIO_M5G_PARTIAL_ALLOWLIST="${CMAKE_CURRENT_SOURCE_DIR}/tests/scenario/m5g_partial_allowlist.txt")
+		AION_SCENARIO_M5G_PARTIAL_ALLOWLIST="${CMAKE_CURRENT_SOURCE_DIR}/tests/scenario/m5g_partial_allowlist.txt"
+		AION_SCENARIO_M5H_PARTIAL_ALLOWLIST="${CMAKE_CURRENT_SOURCE_DIR}/tests/scenario/m5h_partial_allowlist.txt")
 
 	# the oracle answers are JSON (Oracle.cpp); commons finds the same package in its own directory scope
 	find_package(nlohmann_json CONFIG REQUIRED)
@@ -497,6 +498,24 @@ if(TARGET aion_gs_scenario_tests)
 	endif()
 	if(AION_SCENARIO_REQUIRE OR NOT AION_GS_ALLOW_MILESTONE_SKIP)
 		set_property(TEST gs.scenario.m5g APPEND PROPERTY ENVIRONMENT_MODIFICATION "AION_SCENARIO_REQUIRE=set:1")
+	endif()
+
+	# ---- the M5h legion gate (m5h-plan.md G-03, §10) ---------------------------------------------------------------------------------------
+	#
+	# gs.scenario.m5h: three Elyos accounts online at once - a Warrior (the founder), a Mage (the member) and a Priest (the brigade general of a
+	# seeded legion): create and its refusals, invite, the announcement, ranks, permissions, intro and nickname, the level-up refusal, a
+	# member's relog, the history pages, the seeded legion's emblem (predefined and a 9,000-byte upload), leave and kick. The dialog cases (the
+	# warehouse, the disband), the legion chat and the studio cases are not scripted (the file's header). Its own output directory
+	# <bin>/scenario/m5h, schema pair (aion_gs_test_m5h_<hash>) and AION_PARTIAL allow-list. Gate slot 2. TIMEOUT 1800.
+	add_test(NAME gs.scenario.m5h COMMAND "$<TARGET_FILE:aion_gs_scenario_tests>" --gtest_filter=M5hScenario.Run
+		WORKING_DIRECTORY "${scenario_work_dir}")
+	set_tests_properties(gs.scenario.m5h PROPERTIES LABELS "scenario;realdata" TIMEOUT 1800
+		RESOURCE_LOCK "${AION_GS_GATE_SLOT_2}" SKIP_REGULAR_EXPRESSION "gs\\.scenario\\.m5h: skipped")
+	if(Python3_Interpreter_FOUND)
+		set_property(TEST gs.scenario.m5h APPEND PROPERTY ENVIRONMENT_MODIFICATION "AION_TEST_PYTHON=set:${Python3_EXECUTABLE}")
+	endif()
+	if(AION_SCENARIO_REQUIRE OR NOT AION_GS_ALLOW_MILESTONE_SKIP)
+		set_property(TEST gs.scenario.m5h APPEND PROPERTY ENVIRONMENT_MODIFICATION "AION_SCENARIO_REQUIRE=set:1")
 	endif()
 
 	# gs.scenario.m5g_alliance (m5g-plan.md §16.3 item 7, the alliance part of §10.5): the same four accounts form an alliance from a group,
