@@ -1,5 +1,10 @@
 #include "aion/gameserver/model/legionDominion/LegionDominionLocation.h"
 
+#include <algorithm>
+
+#include "aion/gameserver/configs/main/LegionConfig.h"
+#include "aion/gameserver/runtime/sync/Monitor.h"
+
 #include <string>
 
 #include "aion/gameserver/model/Race.h"
@@ -59,11 +64,29 @@ void LegionDominionLocation::setParticipantInfo(runtime::Ptr<runtime::RcTreeMap<
 }
 
 std::vector<runtime::Ptr<LegionDominionParticipantInfo>> LegionDominionLocation::getLegionRanking(bool removeNonEligibleLegions) {
-	AION_UNPORTED();
+	runtime::Ptr<runtime::RcTreeMap<int32_t, runtime::Ref<LegionDominionParticipantInfo>>> info = participantInfo.get();
+	if (info->isEmpty())
+		return {};
+	std::vector<runtime::Ptr<LegionDominionParticipantInfo>> ranking;
+	for (const runtime::Ref<LegionDominionParticipantInfo>& participant : info->values())
+		if (!removeNonEligibleLegions || participant->getPoints() > configs::main::LegionConfig::STONESPEAR_REACH_MIN_POINTS_FOR_TERRITORY.load())
+			ranking.push_back(participant);
+	// Java: sorted(comparingInt(getPoints).reversed().thenComparingLong(getDate)), a stable sort
+	std::stable_sort(ranking.begin(), ranking.end(),
+		[](const runtime::Ptr<LegionDominionParticipantInfo>& a, const runtime::Ptr<LegionDominionParticipantInfo>& b) {
+			if (a->getPoints() != b->getPoints())
+				return a->getPoints() > b->getPoints();
+			return a->getDate() < b->getDate();
+		});
+	return ranking;
 }
 
 std::unordered_map<int32_t, std::vector<const templates::LegionDominionReward*>> LegionDominionLocation::getRewards() {
-	AION_UNPORTED();
+	// Java: template.getRewards().stream().collect(Collectors.groupingBy(LegionDominionReward::getRank)), each list in the template order
+	std::unordered_map<int32_t, std::vector<const templates::LegionDominionReward*>> rewards;
+	for (const templates::LegionDominionReward& reward : template_->getRewards())
+		rewards[reward.getRank()].push_back(&reward);
+	return rewards;
 }
 
 bool LegionDominionLocation::join(int32_t value) {
@@ -83,7 +106,10 @@ void LegionDominionLocation::updateRanking() {
 }
 
 void LegionDominionLocation::reset() {
-	AION_UNPORTED();
+	SYNCHRONIZED(*this) { // Java: public synchronized void reset()
+		participantInfo.set(
+			runtime::RcTreeMap<int32_t, runtime::Ref<LegionDominionParticipantInfo>>::create(AION_LOCK_CLASS(LegionDominionLocation::participantInfo)));
+	}
 }
 
 LegionDominionLocation::~LegionDominionLocation() = default;
