@@ -1072,3 +1072,9 @@ the gate as planned: `UseableItemObject.onUse` (C17) and the decoration mode (C1
 retention is kept - the registry objects' positions name the destroyed instance until the owner's next entry re-spawns them; there is no
 cycle (cycles.toml `VisibleObject.position`: accepted, cut elsewhere), and C23's census and live counts are clean after C19's destroy. **H-05's
 `HouseObject.getPlacementLimit(bool)` stays unported**: Java never calls it.
+
+**L-05's deletions (lane B, 2026-10-08)**: under P5-11 leases of P4-14, P4-16 and P4-17 (chunks.cmake), the stand-ins `legionEmblemTypeValue`,
+`legionRankId` and `legionHistoryActionId` (`PacketSupport.h`) and `getType` (`LegionDAO.cpp`) are deleted; the 12 packet sites (P4-16's
+`SM_GM_SHOW_LEGION_MEMBERLIST` included) and `LegionDAO::loadHistory` call the P5-10f companions. `tests/sm_lz/OpcodesAndSupportTest.cpp`
+pins the companions' values in place of the stand-ins' and adds the two call sites no test read (`SM_LEGION_HISTORY`'s action id 11 for
+DEFENSE, `SM_LEGION_UPDATE_EMBLEM`'s 0x80 for CUSTOM); `LegionServiceTest` checks the loaded history filed by type. 4 of 4 mutants killed.

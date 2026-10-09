@@ -1,3 +1,4 @@
+#include "aion/gameserver/model/team/legion/LegionRankInfo.h"
 #include "aion/gameserver/network/aion/serverpackets/SM_LEGION_UPDATE_TITLE.h"
 
 #include "aion/gameserver/network/aion/ServerPacketsOpcodes.gen.h"
@@ -15,7 +16,7 @@ void SM_LEGION_UPDATE_TITLE::writeImpl(AionConnection* con) {
 	writeD(playerObjectId);
 	writeD(legionId);
 	writeS(legionName);
-	writeC(detail::legionRankId(rank));
+	writeC(model::team::legion::getRankId(rank));
 }
 
 } // namespace aion::gameserver::network::aion::serverpackets
