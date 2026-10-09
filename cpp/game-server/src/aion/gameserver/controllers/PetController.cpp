@@ -14,6 +14,7 @@
 #include "aion/gameserver/runtime/base/Exceptions.h"
 #include "aion/gameserver/services/toypet/PetFeedProgress.h"
 #include "aion/gameserver/services/toypet/PetHungryLevel.h"
+#include "aion/gameserver/services/toypet/PetHungryLevelInfo.h"
 #include "aion/gameserver/utils/PacketSendUtility.h"
 
 namespace aion::gameserver::controllers {
@@ -88,8 +89,7 @@ void PetController::onDelete() {
 	commonData->cancelRefeedTask();
 	if (progress) {
 		commonData->setCancelFeed(true);
-		// Java: progress.getHungryLevel().getValue() is the ordinal (PetHungryLevel(0..3))
-		dao::PlayerPetsDAO::saveFeedStatus(getOwner().getObjectId(), static_cast<int32_t>(progress->getHungryLevel()), progress->getDataForPacket(),
+		dao::PlayerPetsDAO::saveFeedStatus(getOwner().getObjectId(), services::toypet::getValue(progress->getHungryLevel()), progress->getDataForPacket(),
 			commonData->getRefeedTime());
 	}
 	if (commonData->getDopingBag() && commonData->getDopingBag()->isDirty())
