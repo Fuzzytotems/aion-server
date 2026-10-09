@@ -38,24 +38,9 @@ namespace aion::gameserver::network::aion::serverpackets::detail {
  * share.
  * <p>
  * The enum functions are the Java constructor data of enums that have no companion header yet (docs/design/static-data.md §2.5). They are
- * copied from the Java enums and stand in until the owning chunk writes the companion (tests compare them with the Java constants).
+ * copied from the Java enums and stand in until the owning chunk writes the companion (tests compare them with the Java constants). The legion
+ * stand-ins are gone (m5h-plan.md L-05): the packets call LegionEmblemTypeInfo.h, LegionRankInfo.h and LegionHistoryActionInfo.h.
  */
-
-/** Java: LegionEmblemType.getValue() - DEFAULT(0x00), CUSTOM(0x80) as a byte */
-constexpr int8_t legionEmblemTypeValue(model::team::legion::LegionEmblemType type) noexcept {
-	return type == model::team::legion::LegionEmblemType::CUSTOM ? static_cast<int8_t>(0x80) : int8_t{0};
-}
-
-/** Java: LegionRank.getRankId() - BRIGADE_GENERAL(0), DEPUTY(1), CENTURION(2), LEGIONARY(3), VOLUNTEER(4): equal to the ordinal */
-constexpr int8_t legionRankId(model::team::legion::LegionRank rank) noexcept {
-	return static_cast<int8_t>(rank);
-}
-
-/** Java: LegionHistoryAction.getId() (LegionHistoryAction.java constructor arguments in ordinal order) */
-constexpr int8_t legionHistoryActionId(model::team::legion::LegionHistoryAction action) noexcept {
-	static constexpr int8_t IDS[] = {0, 1, 2, 3, 4, 5, 6, 11, 12, 13, 14, 15, 16, 17, 18};
-	return IDS[static_cast<size_t>(action)];
-}
 
 /** Java: HouseDoorState.getId() - OPEN(1), CLOSED_EXCEPT_FRIENDS(2), CLOSED(3) */
 constexpr int8_t houseDoorStateId(model::house::HouseDoorState state) noexcept {
