@@ -78,5 +78,26 @@ TEST(GameSessionSocialTest, ThePlayerSearchNameIsFixedLength) {
 	EXPECT_THROW(GameSession::buildCM_PLAYER_SEARCH(std::string(26, 'a')), std::invalid_argument);
 }
 
+/** CM_PET.java:52-66 (M5j stage 2): ADOPT's eight fields, SPAWN's template id */
+TEST(GameSessionSocialTest, ThePetPackets) {
+	const std::vector<uint8_t> adoptBody = GameSession::buildCM_PET_ADOPT(5001, 900001, 7, "Kitty");
+	PacketReader adopt(adoptBody);
+	EXPECT_EQ(adopt.H(), GameSession::PET_ADOPT);
+	EXPECT_EQ(adopt.D(), 5001);
+	EXPECT_EQ(adopt.D(), 900001);
+	EXPECT_EQ(adopt.C(), 0);
+	EXPECT_EQ(adopt.D(), 0);
+	EXPECT_EQ(adopt.D(), 7);
+	EXPECT_EQ(adopt.D(), 0);
+	EXPECT_EQ(adopt.D(), 0);
+	EXPECT_EQ(adopt.S(), "Kitty");
+	EXPECT_EQ(adopt.remaining(), 0u);
+	const std::vector<uint8_t> spawnBody = GameSession::buildCM_PET(GameSession::PET_SPAWN, 900001);
+	PacketReader spawn(spawnBody);
+	EXPECT_EQ(spawn.H(), 3);
+	EXPECT_EQ(spawn.D(), 900001);
+	EXPECT_EQ(spawn.remaining(), 0u);
+}
+
 } // namespace
 } // namespace aion::gameserver::scenario
