@@ -573,6 +573,19 @@ def cmd_m5j_social(args):
 	return 0
 
 
+def cmd_m5j_items(args):
+	from m5a.data import StaticData
+	from m5j.items import items_report
+	data_dir = _data_dir(args)
+	java_src = Path(args.java_src) if args.java_src else data_dir.parent.parent / "src"
+	config_dir = Path(args.config) if args.config else java_src.parent / "config"
+	profile = None if args.no_profile else Path(args.profile) if args.profile else config_dir / "mygs.properties"
+	report = items_report(StaticData(data_dir), java_src, config_dir, profile, args.set or [], args.player_class, args.race, args.level, args.map,
+	                      args.message or [], args.question or [], require_profile=bool(args.profile) and not args.no_profile)
+	sys.stdout.write(runner.dump_json(report))
+	return 0
+
+
 def cmd_quest_trace(args):
 	from questtrace import extract
 	rels = extract.SLICE if not args.only else tuple(args.only)
@@ -994,6 +1007,22 @@ def main(argv=None):
 	               help="one solo PvP kill: the victim's AP lost and the winner's AP gained")
 	p.add_argument("--membership", type=int, default=0, help="the accounts' membership (Rates.get's index, default 0)")
 	p.set_defaults(fn=cmd_m5j_social)
+
+	p = sub.add_parser("m5j-items", help="the M5j stage-2 gate's ride, kisk and toy pet values: the items a character may use, the kisk map's zones, "
+	                                     "the pet egg and its SM_PET specialties (m5j-plan.md §10.4 Z9-Z11, §18.3 H-21)")
+	data_args(p, country=False)
+	p.add_argument("--java-src", help="game-server/src (default: two levels above the static data directory, then src)")
+	p.add_argument("--config", help="game-server/config, whose administration, main and network folders give the defaults (default: beside --java-src)")
+	p.add_argument("--profile", help="the override file Config.loadProperties reads (default: <config>/mygs.properties; a file named here must exist)")
+	p.add_argument("--no-profile", action="store_true", dest="no_profile", help="read no override file: the default folders and --set only")
+	p.add_argument("--set", action="append", metavar="KEY=VALUE", help="a property read as one line of the profile; repeatable")
+	p.add_argument("--class", dest="player_class", default="GLADIATOR", help="the PlayerClass that uses the items (default GLADIATOR)")
+	p.add_argument("--race", default="ELYOS", help="ELYOS or ASMODIANS (default ELYOS)")
+	p.add_argument("--level", type=int, default=65, help="the highest level the item may require (default 65)")
+	p.add_argument("--map", type=int, default=210010000, help="the map the kisk is put on (default 210010000, Poeta)")
+	p.add_argument("--message", nargs="+", action="extend", metavar="NAME", help="SM_SYSTEM_MESSAGE ids to look up by name")
+	p.add_argument("--question", nargs="+", action="extend", metavar="NAME", help="SM_QUESTION_WINDOW ids to look up by name")
+	p.set_defaults(fn=cmd_m5j_items)
 
 	p = sub.add_parser("quest-trace", help="golden traces of the Java quest handlers: every return leaf of every hook as a case with its "
 	                                       "effects (questtrace/, phase6-inventory.md §7.6 item 3)")
