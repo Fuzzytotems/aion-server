@@ -1,3 +1,4 @@
+#include "aion/gameserver/model/team/legion/LegionEmblemTypeInfo.h"
 #include "aion/gameserver/network/aion/serverpackets/SM_LEGION_SEND_EMBLEM.h"
 
 #include "aion/gameserver/model/team/legion/LegionEmblem.h"
@@ -10,7 +11,7 @@ SM_LEGION_SEND_EMBLEM::SM_LEGION_SEND_EMBLEM(int32_t legionIdValue, model::team:
 	std::string_view legionNameValue)
 	: AionServerPacket(opcodeOf<SM_LEGION_SEND_EMBLEM>), legionId(legionIdValue), emblemDataSize(emblemDataSizeValue), legionName(legionNameValue) {
 	emblemId = emblem.getEmblemId();
-	emblemType = detail::legionEmblemTypeValue(emblem.getEmblemType());
+	emblemType = model::team::legion::getValue(emblem.getEmblemType());
 	color_a = emblem.getColor_a();
 	color_r = emblem.getColor_r();
 	color_g = emblem.getColor_g();

@@ -17,6 +17,7 @@
 #include "aion/gameserver/model/team/legion/LegionEmblem.h"
 #include "aion/gameserver/model/team/legion/LegionEmblemType.h"
 #include "aion/gameserver/model/team/legion/LegionHistoryAction.h"
+#include "aion/gameserver/model/team/legion/LegionHistoryActionInfo.h"
 #include "aion/gameserver/model/team/legion/LegionHistoryAction_Type.h"
 #include "aion/gameserver/model/team/legion/LegionHistoryEntry.h"
 #include "aion/gameserver/runtime/base/Exceptions.h"
@@ -53,26 +54,6 @@ constexpr std::string_view SELECT_EMBLEM_QUERY = "SELECT * FROM legion_emblems W
 constexpr std::string_view INSERT_HISTORY_QUERY = "INSERT INTO legion_history(`legion_id`, `date`, `history_type`, `name`, `description`) VALUES (?, ?, ?, ?, ?)";
 constexpr std::string_view SELECT_HISTORY_QUERY = "SELECT * FROM `legion_history` WHERE legion_id=? ORDER BY date DESC, id DESC";
 constexpr std::string_view DELETE_HISTORY_QUERY = "DELETE FROM `legion_history` WHERE id IN (%s)";
-
-/**
- * Stand-in for Java LegionHistoryAction.getType() (constructor data of LegionHistoryAction.java): the enum companion belongs to P5-10, which has
- * no lane in wave 3b-1 and is not on the M4 load path; a change request asks P5-10 for a companion `getType(LegionHistoryAction)` so that
- * LegionService and SM_LEGION_HISTORY share one table, and this copy is deleted then.
- */
-LegionHistoryAction_Type getType(LegionHistoryAction action) {
-	switch (action) {
-		case LegionHistoryAction::DEFENSE:
-		case LegionHistoryAction::OCCUPATION:
-			return LegionHistoryAction_Type::REWARD;
-		case LegionHistoryAction::ITEM_DEPOSIT:
-		case LegionHistoryAction::ITEM_WITHDRAW:
-		case LegionHistoryAction::KINAH_DEPOSIT:
-		case LegionHistoryAction::KINAH_WITHDRAW:
-			return LegionHistoryAction_Type::WAREHOUSE;
-		default:
-			return LegionHistoryAction_Type::LEGION;
-	}
-}
 
 /** The legion columns both loadLegion bodies read after `new Legion(id, name)` */
 void readLegion(Legion& legion, ResultSet& resultSet) {
@@ -335,7 +316,7 @@ void LegionDAO::loadHistory(model::team::legion::Legion& legion) {
 				detail::enumValueOf<LegionHistoryAction>(resultSet->getString("history_type"), "com.aionemu.gameserver.model.team.legion.LegionHistoryAction");
 			std::string name = resultSet->getString("name");
 			std::string description = resultSet->getString("description");
-			history.at(getType(action)).push_back(LegionHistoryEntry::create(id, epochSeconds, action, name, description));
+			history.at(model::team::legion::getType(action)).push_back(LegionHistoryEntry::create(id, epochSeconds, action, name, description));
 		}
 	} catch (const std::exception& e) {
 		log.error("Could not load history of legion " + legion.toString(), e);
