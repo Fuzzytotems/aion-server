@@ -63,8 +63,8 @@
 #             220-286 s in its review's, m5d_geo 358-485 s; m5d_geo's startup alone 172 s)                           = 2095
 #           + gs.scenario.m5f 198, gs.scenario.m5f_geo 325 (m5f-plan.md §10, §17; 2026-10-05 in a Debug tree, one after the
 #             other in one ctest, beside other lanes' builds; slot 2 had the smaller sum, 2095 s against 2801 s)       = 2618
-#           + gs.scenario.m5j 134 (m5j-plan.md §10.4 stage 1; 2026-10-08 in a Debug tree, no geo variant; slot 2 beside the
-#             chat gate, whose runtime its lane did not add here either)                                             = 2752
+#           + gs.scenario.m5j 151 (m5j-plan.md §10.4 stages 1 and 2; 2026-10-08 in a Debug tree, no geo variant; slot 2
+#             beside the chat gate, whose runtime its lane did not add here either; stage 1 alone was 134)            = 2769
 # The balance held for the full set above before M5c; the plan put the M5c gate into slot 2 (§10.1: the smaller sum then, and a prefix of its
 # own), which then led slot 1 by about 280 s, so the travel gate joined slot 1. The ascension gate joined slot 1 as well in its own lane (it
 # would have led slot 2 by about 600 s); at the integration of the two (2026-09-29) it went to slot 2 instead, and the M5b pair (m5b and
@@ -547,11 +547,12 @@ if(TARGET aion_gs_scenario_tests)
 		set_property(TEST gs.scenario.gm APPEND PROPERTY ENVIRONMENT_MODIFICATION "AION_SCENARIO_REQUIRE=set:1")
 	endif()
 
-	# ---- the M5j stage-1 gate (m5j-plan.md §10.4, §18.1 CP5) -----------------------------------------------------------------------------
+	# ---- the M5j gate, stages 1 and 2 (m5j-plan.md §10.4, §18.1 CP5, §18.3 CP5) ---------------------------------------------------------
 	#
 	# gs.scenario.m5j: G (access level 9) and A, B (a seeded level-10 Daeva) on Poeta, C on Ishalgen, G2 (access level 9, Asmodian, a seeded
 	# level-13 Daeva beside A): friends, note, macro and title, search and details, blocks and the whisper arms, the duel and its 33 % floor,
-	# prison, the abyss ranking with //ranking update, and a PvP kill's AP (oracle.py m5j-social). Its own output directory <bin>/scenario/m5j,
+	# prison, the abyss ranking with //ranking update, and a PvP kill's AP (oracle.py m5j-social); stage 2: a ride, a toy pet and a kisk
+	# (oracle.py m5j-items). Its own output directory <bin>/scenario/m5j,
 	# schema pair (aion_gs_test_m5j_<hash>) and AION_PARTIAL allow-list. Gate slot 2 (slot 1 took gs.scenario.gm; slot 2's chat gate starts
 	# one game server like any other). No geo variant (§10.1).
 	add_test(NAME gs.scenario.m5j COMMAND "$<TARGET_FILE:aion_gs_scenario_tests>" --gtest_filter=M5jScenario.Run

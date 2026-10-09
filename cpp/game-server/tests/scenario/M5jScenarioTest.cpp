@@ -1,4 +1,4 @@
-// The M5j stage-1 gate (m5j-plan.md §10.4, gs.scenario.m5j; §18.1 CP5, G-11). One login server and one game server as child processes on
+// The M5j gate, stages 1 and 2 (m5j-plan.md §10.4, gs.scenario.m5j; §18.1 CP5, G-11; §18.3 CP5, G-21). One login server and one game server as child processes on
 // their own test schemas, five accounts:
 //   G,  access level 9, Elyos: the GM of //addtitle, //sprison, //rprison and //ranking (its access level seeded into the login schema, H-02);
 //   A,  access level 0, Elyos, the creation spawn on Poeta; seeded a level-10 Daeva (a Gladiator) with 1000 AP before Z14;
@@ -27,11 +27,21 @@
 //   Z8  A: CM_ABYSS_RANKING_PLAYERS(0) twice - the list (no ranked player: no packet), then the short answer with the cache's update time;
 //       G: //ranking update runs the update (its two log lines, no ERROR) and resets the flags: A's third request is the list again, the
 //       fourth the short answer with an update time at least the first's;
+//   Z9  (stage 2) G's //add gives A the oracle's ride item (m5j-items); A uses it: the casting animation, STR_USE_ITEM, SM_EMOTION(CHANGE_SPEED)
+//       and SM_EMOTION(RIDE, npcId) and the closing SM_ITEM_USAGE_ANIMATION to A and to G (the watcher); the second use dismounts (RIDE_END).
+//       The gate switches gameserver.ride.restriction.enable off: Poeta has no RIDE flag (the oracle's map block);
+//   Z11 (stage 2) the oracle's pet egg from //add; CM_PET ADOPT -> SM_PET ADOPT with the pet's specialties and the player_pets row; CM_PET SPAWN
+//       -> SM_PET SPAWN to A and G; A relogs: SM_PET LOAD_PETS carries the pet (CHANGED order: Z11 before Z10, so the kisk case's death
+//       comes last before Z14's relog);
+//   Z10 (stage 2) the oracle's kisk item from //add; A uses it: the kisk's SM_NPC_INFO (A its creator), KiskAI's bind question, A accepts:
+//       STR_BINDSTONE_REGISTER, SM_KISK_UPDATE and the kisk bind point; G targets A and types //kill: SM_DIE offers the kisk; CM_REVIVE(KISK)
+//       brings A back at the kisk with one resurrection fewer; G's //delete on the kisk removes it (KiskAI.handleDespawned's
+//       STR_BINDSTONE_IS_REMOVED, removeKisk's SM_KISK_UPDATE), so no Kisk outlives the run (Z13's live counts);
 //   Z14 A relogs as a level-10 Daeva with 1000 AP; G2 enters beside A, types //enemy cancel and //kill on A: A dies, A's AP and G2's AP change
 //       by the oracle's calculatePvPApLost / calculatePvpApGained (m5j-social), SM_ABYSS_RANK and the AP system messages to both;
 //   Z13 the reports (the M5a Q8 bar), with no Player alive after the logouts.
 // Z15 (S-13, Legion Dominion and the windstream) is lane B's chunk and not run. Every text, level and id comes from the oracles
-// (`m5j-social`, `m5a-creation`) or is a Java literal cited beside it, never the port's.
+// (`m5j-social`, `m5j-items`, `m5a-creation`) or is a Java literal cited beside it, never the port's.
 //
 // Every expectation is independent of the C++ server code, as in the earlier gates: server packets are read with the decoders of
 // tests/scenario/decoders (written from the Java writeImpl methods, m5a-plan.md D9). This file does not share the other gates' helpers, for the
@@ -70,7 +80,9 @@
 #include "ScenarioServers.h"
 #include "decoders/CombatDecoders.h"
 #include "decoders/EconomyDecoders.h"
+#include "decoders/ItemDecoders.h"
 #include "decoders/PacketDecoders.h"
+#include "decoders/PetKiskDecoders.h"
 #include "decoders/ProgressionDecoders.h"
 #include "decoders/SkillDecoders.h"
 #include "decoders/SocialDecoders.h"
@@ -122,6 +134,8 @@ constexpr int64_t DUEL_FLOOR_PERCENT = 33;
 constexpr uint8_t MACRO_POSITION = 3;
 constexpr std::string_view MACRO_XML = "<macro><command>/s hello</command></macro>";
 constexpr std::string_view NOTE = "the stage one gate";
+/** Z11's pet name: letters only (NameConfig.PET_NAME_PATTERN's default [a-zA-Z]{2,16}), capitalised as Util.convertName leaves it */
+constexpr std::string_view PET_NAME = "Kittyj";
 
 // ---- small helpers ----------------------------------------------------------------------------------------------------------------------
 
@@ -757,6 +771,9 @@ void runM5jGate() {
 		{"gameserver.chat.whisper.level", "10"},
 		{"gameserver.chatserver.enable", "false"},
 		{"gameserver.simple.secondclass.enable", "false"},
+		// stage 2 (Z9): Poeta's map and zones have no RIDE flag, so RideAction.canAct's zone arm would refuse every spot; m5j-items models
+		// the map's zones, not the spot's (§18.3 CP5)
+		{"gameserver.ride.restriction.enable", "false"},
 	};
 	// the oracles read the server's own keys as their profile, never the owner's config/mygs.properties (M5dScenarioTest.cpp's pattern)
 	std::filesystem::create_directories(outputDir);
@@ -776,8 +793,17 @@ void runM5jGate() {
 	     "STR_DUEL_DO_YOU_ACCEPT_REQUEST", "STR_DUEL_DO_YOU_WITHDRAW_REQUEST", "--daeva-level", std::to_string(B_LEVEL), std::to_string(G2_LEVEL),
 	     "--pvp-kill", std::to_string(A_SEED_AP) + "," + std::to_string(A_PVP_LEVEL) + ",0," + std::to_string(G2_LEVEL)}));
 	const nlohmann::json creation = nlohmann::json::parse(oracle->run({"m5a-creation", "--race", "ELYOS", "--class", "WARRIOR"}));
-	const auto message = [&](const char* name) { return social.at("messages").at(name).get<int32_t>(); };
-	const auto question = [&](const char* name) { return social.at("questions").at(name).get<int32_t>(); };
+	// stage 2: the ride, kisk and pet items a level-1 Elyos Warrior may use, Poeta's kisk zones (m5j-items, H-21)
+	const nlohmann::json items = nlohmann::json::parse(oracle->run({"m5j-items", "--profile", profileFile.string(), "--class", "WARRIOR", "--race",
+		"ELYOS", "--level", "1", "--map", std::to_string(POETA), "--message", "STR_USE_ITEM", "STR_BINDSTONE_REGISTER", "STR_BINDSTONE_IS_REMOVED", "--question",
+		"STR_ASK_REGISTER_BINDSTONE"}));
+	const auto emotionId = [&](const char* name) { return items.at("emotions").at(name).get<int32_t>(); };
+	const auto message = [&](const char* name) {
+		return (social.at("messages").contains(name) ? social : items).at("messages").at(name).get<int32_t>();
+	};
+	const auto question = [&](const char* name) {
+		return (social.at("questions").contains(name) ? social : items).at("questions").at(name).get<int32_t>();
+	};
 	const int32_t whisperLevel = social.at("config").at("gameserver.chat.whisper.level").at("value").get<int32_t>();
 	const int32_t searchLevel = social.at("config").at("gameserver.search.player.level").at("value").get<int32_t>();
 	const nlohmann::json& daeva = social.at("daeva");
@@ -1297,6 +1323,230 @@ void runM5jGate() {
 		EXPECT_GE(fourth[0].lastUpdate, second[0].lastUpdate) << "refreshCache's new update time";
 	});
 
+	// ---- the stage-2 cases (m5j-plan.md §10.4 Z9-Z11, §18.3 CP5): A as he left Z8, a level-1 Warrior on Poeta; G watches ----
+	/** the item G's //add gives A: its object id from A's SM_INVENTORY_ADD_ITEM */
+	const auto giveA = [&](int32_t itemId) -> int32_t {
+		const size_t aFrom = a.mark();
+		const size_t gFrom = g.mark();
+		g.say("//add " + a.name + " " + std::to_string(itemId));
+		std::optional<Packet> added = waitForPacket(*a.game, aFrom, "SM_INVENTORY_ADD_ITEM", [&](const Packet& p) {
+			const decoders::InventoryAddItem add = decoders::decodeInventoryAddItem(p.data);
+			return !add.items.empty() && add.items[0].templateId == itemId;
+		}, 10s);
+		if (!added)
+			throw std::runtime_error("//add " + std::to_string(itemId) + ": A got no SM_INVENTORY_ADD_ITEM: " + join(namesOf(a.since(aFrom))) +
+			                         " | G: " + join(infoTexts(g.since(gFrom)), " | "));
+		EXPECT_TRUE(waitForMessage(*g.game, gFrom, [&](const decoders::Message& m) {
+			return m.chatType == CHAT_GOLDEN_YELLOW && m.message.starts_with("You gave 1 x ");
+		}, 5s)) << "Add.java: G's 'You gave' line";
+		return decoders::decodeInventoryAddItem(added->data).items[0].objectId;
+	};
+	const auto emotionOf = [](const Packet& p) { return decoders::decodeEmotion(p.data); };
+	/** SM_PET decoded; an undecodable body is a failure that names its bytes, and the waits go on */
+	const auto petOf = [](const Packet& p) -> std::optional<decoders::Pet> {
+		try {
+			return decoders::decodePet(p.data);
+		} catch (const DecodeError& e) {
+			std::string hex;
+			for (uint8_t byte : p.data)
+				hex += "0123456789abcdef"[byte >> 4], hex += "0123456789abcdef"[byte & 15];
+			ADD_FAILURE() << e.what() << " (" << p.data.size() << " bytes: " << hex << ")";
+			return std::nullopt;
+		}
+	};
+
+	// ---- Z9: a ride ----
+	runCase("Z9", "A mounts the oracle's ride item: after its casting delay A and G see CHANGE_SPEED, RIDE(npcId) and the closing item "
+	              "animation; the second use dismounts (CHANGE_SPEED, RIDE_END)", [&] {
+		const nlohmann::json& ride = items.at("ride");
+		const int32_t rideItem = ride.at("itemId").get<int32_t>();
+		const int32_t rideNpc = ride.at("npcId").get<int32_t>();
+		const int32_t objectId = giveA(rideItem);
+		size_t aFrom = a.mark();
+		size_t gFrom = g.mark();
+		a.send(GameSession::CM_USE_ITEM, GameSession::buildCM_USE_ITEM(objectId));
+		if (ride.at("castingDelay").get<int32_t>() > 0) {
+			std::optional<Packet> opening = waitForPacket(*a.game, aFrom, "SM_ITEM_USAGE_ANIMATION", [&](const Packet& p) {
+				const decoders::ItemUsageAnimation animation = decoders::decodeItemUsageAnimation(p.data);
+				return animation.itemObjectId == objectId && animation.end == 0;
+			}, 10s);
+			ASSERT_TRUE(opening) << "RideAction.act: the casting animation: " << join(namesOf(a.since(aFrom)));
+			EXPECT_EQ(decoders::decodeItemUsageAnimation(opening->data).time, ride.at("castingDelay").get<int32_t>());
+		}
+		const std::optional<decoders::SystemMessage> used = waitForSystemMessage(*a.game, aFrom, message("STR_USE_ITEM"), 15s);
+		ASSERT_TRUE(used) << "RideAction.finishUse: STR_USE_ITEM: " << join(namesOf(a.since(aFrom)));
+		for (ScenarioClient* client : {&a, &g}) {
+			const size_t from = client == &a ? aFrom : gFrom;
+			const auto emotion = [&](int32_t type, int32_t target) {
+				return waitForPacket(*client->game, from, "SM_EMOTION", [&](const Packet& p) {
+					const decoders::Emotion e = emotionOf(p);
+					return e.senderObjectId == a.playerId && e.emotionType == type && e.targetObjectId == target;
+				}, 10s);
+			};
+			EXPECT_TRUE(emotion(emotionId("CHANGE_SPEED"), 0)) << client->label << ": SM_EMOTION(CHANGE_SPEED, 0, 0) (RideAction.java:152)";
+			EXPECT_TRUE(emotion(emotionId("RIDE"), rideNpc)) << client->label << ": SM_EMOTION(RIDE, 0, " << rideNpc << ") (RideAction.java:153)";
+			EXPECT_TRUE(waitForPacket(*client->game, from, "SM_ITEM_USAGE_ANIMATION", [&](const Packet& p) {
+				const decoders::ItemUsageAnimation animation = decoders::decodeItemUsageAnimation(p.data);
+				return animation.playerObjectId == a.playerId && animation.itemId == rideItem && animation.end == 1 && animation.time == 0;
+			}, 10s)) << client->label << ": SM_ITEM_USAGE_ANIMATION(..., 0, 1, 1) (RideAction.java:154-155)";
+		}
+
+		aFrom = a.mark();
+		gFrom = g.mark();
+		a.send(GameSession::CM_USE_ITEM, GameSession::buildCM_USE_ITEM(objectId));
+		for (ScenarioClient* client : {&a, &g}) {
+			const size_t from = client == &a ? aFrom : gFrom;
+			EXPECT_TRUE(waitForPacket(*client->game, from, "SM_EMOTION", [&](const Packet& p) {
+				const decoders::Emotion e = emotionOf(p);
+				return e.senderObjectId == a.playerId && e.emotionType == emotionId("RIDE_END");
+			}, 10s)) << client->label << ": the dismount's SM_EMOTION(RIDE_END) (PlayerActions.java:56): " << join(namesOf(client->since(from)));
+		}
+		EXPECT_FALSE(firstOfName(a.since(aFrom), "SM_ITEM_USAGE_ANIMATION")) << "act's first arm only unsets the mode: no casting";
+	});
+
+	// ---- Z11: a toy pet ----
+	runCase("Z11", "A adopts the oracle's pet from its egg (CM_PET ADOPT: SM_PET ADOPT with the pet's specialties), summons it (SM_PET SPAWN), "
+	               "relogs: the player_pets row and SM_PET LOAD_PETS carry it", [&] {
+		const nlohmann::json& pet = items.at("pet");
+		const int32_t petId = pet.at("petId").get<int32_t>();
+		const int32_t eggObjectId = giveA(pet.at("eggItemId").get<int32_t>());
+		size_t aFrom = a.mark();
+		a.send(GameSession::CM_PET, GameSession::buildCM_PET_ADOPT(eggObjectId, petId, 0, PET_NAME));
+		std::optional<Packet> adopted = waitForPacket(*a.game, aFrom, "SM_PET", [&](const Packet& p) {
+			const std::optional<decoders::Pet> decoded = petOf(p);
+			return decoded && decoded->action == decoders::PET_ACTION_ADOPT;
+		}, 10s);
+		ASSERT_TRUE(adopted) << "PetAdoptionService.addPet: SM_PET(ADOPT): " << join(namesOf(a.since(aFrom)));
+		const decoders::PetData data = *decoders::decodePet(adopted->data).adopted;
+		EXPECT_EQ(data.name, PET_NAME) << "Util.convertName of a capitalised name";
+		EXPECT_EQ(data.templateId, petId);
+		EXPECT_EQ(data.masterObjectId, a.playerId);
+		EXPECT_EQ(data.secondsUntilExpiration, 0) << "an egg without minutes";
+		std::vector<int32_t> specialties;
+		for (const decoders::PetFunction& function : data.functions)
+			specialties.push_back(function.id);
+		EXPECT_EQ(specialties, pet.at("writtenSpecialtyIds").get<std::vector<int32_t>>()) << "SM_PET.writePetData's specialties";
+		EXPECT_EQ(count("SELECT COUNT(*) FROM player_pets WHERE player_id = " + std::to_string(a.playerId) + " AND template_id = " +
+		                std::to_string(petId) + " AND id = " + std::to_string(data.objectId)), 1) << "PlayerPetsDAO.insertPlayerPet";
+
+		aFrom = a.mark();
+		const size_t gFrom = g.mark();
+		a.send(GameSession::CM_PET, GameSession::buildCM_PET(GameSession::PET_SPAWN, petId));
+		for (ScenarioClient* client : {&a, &g}) {
+			std::optional<Packet> spawned = waitForPacket(*client->game, client == &a ? aFrom : gFrom, "SM_PET", [&](const Packet& p) {
+				const std::optional<decoders::Pet> decoded = petOf(p);
+				return decoded && decoded->action == decoders::PET_ACTION_SPAWN && decoded->spawn->objectId == data.objectId;
+			}, 10s);
+			ASSERT_TRUE(spawned) << client->label << ": SM_PET(SPAWN) of the summoned pet (PlayerController.see)";
+			const decoders::PetSpawn spawn = *decoders::decodePet(spawned->data).spawn;
+			EXPECT_EQ(spawn.templateId, petId);
+			EXPECT_EQ(spawn.masterObjectId, a.playerId);
+			EXPECT_EQ(spawn.name, PET_NAME);
+		}
+
+		disconnect(a);
+		const std::vector<Packet> burst = enterGame(servers, a);
+		std::optional<decoders::Pet> loaded;
+		for (const Packet& packet : burst)
+			if (packet.name == "SM_PET")
+				if (std::optional<decoders::Pet> decoded = petOf(packet); decoded && decoded->action == decoders::PET_ACTION_LOAD_PETS)
+					loaded = std::move(decoded);
+		ASSERT_TRUE(loaded) << "PetService.onPlayerLogin: SM_PET(LOAD_PETS) in the enter world";
+		const std::vector<decoders::PetData> pets = loaded->pets;
+		ASSERT_EQ(pets.size(), 1u);
+		EXPECT_EQ(pets[0].objectId, data.objectId) << "the pet persists (player_pets)";
+		EXPECT_EQ(pets[0].name, PET_NAME);
+		EXPECT_EQ(pets[0].templateId, petId);
+	});
+
+	// ---- Z10: a kisk ----
+	runCase("Z10", "A puts the oracle's kisk (SM_NPC_INFO of it with A as creator), binds through its question (SM_KISK_UPDATE, the kisk "
+	               "bind point); G's //kill on A offers the kisk revive, which brings A back at the kisk", [&] {
+		const nlohmann::json& kisk = items.at("kisk");
+		const int32_t kiskNpc = kisk.at("npcId").get<int32_t>();
+		const int32_t objectId = giveA(kisk.at("itemId").get<int32_t>());
+		size_t aFrom = a.mark();
+		a.send(GameSession::CM_USE_ITEM, GameSession::buildCM_USE_ITEM(objectId));
+		std::optional<Packet> npc = waitForPacket(*a.game, aFrom, "SM_NPC_INFO", [&](const Packet& p) {
+			return decoders::decodeNpcInfo(p.data).templateId == kiskNpc;
+		}, std::chrono::milliseconds(kisk.at("castingDelay").get<int32_t>()) + 15s);
+		ASSERT_TRUE(npc) << "ToyPetSpawnAction.finishUse: the kisk's SM_NPC_INFO: " << join(namesOf(a.since(aFrom)));
+		const decoders::NpcInfo kiskInfo = decoders::decodeNpcInfo(npc->data);
+		EXPECT_EQ(kiskInfo.creatorId, a.playerId) << "Kisk: setCreatorId(owner)";
+		EXPECT_LT(std::hypot(kiskInfo.x - a.x, kiskInfo.y - a.y), 0.5f) << "spawned at A's position";
+		std::optional<Packet> asked = waitForPacket(*a.game, aFrom, "SM_QUESTION_WINDOW", [&](const Packet& p) {
+			return decoders::decodeQuestionWindow(p.data).code == question("STR_ASK_REGISTER_BINDSTONE");
+		}, 10s);
+		ASSERT_TRUE(asked) << "members > 1: KiskAI.handleDialogStart's question (ToyPetSpawnAction.java:110-111)";
+
+		aFrom = a.mark();
+		a.send(GameSession::CM_QUESTION_RESPONSE, GameSession::buildCM_QUESTION_RESPONSE(question("STR_ASK_REGISTER_BINDSTONE"), 1));
+		ASSERT_TRUE(waitForSystemMessage(*a.game, aFrom, message("STR_BINDSTONE_REGISTER"), 10s)) << "KiskService.onBind";
+		std::optional<Packet> update = waitForPacket(*a.game, aFrom, "SM_KISK_UPDATE", [](const Packet&) { return true; }, 5s);
+		ASSERT_TRUE(update) << "Kisk.addPlayer: broadcastKiskUpdate";
+		const decoders::KiskUpdate before = decoders::decodeKiskUpdate(update->data);
+		EXPECT_EQ(before.kiskObjectId, kiskInfo.objectId);
+		EXPECT_EQ(before.currentMembers, 1);
+		EXPECT_EQ(before.maxMembers, kisk.at("maxMembers").get<int32_t>());
+		EXPECT_EQ(before.remainingResurrects, kisk.at("maxResurrects").get<int32_t>());
+		EXPECT_EQ(before.useMask, kisk.at("useMask").get<int32_t>());
+		EXPECT_GT(before.remainingLifetimeSeconds, kisk.at("lifetimeSeconds").get<int32_t>() - 60);
+		std::optional<Packet> bindPoint = waitForPacket(*a.game, aFrom, "SM_BIND_POINT_INFO", [](const Packet&) { return true; }, 5s);
+		ASSERT_TRUE(bindPoint) << "TeleportService.sendKiskBindPoint";
+		EXPECT_EQ(decoders::decodeBindPointInfo(bindPoint->data).type, 4) << "4: kisk";
+		EXPECT_EQ(decoders::decodeBindPointInfo(bindPoint->data).kiskObjectId, kiskInfo.objectId);
+
+		g.send(GameSession::CM_TARGET_SELECT, GameSession::buildCM_TARGET_SELECT(a.playerId));
+		waitFor(*g.game, "SM_TARGET_SELECTED", 10s);
+		aFrom = a.mark();
+		const size_t gFrom = g.mark();
+		g.say("//kill");
+		ASSERT_TRUE(waitForInfo(*g.game, gFrom, "Killed player: " + charName(a.name))) << "Kill.java: " << join(infoTexts(g.since(gFrom)), " | ");
+		std::optional<Packet> died = waitForPacket(*a.game, aFrom, "SM_DIE", [](const Packet&) { return true; }, 10s);
+		ASSERT_TRUE(died) << "A died";
+		const decoders::Die offer = decoders::decodeDie(died->data);
+		EXPECT_GT(offer.remainingKiskTimeSeconds, 0) << "SM_DIE offers the kisk revive (Kisk.getRemainingLifetime)";
+		EXPECT_LE(offer.remainingKiskTimeSeconds, kisk.at("lifetimeSeconds").get<int32_t>());
+
+		aFrom = a.mark();
+		a.send(GameSession::CM_REVIVE, GameSession::buildCM_REVIVE(GameSession::KISK_REVIVE));
+		std::optional<Packet> used = waitForPacket(*a.game, aFrom, "SM_KISK_UPDATE", [&](const Packet& p) {
+			return decoders::decodeKiskUpdate(p.data).remainingResurrects == before.remainingResurrects - 1;
+		}, 10s);
+		EXPECT_TRUE(used) << "Kisk.resurrectionUsed: one resurrection fewer";
+		// TeleportService.teleportTo on the same map is spawnOnSameMap (TeleportService.java:208-219): SM_CHANNEL_INFO, then A's own SM_PLAYER_INFO
+		// at the kisk, no SM_PLAYER_SPAWN
+		std::optional<Packet> respawned = waitForPacket(*a.game, aFrom, "SM_PLAYER_INFO", [&](const Packet& p) {
+			return decoders::decodePlayerInfo(p.data).objectId == a.playerId;
+		}, 10s);
+		ASSERT_TRUE(respawned) << "PlayerReviveService.kiskRevive: teleportTo(kisk): " << join(namesOf(a.since(aFrom)));
+		const decoders::PlayerInfo at = decoders::decodePlayerInfo(respawned->data);
+		EXPECT_LT(std::hypot(at.x - kiskInfo.x, at.y - kiskInfo.y), 0.5f) << "A stands at the kisk";
+		a.x = at.x;
+		a.y = at.y;
+		a.z = at.z;
+		EXPECT_FALSE(firstOfName(a.since(aFrom), "SM_DIE")) << "A is alive";
+
+		// G removes the kisk (Delete.java: a single-time spawn is not saved, SpawnsData.java:211): KiskAI.handleDespawned -> removeKisk
+		g.send(GameSession::CM_TARGET_SELECT, GameSession::buildCM_TARGET_SELECT(kiskInfo.objectId));
+		waitFor(*g.game, "SM_TARGET_SELECTED", 10s);
+		collectFor(*a.game, 1500ms); // the respawn's own SM_KISK_UPDATE (PlayerController.see of A's kisk) comes before the mark
+		aFrom = a.mark();
+		g.say("//delete");
+		EXPECT_TRUE(waitForPacket(*a.game, aFrom, "SM_DELETE", [&](const Packet& p) {
+			return decoders::decodeDelete(p.data).objectId == kiskInfo.objectId;
+		}, 10s)) << "the kisk leaves A's view";
+		ASSERT_TRUE(waitForSystemMessage(*a.game, aFrom, message("STR_BINDSTONE_IS_REMOVED"), 10s)) << "KiskAI.handleDespawned";
+		// KiskAI.handleDespawned calls removeKisk (the creator's SM_KISK_UPDATE) before it broadcasts STR_BINDSTONE_IS_REMOVED
+		bool updatedBeforeRemoved = false;
+		for (const Packet& packet : a.since(aFrom)) {
+			if (packet.name == "SM_SYSTEM_MESSAGE" && decoders::decodeSystemMessage(packet.data).messageId == message("STR_BINDSTONE_IS_REMOVED"))
+				break;
+			updatedBeforeRemoved = updatedBeforeRemoved || packet.name == "SM_KISK_UPDATE";
+		}
+		EXPECT_TRUE(updatedBeforeRemoved) << "KiskService.removeKisk: the creator's SM_KISK_UPDATE: " << join(namesOf(a.since(aFrom)));
+	});
+
 	// ---- Z14: a PvP kill ----
 	runCase("Z14", "A (a level-10 Daeva with 1000 AP) and G2 (a level-13 Asmodian Daeva): G2's //kill on A pays the oracle's AP", [&] {
 		disconnect(a);
@@ -1431,8 +1681,8 @@ void runM5jGate() {
 
 } // namespace
 
-/** `gs.scenario.m5j` (m5j-plan.md §10.4, stage 1): friends, blocks and whispers, note, macro and title, search, the duel, prison, the abyss
- *  ranking and a PvP kill's AP */
+/** `gs.scenario.m5j` (m5j-plan.md §10.4, stages 1 and 2): friends, blocks and whispers, note, macro and title, search, the duel, prison, the
+ *  abyss ranking, a ride, a toy pet, a kisk and a PvP kill's AP */
 TEST(M5jScenario, Run) {
 	runM5jGate();
 }
