@@ -115,8 +115,8 @@ TEST_F(NpcAITest, AskAnswersEveryQuestionAsJavaDoes) {
 	runtime::Ref<model::gameobjects::Npc> npc = makeWorldNpc(SPARKIE_NPC_ID, 500, 500, 100);
 	NpcAIProbe& ai = installProbe(*npc);
 
-	// CAN_SHOUT short-circuits on AIConfig.SHOUTS_ENABLE, which the M5b profile leaves off (m5b-plan.md D1); NpcShoutsService::mayShout is
-	// AION_UNPORTED, so a port that drops the config term throws here instead of answering.
+	// CAN_SHOUT short-circuits on AIConfig.SHOUTS_ENABLE, which the M5b profile leaves off (m5b-plan.md D1); NpcShoutsService::mayShout (no
+	// cooldown: true) is the other term, so a port that drops the config term answers true here.
 	EXPECT_FALSE(configs::main::AIConfig::SHOUTS_ENABLE.load());
 	EXPECT_FALSE(ai.ask(AIQuestion::CAN_SHOUT));
 

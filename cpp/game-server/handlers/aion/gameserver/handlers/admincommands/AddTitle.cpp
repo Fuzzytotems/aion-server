@@ -40,8 +40,8 @@ void AddTitle::execute(Player& player, std::span<const std::string> params) {
 			return;
 		}
 	} else {
-		runtime::Ptr<Player> playerTarget = runtime::as<Player>(player.getTarget());
-		target = playerTarget != nullptr ? playerTarget : runtime::Ptr<Player>(&player);
+		runtime::Ptr<Player> playerTarget = runtime::as<Player>(player.getTarget()); // parity= target = player.getTarget() instanceof Player playerTarget ? playerTarget : player;
+		target = playerTarget != nullptr ? playerTarget : runtime::Ptr<Player>(&player); // parity: (continued)
 	}
 
 	if (!target->getTitleList().addTitle(titleTemplate->getTitleId(), false, 0)) {

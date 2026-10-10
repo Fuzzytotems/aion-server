@@ -1069,3 +1069,143 @@ alliance 1 and C's leave disbanding alliance 2; the reports add `League`, `Leagu
 `gs.scenario.m5g` failed once at C12: B got no experience from kill 3 (GP11), which every earlier run counted. The re-run passed in
 258.1 s. Nothing on the branch touches the party reward path; the cause (B dead or out of range at that kill) is open. **Mutation proof**: `LeagueMoveEvent` without its position messages - killed (GA8 only); an expel that leaves the league of one alive -
 killed (GA9, and GA11: `League` live at the stop).
+
+## M5j stage-0 GM gate (lane A, 2026-10-08): `gs.scenario.gm` (m5j-plan.md §10.2 / §17.8, H-02)
+
+`tests/scenario/GmScenarioTest.cpp`, its allow-list `gm_partial_allowlist.txt` (the startup set of the travel list) and the registration in
+`ScenarioTests.cmake` (gate slot 1, TIMEOUT 1800, no geo variant, the discovered case DISABLED). `GameSession` gains the chat and GM
+builders of H-02: `CM_CHAT_MESSAGE_PUBLIC` (27), `CM_CHAT_MESSAGE_WHISPER` (28), `CM_BUILDER_COMMAND` (41) and `buildGmCommand(text)`, a
+NORMAL chat line, which is how the client sends a chat command. The `SM_MESSAGE` decoder already existed (`decoders::decodeMessage`,
+M5c's C2b). Three Elyos accounts: G (access level 9), L (1), P (0). The access levels are written into the login schema's
+`account_data.access_level` after the accounts' first login (they are created there by autocreate) and before the first enter world.
+
+| Area | As built | Reason |
+|---|---|---|
+| §10.2's rows | X1, X3, X4 (with X5's race bytes of P), X6, X7, X8 as one command per family (//online, //announce, CM_BUILDER_COMMAND `levelup 1` and an unknown name, //addexp, .gmlist, //spawn 210663 and //kill), X10 | X2 renders every command's `help` from H-01's oracle (not built); X8b, X8c and X11 are the riders' and part 0.2's; Q (the Asmodian of X5) is left out: P's echo and G's reading pin both ends of the race byte that matter (0 for staff, id + 1 for a player) |
+| Texts | Java literals and Java computations named at each assertion (ChatUtil.l10n, ChatUtil.charName with the access level's custom tag of admin.properties:18) | §17.10: no oracle yet; nothing comes from the port |
+| X1's texts | asserted by presence in the enter-world burst | the login announcement (GMService.scheduleBroadcastLogin, 15 s) and the revision text add messages around them |
+| Profile | the keys of §17.8 pinned (`login.execute_commands`, `print_revision`, `chat.factions.enable`, `chat.whisper.level`, `chatserver.enable`, `simple.secondclass.enable`) | §17.8 |
+
+**Runs**: the first run failed X8c, X8d and X8e on the test's own text: G's name carries the access-level tag of
+`gameserver.administration.customtags` (Player.getName(true)); the expectation now builds it from the Java default. Then green in 55.5 s.
+**Mutation proof**: 12 mutants behind `AION_GMGATEMUT` in the server (the login commands not run; access granted to everyone; a player's
+refused command swallowed; the staff reader given the race byte; canChat ignoring the ban; the ban never stored; no console command found;
+//online's plural; //announce as a plain message; //addexp adding twice; no GM available; //kill refusing every target), **12 of 12
+killed** (X1; X3 and X4; X4; X4; X7; X7; X8c; X8a; X8b; X8d; X8e; X8f), each by one gate run; the access mutant first slipped through X3
+(the access text is sent before the mutated return) and X3 now also asserts that //kill did not run (no syntax answer). Sources restored
+and sha256-checked (10 files), rebuilt, the switch string absent from the build tree, the gate green again.
+
+### `gs.scenario.gm` with the command oracle (H-01, 2026-10-08, branch `lane-a/m5j-stage0-rest`)
+
+X2 asks every one of the 41 stage-0 commands for `help` through the channel a client uses for it (`//x help`, `.x help`, and
+CM_BUILDER_COMMAND `x help` for the console commands) and compares the GOLDEN_YELLOW parts with `oracle.py m5j-commands` (41 of 41 equal;
+`//ai`'s help is two parts after ChatUtil.split); X3's access text comes from the oracle too. The first run found the oracle keyed by the
+bare alias, where the admin //addskill and the console addskill are two commands (ChatProcessor keys by the alias with its prefix); the
+oracle now keys by alias with prefix. The gate takes AION_TEST_PYTHON. Green in 59.7 s. Mutation proof for X2: ChatUtil.split never
+splitting, and parseSyntaxInfo without its square-bracket note, **2 of 2 killed** by X2 alone; sources restored (sha256), rebuilt, the
+switch absent from the build tree.
+
+## M5j stage-0 chat gate (lane A, 2026-10-08): `gs.scenario.chat` (m5j-plan.md §10.3 / §17.9, C-03, I-03)
+
+`tests/scenario/ChatScenarioTest.cpp`, registered in `ScenarioTests.cmake` when the chat server target exists (gate slot 2, TIMEOUT 1800,
+labels `scenario;chatserver;realdata`, the discovered case DISABLED). Three processes: the login and game servers of the harness and
+`aion_chat_server` as a `ChildProcess` in `<bin>/scenario/chat/chat_server`, a copy of `chat-server/config` with the gate's own
+`mycs.properties` (ports from `ScenarioServers::reservePorts`, the test password, the chat log to the database). Its database is its own per
+run, `aion_cs_test_chat_<hash>` on the server of `AION_TEST_CS_DATABASE_URL`, created from `chat-server/sql/aion_cs.sql` under the harness's
+schema lease and dropped at the end (§17.9: never `aion_cs_test` and never `ChatServerTestDatabase.h`'s named lock).
+`ScenarioDatabase::checkTestName` now also accepts `aion_cs_test_*` (not `aion_cs_test` itself; `ScenarioDatabaseTest.OnlyTestSchemasAreChanged`
+pins both). **I-03** (`game-server/CMakeLists.txt`): under `if(TARGET aion_chat_server)` the scenario tests depend on the chat server and get
+`AION_CHAT_SERVER_EXECUTABLE`, `AION_CHATSERVER_JAVA_DIR` and the include directory `chat-server/tests` for `support/FakePeers.h` - m5j-plan.md
+§17.6 gives I-03 to the integrator at checkpoint 0.1b; it is here so the gate builds, for the integrator to take or redo.
+
+| Case | As built |
+|---|---|
+| Y1 | "Gameserver #1 is now online" (chat server) and "Connected to chat server" (game server) before the first client |
+| Y2 | SM_VERSION_CHECK decoded from its Java writeImpl: one chat server, 127.0.0.1, the chat client port, the channel-chat level 10. The gate's clients send CM_VERSION_CHECK with INTERNAL_VERSION 207: with the harness's 206 the server answers answerID 1 and writes nothing more (SM_VERSION_CHECK.java:70-77) |
+| Y3 | CM_CHAT_AUTH -> SM_CHAT_INIT with 48 bytes; `FakeChatClient::login` with "<name>@AION" and the account name |
+| Y4 | A and B join `public_poeta` of game server 1, race 0; A's line reaches both as `expectedChannelMessage` (Java's bytes); the `chatlog` row |
+| Y5 | G's `//gag A 1 test` -> the chat server logs "was gagged for 1 minutes" (the duration of D9); `remove` -> "for 0 minutes" |
+| Y6 | drop + restart after 1 s: online again in [4.5 s, 9 s]; drop + 12 s down: "trying again in 10s" and online in [14.5 s, 19 s]; the slack is 4 s for a Debug server |
+| Y7 | B's logout closes his chat connection ("Player[id] logged out"); all three exit 0; no reconnect after the game server's stop; no unported hit, no ERROR in any log, the census and live counts clean |
+
+**Runs**: the first runs found the checkTestName refusal and the version 206 answer; then green in 73.6 s. **Mutation proof**: 7 mutants
+behind `AION_CHATMUT` in the game server (SM_VERSION_CHECK announcing no chat server; the channel-chat level a constant 20; CM_CHAT_AUTH's
+login request dropped; the gag packet dropped; the logout packet dropped; the authenticated reconnect after 1 s; the refused connect's retry
+after 1 s), **7 of 7 killed** (A0 by the malformed announcement, Y2, Y3, Y5, Y7a, Y6, Y6), one gate_lock call per run. Sources restored
+(sha256, 2 files), rebuilt, the switch absent from the build tree, the gate green again.
+
+## M5j stage-1 gate (lane A, 2026-10-08): `gs.scenario.m5j` (m5j-plan.md §10.4, §18.1 CP5, G-11)
+
+`tests/scenario/M5jScenarioTest.cpp`, its allow-list `m5j_partial_allowlist.txt` (the startup set; S-04 removed the two cron partials of
+AbyssRankUpdateService, so §10.4 Z8's "rows gone" holds by their absence) and the registration in `ScenarioTests.cmake` (gate slot 2,
+TIMEOUT 1800, no geo variant, the discovered case DISABLED). New harness parts (§18.1 CP1's "SocialDecoders" and "H-11's builders", built
+here with the gate): `decoders/SocialDecoders.{h,cpp}` (SM_FRIEND_RESPONSE, SM_FRIEND_LIST, SM_FRIEND_UPDATE, SM_FRIEND_NOTIFY,
+SM_BLOCK_RESPONSE, SM_BLOCK_LIST, SM_UPDATE_NOTE, SM_TITLE_INFO, SM_PLAYER_SEARCH, SM_VIEW_PLAYER_DETAILS' head, SM_DUEL, SM_ABYSS_RANK,
+SM_ABYSS_RANKING_PLAYERS; SM_MACRO_LIST is PacketDecoders' V10 decoder) with `SocialDecodersTest.cpp` (11 cases), ten `GameSession` builders
+(CM_SET_NOTE, CM_VIEW_PLAYER_DETAILS, CM_FRIEND_ADD, CM_FRIEND_DEL, CM_DUEL_REQUEST, CM_TITLE_SET, CM_PLAYER_SEARCH with readS(25)'s
+padding, CM_BLOCK_ADD, CM_MACRO_CREATE, CM_ABYSS_RANKING_PLAYERS) with `GameSessionSocialTest.cpp` (3 cases), and the oracle
+`oracle.py m5j-social` (`tools/oracle/m5j/social.py`, 9 tests): message and question ids, the whisper and search levels, titles, the Daeva
+seeds, AbyssRankEnum and one solo PvP kill's AP in Java float arithmetic. The oracles read the server's own keys as a profile file (the M5d
+pattern), never config/mygs.properties.
+
+| Area | As built | Reason |
+|---|---|---|
+| Accounts | G (9, Elyos), A, B (Elyos; B a seeded level-10 Gladiator, quest 1006, 1 m from A), C (Asmodian, Ishalgen), G2 (9, Asmodian, a seeded level-13 Gladiator, quest 2008, 1 m from A on Poeta) | §10.4; G2 at 13 so that the level difference 3 has an arm in both PvP formulas |
+| Order | Z1, Z3, Z4, Z2, Z5, Z6, Z7, Z8, Z14 | Z3's note needs the friendship of Z1; Z2 deletes it (a friend cannot be blocked: STR_BLOCKLIST_NO_BUDDY, asserted); the prison moves B to his bind point, so the duel comes first |
+| Z1 / Z3 status byte | the SM_FRIEND_UPDATE of a friend's enter world is asserted by name (and note), not by status | FriendList.setStatus(ONLINE) runs before World.storeObject (PlayerEnterWorldService.java:191, :197) and Friend.getStatus answers OFFLINE while World.getPlayer does not find the friend; the byte depends on when the packet is written. Java's behaviour |
+| Z1 lastOnline | not asserted | an offline friend's lastOnline is the pcd's loaded `last_online` (null for a character that never left the world: 0), set only after setStatus(OFFLINE) (PlayerLeaveWorldService.java:83, :132) |
+| Z6 | B (the level-10 Daeva) attacks A (level 1) until A would die | §10.4 has A fight B; a level-1 A cannot bring a level-10 Daeva down within the gate's time. The loser is the case's subject either way: no SM_DIE, `(int) ((long) maxHp * 33 / 100)` exactly, the lost / won results (about 22 attacks, 26-29 s) |
+| Z7 | `//sprison B 1 test` | SPrison.java reads params[2] unguarded: `//sprison B 1` answers the syntax (§10.4's form). The prison's chat gag is 1 ms (CP2's proposed correction: minutes passed as milliseconds), so its GAG task unbans B at once with STR_CAN_CHAT_NOW, and //rprison finds no ban to announce; the gate pins both (Java's behaviour). The chat refusal comes from canChat's prison arm, STR_INGAME_BLOCK_IN_NO_CHAT(1) |
+| Z8 | four requests around `//ranking update` | with no ranked player the list is no packet at all (AbyssRankingCache.getPlayerRankListPackets of an empty list); the short answer (page 0, no rows) proves the flag, and its absence after the update proves resetAbyssRankListUpdated. The update is awaited by its log line |
+| Z14 | A relogs as a level-10 Gladiator with 1000 AP; A steps once before the //kill | CM_LEVEL_READY starts the 60 s protection (BLINKING) under which PlayerController.onAttack returns at once; a move ends it (CM_MOVE.java:140-141). The oracle's kill: A 1000 -> 923 (77 lost), G2 0 -> 255 (STR_MSG_USE_ABYSSPOINT(77), STR_MSG_COMBAT_MY_ABYSS_POINT_GAIN(255), allKill 1) |
+| Z13a | G2 logs out after its login announcement answered; G stays 2 s after A's logout | GMService.scheduleBroadcastLogin's 15 s task holds G2 until it ran. A logs out dead: with the stop right after the last logout the final census names A (refcount 1, no pending task), with 3 s between the logouts it is empty, and an A revived before his logout is never named (measured, three runs). The holder is inferred, not traced: the short-lived queue of spawnOnSameMap's updateZone (ZoneUpdateService, 500 ms) after leaveWorld's bindRevive |
+| Not run | Z15 (S-13, lane B's chunk) | §18.1 |
+
+**Runs**: the first run ended in an access violation (a FriendEntry pointer into a temporary list, the test's own); then Z1's status byte and
+lastOnline, the unowned title (the broadcast of the owned one arrived after the mark), Z7's STR_CAN_CHAT_NOW (the 1 ms gag), Z14's protection
+and the two shutdown timings above. Then green in 133.7 s. **Mutation proof**: 10 mutants behind `AION_M5JGATEMUT` in the game server
+(makeFriends storing one row; public chat ignoring the block list; the whisper's level arm dropped; a macro not stored; an unowned title
+displayed; the duel arm of PlayerController.onDie skipped; the prison without its teleport; the ranking flags not reset by the update;
+rewardPlayerTeam not called; calculatePvPApLost's level arm of 3 dropped), **10 of 10 killed** (Z1; Z2; Z2; Z3; Z3; Z6; Z7; Z8; Z14; Z14),
+one gate_lock call per run. Sources restored and sha256-checked (10 files), rebuilt, the switch absent from the sources and the build tree.
+
+## M5j stage-2 gate (lane A, 2026-10-08): `gs.scenario.m5j` Z9-Z11 (m5j-plan.md §10.4, §18.3 CP5, G-21, H-21)
+
+The stage-1 gate's file grows the three stage-2 cases; every stage-1 case runs again in the same run. New harness parts (H-21):
+`decoders/PetKiskDecoders.{h,cpp}` (SM_PET in the arms LOAD_PETS, ADOPT, SURRENDER, SPAWN, DISMISS, FOOD, RENAME, MOOD and SPECIAL_FUNCTION,
+written from SM_PET.java's writeImpl, writePetData and writeAppearance; SM_KISK_UPDATE) with `PetKiskDecodersTest.cpp` (4 cases); the ride
+and kisk packets are the existing SM_EMOTION, SM_ITEM_USAGE_ANIMATION, SM_NPC_INFO, SM_BIND_POINT_INFO, SM_DIE and SM_DELETE decoders; the
+`GameSession` builders `buildCM_PET_ADOPT` and `buildCM_PET` (CM_PET.java's readImpl) with `GameSessionSocialTest.ThePetPackets`; and the
+oracle `oracle.py m5j-items` (`tools/oracle/m5j/items.py`, 9 tests; README). For the gate's level-1 Elyos Warrior it picks the ride item
+190100042 (casting delay 1 s, ride 2000025), the kisk item 184000005 ((E) Small Kisk, npc 700273: 6 members, 18 resurrections, casting
+delay 10 s) and the pet egg 190000020 (pet 900043, FOOD of flavour 7), and finds every zone of Poeta allowing a kisk.
+
+| Area | As built | Reason |
+|---|---|---|
+| Order | Z1 ... Z8, then Z9, Z11, Z10, then Z14 | A is the level-1 Warrior of stage 1 (every picked item needs level 1); Z10 ends with A's death and revive, which must come after the pet's relog and before Z14's |
+| Ride restriction | the gate key `gameserver.ride.restriction.enable = false` | Poeta's map has no RIDE flag and its zones (flags 7) none either: RideAction.canAct's zone arm refuses every spot of Poeta. The oracle models the map's zones, not the spot's, and refuses a profile that leaves the restriction on there |
+| Watcher | G (the GM beside A since the creation) | Z9's "a watcher" and Z11's summon: G sees A's broadcasts |
+| Z9 | `//add` (CP4) gives the item; the first use: the casting animation, STR_USE_ITEM, SM_EMOTION(CHANGE_SPEED, 0), SM_EMOTION(RIDE, npcId) and SM_ITEM_USAGE_ANIMATION(end 1, time 0) to A and G; the second: SM_EMOTION(RIDE_END) to both and no casting | RideAction.java:152-155, PlayerActions.java:55-56 |
+| Z11 | CM_PET ADOPT with the egg's object id; SM_PET ADOPT (name, template, master, no expiry, the specialties' ids) and the player_pets row; CM_PET SPAWN: SM_PET SPAWN to A and G; relog: SM_PET LOAD_PETS with the pet | the pet name is letters only (PET_NAME_PATTERN's default) |
+| Z10 | CM_USE_ITEM: the kisk's SM_NPC_INFO (A its creator, at A's position), KiskAI's STR_ASK_REGISTER_BINDSTONE; the answer: STR_BINDSTONE_REGISTER, SM_KISK_UPDATE (members 1 of 6, 18 resurrections, about 2 h) and SM_BIND_POINT_INFO type 4; G's `//kill` on A: SM_DIE with the kisk's lifetime; CM_REVIVE(KISK): SM_KISK_UPDATE with 17 resurrections and A's own SM_PLAYER_INFO at the kisk | §10.4's "revives at the kisk" is TeleportService.teleportTo on the same map: spawnOnSameMap (TeleportService.java:208-219) sends SM_CHANNEL_INFO and SM_PLAYER_INFO, no SM_PLAYER_SPAWN |
+| Z10's end | G targets the kisk and types `//delete` (Delete.java; a single-time spawn is not saved, SpawnsData.java:211): SM_DELETE of the kisk to A, STR_BINDSTONE_IS_REMOVED (KiskAI.handleDespawned) and the creator's SM_KISK_UPDATE (KiskService.removeKisk) | without it the kisk outlives the run (its 2 h despawn task and KiskService's maps hold it) and Z13's live counts name it: `Kisk` is a zero row of CheckOutput (a world object in Java, which keeps it too). Removing it is also CP2's removeKisk end to end |
+
+**Runs**: the first run found that the oracle's first pick (egg 190000001, pet 900001) has the FOOD function of flavour 6, which pet_feed.xml
+does not have ("Flavours with id 1-6 are NCSoft tests, not included"): PetCommonData's constructor throws NullPointerException after
+PetAdoptionService.adoptPet consumed the egg - the C++ server did exactly what Java does (its ERROR line named "PetFlavour 6 is null"). The
+oracle now requires a pet_feed.xml flavour (proposed Java correction J-CP5-1 below). Then a dangling pointer of the test (a `Packet*` into a
+temporary list, the stage-1 lesson again), the same-map revive's SM_PLAYER_INFO instead of SM_PLAYER_SPAWN, and the kisk's live count (the
+`//delete` above). Then green in 151 s with every stage-1 case, and 158 s after the mutation proof.
+
+**Mutation proof**: 10 mutants behind `AION_M5J2GATEMUT` in the game server (RideAction's dismount arm skipped; the RIDE emotion without the
+ride id; the adoption's SM_PET not sent; the pet not stored; no SM_PET list at login; the kisk binding at once without KiskAI's question;
+SM_DIE offering no kisk; kiskRevive without its teleport; a resurrection not counted; removeKisk's SM_KISK_UPDATE to the creator not sent),
+**10 of 10 killed** (Z9; Z9; Z11; Z11; Z11; Z10; Z10; Z10; Z10; Z10), one gate_lock call per run. The last one first survived: the
+respawn's own SM_KISK_UPDATE (PlayerController.see of A's kisk after the same-map revive) satisfied the check, which now drains A's packets
+before the `//delete` and asks for the update before STR_BINDSTONE_IS_REMOVED (KiskAI.handleDespawned's order); then killed. Sources
+restored and sha256-checked (9 files), rebuilt, the switch absent from the sources and the build tree.
+
+Proposed Java correction J-CP5-1 (behaviour kept): `PetAdoptionService.adoptPet` decreases the egg before `addPet`, whose PetCommonData
+constructor dereferences `PET_FEED_DATA.getFlavourById(...)` for the pet's FOOD function: an egg of a pet with a test flavour (1-6) is lost
+and the adoption ends with a NullPointerException. Correction: validateAdoption refuses a pet whose FOOD flavour is unknown (or the egg is
+taken only after the pet data was created).
