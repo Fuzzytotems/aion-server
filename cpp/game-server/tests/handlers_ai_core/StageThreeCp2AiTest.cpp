@@ -24,7 +24,6 @@
 #include "aion/gameserver/ai/AIState.h"
 #include "aion/gameserver/configs/main/AIConfig.h"
 #include "aion/gameserver/configs/main/GeoDataConfig.h"
-#include "aion/gameserver/configs/main/LoggingConfig.h"
 #include "aion/gameserver/controllers/NpcController.h"
 #include "aion/gameserver/controllers/PlayerController.h"
 #include "aion/gameserver/controllers/effect/EffectController.h"
@@ -50,6 +49,7 @@
 #include "aion/gameserver/model/ChatType.h"
 #include "aion/gameserver/model/DialogAction.h"
 #include "aion/gameserver/model/EmotionType.h"
+#include "aion/gameserver/model/gameobjects/DropNpc.h"
 #include "aion/gameserver/model/gameobjects/Npc.h"
 #include "aion/gameserver/model/gameobjects/player/PetCommonData.h"
 #include "aion/gameserver/model/gameobjects/player/PetList.h"
@@ -72,6 +72,7 @@
 #include "aion/gameserver/network/aion/serverpackets/SM_SKILL_COOLDOWN.h"
 #include "aion/gameserver/network/aion/serverpackets/SM_SYSTEM_MESSAGE.h"
 #include "aion/gameserver/runtime/base/Exceptions.h"
+#include "aion/gameserver/services/drop/DropRegistrationService.h"
 #include "aion/gameserver/world/World.h"
 #include "aion/gameserver/world/geo/GeoService.h"
 #include "aion/gameserver/world/knownlist/NpcKnownList.h"
@@ -443,47 +444,41 @@ TEST_F(StageThreeCp2AiTest, ChestWithoutTemplateOrKeys) {
 }
 
 /**
- * ChestAI.java:50-56, :81-104: the keys are taken across the ids in order before the DEAD check; a dead chest only audits. (The opening of a live
- * chest goes on to DropRegistrationService.registerDrop, whose calculateBoostDropRate loads the opener's houses from the database
- * (DropTestSupport.h): it is left to the in-game retest. The chest is marked DEAD here without dying, as a looted chest is.)
+ * ChestAI.handleUseItemFinish with correction J-S3CP2-1 (owner's decision 2026-10-10, C++ only): a chest that is already DEAD when a use
+ * finishes (looted while the bar ran) takes no keys and opens its drop list at once (DropService.requestDropList); Java took the keys first and
+ * only audited. The normal open of a looted chest is CM_START_LOOT (action 0 calls requestDropList), which never reaches the AI: a dead npc's
+ * AI is DIED and drops DIALOG_START. The drop list is seen here through a registered DropNpc this player may not loot (STR_LOOT_NO_RIGHT).
+ * (The opening of a live chest goes on to DropRegistrationService.registerDrop, whose calculateBoostDropRate loads the opener's houses from the
+ * database, DropTestSupport.h: it is left to the in-game retest, with the key removal.)
  */
-TEST_F(StageThreeCp2AiTest, ChestTakesKeysAndAuditsALootedChest) {
+TEST_F(StageThreeCp2AiTest, LootedChestTakesNoKeysAndOpensItsDropList) {
 	dataholders::DataManager::CHEST_DATA.publish(xml::bindString<dataholders::ChestData>(dataContext, CHEST_XML));
-	const bool savedLogAudit = configs::main::LoggingConfig::LOG_AUDIT.load();
-	configs::main::LoggingConfig::LOG_AUDIT.store(true);
 	Npc& chest = npc<ChestProbe>();
-	aiOf<ChestProbe>(chest).handleDialogStart(player());
-	chest.setState(CreatureState::DEAD, true); // NpcController.onDie: setState(DEAD, true)
-	stored(9911, MERCENARYS_FRUIT_JUICE, 2);
-	stored(9912, MINOR_LIFE_POTION, 4);
+	stored(9911, MERCENARYS_FRUIT_JUICE, 1);
+	stored(9912, MINOR_LIFE_POTION, 1);
+	aiOf<ChestProbe>(chest).handleDialogStart(player()); // no talk delay: the use finishes at once, 2 of 3 keys
+	chest.setState(CreatureState::DEAD, true);         // NpcController.onDie: setState(DEAD, true)
+	services::drop::DropRegistrationService::getInstance().getDropRegistrationMap().put(
+		chest.getObjectId(), model::gameobjects::DropNpc::create(chest.getObjectId()));
+	const std::vector<uint8_t> noRight = serializedFor(serverpackets::SM_SYSTEM_MESSAGE::STR_LOOT_NO_RIGHT());
+	const std::vector<uint8_t> needKey = serializedFor(
+		serverpackets::SM_SYSTEM_MESSAGE(model::ChatType::NORMAL, runtime::Ptr<model::gameobjects::VisibleObject>(player()), 1111301, {}));
 	clearSent();
-	{
-		network::test::LogCapture capture({"AUDIT_LOG"});
-		aiOf<ChestProbe>(chest).handleUseItemFinish(player());
-		EXPECT_EQ(capture.count("attempted multiple chest looting!"), 1) << capture.dump();
-	}
-	EXPECT_EQ(player().getInventory().getItemCountByItemId(MERCENARYS_FRUIT_JUICE), 0) << "both juices first";
-	EXPECT_EQ(player().getInventory().getItemCountByItemId(MINOR_LIFE_POTION), 3) << "then the one missing potion";
-	EXPECT_EQ(count(serializedFor(serverpackets::SM_SYSTEM_MESSAGE(model::ChatType::NORMAL,
-				  runtime::Ptr<model::gameobjects::VisibleObject>(player()), 1111301, {}))),
-		0u)
-		<< "opened";
-	{
-		network::test::LogCapture capture({"AUDIT_LOG"});
-		aiOf<ChestProbe>(chest).handleUseItemFinish(player());
-		EXPECT_EQ(capture.count("attempted multiple chest looting!"), 1) << capture.dump();
-	}
-	EXPECT_EQ(player().getInventory().getItemCountByItemId(MINOR_LIFE_POTION), 0) << "exactly three: all three from the potions";
+	aiOf<ChestProbe>(chest).handleUseItemFinish(player());
+	EXPECT_EQ(count(needKey), 0u) << "the DEAD check comes before the keys";
+	ASSERT_EQ(count(noRight), 1u) << "DropService.requestDropList(player, the chest)"; // a live open would go on to the database
 
-	Npc& keyless = npc<ChestProbe>(104.0f, KEYLESS_CHEST);
-	keyless.setState(CreatureState::DEAD, true);
-	{
-		network::test::LogCapture capture({"AUDIT_LOG"});
-		// the template has no talk delay: ActionItemNpcAI's dialog finishes the use at once
-		aiOf<ChestProbe>(keyless).handleDialogStart(player());
-		EXPECT_EQ(capture.count("attempted multiple chest looting!"), 1) << "item id 0: no key needed" << capture.dump();
-	}
-	configs::main::LoggingConfig::LOG_AUDIT.store(savedLogAudit);
+	stored(9913, MINOR_LIFE_POTION, 3);
+	clearSent();
+	aiOf<ChestProbe>(chest).handleUseItemFinish(player());
+	EXPECT_EQ(player().getInventory().getItemCountByItemId(MERCENARYS_FRUIT_JUICE), 1) << "enough keys now, none taken";
+	EXPECT_EQ(player().getInventory().getItemCountByItemId(MINOR_LIFE_POTION), 4);
+	EXPECT_EQ(sent(), exactly({noRight}));
+
+	Npc& stranger = npc<ChestProbe>(104.0f, HIDDEN_TELEPORTER); // no chest template: a dead one reads none
+	stranger.setState(CreatureState::DEAD, true);
+	EXPECT_NO_THROW(aiOf<ChestProbe>(stranger).handleUseItemFinish(player()));
+	services::drop::DropRegistrationService::getInstance().getDropRegistrationMap().remove(chest.getObjectId());
 }
 
 // ---- SummonerAI --------------------------------------------------------------------------------------------------------------------------

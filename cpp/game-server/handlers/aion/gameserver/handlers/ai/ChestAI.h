@@ -16,6 +16,8 @@ namespace aion::gameserver::handlers::ai {
  * <p>
  * Java: data/handlers/ai/ChestAI.java, @AIName("chest"). Java's `Collection<Player> players = new HashSet<>()` keeps the HashSet's iteration
  * order (a Player's hashCode is its object id) through JavaHashMapOrder, since registerDrop hands the members on in that order.
+ * <p>
+ * Correction J-S3CP2-1 (C++ only): a chest that is already DEAD when a use finishes takes no keys and opens its drop list (P5-05.md).
  */
 class ChestAI : public ActionItemNpcAI {
 public:
