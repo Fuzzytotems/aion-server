@@ -37,10 +37,10 @@ void Set::execute(Player& admin, std::span<const std::string> params) {
 	Player& target = targetPlayer != nullptr ? *targetPlayer : admin;
 
 	if (params[0] == "class") {
-		PlayerClass playerClass = utils::enumValueOf<PlayerClass>(commons::utils::StringUtils::toUpperCase(params[1]));
+		PlayerClass playerClass = utils::enumValueOf<PlayerClass>(commons::utils::StringUtils::toUpperCase(params[1])); // parity= PlayerClass playerClass = PlayerClass.valueOf(params[1].toUpperCase());
 		ClassChangeService::setClass(target, playerClass, true, true);
 	} else if (params[0] == "level") {
-		int32_t level = std::min(GSConfig::PLAYER_MAX_LEVEL.load(), commons::utils::parseInt(params[1]));
+		int32_t level = std::min(GSConfig::PLAYER_MAX_LEVEL.load(), commons::utils::parseInt(params[1])); // parity= int level = Math.min(GSConfig.PLAYER_MAX_LEVEL, Integer.parseInt(params[1]));
 		target.getCommonData()->setLevel(level);
 		sendInfo(admin, "Set " + name(target) + "'s level to " + std::to_string(target.getLevel()));
 	} else if (params[0] == "exp") {

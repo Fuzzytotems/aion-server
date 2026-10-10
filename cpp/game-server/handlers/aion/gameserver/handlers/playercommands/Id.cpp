@@ -19,7 +19,7 @@ namespace aion::gameserver::handlers::playercommands {
 
 AION_PLAYER_COMMAND(Id);
 
-Id::Id()
+Id::Id() // parity= private static final char ITEM_ICON = '\uE054'; public Id() { // the Java field first, as in the class body; line 30 is its C++ local
 	: PlayerCommand("id", "Shows item/quest/NPC IDs.",
 		  " - Shows the ID of the selected object.\n"
 		  "<item|quest> - Shows the ID of the specified item or quest.\n") {
@@ -27,7 +27,7 @@ Id::Id()
 
 // Java Id.java:29-75. ITEM_ICON is '' (bag), written as UTF-8
 void Id::execute(Player& player, std::span<const std::string> params) {
-	const std::string ITEM_ICON = commons::utils::StringUtils::toUtf8(std::u16string(1, u''));
+	const std::string ITEM_ICON = commons::utils::StringUtils::toUtf8(std::u16string(1, u'')); // parity: the field ITEM_ICON of Id.java:20 (compared at the constructor's line), a local UTF-8 string here
 	runtime::Ptr<VisibleObject> target = player.getTarget();
 	if (params.empty()) {
 		if (target == nullptr) {
@@ -38,10 +38,10 @@ void Id::execute(Player& player, std::span<const std::string> params) {
 			PacketSendUtility::sendPacket(player, SM_SYSTEM_MESSAGE::STR_INVALID_TARGET());
 			return;
 		}
-		std::string msg = utils::simpleClassName(typeid(*target)) + ": " + ChatUtil::path(*target, true);
+		std::string msg = utils::simpleClassName(typeid(*target)) + ": " + ChatUtil::path(*target, true); // parity= String msg = target.getClass().getSimpleName() + ": " + ChatUtil.path(target, true);
 		if (player.isStaff()) {
 			int32_t staticId = target->getSpawn() == nullptr ? 0 : target->getSpawn()->getStaticId();
-			msg += " (Object ID: " + std::to_string(target->getObjectId()) + (staticId == 0 ? std::string() : ", Static ID: " + std::to_string(staticId)) + ")";
+			msg += " (Object ID: " + std::to_string(target->getObjectId()) + (staticId == 0 ? std::string() : ", Static ID: " + std::to_string(staticId)) + ")"; // parity= msg += " (Object ID: " + target.getObjectId() + (staticId == 0 ? "" : ", Static ID: " + staticId) + ")";
 		}
 		sendInfo(player, msg);
 		return;
@@ -75,20 +75,20 @@ std::string Id::getQuestIcon(const QuestTemplate& template_) {
 	using model::templates::quest::QuestCategory;
 	char16_t icon;
 	switch (template_.getCategory()) {
-		case QuestCategory::EVENT:
-			icon = u''; // pink
+		case QuestCategory::EVENT: // parity= case EVENT -> '\uE039'; // pink
+			icon = u''; // parity: (continued)
 			break;
-		case QuestCategory::MISSION:
-			icon = u''; // golden
+		case QuestCategory::MISSION: // parity= case MISSION -> '\uE037'; // golden
+			icon = u''; // parity: (continued)
 			break;
-		case QuestCategory::IMPORTANT:
-		case QuestCategory::SIGNIFICANT:
-			icon = u''; // dark blue
+		case QuestCategory::IMPORTANT: // parity= case IMPORTANT, SIGNIFICANT -> '\uE03F'; // dark blue
+		case QuestCategory::SIGNIFICANT: // parity: (continued)
+			icon = u''; // parity: (continued)
 			break;
-		default:
-			icon = u''; // light blue
+		default: // parity= default -> '\uE034'; // light blue
+			icon = u''; // parity: (continued)
 	}
-	return commons::utils::StringUtils::toUtf8(std::u16string(1, icon));
+	return commons::utils::StringUtils::toUtf8(std::u16string(1, icon)); // parity: Java returns the char; the UTF-8 string of it here (docs/deviations/C1.md)
 }
 
 } // namespace aion::gameserver::handlers::playercommands
