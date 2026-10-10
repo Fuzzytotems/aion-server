@@ -498,7 +498,10 @@ TEST_F(StageThreeCp2AiTest, SummonerCallsHelpersByHpPercentage) {
 	dataholders::DataManager::AI_DATA.publish(xml::bindString<dataholders::AIData>(dataContext, SUMMONS_XML));
 	Npc& summoner = npc<SummonerProbe>();
 	SummonerProbe& ai = aiOf<SummonerProbe>(summoner);
-	EXPECT_THROW(ai.handleDied(), commons::utils::UnsupportedOperationException) << "Java: Collections.emptyList().clear() before the spawn";
+	// correction J-S3CP2-2 (owner's decision 2026-10-10, C++ only): a death or despawn before the spawn clears nothing; Java's
+	// Collections.emptyList().clear() threw UnsupportedOperationException
+	EXPECT_NO_THROW(ai.handleDespawned());
+	EXPECT_NO_THROW(ai.handleDied());
 	ai.handleAttack(nullptr);
 	EXPECT_TRUE(ai.befores.empty()) << "no percentages before the spawn";
 
