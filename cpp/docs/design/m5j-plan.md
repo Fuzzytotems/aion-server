@@ -1614,4 +1614,4 @@ without a C++ file; `tools/porting/census.py` for the totals):
    `ManualClock`: SPAWNED, CREATURE_SEE, ATTACKED, DIED, DESPAWNED, all timers, 0 exceptions, 0 unported hits).
 4. **CP4 the gate**: G-31, `gs.scenario.m5j` Z12 with the stage-1 and stage-2 cases re-run.
 
-> **Progress:** CP1 done (`lane-a/m5j-s3-cp1`): the 15 small root AIs and the PetHungryLevel companion (P5-05.md, P5-08.md).
+> **Progress:** CP1 done (`lane-a/m5j-s3-cp1`): the 15 small root AIs and the PetHungryLevel companion (P5-05.md, P5-08.md). CP2 done (`lane-a/m5j-s3-cp2`): `ChestAI`, `HiddenTeleportNpcAI`, `SummonerAI`, `SkillCooltimeResetAI` (its `GeoService.canSee` against a generated geo fixture), the four `ConquestOffering*AI` (P5-05.md).
