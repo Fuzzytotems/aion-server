@@ -20,6 +20,9 @@ namespace aion::gameserver::handlers::ai {
  * Correction J-S3CP2-1 (C++ only): a chest that is already DEAD when a use finishes takes no keys and opens its drop list (P5-05.md).
  */
 class ChestAI : public ActionItemNpcAI {
+	/** C++ only: the unit tests reach the private key check (tryOpening), which a live open only reaches through the database */
+	friend struct ChestAITestAccess;
+
 public:
 	explicit ChestAI(Npc& owner) : ActionItemNpcAI(owner) {}
 

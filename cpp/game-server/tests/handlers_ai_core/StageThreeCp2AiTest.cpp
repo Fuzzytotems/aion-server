@@ -79,6 +79,16 @@
 
 #include "aion/commons/utils/WindowsMacroGuard.h" // after all headers that may include windows.h
 
+namespace aion::gameserver::handlers::ai {
+
+/** ChestAI's friend (ChestAI.h): its key check and template field, without the dialog's immediate use finish */
+struct ChestAITestAccess {
+	static void setTemplate(ChestAI& ai, int32_t npcId) { ai.chestTemplate.set(dataholders::DataManager::CHEST_DATA->getChestTemplate(npcId)); }
+	static bool tryOpening(ChestAI& ai, model::gameobjects::player::Player& player) { return ai.tryOpening(player); }
+};
+
+} // namespace aion::gameserver::handlers::ai
+
 namespace aion::gameserver::network::aion::clientpackets::testing::items {
 namespace {
 
@@ -479,6 +489,33 @@ TEST_F(StageThreeCp2AiTest, LootedChestTakesNoKeysAndOpensItsDropList) {
 	stranger.setState(CreatureState::DEAD, true);
 	EXPECT_NO_THROW(aiOf<ChestProbe>(stranger).handleUseItemFinish(player()));
 	services::drop::DropRegistrationService::getInstance().getDropRegistrationMap().remove(chest.getObjectId());
+}
+
+/**
+ * ChestAI.java:81-104 (tryOpening): a key id 0 opens without keys; one key short refuses and takes nothing; enough keys are taken across the
+ * ids in order, exactly the count (reached through ChestAITestAccess: a live open goes on to registerDrop and the database)
+ */
+TEST_F(StageThreeCp2AiTest, ChestKeyCheck) {
+	using roots::ChestAITestAccess;
+	dataholders::DataManager::CHEST_DATA.publish(xml::bindString<dataholders::ChestData>(dataContext, CHEST_XML));
+	Npc& keyless = npc<ChestProbe>(102.0f, KEYLESS_CHEST);
+	ChestAITestAccess::setTemplate(aiOf<ChestProbe>(keyless), KEYLESS_CHEST);
+	EXPECT_TRUE(ChestAITestAccess::tryOpening(aiOf<ChestProbe>(keyless), player())) << "item id 0: no key needed";
+
+	Npc& chest = npc<ChestProbe>(103.0f);
+	ChestAITestAccess::setTemplate(aiOf<ChestProbe>(chest), NPC);
+	stored(9911, MERCENARYS_FRUIT_JUICE, 1);
+	stored(9912, MINOR_LIFE_POTION, 1);
+	EXPECT_FALSE(ChestAITestAccess::tryOpening(aiOf<ChestProbe>(chest), player())) << "2 of 3 keys";
+	EXPECT_EQ(player().getInventory().getItemCountByItemId(MERCENARYS_FRUIT_JUICE), 1) << "nothing taken";
+	EXPECT_EQ(player().getInventory().getItemCountByItemId(MINOR_LIFE_POTION), 1);
+
+	stored(9913, MINOR_LIFE_POTION, 3); // 1 juice, 4 potions
+	EXPECT_TRUE(ChestAITestAccess::tryOpening(aiOf<ChestProbe>(chest), player()));
+	EXPECT_EQ(player().getInventory().getItemCountByItemId(MERCENARYS_FRUIT_JUICE), 0) << "the juice first";
+	EXPECT_EQ(player().getInventory().getItemCountByItemId(MINOR_LIFE_POTION), 2) << "then the two missing potions, no more";
+	EXPECT_TRUE(ChestAITestAccess::tryOpening(aiOf<ChestProbe>(keyless), player()));
+	EXPECT_EQ(player().getInventory().getItemCountByItemId(MINOR_LIFE_POTION), 2) << "the keyless chest takes nothing";
 }
 
 // ---- SummonerAI --------------------------------------------------------------------------------------------------------------------------
