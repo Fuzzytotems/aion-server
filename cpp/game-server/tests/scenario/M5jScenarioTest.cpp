@@ -49,7 +49,8 @@
 //   Z17 (stage 4 CP6, the orphaned commands of M5f) G's //instance answers from the Java literals (Instance.java:76-81, :97-102; the name is
 //       AutoGroupType.java:27's constant): an unknown name, the dredgion's close while closed, its open and its close; //goto's unknown
 //       destination (GoTo.java:46), //movetoobj's number check (MoveToObject.java:30, :35) and //moveplayertoplayer's syntax
-//       (MovePlayerToPlayer.java:24); CP6 part 2: //quest of an id without a quest (Quest.java:72);
+//       (MovePlayerToPlayer.java:24); CP6 part 2: //quest of an id without a quest (Quest.java:72); part 3: //dropinfo all on a spawned //ai set base npc (its "[... 's drops]" head and
+//       its "N total drops available in M drop groups." tail, DropInfo.java:48, :81), then its //delete;
 //   Z14 A relogs as a level-10 Daeva with 1000 AP; G2 enters beside A, types //enemy cancel and //kill on A: A dies, A's AP and G2's AP change
 //       by the oracle's calculatePvPApLost / calculatePvpApGained (m5j-social), SM_ABYSS_RANK and the AP system messages to both;
 //   Z13 the reports (the M5a Q8 bar), with no Player alive after the logouts.
@@ -1684,6 +1685,31 @@ void runM5jGate() {
 		says("//movetoobj abc", {"Only numbers please!!!", "Cannot find object for spawn #0"});
 		says("//moveplayertoplayer x", {"syntax //moveplayertoplayer <characterNameToMove> <characterNameDestination>"});
 		says("//quest 99999 status", {"Invalid quest."}); // Quest.java:72 (quest_data.xml has no 99999)
+		// //dropinfo all on the //ai set base npc (m5j-ais), spawned at G's spot, then deleted (DropInfo.java:44-82)
+		const int32_t dropNpc = rootAis.at("aiSet").at("baseNpcId").get<int32_t>();
+		size_t aFrom = a.mark();
+		g.say("//spawn " + std::to_string(dropNpc));
+		std::optional<Packet> spawned = waitForPacket(*a.game, aFrom, "SM_NPC_INFO", [&](const Packet& p) {
+			return decoders::decodeNpcInfo(p.data).templateId == dropNpc;
+		}, 10s);
+		ASSERT_TRUE(spawned) << "//spawn " << dropNpc;
+		const int32_t dropNpcObject = decoders::decodeNpcInfo(spawned->data).objectId;
+		g.send(GameSession::CM_TARGET_SELECT, GameSession::buildCM_TARGET_SELECT(dropNpcObject));
+		waitFor(*g.game, "SM_TARGET_SELECTED", 10s);
+		size_t gFrom = g.mark();
+		g.say("//dropinfo all");
+		EXPECT_TRUE(waitForMessage(*g.game, gFrom, [](const decoders::Message& m) {
+			return m.chatType == CHAT_GOLDEN_YELLOW && m.message.find(" total drops available in ") != std::string::npos &&
+				m.message.ends_with(" drop groups.");
+		}, 10s)) << "DropInfo.java:81: " << join(infoTexts(g.since(gFrom)), " | ");
+		EXPECT_TRUE(waitForMessage(*g.game, gFrom, [](const decoders::Message& m) {
+			return m.chatType == CHAT_GOLDEN_YELLOW && m.message.starts_with("[") && m.message.find("'s drops]") != std::string::npos;
+		}, 10s)) << "DropInfo.java:48: " << join(infoTexts(g.since(gFrom)), " | ");
+		aFrom = a.mark();
+		g.say("//delete");
+		EXPECT_TRUE(waitForPacket(*a.game, aFrom, "SM_DELETE", [&](const Packet& p) {
+			return decoders::decodeDelete(p.data).objectId == dropNpcObject;
+		}, 10s)) << "//delete of the //dropinfo npc";
 	});
 
 	// ---- Z14: a PvP kill ----
