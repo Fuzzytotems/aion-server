@@ -1,0 +1,17 @@
+{
+ "format": "aion-quest-trace",
+ "version": 1,
+ "questId": 30056,
+ "java": "silentera_canyon/_30056DirvisiasSorrow.java",
+ "class": "_30056DirvisiasSorrow",
+ "javaSha256": "0531b08add55ca5be812c7b96b29976de3e9804e76ccd0634ad73edab9b3c560",
+ "register": [
+  {"npc": 798929, "event": "addOnQuestStart", "args": [30056]},
+  {"npc": 798929, "event": "addOnTalkEvent", "args": [30056]},
+  {"npc": 203901, "event": "addOnTalkEvent", "args": [30056]},
+  {"npc": 700569, "event": "addOnTalkEvent", "args": [30056]},
+  {"npc": 799034, "event": "addOnTalkEvent", "args": [30056]}
+ ],
+ "hooks": [{"hook": "onDialogEvent", "line": 32, "unsupported": "call spawnForFiveMinutes"}],
+ "cases": []
+}
