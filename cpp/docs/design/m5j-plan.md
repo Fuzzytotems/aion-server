@@ -1651,3 +1651,5 @@ without a C++ file; `tools/porting/census.py` for the totals):
 > LookingForParty, AutoInstance, AutoPvpInstance, AutoGroupUtility; AutoPvPFFAInstance and AutoHarmonyInstance up to their score arms, which wait
 > for CP3 (J13) (P5-10e.md). The integrator assigned the orphaned commands (2026-10-11): lane A takes the M5f ten, M5d's two, M5b-3's four,
 > M5c's five, M5e's two and `//event` (CP6, which may move ahead of CP3/CP4); lane B `//legion`, `//auction`, `//house`; the M5i six wait for M5i.
+> **Progress:** CP2 done (`lane-a/m5j-s4-cp2`): AutoGroupService, PeriodicInstanceManager, PvPArenaService, CM_AUTO_GROUP; **W-13
+> closed** (`gs.scenario.m5j` runs with autogroup on and its Z16 sends CM_AUTO_GROUP) (P5-10e.md).

@@ -78,6 +78,17 @@ TEST(GameSessionSocialTest, ThePlayerSearchNameIsFixedLength) {
 	EXPECT_THROW(GameSession::buildCM_PLAYER_SEARCH(std::string(26, 'a')), std::invalid_argument);
 }
 
+/** CM_AUTO_GROUP.java:27-32 (M5j stage 4): the mask id, the window and the entry request */
+TEST(GameSessionSocialTest, TheAutoGroupPacket) {
+	EXPECT_EQ(GameSession::CM_AUTO_GROUP, 200);
+	const std::vector<uint8_t> body = GameSession::buildCM_AUTO_GROUP(21, 100, 1);
+	PacketReader reader(body);
+	EXPECT_EQ(reader.D(), 21);
+	EXPECT_EQ(reader.C(), 100);
+	EXPECT_EQ(reader.C(), 1);
+	EXPECT_EQ(reader.remaining(), 0u);
+}
+
 /** CM_PET.java:52-66 (M5j stage 2): ADOPT's eight fields, SPAWN's template id */
 TEST(GameSessionSocialTest, ThePetPackets) {
 	const std::vector<uint8_t> adoptBody = GameSession::buildCM_PET_ADOPT(5001, 900001, 7, "Kitty");

@@ -54,6 +54,8 @@ class RealTreeTest(unittest.TestCase):
 		self.assertEqual(sum(1 for a in report["ais"] if a["npcId"] is not None), 21)
 		self.assertEqual(report["aiSet"]["baseAi"], "general")
 		self.assertEqual(report["aiSet"]["answerPrefix"], "Npc now has AI ")
+		# auto_group.xml: the Arena of Chaos 1 (mask 21) on 300350000 for levels 46-50
+		self.assertEqual(report["autoGroups"]["21"], {"instanceId": 300350000, "minLvl": 46, "maxLvl": 50})
 
 	def test_a_missing_ai_name_is_refused(self):
 		with self.assertRaises(OracleError):

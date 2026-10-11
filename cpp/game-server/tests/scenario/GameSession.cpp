@@ -418,6 +418,10 @@ std::vector<uint8_t> GameSession::buildCM_PET(uint16_t action, int32_t templateI
 	return PacketWriter().H(action).D(templateId).data; // CM_PET.readImpl SURRENDER / SPAWN / DISMISS: readUH action, readD templateId
 }
 
+std::vector<uint8_t> GameSession::buildCM_AUTO_GROUP(int32_t instanceMaskId, uint8_t windowId, uint8_t entryRequestId) {
+	return PacketWriter().D(instanceMaskId).C(windowId).C(entryRequestId).data; // CM_AUTO_GROUP.readImpl: readD, readC, readC
+}
+
 std::vector<uint8_t> GameSession::buildCM_SET_NOTE(std::string_view note) {
 	return PacketWriter().S(note).data; // CM_SET_NOTE.readImpl: readS note
 }
