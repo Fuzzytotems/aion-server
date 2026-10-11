@@ -49,7 +49,7 @@
 //   Z17 (stage 4 CP6, the orphaned commands of M5f) G's //instance answers from the Java literals (Instance.java:76-81, :97-102; the name is
 //       AutoGroupType.java:27's constant): an unknown name, the dredgion's close while closed, its open and its close; //goto's unknown
 //       destination (GoTo.java:46), //movetoobj's number check (MoveToObject.java:30, :35) and //moveplayertoplayer's syntax
-//       (MovePlayerToPlayer.java:24);
+//       (MovePlayerToPlayer.java:24); CP6 part 2: //quest of an id without a quest (Quest.java:72);
 //   Z14 A relogs as a level-10 Daeva with 1000 AP; G2 enters beside A, types //enemy cancel and //kill on A: A dies, A's AP and G2's AP change
 //       by the oracle's calculatePvPApLost / calculatePvpApGained (m5j-social), SM_ABYSS_RANK and the AP system messages to both;
 //   Z13 the reports (the M5a Q8 bar), with no Player alive after the logouts.
@@ -1683,6 +1683,7 @@ void runM5jGate() {
 		says("//goto x", {"Could not find the specified destination."});
 		says("//movetoobj abc", {"Only numbers please!!!", "Cannot find object for spawn #0"});
 		says("//moveplayertoplayer x", {"syntax //moveplayertoplayer <characterNameToMove> <characterNameDestination>"});
+		says("//quest 99999 status", {"Invalid quest."}); // Quest.java:72 (quest_data.xml has no 99999)
 	});
 
 	// ---- Z14: a PvP kill ----
