@@ -464,7 +464,7 @@ class Transliterator:
 
     def constant_list(self, f, mods):
         """rule constant-list (phase6-transliterator.md §12): a `private static final List<Integer> X = new ArrayList<>(Arrays.asList(1,
-        2, ...))` of int literals that the file only iterates (`for (int x : X)`) and asks `X.contains(v)` is a constant: nothing can change
+        2, ...))` (or `Arrays.asList(1, 2, ...)` alone) of int literals that the file only iterates (`for (int x : X)`) and asks `X.contains(v)` is a constant: nothing can change
         it, so it is `static constexpr std::array<int32_t, N> X{...}` and `X.contains(v)` is `std::ranges::contains(X, v)` (List.contains
         unboxes nothing here: Integer.equals of the boxed int, value equality). Anything else (a mutator, the list passed on, read by
         index, another initializer) keeps the 'generic-type' refusal: the shape of reshanta/_2759's per-player list. True when emitted."""
@@ -476,9 +476,12 @@ class Transliterator:
         s, end = f.initializer.start, f.initializer.end
         toks = [tx[i] for i in range(s, end)]
         head = ['new', 'ArrayList', '<', '>', '(', 'Arrays', '.', 'asList', '(']
-        if toks[:len(head)] != head or toks[-2:] != [')', ')']:
+        if toks[:len(head)] == head and toks[-2:] == [')', ')']:
+            items = toks[len(head):-2]
+        elif toks[:4] == ['Arrays', '.', 'asList', '('] and toks[-1:] == [')']:
+            items = toks[4:-1]      # `Arrays.asList(...)` alone (oriel/_18830, pernon/_28830): a fixed-size list, never written here either
+        else:
             return False
-        items = toks[len(head):-2]
         values = items[0::2]
         if not values or any(not re.fullmatch(r'\d+', v) for v in values) or any(c != ',' for c in items[1::2]) or len(items) % 2 != 1:
             return False

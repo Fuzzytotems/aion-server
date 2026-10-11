@@ -1306,6 +1306,9 @@ protected:
 			return handler.onGetItemEvent(env);
 		if (hook == "onDieEvent")
 			return handler.onDieEvent(env);
+		// the butler quests 18830 / 28830 (lane C, 2026-10-11): the house item hook takes the env only (AbstractQuestHandler.java)
+		if (hook == "onHouseItemUseEvent")
+			return handler.onHouseItemUseEvent(env);
 		if (hook == "onItemUseEvent") {
 			// the review of #79, item 2: the item held in the inventory (run), else (a given count 0 of it) one outside it
 			if (Ptr<gameserver::model::gameobjects::Item> held = player.getInventory().getItemByObjId(USED_ITEM_OBJECT))
@@ -2819,6 +2822,11 @@ public:
 		events.push_back("onDieEvent");
 		return false;
 	}
+	// the butler quests 18830 / 28830 (lane C, 2026-10-11): registerQuestHouseItem, an engine-wide list
+	bool onHouseItemUseEvent(QuestEnv&) override {
+		events.push_back("onHouseItemUseEvent");
+		return false;
+	}
 	bool onGetItemEvent(QuestEnv& env) override {
 		events.push_back("onGetItemEvent " + std::to_string(env.getQuestId()));
 		return false;
@@ -3000,6 +3008,11 @@ TEST_F(GoldenQuestTraceTest, RegistrationTraceMatchesJavaRegister) {
 				expectedEvents.push_back("onQuestTimerEndEvent");
 			else if (call == "registerOnDie")
 				expectedEvents.push_back("onDieEvent");
+			// the butler quests (lane C, 2026-10-11): QuestEngine.java registerQuestHouseItem keeps a quest once (`if (!contains) add`)
+			else if (call == "registerQuestHouseItem") {
+				if (std::find(expectedEvents.begin(), expectedEvents.end(), "onHouseItemUseEvent") == expectedEvents.end())
+					expectedEvents.push_back("onHouseItemUseEvent");
+			}
 			else if (call == "registerOnGetItem")
 				expectedEvents.push_back("onGetItemEvent " + std::to_string(reg["args"][1].get<int32_t>()));
 			else if (call == "registerAddOnReachTargetEvent")
@@ -3083,6 +3096,7 @@ TEST_F(GoldenQuestTraceTest, RegistrationTraceMatchesJavaRegister) {
 		QuestEngine::getInstance().onLogOut(*QuestEnv::create(nullptr, player, 0));
 		QuestEngine::getInstance().onQuestTimerEnd(*QuestEnv::create(nullptr, player, 0));
 		QuestEngine::getInstance().onDie(*QuestEnv::create(nullptr, player, 0));
+		QuestEngine::getInstance().onHouseItemUseEvent(*QuestEnv::create(nullptr, player, 0));
 		QuestEngine::getInstance().onNpcReachTarget(*QuestEnv::create(nullptr, player, 0));
 		QuestEngine::getInstance().onNpcLostTarget(*QuestEnv::create(nullptr, player, 0));
 		for (int32_t itemId : getItems)

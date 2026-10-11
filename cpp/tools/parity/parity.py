@@ -298,6 +298,12 @@ def _java_rewrites(toks):
                 closers.add(outer)
                 i += 9
                 continue
+        if t.text == 'Arrays' and [x.text for x in toks[i + 1:i + 4]] == ['.', 'asList', '('] and out and out[-1].text == '=':
+            close = _match(toks, i + 3)         # `X = Arrays.asList(...)` -> `X = { ... }` (rule constant-list)
+            out.append(Tok('op', '{'))
+            closers.add(close)
+            i += 4
+            continue
         if i in closers:
             if toks[i - 1].text != ')' or i - 1 not in closers:
                 out.append(Tok('op', '}'))

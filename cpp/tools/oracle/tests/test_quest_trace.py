@@ -784,7 +784,7 @@ class Q09RestSliceTest(unittest.TestCase):
 
 	# questgen refuses five; the escorts 2333 and 2394 wait for FollowingNpcAI (m5d-plan.md §21.1)
 	LEFT_OUT = {"morheim/_24026AHandfromEachSide.java", "pernon/_28806WiltingFlowersFallingTears.java", "pernon/_28821YourButlerGift.java",
-	            "pernon/_28828TheManyFacetsOfFriendship.java", "pernon/_28830InteriorDecorator.java", "morheim/_2333ARibbitOutOfWater.java",
+	            "pernon/_28828TheManyFacetsOfFriendship.java", "morheim/_2333ARibbitOutOfWater.java",
 	            "morheim/_2394ADyingWish.java"}
 
 	def test_the_q09_rest_slice(self):
@@ -792,7 +792,7 @@ class Q09RestSliceTest(unittest.TestCase):
 		earlier = set(extract.SLICE_TIER_A + extract.SLICE_ROUTE + extract.SLICE_Q03 + extract.SLICE_Q10 + extract.SLICE_Q08 + extract.SLICE_Q01 +
 		              extract.SLICE_Q02 + extract.SLICE_Q14 + extract.SLICE_Q13 + extract.SLICE_Q11 + extract.SLICE_Q05)
 		self.assertEqual(set(extract.SLICE_Q09) & earlier, set())
-		self.assertEqual(len(extract.SLICE_Q09), 47)
+		self.assertEqual(len(extract.SLICE_Q09), 48)
 		self.assertTrue(set(extract.SLICE_Q09) <= java - self.LEFT_OUT)
 		docs = {}
 		for rel in extract.SLICE_Q09:
@@ -806,17 +806,17 @@ class Q09RestSliceTest(unittest.TestCase):
 class Q05RestSliceTest(unittest.TestCase):
 	"""the rest of eltnen and oriel (SLICE_Q05, phase 6 step 2, lane C, 2026-10-08; docs/deviations/Q05.md, "Phase 6 step 2")"""
 
-	# questgen refuses these seven (docs/deviations/Q05.md)
+	# questgen refuses these six (docs/deviations/Q05.md; 18830 since row B48)
 	REFUSED = {"eltnen/_1354PraticalAerobatics.java", "eltnen/_1367MabangtahsFeast.java", "eltnen/_14026ALoneDefense.java",
 	           "oriel/_18806HeartofRock.java", "oriel/_18821AlmostForgotMyBlessings.java",
-	           "oriel/_18828UserFriendly.java", "oriel/_18830MovingIn.java"}
+	           "oriel/_18828UserFriendly.java"}
 
 	def test_the_q05_rest_slice(self):
 		java = {f"{d}/{f.name}" for d in ("eltnen", "oriel") for f in (extract.QUEST_DIR / d).glob("*.java")}
 		earlier = set(extract.SLICE_TIER_A + extract.SLICE_ROUTE + extract.SLICE_Q03 + extract.SLICE_Q10 + extract.SLICE_Q08 + extract.SLICE_Q01 +
 		              extract.SLICE_Q02 + extract.SLICE_Q14 + extract.SLICE_Q13 + extract.SLICE_Q11)
 		self.assertEqual(set(extract.SLICE_Q05) & earlier, set())
-		self.assertEqual(len(extract.SLICE_Q05), 53)
+		self.assertEqual(len(extract.SLICE_Q05), 54)
 		self.assertTrue(set(extract.SLICE_Q05) <= java - self.REFUSED)
 		docs = {}
 		for rel in extract.SLICE_Q05:

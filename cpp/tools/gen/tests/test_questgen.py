@@ -277,11 +277,12 @@ class RealQuests(unittest.TestCase):
         # _10034FoundUnderground, the InstanceHandler case, transliterate (tests.test_questgen_g1)
         self.assertEqual(self.run_file('reshanta/_24043LazyLanguageLessons.java').status, 'ok')
         self.assertEqual(self.run_file('inggison/_10034FoundUnderground.java').status, 'ok')
-        for rel, key in (('oriel/_18830MovingIn.java', 'api-missing: Player.getActiveHouse'),):
-            with self.subTest(rel=rel):
-                keys = self.run_file(rel).reason_keys()
-                self.assertIn(key, keys)
-                self.assertFalse([k for k in keys if k.startswith('type:')], keys)
+        # the House case: oriel/_18830's `House house = player.getActiveHouse()` is typed (no `type:` key); since row B48 (lane C,
+        # 2026-10-08) the call is vocabulary too, and with the driver's rules the file transliterates (tests.test_questgen_g1); this
+        # transliterator keeps the prototype's rules, so its List<Integer> field still refuses it, as generic-type
+        keys = self.run_file('oriel/_18830MovingIn.java').reason_keys()
+        self.assertNotIn('api-missing: Player.getActiveHouse', keys)
+        self.assertFalse([k for k in keys if k.startswith('type:')], keys)
 
     def test_comments_on_case_labels_methods_and_if_heads(self):
         r = self.run_file('bare_truth/_14030RetrievedMemory.java')

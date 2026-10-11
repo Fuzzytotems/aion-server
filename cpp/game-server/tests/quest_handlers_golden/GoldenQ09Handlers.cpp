@@ -46,6 +46,7 @@
 #include "aion/gameserver/handlers/quest/pernon/_28808OpenSaysMe.cpp"
 #include "aion/gameserver/handlers/quest/pernon/_28809FirstClassorCoach.cpp"
 #include "aion/gameserver/handlers/quest/pernon/_28826FreetoaGoodHome.cpp"
+#include "aion/gameserver/handlers/quest/pernon/_28830InteriorDecorator.cpp"
 #include "aion/gameserver/handlers/quest/pernon/_28832TakingtheTour.cpp"
 #include "aion/gameserver/handlers/quest/pernon/_28847AHomeThatsYourOwn.cpp"
 #include "aion/gameserver/handlers/quest/pernon/_51009TheGiftOfCharity.cpp"
