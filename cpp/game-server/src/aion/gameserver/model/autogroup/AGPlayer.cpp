@@ -1,6 +1,6 @@
 #include "aion/gameserver/model/autogroup/AGPlayer.h"
 
-#include "aion/gameserver/runtime/base/Unported.h"
+#include "aion/gameserver/model/gameobjects/player/Player.h"
 
 namespace aion::gameserver::model::autogroup {
 
@@ -12,10 +12,9 @@ runtime::Ref<AGPlayer> AGPlayer::create(int32_t objectId, Race race, PlayerClass
 	return runtime::makeRef<AGPlayer>(objectId, race, playerClass, name);
 }
 
+// Java AGPlayer.java:11-13
 AGPlayer::AGPlayer(gameobjects::player::Player& player)
-	: objectId_(), race_(), playerClass_(), name_() {
-	// Java: this(player.getObjectId(), player.getRace(), player.getPlayerClass(), player.getName())
-	AION_UNPORTED();
+	: AGPlayer(player.getObjectId(), player.getRace(), player.getPlayerClass(), player.getName()) {
 }
 
 runtime::Ref<AGPlayer> AGPlayer::create(gameobjects::player::Player& player) {

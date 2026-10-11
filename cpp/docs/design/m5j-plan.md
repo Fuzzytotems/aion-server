@@ -1646,3 +1646,8 @@ without a C++ file; `tools/porting/census.py` for the totals):
 7. **CP7 the command smoke** (L-04) over every command, and the alias access-level check.
 8. **CP8 the closure** (G-42, §10.6) - last. The world tour (G-41, §10.5) waits for the integrator's go (long-running) and for `//moveto`
    (CP6). L-02 (J12) only if D12 says port.
+
+> **Progress:** CP1 done (`lane-a/m5j-s4-cp1`): the matchmaking model - AutoGroupType's and EntryRequestType's companions, AGPlayer,
+> LookingForParty, AutoInstance, AutoPvpInstance, AutoGroupUtility; AutoPvPFFAInstance and AutoHarmonyInstance up to their score arms, which wait
+> for CP3 (J13) (P5-10e.md). The integrator assigned the orphaned commands (2026-10-11): lane A takes the M5f ten, M5d's two, M5b-3's four,
+> M5c's five, M5e's two and `//event` (CP6, which may move ahead of CP3/CP4); lane B `//legion`, `//auction`, `//house`; the M5i six wait for M5i.
