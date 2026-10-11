@@ -1655,4 +1655,6 @@ without a C++ file; `tools/porting/census.py` for the totals):
 > closed** (`gs.scenario.m5j` runs with autogroup on and its Z16 sends CM_AUTO_GROUP) (P5-10e.md).
 > **Progress:** CP6 part 1 done (`lane-a/m5j-s4-cp6`): M5f's `//moveto`, `//goto`, `//movetome`, `//moveplayertoplayer`, `//movetoobj`,
 > `//instance`, `///teleport`, `///teleportto` (C1.md; gate Z17, P5-SC.md). Out: `//fixpath` (WalkerData.saveData, D14) and
-> `///teleport_to_named` (a binder for the handler's own JAXB classes).
+> `///teleport_to_named` (deferred: it needs a handler-local XML binder for its own JAXB classes; the integrator takes the hub question
+> to the owner; no binder is built in CP6).
+> CP6 part 2 done: M5d's `//quest` and `///addquest` (C1.md; Z17).
