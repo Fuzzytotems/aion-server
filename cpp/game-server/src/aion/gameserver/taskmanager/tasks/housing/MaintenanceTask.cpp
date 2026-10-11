@@ -1,3 +1,9 @@
+#include "aion/gameserver/model/gameobjects/player/Player.h"
+#include "aion/gameserver/model/templates/housing/HouseAddress.h"
+#include "aion/gameserver/network/aion/serverpackets/SM_SYSTEM_MESSAGE.h"
+#include "aion/gameserver/services/HousingBidService.h"
+#include "aion/gameserver/services/mail/MailFormatter.h"
+#include "aion/gameserver/services/player/PlayerService.h"
 #include "aion/gameserver/taskmanager/tasks/housing/MaintenanceTask.h"
 
 #include <chrono>
@@ -9,8 +15,8 @@
 #include "aion/gameserver/model/gameobjects/player/PlayerCommonData.h"
 #include "aion/gameserver/model/house/House.h"
 #include "aion/gameserver/runtime/base/Exceptions.h"
-#include "aion/gameserver/runtime/base/Unported.h"
 #include "aion/gameserver/services/HousingService.h"
+#include "aion/gameserver/utils/PacketSendUtility.h"
 
 namespace aion::gameserver::taskmanager::tasks::housing {
 
@@ -46,8 +52,24 @@ void MaintenanceTask::executeTask() {
 		} else if (house->getNextPay()->time_since_epoch().count() > now)
 			continue;
 
-		// Java: the owner lookup, impoundment (putHouseToAuction) and MailFormatter.sendHouseMaintenanceMail
-		AION_PARTIAL("overdue house maintenance (impoundment and maintenance mail) is not ported yet (M5a E2-05)");
+		Ptr<model::gameobjects::player::PlayerCommonData> pcd = services::player::PlayerService::getOrLoadPlayerCommonData(house->getOwnerId());
+		if (!pcd) { // player got deleted
+			putHouseToAuction(*house, nullptr);
+			continue;
+		}
+
+		std::optional<std::string> ownerName = house->getOwnerName();
+		int64_t compensationKinah = 0;
+		commons::database::Timestamp impoundDate = calculateImpoundDate(*house->getNextPay());
+		if (impoundDate.time_since_epoch().count() <= commons::utils::currentTimeMillis()) {
+			putHouseToAuction(*house, pcd);
+			// return 90% of the house cost (https://aion.fandom.com/wiki/Housing) - Java: (long) (long * 0.9f)
+			compensationKinah = static_cast<int64_t>(static_cast<float>(house->getDefaultAuctionPrice()) * 0.9f);
+		}
+
+		if (!ownerName) // Java passes the null name on to the mail (a NullPointerException in the recipient lookup)
+			throw runtime::NullPointerException(house->toString() + " has no owner name");
+		services::mail::MailFormatter::sendHouseMaintenanceMail(*house, *ownerName, impoundDate.time_since_epoch().count(), compensationKinah);
 	}
 }
 
@@ -74,8 +96,14 @@ std::vector<runtime::Ptr<model::house::House>> MaintenanceTask::findHousesToMain
 	return houses;
 }
 
+// Java MaintenanceTask.java:86-92
 void MaintenanceTask::putHouseToAuction(model::house::House& house, runtime::Ptr<model::gameobjects::player::PlayerCommonData> owner) {
-	AION_UNPORTED();
+	services::HousingService::getInstance().changeOwner(house, 0);
+	services::HousingBidService::getInstance().auction(house, house.getDefaultAuctionPrice());
+	log.info("Auctioned house " + std::to_string(house.getAddress()->getId()) + " because " +
+		(!owner ? std::string("owner got deleted.") : std::string("maintenance fee was overdue.")));
+	if (owner && owner->isOnline())
+		utils::PacketSendUtility::sendPacket(*owner->getPlayer(), network::aion::serverpackets::SM_SYSTEM_MESSAGE::STR_MSG_HOUSING_SEQUESTRATE());
 }
 
 } // namespace aion::gameserver::taskmanager::tasks::housing
