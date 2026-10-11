@@ -24,6 +24,8 @@ namespace aion::gameserver::taskmanager::tasks::housing {
  */
 class AuctionAutoFillTask : public AbstractCronTask {
 	AION_MAKE_REF_FRIEND
+	/** C++ only: tests/legionhouse/HouseAuctionTest.cpp runs the private task steps (M5h-2 H2-1) */
+	friend struct AuctionAutoFillTaskTestAccess;
 public:
 	static AuctionAutoFillTask& getInstance(); // Java singleton
 

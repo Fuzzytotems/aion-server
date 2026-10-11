@@ -1127,3 +1127,16 @@ and their AI, quests and GM command. Measured at `lane-b/m5h-c9c22`:
 Risks: the auction and maintenance are weekly crons (`HousingConfig`), so H2-4 needs profile keys that fire them within the run, as M5h's
 disband used `gameserver.legion.disbandtime`; the land houses' 1,000 butlers and signs are already live (M5h H-01); an outbid's refund goes
 through the mail service (M5c).
+
+**The admin commands (added 2026-10-11, m5j-plan.md §5.3)**: `//legion` (LegionCommand.java, 130 lines), `//auction` (Auction.java, 159) and
+`//house` (HouseCommand.java, 140) have no C++ file and belong to M5h's last stage: **H2-5**, ported once the services they reach are in
+(`//auction` after H2-1) and driven by the legion and housing gate. (`HouseCommand` is therefore lane B's, not the GM lane's.)
+
+**H2-1 (lane B, 2026-10-11)**: `HousingBidService.auction`, `bid`, `isAllowedToBid`, `endAuctions`, `endAuction`,
+`impoundAndAuctionOldPlayerHouses` and `cancelAuction`, `AuctionAutoFillTask.autoFillAuction`, `MaintenanceTask`'s overdue arm with
+`putHouseToAuction`, and `AuctionEndTask.executeTask` are ported; the three housing cron tasks have no `AION_PARTIAL` left (their rows leave
+`m5h_partial_allowlist.txt`). Tests: `tests/legionhouse/HouseAuctionTest.cpp` (7 cases on the database: the registration, the bid refusals
+in Java's order, a bid and the outbid player's refund mail, the end with and without a bidder, the weekly end of every auction, the cancel's
+refund, the impoundment and the auto-fill limit; the fixture picks a server time zone in which the auction is open, since bidding closes
+Sunday at 12:00). 8 of 8 mutants killed. Left: `SM_HOUSE_BIDS`' remaining seconds (a P4-17 lease, H2-2 with the packets) and `Town`'s level-up
+(a header request for `Town::levelUpDate`; towns level through quests).
