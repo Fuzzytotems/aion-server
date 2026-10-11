@@ -705,6 +705,7 @@
 	X(oriel, _18808FoolproofPackaging, 18808) \
 	X(oriel, _18809DaevaontheRide, 18809) \
 	X(oriel, _18826TodaysFind, 18826) \
+	X(oriel, _18830MovingIn, 18830) \
 	X(oriel, _18832ImaginingAQuietLife, 18832) \
 	X(oriel, _18847Housewarming, 18847) \
 	X(oriel, _50009TisTheSeason, 50009) \
@@ -716,6 +717,7 @@
 	X(pernon, _28808OpenSaysMe, 28808) \
 	X(pernon, _28809FirstClassorCoach, 28809) \
 	X(pernon, _28826FreetoaGoodHome, 28826) \
+	X(pernon, _28830InteriorDecorator, 28830) \
 	X(pernon, _28832TakingtheTour, 28832) \
 	X(pernon, _28847AHomeThatsYourOwn, 28847) \
 	X(pernon, _51009TheGiftOfCharity, 51009) \

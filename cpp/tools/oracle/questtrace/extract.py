@@ -361,6 +361,7 @@ SLICE_Q11 = (
 )
 # Phase 6 step 2, chunk Q05 (lane C, 2026-10-08; docs/deviations/Q05.md): the rest of eltnen and oriel that questgen transliterates
 SLICE_Q05 = (
+	'oriel/_18830MovingIn.java',
 	'oriel/_18802AndAHomeforEveryDaeva.java',
 	'eltnen/_1311AGermOfHope.java', 'eltnen/_1314Anelimoutofwater.java', 'eltnen/_1319PrioritesMoney.java',
 	'eltnen/_1322ALeafFromLodas.java', 'eltnen/_1324ConfidentialOrders.java', 'eltnen/_1336ScoutingForDemokritos.java',
@@ -382,6 +383,7 @@ SLICE_Q05 = (
 )
 # Phase 6 step 2, chunk Q09 (lane C, 2026-10-08; docs/deviations/Q09.md): the rest of morheim and pernon that questgen transliterates
 SLICE_Q09 = (
+	'pernon/_28830InteriorDecorator.java',
 	'morheim/_2303DaevaWheresMyHerb.java', 'morheim/_2307IrresistibleSoup.java', 'morheim/_2316VivisBook.java',
 	'morheim/_2321SpyTheSpiritsLetter.java', 'morheim/_2324TheSpiritsNotebook.java', 'morheim/_2332MeatyTreats.java',
 	'morheim/_2343AncientGinseng.java', 'morheim/_2345OrashunerkSpecialOrder.java', 'morheim/_2367APrizedPossession.java',
@@ -817,9 +819,12 @@ class Extractor:
 		tx = self.cu.tokens.text
 		toks = [tx[i] for i in range(f.initializer.start, f.initializer.end)]
 		head = ['new', 'ArrayList', '<', '>', '(', 'Arrays', '.', 'asList', '(']
-		if toks[:len(head)] != head or toks[-2:] != [')', ')']:
+		if toks[:len(head)] == head and toks[-2:] == [')', ')']:
+			items = toks[len(head):-2]
+		elif toks[:4] == ['Arrays', '.', 'asList', '('] and toks[-1:] == [')']:
+			items = toks[4:-1]                         # `Arrays.asList(...)` alone (the butler quests 18830 / 28830)
+		else:
 			return None
-		items = toks[len(head):-2]
 		if len(items) % 2 != 1 or any(not v.isdigit() for v in items[0::2]) or any(c != ',' for c in items[1::2]):
 			return None
 		for i, x in enumerate(tx):

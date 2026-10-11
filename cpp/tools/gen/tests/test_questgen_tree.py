@@ -152,6 +152,7 @@ Q05 = {
         '_1482ATeleportationAdventure', '_1483HarumonerksRequest', '_1484ChiyorinrinerksRequest', '_3319AnOrderforGojirunerk',
         '_3326TheShugoMenace', '_3329DinnersonMe',),
     'oriel': (
+        '_18830MovingIn',
         '_18802AndAHomeforEveryDaeva',
         '_18805GoingThrifting', '_18807BlessedBeThyHame', '_18808FoolproofPackaging', '_18809DaevaontheRide', '_18826TodaysFind',
         '_18832ImaginingAQuietLife', '_18847Housewarming', '_50009TisTheSeason',),
@@ -168,6 +169,7 @@ Q09 = {
         '_2449ExtricatingChaomirk', '_2458RoastGadillForAFriend', '_2477ADishForDukar', '_2480ElimOfElysea', '_2482CaryatidOfAbyss',
         '_2484OurManInElysea', '_2486AStrangeCreature', '_2488PretorsInBeluslan', '_2493BringingUpTayga', '_2498TheSoddenScroll',),
     'pernon': (
+        '_28830InteriorDecorator',
         '_28802BeItEverSoHumble', '_28805SomethingOldSomethingNew', '_28807BlessingsofaGreenThumb', '_28808OpenSaysMe',
         '_28809FirstClassorCoach', '_28826FreetoaGoodHome', '_28832TakingtheTour', '_28847AHomeThatsYourOwn', '_51009TheGiftOfCharity',),
 }
@@ -395,12 +397,12 @@ class CommittedTree(unittest.TestCase):
             for klass in classes:
                 with self.subTest(file=f'{directory}/{klass}'):
                     self.assertIn((directory, klass), found)
-        self.assertEqual(sum(len(classes) for classes in Q05.values()), 53)
+        self.assertEqual(sum(len(classes) for classes in Q05.values()), 54)
         for directory, classes in Q09.items():
             for klass in classes:
                 with self.subTest(file=f'{directory}/{klass}'):
                     self.assertIn((directory, klass), found)
-        self.assertEqual(sum(len(classes) for classes in Q09.values()), 47)
+        self.assertEqual(sum(len(classes) for classes in Q09.values()), 48)
         for directory, classes in Q07.items():
             for klass in classes:
                 with self.subTest(file=f'{directory}/{klass}'):

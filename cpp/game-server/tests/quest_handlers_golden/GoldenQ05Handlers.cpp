@@ -52,6 +52,7 @@
 #include "aion/gameserver/handlers/quest/oriel/_18808FoolproofPackaging.cpp"
 #include "aion/gameserver/handlers/quest/oriel/_18809DaevaontheRide.cpp"
 #include "aion/gameserver/handlers/quest/oriel/_18826TodaysFind.cpp"
+#include "aion/gameserver/handlers/quest/oriel/_18830MovingIn.cpp"
 #include "aion/gameserver/handlers/quest/oriel/_18832ImaginingAQuietLife.cpp"
 #include "aion/gameserver/handlers/quest/oriel/_18847Housewarming.cpp"
 #include "aion/gameserver/handlers/quest/oriel/_50009TisTheSeason.cpp"
