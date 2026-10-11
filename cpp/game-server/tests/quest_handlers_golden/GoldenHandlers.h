@@ -19,6 +19,7 @@
 // Chunk Q05, the rest (lane C, 2026-10-08): 53 generated handlers of eltnen and oriel (GoldenQ05Handlers.cpp; docs/deviations/Q05.md).
 // Chunk Q09, the rest (lane C, 2026-10-08): 47 generated handlers of morheim and pernon (GoldenQ09Handlers.cpp; docs/deviations/Q09.md).
 // Chunk Q07 (lane C, 2026-10-08): the 64 generated handlers of beshmundir, abyss_entry and silentera_canyon (GoldenQ07Handlers.cpp; docs/deviations/Q07.md).
+// Chunk Q12 (lane C, 2026-10-08): the 72 generated handlers of theobomos, event_quests and cygnea (GoldenQ12Handlers.cpp; docs/deviations/Q12.md).
 //
 // P6-Q slice 2, chunk Q03 (2026-09-29): the 72 generated verteron and heiron handlers in the tree (the zones the route's dispatches end in),
 // compiled into this executable by #include as well (GoldenQ03Handlers.cpp); Q03's hand ports 1643 and 3200 have their own unit cases
@@ -497,6 +498,14 @@
 	X(charlirunerks_daemons, _48002CharlirunerksDaemonsWantYou, 48002) \
 	X(clash_of_destiny, _24030ShowdownWithDestiny, 24030) \
 	X(clash_of_destiny, _24031EnemyAtTheDoorstep, 24031) \
+	X(cygnea, _10500ExpeditionCoalition, 10500) \
+	X(cygnea, _10501ResearchtheRuins, 10501) \
+	X(cygnea, _10502CygneaSecrets, 10502) \
+	X(cygnea, _10503GuardDownSecretsOut, 10503) \
+	X(cygnea, _10504ConfiscatetheSlate, 10504) \
+	X(cygnea, _10505SneezeAttack, 10505) \
+	X(cygnea, _10506MindOverMatter, 10506) \
+	X(cygnea, _10507ABigPlottoFoil, 10507) \
 	X(daevanion, _19631CoastalCrush, 19631) \
 	X(daevanion, _19632CascadeCritters, 19632) \
 	X(daevanion, _19633AlisaryAssistance, 19633) \
@@ -602,6 +611,33 @@
 	X(esoterrace, _28407GroupTheGathering, 28407) \
 	X(esoterrace, _28409GroupMaketheBladeComplete, 28409) \
 	X(esoterrace, _28410FortressUnsecured, 28410) \
+	X(event_quests, _50008SoloriusShugoSlackers, 50008) \
+	X(event_quests, _51008NonHelpingHands, 51008) \
+	X(event_quests, _80000JoyfulDaevasDay, 80000) \
+	X(event_quests, _80001FestiveDaevasDay, 80001) \
+	X(event_quests, _80008PieceOfCake, 80008) \
+	X(event_quests, _80009TheCakeIsTheTruth, 80009) \
+	X(event_quests, _80020EventSoloriusJoy, 80020) \
+	X(event_quests, _80021EventFestiveUs, 80021) \
+	X(event_quests, _80028EventMeetTheFayrefolk, 80028) \
+	X(event_quests, _80029EventUsingYourCharms, 80029) \
+	X(event_quests, _80031EventTheFayrefolk, 80031) \
+	X(event_quests, _80032EventACharmedExistence, 80032) \
+	X(event_quests, _80034EventGeaterGlories, 80034) \
+	X(event_quests, _80035EventOnlyTheBest, 80035) \
+	X(event_quests, _80036EventGamblingWithGrace, 80036) \
+	X(event_quests, _80037EventFromTheGutter, 80037) \
+	X(event_quests, _80038EventMightyAspirations, 80038) \
+	X(event_quests, _80039EventTheChosenFew, 80039) \
+	X(event_quests, _80137EventSealTheWarpedRift, 80137) \
+	X(event_quests, _80139EventCloseTheWarpedRift, 80139) \
+	X(event_quests, _80145EventWarpedRiftSealing, 80145) \
+	X(event_quests, _80147EventWarpedRiftClosing, 80147) \
+	X(event_quests, _80149EventWarpedRiftSecuring, 80149) \
+	X(event_quests, _80318TroubledArabella, 80318) \
+	X(event_quests, _80320ForTheAsmodians, 80320) \
+	X(event_quests, _80330TransformWithTheMagicCane, 80330) \
+	X(event_quests, _80331TransformWithTheMagicCane, 80331) \
 	X(fatebound_abbey, _29600WelcomeBack, 29600) \
 	X(fenris_fang, _29064FangOfConstruction, 29064) \
 	X(fenris_fang, _4937RecognitionOfThePreceptors, 4937) \
@@ -806,6 +842,43 @@
 	X(the_eternal_bastion, _18036BastionsAreEternal, 18036) \
 	X(the_eternal_bastion, _28035TrustInNoneButVerify, 28035) \
 	X(the_eternal_bastion, _28036InterrogateKvash, 28036) \
+	X(theobomos, _3001UnearthingtheTruth, 3001) \
+	X(theobomos, _3006TheShugoFugitive, 3006) \
+	X(theobomos, _3008WickedThiefKelaino, 3008) \
+	X(theobomos, _3013AClueLeftByTheDead, 3013) \
+	X(theobomos, _3020AgrintAfire, 3020) \
+	X(theobomos, _3023TheSpiceMustFlow, 3023) \
+	X(theobomos, _3031Pirates, 3031) \
+	X(theobomos, _3035EnhancingtheStone, 3035) \
+	X(theobomos, _3036LetSeeWhatItDoes, 3036) \
+	X(theobomos, _3037WanderersStaff, 3037) \
+	X(theobomos, _3041SororunerkWhereabouts, 3041) \
+	X(theobomos, _3044RecruitingAnnouncement, 3044) \
+	X(theobomos, _3048OwneroftheAngledBladeDagger, 3048) \
+	X(theobomos, _3049BloodMarkstheSpot, 3049) \
+	X(theobomos, _3050RescuingRuria, 3050) \
+	X(theobomos, _3056InSearchOfZirius, 3056) \
+	X(theobomos, _3057CursedZirius, 3057) \
+	X(theobomos, _3058StoneofMabolo, 3058) \
+	X(theobomos, _3060TheRedJournal, 3060) \
+	X(theobomos, _3074DangerousProbability, 3074) \
+	X(theobomos, _3076BolsteringtheAethericField, 3076) \
+	X(theobomos, _3081VisitingtheLibrary, 3081) \
+	X(theobomos, _3082DousingTheFlame, 3082) \
+	X(theobomos, _3083SearchingfortheElderofWisdom, 3083) \
+	X(theobomos, _3085TheRiddlePoem, 3085) \
+	X(theobomos, _3086SearchingForTheCrater, 3086) \
+	X(theobomos, _3087DivingForTreasure, 3087) \
+	X(theobomos, _3088InCiderTrading, 3088) \
+	X(theobomos, _3090InSearchOfPippiThePorgus, 3090) \
+	X(theobomos, _3091TheLostDrakie, 3091) \
+	X(theobomos, _3092VisonTheDrakie, 3092) \
+	X(theobomos, _3093RecetteSecretedeQuenelles, 3093) \
+	X(theobomos, _3095ADecisiveClue, 3095) \
+	X(theobomos, _3096ExamineTheExtractionDevices, 3096) \
+	X(theobomos, _3100AShugosBestFriend, 3100) \
+	X(theobomos, _3102TheDisappearingStatue, 3102) \
+	X(theobomos, _3103KyprosDesire, 3103) \
 	X(tiamat_stronghold, _30700RaceForTheRelics, 30700) \
 	X(tiamat_stronghold, _30701TheLordOfIllusion, 30701) \
 	X(tiamat_stronghold, _30708SuramaTheBetrayer, 30708) \
