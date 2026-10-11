@@ -440,6 +440,11 @@ aion_gs_chunk(P5-11 LEASE PHASE 5
 aion_gs_chunk(P5-11 LEASE PHASE 5
 	GLOBS "aion/gameserver/model/gameobjects/UseableItemObject.cpp")
 
+# H2-2 of M5h-2 (granted 2026-10-11): P5-11 leases network/aion/serverpackets/SM_HOUSE_BIDS.cpp from P4-16 (the integrator's grant named
+# P4-17; the file is P4-16's) for its remaining auction seconds, now read from AuctionEndTask. Released when the lane merges.
+aion_gs_chunk(P5-11 LEASE PHASE 5
+	GLOBS "aion/gameserver/network/aion/serverpackets/SM_HOUSE_BIDS.cpp")
+
 # The studio drop of M5h (the owner's option 2 of 2026-10-10, m5h-plan.md 9 risk 3; granted 2026-10-11): P5-11 leases
 # controllers/HouseController.cpp from P4-11b (onDespawn drops a reusable studio's registry), model/gameobjects/VisibleObject.h from P4-11a
 # (the additive virtual isKeptOutsideWorld) and world/World.cpp from P4-10 (removeObject does not report such an object to the leak census).
