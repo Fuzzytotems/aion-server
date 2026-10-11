@@ -1,0 +1,18 @@
+{
+ "format": "aion-quest-trace",
+ "version": 1,
+ "questId": 3088,
+ "java": "theobomos/_3088InCiderTrading.java",
+ "class": "_3088InCiderTrading",
+ "javaSha256": "6affa1e4755a4232208d2ecbcd0c709fdbb8bdeadc805216478cf04186cafb15",
+ "register": [
+  {"npc": 798202, "event": "addOnQuestStart", "args": [3088]},
+  {"npc": 798202, "event": "addOnTalkEvent", "args": [3088]},
+  {"npc": 798201, "event": "addOnTalkEvent", "args": [3088]},
+  {"npc": 798204, "event": "addOnTalkEvent", "args": [3088]},
+  {"npc": 798132, "event": "addOnTalkEvent", "args": [3088]},
+  {"npc": 798166, "event": "addOnTalkEvent", "args": [3088]}
+ ],
+ "hooks": [{"hook": "onDialogEvent", "line": 31, "unsupported": "call player.getInventory().decreaseByItemId(160003020, 1)"}],
+ "cases": []
+}

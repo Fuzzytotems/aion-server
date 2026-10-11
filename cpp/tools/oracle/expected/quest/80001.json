@@ -1,0 +1,11 @@
+{
+ "format": "aion-quest-trace",
+ "version": 1,
+ "questId": 80001,
+ "java": "event_quests/_80001FestiveDaevasDay.java",
+ "class": "_80001FestiveDaevasDay",
+ "javaSha256": "b6ae0f7ccf945556c7b7c82a2df3bb7564a1453098090c50e8da4d172f22769e",
+ "register": [{"npc": 798417, "event": "addOnTalkEvent", "args": [80001]}, {"call": "registerOnLevelChanged", "args": [80001]}],
+ "hooks": [{"hook": "onDialogEvent", "line": 25, "unsupported": "call QuestService.startEventQuest"}],
+ "cases": []
+}

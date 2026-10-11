@@ -1,0 +1,11 @@
+{
+ "format": "aion-quest-trace",
+ "version": 1,
+ "questId": 80000,
+ "java": "event_quests/_80000JoyfulDaevasDay.java",
+ "class": "_80000JoyfulDaevasDay",
+ "javaSha256": "bd12beef23ef303c29db74d7b0ee542ebed0d954a0911a8037833f5d392f6b75",
+ "register": [{"npc": 798415, "event": "addOnTalkEvent", "args": [80000]}],
+ "hooks": [{"hook": "onDialogEvent", "line": 27, "unsupported": "call QuestService.startEventQuest"}],
+ "cases": []
+}

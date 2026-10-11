@@ -193,6 +193,30 @@ Q07 = {
         '_30051BanishingtheShadowborn', '_30054PetrificationandPride', '_30055ForMyWife', '_30056DirvisiasSorrow', '_30057JotunJaunt',
         '_30151SnufftheSunsucker', '_30154FleshtoStone', '_30155StonetoFlesh', '_30156NepsLove', '_30157VilisMind', '_30158JotunJunket',),
 }
+# Phase 6 step 2, chunk Q12 (lane C, 2026-10-11; docs/deviations/Q12.md): theobomos, event_quests and cygnea
+Q12 = {
+    'cygnea': (
+        '_10500ExpeditionCoalition', '_10501ResearchtheRuins', '_10502CygneaSecrets', '_10503GuardDownSecretsOut',
+        '_10504ConfiscatetheSlate', '_10505SneezeAttack', '_10506MindOverMatter', '_10507ABigPlottoFoil',),
+    'event_quests': (
+        '_50008SoloriusShugoSlackers', '_51008NonHelpingHands', '_80000JoyfulDaevasDay', '_80001FestiveDaevasDay', '_80008PieceOfCake',
+        '_80009TheCakeIsTheTruth', '_80020EventSoloriusJoy', '_80021EventFestiveUs', '_80028EventMeetTheFayrefolk',
+        '_80029EventUsingYourCharms', '_80031EventTheFayrefolk', '_80032EventACharmedExistence', '_80034EventGeaterGlories',
+        '_80035EventOnlyTheBest', '_80036EventGamblingWithGrace', '_80037EventFromTheGutter', '_80038EventMightyAspirations',
+        '_80039EventTheChosenFew', '_80137EventSealTheWarpedRift', '_80139EventCloseTheWarpedRift', '_80145EventWarpedRiftSealing',
+        '_80147EventWarpedRiftClosing', '_80149EventWarpedRiftSecuring', '_80318TroubledArabella', '_80320ForTheAsmodians',
+        '_80330TransformWithTheMagicCane', '_80331TransformWithTheMagicCane',),
+    'theobomos': (
+        '_3001UnearthingtheTruth', '_3006TheShugoFugitive', '_3008WickedThiefKelaino', '_3013AClueLeftByTheDead', '_3020AgrintAfire',
+        '_3023TheSpiceMustFlow', '_3031Pirates', '_3035EnhancingtheStone', '_3036LetSeeWhatItDoes', '_3037WanderersStaff',
+        '_3041SororunerkWhereabouts', '_3044RecruitingAnnouncement', '_3048OwneroftheAngledBladeDagger', '_3049BloodMarkstheSpot',
+        '_3050RescuingRuria', '_3056InSearchOfZirius', '_3057CursedZirius', '_3058StoneofMabolo', '_3060TheRedJournal',
+        '_3074DangerousProbability', '_3076BolsteringtheAethericField', '_3081VisitingtheLibrary', '_3082DousingTheFlame',
+        '_3083SearchingfortheElderofWisdom', '_3085TheRiddlePoem', '_3086SearchingForTheCrater', '_3087DivingForTreasure',
+        '_3088InCiderTrading', '_3090InSearchOfPippiThePorgus', '_3091TheLostDrakie', '_3092VisonTheDrakie',
+        '_3093RecetteSecretedeQuenelles', '_3095ADecisiveClue', '_3096ExamineTheExtractionDevices', '_3100AShugosBestFriend',
+        '_3102TheDisappearingStatue', '_3103KyprosDesire',),
+}
 # Phase 6 step 2, chunk Q13 (lane C, 2026-10-07; docs/deviations/Q13.md): the files of the instance directories A-K that questgen
 # transliterates, all in the tree (87 of 87; kaisinel_academy's three mentor dailies by rule stream-any-match)
 Q13 = {
@@ -408,6 +432,11 @@ class CommittedTree(unittest.TestCase):
                 with self.subTest(file=f'{directory}/{klass}'):
                     self.assertIn((directory, klass), found)
         self.assertEqual(sum(len(classes) for classes in Q07.values()), 62)
+        for directory, classes in Q12.items():
+            for klass in classes:
+                with self.subTest(file=f'{directory}/{klass}'):
+                    self.assertIn((directory, klass), found)
+        self.assertEqual(sum(len(classes) for classes in Q12.values()), 72)
         self.assertEqual(len(Q10_HELD_BACK), 16)
 
     def test_the_enter_world_files_are_in_the_tree(self):

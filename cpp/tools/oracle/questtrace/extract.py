@@ -426,7 +426,38 @@ SLICE_Q07 = (
 	'silentera_canyon/_30151SnufftheSunsucker.java', 'silentera_canyon/_30154FleshtoStone.java', 'silentera_canyon/_30155StonetoFlesh.java',
 	'silentera_canyon/_30156NepsLove.java', 'silentera_canyon/_30157VilisMind.java', 'silentera_canyon/_30158JotunJunket.java',
 )
-SLICE = SLICE_TIER_A + SLICE_ROUTE + SLICE_Q03 + SLICE_Q10 + SLICE_Q08 + SLICE_Q01 + SLICE_Q02 + SLICE_Q14 + SLICE_Q13 + SLICE_Q11 + SLICE_Q05 + SLICE_Q09 + SLICE_Q07
+# Phase 6 step 2, chunk Q12 (lane C, 2026-10-11; docs/deviations/Q12.md): theobomos, event_quests and cygnea
+SLICE_Q12 = (
+	'cygnea/_10500ExpeditionCoalition.java', 'cygnea/_10501ResearchtheRuins.java', 'cygnea/_10502CygneaSecrets.java',
+	'cygnea/_10503GuardDownSecretsOut.java', 'cygnea/_10504ConfiscatetheSlate.java', 'cygnea/_10505SneezeAttack.java',
+	'cygnea/_10506MindOverMatter.java', 'cygnea/_10507ABigPlottoFoil.java', 'event_quests/_50008SoloriusShugoSlackers.java',
+	'event_quests/_51008NonHelpingHands.java', 'event_quests/_80000JoyfulDaevasDay.java', 'event_quests/_80001FestiveDaevasDay.java',
+	'event_quests/_80008PieceOfCake.java', 'event_quests/_80009TheCakeIsTheTruth.java', 'event_quests/_80020EventSoloriusJoy.java',
+	'event_quests/_80021EventFestiveUs.java', 'event_quests/_80028EventMeetTheFayrefolk.java',
+	'event_quests/_80029EventUsingYourCharms.java', 'event_quests/_80031EventTheFayrefolk.java',
+	'event_quests/_80032EventACharmedExistence.java', 'event_quests/_80034EventGeaterGlories.java',
+	'event_quests/_80035EventOnlyTheBest.java', 'event_quests/_80036EventGamblingWithGrace.java',
+	'event_quests/_80037EventFromTheGutter.java', 'event_quests/_80038EventMightyAspirations.java',
+	'event_quests/_80039EventTheChosenFew.java', 'event_quests/_80137EventSealTheWarpedRift.java',
+	'event_quests/_80139EventCloseTheWarpedRift.java', 'event_quests/_80145EventWarpedRiftSealing.java',
+	'event_quests/_80147EventWarpedRiftClosing.java', 'event_quests/_80149EventWarpedRiftSecuring.java',
+	'event_quests/_80318TroubledArabella.java', 'event_quests/_80320ForTheAsmodians.java',
+	'event_quests/_80330TransformWithTheMagicCane.java', 'event_quests/_80331TransformWithTheMagicCane.java',
+	'theobomos/_3001UnearthingtheTruth.java', 'theobomos/_3006TheShugoFugitive.java', 'theobomos/_3008WickedThiefKelaino.java',
+	'theobomos/_3013AClueLeftByTheDead.java', 'theobomos/_3020AgrintAfire.java', 'theobomos/_3023TheSpiceMustFlow.java',
+	'theobomos/_3031Pirates.java', 'theobomos/_3035EnhancingtheStone.java', 'theobomos/_3036LetSeeWhatItDoes.java',
+	'theobomos/_3037WanderersStaff.java', 'theobomos/_3041SororunerkWhereabouts.java', 'theobomos/_3044RecruitingAnnouncement.java',
+	'theobomos/_3048OwneroftheAngledBladeDagger.java', 'theobomos/_3049BloodMarkstheSpot.java', 'theobomos/_3050RescuingRuria.java',
+	'theobomos/_3056InSearchOfZirius.java', 'theobomos/_3057CursedZirius.java', 'theobomos/_3058StoneofMabolo.java',
+	'theobomos/_3060TheRedJournal.java', 'theobomos/_3074DangerousProbability.java', 'theobomos/_3076BolsteringtheAethericField.java',
+	'theobomos/_3081VisitingtheLibrary.java', 'theobomos/_3082DousingTheFlame.java', 'theobomos/_3083SearchingfortheElderofWisdom.java',
+	'theobomos/_3085TheRiddlePoem.java', 'theobomos/_3086SearchingForTheCrater.java', 'theobomos/_3087DivingForTreasure.java',
+	'theobomos/_3088InCiderTrading.java', 'theobomos/_3090InSearchOfPippiThePorgus.java', 'theobomos/_3091TheLostDrakie.java',
+	'theobomos/_3092VisonTheDrakie.java', 'theobomos/_3093RecetteSecretedeQuenelles.java', 'theobomos/_3095ADecisiveClue.java',
+	'theobomos/_3096ExamineTheExtractionDevices.java', 'theobomos/_3100AShugosBestFriend.java', 'theobomos/_3102TheDisappearingStatue.java',
+	'theobomos/_3103KyprosDesire.java',
+)
+SLICE = SLICE_TIER_A + SLICE_ROUTE + SLICE_Q03 + SLICE_Q10 + SLICE_Q08 + SLICE_Q01 + SLICE_Q02 + SLICE_Q14 + SLICE_Q13 + SLICE_Q11 + SLICE_Q05 + SLICE_Q09 + SLICE_Q07 + SLICE_Q12
 
 ENUM_FILES = {'QuestStatus': 'questEngine/model/QuestStatus.java', 'Race': 'model/Race.java', 'PlayerClass': 'model/PlayerClass.java',
               'Gender': 'model/Gender.java', 'HandlerResult': 'questEngine/handlers/HandlerResult.java', 'DialogPage': 'model/DialogPage.java',
