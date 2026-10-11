@@ -1,4 +1,4 @@
-// The M5j gate, stages 1 and 2 (m5j-plan.md §10.4, gs.scenario.m5j; §18.1 CP5, G-11; §18.3 CP5, G-21). One login server and one game server as child processes on
+// The M5j gate, stages 1 to 3 (m5j-plan.md §10.4, gs.scenario.m5j; §18.1 CP5, G-11; §18.3 CP5, G-21; §18.4 CP4, G-31). One login server and one game server as child processes on
 // their own test schemas, five accounts:
 //   G,  access level 9, Elyos: the GM of //addtitle, //sprison, //rprison and //ranking (its access level seeded into the login schema, H-02);
 //   A,  access level 0, Elyos, the creation spawn on Poeta; seeded a level-10 Daeva (a Gladiator) with 1000 AP before Z14;
@@ -37,11 +37,17 @@
 //       STR_BINDSTONE_REGISTER, SM_KISK_UPDATE and the kisk bind point; G targets A and types //kill: SM_DIE offers the kisk; CM_REVIVE(KISK)
 //       brings A back at the kisk with one resurrection fewer; G's //delete on the kisk removes it (KiskAI.handleDespawned's
 //       STR_BINDSTONE_IS_REMOVED, removeKisk's SM_KISK_UPDATE), so no Kisk outlives the run (Z13's live counts);
+//   Z12 (stage 3) G spawns one npc of each N-01 root AI that has a template (m5j-ais: the lowest npc id of the AI, with its ai_templates
+//       row for bomb and summoner) beside A, and turns a "general" npc into each of the two template-less AIs with //ai set (the class name
+//       in the answer, A sees it again: Ai.java's despawn and spawn); each npc's spawn reaches A, its first reactions run for 1.5 s, then G's
+//       //delete removes it and every npc it spawned (by SM_NPC_INFO's creator: the conquest spawner's offering); no ERROR line in the case, A alive. CHANGED from
+//       §10.4: A does not attack - a level-10 A beside the level-50+ aggressive templates would die and end the later cases; the AI smoke
+//       (RootAiSmokeTest.cpp, N-02) covers ATTACK and the full event list;
 //   Z14 A relogs as a level-10 Daeva with 1000 AP; G2 enters beside A, types //enemy cancel and //kill on A: A dies, A's AP and G2's AP change
 //       by the oracle's calculatePvPApLost / calculatePvpApGained (m5j-social), SM_ABYSS_RANK and the AP system messages to both;
 //   Z13 the reports (the M5a Q8 bar), with no Player alive after the logouts.
 // Z15 (S-13, Legion Dominion and the windstream) is lane B's chunk and not run. Every text, level and id comes from the oracles
-// (`m5j-social`, `m5j-items`, `m5a-creation`) or is a Java literal cited beside it, never the port's.
+// (`m5j-social`, `m5j-items`, `m5j-ais`, `m5a-creation`) or is a Java literal cited beside it, never the port's.
 //
 // Every expectation is independent of the C++ server code, as in the earlier gates: server packets are read with the decoders of
 // tests/scenario/decoders (written from the Java writeImpl methods, m5a-plan.md D9). This file does not share the other gates' helpers, for the
@@ -797,6 +803,8 @@ void runM5jGate() {
 	const nlohmann::json items = nlohmann::json::parse(oracle->run({"m5j-items", "--profile", profileFile.string(), "--class", "WARRIOR", "--race",
 		"ELYOS", "--level", "1", "--map", std::to_string(POETA), "--message", "STR_USE_ITEM", "STR_BINDSTONE_REGISTER", "STR_BINDSTONE_IS_REMOVED", "--question",
 		"STR_ASK_REGISTER_BINDSTONE"}));
+	// stage 3: the npc of each N-01 root AI and the //ai set base (m5j-ais, G-31)
+	const nlohmann::json rootAis = nlohmann::json::parse(oracle->run({"m5j-ais"}));
 	const auto emotionId = [&](const char* name) { return items.at("emotions").at(name).get<int32_t>(); };
 	const auto message = [&](const char* name) {
 		return (social.at("messages").contains(name) ? social : items).at("messages").at(name).get<int32_t>();
@@ -1545,6 +1553,92 @@ void runM5jGate() {
 			updatedBeforeRemoved = updatedBeforeRemoved || packet.name == "SM_KISK_UPDATE";
 		}
 		EXPECT_TRUE(updatedBeforeRemoved) << "KiskService.removeKisk: the creator's SM_KISK_UPDATE: " << join(namesOf(a.since(aFrom)));
+	});
+
+	// ---- Z12: the root AIs of stage 3 ----
+	runCase("Z12", "G spawns one npc of each N-01 root AI beside A (//ai set for the two without a template); each spawn reaches A, its first "
+	               "reactions run, //delete removes it and what it spawned; no ERROR, A alive", [&] {
+		const size_t errorsBefore = servers.gameServer()->findLogLines(" ERROR ").size();
+		const size_t aStart = a.mark();
+		const auto remove = [&](int32_t objectId, size_t since, const std::string& what) {
+			for (const Packet& packet : a.since(since))
+				if (packet.name == "SM_DELETE" && decoders::decodeDelete(packet.data).objectId == objectId)
+					return; // it left by itself (UseSkillAndDieAI, a bomb): nothing to delete
+			g.send(GameSession::CM_TARGET_SELECT, GameSession::buildCM_TARGET_SELECT(objectId));
+			waitFor(*g.game, "SM_TARGET_SELECTED", 10s);
+			const size_t aFrom = a.mark();
+			g.say("//delete");
+			EXPECT_TRUE(waitForPacket(*a.game, aFrom, "SM_DELETE", [&](const Packet& p) {
+				return decoders::decodeDelete(p.data).objectId == objectId;
+			}, 10s)) << what << ": //delete of " << objectId;
+		};
+		// the first reactions, then the npc and every npc it spawned (SM_NPC_INFO's creator: AbstractAI.spawn makes the owner the creator, e.g.
+		// the conquest spawner's offering) are deleted; a world npc that comes into A's view meanwhile is left alone
+		const auto reactAndClean = [&](size_t aFrom, int32_t objectId, const std::string& what) {
+			collectFor(*a.game, 1500ms);
+			std::vector<int32_t> family{objectId};
+			for (bool grown = true; grown;) {
+				grown = false;
+				for (const Packet& packet : a.since(aFrom)) {
+					if (packet.name != "SM_NPC_INFO")
+						continue;
+					const decoders::NpcInfo info = decoders::decodeNpcInfo(packet.data);
+					if (std::find(family.begin(), family.end(), info.creatorId) != family.end() &&
+						std::find(family.begin(), family.end(), info.objectId) == family.end()) {
+						family.push_back(info.objectId);
+						grown = true;
+					}
+				}
+			}
+			for (int32_t member : family)
+				remove(member, aFrom, what);
+		};
+		int32_t spawnedAis = 0;
+		for (const nlohmann::json& ai : rootAis.at("ais")) {
+			if (ai.at("npcId").is_null())
+				continue;
+			const std::string name = ai.at("name").get<std::string>();
+			const int32_t npcId = ai.at("npcId").get<int32_t>();
+			const size_t aFrom = a.mark();
+			g.say("//spawn " + std::to_string(npcId));
+			std::optional<Packet> spawned = waitForPacket(*a.game, aFrom, "SM_NPC_INFO", [&](const Packet& p) {
+				return decoders::decodeNpcInfo(p.data).templateId == npcId;
+			}, 10s);
+			EXPECT_TRUE(spawned) << name << ": A sees the spawned " << npcId;
+			if (spawned)
+				reactAndClean(aFrom, decoders::decodeNpcInfo(spawned->data).objectId, name);
+			++spawnedAis;
+		}
+		EXPECT_EQ(spawnedAis, 21) << "the N-01 AIs with a template (m5j-ais)";
+		const nlohmann::json& aiSet = rootAis.at("aiSet");
+		const int32_t baseNpc = aiSet.at("baseNpcId").get<int32_t>();
+		for (const nlohmann::json& ai : rootAis.at("ais")) {
+			if (!ai.at("npcId").is_null())
+				continue;
+			const std::string name = ai.at("name").get<std::string>();
+			size_t aFrom = a.mark();
+			g.say("//spawn " + std::to_string(baseNpc));
+			std::optional<Packet> base = waitForPacket(*a.game, aFrom, "SM_NPC_INFO", [&](const Packet& p) {
+				return decoders::decodeNpcInfo(p.data).templateId == baseNpc;
+			}, 10s);
+			ASSERT_TRUE(base) << name << ": the //ai set base " << baseNpc;
+			const int32_t objectId = decoders::decodeNpcInfo(base->data).objectId;
+			g.send(GameSession::CM_TARGET_SELECT, GameSession::buildCM_TARGET_SELECT(objectId));
+			waitFor(*g.game, "SM_TARGET_SELECTED", 10s);
+			aFrom = a.mark();
+			const size_t gFrom = g.mark();
+			g.say("//ai set " + name);
+			EXPECT_TRUE(waitForInfo(*g.game, gFrom, aiSet.at("answerPrefix").get<std::string>() + ai.at("class").get<std::string>()))
+				<< "Ai.java: " << join(infoTexts(g.since(gFrom)), " | ");
+			EXPECT_TRUE(waitForPacket(*a.game, aFrom, "SM_NPC_INFO", [&](const Packet& p) {
+				return decoders::decodeNpcInfoObjectId(p.data) == objectId;
+			}, 10s)) << name << ": World.spawn shows the npc again";
+			reactAndClean(aFrom, objectId, name);
+		}
+		EXPECT_FALSE(firstOfName(a.since(aStart), "SM_DIE")) << "A is alive";
+		const std::vector<std::string> errors = servers.gameServer()->findLogLines(" ERROR ");
+		EXPECT_EQ(errors.size(), errorsBefore) << "ERROR lines in Z12:\n"
+			<< join(std::vector<std::string>(errors.begin() + static_cast<std::ptrdiff_t>(std::min(errorsBefore, errors.size())), errors.end()), "\n");
 	});
 
 	// ---- Z14: a PvP kill ----
