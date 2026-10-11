@@ -631,6 +631,12 @@ public:
 	/** CM_PET.readImpl SURRENDER, SPAWN and DISMISS (CM_PET.java:62-66): readUH action, readD templateId */
 	static std::vector<uint8_t> buildCM_PET(uint16_t action, int32_t templateId);
 
+	// ---- M5j stage 4's matchmaker packet (m5j-plan.md §18.5 CP2, W-13) ----
+	/** AionClientPacketFactory packets[200] (ClientPacketInfo.gen.inc:172) */
+	static constexpr int32_t CM_AUTO_GROUP = 200;
+	/** CM_AUTO_GROUP.readImpl (CM_AUTO_GROUP.java:27-32): readD instanceMaskId, readC windowId, readC entryRequestId */
+	static std::vector<uint8_t> buildCM_AUTO_GROUP(int32_t instanceMaskId, uint8_t windowId, uint8_t entryRequestId);
+
 	// ---- M5c's stage-1 packets (m5c-plan.md K-01, K-02, G-02) and stage 2's crafting packets, each the Java readImpl field order ----
 	/** one entry of CM_BUY_ITEM (CM_BUY_ITEM.java:65-66): readD itemId (see TRADE_*), readQ count */
 	struct BuyItemEntry {
