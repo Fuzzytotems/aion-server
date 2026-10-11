@@ -1658,3 +1658,6 @@ without a C++ file; `tools/porting/census.py` for the totals):
 > `///teleport_to_named` (deferred: it needs a handler-local XML binder for its own JAXB classes; the integrator takes the hub question
 > to the owner; no binder is built in CP6).
 > CP6 part 2 done: M5d's `//quest` and `///addquest` (C1.md; Z17).
+> CP6 parts 3 and 4 done: M5b-3's `//dropinfo`, `.easter`, `.symphony` (Z17 runs //dropinfo); M5c's `///setinventorygrowth`,
+> `///set_enchantcount`; M5e's `///changeclass`, `///classup` (C1.md). `.buy` waits for a fieldmap decision (its handler struct's
+> `Ref<Buy>` of an Immortal command; custom-instance coin, possibly D12).

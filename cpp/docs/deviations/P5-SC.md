@@ -1242,3 +1242,7 @@ close dredgion` while closed (:102, "TERATH_DREDGION" is AutoGroupType.java:27's
 `//instance close dredgion` (:100), `//goto x` (GoTo.java:46), `//movetoobj abc` (MoveToObject.java:28, :33) and `//moveplayertoplayer x`
 (MovePlayerToPlayer.java:24). The dredgion is closed again before Z14. Green (100 %); **gate mutants** (the unit proof's `AION_S46MUT`
 switch, one gate_lock call each): `ins-already` and `mto-return`, **2 of 2 killed by Z17**; sources restored, rebuilt, the gate re-run green.
+
+Z17 grows with CP6 parts 2 and 3 (2026-10-11): `//quest 99999 status` ("Invalid quest.", Quest.java:72) and `//dropinfo all` on the //ai
+set base npc (m5j-ais), spawned at G's spot and deleted after: G gets the head line "[<npc>'s drops]" (DropInfo.java:48) and the count
+line "... total drops available in ... drop groups." (:81) on the real drop data. Green.
