@@ -2446,7 +2446,14 @@ void runM5hGate() {
 				"SELECT item_unique_id, x, y, area FROM player_registered_items WHERE player_id = " + std::to_string(ca.playerId) +
 					" ORDER BY item_unique_id",
 				4);
-			return registered.size() == 3;
+			// three rows with the bed at its moved place: an earlier store may have left the rows of the spawn (C16), so the poll waits for the
+			// destroy's save (HouseController.onDespawn) rather than for the first three rows
+			if (registered.size() != 3)
+				return false;
+			for (const auto& row : registered)
+				if (std::stoi(row[0].value_or("0")) == bedObject && std::abs(std::stod(row[1].value_or("0")) - bedMoved[0]) > 0.01)
+					return false;
+			return true;
 		});
 		ASSERT_EQ(registered.size(), 3u) << "HouseController.onDespawn saved the registry: the bed, the cake and the wallpaper";
 		for (const auto& row : registered) {
