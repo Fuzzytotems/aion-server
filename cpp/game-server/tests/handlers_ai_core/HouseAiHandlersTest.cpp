@@ -1,12 +1,15 @@
 // M5h HS-2 (m5h-plan.md 14.2, H-01, H-02, H-06, H-07): the three AIs of the house npcs - ButlerAI ("butler") and HouseSignAI ("housesign") of
 // P5-05, and StudioPortalAI ("studioportal") of chunk A1 under P5-11's lease of handlers/ai/portals/StudioPortalAI.* (chunks.cmake) - and
-// InstanceService::getOrCreateHouseInstance (P5-13, under P5-11's lease of InstanceService.cpp), which the studio portal calls.
+// InstanceService::getOrCreateHouseInstance (P5-13, under P5-11's lease of InstanceService.cpp), which the studio portal calls. M5h-2 H2-3 adds
+// HouseGateAI ("housegate") of chunk A1, under the same lease (handlers/ai/portals/HouseGateAI.*).
 //
-// Java: data/handlers/ai/ButlerAI.java:24-40, HouseSignAI.java:22-29, portals/StudioPortalAI.java:31-61; InstanceService.java:127-135.
+// Java: data/handlers/ai/ButlerAI.java:24-40, HouseSignAI.java:22-29, portals/StudioPortalAI.java:31-61, portals/HouseGateAI.java:32-107;
+// InstanceService.java:127-135.
 //
 // LINK WORKAROUND (the one TravelAiHandlersTest.cpp describes): A1's handler library is not linked into this executable, so this file compiles
 // the leased source itself; it is the only translation unit that does.
 #include "aion/gameserver/handlers/ai/portals/StudioPortalAI.cpp"
+#include "aion/gameserver/handlers/ai/portals/HouseGateAI.cpp"
 
 #include "../cm_ak/ItemPacketTestSupport.h"
 #include "../ai/AiWorldTestSupport.h"
@@ -26,6 +29,9 @@
 // Not covered here, said in place: leaving a studio that exists (World has no maps in this executable: World.getWorldMap(exit map) is the
 // gate's, m5h C19) and a studio without a position (InstanceService.getOrCreatePersonalInstance spawns the map's instance: the gate's C15).
 // ActionItemNpcAI's use bar before handleUseItemFinish is ActionItemNpcAiTest.cpp's.
+// The house gate's cases put the gate's creator (the player, or a second player "Buddy") into World, as Npc.getCreator finds him there. Not
+// covered here: the group-member arm of the creator check (no PlayerGroupService in this executable; the gate's), and a zone that forbids the
+// return to battle (no zones in this executable: the DONT_RETURN question and setBattleReturnCoords(0, null) are the gate's).
 
 #include <cstdint>
 #include <memory>
@@ -36,6 +42,7 @@
 
 #include "aion/gameserver/ai/AIState.h"
 #include "aion/gameserver/ai/AbstractAI.h"
+#include "aion/gameserver/configs/administration/AdminConfig.h"
 #include "aion/gameserver/configs/main/AIConfig.h"
 #include "aion/gameserver/controllers/NpcController.h"
 #include "aion/gameserver/controllers/PlayerController.h"
@@ -50,17 +57,25 @@
 #include "aion/gameserver/model/TaskId.h"
 #include "aion/gameserver/model/gameobjects/Npc.h"
 #include "aion/gameserver/model/gameobjects/SummonedHouseNpc.h"
+#include "aion/gameserver/model/gameobjects/player/Friend.h"
+#include "aion/gameserver/model/gameobjects/player/FriendList.h"
 #include "aion/gameserver/model/gameobjects/player/PetCommonData.h"
 #include "aion/gameserver/model/gameobjects/player/PetList.h"
+#include "aion/gameserver/model/gameobjects/player/PlayerCommonData.h"
+#include "aion/gameserver/model/gameobjects/player/ResponseRequester.h"
 #include "aion/gameserver/model/house/House.h"
+#include "aion/gameserver/model/house/HouseDoorStateInfo.h"
 #include "aion/gameserver/model/templates/spawns/SpawnGroup.h"
 #include "aion/gameserver/model/templates/spawns/SpawnTemplate.h"
 #include "aion/gameserver/model/templates/spawns/SpawnType.h"
 #include "aion/gameserver/network/aion/serverpackets/SM_DIALOG_WINDOW.h"
+#include "aion/gameserver/network/aion/serverpackets/SM_HOUSE_TELEPORT.h"
+#include "aion/gameserver/network/aion/serverpackets/SM_QUESTION_WINDOW.h"
 #include "aion/gameserver/network/aion/serverpackets/SM_SYSTEM_MESSAGE.h"
 #include "aion/gameserver/network/aion/serverpackets/SM_TELEPORT_LOC.h"
 #include "aion/gameserver/services/HousingService.h"
 #include "aion/gameserver/services/instance/InstanceService.h"
+#include "aion/gameserver/world/World.h"
 #include "aion/gameserver/world/WorldMap2DInstance.h"
 #include "aion/gameserver/world/knownlist/NpcKnownList.h"
 
@@ -82,12 +97,17 @@ namespace portals = gameserver::handlers::ai::portals;
 using model::gameobjects::Npc;
 using model::house::House;
 using network::aion::serverpackets::SM_DIALOG_WINDOW;
+using network::aion::serverpackets::SM_HOUSE_TELEPORT;
+using network::aion::serverpackets::SM_QUESTION_WINDOW;
 using network::aion::serverpackets::SM_SYSTEM_MESSAGE;
 using network::aion::serverpackets::SM_TELEPORT_LOC;
 
 constexpr int32_t BUTLER = 810021;
 constexpr int32_t RESIDENT_INFORMATION = 810007;
 constexpr int32_t STUDIO_ENTRANCE = 730517;
+constexpr int32_t HOUSE_GATE = 730517; // a house gate's own row is no matter here: the AI is installed on the npc
+constexpr int32_t ASK_GROUP_GATE_MOVE = 160014; // SM_QUESTION_WINDOW.STR_ASK_GROUP_GATE_DO_YOU_ACCEPT_MOVE
+constexpr int32_t BUDDY_ID = 710102;
 constexpr int32_t HOUSE_ADDRESS = 10001;
 constexpr int32_t STUDIO_ADDRESS = 2001;
 constexpr int32_t HOUSING_KICK = 86;	   // DialogAction.java:101 -> DialogPage.HOUSING_KICK, page 40 (DialogPage.java:55)
@@ -139,6 +159,13 @@ public:
 	using ButlerAI::handleCreatureSee;
 };
 
+/** HouseGateAI with its protected hook callable */
+class HouseGateAiProbe final : public portals::HouseGateAI {
+public:
+	using HouseGateAI::HouseGateAI;
+	using HouseGateAI::handleDialogStart;
+};
+
 /** StudioPortalAI with its protected hook callable */
 class StudioPortalAiProbe final : public portals::StudioPortalAI {
 public:
@@ -168,12 +195,22 @@ protected:
 	}
 
 	void TearDown() override {
-		if (studio) { // HousingService is the process's: the studio goes as Java's changeOwner(studio, 0) removes it
-			studio->updateSpawn(model::templates::spawns::SpawnType::TELEPORT, nullptr);
-			studio->setPosition(nullptr);
-			services::HousingService::getInstance().changeOwner(*studio, 0);
-			studio = nullptr;
+		for (runtime::Ptr<House>* owned : {&studio, &buddyStudio}) {
+			if (*owned) { // HousingService is the process's: the studio goes as Java's changeOwner(studio, 0) removes it
+				(*owned)->updateSpawn(model::templates::spawns::SpawnType::TELEPORT, nullptr);
+				(*owned)->setPosition(nullptr);
+				services::HousingService::getInstance().changeOwner(**owned, 0);
+				*owned = nullptr;
+			}
 		}
+		if (playerInWorld)
+			world::World::getInstance().removeObject(player());
+		if (buddy.player) {
+			world::World::getInstance().removeObject(*buddy.player);
+			buddy.player->setClientConnection(nullptr);
+		}
+		buddyClient.reset();
+		buddy = {};
 		npcs.clear();
 		houses.clear();
 		spawnGroups.clear();
@@ -249,6 +286,45 @@ protected:
 		dao::test::insertPlayer(player().getObjectId(), "Holder", 9901);
 	}
 
+	/** The player in World: Npc.getCreator finds the gate's creator there */
+	void playerIntoWorld() {
+		world::World::getInstance().storeObject(player());
+		playerInWorld = true;
+	}
+
+	/** A second player "Buddy" (an Elyos) in World, out of the player's sight */
+	model::gameobjects::player::Player& addBuddy() {
+		buddy = makePlayer(BUDDY_ID, 9902, "Buddy");
+		buddyClient = std::make_unique<TestClient>();
+		buddyClient->enterWorld(buddy);
+		world::World::getInstance().storeObject(*buddy.player);
+		return *buddy.player;
+	}
+
+	/** A house gate 2 m from the player, created by `creatorId` (Java: a summoned npc's creator) */
+	HouseGateAiProbe& gateOf(int32_t creatorId) {
+		Npc& gate = npcAt(HOUSE_GATE);
+		gate.setCreatorId(creatorId);
+		return install<HouseGateAiProbe>(gate);
+	}
+
+	/**
+	 * The player's own studio (address 2001), spawned in the fixture's instance and with its relationship crystal 10 m north of its address
+	 * point - the studio of EnteringTheOwnStudioTeleportsToItsAddressWithTheBeam: getTeleportHeading 30
+	 */
+	House& ownStudio() {
+		services::HousingService::getInstance().registerPlayerStudio(player());
+		studio = services::HousingService::getInstance().getPlayerStudio(player().getObjectId());
+		studio->setPosition(world::WorldPosition::create(720010000, 366.242615f, 295.776093f, 222.3536f, int8_t{0}, useInstance->getRegion(100.0f, 100.0f, 50.0f)));
+		model::templates::spawns::SpawnTemplate& crystalSpawn = spawnOf(RESIDENT_INFORMATION, 366.242615f, 305.776093f);
+		runtime::Ref<Npc> crystal = model::gameobjects::VisibleObject::create<Npc>(std::make_unique<controllers::NpcController>(), crystalSpawn,
+			dataholders::DataManager::NPC_DATA->getNpcTemplate(RESIDENT_INFORMATION));
+		npcs.push_back(crystal);
+		studio->updateSpawn(model::templates::spawns::SpawnType::TELEPORT, crystal);
+		clearSent();
+		return *studio;
+	}
+
 	std::vector<uint8_t> page(Npc& npc, int32_t pageId) { return serializedFor(SM_DIALOG_WINDOW(npc.getObjectId(), pageId)); }
 
 	/** SM_HOUSE_SCRIPTS.writeImpl of 8 empty slots: D(address), H(8), per slot C(id) H(0) (SM_HOUSE_SCRIPTS.java) */
@@ -266,6 +342,10 @@ protected:
 	runtime::Ref<world::WorldMapInstance> useInstance;
 	runtime::Ptr<world::WorldMapInstance> studioInstance;
 	runtime::Ptr<House> studio;
+	runtime::Ptr<House> buddyStudio;
+	bool playerInWorld = false;
+	PlayerFixture buddy;
+	std::unique_ptr<TestClient> buddyClient;
 	std::vector<runtime::Ref<model::templates::spawns::SpawnGroup>> spawnGroups;
 	std::vector<runtime::Ref<Npc>> npcs;
 	std::vector<runtime::Ref<House>> houses;
@@ -440,6 +520,166 @@ TEST_F(HouseAiHandlersTest, LeavingAStudioWithoutOwnerStudioDoesNothing) {
 
 	EXPECT_EQ(sent(), exactly({})) << "the leaving arm (HOUSING_IDLF_PERSONAL): getPlayerStudio(4242) is null - not the entering arm's refusal";
 	EXPECT_FALSE(player().getController().hasTask(model::TaskId::TELEPORT));
+}
+
+// ---- HouseGateAI (HouseGateAI.java:32-107) --------------------------------------------------------------------------------------------------
+
+/** AdminConfig.HOUSE_ENTER_ALL for one case: 3 makes a player (access level 0) no GM, so the door applies (House.canEnter) */
+class EnterAllScope {
+public:
+	explicit EnterAllScope(int8_t value) : saved(configs::administration::AdminConfig::HOUSE_ENTER_ALL.load()) {
+		configs::administration::AdminConfig::HOUSE_ENTER_ALL.store(value);
+	}
+	~EnterAllScope() { configs::administration::AdminConfig::HOUSE_ENTER_ALL.store(saved); }
+	EnterAllScope(const EnterAllScope&) = delete;
+	EnterAllScope& operator=(const EnterAllScope&) = delete;
+
+private:
+	int8_t saved;
+};
+
+TEST_F(HouseAiHandlersTest, TheHouseGateMarkerBuildsAHouseGate) {
+	Npc& gate = npcAt(HOUSE_GATE);
+	std::unique_ptr<gameserver::ai::AbstractAI> ai = portals::HouseGateAI_aiFactory(gate);
+	EXPECT_NE(dynamic_cast<portals::HouseGateAI*>(ai.get()), nullptr) << "the factory of the \"housegate\" marker";
+}
+
+TEST_F(HouseAiHandlersTest, AStrangersHouseGateCannotBeUsed) {
+	HouseGateAiProbe& ai = gateOf(4242); // no such player: neither the creator, nor a friend, nor a group member
+
+	ai.handleDialogStart(player());
+
+	EXPECT_EQ(sent(), exactly({serializedFor(SM_SYSTEM_MESSAGE::STR_HOUSING_TELEPORT_CANT_USE())}));
+	EXPECT_FALSE(player().getResponseRequester().respond(ASK_GROUP_GATE_MOVE, 1)) << "no question asked";
+}
+
+TEST_F(HouseAiHandlersTest, ACreatorWithoutHouseIsToldHeNeedsOne) {
+	if (!dao::test::isEnabled())
+		GTEST_SKIP() << "set AION_TEST_GS_DATABASE_URL: HousingService starts from the database";
+	housingDatabase();
+	playerIntoWorld();
+	HouseGateAiProbe& ai = gateOf(player().getObjectId());
+
+	ai.handleDialogStart(player());
+
+	EXPECT_EQ(sent(), exactly({serializedFor(SM_SYSTEM_MESSAGE::STR_HOUSING_TELEPORT_NEED_HOUSE())}))
+		<< "player.equals(getCreator()), findActiveHouse null, the creator himself";
+}
+
+TEST_F(HouseAiHandlersTest, AFriendOfACreatorWithoutHouseCannotUseTheGate) {
+	if (!dao::test::isEnabled())
+		GTEST_SKIP() << "set AION_TEST_GS_DATABASE_URL: HousingService starts from the database";
+	housingDatabase();
+	model::gameobjects::player::Player& creator = addBuddy();
+	player().getFriendList().addFriend(*model::gameobjects::player::Friend::create(*creator.getCommonData(), ""));
+	HouseGateAiProbe& ai = gateOf(BUDDY_ID);
+	clearSent();
+
+	ai.handleDialogStart(player());
+
+	EXPECT_EQ(sent(), exactly({serializedFor(SM_SYSTEM_MESSAGE::STR_HOUSING_TELEPORT_CANT_USE())})) << "findActiveHouse null, not the creator";
+}
+
+TEST_F(HouseAiHandlersTest, AFriendWhoIsNoDaevaHasNoRightToEnter) {
+	if (!dao::test::isEnabled())
+		GTEST_SKIP() << "set AION_TEST_GS_DATABASE_URL: HousingService starts from the database";
+	housingDatabase();
+	model::gameobjects::player::Player& creator = addBuddy();
+	player().getFriendList().addFriend(*model::gameobjects::player::Friend::create(*creator.getCommonData(), ""));
+	services::HousingService::getInstance().registerPlayerStudio(creator);
+	buddyStudio = services::HousingService::getInstance().getPlayerStudio(BUDDY_ID);
+	ASSERT_TRUE(buddyStudio);
+	player().getCommonData()->setDaeva(false);
+	HouseGateAiProbe& ai = gateOf(BUDDY_ID);
+	clearSent();
+
+	ai.handleDialogStart(player());
+
+	EXPECT_EQ(sent(), exactly({serializedFor(SM_SYSTEM_MESSAGE::STR_MSG_HOUSING_CANT_ENTER_NO_RIGHT(STUDIO_ADDRESS))}))
+		<< "the friend arm passes, the creator's studio is found, !isDaeva()";
+}
+
+TEST_F(HouseAiHandlersTest, AFriendBehindAClosedDoorHasNoRightToEnter) {
+	if (!dao::test::isEnabled())
+		GTEST_SKIP() << "set AION_TEST_GS_DATABASE_URL: HousingService starts from the database";
+	housingDatabase();
+	model::gameobjects::player::Player& creator = addBuddy();
+	player().getFriendList().addFriend(*model::gameobjects::player::Friend::create(*creator.getCommonData(), ""));
+	services::HousingService::getInstance().registerPlayerStudio(creator);
+	buddyStudio = services::HousingService::getInstance().getPlayerStudio(BUDDY_ID);
+	ASSERT_TRUE(buddyStudio);
+	buddyStudio->setDoorState(model::house::HouseDoorState::CLOSED);
+	EnterAllScope enterAll(int8_t{3});
+	player().getCommonData()->setDaeva(true);
+	HouseGateAiProbe& ai = gateOf(BUDDY_ID);
+	clearSent();
+
+	ai.handleDialogStart(player());
+
+	EXPECT_EQ(sent(), exactly({serializedFor(SM_SYSTEM_MESSAGE::STR_MSG_HOUSING_CANT_ENTER_NO_RIGHT2())})) << "!house.canEnter(player)";
+	EXPECT_FALSE(player().getResponseRequester().respond(ASK_GROUP_GATE_MOVE, 1));
+}
+
+TEST_F(HouseAiHandlersTest, TheDaevaCreatorIsAskedToMoveIntoHisHouse) {
+	if (!dao::test::isEnabled())
+		GTEST_SKIP() << "set AION_TEST_GS_DATABASE_URL: HousingService starts from the database";
+	housingDatabase();
+	playerIntoWorld();
+	player().getCommonData()->setDaeva(true);
+	ownStudio();
+	HouseGateAiProbe& ai = gateOf(player().getObjectId());
+
+	ai.handleDialogStart(player());
+
+	EXPECT_EQ(sent(), exactly({serializedFor(SM_QUESTION_WINDOW(ASK_GROUP_GATE_MOVE, ai.getOwner().getObjectId(), 9, std::vector<std::string>{}))}))
+		<< "no zone forbids the return: STR_ASK_GROUP_GATE_DO_YOU_ACCEPT_MOVE, AIActions.addRequest(this, player, requestId, 9, request)";
+	EXPECT_FALSE(player().getController().hasTask(model::TaskId::TELEPORT)) << "nothing before the answer";
+}
+
+TEST_F(HouseAiHandlersTest, AcceptingTheGateTeleportsIntoTheHouseAndKeepsTheWayBack) {
+	if (!dao::test::isEnabled())
+		GTEST_SKIP() << "set AION_TEST_GS_DATABASE_URL: HousingService starts from the database";
+	housingDatabase();
+	playerIntoWorld();
+	player().getCommonData()->setDaeva(true);
+	ASSERT_EQ(ownStudio().getTeleportHeading(), 30);
+	HouseGateAiProbe& ai = gateOf(player().getObjectId());
+	ai.handleDialogStart(player());
+	clearSent();
+
+	ASSERT_TRUE(player().getResponseRequester().respond(ASK_GROUP_GATE_MOVE, 1));
+
+	EXPECT_EQ(sent(), exactly({serializedFor(SM_HOUSE_TELEPORT(STUDIO_ADDRESS, player().getObjectId())),
+						  serializedFor(SM_TELEPORT_LOC(210010000, 2, 366.242615f, 295.776093f, 222.3536f, int8_t{30},
+							  model::animations::TeleportAnimation::JUMP_IN_GATE))}))
+		<< "SM_HOUSE_TELEPORT(address, responder), then teleportTo(the house's instance, the address point, getTeleportHeading(), JUMP_IN_GATE)";
+	EXPECT_TRUE(player().getController().hasTask(model::TaskId::TELEPORT));
+	EXPECT_EQ(player().getBattleReturnMap(), 210010000) << "setBattleReturnCoords(responder.getWorldId(), ...)";
+	runtime::Ptr<runtime::Array<float>> coords = player().getBattleReturnCoords();
+	ASSERT_TRUE(coords);
+	ASSERT_EQ(coords->length(), 3);
+	EXPECT_EQ((*coords)[0], 100.0f);
+	EXPECT_EQ((*coords)[1], 100.0f);
+	EXPECT_EQ((*coords)[2], 50.0f);
+}
+
+TEST_F(HouseAiHandlersTest, DecliningTheGateDoesNothing) {
+	if (!dao::test::isEnabled())
+		GTEST_SKIP() << "set AION_TEST_GS_DATABASE_URL: HousingService starts from the database";
+	housingDatabase();
+	playerIntoWorld();
+	player().getCommonData()->setDaeva(true);
+	ownStudio();
+	HouseGateAiProbe& ai = gateOf(player().getObjectId());
+	ai.handleDialogStart(player());
+	clearSent();
+
+	ASSERT_TRUE(player().getResponseRequester().respond(ASK_GROUP_GATE_MOVE, 0));
+
+	EXPECT_EQ(sent(), exactly({})) << "denyRequest only decides";
+	EXPECT_FALSE(player().getController().hasTask(model::TaskId::TELEPORT));
+	EXPECT_EQ(player().getBattleReturnMap(), 0);
+	EXPECT_FALSE(player().getBattleReturnCoords());
 }
 
 // ---- InstanceService.getOrCreateHouseInstance (InstanceService.java:127-135) ---------------------------------------------------------------
