@@ -46,6 +46,10 @@
 //   Z16 (stage 4, W-13) the server runs with gameserver.autogroup.enable true: A (level 1) registers for the Arena of Chaos (m5j-ais: mask 21,
 //       levels 46-50): STR_MSG_CANT_INSTANCE_ENTER_LEVEL; A clicks the Baranath Dredgion's icon (window 104) while its registration is closed:
 //       no SM_AUTO_GROUP;
+//   Z17 (stage 4 CP6, the orphaned commands of M5f) G's //instance answers from the Java literals (Instance.java:76-81, :97-102; the name is
+//       AutoGroupType.java:27's constant): an unknown name, the dredgion's close while closed, its open and its close; //goto's unknown
+//       destination (GoTo.java:46), //movetoobj's number check (MoveToObject.java:30, :35) and //moveplayertoplayer's syntax
+//       (MovePlayerToPlayer.java:24);
 //   Z14 A relogs as a level-10 Daeva with 1000 AP; G2 enters beside A, types //enemy cancel and //kill on A: A dies, A's AP and G2's AP change
 //       by the oracle's calculatePvPApLost / calculatePvpApGained (m5j-social), SM_ABYSS_RANK and the AP system messages to both;
 //   Z13 the reports (the M5a Q8 bar), with no Player alive after the logouts.
@@ -1661,6 +1665,24 @@ void runM5jGate() {
 		a.send(GameSession::CM_AUTO_GROUP, GameSession::buildCM_AUTO_GROUP(1, 104, 0)); // the icon (CM_AUTO_GROUP.java:58-60)
 		collectFor(*a.game, 2000ms);
 		EXPECT_FALSE(firstOfName(a.since(aFrom), "SM_AUTO_GROUP")) << "PeriodicInstanceManager.handleRequest: the registration is not open";
+	});
+
+	// ---- Z17: the orphaned commands of M5f (stage 4 CP6) ----
+	runCase("Z17", "G's //instance opens and closes the dredgion's registration; //goto, //movetoobj and //moveplayertoplayer answer G", [&] {
+		const auto says = [&](const std::string& command, const std::vector<std::string>& answers) {
+			const size_t gFrom = g.mark();
+			g.say(command);
+			for (const std::string& answer : answers)
+				EXPECT_TRUE(waitForInfo(*g.game, gFrom, answer, 10s)) << command << ": " << answer << " | G: " << join(infoTexts(g.since(gFrom)), " | ");
+		};
+		says("//instance open nowhere", {"No instance found for nowhere"});
+		says("//instance close dredgion", {"Registration for TERATH_DREDGION is not open."});
+		says("//instance open dredgion", {"Registration for TERATH_DREDGION is now open."});
+		says("//instance open dredgion", {"Registration for TERATH_DREDGION is already open."});
+		says("//instance close dredgion", {"Registration for TERATH_DREDGION is now closed."});
+		says("//goto x", {"Could not find the specified destination."});
+		says("//movetoobj abc", {"Only numbers please!!!", "Cannot find object for spawn #0"});
+		says("//moveplayertoplayer x", {"syntax //moveplayertoplayer <characterNameToMove> <characterNameDestination>"});
 	});
 
 	// ---- Z14: a PvP kill ----

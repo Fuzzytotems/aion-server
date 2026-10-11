@@ -1653,3 +1653,6 @@ without a C++ file; `tools/porting/census.py` for the totals):
 > M5c's five, M5e's two and `//event` (CP6, which may move ahead of CP3/CP4); lane B `//legion`, `//auction`, `//house`; the M5i six wait for M5i.
 > **Progress:** CP2 done (`lane-a/m5j-s4-cp2`): AutoGroupService, PeriodicInstanceManager, PvPArenaService, CM_AUTO_GROUP; **W-13
 > closed** (`gs.scenario.m5j` runs with autogroup on and its Z16 sends CM_AUTO_GROUP) (P5-10e.md).
+> **Progress:** CP6 part 1 done (`lane-a/m5j-s4-cp6`): M5f's `//moveto`, `//goto`, `//movetome`, `//moveplayertoplayer`, `//movetoobj`,
+> `//instance`, `///teleport`, `///teleportto` (C1.md; gate Z17, P5-SC.md). Out: `//fixpath` (WalkerData.saveData, D14) and
+> `///teleport_to_named` (a binder for the handler's own JAXB classes).
