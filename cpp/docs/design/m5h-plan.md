@@ -1092,7 +1092,11 @@ scratch build with lane C's stack, but **C23 now fails**: after C22, A logs in a
 `House`, the bed and the cake are removed from the world (the studio instance's destroy) and kept alive by `HousingService` for the owner's next
 entry - Java's retention (§9 risk 3), which the shutdown census reports as leaks and which a production server would report 10 minutes after
 every studio is left. H-07 accepted the retention because no gate case left a studio empty at shutdown; C22 does. The owner chose to drop
-and reload (option 2, 2026-10-10) with the census exemption for the studio's House (§9 risk 3's correction in the H-07 paragraph above).
+and reload (option 2, 2026-10-10) with the census exemption for the studio's House (§9 risk 3's correction in the H-07 paragraph above). With it the whole gate, C0-C23, passes on the
+scratch build with lane C's stack, and 6 of 6 server mutants turn it red (the warehouse in-use check skipped and a deposit recorded as a
+withdrawal: C9; the disband time ignoring the config, the recreate broadcast missing and a disbanded legion keeping its rows: C22; the left
+studio reported to the census: C23). One mutant run showed a race in C19's poll of `player_registered_items` (it accepted the rows of an
+earlier store before the destroy's save rewrote the bed); the poll now waits for the moved bed.
 
 ### 14.3 M5h-2: land houses (measured 2026-10-08, lane B; not started - the owner decides whether it is next)
 
