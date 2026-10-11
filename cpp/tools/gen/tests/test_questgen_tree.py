@@ -171,6 +171,26 @@ Q09 = {
         '_28802BeItEverSoHumble', '_28805SomethingOldSomethingNew', '_28807BlessingsofaGreenThumb', '_28808OpenSaysMe',
         '_28809FirstClassorCoach', '_28826FreetoaGoodHome', '_28832TakingtheTour', '_28847AHomeThatsYourOwn', '_51009TheGiftOfCharity',),
 }
+# Phase 6 step 2, chunk Q07 (lane C, 2026-10-08; docs/deviations/Q07.md): beshmundir, abyss_entry and silentera_canyon
+Q07 = {
+    'abyss_entry': (
+        '_1920TestingYourMettle', '_1921TheAbyssQuiz', '_1922DeliveronYourPromises',
+        '_2945HoningYourSkills', '_2946AbyssGeneralKnowledge', '_2947FollowingThrough',),
+    'beshmundir': (
+        '_30201SuppliesParty', '_30202SuspiciousCeremony', '_30203GroupHalttheCeremony', '_30207SoulInvocationCeremony',
+        '_30208GroupTheTruthHurts', '_30210WritteninBlood', '_30211GroupTheRodandtheOrb', '_30213GroupMagicalEssence',
+        '_30222AGuardsCurse', '_30227GroupToLiberateSouls', '_30235NewSword', '_30236NewGreatsword', '_30237NewPolearm', '_30238NewStaff',
+        '_30239NewSpellbook', '_30240NewOrb', '_30241NewBow', '_30242NewDagger', '_30243NewMace', '_30246YourOathToOutremus',
+        '_30247NewPistol', '_30248NewAethercannon', '_30249NewHarp', '_30301TrackingSupplies', '_30302MysteriousMotives',
+        '_30303GroupTheFallofIsbariya', '_30307SoulSummoning', '_30308GroupSummonRespondentUtra', '_30310RankandBile',
+        '_30311GroupAQuartzIsaQuartz', '_30313GroupOpeningthePrison', '_30327GroupMiredSouls', '_30335ImprovedSword',
+        '_30336ImprovedGreatsword', '_30337ImprovedPolearm', '_30338ImprovedStaff', '_30339ImprovedSpellbook', '_30340ImprovedOrb',
+        '_30341ImprovedBow', '_30342ImprovedDagger', '_30343ImprovedMace', '_30346ASolemnPromise', '_30347ImprovedPistol',
+        '_30348ImprovedAethercannon', '_30349ImprovedHarp',),
+    'silentera_canyon': (
+        '_30051BanishingtheShadowborn', '_30054PetrificationandPride', '_30055ForMyWife', '_30056DirvisiasSorrow', '_30057JotunJaunt',
+        '_30151SnufftheSunsucker', '_30154FleshtoStone', '_30155StonetoFlesh', '_30156NepsLove', '_30157VilisMind', '_30158JotunJunket',),
+}
 # Phase 6 step 2, chunk Q13 (lane C, 2026-10-07; docs/deviations/Q13.md): the files of the instance directories A-K that questgen
 # transliterates, all in the tree (87 of 87; kaisinel_academy's three mentor dailies by rule stream-any-match)
 Q13 = {
@@ -381,6 +401,11 @@ class CommittedTree(unittest.TestCase):
                 with self.subTest(file=f'{directory}/{klass}'):
                     self.assertIn((directory, klass), found)
         self.assertEqual(sum(len(classes) for classes in Q09.values()), 47)
+        for directory, classes in Q07.items():
+            for klass in classes:
+                with self.subTest(file=f'{directory}/{klass}'):
+                    self.assertIn((directory, klass), found)
+        self.assertEqual(sum(len(classes) for classes in Q07.values()), 62)
         self.assertEqual(len(Q10_HELD_BACK), 16)
 
     def test_the_enter_world_files_are_in_the_tree(self):

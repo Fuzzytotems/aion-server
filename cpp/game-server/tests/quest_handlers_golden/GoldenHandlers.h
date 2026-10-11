@@ -18,6 +18,7 @@
 // Chunk Q11 (lane C, 2026-10-08): 71 generated handlers of daevanion and sanctum (GoldenQ11Handlers.cpp; docs/deviations/Q11.md).
 // Chunk Q05, the rest (lane C, 2026-10-08): 53 generated handlers of eltnen and oriel (GoldenQ05Handlers.cpp; docs/deviations/Q05.md).
 // Chunk Q09, the rest (lane C, 2026-10-08): 47 generated handlers of morheim and pernon (GoldenQ09Handlers.cpp; docs/deviations/Q09.md).
+// Chunk Q07 (lane C, 2026-10-08): the 64 generated handlers of beshmundir, abyss_entry and silentera_canyon (GoldenQ07Handlers.cpp; docs/deviations/Q07.md).
 //
 // P6-Q slice 2, chunk Q03 (2026-09-29): the 72 generated verteron and heiron handlers in the tree (the zones the route's dispatches end in),
 // compiled into this executable by #include as well (GoldenQ03Handlers.cpp); Q03's hand ports 1643 and 3200 have their own unit cases
@@ -410,6 +411,12 @@
 	X(inggison, _11455WhentheTimeisRipe, 11455) \
 	X(inggison, _11458AdiassReport, 11458) \
 	X(inggison, _11460TheShulackofTaloc, 11460) \
+	X(abyss_entry, _1920TestingYourMettle, 1920) \
+	X(abyss_entry, _1921TheAbyssQuiz, 1921) \
+	X(abyss_entry, _1922DeliveronYourPromises, 1922) \
+	X(abyss_entry, _2945HoningYourSkills, 2945) \
+	X(abyss_entry, _2946AbyssGeneralKnowledge, 2946) \
+	X(abyss_entry, _2947FollowingThrough, 2947) \
 	X(abyssal_splinter, _30255TheLastCrusade, 30255) \
 	X(abyssal_splinter, _30261WeirdFragment, 30261) \
 	X(abyssal_splinter, _30263DaevasFearToTread, 30263) \
@@ -431,6 +438,51 @@
 	X(aturam_sky_fortress, _28303JustAnIsland, 28303) \
 	X(bare_truth, _14030RetrievedMemory, 14030) \
 	X(bare_truth, _14031AHyperVention, 14031) \
+	X(beshmundir, _30201SuppliesParty, 30201) \
+	X(beshmundir, _30202SuspiciousCeremony, 30202) \
+	X(beshmundir, _30203GroupHalttheCeremony, 30203) \
+	X(beshmundir, _30207SoulInvocationCeremony, 30207) \
+	X(beshmundir, _30208GroupTheTruthHurts, 30208) \
+	X(beshmundir, _30210WritteninBlood, 30210) \
+	X(beshmundir, _30211GroupTheRodandtheOrb, 30211) \
+	X(beshmundir, _30213GroupMagicalEssence, 30213) \
+	X(beshmundir, _30222AGuardsCurse, 30222) \
+	X(beshmundir, _30227GroupToLiberateSouls, 30227) \
+	X(beshmundir, _30235NewSword, 30235) \
+	X(beshmundir, _30236NewGreatsword, 30236) \
+	X(beshmundir, _30237NewPolearm, 30237) \
+	X(beshmundir, _30238NewStaff, 30238) \
+	X(beshmundir, _30239NewSpellbook, 30239) \
+	X(beshmundir, _30240NewOrb, 30240) \
+	X(beshmundir, _30241NewBow, 30241) \
+	X(beshmundir, _30242NewDagger, 30242) \
+	X(beshmundir, _30243NewMace, 30243) \
+	X(beshmundir, _30246YourOathToOutremus, 30246) \
+	X(beshmundir, _30247NewPistol, 30247) \
+	X(beshmundir, _30248NewAethercannon, 30248) \
+	X(beshmundir, _30249NewHarp, 30249) \
+	X(beshmundir, _30301TrackingSupplies, 30301) \
+	X(beshmundir, _30302MysteriousMotives, 30302) \
+	X(beshmundir, _30303GroupTheFallofIsbariya, 30303) \
+	X(beshmundir, _30307SoulSummoning, 30307) \
+	X(beshmundir, _30308GroupSummonRespondentUtra, 30308) \
+	X(beshmundir, _30310RankandBile, 30310) \
+	X(beshmundir, _30311GroupAQuartzIsaQuartz, 30311) \
+	X(beshmundir, _30313GroupOpeningthePrison, 30313) \
+	X(beshmundir, _30327GroupMiredSouls, 30327) \
+	X(beshmundir, _30335ImprovedSword, 30335) \
+	X(beshmundir, _30336ImprovedGreatsword, 30336) \
+	X(beshmundir, _30337ImprovedPolearm, 30337) \
+	X(beshmundir, _30338ImprovedStaff, 30338) \
+	X(beshmundir, _30339ImprovedSpellbook, 30339) \
+	X(beshmundir, _30340ImprovedOrb, 30340) \
+	X(beshmundir, _30341ImprovedBow, 30341) \
+	X(beshmundir, _30342ImprovedDagger, 30342) \
+	X(beshmundir, _30343ImprovedMace, 30343) \
+	X(beshmundir, _30346ASolemnPromise, 30346) \
+	X(beshmundir, _30347ImprovedPistol, 30347) \
+	X(beshmundir, _30348ImprovedAethercannon, 30348) \
+	X(beshmundir, _30349ImprovedHarp, 30349) \
 	X(black_cloud_traders, _39505BackbitingBotheration, 39505) \
 	X(black_cloud_traders, _39510ZorinerkVersusTheShulacks, 39510) \
 	X(black_cloud_traders, _39515UntruthUpset, 39515) \
@@ -713,6 +765,17 @@
 	X(sauro_supply_base, _18910TheSauroSupplyBase, 18910) \
 	X(sauro_supply_base, _28910AStabbingInSauro, 28910) \
 	X(shugo_imperial_tomb, _80275EventEmpiresPast, 80275) \
+	X(silentera_canyon, _30051BanishingtheShadowborn, 30051) \
+	X(silentera_canyon, _30054PetrificationandPride, 30054) \
+	X(silentera_canyon, _30055ForMyWife, 30055) \
+	X(silentera_canyon, _30056DirvisiasSorrow, 30056) \
+	X(silentera_canyon, _30057JotunJaunt, 30057) \
+	X(silentera_canyon, _30151SnufftheSunsucker, 30151) \
+	X(silentera_canyon, _30154FleshtoStone, 30154) \
+	X(silentera_canyon, _30155StonetoFlesh, 30155) \
+	X(silentera_canyon, _30156NepsLove, 30156) \
+	X(silentera_canyon, _30157VilisMind, 30157) \
+	X(silentera_canyon, _30158JotunJunket, 30158) \
 	X(steel_rake, _3208ThePuzzlingBlueprint, 3208) \
 	X(steel_rake, _3217ImprisonedGuardian, 3217) \
 	X(steel_rake, _3219KeyItemHiddenQuest01, 3219) \

@@ -1,0 +1,37 @@
+{
+ "format": "aion-quest-trace",
+ "version": 1,
+ "questId": 1922,
+ "java": "abyss_entry/_1922DeliveronYourPromises.java",
+ "class": "_1922DeliveronYourPromises",
+ "javaSha256": "68abb02c48b8caaebad076bdde298ee4677c4f2d08fe5e5c43e33541ece90bb8",
+ "register": [
+  {"call": "registerOnQuestCompleted", "args": [1922]},
+  {"call": "registerOnQuestTimerEnd", "args": [1922]},
+  {"call": "registerOnEnterWorld", "args": [1922]},
+  {"npc": 203830, "event": "addOnTalkEvent", "args": [1922]},
+  {"npc": 203901, "event": "addOnTalkEvent", "args": [1922]},
+  {"npc": 203764, "event": "addOnTalkEvent", "args": [1922]},
+  {"npc": 213582, "event": "addOnKillEvent", "args": [1922]},
+  {"npc": 213580, "event": "addOnKillEvent", "args": [1922]},
+  {"npc": 213581, "event": "addOnKillEvent", "args": [1922]}
+ ],
+ "hooks": [
+  {"hook": "onDialogEvent", "line": 40, "unsupported": "call InstanceService.getNextAvailableInstance"},
+  {"hook": "onKillEvent", "line": 123, "unsupported": "call QuestService.questTimerEnd"},
+  {"hook": "onQuestTimerEndEvent", "line": 145, "unsupported": "call TeleportService.teleportTo"},
+  {"hook": "onEnterWorldEvent", "line": 161, "unsupported": "call QuestService.questTimerEnd"},
+  {"hook": "onMovieEndEvent", "line": 184, "unsupported": "call TeleportService.teleportTo"},
+  {"hook": "onQuestCompletedEvent", "line": 193, "cases": 1}
+ ],
+ "cases": [
+  {
+   "id": "onQuestCompletedEvent#1",
+   "hook": "onQuestCompletedEvent",
+   "given": {},
+   "guards": [],
+   "effects": [{"call": "defaultOnQuestCompletedEvent", "kind": "quest", "args": [1921], "line": 194}],
+   "returns": null
+  }
+ ]
+}

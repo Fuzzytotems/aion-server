@@ -399,7 +399,32 @@ SLICE_Q09 = (
 	'pernon/_28809FirstClassorCoach.java', 'pernon/_28826FreetoaGoodHome.java', 'pernon/_28832TakingtheTour.java',
 	'pernon/_28847AHomeThatsYourOwn.java', 'pernon/_51009TheGiftOfCharity.java',
 )
-SLICE = SLICE_TIER_A + SLICE_ROUTE + SLICE_Q03 + SLICE_Q10 + SLICE_Q08 + SLICE_Q01 + SLICE_Q02 + SLICE_Q14 + SLICE_Q13 + SLICE_Q11 + SLICE_Q05 + SLICE_Q09
+# Phase 6 step 2, chunk Q07 (lane C, 2026-10-08; docs/deviations/Q07.md): beshmundir, abyss_entry and silentera_canyon
+SLICE_Q07 = (
+	'abyss_entry/_1920TestingYourMettle.java', 'abyss_entry/_1921TheAbyssQuiz.java',
+	'abyss_entry/_1922DeliveronYourPromises.java', 'abyss_entry/_2945HoningYourSkills.java',
+	'abyss_entry/_2946AbyssGeneralKnowledge.java', 'abyss_entry/_2947FollowingThrough.java', 'beshmundir/_30201SuppliesParty.java',
+	'beshmundir/_30202SuspiciousCeremony.java', 'beshmundir/_30203GroupHalttheCeremony.java',
+	'beshmundir/_30207SoulInvocationCeremony.java', 'beshmundir/_30208GroupTheTruthHurts.java', 'beshmundir/_30210WritteninBlood.java',
+	'beshmundir/_30211GroupTheRodandtheOrb.java', 'beshmundir/_30213GroupMagicalEssence.java', 'beshmundir/_30222AGuardsCurse.java',
+	'beshmundir/_30227GroupToLiberateSouls.java', 'beshmundir/_30235NewSword.java', 'beshmundir/_30236NewGreatsword.java',
+	'beshmundir/_30237NewPolearm.java', 'beshmundir/_30238NewStaff.java', 'beshmundir/_30239NewSpellbook.java',
+	'beshmundir/_30240NewOrb.java', 'beshmundir/_30241NewBow.java', 'beshmundir/_30242NewDagger.java', 'beshmundir/_30243NewMace.java',
+	'beshmundir/_30246YourOathToOutremus.java', 'beshmundir/_30247NewPistol.java', 'beshmundir/_30248NewAethercannon.java',
+	'beshmundir/_30249NewHarp.java', 'beshmundir/_30301TrackingSupplies.java', 'beshmundir/_30302MysteriousMotives.java',
+	'beshmundir/_30303GroupTheFallofIsbariya.java', 'beshmundir/_30307SoulSummoning.java',
+	'beshmundir/_30308GroupSummonRespondentUtra.java', 'beshmundir/_30310RankandBile.java', 'beshmundir/_30311GroupAQuartzIsaQuartz.java',
+	'beshmundir/_30313GroupOpeningthePrison.java', 'beshmundir/_30327GroupMiredSouls.java', 'beshmundir/_30335ImprovedSword.java',
+	'beshmundir/_30336ImprovedGreatsword.java', 'beshmundir/_30337ImprovedPolearm.java', 'beshmundir/_30338ImprovedStaff.java',
+	'beshmundir/_30339ImprovedSpellbook.java', 'beshmundir/_30340ImprovedOrb.java', 'beshmundir/_30341ImprovedBow.java',
+	'beshmundir/_30342ImprovedDagger.java', 'beshmundir/_30343ImprovedMace.java', 'beshmundir/_30346ASolemnPromise.java',
+	'beshmundir/_30347ImprovedPistol.java', 'beshmundir/_30348ImprovedAethercannon.java', 'beshmundir/_30349ImprovedHarp.java',
+	'silentera_canyon/_30051BanishingtheShadowborn.java', 'silentera_canyon/_30054PetrificationandPride.java',
+	'silentera_canyon/_30055ForMyWife.java', 'silentera_canyon/_30056DirvisiasSorrow.java', 'silentera_canyon/_30057JotunJaunt.java',
+	'silentera_canyon/_30151SnufftheSunsucker.java', 'silentera_canyon/_30154FleshtoStone.java', 'silentera_canyon/_30155StonetoFlesh.java',
+	'silentera_canyon/_30156NepsLove.java', 'silentera_canyon/_30157VilisMind.java', 'silentera_canyon/_30158JotunJunket.java',
+)
+SLICE = SLICE_TIER_A + SLICE_ROUTE + SLICE_Q03 + SLICE_Q10 + SLICE_Q08 + SLICE_Q01 + SLICE_Q02 + SLICE_Q14 + SLICE_Q13 + SLICE_Q11 + SLICE_Q05 + SLICE_Q09 + SLICE_Q07
 
 ENUM_FILES = {'QuestStatus': 'questEngine/model/QuestStatus.java', 'Race': 'model/Race.java', 'PlayerClass': 'model/PlayerClass.java',
               'Gender': 'model/Gender.java', 'HandlerResult': 'questEngine/handlers/HandlerResult.java', 'DialogPage': 'model/DialogPage.java',
