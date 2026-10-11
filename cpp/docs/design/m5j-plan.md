@@ -1662,3 +1662,5 @@ without a C++ file; `tools/porting/census.py` for the totals):
 > `///set_enchantcount`; M5e's `///changeclass`, `///classup` (C1.md). `.buy` is deferred with D12 (it pays in the custom instance's
 > coin); if D12 says port, its fieldmap shapes need a decision first (a `Ref<Buy>` of an Immortal command; the static rewards shim).
 > CP6 part 5 done: M5c's `//access`, M5g's `//event` (C1.md; Z17).
+> CP6 part 6 done: M5c's `//sysmail` (C1.md; Z17). Out of CP6: `///wish` (StAX streaming of two XML files; the loaders use a DOM, so it
+> waits for a read-only stream decision), `//fixpath` (D14), `///teleport_to_named` (a handler-local binder), `.buy` (D12).
