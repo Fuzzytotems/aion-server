@@ -1156,4 +1156,5 @@ handlers/ai/portals/HouseGateAI.*, added to P5-11's lease row of `StudioPortalAI
 `tests/handlers_ai_core/HouseAiHandlersTest.cpp`, which compiles the .cpp by #include as it does `StudioPortalAI`'s (the marker; a stranger's
 gate; the creator without a house; a friend of a creator without a house; a friend who is no Daeva; a friend behind a closed door; the
 question with range 9; accepting - `SM_HOUSE_TELEPORT`, the `JUMP_IN_GATE` teleport into the creator's studio and the way back; declining).
-Left to the gate: the group-member arm and a zone that forbids the return (the `DONT_RETURN` question, `setBattleReturnCoords(0, null)`).
+11 of 11 mutants killed. Left to the gate: the group-member arm and a zone that forbids the return (the `DONT_RETURN` question,
+`setBattleReturnCoords(0, null)`).
