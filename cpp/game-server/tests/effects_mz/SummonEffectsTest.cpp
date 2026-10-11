@@ -26,6 +26,8 @@
 #include "aion/gameserver/dataholders/PetSkillData.bind.h"
 #include "aion/gameserver/dataholders/PetSkillData.h"
 #include "aion/gameserver/model/TaskId.h"
+#include "aion/gameserver/runtime/base/Exceptions.h"
+#include "aion/gameserver/skillengine/effect/SummonOwner.h"
 #include "aion/gameserver/model/gameobjects/Homing.h"
 #include "aion/gameserver/model/gameobjects/NpcObjectType.h"
 #include "aion/gameserver/model/gameobjects/Servant.h"
@@ -147,9 +149,24 @@ constexpr const char* SUMMON_EFFECT_SKILLS_XML =
 	R"( skilltype="MAGICAL" skillsubtype="ATTACK" tslot="NONE" activation="ACTIVE" cooldown="0" duration="0" hostile_type="DIRECT")"
 	R"( apply_magical_skill_boost_bonus="true" apply_magical_critical="true"><properties first_target="TARGET" first_target_range="5")"
 	R"( target_relation="ENEMY" target_type="ONLYONE" target_maxcount="1" /><effects><spellatkinstant value="439" e="1" element="EARTH")"
-	R"( hoptype="DAMAGE" /></effects></skill_template>)";
+	R"( hoptype="DAMAGE" /></effects></skill_template>)"
+	// M5j stage 3 CP3: test skills of the residue effects, their effect elements as skill_templates.xml has them - 3541's petorderunsummon
+	// (:60092), 10436's summonfunctionalnpc (:101128, here also without its owner), 1348's summongroupgate (:19672)
+	R"(<skill_template skill_id="64720" name="mz pet order unsummon" nameId="1" stack="MZ_UNSUMMON" lvl="1" skilltype="MAGICAL" skillsubtype="BUFF")"
+	R"( tslot="BUFF" activation="ACTIVE" cooldown="0" duration="0"><properties first_target="ME" target_relation="FRIEND" target_type="ONLYONE" />)"
+	R"(<effects><petorderunsummon duration2="120000" e="1" noresist="true" /></effects></skill_template>)"
+	R"(<skill_template skill_id="64721" name="mz functional npc" nameId="1" stack="MZ_FUNCTIONAL" lvl="1" skilltype="MAGICAL" skillsubtype="SUMMON")"
+	R"( tslot="NONE" activation="ACTIVE" cooldown="0" duration="0"><properties first_target="ME" target_relation="FRIEND" target_type="ONLYONE" />)"
+	R"(<effects><summonfunctionalnpc owner="PRIVATE" npc_id="203711" e="1" noresist="true" hoptype="SKILLLV" hopb="1" /></effects></skill_template>)"
+	R"(<skill_template skill_id="64722" name="mz group gate" nameId="1" stack="MZ_GATE" lvl="1" skilltype="MAGICAL" skillsubtype="NONE")"
+	R"( tslot="NONE" activation="ACTIVE" cooldown="0" duration="0"><properties first_target="POINT" first_target_range="3" target_relation="FRIEND")"
+	R"( target_type="POINT" target_maxcount="1" /><effects><summongroupgate time="60" npc_id="833207" e="1" noresist="true" hoptype="SKILLLV")"
+	R"( hopb="1" /></effects></skill_template>)"
+	R"(<skill_template skill_id="64723" name="mz ownerless functional npc" nameId="1" stack="MZ_FUNCTIONAL2" lvl="1" skilltype="MAGICAL")"
+	R"( skillsubtype="SUMMON" tslot="NONE" activation="ACTIVE" cooldown="0" duration="0"><properties first_target="ME" target_relation="FRIEND")"
+	R"( target_type="ONLYONE" /><effects><summonfunctionalnpc npc_id="203711" e="1" noresist="true" /></effects></skill_template>)";
 
-/** npc_templates.xml: the summoned npcs of the skills above, verbatim */
+/** npc_templates.xml: the summoned npcs of the skills above, verbatim (miriya 203711 without her equipment) */
 constexpr std::string_view SUMMON_EFFECT_NPCS_XML =
 	R"(<npc_templates>)"
 	R"(<npc_template npc_id="833287" level="16" name="earth spirit" name_id="466282" height="1" group_drop="ELEMENTALEARTH1" rank="DISCIPLINED")"
@@ -172,6 +189,12 @@ constexpr std::string_view SUMMON_EFFECT_NPCS_XML =
 	R"(<npc_template npc_id="833209" level="20" name="ice sheet" name_id="466273" height="3" group_drop="NONE" rank="NOVICE" rating="JUNK")"
 	R"( race="ELYOS" tribe="GENERAL" type="ABYSS_GUARD" ai="skillarea" srange="15" attack_speed="2000" hpgauge="1"><stats maxHp="1860" />)"
 	R"(<bound_radius front="0.6" side="1.728" upper="3" /></npc_template>)"
+	R"(<npc_template npc_id="833207" level="1" name="rift" name_id="466272" height="1.8" group_drop="NONE" rank="DISCIPLINED" rating="NORMAL")"
+	R"( tribe="USEALL_TELEPORTER_DA" type="ABYSS_GUARD" ai="groupgate" attack_speed="2000" hpgauge="3"><stats maxHp="172" />)"
+	R"(<bound_radius front="0.5" side="0.7" upper="1.8" /><talk_info distance="3" can_talk_invisible="false" /></npc_template>)"
+	R"(<npc_template npc_id="203711" level="40" name="miriya" name_id="351215" height="2" title_id="350410" group_drop="LIGHT" rank="DISCIPLINED")"
+	R"( rating="NORMAL" race="ELYOS" tribe="GENERAL" type="GENERAL" ai="general" srange="10" sangle="300" arange="2" attack_speed="2000" hpgauge="3">)"
+	R"(<stats maxHp="9426"><speeds walk="1.5" group_walk="1.5" run="6" run_fight="4.2" group_run_fight="4.2" /></stats></npc_template>)"
 	R"(</npc_templates>)";
 
 /** npc_skills.xml's row of the ice sheet, with the test tick skill 64710 for its 17500 */
@@ -189,6 +212,8 @@ constexpr int32_t WAR_FLAG = 833078;
 constexpr int32_t AETHER_GENERATOR = 749211;
 constexpr int32_t CYCLONE = 833371;
 constexpr int32_t ICE_SHEET = 833209;
+constexpr int32_t RIFT = 833207;
+constexpr int32_t MIRIYA = 203711;
 
 class SummonEffectsTest : public EffectsMzTest {
 protected:
@@ -243,7 +268,7 @@ protected:
 
 	std::vector<Ptr<Npc>> spawnedNpcs() {
 		std::vector<Ptr<Npc>> npcs;
-		for (int32_t npcId : {DIVINE_MIRROR, WAR_FLAG, AETHER_GENERATOR, CYCLONE, ICE_SHEET})
+		for (int32_t npcId : {DIVINE_MIRROR, WAR_FLAG, AETHER_GENERATOR, CYCLONE, ICE_SHEET, RIFT, MIRIYA})
 			for (const Ptr<Npc>& found : spawned(npcId))
 				npcs.push_back(found);
 		return npcs;
@@ -622,6 +647,62 @@ TEST_F(SummonEffectsTest, AnOrderOfAnNpcIsNotCalculated) {
 	Ref<Effect> untargeted = Effect::create(*caster, nullptr, skillTemplate(3835), 1);
 	untargeted->initialize();
 	EXPECT_FALSE(untargeted->isInSuccessEffects(1)) << "and an effected";
+}
+
+// --------------------------------------------------------------- the residue effects (M5j stage 3 CP3: PetOrderUnSummon, SummonFunctionalNpc,
+// SummonGroupGate)
+
+/** PetOrderUnSummonEffect.java:23-32: a player effected's spirit is released (PET_ORDER_UNSUMMON_EFFECT); an npc effected has none */
+TEST_F(SummonEffectsTest, PetOrderUnSummonReleasesTheEffectedsSpirit) {
+	EFFECT_TEST_SCOPE;
+	applied(64720, *caster, *npc); // an npc: nothing to release
+	Ref<Summon> spirit(SummonsService::createSummon(*caster, EARTH_SPIRIT, 3644, 1, 0));
+	ASSERT_TRUE(spirit);
+	applied(64720, *caster, *caster);
+	advance(10000);
+	EXPECT_FALSE(spirit->isSpawned()) << "SummonsService.release";
+	EXPECT_FALSE(caster->getSummon());
+	applied(64720, *caster, *caster); // no spirit any more: nothing happens
+}
+
+/** SummonFunctionalNpcEffect.java:25-37: the npc stands for the caster with its owner kind and leaves after 5 minutes */
+TEST_F(SummonEffectsTest, AFunctionalNpcStandsFiveMinutes) {
+	EFFECT_TEST_SCOPE;
+	applied(64721, *caster, *caster);
+	std::vector<Ptr<Npc>> miriyas = spawned(MIRIYA);
+	ASSERT_EQ(miriyas.size(), 1u);
+	Npc& miriya = *miriyas[0];
+	EXPECT_EQ(miriya.getSummonOwner(), std::optional<SummonOwner>(SummonOwner::PRIVATE));
+	EXPECT_EQ(miriya.getCreatorId(), caster->getObjectId());
+	advance(299999);
+	EXPECT_TRUE(miriya.isSpawned());
+	advance(1);
+	EXPECT_FALSE(miriya.isSpawned()) << "300000 ms";
+}
+
+/** SummonFunctionalNpcEffect without an owner: Java stores a null SummonOwner (no skill has one); the C++ effect throws (P5-04.md) */
+TEST_F(SummonEffectsTest, AFunctionalNpcWithoutAnOwnerIsRefused) {
+	EFFECT_TEST_SCOPE;
+	Ref<Effect> effect = calculated(64723, *caster, *caster);
+	EXPECT_THROW(effect->getEffectTemplates()[0]->applyEffect(*effect), runtime::NullPointerException);
+	EXPECT_TRUE(spawned(MIRIYA).empty());
+}
+
+/** SummonGroupGateEffect.java:27-47: the rift stands at the aimed point with the caster's heading and leaves after its time (DESPAWN task) */
+TEST_F(SummonEffectsTest, ARiftStandsWhereItWasAimedForAMinute) {
+	EFFECT_TEST_SCOPE;
+	cast(64722, *caster, 512, 498, 100);
+	std::vector<Ptr<Npc>> rifts = spawned(RIFT);
+	ASSERT_EQ(rifts.size(), 1u);
+	Npc& rift = *rifts[0];
+	EXPECT_FLOAT_EQ(rift.getX(), 512);
+	EXPECT_FLOAT_EQ(rift.getY(), 498);
+	EXPECT_EQ(rift.getHeading(), caster->getHeading());
+	EXPECT_TRUE(rift.getController().hasTask(gameserver::model::TaskId::DESPAWN));
+	advance(59999);
+	EXPECT_TRUE(rift.isSpawned());
+	advance(1);
+	EXPECT_FALSE(rift.isSpawned()) << "time 60 s";
 }
 
 } // namespace
