@@ -169,6 +169,11 @@ void HouseRegistry::save() {
 		dao::PlayerRegisteredItemsDAO::store(*this, getOwner()->getOwnerId());
 }
 
+void HouseRegistry::drop() {
+	objects.clear();
+	decors.clear();
+}
+
 int32_t HouseRegistry::size() {
 	return objects.size() + decors.size();
 }

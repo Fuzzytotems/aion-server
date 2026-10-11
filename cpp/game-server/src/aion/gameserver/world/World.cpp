@@ -205,8 +205,10 @@ bool World::removeObject(VisibleObject& object) {
 	}
 	if (removed) {
 		// C++ only (design §5.4, m5a-plan.md W-05): the census reports the object if it is still referenced after the census threshold; the
-		// dynamic type's name has static storage (std::type_info)
-		runtime::LeakCensus::getInstance().onRemovedFromWorld(object, typeid(object).name(), object.getObjectId());
+		// dynamic type's name has static storage (std::type_info). An object Java keeps on purpose (VisibleObject::isKeptOutsideWorld: a
+		// reusable studio in HousingService.studios) is not tracked
+		if (!object.isKeptOutsideWorld())
+			runtime::LeakCensus::getInstance().onRemovedFromWorld(object, typeid(object).name(), object.getObjectId());
 		if (auto* siegeNpc = dynamic_cast<SiegeNpc*>(&object)) {
 			localSiegeNpcs.get(siegeNpc->getSiegeId())->remove(runtime::Ref<SiegeNpc>(*siegeNpc));
 		} else if (auto* player = dynamic_cast<Player*>(&object)) {

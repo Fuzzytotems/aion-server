@@ -176,6 +176,13 @@ public:
 	/** @return Distance in in-game meters how far this object can be seen/detected (a.k.a. known) */
 	virtual float getVisibleDistance() { return 95; }
 
+	/**
+	 * C++ only (m5h-plan.md 9 risk 3; the owner's option 2 of 2026-10-10): true for an object Java keeps referenced on purpose after it left the
+	 * world, which World::removeObject then does not report to the leak census - a C++-only tool, no behaviour changes. Only House overrides
+	 * it, for a reusable studio (HousingService.studios keeps it for its owner's next entry).
+	 */
+	virtual bool isKeptOutsideWorld() { return false; }
+
 	std::string toString() override;
 
 	/** C++ only (runtime::ZombieBreakable): cuts the zombie-safe edges of this object, LogoutBreakers::breakZombieEdges(*this). */

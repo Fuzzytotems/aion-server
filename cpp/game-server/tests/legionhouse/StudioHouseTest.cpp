@@ -1,7 +1,8 @@
 // M5h H-07 (m5h-plan.md 14.2, HS-4 part 3): the studio's unit cases the gate cannot reach - the studio of each race (HouseData.getStudioAddress,
 // the Asmodian 3001 included), HouseObjectFactory over every kind HousingObjectData binds and from an item (the use_days expiry; the item
 // without a house object; the bare <housedeco/> whose DecorateAction.getTemplateId is 0), the PlayerRegisteredItemsDAO store -> load round trip
-// through createNew (the restart path, HouseRegistry.save then House.reloadHouseRegistry), and HouseController.onDespawn of a reusable studio.
+// through createNew (the restart path, HouseRegistry.save then House.reloadHouseRegistry), HouseController.onDespawn of a reusable studio with
+// the owner's option 2 of 2026-10-10 (its registry dropped and reloaded from the database), and VisibleObject::isKeptOutsideWorld.
 // On the test database (LegionHouseTestSupport.h, run under gate_lock): HousingService's start and the DAOs read and write it.
 //
 // The rows are verbatim with file:line: housing/houses.xml:617-627 (land 329001, the Elyos studio 2001) and :1242-1252 (land 339001, the
@@ -319,14 +320,50 @@ TEST_F(StudioHouseTest, AReusableStudioIsSavedAndReleasedOnDespawn) {
 	ASSERT_TRUE(studio);
 	studio->setSignNotice("back soon");
 	studio->setPosition(world::WorldPosition::create(720010000, 366.242615f, 295.776093f, 222.3536f, int8_t{0}));
+	runtime::Ptr<HouseRegistry> registry = studio->getRegistry();
+	runtime::Ref<go::HouseObject> cake = HouseObjectFactory::createNew(*studio, item(170190034));
+	cake->setX(366.5f);
+	cake->setY(295.25f);
+	cake->setZ(222.35f);
+	registry->putObject(*cake, false);
+	ASSERT_EQ(registry->size(), 1);
 
 	studio->getController().onDespawn(); // HouseController.java:61-69, the studio instance's destroy
 
 	EXPECT_FALSE(studio->getPosition()) << "the destroyed instance is released";
 	EXPECT_FALSE(studio->getButler()) << "clearSpawns";
 	EXPECT_EQ(*lh::queryLong("SELECT COUNT(*) FROM houses WHERE sign_notice = 'back soon' AND player_id = " + std::to_string(player.getObjectId())), 1)
-	  << "the studio is saved: it stays in memory for the owner's next entry";
+	  << "the studio is saved: it stays in HousingService.studios for the owner's next entry";
 	EXPECT_TRUE(services::HousingService::getInstance().getPlayerStudio(player.getObjectId())) << "still the owner's studio";
+	// the owner's option 2 (2026-10-10): the registry is dropped with its objects (stored first), and the next entry reloads it unchanged
+	EXPECT_EQ(registry->size(), 0) << "HouseRegistry::drop forgot the objects, which releases them";
+	EXPECT_EQ(*lh::queryLong("SELECT COUNT(*) FROM player_registered_items WHERE item_unique_id = " + std::to_string(cake->getObjectId())), 1)
+	  << "stored before the drop";
+	runtime::Ptr<HouseRegistry> reloaded = studio->getRegistry();
+	ASSERT_TRUE(reloaded);
+	EXPECT_NE(reloaded.get(), registry.get()) << "a new registry, loaded from the database";
+	runtime::Ptr<go::HouseObject> loadedCake = reloaded->getObjectByObjId(cake->getObjectId());
+	ASSERT_TRUE(loadedCake);
+	EXPECT_NE(loadedCake.get(), cake.get());
+	EXPECT_FLOAT_EQ(loadedCake->getX(), 366.5f);
+	EXPECT_FLOAT_EQ(loadedCake->getY(), 295.25f);
+	EXPECT_EQ(loadedCake->getExpireTime(), cake->getExpireTime());
+}
+
+TEST_F(StudioHouseTest, OnlyAReusableStudioIsKeptOutsideTheWorld) {
+	STUDIO_REQUIRE_DATABASE();
+	// VisibleObject::isKeptOutsideWorld (C++ only): World::removeObject leaves such an object out of the leak census. A reusable studio is in
+	// HousingService.studios (Java keeps it there for the owner's next entry); any other House - and every other object - is still reported
+	go::player::Player& player = owner(410005, "Keeper", model::Race::ELYOS);
+	services::HousingService::getInstance().registerPlayerStudio(player);
+	runtime::Ptr<House> studio = services::HousingService::getInstance().getPlayerStudio(player.getObjectId());
+	ASSERT_TRUE(studio);
+	EXPECT_TRUE(studio->isKeptOutsideWorld());
+	runtime::Ref<House> other = go::VisibleObject::create<House>(dataholders::DataManager::HOUSE_DATA->getAddress(2001), 0);
+	EXPECT_FALSE(other->isKeptOutsideWorld()) << "a House HousingService does not keep as a studio";
+	EXPECT_FALSE(static_cast<go::VisibleObject&>(player).isKeptOutsideWorld()) << "the default";
+	services::HousingService::getInstance().changeOwner(*studio, 0); // removeStudio: no longer kept
+	EXPECT_FALSE(studio->isKeptOutsideWorld());
 }
 
 } // namespace

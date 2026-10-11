@@ -38,6 +38,7 @@
 #include "aion/gameserver/runtime/base/Exceptions.h"
 #include "aion/gameserver/runtime/base/Unported.h"
 #include "aion/gameserver/runtime/sync/Monitor.h"
+#include "aion/gameserver/services/HousingService.h"
 #include "aion/gameserver/services/TownService.h"
 #include "aion/gameserver/taskmanager/tasks/housing/AuctionEndTask.h"
 #include "aion/gameserver/services/player/PlayerService.h"
@@ -232,6 +233,20 @@ void House::reloadHouseRegistry() {
 			// lockdep: Java's synchronized reloadHouseRegistry loads the registry under the house monitor (House.java:250-254)
 			dao::PlayerRegisteredItemsDAO::loadRegistry(*houseRegistry.get());
 	}
+}
+
+void House::dropRegistry() {
+	// no house monitor (lint L7: Java has no such method): it runs at the studio instance's destroy, with nobody inside, right after save()
+	runtime::Ptr<HouseRegistry> dropped = houseRegistry.get();
+	if (!dropped)
+		return;
+	dropped->save();
+	houseRegistry.set(nullptr);
+	dropped->drop(); // the registry's maps have their own locks
+}
+
+bool House::isKeptOutsideWorld() {
+	return services::HousingService::getInstance().findStudio(getObjectId()) == runtime::Ptr<House>(*this);
 }
 
 runtime::Ptr<gameobjects::player::PlayerScripts> House::getPlayerScripts() {

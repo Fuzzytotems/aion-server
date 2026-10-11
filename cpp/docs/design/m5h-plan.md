@@ -1068,9 +1068,11 @@ picture, postbox, storage, use_item, emblem, the passive fallback, the missing t
 none without, the decoration item's missing `SummonHouseObjectAction`; the bare `<housedeco/>` whose `DecorateAction::getTemplateId` is 0; the
 `PlayerRegisteredItemsDAO` store -> load round trip through `createNew` (the restart path: position, rotation, expiry, the chair class, the
 used wallpaper); `HouseController.onDespawn` of a reusable studio (saved, position released, spawns cleared). 6 of 6 mutants killed. Left to
-the gate as planned: `UseableItemObject.onUse` (C17) and the decoration mode (C16). **§9 risk 3, the destroyed studio instance**: Java's
-retention is kept - the registry objects' positions name the destroyed instance until the owner's next entry re-spawns them; there is no
-cycle (cycles.toml `VisibleObject.position`: accepted, cut elsewhere), and C23's census and live counts are clean after C19's destroy. **H-05's
+the gate as planned: `UseableItemObject.onUse` (C17) and the decoration mode (C16). **§9 risk 3, the destroyed studio instance**: first
+kept as Java's retention, then **corrected (the owner's option 2 of 2026-10-10)**: C22 leaves a studio empty at shutdown and the C++-only leak
+census reported its House and furniture, so `HouseController.onDespawn` now drops a reusable studio's registry with its objects after saving
+it (`House::dropRegistry`), the next entry reloads it from the database, and the House itself - kept in `HousingService.studios` as in Java -
+is exempt from the census (`VisibleObject::isKeptOutsideWorld`, true for a reusable studio only; docs/DEVIATIONS.md). **H-05's
 `HouseObject.getPlacementLimit(bool)` stays unported**: Java never calls it.
 
 **L-05's deletions (lane B, 2026-10-08)**: under P5-11 leases of P4-14, P4-16 and P4-17 (chunks.cmake), the stand-ins `legionEmblemTypeValue`,
@@ -1089,8 +1091,8 @@ gone). New decoders `SM_LEGION_EDIT` and `SM_LEGION_HISTORY`; Pauton's and Losad
 scratch build with lane C's stack, but **C23 now fails**: after C22, A logs in at Losadis and never returns to its studio, so the studio's
 `House`, the bed and the cake are removed from the world (the studio instance's destroy) and kept alive by `HousingService` for the owner's next
 entry - Java's retention (§9 risk 3), which the shutdown census reports as leaks and which a production server would report 10 minutes after
-every studio is left. H-07 accepted the retention because no gate case left a studio empty at shutdown; C22 does. The fix needs a decision
-(a runtime census exemption for a reusable studio and its objects, or a C++ breaker that drops them and reloads from the database on entry).
+every studio is left. H-07 accepted the retention because no gate case left a studio empty at shutdown; C22 does. The owner chose to drop
+and reload (option 2, 2026-10-10) with the census exemption for the studio's House (§9 risk 3's correction in the H-07 paragraph above).
 
 ### 14.3 M5h-2: land houses (measured 2026-10-08, lane B; not started - the owner decides whether it is next)
 

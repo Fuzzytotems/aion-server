@@ -2481,7 +2481,7 @@ void runM5hGate() {
 			}
 			cakeSeen |= info.objectId == cakeObject;
 		}
-		EXPECT_TRUE(bedSeen) << "the bed re-spawned from the in-memory registry";
+		EXPECT_TRUE(bedSeen) << "the bed re-spawned where it was moved: the registry reloaded from the database (the owner's option 2, 2026-10-10)";
 		EXPECT_TRUE(cakeSeen);
 		bool wallpaper = false;
 		for (const Packet& packet : ofName(arrival, "SM_HOUSE_RENDER")) {

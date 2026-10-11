@@ -121,6 +121,9 @@ void HouseController::onDespawn() {
 		getOwner().save();
 		getOwner().clearSpawns();
 		getOwner().setPosition(nullptr);
+		// C++ deviation (the owner's option 2 of 2026-10-10, docs/DEVIATIONS.md): Java keeps the registry in memory; the leak census would report
+		// its despawned objects, so it is dropped here and reloaded from the database on the next entry
+		getOwner().dropRegistry();
 	}
 }
 

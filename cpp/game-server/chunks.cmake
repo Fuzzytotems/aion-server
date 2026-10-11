@@ -440,6 +440,13 @@ aion_gs_chunk(P5-11 LEASE PHASE 5
 aion_gs_chunk(P5-11 LEASE PHASE 5
 	GLOBS "aion/gameserver/model/gameobjects/UseableItemObject.cpp")
 
+# The studio drop of M5h (the owner's option 2 of 2026-10-10, m5h-plan.md 9 risk 3; granted 2026-10-11): P5-11 leases
+# controllers/HouseController.cpp from P4-11b (onDespawn drops a reusable studio's registry), model/gameobjects/VisibleObject.h from P4-11a
+# (the additive virtual isKeptOutsideWorld) and world/World.cpp from P4-10 (removeObject does not report such an object to the leak census).
+# Released when the lane merges.
+aion_gs_chunk(P5-11 LEASE PHASE 5
+	GLOBS "aion/gameserver/controllers/HouseController.cpp" "aion/gameserver/model/gameobjects/VisibleObject.h" "aion/gameserver/world/World.cpp")
+
 # L-05 of M5h (m5h-plan.md I-02, granted 2026-10-08): P5-11 leases dao/LegionDAO.cpp from P4-14 (its getType stand-in), and from P4-17
 # serverpackets/detail/PacketSupport.h (the three legion stand-ins) with the eleven P4-17 packets that called them, and from P4-16
 # SM_GM_SHOW_LEGION_MEMBERLIST.cpp - all now call the P5-10f enum companions; tests/sm_lz/OpcodesAndSupportTest.cpp (P4-17's test directory)
