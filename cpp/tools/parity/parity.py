@@ -298,6 +298,33 @@ def _java_rewrites(toks):
                 closers.add(outer)
                 i += 9
                 continue
+        # questgen rule constant-list's static-set shape (lane C, 2026-10-12): `static { X = new HashSet<>(); X.add(1); ... }` is the
+        # std::array initialiser's literals, and `Iterator<Integer> it = X.iterator(); while (it.hasNext()) { int v = it.next();` is
+        # `for (int v : X) {`: neither the HashSet, add, iterator, hasNext nor next is a call
+        if t.text == 'static' and i + 11 < len(toks) and toks[i + 1].text == '{' and [x.text for x in toks[i + 3:i + 12]] == \
+                ['=', 'new', 'HashSet', '<', '>', '(', ')', ';', toks[i + 2].text]:
+            name = toks[i + 2].text
+            j = i + 11
+            vals = []
+            while j + 6 < len(toks) and toks[j].text == name and [x.text for x in toks[j + 1:j + 4]] == ['.', 'add', '('] \
+                    and toks[j + 4].kind == 'number' and [x.text for x in toks[j + 5:j + 7]] == [')', ';']:
+                vals.append(toks[j + 4])
+                j += 7
+            if vals and j < len(toks) and toks[j].text == '}':
+                out += vals
+                i = j + 1
+                continue
+        if t.text == 'Iterator' and i + 30 < len(toks):
+            k = _skip_type_args(toks, i + 1, allow_numbers=False) if toks[i + 1].text == '<' else None
+            if k is not None and k + 26 < len(toks):
+                it, setn = toks[k].text, toks[k + 2].text
+                shape = [it, '=', setn, '.', 'iterator', '(', ')', ';', 'while', '(', it, '.', 'hasNext', '(', ')', ')', '{', 'int']
+                if [x.text for x in toks[k:k + 18]] == shape and [x.text for x in toks[k + 19:k + 26]] == ['=', it, '.', 'next', '(', ')', ';']:
+                    var = toks[k + 18]
+                    out += [Tok('ident', 'for'), Tok('op', '('), Tok('ident', 'int'), var, Tok('op', ':'), Tok('ident', setn), Tok('op', ')'),
+                            Tok('op', '{')]
+                    i = k + 26
+                    continue
         if t.text == 'Arrays' and [x.text for x in toks[i + 1:i + 4]] == ['.', 'asList', '('] and out and out[-1].text == '=':
             close = _match(toks, i + 3)         # `X = Arrays.asList(...)` -> `X = { ... }` (rule constant-list)
             out.append(Tok('op', '{'))
