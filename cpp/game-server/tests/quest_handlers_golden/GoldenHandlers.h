@@ -20,6 +20,7 @@
 // Chunk Q09, the rest (lane C, 2026-10-08): 47 generated handlers of morheim and pernon (GoldenQ09Handlers.cpp; docs/deviations/Q09.md).
 // Chunk Q07 (lane C, 2026-10-08): the 64 generated handlers of beshmundir, abyss_entry and silentera_canyon (GoldenQ07Handlers.cpp; docs/deviations/Q07.md).
 // Chunk Q12 (lane C, 2026-10-08): the 72 generated handlers of theobomos, event_quests and cygnea (GoldenQ12Handlers.cpp; docs/deviations/Q12.md).
+// Chunk Q04 (lane C, 2026-10-13): 67 generated handlers of beluslan and brusthonin (GoldenQ04Handlers.cpp; docs/deviations/Q04.md).
 //
 // P6-Q slice 2, chunk Q03 (2026-09-29): the 72 generated verteron and heiron handlers in the tree (the zones the route's dispatches end in),
 // compiled into this executable by #include as well (GoldenQ03Handlers.cpp); Q03's hand ports 1643 and 3200 have their own unit cases
@@ -439,6 +440,53 @@
 	X(aturam_sky_fortress, _28303JustAnIsland, 28303) \
 	X(bare_truth, _14030RetrievedMemory, 14030) \
 	X(bare_truth, _14031AHyperVention, 14031) \
+	X(beluslan, _16909AMarkofDistinction, 16909) \
+	X(beluslan, _24050NeritasOrders, 24050) \
+	X(beluslan, _24051InvesetigatetheDisappearance, 24051) \
+	X(beluslan, _24052AFrozenCity, 24052) \
+	X(beluslan, _24054CrisisinBeluslan, 24054) \
+	X(beluslan, _2501FallingFragments, 2501) \
+	X(beluslan, _2505LetCookingExpertsCook, 2505) \
+	X(beluslan, _2512FoodforRemotePlaces, 2512) \
+	X(beluslan, _2513TheStrangeCottage, 2513) \
+	X(beluslan, _2514TheRedManeReport, 2514) \
+	X(beluslan, _2515LeanorsErrand, 2515) \
+	X(beluslan, _2523GrassfortheGraveRobbers, 2523) \
+	X(beluslan, _2533BeritrasCurse, 2533) \
+	X(beluslan, _2538CurseoftheWereRibbit, 2538) \
+	X(beluslan, _2539TrystoftheShadow, 2539) \
+	X(beluslan, _2553TheBrigadeGeneralsCall, 2553) \
+	X(beluslan, _2564WiththePowerofFlame, 2564) \
+	X(beluslan, _2569TafisFlameScroll, 2569) \
+	X(beluslan, _2578ARingforLuck, 2578) \
+	X(beluslan, _2583APoliteRequest, 2583) \
+	X(beluslan, _2600HumongousMalek, 2600) \
+	X(beluslan, _2620SummoningPhagrasul, 2620) \
+	X(beluslan, _2630TheDutifulSpy, 2630) \
+	X(beluslan, _2633DestroyingBalaurWeapons, 2633) \
+	X(beluslan, _2641PowwowWiththeMau, 2641) \
+	X(beluslan, _2646TheInscrutableStranger, 2646) \
+	X(beluslan, _2651SpyAFriendsWhereabouts, 2651) \
+	X(beluslan, _2653SpyFindingBollvig, 2653) \
+	X(beluslan, _2654SpyTheLastPersuasion, 2654) \
+	X(beluslan, _2663AcquiringanAntidote, 2663) \
+	X(beluslan, _2664AnAntidotetotheLepharists, 2664) \
+	X(beluslan, _2669AtlaEscape, 2669) \
+	X(beluslan, _2670TheAncientBook, 2670) \
+	X(beluslan, _26909TribalEmblems, 26909) \
+	X(beluslan, _2692BrokenMusicBox, 2692) \
+	X(beluslan, _2693KrallGoneMad, 2693) \
+	X(beluslan, _28600SuspiciousErrand, 28600) \
+	X(beluslan, _28601NightmaresandDreamscapes, 28601) \
+	X(beluslan, _28602IntotheUnknown, 28602) \
+	X(beluslan, _4200ASuspiciousCall, 4200) \
+	X(beluslan, _4501DelayedOrder, 4501) \
+	X(beluslan, _4502EssenceOfFate, 4502) \
+	X(beluslan, _4542TheSecretoftheSeirenTreasure, 4542) \
+	X(beluslan, _80226ATestinDarkPoeta, 80226) \
+	X(beluslan, _80227ASecondTestinDarkPoeta, 80227) \
+	X(beluslan, _80228FinalTestinDarkPoeta, 80228) \
+	X(beluslan, _80229FinalTestinDarkPoeta, 80229) \
 	X(beshmundir, _30201SuppliesParty, 30201) \
 	X(beshmundir, _30202SuspiciousCeremony, 30202) \
 	X(beshmundir, _30203GroupHalttheCeremony, 30203) \
@@ -489,6 +537,26 @@
 	X(black_cloud_traders, _39515UntruthUpset, 39515) \
 	X(black_cloud_traders, _39520VilmanerkVersusDragonbound, 39520) \
 	X(blood_crusade, _48001CallOfTheCrusade, 48001) \
+	X(brusthonin, _4001CheckontheSettlers, 4001) \
+	X(brusthonin, _4004TheSeedsOfHope, 4004) \
+	X(brusthonin, _4011AnOldSettlersLetter, 4011) \
+	X(brusthonin, _4012TroublesomePromise, 4012) \
+	X(brusthonin, _4015TheMissingLaborers, 4015) \
+	X(brusthonin, _4020ParicasSpecialOrder, 4020) \
+	X(brusthonin, _4033ABloominBrusthonin, 4033) \
+	X(brusthonin, _4036HeirnirWantstoRest, 4036) \
+	X(brusthonin, _4038AlasPoorGroznak, 4038) \
+	X(brusthonin, _4042MessageinaBottle, 4042) \
+	X(brusthonin, _4051BukmirsWorry, 4051) \
+	X(brusthonin, _4052BukmirsOldFriend, 4052) \
+	X(brusthonin, _4053GlossyHoe, 4053) \
+	X(brusthonin, _4060TheZombiesDescendant, 4060) \
+	X(brusthonin, _4074GainOrLose, 4074) \
+	X(brusthonin, _4077PorgusRoundup, 4077) \
+	X(brusthonin, _4078ALightThroughtheTrees, 4078) \
+	X(brusthonin, _4082GatheringtheHerbPouches, 4082) \
+	X(brusthonin, _4087NoOrdinaryBranch, 4087) \
+	X(brusthonin, _4101ElimofBrusthonin, 4101) \
 	X(chantra_dredgion, _3721DisarmTheChantraDredgion, 3721) \
 	X(chantra_dredgion, _3722MyNewToy, 3722) \
 	X(chantra_dredgion, _3725MyLuckyNumber, 3725) \

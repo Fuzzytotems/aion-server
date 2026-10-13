@@ -223,6 +223,27 @@ Q12 = {
         '_3093RecetteSecretedeQuenelles', '_3095ADecisiveClue', '_3096ExamineTheExtractionDevices', '_3100AShugosBestFriend',
         '_3102TheDisappearingStatue', '_3103KyprosDesire',),
 }
+# Phase 6 step 2, chunk Q04 (lane C, 2026-10-13; docs/deviations/Q04.md): beluslan and brusthonin
+Q04 = {
+    'beluslan': (
+        '_16909AMarkofDistinction', '_24050NeritasOrders', '_24051InvesetigatetheDisappearance', '_24052AFrozenCity',
+        '_24054CrisisinBeluslan', '_2501FallingFragments', '_2505LetCookingExpertsCook', '_2512FoodforRemotePlaces',
+        '_2513TheStrangeCottage', '_2514TheRedManeReport', '_2515LeanorsErrand', '_2523GrassfortheGraveRobbers', '_2533BeritrasCurse',
+        '_2538CurseoftheWereRibbit', '_2539TrystoftheShadow', '_2553TheBrigadeGeneralsCall', '_2564WiththePowerofFlame',
+        '_2569TafisFlameScroll', '_2578ARingforLuck', '_2583APoliteRequest', '_2600HumongousMalek', '_2620SummoningPhagrasul',
+        '_2630TheDutifulSpy', '_2633DestroyingBalaurWeapons', '_2641PowwowWiththeMau', '_2646TheInscrutableStranger',
+        '_2651SpyAFriendsWhereabouts', '_2653SpyFindingBollvig', '_2654SpyTheLastPersuasion', '_2663AcquiringanAntidote',
+        '_2664AnAntidotetotheLepharists', '_2669AtlaEscape', '_2670TheAncientBook', '_26909TribalEmblems', '_2692BrokenMusicBox',
+        '_2693KrallGoneMad', '_28600SuspiciousErrand', '_28601NightmaresandDreamscapes', '_28602IntotheUnknown', '_4200ASuspiciousCall',
+        '_4501DelayedOrder', '_4502EssenceOfFate', '_4542TheSecretoftheSeirenTreasure', '_80226ATestinDarkPoeta',
+        '_80227ASecondTestinDarkPoeta', '_80228FinalTestinDarkPoeta', '_80229FinalTestinDarkPoeta',),
+    'brusthonin': (
+        '_4001CheckontheSettlers', '_4004TheSeedsOfHope', '_4011AnOldSettlersLetter', '_4012TroublesomePromise',
+        '_4015TheMissingLaborers', '_4020ParicasSpecialOrder', '_4033ABloominBrusthonin', '_4036HeirnirWantstoRest',
+        '_4038AlasPoorGroznak', '_4042MessageinaBottle', '_4051BukmirsWorry', '_4052BukmirsOldFriend', '_4053GlossyHoe',
+        '_4060TheZombiesDescendant', '_4074GainOrLose', '_4077PorgusRoundup', '_4078ALightThroughtheTrees',
+        '_4082GatheringtheHerbPouches', '_4087NoOrdinaryBranch', '_4101ElimofBrusthonin',),
+}
 # Phase 6 step 2, chunk Q13 (lane C, 2026-10-07; docs/deviations/Q13.md): the files of the instance directories A-K that questgen
 # transliterates, all in the tree (87 of 87; kaisinel_academy's three mentor dailies by rule stream-any-match)
 Q13 = {
@@ -443,6 +464,11 @@ class CommittedTree(unittest.TestCase):
                 with self.subTest(file=f'{directory}/{klass}'):
                     self.assertIn((directory, klass), found)
         self.assertEqual(sum(len(classes) for classes in Q12.values()), 72)
+        for directory, classes in Q04.items():
+            for klass in classes:
+                with self.subTest(file=f'{directory}/{klass}'):
+                    self.assertIn((directory, klass), found)
+        self.assertEqual(sum(len(classes) for classes in Q04.values()), 67)
         self.assertEqual(len(Q10_HELD_BACK), 16)
 
     def test_the_enter_world_files_are_in_the_tree(self):

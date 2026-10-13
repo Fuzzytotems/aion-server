@@ -1,0 +1,48 @@
+{
+ "format": "aion-quest-trace",
+ "version": 1,
+ "questId": 2533,
+ "java": "beluslan/_2533BeritrasCurse.java",
+ "class": "_2533BeritrasCurse",
+ "javaSha256": "1be6ed3e2a9b5fe87fc32c0d006323146b83925fda242f92930579cbb55e21e5",
+ "register": [
+  {"npc": 204801, "event": "addOnQuestStart", "args": [2533]},
+  {"npc": 204801, "event": "addOnTalkEvent", "args": [2533]},
+  {"call": "registerQuestItem", "args": [182204425, 2533]},
+  {"call": "registerOnQuestTimerEnd", "args": [2533]}
+ ],
+ "hooks": [
+  {"hook": "onItemUseEvent", "line": 34, "unsupported": "call player.isInsideZone(ZoneName.get(\"BERITRAS_WEAPON_220040000\"))"},
+  {"hook": "onDialogEvent", "line": 48, "unsupported": "call QuestService.questTimerEnd"},
+  {"hook": "onQuestTimerEndEvent", "line": 92, "cases": 3}
+ ],
+ "cases": [
+  {
+   "id": "onQuestTimerEndEvent#1",
+   "hook": "onQuestTimerEndEvent",
+   "given": {"questState": {"status": "START"}},
+   "guards": ["qs != null -> true @95", "qs.getStatus() == QuestStatus.START -> true @95"],
+   "effects": [
+    {"call": "removeQuestItem", "kind": "item", "args": [182204426, 1], "line": 96},
+    {"call": "QuestService.abandonQuest", "kind": "quest", "args": [2533], "line": 97}
+   ],
+   "returns": true
+  },
+  {
+   "id": "onQuestTimerEndEvent#2",
+   "hook": "onQuestTimerEndEvent",
+   "given": {"questState": {"status": "REWARD"}},
+   "guards": ["qs != null -> true @95", "qs.getStatus() == QuestStatus.START -> false @95"],
+   "effects": [],
+   "returns": false
+  },
+  {
+   "id": "onQuestTimerEndEvent#3",
+   "hook": "onQuestTimerEndEvent",
+   "given": {"questState": null},
+   "guards": ["qs != null -> false @95"],
+   "effects": [],
+   "returns": false
+  }
+ ]
+}

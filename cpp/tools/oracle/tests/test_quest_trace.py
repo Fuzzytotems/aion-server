@@ -800,6 +800,27 @@ class Q12SliceTest(unittest.TestCase):
 
 
 @unittest.skipUnless(HAVE_JAVA_TREE, "Java tree not present")
+class Q04SliceTest(unittest.TestCase):
+	"""67 generated handlers of beluslan and brusthonin (SLICE_Q04, phase 6 step 2, lane C, 2026-10-13; docs/deviations/Q04.md)"""
+
+	LEFT_OUT = {'beluslan/_2634TheDraupnirRedemption.java', 'beluslan/_24053TheMaulingoftheMau.java'}
+
+	def test_the_q04_slice(self):
+		java = {f"{d}/{f.name}" for d in ('beluslan', 'brusthonin') for f in (extract.QUEST_DIR / d).glob("*.java")}
+		earlier = set(extract.SLICE_TIER_A + extract.SLICE_ROUTE + extract.SLICE_Q03 + extract.SLICE_Q10 + extract.SLICE_Q08 + extract.SLICE_Q01 +
+		              extract.SLICE_Q02 + extract.SLICE_Q14 + extract.SLICE_Q13 + extract.SLICE_Q11 + extract.SLICE_Q05 + extract.SLICE_Q09 + extract.SLICE_Q07 + extract.SLICE_Q12)
+		self.assertEqual(set(extract.SLICE_Q04) & earlier, set())
+		self.assertEqual(len(extract.SLICE_Q04), 67)
+		self.assertTrue(set(extract.SLICE_Q04) <= java - self.LEFT_OUT)
+		docs = {}
+		for rel in extract.SLICE_Q04:
+			d = extract.trace_file(tables(), extract.QUEST_DIR / rel, rel)
+			docs[d["questId"]] = d
+		self.assertEqual(sorted(q for q, d in docs.items() if not d["cases"]), [2600, 2630, 2663, 2664, 4074, 4200, 28600])
+		self.assertEqual(extract.check(rels=extract.SLICE_Q04, extra=False), [])
+
+
+@unittest.skipUnless(HAVE_JAVA_TREE, "Java tree not present")
 class Q09RestSliceTest(unittest.TestCase):
 	"""the rest of morheim and pernon (SLICE_Q09, phase 6 step 2, lane C, 2026-10-08; docs/deviations/Q09.md, "Phase 6 step 2")"""
 

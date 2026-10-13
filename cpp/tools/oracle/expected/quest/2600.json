@@ -1,0 +1,16 @@
+{
+ "format": "aion-quest-trace",
+ "version": 1,
+ "questId": 2600,
+ "java": "beluslan/_2600HumongousMalek.java",
+ "class": "_2600HumongousMalek",
+ "javaSha256": "f8728cff43efb9c7a226432f9223f72e062403fd7a498bb19b780f0447ace029",
+ "register": [
+  {"npc": 204734, "event": "addOnQuestStart", "args": [2600]},
+  {"npc": 204734, "event": "addOnTalkEvent", "args": [2600]},
+  {"npc": 798119, "event": "addOnTalkEvent", "args": [2600]},
+  {"npc": 700512, "event": "addOnTalkEvent", "args": [2600]}
+ ],
+ "hooks": [{"hook": "onDialogEvent", "line": 31, "unsupported": "call spawnForFiveMinutes"}],
+ "cases": []
+}

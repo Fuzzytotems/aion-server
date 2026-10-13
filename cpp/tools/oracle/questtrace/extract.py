@@ -463,7 +463,33 @@ SLICE_Q12 = (
 	'theobomos/_3096ExamineTheExtractionDevices.java', 'theobomos/_3100AShugosBestFriend.java', 'theobomos/_3102TheDisappearingStatue.java',
 	'theobomos/_3103KyprosDesire.java',
 )
-SLICE = SLICE_TIER_A + SLICE_ROUTE + SLICE_Q03 + SLICE_Q10 + SLICE_Q08 + SLICE_Q01 + SLICE_Q02 + SLICE_Q14 + SLICE_Q13 + SLICE_Q11 + SLICE_Q05 + SLICE_Q09 + SLICE_Q07 + SLICE_Q12
+# Phase 6 step 2, chunk Q04 (lane C, 2026-10-13; docs/deviations/Q04.md): beluslan and brusthonin
+SLICE_Q04 = (
+	'beluslan/_16909AMarkofDistinction.java', 'beluslan/_24050NeritasOrders.java', 'beluslan/_24051InvesetigatetheDisappearance.java',
+	'beluslan/_24052AFrozenCity.java', 'beluslan/_24054CrisisinBeluslan.java', 'beluslan/_2501FallingFragments.java',
+	'beluslan/_2505LetCookingExpertsCook.java', 'beluslan/_2512FoodforRemotePlaces.java', 'beluslan/_2513TheStrangeCottage.java',
+	'beluslan/_2514TheRedManeReport.java', 'beluslan/_2515LeanorsErrand.java', 'beluslan/_2523GrassfortheGraveRobbers.java',
+	'beluslan/_2533BeritrasCurse.java', 'beluslan/_2538CurseoftheWereRibbit.java', 'beluslan/_2539TrystoftheShadow.java',
+	'beluslan/_2553TheBrigadeGeneralsCall.java', 'beluslan/_2564WiththePowerofFlame.java', 'beluslan/_2569TafisFlameScroll.java',
+	'beluslan/_2578ARingforLuck.java', 'beluslan/_2583APoliteRequest.java', 'beluslan/_2600HumongousMalek.java',
+	'beluslan/_2620SummoningPhagrasul.java', 'beluslan/_2630TheDutifulSpy.java', 'beluslan/_2633DestroyingBalaurWeapons.java',
+	'beluslan/_2641PowwowWiththeMau.java', 'beluslan/_2646TheInscrutableStranger.java', 'beluslan/_2651SpyAFriendsWhereabouts.java',
+	'beluslan/_2653SpyFindingBollvig.java', 'beluslan/_2654SpyTheLastPersuasion.java', 'beluslan/_2663AcquiringanAntidote.java',
+	'beluslan/_2664AnAntidotetotheLepharists.java', 'beluslan/_2669AtlaEscape.java', 'beluslan/_2670TheAncientBook.java',
+	'beluslan/_26909TribalEmblems.java', 'beluslan/_2692BrokenMusicBox.java', 'beluslan/_2693KrallGoneMad.java',
+	'beluslan/_28600SuspiciousErrand.java', 'beluslan/_28601NightmaresandDreamscapes.java', 'beluslan/_28602IntotheUnknown.java',
+	'beluslan/_4200ASuspiciousCall.java', 'beluslan/_4501DelayedOrder.java', 'beluslan/_4502EssenceOfFate.java',
+	'beluslan/_4542TheSecretoftheSeirenTreasure.java', 'beluslan/_80226ATestinDarkPoeta.java', 'beluslan/_80227ASecondTestinDarkPoeta.java',
+	'beluslan/_80228FinalTestinDarkPoeta.java', 'beluslan/_80229FinalTestinDarkPoeta.java', 'brusthonin/_4001CheckontheSettlers.java',
+	'brusthonin/_4004TheSeedsOfHope.java', 'brusthonin/_4011AnOldSettlersLetter.java', 'brusthonin/_4012TroublesomePromise.java',
+	'brusthonin/_4015TheMissingLaborers.java', 'brusthonin/_4020ParicasSpecialOrder.java', 'brusthonin/_4033ABloominBrusthonin.java',
+	'brusthonin/_4036HeirnirWantstoRest.java', 'brusthonin/_4038AlasPoorGroznak.java', 'brusthonin/_4042MessageinaBottle.java',
+	'brusthonin/_4051BukmirsWorry.java', 'brusthonin/_4052BukmirsOldFriend.java', 'brusthonin/_4053GlossyHoe.java',
+	'brusthonin/_4060TheZombiesDescendant.java', 'brusthonin/_4074GainOrLose.java', 'brusthonin/_4077PorgusRoundup.java',
+	'brusthonin/_4078ALightThroughtheTrees.java', 'brusthonin/_4082GatheringtheHerbPouches.java', 'brusthonin/_4087NoOrdinaryBranch.java',
+	'brusthonin/_4101ElimofBrusthonin.java',
+)
+SLICE = SLICE_TIER_A + SLICE_ROUTE + SLICE_Q03 + SLICE_Q10 + SLICE_Q08 + SLICE_Q01 + SLICE_Q02 + SLICE_Q14 + SLICE_Q13 + SLICE_Q11 + SLICE_Q05 + SLICE_Q09 + SLICE_Q07 + SLICE_Q12 + SLICE_Q04
 
 ENUM_FILES = {'QuestStatus': 'questEngine/model/QuestStatus.java', 'Race': 'model/Race.java', 'PlayerClass': 'model/PlayerClass.java',
               'Gender': 'model/Gender.java', 'HandlerResult': 'questEngine/handlers/HandlerResult.java', 'DialogPage': 'model/DialogPage.java',
