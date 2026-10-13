@@ -41,6 +41,8 @@
 #include "aion/gameserver/dao/ServerVariablesDAO.h"
 #include "aion/gameserver/dao/SurveyControllerDAO.h"
 #include "aion/gameserver/dao/TownDAO.h"
+#include "aion/gameserver/configs/main/GSConfig.h"
+#include "aion/gameserver/custom/instance/CustomInstanceService.h"
 #include "aion/gameserver/custom/instance/neuralnetwork/PlayerModelEntry.h"
 #include "aion/gameserver/dao/detail/DaoSupport.h"
 #include "aion/gameserver/model/Announcement.h"
@@ -247,6 +249,74 @@ TEST_F(ServerDataDaoTest, CustomInstancePlayerModelEntries) {
 	EXPECT_EQ(loaded[1]->getSkillID(), 1002);
 	EXPECT_EQ(loaded[1]->getPersistentState(), model::gameobjects::Persistable::PersistentState::UPDATED);
 	EXPECT_TRUE(CustomInstancePlayerModelEntryDAO::loadPlayerModelEntries(2).empty());
+}
+
+/** D12-CP2: CustomInstanceService.java:44-111 - the rank created for a player without a row, the rank change keeping the maximum, the entry
+ * cooldown (the last entry against today's or yesterday's 09:00 server time) and its reset to one second before that time */
+TEST_F(ServerDataDaoTest, CustomInstanceServiceRanksAndCooldown) {
+	using custom::instance::CustomInstanceService;
+	CustomInstanceService& service = CustomInstanceService::getInstance();
+	const std::chrono::time_zone* previousZone = configs::main::GSConfig::TIME_ZONE_ID.load();
+	configs::main::GSConfig::TIME_ZONE_ID.store(std::chrono::locate_zone("Europe/Berlin")); // ServerTime's zone (gameserver.timezone)
+	struct Restore {
+		const std::chrono::time_zone* zone;
+		~Restore() { configs::main::GSConfig::TIME_ZONE_ID.store(zone); }
+	} restore{previousZone};
+	insertPlayer(1, "Ranked", 1);
+	EXPECT_TRUE(service.canEnter(1)) << "no row";
+	EXPECT_FALSE(service.resetEntryCooldown(1)) << "no row";
+	EXPECT_EQ(service.loadOrCreateRank(1).getRank(), 0);
+	EXPECT_FALSE(CustomInstanceDAO::loadPlayerRankObject(1)) << "loadOrCreateRank stores nothing";
+
+	EXPECT_TRUE(service.changePlayerRank(1, 7, 1234));
+	EXPECT_TRUE(service.changePlayerRank(1, 3, 99));
+	std::optional<custom::instance::CustomInstanceRank> rank = CustomInstanceDAO::loadPlayerRankObject(1);
+	ASSERT_TRUE(rank);
+	EXPECT_EQ(rank->getRank(), 3);
+	EXPECT_EQ(rank->getMaxRank(), 7) << "the maximum stays";
+	EXPECT_EQ(rank->getDps(), 99);
+
+	const int64_t now = (commons::utils::currentTimeMillis() / 1000) * 1000;
+	EXPECT_TRUE(service.updateLastEntry(1, now));
+	EXPECT_FALSE(service.canEnter(1)) << "entered after the last 09:00";
+	EXPECT_TRUE(service.resetEntryCooldown(1));
+	rank = CustomInstanceDAO::loadPlayerRankObject(1);
+	ASSERT_TRUE(rank);
+	EXPECT_LT(rank->getLastEntry(), now);
+	EXPECT_EQ(rank->getLastEntry() % 1000, 0);
+	EXPECT_GT(rank->getLastEntry(), now - 24 * 3600 * 1000 - 1000) << "one second before the last 09:00";
+	EXPECT_TRUE(service.canEnter(1));
+	EXPECT_FALSE(service.resetEntryCooldown(1)) << "nothing to reset any more";
+	EXPECT_EQ(rank->getRank(), 3);
+	EXPECT_TRUE(service.updateLastEntry(1, now - 2 * 24 * 3600 * 1000));
+	EXPECT_TRUE(service.canEnter(1));
+}
+
+/** D12-CP2: CustomInstanceService.java:122-136 - the cached entries of a player, and saving only the NEW ones (the cache is dropped) */
+TEST_F(ServerDataDaoTest, CustomInstanceServiceSavesTheNewModelEntries) {
+	using custom::instance::CustomInstanceService;
+	using custom::instance::neuralnetwork::PlayerModelEntry;
+	CustomInstanceService& service = CustomInstanceService::getInstance();
+	insertPlayer(1, "Modeled", 1);
+	const commons::database::Timestamp when = detail::toTimestamp((commons::utils::currentTimeMillis() / 1000 - 60) * 1000);
+	auto entry = [&](int32_t skillId) {
+		return PlayerModelEntry::create(1, when, skillId, 7, 80.5f, 60.25f, true, false, true, false, true, 3, 2, true, 50.0f, 40.0f, true, 12.5f,
+			false, true, false, true, false, 4, 5, false);
+	};
+	runtime::Ptr<runtime::RcArrayList<runtime::Ref<PlayerModelEntry>>> cached = service.getPlayerModelEntries(1);
+	EXPECT_EQ(service.getPlayerModelEntries(1).get(), cached.get()) << "computeIfAbsent";
+	runtime::Ref<PlayerModelEntry> fresh = entry(1001);
+	fresh->setPersistentState(model::gameobjects::Persistable::PersistentState::NEW);
+	cached->add(fresh);
+	cached->add(entry(1002)); // from persistence: UPDATED
+	service.saveNewPlayerModelEntries(1);
+	std::vector<runtime::Ref<PlayerModelEntry>> loaded = CustomInstancePlayerModelEntryDAO::loadPlayerModelEntries(1);
+	ASSERT_EQ(loaded.size(), 1u);
+	EXPECT_EQ(loaded[0]->getSkillID(), 1001);
+	EXPECT_EQ(service.getPlayerModelEntries(1)->size(), 0) << "the cache was removed";
+	service.saveNewPlayerModelEntries(1);
+	service.saveNewPlayerModelEntries(2); // no cache: nothing
+	EXPECT_EQ(CustomInstancePlayerModelEntryDAO::loadPlayerModelEntries(1).size(), 1u);
 }
 
 TEST_F(ServerDataDaoTest, CommandAccesses) {
