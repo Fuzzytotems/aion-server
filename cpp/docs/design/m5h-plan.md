@@ -1158,3 +1158,32 @@ gate; the creator without a house; a friend of a creator without a house; a frie
 question with range 9; accepting - `SM_HOUSE_TELEPORT`, the `JUMP_IN_GATE` teleport into the creator's studio and the way back; declining).
 11 of 11 mutants killed. Left to the gate: the group-member arm and a zone that forbids the return (the `DONT_RETURN` question,
 `setBattleReturnCoords(0, null)`).
+
+**H2-4 (lane B, 2026-10-13)**: the gate `gs.scenario.m5h2` (tests/scenario/M5h2ScenarioTest.cpp, gate slot 2), two Elyos accounts A and B:
+L1 the characters (quest 18802 seeded complete, HousingService.canOwnHouse); L2 the bids list; L3 A's bid, A's second bid (the highest bidder,
+refused), B's outbid (A told and refunded by `$$HS_AUCTION_MAIL`), A's twice-the-bid offer (the step limit, refused); L4 the prolonged
+auction ends, B wins (STR_MSG_HOUSING_BID_WIN, the house and the WIN_BID mail); L5 the rent; L6 the door (closed by B, A refused, B enters);
+L7 the relationship crystal (FriendPortalAI's friend-list page, CM_HOUSE_TELEPORT home, CM_HOUSE_TELEPORT_BACK without a return point, the
+leave through the door); L8 the maintenance cron's overdue notices (`$$HS_OVERDUE_1ST`), then across a restart of the game server with B's
+`next_pay` 15 days back the impound (owner 0, `$$HS_OVERDUE_3RD` with 90% of the default price); L9 the reports of both server runs.
+- The profile (tests/scenario/M5h2GateProfile.h): the auto-fill at second 10 of every minute (limit HOUSE 1, the other types 0), the auction
+  end at second 20, the maintenance at second 40, a HOUSE's initial offer 100,000 and bidding level 1, registration every day. With the end
+  every minute every bid lies within 5 minutes of it, so AuctionEndTask prolongs the auction to 5 minutes after the last bid: L4 waits for
+  the prolongation task. Bidding is closed on Sunday from 12:00 (HousingBidService.isBiddingTime): such a run skips L2-L8 with that reason.
+- The clients ping during the long waits (CM_PING 179 s apart): AionConnection closes a connection silent for 185 s, and CM_PING counts a
+  ping sooner than 178 s after the previous one as a timer cheat.
+- FriendPortalAI ("friendportal", A1, P5-11's lease row of StudioPortalAI and HouseGateAI, granted 2026-10-13) is ported with five unit
+  cases: CM_HOUSE_TELEPORT checks the crystal's AI name.
+- The oracle's `m5h-housing --land-house ADDRESS` and the decoders of `SM_HOUSE_TELEPORT`, `SM_HOUSE_PAY_RENT` and `SM_HOUSE_BIDS` (byte tests
+  in HousingDecodersTest.cpp) are the gate's.
+- **To gate once #223 (lane A's SummonGroupGateEffect, m5j stage 3 CP3) is merged**: the house gate's group-member arm and its no-return zone
+  (the DONT_RETURN question, `setBattleReturnCoords(0, null)`); HouseGateAI is unit-tested (H2-3), the house gate cannot be summoned before.
+
+**H2-5 (lane B, 2026-10-13)**: the admin commands `//auction` (Auction.java), `//house` (HouseCommand.java) and `//legion`
+(LegionCommand.java) in C1's handlers/admincommands (new files, no lease: lane A's GM commands go into C1 the same way). Twelve unit cases in
+tests/handlers_commands/C1/HousingCommandsTest.cpp (the syntax, the refusals before the services, a bad number, an unknown house type) and the
+gate's G0-G3 by a third account G at access level 9: `//auction` (auction an Elyos mansion, again, cancel, end, an unknown address), `//house`
+(list, own with G as his own target, own again, tp, reloadscripts, revoke, revoke again) and `//legion` on a seeded legion (info, setlevel and
+its range, setpoints, add A, kick A, rename, an unknown legion, disband). Proposed Java corrections: `//auction add` auctions maxCount + 1
+houses (`++counter > maxCount`); its help text names no `add` keyword, which the code requires; `//legion kick` of a player in no legion is a
+NullPointerException (`target.getLegionMember().isBrigadeGeneral()`).
