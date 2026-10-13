@@ -318,6 +318,41 @@ TEST_F(NpcSkillRotationTest, AQueuedSkillComesFirstAndANextSkillTimeOfZeroSkipsT
 }
 
 /**
+ * Npc.queueSkill(skillId, level[, nextSkillTime[, target]]) (Npc.java:164-174, M5j stage 4 CP3): each queues
+ * new NpcSkillTemplateEntry(new QueuedNpcSkillTemplate(...)) - prob 100, next_skill_time -1 and MOST_HATED unless given - behind the queued
+ * entries before it.
+ */
+TEST_F(NpcSkillRotationTest, NpcQueueSkillOverloadsBuildQueuedTemplateEntries) {
+	AI_TEST_SCOPE;
+	Ref<Npc> kerub = makeWorldNpc(STRIPED_KERUB_NPC_ID);
+	kerub->queueSkill(BRANDISH, 2);
+	Ptr<NpcSkillEntry> first = kerub->getNextQueuedSkill();
+	ASSERT_NE(first, nullptr);
+	EXPECT_EQ(first->getSkillId(), BRANDISH);
+	EXPECT_EQ(first->getSkillLevel(), 2);
+	EXPECT_EQ(first->getNextSkillTime(), -1);
+	EXPECT_EQ(first->getTemplate()->getTarget(), NpcSkillTargetAttribute::MOST_HATED);
+	EXPECT_TRUE(first->chanceReady()) << "prob 100";
+	kerub->queueSkill(BRANDISH, 3, 0);
+	kerub->queueSkill(BRANDISH, 4, 1500, NpcSkillTargetAttribute::ME);
+	EXPECT_EQ(kerub->getNextQueuedSkill().get(), first.get()) << "queued behind the first";
+	kerub->removeNextQueuedSkill(*first);
+	Ptr<NpcSkillEntry> second = kerub->getNextQueuedSkill();
+	ASSERT_NE(second, nullptr);
+	EXPECT_EQ(second->getSkillLevel(), 3);
+	EXPECT_EQ(second->getNextSkillTime(), 0);
+	EXPECT_EQ(second->getTemplate()->getTarget(), NpcSkillTargetAttribute::MOST_HATED);
+	kerub->removeNextQueuedSkill(*second);
+	Ptr<NpcSkillEntry> third = kerub->getNextQueuedSkill();
+	ASSERT_NE(third, nullptr);
+	EXPECT_EQ(third->getSkillLevel(), 4);
+	EXPECT_EQ(third->getNextSkillTime(), 1500);
+	EXPECT_EQ(third->getTemplate()->getTarget(), NpcSkillTargetAttribute::ME);
+	kerub->clearQueuedSkills();
+	EXPECT_EQ(kerub->getNextQueuedSkill(), nullptr);
+}
+
+/**
  * 297192's chain 1 (400030000_Transidium_Annex.xml:339-345): 21287 Agrint Curse opens it, and 16989 Cold Attack (prio 24, max_hp 35) and
  * 17335 Flame Bolt (prio 23) both follow it, prob 100. With more than one follow-up and a priority among them chooseNextSkill sorts the
  * follow-ups highest priority first (SkillAttackManager.java:143-149) and takes the first ready one. The opener's state is what the cast of it

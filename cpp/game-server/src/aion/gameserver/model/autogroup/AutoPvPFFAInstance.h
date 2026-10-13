@@ -8,7 +8,7 @@ namespace aion::gameserver::model::autogroup {
  * The free-for-all and solo arenas (Arena of Chaos, of Discipline, of Glory and their training grounds).
  * <p>
  * Java: model/autogroup/AutoPvPFFAInstance.java. Its `synchronized addLookingForParty` locks the object's Monitor (SYNCHRONIZED(*this)). The
- * arms that reach the arena's PvPArenaScore (onInstanceCreate's difficulty, onPressEnter's port) wait for M5j stage 4 CP3 (J13, P5-10.md).
+ * casts of the instance's score to PvPArenaScore are runtime::cast (Java's ClassCastException).
  *
  * @author xTz
  */

@@ -1,32 +1,13 @@
 #include "aion/gameserver/network/aion/instanceinfo/EternalBastionScoreWriter.h"
 
 #include "aion/gameserver/model/instance/instancescore/InstanceScore.h"
-#include "aion/gameserver/runtime/base/Unported.h"
+#include "aion/gameserver/model/instance/instancescore/NormalScore.h"
 
 namespace aion::gameserver::network::aion::instanceinfo {
 
-namespace {
-
-/**
- * The InstanceScore base of the score passed to a constructor. The score class has no C++ declaration header yet (P5-13), so the conversion
- * cannot be written: reaching a constructor throws UnportedException before the base is initialized.
- */
-[[noreturn]] model::instance::instancescore::InstanceScore& unportedScoreBase() {
-	AION_UNPORTED();
+// Java EternalBastionScoreWriter.java:12-14
+EternalBastionScoreWriter::EternalBastionScoreWriter(model::instance::instancescore::NormalScore& reward) : InstanceScoreWriter(reward) {
 }
-
-} // namespace
-
-#ifdef _MSC_VER
-#pragma warning(push)
-#pragma warning(disable : 4702) // the base initializer never returns until the score class is declared (P5-13)
-#endif
-EternalBastionScoreWriter::EternalBastionScoreWriter(model::instance::instancescore::NormalScore& reward)
-    : InstanceScoreWriter(unportedScoreBase()) {}
-
-#ifdef _MSC_VER
-#pragma warning(pop)
-#endif
 
 EternalBastionScoreWriter::~EternalBastionScoreWriter() = default;
 
@@ -34,8 +15,25 @@ runtime::Ref<EternalBastionScoreWriter> EternalBastionScoreWriter::create(model:
 	return runtime::makeRef<EternalBastionScoreWriter>(reward);
 }
 
+model::instance::instancescore::NormalScore& EternalBastionScoreWriter::score() const {
+	return static_cast<model::instance::instancescore::NormalScore&>(*instanceScore); // constructed from a NormalScore
+}
+
+// Java EternalBastionScoreWriter.java:17-31
 void EternalBastionScoreWriter::writeMe(commons::utils::ByteBuffer& buf) {
-	AION_UNPORTED();
+	writeD(buf, score().getPoints());
+	writeQ(buf, 0); // unk
+	writeD(buf, score().getRank());
+	writeD(buf, 0); // unk
+	writeD(buf, score().getFinalAp());
+	writeD(buf, score().getRewardItem1());
+	writeD(buf, score().getRewardItem1Count());
+	writeD(buf, score().getRewardItem2());
+	writeD(buf, score().getRewardItem2Count());
+	writeD(buf, score().getRewardItem3());
+	writeD(buf, score().getRewardItem3Count());
+	writeD(buf, score().getRewardItem4());
+	writeD(buf, score().getRewardItem4Count());
 }
 
 } // namespace aion::gameserver::network::aion::instanceinfo

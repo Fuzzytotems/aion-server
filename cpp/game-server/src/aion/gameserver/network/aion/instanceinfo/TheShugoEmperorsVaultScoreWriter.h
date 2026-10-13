@@ -12,8 +12,8 @@ namespace aion::gameserver::network::aion::instanceinfo {
 /**
  * Created by Yeats on 01.05.2016.
  * <p>
- * C++: RefCounted like its base (create()). The score class it writes has no C++ declaration header yet (model.instance, P5-13), so the
- * constructors and bodies are AION_UNPORTED until it exists.
+ * C++: RefCounted like its base (create()). The erased base holds the score as InstanceScore; score() is the typed field of Java's generic
+ * InstanceScoreWriter (the constructor takes the score class).
  */
 class TheShugoEmperorsVaultScoreWriter : public InstanceScoreWriter {
 	AION_MAKE_REF_FRIEND
@@ -27,6 +27,10 @@ public:
 	static runtime::Ref<TheShugoEmperorsVaultScoreWriter> create(model::instance::instancescore::NormalScore& reward);
 
 	void writeMe(commons::utils::ByteBuffer& buf) override;
+
+private:
+	/** Java: the typed field instanceScore (InstanceScoreWriter<NormalScore>) */
+	model::instance::instancescore::NormalScore& score() const;
 };
 
 } // namespace aion::gameserver::network::aion::instanceinfo

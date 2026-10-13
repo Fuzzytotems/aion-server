@@ -15,8 +15,8 @@ namespace aion::gameserver::network::aion::instanceinfo {
 /**
  * @author xTz
  * <p>
- * C++: RefCounted like its base (create()). The score class it writes has no C++ declaration header yet (model.instance, P5-13), so the
- * constructors and bodies are AION_UNPORTED until it exists.
+ * C++: RefCounted like its base (create()). The erased base holds the score as InstanceScore; score() is the typed field of Java's generic
+ * InstanceScoreWriter (the constructor takes the score class).
  */
 class HarmonyScoreWriter : public InstanceScoreWriter {
 	AION_MAKE_REF_FRIEND
@@ -41,6 +41,9 @@ public:
 	void writeMe(commons::utils::ByteBuffer& buf) override;
 
 private:
+	/** Java: the typed field instanceScore (InstanceScoreWriter<HarmonyArenaScore>) */
+	model::instance::instancescore::HarmonyArenaScore& score() const;
+
 	void writePoints(commons::utils::ByteBuffer& buf, const model::templates::rewards::ArenaRewardItem& rewardItem);
 
 	void writeReward(commons::utils::ByteBuffer& buf, const model::templates::rewards::ArenaRewardItem& rewardItem);
