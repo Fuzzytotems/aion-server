@@ -72,6 +72,7 @@
 #include <sstream>
 #include <string>
 #include <tuple>
+#include <unordered_set>
 #include <vector>
 
 #include <gtest/gtest.h>
@@ -93,6 +94,7 @@
 #include "aion/gameserver/model/gameobjects/player/QuestStateList.h"
 #include "aion/gameserver/model/gameobjects/player/RecipeList.h"
 #include "aion/gameserver/model/gameobjects/player/npcFaction/NpcFactions.h"
+#include "aion/gameserver/dataholders/SkillData.h"
 #include "aion/gameserver/model/craft/ProfessionInfo.h"
 #include "aion/gameserver/model/skill/PlayerSkillEntry.h"
 #include "aion/gameserver/model/skill/PlayerSkillList.h"
@@ -216,6 +218,7 @@ struct GoldenData {
 	std::string questsXml;
 	std::string npcsXml;
 	std::string itemsXml;       // rows to append to the item fixture
+	std::string skillsXml;      // chunk Q06: the gathering and crafting skills' templates (skillList.addSkill), a <skill_data> document
 	std::map<int32_t, QuestRow> quests;
 	std::string experienceXml;  // the whole player_experience_table.xml (P6-Q slice 2: quests up to level 50; the fixture has 26 levels)
 };
@@ -355,6 +358,18 @@ const GoldenData& goldenData() {
 				rows += printed(item);
 		}
 		d.itemsXml = rows;
+		// chunk Q06 (lane C, 2026-10-13): the essence- and aethertapping and crafting skills, whose templates PlayerSkillEntry reads when the
+		// crafting quests' skillList.addSkill adds one (PlayerSkillList.addSkill)
+		const std::set<int32_t> craftSkills{30002, 30003, 40001, 40002, 40003, 40004, 40007, 40008, 40010};
+		pugi::xml_document skillsDoc;
+		if (!skillsDoc.load_file((STATIC_DATA / "skills/skill_templates.xml").c_str()))
+			throw std::runtime_error("cannot read skill_templates.xml");
+		rows.clear();
+		for (pugi::xml_node skill : skillsDoc.document_element().children("skill_template")) {
+			if (craftSkills.contains(skill.attribute("skill_id").as_int()))
+				rows += printed(skill);
+		}
+		d.skillsXml = "<skill_data>" + rows + "</skill_data>";
 		std::ifstream experience(STATIC_DATA / "player_experience_table.xml", std::ios::binary);
 		if (!experience)
 			throw std::runtime_error("cannot read player_experience_table.xml");
@@ -393,10 +408,21 @@ struct Outcome {
 	std::vector<std::vector<uint8_t>> keyPackets;               // SM_DIALOG_WINDOW, SM_QUEST_ACTION, SM_PLAY_MOVIE, SM_ITEM_USAGE_ANIMATION
 	std::map<int32_t, QuestStateRow> questStates;
 	std::map<int32_t, int64_t> inventory;                       // item id -> count
-	bool observable = false;                                    // a packet was sent, or a QuestState or the inventory changed
+	std::map<int32_t, int32_t> skills;                          // skill id -> level (chunk Q06: the crafting quests' skillList.addSkill)
+	bool observable = false;                                    // a packet was sent, or a QuestState, the inventory or the skills changed
 	std::string replayError;                                    // an effect the replay does not model
 	std::set<std::string> unported;                             // the AION_UNPORTED sites the run reached ("file:line function")
 };
+
+/** chunk Q06 (lane C, 2026-10-13): the player's skills and their levels (the crafting quests' skillList.addSkill) */
+std::map<int32_t, int32_t> skillsOf(gameserver::model::gameobjects::player::Player& player) {
+	std::map<int32_t, int32_t> out;
+	for (int32_t skillId : {30002, 30003, 40001, 40002, 40003, 40004, 40007, 40008, 40010}) {
+		if (player.getSkillList()->isSkillPresent(skillId))
+			out[skillId] = player.getSkillList()->getSkillLevel(skillId);
+	}
+	return out;
+}
 
 /** Every AION_UNPORTED site reached so far with its hits (runtime/base/Unported.h), keyed "file:line function" */
 std::map<std::string, uint64_t> unportedSites() {
@@ -840,6 +866,8 @@ protected:
 		itemsXml += "</item_templates>";
 		dataholders::DataManager::ITEM_DATA.resetForTests();
 		dataholders::DataManager::ITEM_DATA.publish(xml::bindString<dataholders::ItemData>(contexts.emplace_back(), itemsXml));
+		dataholders::DataManager::SKILL_DATA.resetForTests();
+		dataholders::DataManager::SKILL_DATA.publish(xml::bindString<dataholders::SkillData>(contexts.emplace_back(), data.skillsXml));
 		// the real experience table (QuestHandlerTestSupport.h publishes its first 26 levels): a quester of a level past it throws at creation
 		// ("The given level is higher than possible max", PlayerExperienceTable.getStartExpForLevel), and P6-Q slice 2's quests start at levels up to
 		// 48 (Q03's Heiron) and 50 (Q10's altgard and pandaemonium)
@@ -856,6 +884,7 @@ protected:
 
 	void TearDown() override {
 		dataholders::DataManager::SKILL_TREE_DATA.resetForTests();
+		dataholders::DataManager::SKILL_DATA.resetForTests();
 		configs::main::CustomConfig::BASIC_QUEST_SIZE_LIMIT.store(savedQuestSizeLimit);
 		configs::main::MembershipConfig::QUEST_LIMIT_DISABLED.store(savedQuestLimitDisabled);
 		QuestHandlerTest::TearDown();
@@ -1032,7 +1061,21 @@ protected:
 		} else {
 			player.setSkillList(gameserver::model::skill::PlayerSkillList::create());
 		}
-		player.setRecipeList(gameserver::model::gameobjects::player::RecipeList::create());
+		// chunk Q06 (lane C, 2026-10-13): the recipes the case names present (extract.py `recipes`, RecipeList.isRecipePresent), as the DAO
+		// loads them
+		if (given.contains("recipes")) {
+			std::unordered_set<int32_t> recipes;
+			for (const auto& [recipe, present] : given["recipes"].items()) {
+				if (present.get<bool>())
+					recipes.insert(std::stoi(recipe));
+			}
+			player.setRecipeList(gameserver::model::gameobjects::player::RecipeList::create(recipes));
+		} else {
+			player.setRecipeList(gameserver::model::gameobjects::player::RecipeList::create());
+		}
+		// a full special cube (extract.py player.fullSpecialCube) needs items whose templates name an extra inventory: not modelled
+		if (given.contains("player") && given["player"].value("fullSpecialCube", false))
+			out.replayError = "the harness does not fill the special cube (player.fullSpecialCube true)";
 		if (overlay.classPermitted && goldenData().quests.at(questId).classPermitted)
 			quester->f.commonData->setPlayerClass(*goldenData().quests.at(questId).classPermitted);
 		if (given.contains("player") && given["player"].contains("class")) {
@@ -1137,6 +1180,7 @@ protected:
 		}
 		std::map<int32_t, QuestStateRow> statesBefore = questStatesOf(player);
 		std::map<int32_t, int64_t> inventoryBefore = inventoryOf(player);
+		std::map<int32_t, int32_t> skillsBefore = skillsOf(player);
 		quester->clearSent();
 		commons::utils::Rnd::seedCurrentThreadForTests(RUN_SEED);
 		// the Q10 review: a run that reaches an unported engine body throws the same UnportedException in both runs, which the thrown comparison
@@ -1210,7 +1254,8 @@ protected:
 		}
 		out.questStates = questStatesOf(player);
 		out.inventory = inventoryOf(player);
-		out.observable = !out.opcodes.empty() || out.questStates != statesBefore || out.inventory != inventoryBefore;
+		out.skills = skillsOf(player);
+		out.observable = !out.opcodes.empty() || out.questStates != statesBefore || out.inventory != inventoryBefore || out.skills != skillsBefore;
 		drainTasks();
 		if (group) {
 			for (Quester* mate : mates)
@@ -1550,6 +1595,10 @@ protected:
 				result = services::craft::CraftSkillUpdateService::getInstance().canLearnMoreExpertCraftingSkill(player);
 			else if (call == "CraftSkillUpdateService.canLearnMoreMasterCraftingSkill" && a.empty())
 				result = services::craft::CraftSkillUpdateService::getInstance().canLearnMoreMasterCraftingSkill(player);
+			else if (call == "inventory.decreaseKinah" && a.size() == 1)
+				player.getInventory().decreaseKinah(a[0].get<int64_t>());
+			else if (call == "skillList.addSkill" && a.size() == 2)
+				result = player.getSkillList()->addSkill(player, a[0].get<int32_t>(), a[1].get<int32_t>());
 			else if (call == "HousingService.registerPlayerStudio" && a.empty())
 				::aion::gameserver::services::HousingService::getInstance().registerPlayerStudio(player);
 			// lane C (phase 6 step 1): the effects of the hooks and closures the harness drives since (extract.py: ThreadPoolManager.schedule,
@@ -1764,6 +1813,7 @@ protected:
 					check(actual.opcodes == expected.opcodes, "opcodes", "the packet opcode sequence differs");
 					check(actual.questStates == expected.questStates, "questStates", "the quest states afterwards differ");
 					check(actual.inventory == expected.inventory, "inventory", "the inventory afterwards differs");
+					check(actual.skills == expected.skills, "skills", "the skill list afterwards differs");
 					// the review of #79, item 1: what each run looked like before and at each task delay, and the tasks left after the last one
 					check(actual.timeline == expected.timeline, "timeline",
 						"the task timeline differs (a task ran before or after its delay, or the hook ran it inline)");
@@ -2074,6 +2124,9 @@ const std::set<std::string>& knownNotReproducible() {
 		"80227 onDialogEvent#9",
 		"80228 onDialogEvent#9",
 		"80229 onDialogEvent#9",
+		// chunk Q06 (lane C, 2026-10-13): a full special cube (extract.py player.fullSpecialCube): the harness has no special-cube item to fill it
+		"29000 onDialogEvent#16",
+		"24021 onDialogEvent#20",
 	};
 	return known;
 }
@@ -2128,6 +2181,9 @@ const std::map<std::string, std::string>& knownVacuous() {
 		"does not change and nothing is sent (AbstractQuestHandler.java useQuestObject)";
 	static const std::string START_REFUSED = "sendQuestStartDialog with an accept action whose QuestService.startQuest refuses the quest in "
 		"the harness's setups, after which the helper sends nothing (AbstractQuestHandler.java:373-388)";
+	// chunk Q06 (lane C, 2026-10-13)
+	static const std::string KINAH_NONE = "decreaseKinah of a quester who holds no kinah: Storage.decreaseItemCount takes at most "
+		"the count, so nothing changes and nothing is sent (Storage.java decreaseKinah)";
 	static const std::string KILLS_ASSUMED_FALSE = "every kill helper of the path assumed false: it changes nothing then (AbstractQuestHandler.java "
 		"defaultOnKillEvent)";
 	static const std::map<std::string, std::string> known = [] {
@@ -2515,6 +2571,15 @@ const std::map<std::string, std::string>& knownVacuous() {
 		{"4501 onDialogEvent#10", IDLE_END},
 		{"80228 onKillEvent#2", KILLS_ASSUMED_FALSE},
 		{"80229 onKillEvent#2", KILLS_ASSUMED_FALSE},
+		// chunk Q06 (lane C, 2026-10-13): SETPRO10 of the master cooks takes 6500 kinah unconditionally (_19038MasterCooksPotential.java:101)
+		{"19038 onDialogEvent#50", KINAH_NONE},
+		{"19038 onDialogEvent#53", KINAH_NONE},
+		{"19038 onDialogEvent#56", KINAH_NONE},
+		{"19038 onDialogEvent#59", KINAH_NONE},
+		{"29038 onDialogEvent#50", KINAH_NONE},
+		{"29038 onDialogEvent#53", KINAH_NONE},
+		{"29038 onDialogEvent#56", KINAH_NONE},
+		{"29038 onDialogEvent#59", KINAH_NONE},
 		};
 		// P6-Q slice 2 (Q10): the altgard and pandaemonium traces (GoldenKnownVacuousQ10.h)
 		for (const auto& [key, kind] : Q10_VACUOUS) {
@@ -2557,24 +2622,24 @@ const std::map<std::string, std::string>& knownUnported() {
  * (getEquipment); daevanion 1989, 2989 (PlayerCommonData.getDp), 1993, 1994, 2993, 2994 (a for loop the oracle does not unroll).
  * Chunk Q05, the rest (lane C): eltnen 1430, 1482 (TeleportService.teleportTo), 1463 (an item count read after removeQuestItem), 1468
  * (EmotionId.STAND), 1483, 1484 (workItems.getFirst). Chunk Q09, the rest (lane C): morheim 2422, 2423 (TeleportService.teleportTo), 2430
- * (getKinah), 2443 (CreatureState.FLYING), 2493 (getController())
+ * (getKinah until 2026-10-13: it has cases now), 2443 (CreatureState.FLYING), 2493 (getController())
  * Chunk Q07 (lane C): beshmundir 30208, 30308 (getController(), spawnInFrontOf), silentera_canyon 30056, 30156, 30157 (spawnForFiveMinutes)
  * Chunk Q12 (lane C): theobomos 3074, 3090 (getKinah), 3082 (spawnForFiveMinutes), 3088 (decreaseByItemId); event_quests 80000, 80001, 80008 (QuestService.startEventQuest), 80020, 80021 (a cast to Creature)
  * The butler quests (lane C): oriel 18821, pernon 28821 (player.getActiveHouse(), their only hook)
  * Chunk Q04 (lane C): beluslan 2600 (spawnForFiveMinutes), 2630, 28600 (a status read after sendQuestNoneDialog), 2663, 2664 (workItems.getFirst), 4200 (InstanceService.getNextAvailableInstance, TeleportService.teleportTo); brusthonin 4074 (getKinah)
- * Chunk Q06 (lane C): crafting 19001, 19003, 29001, 29003 (player.getSkillList().addSkill), 29000 (isFullSpecialCube), 19057, 29057 (getKinah);
- * the other 40 of the 47 got their cases with the CraftSkillUpdateService predicates (extract.py craft_predicate, 2026-10-13)
+ * Chunk Q06 (lane C): crafting 19057, 29057 (an item count read after collectItemCheck); the other 45 of the 47 got their cases with the
+ * CraftSkillUpdateService predicates, the kinah, skill-list, recipe and special-cube rows (extract.py, 2026-10-13), and 2430 (Q09) with the kinah
  */
 constexpr int32_t ORACLE_REFUSES_EVERY_HOOK[] = {1205, 2132, 1640, 1647, 2925, 2938, 2952, 4966, 4967, 4968, 4969, 21004, 21027, 21033, 21036,
 	21071, 21105, 21249, 25052, 2798, 11031, 11032, 11033, 11053, 11118, 3208, 3217, 3219, 3220, 4208, 4217, 4219, 4220, 3939, 3940, 30553,
 	4943, 4944, 30217, 30317, 39505, 39510, 39515, 39520,
 	1900, 1901, 1917, 1926, 1932, 1938, 1947, 1963, 1964, 1989, 1993, 1994, 2989, 2993, 2994, 3908, 3961, 3962, 3963, 3964, 80291, 80295,
-	1430, 1463, 1468, 1482, 1483, 1484, 2422, 2423, 2430, 2443, 2493,
+	1430, 1463, 1468, 1482, 1483, 1484, 2422, 2423, 2443, 2493,
 	30056, 30156, 30157, 30208, 30308,
 	3074, 3082, 3088, 3090, 80000, 80001, 80008, 80020, 80021,
 	18821, 28821,
 	2600, 2630, 2663, 2664, 28600, 4074, 4200,
-	19001, 19003, 19057, 29000, 29001, 29003, 29057};
+	19057, 29057};
 
 TEST_F(GoldenQuestTraceTest, EveryExpectedDocumentHasAGeneratedHandlerAndEveryHandlerADocument) {
 	std::vector<int32_t> ids = expectedQuestIds();

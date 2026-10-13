@@ -10,6 +10,8 @@
   {"npc": 798450, "event": "addOnTalkEvent", "args": [19057]},
   {"npc": 798451, "event": "addOnTalkEvent", "args": [19057]}
  ],
- "hooks": [{"hook": "onDialogEvent", "line": 35, "unsupported": "call player.getInventory().getKinah()"}],
+ "hooks": [
+  {"hook": "onDialogEvent", "line": 35, "unsupported": "reads inv/152203543 after QuestService.collectItemCheck, which may have written it"}
+ ],
  "cases": []
 }
