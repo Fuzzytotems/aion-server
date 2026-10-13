@@ -1,0 +1,15 @@
+{
+ "format": "aion-quest-trace",
+ "version": 1,
+ "questId": 2663,
+ "java": "beluslan/_2663AcquiringanAntidote.java",
+ "class": "_2663AcquiringanAntidote",
+ "javaSha256": "a3fafac0030d190e08041419aa7ad908cc722c05c7ab9db495e0018631faf84d",
+ "register": [
+  {"npc": 204777, "event": "addOnQuestStart", "args": [2663]},
+  {"npc": 204777, "event": "addOnTalkEvent", "args": [2663]},
+  {"npc": 204790, "event": "addOnTalkEvent", "args": [2663]}
+ ],
+ "hooks": [{"hook": "onDialogEvent", "line": 31, "unsupported": "call workItems.getFirst"}],
+ "cases": []
+}

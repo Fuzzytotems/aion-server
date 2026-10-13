@@ -1998,6 +1998,17 @@ const std::set<std::string>& knownNotReproducible() {
 		"80330 onDialogEvent#3",
 		"80331 onDialogEvent#17",
 		"80331 onDialogEvent#3",
+		// Chunk Q04 (lane C, 2026-10-13): 80226-80229 a COMPLETE state with canRepeat false, which max_repeat_count 255 never gives;
+		// 4004 #11, #12: useQuestObject kills the target npc (KILLS_TARGET, as 1612); 24050 onEnterWorldEvent#2: QuestService.startQuest
+		// assumed true, which refuses in the harness's setups (as START_REFUSED)
+		"24050 onEnterWorldEvent#2",
+		"4004 onDialogEvent#11",
+		"4004 onDialogEvent#11@questState.vars.0=3",
+		"4004 onDialogEvent#12",
+		"80226 onDialogEvent#9",
+		"80227 onDialogEvent#9",
+		"80228 onDialogEvent#9",
+		"80229 onDialogEvent#9",
 	};
 	return known;
 }
@@ -2385,6 +2396,60 @@ const std::map<std::string, std::string>& knownVacuous() {
 		{"80147 onDialogEvent#7", REWARD_DIALOG_IDLE},
 		{"80149 onDialogEvent#6", REWARD_DIALOG_IDLE},
 		{"80149 onDialogEvent#7", REWARD_DIALOG_IDLE},
+		// chunk Q04 (lane C, 2026-10-13)
+		{"2501 onDialogEvent#8", IDLE_END},
+		{"2512 onDialogEvent#20", IDLE_END},
+		{"2512 onDialogEvent#21", IDLE_END},
+		{"2512 onDialogEvent#8", IDLE_END},
+		{"2514 onDialogEvent#8", IDLE_END},
+		{"2515 onDialogEvent#8", IDLE_END},
+		{"2523 onDialogEvent#32", IDLE_END},
+		{"2523 onDialogEvent#33", IDLE_END},
+		{"2523 onDialogEvent#8", IDLE_END},
+		{"2538 onDialogEvent#10", REWARD_PAGE},
+		{"2539 onDialogEvent#8", IDLE_END},
+		{"2553 onDialogEvent#8", IDLE_END},
+		{"2569 onDialogEvent#20", IDLE_END},
+		{"2569 onDialogEvent#21", IDLE_END},
+		{"2569 onDialogEvent#8", IDLE_END},
+		{"2578 onDialogEvent#16", IDLE_END},
+		{"2578 onDialogEvent#17", IDLE_END},
+		{"2583 onDialogEvent#8", IDLE_END},
+		{"2641 onDialogEvent#25", IDLE_END},
+		{"2641 onDialogEvent#26", IDLE_END},
+		{"2646 onDialogEvent#10", REWARD_PAGE},
+		{"2653 onDialogEvent#13", IDLE_END},
+		{"2653 onDialogEvent#14", IDLE_END},
+		{"2654 onDialogEvent#7", IDLE_END},
+		{"2654 onDialogEvent#8", IDLE_END},
+		{"2670 onDialogEvent#10", IDLE_END},
+		{"2670 onDialogEvent#11", IDLE_END},
+		{"2692 onDialogEvent#8", IDLE_END},
+		{"2693 onDialogEvent#13", IDLE_END},
+		{"2693 onDialogEvent#14", IDLE_END},
+		{"4001 onDialogEvent#26", IDLE_END},
+		{"4001 onDialogEvent#27", IDLE_END},
+		{"4001 onDialogEvent#8", IDLE_END},
+		{"4012 onDialogEvent#13", IDLE_END},
+		{"4015 onDialogEvent#9", IDLE_END},
+		{"4020 onDialogEvent#8", IDLE_END},
+		{"4036 onDialogEvent#20", IDLE_END},
+		{"4036 onDialogEvent#21", IDLE_END},
+		{"4036 onDialogEvent#8", IDLE_END},
+		{"4052 onDialogEvent#8", IDLE_END},
+		{"4053 onDialogEvent#16", IDLE_END},
+		{"4053 onDialogEvent#17", IDLE_END},
+		{"4060 onDialogEvent#22", IDLE_END},
+		{"4060 onDialogEvent#23", IDLE_END},
+		{"4082 onDialogEvent#11", IDLE_END},
+		{"4087 onDialogEvent#4", IDLE_END},
+		{"4087 onDialogEvent#5", IDLE_END},
+		{"4101 onDialogEvent#32", IDLE_END},
+		{"4101 onDialogEvent#33", IDLE_END},
+		{"4101 onDialogEvent#8", IDLE_END},
+		{"4501 onDialogEvent#10", IDLE_END},
+		{"80228 onKillEvent#2", KILLS_ASSUMED_FALSE},
+		{"80229 onKillEvent#2", KILLS_ASSUMED_FALSE},
 		};
 		// P6-Q slice 2 (Q10): the altgard and pandaemonium traces (GoldenKnownVacuousQ10.h)
 		for (const auto& [key, kind] : Q10_VACUOUS) {
@@ -2431,6 +2496,7 @@ const std::map<std::string, std::string>& knownUnported() {
  * Chunk Q07 (lane C): beshmundir 30208, 30308 (getController(), spawnInFrontOf), silentera_canyon 30056, 30156, 30157 (spawnForFiveMinutes)
  * Chunk Q12 (lane C): theobomos 3074, 3090 (getKinah), 3082 (spawnForFiveMinutes), 3088 (decreaseByItemId); event_quests 80000, 80001, 80008 (QuestService.startEventQuest), 80020, 80021 (a cast to Creature)
  * The butler quests (lane C): oriel 18821, pernon 28821 (player.getActiveHouse(), their only hook)
+ * Chunk Q04 (lane C): beluslan 2600 (spawnForFiveMinutes), 2630, 28600 (a status read after sendQuestNoneDialog), 2663, 2664 (workItems.getFirst), 4200 (InstanceService.getNextAvailableInstance, TeleportService.teleportTo); brusthonin 4074 (getKinah)
  */
 constexpr int32_t ORACLE_REFUSES_EVERY_HOOK[] = {1205, 2132, 1640, 1647, 2925, 2938, 2952, 4966, 4967, 4968, 4969, 21004, 21027, 21033, 21036,
 	21071, 21105, 21249, 25052, 2798, 11031, 11032, 11033, 11053, 11118, 3208, 3217, 3219, 3220, 4208, 4217, 4219, 4220, 3939, 3940, 30553,
@@ -2439,7 +2505,8 @@ constexpr int32_t ORACLE_REFUSES_EVERY_HOOK[] = {1205, 2132, 1640, 1647, 2925, 2
 	1430, 1463, 1468, 1482, 1483, 1484, 2422, 2423, 2430, 2443, 2493,
 	30056, 30156, 30157, 30208, 30308,
 	3074, 3082, 3088, 3090, 80000, 80001, 80008, 80020, 80021,
-	18821, 28821};
+	18821, 28821,
+	2600, 2630, 2663, 2664, 28600, 4074, 4200};
 
 TEST_F(GoldenQuestTraceTest, EveryExpectedDocumentHasAGeneratedHandlerAndEveryHandlerADocument) {
 	std::vector<int32_t> ids = expectedQuestIds();
