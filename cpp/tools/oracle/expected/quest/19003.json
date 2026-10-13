@@ -1,0 +1,15 @@
+{
+ "format": "aion-quest-trace",
+ "version": 1,
+ "questId": 19003,
+ "java": "crafting/_19003ExpertAethertappingExpert.java",
+ "class": "_19003ExpertAethertappingExpert",
+ "javaSha256": "c1a7c8a26ba2ce5f815364216719b6a9aa554e41639c50ca8a3223f32466d5b1",
+ "register": [
+  {"npc": 203782, "event": "addOnQuestStart", "args": [19003]},
+  {"npc": 203782, "event": "addOnTalkEvent", "args": [19003]},
+  {"npc": 203700, "event": "addOnTalkEvent", "args": [19003]}
+ ],
+ "hooks": [{"hook": "onDialogEvent", "line": 28, "unsupported": "call player.getSkillList()"}],
+ "cases": []
+}

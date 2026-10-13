@@ -1,0 +1,11 @@
+{
+ "format": "aion-quest-trace",
+ "version": 1,
+ "questId": 2979,
+ "java": "crafting/_2979ExpertCooksFinalExam.java",
+ "class": "_2979ExpertCooksFinalExam",
+ "javaSha256": "fa5a0260f4eacbe4c5267a151db70587d884adf289f359b19774ec459f5bbb7e",
+ "register": [{"npc": 204100, "event": "addOnQuestStart", "args": [2979]}, {"npc": 204100, "event": "addOnTalkEvent", "args": [2979]}],
+ "hooks": [{"hook": "onDialogEvent", "line": 28, "unsupported": "call CraftSkillUpdateService.getInstance"}],
+ "cases": []
+}

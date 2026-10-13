@@ -1,0 +1,11 @@
+{
+ "format": "aion-quest-trace",
+ "version": 1,
+ "questId": 1982,
+ "java": "crafting/_1982ExpertAPassionForTailoring.java",
+ "class": "_1982ExpertAPassionForTailoring",
+ "javaSha256": "2c31999b7e65db856f197dc3e5d9d8fe030553c7ff5bda5d5e8557d291baaa17",
+ "register": [{"npc": 203793, "event": "addOnQuestStart", "args": [1982]}, {"npc": 203793, "event": "addOnTalkEvent", "args": [1982]}],
+ "hooks": [{"hook": "onDialogEvent", "line": 28, "unsupported": "call CraftSkillUpdateService.getInstance"}],
+ "cases": []
+}

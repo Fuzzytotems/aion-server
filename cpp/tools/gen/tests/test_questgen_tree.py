@@ -245,6 +245,27 @@ Q04 = {
         '_4060TheZombiesDescendant', '_4074GainOrLose', '_4077PorgusRoundup', '_4078ALightThroughtheTrees',
         '_4082GatheringtheHerbPouches', '_4087NoOrdinaryBranch', '_4101ElimofBrusthonin',),
 }
+# Phase 6 step 2, chunk Q06 (lane C, 2026-10-13; docs/deviations/Q06.md): crafting
+Q06 = {
+    'crafting': (
+        '_19000ExpertEssencetappersTest', '_19001ExpertEssencetappingExpert', '_19002ExpertAethertappersTest',
+        '_19003ExpertAethertappingExpert', '_19008MasterWeaponsmithsPotential', '_19014MasterArmorsmithsPotential',
+        '_19020MasterTailorsPotential', '_19026MasterHandicraftersPotential', '_19032MasterAlchemistsPotential',
+        '_19038MasterCooksPotential', '_19052ExpertPassionforConstruction', '_19053ExpertExpertofConstruction',
+        '_19055ExpertConstructorsFinalExam', '_19057MasterConstructorsPotential', '_1972ExpertPassionforWeaponsmithing',
+        '_1973ExpertExpertofWeaponsmithing', '_1974ExpertPassionforArmorsmithing', '_1975ExpertExpertofArmorsmithing',
+        '_1976ExpertPassionforHandicrafting', '_1977ExpertExpertofHandicrafting', '_1978ExpertPassionforCooking',
+        '_1979ExpertExpertofCooking', '_1980ExpertPassionforAlchemy', '_1981ExpertExpertofAlchemy', '_1982ExpertAPassionForTailoring',
+        '_1983ExpertExpertofTailoring', '_29000ExpertEssencetappersTest', '_29001ExpertEssencetappingExpert',
+        '_29002ExpertAethertappersTest', '_29003ExpertAethertappingExpert', '_29008MasterWeaponsmithsPotential',
+        '_29014MasterArmorsmithsPotential', '_29020MasterTailorsPotential', '_29026MasterHandicraftersPotential',
+        '_29032MasterAlchemistsPotential', '_29038MasterCooksPotential', '_29052ExpertPassionforConstruction',
+        '_29053ExpertExpertofConstruction', '_29055ExpertConstructorsFinalExam', '_29057MasterConstructorsPotential',
+        '_2972ExpertWeaponsmithsTest', '_2973ExpertWeaponsmithsFinalExam', '_2974ExpertArmorsmithsTest',
+        '_2975ExpertArmorsmithsFinalExam', '_2976ExpertHandicraftersTest', '_2977ExpertHandicraftersFinalExam', '_2978ExpertCooksTest',
+        '_2979ExpertCooksFinalExam', '_2980ExpertAlchemistsTest', '_2981ExpertAlchemistsFinalExam', '_2982ExpertTailorsTest',
+        '_2983ExpertTailorsFinalExam',),
+}
 # Phase 6 step 2, chunk Q13 (lane C, 2026-10-07; docs/deviations/Q13.md): the files of the instance directories A-K that questgen
 # transliterates, all in the tree (87 of 87; kaisinel_academy's three mentor dailies by rule stream-any-match)
 Q13 = {
@@ -478,6 +499,11 @@ class CommittedTree(unittest.TestCase):
                 with self.subTest(file=f'{directory}/{klass}'):
                     self.assertIn((directory, klass), found)
         self.assertEqual(sum(len(classes) for classes in Q04.values()), 67)
+        for directory, classes in Q06.items():
+            for klass in classes:
+                with self.subTest(file=f'{directory}/{klass}'):
+                    self.assertIn((directory, klass), found)
+        self.assertEqual(sum(len(classes) for classes in Q06.values()), 52)
         self.assertEqual(len(Q10_HELD_BACK), 16)
 
     def test_the_enter_world_files_are_in_the_tree(self):

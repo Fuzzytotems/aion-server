@@ -1,0 +1,11 @@
+{
+ "format": "aion-quest-trace",
+ "version": 1,
+ "questId": 2975,
+ "java": "crafting/_2975ExpertArmorsmithsFinalExam.java",
+ "class": "_2975ExpertArmorsmithsFinalExam",
+ "javaSha256": "5d2c6d1488ae3cbb1c1abef7dd5a3b0fd6fd9fd2de31a1be9086aa07ad0171c6",
+ "register": [{"npc": 204106, "event": "addOnQuestStart", "args": [2975]}, {"npc": 204106, "event": "addOnTalkEvent", "args": [2975]}],
+ "hooks": [{"hook": "onDialogEvent", "line": 28, "unsupported": "call CraftSkillUpdateService.getInstance"}],
+ "cases": []
+}

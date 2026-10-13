@@ -2497,6 +2497,7 @@ const std::map<std::string, std::string>& knownUnported() {
  * Chunk Q12 (lane C): theobomos 3074, 3090 (getKinah), 3082 (spawnForFiveMinutes), 3088 (decreaseByItemId); event_quests 80000, 80001, 80008 (QuestService.startEventQuest), 80020, 80021 (a cast to Creature)
  * The butler quests (lane C): oriel 18821, pernon 28821 (player.getActiveHouse(), their only hook)
  * Chunk Q04 (lane C): beluslan 2600 (spawnForFiveMinutes), 2630, 28600 (a status read after sendQuestNoneDialog), 2663, 2664 (workItems.getFirst), 4200 (InstanceService.getNextAvailableInstance, TeleportService.teleportTo); brusthonin 4074 (getKinah)
+ * Chunk Q06 (lane C): crafting 1972-1983, 2972-2983, 19001, 19003, 19008-19032, 19052-19057, 29000, 29001, 29003, 29008-29032, 29052-29057 (CraftSkillUpdateService.getInstance in 42, player.getSkillList() in 4, isFullSpecialCube in 1)
  */
 constexpr int32_t ORACLE_REFUSES_EVERY_HOOK[] = {1205, 2132, 1640, 1647, 2925, 2938, 2952, 4966, 4967, 4968, 4969, 21004, 21027, 21033, 21036,
 	21071, 21105, 21249, 25052, 2798, 11031, 11032, 11033, 11053, 11118, 3208, 3217, 3219, 3220, 4208, 4217, 4219, 4220, 3939, 3940, 30553,
@@ -2506,7 +2507,8 @@ constexpr int32_t ORACLE_REFUSES_EVERY_HOOK[] = {1205, 2132, 1640, 1647, 2925, 2
 	30056, 30156, 30157, 30208, 30308,
 	3074, 3082, 3088, 3090, 80000, 80001, 80008, 80020, 80021,
 	18821, 28821,
-	2600, 2630, 2663, 2664, 28600, 4074, 4200};
+	2600, 2630, 2663, 2664, 28600, 4074, 4200,
+	1972, 1973, 1974, 1975, 1976, 1977, 1978, 1979, 1980, 1981, 1982, 1983, 2972, 2973, 2974, 2975, 2976, 2977, 2978, 2979, 2980, 2981, 2982, 2983, 19001, 19003, 19008, 19014, 19020, 19026, 19032, 19052, 19053, 19055, 19057, 29000, 29001, 29003, 29008, 29014, 29020, 29026, 29032, 29052, 29053, 29055, 29057};
 
 TEST_F(GoldenQuestTraceTest, EveryExpectedDocumentHasAGeneratedHandlerAndEveryHandlerADocument) {
 	std::vector<int32_t> ids = expectedQuestIds();

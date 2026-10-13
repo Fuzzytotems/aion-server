@@ -1,0 +1,11 @@
+{
+ "format": "aion-quest-trace",
+ "version": 1,
+ "questId": 1974,
+ "java": "crafting/_1974ExpertPassionforArmorsmithing.java",
+ "class": "_1974ExpertPassionforArmorsmithing",
+ "javaSha256": "e0e8fa02126a979bcdf9958a9e4365bd17ed7bc18b9821a2f931deef4f12be91",
+ "register": [{"npc": 203790, "event": "addOnQuestStart", "args": [1974]}, {"npc": 203790, "event": "addOnTalkEvent", "args": [1974]}],
+ "hooks": [{"hook": "onDialogEvent", "line": 28, "unsupported": "call CraftSkillUpdateService.getInstance"}],
+ "cases": []
+}

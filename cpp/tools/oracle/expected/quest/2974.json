@@ -1,0 +1,11 @@
+{
+ "format": "aion-quest-trace",
+ "version": 1,
+ "questId": 2974,
+ "java": "crafting/_2974ExpertArmorsmithsTest.java",
+ "class": "_2974ExpertArmorsmithsTest",
+ "javaSha256": "b8d10c348c02d5e188a496192bf2ed4b14aa836666cca706ce6dd2d590302b2b",
+ "register": [{"npc": 204106, "event": "addOnQuestStart", "args": [2974]}, {"npc": 204106, "event": "addOnTalkEvent", "args": [2974]}],
+ "hooks": [{"hook": "onDialogEvent", "line": 28, "unsupported": "call CraftSkillUpdateService.getInstance"}],
+ "cases": []
+}

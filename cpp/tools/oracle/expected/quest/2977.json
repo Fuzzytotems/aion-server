@@ -1,0 +1,11 @@
+{
+ "format": "aion-quest-trace",
+ "version": 1,
+ "questId": 2977,
+ "java": "crafting/_2977ExpertHandicraftersFinalExam.java",
+ "class": "_2977ExpertHandicraftersFinalExam",
+ "javaSha256": "0d1b1a700fdca2e70d32c023a6d05fe829d563e135b6b8b99776cc8cf061d9c5",
+ "register": [{"npc": 204108, "event": "addOnQuestStart", "args": [2977]}, {"npc": 204108, "event": "addOnTalkEvent", "args": [2977]}],
+ "hooks": [{"hook": "onDialogEvent", "line": 28, "unsupported": "call CraftSkillUpdateService.getInstance"}],
+ "cases": []
+}

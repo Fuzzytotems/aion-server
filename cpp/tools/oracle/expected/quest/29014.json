@@ -1,0 +1,15 @@
+{
+ "format": "aion-quest-trace",
+ "version": 1,
+ "questId": 29014,
+ "java": "crafting/_29014MasterArmorsmithsPotential.java",
+ "class": "_29014MasterArmorsmithsPotential",
+ "javaSha256": "19379f10becc8982b1fa3ddf2cc7f315d1da92273215f9a76be7a4354a1b626d",
+ "register": [
+  {"npc": 204106, "event": "addOnQuestStart", "args": [29014]},
+  {"npc": 204106, "event": "addOnTalkEvent", "args": [29014]},
+  {"npc": 204107, "event": "addOnTalkEvent", "args": [29014]}
+ ],
+ "hooks": [{"hook": "onDialogEvent", "line": 31, "unsupported": "call CraftSkillUpdateService.getInstance"}],
+ "cases": []
+}

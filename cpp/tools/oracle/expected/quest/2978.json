@@ -1,0 +1,11 @@
+{
+ "format": "aion-quest-trace",
+ "version": 1,
+ "questId": 2978,
+ "java": "crafting/_2978ExpertCooksTest.java",
+ "class": "_2978ExpertCooksTest",
+ "javaSha256": "73d3c28d33d170bd9587b437d2ba1006143ac7649391fca6e63676e81b18a2a7",
+ "register": [{"npc": 204100, "event": "addOnQuestStart", "args": [2978]}, {"npc": 204100, "event": "addOnTalkEvent", "args": [2978]}],
+ "hooks": [{"hook": "onDialogEvent", "line": 28, "unsupported": "call CraftSkillUpdateService.getInstance"}],
+ "cases": []
+}

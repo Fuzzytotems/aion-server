@@ -1,0 +1,11 @@
+{
+ "format": "aion-quest-trace",
+ "version": 1,
+ "questId": 1975,
+ "java": "crafting/_1975ExpertExpertofArmorsmithing.java",
+ "class": "_1975ExpertExpertofArmorsmithing",
+ "javaSha256": "eed4ff0fc8d2f5641e437177f1fc78cf3be9c926705cb1c8c57cf04a3bba6514",
+ "register": [{"npc": 203790, "event": "addOnQuestStart", "args": [1975]}, {"npc": 203790, "event": "addOnTalkEvent", "args": [1975]}],
+ "hooks": [{"hook": "onDialogEvent", "line": 28, "unsupported": "call CraftSkillUpdateService.getInstance"}],
+ "cases": []
+}

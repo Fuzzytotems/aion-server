@@ -1,0 +1,11 @@
+{
+ "format": "aion-quest-trace",
+ "version": 1,
+ "questId": 19055,
+ "java": "crafting/_19055ExpertConstructorsFinalExam.java",
+ "class": "_19055ExpertConstructorsFinalExam",
+ "javaSha256": "e61b52546365e0fc34fd97d6afdff10b70c954ff5500579cf9949621cf9fc3ed",
+ "register": [{"npc": 798450, "event": "addOnQuestStart", "args": [19055]}, {"npc": 798450, "event": "addOnTalkEvent", "args": [19055]}],
+ "hooks": [{"hook": "onDialogEvent", "line": 29, "unsupported": "call CraftSkillUpdateService.getInstance"}],
+ "cases": []
+}

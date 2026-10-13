@@ -491,7 +491,35 @@ SLICE_Q04 = (
 	'brusthonin/_4078ALightThroughtheTrees.java', 'brusthonin/_4082GatheringtheHerbPouches.java', 'brusthonin/_4087NoOrdinaryBranch.java',
 	'brusthonin/_4101ElimofBrusthonin.java',
 )
-SLICE = SLICE_TIER_A + SLICE_ROUTE + SLICE_Q03 + SLICE_Q10 + SLICE_Q08 + SLICE_Q01 + SLICE_Q02 + SLICE_Q14 + SLICE_Q13 + SLICE_Q11 + SLICE_Q05 + SLICE_Q09 + SLICE_Q07 + SLICE_Q12 + SLICE_Q04
+# Phase 6 step 2, chunk Q06 (lane C, 2026-10-13; docs/deviations/Q06.md): crafting
+SLICE_Q06 = (
+	'crafting/_19000ExpertEssencetappersTest.java', 'crafting/_19001ExpertEssencetappingExpert.java',
+	'crafting/_19002ExpertAethertappersTest.java', 'crafting/_19003ExpertAethertappingExpert.java',
+	'crafting/_19008MasterWeaponsmithsPotential.java', 'crafting/_19014MasterArmorsmithsPotential.java',
+	'crafting/_19020MasterTailorsPotential.java', 'crafting/_19026MasterHandicraftersPotential.java',
+	'crafting/_19032MasterAlchemistsPotential.java', 'crafting/_19038MasterCooksPotential.java',
+	'crafting/_19052ExpertPassionforConstruction.java', 'crafting/_19053ExpertExpertofConstruction.java',
+	'crafting/_19055ExpertConstructorsFinalExam.java', 'crafting/_19057MasterConstructorsPotential.java',
+	'crafting/_1972ExpertPassionforWeaponsmithing.java', 'crafting/_1973ExpertExpertofWeaponsmithing.java',
+	'crafting/_1974ExpertPassionforArmorsmithing.java', 'crafting/_1975ExpertExpertofArmorsmithing.java',
+	'crafting/_1976ExpertPassionforHandicrafting.java', 'crafting/_1977ExpertExpertofHandicrafting.java',
+	'crafting/_1978ExpertPassionforCooking.java', 'crafting/_1979ExpertExpertofCooking.java', 'crafting/_1980ExpertPassionforAlchemy.java',
+	'crafting/_1981ExpertExpertofAlchemy.java', 'crafting/_1982ExpertAPassionForTailoring.java',
+	'crafting/_1983ExpertExpertofTailoring.java', 'crafting/_29000ExpertEssencetappersTest.java',
+	'crafting/_29001ExpertEssencetappingExpert.java', 'crafting/_29002ExpertAethertappersTest.java',
+	'crafting/_29003ExpertAethertappingExpert.java', 'crafting/_29008MasterWeaponsmithsPotential.java',
+	'crafting/_29014MasterArmorsmithsPotential.java', 'crafting/_29020MasterTailorsPotential.java',
+	'crafting/_29026MasterHandicraftersPotential.java', 'crafting/_29032MasterAlchemistsPotential.java',
+	'crafting/_29038MasterCooksPotential.java', 'crafting/_29052ExpertPassionforConstruction.java',
+	'crafting/_29053ExpertExpertofConstruction.java', 'crafting/_29055ExpertConstructorsFinalExam.java',
+	'crafting/_29057MasterConstructorsPotential.java', 'crafting/_2972ExpertWeaponsmithsTest.java',
+	'crafting/_2973ExpertWeaponsmithsFinalExam.java', 'crafting/_2974ExpertArmorsmithsTest.java',
+	'crafting/_2975ExpertArmorsmithsFinalExam.java', 'crafting/_2976ExpertHandicraftersTest.java',
+	'crafting/_2977ExpertHandicraftersFinalExam.java', 'crafting/_2978ExpertCooksTest.java', 'crafting/_2979ExpertCooksFinalExam.java',
+	'crafting/_2980ExpertAlchemistsTest.java', 'crafting/_2981ExpertAlchemistsFinalExam.java', 'crafting/_2982ExpertTailorsTest.java',
+	'crafting/_2983ExpertTailorsFinalExam.java',
+)
+SLICE = SLICE_TIER_A + SLICE_ROUTE + SLICE_Q03 + SLICE_Q10 + SLICE_Q08 + SLICE_Q01 + SLICE_Q02 + SLICE_Q14 + SLICE_Q13 + SLICE_Q11 + SLICE_Q05 + SLICE_Q09 + SLICE_Q07 + SLICE_Q12 + SLICE_Q04 + SLICE_Q06
 
 ENUM_FILES = {'QuestStatus': 'questEngine/model/QuestStatus.java', 'Race': 'model/Race.java', 'PlayerClass': 'model/PlayerClass.java',
               'Gender': 'model/Gender.java', 'HandlerResult': 'questEngine/handlers/HandlerResult.java', 'DialogPage': 'model/DialogPage.java',
