@@ -151,6 +151,12 @@ public:
 	/** @return number of registered connections that are not disconnected yet */
 	size_t getActiveConnectionCount() const;
 
+	/**
+	 * C++ addition (handlers-and-porting-plan.md:305, for //debug): a snapshot of the registered connections that are not disconnected yet, in
+	 * no particular order (Java: the attachments of the read-write dispatcher's selector keys, read through reflection). Thread-safe.
+	 */
+	std::vector<std::shared_ptr<AConnectionBase>> snapshotConnections() const;
+
 private:
 	friend class AConnectionBase;
 	struct Listener;
