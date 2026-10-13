@@ -37,8 +37,8 @@ public:
 
 		if (qs == nullptr || qs->isStartable()) {
 			if (targetId == 799336) { // Tataka
-				// java-bug kept (U3, phase6-inventory.md §11): requires 100100716 (the item of _30343ImprovedMace.java:41); quest_data.xml collects 101900655
-				if (player->getInventory().getItemCountByItemId(100100716) >= 1) { // Noble Siel's Supreme Mace
+				// correction of the Java code: Java :41 required _30343's mace 100100716; quest_data.xml collects 101900655 (owner's decision 2026-10-13)
+				if (player->getInventory().getItemCountByItemId(101900655) >= 1) { // Noble Siel's Supreme Mace
 					if (dialogActionId == QUEST_SELECT) {
 						return sendQuestDialog(env, 4762);
 					} else {

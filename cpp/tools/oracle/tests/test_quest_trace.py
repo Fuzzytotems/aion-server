@@ -1007,6 +1007,13 @@ class ScheduledTaskTest(unittest.TestCase):
 			self.assertEqual([c["line"] for c in doc["corrections"]], [line])
 			level = [c for c in doc["cases"] if c["hook"] == "onLevelChangedEvent"]
 			self.assertEqual([c["effects"] for c in level], [[{"call": "defaultOnLevelChangedEvent", "kind": "quest", "args": [], "line": line}]])
+		# the owner's decision of 2026-10-13 (docs/deviations/Q07.md): 30348's start dialog checks the Aethercannon's item 101900655
+		rel = "beshmundir/_30348ImprovedAethercannon.java"
+		doc = extract.trace_file(tables(), extract.QUEST_DIR / rel, rel)
+		self.assertEqual([c["line"] for c in doc["corrections"]], [41])
+		text = json.dumps(doc["cases"])
+		self.assertIn("getItemCountByItemId(101900655)", text)
+		self.assertNotIn("100100716", text)
 		# a file without a correction has no member, and a correction whose Java text is not on its line is refused
 		rel = "inggison/_10031ARiskfortheObelisk.java"
 		self.assertNotIn("corrections", extract.trace_file(tables(), extract.QUEST_DIR / rel, rel))

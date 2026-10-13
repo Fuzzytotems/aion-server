@@ -101,8 +101,6 @@ LIST_MUTATORS = frozenset('add addAll addFirst addLast remove removeAll removeIf
 # Java logic bugs a faithful transliteration keeps (phase6-inventory.md §11; decision U3: a faithful port plus a note): file -> {Java line
 # of the statement: note}. The note goes before that statement as a `// java-bug kept` comment and into the report.
 KNOWN_JAVA_BUGS = {
-    'beshmundir/_30348ImprovedAethercannon.java': {
-        41: 'requires 100100716 (the item of _30343ImprovedMace.java:41); quest_data.xml collects 101900655'},
     'sanctum/_3963GrowthFlorasThirdCharm.java': {
         70: 'tryDecreaseKinah on the line above already took the kinah (Storage.java:82-88); this takes it a second time'},
     'sanctum/_3964GrowthFlorasFourthCharm.java': {
@@ -130,6 +128,11 @@ OWNER_CORRECTIONS = {
     'inggison/_11008LetterOfEncouragement.java': {
         100: ('defaultOnLevelChangedEvent(player, 11008);', 'defaultOnLevelChangedEvent(player);',
               "named the quest itself as its pre-quest (owner's decision 2026-10-05)")},
+    # the owner's decision of 2026-10-13 (both branches; docs/deviations/Q07.md): the start dialog asked for the mace of _30343 instead
+    # of the item quest_data.xml collects for the Aethercannon (formerly KNOWN_JAVA_BUGS)
+    'beshmundir/_30348ImprovedAethercannon.java': {
+        41: ('getItemCountByItemId(100100716)', 'getItemCountByItemId(101900655)',
+             "required _30343's mace 100100716; quest_data.xml collects 101900655 (owner's decision 2026-10-13)")},
 }
 CORRECTION_MARK = '// correction of the Java code: '
 

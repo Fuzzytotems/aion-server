@@ -792,6 +792,11 @@ OWNER_CORRECTIONS = {
 	'inggison/_11008LetterOfEncouragement.java': {
 		100: ('defaultOnLevelChangedEvent(player, 11008);', 'defaultOnLevelChangedEvent(player);',
 		      "named the quest itself as its pre-quest (owner's decision 2026-10-05)")},
+	# the owner's decision of 2026-10-13 (both branches; docs/deviations/Q07.md): the start dialog asked for the mace of _30343 instead of
+	# the item quest_data.xml collects for the Aethercannon (formerly questgen's KNOWN_JAVA_BUGS)
+	'beshmundir/_30348ImprovedAethercannon.java': {
+		41: ('getItemCountByItemId(100100716)', 'getItemCountByItemId(101900655)',
+		     "required _30343's mace 100100716; quest_data.xml collects 101900655 (owner's decision 2026-10-13)")},
 }
 
 

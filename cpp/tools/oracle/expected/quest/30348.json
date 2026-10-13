@@ -5,6 +5,14 @@
  "java": "beshmundir/_30348ImprovedAethercannon.java",
  "class": "_30348ImprovedAethercannon",
  "javaSha256": "a340d47da7c720fc62e2e0b9f5b5f27c3df61c0a3c6cdd89d1c9f5eeeca61159",
+ "corrections": [
+  {
+   "line": 41,
+   "java": "getItemCountByItemId(100100716)",
+   "traced": "getItemCountByItemId(101900655)",
+   "why": "required _30343's mace 100100716; quest_data.xml collects 101900655 (owner's decision 2026-10-13)"
+  }
+ ],
  "register": [
   {"npc": 799336, "event": "addOnQuestStart", "args": [30348]},
   {"npc": 799336, "event": "addOnTalkEvent", "args": [30348]},
@@ -75,13 +83,13 @@
    "given": {
     "dialogAction": {"name": "QUEST_SELECT", "id": 31},
     "target": {"kind": "npc", "npcId": 799336},
-    "inventory": {"100100716": 1},
+    "inventory": {"101900655": 1},
     "questState": null
    },
    "guards": [
     "qs == null -> true @39",
     "targetId == 799336 -> true @40",
-    "player.getInventory().getItemCountByItemId(100100716) >= 1 -> true @41",
+    "player.getInventory().getItemCountByItemId(101900655) >= 1 -> true @41",
     "dialogActionId == QUEST_SELECT -> true @42"
    ],
    "effects": [{"call": "sendQuestDialog", "kind": "dialog", "args": [4762], "line": 43}],
@@ -93,13 +101,13 @@
    "given": {
     "dialogAction": {"name": "USE_OBJECT", "id": -1},
     "target": {"kind": "npc", "npcId": 799336},
-    "inventory": {"100100716": 1},
+    "inventory": {"101900655": 1},
     "questState": null
    },
    "guards": [
     "qs == null -> true @39",
     "targetId == 799336 -> true @40",
-    "player.getInventory().getItemCountByItemId(100100716) >= 1 -> true @41",
+    "player.getInventory().getItemCountByItemId(101900655) >= 1 -> true @41",
     "dialogActionId == QUEST_SELECT -> false @42"
    ],
    "dialogExcludes": [31],
@@ -112,10 +120,10 @@
    "given": {
     "dialogAction": {"name": "USE_OBJECT", "id": -1},
     "target": {"kind": "npc", "npcId": 799336},
-    "inventory": {"100100716": 0},
+    "inventory": {"101900655": 0},
     "questState": null
    },
-   "guards": ["qs == null -> true @39", "targetId == 799336 -> true @40", "player.getInventory().getItemCountByItemId(100100716) >= 1 -> false @41"],
+   "guards": ["qs == null -> true @39", "targetId == 799336 -> true @40", "player.getInventory().getItemCountByItemId(101900655) >= 1 -> false @41"],
    "dialogExcludes": [],
    "effects": [],
    "returns": false
@@ -135,7 +143,7 @@
    "given": {
     "dialogAction": {"name": "QUEST_SELECT", "id": 31},
     "target": {"kind": "npc", "npcId": 799336},
-    "inventory": {"100100716": 1},
+    "inventory": {"101900655": 1},
     "questState": {"status": "COMPLETE", "canRepeat": true}
    },
    "guards": [
@@ -143,7 +151,7 @@
     "qs.isStartable() [status == COMPLETE] -> true @39",
     "qs.isStartable() [canRepeat] -> true @39",
     "targetId == 799336 -> true @40",
-    "player.getInventory().getItemCountByItemId(100100716) >= 1 -> true @41",
+    "player.getInventory().getItemCountByItemId(101900655) >= 1 -> true @41",
     "dialogActionId == QUEST_SELECT -> true @42"
    ],
    "effects": [{"call": "sendQuestDialog", "kind": "dialog", "args": [4762], "line": 43}],
@@ -155,7 +163,7 @@
    "given": {
     "dialogAction": {"name": "USE_OBJECT", "id": -1},
     "target": {"kind": "npc", "npcId": 799336},
-    "inventory": {"100100716": 1},
+    "inventory": {"101900655": 1},
     "questState": {"status": "COMPLETE", "canRepeat": true}
    },
    "guards": [
@@ -163,7 +171,7 @@
     "qs.isStartable() [status == COMPLETE] -> true @39",
     "qs.isStartable() [canRepeat] -> true @39",
     "targetId == 799336 -> true @40",
-    "player.getInventory().getItemCountByItemId(100100716) >= 1 -> true @41",
+    "player.getInventory().getItemCountByItemId(101900655) >= 1 -> true @41",
     "dialogActionId == QUEST_SELECT -> false @42"
    ],
    "dialogExcludes": [31],
@@ -176,7 +184,7 @@
    "given": {
     "dialogAction": {"name": "USE_OBJECT", "id": -1},
     "target": {"kind": "npc", "npcId": 799336},
-    "inventory": {"100100716": 0},
+    "inventory": {"101900655": 0},
     "questState": {"status": "COMPLETE", "canRepeat": true}
    },
    "guards": [
@@ -184,7 +192,7 @@
     "qs.isStartable() [status == COMPLETE] -> true @39",
     "qs.isStartable() [canRepeat] -> true @39",
     "targetId == 799336 -> true @40",
-    "player.getInventory().getItemCountByItemId(100100716) >= 1 -> false @41"
+    "player.getInventory().getItemCountByItemId(101900655) >= 1 -> false @41"
    ],
    "dialogExcludes": [],
    "effects": [],
