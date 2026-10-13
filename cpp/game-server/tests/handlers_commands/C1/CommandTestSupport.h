@@ -56,7 +56,7 @@ protected:
 		previousLevels = configs::administration::CommandsConfig::ACCESS_LEVELS.get();
 		std::map<std::string, int8_t, std::less<>> levels(*previousLevels);
 		// commands.properties' levels of the stage-0 admin aliases (3 for the GM tools); the framework's scripted commands 3, 2 and 3
-		for (const char* alias : {"invis", "invul", "enemy", "see", "coords", "info", "zone", "online", "time", "weather", "addexp", "set", "quest", "addskill",
+		for (const char* alias : {"invis", "invul", "enemy", "see", "coords", "info", "zone", "online", "time", "weather", "addexp", "set", "quest", "goto", "addskill",
 				 "delskill", "addtitle", "heal", "speed", "dispel", "morph", "state", "stat", "levelup", "leveldown", "removecd", "clearusercoolt", "spawn", "delete", "kill", "damage", "ai", "npcskill", "useskill", "fwtest", "fwconsole"})
 			levels[alias] = 3;
 		levels["fwplayer"] = 2;

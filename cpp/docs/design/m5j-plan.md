@@ -1671,3 +1671,6 @@ without a C++ file; `tools/porting/census.py` for the totals):
 > question) and 20 console commands (C1.md, C2.md; gate Z18, P5-SC.md). Out of CP4: `//configure` (it needs the P4-01 describe/field-name
 > change, its own checkpoint), `//send`, `///addskill`, `///combineskill`, `///deleteskill` (handler-local XML, with `///teleport_to_named`),
 > `//cinstance` (D12), D7 (D14). Java corrections proposed: J-S4CP4-1..3 (C2.md).
+> **Progress:** CP7 unit part done (`lane-a/m5j-s4-cp7`): `CommandSmokeTest` runs all 120 registered commands (access refusal at
+> commands.properties' levels, the alias levels, help, no parameters, an unknown parameter; no crash, no `AION_UNPORTED`), 120 of 120, mutation proof
+> 5 of 5 (C1.md). Open: the chat-path smoke on a server (after lane C's gate loop).
