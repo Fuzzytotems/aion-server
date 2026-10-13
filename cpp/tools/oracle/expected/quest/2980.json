@@ -1,0 +1,11 @@
+{
+ "format": "aion-quest-trace",
+ "version": 1,
+ "questId": 2980,
+ "java": "crafting/_2980ExpertAlchemistsTest.java",
+ "class": "_2980ExpertAlchemistsTest",
+ "javaSha256": "acdac06163db0cf199d855274041430afba29417417cda99a0527581512a3f87",
+ "register": [{"npc": 204102, "event": "addOnQuestStart", "args": [2980]}, {"npc": 204102, "event": "addOnTalkEvent", "args": [2980]}],
+ "hooks": [{"hook": "onDialogEvent", "line": 28, "unsupported": "call CraftSkillUpdateService.getInstance"}],
+ "cases": []
+}

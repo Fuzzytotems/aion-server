@@ -1,0 +1,11 @@
+{
+ "format": "aion-quest-trace",
+ "version": 1,
+ "questId": 1979,
+ "java": "crafting/_1979ExpertExpertofCooking.java",
+ "class": "_1979ExpertExpertofCooking",
+ "javaSha256": "e36a9a42e2f2529b9ced257d9de4c717e1d8f3a2c1be61d4459707a7d80979ee",
+ "register": [{"npc": 203784, "event": "addOnQuestStart", "args": [1979]}, {"npc": 203784, "event": "addOnTalkEvent", "args": [1979]}],
+ "hooks": [{"hook": "onDialogEvent", "line": 28, "unsupported": "call CraftSkillUpdateService.getInstance"}],
+ "cases": []
+}

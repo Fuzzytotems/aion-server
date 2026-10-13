@@ -21,6 +21,7 @@
 // Chunk Q07 (lane C, 2026-10-08): the 64 generated handlers of beshmundir, abyss_entry and silentera_canyon (GoldenQ07Handlers.cpp; docs/deviations/Q07.md).
 // Chunk Q12 (lane C, 2026-10-08): the 72 generated handlers of theobomos, event_quests and cygnea (GoldenQ12Handlers.cpp; docs/deviations/Q12.md).
 // Chunk Q04 (lane C, 2026-10-13): 67 generated handlers of beluslan and brusthonin (GoldenQ04Handlers.cpp; docs/deviations/Q04.md).
+// Chunk Q06 (lane C, 2026-10-13): 52 generated crafting handlers (GoldenQ06Handlers.cpp; docs/deviations/Q06.md).
 //
 // P6-Q slice 2, chunk Q03 (2026-09-29): the 72 generated verteron and heiron handlers in the tree (the zones the route's dispatches end in),
 // compiled into this executable by #include as well (GoldenQ03Handlers.cpp); Q03's hand ports 1643 and 3200 have their own unit cases
@@ -568,6 +569,58 @@
 	X(charlirunerks_daemons, _48002CharlirunerksDaemonsWantYou, 48002) \
 	X(clash_of_destiny, _24030ShowdownWithDestiny, 24030) \
 	X(clash_of_destiny, _24031EnemyAtTheDoorstep, 24031) \
+	X(crafting, _19000ExpertEssencetappersTest, 19000) \
+	X(crafting, _19001ExpertEssencetappingExpert, 19001) \
+	X(crafting, _19002ExpertAethertappersTest, 19002) \
+	X(crafting, _19003ExpertAethertappingExpert, 19003) \
+	X(crafting, _19008MasterWeaponsmithsPotential, 19008) \
+	X(crafting, _19014MasterArmorsmithsPotential, 19014) \
+	X(crafting, _19020MasterTailorsPotential, 19020) \
+	X(crafting, _19026MasterHandicraftersPotential, 19026) \
+	X(crafting, _19032MasterAlchemistsPotential, 19032) \
+	X(crafting, _19038MasterCooksPotential, 19038) \
+	X(crafting, _19052ExpertPassionforConstruction, 19052) \
+	X(crafting, _19053ExpertExpertofConstruction, 19053) \
+	X(crafting, _19055ExpertConstructorsFinalExam, 19055) \
+	X(crafting, _19057MasterConstructorsPotential, 19057) \
+	X(crafting, _1972ExpertPassionforWeaponsmithing, 1972) \
+	X(crafting, _1973ExpertExpertofWeaponsmithing, 1973) \
+	X(crafting, _1974ExpertPassionforArmorsmithing, 1974) \
+	X(crafting, _1975ExpertExpertofArmorsmithing, 1975) \
+	X(crafting, _1976ExpertPassionforHandicrafting, 1976) \
+	X(crafting, _1977ExpertExpertofHandicrafting, 1977) \
+	X(crafting, _1978ExpertPassionforCooking, 1978) \
+	X(crafting, _1979ExpertExpertofCooking, 1979) \
+	X(crafting, _1980ExpertPassionforAlchemy, 1980) \
+	X(crafting, _1981ExpertExpertofAlchemy, 1981) \
+	X(crafting, _1982ExpertAPassionForTailoring, 1982) \
+	X(crafting, _1983ExpertExpertofTailoring, 1983) \
+	X(crafting, _29000ExpertEssencetappersTest, 29000) \
+	X(crafting, _29001ExpertEssencetappingExpert, 29001) \
+	X(crafting, _29002ExpertAethertappersTest, 29002) \
+	X(crafting, _29003ExpertAethertappingExpert, 29003) \
+	X(crafting, _29008MasterWeaponsmithsPotential, 29008) \
+	X(crafting, _29014MasterArmorsmithsPotential, 29014) \
+	X(crafting, _29020MasterTailorsPotential, 29020) \
+	X(crafting, _29026MasterHandicraftersPotential, 29026) \
+	X(crafting, _29032MasterAlchemistsPotential, 29032) \
+	X(crafting, _29038MasterCooksPotential, 29038) \
+	X(crafting, _29052ExpertPassionforConstruction, 29052) \
+	X(crafting, _29053ExpertExpertofConstruction, 29053) \
+	X(crafting, _29055ExpertConstructorsFinalExam, 29055) \
+	X(crafting, _29057MasterConstructorsPotential, 29057) \
+	X(crafting, _2972ExpertWeaponsmithsTest, 2972) \
+	X(crafting, _2973ExpertWeaponsmithsFinalExam, 2973) \
+	X(crafting, _2974ExpertArmorsmithsTest, 2974) \
+	X(crafting, _2975ExpertArmorsmithsFinalExam, 2975) \
+	X(crafting, _2976ExpertHandicraftersTest, 2976) \
+	X(crafting, _2977ExpertHandicraftersFinalExam, 2977) \
+	X(crafting, _2978ExpertCooksTest, 2978) \
+	X(crafting, _2979ExpertCooksFinalExam, 2979) \
+	X(crafting, _2980ExpertAlchemistsTest, 2980) \
+	X(crafting, _2981ExpertAlchemistsFinalExam, 2981) \
+	X(crafting, _2982ExpertTailorsTest, 2982) \
+	X(crafting, _2983ExpertTailorsFinalExam, 2983) \
 	X(cygnea, _10500ExpeditionCoalition, 10500) \
 	X(cygnea, _10501ResearchtheRuins, 10501) \
 	X(cygnea, _10502CygneaSecrets, 10502) \

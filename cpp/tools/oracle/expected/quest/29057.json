@@ -1,0 +1,15 @@
+{
+ "format": "aion-quest-trace",
+ "version": 1,
+ "questId": 29057,
+ "java": "crafting/_29057MasterConstructorsPotential.java",
+ "class": "_29057MasterConstructorsPotential",
+ "javaSha256": "c87153e189f2d8175683b67381ab84c1d33e95865d779f562177f9a1085765af",
+ "register": [
+  {"npc": 798452, "event": "addOnQuestStart", "args": [29057]},
+  {"npc": 798452, "event": "addOnTalkEvent", "args": [29057]},
+  {"npc": 798453, "event": "addOnTalkEvent", "args": [29057]}
+ ],
+ "hooks": [{"hook": "onDialogEvent", "line": 35, "unsupported": "call CraftSkillUpdateService.getInstance"}],
+ "cases": []
+}

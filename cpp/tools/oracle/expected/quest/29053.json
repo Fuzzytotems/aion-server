@@ -1,0 +1,11 @@
+{
+ "format": "aion-quest-trace",
+ "version": 1,
+ "questId": 29053,
+ "java": "crafting/_29053ExpertExpertofConstruction.java",
+ "class": "_29053ExpertExpertofConstruction",
+ "javaSha256": "7e165e936441de87fdb79fac724681e6888665dd381e48dafdddad7fbb57925b",
+ "register": [{"npc": 798452, "event": "addOnQuestStart", "args": [29053]}, {"npc": 798452, "event": "addOnTalkEvent", "args": [29053]}],
+ "hooks": [{"hook": "onDialogEvent", "line": 29, "unsupported": "call CraftSkillUpdateService.getInstance"}],
+ "cases": []
+}

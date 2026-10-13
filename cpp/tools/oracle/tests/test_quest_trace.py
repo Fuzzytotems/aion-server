@@ -821,6 +821,27 @@ class Q04SliceTest(unittest.TestCase):
 
 
 @unittest.skipUnless(HAVE_JAVA_TREE, "Java tree not present")
+class Q06SliceTest(unittest.TestCase):
+	"""52 generated crafting handlers (SLICE_Q06, phase 6 step 2, lane C, 2026-10-13; docs/deviations/Q06.md)"""
+
+	LEFT_OUT = set()
+
+	def test_the_q06_slice(self):
+		java = {f"{d}/{f.name}" for d in ('crafting',) for f in (extract.QUEST_DIR / d).glob("*.java")}
+		earlier = set(extract.SLICE_TIER_A + extract.SLICE_ROUTE + extract.SLICE_Q03 + extract.SLICE_Q10 + extract.SLICE_Q08 + extract.SLICE_Q01 +
+		              extract.SLICE_Q02 + extract.SLICE_Q14 + extract.SLICE_Q13 + extract.SLICE_Q11 + extract.SLICE_Q05 + extract.SLICE_Q09 + extract.SLICE_Q07 + extract.SLICE_Q12 + extract.SLICE_Q04)
+		self.assertEqual(set(extract.SLICE_Q06) & earlier, set())
+		self.assertEqual(len(extract.SLICE_Q06), 52)
+		self.assertTrue(set(extract.SLICE_Q06) <= java - self.LEFT_OUT)
+		docs = {}
+		for rel in extract.SLICE_Q06:
+			d = extract.trace_file(tables(), extract.QUEST_DIR / rel, rel)
+			docs[d["questId"]] = d
+		self.assertEqual(sorted(q for q, d in docs.items() if not d["cases"]), [1972, 1973, 1974, 1975, 1976, 1977, 1978, 1979, 1980, 1981, 1982, 1983, 2972, 2973, 2974, 2975, 2976, 2977, 2978, 2979, 2980, 2981, 2982, 2983, 19001, 19003, 19008, 19014, 19020, 19026, 19032, 19052, 19053, 19055, 19057, 29000, 29001, 29003, 29008, 29014, 29020, 29026, 29032, 29052, 29053, 29055, 29057])
+		self.assertEqual(extract.check(rels=extract.SLICE_Q06, extra=False), [])
+
+
+@unittest.skipUnless(HAVE_JAVA_TREE, "Java tree not present")
 class Q09RestSliceTest(unittest.TestCase):
 	"""the rest of morheim and pernon (SLICE_Q09, phase 6 step 2, lane C, 2026-10-08; docs/deviations/Q09.md, "Phase 6 step 2")"""
 

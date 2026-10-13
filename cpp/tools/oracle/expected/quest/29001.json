@@ -1,0 +1,15 @@
+{
+ "format": "aion-quest-trace",
+ "version": 1,
+ "questId": 29001,
+ "java": "crafting/_29001ExpertEssencetappingExpert.java",
+ "class": "_29001ExpertEssencetappingExpert",
+ "javaSha256": "07ebea9ec3f674f30a861ac59bbd23c02aad1a09673bd33b42cfb5a5e7b18d7a",
+ "register": [
+  {"npc": 204096, "event": "addOnQuestStart", "args": [29001]},
+  {"npc": 204096, "event": "addOnTalkEvent", "args": [29001]},
+  {"npc": 204052, "event": "addOnTalkEvent", "args": [29001]}
+ ],
+ "hooks": [{"hook": "onDialogEvent", "line": 28, "unsupported": "call player.getSkillList()"}],
+ "cases": []
+}

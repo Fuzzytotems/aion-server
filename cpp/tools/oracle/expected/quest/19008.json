@@ -1,0 +1,15 @@
+{
+ "format": "aion-quest-trace",
+ "version": 1,
+ "questId": 19008,
+ "java": "crafting/_19008MasterWeaponsmithsPotential.java",
+ "class": "_19008MasterWeaponsmithsPotential",
+ "javaSha256": "211b6d82a4071a9e7024e652832f01cec74446e26c17724a4edc5504eea9c7a6",
+ "register": [
+  {"npc": 203788, "event": "addOnQuestStart", "args": [19008]},
+  {"npc": 203788, "event": "addOnTalkEvent", "args": [19008]},
+  {"npc": 203789, "event": "addOnTalkEvent", "args": [19008]}
+ ],
+ "hooks": [{"hook": "onDialogEvent", "line": 31, "unsupported": "call CraftSkillUpdateService.getInstance"}],
+ "cases": []
+}

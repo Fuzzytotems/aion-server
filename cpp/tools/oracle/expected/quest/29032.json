@@ -1,0 +1,15 @@
+{
+ "format": "aion-quest-trace",
+ "version": 1,
+ "questId": 29032,
+ "java": "crafting/_29032MasterAlchemistsPotential.java",
+ "class": "_29032MasterAlchemistsPotential",
+ "javaSha256": "a08647d2321000da319b42f482cb1f4491e9c13aea84926de2f2e6faaf1cc677",
+ "register": [
+  {"npc": 204102, "event": "addOnQuestStart", "args": [29032]},
+  {"npc": 204102, "event": "addOnTalkEvent", "args": [29032]},
+  {"npc": 204103, "event": "addOnTalkEvent", "args": [29032]}
+ ],
+ "hooks": [{"hook": "onDialogEvent", "line": 31, "unsupported": "call CraftSkillUpdateService.getInstance"}],
+ "cases": []
+}

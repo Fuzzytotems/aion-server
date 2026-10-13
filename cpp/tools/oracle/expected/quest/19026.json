@@ -1,0 +1,15 @@
+{
+ "format": "aion-quest-trace",
+ "version": 1,
+ "questId": 19026,
+ "java": "crafting/_19026MasterHandicraftersPotential.java",
+ "class": "_19026MasterHandicraftersPotential",
+ "javaSha256": "8274ddb1d3cdbe395d3c2ea9c1e33b8ecf0aaba83211a91fdf28b6052fe8a225",
+ "register": [
+  {"npc": 203792, "event": "addOnQuestStart", "args": [19026]},
+  {"npc": 203792, "event": "addOnTalkEvent", "args": [19026]},
+  {"npc": 798013, "event": "addOnTalkEvent", "args": [19026]}
+ ],
+ "hooks": [{"hook": "onDialogEvent", "line": 31, "unsupported": "call CraftSkillUpdateService.getInstance"}],
+ "cases": []
+}

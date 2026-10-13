@@ -1,0 +1,11 @@
+{
+ "format": "aion-quest-trace",
+ "version": 1,
+ "questId": 1976,
+ "java": "crafting/_1976ExpertPassionforHandicrafting.java",
+ "class": "_1976ExpertPassionforHandicrafting",
+ "javaSha256": "2e28f451f1b62a6a61598e3bf179fc9d4a2e1a4b4144f225a8853f4c4f2ba01a",
+ "register": [{"npc": 203792, "event": "addOnQuestStart", "args": [1976]}, {"npc": 203792, "event": "addOnTalkEvent", "args": [1976]}],
+ "hooks": [{"hook": "onDialogEvent", "line": 28, "unsupported": "call CraftSkillUpdateService.getInstance"}],
+ "cases": []
+}

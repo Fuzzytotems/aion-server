@@ -1,0 +1,11 @@
+{
+ "format": "aion-quest-trace",
+ "version": 1,
+ "questId": 2983,
+ "java": "crafting/_2983ExpertTailorsFinalExam.java",
+ "class": "_2983ExpertTailorsFinalExam",
+ "javaSha256": "5219150c78f480e9b0ace5cd9a484292a63ecd36ef7775aac2cc717a80d302c1",
+ "register": [{"npc": 204110, "event": "addOnQuestStart", "args": [2983]}, {"npc": 204110, "event": "addOnTalkEvent", "args": [2983]}],
+ "hooks": [{"hook": "onDialogEvent", "line": 28, "unsupported": "call CraftSkillUpdateService.getInstance"}],
+ "cases": []
+}

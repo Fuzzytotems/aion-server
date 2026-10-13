@@ -1,0 +1,11 @@
+{
+ "format": "aion-quest-trace",
+ "version": 1,
+ "questId": 1978,
+ "java": "crafting/_1978ExpertPassionforCooking.java",
+ "class": "_1978ExpertPassionforCooking",
+ "javaSha256": "975af6221091d682985dd0b90fc7300c563da82d3f75df52b9261446e2ce8675",
+ "register": [{"npc": 203784, "event": "addOnQuestStart", "args": [1978]}, {"npc": 203784, "event": "addOnTalkEvent", "args": [1978]}],
+ "hooks": [{"hook": "onDialogEvent", "line": 28, "unsupported": "call CraftSkillUpdateService.getInstance"}],
+ "cases": []
+}

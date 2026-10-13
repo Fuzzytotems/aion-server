@@ -1,0 +1,11 @@
+{
+ "format": "aion-quest-trace",
+ "version": 1,
+ "questId": 2976,
+ "java": "crafting/_2976ExpertHandicraftersTest.java",
+ "class": "_2976ExpertHandicraftersTest",
+ "javaSha256": "898b0e236fc0395da90156d259a4c90a76105db192bd41436bd719bffe10c05e",
+ "register": [{"npc": 204108, "event": "addOnQuestStart", "args": [2976]}, {"npc": 204108, "event": "addOnTalkEvent", "args": [2976]}],
+ "hooks": [{"hook": "onDialogEvent", "line": 28, "unsupported": "call CraftSkillUpdateService.getInstance"}],
+ "cases": []
+}

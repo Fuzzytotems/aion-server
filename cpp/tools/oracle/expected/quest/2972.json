@@ -1,0 +1,11 @@
+{
+ "format": "aion-quest-trace",
+ "version": 1,
+ "questId": 2972,
+ "java": "crafting/_2972ExpertWeaponsmithsTest.java",
+ "class": "_2972ExpertWeaponsmithsTest",
+ "javaSha256": "7b4d0b1f31a1692ac0a449d1c392c8bb1d3d13338df9b57d79daba661eb8a318",
+ "register": [{"npc": 204104, "event": "addOnQuestStart", "args": [2972]}, {"npc": 204104, "event": "addOnTalkEvent", "args": [2972]}],
+ "hooks": [{"hook": "onDialogEvent", "line": 28, "unsupported": "call CraftSkillUpdateService.getInstance"}],
+ "cases": []
+}

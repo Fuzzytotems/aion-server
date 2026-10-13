@@ -1,0 +1,11 @@
+{
+ "format": "aion-quest-trace",
+ "version": 1,
+ "questId": 2981,
+ "java": "crafting/_2981ExpertAlchemistsFinalExam.java",
+ "class": "_2981ExpertAlchemistsFinalExam",
+ "javaSha256": "4434513eca668513516bc1554a6a67c5594be6ad289ef94224db25e12e776733",
+ "register": [{"npc": 204102, "event": "addOnQuestStart", "args": [2981]}, {"npc": 204102, "event": "addOnTalkEvent", "args": [2981]}],
+ "hooks": [{"hook": "onDialogEvent", "line": 28, "unsupported": "call CraftSkillUpdateService.getInstance"}],
+ "cases": []
+}

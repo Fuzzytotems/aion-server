@@ -1,0 +1,83 @@
+{
+ "format": "aion-quest-trace",
+ "version": 1,
+ "questId": 19038,
+ "java": "crafting/_19038MasterCooksPotential.java",
+ "class": "_19038MasterCooksPotential",
+ "javaSha256": "c4fe9049ea151bb6381063fab0cdaa385408348e66053a89d2932f0810bbd00a",
+ "register": [
+  {"npc": 203784, "event": "addOnQuestStart", "args": [19038]},
+  {"npc": 203784, "event": "addOnTalkEvent", "args": [19038]},
+  {"npc": 203785, "event": "addOnTalkEvent", "args": [19038]},
+  {"call": "registerOnFailCraft", "args": [182206773, 19038]},
+  {"call": "registerOnFailCraft", "args": [182206774, 19038]},
+  {"call": "registerOnFailCraft", "args": [182206775, 19038]},
+  {"call": "registerOnFailCraft", "args": [182206776, 19038]}
+ ],
+ "hooks": [
+  {"hook": "onDialogEvent", "line": 33, "unsupported": "call CraftSkillUpdateService.getInstance"},
+  {"hook": "onFailCraftEvent", "line": 175, "cases": 7}
+ ],
+ "cases": [
+  {
+   "id": "onFailCraftEvent#1",
+   "hook": "onFailCraftEvent",
+   "given": {"args": {"itemId": 182206773}, "questState": {"status": "START"}},
+   "guards": ["qs != null -> true @178", "qs.getStatus() == QuestStatus.START -> true @178", "itemId == 182206773 -> true @179"],
+   "effects": [{"call": "changeQuestStep", "kind": "var", "args": [2, 1], "line": 181}],
+   "returns": true
+  },
+  {
+   "id": "onFailCraftEvent#2",
+   "hook": "onFailCraftEvent",
+   "given": {"args": {"itemId": 182206774}, "questState": {"status": "START"}},
+   "guards": ["qs != null -> true @178", "qs.getStatus() == QuestStatus.START -> true @178", "itemId == 182206774 -> true @179"],
+   "effects": [{"call": "changeQuestStep", "kind": "var", "args": [5, 4], "line": 184}],
+   "returns": true
+  },
+  {
+   "id": "onFailCraftEvent#3",
+   "hook": "onFailCraftEvent",
+   "given": {"args": {"itemId": 182206775}, "questState": {"status": "START"}},
+   "guards": ["qs != null -> true @178", "qs.getStatus() == QuestStatus.START -> true @178", "itemId == 182206775 -> true @179"],
+   "effects": [{"call": "changeQuestStep", "kind": "var", "args": [8, 7], "line": 187}],
+   "returns": true
+  },
+  {
+   "id": "onFailCraftEvent#4",
+   "hook": "onFailCraftEvent",
+   "given": {"args": {"itemId": 182206776}, "questState": {"status": "START"}},
+   "guards": ["qs != null -> true @178", "qs.getStatus() == QuestStatus.START -> true @178", "itemId == 182206776 -> true @179"],
+   "effects": [{"call": "changeQuestStep", "kind": "var", "args": [11, 10], "line": 190}],
+   "returns": true
+  },
+  {
+   "id": "onFailCraftEvent#5",
+   "hook": "onFailCraftEvent",
+   "given": {"args": {"itemId": 0}, "questState": {"status": "START"}},
+   "guards": [
+    "qs != null -> true @178",
+    "qs.getStatus() == QuestStatus.START -> true @178",
+    "itemId not in [182206773, 182206774, 182206775, 182206776] -> true @179"
+   ],
+   "effects": [],
+   "returns": false
+  },
+  {
+   "id": "onFailCraftEvent#6",
+   "hook": "onFailCraftEvent",
+   "given": {"questState": {"status": "REWARD"}},
+   "guards": ["qs != null -> true @178", "qs.getStatus() == QuestStatus.START -> false @178"],
+   "effects": [],
+   "returns": false
+  },
+  {
+   "id": "onFailCraftEvent#7",
+   "hook": "onFailCraftEvent",
+   "given": {"questState": null},
+   "guards": ["qs != null -> false @178"],
+   "effects": [],
+   "returns": false
+  }
+ ]
+}

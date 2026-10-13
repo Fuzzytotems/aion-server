@@ -1,0 +1,11 @@
+{
+ "format": "aion-quest-trace",
+ "version": 1,
+ "questId": 1980,
+ "java": "crafting/_1980ExpertPassionforAlchemy.java",
+ "class": "_1980ExpertPassionforAlchemy",
+ "javaSha256": "7683f56d91916650b499576bd35cde3d1da894e112ef289c8268b42e258f5976",
+ "register": [{"npc": 203786, "event": "addOnQuestStart", "args": [1980]}, {"npc": 203786, "event": "addOnTalkEvent", "args": [1980]}],
+ "hooks": [{"hook": "onDialogEvent", "line": 28, "unsupported": "call CraftSkillUpdateService.getInstance"}],
+ "cases": []
+}

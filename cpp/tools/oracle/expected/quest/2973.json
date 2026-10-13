@@ -1,0 +1,11 @@
+{
+ "format": "aion-quest-trace",
+ "version": 1,
+ "questId": 2973,
+ "java": "crafting/_2973ExpertWeaponsmithsFinalExam.java",
+ "class": "_2973ExpertWeaponsmithsFinalExam",
+ "javaSha256": "660442a3332078aa8d7fe64a951801acc35c98b4c6b42d5688601a8b8b606db9",
+ "register": [{"npc": 204104, "event": "addOnQuestStart", "args": [2973]}, {"npc": 204104, "event": "addOnTalkEvent", "args": [2973]}],
+ "hooks": [{"hook": "onDialogEvent", "line": 28, "unsupported": "call CraftSkillUpdateService.getInstance"}],
+ "cases": []
+}

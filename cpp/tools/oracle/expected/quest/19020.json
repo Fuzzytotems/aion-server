@@ -1,0 +1,15 @@
+{
+ "format": "aion-quest-trace",
+ "version": 1,
+ "questId": 19020,
+ "java": "crafting/_19020MasterTailorsPotential.java",
+ "class": "_19020MasterTailorsPotential",
+ "javaSha256": "88d35bb68552b4f7f954607be855e1c0f4bd25ee9cad0a7bf64ebe165f1c5a8d",
+ "register": [
+  {"npc": 203793, "event": "addOnQuestStart", "args": [19020]},
+  {"npc": 203793, "event": "addOnTalkEvent", "args": [19020]},
+  {"npc": 203794, "event": "addOnTalkEvent", "args": [19020]}
+ ],
+ "hooks": [{"hook": "onDialogEvent", "line": 31, "unsupported": "call CraftSkillUpdateService.getInstance"}],
+ "cases": []
+}
