@@ -476,8 +476,8 @@ TEST_F(InstanceLifecycleTest, OnlyAnEnabledAutoGroupReachesAutoGroupService) {
 	runtime::resetUnportedHitsForTests();
 	EXPECT_NO_THROW(InstanceService::onLeaveInstance(*actor.player)) << "AUTO_GROUP_ENABLE is false (W-08)";
 	configs::main::AutoGroupConfig::AUTO_GROUP_ENABLE.store(true);
-	EXPECT_THROW(InstanceService::onLeaveInstance(*actor.player), runtime::UnportedException)
-		<< "InstanceService.java:222-223: AutoGroupService.onLeaveInstance (P5-10, not ported)";
+	EXPECT_NO_THROW(InstanceService::onLeaveInstance(*actor.player))
+		<< "InstanceService.java:222-223: AutoGroupService.onLeaveInstance (ported in M5j stage 4 CP2): no auto instance holds the player";
 }
 
 // ---- N-02 and N-07: destroyInstance ------------------------------------------------------------------------------------------------------
