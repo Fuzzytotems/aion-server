@@ -9,6 +9,9 @@
 #include "aion/gameserver/configs/main/SiegeConfig.h"
 #include "aion/gameserver/model/Race.h"
 #include "aion/gameserver/model/siege/Influence.h"
+#include "aion/gameserver/model/siege/ArtifactLocation.h"
+#include "aion/gameserver/model/siege/FortressLocation.h"
+#include "aion/gameserver/model/siege/OutpostLocation.h"
 #include "aion/gameserver/model/siege/SiegeLocation.h"
 #include "aion/gameserver/model/siege/SiegeRace.h"
 #include "aion/gameserver/model/templates/siegelocation/SiegeLocationTemplate.bind.h"
@@ -80,6 +83,49 @@ TEST_F(SiegeServiceM5aTest, LocationsKeepJavasInsertionOrder) {
 	for (const auto& [id, location] : service.getSiegeLocations(400010000))
 		reshanta.push_back(id);
 	EXPECT_EQ(reshanta, (std::vector<int32_t>{9001, 1011, 2011})) << "the world's locations in the same order";
+}
+
+/** the ids of a service map in its iteration order */
+template <class Map>
+std::vector<int32_t> idsOf(Map& map) {
+	std::vector<int32_t> ids;
+	for (const auto& location : map.values())
+		ids.push_back(location->getLocationId());
+	return ids;
+}
+
+TEST_F(SiegeServiceM5aTest, ArtifactsFortressesAndOutpostsKeepJavasInsertionOrder) {
+	// header request 5a-pre-10b, extended (owner's D10 of 2026-10-13): SiegeLocationData's artifact, fortress and outpost maps are LinkedHashMaps
+	// (SiegeLocationData.java:23-27) the service assigns; SM_ABYSS_ARTIFACT_INFO3, SM_FORTRESS_STATUS and the outpost loops iterate them
+	using model::templates::siegelocation::SiegeLocationTemplate;
+	AtomicConfigScope<bool> disabled(configs::main::SiegeConfig::SIEGE_ENABLED, false);
+	xml::LoadContext context;
+	std::vector<std::unique_ptr<SiegeLocationTemplate>> templates;
+	const auto bind = [&](int32_t id, const char* type) {
+		templates.push_back(xml::bindString<SiegeLocationTemplate>(
+			context, "<siege_location id=\"" + std::to_string(id) + "\" type=\"" + type + "\" world=\"400010000\"/>"));
+		return templates.back().get();
+	};
+	services::SiegeService& service = services::SiegeService::getInstance();
+	ASSERT_EQ(service.getArtifacts().size() + service.getFortresses().size() + service.getOutposts().size(), 0u) << "sieges are off";
+	struct Restore {
+		services::SiegeService& service;
+		~Restore() {
+			service.getArtifacts().clear();
+			service.getFortresses().clear();
+			service.getOutposts().clear();
+		}
+	} restore{service};
+	for (int32_t id : {9101, 1012, 2012})
+		service.getArtifacts().put(id, model::siege::ArtifactLocation::create(bind(id, "ARTIFACT")));
+	for (int32_t id : {9001, 1011, 2011})
+		service.getFortresses().put(id, model::siege::FortressLocation::create(bind(id, "FORTRESS")));
+	for (int32_t id : {9201, 3111, 2111})
+		service.getOutposts().put(id, model::siege::OutpostLocation::create(bind(id, "OUTPOST")));
+
+	EXPECT_EQ(idsOf(service.getArtifacts()), (std::vector<int32_t>{9101, 1012, 2012})) << "insertion order, not id order";
+	EXPECT_EQ(idsOf(service.getFortresses()), (std::vector<int32_t>{9001, 1011, 2011}));
+	EXPECT_EQ(idsOf(service.getOutposts()), (std::vector<int32_t>{9201, 3111, 2111}));
 }
 
 TEST_F(SiegeServiceM5aTest, LoginSendsNoSiegePacketsWhileDisabled) {

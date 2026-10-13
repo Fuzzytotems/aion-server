@@ -294,7 +294,7 @@ void SiegeService::onPlayerLogin(model::gameobjects::player::Player& player) {
 void SiegeService::onEnterSiegeWorld(model::gameobjects::player::Player& player) {
 	// Second part only for siege world
 	// Java: two LinkedHashMaps keyed by location id, filled in the iteration order of the service's maps; put() of a present key replaces the
-	// value in place. The C++ source maps are runtime::HashMaps (docs/deviations/P5-12a.md, the location-map rows), so the order differs.
+	// value in place. The service's maps are runtime::LinkedHashMaps (header request 5a-pre-10b), so the order is Java's.
 	std::vector<int32_t> worldLocationIds;
 	std::vector<runtime::Ptr<model::siege::SiegeLocation>> worldLocations;
 	std::vector<int32_t> worldArtifactIds;
