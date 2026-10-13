@@ -15,6 +15,8 @@
 #include "aion/gameserver/dataholders/DataManager.h"
 #include "aion/gameserver/dataholders/ItemData.bind.h"
 #include "aion/gameserver/dataholders/ItemData.h"
+#include "aion/gameserver/dataholders/TitleData.bind.h"
+#include "aion/gameserver/dataholders/TitleData.h"
 #include "aion/gameserver/handlers/admincommands/Quest.h"
 #include "aion/gameserver/handlers/admincommands/Set.h"
 #include "aion/gameserver/handlers/admincommands/Stat.h"
@@ -59,6 +61,8 @@
 namespace aion::gameserver::network::aion::clientpackets::testing {
 namespace {
 
+const char* const TITLES_XML = R"(<player_titles><title id="4" nameId="1100903" desc="Tree Hugger" race="PC_ALL"/></player_titles>)";
+
 using model::gameobjects::player::CustomPlayerState;
 using model::gameobjects::state::CreatureVisualState;
 using serverpackets::SM_SYSTEM_MESSAGE;
@@ -101,6 +105,8 @@ protected:
 		CommandTest::TearDown();
 		if (itemsPublished)
 			dataholders::DataManager::ITEM_DATA.resetForTests();
+		if (titlesPublished)
+			dataholders::DataManager::TITLE_DATA.resetForTests();
 	}
 
 	Player& gm(int32_t objectId, std::string_view name = "Warden", int8_t accessLevel = 9) {
@@ -129,6 +135,7 @@ protected:
 	xml::LoadContext context;
 	std::vector<Player*> stored;
 	bool itemsPublished = false;
+	bool titlesPublished = false;
 };
 
 // ---- the trivial ones -------------------------------------------------------------------------------------------------------------------
@@ -389,23 +396,37 @@ TEST_F(ConsoleSystemCommandsTest, DeletecquestDelegatesToQuest) {
 	expectSame([&] { quest->deleteQuest(admin, other, 1001); });
 }
 
-/** Givetitle.java:17-56: the syntax (Java's ///addskill text) and the //set check. ChatProcessor keys commands by their alias with prefix
- * ("//set"), and Java asks isCommandAllowed(admin, "set"): every GM is refused, with //set registered or not (J-S4CP4-3) */
-TEST_F(ConsoleSystemCommandsTest, GivetitleIsAlwaysRefused) {
-	Player& admin = gm(731215);
+/** Givetitle.java:17-56 with correction J-S4CP4-3 (owner's decision 2026-10-13): the //set check asks ChatProcessor for "//set" (Java's
+ * "set" never matched, so every GM was refused). A GM below //set's level is refused (//set's own staff text first); a GM who may use //set
+ * gives the title, and a learned title is STR_TOOLTIP_LEARNED_TITLE */
+TEST_F(ConsoleSystemCommandsTest, Givetitle) {
+	registerDelegates();
+	ASSERT_TRUE(utils::chathandlers::ChatProcessor::getInstance().isCommandExists("//set"));
+	dataholders::DataManager::TITLE_DATA.publish(xml::bindString<dataholders::TitleData>(context, TITLES_XML));
+	titlesPublished = true;
+	Player& weak = gm(731215, "Weak", 1);
 	handlers::consolecommands::Givetitle givetitle;
-	EXPECT_TRUE(givetitle.process(admin, args({})));
+	EXPECT_TRUE(givetitle.process(weak, args({})));
 	EXPECT_EQ(client()->sentBytes(), std::vector<std::vector<uint8_t>>{message("syntax ///addskill <named name>")});
-	for (bool registered : {false, true}) {
-		if (registered)
-			registerDelegates();
-		ASSERT_FALSE(utils::chathandlers::ChatProcessor::getInstance().isCommandExists("set")) << "the key has the prefix";
-		clearAll();
-		EXPECT_TRUE(givetitle.process(admin, args({"4"})));
-		EXPECT_EQ(client()->sentBytes(), std::vector<std::vector<uint8_t>>{message("You dont have enough rights to execute this command")}) << registered;
-	}
-	EXPECT_TRUE(utils::chathandlers::ChatProcessor::getInstance().isCommandExists("//set"));
-	EXPECT_FALSE(admin.getTitleList().contains(4));
+	clearAll();
+	EXPECT_TRUE(givetitle.process(weak, args({"4"})));
+	std::vector<std::vector<uint8_t>> refused = info("<You need access level 3 or higher to use //set>");
+	refused.push_back(message("You dont have enough rights to execute this command"));
+	EXPECT_EQ(client()->sentBytes(), refused) << "below //set's level";
+
+	Player& admin = gm(731216);
+	admin.getTitleList().setOwner(admin);
+	clearAll();
+	EXPECT_TRUE(givetitle.process(admin, args({"four"})));
+	EXPECT_EQ(client(1)->sentBytes(), std::vector<std::vector<uint8_t>>{message("You should enter valid second params!", 1)});
+	clearAll();
+	EXPECT_TRUE(givetitle.process(admin, args({"4"})));
+	EXPECT_TRUE(admin.getTitleList().contains(4)) << "the title is given";
+	EXPECT_EQ(client(1)->sentBytes().back(), message("Added 4 toWarden", 1));
+	clearAll();
+	EXPECT_TRUE(givetitle.process(admin, args({"4"})));
+	EXPECT_EQ(client(1)->sentBytes(), (std::vector<std::vector<uint8_t>>{packet(SM_SYSTEM_MESSAGE::STR_TOOLTIP_LEARNED_TITLE(), 1),
+		message("Added 4 toWarden", 1)})) << "learned already";
 }
 
 // ---- the quest, item and wish commands, up to their services --------------------------------------------------------------------------------
