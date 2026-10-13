@@ -5,7 +5,11 @@
 #include "CommandTestSupport.h"
 
 #include <algorithm>
+#include <filesystem>
+#include <fstream>
 #include <memory>
+#include <random>
+#include <sstream>
 #include <string>
 #include <vector>
 
@@ -68,6 +72,41 @@ constexpr std::string_view MONSTER_NPC_TEMPLATES_XML = R"xml(<npc_templates>
 class SpecialSpawnTemplate final : public SpawnTemplate {
 public:
 	SpecialSpawnTemplate(SpawnGroup& group, float x, float y, float z) : SpawnTemplate(group, x, y, z, int8_t{0}, 0, std::nullopt, 0, 0, std::nullopt) {}
+};
+
+/**
+ * A scratch working directory for SpawnsData.saveSpawn's write-back (Java writes ./data/static_data/spawns relative to the working directory;
+ * the tests must never write into the tracked Java tree): created under the temp directory, made current, restored and removed at the end.
+ */
+struct ScratchDataRoot {
+	std::filesystem::path dir;
+	std::filesystem::path previous;
+
+	ScratchDataRoot()
+		: dir(std::filesystem::temp_directory_path() / ("aion_gs_spawn_writeback_" + std::to_string(std::random_device()()))),
+		  previous(std::filesystem::current_path()) {
+		std::filesystem::create_directories(dir);
+		std::filesystem::current_path(dir);
+	}
+	~ScratchDataRoot() {
+		std::filesystem::current_path(previous);
+		std::error_code ignored;
+		std::filesystem::remove_all(dir, ignored);
+	}
+	ScratchDataRoot(const ScratchDataRoot&) = delete;
+	ScratchDataRoot& operator=(const ScratchDataRoot&) = delete;
+
+	void write(const std::string& relative, std::string_view text) const {
+		std::filesystem::create_directories((dir / relative).parent_path());
+		std::ofstream out(dir / relative, std::ios::binary);
+		out << text;
+	}
+	std::string read(const std::string& relative) const {
+		std::ifstream in(dir / relative, std::ios::binary);
+		std::stringstream text;
+		text << in.rdbuf();
+		return text.str();
+	}
 };
 
 class MonsterCommandsTest : public CommandTest {
@@ -153,14 +192,125 @@ protected:
 
 // ---- K-10: SpawnsData.saveSpawn's guard (SpawnsData.java:205-214) ------------------------------------------------------------------------
 
-TEST_F(MonsterCommandsTest, SaveSpawnRefusesWhatIsNoWorldSpawnAndReachesTheUnportedTailOtherwise) {
+TEST_F(MonsterCommandsTest, SaveSpawnRefusesWhatIsNoWorldSpawn) {
 	Player& player = gm(730200);
 	dataholders::SpawnsData& spawns = *dataholders::DataManager::SPAWNS_DATA;
+	ScratchDataRoot root; // nothing may be written: the guards return before any file I/O
 	EXPECT_FALSE(spawns.saveSpawn(player, false)) << "no spawn template";
 	EXPECT_FALSE(spawns.saveSpawn(npcAt(player, 101.0f, true, 300), false)) << "a special spawn (a SpawnTemplate subclass)";
 	EXPECT_FALSE(spawns.saveSpawn(npcAt(player, 102.0f, false, 0), true)) << "a single time spawn (respawn time 0)";
-	EXPECT_THROW(spawns.saveSpawn(npcAt(player, 103.0f, false, 300), false), runtime::UnportedException)
-		<< "a world spawn reaches the file-I/O tail (m5j D7)";
+	EXPECT_FALSE(std::filesystem::exists(root.dir / "data")) << "the guards touched the file system";
+}
+
+// ---- SpawnsData.saveSpawn's write-back (SpawnsData.java:216-273; m5j CP5, D14 = (a)) ------------------------------------------------------
+// The working directory is a scratch data root (ScratchDataRoot); the expected files are JAXB's formatted output of Java's objects.
+
+/** //delete of a world spawn: the group is copied from the old template file (exact match), marked custom, the spot removed */
+TEST_F(MonsterCommandsTest, SaveSpawnDeleteCopiesTheGroupFromTheTemplateFilesAndRemovesTheSpot) {
+	Player& player = gm(730203);
+	ScratchDataRoot root;
+	root.write("data/static_data/spawns/Npcs/210010000_Poeta.xml", R"(<?xml version="1.0" encoding="utf-8"?>
+<spawns>
+	<spawn_map map_id="210010000">
+		<!-- minalinerk -->
+		<spawn npc_id="798007" respawn_time="295">
+			<spot x="103.0" y="100.0" z="50.0" h="0"/>
+			<spot x="110.5" y="120.25" z="51.0" h="10" random_walk="5" static_id="77" walker_id="ROUTE" walker_index="2"/>
+		</spawn>
+		<spawn npc_id="798008" respawn_time="60">
+			<spot x="1.0" y="2.0" z="3.0" h="4"/>
+		</spawn>
+	</spawn_map>
+</spawns>
+)");
+	Npc& npc = npcAt(player, 103.0f, false, 295);
+	EXPECT_TRUE(dataholders::DataManager::SPAWNS_DATA->saveSpawn(npc, true));
+	EXPECT_EQ(root.read("data/static_data/spawns/Npcs/New/210010000_Poeta.xml"),
+		"<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\n"
+		"<spawns>\n"
+		"    <spawn_map map_id=\"210010000\">\n"
+		"        <spawn npc_id=\"798007\" respawn_time=\"295\" difficult_id=\"0\" custom=\"true\">\n"
+		"            <spot x=\"110.5\" y=\"120.25\" z=\"51.0\" h=\"10\" static_id=\"77\" random_walk=\"5\" walker_id=\"ROUTE\" walker_index=\"2\"/>\n"
+		"        </spawn>\n"
+		"    </spawn_map>\n"
+		"</spawns>\n");
+}
+
+/** A moved world spawn (//spawnu and the like, delete false): the spot of the New file's group is replaced, the spawn template takes the
+ * object's position, and addRegularSpawns makes the custom group the npc's world group */
+TEST_F(MonsterCommandsTest, SaveSpawnMoveReplacesTheSpotInTheNewFile) {
+	Player& player = gm(730204);
+	ScratchDataRoot root;
+	root.write("data/static_data/spawns/Npcs/New/210010000_Poeta.xml",
+		"<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\n<spawns>\n    <spawn_map map_id=\"210010000\">\n"
+		"        <spawn npc_id=\"798007\" respawn_time=\"300\" difficult_id=\"0\" custom=\"true\">\n"
+		"            <spot x=\"103.0\" y=\"100.0\" z=\"50.0\" h=\"0\"/>\n        </spawn>\n    </spawn_map>\n</spawns>\n");
+	Npc& npc = npcAt(player, 103.0f, false, 300);
+	npc.getPosition()->setXYZH(104.5f, 101.0f, 49.75f, int8_t{30});
+	EXPECT_TRUE(dataholders::DataManager::SPAWNS_DATA->saveSpawn(npc, false));
+	EXPECT_EQ(root.read("data/static_data/spawns/Npcs/New/210010000_Poeta.xml"),
+		"<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\n"
+		"<spawns>\n"
+		"    <spawn_map map_id=\"210010000\">\n"
+		"        <spawn npc_id=\"798007\" respawn_time=\"300\" difficult_id=\"0\" custom=\"true\">\n"
+		"            <spot x=\"104.5\" y=\"101.0\" z=\"49.75\" h=\"30\"/>\n"
+		"        </spawn>\n"
+		"    </spawn_map>\n"
+		"</spawns>\n");
+	EXPECT_EQ(npc.getSpawn()->getX(), 104.5f) << "the spawn template takes the saved spot";
+	EXPECT_EQ(npc.getSpawn()->getHeading(), 30);
+	bool found = false;
+	for (const runtime::Ref<SpawnGroup>& group : dataholders::DataManager::SPAWNS_DATA->getSpawnsForNpc(210010000, 798007))
+		for (const runtime::Ptr<SpawnTemplate>& spot : group->getSpawnTemplates().snapshot())
+			found = found || (spot->getX() == 104.5f && spot->getY() == 101.0f);
+	EXPECT_TRUE(found) << "addRegularSpawns of the written map";
+}
+
+/** A spawn in no file: a new group (npc id, respawn time, no handler) with the spot; a second npc of another id adds its own group */
+TEST_F(MonsterCommandsTest, SaveSpawnOfANewSpawnCreatesItsGroup) {
+	Player& player = gm(730205);
+	ScratchDataRoot root;
+	std::filesystem::create_directories(root.dir / "data/static_data/spawns/Npcs");
+	Npc& npc = npcAt(player, 103.25f, false, 120);
+	EXPECT_TRUE(dataholders::DataManager::SPAWNS_DATA->saveSpawn(npc, false));
+	EXPECT_EQ(root.read("data/static_data/spawns/Npcs/New/210010000_Poeta.xml"),
+		"<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\n"
+		"<spawns>\n"
+		"    <spawn_map map_id=\"210010000\">\n"
+		"        <spawn npc_id=\"798007\" respawn_time=\"120\" difficult_id=\"0\" custom=\"true\">\n"
+		"            <spot x=\"103.25\" y=\"100.0\" z=\"50.0\" h=\"0\"/>\n"
+		"        </spawn>\n"
+		"    </spawn_map>\n"
+		"</spawns>\n");
+	// a delete of a spot that is not in the group: the group stays, nothing removed (Java: oldSpotIndex -1 and delete)
+	Npc& other = npcAt(player, 105.0f, false, 120);
+	EXPECT_TRUE(dataholders::DataManager::SPAWNS_DATA->saveSpawn(other, true));
+	EXPECT_NE(root.read("data/static_data/spawns/Npcs/New/210010000_Poeta.xml").find("x=\"103.25\""), std::string::npos);
+}
+
+/** Java: xml.getParentFile().mkdir() creates one level: without the folder the write fails, "Could not save XML file!" and false */
+TEST_F(MonsterCommandsTest, SaveSpawnWithoutTheFolderFails) {
+	Player& player = gm(730206);
+	ScratchDataRoot root;
+	network::test::LogCapture capture({"com.aionemu.gameserver.dataholders.SpawnsData"});
+	Npc& npc = npcAt(player, 103.0f, false, 300);
+	EXPECT_FALSE(dataholders::DataManager::SPAWNS_DATA->saveSpawn(npc, false));
+	EXPECT_FALSE(std::filesystem::exists(root.dir / "data/static_data/spawns/Npcs/New"));
+	EXPECT_TRUE(capture.contains("Could not save XML file!"));
+	EXPECT_EQ(npc.getSpawn()->getX(), 103.0f) << "the template keeps its position";
+}
+
+/** //delete's answer for a saved removal (Delete.java:68-70) */
+TEST_F(MonsterCommandsTest, DeleteOfAWorldSpawnRemovesItPermanently) {
+	Player& admin = gm(730207);
+	ScratchDataRoot root;
+	std::filesystem::create_directories(root.dir / "data/static_data/spawns/Npcs");
+	Npc& npc = npcAt(admin, 101.0f, false, 300);
+	target(admin, npc);
+	handlers::admincommands::Delete del;
+	EXPECT_TRUE(del.process(admin, args({})));
+	EXPECT_TRUE(sent(info("Spawn removed permanently. Npc will not spawn on server start anymore.")[0]));
+	EXPECT_TRUE(std::filesystem::exists(root.dir / "data/static_data/spawns/Npcs/New/210010000_Poeta.xml"));
 }
 
 // ---- //spawn (SpawnNpc.java:36-66) -------------------------------------------------------------------------------------------------------

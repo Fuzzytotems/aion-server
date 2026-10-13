@@ -1891,6 +1891,11 @@ void runM5jGate() {
 	const std::chrono::system_clock::time_point serverUpTo = std::chrono::system_clock::now();
 	const std::optional<int32_t> loginServerExit = servers.stopLoginServer();
 	cases.run("Z13", "reports: no AION_UNPORTED, the allow-list, no ERROR, the census, no Player alive", [&] {
+		// m5j CP5 (D14 = (a)): SpawnsData.saveSpawn writes ./data/static_data/spawns/<dir>/New/<map>.xml into the Java tree the servers run in;
+		// the gate's //spawn (no respawn time) and //delete (of single-time spawns) never reach it (SpawnsData.java:211) - no New folder appears
+		for (const char* dir : {"Npcs", "Gather", "Instances", "Rifts"})
+			EXPECT_FALSE(std::filesystem::exists(std::filesystem::path(AION_GAMESERVER_JAVA_DIR) / "data" / "static_data" / "spawns" / dir / "New"))
+				<< "a spawn write-back reached the tracked Java tree: data/static_data/spawns/" << dir << "/New";
 		ASSERT_TRUE(gameServerExit) << "the game server did not exit after the stop file was written";
 		EXPECT_EQ(*gameServerExit, 0) << "the game server exited with " << *gameServerExit;
 		ASSERT_TRUE(loginServerExit) << "the login server did not exit on CTRL_BREAK";
