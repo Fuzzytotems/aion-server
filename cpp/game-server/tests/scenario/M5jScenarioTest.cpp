@@ -54,6 +54,12 @@
 //   Z18 (stage 4 CP4, the system commands) G's //bookmark del of a missing name and deleteAll (Bookmark.java:31, :36); //debug connections,
 //       connectedPlayers and dcBuggedPlayers on the running server (Debug.java:40, :43, :55: the client list, the player count head, no
 //       bugged player); //reload ai, commands and config (Reload.java:76, :79, :82), the config reload last (the -D keys stay);
+//   Z19 (stage 4 CP7, the chat path of the command smoke, L-04) G types every registered admin and player command (the classes with an
+//       AION_*_COMMAND marker; the alias is the Java class's super("alias")) with one unknown parameter, through CM_CHAT_MESSAGE and
+//       ChatProcessor.handleChatCommand; the state toggles (//invis, //invul, //see, .noexp, .nomorph) and the ban family (the login server)
+//       are left out. The server keeps answering G (//bookmark's text after the run), and every ERROR line of the case is Java's own
+//       "Exception executing chat command" of one of these lines (Z13 leaves those out; it still finds any AION_UNPORTED of the case). A, a
+//       regular player, types //time 12: it is no command for him (AdminCommand.process returns false, the text is chat), so no answer;
 //   Z14 A relogs as a level-10 Daeva with 1000 AP; G2 enters beside A, types //enemy cancel and //kill on A: A dies, A's AP and G2's AP change
 //       by the oracle's calculatePvPApLost / calculatePvpApGained (m5j-social), SM_ABYSS_RANK and the AP system messages to both;
 //   Z13 the reports (the M5a Q8 bar), with no Player alive after the logouts.
@@ -79,6 +85,7 @@
 #include <memory>
 #include <optional>
 #include <set>
+#include <tuple>
 #include <span>
 #include <sstream>
 #include <stdexcept>
@@ -877,6 +884,7 @@ void runM5jGate() {
 	});
 
 	ScenarioClient g, a, b, c, g2;
+	std::set<std::string> z19ErrorLines; // Z19's ERROR lines (ChatCommand.run's own), which Z13 leaves out
 	const std::string suffix = servers.gameSchema().substr(servers.gameSchema().size() - 8);
 	const auto setUp = [&](ScenarioClient& client, const char* label, const char* prefix, const char* name, int32_t accessLevel, bool asmodian) {
 		client.label = label;
@@ -1744,6 +1752,67 @@ void runM5jGate() {
 		says("//reload config", {"Configs successfully reloaded!"}); // Reload.java:82
 	});
 
+	// ---- Z19: the chat path of the command smoke (stage 4 CP7, L-04) ----
+	runCase("Z19", "every registered admin and player command typed by G with an unknown parameter: answers, no crash; A's //time 12 is chat", [&] {
+		// the commands: the C++ marker files (the registry's input) and their Java classes' aliases
+		const std::filesystem::path javaHandlers = std::filesystem::path(AION_GAMESERVER_JAVA_DIR) / "data" / "handlers";
+		const std::filesystem::path cppHandlers =
+			std::filesystem::path(AION_GAMESERVER_JAVA_DIR).parent_path() / "cpp" / "game-server" / "handlers" / "aion" / "gameserver" / "handlers";
+		const std::set<std::string> leftOut{"invis", "invul", "see", "noexp", "nomorph", "ban", "banchar", "banhdd", "banip", "banmac", "unban",
+			"unbanchar", "unbanip", "unbanmac"};
+		std::vector<std::string> lines;
+		for (const auto& [pkg, prefix, marker] : std::vector<std::tuple<std::string, std::string, std::string>>{
+				 {"admincommands", "//", "AION_ADMIN_COMMAND("}, {"playercommands", ".", "AION_PLAYER_COMMAND("}}) {
+			for (const auto& file : std::filesystem::directory_iterator(cppHandlers / pkg)) {
+				if (file.path().extension() != ".cpp")
+					continue;
+				std::ifstream cpp(file.path());
+				const std::string cppText((std::istreambuf_iterator<char>(cpp)), std::istreambuf_iterator<char>());
+				if (cppText.find(marker) == std::string::npos)
+					continue;
+				std::ifstream java(javaHandlers / pkg / (file.path().stem().string() + ".java"));
+				const std::string javaText((std::istreambuf_iterator<char>(java)), std::istreambuf_iterator<char>());
+				const size_t super = javaText.find("super(\"");
+				ASSERT_NE(super, std::string::npos) << file.path() << ": no super(\"alias\" in the Java class";
+				const std::string alias = javaText.substr(super + 7, javaText.find('"', super + 7) - super - 7);
+				if (!leftOut.contains(alias))
+					lines.push_back(prefix + alias + " zzsmoke");
+			}
+		}
+		ASSERT_GE(lines.size(), 70u) << "the admin and player commands with a marker (90 at CP7, 14 left out)";
+
+		const std::vector<std::string> errorsBefore = servers.gameServer()->findLogLines(" ERROR ");
+		for (const std::string& line : lines) {
+			const size_t gFrom = g.mark();
+			g.say(line);
+			collectFor(*g.game, 300ms); // the answer, if any (a missing service answers "<Error while executing command>")
+			static_cast<void>(gFrom);
+		}
+		const size_t gFrom = g.mark();
+		g.say("//bookmark del no such place");
+		EXPECT_TRUE(waitForInfo(*g.game, gFrom, "No bookmark with that name was found.", 10s)) << "G's commands still answer after the run";
+
+		const std::vector<std::string> errorsAfter = servers.gameServer()->findLogLines(" ERROR ");
+		for (size_t i = errorsBefore.size(); i < errorsAfter.size(); i++) {
+			const std::string& error = errorsAfter[i];
+			const size_t at = error.find("Exception executing chat command \"");
+			bool ours = false;
+			if (at != std::string::npos)
+				for (const std::string& line : lines)
+					ours = ours || error.find("\"" + line + "\"", at) != std::string::npos;
+			EXPECT_TRUE(ours) << "an ERROR line that is not ChatCommand.run's own of a smoke line: " << error;
+			if (ours)
+				z19ErrorLines.insert(error);
+		}
+
+		// a regular player: //time is no command for him, the text is chat (AdminCommand.process returns false)
+		const size_t aFrom = a.mark();
+		a.say("//time 12");
+		EXPECT_FALSE(waitForMessage(*a.game, aFrom, [](const decoders::Message& m) {
+			return m.chatType == CHAT_GOLDEN_YELLOW && m.senderObjectId == 0;
+		}, 2s)) << "A got an answer to //time 12: " << join(infoTexts(a.since(aFrom)), " | ");
+	});
+
 	// ---- Z14: a PvP kill ----
 	runCase("Z14", "A (a level-10 Daeva with 1000 AP) and G2 (a level-13 Asmodian Daeva): G2's //kill on A pays the oracle's AP", [&] {
 		disconnect(a);
@@ -1867,7 +1936,8 @@ void runM5jGate() {
 		std::vector<std::string> errors;
 		ASSERT_NE(servers.gameServer(), nullptr);
 		for (const std::string& line : servers.gameServer()->findLogLines(" ERROR "))
-			errors.push_back("game server: " + line);
+			if (!z19ErrorLines.contains(line)) // Z19's own: Java's "Exception executing chat command" of its smoke lines
+				errors.push_back("game server: " + line);
 		EXPECT_TRUE(errors.empty()) << "ERROR lines in the game server log:\n" << join(errors, "\n") << cronNote;
 		EXPECT_TRUE(servers.gameServer()->findLogLines("did not leave world cleanly", 5).empty());
 		EXPECT_TRUE(servers.gameServer()->findLogLines("objects removed from the world are still alive", 5).empty());
