@@ -303,6 +303,24 @@ TEST_F(TeleportCommandsTest, MoveToObject) {
 	EXPECT_EQ(client()->sentBytes(), exactly({message("Cannot find object for spawn #999999")}));
 }
 
+/** MoveToObject.java:38-41 with correction J-S4CP6-2 (owner's decision 2026-10-13): a player has no spawn template; the GM goes to the
+ * player's position (Java: a NullPointerException, ChatCommand's error text) */
+TEST_F(TeleportCommandsTest, MoveToObjectOfAPlayer) {
+	Player& admin = gm(730342);
+	Player& other = gm(730343, "Rover");
+	other.getPosition()->setXYZH(120.0f, 130.0f, 55.0f, int8_t{0});
+	ASSERT_EQ(other.getSpawn(), nullptr);
+	handlers::admincommands::MoveToObject move;
+	const std::string result = teleportTarget(move, admin, args({std::to_string(other.getObjectId())}));
+	if (result == "no teleport") {
+		EXPECT_FLOAT_EQ(admin.getX(), 120.0f);
+		EXPECT_FLOAT_EQ(admin.getY(), 130.0f);
+		EXPECT_FLOAT_EQ(admin.getZ(), 55.0f);
+	} else {
+		EXPECT_NE(result.find("x=120.0, y=130.0, z=55.0"), std::string::npos) << result;
+	}
+}
+
 /** Instance.java:26-105 (with the AUTO_GROUP row the registration broadcast reads) */
 TEST_F(TeleportCommandsTest, InstanceRegistration) {
 	// a row per AutoGroupType mask: getAGTByMaskId walks the constants and reads each template (the registration broadcast reads mask 3's)
