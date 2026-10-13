@@ -730,6 +730,11 @@ aion_gs_chunk(P5-11 LEASE PHASE 5 ROOT handlers
 # I-2 of M5i (m5i-plan.md 15.3): P5-12a leases the seven siege AIs of D5's stage 1 from A1 (handlers/ai/siege). P5-05's test executable
 # compiles them by #include (tests/handlers_ai_core/SiegeAiHandlersTest.cpp), as it does the portal AIs. I-3 adds P5-05's root ArtifactAI.*
 # ("artifact"). Released when the lane merges.
+# I-5 of M5i (m5i-plan.md R-01, granted 2026-10-13): P5-12b2 leases P4-11b's controllers/ControllerStandIns.{h,cpp} and RVController.cpp to
+# delete the riftEnumData stand-in and read the RiftEnum companion (services/rift/RiftEnumInfo.h) instead. Released when the lane merges.
+aion_gs_chunk(P5-12b2 LEASE PHASE 5
+	GLOBS "aion/gameserver/controllers/{ControllerStandIns,RVController}.cpp" "aion/gameserver/controllers/ControllerStandIns.h")
+
 aion_gs_chunk(P5-12a LEASE PHASE 5 ROOT handlers
 	GLOBS "aion/gameserver/handlers/ai/siege/{SiegeNpcAI,AbstractSiegeProtectorAI,ArtifactProtectorAI,FortressProtectorNpcAI,GuardianGeneralAI}.*"
 		"aion/gameserver/handlers/ai/siege/{SiegeRaceProtectorAI,ShieldNpcAI}.*"

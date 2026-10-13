@@ -1,5 +1,7 @@
 #pragma once
 
+#include <memory>
+
 #include <cstdint>
 #include <string>
 #include <vector>
@@ -31,8 +33,9 @@ public:
 	void spawnVortex(model::vortex::VortexLocation& loc);
 private:
 	void spawnRift(RiftEnum rift, runtime::Ptr<model::vortex::VortexLocation> vl, runtime::Ptr<model::rift::RiftLocation> rl, bool isWithGuards);
+	/** header request m5i-2 (granted 2026-10-13): the controller is handed over, as Java's `new Npc(controller, ...)` takes it */
 	runtime::Ptr<model::gameobjects::Npc> spawnInstance(int32_t instance, model::templates::spawns::SpawnTemplate& template_,
-		controllers::RVController& controller);
+		std::unique_ptr<controllers::RVController> controller);
 	static void addSpawnedRift(model::gameobjects::Npc& rift);
 public:
 	static std::vector<runtime::Ptr<model::gameobjects::Npc>> getSpawnedRifts(int32_t worldId);
