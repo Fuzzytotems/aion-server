@@ -21,7 +21,8 @@ void Givetitle::execute(Player& admin, std::span<const std::string> params) {
 		return;
 	}
 
-	if (!ChatProcessor::getInstance().isCommandAllowed(admin, "set")) {
+	// correction J-S4CP4-3 (owner's decision 2026-10-13): commands are keyed with their prefix; Java's "set" never matched
+	if (!ChatProcessor::getInstance().isCommandAllowed(admin, "//set")) { // parity= if (!ChatProcessor.getInstance().isCommandAllowed(admin, "set")) {
 		PacketSendUtility::sendMessage(admin, "You dont have enough rights to execute this command");
 		return;
 	}
