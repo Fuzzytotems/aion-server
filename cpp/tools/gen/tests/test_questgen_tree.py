@@ -182,6 +182,7 @@ Q09 = {
 # Phase 6 step 2, chunk Q07 (lane C, 2026-10-08; docs/deviations/Q07.md): beshmundir, abyss_entry and silentera_canyon
 Q07 = {
     'abyss_entry': (
+        '_1044TestingFlightSkills', '_2042TheLastCheckpoint',
         '_1920TestingYourMettle', '_1921TheAbyssQuiz', '_1922DeliveronYourPromises',
         '_2945HoningYourSkills', '_2946AbyssGeneralKnowledge', '_2947FollowingThrough',),
     'beshmundir': (
@@ -466,7 +467,7 @@ class CommittedTree(unittest.TestCase):
             for klass in classes:
                 with self.subTest(file=f'{directory}/{klass}'):
                     self.assertIn((directory, klass), found)
-        self.assertEqual(sum(len(classes) for classes in Q07.values()), 62)
+        self.assertEqual(sum(len(classes) for classes in Q07.values()), 64)
         for directory, classes in Q12.items():
             for klass in classes:
                 with self.subTest(file=f'{directory}/{klass}'):

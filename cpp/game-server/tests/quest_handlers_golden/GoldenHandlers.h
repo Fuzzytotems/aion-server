@@ -419,6 +419,8 @@
 	X(abyss_entry, _2945HoningYourSkills, 2945) \
 	X(abyss_entry, _2946AbyssGeneralKnowledge, 2946) \
 	X(abyss_entry, _2947FollowingThrough, 2947) \
+	X(abyss_entry, _1044TestingFlightSkills, 1044) \
+	X(abyss_entry, _2042TheLastCheckpoint, 2042) \
 	X(abyssal_splinter, _30255TheLastCrusade, 30255) \
 	X(abyssal_splinter, _30261WeirdFragment, 30261) \
 	X(abyssal_splinter, _30263DaevasFearToTread, 30263) \

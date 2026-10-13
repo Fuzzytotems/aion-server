@@ -776,7 +776,7 @@ std::vector<Packet> enterWorld(ScenarioClient& client) {
  */
 std::vector<Packet> levelReady(ScenarioClient& client, bool endMovies = true) {
 	client.game->send(GameSession::CM_LEVEL_READY, GameSession::buildCM_LEVEL_READY());
-	std::vector<Packet> burst = collectBurst(*client.game, client.async);
+	std::vector<Packet> burst = expectEnterWorldTimerEnds(collectBurst(*client.game, client.async), client.label + " level ready");
 	if (burst.empty())
 		throw std::runtime_error(client.label + ": no packet after CM_LEVEL_READY");
 	client.lastLevelReady = burst;

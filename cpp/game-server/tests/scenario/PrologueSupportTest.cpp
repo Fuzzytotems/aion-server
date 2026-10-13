@@ -60,6 +60,13 @@ Packet questUpdate(int32_t questId, uint8_t status, int32_t vars = 0) {
 	return packet("SM_QUEST_ACTION", w.data);
 }
 
+/** SM_QUEST_ACTION TIMER (SM_QUEST_ACTION.java:72-73, :91-93): action, quest, timer, timer > 0 ? 1 : 0 - 10 bytes */
+Packet questTimer(int32_t questId, int32_t timer) {
+	PacketWriter w;
+	w.C(decoders::QUEST_ACTION_TIMER).D(questId).D(timer).C(timer > 0 ? 1 : 0);
+	return packet("SM_QUEST_ACTION", w.data);
+}
+
 /** SM_QUEST_LIST (as VisibilityDecodersTest.cpp's questListBytes): 1, -count, then quest, status, vars, complete count per entry */
 Packet questList(const std::vector<decoders::QuestEntry>& quests) {
 	PacketWriter w;
@@ -314,6 +321,70 @@ TEST(PrologueSupportTest, EachMovieEndCheckFailsAloneOnItsField) {
 	};
 	for (const auto& c : cases)
 		expectOnlyFailure(failuresOf([&] { expectPrologueMovieEndAnswer(c.answer, p, EXP_BEFORE, async, "case"); }), c.what, c.deviation);
+}
+
+
+// ---- expectEnterWorldTimerEnds (the owner's decision of 2026-10-13) ----------------------------------------------------------------------
+
+/** a first level ready of `prologue` as the engine sends it: the enter-world hooks in quest-id order (1000, 1044, 2000, 2042) */
+std::vector<Packet> javaFirstLevelReadyWithTimers(const decoders::Prologue& prologue) {
+	std::vector<Packet> burst = javaLevelReadyBurst(prologue); // SM_WEATHER, ADD, SM_NEARBY_QUESTS, SM_PLAY_MOVIE, SM_ABNORMAL_STATE
+	if (prologue.quest == ELYOS_PROLOGUE.quest) {
+		burst.insert(burst.begin() + 4, questTimer(2042, 0));
+		burst.insert(burst.begin() + 4, questTimer(1044, 0));
+	} else {
+		burst.insert(burst.begin() + 4, questTimer(2042, 0));
+		burst.insert(burst.begin() + 1, questTimer(1044, 0));
+	}
+	return burst;
+}
+
+std::vector<std::string> namesOf(const std::vector<Packet>& packets) {
+	std::vector<std::string> out;
+	for (const Packet& packet : packets)
+		out.push_back(packet.name);
+	return out;
+}
+
+TEST(PrologueSupportTest, EveryLevelReadyEndsTheTwoQuestTimersAndTheRestIsTheBurstWithoutThem) {
+	for (const decoders::Prologue& prologue : {ELYOS_PROLOGUE, ASMODIAN_PROLOGUE}) {
+		const std::vector<Packet> java = javaFirstLevelReadyWithTimers(prologue);
+		std::vector<Packet> rest;
+		EXPECT_EQ(failuresOf([&] { rest = expectEnterWorldTimerEnds(java, "java"); }), std::vector<std::string>{}) << prologue.quest;
+		EXPECT_EQ(namesOf(rest), namesOf(javaLevelReadyBurst(prologue))) << prologue.quest;
+		// the prologue's own checks read the rest as before
+		EXPECT_EQ(failuresOf([&] { expectPrologueStarted(rest, prologue, "java"); }), std::vector<std::string>{}) << prologue.quest;
+	}
+	// a later level ready (a relog, a teleport): the two timers alone
+	const std::vector<Packet> later{packet("SM_WEATHER"), questTimer(1044, 0), questTimer(2042, 0), packet("SM_ABNORMAL_STATE")};
+	std::vector<Packet> rest;
+	EXPECT_EQ(failuresOf([&] { rest = expectEnterWorldTimerEnds(later, "later"); }), std::vector<std::string>{});
+	EXPECT_EQ(namesOf(rest), (std::vector<std::string>{"SM_WEATHER", "SM_ABNORMAL_STATE"}));
+}
+
+TEST(PrologueSupportTest, EachLevelReadyTimerDeviationFailsAlone) {
+	const Packet weather = packet("SM_WEATHER");
+	const Packet abnormal = packet("SM_ABNORMAL_STATE");
+	const struct {
+		std::string_view deviation;
+		std::vector<Packet> burst;
+		std::string_view what;
+	} cases[] = {
+		{"no timer", {weather, abnormal}, "timers"},
+		{"2042's missing", {weather, questTimer(1044, 0), abnormal}, "timers"},
+		{"1044's missing", {weather, questTimer(2042, 0), abnormal}, "timers"},
+		{"2042's before 1044's", {weather, questTimer(2042, 0), questTimer(1044, 0), abnormal}, "timers"},
+		{"1044's twice", {weather, questTimer(1044, 0), questTimer(1044, 0), questTimer(2042, 0), abnormal}, "timers"},
+		{"another quest's timer", {weather, questTimer(1044, 0), questTimer(2042, 0), questTimer(1006, 0), abnormal}, "timers"},
+		{"a timer started, not ended", {weather, questTimer(1044, 0), questTimer(2042, 30), abnormal}, "action.timer"},
+	};
+	for (const auto& c : cases)
+		expectOnlyFailure(failuresOf([&] { expectEnterWorldTimerEnds(c.burst, "case"); }), c.what, c.deviation);
+	// an ADD or UPDATE is not a timer: it stays in the rest
+	std::vector<Packet> rest;
+	const std::vector<Packet> withAdd{weather, questAdd(1000, QUEST_STATUS_START), questTimer(1044, 0), questTimer(2042, 0), abnormal};
+	EXPECT_EQ(failuresOf([&] { rest = expectEnterWorldTimerEnds(withAdd, "add"); }), std::vector<std::string>{});
+	EXPECT_EQ(namesOf(rest), (std::vector<std::string>{"SM_WEATHER", "SM_QUEST_ACTION", "SM_ABNORMAL_STATE"}));
 }
 
 } // namespace
