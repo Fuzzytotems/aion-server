@@ -1260,3 +1260,25 @@ the Java literals):
 
 Green (100 %).
 
+## M5j stage-4 gate, CP7 (lane A, 2026-10-13): `gs.scenario.m5j` Z19, the chat path of the command smoke (m5j-plan.md §18.5 CP7, L-04)
+
+Z19 runs after Z18 and before Z14.
+
+- **The command list.** G types every admin and player command with an `AION_*_COMMAND` marker, through CM_CHAT_MESSAGE and
+  ChatProcessor.handleChatCommand. Each command's alias is its Java class's `super("alias")`, and each line carries one unknown parameter
+  (`//alias zzsmoke`, `.alias zzsmoke`). That gives 76 lines.
+- **Left out:** the state toggles (//invis, //invul, //see, .noexp, .nomorph) and the ban family, which goes to the login server.
+- **What it checks:**
+  - G still gets //bookmark's answer after the run.
+  - Every ERROR line of the case is ChatCommand.run's own "Exception executing chat command" for one of these lines. Z13 leaves those
+    lines out and still fails on any AION_UNPORTED.
+  - A, a regular player, types `//time 12` and gets no answer, because for him it is chat.
+
+Green (100 %), three times. Gate mutants (`AION_S50MUT`, one gate_lock call each), **3 of 3 killed**:
+
+- `unported`: an AION_UNPORTED on //time's unknown-parameter path. Z13 fails, from Z19's line.
+- `refusal`: the refusal text sent to a regular player too. Z19 fails.
+- `route`: //bookmark no longer routed. Z18 and Z19 fail.
+
+Sources restored (sha256), rebuilt, the switch absent, and the gate re-run green.
+

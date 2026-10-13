@@ -1673,4 +1673,5 @@ without a C++ file; `tools/porting/census.py` for the totals):
 > `//cinstance` (D12), D7 (D14). Java corrections proposed: J-S4CP4-1..3 (C2.md).
 > **Progress:** CP7 unit part done (`lane-a/m5j-s4-cp7`): `CommandSmokeTest` runs all 120 registered commands (access refusal at
 > commands.properties' levels, the alias levels, help, no parameters, an unknown parameter; no crash, no `AION_UNPORTED`), 120 of 120, mutation proof
-> 5 of 5 (C1.md). Open: the chat-path smoke on a server (after lane C's gate loop).
+> 5 of 5 (C1.md). CP7 done: the chat-path smoke is the gate's Z19 (76 admin and player commands through handleChatCommand; gate mutants 3 of 3,
+> P5-SC.md); `gs.scenario.gm` ran green on the CP4 product code.
