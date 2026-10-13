@@ -28,6 +28,7 @@
 #include "aion/gameserver/dao/BookmarkDAO.h"
 #include "aion/gameserver/dao/CommandsAccessDAO.h"
 #include "aion/gameserver/dao/CustomInstanceDAO.h"
+#include "aion/gameserver/dao/CustomInstancePlayerModelEntryDAO.h"
 #include "aion/gameserver/dao/EventDAO.h"
 #include "aion/gameserver/dao/FactionPackDAO.h"
 #include "aion/gameserver/dao/GuideDAO.h"
@@ -40,6 +41,7 @@
 #include "aion/gameserver/dao/ServerVariablesDAO.h"
 #include "aion/gameserver/dao/SurveyControllerDAO.h"
 #include "aion/gameserver/dao/TownDAO.h"
+#include "aion/gameserver/custom/instance/neuralnetwork/PlayerModelEntry.h"
 #include "aion/gameserver/dao/detail/DaoSupport.h"
 #include "aion/gameserver/model/Announcement.h"
 #include "aion/gameserver/model/PlayerClass.h"
@@ -220,6 +222,31 @@ TEST_F(ServerDataDaoTest, CustomInstanceRanksAndTop10) {
 	EXPECT_EQ(top[0].getLastEntry(), lastEntry);
 	execute("UPDATE custom_instance SET last_entry = NOW() - INTERVAL 20 DAY WHERE player_id = 1");
 	EXPECT_TRUE(CustomInstanceDAO::loadTop10(model::Race::ELYOS).empty()) << "only entries of the last 14 days";
+}
+
+/** D12-CP1: CustomInstancePlayerModelEntryDAO.java:39-100 - the batch insert marks the entries UPDATED, the load gives them back in row order */
+TEST_F(ServerDataDaoTest, CustomInstancePlayerModelEntries) {
+	insertPlayer(1, "Modeled", 1);
+	using custom::instance::neuralnetwork::PlayerModelEntry;
+	const commons::database::Timestamp when = detail::toTimestamp((commons::utils::currentTimeMillis() / 1000 - 60) * 1000);
+	runtime::Ref<PlayerModelEntry> first = PlayerModelEntry::create(1, when, 1001, 7, 80.5f, 60.25f, true, false, true, false, true, 3, 2, true,
+		50.0f, 40.0f, true, 12.5f, false, true, false, true, false, 4, 5, false);
+	runtime::Ref<PlayerModelEntry> second = PlayerModelEntry::create(1, when, 1002, 7, 10.0f, 20.0f, false, true, false, true, false, 0, 1, false,
+		-1.0f, -1.0f, false, -1.0f, true, false, true, false, true, -1, -1, true);
+	first->setPersistentState(model::gameobjects::Persistable::PersistentState::NEW);
+	EXPECT_TRUE(CustomInstancePlayerModelEntryDAO::loadPlayerModelEntries(1).empty());
+	CustomInstancePlayerModelEntryDAO::insertNewRecords({first, second});
+	EXPECT_EQ(first->getPersistentState(), model::gameobjects::Persistable::PersistentState::UPDATED);
+	std::vector<runtime::Ref<PlayerModelEntry>> loaded = CustomInstancePlayerModelEntryDAO::loadPlayerModelEntries(1);
+	ASSERT_EQ(loaded.size(), 2u);
+	EXPECT_EQ(loaded[0]->getTimestamp(), when);
+	EXPECT_EQ(loaded[0]->toStateInputArray({1001}, 1001), first->toStateInputArray({1001}, 1001));
+	EXPECT_EQ(loaded[0]->getSkillID(), 1001);
+	EXPECT_EQ(loaded[0]->getPlayerClassID(), 7);
+	EXPECT_EQ(loaded[1]->toStateInputArray({}, 0), second->toStateInputArray({}, 0));
+	EXPECT_EQ(loaded[1]->getSkillID(), 1002);
+	EXPECT_EQ(loaded[1]->getPersistentState(), model::gameobjects::Persistable::PersistentState::UPDATED);
+	EXPECT_TRUE(CustomInstancePlayerModelEntryDAO::loadPlayerModelEntries(2).empty());
 }
 
 TEST_F(ServerDataDaoTest, CommandAccesses) {

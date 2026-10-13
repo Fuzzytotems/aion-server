@@ -1714,3 +1714,6 @@ About 3,500 Java lines, ~130 bodies. **Checkpoints** (unit tests in the owning c
 - The anonymous `RequestResponseHandler` captures the player, the item id, the cost and the enclosing command (for `sendInfo` and
   `rewards`). Commands are registered once and live as long as the server (Immortal), so the handler keeps a plain pointer to the command
   and a `Ref<Player>`; no `Ref<Buy>`.
+
+> **Progress:** D12-CP1 done (`lane-a/m5j-d12-cp1`): the seven neural-network classes and CustomInstancePlayerModelEntryDAO's two bodies
+> (P5-13.md); mutation proof 13 of 13.
