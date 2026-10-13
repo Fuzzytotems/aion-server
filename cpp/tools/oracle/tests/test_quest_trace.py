@@ -837,7 +837,7 @@ class Q06SliceTest(unittest.TestCase):
 		for rel in extract.SLICE_Q06:
 			d = extract.trace_file(tables(), extract.QUEST_DIR / rel, rel)
 			docs[d["questId"]] = d
-		self.assertEqual(sorted(q for q, d in docs.items() if not d["cases"]), [1972, 1973, 1974, 1975, 1976, 1977, 1978, 1979, 1980, 1981, 1982, 1983, 2972, 2973, 2974, 2975, 2976, 2977, 2978, 2979, 2980, 2981, 2982, 2983, 19001, 19003, 19008, 19014, 19020, 19026, 19032, 19052, 19053, 19055, 19057, 29000, 29001, 29003, 29008, 29014, 29020, 29026, 29032, 29052, 29053, 29055, 29057])
+		self.assertEqual(sorted(q for q, d in docs.items() if not d["cases"]), [19001, 19003, 19057, 29000, 29001, 29003, 29057])
 		self.assertEqual(extract.check(rels=extract.SLICE_Q06, extra=False), [])
 
 
@@ -862,6 +862,28 @@ class Q09RestSliceTest(unittest.TestCase):
 			docs[d["questId"]] = d
 		self.assertEqual(sorted(q for q, d in docs.items() if not d["cases"]), [2422, 2423, 2430, 2443, 2493, 28821])
 		self.assertEqual(extract.check(rels=extract.SLICE_Q09, extra=False), [])
+
+
+@unittest.skipUnless(HAVE_JAVA_TREE, "Java tree not present")
+class CraftPredicateTraceTest(unittest.TestCase):
+	"""the crafting quests (chunk Q06, lane C, 2026-10-13): CraftSkillUpdateService.getInstance().canLearnMoreExpertCraftingSkill(player) and
+	canLearnMoreMasterCraftingSkill(player) are effects with an assumed result, each result a case (extract.craft_predicate)"""
+
+	def test_both_answers_of_each_predicate_are_cases(self):
+		for rel, name in (("crafting/_19052ExpertPassionforConstruction.java", "canLearnMoreExpertCraftingSkill"),
+		                  ("crafting/_19008MasterWeaponsmithsPotential.java", "canLearnMoreMasterCraftingSkill")):
+			path = extract.QUEST_DIR / rel
+			with self.subTest(file=rel):
+				doc = extract.trace_file(tables(), path, rel)
+				asked = [c for c in doc["cases"] if any(e["call"] == f"CraftSkillUpdateService.{name}" for e in c["effects"])]
+				self.assertTrue(asked)
+				answers = {a["returns"] for c in asked for a in c["assume"]}
+				self.assertEqual(answers, {True, False})
+				self.assertTrue(all(e["args"] == [] and e["kind"] == "packet" for c in asked for e in c["effects"]
+				                    if e["call"].startswith("CraftSkillUpdateService.")))
+
+	def test_the_two_predicates_are_the_only_ones(self):
+		self.assertEqual(extract.CRAFT_PREDICATES, ("canLearnMoreExpertCraftingSkill", "canLearnMoreMasterCraftingSkill"))
 
 
 @unittest.skipUnless(HAVE_JAVA_TREE, "Java tree not present")

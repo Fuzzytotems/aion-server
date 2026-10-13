@@ -10,6 +10,6 @@
   {"npc": 798450, "event": "addOnTalkEvent", "args": [19057]},
   {"npc": 798451, "event": "addOnTalkEvent", "args": [19057]}
  ],
- "hooks": [{"hook": "onDialogEvent", "line": 35, "unsupported": "call CraftSkillUpdateService.getInstance"}],
+ "hooks": [{"hook": "onDialogEvent", "line": 35, "unsupported": "call player.getInventory().getKinah()"}],
  "cases": []
 }
