@@ -138,14 +138,14 @@ TEST(InstanceStartupSingletonsTest, CustomInstanceServiceTakesItsWindowIdOnce) {
 	utils::idfactory::IDFactory::getInstance().resetForTests();
 }
 
-TEST(PvpMapServiceTest, WithoutTheMapEveryQueryIsEmptyAndInitIsAPartialSite) {
+/** PvpMapService.java:21-24: before init no handler answers (every query is empty); init asks InstanceService for the map 301220000, which
+ * this test's World has not got (the gates create it at startup) */
+TEST(PvpMapServiceTest, WithoutTheMapEveryQueryIsEmpty) {
 	runtime::TaskScope scope{AION_TASK_INFO(runtime::TaskKind::TEST)};
 	custom::pvpmap::PvpMapService& service = custom::pvpmap::PvpMapService::getInstance();
 	EXPECT_EQ(service.getParticipantsSize(), 0);
-	uint64_t before = runtime::partialHitCount();
-	EXPECT_NO_THROW(service.init());
-	EXPECT_EQ(runtime::partialHitCount(), before + 1);
-	EXPECT_EQ(service.getParticipantsSize(), 0) << "no handler after the partial init";
+	EXPECT_ANY_THROW(service.init()) << "no map 301220000 in this World";
+	EXPECT_EQ(service.getParticipantsSize(), 0) << "no handler";
 	EXPECT_NO_THROW(service.onInstanceDestroy());
 }
 

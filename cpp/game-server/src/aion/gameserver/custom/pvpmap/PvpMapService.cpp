@@ -10,6 +10,8 @@
 #include "aion/gameserver/model/gameobjects/Npc.h"
 #include "aion/gameserver/model/gameobjects/player/Player.h"
 #include "aion/gameserver/runtime/base/Unported.h"
+#include "aion/gameserver/services/instance/InstanceService.h"
+#include "aion/gameserver/world/WorldMapInstance.h"
 #include "aion/gameserver/utils/ChatUtil.h"
 #include "aion/gameserver/utils/JavaColor.h"
 #include "aion/gameserver/utils/PacketSendUtility.h"
@@ -25,11 +27,12 @@ PvpMapService& PvpMapService::getInstance() {
 	return instance;
 }
 
+// Java PvpMapService.java:21-24 (m5j D12-CP4: PvpMapHandler is ported, m5f-plan.md D6's partial is resolved)
 void PvpMapService::init() {
-	// Java:
-	//   WorldMapInstance instance = InstanceService.getNextAvailableInstance(301220000, 0, (byte) 0, PvpMapHandler::new, 0, false);
-	//   handler = (PvpMapHandler) instance.getInstanceHandler();
-	AION_PARTIAL("the PvP map instance is not created: PvpMapHandler is not ported (M5j, m5f-plan.md D6)");
+	runtime::Ptr<world::WorldMapInstance> instance = services::instance::InstanceService::getNextAvailableInstance(301220000, 0, int8_t{0},
+		[](world::WorldMapInstance& created) -> runtime::Ref<gameserver::instance::handlers::InstanceHandler> { return PvpMapHandler::create(created); },
+		0, false);
+	handler.set(runtime::as<PvpMapHandler>(instance->getInstanceHandler()));
 }
 
 void PvpMapService::onLogin(model::gameobjects::player::Player& player) {
