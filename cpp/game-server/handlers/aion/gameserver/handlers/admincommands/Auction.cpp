@@ -149,8 +149,9 @@ void Auction::execute(Player& admin, std::span<const std::string> params) {
 		int32_t counter = 0;
 		std::shuffle(houses.begin(), houses.end(), commons::utils::Rnd::generator()); // Java: Collections.shuffle
 		for (const runtime::Ptr<House>& house : houses) {
-			// java-bug (kept): the loop breaks only once counter exceeds maxCount, so maxCount + 1 houses go to auction (a proposed correction)
-			if (HousingBidService::getInstance().auction(*house, price) && ++counter > maxCount)
+			// correction (owner's decision 2026-10-13): Java breaks on ++counter > maxCount (Auction.java:134), so maxCount + 1 houses went to
+			// auction; the port stops at maxCount
+			if (HousingBidService::getInstance().auction(*house, price) && ++counter >= maxCount)
 				break;
 		}
 
