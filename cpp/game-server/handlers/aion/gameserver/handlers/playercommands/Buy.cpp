@@ -19,11 +19,9 @@
 
 namespace aion::gameserver::handlers::playercommands {
 
-namespace {
-
 /** Java: the anonymous RequestResponseHandler of buyItem: its acceptRequest body is the lambda (written where Java writes it) */
 template <typename F>
-struct AcceptHandler final : public RequestResponseHandler {
+struct Buy::AcceptHandler final : public RequestResponseHandler {
 	AION_MAKE_REF_FRIEND
 
 	const F accept;
@@ -35,8 +33,6 @@ struct AcceptHandler final : public RequestResponseHandler {
 	explicit AcceptHandler(F accept) : RequestResponseHandler(nullptr), accept(std::move(accept)) {}
 	~AcceptHandler() override = default;
 };
-
-} // namespace
 
 AION_PLAYER_COMMAND(Buy);
 
