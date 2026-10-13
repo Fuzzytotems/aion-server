@@ -398,7 +398,8 @@ TEST_F(ConsoleSystemCommandsTest, DeletecquestDelegatesToQuest) {
 
 /** Givetitle.java:17-56 with correction J-S4CP4-3 (owner's decision 2026-10-13): the //set check asks ChatProcessor for "//set" (Java's
  * "set" never matched, so every GM was refused). A GM below //set's level is refused (//set's own staff text first); a GM who may use //set
- * gives the title, and a learned title is STR_TOOLTIP_LEARNED_TITLE */
+ * gives the title, and a learned title is STR_TOOLTIP_LEARNED_TITLE. Correction J-S4CP4-2: the syntax names ///givetitle, the answer has a
+ * space before the name, and it says "Added" only for an added title */
 TEST_F(ConsoleSystemCommandsTest, Givetitle) {
 	registerDelegates();
 	ASSERT_TRUE(utils::chathandlers::ChatProcessor::getInstance().isCommandExists("//set"));
@@ -407,7 +408,7 @@ TEST_F(ConsoleSystemCommandsTest, Givetitle) {
 	Player& weak = gm(731215, "Weak", 1);
 	handlers::consolecommands::Givetitle givetitle;
 	EXPECT_TRUE(givetitle.process(weak, args({})));
-	EXPECT_EQ(client()->sentBytes(), std::vector<std::vector<uint8_t>>{message("syntax ///addskill <named name>")});
+	EXPECT_EQ(client()->sentBytes(), std::vector<std::vector<uint8_t>>{message("syntax ///givetitle <title id>")}) << "J-S4CP4-2: its own name";
 	clearAll();
 	EXPECT_TRUE(givetitle.process(weak, args({"4"})));
 	std::vector<std::vector<uint8_t>> refused = info("<You need access level 3 or higher to use //set>");
@@ -422,11 +423,15 @@ TEST_F(ConsoleSystemCommandsTest, Givetitle) {
 	clearAll();
 	EXPECT_TRUE(givetitle.process(admin, args({"4"})));
 	EXPECT_TRUE(admin.getTitleList().contains(4)) << "the title is given";
-	EXPECT_EQ(client(1)->sentBytes().back(), message("Added 4 toWarden", 1));
+	EXPECT_EQ(client(1)->sentBytes().back(), message("Added 4 to Warden", 1)) << "J-S4CP4-2: a space before the name";
 	clearAll();
 	EXPECT_TRUE(givetitle.process(admin, args({"4"})));
-	EXPECT_EQ(client(1)->sentBytes(), (std::vector<std::vector<uint8_t>>{packet(SM_SYSTEM_MESSAGE::STR_TOOLTIP_LEARNED_TITLE(), 1),
-		message("Added 4 toWarden", 1)})) << "learned already";
+	EXPECT_EQ(client(1)->sentBytes(), std::vector<std::vector<uint8_t>>{packet(SM_SYSTEM_MESSAGE::STR_TOOLTIP_LEARNED_TITLE(), 1)})
+		<< "learned already: J-S4CP4-2, no \"Added\"";
+	clearAll();
+	EXPECT_TRUE(givetitle.process(admin, args({"264"})));
+	EXPECT_TRUE(client(1)->sentBytes().empty()) << "above 263 nothing is added: J-S4CP4-2, no \"Added\"";
+	EXPECT_FALSE(admin.getTitleList().contains(264));
 }
 
 // ---- the quest, item and wish commands, up to their services --------------------------------------------------------------------------------

@@ -37,24 +37,24 @@ void Givetitle::execute(Player& admin, std::span<const std::string> params) {
 		PacketSendUtility::sendMessage(admin, "You should enter valid second params!");
 		return;
 	}
-	if (titleId <= 263)
-		setTitle(player, titleId);
-	PacketSendUtility::sendMessage(admin, "Added " + std::to_string(titleId) + " to" + player.getCommonData()->getName()); // parity= PacketSendUtility.sendMessage(admin, "Added " + titleId + " to" + player.getCommonData().getName());
+	// correction J-S4CP4-2 (owner's decision 2026-10-13): "Added" only when the title was added, with a space before the name
+	if (titleId <= 263 && setTitle(player, titleId)) // parity= if (titleId <= 263) setTitle(player, titleId);
+		PacketSendUtility::sendMessage(admin, "Added " + std::to_string(titleId) + " to " + player.getCommonData()->getName()); // parity= PacketSendUtility.sendMessage(admin, "Added " + titleId + " to" + player.getCommonData().getName());
 }
 
 // Java Givetitle.java:44-47
 void Givetitle::info(Player& admin, std::optional<std::string_view> /*message*/) {
-	PacketSendUtility::sendMessage(admin, "syntax ///addskill <named name>");
+	PacketSendUtility::sendMessage(admin, "syntax ///givetitle <title id>"); // parity= PacketSendUtility.sendMessage(admin, "syntax ///addskill <named name>");
 }
 
 // Java Givetitle.java:49-56
-void Givetitle::setTitle(Player& player, int32_t value) {
+bool Givetitle::setTitle(Player& player, int32_t value) { // parity= private void setTitle(Player player, int value) {
 
 	if (player.getTitleList().contains(value)) {
 		PacketSendUtility::sendPacket(player, SM_SYSTEM_MESSAGE::STR_TOOLTIP_LEARNED_TITLE());
-		return;
+		return false; // parity= return;
 	}
-	player.getTitleList().addTitle(value, false, 0);
+	return player.getTitleList().addTitle(value, false, 0); // parity= player.getTitleList().addTitle(value, false, 0);
 }
 
 } // namespace aion::gameserver::handlers::consolecommands
