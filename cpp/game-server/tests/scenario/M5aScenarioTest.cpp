@@ -1649,7 +1649,7 @@ TEST(M5aScenario, Run) {
 	runCase("case 4", "level ready and NPC visibility", [&] {
 		const auto asked = std::chrono::steady_clock::now();
 		a.game->send(GameSession::CM_LEVEL_READY, GameSession::buildCM_LEVEL_READY());
-		levelReadyBurst = collectBurst(*a.game, async);
+		levelReadyBurst = expectEnterWorldTimerEnds(collectBurst(*a.game, async), "level ready");
 		// the re-measurement G-05 asks for: how long the window is now and how much of it is npc movement rather than the §5.8 answer
 		reportBurst(levelReadyBurst, async, announcedNpcs, "case 4 level-ready burst",
 			std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - asked));
@@ -1846,7 +1846,7 @@ TEST(M5aScenario, Run) {
 		const decoders::StatsInfo statsInfo = decoders::decodeStatsInfo(stats.back().data);
 		EXPECT_EQ(statsInfo.currentHp, static_cast<int32_t>(halfHp)) << "Q3: the stored half HP was not restored";
 		a.game->send(GameSession::CM_LEVEL_READY, GameSession::buildCM_LEVEL_READY());
-		collectBurst(*a.game, async);
+		expectEnterWorldTimerEnds(collectBurst(*a.game, async), "relog level ready");
 
 		// Q4: CM_QUIT(0) ends the connection
 		a.game->send(GameSession::CM_QUIT, GameSession::buildCM_QUIT(false));
@@ -1941,7 +1941,7 @@ TEST(M5aScenario, Run) {
 		expectPrologueMissionLocked(burst, decoders::ASMODIAN_PROLOGUE, "case 7 (Mage on 220010000)");
 		const auto askedB = std::chrono::steady_clock::now();
 		b.game->send(GameSession::CM_LEVEL_READY, GameSession::buildCM_LEVEL_READY());
-		const std::vector<Packet> ready = collectBurst(*b.game, shutdownAsync);
+		const std::vector<Packet> ready = expectEnterWorldTimerEnds(collectBurst(*b.game, shutdownAsync), "case 7 level ready");
 		reportBurst(ready, shutdownAsync, announcedNpcsB, "case 7 level-ready burst (Mage on 220010000)",
 			std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - askedB));
 		expectSequence(ready, levelReadyPattern(), shutdownAsync);
@@ -2390,7 +2390,7 @@ TEST(M5aScenarioGeo, Run) {
 	runCase("geo 3", "level ready: the world a geo-enabled server shows", [&] {
 		const auto asked = std::chrono::steady_clock::now();
 		a.game->send(GameSession::CM_LEVEL_READY, GameSession::buildCM_LEVEL_READY());
-		levelReadyBurst = collectBurst(*a.game, async);
+		levelReadyBurst = expectEnterWorldTimerEnds(collectBurst(*a.game, async), "level ready");
 		reportBurst(levelReadyBurst, async, announcedNpcs, "geo 3 level-ready burst",
 			std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - asked));
 		ASSERT_FALSE(levelReadyBurst.empty()) << "no packet after CM_LEVEL_READY";

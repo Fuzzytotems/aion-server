@@ -760,15 +760,15 @@ class Q14SliceTest(unittest.TestCase):
 class Q07SliceTest(unittest.TestCase):
 	"""the 64 generated handlers of beshmundir, abyss_entry and silentera_canyon (SLICE_Q07, phase 6 step 2, lane C, 2026-10-08; docs/deviations/Q07.md)"""
 
-	# held back for their gate traffic (docs/deviations/Q07.md, "Held back")
-	LEFT_OUT = {"abyss_entry/_1044TestingFlightSkills.java", "abyss_entry/_2042TheLastCheckpoint.java"}
+	# 1044 and 2042 were held back for their gate traffic until the owner's decision of 2026-10-13 (docs/deviations/Q07.md, "Held back")
+	LEFT_OUT = set()
 
 	def test_the_q07_slice(self):
 		java = {f"{d}/{f.name}" for d in ('beshmundir', 'abyss_entry', 'silentera_canyon') for f in (extract.QUEST_DIR / d).glob("*.java")}
 		earlier = set(extract.SLICE_TIER_A + extract.SLICE_ROUTE + extract.SLICE_Q03 + extract.SLICE_Q10 + extract.SLICE_Q08 + extract.SLICE_Q01 +
 		              extract.SLICE_Q02 + extract.SLICE_Q14 + extract.SLICE_Q13 + extract.SLICE_Q11 + extract.SLICE_Q05 + extract.SLICE_Q09)
 		self.assertEqual(set(extract.SLICE_Q07) & earlier, set())
-		self.assertEqual(len(extract.SLICE_Q07), 62)
+		self.assertEqual(len(extract.SLICE_Q07), 64)
 		self.assertTrue(set(extract.SLICE_Q07) <= java - self.LEFT_OUT)
 		docs = {}
 		for rel in extract.SLICE_Q07:

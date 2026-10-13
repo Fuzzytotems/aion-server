@@ -409,6 +409,8 @@ SLICE_Q09 = (
 )
 # Phase 6 step 2, chunk Q07 (lane C, 2026-10-08; docs/deviations/Q07.md): beshmundir, abyss_entry and silentera_canyon
 SLICE_Q07 = (
+	'abyss_entry/_2042TheLastCheckpoint.java',
+	'abyss_entry/_1044TestingFlightSkills.java',
 	'abyss_entry/_1920TestingYourMettle.java', 'abyss_entry/_1921TheAbyssQuiz.java',
 	'abyss_entry/_1922DeliveronYourPromises.java', 'abyss_entry/_2945HoningYourSkills.java',
 	'abyss_entry/_2946AbyssGeneralKnowledge.java', 'abyss_entry/_2947FollowingThrough.java', 'beshmundir/_30201SuppliesParty.java',

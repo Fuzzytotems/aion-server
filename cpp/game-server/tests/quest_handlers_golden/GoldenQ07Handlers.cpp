@@ -2,9 +2,11 @@
 // (GoldenHandlers.h says why); docs/deviations/Q07.md.
 
 // clang-format off
+#include "aion/gameserver/handlers/quest/abyss_entry/_1044TestingFlightSkills.cpp"
 #include "aion/gameserver/handlers/quest/abyss_entry/_1920TestingYourMettle.cpp"
 #include "aion/gameserver/handlers/quest/abyss_entry/_1921TheAbyssQuiz.cpp"
 #include "aion/gameserver/handlers/quest/abyss_entry/_1922DeliveronYourPromises.cpp"
+#include "aion/gameserver/handlers/quest/abyss_entry/_2042TheLastCheckpoint.cpp"
 #include "aion/gameserver/handlers/quest/abyss_entry/_2945HoningYourSkills.cpp"
 #include "aion/gameserver/handlers/quest/abyss_entry/_2946AbyssGeneralKnowledge.cpp"
 #include "aion/gameserver/handlers/quest/abyss_entry/_2947FollowingThrough.cpp"

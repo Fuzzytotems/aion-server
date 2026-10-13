@@ -120,4 +120,26 @@ std::vector<Packet> endPrologue(GameSession& session, const std::vector<Packet>&
 	return ended;
 }
 
+std::vector<Packet> expectEnterWorldTimerEnds(std::vector<Packet> levelReadyBurst, std::string_view label) {
+	std::vector<int32_t> timers;
+	std::vector<Packet> rest;
+	rest.reserve(levelReadyBurst.size());
+	for (Packet& packet : levelReadyBurst) {
+		if (packet.name == "SM_QUEST_ACTION") {
+			const decoders::QuestAction action = decoders::decodeQuestAction(packet.data);
+			if (action.actionType == decoders::QUEST_ACTION_TIMER) {
+				EXPECT_EQ(action.timer, 0) << label << ": quest " << action.questId << "'s timer: questTimerEnd sends 0 (QuestService.java:845)";
+				timers.push_back(action.questId);
+				continue;
+			}
+		}
+		rest.push_back(std::move(packet));
+	}
+	const std::vector<int32_t> expected(std::begin(ENTER_WORLD_TIMER_END_QUESTS), std::end(ENTER_WORLD_TIMER_END_QUESTS));
+	EXPECT_EQ(timers, expected) << label << ": the level-ready burst's SM_QUEST_ACTION TIMERs: QuestEngine.onEnterWorld runs 1044's and 2042's "
+	                            << "questTimerEnd for every player (_1044TestingFlightSkills.java:172-175, _2042TheLastCheckpoint.java:167-170): "
+	                            << namesOf(rest);
+	return rest;
+}
+
 } // namespace aion::gameserver::scenario

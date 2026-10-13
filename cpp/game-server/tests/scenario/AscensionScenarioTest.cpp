@@ -48,6 +48,7 @@
 #include "AsyncAllowed.h"
 #include "FakeLoginClient.h"
 #include "GameSession.h"
+#include "PrologueSupport.h"
 #include "InventoryModel.h"
 #include "ScenarioDatabase.h"
 #include "ScenarioServers.h"
@@ -280,7 +281,7 @@ decoders::CharacterList logIn(ScenarioServers& servers, Client& client) {
 /** CM_LEVEL_READY and what it sends (the enter world of a map: quest onEnterWorld, the npcs of the map) */
 std::vector<Packet> levelReady(Client& client) {
 	client.game->send(GameSession::CM_LEVEL_READY, GameSession::buildCM_LEVEL_READY());
-	std::vector<Packet> burst = collectFor(*client.game, 2500ms);
+	std::vector<Packet> burst = expectEnterWorldTimerEnds(collectFor(*client.game, 2500ms), client.label + " level ready");
 	client.model.sync();
 	return burst;
 }

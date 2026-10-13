@@ -1223,7 +1223,7 @@ void runM5b3Gate(const GateVariant& variant) {
 	};
 	const auto levelReady = [&](bool assertSequence) {
 		a.game->send(GameSession::CM_LEVEL_READY, GameSession::buildCM_LEVEL_READY());
-		const std::vector<Packet> burst = collectBurst(*a.game, async);
+		const std::vector<Packet> burst = expectEnterWorldTimerEnds(collectBurst(*a.game, async), "level ready");
 		if (burst.empty())
 			throw std::runtime_error("no packet after CM_LEVEL_READY");
 		if (assertSequence)

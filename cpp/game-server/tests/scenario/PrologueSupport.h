@@ -69,4 +69,21 @@ std::vector<GameSession::Packet> endPrologue(GameSession& session, const std::ve
 	const decoders::Prologue& prologue, int64_t expBefore, const AsyncAllowed& async,
 	const std::function<std::vector<GameSession::Packet>()>& collect, std::string_view label);
 
+/**
+ * The quests whose enter-world hook ends a quest timer for every player (the owner's decision of 2026-10-13: the gates learn this Java-faithful
+ * traffic): `_1044TestingFlightSkills.java:172-175` and `_2042TheLastCheckpoint.java:167-170` call QuestService.questTimerEnd(env)
+ * unconditionally, which sends SM_QUEST_ACTION(questId, 0) whatever the player's quest state (QuestService.java:841-847). QuestEngine.
+ * onEnterWorld runs at every CM_LEVEL_READY (CM_LEVEL_READY.java:93), so every level-ready burst of either race holds the two, in the
+ * engine's order of the enter-world handlers (the quest ids'): 1044's, then 2042's. A first level ready's prologue packets come between or
+ * before them by its quest id (1000 before 1044; 2000 between 1044 and 2042).
+ */
+inline constexpr int32_t ENTER_WORLD_TIMER_END_QUESTS[] = {1044, 2042};
+
+/**
+ * Every CM_LEVEL_READY's quest timers (ENTER_WORLD_TIMER_END_QUESTS): `levelReadyBurst` holds exactly one SM_QUEST_ACTION TIMER with timer 0
+ * for each of the two quests, 1044's before 2042's, and no other TIMER. Returns the burst without those two packets, so the gate's own
+ * checks of the burst (its §5.8 patterns, PrologueSupport's prologue checks) read it as before.
+ */
+std::vector<GameSession::Packet> expectEnterWorldTimerEnds(std::vector<GameSession::Packet> levelReadyBurst, std::string_view label);
+
 } // namespace aion::gameserver::scenario
