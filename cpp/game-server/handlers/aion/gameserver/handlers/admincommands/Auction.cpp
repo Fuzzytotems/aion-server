@@ -22,10 +22,11 @@ namespace aion::gameserver::handlers::admincommands {
 
 AION_ADMIN_COMMAND(Auction);
 
+// correction (owner's decision 2026-10-13): Java's help (Auction.java:27-28) names no "add" keyword, which execute requires (:95)
 Auction::Auction()
 	: AdminCommand("auction", "Adds or removes houses to/from auction.", R"(<address> [starting price] - Auctions the given house.
-<zone> <house type> <count> [starting price] - Auctions free houses of given type that are in the specified zone.
-<asmo|ely> <house type> <count> [starting price] - Auctions free asmodian or elysean houses of given type.
+add <zone> <house type> <count> [starting price] - Auctions free houses of given type that are in the specified zone.
+add <asmo|ely> <house type> <count> [starting price] - Auctions free asmodian or elysean houses of given type.
 end <address|zone> - Ends the auction for given house(s), transferring ownership to the highest bidder.
 cancel <address|zone> - Cancels the auction for given house(s).
 Zone: Zone name from zones xml files
