@@ -48,7 +48,7 @@
 //       no SM_AUTO_GROUP;
 //   Z17 (stage 4 CP6, the orphaned commands of M5f) G's //instance answers from the Java literals (Instance.java:76-81, :97-102; the name is
 //       AutoGroupType.java:27's constant): an unknown name, the dredgion's close while closed, its open and its close; //goto's unknown
-//       destination (GoTo.java:46), //movetoobj's number check (MoveToObject.java:30, :35) and //moveplayertoplayer's syntax
+//       destination (GoTo.java:46), //movetoobj's number check (MoveToObject.java:30; correction J-S4CP6-1: no second answer) and //moveplayertoplayer's syntax
 //       (MovePlayerToPlayer.java:24); CP6 part 2: //quest of an id without a quest (Quest.java:72); //access level reset (Access.java:73), //event list (Event.java:77), //sysmail to an unknown @ group (SysMail.java:83); part 3: //dropinfo all on a spawned //ai set base npc (its "[... 's drops]" head and
 //       its "N total drops available in M drop groups." tail, DropInfo.java:48, :81), then its //delete;
 //   Z18 (stage 4 CP4, the system commands) G's //bookmark del of a missing name and deleteAll (Bookmark.java:31, :36); //debug connections,
@@ -1693,7 +1693,12 @@ void runM5jGate() {
 		says("//instance open dredgion", {"Registration for TERATH_DREDGION is already open."});
 		says("//instance close dredgion", {"Registration for TERATH_DREDGION is now closed."});
 		says("//goto x", {"Could not find the specified destination."});
-		says("//movetoobj abc", {"Only numbers please!!!", "Cannot find object for spawn #0"});
+		{ // correction J-S4CP6-1 (owner's decision 2026-10-13): it returns after the first answer (Java went on with object id 0)
+			const size_t gFrom = g.mark();
+			g.say("//movetoobj abc");
+			EXPECT_TRUE(waitForInfo(*g.game, gFrom, "Only numbers please!!!", 10s)) << "//movetoobj abc";
+			EXPECT_FALSE(waitForInfo(*g.game, gFrom, "Cannot find object for spawn #0", 1s)) << "J-S4CP6-1: no second answer";
+		}
 		says("//moveplayertoplayer x", {"syntax //moveplayertoplayer <characterNameToMove> <characterNameDestination>"});
 		says("//quest 99999 status", {"Invalid quest."}); // Quest.java:72 (quest_data.xml has no 99999)
 		says("//access level reset", {"Nothing to reset."}); // Access.java:73 (G has not lowered its level)
