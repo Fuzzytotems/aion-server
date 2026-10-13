@@ -19,7 +19,8 @@ public:
 	void info(Player& admin, std::optional<std::string_view> message) override;
 
 private:
-	void setTitle(Player& player, int32_t value);
+	/** @return whether the title was added (correction J-S4CP4-2; Java: void) */
+	bool setTitle(Player& player, int32_t value);
 };
 
 } // namespace aion::gameserver::handlers::consolecommands
