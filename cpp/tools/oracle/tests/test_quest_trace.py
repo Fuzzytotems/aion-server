@@ -803,47 +803,59 @@ class Q12SliceTest(unittest.TestCase):
 class Q09RestSliceTest(unittest.TestCase):
 	"""the rest of morheim and pernon (SLICE_Q09, phase 6 step 2, lane C, 2026-10-08; docs/deviations/Q09.md, "Phase 6 step 2")"""
 
-	# questgen refuses five; the escorts 2333 and 2394 wait for FollowingNpcAI (m5d-plan.md §21.1)
-	LEFT_OUT = {"morheim/_24026AHandfromEachSide.java", "pernon/_28806WiltingFlowersFallingTears.java", "pernon/_28821YourButlerGift.java",
-	            "pernon/_28828TheManyFacetsOfFriendship.java", "morheim/_2333ARibbitOutOfWater.java",
-	            "morheim/_2394ADyingWish.java"}
+	# questgen refuses 24026 (the butlers 28806, 28821, 28828 since the static-set shape); the escorts 2333 and 2394 wait for
+	# FollowingNpcAI (m5d-plan.md §21.1)
+	LEFT_OUT = {"morheim/_24026AHandfromEachSide.java", "morheim/_2333ARibbitOutOfWater.java", "morheim/_2394ADyingWish.java"}
 
 	def test_the_q09_rest_slice(self):
 		java = {f"{d}/{f.name}" for d in ("morheim", "pernon") for f in (extract.QUEST_DIR / d).glob("*.java")}
 		earlier = set(extract.SLICE_TIER_A + extract.SLICE_ROUTE + extract.SLICE_Q03 + extract.SLICE_Q10 + extract.SLICE_Q08 + extract.SLICE_Q01 +
 		              extract.SLICE_Q02 + extract.SLICE_Q14 + extract.SLICE_Q13 + extract.SLICE_Q11 + extract.SLICE_Q05)
 		self.assertEqual(set(extract.SLICE_Q09) & earlier, set())
-		self.assertEqual(len(extract.SLICE_Q09), 48)
+		self.assertEqual(len(extract.SLICE_Q09), 51)
 		self.assertTrue(set(extract.SLICE_Q09) <= java - self.LEFT_OUT)
 		docs = {}
 		for rel in extract.SLICE_Q09:
 			d = extract.trace_file(tables(), extract.QUEST_DIR / rel, rel)
 			docs[d["questId"]] = d
-		self.assertEqual(sorted(q for q, d in docs.items() if not d["cases"]), [2422, 2423, 2430, 2443, 2493])
+		self.assertEqual(sorted(q for q, d in docs.items() if not d["cases"]), [2422, 2423, 2430, 2443, 2493, 28821])
 		self.assertEqual(extract.check(rels=extract.SLICE_Q09, extra=False), [])
+
+
+@unittest.skipUnless(HAVE_JAVA_TREE, "Java tree not present")
+class StaticSetTraceTest(unittest.TestCase):
+	"""the static-set shape (lane C, 2026-10-13): a static final Set<Integer> filled by a static initializer is a constant tuple, and its
+	Iterator loop a for-each over it (the butler quests 18806, 18821, 18828, 28806, 28821, 28828)"""
+
+	def test_the_set_registers_each_butler_in_the_order_of_the_adds(self):
+		rel = "oriel/_18806HeartofRock.java"
+		d = extract.trace_file(tables(), extract.QUEST_DIR / rel, rel)
+		butlers = [810017, 810018, 810019, 810020, 810021]
+		self.assertEqual(d["register"][:10], [{"npc": n, "event": e, "args": [18806]} for n in butlers
+		                                      for e in ("addOnQuestStart", "addOnTalkEvent")])
+		self.assertEqual([r["npc"] for r in d["register"][10:]], [830528, 830194])
+		self.assertTrue(d["cases"])
 
 
 @unittest.skipUnless(HAVE_JAVA_TREE, "Java tree not present")
 class Q05RestSliceTest(unittest.TestCase):
 	"""the rest of eltnen and oriel (SLICE_Q05, phase 6 step 2, lane C, 2026-10-08; docs/deviations/Q05.md, "Phase 6 step 2")"""
 
-	# questgen refuses these six (docs/deviations/Q05.md; 18830 since row B48)
-	REFUSED = {"eltnen/_1354PraticalAerobatics.java", "eltnen/_1367MabangtahsFeast.java", "eltnen/_14026ALoneDefense.java",
-	           "oriel/_18806HeartofRock.java", "oriel/_18821AlmostForgotMyBlessings.java",
-	           "oriel/_18828UserFriendly.java"}
+	# questgen refuses these three (docs/deviations/Q05.md; 18830 since row B48, 18806, 18821, 18828 since the static-set shape)
+	REFUSED = {"eltnen/_1354PraticalAerobatics.java", "eltnen/_1367MabangtahsFeast.java", "eltnen/_14026ALoneDefense.java"}
 
 	def test_the_q05_rest_slice(self):
 		java = {f"{d}/{f.name}" for d in ("eltnen", "oriel") for f in (extract.QUEST_DIR / d).glob("*.java")}
 		earlier = set(extract.SLICE_TIER_A + extract.SLICE_ROUTE + extract.SLICE_Q03 + extract.SLICE_Q10 + extract.SLICE_Q08 + extract.SLICE_Q01 +
 		              extract.SLICE_Q02 + extract.SLICE_Q14 + extract.SLICE_Q13 + extract.SLICE_Q11)
 		self.assertEqual(set(extract.SLICE_Q05) & earlier, set())
-		self.assertEqual(len(extract.SLICE_Q05), 54)
+		self.assertEqual(len(extract.SLICE_Q05), 57)
 		self.assertTrue(set(extract.SLICE_Q05) <= java - self.REFUSED)
 		docs = {}
 		for rel in extract.SLICE_Q05:
 			d = extract.trace_file(tables(), extract.QUEST_DIR / rel, rel)
 			docs[d["questId"]] = d
-		self.assertEqual(sorted(q for q, d in docs.items() if not d["cases"]), [1430, 1463, 1468, 1482, 1483, 1484])
+		self.assertEqual(sorted(q for q, d in docs.items() if not d["cases"]), [1430, 1463, 1468, 1482, 1483, 1484, 18821])
 		self.assertEqual(extract.check(rels=extract.SLICE_Q05, extra=False), [])
 
 

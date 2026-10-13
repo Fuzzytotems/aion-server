@@ -2430,6 +2430,7 @@ const std::map<std::string, std::string>& knownUnported() {
  * (getKinah), 2443 (CreatureState.FLYING), 2493 (getController())
  * Chunk Q07 (lane C): beshmundir 30208, 30308 (getController(), spawnInFrontOf), silentera_canyon 30056, 30156, 30157 (spawnForFiveMinutes)
  * Chunk Q12 (lane C): theobomos 3074, 3090 (getKinah), 3082 (spawnForFiveMinutes), 3088 (decreaseByItemId); event_quests 80000, 80001, 80008 (QuestService.startEventQuest), 80020, 80021 (a cast to Creature)
+ * The butler quests (lane C): oriel 18821, pernon 28821 (player.getActiveHouse(), their only hook)
  */
 constexpr int32_t ORACLE_REFUSES_EVERY_HOOK[] = {1205, 2132, 1640, 1647, 2925, 2938, 2952, 4966, 4967, 4968, 4969, 21004, 21027, 21033, 21036,
 	21071, 21105, 21249, 25052, 2798, 11031, 11032, 11033, 11053, 11118, 3208, 3217, 3219, 3220, 4208, 4217, 4219, 4220, 3939, 3940, 30553,
@@ -2437,7 +2438,8 @@ constexpr int32_t ORACLE_REFUSES_EVERY_HOOK[] = {1205, 2132, 1640, 1647, 2925, 2
 	1900, 1901, 1917, 1926, 1932, 1938, 1947, 1963, 1964, 1989, 1993, 1994, 2989, 2993, 2994, 3908, 3961, 3962, 3963, 3964, 80291, 80295,
 	1430, 1463, 1468, 1482, 1483, 1484, 2422, 2423, 2430, 2443, 2493,
 	30056, 30156, 30157, 30208, 30308,
-	3074, 3082, 3088, 3090, 80000, 80001, 80008, 80020, 80021};
+	3074, 3082, 3088, 3090, 80000, 80001, 80008, 80020, 80021,
+	18821, 28821};
 
 TEST_F(GoldenQuestTraceTest, EveryExpectedDocumentHasAGeneratedHandlerAndEveryHandlerADocument) {
 	std::vector<int32_t> ids = expectedQuestIds();

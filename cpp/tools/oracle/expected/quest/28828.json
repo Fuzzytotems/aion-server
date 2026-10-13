@@ -1,0 +1,60 @@
+{
+ "format": "aion-quest-trace",
+ "version": 1,
+ "questId": 28828,
+ "java": "pernon/_28828TheManyFacetsOfFriendship.java",
+ "class": "_28828TheManyFacetsOfFriendship",
+ "javaSha256": "09d3976c1799a8d729f5e3fbd9ea2993f34bbd2581ff1c397a0e24472007e2c5",
+ "register": [
+  {"npc": 810022, "event": "addOnQuestStart", "args": [28828]},
+  {"npc": 810022, "event": "addOnTalkEvent", "args": [28828]},
+  {"npc": 810023, "event": "addOnQuestStart", "args": [28828]},
+  {"npc": 810023, "event": "addOnTalkEvent", "args": [28828]},
+  {"npc": 810024, "event": "addOnQuestStart", "args": [28828]},
+  {"npc": 810024, "event": "addOnTalkEvent", "args": [28828]},
+  {"npc": 810025, "event": "addOnQuestStart", "args": [28828]},
+  {"npc": 810025, "event": "addOnTalkEvent", "args": [28828]},
+  {"npc": 810026, "event": "addOnQuestStart", "args": [28828]},
+  {"npc": 810026, "event": "addOnTalkEvent", "args": [28828]},
+  {"call": "registerQuestItem", "args": [182213205, 28828]}
+ ],
+ "hooks": [{"hook": "onDialogEvent", "line": 50, "unsupported": "call player.getActiveHouse()"}, {"hook": "onItemUseEvent", "line": 86, "cases": 4}],
+ "cases": [
+  {
+   "id": "onItemUseEvent#1",
+   "hook": "onItemUseEvent",
+   "given": {"item": {"itemId": 182213205}, "questState": {"status": "START"}},
+   "guards": ["id == 182213205 -> true @89", "qs != null -> true @91", "qs.getStatus() == QuestStatus.START -> true @91"],
+   "effects": [
+    {"call": "qs.setQuestVar", "kind": "var", "args": [1], "line": 92},
+    {"call": "qs.setStatus", "kind": "status", "args": ["REWARD"], "line": 93},
+    {"call": "updateQuestStatus", "kind": "quest", "args": [], "line": 94}
+   ],
+   "returns": "UNKNOWN"
+  },
+  {
+   "id": "onItemUseEvent#2",
+   "hook": "onItemUseEvent",
+   "given": {"item": {"itemId": 182213205}, "questState": {"status": "REWARD"}},
+   "guards": ["id == 182213205 -> true @89", "qs != null -> true @91", "qs.getStatus() == QuestStatus.START -> false @91"],
+   "effects": [],
+   "returns": "UNKNOWN"
+  },
+  {
+   "id": "onItemUseEvent#3",
+   "hook": "onItemUseEvent",
+   "given": {"item": {"itemId": 182213205}, "questState": null},
+   "guards": ["id == 182213205 -> true @89", "qs != null -> false @91"],
+   "effects": [],
+   "returns": "UNKNOWN"
+  },
+  {
+   "id": "onItemUseEvent#4",
+   "hook": "onItemUseEvent",
+   "given": {"item": {"itemId": 0}},
+   "guards": ["id == 182213205 -> false @89"],
+   "effects": [],
+   "returns": "UNKNOWN"
+  }
+ ]
+}
