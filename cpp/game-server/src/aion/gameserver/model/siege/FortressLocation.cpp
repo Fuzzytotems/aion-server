@@ -2,18 +2,21 @@
 
 #include <cstdlib>
 
-#include "aion/gameserver/runtime/base/Unported.h"
+#include "aion/gameserver/configs/main/SiegeConfig.h"
+#include "aion/gameserver/controllers/NpcController.h"
 #include "aion/gameserver/controllers/ObserveController.h"
 #include "aion/gameserver/controllers/effect/EffectController.h"
 #include "aion/gameserver/controllers/observer/ShieldObserver.h"
 #include "aion/gameserver/model/RaceInfo.h"
 #include "aion/gameserver/model/gameobjects/Creature.h"
+#include "aion/gameserver/model/gameobjects/Kisk.h"
 #include "aion/gameserver/model/gameobjects/player/Player.h"
 #include "aion/gameserver/model/siege/SiegeRaceInfo.h"
 #include "aion/gameserver/model/templates/siegelocation/SiegeLocationTemplate.h"
 #include "aion/gameserver/model/templates/zone/ZoneType.h"
 #include "aion/gameserver/network/aion/serverpackets/SM_SYSTEM_MESSAGE.h"
 #include "aion/gameserver/services/ShieldService.h"
+#include "aion/gameserver/services/teleport/TeleportService.h"
 #include "aion/gameserver/skillengine/SkillEngine.h"
 #include "aion/gameserver/skillengine/model/Effect.h"
 #include "aion/gameserver/utils/PacketSendUtility.h"
@@ -31,12 +34,20 @@ runtime::Ref<FortressLocation> FortressLocation::create(const templates::siegelo
 	return runtime::makeRef<FortressLocation>(value);
 }
 
+// Java FortressLocation.java:35-37
 std::vector<const templates::siegelocation::SiegeLegionReward*> FortressLocation::getLegionRewards() {
-	AION_UNPORTED();
+	std::vector<const templates::siegelocation::SiegeLegionReward*> rewards;
+	for (const templates::siegelocation::SiegeLegionReward& reward : getTemplate()->getSiegeLegionRewards())
+		rewards.push_back(&reward);
+	return rewards;
 }
 
+// Java FortressLocation.java:39-41
 std::vector<const templates::siegelocation::SiegeMercenaryZone*> FortressLocation::getSiegeMercenaryZones() {
-	AION_UNPORTED();
+	std::vector<const templates::siegelocation::SiegeMercenaryZone*> mercenaryZones;
+	for (const templates::siegelocation::SiegeMercenaryZone& zone : getTemplate()->getSiegeMercenaryZones())
+		mercenaryZones.push_back(&zone);
+	return mercenaryZones;
 }
 
 bool FortressLocation::isEnemy(gameobjects::Creature& creature) {
@@ -112,8 +123,17 @@ void FortressLocation::checkForBalanceBuff(gameobjects::Creature& creature, Fort
 	}
 }
 
+// Java FortressLocation.java:118-127
 void FortressLocation::clearLocation() {
-	AION_UNPORTED();
+	forEachCreature([this](gameobjects::Creature& creature) {
+		if (isEnemy(creature)) {
+			if (auto* kisk = dynamic_cast<gameobjects::Kisk*>(&creature))
+				kisk->getController().die();
+			else if (auto* player = dynamic_cast<gameobjects::player::Player*>(&creature);
+				player && !(player->isStaff() && configs::main::SiegeConfig::IGNORE_STAFF_ON_LOCATION_CLEAR.load()))
+				services::teleport::TeleportService::moveToBindLocation(*player);
+		}
+	});
 }
 
 FortressLocation::~FortressLocation() = default;
