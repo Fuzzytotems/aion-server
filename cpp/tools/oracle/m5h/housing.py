@@ -98,6 +98,33 @@ def studio(data_dir: Path) -> dict:
 	raise OracleError(f"houses.xml: no address {STUDIO_ADDRESS}")
 
 
+def land_house(data_dir: Path, address_id: int) -> dict:
+	"""M5h-2 H2-4: a land house of houses.xml (no exit, unlike the studio) - its address point, land, town, default building, sale and fee, and its
+	house npcs of house_npcs.xml (the TELEPORT spawn is the relationship crystal, House.getRelationshipCrystal)"""
+	houses = data_dir / "housing" / "houses.xml"
+	try:
+		root = ET.parse(houses).getroot()
+	except (OSError, ET.ParseError) as e:
+		raise OracleError(f"{houses}: {e}") from e
+	for land in root.iter("land"):
+		for address in land.iter("address"):
+			if address.get("id") != str(address_id):
+				continue
+			what = f"houses.xml address {address_id}"
+			default = [b for b in land.iter("building") if b.get("default") == "true"]
+			sale = land.find("sale")
+			fee = land.find("fee")
+			if not default or sale is None or fee is None:
+				raise OracleError(f"{what}: the land has no default building, sale or fee")
+			return {"address": address_id, "land": int(land.get("id")), "map": int(address.get("map")), "town": int(address.get("town", "0")),
+			        "x": _float(address, "x", what), "y": _float(address, "y", what), "z": _float(address, "z", what),
+			        "building": int(default[0].get("id")),
+			        "saleLevel": int(sale.get("level")), "goldPrice": int(sale.get("gold_price")), "fee": int(fee.text.strip()),
+			        "managerNpc": int(land.get("manager_npc")), "teleportNpc": int(land.get("teleport_npc")),
+			        "houseNpcs": house_npcs(data_dir, address_id)}
+	raise OracleError(f"houses.xml: no address {address_id}")
+
+
 def house_npcs(data_dir: Path, address: int) -> dict:
 	path = data_dir / "housing" / "house_npcs.xml"
 	for house in _iter(path, "house"):
@@ -180,7 +207,8 @@ def script_limits(java_src: Path) -> dict:
 	return {"padding": [int(v.strip(), 0) & 0xFF for v in padding.group(1).split(",") if v.strip()]}
 
 
-def housing_report(data_dir: Path, java_src: Path, messages: list[str], npc_spots: list[tuple[int, int]], item_ids: list[int]) -> dict:
+def housing_report(data_dir: Path, java_src: Path, messages: list[str], npc_spots: list[tuple[int, int]], item_ids: list[int],
+                   land_houses: list[int] = ()) -> dict:
 	base = Path(java_src) / "com" / "aionemu" / "gameserver"
 	npcs = {}
 	talk = npc_talk(data_dir, {npc for _, npc in npc_spots})
@@ -195,4 +223,5 @@ def housing_report(data_dir: Path, java_src: Path, messages: list[str], npc_spot
 		"doorStates": door_states(java_src),
 		"houseOwnerStates": house_owner_states(java_src),
 		"scripts": script_limits(java_src),
+		"landHouses": {str(a): land_house(data_dir, a) for a in land_houses},
 	}
