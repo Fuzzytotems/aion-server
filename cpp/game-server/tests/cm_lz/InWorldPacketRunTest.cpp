@@ -125,6 +125,8 @@ TEST_F(InWorldPacketRunTest, PlayerListenerDoesNothingWithWebRewardsOff) {
 /**
  * With the key on, Java calls WebRewardService.sendAvailableRewards (ported with the M5b-3 leftovers, CP4; it was the one AION_UNPORTED body
  * this handler could reach). Without a database RewardServiceDAO.loadUnreceived logs its error and answers an empty list, so nothing is sent.
+ * With the key on, CM_PLAYER_LISTENER calls WebRewardService.sendAvailableRewards (ported in m5j D12-CP5): without the database the DAO logs
+ * and answers no rewards, so nothing is sent and nothing throws.
  */
 TEST_F(InWorldPacketRunTest, PlayerListenerAsksTheWebRewardServiceWhenTheKeyIsOn) {
 	configs::main::GSConfig::ENABLE_WEB_REWARDS.store(true);
@@ -137,6 +139,7 @@ TEST_F(InWorldPacketRunTest, PlayerListenerAsksTheWebRewardServiceWhenTheKeyIsOn
 	runtime::resetUnportedHitsForTests();
 	EXPECT_NO_THROW(packet.runNow());
 	EXPECT_EQ(runtime::unportedHitCount(), 0u);
+	EXPECT_NO_THROW(packet.runNow());
 	EXPECT_TRUE((*client)->sentBytes().empty());
 
 	configs::main::GSConfig::ENABLE_WEB_REWARDS.store(false);
