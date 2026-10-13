@@ -26,6 +26,7 @@ void MoveToObject::execute(Player& admin, std::span<const std::string> params) {
 		objectId = commons::utils::parseInt(params[0]); // parity= objectId = Integer.valueOf(params[0]);
 	} catch (const commons::utils::NumberFormatException&) { // parity= } catch (NumberFormatException e) {
 		PacketSendUtility::sendMessage(admin, "Only numbers please!!!");
+		return; // correction J-S4CP6-1 (owner's decision 2026-10-13): Java goes on with object id 0
 	}
 
 	runtime::Ptr<VisibleObject> object = World::getInstance().findVisibleObject(objectId);
