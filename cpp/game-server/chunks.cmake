@@ -719,14 +719,16 @@ aion_gs_chunk(P5-05 LEASE PHASE 5 ROOT handlers
 aion_gs_chunk(P5-11 LEASE PHASE 5 ROOT handlers
 	GLOBS "aion/gameserver/handlers/ai/portals/{StudioPortalAI,HouseGateAI,FriendPortalAI}.*" "aion/gameserver/handlers/ai/{ButlerAI,HouseSignAI}.*")
 # I-2 of M5i (m5i-plan.md 15.3): P5-12a leases the seven siege AIs of D5's stage 1 from A1 (handlers/ai/siege). P5-05's test executable
-# compiles them by #include (tests/handlers_ai_core/SiegeAiHandlersTest.cpp), as it does the portal AIs. Released when the lane merges.
+# compiles them by #include (tests/handlers_ai_core/SiegeAiHandlersTest.cpp), as it does the portal AIs. I-3 adds P5-05's root ArtifactAI.*
+# ("artifact"). Released when the lane merges.
 # I-3 of M5i (m5i-plan.md D11, 15.3): P5-12a leases P5-08's services/abyss/AbyssPointsService.cpp for the kill and PvP addAp variant, which ends
 # in SiegeService.onAbyssPointsAdded (tests/controllers/AttackSeamTest.cpp's doReward case follows it). Released when the lane merges.
 aion_gs_chunk(P5-12a LEASE PHASE 5
 	GLOBS "aion/gameserver/services/abyss/AbyssPointsService.cpp")
 aion_gs_chunk(P5-12a LEASE PHASE 5 ROOT handlers
 	GLOBS "aion/gameserver/handlers/ai/siege/{SiegeNpcAI,AbstractSiegeProtectorAI,ArtifactProtectorAI,FortressProtectorNpcAI,GuardianGeneralAI}.*"
-		"aion/gameserver/handlers/ai/siege/{SiegeRaceProtectorAI,ShieldNpcAI}.*")
+		"aion/gameserver/handlers/ai/siege/{SiegeRaceProtectorAI,ShieldNpcAI}.*"
+		"aion/gameserver/handlers/ai/ArtifactAI.*")
 
 # I1-I6: vertical instance slices, each @InstanceID handler with its ai/instance directory (bin-packed to about 6-8k Java lines; handlers without
 # an AI directory go to I1). I1 owns the instance prelude.
