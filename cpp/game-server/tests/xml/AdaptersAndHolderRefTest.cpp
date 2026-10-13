@@ -88,6 +88,35 @@ TEST(HolderRefTest, PublishesOnceAndStaysValid) {
 	delete statRaw;
 }
 
+// HolderRef::republish (//reload, owner's decision 2026-10-13, header request m5j-r1): the never-published and null throws, the swap, and a
+// pointer into the old holder that stays valid (the old holder is kept alive)
+TEST(HolderRefTest, RepublishSwapsAndKeepsTheOldHolderAlive) {
+	HolderRef<ItemData> ref;
+	EXPECT_THROW(ref.republish(std::make_unique<ItemData>()), runtime::IllegalStateException) << "never published";
+	EXPECT_EQ(ref.get(), nullptr);
+
+	auto first = std::make_unique<ItemData>();
+	const ItemData* oldHolder = first.get();
+	ref.publish(std::move(first));
+	EXPECT_THROW(ref.republish(nullptr), runtime::IllegalArgumentException);
+	EXPECT_EQ(ref.get(), oldHolder);
+
+	const ItemData* pointerIntoOld = &*ref; // what a live template or a resolved IDREF holds
+	auto second = std::make_unique<ItemData>();
+	const ItemData* newHolder = second.get();
+	ref.republish(std::move(second));
+	EXPECT_EQ(ref.get(), newHolder);
+	EXPECT_NE(newHolder, oldHolder);
+	EXPECT_EQ(pointerIntoOld->size(), 0u) << "the old holder is still alive";
+	ref.republish(std::make_unique<ItemData>());
+	EXPECT_NE(ref.get(), newHolder) << "again";
+	const ItemData* last = ref.get();
+	ref.resetForTests();
+	delete oldHolder; // the test owns what it published
+	delete newHolder;
+	delete last;
+}
+
 TEST(HolderRefTest, ReadersRacingWithPublishSeeNullOrTheHolder) {
 	HolderRef<Stat> ref;
 	auto holder = std::make_unique<Stat>();
