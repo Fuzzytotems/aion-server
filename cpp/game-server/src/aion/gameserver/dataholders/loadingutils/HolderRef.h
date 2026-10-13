@@ -74,7 +74,8 @@ private:
 
 /**
  * Published holder of the explicitly mutable families (SpawnsData, WalkerData, EventData; docs/design/static-data.md amendments §6):
- * non-const access, internally synchronized by the holder itself (runtime shims and Monitors), published once and never replaced.
+ * non-const access, internally synchronized by the holder itself (runtime shims and Monitors), published once; //reload replaces EventData
+ * with republish (the old holder stays alive).
  */
 template <class H>
 class MutableHolderRef {
@@ -102,6 +103,18 @@ public:
 		if (!ptr.compare_exchange_strong(expected, holder.get()))
 			throw runtime::IllegalStateException(std::string("static data holder ") + typeid(H).name() + " is already published");
 		static_cast<void>(holder.release()); // immortal
+	}
+
+	/** //reload events' replacement (header request m5j-r1), see HolderRef::republish: the old holder is kept alive */
+	void republish(std::unique_ptr<H> holder) {
+		if (holder == nullptr)
+			throw runtime::IllegalArgumentException(std::string("cannot republish a null ") + typeid(H).name());
+		H* expected = ptr.load(std::memory_order_acquire);
+		do {
+			if (expected == nullptr)
+				throw runtime::IllegalStateException(std::string("static data holder ") + typeid(H).name() + " was never published");
+		} while (!ptr.compare_exchange_weak(expected, holder.get(), std::memory_order_acq_rel, std::memory_order_acquire));
+		static_cast<void>(holder.release()); // immortal, like the holder it replaces
 	}
 
 	/** tests only, see HolderRef::resetForTests */

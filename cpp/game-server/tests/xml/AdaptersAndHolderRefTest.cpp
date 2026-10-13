@@ -115,6 +115,21 @@ TEST(HolderRefTest, RepublishSwapsAndKeepsTheOldHolderAlive) {
 	delete oldHolder; // the test owns what it published
 	delete newHolder;
 	delete last;
+
+	MutableHolderRef<Stat> mutableRef;
+	EXPECT_THROW(mutableRef.republish(std::make_unique<Stat>()), runtime::IllegalStateException) << "never published";
+	auto stat = std::make_unique<Stat>();
+	Stat* oldStat = stat.get();
+	mutableRef.publish(std::move(stat));
+	EXPECT_THROW(mutableRef.republish(nullptr), runtime::IllegalArgumentException);
+	oldStat->value = 7;
+	mutableRef.republish(std::make_unique<Stat>());
+	EXPECT_NE(mutableRef.get(), oldStat);
+	EXPECT_EQ(oldStat->value, 7) << "the old mutable holder is still alive";
+	Stat* newStat = mutableRef.get();
+	mutableRef.resetForTests();
+	delete oldStat;
+	delete newStat;
 }
 
 TEST(HolderRefTest, ReadersRacingWithPublishSeeNullOrTheHolder) {
