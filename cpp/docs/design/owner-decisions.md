@@ -22,6 +22,7 @@ then this file wins over a plan's "until the user answers" default.
 
 | Decision | Answer | What it changes |
 |---|---|---|
+| Java correction J-S4CP4-1: //spawnu w throws a NullPointerException on any world spot without a walker id (lane A's M5j CP4) | **Correct it, on both branches (C++ and 4.8)** | Spots without a walker id are not counted (`walkerId.equals(s.getWalkerId())`), so the pool check and the assignment run (docs/deviations/C2.md; `SpawnUpdateCommandTest.ASpotWithoutWalkerIdIsNotCounted`) |
 | Java correction J-S4CP6-2: //movetoobj on an object without a spawn template (a player) throws a NullPointerException (lane A's M5j CP6) | **Correct it, on both branches (C++ and 4.8)** | It teleports to the object's position (docs/deviations/C1.md; `TeleportCommandsTest.MoveToObjectOfAPlayer`) |
 | Java correction J-S4CP6-1: //movetoobj goes on with object id 0 after "Only numbers please!!!" (lane A's M5j CP6) | **Correct it, on both branches (C++ and 4.8)** | It returns after the message (docs/deviations/C1.md; `TeleportCommandsTest.MoveToObject`) |
 
