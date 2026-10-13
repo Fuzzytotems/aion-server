@@ -53,7 +53,9 @@
 #include "aion/gameserver/services/LegionService.h"
 #include "aion/gameserver/services/cron/CronService.h"
 #include "aion/gameserver/services/panesterra/PanesterraService.h"
+#include "aion/gameserver/services/siege/ArtifactSiege.h"
 #include "aion/gameserver/services/siege/FortressSiege.h"
+#include "aion/gameserver/services/siege/OutpostSiege.h"
 #include "aion/gameserver/services/siege/Siege.h"
 #include "aion/gameserver/services/siege/SiegeCounter.h"
 #include "aion/gameserver/services/siege/SiegeException.h"
@@ -482,9 +484,9 @@ runtime::Ref<siege::Siege> SiegeService::newSiege(int32_t siegeLocationId) {
 	if (fortresses.containsKey(siegeLocationId))
 		return siege::FortressSiege::create(*fortresses.get(siegeLocationId));
 	else if (outposts.containsKey(siegeLocationId))
-		AION_UNPORTED(); // new OutpostSiege(outposts.get(siegeLocationId)): m5i-plan.md I-3
+		return siege::OutpostSiege::create(*outposts.get(siegeLocationId));
 	else if (artifacts.containsKey(siegeLocationId))
-		AION_UNPORTED(); // new ArtifactSiege(artifacts.get(siegeLocationId)): m5i-plan.md I-3
+		return siege::ArtifactSiege::create(*artifacts.get(siegeLocationId));
 	else if (agent && agent->getLocationId() == siegeLocationId)
 		AION_UNPORTED(); // new AgentSiege(agent): m5i-plan.md I-7
 	else

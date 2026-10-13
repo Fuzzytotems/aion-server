@@ -1,6 +1,5 @@
 #include "aion/gameserver/services/abyss/AbyssPointsService.h"
 
-#include "aion/gameserver/runtime/base/Unported.h"
 #include "aion/commons/logging/LoggerFactory.h"
 #include "aion/gameserver/model/gameobjects/player/AbyssRank.h"
 #include "aion/gameserver/model/gameobjects/player/Equipment.h"
@@ -24,6 +23,10 @@ using utils::PacketSendUtility;
 static const auto log = commons::logging::LoggerFactory::getLogger("com.aionemu.gameserver.services.abyss.AbyssPointsService");
 
 // Java AbyssPointsService.java:25-31 (the kill and PvP variant; M5j stage 1 CP4: PvpService.rewardPlayerTeam and NpcController.doReward)
+// callback at AbyssPointsService.java:34 (fieldmap key AbyssPointsService@L34:25)
+
+// Java AbyssPointsService.java:25-31. The kill and PvP variant (NpcController.doReward, PvP kills), m5i-plan.md D11: ported with the siege, whose
+// SiegeService.onAbyssPointsAdded it ends with (I-1); P5-12a's lease of this file (chunks.cmake).
 void AbyssPointsService::addAp(model::gameobjects::player::Player& player, model::gameobjects::VisibleObject& obj, int32_t value) {
 	if (value > 30000) {
 		log.warn("WARN BIG COUNT AP: " + std::to_string(value) + " for " + player.toString() + " from " + obj.toString());
