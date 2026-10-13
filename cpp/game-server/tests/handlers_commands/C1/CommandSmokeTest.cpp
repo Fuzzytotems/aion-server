@@ -5,7 +5,8 @@
 // - the access check with commands.properties' levels (read from the Java tree): one level (or membership) below the command's, a staff member
 //   is answered "<You need access level N or higher to use X>" and a regular player gets nothing, the chat text passing through
 //   (AdminCommand/ConsoleCommand/PlayerCommand.process);
-// - with access: "help" (ChatCommand.run's description and syntax), no parameters and an unknown parameter. The command may answer anything,
+// - with access: "help" (ChatCommand.run's description and syntax), no parameters, an unknown parameter and, for the commands of
+//   validForms(), a harmless valid form. The command may answer anything,
 //   including Java's "<Error while executing command>" for a service this executable has not got (the database, static data), but it must not
 //   crash the process and must not reach an AION_UNPORTED site (unportedHitCount), except the sites listed in EXPECTED_UNPORTED.
 //
@@ -64,6 +65,24 @@ namespace {
 const std::map<std::string_view, std::string_view>& expectedUnported() {
 	static const auto* const expected = new std::map<std::string_view, std::string_view>{};
 	return *expected;
+}
+
+/**
+ * A harmless valid form per command, where one needs no data beyond the fixture's (the GM targets himself): javaClass -> parameters. The
+ * form must not crash nor reach an AION_UNPORTED site either; its answer is the command's own (the unit tests of each command check it).
+ */
+const std::map<std::string_view, std::vector<std::string>>& validForms() {
+	static const auto* const forms = new std::map<std::string_view, std::vector<std::string>>{
+		{"admincommands.Coords", {}}, {"admincommands.Online", {}}, {"admincommands.Zone", {}}, {"admincommands.Time", {"12"}},
+		{"admincommands.Invis", {}}, {"admincommands.Invul", {}}, {"admincommands.See", {}}, {"admincommands.Speed", {"0"}},
+		{"admincommands.Enemy", {"none"}}, {"admincommands.Info", {}}, {"admincommands.Stat", {"list"}}, {"admincommands.Morph", {"0"}},
+		{"playercommands.Id", {}}, {"playercommands.GmList", {}}, {"playercommands.NoExp", {}}, {"playercommands.Nomorph", {}},
+		{"playercommands.Help", {}}, {"consolecommands.Invisible", {}}, {"consolecommands.Visible", {}},
+		{"consolecommands.Remove_skill_delay_all", {"0"}}, {"consolecommands.Itemcooltime", {}}, {"consolecommands.Status", {"Warden"}},
+		{"consolecommands.Search", {"Warden"}}, {"consolecommands.Skill", {"Warden"}}, {"consolecommands.Partyrecall", {}},
+		{"consolecommands.Inventory", {}}, {"consolecommands.Attrbonus", {"list"}}, {"consolecommands.Clearusercoolt", {"Warden"}},
+	};
+	return *forms;
 }
 
 /** cpp/ of this source tree (this file is cpp/game-server/tests/handlers_commands/C1/CommandSmokeTest.cpp) */
@@ -133,6 +152,8 @@ protected:
 	void TearDown() override {
 		for (Player* player : stored)
 			world::World::getInstance().removeObject(*player);
+		for (PlayerFixture& fixture : players)
+			fixture.player->setTarget(nullptr);
 		stored.clear();
 		CommandTest::TearDown();
 		if (itemsPublished)
@@ -180,6 +201,11 @@ TEST(CommandSmokeListTest, TheListMatchesTheMarkers) {
 TEST_P(CommandSmokeTest, AccessHelpNoParametersAndAnUnknownParameter) {
 	const SmokeCommand& entry = GetParam();
 	const std::string javaClass = entry.javaClass;
+	// //megaphone's constructor collects a static list of colours from the item templates, once per process: built here on the fixture's
+	// empty templates it would stay empty for ItemCommandsTest.MegaphoneBroadcastsInTheColorOfItsItem. So it runs only alone in its process
+	// (ctest's way), not in a run of several tests
+	if (javaClass == "admincommands.Megaphone" && ::testing::UnitTest::GetInstance()->test_to_run_count() > 1)
+		GTEST_SKIP() << "//megaphone runs in a process of its own (ctest)";
 	std::unique_ptr<utils::chathandlers::ChatCommand> command = entry.create();
 	ASSERT_NE(command, nullptr);
 	const bool playerCommand = dynamic_cast<utils::chathandlers::PlayerCommand*>(command.get()) != nullptr;
@@ -201,7 +227,7 @@ TEST_P(CommandSmokeTest, AccessHelpNoParametersAndAnUnknownParameter) {
 			EXPECT_TRUE(client(index)->sentBytes().empty()) << javaClass;
 	}
 
-	// with access: help, no parameters, an unknown parameter
+	// with access: help, no parameters, an unknown parameter, the valid form
 	Player& gm = online(base + 2, "Warden", 9, 10);
 	const size_t gmIndex = clients.size() - 1;
 	client(gmIndex)->clearSent();
@@ -209,9 +235,14 @@ TEST_P(CommandSmokeTest, AccessHelpNoParametersAndAnUnknownParameter) {
 	EXPECT_FALSE(client(gmIndex)->sentBytes().empty()) << javaClass << ": ChatCommand.run's help";
 
 	const uint64_t unportedBefore = runtime::unportedHitCount();
-	for (std::vector<std::string> params : {args({}), args({"zzsmoke"})}) {
+	for (std::vector<std::string> params : {args({}), args({"zzsmoke"})}) { // without a target
 		client(gmIndex)->clearSent();
 		command->process(gm, params); // any answer: Java's error text for a missing service included
+	}
+	if (validForms().contains(entry.javaClass)) { // the GM targets himself
+		gm.setTarget(runtime::Ptr<model::gameobjects::VisibleObject>(&gm));
+		client(gmIndex)->clearSent();
+		command->process(gm, validForms().at(entry.javaClass));
 	}
 	const uint64_t reached = runtime::unportedHitCount() - unportedBefore;
 	if (expectedUnported().contains(entry.javaClass))
