@@ -28,8 +28,7 @@ namespace aion::gameserver::dataholders {
  * the bound spawn maps then (Java: `if (!(parent instanceof EventTemplate)) templates = null`; the C++ storage always stays).
  * getSpawnsByWorldId returns the groups npc id by npc id in the order the RcHashMap shim keeps (the order in which each npc id was last added to
  * the world's map), not in Java's HashMap bucket order; the order decides only the spawn order of SpawnEngine.spawnInstance (DEVIATION,
- * docs/deviations/P4-09.md). saveSpawn (the //spawn admin write-back through JAXB) comes after the load path (static-data.md §3.6 item 7) and
- * stays unported.
+ * docs/deviations/P4-09.md). saveSpawn's write-back (m5j CP5, D14 = (a)) reads and writes the spawn files as Java's JAXB does (P4-09.md).
  *
  * @author xTz, Rolandas, Neon
  */
@@ -88,7 +87,7 @@ public:
 	/** @return the mercenary spawns, nullptr (Java null) if there are none */
 	const model::templates::spawns::mercenaries::MercenarySpawn* getMercenarySpawnBySiegeId(int32_t id) const;
 
-	/** Java (synchronized): saves the object's spawn into ./data/static_data/spawns/.../New/. Unported: write-back */
+	/** Java (synchronized): saves the object's spawn into ./data/static_data/spawns/.../New/ (relative to the working directory) */
 	bool saveSpawn(model::gameobjects::VisibleObject& visibleObject, bool delete_);
 
 private:
