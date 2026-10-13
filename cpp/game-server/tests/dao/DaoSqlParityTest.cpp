@@ -327,10 +327,6 @@ TEST(DaoSqlParityTest, JdbcBindIndexesAndColumnsMatchTheJavaOrder) {
 			continue;
 		const std::string dao = entry.path().stem().string();
 		const std::string cppText = readText(CPP_DAO_DIR / (dao + ".cpp"));
-		if (dao == "CustomInstancePlayerModelEntryDAO") { // unported (no PlayerModelEntry header, P5-13)
-			EXPECT_NE(cppText.find("AION_UNPORTED"), std::string::npos) << dao << " is ported now: compare it too";
-			continue;
-		}
 		JdbcCalls java = jdbcCalls(readText(entry.path()));
 		JdbcCalls cpp = jdbcCalls(cppText);
 		++files;
@@ -350,7 +346,7 @@ TEST(DaoSqlParityTest, JdbcBindIndexesAndColumnsMatchTheJavaOrder) {
 		}
 		EXPECT_EQ(joined(cpp.getters), joined(java.getters)) << dao << ": getter columns in source order";
 	}
-	EXPECT_EQ(files, 55);
+	EXPECT_EQ(files, 56); // CustomInstancePlayerModelEntryDAO compared since m5j D12-CP1
 	EXPECT_GT(setters, 500u) << "the Java setter calls were found";
 	EXPECT_GT(getters, 400u) << "the Java getter calls were found";
 }
