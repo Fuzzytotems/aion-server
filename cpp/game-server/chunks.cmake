@@ -418,8 +418,9 @@ aion_gs_chunk(P5-11 LEASE PHASE 5
 	GLOBS "aion/gameserver/services/SiegeService.cpp" "aion/gameserver/services/conquerorAndProtectorSystem/ConquerorAndProtectorService.cpp")
 
 # Header request 5a-pre-10b (owner's D10 of 2026-10-13, granted by the integrator 2026-10-13; m5i-plan.md 15.5): P5-12a's M5i lane changes the
-# frozen services/SiegeService.h - `locations` a runtime::LinkedHashMap, getSiegeLocations(int) in its iteration order. Released when the lane
-# merges.
+# frozen services/SiegeService.h - `locations` a runtime::LinkedHashMap, getSiegeLocations(int) in its iteration order; and header request m5i-1
+# (granted 2026-10-13): the private broadcast() takes a nullable SM_SYSTEM_MESSAGE*, the class befriends SiegeServiceTestAccess. Released when the
+# lane merges.
 aion_gs_chunk(P5-12a LEASE PHASE 5
 	GLOBS "aion/gameserver/services/SiegeService.h")
 # P5-12a: siege + SiegeService + model.siege (+ ShieldService)
