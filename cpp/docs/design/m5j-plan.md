@@ -1675,3 +1675,6 @@ without a C++ file; `tools/porting/census.py` for the totals):
 > commands.properties' levels, the alias levels, help, no parameters, an unknown parameter; no crash, no `AION_UNPORTED`), 120 of 120, mutation proof
 > 5 of 5 (C1.md). CP7 done: the chat-path smoke is the gate's Z19 (76 admin and player commands through handleChatCommand; gate mutants 3 of 3,
 > P5-SC.md); `gs.scenario.gm` ran green on the CP4 product code.
+> **Progress:** corrections (owner, 2026-10-13, both branches): J-S4CP6-1/2, J-S4CP4-1/2/3 (C1.md, C2.md; `lane-a/m5j-s4-corrections`).
+> **Progress:** CP5 done (`lane-a/m5j-s4-cp5`, D14 = (a), faithful): SpawnsData.saveSpawn's write-back, WalkerData.addTemplate/saveData and
+> `//fixpath` (P4-09.md, C2.md); the gates check that no `New` folder appears in the Java tree. The reload setters move to item 3 of 2026-10-13.

@@ -212,6 +212,10 @@ TEST_F(MonsterCommandsTest, SaveSpawnDeleteCopiesTheGroupFromTheTemplateFilesAnd
 	root.write("data/static_data/spawns/Npcs/210010000_Poeta.xml", R"(<?xml version="1.0" encoding="utf-8"?>
 <spawns>
 	<spawn_map map_id="210010000">
+		<!-- minalinerk elsewhere: a delete matches the group by its spot (exactMatch), not the first group of the npc -->
+		<spawn npc_id="798007" respawn_time="60">
+			<spot x="900.0" y="900.0" z="50.0" h="0"/>
+		</spawn>
 		<!-- minalinerk -->
 		<spawn npc_id="798007" respawn_time="295">
 			<spot x="103.0" y="100.0" z="50.0" h="0"/>
