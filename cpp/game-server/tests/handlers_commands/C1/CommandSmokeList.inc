@@ -29,6 +29,7 @@ namespace aion::gameserver::handlers::admincommands { ::aion::gameserver::handle
 namespace aion::gameserver::handlers::admincommands { ::aion::gameserver::handlers::CommandFactory Enemy_commandFactory; }
 namespace aion::gameserver::handlers::admincommands { ::aion::gameserver::handlers::CommandFactory Equip_commandFactory; }
 namespace aion::gameserver::handlers::admincommands { ::aion::gameserver::handlers::CommandFactory Event_commandFactory; }
+namespace aion::gameserver::handlers::admincommands { ::aion::gameserver::handlers::CommandFactory FixPath_commandFactory; }
 namespace aion::gameserver::handlers::admincommands { ::aion::gameserver::handlers::CommandFactory Gag_commandFactory; }
 namespace aion::gameserver::handlers::admincommands { ::aion::gameserver::handlers::CommandFactory GoTo_commandFactory; }
 namespace aion::gameserver::handlers::admincommands { ::aion::gameserver::handlers::CommandFactory Grant_commandFactory; }
@@ -153,6 +154,7 @@ inline constexpr SmokeCommand SMOKE_COMMANDS[] = {
 	{"admincommands.Enemy", &::aion::gameserver::handlers::admincommands::Enemy_commandFactory},
 	{"admincommands.Equip", &::aion::gameserver::handlers::admincommands::Equip_commandFactory},
 	{"admincommands.Event", &::aion::gameserver::handlers::admincommands::Event_commandFactory},
+	{"admincommands.FixPath", &::aion::gameserver::handlers::admincommands::FixPath_commandFactory},
 	{"admincommands.Gag", &::aion::gameserver::handlers::admincommands::Gag_commandFactory},
 	{"admincommands.GoTo", &::aion::gameserver::handlers::admincommands::GoTo_commandFactory},
 	{"admincommands.Grant", &::aion::gameserver::handlers::admincommands::Grant_commandFactory},
