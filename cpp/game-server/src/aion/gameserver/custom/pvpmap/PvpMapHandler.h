@@ -2,6 +2,7 @@
 
 #include <array>
 #include <cstdint>
+#include <optional>
 #include <string>
 #include <string_view>
 
@@ -27,9 +28,8 @@ namespace aion::gameserver::custom::pvpmap {
  * <p>
  * Declaration header (docs/design/hub-headers.md §3.5, m5a-plan.md W-03): created by PvpMapService.init through InstanceService's handler
  * supplier (no @InstanceID marker; `create(instance)` stands for `PvpMapHandler::new`). RefCounted through GeneralInstanceHandler. The members
- * are the `fieldmap.py --class` block; the constructor and the accessors PvpMapService calls are ported, every other body is AION_UNPORTED
- * (the map is created only by PvpMapService.init, which is an AION_PARTIAL at M5a). The anonymous ItemUseObserver of getAllObserver and the
- * stored lambdas are defined in the .cpp when their bodies are ported.
+ * are the `fieldmap.py --class` block. Every body is ported (m5j D12-CP4, owner 2026-10-13); the anonymous ItemUseObserver of getAllObserver is
+ * PvpMapHandler_ItemUseObserver in the .cpp, and the tasks' lambdas are pinned to the handler.
  *
  * @author Yeats
  */
@@ -157,7 +157,8 @@ private:
 
 	void addTreasurePositions();
 
-	std::string getZoneNameL10n(model::gameobjects::player::Player& player);
+	/** Java: null when none of the player's zones has a name l10n */
+	std::optional<std::string> getZoneNameL10n(model::gameobjects::player::Player& player);
 
 	int32_t getZoneNameL10nId(std::string_view zoneName);
 
