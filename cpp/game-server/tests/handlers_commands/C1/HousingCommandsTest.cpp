@@ -95,6 +95,16 @@ TEST_F(HousingCommandsTest, AuctionAddWithAnUnknownHouseTypeListsTheTypes) {
 		<< "HouseType.valueOf's IllegalArgumentException (ChatCommand.run)";
 }
 
+TEST_F(HousingCommandsTest, TheAuctionHelpNamesTheAddKeyword) {
+	handlers::admincommands::Auction auction;
+	const std::string syntax = auction.getSyntaxInfo();
+	// correction (owner's decision 2026-10-13): Java's help lines read "<zone> <house type> ..." and "<asmo|ely> <house type> ...", while
+	// execute takes them only after "add" (Auction.java:95)
+	// the syntax info colours every word (ChatCommand.parseSyntaxInfo): "add" before the zone and the race forms
+	EXPECT_NE(syntax.find("[color:add;1 1 1] <[color:zone;1 1 1]> <[color:house;1 1 1] [color:type;1 1 1]>"), std::string::npos) << syntax;
+	EXPECT_NE(syntax.find("[color:add;1 1 1] <[color:asmo;1 1 1]|[color:ely;1 1 1]> <[color:house;1 1 1]"), std::string::npos) << syntax;
+}
+
 TEST_F(HousingCommandsTest, AuctionWithAnUnknownArmSendsTheSyntax) {
 	Player& admin = gm();
 	handlers::admincommands::Auction auction;
