@@ -425,6 +425,14 @@ class CommittedTree(unittest.TestCase):
         hand_port = (HANDLER_QUEST_DIR / 'reshanta' / '_2759TenaciousGuardian.cpp').read_text(encoding='utf-8')
         self.assertNotIn(emit.banner('game-server/data/handlers/quest/reshanta/_2759TenaciousGuardian.java')[0], hand_port)
         self.assertNotIn(('reshanta', '_2759TenaciousGuardian'), found)
+        # _1367 and _24026 are hand ports since the owner's decision of 2026-10-13 (docs/deviations/Q05.md and Q09.md, "Correction: 1367 and
+        # 24026"): in the tree, without questgen's banner, and still refused by questgen
+        for directory, klass in (('eltnen', '_1367MabangtahsFeast'), ('morheim', '_24026AHandfromEachSide')):
+            with self.subTest(file=f'{directory}/{klass}'):
+                hand_port = (HANDLER_QUEST_DIR / directory / f'{klass}.cpp').read_text(encoding='utf-8')
+                self.assertNotIn(emit.banner(f'game-server/data/handlers/quest/{directory}/{klass}.java')[0], hand_port)
+                self.assertIn('Hand-ported from', hand_port)
+                self.assertNotIn((directory, klass), found)
         for klass in Q02['inggison']:
             with self.subTest(file=f'inggison/{klass}'):
                 self.assertIn(('inggison', klass), found)
