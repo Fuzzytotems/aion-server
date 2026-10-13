@@ -28,6 +28,8 @@
 #include "aion/gameserver/dataholders/ZoneData.bind.h"
 #include "aion/gameserver/dataholders/ZoneData.h"
 #include "aion/gameserver/dataholders/WorldMapsData.h"
+#include "aion/gameserver/model/siege/ArtifactLocation.h"
+#include "aion/gameserver/model/siege/ArtifactStatus.h"
 #include "aion/gameserver/model/siege/FortressLocation.h"
 #include "aion/gameserver/model/siege/OutpostLocation.h"
 #include "aion/gameserver/model/siege/SiegeLocation.h"
@@ -37,8 +39,12 @@
 #include "aion/gameserver/model/templates/siegelocation/SiegeLocationTemplate.bind.h"
 #include "aion/gameserver/model/templates/siegelocation/SiegeLocationTemplate.h"
 #include "aion/gameserver/runtime/base/Exceptions.h"
+#include "aion/gameserver/model/gameobjects/player/AbyssRank.h"
 #include "aion/gameserver/services/SiegeService.h"
+#include "aion/gameserver/services/abyss/AbyssPointsService.h"
 #include "aion/gameserver/services/cron/CronService.h"
+#include "aion/gameserver/services/siege/ArtifactSiege.h"
+#include "aion/gameserver/services/siege/OutpostSiege.h"
 #include "aion/gameserver/services/siege/Siege.h"
 #include "aion/gameserver/services/siege/SiegeCounter.h"
 #include "aion/gameserver/services/siege/SiegeException.h"
@@ -141,6 +147,7 @@ protected:
 			service.getSiegeLocations().remove(id);
 			service.getFortresses().remove(id);
 			service.getOutposts().remove(id);
+			service.getArtifacts().remove(id);
 			SiegeServiceTestAccess::activeSieges(service).remove(id);
 		}
 		SiegeServiceTestAccess::setNextStateUpdateTime(service, std::nullopt);
@@ -176,6 +183,7 @@ protected:
 	xml::LoadContext context;
 	std::vector<std::unique_ptr<SiegeLocationTemplate>> templates;
 	std::vector<int32_t> addedLocations;
+	std::vector<int32_t> addedArtifacts;
 	bool savedAutoAssault = false;
 	bool savedLogSiege = false;
 };
@@ -509,6 +517,96 @@ TEST_F(SiegeCoreTest, ASiegeWithoutABossCannotStart) {
 	} catch (const services::siege::SiegeException& e) {
 		EXPECT_EQ(std::string(e.what()), "Siege Boss not found for siege 1011");
 	}
+}
+
+// ------------------------------------------------------------------------------------------------------------ artifacts and outposts (I-3)
+
+TEST_F(SiegeCoreTest, ArtifactsAreAlwaysVulnerableAndIdleUntilUsed) {
+	const SiegeLocationTemplate& t = bindTemplate(R"(<siege_location id="1012" type="ARTIFACT" world="400010000"/>)");
+	runtime::Ref<model::siege::ArtifactLocation> artifact = model::siege::ArtifactLocation::create(&t);
+	EXPECT_TRUE(artifact->isVulnerable());
+	EXPECT_EQ(artifact->getNextState(), model::siege::SiegeLocation::STATE_VULNERABLE);
+	artifact->setVulnerable(false);
+	EXPECT_EQ(artifact->getNextState(), model::siege::SiegeLocation::STATE_VULNERABLE) << "whatever the current state";
+	EXPECT_EQ(artifact->getStatus(), model::siege::ArtifactStatus::IDLE) << "a null status reads as IDLE";
+	artifact->setStatus(model::siege::ArtifactStatus::CASTING);
+	EXPECT_EQ(artifact->getStatus(), model::siege::ArtifactStatus::CASTING);
+	artifact->setStatus(std::nullopt);
+	EXPECT_EQ(artifact->getStatus(), model::siege::ArtifactStatus::IDLE);
+	EXPECT_THROW(artifact->getCoolDown(), runtime::NullPointerException) << "no artifact_activation";
+}
+
+TEST_F(SiegeCoreTest, AnArtifactCooldownStartsAtMostFifteenMinutesAfterItsCapture) {
+	const SiegeLocationTemplate& longCd = bindTemplate(
+		R"(<siege_location id="1012" type="ARTIFACT" world="400010000"><artifact_activation skill="1" cd="1800"/></siege_location>)");
+	const SiegeLocationTemplate& shortCd = bindTemplate(
+		R"(<siege_location id="1013" type="ARTIFACT" world="400010000"><artifact_activation skill="1" cd="600"/></siege_location>)");
+	runtime::Ref<model::siege::ArtifactLocation> a = model::siege::ArtifactLocation::create(&longCd);
+	runtime::Ref<model::siege::ArtifactLocation> b = model::siege::ArtifactLocation::create(&shortCd);
+	a->setInitialDelay(10'000'000);
+	EXPECT_EQ(a->getLastActivation(), 10'000'000 - 1'800'000 + 900'000) << "cd > 900000: only 15 minutes are left after a capture";
+	b->setInitialDelay(10'000'000);
+	EXPECT_EQ(b->getLastActivation(), 10'000'000) << "cd <= 900000: the whole cooldown";
+
+	b->setLastActivation(0);
+	EXPECT_EQ(b->getCoolDown(), 0) << "long ago";
+	const int64_t now = commons::utils::currentTimeMillis();
+	b->setLastActivation(now);
+	EXPECT_GE(b->getCoolDown(), 599);
+	EXPECT_LE(b->getCoolDown(), 600);
+	b->setLastActivation(now - 600'000);
+	EXPECT_EQ(b->getCoolDown(), 0) << "millisSinceLastActivation > cd";
+}
+
+TEST_F(SiegeCoreTest, AnArtifactWithTheIdOfAFortressBelongsToIt) {
+	runtime::Ref<model::siege::FortressLocation> fortress = addFortress(R"(<siege_location id="1011" type="FORTRESS" world="400010000"/>)");
+	const SiegeLocationTemplate& owned = bindTemplate(R"(<siege_location id="1011" type="ARTIFACT" world="400010000"/>)");
+	const SiegeLocationTemplate& alone = bindTemplate(R"(<siege_location id="1012" type="ARTIFACT" world="400010000"/>)");
+	runtime::Ref<model::siege::ArtifactLocation> fortressArtifact = model::siege::ArtifactLocation::create(&owned);
+	runtime::Ref<model::siege::ArtifactLocation> standalone = model::siege::ArtifactLocation::create(&alone);
+	EXPECT_FALSE(fortressArtifact->isStandAlone());
+	EXPECT_EQ(fortressArtifact->getOwningFortress().get(), fortress.get());
+	EXPECT_TRUE(standalone->isStandAlone());
+	EXPECT_FALSE(standalone->getOwningFortress());
+}
+
+TEST_F(SiegeCoreTest, ArtifactAndOutpostLocationsGetTheirOwnSieges) {
+	SiegeService& service = SiegeService::getInstance();
+	const SiegeLocationTemplate& at = bindTemplate(R"(<siege_location id="1012" type="ARTIFACT" world="400010000"/>)");
+	runtime::Ref<model::siege::ArtifactLocation> artifact = model::siege::ArtifactLocation::create(&at);
+	service.getArtifacts().put(1012, artifact);
+	service.getSiegeLocations().put(1012, artifact);
+	addedArtifacts.push_back(1012);
+	addedLocations.push_back(1012);
+	// ArtifactSiege.onSiegeStart looks for the boss first: there is none
+	EXPECT_THROW(service.startSiege(1012), services::siege::SiegeException);
+	ASSERT_TRUE(service.isSiegeInProgress(1012)) << "put before siege.startSiege(), as in Java";
+	runtime::Ptr<Siege> artifactSiege = service.getSiege(1012);
+	EXPECT_TRUE(runtime::as<services::siege::ArtifactSiege>(*artifactSiege));
+	EXPECT_TRUE(artifactSiege->isEndless());
+	PlayerFixture p = makePlayer(51, 500);
+	artifactSiege->onAbyssPointsAdded(*p.player, 100); // no need to control AP
+	EXPECT_TRUE(artifactSiege->getSiegeCounter()->getRaceCounter(SiegeRace::ELYOS)->getPlayerAbyssPoints().empty());
+
+	const SiegeLocationTemplate& ot = bindTemplate(R"(<siege_location id="2111" type="OUTPOST" world="210050000"/>)");
+	runtime::Ref<model::siege::OutpostLocation> outpost = model::siege::OutpostLocation::create(&ot);
+	runtime::Ref<services::siege::OutpostSiege> outpostSiege = services::siege::OutpostSiege::create(*outpost);
+	EXPECT_FALSE(outpostSiege->isEndless());
+	outpostSiege->onAbyssPointsAdded(*p.player, 100);
+	outpost->setVulnerable(true);
+	outpostSiege->onAbyssPointsAdded(*p.player, 100); // vulnerable, but the player is not inside the outpost's zones
+	EXPECT_TRUE(outpostSiege->getSiegeCounter()->getRaceCounter(SiegeRace::ELYOS)->getPlayerAbyssPoints().empty());
+}
+
+TEST_F(SiegeCoreTest, TheKillVariantOfAddApGrantsThePointsAndReachesTheActiveSieges) {
+	runtime::Ref<model::siege::FortressLocation> f1 = addFortress(R"(<siege_location id="1011" type="FORTRESS" world="400010000"/>)");
+	runtime::Ref<RecordingSiege> s1 = addActiveSiege(*f1);
+	PlayerFixture killer = makePlayer(61, 600);
+	PlayerFixture victim = makePlayer(62, 601, model::Race::ASMODIANS);
+	killer.player->setAbyssRank(model::gameobjects::player::AbyssRank::create(0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0));
+	services::abyss::AbyssPointsService::addAp(*killer.player, *victim.player, 250); // AbyssPointsService.java:25-31
+	EXPECT_EQ(killer.player->getAbyssRank()->getAp(), 250);
+	EXPECT_EQ(s1->abyssPointsAdded, (std::vector<std::pair<int32_t, int32_t>>{{61, 250}})) << "SiegeService.onAbyssPointsAdded of a player kill";
 }
 
 } // namespace
