@@ -19,6 +19,7 @@ namespace aion::gameserver::handlers::admincommands { ::aion::gameserver::handle
 namespace aion::gameserver::handlers::admincommands { ::aion::gameserver::handlers::CommandFactory Bookmark_commandFactory; }
 namespace aion::gameserver::handlers::admincommands { ::aion::gameserver::handlers::CommandFactory Collide_commandFactory; }
 namespace aion::gameserver::handlers::admincommands { ::aion::gameserver::handlers::CommandFactory Coords_commandFactory; }
+namespace aion::gameserver::handlers::admincommands { ::aion::gameserver::handlers::CommandFactory CustomInstance_commandFactory; }
 namespace aion::gameserver::handlers::admincommands { ::aion::gameserver::handlers::CommandFactory Damage_commandFactory; }
 namespace aion::gameserver::handlers::admincommands { ::aion::gameserver::handlers::CommandFactory Debug_commandFactory; }
 namespace aion::gameserver::handlers::admincommands { ::aion::gameserver::handlers::CommandFactory Delete_commandFactory; }
@@ -82,6 +83,7 @@ namespace aion::gameserver::handlers::admincommands { ::aion::gameserver::handle
 namespace aion::gameserver::handlers::admincommands { ::aion::gameserver::handlers::CommandFactory Whisper_commandFactory; }
 namespace aion::gameserver::handlers::admincommands { ::aion::gameserver::handlers::CommandFactory Zone_commandFactory; }
 namespace aion::gameserver::handlers::playercommands { ::aion::gameserver::handlers::CommandFactory Advent_commandFactory; }
+namespace aion::gameserver::handlers::playercommands { ::aion::gameserver::handlers::CommandFactory Buy_commandFactory; }
 namespace aion::gameserver::handlers::playercommands { ::aion::gameserver::handlers::CommandFactory Decompose_commandFactory; }
 namespace aion::gameserver::handlers::playercommands { ::aion::gameserver::handlers::CommandFactory Del_commandFactory; }
 namespace aion::gameserver::handlers::playercommands { ::aion::gameserver::handlers::CommandFactory Easter_commandFactory; }
@@ -150,6 +152,7 @@ inline constexpr SmokeCommand SMOKE_COMMANDS[] = {
 	{"admincommands.Bookmark", &::aion::gameserver::handlers::admincommands::Bookmark_commandFactory},
 	{"admincommands.Collide", &::aion::gameserver::handlers::admincommands::Collide_commandFactory},
 	{"admincommands.Coords", &::aion::gameserver::handlers::admincommands::Coords_commandFactory},
+	{"admincommands.CustomInstance", &::aion::gameserver::handlers::admincommands::CustomInstance_commandFactory},
 	{"admincommands.Damage", &::aion::gameserver::handlers::admincommands::Damage_commandFactory},
 	{"admincommands.Debug", &::aion::gameserver::handlers::admincommands::Debug_commandFactory},
 	{"admincommands.Delete", &::aion::gameserver::handlers::admincommands::Delete_commandFactory},
@@ -213,6 +216,7 @@ inline constexpr SmokeCommand SMOKE_COMMANDS[] = {
 	{"admincommands.Whisper", &::aion::gameserver::handlers::admincommands::Whisper_commandFactory},
 	{"admincommands.Zone", &::aion::gameserver::handlers::admincommands::Zone_commandFactory},
 	{"playercommands.Advent", &::aion::gameserver::handlers::playercommands::Advent_commandFactory},
+	{"playercommands.Buy", &::aion::gameserver::handlers::playercommands::Buy_commandFactory},
 	{"playercommands.Decompose", &::aion::gameserver::handlers::playercommands::Decompose_commandFactory},
 	{"playercommands.Del", &::aion::gameserver::handlers::playercommands::Del_commandFactory},
 	{"playercommands.Easter", &::aion::gameserver::handlers::playercommands::Easter_commandFactory},
