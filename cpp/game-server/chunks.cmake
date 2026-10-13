@@ -417,6 +417,11 @@ aion_gs_chunk(P5-11 TARGET aion_gs_legionhouse PHASE 5
 aion_gs_chunk(P5-11 LEASE PHASE 5
 	GLOBS "aion/gameserver/services/SiegeService.cpp" "aion/gameserver/services/conquerorAndProtectorSystem/ConquerorAndProtectorService.cpp")
 
+# Header request 5a-pre-10b (owner's D10 of 2026-10-13, granted by the integrator 2026-10-13; m5i-plan.md 15.5): P5-12a's M5i lane changes the
+# frozen services/SiegeService.h - `locations` a runtime::LinkedHashMap, getSiegeLocations(int) in its iteration order. Released when the lane
+# merges.
+aion_gs_chunk(P5-12a LEASE PHASE 5
+	GLOBS "aion/gameserver/services/SiegeService.h")
 # P5-12a: siege + SiegeService + model.siege (+ ShieldService)
 aion_gs_chunk(P5-12a TARGET aion_gs_siege PHASE 5
 	GLOBS "aion/gameserver/services/siege/**" "aion/gameserver/services/{SiegeService,ShieldService}.*" "aion/gameserver/model/siege/**"
