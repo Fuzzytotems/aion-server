@@ -4,6 +4,7 @@
 
 #include "aion/commons/utils/TimeUtils.h"
 #include "aion/gameserver/controllers/ControllerStandIns.h"
+#include "aion/gameserver/services/rift/RiftEnumInfo.h"
 #include "aion/gameserver/controllers/ControllerSupport.h"
 #include "aion/gameserver/model/Race.h"
 #include "aion/gameserver/model/gameobjects/Npc.h"
@@ -119,28 +120,28 @@ public:
 };
 
 RVController::RVController(runtime::Ptr<model::gameobjects::Npc> value, services::rift::RiftEnum riftTemplateValue)
-	: isMaster_(static_cast<bool>(value)), isVortex_(standins::riftEnumData(riftTemplateValue).vortex), isVolatile_(false),
-	  isInvasion_(standins::riftEnumData(riftTemplateValue).isInvasionRift), slaveSpawnTemplate(value ? value->getSpawn() : nullptr), slave(value),
-	  maxEntries(standins::riftEnumData(riftTemplateValue).entries), minLevel(standins::riftEnumData(riftTemplateValue).minLevel),
-	  maxLevel(standins::riftEnumData(riftTemplateValue).maxLevel), isAccepting(static_cast<bool>(value)), riftTemplate(riftTemplateValue),
+	: isMaster_(static_cast<bool>(value)), isVortex_(services::rift::isVortex(riftTemplateValue)), isVolatile_(false),
+	  isInvasion_(services::rift::isInvasionRift(riftTemplateValue)), slaveSpawnTemplate(value ? value->getSpawn() : nullptr), slave(value),
+	  maxEntries(services::rift::getEntries(riftTemplateValue)), minLevel(services::rift::getMinLevel(riftTemplateValue)),
+	  maxLevel(services::rift::getMaxLevel(riftTemplateValue)), isAccepting(static_cast<bool>(value)), riftTemplate(riftTemplateValue),
 	  deSpawnedTime(despawnTime(isVortex_)) {
 	// Java: if (slave != null) { this.slave = slave; this.slaveSpawnTemplate = slave.getSpawn(); isMaster = true; isAccepting = true; } (the
 	// members are const: the initializer list applies the condition)
 }
 
 RVController::RVController(runtime::Ptr<model::gameobjects::Npc> value, services::rift::RiftEnum riftTemplateValue, bool isWithGuards)
-	: isMaster_(static_cast<bool>(value)), isVortex_(standins::riftEnumData(riftTemplateValue).vortex),
-	  isVolatile_(value && standins::riftEnumData(riftTemplateValue).canBeVolatile && isWithGuards),
-	  isInvasion_(standins::riftEnumData(riftTemplateValue).isInvasionRift), slaveSpawnTemplate(value ? value->getSpawn() : nullptr), slave(value),
-	  maxEntries(standins::riftEnumData(riftTemplateValue).entries), minLevel(standins::riftEnumData(riftTemplateValue).minLevel),
-	  maxLevel(standins::riftEnumData(riftTemplateValue).maxLevel), isAccepting(static_cast<bool>(value)), riftTemplate(riftTemplateValue),
+	: isMaster_(static_cast<bool>(value)), isVortex_(services::rift::isVortex(riftTemplateValue)),
+	  isVolatile_(value && services::rift::canBeVolatile(riftTemplateValue) && isWithGuards),
+	  isInvasion_(services::rift::isInvasionRift(riftTemplateValue)), slaveSpawnTemplate(value ? value->getSpawn() : nullptr), slave(value),
+	  maxEntries(services::rift::getEntries(riftTemplateValue)), minLevel(services::rift::getMinLevel(riftTemplateValue)),
+	  maxLevel(services::rift::getMaxLevel(riftTemplateValue)), isAccepting(static_cast<bool>(value)), riftTemplate(riftTemplateValue),
 	  deSpawnedTime(despawnTime(isVortex_)) {
 	// Java: if (slave != null) { ...; isVolatile = riftTemplate.canBeVolatile() && isWithGuards; }
 }
 
 void RVController::onDialogRequest(model::gameobjects::player::Player& player) {
 	if (isMaster_ || isAccepting) {
-		if (isInvasion_ && player.getOppositeRace() != standins::riftEnumData(riftTemplate).destination)
+		if (isInvasion_ && player.getOppositeRace() != services::rift::getDestination(riftTemplate))
 			return;
 		onRequest(player);
 	}

@@ -3244,6 +3244,9 @@ def live_checks(check):
                        # M5j stage 4 CP3 (2026-10-13) ported the score writers' constructors: the taken helper <anon>::unportedScoreBase
                        # is gone; the synthetic checks still cover the 'taken' kind
                        ('standins::riftEnumData', 'own')):
+                       # M5i I-5 (2026-10-13) replaced the own helper standins::riftEnumData by the RiftEnum companion; the synthetic checks
+                       # still cover the 'own' kind
+                       ('<anon>::unportedScoreBase', 'taken')):
         check(f'live helper {name}', kinds.get(name), kind)
 
 
