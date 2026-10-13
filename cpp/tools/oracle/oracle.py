@@ -550,6 +550,26 @@ def cmd_m5h_housing(args):
 	return 0
 
 
+def cmd_cron_next(args):
+	import datetime as dt
+	from m5i.cron import next_fire_times
+	after = dt.datetime.fromisoformat(args.after)
+	times = next_fire_times(args.expr, args.tz, after, args.count)
+	sys.stdout.write(runner.dump_json({"expr": args.expr, "tz": args.tz, "after": after.isoformat(),
+	                                   "next": [t.astimezone(dt.timezone.utc).isoformat() for t in times]}))
+	return 0
+
+
+def cmd_cron_window(args):
+	import datetime as dt
+	from m5i.cron import quiet_window
+	after = dt.datetime.fromisoformat(args.after)
+	start = quiet_window(args.expr, args.tz, after, dt.timedelta(seconds=args.run_seconds), dt.timedelta(seconds=args.spare_seconds))
+	sys.stdout.write(runner.dump_json({"after": after.isoformat(), "start": start.astimezone(dt.timezone.utc).isoformat(),
+	                                   "waitSeconds": int((start - after).total_seconds())}))
+	return 0
+
+
 def cmd_m5g_team(args):
 	from m5a.data import StaticData
 	from m5g.team import team_report
@@ -1010,6 +1030,21 @@ def main(argv=None):
 	p.add_argument("--message", nargs="+", action="extend", metavar="NAME", help="SM_SYSTEM_MESSAGE ids to look up by name")
 	p.add_argument("--question", nargs="+", action="extend", metavar="NAME", help="SM_QUESTION_WINDOW ids to look up by name")
 	p.set_defaults(fn=cmd_m5g_team)
+	p = sub.add_parser("cron-next", help="the next fire times of a Quartz cron expression after an instant (m5i-plan.md Z-04)")
+	p.add_argument("--expr", required=True)
+	p.add_argument("--tz", default="UTC", help="UTC, a fixed offset like +02:00, or a zone name zoneinfo can resolve")
+	p.add_argument("--after", required=True, help="an ISO-8601 instant with its offset, e.g. 2026-10-13T10:00:00+00:00")
+	p.add_argument("--count", type=int, default=1)
+	p.set_defaults(fn=cmd_cron_next)
+
+	p = sub.add_parser("cron-window", help="the earliest start of a run no cron job of the list fires into (m5i-plan.md G-04, D13)")
+	p.add_argument("--expr", nargs="+", action="extend", required=True, metavar="CRON")
+	p.add_argument("--tz", default="UTC")
+	p.add_argument("--after", required=True)
+	p.add_argument("--run-seconds", type=int, required=True)
+	p.add_argument("--spare-seconds", type=int, default=120)
+	p.set_defaults(fn=cmd_cron_window)
+
 	p = sub.add_parser("m5h-legion", help="the legion gate's constants: message and question ids, the legion enums, the emblem chunk size and "
 	                                      "the announcement limit (m5h-plan.md G-01)")
 	data_args(p, country=False)
