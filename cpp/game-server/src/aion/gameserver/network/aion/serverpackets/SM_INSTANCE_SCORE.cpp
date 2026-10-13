@@ -3,7 +3,8 @@
 #include "aion/gameserver/model/instance/instancescore/InstanceScore.h"
 #include "aion/gameserver/network/aion/ServerPacketsOpcodes.gen.h"
 #include "aion/gameserver/network/aion/instanceinfo/InstanceScoreWriter.h"
-#include "aion/gameserver/runtime/base/Unported.h"
+#include "aion/gameserver/model/instance/instancescore/PvPArenaScore.h"
+#include "aion/gameserver/network/aion/instanceinfo/ArenaScoreWriter.h"
 
 namespace aion::gameserver::network::aion::serverpackets {
 
@@ -26,13 +27,10 @@ int32_t progressionTypeId(model::instance::InstanceProgressionType type) {
 
 } // namespace
 
+// Java SM_INSTANCE_SCORE.java: this(mapId, arenaScoreInfo, arenaScoreInfo.getInstanceScore().getTime())
 SM_INSTANCE_SCORE::SM_INSTANCE_SCORE(int32_t mapIdValue, instanceinfo::ArenaScoreWriter& arenaScoreInfo)
-	: AionServerPacket(opcodeOf<SM_INSTANCE_SCORE>) {
-	// Java: this(mapId, arenaScoreInfo, arenaScoreInfo.getInstanceScore().getTime()) - PvPArenaScore.getTime needs
-	// model/instance/instancescore/PvPArenaScore.h (P5-13), which is not written yet
-	static_cast<void>(mapIdValue);
-	static_cast<void>(arenaScoreInfo);
-	AION_UNPORTED();
+	: SM_INSTANCE_SCORE(mapIdValue, arenaScoreInfo,
+		  static_cast<model::instance::instancescore::PvPArenaScore&>(*arenaScoreInfo.getInstanceScore()).getTime()) {
 }
 
 SM_INSTANCE_SCORE::SM_INSTANCE_SCORE(int32_t mapIdValue, instanceinfo::InstanceScoreWriter& instanceScoreWriterValue)

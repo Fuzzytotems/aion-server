@@ -15,9 +15,8 @@ namespace aion::gameserver::model::autogroup {
  * The Arena of Harmony and the Harmonious Training Center: two parties of up to three of one race each.
  * <p>
  * Java: model/autogroup/AutoHarmonyInstance.java. `groups` is the fieldmap's HashMap<int32_t, Ref<RcArrayList<Ref<AGPlayer>>>> under its own
- * Monitor; the `synchronized addLookingForParty` locks the object's Monitor (SYNCHRONIZED(*this)). The arms that reach the arena's
- * HarmonyArenaScore and HarmonyGroupReward (onInstanceCreate's difficulty, onPressEnter's port, onEnterInstance's group rewards) wait for M5j
- * stage 4 CP3 (J13, P5-10.md).
+ * Monitor; the `synchronized addLookingForParty` locks the object's Monitor (SYNCHRONIZED(*this)). The casts of the instance's score to
+ * HarmonyArenaScore are runtime::cast (Java's ClassCastException).
  *
  * @author xTz, Estrayl
  */
