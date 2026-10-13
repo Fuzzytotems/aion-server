@@ -34,6 +34,9 @@ public:
 	static const Reward* findReward(int32_t itemId);
 
 private:
+	template <typename F>
+	struct AcceptHandler;
+
 	/** Java: private static final Map<Integer, Map<String, Integer>> rewards (see the class comment) */
 	static const std::vector<Reward>& rewards();
 
