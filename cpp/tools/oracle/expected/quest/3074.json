@@ -6,6 +6,6 @@
  "class": "_3074DangerousProbability",
  "javaSha256": "197f56bbae91863ad6fe50eaa6e922268ededb138e076086e0a079ba37843b76",
  "register": [{"npc": 798193, "event": "addOnQuestStart", "args": [3074]}, {"npc": 798193, "event": "addOnTalkEvent", "args": [3074]}],
- "hooks": [{"hook": "onDialogEvent", "line": 30, "unsupported": "call player.getInventory().getKinah()"}],
+ "hooks": [{"hook": "onDialogEvent", "line": 30, "unsupported": "call player.getInventory().tryDecreaseKinah(1000)"}],
  "cases": []
 }

@@ -14,11 +14,1506 @@
   {"call": "registerOnFailCraft", "args": [182207909, 29038]},
   {"call": "registerOnFailCraft", "args": [182207910, 29038]}
  ],
- "hooks": [
-  {"hook": "onDialogEvent", "line": 33, "unsupported": "call player.getInventory().getKinah()"},
-  {"hook": "onFailCraftEvent", "line": 172, "cases": 7}
- ],
+ "hooks": [{"hook": "onDialogEvent", "line": 33, "cases": 71}, {"hook": "onFailCraftEvent", "line": 172, "cases": 7}],
  "cases": [
+  {
+   "id": "onDialogEvent#1",
+   "hook": "onDialogEvent",
+   "given": {"dialogAction": {"name": "QUEST_SELECT", "id": 31}, "target": {"kind": "none"}, "questState": null},
+   "guards": [
+    "dialogActionId == QUEST_SELECT -> true @39",
+    "CraftSkillUpdateService.getInstance().canLearnMoreMasterCraftingSkill(player) -> true @39",
+    "qs == null -> true @43"
+   ],
+   "assume": [{"effect": 0, "returns": true}],
+   "effects": [{"call": "CraftSkillUpdateService.canLearnMoreMasterCraftingSkill", "kind": "packet", "args": [], "line": 39}],
+   "returns": false
+  },
+  {
+   "id": "onDialogEvent#2",
+   "hook": "onDialogEvent",
+   "given": {"dialogAction": {"name": "QUEST_SELECT", "id": 31}, "target": {"kind": "none"}, "questState": {"status": "COMPLETE", "canRepeat": true}},
+   "guards": [
+    "dialogActionId == QUEST_SELECT -> true @39",
+    "CraftSkillUpdateService.getInstance().canLearnMoreMasterCraftingSkill(player) -> true @39",
+    "qs == null -> false @43",
+    "qs.isStartable() [status == COMPLETE] -> true @43",
+    "qs.isStartable() [canRepeat] -> true @43"
+   ],
+   "assume": [{"effect": 0, "returns": true}],
+   "effects": [{"call": "CraftSkillUpdateService.canLearnMoreMasterCraftingSkill", "kind": "packet", "args": [], "line": 39}],
+   "returns": false
+  },
+  {
+   "id": "onDialogEvent#3",
+   "hook": "onDialogEvent",
+   "given": {
+    "dialogAction": {"name": "QUEST_SELECT", "id": 31},
+    "target": {"kind": "none"},
+    "questState": {"status": "COMPLETE", "canRepeat": false}
+   },
+   "guards": [
+    "dialogActionId == QUEST_SELECT -> true @39",
+    "CraftSkillUpdateService.getInstance().canLearnMoreMasterCraftingSkill(player) -> true @39",
+    "qs == null -> false @43",
+    "qs.isStartable() [status == COMPLETE] -> true @43",
+    "qs.isStartable() [canRepeat] -> false @43",
+    "qs.getStatus() == QuestStatus.START -> false @51",
+    "qs.getStatus() == QuestStatus.REWARD -> false @163"
+   ],
+   "assume": [{"effect": 0, "returns": true}],
+   "effects": [{"call": "CraftSkillUpdateService.canLearnMoreMasterCraftingSkill", "kind": "packet", "args": [], "line": 39}],
+   "returns": false
+  },
+  {
+   "id": "onDialogEvent#4",
+   "hook": "onDialogEvent",
+   "given": {"dialogAction": {"name": "QUEST_SELECT", "id": 31}, "target": {"kind": "none"}, "questState": {"status": "START", "vars": {"0": 0}}},
+   "guards": [
+    "dialogActionId == QUEST_SELECT -> true @39",
+    "CraftSkillUpdateService.getInstance().canLearnMoreMasterCraftingSkill(player) -> true @39",
+    "qs == null -> false @43",
+    "qs.isStartable() [status == COMPLETE] -> false @43",
+    "qs.getStatus() == QuestStatus.START -> true @51"
+   ],
+   "free": ["questState.vars.0"],
+   "assume": [{"effect": 0, "returns": true}],
+   "effects": [{"call": "CraftSkillUpdateService.canLearnMoreMasterCraftingSkill", "kind": "packet", "args": [], "line": 39}],
+   "returns": false
+  },
+  {
+   "id": "onDialogEvent#5",
+   "hook": "onDialogEvent",
+   "given": {"dialogAction": {"name": "QUEST_SELECT", "id": 31}, "target": {"kind": "none"}, "questState": {"status": "REWARD"}},
+   "guards": [
+    "dialogActionId == QUEST_SELECT -> true @39",
+    "CraftSkillUpdateService.getInstance().canLearnMoreMasterCraftingSkill(player) -> true @39",
+    "qs == null -> false @43",
+    "qs.isStartable() [status == COMPLETE] -> false @43",
+    "qs.getStatus() == QuestStatus.START -> false @51",
+    "qs.getStatus() == QuestStatus.REWARD -> true @163"
+   ],
+   "assume": [{"effect": 0, "returns": true}],
+   "effects": [{"call": "CraftSkillUpdateService.canLearnMoreMasterCraftingSkill", "kind": "packet", "args": [], "line": 39}],
+   "returns": false
+  },
+  {
+   "id": "onDialogEvent#6",
+   "hook": "onDialogEvent",
+   "given": {"dialogAction": {"name": "QUEST_SELECT", "id": 31}, "target": {"kind": "none"}, "questState": {"status": "LOCKED"}},
+   "guards": [
+    "dialogActionId == QUEST_SELECT -> true @39",
+    "CraftSkillUpdateService.getInstance().canLearnMoreMasterCraftingSkill(player) -> true @39",
+    "qs == null -> false @43",
+    "qs.isStartable() [status == COMPLETE] -> false @43",
+    "qs.getStatus() == QuestStatus.START -> false @51",
+    "qs.getStatus() == QuestStatus.REWARD -> false @163"
+   ],
+   "assume": [{"effect": 0, "returns": true}],
+   "effects": [{"call": "CraftSkillUpdateService.canLearnMoreMasterCraftingSkill", "kind": "packet", "args": [], "line": 39}],
+   "returns": false
+  },
+  {
+   "id": "onDialogEvent#7",
+   "hook": "onDialogEvent",
+   "given": {"dialogAction": {"name": "QUEST_SELECT", "id": 31}, "target": {"kind": "none"}},
+   "guards": [
+    "dialogActionId == QUEST_SELECT -> true @39",
+    "CraftSkillUpdateService.getInstance().canLearnMoreMasterCraftingSkill(player) -> false @39"
+   ],
+   "assume": [{"effect": 0, "returns": false}],
+   "effects": [
+    {"call": "CraftSkillUpdateService.canLearnMoreMasterCraftingSkill", "kind": "packet", "args": [], "line": 39},
+    {"call": "sendQuestSelectionDialog", "kind": "dialog", "args": [], "line": 40}
+   ],
+   "returns": {"resultOf": 1}
+  },
+  {
+   "id": "onDialogEvent#8",
+   "hook": "onDialogEvent",
+   "given": {"dialogAction": {"name": "USE_OBJECT", "id": -1}, "target": {"kind": "none"}, "questState": null},
+   "guards": ["dialogActionId == QUEST_SELECT -> false @39", "qs == null -> true @43"],
+   "dialogExcludes": [31],
+   "effects": [],
+   "returns": false
+  },
+  {
+   "id": "onDialogEvent#9",
+   "hook": "onDialogEvent",
+   "given": {"dialogAction": {"name": "USE_OBJECT", "id": -1}, "target": {"kind": "none"}, "questState": {"status": "COMPLETE", "canRepeat": true}},
+   "guards": [
+    "dialogActionId == QUEST_SELECT -> false @39",
+    "qs == null -> false @43",
+    "qs.isStartable() [status == COMPLETE] -> true @43",
+    "qs.isStartable() [canRepeat] -> true @43"
+   ],
+   "dialogExcludes": [31],
+   "effects": [],
+   "returns": false
+  },
+  {
+   "id": "onDialogEvent#10",
+   "hook": "onDialogEvent",
+   "given": {"dialogAction": {"name": "USE_OBJECT", "id": -1}, "target": {"kind": "none"}, "questState": {"status": "COMPLETE", "canRepeat": false}},
+   "guards": [
+    "dialogActionId == QUEST_SELECT -> false @39",
+    "qs == null -> false @43",
+    "qs.isStartable() [status == COMPLETE] -> true @43",
+    "qs.isStartable() [canRepeat] -> false @43",
+    "qs.getStatus() == QuestStatus.START -> false @51",
+    "qs.getStatus() == QuestStatus.REWARD -> false @163"
+   ],
+   "dialogExcludes": [31],
+   "effects": [],
+   "returns": false
+  },
+  {
+   "id": "onDialogEvent#11",
+   "hook": "onDialogEvent",
+   "given": {"dialogAction": {"name": "USE_OBJECT", "id": -1}, "target": {"kind": "none"}, "questState": {"status": "START", "vars": {"0": 0}}},
+   "guards": [
+    "dialogActionId == QUEST_SELECT -> false @39",
+    "qs == null -> false @43",
+    "qs.isStartable() [status == COMPLETE] -> false @43",
+    "qs.getStatus() == QuestStatus.START -> true @51"
+   ],
+   "free": ["questState.vars.0"],
+   "dialogExcludes": [31],
+   "effects": [],
+   "returns": false
+  },
+  {
+   "id": "onDialogEvent#12",
+   "hook": "onDialogEvent",
+   "given": {"dialogAction": {"name": "USE_OBJECT", "id": -1}, "target": {"kind": "none"}, "questState": {"status": "REWARD"}},
+   "guards": [
+    "dialogActionId == QUEST_SELECT -> false @39",
+    "qs == null -> false @43",
+    "qs.isStartable() [status == COMPLETE] -> false @43",
+    "qs.getStatus() == QuestStatus.START -> false @51",
+    "qs.getStatus() == QuestStatus.REWARD -> true @163"
+   ],
+   "dialogExcludes": [31],
+   "effects": [],
+   "returns": false
+  },
+  {
+   "id": "onDialogEvent#13",
+   "hook": "onDialogEvent",
+   "given": {"dialogAction": {"name": "USE_OBJECT", "id": -1}, "target": {"kind": "none"}, "questState": {"status": "LOCKED"}},
+   "guards": [
+    "dialogActionId == QUEST_SELECT -> false @39",
+    "qs == null -> false @43",
+    "qs.isStartable() [status == COMPLETE] -> false @43",
+    "qs.getStatus() == QuestStatus.START -> false @51",
+    "qs.getStatus() == QuestStatus.REWARD -> false @163"
+   ],
+   "dialogExcludes": [31],
+   "effects": [],
+   "returns": false
+  },
+  {
+   "id": "onDialogEvent#14",
+   "hook": "onDialogEvent",
+   "given": {"dialogAction": {"name": "QUEST_SELECT", "id": 31}, "target": {"kind": "npc", "npcId": 204100}, "questState": null},
+   "guards": [
+    "dialogActionId == QUEST_SELECT -> true @39",
+    "CraftSkillUpdateService.getInstance().canLearnMoreMasterCraftingSkill(player) -> true @39",
+    "qs == null -> true @43",
+    "targetId == 204100 -> true @44",
+    "env.getDialogActionId() == QUEST_SELECT -> true @45"
+   ],
+   "assume": [{"effect": 0, "returns": true}],
+   "effects": [
+    {"call": "CraftSkillUpdateService.canLearnMoreMasterCraftingSkill", "kind": "packet", "args": [], "line": 39},
+    {"call": "sendQuestDialog", "kind": "dialog", "args": [4762], "line": 46}
+   ],
+   "returns": {"resultOf": 1}
+  },
+  {
+   "id": "onDialogEvent#15",
+   "hook": "onDialogEvent",
+   "given": {"dialogAction": {"name": "QUEST_SELECT", "id": 31}, "target": {"kind": "npc", "npcId": 204101}, "questState": null},
+   "guards": [
+    "dialogActionId == QUEST_SELECT -> true @39",
+    "CraftSkillUpdateService.getInstance().canLearnMoreMasterCraftingSkill(player) -> true @39",
+    "qs == null -> true @43",
+    "targetId == 204100 -> false @44"
+   ],
+   "assume": [{"effect": 0, "returns": true}],
+   "effects": [{"call": "CraftSkillUpdateService.canLearnMoreMasterCraftingSkill", "kind": "packet", "args": [], "line": 39}],
+   "returns": false
+  },
+  {
+   "id": "onDialogEvent#16",
+   "hook": "onDialogEvent",
+   "given": {
+    "dialogAction": {"name": "QUEST_SELECT", "id": 31},
+    "target": {"kind": "npc", "npcId": 204100},
+    "questState": {"status": "COMPLETE", "canRepeat": true}
+   },
+   "guards": [
+    "dialogActionId == QUEST_SELECT -> true @39",
+    "CraftSkillUpdateService.getInstance().canLearnMoreMasterCraftingSkill(player) -> true @39",
+    "qs == null -> false @43",
+    "qs.isStartable() [status == COMPLETE] -> true @43",
+    "qs.isStartable() [canRepeat] -> true @43",
+    "targetId == 204100 -> true @44",
+    "env.getDialogActionId() == QUEST_SELECT -> true @45"
+   ],
+   "assume": [{"effect": 0, "returns": true}],
+   "effects": [
+    {"call": "CraftSkillUpdateService.canLearnMoreMasterCraftingSkill", "kind": "packet", "args": [], "line": 39},
+    {"call": "sendQuestDialog", "kind": "dialog", "args": [4762], "line": 46}
+   ],
+   "returns": {"resultOf": 1}
+  },
+  {
+   "id": "onDialogEvent#17",
+   "hook": "onDialogEvent",
+   "given": {
+    "dialogAction": {"name": "QUEST_SELECT", "id": 31},
+    "target": {"kind": "npc", "npcId": 204101},
+    "questState": {"status": "COMPLETE", "canRepeat": true}
+   },
+   "guards": [
+    "dialogActionId == QUEST_SELECT -> true @39",
+    "CraftSkillUpdateService.getInstance().canLearnMoreMasterCraftingSkill(player) -> true @39",
+    "qs == null -> false @43",
+    "qs.isStartable() [status == COMPLETE] -> true @43",
+    "qs.isStartable() [canRepeat] -> true @43",
+    "targetId == 204100 -> false @44"
+   ],
+   "assume": [{"effect": 0, "returns": true}],
+   "effects": [{"call": "CraftSkillUpdateService.canLearnMoreMasterCraftingSkill", "kind": "packet", "args": [], "line": 39}],
+   "returns": false
+  },
+  {
+   "id": "onDialogEvent#18",
+   "hook": "onDialogEvent",
+   "given": {
+    "dialogAction": {"name": "QUEST_SELECT", "id": 31},
+    "target": {"kind": "npc", "npcId": 204100},
+    "questState": {"status": "COMPLETE", "canRepeat": false}
+   },
+   "guards": [
+    "dialogActionId == QUEST_SELECT -> true @39",
+    "CraftSkillUpdateService.getInstance().canLearnMoreMasterCraftingSkill(player) -> true @39",
+    "qs == null -> false @43",
+    "qs.isStartable() [status == COMPLETE] -> true @43",
+    "qs.isStartable() [canRepeat] -> false @43",
+    "qs.getStatus() == QuestStatus.START -> false @51",
+    "qs.getStatus() == QuestStatus.REWARD -> false @163"
+   ],
+   "assume": [{"effect": 0, "returns": true}],
+   "effects": [{"call": "CraftSkillUpdateService.canLearnMoreMasterCraftingSkill", "kind": "packet", "args": [], "line": 39}],
+   "returns": false
+  },
+  {
+   "id": "onDialogEvent#19",
+   "hook": "onDialogEvent",
+   "given": {
+    "dialogAction": {"name": "QUEST_SELECT", "id": 31},
+    "target": {"kind": "npc", "npcId": 204101},
+    "inventory": {"182400001": 6500},
+    "questState": {"status": "START", "vars": {"0": 0}}
+   },
+   "guards": [
+    "dialogActionId == QUEST_SELECT -> true @39",
+    "CraftSkillUpdateService.getInstance().canLearnMoreMasterCraftingSkill(player) -> true @39",
+    "qs == null -> false @43",
+    "qs.isStartable() [status == COMPLETE] -> false @43",
+    "qs.getStatus() == QuestStatus.START -> true @51",
+    "targetId == 204101 -> true @53",
+    "dialogActionId == QUEST_SELECT -> true @56",
+    "kinah >= 6500 -> true @58",
+    "var == 0 -> true @59"
+   ],
+   "assume": [{"effect": 0, "returns": true}],
+   "effects": [
+    {"call": "CraftSkillUpdateService.canLearnMoreMasterCraftingSkill", "kind": "packet", "args": [], "line": 39},
+    {"call": "sendQuestDialog", "kind": "dialog", "args": [1011], "line": 61}
+   ],
+   "returns": {"resultOf": 1}
+  },
+  {
+   "id": "onDialogEvent#20",
+   "hook": "onDialogEvent",
+   "given": {
+    "dialogAction": {"name": "QUEST_SELECT", "id": 31},
+    "target": {"kind": "npc", "npcId": 204101},
+    "inventory": {"182400001": 6500},
+    "questState": {"status": "START", "vars": {"0": 3}}
+   },
+   "guards": [
+    "dialogActionId == QUEST_SELECT -> true @39",
+    "CraftSkillUpdateService.getInstance().canLearnMoreMasterCraftingSkill(player) -> true @39",
+    "qs == null -> false @43",
+    "qs.isStartable() [status == COMPLETE] -> false @43",
+    "qs.getStatus() == QuestStatus.START -> true @51",
+    "targetId == 204101 -> true @53",
+    "dialogActionId == QUEST_SELECT -> true @56",
+    "kinah >= 6500 -> true @58",
+    "var == 3 -> true @59"
+   ],
+   "assume": [{"effect": 0, "returns": true}],
+   "effects": [
+    {"call": "CraftSkillUpdateService.canLearnMoreMasterCraftingSkill", "kind": "packet", "args": [], "line": 39},
+    {"call": "sendQuestDialog", "kind": "dialog", "args": [1352], "line": 64}
+   ],
+   "returns": {"resultOf": 1}
+  },
+  {
+   "id": "onDialogEvent#21",
+   "hook": "onDialogEvent",
+   "given": {
+    "dialogAction": {"name": "QUEST_SELECT", "id": 31},
+    "target": {"kind": "npc", "npcId": 204101},
+    "inventory": {"182400001": 6500},
+    "questState": {"status": "START", "vars": {"0": 6}}
+   },
+   "guards": [
+    "dialogActionId == QUEST_SELECT -> true @39",
+    "CraftSkillUpdateService.getInstance().canLearnMoreMasterCraftingSkill(player) -> true @39",
+    "qs == null -> false @43",
+    "qs.isStartable() [status == COMPLETE] -> false @43",
+    "qs.getStatus() == QuestStatus.START -> true @51",
+    "targetId == 204101 -> true @53",
+    "dialogActionId == QUEST_SELECT -> true @56",
+    "kinah >= 6500 -> true @58",
+    "var == 6 -> true @59"
+   ],
+   "assume": [{"effect": 0, "returns": true}],
+   "effects": [
+    {"call": "CraftSkillUpdateService.canLearnMoreMasterCraftingSkill", "kind": "packet", "args": [], "line": 39},
+    {"call": "sendQuestDialog", "kind": "dialog", "args": [1693], "line": 67}
+   ],
+   "returns": {"resultOf": 1}
+  },
+  {
+   "id": "onDialogEvent#22",
+   "hook": "onDialogEvent",
+   "given": {
+    "dialogAction": {"name": "QUEST_SELECT", "id": 31},
+    "target": {"kind": "npc", "npcId": 204101},
+    "inventory": {"182400001": 6500},
+    "questState": {"status": "START", "vars": {"0": 9}}
+   },
+   "guards": [
+    "dialogActionId == QUEST_SELECT -> true @39",
+    "CraftSkillUpdateService.getInstance().canLearnMoreMasterCraftingSkill(player) -> true @39",
+    "qs == null -> false @43",
+    "qs.isStartable() [status == COMPLETE] -> false @43",
+    "qs.getStatus() == QuestStatus.START -> true @51",
+    "targetId == 204101 -> true @53",
+    "dialogActionId == QUEST_SELECT -> true @56",
+    "kinah >= 6500 -> true @58",
+    "var == 9 -> true @59"
+   ],
+   "assume": [{"effect": 0, "returns": true}],
+   "effects": [
+    {"call": "CraftSkillUpdateService.canLearnMoreMasterCraftingSkill", "kind": "packet", "args": [], "line": 39},
+    {"call": "sendQuestDialog", "kind": "dialog", "args": [2034], "line": 70}
+   ],
+   "returns": {"resultOf": 1}
+  },
+  {
+   "id": "onDialogEvent#23",
+   "hook": "onDialogEvent",
+   "given": {
+    "dialogAction": {"name": "QUEST_SELECT", "id": 31},
+    "target": {"kind": "npc", "npcId": 204101},
+    "inventory": {"182400001": 6500},
+    "recipes": {"155007241": true},
+    "questState": {"status": "START", "vars": {"0": 1}}
+   },
+   "guards": [
+    "dialogActionId == QUEST_SELECT -> true @39",
+    "CraftSkillUpdateService.getInstance().canLearnMoreMasterCraftingSkill(player) -> true @39",
+    "qs == null -> false @43",
+    "qs.isStartable() [status == COMPLETE] -> false @43",
+    "qs.getStatus() == QuestStatus.START -> true @51",
+    "targetId == 204101 -> true @53",
+    "dialogActionId == QUEST_SELECT -> true @56",
+    "kinah >= 6500 -> true @58",
+    "var == 1 -> true @59",
+    "player.getRecipeList().isRecipePresent(155007241) -> true @73"
+   ],
+   "assume": [{"effect": 0, "returns": true}],
+   "effects": [{"call": "CraftSkillUpdateService.canLearnMoreMasterCraftingSkill", "kind": "packet", "args": [], "line": 39}],
+   "returns": false
+  },
+  {
+   "id": "onDialogEvent#24",
+   "hook": "onDialogEvent",
+   "given": {
+    "dialogAction": {"name": "QUEST_SELECT", "id": 31},
+    "target": {"kind": "npc", "npcId": 204101},
+    "inventory": {"182400001": 6500},
+    "recipes": {"155007241": false},
+    "questState": {"status": "START", "vars": {"0": 1}}
+   },
+   "guards": [
+    "dialogActionId == QUEST_SELECT -> true @39",
+    "CraftSkillUpdateService.getInstance().canLearnMoreMasterCraftingSkill(player) -> true @39",
+    "qs == null -> false @43",
+    "qs.isStartable() [status == COMPLETE] -> false @43",
+    "qs.getStatus() == QuestStatus.START -> true @51",
+    "targetId == 204101 -> true @53",
+    "dialogActionId == QUEST_SELECT -> true @56",
+    "kinah >= 6500 -> true @58",
+    "var == 1 -> true @59",
+    "player.getRecipeList().isRecipePresent(155007241) -> false @73"
+   ],
+   "assume": [{"effect": 0, "returns": true}],
+   "effects": [
+    {"call": "CraftSkillUpdateService.canLearnMoreMasterCraftingSkill", "kind": "packet", "args": [], "line": 39},
+    {"call": "sendQuestDialog", "kind": "dialog", "args": [4081], "line": 74}
+   ],
+   "returns": {"resultOf": 1}
+  },
+  {
+   "id": "onDialogEvent#25",
+   "hook": "onDialogEvent",
+   "given": {
+    "dialogAction": {"name": "QUEST_SELECT", "id": 31},
+    "target": {"kind": "npc", "npcId": 204101},
+    "inventory": {"182400001": 6500},
+    "recipes": {"155007242": true},
+    "questState": {"status": "START", "vars": {"0": 4}}
+   },
+   "guards": [
+    "dialogActionId == QUEST_SELECT -> true @39",
+    "CraftSkillUpdateService.getInstance().canLearnMoreMasterCraftingSkill(player) -> true @39",
+    "qs == null -> false @43",
+    "qs.isStartable() [status == COMPLETE] -> false @43",
+    "qs.getStatus() == QuestStatus.START -> true @51",
+    "targetId == 204101 -> true @53",
+    "dialogActionId == QUEST_SELECT -> true @56",
+    "kinah >= 6500 -> true @58",
+    "var == 4 -> true @59",
+    "player.getRecipeList().isRecipePresent(155007242) -> true @78"
+   ],
+   "assume": [{"effect": 0, "returns": true}],
+   "effects": [{"call": "CraftSkillUpdateService.canLearnMoreMasterCraftingSkill", "kind": "packet", "args": [], "line": 39}],
+   "returns": false
+  },
+  {
+   "id": "onDialogEvent#26",
+   "hook": "onDialogEvent",
+   "given": {
+    "dialogAction": {"name": "QUEST_SELECT", "id": 31},
+    "target": {"kind": "npc", "npcId": 204101},
+    "inventory": {"182400001": 6500},
+    "recipes": {"155007242": false},
+    "questState": {"status": "START", "vars": {"0": 4}}
+   },
+   "guards": [
+    "dialogActionId == QUEST_SELECT -> true @39",
+    "CraftSkillUpdateService.getInstance().canLearnMoreMasterCraftingSkill(player) -> true @39",
+    "qs == null -> false @43",
+    "qs.isStartable() [status == COMPLETE] -> false @43",
+    "qs.getStatus() == QuestStatus.START -> true @51",
+    "targetId == 204101 -> true @53",
+    "dialogActionId == QUEST_SELECT -> true @56",
+    "kinah >= 6500 -> true @58",
+    "var == 4 -> true @59",
+    "player.getRecipeList().isRecipePresent(155007242) -> false @78"
+   ],
+   "assume": [{"effect": 0, "returns": true}],
+   "effects": [
+    {"call": "CraftSkillUpdateService.canLearnMoreMasterCraftingSkill", "kind": "packet", "args": [], "line": 39},
+    {"call": "sendQuestDialog", "kind": "dialog", "args": [4166], "line": 79}
+   ],
+   "returns": {"resultOf": 1}
+  },
+  {
+   "id": "onDialogEvent#27",
+   "hook": "onDialogEvent",
+   "given": {
+    "dialogAction": {"name": "QUEST_SELECT", "id": 31},
+    "target": {"kind": "npc", "npcId": 204101},
+    "inventory": {"182400001": 6500},
+    "recipes": {"155007243": true},
+    "questState": {"status": "START", "vars": {"0": 7}}
+   },
+   "guards": [
+    "dialogActionId == QUEST_SELECT -> true @39",
+    "CraftSkillUpdateService.getInstance().canLearnMoreMasterCraftingSkill(player) -> true @39",
+    "qs == null -> false @43",
+    "qs.isStartable() [status == COMPLETE] -> false @43",
+    "qs.getStatus() == QuestStatus.START -> true @51",
+    "targetId == 204101 -> true @53",
+    "dialogActionId == QUEST_SELECT -> true @56",
+    "kinah >= 6500 -> true @58",
+    "var == 7 -> true @59",
+    "player.getRecipeList().isRecipePresent(155007243) -> true @83"
+   ],
+   "assume": [{"effect": 0, "returns": true}],
+   "effects": [{"call": "CraftSkillUpdateService.canLearnMoreMasterCraftingSkill", "kind": "packet", "args": [], "line": 39}],
+   "returns": false
+  },
+  {
+   "id": "onDialogEvent#28",
+   "hook": "onDialogEvent",
+   "given": {
+    "dialogAction": {"name": "QUEST_SELECT", "id": 31},
+    "target": {"kind": "npc", "npcId": 204101},
+    "inventory": {"182400001": 6500},
+    "recipes": {"155007243": false},
+    "questState": {"status": "START", "vars": {"0": 7}}
+   },
+   "guards": [
+    "dialogActionId == QUEST_SELECT -> true @39",
+    "CraftSkillUpdateService.getInstance().canLearnMoreMasterCraftingSkill(player) -> true @39",
+    "qs == null -> false @43",
+    "qs.isStartable() [status == COMPLETE] -> false @43",
+    "qs.getStatus() == QuestStatus.START -> true @51",
+    "targetId == 204101 -> true @53",
+    "dialogActionId == QUEST_SELECT -> true @56",
+    "kinah >= 6500 -> true @58",
+    "var == 7 -> true @59",
+    "player.getRecipeList().isRecipePresent(155007243) -> false @83"
+   ],
+   "assume": [{"effect": 0, "returns": true}],
+   "effects": [
+    {"call": "CraftSkillUpdateService.canLearnMoreMasterCraftingSkill", "kind": "packet", "args": [], "line": 39},
+    {"call": "sendQuestDialog", "kind": "dialog", "args": [4251], "line": 84}
+   ],
+   "returns": {"resultOf": 1}
+  },
+  {
+   "id": "onDialogEvent#29",
+   "hook": "onDialogEvent",
+   "given": {
+    "dialogAction": {"name": "QUEST_SELECT", "id": 31},
+    "target": {"kind": "npc", "npcId": 204101},
+    "inventory": {"182400001": 6500},
+    "recipes": {"155007244": true},
+    "questState": {"status": "START", "vars": {"0": 10}}
+   },
+   "guards": [
+    "dialogActionId == QUEST_SELECT -> true @39",
+    "CraftSkillUpdateService.getInstance().canLearnMoreMasterCraftingSkill(player) -> true @39",
+    "qs == null -> false @43",
+    "qs.isStartable() [status == COMPLETE] -> false @43",
+    "qs.getStatus() == QuestStatus.START -> true @51",
+    "targetId == 204101 -> true @53",
+    "dialogActionId == QUEST_SELECT -> true @56",
+    "kinah >= 6500 -> true @58",
+    "var == 10 -> true @59",
+    "player.getRecipeList().isRecipePresent(155007244) -> true @88"
+   ],
+   "assume": [{"effect": 0, "returns": true}],
+   "effects": [{"call": "CraftSkillUpdateService.canLearnMoreMasterCraftingSkill", "kind": "packet", "args": [], "line": 39}],
+   "returns": false
+  },
+  {
+   "id": "onDialogEvent#30",
+   "hook": "onDialogEvent",
+   "given": {
+    "dialogAction": {"name": "QUEST_SELECT", "id": 31},
+    "target": {"kind": "npc", "npcId": 204101},
+    "inventory": {"182400001": 6500},
+    "recipes": {"155007244": false},
+    "questState": {"status": "START", "vars": {"0": 10}}
+   },
+   "guards": [
+    "dialogActionId == QUEST_SELECT -> true @39",
+    "CraftSkillUpdateService.getInstance().canLearnMoreMasterCraftingSkill(player) -> true @39",
+    "qs == null -> false @43",
+    "qs.isStartable() [status == COMPLETE] -> false @43",
+    "qs.getStatus() == QuestStatus.START -> true @51",
+    "targetId == 204101 -> true @53",
+    "dialogActionId == QUEST_SELECT -> true @56",
+    "kinah >= 6500 -> true @58",
+    "var == 10 -> true @59",
+    "player.getRecipeList().isRecipePresent(155007244) -> false @88"
+   ],
+   "assume": [{"effect": 0, "returns": true}],
+   "effects": [
+    {"call": "CraftSkillUpdateService.canLearnMoreMasterCraftingSkill", "kind": "packet", "args": [], "line": 39},
+    {"call": "sendQuestDialog", "kind": "dialog", "args": [4336], "line": 89}
+   ],
+   "returns": {"resultOf": 1}
+  },
+  {
+   "id": "onDialogEvent#31",
+   "hook": "onDialogEvent",
+   "given": {
+    "dialogAction": {"name": "QUEST_SELECT", "id": 31},
+    "target": {"kind": "npc", "npcId": 204101},
+    "inventory": {"182400001": 6500},
+    "questState": {"status": "START", "vars": {"0": 2}}
+   },
+   "guards": [
+    "dialogActionId == QUEST_SELECT -> true @39",
+    "CraftSkillUpdateService.getInstance().canLearnMoreMasterCraftingSkill(player) -> true @39",
+    "qs == null -> false @43",
+    "qs.isStartable() [status == COMPLETE] -> false @43",
+    "qs.getStatus() == QuestStatus.START -> true @51",
+    "targetId == 204101 -> true @53",
+    "dialogActionId == QUEST_SELECT -> true @56",
+    "kinah >= 6500 -> true @58",
+    "var not in [0, 3, 6, 9, 1, 4, 7, 10] -> true @59"
+   ],
+   "assume": [{"effect": 0, "returns": true}],
+   "effects": [{"call": "CraftSkillUpdateService.canLearnMoreMasterCraftingSkill", "kind": "packet", "args": [], "line": 39}],
+   "returns": false
+  },
+  {
+   "id": "onDialogEvent#32",
+   "hook": "onDialogEvent",
+   "given": {
+    "dialogAction": {"name": "QUEST_SELECT", "id": 31},
+    "target": {"kind": "npc", "npcId": 204101},
+    "inventory": {"182400001": 0},
+    "questState": {"status": "START", "vars": {"0": 0}}
+   },
+   "guards": [
+    "dialogActionId == QUEST_SELECT -> true @39",
+    "CraftSkillUpdateService.getInstance().canLearnMoreMasterCraftingSkill(player) -> true @39",
+    "qs == null -> false @43",
+    "qs.isStartable() [status == COMPLETE] -> false @43",
+    "qs.getStatus() == QuestStatus.START -> true @51",
+    "targetId == 204101 -> true @53",
+    "dialogActionId == QUEST_SELECT -> true @56",
+    "kinah >= 6500 -> false @58"
+   ],
+   "ranges": {"inventory.182400001": [0, 6499]},
+   "free": ["questState.vars.0"],
+   "assume": [{"effect": 0, "returns": true}],
+   "effects": [
+    {"call": "CraftSkillUpdateService.canLearnMoreMasterCraftingSkill", "kind": "packet", "args": [], "line": 39},
+    {"call": "sendQuestDialog", "kind": "dialog", "args": [4400], "line": 95}
+   ],
+   "returns": {"resultOf": 1},
+   "atHigh": [
+    {
+     "input": "inventory.182400001",
+     "value": 6499,
+     "given": {
+      "dialogAction": {"name": "QUEST_SELECT", "id": 31},
+      "target": {"kind": "npc", "npcId": 204101},
+      "inventory": {"182400001": 6499},
+      "questState": {"status": "START", "vars": {"0": 0}}
+     },
+     "effects": [
+      {"call": "CraftSkillUpdateService.canLearnMoreMasterCraftingSkill", "kind": "packet", "args": [], "line": 39},
+      {"call": "sendQuestDialog", "kind": "dialog", "args": [4400], "line": 95}
+     ],
+     "returns": {"resultOf": 1}
+    }
+   ]
+  },
+  {
+   "id": "onDialogEvent#33",
+   "hook": "onDialogEvent",
+   "given": {
+    "dialogAction": {"name": "QUEST_SELECT", "id": 31},
+    "target": {"kind": "npc", "npcId": 204100},
+    "questState": {"status": "START", "vars": {"0": 2}}
+   },
+   "guards": [
+    "dialogActionId == QUEST_SELECT -> true @39",
+    "CraftSkillUpdateService.getInstance().canLearnMoreMasterCraftingSkill(player) -> true @39",
+    "qs == null -> false @43",
+    "qs.isStartable() [status == COMPLETE] -> false @43",
+    "qs.getStatus() == QuestStatus.START -> true @51",
+    "targetId == 204100 -> true @53",
+    "dialogActionId == QUEST_SELECT -> true @134",
+    "var == 2 -> true @136"
+   ],
+   "assume": [{"effect": 0, "returns": true}],
+   "effects": [
+    {"call": "CraftSkillUpdateService.canLearnMoreMasterCraftingSkill", "kind": "packet", "args": [], "line": 39},
+    {"call": "sendQuestDialog", "kind": "dialog", "args": [1097], "line": 138}
+   ],
+   "returns": {"resultOf": 1}
+  },
+  {
+   "id": "onDialogEvent#34",
+   "hook": "onDialogEvent",
+   "given": {
+    "dialogAction": {"name": "QUEST_SELECT", "id": 31},
+    "target": {"kind": "npc", "npcId": 204100},
+    "questState": {"status": "START", "vars": {"0": 5}}
+   },
+   "guards": [
+    "dialogActionId == QUEST_SELECT -> true @39",
+    "CraftSkillUpdateService.getInstance().canLearnMoreMasterCraftingSkill(player) -> true @39",
+    "qs == null -> false @43",
+    "qs.isStartable() [status == COMPLETE] -> false @43",
+    "qs.getStatus() == QuestStatus.START -> true @51",
+    "targetId == 204100 -> true @53",
+    "dialogActionId == QUEST_SELECT -> true @134",
+    "var == 5 -> true @136"
+   ],
+   "assume": [{"effect": 0, "returns": true}],
+   "effects": [
+    {"call": "CraftSkillUpdateService.canLearnMoreMasterCraftingSkill", "kind": "packet", "args": [], "line": 39},
+    {"call": "sendQuestDialog", "kind": "dialog", "args": [1438], "line": 141}
+   ],
+   "returns": {"resultOf": 1}
+  },
+  {
+   "id": "onDialogEvent#35",
+   "hook": "onDialogEvent",
+   "given": {
+    "dialogAction": {"name": "QUEST_SELECT", "id": 31},
+    "target": {"kind": "npc", "npcId": 204100},
+    "questState": {"status": "START", "vars": {"0": 8}}
+   },
+   "guards": [
+    "dialogActionId == QUEST_SELECT -> true @39",
+    "CraftSkillUpdateService.getInstance().canLearnMoreMasterCraftingSkill(player) -> true @39",
+    "qs == null -> false @43",
+    "qs.isStartable() [status == COMPLETE] -> false @43",
+    "qs.getStatus() == QuestStatus.START -> true @51",
+    "targetId == 204100 -> true @53",
+    "dialogActionId == QUEST_SELECT -> true @134",
+    "var == 8 -> true @136"
+   ],
+   "assume": [{"effect": 0, "returns": true}],
+   "effects": [
+    {"call": "CraftSkillUpdateService.canLearnMoreMasterCraftingSkill", "kind": "packet", "args": [], "line": 39},
+    {"call": "sendQuestDialog", "kind": "dialog", "args": [1779], "line": 144}
+   ],
+   "returns": {"resultOf": 1}
+  },
+  {
+   "id": "onDialogEvent#36",
+   "hook": "onDialogEvent",
+   "given": {
+    "dialogAction": {"name": "QUEST_SELECT", "id": 31},
+    "target": {"kind": "npc", "npcId": 204100},
+    "questState": {"status": "START", "vars": {"0": 11}}
+   },
+   "guards": [
+    "dialogActionId == QUEST_SELECT -> true @39",
+    "CraftSkillUpdateService.getInstance().canLearnMoreMasterCraftingSkill(player) -> true @39",
+    "qs == null -> false @43",
+    "qs.isStartable() [status == COMPLETE] -> false @43",
+    "qs.getStatus() == QuestStatus.START -> true @51",
+    "targetId == 204100 -> true @53",
+    "dialogActionId == QUEST_SELECT -> true @134",
+    "var == 11 -> true @136"
+   ],
+   "assume": [{"effect": 0, "returns": true}],
+   "effects": [
+    {"call": "CraftSkillUpdateService.canLearnMoreMasterCraftingSkill", "kind": "packet", "args": [], "line": 39},
+    {"call": "sendQuestDialog", "kind": "dialog", "args": [2120], "line": 147}
+   ],
+   "returns": {"resultOf": 1}
+  },
+  {
+   "id": "onDialogEvent#37",
+   "hook": "onDialogEvent",
+   "given": {
+    "dialogAction": {"name": "QUEST_SELECT", "id": 31},
+    "target": {"kind": "npc", "npcId": 204100},
+    "questState": {"status": "START", "vars": {"0": 0}}
+   },
+   "guards": [
+    "dialogActionId == QUEST_SELECT -> true @39",
+    "CraftSkillUpdateService.getInstance().canLearnMoreMasterCraftingSkill(player) -> true @39",
+    "qs == null -> false @43",
+    "qs.isStartable() [status == COMPLETE] -> false @43",
+    "qs.getStatus() == QuestStatus.START -> true @51",
+    "targetId == 204100 -> true @53",
+    "dialogActionId == QUEST_SELECT -> true @134",
+    "var not in [2, 5, 8, 11] -> true @136"
+   ],
+   "assume": [{"effect": 0, "returns": true}],
+   "effects": [{"call": "CraftSkillUpdateService.canLearnMoreMasterCraftingSkill", "kind": "packet", "args": [], "line": 39}],
+   "returns": false
+  },
+  {
+   "id": "onDialogEvent#38",
+   "hook": "onDialogEvent",
+   "given": {
+    "dialogAction": {"name": "QUEST_SELECT", "id": 31},
+    "target": {"kind": "npc", "npcId": 200000},
+    "questState": {"status": "START", "vars": {"0": 0}}
+   },
+   "guards": [
+    "dialogActionId == QUEST_SELECT -> true @39",
+    "CraftSkillUpdateService.getInstance().canLearnMoreMasterCraftingSkill(player) -> true @39",
+    "qs == null -> false @43",
+    "qs.isStartable() [status == COMPLETE] -> false @43",
+    "qs.getStatus() == QuestStatus.START -> true @51",
+    "targetId not in [204101, 204100] -> true @53"
+   ],
+   "free": ["questState.vars.0"],
+   "assume": [{"effect": 0, "returns": true}],
+   "effects": [{"call": "CraftSkillUpdateService.canLearnMoreMasterCraftingSkill", "kind": "packet", "args": [], "line": 39}],
+   "returns": false
+  },
+  {
+   "id": "onDialogEvent#39",
+   "hook": "onDialogEvent",
+   "given": {"dialogAction": {"name": "QUEST_SELECT", "id": 31}, "target": {"kind": "npc", "npcId": 204100}, "questState": {"status": "REWARD"}},
+   "guards": [
+    "dialogActionId == QUEST_SELECT -> true @39",
+    "CraftSkillUpdateService.getInstance().canLearnMoreMasterCraftingSkill(player) -> true @39",
+    "qs == null -> false @43",
+    "qs.isStartable() [status == COMPLETE] -> false @43",
+    "qs.getStatus() == QuestStatus.START -> false @51",
+    "qs.getStatus() == QuestStatus.REWARD -> true @163",
+    "targetId == 204100 -> true @164"
+   ],
+   "assume": [{"effect": 0, "returns": true}],
+   "effects": [
+    {"call": "CraftSkillUpdateService.canLearnMoreMasterCraftingSkill", "kind": "packet", "args": [], "line": 39},
+    {"call": "sendQuestEndDialog", "kind": "dialog", "args": [], "line": 165}
+   ],
+   "returns": {"resultOf": 1}
+  },
+  {
+   "id": "onDialogEvent#40",
+   "hook": "onDialogEvent",
+   "given": {"dialogAction": {"name": "QUEST_SELECT", "id": 31}, "target": {"kind": "npc", "npcId": 204101}, "questState": {"status": "REWARD"}},
+   "guards": [
+    "dialogActionId == QUEST_SELECT -> true @39",
+    "CraftSkillUpdateService.getInstance().canLearnMoreMasterCraftingSkill(player) -> true @39",
+    "qs == null -> false @43",
+    "qs.isStartable() [status == COMPLETE] -> false @43",
+    "qs.getStatus() == QuestStatus.START -> false @51",
+    "qs.getStatus() == QuestStatus.REWARD -> true @163",
+    "targetId == 204100 -> false @164"
+   ],
+   "assume": [{"effect": 0, "returns": true}],
+   "effects": [{"call": "CraftSkillUpdateService.canLearnMoreMasterCraftingSkill", "kind": "packet", "args": [], "line": 39}],
+   "returns": false
+  },
+  {
+   "id": "onDialogEvent#41",
+   "hook": "onDialogEvent",
+   "given": {"dialogAction": {"name": "QUEST_SELECT", "id": 31}, "target": {"kind": "npc", "npcId": 204100}, "questState": {"status": "LOCKED"}},
+   "guards": [
+    "dialogActionId == QUEST_SELECT -> true @39",
+    "CraftSkillUpdateService.getInstance().canLearnMoreMasterCraftingSkill(player) -> true @39",
+    "qs == null -> false @43",
+    "qs.isStartable() [status == COMPLETE] -> false @43",
+    "qs.getStatus() == QuestStatus.START -> false @51",
+    "qs.getStatus() == QuestStatus.REWARD -> false @163"
+   ],
+   "assume": [{"effect": 0, "returns": true}],
+   "effects": [{"call": "CraftSkillUpdateService.canLearnMoreMasterCraftingSkill", "kind": "packet", "args": [], "line": 39}],
+   "returns": false
+  },
+  {
+   "id": "onDialogEvent#42",
+   "hook": "onDialogEvent",
+   "given": {"dialogAction": {"name": "QUEST_SELECT", "id": 31}, "target": {"kind": "npc", "npcId": 204100}},
+   "guards": [
+    "dialogActionId == QUEST_SELECT -> true @39",
+    "CraftSkillUpdateService.getInstance().canLearnMoreMasterCraftingSkill(player) -> false @39"
+   ],
+   "assume": [{"effect": 0, "returns": false}],
+   "effects": [
+    {"call": "CraftSkillUpdateService.canLearnMoreMasterCraftingSkill", "kind": "packet", "args": [], "line": 39},
+    {"call": "sendQuestSelectionDialog", "kind": "dialog", "args": [], "line": 40}
+   ],
+   "returns": {"resultOf": 1}
+  },
+  {
+   "id": "onDialogEvent#43",
+   "hook": "onDialogEvent",
+   "given": {"dialogAction": {"name": "USE_OBJECT", "id": -1}, "target": {"kind": "npc", "npcId": 204100}, "questState": null},
+   "guards": [
+    "dialogActionId == QUEST_SELECT -> false @39",
+    "qs == null -> true @43",
+    "targetId == 204100 -> true @44",
+    "env.getDialogActionId() == QUEST_SELECT -> false @45"
+   ],
+   "dialogExcludes": [31],
+   "effects": [{"call": "sendQuestStartDialog", "kind": "dialog", "args": [], "line": 48}],
+   "returns": {"resultOf": 0}
+  },
+  {
+   "id": "onDialogEvent#44",
+   "hook": "onDialogEvent",
+   "given": {"dialogAction": {"name": "USE_OBJECT", "id": -1}, "target": {"kind": "npc", "npcId": 204101}, "questState": null},
+   "guards": ["dialogActionId == QUEST_SELECT -> false @39", "qs == null -> true @43", "targetId == 204100 -> false @44"],
+   "dialogExcludes": [31],
+   "effects": [],
+   "returns": false
+  },
+  {
+   "id": "onDialogEvent#45",
+   "hook": "onDialogEvent",
+   "given": {
+    "dialogAction": {"name": "USE_OBJECT", "id": -1},
+    "target": {"kind": "npc", "npcId": 204100},
+    "questState": {"status": "COMPLETE", "canRepeat": true}
+   },
+   "guards": [
+    "dialogActionId == QUEST_SELECT -> false @39",
+    "qs == null -> false @43",
+    "qs.isStartable() [status == COMPLETE] -> true @43",
+    "qs.isStartable() [canRepeat] -> true @43",
+    "targetId == 204100 -> true @44",
+    "env.getDialogActionId() == QUEST_SELECT -> false @45"
+   ],
+   "dialogExcludes": [31],
+   "effects": [{"call": "sendQuestStartDialog", "kind": "dialog", "args": [], "line": 48}],
+   "returns": {"resultOf": 0}
+  },
+  {
+   "id": "onDialogEvent#46",
+   "hook": "onDialogEvent",
+   "given": {
+    "dialogAction": {"name": "USE_OBJECT", "id": -1},
+    "target": {"kind": "npc", "npcId": 204101},
+    "questState": {"status": "COMPLETE", "canRepeat": true}
+   },
+   "guards": [
+    "dialogActionId == QUEST_SELECT -> false @39",
+    "qs == null -> false @43",
+    "qs.isStartable() [status == COMPLETE] -> true @43",
+    "qs.isStartable() [canRepeat] -> true @43",
+    "targetId == 204100 -> false @44"
+   ],
+   "dialogExcludes": [31],
+   "effects": [],
+   "returns": false
+  },
+  {
+   "id": "onDialogEvent#47",
+   "hook": "onDialogEvent",
+   "given": {
+    "dialogAction": {"name": "USE_OBJECT", "id": -1},
+    "target": {"kind": "npc", "npcId": 204100},
+    "questState": {"status": "COMPLETE", "canRepeat": false}
+   },
+   "guards": [
+    "dialogActionId == QUEST_SELECT -> false @39",
+    "qs == null -> false @43",
+    "qs.isStartable() [status == COMPLETE] -> true @43",
+    "qs.isStartable() [canRepeat] -> false @43",
+    "qs.getStatus() == QuestStatus.START -> false @51",
+    "qs.getStatus() == QuestStatus.REWARD -> false @163"
+   ],
+   "dialogExcludes": [31],
+   "effects": [],
+   "returns": false
+  },
+  {
+   "id": "onDialogEvent#48",
+   "hook": "onDialogEvent",
+   "given": {
+    "dialogAction": {"name": "SETPRO10", "id": 10009},
+    "target": {"kind": "npc", "npcId": 204101},
+    "inventory": {"182400001": 0},
+    "questState": {"status": "START", "vars": {"0": 0}}
+   },
+   "guards": [
+    "dialogActionId == QUEST_SELECT -> false @39",
+    "qs == null -> false @43",
+    "qs.isStartable() [status == COMPLETE] -> false @43",
+    "qs.getStatus() == QuestStatus.START -> true @51",
+    "targetId == 204101 -> true @53",
+    "dialogActionId == SETPRO10 -> true @56",
+    "var == 0 -> true @99"
+   ],
+   "effects": [
+    {"call": "inventory.decreaseKinah", "kind": "item", "args": [6500], "line": 98},
+    {"call": "defaultCloseDialog", "kind": "dialog", "args": [0, 2, 152207202, 1, 0, 0], "line": 100}
+   ],
+   "returns": {"resultOf": 1}
+  },
+  {
+   "id": "onDialogEvent#49",
+   "hook": "onDialogEvent",
+   "given": {
+    "dialogAction": {"name": "SETPRO10", "id": 10009},
+    "target": {"kind": "npc", "npcId": 204101},
+    "inventory": {"182400001": 0},
+    "questState": {"status": "START", "vars": {"0": 1}}
+   },
+   "guards": [
+    "dialogActionId == QUEST_SELECT -> false @39",
+    "qs == null -> false @43",
+    "qs.isStartable() [status == COMPLETE] -> false @43",
+    "qs.getStatus() == QuestStatus.START -> true @51",
+    "targetId == 204101 -> true @53",
+    "dialogActionId == SETPRO10 -> true @56",
+    "var == 0 -> false @99",
+    "var == 1 -> true @101"
+   ],
+   "effects": [
+    {"call": "inventory.decreaseKinah", "kind": "item", "args": [6500], "line": 98},
+    {"call": "defaultCloseDialog", "kind": "dialog", "args": [1, 2, 152207202, 1, 0, 0], "line": 102}
+   ],
+   "returns": {"resultOf": 1}
+  },
+  {
+   "id": "onDialogEvent#50",
+   "hook": "onDialogEvent",
+   "given": {
+    "dialogAction": {"name": "SETPRO10", "id": 10009},
+    "target": {"kind": "npc", "npcId": 204101},
+    "inventory": {"182400001": 0},
+    "questState": {"status": "START", "vars": {"0": 2}}
+   },
+   "guards": [
+    "dialogActionId == QUEST_SELECT -> false @39",
+    "qs == null -> false @43",
+    "qs.isStartable() [status == COMPLETE] -> false @43",
+    "qs.getStatus() == QuestStatus.START -> true @51",
+    "targetId == 204101 -> true @53",
+    "dialogActionId == SETPRO10 -> true @56",
+    "var == 0 -> false @99",
+    "var == 1 -> false @101"
+   ],
+   "effects": [{"call": "inventory.decreaseKinah", "kind": "item", "args": [6500], "line": 98}],
+   "returns": false
+  },
+  {
+   "id": "onDialogEvent#51",
+   "hook": "onDialogEvent",
+   "given": {
+    "dialogAction": {"name": "SETPRO20", "id": 10019},
+    "target": {"kind": "npc", "npcId": 204101},
+    "inventory": {"182400001": 0},
+    "questState": {"status": "START", "vars": {"0": 3}}
+   },
+   "guards": [
+    "dialogActionId == QUEST_SELECT -> false @39",
+    "qs == null -> false @43",
+    "qs.isStartable() [status == COMPLETE] -> false @43",
+    "qs.getStatus() == QuestStatus.START -> true @51",
+    "targetId == 204101 -> true @53",
+    "dialogActionId == SETPRO20 -> true @56",
+    "var == 3 -> true @107"
+   ],
+   "effects": [
+    {"call": "inventory.decreaseKinah", "kind": "item", "args": [6500], "line": 106},
+    {"call": "defaultCloseDialog", "kind": "dialog", "args": [3, 5, 152207203, 1, 0, 0], "line": 108}
+   ],
+   "returns": {"resultOf": 1}
+  },
+  {
+   "id": "onDialogEvent#52",
+   "hook": "onDialogEvent",
+   "given": {
+    "dialogAction": {"name": "SETPRO20", "id": 10019},
+    "target": {"kind": "npc", "npcId": 204101},
+    "inventory": {"182400001": 0},
+    "questState": {"status": "START", "vars": {"0": 4}}
+   },
+   "guards": [
+    "dialogActionId == QUEST_SELECT -> false @39",
+    "qs == null -> false @43",
+    "qs.isStartable() [status == COMPLETE] -> false @43",
+    "qs.getStatus() == QuestStatus.START -> true @51",
+    "targetId == 204101 -> true @53",
+    "dialogActionId == SETPRO20 -> true @56",
+    "var == 3 -> false @107",
+    "var == 4 -> true @109"
+   ],
+   "effects": [
+    {"call": "inventory.decreaseKinah", "kind": "item", "args": [6500], "line": 106},
+    {"call": "defaultCloseDialog", "kind": "dialog", "args": [4, 5, 152207203, 1, 0, 0], "line": 110}
+   ],
+   "returns": {"resultOf": 1}
+  },
+  {
+   "id": "onDialogEvent#53",
+   "hook": "onDialogEvent",
+   "given": {
+    "dialogAction": {"name": "SETPRO20", "id": 10019},
+    "target": {"kind": "npc", "npcId": 204101},
+    "inventory": {"182400001": 0},
+    "questState": {"status": "START", "vars": {"0": 0}}
+   },
+   "guards": [
+    "dialogActionId == QUEST_SELECT -> false @39",
+    "qs == null -> false @43",
+    "qs.isStartable() [status == COMPLETE] -> false @43",
+    "qs.getStatus() == QuestStatus.START -> true @51",
+    "targetId == 204101 -> true @53",
+    "dialogActionId == SETPRO20 -> true @56",
+    "var == 3 -> false @107",
+    "var == 4 -> false @109"
+   ],
+   "effects": [{"call": "inventory.decreaseKinah", "kind": "item", "args": [6500], "line": 106}],
+   "returns": false
+  },
+  {
+   "id": "onDialogEvent#54",
+   "hook": "onDialogEvent",
+   "given": {
+    "dialogAction": {"name": "SETPRO30", "id": 10029},
+    "target": {"kind": "npc", "npcId": 204101},
+    "inventory": {"182400001": 0},
+    "questState": {"status": "START", "vars": {"0": 6}}
+   },
+   "guards": [
+    "dialogActionId == QUEST_SELECT -> false @39",
+    "qs == null -> false @43",
+    "qs.isStartable() [status == COMPLETE] -> false @43",
+    "qs.getStatus() == QuestStatus.START -> true @51",
+    "targetId == 204101 -> true @53",
+    "dialogActionId == SETPRO30 -> true @56",
+    "var == 6 -> true @115"
+   ],
+   "effects": [
+    {"call": "inventory.decreaseKinah", "kind": "item", "args": [6500], "line": 114},
+    {"call": "defaultCloseDialog", "kind": "dialog", "args": [6, 8, 152207204, 1, 0, 0], "line": 116}
+   ],
+   "returns": {"resultOf": 1}
+  },
+  {
+   "id": "onDialogEvent#55",
+   "hook": "onDialogEvent",
+   "given": {
+    "dialogAction": {"name": "SETPRO30", "id": 10029},
+    "target": {"kind": "npc", "npcId": 204101},
+    "inventory": {"182400001": 0},
+    "questState": {"status": "START", "vars": {"0": 7}}
+   },
+   "guards": [
+    "dialogActionId == QUEST_SELECT -> false @39",
+    "qs == null -> false @43",
+    "qs.isStartable() [status == COMPLETE] -> false @43",
+    "qs.getStatus() == QuestStatus.START -> true @51",
+    "targetId == 204101 -> true @53",
+    "dialogActionId == SETPRO30 -> true @56",
+    "var == 6 -> false @115",
+    "var == 7 -> true @117"
+   ],
+   "effects": [
+    {"call": "inventory.decreaseKinah", "kind": "item", "args": [6500], "line": 114},
+    {"call": "defaultCloseDialog", "kind": "dialog", "args": [7, 8, 152207204, 1, 0, 0], "line": 118}
+   ],
+   "returns": {"resultOf": 1}
+  },
+  {
+   "id": "onDialogEvent#56",
+   "hook": "onDialogEvent",
+   "given": {
+    "dialogAction": {"name": "SETPRO30", "id": 10029},
+    "target": {"kind": "npc", "npcId": 204101},
+    "inventory": {"182400001": 0},
+    "questState": {"status": "START", "vars": {"0": 0}}
+   },
+   "guards": [
+    "dialogActionId == QUEST_SELECT -> false @39",
+    "qs == null -> false @43",
+    "qs.isStartable() [status == COMPLETE] -> false @43",
+    "qs.getStatus() == QuestStatus.START -> true @51",
+    "targetId == 204101 -> true @53",
+    "dialogActionId == SETPRO30 -> true @56",
+    "var == 6 -> false @115",
+    "var == 7 -> false @117"
+   ],
+   "effects": [{"call": "inventory.decreaseKinah", "kind": "item", "args": [6500], "line": 114}],
+   "returns": false
+  },
+  {
+   "id": "onDialogEvent#57",
+   "hook": "onDialogEvent",
+   "given": {
+    "dialogAction": {"name": "SETPRO40", "id": 10039},
+    "target": {"kind": "npc", "npcId": 204101},
+    "inventory": {"182400001": 0},
+    "questState": {"status": "START", "vars": {"0": 9}}
+   },
+   "guards": [
+    "dialogActionId == QUEST_SELECT -> false @39",
+    "qs == null -> false @43",
+    "qs.isStartable() [status == COMPLETE] -> false @43",
+    "qs.getStatus() == QuestStatus.START -> true @51",
+    "targetId == 204101 -> true @53",
+    "dialogActionId == SETPRO40 -> true @56",
+    "var == 9 -> true @123"
+   ],
+   "effects": [
+    {"call": "inventory.decreaseKinah", "kind": "item", "args": [6500], "line": 122},
+    {"call": "defaultCloseDialog", "kind": "dialog", "args": [9, 11, 152207205, 1, 0, 0], "line": 124}
+   ],
+   "returns": {"resultOf": 1}
+  },
+  {
+   "id": "onDialogEvent#58",
+   "hook": "onDialogEvent",
+   "given": {
+    "dialogAction": {"name": "SETPRO40", "id": 10039},
+    "target": {"kind": "npc", "npcId": 204101},
+    "inventory": {"182400001": 0},
+    "questState": {"status": "START", "vars": {"0": 10}}
+   },
+   "guards": [
+    "dialogActionId == QUEST_SELECT -> false @39",
+    "qs == null -> false @43",
+    "qs.isStartable() [status == COMPLETE] -> false @43",
+    "qs.getStatus() == QuestStatus.START -> true @51",
+    "targetId == 204101 -> true @53",
+    "dialogActionId == SETPRO40 -> true @56",
+    "var == 9 -> false @123",
+    "var == 10 -> true @125"
+   ],
+   "effects": [
+    {"call": "inventory.decreaseKinah", "kind": "item", "args": [6500], "line": 122},
+    {"call": "defaultCloseDialog", "kind": "dialog", "args": [10, 11, 152207205, 1, 0, 0], "line": 126}
+   ],
+   "returns": {"resultOf": 1}
+  },
+  {
+   "id": "onDialogEvent#59",
+   "hook": "onDialogEvent",
+   "given": {
+    "dialogAction": {"name": "SETPRO40", "id": 10039},
+    "target": {"kind": "npc", "npcId": 204101},
+    "inventory": {"182400001": 0},
+    "questState": {"status": "START", "vars": {"0": 0}}
+   },
+   "guards": [
+    "dialogActionId == QUEST_SELECT -> false @39",
+    "qs == null -> false @43",
+    "qs.isStartable() [status == COMPLETE] -> false @43",
+    "qs.getStatus() == QuestStatus.START -> true @51",
+    "targetId == 204101 -> true @53",
+    "dialogActionId == SETPRO40 -> true @56",
+    "var == 9 -> false @123",
+    "var == 10 -> false @125"
+   ],
+   "effects": [{"call": "inventory.decreaseKinah", "kind": "item", "args": [6500], "line": 122}],
+   "returns": false
+  },
+  {
+   "id": "onDialogEvent#60",
+   "hook": "onDialogEvent",
+   "given": {
+    "dialogAction": {"name": "FINISH_DIALOG", "id": 1008},
+    "target": {"kind": "npc", "npcId": 204101},
+    "inventory": {"182400001": 0},
+    "questState": {"status": "START", "vars": {"0": 0}}
+   },
+   "guards": [
+    "dialogActionId == QUEST_SELECT -> false @39",
+    "qs == null -> false @43",
+    "qs.isStartable() [status == COMPLETE] -> false @43",
+    "qs.getStatus() == QuestStatus.START -> true @51",
+    "targetId == 204101 -> true @53",
+    "dialogActionId == FINISH_DIALOG -> true @56"
+   ],
+   "free": ["questState.vars.0"],
+   "effects": [{"call": "sendQuestSelectionDialog", "kind": "dialog", "args": [], "line": 130}],
+   "returns": {"resultOf": 0}
+  },
+  {
+   "id": "onDialogEvent#61",
+   "hook": "onDialogEvent",
+   "given": {
+    "dialogAction": {"name": "USE_OBJECT", "id": -1},
+    "target": {"kind": "npc", "npcId": 204101},
+    "inventory": {"182400001": 0},
+    "questState": {"status": "START", "vars": {"0": 0}}
+   },
+   "guards": [
+    "dialogActionId == QUEST_SELECT -> false @39",
+    "qs == null -> false @43",
+    "qs.isStartable() [status == COMPLETE] -> false @43",
+    "qs.getStatus() == QuestStatus.START -> true @51",
+    "targetId == 204101 -> true @53",
+    "dialogActionId not in [QUEST_SELECT, SETPRO10, SETPRO20, SETPRO30, SETPRO40, FINISH_DIALOG] -> true @56"
+   ],
+   "free": ["questState.vars.0"],
+   "dialogExcludes": [31, 1008, 10009, 10019, 10029, 10039],
+   "effects": [],
+   "returns": false
+  },
+  {
+   "id": "onDialogEvent#62",
+   "hook": "onDialogEvent",
+   "given": {
+    "dialogAction": {"name": "SETPRO11", "id": 10010},
+    "target": {"kind": "npc", "npcId": 204100},
+    "questState": {"status": "START", "vars": {"0": 0}}
+   },
+   "guards": [
+    "dialogActionId == QUEST_SELECT -> false @39",
+    "qs == null -> false @43",
+    "qs.isStartable() [status == COMPLETE] -> false @43",
+    "qs.getStatus() == QuestStatus.START -> true @51",
+    "targetId == 204100 -> true @53",
+    "dialogActionId == SETPRO11 -> true @134"
+   ],
+   "free": ["questState.vars.0"],
+   "effects": [{"call": "checkItemExistence", "kind": "item", "args": [2, 3, false, 182207907, 1, true, 1182, 2716, 0, 0], "line": 152}],
+   "returns": {"resultOf": 0}
+  },
+  {
+   "id": "onDialogEvent#63",
+   "hook": "onDialogEvent",
+   "given": {
+    "dialogAction": {"name": "SETPRO21", "id": 10020},
+    "target": {"kind": "npc", "npcId": 204100},
+    "questState": {"status": "START", "vars": {"0": 0}}
+   },
+   "guards": [
+    "dialogActionId == QUEST_SELECT -> false @39",
+    "qs == null -> false @43",
+    "qs.isStartable() [status == COMPLETE] -> false @43",
+    "qs.getStatus() == QuestStatus.START -> true @51",
+    "targetId == 204100 -> true @53",
+    "dialogActionId == SETPRO21 -> true @134"
+   ],
+   "free": ["questState.vars.0"],
+   "effects": [{"call": "checkItemExistence", "kind": "item", "args": [5, 6, false, 182207908, 1, true, 1523, 3057, 0, 0], "line": 154}],
+   "returns": {"resultOf": 0}
+  },
+  {
+   "id": "onDialogEvent#64",
+   "hook": "onDialogEvent",
+   "given": {
+    "dialogAction": {"name": "SETPRO31", "id": 10030},
+    "target": {"kind": "npc", "npcId": 204100},
+    "questState": {"status": "START", "vars": {"0": 0}}
+   },
+   "guards": [
+    "dialogActionId == QUEST_SELECT -> false @39",
+    "qs == null -> false @43",
+    "qs.isStartable() [status == COMPLETE] -> false @43",
+    "qs.getStatus() == QuestStatus.START -> true @51",
+    "targetId == 204100 -> true @53",
+    "dialogActionId == SETPRO31 -> true @134"
+   ],
+   "free": ["questState.vars.0"],
+   "effects": [{"call": "checkItemExistence", "kind": "item", "args": [8, 9, false, 182207909, 1, true, 1864, 3398, 0, 0], "line": 156}],
+   "returns": {"resultOf": 0}
+  },
+  {
+   "id": "onDialogEvent#65",
+   "hook": "onDialogEvent",
+   "given": {
+    "dialogAction": {"name": "SETPRO41", "id": 10040},
+    "target": {"kind": "npc", "npcId": 204100},
+    "questState": {"status": "START", "vars": {"0": 0}}
+   },
+   "guards": [
+    "dialogActionId == QUEST_SELECT -> false @39",
+    "qs == null -> false @43",
+    "qs.isStartable() [status == COMPLETE] -> false @43",
+    "qs.getStatus() == QuestStatus.START -> true @51",
+    "targetId == 204100 -> true @53",
+    "dialogActionId == SETPRO41 -> true @134"
+   ],
+   "free": ["questState.vars.0"],
+   "effects": [{"call": "checkItemExistence", "kind": "item", "args": [11, 11, true, 182207910, 1, true, 5, 3057, 0, 0], "line": 158}],
+   "returns": {"resultOf": 0}
+  },
+  {
+   "id": "onDialogEvent#66",
+   "hook": "onDialogEvent",
+   "given": {
+    "dialogAction": {"name": "FINISH_DIALOG", "id": 1008},
+    "target": {"kind": "npc", "npcId": 204100},
+    "questState": {"status": "START", "vars": {"0": 0}}
+   },
+   "guards": [
+    "dialogActionId == QUEST_SELECT -> false @39",
+    "qs == null -> false @43",
+    "qs.isStartable() [status == COMPLETE] -> false @43",
+    "qs.getStatus() == QuestStatus.START -> true @51",
+    "targetId == 204100 -> true @53",
+    "dialogActionId == FINISH_DIALOG -> true @134"
+   ],
+   "free": ["questState.vars.0"],
+   "effects": [{"call": "sendQuestSelectionDialog", "kind": "dialog", "args": [], "line": 160}],
+   "returns": {"resultOf": 0}
+  },
+  {
+   "id": "onDialogEvent#67",
+   "hook": "onDialogEvent",
+   "given": {
+    "dialogAction": {"name": "USE_OBJECT", "id": -1},
+    "target": {"kind": "npc", "npcId": 204100},
+    "questState": {"status": "START", "vars": {"0": 0}}
+   },
+   "guards": [
+    "dialogActionId == QUEST_SELECT -> false @39",
+    "qs == null -> false @43",
+    "qs.isStartable() [status == COMPLETE] -> false @43",
+    "qs.getStatus() == QuestStatus.START -> true @51",
+    "targetId == 204100 -> true @53",
+    "dialogActionId not in [QUEST_SELECT, SETPRO11, SETPRO21, SETPRO31, SETPRO41, FINISH_DIALOG] -> true @134"
+   ],
+   "free": ["questState.vars.0"],
+   "dialogExcludes": [31, 1008, 10010, 10020, 10030, 10040],
+   "effects": [],
+   "returns": false
+  },
+  {
+   "id": "onDialogEvent#68",
+   "hook": "onDialogEvent",
+   "given": {
+    "dialogAction": {"name": "USE_OBJECT", "id": -1},
+    "target": {"kind": "npc", "npcId": 200000},
+    "questState": {"status": "START", "vars": {"0": 0}}
+   },
+   "guards": [
+    "dialogActionId == QUEST_SELECT -> false @39",
+    "qs == null -> false @43",
+    "qs.isStartable() [status == COMPLETE] -> false @43",
+    "qs.getStatus() == QuestStatus.START -> true @51",
+    "targetId not in [204101, 204100] -> true @53"
+   ],
+   "free": ["questState.vars.0"],
+   "dialogExcludes": [31],
+   "effects": [],
+   "returns": false
+  },
+  {
+   "id": "onDialogEvent#69",
+   "hook": "onDialogEvent",
+   "given": {"dialogAction": {"name": "USE_OBJECT", "id": -1}, "target": {"kind": "npc", "npcId": 204100}, "questState": {"status": "REWARD"}},
+   "guards": [
+    "dialogActionId == QUEST_SELECT -> false @39",
+    "qs == null -> false @43",
+    "qs.isStartable() [status == COMPLETE] -> false @43",
+    "qs.getStatus() == QuestStatus.START -> false @51",
+    "qs.getStatus() == QuestStatus.REWARD -> true @163",
+    "targetId == 204100 -> true @164"
+   ],
+   "dialogExcludes": [31],
+   "effects": [{"call": "sendQuestEndDialog", "kind": "dialog", "args": [], "line": 165}],
+   "returns": {"resultOf": 0}
+  },
+  {
+   "id": "onDialogEvent#70",
+   "hook": "onDialogEvent",
+   "given": {"dialogAction": {"name": "USE_OBJECT", "id": -1}, "target": {"kind": "npc", "npcId": 204101}, "questState": {"status": "REWARD"}},
+   "guards": [
+    "dialogActionId == QUEST_SELECT -> false @39",
+    "qs == null -> false @43",
+    "qs.isStartable() [status == COMPLETE] -> false @43",
+    "qs.getStatus() == QuestStatus.START -> false @51",
+    "qs.getStatus() == QuestStatus.REWARD -> true @163",
+    "targetId == 204100 -> false @164"
+   ],
+   "dialogExcludes": [31],
+   "effects": [],
+   "returns": false
+  },
+  {
+   "id": "onDialogEvent#71",
+   "hook": "onDialogEvent",
+   "given": {"dialogAction": {"name": "USE_OBJECT", "id": -1}, "target": {"kind": "npc", "npcId": 204100}, "questState": {"status": "LOCKED"}},
+   "guards": [
+    "dialogActionId == QUEST_SELECT -> false @39",
+    "qs == null -> false @43",
+    "qs.isStartable() [status == COMPLETE] -> false @43",
+    "qs.getStatus() == QuestStatus.START -> false @51",
+    "qs.getStatus() == QuestStatus.REWARD -> false @163"
+   ],
+   "dialogExcludes": [31],
+   "effects": [],
+   "returns": false
+  },
   {
    "id": "onFailCraftEvent#1",
    "hook": "onFailCraftEvent",

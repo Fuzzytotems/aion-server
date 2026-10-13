@@ -14,7 +14,7 @@
   {"npc": 206085, "event": "addOnAtDistanceEvent", "args": [3090]}
  ],
  "hooks": [
-  {"hook": "onDialogEvent", "line": 32, "unsupported": "call player.getInventory().getKinah()"},
+  {"hook": "onDialogEvent", "line": 32, "unsupported": "call PacketSendUtility.sendMonologue"},
   {"hook": "onAtDistanceEvent", "line": 105, "unsupported": "call PacketSendUtility.sendMonologue"}
  ],
  "cases": []

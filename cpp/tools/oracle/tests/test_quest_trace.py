@@ -837,7 +837,7 @@ class Q06SliceTest(unittest.TestCase):
 		for rel in extract.SLICE_Q06:
 			d = extract.trace_file(tables(), extract.QUEST_DIR / rel, rel)
 			docs[d["questId"]] = d
-		self.assertEqual(sorted(q for q, d in docs.items() if not d["cases"]), [19001, 19003, 19057, 29000, 29001, 29003, 29057])
+		self.assertEqual(sorted(q for q, d in docs.items() if not d["cases"]), [19057, 29057])
 		self.assertEqual(extract.check(rels=extract.SLICE_Q06, extra=False), [])
 
 
@@ -860,7 +860,7 @@ class Q09RestSliceTest(unittest.TestCase):
 		for rel in extract.SLICE_Q09:
 			d = extract.trace_file(tables(), extract.QUEST_DIR / rel, rel)
 			docs[d["questId"]] = d
-		self.assertEqual(sorted(q for q, d in docs.items() if not d["cases"]), [2422, 2423, 2430, 2443, 2493, 28821])
+		self.assertEqual(sorted(q for q, d in docs.items() if not d["cases"]), [2422, 2423, 2443, 2493, 28821])
 		self.assertEqual(extract.check(rels=extract.SLICE_Q09, extra=False), [])
 
 
@@ -881,6 +881,23 @@ class CraftPredicateTraceTest(unittest.TestCase):
 				self.assertEqual(answers, {True, False})
 				self.assertTrue(all(e["args"] == [] and e["kind"] == "packet" for c in asked for e in c["effects"]
 				                    if e["call"].startswith("CraftSkillUpdateService.")))
+
+	def test_the_crafting_quests_last_rows(self):
+		# kinah as the kinah item's count and decreaseKinah an effect (19038), addSkill an effect (19001), isFullSpecialCube an input (29000),
+		# isRecipePresent an input per recipe (19038)
+		docs = {}
+		for rel in ("crafting/_19038MasterCooksPotential.java", "crafting/_19001ExpertEssencetappingExpert.java",
+		            "crafting/_29000ExpertEssencetappersTest.java"):
+			docs[rel] = extract.trace_file(tables(), extract.QUEST_DIR / rel, rel)
+		calls = lambda d: {e["call"] for c in d["cases"] for e in c["effects"]}
+		cooks = docs["crafting/_19038MasterCooksPotential.java"]
+		self.assertIn("inventory.decreaseKinah", calls(cooks))
+		self.assertTrue(any(str(extract.KINAH_ITEM) in c["given"].get("inventory", {}) for c in cooks["cases"]))
+		self.assertTrue(any("recipes" in c["given"] for c in cooks["cases"]))
+		self.assertIn("skillList.addSkill", calls(docs["crafting/_19001ExpertEssencetappingExpert.java"]))
+		cube = [c["given"]["player"]["fullSpecialCube"] for c in docs["crafting/_29000ExpertEssencetappersTest.java"]["cases"]
+		        if "fullSpecialCube" in c["given"].get("player", {})]
+		self.assertEqual(set(cube), {True, False})
 
 	def test_the_two_predicates_are_the_only_ones(self):
 		self.assertEqual(extract.CRAFT_PREDICATES, ("canLearnMoreExpertCraftingSkill", "canLearnMoreMasterCraftingSkill"))

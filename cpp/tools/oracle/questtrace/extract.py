@@ -786,6 +786,8 @@ HELPERS = {
 	'super.onDialogEvent': ('dialog', ('all',)),
 }
 # the crafting quests (chunk Q06, lane C, 2026-10-13): the two CraftSkillUpdateService predicates their dialogs ask (craft_predicate)
+# and the kinah item (Storage.getKinah: ItemId.KINAH)
+KINAH_ITEM = 182400001
 CRAFT_PREDICATES = ('canLearnMoreExpertCraftingSkill', 'canLearnMoreMasterCraftingSkill')
 # helper arguments that are the hook's own env or player are left out of the recorded arguments
 IMPLICIT = (O('env'), O('player'))
@@ -1356,7 +1358,8 @@ class Extractor:
 			return Dom(lo=0, hi=63)                 # QuestVars: six 6-bit slots (QuestVars.java:22-58)
 		if head in ('inv', 'completeCount'):
 			return Dom(lo=0)
-		if head in ('canRepeat',) or key in (('env', 'continuation'), ('player', 'mentor'), ('player', 'inGroup'), ('player', 'mentorInRange')):
+		if head in ('canRepeat', 'recipe') or key in (('env', 'continuation'), ('player', 'mentor'), ('player', 'inGroup'), ('player', 'mentorInRange'),
+		                                     ('player', 'fullSpecialCube')):
 			return Dom((True, False))
 		if key == ('player', 'race'):
 			return Dom(tuple(Enum('Race', n) for n in ('ELYOS', 'ASMODIANS')))
@@ -1870,8 +1873,9 @@ class Extractor:
 				self.write(p, ('env', 'questId') if name == 'setQuestId' else ('dialog',), args[0])
 				return [(p, K(None))]
 		if o == 'player':
-			if name in ('getQuestStateList', 'getInventory', 'getCommonData'):
-				return [(p, O({'getQuestStateList': 'qsl', 'getInventory': 'inventory', 'getCommonData': 'player'}[name]))]
+			if name in ('getQuestStateList', 'getInventory', 'getCommonData', 'getSkillList', 'getRecipeList'):
+				return [(p, O({'getQuestStateList': 'qsl', 'getInventory': 'inventory', 'getCommonData': 'player',
+				               'getSkillList': 'skillList', 'getRecipeList': 'recipeList'}[name]))]
 			attr = {'getRace': 'race', 'getLevel': 'level', 'getPlayerClass': 'class', 'getGender': 'gender', 'isMentor': 'mentor',
 			        'getWorldId': 'worldId'}.get(name)
 			if attr is not None:
@@ -1897,6 +1901,24 @@ class Extractor:
 				return [(p, self.read(p, ('var', o[1], self.const_int(args[0], 'a var slot'))))]
 			if name == 'setVarById':
 				return self.quest_state(o[1], 'setQuestVarById', args, p, e)
+		# chunk Q06 (lane C, 2026-10-13): the crafting quests' last calls. Storage.getKinah() is the count of the kinah item (Storage.java:
+		# kinahItem, item 182400001), an inventory input like any item's; decreaseKinah(amount) an effect on it (the replay calls it);
+		# isFullSpecialCube() an input (ItemStorage.java: the special-cube items against the cube's special limit)
+		if o == 'inventory' and name == 'getKinah' and not args:
+			return [(p, self.read(p, ('inv', KINAH_ITEM)))]
+		if o == 'inventory' and name == 'decreaseKinah' and len(args) == 1:
+			self.effect(p, 'inventory.decreaseKinah', args, 'item', e)
+			self.clobber(p, 'inventory.decreaseKinah', ('inventory',))
+			return [(p, K(None))]
+		if o == 'inventory' and name == 'isFullSpecialCube' and not args:
+			return [(p, self.read_input(p, ('player', 'fullSpecialCube')))]
+		if o == 'recipeList' and name == 'isRecipePresent' and len(args) == 1:
+			# RecipeList.isRecipePresent(recipeId): an input per recipe (the harness gives the quester the recipes the case names)
+			return [(p, self.read_input(p, ('recipe', self.const_int(args[0], 'a recipe id'))))]
+		if o == 'skillList' and name == 'addSkill' and len(args) == 3 and args[0] == O('player'):
+			# SkillList.addSkill(player, skillId, level) (PlayerSkillList.java): an effect the replay calls; its boolean result is not read
+			k = self.effect(p, 'skillList.addSkill', args[1:], 'packet', e)
+			return [(p, Res(k))]
 		if o == 'inventory' and name == 'getItemCountByItemId':
 			return [(p, self.read(p, ('inv', self.const_int(args[0], 'an item id'))))]
 		if o == 'inventory' and name == 'decreaseByObjectId' and len(args) == 2:
@@ -2332,6 +2354,8 @@ class Extractor:
 					st[head] = v
 			elif head == 'inv':
 				g.setdefault('inventory', {})[str(key[1])] = v
+			elif head == 'recipe':
+				g.setdefault('recipes', {})[str(key[1])] = v
 			elif head in ('player', 'env', 'item'):
 				g.setdefault(head, {})[key[1]] = v.name if isinstance(v, Enum) else v
 			elif head == 'arg':
