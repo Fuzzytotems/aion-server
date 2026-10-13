@@ -53,7 +53,8 @@
 //       its "N total drops available in M drop groups." tail, DropInfo.java:48, :81), then its //delete;
 //   Z18 (stage 4 CP4, the system commands) G's //bookmark del of a missing name and deleteAll (Bookmark.java:31, :36); //debug connections,
 //       connectedPlayers and dcBuggedPlayers on the running server (Debug.java:40, :43, :55: the client list, the player count head, no
-//       bugged player); //reload ai, commands and config (Reload.java:76, :79, :82), the config reload last (the -D keys stay);
+//       bugged player); //reload ai, commands, the static-data arms but quests (each answers its count) and config (Reload.java:56-100),
+//       the config reload last (the -D keys stay);
 //   Z19 (stage 4 CP7, the chat path of the command smoke, L-04) G types every registered admin and player command (the classes with an
 //       AION_*_COMMAND marker; the alias is the Java class's super("alias")) with one unknown parameter, through CM_CHAT_MESSAGE and
 //       ChatProcessor.handleChatCommand; the state toggles (//invis, //invul, //see, .noexp, .nomorph) and the ban family (the login server)
@@ -73,6 +74,7 @@
 #include <gtest/gtest.h>
 
 #include <algorithm>
+#include <cctype>
 #include <chrono>
 #include <cmath>
 #include <cstdint>
@@ -1754,6 +1756,17 @@ void runM5jGate() {
 		says("//reload ai", {"AI successfully reloaded!"}); // Reload.java:76
 		says("//reload commands", {"Chat commands successfully reloaded!"}); // Reload.java:79
 		says("//bookmark deleteAll", {"All bookmarks have been deleted. The bookmarks list will be updated after relog."}); // a reloaded command
+		// the static-data arms (owner's decision 2026-10-13): each replaces its holder from the Java tree's files and answers its count
+		for (const auto& [arm, tail] : std::vector<std::pair<std::string, std::string>>{{"arcade", " upgrade arcade rewards loaded."},
+				 {"customdrops", " custom drops loaded."}, {"decomposables", " item bundles reloaded."}, {"npcskills", " NPC skills loaded."},
+				 {"events", " events loaded."}}) { // skills and items (the same code) take longer than the watchdog's slow-task bound in Debug
+			const size_t gFrom = g.mark();
+			g.say("//reload " + arm);
+			EXPECT_TRUE(waitForMessage(*g.game, gFrom, [&](const decoders::Message& m) {
+				return m.chatType == CHAT_GOLDEN_YELLOW && m.senderObjectId == 0 && m.message.ends_with(tail) && !m.message.empty() &&
+					std::isdigit(static_cast<unsigned char>(m.message[0]));
+			}, 60s)) << "//reload " << arm << " | G: " << join(infoTexts(g.since(gFrom)), " | ");
+		}
 		says("//reload config", {"Configs successfully reloaded!"}); // Reload.java:82
 	});
 

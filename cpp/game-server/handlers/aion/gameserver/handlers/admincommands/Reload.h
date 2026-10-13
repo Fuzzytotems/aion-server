@@ -7,10 +7,9 @@ namespace aion::gameserver::handlers::admincommands {
 /**
  * //reload: reloads templates or handlers (static data).
  * <p>
- * C++: the config, commands and ai arms run. The eight static-data arms (quests, skills, npcskills, items, customdrops, events, arcade,
- * decomposables) stay AION_UNPORTED (D3): a reload replaces a published holder, which needs HolderRef to republish (it publishes once,
- * static-data.md §3.6) and a loader of one holder from one file; quests, npcskills and events also need the in-place reload setters (CP5) and
- * QuestEngine.reload (A-D1).
+ * C++: the static-data arms load the files with the strict binder and replace the published holder with HolderRef::republish (owner's
+ * decision 2026-10-13; the old holder stays alive). npcskills and events replace their holder, where Java calls the in-place setters on it. The
+ * quests arm stays AION_UNPORTED: it needs QuestEngine.reload (A-D1).
  *
  * @author MrPoke, Neon
  */
