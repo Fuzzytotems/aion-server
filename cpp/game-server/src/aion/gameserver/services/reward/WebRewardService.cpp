@@ -25,6 +25,9 @@
 #include "aion/gameserver/questEngine/model/QuestStatus.h"
 #include "aion/gameserver/questEngine/model/QuestVars.h"
 #include "aion/gameserver/runtime/base/Exceptions.h"
+#include "aion/gameserver/runtime/base/Exceptions.h"
+#include "aion/gameserver/questEngine/model/QuestStatus.h"
+#include "aion/gameserver/questEngine/model/QuestVars.h"
 #include "aion/gameserver/services/item/ItemService.h"
 #include "aion/gameserver/services/mail/SystemMailService.h"
 #include "aion/gameserver/services/teleport/TeleportService.h"
@@ -57,6 +60,10 @@ bool WebRewardService::MaxLevelReward::isPendingAscension(model::gameobjects::pl
 
 // Java WebRewardService.java:106-140
 bool WebRewardService::MaxLevelReward::reward(model::gameobjects::player::Player& player) {
+// Java WebRewardService.java:106-142
+bool WebRewardService::MaxLevelReward::reward(model::gameobjects::player::Player& player) {
+	using network::aion::serverpackets::SM_QUEST_ACTION;
+	using questEngine::model::QuestStatus;
 	if (!player.getCommonData()->isDaeva()) {
 		if (!pendingAscension.add(player.getObjectId()))
 			return false;
@@ -76,6 +83,20 @@ bool WebRewardService::MaxLevelReward::reward(model::gameobjects::player::Player
 			if (qs->getQuestVars()->getQuestVars() != questVar)
 				qs->setQuestVar(questVar);
 			PacketSendUtility::sendPacket(player, SM_QUEST_ACTION(SM_QUEST_ACTION::ActionType::UPDATE, *qs));
+		const int32_t questNpcId = player.getRace() == model::Race::ELYOS ? 790001 : 203550; // Pernos / Munin
+		const int32_t questId = player.getRace() == model::Race::ELYOS ? 1006 : 2008;
+		const int32_t questVar = player.getRace() == model::Race::ELYOS ? 5 : 6;
+		runtime::Ptr<questEngine::model::QuestState> qs = player.getQuestStateList()->getQuestState(questId);
+		if (qs == nullptr) // Java: qs.getStatus() of a null quest state
+			throw runtime::NullPointerException("quest state " + std::to_string(questId));
+		if (qs->getStatus() != QuestStatus::REWARD) { // class selection is complete at this point
+			if (qs->getStatus() == QuestStatus::COMPLETE) { // if player switched back to a starting class (GM command or DB change)
+				qs->setStatus(QuestStatus::START);
+				utils::PacketSendUtility::sendPacket(player, SM_QUEST_ACTION(SM_QUEST_ACTION::ActionType::ADD, *qs));
+			}
+			if (qs->getQuestVars()->getQuestVars() != questVar)
+				qs->setQuestVar(questVar);
+			utils::PacketSendUtility::sendPacket(player, SM_QUEST_ACTION(SM_QUEST_ACTION::ActionType::UPDATE, *qs));
 		}
 		runtime::Ptr<model::gameobjects::VisibleObject> questNpc = player.getKnownList().findObject([questNpcId](world::knownlist::KnownObject& o) {
 			runtime::Ptr<model::gameobjects::Npc> npc = runtime::as<model::gameobjects::Npc>(o.get());
@@ -93,12 +114,18 @@ bool WebRewardService::MaxLevelReward::reward(model::gameobjects::player::Player
 		std::string message = utils::ChatUtil::l10n(904804) + " Level " + std::to_string(player.getLevel()); // You receive the following reward: Level 65
 		PacketSendUtility::sendMessage(player, message, model::ChatType::BRIGHT_YELLOW);
 		teleport::TeleportService::sendTeleportRequest(player, player.getRace() == Race::ELYOS ? 798926 : 799225); // Outremus / Richelle for daevanion quests
+		utils::PacketSendUtility::sendMessage(player, message, model::ChatType::BRIGHT_YELLOW);
+		teleport::TeleportService::sendTeleportRequest(player, player.getRace() == model::Race::ELYOS ? 798926 : 799225); // Outremus / Richelle for daevanion quests
 	}
 	return true;
 }
 
 // Java WebRewardService.java:142-218
 void WebRewardService::MaxLevelReward::addBasicGear(model::gameobjects::player::Player& player) {
+// Java WebRewardService.java:144-219
+void WebRewardService::MaxLevelReward::addBasicGear(model::gameobjects::player::Player& player) {
+	using item::ItemService;
+	using model::PlayerClass;
 	ItemService::addItem(player, 188053624, 10, true); // Unified Return Scroll Bundle
 	switch (player.getPlayerClass()) { // weapons
 		case PlayerClass::GLADIATOR:
@@ -188,6 +215,7 @@ WebRewardService& WebRewardService::getInstance() {
 WebRewardService::WebRewardService() = default;
 
 // Java WebRewardService.java:47-70
+// Java WebRewardService.java:31-55
 void WebRewardService::sendAvailableRewards(runtime::Ptr<model::gameobjects::player::Player> player) {
 	if (player == nullptr)
 		return;
@@ -205,6 +233,7 @@ void WebRewardService::sendAvailableRewards(runtime::Ptr<model::gameobjects::pla
 				log.warn("[WebRewardService][" + std::to_string(item->getEntryId()) + "] " + player->toString() + " could not receive " + item->toString());
 			}
 		} catch (const std::exception& e) { // Java: catch (Exception e)
+		} catch (const std::exception& e) {
 			log.error("[WebRewardService][" + std::to_string(item->getEntryId()) + "] error adding " + item->toString() + " to " + player->toString(), e);
 		}
 	}
@@ -214,6 +243,7 @@ void WebRewardService::sendAvailableRewards(runtime::Ptr<model::gameobjects::pla
 }
 
 // Java WebRewardService.java:72-87
+// Java WebRewardService.java:57-72
 bool WebRewardService::sendRewardItem(model::gameobjects::player::Player& player, model::templates::rewards::RewardEntryItem& item) {
 	if (dataholders::DataManager::ITEM_DATA->getItemTemplate(item.getId()) == nullptr)
 		return false;
@@ -232,6 +262,7 @@ bool WebRewardService::sendRewardItem(model::gameobjects::player::Player& player
 }
 
 // Java WebRewardService.java:89-96
+// Java WebRewardService.java:74-81
 bool WebRewardService::executeRewardAction(model::gameobjects::player::Player& player, model::templates::rewards::RewardEntryItem& rewardItem) {
 	switch (rewardItem.getId()) {
 		case 1:
