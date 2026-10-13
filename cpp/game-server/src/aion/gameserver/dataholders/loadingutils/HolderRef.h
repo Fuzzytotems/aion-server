@@ -48,6 +48,23 @@ public:
 		static_cast<void>(holder.release()); // immortal
 	}
 
+	/**
+	 * //reload's replacement of a published holder (Java assigns the DataManager field; owner's decision 2026-10-13, header request m5j-r1):
+	 * readers see the old or the new holder. The old one is never freed - live templates, items and resolved IDREFs keep pointing into it, as
+	 * Java's GC keeps the replaced objects alive (static-data.md §3.6).
+	 * @throws runtime::IllegalArgumentException if `holder` is null; runtime::IllegalStateException if no holder was published before
+	 */
+	void republish(std::unique_ptr<H> holder) {
+		if (holder == nullptr)
+			throw runtime::IllegalArgumentException(std::string("cannot republish a null ") + typeid(H).name());
+		const H* expected = ptr.load(std::memory_order_acquire);
+		do {
+			if (expected == nullptr)
+				throw runtime::IllegalStateException(std::string("static data holder ") + typeid(H).name() + " was never published");
+		} while (!ptr.compare_exchange_weak(expected, holder.get(), std::memory_order_acq_rel, std::memory_order_acquire));
+		static_cast<void>(holder.release()); // immortal, like the holder it replaces
+	}
+
 	/** tests only: forgets the published holder (leaked, like a retired holder) so the next test can publish again */
 	void resetForTests() noexcept { ptr.store(nullptr); }
 
