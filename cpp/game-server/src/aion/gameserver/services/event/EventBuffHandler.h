@@ -1,5 +1,6 @@
 #pragma once
 
+#include <algorithm>
 #include <chrono>
 #include <cstdint>
 #include <functional>
@@ -8,7 +9,8 @@
 #include <unordered_set>
 #include <vector>
 
-#include "aion/gameserver/runtime/base/Unported.h"
+#include "aion/commons/utils/Exception.h"
+#include "aion/commons/utils/Rnd.h"
 #include "aion/gameserver/runtime/collections/ArrayList.h"
 #include "aion/gameserver/runtime/collections/ConcurrentHashMap.h"
 #include "aion/gameserver/runtime/collections/Rc.h"
@@ -100,9 +102,22 @@ private:
 
 	std::unordered_set<int32_t> getActiveBuffSkillIds(const model::templates::event::Buff* buff);
 
-	/** Java generic method: Set<T> of n random elements of the collection (hub-headers.md §8.3) */
+	/**
+	 * Java generic method: Set<T> of n random elements of the collection (hub-headers.md §8.3). Java EventBuffHandler.java:210-217: a shuffled
+	 * copy, its first n elements (IndexOutOfBoundsException past its size); the inputs hold distinct elements, so the vector is the set.
+	 */
 	template <class T>
-	std::vector<T> collectNRandomElements(const std::vector<T>& input, int32_t n) { AION_UNPORTED(); }
+	std::vector<T> collectNRandomElements(const std::vector<T>& input, int32_t n) {
+		std::vector<T> shuffledInput(input);
+		std::shuffle(shuffledInput.begin(), shuffledInput.end(), commons::utils::Rnd::generator());
+		std::vector<T> nRandomElements;
+		for (int32_t i = 0; i < n; i++) {
+			if (static_cast<size_t>(i) >= shuffledInput.size())
+				throw commons::utils::IndexOutOfBoundsException("Index " + std::to_string(i) + " out of bounds for length " + std::to_string(shuffledInput.size()));
+			nRandomElements.push_back(shuffledInput[static_cast<size_t>(i)]);
+		}
+		return nRandomElements;
+	}
 
 	bool canReceiveBuff(const model::templates::event::Buff* buff, model::gameobjects::player::Player& player,
 		model::templates::event::Buff_TriggerCondition triggerCondition);

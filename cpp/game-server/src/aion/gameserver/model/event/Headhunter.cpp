@@ -1,6 +1,6 @@
 #include "aion/gameserver/model/event/Headhunter.h"
 
-#include "aion/gameserver/runtime/base/Unported.h"
+#include "aion/commons/utils/TimeUtils.h"
 
 namespace aion::gameserver::model::event {
 
@@ -13,16 +13,26 @@ runtime::Ref<Headhunter> Headhunter::create(int32_t value, int32_t accumulatedKi
 	return runtime::makeRef<Headhunter>(value, accumulatedKillsValue, lastUpdateValue, stateValue);
 }
 
+// Java Headhunter.java:37-42
 int32_t Headhunter::incrementAndGetKills() {
-	AION_UNPORTED();
+	accumulatedKills.set(accumulatedKills.get() + 1); // Java: accumulatedKills++ (no atomicity)
+	lastUpdate.set(commons::utils::currentTimeMillis());
+	state.set(gameobjects::Persistable::PersistentState::UPDATE_REQUIRED);
+	return accumulatedKills.get();
 }
 
 void Headhunter::setPersistentState(gameobjects::Persistable::PersistentState value) {
 	state.set(value);
 }
 
+// Java Headhunter.java:58-66
 int32_t Headhunter::compareTo(const Headhunter& hunter) const {
-	AION_UNPORTED();
+	if (accumulatedKills.get() > hunter.getKills())
+		return -1;
+	else if (accumulatedKills.get() < hunter.getKills())
+		return 1;
+	else // accumulatedKills == hunter.getKills()
+		return lastUpdate.get() > hunter.getLastUpdate() ? -1 : 1;
 }
 
 Headhunter::~Headhunter() = default;
