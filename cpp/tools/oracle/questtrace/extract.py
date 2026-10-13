@@ -785,6 +785,8 @@ HELPERS = {
 	'QuestService.collectItemCheck': ('item', ('inventory',)), 'QuestService.abandonQuest': ('quest', ('all',)),
 	'super.onDialogEvent': ('dialog', ('all',)),
 }
+# the crafting quests (chunk Q06, lane C, 2026-10-13): the two CraftSkillUpdateService predicates their dialogs ask (craft_predicate)
+CRAFT_PREDICATES = ('canLearnMoreExpertCraftingSkill', 'canLearnMoreMasterCraftingSkill')
 # helper arguments that are the hook's own env or player are left out of the recorded arguments
 IMPLICIT = (O('env'), O('player'))
 # Java varargs helpers (AbstractQuestHandler.java:988, :1047): an int[] passed as the varargs parameter is the same call as its elements
@@ -1902,6 +1904,8 @@ class Extractor:
 			k = self.effect(p, 'inventory.decreaseByObjectId', args, 'item', e)
 			self.clobber(p, 'inventory.decreaseByObjectId', ('inventory',))
 			return [(p, Res(k))]
+		if o == 'craftSkill' and name in CRAFT_PREDICATES and len(args) == 1 and args[0] == O('player'):
+			return self.craft_predicate(name, p, e)
 		if o == 'housing' and name == 'registerPlayerStudio' and len(args) == 1 and args[0] == O('player'):
 			# HousingService.registerPlayerStudio(player) (HousingService.java: createStudio(player, false)): an effect the replay calls
 			self.effect(p, 'HousingService.registerPlayerStudio', [], 'housing', e)
@@ -2030,6 +2034,8 @@ class Extractor:
 			return [(p, O('threadPool'))]
 		if cls == 'HousingService' and name == 'getInstance' and not e.args:
 			return [(p, O('housing'))]                  # the studio quests 18802 / 28802 (chunk Q05's rest, row B47 of questgen)
+		if cls == 'CraftSkillUpdateService' and name == 'getInstance' and not e.args:
+			return [(p, O('craftSkill'))]               # the crafting quests (chunk Q06, lane C, 2026-10-13): craft_predicate
 		if cls == 'PacketSendUtility' and name == 'broadcastPacket':
 			# PacketSendUtility.broadcastPacket(player, packet, toSelf) (PacketSendUtility.java:88-93): the player's known players and, with
 			# toSelf, the player; the quester has no other player in sight in a harness, so only toSelf shows
@@ -2040,6 +2046,21 @@ class Extractor:
 				return [(q, K(None))]
 			return self.after_args(e, p, broadcast)
 		raise Unsupported(f'call {cls}.{name}')
+
+	def craft_predicate(self, name, p, e):
+		"""CraftSkillUpdateService.canLearnMoreExpertCraftingSkill / canLearnMoreMasterCraftingSkill(player) (CraftSkillUpdateService.java:
+		159-176): true while the player's expert-or-master (master) crafting skills number fewer than CraftConfig's maximum; false after it
+		sends the player a message (PacketSendUtility.sendMessage). An effect with an assumed result, each result a case (as
+		QuestService.startQuest's); the harness makes either one with the quester's crafting skills (no skill, or the maxima mastered) and its
+		replay calls the service itself, message included. Writes no state a quest path reads"""
+		k = self.effect(p, f'CraftSkillUpdateService.{name}', [], 'packet', e)
+		outs = []
+		for b in (True, False):
+			r = p.fork()
+			r.assume[k] = b
+			r.guards.append((self.line(e), self.jtext(e), b))
+			outs.append((r, K(b)))
+		return outs
 
 	def new(self, e, p):
 		cls = e.type.name

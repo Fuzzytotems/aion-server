@@ -15,7 +15,7 @@
   {"call": "registerOnFailCraft", "args": [182207910, 29038]}
  ],
  "hooks": [
-  {"hook": "onDialogEvent", "line": 33, "unsupported": "call CraftSkillUpdateService.getInstance"},
+  {"hook": "onDialogEvent", "line": 33, "unsupported": "call player.getInventory().getKinah()"},
   {"hook": "onFailCraftEvent", "line": 172, "cases": 7}
  ],
  "cases": [

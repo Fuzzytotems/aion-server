@@ -84,6 +84,7 @@
 #include "GoldenKnownVacuousQ10.h"
 
 #include "aion/commons/utils/Rnd.h"
+#include "aion/gameserver/configs/main/CraftConfig.h"
 #include "aion/gameserver/configs/main/CustomConfig.h"
 #include "aion/gameserver/configs/main/GroupConfig.h"
 #include "aion/gameserver/configs/main/MembershipConfig.h"
@@ -92,6 +93,8 @@
 #include "aion/gameserver/model/gameobjects/player/QuestStateList.h"
 #include "aion/gameserver/model/gameobjects/player/RecipeList.h"
 #include "aion/gameserver/model/gameobjects/player/npcFaction/NpcFactions.h"
+#include "aion/gameserver/model/craft/ProfessionInfo.h"
+#include "aion/gameserver/model/skill/PlayerSkillEntry.h"
 #include "aion/gameserver/model/skill/PlayerSkillList.h"
 #include "aion/gameserver/model/team/TeamType.h"
 #include "aion/gameserver/model/team/group/PlayerGroup.h"
@@ -109,6 +112,7 @@
 #include "aion/gameserver/model/templates/rewards/BonusType.h"
 #include "aion/gameserver/services/GameTimeService.h"
 #include "aion/gameserver/services/HousingService.h"
+#include "aion/gameserver/services/craft/CraftSkillUpdateService.h"
 #include "aion/gameserver/services/QuestService.h"
 #include "aion/gameserver/services/BrokerService.h"
 #include "aion/gameserver/utils/PacketSendUtility.h"
@@ -409,6 +413,9 @@ struct CaseSetup {
 	bool prerequisites = false; // the quests the start conditions name are COMPLETE
 	bool collectItems = false;  // the quest's collect and inventory items are held in their counts
 	bool questListFull = false; // gameserver.basic.questsize.limit 0 (QuestService.checkQuestListSize fails)
+	// chunk Q06 (lane C, 2026-10-13): the quester holds CraftConfig's maximum of crafting skills at master level (500), so both
+	// CraftSkillUpdateService predicates answer false; without it he holds none and both answer true (extract.py craft_predicate)
+	bool craftMastered = false;
 };
 
 /**
@@ -881,7 +888,36 @@ protected:
 		extraQuesters.erase(std::find_if(extraQuesters.begin(), extraQuesters.end(), [&](const auto& q) { return q.get() == quester; }));
 	}
 
-	std::vector<CaseSetup> setupsFor(int32_t questId, const json& given) {
+	/**
+	 * chunk Q06 (lane C, 2026-10-13): a case whose only effects are CraftSkillUpdateService predicates answering true is vacuous by
+	 * construction: a true answer sends nothing (CraftSkillUpdateService.java:159-176), and the crafting quests' dialogs ask it first, at
+	 * every dialog action and target, before their own guards return false (_19052...java:35-36 and the 39 others). Such cases are counted,
+	 * not listed one by one in knownVacuous (480 of them)
+	 */
+	static bool craftAnswerTrueOnly(const json& c) {
+		if (c["effects"].empty() || !c.contains("assume"))
+			return false;
+		for (const json& effect : c["effects"]) {
+			if (!effect.value("call", std::string()).starts_with("CraftSkillUpdateService."))
+				return false;
+		}
+		for (const json& assumption : c["assume"]) {
+			if (!assumption["returns"].get<bool>())
+				return false;
+		}
+		return true;
+	}
+
+	/** a case whose effects ask CraftSkillUpdateService (extract.py craft_predicate) */
+	static bool asksCraftSkills(const json& c) {
+		for (const json& effect : c["effects"]) {
+			if (effect.value("call", std::string()).starts_with("CraftSkillUpdateService."))
+				return true;
+		}
+		return false;
+	}
+
+	std::vector<CaseSetup> setupsFor(int32_t questId, const json& given, bool crafting = false) {
 		const QuestRow& row = goldenData().quests.at(questId);
 		gameserver::model::Race own = row.race == "ASMODIANS" ? gameserver::model::Race::ASMODIANS : gameserver::model::Race::ELYOS;
 		bool raceGiven = given.contains("player") && given["player"].contains("race");
@@ -907,6 +943,8 @@ protected:
 		if (!raceGiven)
 			setups.push_back({"other race", other, level});
 		setups.push_back({"own race, minimum level, quest list full", own, level, prerequisites, false, true});
+		if (crafting) // a path that asks CraftSkillUpdateService (chunk Q06): its false answers
+			setups.push_back({"own race, minimum level, prerequisites finished, crafting skills mastered", own, level, prerequisites, false, false, true});
 		return setups;
 	}
 
@@ -976,7 +1014,24 @@ protected:
 		// the parts every loaded player has that a finish reaches (QuestTemplate1bTestSupport.h makePlayer): npc factions (finishQuest, a level
 		// change), an empty skill list and an empty recipe list
 		player.setNpcFactions(std::make_unique<gameserver::model::gameobjects::player::npcFaction::NpcFactions>(player));
-		player.setSkillList(gameserver::model::skill::PlayerSkillList::create());
+		// chunk Q06 (lane C, 2026-10-13): CraftConfig at its property defaults (CraftConfig.java: 2 expert, 1 master; the unit tests load no
+		// configuration), and a crafting-skills-mastered setup holds the larger maximum of crafting skills at 500, as the DAO loads them
+		configs::main::CraftConfig::MAX_EXPERT_CRAFTING_SKILLS.store(2);
+		configs::main::CraftConfig::MAX_MASTER_CRAFTING_SKILLS.store(1);
+		if (setup.craftMastered) {
+			std::vector<Ptr<gameserver::model::skill::PlayerSkillEntry>> skills;
+			int32_t held = 0;
+			for (gameserver::model::craft::Profession profession : gameserver::model::craft::PROFESSION_VALUES) {
+				if (gameserver::model::craft::isCrafting(profession) && held < 2) {
+					skills.push_back(gameserver::model::skill::PlayerSkillEntry::create(gameserver::model::craft::getSkillId(profession), 500, 0,
+						gameserver::model::gameobjects::Persistable::PersistentState::UPDATED));
+					held++;
+				}
+			}
+			player.setSkillList(gameserver::model::skill::PlayerSkillList::create(skills));
+		} else {
+			player.setSkillList(gameserver::model::skill::PlayerSkillList::create());
+		}
 		player.setRecipeList(gameserver::model::gameobjects::player::RecipeList::create());
 		if (overlay.classPermitted && goldenData().quests.at(questId).classPermitted)
 			quester->f.commonData->setPlayerClass(*goldenData().quests.at(questId).classPermitted);
@@ -1490,6 +1545,11 @@ protected:
 				a[0].value("new", std::string()) == "SM_SYSTEM_MESSAGE.STR_MSG_DailyQuest_Ask_Mentee" && a[0]["args"].empty())
 				utils::PacketSendUtility::sendPacket(player, network::aion::serverpackets::SM_SYSTEM_MESSAGE::STR_MSG_DailyQuest_Ask_Mentee());
 			// chunk Q05's rest (lane C, 2026-10-08): the studio of the housing quests 18802 / 28802 (extract.py, questgen row B47)
+			// chunk Q06 (lane C, 2026-10-13): the crafting quests' predicates (extract.py craft_predicate); the service sends its message itself
+			else if (call == "CraftSkillUpdateService.canLearnMoreExpertCraftingSkill" && a.empty())
+				result = services::craft::CraftSkillUpdateService::getInstance().canLearnMoreExpertCraftingSkill(player);
+			else if (call == "CraftSkillUpdateService.canLearnMoreMasterCraftingSkill" && a.empty())
+				result = services::craft::CraftSkillUpdateService::getInstance().canLearnMoreMasterCraftingSkill(player);
 			else if (call == "HousingService.registerPlayerStudio" && a.empty())
 				::aion::gameserver::services::HousingService::getInstance().registerPlayerStudio(player);
 			// lane C (phase 6 step 1): the effects of the hooks and closures the harness drives since (extract.py: ThreadPoolManager.schedule,
@@ -1582,6 +1642,7 @@ protected:
 		int32_t overlaysSkipped = 0;              // overlay runs no setup reproduces (not a failure; the case as given is compared)
 		std::vector<std::string> unsatisfiable;
 		std::vector<std::string> vacuous;         // cases with effects whose runs never changed anything observable
+		int32_t craftAnswersTrue = 0;             // vacuous by craftAnswerTrueOnly, not listed (chunk Q06)
 		std::set<std::string> failedChecks;       // "thrown" "returned" "packets" "opcodes" "questStates" "inventory" "timeline" "pendingTasks"
 		std::map<std::string, std::set<std::string>> unported; // variant id -> the AION_UNPORTED sites a compared run of it reached
 	};
@@ -1640,7 +1701,7 @@ protected:
 					Ref<gameserver::model::gameobjects::Npc> npc = targetOf(c["given"], overlay);
 					std::optional<CaseSetup> chosen;
 					Outcome expected;
-					for (const CaseSetup& setup : setupsFor(questId, c["given"])) {
+					for (const CaseSetup& setup : setupsFor(questId, c["given"], asksCraftSkills(c))) {
 						Outcome replayed = run(handler, questId, c, setup, overlay, npc, true);
 						if (!replayed.replayError.empty()) {
 							why = replayed.replayError;
@@ -1721,8 +1782,12 @@ protected:
 				anyReproduced = true;
 				(ok ? tally.passed : tally.failed)++;
 			}
-			if (hasEffects && anyReproduced && !anyObservable && !killed)
-				tally.vacuous.push_back(base["id"].get<std::string>());
+			if (hasEffects && anyReproduced && !anyObservable && !killed) {
+				if (craftAnswerTrueOnly(base))
+					tally.craftAnswersTrue++;
+				else
+					tally.vacuous.push_back(base["id"].get<std::string>());
+			}
 		}
 		if (report) {
 			std::cout << "[golden] quest " << questId << ": " << tally.passed << " passed, " << tally.failed << " failed, " << tally.unsatisfiable.size()
@@ -2497,7 +2562,8 @@ const std::map<std::string, std::string>& knownUnported() {
  * Chunk Q12 (lane C): theobomos 3074, 3090 (getKinah), 3082 (spawnForFiveMinutes), 3088 (decreaseByItemId); event_quests 80000, 80001, 80008 (QuestService.startEventQuest), 80020, 80021 (a cast to Creature)
  * The butler quests (lane C): oriel 18821, pernon 28821 (player.getActiveHouse(), their only hook)
  * Chunk Q04 (lane C): beluslan 2600 (spawnForFiveMinutes), 2630, 28600 (a status read after sendQuestNoneDialog), 2663, 2664 (workItems.getFirst), 4200 (InstanceService.getNextAvailableInstance, TeleportService.teleportTo); brusthonin 4074 (getKinah)
- * Chunk Q06 (lane C): crafting 1972-1983, 2972-2983, 19001, 19003, 19008-19032, 19052-19057, 29000, 29001, 29003, 29008-29032, 29052-29057 (CraftSkillUpdateService.getInstance in 42, player.getSkillList() in 4, isFullSpecialCube in 1)
+ * Chunk Q06 (lane C): crafting 19001, 19003, 29001, 29003 (player.getSkillList().addSkill), 29000 (isFullSpecialCube), 19057, 29057 (getKinah);
+ * the other 40 of the 47 got their cases with the CraftSkillUpdateService predicates (extract.py craft_predicate, 2026-10-13)
  */
 constexpr int32_t ORACLE_REFUSES_EVERY_HOOK[] = {1205, 2132, 1640, 1647, 2925, 2938, 2952, 4966, 4967, 4968, 4969, 21004, 21027, 21033, 21036,
 	21071, 21105, 21249, 25052, 2798, 11031, 11032, 11033, 11053, 11118, 3208, 3217, 3219, 3220, 4208, 4217, 4219, 4220, 3939, 3940, 30553,
@@ -2508,7 +2574,7 @@ constexpr int32_t ORACLE_REFUSES_EVERY_HOOK[] = {1205, 2132, 1640, 1647, 2925, 2
 	3074, 3082, 3088, 3090, 80000, 80001, 80008, 80020, 80021,
 	18821, 28821,
 	2600, 2630, 2663, 2664, 28600, 4074, 4200,
-	1972, 1973, 1974, 1975, 1976, 1977, 1978, 1979, 1980, 1981, 1982, 1983, 2972, 2973, 2974, 2975, 2976, 2977, 2978, 2979, 2980, 2981, 2982, 2983, 19001, 19003, 19008, 19014, 19020, 19026, 19032, 19052, 19053, 19055, 19057, 29000, 29001, 29003, 29008, 29014, 29020, 29026, 29032, 29052, 29053, 29055, 29057};
+	19001, 19003, 19057, 29000, 29001, 29003, 29057};
 
 TEST_F(GoldenQuestTraceTest, EveryExpectedDocumentHasAGeneratedHandlerAndEveryHandlerADocument) {
 	std::vector<int32_t> ids = expectedQuestIds();
