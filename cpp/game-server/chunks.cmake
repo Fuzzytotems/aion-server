@@ -411,7 +411,7 @@ aion_gs_chunk(P5-11 TARGET aion_gs_legionhouse PHASE 5
 		"src/com/aionemu/gameserver/model/{house,town,legionDominion}/**" "src/com/aionemu/gameserver/taskmanager/tasks/housing/**"
 		"src/com/aionemu/gameserver/taskmanager/tasks/LegionDominionIntruderUpdateTask.java")
 # The legion-service lane of M5h (m5h-plan.md I-02, S-06; granted 2026-10-08): P5-11 leases services/SiegeService.cpp from P5-12a for
-# cleanLegionId and services/conquerorAndProtectorSystem/ConquerorAndProtectorService.cpp from P5-12b for onLeaveLegion and
+# cleanLegionId and services/conquerorAndProtectorSystem/ConquerorAndProtectorService.cpp from P5-12b (P5-12b3 since M5i's D1) for onLeaveLegion and
 # resetLegionDominionRank - the three bodies LegionService reaches on every disband and every leave or kick of an online member. Released when
 # the lane merges.
 aion_gs_chunk(P5-11 LEASE PHASE 5
@@ -472,13 +472,21 @@ aion_gs_chunk(P5-11 LEASE PHASE 5
 aion_gs_chunk(P5-11 LEASE PHASE 5
 	GLOBS "aion/gameserver/services/instance/InstanceService.cpp")
 
-# P5-12b: base, rift, vortex, world raid, panesterra, conqueror/protector, events
-aion_gs_chunk(P5-12b TARGET aion_gs_worldevents PHASE 5
-	GLOBS "aion/gameserver/services/{rift,vortex,worldraid,panesterra,event,conquerorAndProtectorSystem}/**"
-		"aion/gameserver/services/{BaseService,RiftService,VortexService,WorldRaidService}.*" "aion/gameserver/model/{base,rift,vortex,event}/**"
-	JAVA "src/com/aionemu/gameserver/services/{rift,vortex,worldraid,panesterra,event,conquerorAndProtectorSystem}/**"
-		"src/com/aionemu/gameserver/services/{BaseService,RiftService,VortexService,WorldRaidService}.java"
-		"src/com/aionemu/gameserver/model/{base,rift,vortex,event}/**")
+# P5-12b1..P5-12b3: base, rift, vortex, world raid, panesterra, conqueror/protector, events - three parts of one target, split for M5i (the
+# owner's D1 of 2026-10-13, m5i-plan.md D1 and 15.5): P5-12b1 bases and Panesterra, P5-12b2 rifts, the vortex and world raids, P5-12b3 events
+# and the conqueror/protector system. The tests follow into tests/worldevents/P5-12b1..3, as tests/team/P5-10a..f.
+aion_gs_chunk(P5-12b1 TARGET aion_gs_worldevents PHASE 5
+	GLOBS "aion/gameserver/services/panesterra/**" "aion/gameserver/services/BaseService.*" "aion/gameserver/model/base/**"
+	JAVA "src/com/aionemu/gameserver/services/panesterra/**" "src/com/aionemu/gameserver/services/BaseService.java"
+		"src/com/aionemu/gameserver/model/base/**")
+aion_gs_chunk(P5-12b2 TARGET aion_gs_worldevents PHASE 5
+	GLOBS "aion/gameserver/services/{rift,vortex,worldraid}/**" "aion/gameserver/services/{RiftService,VortexService,WorldRaidService}.*"
+		"aion/gameserver/model/{rift,vortex}/**"
+	JAVA "src/com/aionemu/gameserver/services/{rift,vortex,worldraid}/**"
+		"src/com/aionemu/gameserver/services/{RiftService,VortexService,WorldRaidService}.java" "src/com/aionemu/gameserver/model/{rift,vortex}/**")
+aion_gs_chunk(P5-12b3 TARGET aion_gs_worldevents PHASE 5
+	GLOBS "aion/gameserver/services/{event,conquerorAndProtectorSystem}/**" "aion/gameserver/model/event/**"
+	JAVA "src/com/aionemu/gameserver/services/{event,conquerorAndProtectorSystem}/**" "src/com/aionemu/gameserver/model/event/**")
 
 # P5-13: instance engine and handler core, services.instance, custom (PvpMap, Roah), transfers, model.instance, restrictions
 aion_gs_chunk(P5-13 TARGET aion_gs_instance PHASE 5

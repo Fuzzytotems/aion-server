@@ -183,7 +183,7 @@ CHUNK_MILESTONE = {
     'P5-00': 'M5a', 'P5-01': 'M5b-2', 'P5-02a': 'M5b-2', 'P5-02b': 'M5b-2', 'P5-03': 'M5b-2', 'P5-04': 'M5b-2', 'P5-05': 'M5j',
     'P5-06a': 'M5d', 'P5-06b': 'M5d', 'P5-06c': 'M5d', 'P5-07': 'M5b-3', 'P5-08': 'M5j', 'P5-09a': 'M5b-3', 'P5-09b': 'M5c', 'P5-09c': 'M5c',
     'P5-10a': 'M5g', 'P5-10b': 'M5g', 'P5-10c': 'M5g', 'P5-10d': 'M5g', 'P5-10e': 'M5g', 'P5-10f': 'M5h', 'P5-11': 'M5h',
-    'P5-12a': 'M5i', 'P5-12b': 'M5i', 'P5-13': 'M5f', 'P5-14': 'M5j', 'P5-15': 'CM', 'P5-16': 'CM', 'P5-SC': 'none',
+    'P5-12a': 'M5i', 'P5-12b1': 'M5i', 'P5-12b2': 'M5i', 'P5-12b3': 'M5i', 'P5-13': 'M5f', 'P5-14': 'M5j', 'P5-15': 'CM', 'P5-16': 'CM', 'P5-SC': 'none',
 }
 # P5-06a/b/c: the engine, the handler base and the XML templates of the quest chunk, all three M5d (m5d-plan.md D1, item I-01)
 # (chunk, milestone, regex over the path relative to the package root without extension: 'services/drop/DropService'); the first match wins,
