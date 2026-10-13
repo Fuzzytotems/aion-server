@@ -297,7 +297,7 @@ TEST_F(TeleportCommandsTest, MoveToObject) {
 	EXPECT_EQ(client()->sentBytes(), exactly({message("Syntax : //movetoobj <object id>")}));
 	client()->clearSent();
 	EXPECT_TRUE(move.process(admin, args({"abc"})));
-	EXPECT_EQ(client()->sentBytes(), exactly({message("Only numbers please!!!"), message("Cannot find object for spawn #0")})) << "Java goes on with 0";
+	EXPECT_EQ(client()->sentBytes(), exactly({message("Only numbers please!!!")})) << "correction J-S4CP6-1: it returns (Java goes on with 0)";
 	client()->clearSent();
 	EXPECT_TRUE(move.process(admin, args({"999999"})));
 	EXPECT_EQ(client()->sentBytes(), exactly({message("Cannot find object for spawn #999999")}));
