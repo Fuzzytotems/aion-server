@@ -9,6 +9,7 @@
 #include "aion/gameserver/cache/HTMLCache.h"
 #include "aion/gameserver/custom/instance/CustomInstanceRankEnumInfo.h"
 #include "aion/gameserver/custom/instance/CustomInstanceRankedPlayer.h"
+#include "aion/gameserver/custom/instance/RoahCustomInstanceHandler.h"
 #include "aion/gameserver/custom/instance/neuralnetwork/PlayerModelEntry.h"
 #include "aion/gameserver/dao/CustomInstanceDAO.h"
 #include "aion/gameserver/dao/CustomInstancePlayerModelEntryDAO.h"
@@ -17,8 +18,12 @@
 #include "aion/gameserver/model/gameobjects/Persistable.h"
 #include "aion/gameserver/model/gameobjects/player/Player.h"
 #include "aion/gameserver/runtime/base/Exceptions.h"
-#include "aion/gameserver/runtime/base/Unported.h"
+#include "aion/gameserver/model/animations/TeleportAnimation.h"
 #include "aion/gameserver/services/HTMLService.h"
+#include "aion/gameserver/services/instance/InstanceService.h"
+#include "aion/gameserver/services/teleport/TeleportService.h"
+#include "aion/gameserver/utils/PacketSendUtility.h"
+#include "aion/gameserver/world/WorldMapInstance.h"
 #include "aion/gameserver/skillengine/model/Skill.h"
 #include "aion/gameserver/utils/idfactory/IDFactory.h"
 #include "aion/gameserver/utils/time/ServerTime.h"
@@ -63,8 +68,25 @@ bool CustomInstanceService::canEnter(int32_t playerId) {
 	return playerRankObject->getLastEntry() < reUseEpochSecond(RESET_HOUR) * 1000;
 }
 
+// Java CustomInstanceService.java:55-64
 void CustomInstanceService::onEnter(model::gameobjects::player::Player& player) {
-	AION_UNPORTED();
+	if (!updateLastEntry(player.getObjectId(), commons::utils::currentTimeMillis())) {
+		utils::PacketSendUtility::sendMessage(player, "Sorry. Some shugo broke our database, please report this in our bugtracker :(");
+		return;
+	}
+	runtime::Ref<runtime::RcArrayList<runtime::Ref<neuralnetwork::PlayerModelEntry>>> entries =
+		runtime::RcArrayList<runtime::Ref<neuralnetwork::PlayerModelEntry>>::create(AION_LOCK_CLASS(CustomInstanceService::playerModelEntriesCache#list));
+	for (runtime::Ref<neuralnetwork::PlayerModelEntry>& entry : loadPlayerModelEntries(player.getObjectId()))
+		entries->add(entry);
+	playerModelEntriesCache.put(player.getObjectId(), entries);
+	runtime::Ptr<world::WorldMapInstance> wmi = services::instance::InstanceService::getNextAvailableInstance(CUSTOM_INSTANCE_WORLD_ID, 0, int8_t{1},
+		[](world::WorldMapInstance& instance) -> runtime::Ref<gameserver::instance::handlers::InstanceHandler> {
+			return RoahCustomInstanceHandler::create(instance);
+		},
+		1, true);
+	wmi->register_(player.getObjectId());
+	services::teleport::TeleportService::teleportTo(player, wmi->getMapId(), wmi->getInstanceId(), 504.0f, 396.0f, 94.0f, int8_t{30},
+		model::animations::TeleportAnimation::FADE_OUT_BEAM);
 }
 
 // Java CustomInstanceService.java:66-71

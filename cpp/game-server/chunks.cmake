@@ -734,6 +734,13 @@ aion_gs_chunk(P5-12a LEASE PHASE 5 ROOT handlers
 	GLOBS "aion/gameserver/handlers/ai/siege/{SiegeNpcAI,AbstractSiegeProtectorAI,ArtifactProtectorAI,FortressProtectorNpcAI,GuardianGeneralAI}.*"
 		"aion/gameserver/handlers/ai/siege/{SiegeRaceProtectorAI,ShieldNpcAI}.*"
 		"aion/gameserver/handlers/ai/ArtifactAI.*")
+	GLOBS "aion/gameserver/handlers/ai/portals/{StudioPortalAI,HouseGateAI}.*" "aion/gameserver/handlers/ai/{ButlerAI,HouseSignAI}.*")
+	GLOBS "aion/gameserver/handlers/ai/portals/StudioPortalAI.*" "aion/gameserver/handlers/ai/{ButlerAI,HouseSignAI}.*")
+# M5j D12-CP3 (lane A, coordinator's grant 2026-10-13): the seven Eternal Challenge AIs (I1's eternalChallenge directory and A1's
+# CustomInstanceTeleporter) are compiled by #include into P5-05's test executable (tests/handlers_ai_core/CustomInstanceAiTest.cpp), as above.
+# Released at the merge.
+aion_gs_chunk(P5-05 LEASE PHASE 5 ROOT handlers
+	GLOBS "aion/gameserver/handlers/ai/instance/custom/eternalChallenge/*" "aion/gameserver/handlers/ai/portals/CustomInstanceTeleporter.*")
 
 # I1-I6: vertical instance slices, each @InstanceID handler with its ai/instance directory (bin-packed to about 6-8k Java lines; handlers without
 # an AI directory go to I1). I1 owns the instance prelude.
