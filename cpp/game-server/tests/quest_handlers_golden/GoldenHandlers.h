@@ -737,10 +737,13 @@
 	X(orichalcum_key, _38007AKeyMessage, 38007) \
 	X(oriel, _18802AndAHomeforEveryDaeva, 18802) \
 	X(oriel, _18805GoingThrifting, 18805) \
+	X(oriel, _18806HeartofRock, 18806) \
 	X(oriel, _18807BlessedBeThyHame, 18807) \
 	X(oriel, _18808FoolproofPackaging, 18808) \
 	X(oriel, _18809DaevaontheRide, 18809) \
+	X(oriel, _18821AlmostForgotMyBlessings, 18821) \
 	X(oriel, _18826TodaysFind, 18826) \
+	X(oriel, _18828UserFriendly, 18828) \
 	X(oriel, _18830MovingIn, 18830) \
 	X(oriel, _18832ImaginingAQuietLife, 18832) \
 	X(oriel, _18847Housewarming, 18847) \
@@ -749,10 +752,13 @@
 	X(pangaea, _24220WelcometoPanesterra, 24220) \
 	X(pernon, _28802BeItEverSoHumble, 28802) \
 	X(pernon, _28805SomethingOldSomethingNew, 28805) \
+	X(pernon, _28806WiltingFlowersFallingTears, 28806) \
 	X(pernon, _28807BlessingsofaGreenThumb, 28807) \
 	X(pernon, _28808OpenSaysMe, 28808) \
 	X(pernon, _28809FirstClassorCoach, 28809) \
+	X(pernon, _28821YourButlerGift, 28821) \
 	X(pernon, _28826FreetoaGoodHome, 28826) \
+	X(pernon, _28828TheManyFacetsOfFriendship, 28828) \
 	X(pernon, _28830InteriorDecorator, 28830) \
 	X(pernon, _28832TakingtheTour, 28832) \
 	X(pernon, _28847AHomeThatsYourOwn, 28847) \

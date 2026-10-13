@@ -361,6 +361,9 @@ SLICE_Q11 = (
 )
 # Phase 6 step 2, chunk Q05 (lane C, 2026-10-08; docs/deviations/Q05.md): the rest of eltnen and oriel that questgen transliterates
 SLICE_Q05 = (
+	'oriel/_18828UserFriendly.java',
+	'oriel/_18821AlmostForgotMyBlessings.java',
+	'oriel/_18806HeartofRock.java',
 	'oriel/_18830MovingIn.java',
 	'oriel/_18802AndAHomeforEveryDaeva.java',
 	'eltnen/_1311AGermOfHope.java', 'eltnen/_1314Anelimoutofwater.java', 'eltnen/_1319PrioritesMoney.java',
@@ -383,6 +386,9 @@ SLICE_Q05 = (
 )
 # Phase 6 step 2, chunk Q09 (lane C, 2026-10-08; docs/deviations/Q09.md): the rest of morheim and pernon that questgen transliterates
 SLICE_Q09 = (
+	'pernon/_28828TheManyFacetsOfFriendship.java',
+	'pernon/_28821YourButlerGift.java',
+	'pernon/_28806WiltingFlowersFallingTears.java',
 	'pernon/_28830InteriorDecorator.java',
 	'morheim/_2303DaevaWheresMyHerb.java', 'morheim/_2307IrresistibleSoup.java', 'morheim/_2316VivisBook.java',
 	'morheim/_2321SpyTheSpiritsLetter.java', 'morheim/_2324TheSpiritsNotebook.java', 'morheim/_2332MeatyTreats.java',
@@ -820,7 +826,11 @@ class Extractor:
 		"""constant fields: a final one, or one no method writes (the handler is a singleton; a written field is per-player state)"""
 		written = {a.name for m in self.td.methods if m.body is not None for a in m.body.assignments() if not a.local}
 		out = self.consts
+		static_sets = self.static_sets()
 		for f in self.td.fields:
+			if f.initializer is None and f.name in static_sets:
+				out[f.name] = K(static_sets[f.name])
+				continue
 			if f.initializer is None or ('final' not in f.modifiers and f.name in written):
 				out[f.name] = Unsupported(f'field {f.name} is written or has no initializer')
 				continue
@@ -839,6 +849,54 @@ class Extractor:
 				out[f.name] = Unsupported(f'field {f.name} is not a constant')
 				continue
 			out[f.name] = vals[0][1]
+
+	def static_sets(self):
+		"""the butler quests 18806, 18821, 18828, 28806, 28821, 28828 (lane C, 2026-10-13): a `static final Set<Integer> X;` filled only by a
+		static initializer `{ X = new HashSet<>(); X.add(<int literal>); ... }` is a constant tuple in the order of the adds (Java's HashSet
+		order only orders independent npc registrations there); X -> values. Its Iterator loop is a for-each (exec_stmts)"""
+		out = {}
+		tx = self.cu.tokens.text
+		for ini in self.td.initializers:
+			if not ini.static:
+				continue
+			toks = [tx[i] for i in range(ini.body.start, ini.body.end)]
+			if len(toks) < 11 or toks[0] != '{' or toks[-1] != '}' or toks[2:10] != ['=', 'new', 'HashSet', '<', '>', '(', ')', ';']:
+				continue
+			name, rest, values = toks[1], toks[10:-1], []
+			while len(rest) >= 7 and rest[:4] == [name, '.', 'add', '('] and rest[5:7] == [')', ';'] and rest[4].isdigit():
+				values.append(int(rest[4]))
+				rest = rest[7:]
+			f = next((x for x in self.td.fields if x.name == name), None)
+			if rest or not values or f is None or f.initializer is not None or not {'static', 'final'} <= set(f.modifiers) \
+					or f.type.name != 'Set':
+				continue
+			out[name] = tuple(values)
+		return out
+
+	def iterator_loops(self, stmts):
+		"""`Iterator<Integer> it = X.iterator(); while (it.hasNext()) { int v = it.next(); rest }` over a constant X as one
+		`for (int v : X) { rest }` (the static-set shape, static_sets)"""
+		out = []
+		k = 0
+		while k < len(stmts):
+			s = stmts[k]
+			w = stmts[k + 1] if k + 1 < len(stmts) else None
+			if isinstance(s, jast.Local) and s.type.name == 'Iterator' and len(s.decls) == 1 and isinstance(w, jast.While) \
+					and isinstance(w.body, jast.Block) and w.body.stmts:
+				it, _d, init, _t = s.decls[0]
+				first = w.body.stmts[0]
+				c = w.cond
+				if isinstance(init, jast.Call) and init.name == 'iterator' and isinstance(init.target, jast.Name) \
+						and isinstance(self.consts.get(init.target.name), K) and isinstance(c, jast.Call) and c.name == 'hasNext' \
+						and isinstance(c.target, jast.Name) and c.target.name == it and isinstance(first, jast.Local) \
+						and len(first.decls) == 1 and isinstance(first.decls[0][2], jast.Call) and first.decls[0][2].name == 'next':
+					body = jast.Block(w.body.tok, w.body.last, w.body.stmts[1:])
+					out.append(jast.ForEach(s.tok, w.last, first.type, first.decls[0][0], init.target, body))
+					k += 2
+					continue
+			out.append(s)
+			k += 1
+		return out
 
 	def constant_list(self, f):
 		"""the owner's decision of 2026-10-07 on pangaea 14220/24220: a `static final List<Integer> X = new ArrayList<>(Arrays.asList(<int
@@ -974,6 +1032,7 @@ class Extractor:
 
 	# -- statements -----------------------------------------------------------------------------------------------------------------
 	def exec_stmts(self, stmts, p):
+		stmts = self.iterator_loops(stmts)
 		outs = [('normal', p, None)]
 		for s in stmts:
 			nxt = []
