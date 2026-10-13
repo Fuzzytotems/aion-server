@@ -1,13 +1,13 @@
 #pragma once
 
 #include <cstdint>
-#include <map>
 #include <memory>
 #include <optional>
 #include <string>
 #include <string_view>
 #include <unordered_map>
 #include <unordered_set>
+#include <utility>
 #include <vector>
 
 #include "aion/gameserver/runtime/collections/ConcurrentHashMap.h"
@@ -41,7 +41,8 @@ private:
 	runtime::HashMap<int32_t, runtime::Ref<model::siege::ArtifactLocation>> artifacts{AION_LOCK_CLASS(SiegeService::artifacts)};
 	runtime::HashMap<int32_t, runtime::Ref<model::siege::FortressLocation>> fortresses{AION_LOCK_CLASS(SiegeService::fortresses)};
 	runtime::HashMap<int32_t, runtime::Ref<model::siege::OutpostLocation>> outposts{AION_LOCK_CLASS(SiegeService::outposts)};
-	runtime::HashMap<int32_t, runtime::Ref<model::siege::SiegeLocation>> locations{AION_LOCK_CLASS(SiegeService::locations)};
+	// header request 5a-pre-10b (granted 2026-10-13, owner's D10): Java's LinkedHashMap of SiegeLocationData, iterated in insertion order
+	runtime::LinkedHashMap<int32_t, runtime::Ref<model::siege::SiegeLocation>> locations{AION_LOCK_CLASS(SiegeService::locations)};
 	const runtime::Ref<model::siege::AgentLocation> agent{};
 	// fieldmap.toml: java.util.Date, null while the siege service is disabled (SiegeService.java:340), hub-headers.md §6
 	runtime::Field<std::optional<commons::database::Timestamp>> nextStateUpdateTime{};
@@ -88,10 +89,10 @@ public:
 	runtime::Ptr<model::siege::ArtifactLocation> getFortressArtifact(int32_t siegeLocId);
 	const model::templates::siegelocation::DoorRepairData* getDoorRepairData(int32_t siegeId);
 	const model::templates::siegelocation::DoorRepairStone* getRepairStone(int32_t siegeId, int32_t repairStoneStaticId);
-	runtime::HashMap<int32_t, runtime::Ref<model::siege::SiegeLocation>>& getSiegeLocations() { return this->locations; }
+	runtime::LinkedHashMap<int32_t, runtime::Ref<model::siege::SiegeLocation>>& getSiegeLocations() { return this->locations; }
 	runtime::Ptr<model::siege::SiegeLocation> getSiegeLocation(int32_t id);
-	/** C++: Java LinkedHashMap filled in the iteration order of `locations`; a std::map keeps the ids ordered */
-	std::map<int32_t, runtime::Ptr<model::siege::SiegeLocation>> getSiegeLocations(int32_t worldId);
+	/** Java: a new LinkedHashMap filled in the iteration order of `locations` (5a-pre-10b); C++: its entries in that order */
+	std::vector<std::pair<int32_t, runtime::Ptr<model::siege::SiegeLocation>>> getSiegeLocations(int32_t worldId);
 	runtime::Ptr<model::siege::AgentLocation> getAgentLocation() const { return this->agent; }
 private:
 	/** @return the newly created per-run siege (Java `new FortressSiege(...)` etc.), hub-headers.md §5 */

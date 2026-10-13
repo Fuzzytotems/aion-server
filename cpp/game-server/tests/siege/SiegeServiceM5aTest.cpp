@@ -9,7 +9,10 @@
 #include "aion/gameserver/configs/main/SiegeConfig.h"
 #include "aion/gameserver/model/Race.h"
 #include "aion/gameserver/model/siege/Influence.h"
+#include "aion/gameserver/model/siege/SiegeLocation.h"
 #include "aion/gameserver/model/siege/SiegeRace.h"
+#include "aion/gameserver/model/templates/siegelocation/SiegeLocationTemplate.bind.h"
+#include "aion/gameserver/model/templates/siegelocation/SiegeLocationTemplate.h"
 #include "aion/gameserver/runtime/base/Unported.h"
 #include "aion/gameserver/services/SiegeService.h"
 
@@ -45,6 +48,38 @@ TEST_F(SiegeServiceM5aTest, DisabledSiegesHaveNoLocationsAndNoSchedules) {
 	EXPECT_EQ(service.getRemainingSiegeTimeInSeconds(1011), 0) << "no active siege";
 	EXPECT_EQ(service.getSecondsUntilNextFortressState(), 0) << "nextStateUpdateTime is null while the siege service is deactivated";
 	EXPECT_EQ(runtime::unportedHitCount(), 0u);
+}
+
+TEST_F(SiegeServiceM5aTest, LocationsKeepJavasInsertionOrder) {
+	// header request 5a-pre-10b (owner's D10 of 2026-10-13): Java's locations is SiegeLocationData's LinkedHashMap and getSiegeLocations(int)
+	// a new LinkedHashMap filled in its order (SiegeService.java:415-428) - the order SM_SIEGE_LOCATION_INFO and SM_SHIELD_EFFECT write
+	using model::templates::siegelocation::SiegeLocationTemplate;
+	AtomicConfigScope<bool> disabled(configs::main::SiegeConfig::SIEGE_ENABLED, false);
+	xml::LoadContext context;
+	std::vector<std::unique_ptr<SiegeLocationTemplate>> templates;
+	for (const char* row : {R"(<siege_location id="9001" type="FORTRESS" world="400010000"/>)", R"(<siege_location id="1011" type="FORTRESS" world="400010000"/>)",
+			 R"(<siege_location id="5000" type="FORTRESS" world="210010000"/>)", R"(<siege_location id="2011" type="FORTRESS" world="400010000"/>)"})
+		templates.push_back(xml::bindString<SiegeLocationTemplate>(context, row));
+	services::SiegeService& service = services::SiegeService::getInstance();
+	ASSERT_EQ(service.getSiegeLocations().size(), 0) << "sieges are off";
+	struct Restore {
+		services::SiegeService& service;
+		~Restore() {
+			for (int32_t id : {9001, 1011, 5000, 2011})
+				service.getSiegeLocations().remove(id);
+		}
+	} restore{service};
+	for (const std::unique_ptr<SiegeLocationTemplate>& t : templates)
+		service.getSiegeLocations().put(t->getId(), model::siege::SiegeLocation::create(t.get()));
+
+	std::vector<int32_t> all;
+	for (const runtime::Ptr<model::siege::SiegeLocation>& location : service.getSiegeLocations().values())
+		all.push_back(location->getLocationId());
+	EXPECT_EQ(all, (std::vector<int32_t>{9001, 1011, 5000, 2011})) << "insertion order, not id order";
+	std::vector<int32_t> reshanta;
+	for (const auto& [id, location] : service.getSiegeLocations(400010000))
+		reshanta.push_back(id);
+	EXPECT_EQ(reshanta, (std::vector<int32_t>{9001, 1011, 2011})) << "the world's locations in the same order";
 }
 
 TEST_F(SiegeServiceM5aTest, LoginSendsNoSiegePacketsWhileDisabled) {
