@@ -1717,3 +1717,6 @@ About 3,500 Java lines, ~130 bodies. **Checkpoints** (unit tests in the owning c
 
 > **Progress:** D12-CP1 done (`lane-a/m5j-d12-cp1`): the seven neural-network classes and CustomInstancePlayerModelEntryDAO's two bodies
 > (P5-13.md); mutation proof 13 of 13.
+> **Progress:** D12-CP2 done (`lane-a/m5j-d12-cp2`): CP2a (CustomInstanceService, the rank companion, //cinstance, .buy; C1.md, P5-13.md) and
+> CP2b (RoahCustomInstanceHandler, onEnter); CP3 done in the same branch: the seven Eternal Challenge AIs (P5-13.md; LEASE of P5-05 for their
+> test). Left: D12-CP4 (PvpMapHandler) and D12-CP5 (WebRewardService, //headhunting; the Headhunter model is lane B's).
