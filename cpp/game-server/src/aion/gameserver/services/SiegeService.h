@@ -38,10 +38,11 @@ class SiegeService : public runtime::Immortal {
 private:
 	runtime::ConcurrentHashMap<int32_t, runtime::Ref<siege::Siege>> activeSieges{AION_LOCK_CLASS(SiegeService::activeSieges#stripe)};
 	runtime::AtomicBoolean isInitialized{AION_LOCK_CLASS(SiegeService::isInitialized)}; // Java: = new AtomicBoolean()
-	runtime::HashMap<int32_t, runtime::Ref<model::siege::ArtifactLocation>> artifacts{AION_LOCK_CLASS(SiegeService::artifacts)};
-	runtime::HashMap<int32_t, runtime::Ref<model::siege::FortressLocation>> fortresses{AION_LOCK_CLASS(SiegeService::fortresses)};
-	runtime::HashMap<int32_t, runtime::Ref<model::siege::OutpostLocation>> outposts{AION_LOCK_CLASS(SiegeService::outposts)};
-	// header request 5a-pre-10b (granted 2026-10-13, owner's D10): Java's LinkedHashMap of SiegeLocationData, iterated in insertion order
+	// header request 5a-pre-10b (granted 2026-10-13, owner's D10): the four maps are SiegeLocationData's LinkedHashMaps in Java, iterated in
+	// insertion order (siege_locations.xml) - the order SM_ABYSS_ARTIFACT_INFO3, SM_SHIELD_EFFECT, SM_SIEGE_LOCATION_INFO and SM_FORTRESS_STATUS write
+	runtime::LinkedHashMap<int32_t, runtime::Ref<model::siege::ArtifactLocation>> artifacts{AION_LOCK_CLASS(SiegeService::artifacts)};
+	runtime::LinkedHashMap<int32_t, runtime::Ref<model::siege::FortressLocation>> fortresses{AION_LOCK_CLASS(SiegeService::fortresses)};
+	runtime::LinkedHashMap<int32_t, runtime::Ref<model::siege::OutpostLocation>> outposts{AION_LOCK_CLASS(SiegeService::outposts)};
 	runtime::LinkedHashMap<int32_t, runtime::Ref<model::siege::SiegeLocation>> locations{AION_LOCK_CLASS(SiegeService::locations)};
 	const runtime::Ref<model::siege::AgentLocation> agent{};
 	// fieldmap.toml: java.util.Date, null while the siege service is disabled (SiegeService.java:340), hub-headers.md §6
@@ -79,11 +80,11 @@ public:
 	runtime::Ptr<siege::Siege> getSiege(model::siege::SiegeLocation& loc);
 	runtime::Ptr<siege::Siege> getSiege(int32_t siegeLocationId);
 	bool isSiegeInProgress(int32_t fortressId);
-	runtime::HashMap<int32_t, runtime::Ref<model::siege::OutpostLocation>>& getOutposts() { return this->outposts; }
+	runtime::LinkedHashMap<int32_t, runtime::Ref<model::siege::OutpostLocation>>& getOutposts() { return this->outposts; }
 	runtime::Ptr<model::siege::OutpostLocation> getOutpost(int32_t id);
-	runtime::HashMap<int32_t, runtime::Ref<model::siege::FortressLocation>>& getFortresses() { return this->fortresses; }
+	runtime::LinkedHashMap<int32_t, runtime::Ref<model::siege::FortressLocation>>& getFortresses() { return this->fortresses; }
 	runtime::Ptr<model::siege::FortressLocation> getFortress(int32_t id);
-	runtime::HashMap<int32_t, runtime::Ref<model::siege::ArtifactLocation>>& getArtifacts() { return this->artifacts; }
+	runtime::LinkedHashMap<int32_t, runtime::Ref<model::siege::ArtifactLocation>>& getArtifacts() { return this->artifacts; }
 	runtime::Ptr<model::siege::ArtifactLocation> getArtifact(int32_t id);
 	std::vector<runtime::Ptr<model::siege::ArtifactLocation>> getStandaloneArtifacts();
 	runtime::Ptr<model::siege::ArtifactLocation> getFortressArtifact(int32_t siegeLocId);
