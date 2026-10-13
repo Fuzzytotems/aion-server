@@ -93,7 +93,10 @@ void LegionCommand::execute(Player& player, std::span<const std::string> params)
 		runtime::Ptr<Player> target = world::World::getInstance().getPlayer(utils::Util::convertName(params[1]));
 		if (!target)
 			PacketSendUtility::sendPacket(player, SM_SYSTEM_MESSAGE::STR_NO_SUCH_USER(params[1]));
-		// java-bug (kept): a target in no legion has no LegionMember - NullPointerException (a proposed correction)
+		// correction (owner's decision 2026-10-13): Java reads target.getLegionMember().isBrigadeGeneral() for a target in no legion - a
+		// NullPointerException answered "<Error while executing command>"; the port tells the GM instead (docs/deviations/C1.md)
+		else if (!target->isLegionMember())
+			sendInfo(player, name(*target) + " is not a member of any legion.");
 		else if (target->getLegionMember()->isBrigadeGeneral())
 			PacketSendUtility::sendPacket(player, SM_SYSTEM_MESSAGE::STR_GUILD_BANISH_CAN_BANISH_MASTER());
 		else if (legionService.leaveLegion(*target, true))
