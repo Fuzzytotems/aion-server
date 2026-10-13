@@ -2,7 +2,7 @@
 // npcs built as MonsterCommandsTest builds them and a gatherable as GatheringTaskTest builds one. The texts are the Java literals.
 //
 // The spawns of the test map come from a <spawns> document (SpawnsData's afterUnmarshal adds them by world): npc 798007 with one spot of walker
-// ROUTE_A, and - for the case of Java's NullPointerException - a second document with a spot without walker id. The walker templates are
+// ROUTE_A, and - for correction J-S4CP4-1 - a second document with a spot without walker id. The walker templates are
 // ROUTE_A (pool 1) and ROUTE_B (pool 2). SpawnsData.saveSpawn refuses every spawn here (respawn time 0, K-10's guard), so each arm ends with
 // the "Could not save spawn" text; the write-back tail is D7.
 
@@ -310,17 +310,21 @@ TEST_F(SpawnUpdateCommandTest, WalkerIds) {
 		{"Removed walker_id ROUTE_B for NPC 798007.", "Could not save spawn."}));
 }
 
-/** SpawnUpdate.java:128: Java's s.getWalkerId().equals(walkerId) throws a NullPointerException for a world spot without walker id (proposed
- * correction J-S4CP4-1); the command ends in the error text and the walker id is unchanged */
-TEST_F(SpawnUpdateCommandTest, ASpotWithoutWalkerIdFailsLikeJava) {
+/** SpawnUpdate.java:128 with correction J-S4CP4-1 (owner's decision 2026-10-13): a world spot without walker id is not counted (Java's
+ * s.getWalkerId().equals(walkerId) threw a NullPointerException); ROUTE_A's one spot fills its pool of 1, ROUTE_B (pool 2) is assigned */
+TEST_F(SpawnUpdateCommandTest, ASpotWithoutWalkerIdIsNotCounted) {
 	spawns(MIXED_SPAWNS_XML);
 	Player& admin = gm(731105);
 	Npc& npc = npcAt(admin);
 	target(admin, npc);
 	handlers::admincommands::SpawnUpdate spawnu;
+	EXPECT_TRUE(spawnu.process(admin, args({"w", "ROUTE_A"})));
+	EXPECT_EQ(client()->sentBytes(), info("Can not assign, walker pool reached the limit."));
+	client()->clearSent();
 	EXPECT_TRUE(spawnu.process(admin, args({"w", "ROUTE_B"})));
-	EXPECT_EQ(client()->sentBytes(), info("<Error while executing command>"));
-	EXPECT_FALSE(npc.getSpawn()->getWalkerId());
+	EXPECT_EQ(npc.getSpawn()->getWalkerId(), std::optional<std::string>("ROUTE_B"));
+	EXPECT_EQ(client()->sentBytes(), sequence({packet(serverpackets::SM_DELETE(npc)), packet(serverpackets::SM_NPC_INFO(npc, admin))},
+		{"Updated walker_id from null to ROUTE_B for NPC 798007.", "Could not save spawn."}));
 }
 
 } // namespace
