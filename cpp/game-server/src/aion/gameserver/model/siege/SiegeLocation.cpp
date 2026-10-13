@@ -3,9 +3,10 @@
 #include <string>
 
 #include "aion/gameserver/runtime/base/Exceptions.h"
-#include "aion/gameserver/runtime/base/Unported.h"
 #include "aion/gameserver/model/gameobjects/Creature.h"
+#include "aion/gameserver/model/RaceInfo.h"
 #include "aion/gameserver/model/gameobjects/player/Player.h"
+#include "aion/gameserver/model/siege/SiegeRaceInfo.h"
 #include "aion/gameserver/model/templates/siegelocation/SiegeLocationTemplate.h"
 #include "aion/gameserver/utils/collections/CollectionUtil.h"
 #include "aion/gameserver/world/zone/SiegeZoneInstance.h"
@@ -35,28 +36,44 @@ SiegeType SiegeLocation::getType() {
 	return *template_->getType();
 }
 
+// Java SiegeLocation.java:62-64
 int32_t SiegeLocation::getSiegeDuration() {
-	AION_UNPORTED();
+	return template_->getSiegeDuration();
 }
 
+// Java SiegeLocation.java:66-68: the template's list (JAXB leaves it null without <siege_reward>; C++: empty)
 std::vector<const templates::siegelocation::SiegeReward*> SiegeLocation::getRewards() {
-	AION_UNPORTED();
+	std::vector<const templates::siegelocation::SiegeReward*> rewards;
+	for (const templates::siegelocation::SiegeReward& reward : template_->getSiegeRewards())
+		rewards.push_back(&reward);
+	return rewards;
 }
 
+// Java SiegeLocation.java:111-113
 void SiegeLocation::increaseOccupiedCount() {
-	AION_UNPORTED();
+	occupiedCount.set(occupiedCount.get() + 1); // Java: occupiedCount += 1 (no atomicity)
 }
 
+// Java SiegeLocation.java:140-146
 void SiegeLocation::adjustFactionBalance(int32_t adjustment) {
-	AION_UNPORTED();
+	int32_t balance = factionBalance.get() + ((adjustment > 0) - (adjustment < 0)); // Integer.signum(adjustment)
+	if (balance > 9)
+		balance = 9;
+	else if (balance < -9)
+		balance = -9;
+	factionBalance.set(balance);
 }
 
+// Java SiegeLocation.java:156-160
 bool SiegeLocation::isCanTeleport(runtime::Ptr<gameobjects::player::Player> player) {
-	AION_UNPORTED();
+	if (!player)
+		return canTeleport.get();
+	return canTeleport.get() && model::getRaceId(player->getRace()) == siege::getRaceId(getRace());
 }
 
+// Java SiegeLocation.java:162-164
 int32_t SiegeLocation::getLegionGp() {
-	AION_UNPORTED();
+	return template_->getLegionGp();
 }
 
 int32_t SiegeLocation::getInfluenceValue() {
