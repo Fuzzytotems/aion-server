@@ -1,7 +1,7 @@
 # M5i work plan (siege and world events)
 
 > **Re-measured 2026-10-13** at lane B's h26 (`20da8f449`): §15 has the census (440 open bodies, 4,006 Java lines), what changed since rev 2
-> and a checkpoint split I-0 to I-11 in the style of m5h-plan.md §14.3.
+> and a checkpoint split I-0 to I-11 in the style of m5h-plan.md §14.3. **The owner decided D1, D3, D6, D10, D17, the vortex's stage and the gate's clock on 2026-10-13 (§15.5).**
 >
 > **Status:** plan **rev 2**, 2026-09-23, revised after its adversarial review (§14 lists every finding and what changed). Rev 1 was a
 > **read-only** analysis over HEAD `c1edb0afb`; rev 2 re-checked every finding over HEAD `760e8ab5c` ("M5b-2 stage 1 part 3: the effect
@@ -1068,3 +1068,18 @@ New with this measurement:
   commands do not reach (the hourly rift and the event day rollover). Or the admin commands alone, as rev 2 planned.
 - **The lock budget**: the M5i gates (§10, about 12 minutes plus the geo gate), their mutation batches and the regate of ten gates after I-8
   need lock windows; the regate alone is about 2 hours of lock time.
+
+### 15.5 The owner's decisions (2026-10-13)
+
+| # | Decision | What it changes in this plan |
+|---|---|---|
+| **D1** | **Split P5-12b into b1, b2 and b3** (bases and Panesterra; rifts, vortex and world raids; events and conqueror/protector), sharing `aion_gs_worldevents` | The split is I-0's first commit (chunks.cmake rows, the tests moved to `tests/worldevents/P5-12b{1,2,3}`); I-4, I-5, I-8 and I-10 work in their own part |
+| **D3** | **Close `BaseService.cpp:18` with no enable key**, and remove its row from the ten gates' allow-lists **in the same commit** | I-8's last commit; the ten-gate regate (I-11) runs at night, and lane B tells the coordinator when it reaches it |
+| **D6** | **Ahserion's Flight is deferred to phase 6**, with a deviation row | `AhserionRaid` (15 bodies), `PanesterraService::startAhserionRaid`/`stopAhserionRaid` and `//ahserion` stay unported; `docs/deviations/P5-12b.md` gets the row; the profiles keep the far-future `gameserver.siege.panesterra.ahserion.time` |
+| **D10** | **Header request 5a-pre-10 is refiled** (`SiegeService.locations` as a `runtime::LinkedHashMap`, `getSiegeLocations(int)` in Java's iteration order) | Filed again in header-requests.md and sent to the coordinator; if granted, the gate asserts the orders (§10), else it compares sets |
+| **D17** | **The soak is approved** for a 02:00 slot once `gs.scenario.m5i_soak` exists | G-09 becomes a work item of I-11 |
+| vortex | **The vortex moves into stage 2**: I-10 runs beside I-8 | §9's stage 3 is empty; I-10 needs no M5g wait (alliances are in) |
+| clock | **The gate drives time with the admin commands AND per-minute profile crons** | I-0's harness sets per-minute crons for the short timers the commands do not reach (the hourly rift jobs, the event day rollover, the world-raid steps), at fixed seconds like M5h-2 (§15.2 item 4); D13's cron-quiet window applies to the jobs the profile does not move |
+
+The split of §15.3 stays; the order becomes **I-0 (with D1) → I-1/I-2/I-3 beside I-4/I-5 → I-6 → I-7 → I-8 beside I-10 → I-9 → I-11
+(regate at night, soak at 02:00)**.
