@@ -3,6 +3,12 @@
 The owner's answers to the open decisions of the milestone plans, newest first. Each plan applies its answer at its next refresh; until
 then this file wins over a plan's "until the user answers" default.
 
+## 2026-10-13
+
+| Decision | Answer | What it changes |
+|---|---|---|
+| `beshmundir/_30348ImprovedAethercannon.java:41` asks for 100100716 (the mace of `_30343`) where quest_data.xml collects 101900655 (questgen's KNOWN_JAVA_BUGS) | **Correct it, both branches** | Applied (lane C): questgen's and the oracle's OWNER_CORRECTIONS rewrite the line; the generated handler checks 101900655 and the golden document traces it (docs/deviations/Q07.md) |
+
 ## 2026-10-07
 
 | Decision | Answer | What it changes |

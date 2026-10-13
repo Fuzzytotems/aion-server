@@ -159,6 +159,15 @@ class RealQuests(unittest.TestCase):
                               '\t\tdefaultOnLevelChangedEvent(player);\n', r.cpp)
                 self.assertNotIn('{' + str(quest) + '}', r.cpp)
                 self.assertFalse(any('NOT PLACED' in n for n in r.java_bugs), r.java_bugs)
+        # the owner's decision of 2026-10-13 (docs/deviations/Q07.md): 30348's start dialog asks for the Aethercannon's item, no longer for
+        # the mace of _30343 (formerly KNOWN_JAVA_BUGS)
+        r = self.run_file('beshmundir/_30348ImprovedAethercannon.java')
+        self.assertEqual(r.status, 'ok', r.reasons)
+        self.assertRegex(r.cpp, r'\n\t+// correction of the Java code: Java :41 required [^\n]*101900655[^\n]*2026-10-13\)\n'
+                                r'\t+if \(player->getInventory\(\)\.getItemCountByItemId\(101900655\) >= 1\) \{')
+        self.assertNotIn('100100716', r.cpp.replace("required _30343's mace 100100716", ''))
+        self.assertEqual(r.java_bugs, [])
+        self.assertNotIn('beshmundir/_30348ImprovedAethercannon.java', emit.KNOWN_JAVA_BUGS)
         with self.assertRaises(ValueError):
             emit.corrected_source('a\nb\n', {2: ('c', 'd', 'why')}, 'x.java')
 
@@ -298,12 +307,8 @@ class RealQuests(unittest.TestCase):
 
     def test_known_java_bug_is_kept_and_marked(self):
         # phase6-inventory.md §11 and decision U3: a faithful port plus a note
-        r = self.run_file('beshmundir/_30348ImprovedAethercannon.java')
-        self.assertEqual(r.status, 'ok', r.reasons)
-        self.assertRegex(r.cpp, r'\n\t+// java-bug kept \(U3, phase6-inventory\.md §11\): requires 100100716 [^\n]*101900655[^\n]*\n'
-                                r'\t+if \(player->getInventory\(\)\.getItemCountByItemId\(100100716\) >= 1\) \{')
-        self.assertEqual(len(r.java_bugs), 1)
         r = self.run_file('sanctum/_3963GrowthFlorasThirdCharm.java')
+        self.assertEqual(len(r.java_bugs), 1)
         self.assertRegex(r.cpp, r'\n\t+// java-bug kept [^\n]*tryDecreaseKinah[^\n]*\n\t+player->getInventory\(\)\.decreaseKinah\(70000\);')
 
 
