@@ -32,7 +32,7 @@ class TreeTableTest(unittest.TestCase):
         # the documents of the tree are the table plus the held-back quests (EveryExpectedDocumentHasAGeneratedHandlerAndEveryHandlerADocument)
         docs = {int(f.stem) for f in goldensample.COMMITTED_DOCS.glob('*.json')}
         held = goldensample.held_back(text)
-        self.assertIn(4973, held)
+        self.assertIn(14010, held)  # Q03's four are the held-back quests since Q10's sixteen landed (lane C, 2026-10-14)
         self.assertEqual({q for _d, _c, q in rows} | held, docs)
 
     def test_the_harness_takes_a_sample_table_and_an_expected_directory(self):
