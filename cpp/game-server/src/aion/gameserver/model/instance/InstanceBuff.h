@@ -17,8 +17,8 @@ namespace aion::gameserver::model::instance {
 /**
  * The arenas' "boost morale" buff: the instance bonus attribute's penalty stats as stat functions of the player, ended by a task.
  * <p>
- * C++: the inner class InstanceBuffTask (fieldmap: captured this and the player) is the scheduled lambda of applyEffect, pinned to this
- * object, holding a Ref of the player.
+ * C++: the inner class InstanceBuffTask (fieldmap: captured this and the player) is replaced by the scheduled lambda of applyEffect, pinned
+ * to this object, holding a Ref of the player; its run() is the lambda's endEffect(player).
  *
  * @author xTz
  */
