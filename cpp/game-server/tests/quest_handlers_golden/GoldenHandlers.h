@@ -664,6 +664,7 @@
 	X(daevanion, _19642SuccessforSix, 19642) \
 	X(daevanion, _1988AMeetingWithASage, 1988) \
 	X(daevanion, _1989ASagesTeachings, 1989) \
+	X(daevanion, _1990ASagesGift, 1990) \
 	X(daevanion, _1993AnotherBeginning, 1993) \
 	X(daevanion, _1994ANewChoice, 1994) \
 	X(daevanion, _29631GlugGlugGlug, 29631) \
@@ -925,6 +926,7 @@
 	X(sanctum, _1918AnAxForNamus, 1918) \
 	X(sanctum, _1926SecretLibraryAccess, 1926) \
 	X(sanctum, _1928ChasingaCriminal, 1928) \
+	X(sanctum, _1929ASliverofDarkness, 1929) \
 	X(sanctum, _1932AMatterOfReputation, 1932) \
 	X(sanctum, _1935TissueIDontEvenKnowYou, 1935) \
 	X(sanctum, _1936WhatNerisonSaw, 1936) \

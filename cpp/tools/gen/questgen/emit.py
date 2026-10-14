@@ -652,6 +652,10 @@ class Transliterator:
         if m and not raw:
             inner = self.simple(m.group(2))
             return CT('obj', inner, 'ptr' if m.group(1) == 'Ptr' else 'owning')
+        # row B49 (lane C, 2026-10-14): an owning std::unique_ptr return (PlayerGameStats::getMaxDp), reached with -> like a Ref
+        m = re.fullmatch(r'std::unique_ptr<(.+)>', t)
+        if m and not raw:
+            return CT('obj', self.simple(m.group(1)), 'owning')
         m = re.fullmatch(r'std::optional<(.+)>', t)
         if m:
             return CT('optional', elem=self.cpp_type(m.group(1)))
