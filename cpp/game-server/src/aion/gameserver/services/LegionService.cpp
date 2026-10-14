@@ -1,5 +1,8 @@
 #include "aion/gameserver/services/LegionService.h"
 
+#include "aion/gameserver/model/legionDominion/LegionDominionLocation.h"
+#include "aion/gameserver/services/LegionDominionService.h"
+
 #include <chrono>
 #include <regex>
 #include <span>
@@ -1272,8 +1275,21 @@ bool LegionService::tryRename(model::team::legion::Legion& legion, std::string_v
 	return true;
 }
 
+// Java LegionService.java:1148-1162 (M5i I-9, under the granted lease)
 void LegionService::joinLegionDominion(model::gameobjects::player::Player& player, int32_t locId) {
-	AION_UNPORTED();
+	runtime::Ptr<model::team::legion::LegionMember> legionMember = player.getLegionMember();
+	if (!legionMember->isBrigadeGeneral() && legionMember->getRank() != LegionRank::DEPUTY)
+		return;
+	runtime::Ptr<model::team::legion::Legion> legion = legionMember->getLegion();
+	if (legion->getCurrentLegionDominion() > 0) // already selected
+		return;
+	if (LegionDominionService::getInstance().join(legion->getLegionId(), locId)) {
+		legion->setCurrentLegionDominion(locId);
+		storeLegion(*legion);
+		const std::string locL10n = LegionDominionService::getInstance().getLegionDominionLoc(locId)->getL10n();
+		utils::PacketSendUtility::broadcastToLegion(*legion, network::aion::serverpackets::SM_SYSTEM_MESSAGE::STR_MSG_GUILD_APPLY_DOMINION(locL10n));
+		utils::PacketSendUtility::broadcastToLegion(*legion, network::aion::serverpackets::SM_LEGION_INFO(*legion));
+	}
 }
 
 } // namespace aion::gameserver::services
