@@ -15,6 +15,8 @@
 #include "aion/gameserver/ai/AIState.h"
 #include "aion/gameserver/ai/AbstractAI.h"
 #include "aion/gameserver/controllers/NpcController.h"
+#include "aion/gameserver/dataholders/AIData.bind.h"
+#include "aion/gameserver/dataholders/AIData.h"
 #include "aion/gameserver/dataholders/SkillData.bind.h"
 #include "aion/gameserver/dataholders/SkillData.h"
 #include "aion/gameserver/handlers/ai/instance/abyss/FortressInstanceDukeAI.h"
@@ -22,10 +24,18 @@
 #include "aion/gameserver/handlers/ai/instance/azoturanFortress/BetrayerIcaronixAI.h"
 #include "aion/gameserver/handlers/ai/instance/dredgion/ShulackDrudgeAI.h"
 #include "aion/gameserver/handlers/ai/instance/dredgion/SurkanaAI.h"
+#include "aion/gameserver/handlers/ai/instance/esoterrace/CaptainMuruganAI.h"
 #include "aion/gameserver/handlers/ai/instance/esoterrace/DaliaCharlandsAI.h"
+#include "aion/gameserver/handlers/ai/instance/esoterrace/GreenfingersAI.h"
+#include "aion/gameserver/ai/poll/AIQuestion.h"
 #include "aion/gameserver/handlers/ai/instance/esoterrace/KexkraPrototypeAI.h"
 #include "aion/gameserver/model/templates/spawns/SpawnTemplate.h"
 #include "aion/gameserver/handlers/ai/instance/esoterrace/WardenSuramaAI.h"
+#include "aion/gameserver/handlers/ai/instance/theHexway/AdjutantGalamatAI.h"
+#include "aion/gameserver/handlers/ai/instance/theHexway/CaptainJarkaAI.h"
+#include "aion/gameserver/handlers/ai/instance/theHexway/CaptainLakharaAI.h"
+#include "aion/gameserver/handlers/ai/instance/theHexway/ChestTeleporterAI.h"
+#include "aion/gameserver/network/aion/serverpackets/SM_MESSAGE.h"
 #include "aion/gameserver/network/aion/serverpackets/SM_SYSTEM_MESSAGE.h"
 #include "aion/gameserver/network/aion/serverpackets/SM_PLAY_MOVIE.h"
 #include "aion/gameserver/model/stats/container/NpcLifeStats.h"
@@ -48,7 +58,15 @@ namespace esoterrace {
 ::aion::gameserver::handlers::AIFactory KexkraPrototypeAI_aiFactory;
 ::aion::gameserver::handlers::AIFactory WardenSuramaAI_aiFactory;
 ::aion::gameserver::handlers::AIFactory DaliaCharlandsAI_aiFactory;
+::aion::gameserver::handlers::AIFactory GreenfingersAI_aiFactory;
+::aion::gameserver::handlers::AIFactory CaptainMuruganAI_aiFactory;
 } // namespace esoterrace
+namespace theHexway {
+::aion::gameserver::handlers::AIFactory AdjutantGalamatAI_aiFactory;
+::aion::gameserver::handlers::AIFactory CaptainJarkaAI_aiFactory;
+::aion::gameserver::handlers::AIFactory CaptainLakharaAI_aiFactory;
+::aion::gameserver::handlers::AIFactory ChestTeleporterAI_aiFactory;
+} // namespace theHexway
 } // namespace aion::gameserver::handlers::ai::instance
 
 namespace aion::gameserver::handlers::instance::test {
@@ -98,6 +116,32 @@ struct DaliaProbe : ais::esoterrace::DaliaCharlandsAI {
 		DaliaCharlandsAI::handleBackHome();
 	}
 };
+struct MuruganProbe : ais::esoterrace::CaptainMuruganAI {
+	using CaptainMuruganAI::CaptainMuruganAI;
+	using CaptainMuruganAI::handleAttack;
+	using CaptainMuruganAI::handleDied;
+};
+struct JarkaProbe : ais::theHexway::CaptainJarkaAI {
+	using CaptainJarkaAI::CaptainJarkaAI;
+	using CaptainJarkaAI::handleDied;
+	using CaptainJarkaAI::handleSpawned;
+};
+struct ChestTeleporterProbe : ais::theHexway::ChestTeleporterAI {
+	using ChestTeleporterAI::ChestTeleporterAI;
+	using ChestTeleporterAI::handleCreatureMoved;
+};
+struct GalamatProbe : ais::theHexway::AdjutantGalamatAI {
+	using AdjutantGalamatAI::AdjutantGalamatAI;
+	using AdjutantGalamatAI::handleDied;
+	using AdjutantGalamatAI::handleSpawned;
+};
+/** ai_templates (spawn_helpers.xml's shape) with an empty summons list for the npc: a SummonerAI's spawn reads it (SummonerAI.java:57-61) */
+void publishEmptySummons(xml::LoadContext& context, int32_t npcId) {
+	dataholders::DataManager::AI_DATA.resetForTests();
+	dataholders::DataManager::AI_DATA.publish(xml::bindString<dataholders::AIData>(context,
+		R"(<ai_templates><ai npcId=")" + std::to_string(npcId) + R"("><summons></summons></ai></ai_templates>)"));
+}
+
 /** records the CREATURE_AGGRO events an npc gets */
 struct AggroRecorder : gameserver::ai::NpcAI {
 	explicit AggroRecorder(Npc& owner) : NpcAI(owner) {}
@@ -147,6 +191,12 @@ TEST_F(I1AiTest, TheFactoriesBuildTheirClasses) {
 	EXPECT_NE(dynamic_cast<ais::esoterrace::KexkraPrototypeAI*>(ais::esoterrace::KexkraPrototypeAI_aiFactory(*npc).get()), nullptr);
 	EXPECT_NE(dynamic_cast<ais::esoterrace::WardenSuramaAI*>(ais::esoterrace::WardenSuramaAI_aiFactory(*npc).get()), nullptr);
 	EXPECT_NE(dynamic_cast<ais::esoterrace::DaliaCharlandsAI*>(ais::esoterrace::DaliaCharlandsAI_aiFactory(*npc).get()), nullptr);
+	EXPECT_NE(dynamic_cast<ais::esoterrace::GreenfingersAI*>(ais::esoterrace::GreenfingersAI_aiFactory(*npc).get()), nullptr);
+	EXPECT_NE(dynamic_cast<ais::esoterrace::CaptainMuruganAI*>(ais::esoterrace::CaptainMuruganAI_aiFactory(*npc).get()), nullptr);
+	EXPECT_NE(dynamic_cast<ais::theHexway::AdjutantGalamatAI*>(ais::theHexway::AdjutantGalamatAI_aiFactory(*npc).get()), nullptr);
+	EXPECT_NE(dynamic_cast<ais::theHexway::CaptainJarkaAI*>(ais::theHexway::CaptainJarkaAI_aiFactory(*npc).get()), nullptr);
+	EXPECT_NE(dynamic_cast<ais::theHexway::CaptainLakharaAI*>(ais::theHexway::CaptainLakharaAI_aiFactory(*npc).get()), nullptr);
+	EXPECT_NE(dynamic_cast<ais::theHexway::ChestTeleporterAI*>(ais::theHexway::ChestTeleporterAI_aiFactory(*npc).get()), nullptr);
 }
 
 /** BetrayerIcaronixAI.java:24-34: above half HP an attack changes nothing; at half, Icaronix the Betrayer takes the place with 50 % HP */
@@ -330,6 +380,121 @@ TEST_F(I1AiTest, DaliaCharlandsSendsHerGreenfingers) {
 	dalia->getLifeStats()->setCurrentHpPercent(75);
 	ai.handleAttack(runtime::Ptr<model::gameobjects::Creature>(player()));
 	EXPECT_EQ(count(helpers), 12u) << "back home resets the phases";
+}
+
+/** GreenfingersAI.java:30-32, 78-84: it does not think; immune to abnormal states, no decay, respawn or reward (its walk's step arm needs a
+ * walker route: left to a gate) */
+TEST_F(I1AiTest, AGreenfingerDoesNotThinkAndGivesNothing) {
+	runtime::Ptr<Npc> greenfinger = place(900200, 230.0f, 300.0f);
+	ais::esoterrace::GreenfingersAI& ai = install<ais::esoterrace::GreenfingersAI>(*greenfinger);
+	using gameserver::ai::poll::AIQuestion;
+	EXPECT_FALSE(ai.canThink());
+	EXPECT_TRUE(ai.ask(AIQuestion::IS_IMMUNE_TO_ABNORMAL_STATES));
+	EXPECT_FALSE(ai.ask(AIQuestion::ALLOW_DECAY));
+	EXPECT_FALSE(ai.ask(AIQuestion::ALLOW_RESPAWN));
+	EXPECT_FALSE(ai.ask(AIQuestion::REWARD_AP_XP_DP_LOOT));
+	auto plain = std::make_unique<gameserver::handlers::ai::AggressiveNpcAI>(*greenfinger);
+	EXPECT_EQ(ai.ask(AIQuestion::CAN_SHOUT), plain->ask(AIQuestion::CAN_SHOUT)) << "the rest as AggressiveNpcAI";
+}
+
+/** CaptainMuruganAI.java:32-126: every 20 s after the first attack a shout and 19325; below half HP the second shout 10 s later; his death
+ * ends the tasks with his last shout */
+TEST_F(I1AiTest, CaptainMuruganShoutsEveryTwentySeconds) {
+	dataholders::DataManager::SKILL_DATA.resetForTests(); // the base fixture's empty holder; its TearDown resets this one
+	xml::LoadContext skillContext;
+	std::string skills = "<skill_data>";
+	for (int32_t id : {19324, 19325})
+		skills += R"(<skill_template skill_id=")" + std::to_string(id) +
+			R"(" name="murugan" nameId="1" stack="MURUGAN" lvl="1" skilltype="MAGICAL" skillsubtype="NONE" tslot="SPEC" activation="ACTIVE")"
+			R"( cooldown="0" duration="0"><properties first_target="ME" target_relation="FRIEND" target_type="ONLYONE" /></skill_template>)";
+	dataholders::DataManager::SKILL_DATA.publish(xml::bindString<dataholders::SkillData>(skillContext, skills + "</skill_data>"));
+	runtime::Ptr<Npc> murugan = place(900200, 230.0f, 300.0f);
+	MuruganProbe& ai = install<MuruganProbe>(*murugan);
+	InstanceKnownListPairing::pair(*murugan, player());
+	murugan->getAggroList().addDamage(player(), 1, true, std::nullopt); // a target: without one each attack sends him home
+	ai.handleAttack(runtime::Ptr<model::gameobjects::Creature>(player()));
+	executor().advance(std::chrono::milliseconds(19999));
+	(*client)->clearSent(); // the first attack's cast (19324) and its effect: no shout before the 20 s
+	executor().advance(std::chrono::milliseconds(1));
+	size_t afterShout = sent().size();
+	EXPECT_GT(afterShout, 0u) << "the shout 1500194";
+	ai.handleAttack(runtime::Ptr<model::gameobjects::Creature>(player())); // a second attack starts nothing more
+	murugan->getLifeStats()->setCurrentHpPercent(40);
+	(*client)->clearSent();
+	executor().advance(std::chrono::milliseconds(20000)); // the next round: the shout, and the special task in 10 s
+	size_t round = sent().size();
+	EXPECT_GT(round, 0u);
+	(*client)->clearSent();
+	executor().advance(std::chrono::milliseconds(10000));
+	EXPECT_GT(sent().size(), 0u) << "the second shout 1500193, 10 s later";
+	ai.handleDied();
+	(*client)->clearSent();
+	executor().advance(std::chrono::milliseconds(60000));
+	EXPECT_TRUE(sent().empty()) << "the tasks ended";
+}
+
+/** CaptainJarkaAI.java:21-33: his death leaves a smoke (gone at once) and takes the npcs he knows within 15 m */
+TEST_F(I1AiTest, CaptainJarkasDeathClearsHisSurroundings) {
+	runtime::Ptr<Npc> jarka = place(900200, 230.0f, 300.0f);
+	JarkaProbe& ai = install<JarkaProbe>(*jarka);
+	xml::LoadContext aiContext;
+	publishEmptySummons(aiContext, 900200);
+	ai.handleSpawned();
+	runtime::Ptr<Npc> near = place(900300, 240.0f, 300.0f); // 10 m
+	runtime::Ptr<Npc> far = place(900300, 250.0f, 300.0f);  // 20 m
+	InstanceKnownListPairing::pair(*jarka, *near);
+	InstanceKnownListPairing::pair(*jarka, *far);
+	ai.handleDied();
+	EXPECT_FALSE(near->isSpawned());
+	EXPECT_TRUE(far->isSpawned());
+	EXPECT_TRUE(npcs(*instance, 282465).empty()) << "the smoke is deleted at once";
+	dataholders::DataManager::AI_DATA.resetForTests();
+}
+
+/** ChestTeleporterAI.java:38-51: a living player who moves within 8 m in its sight hears the orb once */
+TEST_F(I1AiTest, TheChestTeleporterTellsAboutTheOrbOnce) {
+	runtime::Ptr<Npc> teleporter = place(900200, 226.0f, 300.0f);
+	ChestTeleporterProbe& ai = install<ChestTeleporterProbe>(*teleporter);
+	const std::vector<uint8_t> orb = serialized(network::aion::serverpackets::SM_MESSAGE(*teleporter,
+		"A mysterious orb of relocation is hidden in this chest", model::ChatType::NPC));
+	runtime::Ptr<Npc> other = place(900300, 225.0f, 300.0f);
+	ai.handleCreatureMoved(*other); // not a player
+	ai.handleCreatureMoved(player());
+	ai.handleCreatureMoved(player());
+	EXPECT_EQ(countSent(orb), 1);
+}
+
+/** AdjutantGalamatAI.java:51-130: skill 21799 starts the shield phase - an add every 4 s from the start, the damage taken counted - and 25 s
+ * later the evaluation raises her damage multiplicator (1.2, +0.35 for the player the damage would have killed) */
+TEST_F(I1AiTest, AdjutantGalamatsShieldPhase) {
+	dataholders::DataManager::SKILL_DATA.resetForTests(); // the base fixture's empty holder; its TearDown resets this one
+	xml::LoadContext skillContext;
+	dataholders::DataManager::SKILL_DATA.publish(xml::bindString<dataholders::SkillData>(skillContext,
+		R"(<skill_data><skill_template skill_id="21799" name="shield" nameId="1" stack="SHIELD" lvl="1" skilltype="MAGICAL")"
+		R"( skillsubtype="NONE" tslot="SPEC" activation="ACTIVE" cooldown="0" duration="0"><properties first_target="ME")"
+		R"( target_relation="FRIEND" target_type="ONLYONE" /></skill_template></skill_data>)"));
+	runtime::Ptr<Npc> galamat = place(900200, 230.0f, 300.0f);
+	GalamatProbe& ai = install<GalamatProbe>(*galamat);
+	xml::LoadContext aiContext;
+	publishEmptySummons(aiContext, 900200);
+	ai.handleSpawned();
+	InstanceKnownListPairing::pair(*galamat, player());
+	EXPECT_FLOAT_EQ(ai.modifyOwnerDamage(100.0f, player(), nullptr), 100.0f);
+	ai.onEndUseSkill(dataholders::DataManager::SKILL_DATA->getSkillTemplate(21799), 1);
+	executor().advance(std::chrono::milliseconds(0));
+	EXPECT_EQ(count({219616}), 1u) << "an add at once";
+	executor().advance(std::chrono::milliseconds(4000));
+	EXPECT_EQ(count({219616}), 2u);
+	// the shield effect is not on her (no effect controller entry): the first counted hit ends the phase (Java: findBySkillId == null)
+	EXPECT_FLOAT_EQ(ai.modifyDamage(player(), 50.0f, nullptr), 50.0f);
+	executor().advance(std::chrono::milliseconds(30000));
+	EXPECT_EQ(count({219616}), 2u) << "the phase ended: no more adds";
+	EXPECT_FLOAT_EQ(ai.modifyOwnerDamage(100.0f, player(), nullptr), 100.0f) << "no evaluation after the reset";
+	ai.onEndUseSkill(dataholders::DataManager::SKILL_DATA->getSkillTemplate(21799), 1);
+	executor().advance(std::chrono::milliseconds(25000));
+	EXPECT_FLOAT_EQ(ai.modifyOwnerDamage(100.0f, player(), nullptr), 120.0f) << "1.2 after an evaluation without damage";
+	ai.handleDied();
+	dataholders::DataManager::AI_DATA.resetForTests();
 }
 
 } // namespace

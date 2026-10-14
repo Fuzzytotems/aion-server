@@ -89,3 +89,11 @@ Smallest self-contained first; each is one commit with its tests and mutation pr
 > **Progress:** P6I-4d: the esoterrace AIs KexkraPrototypeAI, WardenSuramaAI and DaliaCharlandsAI (I1AiTest, mutation proofs 4 of 4, 6 of 6
 > and 5 of 5; an AggressiveNpcAI without a target goes home on each attack, so the cases give it one). Census I1: 434 -> 248 open bodies.
 > Left of the esoterrace AIs: CaptainMuruganAI, GreenfingersAI (repeated skills, walker steps).
+> **Progress:** P6I-4e done: CaptainMuruganAI and GreenfingersAI; AbyssalSplinterInstance and UnstableSplinterpathInstance (`SplinterTest.cpp`, 10
+> cases); TheHexwayInstance (`HexwayTest.cpp`, 6 cases) and the theHexway AIs CaptainJarkaAI, CaptainLakharaAI, ChestTeleporterAI, AdjutantGalamatAI
+> (I1AiTest). The SummonerAI cases publish an ai template with an empty summons list and call handleSpawned first (SummonerAI.handleSpawned reads
+> it). Mutation proofs 7 of 7 (Murugan, Greenfingers), 5 of 5 (splinter; the gate case strengthened), 5 of 6 (Hexway; the survivor, the expiry
+> task's cancel, is equivalent: the spawn flag is already false). **Java bugs, proposed corrections (not applied):** J-P6I4-2:
+> UnstableSplinterpath's returning boss is the other one of the pair; J-P6I4-3: its pieces delete the Abyssal Splinter's ids 281907/281908 (both
+> ported faithfully). Census I1: 434 -> 165 open bodies (left: the abyssal_splinter and unstableSplinterpath AIs). The tests of chunks I3 and I5
+> share the fixture: `tests/handlers_inst_1/InstanceFixture.h` (each chunk's support header defines its maps, npc ids and AI names).
