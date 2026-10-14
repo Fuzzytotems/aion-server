@@ -103,3 +103,11 @@ Smallest self-contained first; each is one commit with its tests and mutation pr
 > cases) and `I3AiTest.cpp` (5 cases); mutation proofs 18 of 18 (after two strengthened cases: the random end boss pairs over twelve bridges, the
 > Linkgate timer past its byte wrap) and 6 of 6. Left to a gate: the teleports (HousingService), the zone entries, the buffs and item grants. Census
 > I3: 417 -> 369 open bodies (left: the PvP instances, the arenas, Eternal Bastion and their AIs).
+> **Progress:** P6I-6 done (chunk I5): DanuarMysticariumInstance, SauroSupplyBaseInstance (its static chest list filled by the static block at
+> static initialization, ZoneName.cpp's way), TalocsHollowInstance, DanuarReliquaryInstance with DanuarReliquaryInstance_L and
+> InfernalDanuarReliquaryInstance; the AIs of sauroBase (6), tallocsHollow (6) and danuarReliquary (7, with Cursed and Enraged Queen Modor). Tests
+> in `tests/handlers_inst_5`: `I5InstanceTest.cpp` (15 cases) and `I5AiTest.cpp` (22 cases); mutation proofs 16 of 16 and 21 of 21. Left to a gate:
+> the teleports, the item grants, the skill casts and effects, the walkers, the doors (no door npcs here) and the HP phases of Ahuradim and the
+> Modors. Census I5: 443 -> 257 open bodies (left: Nightmare Circus, Raksang Ruins, the Rentus Bases and their AIs). Gate note: gs.scenario.m5e_geo
+> failed in combat (C17) on the leftovers-1 sweep of 2026-10-14 and on lane C's branch the same day, both under the four-way lock load: a
+> load-sensitive combat timing to harden later (not re-run today).
