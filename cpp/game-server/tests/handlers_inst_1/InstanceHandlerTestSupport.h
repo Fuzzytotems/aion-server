@@ -157,7 +157,9 @@ inline const std::vector<int32_t>& handlerNpcIds() {
 		799580, 217649, 282295, 282291, 217204, 217205, 217289, 217281, 217195, 701027, 217185, 701023, 205437, 217206, 701025, 217282, 217283,
 		217284,
 		// Warden Surama's geysers
-		282171, 282172, 282173, 282174, 282425, 282426, 282427, 282428};
+		282171, 282172, 282173, 282174, 282425, 282426, 282427, 282428,
+		// Dalia Charlands's greenfingers
+		282176, 282177, 282178};
 	return ids;
 }
 
@@ -166,7 +168,9 @@ inline std::string handlerNpcTemplatesXml() {
 	std::string xml = "<npc_templates>";
 	for (int32_t id : handlerNpcIds())
 		xml += R"(<npc_template npc_id=")" + std::to_string(id) +
-			R"(" level="30" name="instance npc" name_id="1" height="1" rank="SEASONED" rating="NORMAL" race="DRAKAN" tribe="GENERAL">)"
+			R"(" level="30" name="instance npc" name_id="1" height="1" rank="SEASONED" rating="NORMAL" race="DRAKAN" tribe="GENERAL")" +
+			// the greenfingers walk (DaliaCharlandsAI casts their AI to NpcAI): a named AI the test executable has not, so a DummyAI<Npc>
+			std::string(id >= 282176 && id <= 282178 ? R"( ai="greenfingers">)" : ">") +
 			R"(<stats maxHp="1000"><speeds walk="1.5" group_walk="1.5" run="6" run_fight="4.2" group_run_fight="4.2"/></stats>)"
 			R"(<bound_radius front="0.5" side="0.5" upper="1"/></npc_template>)";
 	return xml + "</npc_templates>";
