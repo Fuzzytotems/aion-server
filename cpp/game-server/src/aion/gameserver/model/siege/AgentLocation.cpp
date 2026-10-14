@@ -1,6 +1,5 @@
 #include "aion/gameserver/model/siege/AgentLocation.h"
 
-#include "aion/gameserver/runtime/base/Unported.h"
 #include "aion/gameserver/model/gameobjects/Creature.h"
 #include "aion/gameserver/model/gameobjects/player/Player.h"
 #include "aion/gameserver/model/templates/siegelocation/SiegeLocationTemplate.h"
@@ -16,12 +15,14 @@ runtime::Ref<AgentLocation> AgentLocation::create(const templates::siegelocation
 	return runtime::makeRef<AgentLocation>(value);
 }
 
+// Java AgentLocation.java:14-17
 int32_t AgentLocation::getNextState() {
-	AION_UNPORTED();
+	return isVulnerable() ? STATE_INVULNERABLE : STATE_VULNERABLE;
 }
 
+// Java AgentLocation.java:19-22
 SiegeRace AgentLocation::getRace() {
-	AION_UNPORTED();
+	return SiegeRace::BALAUR;
 }
 
 AgentLocation::~AgentLocation() = default;
