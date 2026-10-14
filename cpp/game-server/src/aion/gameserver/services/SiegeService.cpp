@@ -48,11 +48,11 @@
 #include "aion/gameserver/network/aion/serverpackets/SM_SIEGE_LOCATION_INFO.h"
 #include "aion/gameserver/network/aion/serverpackets/SM_SYSTEM_MESSAGE.h"
 #include "aion/gameserver/runtime/base/Exceptions.h"
-#include "aion/gameserver/runtime/base/Unported.h"
 #include "aion/gameserver/runtime/sync/Monitor.h"
 #include "aion/gameserver/services/LegionService.h"
 #include "aion/gameserver/services/cron/CronService.h"
 #include "aion/gameserver/services/panesterra/PanesterraService.h"
+#include "aion/gameserver/services/siege/AgentSiege.h"
 #include "aion/gameserver/services/siege/ArtifactSiege.h"
 #include "aion/gameserver/services/siege/FortressSiege.h"
 #include "aion/gameserver/services/siege/OutpostSiege.h"
@@ -488,7 +488,7 @@ runtime::Ref<siege::Siege> SiegeService::newSiege(int32_t siegeLocationId) {
 	else if (artifacts.containsKey(siegeLocationId))
 		return siege::ArtifactSiege::create(*artifacts.get(siegeLocationId));
 	else if (agent && agent->getLocationId() == siegeLocationId)
-		AION_UNPORTED(); // new AgentSiege(agent): m5i-plan.md I-7
+		return siege::AgentSiege::create(*agent);
 	else
 		throw siege::SiegeException("Unknown siege handler for siege location: " + std::to_string(siegeLocationId));
 }
