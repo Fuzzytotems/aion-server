@@ -1724,3 +1724,4 @@ About 3,500 Java lines, ~130 bodies. **Checkpoints** (unit tests in the owning c
 > (after lane B's Headhunter.compareTo, M5i I-4). Gates m5j and gm green on fc1da2d68.
 > **Progress:** D12-CP4a done (`lane-a/m5j-d12-cp4`): PvpMapHandler's 39 bodies (P5-13.md). Left of CP4: PvpMapService.init (m5f-plan D6's
 > partial) with its gate run.
+> **Progress:** D12-CP5b done (`lane-a/m5j-d12-cp5b`): //headhunting on Headhunter's declared API (C1.md); D12 is complete on lane A's side.
