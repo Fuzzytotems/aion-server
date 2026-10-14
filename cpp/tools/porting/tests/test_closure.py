@@ -52,11 +52,11 @@ class CheckTest(unittest.TestCase):
         text = '\n'.join(problems)
         self.assertIn('names no owner', text)                      # B::g
         self.assertIn('not a `site|path|function|count|owner`', text)  # nonsense
-        self.assertIn('2 site(s), the allow-list row says 1', text)  # A::f
+        self.assertIn("2 site(s), the allow-list row says 1: set the row count to 2", text)  # A::f
         self.assertIn('src/d.cpp:7: 1 site(s) in D::k without an allow-list row', text)
-        self.assertIn('C::h: the allow-list row matches no site any more (stale)', text)
+        self.assertIn('C::h: the allow-list row matches no site any more (stale): remove the row `site|src/c.cpp|C::h|...`', text)
         self.assertIn('CM_X: a registered opcode without a C++ class and without an allow-list row', text)
-        self.assertIn('CM_Y: the allow-list row matches no missing class any more (stale)', text)
+        self.assertIn('CM_Y: the allow-list row matches no missing class any more (stale): remove the row `opcode|CM_Y|...`', text)
 
 
 if __name__ == '__main__':
