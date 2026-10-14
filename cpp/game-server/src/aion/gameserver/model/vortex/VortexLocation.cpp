@@ -4,12 +4,12 @@
 #include <string>
 #include <vector>
 
-#include "aion/gameserver/runtime/base/Unported.h"
 #include "aion/gameserver/controllers/RVController.h"
 #include "aion/gameserver/model/gameobjects/Kisk.h"
 #include "aion/gameserver/model/gameobjects/VisibleObject.h"
 #include "aion/gameserver/model/gameobjects/player/Player.h"
 #include "aion/gameserver/model/templates/vortex/HomePoint.h"
+#include "aion/gameserver/model/templates/vortex/ResurrectionPoint.h"
 #include "aion/gameserver/model/templates/vortex/StartPoint.h"
 #include "aion/gameserver/model/templates/vortex/VortexTemplate.h"
 #include "aion/gameserver/network/aion/serverpackets/SM_SYSTEM_MESSAGE.h"
@@ -17,6 +17,7 @@
 #include "aion/gameserver/services/vortex/DimensionalVortex.h"
 #include "aion/gameserver/utils/PacketSendUtility.h"
 #include "aion/gameserver/utils/ThreadPoolManager.h"
+#include "aion/gameserver/world/WorldPosition.h"
 #include "aion/gameserver/world/zone/InvasionZoneInstance.h"
 
 namespace aion::gameserver::model::vortex {
@@ -31,24 +32,35 @@ runtime::Ref<VortexLocation> VortexLocation::create(const templates::vortex::Vor
 	return runtime::makeRef<VortexLocation>(value);
 }
 
+// Java VortexLocation.java:46-49
 void VortexLocation::setActiveVortex(runtime::Ptr<services::vortex::DimensionalVortex> vortex) {
-	AION_UNPORTED();
+	isActive_.set(static_cast<bool>(vortex));
+	this->activeVortex.set(vortex);
 }
 
 void VortexLocation::setVortexController(runtime::Ptr<controllers::RVController> controller) {
 	this->vortexController.set(controller);
 }
 
-runtime::Ptr<world::WorldPosition> VortexLocation::getHomePoint() {
-	AION_UNPORTED();
+// Java VortexLocation.java:67-69
+runtime::Ref<world::WorldPosition> VortexLocation::getHomePoint() {
+	if (template_->getHomePoint() == nullptr) // Java: NullPointerException
+		throw runtime::NullPointerException("VortexTemplate.getHomePoint() is null");
+	return template_->getHomePoint()->getHomePoint();
 }
 
-runtime::Ptr<world::WorldPosition> VortexLocation::getResurrectionPoint() {
-	AION_UNPORTED();
+// Java VortexLocation.java:71-73
+runtime::Ref<world::WorldPosition> VortexLocation::getResurrectionPoint() {
+	if (template_->getResurrectionPoint() == nullptr) // Java: NullPointerException
+		throw runtime::NullPointerException("VortexTemplate.getResurrectionPoint() is null");
+	return template_->getResurrectionPoint()->getResurrectionPoint();
 }
 
-runtime::Ptr<world::WorldPosition> VortexLocation::getStartPoint() {
-	AION_UNPORTED();
+// Java VortexLocation.java:75-77
+runtime::Ref<world::WorldPosition> VortexLocation::getStartPoint() {
+	if (template_->getStartPoint() == nullptr) // Java: NullPointerException
+		throw runtime::NullPointerException("VortexTemplate.getStartPoint() is null");
+	return template_->getStartPoint()->getStartPoint();
 }
 
 int32_t VortexLocation::getId() {
@@ -91,8 +103,9 @@ int32_t VortexLocation::getInvasionWorldId() {
 	return start->getWorldId();
 }
 
+// Java VortexLocation.java:111-113
 bool VortexLocation::isInvaderInside(int32_t objId) {
-	AION_UNPORTED();
+	return isActive() && getVortexController()->getPassedPlayers().containsKey(objId);
 }
 
 bool VortexLocation::isInsideActiveVotrex(gameobjects::player::Player& player) {

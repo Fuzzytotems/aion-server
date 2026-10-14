@@ -17,6 +17,7 @@
 #include "aion/gameserver/model/geometry/PolyArea.h"
 #include "aion/gameserver/model/templates/vortex/VortexTemplate.bind.h"
 #include "aion/gameserver/model/templates/vortex/VortexTemplate.h"
+#include "aion/gameserver/world/WorldPosition.h"
 #include "aion/gameserver/model/templates/zone/Points.h"
 #include "aion/gameserver/model/templates/zone/WorldZoneTemplate.h"
 #include "aion/gameserver/model/templates/zone/ZoneInfo.h"
@@ -159,6 +160,35 @@ TEST_F(VortexZoneHandlerTest, ALocationWithoutZonesHoldsNobody) {
 	location->onLeaveZone(*f.player, *zone);
 	EXPECT_TRUE(location->getPlayers().isEmpty());
 	EXPECT_EQ(runtime::unportedHitCount(), 0u);
+}
+
+
+TEST_F(VortexZoneHandlerTest, ThePointsAreTheTemplatesAndAnInactiveVortexHasNoInvaderInside) {
+	// M5i I-10: VortexLocation.java:46-49, 67-77, 111-113
+	runtime::Ref<VortexLocation> location = VortexLocation::create(vortexTemplate.get());
+	runtime::resetUnportedHitsForTests();
+	runtime::Ref<world::WorldPosition> home = location->getHomePoint();
+	EXPECT_EQ(home->getMapId(), 120080000);
+	EXPECT_FLOAT_EQ(home->getX(), 559.4f);
+	EXPECT_FLOAT_EQ(home->getZ(), 93.5f);
+	runtime::Ref<world::WorldPosition> resurrection = location->getResurrectionPoint();
+	EXPECT_EQ(resurrection->getMapId(), 210060000);
+	EXPECT_FLOAT_EQ(resurrection->getY(), 2433.0f);
+	runtime::Ref<world::WorldPosition> start = location->getStartPoint();
+	EXPECT_EQ(start->getMapId(), 210060000);
+	EXPECT_FLOAT_EQ(start->getX(), 951.0f);
+	EXPECT_NE(location->getHomePoint().get(), home.get()) << "Java builds a new WorldPosition per call";
+
+	location->setActiveVortex(nullptr);
+	EXPECT_FALSE(location->isActive()) << "isActive = vortex != null";
+	EXPECT_FALSE(location->isInvaderInside(9)) << "inactive: the controller is not asked";
+	EXPECT_EQ(runtime::unportedHitCount(), 0u);
+
+	std::unique_ptr<model::templates::vortex::VortexTemplate> bare = bindXml<model::templates::vortex::VortexTemplate>(R"(<vortex_location id="7"/>)");
+	runtime::Ref<VortexLocation> bareLocation = VortexLocation::create(bare.get());
+	EXPECT_THROW(bareLocation->getHomePoint(), runtime::NullPointerException);
+	EXPECT_THROW(bareLocation->getResurrectionPoint(), runtime::NullPointerException);
+	EXPECT_THROW(bareLocation->getStartPoint(), runtime::NullPointerException);
 }
 
 } // namespace
