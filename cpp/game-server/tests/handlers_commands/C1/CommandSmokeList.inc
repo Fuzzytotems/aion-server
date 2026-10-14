@@ -34,6 +34,7 @@ namespace aion::gameserver::handlers::admincommands { ::aion::gameserver::handle
 namespace aion::gameserver::handlers::admincommands { ::aion::gameserver::handlers::CommandFactory Gag_commandFactory; }
 namespace aion::gameserver::handlers::admincommands { ::aion::gameserver::handlers::CommandFactory GoTo_commandFactory; }
 namespace aion::gameserver::handlers::admincommands { ::aion::gameserver::handlers::CommandFactory Grant_commandFactory; }
+namespace aion::gameserver::handlers::admincommands { ::aion::gameserver::handlers::CommandFactory Headhunting_commandFactory; }
 namespace aion::gameserver::handlers::admincommands { ::aion::gameserver::handlers::CommandFactory Heal_commandFactory; }
 namespace aion::gameserver::handlers::admincommands { ::aion::gameserver::handlers::CommandFactory Info_commandFactory; }
 namespace aion::gameserver::handlers::admincommands { ::aion::gameserver::handlers::CommandFactory Instance_commandFactory; }
@@ -167,6 +168,7 @@ inline constexpr SmokeCommand SMOKE_COMMANDS[] = {
 	{"admincommands.Gag", &::aion::gameserver::handlers::admincommands::Gag_commandFactory},
 	{"admincommands.GoTo", &::aion::gameserver::handlers::admincommands::GoTo_commandFactory},
 	{"admincommands.Grant", &::aion::gameserver::handlers::admincommands::Grant_commandFactory},
+	{"admincommands.Headhunting", &::aion::gameserver::handlers::admincommands::Headhunting_commandFactory},
 	{"admincommands.Heal", &::aion::gameserver::handlers::admincommands::Heal_commandFactory},
 	{"admincommands.Info", &::aion::gameserver::handlers::admincommands::Info_commandFactory},
 	{"admincommands.Instance", &::aion::gameserver::handlers::admincommands::Instance_commandFactory},
