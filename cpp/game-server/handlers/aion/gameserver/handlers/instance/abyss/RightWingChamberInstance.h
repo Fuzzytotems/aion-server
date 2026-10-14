@@ -23,7 +23,7 @@ class RightWingChamberInstance : public GeneralInstanceHandler {
 	AION_MAKE_REF_FRIEND
 private:
 	runtime::AtomicLong startTime{AION_LOCK_CLASS(RightWingChamberInstance::startTime)}; // Java: = new AtomicLong()
-	runtime::Field<std::optional<Race>> instanceRace{}; // Java null until the first entry
+	runtime::Field<std::optional<Race>> instanceRace{}; // fieldmap: Java null until the first entry; a nullable enum (hub-headers.md §6)
 
 protected:
 	explicit RightWingChamberInstance(WorldMapInstance& instance);
