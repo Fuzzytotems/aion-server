@@ -564,6 +564,15 @@ if(TARGET aion_gs_scenario_tests)
 		set_property(TEST gs.scenario.m5i APPEND PROPERTY ENVIRONMENT_MODIFICATION "AION_SCENARIO_REQUIRE=set:1")
 	endif()
 
+	# gs.scenario.m5i_soak (m5i-plan.md 10.7, D17 approved for a 02:00 slot, G-09): sieges and the Balaur assault as shipped, three idle clients in
+	# Reshanta, Eltnen and Verteron for 65 minutes across an hh:00 (the hourly SM_FORTRESS_STATUS), then the reports. Opt-in: it skips unless
+	# AION_SCENARIO_SOAK is set, and skips a window that touches the siege evenings, midnight or Wednesday 09:00. Label "soak" only (not
+	# "scenario"), its own output directory <bin>/scenario/m5i_soak and schema pair (prefix m5is). Gate slot 2. TIMEOUT 6000.
+	add_test(NAME gs.scenario.m5i_soak COMMAND "$<TARGET_FILE:aion_gs_scenario_tests>" --gtest_filter=M5iSoak.Run
+		WORKING_DIRECTORY "${scenario_work_dir}")
+	set_tests_properties(gs.scenario.m5i_soak PROPERTIES LABELS "soak;realdata" TIMEOUT 6000
+		RESOURCE_LOCK "${AION_GS_GATE_SLOT_2}" SKIP_REGULAR_EXPRESSION "gs\\.scenario\\.m5i_soak: skipped")
+
 	# gs.scenario.m5g_alliance (m5g-plan.md §16.3 item 7, the alliance part of §10.5): the same four accounts form an alliance from a group,
 	# move a member between alliance groups, appoint a vice captain who invites, run the ready check, share a kill and its loot, time a member
 	# out, leave and disband, and keep a live alliance at the stop. Its own output directory <bin>/scenario/m5g_alliance and schema pair
