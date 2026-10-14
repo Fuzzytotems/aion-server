@@ -735,6 +735,11 @@ aion_gs_chunk(P5-11 LEASE PHASE 5 ROOT handlers
 aion_gs_chunk(P5-12a LEASE PHASE 5
 	GLOBS "aion/gameserver/network/aion/serverpackets/{SM_INFLUENCE_RATIO,SM_FORTRESS_STATUS}.cpp")
 
+# I-8 of M5i (granted 2026-10-14): P5-12b1 leases A1's handlers/ai/siege/{BaseProtectorAI,FlagBaseNpcAI}.* ("base_protector", "base_flag") and
+# C1's handlers/admincommands/BaseCommand.* (//base). FlagNpcAI ("flag") stays lane A's. Released when the lane merges.
+aion_gs_chunk(P5-12b1 LEASE PHASE 5 ROOT handlers
+	GLOBS "aion/gameserver/handlers/ai/siege/{BaseProtectorAI,FlagBaseNpcAI}.*" "aion/gameserver/handlers/admincommands/BaseCommand.*")
+
 # I-5 of M5i (granted 2026-10-13): P5-12b2 leases P5-05's root handlers/ai/RiftProtectorAI.* and A1's handlers/ai/events/WorldRaidAI.* (P5-05's
 # test executable compiles the latter by #include, tests/handlers_ai_core/RiftAndWorldRaidAiTest.cpp). Released when the lane merges.
 aion_gs_chunk(P5-12b2 LEASE PHASE 5 ROOT handlers

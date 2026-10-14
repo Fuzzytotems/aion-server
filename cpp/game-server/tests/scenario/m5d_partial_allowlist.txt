@@ -18,12 +18,11 @@
 # longer exists. Stage 1 and the D3 join left no AION_PARTIAL on the quest path (m5d-plan.md §19.1-§19.2), and xml_quest 1127 was ported
 # (T-03), so D10's fallback row does not exist either.
 
+# HISTORY: BaseService.cpp:18 (the gates ran without base locations, E1-06) was here until M5i I-8 ported the bases (m5i-plan.md D3).
 # =========================================================================================================================================
 # --- SECTION A - hit at least once, asserted ---
 # =========================================================================================================================================
 
-# every startup: the gates run without base locations (E1-06)
-aion/gameserver/services/BaseService.cpp:18
 
 # =========================================================================================================================================
 # --- SECTION B - hit exactly zero times, asserted ---
