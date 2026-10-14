@@ -475,5 +475,68 @@ TEST_F(LegionDominionWeeklyTest, TheRewardsAreGroupedByRank) {
 	EXPECT_EQ(rewards[3][0]->getItemId(), 188053897);
 }
 
+
+// ---- M5i I-9 (T-13): joining a territory and finishing the instance (LegionService.java:1148-1162, LegionDominionService.java:55-73,
+// LegionDominionLocation.java:84-113) ----
+
+TEST_F(LegionDominionWeeklyTest, TheBrigadeGeneralJoinsATerritoryOnceAndOnlyAGeneralOrDeputyMay) {
+	LEGION_REQUIRE_DATABASE();
+	Member& a = online("Alpha", 25000);
+	Member& b = online("Bravo", 25000);
+	Legion& legion = created(a, "Joiners");
+	invite(a, b, 1);
+	services::LegionDominionService& dominion = service();
+	for (Member* m : stored)
+		m->clearSent();
+
+	LegionService::getInstance().joinLegionDominion(b.player(), 1); // a centurion: refused
+	EXPECT_EQ(legion.getCurrentLegionDominion(), 0);
+	EXPECT_EQ(count("SELECT COUNT(*) FROM legion_dominion_participants"), 0);
+
+	LegionService::getInstance().joinLegionDominion(a.player(), 1);
+	EXPECT_EQ(legion.getCurrentLegionDominion(), 1);
+	EXPECT_TRUE(dominion.getLegionDominionLoc(1)->getParticipantInfo(legion.getLegionId()));
+	EXPECT_EQ(count("SELECT COUNT(*) FROM legion_dominion_participants WHERE legion_dominion_id = 1 AND legion_id = " + std::to_string(legion.getLegionId())), 1)
+		<< "LegionDominionDAO.storeNewInfo";
+	EXPECT_EQ(count("SELECT current_legion_dominion FROM legions WHERE id = " + std::to_string(legion.getLegionId())), 1) << "storeLegion";
+	EXPECT_EQ(a.count(opcodeOf<serverpackets::SM_LEGION_INFO>), 1);
+	EXPECT_EQ(b.count(opcodeOf<serverpackets::SM_LEGION_INFO>), 1) << "to the whole legion";
+
+	LegionService::getInstance().joinLegionDominion(a.player(), 1); // already selected
+	EXPECT_EQ(count("SELECT COUNT(*) FROM legion_dominion_participants"), 1);
+	EXPECT_FALSE(dominion.join(legion.getLegionId(), 1)) << "LegionDominionLocation.join: already a participant";
+
+	Member& c = online("Charlie", 25000);
+	Legion& elsewhere = created(c, "Elsewhere");
+	elsewhere.setCurrentLegionDominion(2); // already selected another territory this week
+	LegionService::getInstance().joinLegionDominion(c.player(), 1);
+	EXPECT_FALSE(dominion.getLegionDominionLoc(1)->getParticipantInfo(elsewhere.getLegionId())) << ":1153-1154: one territory per week";
+	EXPECT_EQ(elsewhere.getCurrentLegionDominion(), 2);
+}
+
+TEST_F(LegionDominionWeeklyTest, FinishingTheInstanceKeepsOnlyABetterScore) {
+	LEGION_REQUIRE_DATABASE();
+	Member& a = online("Alpha", 25000);
+	Legion& legion = created(a, "Scorers");
+	services::LegionDominionService& dominion = service();
+	LegionService::getInstance().joinLegionDominion(a.player(), 1);
+	a.clearSent();
+
+	dominion.onFinishInstance(runtime::Ptr<Legion>(legion), 120, 95500);
+	runtime::Ptr<model::legionDominion::LegionDominionParticipantInfo> info = dominion.getLegionDominionLoc(1)->getParticipantInfo(legion.getLegionId());
+	ASSERT_TRUE(info);
+	EXPECT_EQ(info->getPoints(), 120);
+	EXPECT_EQ(info->getTime(), 95) << "time / 1000";
+	EXPECT_EQ(count("SELECT points FROM legion_dominion_participants WHERE legion_id = " + std::to_string(legion.getLegionId())), 120) << "updateInfo";
+	EXPECT_EQ(a.count(opcodeOf<serverpackets::SM_LEGION_DOMINION_RANK>), 1) << "updateRanking: one per participating legion";
+
+	a.clearSent();
+	dominion.onFinishInstance(runtime::Ptr<Legion>(legion), 100, 50000); // not better
+	EXPECT_EQ(info->getPoints(), 120);
+	EXPECT_EQ(a.count(opcodeOf<serverpackets::SM_LEGION_DOMINION_RANK>), 0);
+	dominion.onFinishInstance(nullptr, 500, 1000); // no legion: nothing
+	EXPECT_EQ(info->getPoints(), 120);
+}
+
 } // namespace
 } // namespace aion::gameserver::network::aion::clientpackets::testing::team

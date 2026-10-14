@@ -35,6 +35,7 @@
 #include <string_view>
 #include <vector>
 
+#include "aion/gameserver/configs/main/GSConfig.h"
 #include "aion/gameserver/ai/AIState.h"
 #include "aion/gameserver/configs/main/AIConfig.h"
 #include "aion/gameserver/configs/main/AutoGroupConfig.h"
@@ -843,11 +844,14 @@ TEST_F(DialogServiceTest, AbyssRankNeedsTheRankOrStaff) {
 	EXPECT_TRUE(allowed(corridor)) << ":350-351: staff pass";
 }
 
-TEST_F(DialogServiceTest, TargetLegionDominionAsksTheUnportedCalculationTimeFirst) {
-	// :355-357: LegionDominionService.isInCalculationTime is M5h's (m5c-plan.md W-30): loud, before the legion is looked at
-	EXPECT_THROW(allowed(npc(STONESPEAR_ENTRANCE)), runtime::UnportedException);
-	EXPECT_EQ(unportedHitsIn("LegionDominionService.cpp"), 1u);
-	EXPECT_EQ(runtime::unportedHitCount(), 1u);
+TEST_F(DialogServiceTest, TargetLegionDominionWithoutALegionIsRestricted) {
+	// :355-361: in the calculation time (Wednesday 08-10 server time, ported by M5i I-9) or without a legion the subdialog is restricted
+	const std::chrono::time_zone* savedZone = configs::main::GSConfig::TIME_ZONE_ID.exchange(std::chrono::locate_zone("UTC")); // ServerTime.now
+	const bool allowedWithoutLegion = allowed(npc(STONESPEAR_ENTRANCE));
+	configs::main::GSConfig::TIME_ZONE_ID.store(savedZone);
+	EXPECT_FALSE(allowedWithoutLegion);
+	EXPECT_EQ(unportedHitsIn("LegionDominionService.cpp"), 0u);
+	EXPECT_EQ(runtime::unportedHitCount(), 0u);
 }
 
 TEST_F(DialogServiceTest, LegionDominionNpcNeedsALegion) {
