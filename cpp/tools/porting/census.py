@@ -3035,7 +3035,8 @@ LIVE_CHECKS = [
     ('model/templates/item/actions/SkillUseAction.java', 'SkillUseAction', 'canAct', 4, None, 'ported', None),
     ('model/templates/item/actions/SkillUseAction.java', 'SkillUseAction', 'act', 4, None, 'ported', None),
     ('model/templates/item/actions/SkillUseAction.java', 'SkillUseAction', 'isIneffectiveHealSkill', 2, None, 'ported', 'fileLocal'),
-    ('model/templates/spawns/Spawn.java', 'Spawn', 'beforeMarshal', 1, None, 'undeclared', None),
+    # omitted since the leftovers sweep (2026-10-14): Spawn.cpp says SpawnsData's writer replaces the marshal hooks (it was undeclared)
+    ('model/templates/spawns/Spawn.java', 'Spawn', 'beforeMarshal', 1, None, 'omitted', None),
 ]
 # (Java file, type path, expected initializer statuses in order)
 LIVE_INITIALIZERS = [

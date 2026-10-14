@@ -1,3 +1,5 @@
+// Matrix4f's fillFloatBuffer and readFloatBuffer (both arities) are not ported: jME's FloatBuffer interop has no caller in the server.
+
 #include "aion/gameserver/geoEngine/math/Matrix4f.h"
 
 #include "aion/commons/logging/LoggerFactory.h"
