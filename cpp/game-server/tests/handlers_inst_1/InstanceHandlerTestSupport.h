@@ -27,6 +27,8 @@
 #include "aion/gameserver/dataholders/MaterialData.h"
 #include "aion/gameserver/dataholders/NpcData.bind.h"
 #include "aion/gameserver/dataholders/NpcData.h"
+#include "aion/gameserver/dataholders/QuestsData.bind.h"
+#include "aion/gameserver/dataholders/QuestsData.h"
 #include "aion/gameserver/dataholders/ShieldData.bind.h"
 #include "aion/gameserver/dataholders/ShieldData.h"
 #include "aion/gameserver/dataholders/TribeRelationsData.bind.h"
@@ -74,6 +76,20 @@ namespace aion::gameserver::handlers::instance::dredgion {
 
 } // namespace aion::gameserver::handlers::instance::dredgion
 
+namespace aion::gameserver::handlers::instance::abyss {
+
+::aion::gameserver::handlers::InstanceFactory KrotanBarracks_instanceFactory;
+::aion::gameserver::handlers::InstanceFactory KysisBarracks_instanceFactory;
+::aion::gameserver::handlers::InstanceFactory MirenBarracks_instanceFactory;
+::aion::gameserver::handlers::InstanceFactory KrotanChamber_instanceFactory;
+::aion::gameserver::handlers::InstanceFactory KysisChamber_instanceFactory;
+::aion::gameserver::handlers::InstanceFactory MirenChamber_instanceFactory;
+::aion::gameserver::handlers::InstanceFactory LegionsKrotanBarracks_instanceFactory;
+::aion::gameserver::handlers::InstanceFactory LegionsKysisBarracks_instanceFactory;
+::aion::gameserver::handlers::InstanceFactory LegionsMirenBarracks_instanceFactory;
+
+} // namespace aion::gameserver::handlers::instance::abyss
+
 namespace aion::gameserver::handlers::instance::test {
 
 namespace cptest = ::aion::gameserver::network::aion::clientpackets::testing;
@@ -87,8 +103,17 @@ inline constexpr int32_t DRAUPNIR_CAVE = 320080000;
 inline constexpr int32_t FIRE_TEMPLE = 320100000;
 inline constexpr int32_t ADMA_STRONGHOLD = 320130000;
 
-/** world_maps.xml:39, 50, 65 (the Dredgions, their child elements left out), 46, 49, 131, 133, 136 */
+/** world_maps.xml's rows of the I1 maps under test (the Dredgions' child elements left out) */
 inline constexpr const char* INSTANCE_MAPS_XML = R"x(<world_maps>
+	<map id="301300000" cName="IDAbRe_Up3_Crotan_02_N" name="Krotan Barracks" name_id="404100" instance="true" water_level="16" death_level="0" world_type="ABYSS" world_size="1024" drop_type="ABYSS_INSTANCE" flags="RECALL PVP DUEL_SAME_RACE NO_RETURN_BATTLE"/>
+	<map id="301280000" cName="IDAbRe_Up3_Dkisas_02_N" name="Kysis Barracks" name_id="404101" instance="true" water_level="16" death_level="0" world_type="ABYSS" world_size="1024" drop_type="ABYSS_INSTANCE" flags="RECALL PVP DUEL_SAME_RACE NO_RETURN_BATTLE"/>
+	<map id="301290000" cName="IDAbRe_Up3_Lamiren_02_N" name="Miren Barracks" name_id="404102" instance="true" water_level="16" death_level="0" world_type="ABYSS" world_size="1024" drop_type="ABYSS_INSTANCE" flags="RECALL PVP DUEL_SAME_RACE NO_RETURN_BATTLE"/>
+	<map id="300140000" cName="IDAbRe_Up3_Crotan" name="Krotan Chamber" name_id="401203" instance="true" water_level="16" death_level="0" world_type="ABYSS" world_size="1024" drop_type="ABYSS_INSTANCE" flags="RECALL PVP DUEL_SAME_RACE NO_RETURN_BATTLE" pve_attack_ratio="150" pve_defend_ratio="50"/>
+	<map id="300120000" cName="IDAbRe_Up3_Dkisas" name="Kysis Chamber" name_id="401204" instance="true" water_level="16" death_level="0" world_type="ABYSS" world_size="1024" drop_type="ABYSS_INSTANCE" flags="RECALL PVP DUEL_SAME_RACE NO_RETURN_BATTLE" pve_attack_ratio="150" pve_defend_ratio="50"/>
+	<map id="300130000" cName="IDAbRe_Up3_Lamiren" name="Miren Chamber" name_id="401205" instance="true" water_level="16" death_level="0" world_type="ABYSS" world_size="1024" drop_type="ABYSS_INSTANCE" flags="RECALL PVP DUEL_SAME_RACE NO_RETURN_BATTLE" pve_attack_ratio="150" pve_defend_ratio="50"/>
+	<map id="301260000" cName="IDAbRe_Up3_Crotan_02" name="Legion's Krotan Barracks" name_id="404061" instance="true" water_level="16" death_level="0" world_type="ABYSS" world_size="1024" drop_type="ABYSS_INSTANCE" flags="RECALL PVP DUEL_SAME_RACE NO_RETURN_BATTLE"/>
+	<map id="301240000" cName="IDAbRe_Up3_Dkisas_02" name="Legion's Kysis Barracks" name_id="404062" instance="true" water_level="16" death_level="0" world_type="ABYSS" world_size="1024" drop_type="ABYSS_INSTANCE" flags="RECALL PVP DUEL_SAME_RACE NO_RETURN_BATTLE"/>
+	<map id="301250000" cName="IDAbRe_Up3_Lamiren_02" name="Legion's Miren Barracks" name_id="404063" instance="true" water_level="16" death_level="0" world_type="ABYSS" world_size="1024" drop_type="ABYSS_INSTANCE" flags="RECALL PVP DUEL_SAME_RACE NO_RETURN_BATTLE"/>
 	<map id="300110000" cName="IDAb1_Dreadgion" name="Dredgion" name_id="401193" instance="true" water_level="16" death_level="0" world_size="1024" drop_type="DREDGION_INSTANCE" except_buff="true" flags="GLIDE PVP DUEL_SAME_RACE NO_RETURN_BATTLE" pve_attack_ratio="150" pve_defend_ratio="50"/>
 	<map id="300210000" cName="IDDreadgion_02" name="Chantra Dredgion" name_id="401675" instance="true" water_level="16" death_level="0" world_type="BALAUREA" world_size="1024" drop_type="DREDGION_INSTANCE" except_buff="true" flags="GLIDE PVP DUEL_SAME_RACE NO_RETURN_BATTLE" pve_attack_ratio="150" pve_defend_ratio="50"/>
 	<map id="300440000" cName="IDDreadgion_03" name="Terath Dredgion" name_id="401836" instance="true" water_level="16" death_level="0" world_type="BALAUREA" world_size="1024" drop_type="DREDGION_INSTANCE" except_buff="true" flags="GLIDE PVP DUEL_SAME_RACE NO_RETURN_BATTLE" pve_attack_ratio="150" pve_defend_ratio="50"/>
@@ -108,7 +133,10 @@ inline const std::vector<int32_t>& handlerNpcIds() {
 		215093, 214823, 700485, 700486, 700487, 700488, 700489, 700490, 700491, 700492, 700493, 700495, 700496, 700497, 700498, 700508, 700502,
 		700506, 730214, 216886, 216889, 216890, 730349, 730314, 701441, 701442, 701455, 233377, 233371,
 		// the I1 AIs' npcs: Icaronix the Betrayer, the duke's summons, an illusion gate (test id 900100) and the ids it adds, two plain npcs
-		214599, 284978, 284979, 284980, 284981, 900100, 900101, 900102, 900103, 900200, 900300};
+		214599, 284978, 284979, 284980, 284981, 900100, 900101, 900102, 900103, 900200, 900300,
+		// Krotan Barracks: the key masters, the bosses, the chests (and the legion version's), the timer npc, the doors, a door guard, the
+		// artifact, the statues
+		233627, 233628, 233629, 233630, 233632, 233633, 702288, 702289, 702290, 702291, 206095, 700545, 233599, 233600, 215413, 235536};
 	return ids;
 }
 
@@ -170,6 +198,12 @@ protected:
 		lookups.activeHouseOfPlayer = &noHouse;
 		lookups.cpInfoForCurrentMap = &noCpInfo;
 		network::aion::serverpackets::detail::setPacketLookupsForTests(&lookups);
+		// SM_QUEST_ACTION and the npcs' deaths ask the quest data: one row (quest_data.xml:65-67, RoahCustomInstanceHandlerTest's)
+		dataholders::DataManager::QUEST_DATA.publish(xml::bindString<dataholders::QuestsData>(context, R"x(<quests>
+	<quest id="1006" name="Ascension" nameId="1102006" quest_zone="Ascension Quests" minlevel_permitted="9" max_repeat_count="1" cannot_share="true" cannot_giveup="true" race_permitted="ELYOS" category="MISSION">
+		<rewards exp="73200"/>
+	</quest>
+</quests>)x"));
 		dataholders::DataManager::TRIBE_RELATIONS_DATA.publish(xml::bindString<dataholders::TribeRelationsData>(context, R"(<tribe_relations><tribe name="GENERAL"><hostile>PC PC_DARK</hostile></tribe><tribe name="PC"><none>GENERAL</none></tribe>)"
 			R"(<tribe name="PC_DARK"><none>GENERAL</none></tribe></tribe_relations>)"));
 	}
@@ -180,6 +214,7 @@ protected:
 		configs::main::AIConfig::MISSING_AI_HANDLERS.set(missingAiHandlers);
 		dataholders::DataManager::NPC_DATA.resetForTests();
 		dataholders::DataManager::TRIBE_RELATIONS_DATA.resetForTests();
+		dataholders::DataManager::QUEST_DATA.resetForTests();
 		cptest::InWorldPacketTest::TearDown();
 	}
 
@@ -252,6 +287,15 @@ protected:
 	void hit(model::gameobjects::Npc& npc, int32_t damage = 100) {
 		InstanceKnownListPairing::pair(npc, player());
 		npc.getAggroList().addDamage(player(), damage, true, std::nullopt);
+	}
+
+	/** spawnNpc with a static id (GeneralInstanceHandler.spawn(npcId, x, y, z, h, staticId)) */
+	static runtime::Ptr<model::gameobjects::Npc> spawnStaticNpc(world::WorldMapInstance& instance, int32_t npcId, float x, float y, float z,
+	                                                            int32_t staticId) {
+		runtime::Ref<model::templates::spawns::SpawnTemplate> spawn =
+			spawnengine::SpawnEngine::newSingleTimeSpawn(instance.getMapId(), npcId, x, y, z, int8_t{0});
+		spawn->setStaticId(staticId);
+		return runtime::as<model::gameobjects::Npc>(spawnengine::SpawnEngine::spawnObject(*spawn, instance.getInstanceId()));
 	}
 
 	/** The npcs of the instance, in the instance's order */
