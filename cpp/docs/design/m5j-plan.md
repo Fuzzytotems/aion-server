@@ -1730,3 +1730,5 @@ About 3,500 Java lines, ~130 bodies. **Checkpoints** (unit tests in the owning c
 > (487 sites in 461 functions, 33 opcodes, every row with an owner); the command and AI smokes carry the `smoke` label (`ctest -L smoke`,
 > 173 of 173). The closure document is m5j-closure.md. For the integrator: §10.6's "only the two commented-out opcodes" holds only after
 > M5h and the capital-economy milestone; until then the 33 are owned rows (m5j-closure.md §4). The world tour (G-41) still waits.
+> **Progress:** leftovers sweep LO-1..LO-5 (`lane-a/leftovers-1`, m5j-closure.md §7): M5d/M5f/M5g/M5j and phase-4 bodies no lane owned;
+> census phase 5 801 -> 748 open, closure 484 sites.

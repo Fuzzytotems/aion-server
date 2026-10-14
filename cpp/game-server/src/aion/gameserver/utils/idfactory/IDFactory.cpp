@@ -134,7 +134,10 @@ void pruneRecent(IDFactoryState& s, TimePoint time) {
 }
 #endif
 
-/** lowest free valid id in [from, to), or -1 */
+/**
+ * Java: IDFactory.nextValidId(searchIndex) - the next clear bit that is a valid id; here iterative and bounded by `to` (lowest free
+ * valid id in [from, to), or -1), the "All IDs are used" error is the caller's
+ */
 int64_t findFree(const IDFactoryState& s, int64_t from, int64_t to) noexcept {
 	int64_t id = std::max<int64_t>(from, 0);
 	while (id < to) {
@@ -150,6 +153,7 @@ int64_t findFree(const IDFactoryState& s, int64_t from, int64_t to) noexcept {
 
 } // namespace
 
+// Java initializeUsedIds() is replaced: the startup code seeds the DAOs' used ids through lockIds, one call per DAO (IDFactory.h).
 IDFactory& IDFactory::getInstance() {
 	static IDFactory* instance = [] {
 		auto* factory = new IDFactory();
@@ -220,6 +224,7 @@ int32_t IDFactory::nextId() {
 }
 
 void IDFactory::releaseId(int32_t id, const char* className) {
+	// Java release(id) inlined: false if the id is not taken, else clear it (the cursor and the quarantine replace nextMinId)
 	IDFactoryState& s = state();
 	TimePoint time = now();
 	bool notTaken = false;

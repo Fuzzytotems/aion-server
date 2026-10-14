@@ -13,6 +13,7 @@
 #include "aion/gameserver/handlers/HandlerRegistry.h"
 #include "aion/gameserver/model/animations/ArrivalAnimation.h"
 #include "aion/gameserver/model/flypath/FlyPathType.h"
+#include "aion/gameserver/model/flypath/FlyPathTypeInfo.h"
 #include "aion/gameserver/model/gameobjects/HouseObject.h"
 #include "aion/gameserver/model/gameobjects/Pet.h"
 #include "aion/gameserver/model/gameobjects/player/Player.h"
@@ -85,8 +86,7 @@ void CM_LEVEL_READY::runImpl() {
 		for (const model::templates::windstreams::Location2D& location : windstream->getLocations()->getLocation()) {
 			if (!location.getFlyPathType()) // Java: NullPointerException at getFlyPathType().getId()
 				throw runtime::NullPointerException("Cannot invoke \"FlyPathType.getId()\" because the return value of \"Location2D.getFlyPathType()\" is null");
-			// Java FlyPathType.getId(): GEYSER(0), ONE_WAY(1), TWO_WAY(2), the ordinal
-			sendPacket(serverpackets::SM_WINDSTREAM_ANNOUNCE(static_cast<int32_t>(*location.getFlyPathType()), windstream->getMapId(), location.getId(),
+			sendPacket(serverpackets::SM_WINDSTREAM_ANNOUNCE(model::flypath::getId(*location.getFlyPathType()), windstream->getMapId(), location.getId(),
 				location.getState()));
 		}
 	// Spawn player into the world.

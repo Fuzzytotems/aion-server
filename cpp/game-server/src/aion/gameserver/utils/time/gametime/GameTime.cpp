@@ -16,11 +16,21 @@ namespace {
 constexpr std::array<int32_t, 12> MONTH_DAYS{{31, 31, 31, 31, 31, 31, 31, 31, 31, 31, 31, 31}};
 static_assert(static_cast<size_t>(GameTime_Month::DECEMBER) + 1 == MONTH_DAYS.size(), "one entry per GameTime.Month constant");
 
+/** Java: Month.getDays() */
+constexpr int32_t getDays(GameTime_Month m) noexcept {
+	return MONTH_DAYS[static_cast<size_t>(m)];
+}
+
+/** Java: Month.values() */
+constexpr std::array<GameTime_Month, 12> MONTHS{GameTime_Month::JANUARY, GameTime_Month::FEBRUARY, GameTime_Month::MARCH, GameTime_Month::APRIL,
+	GameTime_Month::MAY, GameTime_Month::JUNE, GameTime_Month::JULY, GameTime_Month::AUGUST, GameTime_Month::SEPTEMBER, GameTime_Month::OCTOBER,
+	GameTime_Month::NOVEMBER, GameTime_Month::DECEMBER};
+
 /** Java: Month.getDaysOfYear() */
 constexpr int32_t getDaysOfYear() noexcept {
 	int32_t daysOfYear = 0;
-	for (int32_t days : MONTH_DAYS)
-		daysOfYear += days;
+	for (GameTime_Month m : MONTHS)
+		daysOfYear += getDays(m);
 	return daysOfYear;
 }
 
@@ -71,9 +81,9 @@ int32_t GameTime::getYear() {
 int32_t GameTime::getMonth() {
 	int32_t month = 0;
 	int32_t minutesOfThisYear = gameTime.get() % MINUTES_IN_YEAR;
-	for (int32_t days : MONTH_DAYS) {
+	for (GameTime_Month m : MONTHS) {
 		month += 1;
-		if ((minutesOfThisYear -= days * MINUTES_IN_DAY) < 0)
+		if ((minutesOfThisYear -= getDays(m) * MINUTES_IN_DAY) < 0)
 			break;
 	}
 	return month;
@@ -82,8 +92,8 @@ int32_t GameTime::getMonth() {
 int32_t GameTime::getDay() {
 	int32_t day = 1;
 	int32_t minutesInYear = gameTime.get() % MINUTES_IN_YEAR;
-	for (int32_t days : MONTH_DAYS) {
-		int32_t minutesInMonth = days * MINUTES_IN_DAY;
+	for (GameTime_Month m : MONTHS) {
+		int32_t minutesInMonth = getDays(m) * MINUTES_IN_DAY;
 		if (minutesInYear > minutesInMonth) {
 			minutesInYear -= minutesInMonth;
 		} else {

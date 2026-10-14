@@ -97,6 +97,7 @@ ExecutorBackend& ensureBackend() {
 	return *s.owned;
 }
 
+/** Java: ThreadPoolManager.getTaskCount(tp) - the queued and running tasks of one pool, counted over the backend's pending tasks */
 size_t countPool(const std::vector<FutureRef>& tasks, runtime::PoolKind pool) {
 	return static_cast<size_t>(std::count_if(tasks.begin(), tasks.end(), [pool](const FutureRef& task) { return task->getPool() == pool; }));
 }
@@ -279,7 +280,7 @@ void ThreadPoolManager::shutdown() {
 	pending.clear();
 
 	state().shutdown.store(true, std::memory_order_release);
-	bool success = executor.shutdown(std::chrono::milliseconds(5000));
+	bool success = executor.shutdown(std::chrono::milliseconds(5000)); // Java awaitTermination(5000) inlined: the backend's shutdown waits
 
 	pending = executor.pendingTasks();
 	log().info("\t... success: {} in {} msec.", success, commons::utils::currentTimeMillis() - begin);

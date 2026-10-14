@@ -305,7 +305,7 @@ SavedSpawn* findSavedSpawn(SavedSpawnMap& spawnMap, SpawnTemplate& spawn, bool e
 }
 
 /**
- * Java: loadSpawnsFromTemplateFiles (SpawnsData.java:277-300): the first match in the folder's XML files (Files.walkFileTree's order: each
+ * Java: SpawnsData.loadSpawnsFromTemplateFiles(folder, schema, spawn, delete) (SpawnsData.java:277-300): the first match in the folder's XML files (Files.walkFileTree's order: each
  * directory's entries as listed, depth first); an I/O error of the walk is logged and ends it.
  */
 std::optional<SavedSpawn> loadSpawnFromTemplateFiles(const std::string& folder, SpawnTemplate& spawn, bool exactMatch) {
