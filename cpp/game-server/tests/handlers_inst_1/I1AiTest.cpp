@@ -22,7 +22,9 @@
 #include "aion/gameserver/handlers/ai/instance/azoturanFortress/BetrayerIcaronixAI.h"
 #include "aion/gameserver/handlers/ai/instance/dredgion/ShulackDrudgeAI.h"
 #include "aion/gameserver/handlers/ai/instance/dredgion/SurkanaAI.h"
+#include "aion/gameserver/handlers/ai/instance/esoterrace/DaliaCharlandsAI.h"
 #include "aion/gameserver/handlers/ai/instance/esoterrace/KexkraPrototypeAI.h"
+#include "aion/gameserver/model/templates/spawns/SpawnTemplate.h"
 #include "aion/gameserver/handlers/ai/instance/esoterrace/WardenSuramaAI.h"
 #include "aion/gameserver/network/aion/serverpackets/SM_SYSTEM_MESSAGE.h"
 #include "aion/gameserver/network/aion/serverpackets/SM_PLAY_MOVIE.h"
@@ -45,6 +47,7 @@ namespace dredgion {
 namespace esoterrace {
 ::aion::gameserver::handlers::AIFactory KexkraPrototypeAI_aiFactory;
 ::aion::gameserver::handlers::AIFactory WardenSuramaAI_aiFactory;
+::aion::gameserver::handlers::AIFactory DaliaCharlandsAI_aiFactory;
 } // namespace esoterrace
 } // namespace aion::gameserver::handlers::ai::instance
 
@@ -85,6 +88,15 @@ struct WardenProbe : ais::esoterrace::WardenSuramaAI {
 	using WardenSuramaAI::WardenSuramaAI;
 	using WardenSuramaAI::handleAttack;
 	using WardenSuramaAI::handleBackHome;
+};
+struct DaliaProbe : ais::esoterrace::DaliaCharlandsAI {
+	using DaliaCharlandsAI::DaliaCharlandsAI;
+	using DaliaCharlandsAI::handleAttack;
+	int backHomes = 0;
+	void handleBackHome() override {
+		++backHomes;
+		DaliaCharlandsAI::handleBackHome();
+	}
 };
 /** records the CREATURE_AGGRO events an npc gets */
 struct AggroRecorder : gameserver::ai::NpcAI {
@@ -134,6 +146,7 @@ TEST_F(I1AiTest, TheFactoriesBuildTheirClasses) {
 	EXPECT_NE(dynamic_cast<ais::dredgion::SurkanaAI*>(ais::dredgion::SurkanaAI_aiFactory(*npc).get()), nullptr);
 	EXPECT_NE(dynamic_cast<ais::esoterrace::KexkraPrototypeAI*>(ais::esoterrace::KexkraPrototypeAI_aiFactory(*npc).get()), nullptr);
 	EXPECT_NE(dynamic_cast<ais::esoterrace::WardenSuramaAI*>(ais::esoterrace::WardenSuramaAI_aiFactory(*npc).get()), nullptr);
+	EXPECT_NE(dynamic_cast<ais::esoterrace::DaliaCharlandsAI*>(ais::esoterrace::DaliaCharlandsAI_aiFactory(*npc).get()), nullptr);
 }
 
 /** BetrayerIcaronixAI.java:24-34: above half HP an attack changes nothing; at half, Icaronix the Betrayer takes the place with 50 % HP */
@@ -281,6 +294,42 @@ TEST_F(I1AiTest, WardenSuramasGeysersRiseAtHerPhases) {
 	surama->getLifeStats()->setCurrentHpPercent(50); // the way home heals her
 	ai.handleAttack(runtime::Ptr<model::gameobjects::Creature>(player()));
 	EXPECT_EQ(count(geysers), 8u) << "back home resets the phases";
+}
+
+/** DaliaCharlandsAI.java:29-66: at 75, 50 and 25 % three greenfingers with their walker routes; healed above 80 % or back home, the phases
+ * start again */
+TEST_F(I1AiTest, DaliaCharlandsSendsHerGreenfingers) {
+	leave(); // Esoterrace's map: the greenfingers start at about (1174, 674)
+	instance = &create(300250000, abyss::EsoterraceInstance_instanceFactory);
+	enter(*instance, 1170.0f, 670.0f, 297.5f);
+	runtime::Ptr<Npc> dalia = spawnNpc(*instance, 900200, 1172.0f, 672.0f, 297.5f, int8_t{0});
+	DaliaProbe& ai = install<DaliaProbe>(*dalia);
+	InstanceKnownListPairing::pair(*dalia, player());
+	dalia->getAggroList().addDamage(player(), 1, true, std::nullopt); // a target: without one each attack sends her home, resetting the phases
+	const std::initializer_list<int32_t> helpers{282176, 282177, 282178};
+	dalia->getLifeStats()->setCurrentHpPercent(80);
+	ai.handleAttack(runtime::Ptr<model::gameobjects::Creature>(player()));
+	EXPECT_EQ(count(helpers), 0u);
+	dalia->getLifeStats()->setCurrentHpPercent(75);
+	ai.handleAttack(runtime::Ptr<model::gameobjects::Creature>(player()));
+	ASSERT_EQ(count(helpers), 3u);
+	EXPECT_EQ(npcs(*instance, 282177).front()->getSpawn()->getWalkerId(), std::optional<std::string>("3002500001"));
+	EXPECT_EQ(npcs(*instance, 282176).front()->getSpawn()->getWalkerId(), std::optional<std::string>("3002500002"));
+	EXPECT_EQ(npcs(*instance, 282178).front()->getSpawn()->getWalkerId(), std::optional<std::string>("3002500003"));
+	EXPECT_FLOAT_EQ(npcs(*instance, 282178).front()->getX(), 1176.2f);
+	dalia->getLifeStats()->setCurrentHpPercent(50);
+	ai.handleAttack(runtime::Ptr<model::gameobjects::Creature>(player()));
+	EXPECT_EQ(count(helpers), 6u);
+	EXPECT_EQ(ai.backHomes, 0) << "she fights: no way home so far";
+	dalia->getLifeStats()->setCurrentHpPercent(85); // healed: the next attack resets the phases
+	ai.handleAttack(runtime::Ptr<model::gameobjects::Creature>(player()));
+	dalia->getLifeStats()->setCurrentHpPercent(75);
+	ai.handleAttack(runtime::Ptr<model::gameobjects::Creature>(player()));
+	EXPECT_EQ(count(helpers), 9u) << "the 75 % phase again";
+	ai.handleBackHome();
+	dalia->getLifeStats()->setCurrentHpPercent(75);
+	ai.handleAttack(runtime::Ptr<model::gameobjects::Creature>(player()));
+	EXPECT_EQ(count(helpers), 12u) << "back home resets the phases";
 }
 
 } // namespace
