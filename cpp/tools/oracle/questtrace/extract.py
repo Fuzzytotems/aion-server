@@ -1377,7 +1377,7 @@ class Extractor:
 		if key in p.state:
 			return p.state[key]
 		by = p.clobbered.get(category(key)) or p.clobbered.get(('all',))
-		if by is not None:
+		if by is not None and not self.collect_check_false_only(p, key):
 			raise Unsupported(f'reads {"/".join(map(str, key))} after {by}, which may have written it')
 		if default is not None:
 			return default
@@ -1395,6 +1395,23 @@ class Extractor:
 			v = p.state[('env', 'questId')]
 			return v.v if isinstance(v, K) and isinstance(v.v, int) and not isinstance(v.v, bool) else None
 		return None if ('all',) in p.clobbered else self.qid
+
+	def collect_check_false_only(self, p, key):
+		"""chunk Q06 (lane C, 2026-10-14): an item count read after QuestService.collectItemCheck is the count before it when the path
+		assumed every collectItemCheck of it false and no other effect of the path may write the inventory: collectItemCheck returns false
+		only before its first write (QuestService.java:557-599: each `return false` precedes the removals, which follow the checks)"""
+		if key[0] != 'inv':
+			return False
+		found = False
+		for k, (call, _args, _kind, _line) in enumerate(p.effects):
+			cats = HELPERS.get(call, (None, ()))[1]
+			if call == 'QuestService.collectItemCheck':
+				if p.assume.get(k) is not False:
+					return False
+				found = True
+			elif 'inventory' in cats or 'all' in cats or call.startswith('inventory.'):
+				return False
+		return found
 
 	def clobber(self, p, helper, cats):
 		"""after a helper whose Java body may write these categories, their values are unknown: a later read refuses the hook. 'quest'
