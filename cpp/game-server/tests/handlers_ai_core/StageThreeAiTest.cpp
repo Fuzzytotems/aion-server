@@ -31,6 +31,7 @@
 #include "aion/gameserver/handlers/ai/BookAI.h"
 #include "aion/gameserver/handlers/ai/BubblegutAI.h"
 #include "aion/gameserver/handlers/ai/FirecrackerAI.h"
+#include "aion/gameserver/handlers/ai/FlagNpcAI.h"
 #include "aion/gameserver/handlers/ai/NeutralGuardAI.h"
 #include "aion/gameserver/handlers/ai/NoDmgNoActionAI.h"
 #include "aion/gameserver/handlers/ai/NoInteractionAI.h"
@@ -313,6 +314,13 @@ TEST_F(StageThreeAiTest, NeutralGuardTurnsOnAnAttackerOfPlayers) {
 	EXPECT_EQ(guard.getType(player()), CreatureType::SUPPORT);
 	attacker.setTarget(nullptr);
 	far.setTarget(nullptr);
+}
+
+/** FlagNpcAI.java (the leftovers sweep, 2026-10-14): a flag takes no damage; the base NpcAI's modifyDamage keeps it */
+TEST_F(StageThreeAiTest, AFlagTakesNoDamage) {
+	Npc& flag = npc<roots::FlagNpcAI>();
+	EXPECT_EQ(flag.getAi().modifyDamage(player(), 500.0f, nullptr), 0.0f);
+	EXPECT_EQ(flag.getAi().modifyDamage(player(), 1.0f, nullptr), 0.0f);
 }
 
 /** NoDmgNoActionAI.java, NoInteractionAI.java, OneDmgAI.java, OneDmgNoActionAI.java: damage, thinking, type and stats */

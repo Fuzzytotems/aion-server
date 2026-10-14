@@ -33,6 +33,7 @@ protected:
 
 private:
 	void spawnRandomNpc();
+	/** Java: ConquestOfferingSpawnerAI.spawn(int startNormal, int startParty) - named spawnOffering, as NpcAI has a spawn of its own */
 	void spawnOffering(int32_t startNormal, int32_t startParty);
 	static int32_t getRndNpc(int32_t curId);
 	void cancelTask();
