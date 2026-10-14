@@ -456,7 +456,9 @@ class CommittedTree(unittest.TestCase):
         self.assertNotIn(('reshanta', '_2759TenaciousGuardian'), found)
         # _1367 and _24026 are hand ports since the owner's decision of 2026-10-13 (docs/deviations/Q05.md and Q09.md, "Correction: 1367 and
         # 24026"): in the tree, without questgen's banner, and still refused by questgen
-        for directory, klass in (('eltnen', '_1367MabangtahsFeast'), ('morheim', '_24026AHandfromEachSide')):
+        # and _1354 (lane C, 2026-10-14: a hand port without a correction, questgen refuses its String[] field and getLifeStats)
+        for directory, klass in (('eltnen', '_1367MabangtahsFeast'), ('morheim', '_24026AHandfromEachSide'),
+                                 ('eltnen', '_1354PraticalAerobatics')):
             with self.subTest(file=f'{directory}/{klass}'):
                 hand_port = (HANDLER_QUEST_DIR / directory / f'{klass}.cpp').read_text(encoding='utf-8')
                 self.assertNotIn(emit.banner(f'game-server/data/handlers/quest/{directory}/{klass}.java')[0], hand_port)

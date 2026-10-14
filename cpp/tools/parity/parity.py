@@ -751,9 +751,29 @@ def _command_super(toks):
     return toks
 
 
+# Java nested enums a handler imports by their simple name, and the C++ enum each is (a C++ enum is not nested in its packet class):
+# the import line -> (the Java simple name, the C++ name). Only a file with that exact import is renamed (eltnen/_1354's hand port, lane C,
+# 2026-10-14)
+NESTED_ENUM_IMPORTS = {
+    'com.aionemu.gameserver.network.aion.serverpackets.SM_ATTACK_STATUS.TYPE': ('TYPE', 'SM_ATTACK_STATUS_TYPE'),
+    'com.aionemu.gameserver.network.aion.serverpackets.SM_ATTACK_STATUS.LOG': ('LOG', 'SM_ATTACK_STATUS_LOG'),
+}
+
+
+def _nested_enum_renames(text, toks):
+    """the tokens with each NESTED_ENUM_IMPORTS name the file imports spelled as its C++ enum"""
+    renames = {}
+    for line, (java, cpp) in NESTED_ENUM_IMPORTS.items():
+        if re.search(r'^\s*import\s+' + re.escape(line) + r'\s*;', text, re.M):
+            renames[java] = cpp
+    if not renames:
+        return toks
+    return [Tok(t.kind, renames[t.text]) if t.kind == 'ident' and t.text in renames else t for t in toks]
+
+
 def java_facts(text):
     toks, imports = java_region(text)
-    return facts(_java_rewrites(_command_super(_drop_annotations(toks))), cpp=False), imports
+    return facts(_java_rewrites(_command_super(_drop_annotations(_nested_enum_renames(text, toks)))), cpp=False), imports
 
 
 def cpp_facts(text, static_imports=frozenset()):
