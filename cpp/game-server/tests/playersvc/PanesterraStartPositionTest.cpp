@@ -70,31 +70,29 @@ TEST_F(PanesterraStartPositionTest, AnswersFalseOnAMapOutsidePanesterraWithoutLo
 }
 
 TEST_F(PanesterraStartPositionTest, TheMapGuardCoversAllFivePanesterraWorlds) {
-	// the guard is `!isPanesterraMap`, not `worldId != BELUS`: every one of the five continues into the team lookup, which throws today.
-	// Ishalgen and Reshanta, two ordinary maps, answer false with no lookup at all.
+	// the guard is `!isPanesterraMap`, not `worldId != BELUS`: every one of the five continues into the team lookup (ported by M5i I-10), which
+	// finds no team here and answers false; Ishalgen and Reshanta, two ordinary maps, answer false at the guard
+	runtime::resetUnportedHitsForTests();
 	for (int32_t worldId : {BELUS, TRANSIDIUM_ANNEX, ASPIDA, ATANATOS, DISILLON}) {
 		putOnMap(worldId);
-		EXPECT_THROW(PanesterraService::getInstance().teleportToStartPosition(*actor.player), runtime::UnportedException)
-			<< "world " << worldId << " is a Panesterra map and must reach getTeam";
+		EXPECT_FALSE(PanesterraService::getInstance().teleportToStartPosition(*actor.player)) << "world " << worldId << ": no team";
 	}
 	for (int32_t worldId : {220010000, 400010000}) {
 		putOnMap(worldId);
 		EXPECT_FALSE(PanesterraService::getInstance().teleportToStartPosition(*actor.player)) << "world " << worldId;
 	}
+	EXPECT_EQ(runtime::unportedHitCount(), 0u);
 }
 
 TEST_F(PanesterraStartPositionTest, OnAPanesterraMapTheBodyContinuesIntoTheTeamLookup) {
 	putOnMap(ASPIDA);
 	ASSERT_TRUE(world::isPanesterraMap(actor.player->getWorldId()));
+	runtime::resetUnportedHitsForTests();
 
-	// Java PanesterraService.java:301: `PanesterraTeam team = getTeam(player);`. getTeam(Player&) is the next statement and is AION_UNPORTED
-	// until the Panesterra work; the throw is what proves the guard let this map through and that the second statement is the team lookup.
-	try {
-		PanesterraService::getInstance().teleportToStartPosition(*actor.player);
-		FAIL() << "getTeam(Player&) is unported";
-	} catch (const runtime::UnportedException& unported) {
-		EXPECT_NE(std::string(unported.what()).find("getTeam"), std::string::npos) << unported.what();
-	}
+	// Java PanesterraService.java:301-306: `PanesterraTeam team = getTeam(player);` - no team holds the player, so no move and false
+	EXPECT_FALSE(PanesterraService::getInstance().teleportToStartPosition(*actor.player));
+	EXPECT_FALSE(PanesterraService::getInstance().getTeam(*actor.player));
+	EXPECT_EQ(runtime::unportedHitCount(), 0u);
 }
 
 } // namespace
