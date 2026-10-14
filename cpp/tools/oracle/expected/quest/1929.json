@@ -1,0 +1,56 @@
+{
+ "format": "aion-quest-trace",
+ "version": 1,
+ "questId": 1929,
+ "java": "sanctum/_1929ASliverofDarkness.java",
+ "class": "_1929ASliverofDarkness",
+ "javaSha256": "17722672732d42c16144f07fb266b6124543143325cd81e282f739d9433ec2ba",
+ "register": [
+  {"call": "registerOnLevelChanged", "args": [1929]},
+  {"npc": 212992, "event": "addOnKillEvent", "args": [1929]},
+  {"call": "registerOnEnterWorld", "args": [1929]},
+  {"call": "registerOnDie", "args": [1929]},
+  {"npc": 203752, "event": "addOnTalkEvent", "args": [1929]},
+  {"npc": 203852, "event": "addOnTalkEvent", "args": [1929]},
+  {"npc": 203164, "event": "addOnTalkEvent", "args": [1929]},
+  {"npc": 205110, "event": "addOnTalkEvent", "args": [1929]},
+  {"npc": 700240, "event": "addOnTalkEvent", "args": [1929]},
+  {"npc": 205111, "event": "addOnTalkEvent", "args": [1929]},
+  {"npc": 203701, "event": "addOnTalkEvent", "args": [1929]},
+  {"npc": 203711, "event": "addOnTalkEvent", "args": [1929]},
+  {"call": "registerOnEquipItem", "args": [140000001, 1929]},
+  {"call": "registerOnEquipItem", "args": [140000002, 1929]},
+  {"call": "registerOnEquipItem", "args": [140000003, 1929]},
+  {"call": "registerOnEquipItem", "args": [140000004, 1929]}
+ ],
+ "hooks": [
+  {"hook": "onDialogEvent", "line": 48, "unsupported": "call qs.getQuestVars().getQuestVars()"},
+  {"hook": "onMovieEndEvent", "line": 194, "unsupported": "call spawnForFiveMinutes"},
+  {"hook": "onEquipItemEvent", "line": 202, "cases": 1},
+  {"hook": "onKillEvent", "line": 208, "unsupported": "call qs.getQuestVars().getQuestVars()"},
+  {"hook": "onDieEvent", "line": 223, "unsupported": "call qs.getQuestVars().getQuestVars()"},
+  {"hook": "onEnterWorldEvent", "line": 238, "unsupported": "call qs.getQuestVars().getQuestVars()"},
+  {"hook": "onLevelChangedEvent", "line": 299, "cases": 1}
+ ],
+ "cases": [
+  {
+   "id": "onEquipItemEvent#1",
+   "hook": "onEquipItemEvent",
+   "given": {},
+   "guards": [],
+   "effects": [
+    {"call": "changeQuestStep", "kind": "var", "args": [98, 96], "line": 203},
+    {"call": "closeDialogWindow", "kind": "dialog", "args": [], "line": 204}
+   ],
+   "returns": {"resultOf": 1}
+  },
+  {
+   "id": "onLevelChangedEvent#1",
+   "hook": "onLevelChangedEvent",
+   "given": {},
+   "guards": [],
+   "effects": [{"call": "defaultOnLevelChangedEvent", "kind": "quest", "args": [], "line": 300}],
+   "returns": null
+  }
+ ]
+}

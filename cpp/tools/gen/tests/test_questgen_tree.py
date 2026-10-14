@@ -121,6 +121,7 @@ Q02 = {
 # transliterates, in the tree but for the escort _3212 (71 of 74; 1990 and 1929 are refused for API gaps; docs/deviations/Q11.md)
 Q11 = {
     'daevanion': (
+        '_1990ASagesGift',
         '_19631CoastalCrush', '_19632CascadeCritters', '_19633AlisaryAssistance', '_19634FurtherAidforAlisary', '_19635SouthernQuell',
         '_19636FinalStabilization', '_19637OnboardforOne', '_19638TroublewithTwos', '_19639TreesandThrees', '_19640FlyingthroughFour',
         '_19641FidgetyFives', '_19642SuccessforSix', '_1988AMeetingWithASage', '_1989ASagesTeachings', '_1993AnotherBeginning',
@@ -130,6 +131,7 @@ Q11 = {
         '_2990MakingTheDaevanionWeapon', '_2993AnotherBeginning', '_2994ANewChoice', '_80291DurableDaevanionWeapon',
         '_80295DurableDaevanionWeapon',),
     'sanctum': (
+        '_1929ASliverofDarkness',
         '_19004PeriklessInsight', '_1900RingImbuedAether', '_1901KrallicPotion', '_19047JustBetweenMeAndFasimedes',
         '_19048AndreasTeachings', '_1908UlaguruSpeaks', '_1909ASongOfPraise', '_1917ALingeringMystery', '_1918AnAxForNamus',
         '_1926SecretLibraryAccess', '_1928ChasingaCriminal', '_1932AMatterOfReputation', '_1935TissueIDontEvenKnowYou',
@@ -478,7 +480,7 @@ class CommittedTree(unittest.TestCase):
             for klass in classes:
                 with self.subTest(file=f'{directory}/{klass}'):
                     self.assertIn((directory, klass), found)
-        self.assertEqual(sum(len(classes) for classes in Q11.values()), 71)
+        self.assertEqual(sum(len(classes) for classes in Q11.values()), 73)
         for directory, classes in Q05.items():
             for klass in classes:
                 with self.subTest(file=f'{directory}/{klass}'):

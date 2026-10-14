@@ -2644,6 +2644,7 @@ const std::map<std::string, std::string>& knownUnported() {
  * Chunk Q06 (lane C): none left; the 47 got their cases with the
  * CraftSkillUpdateService predicates, the kinah, skill-list, recipe and special-cube rows (extract.py, 2026-10-13), and 2430 (Q09) with the kinah
  * Q10, the formerly held-back sixteen (lane C, 2026-10-14; WIP): altgard 2213 (getEffectController(), SkillEngine.getInstance)
+ * Rows B49/B50 (lane C, 2026-10-14): daevanion 1990 (player.getEquipment(), the packed getQuestVars().getQuestVars())
  */
 constexpr int32_t ORACLE_REFUSES_EVERY_HOOK[] = {1205, 2132, 1640, 1647, 2925, 2938, 2952, 4966, 4967, 4968, 4969, 21004, 21027, 21033, 21036,
 	21071, 21105, 21249, 25052, 2798, 11031, 11032, 11033, 11053, 11118, 3208, 3217, 3219, 3220, 4208, 4217, 4219, 4220, 3939, 3940, 30553,
@@ -2654,7 +2655,8 @@ constexpr int32_t ORACLE_REFUSES_EVERY_HOOK[] = {1205, 2132, 1640, 1647, 2925, 2
 	3074, 3082, 3088, 3090, 80000, 80001, 80008, 80020, 80021,
 	18821, 28821,
 	2600, 2630, 2663, 2664, 28600, 4074, 4200,
-	2213};
+	2213,
+	1990};
 
 TEST_F(GoldenQuestTraceTest, EveryExpectedDocumentHasAGeneratedHandlerAndEveryHandlerADocument) {
 	std::vector<int32_t> ids = expectedQuestIds();
