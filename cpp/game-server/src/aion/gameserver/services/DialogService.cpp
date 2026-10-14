@@ -8,6 +8,10 @@
 #include "aion/gameserver/ai/AbstractAI.h"
 #include "aion/gameserver/ai/event/AIEventType.h"
 #include "aion/gameserver/configs/main/AutoGroupConfig.h"
+#include "aion/gameserver/model/autogroup/AutoGroupTypeInfo.h"
+#include "aion/gameserver/model/autogroup/AutoGroup.h"
+#include "aion/gameserver/network/aion/serverpackets/SM_AUTO_GROUP.h"
+#include "aion/gameserver/services/instance/PeriodicInstanceManager.h"
 #include "aion/gameserver/controllers/effect/PlayerEffectController.h"
 #include "aion/gameserver/dataholders/DataManager.h"
 #include "aion/gameserver/dataholders/GoodsListData.h"
@@ -306,12 +310,15 @@ void DialogService::onDialogSelect(int32_t dialogActionId, Player& player, Npc& 
 				break;
 			case MATCH_MAKER: // dredgion
 				if (configs::main::AutoGroupConfig::AUTO_GROUP_ENABLE.load()) {
-					// Java: AutoGroupType agt = AutoGroupType.getAutoGroup(npc.getNpcId()); if (agt != null &&
-					// PeriodicInstanceManager.getInstance().isRegistrationOpen(agt.getTemplate().getMaskId())) sendPacket(new SM_AUTO_GROUP(maskId)).
-					// AutoGroupType's constructor data and getAutoGroup/getTemplate have no C++ companion yet (only the generated constants,
-					// model/autogroup/AutoGroupType.h), so the autogroup-on branch stays loud until the autogroup milestone (m5c-plan.md W-31, D4).
-					// Every gate profile and the shipped mygs.properties set gameserver.autogroup.enable = false.
-					AION_UNPORTED();
+					// Java DialogService.java:218-221 (m5j CP8: AutoGroupType's companion is ported, m5j stage 4 CP1)
+					std::optional<model::autogroup::AutoGroupType> agt = model::autogroup::getAutoGroup(npc.getNpcId());
+					if (agt) {
+						const model::autogroup::AutoGroup* autoGroup = model::autogroup::getTemplate(*agt);
+						if (autoGroup == nullptr) // Java: agt.getTemplate().getMaskId() of a missing template
+							throw runtime::NullPointerException("AutoGroupType without auto group template");
+						if (instance::PeriodicInstanceManager::getInstance().isRegistrationOpen(autoGroup->getMaskId()))
+							PacketSendUtility::sendPacket(player, network::aion::serverpackets::SM_AUTO_GROUP(autoGroup->getMaskId()));
+					}
 				} else {
 					PacketSendUtility::sendPacket(player, SM_DIALOG_WINDOW(targetObjectId, 1011));
 				}
