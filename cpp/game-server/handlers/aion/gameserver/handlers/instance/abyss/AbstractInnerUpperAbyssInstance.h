@@ -14,7 +14,8 @@ namespace aion::gameserver::handlers::instance::abyss {
 /**
  * A basic handler for all versions of the siege-keep instances in the inner upper abyss. <br>
  * <br>
- * Currently, the chests will spawn after the boss died and will be reduced depending on the past time. Further, it is a security mechanism to
+ * Currently, the chests will spawn after the boss died and will be reduced depending on the past time. Further, it is a security
+ * mechanism to
  * avoid abuse due to geodata issues handling teleportation skills. <br>
  * <br>
  * On retail all chests are spawned on instance creation and will not be deleted due to the past time. At least, only the boss will be
@@ -22,7 +23,8 @@ namespace aion::gameserver::handlers::instance::abyss {
  * <br>
  * Original credits to keqi, xTz, Luzien & Everlight
  * <p>
- * Java: data/handlers/instance/abyss/AbstractInnerUpperAbyssInstance.java (abstract: not registered). C++: the chest reduction task's lambda
+ * Java: data/handlers/instance/abyss/AbstractInnerUpperAbyssInstance.java (abstract: not registered). C++: the chest reduction task's
+ * lambda
  * is pinned to the handler; chestLocations is a Field, as spawnChests sets it null.
  *
  * @author Estrayl
