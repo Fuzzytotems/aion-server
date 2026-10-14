@@ -18,6 +18,7 @@
 #include "aion/gameserver/runtime/base/Unported.h"
 #include "aion/gameserver/services/VortexService.h"
 #include "aion/gameserver/services/vortex/DimensionalVortex.h"
+#include "aion/gameserver/services/vortex/Invasion.h"
 #include "aion/gameserver/world/WorldPosition.h"
 
 namespace aion::gameserver::playerevents::test {
@@ -137,6 +138,24 @@ TEST_F(VortexServiceTest, DespawnUnsetsTheControllerAndForgetsTheNpcs) {
 	services::VortexService::getInstance().despawn(*location); // nothing spawned
 	EXPECT_FALSE(location->getVortexController());
 	EXPECT_TRUE(location->getSpawned().isEmpty());
+}
+
+
+TEST_F(VortexServiceTest, TheFirstInvaderJoinsAloneAndOnlyOnce) {
+	// Invasion.java:62-88, 152-158: with no participant the invader is put without an alliance; an invader already in is left alone. The
+	// second participant's alliance needs the team fixture (PlayerAllianceService.createAlliance): the gate's vortex (I-11) covers it
+	runtime::Ref<VortexLocation> location = VortexLocation::create(vortexTemplate.get());
+	runtime::Ref<services::vortex::Invasion> invasion = services::vortex::Invasion::create(*location);
+	PlayerFixture first = makePlayer(41, 4100, model::Race::ASMODIANS);
+	invasion->updateInvaders(*first.player);
+	ASSERT_EQ(invasion->getInvaders().size(), 1u);
+	EXPECT_EQ(invasion->getInvaders().at(41), first.player);
+	EXPECT_FALSE(first.player->isInAlliance()) << "one invader: no alliance yet";
+	invasion->updateInvaders(*first.player); // already an invader: nothing
+	EXPECT_EQ(invasion->getInvaders().size(), 1u);
+	EXPECT_TRUE(invasion->getDefenders().empty());
+	invasion->addPlayer(*first.player, false); // a defender list of its own
+	EXPECT_EQ(invasion->getDefenders().size(), 1u);
 }
 
 } // namespace

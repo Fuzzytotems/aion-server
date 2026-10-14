@@ -6,7 +6,6 @@
 #include "aion/gameserver/model/vortex/VortexLocation.h"
 #include "aion/gameserver/model/vortex/VortexStateType.h"
 #include "aion/gameserver/runtime/base/Exceptions.h"
-#include "aion/gameserver/runtime/base/Unported.h"
 #include <string>
 #include <vector>
 #include "aion/gameserver/controllers/VisibleObjectController.h"
@@ -23,6 +22,8 @@
 #include "aion/gameserver/services/cron/CronExpression.h"
 #include "aion/gameserver/services/cron/CronService.h"
 #include "aion/gameserver/services/vortex/DimensionalVortex.h"
+#include "aion/gameserver/services/vortex/Invasion.h"
+#include "aion/gameserver/utils/ThreadPoolManager.h"
 #include "aion/gameserver/world/WorldMapType.h"
 #include "aion/gameserver/world/WorldMapTypeInfo.h"
 
@@ -51,8 +52,25 @@ void VortexService::initVortexLocations() {
 	}
 }
 
+// Java VortexService.java:43-58; lambda at VortexService.java:57 (fieldmap key VortexService@L57:44): the scheduled end
 void VortexService::startInvasion(int32_t id) {
-	AION_UNPORTED();
+	runtime::Ref<vortex::DimensionalVortex> invasion;
+
+	SYNCHRONIZED(*this) {
+		if (activeInvasions.containsKey(id)) {
+			return;
+		}
+		const runtime::Ref<model::vortex::VortexLocation>* loc = dataholders::DataManager::VORTEX_DATA->getVortexLocations().get(id);
+		if (loc == nullptr) // Java: new Invasion(null) - its super constructor keeps null, and start() dereferences it
+			throw runtime::NullPointerException("VortexLocation " + std::to_string(id));
+		invasion = vortex::Invasion::create(**loc);
+		activeInvasions.put(id, invasion);
+	}
+
+	invasion->start();
+
+	// schedule invasion end
+	utils::ThreadPoolManager::getInstance().schedule(this, [this, id] { stopInvasion(id); }, static_cast<int64_t>(getDuration()) * 3600 * 1000);
 }
 
 // Java VortexService.java:60-75
