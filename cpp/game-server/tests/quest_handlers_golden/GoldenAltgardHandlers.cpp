@@ -2,6 +2,16 @@
 // the files the table names; the hand ports and held-back files of the directory are not generated (docs/deviations/Q10.md).
 
 // clang-format off
+#include "aion/gameserver/handlers/quest/altgard/_2207ConversingWithaSkurv.cpp"
+#include "aion/gameserver/handlers/quest/altgard/_2209TheScribbler.cpp"
+#include "aion/gameserver/handlers/quest/altgard/_2213PoisonRootPotentFruit.cpp"
+#include "aion/gameserver/handlers/quest/altgard/_2221ManirsUncle.cpp"
+#include "aion/gameserver/handlers/quest/altgard/_2223AMythicalMonster.cpp"
+#include "aion/gameserver/handlers/quest/altgard/_2231SiblingRivalry.cpp"
+#include "aion/gameserver/handlers/quest/altgard/_2232TheBrokenHoneyJar.cpp"
+#include "aion/gameserver/handlers/quest/altgard/_2239MalodorAntidote.cpp"
+#include "aion/gameserver/handlers/quest/altgard/_2288MoneyWhereYourMouthIs.cpp"
+#include "aion/gameserver/handlers/quest/altgard/_24010SuthransOrders.cpp"
 #include "aion/gameserver/handlers/quest/altgard/_2216MuMuGrassKnot.cpp"
 #include "aion/gameserver/handlers/quest/altgard/_2222ManirsMessage.cpp"
 #include "aion/gameserver/handlers/quest/altgard/_2228AThornInItsSide.cpp"

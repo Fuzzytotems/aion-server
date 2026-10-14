@@ -2,6 +2,12 @@
 // the files the table names; the hand ports and held-back files of the directory are not generated (docs/deviations/Q10.md).
 
 // clang-format off
+#include "aion/gameserver/handlers/quest/pandaemonium/_2911SongOfBlessing.cpp"
+#include "aion/gameserver/handlers/quest/pandaemonium/_2917ArekedilsHeritage.cpp"
+#include "aion/gameserver/handlers/quest/pandaemonium/_2953DeliveringSupplyRequest.cpp"
+#include "aion/gameserver/handlers/quest/pandaemonium/_29004VeldinaCall.cpp"
+#include "aion/gameserver/handlers/quest/pandaemonium/_29048SeriphimTeachings.cpp"
+#include "aion/gameserver/handlers/quest/pandaemonium/_4973MarraWorry.cpp"
 #include "aion/gameserver/handlers/quest/pandaemonium/_2912FollowtheRibbon.cpp"
 #include "aion/gameserver/handlers/quest/pandaemonium/_2913AChainofDebt.cpp"
 #include "aion/gameserver/handlers/quest/pandaemonium/_2914ATokenofLostLove.cpp"
