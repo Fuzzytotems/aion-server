@@ -16,6 +16,19 @@
 #include "aion/gameserver/runtime/base/Exceptions.h"
 #include "aion/gameserver/services/BaseService.h"
 #include "aion/gameserver/services/SiegeService.h"
+#include "aion/commons/utils/Rnd.h"
+#include "aion/gameserver/model/Race.h"
+#include "aion/gameserver/model/siege/SiegeRaceInfo.h"
+#include "aion/gameserver/model/templates/spawns/SpawnTemplate.h"
+#include "aion/gameserver/network/aion/serverpackets/SM_SYSTEM_MESSAGE.h"
+#include "aion/gameserver/services/panesterra/ahserion/PanesterraFactionInfo.h"
+#include "aion/gameserver/services/teleport/TeleportService.h"
+#include "aion/gameserver/spawnengine/SpawnEngine.h"
+#include "aion/gameserver/utils/PacketSendUtility.h"
+#include "aion/gameserver/world/World.h"
+#include "aion/gameserver/world/WorldMap.h"
+#include "aion/gameserver/world/WorldMapInstance.h"
+#include "aion/gameserver/world/WorldPosition.h"
 #include "aion/gameserver/services/panesterra/ahserion/PanesterraFaction.h"
 #include "aion/gameserver/services/panesterra/ahserion/PanesterraTeam.h"
 #include "aion/gameserver/model/gameobjects/player/Player.h"
@@ -43,8 +56,11 @@ std::vector<runtime::Ptr<model::base::BaseLocation>> relatedBaseLocations(const 
 } // namespace
 
 
+// Java PanesterraService.java:63-67
 void PanesterraService::prepareFortressSiege(model::siege::FortressLocation& loc) {
-	AION_UNPORTED();
+	createTeams(loc.getLocationId());
+	spawnAdvanceCorridors();
+	prepareBases(loc.getTemplate()->getSiegeRelatedBases());
 }
 
 // Java PanesterraService.java:69-80
@@ -117,12 +133,32 @@ void PanesterraService::stopFortressSiege(model::siege::FortressLocation& loc) {
 	}
 }
 
+// Java PanesterraService.java:125-144
 void PanesterraService::spawnAdvanceCorridors() {
-	AION_UNPORTED();
+	// Elyos
+	utils::PacketSendUtility::broadcastToMap(*world::World::getInstance().getWorldMap(110070000)->getMainWorldMapInstance(),
+		network::aion::serverpackets::SM_SYSTEM_MESSAGE::STR_MSG_SVS_INVADE_DIRECT_PORTAL_OPEN());
+	// Governor exclusive
+	spawnCorridor(*spawnengine::SpawnEngine::newSingleTimeSpawn(110070000, 730940, 503.624f, 460.202f, 132.081f, int8_t{90}), 257);
+	// Advance Corridor for Contributors | Officer 5-Star to Commander
+	spawnCorridor(*spawnengine::SpawnEngine::newSingleTimeSpawn(110070000, 730942, 490.262f, 409.850f, 126.79f, int8_t{90}), 256);
+	// Walk of Honor | Officer 1-Star to 4-Star
+	spawnCorridor(*spawnengine::SpawnEngine::newSingleTimeSpawn(110070000, 731193, 518.142f, 409.967f, 126.79f, int8_t{90}), 252);
+	// Asmodians
+	utils::PacketSendUtility::broadcastToMap(*world::World::getInstance().getWorldMap(120080000)->getMainWorldMapInstance(),
+		network::aion::serverpackets::SM_SYSTEM_MESSAGE::STR_MSG_SVS_INVADE_DIRECT_PORTAL_OPEN());
+	// Governor exclusive
+	spawnCorridor(*spawnengine::SpawnEngine::newSingleTimeSpawn(120080000, 730941, 342.298f, 251.135f, 98.553f, int8_t{0}), 338);
+	// Advance Corridor for Contributors | Officer 5-Star to Commander
+	spawnCorridor(*spawnengine::SpawnEngine::newSingleTimeSpawn(120080000, 730943, 393.321f, 236.963f, 93.113f, int8_t{0}), 337);
+	// Walk of Glory | Officer 1-Star to 4-Star
+	spawnCorridor(*spawnengine::SpawnEngine::newSingleTimeSpawn(120080000, 731194, 393.476f, 263.704f, 93.113f, int8_t{0}), 336);
 }
 
+// Java PanesterraService.java:146-149
 void PanesterraService::spawnCorridor(model::templates::spawns::SpawnTemplate& template_, int32_t staticId) {
-	AION_UNPORTED();
+	template_.setStaticId(staticId);
+	spawnengine::SpawnEngine::spawnObject(template_, 1);
 }
 
 void PanesterraService::startAhserionRaid() {
@@ -201,18 +237,57 @@ void PanesterraService::removeTeams(std::initializer_list<ahserion::PanesterraFa
 	}
 }
 
+// Java PanesterraService.java:229-236
 void PanesterraService::spawnAhserionCorridors(int32_t fortressId) {
-	AION_UNPORTED();
+	switch (fortressId) {
+		case 10111:
+			spawnCorridor(*spawnengine::SpawnEngine::newSingleTimeSpawn(400020000, 802219, 1024.159f, 1076.24f, 1530.2688f, int8_t{90}), 0);
+			break;
+		case 10211:
+			spawnCorridor(*spawnengine::SpawnEngine::newSingleTimeSpawn(400040000, 802221, 1024.159f, 1076.24f, 1530.2688f, int8_t{90}), 0);
+			break;
+		case 10311:
+			spawnCorridor(*spawnengine::SpawnEngine::newSingleTimeSpawn(400050000, 802223, 1024.159f, 1076.24f, 1530.2688f, int8_t{90}), 0);
+			break;
+		case 10411:
+			spawnCorridor(*spawnengine::SpawnEngine::newSingleTimeSpawn(400060000, 802225, 1024.159f, 1076.24f, 1530.2688f, int8_t{90}), 0);
+			break;
+	}
 }
 
+// Java PanesterraService.java:238-266
 void PanesterraService::onEnterPanesterra(model::gameobjects::player::Player& player) {
 	int32_t siegeId = getSiegeId(player.getWorldId());
 	if (siegeId == 0)
 		return;
-	// M5a (plan E1-07) ports the path of maps outside Panesterra. Java continues with the team check (Transidium Annex or an active siege: bind
-	// location, origin position or the team's faction) or the owning faction of the fortresses 10111/10211/10311/10411 (PanesterraFaction and
-	// SiegeRace companions), ported with the Panesterra work
-	AION_UNPORTED();
+	// Player is in Transidium Annex or on a map with an active siege
+	if (siegeId == -1 || SiegeService::getInstance().isSiegeInProgress(siegeId)) {
+		runtime::Ptr<ahserion::PanesterraTeam> team = getTeam(player);
+		if (!team)
+			teleport::TeleportService::moveToBindLocation(player);
+		else if (team->isEliminated())
+			team->movePlayerToOriginPosition(player);
+		else
+			player.setPanesterraFaction(team->getFaction());
+
+	} else {
+		// Check if the player's faction owns any related fortress
+		ahserion::PanesterraFaction faction = ahserion::PanesterraFaction::PEACE;
+		for (int32_t id : {10111, 10211, 10311, 10411}) {
+			runtime::Ptr<model::siege::FortressLocation> fortress = SiegeService::getInstance().getFortress(id);
+			if (!fortress) // Java: getFortress(id).getRace() on null
+				throw runtime::NullPointerException("FortressLocation " + std::to_string(id));
+			if (fortress->getRace() == model::siege::getByRace(player.getRace())) {
+				faction = ahserion::getByFortressId(id);
+				break;
+			}
+		}
+
+		if (faction == ahserion::PanesterraFaction::PEACE)
+			teleport::TeleportService::moveToBindLocation(player);
+
+		player.setPanesterraFaction(faction);
+	}
 }
 
 int32_t PanesterraService::getSiegeId(int32_t worldId) {
@@ -278,16 +353,43 @@ bool PanesterraService::teleportToStartPosition(model::gameobjects::player::Play
 	return false;
 }
 
+// Java PanesterraService.java:310-316
 bool PanesterraService::reviveInEventLocation(model::gameobjects::player::Player& player) {
-	AION_UNPORTED();
+	if (!world::isPanesterraMap(player.getWorldId()))
+		return false;
+
+	teleportToEventLocation(player);
+	return true;
 }
 
+// Java PanesterraService.java:318-321
 void PanesterraService::teleportToEventLocation(model::gameobjects::player::Player& player) {
-	AION_UNPORTED();
+	teleport(player);
+	PanesterraService::getInstance().onEnterPanesterra(player);
 }
 
+// Java PanesterraService.java:323-338
 void PanesterraService::teleport(model::gameobjects::player::Player& player) {
-	AION_UNPORTED();
+	switch (player.getRace()) {
+		case model::Race::ELYOS: {
+			// North + South
+			runtime::Ref<world::WorldPosition> pos = commons::utils::Rnd::nextBoolean()
+				? world::WorldPosition::create(400020000, 11.173f, 1024.187f, 1428.60f, int8_t{0})
+				: world::WorldPosition::create(400020000, 2037.754f, 1023.808f, 1428.60f, int8_t{0});
+			teleport::TeleportService::teleportTo(player, *pos);
+			break;
+		}
+		case model::Race::ASMODIANS: {
+			// West + East
+			runtime::Ref<world::WorldPosition> pos = commons::utils::Rnd::nextBoolean()
+				? world::WorldPosition::create(400020000, 1023.702f, 10.531f, 1428.60f, int8_t{90})
+				: world::WorldPosition::create(400020000, 1024.310f, 2036.593f, 1428.60f, int8_t{90});
+			teleport::TeleportService::teleportTo(player, *pos);
+			break;
+		}
+		default:
+			break;
+	}
 }
 
 PanesterraService& PanesterraService::getInstance() {

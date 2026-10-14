@@ -15,6 +15,8 @@
 #include "aion/gameserver/runtime/base/Unported.h"
 #include "aion/gameserver/services/panesterra/PanesterraService.h"
 #include "aion/gameserver/services/panesterra/ahserion/PanesterraFaction.h"
+#include "aion/gameserver/services/panesterra/ahserion/PanesterraFactionInfo.h"
+#include "aion/gameserver/world/WorldPosition.h"
 
 namespace aion::gameserver::playerevents::test {
 namespace {
@@ -57,6 +59,30 @@ TEST_F(PanesterraServiceTest, APanesterraSiegeEndingWithoutItsTeamsIsJavasNullPo
 	// PanesterraService.java:222-227: removeTeams calls moveTeamMembersToOriginPosition on activeFactionTeams.remove(faction), null here
 	runtime::Ref<model::siege::FortressLocation> belus = fortress(10111);
 	EXPECT_THROW(PanesterraService::getInstance().stopFortressSiege(*belus), runtime::NullPointerException);
+}
+
+
+TEST(PanesterraFactionInfoTest, EachPanesterraFortressHasItsFaction) {
+	using services::panesterra::ahserion::getByFortressId;
+	EXPECT_EQ(getByFortressId(10111), PanesterraFaction::BELUS);
+	EXPECT_EQ(getByFortressId(10211), PanesterraFaction::ASPIDA);
+	EXPECT_EQ(getByFortressId(10311), PanesterraFaction::ATANATOS);
+	EXPECT_EQ(getByFortressId(10411), PanesterraFaction::DISILLON);
+	EXPECT_EQ(getByFortressId(1011), PanesterraFaction::PEACE);
+}
+
+TEST_F(PanesterraServiceTest, TheEventReviveIsOnlyForPanesterraMaps) {
+	PlayerFixture f = makePlayer(62, 6200);
+	f.player->setPosition(runtime::Ptr<world::WorldPosition>(world::WorldPosition::create(210010000, 100.0f, 100.0f, 50.0f, 0)));
+	EXPECT_FALSE(PanesterraService::getInstance().reviveInEventLocation(*f.player)) << "Poeta (PanesterraService.java:310-316)";
+}
+
+TEST_F(PanesterraServiceTest, EnteringBelusWithoutASiegeNeedsTheFourFortresses) {
+	// PanesterraService.java:254-262: outside a siege the faction comes from the fortresses 10111-10411; with sieges off there are none, and
+	// getFortress(id).getRace() is Java's NullPointerException
+	PlayerFixture f = makePlayer(63, 6300);
+	f.player->setPosition(runtime::Ptr<world::WorldPosition>(world::WorldPosition::create(400020000, 100.0f, 100.0f, 50.0f, 0)));
+	EXPECT_THROW(PanesterraService::getInstance().onEnterPanesterra(*f.player), runtime::NullPointerException);
 }
 
 } // namespace
