@@ -1040,8 +1040,8 @@ std::map<std::string, int32_t> parseMessages(const std::string& text) {
 	return ids;
 }
 
-void runM5iGate() {
-	const std::string testName = "gs.scenario.m5i";
+void runM5iGate(bool geo) {
+	const std::string testName = geo ? "gs.scenario.m5i_geo" : "gs.scenario.m5i";
 	const char* requireEnvironment = std::getenv("AION_SCENARIO_REQUIRE");
 	const bool required = requireEnvironment != nullptr && *requireEnvironment != '\0' && std::string_view(requireEnvironment) != "0";
 	const auto unavailable = [&](std::string_view reason) {
@@ -1066,7 +1066,7 @@ void runM5iGate() {
 			return;
 		}
 	}
-	const std::filesystem::path outputDir = std::filesystem::path(AION_SCENARIO_OUTPUT_DIR) / "m5i";
+	const std::filesystem::path outputDir = std::filesystem::path(AION_SCENARIO_OUTPUT_DIR) / (geo ? "m5i_geo" : "m5i");
 	std::optional<Oracle> oracle = Oracle::fromEnvironment(outputDir / "oracle");
 	if (!oracle) {
 		unavailable("no Python interpreter for tools/oracle: set AION_TEST_PYTHON");
@@ -1081,7 +1081,7 @@ void runM5iGate() {
 	} printer{cases, testName};
 
 	std::map<std::string, std::string> gateKeys;
-	gateKeys["gameserver.geodata.enable"] = "false";
+	gateKeys["gameserver.geodata.enable"] = geo ? "true" : "false";
 	gateKeys["gameserver.npcshouts.enable"] = "false";
 	gateKeys["gameserver.analysis.quest_handlers"] = "false";
 	for (const auto& [key, value] : m5iSiegeKeys())
@@ -1093,7 +1093,7 @@ void runM5iGate() {
 	config.gameServerJavaDir = AION_GAMESERVER_JAVA_DIR;
 	config.loginServerJavaDir = AION_LOGINSERVER_JAVA_DIR;
 	config.outputDir = outputDir;
-	config.schemaPrefix = "m5i";
+	config.schemaPrefix = geo ? "m5ig" : "m5i";
 	config.gameServerProperties = gateKeys;
 	config.startupTimeout = 10min;
 	config.stopTimeout = 3min;
@@ -1956,7 +1956,16 @@ void runM5iSoak() {
 
 /** `gs.scenario.m5i` (m5i-plan.md 10, I-6): the siege half - the login state, captures, a siege start and stop, an artifact, persistence */
 TEST(M5iScenario, Run) {
-	runM5iGate();
+	runM5iGate(false);
+}
+
+/**
+ * `gs.scenario.m5i_geo` (m5i-plan.md 10.5): the same script with gameserver.geodata.enable=true - the geo meshes, the geo shields of the
+ * fortresses (ShieldService attaches them and drops 1131's sphere template) and the SHIELD DespawnableNodes. X7g (the crossing killed by
+ * SiegeShield's CollisionDieActor) waits with C5 (P5-12b.md, I-11 part 2).
+ */
+TEST(M5iScenarioGeo, Run) {
+	runM5iGate(true);
 }
 
 /** `gs.scenario.m5i_soak` (m5i-plan.md 10.7, D17, G-09): 65 idle minutes of three clients across an hh:00 - opt-in (AION_SCENARIO_SOAK) */
