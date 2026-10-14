@@ -188,5 +188,10 @@ ctest --test-dir build/msvc -C Debug -R porting.phase5.census
 ctest --test-dir build/msvc -C Debug -L smoke
 ```
 
+**When the lane stacks combine.** This list was measured on lane A's stack only. Lane B's M5h stacks (#161-#244) port most of the 23
+M5h opcodes, and lanes B and C port many of the listed functions on their own stacks. After a merge those rows go stale, and the check fails
+on each of them by name: `... (stale): remove the row site|<path>|<function>|...`, or `opcode|<CM_X>|...`, or `set the row count to N`
+when a function keeps fewer sites. Whoever merges second deletes or lowers exactly the rows the check names, in the merge commit.
+
 When a body is ported, delete or lower its row in the same commit; when a site is added in scope, add a row with its owner. A milestone
 that closes (D11 offers the check to M5b-3..M5i as their end check) should leave no row naming it.

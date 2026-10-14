@@ -162,14 +162,14 @@ def check(found, missing, allowlist_path):
             lines = ', '.join(str(n) for n, _ in occurrences)
             problems.append(f'{key[0]}:{lines}: {len(occurrences)} site(s) in {key[1]} without an allow-list row')
         elif row[0] != len(occurrences):
-            problems.append(f'{key[0]} {key[1]}: {len(occurrences)} site(s), the allow-list row says {row[0]}')
+            problems.append(f'{key[0]} {key[1]}: {len(occurrences)} site(s), the allow-list row says {row[0]}: set the row count to {len(occurrences)}')
     for key in sorted(set(sites) - set(found)):
-        problems.append(f'{key[0]} {key[1]}: the allow-list row matches no site any more (stale)')
+        problems.append(f'{key[0]} {key[1]}: the allow-list row matches no site any more (stale): remove the row `site|{key[0]}|{key[1]}|...`')
     for cls in missing:
         if cls not in opcodes:
             problems.append(f'{cls}: a registered opcode without a C++ class and without an allow-list row')
     for cls in sorted(set(opcodes) - set(missing)):
-        problems.append(f'{cls}: the allow-list row matches no missing class any more (stale)')
+        problems.append(f'{cls}: the allow-list row matches no missing class any more (stale): remove the row `opcode|{cls}|...`')
     return problems
 
 
