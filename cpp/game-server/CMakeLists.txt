@@ -290,6 +290,10 @@ if(AION_BUILD_TESTS)
 		aion_set_discovered_test_properties(aion_gs_runtime_${gs_runtime_tests}_tests REGEX "." PROPERTIES LABELS runtime)
 	endforeach()
 
+	# m5j-plan.md §10.6: the command smoke (L-04) and the AI smoke (N-02) run under `ctest -L smoke` with the startup smokes
+	aion_set_discovered_test_properties(aion_gs_handlers_commands_tests REGEX "^(Registered/CommandSmokeTest|CommandSmokeListTest)\\." PROPERTIES LABELS smoke)
+	aion_set_discovered_test_properties(aion_gs_handlers_ai_core_tests REGEX "^(EveryRootAi/RootAiSmokeTest|QuestNpcAiSmokeTest)\\." PROPERTIES LABELS smoke)
+
 	# Tests that read the Java tree (config/, src/, data/): label realdata, and pass the tree's location in the environment as well
 	set(gs_realdata PROPERTIES LABELS realdata ENVIRONMENT "AION_GAMESERVER_JAVA_DIR=${GS_JAVA_DIR}")
 	aion_set_discovered_test_properties(aion_gs_configs_tests REGEX "^(ConfigLoadTest|JavaAnnotationsTest)\\." ${gs_realdata})
@@ -379,6 +383,10 @@ if(AION_BUILD_TESTS AND Python3_Interpreter_FOUND)
 	add_test(NAME gs.chunks.consistency
 		COMMAND "${Python3_EXECUTABLE}" tools/porting/chunks.py verify-json "${CMAKE_CURRENT_BINARY_DIR}/chunks.json" WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}")
 	set_tests_properties(gs.chunks.consistency ${gs_realdata}) # it scans the Java tree
+	# the phase-5 closure census (m5j-plan.md §10.6, I-04, D11): every AION_UNPORTED/AION_PARTIAL site of a phase-5 chunk or of C1/C2, and every
+	# registered opcode without a C++ class, has a row with an owner in docs/porting/phase5-allowlist.txt, and no row is stale
+	add_test(NAME porting.phase5.census
+		COMMAND "${Python3_EXECUTABLE}" tools/porting/closure.py --check WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}")
 endif()
 
 # C++ build tools of the game server (tools/regscan)
