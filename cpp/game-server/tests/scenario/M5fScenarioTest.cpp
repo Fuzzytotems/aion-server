@@ -2208,7 +2208,7 @@ void runM5fGate(const GateVariant& variant) {
 		EXPECT_TRUE(servers.gameServer()->findLogLines("objects removed from the world are still alive", 5).empty())
 		  << join(servers.gameServer()->findLogLines("objects removed from the world are still alive", 5), "\n");
 
-		// the instance and its handler were reclaimed (risk 1): WorldMapInstance and GeneralInstanceHandler back at the baseline, no checker
+		// the instance and its handler were reclaimed (risk 1): WorldMapInstance and the instance handlers back at the baseline, no checker
 		// task and no SpawnTask left, each created at least once
 		const std::map<std::string, LiveCount> counts = readLiveCounts(servers, "live_counts.txt");
 		const std::map<std::string, LiveCount> baseline = readLiveCounts(servers, "live_counts_baseline.txt");
@@ -2227,8 +2227,24 @@ void runM5fGate(const GateVariant& variant) {
 				}
 			return total;
 		};
+		// an instance handler is counted by its concrete class too: GeneralInstanceHandler, or a ported handler of the instance handler library
+		// (namespace aion::gameserver::handlers::instance, e.g. HaramelInstance since phase 6's P6I-1): every such row of either report
+		std::vector<std::string> handlerRows{"GeneralInstanceHandler"};
+		for (const std::string_view file : {std::string_view("live_counts.txt"), std::string_view("live_counts_baseline.txt")}) {
+			for (const std::string& line : servers.readReportLines(file)) {
+				constexpr std::string_view HANDLERS = "\taion::gameserver::handlers::instance::";
+				const size_t at = line.find(HANDLERS);
+				if (at == std::string::npos)
+					continue;
+				const std::string qualified = line.substr(at + 1);
+				const std::string simple = qualified.substr(qualified.rfind("::") + 2);
+				if (std::find(handlerRows.begin(), handlerRows.end(), simple) == handlerRows.end())
+					handlerRows.push_back(simple);
+			}
+		}
+		const std::vector<std::string_view> handlerNames(handlerRows.begin(), handlerRows.end());
 		for (const std::vector<std::string_view>& names :
-		     {std::vector<std::string_view>{"WorldMap2DInstance", "WorldMap3DInstance"}, std::vector<std::string_view>{"GeneralInstanceHandler"}}) {
+		     {std::vector<std::string_view>{"WorldMap2DInstance", "WorldMap3DInstance"}, handlerNames}) {
 			const LiveCount now = sum(counts, names);
 			const LiveCount base = sum(baseline, names);
 			ASSERT_FALSE(now.line.empty() || base.line.empty()) << "T20: live_counts.txt or its baseline has no row of " << names.front();
