@@ -550,6 +550,12 @@ def cmd_m5h_housing(args):
 	return 0
 
 
+def cmd_m5i_sieges(args):
+	from m5i.sieges import siege_report
+	sys.stdout.write(runner.dump_json(siege_report(_data_dir(args))))
+	return 0
+
+
 def cmd_cron_next(args):
 	import datetime as dt
 	from m5i.cron import next_fire_times
@@ -1030,6 +1036,10 @@ def main(argv=None):
 	p.add_argument("--message", nargs="+", action="extend", metavar="NAME", help="SM_SYSTEM_MESSAGE ids to look up by name")
 	p.add_argument("--question", nargs="+", action="extend", metavar="NAME", help="SM_QUESTION_WINDOW ids to look up by name")
 	p.set_defaults(fn=cmd_m5g_team)
+	p = sub.add_parser("m5i-sieges", help="the siege locations a server with sieges enabled holds and sends at login (m5i-plan.md 10.3 X1, X4)")
+	data_args(p, country=False)
+	p.set_defaults(fn=cmd_m5i_sieges)
+
 	p = sub.add_parser("cron-next", help="the next fire times of a Quartz cron expression after an instant (m5i-plan.md Z-04)")
 	p.add_argument("--expr", required=True)
 	p.add_argument("--tz", default="UTC", help="UTC, a fixed offset like +02:00, or a zone name zoneinfo can resolve")
