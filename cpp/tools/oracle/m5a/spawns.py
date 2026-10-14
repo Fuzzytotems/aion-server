@@ -285,6 +285,48 @@ def evaluate(groups: list[Group], npcs: dict[int, NpcInfo], clock: GameClock) ->
 	return rows
 
 
+# BaseService.initBases (BaseService.java:47-54) starts the CASUAL, STAINED, PANESTERRA and PANESTERRA_FACTION_CAMP bases at every startup
+_STARTED_BASE_TYPES = ("CASUAL", "STAINED", "PANESTERRA", "PANESTERRA_FACTION_CAMP")
+
+
+def base_flag_rows(data: StaticData, map_id: int) -> list[dict]:
+	"""The flags the bases of the map spawn at startup (M5i I-8): Base.handleStart spawns the FLAG handler of the base's occupier
+	(Base.java:64-70, 162-194) - BaseTemplate's default_occupier (BALAUR when absent), PEACE for a faction camp (PanesterraBaseLocation.java:9-13).
+	A flag npc is seen on the whole map, like the FLAG npcs of the regular spawns."""
+	try:
+		data.files("base_locations")
+	except OracleError:
+		return []  # a static data set without bases (the unit tests' minimal trees)
+	occupiers: dict[int, str] = {}
+	for loc in data.children("base_locations", "base_location"):
+		if java_int(loc.get("world"), "base_location world") != map_id or loc.get("type") not in _STARTED_BASE_TYPES:
+			continue
+		occupier = "PEACE" if loc.get("type") == "PANESTERRA_FACTION_CAMP" else (loc.get("default_occupier") or "BALAUR")
+		occupiers[java_int(loc.get("id"), "base_location id")] = occupier
+	rows = []
+	for spawn_map in data.children("spawns", "spawn_map"):
+		if java_int(spawn_map.get("map_id"), "spawn_map map_id") != map_id:
+			continue
+		for base_spawn in spawn_map.findall("base_spawn"):
+			base_id = java_int(base_spawn.get("id"), "base_spawn id")
+			if base_id not in occupiers:
+				continue
+			for template in base_spawn.findall("occupier_template"):
+				if template.get("occupier") != occupiers[base_id]:
+					continue
+				for spawn in template.findall("spawn"):
+					if spawn.get("handler") != "FLAG":
+						continue
+					npc_id = java_int(spawn.get("npc_id"), "base spawn npc_id")
+					for spot in spawn.findall("spot"):
+						rows.append({"npcId": npc_id, "x": parse_float(spot.get("x")), "y": parse_float(spot.get("y")), "z": parse_float(spot.get("z")),
+						             "h": _java_byte(spot.get("h"), npc_id), "spawned": True, "deterministic": True, "base": base_id,
+						             "flags": {"flag": True, "pool": False, "temporary": False, "walker": False, "randomWalk": False, "handler": "FLAG",
+						                       "gatherable": False, "difficultId": 0}})
+	rows.sort(key=lambda r: (r["npcId"], r["x"], r["y"], r["z"], r["h"]))
+	return rows
+
+
 def spots_report(data: StaticData, map_id: int, center: tuple[float, float, float], radius: float, clock: GameClock) -> dict:
 	rows = evaluate(load_groups(data, map_id), load_npc_templates(data), clock)
 	cx, cy, cz = (f32(c) for c in center)
@@ -292,7 +334,7 @@ def spots_report(data: StaticData, map_id: int, center: tuple[float, float, floa
 	for row in rows:
 		if in_range(cx, cy, cz, row["x"], row["y"], row["z"], radius):
 			near.append(dict(row, distance=round(distance(cx, cy, cz, row["x"], row["y"], row["z"]), 3)))
-	flags = [row for row in rows if row["flags"]["flag"] and row["spawned"] is not False]
+	flags = [row for row in rows if row["flags"]["flag"] and row["spawned"] is not False] + base_flag_rows(data, map_id)
 	return {
 		"format": "aion-m5a-spawns",
 		"version": 1,
