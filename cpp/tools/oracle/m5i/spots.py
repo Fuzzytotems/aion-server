@@ -175,22 +175,28 @@ def spots_report(data_dir: Path) -> dict:
 	# S3 with M1 and M2: S3 outside the zone, M1 inside the zone outside the sphere, M2 inside the sphere; the moves from the sphere centre outwards
 	cx, cy, cz = shield["center"]
 	s3 = m1 = m2 = None
+	best_walk = None
 	for angle in range(0, 360, 5):
 		rad = math.radians(angle)
-		cand = [(cx + math.cos(rad) * r, cy + math.sin(rad) * r, cz) for r in range(10, 400, 2)]
-		outside = [c for c in cand if not _in_zone(zone, c)]
+		ray = [(cx + math.cos(rad) * r, cy + math.sin(rad) * r, cz) for r in range(10, 600, 2)]
+		outside = [c for c in ray if not _in_zone(zone, c)]
 		if not outside:
 			continue
-		first_out = outside[0]
-		r_out = math.hypot(first_out[0] - cx, first_out[1] - cy)
+		r_out = math.hypot(outside[0][0] - cx, outside[0][1] - cy)
 		m1c = (cx + math.cos(rad) * (shield["radius"] + 8), cy + math.sin(rad) * (shield["radius"] + 8), cz)
 		m2c = (cx + math.cos(rad) * (shield["radius"] - 8), cy + math.sin(rad) * (shield["radius"] - 8), cz)
 		s3c = (cx + math.cos(rad) * (r_out + 8), cy + math.sin(rad) * (r_out + 8), cz)
-		if _in_zone(zone, s3c) or not _in_zone(zone, m1c) or _dist(m1c, shield["center"]) <= shield["radius"]:
+		if _in_zone(zone, s3c) or not _in_zone(zone, m1c) or not _in_zone(zone, m2c) or _dist(m1c, shield["center"]) <= shield["radius"]:
 			continue
-		if all(_aggro_margin(c, all_1131, templates) > 0 for c in (s3c, m1c, m2c)) and r_out + 8 - (shield["radius"] + 8) <= 120:
-			s3, m1, m2 = s3c, m1c, m2c
-			break
+		# the walk S3 -> M1 must stay inside the zone after it enters it (one crossing) and every point must be safe
+		# C5 runs during a siege of the ELYOS-owned 1131 (C13): only the ELYOS SIEGE set stands then; M2 is the death itself, so only S3 and
+		# the walk to M1 have to stay outside its aggro ranges
+		walk = [(s3c[0] + (m1c[0] - s3c[0]) * t / 20, s3c[1] + (m1c[1] - s3c[1]) * t / 20, cz) for t in range(21)]
+		if not all(_aggro_margin(c, sets.get("ELYOS/SIEGE", []), templates) > 0 for c in walk):
+			continue
+		length = _dist(s3c, m1c)
+		if best_walk is None or length < best_walk:
+			best_walk, s3, m1, m2 = length, s3c, m1c, m2c
 
 	# S4: next to world raid location 31's flag spot, 10 m off
 	wr = None
@@ -244,6 +250,8 @@ def spots_report(data_dir: Path) -> dict:
 			       "aggroMargin": round(_aggro_margin(s1, all_1131, templates), 2),
 			       "eligibleElyosSiegeInView": len(eligible(_seen(s1, sets.get("ELYOS/SIEGE", []))))},
 			"S7": {"aggroMargin": round(_aggro_margin(s7, all_base, templates), 2)},
+			"S3": {"inZone": _in_zone(zone, s3), "M1inZone": _in_zone(zone, m1), "M1sphereDistance": round(_dist(m1, shield["center"]), 2),
+			       "M2sphereDistance": round(_dist(m2, shield["center"]), 2), "walk": round(best_walk, 2)} if s3 else None,
 		},
 		"shield": {"center": _round(shield["center"]), "radius": shield["radius"]},
 		"assault1131": {"teleport": teleport, "baseDelay": base_delay},

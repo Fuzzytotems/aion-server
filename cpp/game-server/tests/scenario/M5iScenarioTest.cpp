@@ -1056,13 +1056,14 @@ void runM5iGate() {
 		return;
 	}
 	{
-		// rifts open by cron at every hh:00 (rift_schedule.xml): the run (about 15 minutes) must not cross one
+		// rifts open by cron at every hh:00 (rift_schedule.xml): the run (about 10 minutes) must not cross one
 		const auto now = std::chrono::floor<std::chrono::seconds>(std::chrono::system_clock::now());
 		const auto untilHour = std::chrono::ceil<std::chrono::hours>(now + std::chrono::seconds(1)) - now;
-		if (untilHour < std::chrono::minutes(20)) {
-			std::cout << testName << ": waiting " << std::chrono::duration_cast<std::chrono::seconds>(untilHour).count() + 60
-			          << " s for the hh:00 rift cron to pass" << std::endl;
-			std::this_thread::sleep_for(untilHour + std::chrono::seconds(60));
+		if (untilHour < std::chrono::minutes(13)) {
+			// fail at once instead of waiting: the run holds the test-database lock, and the next start window is minutes away
+			ADD_FAILURE() << testName << ": started " << std::chrono::duration_cast<std::chrono::seconds>(untilHour).count()
+			              << " s before an hh:00 rift cron; start it at least 13 minutes before the hour";
+			return;
 		}
 	}
 	const std::filesystem::path outputDir = std::filesystem::path(AION_SCENARIO_OUTPUT_DIR) / "m5i";
@@ -1114,7 +1115,7 @@ void runM5iGate() {
 	SiegeAnswer sieges;
 	std::map<std::string, int32_t> messages;
 	const std::vector<std::string> messageNames{"STR_GUILD_EVENT_WIN_ARTIFACT", "STR_GUILD_EVENT_LOSE_ARTIFACT", "STR_MSG_WORLDRAID_MESSAGE_01",
-		"STR_ABYSS_CARRIER_SPAWN", "STR_ABYSS_WARP_DRAGON"};
+		"STR_ABYSS_CARRIER_SPAWN", "STR_ABYSS_WARP_DRAGON", "STR_CANNOT_USE_ARTIFACT_OUT_OF_ORDER"};
 	json spots;
 	ok = cases.run("C0", "the oracle answers: m5i-sieges (the 70 locations of SiegeLocationData), the artifact message ids", [&] {
 		sieges = parseSieges(oracle->run({"m5i-sieges"}));
@@ -1473,6 +1474,34 @@ void runM5iGate() {
 		return ids;
 	};
 
+	runCase("C9", "the artifact cooldown (X12): W (the owner since C8) at artifact 1135's aegis, both questions accepted: out of order, no activation", [&] {
+		const std::array<float, 3> aegis{2917.352f, 2841.743f, 1451.369f}; // 276730, the ASMODIANS artifact npc of 1135 (spawns/Sieges/400010000_Reshanta.xml)
+		relocate(w, cw, RESHANTA, {aegis[0] + 2.0f, aegis[1], aegis[2]});
+		int32_t aegisObject = 0;
+		for (const decoders::NpcInfo& info : npcInfos(w.since(0)))
+			if (info.templateId == 276730)
+				aegisObject = info.objectId;
+		ASSERT_NE(aegisObject, 0) << "SM_NPC_INFO of the aegis 276730";
+		size_t wFrom = w.mark();
+		w.game->send(GameSession::CM_SHOW_DIALOG, GameSession::buildCM_SHOW_DIALOG(aegisObject));
+		std::vector<int32_t> codes;
+		for (int32_t question = 1; question <= 2; question++) {
+			until(5s, [&] { return ofName(w.since(wFrom), "SM_QUESTION_WINDOW").size() >= static_cast<size_t>(question); });
+			const std::vector<Packet> windows = ofName(w.since(wFrom), "SM_QUESTION_WINDOW");
+			ASSERT_GE(windows.size(), static_cast<size_t>(question)) << "ArtifactAI's question " << question;
+			const decoders::QuestionWindow window = decoders::decodeQuestionWindow(windows[static_cast<size_t>(question) - 1].data);
+			codes.push_back(window.code);
+			w.game->send(GameSession::CM_QUESTION_RESPONSE, GameSession::buildCM_QUESTION_RESPONSE(window.code, 1, aegisObject));
+		}
+		const int32_t outOfOrder = messages.at("STR_CANNOT_USE_ARTIFACT_OUT_OF_ORDER");
+		until(5s, [&] { return countMessage(w.since(wFrom), outOfOrder) > 0; });
+		EXPECT_EQ(countMessage(w.since(wFrom), outOfOrder), 1u) << "the 900 s cooldown of a captured artifact (setInitialDelay)";
+		EXPECT_TRUE(ofName(w.since(wFrom), "SM_USE_OBJECT").empty()) << "no activation";
+		EXPECT_EQ(codes.size(), 2u);
+		if (codes.size() == 2)
+			EXPECT_NE(codes[0], codes[1]) << "STR_ASK_ARTIFACT_POPUPDIALOG, then STR_ASK_USE_ARTIFACT";
+	});
+
 	runCase("C10", "a world raid's first stage: G at S4 in Reshanta, //worldraid start 31 (X14: the message to the map, the flag at the spot)", [&] {
 		relocate(g, cg, RESHANTA, spot("S4"));
 		const size_t wFrom = w.mark(), gFrom = g.mark();
@@ -1610,16 +1639,55 @@ void runM5iGate() {
 		          << number("SELECT faction_balance FROM siege_locations WHERE id = " + std::to_string(FORTRESS)) << std::endl;
 	});
 
-	runCase("C16", "the vortex: //vortexraid start theobomos, a second start refused, //vortexraid stop theobomos (VortexService, Invasion)", [&] {
-		EXPECT_EQ(said(gm("//vortexraid start theobomos"), " raid started."), 1);
+	runCase("C17", "relocation at login (X8a/X8b): W quits, is seeded at S1, the siege of 1131 starts; W enters at his bind point; quits, is seeded again, enters at S1; the stop defends 1131 a third time", [&] {
+		const auto spawnOf = [](const std::vector<Packet>& packets) {
+			const Packet* spawn = firstOfName(packets, "SM_PLAYER_SPAWN");
+			if (spawn == nullptr)
+				throw std::runtime_error("no SM_PLAYER_SPAWN");
+			return decoders::decodePlayerSpawn(spawn->data);
+		};
+		const std::array<float, 3> s1 = spot("S1");
+		disconnect(w); // lastOnline t1
+		seedAt(cw, RESHANTA, s1);
+		std::this_thread::sleep_for(2s);
+		size_t gFrom = g.mark();
+		gm("//siege start " + std::to_string(FORTRESS)); // start t2 > t1
+		until(15s, [&] { return !states(g.since(gFrom), FORTRESS).empty(); });
+		const decoders::PlayerSpawn x8a = spawnOf(enterAs(servers, w, cw));
 		settle();
-		EXPECT_EQ(said(gm("//vortexraid start theobomos"), " is already under siege."), 1);
-		EXPECT_EQ(said(gm("//vortexraid stop theobomos"), " raid stopped."), 1);
+		EXPECT_TRUE(x8a.worldId != RESHANTA || std::hypot(x8a.x - s1[0], x8a.y - s1[1]) > 100.0f)
+			<< "X8a: logged out before the siege start, an enemy of the owner enters at his bind point (validateFortressZone), not at S1: world "
+			<< x8a.worldId << " (" << x8a.x << ", " << x8a.y << ")";
+		std::this_thread::sleep_for(2s);
+		disconnect(w); // lastOnline t3 > t2
+		seedAt(cw, RESHANTA, s1);
+		const decoders::PlayerSpawn x8b = spawnOf(enterAs(servers, w, cw));
 		settle();
-		EXPECT_EQ(said(gm("//vortexraid stop theobomos"), " is not under siege."), 1);
+		EXPECT_EQ(x8b.worldId, RESHANTA) << "X8b: logged out after the start, he enters where he left";
+		EXPECT_NEAR(x8b.x, s1[0], 1.0f);
+		EXPECT_NEAR(x8b.y, s1[1], 1.0f);
+		gFrom = g.mark();
+		gm("//siege stop " + std::to_string(FORTRESS));
+		until(15s, [&] { return !states(g.since(gFrom), FORTRESS).empty(); });
+		EXPECT_EQ(number("SELECT occupy_count FROM siege_locations WHERE id = " + std::to_string(FORTRESS)), 3) << "C7, C13, C17: three defences, uncapped";
 	});
 
-	runCase("C14", "persistence: both servers' game server restarts; the login state shows 1131 ELYOS occupy 2 and 1135 ASMODIANS (X18)", [&] {
+	runCase("C16", "the vortex: //vortexraid start theobomos, a second start refused, //vortexraid stop theobomos, twice (VortexService, Invasion)", [&] {
+		// twice: the second invasion starts from what the first one's stop left (VortexService.despawn unsets the vortex controller)
+		for (int32_t run = 1; run <= 2; run++) {
+			SCOPED_TRACE("invasion " + std::to_string(run));
+			EXPECT_EQ(said(gm("//vortexraid start theobomos"), " raid started."), 1);
+			settle();
+			EXPECT_EQ(said(gm("//vortexraid start theobomos"), " is already under siege."), 1);
+			EXPECT_EQ(said(gm("//vortexraid stop theobomos"), " raid stopped."), 1);
+			settle();
+			EXPECT_EQ(said(gm("//vortexraid stop theobomos"), " is not under siege."), 1);
+		}
+		EXPECT_TRUE(servers.gameServer()->findLogLines(" ERROR ").empty()) << "both invasions ran without an error: "
+		                                                                     << join(servers.gameServer()->findLogLines(" ERROR "), "\n");
+	});
+
+	runCase("C14", "persistence: both servers' game server restarts; the login state shows 1131 ELYOS occupy 3 and 1135 ASMODIANS (X18)", [&] {
 		for (ScenarioClient* client : all)
 			disconnect(*client);
 		gameServerExit = servers.stopGameServer();
@@ -1629,7 +1697,7 @@ void runM5iGate() {
 		gameServerExit.reset();
 		servers.startGameServer();
 		gameServerRestarted = true;
-		const std::map<int32_t, std::pair<uint8_t, int32_t>> changed{{FORTRESS, {RACE_ELYOS, 2}}, {ARTIFACT, {RACE_ASMODIANS, 0}}}; // C7 and C13
+		const std::map<int32_t, std::pair<uint8_t, int32_t>> changed{{FORTRESS, {RACE_ELYOS, 3}}, {ARTIFACT, {RACE_ASMODIANS, 0}}}; // C7, C13, C17
 		wLogin = enterAs(servers, w, cw);
 		checkLoginState(w, wLogin, RACE_ASMODIANS, changed, "W after the restart");
 		gLogin = enterAs(servers, g, cg);
