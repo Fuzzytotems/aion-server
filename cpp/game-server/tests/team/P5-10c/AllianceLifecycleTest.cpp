@@ -10,6 +10,7 @@
 
 #include <cstdint>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include "aion/gameserver/configs/main/GroupConfig.h"
@@ -25,6 +26,7 @@
 #include "aion/gameserver/network/aion/serverpackets/SM_ALLIANCE_MEMBER_INFO.h"
 #include "aion/gameserver/network/aion/serverpackets/SM_ALLIANCE_READY_CHECK.h"
 #include "aion/gameserver/network/aion/serverpackets/SM_QUESTION_WINDOW.h"
+#include "aion/gameserver/runtime/base/Unported.h"
 #include "aion/gameserver/runtime/sync/LockOrderValidator.h"
 
 #include "aion/commons/utils/WindowsMacroGuard.h" // after all headers that may include windows.h
@@ -393,6 +395,50 @@ TEST_F(AllianceLifecycleTest, KinahIsSplitOverTheAllianceOrTheGroup) {
 	EXPECT_EQ(b.player().getInventory().getKinah(), 100 + 50);
 	EXPECT_EQ(c.player().getInventory().getKinah(), 100) << "C is in group 1001";
 	EXPECT_EQ(value.size(), 3);
+}
+
+/** The number of hits of the AION_UNPORTED sites whose function names `function` since the last reset */
+uint64_t unportedHitsOf(std::string_view function) {
+	uint64_t hits = 0;
+	for (const runtime::UnportedHit& hit : runtime::unportedHits()) {
+		if (hit.function.find(function) != std::string::npos)
+			hits += hit.hits;
+	}
+	return hits;
+}
+
+/** removePlayer and banPlayer of a vortex defence alliance (PlayerAllianceService.java:147-156, 166-167) ask VortexService to remove the
+ * defender first; VortexService's body is M5i's, so the call reaches its AION_UNPORTED (and nothing in PlayerAllianceService) */
+TEST_F(AllianceLifecycleTest, ADefenceAllianceLeaveAndBanAskTheVortexService) {
+	Member& a = addMember("Alpha");
+	Member& b = addMember("Bravo");
+	Member& c = addMember("Charlie");
+	runtime::Ptr<PlayerAlliance> value = PlayerAllianceService::createAlliance(a.player(), b.player(), model::team::TeamType::ALLIANCE_DEFENCE);
+	ASSERT_TRUE(value);
+	PlayerAllianceService::addPlayer(*value, c.player());
+	runtime::resetUnportedHitsForTests();
+	EXPECT_THROW(PlayerAllianceService::removePlayer(c.player()), runtime::UnportedException);
+	EXPECT_EQ(unportedHitsOf("removeDefenderPlayer"), 1u);
+	EXPECT_EQ(value->size(), 3) << "the leave event is after the vortex call";
+	PlayerAllianceService::banPlayer(c.player(), b.player()); // not the leader: no vortex call
+	EXPECT_EQ(unportedHitsOf("removeDefenderPlayer"), 1u);
+	EXPECT_THROW(PlayerAllianceService::banPlayer(c.player(), a.player()), runtime::UnportedException);
+	EXPECT_EQ(unportedHitsOf("removeDefenderPlayer"), 2u);
+	EXPECT_EQ(unportedHitsOf("PlayerAllianceService"), 0u);
+}
+
+// The checker's offence arm (:270-273, removeInvaderPlayer) has no case: an offence alliance is an auto team, so its kick delay is 60 s of
+// the wall clock (TimeUtil.isExpired, PlayerTeamMember.updateLastOnlineTime), which an in-process case cannot advance.
+
+/** a plain alliance's leave never asks the vortex service */
+TEST_F(AllianceLifecycleTest, APlainAllianceLeaveDoesNotAskTheVortexService) {
+	Member& a = addMember("Alpha");
+	Member& b = addMember("Bravo");
+	Member& c = addMember("Charlie");
+	alliance({&a, &b, &c});
+	runtime::resetUnportedHitsForTests();
+	PlayerAllianceService::removePlayer(c.player());
+	EXPECT_EQ(runtime::unportedHitCount(), 0u);
 }
 
 } // namespace
