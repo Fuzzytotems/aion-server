@@ -15,8 +15,6 @@
 #include "aion/gameserver/ai/AIState.h"
 #include "aion/gameserver/ai/AbstractAI.h"
 #include "aion/gameserver/controllers/NpcController.h"
-#include "aion/gameserver/dataholders/AIData.bind.h"
-#include "aion/gameserver/dataholders/AIData.h"
 #include "aion/gameserver/dataholders/SkillData.bind.h"
 #include "aion/gameserver/dataholders/SkillData.h"
 #include "aion/gameserver/handlers/ai/instance/abyss/FortressInstanceDukeAI.h"
@@ -124,7 +122,6 @@ struct MuruganProbe : ais::esoterrace::CaptainMuruganAI {
 struct JarkaProbe : ais::theHexway::CaptainJarkaAI {
 	using CaptainJarkaAI::CaptainJarkaAI;
 	using CaptainJarkaAI::handleDied;
-	using CaptainJarkaAI::handleSpawned;
 };
 struct ChestTeleporterProbe : ais::theHexway::ChestTeleporterAI {
 	using ChestTeleporterAI::ChestTeleporterAI;
@@ -133,15 +130,7 @@ struct ChestTeleporterProbe : ais::theHexway::ChestTeleporterAI {
 struct GalamatProbe : ais::theHexway::AdjutantGalamatAI {
 	using AdjutantGalamatAI::AdjutantGalamatAI;
 	using AdjutantGalamatAI::handleDied;
-	using AdjutantGalamatAI::handleSpawned;
 };
-/** ai_templates (spawn_helpers.xml's shape) with an empty summons list for the npc: a SummonerAI's spawn reads it (SummonerAI.java:57-61) */
-void publishEmptySummons(xml::LoadContext& context, int32_t npcId) {
-	dataholders::DataManager::AI_DATA.resetForTests();
-	dataholders::DataManager::AI_DATA.publish(xml::bindString<dataholders::AIData>(context,
-		R"(<ai_templates><ai npcId=")" + std::to_string(npcId) + R"("><summons></summons></ai></ai_templates>)"));
-}
-
 /** records the CREATURE_AGGRO events an npc gets */
 struct AggroRecorder : gameserver::ai::NpcAI {
 	explicit AggroRecorder(Npc& owner) : NpcAI(owner) {}
@@ -437,9 +426,6 @@ TEST_F(I1AiTest, CaptainMuruganShoutsEveryTwentySeconds) {
 TEST_F(I1AiTest, CaptainJarkasDeathClearsHisSurroundings) {
 	runtime::Ptr<Npc> jarka = place(900200, 230.0f, 300.0f);
 	JarkaProbe& ai = install<JarkaProbe>(*jarka);
-	xml::LoadContext aiContext;
-	publishEmptySummons(aiContext, 900200);
-	ai.handleSpawned();
 	runtime::Ptr<Npc> near = place(900300, 240.0f, 300.0f); // 10 m
 	runtime::Ptr<Npc> far = place(900300, 250.0f, 300.0f);  // 20 m
 	InstanceKnownListPairing::pair(*jarka, *near);
@@ -448,7 +434,6 @@ TEST_F(I1AiTest, CaptainJarkasDeathClearsHisSurroundings) {
 	EXPECT_FALSE(near->isSpawned());
 	EXPECT_TRUE(far->isSpawned());
 	EXPECT_TRUE(npcs(*instance, 282465).empty()) << "the smoke is deleted at once";
-	dataholders::DataManager::AI_DATA.resetForTests();
 }
 
 /** ChestTeleporterAI.java:38-51: a living player who moves within 8 m in its sight hears the orb once */
@@ -475,9 +460,6 @@ TEST_F(I1AiTest, AdjutantGalamatsShieldPhase) {
 		R"( target_relation="FRIEND" target_type="ONLYONE" /></skill_template></skill_data>)"));
 	runtime::Ptr<Npc> galamat = place(900200, 230.0f, 300.0f);
 	GalamatProbe& ai = install<GalamatProbe>(*galamat);
-	xml::LoadContext aiContext;
-	publishEmptySummons(aiContext, 900200);
-	ai.handleSpawned();
 	InstanceKnownListPairing::pair(*galamat, player());
 	EXPECT_FLOAT_EQ(ai.modifyOwnerDamage(100.0f, player(), nullptr), 100.0f);
 	ai.onEndUseSkill(dataholders::DataManager::SKILL_DATA->getSkillTemplate(21799), 1);
@@ -494,7 +476,6 @@ TEST_F(I1AiTest, AdjutantGalamatsShieldPhase) {
 	executor().advance(std::chrono::milliseconds(25000));
 	EXPECT_FLOAT_EQ(ai.modifyOwnerDamage(100.0f, player(), nullptr), 120.0f) << "1.2 after an evaluation without damage";
 	ai.handleDied();
-	dataholders::DataManager::AI_DATA.resetForTests();
 }
 
 } // namespace
