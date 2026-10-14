@@ -97,3 +97,9 @@ Smallest self-contained first; each is one commit with its tests and mutation pr
 > UnstableSplinterpath's returning boss is the other one of the pair; J-P6I4-3: its pieces delete the Abyssal Splinter's ids 281907/281908 (both
 > ported faithfully). Census I1: 434 -> 165 open bodies (left: the abyssal_splinter and unstableSplinterpath AIs). The tests of chunks I3 and I5
 > share the fixture: `tests/handlers_inst_1/InstanceFixture.h` (each chunk's support header defines its maps, npc ids and AI names).
+> **Progress:** P6I-5 done (chunk I3): OphidanBridgeInstance and OphidanBridgeInstance_L, LinkgateFoundryInstance, KromedesTrialInstance; the AIs of
+> kromedesTrial (KromedesBuffAI, KromedesCorpseAI, KromedesItemNpcsAI, KromedesMagasAI, KromedesPrisonersAI) and linkgateFoundry
+> (LinkgateFoundryBossTeleportAI, LinkgateFoundrySecretTeleportAI). Tests in `tests/handlers_inst_3` on the shared fixture: `I3InstanceTest.cpp` (16
+> cases) and `I3AiTest.cpp` (5 cases); mutation proofs 18 of 18 (after two strengthened cases: the random end boss pairs over twelve bridges, the
+> Linkgate timer past its byte wrap) and 6 of 6. Left to a gate: the teleports (HousingService), the zone entries, the buffs and item grants. Census
+> I3: 417 -> 369 open bodies (left: the PvP instances, the arenas, Eternal Bastion and their AIs).
