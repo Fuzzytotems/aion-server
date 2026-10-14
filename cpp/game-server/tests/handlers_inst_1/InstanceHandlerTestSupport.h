@@ -88,6 +88,12 @@ namespace aion::gameserver::handlers::instance::abyss {
 ::aion::gameserver::handlers::InstanceFactory LegionsKysisBarracks_instanceFactory;
 ::aion::gameserver::handlers::InstanceFactory LegionsMirenBarracks_instanceFactory;
 
+::aion::gameserver::handlers::InstanceFactory AsteriaInstance_instanceFactory;
+::aion::gameserver::handlers::InstanceFactory RoahInstance_instanceFactory;
+::aion::gameserver::handlers::InstanceFactory RightWingChamberInstance_instanceFactory;
+::aion::gameserver::handlers::InstanceFactory LeftWingChamberInstance_instanceFactory;
+::aion::gameserver::handlers::InstanceFactory SulfurTreeNestInstance_instanceFactory;
+
 } // namespace aion::gameserver::handlers::instance::abyss
 
 namespace aion::gameserver::handlers::instance::test {
@@ -105,6 +111,11 @@ inline constexpr int32_t ADMA_STRONGHOLD = 320130000;
 
 /** world_maps.xml's rows of the I1 maps under test (the Dredgions' child elements left out) */
 inline constexpr const char* INSTANCE_MAPS_XML = R"x(<world_maps>
+	<map id="300050000" cName="IDAbRe_Up_Asteria" name="Asteria Chamber" name_id="401201" instance="true" water_level="16" death_level="0" world_type="ABYSS" world_size="1024" drop_type="ABYSS_INSTANCE" flags="RECALL PVP DUEL_SAME_RACE NO_RETURN_BATTLE" pve_attack_ratio="150" pve_defend_ratio="50"/>
+	<map id="300060000" cName="IDAbRe_Low_Divine" name="Sulfur Tree Nest" name_id="401198" instance="true" water_level="16" death_level="0" world_type="ABYSS" world_size="1024" drop_type="ABYSS_INSTANCE" flags="RECALL PVP DUEL_SAME_RACE NO_RETURN_BATTLE" pve_attack_ratio="150" pve_defend_ratio="50"/>
+	<map id="300070000" cName="IDAbRe_Up_Rhoo" name="Chamber of Roah" name_id="401202" instance="true" water_level="16" death_level="0" world_type="ABYSS" world_size="1024" drop_type="ABYSS_INSTANCE" flags="RECALL PVP DUEL_SAME_RACE NO_RETURN_BATTLE" pve_attack_ratio="150" pve_defend_ratio="50"/>
+	<map id="300080000" cName="IDAbRe_Low_Wciel" name="Left Wing Chamber" name_id="401200" instance="true" water_level="70" death_level="0" world_type="ABYSS" world_size="1024" drop_type="ABYSS_INSTANCE" flags="RECALL PVP DUEL_SAME_RACE NO_RETURN_BATTLE" pve_attack_ratio="150" pve_defend_ratio="50"/>
+	<map id="300090000" cName="IDAbRe_Low_Eciel" name="Right Wing Chamber" name_id="401199" instance="true" water_level="16" death_level="0" world_type="ABYSS" world_size="512" drop_type="ABYSS_INSTANCE" flags="RECALL PVP DUEL_SAME_RACE NO_RETURN_BATTLE" pve_attack_ratio="150" pve_defend_ratio="50"/>
 	<map id="301300000" cName="IDAbRe_Up3_Crotan_02_N" name="Krotan Barracks" name_id="404100" instance="true" water_level="16" death_level="0" world_type="ABYSS" world_size="1024" drop_type="ABYSS_INSTANCE" flags="RECALL PVP DUEL_SAME_RACE NO_RETURN_BATTLE"/>
 	<map id="301280000" cName="IDAbRe_Up3_Dkisas_02_N" name="Kysis Barracks" name_id="404101" instance="true" water_level="16" death_level="0" world_type="ABYSS" world_size="1024" drop_type="ABYSS_INSTANCE" flags="RECALL PVP DUEL_SAME_RACE NO_RETURN_BATTLE"/>
 	<map id="301290000" cName="IDAbRe_Up3_Lamiren_02_N" name="Miren Barracks" name_id="404102" instance="true" water_level="16" death_level="0" world_type="ABYSS" world_size="1024" drop_type="ABYSS_INSTANCE" flags="RECALL PVP DUEL_SAME_RACE NO_RETURN_BATTLE"/>
@@ -136,7 +147,10 @@ inline const std::vector<int32_t>& handlerNpcIds() {
 		214599, 284978, 284979, 284980, 284981, 900100, 900101, 900102, 900103, 900200, 900300,
 		// Krotan Barracks: the key masters, the bosses, the chests (and the legion version's), the timer npc, the doors, a door guard, the
 		// artifact, the statues
-		233627, 233628, 233629, 233630, 233632, 233633, 702288, 702289, 702290, 702291, 206095, 700545, 233599, 233600, 215413, 235536};
+		233627, 233628, 233629, 233630, 233632, 233633, 702288, 702289, 702290, 702291, 206095, 700545, 233599, 233600, 215413, 235536,
+		// the five chambers with a start ring: the treasures the timer takes, the gold chests, Treasurer Nabatma, the exit
+		700475, 700476, 700477, 701483, 701488, 700472, 700473, 700474, 701489, 701484, 700471, 701482, 701487, 700466, 701481, 701486, 214804,
+		700463, 700462, 700464, 701485, 701480, 215424, 700455};
 	return ids;
 }
 

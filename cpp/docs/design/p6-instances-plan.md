@@ -79,5 +79,8 @@ Smallest self-contained first; each is one commit with its tests and mutation pr
 > legion Barracks), `tests/handlers_inst_1/AbyssKeepTest.cpp` (8 cases), mutation proof 13 of 13; gs.smoke.startup green. **Java bug,
 > proposed correction J-P6I4-1 (not applied):** a keep's two boss ids both call spawnChests (e.g. KrotanBarracks `case 233632, 233633`), and
 > spawnChests sets chestLocations to null, so the second death throws a NullPointerException (ported faithfully; the test pins it). Proposed:
-> return early when chestLocations is null. Left of P6I-4: AsteriaInstance, RoahInstance, the wing chambers, SulfurTreeNestInstance,
-> EsoterraceInstance, the splinters, TheHexwayInstance and their AIs.
+> return early when chestLocations is null.
+> **Progress:** P6I-4b done: AsteriaInstance, RoahInstance, RightWingChamberInstance, LeftWingChamberInstance, SulfurTreeNestInstance
+> (`AbyssChamberTest.cpp`, 5 table-driven cases over the five; mutation proof 9 of 9; gs.smoke.startup green). LeftWingChamberInstance's
+> exit (handleUseItemFinish with 700455: a teleport, HousingService) is left to a gate. Left of P6I-4: EsoterraceInstance, the splinters,
+> TheHexwayInstance and their AIs.
