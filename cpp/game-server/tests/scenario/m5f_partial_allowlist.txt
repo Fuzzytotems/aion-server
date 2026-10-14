@@ -15,12 +15,11 @@
 # §C the rows the earlier gates allow. No InstanceService row: the two M5a partials are closed (I-04). The milestone leaves no partial of
 # its own on the scripted path.
 
+# HISTORY: BaseService.cpp:18 (the gates ran without base locations, E1-06) was here until M5i I-8 ported the bases (m5i-plan.md D3).
 # =========================================================================================================================================
 # --- SECTION A - hit at least once, asserted ---
 # =========================================================================================================================================
 
-# every startup: the gates run without base locations (E1-06)
-aion/gameserver/services/BaseService.cpp:18
 
 # =========================================================================================================================================
 # --- SECTION B - hit exactly zero times, asserted ---
