@@ -86,5 +86,5 @@ Smallest self-contained first; each is one commit with its tests and mutation pr
 > **Progress:** P6I-4c done: EsoterraceInstance (`EsoterraceTest.cpp`, 5 cases, mutation proof 8 of 8; the door arms, the revive and the zone
 > message are left to a gate). Census I1: 434 -> 263 open bodies. Left of P6I-4: the esoterrace AIs, the splinters, TheHexwayInstance and
 > their AIs.
-> **Progress:** P6I-4d: the esoterrace AI KexkraPrototypeAI (I1AiTest, mutation proof 4 of 4). Left of the esoterrace AIs: CaptainMuruganAI,
-> DaliaCharlandsAI, GreenfingersAI, WardenSuramaAI (skills and walker routes: they need the skill and walker rows in the fixture).
+> **Progress:** P6I-4d: the esoterrace AIs KexkraPrototypeAI and WardenSuramaAI (I1AiTest, mutation proofs 4 of 4 and 6 of 6). Census I1:
+> 434 -> 254 open bodies. Left of the esoterrace AIs: CaptainMuruganAI, DaliaCharlandsAI, GreenfingersAI (walker routes and repeated skills).

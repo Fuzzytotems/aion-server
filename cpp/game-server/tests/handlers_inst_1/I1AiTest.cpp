@@ -23,6 +23,8 @@
 #include "aion/gameserver/handlers/ai/instance/dredgion/ShulackDrudgeAI.h"
 #include "aion/gameserver/handlers/ai/instance/dredgion/SurkanaAI.h"
 #include "aion/gameserver/handlers/ai/instance/esoterrace/KexkraPrototypeAI.h"
+#include "aion/gameserver/handlers/ai/instance/esoterrace/WardenSuramaAI.h"
+#include "aion/gameserver/network/aion/serverpackets/SM_SYSTEM_MESSAGE.h"
 #include "aion/gameserver/network/aion/serverpackets/SM_PLAY_MOVIE.h"
 #include "aion/gameserver/model/stats/container/NpcLifeStats.h"
 #include "aion/gameserver/network/aion/serverpackets/SM_DIALOG_WINDOW.h"
@@ -42,7 +44,8 @@ namespace dredgion {
 } // namespace dredgion
 namespace esoterrace {
 ::aion::gameserver::handlers::AIFactory KexkraPrototypeAI_aiFactory;
-}
+::aion::gameserver::handlers::AIFactory WardenSuramaAI_aiFactory;
+} // namespace esoterrace
 } // namespace aion::gameserver::handlers::ai::instance
 
 namespace aion::gameserver::handlers::instance::test {
@@ -77,6 +80,11 @@ struct SurkanaProbe : ais::dredgion::SurkanaAI {
 struct KexkraProbe : ais::esoterrace::KexkraPrototypeAI {
 	using KexkraPrototypeAI::KexkraPrototypeAI;
 	using KexkraPrototypeAI::handleAttack;
+};
+struct WardenProbe : ais::esoterrace::WardenSuramaAI {
+	using WardenSuramaAI::WardenSuramaAI;
+	using WardenSuramaAI::handleAttack;
+	using WardenSuramaAI::handleBackHome;
 };
 /** records the CREATURE_AGGRO events an npc gets */
 struct AggroRecorder : gameserver::ai::NpcAI {
@@ -125,6 +133,7 @@ TEST_F(I1AiTest, TheFactoriesBuildTheirClasses) {
 	EXPECT_NE(dynamic_cast<ais::dredgion::ShulackDrudgeAI*>(ais::dredgion::ShulackDrudgeAI_aiFactory(*npc).get()), nullptr);
 	EXPECT_NE(dynamic_cast<ais::dredgion::SurkanaAI*>(ais::dredgion::SurkanaAI_aiFactory(*npc).get()), nullptr);
 	EXPECT_NE(dynamic_cast<ais::esoterrace::KexkraPrototypeAI*>(ais::esoterrace::KexkraPrototypeAI_aiFactory(*npc).get()), nullptr);
+	EXPECT_NE(dynamic_cast<ais::esoterrace::WardenSuramaAI*>(ais::esoterrace::WardenSuramaAI_aiFactory(*npc).get()), nullptr);
 }
 
 /** BetrayerIcaronixAI.java:24-34: above half HP an attack changes nothing; at half, Icaronix the Betrayer takes the place with 50 % HP */
@@ -236,6 +245,42 @@ TEST_F(I1AiTest, TheKexkraPrototypeGivesWayToKexkraAt75Percent) {
 	ASSERT_EQ(npcs(*instance, 217206).size(), 1u);
 	EXPECT_FLOAT_EQ(npcs(*instance, 217206).front()->getX(), 1320.639282f);
 	EXPECT_FALSE(prototype->isSpawned());
+}
+
+/** WardenSuramaAI.java:27-61: at 50, 25 and 5 % the eight geysers (static ids) rise for 13 s with two messages; back home the phases restart */
+TEST_F(I1AiTest, WardenSuramasGeysersRiseAtHerPhases) {
+	dataholders::DataManager::SKILL_DATA.resetForTests(); // the base fixture's empty holder; its TearDown resets this one
+	xml::LoadContext skillContext;
+	dataholders::DataManager::SKILL_DATA.publish(xml::bindString<dataholders::SkillData>(skillContext,
+		R"(<skill_data><skill_template skill_id="19332" name="geysers" nameId="1" stack="GEYSER" lvl="1" skilltype="MAGICAL" skillsubtype="NONE")"
+		R"( tslot="SPEC" activation="ACTIVE" cooldown="0" duration="0"><properties first_target="ME" target_relation="FRIEND")"
+		R"( target_type="ONLYONE" /></skill_template></skill_data>)"));
+	leave(); // Esoterrace's map: the geysers stand at about (1317, 1170)
+	instance = &create(300250000, abyss::EsoterraceInstance_instanceFactory);
+	enter(*instance, 1310.0f, 1170.0f, 52.0f);
+	runtime::Ptr<Npc> surama = spawnNpc(*instance, 900200, 1312.0f, 1170.0f, 52.0f, int8_t{0});
+	WardenProbe& ai = install<WardenProbe>(*surama);
+	InstanceKnownListPairing::pair(*surama, player());
+	const std::initializer_list<int32_t> geysers{282171, 282172, 282173, 282174, 282425, 282426, 282427, 282428};
+	surama->getLifeStats()->setCurrentHpPercent(60);
+	ai.handleAttack(runtime::Ptr<model::gameobjects::Creature>(player()));
+	EXPECT_EQ(count(geysers), 0u);
+	surama->getLifeStats()->setCurrentHpPercent(50);
+	ai.handleAttack(runtime::Ptr<model::gameobjects::Creature>(player()));
+	ASSERT_EQ(count(geysers), 8u);
+	EXPECT_EQ(npcs(*instance, 282173).front()->getSpawn()->getStaticId(), 598);
+	EXPECT_EQ(countSent(serialized(network::aion::serverpackets::SM_SYSTEM_MESSAGE::STR_MSG_IDF4Re_Drana_10())), 1);
+	EXPECT_EQ(countSent(serialized(network::aion::serverpackets::SM_SYSTEM_MESSAGE::STR_MSG_IDF4Re_Drana_09())), 1);
+	executor().advance(std::chrono::milliseconds(12999));
+	EXPECT_EQ(count(geysers), 8u);
+	executor().advance(std::chrono::milliseconds(1));
+	EXPECT_EQ(count(geysers), 0u) << "13 s";
+	ai.handleAttack(runtime::Ptr<model::gameobjects::Creature>(player()));
+	EXPECT_EQ(count(geysers), 0u) << "the 50 % phase once";
+	ai.handleBackHome();
+	surama->getLifeStats()->setCurrentHpPercent(50); // the way home heals her
+	ai.handleAttack(runtime::Ptr<model::gameobjects::Creature>(player()));
+	EXPECT_EQ(count(geysers), 8u) << "back home resets the phases";
 }
 
 } // namespace
