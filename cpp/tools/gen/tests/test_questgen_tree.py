@@ -38,11 +38,13 @@ ROUTE = {
 # questgen transliterates 28 + 41 of the 75, and the other six are hand ports, or held back, and carry no banner)
 Q10 = {
     'altgard': (
+        '_2207ConversingWithaSkurv', '_2209TheScribbler', '_2213PoisonRootPotentFruit', '_2221ManirsUncle', '_2223AMythicalMonster', '_2231SiblingRivalry', '_2232TheBrokenHoneyJar', '_2239MalodorAntidote', '_2288MoneyWhereYourMouthIs', '_24010SuthransOrders',
         '_2216MuMuGrassKnot', '_2222ManirsMessage', '_2228AThornInItsSide', '_2247TheGergersDisguise', '_2263ShugoPotion',
         '_2266ATrustworthyMessenger', '_2271AurtrisLetter', '_2278ASecretProposal', '_2279SolidProof', '_2284EscapingAsmodae',
         '_2289RampagingMosbears', '_2290GrokensEscape', '_24011FunnyFloatingFungus', '_24012AnOminousCrop', '_24014StompOutThePlot',
         '_24015TotemPlowed', '_24016AStrangeNewThread', '_24112NoLaissezFaireForLepharists'),
     'pandaemonium': (
+        '_2911SongOfBlessing', '_2917ArekedilsHeritage', '_2953DeliveringSupplyRequest', '_29004VeldinaCall', '_29048SeriphimTeachings', '_4973MarraWorry',
         '_2912FollowtheRibbon', '_2913AChainofDebt', '_2914ATokenofLostLove', '_2916ManInTheLongBlackRobe', '_2918DeepMaternalLove',
         '_2919BookOfOblivion', '_2920ElementaryMyDearDaeva', '_2921LoveAtFirstSight', '_2922FascinatingGift', '_2925AHeartfeltConfession',
         '_2928PowerofLove', '_2937UnexpectedReward', '_2938SecretLibraryAccess', '_2948HuronsLetter', '_2952WinningVindachinerksFavor',
@@ -380,13 +382,16 @@ Q14 = {
 # held back at the integration of slice 2 (docs/deviations/Q10.md, "Held back"): transliterated like the others, but kept out of the
 # tree because gs.scenario.travel's (and gs.scenario.ascension's) Asmodian would see them: 24010's onEnterWorldEvent starts it at the
 # Altgard arrival, and the others' start npcs put them in his SM_NEARBY_QUESTS in Pandaemonium or Altgard
-Q10_HELD_BACK = (
+Q10_FORMERLY_HELD_BACK = (
     'altgard/_2207ConversingWithaSkurv.java', 'altgard/_2209TheScribbler.java', 'altgard/_2213PoisonRootPotentFruit.java',
     'altgard/_2221ManirsUncle.java', 'altgard/_2223AMythicalMonster.java', 'altgard/_2231SiblingRivalry.java', 'altgard/_2232TheBrokenHoneyJar.java',
     'altgard/_2239MalodorAntidote.java', 'altgard/_2288MoneyWhereYourMouthIs.java', 'altgard/_24010SuthransOrders.java',
     'pandaemonium/_2911SongOfBlessing.java', 'pandaemonium/_2917ArekedilsHeritage.java', 'pandaemonium/_2953DeliveringSupplyRequest.java',
     'pandaemonium/_29004VeldinaCall.java', 'pandaemonium/_29048SeriphimTeachings.java', 'pandaemonium/_4973MarraWorry.java',
 )
+# in the tree since the owner's decision on the travel and ascension gates' traffic (WIP, pending: docs/deviations/Q10.md,
+# "Landing the held-back sixteen")
+Q10_HELD_BACK = ()
 # the four that start their quest at a character's first enter world (Java behaviour): held back for their gate impact until the owner's answer
 # of 2026-09-29 ("A": land them and let gs.scenario.m5a, m5b and m5b2 expect the prologue traffic; docs/design/owner-decisions.md)
 ENTER_WORLD = ('poeta/_1000Prologue.java', 'poeta/_1100KaliosCall.java', 'ishalgen/_2000Prologue.java', 'ishalgen/_2100OrderoftheCaptain.java')
@@ -432,7 +437,7 @@ class CommittedTree(unittest.TestCase):
             for klass in classes:
                 with self.subTest(file=f'{directory}/{klass}'):
                     self.assertIn((directory, klass), found)
-        self.assertEqual((len(Q10['altgard']), len(Q10['pandaemonium'])), (18, 35))
+        self.assertEqual((len(Q10['altgard']), len(Q10['pandaemonium'])), (28, 41))
         for directory, classes in Q08.items():
             for klass in classes:
                 with self.subTest(file=f'{directory}/{klass}'):
@@ -504,7 +509,7 @@ class CommittedTree(unittest.TestCase):
                 with self.subTest(file=f'{directory}/{klass}'):
                     self.assertIn((directory, klass), found)
         self.assertEqual(sum(len(classes) for classes in Q06.values()), 52)
-        self.assertEqual(len(Q10_HELD_BACK), 16)
+        self.assertEqual((len(Q10_HELD_BACK), len(Q10_FORMERLY_HELD_BACK)), (0, 16))
 
     def test_the_enter_world_files_are_in_the_tree(self):
         for rel in ENTER_WORLD:
@@ -514,17 +519,17 @@ class CommittedTree(unittest.TestCase):
                 self.assertIn('qe.registerOnEnterWorld(questId);', r.cpp)
                 self.assertEqual((HANDLER_QUEST_DIR / rel).with_suffix('.cpp').read_bytes(), r.cpp.encode('utf-8'))
 
-    def test_the_q10_held_back_files_transliterate_and_stay_out_of_the_tree(self):
-        # the integration of slice 2: each is questgen's output (the regenerate command lands it), none is in the tree or the table
+    def test_the_q10_formerly_held_back_files_are_in_the_tree(self):
+        # held back at the integration of slice 2, in the tree since the owner's decision (WIP): questgen's output, in the table
         found = {(f.parent.name, f.stem) for f, _ in self.files}
-        for rel in Q10_HELD_BACK:
+        for rel in Q10_FORMERLY_HELD_BACK:
             with self.subTest(file=rel):
                 r = self.tr.transliterate(paths.JAVA_QUEST_DIR / rel)
                 self.assertEqual(r.status, 'ok', r.reasons)
-                self.assertFalse((HANDLER_QUEST_DIR / rel).with_suffix('.cpp').exists())
+                self.assertEqual((HANDLER_QUEST_DIR / rel).with_suffix('.cpp').read_bytes(), r.cpp.encode('utf-8'))
                 directory, klass = rel.removesuffix('.java').split('/')
-                self.assertNotIn((directory, klass), found)
-                self.assertNotIn(klass, Q10[directory])
+                self.assertIn((directory, klass), found)
+                self.assertIn(klass, Q10[directory])
         r = self.tr.transliterate(paths.JAVA_QUEST_DIR / 'altgard/_24010SuthransOrders.java')
         self.assertIn('qe.registerOnEnterWorld(questId);', r.cpp)
 
