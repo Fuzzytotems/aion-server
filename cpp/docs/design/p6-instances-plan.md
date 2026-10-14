@@ -82,5 +82,7 @@ Smallest self-contained first; each is one commit with its tests and mutation pr
 > return early when chestLocations is null.
 > **Progress:** P6I-4b done: AsteriaInstance, RoahInstance, RightWingChamberInstance, LeftWingChamberInstance, SulfurTreeNestInstance
 > (`AbyssChamberTest.cpp`, 5 table-driven cases over the five; mutation proof 9 of 9; gs.smoke.startup green). LeftWingChamberInstance's
-> exit (handleUseItemFinish with 700455: a teleport, HousingService) is left to a gate. Left of P6I-4: EsoterraceInstance, the splinters,
-> TheHexwayInstance and their AIs.
+> exit (handleUseItemFinish with 700455: a teleport, HousingService) is left to a gate.
+> **Progress:** P6I-4c done: EsoterraceInstance (`EsoterraceTest.cpp`, 5 cases, mutation proof 8 of 8; the door arms, the revive and the zone
+> message are left to a gate). Census I1: 434 -> 263 open bodies. Left of P6I-4: the esoterrace AIs, the splinters, TheHexwayInstance and
+> their AIs.

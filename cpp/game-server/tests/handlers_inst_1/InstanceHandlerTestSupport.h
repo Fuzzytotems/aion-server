@@ -93,6 +93,7 @@ namespace aion::gameserver::handlers::instance::abyss {
 ::aion::gameserver::handlers::InstanceFactory RightWingChamberInstance_instanceFactory;
 ::aion::gameserver::handlers::InstanceFactory LeftWingChamberInstance_instanceFactory;
 ::aion::gameserver::handlers::InstanceFactory SulfurTreeNestInstance_instanceFactory;
+::aion::gameserver::handlers::InstanceFactory EsoterraceInstance_instanceFactory;
 
 } // namespace aion::gameserver::handlers::instance::abyss
 
@@ -111,6 +112,7 @@ inline constexpr int32_t ADMA_STRONGHOLD = 320130000;
 
 /** world_maps.xml's rows of the I1 maps under test (the Dredgions' child elements left out) */
 inline constexpr const char* INSTANCE_MAPS_XML = R"x(<world_maps>
+	<map id="300250000" cName="IDF4Re_Drana" name="Esoterrace" name_id="401750" instance="true" water_level="40" death_level="0" world_size="1536" drop_type="BALAUREA_INSTANCE" flags="RECALL GLIDE PVP DUEL_SAME_RACE NO_RETURN_BATTLE" pve_attack_ratio="150" pve_defend_ratio="50"/>
 	<map id="300050000" cName="IDAbRe_Up_Asteria" name="Asteria Chamber" name_id="401201" instance="true" water_level="16" death_level="0" world_type="ABYSS" world_size="1024" drop_type="ABYSS_INSTANCE" flags="RECALL PVP DUEL_SAME_RACE NO_RETURN_BATTLE" pve_attack_ratio="150" pve_defend_ratio="50"/>
 	<map id="300060000" cName="IDAbRe_Low_Divine" name="Sulfur Tree Nest" name_id="401198" instance="true" water_level="16" death_level="0" world_type="ABYSS" world_size="1024" drop_type="ABYSS_INSTANCE" flags="RECALL PVP DUEL_SAME_RACE NO_RETURN_BATTLE" pve_attack_ratio="150" pve_defend_ratio="50"/>
 	<map id="300070000" cName="IDAbRe_Up_Rhoo" name="Chamber of Roah" name_id="401202" instance="true" water_level="16" death_level="0" world_type="ABYSS" world_size="1024" drop_type="ABYSS_INSTANCE" flags="RECALL PVP DUEL_SAME_RACE NO_RETURN_BATTLE" pve_attack_ratio="150" pve_defend_ratio="50"/>
@@ -150,7 +152,10 @@ inline const std::vector<int32_t>& handlerNpcIds() {
 		233627, 233628, 233629, 233630, 233632, 233633, 702288, 702289, 702290, 702291, 206095, 700545, 233599, 233600, 215413, 235536,
 		// the five chambers with a start ring: the treasures the timer takes, the gold chests, Treasurer Nabatma, the exit
 		700475, 700476, 700477, 701483, 701488, 700472, 700473, 700474, 701489, 701484, 700471, 701482, 701487, 700466, 701481, 701486, 214804,
-		700463, 700462, 700464, 701485, 701480, 215424, 700455};
+		700463, 700462, 700464, 701485, 701480, 215424, 700455,
+		// Esoterrace
+		799580, 217649, 282295, 282291, 217204, 217205, 217289, 217281, 217195, 701027, 217185, 701023, 205437, 217206, 701025, 217282, 217283,
+		217284};
 	return ids;
 }
 
