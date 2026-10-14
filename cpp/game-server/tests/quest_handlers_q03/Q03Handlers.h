@@ -5,6 +5,7 @@
 // docs/deviations/Q03.md "Held back": gs.scenario.travel's Elyos Daeva arrives in Verteron at level 10, where 14010 starts and 1131, 1146 and
 // 1152 show their quest marker). Q03RegistrationTest.cpp and GeneratedHooksTest.cpp share it.
 
+#include <array>
 #include <cstdint>
 #include <memory>
 #include <string_view>
@@ -14,6 +15,10 @@
 
 // clang-format off
 #define AION_Q03_HANDLERS(X) \
+	X(verteron, _1131UndeliveredArmor, 1131, true) \
+	X(verteron, _1146DelicateMandrake, 1146, true) \
+	X(verteron, _1152OdellaRecipe, 1152, true) \
+	X(verteron, _14010TerrainOfTheVerteronFortress, 14010, true) \
 	X(verteron, _1141BelbuasTreasure, 1141, true) \
 	X(verteron, _1149MissingPoppy, 1149, true) \
 	X(verteron, _1156StolenVillageSeal, 1156, true) \
@@ -122,11 +127,7 @@ struct Q03HeldBack {
 	int32_t questId;
 };
 
-inline constexpr Q03HeldBack Q03_HELD_BACK[] = {
-	{"verteron", "_1131UndeliveredArmor", 1131},
-	{"verteron", "_1146DelicateMandrake", 1146},
-	{"verteron", "_1152OdellaRecipe", 1152},
-	{"verteron", "_14010TerrainOfTheVerteronFortress", 14010},
-};
+// none since the owner's decision on the travel gate's Verteron traffic (WIP, pending: docs/deviations/Q03.md, "Landing the held-back four")
+inline constexpr std::array<Q03HeldBack, 0> Q03_HELD_BACK{};
 
 } // namespace aion::gameserver::questEngine::handlers::q03::test

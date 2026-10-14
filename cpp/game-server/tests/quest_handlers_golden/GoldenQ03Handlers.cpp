@@ -3,6 +3,10 @@
 // and 1152 are held back (GOLDEN_HELD_BACK).
 
 // clang-format off
+#include "aion/gameserver/handlers/quest/verteron/_1131UndeliveredArmor.cpp"
+#include "aion/gameserver/handlers/quest/verteron/_1146DelicateMandrake.cpp"
+#include "aion/gameserver/handlers/quest/verteron/_1152OdellaRecipe.cpp"
+#include "aion/gameserver/handlers/quest/verteron/_14010TerrainOfTheVerteronFortress.cpp"
 #include "aion/gameserver/handlers/quest/verteron/_1141BelbuasTreasure.cpp"
 #include "aion/gameserver/handlers/quest/verteron/_1149MissingPoppy.cpp"
 #include "aion/gameserver/handlers/quest/verteron/_1156StolenVillageSeal.cpp"

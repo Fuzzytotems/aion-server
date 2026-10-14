@@ -148,23 +148,29 @@ protected:
 	}
 };
 
-TEST_F(TravelArrivalTest, HisEnterWorldInVerteronStartsNoQuestOfTheChunk) {
-	// CM_LEVEL_READY.java:93 on every map arrival: QuestEngine.onEnterWorld runs every registered onEnterWorldEvent (before the review, 14010's
-	// `player.getWorldId() == VERTERON && !hasQuest -> QuestService.startQuest` started it here: the held-back handler)
+TEST_F(TravelArrivalTest, HisEnterWorldInVerteronStartsOnly14010) {
+	// CM_LEVEL_READY.java:93 on every map arrival: QuestEngine.onEnterWorld runs every registered onEnterWorldEvent; 14010's
+	// `player.getWorldId() == VERTERON && !hasQuest -> QuestService.startQuest` (_14010TerrainOfTheVerteronFortress.java) starts it here, the
+	// Java traffic the travel gate learns once the owner approves (WIP: docs/deviations/Q03.md, "Landing the held-back four")
 	ASSERT_EQ(player().getWorldId(), VERTERON);
 	clearSent();
 	QuestEngine::getInstance().onEnterWorld(player());
-	for (const Q03Handler& entry : q03Handlers())
-		EXPECT_FALSE(stateOf(entry.questId)) << entry.javaClass << " started at the arrival";
-	for (const Q03HeldBack& held : Q03_HELD_BACK)
-		EXPECT_FALSE(stateOf(held.questId)) << held.javaClass << " started at the arrival";
-	EXPECT_FALSE(questActionSent()) << "an SM_QUEST_ACTION at the arrival";
+	for (const Q03Handler& entry : q03Handlers()) {
+		if (entry.questId == 14010)
+			EXPECT_TRUE(stateOf(entry.questId)) << entry.javaClass << " did not start at the arrival";
+		else
+			EXPECT_FALSE(stateOf(entry.questId)) << entry.javaClass << " started at the arrival";
+	}
+	EXPECT_TRUE(questActionSent()) << "14010's SM_QUEST_ACTION at the arrival";
 }
 
 TEST_F(TravelArrivalTest, NoQuestOfTheChunkIsInHisNearbyQuestsInVerteron) {
 	// PlayerController.updateNearbyQuests (CM_LEVEL_READY.java:88): the map's quest ids are the onQuestStart registrations of its spawned npcs
 	// (WorldMapInstance.addObject), each shown when checkStartConditions(player, questId, false, 2, false, false, false) holds (a grey marker up
-	// to two levels below the quest's minimum). Before the review 1131 (min 11), 1146 and 1152 (min 12) were in it
+	// to two levels below the quest's minimum). 1131 (min 11), 1146 and 1152 (min 12) are in it, grey: the Java traffic the travel gate learns
+	// once the owner approves (WIP: docs/deviations/Q03.md, "Landing the held-back four")
+	const std::set<int32_t> greyMarkers{1131, 1146, 1152};
+	std::set<int32_t> shown;
 	int32_t chunkStarts = 0;
 	int32_t reachable = 0;
 	for (int32_t npcId : verteronNpcIds()) {
@@ -172,14 +178,17 @@ TEST_F(TravelArrivalTest, NoQuestOfTheChunkIsInHisNearbyQuestsInVerteron) {
 			if (!ofTheChunk(questId))
 				continue;
 			chunkStarts++;
-			EXPECT_FALSE(services::QuestService::checkStartConditions(player(), questId, false, 2, false, false, false))
-				<< questId << " (start npc " << npcId << ") would be in his SM_NEARBY_QUESTS";
+			bool shownHere = services::QuestService::checkStartConditions(player(), questId, false, 2, false, false, false);
+			EXPECT_EQ(shownHere, greyMarkers.contains(questId)) << questId << " (start npc " << npcId << ") in his SM_NEARBY_QUESTS";
+			if (shownHere)
+				shown.insert(questId);
 			// the check is not false for every quest of the chunk: with a wider level allowance the prerequisite-free ones hold
 			if (services::QuestService::checkStartConditions(player(), questId, false, 10, false, false, false))
 				reachable++;
 		}
 	}
 	EXPECT_GT(chunkStarts, 10) << "the Verteron start npcs of the chunk (1141, 1149, 1156, ...)";
+	EXPECT_EQ(shown, greyMarkers) << "the three grey markers of the arrival";
 	EXPECT_GT(reachable, 0) << "a level allowance of 10 shows some of them: the check reads the quests";
 }
 
