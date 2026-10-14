@@ -22,6 +22,8 @@
 #include "aion/gameserver/handlers/ai/instance/azoturanFortress/BetrayerIcaronixAI.h"
 #include "aion/gameserver/handlers/ai/instance/dredgion/ShulackDrudgeAI.h"
 #include "aion/gameserver/handlers/ai/instance/dredgion/SurkanaAI.h"
+#include "aion/gameserver/handlers/ai/instance/esoterrace/KexkraPrototypeAI.h"
+#include "aion/gameserver/network/aion/serverpackets/SM_PLAY_MOVIE.h"
 #include "aion/gameserver/model/stats/container/NpcLifeStats.h"
 #include "aion/gameserver/network/aion/serverpackets/SM_DIALOG_WINDOW.h"
 #include "aion/gameserver/skillengine/model/SkillTemplate.h"
@@ -38,6 +40,9 @@ namespace dredgion {
 ::aion::gameserver::handlers::AIFactory ShulackDrudgeAI_aiFactory;
 ::aion::gameserver::handlers::AIFactory SurkanaAI_aiFactory;
 } // namespace dredgion
+namespace esoterrace {
+::aion::gameserver::handlers::AIFactory KexkraPrototypeAI_aiFactory;
+}
 } // namespace aion::gameserver::handlers::ai::instance
 
 namespace aion::gameserver::handlers::instance::test {
@@ -68,6 +73,10 @@ struct DrudgeProbe : ais::dredgion::ShulackDrudgeAI {
 struct SurkanaProbe : ais::dredgion::SurkanaAI {
 	using SurkanaAI::SurkanaAI;
 	using SurkanaAI::handleAttack;
+};
+struct KexkraProbe : ais::esoterrace::KexkraPrototypeAI {
+	using KexkraPrototypeAI::KexkraPrototypeAI;
+	using KexkraPrototypeAI::handleAttack;
 };
 /** records the CREATURE_AGGRO events an npc gets */
 struct AggroRecorder : gameserver::ai::NpcAI {
@@ -115,6 +124,7 @@ TEST_F(I1AiTest, TheFactoriesBuildTheirClasses) {
 	EXPECT_NE(dynamic_cast<ais::abyss::IllusionGateAI*>(ais::abyss::IllusionGateAI_aiFactory(*npc).get()), nullptr);
 	EXPECT_NE(dynamic_cast<ais::dredgion::ShulackDrudgeAI*>(ais::dredgion::ShulackDrudgeAI_aiFactory(*npc).get()), nullptr);
 	EXPECT_NE(dynamic_cast<ais::dredgion::SurkanaAI*>(ais::dredgion::SurkanaAI_aiFactory(*npc).get()), nullptr);
+	EXPECT_NE(dynamic_cast<ais::esoterrace::KexkraPrototypeAI*>(ais::esoterrace::KexkraPrototypeAI_aiFactory(*npc).get()), nullptr);
 }
 
 /** BetrayerIcaronixAI.java:24-34: above half HP an attack changes nothing; at half, Icaronix the Betrayer takes the place with 50 % HP */
@@ -207,6 +217,25 @@ TEST_F(I1AiTest, ASurkanaCallsTheRoomWithin25Meters) {
 	ai.handleAttack(runtime::Ptr<model::gameobjects::Creature>(player()));
 	EXPECT_EQ(nearAi.aggros, 1);
 	EXPECT_EQ(farAi.aggros, 0);
+}
+
+/** KexkraPrototypeAI.java:26-40: at 75 % HP the living players it knows see movie 472, Kexkra (217206) comes and the prototype goes */
+TEST_F(I1AiTest, TheKexkraPrototypeGivesWayToKexkraAt75Percent) {
+	leave(); // Esoterrace's map: Kexkra's place (1320, 1171) is outside Haramel's 512 m
+	instance = &create(300250000, abyss::EsoterraceInstance_instanceFactory);
+	enter(*instance, 1310.0f, 1170.0f, 52.0f);
+	runtime::Ptr<Npc> prototype = spawnNpc(*instance, 900200, 1312.0f, 1170.0f, 52.0f, int8_t{0});
+	KexkraProbe& ai = install<KexkraProbe>(*prototype);
+	InstanceKnownListPairing::pair(*prototype, player());
+	prototype->getLifeStats()->setCurrentHpPercent(80);
+	ai.handleAttack(runtime::Ptr<model::gameobjects::Creature>(player()));
+	EXPECT_TRUE(npcs(*instance, 217206).empty());
+	prototype->getLifeStats()->setCurrentHpPercent(75);
+	ai.handleAttack(runtime::Ptr<model::gameobjects::Creature>(player()));
+	EXPECT_EQ(countSent(serialized(network::aion::serverpackets::SM_PLAY_MOVIE(false, 0, 0, 472, true))), 1);
+	ASSERT_EQ(npcs(*instance, 217206).size(), 1u);
+	EXPECT_FLOAT_EQ(npcs(*instance, 217206).front()->getX(), 1320.639282f);
+	EXPECT_FALSE(prototype->isSpawned());
 }
 
 } // namespace
