@@ -75,3 +75,9 @@ Smallest self-contained first; each is one commit with its tests and mutation pr
 > **Progress:** P6I-2 done: the AIs of azoturanFortress, abyss and dredgion (BetrayerIcaronixAI, FortressInstanceDukeAI, IllusionGateAI,
 > ShulackDrudgeAI, SurkanaAI), tested in `tests/handlers_inst_1/I1AiTest.cpp` (6 cases; ShulackDrudgeAI's supplies need the item rows, left
 > to a gate); mutation proof 12 of 12. gs.scenario.m5f and gs.smoke.startup green on this code. Census I1: 434 -> 351 open bodies. Next: P6I-4, the abyss instances and their AIs.
+> **Progress:** P6I-4a done: AbstractInnerUpperAbyssInstance and the nine siege keeps (Krotan/Kysis/Miren Barracks and Chambers, the three
+> legion Barracks), `tests/handlers_inst_1/AbyssKeepTest.cpp` (8 cases), mutation proof 13 of 13; gs.smoke.startup green. **Java bug,
+> proposed correction J-P6I4-1 (not applied):** a keep's two boss ids both call spawnChests (e.g. KrotanBarracks `case 233632, 233633`), and
+> spawnChests sets chestLocations to null, so the second death throws a NullPointerException (ported faithfully; the test pins it). Proposed:
+> return early when chestLocations is null. Left of P6I-4: AsteriaInstance, RoahInstance, the wing chambers, SulfurTreeNestInstance,
+> EsoterraceInstance, the splinters, TheHexwayInstance and their AIs.
