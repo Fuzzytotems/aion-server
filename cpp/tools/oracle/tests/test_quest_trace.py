@@ -837,7 +837,7 @@ class Q06SliceTest(unittest.TestCase):
 		for rel in extract.SLICE_Q06:
 			d = extract.trace_file(tables(), extract.QUEST_DIR / rel, rel)
 			docs[d["questId"]] = d
-		self.assertEqual(sorted(q for q, d in docs.items() if not d["cases"]), [19057, 29057])
+		self.assertEqual(sorted(q for q, d in docs.items() if not d["cases"]), [])
 		self.assertEqual(extract.check(rels=extract.SLICE_Q06, extra=False), [])
 
 
@@ -898,6 +898,17 @@ class CraftPredicateTraceTest(unittest.TestCase):
 		cube = [c["given"]["player"]["fullSpecialCube"] for c in docs["crafting/_29000ExpertEssencetappersTest.java"]["cases"]
 		        if "fullSpecialCube" in c["given"].get("player", {})]
 		self.assertEqual(set(cube), {True, False})
+
+	def test_an_item_count_read_after_a_false_collect_check_is_the_count_before_it(self):
+		# 19057 and 29057's CHECK_USER_HAS_QUEST_ITEM (lane C, 2026-10-14): collectItemCheck returns false only before its first write
+		# (QuestService.java:557-599), so the false branch reads the recipe items' counts as they were
+		for rel in ("crafting/_19057MasterConstructorsPotential.java", "crafting/_29057MasterConstructorsPotential.java"):
+			with self.subTest(file=rel):
+				doc = extract.trace_file(tables(), extract.QUEST_DIR / rel, rel)
+				self.assertFalse([h for h in doc["hooks"] if "unsupported" in h])
+				false_reads = [c for c in doc["cases"] if any(a["returns"] is False for a in c.get("assume", []))
+				               and any(e["call"] == "QuestService.collectItemCheck" for e in c["effects"]) and c["given"].get("inventory")]
+				self.assertTrue(false_reads)
 
 	def test_the_two_predicates_are_the_only_ones(self):
 		self.assertEqual(extract.CRAFT_PREDICATES, ("canLearnMoreExpertCraftingSkill", "canLearnMoreMasterCraftingSkill"))
