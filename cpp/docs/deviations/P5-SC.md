@@ -1284,3 +1284,8 @@ Sources restored (sha256), rebuilt, the switch absent, and the gate re-run green
 
 Z17 after the corrections of 2026-10-13 (owner, both branches): `//movetoobj abc` answers "Only numbers please!!!" only (J-S4CP6-1); the
 case also checks that "Cannot find object for spawn #0" does not follow.
+
+gs.scenario.m5f T20 (integrator, 2026-10-14, lane A's phase 6 P6I-1): the handler row of the live-count check sums every instance handler
+class of the reports - GeneralInstanceHandler plus each row of the instance handler library (`aion::gameserver::handlers::instance::`) - the
+way it already sums WorldMap2DInstance and WorldMap3DInstance. Haramel's handler is now HaramelInstance, counted under its own class; the
+check's intent (the instance and its handler were created and reclaimed) is unchanged.
