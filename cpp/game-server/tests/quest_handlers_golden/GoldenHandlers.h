@@ -40,6 +40,7 @@
 // 2239, 2288 and 2917 are in the arrival's SM_NEARBY_QUESTS; 2911 (after 2009, start npc in Pandaemonium) for gs.scenario.ascension's
 // Asmodian after the ceremony. The harness passed all of their cases with them in (docs/deviations/Q10.md, "Held back").
 
+#include <array>
 #include <cstdint>
 #include <memory>
 #include <string_view>
@@ -85,6 +86,10 @@
 	X(ascension, _2904DispatchtoAltgard, 2904) \
 	X(ascension, _29070ADispatchtoAltgard, 29070) \
 	X(ascension, _29071ADispatchtoAltgard, 29071) \
+	X(verteron, _1131UndeliveredArmor, 1131) \
+	X(verteron, _1146DelicateMandrake, 1146) \
+	X(verteron, _1152OdellaRecipe, 1152) \
+	X(verteron, _14010TerrainOfTheVerteronFortress, 14010) \
 	X(verteron, _1141BelbuasTreasure, 1141) \
 	X(verteron, _1149MissingPoppy, 1149) \
 	X(verteron, _1156StolenVillageSeal, 1156) \
@@ -1065,7 +1070,8 @@ AION_GOLDEN_SAMPLE_HANDLERS(AION_GOLDEN_DECLARE_FACTORY)
 namespace aion::gameserver::questEngine::handlers::test::golden {
 
 /** The route's generated handlers kept out of the handler tree for their gate impact (see above) */
-inline constexpr int32_t GOLDEN_HELD_BACK[] = {1131, 1146, 1152, 14010};
+// none since Q03's four and Q10's sixteen landed (lane C, 2026-10-14; docs/deviations/Q03.md and Q10.md)
+inline constexpr std::array<int32_t, 0> GOLDEN_HELD_BACK{};
 
 struct GeneratedHandler {
 	std::string_view directory;
