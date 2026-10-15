@@ -20,7 +20,6 @@
 #include "aion/gameserver/services/drop/DropService.h"
 #include "aion/gameserver/utils/PacketSendUtility.h"
 #include "aion/gameserver/utils/PositionUtil.h"
-#include "aion/gameserver/utils/audit/AuditLogger.h"
 
 namespace aion::gameserver::handlers::ai {
 
@@ -40,14 +39,15 @@ void ChestAI::handleDialogStart(Player& player) {
 	ActionItemNpcAI::handleDialogStart(player);
 }
 
-// Java ChestAI.java:50-77
+// Java ChestAI.java:50-77, with correction J-S3CP2-1 (owner's decision 2026-10-10, C++ only): a chest looted while this player's use bar ran
+// (the death aborts the bars, so only a bar task already running gets here) takes no keys and shows its drop list at once; Java took the keys
+// first and only audited. The normal open of a looted chest is CM_START_LOOT, which calls DropService.requestDropList without the AI.
 void ChestAI::handleUseItemFinish(Player& player) {
+	if (getOwner().isInState(CreatureState::DEAD)) {
+		services::drop::DropService::getInstance().requestDropList(runtime::Ptr<Player>(player), getObjectId());
+		return;
+	}
 	if (tryOpening(player)) {
-		if (getOwner().isInState(CreatureState::DEAD)) {
-			utils::audit::AuditLogger::log(player, "attempted multiple chest looting!");
-			return;
-		}
-
 		// Java: new HashSet<>() of players, whose hashCode is the object id
 		dataholders::detail::JavaHashMapOrder<int32_t, runtime::Ptr<Player>> playerSet;
 		runtime::Ptr<model::team::TemporaryPlayerTeam> playerTeam = player.getCurrentTeam();

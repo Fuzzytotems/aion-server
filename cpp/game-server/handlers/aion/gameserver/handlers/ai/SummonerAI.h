@@ -15,8 +15,8 @@ namespace aion::gameserver::handlers::ai {
  * casts a skill and calls its helpers (each summon group after its schedule); they leave when it dies, despawns or returns home.
  * <p>
  * Java: data/handlers/ai/SummonerAI.java, @AIName("summoner"); the instance AIs extend it through the protected hooks. Java's
- * `percentage = Collections.emptyList()` before the spawn is a null list here (empty for iteration; clear() of it is Java's
- * UnsupportedOperationException, thrown explicitly).
+ * `percentage = Collections.emptyList()` before the spawn is a null list here (empty for iteration). Correction J-S3CP2-2 (C++ only): a death
+ * or despawn before the spawn skips the clear() that threw Java's UnsupportedOperationException (P5-05.md).
  */
 class SummonerAI : public AggressiveNpcAI {
 public:

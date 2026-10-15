@@ -1,6 +1,5 @@
 #include "aion/gameserver/handlers/ai/SummonerAI.h"
 
-#include "aion/commons/utils/Exception.h"
 #include "aion/commons/utils/Rnd.h"
 #include "aion/gameserver/dataholders/AIData.h"
 #include "aion/gameserver/dataholders/DataManager.h"
@@ -65,11 +64,15 @@ void SummonerAI::handleDied() {
 	clearPercentage();
 }
 
-/** Java percentage.clear(): Collections.emptyList() throws UnsupportedOperationException */
+/**
+ * Java percentage.clear(). Correction J-S3CP2-2 (owner's decision 2026-10-10, C++ only): before handleSpawned the list is Java's
+ * Collections.emptyList() (null here), whose clear() threw UnsupportedOperationException when the npc died or despawned first; there is
+ * nothing to clear, so it is skipped.
+ */
 void SummonerAI::clearPercentage() {
 	runtime::Ref<runtime::RcArrayList<const Percentage*>> list = percentage.get();
 	if (list == nullptr)
-		throw commons::utils::UnsupportedOperationException("Collections.emptyList().clear()");
+		return;
 	list->clear();
 }
 
