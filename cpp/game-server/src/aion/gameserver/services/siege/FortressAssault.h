@@ -3,7 +3,6 @@
 #include <cstdint>
 #include <vector>
 
-#include "aion/gameserver/runtime/base/Unported.h"
 #include "aion/gameserver/runtime/collections/ArrayList.h"
 #include "aion/gameserver/runtime/fields/Field.h"
 #include "aion/gameserver/runtime/lifetime/Ref.h"
@@ -52,13 +51,13 @@ private:
 
 	void spawnWave();
 
-	std::vector<runtime::Ptr<model::siege::Assaulter>> computeWave();
+	std::vector<runtime::Ref<model::siege::Assaulter>> computeWave();
 
-	void addAssaulters(const std::vector<runtime::Ptr<model::siege::Assaulter>>& output,
-		const std::vector<runtime::Ptr<model::siege::Assaulter>>& input,
+	/** Java addAssaulters(List output, List input, float budget): input is null (nullptr) for a type the EnumMap has no list for */
+	void addAssaulters(std::vector<runtime::Ref<model::siege::Assaulter>>& output, const std::vector<runtime::Ref<model::siege::Assaulter>>* input,
 		float budget);
 
-	void announce(network::aion::serverpackets::SM_SYSTEM_MESSAGE& msg);
+	void announce(network::aion::serverpackets::SM_SYSTEM_MESSAGE msg);
 
 	void calculateDifficultySettings();
 
@@ -68,6 +67,13 @@ private:
 
 public:
 	void onDredgionCommanderKilled();
+
+	/** C++ additions for tests: Java's private difficulty settings */
+	float getDifficultyForTests() const { return difficulty.get(); }
+	float getSpawnBudgetForTests() const { return spawnBudget.get(); }
+	int32_t getMinSpawnDelayForTests() const { return minSpawnDelay.get(); }
+	int32_t getPossibleCommanderCountForTests() const { return possibleCommanderCount.get(); }
+	int32_t getWaveCountForTests() const { return waveCount.get(); }
 
 protected:
 	~FortressAssault() override;
