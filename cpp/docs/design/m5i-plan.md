@@ -1,5 +1,8 @@
 # M5i work plan (siege and world events)
 
+> **Re-measured 2026-10-13** at lane B's h26 (`20da8f449`): §15 has the census (440 open bodies, 4,006 Java lines), what changed since rev 2
+> and a checkpoint split I-0 to I-11 in the style of m5h-plan.md §14.3. **The owner decided D1, D3, D6, D10, D17, the vortex's stage and the gate's clock on 2026-10-13 (§15.5).**
+>
 > **Status:** plan **rev 2**, 2026-09-23, revised after its adversarial review (§14 lists every finding and what changed). Rev 1 was a
 > **read-only** analysis over HEAD `c1edb0afb`; rev 2 re-checked every finding over HEAD `760e8ab5c` ("M5b-2 stage 1 part 3: the effect
 > classes; passives and post-spawn skills go live"), which touched the two partial allow-lists but **no file of P5-12a or P5-12b**, and over
@@ -959,3 +962,124 @@ it was applied; every one was confirmed, three with a correction. Rev 2 also fix
   proposal to the user (D17), which moves one question to the user (§13 item 6).
 - **C. The §2.6 AI row was stale**: `portal`/`portal_dialog` are M5f's and `simple_abyssguard` M5d's.
 - **D. Checklist step 12 opened a rift with a base id (2120)**; it now uses `//rift list` or Eltnen's world id.
+
+---
+
+## 15. Re-measured at h26 (lane B, 2026-10-13) and the checkpoint split
+
+**Basis.** `python tools/porting/census.py` at lane B's h26 (`20da8f449`: M5h complete, on `origin/C++` of 2026-10-11 plus lanes A/C as merged
+there). Lanes A and C have unmerged work that this measurement does not see; nothing of theirs touches P5-12a/P5-12b (lane A's
+SummonGroupGateEffect, #223, is a P5-04 effect). Read-only; nothing was built for this section.
+
+### 15.1 The census
+
+| | P5-12a (siege) | P5-12b (world events) | M5i |
+|---|---:|---:|---:|
+| Java lines in the chunks | 3,553 | 4,967 | 8,520 |
+| Open bodies (unported / partial / undeclared) | 167 | 273 | **440** (300 / 1 / 139) |
+| Open Java lines | 1,666 | 2,340 | **4,006** |
+| Java classes with no C++ file (their bodies) | 7 (59) | 13 (54) | 20 (113) |
+
+Rev 2 counted 305 sites + 114 no-file bodies (§1 correction 1); the census now counts the same work as 440 open bodies, because it credits
+enum constants and counts undeclared bodies in files that exist. **The milestone has not moved since rev 2**: no lane touched P5-12a/b except
+M5f's and M5h's leased bodies (D9; `cleanLegionId`, `onLeaveLegion`), which are ported.
+
+**Open bodies by subsystem** (from the census's per-type rows):
+
+| Subsystem | Classes (open bodies) | Bodies |
+|---|---|---:|
+| Siege core | SiegeService 23, FortressSiege 19 (no file), Siege 14, SiegeRaceCounter 11, SiegeLocation 6, SiegeCounter 5, SiegeException 4 (no file), SiegeStartRunnable 3 (no file), FortressLocation 3, ShieldService 1 | 89 |
+| Artifacts and outposts | ArtifactLocation 7, ArtifactSiege 6 (no file), OutpostSiege 7 (no file), OutpostLocation 3, ArtifactStatus 2 | 25 |
+| Assaults, the agent fight, mercenaries | FortressAssault 12, AgentSiege 12 (no file), MercenaryLocation 8 (no file), BalaurAssaultService 7, Assault 5, ArtifactAssault 5, AssaulterType 3, AgentLocation 2 | 54 |
+| Events and conqueror/protector | EventBuffHandler 27, Event 15, ConquerorAndProtectorService 10, CPBuff 2, Headhunter 2, EventService 1 | 57 |
+| Rifts and world raids | WorldRaid 17, RiftEnum 16, RiftService 7, RiftLocation 6, RiftManager 4, WorldRaidService 3, WorldRaidRunnable 2 (no file), RiftOpenRunnable 2 (no file) | 57 |
+| Bases | Base 25, BaseService 10, StainedBase 9, PanesterraBase 7, SiegeBase 5, CasualBase 5, PanesterraFactionCamp 4, BaseOccupier 4, BaseException 4, BaseLocation 3, StainedBaseLocation 2, PanesterraArtifact 2, SiegeBaseLocation 1, PanesterraBaseLocation 1 (most without a file) | 82 |
+| Vortex | Invasion 10 (no file), VortexService 10, DimensionalVortex 7, VortexLocation 5 | 32 |
+| Panesterra | PanesterraService 20, AhserionRaid 15 (**deferred, D6**), PanesterraTeam 8, PanesterraFaction 3 | 46 |
+
+**Outside the chunks** (what the milestone cannot run or be gated without):
+
+| Item | Java | C++ today | Plan |
+|---|---|---|---|
+| Siege AIs (`handlers/ai/siege`) | 21 files, 1,522 lines | none | D5: 9 ported (A1 lease), 12 stay phase 6 |
+| `WorldRaidAI` (`handlers/ai/events`) | 73 lines | none | D5 |
+| Root AIs `ArtifactAI`, `FlagNpcAI`, `RiftProtectorAI` | 269 + 24 + 23 lines | none | D5 (P5-05) |
+| Panesterra AIs (`handlers/ai/worlds/panesterra`) | 19 files, 1,237 lines | none | D6: phase 6 |
+| Conquest-offering AIs (4) | 357 lines | none | D16: M5j |
+| Admin commands `//siege`, `//base`, `//rift`, `//worldraid`, `//vortexraid` (`//ahserion` deferred) | 133 + 122 + 43 + 97 + 50 lines | none | D2 (C1, with their services) |
+| `CM_LEGION_DOMINION_REQUEST_RANKING`, `CM_SHOW_MAP` | P5-16 | no file | D14, D15 |
+| `CM_ABYSS_RANKING_LEGIONS` / `_PLAYERS` | P5-15 | no file | D16: M5j |
+| The Legion Dominion share | 12 bodies + `LegionDominionIntruderUpdateTask` (3) | open | D14 (LD-01); M5h's closure paragraph lists them |
+| The `BaseService.cpp:18` partial | - | in **ten** gate allow-lists (m5a, m5b, m5b2, m5b3, m5c, m5d, m5e, m5f, m5g, m5h) | D3: the bases lane's last commit removes the ten rows and re-greens every gate |
+
+### 15.2 What changed since rev 2
+
+1. **The control plane exists.** The admin command framework (`ChatCommand`, `AdminCommand`, the access levels of commands.properties) is
+   ported and in use: lane A's GM commands, and M5h-2's G0-G3, where a GM account at `account_data.access_level = 9` types `//auction`,
+   `//house` and `//legion` as `CM_CHAT_MESSAGE_PUBLIC` and reads the answers as `SM_MESSAGE` (GOLDEN_YELLOW). `GMService` has no unported
+   site any more (the `execute_commands` arm of correction 5 is ported). **Stage 0 shrinks to the cron oracle and the harness** (D2 foresaw this).
+2. **M5g is in** (`gs.scenario.m5g`, `_alliance`): the vortex's alliance dependency (D7) is met, so the vortex need not wait for a stage 3 of its own.
+3. **M5h is complete** and hands over exactly the D14 share (15 bodies + the ranking packet).
+4. **The cron gate technique is proven** (gs.scenario.m5h2): profile crons at fixed seconds of every minute, a game-server restart inside the gate
+   to seed persistent state, the client keep-alive (CM_PING 179 s apart: the server drops a client silent for 185 s, and treats pings closer
+   than 178 s as a timer cheat), and the "Sunday afternoon" skip of a time-gated path. It complements D2: the admin commands start the
+   long timelines; the per-minute profile crons fire the short ones the commands do not reach.
+5. **The DB lock is the bottleneck, not the build.** Gates of 10 to 15 minutes from three lanes stretch each other's turns to 15-55 minutes.
+   The mutation proof runs as a **batch**: every mutant server is built first (no lock), then one gate run per mutant, at night.
+
+### 15.3 The checkpoint split
+
+The stages of §9 stay; inside them the work is cut into checkpoints of the M5h-2 size (one lane, one to three hours, each with unit tests,
+lock-order tests, a mutation proof and a report).
+
+| Checkpoint | Items | Size | Chunks (leases) |
+|---|---|---|---|
+| **I-0** | the cron oracle (every job the profile arms, its next fire time) and the gate harness (the M5h2 scaffolding: keep-alive, restart, the GM line); D13's cron-quiet window | oracle + harness | P5-SC, tools/oracle |
+| **I-1** | the siege core: `Siege`, `FortressSiege`, `SiegeService` start/stop/capture, the counters, `SiegeStartRunnable`, `SiegeException`, the location bodies; `//siege` | 89 bodies + 1 command | P5-12a, C1 |
+| **I-2** | the siege AIs of D5's stage 1 (`SiegeNpcAI`, `AbstractSiegeProtectorAI`, `ArtifactProtectorAI`, `FortressProtectorNpcAI`, `GuardianGeneralAI`, `SiegeRaceProtectorAI`, `ShieldNpcAI`) | 7 AIs | A1 (lease), P5-05 |
+| **I-3** | artifacts and outposts (`ArtifactSiege`, `ArtifactLocation`, `OutpostSiege`, `ArtifactStatus`) and `ArtifactAI`; the D11 reward bodies | 25 bodies + 1 AI + D11 | P5-12a, P5-05, P5-08/P5-09/P5-04 (leases) |
+| **I-4** | events and conqueror/protector (`EventBuffHandler`, `Event`, `CPBuff`, `Headhunter`) and `CM_SHOW_MAP` (D15) | 57 bodies + 1 CM | P5-12b (b3), P5-16 |
+| **I-5** | rifts and world raids (`RiftEnum`, `RiftService`, `RiftManager`, `WorldRaid`, their runnables), `RiftProtectorAI`, `WorldRaidAI`; `//rift`, `//worldraid` | 57 bodies + 2 AIs + 2 commands | P5-12b (b2), A1, P5-05, C1 |
+| **I-6** | the gate's siege half (§10 C0-C11: the login state, a capture, a siege start and its shield, the relocation at login, a defended siege, an artifact) and its batch mutation proof | gate | P5-SC |
+| **I-7** | assaults, the agent fight and mercenaries (`FortressAssault`, `BalaurAssaultService`, `Assault`, `AgentSiege`, `MercenaryLocation`) | 54 bodies | P5-12a |
+| **I-8** | bases (`Base` and its subclasses, `BaseService`), `BaseProtectorAI`, `FlagBaseNpcAI`, `FlagNpcAI`, `//base`; **its last commit closes `BaseService.cpp:18`** and removes the ten allow-list rows (D3) | 82 bodies + 3 AIs + 1 command | P5-12b (b1), A1, P5-05, C1 |
+| **I-9** | the Legion Dominion share (D14: 15 bodies) and `CM_LEGION_DOMINION_REQUEST_RANKING` | 15 bodies + 1 CM | P5-11 (lease), P5-16 |
+| **I-10** | the vortex (`Invasion`, `VortexService`, `DimensionalVortex`, `VortexLocation`), `//vortexraid`; the Panesterra service without Ahserion's Flight | 32 + 31 bodies + 1 command | P5-12b (b2, b1), C1 |
+| **I-11** | the gate's world-event half (§10 C12-C15: bases, a Balaur wave, the event buff, a rift, a world raid's first stage, persistence across a restart), the re-greening of every gate after I-8, and the batch mutation proof | gate + regate | P5-SC |
+
+**Total: about 425 bodies in the chunks (440 less Ahserion's 15), 13 AIs, 5 commands and 2 client packets**, in twelve checkpoints. The order
+follows §9: the siege first (I-1 to I-3, gated at I-6), the independent world events beside it (I-4, I-5), then what needs a working siege
+(I-7), the bases with their regate (I-8, I-11), the dominion share and the vortex last. Two lanes can run I-1/I-2 against I-4/I-5 without
+sharing a file. I-7 and I-8 serialise behind I-1.
+
+### 15.4 Decisions for the owner
+
+Carried over from §4 and still open:
+- **D1**: split P5-12b into b1/b2/b3. It is still one chunk; I-4, I-5, I-8 and I-10 assume the split.
+- **D3**: no enable key for the bases. Closing `BaseService.cpp:18` changes the startup of **every** server, and ten gates' allow-lists change
+  in the merge that closes it.
+- **D6**: Ahserion's Flight (15 bodies, 19 AIs) deferred to phase 6.
+- **D10**: header request 5a-pre-10 (`SiegeService.locations` as a `LinkedHashMap`) again.
+- **D17**: the 65-minute soak, a proposal.
+
+New with this measurement:
+- **The vortex's place**: M5g is in, so the vortex can move from stage 3 into stage 2 (I-10 beside I-8), or stay last.
+- **The gate's clock**: the admin commands (D2) for the long timelines, plus M5h2-style per-minute profile crons for the short ones the
+  commands do not reach (the hourly rift and the event day rollover). Or the admin commands alone, as rev 2 planned.
+- **The lock budget**: the M5i gates (§10, about 12 minutes plus the geo gate), their mutation batches and the regate of ten gates after I-8
+  need lock windows; the regate alone is about 2 hours of lock time.
+
+### 15.5 The owner's decisions (2026-10-13)
+
+| # | Decision | What it changes in this plan |
+|---|---|---|
+| **D1** | **Split P5-12b into b1, b2 and b3** (bases and Panesterra; rifts, vortex and world raids; events and conqueror/protector), sharing `aion_gs_worldevents` | The split is I-0's first commit (chunks.cmake rows, the tests moved to `tests/worldevents/P5-12b{1,2,3}`); I-4, I-5, I-8 and I-10 work in their own part |
+| **D3** | **Close `BaseService.cpp:18` with no enable key**, and remove its row from the ten gates' allow-lists **in the same commit** | I-8's last commit; the ten-gate regate (I-11) runs at night, and lane B tells the coordinator when it reaches it |
+| **D6** | **Ahserion's Flight is deferred to phase 6**, with a deviation row | `AhserionRaid` (15 bodies), `PanesterraService::startAhserionRaid`/`stopAhserionRaid` and `//ahserion` stay unported; `docs/deviations/P5-12b.md` gets the row; the profiles keep the far-future `gameserver.siege.panesterra.ahserion.time` |
+| **D10** | **Header request 5a-pre-10 is refiled** (`SiegeService.locations` as a `runtime::LinkedHashMap`, `getSiegeLocations(int)` in Java's iteration order) | Filed again in header-requests.md and sent to the coordinator; if granted, the gate asserts the orders (§10), else it compares sets |
+| **D17** | **The soak is approved** for a 02:00 slot once `gs.scenario.m5i_soak` exists | G-09 becomes a work item of I-11 |
+| vortex | **The vortex moves into stage 2**: I-10 runs beside I-8 | §9's stage 3 is empty; I-10 needs no M5g wait (alliances are in) |
+| clock | **The gate drives time with the admin commands AND per-minute profile crons** | I-0's harness sets per-minute crons for the short timers the commands do not reach (the hourly rift jobs, the event day rollover, the world-raid steps), at fixed seconds like M5h-2 (§15.2 item 4); D13's cron-quiet window applies to the jobs the profile does not move |
+
+The split of §15.3 stays; the order becomes **I-0 (with D1) → I-1/I-2/I-3 beside I-4/I-5 → I-6 → I-7 → I-8 beside I-10 → I-9 → I-11
+(regate at night, soak at 02:00)**.

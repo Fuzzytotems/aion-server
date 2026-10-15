@@ -11,7 +11,7 @@
 #include <memory>
 #include <optional>
 
-#include "../playersvc/PlayerEventsTestSupport.h"
+#include "../../playersvc/PlayerEventsTestSupport.h"
 #include "aion/gameserver/configs/main/WorldConfig.h"
 #include "aion/gameserver/model/Race.h"
 #include "aion/gameserver/model/geometry/PolyArea.h"

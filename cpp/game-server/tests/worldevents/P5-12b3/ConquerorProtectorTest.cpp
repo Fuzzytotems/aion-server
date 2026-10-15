@@ -8,7 +8,7 @@
 // conqueror_protector_ranks.xml (the shipped rows below). Not driven: the Legion Dominion arms (lane B's legion work owns onLeaveLegion and
 // resetLegionDominionRank; isOccupiedLegionDominionZone needs a legion with an occupied dominion).
 
-#include "../team/P5-10b/TeamTestSupport.h"
+#include "../../team/P5-10b/TeamTestSupport.h"
 
 #include <cstdint>
 #include <unordered_set>
