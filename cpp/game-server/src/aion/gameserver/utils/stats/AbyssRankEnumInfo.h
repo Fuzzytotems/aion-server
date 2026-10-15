@@ -3,9 +3,11 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
+#include <string>
 
 #include "aion/gameserver/configs/detail/ConfigEnums.h"
 #include "aion/gameserver/configs/main/RankingConfig.h"
+#include "aion/gameserver/runtime/base/Exceptions.h"
 #include "aion/gameserver/utils/stats/AbyssRankEnum.h"
 
 namespace aion::gameserver::utils::stats {
@@ -74,6 +76,39 @@ constexpr int32_t requiredAP(AbyssRankEnum rank) noexcept {
 /** Java: AbyssRankEnum.getRequiredGP() */
 constexpr int32_t requiredGP(AbyssRankEnum rank) noexcept {
 	return detail::abyssRankData(rank).requiredGP;
+}
+
+/** Java: AbyssRankEnum.getId() */
+constexpr int32_t id(AbyssRankEnum rank) noexcept {
+	return detail::abyssRankData(rank).id;
+}
+
+/** Java: AbyssRankEnum.getRankById(id) (AbyssRankEnum.java). @throws IllegalArgumentException "Invalid abyss rank provided <id>" */
+inline AbyssRankEnum getRankById(int32_t id) {
+	for (size_t i = 0; i < detail::ABYSS_RANK_DATA.size(); ++i) {
+		if (detail::ABYSS_RANK_DATA[i].id == id)
+			return static_cast<AbyssRankEnum>(i);
+	}
+	throw runtime::IllegalArgumentException("Invalid abyss rank provided " + std::to_string(id));
+}
+
+/** Java: AbyssRankEnum.getRankForPoints(ap, gp): the last rank in ordinal order whose required AP and GP are reached */
+constexpr AbyssRankEnum getRankForPoints(int32_t ap, int32_t gp) noexcept {
+	AbyssRankEnum r = AbyssRankEnum::GRADE9_SOLDIER;
+	for (size_t i = 0; i < detail::ABYSS_RANK_DATA.size(); ++i) {
+		if (detail::ABYSS_RANK_DATA[i].requiredAP <= ap && detail::ABYSS_RANK_DATA[i].requiredGP <= gp)
+			r = static_cast<AbyssRankEnum>(i);
+	}
+	return r;
+}
+
+/** Java: AbyssRankEnum.getGpLossPerDay() - RankingConfig.TOP_RANKING_GP_LOSS.getOrDefault(this, 0) */
+inline int32_t gpLossPerDay(AbyssRankEnum rank) {
+	auto gpLoss = configs::main::RankingConfig::TOP_RANKING_GP_LOSS.get();
+	if (!gpLoss)
+		return 0;
+	auto it = gpLoss->find(static_cast<configs::detail::AbyssRankEnum>(static_cast<int32_t>(rank)));
+	return it == gpLoss->end() ? 0 : it->second;
 }
 
 /**
