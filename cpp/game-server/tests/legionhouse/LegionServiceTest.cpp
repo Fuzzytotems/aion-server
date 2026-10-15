@@ -8,12 +8,23 @@
 
 #include <regex>
 #include <string>
+#include <unordered_map>
+#include <vector>
 
 #include <gtest/gtest.h>
 
 #include "aion/gameserver/configs/main/CustomConfig.h"
 #include "aion/gameserver/dataholders/HouseData.bind.h"
 #include "aion/gameserver/dataholders/HouseData.h"
+#include "aion/gameserver/dataholders/LegionDominionData.bind.h"
+#include "aion/gameserver/dataholders/LegionDominionData.h"
+#include "aion/gameserver/model/legionDominion/LegionDominionLocation.h"
+#include "aion/gameserver/model/legionDominion/LegionDominionParticipantInfo.h"
+#include "aion/gameserver/model/templates/LegionDominionReward.h"
+#include "aion/gameserver/network/aion/serverpackets/SM_LEGION_DOMINION_LOC_INFO.h"
+#include "aion/gameserver/network/aion/serverpackets/SM_LEGION_DOMINION_RANK.h"
+#include "aion/gameserver/services/LegionDominionService.h"
+#include "aion/commons/utils/TimeUtils.h"
 #include "aion/gameserver/configs/main/LegionConfig.h"
 #include "aion/gameserver/model/team/legion/Legion.h"
 #include "aion/gameserver/model/team/legion/LegionEmblem.h"
@@ -286,6 +297,115 @@ TEST_F(LegionServiceTest, AnExpiredDisbandTimeDisbandsTheLegionOnTheNextLookup) 
 	EXPECT_EQ(a.count(serverpackets::SM_LEGION_LEAVE_MEMBER(1300302, 0, "Founders")), 1);
 	EXPECT_FALSE(a.player().getLegionMember());
 	EXPECT_EQ(count("SELECT COUNT(*) FROM legions WHERE id = " + std::to_string(legionId)), 0);
+}
+
+// ---- S-08: the Legion Dominion weekly calculation (LegionDominionService.java:84-164, LegionDominionLocation.java:83-96, 129-131) ----
+
+/** One territory with the shipped rewards' shape (legion_dominion_template.xml, location 1): three of rank 1, one each of ranks 2 and 3 */
+constexpr const char* ONE_DOMINION = R"(<legion_dominion_template>
+	<legion_dominion_location id="1" world_id="220080000" zone="LegionDominionArea_01" race="ASMODIANS" name_id="404623">
+		<reward rank="1" item_id="188053896" count="1" />
+		<reward rank="1" item_id="185000233" count="1" />
+		<reward rank="1" item_id="169610352" count="1" />
+		<reward rank="2" item_id="188053896" count="1" />
+		<reward rank="3" item_id="188053897" count="1" />
+	</legion_dominion_location>
+</legion_dominion_template>)";
+
+class LegionDominionWeeklyTest : public LegionServiceTest {
+protected:
+	/** the participant row of `legion` in territory 1 */
+	static void participate(Legion& legion, int32_t points, std::string_view date) {
+		lh::execute("INSERT INTO legion_dominion_participants (legion_dominion_id, legion_id, points, survived_time, participated_date) VALUES (1, " +
+			std::to_string(legion.getLegionId()) + ", " + std::to_string(points) + ", 0, '" + std::string(date) + "')");
+	}
+
+	/** publishes the territory and runs LegionDominionService.initLocations (the location row is created, the participants loaded) */
+	services::LegionDominionService& service() {
+		services::LegionDominionService::getInstance().initLocations();
+		return services::LegionDominionService::getInstance();
+	}
+
+	lh::PublishedHolder<dataholders::LegionDominionData> dominions{dataholders::DataManager::LEGION_DOMINION_DATA,
+		lh::bindXml<dataholders::LegionDominionData>(ONE_DOMINION)};
+	ConfigScope<int32_t> minPoints{LegionConfig::STONESPEAR_REACH_MIN_POINTS_FOR_TERRITORY, 50};
+};
+
+TEST_F(LegionDominionWeeklyTest, WithoutParticipantsTheTerritoryIsResetAndTheWorldTold) {
+	LEGION_REQUIRE_DATABASE();
+	Member& a = online("Alpha");
+	service().startWeeklyCalculation();
+	EXPECT_EQ(services::LegionDominionService::getInstance().getLegionDominionLoc(1)->getLegionId(), 0);
+	EXPECT_EQ(count("SELECT legion_id FROM legion_dominion_locations WHERE id = 1"), 0);
+	EXPECT_EQ(a.count(opcodeOf<serverpackets::SM_LEGION_DOMINION_LOC_INFO>), 1) << "one world broadcast";
+}
+
+TEST_F(LegionDominionWeeklyTest, TheBestEligibleLegionOccupiesThePreviousOccupierIsClearedAndTheParticipantsAreDeleted) {
+	LEGION_REQUIRE_DATABASE();
+	Member& a = online("Alpha", 25000);
+	Member& b = online("Bravo", 25000);
+	Member& c = online("Charlie", 25000);
+	Member& d = online("Delta", 25000);
+	Legion& winner = created(a, "Winners");
+	Legion& holder = created(b, "Holders");
+	Legion& late = created(c, "Latecomers");
+	Legion& fewer = created(d, "Fewer");
+	lh::execute("INSERT INTO legion_dominion_locations (id, legion_id) VALUES (1, " + std::to_string(holder.getLegionId()) + ")");
+	holder.setOccupiedLegionDominion(1);
+	participate(winner, 100, "2026-10-02 10:00:00");
+	participate(late, 100, "2026-10-03 10:00:00"); // the same points, later: second
+	participate(fewer, 90, "2026-10-01 10:00:00"); // the earliest, but fewer points: third
+	participate(holder, 50, "2026-10-01 09:00:00"); // not above the minimum: not ranked
+	services::LegionDominionService& weekly = service();
+	ASSERT_EQ(weekly.getLegionDominionLoc(1)->getLegionRanking(true).size(), 3u);
+	EXPECT_EQ(weekly.getLegionDominionLoc(1)->getLegionRanking(true)[0]->getLegionId(), winner.getLegionId()) << "points desc, then the earlier date";
+	EXPECT_EQ(weekly.getLegionDominionLoc(1)->getLegionRanking(true)[1]->getLegionId(), late.getLegionId());
+	EXPECT_EQ(weekly.getLegionDominionLoc(1)->getLegionRanking(true)[2]->getLegionId(), fewer.getLegionId());
+	EXPECT_EQ(weekly.getLegionDominionLoc(1)->getLegionRanking(false).size(), 4u);
+	for (Member* m : stored)
+		m->clearSent();
+	weekly.startWeeklyCalculation();
+	EXPECT_EQ(weekly.getLegionDominionLoc(1)->getLegionId(), winner.getLegionId());
+	EXPECT_EQ(winner.getOccupiedLegionDominion(), 1);
+	EXPECT_EQ(winner.getLastLegionDominion(), 1);
+	EXPECT_EQ(late.getOccupiedLegionDominion(), 0);
+	EXPECT_EQ(late.getLastLegionDominion(), 1);
+	EXPECT_EQ(holder.getOccupiedLegionDominion(), 0) << "the previous occupier is cleared";
+	EXPECT_EQ(count("SELECT occupied_legion_dominion FROM legions WHERE id = " + std::to_string(winner.getLegionId())), 1);
+	EXPECT_EQ(count("SELECT occupied_legion_dominion FROM legions WHERE id = " + std::to_string(holder.getLegionId())), 0);
+	EXPECT_EQ(count("SELECT legion_id FROM legion_dominion_locations WHERE id = 1"), winner.getLegionId());
+	EXPECT_EQ(count("SELECT COUNT(*) FROM legion_dominion_participants"), 0);
+	EXPECT_TRUE(weekly.getLegionDominionLoc(1)->getParticipantInfo()->isEmpty()) << "reset";
+	EXPECT_EQ(a.count(opcodeOf<serverpackets::SM_LEGION_DOMINION_RANK>), 1);
+	EXPECT_EQ(b.count(opcodeOf<serverpackets::SM_LEGION_DOMINION_RANK>), 1) << "once: the previous occupier is skipped in the participant loop";
+	EXPECT_EQ(c.count(opcodeOf<serverpackets::SM_LEGION_DOMINION_RANK>), 1);
+	EXPECT_EQ(d.count(opcodeOf<serverpackets::SM_LEGION_DOMINION_RANK>), 1);
+	EXPECT_EQ(a.count(opcodeOf<serverpackets::SM_LEGION_DOMINION_LOC_INFO>), 1);
+}
+
+TEST_F(LegionDominionWeeklyTest, ADisbandingWinnerDoesNotOccupy) {
+	LEGION_REQUIRE_DATABASE();
+	Member& a = online("Alpha", 25000);
+	Legion& winner = created(a, "Leaving");
+	participate(winner, 100, "2026-10-01 10:00:00");
+	services::LegionDominionService& weekly = service();
+	winner.setDisbandTime(static_cast<int32_t>(commons::utils::currentTimeMillis() / 1000) + 3600);
+	weekly.startWeeklyCalculation();
+	EXPECT_EQ(weekly.getLegionDominionLoc(1)->getLegionId(), 0);
+	EXPECT_EQ(winner.getOccupiedLegionDominion(), 0);
+	EXPECT_EQ(winner.getLastLegionDominion(), 1) << "still updated as a participant";
+}
+
+TEST_F(LegionDominionWeeklyTest, TheRewardsAreGroupedByRank) {
+	LEGION_REQUIRE_DATABASE();
+	service();
+	std::unordered_map<int32_t, std::vector<const model::templates::LegionDominionReward*>> rewards =
+		services::LegionDominionService::getInstance().getLegionDominionLoc(1)->getRewards();
+	ASSERT_EQ(rewards.size(), 3u);
+	ASSERT_EQ(rewards[1].size(), 3u);
+	EXPECT_EQ(rewards[1][0]->getItemId(), 188053896);
+	EXPECT_EQ(rewards[1][2]->getItemId(), 169610352) << "the template order";
+	EXPECT_EQ(rewards[3][0]->getItemId(), 188053897);
 }
 
 } // namespace
