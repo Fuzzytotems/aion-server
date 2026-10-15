@@ -131,3 +131,13 @@ Smallest self-contained first; each is one commit with its tests and mutation pr
 > BrigadeGeneralVashartiAI.onEffectEnd switches on Vasharti's own npc id (getNpcId()) instead of the visited npc's (n.getNpcId()), so the Sea of
 > Fire effects 283010-283012 are never deleted there; proposed: switch on n.getNpcId(). Left to a gate: the teleport devices, the walks, Vasharti's
 > forced walk and Sea of Fire. Census I5: 443 -> 0 open bodies.
+> **Progress:** P6I-8a done (chunk I3): the PvP instances - BasicPvpInstance (not registered) with IronWallWarfrontInstance, IdgelDomeInstance,
+> KamarBattlefieldInstance and EngulfedOphidanBridgeInstance - and the AIs of idgelDome, kamarBf and engulfedOphidianBridgeInstance (12). Java's
+> `String npcL10n` (null for none) is a std::optional<std::string_view>; the score packets go through one helper (sendScore). KamarTeleportAI
+> extends A1's PortalAI, so tests/handlers_inst_3/PvpAiTest.cpp compiles PortalAI.cpp by #include (TravelAiHandlersTest's link workaround). Tests:
+> PvpTest (15 cases: the phases, the npc, use and death points, the leads that end a run, Idgel's sides, turrets, Kunax and chests, Kamar's timeline
+> and generals, Engulfed's generators, bases and supplies) and PvpAiTest (11). The player stands in another instance and joins the score through
+> onEnterInstance: the start teleports and the end's item rewards (no item rows) are left to a gate. Mutation proof 36 of 36. Java bugs: Iron Wall's
+> portToPosition overrides nothing, so its start and revive throw with players inside (corrected in its own commit, owner's decision 2026-10-15);
+> J-P6I8-1 (Kamar's 232853 stops the run before it scores, the 3500 points are lost) is proposed in docs/deviations/P6-instances.md. Census I3: 369
+> -> 245 open bodies (left: the arenas, Eternal Bastion, DefenseWallAI and the pvpArenas AIs).
