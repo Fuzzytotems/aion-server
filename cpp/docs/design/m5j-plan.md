@@ -1714,3 +1714,14 @@ About 3,500 Java lines, ~130 bodies. **Checkpoints** (unit tests in the owning c
 - The anonymous `RequestResponseHandler` captures the player, the item id, the cost and the enclosing command (for `sendInfo` and
   `rewards`). Commands are registered once and live as long as the server (Immortal), so the handler keeps a plain pointer to the command
   and a `Ref<Player>`; no `Ref<Buy>`.
+
+> **Progress:** D12-CP1 done (`lane-a/m5j-d12-cp1`): the seven neural-network classes and CustomInstancePlayerModelEntryDAO's two bodies
+> (P5-13.md); mutation proof 13 of 13.
+> **Progress:** D12-CP2 done (`lane-a/m5j-d12-cp2`): CP2a (CustomInstanceService, the rank companion, //cinstance, .buy; C1.md, P5-13.md) and
+> CP2b (RoahCustomInstanceHandler, onEnter); CP3 done in the same branch: the seven Eternal Challenge AIs (P5-13.md; LEASE of P5-05 for their
+> test). Left: D12-CP4 (PvpMapHandler) and D12-CP5 (WebRewardService, //headhunting; the Headhunter model is lane B's).
+> **Progress:** D12-CP5a done (`lane-a/m5j-d12-cp2`): WebRewardService (P5-09.md). Left: D12-CP4 (PvpMapHandler, 39 bodies) and `//headhunting`
+> (after lane B's Headhunter.compareTo, M5i I-4). Gates m5j and gm green on fc1da2d68.
+> **Progress:** D12-CP4a done (`lane-a/m5j-d12-cp4`): PvpMapHandler's 39 bodies (P5-13.md). Left of CP4: PvpMapService.init (m5f-plan D6's
+> partial) with its gate run.
+> **Progress:** D12-CP5b done (`lane-a/m5j-d12-cp5b`): //headhunting on Headhunter's declared API (C1.md); D12 is complete on lane A's side.
