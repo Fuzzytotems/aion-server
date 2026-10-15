@@ -1887,6 +1887,11 @@ const std::set<std::string>& knownNotReproducible() {
 		"3326 onDialogEvent#19",
 		"50009 onDialogEvent#3",
 		"50009 onDialogEvent#33",
+		// Chunk Q09, the rest (lane C, 2026-10-08): the same, for 28826 and 51009
+		"28826 onDialogEvent#3",
+		"28826 onDialogEvent#21",
+		"51009 onDialogEvent#3",
+		"51009 onDialogEvent#33",
 		// The owner's decisions of 2026-10-07 on Q14, the five mentor dailies whose dialog hook the oracle traces (the other ten stop at
 		// `npc.getController()`): their templates are npc faction quests (npcfaction_id 9, 10, 11) of minlevel_permitted 99, so
 		// QuestService.startQuest's faction check (QuestService.java startQuest: the faction of the template active with this quest) holds in
@@ -1969,6 +1974,9 @@ const std::map<std::string, std::string>& knownVacuous() {
 	static const std::string STUDIO_NO_HOUSE_DATA = "HousingService.registerPlayerStudio needs the housing static data (HOUSE_DATA), which the golden "
 		"fixture does not load, so it adds nothing observable in either run; then sendQuestEndDialog with SELECTED_QUEST_NOREWARD does nothing "
 		"(AbstractQuestHandler.java:414-472). Lane B's M5h studio cases run it on the real data";
+	// chunk Q09's rest (lane C, 2026-10-08)
+	static const std::string COLLECT_FALSE = "QuestService.collectItemCheck assumed false: it changes nothing then (QuestService.java "
+		"collectItemCheck)";
 	static const std::string KILLS_ASSUMED_FALSE = "every kill helper of the path assumed false: it changes nothing then (AbstractQuestHandler.java "
 		"defaultOnKillEvent)";
 	static const std::map<std::string, std::string> known = [] {
@@ -2110,6 +2118,23 @@ const std::map<std::string, std::string>& knownVacuous() {
 		{"1376 onKillEvent#3", KILLS_ASSUMED_FALSE},
 		{"3329 onKillEvent#3", KILLS_ASSUMED_FALSE},
 		{"18802 onDialogEvent#22", STUDIO_NO_HOUSE_DATA},
+		// chunk Q09, the rest (lane C, 2026-10-08)
+		{"2316 onDialogEvent#4", IDLE_END},
+		{"2316 onDialogEvent#5", IDLE_END},
+		{"2321 onDialogEvent#13", IDLE_END},
+		{"2324 onDialogEvent#3", IDLE_END},
+		{"2421 onDialogEvent#8", IDLE_END},
+		{"2428 onDialogEvent#8", IDLE_END},
+		{"2458 onDialogEvent#8", IDLE_END},
+		{"2480 onDialogEvent#8", IDLE_END},
+		{"2482 onDialogEvent#22", IDLE_END},
+		{"2482 onDialogEvent#23", IDLE_END},
+		{"2484 onDialogEvent#15", IDLE_END},
+		{"2332 onDialogEvent#11", COLLECT_FALSE},
+		{"2332 onDialogEvent#13", COLLECT_FALSE},
+		{"2332 onDialogEvent#15", COLLECT_FALSE},
+		{"2484 onDialogEvent#13", REWARD_PAGE},
+		{"28802 onDialogEvent#22", STUDIO_NO_HOUSE_DATA},
 		};
 		// P6-Q slice 2 (Q10): the altgard and pandaemonium traces (GoldenKnownVacuousQ10.h)
 		for (const auto& [key, kind] : Q10_VACUOUS) {
@@ -2151,13 +2176,14 @@ const std::map<std::string, std::string>& knownUnported() {
  * (tryDecreaseKinah), 1926 (TeleportService.teleportTo), 1947 (the packed getQuestVars().getQuestVars()), 3908 (spawn), 80291, 80295
  * (getEquipment); daevanion 1989, 2989 (PlayerCommonData.getDp), 1993, 1994, 2993, 2994 (a for loop the oracle does not unroll).
  * Chunk Q05, the rest (lane C): eltnen 1430, 1482 (TeleportService.teleportTo), 1463 (an item count read after removeQuestItem), 1468
- * (EmotionId.STAND), 1483, 1484 (workItems.getFirst)
+ * (EmotionId.STAND), 1483, 1484 (workItems.getFirst). Chunk Q09, the rest (lane C): morheim 2422, 2423 (TeleportService.teleportTo), 2430
+ * (getKinah), 2443 (CreatureState.FLYING), 2493 (getController())
  */
 constexpr int32_t ORACLE_REFUSES_EVERY_HOOK[] = {1205, 2132, 1640, 1647, 2925, 2938, 2952, 4966, 4967, 4968, 4969, 21004, 21027, 21033, 21036,
 	21071, 21105, 21249, 25052, 2798, 11031, 11032, 11033, 11053, 11118, 3208, 3217, 3219, 3220, 4208, 4217, 4219, 4220, 3939, 3940, 30553,
 	4943, 4944, 30217, 30317, 39505, 39510, 39515, 39520,
 	1900, 1901, 1917, 1926, 1932, 1938, 1947, 1963, 1964, 1989, 1993, 1994, 2989, 2993, 2994, 3908, 3961, 3962, 3963, 3964, 80291, 80295,
-	1430, 1463, 1468, 1482, 1483, 1484};
+	1430, 1463, 1468, 1482, 1483, 1484, 2422, 2423, 2430, 2443, 2493};
 
 TEST_F(GoldenQuestTraceTest, EveryExpectedDocumentHasAGeneratedHandlerAndEveryHandlerADocument) {
 	std::vector<int32_t> ids = expectedQuestIds();
