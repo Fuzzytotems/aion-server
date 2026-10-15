@@ -1095,39 +1095,17 @@ TEST_F(DialogServiceTest, TheStartActionWithoutAQuestAsksTheNpcsQuestsAndSendsIt
 	EXPECT_EQ(sent(), exactly({dialogWindow(pernos.getObjectId(), 0xFFFF)}));
 }
 
-TEST_F(DialogServiceTest, TheArmsOfOtherServicesReachTheirOwnUnportedBodies) {
-	// Each arm hands the dialog to a body of another item or milestone that is still AION_UNPORTED: the select throws that body's
-	// UnportedException, and that function is the one site hit. DialogService does not ask the npc's functions on these arms (CM_DIALOG_SELECT's
-	// audit does), so the rows use an npc that offers the function where the fixture has one and minalinerk otherwise; the pvp arms act only
-	// at their arena npcs (the next case).
-	struct Row {
-		int32_t action;
-		int32_t npcId;
-		std::string_view function;
-	};
-	const Row rows[] = {
-		{DialogAction::DISPERSE_LEGION, MINALINERK, "LegionService::requestDisbandLegion"},      // :120-122, P5-11
-		{DialogAction::RECREATE_LEGION, MINALINERK, "LegionService::recreateLegion"},           // :123-125, P5-11
-		// ENTER_PVP and LEAVE_PVP (:166-168, :179-181) left this table when TeleportService's (worldId, instanceId, x, y, z) overload was ported
-		// (play session 2026-09-29): see InstanceTeleportTest.TheFiveArgumentInstanceIdOverloadKeepsTheHeadingAndMovesAtOnce
-		// GATHER_SKILL_LEVELUP and COMBINE_SKILL_LEVELUP (:199-202) left this table with C-01 (m5c-plan.md stage 2): see TheCraftArms... below
-		// EXTEND_INVENTORY (:203-205) left this table with P-05 (m5c-plan.md stage 1, W-09): see TheCubeExpanderArm... below
-		// EXTEND_CHAR_WAREHOUSE (:206-208) left this table with WarehouseService (M5b-3 leftovers CP3): see TheWarehouseExpanderArm... below
-		{DialogAction::OPEN_LEGION_WAREHOUSE, PAUTON, "LegionService::openLegionWarehouse"},           // :209-211, P5-11
-		// CHARGE_ITEM_MULTI and CHARGE_ITEM_MULTI2 (:241-243, :267-269) left this table with ItemChargeService (M5b-3 leftovers): see TheChargeArms...
-		// GIVEUP_CRAFT_EXPERT and GIVEUP_CRAFT_MASTER (:255-260) left this table with C-01 (m5c-plan.md stage 2): see TheCraftArms... below
-	};
-	for (const Row& row : rows) {
-		SCOPED_TRACE(std::string(DialogAction::nameOf(row.action).value_or("?")) + " at " + std::to_string(row.npcId));
-		Npc& target = npc(row.npcId);
-		runtime::resetUnportedHitsForTests();
-		clearSent();
-		EXPECT_THROW(select(row.action, target), runtime::UnportedException);
-		EXPECT_EQ(unportedHitsOf(row.function), 1u);
-		EXPECT_EQ(runtime::unportedHitCount(), 1u);
-		EXPECT_TRUE(sent().empty());
-	}
-}
+// The arms of other services that were still AION_UNPORTED had a table case here (TheArmsOfOtherServicesReachTheirOwnUnportedBodies); every
+// row has left it as its service was ported, so the case is retired:
+// - ENTER_PVP and LEAVE_PVP (:166-168, :179-181) with TeleportService's (worldId, instanceId, x, y, z) overload (play session 2026-09-29):
+//   see InstanceTeleportTest.TheFiveArgumentInstanceIdOverloadKeepsTheHeadingAndMovesAtOnce
+// - GATHER_SKILL_LEVELUP, COMBINE_SKILL_LEVELUP, GIVEUP_CRAFT_EXPERT and GIVEUP_CRAFT_MASTER (:199-202, :255-260) with C-01 (m5c-plan.md
+//   stage 2): see TheCraftArms... below
+// - EXTEND_INVENTORY (:203-205) with P-05 (m5c-plan.md stage 1, W-09): see TheCubeExpanderArm... below
+// - EXTEND_CHAR_WAREHOUSE (:206-208) with WarehouseService (M5b-3 leftovers CP3): see TheWarehouseExpanderArm... below
+// - CHARGE_ITEM_MULTI and CHARGE_ITEM_MULTI2 (:241-243, :267-269) with ItemChargeService (M5b-3 leftovers): see TheChargeArms... below
+// - DISPERSE_LEGION, RECREATE_LEGION and OPEN_LEGION_WAREHOUSE (:120-125, :209-211) with LegionService (M5h S-01..S-05): the legion gate
+//   gs.scenario.m5h drives them (C9 the legion warehouse, C22 disband and recreate), and tests/legionhouse/LegionServiceTest.cpp their bodies
 
 TEST_F(DialogServiceTest, TheChargeArmsFindNoChargeableEquipmentOnACharacterWithoutIt) {
 	// :241-243 and :267-269 -> ItemChargeService.startChargingEquippedItems(player, npc, way) (ItemChargeService.java:34-43): nothing equipped
