@@ -1,0 +1,22 @@
+{
+ "format": "aion-quest-trace",
+ "version": 1,
+ "questId": 1990,
+ "java": "daevanion/_1990ASagesGift.java",
+ "class": "_1990ASagesGift",
+ "javaSha256": "2b0edfdbcaed8613370dba8d074bf45b726afa6014f64037955905c87ec0793f",
+ "register": [
+  {"npc": 203771, "event": "addOnQuestStart", "args": [1990]},
+  {"npc": 203771, "event": "addOnTalkEvent", "args": [1990]},
+  {"npc": 256617, "event": "addOnKillEvent", "args": [1990]},
+  {"npc": 253721, "event": "addOnKillEvent", "args": [1990]},
+  {"npc": 253720, "event": "addOnKillEvent", "args": [1990]},
+  {"npc": 254514, "event": "addOnKillEvent", "args": [1990]},
+  {"npc": 254513, "event": "addOnKillEvent", "args": [1990]}
+ ],
+ "hooks": [
+  {"hook": "onDialogEvent", "line": 31, "unsupported": "call player.getEquipment()"},
+  {"hook": "onKillEvent", "line": 98, "unsupported": "call qs.getQuestVars().getQuestVars()"}
+ ],
+ "cases": []
+}

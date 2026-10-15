@@ -1409,6 +1409,9 @@ protected:
 		// the butler quests 18830 / 28830 (lane C, 2026-10-11): the house item hook takes the env only (AbstractQuestHandler.java)
 		if (hook == "onHouseItemUseEvent")
 			return handler.onHouseItemUseEvent(env);
+		// sanctum/_1929 (questgen row B50, lane C, 2026-10-14): the equip hook takes the env and the item id (AbstractQuestHandler.java)
+		if (hook == "onEquipItemEvent")
+			return handler.onEquipItemEvent(env, intArg(args));
 		if (hook == "onItemUseEvent") {
 			// the review of #79, item 2: the item held in the inventory (run), else (a given count 0 of it) one outside it
 			if (Ptr<gameserver::model::gameobjects::Item> held = player.getInventory().getItemByObjId(USED_ITEM_OBJECT))
@@ -2644,6 +2647,7 @@ const std::map<std::string, std::string>& knownUnported() {
  * Chunk Q06 (lane C): none left; the 47 got their cases with the
  * CraftSkillUpdateService predicates, the kinah, skill-list, recipe and special-cube rows (extract.py, 2026-10-13), and 2430 (Q09) with the kinah
  * Q10, the formerly held-back sixteen (lane C, 2026-10-14; WIP): altgard 2213 (getEffectController(), SkillEngine.getInstance)
+ * Rows B49/B50 (lane C, 2026-10-14): daevanion 1990 (player.getEquipment(), the packed getQuestVars().getQuestVars())
  */
 constexpr int32_t ORACLE_REFUSES_EVERY_HOOK[] = {1205, 2132, 1640, 1647, 2925, 2938, 2952, 4966, 4967, 4968, 4969, 21004, 21027, 21033, 21036,
 	21071, 21105, 21249, 25052, 2798, 11031, 11032, 11033, 11053, 11118, 3208, 3217, 3219, 3220, 4208, 4217, 4219, 4220, 3939, 3940, 30553,
@@ -2654,7 +2658,8 @@ constexpr int32_t ORACLE_REFUSES_EVERY_HOOK[] = {1205, 2132, 1640, 1647, 2925, 2
 	3074, 3082, 3088, 3090, 80000, 80001, 80008, 80020, 80021,
 	18821, 28821,
 	2600, 2630, 2663, 2664, 28600, 4074, 4200,
-	2213};
+	2213,
+	1990};
 
 TEST_F(GoldenQuestTraceTest, EveryExpectedDocumentHasAGeneratedHandlerAndEveryHandlerADocument) {
 	std::vector<int32_t> ids = expectedQuestIds();
@@ -3209,6 +3214,11 @@ public:
 		events.push_back("onHouseItemUseEvent");
 		return false;
 	}
+	// sanctum/_1929 (lane C, 2026-10-14): registerOnEquipItem, per item (QuestEngine.onEquipItem)
+	bool onEquipItemEvent(QuestEnv&, int32_t itemId) override {
+		events.push_back("onEquipItemEvent " + std::to_string(itemId));
+		return false;
+	}
 	bool onGetItemEvent(QuestEnv& env) override {
 		events.push_back("onGetItemEvent " + std::to_string(env.getQuestId()));
 		return false;
@@ -3281,7 +3291,7 @@ TEST_F(GoldenQuestTraceTest, RegistrationTraceMatchesJavaRegister) {
 	// can-act registration also comes from the first kill, talk, aggro or distance registration of the quest at an npc (QuestNpc.java:59-95),
 	// and registerCanAct keeps only an npc whose template's AI is quest_use_item (QuestEngine.java registerCanAct)
 	std::set<std::string> zones, leaveZones, rings, bonusTypes;
-	std::set<int32_t> questItems, canActNpcs, allNpcs, getItems, killWorlds, skills, failCraftItems;
+	std::set<int32_t> questItems, canActNpcs, allNpcs, getItems, killWorlds, skills, failCraftItems, equipItems;
 	auto usesQuestItemAi = [](int32_t npcId) {
 		const gameserver::model::templates::npc::NpcTemplate* template_ = dataholders::DataManager::NPC_DATA->getNpcTemplate(npcId);
 		return template_ != nullptr && template_->getAiName() == "quest_use_item";
@@ -3315,6 +3325,8 @@ TEST_F(GoldenQuestTraceTest, RegistrationTraceMatchesJavaRegister) {
 				canActNpcs.insert(reg["args"][1].get<int32_t>());
 			else if (reg.value("call", std::string()) == "registerOnGetItem")
 				getItems.insert(reg["args"][0].get<int32_t>());
+			else if (reg.value("call", std::string()) == "registerOnEquipItem")
+				equipItems.insert(reg["args"][0].get<int32_t>());
 			if (reg.value("call", std::string()) == "registerCanAct")
 				allNpcs.insert(reg["args"][1].get<int32_t>());
 		}
@@ -3397,6 +3409,9 @@ TEST_F(GoldenQuestTraceTest, RegistrationTraceMatchesJavaRegister) {
 			}
 			else if (call == "registerOnGetItem")
 				expectedEvents.push_back("onGetItemEvent " + std::to_string(reg["args"][1].get<int32_t>()));
+			// sanctum/_1929 (lane C, 2026-10-14): QuestEngine.java registerOnEquipItem, per item
+			else if (call == "registerOnEquipItem")
+				expectedEvents.push_back("onEquipItemEvent " + std::to_string(reg["args"][0].get<int32_t>()));
 			else if (call == "registerAddOnReachTargetEvent")
 				expectedEvents.push_back("onNpcReachTargetEvent");
 			else if (call == "registerAddOnLostTargetEvent")
@@ -3483,6 +3498,8 @@ TEST_F(GoldenQuestTraceTest, RegistrationTraceMatchesJavaRegister) {
 		QuestEngine::getInstance().onNpcLostTarget(*QuestEnv::create(nullptr, player, 0));
 		for (int32_t itemId : getItems)
 			QuestEngine::getInstance().onItemGet(player, itemId);
+		for (int32_t itemId : equipItems)
+			QuestEngine::getInstance().onEquipItem(*QuestEnv::create(nullptr, player, 0), itemId);
 		// lane C: the events of the kinds above, once each (the kill-ranked one per rank, the kill-in-world one per map)
 		for (size_t rank = 0; rank < rankNames.size(); rank++) {
 			RoutingSpy::firing = std::string(rankNames[rank]);

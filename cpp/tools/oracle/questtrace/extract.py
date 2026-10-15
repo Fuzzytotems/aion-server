@@ -334,6 +334,8 @@ SLICE_Q13 = (
 # Phase 6 step 2, chunk Q11 (lane C, 2026-10-08; docs/deviations/Q11.md): the 71 handlers of daevanion and sanctum in the tree
 # (daevanion/_1990ASagesGift and sanctum/_1929ASliverofDarkness are refused: API gaps; sanctum/_3212, an escort, waits for FollowingNpcAI)
 SLICE_Q11 = (
+	'sanctum/_1929ASliverofDarkness.java',
+	'daevanion/_1990ASagesGift.java',
 	'daevanion/_19631CoastalCrush.java', 'daevanion/_19632CascadeCritters.java', 'daevanion/_19633AlisaryAssistance.java',
 	'daevanion/_19634FurtherAidforAlisary.java', 'daevanion/_19635SouthernQuell.java', 'daevanion/_19636FinalStabilization.java',
 	'daevanion/_19637OnboardforOne.java', 'daevanion/_19638TroublewithTwos.java', 'daevanion/_19639TreesandThrees.java',
