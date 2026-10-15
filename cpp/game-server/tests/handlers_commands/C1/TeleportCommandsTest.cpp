@@ -212,8 +212,11 @@ TEST_F(TeleportCommandsTest, GoToList) {
 
 /** Teleportto.java:21-30: //goto's syntax under its own alias, //goto's execution */
 TEST_F(TeleportCommandsTest, TeleportToIsGoTo) {
-	auto* registered = new handlers::admincommands::GoTo(); // immortal, like ChatProcessor.init's commands
-	utils::chathandlers::ChatProcessor::getInstance().registerCommand(*registered);
+	// immortal, like ChatProcessor.init's commands; CommandSmokeTest may have registered one in this process
+	if (!utils::chathandlers::ChatProcessor::getInstance().isCommandExists("//goto"))
+		utils::chathandlers::ChatProcessor::getInstance().registerCommand(*new handlers::admincommands::GoTo());
+	auto* registered = utils::chathandlers::ChatProcessor::getInstance().getCommand<handlers::admincommands::GoTo>();
+	ASSERT_NE(registered, nullptr);
 	Player& admin = gm(730313);
 	handlers::consolecommands::Teleportto teleportto;
 	std::string expected = registered->getSyntaxInfo();
