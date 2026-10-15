@@ -252,4 +252,59 @@ LegionUpdateMember decodeLegionUpdateMember(std::span<const uint8_t> body) {
 	return update;
 }
 
+LegionEdit decodeLegionEdit(std::span<const uint8_t> body) {
+	BodyReader reader(body, "SM_LEGION_EDIT");
+	LegionEdit edit;
+	edit.type = reader.C(); // SM_LEGION_EDIT.java writeImpl, writeC(type)
+	switch (edit.type) {
+		case 0x00:
+			edit.value = reader.C(); // writeC(legion level)
+			break;
+		case 0x01:
+			edit.value = reader.D(); // writeD(ranking list position)
+			break;
+		case 0x02:
+			for (int i = 0; i < 4; i++)
+				edit.masks.push_back(reader.H()); // writeH(deputy, centurion, legionary, volunteer permission)
+			break;
+		case 0x03:
+		case 0x04:
+			edit.value = reader.Q(); // writeQ(contribution points) / writeQ(warehouse kinah)
+			break;
+		case 0x05:
+			edit.announcement = reader.S(); // writeS(announcement)
+			edit.unixTime = reader.D();     // writeD(unixTime)
+			break;
+		case 0x06:
+			edit.unixTime = reader.D(); // writeD(unixTime)
+			edit.value = edit.unixTime;
+			break;
+		default: // 0x07, 0x08: the type only
+			break;
+	}
+	reader.expectFullyConsumed();
+	return edit;
+}
+
+LegionHistory decodeLegionHistory(std::span<const uint8_t> body) {
+	BodyReader reader(body, "SM_LEGION_HISTORY");
+	LegionHistory history;
+	history.total = reader.D(); // SM_LEGION_HISTORY.java writeImpl, writeD(totalEntries)
+	history.page = reader.D();  // writeD(page)
+	const int32_t entries = reader.D(); // writeD(entries of the page)
+	for (int32_t i = 0; i < entries; i++) {
+		LegionHistoryEntry entry;
+		entry.epochSeconds = reader.D();     // writeD(entry time)
+		entry.actionId = reader.C();         // writeC(action id)
+		reader.expectC(0, "writeC(0)");      // writeC(0)
+		entry.name = reader.S(32);           // writeS(name, 32)
+		entry.description = reader.S(32);    // writeS(description, 32)
+		reader.expectH(0, "writeH(0)");      // writeH(0)
+		history.entries.push_back(std::move(entry));
+	}
+	history.type = reader.H(); // writeH(type.ordinal())
+	reader.expectFullyConsumed();
+	return history;
+}
+
 } // namespace aion::gameserver::scenario::decoders

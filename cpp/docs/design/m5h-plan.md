@@ -1068,9 +1068,11 @@ picture, postbox, storage, use_item, emblem, the passive fallback, the missing t
 none without, the decoration item's missing `SummonHouseObjectAction`; the bare `<housedeco/>` whose `DecorateAction::getTemplateId` is 0; the
 `PlayerRegisteredItemsDAO` store -> load round trip through `createNew` (the restart path: position, rotation, expiry, the chair class, the
 used wallpaper); `HouseController.onDespawn` of a reusable studio (saved, position released, spawns cleared). 6 of 6 mutants killed. Left to
-the gate as planned: `UseableItemObject.onUse` (C17) and the decoration mode (C16). **§9 risk 3, the destroyed studio instance**: Java's
-retention is kept - the registry objects' positions name the destroyed instance until the owner's next entry re-spawns them; there is no
-cycle (cycles.toml `VisibleObject.position`: accepted, cut elsewhere), and C23's census and live counts are clean after C19's destroy. **H-05's
+the gate as planned: `UseableItemObject.onUse` (C17) and the decoration mode (C16). **§9 risk 3, the destroyed studio instance**: first
+kept as Java's retention, then **corrected (the owner's option 2 of 2026-10-10)**: C22 leaves a studio empty at shutdown and the C++-only leak
+census reported its House and furniture, so `HouseController.onDespawn` now drops a reusable studio's registry with its objects after saving
+it (`House::dropRegistry`), the next entry reloads it from the database, and the House itself - kept in `HousingService.studios` as in Java -
+is exempt from the census (`VisibleObject::isKeptOutsideWorld`, true for a reusable studio only; docs/DEVIATIONS.md). **H-05's
 `HouseObject.getPlacementLimit(bool)` stays unported**: Java never calls it.
 
 **L-05's deletions (lane B, 2026-10-08)**: under P5-11 leases of P4-14, P4-16 and P4-17 (chunks.cmake), the stand-ins `legionEmblemTypeValue`,
@@ -1078,3 +1080,50 @@ cycle (cycles.toml `VisibleObject.position`: accepted, cut elsewhere), and C23's
 `SM_GM_SHOW_LEGION_MEMBERLIST` included) and `LegionDAO::loadHistory` call the P5-10f companions. `tests/sm_lz/OpcodesAndSupportTest.cpp`
 pins the companions' values in place of the stand-ins' and adds the two call sites no test read (`SM_LEGION_HISTORY`'s action id 11 for
 DEFENSE, `SM_LEGION_UPDATE_EMBLEM`'s 0x80 for CUSTOM); `LegionServiceTest` checks the loaded history filed by type. 4 of 4 mutants killed.
+
+**C9 and C22 (lane B, 2026-10-08)**: `gs.scenario.m5h` scripts the legion warehouse (C9, after C8: the level-up refused for members at 101,000
+kinah; A opens it at Pauton - `SM_LEGION_EDIT(0x04, 0)`, one closing `SM_WAREHOUSE_INFO`, the page; B finds it in use; A's kinah and item
+deposits with their `KINAH_DEPOSIT "1000"` and `ITEM_DEPOSIT "itemId:1"` history; after A closes, B reads the kinah, the item's part and the
+closing packet, and B's withdrawal is refused) and the disband (C22, after C21: the warehouse rows stored under the legion id; A withdraws both;
+at Losadis the disband question, `SM_LEGION_EDIT(0x06, now + 5)` with `SM_LEGION_UPDATE_MEMBER(1300303, t)`, the recreate's
+`EDIT(0x07), UPDATE_MEMBER(1300307), EDIT(0x07)`, the disband again, and the lazy disband at A's next login - no `SM_LEGION_INFO`, the rows
+gone). New decoders `SM_LEGION_EDIT` and `SM_LEGION_HISTORY`; Pauton's and Losadis' spots from `oracle.py m5h-housing`. Every case passes on a
+scratch build with lane C's stack, but **C23 now fails**: after C22, A logs in at Losadis and never returns to its studio, so the studio's
+`House`, the bed and the cake are removed from the world (the studio instance's destroy) and kept alive by `HousingService` for the owner's next
+entry - Java's retention (§9 risk 3), which the shutdown census reports as leaks and which a production server would report 10 minutes after
+every studio is left. H-07 accepted the retention because no gate case left a studio empty at shutdown; C22 does. The owner chose to drop
+and reload (option 2, 2026-10-10) with the census exemption for the studio's House (§9 risk 3's correction in the H-07 paragraph above). With it the whole gate, C0-C23, passes on the
+scratch build with lane C's stack, and 6 of 6 server mutants turn it red (the warehouse in-use check skipped and a deposit recorded as a
+withdrawal: C9; the disband time ignoring the config, the recreate broadcast missing and a disbanded legion keeping its rows: C22; the left
+studio reported to the census: C23). One mutant run showed a race in C19's poll of `player_registered_items` (it accepted the rows of an
+earlier store before the destroy's save rewrote the bed); the poll now waits for the moved bed.
+
+### 14.3 M5h-2: land houses (measured 2026-10-08, lane B; not started - the owner decides whether it is next)
+
+After C9/C22 M5h's legion and studio scope is done. What remains of housing is the **land houses** of Oriel and Pernon (500 each) and
+the Sanctum/Pandaemonium town halls: the auction that sells them, the weekly maintenance (rent, impound), the doors, the house teleports,
+and their AI, quests and GM command. Measured at `lane-b/m5h-c9c22`:
+
+| Piece | Java | C++ today | Chunk |
+|---|---|---|---|
+| `HousingBidService` | 405 lines; 7 bodies unported: `auction`, `bid`, `isAllowedToBid`, `endAuctions`, `endAuction`, `impoundAndAuctionOldPlayerHouses`, `cancelAuction` (~250 lines); the rest (bid info, `disableBids`, `findLastBid`, `onPlayerLogin`, ...) ported | `AION_UNPORTED` ×7 | P5-11 |
+| housing tasks | `AuctionAutoFillTask.autoFillAuction` (85-line file), `MaintenanceTask.putHouseToAuction` (95-line file); `AuctionEndTask` ported | `AION_UNPORTED` ×1 each | P5-11 |
+| `SM_HOUSE_BIDS` | its `remainingAuctionSeconds` stand-in (`AuctionEndTask.getRemainingAuctionSeconds`, which now exists) | `AION_UNPORTED` ×1 | P4-17 (lease) |
+| `Town` | `broadcastUpdate` (and the town level-up path it serves) | `AION_UNPORTED` ×2 | P5-11 |
+| client packets | `CM_GET_HOUSE_BIDS` (39), `CM_REGISTER_HOUSE` (70), `CM_PLACE_BID` (37), `CM_HOUSE_PAY_RENT` (63), `CM_HOUSE_OPEN_DOOR` (63), `CM_HOUSE_TELEPORT` (119), `CM_HOUSE_TELEPORT_BACK` (37): ~430 lines | **no files** ×7 (opcodes in ClientPacketInfo.gen.inc) | P5-15 / P5-16 |
+| AI | `HouseGateAI` (data/handlers/ai/portals, 109 lines) | no file | A1 (lease) |
+| quests | `_18847Housewarming` (63), `_28821YourButlerGift` (95), `_1987ABiggerWarehouse` (59); the six butler quests are lane C's questgen fix | lane C | Q05 / Q09 / Q-sanctum |
+| GM | `HouseCommand` (140 lines) | no file | the GM lane |
+
+**Stages** (each a checkpoint: unit tests, lock-order tests for any new monitor nesting, a mutation proof):
+
+| Stage | Items | Size | Chunks (leases) |
+|---|---|---|---|
+| **H2-1** | the auction service: the 7 `HousingBidService` bodies, `AuctionAutoFillTask`, `MaintenanceTask.putHouseToAuction`, `SM_HOUSE_BIDS`'s remaining seconds, `Town.broadcastUpdate`; unit tests on `tests/legionhouse`'s database with a `ManualClock` (register, bid, outbid refund by mail, end with and without bids, the impound of an unpaid house, auto-fill) | ~11 bodies, ~400 Java lines | P5-11 (+ P4-17 for `SM_HOUSE_BIDS`) |
+| **H2-2** | the seven client packets (bids list, register, bid, pay rent, door, teleport and back); read cases in `tests/cm_ak`/`tests/cm_lz` and run cases in `tests/legionhouse` | 7 packets, ~430 lines | P5-15, P5-16 |
+| **H2-3** | `HouseGateAI` (A1 lease) and its unit cases; the three quests go to lane C (generated if questgen takes them), `HouseCommand` to the GM lane | 1 AI, ~110 lines | A1 (lease) |
+| **H2-4** | the gate `gs.scenario.m5h2`: a land house bought through the auction (register at the broker, bid, the end of the auction driven by a test-profile cron: `gameserver.housing.auction.end` and the maintenance time set into the run's window), pay rent, open and close the door, teleport home and back, a second bidder outbid and refunded (mail), the impound of an unpaid house by the maintenance task | - | P5-SC |
+
+Risks: the auction and maintenance are weekly crons (`HousingConfig`), so H2-4 needs profile keys that fire them within the run, as M5h's
+disband used `gameserver.legion.disbandtime`; the land houses' 1,000 butlers and signs are already live (M5h H-01); an outbid's refund goes
+through the mail service (M5c).

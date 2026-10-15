@@ -85,6 +85,12 @@ public:
 
 	void save();
 
+	/**
+	 * C++ only (House::dropRegistry): forgets every object and decoration of a registry the house dropped, which releases them (each
+	 * HouseObject keeps its registry, cycles.toml HouseRegistry.objects); the database keeps them for the next load
+	 */
+	void drop();
+
 	/** Java final */
 	PersistentState getPersistentState() override final { return persistentState.get(); }
 
