@@ -290,6 +290,14 @@ if(AION_BUILD_TESTS)
 		aion_set_discovered_test_properties(aion_gs_runtime_${gs_runtime_tests}_tests REGEX "." PROPERTIES LABELS runtime)
 	endforeach()
 
+	# p6-instances-plan.md §3 (integrator, 2026-10-14): the instance AIs of I1-I6 derive from P5-05's root AIs (AggressiveNpcAI, GeneralNpcAI,
+	# ...), so the chunks' unit test executables also link P5-05's handler library. Test targets only: the server links every handler library.
+	foreach(gs_inst IN ITEMS 1 2 3 4 5 6)
+		if(TARGET aion_gs_handlers_inst_${gs_inst}_tests)
+			target_link_libraries(aion_gs_handlers_inst_${gs_inst}_tests PRIVATE aion_gs_handlers_ai_core)
+		endif()
+	endforeach()
+
 	# m5j-plan.md §10.6: the command smoke (L-04) and the AI smoke (N-02) run under `ctest -L smoke` with the startup smokes
 	aion_set_discovered_test_properties(aion_gs_handlers_commands_tests REGEX "^(Registered/CommandSmokeTest|CommandSmokeListTest)\\." PROPERTIES LABELS smoke)
 	aion_set_discovered_test_properties(aion_gs_handlers_ai_core_tests REGEX "^(EveryRootAi/RootAiSmokeTest|QuestNpcAiSmokeTest)\\." PROPERTIES LABELS smoke)
