@@ -307,4 +307,50 @@ LegionHistory decodeLegionHistory(std::span<const uint8_t> body) {
 	return history;
 }
 
+HouseTeleport decodeHouseTeleport(std::span<const uint8_t> body) {
+	BodyReader reader(body, "SM_HOUSE_TELEPORT");
+	HouseTeleport teleport;
+	teleport.address = reader.D();  // SM_HOUSE_TELEPORT.java writeImpl, writeD(address)
+	teleport.playerId = reader.D(); // writeD(playerId)
+	reader.expectFullyConsumed();
+	return teleport;
+}
+
+uint8_t decodeHousePayRent(std::span<const uint8_t> body) {
+	BodyReader reader(body, "SM_HOUSE_PAY_RENT");
+	const uint8_t zero = reader.C(); // SM_HOUSE_PAY_RENT.java writeImpl, writeC(0)
+	if (zero != 0)
+		reader.fail("leading byte " + std::to_string(zero) + " is not 0");
+	const uint8_t weeksPaid = reader.C(); // writeC(weeksPaid)
+	reader.expectFullyConsumed();
+	return weeksPaid;
+}
+
+HouseBids decodeHouseBids(std::span<const uint8_t> body) {
+	BodyReader reader(body, "SM_HOUSE_BIDS");
+	HouseBids bids;
+	bids.isFirst = reader.C() != 0;            // SM_HOUSE_BIDS.java writeImpl, writeC(isFirst ? 1 : 0)
+	bids.isLast = reader.C() != 0;             // writeC(isLast ? 1 : 0)
+	bids.lastBidListIndex = reader.D();        // writeD(lastBid == null ? 0 : lastBid.getListIndex())
+	bids.lastBidKinah = reader.Q();            // writeQ(lastBid == null ? 0 : lastBid.getKinah())
+	bids.registeredListIndex = reader.D();     // writeD(bidsForRegisteredHouse == null ? 0 : ...getListIndex())
+	bids.registeredStartingPrice = reader.Q(); // writeQ(... getInitialOffer().getKinah())
+	const uint16_t count = reader.H();         // writeH(houseBids.size())
+	for (uint16_t i = 0; i < count; i++) {
+		HouseBidRow row;
+		row.listIndex = reader.D();
+		row.landId = reader.D();
+		row.address = reader.D();
+		row.buildingId = reader.D();
+		row.houseTypeId = reader.D();
+		row.highestBid = reader.Q();
+		row.fixed100000 = reader.Q();
+		row.bidCount = reader.D();
+		row.remainingSeconds = reader.D();
+		bids.rows.push_back(row);
+	}
+	reader.expectFullyConsumed();
+	return bids;
+}
+
 } // namespace aion::gameserver::scenario::decoders

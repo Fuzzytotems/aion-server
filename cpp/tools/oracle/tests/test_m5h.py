@@ -59,6 +59,20 @@ class HousingReportTest(unittest.TestCase):
 		self.assertEqual(report["scripts"]["padding"], [205] * 8)
 		self.assertEqual(report["houseOwnerStates"], {"HAS_OWNER": 1, "SINGLE_HOUSE": 2, "BIDDING_ALLOWED": 4})
 
+	def test_a_land_house_and_its_relationship_crystal(self):
+		report = housing_report(STATIC_DATA, JAVA_SRC, [], [], [], [10001])
+		house = report["landHouses"]["10001"]
+		self.assertEqual((house["land"], house["map"], house["town"], house["building"], house["saleLevel"], house["goldPrice"], house["fee"]),
+		                 (325001, 700010000, 1001, 350000, 50, 1000000000, 20000000))
+		self.assertEqual((house["x"], house["y"], house["z"]), (696.159973, 1999.969971, 174.42577))
+		self.assertEqual((house["managerNpc"], house["teleportNpc"]), (810017, 810003))
+		self.assertEqual(house["houseNpcs"]["TELEPORT"], {"x": 691.9144, "y": 2003.783, "z": 174.44133})
+		self.assertEqual(housing_report(STATIC_DATA, JAVA_SRC, [], [], [])["landHouses"], {}, "none asked")
+
+	def test_an_unknown_land_house_is_an_error(self):
+		with self.assertRaises(OracleError):
+			housing_report(STATIC_DATA, JAVA_SRC, [], [], [], [99999])
+
 	def test_an_npc_without_spawn_on_the_map_is_an_error(self):
 		with self.assertRaises(OracleError):
 			housing_report(STATIC_DATA, JAVA_SRC, [], [(720010000, 730517)], [])
