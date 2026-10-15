@@ -218,11 +218,12 @@ class TheSixEscorts(unittest.TestCase):
         used = {rid: v['files'] for rid, v in rep['apiRowsUsed'].items() if 'B26' <= rid <= 'B30'}
         self.assertEqual(used, {'B26': 6, 'B27': 6, 'B28': 6, 'B29': 4, 'B30': 1})
 
-    def test_they_are_not_in_the_handler_tree(self):
-        # m5d-plan.md §21.1: like B03's 14 escorts, they wait for FollowingNpcAI (without it the follower neither walks nor respawns)
+    def test_they_are_in_the_handler_tree(self):
+        # m5d-plan.md §21.1: they waited for FollowingNpcAI (handlers/ai/FollowingNpcAI.cpp, merged); in the tree since 2026-10-15 (lane C),
+        # questgen's output byte for byte
         for rel in SIX:
             with self.subTest(file=rel):
-                self.assertFalse((HANDLER_QUEST_DIR / rel).with_suffix('.cpp').exists())
+                self.assertEqual((HANDLER_QUEST_DIR / rel).with_suffix('.cpp').read_bytes(), self.results[rel].cpp.encode('utf-8'))
 
 
 if __name__ == '__main__':

@@ -2132,6 +2132,9 @@ const std::set<std::string>& knownNotReproducible() {
 		"24021 onDialogEvent#20",
 		// Q10, the formerly held-back sixteen (lane C, 2026-10-14; WIP): useQuestObject kills the target npc (KILLS_TARGET, as 1612)
 		"2223 onDialogEvent#21",
+		// the escorts (lane C, 2026-10-15): 2333 and 2394 #1, useQuestItem, which the replay does not model (as 10502 #3)
+		"2333 onItemUseEvent#1",
+		"2394 onItemUseEvent#1",
 	};
 	return known;
 }

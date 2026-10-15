@@ -1,0 +1,98 @@
+{
+ "format": "aion-quest-trace",
+ "version": 1,
+ "questId": 3212,
+ "java": "sanctum/_3212TheMissingCubeCraftsman.java",
+ "class": "_3212TheMissingCubeCraftsman",
+ "javaSha256": "d067a8f1879fcfc9694c1c86d5a8ab67cacad6d01380961b116a7e61247276a6",
+ "register": [
+  {"npc": 798321, "event": "addOnQuestStart", "args": [3212]},
+  {"npc": 203838, "event": "addOnTalkEvent", "args": [3212]},
+  {"npc": 798011, "event": "addOnTalkEvent", "args": [3212]},
+  {"npc": 798337, "event": "addOnTalkEvent", "args": [3212]},
+  {"npc": 730208, "event": "addOnTalkEvent", "args": [3212]},
+  {"call": "registerAddOnReachTargetEvent", "args": [3212]},
+  {"call": "registerAddOnLostTargetEvent", "args": [3212]},
+  {"call": "registerOnDie", "args": [3212]},
+  {"call": "registerOnLogOut", "args": [3212]}
+ ],
+ "hooks": [
+  {"hook": "onDialogEvent", "line": 42, "unsupported": "call npc.getSpawn()"},
+  {"hook": "onDieEvent", "line": 101, "cases": 4},
+  {"hook": "onLogOutEvent", "line": 116, "cases": 4},
+  {"hook": "onNpcReachTargetEvent", "line": 130, "unsupported": "call defaultFollowEndEvent"},
+  {"hook": "onNpcLostTargetEvent", "line": 135, "unsupported": "call defaultFollowEndEvent"}
+ ],
+ "cases": [
+  {
+   "id": "onDieEvent#1",
+   "hook": "onDieEvent",
+   "given": {"questState": {"status": "START", "vars": {"0": 3}}},
+   "guards": ["qs != null -> true @104", "qs.getStatus() == QuestStatus.START -> true @104", "var == 3 -> true @106"],
+   "effects": [
+    {"call": "qs.setQuestVar", "kind": "var", "args": [2], "line": 107},
+    {"call": "updateQuestStatus", "kind": "quest", "args": [], "line": 108}
+   ],
+   "returns": true
+  },
+  {
+   "id": "onDieEvent#2",
+   "hook": "onDieEvent",
+   "given": {"questState": {"status": "START", "vars": {"0": 0}}},
+   "guards": ["qs != null -> true @104", "qs.getStatus() == QuestStatus.START -> true @104", "var == 3 -> false @106"],
+   "effects": [],
+   "returns": false
+  },
+  {
+   "id": "onDieEvent#3",
+   "hook": "onDieEvent",
+   "given": {"questState": {"status": "REWARD"}},
+   "guards": ["qs != null -> true @104", "qs.getStatus() == QuestStatus.START -> false @104"],
+   "effects": [],
+   "returns": false
+  },
+  {
+   "id": "onDieEvent#4",
+   "hook": "onDieEvent",
+   "given": {"questState": null},
+   "guards": ["qs != null -> false @104"],
+   "effects": [],
+   "returns": false
+  },
+  {
+   "id": "onLogOutEvent#1",
+   "hook": "onLogOutEvent",
+   "given": {"questState": {"status": "START", "vars": {"0": 3}}},
+   "guards": ["qs != null -> true @119", "qs.getStatus() == QuestStatus.START -> true @119", "var == 3 -> true @121"],
+   "effects": [
+    {"call": "qs.setQuestVar", "kind": "var", "args": [2], "line": 122},
+    {"call": "updateQuestStatus", "kind": "quest", "args": [], "line": 123}
+   ],
+   "returns": false
+  },
+  {
+   "id": "onLogOutEvent#2",
+   "hook": "onLogOutEvent",
+   "given": {"questState": {"status": "START", "vars": {"0": 0}}},
+   "guards": ["qs != null -> true @119", "qs.getStatus() == QuestStatus.START -> true @119", "var == 3 -> false @121"],
+   "effects": [],
+   "returns": false
+  },
+  {
+   "id": "onLogOutEvent#3",
+   "hook": "onLogOutEvent",
+   "given": {"questState": {"status": "REWARD"}},
+   "guards": ["qs != null -> true @119", "qs.getStatus() == QuestStatus.START -> false @119"],
+   "effects": [],
+   "returns": false
+  },
+  {
+   "id": "onLogOutEvent#4",
+   "hook": "onLogOutEvent",
+   "given": {"questState": null},
+   "guards": ["qs != null -> false @119"],
+   "effects": [],
+   "returns": false
+  }
+ ]
+}
