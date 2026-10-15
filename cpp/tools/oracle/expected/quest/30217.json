@@ -1,0 +1,16 @@
+{
+ "format": "aion-quest-trace",
+ "version": 1,
+ "questId": 30217,
+ "java": "greater_stigma/_30217GroupStigmasScars.java",
+ "class": "_30217GroupStigmasScars",
+ "javaSha256": "f94d8a6004e799b5704c7bbcc014e4907c5b23d4c9dea34fbe9909f616e0afb1",
+ "register": [
+  {"npc": 798909, "event": "addOnQuestStart", "args": [30217]},
+  {"npc": 798909, "event": "addOnTalkEvent", "args": [30217]},
+  {"npc": 799506, "event": "addOnTalkEvent", "args": [30217]},
+  {"npc": 798941, "event": "addOnTalkEvent", "args": [30217]}
+ ],
+ "hooks": [{"hook": "onDialogEvent", "line": 32, "unsupported": "call spawnForFiveMinutesInFrontOf"}],
+ "cases": []
+}

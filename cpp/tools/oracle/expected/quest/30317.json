@@ -1,0 +1,16 @@
+{
+ "format": "aion-quest-trace",
+ "version": 1,
+ "questId": 30317,
+ "java": "greater_stigma/_30317GroupSpiritsandStigmaSlots.java",
+ "class": "_30317GroupSpiritsandStigmaSlots",
+ "javaSha256": "1e6347a41062ec71439ad9cd9da81d51fa55b9df909eac6145052961cfc82778",
+ "register": [
+  {"npc": 799208, "event": "addOnQuestStart", "args": [30317]},
+  {"npc": 799208, "event": "addOnTalkEvent", "args": [30317]},
+  {"npc": 799506, "event": "addOnTalkEvent", "args": [30317]},
+  {"npc": 799322, "event": "addOnTalkEvent", "args": [30317]}
+ ],
+ "hooks": [{"hook": "onDialogEvent", "line": 32, "unsupported": "call spawnForFiveMinutesInFrontOf"}],
+ "cases": []
+}

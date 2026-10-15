@@ -1831,6 +1831,50 @@ const std::set<std::string>& knownNotReproducible() {
 		"80341 onDialogEvent#85",
 		"80341 onDialogEvent#97",
 		"80341 onDialogEvent#109",
+		// Chunk Q13 (lane C, 2026-10-07). A COMPLETE state with canRepeat false, which max_repeat_count 255 never gives (as 1687's rows):
+		// 18209, 28209, 30263, 30363, 37000, 3722, 3725, 4722, 4725, 4940, 4941
+		"18209 onDialogEvent#3",
+		"18209 onDialogEvent#12",
+		"28209 onDialogEvent#3",
+		"28209 onDialogEvent#12",
+		"30263 onDialogEvent#3",
+		"30263 onDialogEvent#13",
+		"30363 onDialogEvent#3",
+		"30363 onDialogEvent#13",
+		"37000 onDialogEvent#7",
+		"37000 onDialogEvent#13",
+		"3722 onDialogEvent#3",
+		"3722 onDialogEvent#12",
+		"3725 onDialogEvent#3",
+		"3725 onDialogEvent#13",
+		"4722 onDialogEvent#3",
+		"4722 onDialogEvent#12",
+		"4725 onDialogEvent#3",
+		"4725 onDialogEvent#13",
+		"4940 onDialogEvent#3",
+		"4940 onDialogEvent#13",
+		"4941 onDialogEvent#3",
+		"4941 onDialogEvent#13",
+		// 37000 #1 #2 #4 #5: startQuest assumed true or false on an npc faction quest (npcfaction_id 8) of minlevel_permitted 99, as the
+		// mentor dailies of Q14 above
+		"37000 onDialogEvent#1",
+		"37000 onDialogEvent#2",
+		"37000 onDialogEvent#4",
+		"37000 onDialogEvent#5",
+		// 18510 and 28510 #14 (and its high end) #15: useQuestObject kills the target npc, which the pair of runs cannot share (as 1612)
+		"18510 onDialogEvent#14",
+		"18510 onDialogEvent#14@questState.vars.0=4",
+		"18510 onDialogEvent#15",
+		"28510 onDialogEvent#14",
+		"28510 onDialogEvent#14@questState.vars.0=4",
+		"28510 onDialogEvent#15",
+		// 3722 and 4722 onItemUseEvent#1: useQuestItem, which the replay does not model (as 11006)
+		"3722 onItemUseEvent#1",
+		"4722 onItemUseEvent#1",
+		// 4937 #37 #46: checkItemExistence(182207113) assumed true, an item the path's given does not hold (as 11289 #14); the overlay
+		// that holds it runs and compares the path
+		"4937 onDialogEvent#37",
+		"4937 onDialogEvent#46",
 		// The owner's decisions of 2026-10-07 on Q14, the five mentor dailies whose dialog hook the oracle traces (the other ten stop at
 		// `npc.getController()`): their templates are npc faction quests (npcfaction_id 9, 10, 11) of minlevel_permitted 99, so
 		// QuestService.startQuest's faction check (QuestService.java startQuest: the faction of the template active with this quest) holds in
@@ -1904,6 +1948,11 @@ const std::map<std::string, std::string>& knownVacuous() {
 	// COMPLETE while the quest has no state (a non-mission returns at once, AbstractQuestHandler.java:988-1004): the level hook never starts
 	// them (a Java bug kept, docs/deviations/Q02.md)
 	static const std::string ITEM_CHECK_FALSE = "checkItemExistence assumed false changes nothing (AbstractQuestHandler.java:576-609)";
+	// chunk Q13 (lane C, 2026-10-07)
+	static const std::string KILL_OTHER_TARGET = "defaultOnKillEvent of one npc (217819) while the path's target is none or another npc: it "
+		"changes nothing then (AbstractQuestHandler.java:726-747)";
+	static const std::string REWARD_DIALOG_IDLE = "sendQuestRewardDialog outside REWARD or at another npc than its reward npc: it does "
+		"nothing then (AbstractQuestHandler.java:1151-1164)";
 	static const std::string KILLS_ASSUMED_FALSE = "every kill helper of the path assumed false: it changes nothing then (AbstractQuestHandler.java "
 		"defaultOnKillEvent)";
 	static const std::map<std::string, std::string> known = [] {
@@ -1979,6 +2028,26 @@ const std::map<std::string, std::string>& knownVacuous() {
 		{"11227 onKillEvent#5", KILLS_ASSUMED_FALSE},
 		{"11289 onDialogEvent#15", ITEM_CHECK_FALSE},
 		{"11460 onDialogEvent#21", REMOVE_FALSE_REWARD_PAGE},
+		// chunk Q13 (lane C, 2026-10-07)
+		{"18208 onKillEvent#1", KILL_OTHER_TARGET},
+		{"18208 onKillEvent#8", KILL_OTHER_TARGET},
+		{"28208 onKillEvent#1", KILL_OTHER_TARGET},
+		{"28208 onKillEvent#8", KILL_OTHER_TARGET},
+		{"18301 onDialogEvent#18", IDLE_END},
+		{"28301 onDialogEvent#18", IDLE_END},
+		{"18400 onDialogEvent#11", IDLE_END},
+		{"18400 onDialogEvent#16", IDLE_END},
+		{"28400 onDialogEvent#11", IDLE_END},
+		{"28400 onDialogEvent#16", IDLE_END},
+		{"18405 onDialogEvent#4", REWARD_DIALOG_IDLE},
+		{"18405 onDialogEvent#14", REWARD_DIALOG_IDLE},
+		{"18405 onDialogEvent#15", REWARD_DIALOG_IDLE},
+		{"18405 onDialogEvent#16", REWARD_DIALOG_IDLE},
+		{"28405 onDialogEvent#4", REWARD_DIALOG_IDLE},
+		{"28405 onDialogEvent#14", REWARD_DIALOG_IDLE},
+		{"28405 onDialogEvent#15", REWARD_DIALOG_IDLE},
+		{"28405 onDialogEvent#16", REWARD_DIALOG_IDLE},
+		{"4937 onDialogEvent#38", ITEM_CHECK_FALSE},
 		};
 		// P6-Q slice 2 (Q10): the altgard and pandaemonium traces (GoldenKnownVacuousQ10.h)
 		for (const auto& [key, kind] : Q10_VACUOUS) {
@@ -2013,10 +2082,13 @@ const std::map<std::string, std::string>& knownUnported() {
  * Chunk Q02 (lane C): inggison 11031-11033 (a scheduled task that would throw; a status read after sendQuestNoneDialog), 11053
  * (tryDecreaseKinah), 11118 (getUseArea in the oracle; a status read after sendQuestNoneDialog). Chunk Q14 (lane C): steel_rake 3208
  * (QuestService.checkStartConditions; onCanAct's Object parameter), 3217, 3219, 3220, 4208, 4217, 4219, 4220 (an empty register(), no hook),
- * miragent_holy_templar 3939 (tryDecreaseKinah), 3940 (the packed getQuestVars().getQuestVars()), rentus_base 30553 (npc.getController())
+ * miragent_holy_templar 3939 (tryDecreaseKinah), 3940 (the packed getQuestVars().getQuestVars()), rentus_base 30553 (npc.getController()).
+ * Chunk Q13 (lane C): fenris_fang 4943 (tryDecreaseKinah), 4944 (the packed getQuestVars().getQuestVars()), greater_stigma 30217, 30317
+ * (spawnForFiveMinutesInFrontOf), black_cloud_traders 39505, 39510, 39515, 39520 (getController(); Rnd.chance in the kill hook)
  */
 constexpr int32_t ORACLE_REFUSES_EVERY_HOOK[] = {1205, 2132, 1640, 1647, 2925, 2938, 2952, 4966, 4967, 4968, 4969, 21004, 21027, 21033, 21036,
-	21071, 21105, 21249, 25052, 2798, 11031, 11032, 11033, 11053, 11118, 3208, 3217, 3219, 3220, 4208, 4217, 4219, 4220, 3939, 3940, 30553};
+	21071, 21105, 21249, 25052, 2798, 11031, 11032, 11033, 11053, 11118, 3208, 3217, 3219, 3220, 4208, 4217, 4219, 4220, 3939, 3940, 30553,
+	4943, 4944, 30217, 30317, 39505, 39510, 39515, 39520};
 
 TEST_F(GoldenQuestTraceTest, EveryExpectedDocumentHasAGeneratedHandlerAndEveryHandlerADocument) {
 	std::vector<int32_t> ids = expectedQuestIds();

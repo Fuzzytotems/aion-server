@@ -605,6 +605,9 @@ aion_gs_chunk(Q12 TARGET aion_gs_handlers_quest_q12 PHASE 6 ROOT handlers
 	PCH "aion/gameserver/handlers/quest/QuestPrelude.h")
 # Q13/Q14: the remaining small directories, split alphabetically (about 7.8k Java lines each). A new quest directory fails the ownership check
 # until it is added here.
+# Q13 (phase 6 step 2, lane C, 2026-10-07): all 87 handlers of its 20 directories, questgen's output (bannered, drift-tested by
+# tools/gen/tests/test_questgen_tree.py; kaisinel_academy's mentor dailies by rule stream-any-match). Their golden traces run in Q05's
+# harness (tests/quest_handlers_golden, GoldenQ13Handlers.cpp compiles them by #include); docs/deviations/Q13.md.
 aion_gs_chunk(Q13 TARGET aion_gs_handlers_quest_q13 PHASE 6 ROOT handlers
 	GLOBS "aion/gameserver/handlers/quest/{abyssal_splinter,alabaster_order,aturam_sky_fortress,bare_truth,black_cloud_traders,blood_crusade}/**"
 		"aion/gameserver/handlers/quest/{chantra_dredgion,charlirunerks_daemons,clash_of_destiny,danuar_sanctuary,empyrean_crucible,esoterrace}/**"
