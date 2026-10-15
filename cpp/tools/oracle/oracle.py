@@ -556,6 +556,12 @@ def cmd_m5i_sieges(args):
 	return 0
 
 
+def cmd_m5i_spots(args):
+	from m5i.spots import spots_report
+	sys.stdout.write(runner.dump_json(spots_report(_data_dir(args))))
+	return 0
+
+
 def cmd_cron_next(args):
 	import datetime as dt
 	from m5i.cron import next_fire_times
@@ -1039,6 +1045,10 @@ def main(argv=None):
 	p = sub.add_parser("m5i-sieges", help="the siege locations a server with sieges enabled holds and sends at login (m5i-plan.md 10.3 X1, X4)")
 	data_args(p, country=False)
 	p.set_defaults(fn=cmd_m5i_sieges)
+
+	p = sub.add_parser("m5i-spots", help="the gate's positions S1-S7 and the npc sets they see (m5i-plan.md 10.2, G-01)")
+	data_args(p, country=False)
+	p.set_defaults(fn=cmd_m5i_spots)
 
 	p = sub.add_parser("cron-next", help="the next fire times of a Quartz cron expression after an instant (m5i-plan.md Z-04)")
 	p.add_argument("--expr", required=True)

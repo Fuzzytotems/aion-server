@@ -1,6 +1,6 @@
 #include "aion/gameserver/model/rift/RiftLocation.h"
 
-#include "aion/gameserver/runtime/base/Unported.h"
+#include "aion/gameserver/model/gameobjects/VisibleObject.h"
 #include "aion/gameserver/model/templates/rift/RiftTemplate.h"
 #include "aion/gameserver/model/templates/spawns/SpawnTemplate.h"
 
@@ -14,28 +14,38 @@ runtime::Ref<RiftLocation> RiftLocation::create(const templates::rift::RiftTempl
 	return runtime::makeRef<RiftLocation>(value);
 }
 
+// Java RiftLocation.java:23-25
 int32_t RiftLocation::getId() {
-	AION_UNPORTED();
+	return template_->getId();
 }
 
+// Java RiftLocation.java:27-29
 int32_t RiftLocation::getWorldId() {
-	AION_UNPORTED();
+	return template_->getWorldId();
 }
 
+// Java RiftLocation.java:31-33
 bool RiftLocation::hasSpawns() {
-	AION_UNPORTED();
+	return template_->hasSpawns();
 }
 
+// Java RiftLocation.java:35-37
 bool RiftLocation::isAutoCloseable() {
-	AION_UNPORTED();
+	return template_->isAutoCloseable();
 }
 
+// Java RiftLocation.java:51-53
 void RiftLocation::addSpawned(gameobjects::VisibleObject& object) {
-	AION_UNPORTED();
+	spawned.put(object.getObjectId(), runtime::Ref<templates::spawns::SpawnTemplate>(object.getSpawn()));
 }
 
+// Java RiftLocation.java:55-61
 bool RiftLocation::replaceSpawned(int32_t oldObjectId, gameobjects::VisibleObject& newObject) {
-	AION_UNPORTED();
+	if (spawned.remove(oldObjectId)) {
+		addSpawned(newObject);
+		return true;
+	}
+	return false;
 }
 
 RiftLocation::~RiftLocation() = default;
