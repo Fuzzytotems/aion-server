@@ -1184,8 +1184,9 @@ leave through the door); L8 the maintenance cron's overdue notices (`$$HS_OVERDU
 tests/handlers_commands/C1/HousingCommandsTest.cpp (the syntax, the refusals before the services, a bad number, an unknown house type) and the
 gate's G0-G3 by a third account G at access level 9: `//auction` (auction an Elyos mansion, again, cancel, end, an unknown address), `//house`
 (list, own with G as his own target, own again, tp, reloadscripts, revoke, revoke again) and `//legion` on a seeded legion (info, setlevel and
-its range, setpoints, add A, kick A, rename, an unknown legion, disband). Proposed Java corrections: `//auction add` auctions maxCount + 1
-houses (`++counter > maxCount`); its help text names no `add` keyword, which the code requires; `//legion kick` of a player in no legion is a
+its range, setpoints, add A, kick A, rename, an unknown legion, disband). Corrected in the port (owner's decision 2026-10-13, both
+branches; docs/deviations/C1.md): `//auction add` auctioned maxCount + 1
+houses (`++counter > maxCount`); its help text named no `add` keyword, which the code requires; `//legion kick` of a player in no legion was a
 NullPointerException (`target.getLegionMember().isBrigadeGeneral()`).
 
 **H2-6 (lane B, 2026-10-13)**: the town level-up - `Town::increaseLevel` and `broadcastUpdate` (Town.java:109-131), reached through the
