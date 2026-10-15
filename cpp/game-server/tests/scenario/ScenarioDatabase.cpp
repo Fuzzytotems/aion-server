@@ -189,8 +189,9 @@ ScenarioDatabase::ScenarioDatabase(std::string urlValue, std::string userValue, 
 }
 
 void ScenarioDatabase::checkTestName(std::string_view database) {
-	if (!database.starts_with("aion_gs_test") && !database.starts_with("aion_ls_test"))
-		throw std::invalid_argument("refusing to change the database " + std::string(database) + " (only aion_gs_test* and aion_ls_test*)");
+	// gs.scenario.chat's own chat schema (m5j-plan.md §17.9) is aion_cs_test_chat_<hash>: aion_cs_test_*, never the shared aion_cs_test itself
+	if (!database.starts_with("aion_gs_test") && !database.starts_with("aion_ls_test") && !database.starts_with("aion_cs_test_"))
+		throw std::invalid_argument("refusing to change the database " + std::string(database) + " (only aion_gs_test*, aion_ls_test* and aion_cs_test_*)");
 }
 
 int32_t ScenarioDatabase::recreate(std::string_view database, const std::filesystem::path& sqlFile) const {
