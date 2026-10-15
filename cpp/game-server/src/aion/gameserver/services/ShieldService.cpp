@@ -8,18 +8,19 @@
 #include "aion/gameserver/dataholders/DataManager.h"
 #include "aion/gameserver/dataholders/ShieldData.h"
 #include "aion/gameserver/configs/main/GeoDataConfig.h"
+#include "aion/gameserver/controllers/observer/ShieldObserver.h"
 #include "aion/gameserver/geoEngine/bounding/BoundingBox.h"
 #include "aion/gameserver/geoEngine/math/Vector3f.h"
 #include "aion/gameserver/geoEngine/scene/Spatial.h"
 #include "aion/gameserver/model/geometry/Area.h"
 #include "aion/gameserver/model/geometry/RectangleArea.h"
+#include "aion/gameserver/model/siege/FortressLocation.h"
 #include "aion/gameserver/model/siege/SiegeLocation.h"
 #include "aion/gameserver/model/siege/SiegeShield.h"
 #include "aion/gameserver/model/siege/SiegeType.h"
 #include "aion/gameserver/model/templates/shield/ShieldTemplate.h"
 #include "aion/gameserver/model/templates/siegelocation/SiegeLocationTemplate.h"
 #include "aion/gameserver/runtime/base/TaskInfo.h"
-#include "aion/gameserver/runtime/base/Unported.h"
 #include "aion/gameserver/world/zone/SiegeZoneInstance.h"
 
 namespace aion::gameserver::services {
@@ -62,9 +63,12 @@ void ShieldService::logDetachedShields() {
 	}
 }
 
+// Java ShieldService.java:51-54: null without a sphere shield for the location (the caller tests it)
 runtime::Ref<controllers::observer::ShieldObserver> ShieldService::createShieldObserver(model::siege::FortressLocation& location,
 	model::gameobjects::Creature& observed) {
-	AION_UNPORTED();
+	const model::templates::shield::ShieldTemplate* shieldTemplate = sphereShields.get(location.getLocationId());
+	return shieldTemplate == nullptr ? runtime::Ref<controllers::observer::ShieldObserver>()
+	                                 : controllers::observer::ShieldObserver::create(location, shieldTemplate, observed);
 }
 
 runtime::Ptr<model::siege::SiegeShield> ShieldService::tryRegisterShield(int32_t worldId, geoEngine::scene::Spatial& geometry) {
