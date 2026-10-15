@@ -27,8 +27,6 @@
 #include "ControllersTestSupport.h"
 #include "aion/gameserver/model/gameobjects/player/AbyssRank.h"
 
-#include "aion/gameserver/model/gameobjects/player/AbyssRank.h"
-
 #include <cstdint>
 #include <deque>
 #include <memory>
@@ -557,12 +555,6 @@ TEST_F(AttackSeamTest, DoRewardTakesItsExperienceFromTheRealStatFunctions) {
  * (AbyssPointsService.java:25-31): the player's AP grows by exactly the real calculatePvEApGained of the single attacker (share 1.0).
  */
 TEST_F(AttackSeamTest, DoRewardPaysTheRealPvEApGained) {
- * question: `if (getOwner().getAi().ask(AIQuestion.REWARD_AP))`. m5b-plan.md D16 left AbyssPointsService.addAp AION_UNPORTED, and this case
- * asserted the throw; M5i ports it (m5i-plan.md D11, P5-12a's lease of AbyssPointsService.cpp), so the case now asserts the grant: the real
- * calculatePvEApGained answered a positive number and the kill variant of addAp added it to the player's abyss rank (and handed it to
- * SiegeService.onAbyssPointsAdded, which ignores an npc that is no SiegeNpc).
- */
-TEST_F(AttackSeamTest, DoRewardGrantsTheRealPvEApGainedThroughAbyssPointsService) {
 	CONTROLLERS_TEST_SCOPE;
 	Ref<ControllersTestNpc> npc = createFighter(fighterTemplate);
 	place(*npc, 500.0f, 500.0f, 10.0f);
@@ -571,8 +563,6 @@ TEST_F(AttackSeamTest, DoRewardGrantsTheRealPvEApGainedThroughAbyssPointsService
 	player->getCommonData()->setLevel(10);
 	// the abyss rank PlayerService.getPlayer loads (AbyssRankDAO.loadAbyssRank); this fixture's player has none
 	player->setAbyssRank(model::gameobjects::player::AbyssRank::create(0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0));
-	Ref<model::gameobjects::player::AbyssRank> abyssRank = model::gameobjects::player::AbyssRank::create(0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0);
-	player->setAbyssRank(abyssRank); // PlayerService.loadPlayer gives every character one (AbyssRankDAO)
 	place(*player, 502.0f, 500.0f, 10.0f);
 	ASSERT_TRUE(KnownListPairing::pair(*npc, *player));
 	npc->getAggroList().addDamage(*player, 150, true, skillengine::model::HopType::DAMAGE);
@@ -582,10 +572,6 @@ TEST_F(AttackSeamTest, DoRewardGrantsTheRealPvEApGainedThroughAbyssPointsService
 	const int32_t before = player->getAbyssRank()->getAp();
 	npc->recordingController().doReward();
 	EXPECT_EQ(player->getAbyssRank()->getAp() - before, ap);
-	ASSERT_GT(utils::stats::StatFunctions::calculatePvEApGained(*player, *npc), 0) << "so `rewardAp >= 1` and addAp is reached";
-	const int32_t apBefore = player->getAbyssRank()->getAp();
-	npc->recordingController().doReward();
-	EXPECT_GT(player->getAbyssRank()->getAp(), apBefore) << "AbyssPointsService::addAp granted the abyss points";
 }
 
 } // namespace
