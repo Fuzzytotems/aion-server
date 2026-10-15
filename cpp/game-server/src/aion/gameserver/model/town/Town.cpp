@@ -1,20 +1,25 @@
 #include "aion/gameserver/model/town/Town.h"
 
 #include <chrono>
+#include <unordered_map>
 
+#include "aion/commons/utils/TimeUtils.h"
 #include "aion/gameserver/controllers/NpcController.h"
 #include "aion/gameserver/dataholders/DataManager.h"
 #include "aion/gameserver/dataholders/TownSpawnsData.h"
 #include "aion/gameserver/model/Race.h"
 #include "aion/gameserver/model/gameobjects/Npc.h"
+#include "aion/gameserver/model/gameobjects/player/Player.h"
 #include "aion/gameserver/model/templates/spawns/Spawn.h"
 #include "aion/gameserver/model/templates/spawns/SpawnGroup.h"
 #include "aion/gameserver/model/templates/spawns/SpawnSpotTemplate.h"
 #include "aion/gameserver/model/templates/spawns/housing/TownSpawnTemplate.h"
+#include "aion/gameserver/network/aion/serverpackets/SM_TOWNS_LIST.h"
 #include "aion/gameserver/runtime/base/Exceptions.h"
-#include "aion/gameserver/runtime/base/Unported.h"
 #include "aion/gameserver/runtime/sync/Monitor.h"
 #include "aion/gameserver/spawnengine/SpawnEngine.h"
+#include "aion/gameserver/utils/PacketSendUtility.h"
+#include "aion/gameserver/world/World.h"
 #include "aion/gameserver/world/geo/GeoService.h"
 
 namespace aion::gameserver::model::town {
@@ -22,9 +27,9 @@ namespace aion::gameserver::model::town {
 using gameobjects::Persistable;
 
 Town::Town(int32_t value, int32_t levelValue, int32_t pointsValue, Race raceValue, std::optional<commons::database::Timestamp> levelUpDateValue)
-	// Java keeps the Timestamp the DAO read, which is null for a NULL towns.level_up_date; the frozen member is a plain Timestamp, so a null
-	// column becomes the epoch here. towns.level_up_date is NOT NULL (sql/aion_gs.sql), so Java never stores null (header-requests.md 5a-pre-5,
-	// and the deferred request below); docs/deviations/P5-11.md records the substitution
+	// Java keeps the Timestamp the DAO read, which is null for a NULL towns.level_up_date; the member is a plain Timestamp (header request
+	// m5h-t1), so a null column becomes the epoch here. towns.level_up_date is NOT NULL (sql/aion_gs.sql), so Java never stores null
+	// (header-requests.md 5a-pre-5); docs/deviations/P5-11.md records the substitution
 	: id(value), level(levelValue), points(pointsValue), levelUpDate(levelUpDateValue.value_or(commons::database::Timestamp{})), race(raceValue),
 	  persistentState(Persistable::PersistentState::UPDATED) {
 	// Java: this.spawnedNpcs = new ArrayList<>() is the member initializer
@@ -75,18 +80,26 @@ void Town::increasePoints(int32_t amount) {
 	}
 }
 
+// Java Town.java:109-116 (called from the synchronized increasePoints)
 void Town::increaseLevel() {
-	// Java: this.level++; this.levelUpDate.setTime(System.currentTimeMillis()); broadcastUpdate(); despawnOldObjects(); spawnNewObjects();
-	// GeoService.getInstance().updateTown(...). The levelUpDate member is `const` in the frozen header, so the Java mutation cannot be ported yet
-	// TODO(header-request): Town::levelUpDate as runtime::Field<std::optional<commons::database::Timestamp>> (the form the integrator asked for
-	// when the request is taken up; it also restores Java's null for a NULL column). Deferred to wave 5b: request economy-legion-1 was not
-	// approved for this wave because nothing on the M5a path levels a town up (towns level up through quests)
-	AION_UNPORTED();
+	this->level.set(this->level.get() + 1);
+	this->levelUpDate.set(commons::database::Timestamp(std::chrono::milliseconds(commons::utils::currentTimeMillis()))); // levelUpDate.setTime(now)
+	broadcastUpdate();
+	despawnOldObjects();
+	spawnNewObjects();
+	world::geo::GeoService::getInstance().updateTown(this->race, this->id, this->level.get());
 }
 
-// anonymous Consumer at Town.java:122 (model.town.Town$1); argument 1 of forEachPlayer(); storage: sync
+// Java Town.java:118-131. The anonymous Consumer of forEachPlayer (Town$1, storage: sync) is the lambda: forEachPlayer runs it before it
+// returns, so it captures the town and the packet by reference
 void Town::broadcastUpdate() {
-	AION_UNPORTED();
+	std::unordered_map<int32_t, runtime::Ptr<Town>> data; // Java: new HashMap<>(1)
+	data.emplace(this->id, runtime::Ptr<Town>(*this));
+	network::aion::serverpackets::SM_TOWNS_LIST packet(data);
+	world::World::getInstance().forEachPlayer([this, &packet](gameobjects::player::Player& player) {
+		if (player.getRace() == race)
+			utils::PacketSendUtility::sendPacket(player, packet);
+	});
 }
 
 void Town::spawnNewObjects() {

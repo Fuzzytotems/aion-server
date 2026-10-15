@@ -1187,3 +1187,10 @@ gate's G0-G3 by a third account G at access level 9: `//auction` (auction an Ely
 its range, setpoints, add A, kick A, rename, an unknown legion, disband). Proposed Java corrections: `//auction add` auctions maxCount + 1
 houses (`++counter > maxCount`); its help text names no `add` keyword, which the code requires; `//legion kick` of a player in no legion is a
 NullPointerException (`target.getLegionMember().isBrigadeGeneral()`).
+
+**H2-6 (lane B, 2026-10-13)**: the town level-up - `Town::increaseLevel` and `broadcastUpdate` (Town.java:109-131), reached through the
+synchronized `increasePoints`, after header request m5h-t1 (`levelUpDate` a `Field<Timestamp>`, granted 2026-10-13, with its fieldmap.toml
+override). Four unit cases in tests/legionhouse/TownLevelUpTest.cpp (no database: the level-up at 1,000 points with the date and the
+SM_TOWNS_LIST to the town's race only, the points below the threshold, every threshold up to level 5 and none after it, a DAO town levelling up
+from its stored level); 5 of 5 mutants killed. Not covered by them: the new level's spawns (the test levels have none) and GeoService.updateTown;
+the gate drives a level-up once a quest that grants town points runs in it.

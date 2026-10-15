@@ -29,7 +29,7 @@ private:
 	const int32_t id;
 	runtime::Field<int32_t> level{};
 	runtime::Field<int32_t> points{};
-	const commons::database::Timestamp levelUpDate;
+	runtime::Field<commons::database::Timestamp> levelUpDate; // header request m5h-t1: Java increaseLevel mutates it (setTime)
 	const Race race;
 	runtime::Field<gameobjects::Persistable::PersistentState> persistentState{};
 	runtime::ArrayList<runtime::Ref<gameobjects::Npc>> spawnedNpcs{AION_LOCK_CLASS(Town::spawnedNpcs)};
@@ -71,7 +71,7 @@ private:
 public:
 	Race getRace() const { return this->race; }
 
-	std::optional<commons::database::Timestamp> getLevelUpDate() const { return this->levelUpDate; }
+	std::optional<commons::database::Timestamp> getLevelUpDate() const { return this->levelUpDate.get(); }
 
 	gameobjects::Persistable::PersistentState getPersistentState() override { return this->persistentState.get(); }
 
