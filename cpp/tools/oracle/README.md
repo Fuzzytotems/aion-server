@@ -882,6 +882,18 @@ Daeva seed of a level (the ascension quests and exp of m5c/sanctum); and one sol
 calculatePvpApGained in Java float arithmetic, Rates.AP_PVP_LOST / AP_PVP with the membership's rate, AbyssRank.addAp's floor and the rank
 after. The arithmetic's Java statements are checked in the source first (a change fails the oracle). Tests: `tests/test_m5j_social.py`.
 
+## M5j items oracle (`m5j/items.py`, `docs/design/m5j-plan.md` §10.4 Z9-Z11, §18.3 H-21)
+
+`oracle.py m5j-items [--profile FILE | --no-profile] [--set KEY=VALUE ...] [--class C] [--race R] [--level N] [--map ID] [--message NAME ...]
+[--question NAME ...]` gives what `gs.scenario.m5j`'s stage-2 cases use: of the items a character of the class, race and level may use
+(PlayerRestrictions.canUseItem's template checks), the ride item with the lowest required level (its casting delay, ride npc and ride_info),
+the kisk item whose kisk has resurrections and a bind dialog (members > 1; KiskStatsTemplate's defaults for absent attributes), and the
+non-expiring pet egg whose pet has a pet_feed.xml flavour for its FOOD function (PetCommonData's constructor dereferences it: the NCSoft test
+flavours 1-6 are absent) and at most two of the specialties SM_PET writes; the map's zones with ZoneInstance.canPutKisk / canRide (a zone
+without flags takes the map's); the EmotionType and PetFunctionType ids; the ride and kisk restriction keys and the pet save period. A profile
+that leaves the ride restriction on for a map with zones that refuse riding, or a map with a zone that refuses a kisk, is refused (the spot's
+zones are not modelled). The Java statements the rules were written against are checked first. Tests: `tests/test_m5j_items.py`.
+
 ## Phase-6 golden quest traces (`questtrace/`, `docs/design/phase6-inventory.md` §7.6 item 3)
 
 `questtrace/extract.py` turns a Java quest handler into its expected behaviour, written from Java only: from the handler source,

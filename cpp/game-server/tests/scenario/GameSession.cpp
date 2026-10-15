@@ -408,6 +408,16 @@ std::vector<uint8_t> GameSession::buildCM_BUILDER_COMMAND(std::string_view comma
 	return PacketWriter().S(command).data; // AbstractGmCommandPacket.java:28
 }
 
+std::vector<uint8_t> GameSession::buildCM_PET_ADOPT(int32_t eggObjectId, int32_t templateId, int32_t decorationId, std::string_view petName) {
+	// CM_PET.readImpl ADOPT: readUH action, readD eggObjId, readD templateId, readUC unk2, readD unk3, readD decorationId, readD unk5, readD unk6,
+	// readS petName
+	return PacketWriter().H(PET_ADOPT).D(eggObjectId).D(templateId).C(0).D(0).D(decorationId).D(0).D(0).S(petName).data;
+}
+
+std::vector<uint8_t> GameSession::buildCM_PET(uint16_t action, int32_t templateId) {
+	return PacketWriter().H(action).D(templateId).data; // CM_PET.readImpl SURRENDER / SPAWN / DISMISS: readUH action, readD templateId
+}
+
 std::vector<uint8_t> GameSession::buildCM_SET_NOTE(std::string_view note) {
 	return PacketWriter().S(note).data; // CM_SET_NOTE.readImpl: readS note
 }

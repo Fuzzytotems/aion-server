@@ -1168,3 +1168,44 @@ and the two shutdown timings above. Then green in 133.7 s. **Mutation proof**: 1
 displayed; the duel arm of PlayerController.onDie skipped; the prison without its teleport; the ranking flags not reset by the update;
 rewardPlayerTeam not called; calculatePvPApLost's level arm of 3 dropped), **10 of 10 killed** (Z1; Z2; Z2; Z3; Z3; Z6; Z7; Z8; Z14; Z14),
 one gate_lock call per run. Sources restored and sha256-checked (10 files), rebuilt, the switch absent from the sources and the build tree.
+
+## M5j stage-2 gate (lane A, 2026-10-08): `gs.scenario.m5j` Z9-Z11 (m5j-plan.md §10.4, §18.3 CP5, G-21, H-21)
+
+The stage-1 gate's file grows the three stage-2 cases; every stage-1 case runs again in the same run. New harness parts (H-21):
+`decoders/PetKiskDecoders.{h,cpp}` (SM_PET in the arms LOAD_PETS, ADOPT, SURRENDER, SPAWN, DISMISS, FOOD, RENAME, MOOD and SPECIAL_FUNCTION,
+written from SM_PET.java's writeImpl, writePetData and writeAppearance; SM_KISK_UPDATE) with `PetKiskDecodersTest.cpp` (4 cases); the ride
+and kisk packets are the existing SM_EMOTION, SM_ITEM_USAGE_ANIMATION, SM_NPC_INFO, SM_BIND_POINT_INFO, SM_DIE and SM_DELETE decoders; the
+`GameSession` builders `buildCM_PET_ADOPT` and `buildCM_PET` (CM_PET.java's readImpl) with `GameSessionSocialTest.ThePetPackets`; and the
+oracle `oracle.py m5j-items` (`tools/oracle/m5j/items.py`, 9 tests; README). For the gate's level-1 Elyos Warrior it picks the ride item
+190100042 (casting delay 1 s, ride 2000025), the kisk item 184000005 ((E) Small Kisk, npc 700273: 6 members, 18 resurrections, casting
+delay 10 s) and the pet egg 190000020 (pet 900043, FOOD of flavour 7), and finds every zone of Poeta allowing a kisk.
+
+| Area | As built | Reason |
+|---|---|---|
+| Order | Z1 ... Z8, then Z9, Z11, Z10, then Z14 | A is the level-1 Warrior of stage 1 (every picked item needs level 1); Z10 ends with A's death and revive, which must come after the pet's relog and before Z14's |
+| Ride restriction | the gate key `gameserver.ride.restriction.enable = false` | Poeta's map has no RIDE flag and its zones (flags 7) none either: RideAction.canAct's zone arm refuses every spot of Poeta. The oracle models the map's zones, not the spot's, and refuses a profile that leaves the restriction on there |
+| Watcher | G (the GM beside A since the creation) | Z9's "a watcher" and Z11's summon: G sees A's broadcasts |
+| Z9 | `//add` (CP4) gives the item; the first use: the casting animation, STR_USE_ITEM, SM_EMOTION(CHANGE_SPEED, 0), SM_EMOTION(RIDE, npcId) and SM_ITEM_USAGE_ANIMATION(end 1, time 0) to A and G; the second: SM_EMOTION(RIDE_END) to both and no casting | RideAction.java:152-155, PlayerActions.java:55-56 |
+| Z11 | CM_PET ADOPT with the egg's object id; SM_PET ADOPT (name, template, master, no expiry, the specialties' ids) and the player_pets row; CM_PET SPAWN: SM_PET SPAWN to A and G; relog: SM_PET LOAD_PETS with the pet | the pet name is letters only (PET_NAME_PATTERN's default) |
+| Z10 | CM_USE_ITEM: the kisk's SM_NPC_INFO (A its creator, at A's position), KiskAI's STR_ASK_REGISTER_BINDSTONE; the answer: STR_BINDSTONE_REGISTER, SM_KISK_UPDATE (members 1 of 6, 18 resurrections, about 2 h) and SM_BIND_POINT_INFO type 4; G's `//kill` on A: SM_DIE with the kisk's lifetime; CM_REVIVE(KISK): SM_KISK_UPDATE with 17 resurrections and A's own SM_PLAYER_INFO at the kisk | §10.4's "revives at the kisk" is TeleportService.teleportTo on the same map: spawnOnSameMap (TeleportService.java:208-219) sends SM_CHANNEL_INFO and SM_PLAYER_INFO, no SM_PLAYER_SPAWN |
+| Z10's end | G targets the kisk and types `//delete` (Delete.java; a single-time spawn is not saved, SpawnsData.java:211): SM_DELETE of the kisk to A, STR_BINDSTONE_IS_REMOVED (KiskAI.handleDespawned) and the creator's SM_KISK_UPDATE (KiskService.removeKisk) | without it the kisk outlives the run (its 2 h despawn task and KiskService's maps hold it) and Z13's live counts name it: `Kisk` is a zero row of CheckOutput (a world object in Java, which keeps it too). Removing it is also CP2's removeKisk end to end |
+
+**Runs**: the first run found that the oracle's first pick (egg 190000001, pet 900001) has the FOOD function of flavour 6, which pet_feed.xml
+does not have ("Flavours with id 1-6 are NCSoft tests, not included"): PetCommonData's constructor throws NullPointerException after
+PetAdoptionService.adoptPet consumed the egg - the C++ server did exactly what Java does (its ERROR line named "PetFlavour 6 is null"). The
+oracle now requires a pet_feed.xml flavour (proposed Java correction J-CP5-1 below). Then a dangling pointer of the test (a `Packet*` into a
+temporary list, the stage-1 lesson again), the same-map revive's SM_PLAYER_INFO instead of SM_PLAYER_SPAWN, and the kisk's live count (the
+`//delete` above). Then green in 151 s with every stage-1 case, and 158 s after the mutation proof.
+
+**Mutation proof**: 10 mutants behind `AION_M5J2GATEMUT` in the game server (RideAction's dismount arm skipped; the RIDE emotion without the
+ride id; the adoption's SM_PET not sent; the pet not stored; no SM_PET list at login; the kisk binding at once without KiskAI's question;
+SM_DIE offering no kisk; kiskRevive without its teleport; a resurrection not counted; removeKisk's SM_KISK_UPDATE to the creator not sent),
+**10 of 10 killed** (Z9; Z9; Z11; Z11; Z11; Z10; Z10; Z10; Z10; Z10), one gate_lock call per run. The last one first survived: the
+respawn's own SM_KISK_UPDATE (PlayerController.see of A's kisk after the same-map revive) satisfied the check, which now drains A's packets
+before the `//delete` and asks for the update before STR_BINDSTONE_IS_REMOVED (KiskAI.handleDespawned's order); then killed. Sources
+restored and sha256-checked (9 files), rebuilt, the switch absent from the sources and the build tree.
+
+Proposed Java correction J-CP5-1 (behaviour kept): `PetAdoptionService.adoptPet` decreases the egg before `addPet`, whose PetCommonData
+constructor dereferences `PET_FEED_DATA.getFlavourById(...)` for the pet's FOOD function: an egg of a pet with a test flavour (1-6) is lost
+and the adoption ends with a NullPointerException. Correction: validateAdoption refuses a pet whose FOOD flavour is unknown (or the egg is
+taken only after the pet data was created).
