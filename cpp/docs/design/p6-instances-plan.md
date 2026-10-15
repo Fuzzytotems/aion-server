@@ -115,3 +115,8 @@ Smallest self-contained first; each is one commit with its tests and mutation pr
 > `tests/handlers_inst_1/SplinterAiTest.cpp` (11 cases, on the Abyssal Splinter map: the AIs spawn at its coordinates; a twin's cast needs an NpcAI
 > on the other twin); mutation proof 21 of 21. Java's AIActions.targetCreature(ai, null) (Yamennes or Pazuzu gone) clears the owner's target. Left
 > to a gate: the walks to a target, Kaluva's summons percentages, the pieces' effect checks, the casts' effects. Census I1: 434 -> 9 open bodies.
+> **Progress:** P6I-7a done (chunk I5): NightmareCircus and the nightmareCircus AIs (11). Tests: I5InstanceTest (4 circus cases: the waves and
+> bosses on their timers after movie 983, once; the destroy; Heiramune's death) and I5AiTest (6 cases); mutation proof 19 of 19 after two
+> strengthened cases. The walkers' DummyAI in the unit tests cannot walk (Java's ClassCastException, logged by the spawn task after the spawn). Left
+> to a gate: the walks, the casts and effects, the crates' loot. Census I5: 443 -> 184 open bodies (left: Raksang Ruins, the Rentus Bases and their
+> AIs).

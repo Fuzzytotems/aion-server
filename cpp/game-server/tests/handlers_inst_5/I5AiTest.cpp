@@ -20,6 +20,17 @@
 #include "aion/gameserver/handlers/ai/instance/danuarReliquary/ModorsCloneAI.h"
 #include "aion/gameserver/handlers/ai/instance/danuarReliquary/ModorsPositionIndicatorAI.h"
 #include "aion/gameserver/handlers/ai/instance/danuarReliquary/VengefulOrbAI.h"
+#include "aion/gameserver/handlers/ai/instance/nightmareCircus/CircusBoxesAI.h"
+#include "aion/gameserver/handlers/ai/instance/nightmareCircus/EnragedNightmareAI.h"
+#include "aion/gameserver/handlers/ai/instance/nightmareCircus/HarlequinLordReshkaAI.h"
+#include "aion/gameserver/handlers/ai/instance/nightmareCircus/HarlequinLordReshkaSummonAI.h"
+#include "aion/gameserver/handlers/ai/instance/nightmareCircus/MistressViloaAI.h"
+#include "aion/gameserver/handlers/ai/instance/nightmareCircus/NightmareCrateAI.h"
+#include "aion/gameserver/handlers/ai/instance/nightmareCircus/NightmareHarlequinAI.h"
+#include "aion/gameserver/handlers/ai/instance/nightmareCircus/NightmareLordHeiramuneAI.h"
+#include "aion/gameserver/handlers/ai/instance/nightmareCircus/NightmareLordHeiramuneCloneAI.h"
+#include "aion/gameserver/handlers/ai/instance/nightmareCircus/SolidIronChainAI.h"
+#include "aion/gameserver/handlers/ai/instance/nightmareCircus/YumeAI.h"
 #include "aion/gameserver/handlers/ai/instance/sauroBase/BrigadeGeneralShebaAI.h"
 #include "aion/gameserver/handlers/ai/instance/sauroBase/GuardCaptainAhuradim.h"
 #include "aion/gameserver/handlers/ai/instance/sauroBase/GuardCaptainAhuradimGenerator.h"
@@ -35,6 +46,10 @@
 #include "aion/gameserver/ai/poll/AIQuestion.h"
 #include "aion/gameserver/model/DialogAction.h"
 #include "aion/gameserver/network/aion/serverpackets/SM_DIALOG_WINDOW.h"
+#include "aion/gameserver/network/aion/serverpackets/SM_PLAY_MOVIE.h"
+#include "aion/gameserver/network/aion/serverpackets/SM_SYSTEM_MESSAGE.h"
+#include "aion/gameserver/model/stats/container/NpcLifeStats.h"
+#include "aion/gameserver/controllers/attack/AggroList.h"
 #include "aion/gameserver/skillengine/model/SkillTemplate.h"
 
 namespace aion::gameserver::handlers::ai::instance::danuarReliquary {
@@ -46,6 +61,19 @@ namespace aion::gameserver::handlers::ai::instance::danuarReliquary {
 ::aion::gameserver::handlers::AIFactory ModorsPositionIndicatorAI_aiFactory;
 ::aion::gameserver::handlers::AIFactory VengefulOrbAI_aiFactory;
 } // namespace aion::gameserver::handlers::ai::instance::danuarReliquary
+namespace aion::gameserver::handlers::ai::instance::nightmareCircus {
+::aion::gameserver::handlers::AIFactory CircusBoxesAI_aiFactory;
+::aion::gameserver::handlers::AIFactory EnragedNightmareAI_aiFactory;
+::aion::gameserver::handlers::AIFactory HarlequinLordReshkaAI_aiFactory;
+::aion::gameserver::handlers::AIFactory HarlequinLordReshkaSummonAI_aiFactory;
+::aion::gameserver::handlers::AIFactory MistressViloaAI_aiFactory;
+::aion::gameserver::handlers::AIFactory NightmareCrateAI_aiFactory;
+::aion::gameserver::handlers::AIFactory NightmareHarlequinAI_aiFactory;
+::aion::gameserver::handlers::AIFactory NightmareLordHeiramuneAI_aiFactory;
+::aion::gameserver::handlers::AIFactory NightmareLordHeiramuneCloneAI_aiFactory;
+::aion::gameserver::handlers::AIFactory SolidIronChainAI_aiFactory;
+::aion::gameserver::handlers::AIFactory YumeAI_aiFactory;
+} // namespace aion::gameserver::handlers::ai::instance::nightmareCircus
 namespace aion::gameserver::handlers::ai::instance::sauroBase {
 ::aion::gameserver::handlers::AIFactory BrigadeGeneralShebaAI_aiFactory;
 ::aion::gameserver::handlers::AIFactory GuardCaptainAhuradim_aiFactory;
@@ -70,6 +98,8 @@ namespace ais = ::aion::gameserver::handlers::ai::instance;
 using model::gameobjects::Npc;
 using gameserver::ai::poll::AIQuestion;
 using network::aion::serverpackets::SM_DIALOG_WINDOW;
+using network::aion::serverpackets::SM_PLAY_MOVIE;
+using network::aion::serverpackets::SM_SYSTEM_MESSAGE;
 
 // the protected handlers the cases drive directly (Java: the AI's events)
 struct ShebaProbe : ais::sauroBase::BrigadeGeneralShebaAI {
@@ -120,6 +150,30 @@ struct VengefulOrbProbe : ais::danuarReliquary::VengefulOrbAI {
 	using VengefulOrbAI::VengefulOrbAI;
 	using VengefulOrbAI::handleSpawned;
 	using VengefulOrbAI::handleDespawned;
+};
+
+struct CircusBoxesProbe : ais::nightmareCircus::CircusBoxesAI {
+	using CircusBoxesAI::CircusBoxesAI;
+	using CircusBoxesAI::handleSpawned;
+	using CircusBoxesAI::handleDespawned;
+};
+struct ReshkaProbe : ais::nightmareCircus::HarlequinLordReshkaAI {
+	using HarlequinLordReshkaAI::HarlequinLordReshkaAI;
+	using HarlequinLordReshkaAI::handleSpawned;
+	using HarlequinLordReshkaAI::handleDied;
+};
+struct HeiramuneProbe : ais::nightmareCircus::NightmareLordHeiramuneAI {
+	using NightmareLordHeiramuneAI::NightmareLordHeiramuneAI;
+	using NightmareLordHeiramuneAI::handleAttack;
+	using NightmareLordHeiramuneAI::handleDied;
+};
+struct ChainProbe : ais::nightmareCircus::SolidIronChainAI {
+	using SolidIronChainAI::SolidIronChainAI;
+	using SolidIronChainAI::handleDespawned;
+};
+struct CrateProbe : ais::nightmareCircus::NightmareCrateAI {
+	using NightmareCrateAI::NightmareCrateAI;
+	using NightmareCrateAI::handleUseItemFinish;
 };
 
 class I5AiTest : public InstanceHandlerTest {
@@ -456,6 +510,98 @@ TEST_F(I5AiTest, EnragedAndCrazedModorsAdds) {
 	crazedAi.onEndUseSkill(skill(21165), 1);
 	EXPECT_EQ(count(856493) + count(856494), 2u);
 	EXPECT_EQ(count(856495), 2u);
+}
+
+/** The eleven nightmareCircus AION_AI factories build their classes */
+TEST_F(I5AiTest, TheCircusFactoriesBuildTheirClasses) {
+	runtime::Ptr<Npc> npc = place(900200);
+	EXPECT_NE(dynamic_cast<ais::nightmareCircus::CircusBoxesAI*>(ais::nightmareCircus::CircusBoxesAI_aiFactory(*npc).get()), nullptr);
+	EXPECT_NE(dynamic_cast<ais::nightmareCircus::EnragedNightmareAI*>(ais::nightmareCircus::EnragedNightmareAI_aiFactory(*npc).get()), nullptr);
+	EXPECT_NE(dynamic_cast<ais::nightmareCircus::HarlequinLordReshkaAI*>(ais::nightmareCircus::HarlequinLordReshkaAI_aiFactory(*npc).get()), nullptr);
+	EXPECT_NE(dynamic_cast<ais::nightmareCircus::HarlequinLordReshkaSummonAI*>(
+		          ais::nightmareCircus::HarlequinLordReshkaSummonAI_aiFactory(*npc).get()),
+		nullptr);
+	EXPECT_NE(dynamic_cast<ais::nightmareCircus::MistressViloaAI*>(ais::nightmareCircus::MistressViloaAI_aiFactory(*npc).get()), nullptr);
+	EXPECT_NE(dynamic_cast<ais::nightmareCircus::NightmareCrateAI*>(ais::nightmareCircus::NightmareCrateAI_aiFactory(*npc).get()), nullptr);
+	EXPECT_NE(dynamic_cast<ais::nightmareCircus::NightmareHarlequinAI*>(ais::nightmareCircus::NightmareHarlequinAI_aiFactory(*npc).get()), nullptr);
+	EXPECT_NE(dynamic_cast<ais::nightmareCircus::NightmareLordHeiramuneAI*>(
+		          ais::nightmareCircus::NightmareLordHeiramuneAI_aiFactory(*npc).get()),
+		nullptr);
+	EXPECT_NE(dynamic_cast<ais::nightmareCircus::NightmareLordHeiramuneCloneAI*>(
+		          ais::nightmareCircus::NightmareLordHeiramuneCloneAI_aiFactory(*npc).get()),
+		nullptr);
+	EXPECT_NE(dynamic_cast<ais::nightmareCircus::SolidIronChainAI*>(ais::nightmareCircus::SolidIronChainAI_aiFactory(*npc).get()), nullptr);
+	EXPECT_NE(dynamic_cast<ais::nightmareCircus::YumeAI*>(ais::nightmareCircus::YumeAI_aiFactory(*npc).get()), nullptr);
+}
+
+/** SolidIronChainAI.java:20-29: it does not think; its despawn plays movie 983 */
+TEST_F(I5AiTest, TheChainsDespawnPlaysTheMovie) {
+	runtime::Ptr<Npc> chain = place(900200);
+	ChainProbe& ai = install<ChainProbe>(*chain);
+	EXPECT_FALSE(ai.canThink());
+	ai.handleDespawned();
+	EXPECT_EQ(countSent(serialized(SM_PLAY_MOVIE(false, 0, 0, 983, true))), 1);
+}
+
+/** CircusBoxesAI.java:24-75: 33 s after its spawn a terror box goes and lets out 3 to 5 jesters; another box lets out none; the despawn takes
+ * the jesters */
+TEST_F(I5AiTest, ACircusBoxLetsOutItsJesters) {
+	runtime::Ptr<Npc> box = place(831348);
+	CircusBoxesProbe& ai = install<CircusBoxesProbe>(*box);
+	ai.handleSpawned();
+	executor().advance(std::chrono::milliseconds(32999));
+	EXPECT_TRUE(box->isSpawned());
+	executor().advance(std::chrono::milliseconds(1));
+	EXPECT_FALSE(box->isSpawned());
+	EXPECT_GE(count(233462), 3u);
+	EXPECT_LE(count(233462), 5u);
+	ai.handleDespawned();
+	EXPECT_EQ(count(233462), 0u);
+	runtime::Ptr<Npc> other = place(900200);
+	CircusBoxesProbe& otherAi = install<CircusBoxesProbe>(*other);
+	otherAi.handleSpawned();
+	executor().advance(std::chrono::seconds(33));
+	EXPECT_EQ(count(233462) + count(233463), 0u);
+}
+
+/** HarlequinLordReshkaAI.java:27-91: twelve terror boxes at once, twelve nightmare boxes after 36 s; his death takes the boxes */
+TEST_F(I5AiTest, ReshkasBoxes) {
+	publishSkills({21477});
+	runtime::Ptr<Npc> reshka = place(900200);
+	ReshkaProbe& ai = install<ReshkaProbe>(*reshka);
+	ai.handleSpawned();
+	EXPECT_EQ(count(831348), 12u);
+	executor().advance(std::chrono::milliseconds(35999));
+	EXPECT_EQ(count(831349), 0u);
+	executor().advance(std::chrono::milliseconds(1));
+	EXPECT_EQ(count(831349), 12u);
+	ai.handleDied();
+	EXPECT_EQ(count(831348) + count(831349), 0u);
+}
+
+/** NightmareLordHeiramuneAI.java:27-88: below 80 % HP two helpers at once and every 20 s; his death takes them */
+TEST_F(I5AiTest, HeiramunesHelpers) {
+	runtime::Ptr<Npc> heiramune = place(900200);
+	HeiramuneProbe& ai = install<HeiramuneProbe>(*heiramune);
+	InstanceKnownListPairing::pair(*heiramune, player());
+	heiramune->getAggroList().addDamage(player(), 1, true, std::nullopt);
+	heiramune->getLifeStats()->setCurrentHpPercent(79);
+	ai.handleAttack(runtime::Ptr<model::gameobjects::Creature>(player()));
+	executor().advance(std::chrono::milliseconds(0));
+	EXPECT_EQ(count(233457), 2u);
+	executor().advance(std::chrono::seconds(20));
+	EXPECT_EQ(count(233457), 4u);
+	ai.handleDied();
+	EXPECT_EQ(count(233457), 0u);
+}
+
+/** NightmareCrateAI.java:31-51: without keys the treasure box message */
+TEST_F(I5AiTest, ACrateWantsKeys) {
+	runtime::Ptr<Npc> crate = place(831745);
+	CrateProbe& ai = install<CrateProbe>(*crate);
+	ai.handleUseItemFinish(player());
+	EXPECT_EQ(countSent(serialized(SM_SYSTEM_MESSAGE::STR_IDEVENT01_TREASUREBOX())), 1);
+	EXPECT_TRUE(crate->isSpawned());
 }
 
 } // namespace
