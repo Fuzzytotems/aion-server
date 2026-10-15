@@ -1,5 +1,6 @@
 #include <gtest/gtest.h>
 
+#include <algorithm>
 #include <atomic>
 #include <set>
 #include <thread>
@@ -237,6 +238,29 @@ TEST(NioServerTest, ShutdownClosesAllConnectionsGracefully) {
 	server.connection(0)->close();
 	server.server->shutdown(); // second call does nothing
 	EXPECT_EQ(server.probe->serverCloseCount, 3);
+}
+
+// snapshotConnections (C++ addition for //debug, handlers-and-porting-plan.md:305): the registered connections that are not disconnected yet
+TEST(NioServerTest, SnapshotConnectionsListsTheActiveConnections) {
+	TestServer server;
+	server.start(2);
+	EXPECT_TRUE(server.server->snapshotConnections().empty());
+	std::vector<std::unique_ptr<TestClient>> clients;
+	for (int i = 0; i < 3; i++)
+		clients.push_back(std::make_unique<TestClient>(server.port));
+	ASSERT_TRUE(waitUntil([&] { return server.server->getActiveConnectionCount() == 3 && server.connection(2) != nullptr; }));
+	std::vector<std::shared_ptr<aion::commons::network::AConnectionBase>> snapshot = server.server->snapshotConnections();
+	ASSERT_EQ(snapshot.size(), 3u);
+	for (size_t i = 0; i < 3; i++)
+		EXPECT_EQ(std::count(snapshot.begin(), snapshot.end(), std::static_pointer_cast<aion::commons::network::AConnectionBase>(server.connection(i))), 1) << i;
+
+	server.connection(1)->close();
+	ASSERT_TRUE(waitUntil([&] { return server.server->getActiveConnectionCount() == 2; }));
+	snapshot = server.server->snapshotConnections();
+	ASSERT_EQ(snapshot.size(), 2u);
+	EXPECT_EQ(std::count(snapshot.begin(), snapshot.end(), std::static_pointer_cast<aion::commons::network::AConnectionBase>(server.connection(1))), 0) << "disconnected";
+	server.server->shutdown();
+	EXPECT_TRUE(server.server->snapshotConnections().empty());
 }
 
 TEST(NioServerTest, ShutdownDisconnectsConnectionsIgnoringServerClose) {

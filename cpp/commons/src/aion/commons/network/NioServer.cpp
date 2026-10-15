@@ -499,4 +499,9 @@ size_t NioServer::getActiveConnectionCount() const {
 	return context->activeConnections.size();
 }
 
+std::vector<std::shared_ptr<AConnectionBase>> NioServer::snapshotConnections() const {
+	std::lock_guard lock(context->mutex);
+	return {context->activeConnections.begin(), context->activeConnections.end()};
+}
+
 } // namespace aion::commons::network

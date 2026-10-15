@@ -51,6 +51,9 @@
 //       destination (GoTo.java:46), //movetoobj's number check (MoveToObject.java:30, :35) and //moveplayertoplayer's syntax
 //       (MovePlayerToPlayer.java:24); CP6 part 2: //quest of an id without a quest (Quest.java:72); //access level reset (Access.java:73), //event list (Event.java:77), //sysmail to an unknown @ group (SysMail.java:83); part 3: //dropinfo all on a spawned //ai set base npc (its "[... 's drops]" head and
 //       its "N total drops available in M drop groups." tail, DropInfo.java:48, :81), then its //delete;
+//   Z18 (stage 4 CP4, the system commands) G's //bookmark del of a missing name and deleteAll (Bookmark.java:31, :36); //debug connections,
+//       connectedPlayers and dcBuggedPlayers on the running server (Debug.java:40, :43, :55: the client list, the player count head, no
+//       bugged player); //reload ai, commands and config (Reload.java:76, :79, :82), the config reload last (the -D keys stay);
 //   Z14 A relogs as a level-10 Daeva with 1000 AP; G2 enters beside A, types //enemy cancel and //kill on A: A dies, A's AP and G2's AP change
 //       by the oracle's calculatePvPApLost / calculatePvpApGained (m5j-social), SM_ABYSS_RANK and the AP system messages to both;
 //   Z13 the reports (the M5a Q8 bar), with no Player alive after the logouts.
@@ -1713,6 +1716,32 @@ void runM5jGate() {
 		EXPECT_TRUE(waitForPacket(*a.game, aFrom, "SM_DELETE", [&](const Packet& p) {
 			return decoders::decodeDelete(p.data).objectId == dropNpcObject;
 		}, 10s)) << "//delete of the //dropinfo npc";
+	});
+
+	// ---- Z18: the system commands (stage 4 CP4) ----
+	runCase("Z18", "G's //bookmark, //debug and //reload answer from the Java literals on the running server", [&] {
+		const auto says = [&](const std::string& command, const std::vector<std::string>& answers) {
+			const size_t gFrom = g.mark();
+			g.say(command);
+			for (const std::string& answer : answers)
+				EXPECT_TRUE(waitForInfo(*g.game, gFrom, answer, 10s)) << command << ": " << answer << " | G: " << join(infoTexts(g.since(gFrom)), " | ");
+		};
+		const auto startsWith = [&](const std::string& command, const std::string& head) {
+			const size_t gFrom = g.mark();
+			g.say(command);
+			EXPECT_TRUE(waitForMessage(*g.game, gFrom, [&](const decoders::Message& m) {
+				return m.chatType == CHAT_GOLDEN_YELLOW && m.senderObjectId == 0 && m.message.starts_with(head);
+			}, 10s)) << command << ": " << head << " | G: " << join(infoTexts(g.since(gFrom)), " | ");
+		};
+		says("//bookmark del no such place", {"No bookmark with that name was found."}); // Bookmark.java:31
+		says("//bookmark deleteAll", {"All bookmarks have been deleted. The bookmarks list will be updated after relog."}); // Bookmark.java:36
+		startsWith("//debug connections", "Online clients:"); // Debug.java:40
+		startsWith("//debug connectedPlayers", "Connected players ("); // Debug.java:43
+		says("//debug dcBuggedPlayers", {"No bugged players found."}); // Debug.java:55 (every client is in the world)
+		says("//reload ai", {"AI successfully reloaded!"}); // Reload.java:76
+		says("//reload commands", {"Chat commands successfully reloaded!"}); // Reload.java:79
+		says("//bookmark deleteAll", {"All bookmarks have been deleted. The bookmarks list will be updated after relog."}); // a reloaded command
+		says("//reload config", {"Configs successfully reloaded!"}); // Reload.java:82
 	});
 
 	// ---- Z14: a PvP kill ----
