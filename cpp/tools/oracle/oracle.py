@@ -530,6 +530,14 @@ def cmd_m5f_travel(args):
 	return 0
 
 
+def cmd_m5h_legion(args):
+	from m5h.legion import legion_report
+	data_dir = _data_dir(args)
+	java_src = Path(args.java_src) if args.java_src else data_dir.parent.parent / "src"
+	sys.stdout.write(runner.dump_json(legion_report(java_src, args.message or [], args.question or [])))
+	return 0
+
+
 def cmd_m5g_team(args):
 	from m5a.data import StaticData
 	from m5g.team import team_report
@@ -947,6 +955,13 @@ def main(argv=None):
 	p.add_argument("--message", nargs="+", action="extend", metavar="NAME", help="SM_SYSTEM_MESSAGE ids to look up by name")
 	p.add_argument("--question", nargs="+", action="extend", metavar="NAME", help="SM_QUESTION_WINDOW ids to look up by name")
 	p.set_defaults(fn=cmd_m5g_team)
+	p = sub.add_parser("m5h-legion", help="the legion gate's constants: message and question ids, the legion enums, the emblem chunk size and "
+	                                      "the announcement limit (m5h-plan.md G-01)")
+	data_args(p, country=False)
+	p.add_argument("--java-src", help="game-server/src (default: two levels above the static data directory, then src)")
+	p.add_argument("--message", nargs="+", action="extend", metavar="NAME", help="SM_SYSTEM_MESSAGE ids to look up by name")
+	p.add_argument("--question", nargs="+", action="extend", metavar="NAME", help="SM_QUESTION_WINDOW ids to look up by name")
+	p.set_defaults(fn=cmd_m5h_legion)
 
 	p = sub.add_parser("m5j-commands", help="the chat commands: access levels, aliases, descriptions and syntax from the Java constructors, the "
 	                                        "rendered help after ChatUtil.split, the access message, ChatType ids, l10n code units, the whisper "
