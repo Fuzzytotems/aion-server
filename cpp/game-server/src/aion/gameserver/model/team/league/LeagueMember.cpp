@@ -21,6 +21,10 @@ std::string LeagueMember::getName() {
 	return alliance->getName();
 }
 
+alliance::PlayerAlliance& LeagueMember::getAlliance() const {
+	return *alliance;
+}
+
 runtime::Ptr<gameobjects::AionObject> LeagueMember::getObject() {
 	return runtime::Ptr<gameobjects::AionObject>(alliance);
 }

@@ -22,6 +22,10 @@ std::string PlayerTeamMember::getName() {
 	return player->getName();
 }
 
+gameobjects::player::Player& PlayerTeamMember::getPlayer() const {
+	return *player;
+}
+
 runtime::Ptr<gameobjects::AionObject> PlayerTeamMember::getObject() {
 	return runtime::Ptr<gameobjects::AionObject>(player);
 }

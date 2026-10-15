@@ -40,8 +40,8 @@ public:
 	/** Java return type PlayerAlliance (the TeamMember<PlayerAlliance> binding) */
 	runtime::Ptr<gameobjects::AionObject> getObject() override;
 
-	/** Narrowing accessor: Java getObject() of TeamMember<PlayerAlliance> */
-	alliance::PlayerAlliance& getAlliance() const { return *alliance; }
+	/** Narrowing accessor: Java getObject() of TeamMember<PlayerAlliance> (defined in the .cpp: dereferencing the Ref needs the complete PlayerAlliance) */
+	alliance::PlayerAlliance& getAlliance() const;
 
 	void setLeaguePosition(int32_t value) { leaguePosition.set(value); }
 
