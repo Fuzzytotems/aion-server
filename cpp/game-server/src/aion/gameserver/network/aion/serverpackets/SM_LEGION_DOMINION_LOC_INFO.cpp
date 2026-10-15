@@ -1,3 +1,4 @@
+#include "aion/gameserver/model/team/legion/LegionEmblemTypeInfo.h"
 #include "aion/gameserver/network/aion/serverpackets/SM_LEGION_DOMINION_LOC_INFO.h"
 
 #include <string>
@@ -25,7 +26,7 @@ void SM_LEGION_DOMINION_LOC_INFO::writeImpl(AionConnection* con) {
 		writeD(loc->getLocationId());
 		writeD(loc->getLegionId());
 		writeC(emblem->getEmblemId());
-		writeC(detail::legionEmblemTypeValue(emblem->getEmblemType()));
+		writeC(model::team::legion::getValue(emblem->getEmblemType()));
 		writeC(emblem->getColor_a());
 		writeC(emblem->getColor_r());
 		writeC(emblem->getColor_g());
