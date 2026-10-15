@@ -22,10 +22,11 @@ namespace aion::gameserver::handlers::admincommands {
 
 AION_ADMIN_COMMAND(Auction);
 
+// correction (owner's decision 2026-10-13): Java's help (Auction.java:27-28) names no "add" keyword, which execute requires (:95)
 Auction::Auction()
 	: AdminCommand("auction", "Adds or removes houses to/from auction.", R"(<address> [starting price] - Auctions the given house.
-<zone> <house type> <count> [starting price] - Auctions free houses of given type that are in the specified zone.
-<asmo|ely> <house type> <count> [starting price] - Auctions free asmodian or elysean houses of given type.
+add <zone> <house type> <count> [starting price] - Auctions free houses of given type that are in the specified zone.
+add <asmo|ely> <house type> <count> [starting price] - Auctions free asmodian or elysean houses of given type.
 end <address|zone> - Ends the auction for given house(s), transferring ownership to the highest bidder.
 cancel <address|zone> - Cancels the auction for given house(s).
 Zone: Zone name from zones xml files
@@ -148,8 +149,9 @@ void Auction::execute(Player& admin, std::span<const std::string> params) {
 		int32_t counter = 0;
 		std::shuffle(houses.begin(), houses.end(), commons::utils::Rnd::generator()); // Java: Collections.shuffle
 		for (const runtime::Ptr<House>& house : houses) {
-			// java-bug (kept): the loop breaks only once counter exceeds maxCount, so maxCount + 1 houses go to auction (a proposed correction)
-			if (HousingBidService::getInstance().auction(*house, price) && ++counter > maxCount)
+			// correction (owner's decision 2026-10-13): Java breaks on ++counter > maxCount (Auction.java:134), so maxCount + 1 houses went to
+			// auction; the port stops at maxCount
+			if (HousingBidService::getInstance().auction(*house, price) && ++counter >= maxCount)
 				break;
 		}
 

@@ -1538,7 +1538,7 @@ void runM5h2Gate() {
 	const auto houseRow = [&](std::string_view column) {
 		return count("SELECT " + std::string(column) + " FROM houses WHERE address = " + mansionText);
 	};
-	runCase("G1", "//auction: the mansion auctioned, again (refused), cancelled, ended (not for sale); an unknown address", [&] {
+	runCase("G1", "//auction: the mansion auctioned, again (refused), cancelled, ended (not for sale); an unknown address; add (at most the count)", [&] {
 		std::vector<std::string> texts = gm("//auction " + mansionText + " 120000");
 		EXPECT_EQ(said(texts, "Address " + mansionText + " was auctioned successfully."), 1);
 		const int64_t mansionId = houseRow("id");
@@ -1553,6 +1553,18 @@ void runM5h2Gate() {
 		EXPECT_EQ(said(texts, "The house is not for sale."), 1);
 		texts = gm("//auction 99999");
 		EXPECT_EQ(said(texts, "Invalid address."), 1);
+		// //auction add: at most the count (correction, owner's decision 2026-10-13: Java auctioned count + 1, Auction.java:134); the two
+		// mansions are cancelled again so G2's mansion is free
+		texts = gm("//auction add elyos mansion 2 130000");
+		EXPECT_EQ(said(texts, "Auctioned 2 mansions for a starting price of 130000 Kinah."), 1);
+		EXPECT_EQ(count("SELECT COUNT(*) FROM house_bids WHERE bid = 130000"), 2) << "two initial offers";
+		for (const char* pick : {"MIN", "MAX"}) {
+			const int64_t address = count(std::string("SELECT ") + pick +
+			                              "(h.address) FROM houses h JOIN house_bids b ON b.house_id = h.id WHERE b.bid = 130000");
+			if (address > 0)
+				EXPECT_EQ(said(gm("//auction cancel " + std::to_string(address)), "Canceled auction for mansion " + std::to_string(address)), 1);
+		}
+		EXPECT_EQ(count("SELECT COUNT(*) FROM house_bids WHERE bid = 130000"), 0);
 	});
 
 	runCase("G2", "//house: list; own (G targets himself), own again (refused), tp, reloadscripts, revoke, revoke again (refused)", [&] {

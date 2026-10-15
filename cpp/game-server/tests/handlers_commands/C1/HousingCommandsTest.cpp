@@ -12,6 +12,8 @@
 #include "aion/gameserver/handlers/admincommands/Auction.h"
 #include "aion/gameserver/handlers/admincommands/HouseCommand.h"
 #include "aion/gameserver/handlers/admincommands/LegionCommand.h"
+#include "aion/gameserver/utils/ChatUtil.h"
+#include "aion/gameserver/world/World.h"
 
 #include "aion/commons/utils/WindowsMacroGuard.h" // after all headers that may include windows.h
 
@@ -28,7 +30,24 @@ protected:
 		configs::administration::CommandsConfig::ACCESS_LEVELS.set(levels);
 	}
 
+	void TearDown() override {
+		for (Player* player : stored)
+			world::World::getInstance().removeObject(*player);
+		stored.clear();
+		CommandTest::TearDown();
+	}
+
 	Player& gm() { return connected(730090, "Steward", 9); }
+
+	/** a connected character World.getPlayer(name) finds (Java: PlayerEnterWorldService stores it) */
+	Player& online(int32_t objectId, std::string_view name) {
+		Player& player = connected(objectId, name, 0);
+		world::World::getInstance().storeObject(player);
+		stored.push_back(&player);
+		return player;
+	}
+
+	std::vector<Player*> stored;
 };
 
 // ---- //auction (Auction.java:35-142) ------------------------------------------------------------------------------------------------------
@@ -76,6 +95,16 @@ TEST_F(HousingCommandsTest, AuctionAddWithAnUnknownHouseTypeListsTheTypes) {
 		<< "HouseType.valueOf's IllegalArgumentException (ChatCommand.run)";
 }
 
+TEST_F(HousingCommandsTest, TheAuctionHelpNamesTheAddKeyword) {
+	handlers::admincommands::Auction auction;
+	const std::string syntax = auction.getSyntaxInfo();
+	// correction (owner's decision 2026-10-13): Java's help lines read "<zone> <house type> ..." and "<asmo|ely> <house type> ...", while
+	// execute takes them only after "add" (Auction.java:95)
+	// the syntax info colours every word (ChatCommand.parseSyntaxInfo): "add" before the zone and the race forms
+	EXPECT_NE(syntax.find("[color:add;1 1 1] <[color:zone;1 1 1]> <[color:house;1 1 1] [color:type;1 1 1]>"), std::string::npos) << syntax;
+	EXPECT_NE(syntax.find("[color:add;1 1 1] <[color:asmo;1 1 1]|[color:ely;1 1 1]> <[color:house;1 1 1]"), std::string::npos) << syntax;
+}
+
 TEST_F(HousingCommandsTest, AuctionWithAnUnknownArmSendsTheSyntax) {
 	Player& admin = gm();
 	handlers::admincommands::Auction auction;
@@ -120,6 +149,15 @@ TEST_F(HousingCommandsTest, LegionWithAnUnknownArmSendsTheSyntax) {
 	handlers::admincommands::LegionCommand legion;
 	EXPECT_TRUE(legion.process(admin, args({"promote", "Banner"})));
 	EXPECT_EQ(client()->sentBytes(), info(legion.getSyntaxInfo()));
+}
+
+TEST_F(HousingCommandsTest, LegionKickOfAPlayerInNoLegionAnswersInsteadOfThrowing) {
+	Player& admin = gm();
+	Player& loner = online(730091, "Loner");
+	handlers::admincommands::LegionCommand legion;
+	EXPECT_TRUE(legion.process(admin, args({"kick", "Loner"})));
+	// correction (owner's decision 2026-10-13): Java's target.getLegionMember().isBrigadeGeneral() threw a NullPointerException here
+	EXPECT_EQ(client()->sentBytes(), info(utils::ChatUtil::charName(loner) + " is not a member of any legion."));
 }
 
 } // namespace
