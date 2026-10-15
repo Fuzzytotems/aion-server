@@ -66,19 +66,8 @@ void gameServerUpdateRatio(model::Race race, int32_t i);
 
 // ---------------------------------------------------------------------------------------------------------- P5-12b (aion_gs_worldevents)
 
-/** Java RiftEnum constructor data read by RVController: getEntries, getMinLevel, getMaxLevel, getDestination, isVortex, canBeVolatile, isInvasionRift */
-struct RiftEnumData {
-	int32_t entries;
-	int32_t minLevel;
-	int32_t maxLevel;
-	model::Race destination;
-	bool vortex;
-	bool canBeVolatile;
-	bool isInvasionRift;
-};
-
-/** Java: the RiftEnum accessors above (the RiftEnum companion of P5-12b does not exist yet) */
-RiftEnumData riftEnumData(services::rift::RiftEnum riftTemplate);
+// M5i I-5 (header request of m5i-plan.md R-01, granted 2026-10-13): `riftEnumData` is gone - RVController reads the RiftEnum companion
+// services/rift/RiftEnumInfo.h directly, under P5-12b2's lease of this file and RVController.cpp.
 
 // ------------------------------------------------------------------------------------------------------------ P5-13 (aion_gs_instance)
 

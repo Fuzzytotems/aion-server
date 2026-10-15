@@ -1,4 +1,9 @@
 #include "aion/gameserver/services/WorldRaidService.h"
+#include "aion/gameserver/configs/schedule/WorldRaidSchedules.h"
+#include "aion/gameserver/services/worldraid/WorldRaidRunnable.h"
+#include "aion/gameserver/services/cron/CronService.h"
+#include "aion/gameserver/runtime/sync/Monitor.h"
+#include "aion/commons/utils/TimeUtils.h"
 
 #include <string>
 
@@ -29,12 +34,19 @@ void WorldRaidService::initWorldRaidLocations() {
 	log.debug("Finished initialization of world raid locations with size " + std::to_string(locations->size()));
 }
 
+// Java WorldRaidService.java:45-56
 void WorldRaidService::initWorldRaids() {
 	log.debug("Initializing world raid schedules...");
 	if (!configs::main::EventsConfig::ENABLE_WORLDRAID.load())
 		return;
-	// M5a keeps world raids disabled (plan D1): WorldRaidSchedules.load() and the WorldRaidRunnable cron jobs follow with the world raid work
-	AION_UNPORTED();
+	// Initialize Raid Schedules (C++: the loaded schedules are kept for the life of the server, as the runnables that hold them in Java)
+	const configs::schedule::WorldRaidSchedules* schedules = configs::schedule::WorldRaidSchedules::load().release();
+	for (const configs::schedule::WorldRaidSchedules_WorldRaidSchedule& worldRaidSchedule : schedules->getWorldRaidSchedules()) {
+		for (const std::string& cronExpr : worldRaidSchedule.getRaidTimes()) {
+			cron::CronService::getInstance().schedule(cron::CronJob(worldraid::WorldRaidRunnable{.worldRaidSchedule = &worldRaidSchedule}), cronExpr);
+		}
+	}
+	log.debug("Finished initialization of world raid schedules.");
 }
 
 std::vector<const model::templates::worldraid::WorldRaidLocation*> WorldRaidService::getActiveWorldRaidLocations() {
@@ -55,12 +67,52 @@ bool WorldRaidService::isWorldRaidInProgress(int32_t locationId) {
 	return activeRaids.containsKey(locationId);
 }
 
+// Java WorldRaidService.java:73-103
 void WorldRaidService::startRaid(int32_t locationId, bool useSpecialSpawnMsg) {
-	AION_UNPORTED();
+	log.debug("Starting world raid for location: " + std::to_string(locationId));
+	runtime::Ref<worldraid::WorldRaid> worldRaid;
+	SYNCHRONIZED(*this) {
+		if (!isValidWorldRaidLocation(locationId)) {
+			log.error("Attempt to start world raid for an invalid location: " + std::to_string(locationId));
+			return;
+		}
+		if (isWorldRaidInProgress(locationId)) {
+			log.error("Attempt to start world raid twice for location: " + std::to_string(locationId));
+			return;
+		}
+		bool sendMessages = true;
+		const model::templates::worldraid::WorldRaidLocation* location = raidLocationsById.get()->get(locationId);
+		const int64_t currentMillis = commons::utils::currentTimeMillis();
+		if (lastMsgDateByMapId.containsKey(location->getMapId())) {
+			const int64_t lastMsgDateMs = *lastMsgDateByMapId.get(location->getMapId());
+			// 30 seconds until another message is allowed to be displayed
+			if (lastMsgDateMs + 30000 < currentMillis)
+				lastMsgDateByMapId.put(location->getMapId(), currentMillis);
+			else
+				sendMessages = false;
+		} else {
+			lastMsgDateByMapId.put(location->getMapId(), currentMillis);
+		}
+		worldRaid = worldraid::WorldRaid::create(location, useSpecialSpawnMsg, sendMessages);
+		activeRaids.put(locationId, worldRaid);
+	}
+	worldRaid->startWorldRaid();
+	log.debug("Finished world raid start for location: " + std::to_string(locationId));
 }
 
+// Java WorldRaidService.java:105-117
 void WorldRaidService::stopRaid(int32_t locationId) {
-	AION_UNPORTED();
+	log.debug("Stopping world for location: " + std::to_string(locationId));
+	runtime::Ref<worldraid::WorldRaid> raid;
+	SYNCHRONIZED(*this) {
+		raid = runtime::Ref<worldraid::WorldRaid>(activeRaids.remove(locationId));
+	}
+	if (!raid || raid->isFinished()) {
+		log.debug("Attempt to stop world raid twice for location: " + std::to_string(locationId));
+		return;
+	}
+	raid->stopWorldRaid();
+	log.debug("Succeeded to finish world raid for location: " + std::to_string(locationId));
 }
 
 WorldRaidService& WorldRaidService::getInstance() {

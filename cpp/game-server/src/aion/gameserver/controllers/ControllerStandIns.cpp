@@ -13,10 +13,6 @@ runtime::FutureRef followStartServiceNewFollowingToTargetCheckTask(model::gameob
 	AION_UNPORTED();
 }
 
-RiftEnumData riftEnumData(services::rift::RiftEnum riftTemplate) {
-	AION_UNPORTED();
-}
-
 void gameServerUpdateRatio(model::Race race, int32_t i) {
 	GameServer::updateRatio(race, i);
 }
