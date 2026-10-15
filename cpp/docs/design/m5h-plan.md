@@ -1148,3 +1148,13 @@ Sunday at 12:00). 8 of 8 mutants killed. Left: `SM_HOUSE_BIDS`' remaining second
 refusal of a second one, a bid; the rent free without `ENABLE_HOUSE_PAY` and paid a week ahead with it, the money refusal; the door's unknown
 address and closed-door refusal, the teleport's audited foreign id and missing crystal, the return without a return point). The teleports'
 successful arms need a relationship crystal and a spawned house: the gate's (H2-4).
+
+**H2-3 (lane B, 2026-10-11)**: `HouseGateAI` ("housegate", data/handlers/ai/portals/HouseGateAI.java) in A1's
+handlers/ai/portals/HouseGateAI.*, added to P5-11's lease row of `StudioPortalAI` (chunks.cmake, released at merge). Java's anonymous
+`AIRequest` is `HouseGateAI_AIRequest` (fieldmap `ai.portals.HouseGateAI$1`: the captured house, `Field<bool> decided`); the two loops over
+`findZones()` are one private static `canReturnToBattle` (handler files take no anonymous namespace). Tests: nine cases in
+`tests/handlers_ai_core/HouseAiHandlersTest.cpp`, which compiles the .cpp by #include as it does `StudioPortalAI`'s (the marker; a stranger's
+gate; the creator without a house; a friend of a creator without a house; a friend who is no Daeva; a friend behind a closed door; the
+question with range 9; accepting - `SM_HOUSE_TELEPORT`, the `JUMP_IN_GATE` teleport into the creator's studio and the way back; declining).
+11 of 11 mutants killed. Left to the gate: the group-member arm and a zone that forbids the return (the `DONT_RETURN` question,
+`setBattleReturnCoords(0, null)`).

@@ -698,8 +698,10 @@ aion_gs_chunk(P5-05 LEASE PHASE 5 ROOT handlers
 # HS-2 of M5h (m5h-plan.md 14.2, granted 2026-10-08): P5-11 leases A1's handlers/ai/portals/StudioPortalAI.* (H-02) and adds P5-05's two house
 # npc AIs ButlerAI.* and HouseSignAI.* (H-01). P5-05's test executable compiles StudioPortalAI.cpp by #include, as it does PortalDialogAI.cpp
 # (tests/handlers_ai_core/HouseAiHandlersTest.cpp). Released when the lane merges.
+# H2-3 of M5h-2 (m5h-plan.md 14.3, granted 2026-10-11): the lease also takes A1's handlers/ai/portals/HouseGateAI.* (the "housegate" of the
+# house-teleport skill), compiled by #include into the same test file. Released when the lane merges.
 aion_gs_chunk(P5-11 LEASE PHASE 5 ROOT handlers
-	GLOBS "aion/gameserver/handlers/ai/portals/StudioPortalAI.*" "aion/gameserver/handlers/ai/{ButlerAI,HouseSignAI}.*")
+	GLOBS "aion/gameserver/handlers/ai/portals/{StudioPortalAI,HouseGateAI}.*" "aion/gameserver/handlers/ai/{ButlerAI,HouseSignAI}.*")
 
 # I1-I6: vertical instance slices, each @InstanceID handler with its ai/instance directory (bin-packed to about 6-8k Java lines; handlers without
 # an AI directory go to I1). I1 owns the instance prelude.
