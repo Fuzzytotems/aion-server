@@ -1195,3 +1195,17 @@ override). Four unit cases in tests/legionhouse/TownLevelUpTest.cpp (no database
 SM_TOWNS_LIST to the town's race only, the points below the threshold, every threshold up to level 5 and none after it, a DAO town levelling up
 from its stored level); 5 of 5 mutants killed. Not covered by them: the new level's spawns (the test levels have none) and GeoService.updateTown;
 the gate drives a level-up once a quest that grants town points runs in it.
+
+**M5h closure (lane B, 2026-10-13, census at h26 `20da8f449`)**: M5h's chunks (P5-10f, P5-11) hold **13 open bodies, 161 Java lines**; P5-10f
+is closed (0 open). What is left, and why it is not M5h's to close:
+- **The Legion Dominion share (12 bodies + 3, ~150 lines)**: `LegionDominionService` `join`, `onFinishInstance`, `isInCalculationTime`,
+  `openInvasionRift`; `LegionDominionLocation` `join`, `store`, `updateRanking`; `LegionService::joinLegionDominion`; and the three bodies of
+  `LegionDominionIntruderUpdateTask` (no C++ file; Java never schedules it). They need the Stonespear Reach instance (phase 6), the invasion rift
+  (M5i's rift machinery) and `CM_LEGION_DOMINION_REQUEST_RANKING` (no C++ file): **M5i's D14 (LD-01)** takes them, as this plan's D2 decided.
+- **`HouseRegistry.discard` (1 body) is a census false positive**: Java's generic helper is written out in `discardObject` and `discardDecor`
+  (HouseRegistry.cpp:63, :140, each says so); a credit rule for "written out in its callers" would close it.
+- **Gated later**: the house gate's group-member arm and no-return zone (once #223 is merged, H2-4), and a town level-up driven in a gate
+  (once a quest that grants town points runs in one, H2-6). Mutant 10 of the H2-4/H2-5 gate proof (`//legion setlevel`) runs when the lock
+  is free.
+With those, **M5h is complete**: the legion (M5h), the studio (HS-1 to HS-4), the land houses and their auction (H2-1 to H2-4), the house AIs,
+the admin commands (H2-5) and the town level-up (H2-6) are ported and gated or unit-tested.

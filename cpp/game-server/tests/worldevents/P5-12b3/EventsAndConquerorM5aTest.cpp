@@ -1,10 +1,7 @@
-// P5-12b world events, M5a subset (m5a-plan.md E1-07): EventService with gameserver.event.service.disabled_events=* (plan D1), the disabled rift,
-// vortex, world raid and conqueror/protector initializations, the rift informer for a map without rifts, Panesterra on a normal map and the
-// BaseService warn stub.
+// P5-12b3 (events and the conqueror/protector system; the D1 split of P5-12b, m5i-plan.md 15.5), M5a subset (m5a-plan.md E1-07): split from tests/worldevents/WorldEventsM5aTest.cpp
+// with its fixture, under this file's own suite name.
 //
-// Expectations are derived by hand from EventService.java:45-133,181-215, RiftService.java:25-40,220-233, RiftInformer.java:21-26,35-57,
-// RiftManager.java:107-115, VortexService.java:33-41,157-165, WorldRaidService.java:36-71, ConquerorAndProtectorService.java:42-100,254-257,
-// PanesterraService.java:238-274 and BaseService.java:30-51.
+// Expectations are derived by hand from EventService.java:45-133,181-215 and ConquerorAndProtectorService.java:42-100,254-257.
 
 #include <gtest/gtest.h>
 
@@ -13,7 +10,7 @@
 #include <string>
 #include <unordered_set>
 
-#include "../playersvc/PlayerEventsTestSupport.h"
+#include "../../playersvc/PlayerEventsTestSupport.h"
 #include "aion/gameserver/configs/main/CustomConfig.h"
 #include "aion/gameserver/configs/main/EventsConfig.h"
 #include "aion/gameserver/configs/main/GSConfig.h"
@@ -42,7 +39,7 @@ namespace {
 
 using runtime::Ptr;
 
-class WorldEventsM5aTest : public PlayerEventsTest {
+class EventsAndConquerorM5aTest : public PlayerEventsTest {
 protected:
 	void TearDown() override {
 		// EventService is a process-wide singleton: a test that leaves checkTask set makes the next test's start() return false, and the stale
@@ -73,7 +70,7 @@ protected:
 	}
 };
 
-TEST_F(WorldEventsM5aTest, AllEventsDisabledStartsTheCheckTaskWithoutActiveEvents) {
+TEST_F(EventsAndConquerorM5aTest, AllEventsDisabledStartsTheCheckTaskWithoutActiveEvents) {
 	startCronService();
 	ConfigValueScope<std::unordered_set<std::string>> disabled(configs::main::EventsConfig::DISABLED_EVENTS, {"*"});
 	services::event::EventService& service = services::event::EventService::getInstance();
@@ -103,7 +100,7 @@ TEST_F(WorldEventsM5aTest, AllEventsDisabledStartsTheCheckTaskWithoutActiveEvent
 	EXPECT_TRUE(service.start()) << "a stopped service starts again";
 }
 
-TEST_F(WorldEventsM5aTest, EventsOutsideTheirPeriodStayInactiveAndUnknownDisabledNamesAreReported) {
+TEST_F(EventsAndConquerorM5aTest, EventsOutsideTheirPeriodStayInactiveAndUnknownDisabledNamesAreReported) {
 	startCronService();
 	PublishedHolder events(dataholders::DataManager::EVENT_DATA,
 		bindXml<dataholders::EventData>(R"(<timed_events><event name="Past" start="2014-03-01T00:00:00" end="2014-04-01T00:00:00"/>)"
@@ -118,48 +115,9 @@ TEST_F(WorldEventsM5aTest, EventsOutsideTheirPeriodStayInactiveAndUnknownDisable
 	EXPECT_EQ(runtime::unportedHitCount(), 0u);
 }
 
-TEST_F(WorldEventsM5aTest, DisabledRiftsVortexAndWorldRaidsHaveNoLocations) {
-	AtomicConfigScope<bool> rifts(configs::main::CustomConfig::RIFT_ENABLED, false);
-	AtomicConfigScope<bool> vortex(configs::main::CustomConfig::VORTEX_ENABLED, false);
-	AtomicConfigScope<bool> worldRaids(configs::main::EventsConfig::ENABLE_WORLDRAID, false);
-	runtime::resetUnportedHitsForTests();
-
-	services::RiftService& riftService = services::RiftService::getInstance();
-	riftService.initRiftLocations();
-	riftService.initRifts();
-	ASSERT_TRUE(riftService.getRiftLocations());
-	EXPECT_EQ(riftService.getRiftLocations()->size(), 0);
-	EXPECT_FALSE(riftService.isValidId(1)) << "a rift id (< 10000) without a location";
-	EXPECT_FALSE(riftService.isValidId(210020000)) << "a map id without a rift location";
-	EXPECT_FALSE(riftService.isRiftOpened(1));
-	EXPECT_FALSE(riftService.getRiftLocation(1));
-	EXPECT_TRUE(services::rift::RiftManager::getSpawnedRifts(210010000).empty()) << "Java: Collections.emptyList()";
-
-	services::VortexService::getInstance().initVortexLocations();
-	EXPECT_FALSE(services::VortexService::getInstance().getLocationByWorld(210010000)) << "only Theobomos and Brusthonin have a vortex";
-
-	services::WorldRaidService& worldRaidService = services::WorldRaidService::getInstance();
-	worldRaidService.initWorldRaidLocations();
-	worldRaidService.initWorldRaids();
-	EXPECT_FALSE(worldRaidService.isValidWorldRaidLocation(1));
-	EXPECT_FALSE(worldRaidService.isWorldRaidInProgress(1));
-	EXPECT_TRUE(worldRaidService.getActiveWorldRaidLocations().empty());
-	EXPECT_EQ(runtime::unportedHitCount(), 0u);
-}
-
-TEST_F(WorldEventsM5aTest, RiftInfoOfAMapWithoutRiftsIsOneAnnouncePacket) {
-	PlayerFixture f = makePlayerInPoeta(2);
-	runtime::resetUnportedHitsForTests();
-	// Poeta has no twin map (RiftInformer.getTwinId), so only the player gets the announce data of 12 zero counters
-	services::rift::RiftInformer::sendRiftsInfo(*f.player);
-	EXPECT_EQ(runtime::unportedHitCount(), 0u);
-}
-
-TEST_F(WorldEventsM5aTest, PanesterraAndConquerorProtectorIgnoreNormalMaps) {
+TEST_F(EventsAndConquerorM5aTest, ConquerorProtectorIgnoresNormalMaps) {
 	PlayerFixture f = makePlayerInPoeta(3);
 	runtime::resetUnportedHitsForTests();
-	services::panesterra::PanesterraService::getInstance().onEnterPanesterra(*f.player); // getSiegeId(210010000) == 0
-
 	services::conquerorAndProtectorSystem::ConquerorAndProtectorService& cp = services::conquerorAndProtectorSystem::ConquerorAndProtectorService::getInstance();
 	{
 		AtomicConfigScope<bool> cpDisabled(configs::main::CustomConfig::CONQUEROR_AND_PROTECTOR_SYSTEM_ENABLED, false);
@@ -171,7 +129,7 @@ TEST_F(WorldEventsM5aTest, PanesterraAndConquerorProtectorIgnoreNormalMaps) {
 	EXPECT_EQ(runtime::unportedHitCount(), 0u);
 }
 
-TEST_F(WorldEventsM5aTest, ConquerorProtectorWorldsNeedARaceSpecificMap) {
+TEST_F(EventsAndConquerorM5aTest, ConquerorProtectorWorldsNeedARaceSpecificMap) {
 	AtomicConfigScope<bool> cpEnabled(configs::main::CustomConfig::CONQUEROR_AND_PROTECTOR_SYSTEM_ENABLED, true);
 	AtomicConfigScope<int32_t> interval(configs::main::CustomConfig::CONQUEROR_AND_PROTECTOR_KILLS_DECREASE_INTERVAL, 1);
 	ConfigValueScope<std::unordered_set<int32_t>> worlds(configs::main::CustomConfig::CONQUEROR_AND_PROTECTOR_WORLDS, {400010000});
@@ -179,7 +137,7 @@ TEST_F(WorldEventsM5aTest, ConquerorProtectorWorldsNeedARaceSpecificMap) {
 	EXPECT_THROW(services::conquerorAndProtectorSystem::ConquerorAndProtectorService::getInstance().init(), commons::utils::IllegalArgumentException);
 }
 
-TEST_F(WorldEventsM5aTest, ConquerorProtectorTypeFollowsTheRaceOfTheHandledMap) {
+TEST_F(EventsAndConquerorM5aTest, ConquerorProtectorTypeFollowsTheRaceOfTheHandledMap) {
 	AtomicConfigScope<bool> cpEnabled(configs::main::CustomConfig::CONQUEROR_AND_PROTECTOR_SYSTEM_ENABLED, true);
 	AtomicConfigScope<int32_t> interval(configs::main::CustomConfig::CONQUEROR_AND_PROTECTOR_KILLS_DECREASE_INTERVAL, 1);
 	ConfigValueScope<std::unordered_set<int32_t>> worlds(configs::main::CustomConfig::CONQUEROR_AND_PROTECTOR_WORLDS, {210020000, 220020000});
@@ -197,15 +155,6 @@ TEST_F(WorldEventsM5aTest, ConquerorProtectorTypeFollowsTheRaceOfTheHandledMap) 
 	ASSERT_TRUE(created);
 	EXPECT_EQ(created->getType(), model::templates::cp::CPType::CONQUEROR);
 	EXPECT_EQ(cp.getCPInfoForCurrentMap(*elyos.player).get(), created.get()) << "computeIfAbsent stored it";
-}
-
-TEST_F(WorldEventsM5aTest, BaseServiceIsAWarnStubUntilTheBaseLocationsArePorted) {
-	runtime::resetPartialHitsForTests();
-	runtime::resetUnportedHitsForTests();
-	services::BaseService& service = services::BaseService::getInstance();
-	service.initBases(); // no base locations: nothing starts
-	EXPECT_EQ(runtime::partialHitCount(), 1u) << "the constructor's AION_PARTIAL";
-	EXPECT_EQ(runtime::unportedHitCount(), 0u);
 }
 
 } // namespace

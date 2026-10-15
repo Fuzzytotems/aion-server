@@ -53,9 +53,8 @@ static runtime::Ref<model::siege::AgentLocation> initialAgentLocation() {
 }
 
 /** copies a location map of the static data into the service's map (Java assigns the data holder's map itself) */
-template <class Location>
-static void copyLocations(const dataholders::detail::LinkedMap<int32_t, runtime::Ref<Location>>& source,
-	runtime::HashMap<int32_t, runtime::Ref<Location>>& target) {
+template <class Location, class Target>
+static void copyLocations(const dataholders::detail::LinkedMap<int32_t, runtime::Ref<Location>>& source, Target& target) {
 	for (const auto& [id, location] : source)
 		target.put(id, location);
 }
@@ -198,11 +197,12 @@ runtime::Ptr<model::siege::SiegeLocation> SiegeService::getSiegeLocation(int32_t
 	return locations.get(id);
 }
 
-std::map<int32_t, runtime::Ptr<model::siege::SiegeLocation>> SiegeService::getSiegeLocations(int32_t worldId) {
-	std::map<int32_t, runtime::Ptr<model::siege::SiegeLocation>> mapLocations;
+std::vector<std::pair<int32_t, runtime::Ptr<model::siege::SiegeLocation>>> SiegeService::getSiegeLocations(int32_t worldId) {
+	// Java: new LinkedHashMap<>() put in the iteration order of `locations` (ids are unique, so each put appends)
+	std::vector<std::pair<int32_t, runtime::Ptr<model::siege::SiegeLocation>>> mapLocations;
 	for (const runtime::Ptr<model::siege::SiegeLocation>& location : getSiegeLocations().values())
 		if (location->getWorldId() == worldId)
-			mapLocations.insert_or_assign(location->getLocationId(), location);
+			mapLocations.emplace_back(location->getLocationId(), location);
 
 	return mapLocations;
 }
@@ -294,7 +294,7 @@ void SiegeService::onPlayerLogin(model::gameobjects::player::Player& player) {
 void SiegeService::onEnterSiegeWorld(model::gameobjects::player::Player& player) {
 	// Second part only for siege world
 	// Java: two LinkedHashMaps keyed by location id, filled in the iteration order of the service's maps; put() of a present key replaces the
-	// value in place. The C++ source maps are runtime::HashMaps (docs/deviations/P5-12a.md, the location-map rows), so the order differs.
+	// value in place. The service's maps are runtime::LinkedHashMaps (header request 5a-pre-10b), so the order is Java's.
 	std::vector<int32_t> worldLocationIds;
 	std::vector<runtime::Ptr<model::siege::SiegeLocation>> worldLocations;
 	std::vector<int32_t> worldArtifactIds;
