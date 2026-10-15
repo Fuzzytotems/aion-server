@@ -17,6 +17,9 @@
 #include "aion/gameserver/model/gameobjects/Npc.h"
 #include "aion/gameserver/model/templates/spawns/SpawnTemplate.h"
 #include "aion/gameserver/model/Race.h"
+#include "aion/gameserver/model/rift/RiftLocation.h"
+#include "aion/gameserver/model/templates/rift/RiftTemplate.bind.h"
+#include "aion/gameserver/model/templates/rift/RiftTemplate.h"
 #include "aion/gameserver/services/RiftService.h"
 #include "aion/gameserver/services/cron/CronService.h"
 #include "aion/gameserver/services/rift/RiftEnumInfo.h"
@@ -103,6 +106,23 @@ TEST_F(RiftServiceTest, UnknownRiftsAreNeitherOpenedNorClosed) {
 	service.prepareRiftOpening(210070000, true); // no location of the map: nothing to open
 	service.closeAutoCloseableRifts(210070000);
 	EXPECT_FALSE(service.isRiftOpened(2120));
+}
+
+
+TEST_F(RiftServiceTest, ARiftLocationReadsItsTemplateAndReplacesOnlyItsSpawns) {
+	// M5i I-11: RiftLocation.java:23-61 (reached by //rift open and every respawn in a rift world, RiftService.updateSpawned)
+	xml::LoadContext context;
+	std::unique_ptr<model::templates::rift::RiftTemplate> t = xml::bindString<model::templates::rift::RiftTemplate>(
+		context, R"(<rift_location id="2120" world="210020000" has_spawns="true" auto_closeable="true"/>)");
+	runtime::Ref<model::rift::RiftLocation> location = model::rift::RiftLocation::create(t.get());
+	EXPECT_EQ(location->getId(), 2120);
+	EXPECT_EQ(location->getWorldId(), 210020000);
+	EXPECT_TRUE(location->hasSpawns());
+	EXPECT_TRUE(location->isAutoCloseable());
+	// the spawned map holds spawn templates (the gate's rift, C11, spawns real npcs): an object id that was never spawned is not replaced
+	PlayerFixture first = makePlayer(71, 7100);
+	EXPECT_FALSE(location->replaceSpawned(first.player->getObjectId(), *first.player));
+	EXPECT_TRUE(location->getSpawned().isEmpty());
 }
 
 } // namespace

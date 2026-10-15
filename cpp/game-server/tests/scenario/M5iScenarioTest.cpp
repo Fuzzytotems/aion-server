@@ -987,6 +987,7 @@ struct Body {
 constexpr int32_t CM_CHAT_MESSAGE_PUBLIC = 27;
 /** Reshanta (WorldMapType ABYSS) */
 constexpr int32_t RESHANTA = 400010000;
+constexpr int32_t ELTNEN = 210020000;
 /** the fortress and the artifact of the cases (siege_locations.xml): Siel's Western Fortress and one of its Reshanta artifacts */
 constexpr int32_t FORTRESS = 1131;
 constexpr int32_t ARTIFACT = 1135;
@@ -1039,8 +1040,8 @@ std::map<std::string, int32_t> parseMessages(const std::string& text) {
 	return ids;
 }
 
-void runM5iGate() {
-	const std::string testName = "gs.scenario.m5i";
+void runM5iGate(bool geo) {
+	const std::string testName = geo ? "gs.scenario.m5i_geo" : "gs.scenario.m5i";
 	const char* requireEnvironment = std::getenv("AION_SCENARIO_REQUIRE");
 	const bool required = requireEnvironment != nullptr && *requireEnvironment != '\0' && std::string_view(requireEnvironment) != "0";
 	const auto unavailable = [&](std::string_view reason) {
@@ -1054,7 +1055,18 @@ void runM5iGate() {
 		unavailable("set AION_TEST_GS_DATABASE_URL and AION_TEST_LS_DATABASE_URL");
 		return;
 	}
-	const std::filesystem::path outputDir = std::filesystem::path(AION_SCENARIO_OUTPUT_DIR) / "m5i";
+	{
+		// rifts open by cron at every hh:00 (rift_schedule.xml): the run (about 10 minutes) must not cross one
+		const auto now = std::chrono::floor<std::chrono::seconds>(std::chrono::system_clock::now());
+		const auto untilHour = std::chrono::ceil<std::chrono::hours>(now + std::chrono::seconds(1)) - now;
+		if (untilHour < std::chrono::minutes(13)) {
+			// fail at once instead of waiting: the run holds the test-database lock, and the next start window is minutes away
+			ADD_FAILURE() << testName << ": started " << std::chrono::duration_cast<std::chrono::seconds>(untilHour).count()
+			              << " s before an hh:00 rift cron; start it at least 13 minutes before the hour";
+			return;
+		}
+	}
+	const std::filesystem::path outputDir = std::filesystem::path(AION_SCENARIO_OUTPUT_DIR) / (geo ? "m5i_geo" : "m5i");
 	std::optional<Oracle> oracle = Oracle::fromEnvironment(outputDir / "oracle");
 	if (!oracle) {
 		unavailable("no Python interpreter for tools/oracle: set AION_TEST_PYTHON");
@@ -1069,7 +1081,7 @@ void runM5iGate() {
 	} printer{cases, testName};
 
 	std::map<std::string, std::string> gateKeys;
-	gateKeys["gameserver.geodata.enable"] = "false";
+	gateKeys["gameserver.geodata.enable"] = geo ? "true" : "false";
 	gateKeys["gameserver.npcshouts.enable"] = "false";
 	gateKeys["gameserver.analysis.quest_handlers"] = "false";
 	for (const auto& [key, value] : m5iSiegeKeys())
@@ -1081,7 +1093,7 @@ void runM5iGate() {
 	config.gameServerJavaDir = AION_GAMESERVER_JAVA_DIR;
 	config.loginServerJavaDir = AION_LOGINSERVER_JAVA_DIR;
 	config.outputDir = outputDir;
-	config.schemaPrefix = "m5i";
+	config.schemaPrefix = geo ? "m5ig" : "m5i";
 	config.gameServerProperties = gateKeys;
 	config.startupTimeout = 10min;
 	config.stopTimeout = 3min;
@@ -1102,7 +1114,9 @@ void runM5iGate() {
 	// ---- C0: the oracle ----
 	SiegeAnswer sieges;
 	std::map<std::string, int32_t> messages;
-	const std::vector<std::string> messageNames{"STR_GUILD_EVENT_WIN_ARTIFACT", "STR_GUILD_EVENT_LOSE_ARTIFACT"};
+	const std::vector<std::string> messageNames{"STR_GUILD_EVENT_WIN_ARTIFACT", "STR_GUILD_EVENT_LOSE_ARTIFACT", "STR_MSG_WORLDRAID_MESSAGE_01",
+		"STR_ABYSS_CARRIER_SPAWN", "STR_ABYSS_WARP_DRAGON", "STR_CANNOT_USE_ARTIFACT_OUT_OF_ORDER"};
+	json spots;
 	ok = cases.run("C0", "the oracle answers: m5i-sieges (the 70 locations of SiegeLocationData), the artifact message ids", [&] {
 		sieges = parseSieges(oracle->run({"m5i-sieges"}));
 		EXPECT_EQ(sieges.locations.size(), 70u) << "18 fortresses, 49 artifacts, 2 outposts, the agent (m5i-plan.md X1)";
@@ -1111,6 +1125,8 @@ void runM5iGate() {
 			arguments.push_back(name);
 		messages = parseMessages(oracle->run(arguments));
 		EXPECT_EQ(messages.size(), messageNames.size());
+		spots = json::parse(oracle->run({"m5i-spots"})); // G-01: S1, S4, S6, S7 and the sets they see
+		EXPECT_GT(spots.at("checks").at("S1").at("eligibleElyosSiegeInView").get<int32_t>(), 11) << "risk 15: n >= 12 eligible npcs in view of S1";
 	});
 
 	runCase("S-0", "the servers start with sieges on (M5iGateProfile.h): initSieges spawns the siege npcs and starts the 49 artifact sieges", [&] {
@@ -1397,10 +1413,17 @@ void runM5iGate() {
 
 	std::optional<int32_t> gameServerExit;
 	bool gameServerRestarted = false;
+	std::optional<int32_t> orphanBoss; // C13's siege boss, kept by the D4 orphan
 	const auto checkRunReports = [&](std::string_view label) {
 		EXPECT_TRUE(servers.readReportLines("unported_trace.txt").empty()) << label << ": AION_UNPORTED sites were reached:\n"
 		                                                                   << join(servers.readReportLines("unported_trace.txt"), "\n");
-		EXPECT_TRUE(servers.readReportLines("census.txt").empty()) << label << ": " << join(servers.readReportLines("census.txt"), "\n");
+		// D4 (m5i-plan.md, Java does this): with gameserver.siege.assault.enable=false the FortressAssault of C13's //siege assault stays in
+		// BalaurAssaultService.fortressAssaults and keeps its Assault.boss - the census of the first shutdown names that boss, and nothing else
+		std::vector<std::string> census;
+		for (const std::string& line : servers.readReportLines("census.txt"))
+			if (!(orphanBoss && !gameServerRestarted && line.find("SiegeNpc\t" + std::to_string(*orphanBoss) + "\t") != std::string::npos))
+				census.push_back(line);
+		EXPECT_TRUE(census.empty()) << label << ": " << join(census, "\n");
 		EXPECT_TRUE(servers.readReportLines("lockdep.txt").empty()) << label << ": " << join(servers.readReportLines("lockdep.txt"), "\n");
 		EXPECT_TRUE(servers.readReportLines("watchdog.txt").empty()) << label << ": " << join(servers.readReportLines("watchdog.txt"), "\n");
 		for (const PartialHit& hit : readPartialHits(servers))
@@ -1409,7 +1432,262 @@ void runM5iGate() {
 		EXPECT_TRUE(servers.gameServer()->findLogLines(" ERROR ").empty()) << label << ": " << join(servers.gameServer()->findLogLines(" ERROR "), "\n");
 	};
 
-	runCase("C14", "persistence: both servers' game server restarts; the login state shows 1131 ELYOS occupy 1 and 1135 ASMODIANS (X18)", [&] {
+	// ---- M5i I-11: the world-event half (m5i-plan.md 10.2 C10-C13 and the vortex) over the oracle's spots (m5i-spots, G-01) ----
+	const auto spot = [&](std::string_view name) {
+		const json& p = spots.at("spots").at(std::string(name));
+		return std::array<float, 3>{p.at(0).get<float>(), p.at(1).get<float>(), p.at(2).get<float>()};
+	};
+	const auto seedAt = [&](const Character& character, int32_t worldId, const std::array<float, 3>& p) {
+		database.execute(schema, "UPDATE players SET world_id = " + std::to_string(worldId) + ", x = " + std::to_string(p[0]) + ", y = " +
+		                           std::to_string(p[1]) + ", z = " + std::to_string(p[2]) + ", heading = 0 WHERE id = " + std::to_string(character.playerId));
+	};
+	/** quit, seed the character at the spot, enter: the level-ready burst */
+	const auto relocate = [&](ScenarioClient& client, Character& character, int32_t worldId, const std::array<float, 3>& p) {
+		disconnect(client);
+		seedAt(character, worldId, p);
+		std::vector<Packet> burst = enterAs(servers, client, character);
+		settle();
+		return burst;
+	};
+	const auto npcInfos = [](const std::vector<Packet>& packets) {
+		std::vector<decoders::NpcInfo> infos;
+		for (const Packet& packet : ofName(packets, "SM_NPC_INFO"))
+			infos.push_back(decoders::decodeNpcInfo(packet.data));
+		return infos;
+	};
+	const auto deletedIds = [](const std::vector<Packet>& packets) {
+		std::set<int32_t> ids;
+		for (const Packet& packet : ofName(packets, "SM_DELETE"))
+			ids.insert(decoders::decodeDeleteObjectId(packet.data));
+		return ids;
+	};
+	const auto templateIds = [&](const std::vector<Packet>& packets) {
+		std::multiset<int32_t> ids;
+		for (const decoders::NpcInfo& info : npcInfos(packets))
+			ids.insert(info.templateId);
+		return ids;
+	};
+	const auto npcIdsOf = [&](const json& list) {
+		std::set<int32_t> ids;
+		for (const json& npc : list)
+			ids.insert(npc.at("npcId").get<int32_t>());
+		return ids;
+	};
+
+	runCase("C9", "the artifact cooldown (X12): W (the owner since C8) at artifact 1135's aegis, both questions accepted: out of order, no activation", [&] {
+		const std::array<float, 3> aegis{2917.352f, 2841.743f, 1451.369f}; // 276730, the ASMODIANS artifact npc of 1135 (spawns/Sieges/400010000_Reshanta.xml)
+		relocate(w, cw, RESHANTA, {aegis[0] + 2.0f, aegis[1], aegis[2]});
+		int32_t aegisObject = 0;
+		for (const decoders::NpcInfo& info : npcInfos(w.since(0)))
+			if (info.templateId == 276730)
+				aegisObject = info.objectId;
+		ASSERT_NE(aegisObject, 0) << "SM_NPC_INFO of the aegis 276730";
+		size_t wFrom = w.mark();
+		w.game->send(GameSession::CM_SHOW_DIALOG, GameSession::buildCM_SHOW_DIALOG(aegisObject));
+		std::vector<int32_t> codes;
+		for (int32_t question = 1; question <= 2; question++) {
+			until(5s, [&] { return ofName(w.since(wFrom), "SM_QUESTION_WINDOW").size() >= static_cast<size_t>(question); });
+			const std::vector<Packet> windows = ofName(w.since(wFrom), "SM_QUESTION_WINDOW");
+			ASSERT_GE(windows.size(), static_cast<size_t>(question)) << "ArtifactAI's question " << question;
+			const decoders::QuestionWindow window = decoders::decodeQuestionWindow(windows[static_cast<size_t>(question) - 1].data);
+			codes.push_back(window.code);
+			w.game->send(GameSession::CM_QUESTION_RESPONSE, GameSession::buildCM_QUESTION_RESPONSE(window.code, 1, aegisObject));
+		}
+		const int32_t outOfOrder = messages.at("STR_CANNOT_USE_ARTIFACT_OUT_OF_ORDER");
+		until(5s, [&] { return countMessage(w.since(wFrom), outOfOrder) > 0; });
+		EXPECT_EQ(countMessage(w.since(wFrom), outOfOrder), 1u) << "the 900 s cooldown of a captured artifact (setInitialDelay)";
+		EXPECT_TRUE(ofName(w.since(wFrom), "SM_USE_OBJECT").empty()) << "no activation";
+		EXPECT_EQ(codes.size(), 2u);
+		if (codes.size() == 2)
+			EXPECT_NE(codes[0], codes[1]) << "STR_ASK_ARTIFACT_POPUPDIALOG, then STR_ASK_USE_ARTIFACT";
+	});
+
+	runCase("C10", "a world raid's first stage: G at S4 in Reshanta, //worldraid start 31 (X14: the message to the map, the flag at the spot)", [&] {
+		relocate(g, cg, RESHANTA, spot("S4"));
+		const size_t wFrom = w.mark(), gFrom = g.mark();
+		const std::vector<std::string> texts = gm("//worldraid start 31");
+		const int32_t raidMessage = messages.at("STR_MSG_WORLDRAID_MESSAGE_01");
+		until(5s, [&] { return countMessage(g.since(gFrom), raidMessage) > 0 && countMessage(w.since(wFrom), raidMessage) > 0; });
+		EXPECT_EQ(countMessage(g.since(gFrom), raidMessage), 1u) << "minute 0 of the raid's fixed-rate task, to the map";
+		EXPECT_EQ(countMessage(w.since(wFrom), raidMessage), 1u) << "W at Primum Landing is on 400010000 too";
+		const json& flagPos = spots.at("worldRaid31").at("pos");
+		bool flagSeen = false;
+		for (const decoders::NpcInfo& info : npcInfos(g.since(gFrom)))
+			if (info.templateId == spots.at("worldRaid31").at("flagNpcId").get<int32_t>()) {
+				flagSeen = true;
+				EXPECT_NEAR(info.x, flagPos.at(0).get<float>(), 0.5f);
+				EXPECT_NEAR(info.y, flagPos.at(1).get<float>(), 0.5f);
+			}
+		EXPECT_TRUE(flagSeen) << "the raid's flag 832819 at location 31";
+		std::cout << "C10: //worldraid answered: " << join(texts, " | ") << std::endl;
+	});
+
+	runCase("C11", "rifts: G at S6 in Eltnen, //rift open 2120 then //rift close 2120 (X15: the master rift announced and spawned, then removed)", [&] {
+		relocate(g, cg, ELTNEN, spot("S6"));
+		const json& rift = spots.at("rift2120");
+		size_t gFrom = g.mark();
+		EXPECT_EQ(said(gm("//rift open 2120"), "Opened rifts at location 2120."), 1);
+		until(5s, [&] { return templateIds(g.since(gFrom)).contains(rift.at("masterNpcId").get<int32_t>()); });
+		int32_t masterObject = 0;
+		for (const decoders::NpcInfo& info : npcInfos(g.since(gFrom)))
+			if (info.templateId == rift.at("masterNpcId").get<int32_t>())
+				masterObject = info.objectId;
+		ASSERT_NE(masterObject, 0) << "SM_NPC_INFO of the master rift 700137 at ELTNEN_AM";
+		bool announced = false;
+		for (const Packet& packet : ofName(g.since(gFrom), "SM_RIFT_ANNOUNCE")) {
+			const decoders::RiftAnnounce announce = decoders::decodeRiftAnnounce(packet.data);
+			if (announce.actionId == 2 && announce.objectId == masterObject) {
+				announced = true;
+				EXPECT_EQ(announce.maxEntries, rift.at("entries").get<int32_t>());
+				EXPECT_EQ(announce.minLevel, rift.at("minLevel").get<int32_t>());
+				EXPECT_EQ(announce.maxLevel, rift.at("maxLevel").get<int32_t>());
+			}
+		}
+		EXPECT_TRUE(announced) << "RiftInformer: SM_RIFT_ANNOUNCE action 2 for the master";
+		gFrom = g.mark();
+		EXPECT_EQ(said(gm("//rift close 2120"), "Closed rifts at location 2120."), 1);
+		until(5s, [&] { return deletedIds(g.since(gFrom)).contains(masterObject); });
+		EXPECT_TRUE(deletedIds(g.since(gFrom)).contains(masterObject)) << "SM_DELETE of the master rift";
+		bool despawnAnnounced = false;
+		for (const Packet& packet : ofName(g.since(gFrom), "SM_RIFT_ANNOUNCE"))
+			despawnAnnounced = despawnAnnounced || (decoders::decodeRiftAnnounce(packet.data).actionId == 4);
+		EXPECT_TRUE(despawnAnnounced) << "SM_RIFT_ANNOUNCE action 4";
+	});
+
+	runCase("C12", "a base: G at S7, //base capture 2120 elyos and the //base assault refusals (X16)", [&] {
+		relocate(g, cg, ELTNEN, spot("S7"));
+		const std::vector<Packet> burst = g.since(0); // the level-ready burst and the settle after it (a flag can come later)
+		const json& base = spots.at("base2120");
+		std::set<int32_t> balaur;
+		for (const char* set : {"BALAUR/FLAG", "BALAUR/SENTINEL"})
+			for (int32_t id : npcIdsOf(base.at(set)))
+				balaur.insert(id);
+		std::map<int32_t, int32_t> seenBalaur; // object id -> template id
+		for (const decoders::NpcInfo& info : npcInfos(burst))
+			if (balaur.contains(info.templateId))
+				seenBalaur[info.objectId] = info.templateId;
+		EXPECT_TRUE(std::any_of(seenBalaur.begin(), seenBalaur.end(), [&](const auto& e) { return npcIdsOf(base.at("BALAUR/FLAG")).contains(e.second); }))
+			<< "the BALAUR flag of base 2120 (the default occupier, started by initBases)";
+
+		size_t gFrom = g.mark();
+		gm("//base capture 2120 elyos");
+		std::set<int32_t> elyos;
+		for (const char* set : {"ELYOS/FLAG", "ELYOS/MERCHANT", "ELYOS/SENTINEL"})
+			for (int32_t id : npcIdsOf(base.at(set)))
+				elyos.insert(id);
+		until(5s, [&] {
+			const std::multiset<int32_t> spawned = templateIds(g.since(gFrom));
+			return std::any_of(spawned.begin(), spawned.end(), [&](int32_t id) { return npcIdsOf(base.at("ELYOS/FLAG")).contains(id); });
+		});
+		const std::set<int32_t> deleted = deletedIds(g.since(gFrom));
+		for (const auto& [objectId, templateId] : seenBalaur)
+			EXPECT_TRUE(deleted.contains(objectId)) << "SM_DELETE of the BALAUR npc " << templateId;
+		const std::multiset<int32_t> spawned = templateIds(g.since(gFrom));
+		for (const char* set : {"ELYOS/FLAG", "ELYOS/MERCHANT", "ELYOS/SENTINEL"})
+			for (int32_t id : npcIdsOf(base.at(set)))
+				EXPECT_TRUE(spawned.contains(id)) << set << " " << id;
+
+		EXPECT_EQ(said(gm("//base assault 2120"), "Not enough parameters."), 1);
+		gFrom = g.mark();
+		EXPECT_EQ(said(gm("//base assault 2120 elyos"), "Base cannot be assaulted by the same occupier"), 1);
+		EXPECT_TRUE(npcInfos(g.since(gFrom)).empty()) << "a refused assault spawns nothing";
+		gFrom = g.mark();
+		gm("//base assault 2120 asmodians");
+		until(5s, [&] { return templateIds(g.since(gFrom)).contains(231617); });
+		EXPECT_TRUE(templateIds(g.since(gFrom)).contains(231617)) << "the ASMODIANS ATTACKER set";
+	});
+
+	runCase("C13", "a Balaur assault: G at S1 inside his fortress, //siege start 1131, //siege assault 1131 0, //siege stop 1131 (X17)", [&] {
+		relocate(g, cg, RESHANTA, spot("S1"));
+		size_t gFrom = g.mark();
+		gm("//siege start " + std::to_string(FORTRESS));
+		until(15s, [&] { return !states(g.since(gFrom), FORTRESS).empty(); });
+		EXPECT_EQ(states(g.since(gFrom), FORTRESS), std::vector<uint8_t>{1}) << "the owner inside his fortress stays (clearLocation moves enemies)";
+		settle();
+		for (const decoders::NpcInfo& info : npcInfos(g.since(gFrom)))
+			if (info.templateId == 263001) // the ELYOS SIEGE boss of 1131
+				orphanBoss = info.objectId;
+		EXPECT_TRUE(orphanBoss) << "the siege boss 263001 in view of S1";
+		gFrom = g.mark();
+		gm("//siege assault " + std::to_string(FORTRESS) + " 0");
+		const int32_t carrierSpawn = messages.at("STR_ABYSS_CARRIER_SPAWN"), warp = messages.at("STR_ABYSS_WARP_DRAGON");
+		until(5s, [&] { return countMessage(g.since(gFrom), carrierSpawn) > 0; });
+		EXPECT_FALSE(ofName(g.since(gFrom), "SM_NPC_ASSEMBLER").empty()) << "BalaurAssaultService.spawnDredgion";
+		EXPECT_EQ(countMessage(g.since(gFrom), carrierSpawn), 1u);
+		const int32_t baseDelay = spots.at("assault1131").at("baseDelay").get<int32_t>();
+		until(std::chrono::seconds(baseDelay + 5), [&] { return countMessage(g.since(gFrom), warp) > 0; });
+		EXPECT_EQ(countMessage(g.since(gFrom), warp), 1u) << "the first wave (a teleport wave) within base_delay + 5 s";
+		settle();
+		std::set<int32_t> teleport;
+		for (const json& id : spots.at("assault1131").at("teleport"))
+			teleport.insert(id.get<int32_t>());
+		std::set<int32_t> assaulters;
+		for (const decoders::NpcInfo& info : npcInfos(g.since(gFrom)))
+			if (teleport.contains(info.templateId))
+				assaulters.insert(info.objectId);
+		EXPECT_FALSE(assaulters.empty()) << "at least one ASSAULT npc of the TELEPORT set in view (" << spots.at("checks").at("S1").at("eligibleElyosSiegeInView")
+		                                 << " eligible npcs in view of S1)";
+		gFrom = g.mark();
+		gm("//siege stop " + std::to_string(FORTRESS));
+		until(15s, [&] { return !states(g.since(gFrom), FORTRESS).empty(); });
+		const std::set<int32_t> deleted = deletedIds(g.since(gFrom));
+		for (int32_t objectId : assaulters)
+			EXPECT_TRUE(deleted.contains(objectId)) << "deSpawnNpcs removes the assault npcs (siege spawns of 1131)";
+		EXPECT_EQ(text("SELECT race FROM siege_locations WHERE id = " + std::to_string(FORTRESS)), "ELYOS");
+		EXPECT_EQ(number("SELECT occupy_count FROM siege_locations WHERE id = " + std::to_string(FORTRESS)), 2) << "C7 and C13: two defences";
+		std::cout << "C13: faction_balance of 1131 after the second defence: "
+		          << number("SELECT faction_balance FROM siege_locations WHERE id = " + std::to_string(FORTRESS)) << std::endl;
+	});
+
+	runCase("C17", "relocation at login (X8a/X8b): W quits, is seeded at S1, the siege of 1131 starts; W enters at his bind point; quits, is seeded again, enters at S1; the stop defends 1131 a third time", [&] {
+		const auto spawnOf = [](const std::vector<Packet>& packets) {
+			const Packet* spawn = firstOfName(packets, "SM_PLAYER_SPAWN");
+			if (spawn == nullptr)
+				throw std::runtime_error("no SM_PLAYER_SPAWN");
+			return decoders::decodePlayerSpawn(spawn->data);
+		};
+		const std::array<float, 3> s1 = spot("S1");
+		disconnect(w); // lastOnline t1
+		seedAt(cw, RESHANTA, s1);
+		std::this_thread::sleep_for(2s);
+		size_t gFrom = g.mark();
+		gm("//siege start " + std::to_string(FORTRESS)); // start t2 > t1
+		until(15s, [&] { return !states(g.since(gFrom), FORTRESS).empty(); });
+		const decoders::PlayerSpawn x8a = spawnOf(enterAs(servers, w, cw));
+		settle();
+		EXPECT_TRUE(x8a.worldId != RESHANTA || std::hypot(x8a.x - s1[0], x8a.y - s1[1]) > 100.0f)
+			<< "X8a: logged out before the siege start, an enemy of the owner enters at his bind point (validateFortressZone), not at S1: world "
+			<< x8a.worldId << " (" << x8a.x << ", " << x8a.y << ")";
+		std::this_thread::sleep_for(2s);
+		disconnect(w); // lastOnline t3 > t2
+		seedAt(cw, RESHANTA, s1);
+		const decoders::PlayerSpawn x8b = spawnOf(enterAs(servers, w, cw));
+		settle();
+		EXPECT_EQ(x8b.worldId, RESHANTA) << "X8b: logged out after the start, he enters where he left";
+		EXPECT_NEAR(x8b.x, s1[0], 1.0f);
+		EXPECT_NEAR(x8b.y, s1[1], 1.0f);
+		gFrom = g.mark();
+		gm("//siege stop " + std::to_string(FORTRESS));
+		until(15s, [&] { return !states(g.since(gFrom), FORTRESS).empty(); });
+		EXPECT_EQ(number("SELECT occupy_count FROM siege_locations WHERE id = " + std::to_string(FORTRESS)), 3) << "C7, C13, C17: three defences, uncapped";
+	});
+
+	runCase("C16", "the vortex: //vortexraid start theobomos, a second start refused, //vortexraid stop theobomos, twice (VortexService, Invasion)", [&] {
+		// twice: the second invasion starts from what the first one's stop left (VortexService.despawn unsets the vortex controller)
+		for (int32_t run = 1; run <= 2; run++) {
+			SCOPED_TRACE("invasion " + std::to_string(run));
+			EXPECT_EQ(said(gm("//vortexraid start theobomos"), " raid started."), 1);
+			settle();
+			EXPECT_EQ(said(gm("//vortexraid start theobomos"), " is already under siege."), 1);
+			EXPECT_EQ(said(gm("//vortexraid stop theobomos"), " raid stopped."), 1);
+			settle();
+			EXPECT_EQ(said(gm("//vortexraid stop theobomos"), " is not under siege."), 1);
+		}
+		EXPECT_TRUE(servers.gameServer()->findLogLines(" ERROR ").empty()) << "both invasions ran without an error: "
+		                                                                     << join(servers.gameServer()->findLogLines(" ERROR "), "\n");
+	});
+
+	runCase("C14", "persistence: both servers' game server restarts; the login state shows 1131 ELYOS occupy 3 and 1135 ASMODIANS (X18)", [&] {
 		for (ScenarioClient* client : all)
 			disconnect(*client);
 		gameServerExit = servers.stopGameServer();
@@ -1419,7 +1697,7 @@ void runM5iGate() {
 		gameServerExit.reset();
 		servers.startGameServer();
 		gameServerRestarted = true;
-		const std::map<int32_t, std::pair<uint8_t, int32_t>> changed{{FORTRESS, {RACE_ELYOS, 1}}, {ARTIFACT, {RACE_ASMODIANS, 0}}};
+		const std::map<int32_t, std::pair<uint8_t, int32_t>> changed{{FORTRESS, {RACE_ELYOS, 3}}, {ARTIFACT, {RACE_ASMODIANS, 0}}}; // C7, C13, C17
 		wLogin = enterAs(servers, w, cw);
 		checkLoginState(w, wLogin, RACE_ASMODIANS, changed, "W after the restart");
 		gLogin = enterAs(servers, g, cg);
@@ -1678,7 +1956,16 @@ void runM5iSoak() {
 
 /** `gs.scenario.m5i` (m5i-plan.md 10, I-6): the siege half - the login state, captures, a siege start and stop, an artifact, persistence */
 TEST(M5iScenario, Run) {
-	runM5iGate();
+	runM5iGate(false);
+}
+
+/**
+ * `gs.scenario.m5i_geo` (m5i-plan.md 10.5): the same script with gameserver.geodata.enable=true - the geo meshes, the geo shields of the
+ * fortresses (ShieldService attaches them and drops 1131's sphere template) and the SHIELD DespawnableNodes. X7g (the crossing killed by
+ * SiegeShield's CollisionDieActor) waits with C5 (P5-12b.md, I-11 part 2).
+ */
+TEST(M5iScenarioGeo, Run) {
+	runM5iGate(true);
 }
 
 /** `gs.scenario.m5i_soak` (m5i-plan.md 10.7, D17, G-09): 65 idle minutes of three clients across an hh:00 - opt-in (AION_SCENARIO_SOAK) */

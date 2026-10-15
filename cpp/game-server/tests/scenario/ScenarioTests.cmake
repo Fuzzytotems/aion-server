@@ -564,6 +564,20 @@ if(TARGET aion_gs_scenario_tests)
 		set_property(TEST gs.scenario.m5i APPEND PROPERTY ENVIRONMENT_MODIFICATION "AION_SCENARIO_REQUIRE=set:1")
 	endif()
 
+	# gs.scenario.m5i_geo (m5i-plan.md 10.5): the same script with geodata on (TEST(M5iScenarioGeo, Run)), its own output directory
+	# <bin>/scenario/m5i_geo and schema pair (prefix m5ig). Gate slot 2 with gs.scenario.m5i. TIMEOUT 2700 for the geo startup, as the other
+	# geo gates.
+	add_test(NAME gs.scenario.m5i_geo COMMAND "$<TARGET_FILE:aion_gs_scenario_tests>" --gtest_filter=M5iScenarioGeo.Run
+		WORKING_DIRECTORY "${scenario_work_dir}")
+	set_tests_properties(gs.scenario.m5i_geo PROPERTIES LABELS "scenario;realdata;geo" TIMEOUT 2700
+		RESOURCE_LOCK "${AION_GS_GATE_SLOT_2}" SKIP_REGULAR_EXPRESSION "gs\\.scenario\\.m5i_geo: skipped")
+	if(Python3_Interpreter_FOUND)
+		set_property(TEST gs.scenario.m5i_geo APPEND PROPERTY ENVIRONMENT_MODIFICATION "AION_TEST_PYTHON=set:${Python3_EXECUTABLE}")
+	endif()
+	if(AION_SCENARIO_REQUIRE OR NOT AION_GS_ALLOW_MILESTONE_SKIP)
+		set_property(TEST gs.scenario.m5i_geo APPEND PROPERTY ENVIRONMENT_MODIFICATION "AION_SCENARIO_REQUIRE=set:1")
+	endif()
+
 	# gs.scenario.m5i_soak (m5i-plan.md 10.7, D17 approved for a 02:00 slot, G-09): sieges and the Balaur assault as shipped, three idle clients in
 	# Reshanta, Eltnen and Verteron for 65 minutes across an hh:00 (the hourly SM_FORTRESS_STATUS), then the reports. Opt-in: it skips unless
 	# AION_SCENARIO_SOAK is set, and skips a window that touches the siege evenings, midnight or Wednesday 09:00. Label "soak" only (not
