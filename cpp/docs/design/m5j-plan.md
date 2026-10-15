@@ -1615,3 +1615,39 @@ without a C++ file; `tools/porting/census.py` for the totals):
 4. **CP4 the gate**: G-31, `gs.scenario.m5j` Z12 with the stage-1 and stage-2 cases re-run.
 
 > **Progress:** CP1 done (`lane-a/m5j-s3-cp1`): the 15 small root AIs and the PetHungryLevel companion (P5-05.md, P5-08.md). CP2 done (`lane-a/m5j-s3-cp2`): `ChestAI`, `HiddenTeleportNpcAI`, `SummonerAI`, `SkillCooltimeResetAI` (its `GeoService.canSee` against a generated geo fixture), the four `ConquestOffering*AI` (P5-05.md). CP3 done (`lane-a/m5j-s3-cp3`): the four P5-04 effects (`PetOrderUnSummonEffect`, `SummonFunctionalNpcEffect`, `SummonGroupGateEffect`, `TargetTeleportEffect`; P5-04.md) and N-02's smoke over 36 root AIs (the two kisk AIs run in KiskAiTest; P5-05.md). CP4 done (`lane-a/m5j-s3-cp4`): G-31, `gs.scenario.m5j` Z12 green with every stage-1 and stage-2 case (`oracle.py m5j-ais`; P5-SC.md "M5j stage-3 gate"). **Stage 3 is closed.**
+
+### 18.5 Stage 4, measured (2026-10-11, lane A, over `lane-a/m5j-s3-cp4`)
+
+`tools/porting/census.py` (whole tree, HEAD c515a123e) and the files of each item without a C++ file:
+
+| Item | Open now | Note |
+|---|---|---|
+| X-01 matchmaking: P5-10e (`model/autogroup`, `services/autogroup`, `AutoGroupService`) | **128 open**: 49 sites (`AutoGroupService.cpp` 20, `AutoInstance.cpp` 12, `LookingForParty.cpp` 8, `AutoGroupUtility.cpp` 8, `AGPlayer.cpp` 1), 46 undeclared, 3 files with no C++ (`AutoHarmonyInstance`, `AutoPvPFFAInstance`, `AutoPvpInstance`: 22 bodies, 299 Java lines); `AutoGroupType`'s 385-line enum is generated without its methods (the companion) | ~1,400 Java lines |
+| X-01 matchmaking: P5-13 / P5-15 | `PeriodicInstanceManager.cpp` 9 sites, `PvPArenaService.cpp` 6, `CM_AUTO_GROUP` (no file, 68 lines) | W-13 closes with these |
+| L-03 J13: P5-13 (without J12) | 23 `model/instance` files with no C++ (2,374 lines: scores, rewards, positions, `InstanceBuff`, `DredgionRoom`, `InstanceID`), `InstanceScore.cpp` 10, `InstancePlayerReward.cpp` 3, `InstanceEngine`/`InstanceService`/`PlayerRestrictions` 1 each, `InstanceHandlerClassListener` | P5-13 in all: 385 open, 82 sites, 302 undeclared, 27 files without C++ (286 bodies) |
+| L-03 J13: P4-15 / P4-16 / P4-11a | 34 open (24 score-writer sites) / 4 (`SM_INSTANCE_SCORE`) / 5 (`Npc::queueSkill` ×3 and 2) | byte-vector tests from the Java `write*` |
+| L-02 J12 (D12, **open**) | `custom/instance` 9 files with no C++ (1,105 lines), `CustomInstanceService.cpp` 13, `PvpMapHandler.cpp` 39, `PvpMapService.cpp` 1; `WebRewardService`, the arcade, headhunting (P5-09/P5-14 rows) | not started without the owner's D12 |
+| L-01 stage-4 commands | no C++ file: `//configure` (133), `//debug` (90), `//send` (177), `//spawnu` (SpawnUpdate, 134), `//reload` (107), `//bookmark` (41), `//collide` (126), `//cinstance` (CustomInstance, 50: J12, D12); the console remainder - 32 `consolecommands` without C++ (1,702 lines; 9 of them are §5.3's orphans below); the 7 P5-01 `toString` bodies are counted 0 open by the census (credited) and need a check | C1 132 open / 36 files, C2 164 / 41 in all |
+| L-01 D7 write-back (D14, **open**) | P4-09 13 open (`SpawnsData::saveSpawn`'s tail and the walker/zone data writers), P4-10 3 (`ZoneService` save) | not started without the owner's D14 |
+| **Orphaned commands (new finding)** | §5.3 gave 41 commands to M5b-3..M5i "in its last stage"; still without a C++ file: `//moveto`, `//goto`, `//movetome`, `//moveplayertoplayer`, `//movetoobj`, `//instance`, `//fixpath`, `teleport`, `teleport_to_named`, `teleportto` (M5f, 1,361 lines), `//quest`, `addquest` (M5d), `//dropinfo`, `.buy`, `.easter`, `.symphony` (M5b-3), `//access`, `//sysmail`, `setinventorygrowth`, `set_enchantcount`, `wish` (M5c), `changeclass`, `classup` (M5e), `//event` (M5g), `//legion`, `//auction`, `//house` (M5h), `//siege`, `//base`, `//rift`, `//vortexraid`, `//worldraid`, `//ahserion` (M5i) | **decision needed (integrator)**: which lane takes them; the world tour (G-41) needs `//moveto` |
+| Other chunks with open work | P5-09a/b (drop and trade services: 19 sites), P5-10f (legion: 88), P5-11 (legion/housing: 93), P5-12a/b (siege, world events: 430) | lane B's M5h and the unstarted M5i; not stage 4's |
+
+**Checkpoints** (each with unit tests in the owning chunk's test directory and a mutation proof; the gate where named):
+1. **CP1 matchmaking, the model**: P5-10e's `AutoInstance`, `LookingForParty`, `AGPlayer`, `AutoGroupUtility`, the three auto-instance classes and
+   `AutoGroupType`'s companion (`tests/team`).
+2. **CP2 matchmaking, the services**: `AutoGroupService`, `PeriodicInstanceManager`, `PvPArenaService`, `CM_AUTO_GROUP`; **W-13**: a startup
+   with `gameserver.autogroup.enable=true` reaches "online" (a gate run with the Java default) (`tests/instance`, `tests/cm_ak`).
+3. **CP3 J13** (L-03): the `model/instance` classes, the score writers (P4-15), `SM_INSTANCE_SCORE` (P4-16), `Npc::queueSkill` (P4-11a), with
+   byte-vector tests.
+4. **CP4 the stage-4 system commands** (L-01 without D7): `//configure`, `//debug`, `//send`, `//spawnu`, `//reload` (static data and
+   commands; the write-back arms stay loud), `//bookmark`, `//collide`, the console remainder, the `toString` check.
+5. **CP5 D7's write-back and the reload setters** - only after the owner's D14.
+6. **CP6 the orphaned commands** - only after the integrator assigns them (above).
+7. **CP7 the command smoke** (L-04) over every command, and the alias access-level check.
+8. **CP8 the closure** (G-42, §10.6) - last. The world tour (G-41, §10.5) waits for the integrator's go (long-running) and for `//moveto`
+   (CP6). L-02 (J12) only if D12 says port.
+
+> **Progress:** CP1 done (`lane-a/m5j-s4-cp1`): the matchmaking model - AutoGroupType's and EntryRequestType's companions, AGPlayer,
+> LookingForParty, AutoInstance, AutoPvpInstance, AutoGroupUtility; AutoPvPFFAInstance and AutoHarmonyInstance up to their score arms, which wait
+> for CP3 (J13) (P5-10e.md). The integrator assigned the orphaned commands (2026-10-11): lane A takes the M5f ten, M5d's two, M5b-3's four,
+> M5c's five, M5e's two and `//event` (CP6, which may move ahead of CP3/CP4); lane B `//legion`, `//auction`, `//house`; the M5i six wait for M5i.
