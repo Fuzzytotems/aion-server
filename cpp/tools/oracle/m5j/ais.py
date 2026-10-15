@@ -10,7 +10,9 @@ Java rules, each with the place the value comes from:
 - an AI without a template is reached through `//ai set <name>` on a spawned npc (Ai.java:82-89: World.despawn, the new AI, World.spawn),
   whose info answer is "Npc now has AI " + the new AI's class getSimpleName(); the gate spawns that npc from the lowest "general" template
   (AIEngine's default AI, GeneralNpcAI);
-- `//spawn <id>` spawns at the GM's spot (SpawnNpc.java: SpawnEngine.newSpawn with the admin's position, a temporary spawn).
+- `//spawn <id>` spawns at the GM's spot (SpawnNpc.java: SpawnEngine.newSpawn with the admin's position, a temporary spawn);
+- stage 4 (§18.5 CP2, W-13): auto_group.xml's rows by mask id - the instance map and the level range AutoGroupType.isInLvlRange reads
+  (AutoGroup's min_lvl / max_lvl, 0 when absent).
 """
 
 from __future__ import annotations
@@ -100,7 +102,13 @@ def ais_report(data, java_src: Path) -> dict:
 	base = templates.get(BASE_AI)
 	if not base:
 		raise OracleError(f'no npc template has ai="{BASE_AI}"')
+	auto_groups = {}
+	for row in data.stream("auto_groups", "auto_group"):
+		mask = java_int(row.get("id"), "auto_group id")
+		auto_groups[str(mask)] = {"instanceId": java_int(row.get("instanceId"), "auto_group instanceId"),
+		                          "minLvl": java_int(row.get("min_lvl"), "min_lvl", 0), "maxLvl": java_int(row.get("max_lvl"), "max_lvl", 0)}
 	return {
 		"ais": ais,
+		"autoGroups": auto_groups,
 		"aiSet": {"baseNpcId": base[0], "baseAi": BASE_AI, "answerPrefix": "Npc now has AI "},
 	}
