@@ -13,12 +13,11 @@
 # Copied on 2026-10-08 from m5g_partial_allowlist.txt, unchanged (the legion path adds no AION_PARTIAL; m5h-plan.md D11's housing cron rows
 # are section B's AuctionEndTask and AuctionAutoFillTask).
 
+# HISTORY: BaseService.cpp:18 (the gates ran without base locations, E1-06) was here until M5i I-8 ported the bases (m5i-plan.md D3).
 # =========================================================================================================================================
 # --- SECTION A - hit at least once, asserted ---
 # =========================================================================================================================================
 
-# every startup: the gates run without base locations (E1-06)
-aion/gameserver/services/BaseService.cpp:18
 
 # =========================================================================================================================================
 # --- SECTION B - hit exactly zero times, asserted ---
@@ -34,7 +33,5 @@ aion/gameserver/services/abyss/AbyssRankUpdateService.cpp:58
 # --- SECTION C - allowed, counted and printed, not pinned ---
 # =========================================================================================================================================
 
-# the PvP map instance stays partial by m5f-plan.md D6 (PvpMapHandler is M5j; init would create it at every startup)
-aion/gameserver/custom/pvpmap/PvpMapService.cpp:32
 # EMOTIONS_ALL is off by default, so this is only reached with the config the real-client checklist uses
 aion/gameserver/services/player/PlayerService.cpp:268

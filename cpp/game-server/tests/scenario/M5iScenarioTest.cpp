@@ -1455,11 +1455,235 @@ void runM5iGate() {
 	finishRun(servers, outputDir, testName);
 }
 
+// ==================================================================================================================== the soak (D17, G-09)
+
+/**
+ * The window of the soak in UTC (the profile's server time zone): it must cross an hh:00 and stay clear of the shipped schedules - the siege
+ * preparations and sieges of 16:45-23:00 (siege_schedule.xml: 17:00-21:00 plus up to 10 minutes of preparation, the agent fight Tuesday
+ * 20:50), midnight (the daily jobs) and Wednesday 08:45-09:15 (the weekly dominion calculation). @return the reason it does not fit, if any
+ */
+std::optional<std::string> soakWindowConflict(std::chrono::sys_seconds from, std::chrono::sys_seconds to) {
+	using namespace std::chrono;
+	for (sys_seconds t = from; t <= to; t += minutes(1)) {
+		const sys_days day = floor<days>(t);
+		const hh_mm_ss<seconds> time(t - day);
+		const int32_t minute = static_cast<int32_t>(time.hours().count() * 60 + time.minutes().count());
+		if (minute >= 16 * 60 + 45 && minute < 23 * 60)
+			return "the window touches the evening siege schedule (16:45-23:00 UTC)";
+		if (minute == 0 && t != from)
+			return "the window crosses midnight";
+		if (weekday(day) == Wednesday && minute >= 8 * 60 + 45 && minute <= 9 * 60 + 15)
+			return "the window touches Wednesday 09:00";
+	}
+	if (floor<hours>(from) == floor<hours>(to))
+		return "the window does not cross an hh:00";
+	return std::nullopt;
+}
+
+void runM5iSoak() {
+	using namespace std::chrono;
+	const std::string testName = "gs.scenario.m5i_soak";
+	if (std::getenv("AION_SCENARIO_SOAK") == nullptr) { // D17: an 80-minute run, only in a slot the owner chose
+		GTEST_SKIP() << testName << ": skipped (opt-in: set AION_SCENARIO_SOAK=1)";
+		return;
+	}
+	const char* requireEnvironment = std::getenv("AION_SCENARIO_REQUIRE");
+	const bool required = requireEnvironment != nullptr && *requireEnvironment != '\0' && std::string_view(requireEnvironment) != "0";
+	const auto unavailable = [&](std::string_view reason) {
+		if (required)
+			ADD_FAILURE() << testName << " was not configured and AION_SCENARIO_REQUIRE is set: " << reason;
+		else
+			GTEST_SKIP() << testName << ": skipped (" << reason << ")";
+	};
+	std::optional<ScenarioEnvironment> environment = ScenarioEnvironment::fromEnvironment();
+	if (!environment) {
+		unavailable("set AION_TEST_GS_DATABASE_URL and AION_TEST_LS_DATABASE_URL");
+		return;
+	}
+	constexpr minutes SOAK_LENGTH{65};
+	const sys_seconds start = floor<seconds>(system_clock::now());
+	// startup (10 min at most in Debug) + the seed + the soak
+	if (const std::optional<std::string> conflict = soakWindowConflict(start, start + minutes(15) + SOAK_LENGTH)) {
+		GTEST_SKIP() << testName << ": skipped (" << *conflict << "; started " << std::format("{:%F %T}", start) << " UTC)";
+		return;
+	}
+	const std::filesystem::path outputDir = std::filesystem::path(AION_SCENARIO_OUTPUT_DIR) / "m5i_soak";
+
+	CaseLog cases;
+	struct ReportPrinter {
+		const CaseLog& cases;
+		const std::string& testName;
+		~ReportPrinter() { std::cout << cases.report(testName) << std::flush; }
+	} printer{cases, testName};
+
+	std::map<std::string, std::string> soakKeys;
+	soakKeys["gameserver.geodata.enable"] = "false";
+	soakKeys["gameserver.npcshouts.enable"] = "false";
+	soakKeys["gameserver.analysis.quest_handlers"] = "false";
+	for (const auto& [key, value] : m5iSiegeKeys())
+		soakKeys[key] = value;
+	soakKeys["gameserver.siege.assault.enable"] = "true"; // the shipped setting (siege.properties:11)
+
+	ScenarioServers::Config config;
+	config.gameServerExecutable = AION_GAME_SERVER_EXECUTABLE;
+	config.loginServerExecutable = AION_LOGIN_SERVER_EXECUTABLE;
+	config.gameServerJavaDir = AION_GAMESERVER_JAVA_DIR;
+	config.loginServerJavaDir = AION_LOGINSERVER_JAVA_DIR;
+	config.outputDir = outputDir;
+	config.schemaPrefix = "m5is";
+	config.gameServerProperties = soakKeys;
+	config.startupTimeout = 10min;
+	config.stopTimeout = 3min;
+	ScenarioServers servers(config, *environment);
+	const std::string schema = servers.gameSchema();
+	const ScenarioDatabase& database = servers.gameDatabase();
+	std::filesystem::create_directories(outputDir);
+
+	bool ok = true;
+	const auto runCase = [&](std::string_view id, std::string_view title, const std::function<void()>& body) {
+		if (!ok)
+			cases.skip(id, title, "an earlier case ended with an exception or a fatal failure");
+		else
+			ok = cases.run(id, title, body);
+	};
+
+	runCase("K0", "the servers start with every siege system on, the Balaur assault as shipped, and the 31 bases", [&] {
+		servers.createSchemas();
+		servers.startLoginServer();
+		servers.startGameServer();
+	});
+
+	const std::string suffix = servers.gameSchema().substr(servers.gameSchema().size() - 8);
+	ScenarioClient r, e, v;
+	std::array<ScenarioClient*, 3> all{&r, &e, &v};
+	r.label = "R";
+	r.account = "m5isr" + suffix;
+	e.label = "E";
+	e.account = "m5ise" + suffix;
+	v.label = "V";
+	v.account = "m5isv" + suffix;
+	Character cr{"R", "Soakreshanta", NewCharacter::WARRIOR, "WARRIOR", ""}; // Asmodian, Primum Landing
+	Character ce{"E", "Soakeltnen", NewCharacter::WARRIOR, "WARRIOR", ""};   // Elyos, Eltnen
+	Character cv{"V", "Soakverteron", NewCharacter::WARRIOR, "WARRIOR", ""}; // Elyos, Verteron
+	const steady_clock::time_point steadyZero = steady_clock::now();
+	const system_clock::time_point systemZero = system_clock::now();
+	const auto wallClockOf = [&](steady_clock::time_point t) { return systemZero + duration_cast<system_clock::duration>(t - steadyZero); };
+
+	const auto createCharacter = [&](ScenarioClient& client, Character& character, bool asmodian) {
+		NewCharacter newCharacter;
+		newCharacter.name = character.name;
+		newCharacter.playerClassId = character.classId;
+		newCharacter.asmodian = asmodian;
+		client.game->send(GameSession::CM_CREATE_CHARACTER, GameSession::buildCM_CREATE_CHARACTER(client.key.accountId, client.account, newCharacter, 1));
+		expectNext(*client.game, "SM_CREATE_CHARACTER", client.async);
+		client.game->send(GameSession::CM_CREATE_CHARACTER, GameSession::buildCM_CREATE_CHARACTER(client.key.accountId, client.account, newCharacter, 0));
+		const decoders::CreateCharacter created = decoders::decodeCreateCharacter(expectNext(*client.game, "SM_CREATE_CHARACTER", client.async).data);
+		if (created.responseCode != RESPONSE_OK || !created.player)
+			throw std::runtime_error("creating " + character.label + " answered response code " + std::to_string(created.responseCode));
+		character.playerId = created.player->playerId;
+	};
+	const auto endFirstPrologue = [&](ScenarioClient& client, const decoders::Prologue& prologue, std::string_view label) {
+		AsyncAllowed async = client.async;
+		async.temporarySpawnUpdates(client.npcs.predicate());
+		endPrologue(*client.game, client.lastLevelReady, prologue, 0, async, [&] { return collectBurst(*client.game, async); }, label);
+		client.model.sync();
+	};
+	const auto seed = [&](const Character& character, int32_t worldId, float x, float y, float z) {
+		database.execute(schema, "UPDATE players SET world_id = " + std::to_string(worldId) + ", x = " + std::to_string(x) + ", y = " + std::to_string(y) +
+		                           ", z = " + std::to_string(z) + ", heading = 0 WHERE id = " + std::to_string(character.playerId));
+	};
+
+	runCase("K1", "seed: three characters through their prologues, then placed in Reshanta, Eltnen and Verteron", [&] {
+		const auto create = [&](ScenarioClient& client, Character& character, bool asmodian, const decoders::Prologue& prologue) {
+			logIn(servers, client);
+			createCharacter(client, character, asmodian);
+			client.character = &character;
+			enterWorld(client, false);
+			levelReady(client);
+			endFirstPrologue(client, prologue, client.label + "'s prologue");
+			disconnect(client);
+		};
+		create(r, cr, true, decoders::ASMODIAN_PROLOGUE);
+		create(e, ce, false, decoders::ELYOS_PROLOGUE);
+		create(v, cv, false, decoders::ELYOS_PROLOGUE);
+		seed(cr, RESHANTA, 1078.71f, 2838.54f, 1636.58f);   // Primum Landing (teleport_location.xml 38)
+		seed(ce, 210020000, 948.0f, 2216.0f, 253.0f);       // Eltnen (hotspot_template.xml 30)
+		seed(cv, 210030000, 1643.0f, 1500.0f, 120.0f);      // Verteron Citadel (hotspot_template.xml 19)
+	});
+
+	runCase("K2", "65 idle minutes across an hh:00: every client gets the hourly SM_FORTRESS_STATUS within 2 s after the hour", [&] {
+		enterAs(servers, r, cr);
+		enterAs(servers, e, ce);
+		enterAs(servers, v, cv);
+		std::array<size_t, 3> from{r.mark(), e.mark(), v.mark()};
+		const steady_clock::time_point end = steady_clock::now() + SOAK_LENGTH;
+		steady_clock::time_point nextPing = steady_clock::now() + seconds(180);
+		while (steady_clock::now() < end) {
+			for (ScenarioClient* client : all)
+				if (client->game && !client->game->client.socket.isClosed())
+					client->game->next(20ms);
+			if (steady_clock::now() >= nextPing) { // the client's 180 s ping (CM_PING.java), so no client looks dead
+				for (ScenarioClient* client : all)
+					if (client->game && !client->game->client.socket.isClosed())
+						client->game->send(GameSession::CM_PING, GameSession::buildCM_PING());
+				nextPing += seconds(180);
+			}
+		}
+		for (size_t i = 0; i < all.size(); i++) {
+			ScenarioClient& client = *all[i];
+			ASSERT_TRUE(client.game && !client.game->client.socket.isClosed()) << client.label << ": disconnected during the soak";
+			int32_t onTheHour = 0;
+			for (const Packet& packet : ofName(client.since(from[i]), "SM_FORTRESS_STATUS")) {
+				const system_clock::time_point at = wallClockOf(packet.receivedAt);
+				const auto sinceHour = at - floor<hours>(at);
+				std::cout << client.label << ": SM_FORTRESS_STATUS at " << std::format("{:%T}", floor<milliseconds>(at)) << " UTC" << std::endl;
+				if (sinceHour <= seconds(2))
+					onTheHour++;
+			}
+			EXPECT_GE(onTheHour, 1) << client.label << ": no SM_FORTRESS_STATUS within 2 s after an hh:00 (SiegeService's hourly broadcast)";
+		}
+	});
+
+	std::optional<int32_t> gameServerExit;
+	for (ScenarioClient* client : all)
+		if (client->game)
+			try {
+				disconnect(*client);
+			} catch (const std::exception& ex) {
+				std::cout << "disconnect: " << ex.what() << std::endl;
+			}
+	if (servers.gameServer() != nullptr)
+		gameServerExit = servers.stopGameServer();
+	const std::optional<int32_t> loginServerExit = servers.loginServer() != nullptr ? servers.stopLoginServer() : std::nullopt;
+
+	cases.run("K3", "reports: exits, unported sites, census (the leak census and the zombie breaker), lock order, watchdog, ERROR lines", [&] {
+		ASSERT_TRUE(gameServerExit) << "the game server did not exit after the stop file was written";
+		EXPECT_EQ(*gameServerExit, 0);
+		ASSERT_TRUE(loginServerExit);
+		EXPECT_TRUE(*loginServerExit == 0 || *loginServerExit == 98) << "the login server exited with " << *loginServerExit;
+		EXPECT_TRUE(servers.readReportLines("unported_trace.txt").empty()) << join(servers.readReportLines("unported_trace.txt"), "\n");
+		EXPECT_TRUE(servers.readReportLines("census.txt").empty()) << join(servers.readReportLines("census.txt"), "\n");
+		EXPECT_TRUE(servers.readReportLines("lockdep.txt").empty()) << join(servers.readReportLines("lockdep.txt"), "\n");
+		EXPECT_TRUE(servers.readReportLines("watchdog.txt").empty()) << join(servers.readReportLines("watchdog.txt"), "\n");
+		for (const PartialHit& hit : readPartialHits(servers))
+			std::cout << "AION_PARTIAL " << hit.line << std::endl;
+		ASSERT_NE(servers.gameServer(), nullptr);
+		EXPECT_TRUE(servers.gameServer()->findLogLines(" ERROR ").empty()) << join(servers.gameServer()->findLogLines(" ERROR "), "\n");
+	});
+
+	finishRun(servers, outputDir, testName);
+}
+
 } // namespace
 
 /** `gs.scenario.m5i` (m5i-plan.md 10, I-6): the siege half - the login state, captures, a siege start and stop, an artifact, persistence */
 TEST(M5iScenario, Run) {
 	runM5iGate();
+}
+
+/** `gs.scenario.m5i_soak` (m5i-plan.md 10.7, D17, G-09): 65 idle minutes of three clients across an hh:00 - opt-in (AION_SCENARIO_SOAK) */
+TEST(M5iSoak, Run) {
+	runM5iSoak();
 }
 
 } // namespace aion::gameserver::scenario

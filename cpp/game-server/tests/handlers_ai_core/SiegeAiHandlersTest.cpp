@@ -14,6 +14,9 @@
 #include "aion/gameserver/handlers/ai/siege/GuardianGeneralAI.cpp"
 #include "aion/gameserver/handlers/ai/siege/SiegeRaceProtectorAI.cpp"
 #include "aion/gameserver/handlers/ai/siege/ShieldNpcAI.cpp"
+// M5i I-8 (P5-12b1 lease of A1's files): the base boss and the siege base flag
+#include "aion/gameserver/handlers/ai/siege/BaseProtectorAI.cpp"
+#include "aion/gameserver/handlers/ai/siege/FlagBaseNpcAI.cpp"
 
 #include "../ai/AiWorldTestSupport.h"
 
@@ -58,6 +61,8 @@ namespace aion::gameserver::handlers::ai::siege {
 ::aion::gameserver::handlers::AIFactory GuardianGeneralAI_aiFactory;
 ::aion::gameserver::handlers::AIFactory SiegeRaceProtectorAI_aiFactory;
 ::aion::gameserver::handlers::AIFactory ShieldNpcAI_aiFactory;
+::aion::gameserver::handlers::AIFactory BaseProtectorAI_aiFactory;
+::aion::gameserver::handlers::AIFactory FlagBaseNpcAI_aiFactory;
 } // namespace aion::gameserver::handlers::ai::siege
 
 namespace aion::gameserver::services {
@@ -336,6 +341,52 @@ TEST_F(SiegeAiHandlersTest, AProtectorBackHomeForgetsItsAggroList) {
 		ai.handleBackHome();
 	}
 	EXPECT_TRUE(guardian->getAggroList().stream().empty()) << "old damages are not counted in stopSiege";
+}
+
+
+// ------------------------------------------------------------------------------------------------------------------- the bases (M5i I-8)
+
+TEST_F(SiegeAiHandlersTest, TheBaseAIsAreNamedAndABaseBossNeitherDecaysNorRespawnsNorDropsLoot) {
+	AI_TEST_SCOPE;
+	Ref<SiegeNpc> npc = makeSiegeNpc(GUARDIAN_NPC_ID);
+	std::unique_ptr<AbstractAI> protector = sieges::BaseProtectorAI_aiFactory(*npc);
+	EXPECT_TRUE(dynamic_cast<sieges::BaseProtectorAI*>(protector.get()));
+	EXPECT_TRUE(dynamic_cast<gameserver::handlers::ai::AggressiveNpcAI*>(protector.get())) << "BaseProtectorAI extends AggressiveNpcAI";
+	std::unique_ptr<AbstractAI> flag = sieges::FlagBaseNpcAI_aiFactory(*npc);
+	EXPECT_TRUE(dynamic_cast<sieges::FlagBaseNpcAI*>(flag.get()));
+	EXPECT_FALSE(dynamic_cast<gameserver::handlers::ai::AggressiveNpcAI*>(flag.get())) << "a plain NpcAI";
+
+	sieges::BaseProtectorAI& ai = install<sieges::BaseProtectorAI>(*npc);
+	EXPECT_FALSE(ai.ask(AIQuestion::ALLOW_DECAY));
+	EXPECT_FALSE(ai.ask(AIQuestion::ALLOW_RESPAWN));
+	EXPECT_FALSE(ai.ask(AIQuestion::REWARD_LOOT));
+	EXPECT_FALSE(ai.ask(AIQuestion::REMOVE_EFFECTS_ON_MAP_REGION_DEACTIVATE));
+	EXPECT_TRUE(ai.ask(AIQuestion::REWARD_AP_XP_DP_LOOT)) << "the other questions are AggressiveNpcAI's";
+}
+
+TEST_F(SiegeAiHandlersTest, ABaseBossFromLevel65TakesTheBaseProtectorMultiplier) {
+	AI_TEST_SCOPE;
+	const float saved = configs::main::SiegeConfig::BASE_PROTECTOR_HEALTH_MULTIPLIER.load();
+	configs::main::SiegeConfig::BASE_PROTECTOR_HEALTH_MULTIPLIER.store(3.0f);
+	Ref<SiegeNpc> boss65 = makeSiegeNpc(ARTIFACT_PROTECTOR_NPC_ID);
+	Ref<SiegeNpc> boss64 = makeSiegeNpc(ARTIFACT_PROTECTOR_64_NPC_ID);
+	const float rate65 = maxHpBaseRate(install<sieges::BaseProtectorAI>(*boss65), *boss65);
+	const float rate64 = maxHpBaseRate(install<sieges::BaseProtectorAI>(*boss64), *boss64);
+	model::stats::calc::AdditionStat attack(model::stats::container::StatEnum::MAIN_HAND_POWER, 100, *boss65);
+	boss65->getAi().modifyOwnerStat(attack);
+	configs::main::SiegeConfig::BASE_PROTECTOR_HEALTH_MULTIPLIER.store(saved);
+	EXPECT_FLOAT_EQ(rate65, 3.0f);
+	EXPECT_FLOAT_EQ(rate64, 1.0f) << "below level 65";
+	EXPECT_FLOAT_EQ(attack.getBaseRate(), 1.0f) << "only MAXHP";
+}
+
+TEST_F(SiegeAiHandlersTest, ASiegeBaseFlagNeitherTakesNorDealsDamage) {
+	AI_TEST_SCOPE;
+	Ref<SiegeNpc> flag = makeSiegeNpc(GUARDIAN_NPC_ID);
+	sieges::FlagBaseNpcAI& ai = install<sieges::FlagBaseNpcAI>(*flag);
+	Ref<model::gameobjects::player::Player> player = makeWorldPlayer(7002, 502, 500, 100);
+	EXPECT_FLOAT_EQ(ai.modifyDamage(*player, 40.0f, nullptr), 0.0f);
+	EXPECT_FLOAT_EQ(ai.modifyOwnerDamage(40.0f, *player, nullptr), 0.0f);
 }
 
 } // namespace
