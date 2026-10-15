@@ -556,6 +556,25 @@ public:
 	/** CM_QUEST_SHARE.readImpl (CM_QUEST_SHARE.java:39-41): readD questId */
 	static std::vector<uint8_t> buildCM_QUEST_SHARE(int32_t questId);
 
+	// ---- M5j stage 0's chat and GM packets (m5j-plan.md H-02), each the Java readImpl field order ----
+	/** AionClientPacketFactory packets[27], [28] and [41] (ClientPacketInfo.gen.inc:39, :40, :52) */
+	static constexpr int32_t CM_CHAT_MESSAGE_PUBLIC = 27;
+	static constexpr int32_t CM_CHAT_MESSAGE_WHISPER = 28;
+	static constexpr int32_t CM_BUILDER_COMMAND = 41;
+	/** ChatType NORMAL (ChatType.java: id 0), the type a chat line and a typed chat command go out with */
+	static constexpr uint8_t CHAT_NORMAL = 0;
+	/**
+	 * CM_CHAT_MESSAGE_PUBLIC.readImpl (CM_CHAT_MESSAGE_PUBLIC.java:38-41): readC chat type, readS message. A chat command is such a line:
+	 * runImpl hands it to ChatProcessor.handleChatCommand first (:47-48), so `//kill` typed by a player who may not use it goes out as chat
+	 */
+	static std::vector<uint8_t> buildCM_CHAT_MESSAGE_PUBLIC(uint8_t chatType, std::string_view message);
+	/** a chat command as the client sends it: a NORMAL CM_CHAT_MESSAGE_PUBLIC line (`//announce a hi`, `.gmlist`) */
+	static std::vector<uint8_t> buildGmCommand(std::string_view text) { return buildCM_CHAT_MESSAGE_PUBLIC(CHAT_NORMAL, text); }
+	/** CM_CHAT_MESSAGE_WHISPER.readImpl (CM_CHAT_MESSAGE_WHISPER.java:44-47): readS name, readS message */
+	static std::vector<uint8_t> buildCM_CHAT_MESSAGE_WHISPER(std::string_view name, std::string_view message);
+	/** CM_BUILDER_COMMAND, AbstractGmCommandPacket.readImpl (AbstractGmCommandPacket.java:27-29): readS command (a console command line) */
+	static std::vector<uint8_t> buildCM_BUILDER_COMMAND(std::string_view command);
+
 	// ---- M5c's stage-1 packets (m5c-plan.md K-01, K-02, G-02) and stage 2's crafting packets, each the Java readImpl field order ----
 	/** one entry of CM_BUY_ITEM (CM_BUY_ITEM.java:65-66): readD itemId (see TRADE_*), readQ count */
 	struct BuyItemEntry {

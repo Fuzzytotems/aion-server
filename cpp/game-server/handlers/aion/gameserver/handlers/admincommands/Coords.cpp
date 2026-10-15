@@ -12,9 +12,9 @@ Coords::Coords() : AdminCommand("coords", "Shows the target's current coordinate
 
 // Java Coords.java:18-22
 void Coords::execute(Player& admin, std::span<const std::string> /*params*/) {
-	runtime::Ptr<VisibleObject> target = admin.getTarget() == nullptr ? runtime::Ptr<VisibleObject>(&admin) : admin.getTarget();
-	sendInfo(admin, name(*target) + "'s position:\n" +
-						commons::utils::StringUtils::replace(target->getPosition()->toCoordString(), ", X:", "\nX:"));
+	runtime::Ptr<VisibleObject> target = admin.getTarget() == nullptr ? runtime::Ptr<VisibleObject>(&admin) : admin.getTarget(); // parity= VisibleObject target = admin.getTarget() == null ? admin : admin.getTarget();
+	sendInfo(admin, name(*target) + "'s position:\n" + // parity= sendInfo(admin, name(target) + "'s position:\n" + target.getPosition().toCoordString().replace(", X:", "\nX:"));
+						commons::utils::StringUtils::replace(target->getPosition()->toCoordString(), ", X:", "\nX:")); // parity: (continued)
 }
 
 } // namespace aion::gameserver::handlers::admincommands

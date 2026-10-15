@@ -19,12 +19,12 @@ void GmList::execute(Player& player, std::span<const std::string> /*params*/) {
 		return;
 	}
 
-	std::string sb = "GMs online (" + std::to_string(availableStaffMembers.size()) + "):";
+	std::string sb = "GMs online (" + std::to_string(availableStaffMembers.size()) + "):"; // parity= StringBuilder sb = new StringBuilder("GMs online (" + availableStaffMembers.size() + "):");
 	for (const runtime::Ptr<Player>& gm : availableStaffMembers) {
 		FriendList::Status status = gm->getFriendList().getStatus();
-		sb += "\n\t" + name(*gm) + " (" + commons::utils::StringUtils::toLowerCase(xml::enumName(status)) + ")";
+		sb += "\n\t" + name(*gm) + " (" + commons::utils::StringUtils::toLowerCase(xml::enumName(status)) + ")"; // parity= sb.append("\n\t").append(name(gm)).append(" (").append(status.name().toLowerCase()).append(")");
 	}
-	sendInfo(player, sb);
+	sendInfo(player, sb); // parity= sendInfo(player, sb.toString());
 }
 
 } // namespace aion::gameserver::handlers::playercommands

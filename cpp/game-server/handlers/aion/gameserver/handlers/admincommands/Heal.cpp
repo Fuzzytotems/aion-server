@@ -33,8 +33,8 @@ Heal::Heal()
 // Java Heal.java:35-83
 void Heal::execute(Player& player, std::span<const std::string> params) {
 	using commons::utils::StringUtils::equalsIgnoreCase;
-	using TYPE = network::aion::serverpackets::SM_ATTACK_STATUS::TYPE;
-	using LOG = network::aion::serverpackets::SM_ATTACK_STATUS::LOG;
+	using TYPE = network::aion::serverpackets::SM_ATTACK_STATUS::TYPE; // parity: the C++ alias of Java's import of SM_ATTACK_STATUS.TYPE
+	using LOG = network::aion::serverpackets::SM_ATTACK_STATUS::LOG; // parity: the C++ alias of Java's import of SM_ATTACK_STATUS.LOG
 	runtime::Ptr<VisibleObject> target = player.getTarget();
 	if (target == nullptr) {
 		sendInfo(player);
@@ -69,18 +69,18 @@ void Heal::execute(Player& player, std::span<const std::string> params) {
 			sendInfo(player, name(*targetPlayer) + "'s Energy of Repose has been fully refreshed.");
 	} else {
 		int32_t value;
-		if (params[0].ends_with("%")) {
+		if (params[0].ends_with("%")) { // parity= if (params[0].endsWith("%")) {
 			// Java: Integer.parseInt(params[0], 0, params[0].length() - 1, 10); its errors carry "Error at index ..." (or "" for an empty
 			// number), which ChatCommand.toErrorMessage answers with "Invalid number." (only "For input string: " messages are quoted)
 			int32_t hpPercent;
 			try {
-				hpPercent = commons::utils::parseInt(std::string_view(params[0]).substr(0, params[0].size() - 1));
-			} catch (const commons::utils::NumberFormatException&) {
-				throw commons::utils::NumberFormatException(params[0].size() == 1 ? "" : "Error at index 0 in: \"" + params[0] + "\"");
+				hpPercent = commons::utils::parseInt(std::string_view(params[0]).substr(0, params[0].size() - 1)); // parity= int hpPercent = Integer.parseInt(params[0], 0, params[0].length() - 1, 10);
+			} catch (const commons::utils::NumberFormatException&) { // parity: Java's NumberFormatException message of parseInt(s, begin, end, radix), docs/deviations/C1.md
+				throw commons::utils::NumberFormatException(params[0].size() == 1 ? "" : "Error at index 0 in: \"" + params[0] + "\""); // parity: (continued)
 			}
-			int32_t maxHp = creature->getLifeStats()->getMaxHp();
+			int32_t maxHp = creature->getLifeStats()->getMaxHp(); // parity: Java reads getMaxHp() twice, in the statement of line 83
 			// Java: Math.clamp((int) (hpPercent / 100f * maxHp), 0, maxHp)
-			value = std::clamp(geoEngine::math::JavaFloat::doubleToInt(static_cast<float>(hpPercent) / 100.0f * static_cast<float>(maxHp)), 0, maxHp);
+			value = std::clamp(geoEngine::math::JavaFloat::doubleToInt(static_cast<float>(hpPercent) / 100.0f * static_cast<float>(maxHp)), 0, maxHp); // parity= value = Math.clamp((int) (hpPercent / 100f * creature.getLifeStats().getMaxHp()), 0, creature.getLifeStats().getMaxHp());
 		} else
 			value = commons::utils::parseInt(params[0]);
 		creature->getLifeStats()->increaseHp(TYPE::HP, value);
