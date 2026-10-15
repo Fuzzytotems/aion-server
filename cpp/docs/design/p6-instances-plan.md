@@ -111,3 +111,7 @@ Smallest self-contained first; each is one commit with its tests and mutation pr
 > Modors. Census I5: 443 -> 257 open bodies (left: Nightmare Circus, Raksang Ruins, the Rentus Bases and their AIs). Gate note: gs.scenario.m5e_geo
 > failed in combat (C17) on the leftovers-1 sweep of 2026-10-14 and on lane C's branch the same day, both under the four-way lock load: a
 > load-sensitive combat timing to harden later (not re-run today).
+> **Progress:** P6I-4f done (P6I-4 complete): the AIs of abyssal_splinter (9) and unstableSplinterpath (12),
+> `tests/handlers_inst_1/SplinterAiTest.cpp` (11 cases, on the Abyssal Splinter map: the AIs spawn at its coordinates; a twin's cast needs an NpcAI
+> on the other twin); mutation proof 21 of 21. Java's AIActions.targetCreature(ai, null) (Yamennes or Pazuzu gone) clears the owner's target. Left
+> to a gate: the walks to a target, Kaluva's summons percentages, the pieces' effect checks, the casts' effects. Census I1: 434 -> 9 open bodies.
