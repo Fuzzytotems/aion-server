@@ -125,3 +125,9 @@ Smallest self-contained first; each is one commit with its tests and mutation pr
 > equivalent (a ninth round that spawns nothing; the destroy's cancel of a task that cancels itself once the instance is destroyed). Java's
 > IllusionMasterSharikAI.percent stays 100 (no 19903), ported as is. Left to a gate: the vault's teleport, the vault trial's zone entry, the walks
 > and casts. Census I5: 443 -> 110 open bodies (left: the Rentus Bases and their AIs).
+> **Progress:** P6I-7c done (I5 complete): RentusBaseInstance, OccupiedRentusBaseInstance and the rentusBase AIs (14).
+> `tests/handlers_inst_5/RentusTest.cpp` (15 cases); mutation proof 24 of 24 after one strengthened case (Kiriana first). ImprisonedReianAI keeps
+> Java's null route id as the empty string (Field<std::string>: a route id is never empty). **Java bug, ported (proposed correction J-P6I7-1):**
+> BrigadeGeneralVashartiAI.onEffectEnd switches on Vasharti's own npc id (getNpcId()) instead of the visited npc's (n.getNpcId()), so the Sea of
+> Fire effects 283010-283012 are never deleted there; proposed: switch on n.getNpcId(). Left to a gate: the teleport devices, the walks, Vasharti's
+> forced walk and Sea of Fire. Census I5: 443 -> 0 open bodies.
