@@ -1209,3 +1209,27 @@ Proposed Java correction J-CP5-1 (behaviour kept): `PetAdoptionService.adoptPet`
 constructor dereferences `PET_FEED_DATA.getFlavourById(...)` for the pet's FOOD function: an egg of a pet with a test flavour (1-6) is lost
 and the adoption ends with a NullPointerException. Correction: validateAdoption refuses a pet whose FOOD flavour is unknown (or the egg is
 taken only after the pet data was created).
+
+## M5j stage-3 gate (lane A, 2026-10-11): `gs.scenario.m5j` Z12 (m5j-plan.md §10.4, §18.4 CP4, G-31)
+
+The gate's file grows Z12; every stage-1 and stage-2 case runs again in the same run. New harness part: the oracle `oracle.py m5j-ais`
+(`tools/oracle/m5j/ais.py`, 4 tests; README), which picks the npc of each of N-01's 23 root AIs - 21 have a template (bomb 281212 and summoner
+211715 with their ai_templates rows), `no_interaction` and `customcdreset` none - and the `//ai set` base, the "general" npc 201047.
+
+| Area | As built | Reason |
+|---|---|---|
+| Order | Z1 ... Z8, Z9, Z11, Z10, then Z12, then Z14 | Z12 needs A alive and beside G; Z14 relogs A |
+| Spawn | G's `//spawn <id>` at G's spot (beside A since the creation); A's SM_NPC_INFO of the template | SpawnNpc.java: a temporary spawn at the admin's position |
+| Template-less AIs | G spawns the base npc, targets it and types `//ai set <name>`: G's info "Npc now has AI <class>", A's new SM_NPC_INFO of the same object | Ai.java:82-89 (World.despawn, the new AI, World.spawn) |
+| First reactions | 1.5 s of A's packets after each spawn (SPAWNED, the npcs' CREATURE_SEE of A and G, aggro) | the AI smoke (N-02) covers the full event list |
+| Clean-up | G targets and `//delete`s the npc and every npc whose SM_NPC_INFO names it (or one of those) as creator - the conquest spawner's offering; an npc that left by itself (A saw its SM_DELETE) is skipped | a world npc that comes into view is left alone: `//delete` of a world spawn reaches SpawnsData.saveSpawn's unported file tail (m5j D7/D14) |
+| Assertions | each spawn reaches A, each `//ai set` answers, no ERROR line during the case, A gets no SM_DIE | §10.4's "no ERROR" |
+| CHANGED from §10.4 | A does not attack the npcs | a level-10 A beside the level-50+ aggressive templates (aggressive_boss_summon, conquest_offering_aggressive) would die and end the later cases; ATTACK is in the AI smoke |
+
+**Runs**: the first run deleted every npc newly shown to A, which took in a Poeta world npc that came into view: its `//delete` reached
+SpawnsData.saveSpawn's unported tail (an ERROR, the unported report, the census line and a live-object warning at the end). The clean-up now
+follows the creator ids. Then green.
+
+**Mutation proof** (`AION_M5J3GATEMUT`, in the handlers; one gate_lock call per run): BombAI.handleSpawned, SummonerAI.handleSpawned and
+NoInteractionAI.handleBeforeSpawned (reached through `//ai set`) throwing - the §10.4 row's "a handler throwing on handleSpawned". **3 of 3 killed** (Z12 and Z13 fail on
+each); sources restored (sha256, 3 files), rebuilt, the switch absent from the handlers library and the server; the gate re-run green.

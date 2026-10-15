@@ -606,6 +606,15 @@ def cmd_m5j_items(args):
 	return 0
 
 
+def cmd_m5j_ais(args):
+	from m5a.data import StaticData
+	from m5j.ais import ais_report
+	data_dir = _data_dir(args)
+	java_src = Path(args.java_src) if args.java_src else data_dir.parent.parent / "src"
+	sys.stdout.write(runner.dump_json(ais_report(StaticData(data_dir), java_src)))
+	return 0
+
+
 def cmd_quest_trace(args):
 	from questtrace import extract
 	rels = extract.SLICE if not args.only else tuple(args.only)
@@ -1058,6 +1067,12 @@ def main(argv=None):
 	p.add_argument("--message", nargs="+", action="extend", metavar="NAME", help="SM_SYSTEM_MESSAGE ids to look up by name")
 	p.add_argument("--question", nargs="+", action="extend", metavar="NAME", help="SM_QUESTION_WINDOW ids to look up by name")
 	p.set_defaults(fn=cmd_m5j_items)
+
+	p = sub.add_parser("m5j-ais", help="the M5j stage-3 gate's root AIs: each AI's name and the npc the gate spawns for it, and the //ai set base "
+	                                   "npc for the AIs without a template (m5j-plan.md §10.4 Z12, §18.4 CP4)")
+	data_args(p, country=False)
+	p.add_argument("--java-src", help="game-server/src (default: two levels above the static data directory, then src)")
+	p.set_defaults(fn=cmd_m5j_ais)
 
 	p = sub.add_parser("quest-trace", help="golden traces of the Java quest handlers: every return leaf of every hook as a case with its "
 	                                       "effects (questtrace/, phase6-inventory.md §7.6 item 3)")

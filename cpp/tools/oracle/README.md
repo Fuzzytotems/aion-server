@@ -894,6 +894,14 @@ without flags takes the map's); the EmotionType and PetFunctionType ids; the rid
 that leaves the ride restriction on for a map with zones that refuse riding, or a map with a zone that refuses a kisk, is refused (the spot's
 zones are not modelled). The Java statements the rules were written against are checked first. Tests: `tests/test_m5j_items.py`.
 
+## M5j AIs oracle (`m5j/ais.py`, `docs/design/m5j-plan.md` §10.4 Z12, §18.4 CP4)
+
+`oracle.py m5j-ais` gives what `gs.scenario.m5j`'s stage-3 case spawns: for each of N-01's 23 root AIs its name (the handler's @AIName in
+`data/handlers/ai`) and the lowest npc id of the templates that run it (NpcTemplate's `ai`), for "bomb" and "summoner" only npcs with their
+ai_templates row (BombAI/SummonerAI.handleSpawned dereference it); the AIs without a template get none, and the `//ai set` base npc (the lowest
+"general" template) with Ai.java's answer prefix. The Java statements the rules were written against are checked first. Tests:
+`tests/test_m5j_ais.py`.
+
 ## Phase-6 golden quest traces (`questtrace/`, `docs/design/phase6-inventory.md` §7.6 item 3)
 
 `questtrace/extract.py` turns a Java quest handler into its expected behaviour, written from Java only: from the handler source,
