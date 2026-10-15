@@ -61,6 +61,7 @@ namespace aion::gameserver::handlers::ai {
 ::aion::gameserver::handlers::AIFactory ConquestOfferingSpawnerAI_aiFactory;
 ::aion::gameserver::handlers::AIFactory DeliveryManAI_aiFactory;
 ::aion::gameserver::handlers::AIFactory FirecrackerAI_aiFactory;
+::aion::gameserver::handlers::AIFactory FlagNpcAI_aiFactory;
 ::aion::gameserver::handlers::AIFactory FollowingNpcAI_aiFactory;
 ::aion::gameserver::handlers::AIFactory GeneralNpcAI_aiFactory;
 ::aion::gameserver::handlers::AIFactory HiddenTeleportNpcAI_aiFactory;
@@ -194,7 +195,7 @@ INSTANTIATE_TEST_SUITE_P(EveryRootAi, RootAiSmokeTest,
 		AION_SMOKE(ChestAI, "chest"), AION_SMOKE(ConquestOfferingAggressiveAI, "conquest_offering_aggressive"),
 		AION_SMOKE(ConquestOfferingBuffNpcAI, "conquest_offering_buff_npc"), AION_SMOKE(ConquestOfferingPortalAI, "conquest_offering_portal"),
 		AION_SMOKE(ConquestOfferingSpawnerAI, "conquest_offering_spawner"), AION_SMOKE(DeliveryManAI, "deliveryman"),
-		AION_SMOKE(FirecrackerAI, "firecracker"), AION_SMOKE(FollowingNpcAI, "following"), AION_SMOKE(GeneralNpcAI, "general"),
+		AION_SMOKE(FirecrackerAI, "firecracker"), AION_SMOKE(FlagNpcAI, "flag"), AION_SMOKE(FollowingNpcAI, "following"), AION_SMOKE(GeneralNpcAI, "general"),
 		AION_SMOKE(HiddenTeleportNpcAI, "hidden_teleporter"), AION_SMOKE(HomingNpcAI, "homing"), AION_SMOKE(NeutralGuardAI, "neutralguard"),
 		AION_SMOKE(NoActionAI, "noaction"), AION_SMOKE(NoDmgNoActionAI, "no_dmg_no_action"), AION_SMOKE(NoInteractionAI, "no_interaction"),
 		AION_SMOKE(OneDmgAI, "onedmg_aggressive"), AION_SMOKE(OneDmgNoActionAI, "onedmg_passive"), AION_SMOKE(PlatinumFountainAI, "fountain"),

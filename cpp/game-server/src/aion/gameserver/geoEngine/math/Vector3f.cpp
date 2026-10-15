@@ -1,3 +1,5 @@
+// Vector3f's create() is not ported: jME's Savable factory has no caller in the server.
+
 #include "aion/gameserver/geoEngine/math/Vector3f.h"
 
 #include "aion/commons/utils/Exception.h"

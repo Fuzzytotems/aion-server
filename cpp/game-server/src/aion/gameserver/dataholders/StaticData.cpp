@@ -1,3 +1,6 @@
+// StaticData's setValidationTask, getValidationTask, addAfterUnmarshalTask and waitForAfterUnmarshalTasksToFinish are replaced: the
+// after-unmarshal tasks run inline (LoadContext::runAfterUnmarshalTask) and there is no XSD validation at run time (static-data.md §3.4).
+
 #include "aion/gameserver/dataholders/StaticData.h"
 
 #include <string>
