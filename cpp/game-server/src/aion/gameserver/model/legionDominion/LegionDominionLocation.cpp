@@ -11,7 +11,11 @@
 #include "aion/gameserver/model/legionDominion/LegionDominionParticipantInfo.h"
 #include "aion/gameserver/model/templates/LegionDominionLocationTemplate.h"
 #include "aion/gameserver/runtime/base/Exceptions.h"
-#include "aion/gameserver/runtime/base/Unported.h"
+#include "aion/gameserver/dao/LegionDominionDAO.h"
+#include "aion/gameserver/model/team/legion/Legion.h"
+#include "aion/gameserver/network/aion/serverpackets/SM_LEGION_DOMINION_RANK.h"
+#include "aion/gameserver/services/LegionService.h"
+#include "aion/gameserver/utils/PacketSendUtility.h"
 
 namespace aion::gameserver::model::legionDominion {
 
@@ -89,20 +93,38 @@ std::unordered_map<int32_t, std::vector<const templates::LegionDominionReward*>>
 	return rewards;
 }
 
+// Java LegionDominionLocation.java:84-93
 bool LegionDominionLocation::join(int32_t value) {
-	AION_UNPORTED();
+	if (participantInfo.get()->containsKey(value)) {
+		return false;
+	}
+	runtime::Ref<LegionDominionParticipantInfo> info = LegionDominionParticipantInfo::create();
+	info->setLegionId(value);
+	participantInfo.get()->put(value, info);
+	store(*info, true);
+	return true;
 }
 
+// Java LegionDominionLocation.java:95-101
 void LegionDominionLocation::store(LegionDominionParticipantInfo& info, bool isNew) {
-	AION_UNPORTED();
+	if (isNew) {
+		dao::LegionDominionDAO::storeNewInfo(getLocationId(), info);
+	} else {
+		dao::LegionDominionDAO::updateInfo(info);
+	}
 }
 
 runtime::Ptr<LegionDominionParticipantInfo> LegionDominionLocation::getParticipantInfo(int32_t value) {
 	return participantInfo.get()->get(value);
 }
 
+// Java LegionDominionLocation.java:107-113
 void LegionDominionLocation::updateRanking() {
-	AION_UNPORTED();
+	for (const runtime::Ptr<LegionDominionParticipantInfo>& info : participantInfo.get()->values()) {
+		runtime::Ptr<team::legion::Legion> legion = services::LegionService::getInstance().getLegion(info->getLegionId());
+		if (legion)
+			utils::PacketSendUtility::broadcastToLegion(*legion, network::aion::serverpackets::SM_LEGION_DOMINION_RANK(*this, legion));
+	}
 }
 
 void LegionDominionLocation::reset() {
