@@ -20,6 +20,11 @@ namespace aion::gameserver::services {
  * @author Simple, Sphinx, xTz
  */
 class DuelService : public runtime::Immortal {
+	// Java's anonymous RequestResponseHandlers of onDuelRequest and confirmDuelWith (DuelService$1, $2) call the private rejectDuelRequest,
+	// startDuel and cancelDuelRequest; their C++ classes (DuelService.cpp) are friends (header request m5j-s1-01)
+	friend class DuelService_RequestHandler;
+	friend class DuelService_WithdrawHandler;
+
 private:
 	runtime::ConcurrentHashMap<int32_t, int32_t> duels{AION_LOCK_CLASS(DuelService::duels#stripe)}; // Java: = new ConcurrentHashMap<>()
 	runtime::ConcurrentHashMap<int32_t, runtime::FutureRef> drawTasks{AION_LOCK_CLASS(DuelService::drawTasks#stripe)}; // Java: = new ConcurrentHashMap<>()
