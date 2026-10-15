@@ -1,17 +1,18 @@
 #pragma once
 
+#include <algorithm>
 #include <cstdint>
 #include <optional>
 #include <unordered_map>
 #include <utility>
 #include <vector>
 
-#include "aion/gameserver/runtime/base/Unported.h"
 #include "aion/gameserver/runtime/collections/ConcurrentHashMap.h"
 #include "aion/gameserver/runtime/collections/Rc.h"
 #include "aion/gameserver/runtime/fields/Atomic.h"
 #include "aion/gameserver/runtime/lifetime/Ref.h"
 #include "aion/gameserver/runtime/lifetime/RefCounted.h"
+#include "aion/gameserver/runtime/sync/Monitor.h"
 #include "aion/gameserver/model/gameobjects/fwd.h"
 #include "aion/gameserver/model/gameobjects/player/fwd.h"
 #include "aion/gameserver/model/siege/fwd.h"
@@ -55,8 +56,26 @@ public:
 protected:
 	/** Java generic method (hub-headers.md §8.3); synchronizes on this when it creates a counter */
 	template <class K>
-	void addToCounter(K key, int32_t value, runtime::ConcurrentHashMap<K,
-		runtime::Ref<runtime::Rc<runtime::AtomicLong>>>& counterMap) { AION_UNPORTED(); }
+	void addToCounter(K key, int32_t value, runtime::ConcurrentHashMap<K, runtime::Ref<runtime::Rc<runtime::AtomicLong>>>& counterMap) {
+		// Get the counter for specific key
+		runtime::Ptr<runtime::Rc<runtime::AtomicLong>> counter = counterMap.get(key);
+
+		// Counter was not registered, need to create it
+		if (!counter) {
+			// synchronize here, it may happen that there will be attempt to increment same counter from different threads
+			SYNCHRONIZED(*this) {
+				if (counterMap.containsKey(key)) {
+					counter = counterMap.get(key);
+				} else {
+					runtime::Ref<runtime::Rc<runtime::AtomicLong>> created = runtime::Rc<runtime::AtomicLong>::create();
+					counter = created;
+					counterMap.put(key, created);
+				}
+			}
+		}
+
+		counter->addAndGet(value);
+	}
 
 public:
 	int64_t getTotalDamage();
@@ -72,8 +91,21 @@ public:
 protected:
 	/** Java generic method: a LinkedHashMap ordered by the counters in descending order, so the entries in that order (hub-headers.md §7.1) */
 	template <class K>
-	std::vector<std::pair<K, int64_t>> getOrderedCounterMap(runtime::ConcurrentHashMap<K,
-		runtime::Ref<runtime::Rc<runtime::AtomicLong>>>& unorderedMap) { AION_UNPORTED(); }
+	std::vector<std::pair<K, int64_t>> getOrderedCounterMap(runtime::ConcurrentHashMap<K, runtime::Ref<runtime::Rc<runtime::AtomicLong>>>& unorderedMap) {
+		std::vector<std::pair<K, int64_t>> result;
+		if (unorderedMap.isEmpty()) // Java: GenericValidator.isBlankOrNull(unorderedMap) -> Collections.emptyMap()
+			return result;
+		// Java: the entries sorted by their counters in descending order (List.sort is stable), then the positive ones into a LinkedHashMap;
+		// the counters are read once each (Java reads them again while copying - a concurrent add lands in either read)
+		std::vector<std::pair<K, int64_t>> tempList;
+		for (const auto& [key, counter] : unorderedMap.snapshot())
+			tempList.emplace_back(key, counter->get());
+		std::stable_sort(tempList.begin(), tempList.end(), [](const auto& o1, const auto& o2) { return o2.second < o1.second; });
+		for (const auto& entry : tempList)
+			if (entry.second > 0)
+				result.push_back(entry);
+		return result;
+	}
 
 public:
 	int32_t compareTo(const SiegeRaceCounter& o) const;

@@ -7,28 +7,63 @@
 #include <vector>
 
 #include "aion/commons/logging/LoggerFactory.h"
+#include "aion/commons/utils/Exception.h"
+#include "aion/commons/utils/Numbers.h"
+#include "aion/commons/utils/StringUtils.h"
 #include "aion/commons/utils/TimeUtils.h"
 #include "aion/gameserver/configs/main/GSConfig.h"
 #include "aion/gameserver/configs/main/SiegeConfig.h"
+#include "aion/gameserver/configs/schedule/SiegeSchedules.h"
+#include "aion/gameserver/controllers/NpcController.h"
 #include "aion/gameserver/dao/SiegeDAO.h"
 #include "aion/gameserver/dataholders/DataManager.h"
 #include "aion/gameserver/dataholders/SiegeLocationData.h"
+#include "aion/gameserver/dataholders/SpawnsData.h"
+#include "aion/gameserver/model/RaceInfo.h"
 #include "aion/gameserver/model/gameobjects/Npc.h"
 #include "aion/gameserver/model/gameobjects/player/Player.h"
 #include "aion/gameserver/model/gameobjects/siege/SiegeNpc.h"
-#include "aion/gameserver/model/siege/SiegeModType.h"
-#include "aion/gameserver/model/templates/spawns/siegespawns/SiegeSpawnTemplate.h"
 #include "aion/gameserver/model/siege/AgentLocation.h"
 #include "aion/gameserver/model/siege/ArtifactLocation.h"
 #include "aion/gameserver/model/siege/FortressLocation.h"
+#include "aion/gameserver/model/siege/Influence.h"
 #include "aion/gameserver/model/siege/OutpostLocation.h"
 #include "aion/gameserver/model/siege/SiegeLocation.h"
+#include "aion/gameserver/model/siege/SiegeModType.h"
+#include "aion/gameserver/model/siege/SiegeRaceInfo.h"
+#include "aion/gameserver/model/stats/container/NpcLifeStats.h"
+#include "aion/gameserver/model/team/legion/Legion.h"
+#include "aion/gameserver/model/templates/siegelocation/DoorRepairData.h"
+#include "aion/gameserver/model/templates/siegelocation/SiegeLocationTemplate.h"
+#include "aion/gameserver/model/templates/spawns/SpawnGroup.h"
 #include "aion/gameserver/model/templates/spawns/SpawnTemplate.h"
+#include "aion/gameserver/model/templates/spawns/siegespawns/SiegeSpawnTemplate.h"
 #include "aion/gameserver/network/aion/serverpackets/SM_ABYSS_ARTIFACT_INFO3.h"
+#include "aion/gameserver/network/aion/serverpackets/SM_AFTER_SIEGE_LOCINFO_475.h"
+#include "aion/gameserver/network/aion/serverpackets/SM_FORTRESS_INFO.h"
+#include "aion/gameserver/network/aion/serverpackets/SM_FORTRESS_STATUS.h"
+#include "aion/gameserver/network/aion/serverpackets/SM_INFLUENCE_RATIO.h"
+#include "aion/gameserver/network/aion/serverpackets/SM_RIFT_ANNOUNCE.h"
 #include "aion/gameserver/network/aion/serverpackets/SM_SHIELD_EFFECT.h"
+#include "aion/gameserver/network/aion/serverpackets/SM_SIEGE_LOCATION_INFO.h"
+#include "aion/gameserver/network/aion/serverpackets/SM_SYSTEM_MESSAGE.h"
+#include "aion/gameserver/runtime/base/Exceptions.h"
 #include "aion/gameserver/runtime/base/Unported.h"
+#include "aion/gameserver/runtime/sync/Monitor.h"
+#include "aion/gameserver/services/LegionService.h"
+#include "aion/gameserver/services/cron/CronService.h"
+#include "aion/gameserver/services/panesterra/PanesterraService.h"
+#include "aion/gameserver/services/siege/FortressSiege.h"
 #include "aion/gameserver/services/siege/Siege.h"
+#include "aion/gameserver/services/siege/SiegeCounter.h"
+#include "aion/gameserver/services/siege/SiegeException.h"
+#include "aion/gameserver/services/siege/SiegeStartRunnable.h"
+#include "aion/gameserver/spawnengine/SpawnEngine.h"
+#include "aion/gameserver/utils/ChatUtil.h"
 #include "aion/gameserver/utils/PacketSendUtility.h"
+#include "aion/gameserver/utils/ThreadPoolManager.h"
+#include "aion/gameserver/world/World.h"
+#include "aion/gameserver/world/WorldType.h"
 
 namespace aion::gameserver::services {
 
@@ -36,7 +71,17 @@ namespace aion::gameserver::services {
 // `python tools/gen/fieldmap.py --class <key>` prints.
 //   anonymous Consumer at SiegeService.java:549 (com.aionemu.gameserver.services.SiegeService$1); argument 1 of forEachPlayer(); storage: sync
 
+using model::siege::SiegeModType;
+using model::siege::SiegeRace;
+using network::aion::serverpackets::SM_SYSTEM_MESSAGE;
+namespace StringUtils = commons::utils::StringUtils;
+
 static const auto log = commons::logging::LoggerFactory::getLogger("SIEGE_LOG");
+
+/** Java SiegeRace.getL10n() (the L10n default method): the localized name of the race */
+static std::string l10nOf(SiegeRace race) {
+	return utils::ChatUtil::l10n(model::siege::getL10nId(race));
+}
 
 const cron::CronExpression SiegeService::SIEGE_LOCATION_STATUS_BROADCAST_SCHEDULE("0 0 * ? * *");
 
@@ -59,7 +104,9 @@ static void copyLocations(const dataholders::detail::LinkedMap<int32_t, runtime:
 		target.put(id, location);
 }
 
-SiegeService::SiegeService() : agent(initialAgentLocation()) {
+SiegeService::SiegeService()
+	: agent(initialAgentLocation()),
+	  rvrEventPlayers(runtime::RcHashSet<runtime::Ref<model::gameobjects::player::Player>>::create(AION_LOCK_CLASS(SiegeService::rvrEventPlayers))) {
 	if (configs::main::SiegeConfig::SIEGE_ENABLED.load()) {
 		log.info("Initializing sieges...");
 
@@ -87,45 +134,260 @@ void SiegeService::updateNextStateUpdateTime() {
 		: std::nullopt);
 }
 
+// Java SiegeService.java:99-173
 void SiegeService::initSieges() {
 	if (!isInitialized.compareAndSet(false, true) || !configs::main::SiegeConfig::SIEGE_ENABLED.load())
 		return;
 
-	// M5a keeps sieges disabled (plan D1): despawning the spawn engine's siege NPCs, the siege spawns, SiegeSchedules, the siege start
-	// cron jobs, the standalone artifact sieges and the hourly status broadcast follow with the siege work (plan O-05)
-	AION_UNPORTED();
+	// despawn all NPCs spawned by spawn engine.
+	// Siege spawns should be controlled by siege service
+	for (int32_t i : getSiegeLocations().keySet()) {
+		deSpawnNpcs(i);
+	}
+
+	// spawn fortress common npcs
+	for (const runtime::Ptr<model::siege::FortressLocation>& f : getFortresses().values()) {
+		spawnNpcs(f->getLocationId(), f->getRace(), SiegeModType::PEACE);
+	}
+
+	// spawn outpost protectors...
+	for (const runtime::Ptr<model::siege::OutpostLocation>& o : getOutposts().values()) {
+		spawnNpcs(o->getLocationId(), o->getRace(), SiegeModType::PEACE);
+	}
+
+	// spawn artifacts
+	for (const runtime::Ptr<model::siege::ArtifactLocation>& a : getStandaloneArtifacts()) {
+		spawnNpcs(a->getLocationId(), a->getRace(), SiegeModType::PEACE);
+	}
+
+	// initialize siege schedule
+	std::unique_ptr<configs::schedule::SiegeSchedules> siegeSchedules = configs::schedule::SiegeSchedules::load();
+
+	// Schedule fortresses sieges protector spawn
+	for (const configs::schedule::SiegeSchedules::Fortress& f : siegeSchedules->getFortresses()) {
+		for (const std::string& siegeTime : f.getSiegeTimes()) {
+			std::string preparationCron = getPreparationCronString(siegeTime, f.getId());
+			cron::CronService::getInstance().schedule(cron::CronJob(siege::SiegeStartRunnable{.locationId = f.getId()}), preparationCron);
+			log.debug("Scheduled siege of fortressID {} based on cron expression: {}", f.getId(), preparationCron);
+		}
+	}
+
+	// Schedule agent fights
+	for (const configs::schedule::SiegeSchedules::AgentFight& a : siegeSchedules->getAgentFights()) {
+		for (const std::string& siegeTime : a.getSiegeTimes()) {
+			cron::CronService::getInstance().schedule(cron::CronJob(siege::SiegeStartRunnable{.locationId = a.getId()}), siegeTime);
+			log.debug("Scheduled agent fight based on cron expression: {}", siegeTime);
+		}
+	}
+
+	// Start siege of artifacts
+	for (const runtime::Ptr<model::siege::ArtifactLocation>& artifact : artifacts.values()) {
+		if (artifact->isStandAlone()) {
+			log.debug("Starting siege of artifact #" + std::to_string(artifact->getLocationId()));
+			startSiege(artifact->getLocationId());
+		} else {
+			log.debug("Artifact #{} siege was not started, it belongs to fortress", artifact->getLocationId());
+		}
+	}
+
+	// We should set valid next state for fortress on startup. No need to broadcast state here, no players @ server ATM
+	updateNextStateUpdateTime();
+	updateFortressNextState();
+
+	// Schedule siege status broadcast (every hour)
+	cron::CronService::getInstance().schedule(cron::CronJob({this}, [this] {
+		updateNextStateUpdateTime();
+		updateFortressNextState();
+		world::World::getInstance().forEachPlayer([this](model::gameobjects::player::Player& player) {
+			for (const runtime::Ptr<model::siege::FortressLocation>& fortress : getFortresses().values())
+				utils::PacketSendUtility::sendPacket(player, network::aion::serverpackets::SM_FORTRESS_INFO(fortress->getLocationId(), false));
+			utils::PacketSendUtility::sendPacket(player, network::aion::serverpackets::SM_FORTRESS_STATUS());
+			for (const runtime::Ptr<model::siege::FortressLocation>& fortress : getFortresses().values())
+				utils::PacketSendUtility::sendPacket(player, network::aion::serverpackets::SM_FORTRESS_INFO(fortress->getLocationId(), true));
+		});
+	}), SIEGE_LOCATION_STATUS_BROADCAST_SCHEDULE);
+	log.debug("Broadcasting Siege Location status based on expression: {}", SIEGE_LOCATION_STATUS_BROADCAST_SCHEDULE.getCronExpression());
 }
 
+// Java SiegeService.java:175-180
 void SiegeService::checkSiegeStart(int32_t locationId) {
-	AION_UNPORTED();
+	if (agent->getLocationId() == locationId)
+		startSiege(locationId);
+	else
+		startPreparations(locationId);
 }
 
+// Java SiegeService.java:182-196
 void SiegeService::startPreparations(int32_t locationId) {
-	AION_UNPORTED();
+	log.debug("Starting preparations of siege Location:{}", locationId);
+	runtime::Ptr<model::siege::FortressLocation> loc = getFortress(locationId);
+
+	// Set siege start timer..
+	utils::ThreadPoolManager::getInstance().schedule(this, [this, locationId] { startSiege(locationId); }, 300 * 1000);
+
+	if (loc->getTemplate()->getMaxOccupyCount() > 0 && loc->getOccupiedCount() >= loc->getTemplate()->getMaxOccupyCount()
+		&& loc->getRace() != SiegeRace::BALAUR) {
+		log.debug("Resetting fortress to balaur control due to exceeded occupy count! locId:{}", locationId);
+		resetSiegeLocation(*loc);
+	}
+
+	// TODO:
+	if (locationId > 10000) { // Panesterra
+		panesterra::PanesterraService::getInstance().prepareFortressSiege(*loc);
+	}
 }
 
+// Java SiegeService.java:198-218
 void SiegeService::startSiege(int32_t siegeLocationId) {
-	AION_UNPORTED();
+	SYNCHRONIZED(*this) {
+		log.debug("Starting siege of siege location: " + std::to_string(siegeLocationId));
+
+		// Siege should not be started two times
+		if (activeSieges.containsKey(siegeLocationId)) {
+			log.error("Attempt to start siege twice for siege location: " + std::to_string(siegeLocationId), commons::utils::Exception(""));
+			return;
+		}
+
+		runtime::Ref<siege::Siege> siege = newSiege(siegeLocationId);
+		activeSieges.put(siegeLocationId, siege);
+		siege->startSiege();
+
+		// certain sieges are endless
+		// should end only manually on siege boss death
+		if (siege->isEndless())
+			return;
+
+		// schedule siege end
+		utils::ThreadPoolManager::getInstance().schedule(this, [this, siegeLocationId] { stopSiege(siegeLocationId); },
+			siege->getSiegeLocation()->getSiegeDuration() * 1000LL);
+	}
 }
 
+// Java SiegeService.java:220-231
 void SiegeService::stopSiege(int32_t siegeLocationId) {
-	AION_UNPORTED();
+	SYNCHRONIZED(*this) {
+		log.debug("Stopping siege of siege location: {}", siegeLocationId);
+
+		runtime::Ptr<siege::Siege> siege = activeSieges.remove(siegeLocationId);
+		if (!siege) {
+			log.debug("Siege of siege location {} is not in progress, it was captured earlier?", siegeLocationId);
+			return;
+		}
+		if (siege->isFinished())
+			return;
+		siege->stopSiege();
+	}
 }
 
-void SiegeService::captureSiege(model::siege::SiegeRace sr, int32_t legionId, int32_t locId) {
-	AION_UNPORTED();
+// Java SiegeService.java:236-262
+void SiegeService::captureSiege(SiegeRace sr, int32_t legionId, int32_t locId) {
+	SYNCHRONIZED(*this) {
+		runtime::Ptr<model::siege::SiegeLocation> loc = getSiegeLocation(locId);
+		runtime::Ptr<siege::Siege> s = getSiege(locId);
+		if (s) {
+			s->getSiegeCounter()->addRaceDamage(sr, s->getBoss()->getLifeStats()->getMaxHp() + 1);
+			s->setBossKilled(true);
+			stopSiege(locId);
+			loc->setLegionId(legionId);
+		} else {
+			deSpawnNpcs(locId);
+			loc->setVulnerable(false);
+			loc->setUnderShield(false);
+			loc->setRace(sr);
+			loc->setLegionId(legionId);
+			spawnNpcs(locId, sr, SiegeModType::PEACE);
+			// lockdep: Java writes the location under the synchronized method too (SiegeService.java:251)
+			dao::SiegeDAO::updateSiegeLocation(*loc);
+			switch (locId) {
+				case 2011:
+				case 2021:
+				case 3011:
+				case 3021:
+					updateOutpostSiegeState(*runtime::cast<model::siege::FortressLocation>(loc));
+					break;
+			}
+		}
+		broadcastUpdate(*loc);
+	}
 }
 
+// Java SiegeService.java:267-304
 void SiegeService::resetSiegeLocation(model::siege::SiegeLocation& loc) {
-	AION_UNPORTED();
+	SYNCHRONIZED(*this) {
+		// Despawn old npc
+		deSpawnNpcs(loc.getLocationId());
+		loc.clearLocation(); // remove all players
+
+		// Store old owner for msg
+		const int32_t oldOwnerRaceId = model::siege::getRaceId(loc.getRace());
+		const int32_t legionId = loc.getLegionId();
+		const std::string legionName = legionId != 0 ? LegionService::getInstance().getLegion(legionId)->getName() : "";
+		const std::string locL10n = loc.getTemplate()->getL10n();
+
+		// Reset owner
+		loc.setRace(SiegeRace::BALAUR);
+		loc.setLegionId(0);
+
+		if (runtime::as<model::siege::FortressLocation>(loc)) {
+			runtime::Ptr<model::siege::ArtifactLocation> artifact = getFortressArtifact(loc.getLocationId());
+			if (artifact) {
+				artifact->setRace(SiegeRace::BALAUR);
+				artifact->setLegionId(0);
+			}
+		}
+		loc.setOccupiedCount(0);
+
+		// On start preparations msg
+		world::World::getInstance().forEachPlayer([&](model::gameobjects::player::Player& player) {
+			if (legionId != 0 && model::getRaceId(player.getRace()) == oldOwnerRaceId)
+				utils::PacketSendUtility::sendPacket(player, SM_SYSTEM_MESSAGE::STR_ABYSS_GUILD_CASTLE_TAKEN(legionName, locL10n));
+			utils::PacketSendUtility::sendPacket(player, SM_SYSTEM_MESSAGE::STR_ABYSS_WIN_CASTLE(l10nOf(loc.getRace()), locL10n));
+			utils::PacketSendUtility::sendPacket(player, network::aion::serverpackets::SM_SIEGE_LOCATION_INFO(loc));
+		});
+		broadcastUpdate(loc);
+
+		// Spawn new npc
+		spawnNpcs(loc.getLocationId(), SiegeRace::BALAUR, SiegeModType::PEACE);
+
+		// lockdep: Java writes the location under the synchronized method too (SiegeService.java:303)
+		dao::SiegeDAO::updateSiegeLocation(loc);
+	}
 }
 
+// Java SiegeService.java:309-320
 void SiegeService::updateFortressNextState() {
-	AION_UNPORTED();
+	std::unordered_map<int32_t, commons::database::Timestamp> startDatesByLocId = collectNextSiegeStartDates();
+
+	// update each fortress next state
+	for (const auto& [locationId, date] : startDatesByLocId) {
+		// update fortress state that will be valid within the next hour
+		runtime::Ptr<model::siege::SiegeLocation> fortress = getSiegeLocation(locationId);
+		const std::optional<commons::database::Timestamp> nextStateUpdate = nextStateUpdateTime.get();
+		if (!nextStateUpdate)
+			throw runtime::NullPointerException("nextStateUpdateTime"); // Java: Date.after(null)
+		if (!(date > *nextStateUpdate)) // date is > now and <= next update time (this check also accounts for the preparation time)
+			fortress->setNextState(model::siege::SiegeLocation::STATE_VULNERABLE);
+		else
+			fortress->setNextState(model::siege::SiegeLocation::STATE_INVULNERABLE);
+	}
 }
 
+// Java SiegeService.java:322-334
 std::unordered_map<int32_t, commons::database::Timestamp> SiegeService::collectNextSiegeStartDates() {
-	AION_UNPORTED();
+	// Java: findNextFireTimes(SiegeStartRunnable.class, true) - one entry per scheduled runnable (each schedule() above is a new one)
+	std::vector<std::pair<runtime::Ref<cron::JobDetail>, std::chrono::sys_seconds>> dates =
+		cron::CronService::getInstance().findNextFireTimes<siege::SiegeStartRunnable>();
+	std::unordered_map<int32_t, commons::database::Timestamp> nextSiegeStartDates;
+	for (const auto& [job, fireTime] : dates) {
+		const commons::database::Timestamp date = std::chrono::time_point_cast<std::chrono::milliseconds>(fireTime);
+		const int32_t locationId = job->getJob().target<siege::SiegeStartRunnable>()->getLocationId();
+		auto it = nextSiegeStartDates.find(locationId);
+		if (it == nextSiegeStartDates.end())
+			nextSiegeStartDates.emplace(locationId, date);
+		else if (it->second > date) // Java: oldDate.after(date)
+			it->second = date;
+	}
+	return nextSiegeStartDates;
 }
 
 int32_t SiegeService::getSecondsUntilNextFortressState() {
@@ -185,12 +447,20 @@ runtime::Ptr<model::siege::ArtifactLocation> SiegeService::getFortressArtifact(i
 	return !loc || !loc->getOwningFortress() ? nullptr : loc;
 }
 
+// Java SiegeService.java:401-406
 const model::templates::siegelocation::DoorRepairData* SiegeService::getDoorRepairData(int32_t siegeId) {
-	AION_UNPORTED();
+	runtime::Ptr<model::siege::FortressLocation> fortressLocation = getFortress(siegeId);
+	if (!fortressLocation)
+		return nullptr;
+	return fortressLocation->getTemplate()->getDoorRepairData();
 }
 
+// Java SiegeService.java:408-413
 const model::templates::siegelocation::DoorRepairStone* SiegeService::getRepairStone(int32_t siegeId, int32_t repairStoneStaticId) {
-	AION_UNPORTED();
+	const model::templates::siegelocation::DoorRepairData* doorRepairData = getDoorRepairData(siegeId);
+	if (doorRepairData == nullptr)
+		return nullptr;
+	return doorRepairData->getRepairStone(repairStoneStaticId);
 }
 
 runtime::Ptr<model::siege::SiegeLocation> SiegeService::getSiegeLocation(int32_t id) {
@@ -207,8 +477,18 @@ std::vector<std::pair<int32_t, runtime::Ptr<model::siege::SiegeLocation>>> Siege
 	return mapLocations;
 }
 
+// Java SiegeService.java:436-447
 runtime::Ref<siege::Siege> SiegeService::newSiege(int32_t siegeLocationId) {
-	AION_UNPORTED();
+	if (fortresses.containsKey(siegeLocationId))
+		return siege::FortressSiege::create(*fortresses.get(siegeLocationId));
+	else if (outposts.containsKey(siegeLocationId))
+		AION_UNPORTED(); // new OutpostSiege(outposts.get(siegeLocationId)): m5i-plan.md I-3
+	else if (artifacts.containsKey(siegeLocationId))
+		AION_UNPORTED(); // new ArtifactSiege(artifacts.get(siegeLocationId)): m5i-plan.md I-3
+	else if (agent && agent->getLocationId() == siegeLocationId)
+		AION_UNPORTED(); // new AgentSiege(agent): m5i-plan.md I-7
+	else
+		throw siege::SiegeException("Unknown siege handler for siege location: " + std::to_string(siegeLocationId));
 }
 
 void SiegeService::cleanLegionId(int32_t legionId) {
@@ -221,16 +501,64 @@ void SiegeService::cleanLegionId(int32_t legionId) {
 	}
 }
 
+// Java SiegeService.java:458-489
 void SiegeService::updateOutpostSiegeState(model::siege::FortressLocation& fortressLoc) {
-	AION_UNPORTED();
+	SYNCHRONIZED(*this) {
+		for (const runtime::Ptr<model::siege::OutpostLocation>& outpost : getOutposts().values()) {
+			const std::vector<int32_t> dependencies = outpost->getFortressDependency();
+			if (std::find(dependencies.begin(), dependencies.end(), fortressLoc.getLocationId()) == dependencies.end())
+				continue;
+
+			if (std::any_of(dependencies.begin(), dependencies.end(), [this](int32_t dependency) { return getSiegeLocation(dependency)->isVulnerable(); }))
+				break;
+
+			const SiegeRace validRaceForSiege = outpost->getLocationId() == 2111 ? SiegeRace::ASMODIANS : SiegeRace::ELYOS;
+			bool isSiegeAllowed = true;
+
+			for (int32_t fortressId : dependencies) {
+				const SiegeRace dependencyFortressRace = getFortresses().get(fortressId)->getRace();
+				if (validRaceForSiege != dependencyFortressRace) {
+					isSiegeAllowed = false;
+					break;
+				}
+			}
+
+			stopSiege(outpost->getLocationId());
+			deSpawnNpcs(outpost->getLocationId());
+
+			// broadcast to all new Silentera infiltration route state
+			broadcastStatusAndUpdate(*outpost, outpost->isSilenteraAllowed());
+
+			// spawn NPC's or sieges
+			if (isSiegeAllowed)
+				startSiege(outpost->getLocationId());
+			else
+				spawnNpcs(outpost->getLocationId(), outpost->getRace(), SiegeModType::PEACE);
+		}
+	}
 }
 
+// Java SiegeService.java:491-503
 void SiegeService::spawnNpcs(int32_t siegeLocationId, model::siege::SiegeRace race, model::siege::SiegeModType type) {
-	AION_UNPORTED();
+	const std::vector<runtime::Ref<model::templates::spawns::SpawnGroup>>* siegeSpawns = dataholders::DataManager::SPAWNS_DATA->getSiegeSpawnsByLocId(siegeLocationId);
+	if (siegeSpawns == nullptr)
+		return;
+	for (const runtime::Ref<model::templates::spawns::SpawnGroup>& group : *siegeSpawns) {
+		for (const runtime::Ptr<model::templates::spawns::SpawnTemplate>& template_ : group->getSpawnTemplates().snapshot()) {
+			runtime::Ptr<model::templates::spawns::siegespawns::SiegeSpawnTemplate> siegetemplate =
+				runtime::cast<model::templates::spawns::siegespawns::SiegeSpawnTemplate>(template_);
+			if (siegetemplate->getSiegeRace() == race && siegetemplate->getSiegeModType() == type) {
+				spawnengine::SpawnEngine::spawnObject(*siegetemplate, 1);
+			}
+		}
+	}
 }
 
+// Java SiegeService.java:505-509
 void SiegeService::deSpawnNpcs(int32_t siegeLocationId) {
-	AION_UNPORTED();
+	// iterate over an array copy, since onDelete directly modifies the underlying collection
+	for (const runtime::Ptr<model::gameobjects::siege::SiegeNpc>& siegeNpc : world::World::getInstance().getLocalSiegeNpcs(siegeLocationId))
+		siegeNpc->getController().delete_();
 }
 
 bool SiegeService::isRespawnAllowed(model::gameobjects::Npc& npc) {
@@ -249,16 +577,40 @@ bool SiegeService::isRespawnAllowed(model::gameobjects::Npc& npc) {
 	return true;
 }
 
+// Java SiegeService.java:524-532
 void SiegeService::broadcastUpdate(model::siege::SiegeLocation& loc) {
-	AION_UNPORTED();
+	model::siege::Influence::getInstance().recalculateInfluence();
+	network::aion::serverpackets::SM_SIEGE_LOCATION_INFO pkt1(loc);
+	network::aion::serverpackets::SM_INFLUENCE_RATIO pkt2;
+	world::World::getInstance().forEachPlayer([&](model::gameobjects::player::Player& player) {
+		utils::PacketSendUtility::sendPacket(player, pkt1);
+		utils::PacketSendUtility::sendPacket(player, pkt2);
+	});
 }
 
+// Java SiegeService.java:534-546
 void SiegeService::broadcastStatusAndUpdate(model::siege::OutpostLocation& outpost, bool oldSilentraState) {
-	AION_UNPORTED();
+	std::optional<SM_SYSTEM_MESSAGE> info; // Java: null
+	if (oldSilentraState != outpost.isSilenteraAllowed()) {
+		if (outpost.isSilenteraAllowed())
+			info = outpost.getLocationId() == 2111 ? SM_SYSTEM_MESSAGE::STR_FIELDABYSS_LIGHTUNDERPASS_SPAWN()
+				: SM_SYSTEM_MESSAGE::STR_FIELDABYSS_DARKUNDERPASS_SPAWN();
+		else
+			info = outpost.getLocationId() == 2111 ? SM_SYSTEM_MESSAGE::STR_FIELDABYSS_LIGHTUNDERPASS_DESPAWN()
+				: SM_SYSTEM_MESSAGE::STR_FIELDABYSS_DARKUNDERPASS_DESPAWN();
+	}
+
+	network::aion::serverpackets::SM_RIFT_ANNOUNCE rift(getOutpost(3111)->isSilenteraAllowed(), getOutpost(2111)->isSilenteraAllowed());
+	broadcast(rift, info ? &*info : nullptr);
 }
 
-void SiegeService::broadcast(network::aion::serverpackets::SM_RIFT_ANNOUNCE& rift, network::aion::serverpackets::SM_SYSTEM_MESSAGE& info) {
-	AION_UNPORTED();
+// Java SiegeService.java:548-559. The anonymous Consumer (SiegeService$1, K5 confined) is the lambda: forEachPlayer runs it synchronously.
+void SiegeService::broadcast(network::aion::serverpackets::SM_RIFT_ANNOUNCE& rift, network::aion::serverpackets::SM_SYSTEM_MESSAGE* info) {
+	world::World::getInstance().forEachPlayer([&rift, info](model::gameobjects::player::Player& player) {
+		utils::PacketSendUtility::sendPacket(player, rift);
+		if (info != nullptr && player.getWorldType() == world::WorldType::BALAUREA)
+			utils::PacketSendUtility::sendPacket(player, *info);
+	});
 }
 
 runtime::Ptr<model::siege::FortressLocation> SiegeService::findFortress(int32_t worldId, float x, float y, float z) {
@@ -283,9 +635,11 @@ void SiegeService::onPlayerLogin(model::gameobjects::player::Player& player) {
 
 	// First part will be sent to all
 	if (configs::main::SiegeConfig::SIEGE_ENABLED.load()) {
-		// M5a keeps sieges disabled (plan D1); the enabled branch sends SM_INFLUENCE_RATIO, SM_SIEGE_LOCATION_INFO, SM_AFTER_SIEGE_LOCINFO_475 and
-		// SM_RIFT_ANNOUNCE with the Silentera states of outposts 3111 and 2111 (plan O-05)
-		AION_UNPORTED();
+		utils::PacketSendUtility::sendPacket(player, network::aion::serverpackets::SM_INFLUENCE_RATIO());
+		utils::PacketSendUtility::sendPacket(player, network::aion::serverpackets::SM_SIEGE_LOCATION_INFO());
+		utils::PacketSendUtility::sendPacket(player, network::aion::serverpackets::SM_AFTER_SIEGE_LOCINFO_475());
+		utils::PacketSendUtility::sendPacket(player,
+			network::aion::serverpackets::SM_RIFT_ANNOUNCE(getOutpost(3111)->isSilenteraAllowed(), getOutpost(2111)->isSilenteraAllowed()));
 	}
 }
 
@@ -326,12 +680,12 @@ void SiegeService::onEnterSiegeWorld(model::gameobjects::player::Player& player)
 	utils::PacketSendUtility::sendPacket(player, network::aion::serverpackets::SM_ABYSS_ARTIFACT_INFO3(worldArtifacts));
 }
 
-// Java SiegeService.java:607-610 (M5j stage 1 CP4, under P5-08's lease of this file: AbyssPointsService's kill variant calls it)
+// Java SiegeService.java:607-610
 void SiegeService::onAbyssPointsAdded(model::gameobjects::player::Player& player, model::gameobjects::VisibleObject& obj, int32_t abyssPoints) {
-	runtime::Ptr<model::gameobjects::siege::SiegeNpc> siegeNpc = runtime::as<model::gameobjects::siege::SiegeNpc>(obj);
-	if (runtime::as<model::gameobjects::player::Player>(obj) != nullptr ||
-		siegeNpc != nullptr && siegeNpc->getSpawn()->getSiegeModType() != model::siege::SiegeModType::PEACE)
-		for (const runtime::Ref<siege::Siege>& a : activeSieges.values())
+	runtime::Ptr<model::gameobjects::siege::SiegeNpc> siegeNpc;
+	if (runtime::as<model::gameobjects::player::Player>(obj)
+		|| ((siegeNpc = runtime::as<model::gameobjects::siege::SiegeNpc>(obj)) && siegeNpc->getSpawn()->getSiegeModType() != SiegeModType::PEACE))
+		for (const runtime::Ptr<siege::Siege>& a : activeSieges.values())
 			a->onAbyssPointsAdded(player, abyssPoints);
 }
 
@@ -400,16 +754,51 @@ int32_t SiegeService::getSiegeIdByLocId(int32_t locId) {
 	}
 }
 
+// Java SiegeService.java:683-686
 void SiegeService::checkRvrEventPlayer(runtime::Ptr<model::gameobjects::player::Player> player) {
-	AION_UNPORTED();
+	runtime::Ptr<runtime::RcHashSet<runtime::Ref<model::gameobjects::player::Player>>> players = rvrEventPlayers.get();
+	if (player && !players->contains(runtime::Ref<model::gameobjects::player::Player>(player)))
+		players->add(runtime::Ref<model::gameobjects::player::Player>(player));
 }
 
+// Java SiegeService.java:688-690
 void SiegeService::clearRvrEventPlayers() {
-	AION_UNPORTED();
+	rvrEventPlayers.set(runtime::RcHashSet<runtime::Ref<model::gameobjects::player::Player>>::create(AION_LOCK_CLASS(SiegeService::rvrEventPlayers)));
 }
 
+/** Java Byte.parseByte(s): Integer.parseInt plus the byte range check, NumberFormatException otherwise */
+static int8_t parseByte(std::string_view s) {
+	const int32_t value = commons::utils::parseInt(s);
+	if (value < -128 || value > 127)
+		throw commons::utils::NumberFormatException("Value out of range. Value:\"" + std::string(s) + "\" Radix:10");
+	return static_cast<int8_t>(value);
+}
+
+// Java SiegeService.java:697-715
 std::string SiegeService::getPreparationCronString(std::string_view siegeTime, int32_t fortressId) {
-	AION_UNPORTED();
+	try {
+		std::vector<std::string> cronParts = StringUtils::splitJava(siegeTime, " ");
+		auto part = [&cronParts](size_t index) -> const std::string& { // Java: cronParts[index], an uncaught ArrayIndexOutOfBoundsException
+			if (index >= cronParts.size())
+				throw runtime::ArrayIndexOutOfBoundsException("Index " + std::to_string(index) + " out of bounds for length " + std::to_string(cronParts.size()));
+			return cronParts[index];
+		};
+		int8_t minutes = parseByte(part(1));
+		int8_t hours = parseByte(part(2));
+		minutes = static_cast<int8_t>(minutes - static_cast<int8_t>(fortressId < 10000 ? 5 : 10)); // Java: byte -= (byte) ...
+		if (minutes < 0) {
+			minutes = static_cast<int8_t>(minutes + 60);
+			hours = static_cast<int8_t>(hours - 1);
+			if (hours < 0)
+				throw commons::utils::UnsupportedOperationException("Failed converting cron expression: " + std::string(siegeTime) +
+					"\nPreparation over midnight not supported.");
+		}
+		cronParts[1] = std::to_string(minutes);
+		cronParts[2] = std::to_string(hours);
+		return StringUtils::join(cronParts, " ");
+	} catch (const commons::utils::NumberFormatException&) {
+		throw commons::utils::UnsupportedOperationException("Failed converting cron expression: " + std::string(siegeTime), std::current_exception());
+	}
 }
 
 } // namespace aion::gameserver::services

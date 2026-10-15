@@ -35,6 +35,7 @@ namespace aion::gameserver::services {
  * @author SoulKeeper, Source, Neon, Estrayl
  */
 class SiegeService : public runtime::Immortal {
+	friend struct SiegeServiceTestAccess; // tests/siege/SiegeCoreTest.cpp: the private steps of the siege timeline
 private:
 	runtime::ConcurrentHashMap<int32_t, runtime::Ref<siege::Siege>> activeSieges{AION_LOCK_CLASS(SiegeService::activeSieges#stripe)};
 	runtime::AtomicBoolean isInitialized{AION_LOCK_CLASS(SiegeService::isInitialized)}; // Java: = new AtomicBoolean()
@@ -107,7 +108,8 @@ public:
 	void broadcastUpdate(model::siege::SiegeLocation& loc);
 	void broadcastStatusAndUpdate(model::siege::OutpostLocation& outpost, bool oldSilentraState);
 private:
-	void broadcast(network::aion::serverpackets::SM_RIFT_ANNOUNCE& rift, network::aion::serverpackets::SM_SYSTEM_MESSAGE& info);
+	/** @param info nullable (Java: null when the Silentera state did not change) */
+	void broadcast(network::aion::serverpackets::SM_RIFT_ANNOUNCE& rift, network::aion::serverpackets::SM_SYSTEM_MESSAGE* info);
 public:
 	runtime::Ptr<model::siege::FortressLocation> findFortress(int32_t worldId, float x, float y, float z);
 	void onPlayerLogin(model::gameobjects::player::Player& player);

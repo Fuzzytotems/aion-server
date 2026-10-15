@@ -1,6 +1,5 @@
 #include "aion/gameserver/model/siege/OutpostLocation.h"
 
-#include "aion/gameserver/runtime/base/Unported.h"
 #include "aion/gameserver/model/gameobjects/Creature.h"
 #include "aion/gameserver/model/gameobjects/player/Player.h"
 #include "aion/gameserver/model/templates/siegelocation/SiegeLocationTemplate.h"
@@ -16,16 +15,19 @@ runtime::Ref<OutpostLocation> OutpostLocation::create(const templates::siegeloca
 	return runtime::makeRef<OutpostLocation>(value);
 }
 
+// Java OutpostLocation.java:22-25 (@Override at 22)
 int32_t OutpostLocation::getNextState() {
-	AION_UNPORTED();
+	return isVulnerable() ? STATE_INVULNERABLE : STATE_VULNERABLE;
 }
 
+// Java OutpostLocation.java:30-32
 std::vector<int32_t> OutpostLocation::getFortressDependency() {
-	AION_UNPORTED();
+	return getTemplate()->getFortressDependency();
 }
 
+// Java OutpostLocation.java:38-40
 bool OutpostLocation::isSilenteraAllowed() {
-	AION_UNPORTED();
+	return true;
 }
 
 OutpostLocation::~OutpostLocation() = default;
