@@ -1,32 +1,13 @@
 #include "aion/gameserver/network/aion/instanceinfo/LegionDominionScoreWriter.h"
 
 #include "aion/gameserver/model/instance/instancescore/InstanceScore.h"
-#include "aion/gameserver/runtime/base/Unported.h"
+#include "aion/gameserver/model/instance/instancescore/LegionDominionScore.h"
 
 namespace aion::gameserver::network::aion::instanceinfo {
 
-namespace {
-
-/**
- * The InstanceScore base of the score passed to a constructor. The score class has no C++ declaration header yet (P5-13), so the conversion
- * cannot be written: reaching a constructor throws UnportedException before the base is initialized.
- */
-[[noreturn]] model::instance::instancescore::InstanceScore& unportedScoreBase() {
-	AION_UNPORTED();
+// Java LegionDominionScoreWriter.java:12-14
+LegionDominionScoreWriter::LegionDominionScoreWriter(model::instance::instancescore::LegionDominionScore& reward) : InstanceScoreWriter(reward) {
 }
-
-} // namespace
-
-#ifdef _MSC_VER
-#pragma warning(push)
-#pragma warning(disable : 4702) // the base initializer never returns until the score class is declared (P5-13)
-#endif
-LegionDominionScoreWriter::LegionDominionScoreWriter(model::instance::instancescore::LegionDominionScore& reward)
-    : InstanceScoreWriter(unportedScoreBase()) {}
-
-#ifdef _MSC_VER
-#pragma warning(pop)
-#endif
 
 LegionDominionScoreWriter::~LegionDominionScoreWriter() = default;
 
@@ -34,8 +15,26 @@ runtime::Ref<LegionDominionScoreWriter> LegionDominionScoreWriter::create(model:
 	return runtime::makeRef<LegionDominionScoreWriter>(reward);
 }
 
+model::instance::instancescore::LegionDominionScore& LegionDominionScoreWriter::score() const {
+	return static_cast<model::instance::instancescore::LegionDominionScore&>(*instanceScore); // constructed from a LegionDominionScore
+}
+
+// Java LegionDominionScoreWriter.java:17-32
 void LegionDominionScoreWriter::writeMe(commons::utils::ByteBuffer& buf) {
-	AION_UNPORTED();
+	writeD(buf, score().getPoints());
+	writeD(buf, 0); // unk
+	writeD(buf, 0); // unk
+	writeD(buf, 0); // unk
+	writeD(buf, score().getFinalGP());
+	writeD(buf, score().getFinalAp());
+	writeD(buf, score().getRewardItem1());
+	writeD(buf, score().getRewardItem1Count());
+	writeD(buf, score().getRewardItem2());
+	writeD(buf, score().getRewardItem2Count());
+	writeD(buf, score().getRewardItem3());
+	writeD(buf, score().getRewardItem3Count());
+	writeD(buf, score().getRewardItem4());
+	writeD(buf, score().getRewardItem4Count());
 }
 
 } // namespace aion::gameserver::network::aion::instanceinfo

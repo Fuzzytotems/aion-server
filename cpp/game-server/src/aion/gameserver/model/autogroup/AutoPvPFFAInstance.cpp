@@ -8,7 +8,9 @@
 #include "aion/gameserver/model/gameobjects/player/Player.h"
 #include "aion/gameserver/network/aion/serverpackets/SM_AUTO_GROUP.h"
 #include "aion/gameserver/runtime/base/Exceptions.h"
-#include "aion/gameserver/runtime/base/Unported.h"
+#include "aion/gameserver/instance/handlers/InstanceHandler.h"
+#include "aion/gameserver/model/instance/instancescore/PvPArenaScore.h"
+#include "aion/gameserver/world/WorldMapInstance.h"
 #include "aion/gameserver/services/AutoGroupService.h"
 #include "aion/gameserver/utils/PacketSendUtility.h"
 #include "aion/gameserver/world/WorldMapInstance.h"
@@ -26,10 +28,12 @@ AutoPvPFFAInstance::AutoPvPFFAInstance(AutoGroupType value) : AutoInstance(value
 
 AutoPvPFFAInstance::~AutoPvPFFAInstance() = default;
 
-// Java AutoPvPFFAInstance.java:19-24: then ((PvPArenaScore) score).setDifficultyId(agt.getDifficultId()) - PvPArenaScore is J13 (CP3)
+// Java AutoPvPFFAInstance.java:19-24
 void AutoPvPFFAInstance::onInstanceCreate(world::WorldMapInstance& value) {
 	AutoInstance::onInstanceCreate(value);
-	AION_UNPORTED();
+	runtime::Ptr<model::instance::instancescore::PvPArenaScore> score =
+		runtime::cast<model::instance::instancescore::PvPArenaScore>(value.getInstanceHandler()->getInstanceScore()); // Java: (PvPArenaScore)
+	score->setDifficultyId(getDifficultId(agt));
 }
 
 // Java AutoPvPFFAInstance.java:26-35 (synchronized)
@@ -45,8 +49,7 @@ AGQuestion AutoPvPFFAInstance::addLookingForParty(LookingForParty& lookingForPar
 }
 
 // Java AutoPvPFFAInstance.java:37-56: the entry ticket (one Arena ticket, three for the Arena of Glory); without it the player leaves the
-// registration (SM_AUTO_GROUP window 5) and an emptied instance is destroyed. Then ((PvPArenaScore) score).portToPosition(player) and
-// instance.register: PvPArenaScore is J13 (CP3)
+// registration (SM_AUTO_GROUP window 5) and an emptied instance is destroyed
 void AutoPvPFFAInstance::onPressEnter(Player& player) {
 	if (isPvPFFAArena(agt) || isPvPSoloArena(agt) || isGloryArena(agt)) {
 		int64_t size = 1;
@@ -66,7 +69,9 @@ void AutoPvPFFAInstance::onPressEnter(Player& player) {
 			return;
 		}
 	}
-	AION_UNPORTED();
+	runtime::Ptr<world::WorldMapInstance> current = instance.get();
+	runtime::cast<model::instance::instancescore::PvPArenaScore>(current->getInstanceHandler()->getInstanceScore())->portToPosition(player);
+	current->register_(player.getObjectId());
 }
 
 // Java AutoPvPFFAInstance.java:58-61
