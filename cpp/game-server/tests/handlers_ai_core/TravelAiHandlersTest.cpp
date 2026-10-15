@@ -75,6 +75,7 @@
 #include "aion/gameserver/model/templates/spawns/SpawnGroup.h"
 #include "aion/gameserver/model/templates/spawns/SpawnTemplate.h"
 #include "aion/gameserver/network/aion/serverpackets/SM_ACTION_ANIMATION.h"
+#include "aion/gameserver/network/aion/serverpackets/SM_AUTO_GROUP.h"
 #include "aion/gameserver/network/aion/serverpackets/SM_BIND_POINT_INFO.h"
 #include "aion/gameserver/network/aion/serverpackets/SM_DIALOG_WINDOW.h"
 #include "aion/gameserver/network/aion/serverpackets/SM_QUESTION_WINDOW.h"
@@ -143,6 +144,16 @@ std::string npcRowsXml() {
 			rows += row(id, "portal", "tribe=\"FIELD_OBJECT_ALL\"", "portal_dialog", "<talk_info distance=\"5\" is_dialog=\"true\" can_talk_invisible=\"false\" />");
 		rows += "</npc_templates>";
 		return rows;
+}
+
+/** an auto group row for every AutoGroupType mask id (AutoGroupTypeInfo.cpp's table), so AutoGroupType's lookups find each template; the npc ids
+ * of the first one are `npcIds` (none when empty) */
+std::string allAutoGroupsXml(const std::string& npcIds) {
+	std::string rows = "<auto_groups>";
+	for (int32_t id : {1, 2, 3, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 38, 39, 40, 41, 42, 43, 44, 45, 101, 102, 103, 107, 108, 109, 111})
+		rows += "<auto_group id=\"" + std::to_string(id) + "\" instanceId=\"300110000\" name_id=\"401193\" title_id=\"401197\" min_lvl=\"1\" max_lvl=\"65\""
+				+ (id == 1 && !npcIds.empty() ? " npc_ids=\"" + npcIds + "\"" : std::string()) + "/>";
+	return rows + "</auto_groups>";
 }
 
 /** The rows bound through NpcData; kept for the process like DataManager's */
@@ -712,12 +723,27 @@ TEST_F(TravelAiHandlersTest, SelectOneOneWithoutRecruitableInstancesFallsThrough
 	EXPECT_TRUE(capture.contains("No portal loc for locId 3009999")) << capture.dump();
 }
 
-TEST_F(TravelAiHandlersTest, ThePartyMatchSelectionReachesTheUnportedAutoGroupType) {
+/** PortalDialogAI.java:66-71 (ported in m5j CP8): the npc of an AutoGroupType for the player's level shows its registration window
+ * (SM_AUTO_GROUP of the template's mask id), then closes the dialog */
+TEST_F(TravelAiHandlersTest, ThePartyMatchSelectionOfAnAutoGroupNpcShowsItsRegistration) {
+	dataholders::DataManager::AUTO_GROUP.resetForTests(); // the fixture's row without npcs; its TearDown resets this one
+	dataholders::DataManager::AUTO_GROUP.publish(xml::bindString<dataholders::AutoGroupData>(context, allAutoGroupsXml("790010")));
 	Npc& portal = npcAt(DIALOG_PORTAL, 2.0f);
 	PortalDialogAiProbe& ai = install<PortalDialogAiProbe>(portal);
+	clearSent();
+	EXPECT_TRUE(ai.onDialogSelect(player(), model::DialogAction::INSTANCE_PARTY_MATCH, 0, 0));
+	EXPECT_EQ(sent(), (std::vector<std::vector<uint8_t>>{serializedFor(serverpackets::SM_AUTO_GROUP(1)), page(portal, 0)}));
+}
 
-	// AutoGroupType.getAutoGroup has no C++ companion yet (docs/deviations/P5-05.md, M5f stage 1): the arm is AION_UNPORTED
-	EXPECT_THROW(ai.onDialogSelect(player(), model::DialogAction::INSTANCE_PARTY_MATCH, 0, 0), runtime::UnportedException);
+/** PortalDialogAI.java:66-71 (ported in m5j CP8): an npc of no AutoGroupType for the player's level gets only the closing dialog window */
+TEST_F(TravelAiHandlersTest, ThePartyMatchSelectionWithoutAnAutoGroupClosesTheDialog) {
+	dataholders::DataManager::AUTO_GROUP.resetForTests(); // every type's template, none with the portal; the fixture's TearDown resets it
+	dataholders::DataManager::AUTO_GROUP.publish(xml::bindString<dataholders::AutoGroupData>(context, allAutoGroupsXml("")));
+	Npc& portal = npcAt(DIALOG_PORTAL, 2.0f);
+	PortalDialogAiProbe& ai = install<PortalDialogAiProbe>(portal);
+	clearSent();
+	EXPECT_TRUE(ai.onDialogSelect(player(), model::DialogAction::INSTANCE_PARTY_MATCH, 0, 0));
+	EXPECT_EQ(sent(), std::vector<std::vector<uint8_t>>{page(portal, 0)});
 }
 
 } // namespace

@@ -38,6 +38,8 @@
 #include "aion/gameserver/ai/AIState.h"
 #include "aion/gameserver/configs/main/AIConfig.h"
 #include "aion/gameserver/configs/main/AutoGroupConfig.h"
+#include "aion/gameserver/dataholders/AutoGroupData.bind.h"
+#include "aion/gameserver/dataholders/AutoGroupData.h"
 #include "aion/gameserver/configs/main/CustomConfig.h"
 #include "aion/gameserver/configs/main/PricesConfig.h"
 #include "aion/gameserver/controllers/NpcController.h"
@@ -1043,15 +1045,33 @@ TEST_F(DialogServiceTest, ThePoetaTeleporterRefusesAPlayerWhoIsNoDaevaAndShowsAD
 	EXPECT_EQ(runtime::unportedHitCount(), 0u);
 }
 
+/** an auto group row for every AutoGroupType mask id (AutoGroupTypeInfo.cpp's table), so AutoGroupType's lookups find each template; the npc ids
+ * of the first one are `npcIds` (none when empty) */
+std::string allAutoGroupsXml(const std::string& npcIds) {
+	std::string rows = "<auto_groups>";
+	for (int32_t id : {1, 2, 3, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 38, 39, 40, 41, 42, 43, 44, 45, 101, 102, 103, 107, 108, 109, 111})
+		rows += "<auto_group id=\"" + std::to_string(id) + "\" instanceId=\"300110000\" name_id=\"401193\" title_id=\"401197\" min_lvl=\"1\" max_lvl=\"65\""
+				+ (id == 1 && !npcIds.empty() ? " npc_ids=\"" + npcIds + "\"" : std::string()) + "/>";
+	return rows + "</auto_groups>";
+}
+
 TEST_F(DialogServiceTest, MatchMakerWithAutogroupOffOpensTheFirstPage) {
 	Npc& merchant = npc(MINALINERK);
 	select(DialogAction::MATCH_MAKER, merchant);
 	EXPECT_EQ(sent(), exactly({dialogWindow(merchant.getObjectId(), 1011)})) << ":222-224";
 
-	// autogroup on: AutoGroupType has no C++ companion yet, so the branch is loud (m5c-plan.md W-31, D4)
+	// autogroup on (:218-221, ported in m5j CP8): Minalinerk is no npc of an AutoGroupType, so nothing is sent
 	configs::main::AutoGroupConfig::AUTO_GROUP_ENABLE.store(true);
-	EXPECT_THROW(select(DialogAction::MATCH_MAKER, merchant), runtime::UnportedException);
-	EXPECT_EQ(unportedHitsIn("DialogService.cpp"), 1u);
+	const bool published = static_cast<bool>(dataholders::DataManager::AUTO_GROUP);
+	if (published)
+		dataholders::DataManager::AUTO_GROUP.resetForTests();
+	xml::LoadContext autoGroupContext;
+	dataholders::DataManager::AUTO_GROUP.publish(xml::bindString<dataholders::AutoGroupData>(autoGroupContext, allAutoGroupsXml("")));
+	clearSent();
+	EXPECT_NO_THROW(select(DialogAction::MATCH_MAKER, merchant));
+	EXPECT_TRUE(sent().empty());
+	EXPECT_EQ(unportedHitsIn("DialogService.cpp"), 0u);
+	dataholders::DataManager::AUTO_GROUP.resetForTests();
 }
 
 TEST_F(DialogServiceTest, TheFactionArmsJoinAndLeaveThroughTheNpcFactions) {

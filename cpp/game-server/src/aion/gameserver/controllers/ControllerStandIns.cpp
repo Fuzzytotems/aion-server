@@ -3,6 +3,7 @@
 #include <typeinfo>
 
 #include "aion/gameserver/GameServer.h"
+#include "aion/gameserver/custom/pvpmap/PvpMapService.h"
 #include "aion/gameserver/runtime/base/Unported.h"
 #include "aion/gameserver/instance/handlers/InstanceHandler.h"
 #include "aion/gameserver/utils/SimpleClassName.h"
@@ -18,7 +19,7 @@ void gameServerUpdateRatio(model::Race race, int32_t i) {
 }
 
 bool pvpMapServiceIsOnPvPMap(model::gameobjects::Creature& creature) {
-	AION_UNPORTED();
+	return custom::pvpmap::PvpMapService::getInstance().isOnPvPMap(creature); // m5j CP8: PvpMapService is ported
 }
 
 bool isPvpMapHandler(instance::handlers::InstanceHandler& instanceHandler) {

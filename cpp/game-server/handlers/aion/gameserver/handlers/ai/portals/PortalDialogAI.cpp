@@ -3,6 +3,9 @@
 #include <vector>
 
 #include "aion/gameserver/dataholders/AutoGroupData.h"
+#include "aion/gameserver/model/autogroup/AutoGroupTypeInfo.h"
+#include "aion/gameserver/model/autogroup/AutoGroup.h"
+#include "aion/gameserver/network/aion/serverpackets/SM_AUTO_GROUP.h"
 #include "aion/gameserver/dataholders/DataManager.h"
 #include "aion/gameserver/dataholders/Portal2Data.h"
 #include "aion/gameserver/model/DialogAction.h"
@@ -40,13 +43,17 @@ bool PortalDialogAI::onDialogSelect(Player& player, int32_t dialogActionId, int3
 		return true;
 	}
 	switch (dialogActionId) {
-		case model::DialogAction::INSTANCE_PARTY_MATCH: // auto groups
-			// Java: AutoGroupType agt = AutoGroupType.getAutoGroup(player.getLevel(), getNpcId()); if (agt != null) sendPacket(new
-			// SM_AUTO_GROUP(agt.getTemplate().getMaskId())); sendPacket(new SM_DIALOG_WINDOW(getObjectId(), 0)); return true. AutoGroupType's
-			// constructor data and getAutoGroup/getTemplate have no C++ companion yet (only the generated constants, model/autogroup/
-			// AutoGroupType.h; DialogService's MATCH_MAKER arm waits for the same), so this arm stays loud until the autogroup milestone
-			// (m5c-plan.md W-31; docs/deviations/A1.md).
-			AION_UNPORTED();
+		case model::DialogAction::INSTANCE_PARTY_MATCH: { // auto groups (Java PortalDialogAI.java:66-71; m5j CP8)
+			std::optional<model::autogroup::AutoGroupType> agt = model::autogroup::getAutoGroup(player.getLevel(), getNpcId());
+			if (agt) {
+				const model::autogroup::AutoGroup* autoGroup = model::autogroup::getTemplate(*agt);
+				if (autoGroup == nullptr) // Java: agt.getTemplate().getMaskId() of a missing template
+					throw runtime::NullPointerException("AutoGroupType without auto group template");
+				PacketSendUtility::sendPacket(player, SM_AUTO_GROUP(autoGroup->getMaskId()));
+			}
+			PacketSendUtility::sendPacket(player, SM_DIALOG_WINDOW(getObjectId(), 0));
+			return true;
+		}
 		case model::DialogAction::OPEN_INSTANCE_RECRUIT:
 			FindGroupService::getInstance().showInstanceGroups(player, getOwner());
 			return true;
