@@ -145,3 +145,12 @@ Smallest self-contained first; each is one commit with its tests and mutation pr
 > portToStartPosition (Java's portToPosition overrides nothing, so the start and the revive threw with players inside). Test
 > PvpTest.IronWallsStartSendsEachRaceToItsSide (two players inside, client-less); mutation proof 2 of 2. Recorded in
 > docs/deviations/P6-instances.md.
+> **Progress:** P6I-8b done (chunk I3): the arenas without HarmonyArenaScore - PvPArenaInstance (abstract, not registered) with
+> DisciplineTrainingGroundsInstance, ArenaOfDisciplineInstance, ChaosTrainingGroundsInstance, ArenaOfChaosInstance and ArenaOfGloryInstance - the
+> pvpArenas AIs (AntiAirCraftGunAI, HarmonyShifterAI, PlazaFlameThrowerAI, RelicsAI) and ophidianBridge's DefenseWallAI. Java's record BaseRewards
+> is a struct; the default broadcasts' `sendPacket(null, null)` pass std::nullopt; Math.round(float) is floor(x + 0.5f). Tests: ArenaTest (6 cases:
+> the handlers, the interrupted start, the rounds, Chaos's npc and kill points, Discipline's kill points, Glory's last-rank rewards; two client-less
+> players inside, InstanceBuffData's two buff rows published) and ArenaAiTest (5). Mutation proof 23 of 24; the survivor (RelicsAI's respawn of the
+> random relics) is equivalent here, as a test's single-time spawn has no respawn. Left to a gate: the item rewards (no item rows), the bonus and
+> morph skills, the fly rings' passes, the exit teleport. Census I3: 245 -> 135 open bodies (left: the two Harmony arenas, Eternal Bastion and its
+> AIs).
