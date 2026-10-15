@@ -120,3 +120,8 @@ Smallest self-contained first; each is one commit with its tests and mutation pr
 > strengthened cases. The walkers' DummyAI in the unit tests cannot walk (Java's ClassCastException, logged by the spawn task after the spawn). Left
 > to a gate: the walks, the casts and effects, the crates' loot. Census I5: 443 -> 184 open bodies (left: Raksang Ruins, the Rentus Bases and their
 > AIs).
+> **Progress:** P6I-7b done (chunk I5): RaksangRuinsInstance and the raksang AIs (9). `tests/handlers_inst_5/RaksangTest.cpp` (14 cases, on the
+> Raksang Ruins map: the AIs spawn at its coordinates; an attacked boss must stand near the player); mutation proof 22 of 24 - the two survivors are
+> equivalent (a ninth round that spawns nothing; the destroy's cancel of a task that cancels itself once the instance is destroyed). Java's
+> IllusionMasterSharikAI.percent stays 100 (no 19903), ported as is. Left to a gate: the vault's teleport, the vault trial's zone entry, the walks
+> and casts. Census I5: 443 -> 110 open bodies (left: the Rentus Bases and their AIs).

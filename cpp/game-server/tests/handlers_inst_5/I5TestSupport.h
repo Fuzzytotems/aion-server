@@ -14,6 +14,7 @@ namespace aion::gameserver::handlers::instance {
 ::aion::gameserver::handlers::InstanceFactory DanuarReliquaryInstance_L_instanceFactory;
 ::aion::gameserver::handlers::InstanceFactory InfernalDanuarReliquaryInstance_instanceFactory;
 ::aion::gameserver::handlers::InstanceFactory NightmareCircus_instanceFactory;
+::aion::gameserver::handlers::InstanceFactory RaksangRuinsInstance_instanceFactory;
 
 } // namespace aion::gameserver::handlers::instance
 
@@ -26,6 +27,7 @@ inline constexpr int32_t SAURO_SUPPLY_BASE = 301130000;
 inline constexpr int32_t LUCKY_DANUAR_RELIQUARY = 301330000;
 inline constexpr int32_t INFERNAL_DANUAR_RELIQUARY = 301360000;
 inline constexpr int32_t NIGHTMARE_CIRCUS = 301200000;
+inline constexpr int32_t RAKSANG_RUINS = 300610000;
 
 /** world_maps.xml's rows of the I5 maps under test */
 inline constexpr const char* I5_MAPS_XML = R"x(<world_maps>
@@ -36,6 +38,7 @@ inline constexpr const char* I5_MAPS_XML = R"x(<world_maps>
 	<map id="301330000" cName="IDLDF5_Under_Rune_PC" name="Lucky Danuar Reliquary" name_id="404164" instance="true" water_level="16" death_level="0" world_size="512" drop_type="BALAUREA_HIGH_INSTANCE" flags="PVP DUEL_SAME_RACE NO_RETURN_BATTLE" pve_attack_ratio="1000" pve_defend_ratio="200"/>
 	<map id="301360000" cName="IDLDF5_Under_Rune_H" name="Infernal Danuar Reliquary" name_id="404306" instance="true" water_level="16" death_level="0" world_size="512" drop_type="BALAUREA_HIGH_INSTANCE" flags="PVP DUEL_SAME_RACE NO_RETURN_BATTLE"/>
 	<map id="301200000" cName="IDAsteria_IU_World" name="The Nightmare Circus" name_id="404049" instance="true" water_level="20" death_level="0" world_size="1024" drop_type="NONE" flags="GLIDE PVP DUEL_SAME_RACE NO_RETURN_BATTLE"/>
+	<map id="300610000" cName="IDRaksha_solo" name="Raksang Ruins" name_id="404645" instance="true" water_level="16" death_level="0" world_size="1536" drop_type="BALAUREA_HIGH_INSTANCE" flags="GLIDE PVP DUEL_SAME_RACE NO_RETURN_BATTLE"/>
 </world_maps>)x";
 
 inline const char* instanceMapsXml() {
@@ -64,6 +67,11 @@ inline const std::vector<int32_t>& handlerNpcIds() {
 		// the Nightmare Circus and its AIs
 		233455, 233450, 233459, 233453, 233467, 831747, 831740, 831627, 831741, 831718, 831551, 831552, 831553, 831598, 831744, 831745, 831575,
 		831576, 831560, 831559, 831561, 831562, 233462, 233463, 233457, 233162, 831348, 831349,
+		// Raksang Ruins and its AIs
+		206378, 206379, 206380, 206395, 206396, 206397, 236010, 236011, 236012, 236013, 236014, 236074, 236075, 236076, 236020, 236021, 236096,
+		236097, 236305, 236084, 217469, 236303, 236304, 236306, 730445, 730438, 702673, 702674, 702675, 702690, 702691, 702692, 206197, 206198,
+		206199, 282325, 730446, 730447, 217425, 217451, 217456, 217475, 217647, 282451, 282452, 282453, 282454, 701062, 701063, 701064, 701065,
+		282455, 282456, 282457, 282458, 217471, 217472, 217760, 217761, 217763, 217764,
 		// two plain npcs
 		900200, 900300};
 	return ids;
