@@ -1,0 +1,166 @@
+{
+ "format": "aion-quest-trace",
+ "version": 1,
+ "questId": 10501,
+ "java": "cygnea/_10501ResearchtheRuins.java",
+ "class": "_10501ResearchtheRuins",
+ "javaSha256": "c76fd54cd9944c32db7ad1e39029900cef3e9e0e1d21d4825a10cc0421551e92",
+ "register": [
+  {"npc": 804700, "event": "addOnTalkEvent", "args": [10501]},
+  {"npc": 731535, "event": "addOnTalkEvent", "args": [10501]},
+  {"npc": 731536, "event": "addOnTalkEvent", "args": [10501]},
+  {"call": "registerQuestItem", "args": [182215598, 10501]},
+  {"call": "registerOnQuestCompleted", "args": [10501]},
+  {"call": "registerOnLevelChanged", "args": [10501]}
+ ],
+ "hooks": [
+  {"hook": "onDialogEvent", "line": 51, "unsupported": "call spawnTemporarily"},
+  {"hook": "onItemUseEvent", "line": 122, "cases": 6},
+  {"hook": "onQuestCompletedEvent", "line": 153, "cases": 1},
+  {"hook": "onLevelChangedEvent", "line": 158, "cases": 1}
+ ],
+ "cases": [
+  {
+   "id": "onItemUseEvent#1",
+   "hook": "onItemUseEvent",
+   "given": {"questState": null},
+   "guards": ["qs == null -> true @125"],
+   "effects": [],
+   "returns": "UNKNOWN"
+  },
+  {
+   "id": "onItemUseEvent#2",
+   "hook": "onItemUseEvent",
+   "given": {"item": {"itemId": 0}, "questState": {"status": "START"}},
+   "guards": ["qs == null -> false @125", "id != workItemId -> true @129"],
+   "effects": [],
+   "returns": "UNKNOWN"
+  },
+  {
+   "id": "onItemUseEvent#3",
+   "hook": "onItemUseEvent",
+   "given": {"item": {"itemId": 182215598}, "questState": {"status": "START", "vars": {"0": 1}}},
+   "guards": ["qs == null -> false @125", "id != workItemId -> false @129", "var == 1 -> true @143"],
+   "effects": [
+    {
+     "call": "PacketSendUtility.broadcastPacket",
+     "kind": "packet",
+     "args": [{"new": "SM_ITEM_USAGE_ANIMATION", "args": ["$playerObjectId", "$itemObjectId", 182215598, 1000, 0, 0]}, true],
+     "line": 133
+    },
+    {"call": "ThreadPoolManager.schedule", "kind": "task", "args": [1000], "line": 134},
+    {
+     "call": "PacketSendUtility.broadcastPacket",
+     "kind": "packet",
+     "args": [{"new": "SM_ITEM_USAGE_ANIMATION", "args": ["$playerObjectId", "$itemObjectId", 182215598, 0, 1, 0]}, true],
+     "line": 138,
+     "task": 1
+    },
+    {"call": "qs.setQuestVar", "kind": "var", "args": [2], "line": 144, "task": 1},
+    {"call": "updateQuestStatus", "kind": "quest", "args": [], "line": 145, "task": 1}
+   ],
+   "returns": "SUCCESS"
+  },
+  {
+   "id": "onItemUseEvent#4",
+   "hook": "onItemUseEvent",
+   "given": {"item": {"itemId": 182215598}, "questState": {"status": "START", "vars": {"0": 3}}},
+   "guards": ["qs == null -> false @125", "id != workItemId -> false @129", "var == 1 -> false @143", "var == 3 -> true @143"],
+   "effects": [
+    {
+     "call": "PacketSendUtility.broadcastPacket",
+     "kind": "packet",
+     "args": [{"new": "SM_ITEM_USAGE_ANIMATION", "args": ["$playerObjectId", "$itemObjectId", 182215598, 1000, 0, 0]}, true],
+     "line": 133
+    },
+    {"call": "ThreadPoolManager.schedule", "kind": "task", "args": [1000], "line": 134},
+    {
+     "call": "PacketSendUtility.broadcastPacket",
+     "kind": "packet",
+     "args": [{"new": "SM_ITEM_USAGE_ANIMATION", "args": ["$playerObjectId", "$itemObjectId", 182215598, 0, 1, 0]}, true],
+     "line": 138,
+     "task": 1
+    },
+    {"call": "qs.setQuestVar", "kind": "var", "args": [4], "line": 144, "task": 1},
+    {"call": "updateQuestStatus", "kind": "quest", "args": [], "line": 145, "task": 1}
+   ],
+   "returns": "SUCCESS"
+  },
+  {
+   "id": "onItemUseEvent#5",
+   "hook": "onItemUseEvent",
+   "given": {"item": {"itemId": 182215598}, "questState": {"status": "START", "vars": {"0": 5}}},
+   "guards": [
+    "qs == null -> false @125",
+    "id != workItemId -> false @129",
+    "var == 1 -> false @143",
+    "var == 3 -> false @143",
+    "var == 5 -> true @143"
+   ],
+   "effects": [
+    {
+     "call": "PacketSendUtility.broadcastPacket",
+     "kind": "packet",
+     "args": [{"new": "SM_ITEM_USAGE_ANIMATION", "args": ["$playerObjectId", "$itemObjectId", 182215598, 1000, 0, 0]}, true],
+     "line": 133
+    },
+    {"call": "ThreadPoolManager.schedule", "kind": "task", "args": [1000], "line": 134},
+    {
+     "call": "PacketSendUtility.broadcastPacket",
+     "kind": "packet",
+     "args": [{"new": "SM_ITEM_USAGE_ANIMATION", "args": ["$playerObjectId", "$itemObjectId", 182215598, 0, 1, 0]}, true],
+     "line": 138,
+     "task": 1
+    },
+    {"call": "qs.setQuestVar", "kind": "var", "args": [6], "line": 144, "task": 1},
+    {"call": "updateQuestStatus", "kind": "quest", "args": [], "line": 145, "task": 1}
+   ],
+   "returns": "SUCCESS"
+  },
+  {
+   "id": "onItemUseEvent#6",
+   "hook": "onItemUseEvent",
+   "given": {"item": {"itemId": 182215598}, "questState": {"status": "START", "vars": {"0": 0}}},
+   "guards": [
+    "qs == null -> false @125",
+    "id != workItemId -> false @129",
+    "var == 1 -> false @143",
+    "var == 3 -> false @143",
+    "var == 5 -> false @143"
+   ],
+   "effects": [
+    {
+     "call": "PacketSendUtility.broadcastPacket",
+     "kind": "packet",
+     "args": [{"new": "SM_ITEM_USAGE_ANIMATION", "args": ["$playerObjectId", "$itemObjectId", 182215598, 1000, 0, 0]}, true],
+     "line": 133
+    },
+    {"call": "ThreadPoolManager.schedule", "kind": "task", "args": [1000], "line": 134},
+    {
+     "call": "PacketSendUtility.broadcastPacket",
+     "kind": "packet",
+     "args": [{"new": "SM_ITEM_USAGE_ANIMATION", "args": ["$playerObjectId", "$itemObjectId", 182215598, 0, 1, 0]}, true],
+     "line": 138,
+     "task": 1
+    }
+   ],
+   "returns": "SUCCESS"
+  },
+  {
+   "id": "onQuestCompletedEvent#1",
+   "hook": "onQuestCompletedEvent",
+   "given": {},
+   "guards": [],
+   "effects": [{"call": "defaultOnQuestCompletedEvent", "kind": "quest", "args": [10500], "line": 154}],
+   "returns": null
+  },
+  {
+   "id": "onLevelChangedEvent#1",
+   "hook": "onLevelChangedEvent",
+   "given": {},
+   "guards": [],
+   "effects": [{"call": "defaultOnLevelChangedEvent", "kind": "quest", "args": [10500], "line": 159}],
+   "returns": null
+  }
+ ]
+}

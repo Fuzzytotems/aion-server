@@ -1,0 +1,904 @@
+"""parity: structural parity between a Java handler and the C++ generated or hand-ported from it (phase6-inventory.md §7.6 items 1 and 4,
+phase6-questgen-prototype.md §8.1 and §8.4).
+
+Per file pair it reads the class body only (Java: from `class X` to the end of the file; C++: from `class X` to the AION_*_HANDLER marker)
+and compares, after the documented renames below and nothing else:
+
+- literals: integer, floating, string, char, boolean and null literals, as a multiset and as the ordered sequence. The ordered check is the
+  one G2's twin tool needs (phase6-inventory.md §7.2): a multiset cannot see two literals swapped between positions;
+- calls: the ordered sequence of called (and declared) names, and their multiset; the enum companion calls whose position moves
+  (`WorldMapType.X.getId()` -> `getId(WorldMapType::X)`) are compared as a multiset only;
+- operators: the ordered sequence of comparison, logical, arithmetic, bitwise, increment and conditional (`?`) operators;
+- constants: the ordered sequence of ALL_CAPS names (DialogAction and enum constants, STR_* messages, SM_* packets);
+- spawn ids: the multiset of the int literal that starts the argument list of every spawn* call, over the code (comments dropped);
+- spawn analyzer: the set of npc ids QuestSpawnAnalyzer.loadNpcIdsSpawnedByHandlers (QuestSpawnAnalyzer.java:101-127) finds in the file,
+  its own regular expression over the whole raw text of each side, comments and ternaries included (the npcIdsSpawnedByHandlers parity of
+  handlers-and-porting-plan.md:291-297: a dropped `// spawn(216239, ...)` changes it).
+
+The seed is the prototype review's three scratch checks (literal, operator and call sequences over the 910 emitted files); this module
+tokenizes instead of matching regular expressions (the spawn analyzer check aside, which must be the analyzer's own), and adds the
+multisets, the constants and the spawn ids.
+
+Not compared: plain identifiers (locals, receivers, operands) and plain `=`. `return var > targetId;` against `return targetId > var;` or
+a changed receiver is at parity; the golden trace (tools/oracle/questtrace) is the behaviour check. The waiver is the per-line
+`// parity: <reason>` of handlers-and-porting-plan.md §3.1 item 2 (H-03, 2026-10-07): a C++ line whose comment starts with `parity:` is not
+compared, so a deviation the port documents (an explicit Java exception, an owner-approved correction) names its reason where it stands;
+a C++ line whose comment starts with `parity=` is compared as the Java statement that follows it (`// parity= x.toMillis();`), for a Java
+library call the port spells another way (Duration, String.join): the line's Java stays the reference instead of disappearing. The
+substituted Java is read with the Java rules (instanceof, arr.length, new, the command rewrites).
+
+Documented renames (each undoes one emitter idiom of phase6-questgen-prototype.md §2 or one C++ spelling; see IDIOMS):
+
+- comments, preprocessor lines, template argument lists (`static_cast<float>`, `runtime::Ptr<Npc>`, `std::array<int32_t, 3>`, Java
+  generics) and Java annotations are dropped, so a C++ array size or cast type is not a literal or a comparison;
+- a C++ identifier escaped for a keyword or macro (`register_`, `delete_`, `NULL_`) loses its trailing underscore;
+- `nullptr` and `std::nullopt` are the null literal; C++ char prefixes (`u'a'`) are dropped; `901.0f` equals Java `901f`;
+- Java `x instanceof T` is the operator `!=` followed by a null literal (C++ `runtime::as<T>(x) != nullptr`);
+- Java `a.equals(b)` is the operator `==` (C++ `a == b`); compound assignments count as their operator (Java narrows `x += y`
+  implicitly, the C++ spells out `x = static_cast<int32_t>(x + y)`); plain `=` is not compared (a C++ array initialiser has none);
+- C++ unary `*` and `&` (dereference, address, lambda capture) are not operators; `T* name` / `T& name` declarators are skipped on both
+  sides by the same rule;
+- calls: C++ `cast`/`as`/`static_cast` (the Java casts), `value` (unboxing, Java `intValue`), `QuestEnv::create` -> `QuestEnv` (Java
+  `new QuestEnv`), `front`/`back`/`empty` -> `getFirst`/`getLast`/`isEmpty` (java.util.List on std::vector), Java `super(...)` ->
+  `AbstractQuestHandler`, Java `arr.length` -> `size` (C++ `arr.size()`), and `get`, `at` and a Java index that is not an int literal are
+  one name (`a[i]` -> `a.at(i)`, `list.get(i)` -> `list.at(i)`);
+- the class qualifier of a Java static import (`import static ...SM_SYSTEM_MESSAGE.STR_X;`) is dropped from the C++ `SM_SYSTEM_MESSAGE::STR_X`;
+- Java `workItems.getFirst()` / `workItems.getLast()` are compared as `workItems.get(0)` / `workItems.get(workItems.size() - 1)`, the C++
+  spelling of the P6-T emitter rule (`Rc<ArrayList>` has get and size, not getFirst and getLast);
+- hand-port spellings (P6-Q ascension route, integration of 2026-09-29): C++ `push_back` is `add` (java.util.List on a local std::vector,
+  like front/back/empty); a Java `new ArrayList<>()` with no argument is not a call (the C++ local std::vector is default-constructed; with
+  an argument it stays a call); a Java anonymous `new Runnable() { ... public void run() ... }` is a C++ lambda, so its `Runnable` and the
+  `run` it declares are not calls (any other `run(...)` still is);
+- the enum-name spelling (P6-Q slice 2, integration of 2026-09-29): Java string concatenation with an enum (`"..." + x`, the implicit
+  Enum.toString, which is name()) is C++ `std::string(enumName(x))` as an operand of `+` (the companion of aion/gameserver/xml, with or
+  without its qualifier), so that `string` and its `enumName` are not calls; a bare `enumName(x)`, a `std::string(y)` of anything else and a
+  `std::string(enumName(x))` outside a `+` still are (_2900NoEscapingDestiny).
+- the capture spelling of questgen's scheduled-closure rule (G1 lane, phase6-transliterator.md §2.2): in a lambda capture list,
+  `name = runtime::Ref<T>(name)` (the Ptr<T> local captured as the Ref<T> lint L5 asks for) is the captured `name`, not a call; a
+  `runtime::Ref<T>(x)` anywhere else, or whose argument is not the captured name, still is.
+- questgen's rules of the owner's decisions on Q14 (lane C, 2026-10-07; phase6-transliterator.md §12): Java `x.stream().anyMatch(` is C++
+  `std::ranges::any_of(x, ` (the `stream()` is not a call, `any_of` is `anyMatch`); a Java constant list
+  `new ArrayList<>(Arrays.asList(a, b))` is the C++ `std::array` initialiser `{a, b}` (neither `ArrayList` nor `asList` is a call, the
+  literals stay); any other `stream()`, `asList` or `new ArrayList<>(x)` still is a call.
+- the chat command spellings (M5j H-03, 2026-10-07; data/handlers/{admin,player,console}commands against their C++): a command .cpp has no
+  class (it is in the header), so its region is everything after its `AION_ADMIN_COMMAND(X);` (or PLAYER, CONSOLE) marker; the Java
+  constructor's `super(...)` is the C++ base initializer (`AdminCommand(...)`); a Java text block is the string literal of its value, and
+  C++ adjacent literals `"a\n" "b\n"` are one literal; Java `params.length == 0` is C++ `params.empty()` (and `!= 0`, `> 0` its negation);
+  Java `!(x instanceof T [name])` is C++ `== nullptr`; `a.equals(b)` is `==` on the C++ side too (AionObject::equals); C++ `to_string`
+  (Java's implicit string conversion in a concatenation) is not a call; a C++ subscript with an index that is not an int literal is `get`,
+  as Java's (a `std::span` has no `at`).
+
+    python parity.py pair JAVA CPP [--json]
+    python parity.py tree --java-dir DIR --cpp-dir DIR [--only REL ...] [--json OUT] [--require-all]
+    python parity.py spawn-analyzer [--suffix SUFFIX ...] DIR...
+
+Exit 0 when every compared pair is at parity, 1 when a pair is not, 2 on a usage or input error. Standard library only.
+`spawn-analyzer` compares nothing: it prints the npc id set of QuestSpawnAnalyzer.loadNpcIdsSpawnedByHandlers over the directories (the
+oracle of QuestSpawnAnalyzerTest, P5-06a, over the ported handler set) and exits 0, or 2 on an input error.
+"""
+from __future__ import annotations
+
+import argparse
+import json
+import re
+import sys
+from collections import Counter
+from dataclasses import dataclass, field
+from pathlib import Path
+
+# --- tokens ------------------------------------------------------------------------------------------------------------------------
+
+_TOKEN = re.compile(r'''
+    (?P<ws>\s+)
+  | (?P<comment>//[^\n]*|/\*[\s\S]*?\*/)
+  | (?P<textblock>"""[ \t\f]*\r?\n[\s\S]*?(?<!\\)""")
+  | (?P<string>(?:u8|u|U|L)?"(?:\\.|[^"\\\n])*")
+  | (?P<char>(?:u8|u|U|L)?'(?:\\.|[^'\\\n])+')
+  | (?P<number>0[xX][0-9a-fA-F_]+[lLuU]*|0[bB][01_]+[lLuU]*|(?:\d[\d_]*(?:\.[\d_]*)?|\.\d[\d_]*)(?:[eE][+-]?\d+)?[fFdDlLuU]*)
+  | (?P<ident>[A-Za-z_$][\w$]*)
+  | (?P<op>>>>=|<<=|>>=|>>>|\.\.\.|->|::|\+\+|--|&&|\|\||==|!=|<=|>=|\+=|-=|\*=|/=|%=|&=|\|=|\^=|<<|>>|[-+*/%=<>!~&|^?:;,.(){}\[\]@\#])
+''', re.X)
+
+
+@dataclass(frozen=True)
+class Tok:
+    kind: str       # string char number ident op
+    text: str
+    java: bool = False  # a token of a `parity=` substitution: Java, read with the Java rules inside a C++ region
+
+
+class ParityError(Exception):
+    """input the tool does not understand (an unterminated literal, no class)"""
+
+
+def tokenize(text):
+    out = []
+    pos = 0
+    n = len(text)
+    while pos < n:
+        m = _TOKEN.match(text, pos)
+        if m is None:
+            raise ParityError(f'cannot tokenize at offset {pos}: {text[pos:pos + 20]!r}')
+        kind = m.lastgroup
+        if kind == 'textblock':
+            out.append(Tok('string', text_block_literal(m.group(0))))
+        elif kind not in ('ws', 'comment'):
+            out.append(Tok(kind, m.group(0)))
+        pos = m.end()
+    return out
+
+
+def text_block_literal(block):
+    r"""a Java text block (JLS 3.10.6) as the one-line string literal of the same value, escapes left as written: the content after the
+    opening line, the incidental indentation stripped (the closing delimiter's line counts when it is blank), the trailing spaces of each
+    line dropped, every line terminator written `\n`, a bare `"` escaped. Its value is the C++ spelling `"a\n" "b\n"` of adjacent literals,
+    which cpp_region joins into one (H-03: a command's syntax info)."""
+    body = block[3:-3]
+    body = body[body.index('\n') + 1:].replace('\r\n', '\n')
+    lines = body.split('\n')
+    closing_alone = lines[-1].strip() == ''
+    significant = [ln for ln in lines[:-1] if ln.strip()] + [lines[-1]]
+    indent = min((len(ln) - len(ln.lstrip(' \t')) for ln in significant), default=0)
+    stripped = [ln[indent:].rstrip(' \t') for ln in lines]
+    if closing_alone:
+        value = ''.join(ln + '\\n' for ln in stripped[:-1])
+    else:
+        value = '\\n'.join(stripped)
+    value = re.sub(r'(?<!\\)"', r'\\"', value)
+    return '"' + value + '"'
+
+
+def join_adjacent_strings(toks):
+    """C++ adjacent string literals `"a" "b"` as the one literal `"ab"` they are (translation phase 6)"""
+    out = []
+    for t in toks:
+        if t.kind == 'string' and out and out[-1].kind == 'string':
+            prev = out[-1].text
+            out[-1] = Tok('string', prev[:-1] + t.text[t.text.index('"') + 1:])
+            continue
+        out.append(t)
+    return out
+
+
+# --- the class body ----------------------------------------------------------------------------------------------------------------
+
+def java_region(text):
+    """the tokens of the top-level class (from `class`), and the static imports: {(Class, member)}"""
+    imports = set(re.findall(r'^\s*import\s+static\s+(?:[\w.]+\.)?(\w+)\.(\w+)\s*;', text, re.M))
+    toks = tokenize(text)
+    for i, t in enumerate(toks):
+        if t.kind == 'ident' and t.text == 'class':
+            return toks[i:], imports
+    raise ParityError('no class in the Java file')
+
+
+_MARKER = re.compile(r'\bAION_\w+_HANDLER$')
+# the chat command markers (HandlerRegistry.h): a command's class is in its header, its .cpp has the marker and then the bodies (H-03)
+_COMMAND_MARKER = re.compile(r'^AION_(?:ADMIN|PLAYER|CONSOLE)_COMMAND$')
+# the per-line waiver of handlers-and-porting-plan.md §3.1 item 2: a C++ line whose `//` comment starts with `parity:` is not compared
+# (`parity:`, the line dropped) and its substitution form (`parity= <Java>`, the line read as that Java)
+WAIVER = re.compile(r'^[^\n]*//[ \t]*parity(?::[^\n]*|=([^\n]*))$', re.M)
+# the bases of the chat commands: Java `super(...)` in a command's constructor is the C++ base initializer
+COMMAND_BASES = frozenset(('AdminCommand', 'PlayerCommand', 'ConsoleCommand', 'ChatCommand'))
+
+
+def cpp_region(text):
+    """the tokens from the handler's `class` to its AION_*_HANDLER marker; for a chat command's .cpp, which has no class, the tokens after
+    its `AION_*_COMMAND(Name);` (the constructor and the methods). Preprocessor lines are dropped."""
+    text = re.sub(r'^[ \t]*#[^\n]*', '', text, flags=re.M)
+    substitutions = []
+
+    def waive(m):
+        if m.group(1) is None:
+            return ''                           # `parity:`: the line is not compared
+        substitutions.append(m.group(1))        # `parity=`: the line is its Java, read below with the Java rules
+        return f' {_SUBSTITUTION}{len(substitutions) - 1} '
+
+    text = WAIVER.sub(waive, text)
+    toks = tokenize(text)
+    start = next((i for i, t in enumerate(toks) if t.kind == 'ident' and t.text == 'class' and (i == 0 or toks[i - 1].text != '.')), None)
+    if start is None:
+        marker = next((i for i, t in enumerate(toks) if t.kind == 'ident' and _COMMAND_MARKER.match(t.text)), None)
+        if marker is None:
+            raise ParityError('no class and no command marker in the C++ file')
+        end = next((i for i in range(marker, len(toks)) if toks[i].text == ';'), None)
+        if end is None:
+            raise ParityError('unterminated command marker')
+        return _expand_substitutions(toks[end + 1:], substitutions, command=True)
+    end = next((i for i in range(start, len(toks)) if toks[i].kind == 'ident' and _MARKER.search(toks[i].text)), len(toks))
+    return _expand_substitutions(toks[start:end], substitutions, command=False)
+
+
+_SUBSTITUTION = '__parity_java_'
+
+
+def _expand_substitutions(toks, substitutions, command):
+    """each `parity=` placeholder replaced by the tokens of its Java, rewritten as the Java side is (the command rewrites for a command) and
+    marked `java`, so that facts() reads them with the Java rules (instanceof, arr.length, new, an index that is not an int literal)"""
+    out = []
+    for t in toks:
+        if t.kind == 'ident' and t.text.startswith(_SUBSTITUTION):
+            java = _drop_annotations(tokenize(substitutions[int(t.text[len(_SUBSTITUTION):])]))
+            if command:
+                java = _command_rewrites(java)
+            out += [Tok(j.kind, j.text, True) for j in _java_rewrites(java)]
+        else:
+            out.append(t)
+    return out
+
+
+# --- normalisation -----------------------------------------------------------------------------------------------------------------
+
+CPP_KEYWORDS = frozenset('''alignas alignof and and_eq asm auto bitand bitor bool break case catch char char8_t char16_t char32_t class compl
+concept const consteval constexpr constinit const_cast continue co_await co_return co_yield decltype default delete do double dynamic_cast
+else enum explicit export extern false float for friend goto if inline int long mutable namespace new noexcept not not_eq nullptr operator
+or or_eq private protected public register reinterpret_cast requires return short signed sizeof static static_assert static_cast struct
+switch template this thread_local throw true try typedef typeid typename union unsigned using virtual void volatile wchar_t while xor
+xor_eq'''.split())
+# statement keywords and other names that are followed by '(' without being a call
+NOT_CALLS = frozenset('''if for while switch return catch synchronized sizeof alignof decltype typeid static_cast dynamic_cast const_cast
+reinterpret_cast cast as value intValue string_view noexcept requires to_string'''.split())
+# names after which a '<' opens a template argument list in C++ (plus any capitalised type name, on both sides)
+TEMPLATES = frozenset('''static_cast dynamic_cast const_cast reinterpret_cast cast as Ptr Ref array optional vector initializer_list span
+unique_ptr shared_ptr function pair tuple set map unordered_map unordered_set Field Borrowed'''.split())
+TYPE_ARG_TOKENS = frozenset(', . ? [ ] < > >> >>> :: * & extends super const'.split())
+OPERAND_END_WORDS = frozenset(('this', 'true', 'false', 'null', 'nullptr'))
+NOT_OPERAND_WORDS = frozenset('''return case new throw else do instanceof delete sizeof co_return co_yield goto'''.split())
+# calls whose argument order moves in C++ (an enum method becomes a companion free function taking the enum first)
+COMPANIONS = frozenset(('getId', 'id', 'getRewardPageByIndex', 'getStartingClass', 'isStartingClass'))
+CALL_RENAMES = {'front': 'getFirst', 'back': 'getLast', 'empty': 'isEmpty', 'at': 'get', 'super': 'AbstractQuestHandler',
+                'push_back': 'add', 'any_of': 'anyMatch'}
+# Java collections a hand port declares as a default-constructed local std::vector: `new ArrayList<>()` with no argument is not a call
+JAVA_DEFAULT_CONSTRUCTED = frozenset(('ArrayList',))
+BINARY_OPS = frozenset('== != < > <= >= && || + - * / % & | ^ << >> >>> ?'.split())
+COMPOUND = {'+=': '+', '-=': '-', '*=': '*', '/=': '/', '%=': '%', '&=': '&', '|=': '|', '^=': '^', '<<=': '<<', '>>=': '>>', '>>>=': '>>>'}
+DECLARATOR_FOLLOW = frozenset(') , = ; { : ['.split())
+CONSTANT = re.compile(r'^[A-Z][A-Z0-9_]*[A-Z0-9]_?$')
+
+# the idioms the renames undo, for the report (phase6-questgen-prototype.md §2 "The mappings")
+IDIOMS = (
+    'template argument lists dropped (casts, Ptr/Ref, std::array sizes, Java generics)',
+    'keyword/macro escapes (register_, delete_, NULL_) lose the trailing underscore',
+    'nullptr / std::nullopt are Java null; u\'c\' is Java \'c\'; 901.0f is Java 901f',
+    'x instanceof T is != and null (runtime::as<T>(x) != nullptr); a.equals(b) is ==; x op= y is op; plain = is not compared',
+    'unary * and & (dereference, address, capture) and T*/T& declarators are not operators',
+    'casts and unboxing are not calls; QuestEnv::create is new QuestEnv; front/back/empty are getFirst/getLast/isEmpty; super(...) is the '
+    'AbstractQuestHandler constructor; arr.length is size(); get, at and a non-literal index are one name',
+    'the class of a Java static import is dropped from the C++ qualified name',
+    'workItems.getFirst()/getLast() are workItems.get(0)/get(workItems.size() - 1)',
+    'push_back is add; Java new ArrayList<>() with no argument is not a call; an anonymous new Runnable() { run() } is a C++ lambda',
+    'std::string(enumName(x)) beside a + is Java string concatenation with an enum (Enum.toString): neither is a call',
+    'a lambda init-capture name = runtime::Ref<T>(name) (questgen rule scheduled-closure) is the captured name, not a call',
+    'x.stream().anyMatch( is std::ranges::any_of(x, ; new ArrayList<>(Arrays.asList(a, b)) is the std::array initialiser {a, b}',
+)
+
+
+def _string_of_enum_name(toks, i):
+    """toks[i] is a C++ `string` followed by '(': the index of the `enumName` token when the argument starts with a (qualified) enumName( call
+    and the `std::string(...)` is an operand of `+`, the hand-port spelling of Java's implicit Enum.toString in a string concatenation; else
+    None"""
+    n = len(toks)
+    first = i - 2 if i >= 2 and toks[i - 1].text == '::' and toks[i - 2].text == 'std' else i
+    before = toks[first - 1].text if first > 0 else None
+    close = _match(toks, i + 1)
+    after = toks[close + 1].text if close + 1 < n else None
+    if '+' not in (before, after):
+        return None
+    j = i + 2
+    if j < n and toks[j].text == '::':
+        j += 1
+    while j + 1 < n and toks[j].kind == 'ident' and toks[j + 1].text == '::':
+        j += 2
+    if j + 1 < n and toks[j].kind == 'ident' and toks[j].text == 'enumName' and toks[j + 1].text == '(':
+        return j
+    return None
+
+
+def _skip_type_args(toks, i, allow_numbers):
+    """toks[i] is '<': the index after its matching '>' when what lies between is a type argument list, else None"""
+    depth = 0
+    j = i
+    while j < len(toks):
+        t = toks[j]
+        if t.kind == 'op' and t.text == '<':
+            depth += 1
+        elif t.kind == 'op' and t.text in ('>', '>>', '>>>'):
+            depth -= len(t.text)
+            if depth <= 0:
+                return j + 1
+        elif t.kind == 'ident' or (t.kind == 'op' and t.text in TYPE_ARG_TOKENS) or (allow_numbers and t.kind == 'number'):
+            pass
+        else:
+            return None
+        j += 1
+    return None
+
+
+def _drop_templates(toks, cpp):
+    out = []
+    i = 0
+    while i < len(toks):
+        t = toks[i]
+        out.append(t)
+        if t.kind == 'ident' and i + 1 < len(toks) and toks[i + 1].text == '<' and (t.text in TEMPLATES or t.text[:1].isupper()):
+            k = _skip_type_args(toks, i + 1, allow_numbers=cpp)
+            if k is not None:
+                i = k
+                continue
+        i += 1
+    return out
+
+
+def _drop_annotations(toks):
+    """Java `@Name` and `@Name(...)` (their literals are not code)"""
+    out = []
+    i = 0
+    while i < len(toks):
+        if toks[i].text == '@' and i + 1 < len(toks) and toks[i + 1].kind == 'ident' and toks[i + 1].text != 'interface':
+            i += 2
+            while i + 1 < len(toks) and toks[i].text == '.' and toks[i + 1].kind == 'ident':
+                i += 2
+            if i < len(toks) and toks[i].text == '(':
+                i = _match(toks, i) + 1
+            continue
+        out.append(toks[i])
+        i += 1
+    return out
+
+
+def _match(toks, i):
+    """index of the bracket closing toks[i]"""
+    pairs = {'(': ')', '[': ']', '{': '}'}
+    o, c = toks[i].text, pairs[toks[i].text]
+    depth = 0
+    for j in range(i, len(toks)):
+        if toks[j].text == o:
+            depth += 1
+        elif toks[j].text == c:
+            depth -= 1
+            if depth == 0:
+                return j
+    raise ParityError(f'unbalanced {o!r}')
+
+
+def _negated_instanceof(toks, i):
+    """toks[i] is '!' before '(' whose group is `x instanceof T [name]` (one instanceof, no other operator at its depth): (index of the
+    instanceof, index of the ')'), else None"""
+    if i + 1 >= len(toks) or toks[i + 1].text != '(':
+        return None
+    close = _match(toks, i + 1)
+    depth = 0
+    inst = None
+    for j in range(i + 2, close):
+        tx = toks[j].text
+        if tx in ('(', '[', '{'):
+            depth += 1
+        elif tx in (')', ']', '}'):
+            depth -= 1
+        elif depth == 0 and tx == 'instanceof':
+            if inst is not None:
+                return None
+            inst = j
+        elif depth == 0 and toks[j].kind == 'op' and tx not in ('.',):
+            return None
+    return (inst, close) if inst is not None else None
+
+
+def _command_rewrites(toks):
+    """Java spellings of a chat command rewritten into the C++ shape of its hand port (H-03; questgen spells both differently, so they
+    apply to a command only): `x.length == 0` is `x.isEmpty()`, `x.length != 0` / `> 0` is `!x.isEmpty()`, `!(x instanceof T name)` is
+    `(x == null)`"""
+    out = []
+    i = 0
+    while i < len(toks):
+        t = toks[i]
+        if t.kind == 'ident' and i + 4 < len(toks) and toks[i + 1].text == '.' and toks[i + 2].text == 'length' \
+                and toks[i + 3].text in ('==', '!=', '>') and toks[i + 4].text == '0' and (i == 0 or toks[i - 1].text != '.'):
+            if toks[i + 3].text != '==':
+                out.append(Tok('op', '!'))
+            out += [t, Tok('op', '.'), Tok('ident', 'isEmpty'), Tok('op', '('), Tok('op', ')')]
+            i += 5
+            continue
+        if t.text == '!' and t.kind == 'op':
+            hit = _negated_instanceof(toks, i)
+            if hit is not None:
+                inst, close = hit
+                out.append(Tok('op', '('))
+                out += _command_rewrites(toks[i + 2:inst])
+                out += [Tok('op', '=='), Tok('ident', 'null'), Tok('op', ')')]
+                i = close + 1
+                continue
+        out.append(t)
+        i += 1
+    return out
+
+
+def _java_rewrites(toks):
+    """Java spellings rewritten into the C++ shape of an emitter rule (the workItems accessor rule; rules stream-any-match and
+    constant-list)"""
+    out = []
+    i = 0
+    closers = set()
+    while i < len(toks):
+        t = toks[i]
+        if t.text == 'stream' and [x.text for x in toks[i + 1:i + 6]] == ['(', ')', '.', 'anyMatch', '('] and out and out[-1].text == '.':
+            out.pop()                           # x.stream().anyMatch( -> anyMatch(x, : the C++ any_of(x, ...) order; stream is not a call
+            start = _receiver_start(out)
+            out[start:start] = [Tok('ident', 'anyMatch'), Tok('op', '(')]
+            out.append(Tok('op', ','))
+            i += 6
+            continue
+        if t.text == 'new' and [x.text for x in toks[i + 1:i + 9]] == ['ArrayList', '<', '>', '(', 'Arrays', '.', 'asList', '(']:
+            outer = _match(toks, i + 4)
+            inner = _match(toks, i + 8)
+            if outer == inner + 1:              # new ArrayList<>(Arrays.asList(...)) -> { ... }
+                out.append(Tok('op', '{'))
+                closers.add(inner)
+                closers.add(outer)
+                i += 9
+                continue
+        # questgen rule constant-list's static-set shape (lane C, 2026-10-12): `static { X = new HashSet<>(); X.add(1); ... }` is the
+        # std::array initialiser's literals, and `Iterator<Integer> it = X.iterator(); while (it.hasNext()) { int v = it.next();` is
+        # `for (int v : X) {`: neither the HashSet, add, iterator, hasNext nor next is a call
+        if t.text == 'static' and i + 11 < len(toks) and toks[i + 1].text == '{' and [x.text for x in toks[i + 3:i + 12]] == \
+                ['=', 'new', 'HashSet', '<', '>', '(', ')', ';', toks[i + 2].text]:
+            name = toks[i + 2].text
+            j = i + 11
+            vals = []
+            while j + 6 < len(toks) and toks[j].text == name and [x.text for x in toks[j + 1:j + 4]] == ['.', 'add', '('] \
+                    and toks[j + 4].kind == 'number' and [x.text for x in toks[j + 5:j + 7]] == [')', ';']:
+                vals.append(toks[j + 4])
+                j += 7
+            if vals and j < len(toks) and toks[j].text == '}':
+                out += vals
+                i = j + 1
+                continue
+        if t.text == 'Iterator' and i + 30 < len(toks):
+            k = _skip_type_args(toks, i + 1, allow_numbers=False) if toks[i + 1].text == '<' else None
+            if k is not None and k + 26 < len(toks):
+                it, setn = toks[k].text, toks[k + 2].text
+                shape = [it, '=', setn, '.', 'iterator', '(', ')', ';', 'while', '(', it, '.', 'hasNext', '(', ')', ')', '{', 'int']
+                if [x.text for x in toks[k:k + 18]] == shape and [x.text for x in toks[k + 19:k + 26]] == ['=', it, '.', 'next', '(', ')', ';']:
+                    var = toks[k + 18]
+                    out += [Tok('ident', 'for'), Tok('op', '('), Tok('ident', 'int'), var, Tok('op', ':'), Tok('ident', setn), Tok('op', ')'),
+                            Tok('op', '{')]
+                    i = k + 26
+                    continue
+        if t.text == 'Arrays' and [x.text for x in toks[i + 1:i + 4]] == ['.', 'asList', '('] and out and out[-1].text == '=':
+            close = _match(toks, i + 3)         # `X = Arrays.asList(...)` -> `X = { ... }` (rule constant-list)
+            out.append(Tok('op', '{'))
+            closers.add(close)
+            i += 4
+            continue
+        if i in closers:
+            if toks[i - 1].text != ')' or i - 1 not in closers:
+                out.append(Tok('op', '}'))
+            i += 1
+            continue
+        if t.text == 'workItems' and i + 4 < len(toks) and toks[i + 1].text == '.' and toks[i + 2].text in ('getFirst', 'getLast') \
+                and toks[i + 3].text == '(' and toks[i + 4].text == ')':
+            out += [t, Tok('op', '.'), Tok('ident', 'get'), Tok('op', '(')]
+            if toks[i + 2].text == 'getFirst':
+                out.append(Tok('number', '0'))
+            else:
+                out += [Tok('ident', 'workItems'), Tok('op', '.'), Tok('ident', 'size'), Tok('op', '('), Tok('op', ')'), Tok('op', '-'),
+                        Tok('number', '1')]
+            out.append(Tok('op', ')'))
+            i += 5
+            continue
+        out.append(t)
+        i += 1
+    return out
+
+
+def _receiver_start(out):
+    """the index in out where the postfix chain ending out (`a.b(c).d`) starts"""
+    j = len(out) - 1
+    while j >= 0:
+        if out[j].text == ')':
+            depth = 0
+            while j >= 0:
+                if out[j].text == ')':
+                    depth += 1
+                elif out[j].text == '(':
+                    depth -= 1
+                    if depth == 0:
+                        break
+                j -= 1
+            j -= 1
+        if j < 0 or out[j].kind != 'ident':
+            return j + 1
+        if j > 0 and out[j - 1].text == '.':
+            j -= 2
+            continue
+        return j
+    return 0
+
+
+def _cpp_rewrites(toks, static_imports):
+    """C++ spellings mapped back: `QuestEnv::create(` is `QuestEnv(`, a static import's class qualifier is dropped"""
+    out = []
+    i = 0
+    while i < len(toks):
+        t = toks[i]
+        if t.text == 'QuestEnv' and i + 3 < len(toks) and toks[i + 1].text == '::' and toks[i + 2].text == 'create' and toks[i + 3].text == '(':
+            out.append(t)
+            i += 3
+            continue
+        if t.kind == 'ident' and i + 2 < len(toks) and toks[i + 1].text == '::' and (t.text, toks[i + 2].text) in static_imports:
+            i += 2
+            continue
+        k = _ref_init_capture(toks, i)
+        if k is not None:
+            out.append(t)                       # `[..., name = runtime::Ref<T>(name), ...]` is the capture of `name`
+            i = k
+            continue
+        out.append(t)
+        i += 1
+    return out
+
+
+def _ref_init_capture(toks, i):
+    """toks[i] starts `name = runtime::Ref<T>(name)` followed by ',' or ']' inside a capture list (the token before is '[' or ','): the
+    index after its ')', else None (questgen's scheduled-closure rule)"""
+    n = len(toks)
+    if toks[i].kind != 'ident' or i == 0 or toks[i - 1].text not in ('[', ',') or i + 6 >= n:
+        return None
+    if [toks[i + j].text for j in range(1, 6)] != ['=', 'runtime', '::', 'Ref', '<']:
+        return None
+    k = _skip_type_args(toks, i + 5, allow_numbers=True)
+    if k is None or k + 3 >= n or toks[k].text != '(' or toks[k + 1].text != toks[i].text or toks[k + 2].text != ')' \
+            or toks[k + 3].text not in (',', ']'):
+        return None
+    j = i - 1
+    depth = 0
+    while j >= 0:                               # the enclosing '[' must open a capture list: `[` ... `] {` or `] (`
+        tx = toks[j].text
+        if tx in (')', ']', '}'):
+            depth += 1
+        elif tx in ('(', '{'):
+            if depth == 0:
+                return None
+            depth -= 1
+        elif tx == '[':
+            if depth == 0:
+                break
+            depth -= 1
+        j -= 1
+    if j < 0:
+        return None
+    return k + 3
+
+
+# QuestSpawnAnalyzer.java:101, with Java's ASCII \d
+SPAWN_ANALYZER = re.compile(r'\bsp(?:awn)?\([^,\d]*(\d{6})(?: : (\d{6}))?', re.ASCII)
+
+
+def spawn_analyzer_ids(text):
+    """the npc ids QuestSpawnAnalyzer.parseSpawnNpcIds adds for this raw source text"""
+    return {int(g) for m in SPAWN_ANALYZER.finditer(text) for g in m.groups() if g is not None}
+
+
+def spawn_analyzer_dirs(dirs, suffixes=('.java',)):
+    """QuestSpawnAnalyzer.loadNpcIdsSpawnedByHandlers over directories (QuestSpawnAnalyzer.java:99-123): (files read, npc ids), the union of
+    spawn_analyzer_ids over every file below each directory whose name ends with one of the suffixes (Java: Files.walk and
+    `p.toString().endsWith(".java")`; the C++ handlers are .cpp and .h). A missing directory is an error, as Files.walk's IOException is."""
+    files, ids = 0, set()
+    for d in map(Path, dirs):
+        if not d.is_dir():
+            raise ParityError(f'{d}: not a directory')
+        for p in sorted(d.rglob('*')):
+            if p.is_file() and p.name.endswith(tuple(suffixes)):
+                files += 1
+                ids |= spawn_analyzer_ids(p.read_text(encoding='utf-8-sig'))
+    return files, ids
+
+
+# --- facts -------------------------------------------------------------------------------------------------------------------------
+
+@dataclass
+class Facts:
+    literals: list = field(default_factory=list)      # [(kind, value)]
+    calls: list = field(default_factory=list)         # ordered names, companions excluded
+    companions: Counter = field(default_factory=Counter)
+    operators: list = field(default_factory=list)
+    constants: list = field(default_factory=list)
+    spawn_ids: Counter = field(default_factory=Counter)
+
+
+def _number(text, cpp):
+    t = text.replace('_', '') if not cpp else text.replace("'", '')
+    low = t.lower()
+    if low.startswith('0x'):
+        return ('int', int(low.rstrip('lu'), 16))
+    if low.startswith('0b'):
+        return ('int', int(low[2:].rstrip('lu'), 2))
+    is_float = '.' in t or 'e' in low or low.endswith(('f', 'd'))
+    if not is_float:
+        digits = low.rstrip('lu')
+        if len(digits) > 1 and digits.startswith('0'):
+            return ('int', int(digits, 8))
+        return ('int', int(digits))
+    kind = 'float' if low.endswith('f') else 'double'
+    return (kind, float(low.rstrip('fd')))
+
+
+def _char(text):
+    return ('char', text[text.index("'"):])
+
+
+def _unescape_ident(name):
+    """C++ escapes of a Java name that is a C++ keyword (register_) or a macro (NULL_)"""
+    if name.endswith('_') and not name.endswith('__'):
+        stem = name[:-1]
+        if stem in CPP_KEYWORDS or CONSTANT.match(stem):
+            return stem
+    return name
+
+
+def _operand_end(t):
+    if t is None:
+        return False
+    if t.kind in ('number', 'string', 'char'):
+        return True
+    if t.kind == 'ident':
+        return t.text not in NOT_OPERAND_WORDS
+    return t.text in (')', ']', '++', '--')
+
+
+def facts(toks, cpp):
+    """the parity facts of a normalised token list"""
+    toks = _drop_templates(toks, cpp)
+    f = Facts()
+    n = len(toks)
+    anonymous_runs = 0                              # anonymous Runnables whose declared run() is still ahead
+    enum_names = set()                              # C++ enumName tokens of a std::string(enumName(x)), the Java enum concatenation
+    for i, t in enumerate(toks):
+        cpp_t = cpp and not t.java                   # a `parity=` token is Java
+        prev = toks[i - 1] if i > 0 else None
+        nxt = toks[i + 1] if i + 1 < n else None
+        k, x = t.kind, t.text
+        if k == 'number':
+            f.literals.append(_number(x, cpp_t))
+        elif k == 'string':
+            f.literals.append(('string', x[x.index('"'):]))
+        elif k == 'char':
+            f.literals.append(_char(x))
+        elif k == 'ident':
+            name = _unescape_ident(x) if cpp_t else x
+            if name in ('true', 'false'):
+                f.literals.append(('bool', name))
+                continue
+            if name in ('null', 'nullptr', 'nullopt'):
+                f.literals.append(('null', ''))
+                continue
+            if name == 'instanceof' and not cpp_t:
+                f.operators.append('!=')
+                f.literals.append(('null', ''))
+                continue
+            if CONSTANT.match(name) and len(name) > 1:
+                f.constants.append(name)
+            if not cpp_t and name == 'length' and prev is not None and prev.text == '.' and (nxt is None or nxt.text != '('):
+                f.calls.append('size')
+                continue
+            if nxt is not None and nxt.text == '(':
+                if name == 'equals' and prev is not None and prev.text in ('.', '->'):
+                    f.operators.append('==')
+                    continue
+                if name in NOT_CALLS:
+                    continue
+                if not cpp_t and name == 'new':
+                    continue
+                if not cpp_t and prev is not None and prev.text == 'new':
+                    if name in JAVA_DEFAULT_CONSTRUCTED and i + 2 < n and toks[i + 2].text == ')':
+                        continue                    # new ArrayList<>() -> a default-constructed local std::vector
+                    if name == 'Runnable':
+                        anonymous_runs += 1         # new Runnable() { ... } (an interface: always anonymous) -> a C++ lambda
+                        continue
+                if not cpp_t and name == 'run' and anonymous_runs:
+                    anonymous_runs -= 1             # the run() the anonymous Runnable declares, its first run( token
+                    continue
+                if cpp_t and name == 'string':
+                    k = _string_of_enum_name(toks, i)
+                    if k is not None:
+                        enum_names.add(k)           # std::string(enumName(x)) -> Java "..." + x (Enum.toString)
+                        continue
+                if cpp_t and i in enum_names:
+                    continue
+                name = CALL_RENAMES.get(name, name)
+                if name in COMPANIONS:
+                    f.companions[name] += 1
+                else:
+                    f.calls.append(name)
+                if name.startswith('spawn') and i + 3 < n and toks[i + 2].kind == 'number' and toks[i + 3].text in (',', ')'):
+                    f.spawn_ids[_number(toks[i + 2].text, cpp_t)[1]] += 1
+        elif k == 'op':
+            if x == '[' and _operand_end(prev) and nxt is not None and nxt.text != ']' and (not cpp_t or prev.kind != 'ident'
+                                                                                          or prev.text not in CPP_KEYWORDS):
+                close = _match(toks, i)
+                if not (close == i + 2 and nxt.kind == 'number'):
+                    f.calls.append('get')           # a[i] -> a.at(i): the emitter keeps [] only for an int literal in range
+                continue
+            if x in COMPOUND:
+                f.operators.append(COMPOUND[x])
+            elif x in ('++', '--', '!', '~'):
+                f.operators.append(x)
+            elif x in ('+', '-'):
+                f.operators.append(x if _operand_end(prev) else 'u' + x)
+            elif x in ('*', '&'):
+                if not _operand_end(prev):
+                    continue                        # C++ dereference, address-of, lambda capture
+                if prev.kind == 'ident' and nxt is not None and nxt.kind == 'ident' and i + 2 < n and toks[i + 2].text in DECLARATOR_FOLLOW:
+                    continue                        # `T* name` / `T& name` (the same rule on both sides)
+                f.operators.append(x)
+            elif x in BINARY_OPS:
+                f.operators.append(x)
+    return f
+
+
+def _command_super(toks):
+    """a chat command (`class X extends AdminCommand`): its constructor's `super(...)` is the C++ base initializer `AdminCommand(...)`,
+    and the command rewrites apply"""
+    if len(toks) > 3 and toks[2].text == 'extends' and toks[3].text in COMMAND_BASES:
+        base, name = toks[3].text, toks[1].text
+        out = list(toks)
+        ctor = next((i for i in range(4, len(out) - 1) if out[i].text == name and out[i + 1].text == '('), None)
+        if ctor is not None:                    # the first super( after `public Name(`; a nested class's super( stays
+            k = next((i for i in range(ctor, len(out) - 1) if out[i].text == 'super' and out[i + 1].text == '('), None)
+            if k is not None:
+                out[k] = Tok('ident', base)
+        return _command_rewrites(out)
+    return toks
+
+
+def java_facts(text):
+    toks, imports = java_region(text)
+    return facts(_java_rewrites(_command_super(_drop_annotations(toks))), cpp=False), imports
+
+
+def cpp_facts(text, static_imports=frozenset()):
+    return facts(_cpp_rewrites(join_adjacent_strings(cpp_region(text)), static_imports), cpp=True)
+
+
+# --- comparison --------------------------------------------------------------------------------------------------------------------
+
+CHECKS = ('literals-multiset', 'literals-order', 'calls-multiset', 'calls-order', 'companions', 'operators-order', 'constants-order',
+          'spawn-ids', 'spawn-analyzer')
+
+
+@dataclass
+class Mismatch:
+    check: str
+    detail: str
+
+    def __str__(self):
+        return f'{self.check}: {self.detail}'
+
+
+def _first_difference(a, b):
+    k = next((i for i, (x, y) in enumerate(zip(a, b)) if x != y), min(len(a), len(b)))
+    return f'at {k} of {len(a)} (Java) / {len(b)} (C++): Java {a[max(0, k - 2):k + 3]} C++ {b[max(0, k - 2):k + 3]}'
+
+
+def _multiset_difference(a, b):
+    ca, cb = Counter(a), Counter(b)
+    only_java = sorted((ca - cb).elements(), key=repr)
+    only_cpp = sorted((cb - ca).elements(), key=repr)
+    return f'only in Java {only_java[:6]}, only in C++ {only_cpp[:6]}'
+
+
+def compare_facts(j, c):
+    out = []
+    if Counter(j.literals) != Counter(c.literals):
+        out.append(Mismatch('literals-multiset', _multiset_difference(j.literals, c.literals)))
+    if j.literals != c.literals:
+        out.append(Mismatch('literals-order', _first_difference(j.literals, c.literals)))
+    if Counter(j.calls) != Counter(c.calls):
+        out.append(Mismatch('calls-multiset', _multiset_difference(j.calls, c.calls)))
+    if j.calls != c.calls:
+        out.append(Mismatch('calls-order', _first_difference(j.calls, c.calls)))
+    if j.companions != c.companions:
+        out.append(Mismatch('companions', f'Java {dict(j.companions)} C++ {dict(c.companions)}'))
+    if j.operators != c.operators:
+        out.append(Mismatch('operators-order', _first_difference(j.operators, c.operators)))
+    if j.constants != c.constants:
+        out.append(Mismatch('constants-order', _first_difference(j.constants, c.constants)))
+    if j.spawn_ids != c.spawn_ids:
+        out.append(Mismatch('spawn-ids', f'Java {dict(j.spawn_ids)} C++ {dict(c.spawn_ids)}'))
+    return out
+
+
+def compare(java_text, cpp_text):
+    """[Mismatch] between a Java handler's text and its C++ text; empty when they are at parity"""
+    jf, imports = java_facts(java_text)
+    out = compare_facts(jf, cpp_facts(cpp_text, imports))
+    js, cs = spawn_analyzer_ids(java_text), spawn_analyzer_ids(cpp_text)
+    if js != cs:
+        out.append(Mismatch('spawn-analyzer', f'only in Java {sorted(js - cs)}, only in C++ {sorted(cs - js)}'))
+    return out
+
+
+def compare_files(java_path, cpp_path):
+    j = Path(java_path).read_text(encoding='utf-8-sig')
+    c = Path(cpp_path).read_text(encoding='utf-8-sig')
+    return compare(j, c)
+
+
+def compare_tree(java_dir, cpp_dir, only=None):
+    """{rel: [Mismatch] or None when the C++ file is missing} for every Java file below java_dir (rel is the Java path below it)"""
+    java_dir, cpp_dir = Path(java_dir), Path(cpp_dir)
+    rels = sorted(p.relative_to(java_dir).as_posix() for p in java_dir.rglob('*.java'))
+    if only:
+        wanted = set(only)
+        rels = [r for r in rels if r in wanted or Path(r).stem in wanted]
+    out = {}
+    for rel in rels:
+        cpp = cpp_dir / (rel[:-len('.java')] + '.cpp')
+        out[rel] = compare_files(java_dir / rel, cpp) if cpp.is_file() else None
+    return out
+
+
+def tree_report(results):
+    compared = {r: m for r, m in results.items() if m is not None}
+    bad = {r: [str(x) for x in m] for r, m in compared.items() if m}
+    by_check = Counter(x.check for m in compared.values() if m for x in {y.check: y for y in m}.values())
+    return {'format': 'aion-parity', 'version': 1, 'javaFiles': len(results), 'compared': len(compared),
+            'missingCpp': len(results) - len(compared), 'mismatchedFiles': len(bad),
+            'mismatchesByCheck': {k: by_check.get(k, 0) for k in CHECKS}, 'checks': list(CHECKS), 'renames': list(IDIOMS),
+            'files': bad}
+
+
+def main(argv=None):
+    ap = argparse.ArgumentParser(prog='parity.py', description=__doc__.split('\n\n')[0])
+    sub = ap.add_subparsers(dest='cmd', required=True)
+    p = sub.add_parser('pair', help='one Java file against one C++ file')
+    p.add_argument('java')
+    p.add_argument('cpp')
+    p.add_argument('--json', action='store_true', help='print the mismatches as JSON')
+    p = sub.add_parser('tree', help='every Java file below --java-dir against the .cpp at the same relative path below --cpp-dir')
+    p.add_argument('--java-dir', required=True)
+    p.add_argument('--cpp-dir', required=True)
+    p.add_argument('--only', nargs='+', metavar='REL')
+    p.add_argument('--json', metavar='OUT', help='write the report as JSON')
+    p.add_argument('--require-all', action='store_true', help='a Java file without its C++ file is a failure')
+    p = sub.add_parser('spawn-analyzer', help='the npc ids QuestSpawnAnalyzer.loadNpcIdsSpawnedByHandlers finds below the directories: a '
+                                              'first line "# N files, M npc ids", then the ids in ascending order, one per line')
+    p.add_argument('dirs', nargs='+', metavar='DIR')
+    p.add_argument('--suffix', action='append', metavar='SUFFIX',
+                   help="read the files whose name ends with SUFFIX (repeatable; default .java, the analyzer's own filter)")
+    args = ap.parse_args(argv)
+    try:
+        if args.cmd == 'spawn-analyzer':
+            files, ids = spawn_analyzer_dirs(args.dirs, args.suffix or ('.java',))
+            print(f'# {files} files, {len(ids)} npc ids')
+            for npc_id in sorted(ids):
+                print(npc_id)
+            return 0
+        if args.cmd == 'pair':
+            ms = compare_files(args.java, args.cpp)
+            if args.json:
+                print(json.dumps([{'check': m.check, 'detail': m.detail} for m in ms], indent=1))
+            else:
+                for m in ms:
+                    print(m)
+                print('parity: OK' if not ms else f'parity: {len(ms)} mismatches')
+            return 1 if ms else 0
+        results = compare_tree(args.java_dir, args.cpp_dir, args.only)
+    except (ParityError, OSError) as e:
+        print(f'parity: {e}', file=sys.stderr)
+        return 2
+    rep = tree_report(results)
+    if args.json:
+        Path(args.json).write_text(json.dumps(rep, indent=1), encoding='utf-8')
+    print(f"parity: {rep['compared']} pairs compared, {rep['mismatchedFiles']} with mismatches, {rep['missingCpp']} Java files without C++")
+    for check, n in rep['mismatchesByCheck'].items():
+        if n:
+            print(f'  {n:4}  {check}')
+    for rel, ms in list(rep['files'].items())[:20]:
+        print(f'  {rel}: {ms[0]}')
+    failed = rep['mismatchedFiles'] or (args.require_all and rep['missingCpp'])
+    return 1 if failed else 0
+
+
+if __name__ == '__main__':
+    sys.exit(main())

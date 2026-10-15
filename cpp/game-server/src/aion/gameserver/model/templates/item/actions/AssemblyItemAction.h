@@ -1,0 +1,35 @@
+#pragma once
+
+#include "aion/gameserver/model/templates/item/actions/AssemblyItemAction.xml.h"
+
+#include <any>
+#include <initializer_list>
+
+#include "aion/gameserver/model/gameobjects/fwd.h"
+#include "aion/gameserver/model/gameobjects/player/fwd.h"
+#include "aion/gameserver/runtime/lifetime/Ref.h"
+
+namespace aion::gameserver::model::templates::item {
+class AssemblyItem;
+} // namespace aion::gameserver::model::templates::item
+
+namespace aion::gameserver::model::templates::item::actions {
+
+/** Java com.aionemu.gameserver.model.templates.item.actions.AssemblyItemAction. @author xTz */
+class AssemblyItemAction : public ::aion::gameserver::model::templates::item::actions::AbstractItemAction {
+#include "aion/gameserver/model/templates/item/actions/AssemblyItemAction.xml.inc"
+public:
+	bool canAct(gameobjects::player::Player& player, runtime::Ptr<gameobjects::Item> parentItem, runtime::Ptr<gameobjects::Item> targetItem,
+		std::initializer_list<std::any> params = {}) const override;
+
+	void act(gameobjects::player::Player& player, runtime::Ptr<gameobjects::Item> parentItem, runtime::Ptr<gameobjects::Item> targetItem,
+		std::initializer_list<std::any> params = {}) const override;
+
+	/** Java getAssemblyItem(): DataManager.ASSEMBLY_ITEM_DATA.getAssemblyItem(item), nullptr (Java null) for an unknown id */
+	const AssemblyItem* getAssemblyItem() const;
+
+private:
+	void finishUse(gameobjects::player::Player& player, gameobjects::Item& parentItem) const;
+};
+
+} // namespace aion::gameserver::model::templates::item::actions

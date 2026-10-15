@@ -1,0 +1,15 @@
+{
+ "format": "aion-quest-trace",
+ "version": 1,
+ "questId": 2952,
+ "java": "pandaemonium/_2952WinningVindachinerksFavor.java",
+ "class": "_2952WinningVindachinerksFavor",
+ "javaSha256": "1b4ab61bd1eabf662706f8c0eeaf84ff7d61c7b6f7fbd6367785ebf171833805",
+ "register": [
+  {"npc": 279006, "event": "addOnQuestStart", "args": [2952]},
+  {"npc": 279006, "event": "addOnTalkEvent", "args": [2952]},
+  {"npc": 279016, "event": "addOnTalkEvent", "args": [2952]}
+ ],
+ "hooks": [{"hook": "onDialogEvent", "line": 29, "unsupported": "call qs.getQuestVars().getQuestVars()"}],
+ "cases": []
+}

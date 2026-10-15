@@ -1,0 +1,24 @@
+{
+ "format": "aion-quest-trace",
+ "version": 1,
+ "questId": 37106,
+ "java": "orichalcum_key/_37106AsmoHunt.java",
+ "class": "_37106AsmoHunt",
+ "javaSha256": "81034d430065c6d45dac7bfcd14c2b524fef40a761bfdcae0f0ade74310a164f",
+ "register": [
+  {"npc": 700969, "event": "addOnTalkEvent", "args": [37106]},
+  {"npc": 799906, "event": "addOnTalkEvent", "args": [37106]},
+  {"npc": 217171, "event": "addOnKillEvent", "args": [37106]}
+ ],
+ "hooks": [{"hook": "onKillEvent", "line": 35, "cases": 1}, {"hook": "onDialogEvent", "line": 40, "unsupported": "call npc.getController()"}],
+ "cases": [
+  {
+   "id": "onKillEvent#1",
+   "hook": "onKillEvent",
+   "given": {},
+   "guards": [],
+   "effects": [{"call": "defaultOnKillEvent", "kind": "var", "args": [217171, 0, 5], "line": 36}],
+   "returns": {"resultOf": 0}
+  }
+ ]
+}

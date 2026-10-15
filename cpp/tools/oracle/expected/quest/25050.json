@@ -1,0 +1,77 @@
+{
+ "format": "aion-quest-trace",
+ "version": 1,
+ "questId": 25050,
+ "java": "enshar/_25050TreasureInTheDeepSea.java",
+ "class": "_25050TreasureInTheDeepSea",
+ "javaSha256": "e74cdfea0b101bac14ce284f137c78dc36f98a80e5e4ef3fb46be57d8d4e7c22",
+ "register": [
+  {"npc": 804915, "event": "addOnQuestStart", "args": [25050]},
+  {"npc": 731553, "event": "addOnTalkEvent", "args": [25050]},
+  {"npc": 804915, "event": "addOnTalkEvent", "args": [25050]},
+  {"npc": 805160, "event": "addOnTalkEvent", "args": [25050]},
+  {"call": "registerOnInvisibleTimerEnd", "args": [25050]},
+  {"call": "registerOnLogOut", "args": [25050]}
+ ],
+ "hooks": [
+  {"hook": "onDialogEvent", "line": 36, "unsupported": "call spawnForFiveMinutes"},
+  {"hook": "onLogOutEvent", "line": 107, "cases": 3},
+  {"hook": "onInvisibleTimerEndEvent", "line": 112, "cases": 3}
+ ],
+ "cases": [
+  {
+   "id": "onLogOutEvent#1",
+   "hook": "onLogOutEvent",
+   "given": {"questState": null},
+   "guards": ["qs == null -> true @120"],
+   "effects": [],
+   "returns": false
+  },
+  {
+   "id": "onLogOutEvent#2",
+   "hook": "onLogOutEvent",
+   "given": {"questState": {"status": "START", "vars": {"0": 3}}},
+   "guards": ["qs == null -> false @120", "var == 3 -> true @124"],
+   "effects": [
+    {"call": "qs.setQuestVar", "kind": "var", "args": [2], "line": 125},
+    {"call": "updateQuestStatus", "kind": "quest", "args": [], "line": 126}
+   ],
+   "returns": true
+  },
+  {
+   "id": "onLogOutEvent#3",
+   "hook": "onLogOutEvent",
+   "given": {"questState": {"status": "START", "vars": {"0": 0}}},
+   "guards": ["qs == null -> false @120", "var == 3 -> false @124"],
+   "effects": [],
+   "returns": true
+  },
+  {
+   "id": "onInvisibleTimerEndEvent#1",
+   "hook": "onInvisibleTimerEndEvent",
+   "given": {"questState": null},
+   "guards": ["qs == null -> true @120"],
+   "effects": [],
+   "returns": false
+  },
+  {
+   "id": "onInvisibleTimerEndEvent#2",
+   "hook": "onInvisibleTimerEndEvent",
+   "given": {"questState": {"status": "START", "vars": {"0": 3}}},
+   "guards": ["qs == null -> false @120", "var == 3 -> true @124"],
+   "effects": [
+    {"call": "qs.setQuestVar", "kind": "var", "args": [2], "line": 125},
+    {"call": "updateQuestStatus", "kind": "quest", "args": [], "line": 126}
+   ],
+   "returns": true
+  },
+  {
+   "id": "onInvisibleTimerEndEvent#3",
+   "hook": "onInvisibleTimerEndEvent",
+   "given": {"questState": {"status": "START", "vars": {"0": 0}}},
+   "guards": ["qs == null -> false @120", "var == 3 -> false @124"],
+   "effects": [],
+   "returns": true
+  }
+ ]
+}

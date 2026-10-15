@@ -1,0 +1,270 @@
+{
+ "format": "aion-quest-trace",
+ "version": 1,
+ "questId": 30709,
+ "java": "tiamat_stronghold/_30709SoulSearching.java",
+ "class": "_30709SoulSearching",
+ "javaSha256": "0c8b3b91fc4f0d570aeed4848b09577788858ad445d0f8b731f7b0e3b1875b29",
+ "register": [
+  {"npc": 804870, "event": "addOnQuestStart", "args": [30709]},
+  {"npc": 804870, "event": "addOnTalkEvent", "args": [30709]},
+  {"call": "registerOnEnterZone", "args": ["NOBLES_GARDEN_300510000", 30709]}
+ ],
+ "hooks": [{"hook": "onDialogEvent", "line": 31, "cases": 16}, {"hook": "onEnterZoneEvent", "line": 57, "cases": 5}],
+ "cases": [
+  {
+   "id": "onDialogEvent#1",
+   "hook": "onDialogEvent",
+   "given": {"dialogAction": {"name": "USE_OBJECT", "id": -1}, "target": {"kind": "none"}, "questState": null},
+   "guards": ["qs == null -> true @36"],
+   "dialogExcludes": [],
+   "effects": [],
+   "returns": false
+  },
+  {
+   "id": "onDialogEvent#2",
+   "hook": "onDialogEvent",
+   "given": {"dialogAction": {"name": "USE_OBJECT", "id": -1}, "target": {"kind": "none"}, "questState": {"status": "COMPLETE", "canRepeat": true}},
+   "guards": ["qs == null -> false @36", "qs.isStartable() [status == COMPLETE] -> true @36", "qs.isStartable() [canRepeat] -> true @36"],
+   "dialogExcludes": [],
+   "effects": [],
+   "returns": false
+  },
+  {
+   "id": "onDialogEvent#3",
+   "hook": "onDialogEvent",
+   "given": {"dialogAction": {"name": "USE_OBJECT", "id": -1}, "target": {"kind": "none"}, "questState": {"status": "COMPLETE", "canRepeat": false}},
+   "guards": [
+    "qs == null -> false @36",
+    "qs.isStartable() [status == COMPLETE] -> true @36",
+    "qs.isStartable() [canRepeat] -> false @36",
+    "qs.getStatus() == QuestStatus.REWARD -> false @44"
+   ],
+   "dialogExcludes": [],
+   "effects": [],
+   "returns": false
+  },
+  {
+   "id": "onDialogEvent#4",
+   "hook": "onDialogEvent",
+   "given": {"dialogAction": {"name": "USE_OBJECT", "id": -1}, "target": {"kind": "none"}, "questState": {"status": "REWARD"}},
+   "guards": ["qs == null -> false @36", "qs.isStartable() [status == COMPLETE] -> false @36", "qs.getStatus() == QuestStatus.REWARD -> true @44"],
+   "dialogExcludes": [],
+   "effects": [],
+   "returns": false
+  },
+  {
+   "id": "onDialogEvent#5",
+   "hook": "onDialogEvent",
+   "given": {"dialogAction": {"name": "USE_OBJECT", "id": -1}, "target": {"kind": "none"}, "questState": {"status": "START"}},
+   "guards": ["qs == null -> false @36", "qs.isStartable() [status == COMPLETE] -> false @36", "qs.getStatus() == QuestStatus.REWARD -> false @44"],
+   "dialogExcludes": [],
+   "effects": [],
+   "returns": false
+  },
+  {
+   "id": "onDialogEvent#6",
+   "hook": "onDialogEvent",
+   "given": {"dialogAction": {"name": "QUEST_SELECT", "id": 31}, "target": {"kind": "npc", "npcId": 804870}, "questState": null},
+   "guards": ["qs == null -> true @36", "targetId == START_END_NPC_ID -> true @37", "dialogActionId == QUEST_SELECT -> true @38"],
+   "effects": [{"call": "sendQuestDialog", "kind": "dialog", "args": [4762], "line": 39}],
+   "returns": {"resultOf": 0}
+  },
+  {
+   "id": "onDialogEvent#7",
+   "hook": "onDialogEvent",
+   "given": {"dialogAction": {"name": "USE_OBJECT", "id": -1}, "target": {"kind": "npc", "npcId": 804870}, "questState": null},
+   "guards": ["qs == null -> true @36", "targetId == START_END_NPC_ID -> true @37", "dialogActionId == QUEST_SELECT -> false @38"],
+   "dialogExcludes": [31],
+   "effects": [{"call": "sendQuestStartDialog", "kind": "dialog", "args": [], "line": 41}],
+   "returns": {"resultOf": 0}
+  },
+  {
+   "id": "onDialogEvent#8",
+   "hook": "onDialogEvent",
+   "given": {"dialogAction": {"name": "USE_OBJECT", "id": -1}, "target": {"kind": "npc", "npcId": 200000}, "questState": null},
+   "guards": ["qs == null -> true @36", "targetId == START_END_NPC_ID -> false @37"],
+   "dialogExcludes": [],
+   "effects": [],
+   "returns": false
+  },
+  {
+   "id": "onDialogEvent#9",
+   "hook": "onDialogEvent",
+   "given": {
+    "dialogAction": {"name": "QUEST_SELECT", "id": 31},
+    "target": {"kind": "npc", "npcId": 804870},
+    "questState": {"status": "COMPLETE", "canRepeat": true}
+   },
+   "guards": [
+    "qs == null -> false @36",
+    "qs.isStartable() [status == COMPLETE] -> true @36",
+    "qs.isStartable() [canRepeat] -> true @36",
+    "targetId == START_END_NPC_ID -> true @37",
+    "dialogActionId == QUEST_SELECT -> true @38"
+   ],
+   "effects": [{"call": "sendQuestDialog", "kind": "dialog", "args": [4762], "line": 39}],
+   "returns": {"resultOf": 0}
+  },
+  {
+   "id": "onDialogEvent#10",
+   "hook": "onDialogEvent",
+   "given": {
+    "dialogAction": {"name": "USE_OBJECT", "id": -1},
+    "target": {"kind": "npc", "npcId": 804870},
+    "questState": {"status": "COMPLETE", "canRepeat": true}
+   },
+   "guards": [
+    "qs == null -> false @36",
+    "qs.isStartable() [status == COMPLETE] -> true @36",
+    "qs.isStartable() [canRepeat] -> true @36",
+    "targetId == START_END_NPC_ID -> true @37",
+    "dialogActionId == QUEST_SELECT -> false @38"
+   ],
+   "dialogExcludes": [31],
+   "effects": [{"call": "sendQuestStartDialog", "kind": "dialog", "args": [], "line": 41}],
+   "returns": {"resultOf": 0}
+  },
+  {
+   "id": "onDialogEvent#11",
+   "hook": "onDialogEvent",
+   "given": {
+    "dialogAction": {"name": "USE_OBJECT", "id": -1},
+    "target": {"kind": "npc", "npcId": 200000},
+    "questState": {"status": "COMPLETE", "canRepeat": true}
+   },
+   "guards": [
+    "qs == null -> false @36",
+    "qs.isStartable() [status == COMPLETE] -> true @36",
+    "qs.isStartable() [canRepeat] -> true @36",
+    "targetId == START_END_NPC_ID -> false @37"
+   ],
+   "dialogExcludes": [],
+   "effects": [],
+   "returns": false
+  },
+  {
+   "id": "onDialogEvent#12",
+   "hook": "onDialogEvent",
+   "given": {
+    "dialogAction": {"name": "USE_OBJECT", "id": -1},
+    "target": {"kind": "npc", "npcId": 804870},
+    "questState": {"status": "COMPLETE", "canRepeat": false}
+   },
+   "guards": [
+    "qs == null -> false @36",
+    "qs.isStartable() [status == COMPLETE] -> true @36",
+    "qs.isStartable() [canRepeat] -> false @36",
+    "qs.getStatus() == QuestStatus.REWARD -> false @44"
+   ],
+   "dialogExcludes": [],
+   "effects": [],
+   "returns": false
+  },
+  {
+   "id": "onDialogEvent#13",
+   "hook": "onDialogEvent",
+   "given": {"dialogAction": {"name": "QUEST_SELECT", "id": 31}, "target": {"kind": "npc", "npcId": 804870}, "questState": {"status": "REWARD"}},
+   "guards": [
+    "qs == null -> false @36",
+    "qs.isStartable() [status == COMPLETE] -> false @36",
+    "qs.getStatus() == QuestStatus.REWARD -> true @44",
+    "targetId == START_END_NPC_ID -> true @45",
+    "dialogActionId == QUEST_SELECT -> true @46"
+   ],
+   "effects": [{"call": "sendQuestDialog", "kind": "dialog", "args": [10002], "line": 47}],
+   "returns": {"resultOf": 0}
+  },
+  {
+   "id": "onDialogEvent#14",
+   "hook": "onDialogEvent",
+   "given": {"dialogAction": {"name": "USE_OBJECT", "id": -1}, "target": {"kind": "npc", "npcId": 804870}, "questState": {"status": "REWARD"}},
+   "guards": [
+    "qs == null -> false @36",
+    "qs.isStartable() [status == COMPLETE] -> false @36",
+    "qs.getStatus() == QuestStatus.REWARD -> true @44",
+    "targetId == START_END_NPC_ID -> true @45",
+    "dialogActionId == QUEST_SELECT -> false @46"
+   ],
+   "dialogExcludes": [31],
+   "effects": [{"call": "sendQuestEndDialog", "kind": "dialog", "args": [], "line": 49}],
+   "returns": {"resultOf": 0}
+  },
+  {
+   "id": "onDialogEvent#15",
+   "hook": "onDialogEvent",
+   "given": {"dialogAction": {"name": "USE_OBJECT", "id": -1}, "target": {"kind": "npc", "npcId": 200000}, "questState": {"status": "REWARD"}},
+   "guards": [
+    "qs == null -> false @36",
+    "qs.isStartable() [status == COMPLETE] -> false @36",
+    "qs.getStatus() == QuestStatus.REWARD -> true @44",
+    "targetId == START_END_NPC_ID -> false @45"
+   ],
+   "dialogExcludes": [],
+   "effects": [],
+   "returns": false
+  },
+  {
+   "id": "onDialogEvent#16",
+   "hook": "onDialogEvent",
+   "given": {"dialogAction": {"name": "USE_OBJECT", "id": -1}, "target": {"kind": "npc", "npcId": 804870}, "questState": {"status": "START"}},
+   "guards": ["qs == null -> false @36", "qs.isStartable() [status == COMPLETE] -> false @36", "qs.getStatus() == QuestStatus.REWARD -> false @44"],
+   "dialogExcludes": [],
+   "effects": [],
+   "returns": false
+  },
+  {
+   "id": "onEnterZoneEvent#1",
+   "hook": "onEnterZoneEvent",
+   "given": {"args": {"zoneName": {"anyExcept": ["NOBLES_GARDEN_300510000"]}}},
+   "guards": ["zoneName != ZoneName.get(ZONE_NAME) -> true @58"],
+   "effects": [],
+   "returns": false
+  },
+  {
+   "id": "onEnterZoneEvent#2",
+   "hook": "onEnterZoneEvent",
+   "given": {"args": {"zoneName": "NOBLES_GARDEN_300510000"}, "questState": {"status": "START", "vars": {"0": 0}}},
+   "guards": [
+    "zoneName != ZoneName.get(ZONE_NAME) -> false @58",
+    "qs != null -> true @66",
+    "qs.getStatus() == QuestStatus.START -> true @66",
+    "qs.getQuestVarById(0) == 0 -> true @67"
+   ],
+   "effects": [
+    {"call": "qs.setStatus", "kind": "status", "args": ["REWARD"], "line": 68},
+    {"call": "updateQuestStatus", "kind": "quest", "args": [], "line": 69}
+   ],
+   "returns": true
+  },
+  {
+   "id": "onEnterZoneEvent#3",
+   "hook": "onEnterZoneEvent",
+   "given": {"args": {"zoneName": "NOBLES_GARDEN_300510000"}, "questState": {"status": "START", "vars": {"0": 1}}},
+   "guards": [
+    "zoneName != ZoneName.get(ZONE_NAME) -> false @58",
+    "qs != null -> true @66",
+    "qs.getStatus() == QuestStatus.START -> true @66",
+    "qs.getQuestVarById(0) == 0 -> false @67"
+   ],
+   "effects": [],
+   "returns": false
+  },
+  {
+   "id": "onEnterZoneEvent#4",
+   "hook": "onEnterZoneEvent",
+   "given": {"args": {"zoneName": "NOBLES_GARDEN_300510000"}, "questState": {"status": "REWARD"}},
+   "guards": ["zoneName != ZoneName.get(ZONE_NAME) -> false @58", "qs != null -> true @66", "qs.getStatus() == QuestStatus.START -> false @66"],
+   "effects": [],
+   "returns": false
+  },
+  {
+   "id": "onEnterZoneEvent#5",
+   "hook": "onEnterZoneEvent",
+   "given": {"args": {"zoneName": "NOBLES_GARDEN_300510000"}, "questState": null},
+   "guards": ["zoneName != ZoneName.get(ZONE_NAME) -> false @58", "qs != null -> false @66"],
+   "effects": [],
+   "returns": false
+  }
+ ]
+}

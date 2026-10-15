@@ -1,0 +1,15 @@
+{
+ "format": "aion-quest-trace",
+ "version": 1,
+ "questId": 4967,
+ "java": "pandaemonium/_4967GrowthNinissSecondCharm.java",
+ "class": "_4967GrowthNinissSecondCharm",
+ "javaSha256": "9e38dad6355af50ae87f24d860e36478fb996927cfb81df915abcaf2331f2cca",
+ "register": [
+  {"npc": 798385, "event": "addOnQuestStart", "args": [4967]},
+  {"npc": 798385, "event": "addOnTalkEvent", "args": [4967]},
+  {"npc": 798068, "event": "addOnTalkEvent", "args": [4967]}
+ ],
+ "hooks": [{"hook": "onDialogEvent", "line": 31, "unsupported": "call player.getInventory().tryDecreaseKinah(50000)"}],
+ "cases": []
+}

@@ -1,0 +1,15 @@
+{
+ "format": "aion-quest-trace",
+ "version": 1,
+ "questId": 2630,
+ "java": "beluslan/_2630TheDutifulSpy.java",
+ "class": "_2630TheDutifulSpy",
+ "javaSha256": "02a9442b65c5e5b6c834534cd66900ce89fe3caf7227376c8b62ceda8ff12296",
+ "register": [
+  {"npc": 204799, "event": "addOnTalkEvent", "args": [2630]},
+  {"npc": 204777, "event": "addOnTalkEvent", "args": [2630]},
+  {"npc": 204799, "event": "addOnQuestStart", "args": [2630]}
+ ],
+ "hooks": [{"hook": "onDialogEvent", "line": 28, "unsupported": "reads status/2630 after sendQuestNoneDialog, which may have written it"}],
+ "cases": []
+}

@@ -1,0 +1,17 @@
+{
+ "format": "aion-quest-trace",
+ "version": 1,
+ "questId": 28600,
+ "java": "beluslan/_28600SuspiciousErrand.java",
+ "class": "_28600SuspiciousErrand",
+ "javaSha256": "97d3e1af1a8866f3ab58950ee806f8972ce4a2d807441e132804ac20af3f032e",
+ "register": [
+  {"npc": 204702, "event": "addOnTalkEvent", "args": [28600]},
+  {"npc": 205233, "event": "addOnTalkEvent", "args": [28600]},
+  {"npc": 204254, "event": "addOnTalkEvent", "args": [28600]},
+  {"npc": 804607, "event": "addOnTalkEvent", "args": [28600]},
+  {"npc": 204702, "event": "addOnQuestStart", "args": [28600]}
+ ],
+ "hooks": [{"hook": "onDialogEvent", "line": 28, "unsupported": "reads status/28600 after sendQuestNoneDialog, which may have written it"}],
+ "cases": []
+}

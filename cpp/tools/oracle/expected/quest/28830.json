@@ -1,0 +1,56 @@
+{
+ "format": "aion-quest-trace",
+ "version": 1,
+ "questId": 28830,
+ "java": "pernon/_28830InteriorDecorator.java",
+ "class": "_28830InteriorDecorator",
+ "javaSha256": "986b558fb4feb39732789397cb7eea79c8b908a271925f16baaa9065d6592f7b",
+ "register": [
+  {"npc": 830585, "event": "addOnQuestStart", "args": [28830]},
+  {"npc": 810022, "event": "addOnTalkEvent", "args": [28830]},
+  {"npc": 810023, "event": "addOnTalkEvent", "args": [28830]},
+  {"npc": 810024, "event": "addOnTalkEvent", "args": [28830]},
+  {"npc": 810025, "event": "addOnTalkEvent", "args": [28830]},
+  {"npc": 810026, "event": "addOnTalkEvent", "args": [28830]},
+  {"npc": 830651, "event": "addOnTalkEvent", "args": [28830]},
+  {"call": "registerQuestHouseItem", "args": [28830]}
+ ],
+ "hooks": [
+  {"hook": "onDialogEvent", "line": 38, "unsupported": "call player.getActiveHouse()"},
+  {"hook": "onHouseItemUseEvent", "line": 92, "cases": 4}
+ ],
+ "cases": [
+  {
+   "id": "onHouseItemUseEvent#1",
+   "hook": "onHouseItemUseEvent",
+   "given": {"questState": {"status": "START", "vars": {"0": 1}}},
+   "guards": ["qs != null -> true @95", "qs.getStatus() == QuestStatus.START -> true @95", "qs.getQuestVarById(0) == 1 -> true @95"],
+   "effects": [{"call": "changeQuestStep", "kind": "var", "args": [1, 1, true], "line": 96}],
+   "returns": false
+  },
+  {
+   "id": "onHouseItemUseEvent#2",
+   "hook": "onHouseItemUseEvent",
+   "given": {"questState": {"status": "START", "vars": {"0": 0}}},
+   "guards": ["qs != null -> true @95", "qs.getStatus() == QuestStatus.START -> true @95", "qs.getQuestVarById(0) == 1 -> false @95"],
+   "effects": [],
+   "returns": false
+  },
+  {
+   "id": "onHouseItemUseEvent#3",
+   "hook": "onHouseItemUseEvent",
+   "given": {"questState": {"status": "REWARD"}},
+   "guards": ["qs != null -> true @95", "qs.getStatus() == QuestStatus.START -> false @95"],
+   "effects": [],
+   "returns": false
+  },
+  {
+   "id": "onHouseItemUseEvent#4",
+   "hook": "onHouseItemUseEvent",
+   "given": {"questState": null},
+   "guards": ["qs != null -> false @95"],
+   "effects": [],
+   "returns": false
+  }
+ ]
+}

@@ -1,0 +1,15 @@
+{
+ "format": "aion-quest-trace",
+ "version": 1,
+ "questId": 3963,
+ "java": "sanctum/_3963GrowthFlorasThirdCharm.java",
+ "class": "_3963GrowthFlorasThirdCharm",
+ "javaSha256": "c8b7465dfb7430a7947b2101184c33f18e4af278f3c1133992c51907a605f252",
+ "register": [
+  {"npc": 798384, "event": "addOnQuestStart", "args": [3963]},
+  {"npc": 798384, "event": "addOnTalkEvent", "args": [3963]},
+  {"npc": 203740, "event": "addOnTalkEvent", "args": [3963]}
+ ],
+ "hooks": [{"hook": "onDialogEvent", "line": 31, "unsupported": "call player.getInventory().tryDecreaseKinah(70000)"}],
+ "cases": []
+}

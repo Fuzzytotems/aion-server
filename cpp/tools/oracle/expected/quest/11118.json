@@ -1,0 +1,20 @@
+{
+ "format": "aion-quest-trace",
+ "version": 1,
+ "questId": 11118,
+ "java": "inggison/_11118MakingSetzkikiLaugh.java",
+ "class": "_11118MakingSetzkikiLaugh",
+ "javaSha256": "6c80b677394421ee6f5a9d41821ae2354d42d1156012eeb6f948121db77b2747",
+ "register": [
+  {"npc": 798985, "event": "addOnQuestStart", "args": [11118]},
+  {"npc": 798985, "event": "addOnTalkEvent", "args": [11118]},
+  {"npc": 798963, "event": "addOnTalkEvent", "args": [11118]},
+  {"npc": 798986, "event": "addOnTalkEvent", "args": [11118]},
+  {"call": "registerQuestItem", "args": [182206795, 11118]}
+ ],
+ "hooks": [
+  {"hook": "onDialogEvent", "line": 34, "unsupported": "reads status/11118 after sendQuestNoneDialog, which may have written it"},
+  {"hook": "onItemUseEvent", "line": 71, "unsupported": "call item.getItemTemplate().getUseArea()"}
+ ],
+ "cases": []
+}

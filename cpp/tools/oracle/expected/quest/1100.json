@@ -1,0 +1,163 @@
+{
+ "format": "aion-quest-trace",
+ "version": 1,
+ "questId": 1100,
+ "java": "poeta/_1100KaliosCall.java",
+ "class": "_1100KaliosCall",
+ "javaSha256": "b4103c58ea91ccb8637856f91c3eaee2a0edf910aeb98dcb316f78b818692634",
+ "register": [
+  {"npc": 203067, "event": "addOnTalkEvent", "args": [1100]},
+  {"call": "registerOnEnterWorld", "args": [1100]},
+  {"call": "registerOnLevelChanged", "args": [1100]}
+ ],
+ "hooks": [
+  {"hook": "onDialogEvent", "line": 31, "cases": 7},
+  {"hook": "onEnterWorldEvent", "line": 56, "cases": 4},
+  {"hook": "onLevelChangedEvent", "line": 64, "cases": 2}
+ ],
+ "cases": [
+  {
+   "id": "onDialogEvent#1",
+   "hook": "onDialogEvent",
+   "given": {"questState": null},
+   "guards": ["qs == null -> true @34"],
+   "effects": [],
+   "returns": false
+  },
+  {
+   "id": "onDialogEvent#2",
+   "hook": "onDialogEvent",
+   "given": {"target": {"kind": "npc", "npcId": 200000}, "questState": {"status": "START"}},
+   "guards": ["qs == null -> false @34", "env.getVisibleObject() instanceof Npc -> true @38", "targetId != 203067 -> true @40"],
+   "effects": [],
+   "returns": false
+  },
+  {
+   "id": "onDialogEvent#3",
+   "hook": "onDialogEvent",
+   "given": {"target": {"kind": "npc", "npcId": 203067}, "dialogAction": {"name": "QUEST_SELECT", "id": 31}, "questState": {"status": "START"}},
+   "guards": [
+    "qs == null -> false @34",
+    "env.getVisibleObject() instanceof Npc -> true @38",
+    "targetId != 203067 -> false @40",
+    "qs.getStatus() == QuestStatus.START -> true @42",
+    "env.getDialogActionId() == QUEST_SELECT -> true @43"
+   ],
+   "effects": [
+    {"call": "qs.setStatus", "kind": "status", "args": ["REWARD"], "line": 44},
+    {"call": "updateQuestStatus", "kind": "quest", "args": [], "line": 45},
+    {"call": "sendQuestDialog", "kind": "dialog", "args": [1011], "line": 46}
+   ],
+   "returns": {"resultOf": 2}
+  },
+  {
+   "id": "onDialogEvent#4",
+   "hook": "onDialogEvent",
+   "given": {"target": {"kind": "npc", "npcId": 203067}, "dialogAction": {"name": "USE_OBJECT", "id": -1}, "questState": {"status": "START"}},
+   "guards": [
+    "qs == null -> false @34",
+    "env.getVisibleObject() instanceof Npc -> true @38",
+    "targetId != 203067 -> false @40",
+    "qs.getStatus() == QuestStatus.START -> true @42",
+    "env.getDialogActionId() == QUEST_SELECT -> false @43"
+   ],
+   "dialogExcludes": [31],
+   "effects": [{"call": "sendQuestStartDialog", "kind": "dialog", "args": [], "line": 48}],
+   "returns": {"resultOf": 0}
+  },
+  {
+   "id": "onDialogEvent#5",
+   "hook": "onDialogEvent",
+   "given": {"target": {"kind": "npc", "npcId": 203067}, "questState": {"status": "REWARD"}},
+   "guards": [
+    "qs == null -> false @34",
+    "env.getVisibleObject() instanceof Npc -> true @38",
+    "targetId != 203067 -> false @40",
+    "qs.getStatus() == QuestStatus.START -> false @42",
+    "qs.getStatus() == QuestStatus.REWARD -> true @49"
+   ],
+   "effects": [{"call": "sendQuestEndDialog", "kind": "dialog", "args": [], "line": 50}],
+   "returns": {"resultOf": 0}
+  },
+  {
+   "id": "onDialogEvent#6",
+   "hook": "onDialogEvent",
+   "given": {"target": {"kind": "npc", "npcId": 203067}, "questState": {"status": "COMPLETE"}},
+   "guards": [
+    "qs == null -> false @34",
+    "env.getVisibleObject() instanceof Npc -> true @38",
+    "targetId != 203067 -> false @40",
+    "qs.getStatus() == QuestStatus.START -> false @42",
+    "qs.getStatus() == QuestStatus.REWARD -> false @49"
+   ],
+   "effects": [],
+   "returns": false
+  },
+  {
+   "id": "onDialogEvent#7",
+   "hook": "onDialogEvent",
+   "given": {"target": {"kind": "none"}, "questState": {"status": "START"}},
+   "guards": ["qs == null -> false @34", "env.getVisibleObject() instanceof Npc -> false @38"],
+   "effects": [],
+   "returns": false
+  },
+  {
+   "id": "onEnterWorldEvent#1",
+   "hook": "onEnterWorldEvent",
+   "given": {"player": {"worldId": 210010000}, "questState": {"status": "START"}},
+   "guards": ["player.getWorldId() == WorldMapType.POETA.getId() -> true @58", "player.getQuestStateList().hasQuest(questId) -> true @58"],
+   "effects": [],
+   "returns": false
+  },
+  {
+   "id": "onEnterWorldEvent#2",
+   "hook": "onEnterWorldEvent",
+   "given": {"player": {"worldId": 210010000}, "questState": null},
+   "guards": [
+    "player.getWorldId() == WorldMapType.POETA.getId() -> true @58",
+    "player.getQuestStateList().hasQuest(questId) -> false @58",
+    "QuestService.startQuest(env) -> true @59"
+   ],
+   "assume": [{"effect": 0, "returns": true}],
+   "effects": [{"call": "QuestService.startQuest", "kind": "quest", "args": [], "line": 59}],
+   "returns": true
+  },
+  {
+   "id": "onEnterWorldEvent#3",
+   "hook": "onEnterWorldEvent",
+   "given": {"player": {"worldId": 210010000}, "questState": null},
+   "guards": [
+    "player.getWorldId() == WorldMapType.POETA.getId() -> true @58",
+    "player.getQuestStateList().hasQuest(questId) -> false @58",
+    "QuestService.startQuest(env) -> false @59"
+   ],
+   "assume": [{"effect": 0, "returns": false}],
+   "effects": [{"call": "QuestService.startQuest", "kind": "quest", "args": [], "line": 59}],
+   "returns": false
+  },
+  {
+   "id": "onEnterWorldEvent#4",
+   "hook": "onEnterWorldEvent",
+   "given": {"player": {"worldId": 120010000}},
+   "guards": ["player.getWorldId() == WorldMapType.POETA.getId() -> false @58"],
+   "effects": [],
+   "returns": false
+  },
+  {
+   "id": "onLevelChangedEvent#1",
+   "hook": "onLevelChangedEvent",
+   "given": {"player": {"worldId": 210010000}},
+   "guards": ["player.getWorldId() == WorldMapType.POETA.getId() -> true @65"],
+   "effects": [{"call": "defaultOnLevelChangedEvent", "kind": "quest", "args": [], "line": 66}],
+   "returns": null
+  },
+  {
+   "id": "onLevelChangedEvent#2",
+   "hook": "onLevelChangedEvent",
+   "given": {"player": {"worldId": 120010000}},
+   "guards": ["player.getWorldId() == WorldMapType.POETA.getId() -> false @65"],
+   "effects": [],
+   "returns": null
+  }
+ ]
+}

@@ -1,0 +1,15 @@
+{
+ "format": "aion-quest-trace",
+ "version": 1,
+ "questId": 3964,
+ "java": "sanctum/_3964GrowthFlorasFourthCharm.java",
+ "class": "_3964GrowthFlorasFourthCharm",
+ "javaSha256": "a55f2b180faac2efad1c642600c45c22a33123883d2e78a976134d9219a33669",
+ "register": [
+  {"npc": 798384, "event": "addOnQuestStart", "args": [3964]},
+  {"npc": 798384, "event": "addOnTalkEvent", "args": [3964]},
+  {"npc": 203740, "event": "addOnTalkEvent", "args": [3964]}
+ ],
+ "hooks": [{"hook": "onDialogEvent", "line": 31, "unsupported": "call player.getInventory().tryDecreaseKinah(90000)"}],
+ "cases": []
+}

@@ -1,0 +1,67 @@
+{
+ "format": "aion-quest-trace",
+ "version": 1,
+ "questId": 30227,
+ "java": "beshmundir/_30227GroupToLiberateSouls.java",
+ "class": "_30227GroupToLiberateSouls",
+ "javaSha256": "acb9a86f3f0eefce50b5493abd245b4bd3918bf98d070ea577fad4bc37d105fc",
+ "register": [
+  {"npc": 798946, "event": "addOnQuestStart", "args": [30227]},
+  {"npc": 798946, "event": "addOnTalkEvent", "args": [30227]},
+  {"npc": 799521, "event": "addOnTalkEvent", "args": [30227]},
+  {"npc": 799517, "event": "addOnTalkEvent", "args": [30227]},
+  {"npc": 216586, "event": "addOnKillEvent", "args": [30227]},
+  {"npc": 216590, "event": "addOnKillEvent", "args": [30227]},
+  {"npc": 216733, "event": "addOnKillEvent", "args": [30227]},
+  {"npc": 216734, "event": "addOnKillEvent", "args": [30227]},
+  {"npc": 216735, "event": "addOnKillEvent", "args": [30227]},
+  {"npc": 216736, "event": "addOnKillEvent", "args": [30227]},
+  {"npc": 216737, "event": "addOnKillEvent", "args": [30227]},
+  {"npc": 216738, "event": "addOnKillEvent", "args": [30227]},
+  {"npc": 216245, "event": "addOnKillEvent", "args": [30227]},
+  {"call": "registerOnQuestTimerEnd", "args": [30227]}
+ ],
+ "hooks": [
+  {"hook": "onDialogEvent", "line": 35, "unsupported": "call QuestService.questTimerStart"},
+  {"hook": "onQuestTimerEndEvent", "line": 93, "cases": 4},
+  {"hook": "onKillEvent", "line": 113, "unsupported": "call QuestService.questTimerEnd"}
+ ],
+ "cases": [
+  {
+   "id": "onQuestTimerEndEvent#1",
+   "hook": "onQuestTimerEndEvent",
+   "given": {"questState": null},
+   "guards": ["qs == null -> true @97"],
+   "effects": [],
+   "returns": false
+  },
+  {
+   "id": "onQuestTimerEndEvent#2",
+   "hook": "onQuestTimerEndEvent",
+   "given": {"questState": {"status": "START", "vars": {"0": 1}}},
+   "guards": ["qs == null -> false @97", "qs.getStatus() == QuestStatus.START -> true @102", "var == 1 -> true @103"],
+   "effects": [
+    {"call": "qs.setQuestVarById", "kind": "var", "args": [0, 0], "line": 104},
+    {"call": "updateQuestStatus", "kind": "quest", "args": [], "line": 105}
+   ],
+   "returns": true
+  },
+  {
+   "id": "onQuestTimerEndEvent#3",
+   "hook": "onQuestTimerEndEvent",
+   "given": {"questState": {"status": "START", "vars": {"0": 0}}},
+   "guards": ["qs == null -> false @97", "qs.getStatus() == QuestStatus.START -> true @102", "var == 1 -> false @103"],
+   "effects": [],
+   "returns": false
+  },
+  {
+   "id": "onQuestTimerEndEvent#4",
+   "hook": "onQuestTimerEndEvent",
+   "given": {"questState": {"status": "REWARD", "vars": {"0": 0}}},
+   "guards": ["qs == null -> false @97", "qs.getStatus() == QuestStatus.START -> false @102"],
+   "free": ["questState.vars.0"],
+   "effects": [],
+   "returns": false
+  }
+ ]
+}

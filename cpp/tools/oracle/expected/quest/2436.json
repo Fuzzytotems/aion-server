@@ -1,0 +1,56 @@
+{
+ "format": "aion-quest-trace",
+ "version": 1,
+ "questId": 2436,
+ "java": "morheim/_2436LookingForBuBuPat.java",
+ "class": "_2436LookingForBuBuPat",
+ "javaSha256": "aec3065b3c3ef27efb42bdd6cfc66ff8408edfc820640fc1a0c980ff38b548f2",
+ "register": [
+  {"npc": 204390, "event": "addOnQuestStart", "args": [2436]},
+  {"npc": 204390, "event": "addOnTalkEvent", "args": [2436]},
+  {"npc": 204401, "event": "addOnTalkEvent", "args": [2436]},
+  {"call": "registerOnLogOut", "args": [2436]},
+  {"call": "registerAddOnReachTargetEvent", "args": [2436]},
+  {"call": "registerAddOnLostTargetEvent", "args": [2436]}
+ ],
+ "hooks": [
+  {"hook": "onDialogEvent", "line": 35, "unsupported": "call defaultStartFollowEvent"},
+  {"hook": "onLogOutEvent", "line": 70, "cases": 4},
+  {"hook": "onNpcReachTargetEvent", "line": 83, "unsupported": "call defaultFollowEndEvent"},
+  {"hook": "onNpcLostTargetEvent", "line": 88, "unsupported": "call defaultFollowEndEvent"}
+ ],
+ "cases": [
+  {
+   "id": "onLogOutEvent#1",
+   "hook": "onLogOutEvent",
+   "given": {"questState": {"status": "START", "vars": {"0": 1}}},
+   "guards": ["qs != null -> true @73", "qs.getStatus() == QuestStatus.START -> true @73", "var == 1 -> true @75"],
+   "effects": [{"call": "changeQuestStep", "kind": "var", "args": [1, 0], "line": 76}],
+   "returns": false
+  },
+  {
+   "id": "onLogOutEvent#2",
+   "hook": "onLogOutEvent",
+   "given": {"questState": {"status": "START", "vars": {"0": 0}}},
+   "guards": ["qs != null -> true @73", "qs.getStatus() == QuestStatus.START -> true @73", "var == 1 -> false @75"],
+   "effects": [],
+   "returns": false
+  },
+  {
+   "id": "onLogOutEvent#3",
+   "hook": "onLogOutEvent",
+   "given": {"questState": {"status": "REWARD"}},
+   "guards": ["qs != null -> true @73", "qs.getStatus() == QuestStatus.START -> false @73"],
+   "effects": [],
+   "returns": false
+  },
+  {
+   "id": "onLogOutEvent#4",
+   "hook": "onLogOutEvent",
+   "given": {"questState": null},
+   "guards": ["qs != null -> false @73"],
+   "effects": [],
+   "returns": false
+  }
+ ]
+}

@@ -1,0 +1,22 @@
+{
+ "format": "aion-quest-trace",
+ "version": 1,
+ "questId": 4200,
+ "java": "beluslan/_4200ASuspiciousCall.java",
+ "class": "_4200ASuspiciousCall",
+ "javaSha256": "328f7d43a8070c3fea30700df317d9068665f9a47b9c444ef22043ef54eaa49a",
+ "register": [
+  {"npc": 204839, "event": "addOnQuestStart", "args": [4200]},
+  {"call": "registerQuestItem", "args": [182209097, 4200]},
+  {"npc": 204839, "event": "addOnTalkEvent", "args": [4200]},
+  {"npc": 798332, "event": "addOnTalkEvent", "args": [4200]},
+  {"npc": 700522, "event": "addOnTalkEvent", "args": [4200]},
+  {"npc": 279006, "event": "addOnTalkEvent", "args": [4200]},
+  {"npc": 204286, "event": "addOnTalkEvent", "args": [4200]}
+ ],
+ "hooks": [
+  {"hook": "onDialogEvent", "line": 45, "unsupported": "call InstanceService.getNextAvailableInstance"},
+  {"hook": "onItemUseEvent", "line": 121, "unsupported": "call TeleportService.teleportTo"}
+ ],
+ "cases": []
+}

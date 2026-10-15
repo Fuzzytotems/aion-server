@@ -1,0 +1,22 @@
+{
+ "format": "aion-quest-trace",
+ "version": 1,
+ "questId": 18821,
+ "java": "oriel/_18821AlmostForgotMyBlessings.java",
+ "class": "_18821AlmostForgotMyBlessings",
+ "javaSha256": "ad66295372863171df41f000db611f8db68c168d69f64eaae7d7ae2edf82986e",
+ "register": [
+  {"npc": 810017, "event": "addOnQuestStart", "args": [18821]},
+  {"npc": 810017, "event": "addOnTalkEvent", "args": [18821]},
+  {"npc": 810018, "event": "addOnQuestStart", "args": [18821]},
+  {"npc": 810018, "event": "addOnTalkEvent", "args": [18821]},
+  {"npc": 810019, "event": "addOnQuestStart", "args": [18821]},
+  {"npc": 810019, "event": "addOnTalkEvent", "args": [18821]},
+  {"npc": 810020, "event": "addOnQuestStart", "args": [18821]},
+  {"npc": 810020, "event": "addOnTalkEvent", "args": [18821]},
+  {"npc": 810021, "event": "addOnQuestStart", "args": [18821]},
+  {"npc": 810021, "event": "addOnTalkEvent", "args": [18821]}
+ ],
+ "hooks": [{"hook": "onDialogEvent", "line": 47, "unsupported": "call player.getActiveHouse()"}],
+ "cases": []
+}

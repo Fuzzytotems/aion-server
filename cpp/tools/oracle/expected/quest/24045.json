@@ -1,0 +1,39 @@
+{
+ "format": "aion-quest-trace",
+ "version": 1,
+ "questId": 24045,
+ "java": "reshanta/_24045ASpeedyErrand.java",
+ "class": "_24045ASpeedyErrand",
+ "javaSha256": "1777fb3d96651eda8c149683ce051db608cd869b46b9692cfb329b1e777c3a41",
+ "register": [
+  {"call": "registerOnQuestCompleted", "args": [24045]},
+  {"call": "registerOnLevelChanged", "args": [24045]},
+  {"npc": 278034, "event": "addOnTalkEvent", "args": [24045]},
+  {"npc": 279004, "event": "addOnTalkEvent", "args": [24045]},
+  {"npc": 279024, "event": "addOnTalkEvent", "args": [24045]},
+  {"npc": 279006, "event": "addOnTalkEvent", "args": [24045]}
+ ],
+ "hooks": [
+  {"hook": "onQuestCompletedEvent", "line": 36, "cases": 1},
+  {"hook": "onLevelChangedEvent", "line": 41, "cases": 1},
+  {"hook": "onDialogEvent", "line": 46, "unsupported": "CreatureState.FLYING"}
+ ],
+ "cases": [
+  {
+   "id": "onQuestCompletedEvent#1",
+   "hook": "onQuestCompletedEvent",
+   "given": {},
+   "guards": [],
+   "effects": [{"call": "defaultOnQuestCompletedEvent", "kind": "quest", "args": [24040], "line": 37}],
+   "returns": null
+  },
+  {
+   "id": "onLevelChangedEvent#1",
+   "hook": "onLevelChangedEvent",
+   "given": {},
+   "guards": [],
+   "effects": [{"call": "defaultOnLevelChangedEvent", "kind": "quest", "args": [24040], "line": 42}],
+   "returns": null
+  }
+ ]
+}

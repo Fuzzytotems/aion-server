@@ -1,0 +1,11 @@
+{
+ "format": "aion-quest-trace",
+ "version": 1,
+ "questId": 4208,
+ "java": "steel_rake/_4208TruthOfTheBookmark.java",
+ "class": "_4208TruthOfTheBookmark",
+ "javaSha256": "05895750a97d412d7f3d541c39e3f674f2899ab276020b1583cbed7cc174763a",
+ "register": [],
+ "hooks": [],
+ "cases": []
+}

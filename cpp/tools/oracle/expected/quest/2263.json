@@ -1,0 +1,75 @@
+{
+ "format": "aion-quest-trace",
+ "version": 1,
+ "questId": 2263,
+ "java": "altgard/_2263ShugoPotion.java",
+ "class": "_2263ShugoPotion",
+ "javaSha256": "d6b953c4759c249b8a92ec2d862a725af3f0b136735a06e49724494009c35a7c",
+ "register": [
+  {"npc": 798036, "event": "addOnQuestStart", "args": [2263]},
+  {"npc": 798036, "event": "addOnTalkEvent", "args": [2263]},
+  {"call": "registerOnQuestTimerEnd", "args": [2263]},
+  {"call": "registerOnLogOut", "args": [2263]}
+ ],
+ "hooks": [
+  {"hook": "onDialogEvent", "line": 34, "unsupported": "call QuestService.questTimerStart"},
+  {"hook": "onQuestTimerEndEvent", "line": 87, "cases": 3},
+  {"hook": "onLogOutEvent", "line": 102, "cases": 3}
+ ],
+ "cases": [
+  {
+   "id": "onQuestTimerEndEvent#1",
+   "hook": "onQuestTimerEndEvent",
+   "given": {"inventory": {"182203242": 0}, "questState": {"status": "START"}},
+   "guards": ["qs != null -> true @91", "qs.getStatus() == QuestStatus.START -> true @91"],
+   "effects": [
+    {"call": "removeQuestItem", "kind": "item", "args": [182203242, 0], "line": 93},
+    {"call": "QuestService.abandonQuest", "kind": "quest", "args": [2263], "line": 94}
+   ],
+   "returns": true
+  },
+  {
+   "id": "onQuestTimerEndEvent#2",
+   "hook": "onQuestTimerEndEvent",
+   "given": {"questState": {"status": "REWARD"}},
+   "guards": ["qs != null -> true @91", "qs.getStatus() == QuestStatus.START -> false @91"],
+   "effects": [],
+   "returns": false
+  },
+  {
+   "id": "onQuestTimerEndEvent#3",
+   "hook": "onQuestTimerEndEvent",
+   "given": {"questState": null},
+   "guards": ["qs != null -> false @91"],
+   "effects": [],
+   "returns": false
+  },
+  {
+   "id": "onLogOutEvent#1",
+   "hook": "onLogOutEvent",
+   "given": {"inventory": {"182203242": 0}, "questState": {"status": "START"}},
+   "guards": ["qs != null -> true @106", "qs.getStatus() == QuestStatus.START -> true @106"],
+   "effects": [
+    {"call": "removeQuestItem", "kind": "item", "args": [182203242, 0], "line": 108},
+    {"call": "QuestService.abandonQuest", "kind": "quest", "args": [2263], "line": 109}
+   ],
+   "returns": true
+  },
+  {
+   "id": "onLogOutEvent#2",
+   "hook": "onLogOutEvent",
+   "given": {"questState": {"status": "REWARD"}},
+   "guards": ["qs != null -> true @106", "qs.getStatus() == QuestStatus.START -> false @106"],
+   "effects": [],
+   "returns": false
+  },
+  {
+   "id": "onLogOutEvent#3",
+   "hook": "onLogOutEvent",
+   "given": {"questState": null},
+   "guards": ["qs != null -> false @106"],
+   "effects": [],
+   "returns": false
+  }
+ ]
+}

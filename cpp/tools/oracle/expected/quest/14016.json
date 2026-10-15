@@ -1,0 +1,117 @@
+{
+ "format": "aion-quest-trace",
+ "version": 1,
+ "questId": 14016,
+ "java": "verteron/_14016AGateAgape.java",
+ "class": "_14016AGateAgape",
+ "javaSha256": "1073002cb5c2174665de70c9d13ef7e02efd05fa7a6c537eeb7c8ac491e9cc70",
+ "register": [
+  {"call": "registerOnQuestCompleted", "args": [14016]},
+  {"call": "registerOnLevelChanged", "args": [14016]},
+  {"call": "registerOnEnterWorld", "args": [14016]},
+  {"call": "registerOnDie", "args": [14016]},
+  {"npc": 233873, "event": "addOnKillEvent", "args": [14016]},
+  {"npc": 203098, "event": "addOnTalkEvent", "args": [14016]},
+  {"npc": 700142, "event": "addOnTalkEvent", "args": [14016]}
+ ],
+ "hooks": [
+  {"hook": "onDialogEvent", "line": 36, "unsupported": "call TeleportService.teleportTo"},
+  {"hook": "onDieEvent", "line": 79, "unsupported": "call qs.getQuestVars().getQuestVars()"},
+  {"hook": "onEnterWorldEvent", "line": 94, "unsupported": "call qs.getQuestVars().getQuestVars()"},
+  {"hook": "onKillEvent", "line": 115, "cases": 7},
+  {"hook": "onMovieEndEvent", "line": 132, "unsupported": "call TeleportService.teleportTo"},
+  {"hook": "onQuestCompletedEvent", "line": 145, "cases": 1},
+  {"hook": "onLevelChangedEvent", "line": 151, "cases": 1}
+ ],
+ "cases": [
+  {
+   "id": "onKillEvent#1",
+   "hook": "onKillEvent",
+   "given": {"target": {"kind": "none"}, "questState": {"status": "START", "vars": {"0": 2}}},
+   "guards": ["qs != null -> true @118", "qs.getStatus() == QuestStatus.START -> true @118", "var == 2 -> true @120"],
+   "effects": [],
+   "returns": false
+  },
+  {
+   "id": "onKillEvent#2",
+   "hook": "onKillEvent",
+   "given": {"target": {"kind": "npc", "npcId": 233873}, "inventory": {"182215317": 0}, "questState": {"status": "START", "vars": {"0": 2}}},
+   "guards": [
+    "qs != null -> true @118",
+    "qs.getStatus() == QuestStatus.START -> true @118",
+    "var == 2 -> true @120",
+    "env.getTargetId() == 233873 -> true @121",
+    "player.getInventory().getItemCountByItemId(182215317) < 1 -> true @122"
+   ],
+   "effects": [{"call": "giveQuestItem", "kind": "item", "args": [182215317, 1], "line": 123}],
+   "returns": {"resultOf": 0}
+  },
+  {
+   "id": "onKillEvent#3",
+   "hook": "onKillEvent",
+   "given": {"target": {"kind": "npc", "npcId": 233873}, "inventory": {"182215317": 1}, "questState": {"status": "START", "vars": {"0": 2}}},
+   "guards": [
+    "qs != null -> true @118",
+    "qs.getStatus() == QuestStatus.START -> true @118",
+    "var == 2 -> true @120",
+    "env.getTargetId() == 233873 -> true @121",
+    "player.getInventory().getItemCountByItemId(182215317) < 1 -> false @122"
+   ],
+   "effects": [],
+   "returns": false
+  },
+  {
+   "id": "onKillEvent#4",
+   "hook": "onKillEvent",
+   "given": {"target": {"kind": "npc", "npcId": 203098}, "questState": {"status": "START", "vars": {"0": 2}}},
+   "guards": [
+    "qs != null -> true @118",
+    "qs.getStatus() == QuestStatus.START -> true @118",
+    "var == 2 -> true @120",
+    "env.getTargetId() == 233873 -> false @121"
+   ],
+   "effects": [],
+   "returns": false
+  },
+  {
+   "id": "onKillEvent#5",
+   "hook": "onKillEvent",
+   "given": {"questState": {"status": "START", "vars": {"0": 0}}},
+   "guards": ["qs != null -> true @118", "qs.getStatus() == QuestStatus.START -> true @118", "var == 2 -> false @120"],
+   "effects": [],
+   "returns": false
+  },
+  {
+   "id": "onKillEvent#6",
+   "hook": "onKillEvent",
+   "given": {"questState": {"status": "REWARD"}},
+   "guards": ["qs != null -> true @118", "qs.getStatus() == QuestStatus.START -> false @118"],
+   "effects": [],
+   "returns": false
+  },
+  {
+   "id": "onKillEvent#7",
+   "hook": "onKillEvent",
+   "given": {"questState": null},
+   "guards": ["qs != null -> false @118"],
+   "effects": [],
+   "returns": false
+  },
+  {
+   "id": "onQuestCompletedEvent#1",
+   "hook": "onQuestCompletedEvent",
+   "given": {},
+   "guards": [],
+   "effects": [{"call": "defaultOnQuestCompletedEvent", "kind": "quest", "args": [14015, 14014, 14013, 14012, 14011, 14010], "line": 147}],
+   "returns": null
+  },
+  {
+   "id": "onLevelChangedEvent#1",
+   "hook": "onLevelChangedEvent",
+   "given": {},
+   "guards": [],
+   "effects": [{"call": "defaultOnLevelChangedEvent", "kind": "quest", "args": [14015, 14014, 14013, 14012, 14011, 14010], "line": 153}],
+   "returns": null
+  }
+ ]
+}

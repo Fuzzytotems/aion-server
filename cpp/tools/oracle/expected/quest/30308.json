@@ -1,0 +1,19 @@
+{
+ "format": "aion-quest-trace",
+ "version": 1,
+ "questId": 30308,
+ "java": "beshmundir/_30308GroupSummonRespondentUtra.java",
+ "class": "_30308GroupSummonRespondentUtra",
+ "javaSha256": "d1b475273711b1878b511c398a0c12f4f987450a686a4d4885ca024b17d67d92",
+ "register": [
+  {"npc": 799322, "event": "addOnQuestStart", "args": [30308]},
+  {"npc": 799322, "event": "addOnTalkEvent", "args": [30308]},
+  {"npc": 799506, "event": "addOnTalkEvent", "args": [30308]},
+  {"call": "registerQuestItem", "args": [182209710, 30308]}
+ ],
+ "hooks": [
+  {"hook": "onDialogEvent", "line": 35, "unsupported": "call env.getVisibleObject().getController()"},
+  {"hook": "onItemUseEvent", "line": 79, "unsupported": "call spawnInFrontOf"}
+ ],
+ "cases": []
+}

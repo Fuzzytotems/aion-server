@@ -1,0 +1,62 @@
+{
+ "format": "aion-quest-trace",
+ "version": 1,
+ "questId": 24016,
+ "java": "altgard/_24016AStrangeNewThread.java",
+ "class": "_24016AStrangeNewThread",
+ "javaSha256": "76fdf4bc84fce023d7c541b8500984bd87722a05dbb94027faae32367e6a62f9",
+ "register": [
+  {"call": "registerOnQuestCompleted", "args": [24016]},
+  {"call": "registerOnLevelChanged", "args": [24016]},
+  {"call": "registerOnDie", "args": [24016]},
+  {"call": "registerOnEnterWorld", "args": [24016]},
+  {"npc": 203557, "event": "addOnTalkEvent", "args": [24016]},
+  {"npc": 700140, "event": "addOnTalkEvent", "args": [24016]},
+  {"npc": 700141, "event": "addOnTalkEvent", "args": [24016]},
+  {"npc": 233876, "event": "addOnKillEvent", "args": [24016]},
+  {"npc": 210753, "event": "addOnKillEvent", "args": [24016]}
+ ],
+ "hooks": [
+  {"hook": "onDialogEvent", "line": 37, "unsupported": "call TeleportService.teleportTo"},
+  {"hook": "onEnterWorldEvent", "line": 111, "unsupported": "call qs.getQuestVars().getQuestVars()"},
+  {"hook": "onKillEvent", "line": 130, "cases": 2},
+  {"hook": "onDieEvent", "line": 140, "unsupported": "call qs.getQuestVars().getQuestVars()"},
+  {"hook": "onMovieEndEvent", "line": 155, "unsupported": "call TeleportService.teleportTo"},
+  {"hook": "onQuestCompletedEvent", "line": 161, "cases": 1},
+  {"hook": "onLevelChangedEvent", "line": 167, "cases": 1}
+ ],
+ "cases": [
+  {
+   "id": "onKillEvent#1",
+   "hook": "onKillEvent",
+   "given": {"player": {"class": "RIDER"}},
+   "guards": ["player.getPlayerClass() == PlayerClass.RIDER -> true @132"],
+   "effects": [{"call": "defaultOnKillEvent", "kind": "var", "args": [233876, 3, 4], "line": 133}],
+   "returns": {"resultOf": 0}
+  },
+  {
+   "id": "onKillEvent#2",
+   "hook": "onKillEvent",
+   "given": {"player": {"class": "WARRIOR"}},
+   "guards": ["player.getPlayerClass() == PlayerClass.RIDER -> false @132"],
+   "effects": [{"call": "defaultOnKillEvent", "kind": "var", "args": [210753, 13, 14], "line": 135}],
+   "returns": {"resultOf": 0}
+  },
+  {
+   "id": "onQuestCompletedEvent#1",
+   "hook": "onQuestCompletedEvent",
+   "given": {},
+   "guards": [],
+   "effects": [{"call": "defaultOnQuestCompletedEvent", "kind": "quest", "args": [24015, 24014, 24013, 24012, 24011], "line": 163}],
+   "returns": null
+  },
+  {
+   "id": "onLevelChangedEvent#1",
+   "hook": "onLevelChangedEvent",
+   "given": {},
+   "guards": [],
+   "effects": [{"call": "defaultOnLevelChangedEvent", "kind": "quest", "args": [24015, 24014, 24013, 24012, 24011], "line": 169}],
+   "returns": null
+  }
+ ]
+}

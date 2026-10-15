@@ -1,0 +1,75 @@
+{
+ "format": "aion-quest-trace",
+ "version": 1,
+ "questId": 14046,
+ "java": "reshanta/_14046PiecingTheMemory.java",
+ "class": "_14046PiecingTheMemory",
+ "javaSha256": "b7c976cc3b96f53848a883c7738ad0915ba1ae371fc51d7ac307308a0e9b309f",
+ "register": [
+  {"call": "registerOnQuestCompleted", "args": [14046]},
+  {"call": "registerOnLevelChanged", "args": [14046]},
+  {"call": "registerOnEnterWorld", "args": [14046]},
+  {"npc": 278500, "event": "addOnTalkEvent", "args": [14046]},
+  {"npc": 203834, "event": "addOnTalkEvent", "args": [14046]},
+  {"npc": 203786, "event": "addOnTalkEvent", "args": [14046]},
+  {"npc": 203754, "event": "addOnTalkEvent", "args": [14046]},
+  {"npc": 203704, "event": "addOnTalkEvent", "args": [14046]}
+ ],
+ "hooks": [
+  {"hook": "onQuestCompletedEvent", "line": 35, "cases": 1},
+  {"hook": "onLevelChangedEvent", "line": 40, "cases": 1},
+  {"hook": "onDialogEvent", "line": 45, "unsupported": "call TeleportService.teleportTo"},
+  {"hook": "onEnterWorldEvent", "line": 138, "cases": 4},
+  {"hook": "onMovieEndEvent", "line": 146, "unsupported": "call TeleportService.teleportTo"}
+ ],
+ "cases": [
+  {
+   "id": "onQuestCompletedEvent#1",
+   "hook": "onQuestCompletedEvent",
+   "given": {},
+   "guards": [],
+   "effects": [{"call": "defaultOnQuestCompletedEvent", "kind": "quest", "args": [14040], "line": 36}],
+   "returns": null
+  },
+  {
+   "id": "onLevelChangedEvent#1",
+   "hook": "onLevelChangedEvent",
+   "given": {},
+   "guards": [],
+   "effects": [{"call": "defaultOnLevelChangedEvent", "kind": "quest", "args": [14040], "line": 41}],
+   "returns": null
+  },
+  {
+   "id": "onEnterWorldEvent#1",
+   "hook": "onEnterWorldEvent",
+   "given": {"questState": null},
+   "guards": ["qs == null -> true @140"],
+   "effects": [],
+   "returns": false
+  },
+  {
+   "id": "onEnterWorldEvent#2",
+   "hook": "onEnterWorldEvent",
+   "given": {"questState": {"status": "REWARD"}},
+   "guards": ["qs == null -> false @140", "qs.getStatus() != QuestStatus.START -> true @140"],
+   "effects": [],
+   "returns": false
+  },
+  {
+   "id": "onEnterWorldEvent#3",
+   "hook": "onEnterWorldEvent",
+   "given": {"questState": {"status": "START", "vars": {"0": 0}}},
+   "guards": ["qs == null -> false @140", "qs.getStatus() != QuestStatus.START -> false @140", "qs.getQuestVarById(0) != 4 -> true @140"],
+   "effects": [],
+   "returns": false
+  },
+  {
+   "id": "onEnterWorldEvent#4",
+   "hook": "onEnterWorldEvent",
+   "given": {"questState": {"status": "START", "vars": {"0": 4}}},
+   "guards": ["qs == null -> false @140", "qs.getStatus() != QuestStatus.START -> false @140", "qs.getQuestVarById(0) != 4 -> false @140"],
+   "effects": [{"call": "playQuestMovie", "kind": "movie", "args": [170], "line": 142}],
+   "returns": {"resultOf": 0}
+  }
+ ]
+}

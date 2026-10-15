@@ -1,0 +1,164 @@
+// M5h-2 H2-5 (m5h-plan.md 14.3): the argument handling of //auction, //house and //legion (data/handlers/admincommands/Auction.java,
+// HouseCommand.java, LegionCommand.java) on a real Player with a real AionConnection (CommandTestSupport.h): the syntax info, the refusals the
+// commands answer before they reach HousingService, HousingBidService or LegionService, and ChatCommand.run's messages for a bad number or an
+// unknown enum constant. The arms that reach the services are driven by the gate gs.scenario.m5h2 (G1-G3), on its database.
+
+#include "CommandTestSupport.h"
+
+#include <string>
+#include <vector>
+
+#include "aion/gameserver/configs/administration/CommandsConfig.h"
+#include "aion/gameserver/handlers/admincommands/Auction.h"
+#include "aion/gameserver/handlers/admincommands/HouseCommand.h"
+#include "aion/gameserver/handlers/admincommands/LegionCommand.h"
+#include "aion/gameserver/utils/ChatUtil.h"
+#include "aion/gameserver/world/World.h"
+
+#include "aion/commons/utils/WindowsMacroGuard.h" // after all headers that may include windows.h
+
+namespace aion::gameserver::network::aion::clientpackets::testing {
+namespace {
+
+class HousingCommandsTest : public CommandTest {
+protected:
+	void SetUp() override {
+		CommandTest::SetUp();
+		std::map<std::string, int8_t, std::less<>> levels(*configs::administration::CommandsConfig::ACCESS_LEVELS.get());
+		for (const char* alias : {"auction", "house", "legion"}) // commands.properties: auction = 9, house = 9, legion = 9
+			levels[alias] = 9;
+		configs::administration::CommandsConfig::ACCESS_LEVELS.set(levels);
+	}
+
+	void TearDown() override {
+		for (Player* player : stored)
+			world::World::getInstance().removeObject(*player);
+		stored.clear();
+		CommandTest::TearDown();
+	}
+
+	Player& gm() { return connected(730090, "Steward", 9); }
+
+	/** a connected character World.getPlayer(name) finds (Java: PlayerEnterWorldService stores it) */
+	Player& online(int32_t objectId, std::string_view name) {
+		Player& player = connected(objectId, name, 0);
+		world::World::getInstance().storeObject(player);
+		stored.push_back(&player);
+		return player;
+	}
+
+	std::vector<Player*> stored;
+};
+
+// ---- //auction (Auction.java:35-142) ------------------------------------------------------------------------------------------------------
+
+TEST_F(HousingCommandsTest, AuctionWithoutArgumentsSendsTheSyntax) {
+	Player& admin = gm();
+	handlers::admincommands::Auction auction;
+	EXPECT_TRUE(auction.process(admin, args({})));
+	EXPECT_EQ(client()->sentBytes(), info(auction.getSyntaxInfo()));
+}
+
+TEST_F(HousingCommandsTest, AuctionEndWithoutAnAddressSendsTheSyntax) {
+	Player& admin = gm();
+	handlers::admincommands::Auction auction;
+	EXPECT_TRUE(auction.process(admin, args({"end"})));
+	EXPECT_EQ(client()->sentBytes(), info(auction.getSyntaxInfo())) << "params.length < 2";
+}
+
+TEST_F(HousingCommandsTest, AuctionAddWithTheWrongArgumentCountSendsTheSyntax) {
+	Player& admin = gm();
+	handlers::admincommands::Auction auction;
+	EXPECT_TRUE(auction.process(admin, args({"add", "elyos", "house"})));
+	EXPECT_EQ(client()->sentBytes(), info(auction.getSyntaxInfo())) << "params.length < 4";
+}
+
+TEST_F(HousingCommandsTest, AuctionAddRefusesACountBelowOne) {
+	Player& admin = gm();
+	handlers::admincommands::Auction auction;
+	EXPECT_TRUE(auction.process(admin, args({"add", "elyos", "house", "0"})));
+	EXPECT_EQ(client()->sentBytes(), info("Count must be positive."));
+}
+
+TEST_F(HousingCommandsTest, AuctionAddWithABadCountAnswersInvalidNumber) {
+	Player& admin = gm();
+	handlers::admincommands::Auction auction;
+	EXPECT_TRUE(auction.process(admin, args({"add", "elyos", "house", "many"})));
+	EXPECT_EQ(client()->sentBytes(), info("Invalid number: \"many\"")) << "Integer.parseInt's NumberFormatException (ChatCommand.run)";
+}
+
+TEST_F(HousingCommandsTest, AuctionAddWithAnUnknownHouseTypeListsTheTypes) {
+	Player& admin = gm();
+	handlers::admincommands::Auction auction;
+	EXPECT_TRUE(auction.process(admin, args({"add", "elyos", "castle", "1"})));
+	EXPECT_EQ(client()->sentBytes(), info("Invalid house type.\nPossible values:\nESTATE, MANSION, HOUSE, STUDIO, PALACE"))
+		<< "HouseType.valueOf's IllegalArgumentException (ChatCommand.run)";
+}
+
+TEST_F(HousingCommandsTest, TheAuctionHelpNamesTheAddKeyword) {
+	handlers::admincommands::Auction auction;
+	const std::string syntax = auction.getSyntaxInfo();
+	// correction (owner's decision 2026-10-13): Java's help lines read "<zone> <house type> ..." and "<asmo|ely> <house type> ...", while
+	// execute takes them only after "add" (Auction.java:95)
+	// the syntax info colours every word (ChatCommand.parseSyntaxInfo): "add" before the zone and the race forms
+	EXPECT_NE(syntax.find("[color:add;1 1 1] <[color:zone;1 1 1]> <[color:house;1 1 1] [color:type;1 1 1]>"), std::string::npos) << syntax;
+	EXPECT_NE(syntax.find("[color:add;1 1 1] <[color:asmo;1 1 1]|[color:ely;1 1 1]> <[color:house;1 1 1]"), std::string::npos) << syntax;
+}
+
+TEST_F(HousingCommandsTest, AuctionWithAnUnknownArmSendsTheSyntax) {
+	Player& admin = gm();
+	handlers::admincommands::Auction auction;
+	EXPECT_TRUE(auction.process(admin, args({"sell", "10001"})));
+	EXPECT_EQ(client()->sentBytes(), info(auction.getSyntaxInfo()));
+}
+
+// ---- //house (HouseCommand.java:39-55) -----------------------------------------------------------------------------------------------------
+
+TEST_F(HousingCommandsTest, HouseWithoutAnAddressSendsTheSyntax) {
+	Player& admin = gm();
+	handlers::admincommands::HouseCommand house;
+	EXPECT_TRUE(house.process(admin, args({"own"})));
+	EXPECT_EQ(client()->sentBytes(), info(house.getSyntaxInfo())) << "own needs params.length >= 2";
+}
+
+TEST_F(HousingCommandsTest, HouseWithABadAddressAnswersInvalidNumber) {
+	Player& admin = gm();
+	handlers::admincommands::HouseCommand house;
+	EXPECT_TRUE(house.process(admin, args({"tp", "home"})));
+	EXPECT_EQ(client()->sentBytes(), info("Invalid number: \"home\"")) << "getHouse: Integer.parseInt";
+}
+
+// ---- //legion (LegionCommand.java:37-132) ---------------------------------------------------------------------------------------------------
+
+TEST_F(HousingCommandsTest, LegionWithOneArgumentSendsTheSyntax) {
+	Player& admin = gm();
+	handlers::admincommands::LegionCommand legion;
+	EXPECT_TRUE(legion.process(admin, args({"info"})));
+	EXPECT_EQ(client()->sentBytes(), info(legion.getSyntaxInfo())) << "params.length < 2";
+}
+
+TEST_F(HousingCommandsTest, LegionSetLevelWithoutALevelSendsTheSyntax) {
+	Player& admin = gm();
+	handlers::admincommands::LegionCommand legion;
+	EXPECT_TRUE(legion.process(admin, args({"setlevel", "Banner"})));
+	EXPECT_EQ(client()->sentBytes(), info(legion.getSyntaxInfo())) << "setlevel needs params.length >= 3: the last arm";
+}
+
+TEST_F(HousingCommandsTest, LegionWithAnUnknownArmSendsTheSyntax) {
+	Player& admin = gm();
+	handlers::admincommands::LegionCommand legion;
+	EXPECT_TRUE(legion.process(admin, args({"promote", "Banner"})));
+	EXPECT_EQ(client()->sentBytes(), info(legion.getSyntaxInfo()));
+}
+
+TEST_F(HousingCommandsTest, LegionKickOfAPlayerInNoLegionAnswersInsteadOfThrowing) {
+	Player& admin = gm();
+	Player& loner = online(730091, "Loner");
+	handlers::admincommands::LegionCommand legion;
+	EXPECT_TRUE(legion.process(admin, args({"kick", "Loner"})));
+	// correction (owner's decision 2026-10-13): Java's target.getLegionMember().isBrigadeGeneral() threw a NullPointerException here
+	EXPECT_EQ(client()->sentBytes(), info(utils::ChatUtil::charName(loner) + " is not a member of any legion."));
+}
+
+} // namespace
+} // namespace aion::gameserver::network::aion::clientpackets::testing

@@ -1,0 +1,31 @@
+{
+ "format": "aion-quest-trace",
+ "version": 1,
+ "questId": 18406,
+ "java": "esoterrace/_18406PlayingToTheHilt.java",
+ "class": "_18406PlayingToTheHilt",
+ "javaSha256": "9e753742b16427ea7fb6a1798cca0a211cbe5746565b58855e805eaab870d798",
+ "register": [{"npc": 799552, "event": "addOnTalkEvent", "args": [18406]}, {"call": "registerQuestItem", "args": [182215003, 18406]}],
+ "hooks": [
+  {"hook": "onDialogEvent", "line": 32, "unsupported": "call player.getInventory().decreaseByItemId(182215003, 1)"},
+  {"hook": "onItemUseEvent", "line": 62, "cases": 2}
+ ],
+ "cases": [
+  {
+   "id": "onItemUseEvent#1",
+   "hook": "onItemUseEvent",
+   "given": {"item": {"itemId": 0}},
+   "guards": ["id != 182215003 -> true @65"],
+   "effects": [],
+   "returns": "FAILED"
+  },
+  {
+   "id": "onItemUseEvent#2",
+   "hook": "onItemUseEvent",
+   "given": {"item": {"itemId": 182215003}},
+   "guards": ["id != 182215003 -> false @65"],
+   "effects": [{"call": "sendQuestDialog", "kind": "dialog", "args": [4], "line": 67}],
+   "returns": "SUCCESS"
+  }
+ ]
+}

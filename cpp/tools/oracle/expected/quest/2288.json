@@ -1,0 +1,661 @@
+{
+ "format": "aion-quest-trace",
+ "version": 1,
+ "questId": 2288,
+ "java": "altgard/_2288MoneyWhereYourMouthIs.java",
+ "class": "_2288MoneyWhereYourMouthIs",
+ "javaSha256": "cb111862399dfc2677b2713ff97a07988bfd52dac36920983811c17344ce6d61",
+ "register": [
+  {"npc": 203621, "event": "addOnQuestStart", "args": [2288]},
+  {"npc": 203621, "event": "addOnTalkEvent", "args": [2288]},
+  {"npc": 210436, "event": "addOnKillEvent", "args": [2288]},
+  {"npc": 210437, "event": "addOnKillEvent", "args": [2288]},
+  {"npc": 210440, "event": "addOnKillEvent", "args": [2288]},
+  {"npc": 210564, "event": "addOnKillEvent", "args": [2288]},
+  {"npc": 210581, "event": "addOnKillEvent", "args": [2288]},
+  {"npc": 210584, "event": "addOnKillEvent", "args": [2288]},
+  {"call": "registerOnQuestTimerEnd", "args": [2288]},
+  {"call": "registerOnLogOut", "args": [2288]}
+ ],
+ "hooks": [
+  {"hook": "onDialogEvent", "line": 38, "unsupported": "call QuestService.questTimerEnd"},
+  {"hook": "onKillEvent", "line": 85, "cases": 28},
+  {"hook": "onQuestTimerEndEvent", "line": 120, "cases": 3},
+  {"hook": "onLogOutEvent", "line": 133, "cases": 3}
+ ],
+ "cases": [
+  {
+   "id": "onKillEvent#1",
+   "hook": "onKillEvent",
+   "given": {"questState": null},
+   "guards": ["qs == null -> true @88"],
+   "effects": [],
+   "returns": false
+  },
+  {
+   "id": "onKillEvent#2",
+   "hook": "onKillEvent",
+   "given": {"questState": {"status": "REWARD"}},
+   "guards": ["qs == null -> false @88", "qs.getStatus() != QuestStatus.START -> true @88"],
+   "effects": [],
+   "returns": false
+  },
+  {
+   "id": "onKillEvent#3",
+   "hook": "onKillEvent",
+   "given": {"target": {"kind": "npc", "npcId": 210436}, "questState": {"status": "START", "vars": {"0": 1}}},
+   "guards": [
+    "qs == null -> false @88",
+    "qs.getStatus() != QuestStatus.START -> false @88",
+    "env.getVisibleObject() instanceof Npc -> true @94",
+    "targetId == 210436 -> true @98",
+    "var > 0 -> true @105",
+    "var < 3 -> true @105"
+   ],
+   "ranges": {"questState.vars.0": [1, 2]},
+   "effects": [
+    {"call": "qs.setQuestVarById", "kind": "var", "args": [0, 2], "line": 106},
+    {"call": "updateQuestStatus", "kind": "quest", "args": [], "line": 107}
+   ],
+   "returns": true,
+   "atHigh": [
+    {
+     "input": "questState.vars.0",
+     "value": 2,
+     "given": {"target": {"kind": "npc", "npcId": 210436}, "questState": {"status": "START", "vars": {"0": 2}}},
+     "effects": [
+      {"call": "qs.setQuestVarById", "kind": "var", "args": [0, 3], "line": 106},
+      {"call": "updateQuestStatus", "kind": "quest", "args": [], "line": 107}
+     ],
+     "returns": true
+    }
+   ]
+  },
+  {
+   "id": "onKillEvent#4",
+   "hook": "onKillEvent",
+   "given": {"target": {"kind": "npc", "npcId": 210436}, "questState": {"status": "START", "vars": {"0": 3}}},
+   "guards": [
+    "qs == null -> false @88",
+    "qs.getStatus() != QuestStatus.START -> false @88",
+    "env.getVisibleObject() instanceof Npc -> true @94",
+    "targetId == 210436 -> true @98",
+    "var > 0 -> true @105",
+    "var < 3 -> false @105",
+    "var == 3 -> true @109"
+   ],
+   "effects": [
+    {"call": "qs.setQuestVarById", "kind": "var", "args": [0, 4], "line": 110},
+    {"call": "updateQuestStatus", "kind": "quest", "args": [], "line": 111}
+   ],
+   "returns": true
+  },
+  {
+   "id": "onKillEvent#5",
+   "hook": "onKillEvent",
+   "given": {"target": {"kind": "npc", "npcId": 210436}, "questState": {"status": "START", "vars": {"0": 4}}},
+   "guards": [
+    "qs == null -> false @88",
+    "qs.getStatus() != QuestStatus.START -> false @88",
+    "env.getVisibleObject() instanceof Npc -> true @94",
+    "targetId == 210436 -> true @98",
+    "var > 0 -> true @105",
+    "var < 3 -> false @105",
+    "var == 3 -> false @109"
+   ],
+   "ranges": {"questState.vars.0": [4, 63]},
+   "effects": [],
+   "returns": false,
+   "atHigh": [
+    {
+     "input": "questState.vars.0",
+     "value": 63,
+     "given": {"target": {"kind": "npc", "npcId": 210436}, "questState": {"status": "START", "vars": {"0": 63}}},
+     "effects": [],
+     "returns": false
+    }
+   ]
+  },
+  {
+   "id": "onKillEvent#6",
+   "hook": "onKillEvent",
+   "given": {"target": {"kind": "npc", "npcId": 210436}, "questState": {"status": "START", "vars": {"0": 0}}},
+   "guards": [
+    "qs == null -> false @88",
+    "qs.getStatus() != QuestStatus.START -> false @88",
+    "env.getVisibleObject() instanceof Npc -> true @94",
+    "targetId == 210436 -> true @98",
+    "var > 0 -> false @105",
+    "var == 3 -> false @109"
+   ],
+   "effects": [],
+   "returns": false
+  },
+  {
+   "id": "onKillEvent#7",
+   "hook": "onKillEvent",
+   "given": {"target": {"kind": "npc", "npcId": 210437}, "questState": {"status": "START", "vars": {"0": 1}}},
+   "guards": [
+    "qs == null -> false @88",
+    "qs.getStatus() != QuestStatus.START -> false @88",
+    "env.getVisibleObject() instanceof Npc -> true @94",
+    "targetId == 210437 -> true @98",
+    "var > 0 -> true @105",
+    "var < 3 -> true @105"
+   ],
+   "ranges": {"questState.vars.0": [1, 2]},
+   "effects": [
+    {"call": "qs.setQuestVarById", "kind": "var", "args": [0, 2], "line": 106},
+    {"call": "updateQuestStatus", "kind": "quest", "args": [], "line": 107}
+   ],
+   "returns": true,
+   "atHigh": [
+    {
+     "input": "questState.vars.0",
+     "value": 2,
+     "given": {"target": {"kind": "npc", "npcId": 210437}, "questState": {"status": "START", "vars": {"0": 2}}},
+     "effects": [
+      {"call": "qs.setQuestVarById", "kind": "var", "args": [0, 3], "line": 106},
+      {"call": "updateQuestStatus", "kind": "quest", "args": [], "line": 107}
+     ],
+     "returns": true
+    }
+   ]
+  },
+  {
+   "id": "onKillEvent#8",
+   "hook": "onKillEvent",
+   "given": {"target": {"kind": "npc", "npcId": 210437}, "questState": {"status": "START", "vars": {"0": 3}}},
+   "guards": [
+    "qs == null -> false @88",
+    "qs.getStatus() != QuestStatus.START -> false @88",
+    "env.getVisibleObject() instanceof Npc -> true @94",
+    "targetId == 210437 -> true @98",
+    "var > 0 -> true @105",
+    "var < 3 -> false @105",
+    "var == 3 -> true @109"
+   ],
+   "effects": [
+    {"call": "qs.setQuestVarById", "kind": "var", "args": [0, 4], "line": 110},
+    {"call": "updateQuestStatus", "kind": "quest", "args": [], "line": 111}
+   ],
+   "returns": true
+  },
+  {
+   "id": "onKillEvent#9",
+   "hook": "onKillEvent",
+   "given": {"target": {"kind": "npc", "npcId": 210437}, "questState": {"status": "START", "vars": {"0": 4}}},
+   "guards": [
+    "qs == null -> false @88",
+    "qs.getStatus() != QuestStatus.START -> false @88",
+    "env.getVisibleObject() instanceof Npc -> true @94",
+    "targetId == 210437 -> true @98",
+    "var > 0 -> true @105",
+    "var < 3 -> false @105",
+    "var == 3 -> false @109"
+   ],
+   "ranges": {"questState.vars.0": [4, 63]},
+   "effects": [],
+   "returns": false,
+   "atHigh": [
+    {
+     "input": "questState.vars.0",
+     "value": 63,
+     "given": {"target": {"kind": "npc", "npcId": 210437}, "questState": {"status": "START", "vars": {"0": 63}}},
+     "effects": [],
+     "returns": false
+    }
+   ]
+  },
+  {
+   "id": "onKillEvent#10",
+   "hook": "onKillEvent",
+   "given": {"target": {"kind": "npc", "npcId": 210437}, "questState": {"status": "START", "vars": {"0": 0}}},
+   "guards": [
+    "qs == null -> false @88",
+    "qs.getStatus() != QuestStatus.START -> false @88",
+    "env.getVisibleObject() instanceof Npc -> true @94",
+    "targetId == 210437 -> true @98",
+    "var > 0 -> false @105",
+    "var == 3 -> false @109"
+   ],
+   "effects": [],
+   "returns": false
+  },
+  {
+   "id": "onKillEvent#11",
+   "hook": "onKillEvent",
+   "given": {"target": {"kind": "npc", "npcId": 210440}, "questState": {"status": "START", "vars": {"0": 1}}},
+   "guards": [
+    "qs == null -> false @88",
+    "qs.getStatus() != QuestStatus.START -> false @88",
+    "env.getVisibleObject() instanceof Npc -> true @94",
+    "targetId == 210440 -> true @98",
+    "var > 0 -> true @105",
+    "var < 3 -> true @105"
+   ],
+   "ranges": {"questState.vars.0": [1, 2]},
+   "effects": [
+    {"call": "qs.setQuestVarById", "kind": "var", "args": [0, 2], "line": 106},
+    {"call": "updateQuestStatus", "kind": "quest", "args": [], "line": 107}
+   ],
+   "returns": true,
+   "atHigh": [
+    {
+     "input": "questState.vars.0",
+     "value": 2,
+     "given": {"target": {"kind": "npc", "npcId": 210440}, "questState": {"status": "START", "vars": {"0": 2}}},
+     "effects": [
+      {"call": "qs.setQuestVarById", "kind": "var", "args": [0, 3], "line": 106},
+      {"call": "updateQuestStatus", "kind": "quest", "args": [], "line": 107}
+     ],
+     "returns": true
+    }
+   ]
+  },
+  {
+   "id": "onKillEvent#12",
+   "hook": "onKillEvent",
+   "given": {"target": {"kind": "npc", "npcId": 210440}, "questState": {"status": "START", "vars": {"0": 3}}},
+   "guards": [
+    "qs == null -> false @88",
+    "qs.getStatus() != QuestStatus.START -> false @88",
+    "env.getVisibleObject() instanceof Npc -> true @94",
+    "targetId == 210440 -> true @98",
+    "var > 0 -> true @105",
+    "var < 3 -> false @105",
+    "var == 3 -> true @109"
+   ],
+   "effects": [
+    {"call": "qs.setQuestVarById", "kind": "var", "args": [0, 4], "line": 110},
+    {"call": "updateQuestStatus", "kind": "quest", "args": [], "line": 111}
+   ],
+   "returns": true
+  },
+  {
+   "id": "onKillEvent#13",
+   "hook": "onKillEvent",
+   "given": {"target": {"kind": "npc", "npcId": 210440}, "questState": {"status": "START", "vars": {"0": 4}}},
+   "guards": [
+    "qs == null -> false @88",
+    "qs.getStatus() != QuestStatus.START -> false @88",
+    "env.getVisibleObject() instanceof Npc -> true @94",
+    "targetId == 210440 -> true @98",
+    "var > 0 -> true @105",
+    "var < 3 -> false @105",
+    "var == 3 -> false @109"
+   ],
+   "ranges": {"questState.vars.0": [4, 63]},
+   "effects": [],
+   "returns": false,
+   "atHigh": [
+    {
+     "input": "questState.vars.0",
+     "value": 63,
+     "given": {"target": {"kind": "npc", "npcId": 210440}, "questState": {"status": "START", "vars": {"0": 63}}},
+     "effects": [],
+     "returns": false
+    }
+   ]
+  },
+  {
+   "id": "onKillEvent#14",
+   "hook": "onKillEvent",
+   "given": {"target": {"kind": "npc", "npcId": 210440}, "questState": {"status": "START", "vars": {"0": 0}}},
+   "guards": [
+    "qs == null -> false @88",
+    "qs.getStatus() != QuestStatus.START -> false @88",
+    "env.getVisibleObject() instanceof Npc -> true @94",
+    "targetId == 210440 -> true @98",
+    "var > 0 -> false @105",
+    "var == 3 -> false @109"
+   ],
+   "effects": [],
+   "returns": false
+  },
+  {
+   "id": "onKillEvent#15",
+   "hook": "onKillEvent",
+   "given": {"target": {"kind": "npc", "npcId": 210564}, "questState": {"status": "START", "vars": {"0": 1}}},
+   "guards": [
+    "qs == null -> false @88",
+    "qs.getStatus() != QuestStatus.START -> false @88",
+    "env.getVisibleObject() instanceof Npc -> true @94",
+    "targetId == 210564 -> true @98",
+    "var > 0 -> true @105",
+    "var < 3 -> true @105"
+   ],
+   "ranges": {"questState.vars.0": [1, 2]},
+   "effects": [
+    {"call": "qs.setQuestVarById", "kind": "var", "args": [0, 2], "line": 106},
+    {"call": "updateQuestStatus", "kind": "quest", "args": [], "line": 107}
+   ],
+   "returns": true,
+   "atHigh": [
+    {
+     "input": "questState.vars.0",
+     "value": 2,
+     "given": {"target": {"kind": "npc", "npcId": 210564}, "questState": {"status": "START", "vars": {"0": 2}}},
+     "effects": [
+      {"call": "qs.setQuestVarById", "kind": "var", "args": [0, 3], "line": 106},
+      {"call": "updateQuestStatus", "kind": "quest", "args": [], "line": 107}
+     ],
+     "returns": true
+    }
+   ]
+  },
+  {
+   "id": "onKillEvent#16",
+   "hook": "onKillEvent",
+   "given": {"target": {"kind": "npc", "npcId": 210564}, "questState": {"status": "START", "vars": {"0": 3}}},
+   "guards": [
+    "qs == null -> false @88",
+    "qs.getStatus() != QuestStatus.START -> false @88",
+    "env.getVisibleObject() instanceof Npc -> true @94",
+    "targetId == 210564 -> true @98",
+    "var > 0 -> true @105",
+    "var < 3 -> false @105",
+    "var == 3 -> true @109"
+   ],
+   "effects": [
+    {"call": "qs.setQuestVarById", "kind": "var", "args": [0, 4], "line": 110},
+    {"call": "updateQuestStatus", "kind": "quest", "args": [], "line": 111}
+   ],
+   "returns": true
+  },
+  {
+   "id": "onKillEvent#17",
+   "hook": "onKillEvent",
+   "given": {"target": {"kind": "npc", "npcId": 210564}, "questState": {"status": "START", "vars": {"0": 4}}},
+   "guards": [
+    "qs == null -> false @88",
+    "qs.getStatus() != QuestStatus.START -> false @88",
+    "env.getVisibleObject() instanceof Npc -> true @94",
+    "targetId == 210564 -> true @98",
+    "var > 0 -> true @105",
+    "var < 3 -> false @105",
+    "var == 3 -> false @109"
+   ],
+   "ranges": {"questState.vars.0": [4, 63]},
+   "effects": [],
+   "returns": false,
+   "atHigh": [
+    {
+     "input": "questState.vars.0",
+     "value": 63,
+     "given": {"target": {"kind": "npc", "npcId": 210564}, "questState": {"status": "START", "vars": {"0": 63}}},
+     "effects": [],
+     "returns": false
+    }
+   ]
+  },
+  {
+   "id": "onKillEvent#18",
+   "hook": "onKillEvent",
+   "given": {"target": {"kind": "npc", "npcId": 210564}, "questState": {"status": "START", "vars": {"0": 0}}},
+   "guards": [
+    "qs == null -> false @88",
+    "qs.getStatus() != QuestStatus.START -> false @88",
+    "env.getVisibleObject() instanceof Npc -> true @94",
+    "targetId == 210564 -> true @98",
+    "var > 0 -> false @105",
+    "var == 3 -> false @109"
+   ],
+   "effects": [],
+   "returns": false
+  },
+  {
+   "id": "onKillEvent#19",
+   "hook": "onKillEvent",
+   "given": {"target": {"kind": "npc", "npcId": 210581}, "questState": {"status": "START", "vars": {"0": 1}}},
+   "guards": [
+    "qs == null -> false @88",
+    "qs.getStatus() != QuestStatus.START -> false @88",
+    "env.getVisibleObject() instanceof Npc -> true @94",
+    "targetId == 210581 -> true @98",
+    "var > 0 -> true @105",
+    "var < 3 -> true @105"
+   ],
+   "ranges": {"questState.vars.0": [1, 2]},
+   "effects": [
+    {"call": "qs.setQuestVarById", "kind": "var", "args": [0, 2], "line": 106},
+    {"call": "updateQuestStatus", "kind": "quest", "args": [], "line": 107}
+   ],
+   "returns": true,
+   "atHigh": [
+    {
+     "input": "questState.vars.0",
+     "value": 2,
+     "given": {"target": {"kind": "npc", "npcId": 210581}, "questState": {"status": "START", "vars": {"0": 2}}},
+     "effects": [
+      {"call": "qs.setQuestVarById", "kind": "var", "args": [0, 3], "line": 106},
+      {"call": "updateQuestStatus", "kind": "quest", "args": [], "line": 107}
+     ],
+     "returns": true
+    }
+   ]
+  },
+  {
+   "id": "onKillEvent#20",
+   "hook": "onKillEvent",
+   "given": {"target": {"kind": "npc", "npcId": 210581}, "questState": {"status": "START", "vars": {"0": 3}}},
+   "guards": [
+    "qs == null -> false @88",
+    "qs.getStatus() != QuestStatus.START -> false @88",
+    "env.getVisibleObject() instanceof Npc -> true @94",
+    "targetId == 210581 -> true @98",
+    "var > 0 -> true @105",
+    "var < 3 -> false @105",
+    "var == 3 -> true @109"
+   ],
+   "effects": [
+    {"call": "qs.setQuestVarById", "kind": "var", "args": [0, 4], "line": 110},
+    {"call": "updateQuestStatus", "kind": "quest", "args": [], "line": 111}
+   ],
+   "returns": true
+  },
+  {
+   "id": "onKillEvent#21",
+   "hook": "onKillEvent",
+   "given": {"target": {"kind": "npc", "npcId": 210581}, "questState": {"status": "START", "vars": {"0": 4}}},
+   "guards": [
+    "qs == null -> false @88",
+    "qs.getStatus() != QuestStatus.START -> false @88",
+    "env.getVisibleObject() instanceof Npc -> true @94",
+    "targetId == 210581 -> true @98",
+    "var > 0 -> true @105",
+    "var < 3 -> false @105",
+    "var == 3 -> false @109"
+   ],
+   "ranges": {"questState.vars.0": [4, 63]},
+   "effects": [],
+   "returns": false,
+   "atHigh": [
+    {
+     "input": "questState.vars.0",
+     "value": 63,
+     "given": {"target": {"kind": "npc", "npcId": 210581}, "questState": {"status": "START", "vars": {"0": 63}}},
+     "effects": [],
+     "returns": false
+    }
+   ]
+  },
+  {
+   "id": "onKillEvent#22",
+   "hook": "onKillEvent",
+   "given": {"target": {"kind": "npc", "npcId": 210581}, "questState": {"status": "START", "vars": {"0": 0}}},
+   "guards": [
+    "qs == null -> false @88",
+    "qs.getStatus() != QuestStatus.START -> false @88",
+    "env.getVisibleObject() instanceof Npc -> true @94",
+    "targetId == 210581 -> true @98",
+    "var > 0 -> false @105",
+    "var == 3 -> false @109"
+   ],
+   "effects": [],
+   "returns": false
+  },
+  {
+   "id": "onKillEvent#23",
+   "hook": "onKillEvent",
+   "given": {"target": {"kind": "npc", "npcId": 210584}, "questState": {"status": "START", "vars": {"0": 1}}},
+   "guards": [
+    "qs == null -> false @88",
+    "qs.getStatus() != QuestStatus.START -> false @88",
+    "env.getVisibleObject() instanceof Npc -> true @94",
+    "targetId == 210584 -> true @98",
+    "var > 0 -> true @105",
+    "var < 3 -> true @105"
+   ],
+   "ranges": {"questState.vars.0": [1, 2]},
+   "effects": [
+    {"call": "qs.setQuestVarById", "kind": "var", "args": [0, 2], "line": 106},
+    {"call": "updateQuestStatus", "kind": "quest", "args": [], "line": 107}
+   ],
+   "returns": true,
+   "atHigh": [
+    {
+     "input": "questState.vars.0",
+     "value": 2,
+     "given": {"target": {"kind": "npc", "npcId": 210584}, "questState": {"status": "START", "vars": {"0": 2}}},
+     "effects": [
+      {"call": "qs.setQuestVarById", "kind": "var", "args": [0, 3], "line": 106},
+      {"call": "updateQuestStatus", "kind": "quest", "args": [], "line": 107}
+     ],
+     "returns": true
+    }
+   ]
+  },
+  {
+   "id": "onKillEvent#24",
+   "hook": "onKillEvent",
+   "given": {"target": {"kind": "npc", "npcId": 210584}, "questState": {"status": "START", "vars": {"0": 3}}},
+   "guards": [
+    "qs == null -> false @88",
+    "qs.getStatus() != QuestStatus.START -> false @88",
+    "env.getVisibleObject() instanceof Npc -> true @94",
+    "targetId == 210584 -> true @98",
+    "var > 0 -> true @105",
+    "var < 3 -> false @105",
+    "var == 3 -> true @109"
+   ],
+   "effects": [
+    {"call": "qs.setQuestVarById", "kind": "var", "args": [0, 4], "line": 110},
+    {"call": "updateQuestStatus", "kind": "quest", "args": [], "line": 111}
+   ],
+   "returns": true
+  },
+  {
+   "id": "onKillEvent#25",
+   "hook": "onKillEvent",
+   "given": {"target": {"kind": "npc", "npcId": 210584}, "questState": {"status": "START", "vars": {"0": 4}}},
+   "guards": [
+    "qs == null -> false @88",
+    "qs.getStatus() != QuestStatus.START -> false @88",
+    "env.getVisibleObject() instanceof Npc -> true @94",
+    "targetId == 210584 -> true @98",
+    "var > 0 -> true @105",
+    "var < 3 -> false @105",
+    "var == 3 -> false @109"
+   ],
+   "ranges": {"questState.vars.0": [4, 63]},
+   "effects": [],
+   "returns": false,
+   "atHigh": [
+    {
+     "input": "questState.vars.0",
+     "value": 63,
+     "given": {"target": {"kind": "npc", "npcId": 210584}, "questState": {"status": "START", "vars": {"0": 63}}},
+     "effects": [],
+     "returns": false
+    }
+   ]
+  },
+  {
+   "id": "onKillEvent#26",
+   "hook": "onKillEvent",
+   "given": {"target": {"kind": "npc", "npcId": 210584}, "questState": {"status": "START", "vars": {"0": 0}}},
+   "guards": [
+    "qs == null -> false @88",
+    "qs.getStatus() != QuestStatus.START -> false @88",
+    "env.getVisibleObject() instanceof Npc -> true @94",
+    "targetId == 210584 -> true @98",
+    "var > 0 -> false @105",
+    "var == 3 -> false @109"
+   ],
+   "effects": [],
+   "returns": false
+  },
+  {
+   "id": "onKillEvent#27",
+   "hook": "onKillEvent",
+   "given": {"target": {"kind": "npc", "npcId": 203621}, "questState": {"status": "START", "vars": {"0": 0}}},
+   "guards": [
+    "qs == null -> false @88",
+    "qs.getStatus() != QuestStatus.START -> false @88",
+    "env.getVisibleObject() instanceof Npc -> true @94",
+    "targetId not in [210436, 210437, 210440, 210564, 210581, 210584] -> true @98"
+   ],
+   "free": ["questState.vars.0"],
+   "effects": [],
+   "returns": false
+  },
+  {
+   "id": "onKillEvent#28",
+   "hook": "onKillEvent",
+   "given": {"target": {"kind": "none"}, "questState": {"status": "START", "vars": {"0": 0}}},
+   "guards": ["qs == null -> false @88", "qs.getStatus() != QuestStatus.START -> false @88", "env.getVisibleObject() instanceof Npc -> false @94"],
+   "free": ["questState.vars.0"],
+   "effects": [],
+   "returns": false
+  },
+  {
+   "id": "onQuestTimerEndEvent#1",
+   "hook": "onQuestTimerEndEvent",
+   "given": {"questState": {"status": "START"}},
+   "guards": ["qs != null -> true @124", "qs.getStatus() == QuestStatus.START -> true @124"],
+   "effects": [{"call": "QuestService.abandonQuest", "kind": "quest", "args": [2288], "line": 125}],
+   "returns": true
+  },
+  {
+   "id": "onQuestTimerEndEvent#2",
+   "hook": "onQuestTimerEndEvent",
+   "given": {"questState": {"status": "REWARD"}},
+   "guards": ["qs != null -> true @124", "qs.getStatus() == QuestStatus.START -> false @124"],
+   "effects": [],
+   "returns": false
+  },
+  {
+   "id": "onQuestTimerEndEvent#3",
+   "hook": "onQuestTimerEndEvent",
+   "given": {"questState": null},
+   "guards": ["qs != null -> false @124"],
+   "effects": [],
+   "returns": false
+  },
+  {
+   "id": "onLogOutEvent#1",
+   "hook": "onLogOutEvent",
+   "given": {"questState": {"status": "START"}},
+   "guards": ["qs != null -> true @137", "qs.getStatus() == QuestStatus.START -> true @137"],
+   "effects": [{"call": "QuestService.abandonQuest", "kind": "quest", "args": [2288], "line": 138}],
+   "returns": true
+  },
+  {
+   "id": "onLogOutEvent#2",
+   "hook": "onLogOutEvent",
+   "given": {"questState": {"status": "REWARD"}},
+   "guards": ["qs != null -> true @137", "qs.getStatus() == QuestStatus.START -> false @137"],
+   "effects": [],
+   "returns": false
+  },
+  {
+   "id": "onLogOutEvent#3",
+   "hook": "onLogOutEvent",
+   "given": {"questState": null},
+   "guards": ["qs != null -> false @137"],
+   "effects": [],
+   "returns": false
+  }
+ ]
+}

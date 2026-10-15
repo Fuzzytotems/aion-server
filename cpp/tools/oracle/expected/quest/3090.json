@@ -1,0 +1,21 @@
+{
+ "format": "aion-quest-trace",
+ "version": 1,
+ "questId": 3090,
+ "java": "theobomos/_3090InSearchOfPippiThePorgus.java",
+ "class": "_3090InSearchOfPippiThePorgus",
+ "javaSha256": "d03a72a36a3fca6a30cc9f411c73489016bd4cce7168a7e2960abdfdf3fee67d",
+ "register": [
+  {"npc": 798182, "event": "addOnQuestStart", "args": [3090]},
+  {"npc": 798182, "event": "addOnTalkEvent", "args": [3090]},
+  {"npc": 798193, "event": "addOnTalkEvent", "args": [3090]},
+  {"npc": 700420, "event": "addOnTalkEvent", "args": [3090]},
+  {"npc": 700421, "event": "addOnTalkEvent", "args": [3090]},
+  {"npc": 206085, "event": "addOnAtDistanceEvent", "args": [3090]}
+ ],
+ "hooks": [
+  {"hook": "onDialogEvent", "line": 32, "unsupported": "call PacketSendUtility.sendMonologue"},
+  {"hook": "onAtDistanceEvent", "line": 105, "unsupported": "call PacketSendUtility.sendMonologue"}
+ ],
+ "cases": []
+}

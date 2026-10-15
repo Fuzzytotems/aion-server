@@ -1,0 +1,94 @@
+{
+ "format": "aion-quest-trace",
+ "version": 1,
+ "questId": 24022,
+ "java": "morheim/_24022SneakBehindtheIceClaw.java",
+ "class": "_24022SneakBehindtheIceClaw",
+ "javaSha256": "4d989936befc1b30ec3c1417ede985c8be74ea20721cc5ac261d737da16180bb",
+ "register": [
+  {"call": "registerOnQuestCompleted", "args": [24022]},
+  {"call": "registerOnLevelChanged", "args": [24022]},
+  {"npc": 204417, "event": "addOnKillEvent", "args": [24022]},
+  {"npc": 212877, "event": "addOnKillEvent", "args": [24022]},
+  {"call": "registerQuestItem", "args": [182215364, 24022]},
+  {"npc": 204329, "event": "addOnTalkEvent", "args": [24022]},
+  {"npc": 204332, "event": "addOnTalkEvent", "args": [24022]},
+  {"npc": 204335, "event": "addOnTalkEvent", "args": [24022]},
+  {"npc": 700246, "event": "addOnTalkEvent", "args": [24022]},
+  {"npc": 204301, "event": "addOnTalkEvent", "args": [24022]},
+  {"npc": 802047, "event": "addOnTalkEvent", "args": [24022]}
+ ],
+ "hooks": [
+  {"hook": "onDialogEvent", "line": 37, "unsupported": "call player.getTitleList()"},
+  {"hook": "onItemUseEvent", "line": 131, "unsupported": "call player.isInsideZone(ZoneName.get(\"ALTAR_OF_TRIAL_220020000\"))"},
+  {"hook": "onKillEvent", "line": 140, "cases": 6},
+  {"hook": "onQuestCompletedEvent", "line": 156, "cases": 1},
+  {"hook": "onLevelChangedEvent", "line": 161, "cases": 1}
+ ],
+ "cases": [
+  {
+   "id": "onKillEvent#1",
+   "hook": "onKillEvent",
+   "given": {"target": {"kind": "none"}, "questState": {"status": "START"}},
+   "guards": ["qs != null -> true @143", "qs.getStatus() == QuestStatus.START -> true @143"],
+   "effects": [],
+   "returns": false
+  },
+  {
+   "id": "onKillEvent#2",
+   "hook": "onKillEvent",
+   "given": {"target": {"kind": "npc", "npcId": 204417}, "questState": {"status": "START"}},
+   "guards": ["qs != null -> true @143", "qs.getStatus() == QuestStatus.START -> true @143", "targetId == 204417 -> true @145"],
+   "effects": [{"call": "defaultOnKillEvent", "kind": "var", "args": [204417, 4, 5], "line": 147}],
+   "returns": {"resultOf": 0}
+  },
+  {
+   "id": "onKillEvent#3",
+   "hook": "onKillEvent",
+   "given": {"target": {"kind": "npc", "npcId": 212877}, "questState": {"status": "START"}},
+   "guards": ["qs != null -> true @143", "qs.getStatus() == QuestStatus.START -> true @143", "targetId == 212877 -> true @145"],
+   "effects": [{"call": "defaultOnKillEvent", "kind": "var", "args": [212877, 6, 7], "line": 149}],
+   "returns": {"resultOf": 0}
+  },
+  {
+   "id": "onKillEvent#4",
+   "hook": "onKillEvent",
+   "given": {"target": {"kind": "npc", "npcId": 204329}, "questState": {"status": "START"}},
+   "guards": ["qs != null -> true @143", "qs.getStatus() == QuestStatus.START -> true @143", "targetId not in [204417, 212877] -> true @145"],
+   "effects": [],
+   "returns": false
+  },
+  {
+   "id": "onKillEvent#5",
+   "hook": "onKillEvent",
+   "given": {"questState": {"status": "REWARD"}},
+   "guards": ["qs != null -> true @143", "qs.getStatus() == QuestStatus.START -> false @143"],
+   "effects": [],
+   "returns": false
+  },
+  {
+   "id": "onKillEvent#6",
+   "hook": "onKillEvent",
+   "given": {"questState": null},
+   "guards": ["qs != null -> false @143"],
+   "effects": [],
+   "returns": false
+  },
+  {
+   "id": "onQuestCompletedEvent#1",
+   "hook": "onQuestCompletedEvent",
+   "given": {},
+   "guards": [],
+   "effects": [{"call": "defaultOnQuestCompletedEvent", "kind": "quest", "args": [24020], "line": 157}],
+   "returns": null
+  },
+  {
+   "id": "onLevelChangedEvent#1",
+   "hook": "onLevelChangedEvent",
+   "given": {},
+   "guards": [],
+   "effects": [{"call": "defaultOnLevelChangedEvent", "kind": "quest", "args": [24020], "line": 162}],
+   "returns": null
+  }
+ ]
+}

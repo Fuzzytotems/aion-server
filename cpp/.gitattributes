@@ -1,0 +1,6 @@
+# Generators write LF and the drift tests compare bytes, so keep LF in every checkout (core.autocrlf would otherwise convert to CRLF)
+* text=auto eol=lf
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.png binary
+*.bin binary

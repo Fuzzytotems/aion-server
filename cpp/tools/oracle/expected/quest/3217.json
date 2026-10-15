@@ -1,0 +1,11 @@
+{
+ "format": "aion-quest-trace",
+ "version": 1,
+ "questId": 3217,
+ "java": "steel_rake/_3217ImprisonedGuardian.java",
+ "class": "_3217ImprisonedGuardian",
+ "javaSha256": "38539c55df8f5d432214a522dbae4b5d1a9a3f490d4e1199cf1cb33228f20bc4",
+ "register": [],
+ "hooks": [],
+ "cases": []
+}

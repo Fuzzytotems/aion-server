@@ -1,0 +1,72 @@
+# M5g profile of the C++ game server (cpp/docs/design/m5g-plan.md §10.1, I-04, decisions D6, D8, D9): parties - invites, member updates,
+# shared experience, loot rules and the round robin, the kinah split, leader changes, kicks, find group, disconnect and reconnect.
+#
+# It is the M5e profile (m5e.properties.example) with what M5g changes: the drop rate of D9 (every corpse drops, so the round-robin looter
+# shows), the group experience rate of D8 (so XP_GROUP_HUNTING is told apart from XP_HUNTING) and the offline removetime of D6(a) (so the
+# offline timeout fits a gate). Keep the files in sync: M5g adds to M5e, M5d, M5c, M5b-3, M5b-2, M5b-1 and M5a.
+#
+# The scenario gate (gs.scenario.m5g) does NOT pass this whole file: it passes the M5d gate's keys and the M5g keys below as -D arguments
+# (M5gScenarioTest.cpp's gateKeys).
+#
+# TO PLAY with real 4.8 clients (m5g-plan.md §11): copy these lines into config/mygs.properties WITHOUT the two removetime keys and, unless a
+# quick session is wanted, without gameserver.rates.drop = 1000000. You need a second account (and a second client logged in at the same
+# time) to form a party.
+#
+# Not read by the servers: only config/mygs.properties is loaded.
+
+# --- the M5a profile, unchanged ------------------------------------------------------------------------------------------------------------
+
+gameserver.dev.missing_ai_handlers = warn
+gameserver.siege.enable = false
+gameserver.autogroup.enable = false
+gameserver.rift.enable = false
+gameserver.vortex.enable = false
+gameserver.worldraid.enable = false
+gameserver.cp.enable = false
+gameserver.limits.enable = false
+gameserver.event.service.disabled_events = *
+gameserver.network.client.connect_address = 127.0.0.1:7777
+
+# --- the M5b-1 and M5b-2 profiles, unchanged -----------------------------------------------------------------------------------------------
+
+gameserver.npcshouts.enable = false
+gameserver.rates.xp.solo = 1.0, 2.0
+gameserver.soulsickness.disable = 10
+
+# --- the M5b-3 profile, with M5g's drop rate (D9) ------------------------------------------------------------------------------------------
+
+# every rule of a corpse drops (m5b3-plan.md §2.4): a team kill's SM_LOOT_STATUS shows the round-robin looter, and every corpse is looted
+# empty, because a corpse with drops keeps its team and its in-range members for 300 s (m5g-plan.md §2.11 item 5)
+gameserver.rates.drop = 1000000
+gameserver.items.ignore_potions_at_full_health = false
+gameserver.rates.godstone.activation.rate = 1.0
+gameserver.rates.godstone.evaluation.cooldown_millis = 750
+gameserver.drop.announce_quality = MYTHIC
+
+# --- the M5c profile, unchanged ------------------------------------------------------------------------------------------------------------
+
+gameserver.craft.fail.chance = 0
+gameserver.rates.crafting.crit_chances = 0, 0
+gameserver.rates.manastone_chances = 200, 200
+
+# --- the M5d and M5e keys, unchanged -------------------------------------------------------------------------------------------------------
+
+gameserver.rates.kinah.quest = 1.0, 2.0
+gameserver.analysis.quest_handlers = false
+gameserver.simple.secondclass.enable = false
+gameserver.rates.xp.quest = 1.0, 2.0
+
+# --- what M5g adds (m5g-plan.md D6, D8) ----------------------------------------------------------------------------------------------------
+
+# D8: the group experience rate differs from the solo rate (RatesConfig.java:34, default "1.0, 2.0"), so a share paid at the solo rate is a
+# visible error (Rates.XP_GROUP_HUNTING, Rates.java:21-27)
+gameserver.rates.xp.group = 1.5, 3.0
+# D6(a), the gate only: an offline member leaves the group 5 s after his logout (default 600, GroupConfig.java), checked every 30 s
+# (PlayerGroupService.initializeOfflineCheck); the alliance key likewise
+gameserver.playergroup.removetime = 5
+gameserver.playeralliance.removetime = 5
+
+# Only in the scenario gate, not for play:
+# gameserver.geodata.enable = false
+# gameserver.character.reentry.time = 1
+# gameserver.shutdown.delay = 2

@@ -1,0 +1,19 @@
+{
+ "format": "aion-quest-trace",
+ "version": 1,
+ "questId": 1901,
+ "java": "sanctum/_1901KrallicPotion.java",
+ "class": "_1901KrallicPotion",
+ "javaSha256": "fb4b2accd00050b8ce94777e931c0996d974082a16829a01bbe4895dd68cbe5c",
+ "register": [
+  {"npc": 203830, "event": "addOnQuestStart", "args": [1901]},
+  {"npc": 203830, "event": "addOnTalkEvent", "args": [1901]},
+  {"npc": 798026, "event": "addOnTalkEvent", "args": [1901]},
+  {"npc": 798025, "event": "addOnTalkEvent", "args": [1901]},
+  {"npc": 203131, "event": "addOnTalkEvent", "args": [1901]},
+  {"npc": 798003, "event": "addOnTalkEvent", "args": [1901]},
+  {"npc": 203864, "event": "addOnTalkEvent", "args": [1901]}
+ ],
+ "hooks": [{"hook": "onDialogEvent", "line": 37, "unsupported": "call inventory.tryDecreaseKinah(10000)"}],
+ "cases": []
+}

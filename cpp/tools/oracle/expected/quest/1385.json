@@ -1,0 +1,57 @@
+{
+ "format": "aion-quest-trace",
+ "version": 1,
+ "questId": 1385,
+ "java": "eltnen/_1385RescuingGriffo.java",
+ "class": "_1385RescuingGriffo",
+ "javaSha256": "61d1440a9921fafa7cf917afc96d7ee705477d164591537fe67e81ad78b75f8c",
+ "register": [
+  {"npc": 204028, "event": "addOnQuestStart", "args": [1385]},
+  {"npc": 204028, "event": "addOnTalkEvent", "args": [1385]},
+  {"npc": 206041, "event": "addOnTalkEvent", "args": [1385]},
+  {"npc": 204029, "event": "addOnTalkEvent", "args": [1385]},
+  {"call": "registerAddOnReachTargetEvent", "args": [1385]},
+  {"call": "registerAddOnLostTargetEvent", "args": [1385]},
+  {"call": "registerOnLogOut", "args": [1385]}
+ ],
+ "hooks": [
+  {"hook": "onLogOutEvent", "line": 33, "cases": 4},
+  {"hook": "onNpcReachTargetEvent", "line": 46, "unsupported": "call defaultFollowEndEvent"},
+  {"hook": "onNpcLostTargetEvent", "line": 51, "unsupported": "call defaultFollowEndEvent"},
+  {"hook": "onDialogEvent", "line": 56, "unsupported": "call defaultStartFollowEvent"}
+ ],
+ "cases": [
+  {
+   "id": "onLogOutEvent#1",
+   "hook": "onLogOutEvent",
+   "given": {"questState": {"status": "START", "vars": {"0": 1}}},
+   "guards": ["qs != null -> true @36", "qs.getStatus() == QuestStatus.START -> true @36", "var == 1 -> true @38"],
+   "effects": [{"call": "changeQuestStep", "kind": "var", "args": [1, 0], "line": 39}],
+   "returns": false
+  },
+  {
+   "id": "onLogOutEvent#2",
+   "hook": "onLogOutEvent",
+   "given": {"questState": {"status": "START", "vars": {"0": 0}}},
+   "guards": ["qs != null -> true @36", "qs.getStatus() == QuestStatus.START -> true @36", "var == 1 -> false @38"],
+   "effects": [],
+   "returns": false
+  },
+  {
+   "id": "onLogOutEvent#3",
+   "hook": "onLogOutEvent",
+   "given": {"questState": {"status": "REWARD"}},
+   "guards": ["qs != null -> true @36", "qs.getStatus() == QuestStatus.START -> false @36"],
+   "effects": [],
+   "returns": false
+  },
+  {
+   "id": "onLogOutEvent#4",
+   "hook": "onLogOutEvent",
+   "given": {"questState": null},
+   "guards": ["qs != null -> false @36"],
+   "effects": [],
+   "returns": false
+  }
+ ]
+}

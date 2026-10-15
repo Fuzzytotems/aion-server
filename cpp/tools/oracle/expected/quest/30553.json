@@ -1,0 +1,16 @@
+{
+ "format": "aion-quest-trace",
+ "version": 1,
+ "questId": 30553,
+ "java": "rentus_base/_30553ComradesInArms.java",
+ "class": "_30553ComradesInArms",
+ "javaSha256": "00f183eff6571f48f55c7039f6c3880e2c43cb73302b6c9eee8ebae0f268004a",
+ "register": [
+  {"npc": 205438, "event": "addOnQuestStart", "args": [30553]},
+  {"npc": 205438, "event": "addOnTalkEvent", "args": [30553]},
+  {"npc": 701097, "event": "addOnTalkEvent", "args": [30553]},
+  {"npc": 799541, "event": "addOnTalkEvent", "args": [30553]}
+ ],
+ "hooks": [{"hook": "onDialogEvent", "line": 31, "unsupported": "call npc.getController()"}],
+ "cases": []
+}
