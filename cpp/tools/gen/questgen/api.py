@@ -64,7 +64,9 @@ services/GameTimeService.h utils/time/gametime/GameTime.h
 dataholders/SpawnsData.h model/templates/spawns/SpawnSpotTemplate.h
 model/team/GeneralTeam.h model/team/TemporaryPlayerTeam.h model/team/group/PlayerGroup.h
 services/HousingService.h
+model/stats/container/PlayerGameStats.h model/stats/calc/Stat2.h
 '''.split()] + ['aion/commons/utils/Rnd.h']
+# (`model/stats/container/PlayerGameStats.h ...`: row B49, lane C, 2026-10-14: daevanion/_1990's Player.getGameStats().getMaxDp())
 # (`services/HousingService.h`: row B47 of chunk Q05's rest, 2026-10-08: the studio quests 18802/28802)
 # (`model/team/GeneralTeam.h ...`: row B46 of chunk Q14's follow-up, 2026-10-07: the mentor dailies' PlayerGroup local and its members)
 # (`dataholders/DataManager.h ...`: row B39 of the Q08 follow-up; `services/GameTimeService.h ...`: rows B40-B41 of chunk Q01, 2026-10-05)
@@ -247,6 +249,12 @@ API_TABLE = (
     # B48 (lane C, 2026-10-08, lane B's finding): the butler quests' house and butler (Player.cpp, House.h); they were refused as
     # api-missing because the members were outside the vocabulary, not because a header missed them
     Row('B48', 'houses: Player.getActiveHouse, House.getButler', (('Player', 'getActiveHouse'), ('House', 'getButler')), 'ported'),
+    # B49 (lane C, 2026-10-14): daevanion/_1990's divine power, Player.getGameStats().getMaxDp().getCurrent() (Player.h:276, PlayerGameStats)
+    Row('B49', 'stats: Player.getGameStats, PlayerGameStats.getMaxDp, Stat2.getCurrent', (('Player', 'getGameStats'), ('PlayerGameStats', 'getMaxDp'),
+                                                                                      ('Stat2', 'getCurrent')), 'ported'),
+    # B50 (lane C, 2026-10-14): sanctum/_1929's stigma stone, Equipment.getEquippedItemsAllStigma / getEquippedItemsByItemId / unEquipItem
+    Row('B50', 'equipment: Equipment.getEquippedItemsAllStigma, getEquippedItemsByItemId, unEquipItem',
+        (('Equipment', 'getEquippedItemsAllStigma'), ('Equipment', 'getEquippedItemsByItemId'), ('Equipment', 'unEquipItem')), 'ported'),
 )
 
 # the static data holders of DataManager a handler reads (row B39): Java field -> (the C++ class it holds, its header). The C++ field is a
