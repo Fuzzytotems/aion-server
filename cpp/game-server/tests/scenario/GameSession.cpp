@@ -396,6 +396,18 @@ std::vector<uint8_t> GameSession::buildCM_QUEST_SHARE(int32_t questId) {
 	return PacketWriter().D(questId).data; // CM_QUEST_SHARE.java:40
 }
 
+std::vector<uint8_t> GameSession::buildCM_CHAT_MESSAGE_PUBLIC(uint8_t chatType, std::string_view message) {
+	return PacketWriter().C(chatType).S(message).data; // CM_CHAT_MESSAGE_PUBLIC.java:39-40
+}
+
+std::vector<uint8_t> GameSession::buildCM_CHAT_MESSAGE_WHISPER(std::string_view name, std::string_view message) {
+	return PacketWriter().S(name).S(message).data; // CM_CHAT_MESSAGE_WHISPER.java:45-46
+}
+
+std::vector<uint8_t> GameSession::buildCM_BUILDER_COMMAND(std::string_view command) {
+	return PacketWriter().S(command).data; // AbstractGmCommandPacket.java:28
+}
+
 namespace {
 
 /** the readUH count every M5c list packet starts with: more than 65535 entries cannot be written */

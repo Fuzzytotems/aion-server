@@ -33,11 +33,11 @@ void RemoveCd::execute(Player& admin, std::span<const std::string> params) {
 	if (params.empty()) {
 		if (target.getSkillCoolDowns() != nullptr) {
 			int64_t nowMillis = commons::utils::currentTimeMillis();
-			std::vector<int32_t> cooldownIds;
-			for (const auto& entry : target.getSkillCoolDowns()->snapshot()) {
-				if (entry.value > nowMillis)
-					cooldownIds.push_back(entry.key);
-			}
+			std::vector<int32_t> cooldownIds; // parity= List<Integer> cooldownIds = target.getSkillCoolDowns().entrySet().stream().filter(e -> e.getValue() > nowMillis).map(Entry::getKey).toList();
+			for (const auto& entry : target.getSkillCoolDowns()->snapshot()) { // parity: (continued)
+				if (entry.value > nowMillis) // parity: (continued)
+					cooldownIds.push_back(entry.key); // parity: (continued)
+			} // parity: (continued)
 			PacketSendUtility::sendPacket(target, SM_SKILL_COOLDOWN(target, cooldownIds));
 			target.getSkillCoolDowns()->clear();
 		}
@@ -64,7 +64,7 @@ void RemoveCd::execute(Player& admin, std::span<const std::string> params) {
 					sendInfo(target, name(admin) + " removed your instance cooldown for " + worldName(worldId) + ".");
 				}
 			} else
-				sendInfo(admin, (target.equals(admin) ? std::string("You have") : name(target) + " has") + " no cooldown on " + worldName(worldId) + ".");
+				sendInfo(admin, (target.equals(admin) ? std::string("You have") : name(target) + " has") + " no cooldown on " + worldName(worldId) + "."); // parity= sendInfo(admin, (target.equals(admin) ? "You have" : name(target) + " has") + " no cooldown on " + worldName(worldId) + ".");
 		}
 	} else {
 		sendInfo(admin);
@@ -73,13 +73,13 @@ void RemoveCd::execute(Player& admin, std::span<const std::string> params) {
 
 // Java RemoveCd.java:72-79
 void RemoveCd::removeItemCooldowns(Player& player) {
-	std::unordered_map<int32_t, runtime::Ptr<ItemCooldown>> dummyCds; // 4.8 client ignores reuseTime <= currentTime, but sending old cds + useDelay 0 works
-	std::vector<runtime::Ref<ItemCooldown>> created; // keeps the dummies alive until the packet is written
-	for (const auto& en : player.getItemCoolDowns().snapshot()) {
-		runtime::Ref<ItemCooldown> dummy = ItemCooldown::create(en.value->getReuseTime(), 0);
-		dummyCds[en.key] = dummy;
-		created.push_back(dummy);
-		player.removeItemCoolDown(en.key);
+	std::unordered_map<int32_t, runtime::Ptr<ItemCooldown>> dummyCds; // parity= Map<Integer, ItemCooldown> dummyCds = new HashMap<>(); // 4.8 client ignores reuseTime <= currentTime, but sending old cds + useDelay 0 works
+	std::vector<runtime::Ref<ItemCooldown>> created; // parity: keeps the dummies alive until the packet is written (docs/deviations/C2.md)
+	for (const auto& en : player.getItemCoolDowns().snapshot()) { // parity= for (Entry<Integer, ItemCooldown> en : player.getItemCoolDowns().entrySet()) {
+		runtime::Ref<ItemCooldown> dummy = ItemCooldown::create(en.value->getReuseTime(), 0); // parity= dummyCds.put(en.getKey(), new ItemCooldown(en.getValue().getReuseTime(), 0));
+		dummyCds[en.key] = dummy; // parity: (continued)
+		created.push_back(dummy); // parity: (continued)
+		player.removeItemCoolDown(en.key); // parity= player.removeItemCoolDown(en.getKey());
 	}
 	PacketSendUtility::sendPacket(player, SM_ITEM_COOLDOWN(dummyCds));
 }

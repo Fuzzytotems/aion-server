@@ -46,7 +46,7 @@ void Gag::execute(Player& admin, std::span<const std::string> params) {
 			sendInfo(admin, "Reason must be specified.");
 			return;
 		}
-		ChatBanService::banPlayer(*player, static_cast<int64_t>(durationMinutes) * 60000); // Java: Duration.ofMinutes(durationMinutes).toMillis()
+		ChatBanService::banPlayer(*player, static_cast<int64_t>(durationMinutes) * 60000); // parity= ChatBanService.banPlayer(player, Duration.ofMinutes(durationMinutes).toMillis());
 		PacketSendUtility::sendPacket(*player, SM_SYSTEM_MESSAGE::STR_INGAME_BLOCK_ENABLE_NO_CHAT(durationMinutes));
 		sendInfo(*player, reason);
 		sendInfo(admin, name(*player) + " is now gagged for " + std::to_string(durationMinutes) + " minute(s).");

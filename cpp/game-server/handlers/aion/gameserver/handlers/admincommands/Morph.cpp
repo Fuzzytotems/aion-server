@@ -37,7 +37,7 @@ void Morph::execute(Player& admin, std::span<const std::string> params) {
 		int32_t modelId = commons::utils::parseInt(params[0]);
 		if (modelId == 0) {
 			target.getTransformModel().apply(0);
-			sendInfo(admin, "Cancelled" + (target.equals(admin) ? std::string() : " " + name(target) + "'s") + " morph.");
+			sendInfo(admin, "Cancelled" + (target.equals(admin) ? std::string() : " " + name(target) + "'s") + " morph."); // parity= sendInfo(admin, "Cancelled" + (target.equals(admin) ? "" : " " + name(target) + "'s") + " morph.");
 			return;
 		}
 		npcTemplate = DataManager::NPC_DATA->getNpcTemplate(modelId);
@@ -47,7 +47,7 @@ void Morph::execute(Player& admin, std::span<const std::string> params) {
 		}
 	}
 	target.getTransformModel().apply(npcTemplate->getTemplateId());
-	sendInfo(admin, "You morphed" + (target.equals(admin) ? std::string() : " " + name(target)) + " into " + npcTemplate->getL10n() + ".");
+	sendInfo(admin, "You morphed" + (target.equals(admin) ? std::string() : " " + name(target)) + " into " + npcTemplate->getL10n() + "."); // parity= sendInfo(admin, "You morphed" + (target.equals(admin) ? "" : " " + name(target)) + " into " + npcTemplate.getL10n() + ".");
 	if (!target.equals(admin))
 		sendInfo(target, name(admin) + " morphed you into " + npcTemplate->getL10n() + ".");
 }

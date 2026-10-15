@@ -24,7 +24,7 @@ void AddExp::execute(Player& admin, std::span<const std::string> params) {
 	Player& target = targetPlayer != nullptr ? *targetPlayer : admin;
 	int64_t exp = commons::utils::parseLong(params[0]);
 	// Java long addition wraps on overflow
-	int64_t resultExp = std::max<int64_t>(0, static_cast<int64_t>(static_cast<uint64_t>(target.getCommonData()->getExp()) + static_cast<uint64_t>(exp)));
+	int64_t resultExp = std::max<int64_t>(0, static_cast<int64_t>(static_cast<uint64_t>(target.getCommonData()->getExp()) + static_cast<uint64_t>(exp))); // parity= long resultExp = Math.max(0, target.getCommonData().getExp() + exp);
 	target.getCommonData()->setExp(resultExp);
 	sendInfo(admin, "You added " + std::to_string(exp) + " exp points to " + name(target) + ".");
 }
