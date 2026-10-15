@@ -1,0 +1,17 @@
+{
+ "format": "aion-quest-trace",
+ "version": 1,
+ "questId": 30157,
+ "java": "silentera_canyon/_30157VilisMind.java",
+ "class": "_30157VilisMind",
+ "javaSha256": "cebc2f0c714783f032c9151abac87ff639b2435b212240152176c48d8c403a09",
+ "register": [
+  {"npc": 204304, "event": "addOnQuestStart", "args": [30157]},
+  {"npc": 204304, "event": "addOnTalkEvent", "args": [30157]},
+  {"npc": 799234, "event": "addOnTalkEvent", "args": [30157]},
+  {"npc": 700570, "event": "addOnTalkEvent", "args": [30157]},
+  {"npc": 799339, "event": "addOnTalkEvent", "args": [30157]}
+ ],
+ "hooks": [{"hook": "onDialogEvent", "line": 32, "unsupported": "call spawnForFiveMinutes"}],
+ "cases": []
+}

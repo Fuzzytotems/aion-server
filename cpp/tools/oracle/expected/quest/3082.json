@@ -1,0 +1,16 @@
+{
+ "format": "aion-quest-trace",
+ "version": 1,
+ "questId": 3082,
+ "java": "theobomos/_3082DousingTheFlame.java",
+ "class": "_3082DousingTheFlame",
+ "javaSha256": "a4f7603cd3c167d7b9fe0ae3682d852d7963d5161359a663ae0fa3f527586b99",
+ "register": [
+  {"npc": 798116, "event": "addOnQuestStart", "args": [3082]},
+  {"npc": 204030, "event": "addOnTalkEvent", "args": [3082]},
+  {"npc": 700416, "event": "addOnTalkEvent", "args": [3082]},
+  {"npc": 798155, "event": "addOnTalkEvent", "args": [3082]}
+ ],
+ "hooks": [{"hook": "onDialogEvent", "line": 29, "unsupported": "call spawnForFiveMinutes"}],
+ "cases": []
+}

@@ -808,7 +808,8 @@ std::vector<Packet> enterWorld(ScenarioClient& client, bool firstEnter) {
 
 std::vector<Packet> levelReady(ScenarioClient& client) {
 	client.game->send(GameSession::CM_LEVEL_READY, GameSession::buildCM_LEVEL_READY());
-	std::vector<Packet> burst = collectAnswer(*client.game, client.async, 30s);
+	std::vector<Packet> burst =
+	  expectEnterWorldTimerEnds(collectAnswer(*client.game, client.async, 30s), client.character->label + " level ready");
 	if (burst.empty())
 		throw std::runtime_error(client.character->label + ": no packet after CM_LEVEL_READY");
 	client.model.sync();

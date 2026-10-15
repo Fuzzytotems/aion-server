@@ -757,50 +757,197 @@ class Q14SliceTest(unittest.TestCase):
 
 
 @unittest.skipUnless(HAVE_JAVA_TREE, "Java tree not present")
+class Q07SliceTest(unittest.TestCase):
+	"""the 64 generated handlers of beshmundir, abyss_entry and silentera_canyon (SLICE_Q07, phase 6 step 2, lane C, 2026-10-08; docs/deviations/Q07.md)"""
+
+	# 1044 and 2042 were held back for their gate traffic until the owner's decision of 2026-10-13 (docs/deviations/Q07.md, "Held back")
+	LEFT_OUT = set()
+
+	def test_the_q07_slice(self):
+		java = {f"{d}/{f.name}" for d in ('beshmundir', 'abyss_entry', 'silentera_canyon') for f in (extract.QUEST_DIR / d).glob("*.java")}
+		earlier = set(extract.SLICE_TIER_A + extract.SLICE_ROUTE + extract.SLICE_Q03 + extract.SLICE_Q10 + extract.SLICE_Q08 + extract.SLICE_Q01 +
+		              extract.SLICE_Q02 + extract.SLICE_Q14 + extract.SLICE_Q13 + extract.SLICE_Q11 + extract.SLICE_Q05 + extract.SLICE_Q09)
+		self.assertEqual(set(extract.SLICE_Q07) & earlier, set())
+		self.assertEqual(len(extract.SLICE_Q07), 64)
+		self.assertTrue(set(extract.SLICE_Q07) <= java - self.LEFT_OUT)
+		docs = {}
+		for rel in extract.SLICE_Q07:
+			d = extract.trace_file(tables(), extract.QUEST_DIR / rel, rel)
+			docs[d["questId"]] = d
+		self.assertEqual(sorted(q for q, d in docs.items() if not d["cases"]), [30056, 30156, 30157, 30208, 30308])
+		self.assertEqual(extract.check(rels=extract.SLICE_Q07, extra=False), [])
+
+
+@unittest.skipUnless(HAVE_JAVA_TREE, "Java tree not present")
+class Q12SliceTest(unittest.TestCase):
+	"""the 72 generated handlers of theobomos, event_quests and cygnea (SLICE_Q12, phase 6 step 2, lane C, 2026-10-08; docs/deviations/Q12.md)"""
+
+	LEFT_OUT = {'event_quests/_80030EventAnUnwelcomeGaze.java', 'event_quests/_80018EventSockItToEm.java', 'event_quests/_80016EventSockHop.java', 'event_quests/_80033EventAvertingTheGaze.java'}
+
+	def test_the_q12_slice(self):
+		java = {f"{d}/{f.name}" for d in ('theobomos', 'event_quests', 'cygnea') for f in (extract.QUEST_DIR / d).glob("*.java")}
+		earlier = set(extract.SLICE_TIER_A + extract.SLICE_ROUTE + extract.SLICE_Q03 + extract.SLICE_Q10 + extract.SLICE_Q08 + extract.SLICE_Q01 +
+		              extract.SLICE_Q02 + extract.SLICE_Q14 + extract.SLICE_Q13 + extract.SLICE_Q11 + extract.SLICE_Q05 + extract.SLICE_Q09 + extract.SLICE_Q07)
+		self.assertEqual(set(extract.SLICE_Q12) & earlier, set())
+		self.assertEqual(len(extract.SLICE_Q12), 72)
+		self.assertTrue(set(extract.SLICE_Q12) <= java - self.LEFT_OUT)
+		docs = {}
+		for rel in extract.SLICE_Q12:
+			d = extract.trace_file(tables(), extract.QUEST_DIR / rel, rel)
+			docs[d["questId"]] = d
+		self.assertEqual(sorted(q for q, d in docs.items() if not d["cases"]), [3074, 3082, 3088, 3090, 80000, 80001, 80008, 80020, 80021])
+		self.assertEqual(extract.check(rels=extract.SLICE_Q12, extra=False), [])
+
+
+@unittest.skipUnless(HAVE_JAVA_TREE, "Java tree not present")
+class Q04SliceTest(unittest.TestCase):
+	"""67 generated handlers of beluslan and brusthonin (SLICE_Q04, phase 6 step 2, lane C, 2026-10-13; docs/deviations/Q04.md)"""
+
+	LEFT_OUT = {'beluslan/_2634TheDraupnirRedemption.java', 'beluslan/_24053TheMaulingoftheMau.java'}
+
+	def test_the_q04_slice(self):
+		java = {f"{d}/{f.name}" for d in ('beluslan', 'brusthonin') for f in (extract.QUEST_DIR / d).glob("*.java")}
+		earlier = set(extract.SLICE_TIER_A + extract.SLICE_ROUTE + extract.SLICE_Q03 + extract.SLICE_Q10 + extract.SLICE_Q08 + extract.SLICE_Q01 +
+		              extract.SLICE_Q02 + extract.SLICE_Q14 + extract.SLICE_Q13 + extract.SLICE_Q11 + extract.SLICE_Q05 + extract.SLICE_Q09 + extract.SLICE_Q07 + extract.SLICE_Q12)
+		self.assertEqual(set(extract.SLICE_Q04) & earlier, set())
+		self.assertEqual(len(extract.SLICE_Q04), 67)
+		self.assertTrue(set(extract.SLICE_Q04) <= java - self.LEFT_OUT)
+		docs = {}
+		for rel in extract.SLICE_Q04:
+			d = extract.trace_file(tables(), extract.QUEST_DIR / rel, rel)
+			docs[d["questId"]] = d
+		self.assertEqual(sorted(q for q, d in docs.items() if not d["cases"]), [2600, 2630, 2663, 2664, 4074, 4200, 28600])
+		self.assertEqual(extract.check(rels=extract.SLICE_Q04, extra=False), [])
+
+
+@unittest.skipUnless(HAVE_JAVA_TREE, "Java tree not present")
+class Q06SliceTest(unittest.TestCase):
+	"""52 generated crafting handlers (SLICE_Q06, phase 6 step 2, lane C, 2026-10-13; docs/deviations/Q06.md)"""
+
+	LEFT_OUT = set()
+
+	def test_the_q06_slice(self):
+		java = {f"{d}/{f.name}" for d in ('crafting',) for f in (extract.QUEST_DIR / d).glob("*.java")}
+		earlier = set(extract.SLICE_TIER_A + extract.SLICE_ROUTE + extract.SLICE_Q03 + extract.SLICE_Q10 + extract.SLICE_Q08 + extract.SLICE_Q01 +
+		              extract.SLICE_Q02 + extract.SLICE_Q14 + extract.SLICE_Q13 + extract.SLICE_Q11 + extract.SLICE_Q05 + extract.SLICE_Q09 + extract.SLICE_Q07 + extract.SLICE_Q12 + extract.SLICE_Q04)
+		self.assertEqual(set(extract.SLICE_Q06) & earlier, set())
+		self.assertEqual(len(extract.SLICE_Q06), 52)
+		self.assertTrue(set(extract.SLICE_Q06) <= java - self.LEFT_OUT)
+		docs = {}
+		for rel in extract.SLICE_Q06:
+			d = extract.trace_file(tables(), extract.QUEST_DIR / rel, rel)
+			docs[d["questId"]] = d
+		self.assertEqual(sorted(q for q, d in docs.items() if not d["cases"]), [])
+		self.assertEqual(extract.check(rels=extract.SLICE_Q06, extra=False), [])
+
+
+@unittest.skipUnless(HAVE_JAVA_TREE, "Java tree not present")
 class Q09RestSliceTest(unittest.TestCase):
 	"""the rest of morheim and pernon (SLICE_Q09, phase 6 step 2, lane C, 2026-10-08; docs/deviations/Q09.md, "Phase 6 step 2")"""
 
-	# questgen refuses five; the escorts 2333 and 2394 wait for FollowingNpcAI (m5d-plan.md §21.1)
-	LEFT_OUT = {"morheim/_24026AHandfromEachSide.java", "pernon/_28806WiltingFlowersFallingTears.java", "pernon/_28821YourButlerGift.java",
-	            "pernon/_28828TheManyFacetsOfFriendship.java", "pernon/_28830InteriorDecorator.java", "morheim/_2333ARibbitOutOfWater.java",
-	            "morheim/_2394ADyingWish.java"}
+	# questgen refuses 24026 (the butlers 28806, 28821, 28828 since the static-set shape); the escorts 2333 and 2394 wait for
+	# FollowingNpcAI (m5d-plan.md §21.1)
+	LEFT_OUT = {"morheim/_24026AHandfromEachSide.java", "morheim/_2333ARibbitOutOfWater.java", "morheim/_2394ADyingWish.java"}
 
 	def test_the_q09_rest_slice(self):
 		java = {f"{d}/{f.name}" for d in ("morheim", "pernon") for f in (extract.QUEST_DIR / d).glob("*.java")}
 		earlier = set(extract.SLICE_TIER_A + extract.SLICE_ROUTE + extract.SLICE_Q03 + extract.SLICE_Q10 + extract.SLICE_Q08 + extract.SLICE_Q01 +
 		              extract.SLICE_Q02 + extract.SLICE_Q14 + extract.SLICE_Q13 + extract.SLICE_Q11 + extract.SLICE_Q05)
 		self.assertEqual(set(extract.SLICE_Q09) & earlier, set())
-		self.assertEqual(len(extract.SLICE_Q09), 47)
+		self.assertEqual(len(extract.SLICE_Q09), 51)
 		self.assertTrue(set(extract.SLICE_Q09) <= java - self.LEFT_OUT)
 		docs = {}
 		for rel in extract.SLICE_Q09:
 			d = extract.trace_file(tables(), extract.QUEST_DIR / rel, rel)
 			docs[d["questId"]] = d
-		self.assertEqual(sorted(q for q, d in docs.items() if not d["cases"]), [2422, 2423, 2430, 2443, 2493])
+		self.assertEqual(sorted(q for q, d in docs.items() if not d["cases"]), [2422, 2423, 2443, 2493, 28821])
 		self.assertEqual(extract.check(rels=extract.SLICE_Q09, extra=False), [])
+
+
+@unittest.skipUnless(HAVE_JAVA_TREE, "Java tree not present")
+class CraftPredicateTraceTest(unittest.TestCase):
+	"""the crafting quests (chunk Q06, lane C, 2026-10-13): CraftSkillUpdateService.getInstance().canLearnMoreExpertCraftingSkill(player) and
+	canLearnMoreMasterCraftingSkill(player) are effects with an assumed result, each result a case (extract.craft_predicate)"""
+
+	def test_both_answers_of_each_predicate_are_cases(self):
+		for rel, name in (("crafting/_19052ExpertPassionforConstruction.java", "canLearnMoreExpertCraftingSkill"),
+		                  ("crafting/_19008MasterWeaponsmithsPotential.java", "canLearnMoreMasterCraftingSkill")):
+			path = extract.QUEST_DIR / rel
+			with self.subTest(file=rel):
+				doc = extract.trace_file(tables(), path, rel)
+				asked = [c for c in doc["cases"] if any(e["call"] == f"CraftSkillUpdateService.{name}" for e in c["effects"])]
+				self.assertTrue(asked)
+				answers = {a["returns"] for c in asked for a in c["assume"]}
+				self.assertEqual(answers, {True, False})
+				self.assertTrue(all(e["args"] == [] and e["kind"] == "packet" for c in asked for e in c["effects"]
+				                    if e["call"].startswith("CraftSkillUpdateService.")))
+
+	def test_the_crafting_quests_last_rows(self):
+		# kinah as the kinah item's count and decreaseKinah an effect (19038), addSkill an effect (19001), isFullSpecialCube an input (29000),
+		# isRecipePresent an input per recipe (19038)
+		docs = {}
+		for rel in ("crafting/_19038MasterCooksPotential.java", "crafting/_19001ExpertEssencetappingExpert.java",
+		            "crafting/_29000ExpertEssencetappersTest.java"):
+			docs[rel] = extract.trace_file(tables(), extract.QUEST_DIR / rel, rel)
+		calls = lambda d: {e["call"] for c in d["cases"] for e in c["effects"]}
+		cooks = docs["crafting/_19038MasterCooksPotential.java"]
+		self.assertIn("inventory.decreaseKinah", calls(cooks))
+		self.assertTrue(any(str(extract.KINAH_ITEM) in c["given"].get("inventory", {}) for c in cooks["cases"]))
+		self.assertTrue(any("recipes" in c["given"] for c in cooks["cases"]))
+		self.assertIn("skillList.addSkill", calls(docs["crafting/_19001ExpertEssencetappingExpert.java"]))
+		cube = [c["given"]["player"]["fullSpecialCube"] for c in docs["crafting/_29000ExpertEssencetappersTest.java"]["cases"]
+		        if "fullSpecialCube" in c["given"].get("player", {})]
+		self.assertEqual(set(cube), {True, False})
+
+	def test_an_item_count_read_after_a_false_collect_check_is_the_count_before_it(self):
+		# 19057 and 29057's CHECK_USER_HAS_QUEST_ITEM (lane C, 2026-10-14): collectItemCheck returns false only before its first write
+		# (QuestService.java:557-599), so the false branch reads the recipe items' counts as they were
+		for rel in ("crafting/_19057MasterConstructorsPotential.java", "crafting/_29057MasterConstructorsPotential.java"):
+			with self.subTest(file=rel):
+				doc = extract.trace_file(tables(), extract.QUEST_DIR / rel, rel)
+				self.assertFalse([h for h in doc["hooks"] if "unsupported" in h])
+				false_reads = [c for c in doc["cases"] if any(a["returns"] is False for a in c.get("assume", []))
+				               and any(e["call"] == "QuestService.collectItemCheck" for e in c["effects"]) and c["given"].get("inventory")]
+				self.assertTrue(false_reads)
+
+	def test_the_two_predicates_are_the_only_ones(self):
+		self.assertEqual(extract.CRAFT_PREDICATES, ("canLearnMoreExpertCraftingSkill", "canLearnMoreMasterCraftingSkill"))
+
+
+@unittest.skipUnless(HAVE_JAVA_TREE, "Java tree not present")
+class StaticSetTraceTest(unittest.TestCase):
+	"""the static-set shape (lane C, 2026-10-13): a static final Set<Integer> filled by a static initializer is a constant tuple, and its
+	Iterator loop a for-each over it (the butler quests 18806, 18821, 18828, 28806, 28821, 28828)"""
+
+	def test_the_set_registers_each_butler_in_the_order_of_the_adds(self):
+		rel = "oriel/_18806HeartofRock.java"
+		d = extract.trace_file(tables(), extract.QUEST_DIR / rel, rel)
+		butlers = [810017, 810018, 810019, 810020, 810021]
+		self.assertEqual(d["register"][:10], [{"npc": n, "event": e, "args": [18806]} for n in butlers
+		                                      for e in ("addOnQuestStart", "addOnTalkEvent")])
+		self.assertEqual([r["npc"] for r in d["register"][10:]], [830528, 830194])
+		self.assertTrue(d["cases"])
 
 
 @unittest.skipUnless(HAVE_JAVA_TREE, "Java tree not present")
 class Q05RestSliceTest(unittest.TestCase):
 	"""the rest of eltnen and oriel (SLICE_Q05, phase 6 step 2, lane C, 2026-10-08; docs/deviations/Q05.md, "Phase 6 step 2")"""
 
-	# questgen refuses these seven (docs/deviations/Q05.md)
-	REFUSED = {"eltnen/_1354PraticalAerobatics.java", "eltnen/_1367MabangtahsFeast.java", "eltnen/_14026ALoneDefense.java",
-	           "oriel/_18806HeartofRock.java", "oriel/_18821AlmostForgotMyBlessings.java",
-	           "oriel/_18828UserFriendly.java", "oriel/_18830MovingIn.java"}
+	# questgen refuses these three (docs/deviations/Q05.md; 18830 since row B48, 18806, 18821, 18828 since the static-set shape)
+	REFUSED = {"eltnen/_1354PraticalAerobatics.java", "eltnen/_1367MabangtahsFeast.java", "eltnen/_14026ALoneDefense.java"}
 
 	def test_the_q05_rest_slice(self):
 		java = {f"{d}/{f.name}" for d in ("eltnen", "oriel") for f in (extract.QUEST_DIR / d).glob("*.java")}
 		earlier = set(extract.SLICE_TIER_A + extract.SLICE_ROUTE + extract.SLICE_Q03 + extract.SLICE_Q10 + extract.SLICE_Q08 + extract.SLICE_Q01 +
 		              extract.SLICE_Q02 + extract.SLICE_Q14 + extract.SLICE_Q13 + extract.SLICE_Q11)
 		self.assertEqual(set(extract.SLICE_Q05) & earlier, set())
-		self.assertEqual(len(extract.SLICE_Q05), 53)
+		self.assertEqual(len(extract.SLICE_Q05), 57)
 		self.assertTrue(set(extract.SLICE_Q05) <= java - self.REFUSED)
 		docs = {}
 		for rel in extract.SLICE_Q05:
 			d = extract.trace_file(tables(), extract.QUEST_DIR / rel, rel)
 			docs[d["questId"]] = d
-		self.assertEqual(sorted(q for q, d in docs.items() if not d["cases"]), [1430, 1463, 1468, 1482, 1483, 1484])
+		self.assertEqual(sorted(q for q, d in docs.items() if not d["cases"]), [1430, 1463, 1468, 1482, 1483, 1484, 18821])
 		self.assertEqual(extract.check(rels=extract.SLICE_Q05, extra=False), [])
 
 
@@ -931,6 +1078,13 @@ class ScheduledTaskTest(unittest.TestCase):
 			self.assertEqual([c["line"] for c in doc["corrections"]], [line])
 			level = [c for c in doc["cases"] if c["hook"] == "onLevelChangedEvent"]
 			self.assertEqual([c["effects"] for c in level], [[{"call": "defaultOnLevelChangedEvent", "kind": "quest", "args": [], "line": line}]])
+		# the owner's decision of 2026-10-13 (docs/deviations/Q07.md): 30348's start dialog checks the Aethercannon's item 101900655
+		rel = "beshmundir/_30348ImprovedAethercannon.java"
+		doc = extract.trace_file(tables(), extract.QUEST_DIR / rel, rel)
+		self.assertEqual([c["line"] for c in doc["corrections"]], [41])
+		text = json.dumps(doc["cases"])
+		self.assertIn("getItemCountByItemId(101900655)", text)
+		self.assertNotIn("100100716", text)
 		# a file without a correction has no member, and a correction whose Java text is not on its line is refused
 		rel = "inggison/_10031ARiskfortheObelisk.java"
 		self.assertNotIn("corrections", extract.trace_file(tables(), extract.QUEST_DIR / rel, rel))

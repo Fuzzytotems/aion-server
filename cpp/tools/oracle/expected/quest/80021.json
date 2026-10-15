@@ -1,0 +1,17 @@
+{
+ "format": "aion-quest-trace",
+ "version": 1,
+ "questId": 80021,
+ "java": "event_quests/_80021EventFestiveUs.java",
+ "class": "_80021EventFestiveUs",
+ "javaSha256": "afb2bd1d96937e1ccea535fef01d0ae993f0bd5c57074124a00ef7a8bdc4a03e",
+ "register": [
+  {"npc": 799784, "event": "addOnQuestStart", "args": [80021]},
+  {"npc": 799784, "event": "addOnTalkEvent", "args": [80021]},
+  {"npc": 799783, "event": "addOnTalkEvent", "args": [80021]},
+  {"npc": 203618, "event": "addOnTalkEvent", "args": [80021]},
+  {"npc": 203650, "event": "addOnTalkEvent", "args": [80021]}
+ ],
+ "hooks": [{"hook": "onDialogEvent", "line": 31, "unsupported": "cast to Creature"}],
+ "cases": []
+}

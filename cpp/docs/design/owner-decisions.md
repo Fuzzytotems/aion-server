@@ -3,6 +3,13 @@
 The owner's answers to the open decisions of the milestone plans, newest first. Each plan applies its answer at its next refresh; until
 then this file wins over a plan's "until the user answers" default.
 
+## 2026-10-13
+
+| Decision | Answer | What it changes |
+|---|---|---|
+| `beshmundir/_30348ImprovedAethercannon.java:41` asks for 100100716 (the mace of `_30343`) where quest_data.xml collects 101900655 (questgen's KNOWN_JAVA_BUGS) | **Correct it, both branches** | Applied (lane C): questgen's and the oracle's OWNER_CORRECTIONS rewrite the line; the generated handler checks 101900655 and the golden document traces it (docs/deviations/Q07.md) |
+| `eltnen/_1367MabangtahsFeast` (three item counts in fields) and `morheim/_24026AHandfromEachSide` (a balaur kill counter in a field) keep per-player state in the singleton handler | **Per player, as 2759's correction, both branches** | Applied (lane C): two hand ports; 1367's counts are locals of the dialog, 24026's count is the quest's var slot 1 (docs/deviations/Q05.md and Q09.md, "Correction: 1367 and 24026"); CounterHandPortsTest pins both |
+
 ## 2026-10-07
 
 | Decision | Answer | What it changes |

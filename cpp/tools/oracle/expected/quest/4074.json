@@ -1,0 +1,11 @@
+{
+ "format": "aion-quest-trace",
+ "version": 1,
+ "questId": 4074,
+ "java": "brusthonin/_4074GainOrLose.java",
+ "class": "_4074GainOrLose",
+ "javaSha256": "b09d0959323b31945587f00eef5233fb7ee5605292fdb504f5a91966bf1cbc3b",
+ "register": [{"npc": 205181, "event": "addOnQuestStart", "args": [4074]}, {"npc": 205181, "event": "addOnTalkEvent", "args": [4074]}],
+ "hooks": [{"hook": "onDialogEvent", "line": 30, "unsupported": "call player.getInventory().tryDecreaseKinah(1000)"}],
+ "cases": []
+}

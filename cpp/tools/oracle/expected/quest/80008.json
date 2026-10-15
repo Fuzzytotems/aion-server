@@ -1,0 +1,11 @@
+{
+ "format": "aion-quest-trace",
+ "version": 1,
+ "questId": 80008,
+ "java": "event_quests/_80008PieceOfCake.java",
+ "class": "_80008PieceOfCake",
+ "javaSha256": "0cd47194803083be9185dc3b3b5c81f1231aea29d39b71dc81806b76b3fe4444",
+ "register": [{"npc": 798415, "event": "addOnTalkEvent", "args": [80008]}],
+ "hooks": [{"hook": "onDialogEvent", "line": 24, "unsupported": "call QuestService.startEventQuest"}],
+ "cases": []
+}
