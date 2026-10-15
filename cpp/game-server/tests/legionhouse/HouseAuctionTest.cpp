@@ -1,6 +1,6 @@
-// M5h-2 H2-1 (m5h-plan.md 14.3): the house auction against HousingBidService.java - register, bid (the refusals in Java's order, an outbid
+// M5h-2 H2-1 and H2-2 (m5h-plan.md 14.3): the house auction against HousingBidService.java - register, bid (the refusals in Java's order, an outbid
 // player's refund by mail), the end with and without bids, the cancel - and the two housing tasks that feed it, MaintenanceTask's impoundment
-// of an overdue house and AuctionAutoFillTask, on the test database aion_gs_test_legionhouse (LegionHouseTestSupport.h, run under gate_lock.py)
+// of an overdue house and AuctionAutoFillTask - and the seven land-house client packets (H2-2), on the test database aion_gs_test_legionhouse (LegionHouseTestSupport.h, run under gate_lock.py)
 // with real Players on recording connections stored in the World (tests/team/P5-10b/TeamTestSupport.h, as LegionServiceTest.cpp).
 //
 // The land is housing/houses.xml's first Oriel land shape (land 325001, three addresses) with its sale level; the bidding hours depend on the
@@ -18,6 +18,7 @@
 
 #include <gtest/gtest.h>
 
+#include "aion/gameserver/configs/administration/AdminConfig.h"
 #include "aion/gameserver/configs/main/GSConfig.h"
 #include "aion/gameserver/configs/main/HousingConfig.h"
 #include "aion/gameserver/dataholders/HouseData.bind.h"
@@ -26,10 +27,20 @@
 #include "aion/gameserver/dataholders/NpcData.h"
 #include "aion/gameserver/model/gameobjects/player/QuestStateList.h"
 #include "aion/gameserver/model/house/House.h"
+#include "aion/gameserver/model/house/HouseDoorState.h"
 #include "aion/gameserver/model/house/HouseBids.h"
 #include "aion/gameserver/model/templates/housing/HouseAddress.h"
 #include "aion/gameserver/model/templates/mail/Mails.bind.h"
 #include "aion/gameserver/model/templates/mail/Mails.h"
+#include "aion/gameserver/network/aion/clientpackets/CM_GET_HOUSE_BIDS.h"
+#include "aion/gameserver/network/aion/clientpackets/CM_HOUSE_OPEN_DOOR.h"
+#include "aion/gameserver/network/aion/clientpackets/CM_HOUSE_PAY_RENT.h"
+#include "aion/gameserver/network/aion/clientpackets/CM_HOUSE_TELEPORT.h"
+#include "aion/gameserver/network/aion/clientpackets/CM_HOUSE_TELEPORT_BACK.h"
+#include "aion/gameserver/network/aion/clientpackets/CM_PLACE_BID.h"
+#include "aion/gameserver/network/aion/clientpackets/CM_REGISTER_HOUSE.h"
+#include "aion/gameserver/network/aion/serverpackets/SM_HOUSE_BIDS.h"
+#include "aion/gameserver/network/aion/serverpackets/SM_HOUSE_PAY_RENT.h"
 #include "aion/gameserver/network/aion/serverpackets/SM_RECEIVE_BIDS.h"
 #include "aion/gameserver/questEngine/model/QuestState.h"
 #include "aion/gameserver/questEngine/model/QuestStatus.h"
@@ -327,6 +338,101 @@ TEST_F(HouseAuctionTest, MaintenanceImpoundsAnOverdueHouseAndAutoFillAuctionsUno
 	EXPECT_EQ(static_cast<int>(static_cast<bool>(house(HOUSE_A).getBids())) + static_cast<int>(static_cast<bool>(house(HOUSE_B).getBids())), 1);
 	if (savedLimits)
 		HousingConfig::AUCTION_AUTO_FILL_LIMITS.set(*savedLimits);
+}
+
+
+// ---- H2-2: the seven land-house client packets, run on the members' recording connections -------------------------------------------------
+
+/** the client packet ids of ClientPacketInfo.gen.inc */
+constexpr int32_t CM_HOUSE_TELEPORT_BACK_OPCODE = 95;
+constexpr int32_t CM_GET_HOUSE_BIDS_OPCODE = 218;
+constexpr int32_t CM_REGISTER_HOUSE_OPCODE = 219;
+constexpr int32_t CM_PLACE_BID_OPCODE = 221;
+constexpr int32_t CM_HOUSE_TELEPORT_OPCODE = 222;
+constexpr int32_t CM_HOUSE_PAY_RENT_OPCODE = 223;
+constexpr int32_t CM_HOUSE_OPEN_DOOR_OPCODE = 226;
+
+/** HousingConfig.java:34, the maintenance's default cron (MaintenanceTask.getNextRun) */
+const services::cron::CronExpression& maintenanceTime() {
+	static const services::cron::CronExpression expression("0 0 0 ? * MON");
+	return expression;
+}
+
+template <class P>
+void run(Member& m, int32_t opcode, const network::test::PacketWriter& body) {
+	m.clearSent();
+	Driver<P> packet(opcode);
+	packet.readAndRun(body.data, m.client->get());
+}
+
+TEST_F(HouseAuctionTest, TheBidsListAndARegistrationAndABidThroughThePackets) {
+	AUCTION_REQUIRE_DATABASE();
+	ConfigScope<float> fee{HousingConfig::AUCTION_REGISTRATION_FEE_PERCENT, 0.3f};
+	auto savedDays = HousingConfig::HOUSE_AUCTION_REGISTER_DAYS.get();
+	HousingConfig::HOUSE_AUCTION_REGISTER_DAYS.set(std::vector<int32_t>{1, 7}); // every day: isRegisteringAllowed
+	Member& seller = online("Seller", PRICE);
+	HousingService::getInstance().changeOwner(house(HOUSE_A), seller.player().getObjectId());
+
+	// CM_REGISTER_HOUSE (CM_REGISTER_HOUSE.java:37-73): the fee is 30% of the starting price
+	run<CM_REGISTER_HOUSE>(seller, CM_REGISTER_HOUSE_OPCODE, network::test::PacketWriter().Q(PRICE).Q(100000));
+	EXPECT_EQ(seller.count(SM_SYSTEM_MESSAGE::STR_MSG_HOUSING_AUCTION_MY_HOUSE(10001)), 1);
+	EXPECT_EQ(seller.count(SM_RECEIVE_BIDS(0)), 1);
+	EXPECT_EQ(seller.player().getInventory().getKinah(), PRICE - PRICE * 3 / 10) << "(long) (bidKinah * AUCTION_REGISTRATION_FEE_PERCENT)";
+	ASSERT_TRUE(house(HOUSE_A).getBids());
+	run<CM_REGISTER_HOUSE>(seller, CM_REGISTER_HOUSE_OPCODE, network::test::PacketWriter().Q(PRICE).Q(100000));
+	EXPECT_EQ(seller.count(SM_SYSTEM_MESSAGE::STR_MSG_HOUSING_AUCTION_FAIL_ALREADY_REGISTED()), 1);
+
+	// CM_GET_HOUSE_BIDS: the race's auctions in SM_HOUSE_BIDS parts (one here)
+	Member& buyer = online("Packetbuyer", 5 * PRICE);
+	run<CM_GET_HOUSE_BIDS>(buyer, CM_GET_HOUSE_BIDS_OPCODE, network::test::PacketWriter());
+	EXPECT_EQ(buyer.count(opcodeOf<serverpackets::SM_HOUSE_BIDS>), 1);
+
+	// CM_PLACE_BID: HousingBidService.bid
+	run<CM_PLACE_BID>(buyer, CM_PLACE_BID_OPCODE, network::test::PacketWriter().D(house(HOUSE_A).getBids()->getListIndex()).Q(PRICE + 1000));
+	EXPECT_EQ(buyer.count(SM_SYSTEM_MESSAGE::STR_MSG_HOUSING_BID_SUCCESS(10001)), 1);
+	EXPECT_EQ(house(HOUSE_A).getBids()->getHighestBid()->getPlayerObjectId(), buyer.player().getObjectId());
+	if (savedDays)
+		HousingConfig::HOUSE_AUCTION_REGISTER_DAYS.set(*savedDays);
+}
+
+TEST_F(HouseAuctionTest, TheRentIsFreeWithoutHousePayAndPaidAheadWithIt) {
+	AUCTION_REQUIRE_DATABASE();
+	ConfigScope<const services::cron::CronExpression*> maintenance{HousingConfig::HOUSE_MAINTENANCE_TIME, &maintenanceTime()};
+	Member& owner = online("Renter", 100000000);
+	HousingService::getInstance().changeOwner(house(HOUSE_B), owner.player().getObjectId());
+	run<CM_HOUSE_PAY_RENT>(owner, CM_HOUSE_PAY_RENT_OPCODE, network::test::PacketWriter().C(1));
+	EXPECT_EQ(owner.count(SM_SYSTEM_MESSAGE::STR_MSG_F2P_CASH_HOUSE_FEE_FREE()), 1) << "ENABLE_HOUSE_PAY off: the cost is 0";
+
+	ConfigScope<bool> pay{HousingConfig::ENABLE_HOUSE_PAY, true};
+	run<CM_HOUSE_PAY_RENT>(owner, CM_HOUSE_PAY_RENT_OPCODE, network::test::PacketWriter().C(1));
+	EXPECT_EQ(owner.count(serverpackets::SM_HOUSE_PAY_RENT(1)), 1);
+	EXPECT_EQ(owner.player().getInventory().getKinah(), 100000000 - 20000000) << "the land fee for one week";
+	EXPECT_TRUE(house(HOUSE_B).getNextPay()) << "paid until the run after the next maintenance";
+	run<CM_HOUSE_PAY_RENT>(owner, CM_HOUSE_PAY_RENT_OPCODE, network::test::PacketWriter().C(5));
+	EXPECT_EQ(owner.count(SM_SYSTEM_MESSAGE::STR_NOT_ENOUGH_MONEY()), 1) << "5 weeks cost 100,000,000 of the 80,000,000 left";
+}
+
+TEST_F(HouseAuctionTest, TheDoorTheTeleportsAndTheReturnRefuseWhatTheyMust) {
+	AUCTION_REQUIRE_DATABASE();
+	Member& visitor = online("Visitor", 0);
+	// CM_HOUSE_OPEN_DOOR: an unknown address does nothing; a house the player may not enter is refused
+	run<CM_HOUSE_OPEN_DOOR>(visitor, CM_HOUSE_OPEN_DOOR_OPCODE, network::test::PacketWriter().D(99999).C(0));
+	EXPECT_TRUE(visitor.sent().empty());
+	Member& owner = online("Doorowner", 0);
+	HousingService::getInstance().changeOwner(house(HOUSE_C), owner.player().getObjectId());
+	house(HOUSE_C).setDoorState(model::house::HouseDoorState::CLOSED); // a new owner's door is open (resetDoorState)
+	ConfigScope<int8_t> enterAll{configs::administration::AdminConfig::HOUSE_ENTER_ALL, int8_t{3}}; // a player, no GM: the door applies
+	ASSERT_FALSE(house(HOUSE_C).canEnter(visitor.player())) << "a closed door, the visitor no friend";
+	run<CM_HOUSE_OPEN_DOOR>(visitor, CM_HOUSE_OPEN_DOOR_OPCODE, network::test::PacketWriter().D(10003).C(0));
+	EXPECT_EQ(visitor.count(SM_SYSTEM_MESSAGE::STR_MSG_HOUSING_CANT_ENTER_NO_RIGHT2()), 1) << "House.canEnter";
+	// CM_HOUSE_TELEPORT: another player's id is audited, and without a relationship crystal as target nothing happens
+	run<CM_HOUSE_TELEPORT>(visitor, CM_HOUSE_TELEPORT_OPCODE, network::test::PacketWriter().C(1).D(owner.player().getObjectId()).D(0));
+	EXPECT_TRUE(visitor.sent().empty());
+	run<CM_HOUSE_TELEPORT>(visitor, CM_HOUSE_TELEPORT_OPCODE, network::test::PacketWriter().C(1).D(visitor.player().getObjectId()).D(0));
+	EXPECT_TRUE(visitor.sent().empty()) << "no target";
+	// CM_HOUSE_TELEPORT_BACK: no return point, no teleport
+	run<CM_HOUSE_TELEPORT_BACK>(visitor, CM_HOUSE_TELEPORT_BACK_OPCODE, network::test::PacketWriter());
+	EXPECT_TRUE(visitor.sent().empty());
 }
 
 } // namespace

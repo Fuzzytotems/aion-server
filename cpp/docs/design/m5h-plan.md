@@ -1140,3 +1140,11 @@ in Java's order, a bid and the outbid player's refund mail, the end with and wit
 refund, the impoundment and the auto-fill limit; the fixture picks a server time zone in which the auction is open, since bidding closes
 Sunday at 12:00). 8 of 8 mutants killed. Left: `SM_HOUSE_BIDS`' remaining seconds (a P4-17 lease, H2-2 with the packets) and `Town`'s level-up
 (a header request for `Town::levelUpDate`; towns level through quests).
+
+**H2-2 (lane B, 2026-10-11)**: the seven land-house client packets - `CM_GET_HOUSE_BIDS`, `CM_REGISTER_HOUSE`, `CM_PLACE_BID` (P5-15/P5-16),
+`CM_HOUSE_PAY_RENT`, `CM_HOUSE_OPEN_DOOR`, `CM_HOUSE_TELEPORT`, `CM_HOUSE_TELEPORT_BACK` - and `SM_HOUSE_BIDS`' remaining auction seconds (now
+`AuctionEndTask.getRemainingAuctionSeconds`, under a P5-11 lease of the file, which is P4-16's). Tests: three more cases in
+`tests/legionhouse/HouseAuctionTest.cpp`, run on the members' recording connections (the bids list, a registration with its 30% fee and the
+refusal of a second one, a bid; the rent free without `ENABLE_HOUSE_PAY` and paid a week ahead with it, the money refusal; the door's unknown
+address and closed-door refusal, the teleport's audited foreign id and missing crystal, the return without a return point). The teleports'
+successful arms need a relationship crystal and a spawned house: the gate's (H2-4).

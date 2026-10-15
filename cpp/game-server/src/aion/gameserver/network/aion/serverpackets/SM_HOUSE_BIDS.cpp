@@ -10,9 +10,9 @@
 #include "aion/gameserver/network/aion/AionConnection.h"
 #include "aion/gameserver/network/aion/ServerPacketsOpcodes.gen.h"
 #include "aion/gameserver/runtime/base/Exceptions.h"
-#include "aion/gameserver/runtime/base/Unported.h"
 #include "aion/gameserver/services/HousingBidService.h"
 #include "aion/gameserver/services/HousingService.h"
+#include "aion/gameserver/taskmanager/tasks/housing/AuctionEndTask.h"
 
 #include "aion/commons/utils/WindowsMacroGuard.h" // after all headers that may include windows.h
 
@@ -20,10 +20,9 @@ namespace aion::gameserver::network::aion::serverpackets {
 
 namespace {
 
-/** Java: AuctionEndTask.getInstance().getRemainingAuctionSeconds(houseObjectId) - taskmanager/tasks/housing/AuctionEndTask.h (P5-11) is not written yet */
+/** Java: AuctionEndTask.getInstance().getRemainingAuctionSeconds(houseObjectId) (M5h-2 H2-2, under a P5-11 lease) */
 int32_t remainingAuctionSeconds(int32_t houseObjectId) {
-	static_cast<void>(houseObjectId);
-	AION_UNPORTED();
+	return taskmanager::tasks::housing::AuctionEndTask::getInstance().getRemainingAuctionSeconds(houseObjectId);
 }
 
 } // namespace
