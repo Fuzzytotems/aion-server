@@ -1,0 +1,16 @@
+{
+ "format": "aion-quest-trace",
+ "version": 1,
+ "questId": 2422,
+ "java": "morheim/_2422LiquorThatMakesYouVanish.java",
+ "class": "_2422LiquorThatMakesYouVanish",
+ "javaSha256": "3c3b6e5389b716061e0a409e64d80399d265168572ae39507dea8f409acb8dd8",
+ "register": [
+  {"npc": 204326, "event": "addOnQuestStart", "args": [2422]},
+  {"npc": 204326, "event": "addOnTalkEvent", "args": [2422]},
+  {"npc": 204327, "event": "addOnTalkEvent", "args": [2422]},
+  {"npc": 204375, "event": "addOnTalkEvent", "args": [2422]}
+ ],
+ "hooks": [{"hook": "onDialogEvent", "line": 30, "unsupported": "call TeleportService.teleportTo"}],
+ "cases": []
+}
