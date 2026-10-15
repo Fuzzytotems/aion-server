@@ -361,6 +361,10 @@ SLICE_Q11 = (
 )
 # Phase 6 step 2, chunk Q05 (lane C, 2026-10-08; docs/deviations/Q05.md): the rest of eltnen and oriel that questgen transliterates
 SLICE_Q05 = (
+	'oriel/_18828UserFriendly.java',
+	'oriel/_18821AlmostForgotMyBlessings.java',
+	'oriel/_18806HeartofRock.java',
+	'oriel/_18830MovingIn.java',
 	'oriel/_18802AndAHomeforEveryDaeva.java',
 	'eltnen/_1311AGermOfHope.java', 'eltnen/_1314Anelimoutofwater.java', 'eltnen/_1319PrioritesMoney.java',
 	'eltnen/_1322ALeafFromLodas.java', 'eltnen/_1324ConfidentialOrders.java', 'eltnen/_1336ScoutingForDemokritos.java',
@@ -382,6 +386,10 @@ SLICE_Q05 = (
 )
 # Phase 6 step 2, chunk Q09 (lane C, 2026-10-08; docs/deviations/Q09.md): the rest of morheim and pernon that questgen transliterates
 SLICE_Q09 = (
+	'pernon/_28828TheManyFacetsOfFriendship.java',
+	'pernon/_28821YourButlerGift.java',
+	'pernon/_28806WiltingFlowersFallingTears.java',
+	'pernon/_28830InteriorDecorator.java',
 	'morheim/_2303DaevaWheresMyHerb.java', 'morheim/_2307IrresistibleSoup.java', 'morheim/_2316VivisBook.java',
 	'morheim/_2321SpyTheSpiritsLetter.java', 'morheim/_2324TheSpiritsNotebook.java', 'morheim/_2332MeatyTreats.java',
 	'morheim/_2343AncientGinseng.java', 'morheim/_2345OrashunerkSpecialOrder.java', 'morheim/_2367APrizedPossession.java',
@@ -399,7 +407,119 @@ SLICE_Q09 = (
 	'pernon/_28809FirstClassorCoach.java', 'pernon/_28826FreetoaGoodHome.java', 'pernon/_28832TakingtheTour.java',
 	'pernon/_28847AHomeThatsYourOwn.java', 'pernon/_51009TheGiftOfCharity.java',
 )
-SLICE = SLICE_TIER_A + SLICE_ROUTE + SLICE_Q03 + SLICE_Q10 + SLICE_Q08 + SLICE_Q01 + SLICE_Q02 + SLICE_Q14 + SLICE_Q13 + SLICE_Q11 + SLICE_Q05 + SLICE_Q09
+# Phase 6 step 2, chunk Q07 (lane C, 2026-10-08; docs/deviations/Q07.md): beshmundir, abyss_entry and silentera_canyon
+SLICE_Q07 = (
+	'abyss_entry/_2042TheLastCheckpoint.java',
+	'abyss_entry/_1044TestingFlightSkills.java',
+	'abyss_entry/_1920TestingYourMettle.java', 'abyss_entry/_1921TheAbyssQuiz.java',
+	'abyss_entry/_1922DeliveronYourPromises.java', 'abyss_entry/_2945HoningYourSkills.java',
+	'abyss_entry/_2946AbyssGeneralKnowledge.java', 'abyss_entry/_2947FollowingThrough.java', 'beshmundir/_30201SuppliesParty.java',
+	'beshmundir/_30202SuspiciousCeremony.java', 'beshmundir/_30203GroupHalttheCeremony.java',
+	'beshmundir/_30207SoulInvocationCeremony.java', 'beshmundir/_30208GroupTheTruthHurts.java', 'beshmundir/_30210WritteninBlood.java',
+	'beshmundir/_30211GroupTheRodandtheOrb.java', 'beshmundir/_30213GroupMagicalEssence.java', 'beshmundir/_30222AGuardsCurse.java',
+	'beshmundir/_30227GroupToLiberateSouls.java', 'beshmundir/_30235NewSword.java', 'beshmundir/_30236NewGreatsword.java',
+	'beshmundir/_30237NewPolearm.java', 'beshmundir/_30238NewStaff.java', 'beshmundir/_30239NewSpellbook.java',
+	'beshmundir/_30240NewOrb.java', 'beshmundir/_30241NewBow.java', 'beshmundir/_30242NewDagger.java', 'beshmundir/_30243NewMace.java',
+	'beshmundir/_30246YourOathToOutremus.java', 'beshmundir/_30247NewPistol.java', 'beshmundir/_30248NewAethercannon.java',
+	'beshmundir/_30249NewHarp.java', 'beshmundir/_30301TrackingSupplies.java', 'beshmundir/_30302MysteriousMotives.java',
+	'beshmundir/_30303GroupTheFallofIsbariya.java', 'beshmundir/_30307SoulSummoning.java',
+	'beshmundir/_30308GroupSummonRespondentUtra.java', 'beshmundir/_30310RankandBile.java', 'beshmundir/_30311GroupAQuartzIsaQuartz.java',
+	'beshmundir/_30313GroupOpeningthePrison.java', 'beshmundir/_30327GroupMiredSouls.java', 'beshmundir/_30335ImprovedSword.java',
+	'beshmundir/_30336ImprovedGreatsword.java', 'beshmundir/_30337ImprovedPolearm.java', 'beshmundir/_30338ImprovedStaff.java',
+	'beshmundir/_30339ImprovedSpellbook.java', 'beshmundir/_30340ImprovedOrb.java', 'beshmundir/_30341ImprovedBow.java',
+	'beshmundir/_30342ImprovedDagger.java', 'beshmundir/_30343ImprovedMace.java', 'beshmundir/_30346ASolemnPromise.java',
+	'beshmundir/_30347ImprovedPistol.java', 'beshmundir/_30348ImprovedAethercannon.java', 'beshmundir/_30349ImprovedHarp.java',
+	'silentera_canyon/_30051BanishingtheShadowborn.java', 'silentera_canyon/_30054PetrificationandPride.java',
+	'silentera_canyon/_30055ForMyWife.java', 'silentera_canyon/_30056DirvisiasSorrow.java', 'silentera_canyon/_30057JotunJaunt.java',
+	'silentera_canyon/_30151SnufftheSunsucker.java', 'silentera_canyon/_30154FleshtoStone.java', 'silentera_canyon/_30155StonetoFlesh.java',
+	'silentera_canyon/_30156NepsLove.java', 'silentera_canyon/_30157VilisMind.java', 'silentera_canyon/_30158JotunJunket.java',
+)
+# Phase 6 step 2, chunk Q12 (lane C, 2026-10-11; docs/deviations/Q12.md): theobomos, event_quests and cygnea
+SLICE_Q12 = (
+	'cygnea/_10500ExpeditionCoalition.java', 'cygnea/_10501ResearchtheRuins.java', 'cygnea/_10502CygneaSecrets.java',
+	'cygnea/_10503GuardDownSecretsOut.java', 'cygnea/_10504ConfiscatetheSlate.java', 'cygnea/_10505SneezeAttack.java',
+	'cygnea/_10506MindOverMatter.java', 'cygnea/_10507ABigPlottoFoil.java', 'event_quests/_50008SoloriusShugoSlackers.java',
+	'event_quests/_51008NonHelpingHands.java', 'event_quests/_80000JoyfulDaevasDay.java', 'event_quests/_80001FestiveDaevasDay.java',
+	'event_quests/_80008PieceOfCake.java', 'event_quests/_80009TheCakeIsTheTruth.java', 'event_quests/_80020EventSoloriusJoy.java',
+	'event_quests/_80021EventFestiveUs.java', 'event_quests/_80028EventMeetTheFayrefolk.java',
+	'event_quests/_80029EventUsingYourCharms.java', 'event_quests/_80031EventTheFayrefolk.java',
+	'event_quests/_80032EventACharmedExistence.java', 'event_quests/_80034EventGeaterGlories.java',
+	'event_quests/_80035EventOnlyTheBest.java', 'event_quests/_80036EventGamblingWithGrace.java',
+	'event_quests/_80037EventFromTheGutter.java', 'event_quests/_80038EventMightyAspirations.java',
+	'event_quests/_80039EventTheChosenFew.java', 'event_quests/_80137EventSealTheWarpedRift.java',
+	'event_quests/_80139EventCloseTheWarpedRift.java', 'event_quests/_80145EventWarpedRiftSealing.java',
+	'event_quests/_80147EventWarpedRiftClosing.java', 'event_quests/_80149EventWarpedRiftSecuring.java',
+	'event_quests/_80318TroubledArabella.java', 'event_quests/_80320ForTheAsmodians.java',
+	'event_quests/_80330TransformWithTheMagicCane.java', 'event_quests/_80331TransformWithTheMagicCane.java',
+	'theobomos/_3001UnearthingtheTruth.java', 'theobomos/_3006TheShugoFugitive.java', 'theobomos/_3008WickedThiefKelaino.java',
+	'theobomos/_3013AClueLeftByTheDead.java', 'theobomos/_3020AgrintAfire.java', 'theobomos/_3023TheSpiceMustFlow.java',
+	'theobomos/_3031Pirates.java', 'theobomos/_3035EnhancingtheStone.java', 'theobomos/_3036LetSeeWhatItDoes.java',
+	'theobomos/_3037WanderersStaff.java', 'theobomos/_3041SororunerkWhereabouts.java', 'theobomos/_3044RecruitingAnnouncement.java',
+	'theobomos/_3048OwneroftheAngledBladeDagger.java', 'theobomos/_3049BloodMarkstheSpot.java', 'theobomos/_3050RescuingRuria.java',
+	'theobomos/_3056InSearchOfZirius.java', 'theobomos/_3057CursedZirius.java', 'theobomos/_3058StoneofMabolo.java',
+	'theobomos/_3060TheRedJournal.java', 'theobomos/_3074DangerousProbability.java', 'theobomos/_3076BolsteringtheAethericField.java',
+	'theobomos/_3081VisitingtheLibrary.java', 'theobomos/_3082DousingTheFlame.java', 'theobomos/_3083SearchingfortheElderofWisdom.java',
+	'theobomos/_3085TheRiddlePoem.java', 'theobomos/_3086SearchingForTheCrater.java', 'theobomos/_3087DivingForTreasure.java',
+	'theobomos/_3088InCiderTrading.java', 'theobomos/_3090InSearchOfPippiThePorgus.java', 'theobomos/_3091TheLostDrakie.java',
+	'theobomos/_3092VisonTheDrakie.java', 'theobomos/_3093RecetteSecretedeQuenelles.java', 'theobomos/_3095ADecisiveClue.java',
+	'theobomos/_3096ExamineTheExtractionDevices.java', 'theobomos/_3100AShugosBestFriend.java', 'theobomos/_3102TheDisappearingStatue.java',
+	'theobomos/_3103KyprosDesire.java',
+)
+# Phase 6 step 2, chunk Q04 (lane C, 2026-10-13; docs/deviations/Q04.md): beluslan and brusthonin
+SLICE_Q04 = (
+	'beluslan/_16909AMarkofDistinction.java', 'beluslan/_24050NeritasOrders.java', 'beluslan/_24051InvesetigatetheDisappearance.java',
+	'beluslan/_24052AFrozenCity.java', 'beluslan/_24054CrisisinBeluslan.java', 'beluslan/_2501FallingFragments.java',
+	'beluslan/_2505LetCookingExpertsCook.java', 'beluslan/_2512FoodforRemotePlaces.java', 'beluslan/_2513TheStrangeCottage.java',
+	'beluslan/_2514TheRedManeReport.java', 'beluslan/_2515LeanorsErrand.java', 'beluslan/_2523GrassfortheGraveRobbers.java',
+	'beluslan/_2533BeritrasCurse.java', 'beluslan/_2538CurseoftheWereRibbit.java', 'beluslan/_2539TrystoftheShadow.java',
+	'beluslan/_2553TheBrigadeGeneralsCall.java', 'beluslan/_2564WiththePowerofFlame.java', 'beluslan/_2569TafisFlameScroll.java',
+	'beluslan/_2578ARingforLuck.java', 'beluslan/_2583APoliteRequest.java', 'beluslan/_2600HumongousMalek.java',
+	'beluslan/_2620SummoningPhagrasul.java', 'beluslan/_2630TheDutifulSpy.java', 'beluslan/_2633DestroyingBalaurWeapons.java',
+	'beluslan/_2641PowwowWiththeMau.java', 'beluslan/_2646TheInscrutableStranger.java', 'beluslan/_2651SpyAFriendsWhereabouts.java',
+	'beluslan/_2653SpyFindingBollvig.java', 'beluslan/_2654SpyTheLastPersuasion.java', 'beluslan/_2663AcquiringanAntidote.java',
+	'beluslan/_2664AnAntidotetotheLepharists.java', 'beluslan/_2669AtlaEscape.java', 'beluslan/_2670TheAncientBook.java',
+	'beluslan/_26909TribalEmblems.java', 'beluslan/_2692BrokenMusicBox.java', 'beluslan/_2693KrallGoneMad.java',
+	'beluslan/_28600SuspiciousErrand.java', 'beluslan/_28601NightmaresandDreamscapes.java', 'beluslan/_28602IntotheUnknown.java',
+	'beluslan/_4200ASuspiciousCall.java', 'beluslan/_4501DelayedOrder.java', 'beluslan/_4502EssenceOfFate.java',
+	'beluslan/_4542TheSecretoftheSeirenTreasure.java', 'beluslan/_80226ATestinDarkPoeta.java', 'beluslan/_80227ASecondTestinDarkPoeta.java',
+	'beluslan/_80228FinalTestinDarkPoeta.java', 'beluslan/_80229FinalTestinDarkPoeta.java', 'brusthonin/_4001CheckontheSettlers.java',
+	'brusthonin/_4004TheSeedsOfHope.java', 'brusthonin/_4011AnOldSettlersLetter.java', 'brusthonin/_4012TroublesomePromise.java',
+	'brusthonin/_4015TheMissingLaborers.java', 'brusthonin/_4020ParicasSpecialOrder.java', 'brusthonin/_4033ABloominBrusthonin.java',
+	'brusthonin/_4036HeirnirWantstoRest.java', 'brusthonin/_4038AlasPoorGroznak.java', 'brusthonin/_4042MessageinaBottle.java',
+	'brusthonin/_4051BukmirsWorry.java', 'brusthonin/_4052BukmirsOldFriend.java', 'brusthonin/_4053GlossyHoe.java',
+	'brusthonin/_4060TheZombiesDescendant.java', 'brusthonin/_4074GainOrLose.java', 'brusthonin/_4077PorgusRoundup.java',
+	'brusthonin/_4078ALightThroughtheTrees.java', 'brusthonin/_4082GatheringtheHerbPouches.java', 'brusthonin/_4087NoOrdinaryBranch.java',
+	'brusthonin/_4101ElimofBrusthonin.java',
+)
+# Phase 6 step 2, chunk Q06 (lane C, 2026-10-13; docs/deviations/Q06.md): crafting
+SLICE_Q06 = (
+	'crafting/_19000ExpertEssencetappersTest.java', 'crafting/_19001ExpertEssencetappingExpert.java',
+	'crafting/_19002ExpertAethertappersTest.java', 'crafting/_19003ExpertAethertappingExpert.java',
+	'crafting/_19008MasterWeaponsmithsPotential.java', 'crafting/_19014MasterArmorsmithsPotential.java',
+	'crafting/_19020MasterTailorsPotential.java', 'crafting/_19026MasterHandicraftersPotential.java',
+	'crafting/_19032MasterAlchemistsPotential.java', 'crafting/_19038MasterCooksPotential.java',
+	'crafting/_19052ExpertPassionforConstruction.java', 'crafting/_19053ExpertExpertofConstruction.java',
+	'crafting/_19055ExpertConstructorsFinalExam.java', 'crafting/_19057MasterConstructorsPotential.java',
+	'crafting/_1972ExpertPassionforWeaponsmithing.java', 'crafting/_1973ExpertExpertofWeaponsmithing.java',
+	'crafting/_1974ExpertPassionforArmorsmithing.java', 'crafting/_1975ExpertExpertofArmorsmithing.java',
+	'crafting/_1976ExpertPassionforHandicrafting.java', 'crafting/_1977ExpertExpertofHandicrafting.java',
+	'crafting/_1978ExpertPassionforCooking.java', 'crafting/_1979ExpertExpertofCooking.java', 'crafting/_1980ExpertPassionforAlchemy.java',
+	'crafting/_1981ExpertExpertofAlchemy.java', 'crafting/_1982ExpertAPassionForTailoring.java',
+	'crafting/_1983ExpertExpertofTailoring.java', 'crafting/_29000ExpertEssencetappersTest.java',
+	'crafting/_29001ExpertEssencetappingExpert.java', 'crafting/_29002ExpertAethertappersTest.java',
+	'crafting/_29003ExpertAethertappingExpert.java', 'crafting/_29008MasterWeaponsmithsPotential.java',
+	'crafting/_29014MasterArmorsmithsPotential.java', 'crafting/_29020MasterTailorsPotential.java',
+	'crafting/_29026MasterHandicraftersPotential.java', 'crafting/_29032MasterAlchemistsPotential.java',
+	'crafting/_29038MasterCooksPotential.java', 'crafting/_29052ExpertPassionforConstruction.java',
+	'crafting/_29053ExpertExpertofConstruction.java', 'crafting/_29055ExpertConstructorsFinalExam.java',
+	'crafting/_29057MasterConstructorsPotential.java', 'crafting/_2972ExpertWeaponsmithsTest.java',
+	'crafting/_2973ExpertWeaponsmithsFinalExam.java', 'crafting/_2974ExpertArmorsmithsTest.java',
+	'crafting/_2975ExpertArmorsmithsFinalExam.java', 'crafting/_2976ExpertHandicraftersTest.java',
+	'crafting/_2977ExpertHandicraftersFinalExam.java', 'crafting/_2978ExpertCooksTest.java', 'crafting/_2979ExpertCooksFinalExam.java',
+	'crafting/_2980ExpertAlchemistsTest.java', 'crafting/_2981ExpertAlchemistsFinalExam.java', 'crafting/_2982ExpertTailorsTest.java',
+	'crafting/_2983ExpertTailorsFinalExam.java',
+)
+SLICE = SLICE_TIER_A + SLICE_ROUTE + SLICE_Q03 + SLICE_Q10 + SLICE_Q08 + SLICE_Q01 + SLICE_Q02 + SLICE_Q14 + SLICE_Q13 + SLICE_Q11 + SLICE_Q05 + SLICE_Q09 + SLICE_Q07 + SLICE_Q12 + SLICE_Q04 + SLICE_Q06
 
 ENUM_FILES = {'QuestStatus': 'questEngine/model/QuestStatus.java', 'Race': 'model/Race.java', 'PlayerClass': 'model/PlayerClass.java',
               'Gender': 'model/Gender.java', 'HandlerResult': 'questEngine/handlers/HandlerResult.java', 'DialogPage': 'model/DialogPage.java',
@@ -665,6 +785,10 @@ HELPERS = {
 	'QuestService.collectItemCheck': ('item', ('inventory',)), 'QuestService.abandonQuest': ('quest', ('all',)),
 	'super.onDialogEvent': ('dialog', ('all',)),
 }
+# the crafting quests (chunk Q06, lane C, 2026-10-13): the two CraftSkillUpdateService predicates their dialogs ask (craft_predicate)
+# and the kinah item (Storage.getKinah: ItemId.KINAH)
+KINAH_ITEM = 182400001
+CRAFT_PREDICATES = ('canLearnMoreExpertCraftingSkill', 'canLearnMoreMasterCraftingSkill')
 # helper arguments that are the hook's own env or player are left out of the recorded arguments
 IMPLICIT = (O('env'), O('player'))
 # Java varargs helpers (AbstractQuestHandler.java:988, :1047): an int[] passed as the varargs parameter is the same call as its elements
@@ -702,6 +826,11 @@ OWNER_CORRECTIONS = {
 	'inggison/_11008LetterOfEncouragement.java': {
 		100: ('defaultOnLevelChangedEvent(player, 11008);', 'defaultOnLevelChangedEvent(player);',
 		      "named the quest itself as its pre-quest (owner's decision 2026-10-05)")},
+	# the owner's decision of 2026-10-13 (both branches; docs/deviations/Q07.md): the start dialog asked for the mace of _30343 instead of
+	# the item quest_data.xml collects for the Aethercannon (formerly questgen's KNOWN_JAVA_BUGS)
+	'beshmundir/_30348ImprovedAethercannon.java': {
+		41: ('getItemCountByItemId(100100716)', 'getItemCountByItemId(101900655)',
+		     "required _30343's mace 100100716; quest_data.xml collects 101900655 (owner's decision 2026-10-13)")},
 }
 
 
@@ -762,7 +891,11 @@ class Extractor:
 		"""constant fields: a final one, or one no method writes (the handler is a singleton; a written field is per-player state)"""
 		written = {a.name for m in self.td.methods if m.body is not None for a in m.body.assignments() if not a.local}
 		out = self.consts
+		static_sets = self.static_sets()
 		for f in self.td.fields:
+			if f.initializer is None and f.name in static_sets:
+				out[f.name] = K(static_sets[f.name])
+				continue
 			if f.initializer is None or ('final' not in f.modifiers and f.name in written):
 				out[f.name] = Unsupported(f'field {f.name} is written or has no initializer')
 				continue
@@ -782,6 +915,54 @@ class Extractor:
 				continue
 			out[f.name] = vals[0][1]
 
+	def static_sets(self):
+		"""the butler quests 18806, 18821, 18828, 28806, 28821, 28828 (lane C, 2026-10-13): a `static final Set<Integer> X;` filled only by a
+		static initializer `{ X = new HashSet<>(); X.add(<int literal>); ... }` is a constant tuple in the order of the adds (Java's HashSet
+		order only orders independent npc registrations there); X -> values. Its Iterator loop is a for-each (exec_stmts)"""
+		out = {}
+		tx = self.cu.tokens.text
+		for ini in self.td.initializers:
+			if not ini.static:
+				continue
+			toks = [tx[i] for i in range(ini.body.start, ini.body.end)]
+			if len(toks) < 11 or toks[0] != '{' or toks[-1] != '}' or toks[2:10] != ['=', 'new', 'HashSet', '<', '>', '(', ')', ';']:
+				continue
+			name, rest, values = toks[1], toks[10:-1], []
+			while len(rest) >= 7 and rest[:4] == [name, '.', 'add', '('] and rest[5:7] == [')', ';'] and rest[4].isdigit():
+				values.append(int(rest[4]))
+				rest = rest[7:]
+			f = next((x for x in self.td.fields if x.name == name), None)
+			if rest or not values or f is None or f.initializer is not None or not {'static', 'final'} <= set(f.modifiers) \
+					or f.type.name != 'Set':
+				continue
+			out[name] = tuple(values)
+		return out
+
+	def iterator_loops(self, stmts):
+		"""`Iterator<Integer> it = X.iterator(); while (it.hasNext()) { int v = it.next(); rest }` over a constant X as one
+		`for (int v : X) { rest }` (the static-set shape, static_sets)"""
+		out = []
+		k = 0
+		while k < len(stmts):
+			s = stmts[k]
+			w = stmts[k + 1] if k + 1 < len(stmts) else None
+			if isinstance(s, jast.Local) and s.type.name == 'Iterator' and len(s.decls) == 1 and isinstance(w, jast.While) \
+					and isinstance(w.body, jast.Block) and w.body.stmts:
+				it, _d, init, _t = s.decls[0]
+				first = w.body.stmts[0]
+				c = w.cond
+				if isinstance(init, jast.Call) and init.name == 'iterator' and isinstance(init.target, jast.Name) \
+						and isinstance(self.consts.get(init.target.name), K) and isinstance(c, jast.Call) and c.name == 'hasNext' \
+						and isinstance(c.target, jast.Name) and c.target.name == it and isinstance(first, jast.Local) \
+						and len(first.decls) == 1 and isinstance(first.decls[0][2], jast.Call) and first.decls[0][2].name == 'next':
+					body = jast.Block(w.body.tok, w.body.last, w.body.stmts[1:])
+					out.append(jast.ForEach(s.tok, w.last, first.type, first.decls[0][0], init.target, body))
+					k += 2
+					continue
+			out.append(s)
+			k += 1
+		return out
+
 	def constant_list(self, f):
 		"""the owner's decision of 2026-10-07 on pangaea 14220/24220: a `static final List<Integer> X = new ArrayList<>(Arrays.asList(<int
 		literals>))` the file only iterates (`for (int x : X)`) and asks `X.contains(v)` is a constant tuple (nothing changes it); None
@@ -792,9 +973,12 @@ class Extractor:
 		tx = self.cu.tokens.text
 		toks = [tx[i] for i in range(f.initializer.start, f.initializer.end)]
 		head = ['new', 'ArrayList', '<', '>', '(', 'Arrays', '.', 'asList', '(']
-		if toks[:len(head)] != head or toks[-2:] != [')', ')']:
+		if toks[:len(head)] == head and toks[-2:] == [')', ')']:
+			items = toks[len(head):-2]
+		elif toks[:4] == ['Arrays', '.', 'asList', '('] and toks[-1:] == [')']:
+			items = toks[4:-1]                         # `Arrays.asList(...)` alone (the butler quests 18830 / 28830)
+		else:
 			return None
-		items = toks[len(head):-2]
 		if len(items) % 2 != 1 or any(not v.isdigit() for v in items[0::2]) or any(c != ',' for c in items[1::2]):
 			return None
 		for i, x in enumerate(tx):
@@ -913,6 +1097,7 @@ class Extractor:
 
 	# -- statements -----------------------------------------------------------------------------------------------------------------
 	def exec_stmts(self, stmts, p):
+		stmts = self.iterator_loops(stmts)
 		outs = [('normal', p, None)]
 		for s in stmts:
 			nxt = []
@@ -1173,7 +1358,8 @@ class Extractor:
 			return Dom(lo=0, hi=63)                 # QuestVars: six 6-bit slots (QuestVars.java:22-58)
 		if head in ('inv', 'completeCount'):
 			return Dom(lo=0)
-		if head in ('canRepeat',) or key in (('env', 'continuation'), ('player', 'mentor'), ('player', 'inGroup'), ('player', 'mentorInRange')):
+		if head in ('canRepeat', 'recipe') or key in (('env', 'continuation'), ('player', 'mentor'), ('player', 'inGroup'), ('player', 'mentorInRange'),
+		                                     ('player', 'fullSpecialCube')):
 			return Dom((True, False))
 		if key == ('player', 'race'):
 			return Dom(tuple(Enum('Race', n) for n in ('ELYOS', 'ASMODIANS')))
@@ -1191,7 +1377,7 @@ class Extractor:
 		if key in p.state:
 			return p.state[key]
 		by = p.clobbered.get(category(key)) or p.clobbered.get(('all',))
-		if by is not None:
+		if by is not None and not self.collect_check_false_only(p, key):
 			raise Unsupported(f'reads {"/".join(map(str, key))} after {by}, which may have written it')
 		if default is not None:
 			return default
@@ -1209,6 +1395,23 @@ class Extractor:
 			v = p.state[('env', 'questId')]
 			return v.v if isinstance(v, K) and isinstance(v.v, int) and not isinstance(v.v, bool) else None
 		return None if ('all',) in p.clobbered else self.qid
+
+	def collect_check_false_only(self, p, key):
+		"""chunk Q06 (lane C, 2026-10-14): an item count read after QuestService.collectItemCheck is the count before it when the path
+		assumed every collectItemCheck of it false and no other effect of the path may write the inventory: collectItemCheck returns false
+		only before its first write (QuestService.java:557-599: each `return false` precedes the removals, which follow the checks)"""
+		if key[0] != 'inv':
+			return False
+		found = False
+		for k, (call, _args, _kind, _line) in enumerate(p.effects):
+			cats = HELPERS.get(call, (None, ()))[1]
+			if call == 'QuestService.collectItemCheck':
+				if p.assume.get(k) is not False:
+					return False
+				found = True
+			elif 'inventory' in cats or 'all' in cats or call.startswith('inventory.'):
+				return False
+		return found
 
 	def clobber(self, p, helper, cats):
 		"""after a helper whose Java body may write these categories, their values are unknown: a later read refuses the hook. 'quest'
@@ -1687,8 +1890,9 @@ class Extractor:
 				self.write(p, ('env', 'questId') if name == 'setQuestId' else ('dialog',), args[0])
 				return [(p, K(None))]
 		if o == 'player':
-			if name in ('getQuestStateList', 'getInventory', 'getCommonData'):
-				return [(p, O({'getQuestStateList': 'qsl', 'getInventory': 'inventory', 'getCommonData': 'player'}[name]))]
+			if name in ('getQuestStateList', 'getInventory', 'getCommonData', 'getSkillList', 'getRecipeList'):
+				return [(p, O({'getQuestStateList': 'qsl', 'getInventory': 'inventory', 'getCommonData': 'player',
+				               'getSkillList': 'skillList', 'getRecipeList': 'recipeList'}[name]))]
 			attr = {'getRace': 'race', 'getLevel': 'level', 'getPlayerClass': 'class', 'getGender': 'gender', 'isMentor': 'mentor',
 			        'getWorldId': 'worldId'}.get(name)
 			if attr is not None:
@@ -1714,6 +1918,24 @@ class Extractor:
 				return [(p, self.read(p, ('var', o[1], self.const_int(args[0], 'a var slot'))))]
 			if name == 'setVarById':
 				return self.quest_state(o[1], 'setQuestVarById', args, p, e)
+		# chunk Q06 (lane C, 2026-10-13): the crafting quests' last calls. Storage.getKinah() is the count of the kinah item (Storage.java:
+		# kinahItem, item 182400001), an inventory input like any item's; decreaseKinah(amount) an effect on it (the replay calls it);
+		# isFullSpecialCube() an input (ItemStorage.java: the special-cube items against the cube's special limit)
+		if o == 'inventory' and name == 'getKinah' and not args:
+			return [(p, self.read(p, ('inv', KINAH_ITEM)))]
+		if o == 'inventory' and name == 'decreaseKinah' and len(args) == 1:
+			self.effect(p, 'inventory.decreaseKinah', args, 'item', e)
+			self.clobber(p, 'inventory.decreaseKinah', ('inventory',))
+			return [(p, K(None))]
+		if o == 'inventory' and name == 'isFullSpecialCube' and not args:
+			return [(p, self.read_input(p, ('player', 'fullSpecialCube')))]
+		if o == 'recipeList' and name == 'isRecipePresent' and len(args) == 1:
+			# RecipeList.isRecipePresent(recipeId): an input per recipe (the harness gives the quester the recipes the case names)
+			return [(p, self.read_input(p, ('recipe', self.const_int(args[0], 'a recipe id'))))]
+		if o == 'skillList' and name == 'addSkill' and len(args) == 3 and args[0] == O('player'):
+			# SkillList.addSkill(player, skillId, level) (PlayerSkillList.java): an effect the replay calls; its boolean result is not read
+			k = self.effect(p, 'skillList.addSkill', args[1:], 'packet', e)
+			return [(p, Res(k))]
 		if o == 'inventory' and name == 'getItemCountByItemId':
 			return [(p, self.read(p, ('inv', self.const_int(args[0], 'an item id'))))]
 		if o == 'inventory' and name == 'decreaseByObjectId' and len(args) == 2:
@@ -1721,6 +1943,8 @@ class Extractor:
 			k = self.effect(p, 'inventory.decreaseByObjectId', args, 'item', e)
 			self.clobber(p, 'inventory.decreaseByObjectId', ('inventory',))
 			return [(p, Res(k))]
+		if o == 'craftSkill' and name in CRAFT_PREDICATES and len(args) == 1 and args[0] == O('player'):
+			return self.craft_predicate(name, p, e)
 		if o == 'housing' and name == 'registerPlayerStudio' and len(args) == 1 and args[0] == O('player'):
 			# HousingService.registerPlayerStudio(player) (HousingService.java: createStudio(player, false)): an effect the replay calls
 			self.effect(p, 'HousingService.registerPlayerStudio', [], 'housing', e)
@@ -1849,6 +2073,8 @@ class Extractor:
 			return [(p, O('threadPool'))]
 		if cls == 'HousingService' and name == 'getInstance' and not e.args:
 			return [(p, O('housing'))]                  # the studio quests 18802 / 28802 (chunk Q05's rest, row B47 of questgen)
+		if cls == 'CraftSkillUpdateService' and name == 'getInstance' and not e.args:
+			return [(p, O('craftSkill'))]               # the crafting quests (chunk Q06, lane C, 2026-10-13): craft_predicate
 		if cls == 'PacketSendUtility' and name == 'broadcastPacket':
 			# PacketSendUtility.broadcastPacket(player, packet, toSelf) (PacketSendUtility.java:88-93): the player's known players and, with
 			# toSelf, the player; the quester has no other player in sight in a harness, so only toSelf shows
@@ -1859,6 +2085,21 @@ class Extractor:
 				return [(q, K(None))]
 			return self.after_args(e, p, broadcast)
 		raise Unsupported(f'call {cls}.{name}')
+
+	def craft_predicate(self, name, p, e):
+		"""CraftSkillUpdateService.canLearnMoreExpertCraftingSkill / canLearnMoreMasterCraftingSkill(player) (CraftSkillUpdateService.java:
+		159-176): true while the player's expert-or-master (master) crafting skills number fewer than CraftConfig's maximum; false after it
+		sends the player a message (PacketSendUtility.sendMessage). An effect with an assumed result, each result a case (as
+		QuestService.startQuest's); the harness makes either one with the quester's crafting skills (no skill, or the maxima mastered) and its
+		replay calls the service itself, message included. Writes no state a quest path reads"""
+		k = self.effect(p, f'CraftSkillUpdateService.{name}', [], 'packet', e)
+		outs = []
+		for b in (True, False):
+			r = p.fork()
+			r.assume[k] = b
+			r.guards.append((self.line(e), self.jtext(e), b))
+			outs.append((r, K(b)))
+		return outs
 
 	def new(self, e, p):
 		cls = e.type.name
@@ -2130,6 +2371,8 @@ class Extractor:
 					st[head] = v
 			elif head == 'inv':
 				g.setdefault('inventory', {})[str(key[1])] = v
+			elif head == 'recipe':
+				g.setdefault('recipes', {})[str(key[1])] = v
 			elif head in ('player', 'env', 'item'):
 				g.setdefault(head, {})[key[1]] = v.name if isinstance(v, Enum) else v
 			elif head == 'arg':

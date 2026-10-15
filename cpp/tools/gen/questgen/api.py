@@ -244,6 +244,9 @@ API_TABLE = (
     # M5h studio cases need them; docs/deviations/Q05.md)
     Row('B47', 'housing: HousingService.getInstance().registerPlayerStudio', (('HousingService', 'getInstance'),
         ('HousingService', 'registerPlayerStudio')), 'ported'),
+    # B48 (lane C, 2026-10-08, lane B's finding): the butler quests' house and butler (Player.cpp, House.h); they were refused as
+    # api-missing because the members were outside the vocabulary, not because a header missed them
+    Row('B48', 'houses: Player.getActiveHouse, House.getButler', (('Player', 'getActiveHouse'), ('House', 'getButler')), 'ported'),
 )
 
 # the static data holders of DataManager a handler reads (row B39): Java field -> (the C++ class it holds, its header). The C++ field is a

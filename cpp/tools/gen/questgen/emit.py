@@ -101,8 +101,6 @@ LIST_MUTATORS = frozenset('add addAll addFirst addLast remove removeAll removeIf
 # Java logic bugs a faithful transliteration keeps (phase6-inventory.md §11; decision U3: a faithful port plus a note): file -> {Java line
 # of the statement: note}. The note goes before that statement as a `// java-bug kept` comment and into the report.
 KNOWN_JAVA_BUGS = {
-    'beshmundir/_30348ImprovedAethercannon.java': {
-        41: 'requires 100100716 (the item of _30343ImprovedMace.java:41); quest_data.xml collects 101900655'},
     'sanctum/_3963GrowthFlorasThirdCharm.java': {
         70: 'tryDecreaseKinah on the line above already took the kinah (Storage.java:82-88); this takes it a second time'},
     'sanctum/_3964GrowthFlorasFourthCharm.java': {
@@ -130,6 +128,11 @@ OWNER_CORRECTIONS = {
     'inggison/_11008LetterOfEncouragement.java': {
         100: ('defaultOnLevelChangedEvent(player, 11008);', 'defaultOnLevelChangedEvent(player);',
               "named the quest itself as its pre-quest (owner's decision 2026-10-05)")},
+    # the owner's decision of 2026-10-13 (both branches; docs/deviations/Q07.md): the start dialog asked for the mace of _30343 instead
+    # of the item quest_data.xml collects for the Aethercannon (formerly KNOWN_JAVA_BUGS)
+    'beshmundir/_30348ImprovedAethercannon.java': {
+        41: ('getItemCountByItemId(100100716)', 'getItemCountByItemId(101900655)',
+             "required _30343's mace 100100716; quest_data.xml collects 101900655 (owner's decision 2026-10-13)")},
 }
 CORRECTION_MARK = '// correction of the Java code: '
 
@@ -346,7 +349,10 @@ class Transliterator:
             self.fail('base-class', f'{td.kind} {td.name} extends {td.extends[0] if td.extends else "-"}', td.index)
         for t in td.types:
             self.refuse(Unsupported('inner-class', f'{t.kind} {t.name}', t.index))
+        self.static_sets = {}
         for ini in td.initializers:
+            if 'constant-list' in self.rules and ini.static and self.static_set(ini, td):
+                continue
             self.refuse(Unsupported('initializer', 'static' if ini.static else 'instance', ini.body.start))
         # single static imports other than DialogAction (SM_SYSTEM_MESSAGE.STR_MSG_DailyQuest_Ask_Mentee): member -> class
         self.static_imports = {}
@@ -425,6 +431,15 @@ class Transliterator:
     def field(self, f, assigned):
         mods = set(f.modifiers)
         name = f.name
+        if f.initializer is None and name in getattr(self, 'static_sets', {}) and 'constant-list' in self.rules:
+            values = self.static_sets[name]
+            cpp = cpp_ident(name)
+            self.std_includes.add('array')
+            decl = f'static constexpr std::array<int32_t, {len(values)}> {cpp}{{{", ".join(values)}}};'
+            self.members[name] = Var(name, cpp, CT('array', 'int32_t', size=len(values)), 'const', origin='constant-list')
+            self.consts.append((name, decl, f.index, ''))
+            self.r.idioms['constant Set<Integer> filled by a static initializer as a std::array'] += 1
+            return
         if f.initializer is None:
             self.fail('mutable-field' if 'final' not in mods else 'field-initializer', f'{f.type} {name} (no initializer)', f.index)
         if 'final' not in mods and name in assigned:
@@ -462,9 +477,73 @@ class Transliterator:
         self.members[name] = Var(name, cpp, ct, 'const')
         self.consts.append((name, decl + comment, f.index, f.initializer.text.strip()))
 
+    def static_set(self, ini, td):
+        """rule constant-list, the static-set shape (the butler quests 18806, 18821, 18828, 28806, 28821, 28828): a `static final
+        Set<Integer> X;` filled only by a static initializer `{ X = new HashSet<>(); X.add(<int literal>); ... }`, used elsewhere only as
+        `X.contains(v)` or as `Iterator<Integer> it = X.iterator(); while (it.hasNext()) { int v = it.next(); ... }` (stmts: a range-for), is
+        a constant. The order of the array is the order of the adds; Java's HashSet iterates in its hash order, which for these quests only
+        orders independent npc registrations. True when the initializer is consumed (field() then emits the array)."""
+        tx = self.cu.tokens.text
+        toks = [tx[i] for i in range(ini.body.start, ini.body.end)]
+        if len(toks) < 10 or toks[0] != '{' or toks[-1] != '}':
+            return False
+        name = toks[1]
+        if toks[2:10] != ['=', 'new', 'HashSet', '<', '>', '(', ')', ';']:
+            return False
+        rest = toks[10:-1]
+        values = []
+        while rest:
+            if len(rest) < 7 or rest[:4] != [name, '.', 'add', '('] or rest[5:7] != [')', ';'] or not rest[4].isdigit():
+                return False
+            values.append(rest[4])
+            rest = rest[7:]
+        f = next((x for x in td.fields if x.name == name), None)
+        if f is None or f.initializer is not None or not {'static', 'final'} <= set(f.modifiers) or f.type.name != 'Set' \
+                or not f.type.args or len(f.type.args) != 1 or getattr(f.type.args[0], 'name', None) != 'Integer' or not values:
+            return False
+        for i, x in enumerate(tx):
+            if x != name or ini.body.start <= i < ini.body.end or f.index <= i <= f.index + 8:
+                continue
+            if tx[i - 1] == '.':
+                return False
+            if not (tx[i + 1:i + 4] == ['.', 'contains', '('] or tx[i + 1:i + 5] == ['.', 'iterator', '(', ')']):
+                return False
+        self.static_sets[name] = values
+        return True
+
+    def set_iterator_loop(self, stmts, k):
+        """stmts[k] is `Iterator<Integer> it = X.iterator();` over a static set and stmts[k + 1] `while (it.hasNext()) { int v = it.next();
+        ... }`, with `it` used nowhere else: (the loop variable v, the set's Var, the remaining body statements), else None"""
+        if k + 1 >= len(stmts):
+            return None
+        s, w = stmts[k], stmts[k + 1]
+        if not isinstance(s, jast.Local) or s.type.name != 'Iterator' or len(s.decls) != 1 or not isinstance(w, jast.While):
+            return None
+        it, _d, init, _t = s.decls[0]
+        if not (isinstance(init, jast.Call) and init.name == 'iterator' and not init.args and isinstance(init.target, jast.Name)):
+            return None
+        v = self.lookup_var(init.target.name)
+        if v is None or v.origin != 'constant-list':
+            return None
+        c = w.cond
+        if not (isinstance(c, jast.Call) and c.name == 'hasNext' and not c.args and isinstance(c.target, jast.Name) and c.target.name == it):
+            return None
+        if not isinstance(w.body, jast.Block) or not w.body.stmts:
+            return None
+        first = w.body.stmts[0]
+        if not (isinstance(first, jast.Local) and first.type.name == 'int' and len(first.decls) == 1):
+            return None
+        var, _d2, nxt, _t2 = first.decls[0]
+        if not (isinstance(nxt, jast.Call) and nxt.name == 'next' and not nxt.args and isinstance(nxt.target, jast.Name) and nxt.target.name == it):
+            return None
+        for x in jast.walk_exprs(w.body.stmts[1:]):
+            if isinstance(x, jast.Name) and x.name == it:
+                return None
+        return var, v, w.body
+
     def constant_list(self, f, mods):
         """rule constant-list (phase6-transliterator.md §12): a `private static final List<Integer> X = new ArrayList<>(Arrays.asList(1,
-        2, ...))` of int literals that the file only iterates (`for (int x : X)`) and asks `X.contains(v)` is a constant: nothing can change
+        2, ...))` (or `Arrays.asList(1, 2, ...)` alone) of int literals that the file only iterates (`for (int x : X)`) and asks `X.contains(v)` is a constant: nothing can change
         it, so it is `static constexpr std::array<int32_t, N> X{...}` and `X.contains(v)` is `std::ranges::contains(X, v)` (List.contains
         unboxes nothing here: Integer.equals of the boxed int, value equality). Anything else (a mutator, the list passed on, read by
         index, another initializer) keeps the 'generic-type' refusal: the shape of reshanta/_2759's per-player list. True when emitted."""
@@ -476,9 +555,12 @@ class Transliterator:
         s, end = f.initializer.start, f.initializer.end
         toks = [tx[i] for i in range(s, end)]
         head = ['new', 'ArrayList', '<', '>', '(', 'Arrays', '.', 'asList', '(']
-        if toks[:len(head)] != head or toks[-2:] != [')', ')']:
+        if toks[:len(head)] == head and toks[-2:] == [')', ')']:
+            items = toks[len(head):-2]
+        elif toks[:4] == ['Arrays', '.', 'asList', '('] and toks[-1:] == [')']:
+            items = toks[4:-1]      # `Arrays.asList(...)` alone (oriel/_18830, pernon/_28830): a fixed-size list, never written here either
+        else:
             return False
-        items = toks[len(head):-2]
         values = items[0::2]
         if not values or any(not re.fullmatch(r'\d+', v) for v in values) or any(c != ',' for c in items[1::2]) or len(items) % 2 != 1:
             return False
@@ -743,7 +825,23 @@ class Transliterator:
     # =================================================================================================================================
     def stmts(self, stmts, depth):
         out = []
-        for s in stmts:
+        skip = set()
+        for k, s in enumerate(stmts):
+            if k in skip:
+                continue
+            loop = self.set_iterator_loop(stmts, k) if 'constant-list' in self.rules else None
+            if loop is not None:
+                var, setv, block = loop
+                skip.add(k + 1)
+                out += self.leading(s.tok, depth)
+                self.local_scope.append({var: Var(var, cpp_ident(var), INT)})
+                inner = self.stmts(block.stmts[1:], depth + 1) + self.leading(block.last, depth + 1)
+                self.local_scope.pop()
+                self.r.idioms['Iterator loop over a constant set as a range-for'] += 1
+                out.append('\t' * depth + f'for (int32_t {cpp_ident(var)} : {setv.cpp}) {{')
+                out += inner
+                out.append('\t' * depth + '}')
+                continue
             out += self.leading(s.tok, depth)
             out += self.java_bug_note(s, depth)
             try:

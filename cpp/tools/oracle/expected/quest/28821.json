@@ -1,0 +1,22 @@
+{
+ "format": "aion-quest-trace",
+ "version": 1,
+ "questId": 28821,
+ "java": "pernon/_28821YourButlerGift.java",
+ "class": "_28821YourButlerGift",
+ "javaSha256": "45622e18400dae86c7bb503ee5967ce228aa25f37d5e149834e664a02791882f",
+ "register": [
+  {"npc": 810022, "event": "addOnQuestStart", "args": [28821]},
+  {"npc": 810022, "event": "addOnTalkEvent", "args": [28821]},
+  {"npc": 810023, "event": "addOnQuestStart", "args": [28821]},
+  {"npc": 810023, "event": "addOnTalkEvent", "args": [28821]},
+  {"npc": 810024, "event": "addOnQuestStart", "args": [28821]},
+  {"npc": 810024, "event": "addOnTalkEvent", "args": [28821]},
+  {"npc": 810025, "event": "addOnQuestStart", "args": [28821]},
+  {"npc": 810025, "event": "addOnTalkEvent", "args": [28821]},
+  {"npc": 810026, "event": "addOnQuestStart", "args": [28821]},
+  {"npc": 810026, "event": "addOnTalkEvent", "args": [28821]}
+ ],
+ "hooks": [{"hook": "onDialogEvent", "line": 47, "unsupported": "call player.getActiveHouse()"}],
+ "cases": []
+}

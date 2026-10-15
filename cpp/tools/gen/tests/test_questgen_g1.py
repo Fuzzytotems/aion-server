@@ -76,10 +76,18 @@ MENTOR_FILES = tuple(f'{d}/{f}.java' for d, fs in (
                         '_37110MyYoungApprentice', '_37113AsmoICU')),
     ('the_circle', ('_47100WardsAndWardOrbs', '_47103AGlobeTrottingLesson', '_47106TurningUpTheAmplifiers', '_47107WardsAndWardOrbs',
                     '_47110AGlobeTrottingLesson', '_47113TurningUpTheAmplifiers'))) for f in fs)
-CONSTANT_LIST_FILES = ('pangaea/_14220NewZoneNewRules.java', 'pangaea/_24220WelcometoPanesterra.java')
+CONSTANT_LIST_FILES = ('pangaea/_14220NewZoneNewRules.java', 'pangaea/_24220WelcometoPanesterra.java',
+                       # `Arrays.asList(...)` alone, with row B48 (the butler quests, lane C, 2026-10-08)
+                       'oriel/_18830MovingIn.java', 'pernon/_28830InteriorDecorator.java',
+                       # a static final Set<Integer> filled by a static initializer, iterated with an Iterator (lane C, 2026-10-12)
+                       'oriel/_18806HeartofRock.java', 'oriel/_18821AlmostForgotMyBlessings.java', 'oriel/_18828UserFriendly.java',
+                       'pernon/_28806WiltingFlowersFallingTears.java', 'pernon/_28821YourButlerGift.java',
+                       'pernon/_28828TheManyFacetsOfFriendship.java')
 ROW_FILES['B46'] = MENTOR_FILES
 # row B47 (chunk Q05's rest, lane C, 2026-10-08): the studio of the housing quests (lane B's M5h studio cases)
 ROW_FILES['B47'] = ('oriel/_18802AndAHomeforEveryDaeva.java', 'pernon/_28802BeItEverSoHumble.java')
+# row B48 (lane C, 2026-10-08, lane B's finding): Player.getActiveHouse and House.getButler; with rule constant-list
+ROW_FILES['B48'] = ('oriel/_18830MovingIn.java', 'pernon/_28830InteriorDecorator.java')
 
 ITEM_USE = source('_99101Closures', 99101, '''
 	@Override
@@ -337,9 +345,11 @@ class Corpus(unittest.TestCase):
         # files and the other two (B33). Row B39 (the Q08 follow-up, 2026-10-05) adds its file to both, rows B40-B42 (chunk Q01, the
         # same day) their six, rows B43-B44 (chunk Q02) their two, row B45 (chunk Q14) its one; rules stream-any-match (row B46) and
         # constant-list (the owner's decisions on Q14, 2026-10-07) their 18 and 2, with the G1 rules only; row B47 (chunk Q05's rest,
-        # 2026-10-08) its two, in both sets
+        # 2026-10-08) its two, in both sets; row B48 with rule constant-list's `Arrays.asList` (the butler quests, 2026-10-08) two, with
+        # the G1 rules only
         self.assertEqual(sum(1 for r in self.p6t.values() if r.status == 'ok'), 955)
-        self.assertEqual(sum(1 for r in self.all.values() if r.status == 'ok'), 1004)
+        # rule constant-list's static-set shape (the six butler quests, lane C, 2026-10-12) its six, with the G1 rules only
+        self.assertEqual(sum(1 for r in self.all.values() if r.status == 'ok'), 1012)
         for rid, rels in ROW_FILES.items():
             for rel in rels:
                 self.assertIn(rid, self.all[rel].api_rows)
@@ -475,3 +485,15 @@ class OwnerDecisionsQ14(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class StaticSet(unittest.TestCase):
+    """rule constant-list's static-set shape (lane C, 2026-10-12): the six butler quests"""
+
+    def test_the_set_is_an_array_and_the_iterator_loop_a_range_for(self):
+        r = transliterator(ALL).transliterate(QUEST / 'oriel/_18806HeartofRock.java')
+        self.assertEqual(r.status, 'ok', r.reasons)
+        self.assertIn('static constexpr std::array<int32_t, 5> butlers{810017, 810018, 810019, 810020, 810021};', r.cpp)
+        self.assertIn('\t\tfor (int32_t butlerId : butlers) {\n\t\t\tqe.registerQuestNpc(butlerId)->addOnQuestStart(questId);', r.cpp)
+        self.assertIn('std::ranges::contains(butlers, targetId)', r.cpp)
+        self.assertEqual(transliterator(P6T).transliterate(QUEST / 'oriel/_18806HeartofRock.java').status, 'refused')

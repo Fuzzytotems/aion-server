@@ -72,6 +72,7 @@
 #include <sstream>
 #include <string>
 #include <tuple>
+#include <unordered_set>
 #include <vector>
 
 #include <gtest/gtest.h>
@@ -84,6 +85,7 @@
 #include "GoldenKnownVacuousQ10.h"
 
 #include "aion/commons/utils/Rnd.h"
+#include "aion/gameserver/configs/main/CraftConfig.h"
 #include "aion/gameserver/configs/main/CustomConfig.h"
 #include "aion/gameserver/configs/main/GroupConfig.h"
 #include "aion/gameserver/configs/main/MembershipConfig.h"
@@ -92,6 +94,9 @@
 #include "aion/gameserver/model/gameobjects/player/QuestStateList.h"
 #include "aion/gameserver/model/gameobjects/player/RecipeList.h"
 #include "aion/gameserver/model/gameobjects/player/npcFaction/NpcFactions.h"
+#include "aion/gameserver/dataholders/SkillData.h"
+#include "aion/gameserver/model/craft/ProfessionInfo.h"
+#include "aion/gameserver/model/skill/PlayerSkillEntry.h"
 #include "aion/gameserver/model/skill/PlayerSkillList.h"
 #include "aion/gameserver/model/team/TeamType.h"
 #include "aion/gameserver/model/team/group/PlayerGroup.h"
@@ -109,6 +114,7 @@
 #include "aion/gameserver/model/templates/rewards/BonusType.h"
 #include "aion/gameserver/services/GameTimeService.h"
 #include "aion/gameserver/services/HousingService.h"
+#include "aion/gameserver/services/craft/CraftSkillUpdateService.h"
 #include "aion/gameserver/services/QuestService.h"
 #include "aion/gameserver/services/BrokerService.h"
 #include "aion/gameserver/utils/PacketSendUtility.h"
@@ -212,6 +218,7 @@ struct GoldenData {
 	std::string questsXml;
 	std::string npcsXml;
 	std::string itemsXml;       // rows to append to the item fixture
+	std::string skillsXml;      // chunk Q06: the gathering and crafting skills' templates (skillList.addSkill), a <skill_data> document
 	std::map<int32_t, QuestRow> quests;
 	std::string experienceXml;  // the whole player_experience_table.xml (P6-Q slice 2: quests up to level 50; the fixture has 26 levels)
 };
@@ -351,6 +358,18 @@ const GoldenData& goldenData() {
 				rows += printed(item);
 		}
 		d.itemsXml = rows;
+		// chunk Q06 (lane C, 2026-10-13): the essence- and aethertapping and crafting skills, whose templates PlayerSkillEntry reads when the
+		// crafting quests' skillList.addSkill adds one (PlayerSkillList.addSkill)
+		const std::set<int32_t> craftSkills{30002, 30003, 40001, 40002, 40003, 40004, 40007, 40008, 40010};
+		pugi::xml_document skillsDoc;
+		if (!skillsDoc.load_file((STATIC_DATA / "skills/skill_templates.xml").c_str()))
+			throw std::runtime_error("cannot read skill_templates.xml");
+		rows.clear();
+		for (pugi::xml_node skill : skillsDoc.document_element().children("skill_template")) {
+			if (craftSkills.contains(skill.attribute("skill_id").as_int()))
+				rows += printed(skill);
+		}
+		d.skillsXml = "<skill_data>" + rows + "</skill_data>";
 		std::ifstream experience(STATIC_DATA / "player_experience_table.xml", std::ios::binary);
 		if (!experience)
 			throw std::runtime_error("cannot read player_experience_table.xml");
@@ -389,10 +408,21 @@ struct Outcome {
 	std::vector<std::vector<uint8_t>> keyPackets;               // SM_DIALOG_WINDOW, SM_QUEST_ACTION, SM_PLAY_MOVIE, SM_ITEM_USAGE_ANIMATION
 	std::map<int32_t, QuestStateRow> questStates;
 	std::map<int32_t, int64_t> inventory;                       // item id -> count
-	bool observable = false;                                    // a packet was sent, or a QuestState or the inventory changed
+	std::map<int32_t, int32_t> skills;                          // skill id -> level (chunk Q06: the crafting quests' skillList.addSkill)
+	bool observable = false;                                    // a packet was sent, or a QuestState, the inventory or the skills changed
 	std::string replayError;                                    // an effect the replay does not model
 	std::set<std::string> unported;                             // the AION_UNPORTED sites the run reached ("file:line function")
 };
+
+/** chunk Q06 (lane C, 2026-10-13): the player's skills and their levels (the crafting quests' skillList.addSkill) */
+std::map<int32_t, int32_t> skillsOf(gameserver::model::gameobjects::player::Player& player) {
+	std::map<int32_t, int32_t> out;
+	for (int32_t skillId : {30002, 30003, 40001, 40002, 40003, 40004, 40007, 40008, 40010}) {
+		if (player.getSkillList()->isSkillPresent(skillId))
+			out[skillId] = player.getSkillList()->getSkillLevel(skillId);
+	}
+	return out;
+}
 
 /** Every AION_UNPORTED site reached so far with its hits (runtime/base/Unported.h), keyed "file:line function" */
 std::map<std::string, uint64_t> unportedSites() {
@@ -409,6 +439,9 @@ struct CaseSetup {
 	bool prerequisites = false; // the quests the start conditions name are COMPLETE
 	bool collectItems = false;  // the quest's collect and inventory items are held in their counts
 	bool questListFull = false; // gameserver.basic.questsize.limit 0 (QuestService.checkQuestListSize fails)
+	// chunk Q06 (lane C, 2026-10-13): the quester holds CraftConfig's maximum of crafting skills at master level (500), so both
+	// CraftSkillUpdateService predicates answer false; without it he holds none and both answer true (extract.py craft_predicate)
+	bool craftMastered = false;
 };
 
 /**
@@ -833,6 +866,8 @@ protected:
 		itemsXml += "</item_templates>";
 		dataholders::DataManager::ITEM_DATA.resetForTests();
 		dataholders::DataManager::ITEM_DATA.publish(xml::bindString<dataholders::ItemData>(contexts.emplace_back(), itemsXml));
+		dataholders::DataManager::SKILL_DATA.resetForTests();
+		dataholders::DataManager::SKILL_DATA.publish(xml::bindString<dataholders::SkillData>(contexts.emplace_back(), data.skillsXml));
 		// the real experience table (QuestHandlerTestSupport.h publishes its first 26 levels): a quester of a level past it throws at creation
 		// ("The given level is higher than possible max", PlayerExperienceTable.getStartExpForLevel), and P6-Q slice 2's quests start at levels up to
 		// 48 (Q03's Heiron) and 50 (Q10's altgard and pandaemonium)
@@ -849,6 +884,7 @@ protected:
 
 	void TearDown() override {
 		dataholders::DataManager::SKILL_TREE_DATA.resetForTests();
+		dataholders::DataManager::SKILL_DATA.resetForTests();
 		configs::main::CustomConfig::BASIC_QUEST_SIZE_LIMIT.store(savedQuestSizeLimit);
 		configs::main::MembershipConfig::QUEST_LIMIT_DISABLED.store(savedQuestLimitDisabled);
 		QuestHandlerTest::TearDown();
@@ -881,7 +917,36 @@ protected:
 		extraQuesters.erase(std::find_if(extraQuesters.begin(), extraQuesters.end(), [&](const auto& q) { return q.get() == quester; }));
 	}
 
-	std::vector<CaseSetup> setupsFor(int32_t questId, const json& given) {
+	/**
+	 * chunk Q06 (lane C, 2026-10-13): a case whose only effects are CraftSkillUpdateService predicates answering true is vacuous by
+	 * construction: a true answer sends nothing (CraftSkillUpdateService.java:159-176), and the crafting quests' dialogs ask it first, at
+	 * every dialog action and target, before their own guards return false (_19052...java:35-36 and the 39 others). Such cases are counted,
+	 * not listed one by one in knownVacuous (480 of them)
+	 */
+	static bool craftAnswerTrueOnly(const json& c) {
+		if (c["effects"].empty() || !c.contains("assume"))
+			return false;
+		for (const json& effect : c["effects"]) {
+			if (!effect.value("call", std::string()).starts_with("CraftSkillUpdateService."))
+				return false;
+		}
+		for (const json& assumption : c["assume"]) {
+			if (!assumption["returns"].get<bool>())
+				return false;
+		}
+		return true;
+	}
+
+	/** a case whose effects ask CraftSkillUpdateService (extract.py craft_predicate) */
+	static bool asksCraftSkills(const json& c) {
+		for (const json& effect : c["effects"]) {
+			if (effect.value("call", std::string()).starts_with("CraftSkillUpdateService."))
+				return true;
+		}
+		return false;
+	}
+
+	std::vector<CaseSetup> setupsFor(int32_t questId, const json& given, bool crafting = false) {
 		const QuestRow& row = goldenData().quests.at(questId);
 		gameserver::model::Race own = row.race == "ASMODIANS" ? gameserver::model::Race::ASMODIANS : gameserver::model::Race::ELYOS;
 		bool raceGiven = given.contains("player") && given["player"].contains("race");
@@ -907,6 +972,8 @@ protected:
 		if (!raceGiven)
 			setups.push_back({"other race", other, level});
 		setups.push_back({"own race, minimum level, quest list full", own, level, prerequisites, false, true});
+		if (crafting) // a path that asks CraftSkillUpdateService (chunk Q06): its false answers
+			setups.push_back({"own race, minimum level, prerequisites finished, crafting skills mastered", own, level, prerequisites, false, false, true});
 		return setups;
 	}
 
@@ -976,8 +1043,39 @@ protected:
 		// the parts every loaded player has that a finish reaches (QuestTemplate1bTestSupport.h makePlayer): npc factions (finishQuest, a level
 		// change), an empty skill list and an empty recipe list
 		player.setNpcFactions(std::make_unique<gameserver::model::gameobjects::player::npcFaction::NpcFactions>(player));
-		player.setSkillList(gameserver::model::skill::PlayerSkillList::create());
-		player.setRecipeList(gameserver::model::gameobjects::player::RecipeList::create());
+		// chunk Q06 (lane C, 2026-10-13): CraftConfig at its property defaults (CraftConfig.java: 2 expert, 1 master; the unit tests load no
+		// configuration), and a crafting-skills-mastered setup holds the larger maximum of crafting skills at 500, as the DAO loads them
+		configs::main::CraftConfig::MAX_EXPERT_CRAFTING_SKILLS.store(2);
+		configs::main::CraftConfig::MAX_MASTER_CRAFTING_SKILLS.store(1);
+		if (setup.craftMastered) {
+			std::vector<Ptr<gameserver::model::skill::PlayerSkillEntry>> skills;
+			int32_t held = 0;
+			for (gameserver::model::craft::Profession profession : gameserver::model::craft::PROFESSION_VALUES) {
+				if (gameserver::model::craft::isCrafting(profession) && held < 2) {
+					skills.push_back(gameserver::model::skill::PlayerSkillEntry::create(gameserver::model::craft::getSkillId(profession), 500, 0,
+						gameserver::model::gameobjects::Persistable::PersistentState::UPDATED));
+					held++;
+				}
+			}
+			player.setSkillList(gameserver::model::skill::PlayerSkillList::create(skills));
+		} else {
+			player.setSkillList(gameserver::model::skill::PlayerSkillList::create());
+		}
+		// chunk Q06 (lane C, 2026-10-13): the recipes the case names present (extract.py `recipes`, RecipeList.isRecipePresent), as the DAO
+		// loads them
+		if (given.contains("recipes")) {
+			std::unordered_set<int32_t> recipes;
+			for (const auto& [recipe, present] : given["recipes"].items()) {
+				if (present.get<bool>())
+					recipes.insert(std::stoi(recipe));
+			}
+			player.setRecipeList(gameserver::model::gameobjects::player::RecipeList::create(recipes));
+		} else {
+			player.setRecipeList(gameserver::model::gameobjects::player::RecipeList::create());
+		}
+		// a full special cube (extract.py player.fullSpecialCube) needs items whose templates name an extra inventory: not modelled
+		if (given.contains("player") && given["player"].value("fullSpecialCube", false))
+			out.replayError = "the harness does not fill the special cube (player.fullSpecialCube true)";
 		if (overlay.classPermitted && goldenData().quests.at(questId).classPermitted)
 			quester->f.commonData->setPlayerClass(*goldenData().quests.at(questId).classPermitted);
 		if (given.contains("player") && given["player"].contains("class")) {
@@ -1082,6 +1180,7 @@ protected:
 		}
 		std::map<int32_t, QuestStateRow> statesBefore = questStatesOf(player);
 		std::map<int32_t, int64_t> inventoryBefore = inventoryOf(player);
+		std::map<int32_t, int32_t> skillsBefore = skillsOf(player);
 		quester->clearSent();
 		commons::utils::Rnd::seedCurrentThreadForTests(RUN_SEED);
 		// the Q10 review: a run that reaches an unported engine body throws the same UnportedException in both runs, which the thrown comparison
@@ -1155,7 +1254,8 @@ protected:
 		}
 		out.questStates = questStatesOf(player);
 		out.inventory = inventoryOf(player);
-		out.observable = !out.opcodes.empty() || out.questStates != statesBefore || out.inventory != inventoryBefore;
+		out.skills = skillsOf(player);
+		out.observable = !out.opcodes.empty() || out.questStates != statesBefore || out.inventory != inventoryBefore || out.skills != skillsBefore;
 		drainTasks();
 		if (group) {
 			for (Quester* mate : mates)
@@ -1306,6 +1406,9 @@ protected:
 			return handler.onGetItemEvent(env);
 		if (hook == "onDieEvent")
 			return handler.onDieEvent(env);
+		// the butler quests 18830 / 28830 (lane C, 2026-10-11): the house item hook takes the env only (AbstractQuestHandler.java)
+		if (hook == "onHouseItemUseEvent")
+			return handler.onHouseItemUseEvent(env);
 		if (hook == "onItemUseEvent") {
 			// the review of #79, item 2: the item held in the inventory (run), else (a given count 0 of it) one outside it
 			if (Ptr<gameserver::model::gameobjects::Item> held = player.getInventory().getItemByObjId(USED_ITEM_OBJECT))
@@ -1487,6 +1590,15 @@ protected:
 				a[0].value("new", std::string()) == "SM_SYSTEM_MESSAGE.STR_MSG_DailyQuest_Ask_Mentee" && a[0]["args"].empty())
 				utils::PacketSendUtility::sendPacket(player, network::aion::serverpackets::SM_SYSTEM_MESSAGE::STR_MSG_DailyQuest_Ask_Mentee());
 			// chunk Q05's rest (lane C, 2026-10-08): the studio of the housing quests 18802 / 28802 (extract.py, questgen row B47)
+			// chunk Q06 (lane C, 2026-10-13): the crafting quests' predicates (extract.py craft_predicate); the service sends its message itself
+			else if (call == "CraftSkillUpdateService.canLearnMoreExpertCraftingSkill" && a.empty())
+				result = services::craft::CraftSkillUpdateService::getInstance().canLearnMoreExpertCraftingSkill(player);
+			else if (call == "CraftSkillUpdateService.canLearnMoreMasterCraftingSkill" && a.empty())
+				result = services::craft::CraftSkillUpdateService::getInstance().canLearnMoreMasterCraftingSkill(player);
+			else if (call == "inventory.decreaseKinah" && a.size() == 1)
+				player.getInventory().decreaseKinah(a[0].get<int64_t>());
+			else if (call == "skillList.addSkill" && a.size() == 2)
+				result = player.getSkillList()->addSkill(player, a[0].get<int32_t>(), a[1].get<int32_t>());
 			else if (call == "HousingService.registerPlayerStudio" && a.empty())
 				::aion::gameserver::services::HousingService::getInstance().registerPlayerStudio(player);
 			// lane C (phase 6 step 1): the effects of the hooks and closures the harness drives since (extract.py: ThreadPoolManager.schedule,
@@ -1579,6 +1691,7 @@ protected:
 		int32_t overlaysSkipped = 0;              // overlay runs no setup reproduces (not a failure; the case as given is compared)
 		std::vector<std::string> unsatisfiable;
 		std::vector<std::string> vacuous;         // cases with effects whose runs never changed anything observable
+		int32_t craftAnswersTrue = 0;             // vacuous by craftAnswerTrueOnly, not listed (chunk Q06)
 		std::set<std::string> failedChecks;       // "thrown" "returned" "packets" "opcodes" "questStates" "inventory" "timeline" "pendingTasks"
 		std::map<std::string, std::set<std::string>> unported; // variant id -> the AION_UNPORTED sites a compared run of it reached
 	};
@@ -1637,7 +1750,7 @@ protected:
 					Ref<gameserver::model::gameobjects::Npc> npc = targetOf(c["given"], overlay);
 					std::optional<CaseSetup> chosen;
 					Outcome expected;
-					for (const CaseSetup& setup : setupsFor(questId, c["given"])) {
+					for (const CaseSetup& setup : setupsFor(questId, c["given"], asksCraftSkills(c))) {
 						Outcome replayed = run(handler, questId, c, setup, overlay, npc, true);
 						if (!replayed.replayError.empty()) {
 							why = replayed.replayError;
@@ -1700,6 +1813,7 @@ protected:
 					check(actual.opcodes == expected.opcodes, "opcodes", "the packet opcode sequence differs");
 					check(actual.questStates == expected.questStates, "questStates", "the quest states afterwards differ");
 					check(actual.inventory == expected.inventory, "inventory", "the inventory afterwards differs");
+					check(actual.skills == expected.skills, "skills", "the skill list afterwards differs");
 					// the review of #79, item 1: what each run looked like before and at each task delay, and the tasks left after the last one
 					check(actual.timeline == expected.timeline, "timeline",
 						"the task timeline differs (a task ran before or after its delay, or the hook ran it inline)");
@@ -1718,8 +1832,12 @@ protected:
 				anyReproduced = true;
 				(ok ? tally.passed : tally.failed)++;
 			}
-			if (hasEffects && anyReproduced && !anyObservable && !killed)
-				tally.vacuous.push_back(base["id"].get<std::string>());
+			if (hasEffects && anyReproduced && !anyObservable && !killed) {
+				if (craftAnswerTrueOnly(base))
+					tally.craftAnswersTrue++;
+				else
+					tally.vacuous.push_back(base["id"].get<std::string>());
+			}
 		}
 		if (report) {
 			std::cout << "[golden] quest " << questId << ": " << tally.passed << " passed, " << tally.failed << " failed, " << tally.unsatisfiable.size()
@@ -1928,6 +2046,89 @@ const std::set<std::string>& knownNotReproducible() {
 		"47107 onDialogEvent#5",
 		"47107 onDialogEvent#7",
 		"47107 onDialogEvent#13",
+		// Chunk Q07 (lane C, 2026-10-08): a COMPLETE state with canRepeat false, which max_repeat_count 255 never gives
+		"30051 onDialogEvent#6",
+		"30151 onDialogEvent#6",
+		// Chunk Q12 (lane C, 2026-10-08): a COMPLETE state with canRepeat false, which max_repeat_count 255 never gives
+		"10502 onItemUseEvent#3",
+		"50008 onDialogEvent#12",
+		"50008 onDialogEvent#3",
+		"51008 onDialogEvent#12",
+		"51008 onDialogEvent#3",
+		"80034 onDialogEvent#11",
+		"80034 onDialogEvent#12",
+		"80034 onDialogEvent#13",
+		"80034 onDialogEvent#14",
+		"80034 onDialogEvent#15",
+		"80034 onDialogEvent#16",
+		"80034 onDialogEvent#17",
+		"80034 onDialogEvent#3",
+		"80034 onDialogEvent#4",
+		"80035 onDialogEvent#11",
+		"80035 onDialogEvent#12",
+		"80035 onDialogEvent#13",
+		"80035 onDialogEvent#14",
+		"80035 onDialogEvent#15",
+		"80035 onDialogEvent#16",
+		"80035 onDialogEvent#17",
+		"80035 onDialogEvent#3",
+		"80035 onDialogEvent#4",
+		"80036 onDialogEvent#11",
+		"80036 onDialogEvent#12",
+		"80036 onDialogEvent#13",
+		"80036 onDialogEvent#14",
+		"80036 onDialogEvent#15",
+		"80036 onDialogEvent#16",
+		"80036 onDialogEvent#17",
+		"80036 onDialogEvent#3",
+		"80036 onDialogEvent#4",
+		"80037 onDialogEvent#11",
+		"80037 onDialogEvent#12",
+		"80037 onDialogEvent#13",
+		"80037 onDialogEvent#14",
+		"80037 onDialogEvent#15",
+		"80037 onDialogEvent#16",
+		"80037 onDialogEvent#17",
+		"80037 onDialogEvent#3",
+		"80037 onDialogEvent#4",
+		"80038 onDialogEvent#11",
+		"80038 onDialogEvent#12",
+		"80038 onDialogEvent#13",
+		"80038 onDialogEvent#14",
+		"80038 onDialogEvent#15",
+		"80038 onDialogEvent#16",
+		"80038 onDialogEvent#17",
+		"80038 onDialogEvent#3",
+		"80038 onDialogEvent#4",
+		"80039 onDialogEvent#11",
+		"80039 onDialogEvent#12",
+		"80039 onDialogEvent#13",
+		"80039 onDialogEvent#14",
+		"80039 onDialogEvent#15",
+		"80039 onDialogEvent#16",
+		"80039 onDialogEvent#17",
+		"80039 onDialogEvent#3",
+		"80039 onDialogEvent#4",
+		"80330 onDialogEvent#17",
+		"80330 onDialogEvent#3",
+		"80331 onDialogEvent#17",
+		"80331 onDialogEvent#3",
+		// Chunk Q04 (lane C, 2026-10-13): 80226-80229 a COMPLETE state with canRepeat false, which max_repeat_count 255 never gives;
+		// 4004 #11, #12: useQuestObject kills the target npc (KILLS_TARGET, as 1612); 24050 onEnterWorldEvent#2: QuestService.startQuest
+		// assumed true, which refuses in the harness's setups (as START_REFUSED)
+		"24050 onEnterWorldEvent#2",
+		"4004 onDialogEvent#11",
+		"4004 onDialogEvent#11@questState.vars.0=3",
+		"4004 onDialogEvent#12",
+		"80226 onDialogEvent#9",
+		"80227 onDialogEvent#9",
+		"80228 onDialogEvent#9",
+		"80229 onDialogEvent#9",
+		// chunk Q06 (lane C, 2026-10-13): a full special cube (extract.py player.fullSpecialCube): the harness has no special-cube item to fill it
+		"29000 onDialogEvent#16",
+		"24021 onDialogEvent#20",
+		// Q10, the formerly held-back sixteen (lane C, 2026-10-14; WIP): useQuestObject kills the target npc (KILLS_TARGET, as 1612)
+		"2223 onDialogEvent#21",
 	};
 	return known;
 }
@@ -1977,6 +2178,14 @@ const std::map<std::string, std::string>& knownVacuous() {
 	// chunk Q09's rest (lane C, 2026-10-08)
 	static const std::string COLLECT_FALSE = "QuestService.collectItemCheck assumed false: it changes nothing then (QuestService.java "
 		"collectItemCheck)";
+	// chunk Q12 (lane C, 2026-10-11)
+	static const std::string SAME_STEP = "useQuestObject from a step to the same step without a reward or an item: the var "
+		"does not change and nothing is sent (AbstractQuestHandler.java useQuestObject)";
+	static const std::string START_REFUSED = "sendQuestStartDialog with an accept action whose QuestService.startQuest refuses the quest in "
+		"the harness's setups, after which the helper sends nothing (AbstractQuestHandler.java:373-388)";
+	// chunk Q06 (lane C, 2026-10-13)
+	static const std::string KINAH_NONE = "decreaseKinah of a quester who holds no kinah: Storage.decreaseItemCount takes at most "
+		"the count, so nothing changes and nothing is sent (Storage.java decreaseKinah)";
 	static const std::string KILLS_ASSUMED_FALSE = "every kill helper of the path assumed false: it changes nothing then (AbstractQuestHandler.java "
 		"defaultOnKillEvent)";
 	static const std::map<std::string, std::string> known = [] {
@@ -2135,6 +2344,256 @@ const std::map<std::string, std::string>& knownVacuous() {
 		{"2332 onDialogEvent#15", COLLECT_FALSE},
 		{"2484 onDialogEvent#13", REWARD_PAGE},
 		{"28802 onDialogEvent#22", STUDIO_NO_HOUSE_DATA},
+		// chunk Q07 (lane C, 2026-10-08)
+		{"30201 onDialogEvent#10", IDLE_END},
+		{"30201 onDialogEvent#11", IDLE_END},
+		{"30201 onDialogEvent#5", IDLE_END},
+		{"30201 onDialogEvent#7", IDLE_END},
+		{"30235 onKillEvent#5", COLLECT_FALSE},
+		{"30235 onKillEvent#7", COLLECT_FALSE},
+		{"30235 onKillEvent#9", COLLECT_FALSE},
+		{"30236 onKillEvent#5", COLLECT_FALSE},
+		{"30236 onKillEvent#7", COLLECT_FALSE},
+		{"30236 onKillEvent#9", COLLECT_FALSE},
+		{"30237 onKillEvent#5", COLLECT_FALSE},
+		{"30237 onKillEvent#7", COLLECT_FALSE},
+		{"30237 onKillEvent#9", COLLECT_FALSE},
+		{"30238 onKillEvent#5", COLLECT_FALSE},
+		{"30238 onKillEvent#7", COLLECT_FALSE},
+		{"30238 onKillEvent#9", COLLECT_FALSE},
+		{"30239 onKillEvent#5", COLLECT_FALSE},
+		{"30239 onKillEvent#7", COLLECT_FALSE},
+		{"30239 onKillEvent#9", COLLECT_FALSE},
+		{"30240 onKillEvent#5", COLLECT_FALSE},
+		{"30240 onKillEvent#7", COLLECT_FALSE},
+		{"30240 onKillEvent#9", COLLECT_FALSE},
+		{"30241 onKillEvent#5", COLLECT_FALSE},
+		{"30241 onKillEvent#7", COLLECT_FALSE},
+		{"30241 onKillEvent#9", COLLECT_FALSE},
+		{"30242 onKillEvent#5", COLLECT_FALSE},
+		{"30242 onKillEvent#7", COLLECT_FALSE},
+		{"30242 onKillEvent#9", COLLECT_FALSE},
+		{"30243 onKillEvent#5", COLLECT_FALSE},
+		{"30243 onKillEvent#7", COLLECT_FALSE},
+		{"30243 onKillEvent#9", COLLECT_FALSE},
+		{"30247 onKillEvent#5", COLLECT_FALSE},
+		{"30247 onKillEvent#7", COLLECT_FALSE},
+		{"30247 onKillEvent#9", COLLECT_FALSE},
+		{"30248 onKillEvent#5", COLLECT_FALSE},
+		{"30248 onKillEvent#7", COLLECT_FALSE},
+		{"30248 onKillEvent#9", COLLECT_FALSE},
+		{"30249 onKillEvent#5", COLLECT_FALSE},
+		{"30249 onKillEvent#7", COLLECT_FALSE},
+		{"30249 onKillEvent#9", COLLECT_FALSE},
+		{"30301 onDialogEvent#10", IDLE_END},
+		{"30301 onDialogEvent#11", IDLE_END},
+		{"30301 onDialogEvent#5", IDLE_END},
+		{"30301 onDialogEvent#7", IDLE_END},
+		{"30335 onKillEvent#5", COLLECT_FALSE},
+		{"30335 onKillEvent#7", COLLECT_FALSE},
+		{"30335 onKillEvent#9", COLLECT_FALSE},
+		{"30336 onKillEvent#5", COLLECT_FALSE},
+		{"30336 onKillEvent#7", COLLECT_FALSE},
+		{"30336 onKillEvent#9", COLLECT_FALSE},
+		{"30337 onKillEvent#5", COLLECT_FALSE},
+		{"30337 onKillEvent#7", COLLECT_FALSE},
+		{"30337 onKillEvent#9", COLLECT_FALSE},
+		{"30338 onKillEvent#5", COLLECT_FALSE},
+		{"30338 onKillEvent#7", COLLECT_FALSE},
+		{"30338 onKillEvent#9", COLLECT_FALSE},
+		{"30339 onKillEvent#5", COLLECT_FALSE},
+		{"30339 onKillEvent#7", COLLECT_FALSE},
+		{"30339 onKillEvent#9", COLLECT_FALSE},
+		{"30340 onKillEvent#5", COLLECT_FALSE},
+		{"30340 onKillEvent#7", COLLECT_FALSE},
+		{"30340 onKillEvent#9", COLLECT_FALSE},
+		{"30341 onKillEvent#5", COLLECT_FALSE},
+		{"30341 onKillEvent#7", COLLECT_FALSE},
+		{"30341 onKillEvent#9", COLLECT_FALSE},
+		{"30342 onKillEvent#5", COLLECT_FALSE},
+		{"30342 onKillEvent#7", COLLECT_FALSE},
+		{"30342 onKillEvent#9", COLLECT_FALSE},
+		{"30343 onKillEvent#5", COLLECT_FALSE},
+		{"30343 onKillEvent#7", COLLECT_FALSE},
+		{"30343 onKillEvent#9", COLLECT_FALSE},
+		{"30347 onKillEvent#5", COLLECT_FALSE},
+		{"30347 onKillEvent#7", COLLECT_FALSE},
+		{"30347 onKillEvent#9", COLLECT_FALSE},
+		{"30348 onKillEvent#5", COLLECT_FALSE},
+		{"30348 onKillEvent#7", COLLECT_FALSE},
+		{"30348 onKillEvent#9", COLLECT_FALSE},
+		{"30349 onKillEvent#5", COLLECT_FALSE},
+		{"30349 onKillEvent#7", COLLECT_FALSE},
+		{"30349 onKillEvent#9", COLLECT_FALSE},
+		// chunk Q12 (lane C, 2026-10-08)
+		{"10502 onDialogEvent#28", SAME_STEP},
+		{"10503 onDialogEvent#22", SAME_STEP},
+		{"10504 onDialogEvent#14", SAME_STEP},
+		{"10505 onDialogEvent#22", SAME_STEP},
+		{"3001 onDialogEvent#8", IDLE_END},
+		{"3008 onDialogEvent#8", IDLE_END},
+		{"3020 onDialogEvent#8", IDLE_END},
+		{"3023 onDialogEvent#8", IDLE_END},
+		{"3035 onDialogEvent#8", IDLE_END},
+		{"3037 onDialogEvent#8", IDLE_END},
+		{"3058 onDialogEvent#16", IDLE_END},
+		{"3058 onDialogEvent#26", IDLE_END},
+		{"3058 onDialogEvent#36", IDLE_END},
+		{"3060 onDialogEvent#10", IDLE_END},
+		{"3060 onDialogEvent#30", IDLE_END},
+		{"3060 onDialogEvent#8", IDLE_END},
+		{"3060 onDialogEvent#9", IDLE_END},
+		{"3076 onDialogEvent#8", IDLE_END},
+		{"3081 onDialogEvent#20", IDLE_END},
+		{"3081 onDialogEvent#21", IDLE_END},
+		{"3081 onDialogEvent#8", IDLE_END},
+		{"3083 onDialogEvent#8", IDLE_END},
+		{"3085 onDialogEvent#2", START_REFUSED},
+		{"3085 onDialogEvent#3", START_REFUSED},
+		{"3085 onDialogEvent#7", START_REFUSED},
+		{"3085 onDialogEvent#8", START_REFUSED},
+		{"3091 onDialogEvent#8", IDLE_END},
+		{"80009 onDialogEvent#6", REWARD_DIALOG_IDLE},
+		{"80009 onDialogEvent#7", REWARD_DIALOG_IDLE},
+		{"80028 onDialogEvent#12", REWARD_DIALOG_IDLE},
+		{"80028 onDialogEvent#14", REWARD_DIALOG_IDLE},
+		{"80028 onDialogEvent#3", REWARD_DIALOG_IDLE},
+		{"80028 onDialogEvent#4", REWARD_DIALOG_IDLE},
+		{"80028 onDialogEvent#5", REWARD_DIALOG_IDLE},
+		{"80028 onDialogEvent#8", REWARD_DIALOG_IDLE},
+		{"80029 onDialogEvent#12", REWARD_DIALOG_IDLE},
+		{"80029 onDialogEvent#14", REWARD_DIALOG_IDLE},
+		{"80029 onDialogEvent#3", REWARD_DIALOG_IDLE},
+		{"80029 onDialogEvent#4", REWARD_DIALOG_IDLE},
+		{"80029 onDialogEvent#5", REWARD_DIALOG_IDLE},
+		{"80029 onDialogEvent#8", REWARD_DIALOG_IDLE},
+		{"80031 onDialogEvent#12", REWARD_DIALOG_IDLE},
+		{"80031 onDialogEvent#14", REWARD_DIALOG_IDLE},
+		{"80031 onDialogEvent#3", REWARD_DIALOG_IDLE},
+		{"80031 onDialogEvent#4", REWARD_DIALOG_IDLE},
+		{"80031 onDialogEvent#5", REWARD_DIALOG_IDLE},
+		{"80031 onDialogEvent#8", REWARD_DIALOG_IDLE},
+		{"80032 onDialogEvent#12", REWARD_DIALOG_IDLE},
+		{"80032 onDialogEvent#14", REWARD_DIALOG_IDLE},
+		{"80032 onDialogEvent#3", REWARD_DIALOG_IDLE},
+		{"80032 onDialogEvent#4", REWARD_DIALOG_IDLE},
+		{"80032 onDialogEvent#5", REWARD_DIALOG_IDLE},
+		{"80032 onDialogEvent#8", REWARD_DIALOG_IDLE},
+		{"80034 onDialogEvent#21", REWARD_DIALOG_IDLE},
+		{"80034 onDialogEvent#23", REWARD_DIALOG_IDLE},
+		{"80034 onDialogEvent#26", REWARD_DIALOG_IDLE},
+		{"80034 onDialogEvent#5", REWARD_DIALOG_IDLE},
+		{"80034 onDialogEvent#8", REWARD_DIALOG_IDLE},
+		{"80035 onDialogEvent#21", REWARD_DIALOG_IDLE},
+		{"80035 onDialogEvent#23", REWARD_DIALOG_IDLE},
+		{"80035 onDialogEvent#26", REWARD_DIALOG_IDLE},
+		{"80035 onDialogEvent#5", REWARD_DIALOG_IDLE},
+		{"80035 onDialogEvent#8", REWARD_DIALOG_IDLE},
+		{"80036 onDialogEvent#21", REWARD_DIALOG_IDLE},
+		{"80036 onDialogEvent#23", REWARD_DIALOG_IDLE},
+		{"80036 onDialogEvent#26", REWARD_DIALOG_IDLE},
+		{"80036 onDialogEvent#5", REWARD_DIALOG_IDLE},
+		{"80036 onDialogEvent#8", REWARD_DIALOG_IDLE},
+		{"80037 onDialogEvent#21", REWARD_DIALOG_IDLE},
+		{"80037 onDialogEvent#23", REWARD_DIALOG_IDLE},
+		{"80037 onDialogEvent#26", REWARD_DIALOG_IDLE},
+		{"80037 onDialogEvent#5", REWARD_DIALOG_IDLE},
+		{"80037 onDialogEvent#8", REWARD_DIALOG_IDLE},
+		{"80038 onDialogEvent#21", REWARD_DIALOG_IDLE},
+		{"80038 onDialogEvent#23", REWARD_DIALOG_IDLE},
+		{"80038 onDialogEvent#26", REWARD_DIALOG_IDLE},
+		{"80038 onDialogEvent#5", REWARD_DIALOG_IDLE},
+		{"80038 onDialogEvent#8", REWARD_DIALOG_IDLE},
+		{"80039 onDialogEvent#21", REWARD_DIALOG_IDLE},
+		{"80039 onDialogEvent#23", REWARD_DIALOG_IDLE},
+		{"80039 onDialogEvent#26", REWARD_DIALOG_IDLE},
+		{"80039 onDialogEvent#5", REWARD_DIALOG_IDLE},
+		{"80039 onDialogEvent#8", REWARD_DIALOG_IDLE},
+		{"80137 onDialogEvent#6", REWARD_DIALOG_IDLE},
+		{"80137 onDialogEvent#7", REWARD_DIALOG_IDLE},
+		{"80139 onDialogEvent#6", REWARD_DIALOG_IDLE},
+		{"80139 onDialogEvent#7", REWARD_DIALOG_IDLE},
+		{"80145 onDialogEvent#6", REWARD_DIALOG_IDLE},
+		{"80145 onDialogEvent#7", REWARD_DIALOG_IDLE},
+		{"80147 onDialogEvent#6", REWARD_DIALOG_IDLE},
+		{"80147 onDialogEvent#7", REWARD_DIALOG_IDLE},
+		{"80149 onDialogEvent#6", REWARD_DIALOG_IDLE},
+		{"80149 onDialogEvent#7", REWARD_DIALOG_IDLE},
+		// chunk Q04 (lane C, 2026-10-13)
+		{"2501 onDialogEvent#8", IDLE_END},
+		{"2512 onDialogEvent#20", IDLE_END},
+		{"2512 onDialogEvent#21", IDLE_END},
+		{"2512 onDialogEvent#8", IDLE_END},
+		{"2514 onDialogEvent#8", IDLE_END},
+		{"2515 onDialogEvent#8", IDLE_END},
+		{"2523 onDialogEvent#32", IDLE_END},
+		{"2523 onDialogEvent#33", IDLE_END},
+		{"2523 onDialogEvent#8", IDLE_END},
+		{"2538 onDialogEvent#10", REWARD_PAGE},
+		{"2539 onDialogEvent#8", IDLE_END},
+		{"2553 onDialogEvent#8", IDLE_END},
+		{"2569 onDialogEvent#20", IDLE_END},
+		{"2569 onDialogEvent#21", IDLE_END},
+		{"2569 onDialogEvent#8", IDLE_END},
+		{"2578 onDialogEvent#16", IDLE_END},
+		{"2578 onDialogEvent#17", IDLE_END},
+		{"2583 onDialogEvent#8", IDLE_END},
+		{"2641 onDialogEvent#25", IDLE_END},
+		{"2641 onDialogEvent#26", IDLE_END},
+		{"2646 onDialogEvent#10", REWARD_PAGE},
+		{"2653 onDialogEvent#13", IDLE_END},
+		{"2653 onDialogEvent#14", IDLE_END},
+		{"2654 onDialogEvent#7", IDLE_END},
+		{"2654 onDialogEvent#8", IDLE_END},
+		{"2670 onDialogEvent#10", IDLE_END},
+		{"2670 onDialogEvent#11", IDLE_END},
+		{"2692 onDialogEvent#8", IDLE_END},
+		{"2693 onDialogEvent#13", IDLE_END},
+		{"2693 onDialogEvent#14", IDLE_END},
+		{"4001 onDialogEvent#26", IDLE_END},
+		{"4001 onDialogEvent#27", IDLE_END},
+		{"4001 onDialogEvent#8", IDLE_END},
+		{"4012 onDialogEvent#13", IDLE_END},
+		{"4015 onDialogEvent#9", IDLE_END},
+		{"4020 onDialogEvent#8", IDLE_END},
+		{"4036 onDialogEvent#20", IDLE_END},
+		{"4036 onDialogEvent#21", IDLE_END},
+		{"4036 onDialogEvent#8", IDLE_END},
+		{"4052 onDialogEvent#8", IDLE_END},
+		{"4053 onDialogEvent#16", IDLE_END},
+		{"4053 onDialogEvent#17", IDLE_END},
+		{"4060 onDialogEvent#22", IDLE_END},
+		{"4060 onDialogEvent#23", IDLE_END},
+		{"4082 onDialogEvent#11", IDLE_END},
+		{"4087 onDialogEvent#4", IDLE_END},
+		{"4087 onDialogEvent#5", IDLE_END},
+		{"4101 onDialogEvent#32", IDLE_END},
+		{"4101 onDialogEvent#33", IDLE_END},
+		{"4101 onDialogEvent#8", IDLE_END},
+		{"4501 onDialogEvent#10", IDLE_END},
+		{"80228 onKillEvent#2", KILLS_ASSUMED_FALSE},
+		{"80229 onKillEvent#2", KILLS_ASSUMED_FALSE},
+		// chunk Q06 (lane C, 2026-10-13): SETPRO10 of the master cooks takes 6500 kinah unconditionally (_19038MasterCooksPotential.java:101)
+		{"19038 onDialogEvent#50", KINAH_NONE},
+		{"19038 onDialogEvent#53", KINAH_NONE},
+		{"19038 onDialogEvent#56", KINAH_NONE},
+		{"19038 onDialogEvent#59", KINAH_NONE},
+		{"29038 onDialogEvent#50", KINAH_NONE},
+		{"29038 onDialogEvent#53", KINAH_NONE},
+		{"29038 onDialogEvent#56", KINAH_NONE},
+		{"29038 onDialogEvent#59", KINAH_NONE},
+		// Q10, the formerly held-back sixteen (lane C, 2026-10-14; WIP)
+		{"2207 onDialogEvent#12", IDLE_END},
+		{"2207 onDialogEvent#16", IDLE_END},
+		{"2207 onDialogEvent#20", IDLE_END},
+		{"2207 onDialogEvent#9", IDLE_END},
+		{"2209 onDialogEvent#18", IDLE_END},
+		{"2231 onDialogEvent#22", IDLE_END},
+		{"2231 onDialogEvent#23", IDLE_END},
+		{"2911 onDialogEvent#11", IDLE_END},
+		{"2917 onDialogEvent#26", IDLE_END},
+		{"2917 onDialogEvent#27", IDLE_END},
+		{"2917 onDialogEvent#8", IDLE_END},
 		};
 		// P6-Q slice 2 (Q10): the altgard and pandaemonium traces (GoldenKnownVacuousQ10.h)
 		for (const auto& [key, kind] : Q10_VACUOUS) {
@@ -2177,13 +2636,25 @@ const std::map<std::string, std::string>& knownUnported() {
  * (getEquipment); daevanion 1989, 2989 (PlayerCommonData.getDp), 1993, 1994, 2993, 2994 (a for loop the oracle does not unroll).
  * Chunk Q05, the rest (lane C): eltnen 1430, 1482 (TeleportService.teleportTo), 1463 (an item count read after removeQuestItem), 1468
  * (EmotionId.STAND), 1483, 1484 (workItems.getFirst). Chunk Q09, the rest (lane C): morheim 2422, 2423 (TeleportService.teleportTo), 2430
- * (getKinah), 2443 (CreatureState.FLYING), 2493 (getController())
+ * (getKinah until 2026-10-13: it has cases now), 2443 (CreatureState.FLYING), 2493 (getController())
+ * Chunk Q07 (lane C): beshmundir 30208, 30308 (getController(), spawnInFrontOf), silentera_canyon 30056, 30156, 30157 (spawnForFiveMinutes)
+ * Chunk Q12 (lane C): theobomos 3074, 3090 (getKinah), 3082 (spawnForFiveMinutes), 3088 (decreaseByItemId); event_quests 80000, 80001, 80008 (QuestService.startEventQuest), 80020, 80021 (a cast to Creature)
+ * The butler quests (lane C): oriel 18821, pernon 28821 (player.getActiveHouse(), their only hook)
+ * Chunk Q04 (lane C): beluslan 2600 (spawnForFiveMinutes), 2630, 28600 (a status read after sendQuestNoneDialog), 2663, 2664 (workItems.getFirst), 4200 (InstanceService.getNextAvailableInstance, TeleportService.teleportTo); brusthonin 4074 (getKinah)
+ * Chunk Q06 (lane C): none left; the 47 got their cases with the
+ * CraftSkillUpdateService predicates, the kinah, skill-list, recipe and special-cube rows (extract.py, 2026-10-13), and 2430 (Q09) with the kinah
+ * Q10, the formerly held-back sixteen (lane C, 2026-10-14; WIP): altgard 2213 (getEffectController(), SkillEngine.getInstance)
  */
 constexpr int32_t ORACLE_REFUSES_EVERY_HOOK[] = {1205, 2132, 1640, 1647, 2925, 2938, 2952, 4966, 4967, 4968, 4969, 21004, 21027, 21033, 21036,
 	21071, 21105, 21249, 25052, 2798, 11031, 11032, 11033, 11053, 11118, 3208, 3217, 3219, 3220, 4208, 4217, 4219, 4220, 3939, 3940, 30553,
 	4943, 4944, 30217, 30317, 39505, 39510, 39515, 39520,
 	1900, 1901, 1917, 1926, 1932, 1938, 1947, 1963, 1964, 1989, 1993, 1994, 2989, 2993, 2994, 3908, 3961, 3962, 3963, 3964, 80291, 80295,
-	1430, 1463, 1468, 1482, 1483, 1484, 2422, 2423, 2430, 2443, 2493};
+	1430, 1463, 1468, 1482, 1483, 1484, 2422, 2423, 2443, 2493,
+	30056, 30156, 30157, 30208, 30308,
+	3074, 3082, 3088, 3090, 80000, 80001, 80008, 80020, 80021,
+	18821, 28821,
+	2600, 2630, 2663, 2664, 28600, 4074, 4200,
+	2213};
 
 TEST_F(GoldenQuestTraceTest, EveryExpectedDocumentHasAGeneratedHandlerAndEveryHandlerADocument) {
 	std::vector<int32_t> ids = expectedQuestIds();
@@ -2733,6 +3204,11 @@ public:
 		events.push_back("onDieEvent");
 		return false;
 	}
+	// the butler quests 18830 / 28830 (lane C, 2026-10-11): registerQuestHouseItem, an engine-wide list
+	bool onHouseItemUseEvent(QuestEnv&) override {
+		events.push_back("onHouseItemUseEvent");
+		return false;
+	}
 	bool onGetItemEvent(QuestEnv& env) override {
 		events.push_back("onGetItemEvent " + std::to_string(env.getQuestId()));
 		return false;
@@ -2914,6 +3390,11 @@ TEST_F(GoldenQuestTraceTest, RegistrationTraceMatchesJavaRegister) {
 				expectedEvents.push_back("onQuestTimerEndEvent");
 			else if (call == "registerOnDie")
 				expectedEvents.push_back("onDieEvent");
+			// the butler quests (lane C, 2026-10-11): QuestEngine.java registerQuestHouseItem keeps a quest once (`if (!contains) add`)
+			else if (call == "registerQuestHouseItem") {
+				if (std::find(expectedEvents.begin(), expectedEvents.end(), "onHouseItemUseEvent") == expectedEvents.end())
+					expectedEvents.push_back("onHouseItemUseEvent");
+			}
 			else if (call == "registerOnGetItem")
 				expectedEvents.push_back("onGetItemEvent " + std::to_string(reg["args"][1].get<int32_t>()));
 			else if (call == "registerAddOnReachTargetEvent")
@@ -2997,6 +3478,7 @@ TEST_F(GoldenQuestTraceTest, RegistrationTraceMatchesJavaRegister) {
 		QuestEngine::getInstance().onLogOut(*QuestEnv::create(nullptr, player, 0));
 		QuestEngine::getInstance().onQuestTimerEnd(*QuestEnv::create(nullptr, player, 0));
 		QuestEngine::getInstance().onDie(*QuestEnv::create(nullptr, player, 0));
+		QuestEngine::getInstance().onHouseItemUseEvent(*QuestEnv::create(nullptr, player, 0));
 		QuestEngine::getInstance().onNpcReachTarget(*QuestEnv::create(nullptr, player, 0));
 		QuestEngine::getInstance().onNpcLostTarget(*QuestEnv::create(nullptr, player, 0));
 		for (int32_t itemId : getItems)

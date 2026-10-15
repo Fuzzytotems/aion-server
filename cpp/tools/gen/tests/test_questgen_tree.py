@@ -38,11 +38,13 @@ ROUTE = {
 # questgen transliterates 28 + 41 of the 75, and the other six are hand ports, or held back, and carry no banner)
 Q10 = {
     'altgard': (
+        '_2207ConversingWithaSkurv', '_2209TheScribbler', '_2213PoisonRootPotentFruit', '_2221ManirsUncle', '_2223AMythicalMonster', '_2231SiblingRivalry', '_2232TheBrokenHoneyJar', '_2239MalodorAntidote', '_2288MoneyWhereYourMouthIs', '_24010SuthransOrders',
         '_2216MuMuGrassKnot', '_2222ManirsMessage', '_2228AThornInItsSide', '_2247TheGergersDisguise', '_2263ShugoPotion',
         '_2266ATrustworthyMessenger', '_2271AurtrisLetter', '_2278ASecretProposal', '_2279SolidProof', '_2284EscapingAsmodae',
         '_2289RampagingMosbears', '_2290GrokensEscape', '_24011FunnyFloatingFungus', '_24012AnOminousCrop', '_24014StompOutThePlot',
         '_24015TotemPlowed', '_24016AStrangeNewThread', '_24112NoLaissezFaireForLepharists'),
     'pandaemonium': (
+        '_2911SongOfBlessing', '_2917ArekedilsHeritage', '_2953DeliveringSupplyRequest', '_29004VeldinaCall', '_29048SeriphimTeachings', '_4973MarraWorry',
         '_2912FollowtheRibbon', '_2913AChainofDebt', '_2914ATokenofLostLove', '_2916ManInTheLongBlackRobe', '_2918DeepMaternalLove',
         '_2919BookOfOblivion', '_2920ElementaryMyDearDaeva', '_2921LoveAtFirstSight', '_2922FascinatingGift', '_2925AHeartfeltConfession',
         '_2928PowerofLove', '_2937UnexpectedReward', '_2938SecretLibraryAccess', '_2948HuronsLetter', '_2952WinningVindachinerksFavor',
@@ -152,6 +154,10 @@ Q05 = {
         '_1482ATeleportationAdventure', '_1483HarumonerksRequest', '_1484ChiyorinrinerksRequest', '_3319AnOrderforGojirunerk',
         '_3326TheShugoMenace', '_3329DinnersonMe',),
     'oriel': (
+        '_18828UserFriendly',
+        '_18821AlmostForgotMyBlessings',
+        '_18806HeartofRock',
+        '_18830MovingIn',
         '_18802AndAHomeforEveryDaeva',
         '_18805GoingThrifting', '_18807BlessedBeThyHame', '_18808FoolproofPackaging', '_18809DaevaontheRide', '_18826TodaysFind',
         '_18832ImaginingAQuietLife', '_18847Housewarming', '_50009TisTheSeason',),
@@ -168,8 +174,99 @@ Q09 = {
         '_2449ExtricatingChaomirk', '_2458RoastGadillForAFriend', '_2477ADishForDukar', '_2480ElimOfElysea', '_2482CaryatidOfAbyss',
         '_2484OurManInElysea', '_2486AStrangeCreature', '_2488PretorsInBeluslan', '_2493BringingUpTayga', '_2498TheSoddenScroll',),
     'pernon': (
+        '_28828TheManyFacetsOfFriendship',
+        '_28821YourButlerGift',
+        '_28806WiltingFlowersFallingTears',
+        '_28830InteriorDecorator',
         '_28802BeItEverSoHumble', '_28805SomethingOldSomethingNew', '_28807BlessingsofaGreenThumb', '_28808OpenSaysMe',
         '_28809FirstClassorCoach', '_28826FreetoaGoodHome', '_28832TakingtheTour', '_28847AHomeThatsYourOwn', '_51009TheGiftOfCharity',),
+}
+# Phase 6 step 2, chunk Q07 (lane C, 2026-10-08; docs/deviations/Q07.md): beshmundir, abyss_entry and silentera_canyon
+Q07 = {
+    'abyss_entry': (
+        '_1044TestingFlightSkills', '_2042TheLastCheckpoint',
+        '_1920TestingYourMettle', '_1921TheAbyssQuiz', '_1922DeliveronYourPromises',
+        '_2945HoningYourSkills', '_2946AbyssGeneralKnowledge', '_2947FollowingThrough',),
+    'beshmundir': (
+        '_30201SuppliesParty', '_30202SuspiciousCeremony', '_30203GroupHalttheCeremony', '_30207SoulInvocationCeremony',
+        '_30208GroupTheTruthHurts', '_30210WritteninBlood', '_30211GroupTheRodandtheOrb', '_30213GroupMagicalEssence',
+        '_30222AGuardsCurse', '_30227GroupToLiberateSouls', '_30235NewSword', '_30236NewGreatsword', '_30237NewPolearm', '_30238NewStaff',
+        '_30239NewSpellbook', '_30240NewOrb', '_30241NewBow', '_30242NewDagger', '_30243NewMace', '_30246YourOathToOutremus',
+        '_30247NewPistol', '_30248NewAethercannon', '_30249NewHarp', '_30301TrackingSupplies', '_30302MysteriousMotives',
+        '_30303GroupTheFallofIsbariya', '_30307SoulSummoning', '_30308GroupSummonRespondentUtra', '_30310RankandBile',
+        '_30311GroupAQuartzIsaQuartz', '_30313GroupOpeningthePrison', '_30327GroupMiredSouls', '_30335ImprovedSword',
+        '_30336ImprovedGreatsword', '_30337ImprovedPolearm', '_30338ImprovedStaff', '_30339ImprovedSpellbook', '_30340ImprovedOrb',
+        '_30341ImprovedBow', '_30342ImprovedDagger', '_30343ImprovedMace', '_30346ASolemnPromise', '_30347ImprovedPistol',
+        '_30348ImprovedAethercannon', '_30349ImprovedHarp',),
+    'silentera_canyon': (
+        '_30051BanishingtheShadowborn', '_30054PetrificationandPride', '_30055ForMyWife', '_30056DirvisiasSorrow', '_30057JotunJaunt',
+        '_30151SnufftheSunsucker', '_30154FleshtoStone', '_30155StonetoFlesh', '_30156NepsLove', '_30157VilisMind', '_30158JotunJunket',),
+}
+# Phase 6 step 2, chunk Q12 (lane C, 2026-10-11; docs/deviations/Q12.md): theobomos, event_quests and cygnea
+Q12 = {
+    'cygnea': (
+        '_10500ExpeditionCoalition', '_10501ResearchtheRuins', '_10502CygneaSecrets', '_10503GuardDownSecretsOut',
+        '_10504ConfiscatetheSlate', '_10505SneezeAttack', '_10506MindOverMatter', '_10507ABigPlottoFoil',),
+    'event_quests': (
+        '_50008SoloriusShugoSlackers', '_51008NonHelpingHands', '_80000JoyfulDaevasDay', '_80001FestiveDaevasDay', '_80008PieceOfCake',
+        '_80009TheCakeIsTheTruth', '_80020EventSoloriusJoy', '_80021EventFestiveUs', '_80028EventMeetTheFayrefolk',
+        '_80029EventUsingYourCharms', '_80031EventTheFayrefolk', '_80032EventACharmedExistence', '_80034EventGeaterGlories',
+        '_80035EventOnlyTheBest', '_80036EventGamblingWithGrace', '_80037EventFromTheGutter', '_80038EventMightyAspirations',
+        '_80039EventTheChosenFew', '_80137EventSealTheWarpedRift', '_80139EventCloseTheWarpedRift', '_80145EventWarpedRiftSealing',
+        '_80147EventWarpedRiftClosing', '_80149EventWarpedRiftSecuring', '_80318TroubledArabella', '_80320ForTheAsmodians',
+        '_80330TransformWithTheMagicCane', '_80331TransformWithTheMagicCane',),
+    'theobomos': (
+        '_3001UnearthingtheTruth', '_3006TheShugoFugitive', '_3008WickedThiefKelaino', '_3013AClueLeftByTheDead', '_3020AgrintAfire',
+        '_3023TheSpiceMustFlow', '_3031Pirates', '_3035EnhancingtheStone', '_3036LetSeeWhatItDoes', '_3037WanderersStaff',
+        '_3041SororunerkWhereabouts', '_3044RecruitingAnnouncement', '_3048OwneroftheAngledBladeDagger', '_3049BloodMarkstheSpot',
+        '_3050RescuingRuria', '_3056InSearchOfZirius', '_3057CursedZirius', '_3058StoneofMabolo', '_3060TheRedJournal',
+        '_3074DangerousProbability', '_3076BolsteringtheAethericField', '_3081VisitingtheLibrary', '_3082DousingTheFlame',
+        '_3083SearchingfortheElderofWisdom', '_3085TheRiddlePoem', '_3086SearchingForTheCrater', '_3087DivingForTreasure',
+        '_3088InCiderTrading', '_3090InSearchOfPippiThePorgus', '_3091TheLostDrakie', '_3092VisonTheDrakie',
+        '_3093RecetteSecretedeQuenelles', '_3095ADecisiveClue', '_3096ExamineTheExtractionDevices', '_3100AShugosBestFriend',
+        '_3102TheDisappearingStatue', '_3103KyprosDesire',),
+}
+# Phase 6 step 2, chunk Q04 (lane C, 2026-10-13; docs/deviations/Q04.md): beluslan and brusthonin
+Q04 = {
+    'beluslan': (
+        '_16909AMarkofDistinction', '_24050NeritasOrders', '_24051InvesetigatetheDisappearance', '_24052AFrozenCity',
+        '_24054CrisisinBeluslan', '_2501FallingFragments', '_2505LetCookingExpertsCook', '_2512FoodforRemotePlaces',
+        '_2513TheStrangeCottage', '_2514TheRedManeReport', '_2515LeanorsErrand', '_2523GrassfortheGraveRobbers', '_2533BeritrasCurse',
+        '_2538CurseoftheWereRibbit', '_2539TrystoftheShadow', '_2553TheBrigadeGeneralsCall', '_2564WiththePowerofFlame',
+        '_2569TafisFlameScroll', '_2578ARingforLuck', '_2583APoliteRequest', '_2600HumongousMalek', '_2620SummoningPhagrasul',
+        '_2630TheDutifulSpy', '_2633DestroyingBalaurWeapons', '_2641PowwowWiththeMau', '_2646TheInscrutableStranger',
+        '_2651SpyAFriendsWhereabouts', '_2653SpyFindingBollvig', '_2654SpyTheLastPersuasion', '_2663AcquiringanAntidote',
+        '_2664AnAntidotetotheLepharists', '_2669AtlaEscape', '_2670TheAncientBook', '_26909TribalEmblems', '_2692BrokenMusicBox',
+        '_2693KrallGoneMad', '_28600SuspiciousErrand', '_28601NightmaresandDreamscapes', '_28602IntotheUnknown', '_4200ASuspiciousCall',
+        '_4501DelayedOrder', '_4502EssenceOfFate', '_4542TheSecretoftheSeirenTreasure', '_80226ATestinDarkPoeta',
+        '_80227ASecondTestinDarkPoeta', '_80228FinalTestinDarkPoeta', '_80229FinalTestinDarkPoeta',),
+    'brusthonin': (
+        '_4001CheckontheSettlers', '_4004TheSeedsOfHope', '_4011AnOldSettlersLetter', '_4012TroublesomePromise',
+        '_4015TheMissingLaborers', '_4020ParicasSpecialOrder', '_4033ABloominBrusthonin', '_4036HeirnirWantstoRest',
+        '_4038AlasPoorGroznak', '_4042MessageinaBottle', '_4051BukmirsWorry', '_4052BukmirsOldFriend', '_4053GlossyHoe',
+        '_4060TheZombiesDescendant', '_4074GainOrLose', '_4077PorgusRoundup', '_4078ALightThroughtheTrees',
+        '_4082GatheringtheHerbPouches', '_4087NoOrdinaryBranch', '_4101ElimofBrusthonin',),
+}
+# Phase 6 step 2, chunk Q06 (lane C, 2026-10-13; docs/deviations/Q06.md): crafting
+Q06 = {
+    'crafting': (
+        '_19000ExpertEssencetappersTest', '_19001ExpertEssencetappingExpert', '_19002ExpertAethertappersTest',
+        '_19003ExpertAethertappingExpert', '_19008MasterWeaponsmithsPotential', '_19014MasterArmorsmithsPotential',
+        '_19020MasterTailorsPotential', '_19026MasterHandicraftersPotential', '_19032MasterAlchemistsPotential',
+        '_19038MasterCooksPotential', '_19052ExpertPassionforConstruction', '_19053ExpertExpertofConstruction',
+        '_19055ExpertConstructorsFinalExam', '_19057MasterConstructorsPotential', '_1972ExpertPassionforWeaponsmithing',
+        '_1973ExpertExpertofWeaponsmithing', '_1974ExpertPassionforArmorsmithing', '_1975ExpertExpertofArmorsmithing',
+        '_1976ExpertPassionforHandicrafting', '_1977ExpertExpertofHandicrafting', '_1978ExpertPassionforCooking',
+        '_1979ExpertExpertofCooking', '_1980ExpertPassionforAlchemy', '_1981ExpertExpertofAlchemy', '_1982ExpertAPassionForTailoring',
+        '_1983ExpertExpertofTailoring', '_29000ExpertEssencetappersTest', '_29001ExpertEssencetappingExpert',
+        '_29002ExpertAethertappersTest', '_29003ExpertAethertappingExpert', '_29008MasterWeaponsmithsPotential',
+        '_29014MasterArmorsmithsPotential', '_29020MasterTailorsPotential', '_29026MasterHandicraftersPotential',
+        '_29032MasterAlchemistsPotential', '_29038MasterCooksPotential', '_29052ExpertPassionforConstruction',
+        '_29053ExpertExpertofConstruction', '_29055ExpertConstructorsFinalExam', '_29057MasterConstructorsPotential',
+        '_2972ExpertWeaponsmithsTest', '_2973ExpertWeaponsmithsFinalExam', '_2974ExpertArmorsmithsTest',
+        '_2975ExpertArmorsmithsFinalExam', '_2976ExpertHandicraftersTest', '_2977ExpertHandicraftersFinalExam', '_2978ExpertCooksTest',
+        '_2979ExpertCooksFinalExam', '_2980ExpertAlchemistsTest', '_2981ExpertAlchemistsFinalExam', '_2982ExpertTailorsTest',
+        '_2983ExpertTailorsFinalExam',),
 }
 # Phase 6 step 2, chunk Q13 (lane C, 2026-10-07; docs/deviations/Q13.md): the files of the instance directories A-K that questgen
 # transliterates, all in the tree (87 of 87; kaisinel_academy's three mentor dailies by rule stream-any-match)
@@ -285,13 +382,16 @@ Q14 = {
 # held back at the integration of slice 2 (docs/deviations/Q10.md, "Held back"): transliterated like the others, but kept out of the
 # tree because gs.scenario.travel's (and gs.scenario.ascension's) Asmodian would see them: 24010's onEnterWorldEvent starts it at the
 # Altgard arrival, and the others' start npcs put them in his SM_NEARBY_QUESTS in Pandaemonium or Altgard
-Q10_HELD_BACK = (
+Q10_FORMERLY_HELD_BACK = (
     'altgard/_2207ConversingWithaSkurv.java', 'altgard/_2209TheScribbler.java', 'altgard/_2213PoisonRootPotentFruit.java',
     'altgard/_2221ManirsUncle.java', 'altgard/_2223AMythicalMonster.java', 'altgard/_2231SiblingRivalry.java', 'altgard/_2232TheBrokenHoneyJar.java',
     'altgard/_2239MalodorAntidote.java', 'altgard/_2288MoneyWhereYourMouthIs.java', 'altgard/_24010SuthransOrders.java',
     'pandaemonium/_2911SongOfBlessing.java', 'pandaemonium/_2917ArekedilsHeritage.java', 'pandaemonium/_2953DeliveringSupplyRequest.java',
     'pandaemonium/_29004VeldinaCall.java', 'pandaemonium/_29048SeriphimTeachings.java', 'pandaemonium/_4973MarraWorry.java',
 )
+# in the tree since the owner's decision on the travel and ascension gates' traffic (WIP, pending: docs/deviations/Q10.md,
+# "Landing the held-back sixteen")
+Q10_HELD_BACK = ()
 # the four that start their quest at a character's first enter world (Java behaviour): held back for their gate impact until the owner's answer
 # of 2026-09-29 ("A": land them and let gs.scenario.m5a, m5b and m5b2 expect the prologue traffic; docs/design/owner-decisions.md)
 ENTER_WORLD = ('poeta/_1000Prologue.java', 'poeta/_1100KaliosCall.java', 'ishalgen/_2000Prologue.java', 'ishalgen/_2100OrderoftheCaptain.java')
@@ -337,7 +437,7 @@ class CommittedTree(unittest.TestCase):
             for klass in classes:
                 with self.subTest(file=f'{directory}/{klass}'):
                     self.assertIn((directory, klass), found)
-        self.assertEqual((len(Q10['altgard']), len(Q10['pandaemonium'])), (18, 35))
+        self.assertEqual((len(Q10['altgard']), len(Q10['pandaemonium'])), (28, 41))
         for directory, classes in Q08.items():
             for klass in classes:
                 with self.subTest(file=f'{directory}/{klass}'):
@@ -352,6 +452,14 @@ class CommittedTree(unittest.TestCase):
         hand_port = (HANDLER_QUEST_DIR / 'reshanta' / '_2759TenaciousGuardian.cpp').read_text(encoding='utf-8')
         self.assertNotIn(emit.banner('game-server/data/handlers/quest/reshanta/_2759TenaciousGuardian.java')[0], hand_port)
         self.assertNotIn(('reshanta', '_2759TenaciousGuardian'), found)
+        # _1367 and _24026 are hand ports since the owner's decision of 2026-10-13 (docs/deviations/Q05.md and Q09.md, "Correction: 1367 and
+        # 24026"): in the tree, without questgen's banner, and still refused by questgen
+        for directory, klass in (('eltnen', '_1367MabangtahsFeast'), ('morheim', '_24026AHandfromEachSide')):
+            with self.subTest(file=f'{directory}/{klass}'):
+                hand_port = (HANDLER_QUEST_DIR / directory / f'{klass}.cpp').read_text(encoding='utf-8')
+                self.assertNotIn(emit.banner(f'game-server/data/handlers/quest/{directory}/{klass}.java')[0], hand_port)
+                self.assertIn('Hand-ported from', hand_port)
+                self.assertNotIn((directory, klass), found)
         for klass in Q02['inggison']:
             with self.subTest(file=f'inggison/{klass}'):
                 self.assertIn(('inggison', klass), found)
@@ -375,13 +483,33 @@ class CommittedTree(unittest.TestCase):
             for klass in classes:
                 with self.subTest(file=f'{directory}/{klass}'):
                     self.assertIn((directory, klass), found)
-        self.assertEqual(sum(len(classes) for classes in Q05.values()), 53)
+        self.assertEqual(sum(len(classes) for classes in Q05.values()), 57)
         for directory, classes in Q09.items():
             for klass in classes:
                 with self.subTest(file=f'{directory}/{klass}'):
                     self.assertIn((directory, klass), found)
-        self.assertEqual(sum(len(classes) for classes in Q09.values()), 47)
-        self.assertEqual(len(Q10_HELD_BACK), 16)
+        self.assertEqual(sum(len(classes) for classes in Q09.values()), 51)
+        for directory, classes in Q07.items():
+            for klass in classes:
+                with self.subTest(file=f'{directory}/{klass}'):
+                    self.assertIn((directory, klass), found)
+        self.assertEqual(sum(len(classes) for classes in Q07.values()), 64)
+        for directory, classes in Q12.items():
+            for klass in classes:
+                with self.subTest(file=f'{directory}/{klass}'):
+                    self.assertIn((directory, klass), found)
+        self.assertEqual(sum(len(classes) for classes in Q12.values()), 72)
+        for directory, classes in Q04.items():
+            for klass in classes:
+                with self.subTest(file=f'{directory}/{klass}'):
+                    self.assertIn((directory, klass), found)
+        self.assertEqual(sum(len(classes) for classes in Q04.values()), 67)
+        for directory, classes in Q06.items():
+            for klass in classes:
+                with self.subTest(file=f'{directory}/{klass}'):
+                    self.assertIn((directory, klass), found)
+        self.assertEqual(sum(len(classes) for classes in Q06.values()), 52)
+        self.assertEqual((len(Q10_HELD_BACK), len(Q10_FORMERLY_HELD_BACK)), (0, 16))
 
     def test_the_enter_world_files_are_in_the_tree(self):
         for rel in ENTER_WORLD:
@@ -391,17 +519,17 @@ class CommittedTree(unittest.TestCase):
                 self.assertIn('qe.registerOnEnterWorld(questId);', r.cpp)
                 self.assertEqual((HANDLER_QUEST_DIR / rel).with_suffix('.cpp').read_bytes(), r.cpp.encode('utf-8'))
 
-    def test_the_q10_held_back_files_transliterate_and_stay_out_of_the_tree(self):
-        # the integration of slice 2: each is questgen's output (the regenerate command lands it), none is in the tree or the table
+    def test_the_q10_formerly_held_back_files_are_in_the_tree(self):
+        # held back at the integration of slice 2, in the tree since the owner's decision (WIP): questgen's output, in the table
         found = {(f.parent.name, f.stem) for f, _ in self.files}
-        for rel in Q10_HELD_BACK:
+        for rel in Q10_FORMERLY_HELD_BACK:
             with self.subTest(file=rel):
                 r = self.tr.transliterate(paths.JAVA_QUEST_DIR / rel)
                 self.assertEqual(r.status, 'ok', r.reasons)
-                self.assertFalse((HANDLER_QUEST_DIR / rel).with_suffix('.cpp').exists())
+                self.assertEqual((HANDLER_QUEST_DIR / rel).with_suffix('.cpp').read_bytes(), r.cpp.encode('utf-8'))
                 directory, klass = rel.removesuffix('.java').split('/')
-                self.assertNotIn((directory, klass), found)
-                self.assertNotIn(klass, Q10[directory])
+                self.assertIn((directory, klass), found)
+                self.assertIn(klass, Q10[directory])
         r = self.tr.transliterate(paths.JAVA_QUEST_DIR / 'altgard/_24010SuthransOrders.java')
         self.assertIn('qe.registerOnEnterWorld(questId);', r.cpp)
 

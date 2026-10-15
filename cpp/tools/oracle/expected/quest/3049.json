@@ -1,0 +1,51 @@
+{
+ "format": "aion-quest-trace",
+ "version": 1,
+ "questId": 3049,
+ "java": "theobomos/_3049BloodMarkstheSpot.java",
+ "class": "_3049BloodMarkstheSpot",
+ "javaSha256": "549bc9fee0dabcfff56bb218d6a3278a6a0ebd4608cfbeec495fff679058f50a",
+ "register": [
+  {"npc": 798211, "event": "addOnTalkEvent", "args": [3049]},
+  {"npc": 730149, "event": "addOnTalkEvent", "args": [3049]},
+  {"call": "registerQuestItem", "args": [182208034, 3049]}
+ ],
+ "hooks": [
+  {"hook": "onDialogEvent", "line": 31, "unsupported": "call env.getVisibleObject().getController()"},
+  {"hook": "onItemUseEvent", "line": 71, "cases": 4}
+ ],
+ "cases": [
+  {
+   "id": "onItemUseEvent#1",
+   "hook": "onItemUseEvent",
+   "given": {"questState": null},
+   "guards": ["qs == null -> true @74"],
+   "effects": [{"call": "sendQuestDialog", "kind": "dialog", "args": [4], "line": 75}],
+   "returns": {"fromBoolean": {"resultOf": 0}}
+  },
+  {
+   "id": "onItemUseEvent#2",
+   "hook": "onItemUseEvent",
+   "given": {"questState": {"status": "COMPLETE", "canRepeat": true}},
+   "guards": ["qs == null -> false @74", "qs.isStartable() [status == COMPLETE] -> true @74", "qs.isStartable() [canRepeat] -> true @74"],
+   "effects": [{"call": "sendQuestDialog", "kind": "dialog", "args": [4], "line": 75}],
+   "returns": {"fromBoolean": {"resultOf": 0}}
+  },
+  {
+   "id": "onItemUseEvent#3",
+   "hook": "onItemUseEvent",
+   "given": {"questState": {"status": "COMPLETE", "canRepeat": false}},
+   "guards": ["qs == null -> false @74", "qs.isStartable() [status == COMPLETE] -> true @74", "qs.isStartable() [canRepeat] -> false @74"],
+   "effects": [],
+   "returns": "FAILED"
+  },
+  {
+   "id": "onItemUseEvent#4",
+   "hook": "onItemUseEvent",
+   "given": {"questState": {"status": "START"}},
+   "guards": ["qs == null -> false @74", "qs.isStartable() [status == COMPLETE] -> false @74"],
+   "effects": [],
+   "returns": "FAILED"
+  }
+ ]
+}

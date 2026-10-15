@@ -28,8 +28,11 @@ HAND_PORTS = ('heiron/_1643TheStarOfHeiron', 'heiron/_3200PriceOfGoodwill')
 # transliterated like the others but held out of the tree (the review of 2026-09-29, docs/deviations/Q03.md "Held back"): gs.scenario.travel's
 # Elyos Daeva arrives in Verteron at level 10, where 14010's onEnterWorldEvent starts its quest (CM_LEVEL_READY -> QuestEngine.onEnterWorld)
 # and the start npcs of 1131, 1146 and 1152 put their quests (min level 11-12) into the arrival's SM_NEARBY_QUESTS; U1/U7 hold them back
-HELD_BACK = ('verteron/_1131UndeliveredArmor', 'verteron/_1146DelicateMandrake', 'verteron/_1152OdellaRecipe',
+FORMERLY_HELD_BACK = ('verteron/_1131UndeliveredArmor', 'verteron/_1146DelicateMandrake', 'verteron/_1152OdellaRecipe',
              'verteron/_14010TerrainOfTheVerteronFortress')
+# in the tree since the owner's decision on the travel gate's Verteron traffic (WIP, pending: docs/deviations/Q03.md, "Landing the
+# held-back four")
+HELD_BACK = ()
 
 
 def java_files(directory):
@@ -57,16 +60,16 @@ class Q03Tree(unittest.TestCase):
                 if rel not in HELD_BACK:
                     self.assertEqual(banner_of(rel), rel not in HAND_PORTS)
 
-    def test_the_held_back_files_transliterate_and_stay_out_of_the_tree(self):
-        for rel in HELD_BACK:
+    def test_the_formerly_held_back_files_are_in_the_tree(self):
+        for rel in FORMERLY_HELD_BACK:
             with self.subTest(file=rel):
                 r = self.tr.transliterate(paths.JAVA_QUEST_DIR / f'{rel}.java')
                 self.assertEqual(r.status, 'ok', r.reasons)
-                self.assertFalse((HANDLER_QUEST_DIR / f'{rel}.cpp').exists())
-        # what holds each of them back: 14010 starts at an enter world in Verteron, the others start at an npc (a quest marker)
+                self.assertTrue((HANDLER_QUEST_DIR / f'{rel}.cpp').exists())
+        # what held them back: 14010 starts at an enter world in Verteron, the others start at an npc (a quest marker)
         r = self.tr.transliterate(paths.JAVA_QUEST_DIR / 'verteron/_14010TerrainOfTheVerteronFortress.java')
         self.assertIn('qe.registerOnEnterWorld(questId);', r.cpp)
-        for rel in HELD_BACK[:3]:
+        for rel in FORMERLY_HELD_BACK[:3]:
             with self.subTest(file=rel):
                 self.assertIn('->addOnQuestStart(questId);', self.tr.transliterate(paths.JAVA_QUEST_DIR / f'{rel}.java').cpp)
 

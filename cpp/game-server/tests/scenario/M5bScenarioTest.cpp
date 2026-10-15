@@ -1058,7 +1058,7 @@ void runM5bGate(const GateVariant& variant) {
 	int32_t monsterMaxHpAnnounced = 0;
 	runCase("K3", "level ready and the monster is announced", [&] {
 		a.game->send(GameSession::CM_LEVEL_READY, GameSession::buildCM_LEVEL_READY());
-		const std::vector<Packet> burst = collectBurst(*a.game, async);
+		const std::vector<Packet> burst = expectEnterWorldTimerEnds(collectBurst(*a.game, async), "level ready");
 		ASSERT_FALSE(burst.empty()) << "no packet after CM_LEVEL_READY";
 		expectSequence(burst, levelReadyPattern(), async);
 
@@ -1768,7 +1768,7 @@ void runM5bGate(const GateVariant& variant) {
 		EXPECT_EQ(statsInfo.currentHp, 1) << "D12: the seeded 1 HP was not restored from the database";
 		EXPECT_EQ(statsInfo.expShown, decoders::PROLOGUE_EXP + monster.awarded) << "R1 (c): the stored experience came back with the character";
 		a.game->send(GameSession::CM_LEVEL_READY, GameSession::buildCM_LEVEL_READY());
-		collectBurst(*a.game, async);
+		expectEnterWorldTimerEnds(collectBurst(*a.game, async), "relog level ready");
 	});
 
 	// ---- K8: the player dies and revives (P1, P2, P3 (a)) ----

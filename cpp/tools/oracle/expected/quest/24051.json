@@ -1,0 +1,146 @@
+{
+ "format": "aion-quest-trace",
+ "version": 1,
+ "questId": 24051,
+ "java": "beluslan/_24051InvesetigatetheDisappearance.java",
+ "class": "_24051InvesetigatetheDisappearance",
+ "javaSha256": "7e4e9ca225f6f8c5180fe454aee2ad413fa310dcadf8e902bee101f45f879d5d",
+ "register": [
+  {"call": "registerOnQuestCompleted", "args": [24051]},
+  {"call": "registerOnLevelChanged", "args": [24051]},
+  {"call": "registerQuestItem", "args": [182215375, 24051]},
+  {"call": "registerOnEnterZone", "args": ["MINE_PORT_220040000", 24051]},
+  {"call": "registerOnEnterWorld", "args": [24051]},
+  {"npc": 204707, "event": "addOnTalkEvent", "args": [24051]},
+  {"npc": 204749, "event": "addOnTalkEvent", "args": [24051]},
+  {"npc": 204800, "event": "addOnTalkEvent", "args": [24051]},
+  {"npc": 700359, "event": "addOnTalkEvent", "args": [24051]}
+ ],
+ "hooks": [
+  {"hook": "onDialogEvent", "line": 39, "unsupported": "call TeleportService.teleportTo"},
+  {"hook": "onItemUseEvent", "line": 105, "cases": 3},
+  {"hook": "onEnterZoneEvent", "line": 116, "cases": 5},
+  {"hook": "onMovieEndEvent", "line": 139, "cases": 2},
+  {"hook": "onQuestCompletedEvent", "line": 147, "cases": 1},
+  {"hook": "onLevelChangedEvent", "line": 152, "cases": 1}
+ ],
+ "cases": [
+  {
+   "id": "onItemUseEvent#1",
+   "hook": "onItemUseEvent",
+   "given": {"questState": {"status": "START"}},
+   "guards": ["qs != null -> true @108", "qs.getStatus() == QuestStatus.START -> true @108"],
+   "effects": [{"call": "changeQuestStep", "kind": "var", "args": [2, 3], "line": 109}],
+   "returns": "SUCCESS"
+  },
+  {
+   "id": "onItemUseEvent#2",
+   "hook": "onItemUseEvent",
+   "given": {"questState": {"status": "REWARD"}},
+   "guards": ["qs != null -> true @108", "qs.getStatus() == QuestStatus.START -> false @108"],
+   "effects": [],
+   "returns": "FAILED"
+  },
+  {
+   "id": "onItemUseEvent#3",
+   "hook": "onItemUseEvent",
+   "given": {"questState": null},
+   "guards": ["qs != null -> false @108"],
+   "effects": [],
+   "returns": "FAILED"
+  },
+  {
+   "id": "onEnterZoneEvent#1",
+   "hook": "onEnterZoneEvent",
+   "given": {"args": {"name": "MINE_PORT_220040000"}, "questState": {"status": "START", "vars": {"0": 5}}},
+   "guards": [
+    "qs != null -> true @121",
+    "qs.getStatus() == QuestStatus.START -> true @121",
+    "name == ZoneName.get(\"MINE_PORT_220040000\") -> true @123",
+    "var == 5 -> true @124"
+   ],
+   "effects": [
+    {"call": "ThreadPoolManager.schedule", "kind": "task", "args": [10000], "line": 125},
+    {"call": "playQuestMovie", "kind": "movie", "args": [236], "line": 129, "task": 0}
+   ],
+   "returns": false
+  },
+  {
+   "id": "onEnterZoneEvent#2",
+   "hook": "onEnterZoneEvent",
+   "given": {"args": {"name": "MINE_PORT_220040000"}, "questState": {"status": "START", "vars": {"0": 0}}},
+   "guards": [
+    "qs != null -> true @121",
+    "qs.getStatus() == QuestStatus.START -> true @121",
+    "name == ZoneName.get(\"MINE_PORT_220040000\") -> true @123",
+    "var == 5 -> false @124"
+   ],
+   "effects": [],
+   "returns": false
+  },
+  {
+   "id": "onEnterZoneEvent#3",
+   "hook": "onEnterZoneEvent",
+   "given": {"args": {"name": {"anyExcept": ["MINE_PORT_220040000"]}}, "questState": {"status": "START", "vars": {"0": 0}}},
+   "guards": [
+    "qs != null -> true @121",
+    "qs.getStatus() == QuestStatus.START -> true @121",
+    "name == ZoneName.get(\"MINE_PORT_220040000\") -> false @123"
+   ],
+   "free": ["questState.vars.0"],
+   "effects": [],
+   "returns": false
+  },
+  {
+   "id": "onEnterZoneEvent#4",
+   "hook": "onEnterZoneEvent",
+   "given": {"questState": {"status": "REWARD"}},
+   "guards": ["qs != null -> true @121", "qs.getStatus() == QuestStatus.START -> false @121"],
+   "effects": [],
+   "returns": false
+  },
+  {
+   "id": "onEnterZoneEvent#5",
+   "hook": "onEnterZoneEvent",
+   "given": {"questState": null},
+   "guards": ["qs != null -> false @121"],
+   "effects": [],
+   "returns": false
+  },
+  {
+   "id": "onMovieEndEvent#1",
+   "hook": "onMovieEndEvent",
+   "given": {"args": {"movieId": 236}},
+   "guards": ["movieId == 236 -> true @140"],
+   "effects": [
+    {"call": "changeQuestStep", "kind": "var", "args": [5, 5, true], "line": 141},
+    {"call": "removeQuestItem", "kind": "item", "args": [182215377, 1], "line": 142}
+   ],
+   "returns": null
+  },
+  {
+   "id": "onMovieEndEvent#2",
+   "hook": "onMovieEndEvent",
+   "given": {"args": {"movieId": 0}},
+   "guards": ["movieId == 236 -> false @140"],
+   "effects": [],
+   "returns": null
+  },
+  {
+   "id": "onQuestCompletedEvent#1",
+   "hook": "onQuestCompletedEvent",
+   "given": {},
+   "guards": [],
+   "effects": [{"call": "defaultOnQuestCompletedEvent", "kind": "quest", "args": [24050], "line": 148}],
+   "returns": null
+  },
+  {
+   "id": "onLevelChangedEvent#1",
+   "hook": "onLevelChangedEvent",
+   "given": {},
+   "guards": [],
+   "effects": [{"call": "defaultOnLevelChangedEvent", "kind": "quest", "args": [24050], "line": 153}],
+   "returns": null
+  }
+ ]
+}

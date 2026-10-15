@@ -47,7 +47,7 @@ TEST(Q03RegistrationTest, EveryJavaHandlerOfTheChunkHasItsCppHandlerAndNoOther) 
 		heldBack.insert(name);
 	}
 	EXPECT_EQ(java.size(), 78u);
-	EXPECT_EQ(cpp.size(), 74u);
+	EXPECT_EQ(cpp.size(), 78u);
 	std::set<std::string> all = cpp;
 	all.insert(heldBack.begin(), heldBack.end());
 	EXPECT_EQ(all, java);
@@ -94,7 +94,7 @@ TEST_F(Q03RegistryTest, EveryMarkerCreatesAHandlerOfItsJavaQuestId) {
 		EXPECT_TRUE(entry.javaClass.starts_with("_" + std::to_string(entry.questId))) << entry.javaClass;
 		EXPECT_TRUE(ids.insert(entry.questId).second) << "duplicate quest id " << entry.questId;
 	}
-	EXPECT_EQ(ids.size(), 74u);
+	EXPECT_EQ(ids.size(), 78u);
 }
 
 TEST_F(Q03RegistryTest, AllSeventyFourRegisterTogetherLikeTheRegistryAndTheHeldBackOnesNot) {
@@ -103,7 +103,7 @@ TEST_F(Q03RegistryTest, AllSeventyFourRegisterTogetherLikeTheRegistryAndTheHeldB
 	engine.clear();
 	for (const Q03Handler& entry : q03Handlers())
 		engine.addQuestHandler(entry.factory());
-	EXPECT_EQ(engine.getQuestHandlerCount(), 74);
+	EXPECT_EQ(engine.getQuestHandlerCount(), 78);
 	for (const Q03Handler& entry : q03Handlers())
 		EXPECT_TRUE(engine.isHaveHandler(entry.questId)) << entry.javaClass;
 	for (const Q03HeldBack& held : Q03_HELD_BACK)

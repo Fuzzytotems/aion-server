@@ -18,6 +18,10 @@
 // Chunk Q11 (lane C, 2026-10-08): 71 generated handlers of daevanion and sanctum (GoldenQ11Handlers.cpp; docs/deviations/Q11.md).
 // Chunk Q05, the rest (lane C, 2026-10-08): 53 generated handlers of eltnen and oriel (GoldenQ05Handlers.cpp; docs/deviations/Q05.md).
 // Chunk Q09, the rest (lane C, 2026-10-08): 47 generated handlers of morheim and pernon (GoldenQ09Handlers.cpp; docs/deviations/Q09.md).
+// Chunk Q07 (lane C, 2026-10-08): the 64 generated handlers of beshmundir, abyss_entry and silentera_canyon (GoldenQ07Handlers.cpp; docs/deviations/Q07.md).
+// Chunk Q12 (lane C, 2026-10-08): the 72 generated handlers of theobomos, event_quests and cygnea (GoldenQ12Handlers.cpp; docs/deviations/Q12.md).
+// Chunk Q04 (lane C, 2026-10-13): 67 generated handlers of beluslan and brusthonin (GoldenQ04Handlers.cpp; docs/deviations/Q04.md).
+// Chunk Q06 (lane C, 2026-10-13): 52 generated crafting handlers (GoldenQ06Handlers.cpp; docs/deviations/Q06.md).
 //
 // P6-Q slice 2, chunk Q03 (2026-09-29): the 72 generated verteron and heiron handlers in the tree (the zones the route's dispatches end in),
 // compiled into this executable by #include as well (GoldenQ03Handlers.cpp); Q03's hand ports 1643 and 3200 have their own unit cases
@@ -36,6 +40,7 @@
 // 2239, 2288 and 2917 are in the arrival's SM_NEARBY_QUESTS; 2911 (after 2009, start npc in Pandaemonium) for gs.scenario.ascension's
 // Asmodian after the ceremony. The harness passed all of their cases with them in (docs/deviations/Q10.md, "Held back").
 
+#include <array>
 #include <cstdint>
 #include <memory>
 #include <string_view>
@@ -81,6 +86,10 @@
 	X(ascension, _2904DispatchtoAltgard, 2904) \
 	X(ascension, _29070ADispatchtoAltgard, 29070) \
 	X(ascension, _29071ADispatchtoAltgard, 29071) \
+	X(verteron, _1131UndeliveredArmor, 1131) \
+	X(verteron, _1146DelicateMandrake, 1146) \
+	X(verteron, _1152OdellaRecipe, 1152) \
+	X(verteron, _14010TerrainOfTheVerteronFortress, 14010) \
 	X(verteron, _1141BelbuasTreasure, 1141) \
 	X(verteron, _1149MissingPoppy, 1149) \
 	X(verteron, _1156StolenVillageSeal, 1156) \
@@ -153,6 +162,16 @@
 	X(heiron, _80218DarkPoetaEncore, 80218) \
 	X(heiron, _80219DarkPoetaFinale, 80219) \
 	X(heiron, _80220DarkPoetaFinale, 80220) \
+	X(altgard, _2207ConversingWithaSkurv, 2207) \
+	X(altgard, _2209TheScribbler, 2209) \
+	X(altgard, _2213PoisonRootPotentFruit, 2213) \
+	X(altgard, _2221ManirsUncle, 2221) \
+	X(altgard, _2223AMythicalMonster, 2223) \
+	X(altgard, _2231SiblingRivalry, 2231) \
+	X(altgard, _2232TheBrokenHoneyJar, 2232) \
+	X(altgard, _2239MalodorAntidote, 2239) \
+	X(altgard, _2288MoneyWhereYourMouthIs, 2288) \
+	X(altgard, _24010SuthransOrders, 24010) \
 	X(altgard, _2216MuMuGrassKnot, 2216) \
 	X(altgard, _2222ManirsMessage, 2222) \
 	X(altgard, _2228AThornInItsSide, 2228) \
@@ -171,6 +190,12 @@
 	X(altgard, _24015TotemPlowed, 24015) \
 	X(altgard, _24016AStrangeNewThread, 24016) \
 	X(altgard, _24112NoLaissezFaireForLepharists, 24112) \
+	X(pandaemonium, _2911SongOfBlessing, 2911) \
+	X(pandaemonium, _2917ArekedilsHeritage, 2917) \
+	X(pandaemonium, _2953DeliveringSupplyRequest, 2953) \
+	X(pandaemonium, _29004VeldinaCall, 29004) \
+	X(pandaemonium, _29048SeriphimTeachings, 29048) \
+	X(pandaemonium, _4973MarraWorry, 4973) \
 	X(pandaemonium, _2912FollowtheRibbon, 2912) \
 	X(pandaemonium, _2913AChainofDebt, 2913) \
 	X(pandaemonium, _2914ATokenofLostLove, 2914) \
@@ -410,6 +435,14 @@
 	X(inggison, _11455WhentheTimeisRipe, 11455) \
 	X(inggison, _11458AdiassReport, 11458) \
 	X(inggison, _11460TheShulackofTaloc, 11460) \
+	X(abyss_entry, _1920TestingYourMettle, 1920) \
+	X(abyss_entry, _1921TheAbyssQuiz, 1921) \
+	X(abyss_entry, _1922DeliveronYourPromises, 1922) \
+	X(abyss_entry, _2945HoningYourSkills, 2945) \
+	X(abyss_entry, _2946AbyssGeneralKnowledge, 2946) \
+	X(abyss_entry, _2947FollowingThrough, 2947) \
+	X(abyss_entry, _1044TestingFlightSkills, 1044) \
+	X(abyss_entry, _2042TheLastCheckpoint, 2042) \
 	X(abyssal_splinter, _30255TheLastCrusade, 30255) \
 	X(abyssal_splinter, _30261WeirdFragment, 30261) \
 	X(abyssal_splinter, _30263DaevasFearToTread, 30263) \
@@ -431,11 +464,123 @@
 	X(aturam_sky_fortress, _28303JustAnIsland, 28303) \
 	X(bare_truth, _14030RetrievedMemory, 14030) \
 	X(bare_truth, _14031AHyperVention, 14031) \
+	X(beluslan, _16909AMarkofDistinction, 16909) \
+	X(beluslan, _24050NeritasOrders, 24050) \
+	X(beluslan, _24051InvesetigatetheDisappearance, 24051) \
+	X(beluslan, _24052AFrozenCity, 24052) \
+	X(beluslan, _24054CrisisinBeluslan, 24054) \
+	X(beluslan, _2501FallingFragments, 2501) \
+	X(beluslan, _2505LetCookingExpertsCook, 2505) \
+	X(beluslan, _2512FoodforRemotePlaces, 2512) \
+	X(beluslan, _2513TheStrangeCottage, 2513) \
+	X(beluslan, _2514TheRedManeReport, 2514) \
+	X(beluslan, _2515LeanorsErrand, 2515) \
+	X(beluslan, _2523GrassfortheGraveRobbers, 2523) \
+	X(beluslan, _2533BeritrasCurse, 2533) \
+	X(beluslan, _2538CurseoftheWereRibbit, 2538) \
+	X(beluslan, _2539TrystoftheShadow, 2539) \
+	X(beluslan, _2553TheBrigadeGeneralsCall, 2553) \
+	X(beluslan, _2564WiththePowerofFlame, 2564) \
+	X(beluslan, _2569TafisFlameScroll, 2569) \
+	X(beluslan, _2578ARingforLuck, 2578) \
+	X(beluslan, _2583APoliteRequest, 2583) \
+	X(beluslan, _2600HumongousMalek, 2600) \
+	X(beluslan, _2620SummoningPhagrasul, 2620) \
+	X(beluslan, _2630TheDutifulSpy, 2630) \
+	X(beluslan, _2633DestroyingBalaurWeapons, 2633) \
+	X(beluslan, _2641PowwowWiththeMau, 2641) \
+	X(beluslan, _2646TheInscrutableStranger, 2646) \
+	X(beluslan, _2651SpyAFriendsWhereabouts, 2651) \
+	X(beluslan, _2653SpyFindingBollvig, 2653) \
+	X(beluslan, _2654SpyTheLastPersuasion, 2654) \
+	X(beluslan, _2663AcquiringanAntidote, 2663) \
+	X(beluslan, _2664AnAntidotetotheLepharists, 2664) \
+	X(beluslan, _2669AtlaEscape, 2669) \
+	X(beluslan, _2670TheAncientBook, 2670) \
+	X(beluslan, _26909TribalEmblems, 26909) \
+	X(beluslan, _2692BrokenMusicBox, 2692) \
+	X(beluslan, _2693KrallGoneMad, 2693) \
+	X(beluslan, _28600SuspiciousErrand, 28600) \
+	X(beluslan, _28601NightmaresandDreamscapes, 28601) \
+	X(beluslan, _28602IntotheUnknown, 28602) \
+	X(beluslan, _4200ASuspiciousCall, 4200) \
+	X(beluslan, _4501DelayedOrder, 4501) \
+	X(beluslan, _4502EssenceOfFate, 4502) \
+	X(beluslan, _4542TheSecretoftheSeirenTreasure, 4542) \
+	X(beluslan, _80226ATestinDarkPoeta, 80226) \
+	X(beluslan, _80227ASecondTestinDarkPoeta, 80227) \
+	X(beluslan, _80228FinalTestinDarkPoeta, 80228) \
+	X(beluslan, _80229FinalTestinDarkPoeta, 80229) \
+	X(beshmundir, _30201SuppliesParty, 30201) \
+	X(beshmundir, _30202SuspiciousCeremony, 30202) \
+	X(beshmundir, _30203GroupHalttheCeremony, 30203) \
+	X(beshmundir, _30207SoulInvocationCeremony, 30207) \
+	X(beshmundir, _30208GroupTheTruthHurts, 30208) \
+	X(beshmundir, _30210WritteninBlood, 30210) \
+	X(beshmundir, _30211GroupTheRodandtheOrb, 30211) \
+	X(beshmundir, _30213GroupMagicalEssence, 30213) \
+	X(beshmundir, _30222AGuardsCurse, 30222) \
+	X(beshmundir, _30227GroupToLiberateSouls, 30227) \
+	X(beshmundir, _30235NewSword, 30235) \
+	X(beshmundir, _30236NewGreatsword, 30236) \
+	X(beshmundir, _30237NewPolearm, 30237) \
+	X(beshmundir, _30238NewStaff, 30238) \
+	X(beshmundir, _30239NewSpellbook, 30239) \
+	X(beshmundir, _30240NewOrb, 30240) \
+	X(beshmundir, _30241NewBow, 30241) \
+	X(beshmundir, _30242NewDagger, 30242) \
+	X(beshmundir, _30243NewMace, 30243) \
+	X(beshmundir, _30246YourOathToOutremus, 30246) \
+	X(beshmundir, _30247NewPistol, 30247) \
+	X(beshmundir, _30248NewAethercannon, 30248) \
+	X(beshmundir, _30249NewHarp, 30249) \
+	X(beshmundir, _30301TrackingSupplies, 30301) \
+	X(beshmundir, _30302MysteriousMotives, 30302) \
+	X(beshmundir, _30303GroupTheFallofIsbariya, 30303) \
+	X(beshmundir, _30307SoulSummoning, 30307) \
+	X(beshmundir, _30308GroupSummonRespondentUtra, 30308) \
+	X(beshmundir, _30310RankandBile, 30310) \
+	X(beshmundir, _30311GroupAQuartzIsaQuartz, 30311) \
+	X(beshmundir, _30313GroupOpeningthePrison, 30313) \
+	X(beshmundir, _30327GroupMiredSouls, 30327) \
+	X(beshmundir, _30335ImprovedSword, 30335) \
+	X(beshmundir, _30336ImprovedGreatsword, 30336) \
+	X(beshmundir, _30337ImprovedPolearm, 30337) \
+	X(beshmundir, _30338ImprovedStaff, 30338) \
+	X(beshmundir, _30339ImprovedSpellbook, 30339) \
+	X(beshmundir, _30340ImprovedOrb, 30340) \
+	X(beshmundir, _30341ImprovedBow, 30341) \
+	X(beshmundir, _30342ImprovedDagger, 30342) \
+	X(beshmundir, _30343ImprovedMace, 30343) \
+	X(beshmundir, _30346ASolemnPromise, 30346) \
+	X(beshmundir, _30347ImprovedPistol, 30347) \
+	X(beshmundir, _30348ImprovedAethercannon, 30348) \
+	X(beshmundir, _30349ImprovedHarp, 30349) \
 	X(black_cloud_traders, _39505BackbitingBotheration, 39505) \
 	X(black_cloud_traders, _39510ZorinerkVersusTheShulacks, 39510) \
 	X(black_cloud_traders, _39515UntruthUpset, 39515) \
 	X(black_cloud_traders, _39520VilmanerkVersusDragonbound, 39520) \
 	X(blood_crusade, _48001CallOfTheCrusade, 48001) \
+	X(brusthonin, _4001CheckontheSettlers, 4001) \
+	X(brusthonin, _4004TheSeedsOfHope, 4004) \
+	X(brusthonin, _4011AnOldSettlersLetter, 4011) \
+	X(brusthonin, _4012TroublesomePromise, 4012) \
+	X(brusthonin, _4015TheMissingLaborers, 4015) \
+	X(brusthonin, _4020ParicasSpecialOrder, 4020) \
+	X(brusthonin, _4033ABloominBrusthonin, 4033) \
+	X(brusthonin, _4036HeirnirWantstoRest, 4036) \
+	X(brusthonin, _4038AlasPoorGroznak, 4038) \
+	X(brusthonin, _4042MessageinaBottle, 4042) \
+	X(brusthonin, _4051BukmirsWorry, 4051) \
+	X(brusthonin, _4052BukmirsOldFriend, 4052) \
+	X(brusthonin, _4053GlossyHoe, 4053) \
+	X(brusthonin, _4060TheZombiesDescendant, 4060) \
+	X(brusthonin, _4074GainOrLose, 4074) \
+	X(brusthonin, _4077PorgusRoundup, 4077) \
+	X(brusthonin, _4078ALightThroughtheTrees, 4078) \
+	X(brusthonin, _4082GatheringtheHerbPouches, 4082) \
+	X(brusthonin, _4087NoOrdinaryBranch, 4087) \
+	X(brusthonin, _4101ElimofBrusthonin, 4101) \
 	X(chantra_dredgion, _3721DisarmTheChantraDredgion, 3721) \
 	X(chantra_dredgion, _3722MyNewToy, 3722) \
 	X(chantra_dredgion, _3725MyLuckyNumber, 3725) \
@@ -445,6 +590,66 @@
 	X(charlirunerks_daemons, _48002CharlirunerksDaemonsWantYou, 48002) \
 	X(clash_of_destiny, _24030ShowdownWithDestiny, 24030) \
 	X(clash_of_destiny, _24031EnemyAtTheDoorstep, 24031) \
+	X(crafting, _19000ExpertEssencetappersTest, 19000) \
+	X(crafting, _19001ExpertEssencetappingExpert, 19001) \
+	X(crafting, _19002ExpertAethertappersTest, 19002) \
+	X(crafting, _19003ExpertAethertappingExpert, 19003) \
+	X(crafting, _19008MasterWeaponsmithsPotential, 19008) \
+	X(crafting, _19014MasterArmorsmithsPotential, 19014) \
+	X(crafting, _19020MasterTailorsPotential, 19020) \
+	X(crafting, _19026MasterHandicraftersPotential, 19026) \
+	X(crafting, _19032MasterAlchemistsPotential, 19032) \
+	X(crafting, _19038MasterCooksPotential, 19038) \
+	X(crafting, _19052ExpertPassionforConstruction, 19052) \
+	X(crafting, _19053ExpertExpertofConstruction, 19053) \
+	X(crafting, _19055ExpertConstructorsFinalExam, 19055) \
+	X(crafting, _19057MasterConstructorsPotential, 19057) \
+	X(crafting, _1972ExpertPassionforWeaponsmithing, 1972) \
+	X(crafting, _1973ExpertExpertofWeaponsmithing, 1973) \
+	X(crafting, _1974ExpertPassionforArmorsmithing, 1974) \
+	X(crafting, _1975ExpertExpertofArmorsmithing, 1975) \
+	X(crafting, _1976ExpertPassionforHandicrafting, 1976) \
+	X(crafting, _1977ExpertExpertofHandicrafting, 1977) \
+	X(crafting, _1978ExpertPassionforCooking, 1978) \
+	X(crafting, _1979ExpertExpertofCooking, 1979) \
+	X(crafting, _1980ExpertPassionforAlchemy, 1980) \
+	X(crafting, _1981ExpertExpertofAlchemy, 1981) \
+	X(crafting, _1982ExpertAPassionForTailoring, 1982) \
+	X(crafting, _1983ExpertExpertofTailoring, 1983) \
+	X(crafting, _29000ExpertEssencetappersTest, 29000) \
+	X(crafting, _29001ExpertEssencetappingExpert, 29001) \
+	X(crafting, _29002ExpertAethertappersTest, 29002) \
+	X(crafting, _29003ExpertAethertappingExpert, 29003) \
+	X(crafting, _29008MasterWeaponsmithsPotential, 29008) \
+	X(crafting, _29014MasterArmorsmithsPotential, 29014) \
+	X(crafting, _29020MasterTailorsPotential, 29020) \
+	X(crafting, _29026MasterHandicraftersPotential, 29026) \
+	X(crafting, _29032MasterAlchemistsPotential, 29032) \
+	X(crafting, _29038MasterCooksPotential, 29038) \
+	X(crafting, _29052ExpertPassionforConstruction, 29052) \
+	X(crafting, _29053ExpertExpertofConstruction, 29053) \
+	X(crafting, _29055ExpertConstructorsFinalExam, 29055) \
+	X(crafting, _29057MasterConstructorsPotential, 29057) \
+	X(crafting, _2972ExpertWeaponsmithsTest, 2972) \
+	X(crafting, _2973ExpertWeaponsmithsFinalExam, 2973) \
+	X(crafting, _2974ExpertArmorsmithsTest, 2974) \
+	X(crafting, _2975ExpertArmorsmithsFinalExam, 2975) \
+	X(crafting, _2976ExpertHandicraftersTest, 2976) \
+	X(crafting, _2977ExpertHandicraftersFinalExam, 2977) \
+	X(crafting, _2978ExpertCooksTest, 2978) \
+	X(crafting, _2979ExpertCooksFinalExam, 2979) \
+	X(crafting, _2980ExpertAlchemistsTest, 2980) \
+	X(crafting, _2981ExpertAlchemistsFinalExam, 2981) \
+	X(crafting, _2982ExpertTailorsTest, 2982) \
+	X(crafting, _2983ExpertTailorsFinalExam, 2983) \
+	X(cygnea, _10500ExpeditionCoalition, 10500) \
+	X(cygnea, _10501ResearchtheRuins, 10501) \
+	X(cygnea, _10502CygneaSecrets, 10502) \
+	X(cygnea, _10503GuardDownSecretsOut, 10503) \
+	X(cygnea, _10504ConfiscatetheSlate, 10504) \
+	X(cygnea, _10505SneezeAttack, 10505) \
+	X(cygnea, _10506MindOverMatter, 10506) \
+	X(cygnea, _10507ABigPlottoFoil, 10507) \
 	X(daevanion, _19631CoastalCrush, 19631) \
 	X(daevanion, _19632CascadeCritters, 19632) \
 	X(daevanion, _19633AlisaryAssistance, 19633) \
@@ -550,6 +755,33 @@
 	X(esoterrace, _28407GroupTheGathering, 28407) \
 	X(esoterrace, _28409GroupMaketheBladeComplete, 28409) \
 	X(esoterrace, _28410FortressUnsecured, 28410) \
+	X(event_quests, _50008SoloriusShugoSlackers, 50008) \
+	X(event_quests, _51008NonHelpingHands, 51008) \
+	X(event_quests, _80000JoyfulDaevasDay, 80000) \
+	X(event_quests, _80001FestiveDaevasDay, 80001) \
+	X(event_quests, _80008PieceOfCake, 80008) \
+	X(event_quests, _80009TheCakeIsTheTruth, 80009) \
+	X(event_quests, _80020EventSoloriusJoy, 80020) \
+	X(event_quests, _80021EventFestiveUs, 80021) \
+	X(event_quests, _80028EventMeetTheFayrefolk, 80028) \
+	X(event_quests, _80029EventUsingYourCharms, 80029) \
+	X(event_quests, _80031EventTheFayrefolk, 80031) \
+	X(event_quests, _80032EventACharmedExistence, 80032) \
+	X(event_quests, _80034EventGeaterGlories, 80034) \
+	X(event_quests, _80035EventOnlyTheBest, 80035) \
+	X(event_quests, _80036EventGamblingWithGrace, 80036) \
+	X(event_quests, _80037EventFromTheGutter, 80037) \
+	X(event_quests, _80038EventMightyAspirations, 80038) \
+	X(event_quests, _80039EventTheChosenFew, 80039) \
+	X(event_quests, _80137EventSealTheWarpedRift, 80137) \
+	X(event_quests, _80139EventCloseTheWarpedRift, 80139) \
+	X(event_quests, _80145EventWarpedRiftSealing, 80145) \
+	X(event_quests, _80147EventWarpedRiftClosing, 80147) \
+	X(event_quests, _80149EventWarpedRiftSecuring, 80149) \
+	X(event_quests, _80318TroubledArabella, 80318) \
+	X(event_quests, _80320ForTheAsmodians, 80320) \
+	X(event_quests, _80330TransformWithTheMagicCane, 80330) \
+	X(event_quests, _80331TransformWithTheMagicCane, 80331) \
 	X(fatebound_abbey, _29600WelcomeBack, 29600) \
 	X(fenris_fang, _29064FangOfConstruction, 29064) \
 	X(fenris_fang, _4937RecognitionOfThePreceptors, 4937) \
@@ -649,10 +881,14 @@
 	X(orichalcum_key, _38007AKeyMessage, 38007) \
 	X(oriel, _18802AndAHomeforEveryDaeva, 18802) \
 	X(oriel, _18805GoingThrifting, 18805) \
+	X(oriel, _18806HeartofRock, 18806) \
 	X(oriel, _18807BlessedBeThyHame, 18807) \
 	X(oriel, _18808FoolproofPackaging, 18808) \
 	X(oriel, _18809DaevaontheRide, 18809) \
+	X(oriel, _18821AlmostForgotMyBlessings, 18821) \
 	X(oriel, _18826TodaysFind, 18826) \
+	X(oriel, _18828UserFriendly, 18828) \
+	X(oriel, _18830MovingIn, 18830) \
 	X(oriel, _18832ImaginingAQuietLife, 18832) \
 	X(oriel, _18847Housewarming, 18847) \
 	X(oriel, _50009TisTheSeason, 50009) \
@@ -660,10 +896,14 @@
 	X(pangaea, _24220WelcometoPanesterra, 24220) \
 	X(pernon, _28802BeItEverSoHumble, 28802) \
 	X(pernon, _28805SomethingOldSomethingNew, 28805) \
+	X(pernon, _28806WiltingFlowersFallingTears, 28806) \
 	X(pernon, _28807BlessingsofaGreenThumb, 28807) \
 	X(pernon, _28808OpenSaysMe, 28808) \
 	X(pernon, _28809FirstClassorCoach, 28809) \
+	X(pernon, _28821YourButlerGift, 28821) \
 	X(pernon, _28826FreetoaGoodHome, 28826) \
+	X(pernon, _28828TheManyFacetsOfFriendship, 28828) \
+	X(pernon, _28830InteriorDecorator, 28830) \
 	X(pernon, _28832TakingtheTour, 28832) \
 	X(pernon, _28847AHomeThatsYourOwn, 28847) \
 	X(pernon, _51009TheGiftOfCharity, 51009) \
@@ -713,6 +953,17 @@
 	X(sauro_supply_base, _18910TheSauroSupplyBase, 18910) \
 	X(sauro_supply_base, _28910AStabbingInSauro, 28910) \
 	X(shugo_imperial_tomb, _80275EventEmpiresPast, 80275) \
+	X(silentera_canyon, _30051BanishingtheShadowborn, 30051) \
+	X(silentera_canyon, _30054PetrificationandPride, 30054) \
+	X(silentera_canyon, _30055ForMyWife, 30055) \
+	X(silentera_canyon, _30056DirvisiasSorrow, 30056) \
+	X(silentera_canyon, _30057JotunJaunt, 30057) \
+	X(silentera_canyon, _30151SnufftheSunsucker, 30151) \
+	X(silentera_canyon, _30154FleshtoStone, 30154) \
+	X(silentera_canyon, _30155StonetoFlesh, 30155) \
+	X(silentera_canyon, _30156NepsLove, 30156) \
+	X(silentera_canyon, _30157VilisMind, 30157) \
+	X(silentera_canyon, _30158JotunJunket, 30158) \
 	X(steel_rake, _3208ThePuzzlingBlueprint, 3208) \
 	X(steel_rake, _3217ImprisonedGuardian, 3217) \
 	X(steel_rake, _3219KeyItemHiddenQuest01, 3219) \
@@ -741,6 +992,43 @@
 	X(the_eternal_bastion, _18036BastionsAreEternal, 18036) \
 	X(the_eternal_bastion, _28035TrustInNoneButVerify, 28035) \
 	X(the_eternal_bastion, _28036InterrogateKvash, 28036) \
+	X(theobomos, _3001UnearthingtheTruth, 3001) \
+	X(theobomos, _3006TheShugoFugitive, 3006) \
+	X(theobomos, _3008WickedThiefKelaino, 3008) \
+	X(theobomos, _3013AClueLeftByTheDead, 3013) \
+	X(theobomos, _3020AgrintAfire, 3020) \
+	X(theobomos, _3023TheSpiceMustFlow, 3023) \
+	X(theobomos, _3031Pirates, 3031) \
+	X(theobomos, _3035EnhancingtheStone, 3035) \
+	X(theobomos, _3036LetSeeWhatItDoes, 3036) \
+	X(theobomos, _3037WanderersStaff, 3037) \
+	X(theobomos, _3041SororunerkWhereabouts, 3041) \
+	X(theobomos, _3044RecruitingAnnouncement, 3044) \
+	X(theobomos, _3048OwneroftheAngledBladeDagger, 3048) \
+	X(theobomos, _3049BloodMarkstheSpot, 3049) \
+	X(theobomos, _3050RescuingRuria, 3050) \
+	X(theobomos, _3056InSearchOfZirius, 3056) \
+	X(theobomos, _3057CursedZirius, 3057) \
+	X(theobomos, _3058StoneofMabolo, 3058) \
+	X(theobomos, _3060TheRedJournal, 3060) \
+	X(theobomos, _3074DangerousProbability, 3074) \
+	X(theobomos, _3076BolsteringtheAethericField, 3076) \
+	X(theobomos, _3081VisitingtheLibrary, 3081) \
+	X(theobomos, _3082DousingTheFlame, 3082) \
+	X(theobomos, _3083SearchingfortheElderofWisdom, 3083) \
+	X(theobomos, _3085TheRiddlePoem, 3085) \
+	X(theobomos, _3086SearchingForTheCrater, 3086) \
+	X(theobomos, _3087DivingForTreasure, 3087) \
+	X(theobomos, _3088InCiderTrading, 3088) \
+	X(theobomos, _3090InSearchOfPippiThePorgus, 3090) \
+	X(theobomos, _3091TheLostDrakie, 3091) \
+	X(theobomos, _3092VisonTheDrakie, 3092) \
+	X(theobomos, _3093RecetteSecretedeQuenelles, 3093) \
+	X(theobomos, _3095ADecisiveClue, 3095) \
+	X(theobomos, _3096ExamineTheExtractionDevices, 3096) \
+	X(theobomos, _3100AShugosBestFriend, 3100) \
+	X(theobomos, _3102TheDisappearingStatue, 3102) \
+	X(theobomos, _3103KyprosDesire, 3103) \
 	X(tiamat_stronghold, _30700RaceForTheRelics, 30700) \
 	X(tiamat_stronghold, _30701TheLordOfIllusion, 30701) \
 	X(tiamat_stronghold, _30708SuramaTheBetrayer, 30708) \
@@ -782,8 +1070,8 @@ AION_GOLDEN_SAMPLE_HANDLERS(AION_GOLDEN_DECLARE_FACTORY)
 namespace aion::gameserver::questEngine::handlers::test::golden {
 
 /** The route's generated handlers kept out of the handler tree for their gate impact (see above) */
-inline constexpr int32_t GOLDEN_HELD_BACK[] = {1131, 1146, 1152, 14010, 2207, 2209, 2213, 2221, 2223, 2231, 2232, 2239, 2288, 24010, 2911,
-	2917, 2953, 29004, 29048, 4973};
+// none since Q03's four and Q10's sixteen landed (lane C, 2026-10-14; docs/deviations/Q03.md and Q10.md)
+inline constexpr std::array<int32_t, 0> GOLDEN_HELD_BACK{};
 
 struct GeneratedHandler {
 	std::string_view directory;
