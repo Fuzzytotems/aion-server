@@ -428,6 +428,12 @@ def _java_rewrites(toks):
             out.append(Tok('op', ','))
             i += 6
             continue
+        if t.text == 'Arrays' and [x.text for x in toks[i + 1:i + 4]] == ['.', 'stream', '(']:
+            close = _match(toks, i + 3)         # Arrays.stream(x).anyMatch( -> anyMatch(x, : as x.stream().anyMatch( (eltnen/_14026, lane C)
+            if [x.text for x in toks[close + 1:close + 4]] == ['.', 'anyMatch', '(']:
+                out += [Tok('ident', 'anyMatch'), Tok('op', '(')] + list(toks[i + 4:close]) + [Tok('op', ',')]
+                i = close + 4
+                continue
         if t.text == 'new' and [x.text for x in toks[i + 1:i + 9]] == ['ArrayList', '<', '>', '(', 'Arrays', '.', 'asList', '(']:
             outer = _match(toks, i + 4)
             inner = _match(toks, i + 8)
