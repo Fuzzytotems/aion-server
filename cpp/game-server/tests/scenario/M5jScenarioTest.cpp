@@ -43,6 +43,9 @@
 //       //delete removes it and every npc it spawned (by SM_NPC_INFO's creator: the conquest spawner's offering); no ERROR line in the case, A alive. CHANGED from
 //       §10.4: A does not attack - a level-10 A beside the level-50+ aggressive templates would die and end the later cases; the AI smoke
 //       (RootAiSmokeTest.cpp, N-02) covers ATTACK and the full event list;
+//   Z16 (stage 4, W-13) the server runs with gameserver.autogroup.enable true: A (level 1) registers for the Arena of Chaos (m5j-ais: mask 21,
+//       levels 46-50): STR_MSG_CANT_INSTANCE_ENTER_LEVEL; A clicks the Baranath Dredgion's icon (window 104) while its registration is closed:
+//       no SM_AUTO_GROUP;
 //   Z14 A relogs as a level-10 Daeva with 1000 AP; G2 enters beside A, types //enemy cancel and //kill on A: A dies, A's AP and G2's AP change
 //       by the oracle's calculatePvPApLost / calculatePvpApGained (m5j-social), SM_ABYSS_RANK and the AP system messages to both;
 //   Z13 the reports (the M5a Q8 bar), with no Player alive after the logouts.
@@ -780,6 +783,9 @@ void runM5jGate() {
 		// stage 2 (Z9): Poeta's map and zones have no RIDE flag, so RideAction.canAct's zone arm would refuse every spot; m5j-items models
 		// the map's zones, not the spot's (§18.3 CP5)
 		{"gameserver.ride.restriction.enable", "false"},
+		// stage 4 (W-13, §18.5 CP2): the Java default. PeriodicInstanceManager schedules the periodic registrations at startup (the server reached
+		// "online" before only with the key off) and every enter world, map change and logout runs the matchmaker's hooks
+		{"gameserver.autogroup.enable", "true"},
 	};
 	// the oracles read the server's own keys as their profile, never the owner's config/mygs.properties (M5dScenarioTest.cpp's pattern)
 	std::filesystem::create_directories(outputDir);
@@ -801,7 +807,7 @@ void runM5jGate() {
 	const nlohmann::json creation = nlohmann::json::parse(oracle->run({"m5a-creation", "--race", "ELYOS", "--class", "WARRIOR"}));
 	// stage 2: the ride, kisk and pet items a level-1 Elyos Warrior may use, Poeta's kisk zones (m5j-items, H-21)
 	const nlohmann::json items = nlohmann::json::parse(oracle->run({"m5j-items", "--profile", profileFile.string(), "--class", "WARRIOR", "--race",
-		"ELYOS", "--level", "1", "--map", std::to_string(POETA), "--message", "STR_USE_ITEM", "STR_BINDSTONE_REGISTER", "STR_BINDSTONE_IS_REMOVED", "--question",
+		"ELYOS", "--level", "1", "--map", std::to_string(POETA), "--message", "STR_USE_ITEM", "STR_BINDSTONE_REGISTER", "STR_BINDSTONE_IS_REMOVED", "STR_MSG_CANT_INSTANCE_ENTER_LEVEL", "--question",
 		"STR_ASK_REGISTER_BINDSTONE"}));
 	// stage 3: the npc of each N-01 root AI and the //ai set base (m5j-ais, G-31)
 	const nlohmann::json rootAis = nlohmann::json::parse(oracle->run({"m5j-ais"}));
@@ -1639,6 +1645,22 @@ void runM5jGate() {
 		const std::vector<std::string> errors = servers.gameServer()->findLogLines(" ERROR ");
 		EXPECT_EQ(errors.size(), errorsBefore) << "ERROR lines in Z12:\n"
 			<< join(std::vector<std::string>(errors.begin() + static_cast<std::ptrdiff_t>(std::min(errorsBefore, errors.size())), errors.end()), "\n");
+	});
+
+	// ---- Z16: the matchmaker with autogroup on (W-13) ----
+	runCase("Z16", "with gameserver.autogroup.enable on, A's registration below the arena's level range is refused and the closed dredgion's "
+	               "icon answers nothing", [&] {
+		const nlohmann::json& chaos = rootAis.at("autoGroups").at("21");
+		ASSERT_LT(1, chaos.at("minLvl").get<int32_t>()) << "A is level 1";
+		size_t aFrom = a.mark();
+		a.send(GameSession::CM_AUTO_GROUP, GameSession::buildCM_AUTO_GROUP(21, 100, 0)); // NEW_GROUP_ENTRY (EntryRequestType.java:8)
+		EXPECT_TRUE(waitForSystemMessage(*a.game, aFrom, message("STR_MSG_CANT_INSTANCE_ENTER_LEVEL"), 10s))
+			<< "AutoGroupService.canRegister: !agt.isInLvlRange: " << join(namesOf(a.since(aFrom)));
+		EXPECT_FALSE(firstOfName(a.since(aFrom), "SM_AUTO_GROUP")) << "no registration window";
+		aFrom = a.mark();
+		a.send(GameSession::CM_AUTO_GROUP, GameSession::buildCM_AUTO_GROUP(1, 104, 0)); // the icon (CM_AUTO_GROUP.java:58-60)
+		collectFor(*a.game, 2000ms);
+		EXPECT_FALSE(firstOfName(a.since(aFrom), "SM_AUTO_GROUP")) << "PeriodicInstanceManager.handleRequest: the registration is not open";
 	});
 
 	// ---- Z14: a PvP kill ----
