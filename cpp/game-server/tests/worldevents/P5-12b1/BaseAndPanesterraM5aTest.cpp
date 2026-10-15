@@ -1,7 +1,8 @@
 // P5-12b1 (bases and Panesterra; the D1 split of P5-12b, m5i-plan.md 15.5), M5a subset (m5a-plan.md E1-07): split from tests/worldevents/WorldEventsM5aTest.cpp
 // with its fixture, under this file's own suite name.
 //
-// Expectations are derived by hand from BaseService.java:30-51 and PanesterraService.java:238-274.
+// (BaseService: tests/worldevents/P5-12b1/BaseServiceTest.cpp, M5i I-8.)
+// Expectations are derived by hand from PanesterraService.java:238-274.
 
 #include <gtest/gtest.h>
 
@@ -74,15 +75,6 @@ TEST_F(BaseAndPanesterraM5aTest, PanesterraIgnoresNormalMaps) {
 	PlayerFixture f = makePlayerInPoeta(3);
 	runtime::resetUnportedHitsForTests();
 	services::panesterra::PanesterraService::getInstance().onEnterPanesterra(*f.player); // getSiegeId(210010000) == 0
-	EXPECT_EQ(runtime::unportedHitCount(), 0u);
-}
-
-TEST_F(BaseAndPanesterraM5aTest, BaseServiceIsAWarnStubUntilTheBaseLocationsArePorted) {
-	runtime::resetPartialHitsForTests();
-	runtime::resetUnportedHitsForTests();
-	services::BaseService& service = services::BaseService::getInstance();
-	service.initBases(); // no base locations: nothing starts
-	EXPECT_EQ(runtime::partialHitCount(), 1u) << "the constructor's AION_PARTIAL";
 	EXPECT_EQ(runtime::unportedHitCount(), 0u);
 }
 

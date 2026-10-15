@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <initializer_list>
+#include <optional>
 
 #include "aion/gameserver/runtime/collections/ArrayList.h"
 #include "aion/gameserver/runtime/fields/Atomic.h"
@@ -65,9 +66,10 @@ protected:
 	void despawnByHandlerType(spawnengine::SpawnHandlerType type);
 
 private:
-	void despawnNpcs(spawnengine::SpawnHandlerType type);
+	/** Java despawnNpcs(SpawnHandlerType type): null (std::nullopt) despawns every npc of the base */
+	void despawnNpcs(std::optional<spawnengine::SpawnHandlerType> type);
 
-	bool isSpawnForCurrentBase(templates::spawns::SpawnTemplate& spawnTemplate, spawnengine::SpawnHandlerType type);
+	bool isSpawnForCurrentBase(runtime::Ptr<templates::spawns::SpawnTemplate> spawnTemplate, std::optional<spawnengine::SpawnHandlerType> type);
 
 protected:
 	void scheduleOutriderSpawn();
@@ -91,9 +93,10 @@ public:
 	virtual BaseOccupier getOccupier(runtime::Ptr<gameobjects::Creature> bossKiller);
 
 private:
-	network::aion::serverpackets::SM_SYSTEM_MESSAGE getBossSpawnMsg();
+	/** Java returns null for a base without a message: std::nullopt */
+	std::optional<network::aion::serverpackets::SM_SYSTEM_MESSAGE> getBossSpawnMsg();
 
-	network::aion::serverpackets::SM_SYSTEM_MESSAGE getAssaultMsg();
+	std::optional<network::aion::serverpackets::SM_SYSTEM_MESSAGE> getAssaultMsg();
 
 protected:
 	void cancelTask(std::initializer_list<runtime::FutureRef> tasks = {});
