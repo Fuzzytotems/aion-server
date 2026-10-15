@@ -241,7 +241,43 @@ SLICE_Q02 = (
 	'inggison/_11294SpawningInvestigation.java', 'inggison/_11304TheRemainingFaithful.java', 'inggison/_11455WhentheTimeisRipe.java',
 	'inggison/_11458AdiassReport.java', 'inggison/_11460TheShulackofTaloc.java',
 )
-SLICE = SLICE_TIER_A + SLICE_ROUTE + SLICE_Q03 + SLICE_Q10 + SLICE_Q08 + SLICE_Q01 + SLICE_Q02
+# Phase 6 step 2, chunk Q14 (lane C, 2026-10-05; docs/deviations/Q14.md): the 74 handlers of the instance directories K-W that questgen
+# transliterates (one since row B45). The C++ harness drives every document.
+SLICE_Q14 = (
+	'kaldor/_13817TheFuryWithin.java', 'kaldor/_23817WeeklyFreeSpirit.java', 'kromedes_trial/_18604MeetingWithRotan.java',
+	'kromedes_trial/_28604RecoveringRotan.java', 'levinshor/_13704FonasQuickFix.java', 'levinshor/_13708ProximityProtect.java',
+	'levinshor/_13745EljersRequest.java', 'levinshor/_23704LoudNoises.java', 'levinshor/_23708SoundtheAlarm.java',
+	'levinshor/_23745NoMoreinLevinshor.java', 'linkgate_foundry/_16940DiarySecrets.java',
+	'linkgate_foundry/_26940RaidtheLinkgateFoundry.java', 'marchutan_priory/_48006TheMarchutanPrioryBeckons.java',
+	'miragent_holy_templar/_19064TemplarOfConstruction.java', 'miragent_holy_templar/_3933ClassPreceptorConsent.java',
+	'miragent_holy_templar/_3934TheQuestForTemplars.java', 'miragent_holy_templar/_3935ShoulderTheBurden.java',
+	'miragent_holy_templar/_3936DecorationsOfSanctum.java', 'miragent_holy_templar/_3937GroupTheDecorationsofSanctum.java',
+	'miragent_holy_templar/_3938WellRounded.java', 'miragent_holy_templar/_3939PersistenceAndLuck.java',
+	'miragent_holy_templar/_3940Loyalty.java', 'nightmare_circus/_80341EventAHallowedEve.java', 'orichalcum_key/_38007AKeyMessage.java',
+	'radiant_ops/_38001RadiantOpsRecruitment.java', 'rentus_base/_30500Desperation.java', 'rentus_base/_30503RodelionRescue.java',
+	'rentus_base/_30504TheSearchforPaios.java', 'rentus_base/_30550MomentOfCrisis.java', 'rentus_base/_30553ComradesInArms.java',
+	'rentus_base/_30554SavingPrivatePaios.java', 'sauro_supply_base/_18910TheSauroSupplyBase.java',
+	'sauro_supply_base/_28910AStabbingInSauro.java', 'shugo_imperial_tomb/_80275EventEmpiresPast.java',
+	'steel_rake/_3208ThePuzzlingBlueprint.java', 'steel_rake/_3217ImprisonedGuardian.java', 'steel_rake/_3219KeyItemHiddenQuest01.java',
+	'steel_rake/_3220KeyItemHiddenQuest02.java', 'steel_rake/_4208TruthOfTheBookmark.java', 'steel_rake/_4217TheImprisonedExecutor.java',
+	'steel_rake/_4219KeyItemHiddenQuest01.java', 'steel_rake/_4220KeyItemHiddenQuest02.java', 'talocs_hollow/_11465MysteriousSeed.java',
+	'talocs_hollow/_11466AHardSeedtoCrack.java', 'talocs_hollow/_11467DeathToTheQueen.java',
+	'talocs_hollow/_11468WithFriendsLikeThese.java', 'talocs_hollow/_21465MysteriousSeed.java',
+	'talocs_hollow/_21467SpawningTheSapSuckers.java', 'talocs_hollow/_21468TheStruggleWithin.java',
+	'terath_dredgion/_30600FightOfTheNavigators.java', 'terath_dredgion/_30610TheGoodNewsAndBad.java',
+	'the_circle/_48007JoiningTheCircle.java', 'the_eternal_bastion/_18035ShebasSurveillance.java',
+	'the_eternal_bastion/_18036BastionsAreEternal.java', 'the_eternal_bastion/_28035TrustInNoneButVerify.java',
+	'the_eternal_bastion/_28036InterrogateKvash.java', 'tiamat_stronghold/_30700RaceForTheRelics.java',
+	'tiamat_stronghold/_30701TheLordOfIllusion.java', 'tiamat_stronghold/_30708SuramaTheBetrayer.java',
+	'tiamat_stronghold/_30709SoulSearching.java', 'tiamat_stronghold/_30710TheGreatRelease.java',
+	'tiamat_stronghold/_30722CheckTheGate.java', 'tiamat_stronghold/_30750AttackOnTiamatStronghold.java',
+	'tiamat_stronghold/_30751DeathToTheDragonLord.java', 'tiamat_stronghold/_30758SuramaTheBitter.java',
+	'tiamat_stronghold/_30759CountingStatues.java', 'tiamat_stronghold/_30760PetrifiedHeroOfTheAsmodians.java',
+	'tiamat_stronghold/_30772InvestigateTheGate.java', 'udas_temple/_30003SecretOfTheUdasTemple.java',
+	'udas_temple/_30005HealMeKillMe.java', 'udas_temple/_30011Arachnophobia.java', 'udas_temple/_30103LairOfTheDragonbound.java',
+	'udas_temple/_30111CenterOfTheWeb.java', 'wisplight_abbey/_19600WelcometoWisplightAbbey.java',
+)
+SLICE = SLICE_TIER_A + SLICE_ROUTE + SLICE_Q03 + SLICE_Q10 + SLICE_Q08 + SLICE_Q01 + SLICE_Q02 + SLICE_Q14
 
 ENUM_FILES = {'QuestStatus': 'questEngine/model/QuestStatus.java', 'Race': 'model/Race.java', 'PlayerClass': 'model/PlayerClass.java',
               'Gender': 'model/Gender.java', 'HandlerResult': 'questEngine/handlers/HandlerResult.java', 'DialogPage': 'model/DialogPage.java',

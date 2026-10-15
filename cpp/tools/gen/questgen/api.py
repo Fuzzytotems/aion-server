@@ -230,6 +230,8 @@ API_TABLE = (
     Row('B43', 'instance handlers: WorldMapInstance.getInstanceHandler, InstanceHandler.handleUseItemFinish',
         (('WorldMapInstance', 'getInstanceHandler'), ('InstanceHandler', 'handleUseItemFinish')), 'ported'),
     Row('B44', 'item use areas: ItemTemplate.getUseArea', (('ItemTemplate', 'getUseArea'),), 'ported'),
+    # B45 (phase 6 step 2, chunk Q14, lane C, 2026-10-05): a start-condition check the C++ side declares (docs/deviations/Q14.md, 3208)
+    Row('B45', 'start conditions: QuestService.checkStartConditions', (('QuestService', 'checkStartConditions'),), 'ported'),
 )
 
 # the static data holders of DataManager a handler reads (row B39): Java field -> (the C++ class it holds, its header). The C++ field is a

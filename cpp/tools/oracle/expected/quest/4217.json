@@ -1,0 +1,11 @@
+{
+ "format": "aion-quest-trace",
+ "version": 1,
+ "questId": 4217,
+ "java": "steel_rake/_4217TheImprisonedExecutor.java",
+ "class": "_4217TheImprisonedExecutor",
+ "javaSha256": "6cdb1c269ab420f0024378b24e84feb6c49d6a1543629bda7ff9facf2e371121",
+ "register": [],
+ "hooks": [],
+ "cases": []
+}
