@@ -131,6 +131,7 @@ SLICE_Q03 = (
 # P6-Q slice 2, chunk Q10 (2026-09-29): the handlers of altgard/ and pandaemonium/ that questgen transliterates (69 of 75; the other six are
 # hand ports or held back, docs/deviations/Q10.md). The C++ harness (game-server/tests/quest_handlers_golden) drives every document.
 SLICE_Q10 = (
+	'pandaemonium/_4212MissingSidrunerk.java',
 	'altgard/_2207ConversingWithaSkurv.java', 'altgard/_2209TheScribbler.java', 'altgard/_2213PoisonRootPotentFruit.java',
 	'altgard/_2216MuMuGrassKnot.java', 'altgard/_2221ManirsUncle.java', 'altgard/_2222ManirsMessage.java', 'altgard/_2223AMythicalMonster.java',
 	'altgard/_2228AThornInItsSide.java', 'altgard/_2231SiblingRivalry.java', 'altgard/_2232TheBrokenHoneyJar.java',
@@ -334,6 +335,7 @@ SLICE_Q13 = (
 # Phase 6 step 2, chunk Q11 (lane C, 2026-10-08; docs/deviations/Q11.md): the 71 handlers of daevanion and sanctum in the tree
 # (daevanion/_1990ASagesGift and sanctum/_1929ASliverofDarkness are refused: API gaps; sanctum/_3212, an escort, waits for FollowingNpcAI)
 SLICE_Q11 = (
+	'sanctum/_3212TheMissingCubeCraftsman.java',
 	'sanctum/_1929ASliverofDarkness.java',
 	'daevanion/_1990ASagesGift.java',
 	'daevanion/_19631CoastalCrush.java', 'daevanion/_19632CascadeCritters.java', 'daevanion/_19633AlisaryAssistance.java',
@@ -388,6 +390,8 @@ SLICE_Q05 = (
 )
 # Phase 6 step 2, chunk Q09 (lane C, 2026-10-08; docs/deviations/Q09.md): the rest of morheim and pernon that questgen transliterates
 SLICE_Q09 = (
+	'morheim/_2394ADyingWish.java',
+	'morheim/_2333ARibbitOutOfWater.java',
 	'pernon/_28828TheManyFacetsOfFriendship.java',
 	'pernon/_28821YourButlerGift.java',
 	'pernon/_28806WiltingFlowersFallingTears.java',
@@ -469,6 +473,8 @@ SLICE_Q12 = (
 )
 # Phase 6 step 2, chunk Q04 (lane C, 2026-10-13; docs/deviations/Q04.md): beluslan and brusthonin
 SLICE_Q04 = (
+	'beluslan/_2634TheDraupnirRedemption.java',
+	'beluslan/_24053TheMaulingoftheMau.java',
 	'beluslan/_16909AMarkofDistinction.java', 'beluslan/_24050NeritasOrders.java', 'beluslan/_24051InvesetigatetheDisappearance.java',
 	'beluslan/_24052AFrozenCity.java', 'beluslan/_24054CrisisinBeluslan.java', 'beluslan/_2501FallingFragments.java',
 	'beluslan/_2505LetCookingExpertsCook.java', 'beluslan/_2512FoodforRemotePlaces.java', 'beluslan/_2513TheStrangeCottage.java',

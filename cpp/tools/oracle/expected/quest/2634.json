@@ -1,0 +1,57 @@
+{
+ "format": "aion-quest-trace",
+ "version": 1,
+ "questId": 2634,
+ "java": "beluslan/_2634TheDraupnirRedemption.java",
+ "class": "_2634TheDraupnirRedemption",
+ "javaSha256": "12b5efeca658b88e838f849e70f817271241b05d706e11e3758fd6e396affc2c",
+ "register": [
+  {"npc": 204828, "event": "addOnQuestStart", "args": [2634]},
+  {"npc": 204828, "event": "addOnTalkEvent", "args": [2634]},
+  {"npc": 700350, "event": "addOnTalkEvent", "args": [2634]},
+  {"npc": 204830, "event": "addOnTalkEvent", "args": [2634]},
+  {"call": "registerOnLogOut", "args": [2634]},
+  {"call": "registerAddOnReachTargetEvent", "args": [2634]},
+  {"call": "registerAddOnLostTargetEvent", "args": [2634]}
+ ],
+ "hooks": [
+  {"hook": "onDialogEvent", "line": 40, "unsupported": "call npc.getController()"},
+  {"hook": "onNpcReachTargetEvent", "line": 87, "unsupported": "call defaultFollowEndEvent"},
+  {"hook": "onNpcLostTargetEvent", "line": 92, "unsupported": "call defaultFollowEndEvent"},
+  {"hook": "onLogOutEvent", "line": 97, "cases": 4}
+ ],
+ "cases": [
+  {
+   "id": "onLogOutEvent#1",
+   "hook": "onLogOutEvent",
+   "given": {"questState": {"status": "START", "vars": {"0": 1}}},
+   "guards": ["qs != null -> true @100", "qs.getStatus() == QuestStatus.START -> true @100", "var == 1 -> true @102"],
+   "effects": [{"call": "changeQuestStep", "kind": "var", "args": [1, 0], "line": 103}],
+   "returns": false
+  },
+  {
+   "id": "onLogOutEvent#2",
+   "hook": "onLogOutEvent",
+   "given": {"questState": {"status": "START", "vars": {"0": 0}}},
+   "guards": ["qs != null -> true @100", "qs.getStatus() == QuestStatus.START -> true @100", "var == 1 -> false @102"],
+   "effects": [],
+   "returns": false
+  },
+  {
+   "id": "onLogOutEvent#3",
+   "hook": "onLogOutEvent",
+   "given": {"questState": {"status": "REWARD"}},
+   "guards": ["qs != null -> true @100", "qs.getStatus() == QuestStatus.START -> false @100"],
+   "effects": [],
+   "returns": false
+  },
+  {
+   "id": "onLogOutEvent#4",
+   "hook": "onLogOutEvent",
+   "given": {"questState": null},
+   "guards": ["qs != null -> false @100"],
+   "effects": [],
+   "returns": false
+  }
+ ]
+}
