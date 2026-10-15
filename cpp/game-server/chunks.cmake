@@ -435,6 +435,11 @@ aion_gs_chunk(P5-08 LEASE PHASE 5
 aion_gs_chunk(P5-11 LEASE PHASE 5
 	GLOBS "aion/gameserver/model/items/storage/{Storage,LegionStorageProxy}.cpp" "aion/gameserver/model/items/storage/Storage.h")
 
+# The studio stage of M5h (m5h-plan.md 14.2, granted 2026-10-08): P5-11 leases model/gameobjects/UseableItemObject.cpp from P4-11a for
+# placementLimitOf (H-05). Released when the lane merges.
+aion_gs_chunk(P5-11 LEASE PHASE 5
+	GLOBS "aion/gameserver/model/gameobjects/UseableItemObject.cpp")
+
 # P5-12b: base, rift, vortex, world raid, panesterra, conqueror/protector, events
 aion_gs_chunk(P5-12b TARGET aion_gs_worldevents PHASE 5
 	GLOBS "aion/gameserver/services/{rift,vortex,worldraid,panesterra,event,conquerorAndProtectorSystem}/**"
