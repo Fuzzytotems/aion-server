@@ -123,11 +123,10 @@ TEST_F(InWorldPacketRunTest, PlayerListenerDoesNothingWithWebRewardsOff) {
 }
 
 /**
- * The one unported body this handler can reach, pinned so the gap is a fact and not a comment: with the key on, Java calls
- * WebRewardService.sendAvailableRewards, whose C++ body is still AION_UNPORTED (WebRewardService.cpp:29-31, P5-08). The wave B report lists it.
- * A throw here is logged by AionClientPacket::run and does not disconnect the player, and the key is off in the M5a profile.
+ * With the key on, Java calls WebRewardService.sendAvailableRewards (ported with the M5b-3 leftovers, CP4; it was the one AION_UNPORTED body
+ * this handler could reach). Without a database RewardServiceDAO.loadUnreceived logs its error and answers an empty list, so nothing is sent.
  */
-TEST_F(InWorldPacketRunTest, PlayerListenerReachesTheUnportedWebRewardServiceWhenTheKeyIsOn) {
+TEST_F(InWorldPacketRunTest, PlayerListenerAsksTheWebRewardServiceWhenTheKeyIsOn) {
 	configs::main::GSConfig::ENABLE_WEB_REWARDS.store(true);
 	Driver<CM_PLAYER_LISTENER> packet(OPCODE_PLAYER_LISTENER);
 	std::vector<uint8_t> empty;
@@ -135,7 +134,10 @@ TEST_F(InWorldPacketRunTest, PlayerListenerReachesTheUnportedWebRewardServiceWhe
 	packet.setConnection(client->get());
 	ASSERT_TRUE(packet.read());
 
-	EXPECT_THROW(packet.runNow(), runtime::UnportedException);
+	runtime::resetUnportedHitsForTests();
+	EXPECT_NO_THROW(packet.runNow());
+	EXPECT_EQ(runtime::unportedHitCount(), 0u);
+	EXPECT_TRUE((*client)->sentBytes().empty());
 
 	configs::main::GSConfig::ENABLE_WEB_REWARDS.store(false);
 }

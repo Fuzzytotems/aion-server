@@ -1,12 +1,19 @@
 #include "aion/gameserver/services/reward/AdventService.h"
 
 #include <chrono>
+#include <string>
+#include <vector>
 
 #include "aion/gameserver/configs/main/EventsConfig.h"
 #include "aion/gameserver/dao/AdventDAO.h"
 #include "aion/gameserver/model/gameobjects/player/Player.h"
 #include "aion/gameserver/model/templates/rewards/RewardItem.h"
-#include "aion/gameserver/runtime/base/Unported.h"
+#include "aion/gameserver/runtime/base/Exceptions.h"
+#include "aion/gameserver/services/item/ItemService.h"
+#include "aion/gameserver/dataholders/DataManager.h"
+#include "aion/gameserver/dataholders/ItemData.h"
+#include "aion/gameserver/model/items/storage/Storage.h"
+#include "aion/gameserver/model/templates/item/ItemTemplate.h"
 #include "aion/gameserver/utils/ChatUtil.h"
 #include "aion/gameserver/utils/JavaColor.h"
 #include "aion/gameserver/utils/PacketSendUtility.h"
@@ -22,6 +29,14 @@ namespace {
 /** Java: ServerTime.now().toLocalDate() */
 commons::database::Date serverToday() {
 	return commons::database::Date(std::chrono::floor<std::chrono::days>(utils::time::ServerTime::now().get_local_time()));
+}
+
+/** Java: DataManager.ITEM_DATA.getItemTemplate(id) dereferenced - an unknown id is a NullPointerException */
+const model::templates::item::ItemTemplate& templateOf(int32_t itemId) {
+	const model::templates::item::ItemTemplate* itemTemplate = dataholders::DataManager::ITEM_DATA->getItemTemplate(itemId);
+	if (itemTemplate == nullptr)
+		throw runtime::NullPointerException("ItemData.getItemTemplate(" + std::to_string(itemId) + ")");
+	return *itemTemplate;
 }
 
 } // namespace
@@ -98,12 +113,68 @@ bool AdventService::isAdventSeason(commons::database::Date date) {
 	return date.month() == std::chrono::December && static_cast<unsigned>(date.day()) <= 24;
 }
 
+// Java AdventService.java:90-125
 void AdventService::redeemReward(model::gameobjects::player::Player& player) {
-	AION_UNPORTED();
+	commons::database::Date today = serverToday();
+	int32_t day = static_cast<int32_t>(static_cast<unsigned>(today.day()));
+	runtime::Ptr<runtime::RcArrayList<runtime::Ref<RewardItem>>> todaysRewards = rewards.get(day);
+
+	if (!isAdventSeason(today) || todaysRewards == nullptr || todaysRewards->isEmpty()) {
+		utils::PacketSendUtility::sendMessage(player, "There is no advent calendar door for today.");
+		return;
+	}
+
+	if (!dao::AdventDAO::canReceiveReward(player, today)) {
+		utils::PacketSendUtility::sendMessage(player, "You have already opened today's advent calendar door on this account.");
+		return;
+	}
+
+	int64_t regularCubeItems = 0;
+	for (runtime::Ptr<RewardItem> r : *todaysRewards) {
+		const model::templates::item::ItemTemplate& itemTemplate = templateOf(r->getId());
+		if (itemTemplate.getExtraInventoryId() <= 0 && itemTemplate.getRace() != player.getOppositeRace())
+			regularCubeItems++;
+	}
+	if (player.getInventory().getFreeSlots() < regularCubeItems) {
+		utils::PacketSendUtility::sendMessage(player, "You don't have enough free slots in your inventory.");
+		return;
+	}
+
+	if (!dao::AdventDAO::storeLastReceivedDay(player, today)) {
+		utils::PacketSendUtility::sendMessage(player, "Sorry. Some shugo broke our database, please report this in our bugtracker :(");
+		return;
+	}
+
+	for (runtime::Ptr<RewardItem> item : *todaysRewards) {
+		if (templateOf(item->getId()).getRace() == player.getOppositeRace())
+			continue;
+		item::ItemService::addItem(player, item->getId(), item->getCount(), true);
+	}
 }
 
+// Java AdventService.java:127-144
 void AdventService::showTodaysReward(model::gameobjects::player::Player& player) {
-	AION_UNPORTED();
+	commons::database::Date today = serverToday();
+	runtime::Ptr<runtime::RcArrayList<runtime::Ref<RewardItem>>> todaysRewards =
+		rewards.get(static_cast<int32_t>(static_cast<unsigned>(today.day())));
+	if (today.month() != std::chrono::December || todaysRewards == nullptr || todaysRewards->isEmpty()) {
+		utils::PacketSendUtility::sendMessage(player, "There is no advent calendar door for today.");
+		return;
+	}
+
+	std::string sb("Today's advent calendar reward(s):\n");
+
+	std::vector<runtime::Ptr<RewardItem>> items;
+	for (runtime::Ptr<RewardItem> r : *todaysRewards)
+		items.push_back(r);
+	for (size_t i = 0; i < items.size(); i++) {
+		int32_t id = items[i]->getId();
+		const model::templates::item::ItemTemplate* itemTemplate = dataholders::DataManager::ITEM_DATA->getItemTemplate(id);
+		if (itemTemplate != nullptr && itemTemplate->getRace() == player.getOppositeRace())
+			continue;
+		sb.append(utils::ChatUtil::item(id)).append(i + 1 < items.size() ? ", " : "");
+	}
+	utils::PacketSendUtility::sendMessage(player, sb);
 }
 
 } // namespace aion::gameserver::services::reward

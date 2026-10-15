@@ -6,7 +6,10 @@
 > what stage 2 must know. **Stage 2 (the gate) 2026-09-24**, not yet committed: §17 records `gs.scenario.m5b3` and `_geo`, the camp-fire
 > measurement, the corrections to §10, the mutation runs and M5b-2's S14/S10 setup fixes; **§18 records the fixes after the review of stage
 > 2** (S10/S14's real cause, a magical critical Flame Bolt; Y15's untouched point; Y2's RY2 run; the documentation corrections).
-> **The regate of stage 2, 2026-09-24 (§19):** the full build, the unit suite and all eleven gates passed; **M5b-3 is complete**. A
+> **The regate of stage 2, 2026-09-24 (§19):** the full build, the unit suite and all eleven gates passed; **M5b-3 is complete**.
+> **The leftovers (2026-10-05..07, lane A):** CP1-CP3 (item actions, ItemChargeService, the group-K services; docs/deviations/P5-07.md)
+> and CP4 (passport rewards, AdventService, WebRewardService; docs/deviations/P5-09a.md) are ported, with the five owner-approved Java
+> corrections of P5-07.md; P5-09a has no unported body left (MultiReturnAction came with the teleport scrolls, `6a7891e5b`). A
 > **read-only** analysis over HEAD `c1edb0afb` ("M5b-2 stage 1 part 2: the cast engine and the effect
 > core") plus the uncommitted M5b-2 part 3 lanes in the working tree (P5-01, P5-03, P5-04), against the Java 4.8 tree. **Nothing was compiled,
 > built or run for this plan**; every C++ statement below comes from reading the two trees, from `tools/porting/chunks.py files|owner` and from
