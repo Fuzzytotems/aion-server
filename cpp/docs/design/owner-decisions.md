@@ -18,6 +18,15 @@ then this file wins over a plan's "until the user answers" default.
 | `pangaea/_14220NewZoneNewRules`, `_24220WelcometoPanesterra` (four `List<Integer>` fields each) | **Per-player state, as 2759** | **Not applied as worded; awaiting the owner's confirmation.** Reading the files found no state: the four lists are `private static final`, filled by their initializers and never written (the handler only iterates them in `register()` and asks `contains(targetId)`), so there is nothing per player to record and nothing to correct. They are generated as constants (questgen rule constant-list: `static constexpr std::array`), which is Java's behaviour; no hand port, no correction entry (docs/deviations/Q14.md) |
 | levinshor 13744/23744 (SiegeService) | **Stay out** until the siege milestone | Not in the tree |
 | tiamat_stronghold 30721/30771 (spawn on a circle: `Math`, `Vector3f`) | **Stay out** unless the rows are small and contained | Not in the tree: they need `Math.toRadians/cos/sin`, `Rnd.nextFloat`, `GeoService.getClosestCollision` (whose header questgen does not scan) returning a `Vector3f`, `SpawnEngine.newSingleTimeSpawn/spawnObject` and an `(Npc)` cast of its result: five rows or more, and Java's `Math.cos` is not bit-for-bit C's `std::cos` (docs/deviations/Q14.md) |
+## 2026-10-13
+
+| Decision | Answer | What it changes |
+|---|---|---|
+| Java correction J-S4CP4-2: givetitle's texts (lane A's M5j CP4) | **Correct it, on both branches (C++ and 4.8)** | The syntax names ///givetitle, the answer has a space before the name, and it says "Added" only when a title was added (docs/deviations/C2.md; `ConsoleSystemCommandsTest.Givetitle`) |
+| Java correction J-S4CP4-3: givetitle checks `isCommandAllowed(admin, "set")`, a key that never matches "//set" (lane A's M5j CP4) | **Correct it, on both branches (C++ and 4.8)** | It checks "//set", so a GM who may use //set can give titles (docs/deviations/C2.md; `ConsoleSystemCommandsTest.Givetitle`) |
+| Java correction J-S4CP4-1: //spawnu w throws a NullPointerException on any world spot without a walker id (lane A's M5j CP4) | **Correct it, on both branches (C++ and 4.8)** | Spots without a walker id are not counted (`walkerId.equals(s.getWalkerId())`), so the pool check and the assignment run (docs/deviations/C2.md; `SpawnUpdateCommandTest.ASpotWithoutWalkerIdIsNotCounted`) |
+| Java correction J-S4CP6-2: //movetoobj on an object without a spawn template (a player) throws a NullPointerException (lane A's M5j CP6) | **Correct it, on both branches (C++ and 4.8)** | It teleports to the object's position (docs/deviations/C1.md; `TeleportCommandsTest.MoveToObjectOfAPlayer`) |
+| Java correction J-S4CP6-1: //movetoobj goes on with object id 0 after "Only numbers please!!!" (lane A's M5j CP6) | **Correct it, on both branches (C++ and 4.8)** | It returns after the message (docs/deviations/C1.md; `TeleportCommandsTest.MoveToObject`) |
 
 ## 2026-10-05
 

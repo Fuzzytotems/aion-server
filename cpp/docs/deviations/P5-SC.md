@@ -1282,3 +1282,5 @@ Green (100 %), three times. Gate mutants (`AION_S50MUT`, one gate_lock call each
 
 Sources restored (sha256), rebuilt, the switch absent, and the gate re-run green.
 
+Z17 after the corrections of 2026-10-13 (owner, both branches): `//movetoobj abc` answers "Only numbers please!!!" only (J-S4CP6-1); the
+case also checks that "Cannot find object for spawn #0" does not follow.

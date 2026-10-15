@@ -19,7 +19,6 @@
 #include "aion/gameserver/network/aion/serverpackets/SM_GATHERABLE_INFO.h"
 #include "aion/gameserver/network/aion/serverpackets/SM_NPC_INFO.h"
 #include "aion/gameserver/network/aion/serverpackets/SM_SYSTEM_MESSAGE.h"
-#include "aion/gameserver/runtime/base/Exceptions.h"
 #include "aion/gameserver/utils/SimpleClassName.h"
 #include "aion/gameserver/world/WorldPosition.h"
 
@@ -132,9 +131,9 @@ void SpawnUpdate::updateWalker(Player& admin, Npc& target, std::optional<std::st
 			std::vector<runtime::Ptr<SpawnTemplate>> sameIds; // parity= List<SpawnTemplate> sameIds = allSpots.stream().filter(s -> s.getWalkerId().equals(walkerId)).toList();
 			for (const runtime::Ptr<SpawnTemplate>& s : allSpots) { // parity: (the stream above)
 				std::optional<std::string> spotWalkerId = s->getWalkerId(); // parity: (the same)
-				if (!spotWalkerId) // parity: Java's NullPointerException of null.equals (a spot without walker id; proposed correction J-S4CP4-1)
-					throw runtime::NullPointerException("SpawnTemplate.getWalkerId() is null"); // parity: (the same)
-				if (*spotWalkerId == *walkerId) // parity: (the same)
+				// correction J-S4CP4-1 (owner's decision 2026-10-13): walkerId.equals(s.getWalkerId()); a spot without walker id is not counted
+				// (Java: s.getWalkerId().equals(walkerId), a NullPointerException)
+				if (spotWalkerId && *spotWalkerId == *walkerId) // parity: (the same)
 					sameIds.push_back(s); // parity: (the same)
 			}
 			if (static_cast<int32_t>(sameIds.size()) >= walkerTemplate->getPool()) { // parity= if (sameIds.size() >= template.getPool()) {

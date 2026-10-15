@@ -26,6 +26,7 @@ void MoveToObject::execute(Player& admin, std::span<const std::string> params) {
 		objectId = commons::utils::parseInt(params[0]); // parity= objectId = Integer.valueOf(params[0]);
 	} catch (const commons::utils::NumberFormatException&) { // parity= } catch (NumberFormatException e) {
 		PacketSendUtility::sendMessage(admin, "Only numbers please!!!");
+		return; // correction J-S4CP6-1 (owner's decision 2026-10-13): Java goes on with object id 0
 	}
 
 	runtime::Ptr<VisibleObject> object = World::getInstance().findVisibleObject(objectId);
@@ -36,6 +37,12 @@ void MoveToObject::execute(Player& admin, std::span<const std::string> params) {
 
 	runtime::Ptr<VisibleObject> spawn = object;
 
+	// correction J-S4CP6-2 (owner's decision 2026-10-13): an object without a spawn template (a player) is a NullPointerException in Java;
+	// the object's own position is used then
+	if (spawn->getSpawn() == nullptr) { // parity: correction J-S4CP6-2
+		TeleportService::teleportTo(admin, spawn->getWorldId(), spawn->getX(), spawn->getY(), spawn->getZ()); // parity: (the same)
+		return; // parity: (the same)
+	}
 	TeleportService::teleportTo(admin, spawn->getWorldId(), spawn->getSpawn()->getX(), spawn->getSpawn()->getY(), spawn->getSpawn()->getZ());
 }
 
