@@ -247,9 +247,12 @@ class RealQuests(unittest.TestCase):
         self.assertEqual((r.status, r.primary), ('refused', 'mutable-field'))
 
     def test_refused_api_gap(self):
-        r = self.run_file('steel_rake/_3208ThePuzzlingBlueprint.java')
+        # 3208, the example before, transliterates since row B45 (chunk Q14, 2026-10-05; tests.test_questgen_g1); SiegeService has no C++
+        # header (docs/deviations/Q14.md)
+        self.assertEqual(self.run_file('steel_rake/_3208ThePuzzlingBlueprint.java').status, 'ok')
+        r = self.run_file('levinshor/_13744AgentinNeed.java')
         self.assertEqual(r.status, 'refused')
-        self.assertEqual(r.reason_keys(), ['api-missing: QuestService.checkStartConditions'])
+        self.assertEqual(r.reason_keys(), ['api-missing: SiegeService.getInstance'])
 
     def test_refused_varargs_array(self):
         r = self.run_file('poeta/_1005BarringtheGate.java')

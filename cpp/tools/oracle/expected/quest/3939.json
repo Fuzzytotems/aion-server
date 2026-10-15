@@ -1,0 +1,18 @@
+{
+ "format": "aion-quest-trace",
+ "version": 1,
+ "questId": 3939,
+ "java": "miragent_holy_templar/_3939PersistenceAndLuck.java",
+ "class": "_3939PersistenceAndLuck",
+ "javaSha256": "cd54b92bfc408cbc2be32ad3f769793c8e59a3f66cfd22589921f0a4e7bcb920",
+ "register": [
+  {"npc": 203701, "event": "addOnQuestStart", "args": [3939]},
+  {"npc": 203701, "event": "addOnTalkEvent", "args": [3939]},
+  {"npc": 203780, "event": "addOnTalkEvent", "args": [3939]},
+  {"npc": 203781, "event": "addOnTalkEvent", "args": [3939]},
+  {"npc": 203752, "event": "addOnTalkEvent", "args": [3939]},
+  {"npc": 700537, "event": "addOnTalkEvent", "args": [3939]}
+ ],
+ "hooks": [{"hook": "onDialogEvent", "line": 33, "unsupported": "call player.getInventory().tryDecreaseKinah(3400000)"}],
+ "cases": []
+}
