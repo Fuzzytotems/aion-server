@@ -1732,14 +1732,22 @@ void runM5iGate(bool geo) {
 		const float radius = shield.at("radius").get<float>();
 		const float dx = s1[0] - cx, dy = s1[1] - cy, d = std::hypot(dx, dy);
 		const float top = cz + 2.0f; // the upper half of the sphere (ShieldObserver.moved)
-		// G is invulnerable (and invisible) since his login: the GM's login commands (//invis, //invul, //enemy none, //see in the server log)
+		// G is invulnerable (and invisible) since his login: the GM's login commands (//invis, //invul, //enemy none, //see in the server log).
+		// He flies (CM_EMOTION FLY, EmotionType.java:21): M1 and M2 are on the sphere's upper half, above the ground a geo run keeps walkers on
+		g.game->send(GameSession::CM_EMOTION, GameSession::buildCM_EMOTION(13));
+		settle();
 		walkTo(g, cx + dx / d * (radius + 3.0f), cy + dy / d * (radius + 3.0f), top); // M1: outside the sphere
 		const size_t m1From = g.mark();
 		EXPECT_EQ(said(gm("//invul"), "You are now mortal."), 1);
 		EXPECT_EQ(diesOf(g.since(m1From), cg.playerId), 0u) << "M1: no death outside the sphere";
 		const size_t gFrom = g.mark();
 		walkTo(g, cx + dx / d * (radius - 5.0f), cy + dy / d * (radius - 5.0f), top); // M2: through the sphere
-		ASSERT_TRUE(until(5s, [&] { return diesOf(g.since(gFrom), cg.playerId) > 0; })) << "X7: CollisionDieActor.kill, SM_EMOTION(DIE) for G";
+		const bool killed = until(5s, [&] { return diesOf(g.since(gFrom), cg.playerId) > 0; });
+		EXPECT_TRUE(killed) << "X7: CollisionDieActor.kill, SM_EMOTION(DIE) for G; G got: " << join(namesOf(g.since(m1From)));
+		if (!killed) {
+			relocate(g, cg, RESHANTA, s1); // C6 and C18 still run
+			return;
+		}
 		const auto died = std::chrono::steady_clock::now();
 		EXPECT_EQ(countMessage(g.since(gFrom), messages.at("STR_MSG_COMBAT_MY_DEATH")), 1u);
 		until(6s, [&] { return !ofName(g.since(gFrom), "SM_PLAYER_SPAWN").empty() || !ofName(g.since(gFrom), "SM_TELEPORT_LOC").empty(); });
