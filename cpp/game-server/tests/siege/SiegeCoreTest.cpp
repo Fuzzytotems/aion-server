@@ -43,7 +43,13 @@
 #include "aion/gameserver/services/SiegeService.h"
 #include "aion/gameserver/services/abyss/AbyssPointsService.h"
 #include "aion/gameserver/services/cron/CronService.h"
+#include "aion/gameserver/model/siege/AgentLocation.h"
+#include "aion/gameserver/model/siege/Influence.h"
+#include "aion/gameserver/services/siege/AgentSiege.h"
 #include "aion/gameserver/services/siege/ArtifactSiege.h"
+#include "aion/gameserver/services/siege/BalaurAssaultService.h"
+#include "aion/gameserver/services/siege/FortressAssault.h"
+#include "aion/gameserver/services/siege/FortressSiege.h"
 #include "aion/gameserver/services/siege/OutpostSiege.h"
 #include "aion/gameserver/services/siege/Siege.h"
 #include "aion/gameserver/services/siege/SiegeCounter.h"
@@ -151,6 +157,7 @@ protected:
 			SiegeServiceTestAccess::activeSieges(service).remove(id);
 		}
 		SiegeServiceTestAccess::setNextStateUpdateTime(service, std::nullopt);
+		model::siege::Influence::getInstance().recalculateInfluence(); // the influence of the removed locations
 		service.clearRvrEventPlayers();
 		services::cron::CronService::resetForTests();
 		configs::main::SiegeConfig::BALAUR_AUTO_ASSAULT.store(savedAutoAssault);
@@ -607,6 +614,155 @@ TEST_F(SiegeCoreTest, TheKillVariantOfAddApGrantsThePointsAndReachesTheActiveSie
 	services::abyss::AbyssPointsService::addAp(*killer.player, *victim.player, 250); // AbyssPointsService.java:25-31
 	EXPECT_EQ(killer.player->getAbyssRank()->getAp(), 250);
 	EXPECT_EQ(s1->abyssPointsAdded, (std::vector<std::pair<int32_t, int32_t>>{{61, 250}})) << "SiegeService.onAbyssPointsAdded of a player kill";
+}
+
+
+// --------------------------------------------------------------------------------------- Balaur assaults and the agent fight (I-7)
+
+/** a fortress row with Reshanta's assault data of 1011 shortened to two assaulter types (siege_locations.xml:103-112) */
+std::string assaultFortressRow(int32_t id, int32_t world, int32_t influence = 0) {
+	return "<siege_location id=\"" + std::to_string(id) + "\" type=\"FORTRESS\" world=\"" + std::to_string(world) + "\" influence=\"" +
+		std::to_string(influence) +
+		"\"><assault_data dredgion_id=\"20\" base_budget=\"4\" base_delay=\"180\">"
+		"<assaulter type=\"TELEPORT\" npc_ids=\"251406\" distance_offset=\"2\" />"
+		"<assaulter type=\"COMMANDER\" npc_ids=\"882272 882273 882274 882275 882276\" distance_offset=\"4\" />"
+		"</assault_data></siege_location>";
+}
+
+TEST_F(SiegeCoreTest, AFortressAssaultOfABalaurFortressHasTheBaseDifficulty) {
+	AtomicConfigScope<float> multiplier(configs::main::SiegeConfig::SIEGE_DIFFICULTY_MULTIPLIER, 1.0f);
+	runtime::Ref<model::siege::FortressLocation> fortress = addFortress(assaultFortressRow(1011, 400010000));
+	runtime::Ref<services::siege::FortressSiege> siege = services::siege::FortressSiege::create(*fortress);
+	runtime::Ref<services::siege::FortressAssault> assault = services::siege::FortressAssault::create(*siege);
+	// FortressAssault.java:121-139: balance and influence multipliers 1 (BALAUR), difficulty 1/3 * 2 * 1
+	EXPECT_FLOAT_EQ(assault->getDifficultyForTests(), 1.0f / 3.0f * (1.0f + 1.0f) * 1.0f);
+	EXPECT_FLOAT_EQ(assault->getSpawnBudgetForTests(), 3.0f) << "max(4 / 3f, round(4 * 0.667))";
+	EXPECT_EQ(assault->getMinSpawnDelayForTests(), 170) << "min(round(180 / 0.667) = 270, 180 - 10)";
+	EXPECT_EQ(assault->getPossibleCommanderCountForTests(), 1) << "no commander costs at most 0.667: the first one, once";
+	EXPECT_EQ(assault->getWorldId(), 400010000);
+}
+
+TEST_F(SiegeCoreTest, AFortressAssaultGrowsWithTheOwnersBalanceAndInfluence) {
+	AtomicConfigScope<float> multiplier(configs::main::SiegeConfig::SIEGE_DIFFICULTY_MULTIPLIER, 1.0f);
+	runtime::Ref<model::siege::FortressLocation> fortress = addFortress(assaultFortressRow(1011, 400010000, 50));
+	fortress->setRace(SiegeRace::ELYOS);
+	fortress->setFactionBalance(3);
+	model::siege::Influence::getInstance().recalculateInfluence(); // the only influence: elyos 50 -> rate 0.5
+	runtime::Ref<services::siege::FortressSiege> siege = services::siege::FortressSiege::create(*fortress);
+	runtime::Ref<services::siege::FortressAssault> assault = services::siege::FortressAssault::create(*siege);
+	EXPECT_FLOAT_EQ(assault->getDifficultyForTests(), 3.0f / 3.0f * (1.0f + 0.5f) * 1.0f);
+	EXPECT_FLOAT_EQ(assault->getSpawnBudgetForTests(), 6.0f);
+	EXPECT_EQ(assault->getMinSpawnDelayForTests(), 120) << "round(180 / 1.5)";
+	const int32_t commanders = assault->getPossibleCommanderCountForTests();
+	EXPECT_TRUE(commanders == 1 || commanders == 2) << commanders << ": a budget of 1.5 buys 1.5, or 1.0 or 1.25 and then the first";
+
+	// a positive balance does not weigh for the asmodians (FortressAssault.java:141-154)
+	fortress->setRace(SiegeRace::ASMODIANS);
+	runtime::Ref<services::siege::FortressAssault> asmodian = services::siege::FortressAssault::create(*siege);
+	EXPECT_FLOAT_EQ(asmodian->getDifficultyForTests(), 1.0f / 3.0f * (1.0f + 0.0f) * 1.0f) << "balance 1, asmodian influence 0";
+	EXPECT_FLOAT_EQ(asmodian->getSpawnBudgetForTests(), 4.0f / 3.0f) << "max(4 / 3f, round(1.333) = 1)";
+	EXPECT_EQ(asmodian->getMinSpawnDelayForTests(), 170);
+}
+
+TEST_F(SiegeCoreTest, AFortressAssaultWavesComeAtLeastThirtySecondsApart) {
+	AtomicConfigScope<float> multiplier(configs::main::SiegeConfig::SIEGE_DIFFICULTY_MULTIPLIER, 10.0f);
+	runtime::Ref<model::siege::FortressLocation> fortress = addFortress(assaultFortressRow(1011, 400010000));
+	runtime::Ref<services::siege::FortressSiege> siege = services::siege::FortressSiege::create(*fortress);
+	runtime::Ref<services::siege::FortressAssault> assault = services::siege::FortressAssault::create(*siege);
+	EXPECT_EQ(assault->getMinSpawnDelayForTests(), 30) << "round(180 / 6.67) = 27, raised to 30";
+}
+
+TEST_F(SiegeCoreTest, AnAssaultWithAutoAssaultOffStaysUntilItsSiegeFinishesThroughTheService) {
+	// D4 (T-14): startAssault puts the assault; with gameserver.siege.assault.enable=false only BalaurAssaultService.onSiegeFinish removes it,
+	// and Siege.stopSiege skips that call (Siege.java:79-81), so a second start is refused
+	AtomicConfigScope<float> multiplier(configs::main::SiegeConfig::SIEGE_DIFFICULTY_MULTIPLIER, 1.0f);
+	services::siege::BalaurAssaultService& assaults = services::siege::BalaurAssaultService::getInstance();
+	runtime::Ref<model::siege::FortressLocation> fortress = addFortress(assaultFortressRow(1011, 400010000));
+	EXPECT_FALSE(assaults.startAssault(1011, 600)) << "no active siege";
+	runtime::Ref<services::siege::FortressSiege> siege = services::siege::FortressSiege::create(*fortress);
+	SiegeServiceTestAccess::activeSieges(SiegeService::getInstance()).put(1011, siege);
+	const size_t pendingBefore = executor->pendingTaskCount();
+	EXPECT_TRUE(assaults.startAssault(1011, 600));
+	ASSERT_TRUE(assaults.getFortressAssaultBySiegeId(1011));
+	EXPECT_EQ(executor->pendingTaskCount(), pendingBefore + 1) << "the dredgion task in 600 s";
+	EXPECT_FALSE(assaults.startAssault(1011, 600)) << "already started";
+
+	assaults.onSiegeFinish(*siege); // the cleanup Siege.stopSiege does only with auto assault on
+	EXPECT_FALSE(assaults.getFortressAssaultBySiegeId(1011));
+	EXPECT_EQ(executor->pendingTaskCount(), pendingBefore) << "finishAssault cancels the dredgion task";
+	assaults.onSiegeFinish(*siege); // nothing left: no-op
+
+	runtime::Ref<model::siege::FortressLocation> other = addFortress(R"(<siege_location id="1221" type="FORTRESS" world="210050000"/>)");
+	runtime::Ref<RecordingSiege> recording = addActiveSiege(*other);
+	try {
+		assaults.startAssault(1221, 0);
+		FAIL() << "expected IllegalArgumentException";
+	} catch (const runtime::IllegalArgumentException& e) {
+		// Java names the class (getSimpleName); the C++ names the four Siege subclasses and "Siege" for any other
+		EXPECT_EQ(std::string(e.what()), "Unsupported fortress siege type: Siege");
+		EXPECT_FALSE(assaults.getFortressAssaultBySiegeId(1221));
+	}
+}
+
+TEST_F(SiegeCoreTest, ASiegeStartRollsAnAssaultOnlyForAVulnerableFactionFortressWithinTheMapLimit) {
+	AtomicConfigScope<float> multiplier(configs::main::SiegeConfig::SIEGE_DIFFICULTY_MULTIPLIER, 1.0f);
+	AtomicConfigScope<float> rate(configs::main::SiegeConfig::BALAUR_ASSAULT_RATE, 1.0f);
+	services::siege::BalaurAssaultService& assaults = services::siege::BalaurAssaultService::getInstance();
+	std::vector<runtime::Ref<services::siege::FortressSiege>> sieges;
+	const auto siegeOf = [&](int32_t id, int32_t world, SiegeRace race, bool vulnerable) {
+		runtime::Ref<model::siege::FortressLocation> fortress = addFortress(assaultFortressRow(id, world, 100));
+		fortress->setRace(race);
+		fortress->setVulnerable(vulnerable);
+		sieges.push_back(services::siege::FortressSiege::create(*fortress));
+		return sieges.back();
+	};
+	runtime::Ref<services::siege::FortressSiege> balaur = siegeOf(1011, 400010000, SiegeRace::BALAUR, true);
+	runtime::Ref<services::siege::FortressSiege> calm = siegeOf(1131, 400010000, SiegeRace::ELYOS, false);
+	runtime::Ref<services::siege::FortressSiege> first = siegeOf(1132, 400010000, SiegeRace::ELYOS, true);
+	runtime::Ref<services::siege::FortressSiege> second = siegeOf(1141, 400010000, SiegeRace::ELYOS, true);
+	runtime::Ref<services::siege::FortressSiege> third = siegeOf(1211, 400010000, SiegeRace::ELYOS, true);
+	runtime::Ref<services::siege::FortressSiege> balaurea1 = siegeOf(2011, 210050000, SiegeRace::ELYOS, true);
+	runtime::Ref<services::siege::FortressSiege> balaurea2 = siegeOf(2021, 210050000, SiegeRace::ELYOS, true);
+	model::siege::Influence::getInstance().recalculateInfluence(); // elyos holds 600 influence: rate 6, so Rnd.chance() < 600 always holds
+
+	for (const runtime::Ref<services::siege::FortressSiege>& siege : sieges)
+		assaults.onSiegeStart(*siege);
+	EXPECT_FALSE(assaults.getFortressAssaultBySiegeId(1011)) << "a Balaur fortress is never assaulted";
+	EXPECT_FALSE(assaults.getFortressAssaultBySiegeId(1131)) << "an invulnerable fortress is never assaulted";
+	EXPECT_TRUE(assaults.getFortressAssaultBySiegeId(1132));
+	EXPECT_TRUE(assaults.getFortressAssaultBySiegeId(1141));
+	EXPECT_FALSE(assaults.getFortressAssaultBySiegeId(1211)) << "two assaults per map";
+	EXPECT_TRUE(assaults.getFortressAssaultBySiegeId(2011));
+	EXPECT_FALSE(assaults.getFortressAssaultBySiegeId(2021)) << "one assault per Balaurea map";
+	for (const runtime::Ref<services::siege::FortressSiege>& siege : sieges)
+		assaults.onSiegeFinish(*siege);
+	EXPECT_FALSE(assaults.getFortressAssaultBySiegeId(1132));
+}
+
+TEST_F(SiegeCoreTest, TheAgentFightCountsNineMinutesAndFinishesWithoutAWinnerBeforeTheBaseCapture) {
+	// T-05: AgentSiege.java:44-79 - the start chain of 60 s steps (progress 1 -> 10), and onSiegeFinish returning before BaseService.capture
+	const SiegeLocationTemplate& t = bindTemplate(R"(<siege_location id="8011" type="AGENT_FIGHT" world="600100000" siege_duration="4200"/>)");
+	runtime::Ref<model::siege::AgentLocation> agent = model::siege::AgentLocation::create(&t);
+	runtime::Ref<services::siege::AgentSiege> siege = services::siege::AgentSiege::create(*agent);
+	EXPECT_FALSE(siege->isEndless());
+	const size_t pendingBefore = executor->pendingTaskCount();
+	siege->startSiege();
+	EXPECT_TRUE(agent->isVulnerable());
+	EXPECT_EQ(siege->getStartProgressForTests(), 1);
+	EXPECT_EQ(executor->pendingTaskCount(), pendingBefore + 1);
+	for (int8_t step = 2; step <= 9; step++) {
+		executor->advance(std::chrono::seconds(60));
+		EXPECT_EQ(siege->getStartProgressForTests(), step);
+		EXPECT_EQ(executor->pendingTaskCount(), pendingBefore + 1) << "rescheduled before the tenth step";
+	}
+	PlayerFixture p = makePlayer(81, 800);
+	siege->onAbyssPointsAdded(*p.player, 100); // progress 9: not counted yet
+	EXPECT_TRUE(siege->getSiegeCounter()->getRaceCounter(SiegeRace::ELYOS)->getPlayerAbyssPoints().empty());
+
+	siege->stopSiege(); // no winner: no BaseService.capture, no rewards
+	EXPECT_FALSE(agent->isVulnerable());
+	EXPECT_TRUE(siege->isFinished());
+	EXPECT_EQ(executor->pendingTaskCount(), pendingBefore + 1) << "Java does not cancel the start chain";
 }
 
 } // namespace
