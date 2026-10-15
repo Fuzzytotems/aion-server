@@ -44,6 +44,7 @@
 #include "GameSession.h"
 #include "ScenarioDatabase.h"
 #include "ScenarioServers.h"
+#include "PrologueSupport.h"
 #include "decoders/PacketDecoders.h"
 #include "decoders/TravelDecoders.h"
 
@@ -441,7 +442,7 @@ std::vector<Packet> enterGame(ScenarioServers& servers, ScenarioClient& client) 
 	if (check == nullptr || check->data.empty() || check->data[0] != ENTER_WORLD_OK)
 		throw std::runtime_error(client.label + ": the enter world was refused: " + join(namesOf(burst)));
 	client.game->send(GameSession::CM_LEVEL_READY, GameSession::buildCM_LEVEL_READY());
-	collectBurst(*client.game, client.async);
+	expectEnterWorldTimerEnds(collectBurst(*client.game, client.async), client.label + " level ready");
 	collectFor(*client.game, 500ms);
 	return client.since(from);
 }
