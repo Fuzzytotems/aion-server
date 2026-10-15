@@ -1,0 +1,37 @@
+# The AION_PARTIAL sites the M5j stage-1 gate accepts (gs.scenario.m5j, m5j-plan.md §10.4). One site per line, whose file paths are relative
+# to the compiling target's source root - game-server/src for the server itself (e.g. "aion/gameserver/GameServer.cpp:129") and
+# game-server/handlers for a registered handler. An entry WITH a line number must match the whole site; an entry without one is an explicit
+# whole-file wildcard. Lines starting with '#' and empty lines are ignored.
+#
+# A SEPARATE list from the other gates' lists (m5b-plan.md D9). THE LIST IS IN THREE SECTIONS AND M5jScenarioTest.cpp's Z13 READS ALL THREE,
+# with the markers and meanings of the M5c list:
+#   SECTION A  the gate asserts the row was hit at least once
+#   SECTION B  the gate asserts the row was hit EXACTLY ZERO times
+#   SECTION C  the row is allowed and its hit count is printed but not pinned
+#
+# Copied on 2026-10-08 from gm_partial_allowlist.txt, the startup set. Z8 (m5j-plan.md §10.4: "the two §A allow-list rows of the cron
+# partials are gone"): AbyssRankUpdateService.cpp:37 and :58 are not here because S-04 (CP2) ported the update they marked - the sites no
+# longer exist, and //ranking update runs the whole update without a partial. The stage-1 path adds no AION_PARTIAL.
+
+# =========================================================================================================================================
+# --- SECTION A - hit at least once, asserted ---
+# =========================================================================================================================================
+
+# every startup: the gates run without base locations (E1-06)
+aion/gameserver/services/BaseService.cpp:18
+
+# =========================================================================================================================================
+# --- SECTION B - hit exactly zero times, asserted ---
+# =========================================================================================================================================
+
+# m5c-plan.md G-07: the wall-clock cron jobs whose schedules ScenarioServers::m5aProfile moves past every gate run. Only their cron reaches
+# these sites, so a hit means a gate key no longer reaches the server.
+aion/gameserver/taskmanager/tasks/housing/AuctionEndTask.cpp:81
+aion/gameserver/taskmanager/tasks/housing/AuctionAutoFillTask.cpp:38
+
+# =========================================================================================================================================
+# --- SECTION C - allowed, counted and printed, not pinned ---
+# =========================================================================================================================================
+
+# the PvP map instance stays partial by m5f-plan.md D6 (PvpMapHandler is M5j; init would create it at every startup)
+aion/gameserver/custom/pvpmap/PvpMapService.cpp:32
