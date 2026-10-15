@@ -6,7 +6,6 @@
 #include "aion/commons/utils/TimeUtils.h"
 #include "aion/gameserver/configs/main/HousingConfig.h"
 #include "aion/gameserver/runtime/base/Exceptions.h"
-#include "aion/gameserver/runtime/base/Unported.h"
 #include "aion/gameserver/runtime/fields/Field.h"
 #include "aion/gameserver/runtime/sched/Future.h"
 #include "aion/gameserver/services/HousingBidService.h"
@@ -77,8 +76,7 @@ bool AuctionEndTask::shouldRunOnStart() {
 }
 
 void AuctionEndTask::executeTask() {
-	// Java: HousingBidService.getInstance().endAuctions()
-	AION_PARTIAL("house auction end is not ported yet (HousingBidService.endAuctions, M5a E2-05)");
+	services::HousingBidService::getInstance().endAuctions();
 }
 
 int32_t AuctionEndTask::getRemainingAuctionSeconds(int32_t houseObjectId) {

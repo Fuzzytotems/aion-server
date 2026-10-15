@@ -25,11 +25,10 @@ aion/gameserver/services/BaseService.cpp:18
 # =========================================================================================================================================
 
 # m5c-plan.md G-07: the wall-clock cron jobs whose schedules ScenarioServers::m5aProfile moves past every gate run (ScenarioServers.cpp's
-# census). Only their cron reaches these sites, so a hit means a gate key no longer reaches the server.
+# census). Only their cron reaches these sites, so a hit means a gate key no longer reaches the server. (M5h-2 H2-1 ported the housing cron
+# tasks AuctionEndTask and AuctionAutoFillTask, whose rows were here.)
 aion/gameserver/services/abyss/AbyssRankUpdateService.cpp:37
 aion/gameserver/services/abyss/AbyssRankUpdateService.cpp:58
-aion/gameserver/taskmanager/tasks/housing/AuctionEndTask.cpp:81
-aion/gameserver/taskmanager/tasks/housing/AuctionAutoFillTask.cpp:38
 
 # =========================================================================================================================================
 # --- SECTION C - allowed, counted and printed, not pinned ---
