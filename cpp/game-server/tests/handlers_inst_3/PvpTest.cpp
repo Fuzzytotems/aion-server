@@ -341,13 +341,14 @@ TEST_F(PvpTest, KamarsTimeline) {
 	EXPECT_EQ(generalXs, (std::set<float>{1437.7f, 1172.2f, 1428.67f})) << "each general at another place";
 }
 
-/** Kamar :156-212: 232853's death ends the run (Java stops before it scores, so its 3500 points are lost); a lead of 20,000 ends it too */
+/** Kamar :156-212 with the owner's correction (2026-10-15): 232853's death scores its 3500 points and ends the run; a lead of 20,000
+ * ends it too */
 TEST_F(PvpTest, KamarsEnds) {
 	world::WorldMapInstance& first = kamar();
 	killed(first, 232846);
 	EXPECT_EQ(scoreOf(first).getElyosPoints(), 1050);
 	killed(first, 232853);
-	EXPECT_EQ(scoreOf(first).getElyosPoints(), 1050) << "onStop comes first: the 3500 points find the run ended";
+	EXPECT_EQ(scoreOf(first).getElyosPoints(), 4550) << "the correction: the 3500 points before the end";
 	EXPECT_EQ(phase(first), InstanceProgressionType::END_PROGRESS);
 
 	world::WorldMapInstance& second = kamar();
