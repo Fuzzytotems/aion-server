@@ -14,26 +14,12 @@
 #include "aion/gameserver/model/templates/pet/PetRewards.h"
 #include "aion/gameserver/runtime/base/Exceptions.h"
 #include "aion/gameserver/services/toypet/PetFeedProgress.h"
+#include "aion/gameserver/services/toypet/PetHungryLevelInfo.h"
 #include "aion/gameserver/utils/JavaMath.h"
 
 namespace aion::gameserver::services::toypet {
 
 namespace {
-
-/** Java PetHungryLevel.getNextValue (PetHungryLevel.java:26-39) */
-PetHungryLevel nextValue(PetHungryLevel level) {
-	switch (level) {
-		case PetHungryLevel::HUNGRY:
-			return PetHungryLevel::CONTENT;
-		case PetHungryLevel::CONTENT:
-			return PetHungryLevel::SEMIFULL;
-		case PetHungryLevel::SEMIFULL:
-			return PetHungryLevel::FULL;
-		case PetHungryLevel::FULL:
-			return PetHungryLevel::HUNGRY;
-	}
-	return PetHungryLevel::HUNGRY;
-}
 
 /** the body of calculate() (PetFeedCalculator.java:63-82), shared by the static initializer and calculate() itself */
 void fillPointValues() {
@@ -160,7 +146,7 @@ void PetFeedCalculator::updatePetFeedProgress(PetFeedProgress& progress, int32_t
 
 	if (needSwitch) {
 		// just a prevention to not switch level
-		const PetHungryLevel nextLevel = nextValue(progress.getHungryLevel());
+		const PetHungryLevel nextLevel = getNextValue(progress.getHungryLevel());
 		if ((nextLevel == PetHungryLevel::CONTENT && static_cast<float>(progress.getRegularCount()) <= 0.487f * static_cast<float>(maxFeedCount)) ||
 			(nextLevel == PetHungryLevel::SEMIFULL && static_cast<float>(progress.getRegularCount()) <= 0.78f * static_cast<float>(maxFeedCount))) {
 			progress.setTotalPoints(oldPoints);
