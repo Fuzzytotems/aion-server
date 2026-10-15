@@ -19,6 +19,7 @@
 #include "aion/gameserver/handlers/instance/DanuarReliquaryInstance.h"
 #include "aion/gameserver/handlers/instance/DanuarReliquaryInstance_L.h"
 #include "aion/gameserver/handlers/instance/InfernalDanuarReliquaryInstance.h"
+#include "aion/gameserver/handlers/instance/NightmareCircus.h"
 #include "aion/gameserver/handlers/instance/SauroSupplyBaseInstance.h"
 #include "aion/gameserver/handlers/instance/TalocsHollowInstance.h"
 #include "aion/gameserver/network/aion/serverpackets/SM_PLAY_MOVIE.h"
@@ -71,7 +72,8 @@ protected:
 TEST_F(I5InstanceTest, EachHandlerIsTheJavaClassOfItsMap) {
 	for (const auto& [javaClass, mapId] : std::map<std::string, int32_t>{{"DanuarMysticariumInstance", DANUAR_MYSTICARIUM},
 		     {"SauroSupplyBaseInstance", SAURO_SUPPLY_BASE}, {"TalocsHollowInstance", TALOCS_HOLLOW}, {"DanuarReliquaryInstance", DANUAR_RELIQUARY},
-		     {"DanuarReliquaryInstance_L", LUCKY_DANUAR_RELIQUARY}, {"InfernalDanuarReliquaryInstance", INFERNAL_DANUAR_RELIQUARY}}) {
+		     {"DanuarReliquaryInstance_L", LUCKY_DANUAR_RELIQUARY}, {"InfernalDanuarReliquaryInstance", INFERNAL_DANUAR_RELIQUARY},
+		     {"NightmareCircus", NIGHTMARE_CIRCUS}}) {
 		std::string source = javaSource(javaClass.c_str());
 		std::smatch match;
 		ASSERT_TRUE(std::regex_search(source, match, std::regex(R"(@InstanceID\((\d+)\))"))) << javaClass;
@@ -85,6 +87,85 @@ TEST_F(I5InstanceTest, EachHandlerIsTheJavaClassOfItsMap) {
 	EXPECT_NE(dynamic_cast<DanuarReliquaryInstance_L*>(lucky.getInstanceHandler().get()), nullptr);
 	world::WorldMapInstance& infernal = create(INFERNAL_DANUAR_RELIQUARY, InfernalDanuarReliquaryInstance_instanceFactory);
 	EXPECT_NE(dynamic_cast<InfernalDanuarReliquaryInstance*>(infernal.getInstanceHandler().get()), nullptr);
+	world::WorldMapInstance& circus = create(NIGHTMARE_CIRCUS, NightmareCircus_instanceFactory);
+	EXPECT_NE(dynamic_cast<NightmareCircus*>(circus.getInstanceHandler().get()), nullptr);
+}
+
+/** NightmareCircus.java:56-287: the end of movie 983 starts the circus once - eight walkers a wave every 10 s (fifteen waves), Viloa at 160 s,
+ * Reshka at 200 s, Heiramune at 300 s; Viloa leaves at 210 s, Reshka at 310 s (the walkers' DummyAI cannot walk: Java's ClassCastException,
+ * logged by the task after the spawn) */
+TEST_F(I5InstanceTest, TheCircusStartsOnceAfterItsMovie) {
+	world::WorldMapInstance& instance = create(NIGHTMARE_CIRCUS, NightmareCircus_instanceFactory);
+	enter(instance, 520.0f, 560.0f, 199.0f);
+	at(instance, 831747);
+	instance.getInstanceHandler()->onPlayMovieEnd(player(), 982);
+	executor().advance(std::chrono::milliseconds(0));
+	EXPECT_EQ(count(instance, {233450, 233455}), 0u) << "another movie";
+	instance.getInstanceHandler()->onPlayMovieEnd(player(), 983);
+	instance.getInstanceHandler()->onPlayMovieEnd(player(), 983);
+	executor().advance(std::chrono::milliseconds(0));
+	EXPECT_EQ(count(instance, {233455}), 4u) << "left wave 1";
+	EXPECT_EQ(count(instance, {233450}), 4u) << "right wave 1";
+	executor().advance(std::chrono::seconds(3));
+	EXPECT_EQ(count(instance, {831747}), 0u);
+	executor().advance(std::chrono::seconds(137));
+	EXPECT_EQ(count(instance, {233450, 233455}), 120u) << "fifteen waves of eight";
+	EXPECT_EQ(count(instance, {233459}), 0u);
+	executor().advance(std::chrono::seconds(20));
+	EXPECT_EQ(count(instance, {233459}), 1u) << "Viloa at 160 s";
+	executor().advance(std::chrono::seconds(40));
+	EXPECT_EQ(count(instance, {233453}), 1u) << "Reshka at 200 s";
+	executor().advance(std::chrono::seconds(10));
+	EXPECT_EQ(count(instance, {233459}), 0u) << "Viloa leaves at 210 s";
+	executor().advance(std::chrono::seconds(90));
+	EXPECT_EQ(count(instance, {233467}), 1u) << "Heiramune at 300 s";
+	executor().advance(std::chrono::seconds(10));
+	EXPECT_EQ(count(instance, {233453}), 0u) << "Reshka leaves at 310 s";
+}
+
+/** NightmareCircus.java:356-360, 48-54: destroyed with Viloa and Reshka up, they stay (the despawn tasks are cancelled) */
+TEST_F(I5InstanceTest, TheCircusDestroyCancelsTheBossDespawns) {
+	world::WorldMapInstance& instance = create(NIGHTMARE_CIRCUS, NightmareCircus_instanceFactory);
+	enter(instance, 520.0f, 560.0f, 199.0f);
+	instance.getInstanceHandler()->onPlayMovieEnd(player(), 983);
+	executor().advance(std::chrono::seconds(200));
+	ASSERT_EQ(count(instance, {233459, 233453}), 2u);
+	instance.getInstanceHandler()->onInstanceDestroy();
+	executor().advance(std::chrono::seconds(120));
+	EXPECT_EQ(count(instance, {233459, 233453}), 2u);
+}
+
+/** NightmareCircus.java:356-360, 259-287: the destroy stops the waves and the boss despawns */
+TEST_F(I5InstanceTest, TheCircusStopsWhenDestroyed) {
+	world::WorldMapInstance& instance = create(NIGHTMARE_CIRCUS, NightmareCircus_instanceFactory);
+	enter(instance, 520.0f, 560.0f, 199.0f);
+	instance.getInstanceHandler()->onPlayMovieEnd(player(), 983);
+	executor().advance(std::chrono::milliseconds(0));
+	instance.getInstanceHandler()->onInstanceDestroy();
+	executor().advance(std::chrono::seconds(400));
+	EXPECT_EQ(count(instance, {233450, 233455}), 8u) << "only the first wave";
+	EXPECT_EQ(count(instance, {233459, 233453, 233467}), 0u);
+}
+
+/** NightmareCircus.java:289-341: the walkers go when they die; Heiramune's death opens the cage, the crates, the exit and Yume's friends */
+TEST_F(I5InstanceTest, HeiramunesDeathOpensTheCircus) {
+	world::WorldMapInstance& instance = create(NIGHTMARE_CIRCUS, NightmareCircus_instanceFactory);
+	enter(instance, 520.0f, 560.0f, 199.0f);
+	runtime::Ptr<Npc> walker = dies(instance, 233450);
+	EXPECT_FALSE(walker->isSpawned());
+	runtime::Ptr<Npc> leftWalker = dies(instance, 233455);
+	EXPECT_FALSE(leftWalker->isSpawned());
+	at(instance, 831551);
+	dies(instance, 233467);
+	EXPECT_EQ(countSent(serialized(SM_PLAY_MOVIE(false, 0, 0, 984, true))), 1);
+	EXPECT_EQ(count(instance, {831551}), 0u);
+	ASSERT_EQ(count(instance, {831598}), 1u);
+	EXPECT_EQ(npcs(instance, 831598)[0]->getSpawn()->getStaticId(), 14);
+	EXPECT_EQ(count(instance, {831744}), 1u);
+	EXPECT_EQ(count(instance, {831745}), 16u);
+	EXPECT_EQ(count(instance, {831575}), 6u);
+	EXPECT_EQ(count(instance, {831576}), 1u);
+	EXPECT_EQ(count(instance, {831559, 831560, 831561, 831562}), 4u);
 }
 
 /** DanuarMysticariumInstance.java:46-58: the opened doors release their prisoners */

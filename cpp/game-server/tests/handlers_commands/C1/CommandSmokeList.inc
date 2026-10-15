@@ -11,11 +11,13 @@ namespace aion::gameserver::handlers::admincommands { ::aion::gameserver::handle
 namespace aion::gameserver::handlers::admincommands { ::aion::gameserver::handlers::CommandFactory Ai_commandFactory; }
 namespace aion::gameserver::handlers::admincommands { ::aion::gameserver::handlers::CommandFactory Announce_commandFactory; }
 namespace aion::gameserver::handlers::admincommands { ::aion::gameserver::handlers::CommandFactory Announcements_commandFactory; }
+namespace aion::gameserver::handlers::admincommands { ::aion::gameserver::handlers::CommandFactory Auction_commandFactory; }
 namespace aion::gameserver::handlers::admincommands { ::aion::gameserver::handlers::CommandFactory Ban_commandFactory; }
 namespace aion::gameserver::handlers::admincommands { ::aion::gameserver::handlers::CommandFactory BanChar_commandFactory; }
 namespace aion::gameserver::handlers::admincommands { ::aion::gameserver::handlers::CommandFactory BanHdd_commandFactory; }
 namespace aion::gameserver::handlers::admincommands { ::aion::gameserver::handlers::CommandFactory BanIp_commandFactory; }
 namespace aion::gameserver::handlers::admincommands { ::aion::gameserver::handlers::CommandFactory BanMac_commandFactory; }
+namespace aion::gameserver::handlers::admincommands { ::aion::gameserver::handlers::CommandFactory BaseCommand_commandFactory; }
 namespace aion::gameserver::handlers::admincommands { ::aion::gameserver::handlers::CommandFactory Bookmark_commandFactory; }
 namespace aion::gameserver::handlers::admincommands { ::aion::gameserver::handlers::CommandFactory Collide_commandFactory; }
 namespace aion::gameserver::handlers::admincommands { ::aion::gameserver::handlers::CommandFactory Coords_commandFactory; }
@@ -36,12 +38,14 @@ namespace aion::gameserver::handlers::admincommands { ::aion::gameserver::handle
 namespace aion::gameserver::handlers::admincommands { ::aion::gameserver::handlers::CommandFactory Grant_commandFactory; }
 namespace aion::gameserver::handlers::admincommands { ::aion::gameserver::handlers::CommandFactory Headhunting_commandFactory; }
 namespace aion::gameserver::handlers::admincommands { ::aion::gameserver::handlers::CommandFactory Heal_commandFactory; }
+namespace aion::gameserver::handlers::admincommands { ::aion::gameserver::handlers::CommandFactory HouseCommand_commandFactory; }
 namespace aion::gameserver::handlers::admincommands { ::aion::gameserver::handlers::CommandFactory Info_commandFactory; }
 namespace aion::gameserver::handlers::admincommands { ::aion::gameserver::handlers::CommandFactory Instance_commandFactory; }
 namespace aion::gameserver::handlers::admincommands { ::aion::gameserver::handlers::CommandFactory Invis_commandFactory; }
 namespace aion::gameserver::handlers::admincommands { ::aion::gameserver::handlers::CommandFactory Invul_commandFactory; }
 namespace aion::gameserver::handlers::admincommands { ::aion::gameserver::handlers::CommandFactory Kick_commandFactory; }
 namespace aion::gameserver::handlers::admincommands { ::aion::gameserver::handlers::CommandFactory Kill_commandFactory; }
+namespace aion::gameserver::handlers::admincommands { ::aion::gameserver::handlers::CommandFactory LegionCommand_commandFactory; }
 namespace aion::gameserver::handlers::admincommands { ::aion::gameserver::handlers::CommandFactory Megaphone_commandFactory; }
 namespace aion::gameserver::handlers::admincommands { ::aion::gameserver::handlers::CommandFactory Morph_commandFactory; }
 namespace aion::gameserver::handlers::admincommands { ::aion::gameserver::handlers::CommandFactory MovePlayerToPlayer_commandFactory; }
@@ -61,12 +65,14 @@ namespace aion::gameserver::handlers::admincommands { ::aion::gameserver::handle
 namespace aion::gameserver::handlers::admincommands { ::aion::gameserver::handlers::CommandFactory RemoveCd_commandFactory; }
 namespace aion::gameserver::handlers::admincommands { ::aion::gameserver::handlers::CommandFactory Rename_commandFactory; }
 namespace aion::gameserver::handlers::admincommands { ::aion::gameserver::handlers::CommandFactory Res_commandFactory; }
+namespace aion::gameserver::handlers::admincommands { ::aion::gameserver::handlers::CommandFactory Rift_commandFactory; }
 namespace aion::gameserver::handlers::admincommands { ::aion::gameserver::handlers::CommandFactory RPrison_commandFactory; }
 namespace aion::gameserver::handlers::admincommands { ::aion::gameserver::handlers::CommandFactory Say_commandFactory; }
 namespace aion::gameserver::handlers::admincommands { ::aion::gameserver::handlers::CommandFactory SecurityToken_commandFactory; }
 namespace aion::gameserver::handlers::admincommands { ::aion::gameserver::handlers::CommandFactory See_commandFactory; }
 namespace aion::gameserver::handlers::admincommands { ::aion::gameserver::handlers::CommandFactory Send_commandFactory; }
 namespace aion::gameserver::handlers::admincommands { ::aion::gameserver::handlers::CommandFactory Set_commandFactory; }
+namespace aion::gameserver::handlers::admincommands { ::aion::gameserver::handlers::CommandFactory SiegeCommand_commandFactory; }
 namespace aion::gameserver::handlers::admincommands { ::aion::gameserver::handlers::CommandFactory SpawnNpc_commandFactory; }
 namespace aion::gameserver::handlers::admincommands { ::aion::gameserver::handlers::CommandFactory SpawnUpdate_commandFactory; }
 namespace aion::gameserver::handlers::admincommands { ::aion::gameserver::handlers::CommandFactory Speed_commandFactory; }
@@ -80,8 +86,10 @@ namespace aion::gameserver::handlers::admincommands { ::aion::gameserver::handle
 namespace aion::gameserver::handlers::admincommands { ::aion::gameserver::handlers::CommandFactory UnBanIp_commandFactory; }
 namespace aion::gameserver::handlers::admincommands { ::aion::gameserver::handlers::CommandFactory UnBanMac_commandFactory; }
 namespace aion::gameserver::handlers::admincommands { ::aion::gameserver::handlers::CommandFactory UseSkill_commandFactory; }
+namespace aion::gameserver::handlers::admincommands { ::aion::gameserver::handlers::CommandFactory VortexRaid_commandFactory; }
 namespace aion::gameserver::handlers::admincommands { ::aion::gameserver::handlers::CommandFactory Weather_commandFactory; }
 namespace aion::gameserver::handlers::admincommands { ::aion::gameserver::handlers::CommandFactory Whisper_commandFactory; }
+namespace aion::gameserver::handlers::admincommands { ::aion::gameserver::handlers::CommandFactory WorldRaid_commandFactory; }
 namespace aion::gameserver::handlers::admincommands { ::aion::gameserver::handlers::CommandFactory Zone_commandFactory; }
 namespace aion::gameserver::handlers::playercommands { ::aion::gameserver::handlers::CommandFactory Advent_commandFactory; }
 namespace aion::gameserver::handlers::playercommands { ::aion::gameserver::handlers::CommandFactory Buy_commandFactory; }
@@ -145,11 +153,13 @@ inline constexpr SmokeCommand SMOKE_COMMANDS[] = {
 	{"admincommands.Ai", &::aion::gameserver::handlers::admincommands::Ai_commandFactory},
 	{"admincommands.Announce", &::aion::gameserver::handlers::admincommands::Announce_commandFactory},
 	{"admincommands.Announcements", &::aion::gameserver::handlers::admincommands::Announcements_commandFactory},
+	{"admincommands.Auction", &::aion::gameserver::handlers::admincommands::Auction_commandFactory},
 	{"admincommands.Ban", &::aion::gameserver::handlers::admincommands::Ban_commandFactory},
 	{"admincommands.BanChar", &::aion::gameserver::handlers::admincommands::BanChar_commandFactory},
 	{"admincommands.BanHdd", &::aion::gameserver::handlers::admincommands::BanHdd_commandFactory},
 	{"admincommands.BanIp", &::aion::gameserver::handlers::admincommands::BanIp_commandFactory},
 	{"admincommands.BanMac", &::aion::gameserver::handlers::admincommands::BanMac_commandFactory},
+	{"admincommands.BaseCommand", &::aion::gameserver::handlers::admincommands::BaseCommand_commandFactory},
 	{"admincommands.Bookmark", &::aion::gameserver::handlers::admincommands::Bookmark_commandFactory},
 	{"admincommands.Collide", &::aion::gameserver::handlers::admincommands::Collide_commandFactory},
 	{"admincommands.Coords", &::aion::gameserver::handlers::admincommands::Coords_commandFactory},
@@ -170,12 +180,14 @@ inline constexpr SmokeCommand SMOKE_COMMANDS[] = {
 	{"admincommands.Grant", &::aion::gameserver::handlers::admincommands::Grant_commandFactory},
 	{"admincommands.Headhunting", &::aion::gameserver::handlers::admincommands::Headhunting_commandFactory},
 	{"admincommands.Heal", &::aion::gameserver::handlers::admincommands::Heal_commandFactory},
+	{"admincommands.HouseCommand", &::aion::gameserver::handlers::admincommands::HouseCommand_commandFactory},
 	{"admincommands.Info", &::aion::gameserver::handlers::admincommands::Info_commandFactory},
 	{"admincommands.Instance", &::aion::gameserver::handlers::admincommands::Instance_commandFactory},
 	{"admincommands.Invis", &::aion::gameserver::handlers::admincommands::Invis_commandFactory},
 	{"admincommands.Invul", &::aion::gameserver::handlers::admincommands::Invul_commandFactory},
 	{"admincommands.Kick", &::aion::gameserver::handlers::admincommands::Kick_commandFactory},
 	{"admincommands.Kill", &::aion::gameserver::handlers::admincommands::Kill_commandFactory},
+	{"admincommands.LegionCommand", &::aion::gameserver::handlers::admincommands::LegionCommand_commandFactory},
 	{"admincommands.Megaphone", &::aion::gameserver::handlers::admincommands::Megaphone_commandFactory},
 	{"admincommands.Morph", &::aion::gameserver::handlers::admincommands::Morph_commandFactory},
 	{"admincommands.MovePlayerToPlayer", &::aion::gameserver::handlers::admincommands::MovePlayerToPlayer_commandFactory},
@@ -195,12 +207,14 @@ inline constexpr SmokeCommand SMOKE_COMMANDS[] = {
 	{"admincommands.RemoveCd", &::aion::gameserver::handlers::admincommands::RemoveCd_commandFactory},
 	{"admincommands.Rename", &::aion::gameserver::handlers::admincommands::Rename_commandFactory},
 	{"admincommands.Res", &::aion::gameserver::handlers::admincommands::Res_commandFactory},
+	{"admincommands.Rift", &::aion::gameserver::handlers::admincommands::Rift_commandFactory},
 	{"admincommands.RPrison", &::aion::gameserver::handlers::admincommands::RPrison_commandFactory},
 	{"admincommands.Say", &::aion::gameserver::handlers::admincommands::Say_commandFactory},
 	{"admincommands.SecurityToken", &::aion::gameserver::handlers::admincommands::SecurityToken_commandFactory},
 	{"admincommands.See", &::aion::gameserver::handlers::admincommands::See_commandFactory},
 	{"admincommands.Send", &::aion::gameserver::handlers::admincommands::Send_commandFactory},
 	{"admincommands.Set", &::aion::gameserver::handlers::admincommands::Set_commandFactory},
+	{"admincommands.SiegeCommand", &::aion::gameserver::handlers::admincommands::SiegeCommand_commandFactory},
 	{"admincommands.SpawnNpc", &::aion::gameserver::handlers::admincommands::SpawnNpc_commandFactory},
 	{"admincommands.SpawnUpdate", &::aion::gameserver::handlers::admincommands::SpawnUpdate_commandFactory},
 	{"admincommands.Speed", &::aion::gameserver::handlers::admincommands::Speed_commandFactory},
@@ -214,8 +228,10 @@ inline constexpr SmokeCommand SMOKE_COMMANDS[] = {
 	{"admincommands.UnBanIp", &::aion::gameserver::handlers::admincommands::UnBanIp_commandFactory},
 	{"admincommands.UnBanMac", &::aion::gameserver::handlers::admincommands::UnBanMac_commandFactory},
 	{"admincommands.UseSkill", &::aion::gameserver::handlers::admincommands::UseSkill_commandFactory},
+	{"admincommands.VortexRaid", &::aion::gameserver::handlers::admincommands::VortexRaid_commandFactory},
 	{"admincommands.Weather", &::aion::gameserver::handlers::admincommands::Weather_commandFactory},
 	{"admincommands.Whisper", &::aion::gameserver::handlers::admincommands::Whisper_commandFactory},
+	{"admincommands.WorldRaid", &::aion::gameserver::handlers::admincommands::WorldRaid_commandFactory},
 	{"admincommands.Zone", &::aion::gameserver::handlers::admincommands::Zone_commandFactory},
 	{"playercommands.Advent", &::aion::gameserver::handlers::playercommands::Advent_commandFactory},
 	{"playercommands.Buy", &::aion::gameserver::handlers::playercommands::Buy_commandFactory},
