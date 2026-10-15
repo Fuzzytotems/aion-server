@@ -10,6 +10,7 @@
 #include "aion/gameserver/network/aion/serverpackets/SM_ABYSS_RANK_UPDATE.h"
 #include "aion/gameserver/network/aion/serverpackets/SM_LEGION_EDIT.h"
 #include "aion/gameserver/network/aion/serverpackets/SM_SYSTEM_MESSAGE.h"
+#include "aion/gameserver/services/SiegeService.h"
 #include "aion/gameserver/services/abyss/AbyssSkillService.h"
 #include "aion/gameserver/utils/PacketSendUtility.h"
 #include "aion/gameserver/utils/stats/AbyssRankEnum.h"
@@ -22,13 +23,13 @@ using utils::PacketSendUtility;
 
 static const auto log = commons::logging::LoggerFactory::getLogger("com.aionemu.gameserver.services.abyss.AbyssPointsService");
 
-// callback at AbyssPointsService.java:34 (fieldmap key AbyssPointsService@L34:25)
-//
-// Not ported on purpose (m5d-plan.md §18.8 item 6): the kill and PvP variant, called from NpcController.doReward for an npc that rewards AP. No
-// start map spawns such an npc, it calls the unported SiegeService.onAbyssPointsAdded, and its throw keeps M5b's R2 self-enforcing
-// (AttackSeamTest.DoRewardReachesTheRealPvEApGainedBeforeTheUnportedAbyssPointsService).
+// Java AbyssPointsService.java:25-31 (the kill and PvP variant; M5j stage 1 CP4: PvpService.rewardPlayerTeam and NpcController.doReward)
 void AbyssPointsService::addAp(model::gameobjects::player::Player& player, model::gameobjects::VisibleObject& obj, int32_t value) {
-	AION_UNPORTED();
+	if (value > 30000) {
+		log.warn("WARN BIG COUNT AP: " + std::to_string(value) + " for " + player.toString() + " from " + obj.toString());
+	}
+	addAp(player, value);
+	SiegeService::getInstance().onAbyssPointsAdded(player, obj, value);
 }
 
 // Java AbyssPointsService.java:33-35
