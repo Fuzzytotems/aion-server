@@ -1051,3 +1051,12 @@ expectations follow Java where §10.3 said otherwise: the cake's 10-s cooldown h
 (HouseObjectCooldownsDAO skips an expired reuse time), and C16's registered items leave `inventory` at the logout's store, not at once. The run
 found one port defect of HS-1: CM_HOUSE_SCRIPT broadcast the script to its sender too (`toSelf`), where Java's
 `broadcastPacket(VisibleObject, packet)` sends only to the players who know him (Y17) - fixed. 9 of 9 server mutants turn the gate red.
+
+**HS-4 part 2, C13 (lane B, 2026-10-08)**: the studio by quest replaces the stand-in. A, with 18802 at REWARD (seeded), finishes it at Parrine
+with `SELECTED_QUEST_NOREWARD`: lane C's generated `_18802AndAHomeforEveryDaeva` runs `registerPlayerStudio` - `SM_HOUSE_OWNER_INFO` from
+SINGLE_HOUSE (2) to HAS_OWNER | BIDDING_ALLOWED (5) for address 2001 and building 355000, then `SM_HOUSE_ACQUIRE(A, 2001, 1)`, A's kinah
+unchanged, the `houses` row, and B told A's new level (the quest's experience); `player_quests` holds 18802 COMPLETE after A's logout store
+(C19). C14 is now C's purchase and A's refusal only. **The gate needs lane C's Q05 rest** (cf2c4eb01, quest 18802): run on a scratch build of
+this branch with lane C's stack, it passes, and 2 of 2 server mutants (the quest charging through `recreatePlayerStudio`, no
+`SM_HOUSE_ACQUIRE` for a new owner) turn C13 red. Lane C's golden trace lists 18802's studio arm as vacuous (no housing data in its fixture), so
+C13 is that arm's test.

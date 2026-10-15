@@ -5,7 +5,7 @@
 // house (the member list's entries and the member update).
 //
 // **m5a-plan.md D9:** every layout is written from the Java `writeImpl` under game-server/src/com/aionemu/gameserver/network/aion/serverpackets/
-// (SM_HOUSE_ACQUIRE.java, AbstractHouseInfoPacket.java with SM_HOUSE_RENDER.java and SM_HOUSE_UPDATE.java, SM_HOUSE_SCRIPTS.java,
+// (SM_HOUSE_ACQUIRE.java, SM_HOUSE_OWNER_INFO.java, AbstractHouseInfoPacket.java with SM_HOUSE_RENDER.java and SM_HOUSE_UPDATE.java, SM_HOUSE_SCRIPTS.java,
 // SM_HOUSE_OBJECT.java, SM_HOUSE_EDIT.java, SM_DELETE_HOUSE_OBJECT.java, SM_OBJECT_USE_UPDATE.java, SM_LEGION_MEMBERLIST.java,
 // SM_LEGION_UPDATE_MEMBER.java) and the helpers they call (AionServerPacket.writeS(text, fixedLength) and writeDyeInfo,
 // UseableItemObject.UseDataWriter.writeMe). Nothing here includes, calls or mirrors a C++ serverpackets header.
@@ -39,6 +39,25 @@ struct HouseAcquire {
 };
 
 HouseAcquire decodeHouseAcquire(std::span<const uint8_t> body);
+
+// ---- SM_HOUSE_OWNER_INFO ----------------------------------------------------------------------------------------------------------------
+
+/**
+ * SM_HOUSE_OWNER_INFO.writeImpl: writeD(active address), writeD(active building), writeC(playerHouseOwnerState), writeC(town level),
+ * writeD(weeks until next pay), writeD(inactive address), writeD(inactive building), writeD(seconds until grace end)
+ */
+struct HouseOwnerInfo {
+	int32_t address = 0;
+	int32_t buildingId = 0;
+	uint8_t ownerState = 0;
+	uint8_t townLevel = 0;
+	int32_t weeksUntilNextPay = 0;
+	int32_t inactiveAddress = 0;
+	int32_t inactiveBuildingId = 0;
+	int32_t secondsUntilGraceEnd = 0;
+};
+
+HouseOwnerInfo decodeHouseOwnerInfo(std::span<const uint8_t> body);
 
 // ---- SM_HOUSE_RENDER / SM_HOUSE_UPDATE ---------------------------------------------------------------------------------------------------
 
