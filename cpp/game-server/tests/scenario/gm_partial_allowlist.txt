@@ -18,7 +18,6 @@
 
 # every startup: the gates run without base locations (E1-06). HISTORY: QuestEngine.cpp:111 (no XML quest registered, m5a-plan.md W-02)
 # was here until M5d's D3 join (m5d-plan.md I-05) registered them at every startup; the site no longer exists.
-aion/gameserver/services/BaseService.cpp:18
 
 # =========================================================================================================================================
 # --- SECTION B - hit exactly zero times, asserted ---
