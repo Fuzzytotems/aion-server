@@ -2984,7 +2984,8 @@ LIVE_CHECKS = [
     ('services/teleport/TeleportService.java', 'TeleportService', 'teleportTo', 5, 249, 'ported', None),
     ('services/teleport/TeleportService.java', 'TeleportService', 'teleportTo', 6, 253, 'ported', None),
     ('services/teleport/TeleportService.java', 'TeleportService', 'teleportTo', 7, 257, 'ported', None),
-    ('network/aion/serverpackets/SM_INSTANCE_SCORE.java', 'SM_INSTANCE_SCORE', 'SM_INSTANCE_SCORE', 2, 17, 'unported', None),
+    # was 'unported' until M5j stage 4 CP3 (J13) ported PvPArenaScore (2026-10-13)
+    ('network/aion/serverpackets/SM_INSTANCE_SCORE.java', 'SM_INSTANCE_SCORE', 'SM_INSTANCE_SCORE', 2, 17, 'ported', None),
     ('network/aion/serverpackets/SM_INSTANCE_SCORE.java', 'SM_INSTANCE_SCORE', 'SM_INSTANCE_SCORE', 2, 21, 'ported', None),
     ('model/house/HouseDoorState.java', 'HouseDoorState', 'get', 1, None, 'ported', 'renamed'),
     ('world/WorldMapType.java', 'WorldMapType', 'getWorld', 1, None, 'ported', 'renamed'),
@@ -3019,7 +3020,8 @@ LIVE_CHECKS = [
     # ported since M5j K-06 (network/aion/clientpackets/AbstractGmCommandPacket.cpp); ChatUtil.cpp's stand-in is gone
     ('network/aion/clientpackets/AbstractGmCommandPacket.java', 'AbstractGmCommandPacket', 'replaceUnsupportedCommandChars', 1, None,
      'ported', None),
-    ('network/aion/instanceinfo/ArenaScoreWriter.java', 'ArenaScoreWriter', 'ArenaScoreWriter', 3, None, 'unported', None),
+    # was 'unported' until M5j stage 4 CP3 (J13) ported the score classes (2026-10-13)
+    ('network/aion/instanceinfo/ArenaScoreWriter.java', 'ArenaScoreWriter', 'ArenaScoreWriter', 3, None, 'ported', None),
     ('ai/AIEngine.java', 'AIEngine', 'findDefaultOwnerType', 1, None, 'omitted', None),
     ('geoEngine/math/Matrix4f.java', 'Matrix4f', 'set', 1, 426, 'omitted', None),
     ('model/geometry/Polygon2D.java', 'Polygon2D', 'contains', 1, 289, 'omitted', None),
@@ -3239,8 +3241,9 @@ def live_checks(check):
     for name, kind in (('standins::followStartServiceNewFollowingToTargetCheckTask', 'stale'),
                        # M5g (2026-10-05) ported the team stand-ins and the last inherited accessors (PlayerGroup's, PlayerAlliance's,
                        # League's): no 'standIn' or 'inherited' helper is left in the tree; the synthetic checks still cover both kinds
-                       ('standins::riftEnumData', 'own'),
-                       ('<anon>::unportedScoreBase', 'taken')):
+                       # M5j stage 4 CP3 (2026-10-13) ported the score writers' constructors: the taken helper <anon>::unportedScoreBase
+                       # is gone; the synthetic checks still cover the 'taken' kind
+                       ('standins::riftEnumData', 'own')):
         check(f'live helper {name}', kinds.get(name), kind)
 
 

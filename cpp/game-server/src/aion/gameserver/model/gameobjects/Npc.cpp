@@ -1,6 +1,7 @@
 #include "aion/gameserver/model/gameobjects/Npc.h"
 
 #include <algorithm>
+#include <memory>
 #include <cmath>
 #include <optional>
 #include <string>
@@ -38,7 +39,8 @@
 #include "aion/gameserver/model/templates/npc/NpcTemplateType.h"
 #include "aion/gameserver/model/templates/spawns/SpawnTemplate.h"
 #include "aion/gameserver/runtime/base/Exceptions.h"
-#include "aion/gameserver/runtime/base/Unported.h"
+#include "aion/gameserver/model/skill/QueuedNpcSkillTemplateEntry.h"
+#include "aion/gameserver/model/templates/npcskill/QueuedNpcSkillTemplate.h"
 #include "aion/gameserver/network/aion/serverpackets/SM_CUSTOM_SETTINGS.h"
 #include "aion/gameserver/runtime/sync/Monitor.h"
 #include "aion/gameserver/services/TribeRelationService.h"
@@ -198,16 +200,21 @@ void Npc::queueSkill(skill::NpcSkillEntry& skill) {
 	}
 }
 
+// Java Npc.java:164-166
 void Npc::queueSkill(int32_t skillId, int32_t level) {
-	AION_UNPORTED();
+	queueSkill(*skill::QueuedNpcSkillTemplateEntry::create(std::make_unique<const templates::npcskill::QueuedNpcSkillTemplate>(skillId, level)));
 }
 
+// Java Npc.java:168-170
 void Npc::queueSkill(int32_t skillId, int32_t level, int32_t nextSkillTime) {
-	AION_UNPORTED();
+	queueSkill(*skill::QueuedNpcSkillTemplateEntry::create(std::make_unique<const templates::npcskill::QueuedNpcSkillTemplate>(skillId, level,
+		nextSkillTime, templates::npcskill::NpcSkillTargetAttribute::MOST_HATED)));
 }
 
+// Java Npc.java:172-174
 void Npc::queueSkill(int32_t skillId, int32_t level, int32_t nextSkillTime, templates::npcskill::NpcSkillTargetAttribute npcSkillTargetAttribute) {
-	AION_UNPORTED();
+	queueSkill(*skill::QueuedNpcSkillTemplateEntry::create(std::make_unique<const templates::npcskill::QueuedNpcSkillTemplate>(skillId, level,
+		nextSkillTime, npcSkillTargetAttribute)));
 }
 
 bool Npc::isWalker() {

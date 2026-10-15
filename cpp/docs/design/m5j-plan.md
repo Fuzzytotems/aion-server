@@ -1664,3 +1664,5 @@ without a C++ file; `tools/porting/census.py` for the totals):
 > CP6 part 5 done: M5c's `//access`, M5g's `//event` (C1.md; Z17).
 > CP6 part 6 done: M5c's `//sysmail` (C1.md; Z17). Out of CP6: `///wish` (StAX streaming of two XML files; the loaders use a DOM, so it
 > waits for a read-only stream decision), `//fixpath` (D14), `///teleport_to_named` (a handler-local binder), `.buy` (D12).
+> **Progress:** CP3 done (`lane-a/m5j-s4-cp3`): J13 - the model/instance scores, rewards and positions, the nine score writers (P4-15),
+> SM_INSTANCE_SCORE (P4-16), Npc::queueSkill (P4-11a) and the FFA/Harmony arms (P5-13.md, P5-10e.md); mutation proof 49 of 49, gate green.

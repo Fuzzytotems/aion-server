@@ -12,8 +12,8 @@ namespace aion::gameserver::network::aion::instanceinfo {
 /**
  * @author xTz
  * <p>
- * C++: RefCounted like its base (create()). Java InstanceScore<CruciblePlayerReward> is the erased InstanceScore; writeMe reads
- * CruciblePlayerReward, which has no C++ declaration header yet (model.instance, P5-13), so it is AION_UNPORTED until it exists.
+ * C++: RefCounted like its base (create()). Java InstanceScore<CruciblePlayerReward> is the erased InstanceScore; writeMe casts each reward
+ * to CruciblePlayerReward (Java's ClassCastException for another type).
  */
 class CrucibleScoreWriter : public InstanceScoreWriter {
 	AION_MAKE_REF_FRIEND

@@ -9,7 +9,13 @@
 #include "aion/gameserver/model/team/group/PlayerGroupService.h"
 #include "aion/gameserver/network/aion/serverpackets/SM_AUTO_GROUP.h"
 #include "aion/gameserver/runtime/base/Exceptions.h"
-#include "aion/gameserver/runtime/base/Unported.h"
+#include "aion/gameserver/instance/handlers/InstanceHandler.h"
+#include "aion/gameserver/model/instance/instancescore/HarmonyArenaScore.h"
+#include "aion/gameserver/model/instance/playerreward/HarmonyGroupReward.h"
+#include "aion/gameserver/model/team/TeamType.h"
+#include "aion/gameserver/model/team/group/PlayerGroupMember.h"
+#include "aion/gameserver/model/team/group/PlayerGroup.h"
+#include "aion/gameserver/world/WorldMapInstance.h"
 #include "aion/gameserver/services/AutoGroupService.h"
 #include "aion/gameserver/utils/PacketSendUtility.h"
 #include "aion/gameserver/world/WorldMapInstance.h"
@@ -40,10 +46,12 @@ AutoHarmonyInstance::AutoHarmonyInstance(AutoGroupType value) : AutoInstance(val
 
 AutoHarmonyInstance::~AutoHarmonyInstance() = default;
 
-// Java AutoHarmonyInstance.java:29-34: then ((HarmonyArenaScore) score).setDifficultyId(agt.getDifficultId()) - HarmonyArenaScore is J13 (CP3)
+// Java AutoHarmonyInstance.java:29-34
 void AutoHarmonyInstance::onInstanceCreate(world::WorldMapInstance& value) {
 	AutoInstance::onInstanceCreate(value);
-	AION_UNPORTED();
+	runtime::Ptr<model::instance::instancescore::HarmonyArenaScore> score =
+		runtime::cast<model::instance::instancescore::HarmonyArenaScore>(value.getInstanceHandler()->getInstanceScore()); // Java: (HarmonyArenaScore)
+	score->setDifficultyId(getDifficultId(agt));
 }
 
 // Java AutoHarmonyInstance.java:36-45 (synchronized)
@@ -59,7 +67,7 @@ AGQuestion AutoHarmonyInstance::addLookingForParty(LookingForParty& lookingForPa
 }
 
 // Java AutoHarmonyInstance.java:47-60: the Arena of Harmony's ticket; without it the player leaves the registration (SM_AUTO_GROUP window 5)
-// and an emptied instance is destroyed. Then ((HarmonyArenaScore) score).portToPosition(player) and instance.register: J13 (CP3)
+// and an emptied instance is destroyed
 void AutoHarmonyInstance::onPressEnter(Player& player) {
 	if (isHarmonyArena(agt)) {
 		if (!removeItem(player, 186000184, 1)) {
@@ -73,11 +81,13 @@ void AutoHarmonyInstance::onPressEnter(Player& player) {
 			return;
 		}
 	}
-	AION_UNPORTED();
+	runtime::Ptr<world::WorldMapInstance> current = instance.get();
+	runtime::cast<model::instance::instancescore::HarmonyArenaScore>(current->getInstanceHandler()->getInstanceScore())->portToPosition(player);
+	current->register_(player.getObjectId());
 }
 
 // Java AutoHarmonyInstance.java:62-96: a player not in a group yet founds or joins his party's group, whose HarmonyGroupReward the arena's
-// HarmonyArenaScore keeps - J13 (CP3)
+// HarmonyArenaScore keeps
 void AutoHarmonyInstance::onEnterInstance(Player& player) {
 	AutoInstance::onEnterInstance(player);
 	if (player.isInGroup()) {
@@ -87,7 +97,33 @@ void AutoHarmonyInstance::onEnterInstance(Player& player) {
 	std::optional<std::pair<int32_t, runtime::Ref<Group>>> groupEntry = getGroupEntry(playerId);
 	if (!groupEntry)
 		return;
-	AION_UNPORTED();
+
+	runtime::Ptr<world::WorldMapInstance> current = instance.get();
+	runtime::Ptr<model::instance::instancescore::HarmonyArenaScore> score =
+		runtime::cast<model::instance::instancescore::HarmonyArenaScore>(current->getInstanceHandler()->getInstanceScore()); // Java: (HarmonyArenaScore)
+	std::vector<runtime::Ptr<Player>> players = findPlayersInInstance(*groupEntry->second);
+	std::erase_if(players, [&player](const runtime::Ptr<Player>& p) { return p.get() == &player; }); // Java: players.remove(player) (the first)
+
+	if (players.empty()) { // Create Group
+		runtime::Ptr<team::group::PlayerGroup> newGroup = team::group::PlayerGroupService::createGroup(player, player, team::TeamType::AUTO_GROUP, 0);
+		int32_t groupId = newGroup->getObjectId();
+		if (!current->isRegistered(groupId)) {
+			current->register_(groupId);
+			runtime::Ref<model::instance::playerreward::HarmonyGroupReward> reward =
+				model::instance::playerreward::HarmonyGroupReward::create(groupEntry->first, 12000, int8_t{7}, groupId);
+			reward->addPlayer(*registeredAGPlayers.get(player.getObjectId()));
+			score->addHarmonyGroup(*reward);
+		}
+	} else { // Add To Group
+		runtime::Ptr<team::group::PlayerGroup> pg = players.front()->getPlayerGroup();
+		team::group::PlayerGroupService::addPlayer(*pg, player);
+		runtime::Ptr<model::instance::playerreward::HarmonyGroupReward> reward = score->getGroupReward(pg->getLeader()->getObjectId());
+		reward->addPlayer(*registeredAGPlayers.get(player.getObjectId()));
+	}
+
+	if (!current->isRegistered(playerId)) {
+		current->register_(playerId);
+	}
 }
 
 // Java AutoHarmonyInstance.java:98-102
