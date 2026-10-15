@@ -704,23 +704,18 @@ class Q02SliceTest(unittest.TestCase):
 class Q14SliceTest(unittest.TestCase):
 	"""the instance directories K-W (SLICE_Q14, phase 6 step 2, lane C, 2026-10-05; docs/deviations/Q14.md)"""
 
-	# the 21 Q14 files questgen refuses (docs/deviations/Q14.md, "Not in the tree")
+	# the Q14 files questgen refuses (docs/deviations/Q14.md, "Not in the tree"): 21 at the landing, 4 since the owner's decisions of
+	# 2026-10-07 (the 15 mentor dailies and pangaea's two joined the slice)
 	REFUSED = {
-		"levinshor/_13744AgentinNeed.java", "levinshor/_23744EffectElyosElimination.java", "pangaea/_14220NewZoneNewRules.java",
-		"pangaea/_24220WelcometoPanesterra.java", "tiamat_stronghold/_30721OminousDebrisEnergy.java",
-		"tiamat_stronghold/_30771ImpendingDebrisEnergy.java", "marchutan_priory/_47000AltgardOrbIt.java", "marchutan_priory/_47003AGlobalProblem.java",
-		"marchutan_priory/_47006AmplifiersWithIssues.java", "orichalcum_key/_37100MutantNinjaIninas.java", "orichalcum_key/_37103CamoAndCarnage.java",
-		"orichalcum_key/_37106AsmoHunt.java", "orichalcum_key/_37107CoolBlueWater.java", "orichalcum_key/_37110MyYoungApprentice.java",
-		"orichalcum_key/_37113AsmoICU.java", "the_circle/_47100WardsAndWardOrbs.java", "the_circle/_47103AGlobeTrottingLesson.java",
-		"the_circle/_47106TurningUpTheAmplifiers.java", "the_circle/_47107WardsAndWardOrbs.java", "the_circle/_47110AGlobeTrottingLesson.java",
-		"the_circle/_47113TurningUpTheAmplifiers.java"}
+		"levinshor/_13744AgentinNeed.java", "levinshor/_23744EffectElyosElimination.java", "tiamat_stronghold/_30721OminousDebrisEnergy.java",
+		"tiamat_stronghold/_30771ImpendingDebrisEnergy.java"}
 
 	def test_the_q14_slice(self):
 		dirs = sorted({rel.split("/")[0] for rel in extract.SLICE_Q14} | {rel.split("/")[0] for rel in self.REFUSED})
 		java = sorted(f"{d}/{f.name}" for d in dirs for f in (extract.QUEST_DIR / d).glob("*.java"))
 		self.assertEqual(len(java), 95)
 		self.assertEqual(sorted(extract.SLICE_Q14), sorted(set(java) - self.REFUSED))
-		self.assertEqual(len(extract.SLICE_Q14), 74)
+		self.assertEqual(len(extract.SLICE_Q14), 91)
 		self.assertEqual(set(extract.SLICE_Q14) & set(extract.SLICE_TIER_A + extract.SLICE_ROUTE + extract.SLICE_Q03 + extract.SLICE_Q10 +
 		                                              extract.SLICE_Q08 + extract.SLICE_Q01 + extract.SLICE_Q02), set())
 		docs = {}
@@ -732,6 +727,33 @@ class Q14SliceTest(unittest.TestCase):
 		                 [3208, 3217, 3219, 3220, 3939, 3940, 4208, 4217, 4219, 4220, 30553])
 		self.assertTrue(all(isinstance(d["register"], list) for d in docs.values()))
 		self.assertEqual(extract.check(rels=extract.SLICE_Q14, extra=False), [])
+
+	def test_the_mentor_search_is_two_inputs(self):
+		# the owner's decision of 2026-10-07: Player.isInGroup and the mentor search of group.getMembers().stream().anyMatch are inputs;
+		# the message of a group without a mentor in range is a packet
+		d = extract.trace_file(tables(), extract.QUEST_DIR / "marchutan_priory/_47000AltgardOrbIt.java", "marchutan_priory/_47000AltgardOrbIt.java")
+		grouped = [c for c in d["cases"] if c["given"].get("player", {}).get("inGroup")]
+		self.assertEqual(sorted(c["given"]["player"]["mentorInRange"] for c in grouped), [False, True])
+		for c in grouped:
+			self.assertEqual(c["given"]["target"]["npcId"], 700970)
+			if c["given"]["player"]["mentorInRange"]:
+				self.assertEqual((c["effects"], c["returns"]), ([], True))
+			else:
+				self.assertEqual([e["args"] for e in c["effects"]], [[{"new": "SM_SYSTEM_MESSAGE.STR_MSG_DailyQuest_Ask_Mentor", "args": []}]])
+		alone = [c for c in d["cases"] if c["given"].get("player", {}).get("inGroup") is False]
+		self.assertEqual(len(alone), 1)
+		self.assertEqual((alone[0]["effects"], alone[0]["returns"]), ([], False))
+
+	def test_a_constant_list_is_a_tuple_and_contains_forks_per_element(self):
+		# pangaea/_14220: four `static final List<Integer>` the file only iterates and asks contains(): constants
+		d = extract.trace_file(tables(), extract.QUEST_DIR / "pangaea/_14220NewZoneNewRules.java", "pangaea/_14220NewZoneNewRules.java")
+		self.assertEqual(len(d["register"]), 23)
+		pages = {c["given"]["target"]["npcId"]: c["effects"][0]["args"][0] for c in d["cases"]
+		         if c["given"].get("questState") == {"status": "START", "vars": {"0": 1}} and c["given"]["dialogAction"]["name"] == "QUEST_SELECT"
+		         and c["given"]["target"]["kind"] == "npc" and c["effects"]}
+		self.assertEqual(pages[802544], 1352)
+		self.assertEqual(pages[804692], 2375)
+		self.assertEqual(len(pages), 20)
 
 
 @unittest.skipUnless(HAVE_JAVA_TREE, "Java tree not present")

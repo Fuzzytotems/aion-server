@@ -19,7 +19,7 @@
   {"call": "registerQuestItem", "args": [182215619, 10032]}
  ],
  "hooks": [
-  {"hook": "onDialogEvent", "line": 49, "unsupported": "call player.isInGroup()"},
+  {"hook": "onDialogEvent", "line": 49, "unsupported": "call InstanceService.getNextAvailableInstance"},
   {"hook": "onItemUseEvent", "line": 128, "cases": 9},
   {"hook": "onEnterWorldEvent", "line": 157, "cases": 7},
   {"hook": "onDieEvent", "line": 184, "cases": 5},

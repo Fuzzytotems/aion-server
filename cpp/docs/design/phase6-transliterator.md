@@ -50,6 +50,9 @@
    generated, with their golden traces (1,641 variants pass, 0 fail) and docs/deviations/Q14.md; questgen gained row B45 (982 of 1,035
    transliterated). 21 files stayed out for owner decisions and API gaps. All 15 gates pass, "Loaded 4641 quest handlers": the first gate
    run of the 2759 hand port and of the 11001/11008 correction.
+13. **The owner's decisions on Q14 (lane C, 2026-10-07, §12):** questgen rules stream-any-match (the 15 mentor dailies, row B46) and
+   constant-list (pangaea 14220/24220, whose lists turned out to be constants, not per-player state): 91 of Q14's 95 files generated,
+   **1,002 of 1,035** transliterated, the other 982 byte-identical; all 19 gates pass, "Loaded 4658 quest handlers".
 
 ---
 
@@ -654,3 +657,27 @@ docs/deviations/Q14.md.
   handler count includes them: 4,641 = 4,566 + 1 (2759) + 74.
 - **Not held back:** none. **Java bugs found:** none new (`_47106TurningUpTheAmplifiers`' kill-id bug, a mentor daily, is already in
   questgen's KNOWN_JAVA_BUGS).
+
+## 12. Phase 6 step 2: the owner's decisions on Q14 (lane C, 2026-10-07)
+
+Branch `lane-c/p6-q14-decisions`, stacked on `lane-c/p6-q14-final` (§11). The answers are in owner-decisions.md (2026-10-07); the record
+is docs/deviations/Q14.md, "The owner's decisions of 2026-10-07".
+
+- **Rule stream-any-match** (`emit.G1_RULES`): `list.stream().anyMatch(e -> predicate)` (one parameter, an expression body) over a List the
+  C++ side returns as a `std::vector` is `std::ranges::any_of(list, [&](const runtime::Ptr<T>& e) { return predicate; })`; the predicate
+  runs inside the call, so the lambda captures by reference. `emit.NARROWED_ELEMENTS` gives the Java element type where the C++
+  declaration erases it (`PlayerGroup.getMembers`: `AionObject` in C++, `Player` in Java) and the lambda casts its parameter. Row B46:
+  `Player.getPlayerGroup`, `GeneralTeam.getMembers` (questgen scans the three team headers). An int configuration flag passed for a float
+  parameter is spelled `static_cast<float>(...)` (C4244 otherwise). Unblocks the 18 mentor dailies (15 of Q14, 3 of Q13).
+- **Rule constant-list** (`emit.G1_RULES`): a `static final List<Integer>` built from `new ArrayList<>(Arrays.asList(<int literals>))`
+  that the file only iterates or asks `contains` is `static constexpr std::array<int32_t, N>` and `std::ranges::contains`. Unblocks
+  pangaea 14220/24220. The owner had chosen per-player state "as 2759"; the lists are never written, so there is no state: they are
+  constants, Java's behaviour, and the owner is asked to confirm.
+- **Corpus:** 1,002 of 1,035 (982 before); the other 982 emitted files byte-identical; `--p6t-rules` 953, `--prototype-rules` 931.
+  Refused closures outside a schedule: 4 files (1006, 2008, 14026, 1114).
+- **Oracle:** `player.inGroup` and `player.mentorInRange` inputs, `getPlayerGroup` null outside a group, the daily-quest messages
+  imported statically as packets, constant lists as tuples (`contains` forks per element). **Harness:** a case in a group forms a group
+  of three (a mate, a mentor in or out of `GROUP_MAX_DISTANCE`). **Parity:** the two renames. The 17: 203 variants pass, 0 fail;
+  `ctest -R "Golden|ReshantaHandPorts"` 492 of 492.
+- **Gates:** 19 of 19 (5,428 s), "Loaded 4658 quest handlers" (4641 + 17). Still out: levinshor 13744/23744 (SiegeService),
+  tiamat_stronghold 30721/30771 (`Math`, `Vector3f`, `GeoService`, `SpawnEngine`: not one contained row).
