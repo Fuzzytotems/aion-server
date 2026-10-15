@@ -548,6 +548,22 @@ if(TARGET aion_gs_scenario_tests)
 		set_property(TEST gs.scenario.m5h2 APPEND PROPERTY ENVIRONMENT_MODIFICATION "AION_SCENARIO_REQUIRE=set:1")
 	endif()
 
+	# ---- the M5i siege gate (m5i-plan.md 10, I-6: the siege half) ------------------------------------------------------------------------------
+	#
+	# gs.scenario.m5i: sieges on (M5iGateProfile.h); W (Asmodian) and G (Elyos GM) in Reshanta; the login state, captures, a siege start and stop,
+	# an artifact, persistence across a game server restart (M5iScenarioTest.cpp). Its own output directory <bin>/scenario/m5i and schema pair
+	# (aion_gs_test_m5i_<hash>). Gate slot 2. TIMEOUT 1800.
+	add_test(NAME gs.scenario.m5i COMMAND "$<TARGET_FILE:aion_gs_scenario_tests>" --gtest_filter=M5iScenario.Run
+		WORKING_DIRECTORY "${scenario_work_dir}")
+	set_tests_properties(gs.scenario.m5i PROPERTIES LABELS "scenario;realdata" TIMEOUT 1800
+		RESOURCE_LOCK "${AION_GS_GATE_SLOT_2}" SKIP_REGULAR_EXPRESSION "gs\\.scenario\\.m5i: skipped")
+	if(Python3_Interpreter_FOUND)
+		set_property(TEST gs.scenario.m5i APPEND PROPERTY ENVIRONMENT_MODIFICATION "AION_TEST_PYTHON=set:${Python3_EXECUTABLE}")
+	endif()
+	if(AION_SCENARIO_REQUIRE OR NOT AION_GS_ALLOW_MILESTONE_SKIP)
+		set_property(TEST gs.scenario.m5i APPEND PROPERTY ENVIRONMENT_MODIFICATION "AION_SCENARIO_REQUIRE=set:1")
+	endif()
+
 	# gs.scenario.m5g_alliance (m5g-plan.md §16.3 item 7, the alliance part of §10.5): the same four accounts form an alliance from a group,
 	# move a member between alliance groups, appoint a vice captain who invites, run the ready check, share a kill and its loot, time a member
 	# out, leave and disband, and keep a live alliance at the stop. Its own output directory <bin>/scenario/m5g_alliance and schema pair

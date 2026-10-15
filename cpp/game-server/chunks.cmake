@@ -730,6 +730,11 @@ aion_gs_chunk(P5-11 LEASE PHASE 5 ROOT handlers
 # I-2 of M5i (m5i-plan.md 15.3): P5-12a leases the seven siege AIs of D5's stage 1 from A1 (handlers/ai/siege). P5-05's test executable
 # compiles them by #include (tests/handlers_ai_core/SiegeAiHandlersTest.cpp), as it does the portal AIs. I-3 adds P5-05's root ArtifactAI.*
 # ("artifact"). Released when the lane merges.
+# I-6 of M5i (granted 2026-10-14): P5-12a leases P4-16's SM_INFLUENCE_RATIO.cpp and SM_FORTRESS_STATUS.cpp, the two packets of the influence model
+# that sieges send at every login and every hour. Released when the lane merges.
+aion_gs_chunk(P5-12a LEASE PHASE 5
+	GLOBS "aion/gameserver/network/aion/serverpackets/{SM_INFLUENCE_RATIO,SM_FORTRESS_STATUS}.cpp")
+
 # I-5 of M5i (granted 2026-10-13): P5-12b2 leases P5-05's root handlers/ai/RiftProtectorAI.* and A1's handlers/ai/events/WorldRaidAI.* (P5-05's
 # test executable compiles the latter by #include, tests/handlers_ai_core/RiftAndWorldRaidAiTest.cpp). Released when the lane merges.
 aion_gs_chunk(P5-12b2 LEASE PHASE 5 ROOT handlers
