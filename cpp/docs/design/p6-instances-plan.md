@@ -111,3 +111,46 @@ Smallest self-contained first; each is one commit with its tests and mutation pr
 > Modors. Census I5: 443 -> 257 open bodies (left: Nightmare Circus, Raksang Ruins, the Rentus Bases and their AIs). Gate note: gs.scenario.m5e_geo
 > failed in combat (C17) on the leftovers-1 sweep of 2026-10-14 and on lane C's branch the same day, both under the four-way lock load: a
 > load-sensitive combat timing to harden later (not re-run today).
+> **Progress:** P6I-4f done (P6I-4 complete): the AIs of abyssal_splinter (9) and unstableSplinterpath (12),
+> `tests/handlers_inst_1/SplinterAiTest.cpp` (11 cases, on the Abyssal Splinter map: the AIs spawn at its coordinates; a twin's cast needs an NpcAI
+> on the other twin); mutation proof 21 of 21. Java's AIActions.targetCreature(ai, null) (Yamennes or Pazuzu gone) clears the owner's target. Left
+> to a gate: the walks to a target, Kaluva's summons percentages, the pieces' effect checks, the casts' effects. Census I1: 434 -> 9 open bodies.
+> **Progress:** P6I-7a done (chunk I5): NightmareCircus and the nightmareCircus AIs (11). Tests: I5InstanceTest (4 circus cases: the waves and
+> bosses on their timers after movie 983, once; the destroy; Heiramune's death) and I5AiTest (6 cases); mutation proof 19 of 19 after two
+> strengthened cases. The walkers' DummyAI in the unit tests cannot walk (Java's ClassCastException, logged by the spawn task after the spawn). Left
+> to a gate: the walks, the casts and effects, the crates' loot. Census I5: 443 -> 184 open bodies (left: Raksang Ruins, the Rentus Bases and their
+> AIs).
+> **Progress:** P6I-7b done (chunk I5): RaksangRuinsInstance and the raksang AIs (9). `tests/handlers_inst_5/RaksangTest.cpp` (14 cases, on the
+> Raksang Ruins map: the AIs spawn at its coordinates; an attacked boss must stand near the player); mutation proof 22 of 24 - the two survivors are
+> equivalent (a ninth round that spawns nothing; the destroy's cancel of a task that cancels itself once the instance is destroyed). Java's
+> IllusionMasterSharikAI.percent stays 100 (no 19903), ported as is. Left to a gate: the vault's teleport, the vault trial's zone entry, the walks
+> and casts. Census I5: 443 -> 110 open bodies (left: the Rentus Bases and their AIs).
+> **Progress:** P6I-7c done (I5 complete): RentusBaseInstance, OccupiedRentusBaseInstance and the rentusBase AIs (14).
+> `tests/handlers_inst_5/RentusTest.cpp` (15 cases); mutation proof 24 of 24 after one strengthened case (Kiriana first). ImprisonedReianAI keeps
+> Java's null route id as the empty string (Field<std::string>: a route id is never empty). **Java bug, ported (proposed correction J-P6I7-1):**
+> BrigadeGeneralVashartiAI.onEffectEnd switches on Vasharti's own npc id (getNpcId()) instead of the visited npc's (n.getNpcId()), so the Sea of
+> Fire effects 283010-283012 are never deleted there; proposed: switch on n.getNpcId(). Left to a gate: the teleport devices, the walks, Vasharti's
+> forced walk and Sea of Fire. Census I5: 443 -> 0 open bodies.
+> **Progress:** P6I-8a done (chunk I3): the PvP instances - BasicPvpInstance (not registered) with IronWallWarfrontInstance, IdgelDomeInstance,
+> KamarBattlefieldInstance and EngulfedOphidanBridgeInstance - and the AIs of idgelDome, kamarBf and engulfedOphidianBridgeInstance (12). Java's
+> `String npcL10n` (null for none) is a std::optional<std::string_view>; the score packets go through one helper (sendScore). KamarTeleportAI
+> extends A1's PortalAI, so tests/handlers_inst_3/PvpAiTest.cpp compiles PortalAI.cpp by #include (TravelAiHandlersTest's link workaround). Tests:
+> PvpTest (15 cases: the phases, the npc, use and death points, the leads that end a run, Idgel's sides, turrets, Kunax and chests, Kamar's timeline
+> and generals, Engulfed's generators, bases and supplies) and PvpAiTest (11). The player stands in another instance and joins the score through
+> onEnterInstance: the start teleports and the end's item rewards (no item rows) are left to a gate. Mutation proof 36 of 36. Java bugs: Iron Wall's
+> portToPosition overrides nothing, so its start and revive throw with players inside (corrected in its own commit, owner's decision 2026-10-15);
+> J-P6I8-1 (Kamar's 232853 stops the run before it scores, the 3500 points are lost) is proposed in docs/deviations/P6-instances.md. Census I3: 369
+> -> 245 open bodies (left: the arenas, Eternal Bastion, DefenseWallAI and the pvpArenas AIs).
+> **Progress:** P6I-8a correction (owner's decision 2026-10-15, both branches): IronWallWarfrontInstance's start-position teleport is
+> portToStartPosition (Java's portToPosition overrides nothing, so the start and the revive threw with players inside). Test
+> PvpTest.IronWallsStartSendsEachRaceToItsSide (two players inside, client-less); mutation proof 2 of 2. Recorded in
+> docs/deviations/P6-instances.md.
+> **Progress:** P6I-8b done (chunk I3): the arenas without HarmonyArenaScore - PvPArenaInstance (abstract, not registered) with
+> DisciplineTrainingGroundsInstance, ArenaOfDisciplineInstance, ChaosTrainingGroundsInstance, ArenaOfChaosInstance and ArenaOfGloryInstance - the
+> pvpArenas AIs (AntiAirCraftGunAI, HarmonyShifterAI, PlazaFlameThrowerAI, RelicsAI) and ophidianBridge's DefenseWallAI. Java's record BaseRewards
+> is a struct; the default broadcasts' `sendPacket(null, null)` pass std::nullopt; Math.round(float) is floor(x + 0.5f). Tests: ArenaTest (6 cases:
+> the handlers, the interrupted start, the rounds, Chaos's npc and kill points, Discipline's kill points, Glory's last-rank rewards; two client-less
+> players inside, InstanceBuffData's two buff rows published) and ArenaAiTest (5). Mutation proof 23 of 24; the survivor (RelicsAI's respawn of the
+> random relics) is equivalent here, as a test's single-time spawn has no respawn. Left to a gate: the item rewards (no item rows), the bonus and
+> morph skills, the fly rings' passes, the exit teleport. Census I3: 245 -> 135 open bodies (left: the two Harmony arenas, Eternal Bastion and its
+> AIs).
