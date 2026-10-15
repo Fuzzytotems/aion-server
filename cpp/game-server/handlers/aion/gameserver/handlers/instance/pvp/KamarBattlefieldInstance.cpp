@@ -228,12 +228,16 @@ void KamarBattlefieldInstance::onDie(Npc& npc) {
 			break;
 		case 232853:
 			points = 3500;
-			onStop(true);
 			break;
 	}
 	if (points > 0) {
 		updatePoints(player, player->getRace(), npc.getObjectTemplate()->getL10n(), points);
 	}
+	// Correction (owner's decision 2026-10-15, both branches; docs/deviations/P6-instances.md): Java calls onStop(true) in the switch, before
+	// updatePoints, which then finds the run ended and drops 232853's 3500 points. The points come first; the stop is skipped when they
+	// already ended the run (a lead of 20,000), so the rewards are not given twice.
+	if (npc.getNpcId() == 232853 && instanceScore.get()->getInstanceProgressionType() != InstanceProgressionType::END_PROGRESS)
+		onStop(true);
 }
 
 // Java KamarBattlefieldInstance.java:231-265

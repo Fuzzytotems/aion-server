@@ -18,9 +18,16 @@ Test: `PvpTest.IronWallsStartSendsEachRaceToItsSide` (tests/handlers_inst_3/PvpT
 runs without throwing, and each player stands at one of their race's start positions, the two on opposite sides. Mutation proof 2 of 2
 (the side condition swapped, a start position moved).
 
+### KamarBattlefieldInstance adds 232853's points before ending the run (owner's decision 2026-10-15, both branches; was J-P6I8-1)
+
+Java (KamarBattlefieldInstance.java:165-212) calls `onStop(true)` inside the switch for 232853, before `updatePoints`, which then finds the
+run ended (not START_PROGRESS) and drops the 3500 points.
+
+C++: the switch only sets the points; `updatePoints` runs, then `onStop(true)` for 232853, unless the points already ended the run (a lead of
+20,000 calls `onStop(false)` in updatePoints; a second stop would give the rewards twice). Test: `PvpTest.KamarsEnds` expects 4550 Elyos points
+after the death. Mutation proof 2 of 2 (the stop before the points; the stop removed).
+
 ## Proposed corrections (Java bugs, kept as ported)
 
 - **J-P6I7-1** (P6I-7c): BrigadeGeneralVashartiAI.onEffectEnd switches on Vasharti's own npc id (`getNpcId()`) instead of the visited npc's
   (`n.getNpcId()`), so the Sea of Fire effects 283010-283012 are never deleted there. Proposed: switch on `n.getNpcId()`.
-- **J-P6I8-1** (P6I-8a): KamarBattlefieldInstance.onDie for 232853 calls `onStop(true)` before `updatePoints`, which then finds the run ended
-  (not START_PROGRESS) and drops the 3500 points. Proposed: score before stopping.
