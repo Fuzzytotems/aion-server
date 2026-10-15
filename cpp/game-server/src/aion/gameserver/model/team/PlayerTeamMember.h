@@ -45,8 +45,8 @@ public:
 	/** Java return type Player (the TeamMember<Player> binding) */
 	runtime::Ptr<gameobjects::AionObject> getObject() override;
 
-	/** Narrowing accessor: Java getObject() of TeamMember<Player> */
-	gameobjects::player::Player& getPlayer() const { return *player; }
+	/** Narrowing accessor: Java getObject() of TeamMember<Player> (defined in the .cpp: dereferencing the Ref needs the complete Player) */
+	gameobjects::player::Player& getPlayer() const;
 
 	int64_t getLastOnlineTime() const { return lastOnlineTime.get(); }
 
