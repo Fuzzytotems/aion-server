@@ -1,3 +1,4 @@
+#include "aion/gameserver/model/team/legion/LegionRankInfo.h"
 #include "aion/gameserver/network/aion/serverpackets/SM_LEGION_UPDATE_MEMBER.h"
 
 #include "aion/gameserver/configs/network/NetworkConfig.h"
@@ -25,7 +26,7 @@ SM_LEGION_UPDATE_MEMBER::~SM_LEGION_UPDATE_MEMBER() = default;
 
 void SM_LEGION_UPDATE_MEMBER::writeImpl(AionConnection* con) {
 	writeD(legionMember->getObjectId());
-	writeC(detail::legionRankId(legionMember->getRank()));
+	writeC(model::team::legion::getRankId(legionMember->getRank()));
 	writeC(model::getClassId(legionMember->getPlayerClass()));
 	writeC(legionMember->getLevel());
 	writeD(legionMember->getWorldId());

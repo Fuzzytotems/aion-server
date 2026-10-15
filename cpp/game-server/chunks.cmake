@@ -440,6 +440,16 @@ aion_gs_chunk(P5-11 LEASE PHASE 5
 aion_gs_chunk(P5-11 LEASE PHASE 5
 	GLOBS "aion/gameserver/model/gameobjects/UseableItemObject.cpp")
 
+# L-05 of M5h (m5h-plan.md I-02, granted 2026-10-08): P5-11 leases dao/LegionDAO.cpp from P4-14 (its getType stand-in), and from P4-17
+# serverpackets/detail/PacketSupport.h (the three legion stand-ins) with the eleven P4-17 packets that called them, and from P4-16
+# SM_GM_SHOW_LEGION_MEMBERLIST.cpp - all now call the P5-10f enum companions; tests/sm_lz/OpcodesAndSupportTest.cpp (P4-17's test directory)
+# pins the companions' values in place of the stand-ins'. Released when the lane merges.
+aion_gs_chunk(P5-11 LEASE PHASE 5
+	GLOBS "aion/gameserver/dao/LegionDAO.cpp" "aion/gameserver/network/aion/serverpackets/detail/PacketSupport.h"
+		"aion/gameserver/network/aion/serverpackets/{AbstractHouseInfoPacket,SM_LEGION_ADD_MEMBER,SM_LEGION_DOMINION_LOC_INFO,SM_LEGION_HISTORY}.cpp"
+		"aion/gameserver/network/aion/serverpackets/{SM_LEGION_MEMBERLIST,SM_LEGION_SEND_EMBLEM,SM_LEGION_UPDATE_EMBLEM,SM_LEGION_UPDATE_MEMBER}.cpp"
+		"aion/gameserver/network/aion/serverpackets/{SM_LEGION_UPDATE_TITLE,SM_PLAYER_INFO,SM_SIEGE_LOCATION_INFO,SM_GM_SHOW_LEGION_MEMBERLIST}.cpp")
+
 # HS-2 of M5h (granted 2026-10-08): P5-11 leases services/instance/InstanceService.cpp from P5-13 for getOrCreateHouseInstance (H-06).
 # Released when the lane merges. (The AIs of HS-2 are leased at A1 below.)
 aion_gs_chunk(P5-11 LEASE PHASE 5

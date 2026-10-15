@@ -1,3 +1,4 @@
+#include "aion/gameserver/model/team/legion/LegionHistoryActionInfo.h"
 #include "aion/gameserver/network/aion/serverpackets/SM_LEGION_HISTORY.h"
 
 #include <algorithm>
@@ -30,7 +31,7 @@ void SM_LEGION_HISTORY::writeImpl(AionConnection* con) {
 	writeD(static_cast<int32_t>(pageEntries.size()));
 	for (const runtime::Ref<model::team::legion::LegionHistoryEntry>& entry : pageEntries) {
 		writeD(entry->epochSeconds());
-		writeC(detail::legionHistoryActionId(entry->action()));
+		writeC(model::team::legion::getId(entry->action()));
 		writeC(0); // unk
 		writeS(entry->name(), 32);
 		writeS(entry->description(), 32);

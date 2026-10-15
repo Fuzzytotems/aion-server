@@ -352,6 +352,20 @@ TEST_F(LegionServiceTest, TryRenameRefusesInJavasOrderThenRenamesStoresAndTellsT
 	EXPECT_EQ(a.count(serverpackets::SM_RENAME(legion, "Founders")), 1) << "broadcastToWorld";
 }
 
+// L-05: LegionDAO.loadHistory files each row under its action's type through LegionHistoryActionInfo.h's getType (LegionHistoryAction.java)
+TEST_F(LegionServiceTest, ALoadedLegionsHistoryIsFiledByTheActionsType) {
+	LEGION_REQUIRE_DATABASE();
+	lh::execute("INSERT INTO legions (id, name) VALUES (778, 'Keepers')");
+	lh::execute("INSERT INTO legion_history (legion_id, history_type, name, description) VALUES (778, 'JOIN', 'A', ''), (778, 'DEFENSE', 'B', ''), "
+	            "(778, 'OCCUPATION', 'C', ''), (778, 'KINAH_DEPOSIT', 'D', '1000'), (778, 'ITEM_WITHDRAW', 'E', ''), (778, 'LEGION_RENAME', 'F', 'G')");
+	runtime::Ptr<Legion> legion = LegionService::getInstance().getLegion(778);
+	ASSERT_TRUE(legion);
+	using model::team::legion::LegionHistoryAction_Type;
+	EXPECT_EQ(legion->getHistory(LegionHistoryAction_Type::LEGION).size(), 2u) << "JOIN, LEGION_RENAME";
+	EXPECT_EQ(legion->getHistory(LegionHistoryAction_Type::REWARD).size(), 2u) << "DEFENSE, OCCUPATION";
+	EXPECT_EQ(legion->getHistory(LegionHistoryAction_Type::WAREHOUSE).size(), 2u) << "KINAH_DEPOSIT, ITEM_WITHDRAW";
+}
+
 // ---- S-08: the Legion Dominion weekly calculation (LegionDominionService.java:84-164, LegionDominionLocation.java:83-96, 129-131) ----
 
 /** One territory with the shipped rewards' shape (legion_dominion_template.xml, location 1): three of rank 1, one each of ranks 2 and 3 */

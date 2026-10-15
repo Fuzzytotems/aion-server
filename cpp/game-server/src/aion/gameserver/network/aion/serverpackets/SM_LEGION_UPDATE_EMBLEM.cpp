@@ -1,3 +1,4 @@
+#include "aion/gameserver/model/team/legion/LegionEmblemTypeInfo.h"
 #include "aion/gameserver/network/aion/serverpackets/SM_LEGION_UPDATE_EMBLEM.h"
 
 #include "aion/gameserver/model/team/legion/LegionEmblem.h"
@@ -13,7 +14,7 @@ SM_LEGION_UPDATE_EMBLEM::SM_LEGION_UPDATE_EMBLEM(int32_t legionIdValue, model::t
 	color_r = emblem.getColor_r();
 	color_g = emblem.getColor_g();
 	color_b = emblem.getColor_b();
-	emblemType = detail::legionEmblemTypeValue(emblem.getEmblemType());
+	emblemType = model::team::legion::getValue(emblem.getEmblemType());
 }
 
 void SM_LEGION_UPDATE_EMBLEM::writeImpl(AionConnection* con) {

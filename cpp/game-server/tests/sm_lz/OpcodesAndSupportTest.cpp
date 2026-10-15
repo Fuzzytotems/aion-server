@@ -13,8 +13,16 @@
 #include <utility>
 #include <vector>
 
+#include "aion/gameserver/model/team/legion/LegionEmblem.h"
+#include "aion/gameserver/model/team/legion/LegionEmblemTypeInfo.h"
+#include "aion/gameserver/model/team/legion/LegionHistoryActionInfo.h"
+#include "aion/gameserver/model/team/legion/LegionHistoryEntry.h"
+#include "aion/gameserver/model/team/legion/LegionRankInfo.h"
 #include "aion/gameserver/network/aion/ServerPacketsOpcodes.gen.h"
+#include "aion/gameserver/network/aion/serverpackets/SM_LEGION_HISTORY.h"
+#include "aion/gameserver/network/aion/serverpackets/SM_LEGION_UPDATE_EMBLEM.h"
 #include "aion/gameserver/network/aion/serverpackets/detail/PacketSupport.h"
+#include "aion/gameserver/runtime/lifetime/TaskScope.h"
 
 namespace aion::gameserver::network::aion::serverpackets::testing {
 namespace {
@@ -152,13 +160,15 @@ TEST(PacketOpcodesTest, EveryPacketOfTheChunkHasTheJavaOpcode) {
 
 TEST(PacketSupportTest, EnumStandInsEqualTheJavaConstructorArguments) {
 	using namespace detail;
+	// m5h-plan.md L-05: the packets read the three legion values from the enum companions (LegionEmblemTypeInfo.h, LegionRankInfo.h,
+	// LegionHistoryActionInfo.h, P5-10f) since the stand-ins were deleted; these rows pin the companions' values the packets write.
 	// LegionEmblemType.java: DEFAULT(0x00), CUSTOM(0x80) as (byte)
-	EXPECT_EQ(legionEmblemTypeValue(model::team::legion::LegionEmblemType::DEFAULT), 0);
-	EXPECT_EQ(legionEmblemTypeValue(model::team::legion::LegionEmblemType::CUSTOM), -128);
+	EXPECT_EQ(model::team::legion::getValue(model::team::legion::LegionEmblemType::DEFAULT), 0);
+	EXPECT_EQ(model::team::legion::getValue(model::team::legion::LegionEmblemType::CUSTOM), -128);
 	// LegionRank.java: BRIGADE_GENERAL(0), DEPUTY(1), CENTURION(2), LEGIONARY(3), VOLUNTEER(4)
-	EXPECT_EQ(legionRankId(model::team::legion::LegionRank::BRIGADE_GENERAL), 0);
-	EXPECT_EQ(legionRankId(model::team::legion::LegionRank::LEGIONARY), 3);
-	EXPECT_EQ(legionRankId(model::team::legion::LegionRank::VOLUNTEER), 4);
+	EXPECT_EQ(model::team::legion::getRankId(model::team::legion::LegionRank::BRIGADE_GENERAL), 0);
+	EXPECT_EQ(model::team::legion::getRankId(model::team::legion::LegionRank::LEGIONARY), 3);
+	EXPECT_EQ(model::team::legion::getRankId(model::team::legion::LegionRank::VOLUNTEER), 4);
 	// LegionHistoryAction.java: CREATE(0) .. EMBLEM_MODIFIED(6), DEFENSE(11), OCCUPATION(12), LEGION_RENAME(13) .. KINAH_WITHDRAW(18)
 	using model::team::legion::LegionHistoryAction;
 	const std::vector<std::pair<LegionHistoryAction, int32_t>> history{{LegionHistoryAction::CREATE, 0}, {LegionHistoryAction::JOIN, 1},
@@ -169,7 +179,7 @@ TEST(PacketSupportTest, EnumStandInsEqualTheJavaConstructorArguments) {
 		{LegionHistoryAction::KINAH_WITHDRAW, 18}};
 	ASSERT_EQ(history.size(), xml::EnumTraits<LegionHistoryAction>::names.size());
 	for (const auto& [action, id] : history)
-		EXPECT_EQ(legionHistoryActionId(action), id) << xml::EnumTraits<LegionHistoryAction>::names[static_cast<size_t>(action)];
+		EXPECT_EQ(model::team::legion::getId(action), id) << xml::EnumTraits<LegionHistoryAction>::names[static_cast<size_t>(action)];
 	// HouseDoorState.java: OPEN(1), CLOSED_EXCEPT_FRIENDS(2), CLOSED(3)
 	EXPECT_EQ(houseDoorStateId(model::house::HouseDoorState::OPEN), 1);
 	EXPECT_EQ(houseDoorStateId(model::house::HouseDoorState::CLOSED_EXCEPT_FRIENDS), 2);
@@ -212,6 +222,29 @@ TEST(PacketSupportTest, EnumStandInsEqualTheJavaConstructorArguments) {
 
 // The stand-ins shared with the P4-16 packets (SM_ATTACK, SM_CASTSPELL_RESULT, SM_GROUP_INFO, SM_ALLIANCE_INFO, SM_DELETE_ITEM,
 // SM_DELETE_WAREHOUSE_ITEM, SM_ABNORMAL_EFFECT, SM_ABNORMAL_STATE, SM_GROUP_MEMBER_INFO, SM_ALLIANCE_MEMBER_INFO)
+TEST(PacketSupportTest, TheHistoryPacketWritesTheActionIdNotItsOrdinal) {
+	// SM_LEGION_HISTORY.writeImpl: writeC(entry.getLegionHistoryAction().getId()) - DEFENSE is ordinal 7 but id 11 (LegionHistoryAction.java), the
+	// L-05 call site of LegionHistoryActionInfo.h
+	using model::team::legion::LegionHistoryAction;
+	runtime::Ref<model::team::legion::LegionHistoryEntry> entry =
+		model::team::legion::LegionHistoryEntry::create(1, 1700000000, LegionHistoryAction::DEFENSE, "Fort", "");
+	const std::vector<runtime::Ptr<model::team::legion::LegionHistoryEntry>> history{runtime::Ptr<model::team::legion::LegionHistoryEntry>(entry)};
+	SM_LEGION_HISTORY packet(history, 0, model::team::legion::LegionHistoryAction_Type::REWARD);
+	EXPECT_EQ(serialized(packet),
+		Bytes().header(12).D(1).D(0).D(1).D(1700000000).C(11).C(0).S("Fort", 32).S("", 32).H(0).H(1).data)
+	  << "total 1, page 0, one entry; the action id 11; type REWARD (ordinal 1)";
+}
+
+TEST(PacketSupportTest, ACustomEmblemIsWrittenAs0x80) {
+	// SM_LEGION_UPDATE_EMBLEM.writeImpl: writeC(emblemType.getValue()) - CUSTOM(0x80) (LegionEmblemType.java), an L-05 call site of
+	// LegionEmblemTypeInfo.h (PlayerStatePacketsTest pins DEFAULT's 0)
+	runtime::TaskScope scope(AION_TASK_INFO(runtime::TaskKind::TEST));
+	runtime::Ref<model::team::legion::LegionEmblem> emblem = model::team::legion::LegionEmblem::create();
+	emblem->setEmblemType(model::team::legion::LegionEmblemType::CUSTOM);
+	SM_LEGION_UPDATE_EMBLEM packet(5, *emblem);
+	EXPECT_EQ(serialized(packet), Bytes().header(215).D(5).C(0).C(0x80).C(0).C(0).C(0).C(0).data);
+}
+
 TEST(PacketSupportTest, SharedEnumStandInsEqualTheJavaConstructorArguments) {
 	using namespace detail;
 	// ItemPacketService.ItemDeleteType.java: DEFAULT(0), SPLIT(0x04), MOVE(0x14), DISCARD(0x15), USE(0x17), SELL(0x1F), QUEST_COMPLETE(0x31),
