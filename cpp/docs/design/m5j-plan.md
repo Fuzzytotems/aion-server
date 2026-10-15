@@ -1678,3 +1678,39 @@ without a C++ file; `tools/porting/census.py` for the totals):
 > **Progress:** corrections (owner, 2026-10-13, both branches): J-S4CP6-1/2, J-S4CP4-1/2/3 (C1.md, C2.md; `lane-a/m5j-s4-corrections`).
 > **Progress:** CP5 done (`lane-a/m5j-s4-cp5`, D14 = (a), faithful): SpawnsData.saveSpawn's write-back, WalkerData.addTemplate/saveData and
 > `//fixpath` (P4-09.md, C2.md); the gates check that no `New` folder appears in the Java tree. The reload setters move to item 3 of 2026-10-13.
+> **Progress:** item 3 of 2026-10-13 done (`lane-a/m5j-s4-reload-xml`): HolderRef/MutableHolderRef `republish` (m5j-r1, LEASE), //reload's
+> seven static-data arms (quests stays out, A-D1), and the handler-local XML commands `//send`, `///teleport_to_named`, `///addskill`,
+> `///combineskill`, `///deleteskill`, `///wish` (C2.md; Z18; mutation proofs 6 of 6 and 11 of 11; the smoke list has 127 commands).
+
+### 18.6 D12 = port (owner, 2026-10-13): J12 measured and split (lane A, over `lane-a/m5j-s4-reload-xml`)
+
+Measured on the Java tree and the C++ tree at 3c7346242 (file lists, `wc -l`, `AION_UNPORTED` sites):
+
+| Part | Java | C++ now | Open |
+|---|---|---|---|
+| the neural-network player model (`custom/instance/neuralnetwork`: `Sigmoid`, `DataSet`, `Link`, `PlayerModel`, `PlayerModelLink`, `PlayerModelEntry`, `PlayerModelController`) | 622 lines | `fwd.h` only | 7 files |
+| `CustomInstancePlayerModelEntryDAO` (P4-14) | 97 | 2 sites | 2 bodies (DB) |
+| `CustomInstanceService` 183, `CustomInstanceRankEnum` 52, `RoahCustomInstanceHandler` 431 | 666 | the service's 13 sites; no file for the other two | 13 + 2 files |
+| the custom-instance AIs (`ai/instance/custom/eternalChallenge` 6, `ai/portals/CustomInstanceTeleporter`) | 663 | none | 7 files |
+| `PvpMapHandler` (`PvpMapService` is ported) | 858 | 39 sites | 39 bodies |
+| `WebRewardService` (P5-09) | 220 | 5 sites | 5 bodies |
+| headhunting: `HeadhuntingDAO` and `PvpService`'s arm are ported; `//headhunting` (Headhunting.java) | 280 | no file | 1 file |
+| the upgrade arcade: `UpgradeArcadeService`, `CM_UPGRADE_ARCADE`, `UpgradeArcadeData` | | ported in stage 2 (0 sites); //reload arcade in item 3 | none (a check) |
+| `//cinstance` (CustomInstance.java), `.buy` (Buy.java) | 50, 142 | no file | 2 files |
+
+About 3,500 Java lines, ~130 bodies. **Checkpoints** (unit tests in the owning chunk's directory, a mutation proof each; the gate where named):
+1. **D12-CP1 the player model**: the seven neural-network classes and `CustomInstancePlayerModelEntryDAO`'s two bodies (`tests/dao`, DB under the
+   gate lock). The network's arithmetic is pinned with values computed from the Java formulas (double, `Math.exp`), no Java run.
+2. **D12-CP2 the custom instance**: `CustomInstanceService`, `CustomInstanceRankEnum`, `RoahCustomInstanceHandler`, `//cinstance`, `.buy`.
+3. **D12-CP3 the custom-instance AIs**: the six eternalChallenge AIs and `CustomInstanceTeleporter`.
+4. **D12-CP4 the PvP map**: `PvpMapHandler`'s 39 bodies; a gate run with `gameserver.pvpmap.enable=true` reaches "online".
+5. **D12-CP5 web rewards and headhunting**: `WebRewardService`'s five bodies and `//headhunting`; the arcade check.
+
+**.buy's fieldmap questions, answered (lane A, Java-faithful, the simplest shape):**
+- `rewards` (a static `LinkedHashMap<Integer, Map<String, Integer>>` that the constructor fills): a static, immortal `LinkedHashMap` shim
+  of the runtime collections, keyed by item id in insertion order, filled by the constructor through `addReward` as Java does. The inner
+  `{"cost", "amount"}` maps are never changed after `addReward`, so each is a value in the outer map (a `LinkedHashMap` of two entries is
+  not kept as an object of its own); `get("cost")` and `get("amount")` read it.
+- The anonymous `RequestResponseHandler` captures the player, the item id, the cost and the enclosing command (for `sendInfo` and
+  `rewards`). Commands are registered once and live as long as the server (Immortal), so the handler keeps a plain pointer to the command
+  and a `Ref<Player>`; no `Ref<Buy>`.

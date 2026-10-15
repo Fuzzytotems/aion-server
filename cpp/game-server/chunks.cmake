@@ -103,6 +103,15 @@ aion_gs_chunk(T2 TARGET aion_gs_xml PHASE 4
 	DEPENDS aion_gs_runtime pugixml::pugixml
 	TESTS xml)
 
+# m5j item 3 (lane A, owner's decision 2026-10-13, header request m5j-r1): C2 leases HolderRef.h from T2 for the additive republish of
+# //reload's static-data arms. Released when the lane merges.
+aion_gs_chunk(C2 LEASE PHASE 6
+	GLOBS "aion/gameserver/dataholders/loadingutils/HolderRef.h")
+# The same item: C2 leases the two item-id hooks whose published-holder fallback (Java's `staticData != null ? ... : DataManager.ITEM_DATA`) a
+# one-holder reload needs (//reload decomposables, events). Released when the lane merges.
+aion_gs_chunk(C2 LEASE PHASE 6
+	GLOBS "aion/gameserver/model/templates/item/ResultedItem.cpp" "aion/gameserver/model/templates/globaldrops/GlobalDropItem.cpp")
+
 # T2-gen: everything tools/xmlgen generates into generated/ (enums, data structs, member blocks, binders). Tool output: only regeneration
 # changes it (the integrator lane). The binders reference the hooks of the hand-written shells in src/, so the library links only as part of
 # aion_gs_core. Its Java classes are claimed by the chunks that own the hand-written side.
