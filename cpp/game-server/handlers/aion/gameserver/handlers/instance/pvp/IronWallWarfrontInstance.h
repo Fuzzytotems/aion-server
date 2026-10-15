@@ -8,8 +8,12 @@ namespace aion::gameserver::handlers::instance::pvp {
  * Iron Wall Warfront (301220000): two races of 24, the points for the generators, the bosses and the used objects, the end at a lead of
  * 30,000 points or after 40 minutes.
  * <p>
- * Java: data/handlers/instance/pvp/IronWallWarfrontInstance.java, @InstanceID(301220000). portToPosition overrides nothing (Java: no
- * caller; the inherited portToStartPosition is the general handler's).
+ * Java: data/handlers/instance/pvp/IronWallWarfrontInstance.java, @InstanceID(301220000).
+ * <p>
+ * Correction (owner's decision 2026-10-15, both branches; docs/deviations/P6-instances.md): Java's portToPosition(Player, WorldMapInstance)
+ * overrides nothing, so onStart and onReviveEvent reach GeneralInstanceHandler.portToStartPosition, which throws
+ * UnsupportedOperationException, and a run with players inside never starts. Here it is portToStartPosition(Player), on the handler's
+ * instance.
  *
  * @author Tibald
  */
@@ -53,7 +57,7 @@ protected:
 public:
 	void onInstanceCreate() override;
 
-	void portToPosition(Player& player, WorldMapInstance& mapInstance);
+	void portToStartPosition(Player& player) override;
 };
 
 } // namespace aion::gameserver::handlers::instance::pvp

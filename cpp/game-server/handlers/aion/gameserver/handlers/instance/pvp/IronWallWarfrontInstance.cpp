@@ -157,20 +157,21 @@ void IronWallWarfrontInstance::onInstanceCreate() {
 	BasicPvpInstance::onInstanceCreate();
 }
 
-// Java IronWallWarfrontInstance.java:157-171 (the parameter instance is renamed: it hides the handler's member)
-void IronWallWarfrontInstance::portToPosition(Player& player, WorldMapInstance& mapInstance) {
+// Java IronWallWarfrontInstance.java:157-171. Correction (owner's decision 2026-10-15, both branches): Java's portToPosition(Player,
+// WorldMapInstance) overrides nothing; this is portToStartPosition, and the teleports go to the handler's instance.
+void IronWallWarfrontInstance::portToStartPosition(Player& player) {
 	bool useAlternativePos = player.isInAlliance()
 		&& (player.getPlayerAllianceGroup()->getObjectId() == 1001 || player.getPlayerAllianceGroup()->getObjectId() == 1003);
 	if ((player.getRace() == Race::ELYOS && raceStartPosition == 0) || (player.getRace() == Race::ASMODIANS && raceStartPosition != 0)) {
 		if (useAlternativePos)
-			TeleportService::teleportTo(player, mapInstance, 274.143f, 384.335f, 239.973f, int8_t{14});
+			TeleportService::teleportTo(player, *instance, 274.143f, 384.335f, 239.973f, int8_t{14});
 		else
-			TeleportService::teleportTo(player, mapInstance, 342.138f, 616.856f, 248.197f, int8_t{35});
+			TeleportService::teleportTo(player, *instance, 342.138f, 616.856f, 248.197f, int8_t{35});
 	} else {
 		if (useAlternativePos)
-			TeleportService::teleportTo(player, mapInstance, 598.229f, 712.984f, 223.306f, int8_t{73});
+			TeleportService::teleportTo(player, *instance, 598.229f, 712.984f, 223.306f, int8_t{73});
 		else
-			TeleportService::teleportTo(player, mapInstance, 711.403f, 621.797f, 213.276f, int8_t{31});
+			TeleportService::teleportTo(player, *instance, 711.403f, 621.797f, 213.276f, int8_t{31});
 	}
 }
 
