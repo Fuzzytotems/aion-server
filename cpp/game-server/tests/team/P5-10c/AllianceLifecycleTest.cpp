@@ -9,8 +9,11 @@
 #include "../P5-10b/TeamTestSupport.h"
 
 #include <cstdint>
+#include <memory>
 #include <string>
 #include <string_view>
+#include <unordered_map>
+#include <utility>
 #include <vector>
 
 #include "aion/gameserver/configs/main/GroupConfig.h"
@@ -26,7 +29,12 @@
 #include "aion/gameserver/network/aion/serverpackets/SM_ALLIANCE_MEMBER_INFO.h"
 #include "aion/gameserver/network/aion/serverpackets/SM_ALLIANCE_READY_CHECK.h"
 #include "aion/gameserver/network/aion/serverpackets/SM_QUESTION_WINDOW.h"
+#include "aion/gameserver/model/templates/vortex/VortexTemplate.bind.h"
+#include "aion/gameserver/model/templates/vortex/VortexTemplate.h"
+#include "aion/gameserver/model/vortex/VortexLocation.h"
 #include "aion/gameserver/runtime/base/Unported.h"
+#include "aion/gameserver/services/VortexService.h"
+#include "aion/gameserver/services/vortex/DimensionalVortex.h"
 #include "aion/gameserver/runtime/sync/LockOrderValidator.h"
 
 #include "aion/commons/utils/WindowsMacroGuard.h" // after all headers that may include windows.h
@@ -397,18 +405,30 @@ TEST_F(AllianceLifecycleTest, KinahIsSplitOverTheAllianceOrTheGroup) {
 	EXPECT_EQ(value.size(), 3);
 }
 
-/** The number of hits of the AION_UNPORTED sites whose function names `function` since the last reset */
-uint64_t unportedHitsOf(std::string_view function) {
-	uint64_t hits = 0;
-	for (const runtime::UnportedHit& hit : runtime::unportedHits()) {
-		if (hit.function.find(function) != std::string::npos)
-			hits += hit.hits;
-	}
-	return hits;
-}
+/** A registered invasion that records its kicks and holds the defenders the test gives it (VortexServiceTest's CountingVortex) */
+class KickRecordingVortex final : public services::vortex::DimensionalVortex {
+	AION_MAKE_REF_FRIEND
+public:
+	explicit KickRecordingVortex(model::vortex::VortexLocation& location) : DimensionalVortex(location) {}
+
+	void startInvasion() override {}
+	void stopInvasion() override {}
+	void addPlayer(model::gameobjects::player::Player&, bool) override {}
+	void kickPlayer(model::gameobjects::player::Player& player, bool isInvader) override { kicked.emplace_back(player.getObjectId(), isInvader); }
+	void updateDefenders(model::gameobjects::player::Player&) override {}
+	void updateInvaders(model::gameobjects::player::Player&) override {}
+	std::unordered_map<int32_t, runtime::Ptr<model::gameobjects::player::Player>> getDefenders() override { return defenders; }
+	std::unordered_map<int32_t, runtime::Ptr<model::gameobjects::player::Player>> getInvaders() override { return {}; }
+
+	std::vector<std::pair<int32_t, bool>> kicked;
+	std::unordered_map<int32_t, runtime::Ptr<model::gameobjects::player::Player>> defenders;
+
+protected:
+	~KickRecordingVortex() override = default;
+};
 
 /** removePlayer and banPlayer of a vortex defence alliance (PlayerAllianceService.java:147-156, 166-167) ask VortexService to remove the
- * defender first; VortexService's body is M5i's, so the call reaches its AION_UNPORTED (and nothing in PlayerAllianceService) */
+ * defender first (VortexService.java:120-127, ported in M5i I-10): the registered invasion that holds the defender kicks him as a defender */
 TEST_F(AllianceLifecycleTest, ADefenceAllianceLeaveAndBanAskTheVortexService) {
 	Member& a = addMember("Alpha");
 	Member& b = addMember("Bravo");
@@ -416,15 +436,27 @@ TEST_F(AllianceLifecycleTest, ADefenceAllianceLeaveAndBanAskTheVortexService) {
 	runtime::Ptr<PlayerAlliance> value = PlayerAllianceService::createAlliance(a.player(), b.player(), model::team::TeamType::ALLIANCE_DEFENCE);
 	ASSERT_TRUE(value);
 	PlayerAllianceService::addPlayer(*value, c.player());
+	xml::LoadContext context;
+	std::unique_ptr<model::templates::vortex::VortexTemplate> vortexTemplate = xml::bindString<model::templates::vortex::VortexTemplate>(context,
+		R"(<vortex_location id="0" defends_race="ELYOS" offence_race="ASMODIANS">)"
+		R"(<home_point map="120080000" x="559.4" y="207.8" z="93.5" h="0"/>)"
+		R"(<resurrection_point map="210060000" x="951.0" y="2433.0" z="107.0" h="0"/>)"
+		R"(<start_point map="210060000" x="951.0" y="2433.0" z="107.0" h="0"/></vortex_location>)");
+	runtime::Ref<model::vortex::VortexLocation> location = model::vortex::VortexLocation::create(vortexTemplate.get());
+	runtime::Ref<KickRecordingVortex> vortex = runtime::makeRef<KickRecordingVortex>(*location);
+	vortex->defenders[c.player().getObjectId()] = runtime::Ptr<model::gameobjects::player::Player>(c.player());
+	services::VortexService& service = services::VortexService::getInstance();
+	service.getActiveInvasions().put(0, vortex);
 	runtime::resetUnportedHitsForTests();
-	EXPECT_THROW(PlayerAllianceService::removePlayer(c.player()), runtime::UnportedException);
-	EXPECT_EQ(unportedHitsOf("removeDefenderPlayer"), 1u);
-	EXPECT_EQ(value->size(), 3) << "the leave event is after the vortex call";
+	PlayerAllianceService::removePlayer(c.player());
+	EXPECT_EQ(vortex->kicked, (std::vector<std::pair<int32_t, bool>>{{c.player().getObjectId(), false}})) << "the leave kicks the defender";
+	EXPECT_EQ(value->size(), 2) << "then the leave event";
 	PlayerAllianceService::banPlayer(c.player(), b.player()); // not the leader: no vortex call
-	EXPECT_EQ(unportedHitsOf("removeDefenderPlayer"), 1u);
-	EXPECT_THROW(PlayerAllianceService::banPlayer(c.player(), a.player()), runtime::UnportedException);
-	EXPECT_EQ(unportedHitsOf("removeDefenderPlayer"), 2u);
-	EXPECT_EQ(unportedHitsOf("PlayerAllianceService"), 0u);
+	EXPECT_EQ(vortex->kicked.size(), 1u);
+	PlayerAllianceService::banPlayer(c.player(), a.player());
+	EXPECT_EQ(vortex->kicked.size(), 2u) << "the leader's ban kicks the defender";
+	EXPECT_EQ(runtime::unportedHitCount(), 0u);
+	service.getActiveInvasions().clear();
 }
 
 // The checker's offence arm (:270-273, removeInvaderPlayer) has no case: an offence alliance is an auto team, so its kick delay is 60 s of
