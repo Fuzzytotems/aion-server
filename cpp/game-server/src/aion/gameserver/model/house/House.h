@@ -150,6 +150,16 @@ public:
 	// synchronized
 	void reloadHouseRegistry();
 
+	/**
+	 * C++ only (the owner's option 2 of 2026-10-10, m5h-plan.md 9 risk 3): saves the registry and drops it with its objects and decorations,
+	 * so a left studio keeps nothing alive that was removed from the world; getRegistry() reloads it from the database on the next entry
+	 * (Java keeps the registry in memory). Called by HouseController.onDespawn for a reusable studio only.
+	 */
+	void dropRegistry();
+
+	/** C++ only: true for a reusable studio, which HousingService.studios keeps after its instance is destroyed (VisibleObject::isKeptOutsideWorld) */
+	bool isKeptOutsideWorld() override;
+
 	/** @return the player scripts (loaded lazily) */
 	runtime::Ptr<gameobjects::player::PlayerScripts> getPlayerScripts();
 

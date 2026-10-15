@@ -8,10 +8,8 @@
 // reports the server writes at shutdown.
 //
 // **What this gate covers of §10.2, and what not** (docs/design/m5h-plan.md §14): the legion cases C0-C8, C10, C11, C12 and
-// C21 without their dialog arms, and the studio cases C13-C20 (HS-4; C13 needs lane C's quest 18802). Not scripted: C8's kill (a member's
-// level-up is LegionService.updateMemberInfo, which C8's relog and C13's quest experience drive), C9's warehouse and C22's disband (both open
-// through DialogService's npc dialogs, m5h-plan.md A-06, and the warehouse's items through CM_MOVE_ITEM, A-03). Their unit tests stand
-// (tests/legionhouse/LegionServiceTest.cpp: the lazy disband, the warehouse rules) and the rows are the plan's open items.
+// C21, the warehouse C9 and the disband C22, and the studio cases C13-C20 (HS-4; C13 needs lane C's quest 18802). Not scripted: C8's kill
+// (a member's level-up is LegionService.updateMemberInfo, which C8's relog and C13's quest experience drive).
 //
 // Every expectation is independent of the C++ server code, as in the earlier gates: server packets are read by name and SM_SYSTEM_MESSAGE /
 // SM_QUESTION_WINDOW with the decoders of tests/scenario/decoders, and every id and Java constant comes from `tools/oracle/oracle.py
@@ -1052,6 +1050,21 @@ constexpr int32_t STUDIO_MAP = 720010000;
 constexpr int32_t HOUSING_RECREATE_PERSONAL_INS = 96;
 /** DialogAction.SELECTED_QUEST_NOREWARD (DialogAction.java:38): the finish of a quest without a selectable reward */
 constexpr int32_t SELECTED_QUEST_NOREWARD = 23;
+/** the legion npcs of Sanctum (spawns/Npcs/110010000_Sanctum.xml): Pauton, the legion warehouse, and Losadis, the legion manager */
+constexpr int32_t SANCTUM = 110010000;
+constexpr int32_t PAUTON = 203751;
+constexpr int32_t LOSADIS = 203806;
+/** DialogAction.DISPERSE_LEGION (6), RECREATE_LEGION (7), OPEN_LEGION_WAREHOUSE (53) (DialogAction.java:21-22, 68) */
+constexpr int32_t DISPERSE_LEGION = 6;
+constexpr int32_t RECREATE_LEGION = 7;
+constexpr int32_t OPEN_LEGION_WAREHOUSE = 53;
+/** StorageType.LEGION_WAREHOUSE.getId() (StorageType.java): CM_MOVE_ITEM's source/destination 3 and SM_WAREHOUSE_INFO's type */
+constexpr int32_t LEGION_WAREHOUSE = 3;
+/** a legion-storable item: the bed of C16, its mask 20606 has STORABLE_IN_LWH (ItemMask.java:12; Item.isStorableInLegWarehouse) */
+constexpr int32_t LEGION_STORABLE_ITEM = 170120000;
+constexpr int32_t CM_CLOSE_DIALOG = 53;
+constexpr int32_t CM_LEGION_WH_KINAH = 76;
+constexpr int32_t CM_MOVE_ITEM = 156;
 /** [Housing] And A Home for Every Daeva, the Elyos studio quest (_18802AndAHomeforEveryDaeva.java; HousingService.canOwnHouse) */
 constexpr int32_t STUDIO_QUEST = 18802;
 /** the furniture (m5h-plan.md §10.1 "Seeds"): a bed (a chair template), the cake (a use_item with the COOKING limit) and a wallpaper */
@@ -1246,6 +1259,11 @@ struct Body {
 			data.push_back(static_cast<uint8_t>(static_cast<uint32_t>(value) >> (8 * i)));
 		return *this;
 	}
+	Body& Q(int64_t value) {
+		for (int i = 0; i < 8; i++)
+			data.push_back(static_cast<uint8_t>(static_cast<uint64_t>(value) >> (8 * i)));
+		return *this;
+	}
 	Body& D(int32_t value) {
 		for (int i = 0; i < 4; i++)
 			data.push_back(static_cast<uint8_t>(static_cast<uint32_t>(value) >> (8 * i)));
@@ -1268,6 +1286,7 @@ struct LegionAnswer {
 	std::map<std::string, int32_t> questions;
 	std::map<std::string, int32_t> ranks;
 	std::map<std::string, int32_t> historyTypes; // the type ordinal of CM_LEGION_HISTORY: LEGION 0, REWARD 1, WAREHOUSE 2
+	std::map<std::string, int32_t> historyActions; // LegionHistoryAction.getId() by name
 	std::map<std::string, int32_t> chatTypes;
 	int32_t emblemChunkSize = 0;
 	int32_t announcementLimit = 0;
@@ -1289,6 +1308,8 @@ LegionAnswer parseLegion(const std::string& text) {
 		legion.questions[name] = id.get<int32_t>();
 	for (const auto& [name, id] : answer.at("ranks").items())
 		legion.ranks[name] = id.get<int32_t>();
+	for (const auto& [name, action] : answer.at("historyActions").items())
+		legion.historyActions[name] = action.at("id").get<int32_t>();
 	legion.historyTypes = {{"LEGION", 0}, {"REWARD", 1}, {"WAREHOUSE", 2}}; // LegionHistoryAction.Type's ordinals (LegionHistoryAction.java:39)
 	for (const auto& [name, id] : answer.at("chatTypes").items())
 		legion.chatTypes[name] = id.get<int32_t>();
@@ -1443,9 +1464,11 @@ void runM5hGate() {
 		"STR_GUILD_CREATE_NOT_ENOUGH_MONEY", "STR_GUILD_INVITE_SENT_INVITE_MSG_TO_HIM", "STR_GUILD_INVITE_HE_IS_MY_GUILD_MEMBER",
 		"STR_GUILD_INVITE_HE_IS_OTHER_GUILD_MEMBER", "STR_GUILD_WRITE_NOTICE_DONT_HAVE_RIGHT", "STR_GUILD_WRITE_NOTICE_DONE", "STR_GUILD_NOTICE",
 		"STR_GUILD_CHANGE_RIGHT_DONT_HAVE_RIGHT", "STR_GUILD_WRITE_INTRO_DONE", "STR_GUILD_CHANGE_LEVEL_NOT_ENOUGH_MONEY",
-		"STR_MSG_NOTIFY_LOGIN_GUILD", "STR_GUILD_CHANGE_EMBLEM", "STR_GUILD_WARN_SUCCESS_UPLOAD_EMBLEM"};
+		"STR_MSG_NOTIFY_LOGIN_GUILD", "STR_GUILD_CHANGE_EMBLEM", "STR_GUILD_WARN_SUCCESS_UPLOAD_EMBLEM", "STR_GUILD_CHANGE_LEVEL_NOT_ENOUGH_MEMBER",
+		"STR_GUILD_WAREHOUSE_IN_USE", "STR_GUILD_WAREHOUSE_NO_RIGHT"};
 	runCase("C0", "the oracle answers: m5h-legion (the message and question ids, the legion enums, the emblem chunk and the notice limit)", [&] {
-		std::vector<std::string> arguments{"m5h-legion", "--question", "STR_GUILD_INVITE_DO_YOU_ACCEPT_INVITATION", "--message"};
+		std::vector<std::string> arguments{"m5h-legion", "--question", "STR_GUILD_INVITE_DO_YOU_ACCEPT_INVITATION", "STR_GUILD_DISPERSE_STAYMODE",
+			"STR_GUILD_DISPERSE_STAYMODE_CANCEL", "--message"};
 		for (const std::string& name : messageNames)
 			arguments.push_back(name);
 		legion = parseLegion(oracle->run(arguments));
@@ -1456,6 +1479,157 @@ void runM5hGate() {
 		EXPECT_EQ(legion.chatTypes.at("LEGION"), 10);
 	});
 	const auto msg = [&](const std::string& name) { return legion.message(name); };
+
+	HousingAnswer housing;
+	runCase("C0h", "the oracle answers: m5h-housing (the studio npcs, the Elyos studio, the furniture, PartType, the door states, the messages)", [&] {
+		std::vector<std::string> arguments{"m5h-housing", "--npc", std::to_string(SANCTUM) + ":" + std::to_string(PAUTON),
+			std::to_string(SANCTUM) + ":" + std::to_string(LOSADIS), std::to_string(ORIEL) + ":" + std::to_string(PARRINE),
+			std::to_string(ORIEL) + ":" + std::to_string(STUDIO_ENTRANCE), std::to_string(STUDIO_MAP) + ":" + std::to_string(STUDIO_EXIT), "--item",
+			std::to_string(BED_ITEM), std::to_string(CAKE_ITEM), std::to_string(WALLPAPER_ITEM), "--message"};
+		for (const char* name : {"STR_MSG_HOUSING_INS_OWN_SUCCESS", "STR_MSG_HOUSING_INS_CANT_OWN_MORE_HOUSE", "STR_MSG_HOUSING_OBJECT_USE",
+		         "STR_MSG_HOUSING_OBJECT_REWARD_ITEM", "STR_MSG_HOUSING_CANNOT_USE_FLOWERPOT_COOLTIME", "STR_MSG_CANNOT_USE_ALREADY_HAVE_REWARD_ITEM",
+		         "STR_MSG_HOUSING_OBJECT_CANCEL_USE", "STR_MSG_HOUSING_ORDER_OUT_ALL", "STR_MSG_HOUSING_ORDER_CLOSE_DOOR_ALL",
+		         "STR_MSG_HOUSING_ORDER_OUT_WITHOUT_FRIENDS", "STR_MSG_INSTANCE_DUNGEON_OPENED_FOR_SELF", "STR_MSG_LEAVE_INSTANCE"})
+			arguments.push_back(name);
+		housing = parseHousing(oracle->run(arguments));
+		EXPECT_EQ(housing.address, 2001) << "HouseData.getStudioAddress(ELYOS)";
+		EXPECT_EQ(housing.studioMap, STUDIO_MAP);
+		EXPECT_EQ(housing.exitMap, ORIEL);
+		EXPECT_EQ(housing.npc(STUDIO_ENTRANCE).talkDelayMs, 2000);
+		EXPECT_EQ(housing.item(CAKE_ITEM).kind, "use_item");
+		EXPECT_EQ(housing.item(CAKE_ITEM).rewardId, 160010196);
+		EXPECT_EQ(housing.item(WALLPAPER_ITEM).decoration, 3554000);
+		EXPECT_EQ(housing.doorStates.at("CLOSED"), 3);
+	});
+	const auto hmsg = [&](const std::string& name) { return housing.message(name); };
+
+	// ---- the studio helpers ----
+	const auto seedPosition = [&](const Character& character, int32_t map, float x, float y, float z) {
+		database.execute(schema, "UPDATE players SET world_id = " + std::to_string(map) + ", x = " + std::to_string(x) + ", y = " + std::to_string(y) +
+		                           ", z = " + std::to_string(z) + " WHERE id = " + std::to_string(character.playerId));
+	};
+	/** the object id of the npc of `templateId` this client was shown nearest to (x, y) */
+	const auto requireNpc = [&](ScenarioClient& client, int32_t templateId, float x, float y) {
+		std::optional<int32_t> found;
+		until(10s, [&] { return (found = npcObject(client, templateId, x, y)).has_value(); });
+		if (!found)
+			throw std::runtime_error(client.label + ": no SM_NPC_INFO of " + std::to_string(templateId) + " near " + std::to_string(x) + ", " +
+			                         std::to_string(y));
+		return *found;
+	};
+	const auto houseEdits = [&](const std::vector<Packet>& packets) {
+		std::vector<decoders::HouseEdit> edits;
+		for (const Packet& packet : ofName(packets, "SM_HOUSE_EDIT"))
+			edits.push_back(decoders::decodeHouseEdit(packet.data));
+		return edits;
+	};
+	const auto useObjects = [&](const std::vector<Packet>& packets) {
+		std::vector<decoders::UseObject> uses;
+		for (const Packet& packet : ofName(packets, "SM_USE_OBJECT"))
+			uses.push_back(decoders::decodeUseObject(packet.data));
+		return uses;
+	};
+	const auto emotionsOf = [&](const std::vector<Packet>& packets, int32_t sender, uint8_t type) {
+		size_t n = 0;
+		for (const Packet& packet : ofName(packets, "SM_EMOTION")) {
+			try {
+				const decoders::Emotion emotion = decoders::decodeEmotion(packet.data);
+				n += emotion.senderObjectId == sender && emotion.emotionType == type;
+			} catch (const DecodeError&) {
+			}
+		}
+		return n;
+	};
+	const auto studioScripts = [&](const std::vector<Packet>& packets) {
+		std::vector<decoders::HouseScripts> found;
+		for (const Packet& packet : ofName(packets, "SM_HOUSE_SCRIPTS")) {
+			const decoders::HouseScripts scripts = decoders::decodeHouseScripts(packet.data, housing.scriptPadding);
+			if (scripts.address == housing.address)
+				found.push_back(scripts);
+		}
+		return found;
+	};
+	const auto legionUpdatesOf = [&](const std::vector<Packet>& packets, int32_t memberId) {
+		std::vector<decoders::LegionUpdateMember> found;
+		for (const Packet& packet : ofName(packets, "SM_LEGION_UPDATE_MEMBER")) {
+			const decoders::LegionUpdateMember update = decoders::decodeLegionUpdateMember(packet.data);
+			if (update.objectId == memberId)
+				found.push_back(update);
+		}
+		return found;
+	};
+	/**
+	 * A talk to a studio portal (StudioPortalAI over ActionItemNpcAI, ActionItemNpcAI.java:36-80): CM_SHOW_DIALOG, the use bar with its two
+	 * SM_USE_OBJECT and SM_EMOTION, then SM_TELEPORT_LOC (FADE_OUT_BEAM) and nothing more until CM_TELEPORT_ANIMATION_DONE; then the arrival's
+	 * SM_CHANNEL_INFO + SM_PLAYER_SPAWN and CM_LEVEL_READY. @return {the teleport, the spawn, the mark before the animation done}
+	 */
+	struct PortalTrip {
+		decoders::TeleportLoc loc;
+		decoders::PlayerSpawn spawn;
+		size_t from = 0, done = 0;
+	};
+	const auto takePortal = [&](ScenarioClient& client, int32_t portalObject, int32_t talkDelayMs, std::string_view label) {
+		PortalTrip trip;
+		trip.from = client.mark();
+		client.game->send(GameSession::CM_SHOW_DIALOG, GameSession::buildCM_SHOW_DIALOG(portalObject));
+		const Packet start = waitFor(*client.game, "SM_USE_OBJECT", 10s);
+		const decoders::UseObject startBar = decoders::decodeUseObject(start.data);
+		EXPECT_EQ(startBar.playerObjectId, client.playerId()) << label;
+		EXPECT_EQ(startBar.targetObjectId, portalObject) << label;
+		EXPECT_EQ(startBar.time, talkDelayMs) << label << ": the npc's talk delay in ms";
+		EXPECT_EQ(startBar.actionType, decoders::USE_OBJECT_START_BAR) << label;
+		const Packet end = waitFor(*client.game, "SM_USE_OBJECT", std::chrono::milliseconds(talkDelayMs) + 5s);
+		const decoders::UseObject endBar = decoders::decodeUseObject(end.data);
+		EXPECT_EQ(endBar.actionType, decoders::USE_OBJECT_CANCEL_BAR) << label << ": the task's own SM_USE_OBJECT(..., 2)";
+		const double barMs = std::chrono::duration<double, std::milli>(end.receivedAt - start.receivedAt).count();
+		EXPECT_NEAR(barMs, talkDelayMs, 500.0) << label;
+		const Packet locPacket = waitFor(*client.game, "SM_TELEPORT_LOC", 10s);
+		trip.loc = decoders::decodeTeleportLoc(locPacket.data);
+		EXPECT_EQ(trip.loc.animation, decoders::TELEPORT_ANIMATION_FADE_OUT_BEAM) << label << ": TeleportAnimation.FADE_OUT_BEAM";
+		const std::vector<Packet> waiting = collectFor(*client.game, 1s);
+		EXPECT_TRUE(ofName(waiting, "SM_PLAYER_SPAWN").empty()) << label << ": the arrival waits for CM_TELEPORT_ANIMATION_DONE";
+		const std::vector<Packet> bar = client.since(trip.from);
+		EXPECT_EQ(emotionsOf(bar, client.playerId(), EMOTION_START_QUESTLOOT), 1u) << label << ": SM_EMOTION(START_QUESTLOOT)";
+		EXPECT_EQ(emotionsOf(bar, client.playerId(), EMOTION_END_QUESTLOOT), 1u) << label << ": SM_EMOTION(END_QUESTLOOT)";
+		trip.done = client.mark();
+		client.game->send(GameSession::CM_TELEPORT_ANIMATION_DONE, GameSession::buildCM_TELEPORT_ANIMATION_DONE());
+		trip.spawn = decoders::decodePlayerSpawn(waitFor(*client.game, "SM_PLAYER_SPAWN", 15s).data);
+		client.x = trip.spawn.x;
+		client.y = trip.spawn.y;
+		client.z = trip.spawn.z;
+		levelReady(client);
+		return trip;
+	};
+	/** decoration mode's add + spawn of one inventory item (CM_HOUSE_EDIT 3 then 5). @return {the SM_HOUSE_EDIT(3), the SM_HOUSE_EDIT(5)} */
+	const auto placeItem = [&](ScenarioClient& client, int32_t itemObjectId, float x, float y, float z, int32_t rotation, std::string_view label) {
+		auto from = client.mark();
+		client.game->send(CM_HOUSE_EDIT, Body().C(3).D(itemObjectId).data);
+		if (!until(10s, [&] { return !houseEdits(client.since(from)).empty(); }))
+			throw std::runtime_error(std::string(label) + ": no SM_HOUSE_EDIT(3)");
+		const decoders::HouseEdit added = houseEdits(client.since(from))[0];
+		EXPECT_EQ(added.action, 3) << label;
+		from = client.mark();
+		const auto bits = [](float value) { return static_cast<int32_t>(std::bit_cast<uint32_t>(value)); };
+		client.game->send(CM_HOUSE_EDIT, Body().C(5).D(added.objectId).D(bits(x)).D(bits(y)).D(bits(z)).H(rotation).data);
+		if (!until(10s, [&] { return houseEdits(client.since(from)).size() >= 2 && !ofName(client.since(from), "SM_HOUSE_OBJECT").empty(); }))
+			throw std::runtime_error(std::string(label) + ": the spawn's SM_HOUSE_EDIT(5) + SM_HOUSE_OBJECT + SM_HOUSE_EDIT(4) did not arrive");
+		const std::vector<decoders::HouseEdit> edits = houseEdits(client.since(from));
+		EXPECT_EQ(edits[0].action, 5) << label;
+		EXPECT_EQ(edits[1].action, 4) << label << ": CM_HOUSE_EDIT.java:59, SM_HOUSE_EDIT(4, 1, objId) after the spawn";
+		EXPECT_EQ(edits[1].objectId, added.objectId) << label;
+		return std::make_pair(added, edits[0]);
+	};
+
+	const auto itemCount = [&](ScenarioClient& client, int32_t itemId) {
+		client.model.sync();
+		int64_t n = 0;
+		for (const ModelItem& item : client.model.byItemId(itemId))
+			n += item.count;
+		return n;
+	};
+	int32_t aBed = 0, aCake = 0, aWallpaper = 0, cCake = 0;
+	const std::string studioAddress = std::to_string(2001);
+
 
 	// ---- C1: the three characters and the seeds ----
 	const auto endFirstPrologue = [&](ScenarioClient& client, std::string_view label) {
@@ -1652,6 +1826,130 @@ void runM5hGate() {
 		EXPECT_EQ(countMessage(windowOf(a, from), msg("STR_MSG_NOTIFY_LOGIN_GUILD"), {cb.name}), 1u);
 	});
 
+	// ---- C9: the legion warehouse ----
+	const auto legionEdits = [&](const std::vector<Packet>& packets, uint8_t type) {
+		std::vector<decoders::LegionEdit> edits;
+		for (const Packet& packet : ofName(packets, "SM_LEGION_EDIT")) {
+			const decoders::LegionEdit edit = decoders::decodeLegionEdit(packet.data);
+			if (edit.type == type)
+				edits.push_back(edit);
+		}
+		return edits;
+	};
+	const auto historyActions = [&](const std::vector<Packet>& packets) {
+		std::vector<std::pair<uint8_t, std::string>> actions;
+		for (const Packet& packet : ofName(packets, "SM_LEGION_HISTORY")) {
+			const decoders::LegionHistory history = decoders::decodeLegionHistory(packet.data);
+			if (!history.entries.empty())
+				actions.emplace_back(history.entries.front().actionId, history.entries.front().description);
+		}
+		return actions;
+	};
+	const auto warehouseInfos = [&](const std::vector<Packet>& packets) {
+		std::vector<decoders::WarehouseInfo> infos;
+		for (const Packet& packet : ofName(packets, "SM_WAREHOUSE_INFO")) {
+			const decoders::WarehouseInfo info = decoders::decodeWarehouseInfo(packet.data);
+			if (info.warehouseType == LEGION_WAREHOUSE)
+				infos.push_back(info);
+		}
+		return infos;
+	};
+	/** CM_SHOW_DIALOG + CM_DIALOG_SELECT(OPEN_LEGION_WAREHOUSE) at Pauton (LegionService.openLegionWarehouse) */
+	const auto openWarehouse = [&](ScenarioClient& client) {
+		const HousingAnswer::Spot& pauton = housing.npc(PAUTON);
+		const int32_t pautonObject = requireNpc(client, PAUTON, pauton.x, pauton.y);
+		client.game->send(GameSession::CM_SHOW_DIALOG, GameSession::buildCM_SHOW_DIALOG(pautonObject));
+		settle();
+		client.game->send(GameSession::CM_DIALOG_SELECT, GameSession::buildCM_DIALOG_SELECT(pautonObject, OPEN_LEGION_WAREHOUSE));
+		return pautonObject;
+	};
+	int32_t warehouseItem = 0;
+	runCase("C9", "warehouse: A's level-up refused for members; A opens the legion warehouse, B is refused, A deposits kinah and an item; B reads it", [&] {
+		disconnect(a);
+		disconnect(b);
+		const HousingAnswer::Spot& pauton = housing.npc(PAUTON);
+		const std::array<float, 3> spot = pointNear(pauton.x, pauton.y, pauton.z, TALK_DISTANCE, pauton.x + 10.0f, pauton.y);
+		seedPosition(ca, SANCTUM, spot[0], spot[1], spot[2]);
+		seedPosition(cb, SANCTUM, spot[0], spot[1] + 1.0f, spot[2]);
+		seedKinah(ca.playerId, 101000);
+		warehouseItem = database.seedInventoryItem(schema, {ca.playerId, LEGION_STORABLE_ITEM, 1, 0, 65535});
+		enterAs(servers, a, ca);
+		enterAs(servers, b, cb);
+		settle();
+		ASSERT_EQ(a.model.kinah(), 101000);
+
+		// Y6: the money is there now, so the member count refuses (LegionService.java:918-948: money before members)
+		auto from = marks();
+		legionPacket(a, Body().C(0x0E).D(0).H(0));
+		ASSERT_TRUE(until(10s, [&] { return countMessage(windowOf(a, from), msg("STR_GUILD_CHANGE_LEVEL_NOT_ENOUGH_MEMBER")) == 1; }));
+		settle();
+		EXPECT_EQ(a.model.kinah(), 101000) << "nothing taken";
+		EXPECT_EQ(count("SELECT level FROM legions WHERE name = '" + legionName + "'"), 1);
+
+		// Y9: A opens - the warehouse kinah, the empty warehouse as one closing SM_WAREHOUSE_INFO, the warehouse page
+		from = marks();
+		const int32_t pautonObject = openWarehouse(a);
+		ASSERT_TRUE(until(10s, [&] { return !ofName(windowOf(a, from), "SM_DIALOG_WINDOW").empty(); })) << "A: no warehouse page";
+		settle();
+		std::vector<Packet> wa = windowOf(a, from);
+		ASSERT_EQ(legionEdits(wa, 0x04).size(), 1u);
+		EXPECT_EQ(legionEdits(wa, 0x04)[0].value, 0) << "SM_LEGION_EDIT(0x04, 0)";
+		std::vector<decoders::WarehouseInfo> infos = warehouseInfos(wa);
+		ASSERT_EQ(infos.size(), 1u) << "an empty warehouse: no part, only the closing packet (FixedElementCountSplitList of nothing)";
+		EXPECT_TRUE(infos[0].firstPacket) << "items.isEmpty()";
+		EXPECT_TRUE(infos[0].items.empty());
+		// B, a centurion with WH_DEPOSIT, finds it in use
+		from = marks();
+		openWarehouse(b);
+		ASSERT_TRUE(until(10s, [&] { return countMessage(windowOf(b, from), msg("STR_GUILD_WAREHOUSE_IN_USE")) == 1; }))
+		  << "LegionWarehouse.setInUse (canOpenWarehouse)";
+		settle();
+		EXPECT_TRUE(warehouseInfos(windowOf(b, from)).empty());
+
+		// A deposits 1,000 kinah and the item
+		from = marks();
+		a.game->send(CM_LEGION_WH_KINAH, Body().Q(1000).C(1).data);
+		ASSERT_TRUE(until(10s, [&] { return !historyActions(windowOf(a, from)).empty(); }));
+		settle();
+		EXPECT_EQ(a.model.kinah(), 100000);
+		std::vector<std::pair<uint8_t, std::string>> actions = historyActions(windowOf(a, from));
+		ASSERT_FALSE(actions.empty());
+		EXPECT_EQ(actions.front().first, legion.historyActions.at("KINAH_DEPOSIT")) << "addHistory(KINAH_DEPOSIT, \"1000\")";
+		EXPECT_EQ(actions.front().second, "1000");
+		from = marks();
+		a.game->send(CM_MOVE_ITEM, Body().D(warehouseItem).C(0).C(LEGION_WAREHOUSE).H(-1).data);
+		ASSERT_TRUE(until(10s, [&] { return !ofName(windowOf(a, from), "SM_WAREHOUSE_ADD_ITEM").empty(); })) << "the item reaches the warehouse";
+		settle();
+		const decoders::WarehouseAddItem added = decoders::decodeWarehouseAddItem(ofName(windowOf(a, from), "SM_WAREHOUSE_ADD_ITEM")[0].data);
+		EXPECT_EQ(added.warehouseType, LEGION_WAREHOUSE);
+		actions = historyActions(windowOf(a, from));
+		ASSERT_FALSE(actions.empty());
+		EXPECT_EQ(actions.front().first, legion.historyActions.at("ITEM_DEPOSIT"));
+		EXPECT_EQ(actions.front().second, std::to_string(LEGION_STORABLE_ITEM) + ":1") << "LegionService.addWHItemHistory: itemId:count";
+		a.game->send(CM_CLOSE_DIALOG, Body().D(pautonObject).data);
+		settle();
+
+		// B opens after A closed: the kinah, the item's part and the closing packet; B's withdrawal is refused (a centurion has no WH_WITHDRAWAL)
+		from = marks();
+		const int32_t bPauton = openWarehouse(b);
+		ASSERT_TRUE(until(10s, [&] { return !ofName(windowOf(b, from), "SM_DIALOG_WINDOW").empty(); })) << "B: closing released the warehouse";
+		settle();
+		std::vector<Packet> wb = windowOf(b, from);
+		ASSERT_EQ(legionEdits(wb, 0x04).size(), 1u);
+		EXPECT_EQ(legionEdits(wb, 0x04)[0].value, 1000);
+		infos = warehouseInfos(wb);
+		ASSERT_EQ(infos.size(), 2u) << "the part with the item and the closing packet";
+		EXPECT_TRUE(infos[0].firstPacket);
+		ASSERT_EQ(infos[0].items.size(), 1u);
+		EXPECT_EQ(infos[0].items[0].templateId, LEGION_STORABLE_ITEM);
+		EXPECT_FALSE(infos[1].firstPacket);
+		from = marks();
+		b.game->send(CM_LEGION_WH_KINAH, Body().Q(500).C(0).data);
+		ASSERT_TRUE(until(10s, [&] { return countMessage(windowOf(b, from), msg("STR_GUILD_WAREHOUSE_NO_RIGHT")) == 1; }));
+		b.game->send(CM_CLOSE_DIALOG, Body().D(bPauton).data);
+		settle();
+	});
+
 	// ---- C10: legion chat ----
 	runCase("C10", "legion chat: B CM_CHAT_MESSAGE_PUBLIC(LEGION, text); A and B read it, C (another legion) does not", [&] {
 		const std::string text = "legion business";
@@ -1736,155 +2034,6 @@ void runM5hGate() {
 	// ======================================================================================================================================
 	// The studio cases C13-C20 (m5h-plan.md §10.2, §10.3 Y12-Y19; HS-4): A's studio by quest 18802 (lane C's generated handler), C's by fee.
 	// ======================================================================================================================================
-
-	HousingAnswer housing;
-	runCase("C0h", "the oracle answers: m5h-housing (the studio npcs, the Elyos studio, the furniture, PartType, the door states, the messages)", [&] {
-		std::vector<std::string> arguments{"m5h-housing", "--npc", std::to_string(ORIEL) + ":" + std::to_string(PARRINE),
-			std::to_string(ORIEL) + ":" + std::to_string(STUDIO_ENTRANCE), std::to_string(STUDIO_MAP) + ":" + std::to_string(STUDIO_EXIT), "--item",
-			std::to_string(BED_ITEM), std::to_string(CAKE_ITEM), std::to_string(WALLPAPER_ITEM), "--message"};
-		for (const char* name : {"STR_MSG_HOUSING_INS_OWN_SUCCESS", "STR_MSG_HOUSING_INS_CANT_OWN_MORE_HOUSE", "STR_MSG_HOUSING_OBJECT_USE",
-		         "STR_MSG_HOUSING_OBJECT_REWARD_ITEM", "STR_MSG_HOUSING_CANNOT_USE_FLOWERPOT_COOLTIME", "STR_MSG_CANNOT_USE_ALREADY_HAVE_REWARD_ITEM",
-		         "STR_MSG_HOUSING_OBJECT_CANCEL_USE", "STR_MSG_HOUSING_ORDER_OUT_ALL", "STR_MSG_HOUSING_ORDER_CLOSE_DOOR_ALL",
-		         "STR_MSG_HOUSING_ORDER_OUT_WITHOUT_FRIENDS", "STR_MSG_INSTANCE_DUNGEON_OPENED_FOR_SELF", "STR_MSG_LEAVE_INSTANCE"})
-			arguments.push_back(name);
-		housing = parseHousing(oracle->run(arguments));
-		EXPECT_EQ(housing.address, 2001) << "HouseData.getStudioAddress(ELYOS)";
-		EXPECT_EQ(housing.studioMap, STUDIO_MAP);
-		EXPECT_EQ(housing.exitMap, ORIEL);
-		EXPECT_EQ(housing.npc(STUDIO_ENTRANCE).talkDelayMs, 2000);
-		EXPECT_EQ(housing.item(CAKE_ITEM).kind, "use_item");
-		EXPECT_EQ(housing.item(CAKE_ITEM).rewardId, 160010196);
-		EXPECT_EQ(housing.item(WALLPAPER_ITEM).decoration, 3554000);
-		EXPECT_EQ(housing.doorStates.at("CLOSED"), 3);
-	});
-	const auto hmsg = [&](const std::string& name) { return housing.message(name); };
-
-	// ---- the studio helpers ----
-	const auto seedPosition = [&](const Character& character, int32_t map, float x, float y, float z) {
-		database.execute(schema, "UPDATE players SET world_id = " + std::to_string(map) + ", x = " + std::to_string(x) + ", y = " + std::to_string(y) +
-		                           ", z = " + std::to_string(z) + " WHERE id = " + std::to_string(character.playerId));
-	};
-	/** the object id of the npc of `templateId` this client was shown nearest to (x, y) */
-	const auto requireNpc = [&](ScenarioClient& client, int32_t templateId, float x, float y) {
-		std::optional<int32_t> found;
-		until(10s, [&] { return (found = npcObject(client, templateId, x, y)).has_value(); });
-		if (!found)
-			throw std::runtime_error(client.label + ": no SM_NPC_INFO of " + std::to_string(templateId) + " near " + std::to_string(x) + ", " +
-			                         std::to_string(y));
-		return *found;
-	};
-	const auto houseEdits = [&](const std::vector<Packet>& packets) {
-		std::vector<decoders::HouseEdit> edits;
-		for (const Packet& packet : ofName(packets, "SM_HOUSE_EDIT"))
-			edits.push_back(decoders::decodeHouseEdit(packet.data));
-		return edits;
-	};
-	const auto useObjects = [&](const std::vector<Packet>& packets) {
-		std::vector<decoders::UseObject> uses;
-		for (const Packet& packet : ofName(packets, "SM_USE_OBJECT"))
-			uses.push_back(decoders::decodeUseObject(packet.data));
-		return uses;
-	};
-	const auto emotionsOf = [&](const std::vector<Packet>& packets, int32_t sender, uint8_t type) {
-		size_t n = 0;
-		for (const Packet& packet : ofName(packets, "SM_EMOTION")) {
-			try {
-				const decoders::Emotion emotion = decoders::decodeEmotion(packet.data);
-				n += emotion.senderObjectId == sender && emotion.emotionType == type;
-			} catch (const DecodeError&) {
-			}
-		}
-		return n;
-	};
-	const auto studioScripts = [&](const std::vector<Packet>& packets) {
-		std::vector<decoders::HouseScripts> found;
-		for (const Packet& packet : ofName(packets, "SM_HOUSE_SCRIPTS")) {
-			const decoders::HouseScripts scripts = decoders::decodeHouseScripts(packet.data, housing.scriptPadding);
-			if (scripts.address == housing.address)
-				found.push_back(scripts);
-		}
-		return found;
-	};
-	const auto legionUpdatesOf = [&](const std::vector<Packet>& packets, int32_t memberId) {
-		std::vector<decoders::LegionUpdateMember> found;
-		for (const Packet& packet : ofName(packets, "SM_LEGION_UPDATE_MEMBER")) {
-			const decoders::LegionUpdateMember update = decoders::decodeLegionUpdateMember(packet.data);
-			if (update.objectId == memberId)
-				found.push_back(update);
-		}
-		return found;
-	};
-	/**
-	 * A talk to a studio portal (StudioPortalAI over ActionItemNpcAI, ActionItemNpcAI.java:36-80): CM_SHOW_DIALOG, the use bar with its two
-	 * SM_USE_OBJECT and SM_EMOTION, then SM_TELEPORT_LOC (FADE_OUT_BEAM) and nothing more until CM_TELEPORT_ANIMATION_DONE; then the arrival's
-	 * SM_CHANNEL_INFO + SM_PLAYER_SPAWN and CM_LEVEL_READY. @return {the teleport, the spawn, the mark before the animation done}
-	 */
-	struct PortalTrip {
-		decoders::TeleportLoc loc;
-		decoders::PlayerSpawn spawn;
-		size_t from = 0, done = 0;
-	};
-	const auto takePortal = [&](ScenarioClient& client, int32_t portalObject, int32_t talkDelayMs, std::string_view label) {
-		PortalTrip trip;
-		trip.from = client.mark();
-		client.game->send(GameSession::CM_SHOW_DIALOG, GameSession::buildCM_SHOW_DIALOG(portalObject));
-		const Packet start = waitFor(*client.game, "SM_USE_OBJECT", 10s);
-		const decoders::UseObject startBar = decoders::decodeUseObject(start.data);
-		EXPECT_EQ(startBar.playerObjectId, client.playerId()) << label;
-		EXPECT_EQ(startBar.targetObjectId, portalObject) << label;
-		EXPECT_EQ(startBar.time, talkDelayMs) << label << ": the npc's talk delay in ms";
-		EXPECT_EQ(startBar.actionType, decoders::USE_OBJECT_START_BAR) << label;
-		const Packet end = waitFor(*client.game, "SM_USE_OBJECT", std::chrono::milliseconds(talkDelayMs) + 5s);
-		const decoders::UseObject endBar = decoders::decodeUseObject(end.data);
-		EXPECT_EQ(endBar.actionType, decoders::USE_OBJECT_CANCEL_BAR) << label << ": the task's own SM_USE_OBJECT(..., 2)";
-		const double barMs = std::chrono::duration<double, std::milli>(end.receivedAt - start.receivedAt).count();
-		EXPECT_NEAR(barMs, talkDelayMs, 500.0) << label;
-		const Packet locPacket = waitFor(*client.game, "SM_TELEPORT_LOC", 10s);
-		trip.loc = decoders::decodeTeleportLoc(locPacket.data);
-		EXPECT_EQ(trip.loc.animation, decoders::TELEPORT_ANIMATION_FADE_OUT_BEAM) << label << ": TeleportAnimation.FADE_OUT_BEAM";
-		const std::vector<Packet> waiting = collectFor(*client.game, 1s);
-		EXPECT_TRUE(ofName(waiting, "SM_PLAYER_SPAWN").empty()) << label << ": the arrival waits for CM_TELEPORT_ANIMATION_DONE";
-		const std::vector<Packet> bar = client.since(trip.from);
-		EXPECT_EQ(emotionsOf(bar, client.playerId(), EMOTION_START_QUESTLOOT), 1u) << label << ": SM_EMOTION(START_QUESTLOOT)";
-		EXPECT_EQ(emotionsOf(bar, client.playerId(), EMOTION_END_QUESTLOOT), 1u) << label << ": SM_EMOTION(END_QUESTLOOT)";
-		trip.done = client.mark();
-		client.game->send(GameSession::CM_TELEPORT_ANIMATION_DONE, GameSession::buildCM_TELEPORT_ANIMATION_DONE());
-		trip.spawn = decoders::decodePlayerSpawn(waitFor(*client.game, "SM_PLAYER_SPAWN", 15s).data);
-		client.x = trip.spawn.x;
-		client.y = trip.spawn.y;
-		client.z = trip.spawn.z;
-		levelReady(client);
-		return trip;
-	};
-	/** decoration mode's add + spawn of one inventory item (CM_HOUSE_EDIT 3 then 5). @return {the SM_HOUSE_EDIT(3), the SM_HOUSE_EDIT(5)} */
-	const auto placeItem = [&](ScenarioClient& client, int32_t itemObjectId, float x, float y, float z, int32_t rotation, std::string_view label) {
-		auto from = client.mark();
-		client.game->send(CM_HOUSE_EDIT, Body().C(3).D(itemObjectId).data);
-		if (!until(10s, [&] { return !houseEdits(client.since(from)).empty(); }))
-			throw std::runtime_error(std::string(label) + ": no SM_HOUSE_EDIT(3)");
-		const decoders::HouseEdit added = houseEdits(client.since(from))[0];
-		EXPECT_EQ(added.action, 3) << label;
-		from = client.mark();
-		const auto bits = [](float value) { return static_cast<int32_t>(std::bit_cast<uint32_t>(value)); };
-		client.game->send(CM_HOUSE_EDIT, Body().C(5).D(added.objectId).D(bits(x)).D(bits(y)).D(bits(z)).H(rotation).data);
-		if (!until(10s, [&] { return houseEdits(client.since(from)).size() >= 2 && !ofName(client.since(from), "SM_HOUSE_OBJECT").empty(); }))
-			throw std::runtime_error(std::string(label) + ": the spawn's SM_HOUSE_EDIT(5) + SM_HOUSE_OBJECT + SM_HOUSE_EDIT(4) did not arrive");
-		const std::vector<decoders::HouseEdit> edits = houseEdits(client.since(from));
-		EXPECT_EQ(edits[0].action, 5) << label;
-		EXPECT_EQ(edits[1].action, 4) << label << ": CM_HOUSE_EDIT.java:59, SM_HOUSE_EDIT(4, 1, objId) after the spawn";
-		EXPECT_EQ(edits[1].objectId, added.objectId) << label;
-		return std::make_pair(added, edits[0]);
-	};
-
-	const auto itemCount = [&](ScenarioClient& client, int32_t itemId) {
-		client.model.sync();
-		int64_t n = 0;
-		for (const ModelItem& item : client.model.byItemId(itemId))
-			n += item.count;
-		return n;
-	};
-	int32_t aBed = 0, aCake = 0, aWallpaper = 0, cCake = 0;
-	const std::string studioAddress = std::to_string(2001);
 
 	// ---- C13: the studio by quest ----
 	const HousingAnswer::Spot& parrine = housing.npc(PARRINE);
@@ -2297,7 +2446,14 @@ void runM5hGate() {
 				"SELECT item_unique_id, x, y, area FROM player_registered_items WHERE player_id = " + std::to_string(ca.playerId) +
 					" ORDER BY item_unique_id",
 				4);
-			return registered.size() == 3;
+			// three rows with the bed at its moved place: an earlier store may have left the rows of the spawn (C16), so the poll waits for the
+			// destroy's save (HouseController.onDespawn) rather than for the first three rows
+			if (registered.size() != 3)
+				return false;
+			for (const auto& row : registered)
+				if (std::stoi(row[0].value_or("0")) == bedObject && std::abs(std::stod(row[1].value_or("0")) - bedMoved[0]) > 0.01)
+					return false;
+			return true;
 		});
 		ASSERT_EQ(registered.size(), 3u) << "HouseController.onDespawn saved the registry: the bed, the cake and the wallpaper";
 		for (const auto& row : registered) {
@@ -2332,7 +2488,7 @@ void runM5hGate() {
 			}
 			cakeSeen |= info.objectId == cakeObject;
 		}
-		EXPECT_TRUE(bedSeen) << "the bed re-spawned from the in-memory registry";
+		EXPECT_TRUE(bedSeen) << "the bed re-spawned where it was moved: the registry reloaded from the database (the owner's option 2, 2026-10-10)";
 		EXPECT_TRUE(cakeSeen);
 		bool wallpaper = false;
 		for (const Packet& packet : ofName(arrival, "SM_HOUSE_RENDER")) {
@@ -2416,6 +2572,103 @@ void runM5hGate() {
 		EXPECT_EQ(count("SELECT COUNT(*) FROM legion_history h JOIN legions l ON l.id = h.legion_id WHERE h.history_type = 'KICK' AND l.name = '" +
 		                legionName + "'"),
 			2) << "the leave and the kick each write a KICK";
+	});
+
+	// ---- C22: disband ----
+	runCase("C22", "disband: A empties the warehouse at Pauton, asks Losadis to disband, recreates, disbands again; the lazy disband at A's login", [&] {
+		disconnect(a);
+		settle();
+		// Y9's last row: the warehouse stored with its legion (inventory rows owned by the legion id, location 3)
+		const std::string legionOfA = "(SELECT id FROM legions WHERE name = '" + legionName + "')";
+		EXPECT_EQ(count("SELECT COUNT(*) FROM inventory WHERE item_location = " + std::to_string(LEGION_WAREHOUSE) + " AND item_id = " +
+		                std::to_string(LEGION_STORABLE_ITEM) + " AND item_owner = " + legionOfA),
+			1);
+		EXPECT_EQ(count("SELECT item_count FROM inventory WHERE item_location = " + std::to_string(LEGION_WAREHOUSE) + " AND item_id = " +
+		                std::to_string(KINAH_ITEM) + " AND item_owner = " + legionOfA),
+			1000);
+
+		// A last left the game inside its studio (C19): out of it, to Pauton
+		const HousingAnswer::Spot& pauton = housing.npc(PAUTON);
+		const std::array<float, 3> pautonSpot = pointNear(pauton.x, pauton.y, pauton.z, TALK_DISTANCE, pauton.x + 10.0f, pauton.y);
+		seedPosition(ca, SANCTUM, pautonSpot[0], pautonSpot[1], pautonSpot[2]);
+		database.execute(schema, "UPDATE players SET world_owner = 0 WHERE id = " + std::to_string(ca.playerId));
+		enterAs(servers, a, ca);
+		settle();
+		const int64_t kinahBefore = a.model.kinah();
+		auto from = a.mark();
+		const int32_t pautonObject = openWarehouse(a);
+		ASSERT_TRUE(until(10s, [&] { return !ofName(a.since(from), "SM_DIALOG_WINDOW").empty(); }));
+		from = a.mark();
+		a.game->send(CM_LEGION_WH_KINAH, Body().Q(1000).C(0).data);
+		ASSERT_TRUE(until(10s, [&] { return !historyActions(a.since(from)).empty(); }));
+		settle();
+		EXPECT_EQ(historyActions(a.since(from)).front().first, legion.historyActions.at("KINAH_WITHDRAW"));
+		EXPECT_EQ(historyActions(a.since(from)).front().second, "1000");
+		EXPECT_EQ(a.model.kinah(), kinahBefore + 1000);
+		from = a.mark();
+		a.game->send(CM_MOVE_ITEM, Body().D(warehouseItem).C(LEGION_WAREHOUSE).C(0).H(-1).data);
+		ASSERT_TRUE(until(10s, [&] { return !historyActions(a.since(from)).empty(); }));
+		settle();
+		EXPECT_EQ(historyActions(a.since(from)).front().first, legion.historyActions.at("ITEM_WITHDRAW"));
+		EXPECT_TRUE(a.model.byObjectId(warehouseItem)) << "the item back in A's cube";
+		a.game->send(CM_CLOSE_DIALOG, Body().D(pautonObject).data);
+		settle();
+
+		// to Losadis, the legion npc of the disband
+		disconnect(a);
+		const HousingAnswer::Spot& losadis = housing.npc(LOSADIS);
+		const std::array<float, 3> losadisSpot = pointNear(losadis.x, losadis.y, losadis.z, TALK_DISTANCE, losadis.x + 10.0f, losadis.y);
+		seedPosition(ca, SANCTUM, losadisSpot[0], losadisSpot[1], losadisSpot[2]);
+		enterAs(servers, a, ca);
+		settle();
+		const int32_t losadisObject = requireNpc(a, LOSADIS, losadis.x, losadis.y);
+		a.game->send(GameSession::CM_SHOW_DIALOG, GameSession::buildCM_SHOW_DIALOG(losadisObject));
+		settle();
+		const auto ask = [&](int32_t dialogAction, const std::string& question) {
+			const size_t asked = a.mark();
+			a.game->send(GameSession::CM_DIALOG_SELECT, GameSession::buildCM_DIALOG_SELECT(losadisObject, dialogAction));
+			if (!until(10s, [&] { return !ofName(a.since(asked), "SM_QUESTION_WINDOW").empty(); }))
+				throw std::runtime_error("C22: no " + question + " after dialog " + std::to_string(dialogAction));
+			EXPECT_EQ(decoders::decodeQuestionWindow(ofName(a.since(asked), "SM_QUESTION_WINDOW")[0].data).code, legion.questions.at(question));
+			const size_t answered = a.mark();
+			a.game->send(GameSession::CM_QUESTION_RESPONSE, GameSession::buildCM_QUESTION_RESPONSE(legion.questions.at(question), GameSession::ANSWER_YES));
+			until(10s, [&] { return !ofName(a.since(answered), "SM_LEGION_EDIT").empty(); });
+			settle();
+			return a.since(answered);
+		};
+		// disband: the time is now + gameserver.legion.disbandtime (5 s)
+		const int64_t now = std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now().time_since_epoch()).count();
+		std::vector<Packet> answer = ask(DISPERSE_LEGION, "STR_GUILD_DISPERSE_STAYMODE");
+		const std::vector<decoders::LegionEdit> disbanding = legionEdits(answer, 0x06);
+		ASSERT_EQ(disbanding.size(), 1u) << "updateMembersOfDisbandLegion's SM_LEGION_EDIT(0x06, t)";
+		EXPECT_NEAR(static_cast<double>(disbanding[0].unixTime), static_cast<double>(now + 5), 1.5) << "LegionConfig.LEGION_DISBAND_TIME";
+		std::optional<decoders::LegionUpdateMember> notice;
+		for (const decoders::LegionUpdateMember& update : legionUpdatesOf(answer, ca.playerId))
+			if (update.messageId == 1300303)
+				notice = update;
+		ASSERT_TRUE(notice) << "SM_LEGION_UPDATE_MEMBER(A, 1300303, t)";
+		EXPECT_EQ(notice->text, std::to_string(disbanding[0].unixTime));
+		// recreate: the broadcast SM_LEGION_EDIT(0x07), then the member's pair (LegionService.java:462-467, 504-505)
+		answer = ask(RECREATE_LEGION, "STR_GUILD_DISPERSE_STAYMODE_CANCEL");
+		std::vector<std::string> order;
+		for (const Packet& packet : answer) {
+			if (packet.name == "SM_LEGION_EDIT" && decoders::decodeLegionEdit(packet.data).type == 0x07)
+				order.push_back("EDIT(0x07)");
+			else if (packet.name == "SM_LEGION_UPDATE_MEMBER" && decoders::decodeLegionUpdateMember(packet.data).messageId == 1300307)
+				order.push_back("UPDATE_MEMBER(1300307)");
+		}
+		EXPECT_EQ(join(order), "EDIT(0x07), UPDATE_MEMBER(1300307), EDIT(0x07)");
+		EXPECT_EQ(count("SELECT COUNT(*) FROM legions WHERE name = '" + legionName + "'"), 1);
+		// disband again, wait past the time; the next lookup of the legion (A's login) disbands it
+		ask(DISPERSE_LEGION, "STR_GUILD_DISPERSE_STAYMODE");
+		drainAll(6500ms);
+		disconnect(a);
+		const std::vector<Packet> burst = enterAs(servers, a, ca);
+		settle();
+		EXPECT_TRUE(ofName(burst, "SM_LEGION_INFO").empty()) << "no legion in A's enter world";
+		EXPECT_FALSE(a.since(0).empty());
+		EXPECT_EQ(count("SELECT COUNT(*) FROM legions WHERE name = '" + legionName + "'"), 0) << "deleteLegionFromDB";
+		EXPECT_EQ(count("SELECT COUNT(*) FROM legion_members WHERE player_id = " + std::to_string(ca.playerId)), 0);
 	});
 
 	std::optional<int32_t> gameServerExit;

@@ -234,5 +234,38 @@ TEST(HousingDecodersTest, LegionUpdateMemberCarriesTheMap) {
 	expectExactLength(w.data, [](std::span<const uint8_t> b) { return decodeLegionUpdateMember(b); }, "SM_LEGION_UPDATE_MEMBER");
 }
 
+TEST(HousingDecodersTest, LegionEditOfTheWarehouseAndTheDisband) {
+	PacketWriter kinah;
+	kinah.C(0x04).Q(1000);
+	EXPECT_EQ(decodeLegionEdit(kinah.data).value, 1000);
+	expectExactLength(kinah.data, [](std::span<const uint8_t> b) { return decodeLegionEdit(b); }, "SM_LEGION_EDIT(0x04)");
+	PacketWriter disband;
+	disband.C(0x06).D(1700000005);
+	EXPECT_EQ(decodeLegionEdit(disband.data).unixTime, 1700000005);
+	PacketWriter recover;
+	recover.C(0x07);
+	EXPECT_EQ(decodeLegionEdit(recover.data).type, 0x07);
+	EXPECT_THROW(decodeLegionEdit(std::vector<uint8_t>{0x07, 0}), DecodeError);
+	PacketWriter permissions;
+	permissions.C(0x02).H(0x1E0C).H(0x1E08).H(0x1800).H(0x800);
+	EXPECT_EQ(decodeLegionEdit(permissions.data).masks, (std::vector<int32_t>{0x1E0C, 0x1E08, 0x1800, 0x800}));
+}
+
+TEST(HousingDecodersTest, LegionHistoryOfAWarehouseDeposit) {
+	PacketWriter w;
+	w.D(2).D(0).D(1).D(1700000000).C(17).C(0);
+	fixedString(w, "Legionfounder", 32);
+	fixedString(w, "1000", 32);
+	w.H(0).H(2);
+	const LegionHistory history = decodeLegionHistory(w.data);
+	EXPECT_EQ(history.total, 2);
+	ASSERT_EQ(history.entries.size(), 1u);
+	EXPECT_EQ(history.entries[0].actionId, 17);
+	EXPECT_EQ(history.entries[0].name, "Legionfounder");
+	EXPECT_EQ(history.entries[0].description, "1000");
+	EXPECT_EQ(history.type, 2);
+	expectExactLength(w.data, [](std::span<const uint8_t> b) { return decodeLegionHistory(b); }, "SM_LEGION_HISTORY");
+}
+
 } // namespace
 } // namespace aion::gameserver::scenario::decoders
