@@ -1,0 +1,15 @@
+{
+ "format": "aion-quest-trace",
+ "version": 1,
+ "questId": 1947,
+ "java": "sanctum/_1947ALuckyDay.java",
+ "class": "_1947ALuckyDay",
+ "javaSha256": "3c25958f39bd8b8f24b281ef27e1e356db9d5c5d9f0513e92c9d4918f2a850fb",
+ "register": [
+  {"npc": 203795, "event": "addOnQuestStart", "args": [1947]},
+  {"npc": 203795, "event": "addOnTalkEvent", "args": [1947]},
+  {"npc": 798012, "event": "addOnTalkEvent", "args": [1947]}
+ ],
+ "hooks": [{"hook": "onDialogEvent", "line": 30, "unsupported": "call qs.getQuestVars().getQuestVars()"}],
+ "cases": []
+}

@@ -2048,6 +2048,32 @@ const std::map<std::string, std::string>& knownVacuous() {
 		{"28405 onDialogEvent#15", REWARD_DIALOG_IDLE},
 		{"28405 onDialogEvent#16", REWARD_DIALOG_IDLE},
 		{"4937 onDialogEvent#38", ITEM_CHECK_FALSE},
+		// chunk Q11 (lane C, 2026-10-08): sendQuestEndDialog in a state or with an action the path read that it does not act on (3210 #6: no
+		// state at all), and 3210's two kill helpers assumed false
+		{"1909 onDialogEvent#17", IDLE_END},
+		{"1909 onDialogEvent#18", IDLE_END},
+		{"1928 onDialogEvent#19", IDLE_END},
+		{"1928 onDialogEvent#20", IDLE_END},
+		{"1935 onDialogEvent#5", IDLE_END},
+		{"1936 onDialogEvent#7", IDLE_END},
+		{"1936 onDialogEvent#8", IDLE_END},
+		{"1937 onDialogEvent#18", IDLE_END},
+		{"3210 onDialogEvent#6", IDLE_END},
+		{"3210 onDialogEvent#13", IDLE_END},
+		{"3210 onDialogEvent#15", IDLE_END},
+		{"3210 onDialogEvent#23", IDLE_END},
+		{"3210 onDialogEvent#24", IDLE_END},
+		{"3210 onDialogEvent#25", IDLE_END},
+		{"3966 onDialogEvent#5", IDLE_END},
+		{"3966 onDialogEvent#6", IDLE_END},
+		{"3966 onDialogEvent#8", IDLE_END},
+		{"3966 onDialogEvent#9", IDLE_END},
+		{"3968 onDialogEvent#5", IDLE_END},
+		{"3968 onDialogEvent#6", IDLE_END},
+		{"3968 onDialogEvent#7", IDLE_END},
+		{"3968 onDialogEvent#9", IDLE_END},
+		{"3968 onDialogEvent#11", IDLE_END},
+		{"3210 onKillEvent#3", KILLS_ASSUMED_FALSE},
 		};
 		// P6-Q slice 2 (Q10): the altgard and pandaemonium traces (GoldenKnownVacuousQ10.h)
 		for (const auto& [key, kind] : Q10_VACUOUS) {
@@ -2084,11 +2110,15 @@ const std::map<std::string, std::string>& knownUnported() {
  * (QuestService.checkStartConditions; onCanAct's Object parameter), 3217, 3219, 3220, 4208, 4217, 4219, 4220 (an empty register(), no hook),
  * miragent_holy_templar 3939 (tryDecreaseKinah), 3940 (the packed getQuestVars().getQuestVars()), rentus_base 30553 (npc.getController()).
  * Chunk Q13 (lane C): fenris_fang 4943 (tryDecreaseKinah), 4944 (the packed getQuestVars().getQuestVars()), greater_stigma 30217, 30317
- * (spawnForFiveMinutesInFrontOf), black_cloud_traders 39505, 39510, 39515, 39520 (getController(); Rnd.chance in the kill hook)
+ * (spawnForFiveMinutesInFrontOf), black_cloud_traders 39505, 39510, 39515, 39520 (getController(); Rnd.chance in the kill hook).
+ * Chunk Q11 (lane C): sanctum 1900, 1917, 1932, 1938, 1963, 1964 (a status read after sendQuestNoneDialog), 1901, 3961-3964
+ * (tryDecreaseKinah), 1926 (TeleportService.teleportTo), 1947 (the packed getQuestVars().getQuestVars()), 3908 (spawn), 80291, 80295
+ * (getEquipment); daevanion 1989, 2989 (PlayerCommonData.getDp), 1993, 1994, 2993, 2994 (a for loop the oracle does not unroll)
  */
 constexpr int32_t ORACLE_REFUSES_EVERY_HOOK[] = {1205, 2132, 1640, 1647, 2925, 2938, 2952, 4966, 4967, 4968, 4969, 21004, 21027, 21033, 21036,
 	21071, 21105, 21249, 25052, 2798, 11031, 11032, 11033, 11053, 11118, 3208, 3217, 3219, 3220, 4208, 4217, 4219, 4220, 3939, 3940, 30553,
-	4943, 4944, 30217, 30317, 39505, 39510, 39515, 39520};
+	4943, 4944, 30217, 30317, 39505, 39510, 39515, 39520,
+	1900, 1901, 1917, 1926, 1932, 1938, 1947, 1963, 1964, 1989, 1993, 1994, 2989, 2993, 2994, 3908, 3961, 3962, 3963, 3964, 80291, 80295};
 
 TEST_F(GoldenQuestTraceTest, EveryExpectedDocumentHasAGeneratedHandlerAndEveryHandlerADocument) {
 	std::vector<int32_t> ids = expectedQuestIds();

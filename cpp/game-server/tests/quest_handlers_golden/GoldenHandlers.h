@@ -15,6 +15,7 @@
 // Chunk Q14 (the same lane and day): the 74 generated handlers of the instance directories K-W (GoldenQ14Handlers.cpp; docs/deviations/Q14.md),
 // 91 since the owner's decisions of 2026-10-07 (the 15 mentor dailies and pangaea 14220/24220).
 // Chunk Q13 (lane C, 2026-10-07): the 87 generated handlers of the instance directories A-K (GoldenQ13Handlers.cpp; docs/deviations/Q13.md).
+// Chunk Q11 (lane C, 2026-10-08): 71 generated handlers of daevanion and sanctum (GoldenQ11Handlers.cpp; docs/deviations/Q11.md).
 //
 // P6-Q slice 2, chunk Q03 (2026-09-29): the 72 generated verteron and heiron handlers in the tree (the zones the route's dispatches end in),
 // compiled into this executable by #include as well (GoldenQ03Handlers.cpp); Q03's hand ports 1643 and 3200 have their own unit cases
@@ -442,6 +443,41 @@
 	X(charlirunerks_daemons, _48002CharlirunerksDaemonsWantYou, 48002) \
 	X(clash_of_destiny, _24030ShowdownWithDestiny, 24030) \
 	X(clash_of_destiny, _24031EnemyAtTheDoorstep, 24031) \
+	X(daevanion, _19631CoastalCrush, 19631) \
+	X(daevanion, _19632CascadeCritters, 19632) \
+	X(daevanion, _19633AlisaryAssistance, 19633) \
+	X(daevanion, _19634FurtherAidforAlisary, 19634) \
+	X(daevanion, _19635SouthernQuell, 19635) \
+	X(daevanion, _19636FinalStabilization, 19636) \
+	X(daevanion, _19637OnboardforOne, 19637) \
+	X(daevanion, _19638TroublewithTwos, 19638) \
+	X(daevanion, _19639TreesandThrees, 19639) \
+	X(daevanion, _19640FlyingthroughFour, 19640) \
+	X(daevanion, _19641FidgetyFives, 19641) \
+	X(daevanion, _19642SuccessforSix, 19642) \
+	X(daevanion, _1988AMeetingWithASage, 1988) \
+	X(daevanion, _1989ASagesTeachings, 1989) \
+	X(daevanion, _1993AnotherBeginning, 1993) \
+	X(daevanion, _1994ANewChoice, 1994) \
+	X(daevanion, _29631GlugGlugGlug, 29631) \
+	X(daevanion, _29632SweepingNahorLake, 29632) \
+	X(daevanion, _29633StabilizetheSaplands, 29633) \
+	X(daevanion, _29634ScaredSkurvs, 29634) \
+	X(daevanion, _29635BeachDay, 29635) \
+	X(daevanion, _29636BacktoSurt, 29636) \
+	X(daevanion, _29637TroubleNotTrivial, 29637) \
+	X(daevanion, _29638NotSoSweet, 29638) \
+	X(daevanion, _29639MonstersUnholy, 29639) \
+	X(daevanion, _29640FinalKrugClearing, 29640) \
+	X(daevanion, _29641MoveAlongNow, 29641) \
+	X(daevanion, _29642GoodOnGelkmaros, 29642) \
+	X(daevanion, _2988TheWiseInDisguise, 2988) \
+	X(daevanion, _2989CeremonyOfTheWise, 2989) \
+	X(daevanion, _2990MakingTheDaevanionWeapon, 2990) \
+	X(daevanion, _2993AnotherBeginning, 2993) \
+	X(daevanion, _2994ANewChoice, 2994) \
+	X(daevanion, _80291DurableDaevanionWeapon, 80291) \
+	X(daevanion, _80295DurableDaevanionWeapon, 80295) \
 	X(danuar_sanctuary, _16985ChirTreasureRobbers, 16985) \
 	X(danuar_sanctuary, _16987SeekOuttheCorridor, 16987) \
 	X(danuar_sanctuary, _26985GraveyardTreasure, 26985) \
@@ -536,6 +572,42 @@
 	X(rentus_base, _30550MomentOfCrisis, 30550) \
 	X(rentus_base, _30553ComradesInArms, 30553) \
 	X(rentus_base, _30554SavingPrivatePaios, 30554) \
+	X(sanctum, _19004PeriklessInsight, 19004) \
+	X(sanctum, _1900RingImbuedAether, 1900) \
+	X(sanctum, _1901KrallicPotion, 1901) \
+	X(sanctum, _19047JustBetweenMeAndFasimedes, 19047) \
+	X(sanctum, _19048AndreasTeachings, 19048) \
+	X(sanctum, _1908UlaguruSpeaks, 1908) \
+	X(sanctum, _1909ASongOfPraise, 1909) \
+	X(sanctum, _1917ALingeringMystery, 1917) \
+	X(sanctum, _1918AnAxForNamus, 1918) \
+	X(sanctum, _1926SecretLibraryAccess, 1926) \
+	X(sanctum, _1928ChasingaCriminal, 1928) \
+	X(sanctum, _1932AMatterOfReputation, 1932) \
+	X(sanctum, _1935TissueIDontEvenKnowYou, 1935) \
+	X(sanctum, _1936WhatNerisonSaw, 1936) \
+	X(sanctum, _1937ALepharistMonstrosity, 1937) \
+	X(sanctum, _1938BlackCloudFakery, 1938) \
+	X(sanctum, _1940WingsofMastery, 1940) \
+	X(sanctum, _1947ALuckyDay, 1947) \
+	X(sanctum, _1948WheresVindachinerk, 1948) \
+	X(sanctum, _1963DeliveryfortheOuterPort, 1963) \
+	X(sanctum, _1964ASouvenirForNoris, 1964) \
+	X(sanctum, _1987ABiggerWarehouse, 1987) \
+	X(sanctum, _3210RescueHaorunerk, 3210) \
+	X(sanctum, _3908ToMastertheDragon, 3908) \
+	X(sanctum, _3913ASecretSummons, 3913) \
+	X(sanctum, _3920TheSecretOfSurkana, 3920) \
+	X(sanctum, _3961GrowthFlorasFirstCharm, 3961) \
+	X(sanctum, _3962GrowthFlorasSecondCharm, 3962) \
+	X(sanctum, _3963GrowthFlorasThirdCharm, 3963) \
+	X(sanctum, _3964GrowthFlorasFourthCharm, 3964) \
+	X(sanctum, _3965TotheGalleriaofGrandeur, 3965) \
+	X(sanctum, _3966SaluteANewUniform, 3966) \
+	X(sanctum, _3967AndusDyeBox, 3967) \
+	X(sanctum, _3968PalentinesRequest, 3968) \
+	X(sanctum, _3969SexiestManAlive, 3969) \
+	X(sanctum, _3970KinahDiggingDaughter, 3970) \
 	X(sauro_supply_base, _18910TheSauroSupplyBase, 18910) \
 	X(sauro_supply_base, _28910AStabbingInSauro, 28910) \
 	X(shugo_imperial_tomb, _80275EventEmpiresPast, 80275) \

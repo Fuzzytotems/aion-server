@@ -1,0 +1,15 @@
+{
+ "format": "aion-quest-trace",
+ "version": 1,
+ "questId": 3908,
+ "java": "sanctum/_3908ToMastertheDragon.java",
+ "class": "_3908ToMastertheDragon",
+ "javaSha256": "b8766f5f5870be74c577d3aaaf6ab5ef2434117979e4096ab1323721b1fd6c0f",
+ "register": [
+  {"npc": 798316, "event": "addOnQuestStart", "args": [3908]},
+  {"npc": 798316, "event": "addOnTalkEvent", "args": [3908]},
+  {"npc": 700515, "event": "addOnTalkEvent", "args": [3908]}
+ ],
+ "hooks": [{"hook": "onDialogEvent", "line": 28, "unsupported": "call spawn"}],
+ "cases": []
+}
