@@ -1,6 +1,10 @@
 #include "aion/gameserver/services/panesterra/ahserion/PanesterraTeam.h"
 
-#include "aion/gameserver/runtime/base/Unported.h"
+#include "aion/gameserver/model/Race.h"
+#include "aion/gameserver/model/gameobjects/player/Player.h"
+#include "aion/gameserver/runtime/base/Exceptions.h"
+#include "aion/gameserver/services/teleport/TeleportService.h"
+#include "aion/gameserver/world/World.h"
 #include "aion/gameserver/services/panesterra/ahserion/PanesterraFaction.h"
 #include "aion/gameserver/world/WorldPosition.h"
 
@@ -90,36 +94,79 @@ runtime::Ref<PanesterraTeam> PanesterraTeam::create(PanesterraFaction value) {
 	return runtime::makeRef<PanesterraTeam>(value);
 }
 
+// Java PanesterraTeam.java:65-70
 void PanesterraTeam::moveTeamMembersToOriginPosition() {
-	AION_UNPORTED();
+	forEachMember([this](model::gameobjects::player::Player& player) {
+		if (player.getWorldId() == 400030000)
+			movePlayerToOriginPosition(player);
+	});
 }
 
+// Java PanesterraTeam.java:72-78
 void PanesterraTeam::forEachMember(const std::function<void(model::gameobjects::player::Player&)>& consumer) {
-	AION_UNPORTED();
+	for (int32_t playerId : teamMembers.snapshot()) {
+		runtime::Ptr<model::gameobjects::player::Player> player = world::World::getInstance().getPlayer(playerId);
+		if (player)
+			consumer(*player);
+	}
 }
 
+// Java PanesterraTeam.java:80-91
 void PanesterraTeam::movePlayerToOriginPosition(model::gameobjects::player::Player& player) {
-	AION_UNPORTED();
+	runtime::Ptr<world::WorldPosition> targetPosition;
+	switch (faction) {
+		case PanesterraFaction::BELUS:
+		case PanesterraFaction::ASPIDA:
+		case PanesterraFaction::ATANATOS:
+		case PanesterraFaction::DISILLON:
+			targetPosition = originPosition;
+			break;
+		default:
+			switch (player.getRace()) {
+				case model::Race::ELYOS:
+					targetPosition = ELYOS_ORIGIN_POS;
+					break;
+				case model::Race::ASMODIANS:
+					targetPosition = ASMO_ORIGIN_POS;
+					break;
+				default:
+					break;
+			}
+			break;
+	}
+	if (targetPosition)
+		services::teleport::TeleportService::teleportTo(player, *targetPosition);
 }
 
+// Java PanesterraTeam.java:93-95
 void PanesterraTeam::movePlayerToStartPosition(model::gameobjects::player::Player& player) {
-	AION_UNPORTED();
+	if (!startPosition) // Java: TeleportService.teleportTo(player, null) dereferences it
+		throw runtime::NullPointerException("PanesterraTeam.startPosition of PEACE/BALAUR");
+	services::teleport::TeleportService::teleportTo(player, *startPosition);
 }
 
+// Java PanesterraTeam.java:97-101
 void PanesterraTeam::addTeamMemberIfAbsent(int32_t playerId) {
-	AION_UNPORTED();
+	if (teamMembers.contains(playerId))
+		return;
+	teamMembers.add(playerId);
 }
 
+// Java PanesterraTeam.java:103-105
 bool PanesterraTeam::isTeamMember(int32_t playerId) {
-	AION_UNPORTED();
+	return teamMembers.contains(playerId);
 }
 
+// Java PanesterraTeam.java:107-110. Java bug kept: teamMembers.remove(playerId) with an int is List.remove(int index), so a member's object id
+// is taken as an index - an IndexOutOfBoundsException for any real id (proposed correction: remove(Integer.valueOf(playerId)), P5-12b.md)
 void PanesterraTeam::removeTeamMember(int32_t playerId) {
-	AION_UNPORTED();
+	if (teamMembers.contains(playerId))
+		teamMembers.removeAt(playerId);
 }
 
+// Java PanesterraTeam.java:124-126
 int32_t PanesterraTeam::getMemberCount() {
-	AION_UNPORTED();
+	return teamMembers.size();
 }
 
 PanesterraTeam::~PanesterraTeam() = default;

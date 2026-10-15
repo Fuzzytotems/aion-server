@@ -735,6 +735,18 @@ aion_gs_chunk(P5-11 LEASE PHASE 5 ROOT handlers
 aion_gs_chunk(P5-12a LEASE PHASE 5
 	GLOBS "aion/gameserver/network/aion/serverpackets/{SM_INFLUENCE_RATIO,SM_FORTRESS_STATUS}.cpp")
 
+# I-10 of M5i (granted 2026-10-14): P5-12b2 leases C1's handlers/admincommands/VortexRaid.* (//vortexraid). Released when the lane merges.
+aion_gs_chunk(P5-12b2 LEASE PHASE 5 ROOT handlers
+	GLOBS "aion/gameserver/handlers/admincommands/VortexRaid.*")
+
+# I-9 of M5i (granted 2026-10-14): P5-12b3 leases P5-11's LegionDominionService.*, model/legionDominion/LegionDominionLocation.*, LegionService.cpp
+# (joinLegionDominion only) and the new taskmanager/tasks/LegionDominionIntruderUpdateTask.*, and P5-16's new CM_LEGION_DOMINION_REQUEST_RANKING.*
+# (the Legion Dominion share, m5i-plan.md LD-01, D14). Lane A's LegionDominionScore and its writer stay theirs. Released when the lane merges.
+aion_gs_chunk(P5-12b3 LEASE PHASE 5
+	GLOBS "aion/gameserver/services/LegionDominionService.*" "aion/gameserver/services/LegionService.cpp" "aion/gameserver/model/legionDominion/LegionDominionLocation.*"
+		"aion/gameserver/taskmanager/tasks/LegionDominionIntruderUpdateTask.*"
+		"aion/gameserver/network/aion/clientpackets/CM_LEGION_DOMINION_REQUEST_RANKING.*")
+
 # I-8 of M5i (granted 2026-10-14): P5-12b1 leases A1's handlers/ai/siege/{BaseProtectorAI,FlagBaseNpcAI}.* ("base_protector", "base_flag") and
 # C1's handlers/admincommands/BaseCommand.* (//base). FlagNpcAI ("flag") stays lane A's. Released when the lane merges.
 aion_gs_chunk(P5-12b1 LEASE PHASE 5 ROOT handlers

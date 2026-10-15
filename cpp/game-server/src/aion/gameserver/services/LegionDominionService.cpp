@@ -25,7 +25,12 @@
 #include "aion/gameserver/model/legionDominion/LegionDominionLocation.h"
 #include "aion/gameserver/model/legionDominion/LegionDominionParticipantInfo.h"
 #include "aion/gameserver/model/templates/LegionDominionLocationTemplate.h"
-#include "aion/gameserver/runtime/base/Unported.h"
+#include "aion/gameserver/model/Race.h"
+#include "aion/gameserver/model/templates/LegionDominionInvasionRift.h"
+#include "aion/gameserver/network/aion/serverpackets/SM_SYSTEM_MESSAGE.h"
+#include "aion/gameserver/services/RiftService.h"
+#include "aion/gameserver/utils/ThreadPoolManager.h"
+#include "aion/gameserver/utils/time/ServerTime.h"
 
 namespace aion::gameserver::services {
 
@@ -68,12 +73,29 @@ runtime::Ptr<model::legionDominion::LegionDominionLocation> LegionDominionServic
 	return legionDominionLocations.get(locId);
 }
 
+// Java LegionDominionService.java:55-57
 bool LegionDominionService::join(int32_t legionId, int32_t locId) {
-	AION_UNPORTED();
+	runtime::Ptr<model::legionDominion::LegionDominionLocation> loc = legionDominionLocations.get(locId);
+	if (!loc)
+		throw runtime::NullPointerException("LegionDominionLocation " + std::to_string(locId)); // Java: get(locId).join on null
+	return loc->join(legionId);
 }
 
+// Java LegionDominionService.java:59-73
 void LegionDominionService::onFinishInstance(runtime::Ptr<model::team::legion::Legion> legion, int32_t points, int64_t time) {
-	AION_UNPORTED();
+	if (legion) {
+		runtime::Ptr<model::legionDominion::LegionDominionLocation> loc = getLegionDominionLoc(legion->getCurrentLegionDominion());
+		if (loc) {
+			runtime::Ptr<model::legionDominion::LegionDominionParticipantInfo> info = loc->getParticipantInfo(legion->getLegionId());
+			if (info && info->getPoints() < points) {
+				info->setDate(commons::database::Timestamp(std::chrono::milliseconds(commons::utils::currentTimeMillis())));
+				info->setPoints(points);
+				info->setTime(static_cast<int32_t>(time / 1000));
+				dao::LegionDominionDAO::updateInfo(*info);
+				loc->updateRanking();
+			}
+		}
+	}
 }
 
 void LegionDominionService::startWeeklyCalculation() {
@@ -161,13 +183,38 @@ void LegionDominionService::updateLegionOccupation(runtime::Ptr<model::team::leg
 	utils::PacketSendUtility::broadcastToLegion(*legion, network::aion::serverpackets::SM_LEGION_INFO(*legion));
 }
 
+// Java LegionDominionService.java:167-170
 bool LegionDominionService::isInCalculationTime() {
-	AION_UNPORTED();
+	const auto now = utils::time::ServerTime::now().get_local_time();
+	const std::chrono::local_days day = std::chrono::floor<std::chrono::days>(now);
+	const int64_t hour = std::chrono::hh_mm_ss(now - day).hours().count();
+	return std::chrono::weekday(day) == std::chrono::Wednesday && hour >= 8 && hour <= 10;
 }
 
 // callback at LegionDominionService.java:188 (fieldmap key LegionDominionService@L188:45)
+// Java LegionDominionService.java:172-194
 bool LegionDominionService::openInvasionRift(int32_t territoryId) {
-	AION_UNPORTED();
+	runtime::Ptr<model::legionDominion::LegionDominionLocation> location = getLegionDominionLoc(territoryId);
+	if (!location || location->getInvasionRift() == nullptr)
+		return false;
+	const model::templates::LegionDominionInvasionRift* invasionRift = location->getInvasionRift();
+	if (isInCalculationTime())
+		return false;
+	if (RiftService::getInstance().isRiftOpened(invasionRift->getRiftId()))
+		return false;
+	const bool openedSuccessfully = RiftService::getInstance().openRifts(invasionRift->getRiftId(), false);
+	if (openedSuccessfully) {
+		if (location->getRace() == model::Race::ELYOS) {
+			utils::PacketSendUtility::broadcastToWorld(network::aion::serverpackets::SM_SYSTEM_MESSAGE::STR_MSG_LIGHT_SIDE_LEGION_DIRECT_PORTAL_OPEN());
+		} else {
+			utils::PacketSendUtility::broadcastToWorld(network::aion::serverpackets::SM_SYSTEM_MESSAGE::STR_MSG_DARK_SIDE_LEGION_DIRECT_PORTAL_OPEN());
+		}
+		// Schedule rift close (Java: int arithmetic, getDuration() * 3540 * 1000)
+		const int32_t riftId = invasionRift->getRiftId();
+		utils::ThreadPoolManager::getInstance().schedule(this, [riftId] { RiftService::getInstance().closeRifts(riftId); },
+			static_cast<int64_t>(RiftService::getInstance().getDuration() * 3540 * 1000));
+	}
+	return openedSuccessfully;
 }
 
 } // namespace aion::gameserver::services

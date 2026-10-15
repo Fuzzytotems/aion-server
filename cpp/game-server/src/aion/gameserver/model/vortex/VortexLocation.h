@@ -55,11 +55,12 @@ public:
 
 	const templates::vortex::VortexTemplate* getTemplate() const { return this->template_; }
 
-	runtime::Ptr<world::WorldPosition> getHomePoint();
+	/** Java returns the template point's new WorldPosition: an owning Ref, so a caller can keep it */
+	runtime::Ref<world::WorldPosition> getHomePoint();
 
-	runtime::Ptr<world::WorldPosition> getResurrectionPoint();
+	runtime::Ref<world::WorldPosition> getResurrectionPoint();
 
-	runtime::Ptr<world::WorldPosition> getStartPoint();
+	runtime::Ref<world::WorldPosition> getStartPoint();
 
 	int32_t getId();
 
