@@ -1666,3 +1666,8 @@ without a C++ file; `tools/porting/census.py` for the totals):
 > waits for a read-only stream decision), `//fixpath` (D14), `///teleport_to_named` (a handler-local binder), `.buy` (D12).
 > **Progress:** CP3 done (`lane-a/m5j-s4-cp3`): J13 - the model/instance scores, rewards and positions, the nine score writers (P4-15),
 > SM_INSTANCE_SCORE (P4-16), Npc::queueSkill (P4-11a) and the FFA/Harmony arms (P5-13.md, P5-10e.md); mutation proof 49 of 49, gate green.
+> **Progress:** CP4 done (`lane-a/m5j-s4-cp4`): `//bookmark`, `//collide`, `//spawnu`, `//debug` (the commons `NioServer::snapshotConnections`),
+> `//reload` (config, commands and ai live; the eight static-data arms `AION_UNPORTED`, D3: HolderRef republish and a one-file loader, owner
+> question) and 20 console commands (C1.md, C2.md; gate Z18, P5-SC.md). Out of CP4: `//configure` (it needs the P4-01 describe/field-name
+> change, its own checkpoint), `//send`, `///addskill`, `///combineskill`, `///deleteskill` (handler-local XML, with `///teleport_to_named`),
+> `//cinstance` (D12), D7 (D14). Java corrections proposed: J-S4CP4-1..3 (C2.md).

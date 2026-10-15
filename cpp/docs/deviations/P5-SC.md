@@ -1246,3 +1246,17 @@ switch, one gate_lock call each): `ins-already` and `mto-return`, **2 of 2 kille
 Z17 grows with CP6 parts 2 and 3 (2026-10-11): `//quest 99999 status` ("Invalid quest.", Quest.java:72) and `//dropinfo all` on the //ai
 set base npc (m5j-ais), spawned at G's spot and deleted after: G gets the head line "[<npc>'s drops]" (DropInfo.java:48) and the count
 line "... total drops available in ... drop groups." (:81) on the real drop data. Green.
+
+## M5j stage-4 gate, CP4 (lane A, 2026-10-13): `gs.scenario.m5j` Z18 (m5j-plan.md §18.5 CP4)
+
+Z18 runs after Z17 and before Z14. G (access level 9) types the system commands and waits for each answer (GOLDEN_YELLOW sendInfo texts,
+the Java literals):
+
+- `//bookmark del no such place` (Bookmark.java:31) and `//bookmark deleteAll` (:36), on G's test-database row;
+- `//debug connections` ("Online clients:" head, Debug.java:40) and `//debug connectedPlayers` ("Connected players (" head, :43), from the
+  running client NioServer (`NioServer::snapshotConnections`), and `//debug dcBuggedPlayers` ("No bugged players found.", :55);
+- `//reload ai` (Reload.java:76) and `//reload commands` (:79), after which a reloaded `//bookmark deleteAll` still answers;
+- last, `//reload config` (:82): Z14 and Z13 run on the reloaded configuration, and the -D keys of the gate profile stay.
+
+Green (100 %).
+
