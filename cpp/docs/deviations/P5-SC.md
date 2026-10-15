@@ -1233,3 +1233,16 @@ follows the creator ids. Then green.
 **Mutation proof** (`AION_M5J3GATEMUT`, in the handlers; one gate_lock call per run): BombAI.handleSpawned, SummonerAI.handleSpawned and
 NoInteractionAI.handleBeforeSpawned (reached through `//ai set`) throwing - the §10.4 row's "a handler throwing on handleSpawned". **3 of 3 killed** (Z12 and Z13 fail on
 each); sources restored (sha256, 3 files), rebuilt, the switch absent from the handlers library and the server; the gate re-run green.
+
+## M5j stage-4 gate, CP6 part 1 (lane A, 2026-10-11): `gs.scenario.m5j` Z17 (m5j-plan.md §18.5 CP6)
+
+Z17 runs after Z16 and before Z14; every earlier case runs again in the same run. G (access level 9) types the orphaned M5f commands and
+waits for each answer (GOLDEN_YELLOW sendInfo/sendMessage texts, the Java literals): `//instance open nowhere` (Instance.java:81), `//instance
+close dredgion` while closed (:102, "TERATH_DREDGION" is AutoGroupType.java:27's constant), `//instance open dredgion` twice (:76, :78),
+`//instance close dredgion` (:100), `//goto x` (GoTo.java:46), `//movetoobj abc` (MoveToObject.java:28, :33) and `//moveplayertoplayer x`
+(MovePlayerToPlayer.java:24). The dredgion is closed again before Z14. Green (100 %); **gate mutants** (the unit proof's `AION_S46MUT`
+switch, one gate_lock call each): `ins-already` and `mto-return`, **2 of 2 killed by Z17**; sources restored, rebuilt, the gate re-run green.
+
+Z17 grows with CP6 parts 2 and 3 (2026-10-11): `//quest 99999 status` ("Invalid quest.", Quest.java:72) and `//dropinfo all` on the //ai
+set base npc (m5j-ais), spawned at G's spot and deleted after: G gets the head line "[<npc>'s drops]" (DropInfo.java:48) and the count
+line "... total drops available in ... drop groups." (:81) on the real drop data. Green.
