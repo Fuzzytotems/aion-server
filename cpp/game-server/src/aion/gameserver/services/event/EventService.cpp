@@ -1,5 +1,7 @@
 #include "aion/gameserver/services/event/EventService.h"
 
+#include "aion/gameserver/dao/EventDAO.h"
+
 #include <algorithm>
 #include <memory>
 #include <string>
@@ -209,8 +211,7 @@ void EventService::startOrStopEvents(EventSet& oldActiveEvents, EventSet& newAct
 			if (!oldActiveEvents.contains(newActiveEvent)) {
 				if (!cleanedOldBuffData) {
 					cleanedOldBuffData = true;
-					// Java: EventDAO.deleteOldBuffData(); the event buff data belongs to the events work (plan O-11)
-					AION_UNPORTED();
+					dao::EventDAO::deleteOldBuffData(); // Java EventService.java:157 (M5i I-4)
 				}
 				newActiveEvent->start();
 			}
