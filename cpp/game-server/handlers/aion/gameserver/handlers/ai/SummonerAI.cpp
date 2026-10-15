@@ -64,11 +64,8 @@ void SummonerAI::handleDied() {
 	clearPercentage();
 }
 
-/**
- * Java percentage.clear(). Correction J-S3CP2-2 (owner's decision 2026-10-10, C++ only): before handleSpawned the list is Java's
- * Collections.emptyList() (null here), whose clear() threw UnsupportedOperationException when the npc died or despawned first; there is
- * nothing to clear, so it is skipped.
- */
+/** Java percentage.clear(): before handleSpawned the list is Collections.emptyList(), whose clear() is a no-op (AbstractList.clear ->
+ * removeRange(0, 0)); null here */
 void SummonerAI::clearPercentage() {
 	runtime::Ref<runtime::RcArrayList<const Percentage*>> list = percentage.get();
 	if (list == nullptr)

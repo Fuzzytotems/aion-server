@@ -539,6 +539,8 @@ TEST_F(StageThreeCp2AiTest, SummonerCallsHelpersByHpPercentage) {
 	// Collections.emptyList().clear() threw UnsupportedOperationException
 	EXPECT_NO_THROW(ai.handleDespawned());
 	EXPECT_NO_THROW(ai.handleDied());
+	EXPECT_NO_THROW(ai.handleDied()) << "Java: Collections.emptyList().clear() before the spawn is a no-op";
+	EXPECT_NO_THROW(ai.handleDespawned()) << "the same list on the despawn";
 	ai.handleAttack(nullptr);
 	EXPECT_TRUE(ai.befores.empty()) << "no percentages before the spawn";
 
