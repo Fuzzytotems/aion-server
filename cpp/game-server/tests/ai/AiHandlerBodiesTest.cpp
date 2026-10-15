@@ -11,9 +11,8 @@
 //   WalkManager::stopWalking, ActivateEventHandler::onActivate, ReturningEventHandler::onBackHome, HpPhases::tryEnterNextPhase and
 //   NpcAI::handleSpawned's second call.
 //
-// One of them asserts an exception on purpose, because that is what the tree does today and the assertion is how the gate lane learns it:
-// NpcAI::handleSpawned reaches NpcShoutsService::mayShout (AION_UNPORTED, P5-14) once shouts are switched on; it is noted in the case that
-// asserts it. ReturningEventHandler::onBackHome's EffectController::removeByDispelSlotType is ported since M5b-2 part 2, and its case puts
+// NpcAI::handleSpawned's second call reaches NpcShoutsService (P5-14, ported in M5j stage 1 CP3) once shouts are switched on: its case sees
+// the npc's IDLE shout registered as the SHOUT task. ReturningEventHandler::onBackHome's EffectController::removeByDispelSlotType is ported since M5b-2 part 2, and its case puts
 // ProbeEffect effects (tests/skills/P5-02b/EffectTestSupport.h) on the npc to see the buff of the fight dropped; since part 3 the same case
 // gives the npc a post-spawn probe skill and sees it cast again after the dispel.
 
@@ -49,12 +48,15 @@
 #include "aion/gameserver/controllers/attack/AggroTarget.h"
 #include "aion/gameserver/controllers/effect/EffectController.h"
 #include "aion/gameserver/dataholders/DataManager.h"
+#include "aion/gameserver/dataholders/NpcShoutData.bind.h"
+#include "aion/gameserver/dataholders/NpcShoutData.h"
 #include "aion/gameserver/dataholders/NpcSkillData.bind.h"
 #include "aion/gameserver/dataholders/NpcSkillData.h"
 #include "aion/gameserver/dataholders/SkillData.bind.h"
 #include "aion/gameserver/dataholders/SkillData.h"
 #include "aion/gameserver/dataholders/loadingutils/LoadContext.h"
 #include "aion/gameserver/dataholders/loadingutils/StaticDataLoader.h"
+#include "aion/gameserver/model/TaskId.h"
 #include "aion/gameserver/model/gameobjects/Creature.h"
 #include "aion/gameserver/model/gameobjects/Npc.h"
 #include "aion/gameserver/model/gameobjects/VisibleObject.h"
@@ -651,8 +653,8 @@ TEST_F(AiHandlerBodiesTest, HpPhasesAreEnteredOnceEachInDescendingOrder) {
 TEST_F(AiHandlerBodiesTest, HandleSpawnedRunsTheSpawnHandlerAndThenTheShoutHandler) {
 	AI_TEST_SCOPE;
 	// NpcAI.java:122-125 is two calls, and with the M5b profile's `gameserver.npcshouts.enable=false` the second one is invisible: it asks
-	// AIQuestion.CAN_SHOUT, which short-circuits on the config. Switching shouts on makes it visible, because the other half of CAN_SHOUT is
-	// NpcShoutsService::mayShout, which is AION_UNPORTED (P5-14).
+	// AIQuestion.CAN_SHOUT, which short-circuits on the config. Switching shouts on makes it visible: ShoutEventHandler::onSpawn registers the
+	// npc's IDLE shouts as its SHOUT task (NpcShoutsService.java:34-47).
 	runtime::Ref<Npc> npc = makeWorldNpc(SPARKIE_NPC_ID, 500, 500, 100);
 	HandlerTestAI& ai = installAi<HandlerTestAI>(*npc);
 	ASSERT_FALSE(configs::main::AIConfig::SHOUTS_ENABLE.load()) << "the M5b profile (m5b-plan.md D1)";
@@ -663,15 +665,15 @@ TEST_F(AiHandlerBodiesTest, HandleSpawnedRunsTheSpawnHandlerAndThenTheShoutHandl
 	runtime::Ref<Npc> second = makeWorldNpc(SPARKIE_NPC_ID, 505, 500, 100);
 	HandlerTestAI& secondAi = installAi<HandlerTestAI>(*second);
 	ShoutsEnabledScope shouts(true);
-	runtime::resetUnportedHitsForTests();
-	EXPECT_THROW(secondAi.handleSpawned(), runtime::UnportedException) << "ShoutEventHandler::onSpawn was called";
-	EXPECT_TRUE(secondAi.isInState(AIState::IDLE)) << "and it was called after SpawnEventHandler::onSpawn, not before";
-	bool reachedTheShoutService = false;
-	for (const runtime::UnportedHit& hit : runtime::unportedHits()) {
-		if (hit.hits > 0 && hit.function.find("mayShout") != std::string::npos)
-			reachedTheShoutService = true;
-	}
-	EXPECT_TRUE(reachedTheShoutService);
+	dataholders::DataManager::NPC_SHOUT_DATA.publish(xml::bindString<dataholders::NpcShoutData>(contexts.emplace_back(),
+		"<npc_shouts><shout_group client_ai=\"\"><shout_npcs npc_ids=\"" + std::to_string(SPARKIE_NPC_ID) +
+			"\"><shout string_id=\"1500004\" when=\"IDLE\" poll_delay=\"5000\"/></shout_npcs></shout_group></npc_shouts>"));
+	secondAi.handleSpawned();
+	EXPECT_TRUE(secondAi.isInState(AIState::IDLE)) << "SpawnEventHandler::onSpawn";
+	EXPECT_TRUE(second->getController().hasTask(model::TaskId::SHOUT)) << "ShoutEventHandler::onSpawn was called";
+	EXPECT_FALSE(npc->getController().hasTask(model::TaskId::SHOUT)) << "shouts off: CAN_SHOUT stopped the first npc";
+	second->getController().cancelTask(model::TaskId::SHOUT);
+	dataholders::DataManager::NPC_SHOUT_DATA.resetForTests();
 }
 
 // ---- TalkEventHandler::onTalk ----------------------------------------------------------------------------------------------------------------
