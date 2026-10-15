@@ -12,8 +12,9 @@ using ItemDeleteType = services::item::ItemPacketService_ItemDeleteType;
 using ItemUpdateType = services::item::ItemPacketService_ItemUpdateType;
 
 LegionStorageProxy::LegionStorageProxy(team::legion::LegionWarehouse& storageValue, gameobjects::player::Player& actorValue)
-	: Storage(storageValue.getStorageType(), false), actor(actorValue), storage(static_cast<Storage&>(storageValue)) {
-	bindOwner(actorValue);
+	: Storage(storageValue.getStorageType(), false, actorValue), actor(actorValue), storage(static_cast<Storage&>(storageValue)) {
+	// C++: the owner is bound at construction (Storage's owner constructor): the acting player is published when Player.getStorage creates
+	// the proxy, so bindOwner (before publication only) is not allowed here
 }
 
 LegionStorageProxy::~LegionStorageProxy() = default;
