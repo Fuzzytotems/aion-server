@@ -1725,3 +1725,8 @@ About 3,500 Java lines, ~130 bodies. **Checkpoints** (unit tests in the owning c
 > **Progress:** D12-CP4a done (`lane-a/m5j-d12-cp4`): PvpMapHandler's 39 bodies (P5-13.md). Left of CP4: PvpMapService.init (m5f-plan D6's
 > partial) with its gate run.
 > **Progress:** D12-CP5b done (`lane-a/m5j-d12-cp5b`): //headhunting on Headhunter's declared API (C1.md); D12 is complete on lane A's side.
+> **Progress:** CP8 done (`lane-a/m5j-s4-cp8`, §10.6): DialogService's MATCH_MAKER and PortalDialogAI's INSTANCE_PARTY_MATCH arms
+> (mutation proof 4 of 4); `tools/porting/closure.py` with `docs/porting/phase5-allowlist.txt` and CTest `porting.phase5.census`
+> (487 sites in 461 functions, 33 opcodes, every row with an owner); the command and AI smokes carry the `smoke` label (`ctest -L smoke`,
+> 173 of 173). The closure document is m5j-closure.md. For the integrator: §10.6's "only the two commented-out opcodes" holds only after
+> M5h and the capital-economy milestone; until then the 33 are owned rows (m5j-closure.md §4). The world tour (G-41) still waits.
