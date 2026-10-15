@@ -1,5 +1,6 @@
 // The generated handlers of the instance directories K-W (chunk Q14, phase 6 step 2, lane C) compiled into Q05's test executable by
-// #include (GoldenHandlers.h says why): the 74 questgen transliterates; the 21 left out are listed in docs/deviations/Q14.md.
+// #include (GoldenHandlers.h says why): the 74 questgen transliterates and the 17 the owner's decisions of 2026-10-07 added (91); the 4 left
+// out are listed in docs/deviations/Q14.md.
 
 // clang-format off
 #include "aion/gameserver/handlers/quest/kaldor/_13817TheFuryWithin.cpp"
@@ -14,6 +15,9 @@
 #include "aion/gameserver/handlers/quest/levinshor/_23745NoMoreinLevinshor.cpp"
 #include "aion/gameserver/handlers/quest/linkgate_foundry/_16940DiarySecrets.cpp"
 #include "aion/gameserver/handlers/quest/linkgate_foundry/_26940RaidtheLinkgateFoundry.cpp"
+#include "aion/gameserver/handlers/quest/marchutan_priory/_47000AltgardOrbIt.cpp"
+#include "aion/gameserver/handlers/quest/marchutan_priory/_47003AGlobalProblem.cpp"
+#include "aion/gameserver/handlers/quest/marchutan_priory/_47006AmplifiersWithIssues.cpp"
 #include "aion/gameserver/handlers/quest/marchutan_priory/_48006TheMarchutanPrioryBeckons.cpp"
 #include "aion/gameserver/handlers/quest/miragent_holy_templar/_19064TemplarOfConstruction.cpp"
 #include "aion/gameserver/handlers/quest/miragent_holy_templar/_3933ClassPreceptorConsent.cpp"
@@ -25,7 +29,15 @@
 #include "aion/gameserver/handlers/quest/miragent_holy_templar/_3939PersistenceAndLuck.cpp"
 #include "aion/gameserver/handlers/quest/miragent_holy_templar/_3940Loyalty.cpp"
 #include "aion/gameserver/handlers/quest/nightmare_circus/_80341EventAHallowedEve.cpp"
+#include "aion/gameserver/handlers/quest/orichalcum_key/_37100MutantNinjaIninas.cpp"
+#include "aion/gameserver/handlers/quest/orichalcum_key/_37103CamoAndCarnage.cpp"
+#include "aion/gameserver/handlers/quest/orichalcum_key/_37106AsmoHunt.cpp"
+#include "aion/gameserver/handlers/quest/orichalcum_key/_37107CoolBlueWater.cpp"
+#include "aion/gameserver/handlers/quest/orichalcum_key/_37110MyYoungApprentice.cpp"
+#include "aion/gameserver/handlers/quest/orichalcum_key/_37113AsmoICU.cpp"
 #include "aion/gameserver/handlers/quest/orichalcum_key/_38007AKeyMessage.cpp"
+#include "aion/gameserver/handlers/quest/pangaea/_14220NewZoneNewRules.cpp"
+#include "aion/gameserver/handlers/quest/pangaea/_24220WelcometoPanesterra.cpp"
 #include "aion/gameserver/handlers/quest/radiant_ops/_38001RadiantOpsRecruitment.cpp"
 #include "aion/gameserver/handlers/quest/rentus_base/_30500Desperation.cpp"
 #include "aion/gameserver/handlers/quest/rentus_base/_30503RodelionRescue.cpp"
@@ -53,6 +65,12 @@
 #include "aion/gameserver/handlers/quest/talocs_hollow/_21468TheStruggleWithin.cpp"
 #include "aion/gameserver/handlers/quest/terath_dredgion/_30600FightOfTheNavigators.cpp"
 #include "aion/gameserver/handlers/quest/terath_dredgion/_30610TheGoodNewsAndBad.cpp"
+#include "aion/gameserver/handlers/quest/the_circle/_47100WardsAndWardOrbs.cpp"
+#include "aion/gameserver/handlers/quest/the_circle/_47103AGlobeTrottingLesson.cpp"
+#include "aion/gameserver/handlers/quest/the_circle/_47106TurningUpTheAmplifiers.cpp"
+#include "aion/gameserver/handlers/quest/the_circle/_47107WardsAndWardOrbs.cpp"
+#include "aion/gameserver/handlers/quest/the_circle/_47110AGlobeTrottingLesson.cpp"
+#include "aion/gameserver/handlers/quest/the_circle/_47113TurningUpTheAmplifiers.cpp"
 #include "aion/gameserver/handlers/quest/the_circle/_48007JoiningTheCircle.cpp"
 #include "aion/gameserver/handlers/quest/the_eternal_bastion/_18035ShebasSurveillance.cpp"
 #include "aion/gameserver/handlers/quest/the_eternal_bastion/_18036BastionsAreEternal.cpp"

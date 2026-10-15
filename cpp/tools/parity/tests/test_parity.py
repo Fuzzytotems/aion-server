@@ -222,6 +222,22 @@ class Renames(unittest.TestCase):
                                     'updateQuestStatus'])
         self.assertEqual(jf.calls, cf.calls)
 
+    def test_the_any_match_and_constant_list_spellings(self):
+        # lane C (2026-10-07): questgen's rules stream-any-match and constant-list (the owner's decisions on Q14)
+        jf, cf = self.at_parity(
+            java('\t\tif (group.getMembers().stream().anyMatch(member -> member.isMentor()))\n\t\t\treturn true;\n\t\treturn false;'),
+            cpp('\t\tif (std::ranges::any_of(group->getMembers(), [&](const runtime::Ptr<AionObject>& memberObject) { runtime::Ptr<Player> '
+                'member = runtime::cast<Player>(memberObject); return member->isMentor(); }))\n\t\t\treturn true;\n\t\treturn false;'))
+        self.assertEqual(cf.calls, ['onDialogEvent', 'anyMatch', 'getMembers', 'isMentor'])
+        self.assertEqual(jf.calls, cf.calls)
+        jf, cf = self.at_parity(
+            java('\t\treturn ids.contains(7);', head='\tprivate static final List<Integer> ids = new ArrayList<>(Arrays.asList(1, 2));\n'),
+            cpp('\t\treturn std::ranges::contains(ids, 7);', head='\tstatic constexpr std::array<int32_t, 2> ids{1, 2};\n'))
+        self.assertEqual(jf.calls, ['onDialogEvent', 'contains'])
+        # any other stream() stays a call
+        self.assertEqual(checks(java('\t\treturn xs.stream().count() > 0;'), cpp('\t\treturn xs.size() > 0;')),
+                         ['calls-multiset', 'calls-order'])
+
     def test_the_scheduled_closure_capture_spelling_is_narrow(self):
         # a Ref made of another name, and one outside a capture list, stay calls
         self.assertEqual(checks(java('\t\treturn true;'),

@@ -1,0 +1,24 @@
+{
+ "format": "aion-quest-trace",
+ "version": 1,
+ "questId": 37103,
+ "java": "orichalcum_key/_37103CamoAndCarnage.java",
+ "class": "_37103CamoAndCarnage",
+ "javaSha256": "9bb32f8e67298c71df49755034c06adc311f50eda6a0b2bb05bbc59fea6eb6e5",
+ "register": [
+  {"npc": 700968, "event": "addOnTalkEvent", "args": [37103]},
+  {"npc": 799906, "event": "addOnTalkEvent", "args": [37103]},
+  {"npc": 217169, "event": "addOnKillEvent", "args": [37103]}
+ ],
+ "hooks": [{"hook": "onKillEvent", "line": 35, "cases": 1}, {"hook": "onDialogEvent", "line": 40, "unsupported": "call npc.getController()"}],
+ "cases": [
+  {
+   "id": "onKillEvent#1",
+   "hook": "onKillEvent",
+   "given": {},
+   "guards": [],
+   "effects": [{"call": "defaultOnKillEvent", "kind": "var", "args": [217169, 0, 5], "line": 36}],
+   "returns": {"resultOf": 0}
+  }
+ ]
+}

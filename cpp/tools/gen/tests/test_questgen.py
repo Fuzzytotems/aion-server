@@ -528,7 +528,7 @@ class DriverAndTwins(unittest.TestCase):
     def test_run_summary_and_emit(self):
         out = Path(tempfile.mkdtemp(prefix='qg'))
         try:
-            files = cli.find_files(['_1363ThankingMabangtah', 'kaisinel_academy/_37003CamouflageKillers.java',
+            files = cli.find_files(['_1363ThankingMabangtah', 'poeta/_1114TheNymphsGown.java',
                                     '_21137BerokinImageMarble'])
             results, rep = cli.run(files, out, pairs=False)
             c = rep['coverage']

@@ -62,7 +62,9 @@ controllers/attack/AggroList.h model/gameobjects/player/title/TitleList.h
 dataholders/DataManager.h dataholders/QuestsData.h model/templates/QuestTemplate.h
 services/GameTimeService.h utils/time/gametime/GameTime.h
 dataholders/SpawnsData.h model/templates/spawns/SpawnSpotTemplate.h
+model/team/GeneralTeam.h model/team/TemporaryPlayerTeam.h model/team/group/PlayerGroup.h
 '''.split()] + ['aion/commons/utils/Rnd.h']
+# (`model/team/GeneralTeam.h ...`: row B46 of chunk Q14's follow-up, 2026-10-07: the mentor dailies' PlayerGroup local and its members)
 # (`dataholders/DataManager.h ...`: row B39 of the Q08 follow-up; `services/GameTimeService.h ...`: rows B40-B41 of chunk Q01, 2026-10-05)
 # (the line `model/house/House.h ...`: types QuestPrelude.h re-exports that handlers declare locals of; without them such a local is refused
 # as `type`, which hides the API gap behind it: DataManager.SPAWNS_DATA, WorldMapInstance.getInstanceHandler, Player.getActiveHouse)
@@ -232,6 +234,10 @@ API_TABLE = (
     Row('B44', 'item use areas: ItemTemplate.getUseArea', (('ItemTemplate', 'getUseArea'),), 'ported'),
     # B45 (phase 6 step 2, chunk Q14, lane C, 2026-10-05): a start-condition check the C++ side declares (docs/deviations/Q14.md, 3208)
     Row('B45', 'start conditions: QuestService.checkStartConditions', (('QuestService', 'checkStartConditions'),), 'ported'),
+    # B46 (phase 6 step 2, chunk Q14 follow-up, lane C, 2026-10-07; the owner's decision on the mentor dailies): the player's group and its
+    # members, which the dailies search with stream().anyMatch (emit rule stream-any-match; docs/deviations/Q14.md)
+    Row('B46', 'groups: Player.getPlayerGroup, GeneralTeam.getMembers', (('Player', 'getPlayerGroup'), ('GeneralTeam', 'getMembers')),
+        'ported'),
 )
 
 # the static data holders of DataManager a handler reads (row B39): Java field -> (the C++ class it holds, its header). The C++ field is a
