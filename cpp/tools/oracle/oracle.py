@@ -546,7 +546,7 @@ def cmd_m5h_housing(args):
 	for spec in args.npc or []:
 		map_id, npc_id = spec.split(":")
 		spots.append((int(map_id), int(npc_id)))
-	sys.stdout.write(runner.dump_json(housing_report(data_dir, java_src, args.message or [], spots, args.item or [])))
+	sys.stdout.write(runner.dump_json(housing_report(data_dir, java_src, args.message or [], spots, args.item or [], args.land_house or [])))
 	return 0
 
 
@@ -1024,6 +1024,8 @@ def main(argv=None):
 	p.add_argument("--message", nargs="+", action="extend", metavar="NAME", help="SM_SYSTEM_MESSAGE ids to look up by name")
 	p.add_argument("--npc", nargs="+", action="extend", metavar="MAP:NPC", help="an npc's first spawn spot on a map and its talk info")
 	p.add_argument("--item", nargs="+", action="extend", type=int, metavar="ITEM", help="a furniture item and its house object template")
+	p.add_argument("--land-house", nargs="+", action="extend", type=int, metavar="ADDRESS",
+	               help="a land house: address point, land, building, sale, fee and house npcs (the relationship crystal, M5h-2 H2-4)")
 	p.set_defaults(fn=cmd_m5h_housing)
 
 	p = sub.add_parser("m5j-commands", help="the chat commands: access levels, aliases, descriptions and syntax from the Java constructors, the "

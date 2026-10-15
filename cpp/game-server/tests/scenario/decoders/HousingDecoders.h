@@ -246,4 +246,43 @@ struct LegionHistory {
 
 LegionHistory decodeLegionHistory(std::span<const uint8_t> body);
 
+// ---- SM_HOUSE_TELEPORT / SM_HOUSE_PAY_RENT / SM_HOUSE_BIDS (M5h-2 H2-4) -----------------------------------------------------------------
+
+/** SM_HOUSE_TELEPORT.writeImpl: writeD(address), writeD(playerId) */
+struct HouseTeleport {
+	int32_t address = 0;
+	int32_t playerId = 0;
+};
+
+HouseTeleport decodeHouseTeleport(std::span<const uint8_t> body);
+
+/** SM_HOUSE_PAY_RENT.writeImpl: writeC(0), writeC(weeksPaid); returns weeksPaid (the leading byte must be 0) */
+uint8_t decodeHousePayRent(std::span<const uint8_t> body);
+
+/** one row of SM_HOUSE_BIDS (44 bytes, DYNAMIC_BODY_PART_SIZE_CALCULATOR) */
+struct HouseBidRow {
+	int32_t listIndex = 0;
+	int32_t landId = 0;
+	int32_t address = 0;
+	int32_t buildingId = 0;
+	int32_t houseTypeId = 0;
+	int64_t highestBid = 0;
+	int64_t fixed100000 = 0; // writeQ(100000)
+	int32_t bidCount = 0;
+	int32_t remainingSeconds = 0;
+};
+
+/** SM_HOUSE_BIDS.writeImpl: C(isFirst) C(isLast) D(lastBid index) Q(lastBid kinah) D(registered index) Q(starting price) H(count), rows */
+struct HouseBids {
+	bool isFirst = false;
+	bool isLast = false;
+	int32_t lastBidListIndex = 0;
+	int64_t lastBidKinah = 0;
+	int32_t registeredListIndex = 0;
+	int64_t registeredStartingPrice = 0;
+	std::vector<HouseBidRow> rows;
+};
+
+HouseBids decodeHouseBids(std::span<const uint8_t> body);
+
 } // namespace aion::gameserver::scenario::decoders

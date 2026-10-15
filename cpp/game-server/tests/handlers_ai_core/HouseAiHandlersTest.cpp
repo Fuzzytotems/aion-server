@@ -1,7 +1,7 @@
 // M5h HS-2 (m5h-plan.md 14.2, H-01, H-02, H-06, H-07): the three AIs of the house npcs - ButlerAI ("butler") and HouseSignAI ("housesign") of
 // P5-05, and StudioPortalAI ("studioportal") of chunk A1 under P5-11's lease of handlers/ai/portals/StudioPortalAI.* (chunks.cmake) - and
 // InstanceService::getOrCreateHouseInstance (P5-13, under P5-11's lease of InstanceService.cpp), which the studio portal calls. M5h-2 H2-3 adds
-// HouseGateAI ("housegate") of chunk A1, under the same lease (handlers/ai/portals/HouseGateAI.*).
+// HouseGateAI ("housegate") of chunk A1, under the same lease (handlers/ai/portals/HouseGateAI.*); H2-4 FriendPortalAI ("friendportal").
 //
 // Java: data/handlers/ai/ButlerAI.java:24-40, HouseSignAI.java:22-29, portals/StudioPortalAI.java:31-61, portals/HouseGateAI.java:32-107;
 // InstanceService.java:127-135.
@@ -10,6 +10,7 @@
 // the leased source itself; it is the only translation unit that does.
 #include "aion/gameserver/handlers/ai/portals/StudioPortalAI.cpp"
 #include "aion/gameserver/handlers/ai/portals/HouseGateAI.cpp"
+#include "aion/gameserver/handlers/ai/portals/FriendPortalAI.cpp"
 
 #include "../cm_ak/ItemPacketTestSupport.h"
 #include "../ai/AiWorldTestSupport.h"
@@ -69,6 +70,7 @@
 #include "aion/gameserver/model/templates/spawns/SpawnTemplate.h"
 #include "aion/gameserver/model/templates/spawns/SpawnType.h"
 #include "aion/gameserver/network/aion/serverpackets/SM_DIALOG_WINDOW.h"
+#include "aion/gameserver/network/aion/serverpackets/SM_FRIEND_LIST.h"
 #include "aion/gameserver/network/aion/serverpackets/SM_HOUSE_TELEPORT.h"
 #include "aion/gameserver/network/aion/serverpackets/SM_QUESTION_WINDOW.h"
 #include "aion/gameserver/network/aion/serverpackets/SM_SYSTEM_MESSAGE.h"
@@ -164,6 +166,13 @@ class HouseGateAiProbe final : public portals::HouseGateAI {
 public:
 	using HouseGateAI::HouseGateAI;
 	using HouseGateAI::handleDialogStart;
+};
+
+/** FriendPortalAI with its protected hook callable */
+class FriendPortalAiProbe final : public portals::FriendPortalAI {
+public:
+	using FriendPortalAI::FriendPortalAI;
+	using FriendPortalAI::handleDialogStart;
 };
 
 /** StudioPortalAI with its protected hook callable */
@@ -680,6 +689,72 @@ TEST_F(HouseAiHandlersTest, DecliningTheGateDoesNothing) {
 	EXPECT_FALSE(player().getController().hasTask(model::TaskId::TELEPORT));
 	EXPECT_EQ(player().getBattleReturnMap(), 0);
 	EXPECT_FALSE(player().getBattleReturnCoords());
+}
+
+// ---- FriendPortalAI (FriendPortalAI.java:23-41) ---------------------------------------------------------------------------------------------
+
+constexpr int32_t HOUSING_FRIENDLIST_PAGE = 36;  // DialogPage.HOUSING_FRIENDLIST.id() (DialogPage.java)
+
+TEST_F(HouseAiHandlersTest, TheFriendPortalMarkerBuildsAFriendPortal) {
+	Npc& crystal = houseNpc(RESIDENT_INFORMATION, house());
+	std::unique_ptr<gameserver::ai::AbstractAI> ai = portals::FriendPortalAI_aiFactory(crystal);
+	EXPECT_NE(dynamic_cast<portals::FriendPortalAI*>(ai.get()), nullptr) << "the factory of the \"friendportal\" marker";
+}
+
+TEST_F(HouseAiHandlersTest, TheOwnerOfTheCrystalsHouseGetsTheFriendListPage) {
+	House& h = house();
+	h.setOwnerId(player().getObjectId());
+	Npc& crystal = houseNpc(RESIDENT_INFORMATION, h);
+	FriendPortalAiProbe& ai = install<FriendPortalAiProbe>(crystal);
+
+	ai.handleDialogStart(player());
+
+	EXPECT_EQ(sent(), exactly({serializedFor(network::aion::serverpackets::SM_FRIEND_LIST()), page(crystal, HOUSING_FRIENDLIST_PAGE)}));
+}
+
+TEST_F(HouseAiHandlersTest, ACrystalOfAHouseWithoutOwnerIsOpenToAll) {
+	Npc& crystal = houseNpc(RESIDENT_INFORMATION, house()); // owner 0
+	FriendPortalAiProbe& ai = install<FriendPortalAiProbe>(crystal);
+
+	ai.handleDialogStart(player());
+
+	EXPECT_EQ(sent(), exactly({serializedFor(network::aion::serverpackets::SM_FRIEND_LIST()), page(crystal, HOUSING_FRIENDLIST_PAGE)}))
+		<< "playerOwner == 0";
+}
+
+TEST_F(HouseAiHandlersTest, AFriendOfTheOwnerGetsTheFriendListPage) {
+	if (!dao::test::isEnabled())
+		GTEST_SKIP() << "set AION_TEST_GS_DATABASE_URL: the second player's enter world starts HousingService";
+	housingDatabase();
+	model::gameobjects::player::Player& owner = addBuddy();
+	player().getFriendList().addFriend(*model::gameobjects::player::Friend::create(*owner.getCommonData(), ""));
+	House& h = house();
+	h.setOwnerId(BUDDY_ID);
+	Npc& crystal = houseNpc(RESIDENT_INFORMATION, h);
+	FriendPortalAiProbe& ai = install<FriendPortalAiProbe>(crystal);
+	clearSent();
+
+	ai.handleDialogStart(player());
+
+	EXPECT_EQ(sent(), exactly({serializedFor(network::aion::serverpackets::SM_FRIEND_LIST()), page(crystal, HOUSING_FRIENDLIST_PAGE)}));
+}
+
+TEST_F(HouseAiHandlersTest, AStrangerToTheOwnerCannotUseTheCrystal) {
+	House& h = house();
+	h.setOwnerId(4242);
+	Npc& crystal = houseNpc(RESIDENT_INFORMATION, h);
+	FriendPortalAiProbe& ai = install<FriendPortalAiProbe>(crystal);
+
+	ai.handleDialogStart(player());
+
+	EXPECT_EQ(sent(), exactly({serializedFor(SM_SYSTEM_MESSAGE::STR_HOUSING_TELEPORT_CANT_USE())})) << "no friend, no legion member";
+}
+
+TEST_F(HouseAiHandlersTest, AFriendPortalOnAPlainNpcIsAClassCast) {
+	Npc& plain = npcAt(RESIDENT_INFORMATION); // not a SummonedHouseNpc
+	FriendPortalAiProbe& ai = install<FriendPortalAiProbe>(plain);
+
+	EXPECT_THROW(ai.handleDialogStart(player()), runtime::ClassCastException) << "Java: (SummonedHouseNpc) getOwner()";
 }
 
 // ---- InstanceService.getOrCreateHouseInstance (InstanceService.java:127-135) ---------------------------------------------------------------

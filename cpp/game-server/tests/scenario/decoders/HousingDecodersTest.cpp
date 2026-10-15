@@ -267,5 +267,51 @@ TEST(HousingDecodersTest, LegionHistoryOfAWarehouseDeposit) {
 	expectExactLength(w.data, [](std::span<const uint8_t> b) { return decodeLegionHistory(b); }, "SM_LEGION_HISTORY");
 }
 
+TEST(HousingDecodersTest, HouseTeleportAndPayRent) {
+	PacketWriter teleport;
+	teleport.D(10001).D(1234);
+	const HouseTeleport decoded = decodeHouseTeleport(teleport.data);
+	EXPECT_EQ(decoded.address, 10001);
+	EXPECT_EQ(decoded.playerId, 1234);
+	expectExactLength(teleport.data, [](std::span<const uint8_t> b) { return decodeHouseTeleport(b); }, "SM_HOUSE_TELEPORT");
+
+	PacketWriter rent;
+	rent.C(0).C(3);
+	EXPECT_EQ(decodeHousePayRent(rent.data), 3);
+	expectExactLength(rent.data, [](std::span<const uint8_t> b) { return decodeHousePayRent(b); }, "SM_HOUSE_PAY_RENT");
+	PacketWriter notZero;
+	notZero.C(1).C(3);
+	EXPECT_THROW(decodeHousePayRent(notZero.data), DecodeError) << "the leading byte is writeC(0)";
+}
+
+TEST(HousingDecodersTest, HouseBids) {
+	PacketWriter empty;
+	empty.C(1).C(1).D(0).Q(0).D(0).Q(0).H(0);
+	const HouseBids none = decodeHouseBids(empty.data);
+	EXPECT_TRUE(none.isFirst);
+	EXPECT_TRUE(none.isLast);
+	EXPECT_TRUE(none.rows.empty());
+	EXPECT_EQ(empty.data.size(), 28u) << "SM_HOUSE_BIDS.STATIC_BODY_SIZE";
+
+	PacketWriter two;
+	two.C(1).C(0).D(2).Q(1100000).D(1).Q(1000000).H(2);
+	two.D(1).D(325001).D(10001).D(350000).D(1).Q(1000000).Q(100000).D(0).D(3600);
+	two.D(2).D(325001).D(10002).D(350000).D(1).Q(1100000).Q(100000).D(1).D(3600);
+	const HouseBids bids = decodeHouseBids(two.data);
+	EXPECT_FALSE(bids.isLast);
+	EXPECT_EQ(bids.lastBidListIndex, 2);
+	EXPECT_EQ(bids.lastBidKinah, 1100000);
+	EXPECT_EQ(bids.registeredListIndex, 1);
+	EXPECT_EQ(bids.registeredStartingPrice, 1000000);
+	ASSERT_EQ(bids.rows.size(), 2u);
+	EXPECT_EQ(bids.rows[1].address, 10002);
+	EXPECT_EQ(bids.rows[1].highestBid, 1100000);
+	EXPECT_EQ(bids.rows[1].fixed100000, 100000);
+	EXPECT_EQ(bids.rows[1].bidCount, 1);
+	EXPECT_EQ(bids.rows[1].remainingSeconds, 3600);
+	EXPECT_EQ(two.data.size(), 28u + 2 * 44u) << "DYNAMIC_BODY_PART_SIZE_CALCULATOR: 44 per row";
+	expectExactLength(two.data, [](std::span<const uint8_t> b) { return decodeHouseBids(b); }, "SM_HOUSE_BIDS");
+}
+
 } // namespace
 } // namespace aion::gameserver::scenario::decoders
