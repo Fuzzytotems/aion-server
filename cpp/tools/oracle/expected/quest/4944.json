@@ -1,0 +1,26 @@
+{
+ "format": "aion-quest-trace",
+ "version": 1,
+ "questId": 4944,
+ "java": "fenris_fang/_4944LoyaltyAndAffableness.java",
+ "class": "_4944LoyaltyAndAffableness",
+ "javaSha256": "83f74ba5633f7d1fe3777543d6c9f6e8941845a6ae2f5bcef256def2692251c7",
+ "register": [
+  {"npc": 204053, "event": "addOnQuestStart", "args": [4944]},
+  {"npc": 204053, "event": "addOnTalkEvent", "args": [4944]},
+  {"npc": 204075, "event": "addOnTalkEvent", "args": [4944]},
+  {"npc": 251002, "event": "addOnKillEvent", "args": [4944]},
+  {"npc": 251021, "event": "addOnKillEvent", "args": [4944]},
+  {"npc": 251018, "event": "addOnKillEvent", "args": [4944]},
+  {"npc": 251039, "event": "addOnKillEvent", "args": [4944]},
+  {"npc": 251033, "event": "addOnKillEvent", "args": [4944]},
+  {"npc": 251036, "event": "addOnKillEvent", "args": [4944]},
+  {"npc": 214823, "event": "addOnKillEvent", "args": [4944]},
+  {"npc": 216850, "event": "addOnKillEvent", "args": [4944]}
+ ],
+ "hooks": [
+  {"hook": "onDialogEvent", "line": 41, "unsupported": "call qs.getQuestVars().getQuestVars()"},
+  {"hook": "onKillEvent", "line": 114, "unsupported": "call qs.getQuestVars().getQuestVars()"}
+ ],
+ "cases": []
+}
