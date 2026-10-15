@@ -30,9 +30,9 @@
 #include "aion/gameserver/network/aion/serverpackets/SM_SYSTEM_MESSAGE.h"
 #include "aion/gameserver/restrictions/PlayerRestrictions.h"
 #include "aion/gameserver/runtime/base/Exceptions.h"
-#include "aion/gameserver/runtime/base/Unported.h"
 #include "aion/gameserver/runtime/lifetime/RefCounted.h"
 #include "aion/gameserver/runtime/sync/LockOrderValidator.h"
+#include "aion/gameserver/services/VortexService.h"
 #include "aion/gameserver/services/findgroup/FindGroupService.h"
 #include "aion/gameserver/utils/PacketSendUtility.h"
 #include "aion/gameserver/utils/ThreadPoolManager.h"
@@ -66,8 +66,7 @@ void PlayerAllianceService::OfflinePlayerAllianceChecker::run() {
 			const int32_t kickDelay = isAutoTeam(allianceValue.getTeamType()) ? 60 : configs::main::GroupConfig::ALLIANCE_REMOVE_TIME.load();
 			if (!member.isOnline() && utils::TimeUtil::isExpired(member.getLastOnlineTime() + static_cast<int64_t>(kickDelay) * 1000)) {
 				if (isOffence(allianceValue.getTeamType())) {
-					// Java: VortexService.getInstance().removeInvaderPlayer(member.getObject()) - the vortex invasion is M5i's (m5g-plan.md O-04)
-					AION_UNPORTED();
+					services::VortexService::getInstance().removeInvaderPlayer(member.getPlayer());
 				}
 				events::PlayerAllianceLeavedEvent event(allianceValue, member.getPlayer(), events::PlayerAllianceLeavedEvent::LeaveReson::LEAVE_TIMEOUT);
 				allianceValue.onEvent(event);
@@ -180,8 +179,7 @@ void PlayerAllianceService::removePlayer(Player& player) {
 	runtime::Ptr<PlayerAlliance> alliance = player.getPlayerAlliance();
 	if (alliance) {
 		if (isDefence(alliance->getTeamType())) {
-			// Java: VortexService.getInstance().removeDefenderPlayer(player) - the vortex defence is M5i's (m5g-plan.md O-04)
-			AION_UNPORTED();
+			services::VortexService::getInstance().removeDefenderPlayer(player);
 		}
 		events::PlayerAllianceLeavedEvent event(*alliance, player);
 		alliance->onEvent(event);
@@ -200,8 +198,7 @@ void PlayerAllianceService::banPlayer(Player& bannedPlayer, Player& banGiver) {
 			PacketSendUtility::sendPacket(banGiver, SM_SYSTEM_MESSAGE::STR_MSG_PARTY_FORCE_NO_RIGHT_TO_DECIDE());
 		} else {
 			if (isDefence(alliance->getTeamType())) {
-				// Java: VortexService.getInstance().removeDefenderPlayer(bannedPlayer) - the vortex defence is M5i's (m5g-plan.md O-04)
-				AION_UNPORTED();
+				services::VortexService::getInstance().removeDefenderPlayer(bannedPlayer);
 			}
 			if (alliance->hasMember(bannedPlayer.getObjectId())) {
 				events::PlayerAllianceLeavedEvent event(*alliance, bannedPlayer, events::PlayerAllianceLeavedEvent::LeaveReson::BAN, banGiver.getName());

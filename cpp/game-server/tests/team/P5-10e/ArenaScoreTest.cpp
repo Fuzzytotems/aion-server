@@ -45,6 +45,8 @@
 #include "aion/gameserver/network/aion/instanceinfo/EternalBastionScoreWriter.h"
 #include "aion/gameserver/network/aion/instanceinfo/HarmonyScoreWriter.h"
 #include "aion/gameserver/network/aion/instanceinfo/LegionDominionScoreWriter.h"
+#include "aion/gameserver/model/instance/DredgionRoom.h"
+#include "aion/gameserver/network/aion/instanceinfo/DredgionScoreWriter.h"
 #include "aion/gameserver/network/aion/instanceinfo/PvpInstanceScoreWriter.h"
 #include "aion/gameserver/network/aion/instanceinfo/TheShugoEmperorsVaultScoreWriter.h"
 #include "aion/gameserver/utils/stats/AbyssRankEnumInfo.h"
@@ -605,6 +607,79 @@ TEST_F(ArenaScoreTest, PvpInstanceScoreWriterBytes) {
 	writeS(full, "Asmo", 52);
 	full.zeros(69 * 23);
 	EXPECT_EQ(written(*PvpInstanceScoreWriter::create(*score, InstanceScoreType::UPDATE_ALL_PLAYER_INFO, participants)), full.data);
+}
+
+/** DredgionScoreWriter.java:26-68 (the leftovers sweep, 2026-10-14): the two race tables of 6 rows (88 bytes each), the winner byte, the
+ * points and the rooms' states */
+TEST_F(ArenaScoreTest, DredgionScoreWriterBytes) {
+	using network::test::PacketWriter;
+	using instanceinfo::DredgionScoreWriter;
+	Member& e = addMember("Elyos");
+	Member& d = asmodian("Asmo");
+	runtime::Ref<instancescore::PvpInstanceScore> score = instancescore::PvpInstanceScore::create(3000, 1500, 2000);
+	runtime::Ref<playerreward::PvpInstancePlayerReward> elyos = playerreward::PvpInstancePlayerReward::create(e.player().getObjectId(), model::Race::ELYOS);
+	runtime::Ref<playerreward::PvpInstancePlayerReward> asmo =
+		playerreward::PvpInstancePlayerReward::create(d.player().getObjectId(), model::Race::ASMODIANS);
+	score->addPlayerReward(*elyos);
+	score->addPlayerReward(*asmo);
+	score->addPointsByRace(model::Race::ELYOS, 500);
+	score->addPointsByRace(model::Race::ASMODIANS, 700);
+	elyos->addPvPKill();
+	elyos->addPoints(40);
+	asmo->addMonsterKillToPlayer();
+	asmo->incrementCapturedZones();
+	asmo->incrementCapturedZones();
+	asmo->setBaseAp(100);
+	asmo->setBonusAp(10);
+	std::vector<runtime::Ref<model::gameobjects::player::Player>> players{runtime::Ref<model::gameobjects::player::Player>(d.player()),
+		runtime::Ref<model::gameobjects::player::Player>(e.player())};
+	runtime::Ref<model::instance::DredgionRoom> captured = model::instance::DredgionRoom::create(1);
+	captured->captureRoom(model::Race::ASMODIANS);
+	std::vector<runtime::Ref<model::instance::DredgionRoom>> rooms{captured, model::instance::DredgionRoom::create(2)};
+
+	auto row = [](PacketWriter& w, Member& m, int32_t pvp, int32_t monsters, int32_t zones, int32_t points, bool end, int32_t apSum, int32_t ap,
+	              std::string_view name) {
+		w.D(m.player().getObjectId()).D(utils::stats::id(m.player().getAbyssRank()->getRank())).D(pvp).D(monsters).D(zones).D(points);
+		if (end)
+			w.D(apSum).D(ap);
+		else
+			w.zeros(8);
+		w.C(model::getClassId(m.player().getPlayerClass())).C(0);
+		writeS(w, name, 54);
+	};
+	PacketWriter running;
+	row(running, e, 1, 0, 0, 40, false, 0, 0, "Elyos"); // the Elyos table first, whatever the list order
+	running.zeros(88 * 5);
+	row(running, d, 0, 1, 2, 0, false, 0, 0, "Asmo");
+	running.zeros(88 * 5);
+	running.D(255).D(500).D(700).C(0x01).C(0xFF);
+	EXPECT_EQ(written(*DredgionScoreWriter::create(*score, players, rooms)), running.data);
+
+	score->setInstanceProgressionType(model::instance::InstanceProgressionType::END_PROGRESS);
+	PacketWriter ended;
+	row(ended, e, 1, 0, 0, 40, true, 0, 0, "Elyos");
+	ended.zeros(88 * 5);
+	row(ended, d, 0, 1, 2, 0, true, 110, 100, "Asmo");
+	ended.zeros(88 * 5);
+	ended.D(1).D(500).D(700).C(0x01).C(0xFF); // the asmodians lead
+	EXPECT_EQ(written(*DredgionScoreWriter::create(*score, players, rooms)), ended.data);
+
+	score->addPointsByRace(model::Race::ELYOS, 200); // a tie is not an asmodian win
+	std::vector<uint8_t> tie = written(*DredgionScoreWriter::create(*score, players, {}));
+	ASSERT_EQ(tie.size(), 88u * 12 + 12);
+	EXPECT_EQ(std::vector<uint8_t>(tie.end() - 12, tie.end()), (PacketWriter().D(0).D(700).D(700).data));
+
+	// five of a race: one empty row pads the table to six; an asmodian table without players is six empty rows
+	std::vector<runtime::Ref<model::gameobjects::player::Player>> five{runtime::Ref<model::gameobjects::player::Player>(e.player())};
+	for (const char* name : {"Elyostwo", "Elyosthree", "Elyosfour", "Elyosfive"}) {
+		Member& m = addMember(name);
+		score->addPlayerReward(*playerreward::PvpInstancePlayerReward::create(m.player().getObjectId(), model::Race::ELYOS));
+		five.emplace_back(m.player());
+	}
+	EXPECT_EQ(written(*DredgionScoreWriter::create(*score, five, {})).size(), 88u * 12 + 12);
+
+	runtime::Ref<instancescore::PvpInstanceScore> empty = instancescore::PvpInstanceScore::create(3000, 1500, 2000);
+	EXPECT_THROW(written(*DredgionScoreWriter::create(*empty, players, {})), runtime::NullPointerException) << "Java: no reward of the player";
 }
 
 } // namespace

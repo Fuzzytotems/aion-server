@@ -6,7 +6,12 @@
 
 namespace aion::gameserver::questEngine::handlers::models::xmlQuest::operations {
 
-/** Java com.aionemu.gameserver.questEngine.handlers.models.xmlQuest.operations.QuestOperations. */
+/**
+ * Java com.aionemu.gameserver.questEngine.handlers.models.xmlQuest.operations.QuestOperations.
+ * <p>
+ * KillOperation has no counterpart: the @XmlElements list of QuestOperations has no entry for it, so JAXB never creates one (the XSD's
+ * `kill` choice is unbound, tools/xmlgen/v1_allowlist.json) and its doOperate has no caller.
+ */
 class QuestOperations : public ::aion::gameserver::runtime::StaticTemplate {
 #include "aion/gameserver/questEngine/handlers/models/xmlQuest/operations/QuestOperations.xml.inc"
 public:

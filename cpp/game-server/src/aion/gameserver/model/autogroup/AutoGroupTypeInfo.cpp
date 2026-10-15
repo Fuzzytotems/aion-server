@@ -251,6 +251,7 @@ int8_t getDifficultId(AutoGroupType agt) {
 
 // Java AutoGroupType.java:380-384 and the constant-specific newAutoInstance bodies (:12-243)
 runtime::Ref<AutoInstance> createAutoInstance(AutoGroupType agt) {
+	// Java: agt.newAutoInstance() - the 33 constant bodies, each of one of the three kinds
 	switch (dataOf(agt).kind) {
 		case InstanceKind::PVP:
 			return AutoPvpInstance::create(agt);

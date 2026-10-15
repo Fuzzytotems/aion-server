@@ -195,3 +195,18 @@ when a function keeps fewer sites. Whoever merges second deletes or lowers exact
 
 When a body is ported, delete or lower its row in the same commit; when a site is added in scope, add a row with its owner. A milestone
 that closes (D11 offers the check to M5b-3..M5i as their end check) should leave no row naming it.
+
+## 7. The leftovers sweep (lane A, 2026-10-14, branch `lane-a/leftovers-1`)
+
+Taken from this list and the census, for the milestones no lane works on (M5d, M5e, M5f, M5g, M5j and the phase-4 tail):
+
+| Checkpoint | What | Mutation proof |
+|---|---|---|
+| LO-1 | ConditionOperation/ConditionUnionType companions (P5-06a), DredgionRoom and StageType's data (P5-13); KillOperation documented as having no counterpart (JAXB never creates it) | 8 of 8 |
+| LO-2 | PlayerAllianceService's three vortex arms call VortexService (its bodies stay M5i's sites); the three M5g rows of §3 are gone | 4 of 4 |
+| LO-3 | FlagNpcAI ("flag", 1,566 npc rows); ConquestOfferingSpawnerAI.spawn and AutoGroupType's 33 newAutoInstance bodies cite their Java | 3 of 3 |
+| LO-4 | DredgionScoreWriter (P4-15), the last score writer | 9 of 9 |
+| LO-5 | FlyPathType's id, SM_MEGAPHONE.FactionLabel's id, GameTime.Month.getDays as companions; the replaced or unused phase-4 bodies say so (IDFactory's and ThreadPoolManager's private helpers, StaticData's validation tasks, the spawn marshal hooks, jME's FloatBuffer interop) | 4 of 4 |
+
+Census phase 5 after the sweep: 748 open bodies (801 before); phase 4: 15. M5e had nothing open. What stays is owned elsewhere: M5h, M5i,
+the broker (A-C4), the decisions of §3 (A-D1, D10, O-05) and phase 4's reload setters and zone writer (D3, D14), M5h's and M5i's packets.

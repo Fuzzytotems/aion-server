@@ -3035,7 +3035,8 @@ LIVE_CHECKS = [
     ('model/templates/item/actions/SkillUseAction.java', 'SkillUseAction', 'canAct', 4, None, 'ported', None),
     ('model/templates/item/actions/SkillUseAction.java', 'SkillUseAction', 'act', 4, None, 'ported', None),
     ('model/templates/item/actions/SkillUseAction.java', 'SkillUseAction', 'isIneffectiveHealSkill', 2, None, 'ported', 'fileLocal'),
-    ('model/templates/spawns/Spawn.java', 'Spawn', 'beforeMarshal', 1, None, 'undeclared', None),
+    # omitted since the leftovers sweep (2026-10-14): Spawn.cpp says SpawnsData's writer replaces the marshal hooks (it was undeclared)
+    ('model/templates/spawns/Spawn.java', 'Spawn', 'beforeMarshal', 1, None, 'omitted', None),
 ]
 # (Java file, type path, expected initializer statuses in order)
 LIVE_INITIALIZERS = [
@@ -3227,9 +3228,10 @@ def live_checks(check):
         for m in found:
             check(what, (m.status, m.via if via is not None else None), (status, via))
     agt = by_file.get(JAVA_CORE + 'model/autogroup/AutoGroupType.java')
+    # 0 since the leftovers sweep (2026-10-14): createAutoInstance's switch cites `Java: agt.newAutoInstance()` (it was 33 before)
     check('live AutoGroupType constant bodies of the open newAutoInstance',
           sum(1 for m in (agt.anon_methods if agt else ()) if m.const_body and m.enclosing is not None and m.enclosing.abstract
-              and m.enclosing.status in OPEN_STATUSES), 33)
+              and m.enclosing.status in OPEN_STATUSES), 0)
     for rel, tpath, want in LIVE_INITIALIZERS:
         jf = by_file.get(JAVA_CORE + rel)
         check(f'live {tpath} initializers', [i.status for jt in (jf.types if jf else ()) if '.'.join(jt.path) == tpath for i in jt.inits],
