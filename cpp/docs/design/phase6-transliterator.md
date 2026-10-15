@@ -56,6 +56,9 @@
 14. **Step 2, chunk Q13 landed (lane C, 2026-10-07, §13):** all 87 handlers of the instance directories A-K are in the tree, generated,
    with their golden traces (1,774 variants pass, 0 fail) and docs/deviations/Q13.md; no generator change (kaisinel_academy's mentor
    dailies by rule stream-any-match). All 19 gates pass, "Loaded 4745 quest handlers".
+15. **Step 2, chunk Q11 landed (lane C, 2026-10-08, §14):** 71 of daevanion's and sanctum's 74 handlers are in the tree, generated,
+   with their golden traces (1,596 variants pass, 0 fail) and docs/deviations/Q11.md; Sanctum's gate traffic was measured before landing:
+   the only change is 8 more quests in SM_NEARBY_QUESTS, Java's, and no gate expectation changed. All 19 gates pass, "Loaded 4816 quest handlers".
 
 ---
 
@@ -703,3 +706,22 @@ docs/deviations/Q13.md.
   203726 is a level-99 quest, the level hooks need level 30 or more). **Gates:** 19 of 19 under the lock, one at a time (7,999 s, about 2,500 s of
   it waiting for the lock), "Loaded 4745 quest handlers" (4658 + 87), no "QE: exception" line; no gate expectation was changed.
 - **Not held back:** none. **Not in the tree:** none. **Java bugs found:** none.
+
+## 14. Phase 6 step 2: chunk Q11 landed (lane C, 2026-10-08)
+
+Branch `lane-c/p6-q11`, stacked on `lane-c/p6-q13` (§13). The sixth chunk of §7.5's order; the record is docs/deviations/Q11.md.
+
+- **In the tree:** 71 of the 74 handlers of daevanion and sanctum, questgen's output unedited, in `aion_gs_handlers_quest_q11`; the drift
+  test's `Q11` table pins them. Not in the tree: daevanion/_1990 and sanctum/_1929 (questgen refuses them: `PlayerGameStats.getMaxDp`,
+  `Equipment.getEquippedItemsAllStigma`/`unEquipItem`, API gaps for later rows) and sanctum/_3212 (an escort that waits for FollowingNpcAI,
+  m5d-plan.md §21.1, as pandaemonium/_4212).
+- **Generator:** none; the corpus stays at 1,002 of 1,035.
+- **Golden traces:** `SLICE_Q11`, 71 documents, 1,424 cases: **1,596 variants pass, 0 fail**, 6,938 runs compared; 0 not reproducible,
+  24 vacuous (IDLE_END, KILLS_ASSUMED_FALSE); 22 quests with every hook refused. The registration trace passes for the 71.
+- **Parity** 71 pairs, 0 mismatches (the tree 632, 3: the owner's corrections); the full Debug build has no new warning.
+- **Gate traffic, measured first** (§7.5): a temporary dump of every scenario client's packets, on the seven gates whose characters stand
+  in Sanctum, with and without the chunk, under the lock. The only quest-packet change: Sanctum's SM_NEARBY_QUESTS names 8 more quests
+  (1900, 1901, 1909, 1963, 3965, 3968, 19004, 19048) in travel, ascension, m5c, m5f and m5f_geo, from the handlers' start-npc
+  registrations, as in Java. Every quest action, dialog page and quest list is the same. No gate expectation or seeded state was changed;
+  nothing is held back for a gate. **Gates:** 19 of 19, the lock taken per gate, "Loaded 4816 quest
+  handlers" (4745 + 71), no "QE: exception" line.

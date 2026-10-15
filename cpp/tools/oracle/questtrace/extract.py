@@ -331,7 +331,35 @@ SLICE_Q13 = (
 	'kaisinel_academy/_37003CamouflageKillers.java', 'kaisinel_academy/_37006NowYouSeeThem.java',
 	'kaisinel_academy/_38006MatriculationDay.java',
 )
-SLICE = SLICE_TIER_A + SLICE_ROUTE + SLICE_Q03 + SLICE_Q10 + SLICE_Q08 + SLICE_Q01 + SLICE_Q02 + SLICE_Q14 + SLICE_Q13
+# Phase 6 step 2, chunk Q11 (lane C, 2026-10-08; docs/deviations/Q11.md): the 71 handlers of daevanion and sanctum in the tree
+# (daevanion/_1990ASagesGift and sanctum/_1929ASliverofDarkness are refused: API gaps; sanctum/_3212, an escort, waits for FollowingNpcAI)
+SLICE_Q11 = (
+	'daevanion/_19631CoastalCrush.java', 'daevanion/_19632CascadeCritters.java', 'daevanion/_19633AlisaryAssistance.java',
+	'daevanion/_19634FurtherAidforAlisary.java', 'daevanion/_19635SouthernQuell.java', 'daevanion/_19636FinalStabilization.java',
+	'daevanion/_19637OnboardforOne.java', 'daevanion/_19638TroublewithTwos.java', 'daevanion/_19639TreesandThrees.java',
+	'daevanion/_19640FlyingthroughFour.java', 'daevanion/_19641FidgetyFives.java', 'daevanion/_19642SuccessforSix.java',
+	'daevanion/_1988AMeetingWithASage.java', 'daevanion/_1989ASagesTeachings.java', 'daevanion/_1993AnotherBeginning.java',
+	'daevanion/_1994ANewChoice.java', 'daevanion/_29631GlugGlugGlug.java', 'daevanion/_29632SweepingNahorLake.java',
+	'daevanion/_29633StabilizetheSaplands.java', 'daevanion/_29634ScaredSkurvs.java', 'daevanion/_29635BeachDay.java',
+	'daevanion/_29636BacktoSurt.java', 'daevanion/_29637TroubleNotTrivial.java', 'daevanion/_29638NotSoSweet.java',
+	'daevanion/_29639MonstersUnholy.java', 'daevanion/_29640FinalKrugClearing.java', 'daevanion/_29641MoveAlongNow.java',
+	'daevanion/_29642GoodOnGelkmaros.java', 'daevanion/_2988TheWiseInDisguise.java', 'daevanion/_2989CeremonyOfTheWise.java',
+	'daevanion/_2990MakingTheDaevanionWeapon.java', 'daevanion/_2993AnotherBeginning.java', 'daevanion/_2994ANewChoice.java',
+	'daevanion/_80291DurableDaevanionWeapon.java', 'daevanion/_80295DurableDaevanionWeapon.java', 'sanctum/_19004PeriklessInsight.java',
+	'sanctum/_1900RingImbuedAether.java', 'sanctum/_1901KrallicPotion.java', 'sanctum/_19047JustBetweenMeAndFasimedes.java',
+	'sanctum/_19048AndreasTeachings.java', 'sanctum/_1908UlaguruSpeaks.java', 'sanctum/_1909ASongOfPraise.java',
+	'sanctum/_1917ALingeringMystery.java', 'sanctum/_1918AnAxForNamus.java', 'sanctum/_1926SecretLibraryAccess.java',
+	'sanctum/_1928ChasingaCriminal.java', 'sanctum/_1932AMatterOfReputation.java', 'sanctum/_1935TissueIDontEvenKnowYou.java',
+	'sanctum/_1936WhatNerisonSaw.java', 'sanctum/_1937ALepharistMonstrosity.java', 'sanctum/_1938BlackCloudFakery.java',
+	'sanctum/_1940WingsofMastery.java', 'sanctum/_1947ALuckyDay.java', 'sanctum/_1948WheresVindachinerk.java',
+	'sanctum/_1963DeliveryfortheOuterPort.java', 'sanctum/_1964ASouvenirForNoris.java', 'sanctum/_1987ABiggerWarehouse.java',
+	'sanctum/_3210RescueHaorunerk.java', 'sanctum/_3908ToMastertheDragon.java',
+	'sanctum/_3913ASecretSummons.java', 'sanctum/_3920TheSecretOfSurkana.java', 'sanctum/_3961GrowthFlorasFirstCharm.java',
+	'sanctum/_3962GrowthFlorasSecondCharm.java', 'sanctum/_3963GrowthFlorasThirdCharm.java', 'sanctum/_3964GrowthFlorasFourthCharm.java',
+	'sanctum/_3965TotheGalleriaofGrandeur.java', 'sanctum/_3966SaluteANewUniform.java', 'sanctum/_3967AndusDyeBox.java',
+	'sanctum/_3968PalentinesRequest.java', 'sanctum/_3969SexiestManAlive.java', 'sanctum/_3970KinahDiggingDaughter.java',
+)
+SLICE = SLICE_TIER_A + SLICE_ROUTE + SLICE_Q03 + SLICE_Q10 + SLICE_Q08 + SLICE_Q01 + SLICE_Q02 + SLICE_Q14 + SLICE_Q13 + SLICE_Q11
 
 ENUM_FILES = {'QuestStatus': 'questEngine/model/QuestStatus.java', 'Race': 'model/Race.java', 'PlayerClass': 'model/PlayerClass.java',
               'Gender': 'model/Gender.java', 'HandlerResult': 'questEngine/handlers/HandlerResult.java', 'DialogPage': 'model/DialogPage.java',

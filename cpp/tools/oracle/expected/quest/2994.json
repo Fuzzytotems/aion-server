@@ -1,0 +1,11 @@
+{
+ "format": "aion-quest-trace",
+ "version": 1,
+ "questId": 2994,
+ "java": "daevanion/_2994ANewChoice.java",
+ "class": "_2994ANewChoice",
+ "javaSha256": "fac40ffb96a746377a0181370fb8fcf08e6eae19c03de0876ad0648d8febf785",
+ "register": [{"npc": 204077, "event": "addOnQuestStart", "args": [2994]}, {"npc": 204077, "event": "addOnTalkEvent", "args": [2994]}],
+ "hooks": [{"hook": "onDialogEvent", "line": 35, "unsupported": "For statement at line 53"}],
+ "cases": []
+}
