@@ -141,3 +141,7 @@ Smallest self-contained first; each is one commit with its tests and mutation pr
 > portToPosition overrides nothing, so its start and revive throw with players inside (corrected in its own commit, owner's decision 2026-10-15);
 > J-P6I8-1 (Kamar's 232853 stops the run before it scores, the 3500 points are lost) is proposed in docs/deviations/P6-instances.md. Census I3: 369
 > -> 245 open bodies (left: the arenas, Eternal Bastion, DefenseWallAI and the pvpArenas AIs).
+> **Progress:** P6I-8a correction (owner's decision 2026-10-15, both branches): IronWallWarfrontInstance's start-position teleport is
+> portToStartPosition (Java's portToPosition overrides nothing, so the start and the revive threw with players inside). Test
+> PvpTest.IronWallsStartSendsEachRaceToItsSide (two players inside, client-less); mutation proof 2 of 2. Recorded in
+> docs/deviations/P6-instances.md.

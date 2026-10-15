@@ -11,6 +11,7 @@
 #include <filesystem>
 #include <fstream>
 #include <map>
+#include <memory>
 #include <regex>
 #include <set>
 #include <sstream>
@@ -24,6 +25,7 @@
 #include "aion/gameserver/handlers/instance/pvp/IdgelDomeInstance.h"
 #include "aion/gameserver/handlers/instance/pvp/IronWallWarfrontInstance.h"
 #include "aion/gameserver/handlers/instance/pvp/KamarBattlefieldInstance.h"
+#include "aion/gameserver/model/gameobjects/player/motion/MotionList.h"
 #include "aion/gameserver/model/instance/InstanceProgressionType.h"
 #include "aion/gameserver/model/instance/instancescore/PvpInstanceScore.h"
 #include "aion/gameserver/model/instance/playerreward/PvpInstancePlayerReward.h"
@@ -144,6 +146,37 @@ TEST_F(PvpTest, IronWallsPhases) {
 	executor().advance(std::chrono::milliseconds(1));
 	EXPECT_EQ(phase(instance), InstanceProgressionType::END_PROGRESS);
 	EXPECT_FALSE(bystander->isSpawned()) << "onStop deletes every npc";
+}
+
+/** Iron Wall :157-171 with the owner's correction (2026-10-15, docs/deviations/P6-instances.md): the start sends each player inside to their
+ * race's side (Java: portToPosition overrides nothing, and the general portToStartPosition throws) */
+TEST_F(PvpTest, IronWallsStartSendsEachRaceToItsSide) {
+	world::WorldMapInstance& instance = create(IRON_WALL_WARFRONT, pvp::IronWallWarfrontInstance_instanceFactory);
+	world::World& world = world::World::getInstance();
+	std::vector<cptest::PlayerFixture> inside; // two players without a client; the actor stays on the Ophidan Bridge
+	for (auto [objectId, race] : {std::pair{430002, model::Race::ELYOS}, std::pair{430003, model::Race::ASMODIANS}}) {
+		inside.push_back(cptest::makePlayer(objectId, objectId + 5000, objectId == 430002 ? "Elyon" : "Daeva", race));
+		Player& p = *inside.back().player;
+		p.setMotions(std::make_unique<model::gameobjects::player::motion::MotionList>(p)); // the teleport packets read it
+		world.storeObject(p);
+		ASSERT_TRUE(world.setPosition(runtime::Ptr<model::gameobjects::VisibleObject>(p), instance.getMapId(), instance.getInstanceId(), 500.0f, 500.0f,
+			300.0f, int8_t{0}));
+		world.spawn(runtime::Ptr<model::gameobjects::VisibleObject>(p));
+	}
+	EXPECT_NO_THROW(executor().advance(std::chrono::milliseconds(240000)));
+	EXPECT_EQ(phase(instance), InstanceProgressionType::START_PROGRESS) << "the start ran through";
+	std::set<std::pair<float, float>> sides{{342.138f, 616.856f}, {711.403f, 621.797f}};
+	std::pair<float, float> elyos{inside[0].player->getX(), inside[0].player->getY()};
+	std::pair<float, float> asmo{inside[1].player->getX(), inside[1].player->getY()};
+	EXPECT_TRUE(sides.contains(elyos)) << elyos.first;
+	EXPECT_TRUE(sides.contains(asmo)) << asmo.first;
+	EXPECT_NE(elyos, asmo) << "opposite sides";
+	for (cptest::PlayerFixture& f : inside) { // out before the instance is destroyed (its exit needs the exit rows)
+		f.player->getController().cancelAllTasks();
+		if (f.player->isSpawned())
+			world.despawn(*f.player);
+		world.removeObject(*f.player);
+	}
 }
 
 /** BasicPvpInstance.java:199-227, Iron Wall :72-99: the npc deaths score for the race of the player with the most damage, only after the
