@@ -29,6 +29,7 @@
 #include <map>
 #include <optional>
 #include <random>
+#include <sstream>
 #include <string>
 #include <string_view>
 #include <system_error>
@@ -41,6 +42,9 @@
 #include "aion/gameserver/controllers/NpcController.h"
 #include "aion/gameserver/dao/BookmarkDAO.h"
 #include "aion/gameserver/dataholders/DataManager.h"
+#include "aion/gameserver/dataholders/NpcSkillData.h"
+#include "aion/gameserver/dataholders/UpgradeArcadeData.h"
+#include "aion/gameserver/dataholders/CustomDrop.h"
 #include "aion/gameserver/dataholders/GatherableData.bind.h"
 #include "aion/gameserver/dataholders/GatherableData.h"
 #include "aion/gameserver/dataholders/NpcData.bind.h"
@@ -526,9 +530,8 @@ TEST_F(SystemCommandsTest, DebugSyntaxAndNoNioServer) {
 
 // ---- //reload (Reload.java:24-106) --------------------------------------------------------------------------------------------------------
 
-/** The syntax arms, the ai arm (AIEngine.reload), and the eight static-data arms that stay unported (D3: HolderRef publishes once). The
- * config and commands arms read ./config: the M5j gate's (Z18). */
-TEST_F(SystemCommandsTest, ReloadSyntaxAiAndTheUnportedStaticDataArms) {
+/** Reload.java:43-106: the syntax arms, the ai arm (AIEngine.reload) and the quests arm, which stays unported (QuestEngine.reload, A-D1) */
+TEST_F(SystemCommandsTest, ReloadSyntaxAiAndTheUnportedQuestsArm) {
 	Player& admin = gm(731021);
 	// AIEngine.validateScripts reads the npc templates: none here
 	savedMissingAiHandlers = configs::main::AIConfig::MISSING_AI_HANDLERS.get();
@@ -543,18 +546,78 @@ TEST_F(SystemCommandsTest, ReloadSyntaxAiAndTheUnportedStaticDataArms) {
 	client()->clearSent();
 	EXPECT_TRUE(reload.process(admin, args({"AI"})));
 	EXPECT_EQ(client()->sentBytes(), info("AI successfully reloaded!"));
-	for (const char* arm : {"quests", "skills", "npcskills", "items", "customdrops", "events", "arcade", "decomposables"}) {
-		const uint64_t before = runtime::unportedHitCount();
-		client()->clearSent();
-		EXPECT_TRUE(reload.process(admin, args({arm})));
-		EXPECT_EQ(client()->sentBytes(), info("<Error while executing command>")) << arm;
-		EXPECT_EQ(runtime::unportedHitCount(), before + 1) << arm;
-	}
-	uint64_t reloadHits = 0;
-	for (const runtime::UnportedHit& hit : runtime::unportedHits())
-		if (hit.file.ends_with("Reload.cpp"))
-			reloadHits += hit.hits;
-	EXPECT_EQ(reloadHits, 8u) << "one site per arm, in Reload.cpp";
+	const uint64_t before = runtime::unportedHitCount();
+	client()->clearSent();
+	EXPECT_TRUE(reload.process(admin, args({"quests"})));
+	EXPECT_EQ(client()->sentBytes(), info("<Error while executing command>"));
+	EXPECT_EQ(runtime::unportedHitCount(), before + 1);
+}
+
+/**
+ * Reload.java:56-100 (owner's decision 2026-10-13): the static-data arms load their files from ./data/static_data (a scratch working
+ * directory here) and replace the published holder; the old holder stays valid. The arcade file is the Java tree's arcadelist.xml (the count is
+ * its reward <item> rows); the npc skills directory is empty (Java: an empty list); the custom drops file has no drops.
+ */
+TEST_F(SystemCommandsTest, ReloadReplacesTheStaticDataHolders) {
+	Player& admin = gm(731022);
+	const std::filesystem::path javaArcade =
+		std::filesystem::path(__FILE__).parent_path().parent_path().parent_path().parent_path().parent_path().parent_path() / "game-server" /
+		"data" / "static_data" / "events" / "arcadelist.xml";
+	std::ifstream arcadeIn(javaArcade, std::ios::binary);
+	std::stringstream arcadeText;
+	arcadeText << arcadeIn.rdbuf();
+	int32_t arcadeItems = 0;
+	const std::string arcade = arcadeText.str();
+	for (size_t at = arcade.find("<rewards"); at != std::string::npos && (at = arcade.find("<item ", at)) != std::string::npos; at++)
+		arcadeItems++;
+	ASSERT_GT(arcadeItems, 0) << javaArcade;
+
+	const std::filesystem::path previous = std::filesystem::current_path();
+	const std::filesystem::path dir = std::filesystem::temp_directory_path() / ("aion_gs_reload_" + std::to_string(std::random_device()()));
+	std::filesystem::create_directories(dir / "data/static_data/events");
+	std::filesystem::create_directories(dir / "data/static_data/npc_skills");
+	std::filesystem::create_directories(dir / "data/static_data/custom_drop");
+	std::ofstream(dir / "data/static_data/events/arcadelist.xml", std::ios::binary) << arcade;
+	std::ofstream(dir / "data/static_data/custom_drop/custom_drop.xml", std::ios::binary) << "<custom_drop/>";
+	std::filesystem::current_path(dir);
+	struct Restore {
+		std::filesystem::path previous, dir;
+		~Restore() {
+			std::filesystem::current_path(previous);
+			std::error_code ignored;
+			std::filesystem::remove_all(dir, ignored);
+		}
+	} restore{previous, dir};
+
+	dataholders::DataManager::UPGRADE_ARCADE_DATA.publish(std::make_unique<dataholders::UpgradeArcadeData>());
+	dataholders::DataManager::CUSTOM_NPC_DROP.publish(std::make_unique<dataholders::CustomDrop>());
+	const dataholders::UpgradeArcadeData* oldArcade = dataholders::DataManager::UPGRADE_ARCADE_DATA.get();
+	const dataholders::NpcSkillData* oldNpcSkills = dataholders::DataManager::NPC_SKILL_DATA.get();
+	ASSERT_NE(oldNpcSkills, nullptr) << "the fixture publishes the npc skills";
+	handlers::admincommands::Reload reload;
+
+	client()->clearSent();
+	EXPECT_TRUE(reload.process(admin, args({"arcade"})));
+	EXPECT_EQ(client()->sentBytes(), info(std::to_string(arcadeItems) + " upgrade arcade rewards loaded."));
+	EXPECT_NE(dataholders::DataManager::UPGRADE_ARCADE_DATA.get(), oldArcade);
+	EXPECT_EQ(oldArcade->size(), 0) << "the old holder stays valid";
+	client()->clearSent();
+	EXPECT_TRUE(reload.process(admin, args({"customdrops"})));
+	EXPECT_EQ(client()->sentBytes(), info("0 custom drops loaded."));
+	client()->clearSent();
+	EXPECT_TRUE(reload.process(admin, args({"npcskills"})));
+	EXPECT_EQ(client()->sentBytes(), info("0 NPC skills loaded.")) << "an empty directory";
+	EXPECT_NE(dataholders::DataManager::NPC_SKILL_DATA.get(), oldNpcSkills);
+	client()->clearSent();
+	EXPECT_TRUE(reload.process(admin, args({"skills"})));
+	EXPECT_EQ(client()->sentBytes(), info("<Error while executing command>")) << "no skill_templates.xml: the load's error";
+
+	const dataholders::UpgradeArcadeData* reloadedArcade = dataholders::DataManager::UPGRADE_ARCADE_DATA.get();
+	const dataholders::CustomDrop* reloadedDrops = dataholders::DataManager::CUSTOM_NPC_DROP.get();
+	dataholders::DataManager::UPGRADE_ARCADE_DATA.resetForTests();
+	dataholders::DataManager::CUSTOM_NPC_DROP.resetForTests();
+	static_cast<void>(reloadedArcade); // immortal, like every published holder
+	static_cast<void>(reloadedDrops);
 }
 
 } // namespace

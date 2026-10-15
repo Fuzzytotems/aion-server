@@ -88,6 +88,50 @@ TEST(HolderRefTest, PublishesOnceAndStaysValid) {
 	delete statRaw;
 }
 
+// HolderRef::republish (//reload, owner's decision 2026-10-13, header request m5j-r1): the never-published and null throws, the swap, and a
+// pointer into the old holder that stays valid (the old holder is kept alive)
+TEST(HolderRefTest, RepublishSwapsAndKeepsTheOldHolderAlive) {
+	HolderRef<ItemData> ref;
+	EXPECT_THROW(ref.republish(std::make_unique<ItemData>()), runtime::IllegalStateException) << "never published";
+	EXPECT_EQ(ref.get(), nullptr);
+
+	auto first = std::make_unique<ItemData>();
+	const ItemData* oldHolder = first.get();
+	ref.publish(std::move(first));
+	EXPECT_THROW(ref.republish(nullptr), runtime::IllegalArgumentException);
+	EXPECT_EQ(ref.get(), oldHolder);
+
+	const ItemData* pointerIntoOld = &*ref; // what a live template or a resolved IDREF holds
+	auto second = std::make_unique<ItemData>();
+	const ItemData* newHolder = second.get();
+	ref.republish(std::move(second));
+	EXPECT_EQ(ref.get(), newHolder);
+	EXPECT_NE(newHolder, oldHolder);
+	EXPECT_EQ(pointerIntoOld->size(), 0u) << "the old holder is still alive";
+	ref.republish(std::make_unique<ItemData>());
+	EXPECT_NE(ref.get(), newHolder) << "again";
+	const ItemData* last = ref.get();
+	ref.resetForTests();
+	delete oldHolder; // the test owns what it published
+	delete newHolder;
+	delete last;
+
+	MutableHolderRef<Stat> mutableRef;
+	EXPECT_THROW(mutableRef.republish(std::make_unique<Stat>()), runtime::IllegalStateException) << "never published";
+	auto stat = std::make_unique<Stat>();
+	Stat* oldStat = stat.get();
+	mutableRef.publish(std::move(stat));
+	EXPECT_THROW(mutableRef.republish(nullptr), runtime::IllegalArgumentException);
+	oldStat->value = 7;
+	mutableRef.republish(std::make_unique<Stat>());
+	EXPECT_NE(mutableRef.get(), oldStat);
+	EXPECT_EQ(oldStat->value, 7) << "the old mutable holder is still alive";
+	Stat* newStat = mutableRef.get();
+	mutableRef.resetForTests();
+	delete oldStat;
+	delete newStat;
+}
+
 TEST(HolderRefTest, ReadersRacingWithPublishSeeNullOrTheHolder) {
 	HolderRef<Stat> ref;
 	auto holder = std::make_unique<Stat>();
