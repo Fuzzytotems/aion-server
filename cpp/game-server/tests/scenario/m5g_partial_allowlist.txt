@@ -34,7 +34,5 @@ aion/gameserver/taskmanager/tasks/housing/AuctionAutoFillTask.cpp:38
 # --- SECTION C - allowed, counted and printed, not pinned ---
 # =========================================================================================================================================
 
-# the PvP map instance stays partial by m5f-plan.md D6 (PvpMapHandler is M5j; init would create it at every startup)
-aion/gameserver/custom/pvpmap/PvpMapService.cpp:32
 # EMOTIONS_ALL is off by default, so this is only reached with the config the real-client checklist uses
 aion/gameserver/services/player/PlayerService.cpp:268
