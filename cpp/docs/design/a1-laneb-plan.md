@@ -64,3 +64,7 @@ the geo shield mesh. It is picked up when a siege checkpoint needs `gs.scenario.
 >   CampDefenseCannonAI, AhserionAssaultPod, AhserionSkyAssaulterAI and AhserionRegistrationCorridor. AhserionA1AiTest.cpp has 8 cases;
 >   mutants 15 of 15 killed. Not unit-tested: AhserionGate's 21515 buff, and the pod's and the sky assaulter's trooper landings (spawn needs
 >   the test map in the World). No gate.
+> - **cp7**: AhserionAI, AhserionTankControllerAI, AhserionMountableTankAI, AhserionConstructDestroyerAI and AdvanceCorridorShield.
+>   AhserionA1AiTest.cpp has 14 cases (6 new); mutants 10 of 10 killed. The tank controller picks its winner when its 3 s task runs, as Java's
+>   lambda does. Not unit-tested: the spawns (support, Ereshkigal's voice, assassins, base stages), Ide Destruction, the shouts' packets and
+>   the deaths during a raid. No gate.

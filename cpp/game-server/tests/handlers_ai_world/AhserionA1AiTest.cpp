@@ -28,7 +28,12 @@
 #include "aion/gameserver/dataholders/SkillData.h"
 #include "aion/gameserver/handlers/ai/AggressiveNoLootNpcAI.h"
 #include "aion/gameserver/handlers/ai/GeneralNpcAI.h"
+#include "aion/gameserver/handlers/ai/worlds/panesterra/ahserionsflight/AdvanceCorridorShield.h"
+#include "aion/gameserver/handlers/ai/worlds/panesterra/ahserionsflight/AhserionAI.h"
 #include "aion/gameserver/handlers/ai/worlds/panesterra/ahserionsflight/AhserionAggressiveNpcAI.h"
+#include "aion/gameserver/handlers/ai/worlds/panesterra/ahserionsflight/AhserionConstructDestroyerAI.h"
+#include "aion/gameserver/handlers/ai/worlds/panesterra/ahserionsflight/AhserionMountableTankAI.h"
+#include "aion/gameserver/handlers/ai/worlds/panesterra/ahserionsflight/AhserionTankControllerAI.h"
 #include "aion/gameserver/handlers/ai/worlds/panesterra/ahserionsflight/AhserionAssaultCommanderAI.h"
 #include "aion/gameserver/handlers/ai/worlds/panesterra/ahserionsflight/AhserionAssaultPod.h"
 #include "aion/gameserver/handlers/ai/worlds/panesterra/ahserionsflight/AhserionConstructAI.h"
@@ -41,12 +46,18 @@
 #include "aion/gameserver/model/gameobjects/player/PlayerCommonData.h"
 #include "aion/gameserver/model/gameobjects/player/ResponseRequester.h"
 #include "aion/gameserver/model/stats/calc/AdditionStat.h"
+#include "aion/gameserver/runtime/base/Exceptions.h"
 #include "aion/gameserver/services/panesterra/ahserion/PanesterraFaction.h"
 #include "aion/gameserver/world/World.h"
 #include "aion/gameserver/world/knownlist/NpcKnownList.h"
 
 namespace aion::gameserver::handlers::ai::worlds::panesterra::ahserionsflight {
+::aion::gameserver::handlers::AIFactory AdvanceCorridorShield_aiFactory;
+::aion::gameserver::handlers::AIFactory AhserionAI_aiFactory;
 ::aion::gameserver::handlers::AIFactory AhserionAggressiveNpcAI_aiFactory;
+::aion::gameserver::handlers::AIFactory AhserionConstructDestroyerAI_aiFactory;
+::aion::gameserver::handlers::AIFactory AhserionMountableTankAI_aiFactory;
+::aion::gameserver::handlers::AIFactory AhserionTankControllerAI_aiFactory;
 ::aion::gameserver::handlers::AIFactory AhserionAssaultCommanderAI_aiFactory;
 ::aion::gameserver::handlers::AIFactory AhserionAssaultPod_aiFactory;
 ::aion::gameserver::handlers::AIFactory AhserionGate_aiFactory;
@@ -77,7 +88,7 @@ const dataholders::NpcData& flightNpcTemplates() {
 	static const dataholders::NpcData* holder = [] {
 		static xml::LoadContext context;
 		std::string xml = "<npc_templates>";
-		for (int32_t id : {PLAIN_NPC_ID, TIMED_AGGRESSIVE_NPC_ID, BELUS_CORRIDOR_NPC_ID, 802221})
+		for (int32_t id : {PLAIN_NPC_ID, TIMED_AGGRESSIVE_NPC_ID, BELUS_CORRIDOR_NPC_ID, 802221, 277233, 277239})
 			xml += std::string(R"(<npc_template npc_id=")") + std::to_string(id) +
 				R"(" name_id="1" level="65" name="flight npc" attack_speed="2000" tribe="MONSTER" rating="NORMAL" rank="NOVICE" race="DRAGON")"
 				R"( srange="8" sangle="270" arange="2"><stats maxHp="1000" maxMp="0" attack="10">)"
@@ -95,6 +106,15 @@ struct VoiceProbe : flight::EreshkigalsVoiceAI {
 	using EreshkigalsVoiceAI::EreshkigalsVoiceAI;
 	using EreshkigalsVoiceAI::handleSpawned;
 	using EreshkigalsVoiceAI::handleDespawned;
+};
+struct AhserionProbe : flight::AhserionAI {
+	using AhserionAI::AhserionAI;
+	using AhserionAI::handleDied;
+};
+struct TankProbe : flight::AhserionMountableTankAI {
+	using AhserionMountableTankAI::AhserionMountableTankAI;
+	using AhserionMountableTankAI::handleSpawned;
+	using AhserionMountableTankAI::handleUseItemFinish;
 };
 struct CorridorProbe : flight::AhserionRegistrationCorridor {
 	using AhserionRegistrationCorridor::AhserionRegistrationCorridor;
@@ -308,6 +328,101 @@ TEST_F(AhserionA1AiTest, TheRegistrationCorridor) {
 	EXPECT_TRUE(world::World::getInstance().findVisibleObject(corridor->getObjectId()));
 	executor->advance(std::chrono::milliseconds(1));
 	EXPECT_FALSE(world::World::getInstance().findVisibleObject(corridor->getObjectId()));
+}
+
+
+// ------------------------------------------------------------------------------------------------------------------------------- cp7
+
+/** The five AION_AI factories of cp7 build their classes on the bases Java gives them */
+TEST_F(AhserionA1AiTest, TheCp7FactoriesBuildTheirClasses) {
+	AI_TEST_SCOPE;
+	Ref<model::gameobjects::Npc> npc = makeNpc(PLAIN_NPC_ID);
+	EXPECT_TRUE(dynamic_cast<flight::AhserionAI*>(flight::AhserionAI_aiFactory(*npc).get()));
+	EXPECT_TRUE(dynamic_cast<flight::AhserionConstructAI*>(flight::AdvanceCorridorShield_aiFactory(*npc).get()));
+	EXPECT_TRUE(dynamic_cast<flight::AhserionConstructAI*>(flight::AhserionTankControllerAI_aiFactory(*npc).get()));
+	EXPECT_TRUE(dynamic_cast<flight::AhserionAggressiveNpcAI*>(flight::AhserionConstructDestroyerAI_aiFactory(*npc).get()));
+	EXPECT_TRUE(dynamic_cast<flight::AhserionMountableTankAI*>(flight::AhserionMountableTankAI_aiFactory(*npc).get()));
+}
+
+/** AhserionAI.java:43-54, 81-97: max hp by the team size; a level-57 or level-26 skill end adds 100000 hate to a target, another level not */
+TEST_F(AhserionA1AiTest, AhserionScalesAndSwitchesTargets) {
+	AI_TEST_SCOPE;
+	publishSkills({21569});
+	Ref<model::gameobjects::Npc> boss = makeNpc(PLAIN_NPC_ID, 501);
+	flight::AhserionAI& ai = install<flight::AhserionAI>(*boss);
+	EXPECT_FLOAT_EQ(maxHpBaseRate(ai, *boss), 2.0f);
+	Ref<model::gameobjects::player::Player> player = makeWorldPlayer(7511, 502, 500, 100);
+	know(*boss, *player);
+	boss->getAggroList().addHate(*player, 10);
+	const skillengine::model::SkillTemplate* other = dataholders::DataManager::SKILL_DATA->getSkillTemplate(21569);
+	ai.onEndUseSkill(other, 58);
+	EXPECT_EQ(boss->getAggroList().getHate(*player), 10);
+	ai.onEndUseSkill(other, 57);
+	EXPECT_EQ(boss->getAggroList().getHate(*player), 100010);
+	ai.onEndUseSkill(other, 26);
+	EXPECT_EQ(boss->getAggroList().getHate(*player), 200010);
+	EXPECT_FLOAT_EQ(ai.modifyDamage(*player, 40.0f, nullptr), 40.0f) << "no effect: AggressiveNpcAI's";
+}
+
+/** AhserionAI.java:136-170: without the raid his death only logs; the winner is the team of the most damage, none without teams */
+TEST_F(AhserionA1AiTest, AhserionsWinner) {
+	AI_TEST_SCOPE;
+	EXPECT_FALSE(flight::AhserionAI::findWinnerTeam({}));
+	EXPECT_THROW(flight::AhserionAI::findWinnerTeam({{PanesterraFaction::BELUS, 100}}), runtime::NullPointerException)
+		<< "Java's getTeam(faction).isEliminated() on a team that is gone";
+	Ref<model::gameobjects::Npc> boss = makeNpc(PLAIN_NPC_ID, 501);
+	AhserionProbe& ai = install<AhserionProbe>(*boss);
+	ai.handleDied(); // Poeta, no raid: logMetrics only
+}
+
+/** AhserionTankControllerAI.java:117-133: the Balaur win unless a living team dealt more */
+TEST_F(AhserionA1AiTest, TheTankBaseGoesToTheBalaurWithoutTeams) {
+	AI_TEST_SCOPE;
+	EXPECT_EQ(flight::AhserionTankControllerAI::findWinnerTeam({}), PanesterraFaction::BALAUR);
+	EXPECT_EQ(flight::AhserionTankControllerAI::findWinnerTeam({{PanesterraFaction::BELUS, 500}, {PanesterraFaction::BALAUR, 10}}),
+		PanesterraFaction::BALAUR) << "no Belus team: its damage does not count";
+}
+
+/** AhserionMountableTankAI.java:27-57: the owner faction by npc id, the 12 minute despawn; no use outside the raid; no rewards */
+TEST_F(AhserionA1AiTest, AMountableTankBelongsToItsFaction) {
+	AI_TEST_SCOPE;
+	Ref<model::gameobjects::Npc> chariot = makeNpc(277233, 501);
+	TankProbe& ai = install<TankProbe>(*chariot);
+	EXPECT_FALSE(ai.ask(AIQuestion::REWARD_AP_XP_DP_LOOT));
+	world::World::getInstance().storeObject(*chariot);
+	ai.handleSpawned();
+	EXPECT_EQ(ai.getOwnerFaction(), PanesterraFaction::BELUS);
+	Ref<model::gameobjects::Npc> engine = makeNpc(277239, 502);
+	TankProbe& engineAi = install<TankProbe>(*engine);
+	engineAi.handleSpawned();
+	EXPECT_EQ(engineAi.getOwnerFaction(), PanesterraFaction::ASPIDA);
+	Ref<model::gameobjects::Npc> plain = makeNpc(PLAIN_NPC_ID, 503);
+	TankProbe& plainAi = install<TankProbe>(*plain);
+	plainAi.handleSpawned();
+	EXPECT_EQ(plainAi.getOwnerFaction(), PanesterraFaction::BALAUR);
+	Ref<model::gameobjects::player::Player> player = makeWorldPlayer(7512, 502, 500, 100);
+	ai.handleUseItemFinish(*player);
+	EXPECT_TRUE(world::World::getInstance().findVisibleObject(chariot->getObjectId())) << "the raid is not started: no boarding";
+	executor->advance(std::chrono::minutes(12) - std::chrono::milliseconds(1));
+	EXPECT_TRUE(world::World::getInstance().findVisibleObject(chariot->getObjectId()));
+	executor->advance(std::chrono::milliseconds(1));
+	EXPECT_FALSE(world::World::getInstance().findVisibleObject(chariot->getObjectId()));
+}
+
+/** AhserionConstructDestroyerAI.java:47-51: 17446 level 57 adds hate, another level not */
+TEST_F(AhserionA1AiTest, AConstructDestroyerSwitchesTargetsAfterItsSkill) {
+	AI_TEST_SCOPE;
+	publishSkills({17446});
+	Ref<model::gameobjects::Npc> destroyer = makeNpc(PLAIN_NPC_ID, 501);
+	flight::AhserionConstructDestroyerAI& ai = install<flight::AhserionConstructDestroyerAI>(*destroyer);
+	Ref<model::gameobjects::player::Player> player = makeWorldPlayer(7513, 502, 500, 100);
+	know(*destroyer, *player);
+	destroyer->getAggroList().addHate(*player, 10);
+	const skillengine::model::SkillTemplate* skill = dataholders::DataManager::SKILL_DATA->getSkillTemplate(17446);
+	ai.onEndUseSkill(skill, 56);
+	EXPECT_EQ(destroyer->getAggroList().getHate(*player), 10);
+	ai.onEndUseSkill(skill, 57);
+	EXPECT_EQ(destroyer->getAggroList().getHate(*player), 100010);
 }
 
 } // namespace
