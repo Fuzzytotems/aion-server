@@ -11,6 +11,7 @@ namespace aion::gameserver::handlers::instance {
 ::aion::gameserver::handlers::InstanceFactory OphidanBridgeInstance_L_instanceFactory;
 ::aion::gameserver::handlers::InstanceFactory LinkgateFoundryInstance_instanceFactory;
 ::aion::gameserver::handlers::InstanceFactory KromedesTrialInstance_instanceFactory;
+::aion::gameserver::handlers::InstanceFactory EternalBastionInstance_instanceFactory;
 namespace pvp {
 ::aion::gameserver::handlers::InstanceFactory IronWallWarfrontInstance_instanceFactory;
 ::aion::gameserver::handlers::InstanceFactory IdgelDomeInstance_instanceFactory;
@@ -23,6 +24,8 @@ namespace pvparenas {
 ::aion::gameserver::handlers::InstanceFactory ChaosTrainingGroundsInstance_instanceFactory;
 ::aion::gameserver::handlers::InstanceFactory ArenaOfChaosInstance_instanceFactory;
 ::aion::gameserver::handlers::InstanceFactory ArenaOfGloryInstance_instanceFactory;
+::aion::gameserver::handlers::InstanceFactory HarmonyTrainingGroundsInstance_instanceFactory;
+::aion::gameserver::handlers::InstanceFactory ArenaOfHarmonyInstance_instanceFactory;
 } // namespace pvparenas
 
 } // namespace aion::gameserver::handlers::instance
@@ -33,6 +36,7 @@ inline constexpr int32_t KROMEDES_TRIAL = 300230000;
 inline constexpr int32_t OPHIDAN_BRIDGE = 300590000;
 inline constexpr int32_t LINKGATE_FOUNDRY = 301270000;
 inline constexpr int32_t LUCKY_OPHIDAN_BRIDGE = 301320000;
+inline constexpr int32_t ETERNAL_BASTION = 300540000;
 inline constexpr int32_t KAMAR_BATTLEFIELD = 301120000;
 inline constexpr int32_t ENGULFED_OPHIDAN_BRIDGE = 301210000;
 inline constexpr int32_t IRON_WALL_WARFRONT = 301220000;
@@ -42,6 +46,8 @@ inline constexpr int32_t ARENA_OF_DISCIPLINE = 300360000;
 inline constexpr int32_t CHAOS_TRAINING_GROUNDS = 300420000;
 inline constexpr int32_t DISCIPLINE_TRAINING_GROUNDS = 300430000;
 inline constexpr int32_t ARENA_OF_GLORY = 300550000;
+inline constexpr int32_t ARENA_OF_HARMONY = 300450000;
+inline constexpr int32_t HARMONY_TRAINING_GROUNDS = 300570000;
 
 /** world_maps.xml's rows of the I3 maps under test */
 inline constexpr const char* I3_MAPS_XML = R"x(<world_maps>
@@ -58,6 +64,9 @@ inline constexpr const char* I3_MAPS_XML = R"x(<world_maps>
 	<map id="300420000" cName="IDArena_pvp01_T" name="Chaos Training Grounds" name_id="403259" instance="true" water_level="16" death_level="0" world_size="2048" drop_type="NONE" except_buff="true" flags="GLIDE PVP DUEL_SAME_RACE NO_RETURN_BATTLE" pve_attack_ratio="150" pve_defend_ratio="50"/>
 	<map id="300430000" cName="IDArena_pvp02_T" name="Discipline Training Grounds" name_id="403260" instance="true" water_level="0" death_level="0" world_size="2048" drop_type="NONE" except_buff="true" flags="GLIDE PVP DUEL_SAME_RACE NO_RETURN_BATTLE" pve_attack_ratio="150" pve_defend_ratio="50"/>
 	<map id="300550000" cName="IDArena_Glory" name="Arena of Glory" name_id="403554" instance="true" water_level="16" death_level="0" world_size="2048" drop_type="NONE" except_buff="true" flags="GLIDE PVP DUEL_SAME_RACE NO_RETURN_BATTLE" pve_attack_ratio="150" pve_defend_ratio="50"/>
+	<map id="300450000" cName="IDArena_Team01" name="Arena of Harmony" name_id="403505" instance="true" water_level="16" death_level="0" world_size="2048" drop_type="NONE" except_buff="true" flags="GLIDE PVP DUEL_SAME_RACE NO_RETURN_BATTLE" pve_attack_ratio="150" pve_defend_ratio="50"/>
+	<map id="300570000" cName="IDArena_Team01_T" name="Harmony Training Grounds" name_id="403574" instance="true" water_level="16" death_level="0" world_size="2048" drop_type="NONE" except_buff="true" flags="GLIDE PVP DUEL_SAME_RACE NO_RETURN_BATTLE" pve_attack_ratio="150" pve_defend_ratio="50"/>
+	<map id="300540000" cName="IDLDF5b_TD" name="The Eternal Bastion" name_id="403551" instance="true" water_level="60" death_level="0" world_size="1024" drop_type="BALAUREA_HIGH_INSTANCE" flags="GLIDE PVP DUEL_SAME_RACE NO_RETURN_BATTLE"/>
 </world_maps>)x";
 
 inline const char* instanceMapsXml() {
@@ -82,6 +91,15 @@ inline const std::vector<int32_t>& handlerNpcIds() {
 		233492, 233493, 233495, 701939, 701940, 701941, 701942, 701953, 701954, 701955, 701956, 701969, 701970, 701971, 701972,
 		// the arenas and their AIs
 		218690, 218682, 218685, 701187, 701188, 701184, 701183, 207116, 207099,
+		// Eternal Bastion and its AIs
+		209516, 209517, 209555, 209557, 230744, 230745, 230746, 230749, 230753, 230754, 230756, 230757, 230783, 230784, 230785, 231105, 231106,
+		231107, 231108, 231110, 231111, 231112, 231113, 231114, 231115, 231116, 231117, 231118, 231119, 231120, 231122, 231123, 231124, 231125,
+		231126, 231127, 231128, 231130, 231131, 231132, 231133, 231134, 231137, 231138, 231140, 231141, 231142, 231143, 231144, 231148, 231149,
+		231150, 231152, 231153, 231154, 231155, 231156, 231157, 231158, 231159, 231160, 231162, 231163, 231164, 231165, 231167, 231168, 231169,
+		231170, 231171, 231172, 231173, 231174, 231175, 231176, 231177, 231178, 231179, 231180, 231181, 233309, 233310, 233311, 233312, 233313,
+		233314, 233315, 284320, 284685, 284686, 284695, 284696, 284697, 284699, 284707, 701596, 701597, 701598, 701599, 701600, 701601, 701602,
+		701603, 701604, 701605, 701606, 701607, 701610, 701611, 701612, 701613, 701614, 701615, 701616, 701617, 701618, 701619, 701620, 701621,
+		701625, 701913, 701914, 701915, 701916, 701917, 701922, 701923, 701924, 730871, 831330, 831332, 831333, 831334, 831335,
 		// two plain npcs
 		900200, 900300};
 	return ids;
