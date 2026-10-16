@@ -77,7 +77,11 @@ inline const std::vector<int32_t>& handlerNpcIds() {
 		730612, 219373, 219369, 219411, 219370, 219352, 219353, 219354, 219355, 219356, 219357, 219358, 219364, 219395, 283177, 283178, 283179,
 		283180, 701501, 701541, 701527, 730622, 800438, 800463, 800380, 800374, 800376, 800461, 800460, 800347, 800336, 800338, 800464, 800465,
 		730629, 800433, 701494, 283092, 283094, 283171, 283172, 283089, 283115, 283045, 283051, 283116, 283117, 283118, 283119, 283120, 283121,
-		283102, 730692, 283096, 283097, 283098, 283558, 283109, 283110};
+		283102, 730692, 283096, 283097, 283098, 283558, 283109, 283110,
+		// Tiamat Stronghold, the other AIs: the blade storm, Kahrun and his field, the scientists and their eyes, the captains, the quakes and
+		// sands, Kumbanda's accelerators, ghost and slowed time, Muragan's men, the statue, the 4.0 eyes
+		283099, 730613, 800335, 800456, 800425, 219390, 219392, 283145, 283082, 283083, 283084, 283085, 283086, 283088, 800435, 800436, 730668,
+		283913};
 	static const std::vector<int32_t> all = [] {
 		std::vector<int32_t> v = ids;
 		for (int32_t id = 219505; id <= 219531; id++) // the Tomb's kobolds, kralls, ghosts and bosses
@@ -87,8 +91,9 @@ inline const std::vector<int32_t>& handlerNpcIds() {
 	return all;
 }
 
-inline std::string handlerNpcAi(int32_t) {
-	return "";
+inline std::string handlerNpcAi(int32_t npcId) {
+	// Kahrun's fighting self (KharunAI) and Raksha (SuramaTheTraitorAI) cast: a DummyAI cannot
+	return npcId == 800335 || npcId == 219356 ? "general" : "";
 }
 
 } // namespace aion::gameserver::handlers::instance::test
