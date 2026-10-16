@@ -56,8 +56,7 @@ the geo shield mesh. It is picked up when a siege checkpoint needs `gs.scenario.
 >   graves' spawns and WorldBlesser's dialog are not unit-tested: rndSpawnInRange needs the test map in the World.
 > - **Gates** for cp1 to cp4: gs.smoke.startup passes; gs.scenario.m5i passes 16 of 17. Its C1 fails on the base too (the enter-world wrap,
 >   3d620a61c on #338). The m5i spawns now get these AIs instead of a DummyAI.
-> - **cp5**: the 4 corridor AIs, AhserionRaid (15 bodies) and PanesterraService start/stop/isStarted. PanesterraA1AiTest.cpp has 4 cases;
->   tests/worldevents/P5-12b1/AhserionRaidTest.cpp has 3; aion_gs_worldevents_tests passes 57 of 57 under ctest. Mutants: 11 run, 9 killed,
->   2 not observable. The corridors' rank checks for the advance and governor corridors are masked by the level-65 check, and the fixture
->   has no level-65 character. The raid's spawns, steps and rewards have no unit or gate coverage. phase5-allowlist.txt drops its 18
->   Ahserion rows (closure: OK).
+> - **cp5**: the 4 corridor AIs, AhserionRaid (15 bodies) and PanesterraService start/stop/isStarted. PanesterraA1AiTest.cpp has 7 cases,
+>   with a level-65 character at the rank thresholds; tests/worldevents/P5-12b1/AhserionRaidTest.cpp has 3; aion_gs_worldevents_tests passes
+>   57 of 57 under ctest. Mutants: 12 of 12 killed. The raid's spawns, steps and rewards have no unit or gate coverage. phase5-allowlist.txt
+>   drops its 18 Ahserion rows (closure: OK).
