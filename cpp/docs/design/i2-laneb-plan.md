@@ -45,3 +45,9 @@ None of the scenario gates enters these maps. A handler only runs when a player 
 ## 3. Progress
 
 > **Progress:** plan written (2026-10-16).
+>
+> - **cp1**: Crucible Challenge (CrucibleInstance, CrucibleChallengeInstance) and the six crucibleChallenge AIs. CrucibleChallengeTest.cpp has
+>   22 cases and CrucibleChallengeAiTest.cpp 11. Mutants: 24 of 24 killed; two needed sharper cases (Poppy's sparks killed before the
+>   timer's next tick, and a second entry keeping the first reward).
+> - **cp2**: EmpyreanCrucibleInstance. EmpyreanCrucibleTest.cpp has 21 cases. Mutants: 22 of 22 killed; three needed sharper cases (no points
+>   after the reward, a 217508 of an EmpyreanStage only leaving, the trio not before 47 s).

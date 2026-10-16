@@ -13,18 +13,22 @@ namespace aion::gameserver::handlers::instance {
 
 namespace aion::gameserver::handlers::instance::crucible {
 ::aion::gameserver::handlers::InstanceFactory CrucibleChallengeInstance_instanceFactory;
+::aion::gameserver::handlers::InstanceFactory EmpyreanCrucibleInstance_instanceFactory;
 } // namespace aion::gameserver::handlers::instance::crucible
 
 namespace aion::gameserver::handlers::instance::test {
 
 inline constexpr int32_t STONESPEAR_REACH = 301500000;
 inline constexpr int32_t CRUCIBLE_CHALLENGE = 300320000;
+inline constexpr int32_t EMPYREAN_CRUCIBLE = 300300000;
 using crucible::CrucibleChallengeInstance_instanceFactory;
+using crucible::EmpyreanCrucibleInstance_instanceFactory;
 
-/** world_maps.xml's rows of the I2 maps under test (world_maps.xml:111, 60) */
+/** world_maps.xml's rows of the I2 maps under test (world_maps.xml:111, 60, 59) */
 inline constexpr const char* I2_MAPS_XML = R"x(<world_maps>
 	<map id="301500000" cName="IDLegion" name="Stonespear Reach" name_id="404646" instance="true" water_level="90" death_level="0" world_size="512" drop_type="NONE" flags="BIND RECALL GLIDE PVP DUEL_SAME_RACE NO_RETURN_BATTLE"/>
 	<map id="300320000" cName="IDArena_Solo" name="Crucible Challenge" name_id="401841" instance="true" water_level="16" death_level="0" world_size="2048" drop_type="NONE" flags="PVP DUEL_SAME_RACE NO_RETURN_BATTLE" pve_attack_ratio="150" pve_defend_ratio="50"/>
+	<map id="300300000" cName="IDArena" name="Empyrean Crucible" name_id="401828" instance="true" water_level="16" death_level="0" world_size="2048" drop_type="NONE" flags="PVP DUEL_SAME_RACE NO_RETURN_BATTLE" pve_attack_ratio="150" pve_defend_ratio="50"/>
 </world_maps>)x";
 
 inline const char* instanceMapsXml() {
@@ -54,6 +58,20 @@ inline const std::vector<int32_t>& crucibleChallengeNpcs() {
 	return ids;
 }
 
+/** Empyrean Crucible's npc ids (its handler's), less the ones Crucible Challenge already lists */
+inline const std::vector<int32_t>& empyreanCrucibleNpcs() {
+	static const std::vector<int32_t> ids{205331, 205332, 205333, 205334, 205335, 205336, 205338, 205339, 205340, 205341, 205342, 205413,
+		205414, 205426, 205427, 205428, 205429, 205430, 211984, 217486, 217487, 217489, 217491, 217492, 217493, 217501, 217502, 217503, 217504,
+		217505, 217506, 217507, 217508, 217509, 217510, 217511, 217512, 217513, 217514, 217515, 217516, 217517, 217518, 217519, 217520, 217521,
+		217522, 217523, 217524, 217525, 217526, 217527, 217528, 217545, 217547, 217548, 217549, 217550, 217552, 217553, 217554, 217556, 217557,
+		217558, 217559, 217560, 217561, 217562, 217563, 217564, 217565, 217566, 217567, 217568, 217569, 217570, 217572, 217573, 217576, 217577,
+		217578, 217579, 217580, 217581, 217582, 217583, 217584, 217585, 217586, 217587, 217588, 217590, 217591, 217592, 217593, 217594, 217595,
+		217596, 217597, 217651, 217652, 217653, 217654, 217735, 217737, 217740, 217741, 217742, 217743, 217744, 217745, 217746, 217747, 217748,
+		217749, 217750, 217753, 217756, 217778, 280790, 281108, 281109, 281110, 281111, 281112, 281113, 281114, 281191, 281192, 281193, 281194,
+		281322, 700527, 700528, 799567, 799568, 799569, 799573};
+	return ids;
+}
+
 /** The npc ids the I2 handlers spawn or kill */
 inline const std::vector<int32_t>& handlerNpcIds() {
 	static const std::vector<int32_t> ids = [] {
@@ -62,6 +80,7 @@ inline const std::vector<int32_t>& handlerNpcIds() {
 		all.insert(all.end(), stonespearTrash().begin(), stonespearTrash().end());
 		all.insert(all.end(), stonespearStones().begin(), stonespearStones().end());
 		all.insert(all.end(), crucibleChallengeNpcs().begin(), crucibleChallengeNpcs().end());
+		all.insert(all.end(), empyreanCrucibleNpcs().begin(), empyreanCrucibleNpcs().end());
 		return all;
 	}();
 	return ids;
