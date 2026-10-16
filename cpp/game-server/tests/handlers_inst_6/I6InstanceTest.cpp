@@ -14,6 +14,7 @@
 
 #include "aion/commons/utils/Rnd.h"
 #include "aion/gameserver/handlers/instance/InfinityShardInstance.h"
+#include "aion/gameserver/handlers/instance/ShugoImperialTombInstance.h"
 #include "aion/gameserver/handlers/instance/TheShugoEmperorsVault.h"
 #include "aion/gameserver/handlers/instance/TheobomosLabInstance.h"
 #include "aion/gameserver/handlers/instance/rakes/SteelRakeCabineInstance.h"
@@ -37,7 +38,8 @@ protected:
 TEST_F(I6InstanceTest, EachHandlerIsTheJavaClassOfItsMap) {
 	for (const auto& [javaPath, mapId] : std::map<std::string, int32_t>{{"rakes/SteelRakeInstance", STEEL_RAKE}, {"rakes/SteelRakeCabineInstance", STEEL_RAKE_CABIN},
 		     {"TheobomosLabInstance", THEOBOMOS_LAB}, {"InfinityShardInstance", INFINITY_SHARD},
-		     {"TheShugoEmperorsVault", SHUGO_EMPERORS_VAULT}}) {
+		     {"TheShugoEmperorsVault", SHUGO_EMPERORS_VAULT},
+		     {"ShugoImperialTombInstance", SHUGO_IMPERIAL_TOMB}}) {
 		std::string source = javaSource(javaPath.c_str());
 		std::smatch match;
 		ASSERT_TRUE(std::regex_search(source, match, std::regex(R"(@InstanceID\((\d+)\))"))) << javaPath;
@@ -53,6 +55,8 @@ TEST_F(I6InstanceTest, EachHandlerIsTheJavaClassOfItsMap) {
 	EXPECT_NE(dynamic_cast<InfinityShardInstance*>(shard.getInstanceHandler().get()), nullptr);
 	world::WorldMapInstance& vault = create(SHUGO_EMPERORS_VAULT, TheShugoEmperorsVault_instanceFactory);
 	EXPECT_NE(dynamic_cast<TheShugoEmperorsVault*>(vault.getInstanceHandler().get()), nullptr);
+	world::WorldMapInstance& tomb = create(SHUGO_IMPERIAL_TOMB, ShugoImperialTombInstance_instanceFactory);
+	EXPECT_NE(dynamic_cast<ShugoImperialTombInstance*>(tomb.getInstanceHandler().get()), nullptr);
 }
 
 /** SteelRakeInstance.java:18-27: Pegureronerk three times in four, else the Kaneron Agent, at one place; one of the six special deliveries */
