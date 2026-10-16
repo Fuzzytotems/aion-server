@@ -81,6 +81,7 @@ inline const std::vector<int32_t>& handlerNpcIds() {
 		all.insert(all.end(), stonespearStones().begin(), stonespearStones().end());
 		all.insert(all.end(), crucibleChallengeNpcs().begin(), crucibleChallengeNpcs().end());
 		all.insert(all.end(), empyreanCrucibleNpcs().begin(), empyreanCrucibleNpcs().end());
+		all.insert(all.end(), {205337, 205343, 205344, 282363, 282364, 282366, 282367, 282368, 282373, 282378}); // the empyreanCrucible AIs' own
 		return all;
 	}();
 	return ids;

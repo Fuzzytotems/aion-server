@@ -51,3 +51,7 @@ None of the scenario gates enters these maps. A handler only runs when a player 
 >   timer's next tick, and a second entry keeping the first reward).
 > - **cp2**: EmpyreanCrucibleInstance. EmpyreanCrucibleTest.cpp has 21 cases. Mutants: 22 of 22 killed; three needed sharper cases (no points
 >   after the reward, a 217508 of an EmpyreanStage only leaving, the trio not before 47 s).
+> - **Gates** for cp1 and cp2, run once at the cp2 tip: gs.smoke.startup and gs.scenario.m5f pass.
+> - **cp3**: the 14 empyreanCrucible AIs. EmpyreanCrucibleAiTest.cpp has 21 cases; a probe records the skills each npc starts. Mutants: 31
+>   of 31 killed; two needed sharper cases (the draky as a BEAST, so NpcAI's own REWARD_AP answer is false; the bloodthirst not before 3
+>   minutes).
