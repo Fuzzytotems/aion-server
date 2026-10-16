@@ -150,7 +150,19 @@ Smallest self-contained first; each is one commit with its tests and mutation pr
 > pvpArenas AIs (AntiAirCraftGunAI, HarmonyShifterAI, PlazaFlameThrowerAI, RelicsAI) and ophidianBridge's DefenseWallAI. Java's record BaseRewards
 > is a struct; the default broadcasts' `sendPacket(null, null)` pass std::nullopt; Math.round(float) is floor(x + 0.5f). Tests: ArenaTest (6 cases:
 > the handlers, the interrupted start, the rounds, Chaos's npc and kill points, Discipline's kill points, Glory's last-rank rewards; two client-less
-> players inside, InstanceBuffData's two buff rows published) and ArenaAiTest (5). Mutation proof 23 of 24; the survivor (RelicsAI's respawn of the
-> random relics) is equivalent here, as a test's single-time spawn has no respawn. Left to a gate: the item rewards (no item rows), the bonus and
-> morph skills, the fly rings' passes, the exit teleport. Census I3: 245 -> 135 open bodies (left: the two Harmony arenas, Eternal Bastion and its
-> AIs).
+> players inside, InstanceBuffData's two buff rows published) and ArenaAiTest (5). Mutation proof 23 of 24; one survivor, RelicsAI's respawn of the
+> random relics: not observable by a unit test (single-time spawn); the retest covers it. Left to a gate: the item rewards (no item rows), the bonus
+> and morph skills, the fly rings' passes, the exit teleport. Census I3: 245 -> 135 open bodies (left: the two Harmony arenas, Eternal Bastion and
+> its AIs).
+> **Progress:** P6I-8c done (chunk I3): the Harmony arenas - HarmonyTrainingGroundsInstance and ArenaOfHarmonyInstance (the group arenas on a
+> HarmonyArenaScore; Java's casts of instanceScore are one helper, harmonyScore()). Test: ArenaTest.TheHarmonyArenas (the handlers, the score's
+> class, the 36 fly rings, the end of a run without two groups); mutation proof 3 of 3. Left to a gate (the retest): the groups' merged damage and
+> split rewards, the ring passes' points, the Harmony score packets. Also here: the P6I-8b note's survivor wording (coordinator, 2026-10-15). Census
+> I3: 135 -> 110 open bodies (left: Eternal Bastion and its AIs).
+> **Progress:** P6I-9 done (chunk I3): Eternal Bastion - EternalBastionInstance and the fourteen AIs of ai/instance/eternalBastion. The long spawn
+> bodies (the race guards, the phases, the waves) are converted from the Java text (scratchpad eb_write.py); Java's arrow switches are case labels
+> with break. Java's handler exposes no getInstanceScore, so the tests read the score through a friend (EternalBastionInstanceTestAccess, defined by
+> the tests only). Tests: tests/handlers_inst_3/EternalBastionTest.cpp (10 cases: the start, the race's defenders, the phases' commanders, the
+> points, the first wave, Pashid's and the commander's deaths with the rank, the time-out, the AIs). The player stands in another instance and joins
+> through onEnterInstance: the end's item rewards, the revive teleport, the walks, the skills and the mounting are left to the retest. Mutation
+> proof 23 of 23. Census I3: 110 -> 0 open bodies (stacked on the Harmony arenas, P6I-8c).
