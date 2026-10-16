@@ -562,6 +562,16 @@ def cmd_m5i_spots(args):
 	return 0
 
 
+def cmd_m5i_geoshield(args):
+	from m5i.geoshield import geo_shield_report
+	from m5i.spots import spots_report
+	data_dir = _data_dir(args)
+	geo_dir = Path(args.geo_dir) if args.geo_dir else data_dir.parent / "geo"
+	spots = spots_report(data_dir)
+	sys.stdout.write(runner.dump_json(geo_shield_report(geo_dir, data_dir / "world_maps.xml", spots["spots"]["S1"], spots["shield"]["center"])))
+	return 0
+
+
 def cmd_cron_next(args):
 	import datetime as dt
 	from m5i.cron import next_fire_times
@@ -1049,6 +1059,11 @@ def main(argv=None):
 	p = sub.add_parser("m5i-spots", help="the gate's positions S1-S7 and the npc sets they see (m5i-plan.md 10.2, G-01)")
 	data_args(p, country=False)
 	p.set_defaults(fn=cmd_m5i_spots)
+
+	p = sub.add_parser("m5i-geoshield", help="C5's shield crossing when geo shields replace 1131's sphere (m5i/geoshield.py; the geo variant)")
+	data_args(p, country=False)
+	p.add_argument("--geo-dir", dest="geo_dir", help="game-server/data/geo (default: beside the static data directory)")
+	p.set_defaults(fn=cmd_m5i_geoshield)
 
 	p = sub.add_parser("cron-next", help="the next fire times of a Quartz cron expression after an instant (m5i-plan.md Z-04)")
 	p.add_argument("--expr", required=True)

@@ -1712,7 +1712,7 @@ void runM5iGate(bool geo) {
 	// the SIEGE guards (P5-12b.md, I-11), so G (Elyos) is the enemy: 1131 goes to the Asmodians, G enters at S1 after the siege start, walks to
 	// the sphere invulnerable (the GM's login applies //invul, M5j K-07), turns it off with //invul (CreatureLifeStats.reduceHp returns early
 	// for an invulnerable creature, so the kill needs a mortal G) and steps through
-	runCase("C5", "the shield (X7): 1131 Asmodian and besieged, G enters at S1, walks to the sphere under //invul, turns it off and steps in: killed, no SM_DIE, revived at his bind point", [&] {
+	runCase("C5", "the shield (X7): 1131 Asmodian and besieged, G enters at S1, walks to the shield under //invul, turns it off and steps through: killed, no SM_DIE, revived at his bind point", [&] {
 		size_t wFrom = w.mark();
 		gm("//siege capture " + std::to_string(FORTRESS) + " asmodians");
 		ASSERT_TRUE(until(10s, [&] { return lastRaceOf(w, wFrom, FORTRESS) == RACE_ASMODIANS; }));
@@ -1727,21 +1727,37 @@ void runM5iGate(bool geo) {
 		const decoders::PlayerSpawn entered = spawnOfBurst(relocate(g, cg, RESHANTA, s1)); // lastOnline after the start: no relocation
 		ASSERT_EQ(entered.worldId, RESHANTA);
 		ASSERT_NEAR(entered.x, s1[0], 1.0f) << "G enters at S1 (validateFortressZone: logged out after the start)";
-		const json& shield = spots.at("shield");
-		const float cx = shield.at("center").at(0).get<float>(), cy = shield.at("center").at(1).get<float>(), cz = shield.at("center").at(2).get<float>();
-		const float radius = shield.at("radius").get<float>();
-		const float dx = s1[0] - cx, dy = s1[1] - cy, d = std::hypot(dx, dy);
-		const float top = cz + 2.0f; // the upper half of the sphere (ShieldObserver.moved)
+		// M1 outside the shield, M2 through it. Without geo shields the sphere of siege_shields.xml (ShieldObserver), on its upper half; with them
+		// ShieldService.attachShield drops the sphere and the geo mesh kills (SiegeShield, CollisionDieActor): the oracle's m5i-geoshield crossing
+		std::array<float, 3> m1{}, m2{};
+		if (geo) {
+			const json crossing = json::parse(oracle->run({"m5i-geoshield"}));
+			ASSERT_FALSE(crossing.is_null()) << "m5i-geoshield: no geo shield crossing for 1131";
+			ASSERT_TRUE(crossing.at("M1inZone").get<bool>()) << "M1 inside the shield's zone sphere";
+			for (size_t i = 0; i < 3; i++) {
+				m1[i] = crossing.at("M1").at(i).get<float>();
+				m2[i] = crossing.at("M2").at(i).get<float>();
+			}
+			std::cout << "C5: the geo shield " << crossing.at("geometry").get<std::string>() << ", crossing at " << crossing.at("hit").dump() << std::endl;
+		} else {
+			const json& shield = spots.at("shield");
+			const float cx = shield.at("center").at(0).get<float>(), cy = shield.at("center").at(1).get<float>(), cz = shield.at("center").at(2).get<float>();
+			const float radius = shield.at("radius").get<float>();
+			const float dx = s1[0] - cx, dy = s1[1] - cy, d = std::hypot(dx, dy);
+			const float top = cz + 2.0f; // the upper half of the sphere (ShieldObserver.moved)
+			m1 = {cx + dx / d * (radius + 3.0f), cy + dy / d * (radius + 3.0f), top};
+			m2 = {cx + dx / d * (radius - 5.0f), cy + dy / d * (radius - 5.0f), top};
+		}
 		// G is invulnerable (and invisible) since his login: the GM's login commands (//invis, //invul, //enemy none, //see in the server log).
 		// He flies (CM_EMOTION FLY, EmotionType.java:21): M1 and M2 are on the sphere's upper half, above the ground a geo run keeps walkers on
 		g.game->send(GameSession::CM_EMOTION, GameSession::buildCM_EMOTION(13));
 		settle();
-		walkTo(g, cx + dx / d * (radius + 3.0f), cy + dy / d * (radius + 3.0f), top); // M1: outside the sphere
+		walkTo(g, m1[0], m1[1], m1[2]); // M1: outside the shield
 		const size_t m1From = g.mark();
 		EXPECT_EQ(said(gm("//invul"), "You are now mortal."), 1);
-		EXPECT_EQ(diesOf(g.since(m1From), cg.playerId), 0u) << "M1: no death outside the sphere";
+		EXPECT_EQ(diesOf(g.since(m1From), cg.playerId), 0u) << "M1: no death outside the shield";
 		const size_t gFrom = g.mark();
-		walkTo(g, cx + dx / d * (radius - 5.0f), cy + dy / d * (radius - 5.0f), top); // M2: through the sphere
+		walkTo(g, m2[0], m2[1], m2[2]); // M2: through the shield
 		const bool killed = until(5s, [&] { return diesOf(g.since(gFrom), cg.playerId) > 0; });
 		EXPECT_TRUE(killed) << "X7: CollisionDieActor.kill, SM_EMOTION(DIE) for G; G got: " << join(namesOf(g.since(m1From)));
 		if (!killed) {
