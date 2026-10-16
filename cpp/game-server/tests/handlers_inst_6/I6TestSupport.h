@@ -18,6 +18,7 @@ namespace aion::gameserver::handlers::instance {
 ::aion::gameserver::handlers::InstanceFactory InfinityShardInstance_instanceFactory;
 ::aion::gameserver::handlers::InstanceFactory TheShugoEmperorsVault_instanceFactory;
 ::aion::gameserver::handlers::InstanceFactory ShugoImperialTombInstance_instanceFactory;
+::aion::gameserver::handlers::InstanceFactory TiamatStrongHoldInstance_instanceFactory;
 
 } // namespace aion::gameserver::handlers::instance
 
@@ -70,7 +71,13 @@ inline const std::vector<int32_t>& handlerNpcIds() {
 		833492, 833493, 832931, 832930, 832950, 833461, 833462, 832929,
 		// Shugo Imperial Tomb: the admirers, the shrine, portals and chests, the monuments and obelisks, the transformation devices
 		831110, 831111, 831112, 831114, 831115, 831116, 831195, 831306, 831307, 831350, 831118, 831122, 831123, 831124, 831373, 831130, 831304, 831305, 831250,
-		831251, 831096, 831097, 219461, 219543, 219544, 219630};
+		831251, 831096, 831097, 219461, 219543, 219544, 219630,
+		// Tiamat Stronghold: the gate and its drakans, the generals and colonels, the rewards, doors' npcs and exit, Kahrun's army, the generals'
+		// rings, traps, skeletons, storms, floors, fields and gravity helpers
+		730612, 219373, 219369, 219411, 219370, 219352, 219353, 219354, 219355, 219356, 219357, 219358, 219364, 219395, 283177, 283178, 283179,
+		283180, 701501, 701541, 701527, 730622, 800438, 800463, 800380, 800374, 800376, 800461, 800460, 800347, 800336, 800338, 800464, 800465,
+		730629, 800433, 701494, 283092, 283094, 283171, 283172, 283089, 283115, 283045, 283051, 283116, 283117, 283118, 283119, 283120, 283121,
+		283102, 730692, 283096, 283097, 283098, 283558, 283109, 283110};
 	static const std::vector<int32_t> all = [] {
 		std::vector<int32_t> v = ids;
 		for (int32_t id = 219505; id <= 219531; id++) // the Tomb's kobolds, kralls, ghosts and bosses
