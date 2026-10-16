@@ -166,9 +166,13 @@ protected:
 		}
 		client.reset();
 		actor = {};
+		// a deleted AI may spawn again (BollvigAI.handleDespawned brings 204655 back): delete until the instance is empty
 		for (runtime::Ref<world::WorldMapInstance>& instance : instances) {
-			for (runtime::Ptr<model::gameobjects::Npc>& npc : npcs(*instance))
-				npc->getController().delete_();
+			for (int32_t pass = 0; pass < 10 && !npcs(*instance).empty(); pass++) {
+				for (runtime::Ptr<model::gameobjects::Npc>& npc : npcs(*instance))
+					npc->getController().delete_();
+			}
+			EXPECT_TRUE(npcs(*instance).empty()) << "npcs left in map " << instance->getMapId();
 		}
 		instances.clear();
 	}
