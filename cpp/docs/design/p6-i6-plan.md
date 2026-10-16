@@ -64,3 +64,9 @@ Smallest self-contained first; each checkpoint is one branch (`lane-c/i6-<instan
 > room also for a returning player, so the next new player skips a room (proposed: count up only for a new player); J-I6-2: RuthlessJabaraki's
 > phases are 96/80/60/45/40/35 % but its switch reads 95/80/65/50/35/20, so only two of six waves come (proposed: phases 95, 80, 65, 50, 35,
 > 20). Left to a gate: the score packet's bytes, the doors, the morph cache, the revive and teleports, the key rewards, the casts.
+> **Progress:** I6-4 done (`lane-c/i6-tomb-cp5`): ShugoImperialTombInstance (its 900-line stage method converted statement for statement) and the
+> shugoImperialTomb AIs (Attacker, Boss, Ghost, ImperialObelisk, ImperialShrine, Modo, RoyaltyAdmirer, TransformationDevice).
+> `ShugoImperialTombTest.cpp` (9 cases); mutation proof 32 of 32. A wave's walkers need their registered AI to walk (a test DummyAI cannot), so the cases count a wave by
+> its first npc. **Java bug, ported (proposed correction J-I6-3):** despawnNpcs lists 291512 and 291513 for 219512 and 219513, so a destroyed
+> monument leaves those two standing (the test pins it). Left to a gate: the walks and routes, the transformations' effects, the teleports, the
+> bosses' casts.

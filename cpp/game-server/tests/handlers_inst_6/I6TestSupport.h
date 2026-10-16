@@ -17,6 +17,7 @@ namespace aion::gameserver::handlers::instance {
 ::aion::gameserver::handlers::InstanceFactory TheobomosLabInstance_instanceFactory;
 ::aion::gameserver::handlers::InstanceFactory InfinityShardInstance_instanceFactory;
 ::aion::gameserver::handlers::InstanceFactory TheShugoEmperorsVault_instanceFactory;
+::aion::gameserver::handlers::InstanceFactory ShugoImperialTombInstance_instanceFactory;
 
 } // namespace aion::gameserver::handlers::instance
 
@@ -66,8 +67,17 @@ inline const std::vector<int32_t>& handlerNpcIds() {
 		// The Shugo Emperor's Vault: the intruders and bosses, the doors, springs, portals and butler, the Shugos, the chests
 		235629, 235630, 235660, 235631, 235652, 235653, 235641, 235644, 235634, 235649, 236083, 235633, 235650, 235635, 235636, 235637, 235638,
 		235651, 235681, 235680, 235640, 235685, 235684, 235683, 235647, 235632, 832925, 832919, 832918, 832922, 832924, 832932, 832927, 833491,
-		833492, 833493, 832931, 832930, 832950, 833461, 833462, 832929};
-	return ids;
+		833492, 833493, 832931, 832930, 832950, 833461, 833462, 832929,
+		// Shugo Imperial Tomb: the admirers, the shrine, portals and chests, the monuments and obelisks, the transformation devices
+		831110, 831111, 831112, 831114, 831115, 831116, 831195, 831306, 831307, 831350, 831118, 831122, 831123, 831124, 831373, 831130, 831304, 831305, 831250,
+		831251, 831096, 831097, 219461, 219543, 219544, 219630};
+	static const std::vector<int32_t> all = [] {
+		std::vector<int32_t> v = ids;
+		for (int32_t id = 219505; id <= 219531; id++) // the Tomb's kobolds, kralls, ghosts and bosses
+			v.push_back(id);
+		return v;
+	}();
+	return all;
 }
 
 inline std::string handlerNpcAi(int32_t) {
