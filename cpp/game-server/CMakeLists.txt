@@ -297,6 +297,10 @@ if(AION_BUILD_TESTS)
 			target_link_libraries(aion_gs_handlers_inst_${gs_inst}_tests PRIVATE aion_gs_handlers_ai_core)
 		endif()
 	endforeach()
+	# A1 (the world AIs, integrator 2026-10-16): its AIs derive from the same root AIs, so its tests (tests/handlers_ai_world) link them too
+	if(TARGET aion_gs_handlers_ai_world_tests)
+		target_link_libraries(aion_gs_handlers_ai_world_tests PRIVATE aion_gs_handlers_ai_core)
+	endif()
 
 	# m5j-plan.md §10.6: the command smoke (L-04) and the AI smoke (N-02) run under `ctest -L smoke` with the startup smokes
 	aion_set_discovered_test_properties(aion_gs_handlers_commands_tests REGEX "^(Registered/CommandSmokeTest|CommandSmokeListTest)\\." PROPERTIES LABELS smoke)
