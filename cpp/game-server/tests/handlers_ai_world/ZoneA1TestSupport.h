@@ -12,7 +12,13 @@
 
 #include "aion/gameserver/ai/AIState.h"
 #include "aion/gameserver/dataholders/SkillData.bind.h"
+#include "aion/gameserver/dataholders/ItemData.bind.h"
+#include "aion/gameserver/dataholders/ItemData.h"
+#include "aion/gameserver/dataholders/ItemRestrictionCleanupData.h"
 #include "aion/gameserver/dataholders/SkillData.h"
+#include "aion/gameserver/model/gameobjects/Item.h"
+#include "aion/gameserver/model/items/storage/Storage.h"
+#include "aion/gameserver/services/item/ItemFactory.h"
 
 namespace aion::gameserver::handlers::ai::worlds::test {
 
@@ -99,7 +105,27 @@ protected:
 		dataholders::DataManager::SKILL_DATA.publish(xml::bindString<dataholders::SkillData>(skillContext, skills + "</skill_data>"));
 	}
 
+	/** ITEM_DATA with the zone AIs' key items (item_templates.xml:896183-896184), and count of them in the player's cube */
+	void giveItem(int32_t itemId, int64_t count) {
+		if (!dataholders::DataManager::ITEM_DATA) {
+			dataholders::DataManager::ITEM_DATA.publish(xml::bindString<dataholders::ItemData>(itemContext, R"x(<item_templates>
+	<item_template id="185000215" name="Anoha Sealing Stone" level="65" cName="key_ldf5_fortress_raid_01a" mask="12353" item_group="KEY" quality="MYTHIC" price="5" desc="839301" expire_time="8640"/>
+	<item_template id="185000216" name="Ancestor's Relic" level="65" cName="key_ldf4_advance_named_key01a" mask="12410" max_stack_count="100" item_group="KEY" quality="UNIQUE" price="5" desc="839354"/>
+</item_templates>)x"));
+			// the item info blob of the add/delete packets asks it; no cleanup entries
+			dataholders::DataManager::ITEM_CLEAN_UP.publish(std::make_unique<dataholders::ItemRestrictionCleanupData>());
+		}
+		ASSERT_TRUE(player().getInventory().add(*services::item::ItemFactory::newItem(itemId, count), runtime::Ptr<model::gameobjects::player::Player>(player())));
+	}
+
+	void TearDown() override {
+		ZoneAiTest::TearDown();
+		dataholders::DataManager::ITEM_DATA.resetForTests();
+		dataholders::DataManager::ITEM_CLEAN_UP.resetForTests();
+	}
+
 	xml::LoadContext skillContext;
+	xml::LoadContext itemContext;
 	world::WorldMapInstance* instance = nullptr;
 };
 
