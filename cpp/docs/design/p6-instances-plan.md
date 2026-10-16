@@ -195,3 +195,15 @@ One instance per checkpoint, smallest first, stacked from origin/C++ (a branch l
 > seeded draw over twelve rounds). Mutation proof 47 of 47 after two strengthened cases (the generator's 40 m is strict, so the test stands at 40.5
 > m; the souls' 3-6 draw). Left to a gate: the doors (no static doors), the Macunbellos' effects, the boatmen's teleports, the walk's group paths
 > and ports (no portal rows), Dorakiki's effect, Virhana's rages and the artifacts' casts. No Java bug found. Census I4: 415 -> 330 open bodies.
+> **Progress:** P6I-12 done (chunk I4): DrakenspireDepthsInstance and the drakenspire AIs (23). Java's AtomicReference<Race> (null until the first
+> entry) is AtomicReference<Race> from Race::NONE, which no player has (compareAndSet(null, race) is compareAndSet(NONE, race)); the anonymous
+> fixed-rate Runnables of the twins' clock and the wave starts are the RefCounted structs DrakenspireDepthsInstance_Runnable and _Runnable_2
+> (fieldmap K4), run by a lambda; the synchronized task setters hold the monitor member. Tests: DrakenspireTest (13 cases: the handler and its
+> bosses, the first race's npcs, the spawns' messages, a lone twin's return, the twins together, the twins' clock and its fail, Orissan's phases and
+> death, the commanders' and defenders' ends of the waves, the gates, Beritra's exits, the wave sensor) and DrakenspireAiTest (16). Mutation proof
+> 75 of 75 after strengthened cases (the cancelled respawns of the twins' completion and fail, the clock's eighth run, the wave portals' removal and
+> static ids) and a re-anchored mutant. **Java bug, ported (proposed correction J-P6I12-1):** OrissanAI.handleDied calls super.handleDespawned()
+> instead of super.handleDied(), so Orissan's death skips NpcAI's death handling; proposed: super.handleDied(). Retest (left to a gate, no gate
+> covers I4): the effects (the summon crystal, the seals, Beritra's buffs and authority, the waves' 21874, the pulse waves), the walks and their
+> ends (the defenders', the executor's and the door destroyers' arrivals; no walker rows), and the teleports (Beritra's portal, the exit and the
+> revive). Census I4: 330 -> 156 open bodies (left: Dragon Lord's Refuge).
