@@ -29,6 +29,7 @@
 #include "aion/gameserver/handlers/ai/GeneralNpcAI.h"
 #include "aion/gameserver/handlers/ai/SummonerAI.h"
 #include "aion/gameserver/handlers/ai/siege/DredgionCommanderAI.h"
+#include "aion/gameserver/handlers/ai/siege/EmpoweredAgent.h"
 #include "aion/gameserver/handlers/ai/siege/EnragedAgent.h"
 #include "aion/gameserver/handlers/ai/siege/GateRepairAI.h"
 #include "aion/gameserver/handlers/ai/siege/SiegeCannonAI.h"
@@ -52,6 +53,7 @@
 #include "aion/gameserver/services/siege/SiegeRaceCounter.h"
 #include "aion/gameserver/utils/idfactory/IDFactory.h"
 #include "aion/gameserver/model/siege/FortressLocation.h"
+#include "aion/gameserver/model/skill/NpcSkillEntry.h"
 #include "aion/gameserver/model/siege/SiegeModType.h"
 #include "aion/gameserver/model/siege/SiegeRace.h"
 #include "aion/gameserver/model/stats/calc/AdditionStat.h"
@@ -72,6 +74,7 @@ namespace aion::gameserver::handlers::ai::siege {
 ::aion::gameserver::handlers::AIFactory MineAI_aiFactory;
 ::aion::gameserver::handlers::AIFactory SiegeTeleporterAI_aiFactory;
 ::aion::gameserver::handlers::AIFactory SpringAI_aiFactory;
+::aion::gameserver::handlers::AIFactory EmpoweredAgent_aiFactory;
 ::aion::gameserver::handlers::AIFactory EnragedAgent_aiFactory;
 ::aion::gameserver::handlers::AIFactory GateRepairAI_aiFactory;
 ::aion::gameserver::handlers::AIFactory SiegeCannonAI_aiFactory;
@@ -138,6 +141,11 @@ struct TeleporterProbe : sieges::SiegeTeleporterAI {
 	using SiegeTeleporterAI::handleDespawned;
 };
 
+struct EmpoweredProbe : sieges::EmpoweredAgent {
+	using EmpoweredAgent::EmpoweredAgent;
+	using EmpoweredAgent::handleSpawned;
+	using EmpoweredAgent::handleDied;
+};
 struct EnragedProbe : sieges::EnragedAgent {
 	using EnragedAgent::EnragedAgent;
 	using EnragedAgent::handleDied;
@@ -502,6 +510,58 @@ TEST_F(SiegeA1AiTest, ASiegeWeaponFollowsOnRequest) {
 	EXPECT_EQ(ai.getState(), AIState::IDLE);
 	ai.handleAttack(nullptr); // a null creature returns at once
 	EXPECT_THROW(ai.handleSpawned(), runtime::Exception) << "the test npc has no npc skills: Java's getNpcSkills() on null";
+}
+
+// ------------------------------------------------------------------------------------------------------------------------------- cp3
+
+/** EmpoweredAgent.java:58-61, 219-231: a protector that neither respawns nor loses its effects, max hp by the fortress protector multiplier */
+TEST_F(SiegeA1AiTest, AnEmpoweredAgentIsAProtector) {
+	AI_TEST_SCOPE;
+	Ref<SiegeNpc> npc = makeSiegeNpc(SIEGE_NPC_ID);
+	std::unique_ptr<AbstractAI> made = sieges::EmpoweredAgent_aiFactory(*npc);
+	EXPECT_TRUE(dynamic_cast<sieges::EmpoweredAgent*>(made.get()));
+	EXPECT_TRUE(dynamic_cast<sieges::AbstractSiegeProtectorAI*>(made.get()));
+	EmpoweredProbe& ai = install<EmpoweredProbe>(*npc);
+	EXPECT_TRUE(ai.canThink()) << "until its spawn";
+	EXPECT_FALSE(ai.ask(AIQuestion::ALLOW_RESPAWN));
+	EXPECT_FALSE(ai.ask(AIQuestion::REMOVE_EFFECTS_ON_MAP_REGION_DEACTIVATE));
+	EXPECT_FALSE(ai.ask(AIQuestion::ALLOW_DECAY)) << "SiegeNpcAI's";
+	EXPECT_TRUE(ai.ask(AIQuestion::REWARD_AP_XP_DP_LOOT));
+	EXPECT_FLOAT_EQ(maxHpBaseRate(ai, *npc), 2.5f);
+	model::stats::calc::AdditionStat attack(model::stats::container::StatEnum::MAIN_HAND_POWER, 100, *npc);
+	ai.modifyOwnerStat(attack);
+	EXPECT_FLOAT_EQ(attack.getBaseRate(), 1.0f) << "only MAXHP";
+}
+
+/** EmpoweredAgent.java:63-79, 94-100: spawned it stops thinking; the 25 and 5 % phases queue 21778 on itself */
+TEST_F(SiegeA1AiTest, AnEmpoweredAgentWaitsAndQueuesItsSkill) {
+	AI_TEST_SCOPE;
+	publishSkills({21779, 21778});
+	Ref<SiegeNpc> npc = makeSiegeNpc(SIEGE_NPC_ID); // not one of the two agents: no walk, no guards
+	EmpoweredProbe& ai = install<EmpoweredProbe>(*npc);
+	ai.handleSpawned();
+	EXPECT_FALSE(ai.canThink()) << "it thinks again when the fight starts";
+	const auto queued = [&](int32_t skillId) {
+		return npc->hasQueuedSkill([skillId](model::skill::NpcSkillEntry& entry) { return entry.getSkillId() == skillId; });
+	};
+	EXPECT_FALSE(queued(21778));
+	EXPECT_THROW(ai.handleHpPhase(30), runtime::Exception) << "30 % brings guards: guardIds is empty for this npc, Rnd.get(List) fails";
+	EXPECT_FALSE(queued(21778)) << "30 % does not queue the skill";
+	ai.handleHpPhase(25);
+	EXPECT_TRUE(queued(21778));
+}
+
+/** EmpoweredAgent.java:204-210: a death without its AgentSiege is Java's NullPointerException of the cast */
+TEST_F(SiegeA1AiTest, AnEmpoweredAgentsDeathNeedsItsAgentSiege) {
+	AI_TEST_SCOPE;
+	Ref<SiegeNpc> npc = makeSiegeNpc(SIEGE_NPC_ID);
+	EmpoweredProbe& ai = install<EmpoweredProbe>(*npc);
+	try {
+		ai.handleDied();
+		ADD_FAILURE() << "no exception";
+	} catch (const runtime::Exception& e) {
+		EXPECT_NE(std::string(e.what()).find("no AgentSiege"), std::string::npos) << e.what();
+	}
 }
 
 } // namespace
