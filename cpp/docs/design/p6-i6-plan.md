@@ -41,3 +41,8 @@ Smallest self-contained first; each checkpoint is one branch (`lane-c/i6-<instan
 ## 4. Progress
 
 > **Progress:** plan written (2026-10-16, lane C).
+> **Progress:** I6-1 done (`lane-c/i6-rakes-cp1`): SteelRakeInstance, SteelRakeCabineInstance and the twelve rakes AIs. Tests in
+> `tests/handlers_inst_6` on the shared fixture (`I6TestSupport.h`): `I6InstanceTest.cpp` (3 cases) and `RakesAiTest.cpp` (14); mutation proof
+> 25 of 25 after one strengthened case (Mantutu back home). FeedingMantutuAI's custom event passes the device as a `Ref<Npc>`, an empty
+> `std::any` for Java's null. Left to a gate: Tamer Anikiki's walk (walker rows), Golden Eye Mantutu's move to a device, the casts' effects, the
+> use bars (DialogService) and the fly teleport.
