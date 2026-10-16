@@ -15,6 +15,7 @@ namespace aion::gameserver::handlers::instance::rakes {
 namespace aion::gameserver::handlers::instance {
 
 ::aion::gameserver::handlers::InstanceFactory TheobomosLabInstance_instanceFactory;
+::aion::gameserver::handlers::InstanceFactory InfinityShardInstance_instanceFactory;
 
 } // namespace aion::gameserver::handlers::instance
 
@@ -56,7 +57,11 @@ inline const std::vector<int32_t>& handlerNpcIds() {
 		281182, 281183, 281184, 281187, 281212, 281213, 281108, 281109, 281110, 281111, 281112, 281113, 281114, 281322, 281323, 281324, 281325,
 		281326, 231016, 231017, 730769,
 		// Theobomos Lab: the exit, Silikor's guards, orb and memories, Silikor and Triroan, the researcher, Triroan's element summons
-		730178, 280971, 280972, 280973, 281053, 281054, 214668, 214669, 798223, 280975, 280976, 280977, 280978};
+		730178, 280971, 280972, 280973, 281053, 281054, 214668, 214669, 798223, 280975, 280976, 280977, 280978,
+		// Infinity Shard: Hyperion, the generators and their elites, the resonators, the turrets, the barrier, the wipers, the exit, the guards
+		// and the ancient tyrhunds
+		231073, 231074, 231078, 231082, 231086, 231083, 231087, 231079, 231075, 231092, 231093, 231094, 231095, 231102, 730741, 231104, 730842,
+		231096, 231097, 231098, 231099, 231100, 231101, 231103};
 	return ids;
 }
 

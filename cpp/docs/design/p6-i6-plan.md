@@ -51,3 +51,8 @@ Smallest self-contained first; each checkpoint is one branch (`lane-c/i6-<instan
 > UnstableTriroanAI). `TheobomosTest.cpp` (7 cases); mutation proof 16 of 16 after one strengthened case (Triroan 4 m from a pillar). Java's
 > synchronized TriroansSummonAI.useSkill is a monitor member. A test summon's DummyAI cannot walk (Java's ClassCastException, std::bad_cast here).
 > Left to a gate: the summons' walks and arrival, the casts' effects.
+> **Progress:** I6-2b done (`lane-c/i6-infinity-cp3`): InfinityShardInstance and the infinityShard AIs IdeResonatorAI and HyperionAI.
+> `InfinityShardTest.cpp` (10 cases); mutation proof 23 of 23 after three strengthened cases (the last generator id, the single return home,
+> isBoss of another npc). HyperionAI builds its two spawn positions in the constructor from the owner's map id (Java's field
+> initializers); IdeResonatorAI's targetCreature(this, null) clears the target. Left to a gate: the charge messages (onStartEffect needs a real
+> skill's Effect), the guards' walks, the logout teleport, the casts' effects.
