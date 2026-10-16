@@ -16,6 +16,7 @@ namespace aion::gameserver::handlers::instance {
 
 ::aion::gameserver::handlers::InstanceFactory TheobomosLabInstance_instanceFactory;
 ::aion::gameserver::handlers::InstanceFactory InfinityShardInstance_instanceFactory;
+::aion::gameserver::handlers::InstanceFactory TheShugoEmperorsVault_instanceFactory;
 
 } // namespace aion::gameserver::handlers::instance
 
@@ -61,7 +62,11 @@ inline const std::vector<int32_t>& handlerNpcIds() {
 		// Infinity Shard: Hyperion, the generators and their elites, the resonators, the turrets, the barrier, the wipers, the exit, the guards
 		// and the ancient tyrhunds
 		231073, 231074, 231078, 231082, 231086, 231083, 231087, 231079, 231075, 231092, 231093, 231094, 231095, 231102, 730741, 231104, 730842,
-		231096, 231097, 231098, 231099, 231100, 231101, 231103};
+		231096, 231097, 231098, 231099, 231100, 231101, 231103,
+		// The Shugo Emperor's Vault: the intruders and bosses, the doors, springs, portals and butler, the Shugos, the chests
+		235629, 235630, 235660, 235631, 235652, 235653, 235641, 235644, 235634, 235649, 236083, 235633, 235650, 235635, 235636, 235637, 235638,
+		235651, 235681, 235680, 235640, 235685, 235684, 235683, 235647, 235632, 832925, 832919, 832918, 832922, 832924, 832932, 832927, 833491,
+		833492, 833493, 832931, 832930, 832950, 833461, 833462, 832929};
 	return ids;
 }
 

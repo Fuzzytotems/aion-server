@@ -56,3 +56,11 @@ Smallest self-contained first; each checkpoint is one branch (`lane-c/i6-<instan
 > isBoss of another npc). HyperionAI builds its two spawn positions in the constructor from the owner's map id (Java's field
 > initializers); IdeResonatorAI's targetCreature(this, null) clears the target. Left to a gate: the charge messages (onStartEffect needs a real
 > skill's Effect), the guards' walks, the logout teleport, the casts' effects.
+> **Progress:** I6-3 done (`lane-c/i6-vault-cp4`): TheShugoEmperorsVault and the theShugoEmperorsVault AIs (IDSweep_Shugos, IDSweep_Bosses,
+> IDSweep_HealTower, IDSweep_In_Npc, RuthlessJabaraki, ShugoMorpher, VaultKeeper, WatchmanHokuruki). `ShugoEmperorsVaultTest.cpp` (14 cases);
+> mutation proof 31 of 32 - the survivor is equivalent here (the minute's timer's own `started` check only guards a door opened while the timer
+> already runs; the door cancels it otherwise).
+> Java's synchronized methods use monitor members. **Java bugs, ported (proposed corrections, not applied):** J-I6-1: VaultKeeper counts up its
+> room also for a returning player, so the next new player skips a room (proposed: count up only for a new player); J-I6-2: RuthlessJabaraki's
+> phases are 96/80/60/45/40/35 % but its switch reads 95/80/65/50/35/20, so only two of six waves come (proposed: phases 95, 80, 65, 50, 35,
+> 20). Left to a gate: the score packet's bytes, the doors, the morph cache, the revive and teleports, the key rewards, the casts.
