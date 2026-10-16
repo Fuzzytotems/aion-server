@@ -187,3 +187,11 @@ One instance per checkpoint, smallest first, stacked from origin/C++ (a branch l
 > equivalent: the bomb task's body re-checks isHome, so the cancelled and the uncancelled task do the same. Left to a gate: the doors (no static
 > doors), the walks (no walker rows), the warehouse zone, the item grants, the skills' effects (the shadows' mark) and the tachysphere's flight.
 > Census I4: 471 -> 415 open bodies.
+> **Progress:** P6I-11 done (chunk I4): BeshmundirInstance and the beshmundirTemple AIs (16). BeshmundirsWalkAI's anonymous AIRequest is the
+> callback struct BeshmundirsWalkAI_AIRequest (KiskAI's shape); the doors' `isInGroup() ? getOnlineMembers() : Arrays.asList(player)` is a vector of
+> the members; IsbariyaTheResoluteAI's varargs cancelTasks takes an initializer list and its soul list is a runtime::ArrayList of Point3D. Tests:
+> BeshmundirTest (11 cases: the handler and its exp multiplier, the boatmen, the Lich's servants and the Macunbellos' strength, the guardians, the
+> specters, the first race's guide and its movie, the super boss's gate, Lupukin, the movie 443) and BeshmundirAiTest (15; Isbariya's souls on a
+> seeded draw over twelve rounds). Mutation proof 47 of 47 after two strengthened cases (the generator's 40 m is strict, so the test stands at 40.5
+> m; the souls' 3-6 draw). Left to a gate: the doors (no static doors), the Macunbellos' effects, the boatmen's teleports, the walk's group paths
+> and ports (no portal rows), Dorakiki's effect, Virhana's rages and the artifacts' casts. No Java bug found. Census I4: 415 -> 330 open bodies.
