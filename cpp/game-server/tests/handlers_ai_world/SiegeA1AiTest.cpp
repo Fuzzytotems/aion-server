@@ -1,0 +1,344 @@
+// A1, lane B, the siege slice (docs/design/a1-laneb-plan.md): the siege AIs of handlers/ai/siege that phase 5 left - cp1: DredgionCommanderAI,
+// FortressGateAI, IncarnateAI, MercenaryAI, MineAI, SiegeTeleporterAI, SpringAI - on npcs of the AI tests' Poeta map, each AI installed on its
+// npc and driven through its events, as tests/handlers_ai_core/SiegeAiHandlersTest.cpp drives the leased ones.
+//
+// Not covered here (no player connection, no skill rows, no World registration of the test map): the dialog and question windows of
+// FortressGateAI and MercenaryAI, the gate passage, the skills of MineAI and SpringAI, IncarnateAI's claw spawn and the mercenary spawn.
+// The gate (gs.scenario.m5i) spawns the siege npcs of fortress 1131 with these AIs.
+
+#include "../ai/AiWorldTestSupport.h"
+
+#include <chrono>
+#include <cstdint>
+#include <memory>
+#include <optional>
+#include <string>
+#include <vector>
+
+#include "aion/gameserver/ai/AbstractAI.h"
+#include "aion/gameserver/ai/event/AIEventType.h"
+#include "aion/gameserver/ai/poll/AIQuestion.h"
+#include "aion/gameserver/configs/main/SiegeConfig.h"
+#include "aion/gameserver/controllers/NpcController.h"
+#include "aion/gameserver/controllers/attack/AggroList.h"
+#include "aion/gameserver/controllers/effect/EffectController.h"
+#include "aion/gameserver/dataholders/NpcData.bind.h"
+#include "aion/gameserver/dataholders/NpcData.h"
+#include "aion/gameserver/dataholders/SkillData.bind.h"
+#include "aion/gameserver/dataholders/SkillData.h"
+#include "aion/gameserver/handlers/ai/GeneralNpcAI.h"
+#include "aion/gameserver/handlers/ai/siege/DredgionCommanderAI.h"
+#include "aion/gameserver/handlers/ai/siege/FortressGateAI.h"
+#include "aion/gameserver/handlers/ai/siege/IncarnateAI.h"
+#include "aion/gameserver/handlers/ai/siege/MercenaryAI.h"
+#include "aion/gameserver/handlers/ai/siege/MineAI.h"
+#include "aion/gameserver/handlers/ai/siege/SiegeNpcAI.h"
+#include "aion/gameserver/handlers/ai/siege/SiegeTeleporterAI.h"
+#include "aion/gameserver/handlers/ai/siege/SpringAI.h"
+#include "aion/gameserver/model/DialogAction.h"
+#include "aion/gameserver/model/gameobjects/siege/SiegeNpc.h"
+#include "aion/gameserver/model/siege/FortressLocation.h"
+#include "aion/gameserver/model/siege/SiegeModType.h"
+#include "aion/gameserver/model/siege/SiegeRace.h"
+#include "aion/gameserver/model/stats/calc/AdditionStat.h"
+#include "aion/gameserver/model/templates/siegelocation/SiegeLocationTemplate.bind.h"
+#include "aion/gameserver/model/templates/siegelocation/SiegeLocationTemplate.h"
+#include "aion/gameserver/model/templates/spawns/SpawnGroup.h"
+#include "aion/gameserver/model/templates/spawns/siegespawns/SiegeSpawnTemplate.h"
+#include "aion/gameserver/services/SiegeService.h"
+#include "aion/gameserver/world/World.h"
+#include "aion/gameserver/world/knownlist/NpcKnownList.h"
+
+// The factory functions the AION_AI markers define, declared exactly as Registry.ai.gen.cpp declares them (handlers::AIFactory).
+namespace aion::gameserver::handlers::ai::siege {
+::aion::gameserver::handlers::AIFactory DredgionCommanderAI_aiFactory;
+::aion::gameserver::handlers::AIFactory FortressGateAI_aiFactory;
+::aion::gameserver::handlers::AIFactory IncarnateAI_aiFactory;
+::aion::gameserver::handlers::AIFactory MercenaryAI_aiFactory;
+::aion::gameserver::handlers::AIFactory MineAI_aiFactory;
+::aion::gameserver::handlers::AIFactory SiegeTeleporterAI_aiFactory;
+::aion::gameserver::handlers::AIFactory SpringAI_aiFactory;
+} // namespace aion::gameserver::handlers::ai::siege
+
+namespace aion::gameserver::ai::testing {
+namespace {
+
+namespace sieges = gameserver::handlers::ai::siege;
+
+using model::gameobjects::siege::SiegeNpc;
+using model::siege::SiegeModType;
+using model::siege::SiegeRace;
+using poll::AIQuestion;
+using runtime::Ptr;
+using runtime::Ref;
+
+constexpr int32_t FORTRESS_ID = 1011;
+constexpr int32_t SIEGE_NPC_ID = 252001;
+constexpr int32_t FORTRESS_BOSS_NPC_ID = 252002;
+constexpr int32_t OTHER_NPC_ID = 252003;
+
+/** Test rows of npc_templates.xml: a plain siege npc, a GCHIEF_LIGHT fortress boss and a DRAGON npc beside him */
+const dataholders::NpcData& siegeA1NpcTemplates() {
+	static const dataholders::NpcData* holder = [] {
+		static xml::LoadContext context;
+		const auto row = [](int32_t id, const char* race) {
+			return std::string(R"(<npc_template npc_id=")") + std::to_string(id) + R"(" name_id="1" level="65" name="siege npc )" +
+				std::to_string(id) + R"(" attack_speed="2000" tribe="MONSTER" rating="NORMAL" rank="NOVICE" race=")" + race +
+				R"(" srange="8" sangle="270" arange="2"><stats maxHp="1000" maxMp="0" attack="10">)" +
+				R"(<speeds walk="0.8" run="2.0" run_fight="3.0" fly="4.0"/></stats></npc_template>)";
+		};
+		return xml::bindString<dataholders::NpcData>(context, "<npc_templates>" + row(SIEGE_NPC_ID, "DRAGON") +
+			row(FORTRESS_BOSS_NPC_ID, "GCHIEF_LIGHT") + row(OTHER_NPC_ID, "DRAGON") + "</npc_templates>")
+			.release();
+	}();
+	return *holder;
+}
+
+// the protected handlers the cases drive directly (Java: the AI's events)
+struct DredgionCommanderProbe : sieges::DredgionCommanderAI {
+	using DredgionCommanderAI::DredgionCommanderAI;
+	using DredgionCommanderAI::handleSpawned;
+	using DredgionCommanderAI::handleDied;
+};
+struct MineProbe : sieges::MineAI {
+	using MineAI::MineAI;
+	using MineAI::handleCreatureAggro;
+};
+struct TeleporterProbe : sieges::SiegeTeleporterAI {
+	using SiegeTeleporterAI::SiegeTeleporterAI;
+	using SiegeTeleporterAI::handleSpawned;
+	using SiegeTeleporterAI::handleDied;
+	using SiegeTeleporterAI::handleDespawned;
+};
+
+class SiegeA1AiTest : public AiWorldTest {
+protected:
+	void SetUp() override {
+		AiWorldTest::SetUp();
+		AI_TEST_SCOPE;
+		regionActivator = activateRegionAt(500, 500, 100);
+		executor->runReady();
+		fortressTemplate = xml::bindString<model::templates::siegelocation::SiegeLocationTemplate>(
+			siegeContext, R"(<siege_location id="1011" type="FORTRESS" world="210010000" siege_duration="3600"/>)");
+		fortress = model::siege::FortressLocation::create(fortressTemplate.get());
+		services::SiegeService::getInstance().getFortresses().put(FORTRESS_ID, fortress);
+		services::SiegeService::getInstance().getSiegeLocations().put(FORTRESS_ID, fortress);
+		savedFortressMultiplier = configs::main::SiegeConfig::FORTRESS_PROTECTOR_HEALTH_MULTIPLIER.load();
+		configs::main::SiegeConfig::FORTRESS_PROTECTOR_HEALTH_MULTIPLIER.store(2.5f);
+	}
+
+	void TearDown() override {
+		{
+			AI_TEST_SCOPE;
+			services::SiegeService::getInstance().getFortresses().remove(FORTRESS_ID);
+			services::SiegeService::getInstance().getSiegeLocations().remove(FORTRESS_ID);
+		}
+		configs::main::SiegeConfig::FORTRESS_PROTECTOR_HEALTH_MULTIPLIER.store(savedFortressMultiplier);
+		if (skillsPublished)
+			dataholders::DataManager::SKILL_DATA.resetForTests();
+		siegeNpcs.clear();
+		siegeSpawns.clear();
+		siegeGroups.clear();
+		fortress = nullptr;
+		regionActivator = nullptr;
+		AiWorldTest::TearDown();
+	}
+
+	/** A SiegeNpc of fortress 1011 on a siege spawn, placed in the map like makeWorldNpc places a plain npc */
+	Ref<SiegeNpc> makeSiegeNpc(int32_t npcId, float x = 501, float y = 500, float z = 100) {
+		Ref<model::templates::spawns::SpawnGroup> siegeGroup = model::templates::spawns::SpawnGroup::create(POETA, npcId, 0, nullptr);
+		Ref<model::templates::spawns::siegespawns::SiegeSpawnTemplate> spawn = model::templates::spawns::siegespawns::SiegeSpawnTemplate::create(
+			FORTRESS_ID, SiegeRace::BALAUR, SiegeModType::SIEGE, *siegeGroup, x, y, z, int8_t{0}, 0, std::nullopt, 0);
+		Ref<SiegeNpc> npc = model::gameobjects::VisibleObject::create<SiegeNpc>(std::make_unique<controllers::NpcController>(), *spawn,
+			siegeA1NpcTemplates().getNpcTemplate(npcId));
+		npc->setKnownlist(std::make_unique<world::knownlist::NpcKnownList>(*npc));
+		npc->setEffectController(std::make_unique<controllers::effect::EffectController>(*npc));
+		place(*npc, x, y, z);
+		siegeGroups.push_back(siegeGroup);
+		siegeSpawns.push_back(spawn);
+		siegeNpcs.push_back(npc);
+		return npc;
+	}
+
+	template <class AI>
+	AI& install(model::gameobjects::Npc& npc) {
+		auto handlerAi = std::make_unique<AI>(npc);
+		AI& result = *handlerAi;
+		npc.replaceAi(std::move(handlerAi));
+		return result;
+	}
+
+	/** SKILL_DATA with one plain template per id (I5AiTest.cpp's); TearDown resets it */
+	void publishSkills(std::initializer_list<int32_t> ids) {
+		dataholders::DataManager::SKILL_DATA.resetForTests();
+		std::string skills = "<skill_data>";
+		for (int32_t id : ids)
+			skills += R"(<skill_template skill_id=")" + std::to_string(id) +
+				R"(" name="siege" nameId="1" stack="SIEGE" lvl="1" skilltype="MAGICAL" skillsubtype="NONE" tslot="SPEC" activation="ACTIVE")"
+				R"( cooldown="0" duration="0"><properties first_target="ME" target_relation="FRIEND" target_type="ONLYONE" /></skill_template>)";
+		dataholders::DataManager::SKILL_DATA.publish(xml::bindString<dataholders::SkillData>(skillContext, skills + "</skill_data>"));
+		skillsPublished = true;
+	}
+
+	float maxHpBaseRate(AbstractAI& ai, model::gameobjects::Npc& owner) {
+		model::stats::calc::AdditionStat stat(model::stats::container::StatEnum::MAXHP, 1000, owner);
+		ai.modifyOwnerStat(stat);
+		return stat.getBaseRate();
+	}
+
+	xml::LoadContext siegeContext;
+	xml::LoadContext skillContext;
+	bool skillsPublished = false;
+	std::unique_ptr<model::templates::siegelocation::SiegeLocationTemplate> fortressTemplate;
+	Ref<model::siege::FortressLocation> fortress;
+	Ref<model::gameobjects::player::Player> regionActivator;
+	std::vector<Ref<model::templates::spawns::SpawnGroup>> siegeGroups;
+	std::vector<Ref<model::templates::spawns::siegespawns::SiegeSpawnTemplate>> siegeSpawns;
+	std::vector<Ref<SiegeNpc>> siegeNpcs;
+	float savedFortressMultiplier = 0;
+};
+
+/** The seven AION_AI factories build their classes on the bases Java gives them (the names are the registry scan's check) */
+TEST_F(SiegeA1AiTest, TheFactoriesBuildTheirClasses) {
+	AI_TEST_SCOPE;
+	Ref<SiegeNpc> npc = makeSiegeNpc(SIEGE_NPC_ID);
+	std::unique_ptr<AbstractAI> dredgion = sieges::DredgionCommanderAI_aiFactory(*npc);
+	EXPECT_TRUE(dynamic_cast<sieges::DredgionCommanderAI*>(dredgion.get()));
+	EXPECT_TRUE(dynamic_cast<sieges::SiegeNpcAI*>(dredgion.get()));
+	std::unique_ptr<AbstractAI> gate = sieges::FortressGateAI_aiFactory(*npc);
+	EXPECT_TRUE(dynamic_cast<sieges::FortressGateAI*>(gate.get()));
+	EXPECT_FALSE(dynamic_cast<sieges::SiegeNpcAI*>(gate.get())) << "a plain NpcAI";
+	std::unique_ptr<AbstractAI> incarnate = sieges::IncarnateAI_aiFactory(*npc);
+	EXPECT_TRUE(dynamic_cast<sieges::IncarnateAI*>(incarnate.get()));
+	EXPECT_TRUE(dynamic_cast<sieges::SiegeNpcAI*>(incarnate.get()));
+	std::unique_ptr<AbstractAI> mercenary = sieges::MercenaryAI_aiFactory(*npc);
+	EXPECT_TRUE(dynamic_cast<sieges::MercenaryAI*>(mercenary.get()));
+	EXPECT_TRUE(dynamic_cast<gameserver::handlers::ai::GeneralNpcAI*>(mercenary.get()));
+	std::unique_ptr<AbstractAI> mine = sieges::MineAI_aiFactory(*npc);
+	EXPECT_TRUE(dynamic_cast<sieges::MineAI*>(mine.get()));
+	EXPECT_TRUE(dynamic_cast<sieges::SiegeNpcAI*>(mine.get()));
+	std::unique_ptr<AbstractAI> teleporter = sieges::SiegeTeleporterAI_aiFactory(*npc);
+	EXPECT_TRUE(dynamic_cast<sieges::SiegeTeleporterAI*>(teleporter.get()));
+	EXPECT_TRUE(dynamic_cast<gameserver::handlers::ai::GeneralNpcAI*>(teleporter.get()));
+	std::unique_ptr<AbstractAI> spring = sieges::SpringAI_aiFactory(*npc);
+	EXPECT_TRUE(dynamic_cast<sieges::SpringAI*>(spring.get()));
+	EXPECT_FALSE(dynamic_cast<gameserver::handlers::ai::GeneralNpcAI*>(spring.get())) << "a plain NpcAI";
+}
+
+/** FortressGateAI.java:48-55: AP and the shared rewards, no loot, no respawn */
+TEST_F(SiegeA1AiTest, AGateRewardsApButNoLootAndDoesNotRespawn) {
+	AI_TEST_SCOPE;
+	Ref<SiegeNpc> npc = makeSiegeNpc(SIEGE_NPC_ID);
+	sieges::FortressGateAI& ai = install<sieges::FortressGateAI>(*npc);
+	EXPECT_TRUE(ai.ask(AIQuestion::REWARD_AP_XP_DP_LOOT));
+	EXPECT_TRUE(ai.ask(AIQuestion::REWARD_AP));
+	EXPECT_FALSE(ai.ask(AIQuestion::REWARD_LOOT));
+	EXPECT_FALSE(ai.ask(AIQuestion::ALLOW_RESPAWN));
+	EXPECT_TRUE(ai.ask(AIQuestion::ALLOW_DECAY)) << "NpcAI's";
+}
+
+/** SpringAI.java:45-51: no decay, rewards or loot */
+TEST_F(SiegeA1AiTest, ASpringNeitherDecaysNorRewards) {
+	AI_TEST_SCOPE;
+	Ref<SiegeNpc> npc = makeSiegeNpc(SIEGE_NPC_ID);
+	sieges::SpringAI& ai = install<sieges::SpringAI>(*npc);
+	EXPECT_FALSE(ai.ask(AIQuestion::ALLOW_DECAY));
+	EXPECT_FALSE(ai.ask(AIQuestion::REWARD_AP_XP_DP_LOOT));
+	EXPECT_FALSE(ai.ask(AIQuestion::REWARD_LOOT));
+	EXPECT_TRUE(ai.ask(AIQuestion::ALLOW_RESPAWN)) << "NpcAI's";
+}
+
+/** SiegeNpcAI's questions reach the mine, the incarnate and the commander */
+TEST_F(SiegeA1AiTest, TheSiegeNpcsKeepSiegeNpcAIsQuestions) {
+	AI_TEST_SCOPE;
+	Ref<SiegeNpc> mine = makeSiegeNpc(SIEGE_NPC_ID);
+	Ref<SiegeNpc> incarnate = makeSiegeNpc(SIEGE_NPC_ID, 502, 500, 100);
+	Ref<SiegeNpc> commander = makeSiegeNpc(SIEGE_NPC_ID, 503, 500, 100);
+	for (AbstractAI* ai : std::vector<AbstractAI*>{&install<sieges::MineAI>(*mine), &install<sieges::IncarnateAI>(*incarnate),
+		     &install<sieges::DredgionCommanderAI>(*commander)}) {
+		EXPECT_FALSE(ai->ask(AIQuestion::ALLOW_DECAY));
+		EXPECT_FALSE(ai->ask(AIQuestion::ALLOW_RESPAWN));
+		EXPECT_FALSE(ai->ask(AIQuestion::REWARD_LOOT));
+	}
+}
+
+/** MineAI.java:19-29: the aggro deletes the mine 1.5 s later */
+TEST_F(SiegeA1AiTest, AMineGoesOffAndIsDeleted) {
+	AI_TEST_SCOPE;
+	Ref<SiegeNpc> mine = makeSiegeNpc(SIEGE_NPC_ID);
+	publishSkills({18407});
+	MineProbe& ai = install<MineProbe>(*mine);
+	Ref<model::gameobjects::player::Player> player = makeWorldPlayer(7101, 502, 500, 100);
+	world::World::getInstance().storeObject(*mine); // as VisibleObjectSpawner stores a spawn
+	ai.handleCreatureAggro(*player);
+	executor->advance(std::chrono::milliseconds(1499));
+	EXPECT_TRUE(world::World::getInstance().findVisibleObject(mine->getObjectId()));
+	executor->advance(std::chrono::milliseconds(1));
+	EXPECT_FALSE(world::World::getInstance().findVisibleObject(mine->getObjectId())) << "AIActions.deleteOwner: World.removeObject";
+	EXPECT_FALSE(mine->isSpawned());
+}
+
+/** SiegeTeleporterAI.java:23-51: its spawn opens the fortress's teleport, its death and its despawn close it */
+TEST_F(SiegeA1AiTest, ATeleporterOpensAndClosesTheFortressTeleport) {
+	AI_TEST_SCOPE;
+	Ref<SiegeNpc> npc = makeSiegeNpc(SIEGE_NPC_ID);
+	TeleporterProbe& ai = install<TeleporterProbe>(*npc);
+	fortress->setCanTeleport(false);
+	ai.handleSpawned();
+	EXPECT_TRUE(fortress->isCanTeleport(nullptr));
+	ai.handleDied();
+	EXPECT_FALSE(fortress->isCanTeleport(nullptr));
+	fortress->setCanTeleport(true);
+	ai.handleDespawned();
+	EXPECT_FALSE(fortress->isCanTeleport(nullptr));
+}
+
+/** DredgionCommanderAI.java:31-45, 57-68: 3 s after its spawn it hates the fortress boss it knows, hits him harder and has more max hp */
+TEST_F(SiegeA1AiTest, ADredgionCommanderGoesForTheFortressBoss) {
+	AI_TEST_SCOPE;
+	Ref<SiegeNpc> commander = makeSiegeNpc(SIEGE_NPC_ID);
+	Ref<SiegeNpc> boss = makeSiegeNpc(FORTRESS_BOSS_NPC_ID, 503, 500, 100);
+	Ref<SiegeNpc> other = makeSiegeNpc(OTHER_NPC_ID, 502, 500, 100);
+	know(*commander, *other);
+	know(*commander, *boss);
+	DredgionCommanderProbe& ai = install<DredgionCommanderProbe>(*commander);
+	EXPECT_FLOAT_EQ(maxHpBaseRate(ai, *commander), 2.5f);
+	ai.handleSpawned();
+	executor->advance(std::chrono::milliseconds(2999));
+	EXPECT_FALSE(commander->getAggroList().isHating(*boss));
+	executor->advance(std::chrono::milliseconds(1));
+	EXPECT_EQ(commander->getAggroList().getHate(*boss), 500000);
+	EXPECT_FALSE(commander->getAggroList().isHating(*other)) << "only a GCHIEF_LIGHT or GCHIEF_DARK npc";
+	EXPECT_FLOAT_EQ(ai.modifyOwnerDamage(40.0f, *boss, nullptr), 100.0f);
+	EXPECT_FLOAT_EQ(ai.modifyOwnerDamage(40.0f, *other, nullptr), 40.0f);
+	model::stats::calc::AdditionStat attack(model::stats::container::StatEnum::MAIN_HAND_POWER, 100, *commander);
+	ai.modifyOwnerStat(attack);
+	EXPECT_FLOAT_EQ(attack.getBaseRate(), 1.0f) << "only MAXHP";
+}
+
+/** DredgionCommanderAI.java:76-83: without a fortress assault its death forgets the boss */
+TEST_F(SiegeA1AiTest, ADredgionCommandersDeathForgetsTheBoss) {
+	AI_TEST_SCOPE;
+	Ref<SiegeNpc> commander = makeSiegeNpc(SIEGE_NPC_ID);
+	Ref<SiegeNpc> boss = makeSiegeNpc(FORTRESS_BOSS_NPC_ID, 503, 500, 100);
+	know(*commander, *boss);
+	DredgionCommanderProbe& ai = install<DredgionCommanderProbe>(*commander);
+	ai.handleSpawned();
+	executor->advance(std::chrono::milliseconds(3000));
+	ASSERT_FLOAT_EQ(ai.modifyOwnerDamage(40.0f, *boss, nullptr), 100.0f);
+	ai.handleDied();
+	EXPECT_FLOAT_EQ(ai.modifyOwnerDamage(40.0f, *boss, nullptr), 40.0f);
+}
+
+/** MercenaryAI.java:46-174, 176-190: a selection answers true even when the fortress has no siege (no mercenary location) */
+TEST_F(SiegeA1AiTest, AMercenarySelectionWithoutASiegeDoesNothing) {
+	AI_TEST_SCOPE;
+	Ref<SiegeNpc> npc = makeSiegeNpc(SIEGE_NPC_ID);
+	sieges::MercenaryAI& ai = install<sieges::MercenaryAI>(*npc);
+	Ref<model::gameobjects::player::Player> player = makeWorldPlayer(7102, 502, 500, 100);
+	EXPECT_TRUE(ai.onDialogSelect(*player, model::DialogAction::SETPRO1, 0, 0));
+	EXPECT_TRUE(ai.onDialogSelect(*player, model::DialogAction::SETPRO3, 0, 0));
+}
+
+} // namespace
+} // namespace aion::gameserver::ai::testing
