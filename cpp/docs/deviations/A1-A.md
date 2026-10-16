@@ -57,3 +57,9 @@ in the unit tests):
   home, despawns or dies. A healing servant heals its priest every 6 s; an enemy servant attacks its priest's target with skill 16907.
 - Naia ("naia", Poeta's walker): she shouts once near the cannon (203145) and once near Qydro (203125); Polor and Serin ("polorserin")
   sheathe their weapons near the adults (203129, 203132); the runners ("generalrunner") draw them at each waypoint.
+
+## Events (checkpoint cp4)
+
+Tests: `tests/handlers_ai_world/EventsA1AiTest.cpp` (7 cases), mutation proof 12 of 12. Events are disabled in the kit (`disabled_events = *`):
+these cases are their only check, and no retest is filed for them. Not covered: the item rewards (no item rows), the buffs (no skill rows), the
+quest dialogs, the drops and the spawns into World.
