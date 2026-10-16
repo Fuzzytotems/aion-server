@@ -27,7 +27,12 @@
 #include "aion/gameserver/dataholders/SkillData.bind.h"
 #include "aion/gameserver/dataholders/SkillData.h"
 #include "aion/gameserver/handlers/ai/GeneralNpcAI.h"
+#include "aion/gameserver/handlers/ai/SummonerAI.h"
 #include "aion/gameserver/handlers/ai/siege/DredgionCommanderAI.h"
+#include "aion/gameserver/handlers/ai/siege/EnragedAgent.h"
+#include "aion/gameserver/handlers/ai/siege/GateRepairAI.h"
+#include "aion/gameserver/handlers/ai/siege/SiegeCannonAI.h"
+#include "aion/gameserver/handlers/ai/siege/SiegeWeaponAI.h"
 #include "aion/gameserver/handlers/ai/siege/FortressGateAI.h"
 #include "aion/gameserver/handlers/ai/siege/IncarnateAI.h"
 #include "aion/gameserver/handlers/ai/siege/MercenaryAI.h"
@@ -36,7 +41,16 @@
 #include "aion/gameserver/handlers/ai/siege/SiegeTeleporterAI.h"
 #include "aion/gameserver/handlers/ai/siege/SpringAI.h"
 #include "aion/gameserver/model/DialogAction.h"
+#include "aion/gameserver/controllers/SiegeWeaponController.h"
+#include "aion/gameserver/model/gameobjects/Summon.h"
+#include "aion/gameserver/model/gameobjects/player/ResponseRequester.h"
 #include "aion/gameserver/model/gameobjects/siege/SiegeNpc.h"
+#include "aion/gameserver/model/summons/SummonMode.h"
+#include "aion/gameserver/runtime/base/Exceptions.h"
+#include "aion/gameserver/services/siege/Siege.h"
+#include "aion/gameserver/services/siege/SiegeCounter.h"
+#include "aion/gameserver/services/siege/SiegeRaceCounter.h"
+#include "aion/gameserver/utils/idfactory/IDFactory.h"
 #include "aion/gameserver/model/siege/FortressLocation.h"
 #include "aion/gameserver/model/siege/SiegeModType.h"
 #include "aion/gameserver/model/siege/SiegeRace.h"
@@ -58,7 +72,20 @@ namespace aion::gameserver::handlers::ai::siege {
 ::aion::gameserver::handlers::AIFactory MineAI_aiFactory;
 ::aion::gameserver::handlers::AIFactory SiegeTeleporterAI_aiFactory;
 ::aion::gameserver::handlers::AIFactory SpringAI_aiFactory;
+::aion::gameserver::handlers::AIFactory EnragedAgent_aiFactory;
+::aion::gameserver::handlers::AIFactory GateRepairAI_aiFactory;
+::aion::gameserver::handlers::AIFactory SiegeCannonAI_aiFactory;
+::aion::gameserver::handlers::AIFactory SiegeWeaponAI_aiFactory;
 } // namespace aion::gameserver::handlers::ai::siege
+
+namespace aion::gameserver::services {
+
+/** The service's active sieges (SiegeService.h befriends this struct for the tests) */
+struct SiegeServiceTestAccess {
+	static runtime::ConcurrentHashMap<int32_t, runtime::Ref<siege::Siege>>& activeSieges(SiegeService& service) { return service.activeSieges; }
+};
+
+} // namespace aion::gameserver::services
 
 namespace aion::gameserver::ai::testing {
 namespace {
@@ -111,6 +138,39 @@ struct TeleporterProbe : sieges::SiegeTeleporterAI {
 	using SiegeTeleporterAI::handleDespawned;
 };
 
+struct EnragedProbe : sieges::EnragedAgent {
+	using EnragedAgent::EnragedAgent;
+	using EnragedAgent::handleDied;
+};
+struct GateRepairProbe : sieges::GateRepairAI {
+	using GateRepairAI::GateRepairAI;
+	using GateRepairAI::handleDialogStart;
+};
+struct SiegeWeaponProbe : sieges::SiegeWeaponAI {
+	using SiegeWeaponAI::SiegeWeaponAI;
+	using SiegeWeaponAI::handleSpawned;
+	using SiegeWeaponAI::handleFollowMe;
+	using SiegeWeaponAI::handleStopFollowMe;
+	using SiegeWeaponAI::handleAttack;
+};
+
+/** A Siege that records its stop (SiegeAiHandlersTest.cpp's) */
+class StoppableSiege final : public services::siege::Siege {
+	AION_MAKE_REF_FRIEND
+public:
+	explicit StoppableSiege(model::siege::SiegeLocation& location) : Siege(location) {}
+
+	void onSiegeStart() override {}
+	void onSiegeFinish() override { finishes++; }
+	bool isEndless() override { return true; }
+	void onAbyssPointsAdded(model::gameobjects::player::Player&, int32_t) override {}
+
+	int32_t finishes = 0;
+
+protected:
+	~StoppableSiege() override = default;
+};
+
 class SiegeA1AiTest : public AiWorldTest {
 protected:
 	void SetUp() override {
@@ -130,12 +190,14 @@ protected:
 	void TearDown() override {
 		{
 			AI_TEST_SCOPE;
+			services::SiegeServiceTestAccess::activeSieges(services::SiegeService::getInstance()).remove(FORTRESS_ID);
 			services::SiegeService::getInstance().getFortresses().remove(FORTRESS_ID);
 			services::SiegeService::getInstance().getSiegeLocations().remove(FORTRESS_ID);
 		}
 		configs::main::SiegeConfig::FORTRESS_PROTECTOR_HEALTH_MULTIPLIER.store(savedFortressMultiplier);
 		if (skillsPublished)
 			dataholders::DataManager::SKILL_DATA.resetForTests();
+		summons.clear();
 		siegeNpcs.clear();
 		siegeSpawns.clear();
 		siegeGroups.clear();
@@ -160,8 +222,8 @@ protected:
 		return npc;
 	}
 
-	template <class AI>
-	AI& install(model::gameobjects::Npc& npc) {
+	template <class AI, class Owner>
+	AI& install(Owner& npc) {
 		auto handlerAi = std::make_unique<AI>(npc);
 		AI& result = *handlerAi;
 		npc.replaceAi(std::move(handlerAi));
@@ -195,10 +257,23 @@ protected:
 	std::vector<Ref<model::templates::spawns::SpawnGroup>> siegeGroups;
 	std::vector<Ref<model::templates::spawns::siegespawns::SiegeSpawnTemplate>> siegeSpawns;
 	std::vector<Ref<SiegeNpc>> siegeNpcs;
+	std::vector<Ref<model::gameobjects::Summon>> summons;
+	std::unique_ptr<model::templates::siegelocation::SiegeLocationTemplate> repairTemplate;
 	float savedFortressMultiplier = 0;
+
+	/** A siege weapon of the master: a Summon with its SiegeWeaponController (SummonsService.createSummon's controller for a siege weapon) */
+	Ref<model::gameobjects::Summon> makeSiegeWeapon(model::gameobjects::player::Player& master) {
+		Ref<model::gameobjects::Summon> summon = model::gameobjects::VisibleObject::create<model::gameobjects::Summon>(
+			utils::idfactory::IDFactory::getInstance().nextId(), std::make_unique<controllers::SiegeWeaponController>(SIEGE_NPC_ID),
+			makeSpawn(SIEGE_NPC_ID, 502, 500, 100), siegeA1NpcTemplates().getNpcTemplate(SIEGE_NPC_ID), master, 0);
+		summon->setKnownlist(std::make_unique<world::knownlist::KnownList>(*summon));
+		place(*summon, 502, 500, 100);
+		summons.push_back(summon);
+		return summon;
+	}
 };
 
-/** The seven AION_AI factories build their classes on the bases Java gives them (the names are the registry scan's check) */
+/** The AION_AI factories of cp1 build their classes on the bases Java gives them (the names are the registry scan's check) */
 TEST_F(SiegeA1AiTest, TheFactoriesBuildTheirClasses) {
 	AI_TEST_SCOPE;
 	Ref<SiegeNpc> npc = makeSiegeNpc(SIEGE_NPC_ID);
@@ -338,6 +413,95 @@ TEST_F(SiegeA1AiTest, AMercenarySelectionWithoutASiegeDoesNothing) {
 	Ref<model::gameobjects::player::Player> player = makeWorldPlayer(7102, 502, 500, 100);
 	EXPECT_TRUE(ai.onDialogSelect(*player, model::DialogAction::SETPRO1, 0, 0));
 	EXPECT_TRUE(ai.onDialogSelect(*player, model::DialogAction::SETPRO3, 0, 0));
+}
+
+// ------------------------------------------------------------------------------------------------------------------------------- cp2
+
+/** The AION_AI factories of cp2 (the siege weapon's on a Summon, its owner type) */
+TEST_F(SiegeA1AiTest, TheCp2FactoriesBuildTheirClasses) {
+	AI_TEST_SCOPE;
+	Ref<SiegeNpc> npc = makeSiegeNpc(SIEGE_NPC_ID);
+	std::unique_ptr<AbstractAI> enraged = sieges::EnragedAgent_aiFactory(*npc);
+	EXPECT_TRUE(dynamic_cast<sieges::EnragedAgent*>(enraged.get()));
+	EXPECT_TRUE(dynamic_cast<gameserver::handlers::ai::SummonerAI*>(enraged.get()));
+	std::unique_ptr<AbstractAI> repair = sieges::GateRepairAI_aiFactory(*npc);
+	EXPECT_TRUE(dynamic_cast<sieges::GateRepairAI*>(repair.get()));
+	std::unique_ptr<AbstractAI> cannon = sieges::SiegeCannonAI_aiFactory(*npc);
+	EXPECT_TRUE(dynamic_cast<sieges::SiegeCannonAI*>(cannon.get()));
+	Ref<model::gameobjects::player::Player> master = makeWorldPlayer(7201, 502, 500, 100);
+	Ref<model::gameobjects::Summon> weapon = makeSiegeWeapon(*master);
+	std::unique_ptr<AbstractAI> weaponAi = sieges::SiegeWeaponAI_aiFactory(*weapon);
+	EXPECT_TRUE(dynamic_cast<sieges::SiegeWeaponAI*>(weaponAi.get()));
+}
+
+/** EnragedAgent.java:40-56: max hp by the fortress protector multiplier; back home forgets the aggro list; its death ends the siege */
+TEST_F(SiegeA1AiTest, AnEnragedAgentEndsTheSiegeLikeAProtector) {
+	AI_TEST_SCOPE;
+	Ref<SiegeNpc> agent = makeSiegeNpc(SIEGE_NPC_ID);
+	EnragedProbe& ai = install<EnragedProbe>(*agent);
+	EXPECT_FLOAT_EQ(maxHpBaseRate(ai, *agent), 2.5f);
+	Ref<model::gameobjects::player::Player> elyos = makeWorldPlayer(7202, 502, 500, 100);
+	know(*agent, *elyos);
+	agent->getAggroList().addDamage(*elyos, 300, false, std::nullopt);
+	ai.handleBackHome();
+	EXPECT_TRUE(agent->getAggroList().stream().empty()) << "old damages are not counted in stopSiege";
+	Ref<StoppableSiege> siege = runtime::makeRef<StoppableSiege>(*fortress);
+	services::SiegeServiceTestAccess::activeSieges(services::SiegeService::getInstance()).put(FORTRESS_ID, siege);
+	agent->getAggroList().addDamage(*elyos, 200, false, std::nullopt);
+	ai.handleDied();
+	EXPECT_EQ(siege->getSiegeCounter()->getRaceCounter(SiegeRace::ELYOS)->getTotalDamage(), 200);
+	EXPECT_TRUE(siege->isBossKilled());
+	EXPECT_EQ(siege->finishes, 1);
+}
+
+/** SiegeCannonAI.java:30-41, 43-131, 133-139: no morph skill for another npc id (SETPRO1 does nothing then), no respawn, no loot */
+TEST_F(SiegeA1AiTest, ASiegeCannonWithoutAMorphSkill) {
+	AI_TEST_SCOPE;
+	Ref<SiegeNpc> npc = makeSiegeNpc(SIEGE_NPC_ID);
+	sieges::SiegeCannonAI& ai = install<sieges::SiegeCannonAI>(*npc);
+	EXPECT_EQ(ai.getMorphSkill(), 0) << "not a cannon id";
+	EXPECT_FALSE(ai.ask(AIQuestion::ALLOW_RESPAWN));
+	EXPECT_FALSE(ai.ask(AIQuestion::REWARD_LOOT));
+	EXPECT_TRUE(ai.ask(AIQuestion::REWARD_AP_XP_DP_LOOT)) << "NpcAI's";
+	Ref<model::gameobjects::player::Player> player = makeWorldPlayer(7203, 502, 500, 100);
+	world::World::getInstance().storeObject(*npc);
+	EXPECT_TRUE(ai.onDialogSelect(*player, model::DialogAction::SETPRO1, 0, 0));
+	EXPECT_TRUE(world::World::getInstance().findVisibleObject(npc->getObjectId())) << "no morph skill: the cannon stays";
+	world::World::getInstance().removeObject(*npc);
+}
+
+/** GateRepairAI.java:47-71: without the fortress's door repair data the stone asks nothing; with it, it asks STR_ASK_DOOR_REPAIR_POPUPDIALOG */
+TEST_F(SiegeA1AiTest, AGateRepairStoneAsksWhenItsFortressRepairsDoors) {
+	AI_TEST_SCOPE;
+	Ref<SiegeNpc> stone = makeSiegeNpc(SIEGE_NPC_ID);
+	GateRepairProbe& ai = install<GateRepairProbe>(*stone);
+	Ref<model::gameobjects::player::Player> player = makeWorldPlayer(7204, 502, 500, 100);
+	ai.handleDialogStart(*player);
+	EXPECT_FALSE(player->getResponseRequester().remove(160027)) << "no door_repair_data: no question";
+	repairTemplate = xml::bindString<model::templates::siegelocation::SiegeLocationTemplate>(siegeContext,
+		R"(<siege_location id="1011" type="FORTRESS" world="210010000" siege_duration="3600">)"
+		R"(<door_repair_data item_id="188030000" count="5" cd="30"><door_repair_stone static_id="199" door_id="53" /></door_repair_data>)"
+		R"(</siege_location>)");
+	Ref<model::siege::FortressLocation> repairing = model::siege::FortressLocation::create(repairTemplate.get());
+	services::SiegeService::getInstance().getFortresses().put(FORTRESS_ID, repairing);
+	ai.handleDialogStart(*player);
+	EXPECT_TRUE(player->getResponseRequester().remove(160027)) << "the first question is pending";
+}
+
+/** SiegeWeaponAI.java:36-107: immune to abnormal states; following on request; a null target is ignored; no npc skills fail the spawn */
+TEST_F(SiegeA1AiTest, ASiegeWeaponFollowsOnRequest) {
+	AI_TEST_SCOPE;
+	Ref<model::gameobjects::player::Player> master = makeWorldPlayer(7205, 502, 500, 100);
+	Ref<model::gameobjects::Summon> weapon = makeSiegeWeapon(*master);
+	SiegeWeaponProbe& ai = install<SiegeWeaponProbe>(*weapon);
+	EXPECT_TRUE(ai.ask(AIQuestion::IS_IMMUNE_TO_ABNORMAL_STATES));
+	EXPECT_FALSE(ai.ask(AIQuestion::ALLOW_DECAY)) << "AITemplate's";
+	ai.handleFollowMe(*master);
+	EXPECT_EQ(ai.getState(), AIState::FOLLOWING);
+	ai.handleStopFollowMe(*master);
+	EXPECT_EQ(ai.getState(), AIState::IDLE);
+	ai.handleAttack(nullptr); // a null creature returns at once
+	EXPECT_THROW(ai.handleSpawned(), runtime::Exception) << "the test npc has no npc skills: Java's getNpcSkills() on null";
 }
 
 } // namespace
