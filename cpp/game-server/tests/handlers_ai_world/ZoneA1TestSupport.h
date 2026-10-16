@@ -57,7 +57,11 @@ inline const std::vector<int32_t>& zoneNpcIds() {
 		// gelkmaros: Padmarashka's rock slides and protectors
 		281936, 281938, 281939, 281940, 281941,
 		// levinshor: the four ancient monsters
-		235217, 235218, 235219, 235220};
+		235217, 235218, 235219, 235220,
+		// eltnen: the Mysterious Crate's elroco, clodworm and Chaos Dracus, Kratia's Harpback
+		211792, 211799, 211800, 211812,
+		// brusthonin: the Vampire Queen
+		214583};
 	return ids;
 }
 
@@ -89,6 +93,13 @@ protected:
 	runtime::Ptr<model::gameobjects::Npc> placeCreatedBy(model::gameobjects::VisibleObject& creator, int32_t npcId, float x, float y, float z) {
 		runtime::Ref<model::templates::spawns::SpawnTemplate> spawn = spawnengine::SpawnEngine::newSingleTimeSpawn(instance->getMapId(), npcId, x, y,
 			z, int8_t{0}, runtime::Ptr<model::gameobjects::VisibleObject>(creator), std::nullopt);
+		return runtime::as<model::gameobjects::Npc>(spawnengine::SpawnEngine::spawnObject(*spawn, instance->getInstanceId()));
+	}
+
+	/** A spawn that respawns after the given seconds (SpawnEngine.newSpawn: what RespawnService.scheduleRespawn schedules) */
+	runtime::Ptr<model::gameobjects::Npc> placeRespawning(int32_t npcId, float x, float y, float z, int32_t respawnSeconds) {
+		runtime::Ref<model::templates::spawns::SpawnTemplate> spawn =
+			spawnengine::SpawnEngine::newSpawn(instance->getMapId(), npcId, x, y, z, int8_t{0}, respawnSeconds);
 		return runtime::as<model::gameobjects::Npc>(spawnengine::SpawnEngine::spawnObject(*spawn, instance->getInstanceId()));
 	}
 
