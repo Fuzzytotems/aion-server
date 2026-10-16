@@ -60,3 +60,7 @@ the geo shield mesh. It is picked up when a siege checkpoint needs `gs.scenario.
 >   with a level-65 character at the rank thresholds; tests/worldevents/P5-12b1/AhserionRaidTest.cpp has 3; aion_gs_worldevents_tests passes
 >   57 of 57 under ctest. Mutants: 12 of 12 killed. The raid's spawns, steps and rewards have no unit or gate coverage. phase5-allowlist.txt
 >   drops its 18 Ahserion rows (closure: OK).
+> - **cp6**: AhserionAggressiveNpcAI, AhserionSorcerer, AhserionAssaultCommanderAI, EreshkigalsVoiceAI, AhserionConstructAI, AhserionGate,
+>   CampDefenseCannonAI, AhserionAssaultPod, AhserionSkyAssaulterAI and AhserionRegistrationCorridor. AhserionA1AiTest.cpp has 8 cases;
+>   mutants 15 of 15 killed. Not unit-tested: AhserionGate's 21515 buff, and the pod's and the sky assaulter's trooper landings (spawn needs
+>   the test map in the World). No gate.
