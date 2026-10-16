@@ -1,7 +1,6 @@
 #include "aion/gameserver/services/panesterra/PanesterraService.h"
 
 #include "aion/commons/logging/LoggerFactory.h"
-#include "aion/gameserver/runtime/base/Unported.h"
 #include <string>
 #include <vector>
 #include "aion/gameserver/model/base/BaseLocation.h"
@@ -29,6 +28,7 @@
 #include "aion/gameserver/world/WorldMap.h"
 #include "aion/gameserver/world/WorldMapInstance.h"
 #include "aion/gameserver/world/WorldPosition.h"
+#include "aion/gameserver/services/panesterra/ahserion/AhserionRaid.h"
 #include "aion/gameserver/services/panesterra/ahserion/PanesterraFaction.h"
 #include "aion/gameserver/services/panesterra/ahserion/PanesterraTeam.h"
 #include "aion/gameserver/model/gameobjects/player/Player.h"
@@ -161,12 +161,30 @@ void PanesterraService::spawnCorridor(model::templates::spawns::SpawnTemplate& t
 	spawnengine::SpawnEngine::spawnObject(template_, 1);
 }
 
+// Java PanesterraService.java:151-160
 void PanesterraService::startAhserionRaid() {
-	AION_UNPORTED();
+	for (int32_t id : {10111, 10211, 10311, 10411}) {
+		if (SiegeService::getInstance().getSiege(id) != nullptr) {
+			log.error("Ahserion raid cannot be started while any Panesterra fortress is under siege.");
+			return;
+		}
+	}
+	createTeams(-1);
+	spawnengine::SpawnEngine::spawnObject(*spawnengine::SpawnEngine::newSingleTimeSpawn(110070000, 802223, 485.692f, 401.079f, 127.789f, int8_t{0}), 1);
+	spawnengine::SpawnEngine::spawnObject(*spawnengine::SpawnEngine::newSingleTimeSpawn(120080000, 802225, 400.772f, 231.517f, 93.113f, int8_t{30}), 1);
+	ahserion::AhserionRaid::getInstance().start();
 }
 
+// Java PanesterraService.java:162-171
 void PanesterraService::stopAhserionRaid() {
-	AION_UNPORTED();
+	ahserion::AhserionRaid::getInstance().stop();
+	if (!activeFactionTeams.isEmpty()) {
+		for (const runtime::Ptr<ahserion::PanesterraTeam>& team : activeFactionTeams.values()) {
+			team->setIsEliminated(true);
+			team->moveTeamMembersToOriginPosition();
+		}
+		activeFactionTeams.clear();
+	}
 }
 
 // Java PanesterraService.java:173-181
@@ -310,8 +328,9 @@ int32_t PanesterraService::getSiegeId(int32_t worldId) {
 	}
 }
 
+// Java PanesterraService.java:276-278
 bool PanesterraService::isAhserionRaidStarted() {
-	AION_UNPORTED();
+	return ahserion::AhserionRaid::getInstance().isStarted();
 }
 
 // Java PanesterraService.java:280-283
@@ -339,8 +358,6 @@ runtime::Ptr<ahserion::PanesterraTeam> PanesterraService::getTeam(model::gameobj
 // Ported for m5b-plan.md C-03: PlayerReviveService::bindRevive calls this unconditionally for every character that is neither in prison nor in
 // EVENT_MODE (PlayerReviveService.java:124), which is the M5b-1 gate's death case on Poeta. Java's first statement answers false for every map
 // outside Panesterra, so the whole body below is dead on that path - but it has to *return* false there rather than throw.
-// getTeam(Player&) stays AION_UNPORTED: it can only be reached on a Panesterra map, activeFactionTeams is filled by createTeams alone (itself
-// unported), and the M5b-1 scripted path and real-client checklist never enter Belus, Aspida, Atanatos, Disillon or the Transidium Annex.
 bool PanesterraService::teleportToStartPosition(model::gameobjects::player::Player& player) {
 	if (!world::isPanesterraMap(player.getWorldId()))
 		return false;
