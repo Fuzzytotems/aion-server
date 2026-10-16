@@ -32,7 +32,8 @@ Smallest self-contained first; each checkpoint is one branch (`lane-c/i6-<instan
 | CP | What | Java lines |
 |---|---|---:|
 | I6-1 | the I6 test directory and support header; Steel Rake and its Cabin with the 12 rakes AIs | 940 |
-| I6-2 | Theobomos Lab and Infinity Shard with their AIs (5) | 946 |
+| I6-2a | Theobomos Lab with its AIs (3) | 390 |
+| I6-2b | Infinity Shard with its AIs (2; HyperionAI is 250 lines) | 556 |
 | I6-3 | The Shugo Emperor's Vault with its AIs (8) | 1,121 |
 | I6-4 | Shugo Imperial Tomb with its AIs (8) | 1,836 |
 | I6-5a | Tiamat Stronghold's handler and its brigade generals (Chantra, Laksyaka, Tahabata, Terath) with their altars and helpers | ~1,100 |
@@ -46,3 +47,7 @@ Smallest self-contained first; each checkpoint is one branch (`lane-c/i6-<instan
 > 25 of 25 after one strengthened case (Mantutu back home). FeedingMantutuAI's custom event passes the device as a `Ref<Npc>`, an empty
 > `std::any` for Java's null. Left to a gate: Tamer Anikiki's walk (walker rows), Golden Eye Mantutu's move to a device, the casts' effects, the
 > use bars (DialogService) and the fly teleport.
+> **Progress:** I6-2a done (`lane-c/i6-theobomos-cp2`): TheobomosLabInstance and the theobomosLab AIs (SilikorofMemoryAI, TriroansSummonAI,
+> UnstableTriroanAI). `TheobomosTest.cpp` (7 cases); mutation proof 16 of 16 after one strengthened case (Triroan 4 m from a pillar). Java's
+> synchronized TriroansSummonAI.useSkill is a monitor member. A test summon's DummyAI cannot walk (Java's ClassCastException, std::bad_cast here).
+> Left to a gate: the summons' walks and arrival, the casts' effects.

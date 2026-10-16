@@ -13,6 +13,7 @@
 #include <string>
 
 #include "aion/commons/utils/Rnd.h"
+#include "aion/gameserver/handlers/instance/TheobomosLabInstance.h"
 #include "aion/gameserver/handlers/instance/rakes/SteelRakeCabineInstance.h"
 #include "aion/gameserver/handlers/instance/rakes/SteelRakeInstance.h"
 
@@ -32,7 +33,8 @@ protected:
 };
 
 TEST_F(I6InstanceTest, EachHandlerIsTheJavaClassOfItsMap) {
-	for (const auto& [javaPath, mapId] : std::map<std::string, int32_t>{{"rakes/SteelRakeInstance", STEEL_RAKE}, {"rakes/SteelRakeCabineInstance", STEEL_RAKE_CABIN}}) {
+	for (const auto& [javaPath, mapId] : std::map<std::string, int32_t>{{"rakes/SteelRakeInstance", STEEL_RAKE}, {"rakes/SteelRakeCabineInstance", STEEL_RAKE_CABIN},
+		     {"TheobomosLabInstance", THEOBOMOS_LAB}}) {
 		std::string source = javaSource(javaPath.c_str());
 		std::smatch match;
 		ASSERT_TRUE(std::regex_search(source, match, std::regex(R"(@InstanceID\((\d+)\))"))) << javaPath;
@@ -42,6 +44,8 @@ TEST_F(I6InstanceTest, EachHandlerIsTheJavaClassOfItsMap) {
 	EXPECT_NE(dynamic_cast<rakes::SteelRakeInstance*>(rake.getInstanceHandler().get()), nullptr);
 	world::WorldMapInstance& cabin = create(STEEL_RAKE_CABIN, rakes::SteelRakeCabineInstance_instanceFactory);
 	EXPECT_NE(dynamic_cast<rakes::SteelRakeCabineInstance*>(cabin.getInstanceHandler().get()), nullptr);
+	world::WorldMapInstance& lab = create(THEOBOMOS_LAB, TheobomosLabInstance_instanceFactory);
+	EXPECT_NE(dynamic_cast<TheobomosLabInstance*>(lab.getInstanceHandler().get()), nullptr);
 }
 
 /** SteelRakeInstance.java:18-27: Pegureronerk three times in four, else the Kaneron Agent, at one place; one of the six special deliveries */
