@@ -76,3 +76,18 @@ Smallest self-contained first; each checkpoint is one branch (`lane-c/i6-<instan
 > field and leaves door 706 open (the test pins it). Left to a gate: the doors, the zones, the marchers' and drakans' moves, the casts.
 > Mutation proof: 29 of 29 mutants killed (two survivors of the first run, a swapped trap id and a missing cancel at death, led to a
 > stronger Chantra case that watches both rings and the next ring after her death).
+> **Progress:** I6-5b (`lane-c/i6-tiamat-rest-cp7`): the other 21 AIs of ai/instance/tiamatStrongHold (AdjutantAnuhartAI, BladeStormAI,
+> CapturedDrakanScientistAI, ChantraRingsAI, DistortedSpaceAI, EarthQuakeAI, ElectrocuteAI, FireStormAI, GravityAI, InvincibleShabokanAI,
+> KharunAI, MuraganAI, SinkingSandAI, SlowTimeAI, SuramaTheTraitorAI, TahabataAltarAI, TahabataAltarFinalAI, TiamatEyeAI, TimeAcceleratorAI,
+> TraitorKumbandaAI, VershakaStatueAI). `TiamatRestAiTest.cpp` (13 cases); the I6 npc list takes their npcs and gives Kahrun's fighting self
+> (800335) and Raksha (219356) a GeneralNpcAI, since they cast. CapturedDrakanScientistAI's `synchronized (qs)` is one class-wide monitor (no
+> other code locks a QuestState, so the exclusion is Java's). **Java bugs, ported (proposed corrections):**
+> - J-I6-5: TahabataAltarAI picks the debuff for 283116/283118 but checks the bands for 283253/283255, ids no npc template has, so an altar
+>   never debuffs; proposed: the bands for 283116/283118.
+> - J-I6-6: TiamatEyeAI switches on the 4.0 ids 283913-283916, but the handler spawns the eyes as 283177-283180, so they say nothing (the test
+>   pins it); proposed: switch on 283177-283180.
+> Left to a gate: the casts and their effects (the rings', quakes', altars' and slowed time's debuffs in their bands, the HP-phase and final
+> buffs), the walks, Surama's door.
+> Mutation proof: 40 of 41 mutants killed; the survivor is equivalent (DistortedSpaceAI without its deleteOwner at death: with no decay
+> NpcController.onDie deletes the npc itself). The first run's survivors (Muragan's watcher walking, the scientist's escape time) led to
+> stronger Muragan and scientist cases.
