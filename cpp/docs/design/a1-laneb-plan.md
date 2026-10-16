@@ -47,3 +47,17 @@ the geo shield mesh. It is picked up when a siege checkpoint needs `gs.scenario.
 ## 4. Progress
 
 > **Progress:** plan written (2026-10-16).
+>
+> - **cp1** (9e2ccd903): 7 siege AIs. SiegeA1AiTest.cpp has 9 cases; mutants 15 of 15 killed.
+> - **cp2** (ba29e81b8): 4 siege AIs, including the first Summon AI, SiegeWeaponAI. The file has 14 cases; mutants 10 of 10 killed.
+> - **cp3** (0473b2678): EmpoweredAgent. The file has 17 cases. Mutants: 7 run, 5 killed, 2 equivalent; EmpoweredAgent.ask's ALLOW_RESPAWN
+>   and REMOVE_EFFECTS arms repeat SiegeNpcAI's false.
+> - **cp4** (102bd3c28): the 7 worlds-root AIs. WorldsA1AiTest.cpp has 4 cases; mutants 8 of 8 killed. Agrint's helpers and chests, the
+>   graves' spawns and WorldBlesser's dialog are not unit-tested: rndSpawnInRange needs the test map in the World.
+> - **Gates** for cp1 to cp4: gs.smoke.startup passes; gs.scenario.m5i passes 16 of 17. Its C1 fails on the base too (the enter-world wrap,
+>   3d620a61c on #338). The m5i spawns now get these AIs instead of a DummyAI.
+> - **cp5**: the 4 corridor AIs, AhserionRaid (15 bodies) and PanesterraService start/stop/isStarted. PanesterraA1AiTest.cpp has 4 cases;
+>   tests/worldevents/P5-12b1/AhserionRaidTest.cpp has 3; aion_gs_worldevents_tests passes 57 of 57 under ctest. Mutants: 11 run, 9 killed,
+>   2 not observable. The corridors' rank checks for the advance and governor corridors are masked by the level-65 check, and the fixture
+>   has no level-65 character. The raid's spawns, steps and rewards have no unit or gate coverage. phase5-allowlist.txt drops its 18
+>   Ahserion rows (closure: OK).
