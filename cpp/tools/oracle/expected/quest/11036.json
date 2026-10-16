@@ -1,0 +1,49 @@
+{
+ "format": "aion-quest-trace",
+ "version": 1,
+ "questId": 11036,
+ "java": "inggison/_11036UncommonRecipe.java",
+ "class": "_11036UncommonRecipe",
+ "javaSha256": "6d86b8d7d3950dc6c68984d4e71b0a84552306ee7a4cdca45a5b21d4bc97ff61",
+ "register": [
+  {"call": "registerQuestItem", "args": [182206731, 11036]},
+  {"npc": 798955, "event": "addOnTalkEvent", "args": [11036]},
+  {"npc": 798956, "event": "addOnTalkEvent", "args": [11036]},
+  {"npc": 700610, "event": "addOnTalkEvent", "args": [11036]}
+ ],
+ "hooks": [{"hook": "onDialogEvent", "line": 33, "unsupported": "call npc.getController()"}, {"hook": "onItemUseEvent", "line": 73, "cases": 4}],
+ "cases": [
+  {
+   "id": "onItemUseEvent#1",
+   "hook": "onItemUseEvent",
+   "given": {"questState": null},
+   "guards": ["qs == null -> true @76"],
+   "effects": [{"call": "sendQuestDialog", "kind": "dialog", "args": [4], "line": 77}],
+   "returns": {"fromBoolean": {"resultOf": 0}}
+  },
+  {
+   "id": "onItemUseEvent#2",
+   "hook": "onItemUseEvent",
+   "given": {"questState": {"status": "COMPLETE", "canRepeat": true}},
+   "guards": ["qs == null -> false @76", "qs.isStartable() [status == COMPLETE] -> true @76", "qs.isStartable() [canRepeat] -> true @76"],
+   "effects": [{"call": "sendQuestDialog", "kind": "dialog", "args": [4], "line": 77}],
+   "returns": {"fromBoolean": {"resultOf": 0}}
+  },
+  {
+   "id": "onItemUseEvent#3",
+   "hook": "onItemUseEvent",
+   "given": {"questState": {"status": "COMPLETE", "canRepeat": false}},
+   "guards": ["qs == null -> false @76", "qs.isStartable() [status == COMPLETE] -> true @76", "qs.isStartable() [canRepeat] -> false @76"],
+   "effects": [],
+   "returns": "FAILED"
+  },
+  {
+   "id": "onItemUseEvent#4",
+   "hook": "onItemUseEvent",
+   "given": {"questState": {"status": "START"}},
+   "guards": ["qs == null -> false @76", "qs.isStartable() [status == COMPLETE] -> false @76"],
+   "effects": [],
+   "returns": "FAILED"
+  }
+ ]
+}

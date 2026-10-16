@@ -1,0 +1,115 @@
+# Policy of the static data generator (docs/design/static-data.md §1.4 and amendments §3). Hand-maintained; every entry needs a reason.
+# Keys name Java members relative to com.aionemu.gameserver (full names starting with "com." are accepted too).
+# `python xmlgen.py generate` reports entries that no longer match anything.
+
+java_src = "../../../game-server/src"
+
+roots = [
+	"dataholders.StaticData",
+	"dataholders.SpawnsData.UnprocessedSpawns",
+	"dataholders.PlayerExperienceTable",
+	"configs.ingameshop.InGameShopProperty",
+	"configs.schedule.RiftSchedule",
+	"configs.schedule.SiegeSchedules",
+	"configs.schedule.WorldRaidSchedules",
+]
+
+# S0a decision 3: every other enum of game-server/src is emitted too, with the same shape and location rules (constants and EnumTraits name
+# tables; constructor data, methods and constant-specific bodies are hand-written companions listed in xmlgen-report.md). Handler-private
+# enums (data/handlers) stay with the handlers.
+core_enums = true
+
+# Core enums whose C++ definition is already hand-written (nested in a ported class); they are not generated.
+[hand_written_enums]
+"configs.main.SecurityConfig.MultiClientingRestrictionMode" = "defined in configs/main/SecurityConfig.h (P4-01, a std::atomic config field)"
+
+[before_unmarshal_allowed]
+"dataholders.StaticData" = "installs the StaticDataListener, which LoadContext replaces (XmlBinding.h, Hooks)"
+
+# JDK enums bound by JAXB (by constant name). The generator emits them like project enums, in the given namespace.
+[external_enums."java.time.DayOfWeek"]
+namespace = "aion::gameserver::java::time"
+constants = ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY", "SUNDAY"]
+reason = "TemporarySpawn.weekdays; ordinals as java.time.DayOfWeek (MONDAY = 0), getValue() = ordinal + 1"
+
+# @XmlJavaTypeAdapter. Field adapters: `cpp` is the member type (std::optional<cpp> without an initializer), `parse` the converter
+# (overloads (BindContext&, std::string_view) for attributes and (std::string_view) for element text). Class-level adapters: `value_type`
+# is the bound Java class, `cpp` the member type and `unmarshal` the statement converting the bound `value`
+# (std::unique_ptr<value type>) into the member `{member}`.
+[adapters."dataholders.loadingutils.adapters.LocalDateTimeAdapter"]
+cpp = "::aion::gameserver::xml::adapters::LocalDateTime"
+header = "aion/gameserver/dataholders/loadingutils/adapters/LocalDateTimeAdapter.h"
+parse = "::aion::gameserver::xml::adapters::parseLocalDateTime"
+reason = "LocalDateTime.parse (ISO_LOCAL_DATE_TIME) in the binder runtime"
+
+[adapters."dataholders.loadingutils.adapters.SpaceSeparatedBytesAdapter"]
+cpp = "std::vector<int8_t>"
+header = "aion/gameserver/dataholders/loadingutils/adapters/SpaceSeparatedBytesAdapter.h"
+parse = "::aion::gameserver::xml::adapters::parseSpaceSeparatedBytes"
+reason = "String.split(\" \") + Byte.parseByte in the binder runtime"
+
+[adapters."dataholders.loadingutils.adapters.NpcEquippedGearAdapter"]
+value_type = "dataholders.loadingutils.adapters.NpcEquipmentList"
+cpp = "::aion::gameserver::runtime::Ref<::aion::gameserver::model::items::NpcEquippedGear>"
+header = "aion/gameserver/model/items/NpcEquippedGear.h"
+unmarshal = "c.replaceSingle(o.{member}, ::aion::gameserver::model::items::NpcEquippedGear::create(std::move(value)), e);\no.{member}->init(c.load());"
+reason = "hand-written RefCounted NpcEquippedGear (K4: Npc.overriddenEquipment shares the type, the immortal template retains its gear), initialized eagerly after IDREF resolution (design §3.6); replaceSingle retires a repeated <equipment> (strict mode: an error)"
+
+# Fields JAXB would bind implicitly (FIELD or PUBLIC_MEMBER access without annotations) that are not XML data. They get no member and no
+# binding; an element with their name in the data is an unknown element (strict error).
+[deny_implicit]
+"dataholders.AssembledNpcsData.assembledNpcsTemplates" = "index map built by afterUnmarshal (missing @XmlTransient)"
+"dataholders.CosmeticItemsData.cosmeticItemTemplates" = "index map built by afterUnmarshal (missing @XmlTransient)"
+"dataholders.GuideHtmlData.CLASS_ALL" = "constant 255 (missing static); hand-written as a static constant"
+"skillengine.effect.HostileUpEffect.tempHate" = "per-cast state written by calculate (a Java race); per effect in C++ (design section 3.6, DEVIATIONS)"
+
+# Field initializers that are not literals, enum constants or empty collections: the C++ initializer ("" = the default of the C++ type).
+[initializers]
+"model.templates.item.ItemTemplate.levelRestrictions" = { cpp = "std::vector<int8_t>(17, 1)", reason = "DEFAULT_LEVEL_RESTRICTION = new byte[] {1 x 17}" }
+"model.templates.item.ItemUseLimits.minRank" = { cpp = "1", reason = "AbyssRankEnum.GRADE9_SOLDIER.getId()" }
+"model.templates.item.ItemUseLimits.maxRank" = { cpp = "18", reason = "AbyssRankEnum.SUPREME_COMMANDER.getId()" }
+"model.templates.world.WorldMapTemplate.aiInfo" = { cpp = "", reason = "AiInfo.DEFAULT: null when absent, the hand-written getAiInfo() returns AiInfo::DEFAULT" }
+
+# Template fields written after loading (amendments §3): mutable runtime::Field<T> members. Field is non-movable, so element lists of the
+# owner class store it by pointer.
+[runtime_mutable]
+"model.templates.walker.RouteStep.z" = "FixPath (FixPath.java:121-125) corrects z on the shared template"
+"model.templates.Guides.GuideTemplate.isActivated" = "GuideService toggles guides at runtime"
+"model.templates.spawns.Spawn.eventTemplate" = "event start/stop assigns the event of spawns (Event.java:88-149)"
+
+# Attributes the XSDs declare and the data uses, but the Java class does not bind: JAXB ignores them, the binder consumes them without a
+# member (found by the V1 XSD cross-check, occurrence counts from tools/oracle/expected/totals.json).
+[ignore_attributes]
+"model.templates.item.ItemTemplate.cName" = "client name, 102009 item_template"
+"model.templates.QuestTemplate.quest_zone" = "7469 quest"
+"model.templates.npc.NpcTemplate.item_upgrade" = "2 npc_template"
+"model.templates.teleport.TelelocationTemplate.name" = "284 teleloc_template"
+"skillengine.effect.PetOrderUseUltraSkillEffect.ultra_skill" = "13 petorderuseultraskill"
+
+# @XmlAttribute/@XmlElement(required = true) that the data violates. JAXB never enforces required and the XSDs declare these nodes optional,
+# so Java loads the data; the binder enforces every other required flag (static-data.md §3.4). Found by resolving the census paths of
+# tools/oracle/expected/census.json through the IR (attributes: present count < element count; elements: child count < parent count).
+[unenforced_required]
+"model.templates.housing.BuildingCapabilities.interior" = "house_lands/land/caps: 0 of 20"
+"model.templates.housing.BuildingCapabilities.exterior" = "house_lands/land/caps: 0 of 20"
+"model.templates.teleport.TeleportLocation.price" = "npc_teleporter/.../telelocation: 536 of 544"
+"model.templates.walker.RouteStep.restTime" = "npc_walker/walker_template/routestep: 226 of 112765"
+"skillengine.model.SignetData.addEffectProb" = "signet_data_templates/.../signet_data: 6 of 24"
+"skillengine.effect.EffectTemplate.duration2" = "skill_data effects of 108 kinds, e.g. skillatk: 0 of 2413"
+"skillengine.effect.CarveSignetEffect.signetIncrement" = "carvesignet: 17 of 113"
+"skillengine.effect.CarveSignetEffect.prob" = "carvesignet: 39 of 113"
+"skillengine.effect.AbstractOverTimeEffect.checktime" = "heal: 211 of 218, poison: 152 of 153"
+"skillengine.effect.SummonEffect.time" = "summon: 19 of 114, summonfunctionalnpc: 0 of 50"
+"model.templates.spawns.SpawnSpotTemplate.h" = "spawns/spawn_map/spawn/spot: 88376 of 116120 (and 8 other spot paths)"
+"model.templates.housing.HousingUseableItem.action" = "housing_objects/use_item <action>: 285 of 309"
+"model.templates.materials.MaterialTemplate.skills" = "material_templates/material <skill>: 34 of 35"
+# found by tests/test_real_tree.py, which walks the data through the IR (paths the census resolution could not reach)
+"model.templates.gather.GatherableTemplate.exmaterials" = "gatherable_templates/gatherable_template <exmaterials>: 331 of 756"
+"skillengine.condition.TargetFlyingCondition.restriction" = "skill_data .../conditions/targetflying: 88 of 124 (Java default FlyingRestriction.FLY)"
+"questEngine.handlers.models.xmlQuest.operations.CollectItemQuestOperation.removeItems" = "quest_scripts .../operations/collect_items: 0 of 1 (Java: null means removeItems == true, CollectItemQuestOperation.java:28)"
+
+# Optional enum properties whose data contains values that are not constants of the enum. JAXB's enum leaf returns null for an unknown lexical
+# value without a validation event, so Java loads the data with the property null; the binder stores std::nullopt and warns once instead
+# of failing (found by tests/test_real_tree.py, which checks every enum value of the data against the enum tables).
+[lenient_enums]
+"skillengine.model.SkillTemplate.counterSkill" = "skills/skill_templates.xml: 30 comma lists (BLOCK,RESIST 22, RESIST,PARRY 6, RESIST,DODGE 2); Java counterSkill == null"

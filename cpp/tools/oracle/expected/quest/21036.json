@@ -1,0 +1,17 @@
+{
+ "format": "aion-quest-trace",
+ "version": 1,
+ "questId": 21036,
+ "java": "gelkmaros/_21036DeliveryofAetherSample.java",
+ "class": "_21036DeliveryofAetherSample",
+ "javaSha256": "641ef7526de547db6a88e049e44587510968d85d2e32ec7fdba8f2c35d957796",
+ "register": [
+  {"npc": 799258, "event": "addOnTalkEvent", "args": [21036]},
+  {"npc": 799238, "event": "addOnTalkEvent", "args": [21036]},
+  {"npc": 798713, "event": "addOnTalkEvent", "args": [21036]},
+  {"npc": 799239, "event": "addOnTalkEvent", "args": [21036]},
+  {"npc": 799258, "event": "addOnQuestStart", "args": [21036]}
+ ],
+ "hooks": [{"hook": "onDialogEvent", "line": 28, "unsupported": "reads status/21036 after sendQuestNoneDialog, which may have written it"}],
+ "cases": []
+}

@@ -1,0 +1,17 @@
+{
+ "format": "aion-quest-trace",
+ "version": 1,
+ "questId": 30156,
+ "java": "silentera_canyon/_30156NepsLove.java",
+ "class": "_30156NepsLove",
+ "javaSha256": "c65807a70a93dc69e03bfcd6d06fa5319365777708a0ef5bbc0a483e2f12fcdc",
+ "register": [
+  {"npc": 799234, "event": "addOnQuestStart", "args": [30156]},
+  {"npc": 799234, "event": "addOnTalkEvent", "args": [30156]},
+  {"npc": 204304, "event": "addOnTalkEvent", "args": [30156]},
+  {"npc": 700570, "event": "addOnTalkEvent", "args": [30156]},
+  {"npc": 799339, "event": "addOnTalkEvent", "args": [30156]}
+ ],
+ "hooks": [{"hook": "onDialogEvent", "line": 32, "unsupported": "call spawnForFiveMinutes"}],
+ "cases": []
+}

@@ -1,0 +1,77 @@
+{
+ "format": "aion-quest-trace",
+ "version": 1,
+ "questId": 24042,
+ "java": "reshanta/_24042AReadyRescue.java",
+ "class": "_24042AReadyRescue",
+ "javaSha256": "6c6c3bef03efc7a70db7a56325e03f256e4bc156b266d4b003786dfdfa71de43",
+ "register": [
+  {"call": "registerOnQuestCompleted", "args": [24042]},
+  {"call": "registerOnLevelChanged", "args": [24042]},
+  {"npc": 278002, "event": "addOnTalkEvent", "args": [24042]},
+  {"npc": 278019, "event": "addOnTalkEvent", "args": [24042]},
+  {"npc": 278088, "event": "addOnTalkEvent", "args": [24042]},
+  {"npc": 253626, "event": "addOnTalkEvent", "args": [24042]},
+  {"call": "registerOnLogOut", "args": [24042]},
+  {"call": "registerAddOnReachTargetEvent", "args": [24042]},
+  {"call": "registerAddOnLostTargetEvent", "args": [24042]}
+ ],
+ "hooks": [
+  {"hook": "onDialogEvent", "line": 36, "unsupported": "call defaultStartFollowEvent"},
+  {"hook": "onLogOutEvent", "line": 105, "cases": 4},
+  {"hook": "onNpcReachTargetEvent", "line": 118, "unsupported": "call defaultFollowEndEvent"},
+  {"hook": "onNpcLostTargetEvent", "line": 123, "unsupported": "call defaultFollowEndEvent"},
+  {"hook": "onQuestCompletedEvent", "line": 128, "cases": 1},
+  {"hook": "onLevelChangedEvent", "line": 133, "cases": 1}
+ ],
+ "cases": [
+  {
+   "id": "onLogOutEvent#1",
+   "hook": "onLogOutEvent",
+   "given": {"questState": {"status": "START", "vars": {"0": 4}}},
+   "guards": ["qs != null -> true @108", "qs.getStatus() == QuestStatus.START -> true @108", "var == 4 -> true @110"],
+   "effects": [{"call": "changeQuestStep", "kind": "var", "args": [4, 3], "line": 111}],
+   "returns": false
+  },
+  {
+   "id": "onLogOutEvent#2",
+   "hook": "onLogOutEvent",
+   "given": {"questState": {"status": "START", "vars": {"0": 0}}},
+   "guards": ["qs != null -> true @108", "qs.getStatus() == QuestStatus.START -> true @108", "var == 4 -> false @110"],
+   "effects": [],
+   "returns": false
+  },
+  {
+   "id": "onLogOutEvent#3",
+   "hook": "onLogOutEvent",
+   "given": {"questState": {"status": "REWARD"}},
+   "guards": ["qs != null -> true @108", "qs.getStatus() == QuestStatus.START -> false @108"],
+   "effects": [],
+   "returns": false
+  },
+  {
+   "id": "onLogOutEvent#4",
+   "hook": "onLogOutEvent",
+   "given": {"questState": null},
+   "guards": ["qs != null -> false @108"],
+   "effects": [],
+   "returns": false
+  },
+  {
+   "id": "onQuestCompletedEvent#1",
+   "hook": "onQuestCompletedEvent",
+   "given": {},
+   "guards": [],
+   "effects": [{"call": "defaultOnQuestCompletedEvent", "kind": "quest", "args": [24040], "line": 129}],
+   "returns": null
+  },
+  {
+   "id": "onLevelChangedEvent#1",
+   "hook": "onLevelChangedEvent",
+   "given": {},
+   "guards": [],
+   "effects": [{"call": "defaultOnLevelChangedEvent", "kind": "quest", "args": [24040], "line": 134}],
+   "returns": null
+  }
+ ]
+}

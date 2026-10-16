@@ -1,0 +1,22 @@
+{
+ "format": "aion-quest-trace",
+ "version": 1,
+ "questId": 1205,
+ "java": "poeta/_1205ANewSkill.java",
+ "class": "_1205ANewSkill",
+ "javaSha256": "4d242c5a2807a65783b7a3c059936ddf1527249042c33d52f6c92bbcfcd9f369",
+ "register": [
+  {"call": "registerOnLevelChanged", "args": [1205]},
+  {"npc": 203087, "event": "addOnTalkEvent", "args": [1205]},
+  {"npc": 203088, "event": "addOnTalkEvent", "args": [1205]},
+  {"npc": 203089, "event": "addOnTalkEvent", "args": [1205]},
+  {"npc": 203090, "event": "addOnTalkEvent", "args": [1205]},
+  {"npc": 801210, "event": "addOnTalkEvent", "args": [1205]},
+  {"npc": 801211, "event": "addOnTalkEvent", "args": [1205]}
+ ],
+ "hooks": [
+  {"hook": "onLevelChangedEvent", "line": 35, "unsupported": "new QuestEnv"},
+  {"hook": "onDialogEvent", "line": 73, "unsupported": "call player.getPlayerClass().getStartingClass() on a value"}
+ ],
+ "cases": []
+}

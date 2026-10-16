@@ -1,0 +1,21 @@
+{
+ "format": "aion-quest-trace",
+ "version": 1,
+ "questId": 2213,
+ "java": "altgard/_2213PoisonRootPotentFruit.java",
+ "class": "_2213PoisonRootPotentFruit",
+ "javaSha256": "2125e53ccfdecb1e6afa216b7d608a190b2a5accf3a33dc1d916a355e9d73a27",
+ "register": [
+  {"npc": 203604, "event": "addOnQuestStart", "args": [2213]},
+  {"npc": 203604, "event": "addOnTalkEvent", "args": [2213]},
+  {"npc": 700057, "event": "addOnTalkEvent", "args": [2213]},
+  {"npc": 203604, "event": "addOnTalkEvent", "args": [2213]},
+  {"call": "addHandlerSideQuestDrop", "args": [2213, 700057, 182203208, 1, 100]},
+  {"call": "registerOnGetItem", "args": [182203208, 2213]}
+ ],
+ "hooks": [
+  {"hook": "onDialogEvent", "line": 33, "unsupported": "call player.getEffectController()"},
+  {"hook": "onGetItemEvent", "line": 74, "unsupported": "call SkillEngine.getInstance"}
+ ],
+ "cases": []
+}

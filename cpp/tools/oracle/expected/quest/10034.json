@@ -1,0 +1,84 @@
+{
+ "format": "aion-quest-trace",
+ "version": 1,
+ "questId": 10034,
+ "java": "inggison/_10034FoundUnderground.java",
+ "class": "_10034FoundUnderground",
+ "javaSha256": "fb82ee777dbd192548affd6605970fe03fb1a094bc74901677cc7c2f3c90c36c",
+ "register": [
+  {"call": "addHandlerSideQuestDrop", "args": [10034, 730229, 182215628, 1, 100]},
+  {"npc": 799030, "event": "addOnTalkEvent", "args": [10034]},
+  {"npc": 799029, "event": "addOnTalkEvent", "args": [10034]},
+  {"npc": 798990, "event": "addOnTalkEvent", "args": [10034]},
+  {"npc": 730295, "event": "addOnTalkEvent", "args": [10034]},
+  {"npc": 700604, "event": "addOnTalkEvent", "args": [10034]},
+  {"npc": 730229, "event": "addOnTalkEvent", "args": [10034]},
+  {"call": "registerOnEnterWorld", "args": [10034]},
+  {"call": "registerQuestItem", "args": [182215628, 10034]},
+  {"npc": 216531, "event": "addOnKillEvent", "args": [10034]},
+  {"call": "registerOnQuestCompleted", "args": [10034]},
+  {"call": "registerOnLevelChanged", "args": [10034]}
+ ],
+ "hooks": [
+  {"hook": "onDialogEvent", "line": 50, "unsupported": "call InstanceService.getNextAvailableInstance"},
+  {"hook": "onEnterWorldEvent", "line": 150, "unsupported": "call qs.getQuestVars().getQuestVars()"},
+  {"hook": "onKillEvent", "line": 173, "unsupported": "call spawnForFiveMinutes"},
+  {"hook": "onItemUseEvent", "line": 194, "cases": 4},
+  {"hook": "onQuestCompletedEvent", "line": 209, "cases": 1},
+  {"hook": "onLevelChangedEvent", "line": 214, "cases": 1}
+ ],
+ "cases": [
+  {
+   "id": "onItemUseEvent#1",
+   "hook": "onItemUseEvent",
+   "given": {"item": {"itemId": 182215628}, "questState": {"status": "START"}},
+   "guards": ["item.getItemId() == 182215628 -> true @196", "qs != null -> true @198", "qs.getStatus() == QuestStatus.START -> true @198"],
+   "effects": [
+    {"call": "qs.setQuestVar", "kind": "var", "args": [8], "line": 199},
+    {"call": "qs.setStatus", "kind": "status", "args": ["REWARD"], "line": 200},
+    {"call": "updateQuestStatus", "kind": "quest", "args": [], "line": 201}
+   ],
+   "returns": "SUCCESS"
+  },
+  {
+   "id": "onItemUseEvent#2",
+   "hook": "onItemUseEvent",
+   "given": {"item": {"itemId": 182215628}, "questState": {"status": "REWARD"}},
+   "guards": ["item.getItemId() == 182215628 -> true @196", "qs != null -> true @198", "qs.getStatus() == QuestStatus.START -> false @198"],
+   "effects": [],
+   "returns": "SUCCESS"
+  },
+  {
+   "id": "onItemUseEvent#3",
+   "hook": "onItemUseEvent",
+   "given": {"item": {"itemId": 182215628}, "questState": null},
+   "guards": ["item.getItemId() == 182215628 -> true @196", "qs != null -> false @198"],
+   "effects": [],
+   "returns": "SUCCESS"
+  },
+  {
+   "id": "onItemUseEvent#4",
+   "hook": "onItemUseEvent",
+   "given": {"item": {"itemId": 0}},
+   "guards": ["item.getItemId() == 182215628 -> false @196"],
+   "effects": [],
+   "returns": "FAILED"
+  },
+  {
+   "id": "onQuestCompletedEvent#1",
+   "hook": "onQuestCompletedEvent",
+   "given": {},
+   "guards": [],
+   "effects": [{"call": "defaultOnQuestCompletedEvent", "kind": "quest", "args": [10031], "line": 210}],
+   "returns": null
+  },
+  {
+   "id": "onLevelChangedEvent#1",
+   "hook": "onLevelChangedEvent",
+   "given": {},
+   "guards": [],
+   "effects": [{"call": "defaultOnLevelChangedEvent", "kind": "quest", "args": [10031], "line": 215}],
+   "returns": null
+  }
+ ]
+}

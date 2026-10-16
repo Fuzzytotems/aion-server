@@ -1,0 +1,195 @@
+#include "aion/gameserver/model/instance/instanceposition/GloryInstancePosition.h"
+
+namespace aion::gameserver::model::instance::instanceposition {
+
+GloryInstancePosition::GloryInstancePosition() = default;
+
+GloryInstancePosition::~GloryInstancePosition() = default;
+
+runtime::Ref<GloryInstancePosition> GloryInstancePosition::create() {
+	return runtime::makeRef<GloryInstancePosition>();
+}
+
+// Java GloryInstancePosition.java:11-190
+void GloryInstancePosition::port(gameobjects::player::Player& player, int32_t zone, int32_t position) {
+	switch (position) {
+		case 1:
+			switch (zone) {
+				case 1:
+					teleport(player, 1728.7698f, 1735.5115f, 270.35883f, int8_t{0});
+					break;
+				case 2:
+					teleport(player, 1848.7509f, 1122.0343f, 338.25327f, int8_t{0});
+					break;
+				case 3:
+					teleport(player, 1601.3693f, 262.18213f, 507.90225f, int8_t{0});
+					break;
+				case 4:
+					teleport(player, 695.56299f, 1830.2776f, 236.63037f, int8_t{0});
+					break;
+				case 5:
+					teleport(player, 466.32935f, 1137.7463f, 436.90363f, int8_t{0});
+					break;
+				case 6:
+					teleport(player, 491.25992f, 396.44275f, 210.79913f, int8_t{0});
+					break;
+			}
+			break;
+		case 2:
+			switch (zone) {
+				case 1:
+					teleport(player, 1782.6428f, 1749.6447f, 270.2099f, int8_t{0});
+					break;
+				case 2:
+					teleport(player, 1840.5874f, 1131.8651f, 337.86191f, int8_t{0});
+					break;
+				case 3:
+					teleport(player, 1601.5317f, 255.78668f, 508.06595f, int8_t{0});
+					break;
+				case 4:
+					teleport(player, 693.49695f, 1826.8826f, 236.33366f, int8_t{0});
+					break;
+				case 5:
+					teleport(player, 491.62064f, 1113.132f, 435.51141f, int8_t{0});
+					break;
+				case 6:
+					teleport(player, 481.56711f, 392.17386f, 195.64738f, int8_t{0});
+					break;
+			}
+			break;
+		case 3:
+			switch (zone) {
+				case 1:
+					teleport(player, 1779.3856f, 1763.3234f, 270.1344f, int8_t{0});
+					break;
+				case 2:
+					teleport(player, 1840.9456f, 1148.8275f, 338.19537f, int8_t{0});
+					break;
+				case 3:
+					teleport(player, 1651.7954f, 236.90672f, 514.25f, int8_t{0});
+					break;
+				case 4:
+					teleport(player, 681.13123f, 1813.1442f, 204.35895f, int8_t{0});
+					break;
+				case 5:
+					teleport(player, 487.12833f, 1174.527f, 432.93042f, int8_t{0});
+					break;
+				case 6:
+					teleport(player, 502.35532f, 383.3923f, 207.53601f, int8_t{0});
+					break;
+			}
+			break;
+		case 4:
+			switch (zone) {
+				case 1:
+					teleport(player, 1789.2378f, 1766.1699f, 270.11316f, int8_t{0});
+					break;
+				case 2:
+					teleport(player, 1849.8066f, 1158.5144f, 338.1109f, int8_t{0});
+					break;
+				case 3:
+					teleport(player, 1648.1063f, 233.50453f, 514.00116f, int8_t{0});
+					break;
+				case 4:
+					teleport(player, 713.56201f, 1829.1324f, 188.6698f, int8_t{0});
+					break;
+				case 5:
+					teleport(player, 492.18265f, 1146.7538f, 433.27365f, int8_t{0});
+					break;
+				case 6:
+					teleport(player, 470.37747f, 379.49329f, 219.26476f, int8_t{0});
+					break;
+			}
+			break;
+		case 5:
+			switch (zone) {
+				case 1:
+					teleport(player, 1813.1642f, 1704.0671f, 272.46228f, int8_t{0});
+					break;
+				case 2:
+					teleport(player, 1868.9424f, 1122.505f, 337.85699f, int8_t{0});
+					break;
+				case 3:
+					teleport(player, 1647.5758f, 237.77393f, 514.22351f, int8_t{0});
+					break;
+				case 4:
+					teleport(player, 695.18799f, 1816.3867f, 195.84592f, int8_t{0});
+					break;
+				case 5:
+					teleport(player, 504.25089f, 1130.025f, 433.1051f, int8_t{0});
+					break;
+				case 6:
+					teleport(player, 484.43649f, 382.09552f, 187.54836f, int8_t{0});
+					break;
+			}
+			break;
+		case 6:
+			switch (zone) {
+				case 1:
+					teleport(player, 1786.9512f, 1792.4897f, 272.69449f, int8_t{0});
+					break;
+				case 2:
+					teleport(player, 1877.2324f, 1130.4788f, 337.91608f, int8_t{0});
+					break;
+				case 3:
+					teleport(player, 1651.5988f, 279.14572f, 514.23566f, int8_t{0});
+					break;
+				case 4:
+					teleport(player, 711.16937f, 1822.9017f, 183.47443f, int8_t{0});
+					break;
+				case 5:
+					teleport(player, 509.46603f, 1169.5813f, 433.32385f, int8_t{0});
+					break;
+				case 6:
+					teleport(player, 508.7309f, 378.73807f, 199.08717f, int8_t{0});
+					break;
+			}
+			break;
+		case 7:
+			switch (zone) {
+				case 1:
+					teleport(player, 1783.3029f, 1686.1635f, 280.87762f, int8_t{0});
+					break;
+				case 2:
+					teleport(player, 1877.5284f, 1150.0294f, 338.69321f, int8_t{0});
+					break;
+				case 3:
+					teleport(player, 1648.1837f, 282.2934f, 514.32208f, int8_t{0});
+					break;
+				case 4:
+					teleport(player, 675.26306f, 1836.4603f, 171.69542f, int8_t{0});
+					break;
+				case 5:
+					teleport(player, 520.46014f, 1151.5432f, 432.93042f, int8_t{0});
+					break;
+				case 6:
+					teleport(player, 507.07452f, 406.64331f, 209.75935f, int8_t{0});
+					break;
+			}
+			break;
+		case 8:
+			switch (zone) {
+				case 1:
+					teleport(player, 1812.7941f, 1789.109f, 288.74359f, int8_t{0});
+					break;
+				case 2:
+					teleport(player, 1869.6437f, 1157.5081f, 338.42526f, int8_t{0});
+					break;
+				case 3:
+					teleport(player, 1647.8574f, 278.70276f, 514.76154f, int8_t{0});
+					break;
+				case 4:
+					teleport(player, 703.90625f, 1827.9193f, 163.59734f, int8_t{0});
+					break;
+				case 5:
+					teleport(player, 530.52057f, 1123.7206f, 433.0639f, int8_t{0});
+					break;
+				case 6:
+					teleport(player, 471.09128f, 400.79608f, 224.43683f, int8_t{0});
+					break;
+			}
+			break;
+	}
+}
+
+} // namespace aion::gameserver::model::instance::instanceposition

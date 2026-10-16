@@ -1,0 +1,73 @@
+{
+ "format": "aion-quest-trace",
+ "version": 1,
+ "questId": 2758,
+ "java": "reshanta/_2758CarryTheFlame.java",
+ "class": "_2758CarryTheFlame",
+ "javaSha256": "29f8ed12c971ade47c5009078e53c2f3e9252a32ec1000a90d26219725ebe5c6",
+ "register": [{"npc": 279000, "event": "addOnQuestStart", "args": [2758]}, {"npc": 790016, "event": "addOnTalkEvent", "args": [2758]}],
+ "hooks": [
+  {"hook": "onDialogEvent", "line": 29, "unsupported": "call QuestService.questTimerStart"},
+  {"hook": "onQuestTimerEndEvent", "line": 78, "cases": 4}
+ ],
+ "cases": [
+  {
+   "id": "onQuestTimerEndEvent#1",
+   "hook": "onQuestTimerEndEvent",
+   "given": {"questState": {"status": "START", "vars": {"0": 2}}},
+   "guards": ["qs != null -> true @81", "qs.getStatus() == QuestStatus.START -> true @81", "var > 1 -> true @83"],
+   "ranges": {"questState.vars.0": [2, 63]},
+   "effects": [
+    {"call": "removeQuestItem", "kind": "item", "args": [182205645, 1], "line": 84},
+    {"call": "changeQuestStep", "kind": "var", "args": [2, 0], "line": 85}
+   ],
+   "returns": true,
+   "atHigh": [
+    {
+     "input": "questState.vars.0",
+     "value": 63,
+     "given": {"questState": {"status": "START", "vars": {"0": 63}}},
+     "effects": [
+      {"call": "removeQuestItem", "kind": "item", "args": [182205645, 1], "line": 84},
+      {"call": "changeQuestStep", "kind": "var", "args": [63, 0], "line": 85}
+     ],
+     "returns": true
+    }
+   ]
+  },
+  {
+   "id": "onQuestTimerEndEvent#2",
+   "hook": "onQuestTimerEndEvent",
+   "given": {"questState": {"status": "START", "vars": {"0": 0}}},
+   "guards": ["qs != null -> true @81", "qs.getStatus() == QuestStatus.START -> true @81", "var > 1 -> false @83"],
+   "ranges": {"questState.vars.0": [0, 1]},
+   "effects": [],
+   "returns": false,
+   "atHigh": [
+    {
+     "input": "questState.vars.0",
+     "value": 1,
+     "given": {"questState": {"status": "START", "vars": {"0": 1}}},
+     "effects": [],
+     "returns": false
+    }
+   ]
+  },
+  {
+   "id": "onQuestTimerEndEvent#3",
+   "hook": "onQuestTimerEndEvent",
+   "given": {"questState": {"status": "REWARD"}},
+   "guards": ["qs != null -> true @81", "qs.getStatus() == QuestStatus.START -> false @81"],
+   "effects": [],
+   "returns": false
+  },
+  {
+   "id": "onQuestTimerEndEvent#4",
+   "hook": "onQuestTimerEndEvent",
+   "given": {"questState": null},
+   "guards": ["qs != null -> false @81"],
+   "effects": [],
+   "returns": false
+  }
+ ]
+}

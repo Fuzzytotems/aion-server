@@ -1,0 +1,192 @@
+{
+ "format": "aion-quest-trace",
+ "version": 1,
+ "questId": 24046,
+ "java": "reshanta/_24046TheShadowCalls.java",
+ "class": "_24046TheShadowCalls",
+ "javaSha256": "cb02f5eca0588c7e5724a08974f4a48f7ba0633556f63ee93c3b006ad86434f2",
+ "register": [
+  {"call": "registerOnQuestCompleted", "args": [24046]},
+  {"call": "registerOnLevelChanged", "args": [24046]},
+  {"npc": 798300, "event": "addOnTalkEvent", "args": [24046]},
+  {"npc": 204253, "event": "addOnTalkEvent", "args": [24046]},
+  {"npc": 700369, "event": "addOnTalkEvent", "args": [24046]},
+  {"npc": 204089, "event": "addOnTalkEvent", "args": [24046]},
+  {"npc": 203550, "event": "addOnTalkEvent", "args": [24046]},
+  {"call": "registerOnLeaveZone", "args": ["BALTASAR_HILL_VILLAGE_220050000", 24046]},
+  {"call": "registerOnDie", "args": [24046]},
+  {"call": "registerOnEnterWorld", "args": [24046]}
+ ],
+ "hooks": [
+  {"hook": "onQuestCompletedEvent", "line": 41, "cases": 1},
+  {"hook": "onLevelChangedEvent", "line": 46, "cases": 1},
+  {"hook": "onDialogEvent", "line": 51, "unsupported": "call TeleportService.teleportTo"},
+  {"hook": "onLeaveZoneEvent", "line": 120, "cases": 5},
+  {"hook": "onEnterWorldEvent", "line": 135, "cases": 5},
+  {"hook": "onDieEvent", "line": 150, "cases": 4}
+ ],
+ "cases": [
+  {
+   "id": "onQuestCompletedEvent#1",
+   "hook": "onQuestCompletedEvent",
+   "given": {},
+   "guards": [],
+   "effects": [{"call": "defaultOnQuestCompletedEvent", "kind": "quest", "args": [24040], "line": 42}],
+   "returns": null
+  },
+  {
+   "id": "onLevelChangedEvent#1",
+   "hook": "onLevelChangedEvent",
+   "given": {},
+   "guards": [],
+   "effects": [{"call": "defaultOnLevelChangedEvent", "kind": "quest", "args": [24040], "line": 47}],
+   "returns": null
+  },
+  {
+   "id": "onLeaveZoneEvent#1",
+   "hook": "onLeaveZoneEvent",
+   "given": {"args": {"zoneName": "BALTASAR_HILL_VILLAGE_220050000"}, "questState": {"status": "START", "vars": {"0": 1}}},
+   "guards": [
+    "qs != null -> true @123",
+    "qs.getStatus() == QuestStatus.START -> true @123",
+    "zoneName == ZoneName.get(\"BALTASAR_HILL_VILLAGE_220050000\") -> true @125",
+    "var == 1 -> true @125"
+   ],
+   "effects": [
+    {"call": "giveQuestItem", "kind": "item", "args": [182205502, 1], "line": 126},
+    {"call": "changeQuestStep", "kind": "var", "args": [1, 2], "line": 127}
+   ],
+   "returns": true
+  },
+  {
+   "id": "onLeaveZoneEvent#2",
+   "hook": "onLeaveZoneEvent",
+   "given": {"args": {"zoneName": "BALTASAR_HILL_VILLAGE_220050000"}, "questState": {"status": "START", "vars": {"0": 0}}},
+   "guards": [
+    "qs != null -> true @123",
+    "qs.getStatus() == QuestStatus.START -> true @123",
+    "zoneName == ZoneName.get(\"BALTASAR_HILL_VILLAGE_220050000\") -> true @125",
+    "var == 1 -> false @125"
+   ],
+   "effects": [],
+   "returns": false
+  },
+  {
+   "id": "onLeaveZoneEvent#3",
+   "hook": "onLeaveZoneEvent",
+   "given": {"args": {"zoneName": {"anyExcept": ["BALTASAR_HILL_VILLAGE_220050000"]}}, "questState": {"status": "START", "vars": {"0": 0}}},
+   "guards": [
+    "qs != null -> true @123",
+    "qs.getStatus() == QuestStatus.START -> true @123",
+    "zoneName == ZoneName.get(\"BALTASAR_HILL_VILLAGE_220050000\") -> false @125"
+   ],
+   "free": ["questState.vars.0"],
+   "effects": [],
+   "returns": false
+  },
+  {
+   "id": "onLeaveZoneEvent#4",
+   "hook": "onLeaveZoneEvent",
+   "given": {"questState": {"status": "REWARD"}},
+   "guards": ["qs != null -> true @123", "qs.getStatus() == QuestStatus.START -> false @123"],
+   "effects": [],
+   "returns": false
+  },
+  {
+   "id": "onLeaveZoneEvent#5",
+   "hook": "onLeaveZoneEvent",
+   "given": {"questState": null},
+   "guards": ["qs != null -> false @123"],
+   "effects": [],
+   "returns": false
+  },
+  {
+   "id": "onEnterWorldEvent#1",
+   "hook": "onEnterWorldEvent",
+   "given": {"player": {"worldId": 320120000}},
+   "guards": ["player.getWorldId() == 320120000 -> true @138"],
+   "effects": [],
+   "returns": false
+  },
+  {
+   "id": "onEnterWorldEvent#2",
+   "hook": "onEnterWorldEvent",
+   "given": {"player": {"worldId": 120010000}, "questState": null},
+   "guards": ["player.getWorldId() == 320120000 -> false @138", "qs == null -> true @138"],
+   "effects": [],
+   "returns": false
+  },
+  {
+   "id": "onEnterWorldEvent#3",
+   "hook": "onEnterWorldEvent",
+   "given": {"player": {"worldId": 120010000}, "questState": {"status": "REWARD"}},
+   "guards": ["player.getWorldId() == 320120000 -> false @138", "qs == null -> false @138", "qs.getStatus() != QuestStatus.START -> true @138"],
+   "effects": [],
+   "returns": false
+  },
+  {
+   "id": "onEnterWorldEvent#4",
+   "hook": "onEnterWorldEvent",
+   "given": {"player": {"worldId": 120010000}, "questState": {"status": "START", "vars": {"0": 5}}},
+   "guards": [
+    "player.getWorldId() == 320120000 -> false @138",
+    "qs == null -> false @138",
+    "qs.getStatus() != QuestStatus.START -> false @138",
+    "var == 5 -> true @141"
+   ],
+   "effects": [
+    {"call": "qs.setQuestVarById", "kind": "var", "args": [0, 3], "line": 142},
+    {"call": "updateQuestStatus", "kind": "quest", "args": [], "line": 143}
+   ],
+   "returns": true
+  },
+  {
+   "id": "onEnterWorldEvent#5",
+   "hook": "onEnterWorldEvent",
+   "given": {"player": {"worldId": 120010000}, "questState": {"status": "START", "vars": {"0": 0}}},
+   "guards": [
+    "player.getWorldId() == 320120000 -> false @138",
+    "qs == null -> false @138",
+    "qs.getStatus() != QuestStatus.START -> false @138",
+    "var == 5 -> false @141"
+   ],
+   "effects": [],
+   "returns": false
+  },
+  {
+   "id": "onDieEvent#1",
+   "hook": "onDieEvent",
+   "given": {"questState": null},
+   "guards": ["qs == null -> true @153"],
+   "effects": [],
+   "returns": false
+  },
+  {
+   "id": "onDieEvent#2",
+   "hook": "onDieEvent",
+   "given": {"questState": {"status": "REWARD"}},
+   "guards": ["qs == null -> false @153", "qs.getStatus() != QuestStatus.START -> true @153"],
+   "effects": [],
+   "returns": false
+  },
+  {
+   "id": "onDieEvent#3",
+   "hook": "onDieEvent",
+   "given": {"questState": {"status": "START", "vars": {"0": 5}}},
+   "guards": ["qs == null -> false @153", "qs.getStatus() != QuestStatus.START -> false @153", "var == 5 -> true @156"],
+   "effects": [
+    {"call": "qs.setQuestVarById", "kind": "var", "args": [0, 3], "line": 157},
+    {"call": "updateQuestStatus", "kind": "quest", "args": [], "line": 158}
+   ],
+   "returns": true
+  },
+  {
+   "id": "onDieEvent#4",
+   "hook": "onDieEvent",
+   "given": {"questState": {"status": "START", "vars": {"0": 0}}},
+   "guards": ["qs == null -> false @153", "qs.getStatus() != QuestStatus.START -> false @153", "var == 5 -> false @156"],
+   "effects": [],
+   "returns": false
+  }
+ ]
+}

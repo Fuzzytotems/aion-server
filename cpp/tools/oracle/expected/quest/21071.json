@@ -1,0 +1,15 @@
+{
+ "format": "aion-quest-trace",
+ "version": 1,
+ "questId": 21071,
+ "java": "gelkmaros/_21071MissingBard.java",
+ "class": "_21071MissingBard",
+ "javaSha256": "c8ec7a59fa46ae236f718aa495be51f225f192a8c491f6c3dbe98adcab20f59e",
+ "register": [
+  {"npc": 799407, "event": "addOnTalkEvent", "args": [21071]},
+  {"npc": 799329, "event": "addOnTalkEvent", "args": [21071]},
+  {"npc": 799407, "event": "addOnQuestStart", "args": [21071]}
+ ],
+ "hooks": [{"hook": "onDialogEvent", "line": 28, "unsupported": "reads status/21071 after sendQuestNoneDialog, which may have written it"}],
+ "cases": []
+}

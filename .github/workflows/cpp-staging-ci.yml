@@ -1,0 +1,209 @@
+# C++-staging gate for the C++ port under cpp/: everything compiles, the automated tests pass, and the content validators pass.
+# Runs on GitHub-hosted Windows runners (owner decision 2026-09-28: option A; Debug without incremental linking; required check).
+# Triggers: pull requests into and pushes to C++-staging, pushes to ci/** (to test this file without touching C++-staging), and a
+# manual run (workflow_dispatch works once this file is on the default branch). '+' is a glob operator in branch filters, hence '\+'.
+name: C++ staging
+
+on:
+  pull_request:
+    branches: ['C\+\+-staging']
+  push:
+    branches: ['C\+\+-staging', 'ci/**']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cpp-staging-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  MARIADB_VERSION: 11.8.9
+  PYTHON_VERSION: '3.12.10'
+# The runner's default TEMP is an 8.3 short path (C:\Users\RUNNER~1\...); the oracle tools compare it with resolved long paths
+# (Path.relative_to failed in tools/oracle m5b3/drops.py and m5d/quests.py in the first run), so each job's first step points TEMP/TMP
+# at RUNNER_TEMP (D:\a\_temp, a long path) through GITHUB_ENV.
+
+jobs:
+  validators:
+    name: Content validators (Python)
+    runs-on: windows-2025-vs2026
+    timeout-minutes: 20
+    defaults:
+      run:
+        shell: pwsh
+        working-directory: cpp
+    steps:
+      - name: Long temp path
+        working-directory: ${{ runner.temp }}
+        run: |
+          "TEMP=$env:RUNNER_TEMP" >> $env:GITHUB_ENV
+          "TMP=$env:RUNNER_TEMP" >> $env:GITHUB_ENV
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - name: Chunk manifest (every C++ and Java file has one owner)
+        run: python tools/porting/chunks.py check
+      - name: Porting census self-check
+        run: python tools/porting/census.py --self-check
+      - name: Concurrency lint
+        run: python tools/porting/lint_concurrency.py --werror --cycles=core game-server/src
+
+  build-test:
+    name: Build, unit tests, static-data check (Debug)
+    runs-on: windows-2025-vs2026
+    timeout-minutes: 330
+    defaults:
+      run:
+        shell: pwsh
+    env:
+      AION_TEST_DATABASE_URL: jdbc:mysql://localhost:3306/aion_cpp_test
+      AION_TEST_DATABASE_USER: root
+      AION_TEST_DATABASE_PASSWORD: ''
+      AION_TEST_LS_DATABASE_URL: jdbc:mysql://127.0.0.1:3306/aion_ls_test
+      AION_TEST_GS_DATABASE_URL: jdbc:mysql://127.0.0.1:3306/aion_cpp_test?characterEncoding=UTF-8
+      AION_TEST_CS_DATABASE_URL: jdbc:mysql://127.0.0.1:3306/aion_cs_test
+    steps:
+      # The caches live beside the checkout, in runner.workspace: actions/cache refuses paths with '..' (run 36523143903 saved
+      # nothing), and the job-level env cannot read the runner context, so VCPKG_BINARY_SOURCES is set here.
+      - name: Long temp path, vcpkg binary cache
+        run: |
+          "TEMP=$env:RUNNER_TEMP" >> $env:GITHUB_ENV
+          "TMP=$env:RUNNER_TEMP" >> $env:GITHUB_ENV
+          "VCPKG_BINARY_SOURCES=clear;files,${{ runner.workspace }}\vcpkg-archives,readwrite" >> $env:GITHUB_ENV
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Toolchain and disk
+        run: |
+          New-Item -ItemType Directory -Force -Path "${{ runner.workspace }}\vcpkg-archives" | Out-Null
+          "Image: $env:ImageOS $env:ImageVersion"
+          & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -latest -products * -property catalog_productDisplayVersion
+          cmake --version | Select-Object -First 1
+          python --version
+          Get-PSDrive -PSProvider FileSystem | Where-Object Used -ne $null | ForEach-Object { '{0}: {1:N1} GB free of {2:N1} GB' -f $_.Name, ($_.Free / 1GB), (($_.Used + $_.Free) / 1GB) }
+
+      # restore and save are separate steps so the caches are saved even when a later step (the tests) fails
+      - name: Restore the vcpkg binary cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.workspace }}\vcpkg-archives
+          key: vcpkg-${{ runner.os }}-${{ hashFiles('cpp/vcpkg.json', 'cpp/vcpkg-configuration.json') }}-${{ github.run_id }}
+          restore-keys: |
+            vcpkg-${{ runner.os }}-${{ hashFiles('cpp/vcpkg.json', 'cpp/vcpkg-configuration.json') }}-
+            vcpkg-${{ runner.os }}-
+
+      - name: Restore the MariaDB archive
+        id: mariadb-cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.workspace }}\mariadb.zip
+          key: mariadb-${{ env.MARIADB_VERSION }}-winx64
+
+      - name: Download MariaDB
+        if: steps.mariadb-cache.outputs.cache-hit != 'true'
+        run: |
+          $url = "https://archive.mariadb.org/mariadb-$env:MARIADB_VERSION/winx64-packages/mariadb-$env:MARIADB_VERSION-winx64.zip"
+          Invoke-WebRequest -Uri $url -OutFile "${{ runner.workspace }}\mariadb.zip"
+
+      - name: Save the MariaDB archive
+        if: steps.mariadb-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.workspace }}\mariadb.zip
+          key: mariadb-${{ env.MARIADB_VERSION }}-winx64
+
+      - name: Start MariaDB (as a service) and create the test databases
+        run: |
+          # A process started in the background of one step does not outlive that step on the Windows runner (the first run's
+          # tests all got "Can't connect ... (10061)"), so MariaDB runs as a Windows service.
+          $root = Join-Path "${{ runner.workspace }}" 'mariadb'
+          Expand-Archive -Path "${{ runner.workspace }}\mariadb.zip" -DestinationPath $root -Force
+          $bin = Get-ChildItem $root -Directory | Select-Object -First 1 | ForEach-Object { Join-Path $_.FullName 'bin' }
+          $data = Join-Path $root 'data'
+          & "$bin\mariadb-install-db.exe" "--datadir=$data" --port=3306 --service=MariaDB
+          if ($LASTEXITCODE -ne 0) { throw "mariadb-install-db failed ($LASTEXITCODE)" }
+          Add-Content -Path (Join-Path $data 'my.ini') -Value "`r`n[mysqld]`r`ncharacter-set-server=utf8mb4`r`ncollation-server=utf8mb4_general_ci`r`n"
+          Start-Service MariaDB
+          for ($i = 0; $i -lt 60; $i++) { & "$bin\mariadb-admin.exe" -u root ping 2>$null; if ($LASTEXITCODE -eq 0) { break }; Start-Sleep -Seconds 1 }
+          & "$bin\mariadb.exe" -u root -e "CREATE DATABASE IF NOT EXISTS aion_cpp_test; CREATE DATABASE IF NOT EXISTS aion_ls_test; CREATE DATABASE IF NOT EXISTS aion_cs_test; SHOW DATABASES LIKE 'aion%'; SHOW VARIABLES LIKE 'collation_server'"
+          if ($LASTEXITCODE -ne 0) { Get-Service MariaDB; Get-ChildItem $data -Filter *.err | ForEach-Object { Get-Content $_.FullName -Tail 40 }; throw 'MariaDB did not start' }
+          Get-Service MariaDB
+
+      - name: Configure (Debug, no incremental linking)
+        working-directory: cpp
+        run: |
+          # The owner accepted Debug without incremental linking for CI: the .ilk files (about 16 GiB) do not fit the runner's disk budget.
+          # PDBs stay, because the stack-trace unit tests need symbol names.
+          cmake --preset msvc -DAION_BUILD_CHAT_SERVER=ON `
+            "-DCMAKE_EXE_LINKER_FLAGS_DEBUG=/debug /INCREMENTAL:NO" `
+            "-DCMAKE_SHARED_LINKER_FLAGS_DEBUG=/debug /INCREMENTAL:NO" `
+            "-DCMAKE_MODULE_LINKER_FLAGS_DEBUG=/debug /INCREMENTAL:NO"
+          if ($LASTEXITCODE -ne 0) { throw "configure failed ($LASTEXITCODE)" }
+
+      - name: Build (all targets)
+        id: build
+        working-directory: cpp
+        run: |
+          # Each MSBuild switch is quoted: PowerShell splits -p:Name=Value after '--' (run-aion-cpp skill, Gotchas).
+          cmake --build build/msvc --config Debug --parallel 4 -- '-p:CL_MPCount=2' '-nr:false'
+          if ($LASTEXITCODE -ne 0) { throw "build failed ($LASTEXITCODE)" }
+          Get-PSDrive -PSProvider FileSystem | Where-Object Used -ne $null | ForEach-Object { '{0}: {1:N1} GB free' -f $_.Name, ($_.Free / 1GB) }
+
+      - name: Save the vcpkg binary cache
+        if: always()
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.workspace }}\vcpkg-archives
+          key: vcpkg-${{ runner.os }}-${{ hashFiles('cpp/vcpkg.json', 'cpp/vcpkg-configuration.json') }}-${{ github.run_id }}
+
+      - name: Unit tests
+        working-directory: cpp/build/msvc
+        run: |
+          # tools.gen runs in its own step below: its skeleton compile checks build the whole game-server tree with /MP, which takes about
+          # 2.5 minutes on the owner's machine and went past 30 minutes on this 4-vCPU runner while sharing it with three other tests.
+          # The runtime kernel's tests (label runtime) run in their own step, one at a time: their deadlines assume the thread they wait for
+          # gets a core, which four test processes at once on this 4-vCPU runner do not guarantee (run 36542435827).
+          ctest -C Debug -j 4 -LE 'scenario|geo|m4|nightly|stress|smoke|runtime' -E '^tools\.gen$' --no-tests=error --output-on-failure --timeout 1800
+          if ($LASTEXITCODE -ne 0) { throw "unit tests failed ($LASTEXITCODE)" }
+
+      - name: Runtime kernel tests (label runtime, one at a time)
+        if: (success() || failure()) && steps.build.outcome == 'success'
+        working-directory: cpp/build/msvc
+        run: |
+          ctest -C Debug -j 1 -L runtime -LE 'nightly|stress' --no-tests=error --output-on-failure --timeout 1800
+          if ($LASTEXITCODE -ne 0) { throw "runtime tests failed ($LASTEXITCODE)" }
+
+      - name: Skeleton compile checks (tools.gen, alone)
+        if: (success() || failure()) && steps.build.outcome == 'success'
+        working-directory: cpp/build/msvc
+        run: |
+          ctest -C Debug -R '^tools\.gen$' --no-tests=error --output-on-failure --timeout 5400
+          if ($LASTEXITCODE -ne 0) { throw "tools.gen failed ($LASTEXITCODE)" }
+
+      - name: Static-data validator (gs.m4.check_static_data)
+        if: (success() || failure()) && steps.build.outcome == 'success'
+        working-directory: cpp/build/msvc
+        run: |
+          ctest -C Debug -L m4 --no-tests=error --output-on-failure --timeout 1800
+          if ($LASTEXITCODE -ne 0) { throw "static-data check failed ($LASTEXITCODE)" }
+
+      - name: Upload test logs on failure
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: ctest-logs-${{ github.run_id }}
+          path: |
+            cpp/build/msvc/Testing/Temporary/LastTest*.log
+            cpp/build/msvc/game-server/gs.m4.check_static_data/**/*.txt
+            cpp/build/msvc/game-server/gs.m4.check_static_data/**/*.log
+          if-no-files-found: ignore
+          retention-days: 14

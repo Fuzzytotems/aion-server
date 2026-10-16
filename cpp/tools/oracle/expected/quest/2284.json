@@ -1,0 +1,58 @@
+{
+ "format": "aion-quest-trace",
+ "version": 1,
+ "questId": 2284,
+ "java": "altgard/_2284EscapingAsmodae.java",
+ "class": "_2284EscapingAsmodae",
+ "javaSha256": "510d0075e33e68c6b753c505b89b2590624b86b0bfe77218c76d3e78e260d45f",
+ "register": [
+  {"npc": 203645, "event": "addOnQuestStart", "args": [2284]},
+  {"call": "registerOnLogOut", "args": [2284]},
+  {"npc": 798040, "event": "addOnTalkEvent", "args": [2284]},
+  {"npc": 798041, "event": "addOnTalkEvent", "args": [2284]},
+  {"npc": 798034, "event": "addOnTalkEvent", "args": [2284]},
+  {"npc": 203645, "event": "addOnTalkEvent", "args": [2284]},
+  {"call": "registerAddOnReachTargetEvent", "args": [2284]},
+  {"call": "registerAddOnLostTargetEvent", "args": [2284]}
+ ],
+ "hooks": [
+  {"hook": "onDialogEvent", "line": 34, "unsupported": "call defaultStartFollowEvent"},
+  {"hook": "onLogOutEvent", "line": 74, "cases": 4},
+  {"hook": "onNpcReachTargetEvent", "line": 88, "unsupported": "call defaultFollowEndEvent"},
+  {"hook": "onNpcLostTargetEvent", "line": 93, "unsupported": "call defaultFollowEndEvent"}
+ ],
+ "cases": [
+  {
+   "id": "onLogOutEvent#1",
+   "hook": "onLogOutEvent",
+   "given": {"questState": {"status": "START", "vars": {"0": 2}}},
+   "guards": ["qs != null -> true @77", "qs.getStatus() == QuestStatus.START -> true @77", "var == 2 -> true @79"],
+   "effects": [{"call": "changeQuestStep", "kind": "var", "args": [2, 1], "line": 80}],
+   "returns": true
+  },
+  {
+   "id": "onLogOutEvent#2",
+   "hook": "onLogOutEvent",
+   "given": {"questState": {"status": "START", "vars": {"0": 0}}},
+   "guards": ["qs != null -> true @77", "qs.getStatus() == QuestStatus.START -> true @77", "var == 2 -> false @79"],
+   "effects": [],
+   "returns": false
+  },
+  {
+   "id": "onLogOutEvent#3",
+   "hook": "onLogOutEvent",
+   "given": {"questState": {"status": "REWARD"}},
+   "guards": ["qs != null -> true @77", "qs.getStatus() == QuestStatus.START -> false @77"],
+   "effects": [],
+   "returns": false
+  },
+  {
+   "id": "onLogOutEvent#4",
+   "hook": "onLogOutEvent",
+   "given": {"questState": null},
+   "guards": ["qs != null -> false @77"],
+   "effects": [],
+   "returns": false
+  }
+ ]
+}

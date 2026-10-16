@@ -1,0 +1,115 @@
+{
+ "format": "aion-quest-trace",
+ "version": 1,
+ "questId": 24030,
+ "java": "clash_of_destiny/_24030ShowdownWithDestiny.java",
+ "class": "_24030ShowdownWithDestiny",
+ "javaSha256": "1f500820d494b86771b6b94ace6046368afe1713b63a6f25bd854632b4c70cd4",
+ "register": [
+  {"call": "registerOnEnterWorld", "args": [24030]},
+  {"call": "registerOnLevelChanged", "args": [24030]},
+  {"npc": 214591, "event": "addOnKillEvent", "args": [24030]},
+  {"npc": 798346, "event": "addOnKillEvent", "args": [24030]},
+  {"npc": 798344, "event": "addOnKillEvent", "args": [24030]},
+  {"npc": 798342, "event": "addOnKillEvent", "args": [24030]},
+  {"npc": 798345, "event": "addOnKillEvent", "args": [24030]},
+  {"npc": 798343, "event": "addOnKillEvent", "args": [24030]},
+  {"npc": 204206, "event": "addOnTalkEvent", "args": [24030]},
+  {"npc": 204207, "event": "addOnTalkEvent", "args": [24030]},
+  {"npc": 203550, "event": "addOnTalkEvent", "args": [24030]},
+  {"npc": 700551, "event": "addOnTalkEvent", "args": [24030]},
+  {"npc": 205020, "event": "addOnTalkEvent", "args": [24030]},
+  {"npc": 204052, "event": "addOnTalkEvent", "args": [24030]}
+ ],
+ "hooks": [
+  {"hook": "onDialogEvent", "line": 45, "unsupported": "call TeleportService.teleportTo"},
+  {"hook": "onKillEvent", "line": 148, "unsupported": "call spawnInFrontOf"},
+  {"hook": "onEnterWorldEvent", "line": 175, "cases": 6},
+  {"hook": "onLevelChangedEvent", "line": 192, "cases": 1}
+ ],
+ "cases": [
+  {
+   "id": "onEnterWorldEvent#1",
+   "hook": "onEnterWorldEvent",
+   "given": {"player": {"worldId": 120010000}, "questState": {"status": "START", "vars": {"0": 6}}},
+   "guards": [
+    "player.getWorldId() != WorldMapType.IDAB_PRO_D3.getId() -> true @177",
+    "qs != null -> true @179",
+    "qs.getStatus() == QuestStatus.START -> true @179",
+    "var == 6 -> true @181"
+   ],
+   "effects": [
+    {"call": "qs.setQuestVar", "kind": "var", "args": [5], "line": 182},
+    {"call": "updateQuestStatus", "kind": "quest", "args": [], "line": 183}
+   ],
+   "returns": true
+  },
+  {
+   "id": "onEnterWorldEvent#2",
+   "hook": "onEnterWorldEvent",
+   "given": {"player": {"worldId": 120010000}, "questState": {"status": "START", "vars": {"0": 7}}},
+   "guards": [
+    "player.getWorldId() != WorldMapType.IDAB_PRO_D3.getId() -> true @177",
+    "qs != null -> true @179",
+    "qs.getStatus() == QuestStatus.START -> true @179",
+    "var == 6 -> false @181",
+    "var == 7 -> true @181"
+   ],
+   "effects": [
+    {"call": "qs.setQuestVar", "kind": "var", "args": [5], "line": 182},
+    {"call": "updateQuestStatus", "kind": "quest", "args": [], "line": 183}
+   ],
+   "returns": true
+  },
+  {
+   "id": "onEnterWorldEvent#3",
+   "hook": "onEnterWorldEvent",
+   "given": {"player": {"worldId": 120010000}, "questState": {"status": "START", "vars": {"0": 0}}},
+   "guards": [
+    "player.getWorldId() != WorldMapType.IDAB_PRO_D3.getId() -> true @177",
+    "qs != null -> true @179",
+    "qs.getStatus() == QuestStatus.START -> true @179",
+    "var == 6 -> false @181",
+    "var == 7 -> false @181"
+   ],
+   "effects": [],
+   "returns": false
+  },
+  {
+   "id": "onEnterWorldEvent#4",
+   "hook": "onEnterWorldEvent",
+   "given": {"player": {"worldId": 120010000}, "questState": {"status": "REWARD"}},
+   "guards": [
+    "player.getWorldId() != WorldMapType.IDAB_PRO_D3.getId() -> true @177",
+    "qs != null -> true @179",
+    "qs.getStatus() == QuestStatus.START -> false @179"
+   ],
+   "effects": [],
+   "returns": false
+  },
+  {
+   "id": "onEnterWorldEvent#5",
+   "hook": "onEnterWorldEvent",
+   "given": {"player": {"worldId": 120010000}, "questState": null},
+   "guards": ["player.getWorldId() != WorldMapType.IDAB_PRO_D3.getId() -> true @177", "qs != null -> false @179"],
+   "effects": [],
+   "returns": false
+  },
+  {
+   "id": "onEnterWorldEvent#6",
+   "hook": "onEnterWorldEvent",
+   "given": {"player": {"worldId": 320140000}},
+   "guards": ["player.getWorldId() != WorldMapType.IDAB_PRO_D3.getId() -> false @177"],
+   "effects": [],
+   "returns": false
+  },
+  {
+   "id": "onLevelChangedEvent#1",
+   "hook": "onLevelChangedEvent",
+   "given": {},
+   "guards": [],
+   "effects": [{"call": "defaultOnLevelChangedEvent", "kind": "quest", "args": [], "line": 193}],
+   "returns": null
+  }
+ ]
+}

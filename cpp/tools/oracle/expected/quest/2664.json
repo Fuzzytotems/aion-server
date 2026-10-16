@@ -1,0 +1,15 @@
+{
+ "format": "aion-quest-trace",
+ "version": 1,
+ "questId": 2664,
+ "java": "beluslan/_2664AnAntidotetotheLepharists.java",
+ "class": "_2664AnAntidotetotheLepharists",
+ "javaSha256": "44f09a9c84a10c56e2f0844bdbd6cabfbfd6d09f724b397e834676256e9e96ac",
+ "register": [
+  {"npc": 204777, "event": "addOnQuestStart", "args": [2664]},
+  {"npc": 204777, "event": "addOnTalkEvent", "args": [2664]},
+  {"npc": 700324, "event": "addOnTalkEvent", "args": [2664]}
+ ],
+ "hooks": [{"hook": "onDialogEvent", "line": 31, "unsupported": "call workItems.getFirst"}],
+ "cases": []
+}

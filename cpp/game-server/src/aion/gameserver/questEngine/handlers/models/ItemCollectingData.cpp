@@ -1,0 +1,23 @@
+#include "aion/gameserver/questEngine/handlers/models/ItemCollectingData.h"
+
+#include <memory>
+
+#include "aion/gameserver/questEngine/QuestEngine.h"
+#include "aion/gameserver/questEngine/handlers/template/ItemCollecting.h"
+
+namespace aion::gameserver::questEngine::handlers::models {
+
+void ItemCollectingData::register_(QuestEngine& questEngine) const {
+	questEngine.addQuestHandler(std::make_unique<template_::ItemCollecting>(id, startNpcIds, nextNpcId, endNpcIds, startZone, questMovie,
+		startDialogId, startDialogId2, checkOkDialogId, checkFailDialogId));
+}
+
+std::optional<std::unordered_set<int32_t>> ItemCollectingData::getAlternativeNpcs(int32_t npcId) const {
+	if (auto others = otherNpcIds(startNpcIds, npcId))
+		return others;
+	if (auto others = otherNpcIds(endNpcIds, npcId))
+		return others;
+	return std::nullopt;
+}
+
+} // namespace aion::gameserver::questEngine::handlers::models

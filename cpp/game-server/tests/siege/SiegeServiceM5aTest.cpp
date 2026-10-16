@@ -1,0 +1,157 @@
+// P5-12a siege, M5a subset (m5a-plan.md E1-06): the SiegeService singleton with gameserver.siege.enable=false (plan D1), its lookups over the
+// empty location maps, initSieges and onPlayerLogin guards, and Influence over no influence relevant locations.
+//
+// Expectations are derived by hand from SiegeService.java:73-173,339-430,561-588 and Influence.java.
+
+#include <gtest/gtest.h>
+
+#include "../playersvc/PlayerEventsTestSupport.h"
+#include "aion/gameserver/configs/main/SiegeConfig.h"
+#include "aion/gameserver/model/Race.h"
+#include "aion/gameserver/model/siege/Influence.h"
+#include "aion/gameserver/model/siege/ArtifactLocation.h"
+#include "aion/gameserver/model/siege/FortressLocation.h"
+#include "aion/gameserver/model/siege/OutpostLocation.h"
+#include "aion/gameserver/model/siege/SiegeLocation.h"
+#include "aion/gameserver/model/siege/SiegeRace.h"
+#include "aion/gameserver/model/templates/siegelocation/SiegeLocationTemplate.bind.h"
+#include "aion/gameserver/model/templates/siegelocation/SiegeLocationTemplate.h"
+#include "aion/gameserver/runtime/base/Unported.h"
+#include "aion/gameserver/services/SiegeService.h"
+
+namespace aion::gameserver::playerevents::test {
+namespace {
+
+using model::siege::SiegeRace;
+
+class SiegeServiceM5aTest : public PlayerEventsTest {};
+
+TEST_F(SiegeServiceM5aTest, DisabledSiegesHaveNoLocationsAndNoSchedules) {
+	AtomicConfigScope<bool> disabled(configs::main::SiegeConfig::SIEGE_ENABLED, false);
+	runtime::resetUnportedHitsForTests();
+	services::SiegeService& service = services::SiegeService::getInstance(); // logs "Sieges are disabled in config."
+	service.initSieges();                                                    // returns before any spawn or cron job
+	service.initSieges();                                                    // isInitialized: a second call returns as well
+
+	EXPECT_EQ(service.getFortresses().size(), 0);
+	EXPECT_EQ(service.getOutposts().size(), 0);
+	EXPECT_EQ(service.getArtifacts().size(), 0);
+	EXPECT_EQ(service.getSiegeLocations().size(), 0);
+	EXPECT_FALSE(service.getAgentLocation()) << "Java leaves agent null while sieges are disabled";
+	EXPECT_FALSE(service.getFortress(1011));
+	EXPECT_FALSE(service.getOutpost(3111));
+	EXPECT_FALSE(service.getArtifact(1));
+	EXPECT_FALSE(service.getFortressArtifact(1));
+	EXPECT_FALSE(service.getSiegeLocation(1011));
+	EXPECT_TRUE(service.getSiegeLocations(400010000).empty());
+	EXPECT_TRUE(service.getStandaloneArtifacts().empty());
+	EXPECT_FALSE(service.findFortress(400010000, 1.0f, 2.0f, 3.0f));
+	EXPECT_FALSE(service.getSiege(1011));
+	EXPECT_FALSE(service.isSiegeInProgress(1011));
+	EXPECT_EQ(service.getRemainingSiegeTimeInSeconds(1011), 0) << "no active siege";
+	EXPECT_EQ(service.getSecondsUntilNextFortressState(), 0) << "nextStateUpdateTime is null while the siege service is deactivated";
+	EXPECT_EQ(runtime::unportedHitCount(), 0u);
+}
+
+TEST_F(SiegeServiceM5aTest, LocationsKeepJavasInsertionOrder) {
+	// header request 5a-pre-10b (owner's D10 of 2026-10-13): Java's locations is SiegeLocationData's LinkedHashMap and getSiegeLocations(int)
+	// a new LinkedHashMap filled in its order (SiegeService.java:415-428) - the order SM_SIEGE_LOCATION_INFO and SM_SHIELD_EFFECT write
+	using model::templates::siegelocation::SiegeLocationTemplate;
+	AtomicConfigScope<bool> disabled(configs::main::SiegeConfig::SIEGE_ENABLED, false);
+	xml::LoadContext context;
+	std::vector<std::unique_ptr<SiegeLocationTemplate>> templates;
+	for (const char* row : {R"(<siege_location id="9001" type="FORTRESS" world="400010000"/>)", R"(<siege_location id="1011" type="FORTRESS" world="400010000"/>)",
+			 R"(<siege_location id="5000" type="FORTRESS" world="210010000"/>)", R"(<siege_location id="2011" type="FORTRESS" world="400010000"/>)"})
+		templates.push_back(xml::bindString<SiegeLocationTemplate>(context, row));
+	services::SiegeService& service = services::SiegeService::getInstance();
+	ASSERT_EQ(service.getSiegeLocations().size(), 0) << "sieges are off";
+	struct Restore {
+		services::SiegeService& service;
+		~Restore() {
+			for (int32_t id : {9001, 1011, 5000, 2011})
+				service.getSiegeLocations().remove(id);
+		}
+	} restore{service};
+	for (const std::unique_ptr<SiegeLocationTemplate>& t : templates)
+		service.getSiegeLocations().put(t->getId(), model::siege::SiegeLocation::create(t.get()));
+
+	std::vector<int32_t> all;
+	for (const runtime::Ptr<model::siege::SiegeLocation>& location : service.getSiegeLocations().values())
+		all.push_back(location->getLocationId());
+	EXPECT_EQ(all, (std::vector<int32_t>{9001, 1011, 5000, 2011})) << "insertion order, not id order";
+	std::vector<int32_t> reshanta;
+	for (const auto& [id, location] : service.getSiegeLocations(400010000))
+		reshanta.push_back(id);
+	EXPECT_EQ(reshanta, (std::vector<int32_t>{9001, 1011, 2011})) << "the world's locations in the same order";
+}
+
+/** the ids of a service map in its iteration order */
+template <class Map>
+std::vector<int32_t> idsOf(Map& map) {
+	std::vector<int32_t> ids;
+	for (const auto& location : map.values())
+		ids.push_back(location->getLocationId());
+	return ids;
+}
+
+TEST_F(SiegeServiceM5aTest, ArtifactsFortressesAndOutpostsKeepJavasInsertionOrder) {
+	// header request 5a-pre-10b, extended (owner's D10 of 2026-10-13): SiegeLocationData's artifact, fortress and outpost maps are LinkedHashMaps
+	// (SiegeLocationData.java:23-27) the service assigns; SM_ABYSS_ARTIFACT_INFO3, SM_FORTRESS_STATUS and the outpost loops iterate them
+	using model::templates::siegelocation::SiegeLocationTemplate;
+	AtomicConfigScope<bool> disabled(configs::main::SiegeConfig::SIEGE_ENABLED, false);
+	xml::LoadContext context;
+	std::vector<std::unique_ptr<SiegeLocationTemplate>> templates;
+	const auto bind = [&](int32_t id, const char* type) {
+		templates.push_back(xml::bindString<SiegeLocationTemplate>(
+			context, "<siege_location id=\"" + std::to_string(id) + "\" type=\"" + type + "\" world=\"400010000\"/>"));
+		return templates.back().get();
+	};
+	services::SiegeService& service = services::SiegeService::getInstance();
+	ASSERT_EQ(service.getArtifacts().size() + service.getFortresses().size() + service.getOutposts().size(), 0u) << "sieges are off";
+	struct Restore {
+		services::SiegeService& service;
+		~Restore() {
+			service.getArtifacts().clear();
+			service.getFortresses().clear();
+			service.getOutposts().clear();
+		}
+	} restore{service};
+	for (int32_t id : {9101, 1012, 2012})
+		service.getArtifacts().put(id, model::siege::ArtifactLocation::create(bind(id, "ARTIFACT")));
+	for (int32_t id : {9001, 1011, 2011})
+		service.getFortresses().put(id, model::siege::FortressLocation::create(bind(id, "FORTRESS")));
+	for (int32_t id : {9201, 3111, 2111})
+		service.getOutposts().put(id, model::siege::OutpostLocation::create(bind(id, "OUTPOST")));
+
+	EXPECT_EQ(idsOf(service.getArtifacts()), (std::vector<int32_t>{9101, 1012, 2012})) << "insertion order, not id order";
+	EXPECT_EQ(idsOf(service.getFortresses()), (std::vector<int32_t>{9001, 1011, 2011}));
+	EXPECT_EQ(idsOf(service.getOutposts()), (std::vector<int32_t>{9201, 3111, 2111}));
+}
+
+TEST_F(SiegeServiceM5aTest, LoginSendsNoSiegePacketsWhileDisabled) {
+	AtomicConfigScope<bool> disabled(configs::main::SiegeConfig::SIEGE_ENABLED, false);
+	PlayerFixture f = makePlayer(1, 100);
+	runtime::resetUnportedHitsForTests();
+	services::SiegeService::getInstance().onPlayerLogin(*f.player);
+	EXPECT_EQ(runtime::unportedHitCount(), 0u);
+}
+
+TEST_F(SiegeServiceM5aTest, InfluenceWithoutFortressesIsZeroEverywhere) {
+	AtomicConfigScope<bool> disabled(configs::main::SiegeConfig::SIEGE_ENABLED, false);
+	model::siege::Influence& influence = model::siege::Influence::getInstance();
+	EXPECT_EQ(influence.getElyosInfluenceRate(), 0.0f);
+	EXPECT_EQ(influence.getAsmodianInfluenceRate(), 0.0f);
+	EXPECT_EQ(influence.getBalaurInfluenceRate(), 0.0f);
+	EXPECT_EQ(influence.getInfluence(SiegeRace::ELYOS), 0);
+	EXPECT_EQ(influence.getInfluence(400010000, SiegeRace::BALAUR), 0);
+	EXPECT_TRUE(influence.getInfluenceRelevantWorldIds().empty());
+	// calculatePvpRaceBonusRatio(0, 0): neither threshold is reached
+	EXPECT_EQ(influence.getPvpRaceBonusRatio(model::Race::ELYOS), 0);
+	EXPECT_EQ(influence.getPvpRaceBonusRatio(model::Race::ASMODIANS), 0);
+	EXPECT_EQ(influence.getPvpRaceBonusRatio(model::Race::NPC), 0) << "Java: default -> 0";
+	influence.recalculateInfluence();
+	EXPECT_TRUE(influence.getInfluenceRelevantWorldIds().empty());
+}
+
+} // namespace
+} // namespace aion::gameserver::playerevents::test

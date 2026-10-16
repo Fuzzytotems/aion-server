@@ -1,0 +1,32 @@
+#pragma once
+
+#include "aion/gameserver/runtime/lifetime/Ref.h"
+#include "aion/gameserver/model/gameobjects/fwd.h"
+#include "aion/gameserver/model/gameobjects/player/fwd.h"
+#include "aion/gameserver/network/aion/AionServerPacket.h"
+#include "aion/gameserver/network/aion/fwd.h"
+#include "aion/gameserver/network/aion/serverpackets/fwd.h"
+#include "aion/gameserver/services/item/ItemPacketService_ItemUpdateType.h"
+
+namespace aion::gameserver::network::aion::serverpackets {
+
+/**
+ * @author ATracer, -Nemesiss-
+ */
+class SM_INVENTORY_UPDATE_ITEM : public AionServerPacket {
+private:
+	runtime::Ref<model::gameobjects::player::Player> player{};
+	runtime::Ref<model::gameobjects::Item> item{};
+	services::item::ItemPacketService_ItemUpdateType updateType{};
+
+public:
+	SM_INVENTORY_UPDATE_ITEM(model::gameobjects::player::Player& player, model::gameobjects::Item& item);
+	SM_INVENTORY_UPDATE_ITEM(model::gameobjects::player::Player& player, model::gameobjects::Item& item,
+		services::item::ItemPacketService_ItemUpdateType updateType);
+	~SM_INVENTORY_UPDATE_ITEM() override;
+
+protected:
+	void writeImpl(AionConnection* con) override;
+};
+
+} // namespace aion::gameserver::network::aion::serverpackets

@@ -1,0 +1,89 @@
+# M5c profile of the C++ game server (cpp/docs/design/m5c-plan.md §10.1 and decision D6). The scenario gate (gs.scenario.m5c) passes the same
+# keys as -D arguments: talk to npcs, buy, sell and buy back at a merchant, exchange items and kinah between two players, send and take mail,
+# open a private store, expand the cube, identify, extract, socket and remove manastones, and (a seeded Daeva in Sanctum) learn a craft and craft.
+#
+# It is the M5b-3 profile (m5b3.properties.example) with the drop rate back at 0, as the M5b and M5b-2 profiles set it for the gates other than
+# M5b-3's own (m5b3-plan.md D4), and three keys added (D6): crafting never fails and never crits, and a manastone always sockets. Keep the files
+# in sync: M5c adds to M5b-3, M5b-2, M5b-1 and M5a, it replaces nothing else.
+#
+# TO PLAY with a real 4.8 client (m5c-plan.md §11): copy these lines into config/mygs.properties; the three M5c keys only take the chance out of
+# crafting and socketing, so leave them out (or set the defaults written beside them) to play with retail odds.
+#
+# Not read by the servers: only config/mygs.properties is loaded.
+
+# --- the M5a profile, unchanged ------------------------------------------------------------------------------------------------------------
+
+# C++ only: NPCs whose AI handler is not ported yet get a dummy AI with a warning instead of failing the spawn (fail = default)
+gameserver.dev.missing_ai_handlers = warn
+
+# systems whose services are not part of M5a. The siege off also fixes the merchants' prices: every siege influence stays 0, so SM_PRICES
+# carries 125/100/113 and a price is template price x 125 % x 113 % (m5c-plan.md §2.10, risk 8). The sell limits (gameserver.limits.enable)
+# stay off in the gate; PlayerLimitService is unit-tested with them on (P-02).
+gameserver.siege.enable = false
+gameserver.autogroup.enable = false
+gameserver.rift.enable = false
+gameserver.vortex.enable = false
+gameserver.worldraid.enable = false
+gameserver.cp.enable = false
+gameserver.limits.enable = false
+# every event off, including the date-less "Beyond Aion Server Buffs" of custom_events.xml. oracle.py m5c-craft refuses a profile without it
+gameserver.event.service.disabled_events = *
+
+# the address the login server lists for this game server (the default 0.0.0.0 is not reachable by the client)
+gameserver.network.client.connect_address = 127.0.0.1:7777
+
+# --- the M5b-1 profile, unchanged --------------------------------------------------------------------------------------------------------
+
+# the shout service is 6 unported bodies (P5-14) and an aggroing monster is what would reach it. false is already the default
+# (AIConfig.cpp:14); it is written out so that a local mygs.properties cannot turn it on by accident (m5b-plan.md D1).
+gameserver.npcshouts.enable = false
+
+# the solo experience rates the M5b gate's exp assertion is derived against (m5b-plan.md D7/§6.3 R1); "1.0, 2.0" is the default
+# (RatesConfig.java:30)
+gameserver.rates.xp.solo = 1.0, 2.0
+
+# --- the M5b-2 profile, unchanged (D5 of m5b2-plan.md) -------------------------------------------------------------------------------------
+
+# Soul sickness ON: the retail default, written out (m5b2.properties.example says why a missing line is not enough).
+gameserver.soulsickness.disable = 10
+
+# --- the M5b-3 profile, with the drop rate of the gates other than M5b-3's own (m5b3-plan.md D4) ------------------------------------------
+
+# No drops, as in m5b.properties.example and m5b2.properties.example: M5c's gate needs no loot (m5c-plan.md D5 seeds the items it uses), and a
+# corpse without a drop despawns after 2 s instead of 300 s. For loot, use m5b3.properties.example.
+gameserver.rates.drop = 0
+
+# Potions are consumed at full HP/MP too: the default (CustomConfig.java:243-244), written out as m5b3.properties.example does.
+gameserver.items.ignore_potions_at_full_health = false
+
+# Godstone procs at the template probability, evaluated at most every 750 ms: the defaults (CustomConfig.java:273-277), as in M5b-3.
+gameserver.rates.godstone.activation.rate = 1.0
+gameserver.rates.godstone.evaluation.cooldown_millis = 750
+
+# A looted item of this quality or higher is announced; the value of config/main/drop.properties, written out because DropConfig.java:18-19 has
+# no default.
+gameserver.drop.announce_quality = MYTHIC
+
+# --- what M5c adds (m5c-plan.md D6) ----------------------------------------------------------------------------------------------------------
+
+# Crafting never fails. CraftingTask.analyzeInteraction succeeds when skillLvlDiff >= 41 || Rnd.chance() >= MAX_CRAFT_FAILURE_CHANCE *
+# failReduction (CraftingTask.java:133), and Rnd.chance() is never below 0. The default is 33 (CraftConfig.java:28-29). What stays random is the
+# CRIT_BLUE step and its multiplier (CraftingTask.java:131, 152-153), which change the number of ticks (m5c-plan.md X20), never the product.
+gameserver.craft.fail.chance = 0
+
+# A craft never crits into a combo product: calculateCrit returns false when Rnd.chance() >= Rates.get(requester, CRAFT_CRIT_CHANCES)
+# (CraftingTask.java:70, 82-83), always so at 0, and the combo chances are read only after a first crit. A two-value list is the rate per
+# membership level (Rates.java:166-173). The default is "15.0, 30.0" (RatesConfig.java:11-12).
+gameserver.rates.crafting.crit_chances = 0, 0
+
+# A manastone always sockets. EnchantService.socketManastone starts from Rates.get(player, MANASTONE_CHANCES), takes 80 % of it for a stone of
+# RARE quality or better, adds (slotLevel - stoneLevel) / socketDiff, which is never negative once the level check has passed, and succeeds when
+# Rnd.chance() < the sum (EnchantService.java:344-353, 395), with no cap: 200 leaves at least 160. The default is "75.0, 75.0"
+# (RatesConfig.java:17-18). The enchantment stones keep their chance, capped at 80 % without a supplement (EnchantService.java:126-127): the gate
+# asserts both outcomes as a set.
+gameserver.rates.manastone_chances = 200, 200
+
+# Only in the scenario gate, not for play (geo data stays on with the real client):
+# gameserver.geodata.enable = false
+# gameserver.character.reentry.time = 1
+# gameserver.shutdown.delay = 2

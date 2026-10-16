@@ -1,0 +1,80 @@
+{
+ "format": "aion-quest-trace",
+ "version": 1,
+ "questId": 25051,
+ "java": "enshar/_25051TreasureOfAncientKings.java",
+ "class": "_25051TreasureOfAncientKings",
+ "javaSha256": "e7c233e7c7978b578f6f8c29b21b7b89c200e7a48f29a86cd83c9dbace0aa35b",
+ "register": [
+  {"npc": 804915, "event": "addOnQuestStart", "args": [25051]},
+  {"npc": 731553, "event": "addOnTalkEvent", "args": [25051]},
+  {"npc": 731554, "event": "addOnTalkEvent", "args": [25051]},
+  {"npc": 731555, "event": "addOnTalkEvent", "args": [25051]},
+  {"npc": 804915, "event": "addOnTalkEvent", "args": [25051]},
+  {"npc": 804916, "event": "addOnTalkEvent", "args": [25051]},
+  {"npc": 805160, "event": "addOnTalkEvent", "args": [25051]},
+  {"call": "registerOnInvisibleTimerEnd", "args": [25051]},
+  {"call": "registerOnLogOut", "args": [25051]}
+ ],
+ "hooks": [
+  {"hook": "onDialogEvent", "line": 40, "unsupported": "call spawnForFiveMinutes"},
+  {"hook": "onLogOutEvent", "line": 116, "cases": 3},
+  {"hook": "onInvisibleTimerEndEvent", "line": 121, "cases": 3}
+ ],
+ "cases": [
+  {
+   "id": "onLogOutEvent#1",
+   "hook": "onLogOutEvent",
+   "given": {"questState": null},
+   "guards": ["qs == null -> true @128"],
+   "effects": [],
+   "returns": false
+  },
+  {
+   "id": "onLogOutEvent#2",
+   "hook": "onLogOutEvent",
+   "given": {"questState": {"status": "START", "vars": {"0": 1}}},
+   "guards": ["qs == null -> false @128", "var == 1 -> true @132"],
+   "effects": [
+    {"call": "qs.setQuestVar", "kind": "var", "args": [0], "line": 133},
+    {"call": "updateQuestStatus", "kind": "quest", "args": [], "line": 134}
+   ],
+   "returns": true
+  },
+  {
+   "id": "onLogOutEvent#3",
+   "hook": "onLogOutEvent",
+   "given": {"questState": {"status": "START", "vars": {"0": 0}}},
+   "guards": ["qs == null -> false @128", "var == 1 -> false @132"],
+   "effects": [],
+   "returns": true
+  },
+  {
+   "id": "onInvisibleTimerEndEvent#1",
+   "hook": "onInvisibleTimerEndEvent",
+   "given": {"questState": null},
+   "guards": ["qs == null -> true @128"],
+   "effects": [],
+   "returns": false
+  },
+  {
+   "id": "onInvisibleTimerEndEvent#2",
+   "hook": "onInvisibleTimerEndEvent",
+   "given": {"questState": {"status": "START", "vars": {"0": 1}}},
+   "guards": ["qs == null -> false @128", "var == 1 -> true @132"],
+   "effects": [
+    {"call": "qs.setQuestVar", "kind": "var", "args": [0], "line": 133},
+    {"call": "updateQuestStatus", "kind": "quest", "args": [], "line": 134}
+   ],
+   "returns": true
+  },
+  {
+   "id": "onInvisibleTimerEndEvent#3",
+   "hook": "onInvisibleTimerEndEvent",
+   "given": {"questState": {"status": "START", "vars": {"0": 0}}},
+   "guards": ["qs == null -> false @128", "var == 1 -> false @132"],
+   "effects": [],
+   "returns": true
+  }
+ ]
+}

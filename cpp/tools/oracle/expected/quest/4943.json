@@ -1,0 +1,18 @@
+{
+ "format": "aion-quest-trace",
+ "version": 1,
+ "questId": 4943,
+ "java": "fenris_fang/_4943LuckandPersistence.java",
+ "class": "_4943LuckandPersistence",
+ "javaSha256": "593f40dc5d136732cc687bc78a3c2eb64c500dcac692158b1e8750af717b4c65",
+ "register": [
+  {"npc": 204053, "event": "addOnQuestStart", "args": [4943]},
+  {"npc": 204096, "event": "addOnTalkEvent", "args": [4943]},
+  {"npc": 204097, "event": "addOnTalkEvent", "args": [4943]},
+  {"npc": 204075, "event": "addOnTalkEvent", "args": [4943]},
+  {"npc": 204053, "event": "addOnTalkEvent", "args": [4943]},
+  {"npc": 700538, "event": "addOnTalkEvent", "args": [4943]}
+ ],
+ "hooks": [{"hook": "onDialogEvent", "line": 30, "unsupported": "call player.getInventory().tryDecreaseKinah(3400000)"}],
+ "cases": []
+}

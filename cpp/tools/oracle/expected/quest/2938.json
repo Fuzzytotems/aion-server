@@ -1,0 +1,15 @@
+{
+ "format": "aion-quest-trace",
+ "version": 1,
+ "questId": 2938,
+ "java": "pandaemonium/_2938SecretLibraryAccess.java",
+ "class": "_2938SecretLibraryAccess",
+ "javaSha256": "95b19e1e6e98844aabf1a2b710fdcb0c95ca31aec76075fe25a824f7f2922c30",
+ "register": [
+  {"npc": 204267, "event": "addOnQuestStart", "args": [2938]},
+  {"npc": 204267, "event": "addOnTalkEvent", "args": [2938]},
+  {"npc": 203557, "event": "addOnTalkEvent", "args": [2938]}
+ ],
+ "hooks": [{"hook": "onDialogEvent", "line": 43, "unsupported": "call TeleportService.teleportTo"}],
+ "cases": []
+}

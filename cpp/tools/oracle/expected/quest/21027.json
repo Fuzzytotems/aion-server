@@ -1,0 +1,15 @@
+{
+ "format": "aion-quest-trace",
+ "version": 1,
+ "questId": 21027,
+ "java": "gelkmaros/_21027FearlessKantele.java",
+ "class": "_21027FearlessKantele",
+ "javaSha256": "e71732dbb494ced33f97b491b1801b111e0a11166cabb4e73736bf9e9bb4b439",
+ "register": [
+  {"npc": 799254, "event": "addOnTalkEvent", "args": [21027]},
+  {"npc": 799255, "event": "addOnTalkEvent", "args": [21027]},
+  {"npc": 799254, "event": "addOnQuestStart", "args": [21027]}
+ ],
+ "hooks": [{"hook": "onDialogEvent", "line": 28, "unsupported": "reads status/21027 after sendQuestNoneDialog, which may have written it"}],
+ "cases": []
+}

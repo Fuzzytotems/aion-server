@@ -1,0 +1,100 @@
+{
+ "format": "aion-quest-trace",
+ "version": 1,
+ "questId": 20501,
+ "java": "enshar/_20501WhattheRuinsSay.java",
+ "class": "_20501WhattheRuinsSay",
+ "javaSha256": "eb841393ecb670975a7b79b7079082804caf2b454946baadad344d5d29f85149",
+ "register": [
+  {"npc": 731538, "event": "addOnTalkEvent", "args": [20501]},
+  {"npc": 731539, "event": "addOnTalkEvent", "args": [20501]},
+  {"npc": 731540, "event": "addOnTalkEvent", "args": [20501]},
+  {"npc": 804720, "event": "addOnTalkEvent", "args": [20501]},
+  {"npc": 804721, "event": "addOnTalkEvent", "args": [20501]},
+  {"npc": 804722, "event": "addOnTalkEvent", "args": [20501]},
+  {"call": "registerOnEnterZone", "args": ["DF5_SENSORYAREA_Q20501A_206375_1_220080000", 20501]},
+  {"call": "registerOnQuestCompleted", "args": [20501]},
+  {"call": "registerOnLevelChanged", "args": [20501]}
+ ],
+ "hooks": [
+  {"hook": "onDialogEvent", "line": 51, "unsupported": "call spawnForFiveMinutes"},
+  {"hook": "onEnterZoneEvent", "line": 136, "cases": 5},
+  {"hook": "onQuestCompletedEvent", "line": 160, "cases": 1},
+  {"hook": "onLevelChangedEvent", "line": 165, "cases": 1}
+ ],
+ "cases": [
+  {
+   "id": "onEnterZoneEvent#1",
+   "hook": "onEnterZoneEvent",
+   "given": {"args": {"zoneName": "DF5_SENSORYAREA_Q20501A_206375_1_220080000"}, "questState": {"status": "START", "vars": {"0": 2}}},
+   "guards": [
+    "zoneName == ZoneName.get(\"DF5_SENSORYAREA_Q20501A_206375_1_220080000\") -> true @138",
+    "qs != null -> true @146",
+    "qs.getStatus() == QuestStatus.START -> true @146",
+    "var == 2 -> true @149"
+   ],
+   "effects": [
+    {"call": "qs.setQuestVar", "kind": "var", "args": [3], "line": 150},
+    {"call": "updateQuestStatus", "kind": "quest", "args": [], "line": 151}
+   ],
+   "returns": true
+  },
+  {
+   "id": "onEnterZoneEvent#2",
+   "hook": "onEnterZoneEvent",
+   "given": {"args": {"zoneName": "DF5_SENSORYAREA_Q20501A_206375_1_220080000"}, "questState": {"status": "START", "vars": {"0": 0}}},
+   "guards": [
+    "zoneName == ZoneName.get(\"DF5_SENSORYAREA_Q20501A_206375_1_220080000\") -> true @138",
+    "qs != null -> true @146",
+    "qs.getStatus() == QuestStatus.START -> true @146",
+    "var == 2 -> false @149"
+   ],
+   "effects": [],
+   "returns": true
+  },
+  {
+   "id": "onEnterZoneEvent#3",
+   "hook": "onEnterZoneEvent",
+   "given": {"args": {"zoneName": "DF5_SENSORYAREA_Q20501A_206375_1_220080000"}, "questState": {"status": "REWARD"}},
+   "guards": [
+    "zoneName == ZoneName.get(\"DF5_SENSORYAREA_Q20501A_206375_1_220080000\") -> true @138",
+    "qs != null -> true @146",
+    "qs.getStatus() == QuestStatus.START -> false @146"
+   ],
+   "effects": [],
+   "returns": true
+  },
+  {
+   "id": "onEnterZoneEvent#4",
+   "hook": "onEnterZoneEvent",
+   "given": {"args": {"zoneName": "DF5_SENSORYAREA_Q20501A_206375_1_220080000"}, "questState": null},
+   "guards": ["zoneName == ZoneName.get(\"DF5_SENSORYAREA_Q20501A_206375_1_220080000\") -> true @138", "qs != null -> false @146"],
+   "effects": [],
+   "returns": true
+  },
+  {
+   "id": "onEnterZoneEvent#5",
+   "hook": "onEnterZoneEvent",
+   "given": {"args": {"zoneName": {"anyExcept": ["DF5_SENSORYAREA_Q20501A_206375_1_220080000"]}}},
+   "guards": ["zoneName == ZoneName.get(\"DF5_SENSORYAREA_Q20501A_206375_1_220080000\") -> false @138"],
+   "effects": [],
+   "returns": false
+  },
+  {
+   "id": "onQuestCompletedEvent#1",
+   "hook": "onQuestCompletedEvent",
+   "given": {},
+   "guards": [],
+   "effects": [{"call": "defaultOnQuestCompletedEvent", "kind": "quest", "args": [20500], "line": 161}],
+   "returns": null
+  },
+  {
+   "id": "onLevelChangedEvent#1",
+   "hook": "onLevelChangedEvent",
+   "given": {},
+   "guards": [],
+   "effects": [{"call": "defaultOnLevelChangedEvent", "kind": "quest", "args": [20500], "line": 166}],
+   "returns": null
+  }
+ ]
+}

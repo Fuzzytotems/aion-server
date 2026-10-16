@@ -1,0 +1,18 @@
+{
+ "format": "aion-quest-trace",
+ "version": 1,
+ "questId": 11032,
+ "java": "inggison/_11032EverythingsBetterWithTentacles.java",
+ "class": "_11032EverythingsBetterWithTentacles",
+ "javaSha256": "85542bea24032823e5312c8b40ef474678a01522cdcb9383f95b0f5489a2ca82",
+ "register": [
+  {"npc": 798959, "event": "addOnTalkEvent", "args": [11032]},
+  {"call": "registerQuestItem", "args": [182206726, 11032]},
+  {"npc": 798959, "event": "addOnQuestStart", "args": [11032]}
+ ],
+ "hooks": [
+  {"hook": "onDialogEvent", "line": 37, "unsupported": "reads status/11032 after sendQuestNoneDialog, which may have written it"},
+  {"hook": "onItemUseEvent", "line": 94, "unsupported": "a NullPointerException with a scheduled task"}
+ ],
+ "cases": []
+}

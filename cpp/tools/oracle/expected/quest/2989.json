@@ -1,0 +1,20 @@
+{
+ "format": "aion-quest-trace",
+ "version": 1,
+ "questId": 2989,
+ "java": "daevanion/_2989CeremonyOfTheWise.java",
+ "class": "_2989CeremonyOfTheWise",
+ "javaSha256": "c7572092abd4dd44b120a206c6d5d563289c51ec157f7b5048facdaf163e43c4",
+ "register": [
+  {"npc": 204146, "event": "addOnQuestStart", "args": [2989]},
+  {"npc": 204146, "event": "addOnTalkEvent", "args": [2989]},
+  {"npc": 204056, "event": "addOnTalkEvent", "args": [2989]},
+  {"npc": 204057, "event": "addOnTalkEvent", "args": [2989]},
+  {"npc": 204058, "event": "addOnTalkEvent", "args": [2989]},
+  {"npc": 204059, "event": "addOnTalkEvent", "args": [2989]},
+  {"npc": 801222, "event": "addOnTalkEvent", "args": [2989]},
+  {"npc": 801223, "event": "addOnTalkEvent", "args": [2989]}
+ ],
+ "hooks": [{"hook": "onDialogEvent", "line": 37, "unsupported": "call player.getCommonData().getDp()"}],
+ "cases": []
+}

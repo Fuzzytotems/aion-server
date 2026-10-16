@@ -1,0 +1,17 @@
+{
+ "format": "aion-quest-trace",
+ "version": 1,
+ "questId": 2925,
+ "java": "pandaemonium/_2925AHeartfeltConfession.java",
+ "class": "_2925AHeartfeltConfession",
+ "javaSha256": "2a5319f270bc7a32d96896e405edc6e225298100b59b559832fe24161b0dd18b",
+ "register": [
+  {"npc": 204261, "event": "addOnQuestStart", "args": [2925]},
+  {"npc": 204261, "event": "addOnTalkEvent", "args": [2925]},
+  {"npc": 204235, "event": "addOnTalkEvent", "args": [2925]},
+  {"npc": 204127, "event": "addOnTalkEvent", "args": [2925]},
+  {"npc": 204193, "event": "addOnTalkEvent", "args": [2925]}
+ ],
+ "hooks": [{"hook": "onDialogEvent", "line": 30, "unsupported": "call player.getEquipment()"}],
+ "cases": []
+}

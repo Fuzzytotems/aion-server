@@ -1,0 +1,28 @@
+# Mirrors the Java code style of the original project (.editorconfig): tabs rendered as 2 columns, 150 column limit, attached braces.
+BasedOnStyle: LLVM
+Language: Cpp
+Standard: Latest
+UseTab: ForIndentation
+IndentWidth: 2
+TabWidth: 2
+ContinuationIndentWidth: 2
+ColumnLimit: 150
+BreakBeforeBraces: Attach
+AccessModifierOffset: -2
+AllowShortFunctionsOnASingleLine: Inline
+AllowShortIfStatementsOnASingleLine: Never
+AllowShortLoopsOnASingleLine: false
+AlwaysBreakTemplateDeclarations: Yes
+IndentCaseLabels: true
+NamespaceIndentation: None
+FixNamespaceComments: true
+PointerAlignment: Left
+SortIncludes: CaseSensitive
+IncludeBlocks: Regroup
+IncludeCategories:
+  - Regex: '^<[a-z_0-9]+>$'            # C++ standard library
+    Priority: 1
+  - Regex: '^<'                        # third party
+    Priority: 2
+  - Regex: '^"aion/'                   # project
+    Priority: 3

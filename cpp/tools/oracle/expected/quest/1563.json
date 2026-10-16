@@ -1,0 +1,44 @@
+{
+ "format": "aion-quest-trace",
+ "version": 1,
+ "questId": 1563,
+ "java": "heiron/_1563TheLegendofVindachinerk.java",
+ "class": "_1563TheLegendofVindachinerk",
+ "javaSha256": "acdd761e3a1d721c36176e6bca5ce790cbb8249d7abf3a814807483a545e60bf",
+ "register": [
+  {"npc": 798096, "event": "addOnQuestStart", "args": [1563]},
+  {"npc": 798096, "event": "addOnTalkEvent", "args": [1563]},
+  {"npc": 279005, "event": "addOnTalkEvent", "args": [1563]},
+  {"call": "registerQuestItem", "args": [182201729, 1563]}
+ ],
+ "hooks": [
+  {"hook": "onDialogEvent", "line": 31, "unsupported": "call player.getInventory().decreaseByItemId(182201729, 1)"},
+  {"hook": "onItemUseEvent", "line": 98, "cases": 3}
+ ],
+ "cases": [
+  {
+   "id": "onItemUseEvent#1",
+   "hook": "onItemUseEvent",
+   "given": {"item": {"itemId": 0}},
+   "guards": ["id != 182201729 -> true @102"],
+   "effects": [],
+   "returns": "UNKNOWN"
+  },
+  {
+   "id": "onItemUseEvent#2",
+   "hook": "onItemUseEvent",
+   "given": {"item": {"itemId": 182201729}, "questState": null},
+   "guards": ["id != 182201729 -> false @102", "qs == null -> true @105"],
+   "effects": [],
+   "returns": "UNKNOWN"
+  },
+  {
+   "id": "onItemUseEvent#3",
+   "hook": "onItemUseEvent",
+   "given": {"item": {"itemId": 182201729}, "questState": {"status": "START"}},
+   "guards": ["id != 182201729 -> false @102", "qs == null -> false @105"],
+   "effects": [{"call": "changeQuestStep", "kind": "var", "args": [0, 1], "line": 107}],
+   "returns": "SUCCESS"
+  }
+ ]
+}
