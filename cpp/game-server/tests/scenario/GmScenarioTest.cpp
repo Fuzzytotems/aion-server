@@ -57,6 +57,7 @@
 #include "Oracle.h"
 #include "ScenarioDatabase.h"
 #include "ScenarioServers.h"
+#include "PrologueSupport.h"
 #include "decoders/CombatDecoders.h"
 #include "decoders/PacketDecoders.h"
 #include "decoders/ProgressionDecoders.h"
@@ -586,7 +587,7 @@ std::vector<Packet> enterGame(ScenarioServers& servers, ScenarioClient& client) 
 	client.z = spawned.z;
 	client.worldId = spawned.worldId;
 	client.game->send(GameSession::CM_LEVEL_READY, GameSession::buildCM_LEVEL_READY());
-	collectBurst(*client.game, client.async);
+	expectEnterWorldTimerEnds(collectBurst(*client.game, client.async), client.label + " level ready");
 	collectFor(*client.game, 1000ms);
 	return client.since(from);
 }
