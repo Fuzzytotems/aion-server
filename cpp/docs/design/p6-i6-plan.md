@@ -91,3 +91,6 @@ Smallest self-contained first; each checkpoint is one branch (`lane-c/i6-<instan
 > Mutation proof: 40 of 41 mutants killed; the survivor is equivalent (DistortedSpaceAI without its deleteOwner at death: with no decay
 > NpcController.onDie deletes the npc itself). The first run's survivors (Muragan's watcher walking, the scientist's escape time) led to
 > stronger Muragan and scientist cases.
+> **Progress:** I6 census at the tip: 435 of 435 named Java bodies ported, 0 open. The census found two I6-3 gaps, fixed on the tip:
+> TheShugoEmperorsVault.leaveInstance (the instance exit, left to a gate like the other exits) was missing, and ShugoMorpher's morph() now
+> cites Java's handleUseItemFinish so the census sees the rename.
