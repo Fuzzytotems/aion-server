@@ -289,7 +289,6 @@ TEST_F(AhserionA1AiTest, TheRegistrationCorridor) {
 	AI_TEST_SCOPE;
 	Ref<model::gameobjects::Npc> corridor = makeNpc(BELUS_CORRIDOR_NPC_ID, 501);
 	CorridorProbe& ai = install<CorridorProbe>(*corridor);
-	EXPECT_FALSE(ai.getFaction());
 	world::World::getInstance().storeObject(*corridor);
 	ai.handleSpawned();
 	EXPECT_EQ(ai.getFaction(), PanesterraFaction::BELUS);

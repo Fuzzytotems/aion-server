@@ -23,15 +23,14 @@ AION_AI(AhserionRegistrationCorridor, "ahserion_registration_corridor");
 struct AhserionRegistrationCorridor_AIRequest final : AIRequest {
 	AION_MAKE_REF_FRIEND
 
-	const runtime::Ref<AhserionRegistrationCorridor> corridor; // the enclosing instance (its field faction)
+	const runtime::Ref<AhserionRegistrationCorridor> ahserionRegistrationCorridor; // captured this AhserionRegistrationCorridor this (line 63)
 	const runtime::Ref<Player> player;                          // captured param Player player (line 43)
 
 	static runtime::Ref<AhserionRegistrationCorridor_AIRequest> create(AhserionRegistrationCorridor& corridor, Player& player) {
 		return runtime::makeRef<AhserionRegistrationCorridor_AIRequest>(corridor, player);
 	}
 
-	// Java AhserionRegistrationCorridor.java:51-63 (getTeamMemberCount(null) and getTeam(faction).addTeamMemberIfAbsent on no team are Java's
-	// NullPointerExceptions)
+	// Java AhserionRegistrationCorridor.java:51-63 (getTeam(faction).addTeamMemberIfAbsent on no team is Java's NullPointerException)
 	void acceptRequest(runtime::Ptr<Creature> requester, Player& responder, int32_t requestId) override {
 		static_cast<void>(requester);
 		static_cast<void>(responder);
@@ -40,14 +39,12 @@ struct AhserionRegistrationCorridor_AIRequest final : AIRequest {
 			PacketSendUtility::sendPacket(*player, SM_SYSTEM_MESSAGE::STR_MSG_CANT_READY_PANGAEA());
 			return;
 		}
-		std::optional<services::panesterra::ahserion::PanesterraFaction> faction = corridor->getFaction();
-		if (!faction)
-			throw runtime::NullPointerException("AhserionRegistrationCorridor: no faction");
-		if (PanesterraService::getInstance().getTeamMemberCount(*faction) >= SiegeConfig::AHSERION_MAX_PLAYERS_PER_TEAM.load()) {
+		services::panesterra::ahserion::PanesterraFaction faction = ahserionRegistrationCorridor->getFaction();
+		if (PanesterraService::getInstance().getTeamMemberCount(faction) >= SiegeConfig::AHSERION_MAX_PLAYERS_PER_TEAM.load()) {
 			PacketSendUtility::sendPacket(*player, SM_SYSTEM_MESSAGE::STR_CANNOT_USE_SVS_DIRECT_PORTAL_USE_COUNT_LIMIT());
 			return;
 		}
-		runtime::Ptr<services::panesterra::ahserion::PanesterraTeam> team = PanesterraService::getInstance().getTeam(*faction);
+		runtime::Ptr<services::panesterra::ahserion::PanesterraTeam> team = PanesterraService::getInstance().getTeam(faction);
 		if (team == nullptr)
 			throw runtime::NullPointerException("AhserionRegistrationCorridor: no Panesterra team");
 		team->addTeamMemberIfAbsent(player->getObjectId());
@@ -57,7 +54,7 @@ struct AhserionRegistrationCorridor_AIRequest final : AIRequest {
 
 protected:
 	AhserionRegistrationCorridor_AIRequest(AhserionRegistrationCorridor& corridorValue, Player& playerValue)
-		: corridor(runtime::Ref<AhserionRegistrationCorridor>(corridorValue)), player(runtime::Ref<Player>(playerValue)) {}
+		: ahserionRegistrationCorridor(runtime::Ref<AhserionRegistrationCorridor>(corridorValue)), player(runtime::Ref<Player>(playerValue)) {}
 	~AhserionRegistrationCorridor_AIRequest() override = default;
 };
 

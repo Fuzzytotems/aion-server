@@ -3,8 +3,6 @@
 #include "aion/gameserver/handlers/ai/AiPrelude.h"
 #include "aion/gameserver/handlers/ai/GeneralNpcAI.h"
 
-#include <optional>
-
 #include "aion/gameserver/runtime/fields/Field.h"
 #include "aion/gameserver/services/panesterra/ahserion/fwd.h"
 
@@ -22,7 +20,9 @@ namespace aion::gameserver::handlers::ai::worlds::panesterra::ahserionsflight {
  */
 class AhserionRegistrationCorridor : public GeneralNpcAI {
 private:
-	runtime::Field<std::optional<services::panesterra::ahserion::PanesterraFaction>> faction{}; // Java: null until handleSpawned
+	// Java: null until handleSpawned sets it; every npc template with this AI is one of the four ids it maps (npc_templates.xml: 802219, 802221,
+	// 802223, 802225), so the default is never read
+	runtime::Field<services::panesterra::ahserion::PanesterraFaction> faction{};
 
 public:
 	explicit AhserionRegistrationCorridor(Npc& owner) : GeneralNpcAI(owner) {}
@@ -33,8 +33,8 @@ protected:
 public:
 	void handleDialogStart(Player& player) override;
 
-	/** C++ only, for the tests: the faction the spawn chose (Java's private field) */
-	std::optional<services::panesterra::ahserion::PanesterraFaction> getFaction() const { return faction.get(); }
+	/** C++ only: the faction the spawn chose (Java's private field, read by the anonymous AIRequest through its enclosing instance) */
+	services::panesterra::ahserion::PanesterraFaction getFaction() const { return faction.get(); }
 };
 
 } // namespace aion::gameserver::handlers::ai::worlds::panesterra::ahserionsflight
