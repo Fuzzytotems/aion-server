@@ -70,3 +70,9 @@ Smallest self-contained first; each checkpoint is one branch (`lane-c/i6-<instan
 > its first npc. **Java bug, ported (proposed correction J-I6-3):** despawnNpcs lists 291512 and 291513 for 219512 and 219513, so a destroyed
 > monument leaves those two standing (the test pins it). Left to a gate: the walks and routes, the transformations' effects, the teleports, the
 > bosses' casts.
+> **Progress:** I6-5a (`lane-c/i6-tiamat-cp6`): TiamatStrongHoldInstance and the four brigade generals (BrigadeGeneralChantraAI,
+> BrigadeGeneralLaksyakaAI, BrigadeGeneralTahabataAI, BrigadeGeneralTerathAI). `TiamatTest.cpp` (10 cases). **Java bug, ported (proposed
+> correction J-I6-4):** BrigadeGeneralTerathAI.handleBackHome deletes the Aetheric Field but keeps the reference, so the next fight spawns no
+> field and leaves door 706 open (the test pins it). Left to a gate: the doors, the zones, the marchers' and drakans' moves, the casts.
+> Mutation proof: 29 of 29 mutants killed (two survivors of the first run, a swapped trap id and a missing cancel at death, led to a
+> stronger Chantra case that watches both rings and the next ring after her death).
