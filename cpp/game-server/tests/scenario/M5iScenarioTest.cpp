@@ -1055,8 +1055,15 @@ void runM5iGate(bool geo) {
 		unavailable("set AION_TEST_GS_DATABASE_URL and AION_TEST_LS_DATABASE_URL");
 		return;
 	}
+	const std::filesystem::path outputDir = std::filesystem::path(AION_SCENARIO_OUTPUT_DIR) / (geo ? "m5i_geo" : "m5i");
+	std::optional<Oracle> oracle = Oracle::fromEnvironment(outputDir / "oracle");
+	if (!oracle) {
+		unavailable("no Python interpreter for tools/oracle: set AION_TEST_PYTHON");
+		return;
+	}
 	{
-		// rifts open by cron at every hh:00 (rift_schedule.xml): the run (about 10 minutes) must not cross one
+		// rifts open by cron at every hh:00 (rift_schedule.xml): the run (about 10 minutes) must not cross one;
+		// checked after the availability checks, so an unconfigured run (CI) skips at any time of day
 		const auto now = std::chrono::floor<std::chrono::seconds>(std::chrono::system_clock::now());
 		const auto untilHour = std::chrono::ceil<std::chrono::hours>(now + std::chrono::seconds(1)) - now;
 		if (untilHour < std::chrono::minutes(13)) {
@@ -1065,12 +1072,6 @@ void runM5iGate(bool geo) {
 			              << " s before an hh:00 rift cron; start it at least 13 minutes before the hour";
 			return;
 		}
-	}
-	const std::filesystem::path outputDir = std::filesystem::path(AION_SCENARIO_OUTPUT_DIR) / (geo ? "m5i_geo" : "m5i");
-	std::optional<Oracle> oracle = Oracle::fromEnvironment(outputDir / "oracle");
-	if (!oracle) {
-		unavailable("no Python interpreter for tools/oracle: set AION_TEST_PYTHON");
-		return;
 	}
 
 	CaseLog cases;
