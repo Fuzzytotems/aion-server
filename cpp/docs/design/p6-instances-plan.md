@@ -63,6 +63,18 @@ Smallest self-contained first; each is one commit with its tests and mutation pr
 | later | I2-I6 | the rest by instance, largest last (crucibles, arenas, PvP instances, Shugo Imperial Tomb, Tiamat, Drakenspire, Dragon Lord's Refuge) | |
 | held | I2 | Stonespear Reach, after M5h | 925 |
 
+### I4 split (lane A, 2026-10-16; census on origin/C++ 23e0a205a: 471 open bodies, 3,981 Java lines)
+
+One instance per checkpoint, smallest first, stacked from origin/C++ (a branch lane-a/p6-i4-<instance> each), with its tests in
+`tests/handlers_inst_4` (the I1 fixture, as I3 and I5 use it), a mutation proof, gs.smoke.startup and gs.scenario.m5f.
+
+| CP | What | Open bodies | Java lines |
+|---|---|---:|---:|
+| P6I-10 | Aturam Sky Fortress: AturamSkyFortressInstance and the 9 AIs of aturamSkyFortress | 56 | 841 |
+| P6I-11 | Beshmundir Temple: BeshmundirInstance and the 16 AIs of beshmundirTemple | 85 | 1,175 |
+| P6I-12 | Drakenspire Depths: DrakenspireDepthsInstance and the 23 AIs of drakenspire | 174 | 2,350 |
+| P6I-13 | Dragon Lord's Refuge: DragonLordsRefugeInstance, AnguishedDragonLordsRefugeInstance and the 20 AIs of dragonLordsRefuge | 156 | 2,128 |
+
 ## 5. Progress
 
 > **Progress:** plan written (2026-10-14, lane A).
@@ -150,7 +162,36 @@ Smallest self-contained first; each is one commit with its tests and mutation pr
 > pvpArenas AIs (AntiAirCraftGunAI, HarmonyShifterAI, PlazaFlameThrowerAI, RelicsAI) and ophidianBridge's DefenseWallAI. Java's record BaseRewards
 > is a struct; the default broadcasts' `sendPacket(null, null)` pass std::nullopt; Math.round(float) is floor(x + 0.5f). Tests: ArenaTest (6 cases:
 > the handlers, the interrupted start, the rounds, Chaos's npc and kill points, Discipline's kill points, Glory's last-rank rewards; two client-less
-> players inside, InstanceBuffData's two buff rows published) and ArenaAiTest (5). Mutation proof 23 of 24; the survivor (RelicsAI's respawn of the
-> random relics) is equivalent here, as a test's single-time spawn has no respawn. Left to a gate: the item rewards (no item rows), the bonus and
-> morph skills, the fly rings' passes, the exit teleport. Census I3: 245 -> 135 open bodies (left: the two Harmony arenas, Eternal Bastion and its
-> AIs).
+> players inside, InstanceBuffData's two buff rows published) and ArenaAiTest (5). Mutation proof 23 of 24; one survivor, RelicsAI's respawn of the
+> random relics: not observable by a unit test (single-time spawn); the retest covers it. Left to a gate: the item rewards (no item rows), the bonus
+> and morph skills, the fly rings' passes, the exit teleport. Census I3: 245 -> 135 open bodies (left: the two Harmony arenas, Eternal Bastion and
+> its AIs).
+> **Progress:** P6I-8c done (chunk I3): the Harmony arenas - HarmonyTrainingGroundsInstance and ArenaOfHarmonyInstance (the group arenas on a
+> HarmonyArenaScore; Java's casts of instanceScore are one helper, harmonyScore()). Test: ArenaTest.TheHarmonyArenas (the handlers, the score's
+> class, the 36 fly rings, the end of a run without two groups); mutation proof 3 of 3. Left to a gate (the retest): the groups' merged damage and
+> split rewards, the ring passes' points, the Harmony score packets. Also here: the P6I-8b note's survivor wording (coordinator, 2026-10-15). Census
+> I3: 135 -> 110 open bodies (left: Eternal Bastion and its AIs).
+> **Progress:** P6I-9 done (chunk I3): Eternal Bastion - EternalBastionInstance and the fourteen AIs of ai/instance/eternalBastion. The long spawn
+> bodies (the race guards, the phases, the waves) are converted from the Java text (scratchpad eb_write.py); Java's arrow switches are case labels
+> with break. Java's handler exposes no getInstanceScore, so the tests read the score through a friend (EternalBastionInstanceTestAccess, defined by
+> the tests only). Tests: tests/handlers_inst_3/EternalBastionTest.cpp (10 cases: the start, the race's defenders, the phases' commanders, the
+> points, the first wave, Pashid's and the commander's deaths with the rank, the time-out, the AIs). The player stands in another instance and joins
+> through onEnterInstance: the end's item rewards, the revive teleport, the walks, the skills and the mounting are left to the retest. Mutation
+> proof 23 of 23. Census I3: 110 -> 0 open bodies (stacked on the Harmony arenas, P6I-8c).
+> **Progress:** P6I-10 done (chunk I4): AturamSkyFortressInstance and the aturamSkyFortress AIs (9). The instance's walks are scheduled lambdas
+> pinned to the handler, capturing the walker's Ref; Java's canThink fields are canThink_ (the name clashes with canThink()). Tests:
+> tests/handlers_inst_4 (new: I4TestSupport.h on the I1 fixture, with a publishSkills helper) - AturamTest (11 cases: the handler, the deaths'
+> pieces, the shield and power generators, the officers' and chiefs' patrols, Marbata's AP, the soldiers, the destroy, the doping objects) and
+> AturamAiTest (12). The casters of a skill get a root AI (the fixture's DummyAI is no NpcAI). Mutation proof 36 of 37 (the heal's exact 5205 after
+> a strengthened case: the fixture player gets a MAXHP bonus, owner's note 2026-10-16); the survivor, PopuchinAI's cancel on back home, is
+> equivalent: the bomb task's body re-checks isHome, so the cancelled and the uncancelled task do the same. Left to a gate: the doors (no static
+> doors), the walks (no walker rows), the warehouse zone, the item grants, the skills' effects (the shadows' mark) and the tachysphere's flight.
+> Census I4: 471 -> 415 open bodies.
+> **Progress:** P6I-11 done (chunk I4): BeshmundirInstance and the beshmundirTemple AIs (16). BeshmundirsWalkAI's anonymous AIRequest is the
+> callback struct BeshmundirsWalkAI_AIRequest (KiskAI's shape); the doors' `isInGroup() ? getOnlineMembers() : Arrays.asList(player)` is a vector of
+> the members; IsbariyaTheResoluteAI's varargs cancelTasks takes an initializer list and its soul list is a runtime::ArrayList of Point3D. Tests:
+> BeshmundirTest (11 cases: the handler and its exp multiplier, the boatmen, the Lich's servants and the Macunbellos' strength, the guardians, the
+> specters, the first race's guide and its movie, the super boss's gate, Lupukin, the movie 443) and BeshmundirAiTest (15; Isbariya's souls on a
+> seeded draw over twelve rounds). Mutation proof 47 of 47 after two strengthened cases (the generator's 40 m is strict, so the test stands at 40.5
+> m; the souls' 3-6 draw). Left to a gate: the doors (no static doors), the Macunbellos' effects, the boatmen's teleports, the walk's group paths
+> and ports (no portal rows), Dorakiki's effect, Virhana's rages and the artifacts' casts. No Java bug found. Census I4: 415 -> 330 open bodies.
