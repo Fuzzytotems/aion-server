@@ -1,8 +1,7 @@
 // A1, lane B, the Panesterra corridors (docs/design/a1-laneb-plan.md cp5): AdvanceCorridorAI, GovernorCorridorAI, Rank100CorridorAI,
 // PanesterraEntryCorridorAI (game-server/data/handlers/ai/worlds/panesterra/*.java) on npcs of the AI tests' Poeta map.
 //
-// Not covered here (no player connection, no Panesterra teams, no level 65 character): the question window, joining a team, the entry's
-// teleport. Ahserion's Flight cannot run in a gate yet, so nothing here has gate coverage.
+// Not covered here (no player connection, no Panesterra teams): the question window's packet, joining a team, the entry's teleport. Ahserion's Flight cannot run in a gate yet, so nothing here has gate coverage.
 
 #include "../ai/AiWorldTestSupport.h"
 
@@ -12,6 +11,10 @@
 
 #include "aion/gameserver/ai/AbstractAI.h"
 #include "aion/gameserver/controllers/NpcController.h"
+#include "aion/gameserver/dataholders/DataManager.h"
+#include "aion/gameserver/dataholders/PlayerExperienceTable.bind.h"
+#include "aion/gameserver/dataholders/PlayerExperienceTable.h"
+#include "aion/gameserver/model/gameobjects/player/PlayerCommonData.h"
 #include "aion/gameserver/handlers/ai/GeneralNpcAI.h"
 #include "aion/gameserver/handlers/ai/worlds/panesterra/AdvanceCorridorAI.h"
 #include "aion/gameserver/handlers/ai/worlds/panesterra/GovernorCorridorAI.h"
@@ -35,6 +38,7 @@ namespace {
 namespace corridors = gameserver::handlers::ai::worlds::panesterra;
 
 using runtime::Ref;
+using utils::stats::AbyssRankEnum;
 
 constexpr int32_t PLAIN_NPC_ID = 210663; // a monster of the AI tests' npc_templates (AiWorldTestSupport.h)
 constexpr int32_t ASK_PASS_BY_SVS_DIRECT_PORTAL = 905067;
@@ -59,12 +63,38 @@ protected:
 		AI_TEST_SCOPE;
 		regionActivator = activateRegionAt(500, 500, 100);
 		executor->runReady();
+		// 67 levels (the real table's length: getMaxLevel 66), 1000 exp apart, so a character can be set to level 65 (PlayerCommonData.setLevel)
+		std::string table = "<player_experience_table>";
+		for (int32_t level = 0; level < 67; level++)
+			table += "<exp>" + std::to_string(level * 1000) + "</exp>";
+		dataholders::DataManager::PLAYER_EXPERIENCE_TABLE.publish(
+			xml::bindString<dataholders::PlayerExperienceTable>(experienceContext, table + "</player_experience_table>"));
 	}
 
 	void TearDown() override {
 		regionActivator = nullptr;
+		dataholders::DataManager::PLAYER_EXPERIENCE_TABLE.resetForTests();
 		AiWorldTest::TearDown();
 	}
+
+	/** a character of the level and abyss rank */
+	Ref<model::gameobjects::player::Player> character(int32_t objectId, int32_t level, AbyssRankEnum rank) {
+		Ref<model::gameobjects::player::Player> player = makeWorldPlayer(objectId, 502, 500, 100);
+		player->getCommonData()->setLevel(level);
+		player->setAbyssRank(model::gameobjects::player::AbyssRank::create(0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0));
+		player->getAbyssRank()->setRank(rank);
+		return player;
+	}
+
+	/** the corridor's dialog start: was STR_ASK_PASS_BY_SVS_DIRECT_PORTAL asked? */
+	template <class AI>
+	bool asks(model::gameobjects::player::Player& player) {
+		Ref<model::gameobjects::Npc> corridor = makeWorldNpc(PLAIN_NPC_ID, 501, 500, 100);
+		install<AI>(*corridor).handleDialogStart(player);
+		return player.getResponseRequester().remove(ASK_PASS_BY_SVS_DIRECT_PORTAL);
+	}
+
+	xml::LoadContext experienceContext;
 
 	template <class AI>
 	AI& install(model::gameobjects::Npc& npc) {
@@ -140,6 +170,30 @@ TEST_F(PanesterraA1AiTest, AnEntryCorridorAnswersEverySelection) {
 	EXPECT_TRUE(ai.onDialogSelect(*player, model::DialogAction::SETPRO1, 0, 0));
 	EXPECT_EQ(player->getWorldId(), POETA) << "level 1: STR_MSG_TELEPOTER_GAB1_USER04, no teleport";
 	EXPECT_TRUE(ai.onDialogSelect(*player, model::DialogAction::SELECT1_1, 0, 0));
+}
+
+
+/** AdvanceCorridorAI.java:37-58: from a one-star officer at level 65; a level-64 officer and a level-65 soldier are refused */
+TEST_F(PanesterraA1AiTest, TheAdvanceCorridorAsksOfficersOfLevel65) {
+	AI_TEST_SCOPE;
+	EXPECT_TRUE(asks<corridors::AdvanceCorridorAI>(*character(7411, 65, AbyssRankEnum::STAR1_OFFICER)));
+	EXPECT_FALSE(asks<corridors::AdvanceCorridorAI>(*character(7412, 65, AbyssRankEnum::GRADE1_SOLDIER))) << "below the threshold";
+	EXPECT_FALSE(asks<corridors::AdvanceCorridorAI>(*character(7413, 64, AbyssRankEnum::STAR1_OFFICER))) << "below level 65";
+	ASSERT_EQ(character(7414, 65, AbyssRankEnum::STAR1_OFFICER)->getLevel(), 65) << "the fixture's level";
+}
+
+/** GovernorCorridorAI.java:22-29: only a Supreme Commander; a Commander is refused */
+TEST_F(PanesterraA1AiTest, TheGovernorCorridorAsksOnlySupremeCommanders) {
+	AI_TEST_SCOPE;
+	EXPECT_TRUE(asks<corridors::GovernorCorridorAI>(*character(7421, 65, AbyssRankEnum::SUPREME_COMMANDER)));
+	EXPECT_FALSE(asks<corridors::GovernorCorridorAI>(*character(7422, 65, AbyssRankEnum::COMMANDER)));
+}
+
+/** Rank100CorridorAI.java:22-29: from a five-star officer; a four-star officer is refused */
+TEST_F(PanesterraA1AiTest, TheRank100CorridorAsksFiveStarOfficers) {
+	AI_TEST_SCOPE;
+	EXPECT_TRUE(asks<corridors::Rank100CorridorAI>(*character(7431, 65, AbyssRankEnum::STAR5_OFFICER)));
+	EXPECT_FALSE(asks<corridors::Rank100CorridorAI>(*character(7432, 65, AbyssRankEnum::STAR4_OFFICER)));
 }
 
 } // namespace
