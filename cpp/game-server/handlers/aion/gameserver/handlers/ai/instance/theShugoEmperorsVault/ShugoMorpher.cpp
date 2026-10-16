@@ -69,7 +69,7 @@ void ShugoMorpher::handleDialogStart(Player& player) {
 	}
 }
 
-// Java ShugoMorpher.java:74-88 (handleUseItemFinish)
+/** Java: ShugoMorpher.handleUseItemFinish( (ShugoMorpher.java:74-88) */
 void ShugoMorpher::morph(Player& player) {
 	Race race = player.getRace();
 	bool morphed;

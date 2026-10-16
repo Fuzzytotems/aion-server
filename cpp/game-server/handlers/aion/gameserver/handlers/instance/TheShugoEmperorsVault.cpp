@@ -601,4 +601,9 @@ bool TheShugoEmperorsVault::onReviveEvent(Player& player) {
 	return true;
 }
 
+// Java TheShugoEmperorsVault.java:570-573
+void TheShugoEmperorsVault::leaveInstance(Player& player) {
+	TeleportService::moveToInstanceExit(player, mapId, player.getRace());
+}
+
 } // namespace aion::gameserver::handlers::instance

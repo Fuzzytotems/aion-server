@@ -115,6 +115,8 @@ public:
 	runtime::Ptr<InstanceScore> getInstanceScore() override;
 
 	bool onReviveEvent(Player& player) override;
+
+	void leaveInstance(Player& player) override;
 };
 
 } // namespace aion::gameserver::handlers::instance
