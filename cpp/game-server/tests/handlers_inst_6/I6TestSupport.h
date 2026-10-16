@@ -12,6 +12,12 @@ namespace aion::gameserver::handlers::instance::rakes {
 
 } // namespace aion::gameserver::handlers::instance::rakes
 
+namespace aion::gameserver::handlers::instance {
+
+::aion::gameserver::handlers::InstanceFactory TheobomosLabInstance_instanceFactory;
+
+} // namespace aion::gameserver::handlers::instance
+
 namespace aion::gameserver::handlers::instance::test {
 
 inline constexpr int32_t STEEL_RAKE = 300100000;
@@ -48,7 +54,9 @@ inline const std::vector<int32_t>& handlerNpcIds() {
 		// key boxes, Brass-Eye Grogget's and Chief Gunner Koakoa's helpers, Engineer Lahulahu's devices, the badabooms, the cannons
 		215402, 215403, 215404, 215405, 230727, 231460, 214968, 215069, 219033, 281128, 281129, 701386, 701387, 219037, 219040, 700553, 281181,
 		281182, 281183, 281184, 281187, 281212, 281213, 281108, 281109, 281110, 281111, 281112, 281113, 281114, 281322, 281323, 281324, 281325,
-		281326, 231016, 231017, 730769};
+		281326, 231016, 231017, 730769,
+		// Theobomos Lab: the exit, Silikor's guards, orb and memories, Silikor and Triroan, the researcher, Triroan's element summons
+		730178, 280971, 280972, 280973, 281053, 281054, 214668, 214669, 798223, 280975, 280976, 280977, 280978};
 	return ids;
 }
 
