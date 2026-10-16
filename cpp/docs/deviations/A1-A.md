@@ -26,3 +26,22 @@ survivor, GroupGateAI's `decisionTaken` flag, is not observable by a unit test: 
 The other portals are covered by the instance retests that reach them: Dramata (Kaisinel's Academy and Marchutan Priory), the Legion
 Dominion portal to Stonespear Reach, the Sealed Danuar Mysticarium entrances, the Occupied Rentus Base portals, the Abyssal Splinter devices,
 the training grounds' portal (the auto group window) and the portal_request and portal_elevator npcs.
+
+## Quests (checkpoint cp2)
+
+Tests: `tests/handlers_ai_world/QuestsA1AiTest.cpp` (4 cases; the fixture is `A1LaneATestSupport.h`, the npcs stored in World so that a
+delete removes them). Mutation proof 4 of 4 (GarnonQ20060AI's delay, delete and cancel; NidalberBalaurAI's map check).
+
+Retest (no quest scripts, quest maps or walks in the unit tests):
+- Quest 20060 (Garnon, "Q20060"): three minutes after Garnon spawns he is replaced by 800020 at 442.3 464.3 341.5.
+- The infiltrators ("infiltrator", 282913-282923): each death spawns the next infiltrator of its chain at the dead one's spawn point. The
+  last ones of the chains (282914, 282916, 282922, 282923) spawn npc 0, as Java does: a "no template" error in the log, nothing spawned (J-A1A-1 below).
+- The Nidalber balaur ("nidalber_balaur", maps 310040000 and 320040000): it walks to 271.2 178.9 204.5 and attacks the quest npc (204044 or
+  204432); without that npc, or with it dead, the balaur goes.
+- "quest_start_use_item" objects open the quest selection when they start quests (else the start talk), and a dialog npc's page 1011 when
+  no quest answers; "quest_use_npc" npcs talk on use.
+
+### Proposed correction J-A1A-1 (InfiltratorsAI, kept as ported)
+
+InfiltratorsAI.java:40 spawns `spawnNpc` even when the switch (lines 22-39) gave none (`spawnNpc` stays 0 for 282914, 282916, 282922,
+282923 and every other npc id): the spawn of npc 0 fails with an error in the log. Proposed: `if (spawnNpc != 0)` before the spawn.
