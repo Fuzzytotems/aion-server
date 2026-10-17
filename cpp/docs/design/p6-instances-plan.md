@@ -63,6 +63,18 @@ Smallest self-contained first; each is one commit with its tests and mutation pr
 | later | I2-I6 | the rest by instance, largest last (crucibles, arenas, PvP instances, Shugo Imperial Tomb, Tiamat, Drakenspire, Dragon Lord's Refuge) | |
 | held | I2 | Stonespear Reach, after M5h | 925 |
 
+### I4 split (lane A, 2026-10-16; census on origin/C++ 23e0a205a: 471 open bodies, 3,981 Java lines)
+
+One instance per checkpoint, smallest first, stacked from origin/C++ (a branch lane-a/p6-i4-<instance> each), with its tests in
+`tests/handlers_inst_4` (the I1 fixture, as I3 and I5 use it), a mutation proof, gs.smoke.startup and gs.scenario.m5f.
+
+| CP | What | Open bodies | Java lines |
+|---|---|---:|---:|
+| P6I-10 | Aturam Sky Fortress: AturamSkyFortressInstance and the 9 AIs of aturamSkyFortress | 56 | 841 |
+| P6I-11 | Beshmundir Temple: BeshmundirInstance and the 16 AIs of beshmundirTemple | 85 | 1,175 |
+| P6I-12 | Drakenspire Depths: DrakenspireDepthsInstance and the 23 AIs of drakenspire | 174 | 2,350 |
+| P6I-13 | Dragon Lord's Refuge: DragonLordsRefugeInstance, AnguishedDragonLordsRefugeInstance and the 20 AIs of dragonLordsRefuge | 156 | 2,128 |
+
 ## 5. Progress
 
 > **Progress:** plan written (2026-10-14, lane A).
@@ -166,3 +178,20 @@ Smallest self-contained first; each is one commit with its tests and mutation pr
 > points, the first wave, Pashid's and the commander's deaths with the rank, the time-out, the AIs). The player stands in another instance and joins
 > through onEnterInstance: the end's item rewards, the revive teleport, the walks, the skills and the mounting are left to the retest. Mutation
 > proof 23 of 23. Census I3: 110 -> 0 open bodies (stacked on the Harmony arenas, P6I-8c).
+> **Progress:** P6I-10 done (chunk I4): AturamSkyFortressInstance and the aturamSkyFortress AIs (9). The instance's walks are scheduled lambdas
+> pinned to the handler, capturing the walker's Ref; Java's canThink fields are canThink_ (the name clashes with canThink()). Tests:
+> tests/handlers_inst_4 (new: I4TestSupport.h on the I1 fixture, with a publishSkills helper) - AturamTest (11 cases: the handler, the deaths'
+> pieces, the shield and power generators, the officers' and chiefs' patrols, Marbata's AP, the soldiers, the destroy, the doping objects) and
+> AturamAiTest (12). The casters of a skill get a root AI (the fixture's DummyAI is no NpcAI). Mutation proof 36 of 37 (the heal's exact 5205 after
+> a strengthened case: the fixture player gets a MAXHP bonus, owner's note 2026-10-16); the survivor, PopuchinAI's cancel on back home, is
+> equivalent: the bomb task's body re-checks isHome, so the cancelled and the uncancelled task do the same. Left to a gate: the doors (no static
+> doors), the walks (no walker rows), the warehouse zone, the item grants, the skills' effects (the shadows' mark) and the tachysphere's flight.
+> Census I4: 471 -> 415 open bodies.
+> **Progress:** P6I-11 done (chunk I4): BeshmundirInstance and the beshmundirTemple AIs (16). BeshmundirsWalkAI's anonymous AIRequest is the
+> callback struct BeshmundirsWalkAI_AIRequest (KiskAI's shape); the doors' `isInGroup() ? getOnlineMembers() : Arrays.asList(player)` is a vector of
+> the members; IsbariyaTheResoluteAI's varargs cancelTasks takes an initializer list and its soul list is a runtime::ArrayList of Point3D. Tests:
+> BeshmundirTest (11 cases: the handler and its exp multiplier, the boatmen, the Lich's servants and the Macunbellos' strength, the guardians, the
+> specters, the first race's guide and its movie, the super boss's gate, Lupukin, the movie 443) and BeshmundirAiTest (15; Isbariya's souls on a
+> seeded draw over twelve rounds). Mutation proof 47 of 47 after two strengthened cases (the generator's 40 m is strict, so the test stands at 40.5
+> m; the souls' 3-6 draw). Left to a gate: the doors (no static doors), the Macunbellos' effects, the boatmen's teleports, the walk's group paths
+> and ports (no portal rows), Dorakiki's effect, Virhana's rages and the artifacts' casts. No Java bug found. Census I4: 415 -> 330 open bodies.
