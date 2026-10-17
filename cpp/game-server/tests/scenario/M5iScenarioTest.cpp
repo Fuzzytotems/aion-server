@@ -994,6 +994,9 @@ constexpr int32_t FORTRESS = 1131;
 constexpr int32_t ARTIFACT = 1135;
 /** SiegeRace ids (SiegeRace.java) */
 constexpr uint8_t RACE_ELYOS = 0, RACE_ASMODIANS = 1, RACE_BALAUR = 2;
+/** Panesterra: Belus and its fortress (PanesterraService.getSiegeId, PanesterraService.java:265-274) */
+constexpr int32_t BELUS = 400020000;
+constexpr int32_t BELUS_FORTRESS = 10111;
 
 /** the oracle's siege locations (m5i-sieges) */
 struct SiegeAnswer {
@@ -1117,7 +1120,8 @@ void runM5iGate(bool geo) {
 	SiegeAnswer sieges;
 	std::map<std::string, int32_t> messages;
 	const std::vector<std::string> messageNames{"STR_GUILD_EVENT_WIN_ARTIFACT", "STR_GUILD_EVENT_LOSE_ARTIFACT", "STR_MSG_WORLDRAID_MESSAGE_01",
-		"STR_ABYSS_CARRIER_SPAWN", "STR_ABYSS_WARP_DRAGON", "STR_CANNOT_USE_ARTIFACT_OUT_OF_ORDER"};
+		"STR_ABYSS_CARRIER_SPAWN", "STR_ABYSS_WARP_DRAGON", "STR_CANNOT_USE_ARTIFACT_OUT_OF_ORDER", "STR_MSG_COMBAT_MY_DEATH", "STR_ABYSS_WIN_CASTLE",
+		"STR_ABYSS_CASTLE_TAKEN"};
 	json spots;
 	ok = cases.run("C0", "the oracle answers: m5i-sieges (the 70 locations of SiegeLocationData), the artifact message ids", [&] {
 		sieges = parseSieges(oracle->run({"m5i-sieges"}));
@@ -1689,7 +1693,126 @@ void runM5iGate(bool geo) {
 		                                                                     << join(servers.gameServer()->findLogLines(" ERROR "), "\n");
 	});
 
-	runCase("C14", "persistence: both servers' game server restarts; the login state shows 1131 ELYOS occupy 3 and 1135 ASMODIANS (X18)", [&] {
+	const auto spawnOfBurst = [](const std::vector<Packet>& packets) {
+		const Packet* spawn = firstOfName(packets, "SM_PLAYER_SPAWN");
+		if (spawn == nullptr)
+			throw std::runtime_error("no SM_PLAYER_SPAWN");
+		return decoders::decodePlayerSpawn(spawn->data);
+	};
+	const auto diesOf = [](const std::vector<Packet>& packets, int32_t objectId) {
+		size_t n = 0;
+		for (const Packet& packet : ofName(packets, "SM_EMOTION")) {
+			const decoders::Emotion emotion = decoders::decodeEmotion(packet.data);
+			if (emotion.emotionType == decoders::EMOTION_DIE && emotion.senderObjectId == objectId)
+				n++;
+		}
+		return n;
+	};
+
+	// C5 and C6 (m5i-plan.md X7, X9) after the world-event cases: a level-40 character cannot walk from outside 1131's zone to its sphere past
+	// the SIEGE guards (P5-12b.md, I-11), so G (Elyos) is the enemy: 1131 goes to the Asmodians, G enters at S1 after the siege start, walks to
+	// the sphere invulnerable (the GM's login applies //invul, M5j K-07), turns it off with //invul (CreatureLifeStats.reduceHp returns early
+	// for an invulnerable creature, so the kill needs a mortal G) and steps through
+	runCase("C5", "the shield (X7): 1131 Asmodian and besieged, G enters at S1, walks to the shield under //invul, turns it off and steps through: killed, no SM_DIE, revived at his bind point", [&] {
+		size_t wFrom = w.mark();
+		gm("//siege capture " + std::to_string(FORTRESS) + " asmodians");
+		ASSERT_TRUE(until(10s, [&] { return lastRaceOf(w, wFrom, FORTRESS) == RACE_ASMODIANS; }));
+		wFrom = w.mark();
+		EXPECT_EQ(said(gm("//siege start " + std::to_string(FORTRESS)), "Started siege at "), 1);
+		ASSERT_TRUE(until(15s, [&] {
+			const std::vector<bool> s = shields(w.since(wFrom), FORTRESS);
+			return !s.empty() && s.back();
+		})) << "ShieldNpcAI: the shield of 1131 up";
+		std::this_thread::sleep_for(2s);
+		const std::array<float, 3> s1 = spot("S1");
+		const decoders::PlayerSpawn entered = spawnOfBurst(relocate(g, cg, RESHANTA, s1)); // lastOnline after the start: no relocation
+		ASSERT_EQ(entered.worldId, RESHANTA);
+		ASSERT_NEAR(entered.x, s1[0], 1.0f) << "G enters at S1 (validateFortressZone: logged out after the start)";
+		// M1 outside the shield, M2 through it. Without geo shields the sphere of siege_shields.xml (ShieldObserver), on its upper half; with them
+		// ShieldService.attachShield drops the sphere and the geo mesh kills (SiegeShield, CollisionDieActor): the oracle's m5i-geoshield crossing
+		std::array<float, 3> m1{}, m2{};
+		if (geo) {
+			const json crossing = json::parse(oracle->run({"m5i-geoshield"}));
+			ASSERT_FALSE(crossing.is_null()) << "m5i-geoshield: no geo shield crossing for 1131";
+			ASSERT_TRUE(crossing.at("M1inZone").get<bool>()) << "M1 inside the shield's zone sphere";
+			for (size_t i = 0; i < 3; i++) {
+				m1[i] = crossing.at("M1").at(i).get<float>();
+				m2[i] = crossing.at("M2").at(i).get<float>();
+			}
+			std::cout << "C5: the geo shield " << crossing.at("geometry").get<std::string>() << ", crossing at " << crossing.at("hit").dump() << std::endl;
+		} else {
+			const json& shield = spots.at("shield");
+			const float cx = shield.at("center").at(0).get<float>(), cy = shield.at("center").at(1).get<float>(), cz = shield.at("center").at(2).get<float>();
+			const float radius = shield.at("radius").get<float>();
+			const float dx = s1[0] - cx, dy = s1[1] - cy, d = std::hypot(dx, dy);
+			const float top = cz + 2.0f; // the upper half of the sphere (ShieldObserver.moved)
+			m1 = {cx + dx / d * (radius + 3.0f), cy + dy / d * (radius + 3.0f), top};
+			m2 = {cx + dx / d * (radius - 5.0f), cy + dy / d * (radius - 5.0f), top};
+		}
+		// G is invulnerable (and invisible) since his login: the GM's login commands (//invis, //invul, //enemy none, //see in the server log).
+		// He flies (CM_EMOTION FLY, EmotionType.java:21): M1 and M2 are on the sphere's upper half, above the ground a geo run keeps walkers on
+		g.game->send(GameSession::CM_EMOTION, GameSession::buildCM_EMOTION(13));
+		settle();
+		walkTo(g, m1[0], m1[1], m1[2]); // M1: outside the shield
+		const size_t m1From = g.mark();
+		EXPECT_EQ(said(gm("//invul"), "You are now mortal."), 1);
+		EXPECT_EQ(diesOf(g.since(m1From), cg.playerId), 0u) << "M1: no death outside the shield";
+		const size_t gFrom = g.mark();
+		walkTo(g, m2[0], m2[1], m2[2]); // M2: through the shield
+		const bool killed = until(5s, [&] { return diesOf(g.since(gFrom), cg.playerId) > 0; });
+		EXPECT_TRUE(killed) << "X7: CollisionDieActor.kill, SM_EMOTION(DIE) for G; G got: " << join(namesOf(g.since(m1From)));
+		if (!killed) {
+			relocate(g, cg, RESHANTA, s1); // C6 and C18 still run
+			return;
+		}
+		const auto died = std::chrono::steady_clock::now();
+		EXPECT_EQ(countMessage(g.since(gFrom), messages.at("STR_MSG_COMBAT_MY_DEATH")), 1u);
+		until(6s, [&] { return !ofName(g.since(gFrom), "SM_PLAYER_SPAWN").empty() || !ofName(g.since(gFrom), "SM_TELEPORT_LOC").empty(); });
+		EXPECT_TRUE(ofName(g.since(gFrom), "SM_DIE").empty()) << "scheduleReviveAtBase's TELEPORT task suppresses SM_DIE";
+		EXPECT_TRUE(!ofName(g.since(gFrom), "SM_PLAYER_SPAWN").empty() || !ofName(g.since(gFrom), "SM_TELEPORT_LOC").empty())
+			<< "the bind revive about 2.5 s after the death: " << join(namesOf(g.since(gFrom)));
+		std::cout << "C5: revive packets " << std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - died).count()
+		          << " ms after the death" << std::endl;
+		settle();
+		relocate(g, cg, RESHANTA, s1); // a clean login after the map change; still after the start, G stays at S1
+	});
+
+	runCase("C6", "a capture during a siege (X9): //siege capture 1131 elyos while the Asmodians' 1131 is besieged - the winner's and loser's messages, two location infos each, the row", [&] {
+		const size_t wFrom = w.mark(), gFrom = g.mark();
+		gm("//siege capture " + std::to_string(FORTRESS) + " elyos");
+		until(15s, [&] { return lastRaceOf(w, wFrom, FORTRESS) == RACE_ELYOS && countMessage(w.since(wFrom), messages.at("STR_ABYSS_CASTLE_TAKEN")) > 0; });
+		settle();
+		EXPECT_EQ(countMessage(w.since(wFrom), messages.at("STR_ABYSS_CASTLE_TAKEN")), 1u) << "FortressSiege.onSiegeFinish: the old owners' message";
+		EXPECT_EQ(countMessage(g.since(gFrom), messages.at("STR_ABYSS_WIN_CASTLE")), 1u) << "the winners' message";
+		EXPECT_EQ(infoAfter(w, wFrom, FORTRESS), 2u) << "onSiegeFinish's broadcastUpdate and captureSiege's";
+		EXPECT_EQ(infoAfter(g, gFrom, FORTRESS), 2u);
+		EXPECT_EQ(lastRaceOf(g, gFrom, FORTRESS), RACE_ELYOS);
+		const std::vector<bool> shieldW = shields(w.since(wFrom), FORTRESS);
+		EXPECT_FALSE(shieldW.empty()) << "the shield npc despawned: SM_SHIELD_EFFECT(1131, 0)";
+		if (!shieldW.empty())
+			EXPECT_FALSE(shieldW.back());
+		EXPECT_TRUE(until(10s, [&] { return text("SELECT race FROM siege_locations WHERE id = " + std::to_string(FORTRESS)) == "ELYOS"; }));
+		EXPECT_EQ(number("SELECT occupy_count FROM siege_locations WHERE id = " + std::to_string(FORTRESS)), 1) << "onCapture";
+		std::cout << "C6: faction_balance of 1131 after the capture: "
+		          << number("SELECT faction_balance FROM siege_locations WHERE id = " + std::to_string(FORTRESS)) << std::endl;
+		EXPECT_EQ(said(gm("//siege stop " + std::to_string(FORTRESS)), "This location is not under siege."), 1);
+	});
+
+	runCase("C18", "Panesterra at login: W seeded in Belus enters at his bind point while 10111 is Balaur; after //siege capture 10111 asmodians he enters in Belus", [&] {
+		const std::array<float, 3> west{1023.702f, 10.531f, 1428.60f}; // PanesterraService.teleport's Asmodian west arrival (PanesterraService.java:333)
+		const decoders::PlayerSpawn peace = spawnOfBurst(relocate(w, cw, BELUS, west));
+		EXPECT_NE(peace.worldId, BELUS) << "onEnterPanesterra: no fortress of his race, PanesterraFaction PEACE, moveToBindLocation";
+		const size_t wFrom = w.mark();
+		gm("//siege capture " + std::to_string(BELUS_FORTRESS) + " asmodians");
+		EXPECT_TRUE(until(10s, [&] { return lastRaceOf(w, wFrom, BELUS_FORTRESS) == RACE_ASMODIANS; })) << "captureSiege's no-siege branch for 10111";
+		EXPECT_TRUE(until(10s, [&] { return text("SELECT race FROM siege_locations WHERE id = " + std::to_string(BELUS_FORTRESS)) == "ASMODIANS"; }));
+		const decoders::PlayerSpawn owner = spawnOfBurst(relocate(w, cw, BELUS, west));
+		EXPECT_EQ(owner.worldId, BELUS) << "his race owns 10111: the faction of 10111, no relocation";
+		EXPECT_NEAR(owner.x, west[0], 1.0f);
+		EXPECT_NEAR(owner.y, west[1], 1.0f);
+	});
+
+	runCase("C14", "persistence: both servers' game server restarts; the login state shows the rows C6, C8 and C18 left (X18)", [&] {
 		for (ScenarioClient* client : all)
 			disconnect(*client);
 		gameServerExit = servers.stopGameServer();
@@ -1699,7 +1822,16 @@ void runM5iGate(bool geo) {
 		gameServerExit.reset();
 		servers.startGameServer();
 		gameServerRestarted = true;
-		const std::map<int32_t, std::pair<uint8_t, int32_t>> changed{{FORTRESS, {RACE_ELYOS, 3}}, {ARTIFACT, {RACE_ASMODIANS, 0}}}; // C7, C13, C17
+		// the rows as the first run left them (C5/C6 and C18 change 1131 and 10111; C6 and C18 assert the values themselves)
+		const auto raceIdOf = [](const std::string& race) { return race == "ELYOS" ? RACE_ELYOS : race == "ASMODIANS" ? RACE_ASMODIANS : RACE_BALAUR; };
+		std::map<int32_t, std::pair<uint8_t, int32_t>> changed{{ARTIFACT, {RACE_ASMODIANS, 0}}}; // C8
+		for (const int32_t id : {FORTRESS, BELUS_FORTRESS}) {
+			const std::string race = text("SELECT race FROM siege_locations WHERE id = " + std::to_string(id));
+			if (!race.empty() && race != "BALAUR")
+				changed[id] = {raceIdOf(race), static_cast<int32_t>(number("SELECT occupy_count FROM siege_locations WHERE id = " + std::to_string(id)))};
+		}
+		std::cout << "C14: 1131 " << text("SELECT race FROM siege_locations WHERE id = 1131") << " occupy "
+		          << number("SELECT occupy_count FROM siege_locations WHERE id = 1131") << std::endl;
 		wLogin = enterAs(servers, w, cw);
 		checkLoginState(w, wLogin, RACE_ASMODIANS, changed, "W after the restart");
 		gLogin = enterAs(servers, g, cg);
