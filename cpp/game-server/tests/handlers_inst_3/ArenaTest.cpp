@@ -25,10 +25,14 @@
 #include "aion/gameserver/handlers/instance/pvparenas/ArenaOfChaosInstance.h"
 #include "aion/gameserver/handlers/instance/pvparenas/ArenaOfDisciplineInstance.h"
 #include "aion/gameserver/handlers/instance/pvparenas/ArenaOfGloryInstance.h"
+#include "aion/gameserver/handlers/instance/pvparenas/ArenaOfHarmonyInstance.h"
+#include "aion/gameserver/handlers/instance/pvparenas/HarmonyTrainingGroundsInstance.h"
 #include "aion/gameserver/handlers/instance/pvparenas/ChaosTrainingGroundsInstance.h"
 #include "aion/gameserver/handlers/instance/pvparenas/DisciplineTrainingGroundsInstance.h"
 #include "aion/gameserver/model/gameobjects/player/motion/MotionList.h"
 #include "aion/gameserver/model/instance/InstanceProgressionType.h"
+#include "aion/gameserver/model/flyring/FlyRing.h"
+#include "aion/gameserver/model/instance/instancescore/HarmonyArenaScore.h"
 #include "aion/gameserver/model/instance/instancescore/PvPArenaScore.h"
 #include "aion/gameserver/model/instance/playerreward/PvPArenaPlayerReward.h"
 #include "aion/gameserver/model/templates/rewards/ArenaRewardItem.h"
@@ -218,6 +222,32 @@ TEST_F(ArenaTest, GlorysRewardsWhenAloneAreTheLastRanks) {
 	EXPECT_EQ(reward->getAp()->rankingCount(), static_cast<int32_t>(770 * 0.05f)) << "1100 * 0.7, the last rank's 5 %";
 	ASSERT_NE(reward->getRewardItem1(), nullptr);
 	EXPECT_EQ(reward->getRewardItem1()->getId(), 162000077) << "the default rank, difficulty 0: Fine Life Serum";
+}
+
+/** HarmonyTrainingGroundsInstance.java (@InstanceID 300570000) and ArenaOfHarmonyInstance.java (300450000): the group arenas' score is a
+ * HarmonyArenaScore; their 36 fly rings (:21-95); without two groups inside the run ends at the start (:155-158) */
+TEST_F(ArenaTest, TheHarmonyArenas) {
+	for (const auto& [javaClass, mapId] : std::map<std::string, int32_t>{{"HarmonyTrainingGroundsInstance", HARMONY_TRAINING_GROUNDS},
+		     {"ArenaOfHarmonyInstance", ARENA_OF_HARMONY}}) {
+		std::string source = javaSource(javaClass);
+		std::smatch match;
+		ASSERT_TRUE(std::regex_search(source, match, std::regex(R"(@InstanceID\((\d+)\))"))) << javaClass;
+		EXPECT_EQ(std::stoi(match[1].str()), mapId) << javaClass;
+	}
+	world::WorldMapInstance& training = create(HARMONY_TRAINING_GROUNDS, pvparenas::HarmonyTrainingGroundsInstance_instanceFactory);
+	EXPECT_NE(dynamic_cast<pvparenas::HarmonyTrainingGroundsInstance*>(training.getInstanceHandler().get()), nullptr);
+	EXPECT_NE(dynamic_cast<model::instance::instancescore::HarmonyArenaScore*>(training.getInstanceHandler()->getInstanceScore().get()), nullptr);
+	size_t rings = 0;
+	for (runtime::Ptr<model::gameobjects::VisibleObject> object : training)
+		if (runtime::as<model::flyring::FlyRing>(object) != nullptr)
+			++rings;
+	EXPECT_EQ(rings, 36u);
+	world::WorldMapInstance& arena = create(ARENA_OF_HARMONY, pvparenas::ArenaOfHarmonyInstance_instanceFactory);
+	EXPECT_NE(dynamic_cast<pvparenas::ArenaOfHarmonyInstance*>(arena.getInstanceHandler().get()), nullptr);
+	join(arena, 430011);
+	join(arena, 430012);
+	executor().advance(std::chrono::milliseconds(120000));
+	EXPECT_EQ(phase(arena), InstanceProgressionType::END_PROGRESS) << "two players, but no group";
 }
 
 } // namespace
