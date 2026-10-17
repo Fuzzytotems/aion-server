@@ -347,9 +347,10 @@ class Corpus(unittest.TestCase):
         # constant-list (the owner's decisions on Q14, 2026-10-07) their 18 and 2, with the G1 rules only; row B47 (chunk Q05's rest,
         # 2026-10-08) its two, in both sets; row B48 with rule constant-list's `Arrays.asList` (the butler quests, 2026-10-08) two, with
         # the G1 rules only
-        self.assertEqual(sum(1 for r in self.p6t.values() if r.status == 'ok'), 955)
+        # rows B49 and B50 (lane C, 2026-10-14) daevanion/_1990 and sanctum/_1929, in both sets (API rows, not rules)
+        self.assertEqual(sum(1 for r in self.p6t.values() if r.status == 'ok'), 957)
         # rule constant-list's static-set shape (the six butler quests, lane C, 2026-10-12) its six, with the G1 rules only
-        self.assertEqual(sum(1 for r in self.all.values() if r.status == 'ok'), 1012)
+        self.assertEqual(sum(1 for r in self.all.values() if r.status == 'ok'), 1014)
         for rid, rels in ROW_FILES.items():
             for rel in rels:
                 self.assertIn(rid, self.all[rel].api_rows)

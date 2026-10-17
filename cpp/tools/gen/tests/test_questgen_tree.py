@@ -121,6 +121,7 @@ Q02 = {
 # transliterates, in the tree but for the escort _3212 (71 of 74; 1990 and 1929 are refused for API gaps; docs/deviations/Q11.md)
 Q11 = {
     'daevanion': (
+        '_1990ASagesGift',
         '_19631CoastalCrush', '_19632CascadeCritters', '_19633AlisaryAssistance', '_19634FurtherAidforAlisary', '_19635SouthernQuell',
         '_19636FinalStabilization', '_19637OnboardforOne', '_19638TroublewithTwos', '_19639TreesandThrees', '_19640FlyingthroughFour',
         '_19641FidgetyFives', '_19642SuccessforSix', '_1988AMeetingWithASage', '_1989ASagesTeachings', '_1993AnotherBeginning',
@@ -130,6 +131,7 @@ Q11 = {
         '_2990MakingTheDaevanionWeapon', '_2993AnotherBeginning', '_2994ANewChoice', '_80291DurableDaevanionWeapon',
         '_80295DurableDaevanionWeapon',),
     'sanctum': (
+        '_1929ASliverofDarkness',
         '_19004PeriklessInsight', '_1900RingImbuedAether', '_1901KrallicPotion', '_19047JustBetweenMeAndFasimedes',
         '_19048AndreasTeachings', '_1908UlaguruSpeaks', '_1909ASongOfPraise', '_1917ALingeringMystery', '_1918AnAxForNamus',
         '_1926SecretLibraryAccess', '_1928ChasingaCriminal', '_1932AMatterOfReputation', '_1935TissueIDontEvenKnowYou',
@@ -454,7 +456,9 @@ class CommittedTree(unittest.TestCase):
         self.assertNotIn(('reshanta', '_2759TenaciousGuardian'), found)
         # _1367 and _24026 are hand ports since the owner's decision of 2026-10-13 (docs/deviations/Q05.md and Q09.md, "Correction: 1367 and
         # 24026"): in the tree, without questgen's banner, and still refused by questgen
-        for directory, klass in (('eltnen', '_1367MabangtahsFeast'), ('morheim', '_24026AHandfromEachSide')):
+        # and _1354 (lane C, 2026-10-14: a hand port without a correction, questgen refuses its String[] field and getLifeStats)
+        for directory, klass in (('eltnen', '_1367MabangtahsFeast'), ('morheim', '_24026AHandfromEachSide'),
+                                 ('eltnen', '_1354PraticalAerobatics')):
             with self.subTest(file=f'{directory}/{klass}'):
                 hand_port = (HANDLER_QUEST_DIR / directory / f'{klass}.cpp').read_text(encoding='utf-8')
                 self.assertNotIn(emit.banner(f'game-server/data/handlers/quest/{directory}/{klass}.java')[0], hand_port)
@@ -478,7 +482,7 @@ class CommittedTree(unittest.TestCase):
             for klass in classes:
                 with self.subTest(file=f'{directory}/{klass}'):
                     self.assertIn((directory, klass), found)
-        self.assertEqual(sum(len(classes) for classes in Q11.values()), 71)
+        self.assertEqual(sum(len(classes) for classes in Q11.values()), 73)
         for directory, classes in Q05.items():
             for klass in classes:
                 with self.subTest(file=f'{directory}/{klass}'):

@@ -955,8 +955,8 @@ class Q05RestSliceTest(unittest.TestCase):
 class Q11SliceTest(unittest.TestCase):
 	"""daevanion and sanctum (SLICE_Q11, phase 6 step 2, lane C, 2026-10-08; docs/deviations/Q11.md): every file but the two questgen refuses"""
 
-	# refused by questgen (API gaps), and the escort 3212 held back for FollowingNpcAI (m5d-plan.md §21.1)
-	REFUSED = {"daevanion/_1990ASagesGift.java", "sanctum/_1929ASliverofDarkness.java", "sanctum/_3212TheMissingCubeCraftsman.java"}
+	# the escort 3212, held back for FollowingNpcAI (m5d-plan.md §21.1); 1990 and 1929 are in since questgen's rows B49 and B50 (2026-10-14)
+	REFUSED = {"sanctum/_3212TheMissingCubeCraftsman.java"}
 
 	def test_the_q11_slice(self):
 		java = sorted(f"{d}/{f.name}" for d in ("daevanion", "sanctum") for f in (extract.QUEST_DIR / d).glob("*.java"))
@@ -971,7 +971,7 @@ class Q11SliceTest(unittest.TestCase):
 			docs[d["questId"]] = d
 		# no case in 22 (the golden harness's ORACLE_REFUSES_EVERY_HOOK); their registration is traced
 		self.assertEqual(sorted(q for q, d in docs.items() if not d["cases"]),
-		                 [1900, 1901, 1917, 1926, 1932, 1938, 1947, 1963, 1964, 1989, 1993, 1994, 2989, 2993, 2994, 3908, 3961, 3962, 3963, 3964,
+		                 [1900, 1901, 1917, 1926, 1932, 1938, 1947, 1963, 1964, 1989, 1990, 1993, 1994, 2989, 2993, 2994, 3908, 3961, 3962, 3963, 3964,
 		                  80291, 80295])
 		self.assertTrue(all(isinstance(d["register"], list) for d in docs.values()))
 		self.assertEqual(extract.check(rels=extract.SLICE_Q11, extra=False), [])
