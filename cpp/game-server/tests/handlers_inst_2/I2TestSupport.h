@@ -8,6 +8,7 @@ namespace aion::gameserver::handlers::instance {
 
 // the marker factories of the handlers under test (AION_INSTANCE_HANDLER defines them in the handler library)
 ::aion::gameserver::handlers::InstanceFactory StonespearReachInstance_instanceFactory;
+::aion::gameserver::handlers::InstanceFactory DarkPoetaInstance_instanceFactory;
 
 } // namespace aion::gameserver::handlers::instance
 
@@ -21,14 +22,16 @@ namespace aion::gameserver::handlers::instance::test {
 inline constexpr int32_t STONESPEAR_REACH = 301500000;
 inline constexpr int32_t CRUCIBLE_CHALLENGE = 300320000;
 inline constexpr int32_t EMPYREAN_CRUCIBLE = 300300000;
+inline constexpr int32_t DARK_POETA = 300040000;
 using crucible::CrucibleChallengeInstance_instanceFactory;
 using crucible::EmpyreanCrucibleInstance_instanceFactory;
 
-/** world_maps.xml's rows of the I2 maps under test (world_maps.xml:111, 60, 59) */
+/** world_maps.xml's rows of the I2 maps under test (world_maps.xml:111, 60, 59, 32) */
 inline constexpr const char* I2_MAPS_XML = R"x(<world_maps>
 	<map id="301500000" cName="IDLegion" name="Stonespear Reach" name_id="404646" instance="true" water_level="90" death_level="0" world_size="512" drop_type="NONE" flags="BIND RECALL GLIDE PVP DUEL_SAME_RACE NO_RETURN_BATTLE"/>
 	<map id="300320000" cName="IDArena_Solo" name="Crucible Challenge" name_id="401841" instance="true" water_level="16" death_level="0" world_size="2048" drop_type="NONE" flags="PVP DUEL_SAME_RACE NO_RETURN_BATTLE" pve_attack_ratio="150" pve_defend_ratio="50"/>
 	<map id="300300000" cName="IDArena" name="Empyrean Crucible" name_id="401828" instance="true" water_level="16" death_level="0" world_size="2048" drop_type="NONE" flags="PVP DUEL_SAME_RACE NO_RETURN_BATTLE" pve_attack_ratio="150" pve_defend_ratio="50"/>
+	<map id="300040000" cName="IDLF1" name="Dark Poeta" name_id="401172" instance="true" water_level="100" death_level="0" world_type="ABYSS" world_size="1536" drop_type="ABYSS_INSTANCE" flags="GLIDE PVP DUEL_SAME_RACE NO_RETURN_BATTLE" pve_attack_ratio="150" pve_defend_ratio="50"/>
 </world_maps>)x";
 
 inline const char* instanceMapsXml() {
@@ -72,6 +75,15 @@ inline const std::vector<int32_t>& empyreanCrucibleNpcs() {
 	return ids;
 }
 
+/** Dark Poeta's npc ids (its handler's and the darkPoeta AIs'), less the ones listed above */
+inline const std::vector<int32_t>& darkPoetaNpcs() {
+	static const std::vector<int32_t> ids{214841, 214842, 214843, 214849, 214850, 214851, 214864, 214871, 214880, 214883, 214885, 214894,
+		214895, 214896, 214897, 214904, 215262, 215263, 215280, 215281, 215282, 215283, 215284, 215386, 215387, 215388, 215389, 215428, 215429,
+		215430, 215431, 215432, 281116, 281148, 281149, 281150, 281151, 281178, 281258, 281259, 281267, 281268, 281334, 700439, 700440, 700441,
+		700442, 700443, 700444, 700445, 700446, 700447, 700478, 700516, 700517, 700518, 700520, 700556, 700558, 730211};
+	return ids;
+}
+
 /** The npc ids the I2 handlers spawn or kill */
 inline const std::vector<int32_t>& handlerNpcIds() {
 	static const std::vector<int32_t> ids = [] {
@@ -82,6 +94,7 @@ inline const std::vector<int32_t>& handlerNpcIds() {
 		all.insert(all.end(), crucibleChallengeNpcs().begin(), crucibleChallengeNpcs().end());
 		all.insert(all.end(), empyreanCrucibleNpcs().begin(), empyreanCrucibleNpcs().end());
 		all.insert(all.end(), {205337, 205343, 205344, 282363, 282364, 282366, 282367, 282368, 282373, 282378}); // the empyreanCrucible AIs' own
+		all.insert(all.end(), darkPoetaNpcs().begin(), darkPoetaNpcs().end());
 		return all;
 	}();
 	return ids;
