@@ -23,6 +23,8 @@ namespace pvparenas {
 ::aion::gameserver::handlers::InstanceFactory ChaosTrainingGroundsInstance_instanceFactory;
 ::aion::gameserver::handlers::InstanceFactory ArenaOfChaosInstance_instanceFactory;
 ::aion::gameserver::handlers::InstanceFactory ArenaOfGloryInstance_instanceFactory;
+::aion::gameserver::handlers::InstanceFactory HarmonyTrainingGroundsInstance_instanceFactory;
+::aion::gameserver::handlers::InstanceFactory ArenaOfHarmonyInstance_instanceFactory;
 } // namespace pvparenas
 
 } // namespace aion::gameserver::handlers::instance
@@ -42,6 +44,8 @@ inline constexpr int32_t ARENA_OF_DISCIPLINE = 300360000;
 inline constexpr int32_t CHAOS_TRAINING_GROUNDS = 300420000;
 inline constexpr int32_t DISCIPLINE_TRAINING_GROUNDS = 300430000;
 inline constexpr int32_t ARENA_OF_GLORY = 300550000;
+inline constexpr int32_t ARENA_OF_HARMONY = 300450000;
+inline constexpr int32_t HARMONY_TRAINING_GROUNDS = 300570000;
 
 /** world_maps.xml's rows of the I3 maps under test */
 inline constexpr const char* I3_MAPS_XML = R"x(<world_maps>
@@ -58,6 +62,8 @@ inline constexpr const char* I3_MAPS_XML = R"x(<world_maps>
 	<map id="300420000" cName="IDArena_pvp01_T" name="Chaos Training Grounds" name_id="403259" instance="true" water_level="16" death_level="0" world_size="2048" drop_type="NONE" except_buff="true" flags="GLIDE PVP DUEL_SAME_RACE NO_RETURN_BATTLE" pve_attack_ratio="150" pve_defend_ratio="50"/>
 	<map id="300430000" cName="IDArena_pvp02_T" name="Discipline Training Grounds" name_id="403260" instance="true" water_level="0" death_level="0" world_size="2048" drop_type="NONE" except_buff="true" flags="GLIDE PVP DUEL_SAME_RACE NO_RETURN_BATTLE" pve_attack_ratio="150" pve_defend_ratio="50"/>
 	<map id="300550000" cName="IDArena_Glory" name="Arena of Glory" name_id="403554" instance="true" water_level="16" death_level="0" world_size="2048" drop_type="NONE" except_buff="true" flags="GLIDE PVP DUEL_SAME_RACE NO_RETURN_BATTLE" pve_attack_ratio="150" pve_defend_ratio="50"/>
+	<map id="300450000" cName="IDArena_Team01" name="Arena of Harmony" name_id="403505" instance="true" water_level="16" death_level="0" world_size="2048" drop_type="NONE" except_buff="true" flags="GLIDE PVP DUEL_SAME_RACE NO_RETURN_BATTLE" pve_attack_ratio="150" pve_defend_ratio="50"/>
+	<map id="300570000" cName="IDArena_Team01_T" name="Harmony Training Grounds" name_id="403574" instance="true" water_level="16" death_level="0" world_size="2048" drop_type="NONE" except_buff="true" flags="GLIDE PVP DUEL_SAME_RACE NO_RETURN_BATTLE" pve_attack_ratio="150" pve_defend_ratio="50"/>
 </world_maps>)x";
 
 inline const char* instanceMapsXml() {
