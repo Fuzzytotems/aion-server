@@ -55,3 +55,7 @@ None of the scenario gates enters these maps. A handler only runs when a player 
 > - **cp3**: the 14 empyreanCrucible AIs. EmpyreanCrucibleAiTest.cpp has 21 cases; a probe records the skills each npc starts. Mutants: 31
 >   of 31 killed; two needed sharper cases (the draky as a BEAST, so NpcAI's own REWARD_AP answer is false; the bloodthirst not before 3
 >   minutes).
+> - **Gates** for cp3, run at the cp3 tip: gs.smoke.startup and gs.scenario.m5f pass.
+> - **cp4**: Dark Poeta (DarkPoetaInstance and its 9 AIs). DarkPoetaTest.cpp has 18 cases and DarkPoetaAiTest.cpp 14. Mutants: 40 of 40
+>   killed; six needed sharper cases (two kill sets exactly on a rank boundary, a servant's kill). The gates are not run yet: MariaDB is
+>   stopped at the owner's request.
